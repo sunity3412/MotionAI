@@ -75,3 +75,42 @@ def list_reference_motions() -> list[dict]:
         data.setdefault("motionId", snap.id)
         out.append(data)
     return out
+
+
+def get_analysis(uid: str, analysis_id: str) -> dict | None:
+    """앱이 만든 분석 문서 읽기 (mode, referenceMotionId, fileName 등)."""
+    snap = _doc(models.analysis_doc_path(uid, analysis_id)).get()
+    if not snap.exists:
+        return None
+    data = snap.to_dict() or {}
+    data.setdefault("analysisId", analysis_id)
+    return data
+
+
+def get_reference_motion(motion_id: str) -> dict | None:
+    """기준 모션 1건. keyframe 각도 데이터(angles) + 메타 포함(ml_CLAUDE.md 등록)."""
+    snap = _doc(models.reference_motion_path(motion_id)).get()
+    if not snap.exists:
+        return None
+    data = snap.to_dict() or {}
+    data.setdefault("motionId", motion_id)
+    return data
+
+
+def get_previous_analysis(uid: str, current_id: str) -> dict | None:
+    """Mode3 비교용: 가장 최근 완료(done) 분석 1건 (현재 건 제외)."""
+    from firebase_admin import firestore
+
+    col = _db().collection(f"users/{uid}/analyses")
+    q = (
+        col.where("status", "==", models.STATUS_DONE)
+        .order_by("createdAt", direction=firestore.Query.DESCENDING)
+        .limit(5)
+    )
+    for snap in q.stream():
+        if snap.id == current_id:
+            continue
+        data = snap.to_dict() or {}
+        data.setdefault("analysisId", snap.id)
+        return data
+    return None

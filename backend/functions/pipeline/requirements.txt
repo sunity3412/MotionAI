@@ -1,3 +1,5 @@
 # Firestore Admin 갱신용. boto3 는 런타임 포함.
-# #7 에서 ML 의존성(ultralytics/yolo, vitpose, fastdtw, cerebras 등) 추가 예정.
 firebase-admin>=6,<7
+numpy>=1.26,<3   # 분석 알고리즘 코어 (features/motiondtw/kismam)
+# 후속(#7-follow): 무거운 모델 의존성(ultralytics/yolo, vitpose 등)은
+# Lambda 컨테이너 패키징 전환 시 추가. 현재 zip 패키징 유지.

@@ -58,6 +58,14 @@
      (queued까지 정직 전이 + NotImplementedError, ML은 #7)
    - tests/ 19개 유닛 통과(AWS 불필요), 전 파일 문법 OK
    - backend_CLAUDE.md를 contract.md/SAM 기준으로 정합화(미결 해소)
+🟡 #7 분석 알고리즘 코어 (모델 무관·검증 완료, 모델 어댑터는 #7-follow)
+   - analysis/: skeleton(17kp·관절각·상체코어하체) features(F=[Θ,αΘ̇,βΘ̈])
+     motiondtw(2단계 밴디드 DTW) kismam(Z-score 가우시안 0~100·Top-3)
+     selfmotion(Mode3 좌우대칭) assemble(contract AnalysisResult 조립)
+     interfaces(FrameExtractor/PoseEstimator/CoachWriter 프로토콜+stub)
+   - functions/pipeline: 진짜 오케스트레이션(상태머신·mode1/3 분기·
+     no_human/server_error 매핑). 모델 미구현은 NotImplemented로 가시화
+   - tests/ 총 47개 통과(AWS·모델 불필요)
 ```
 
 ---
@@ -65,9 +73,15 @@
 ## 진행 중
 
 ```
-(없음 — #6 코드/IaC 완료. 실제 배포는 AWS 계정·CLI 준비 후: backend/README.md)
-※ 배포 전 1회: aws configure(ap-northeast-2) + Firebase 서비스계정 키를
-   Parameter Store(/sunity/motion/firebase-sa, SecureString) 등록 → sam deploy
+#7-follow (AWS 컨테이너·모델 가중치·Cerebras 키 준비 후 — 여기서 검증 불가):
+  - PoseEstimator: YOLO11(인체)→ViTPose-S(17점). 미감지 시 NoHumanError
+  - FrameExtractor: ffmpeg 프레임 추출
+  - CoachWriter: Cerebras LLM (현재 폴백 = 실제 편차값 기반 문장, 위조 아님)
+  - template.yaml: zip→Lambda 컨테이너(ECR) 패키징 전환 + 모델 캐싱
+  → 교체 지점은 functions/pipeline/app.py 상단 3개 상수만 (코어 불변)
+
+배포 전 1회(공통): aws configure(ap-northeast-2) + Firebase 서비스계정 키를
+  Parameter Store(/sunity/motion/firebase-sa, SecureString) 등록 → sam deploy
 ```
 
 ---
@@ -81,7 +95,8 @@
 4. [x] 영상 소스 선택 화면 (UI+검증, 실제 업로드는 #6~7)
 5. [x] AI 분석 로딩 화면 (단계별, 계약 기반 — 백엔드서 실데이터 연결)
 6. [x] 백엔드 Lambda 기본 구조 세팅 (SAM 스캐폴딩 — 배포는 계정 준비 후)
-7. [ ] pose-extractor 함수 구현 (functions/pipeline stub → ML 채움)
+7. [~] pose-extractor — 알고리즘 코어/오케스트레이션 완료,
+       모델 어댑터(YOLO/ViTPose/Cerebras)+컨테이너는 #7-follow(계정/가중치)
 8. [ ] 분석 결과 화면 (Mode 3 — 자기 비교)
 9. [ ] 기준 모션 선택 화면
 10.[ ] 분석 결과 화면 (Mode 1 — 정은지 비교)
@@ -109,6 +124,7 @@
 
 ---
 
-*마지막 업데이트: 2026-05-19 — #6 백엔드 SAM 스캐폴딩 완료(upload-url 완전구현,
- pipeline stub, 유닛 19통과). IaC=AWS SAM 확정. 실제 배포 보류(계정/CLI 필요).
- 다음: #7 pose-extractor (pipeline stub → YOLO11·ViTPose·DTW·KISMAM·Cerebras)*
+*마지막 업데이트: 2026-05-19 — #7 분석 알고리즘 코어 완료(features/motiondtw/
+ kismam/selfmotion/assemble + pipeline 오케스트레이션, 유닛 47통과, 모델 무관).
+ 모델 어댑터·컨테이너 패키징은 #7-follow(AWS 계정·가중치·Cerebras 키 필요).
+ 다음 선택지: #7-follow(배포 환경) 또는 #8 분석 결과 화면(Mode3, 앱)*

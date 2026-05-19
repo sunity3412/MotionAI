@@ -42,15 +42,40 @@ reference_motions/{id}     → 기준 모션 데이터 (정은지 선수)
 - S3 업로드: Presigned URL (직접 업로드, Lambda 경유 없음)
 ```
 
-## S3 업로드 방식 (중요)
+## 기존 플랫폼과 분리 운영 (필수)
 
 ```
-Lambda를 통해 영상 직접 수신 금지 (100MB 제한, 타임아웃 위험)
-→ Presigned URL 방식 사용
+서니티에는 이미 운영 중인 플랫폼이 있음:
+  도메인     : sunity.ai
+  EC2        : i-0de9190eb75eec460 (t3.medium, ap-northeast-2)
+  스택       : Next.js (3000) + Spring Boot (12100) + nginx
+  OS         : Ubuntu 22.04
 
-POST /upload-url  → S3 Presigned URL 발급
-앱이 S3에 직접 PUT
-S3 이벤트 → Lambda 트리거 → 분석 파이프라인 시작
+Motion AI(이 앱)는 반드시 별도 인프라로 분리:
+  → 영상 업로드/AI 분석은 용량·처리 시간이 크므로 기존 EC2에 얹지 말 것
+  → 별도 Lambda + S3 + SQS 구조로 완전 분리
+```
+
+## AWS 아키텍처
+
+```
+[앱] → API Gateway → Lambda (upload-url 발급)
+[앱] → S3 직접 PUT (Presigned URL)
+S3 이벤트 → SQS 큐 → Lambda (분석 파이프라인)
+Lambda → Firestore 저장 → 앱에 결과 전달
+영상 배포 → CloudFront (S3 앞단)
+```
+
+## 핵심 AWS 서비스
+
+```
+S3              : 영상 원본 + 분석 결과 저장
+SQS             : 분석 요청 비동기 큐 (Lambda 직접 트리거 대신)
+CloudFront      : S3 영상/이미지 CDN 배포
+CloudWatch      : Lambda 로그, 에러 알림
+Parameter Store : API 키, DB 비밀값 관리 (.env 하드코딩 금지)
+API Gateway     : REST 엔드포인트
+Lambda          : 분석 파이프라인 실행 (타임아웃 15분)
 ```
 
 ## 파이프라인 오케스트레이션
@@ -68,11 +93,20 @@ AWS Step Functions (Phase 2 확장 시):
 MVP: Lambda 단일 함수로 시작, 타임아웃 15분 설정
 ```
 
-## 플랜별 분기
+## 비용 관리 원칙
 
 ```
-Free   : Mode 3만 (자기 비교), 월 3회
-Basic  : Mode 1 + Mode 3, 월 10회
-Pro    : 무제한 + 상세 피드백
-파일럿 : 제한 없음 (결제 로직 비활성화)
+S3 lifecycle 정책: 영상 원본 30일 후 자동 삭제 (분석 결과만 장기 보관)
+CloudWatch 로그: 보관 기간 30일로 제한
+GPU/무거운 처리: 상시 구동 금지 → 작업 요청 시에만 실행
+비용 알림: AWS Budgets 설정 필수 (월 예산 초과 시 알림)
+```
+
+## 보안 원칙
+
+```
+.env 파일 GitHub 업로드 절대 금지
+API Key, DB Password → Parameter Store 또는 Secrets Manager 사용
+코드에 하드코딩 금지
+SSH 22번 포트 → 필요한 IP만 허용
 ```

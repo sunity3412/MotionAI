@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Sunity AI Coach",
+    "slug": "sunity-ai-coach",
+    "scheme": "sunityaicoach",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "bundleIdentifier": "com.sunity.aicoach",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.sunity.aicoach",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "연습 영상을 선택해 AI 자세 분석에 사용하기 위해 사진 보관함 접근이 필요합니다.",
+          "cameraPermission": "연습 자세를 촬영해 AI 자세 분석에 사용하기 위해 카메라 접근이 필요합니다.",
+          "microphonePermission": "영상 촬영 시 소리를 함께 녹화하기 위해 마이크 접근이 필요합니다."
+        }
+      ]
+    ]
+  }
+}

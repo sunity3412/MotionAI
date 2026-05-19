@@ -38,14 +38,18 @@ Step 3. 폴스포츠 학원 파일럿 실증
 
 ```
 앱        : React Native + Expo (TypeScript)
-백엔드     : AWS Lambda (Python) + API Gateway
+백엔드     : AWS Lambda (Python) + API Gateway + SQS
 DB        : Firebase Firestore
-스토리지   : AWS S3
+스토리지   : AWS S3 + CloudFront
 ML        : YOLO11 → ViTPose-S → MotionDTW (FastDTW)
 LLM       : Cerebras (빠른 추론)
 결제       : RevenueCat (iOS/Android 통합)
 배포       : EAS Build (Expo)
+시크릿     : AWS Parameter Store (.env 하드코딩 금지)
 ```
+
+> ⚠️ 서니티에는 이미 sunity.ai 운영 플랫폼(EC2: Next.js+Spring Boot)이 있음.
+> Motion AI는 반드시 별도 Lambda+S3 인프라로 분리. 기존 EC2에 얹지 말 것.
 
 ---
 

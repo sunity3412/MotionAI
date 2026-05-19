@@ -1,0 +1,62 @@
+// design.md §4 컬러 시스템 — 피그마 추출 확정값. 하드코딩 금지, 이 토큰만 사용.
+
+export const colors = {
+  // 브랜드
+  brand: '#FF4B33',
+  brandGradientStart: '#FFB5AB',
+  brandGradientEnd: '#FF604B',
+  brandButtonDisabled: '#FFB7AD',
+  brandOverlay: 'rgba(255,75,51,0.4)',
+  brandTint: 'rgba(255,75,51,0.15)',
+
+  // 배경
+  bg: '#FFFFFF',
+  cardBg: '#FFFFFF',
+
+  // 텍스트
+  textPrimary: '#0C0C0C',
+  textWhite: '#FFFFFF',
+  textSecondary: '#ACACAC',
+  textDisabled: '#B1B6BE',
+  textBrand: '#FF4B33',
+
+  // 상태 (오류는 의도적으로 틸 — 브랜드 레드와 혼동 방지)
+  inputValid: '#FF4B33',
+  inputError: '#54B8CD',
+  labelRequired: '#54B8CD',
+  labelOptional: '#B1B6BE',
+
+  // UI 요소
+  divider: '#D9D9D9',
+  inputBorder: '#B1B6BE',
+  tabActive: '#FF4B33',
+  tabInactive: '#A5A5A5',
+  highlight: '#006FFD',
+  neutralDark: '#1F2024',
+} as const;
+
+// 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)
+export const gradients = {
+  // linear-gradient(111.41deg, #FFB1A6 11.93%, #FF6651 89.96%)
+  brandButton: {
+    colors: ['#FFB1A6', '#FF6651'] as const,
+    locations: [0.1193, 0.8996] as const,
+  },
+  // linear-gradient(94.36deg, #FFB5AB 1.74%, #FF604B 90.6%)
+  homeTop: {
+    colors: ['#FFB5AB', '#FF604B'] as const,
+    locations: [0.0174, 0.906] as const,
+  },
+  // linear-gradient(to-bottom, #FFFFFF, #FFF0EE)
+  homeCard: {
+    colors: ['#FFFFFF', '#FFF0EE'] as const,
+  },
+} as const;
+
+// SNS 버튼 (design.md §4)
+export const sns = {
+  kakao: { bg: '#FEE500', text: '#0C0C0C' },
+  naver: { bg: '#03C75A', text: '#FFFFFF' },
+  google: { bg: '#FFFFFF', border: '#B1B6BE', text: '#0C0C0C' },
+  apple: { bg: '#000000', text: '#FFFFFF' },
+} as const;

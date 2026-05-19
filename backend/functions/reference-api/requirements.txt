@@ -1,0 +1,2 @@
+# Firestore Admin 조회 + 토큰 검증용. boto3 는 런타임 포함.
+firebase-admin>=6,<7

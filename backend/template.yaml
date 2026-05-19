@@ -1,0 +1,216 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Sunity Motion AI — 별도 서버리스 인프라 (기존 sunity.ai EC2 와 완전 분리).
+  앱이 직접 호출: POST /upload-url, GET /reference.
+  분석은 S3 업로드 이벤트 → SQS → pipeline Lambda (비동기).
+  단일 진실: docs/contract.md / backend/backend_CLAUDE.md.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: pilot
+    Description: 배포 단계 (파일럿). 리소스 이름 접미사로 사용.
+  VideoBucketName:
+    Type: String
+    Default: sunity-motion-pilot-videos
+    Description: 영상 원본/결과 S3 버킷명 (전역 고유해야 함).
+  FirebaseSaParam:
+    Type: String
+    Default: /sunity/motion/firebase-sa
+    Description: >
+      Firebase 서비스 계정 JSON 을 담은 SSM Parameter Store(SecureString) 이름.
+      이 템플릿은 비밀값을 만들지 않는다 — 배포 전 콘솔/CLI 로 별도 생성.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    Timeout: 15
+    MemorySize: 256
+    Layers:
+      - !Ref SharedLayer
+    Environment:
+      Variables:
+        VIDEO_BUCKET: !Ref VideoBucketName
+        FIREBASE_SA_PARAM: !Ref FirebaseSaParam
+
+Resources:
+  # ── 공통 코드 레이어 (sunity_shared) ────────────────────────────────
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub sunity-motion-${Stage}-shared
+      ContentUri: shared/
+      CompatibleRuntimes: [python3.12]
+      RetentionPolicy: Delete
+
+  # ── 영상 버킷 (원본 30일 후 만료 — 비용 관리) ───────────────────────
+  VideoBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: AnalysisQueuePolicy
+    Properties:
+      BucketName: !Ref VideoBucketName
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-raw-uploads-30d
+            Status: Enabled
+            Prefix: uploads/
+            ExpirationInDays: 30
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [PUT]
+            AllowedOrigins: ["*"]
+            AllowedHeaders: ["*"]
+            MaxAge: 3000
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:*
+            Queue: !GetAtt AnalysisQueue.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/
+
+  # ── 분석 비동기 큐 (S3 → SQS → pipeline) ────────────────────────────
+  AnalysisQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sunity-motion-${Stage}-analysis
+      VisibilityTimeout: 960   # pipeline Timeout(900) 보다 길게
+      MessageRetentionPeriod: 86400
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt AnalysisDLQ.Arn
+        maxReceiveCount: 3
+
+  AnalysisDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sunity-motion-${Stage}-analysis-dlq
+      MessageRetentionPeriod: 1209600
+
+  AnalysisQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref AnalysisQueue]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowS3SendMessage
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt AnalysisQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Sub arn:aws:s3:::${VideoBucketName}
+
+  # ── HTTP API (앱이 직접 호출하는 2개 라우트) ────────────────────────
+  MotionHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      CorsConfiguration:
+        AllowOrigins: ["*"]
+        AllowHeaders: [Content-Type, Authorization]
+        AllowMethods: [GET, POST, OPTIONS]
+
+  # ── POST /upload-url : presigned PUT URL 발급 (완전 구현) ────────────
+  UploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-upload-url
+      CodeUri: functions/upload-url/
+      Handler: app.lambda_handler
+      Timeout: 10
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref FirebaseSaParam
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: POST
+            Path: /upload-url
+
+  # ── GET /reference : 기준 모션 목록 (기준 모션 선택 화면 #9) ─────────
+  ReferenceApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-reference
+      CodeUri: functions/reference-api/
+      Handler: app.lambda_handler
+      Timeout: 10
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref FirebaseSaParam
+      Events:
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: GET
+            Path: /reference
+
+  # ── 분석 파이프라인 (S3→SQS 트리거. #7 에서 ML 채움 — 현재 stub) ────
+  PipelineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-pipeline
+      CodeUri: functions/pipeline/
+      Handler: app.lambda_handler
+      Timeout: 900           # 15분 (backend_CLAUDE.md)
+      MemorySize: 1024
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [s3:GetObject, s3:PutObject]
+              Resource: !Sub arn:aws:s3:::${VideoBucketName}/*
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref FirebaseSaParam
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AnalysisQueue.Arn
+            BatchSize: 1
+
+  # ── 로그 보관 30일 (비용 관리 — backend_CLAUDE.md) ──────────────────
+  UploadUrlLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-upload-url
+      RetentionInDays: 30
+  ReferenceApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-reference
+      RetentionInDays: 30
+  PipelineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-pipeline
+      RetentionInDays: 30
+
+Outputs:
+  ApiBaseUrl:
+    Description: 앱이 호출할 API 베이스 URL (POST /upload-url, GET /reference)
+    Value: !Sub https://${MotionHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
+  VideoBucket:
+    Description: 영상 업로드 S3 버킷
+    Value: !Ref VideoBucketName
+  AnalysisQueueUrl:
+    Description: 분석 비동기 큐 URL
+    Value: !Ref AnalysisQueue

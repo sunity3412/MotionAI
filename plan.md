@@ -48,6 +48,16 @@
      완료/오류(4종) 상태, 브랜드 펄스
    - analyze.tsx "분석 시작하기" → /analysis/loading 연결(mode3)
    - useSimulatedAnalysis 훅 = #6~7서 Firestore onSnapshot로 교체 예정(계약 동일)
+✅ 백엔드 Lambda 기본 구조 #6 (AWS SAM — 코드/IaC 스캐폴딩, 배포는 보류)
+   - IaC=AWS SAM 결정. backend/ template.yaml(API GW·Lambda·S3·SQS·DLQ·
+     로그30일·수명주기30일) + samconfig.toml + README(배포 절차)
+   - shared/ Lambda Layer(sunity_shared): models/s3keys/validation/responses/
+     auth/firestore_admin/events — contract.md 미러
+   - functions/upload-url 완전 구현(검증·analysisId·presigned PUT·Firebase auth)
+   - functions/reference-api(GET /reference), functions/pipeline는 stub
+     (queued까지 정직 전이 + NotImplementedError, ML은 #7)
+   - tests/ 19개 유닛 통과(AWS 불필요), 전 파일 문법 OK
+   - backend_CLAUDE.md를 contract.md/SAM 기준으로 정합화(미결 해소)
 ```
 
 ---
@@ -55,9 +65,9 @@
 ## 진행 중
 
 ```
-(없음 — #6 백엔드 Lambda 기본 구조 착수 예정. AWS 계정 필요)
-※ 미결: backend/CLAUDE.md Firestore 컬렉션 경로를 contract.md 기준으로 갱신 필요
-        (analyses/{id} → users/{uid}/analyses/{id}, reference_motions → reference/motions)
+(없음 — #6 코드/IaC 완료. 실제 배포는 AWS 계정·CLI 준비 후: backend/README.md)
+※ 배포 전 1회: aws configure(ap-northeast-2) + Firebase 서비스계정 키를
+   Parameter Store(/sunity/motion/firebase-sa, SecureString) 등록 → sam deploy
 ```
 
 ---
@@ -70,8 +80,8 @@
 3. [x] 온보딩 화면 구현 (파일럿 최소 게스트 진입 — 회원가입류 범위 밖)
 4. [x] 영상 소스 선택 화면 (UI+검증, 실제 업로드는 #6~7)
 5. [x] AI 분석 로딩 화면 (단계별, 계약 기반 — 백엔드서 실데이터 연결)
-6. [ ] 백엔드 Lambda 기본 구조 세팅
-7. [ ] pose-extractor 함수 구현
+6. [x] 백엔드 Lambda 기본 구조 세팅 (SAM 스캐폴딩 — 배포는 계정 준비 후)
+7. [ ] pose-extractor 함수 구현 (functions/pipeline stub → ML 채움)
 8. [ ] 분석 결과 화면 (Mode 3 — 자기 비교)
 9. [ ] 기준 모션 선택 화면
 10.[ ] 분석 결과 화면 (Mode 1 — 정은지 비교)
@@ -99,5 +109,6 @@
 
 ---
 
-*마지막 업데이트: 2026-05-19 — 계약+#5 완료, AWS 문서 반영(backend_CLAUDE/aws_guide),
- CLAUDE.md §4 라이트로 정정(다크 표기는 구버전 오기), 체크포인트 커밋. 다음: #6 백엔드*
+*마지막 업데이트: 2026-05-19 — #6 백엔드 SAM 스캐폴딩 완료(upload-url 완전구현,
+ pipeline stub, 유닛 19통과). IaC=AWS SAM 확정. 실제 배포 보류(계정/CLI 필요).
+ 다음: #7 pose-extractor (pipeline stub → YOLO11·ViTPose·DTW·KISMAM·Cerebras)*

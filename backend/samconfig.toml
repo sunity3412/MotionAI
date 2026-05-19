@@ -1,0 +1,22 @@
+# SAM 배포 설정. `sam deploy` 가 이 값을 기본으로 사용.
+# 리전은 기존 플랫폼과 같은 서울(ap-northeast-2)이지만 스택은 완전 분리.
+version = 0.1
+
+[default.global.parameters]
+stack_name = "sunity-motion-pilot"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+region = "ap-northeast-2"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+fail_on_empty_changeset = false
+parameter_overrides = "Stage=pilot VideoBucketName=sunity-motion-pilot-videos FirebaseSaParam=/sunity/motion/firebase-sa"
+
+[default.local_invoke.parameters]
+# sam local invoke 시 사용할 환경변수 파일(선택). 비밀값은 넣지 말 것.
+# env_vars = "env.local.json"

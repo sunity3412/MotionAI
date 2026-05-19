@@ -2,37 +2,68 @@
 
 ---
 
-## 구조
+## IaC / 배포 도구 — AWS SAM (결정 완료)
+
+```
+IaC        : AWS SAM (template.yaml 단일 소스 + samconfig.toml)
+리전        : ap-northeast-2 (서울, 기존 플랫폼과 동일 리전·별도 스택)
+런타임      : python3.12 (Lambda 지원 런타임. 로컬 3.14는 배포 대상 아님)
+배포        : sam build && sam deploy  (AWS 계정/자격증명 준비 후 1커맨드)
+로컬 테스트 : sam local invoke / pytest (AWS 없이 검증)
+```
+
+> ⚠️ sunity_aws_guide.md 는 기존 플랫폼(EC2) 운영 가이드. Motion AI 운영에
+> 필요하면 본 문서·SAM 템플릿 기준으로 수정·확장 가능(사용자 승인됨).
+
+## 구조 (SAM)
 
 ```
 /backend
+  template.yaml            → SAM: API GW, Lambda, S3, SQS, 권한, 수명주기
+  samconfig.toml           → 배포 파라미터(리전/스택명/버킷)
+  README.md                → 계정 준비 후 배포 절차(초보자용)
   /functions
-    /video-validator      → 영상 형식/용량 검증
-    /pose-extractor       → YOLO11 + ViTPose-S
-    /motion-comparator    → FastDTW + 점수 계산
-    /reference-manager    → 기준 모션 등록/조회 (관리자)
-    /feedback-generator   → 코칭 팁 생성 (Cerebras)
-  /shared
-    /models               → Firestore 데이터 모델
-    /utils
+    /upload-url            → POST /upload-url (앱 직접 호출, 완전 구현)
+    /pipeline              → S3 트리거→SQS→분석 (stub, #7에서 ML 채움)
+    /reference-api         → GET /reference (기준 모션 목록)
+  /shared                  → Lambda Layer (공통 코드)
+    /models                → Firestore 문서 모양 (contract.md 미러)
+    /utils                 → s3 키, 응답 포맷, 입력검증, auth, firestore admin
+  /tests                   → AWS 없이 도는 유닛 테스트
 ```
 
-## 핵심 엔드포인트
+## 핵심 엔드포인트 (contract.md 기준 — 단일 진실)
+
+앱이 직접 호출하는 HTTP 엔드포인트는 2개뿐. 분석 트리거는 S3 이벤트.
 
 ```
-POST /analyze              → 수강생 영상 분석
-POST /admin/reference      → 기준 모션 등록 (관리자 전용)
-GET  /reference            → 기준 모션 목록 조회
-GET  /history/{userId}     → 분석 기록 조회
+POST /upload-url   앱 → S3 presigned PUT URL 발급 (인증: Firebase Auth UID, 익명 포함)
+GET  /reference    앱 → 기준 모션(정은지) 목록 (기준 모션 선택 화면 #9)
 ```
 
-## Firestore 컬렉션
+분석 실행/기록은 엔드포인트가 아님:
+```
+분석 트리거 : 앱이 호출하지 않음. S3 업로드 완료 이벤트 → SQS → pipeline Lambda
+분석 진행/결과: 앱이 Firestore users/{uid}/analyses/{id} 를 onSnapshot 구독
+분석 기록   : 앱이 users/{uid}/analyses 를 직접 쿼리 (GET /history 없음)
+```
+
+> backend 구버전의 `POST /analyze`·`GET /history/{userId}` 는 위로 대체됨(계약 §2).
+> 기준 모션 등록 `POST /admin/reference` 는 관리자/ML 경로(ml_CLAUDE.md, 정은지
+> 촬영 시) — 앱 범위 밖. MVP 파일럿에선 콘솔/스크립트 등록도 허용.
+
+## Firestore 컬렉션 (배포된 보안 규칙·contract.md 와 일치)
 
 ```
-users/{uid}                → 사용자 프로필, 플랜 정보
-analyses/{analysisId}      → 분석 결과, 점수, 키포인트
-reference_motions/{id}     → 기준 모션 데이터 (정은지 선수)
+users/{uid}                       사용자 프로필/플랜 (앱 본인만 RW)
+users/{uid}/analyses/{analysisId} 분석 진행·결과 (앱: uploading 까지 생성,
+                                  이후 status/result/error 는 백엔드 Admin SDK)
+reference/motions/{motionId}      기준 모션(정은지) — 앱 읽기 전용, 쓰기 백엔드/콘솔
 ```
+
+> 경로 근거: firestore.rules(users/{uid} 격리, reference/** 읽기전용),
+> docs/contract.md §3. 구버전 표기(`analyses/{id}`, `reference_motions/{id}`)는
+> 폐기 — 이 문서가 갱신본.
 
 ## 보안
 

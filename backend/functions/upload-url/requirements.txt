@@ -1,0 +1,3 @@
+# boto3 는 Lambda python3.12 런타임에 포함 → 명시 안 함.
+# 인증 토큰 검증용 (sunity_shared.auth).
+firebase-admin>=6,<7

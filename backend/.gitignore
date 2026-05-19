@@ -1,0 +1,18 @@
+# SAM / 빌드 산출물
+.aws-sam/
+samconfig.local.toml
+env.local.json
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# 비밀값 (절대 커밋 금지 — backend_CLAUDE.md 보안 원칙)
+*.pem
+service-account*.json
+.env
+.env.*
+!.env.example

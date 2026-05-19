@@ -64,7 +64,11 @@ function PulseDot() {
 
 export default function AnalysisLoading() {
   const router = useRouter();
-  const { name } = useLocalSearchParams<{ name?: string }>();
+  const { mode, name, analysisId } = useLocalSearchParams<{
+    mode?: string;
+    name?: string;
+    analysisId?: string;
+  }>();
   const { status, errorCode } = useSimulatedAnalysis();
 
   const failed = status === 'failed' || errorCode != null;
@@ -100,14 +104,17 @@ export default function AnalysisLoading() {
           <Text style={styles.sub}>분석 결과를 확인할 수 있어요.</Text>
         </View>
         <Pressable
-          style={[styles.cta, styles.ctaDisabled]}
-          disabled
+          style={styles.cta}
+          onPress={() =>
+            router.replace({
+              pathname: '/analysis/result',
+              params: { mode: mode ?? 'mode3', name, analysisId },
+            })
+          }
           accessibilityRole="button"
-          accessibilityState={{ disabled: true }}
         >
           <Text style={styles.ctaText}>결과 보기</Text>
         </Pressable>
-        <Text style={styles.note}>결과 화면은 다음 단계(#8)에서 연결됩니다.</Text>
       </View>
     );
   }
@@ -194,12 +201,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaDisabled: { opacity: 0.4 }, // §9 버튼 비활성
   ctaText: { ...typography.button, color: colors.textWhite },
-  note: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 12,
-  },
 });

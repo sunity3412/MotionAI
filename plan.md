@@ -66,6 +66,13 @@
    - functions/pipeline: 진짜 오케스트레이션(상태머신·mode1/3 분기·
      no_human/server_error 매핑). 모델 미구현은 NotImplemented로 가시화
    - tests/ 총 47개 통과(AWS·모델 불필요)
+✅ 분석 결과 화면 #8 Mode3 (design.md §8 + ia AC-RES-001, 자체설계)
+   - react-native-svg 설치(15.12.1). components/ScoreGauge(원호 게이지+등급A~D)
+   - app/analysis/result.tsx: 점수개요·세부점수(상체/코어/하체+델타)·
+     동작비교(영상 플레이스홀더+최저관절 하이라이트)·코칭팁 3카드
+   - lib/simulatedResult.ts(계약 AnalysisResult 픽스처, #7-follow서 교체)
+   - loading.tsx done → result로 router.replace(mode/name/analysisId) 연결
+   - 흰 배경·토큰만·이모지/스피너 없음. tsc 클린 + iOS 번들 스모크 통과
 ```
 
 ---
@@ -97,9 +104,9 @@
 6. [x] 백엔드 Lambda 기본 구조 세팅 (SAM 스캐폴딩 — 배포는 계정 준비 후)
 7. [~] pose-extractor — 알고리즘 코어/오케스트레이션 완료,
        모델 어댑터(YOLO/ViTPose/Cerebras)+컨테이너는 #7-follow(계정/가중치)
-8. [ ] 분석 결과 화면 (Mode 3 — 자기 비교)
-9. [ ] 기준 모션 선택 화면
-10.[ ] 분석 결과 화면 (Mode 1 — 정은지 비교)
+8. [x] 분석 결과 화면 (Mode 3 — 자기 비교) — 시뮬 데이터, 백엔드 연결은 #7-follow
+9. [ ] 기준 모션 선택 화면 (GET /reference — reference-api 이미 구현)
+10.[ ] 분석 결과 화면 (Mode 1 — 정은지 비교) — result.tsx 모드분기 재사용
 ```
 
 ---
@@ -124,7 +131,7 @@
 
 ---
 
-*마지막 업데이트: 2026-05-19 — #7 분석 알고리즘 코어 완료(features/motiondtw/
- kismam/selfmotion/assemble + pipeline 오케스트레이션, 유닛 47통과, 모델 무관).
- 모델 어댑터·컨테이너 패키징은 #7-follow(AWS 계정·가중치·Cerebras 키 필요).
- 다음 선택지: #7-follow(배포 환경) 또는 #8 분석 결과 화면(Mode3, 앱)*
+*마지막 업데이트: 2026-05-19 — #8 분석 결과 화면(Mode3) 완료. ScoreGauge
+ (react-native-svg)+세부점수+코칭팁, 시뮬 데이터(계약 동일), loading→result
+ 연결. tsc 클린+iOS 번들 스모크 통과. 다음: #9 기준 모션 선택 화면(앱,
+ reference-api 계약 확정) 또는 #7-follow(배포 환경 준비 시)*

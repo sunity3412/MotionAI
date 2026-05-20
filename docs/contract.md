@@ -80,7 +80,7 @@ expiresInSec  number   URL 만료(초)
 
 ```
 users/{uid}/analyses/{analysisId}   AnalysisDoc   분석 진행/결과
-reference/motions/{motionId}        ReferenceMotion  기준 모션 (읽기 전용)
+reference/{motionId}        ReferenceMotion  기준 모션 (읽기 전용)
 ```
 
 `AnalysisDoc`
@@ -104,7 +104,7 @@ result?     AnalysisResult         status='done' 일 때
 
 > ⚠️ backend/CLAUDE.md 는 `analyses/{analysisId}`(최상위), `reference_motions/{id}`
 > 로 적혀 있으나, **배포된 보안 규칙이 users/{uid} 격리**라 본 계약은
-> `users/{uid}/analyses/{analysisId}`, `reference/motions/{motionId}` 를 사용한다.
+> `users/{uid}/analyses/{analysisId}`, `reference/{motionId}` 를 사용한다.
 > → backend/CLAUDE.md 의 컬렉션 항목은 추후 본 계약에 맞춰 갱신 필요 (미결 항목).
 
 ---
@@ -122,7 +122,17 @@ myVideoUrl     string              내 영상 재생 서명 URL (좌)
 referenceVideoUrl string?          mode1: 정은지 영상 (우)
 ```
 
-`JointScore` = { key, labelKo, score(0~100), issue? }
+`JointScore`
+```
+key, labelKo, score(0~100)
+currentAngle? targetAngle? deltaDeg?(signed) direction?  ← 구조화 가이드 (옵셔널)
+issue?                                                    ← 사람 가독 폴백
+```
+`direction` = 'extend' | 'flex' | 'raise' | 'lower' | 'open' | 'close'
+  → UI 가 "현재 145° → 기준 168° · 더 펴주세요" 형태로 표시. 구조화 필드가
+  없으면 issue 텍스트로 폴백. 동적 큐(회전력·반동)는 CoachingTip.detail
+  자연어로 노출(LLM 출력) — 별도 필드 만들지 않음.
+
 `CoachingTip` = { joint?, title, detail }
 
 `Mode1Comparison` (전문가 비교)

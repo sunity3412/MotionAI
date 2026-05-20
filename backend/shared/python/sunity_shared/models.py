@@ -60,8 +60,10 @@ def analysis_doc_path(uid: str, analysis_id: str) -> str:
 
 
 def reference_motion_path(motion_id: str) -> str:
-    """Firestore: reference/motions/{motionId} (앱 읽기 전용)."""
-    return f"reference/motions/{motion_id}"
+    """Firestore: reference/{motionId} (앱 읽기 전용)."""
+    return f"reference/{motion_id}"
 
 
-REFERENCE_MOTIONS_COLLECTION = "reference/motions"
+# Firestore 컬렉션 경로는 홀수 segment 여야 함. "reference/motions" 같은 2-segment는
+# invalid path 라 collection() 호출 시 ValueError. → reference 단일 컬렉션 채택.
+REFERENCE_MOTIONS_COLLECTION = "reference"

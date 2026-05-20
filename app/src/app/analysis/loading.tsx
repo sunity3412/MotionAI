@@ -2,8 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { saveSimulatedAnalysis } from '../../lib/simulationWriter';
 import {
   type AnalysisErrorCode,
+  type AnalysisMode,
   type AnalysisStatus,
   ERROR_MESSAGE,
   PROGRESS_SEQUENCE,
@@ -64,16 +66,43 @@ function PulseDot() {
 
 export default function AnalysisLoading() {
   const router = useRouter();
-  const { mode, name, analysisId } = useLocalSearchParams<{
-    mode?: string;
-    name?: string;
-    analysisId?: string;
-  }>();
+  const { mode, name, analysisId, referenceMotionId, referenceMotionName } =
+    useLocalSearchParams<{
+      mode?: string;
+      name?: string;
+      analysisId?: string;
+      // mode1 진입 시 기준 모션 ID (plan.md #9). 실제 활용은 #7-follow
+      // (POST /upload-url 호출 시 본문에 포함). 지금은 받기만 + 결과로 전달.
+      referenceMotionId?: string;
+      referenceMotionName?: string;
+    }>();
   const { status, errorCode } = useSimulatedAnalysis();
 
   const failed = status === 'failed' || errorCode != null;
   const done = status === 'done';
   const currentIndex = PROGRESS_SEQUENCE.indexOf(status);
+
+  // 시뮬 종료 시 Firestore 에 done 문서 1건 저장 → 홈/기록 탭이 즉시 반영.
+  // 백엔드 실 파이프라인 켜지면 lib/simulationWriter 와 함께 제거(스캐폴드).
+  const savedAnalysisIdRef = useRef<string | null>(null);
+  const savingRef = useRef(false);
+  useEffect(() => {
+    if (!done || savingRef.current) return;
+    savingRef.current = true;
+    const analysisMode: AnalysisMode = mode === 'mode1' ? 'mode1' : 'mode3';
+    saveSimulatedAnalysis({
+      mode: analysisMode,
+      fileName: typeof name === 'string' ? name : '',
+      referenceMotionId,
+      referenceMotionName,
+    })
+      .then((id) => {
+        if (id) savedAnalysisIdRef.current = id;
+      })
+      .catch((e) => {
+        if (__DEV__) console.warn('[loading] saveSimulatedAnalysis failed', e);
+      });
+  }, [done, mode, name, referenceMotionId, referenceMotionName]);
 
   if (failed) {
     const code: AnalysisErrorCode = errorCode ?? 'server_error';
@@ -108,7 +137,14 @@ export default function AnalysisLoading() {
           onPress={() =>
             router.replace({
               pathname: '/analysis/result',
-              params: { mode: mode ?? 'mode3', name, analysisId },
+              params: {
+                mode: mode ?? 'mode3',
+                name,
+                // 저장이 끝났으면 새 analysisId 사용, 아직이면 호출시 들어온 값 폴백.
+                analysisId: savedAnalysisIdRef.current ?? analysisId,
+                referenceMotionId,
+                referenceMotionName,
+              },
             })
           }
           accessibilityRole="button"

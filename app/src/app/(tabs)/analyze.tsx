@@ -87,29 +87,47 @@ export default function Analyze() {
   };
 
   if (picked) {
+    // 영상 확보 후 모드 선택 (plan.md #9):
+    //  - mode1: 프로 동작과 비교 → 기준 모션 선택 화면(/analysis/reference)
+    //  - mode3: 내 기록과 비교 → 곧장 로딩(/analysis/loading)
     return (
       <View style={styles.container}>
-        <Text style={styles.heading}>영상을 가져왔어요</Text>
+        <Text style={styles.heading}>어떻게{'\n'}비교할까요?</Text>
         <View style={styles.confirmCard}>
-          <Ionicons name="checkmark-circle" size={28} color={colors.brand} />
+          <Ionicons name="checkmark-circle" size={24} color={colors.brand} />
           <Text style={styles.confirmName} numberOfLines={1}>
             {picked.name}
           </Text>
         </View>
+
+        <View style={styles.cards}>
+          <SourceCard
+            icon="trophy-outline"
+            title="프로 동작과 비교"
+            subtitle="정은지 선수 기준으로 점수 확인"
+            onPress={() =>
+              router.push({
+                pathname: '/analysis/reference',
+                params: { name: picked.name },
+              })
+            }
+            disabled={false}
+          />
+          <SourceCard
+            icon="trending-up-outline"
+            title="내 기록과 비교"
+            subtitle="이전 분석 대비 성장 확인"
+            onPress={() =>
+              router.push({
+                pathname: '/analysis/loading',
+                params: { mode: 'mode3', name: picked.name },
+              })
+            }
+            disabled={false}
+          />
+        </View>
+
         <View style={styles.spacer} />
-        <Pressable
-          style={({ pressed }) => [styles.cta, pressed && styles.ctaDimmed]}
-          onPress={() =>
-            router.push({
-              pathname: '/analysis/loading',
-              // mode3 = 자기 성장(기준 불필요). 모드/기준 선택은 #9에서.
-              params: { mode: 'mode3', name: picked.name },
-            })
-          }
-          accessibilityRole="button"
-        >
-          <Text style={styles.ctaText}>분석 시작하기</Text>
-        </Pressable>
         <Pressable onPress={reset} accessibilityRole="button">
           <Text style={styles.link}>다른 영상 다시 선택</Text>
         </Pressable>
@@ -243,13 +261,4 @@ const styles = StyleSheet.create({
   },
   confirmName: { ...typography.boxLabel, color: colors.textPrimary, flex: 1 },
   spacer: { flex: 1 },
-  cta: {
-    height: layout.ctaHeight,
-    borderRadius: radius.button,
-    backgroundColor: colors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ctaDimmed: { opacity: 0.4 }, // §9 누름 피드백
-  ctaText: { ...typography.button, color: colors.textWhite },
 });

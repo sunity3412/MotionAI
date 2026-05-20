@@ -37,7 +37,10 @@ def test_result_has_exact_contract_keys():
     assert len(r["tips"]) == 3
     assert len(r["joints"]) == NUM_JOINTS
     for j in r["joints"]:
-        assert set(j) <= {"key", "labelKo", "score", "issue"}
+        assert set(j) <= {
+            "key", "labelKo", "score", "issue",
+            "currentAngle", "targetAngle", "deltaDeg", "direction",
+        }
     for t in r["tips"]:
         assert set(t) == {"joint", "title", "detail"}
 
@@ -95,6 +98,33 @@ def test_cerebras_detail_used_when_present_else_fallback():
     # 다른 관절은 폴백 문장(실제 편차값 포함, 위조 아님)
     other = next(t for k, t in by_joint.items() if k != "left_knee")
     assert "차이가 납니다" in other["detail"]
+
+
+def test_joint_structured_fields_when_angles_given():
+    # user 무릎이 기준보다 23도 작음(덜 펴짐) → extend 방향, deltaDeg 음수
+    a = kismam.assess(
+        deviation_deg=[23.0] + [0.0] * (NUM_JOINTS - 1),  # left_knee 가 JOINT_KEYS[0] 일 필요 X — 거리만 검사용
+        user_angles={"left_knee": 145.0, "right_hip": 110.0},
+        reference_angles={"left_knee": 168.0, "right_hip": 95.0},
+    )
+    by_key = {j["key"]: j for j in assemble.build_joints(a)}
+    knee = by_key["left_knee"]
+    assert knee["currentAngle"] == 145.0
+    assert knee["targetAngle"] == 168.0
+    assert knee["deltaDeg"] == -23.0
+    assert knee["direction"] == "extend"  # delta < 0 → 펴기
+    hip = by_key["right_hip"]
+    assert hip["deltaDeg"] == 15.0
+    assert hip["direction"] == "close"  # delta > 0 → 더 모으기
+
+
+def test_joint_structured_fields_omitted_when_no_angles():
+    a = kismam.assess(deviation_deg=[0.0] * NUM_JOINTS)  # 각도 정보 없음
+    for j in assemble.build_joints(a):
+        assert "currentAngle" not in j
+        assert "targetAngle" not in j
+        assert "deltaDeg" not in j
+        assert "direction" not in j
 
 
 def test_stub_interfaces_raise_or_empty():

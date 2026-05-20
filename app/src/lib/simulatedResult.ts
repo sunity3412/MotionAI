@@ -11,70 +11,114 @@ import type {
   JointScore,
 } from '../types/analysis';
 
-// ViTPose 17 keypoint 중 평가 관절 (백엔드 skeleton 과 동일 key/라벨)
+// ViTPose 17 keypoint 중 평가 관절 (백엔드 skeleton 과 동일 key/라벨).
+// 구조화 가이드 필드(currentAngle/targetAngle/deltaDeg/direction)는
+// #7-follow 에서 ML 이 실측값으로 채움 — 여기 값은 폴스포츠 동작에서 그럴듯한 시연용.
+//   - 무릎/팔꿈치: 180° 가 완전 신전. 사용자 각도 < 기준 → 'extend'(더 펴기)
+//   - 고관절    : 큰 각도 = 더 열림. 사용자 < 기준 → 'open'(더 열기)
+//   - 어깨      : 큰 각도 = 더 들림. 사용자 < 기준 → 'raise'(더 올리기)
 const JOINTS: JointScore[] = [
   { key: 'left_shoulder', labelKo: '왼쪽 어깨', score: 88 },
   { key: 'right_shoulder', labelKo: '오른쪽 어깨', score: 84 },
-  { key: 'left_elbow', labelKo: '왼쪽 팔꿈치', score: 72, issue: '기준 대비 평균 14° 차이' },
+  {
+    key: 'left_elbow',
+    labelKo: '왼쪽 팔꿈치',
+    score: 72,
+    currentAngle: 138,
+    targetAngle: 152,
+    deltaDeg: -14,
+    direction: 'extend',
+    issue: '기준 대비 평균 14° 차이',
+  },
   { key: 'right_elbow', labelKo: '오른쪽 팔꿈치', score: 91 },
-  { key: 'left_hip', labelKo: '왼쪽 고관절', score: 69, issue: '기준 대비 평균 18° 차이' },
+  {
+    key: 'left_hip',
+    labelKo: '왼쪽 고관절',
+    score: 69,
+    currentAngle: 78,
+    targetAngle: 96,
+    deltaDeg: -18,
+    direction: 'open',
+    issue: '기준 대비 평균 18° 차이',
+  },
   { key: 'right_hip', labelKo: '오른쪽 고관절', score: 77 },
-  { key: 'left_knee', labelKo: '왼쪽 무릎', score: 58, issue: '기준 대비 평균 23° 차이' },
+  {
+    key: 'left_knee',
+    labelKo: '왼쪽 무릎',
+    score: 58,
+    currentAngle: 145,
+    targetAngle: 168,
+    deltaDeg: -23,
+    direction: 'extend',
+    issue: '기준 대비 평균 23° 차이',
+  },
   { key: 'right_knee', labelKo: '오른쪽 무릎', score: 81 },
 ];
 
+// detail 은 #7-follow 에서 Cerebras 가 실제 키프레임·각속도까지 반영해 생성.
+// 지금은 시연용으로 회전력/반동 같은 동적 큐도 한 줄씩 자연어로 섞어둠.
 const TIPS = [
   {
     joint: 'left_knee',
     title: '왼쪽 무릎 신전',
     detail:
-      '왼쪽 무릎 각도가 기준과 평균 23° 차이가 납니다. 다리를 펴는 구간을 천천히 교정해 보세요.',
+      '회전 진입 직전 왼쪽 무릎을 23° 더 펴서 반동을 만들어 주세요. 다리가 충분히 펴져야 다음 회전으로 이어지는 추진력이 생깁니다.',
   },
   {
     joint: 'left_hip',
     title: '왼쪽 고관절 가동',
     detail:
-      '왼쪽 고관절이 충분히 열리지 않았어요. 회전 진입 전 골반을 먼저 여는 느낌으로 연습해 보세요.',
+      '왼쪽 고관절이 18° 덜 열렸어요. 회전 전에 골반을 먼저 여는 느낌으로 시작하면 다음 동작 전환이 자연스러워집니다.',
   },
   {
     joint: 'left_elbow',
     title: '왼쪽 팔꿈치 정렬',
     detail:
-      '왼쪽 팔꿈치가 기준보다 14° 더 굽었습니다. 그립 직후 팔을 길게 뻗어 보세요.',
+      '그립 직후 왼쪽 팔꿈치가 14° 더 굽었습니다. 팔을 길게 뻗어 상체 라인을 잡으면 회전축이 안정됩니다.',
   },
 ];
 
-const PART_SCORES = { 상체: 84, 코어: 73, 하체: 70 } as const;
+// mode1(전문가 비교)은 정은지 선수가 기준이라 자기 비교(mode3)보다 박하게 평가됨.
+// mode3 는 자기 성장 추적이라 절대치는 후한 편 — 두 모드 결과를 동시 시연했을
+// 때 자연스럽도록 의도적으로 차이를 둠.
+const SCORES_MODE1 = {
+  overall: 71,
+  parts: { 상체: 78, 코어: 65, 하체: 62 },
+} as const;
+const SCORES_MODE3 = {
+  overall: 76,
+  parts: { 상체: 84, 코어: 73, 하체: 70 },
+} as const;
 
 export function getSimulatedResult(
   mode: AnalysisMode,
   analysisId = 'sim-analysis',
 ): AnalysisResult {
-  const base = {
-    overallScore: 76,
-    partScores: { ...PART_SCORES },
-    joints: JOINTS.map((j) => ({ ...j })),
-    tips: TIPS.map((t) => ({ ...t })),
-    myVideoUrl: '', // 시뮬레이션 — 실제 서명 URL 없음(화면은 플레이스홀더)
-  };
-
   if (mode === 'mode1') {
     return {
-      ...base,
+      overallScore: SCORES_MODE1.overall,
+      partScores: { ...SCORES_MODE1.parts },
+      joints: JOINTS.map((j) => ({ ...j })),
+      tips: TIPS.map((t) => ({ ...t })),
+      myVideoUrl: '',
       comparison: {
         mode: 'mode1',
         referenceMotionId: 'ref-inside-leg-hang',
         referenceMotionName: '인사이드 레그 행',
         athleteName: '정은지',
-        similarity: 76,
+        similarity: SCORES_MODE1.overall, // 게이지 점수 = 일치도
       },
-      referenceVideoUrl: '', // 시뮬레이션 — 플레이스홀더
+      referenceVideoUrl: '',
     };
   }
 
   // mode3 = 자기 성장. 이전 기록이 있다고 가정(델타 표시 확인용).
   return {
-    ...base,
+    overallScore: SCORES_MODE3.overall,
+    partScores: { ...SCORES_MODE3.parts },
+    joints: JOINTS.map((j) => ({ ...j })),
+    tips: TIPS.map((t) => ({ ...t })),
+    myVideoUrl: '',
     comparison: {
       mode: 'mode3',
       isFirst: false,

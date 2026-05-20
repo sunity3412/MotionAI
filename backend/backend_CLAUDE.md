@@ -58,7 +58,7 @@ GET  /reference    앱 → 기준 모션(정은지) 목록 (기준 모션 선택
 users/{uid}                       사용자 프로필/플랜 (앱 본인만 RW)
 users/{uid}/analyses/{analysisId} 분석 진행·결과 (앱: uploading 까지 생성,
                                   이후 status/result/error 는 백엔드 Admin SDK)
-reference/motions/{motionId}      기준 모션(정은지) — 앱 읽기 전용, 쓰기 백엔드/콘솔
+reference/{motionId}              기준 모션(정은지) — 앱 읽기 전용, 쓰기 백엔드/콘솔
 ```
 
 > 경로 근거: firestore.rules(users/{uid} 격리, reference/** 읽기전용),

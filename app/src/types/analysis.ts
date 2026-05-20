@@ -49,11 +49,24 @@ export type AnalysisErrorCode =
 
 export type BodyPart = '상체' | '코어' | '하체'; // design.md §8 파트별 점수
 
+// 사용자가 무엇을 더 해야 하는지(코칭 방향). 백엔드가 joint 종류 + signed delta로 결정.
+//  extend/flex : 관절 펴기/굽히기 (무릎·팔꿈치)
+//  raise/lower : 더 올리기/내리기 (다리·팔)
+//  open/close  : 더 열기/모으기 (고관절·어깨 외전/내전)
+// 회전·반동(각속도) 류 동적 큐는 별도 필드 만들지 않고 CoachingTip.detail (LLM 문장).
+export type JointDirection = 'extend' | 'flex' | 'raise' | 'lower' | 'open' | 'close';
+
 export interface JointScore {
   key: string; // ViTPose 17 keypoint 이름 (예: 'left_knee')
   labelKo: string; // 표시용 (예: '왼쪽 무릎')
   score: number; // 0~100
-  issue?: string; // 문제 설명 (예: '무릎이 20° 덜 펴짐'). 없으면 양호
+  // 구조화 가이드 (있으면 UI가 "현재 145°→기준 168°·더 펴주세요" 형태로 표시).
+  // 백엔드가 채울 수 없을 때 옵셔널로 비울 수 있음(UI는 issue 폴백).
+  currentAngle?: number; // 분석 영상의 평균/대표 각도(deg)
+  targetAngle?: number; // 기준 동작의 평균/대표 각도(deg)
+  deltaDeg?: number; // signed = currentAngle - targetAngle
+  direction?: JointDirection;
+  issue?: string; // 사람 가독 폴백 (예: '기준 대비 평균 23° 차이'). 없으면 양호
 }
 
 export interface CoachingTip {

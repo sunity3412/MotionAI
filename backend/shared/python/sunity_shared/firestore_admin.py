@@ -2,7 +2,7 @@
 
 용도:
   - pipeline: users/{uid}/analyses/{id} 의 status/result/error 갱신
-  - reference-api: reference/motions 목록 조회
+  - reference-api: reference 컬렉션 목록 조회
 
 앱은 절대 Admin 권한을 갖지 않는다. 서비스 계정은 auth.py 와 동일하게
 Parameter Store(FIREBASE_SA_PARAM)에서 로드 — 코드/.env 하드코딩 금지.
@@ -67,7 +67,7 @@ def fail_analysis(uid: str, analysis_id: str, code: str, message: str) -> None:
 
 
 def list_reference_motions() -> list[dict]:
-    """reference/motions 전체 (기준 모션 선택 화면 #9). 읽기 전용."""
+    """reference 컬렉션 전체 (기준 모션 선택 화면 #9). 읽기 전용."""
     col = _db().collection(models.REFERENCE_MOTIONS_COLLECTION)
     out: list[dict] = []
     for snap in col.stream():

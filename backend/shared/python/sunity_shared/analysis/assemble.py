@@ -22,7 +22,15 @@ def _issue_text(a: JointAssessment) -> str | None:
 def build_joints(assessments: list[JointAssessment]) -> list[dict]:
     joints = []
     for a in assessments:
-        j = {"key": a.key, "labelKo": a.label_ko, "score": a.score}
+        j: dict = {"key": a.key, "labelKo": a.label_ko, "score": a.score}
+        # 구조화 가이드 — 백엔드가 채울 수 있을 때만(없으면 contract 옵셔널, UI 폴백).
+        if a.current_angle is not None and a.target_angle is not None:
+            j["currentAngle"] = round(float(a.current_angle), 1)
+            j["targetAngle"] = round(float(a.target_angle), 1)
+        if a.signed_delta_deg is not None:
+            j["deltaDeg"] = round(float(a.signed_delta_deg), 1)
+        if a.direction:
+            j["direction"] = a.direction
         issue = _issue_text(a)
         if issue:
             j["issue"] = issue

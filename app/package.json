@@ -7,7 +7,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:reference": "node scripts/seed-reference-motions.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "firebase-admin": "^13.10.0",
     "typescript": "~5.9.2"
   },
   "private": true

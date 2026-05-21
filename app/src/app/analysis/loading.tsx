@@ -5,12 +5,13 @@ import { StatusBar } from 'expo-status-bar';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
+import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
 import { saveSimulatedAnalysis } from '../../lib/simulationWriter';
 import {
   type AnalysisErrorCode,
@@ -57,56 +58,92 @@ function useSimulatedAnalysis(): {
   return { status, errorCode: null };
 }
 
-// 글로우 그라디언트 링 — 정적 링 + 부드러운 펄스(스피너 아님, §0). 안에 children.
-function GlowRing({ children }: { children: ReactNode }) {
-  const pulse = useRef(new Animated.Value(0.85)).current;
+// 둘레가 살짝 울퉁한 닫힌 곡선(블롭). Catmull-Rom → cubic bezier 로 부드럽게.
+function blobPath(r: number, variations: number[]): string {
+  const n = variations.length;
+  const pts = variations.map((v, i) => {
+    const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const rad = r + v;
+    return [50 + rad * Math.cos(a), 50 + rad * Math.sin(a)] as const;
+  });
+  let d = `M ${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)} `;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n];
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % n];
+    const p3 = pts[(i + 2) % n];
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += `C ${c1x.toFixed(2)},${c1y.toFixed(2)} ${c2x.toFixed(2)},${c2y.toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)} `;
+  }
+  return `${d}Z`;
+}
+
+// 8점 + 작은 변형(±2.5) — 거의 원에 가깝게, 텍스트를 가리지 않게 r 도 키움.
+const BLOB_A = blobPath(43, [2.5, 1.8, 0, -1.8, -2.5, -1.8, 0, 1.8]);
+const BLOB_B = blobPath(43, [0, -1.8, -2.5, -1.8, 0, 1.8, 2.5, 1.8]);
+
+// 액체/블롭 일렁이는 링 — 살짝 찌그러진 블롭 2겹을 다른 속도·방향으로 회전.
+// 겹친 윤곽이 출렁이는 느낌(단순 스피너와 다름 — 형태 일렁임). 안에 children.
+function BlobRing({ children }: { children: ReactNode }) {
+  const spinA = useRef(new Animated.Value(0)).current;
+  const spinB = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 1100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 0.85,
-          duration: 1100,
-          useNativeDriver: true,
-        }),
-      ]),
+    const a = Animated.loop(
+      Animated.timing(spinA, {
+        toValue: 1,
+        duration: 7000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
     );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
+    const b = Animated.loop(
+      Animated.timing(spinB, {
+        toValue: 1,
+        duration: 9500,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    a.start();
+    b.start();
+    return () => {
+      a.stop();
+      b.stop();
+    };
+  }, [spinA, spinB]);
+  const rotA = spinA.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  const rotB = spinB.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '-360deg'],
+  });
   return (
     <View style={styles.ringWrap}>
-      <Animated.View style={{ opacity: pulse }}>
+      <Animated.View style={[styles.ringLayer, { transform: [{ rotate: rotA }] }]}>
         <Svg width={264} height={264} viewBox="0 0 100 100">
           <Defs>
-            <SvgGradient id="glowRing" x1="0" y1="1" x2="1" y2="0">
+            <SvgGradient id="blobGrad" x1="0" y1="1" x2="1" y2="0">
               <Stop offset="0" stopColor={RING_C1} />
               <Stop offset="0.5" stopColor={RING_C2} />
               <Stop offset="1" stopColor={RING_C3} />
             </SvgGradient>
           </Defs>
-          {/* 글로우 — 굵고 흐린 링 */}
-          <Circle
-            cx={50}
-            cy={50}
-            r={38}
-            stroke="url(#glowRing)"
-            strokeWidth={15}
+          <Path d={BLOB_A} stroke="url(#blobGrad)" strokeWidth={6} fill="none" />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={[styles.ringLayer, { transform: [{ rotate: rotB }] }]}>
+        <Svg width={264} height={264} viewBox="0 0 100 100">
+          <Path
+            d={BLOB_B}
+            stroke={RING_C2}
+            strokeWidth={5}
             fill="none"
-            opacity={0.22}
-          />
-          {/* 메인 링 */}
-          <Circle
-            cx={50}
-            cy={50}
-            r={38}
-            stroke="url(#glowRing)"
-            strokeWidth={6}
-            fill="none"
+            opacity={0.4}
           />
         </Svg>
       </Animated.View>
@@ -263,10 +300,10 @@ export default function AnalysisLoading() {
     <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.center}>
-        <GlowRing>
+        <BlobRing>
           <Text style={styles.ringTitle}>{titleLine}</Text>
           <Text style={styles.ringSub}>화면을 닫지 마세요.</Text>
-        </GlowRing>
+        </BlobRing>
         <Text style={styles.stepLine}>{STATUS_MESSAGE[status]}</Text>
       </View>
     </LinearGradient>
@@ -285,6 +322,11 @@ const styles = StyleSheet.create({
   ringWrap: {
     width: 264,
     height: 264,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringLayer: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },

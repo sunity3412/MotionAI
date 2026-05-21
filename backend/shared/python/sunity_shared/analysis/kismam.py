@@ -23,17 +23,12 @@ from .skeleton import (
     PARTS,
 )
 
-# 관절별 허용 편차(도) = Z-score 스케일. 폴스포츠 자세 기준 보수적 기본값.
-DEFAULT_TOLERANCE_DEG: dict[str, float] = {
-    "left_elbow": 15.0,
-    "right_elbow": 15.0,
-    "left_shoulder": 12.0,
-    "right_shoulder": 12.0,
-    "left_hip": 12.0,
-    "right_hip": 12.0,
-    "left_knee": 15.0,
-    "right_knee": 15.0,
-}
+# 허용 편차(도) = Z-score 스케일. dev 가 이만큼 벗어나면 z=1 (점수 ~61).
+# IPSF Code of Points 는 관절 각도/스플릿에 20도 허용 오차를 적용
+# (docs/research/pole-aerial-sports.md §4) — 이를 단일 기준으로 채택.
+# 관절별 중요도 차등은 tolerance 가 아니라 checkpoint weight 로 표현한다.
+_IPSF_TOLERANCE_DEG = 20.0
+DEFAULT_TOLERANCE_DEG: dict[str, float] = {k: _IPSF_TOLERANCE_DEG for k in JOINT_KEYS}
 DEFAULT_WEIGHT: dict[str, float] = {k: 1.0 for k in JOINT_KEYS}
 
 # 교정 포인트 제목 시드 (관절 → 코칭 초점). Cerebras 가 detail 을 자연어로 확장.

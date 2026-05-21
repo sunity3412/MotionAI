@@ -1,1 +1,6 @@
 .DS_Store
+
+# 정은지 선수 기준 모션 원본 영상 — S3(sunity-motion-pilot-videos)로 업로드. git 추적 금지.
+정은지님 영상/
+*.mp4
+*.mov

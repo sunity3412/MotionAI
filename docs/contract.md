@@ -102,6 +102,32 @@ result?     AnalysisResult         status='done' 일 때
 백엔드: 그 이후 모든 status/result/error 갱신 (Admin SDK, 규칙 우회)
 ```
 
+`ReferenceMotion` (스키마 단일 진실: docs/reference-motions.md §3)
+```
+motionId           string
+name               string                 동작명
+athleteName        string                 '정은지'
+level              'basic'|'intermediate'|'advanced'
+entryType?         'step_entry'|'jump_entry'|'swing_entry'
+                   |'lift_entry'|'invert_entry'|'combo_entry'
+entryDescription?  string                 진입 방식 상세 (사용자 안내)
+description?       string
+videoUrl?          string                 s3://... 분석 reference 원본
+thumbnailUrl?      string
+clipRange?         ClipRange              구간 시점(초)
+checkpoints?       Checkpoint[]           KISMAM 가중 관절 (weight 합 1.0)
+sharedBaseMotionId? string                공유 베이스 콤보 — 베이스 제공 모션 ID
+baseUntilS?        number                 공유 베이스가 끝나는 시점(초)
+updatedAt?         number (epoch ms)
+```
+`ClipRange` = { prepStartS, execStartS, execPeakS, landEndS, recommendedRecordS }
+  → 분석 런타임은 execStartS~landEndS 만 사용 (reference-motions.md §4).
+`Checkpoint` = { joint, weight, note? }
+
+> 공유 베이스 콤보: plank-spin → invert-butterfly-combo(baseUntilS:6)
+> → gemini-ayesha-combo(baseUntilS:18). 콤보 mode1 분석 시 베이스/확장
+> 구간을 나눠 부분 점수 산출 → Mode1Comparison.segmentScores (§4).
+
 > ⚠️ backend/CLAUDE.md 는 `analyses/{analysisId}`(최상위), `reference_motions/{id}`
 > 로 적혀 있으나, **배포된 보안 규칙이 users/{uid} 격리**라 본 계약은
 > `users/{uid}/analyses/{analysisId}`, `reference/{motionId}` 를 사용한다.
@@ -138,7 +164,11 @@ issue?                                                    ← 사람 가독 폴�
 `Mode1Comparison` (전문가 비교)
 ```
 mode='mode1', referenceMotionId, referenceMotionName, athleteName, similarity(0~100)
+segmentScores?   콤보 모션 분석 시에만 (베이스 공유 시)
 ```
+`SegmentScores` = { base(0~100), extension(0~100), baseMotionId, baseMotionName }
+  → 콤보 reference 시퀀스를 baseUntilS 기준 베이스/확장으로 분리 후 각 KISMAM 점수.
+  단일 모션은 segmentScores 없음.
 `Mode3Comparison` (자기 성장)
 ```
 mode='mode3', isFirst(bool),

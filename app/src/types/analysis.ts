@@ -75,12 +75,24 @@ export interface CoachingTip {
   detail: string; // Cerebras 자연어 가이드 문장
 }
 
+// 콤보 부분 점수 (reference-motions.md §7 공유 베이스 모션).
+// 콤보 모션은 다른 모션의 베이스 구간을 공유함 (plank → invert-butterfly → gemini-ayesha).
+// 베이스 구간과 확장(고유) 구간을 나눠 평가해, 학생이 어느 단계에서 막혔는지 보여줌.
+export interface SegmentScores {
+  base: number; // 공유 베이스 구간 점수 0~100
+  extension: number; // 확장(고유) 구간 점수 0~100
+  baseMotionId: string; // 베이스를 공유하는 모션 ID (학습 경로 가이드용)
+  baseMotionName: string; // 그 모션 이름 (예: '플랭크 스핀')
+}
+
 export interface Mode1Comparison {
   mode: 'mode1';
   referenceMotionId: string;
-  referenceMotionName: string; // 예: '인사이드 레그 행'
+  referenceMotionName: string; // 예: '발레리나 스핀'
   athleteName: string; // 예: '정은지'
   similarity: number; // 0~100
+  // 콤보 모션을 분석한 경우에만 채워짐 (베이스 공유 시). 단일 모션이면 없음.
+  segmentScores?: SegmentScores;
 }
 
 export interface Mode3Comparison {
@@ -112,15 +124,54 @@ export interface AnalysisDoc {
   result?: AnalysisResult; // status==='done'
 }
 
-// 기준 모션 (Firestore: reference/motions/{motionId}, 읽기 전용)
+// 기준 모션 (Firestore: reference/{motionId}, 읽기 전용)
+// 스키마 단일 진실: docs/reference-motions.md §3. 새 모션은 거기 §6 절차로 등록.
 export type SkillLevel = 'basic' | 'intermediate' | 'advanced';
+
+// 동작 진입 방식 (reference-motions.md §2). UX 가이드 + entry_type 자동판별 학습용.
+export type EntryType =
+  | 'step_entry'
+  | 'jump_entry'
+  | 'swing_entry'
+  | 'lift_entry'
+  | 'invert_entry'
+  | 'combo_entry';
+
+// reference 영상의 구간 시점(초). 분석 런타임은 execStartS~landEndS 만 사용
+// (reference-motions.md §4). prepStartS 는 사용자 촬영 UX 가이드용.
+export interface ClipRange {
+  prepStartS: number;
+  execStartS: number;
+  execPeakS: number; // 시각적 피크 — heroFrame 추출 시점
+  landEndS: number;
+  recommendedRecordS: number; // 사용자 권장 촬영 길이
+}
+
+// KISMAM 채점 가중 관절 (reference-motions.md §3). weight 합 = 1.0.
+export interface Checkpoint {
+  joint: string; // ViTPose 17 keypoint 이름 (spine_mid 등 보간 관절 포함)
+  weight: number;
+  note?: string;
+}
+
 export interface ReferenceMotion {
   motionId: string;
   name: string; // 동작명
   athleteName: string; // '정은지'
   level: SkillLevel;
+  entryType?: EntryType;
+  entryDescription?: string; // 진입 방식 상세 (사용자 안내용)
   description?: string;
+  videoUrl?: string; // s3://... — 분석 시 reference 시퀀스 추출 원본
   thumbnailUrl?: string;
+  clipRange?: ClipRange;
+  checkpoints?: Checkpoint[];
+  // 공유 베이스 콤보 (reference-motions.md §7). 이 모션이 다른 모션의 베이스
+  // 구간을 공유하면 그 모션 ID + 공유가 끝나는 시점(초). 단일 모션이면 없음.
+  //   plank-spin → invert-butterfly-combo(baseUntilS:6) → gemini-ayesha-combo(baseUntilS:18)
+  sharedBaseMotionId?: string;
+  baseUntilS?: number;
+  updatedAt?: number; // epoch ms — 시드/관리자 등록 시 갱신. NEW 배너 정렬용
 }
 
 // ── 표시 매핑 (design.md §5-9 단계별 메시지 / §6 오류) ──────────────────

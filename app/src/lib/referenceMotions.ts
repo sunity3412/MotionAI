@@ -4,9 +4,10 @@
 // 나중에 백엔드 Lambda(GET /reference) 가 켜지면 이 파일 내부만 교체하면 됨
 // (훅 시그니처 고정). docs/contract.md §3 / firestore.rules: reference/** 인증 read.
 //
-// 데이터 스키마: reference/{motionId} 단일 컬렉션 (backend models.py 와 동일).
-//   필드: name, athleteName, level('basic'|'intermediate'|'advanced'),
-//         description?, thumbnailUrl?, isActive?(false 면 앱 미노출)
+// 데이터 스키마: reference/{motionId} 단일 컬렉션. 단일 진실 = docs/reference-motions.md §3.
+//   필수: name, athleteName, level('basic'|'intermediate'|'advanced')
+//   옵셔널: entryType/entryDescription/description/videoUrl/thumbnailUrl/clipRange/
+//           checkpoints/sharedBaseMotionId/baseUntilS, isActive(false 면 앱 미노출)
 
 import {
   collection,
@@ -38,14 +39,25 @@ function normalize(id: string, raw: Record<string, unknown>): ReferenceMotion | 
   const level = raw.level as SkillLevel | undefined;
   if (!name || !athleteName || !level || !(level in LEVEL_ORDER)) return null;
   if (raw.isActive === false) return null;
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' ? v : undefined;
   return {
     motionId: id,
     name,
     athleteName,
     level,
-    description: typeof raw.description === 'string' ? raw.description : undefined,
-    thumbnailUrl:
-      typeof raw.thumbnailUrl === 'string' ? raw.thumbnailUrl : undefined,
+    entryType: raw.entryType as ReferenceMotion['entryType'],
+    entryDescription: str(raw.entryDescription),
+    description: str(raw.description),
+    videoUrl: str(raw.videoUrl),
+    thumbnailUrl: str(raw.thumbnailUrl),
+    clipRange: raw.clipRange as ReferenceMotion['clipRange'],
+    checkpoints: Array.isArray(raw.checkpoints)
+      ? (raw.checkpoints as ReferenceMotion['checkpoints'])
+      : undefined,
+    sharedBaseMotionId: str(raw.sharedBaseMotionId),
+    baseUntilS: typeof raw.baseUntilS === 'number' ? raw.baseUntilS : undefined,
+    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : undefined,
   };
 }
 

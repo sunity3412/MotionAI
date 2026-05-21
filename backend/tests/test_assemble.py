@@ -63,6 +63,19 @@ def test_mode1_shape_and_clamp():
     }
 
 
+def test_mode1_segment_scores_included_only_when_given():
+    seg = {
+        "base": 82,
+        "extension": 64,
+        "baseMotionId": "ref-plank-spin",
+        "baseMotionName": "플랭크 스핀",
+    }
+    c = assemble.build_mode1(REF, similarity=70, segment_scores=seg)
+    assert c["segmentScores"] == seg
+    # 단일 모션(segment 없음)이면 키 자체가 없음
+    assert "segmentScores" not in assemble.build_mode1(REF, similarity=70)
+
+
 def test_mode3_first_has_no_delta():
     c = assemble.build_mode3(True, None, None, {"상체": 80, "코어": 70, "하체": 60})
     assert c == {"mode": "mode3", "isFirst": True}

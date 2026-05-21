@@ -12,19 +12,31 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   setDoc,
   where,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { getSimulatedResult } from './simulatedResult';
+import { getSimulatedResult, simulatedSegmentScores } from './simulatedResult';
 import type {
   AnalysisDoc,
   AnalysisMode,
   AnalysisResult,
   BodyPart,
+  ReferenceMotion,
+  SegmentScores,
 } from '../types/analysis';
+
+// reference/{motionId} 1건 — 콤보 여부(sharedBaseMotionId) 판단용.
+async function loadReferenceMotion(
+  motionId: string,
+): Promise<ReferenceMotion | null> {
+  const snap = await getDoc(doc(db, 'reference', motionId));
+  if (!snap.exists()) return null;
+  return { motionId, ...snap.data() } as ReferenceMotion;
+}
 
 export interface SaveSimulatedInput {
   mode: AnalysisMode;
@@ -71,11 +83,23 @@ export async function saveSimulatedAnalysis(
 
   if (result.comparison.mode === 'mode1' && input.referenceMotionId) {
     // mode1: 사용자가 고른 기준 모션 정보로 픽스처를 덮어씀(result.tsx 분기와 동일).
+    // 콤보 모션이면 베이스/확장 구간 부분 점수도 채움(백엔드 pipeline 과 동일 판단).
+    const refMotion = await loadReferenceMotion(input.referenceMotionId);
+    let segmentScores: SegmentScores | undefined;
+    if (refMotion?.sharedBaseMotionId) {
+      const baseMotion = await loadReferenceMotion(refMotion.sharedBaseMotionId);
+      segmentScores = simulatedSegmentScores(
+        result.overallScore,
+        refMotion.sharedBaseMotionId,
+        baseMotion?.name ?? '',
+      );
+    }
     result.comparison = {
       ...result.comparison,
       referenceMotionId: input.referenceMotionId,
       referenceMotionName:
         input.referenceMotionName || result.comparison.referenceMotionName,
+      ...(segmentScores ? { segmentScores } : {}),
     };
   } else if (result.comparison.mode === 'mode3') {
     // mode3: 이전 분석 있나 확인. 없으면 isFirst, 있으면 실 delta 계산.

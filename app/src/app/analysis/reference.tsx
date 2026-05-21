@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -26,11 +26,27 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function ReferenceSelect() {
   const router = useRouter();
-  const { name } = useLocalSearchParams<{ name?: string }>();
+  const { name, motionId: preselectId } = useLocalSearchParams<{
+    name?: string;
+    motionId?: string;
+  }>();
   const { motions, loading, error } = useReferenceMotions();
 
   const [tab, setTab] = useState<Tab>('basic');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // 홈 챌린지 카드처럼 특정 동작을 지정해서 들어온 경우, motions 로딩이 끝나면
+  // 1회만 해당 동작의 레벨 탭으로 점프하고 미리 선택. 이후 사용자 탭 전환은 그대로 둠.
+  const preselectAppliedRef = useRef(false);
+  useEffect(() => {
+    if (preselectAppliedRef.current) return;
+    if (!preselectId || motions.length === 0) return;
+    const target = motions.find((m) => m.motionId === preselectId);
+    if (!target) return;
+    setTab(target.level);
+    setSelectedId(target.motionId);
+    preselectAppliedRef.current = true;
+  }, [preselectId, motions]);
 
   const byLevel = useMemo(() => motions.filter((m) => m.level === tab), [motions, tab]);
   const selected = motions.find((m) => m.motionId === selectedId) ?? null;

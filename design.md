@@ -254,14 +254,17 @@ linear-gradient(95.9°, #FFB5AB 1.74%, #FF604B 90.6%)
 - 모서리: 15pt radius (일반) / 8.58pt radius (리스트 아이템)
 - 그림자: 없음
 
-### 5-5. 점수 위젯 (OBJECTS 컴포넌트) ✅ 확정
-크기: 95.43px × 95.43px. 원형 이미지 + 숫자 오버레이.
+### 5-5. 점수 위젯 (OBJECTS 컴포넌트) ✅ 확정 — 옥타곤
+크기: 95.43px × 95.43px. **정팔각형(8각형) 외곽선** + 숫자 오버레이.
 ```
-배경: 원형 오브젝트 이미지 (OBJECTS asset)
-  + 중앙 텍스트: 50pt Bold, #FF4B33
-  + 위치: 홈 최근 분석 카드 우측 (223px, 310px)
+외곽선: 두꺼운 8각형 stroke #FF4B33 (두께 3px)
+내부 채움: 흰색 #FFFFFF
+중앙 텍스트: 50pt Bold #FF4B33
+위치: 홈 최근 분석 카드 우측 (223px, 310px)
 ```
-→ react-native-svg 또는 이미지 에셋으로 구현. 단순 SVG 원호 아님.
+→ 구현: components/OctagonScore.tsx (react-native-svg `<Polygon>` + 절대위치 텍스트).
+정점 좌표 = viewBox 100 기준 정팔각형, inset 4(stroke 잘림 방지).
+> 정정 이력: 이전엔 "원형 OBJECTS 이미지"로 적혀 있었으나 Figma 1:719 재확인 결과 옥타곤이 맞음 (2026-05-20).
 
 ### 5-6. 선수 프로필 카드 (종목 선택)
 - 선수 이미지 풀블리드 배경
@@ -470,6 +473,9 @@ React Native에서는 PanResponder 또는 react-native-gesture-handler로 구현
 ```
 1. 라이트 테마 기반. 다크모드 대응 불필요 (MVP 기준)
    → 이전 다크 추정 완전 폐기
+   → ⚠️ 예외: 분석 로딩 화면(§5-9, Figma 1:429/436/445)은 다크 네이비 +
+     파랑→보라 그라디언트 링이 최신 결정. 임팩트 화면 단독 예외.
+     본 결정 2026-05-20 — 다른 화면은 라이트 유지.
 
 2. 홈 배경은 LinearGradient 컴포넌트로 구현
    → 이미지 에셋 아님! CSS/RN linear-gradient 사용

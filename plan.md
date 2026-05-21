@@ -135,6 +135,25 @@
      ("프로 동작과 비교" → reference.tsx / "내 기록과 비교" → 기존 mode3)
    - loading→result 까지 referenceMotionId/Name 파라미터 전달, 시뮬에 반영
    - tsc 클린 + iOS 번들 스모크 통과. 시드(정은지 동작 3개) = 별도 작업
+✅ 기준 모션 카탈로그 정합 — 정은지 실모션 5개 + 콤보 부분점수
+   - docs/reference-motions.md v5(정은지 실영상 5개 분석)를 단일 진실로
+     앱 타입·계약·시드·백엔드 전부 정합. 기존 시드 3개(가짜 픽스처)는 폐기
+   - analysis.ts: ReferenceMotion 에 entryType/entryDescription/clipRange/
+     checkpoints/videoUrl/sharedBaseMotionId/baseUntilS 추가. EntryType/
+     ClipRange/Checkpoint 타입. Mode1Comparison.segmentScores 옵셔널
+   - contract.md §3 ReferenceMotion 스키마 + §4 SegmentScores 동기화
+   - seed-reference-motions.mjs: 발레리나/프론트훅/플랭크/인버트버터플라이/
+     제미니에이샤 5개 실데이터 (clipRange·checkpoints weight합 1.0)
+   - 콤보 부분점수: plank-spin → invert-butterfly-combo(baseUntil 6s)
+     → gemini-ayesha-combo(baseUntil 18s) 트리. 콤보 분석 시 베이스/확장
+     구간 점수를 분리 평가 → 학생이 어느 단계에서 막혔는지 가시화
+   - 백엔드 segments.py: DTW 경로를 baseUntilS 비율로 베이스/확장 분리 →
+     각 KISMAM 점수. pipeline mode1 통합. 신규 테스트 7개, backend 56 통과
+   - 시뮬/결과화면: simulationWriter 가 콤보면 segmentScores 채움,
+     result.tsx 에 "구간별 점수" 카드 + 학습 경로 힌트
+   - tsc 클린 + iOS 번들 4.39MB 스모크 통과
+   - ⚠ checkpoint 가중치·peak·자유 다리 좌우는 추정 — MVP 시연 후 정은지
+     선수와 분석 결과 함께 보며 일괄 수정 (reference-motions.md §6·§7)
 ```
 
 ---
@@ -172,8 +191,9 @@
        시뮬 점수 차별화. 영상 나란히 보기·실데이터는 #7-follow
 11.[x] 홈/기록/마이 탭 (게스트·폴스포츠 단일 종목 가정). users/{uid}/analyses
        구독으로 자동 분기. ScreenPlaceholder 제거
-12.[x] 시드: 정은지 동작 3개 메타 등록 완료 (인사이드 레그 행/기본 그립/
-       파이어맨 스핀). 영상·키포인트는 #7-follow 에서 동일 doc merge
+12.[x] 시드: 정은지 실모션 5개로 교체 (발레리나/프론트훅/플랭크/인버트버터
+       플라이/제미니에이샤) + 콤보 부분점수까지 — 아래 완료 블록 참조.
+       기존 가짜 3개(인사이드레그행/기본그립/파이어맨스핀)는 폐기
 ```
 
 ---
@@ -198,7 +218,43 @@
 
 ---
 
-*마지막 업데이트: 2026-05-20 — 시드 실행 완료. reference 컬렉션에 정은지
- 동작 3개 메타 등록(인사이드 레그 행/기본 그립/파이어맨 스핀). 앱
- reference 화면이 onSnapshot 으로 즉시 반영. 다음: 시각 검증 → EAS Build/
- TestFlight, 그리고 #7-follow(AWS 환경 준비 후) 대기.*
+*마지막 업데이트: 2026-05-21 — 기준 모션 카탈로그 정합:
+ 정은지 실모션 5개(발레리나/프론트훅/플랭크/인버트버터플라이/제미니에이샤) +
+ 콤보 부분점수(베이스/확장 구간 분리). 타입·계약·시드·백엔드·UI 전부 동기화.
+ 남은 외부 작업(belle, 자격증명 필요):
+  1. 영상 5개 S3 업로드:
+     aws s3 cp "정은지님 영상/{motionId}.mp4" \
+       s3://sunity-motion-pilot-videos/reference/{motionId}.mp4
+     (motionId = ref-ballerina-spin / ref-front-hook-spin / ref-plank-spin /
+      ref-invert-butterfly-combo / ref-gemini-to-ayesha-combo)
+  2. Firestore 시드 반영:
+     gcloud auth application-default login  (sunity3412@gmail.com, 최초 1회)
+     cd app && npm run seed:reference
+
+*2026-05-20 — 시드 시각 검증 + 홈 외관 보강.
+
+ [홈] Figma 1:719 기준 6개 디테일 중 5개 반영:
+  ✅ 프로필 아이콘 (상단 흰 반투명 동그라미)
+  ✅ NEW 공지 배너 (rounded pill + NEW 배지 + 최근 모션명)
+  ✅ 옥타곤 점수 위젯 (components/OctagonScore — react-native-svg Polygon)
+  ✅ "전체보기 ›" 링크 (reference 화면으로 이동)
+  ✅ 동작 컨텍스트 카피 ("중급 도전 추천" / "입문 기본기" / "고급 새로 추가됨")
+     + 회색 썸네일 박스 + Figma 정렬(고급→중급→기본기)
+  🟡 성장 그래프 라인차트(victory-native 도입) — 별도 턴
+
+ [버그 픽스] 홈 챌린지 카드 누를 때 reference 화면 항상 기본기 탭으로 들어가던 문제
+   → motionId params 전달 + reference 화면에서 해당 level 탭으로 자동 점프 + 미리 선택
+
+ [design.md 정정]
+  - §5-5: 점수 위젯을 원형 → 옥타곤(정팔각형 외곽선)으로 정정
+  - §10: 분석 로딩 화면(Figma 1:429/436/445)은 다크 + 그라디언트 링이 최신 결정 (라이트 테마 단독 예외)
+
+ [발견] Figma의 "AI분석-결과1/2/3" 노드는 실제로는 분석 로딩 화면의 단계별
+   변형(✓ 추출 완료 체크 등). 진짜 결과 화면은 여전히 Figma에 없음(자체 설계).
+
+ 다음 후보 (우선순위):
+  1. 결과 화면 영상 비교 UI 보강 (사용자 통찰 — 시연 임팩트 핵심)
+  2. 분석 로딩 화면 다크 + 그라디언트 링 + 이름 인터폴 카피
+  3. 성장 그래프 라인차트 (victory-native)
+  4. EAS Build/TestFlight (외부 준비 — Apple Developer 계정)
+  5. #7-follow (AWS+ML 모델 어댑터) — 외부 준비*

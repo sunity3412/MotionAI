@@ -9,6 +9,7 @@ import type {
   AnalysisMode,
   AnalysisResult,
   JointScore,
+  SegmentScores,
 } from '../types/analysis';
 
 // ViTPose 17 keypoint 중 평가 관절 (백엔드 skeleton 과 동일 key/라벨).
@@ -90,6 +91,23 @@ const SCORES_MODE3 = {
   parts: { 상체: 84, 코어: 73, 하체: 70 },
 } as const;
 
+// 콤보 부분 점수 시뮬 (reference-motions.md §7). 베이스 구간은 익숙해서 높고,
+// 확장(고유) 구간은 어려워서 낮게 — 학생이 어디서 막혔는지 자연스럽게 드러남.
+// #7-follow 에서 백엔드 segments.segment_scores 실측치로 교체.
+export function simulatedSegmentScores(
+  overallScore: number,
+  baseMotionId: string,
+  baseMotionName: string,
+): SegmentScores {
+  const clamp = (n: number) => Math.max(0, Math.min(100, n));
+  return {
+    base: clamp(overallScore + 8),
+    extension: clamp(overallScore - 13),
+    baseMotionId,
+    baseMotionName,
+  };
+}
+
 export function getSimulatedResult(
   mode: AnalysisMode,
   analysisId = 'sim-analysis',
@@ -103,10 +121,11 @@ export function getSimulatedResult(
       myVideoUrl: '',
       comparison: {
         mode: 'mode1',
-        referenceMotionId: 'ref-inside-leg-hang',
-        referenceMotionName: '인사이드 레그 행',
+        referenceMotionId: 'ref-invert-butterfly-combo',
+        referenceMotionName: '인버트 버터플라이 콤보',
         athleteName: '정은지',
         similarity: SCORES_MODE1.overall, // 게이지 점수 = 일치도
+        // segmentScores 는 simulationWriter 가 고른 모션의 콤보 여부를 보고 채움.
       },
       referenceVideoUrl: '',
     };

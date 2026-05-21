@@ -58,14 +58,22 @@ def build_tips(
     return tips
 
 
-def build_mode1(reference_motion: dict, similarity: int) -> dict:
-    return {
+def build_mode1(
+    reference_motion: dict,
+    similarity: int,
+    segment_scores: dict | None = None,
+) -> dict:
+    out = {
         "mode": "mode1",
         "referenceMotionId": reference_motion["motionId"],
         "referenceMotionName": reference_motion.get("name", ""),
         "athleteName": reference_motion.get("athleteName", ""),
         "similarity": int(max(0, min(100, similarity))),
     }
+    # 콤보 모션 분석 시에만 (segments.segment_scores 가 dict 반환). contract §4.
+    if segment_scores:
+        out["segmentScores"] = segment_scores
+    return out
 
 
 def build_mode3(

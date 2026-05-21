@@ -23,6 +23,7 @@ import type {
   BodyPart,
   JointDirection,
   JointScore,
+  SegmentScores,
   SkillLevel,
 } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
@@ -145,6 +146,37 @@ function PartScoreRow({
   );
 }
 
+// 콤보 부분 점수 행 (베이스/확장). PartScoreRow 와 트랙 바를 공유하되 델타 없음.
+function SegmentRow({ label, score }: { label: string; score: number }) {
+  return (
+    <View style={styles.partRow}>
+      <View style={styles.partHead}>
+        <Text style={styles.partLabel}>{label}</Text>
+        <Text style={styles.partScore}>{score}</Text>
+      </View>
+      <View style={styles.track}>
+        <View
+          style={[
+            styles.trackFill,
+            { width: `${Math.max(0, Math.min(100, score))}%` },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
+// 베이스/확장 점수 차이로 학습 경로 한 줄 안내 (reference-motions.md §7).
+function segmentHint(seg: SegmentScores): string {
+  if (seg.base < 65) {
+    return `${seg.baseMotionName} 베이스가 아직 약해요. 베이스 동작을 먼저 다지면 이 콤보가 한결 안정됩니다.`;
+  }
+  if (seg.base - seg.extension >= 10) {
+    return '베이스는 안정적이에요. 확장 구간에서 점수가 떨어지니 후반 동작을 집중해서 연습해보세요.';
+  }
+  return '베이스와 확장 구간이 고르게 나왔어요. 전체 흐름을 이어서 다듬어보세요.';
+}
+
 export default function AnalysisResult() {
   const router = useRouter();
   const { mode, name, analysisId, referenceMotionId, referenceMotionName } =
@@ -247,6 +279,26 @@ export default function AnalysisResult() {
           </View>
           <LevelBenchmark score={result.overallScore} />
         </View>
+
+        {/* 콤보 부분 점수 — 콤보 모션 분석 시에만 (reference-motions.md §7) */}
+        {cmp.mode === 'mode1' && cmp.segmentScores && (
+          <>
+            <Text style={styles.sectionTitle}>구간별 점수</Text>
+            <View style={styles.card}>
+              <SegmentRow
+                label={`${cmp.segmentScores.baseMotionName} 베이스`}
+                score={cmp.segmentScores.base}
+              />
+              <SegmentRow
+                label="콤보 확장 구간"
+                score={cmp.segmentScores.extension}
+              />
+              <Text style={styles.segmentHintText}>
+                {segmentHint(cmp.segmentScores)}
+              </Text>
+            </View>
+          </>
+        )}
 
         {/* 세부 점수 (AC-RES-001-4) */}
         <Text style={styles.sectionTitle}>세부 점수</Text>
@@ -463,6 +515,12 @@ const styles = StyleSheet.create({
   },
   refName: { ...typography.listTitle, color: colors.textPrimary },
   refDesc: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  segmentHintText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    alignSelf: 'flex-start',
+    lineHeight: 18,
+  },
   partRow: { width: '100%', marginBottom: 14 },
   partHead: {
     flexDirection: 'row',

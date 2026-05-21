@@ -23,7 +23,7 @@ import boto3  # Lambda 런타임 제공
 import numpy as np
 
 from sunity_shared import firestore_admin, models
-from sunity_shared.analysis import assemble, kismam, selfmotion
+from sunity_shared.analysis import assemble, kismam, segments, selfmotion
 from sunity_shared.analysis.features import (
     compute_joint_angles,
     feature_vector,
@@ -96,12 +96,24 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             raise RuntimeError("기준 모션 또는 keyframe 데이터 없음")
         a_ref = np.asarray(ref["angles"], dtype=float)
         match = motion_dtw(feature_vector(angles), feature_vector(a_ref))
-        deviation = per_joint_deviation(
-            match.path, angles[match.start : match.end], a_ref
-        )
+        user_seg = angles[match.start : match.end]
+        deviation = per_joint_deviation(match.path, user_seg, a_ref)
         assessments = kismam.assess(deviation)
         similarity = kismam.overall_score(assessments)
-        comparison = assemble.build_mode1(ref, similarity)
+        # 콤보 모션이면 베이스/확장 구간 부분 점수 (reference-motions.md §7).
+        seg_scores = None
+        if ref.get("sharedBaseMotionId"):
+            base_ref = firestore_admin.get_reference_motion(
+                ref["sharedBaseMotionId"]
+            )
+            seg_scores = segments.segment_scores(
+                ref,
+                (base_ref or {}).get("name", ""),
+                match.path,
+                user_seg,
+                a_ref,
+            )
+        comparison = assemble.build_mode1(ref, similarity, seg_scores)
         if ref.get("videoS3Key"):
             reference_video_url = _signed_get(bucket, ref["videoS3Key"])
     else:  # MODE_SELF — 좌우 대칭 자기 기준

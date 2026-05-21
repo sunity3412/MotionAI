@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Easing,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { StatusBar } from 'expo-status-bar';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
 import { saveSimulatedAnalysis } from '../../lib/simulationWriter';
 import {
   type AnalysisErrorCode,
@@ -22,29 +22,19 @@ import {
 } from '../../types/analysis';
 import { layout, radius, spacing, typography } from '../../theme';
 
-// AI 분석 로딩 (plan.md #5, design.md §5-9·§10).
-// design.md §10: 이 화면만 다크 네이비 + 파랑→보라 그라디언트 링 (라이트 테마 단독 예외).
-// 스피너 금지(§0) — 그라디언트 링은 장식, 단계별 메시지가 실제 진행 정보.
-// status 구동 → 백엔드 붙으면 useSimulatedAnalysis 만 onSnapshot 으로 교체(계약 동일).
+// AI 분석 로딩 (plan.md #5, design.md §5-9·§10, Figma 1:429/436/445).
+// 라이트 테마 단독 예외 — 다크 네이비. 분석 중: 글로우 그라디언트 링(안에 텍스트)
+// + 링 아래 단계 한 줄. 오류/완료: 하단 웨이브 그라디언트(오류 분홍/완료 민트).
 
-// 다크 로딩 화면 전용 색 (단독 예외 화면이라 theme 토큰 대신 로컬 상수).
-const NAVY_BG = '#161A33';
-const RING_FROM = '#5C7CFA';
-const RING_TO = '#A77BF3';
-const BRAND = '#FF4B33';
-const ERROR = '#FF5A5A';
+const NAVY_TOP = '#13152B';
+const NAVY_BOT = '#1E2348';
+const RING_C1 = '#3FD8C8'; // 청록
+const RING_C2 = '#5C7CFA'; // 파랑
+const RING_C3 = '#A77BF3'; // 보라
+const ERROR_RED = '#FF5A6A';
+const DONE_TEAL = '#3FD8AE';
 const TEXT_DIM = 'rgba(255,255,255,0.55)';
-const TRACK_DIM = 'rgba(255,255,255,0.10)';
 
-// design.md §5-9 표시 단계 (uploading/queued 는 준비 중으로 묶고 핵심 3단계 노출)
-const STEPS: { status: AnalysisStatus; label: string }[] = [
-  { status: 'frame_extraction', label: STATUS_MESSAGE.frame_extraction },
-  { status: 'pose_analysis', label: STATUS_MESSAGE.pose_analysis },
-  { status: 'comparison', label: STATUS_MESSAGE.comparison },
-];
-
-// TODO(#6~7): 백엔드 연결 시 이 훅을 Firestore onSnapshot 구독으로 교체.
-// 계약상 입력은 analysisId, 출력은 { status, errorCode } 로 동일하게 유지할 것.
 function useSimulatedAnalysis(): {
   status: AnalysisStatus;
   errorCode: AnalysisErrorCode | null;
@@ -67,71 +57,92 @@ function useSimulatedAnalysis(): {
   return { status, errorCode: null };
 }
 
-// 파랑→보라 그라디언트 링 — 천천히 회전(장식). design.md §10.
-function GradientRing() {
-  const spin = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: 1800,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [spin]);
-  const rotate = spin.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-  const C = 2 * Math.PI * 42;
-  return (
-    <Animated.View style={{ transform: [{ rotate }] }}>
-      <Svg width={132} height={132} viewBox="0 0 100 100">
-        <Defs>
-          <LinearGradient id="loadingRing" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={RING_FROM} />
-            <Stop offset="1" stopColor={RING_TO} />
-          </LinearGradient>
-        </Defs>
-        <Circle
-          cx={50}
-          cy={50}
-          r={42}
-          stroke={TRACK_DIM}
-          strokeWidth={6}
-          fill="none"
-        />
-        <Circle
-          cx={50}
-          cy={50}
-          r={42}
-          stroke="url(#loadingRing)"
-          strokeWidth={6}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={`${C * 0.68} ${C}`}
-        />
-      </Svg>
-    </Animated.View>
-  );
-}
-
-function PulseDot() {
-  const v = useRef(new Animated.Value(0.3)).current;
+// 글로우 그라디언트 링 — 정적 링 + 부드러운 펄스(스피너 아님, §0). 안에 children.
+function GlowRing({ children }: { children: ReactNode }) {
+  const pulse = useRef(new Animated.Value(0.85)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(v, { toValue: 1, duration: 600, useNativeDriver: true }),
-        Animated.timing(v, { toValue: 0.3, duration: 600, useNativeDriver: true }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 1100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.85,
+          duration: 1100,
+          useNativeDriver: true,
+        }),
       ]),
     );
     loop.start();
     return () => loop.stop();
-  }, [v]);
-  return <Animated.View style={[styles.dot, { opacity: v }]} />;
+  }, [pulse]);
+  return (
+    <View style={styles.ringWrap}>
+      <Animated.View style={{ opacity: pulse }}>
+        <Svg width={264} height={264} viewBox="0 0 100 100">
+          <Defs>
+            <SvgGradient id="glowRing" x1="0" y1="1" x2="1" y2="0">
+              <Stop offset="0" stopColor={RING_C1} />
+              <Stop offset="0.5" stopColor={RING_C2} />
+              <Stop offset="1" stopColor={RING_C3} />
+            </SvgGradient>
+          </Defs>
+          {/* 글로우 — 굵고 흐린 링 */}
+          <Circle
+            cx={50}
+            cy={50}
+            r={38}
+            stroke="url(#glowRing)"
+            strokeWidth={15}
+            fill="none"
+            opacity={0.22}
+          />
+          {/* 메인 링 */}
+          <Circle
+            cx={50}
+            cy={50}
+            r={38}
+            stroke="url(#glowRing)"
+            strokeWidth={6}
+            fill="none"
+          />
+        </Svg>
+      </Animated.View>
+      <View style={styles.ringContent}>{children}</View>
+    </View>
+  );
+}
+
+// 하단 웨이브 그라디언트 — 오류=분홍, 완료=민트 (Figma).
+function WaveBackground({ tint }: { tint: string }) {
+  return (
+    <View style={styles.waveWrap} pointerEvents="none">
+      <Svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <Path
+          d="M0,40 Q26,26 52,38 T100,34 L100,100 L0,100 Z"
+          fill={tint}
+          fillOpacity={0.16}
+        />
+        <Path
+          d="M0,58 Q30,44 58,56 T100,52 L100,100 L0,100 Z"
+          fill={tint}
+          fillOpacity={0.3}
+        />
+        <Path
+          d="M0,76 Q28,64 56,74 T100,72 L100,100 L0,100 Z"
+          fill={tint}
+          fillOpacity={0.5}
+        />
+      </Svg>
+    </View>
+  );
 }
 
 export default function AnalysisLoading() {
@@ -141,8 +152,6 @@ export default function AnalysisLoading() {
       mode?: string;
       name?: string;
       analysisId?: string;
-      // mode1 진입 시 기준 모션 ID (plan.md #9). 실제 활용은 #7-follow
-      // (POST /upload-url 호출 시 본문에 포함). 지금은 받기만 + 결과로 전달.
       referenceMotionId?: string;
       referenceMotionName?: string;
     }>();
@@ -150,16 +159,15 @@ export default function AnalysisLoading() {
 
   const failed = status === 'failed' || errorCode != null;
   const done = status === 'done';
-  const currentIndex = PROGRESS_SEQUENCE.indexOf(status);
 
-  // 시뮬 종료 시 Firestore 에 done 문서 1건 저장 → 홈/기록 탭이 즉시 반영.
-  // 백엔드 실 파이프라인 켜지면 lib/simulationWriter 와 함께 제거(스캐폴드).
-  const savedAnalysisIdRef = useRef<string | null>(null);
+  // 시뮬 종료 시 Firestore done 문서 저장 → 저장 끝나면 결과 화면 자동 전환
+  // (Figma 완료 화면: "잠시만 기다려주세요"). 백엔드 붙으면 simulationWriter 폐기.
   const savingRef = useRef(false);
   useEffect(() => {
     if (!done || savingRef.current) return;
     savingRef.current = true;
     const analysisMode: AnalysisMode = mode === 'mode1' ? 'mode1' : 'mode3';
+    let savedId: string | null = null;
     saveSimulatedAnalysis({
       mode: analysisMode,
       fileName: typeof name === 'string' ? name : '',
@@ -167,151 +175,190 @@ export default function AnalysisLoading() {
       referenceMotionName,
     })
       .then((id) => {
-        if (id) savedAnalysisIdRef.current = id;
+        savedId = id;
       })
       .catch((e) => {
         if (__DEV__) console.warn('[loading] saveSimulatedAnalysis failed', e);
+      })
+      .finally(() => {
+        // 완료 화면을 잠깐 보여준 뒤 결과로 (저장 시간 + 최소 노출).
+        setTimeout(() => {
+          router.replace({
+            pathname: '/analysis/result',
+            params: {
+              mode: mode ?? 'mode3',
+              name,
+              analysisId: savedId ?? analysisId,
+              referenceMotionId,
+              referenceMotionName,
+            },
+          });
+        }, 900);
       });
-  }, [done, mode, name, referenceMotionId, referenceMotionName]);
+  }, [done, mode, name, analysisId, referenceMotionId, referenceMotionName, router]);
 
   if (failed) {
     const code: AnalysisErrorCode = errorCode ?? 'server_error';
+    const isNoHuman = code === 'no_human';
     return (
-      <View style={styles.container}>
+      <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
         <StatusBar style="light" />
+        <WaveBackground tint="#E8657F" />
+        <Pressable style={styles.inquiry} accessibilityRole="link" hitSlop={8}>
+          <Text style={styles.inquiryText}>문의하기</Text>
+        </Pressable>
         <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={56} color={ERROR} />
-          <Text style={styles.title}>분석에 실패했어요</Text>
+          <View style={[styles.statusRing, { borderColor: ERROR_RED }]}>
+            <Ionicons name="close" size={36} color={ERROR_RED} />
+          </View>
+          <Text style={styles.title}>
+            {isNoHuman ? '사람을 찾지 못했어요' : '분석 중 문제가 발생했어요'}
+          </Text>
           <Text style={styles.sub}>{ERROR_MESSAGE[code]}</Text>
+          {isNoHuman && (
+            <View style={styles.tipCard}>
+              <View style={styles.tipHeadRow}>
+                <Ionicons name="alert-circle" size={16} color={ERROR_RED} />
+                <Text style={styles.tipHead}>촬영 TIP!</Text>
+              </View>
+              <Text style={styles.tipItem}>· 측면 45°, 2~3m 거리</Text>
+              <Text style={styles.tipItem}>· 밝은 환경, 폴 전체로 보이게</Text>
+              <Text style={styles.tipItem}>· 3초 이상, 동작 전체 포함</Text>
+            </View>
+          )}
         </View>
         <Pressable
           style={styles.cta}
           onPress={() => router.back()}
           accessibilityRole="button"
         >
-          <Text style={styles.ctaText}>다시 시도</Text>
+          <Text style={styles.ctaText}>다시 분석하기</Text>
         </Pressable>
-      </View>
+      </LinearGradient>
     );
   }
 
   if (done) {
     return (
-      <View style={styles.container}>
+      <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
         <StatusBar style="light" />
+        <WaveBackground tint={DONE_TEAL} />
         <View style={styles.center}>
-          <Ionicons name="checkmark-circle" size={64} color={RING_FROM} />
+          <View style={[styles.statusRing, { borderColor: DONE_TEAL }]}>
+            <Ionicons name="checkmark" size={36} color={DONE_TEAL} />
+          </View>
           <Text style={styles.title}>{STATUS_MESSAGE.done}</Text>
-          <Text style={styles.sub}>분석 결과를 확인할 수 있어요.</Text>
+          <Text style={styles.sub}>분석 결과를 준비하고 있어요.{'\n'}잠시만 기다려주세요.</Text>
         </View>
-        <Pressable
-          style={styles.cta}
-          onPress={() =>
-            router.replace({
-              pathname: '/analysis/result',
-              params: {
-                mode: mode ?? 'mode3',
-                name,
-                // 저장이 끝났으면 새 analysisId 사용, 아직이면 호출시 들어온 값 폴백.
-                analysisId: savedAnalysisIdRef.current ?? analysisId,
-                referenceMotionId,
-                referenceMotionName,
-              },
-            })
-          }
-          accessibilityRole="button"
-        >
-          <Text style={styles.ctaText}>결과 보기</Text>
-        </Pressable>
-      </View>
+      </LinearGradient>
     );
   }
 
+  const titleLine =
+    mode === 'mode1'
+      ? '전문가 동작과 내 포즈를\n분석하고 있어요.'
+      : '내 포즈를\n분석하고 있어요.';
+
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.header}>
-        <Text style={styles.title}>AI가 분석하고 있어요</Text>
-        <Text style={styles.sub}>
-          {name ? `${name} · ` : ''}보통 30~60초 정도 걸려요.
-        </Text>
+      <View style={styles.center}>
+        <GlowRing>
+          <Text style={styles.ringTitle}>{titleLine}</Text>
+          <Text style={styles.ringSub}>화면을 닫지 마세요.</Text>
+        </GlowRing>
+        <Text style={styles.stepLine}>{STATUS_MESSAGE[status]}</Text>
       </View>
-
-      <View style={styles.ringWrap}>
-        <GradientRing />
-      </View>
-
-      <View style={styles.steps}>
-        {STEPS.map((step) => {
-          const stepIndex = PROGRESS_SEQUENCE.indexOf(step.status);
-          const stepDone = currentIndex > stepIndex;
-          const active = currentIndex === stepIndex;
-          return (
-            <View key={step.status} style={styles.stepRow}>
-              {stepDone ? (
-                <Ionicons name="checkmark-circle" size={22} color={RING_FROM} />
-              ) : active ? (
-                <PulseDot />
-              ) : (
-                <View style={styles.dotPending} />
-              )}
-              <Text
-                style={[
-                  styles.stepLabel,
-                  stepDone && styles.stepLabelDone,
-                  active && styles.stepLabelActive,
-                ]}
-              >
-                {step.label}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: NAVY_BG, // design.md §10 — 로딩 화면 단독 다크 예외
     paddingTop: layout.safeAreaTop,
     paddingHorizontal: spacing.screenX,
     paddingBottom: layout.safeAreaBottom + 24,
   },
-  header: { marginTop: 24 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  ringWrap: { alignItems: 'center', marginTop: 56 },
-  title: { ...typography.heading, color: '#FFFFFF' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  // 분석 중 — 글로우 링
+  ringWrap: {
+    width: 264,
+    height: 264,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringContent: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 44,
+    gap: 10,
+  },
+  ringTitle: {
+    ...typography.listTitle,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  ringSub: { ...typography.caption, color: TEXT_DIM, textAlign: 'center' },
+  stepLine: {
+    ...typography.caption,
+    color: TEXT_DIM,
+    marginTop: 44,
+    textAlign: 'center',
+  },
+  // 오류/완료 공통
+  title: {
+    ...typography.heading,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginTop: 20,
+  },
   sub: {
     ...typography.caption,
     color: TEXT_DIM,
-    marginTop: 8,
+    marginTop: 10,
     textAlign: 'center',
+    lineHeight: 19,
   },
-  steps: { marginTop: 56, gap: 22 },
-  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  dot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: RING_FROM,
-  },
-  dotPending: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  statusRing: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     borderWidth: 2,
-    borderColor: TRACK_DIM,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  stepLabel: { ...typography.listTitle, color: TEXT_DIM },
-  stepLabelActive: { color: '#FFFFFF' },
-  stepLabelDone: { color: 'rgba(255,255,255,0.82)' },
+  inquiry: { alignSelf: 'flex-end', marginTop: 4, padding: 4 },
+  inquiryText: { ...typography.caption, color: TEXT_DIM },
+  tipCard: {
+    marginTop: 22,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    gap: 6,
+    alignSelf: 'stretch',
+  },
+  tipHeadRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  tipHead: { ...typography.boxLabel, color: '#FFFFFF' },
+  tipItem: { ...typography.caption, color: 'rgba(255,255,255,0.78)' },
+  waveWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '46%',
+  },
   cta: {
     height: layout.ctaHeight,
     borderRadius: radius.button,
-    backgroundColor: BRAND,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },

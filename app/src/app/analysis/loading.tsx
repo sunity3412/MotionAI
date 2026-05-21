@@ -1,7 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { StatusBar } from 'expo-status-bar';
 import { saveSimulatedAnalysis } from '../../lib/simulationWriter';
 import {
   type AnalysisErrorCode,
@@ -11,12 +20,21 @@ import {
   PROGRESS_SEQUENCE,
   STATUS_MESSAGE,
 } from '../../types/analysis';
-import { colors, layout, radius, spacing, typography } from '../../theme';
+import { layout, radius, spacing, typography } from '../../theme';
 
-// AI 분석 로딩 (plan.md #5, design.md §5-9·§6·§9).
-// 계약(docs/contract.md) 기준: status 로 구동 → 백엔드 붙으면 시뮬레이터만
-// users/{uid}/analyses/{analysisId} onSnapshot 구독으로 교체 (재작업 없음).
-// 스피너 금지(§0): 단계별 메시지 + 브랜드 톤 펄스.
+// AI 분석 로딩 (plan.md #5, design.md §5-9·§10).
+// design.md §10: 이 화면만 다크 네이비 + 파랑→보라 그라디언트 링 (라이트 테마 단독 예외).
+// 스피너 금지(§0) — 그라디언트 링은 장식, 단계별 메시지가 실제 진행 정보.
+// status 구동 → 백엔드 붙으면 useSimulatedAnalysis 만 onSnapshot 으로 교체(계약 동일).
+
+// 다크 로딩 화면 전용 색 (단독 예외 화면이라 theme 토큰 대신 로컬 상수).
+const NAVY_BG = '#161A33';
+const RING_FROM = '#5C7CFA';
+const RING_TO = '#A77BF3';
+const BRAND = '#FF4B33';
+const ERROR = '#FF5A5A';
+const TEXT_DIM = 'rgba(255,255,255,0.55)';
+const TRACK_DIM = 'rgba(255,255,255,0.10)';
 
 // design.md §5-9 표시 단계 (uploading/queued 는 준비 중으로 묶고 핵심 3단계 노출)
 const STEPS: { status: AnalysisStatus; label: string }[] = [
@@ -47,6 +65,58 @@ function useSimulatedAnalysis(): {
     return () => clearInterval(timer);
   }, []);
   return { status, errorCode: null };
+}
+
+// 파랑→보라 그라디언트 링 — 천천히 회전(장식). design.md §10.
+function GradientRing() {
+  const spin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 1800,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [spin]);
+  const rotate = spin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  const C = 2 * Math.PI * 42;
+  return (
+    <Animated.View style={{ transform: [{ rotate }] }}>
+      <Svg width={132} height={132} viewBox="0 0 100 100">
+        <Defs>
+          <LinearGradient id="loadingRing" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={RING_FROM} />
+            <Stop offset="1" stopColor={RING_TO} />
+          </LinearGradient>
+        </Defs>
+        <Circle
+          cx={50}
+          cy={50}
+          r={42}
+          stroke={TRACK_DIM}
+          strokeWidth={6}
+          fill="none"
+        />
+        <Circle
+          cx={50}
+          cy={50}
+          r={42}
+          stroke="url(#loadingRing)"
+          strokeWidth={6}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${C * 0.68} ${C}`}
+        />
+      </Svg>
+    </Animated.View>
+  );
 }
 
 function PulseDot() {
@@ -108,8 +178,9 @@ export default function AnalysisLoading() {
     const code: AnalysisErrorCode = errorCode ?? 'server_error';
     return (
       <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={56} color={colors.inputError} />
+          <Ionicons name="alert-circle-outline" size={56} color={ERROR} />
           <Text style={styles.title}>분석에 실패했어요</Text>
           <Text style={styles.sub}>{ERROR_MESSAGE[code]}</Text>
         </View>
@@ -127,8 +198,9 @@ export default function AnalysisLoading() {
   if (done) {
     return (
       <View style={styles.container}>
+        <StatusBar style="light" />
         <View style={styles.center}>
-          <Ionicons name="checkmark-circle" size={64} color={colors.brand} />
+          <Ionicons name="checkmark-circle" size={64} color={RING_FROM} />
           <Text style={styles.title}>{STATUS_MESSAGE.done}</Text>
           <Text style={styles.sub}>분석 결과를 확인할 수 있어요.</Text>
         </View>
@@ -157,11 +229,16 @@ export default function AnalysisLoading() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
       <View style={styles.header}>
         <Text style={styles.title}>AI가 분석하고 있어요</Text>
         <Text style={styles.sub}>
           {name ? `${name} · ` : ''}보통 30~60초 정도 걸려요.
         </Text>
+      </View>
+
+      <View style={styles.ringWrap}>
+        <GradientRing />
       </View>
 
       <View style={styles.steps}>
@@ -172,7 +249,7 @@ export default function AnalysisLoading() {
           return (
             <View key={step.status} style={styles.stepRow}>
               {stepDone ? (
-                <Ionicons name="checkmark-circle" size={22} color={colors.brand} />
+                <Ionicons name="checkmark-circle" size={22} color={RING_FROM} />
               ) : active ? (
                 <PulseDot />
               ) : (
@@ -198,44 +275,45 @@ export default function AnalysisLoading() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg, // 서브 화면 = 흰 배경 (§5-1)
+    backgroundColor: NAVY_BG, // design.md §10 — 로딩 화면 단독 다크 예외
     paddingTop: layout.safeAreaTop,
     paddingHorizontal: spacing.screenX,
     paddingBottom: layout.safeAreaBottom + 24,
   },
   header: { marginTop: 24 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  title: { ...typography.heading, color: colors.textPrimary },
+  ringWrap: { alignItems: 'center', marginTop: 56 },
+  title: { ...typography.heading, color: '#FFFFFF' },
   sub: {
     ...typography.caption,
-    color: colors.textSecondary,
+    color: TEXT_DIM,
     marginTop: 8,
     textAlign: 'center',
   },
-  steps: { marginTop: 48, gap: 22 },
+  steps: { marginTop: 56, gap: 22 },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   dot: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.brand,
+    backgroundColor: RING_FROM,
   },
   dotPending: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: colors.divider,
+    borderColor: TRACK_DIM,
   },
-  stepLabel: { ...typography.listTitle, color: colors.textDisabled },
-  stepLabelActive: { color: colors.brand },
-  stepLabelDone: { color: colors.textPrimary },
+  stepLabel: { ...typography.listTitle, color: TEXT_DIM },
+  stepLabelActive: { color: '#FFFFFF' },
+  stepLabelDone: { color: 'rgba(255,255,255,0.82)' },
   cta: {
     height: layout.ctaHeight,
     borderRadius: radius.button,
-    backgroundColor: colors.brand,
+    backgroundColor: BRAND,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaText: { ...typography.button, color: colors.textWhite },
+  ctaText: { ...typography.button, color: '#FFFFFF' },
 });

@@ -218,18 +218,33 @@
 
 ---
 
-*마지막 업데이트: 2026-05-21 — 기준 모션 카탈로그 정합:
- 정은지 실모션 5개(발레리나/프론트훅/플랭크/인버트버터플라이/제미니에이샤) +
- 콤보 부분점수(베이스/확장 구간 분리). 타입·계약·시드·백엔드·UI 전부 동기화.
+*마지막 업데이트: 2026-05-21 (이어서) — 시연 품질 보강:
+ - Firestore 시드 실행 완료 (정은지 실모션 5개 reference 컬렉션 반영,
+   가짜 3개 삭제). 앱 홈/기준모션 화면에서 5개 정상 노출 확인
+ - 옥타곤 점수 위젯: 외곽선 → 게이지 (회색 트랙 + 브랜드 그라디언트 진행)
+ - 분석 기록 버그 수정: userAnalyses.normalize 가 fileName 빈 문자열
+   문서를 !fileName 으로 전부 걸러내 홈/기록이 비던 문제 (fileName===null)
+ - firebase.ts: initializeAuth globalThis 캐시 (already-initialized 경고 방지)
+ - 모션 선택 화면 뒤로가기 버튼 추가
+ - 결과 화면 동작 비교: 골격/각도 목업 제거 → 자리표시만. #7-follow 실영상
+   없이는 공허 — 구조만 열어둠 (영상+골격 오버레이는 #7-follow)
+ - 홈 성장 그래프: 막대 → react-native-svg 라인차트 (점수 추이)
+ - 분석 로딩 화면: Figma(1:429/436/445)대로 재구성 — 글로우 그라디언트 링
+   (안에 텍스트) + 단계 한 줄 + 오류/완료 웨이브 그라디언트
+
  남은 외부 작업(belle, 자격증명 필요):
-  1. 영상 5개 S3 업로드:
+  - 영상 5개 S3 업로드:
      aws s3 cp "정은지님 영상/{motionId}.mp4" \
        s3://sunity-motion-pilot-videos/reference/{motionId}.mp4
      (motionId = ref-ballerina-spin / ref-front-hook-spin / ref-plank-spin /
       ref-invert-butterfly-combo / ref-gemini-to-ayesha-combo)
-  2. Firestore 시드 반영:
-     gcloud auth application-default login  (sunity3412@gmail.com, 최초 1회)
-     cd app && npm run seed:reference
+  - #7-follow (AWS+ML): aws 계정·ViTPose/YOLO 가중치·Cerebras 키
+
+ 다음 후보: 1. #7-follow (§8 실증 본체)  2. TestFlight 빌드 (EAS)
+
+*2026-05-21 — 기준 모션 카탈로그 정합:
+ 정은지 실모션 5개(발레리나/프론트훅/플랭크/인버트버터플라이/제미니에이샤) +
+ 콤보 부분점수(베이스/확장 구간 분리). 타입·계약·시드·백엔드·UI 전부 동기화.
 
 *2026-05-20 — 시드 시각 검증 + 홈 외관 보강.
 

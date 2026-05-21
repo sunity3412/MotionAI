@@ -29,13 +29,11 @@ from sunity_shared.analysis.features import (
     feature_vector,
     fill_gaps,
 )
-from sunity_shared.analysis.interfaces import (
-    FallbackCoachWriter,
-    NoHumanError,
-    NotImplementedFrameExtractor,
-    NotImplementedPoseEstimator,
-)
+from sunity_shared.analysis.coach_writer import CerebrasCoachWriter
+from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+from sunity_shared.analysis.interfaces import NoHumanError
 from sunity_shared.analysis.motiondtw import motion_dtw, per_joint_deviation
+from sunity_shared.analysis.pose_estimator import YoloVitPoseEstimator
 from sunity_shared.events import iter_s3_keys_from_sqs
 from sunity_shared.s3keys import parse_upload_key
 
@@ -45,10 +43,11 @@ log.setLevel(logging.INFO)
 _s3 = boto3.client("s3")
 _PLAYBACK_EXPIRES = 3600  # 결과 화면 영상 재생 서명 URL 만료(초)
 
-# #7-follow 에서 실제 어댑터로 교체할 지점 (여기만 바꾸면 코어는 그대로)
-_FRAME_EXTRACTOR = NotImplementedFrameExtractor()
-_POSE_ESTIMATOR = NotImplementedPoseEstimator()
-_COACH_WRITER = FallbackCoachWriter()
+# ML 어댑터 (#7-follow Phase 1). 모듈 로드 시 1회 생성 — Lambda 콜드스타트에
+# 모델을 메모리에 올리고 핸들러 재호출 간 재사용.
+_FRAME_EXTRACTOR = FfmpegFrameExtractor()
+_POSE_ESTIMATOR = YoloVitPoseEstimator()
+_COACH_WRITER = CerebrasCoachWriter()
 
 
 def _signed_get(bucket: str, key: str) -> str:
@@ -127,7 +126,18 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         )
 
     coach_details = _COACH_WRITER.write(
-        {"mode": mode, "top": [a.key for a in kismam.top_issues(assessments)]}
+        {
+            "mode": mode,
+            "joints": [
+                {
+                    "key": a.key,
+                    "labelKo": a.label_ko,
+                    "deviation_deg": a.deviation_deg,
+                    "direction": a.direction,
+                }
+                for a in kismam.top_issues(assessments, n=3)
+            ],
+        }
     )
     result = assemble.build_result(
         assessments,

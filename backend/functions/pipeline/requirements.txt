@@ -1,5 +1,16 @@
-# Firestore Admin 갱신용. boto3 는 런타임 포함.
+# Firestore Admin 갱신용. boto3 는 Lambda 런타임 포함.
 firebase-admin>=6,<7
 numpy>=1.26,<3   # 분석 알고리즘 코어 (features/motiondtw/kismam)
-# 후속(#7-follow): 무거운 모델 의존성(ultralytics/yolo, vitpose 등)은
-# Lambda 컨테이너 패키징 전환 시 추가. 현재 zip 패키징 유지.
+
+# ── #7-follow ML 어댑터 의존성 ─────────────────────────────────────
+# Lambda 컨테이너(ECR) 패키징 전제 — zip 250MB 한계 초과. Dockerfile 참조.
+# torch 는 CPU 전용 휠 사용 (CUDA 라이브러리 제외 → 이미지 수 GB 절감).
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.2,<3
+torchvision>=0.17,<1
+ultralytics>=8.3,<9        # YOLO11n 인체 탐지
+transformers>=4.47,<5      # ViTPose 포즈 추정
+imageio>=2.34,<3           # 영상 디코딩
+imageio-ffmpeg>=0.5,<1     # imageio 의 ffmpeg 백엔드
+Pillow>=10,<12             # 프레임 리사이즈
+cerebras-cloud-sdk>=1,<2   # 코칭 문장 LLM

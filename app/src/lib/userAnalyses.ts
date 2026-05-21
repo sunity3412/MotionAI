@@ -27,10 +27,19 @@ export interface UserAnalysesState {
 function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null {
   const mode = raw.mode === 'mode1' || raw.mode === 'mode3' ? raw.mode : null;
   const status = raw.status as AnalysisStatus | undefined;
+  // fileName 은 빈 문자열일 수 있다(영상 파일명 미전달). 빈 문자열도 유효한
+  // 문서이므로 null(필드 자체가 없거나 문자열 아님)일 때만 제외.
   const fileName = typeof raw.fileName === 'string' ? raw.fileName : null;
   const createdAt = typeof raw.createdAt === 'number' ? raw.createdAt : null;
   const updatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : createdAt;
-  if (!mode || !status || !fileName || createdAt == null || updatedAt == null) return null;
+  if (
+    !mode ||
+    !status ||
+    fileName === null ||
+    createdAt == null ||
+    updatedAt == null
+  )
+    return null;
   return {
     analysisId: id,
     mode,

@@ -74,6 +74,16 @@ export default function ReferenceSelect() {
 
   return (
     <View style={styles.container}>
+      {/* 루트 Stack 이 headerShown:false 라 화면마다 직접 배치 (design.md §9) */}
+      <Pressable
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="뒤로 가기"
+        hitSlop={10}
+        style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
+      >
+        <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
+      </Pressable>
       <Text style={styles.heading}>비교할 프로 동작을{'\n'}골라주세요.</Text>
       <Text style={styles.sub}>정은지 선수의 동작 중 하나를 기준으로 분석해요.</Text>
 
@@ -182,7 +192,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.screenX,
     paddingBottom: layout.safeAreaBottom + 24,
   },
-  heading: { ...typography.heading, color: colors.textPrimary, marginTop: 12 },
+  backBtn: {
+    width: 40,
+    height: 40,
+    marginLeft: -8, // chevron 광학 정렬
+    marginTop: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtnPressed: { opacity: 0.5 },
+  heading: { ...typography.heading, color: colors.textPrimary, marginTop: 4 },
   sub: {
     ...typography.caption,
     color: colors.textSecondary,

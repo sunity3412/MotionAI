@@ -7,7 +7,7 @@ import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp, type FirebaseOptions } from 'firebase/app';
 import { Firestore, getFirestore } from 'firebase/firestore';
 import {
-  Auth,
+  type Auth,
   getAuth,
   initializeAuth,
   // @ts-expect-error getReactNativePersistence는 firebase v12 RN 빌드에만 있고
@@ -39,16 +39,30 @@ if (!firebaseConfigured && __DEV__) {
 // Fast Refresh 시 중복 초기화 방지.
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// initializeAuth 는 Fast Refresh 등으로 두 번 호출되면 throw → getAuth 로 폴백.
-let auth: Auth;
-try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(ReactNativeAsyncStorage),
-  });
-} catch {
-  auth = getAuth(app);
+// Auth 인스턴스를 globalThis 에 캐싱한다.
+//   Expo Router + Fast Refresh 로 이 모듈이 재평가되면 initializeAuth 가
+//   재호출되어 auth/already-initialized 가 발생, getAuth 폴백을 타며 불필요한
+//   경고가 찍힌다. globalThis 캐시로 initializeAuth 를 런타임당 한 번만 호출 —
+//   RN AsyncStorage 영속성 인스턴스를 일관되게 재사용한다.
+declare global {
+  // eslint-disable-next-line no-var
+  var __sunityAuth: Auth | undefined;
 }
 
+function resolveAuth(): Auth {
+  if (globalThis.__sunityAuth) return globalThis.__sunityAuth;
+  try {
+    globalThis.__sunityAuth = initializeAuth(app, {
+      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+    });
+  } catch {
+    // 이미 초기화된 경우 — firebase 내부에 등록된 기존 인스턴스를 재사용.
+    globalThis.__sunityAuth = getAuth(app);
+  }
+  return globalThis.__sunityAuth;
+}
+
+const auth: Auth = resolveAuth();
 const db: Firestore = getFirestore(app);
 
 export { app, auth, db };

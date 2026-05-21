@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { ScoreGauge, scoreGrade } from '../../components/ScoreGauge';
+import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import {
   LEVEL_EXPECTED_SCORE,
   LEVEL_LABEL_KO,
@@ -272,7 +272,7 @@ export default function AnalysisResult() {
 
         {/* 점수 개요 (AC-RES-001-1) + 레벨 벤치마크 */}
         <View style={styles.card}>
-          <ScoreGauge score={result.overallScore} />
+          <OctagonScore score={result.overallScore} size={168} />
           <View style={styles.gradeRow}>
             <Text style={styles.gradeBadge}>{grade}</Text>
             <Text style={styles.summary}>{summary}</Text>

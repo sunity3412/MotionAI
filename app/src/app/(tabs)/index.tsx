@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { GrowthChart } from '../../components/GrowthChart';
 import { OctagonScore } from '../../components/OctagonScore';
 import { useReferenceMotions } from '../../lib/referenceMotions';
 import { useMyAnalyses } from '../../lib/userAnalyses';
@@ -276,28 +277,14 @@ function ChallengeRow({
 }
 
 function GrowthCard({ analyses }: { analyses: AnalysisDoc[] }) {
-  // MVP: 실제 꺾은선 차트는 #7-follow Victory Native (CLAUDE.md 차트 라이브러리).
-  // 지금은 최근 5건 점수 텍스트 라인으로 간이 표시 — 데이터 있음을 보여주는 정도.
-  const last5 = analyses.slice(0, 5).reverse();
+  // 분석 점수(overallScore) 추이 꺾은선. 점수는 KISMAM 실측값이라
+  // #7-follow 실데이터로 바뀌어도 그대로 유효 (영상 의존 화면과 다름).
+  const recent = analyses.slice(0, 6).reverse(); // 최근 6건, 오래된→최근
+  const scores = recent.map((a) => a.result?.overallScore ?? 0);
   return (
     <View style={styles.growthCard}>
-      <View style={styles.growthBars}>
-        {last5.map((a) => {
-          const score = a.result?.overallScore ?? 0;
-          return (
-            <View key={a.analysisId} style={styles.growthCol}>
-              <View
-                style={[
-                  styles.growthBar,
-                  { height: `${Math.max(10, Math.min(100, score))}%` },
-                ]}
-              />
-              <Text style={styles.growthLabel}>{score}</Text>
-            </View>
-          );
-        })}
-      </View>
-      <Text style={styles.growthCaption}>최근 {last5.length}회 분석 점수</Text>
+      <GrowthChart scores={scores} />
+      <Text style={styles.growthCaption}>최근 {recent.length}회 분석 점수</Text>
     </View>
   );
 }
@@ -439,20 +426,11 @@ const styles = StyleSheet.create({
     padding: spacing.cardPadding,
     gap: 12,
   },
-  growthBars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-    height: 120,
+  growthCaption: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
-  growthCol: { flex: 1, alignItems: 'center', gap: 6 },
-  growthBar: {
-    width: '70%',
-    backgroundColor: colors.brand,
-    borderRadius: 6,
-  },
-  growthLabel: { ...typography.captionSmall, color: colors.textSecondary },
-  growthCaption: { ...typography.caption, color: colors.textSecondary },
   growthLocked: {
     backgroundColor: colors.cardBg,
     borderWidth: layout.cardBorderWidth,

@@ -215,15 +215,6 @@ export default function AnalysisResult() {
     cmp.mode === 'mode1' ? cmp.referenceMotionId : undefined,
   );
 
-  // ia AC-RES-001-2: 틀린 관절 하이라이트 — issue 있는 관절 중 최저점
-  const worstJoint = useMemo(
-    () =>
-      result.joints
-        .filter((j) => j.issue)
-        .sort((a, b) => a.score - b.score)[0],
-    [result.joints],
-  );
-
   const summary =
     cmp.mode === 'mode1'
       ? mode1Summary(cmp.athleteName, cmp.similarity)
@@ -235,9 +226,6 @@ export default function AnalysisResult() {
     cmp.mode === 'mode3' && !cmp.isFirst
       ? cmp.deltaFromPrevious?.[part]
       : undefined;
-
-  const rightLabel =
-    cmp.mode === 'mode1' ? `${cmp.athleteName} 기준` : '지난 분석';
 
   return (
     <View style={styles.container}>
@@ -313,53 +301,18 @@ export default function AnalysisResult() {
           ))}
         </View>
 
-        {/* 동작 비교 (AC-RES-001-2) */}
+        {/* 동작 비교 — 영상·실분석은 #7-follow. 지금은 자리표시만 (구조만 열어둠) */}
         <Text style={styles.sectionTitle}>동작 비교</Text>
-        <View style={styles.card}>
-          <View style={styles.compareRow}>
-            <View style={styles.compareCol}>
-              <View style={styles.videoBox}>
-                <Ionicons
-                  name="play-circle-outline"
-                  size={36}
-                  color={colors.textDisabled}
-                />
-              </View>
-              <Text style={styles.compareLabel}>내 동작</Text>
-            </View>
-            <View style={styles.compareCol}>
-              <View style={styles.videoBox}>
-                <Ionicons
-                  name="play-circle-outline"
-                  size={36}
-                  color={colors.textDisabled}
-                />
-              </View>
-              <Text style={styles.compareLabel}>{rightLabel}</Text>
-            </View>
-          </View>
-          {worstJoint && (
-            <View style={styles.highlightBlock}>
-              <View style={styles.highlight}>
-                <Ionicons name="alert-circle" size={16} color={colors.brand} />
-                <Text style={styles.highlightText}>
-                  {worstJoint.labelKo} {worstJoint.issue}
-                </Text>
-              </View>
-              {(() => {
-                const g = angleGuide(worstJoint);
-                if (!g) return null;
-                return (
-                  <Text style={styles.highlightAngle}>
-                    {g.line}
-                    {g.cue ? `  ·  ${g.cue}` : ''}
-                  </Text>
-                );
-              })()}
-            </View>
-          )}
-          <Text style={styles.note}>
-            영상 나란히 보기는 분석 서버 연결 후 표시돼요.
+        <View style={[styles.card, styles.comingCard]}>
+          <Ionicons
+            name="videocam-outline"
+            size={26}
+            color={colors.textDisabled}
+          />
+          <Text style={styles.comingText}>
+            분석 서버가 연결되면 내 영상과{' '}
+            {cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난'} 영상을
+            나란히 놓고 관절 차이를 비교할 수 있어요.
           </Text>
         </View>
 
@@ -544,43 +497,16 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: colors.brand,
   },
-  compareRow: { flexDirection: 'row', gap: 12, width: '100%' },
-  compareCol: { flex: 1, alignItems: 'center', gap: 8 },
-  videoBox: {
-    width: '100%',
-    aspectRatio: 9 / 16, // 폴스포츠 세로 영상 (design.md §10)
-    borderRadius: radius.listItem,
-    backgroundColor: '#FFF0EE', // homeCard 하단 톤 (라이트, 다크 금지)
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  compareLabel: { ...typography.caption, color: colors.textSecondary },
-  highlightBlock: {
-    marginTop: 14,
-    alignSelf: 'stretch',
-    gap: 4,
-  },
-  highlight: {
+  comingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
+    gap: 12,
   },
-  highlightText: {
+  comingText: {
     ...typography.caption,
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  highlightAngle: {
-    ...typography.captionSmall,
-    color: colors.brand,
-    marginLeft: 22, // alert-circle 아이콘 들여쓰기와 정렬
-  },
-  note: {
-    ...typography.captionSmall,
     color: colors.textSecondary,
-    marginTop: 10,
-    alignSelf: 'flex-start',
+    flexShrink: 1,
+    lineHeight: 18,
   },
   tipCard: { alignItems: 'flex-start', gap: 8 },
   tipHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },

@@ -180,7 +180,7 @@
 
   남은 것:
     - GPU 검증 (belle, RunPod RTX 4090): backend/scripts/verify_nlf_pipeline.py
-      로 정은지 5영상 end-to-end. 특히 인버트 콤보 2개에서 폐색 보간 동작 확인.
+      로 정은지 5영상 end-to-end. 특히 폭스탑·폭스탑스플릿에서 폐색 보간 동작 확인.
       NLF 는 GPU 전제 — CPU 는 좌표가 NaN 으로 발산(검증됨).
     - 유닛 4 (이번 범위 밖, 후속): 운영 GPU 추론 환경 분리. 지금은
       interfaces 어댑터 seam 만 유지.
@@ -253,11 +253,12 @@
    (안에 텍스트) + 단계 한 줄 + 오류/완료 웨이브 그라디언트
 
  남은 외부 작업(belle, 자격증명 필요):
-  - 영상 5개 S3 업로드:
-     aws s3 cp "정은지님 영상/{motionId}.mp4" \
-       s3://sunity-motion-pilot-videos/reference/{motionId}.mp4
-     (motionId = ref-ballerina-spin / ref-front-hook-spin / ref-plank-spin /
-      ref-invert-butterfly-combo / ref-gemini-to-ayesha-combo)
+  - 영상 5개 S3 업로드 (로컬 작업본은 구명칭, S3 키는 신명칭으로 매핑):
+     aws s3 cp "정은지님 영상/ref-ballerina-spin.mp4"         s3://sunity-motion-pilot-videos/reference/ref-sideway-spin.mp4
+     aws s3 cp "정은지님 영상/ref-front-hook-spin.mp4"        s3://sunity-motion-pilot-videos/reference/ref-climb.mp4
+     aws s3 cp "정은지님 영상/ref-plank-spin.mp4"             s3://sunity-motion-pilot-videos/reference/ref-invert.mp4
+     aws s3 cp "정은지님 영상/ref-invert-butterfly-combo.mp4" s3://sunity-motion-pilot-videos/reference/ref-foxtop.mp4
+     aws s3 cp "정은지님 영상/ref-gemini-to-ayesha-combo.mp4" s3://sunity-motion-pilot-videos/reference/ref-foxtop-split.mp4
   - #7-follow (AWS+ML): aws 계정·ViTPose/YOLO 가중치·Cerebras 키
 
  다음 후보: 1. #7-follow (§8 실증 본체)  2. TestFlight 빌드 (EAS)
@@ -313,4 +314,16 @@
  - 폐기: YoloVitPoseEstimator(2D)·verify_pose_overlay.py·interfaces 의
    NotImplemented* stub. transformers(ViTPose) 의존성 제거.
  - belle action item: RunPod Pod 띄워 verify_nlf_pipeline.py 로 정은지 5영상
-   GPU 검증 (인버트 콤보 2개의 폐색 보간 동작 확인).
+   GPU 검증 (폭스탑·폭스탑스플릿의 폐색 보간 동작 확인).
+
+*2026-05-22 (이어서) — 기준 모션 5개 명칭 정정 (정은지 선수 확정):
+ - 발레리나 스핀→사이드웨이 스핀, 프론트 훅 스핀→클라임, 플랭크 스핀→인버트,
+   인버트 버터플라이 콤보→폭스탑, 제미니 투 에이샤 콤보→폭스탑스플릿.
+   브라우저 검증 완료 (Foxtop Split 등 스피닝 폴 동작 용어로 실재).
+ - '연속 동작=하나의 기술' — 콤보 용어 제거. 베이스/확장 구간 점수 구조는
+   유지(한 기술 안 단계별 점수). 난이도 불변. motionId·S3 키도 신명칭.
+ - 갱신: reference-motions.md(단일 출처)·seed 스크립트·contract·app 타입·
+   simulatedResult·backend segments 문서·테스트. 백엔드 70개 통과.
+ - belle action item:
+   1) 정은지 영상 5개 S3 업로드 — 위 "남은 외부 작업"의 신 S3 키 명령 사용.
+   2) cd app && npm run seed:reference — 구 motionId 5개 삭제 + 신 5개 등록.

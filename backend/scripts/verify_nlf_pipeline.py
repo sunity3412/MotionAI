@@ -3,9 +3,8 @@
 영상 1개에 새 3D 파이프라인 전체를 돌려 단계별 출력을 점검한다:
   ffmpeg 프레임 → NLF 3D keypoints(+불확실도) → 3D 관절각 → 시간축 폐색
   보간 → 특징벡터.
-각 단계의 형상·통계·폐색 판정 프레임 수를 찍는다. 가장 접힌 인버트 콤보
-(ref-invert-butterfly-combo·ref-gemini-to-ayesha-combo)에서 폐색 프레임이
-잡혀 보간되는지가 핵심 확인점.
+각 단계의 형상·통계·폐색 판정 프레임 수를 찍는다. 접힘 비중이 큰 기술
+(폭스탑·폭스탑스플릿)에서 폐색 프레임이 잡혀 보간되는지가 핵심 확인점.
 
 NLF 는 GPU 전제 — RunPod 등 CUDA 환경에서 돌려야 수치가 유효하다(CPU 는
 좌표가 NaN 으로 발산). pose_estimator.NlfPoseEstimator 가 device 를 자동
@@ -94,7 +93,7 @@ def main(video_path: str) -> None:
     print("[5] 특징벡터 (feature_vector)")
     feats = feature_vector(filled)
     print(f"  F shape={feats.shape} = (T, 3·{skeleton.NUM_JOINTS})")
-    print("\n파이프라인 end-to-end 통과. 폐색 콤보 영상에서 [4] 보간 프레임 수 확인.")
+    print("\n파이프라인 end-to-end 통과. 접힘 잦은 기술 영상에서 [4] 보간 프레임 수 확인.")
 
 
 if __name__ == "__main__":

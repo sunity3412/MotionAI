@@ -75,23 +75,24 @@ export interface CoachingTip {
   detail: string; // Cerebras 자연어 가이드 문장
 }
 
-// 콤보 부분 점수 (reference-motions.md §7 공유 베이스 모션).
-// 콤보 모션은 다른 모션의 베이스 구간을 공유함 (plank → invert-butterfly → gemini-ayesha).
-// 베이스 구간과 확장(고유) 구간을 나눠 평가해, 학생이 어느 단계에서 막혔는지 보여줌.
+// 구간별 점수 (reference-motions.md §7 공유 베이스 모션).
+// 일부 기술은 다른 기술의 베이스 구간을 공유함 (인버트 → 폭스탑 → 폭스탑스플릿).
+// 한 기술 안에서 베이스 구간과 확장 구간을 나눠 평가해, 학생이 어느 단계에서
+// 막혔는지 보여줌.
 export interface SegmentScores {
   base: number; // 공유 베이스 구간 점수 0~100
   extension: number; // 확장(고유) 구간 점수 0~100
   baseMotionId: string; // 베이스를 공유하는 모션 ID (학습 경로 가이드용)
-  baseMotionName: string; // 그 모션 이름 (예: '플랭크 스핀')
+  baseMotionName: string; // 그 모션 이름 (예: '인버트')
 }
 
 export interface Mode1Comparison {
   mode: 'mode1';
   referenceMotionId: string;
-  referenceMotionName: string; // 예: '발레리나 스핀'
+  referenceMotionName: string; // 예: '사이드웨이 스핀'
   athleteName: string; // 예: '정은지'
   similarity: number; // 0~100
-  // 콤보 모션을 분석한 경우에만 채워짐 (베이스 공유 시). 단일 모션이면 없음.
+  // 베이스 구간을 공유하는 기술을 분석한 경우에만 채워짐. 단일 기술이면 없음.
   segmentScores?: SegmentScores;
 }
 
@@ -166,9 +167,9 @@ export interface ReferenceMotion {
   thumbnailUrl?: string;
   clipRange?: ClipRange;
   checkpoints?: Checkpoint[];
-  // 공유 베이스 콤보 (reference-motions.md §7). 이 모션이 다른 모션의 베이스
-  // 구간을 공유하면 그 모션 ID + 공유가 끝나는 시점(초). 단일 모션이면 없음.
-  //   plank-spin → invert-butterfly-combo(baseUntilS:6) → gemini-ayesha-combo(baseUntilS:18)
+  // 공유 베이스 (reference-motions.md §7). 이 기술이 다른 기술의 베이스
+  // 구간을 공유하면 그 기술 ID + 공유가 끝나는 시점(초). 단일 기술이면 없음.
+  //   ref-invert → ref-foxtop(baseUntilS:6) → ref-foxtop-split(baseUntilS:18)
   sharedBaseMotionId?: string;
   baseUntilS?: number;
   updatedAt?: number; // epoch ms — 시드/관리자 등록 시 갱신. NEW 배너 정렬용

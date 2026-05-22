@@ -1,4 +1,4 @@
-"""콤보 부분 점수 — 합성 시퀀스로 결정적 검증. AWS 불필요."""
+"""구간별 점수 — 합성 시퀀스로 결정적 검증. AWS 불필요."""
 
 import numpy as np
 
@@ -7,8 +7,8 @@ from sunity_shared.analysis.skeleton import NUM_JOINTS
 
 CLIP = {"execStartS": 1.0, "landEndS": 27.0}  # 동작 구간 26초
 COMBO_REF = {
-    "motionId": "ref-invert-butterfly-combo",
-    "sharedBaseMotionId": "ref-plank-spin",
+    "motionId": "ref-foxtop",
+    "sharedBaseMotionId": "ref-invert",
     "baseUntilS": 6.0,
     "clipRange": CLIP,
 }
@@ -39,11 +39,11 @@ def test_segment_scores_combo_perfect_match():
     a_ref = np.zeros((T, NUM_JOINTS))
     user_seg = np.zeros((T, NUM_JOINTS))  # 완벽 일치
     path = [(i, i) for i in range(T)]
-    s = segments.segment_scores(COMBO_REF, "플랭크 스핀", path, user_seg, a_ref)
+    s = segments.segment_scores(COMBO_REF, "인버트", path, user_seg, a_ref)
     assert s is not None
     assert s["base"] == 100 and s["extension"] == 100
-    assert s["baseMotionId"] == "ref-plank-spin"
-    assert s["baseMotionName"] == "플랭크 스핀"
+    assert s["baseMotionId"] == "ref-invert"
+    assert s["baseMotionName"] == "인버트"
 
 
 def test_segment_scores_extension_worse_than_base():
@@ -54,12 +54,12 @@ def test_segment_scores_extension_worse_than_base():
     boundary = segments.ref_boundary_frame(CLIP, 6.0, T)
     user_seg[boundary:, :] = 25.0
     path = [(i, i) for i in range(T)]
-    s = segments.segment_scores(COMBO_REF, "플랭크 스핀", path, user_seg, a_ref)
+    s = segments.segment_scores(COMBO_REF, "인버트", path, user_seg, a_ref)
     assert s["base"] > s["extension"]
 
 
 def test_segment_scores_none_for_single_motion():
-    single = {"motionId": "ref-ballerina-spin", "clipRange": CLIP}
+    single = {"motionId": "ref-sideway-spin", "clipRange": CLIP}
     s = segments.segment_scores(
         single, "", [(0, 0)], np.zeros((1, NUM_JOINTS)), np.zeros((1, NUM_JOINTS))
     )

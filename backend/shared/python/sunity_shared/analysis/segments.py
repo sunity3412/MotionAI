@@ -1,7 +1,7 @@
-"""콤보 부분 점수 — 공유 베이스 / 확장 구간 분리 평가 (reference-motions.md §7).
+"""구간별 점수 — 공유 베이스 / 확장 구간 분리 평가 (reference-motions.md §7).
 
-콤보 모션은 다른 모션의 베이스 구간을 공유한다
-(plank-spin → invert-butterfly-combo → gemini-ayesha-combo).
+일부 기술은 다른 기술의 베이스 구간을 공유한다
+(ref-invert → ref-foxtop → ref-foxtop-split).
 DTW 정렬 경로를 reference 의 baseUntilS 시점 기준으로 베이스/확장으로 나눠
 각 구간 KISMAM 점수를 따로 낸다 → 학생이 어느 단계에서 막혔는지 보임.
 
@@ -41,10 +41,10 @@ def split_path_by_ref(path, ref_boundary: int):
 def segment_scores(
     ref: dict, base_motion_name: str, path, user_seg, a_ref
 ) -> dict | None:
-    """콤보 모션이면 베이스/확장 구간 KISMAM 점수 dict, 아니면 None.
+    """베이스 공유 기술이면 베이스/확장 구간 KISMAM 점수 dict, 아니면 None.
 
-    ref              : reference 모션 문서 (sharedBaseMotionId/baseUntilS/clipRange)
-    base_motion_name : 베이스 모션 이름 (Firestore 조회는 호출자 책임 — 순수성 유지)
+    ref              : reference 기술 문서 (sharedBaseMotionId/baseUntilS/clipRange)
+    base_motion_name : 베이스 기술 이름 (Firestore 조회는 호출자 책임 — 순수성 유지)
     path             : motion_dtw 정렬 경로 [(user_idx, ref_idx)...]
     user_seg         : 사용자 동작 구간 각도 (T_seg, J)
     a_ref            : reference 각도 (T_ref, J)

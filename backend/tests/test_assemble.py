@@ -63,8 +63,8 @@ def test_mode1_segment_scores_included_only_when_given():
     seg = {
         "base": 82,
         "extension": 64,
-        "baseMotionId": "ref-plank-spin",
-        "baseMotionName": "플랭크 스핀",
+        "baseMotionId": "ref-invert",
+        "baseMotionName": "인버트",
     }
     c = assemble.build_mode1(REF, similarity=70, segment_scores=seg)
     assert c["segmentScores"] == seg

@@ -9,10 +9,10 @@
 // 불가. Admin SDK + Application Default Credentials 로 규칙 우회 (관리자 컨텍스트).
 //
 // 모션 데이터 — 단일 진실: docs/reference-motions.md §5.
-//   - 정은지 선수 실영상 5개 분석 결과 (발레리나/프론트훅/플랭크/인버트버터플라이/제미니에이샤).
+//   - 정은지 선수 실영상 5개 분석 결과 (사이드웨이/클라임/인버트/폭스탑/폭스탑스플릿).
 //   - motionId 는 안정적 슬러그 = doc ID = S3 키. idempotent: 재실행해도 같은 doc 갱신.
 //   - clipRange/checkpoints 는 분석 런타임 입력. keyframe 각도(angles)는 #7-follow ML 단.
-//   - 콤보 트리: plank-spin → invert-butterfly-combo → gemini-ayesha-combo (베이스 공유).
+//   - 구간 공유 트리: ref-invert → ref-foxtop → ref-foxtop-split (베이스 공유).
 //   - ⚠ checkpoint 가중치·peak·자유 다리 좌우 등은 추정 — MVP 시연 후 정은지 선수와 일괄 수정.
 
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
@@ -22,19 +22,21 @@ const PROJECT_ID = 'sunity-ai-coach';
 const ATHLETE = '정은지';
 const VIDEO_PREFIX = 's3://sunity-motion-pilot-videos/reference';
 
-// 영상 보기 전 가짜 픽스처 3개 — 실모션 5개로 교체되며 폐기. 시드 시 함께 삭제.
-// batch.delete 는 문서가 없어도 에러 없음 → idempotent.
+// 정은지 선수 명칭 확정(2026-05-22) 전의 구 motionId — 새 ID 로 교체되며 폐기.
+// 시드 시 함께 삭제. batch.delete 는 문서가 없어도 에러 없음 → idempotent.
 const OBSOLETE_MOTION_IDS = [
-  'ref-inside-leg-hang',
-  'ref-basic-grip',
-  'ref-fireman-spin',
+  'ref-ballerina-spin',
+  'ref-front-hook-spin',
+  'ref-plank-spin',
+  'ref-invert-butterfly-combo',
+  'ref-gemini-to-ayesha-combo',
 ];
 
 // reference-motions.md §5 등록된 모션 5개. checkpoints weight 합 = 1.0.
 const MOTIONS = [
   {
-    motionId: 'ref-ballerina-spin',
-    name: '발레리나 스핀',
+    motionId: 'ref-sideway-spin',
+    name: '사이드웨이 스핀',
     level: 'intermediate',
     entryType: 'swing_entry',
     entryDescription:
@@ -57,8 +59,8 @@ const MOTIONS = [
     ],
   },
   {
-    motionId: 'ref-front-hook-spin',
-    name: '프론트 훅 스핀',
+    motionId: 'ref-climb',
+    name: '클라임',
     level: 'basic',
     entryType: 'swing_entry',
     entryDescription:
@@ -82,8 +84,8 @@ const MOTIONS = [
     ],
   },
   {
-    motionId: 'ref-plank-spin',
-    name: '플랭크 스핀',
+    motionId: 'ref-invert',
+    name: '인버트',
     level: 'intermediate',
     entryType: 'lift_entry',
     entryDescription:
@@ -107,15 +109,15 @@ const MOTIONS = [
     ],
   },
   {
-    motionId: 'ref-invert-butterfly-combo',
-    name: '인버트 버터플라이 콤보',
+    motionId: 'ref-foxtop',
+    name: '폭스탑',
     level: 'advanced',
     entryType: 'lift_entry',
     entryDescription:
-      '플랭크 스핀과 동일한 리프트 진입을 사용. 측면 플랭크 → 인버트 다리 찢기까지가 공유 베이스. 이후 다리 교환과 수직 스플릿으로 확장.',
+      '인버트와 동일한 리프트 진입을 사용. 측면 플랭크 → 인버트 다리 찢기까지가 공유 베이스. 이후 다리 교환과 수직 스플릿으로 이어짐.',
     description:
-      '앞 6초까지는 플랭크 스핀과 동일(측면 플랭크 → 인버트 다리 찢기). 이후 다리 교환(왼 무릎 hook ↔ 오른 무릎 hook)과 수직 스플릿으로 확장되며 마지막에 폴 감싸기로 회전 종료. 다리 교환 매끄러움과 수직 스플릿 좌우 대칭이 채점 핵심.',
-    sharedBaseMotionId: 'ref-plank-spin',
+      '앞 6초까지는 인버트와 동일(측면 플랭크 → 인버트 다리 찢기). 이후 다리 교환(왼 무릎 hook ↔ 오른 무릎 hook)과 수직 스플릿으로 이어지며 마지막에 폴 감싸기로 회전 종료. 다리 교환 매끄러움과 수직 스플릿 좌우 대칭이 채점 핵심.',
+    sharedBaseMotionId: 'ref-invert',
     baseUntilS: 6,
     clipRange: {
       prepStartS: 0,
@@ -135,15 +137,15 @@ const MOTIONS = [
     ],
   },
   {
-    motionId: 'ref-gemini-to-ayesha-combo',
-    name: '제미니 투 에이샤 콤보',
+    motionId: 'ref-foxtop-split',
+    name: '폭스탑스플릿',
     level: 'advanced',
     entryType: 'lift_entry',
     entryDescription:
-      '플랭크 스핀 / 인버트 버터플라이 콤보와 동일한 리프트 진입. 팔을 굽혀 가슴을 폴에 붙이며 측면 플랭크 라인으로 끌어올림.',
+      '인버트 / 폭스탑과 동일한 리프트 진입. 팔을 굽혀 가슴을 폴에 붙이며 측면 플랭크 라인으로 끌어올림.',
     description:
-      '앞 18초까지는 인버트 버터플라이 콤보와 동일 흐름(측면 플랭크 → 인버트 → 다리 교환 → 스플릿). 이후 자세 전환 후 양팔 펼침 / 수평 라인 자세를 슬로우 로테이션으로 유지하며 마무리. 채점 피크는 11~13초의 양 다리 좌우 펼침(스플릿) 자세.',
-    sharedBaseMotionId: 'ref-invert-butterfly-combo',
+      '앞 18초까지는 폭스탑과 동일 흐름(측면 플랭크 → 인버트 → 다리 교환 → 스플릿). 이후 자세 전환 후 양팔 펼침 / 수평 라인 자세를 슬로우 로테이션으로 유지하며 마무리. 채점 피크는 11~13초의 양 다리 좌우 펼침(스플릿) 자세.',
+    sharedBaseMotionId: 'ref-foxtop',
     baseUntilS: 18,
     clipRange: {
       prepStartS: 0,

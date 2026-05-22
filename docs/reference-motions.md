@@ -23,8 +23,9 @@
 ## 2. 등록 규칙
 
 ```
-motionId : ref-{기술명-소문자-하이픈}  (예: ref-ballerina-spin)
-           → S3 키, Firestore 문서 ID, 영상 파일명 모두 동일
+motionId : ref-{기술명-소문자-하이픈}  (예: ref-sideway-spin)
+           → S3 키, Firestore 문서 ID 동일. 로컬 영상 작업본 파일명은
+             업로드 시 S3 키로 매핑되므로 달라도 무방.
 
 level    : basic | intermediate | advanced
 
@@ -103,11 +104,11 @@ interface Checkpoint {
 
 ---
 
-### ref-ballerina-spin
+### ref-sideway-spin
 
 ```yaml
-motionId:    ref-ballerina-spin
-name:        발레리나 스핀
+motionId:    ref-sideway-spin
+name:        사이드웨이 스핀
 athleteName: 정은지
 level:       intermediate
 entry_type:  swing_entry
@@ -118,7 +119,7 @@ description: |
   상단 그립을 잡고 몸을 뒤로 아치한 채 한 다리를 연장한 자세로
   연속 회전하는 중급 기술. 하나의 자세를 유지하는 것이 아니라
   회전 중 백 아치 라인과 다리 라인이 자연스럽게 변형되며 이어진다.
-videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-ballerina-spin.mp4
+videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-sideway-spin.mp4
 ```
 
 **원본 영상 분석**
@@ -167,11 +168,11 @@ checkpoints:
 
 ---
 
-### ref-front-hook-spin
+### ref-climb
 
 ```yaml
-motionId:    ref-front-hook-spin
-name:        프론트 훅 스핀
+motionId:    ref-climb
+name:        클라임
 athleteName: 정은지
 level:       basic
 entry_type:  swing_entry
@@ -183,7 +184,7 @@ description: |
   기초 스핀. 왼쪽 무릎이 폴 앞, 오른쪽 무릎이 폴 뒤를 잡아 두
   무릎이 폴을 사이에 두고 교차한다. 두 무릎의 접촉 안정성이
   체공 시간과 회전 매끄러움을 결정한다.
-videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-front-hook-spin.mp4
+videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-climb.mp4
 ```
 
 **원본 영상 분석**
@@ -236,11 +237,11 @@ checkpoints:
 
 ---
 
-### ref-plank-spin
+### ref-invert
 
 ```yaml
-motionId:    ref-plank-spin
-name:        플랭크 스핀
+motionId:    ref-invert
+name:        인버트
 athleteName: 정은지
 level:       intermediate          # ⚠ advanced일 가능성
 entry_type:  lift_entry
@@ -254,7 +255,7 @@ description: |
   2단계(후반): 머리를 아래로 떨어뜨려 인버트 전환,
               양 다리를 일자로 찢어 스플릿 라인 완성
   리프트 안정성, 단계 전환의 매끄러움, 인버트 스플릿 좌우 대칭이 채점 핵심.
-videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-plank-spin.mp4
+videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-invert.mp4
 ```
 
 **원본 영상 분석**
@@ -319,33 +320,33 @@ checkpoints:
 
 ---
 
-### ref-invert-butterfly-combo
+### ref-foxtop
 
 ```yaml
-motionId:    ref-invert-butterfly-combo
-name:        인버트 버터플라이 콤보
+motionId:    ref-foxtop
+name:        폭스탑
 athleteName: 정은지
 level:       advanced
 entry_type:  lift_entry
 entry_description: |
-  플랭크 스핀과 동일한 리프트 진입을 사용. 측면 플랭크 → 인버트
-  다리 찢기까지가 공유 베이스. 이후 다리 교환과 수직 스플릿으로 확장.
+  인버트와 동일한 리프트 진입을 사용. 측면 플랭크 → 인버트
+  다리 찢기까지가 공유 베이스. 이후 다리 교환과 수직 스플릿으로 이어짐.
 description: |
-  앞 6초까지는 플랭크 스핀과 완전 동일 (측면 플랭크 → 인버트 다리 찢기).
+  앞 6초까지는 인버트와 완전 동일 (측면 플랭크 → 인버트 다리 찢기).
   이후 다리 교환(왼 무릎 hook ↔ 오른 무릎 hook)과 수직 스플릿
   (다리 일자 찢기를 수직 자세로 유지)으로 확장되며, 마지막에 폴 감싸기로
   회전 종료. 다리 교환 매끄러움과 수직 스플릿 좌우 대칭이 채점 핵심.
-videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-invert-butterfly-combo.mp4
+videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-foxtop.mp4
 ```
 
 **원본 영상 분석**
 
 ```
 영상 길이        : 28.31초
-영상 내 반복     : 없음 — 1회 연속 콤보
+영상 내 반복     : 없음 — 1회 연속 동작
 회전 방향        : 시계 방향
 주 그립 손       : 왼손 상단 + 오른손 보조, 양손 그립 유지
-플랭크 스핀과 관계 : 0~6초 구간 동일 (같은 베이스 공유)
+인버트와 관계     : 0~6초 구간 동일 (같은 베이스 공유)
 ```
 
 **clip_range**
@@ -365,11 +366,11 @@ clip_range:
 |---|---|---|
 | prep | 0~1s | 양손 그립 확보 |
 | entry | 1~3s | 리프트 — 팔 굽혀 가슴을 폴에 붙이며 끌어올림 |
-| plank-base | 3~6s | 플랭크 스핀과 동일 — 측면 플랭크 → 인버트 + 다리 찢기 |
+| plank-base | 3~6s | 인버트와 동일 — 측면 플랭크 → 인버트 + 다리 찢기 |
 | leg-hook-A | 6~9s | 왼쪽 무릎으로 폴 감싸기, 오른쪽 다리 펼침 |
 | leg-exchange | 9~12s | 다리 교환 — 오른쪽 무릎으로 폴 감싸기, 왼쪽 다리 펼침 |
 | leg-hook-B | 12~15s | 교환 자세 유지 회전 |
-| vertical-split | 15~21s | 수직 스플릿 — 다리 일자 찢기, 인버트 유지, 왼쪽 다리 위. 콤보 시각적 피크 |
+| vertical-split | 15~21s | 수직 스플릿 — 다리 일자 찢기, 인버트 유지, 왼쪽 다리 위. 시각적 피크 |
 | wind-down | 21~22s | 왼쪽으로 다시 폴 감싸며 회전 감속 |
 | landing | 22~27s | 폴 잡고 위로 올라오며 폴 옆 착지 |
 
@@ -406,35 +407,35 @@ checkpoints:
 
 ---
 
-### ref-gemini-to-ayesha-combo
+### ref-foxtop-split
 
 ```yaml
-motionId:    ref-gemini-to-ayesha-combo
-name:        제미니 투 에이샤 콤보
+motionId:    ref-foxtop-split
+name:        폭스탑스플릿
 athleteName: 정은지
 level:       advanced
 entry_type:  lift_entry
 entry_description: |
-  플랭크 스핀 / 인버트 버터플라이 콤보와 동일한 리프트 진입.
+  인버트 / 폭스탑과 동일한 리프트 진입.
   팔을 굽혀 가슴을 폴에 붙이며 측면 플랭크 라인으로 끌어올림.
 description: |
-  앞 18초까지는 인버트 버터플라이 콤보와 동일 흐름
+  앞 18초까지는 폭스탑과 동일 흐름
   (측면 플랭크 → 인버트 → 다리 교환 → 스플릿). 이후 자세 전환 후
   양팔 펼침 / 수평 라인 자세를 슬로우 로테이션으로 유지하며 마무리.
   마무리 직전(약 30초)에 그립을 왼손→오른손으로 교체하며 폴 옆 착지.
   채점 피크는 11~13초의 양 다리 좌우 펼침(스플릿) 자세.
-videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-gemini-to-ayesha-combo.mp4
+videoUrl:    s3://sunity-motion-pilot-videos/reference/ref-foxtop-split.mp4
 ```
 
 **원본 영상 분석**
 
 ```
 영상 길이        : 32.30초  (등록된 모션 중 최장)
-영상 내 반복     : 없음 — 1회 연속 콤보
+영상 내 반복     : 없음 — 1회 연속 동작
 회전 방향        : 시계 방향
 주 그립 손       : 왼손 상단 + 오른손 보조, 양손 그립 유지
 그립 교체        : 약 30초 — 마무리 직전에 오른손이 위로 (이전 4개 모션엔 없는 특징)
-인버트 버터플라이 콤보와 관계 : 0~18초 베이스 공유 (정은지 선수 확정)
+폭스탑과 관계      : 0~18초 베이스 공유 (정은지 선수 확정)
 ```
 
 **clip_range**
@@ -454,12 +455,12 @@ clip_range:
 |---|---|---|
 | prep | 0~1s | 양손 그립 확보, 한 다리 들어올리기 시작 |
 | entry | 1~3s | 리프트 — 팔 굽혀 가슴을 폴에 붙이며 끌어올림 |
-| plank-base | 3~6s | 측면 플랭크 → 인버트 전환 (ref-plank-spin / ref-invert-butterfly-combo 공유 베이스) |
-| pose-A (gemini 추정) | 6~10s | 한 다리 폴 감싸기 + 다른 다리 펼침. 인버트 상태 두 다리 분리 |
-| pose-B (ayesha 추정) — 채점 피크 | 11~13s | 양 다리 좌우 펼침(스플릿). 콤보 시각적 피크 (정은지 선수 확정) |
+| plank-base | 3~6s | 측면 플랭크 → 인버트 전환 (ref-invert / ref-foxtop 공유 베이스) |
+| pose-A | 6~10s | 한 다리 폴 감싸기 + 다른 다리 펼침. 인버트 상태 두 다리 분리 |
+| pose-B — 채점 피크 | 11~13s | 양 다리 좌우 펼침(스플릿). 시각적 피크 (정은지 선수 확정) |
 | pose-transition | 14~17s | 다리 모양 변형, 자세 이행 |
-| butterfly-tail | 17~18s | 인버트 버터플라이 콤보 흐름 마무리 (정은지 선수 기준점) |
-| extended-pose | 18~22s | 양팔 펼침 + 수평 라인 + 다리 펼침 — 이전 콤보엔 없는 추가 자세 |
+| foxtop-tail | 17~18s | 폭스탑 흐름 마무리 (정은지 선수 기준점) |
+| extended-pose | 18~22s | 양팔 펼침 + 수평 라인 + 다리 펼침 — 폭스탑엔 없는 추가 자세 |
 | slow-rotation | 22~26s | 자세 유지하며 회전 감속. 회전 모멘텀 떨어진 상태로 자세 안정성 시험 |
 | recover | 27~28s | 인버트 해제, 폴 잡고 내려옴 |
 | grip-shift | ~30s | 그립 교체 — 왼손 → 오른손 상단으로 전환 |
@@ -577,18 +578,18 @@ MVP 완성 후 실제 분석 결과를 함께 보며 정은지 선수와 수정.
 
 ★ 공유 베이스 모션 (shared_base_motion_id 필드) — 우선순위 상향:
     현재 발견된 베이스 공유 체인:
-      ref-plank-spin              (~17s)
+      ref-invert        (~17s)
         └─ 0~6s 공유 ─┐
-      ref-invert-butterfly-combo  (~28s)
+      ref-foxtop        (~28s)
         └─ 0~18s 공유 ─┐
-      ref-gemini-to-ayesha-combo  (~32s)
+      ref-foxtop-split  (~32s)
 
     세 모션이 단일 계층 트리(L1→L2→L3)를 이룸.
     스키마 확장 검토 항목:
       · shared_base_motion_id: string (어느 모션의 베이스를 공유하는지)
       · base_until_s: number (몇 초까지 공유 베이스인지)
       · 부분 점수: 베이스 구간 점수 + 확장 구간 점수 분리 평가
-      · 학생 학습 경로: L1(플랭크) → L2(버터플라이) → L3(제미니 에이샤) 순서 가이드
+      · 학생 학습 경로: L1(인버트) → L2(폭스탑) → L3(폭스탑스플릿) 순서 가이드
 
 - 체크포인트 정답: 정은지 선수 시연 후 코칭 우선순위 반영
 - entry_type 자동 판별 (포즈 시퀀스 기반)
@@ -630,11 +631,11 @@ IPSF LTAD 트레이닝 단계:
   고급 : 폭발적 다이내믹 플립, 복합 리그립
 ```
 
-→ `ref-plank-spin` 의 "intermediate ⚠ advanced 가능성": 공중 인버트
+→ `ref-invert` 의 "intermediate ⚠ advanced 가능성": 공중 인버트
 자체는 중급선이므로 intermediate 유지가 타당. 다리 찢기(스플릿)는 고급
 유연성 요소이나 단계 분류의 기준 동작은 인버트 — 최종은 정은지 선수 확인.
 
-### 8-4. 콤보 채점 — 부분 점수 방향 뒷받침
+### 8-4. 구간 분리 채점 — 부분 점수 방향 뒷받침
 
 ```
 IPSF 는 복합 동작에 기술 보너스를 준다:
@@ -642,7 +643,7 @@ IPSF 는 복합 동작에 기술 보너스를 준다:
   부실한 전환(흐름 부족)   : −0.5 감점
 ```
 
-→ 콤보를 베이스/확장 구간으로 나눠 점수화하는 §7 방향과 부합.
+→ 한 기술을 베이스/확장 구간으로 나눠 점수화하는 §7 방향과 부합.
 단계 "전환"의 매끄러움 자체를 점수화하는 것은 여전히 §7 미결 항목.
 
 ### 8-5. 우리 범위 밖
@@ -662,5 +663,11 @@ IPSF 는 복합 동작에 기술 보너스를 준다:
         세부는 MVP 후 일괄 수정 방향*
 *v4.3: §7 비전 AI 통합 시 신뢰 데이터 검증 트리거 추가
               (joint 매핑 / ViTPose 시각 검증 / DTW sanity / clip_range 정합)*
-*v4.4 (현재): §8 외부 근거(IPSF Code of Points) 추가 — 허용 오차 20도
+*v4.4: §8 외부 근거(IPSF Code of Points) 추가 — 허용 오차 20도
               KISMAM 반영, 체크포인트·난이도·콤보 채점 근거 정리*
+*v6 (현재, 2026-05-22): 정은지 선수 명칭 확정 —
+       발레리나 스핀→사이드웨이 스핀, 프론트 훅 스핀→클라임,
+       플랭크 스핀→인버트, 인버트 버터플라이 콤보→폭스탑,
+       제미니 투 에이샤 콤보→폭스탑스플릿. motionId·S3 키 동일 갱신.
+       '연속 동작=하나의 기술' — 콤보 용어 제거, 베이스/확장 구간 점수
+       구조는 유지. 난이도 불변. 명칭은 브라우저 검증 완료.*

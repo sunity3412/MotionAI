@@ -116,7 +116,7 @@ videoUrl?          string                 s3://... 분석 reference 원본
 thumbnailUrl?      string
 clipRange?         ClipRange              구간 시점(초)
 checkpoints?       Checkpoint[]           KISMAM 가중 관절 (weight 합 1.0)
-sharedBaseMotionId? string                공유 베이스 콤보 — 베이스 제공 모션 ID
+sharedBaseMotionId? string                공유 베이스 — 베이스 제공 기술 ID
 baseUntilS?        number                 공유 베이스가 끝나는 시점(초)
 updatedAt?         number (epoch ms)
 ```
@@ -124,9 +124,9 @@ updatedAt?         number (epoch ms)
   → 분석 런타임은 execStartS~landEndS 만 사용 (reference-motions.md §4).
 `Checkpoint` = { joint, weight, note? }
 
-> 공유 베이스 콤보: plank-spin → invert-butterfly-combo(baseUntilS:6)
-> → gemini-ayesha-combo(baseUntilS:18). 콤보 mode1 분석 시 베이스/확장
-> 구간을 나눠 부분 점수 산출 → Mode1Comparison.segmentScores (§4).
+> 공유 베이스: ref-invert → ref-foxtop(baseUntilS:6)
+> → ref-foxtop-split(baseUntilS:18). 베이스 공유 기술의 mode1 분석 시
+> 베이스/확장 구간을 나눠 부분 점수 산출 → Mode1Comparison.segmentScores (§4).
 
 > ⚠️ backend/CLAUDE.md 는 `analyses/{analysisId}`(최상위), `reference_motions/{id}`
 > 로 적혀 있으나, **배포된 보안 규칙이 users/{uid} 격리**라 본 계약은
@@ -164,10 +164,10 @@ issue?                                                    ← 사람 가독 폴�
 `Mode1Comparison` (전문가 비교)
 ```
 mode='mode1', referenceMotionId, referenceMotionName, athleteName, similarity(0~100)
-segmentScores?   콤보 모션 분석 시에만 (베이스 공유 시)
+segmentScores?   베이스 공유 기술 분석 시에만
 ```
 `SegmentScores` = { base(0~100), extension(0~100), baseMotionId, baseMotionName }
-  → 콤보 reference 시퀀스를 baseUntilS 기준 베이스/확장으로 분리 후 각 KISMAM 점수.
+  → 베이스 공유 reference 시퀀스를 baseUntilS 기준 베이스/확장으로 분리 후 각 KISMAM 점수.
   단일 모션은 segmentScores 없음.
 `Mode3Comparison` (자기 성장)
 ```

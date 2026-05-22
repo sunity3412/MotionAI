@@ -91,7 +91,7 @@ const SCORES_MODE3 = {
   parts: { 상체: 84, 코어: 73, 하체: 70 },
 } as const;
 
-// 콤보 부분 점수 시뮬 (reference-motions.md §7). 베이스 구간은 익숙해서 높고,
+// 구간별 점수 시뮬 (reference-motions.md §7). 베이스 구간은 익숙해서 높고,
 // 확장(고유) 구간은 어려워서 낮게 — 학생이 어디서 막혔는지 자연스럽게 드러남.
 // #7-follow 에서 백엔드 segments.segment_scores 실측치로 교체.
 export function simulatedSegmentScores(
@@ -121,11 +121,11 @@ export function getSimulatedResult(
       myVideoUrl: '',
       comparison: {
         mode: 'mode1',
-        referenceMotionId: 'ref-invert-butterfly-combo',
-        referenceMotionName: '인버트 버터플라이 콤보',
+        referenceMotionId: 'ref-foxtop',
+        referenceMotionName: '폭스탑',
         athleteName: '정은지',
         similarity: SCORES_MODE1.overall, // 게이지 점수 = 일치도
-        // segmentScores 는 simulationWriter 가 고른 모션의 콤보 여부를 보고 채움.
+        // segmentScores 는 simulationWriter 가 고른 기술의 베이스 공유 여부를 보고 채움.
       },
       referenceVideoUrl: '',
     };

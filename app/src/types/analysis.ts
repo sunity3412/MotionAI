@@ -76,7 +76,7 @@ export interface CoachingTip {
 }
 
 // 구간별 점수 (reference-motions.md §7 공유 베이스 모션).
-// 일부 기술은 다른 기술의 베이스 구간을 공유함 (인버트 → 폭스탑 → 폭스탑스플릿).
+// 일부 기술은 다른 기술의 베이스 구간을 공유함 (인버트 → 폭스탑 → 폭스탑 스플릿).
 // 한 기술 안에서 베이스 구간과 확장 구간을 나눠 평가해, 학생이 어느 단계에서
 // 막혔는지 보여줌.
 export interface SegmentScores {

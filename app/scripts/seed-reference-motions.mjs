@@ -9,7 +9,7 @@
 // 불가. Admin SDK + Application Default Credentials 로 규칙 우회 (관리자 컨텍스트).
 //
 // 모션 데이터 — 단일 진실: docs/reference-motions.md §5.
-//   - 정은지 선수 실영상 5개 분석 결과 (사이드웨이/클라임/인버트/폭스탑/폭스탑스플릿).
+//   - 정은지 선수 실영상 5개 분석 결과 (사이드웨이/클라임/인버트/폭스탑/폭스탑 스플릿).
 //   - motionId 는 안정적 슬러그 = doc ID = S3 키. idempotent: 재실행해도 같은 doc 갱신.
 //   - clipRange/checkpoints 는 분석 런타임 입력. keyframe 각도(angles)는 #7-follow ML 단.
 //   - 구간 공유 트리: ref-invert → ref-foxtop → ref-foxtop-split (베이스 공유).
@@ -138,7 +138,7 @@ const MOTIONS = [
   },
   {
     motionId: 'ref-foxtop-split',
-    name: '폭스탑스플릿',
+    name: '폭스탑 스플릿',
     level: 'advanced',
     entryType: 'lift_entry',
     entryDescription:

@@ -178,10 +178,14 @@
       인접 신뢰 프레임 보간 + 신뢰도 가중 스무딩. 보정 상수 없음.
     파이프라인(functions/pipeline/app.py)을 3D 흐름으로 배선.
 
+  GPU 검증 완료 (2026-05-22, RunPod RTX 3090):
+    verify_nlf_pipeline.py 를 폭스탑(ref-invert-butterfly-combo) 영상에
+    end-to-end 실행 — 284프레임. NLF 가 GPU 에서 3D 좌표를 NaN/inf 0 개로
+    산출(CPU 는 전부 NaN — 예측대로). 3D 관절각 (284,8) NaN 0. 시간축
+    폐색 보간이 관절별 7~11 프레임을 폐색 판정해 보간(평균 5.71° 보정).
+    특징벡터 (284,24)까지 통과. 유닛 1~3 실증 완료.
+
   남은 것:
-    - GPU 검증 (belle, RunPod RTX 4090): backend/scripts/verify_nlf_pipeline.py
-      로 정은지 5영상 end-to-end. 특히 폭스탑·폭스탑스플릿에서 폐색 보간 동작 확인.
-      NLF 는 GPU 전제 — CPU 는 좌표가 NaN 으로 발산(검증됨).
     - 유닛 4 (이번 범위 밖, 후속): 운영 GPU 추론 환경 분리. 지금은
       interfaces 어댑터 seam 만 유지.
     - mode1 기준 모션 angles 등록: app.py 가 reference doc 의 angles 를
@@ -327,3 +331,14 @@
  - belle action item:
    1) 정은지 영상 5개 S3 업로드 — 위 "남은 외부 작업"의 신 S3 키 명령 사용.
    2) cd app && npm run seed:reference — 구 motionId 5개 삭제 + 신 5개 등록.
+
+*2026-05-22 (이어서) — #7-follow 유닛 1~3 GPU 검증 완료 + 시드 반영:
+ - Firestore 재시드 실행 완료 — reference 컬렉션이 신 5개(사이드웨이/클라임/
+   인버트/폭스탑/폭스탑스플릿)로 교체, 구 5개 삭제 확인.
+ - RunPod RTX 3090 에서 verify_nlf_pipeline.py 를 폭스탑 영상에 end-to-end
+   실행 → 통과. NLF GPU 3D 좌표 NaN 0, 시간축 폐색 보간 관절별 7~11프레임
+   판정·보간, 특징벡터까지. 유닛 1~3 실증 완료(위 "진행 중" 블록 참조).
+ - RunPod 메모: CUDA_VISIBLE_DEVICES 가 빈 문자열로 와서 =0 으로 덮어야
+   CUDA 동작. 첫 Pod 은 불량(GPU 연산 불가)이라 폐기·재배포함. NLF 모델은
+   GitHub 릴리스(v0.3.2)에서 Pod 이 직접 받는 게 belle 회선 업로드보다 안정.
+ - 남은 것: 유닛 4(운영 GPU 인프라), mode1 기준 angles 등록, S3 영상 업로드.

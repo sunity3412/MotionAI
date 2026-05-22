@@ -1,15 +1,19 @@
-"""reference 영상 keypoint overlay 검증 (#7-follow Phase 1).
+"""reference 영상 keypoint overlay 검증 (#7-follow Phase 2).
 
 정은지 영상에서 FrameExtractor + PoseEstimator 로 keypoint 를 추출하고
 프레임에 골격을 그려 PNG 로 저장한다. 폴 폐색·인버트·고속 회전 구간에서
 ViTPose 추출이 안정적인지, keypoint 순서가 COCO 17 과 맞는지 육안 확인용
 (reference-motions.md §7 요구).
 
+균등 간격 6프레임만 추정·overlay 한다 — 무거운 모델(ViTPose+ huge 등)로도
+빠르게 비교할 수 있도록. 모델은 인자로 바꿔 가며 검증한다.
+
 사용:
   cd backend
   python scripts/verify_pose_overlay.py "../정은지님 영상/ref-plank-spin.mp4"
+  python scripts/verify_pose_overlay.py "<영상>" usyd-community/vitpose-plus-huge
 
-결과: backend/scripts/overlay_out/ 에 균등 간격 6프레임 overlay PNG.
+결과: backend/scripts/overlay_out/ 에 6프레임 overlay PNG.
 """
 
 from __future__ import annotations
@@ -34,20 +38,26 @@ BONES = [
     (0, 5), (0, 6),                          # 목
 ]
 _MIN_CONF = 0.3
+_DEFAULT_MODEL = "usyd-community/vitpose-base-simple"
 
 
-def main(video_path: str) -> None:
+def main(video_path: str, vitpose_model: str) -> None:
     out_dir = Path(__file__).resolve().parent / "overlay_out"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     frames = FfmpegFrameExtractor().extract(video_path)
     print(f"프레임 {len(frames)}장 추출")
-    kpts = YoloVitPoseEstimator().estimate(frames)  # (T, 17, 3)
 
-    for n, i in enumerate(np.linspace(0, len(frames) - 1, 6, dtype=int)):
-        img = Image.fromarray(frames[i]).convert("RGB")
+    # 균등 간격 6프레임만 추정 — 무거운 모델로도 빠르게.
+    sample_idx = np.linspace(0, len(frames) - 1, 6, dtype=int)
+    sampled = frames[sample_idx]
+    print(f"모델: {vitpose_model}")
+    kpts = YoloVitPoseEstimator(vitpose_model=vitpose_model).estimate(sampled)
+
+    for n, src_i in enumerate(sample_idx):
+        img = Image.fromarray(frames[src_i]).convert("RGB")
         draw = ImageDraw.Draw(img)
-        kp = kpts[i]
+        kp = kpts[n]
         for a, b in BONES:
             if kp[a, 2] > _MIN_CONF and kp[b, 2] > _MIN_CONF:
                 draw.line(
@@ -59,7 +69,7 @@ def main(video_path: str) -> None:
             if kp[j, 2] > _MIN_CONF:
                 x, y = kp[j, :2]
                 draw.ellipse([x - 3, y - 3, x + 3, y + 3], fill=(255, 75, 51))
-        path = out_dir / f"overlay_{n}_frame{int(i)}.png"
+        path = out_dir / f"overlay_{n}_frame{int(src_i)}.png"
         img.save(path)
         print(f"저장: {path}")
 
@@ -69,6 +79,6 @@ def main(video_path: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print('사용: python scripts/verify_pose_overlay.py "<영상경로>"')
+        print('사용: python scripts/verify_pose_overlay.py "<영상경로>" [모델명]')
         sys.exit(1)
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else _DEFAULT_MODEL)

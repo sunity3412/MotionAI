@@ -161,15 +161,24 @@
 ## 진행 중
 
 ```
-#7-follow (AWS 컨테이너·모델 가중치·Cerebras 키 준비 후 — 여기서 검증 불가):
-  - PoseEstimator: YOLO11(인체)→ViTPose-S(17점). 미감지 시 NoHumanError
-  - FrameExtractor: ffmpeg 프레임 추출
-  - CoachWriter: Cerebras LLM (현재 폴백 = 실제 편차값 기반 문장, 위조 아님)
-  - template.yaml: zip→Lambda 컨테이너(ECR) 패키징 전환 + 모델 캐싱
-  → 교체 지점은 functions/pipeline/app.py 상단 3개 상수만 (코어 불변)
-
-배포 전 1회(공통): aws configure(ap-northeast-2) + Firebase 서비스계정 키를
-  Parameter Store(/sunity/motion/firebase-sa, SecureString) 등록 → sam deploy
+#7-follow — ML 파이프라인 (2026-05-22 재설계: 2D 단일모델 → 3D+시간축 하이브리드)
+  검증 결과(Phase 2): ViTPose(2D)는 폴 폐색·접힌 인버트 자세에 천장 — 확정.
+    방향보정(0/180°)·ViTPose+ huge 로도 접힌 자세는 안 풀림.
+  방향: docs/research/pole-sports-motion-analysis-techniques.md 의 하이브리드
+    파이프라인 — 복원 → 2D검출 → 2D-3D리프팅(PoseFormerV2) → 메쉬피팅 →
+    시간축 폐색보간(TEMP3D). 접힌 프레임은 단독 불가, 시퀀스로 해결.
+  인프라: ML 추론은 GPU 필요 → 기존 "Lambda CPU 컨테이너" 계획 폐기.
+    개발 GPU = RunPod 클라우드(RTX 4090). 운영 = 서버리스 GPU 추론.
+    Lambda 는 오케스트레이션만.
+  검증 완료(2026-05-22, RunPod RTX 4090): NLF 가 GPU 에서 안정 동작 —
+    overlay 18프레임 전부 867점 유효, NaN·크래시·천장 산란 0. 폴 폐색부도
+    인체 prior 로 메워짐. 가장 접힌 인버트(butterfly f56·gemini f128)는
+    점군이 몸엔 얹히나 2D 투영상 덩어리 — 시간축 단계 필요(예측대로).
+  현 단계: NLF 3D 백본 채택 확정 → 하이브리드 파이프라인 설계·구축.
+  검증 자산: backend/scripts/verify_nlf_overlay.py(GPU/CUDA 대응)·
+    _nlf_smoke.py, backend/scripts/overlay_*_nlf/(검증 overlay 18장),
+    backend/.venv-ml(Python 3.13). pose_estimator.py 2D 방향보정은
+    3D 전환 시 재설계 대상.
 ```
 
 ---
@@ -273,3 +282,11 @@
   3. 성장 그래프 라인차트 (victory-native)
   4. EAS Build/TestFlight (외부 준비 — Apple Developer 계정)
   5. #7-follow (AWS+ML 모델 어댑터) — 외부 준비*
+
+*2026-05-22 — #7-follow ML 검증·재설계 (위 "진행 중" #7-follow 블록 참조):
+ - Phase 1(ML 어댑터 3개) 커밋 e1dca17 후 Phase 2(keypoint 검증) 진행.
+ - ViTPose(2D) 폴 폐색·접힌 인버트 천장 확정. NLF(3D HMR)는 CPU 에서 동작은
+   하나 GPU 전제 모델이라 불안정 — 3D 검증은 GPU 환경에서 마무리 필요.
+ - belle research 문서(docs/research/)가 정답 아키텍처. ML 추론 GPU 필수.
+ - 결정: 정식 파이프라인 먼저. 개발 GPU = RunPod(RTX 4090).
+ - belle action item: RunPod 계정 생성 + 크레딧 등록.

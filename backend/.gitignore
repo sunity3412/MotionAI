@@ -7,8 +7,13 @@ env.local.json
 __pycache__/
 *.pyc
 .pytest_cache/
-.venv/
+.venv*/
 venv/
+
+# #7-follow ML 검증 산출물 (overlay PNG) · 모델 가중치
+scripts/overlay_*/
+yolo11n.pt
+*.torchscript
 
 # 비밀값 (절대 커밋 금지 — backend_CLAUDE.md 보안 원칙)
 *.pem

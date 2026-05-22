@@ -1,12 +1,11 @@
 """분석 파이프라인 — S3 업로드 이벤트 → SQS → 이 함수 (비동기).
 
-알고리즘 코어(features/motiondtw/kismam/selfmotion/assemble)는 모델 무관·
-유닛 검증됨. 무거운 모델/ffmpeg/Cerebras 는 interfaces 어댑터로 분리:
-현재 stub → AWS 컨테이너·가중치·Cerebras 키 준비 후 교체(#7-follow).
+알고리즘 코어(features/temporal/motiondtw/kismam/selfmotion/assemble)는 모델
+무관·유닛 검증됨. 무거운 모델/ffmpeg/Cerebras 는 interfaces 어댑터로 분리 —
+3D 포즈는 NLF(pose_estimator), 영상은 ffmpeg(frame_extractor), 코칭은
+Cerebras(coach_writer). NLF 추론은 GPU 필요(plan.md #7-follow).
 
 오케스트레이션 정직성:
-  - 모델 미구현(NotImplementedError)은 가짜 상태로 덮지 않고 그대로 올림
-    → SQS 재시도→DLQ 로 가시화(dev). 운영 전 정책 재검토.
   - 인체 미감지(NoHumanError) → contract no_human 으로 실패 기록.
   - 그 외 런타임 오류 → server_error 로 실패 기록(사용자 노출 문구).
 
@@ -27,13 +26,14 @@ from sunity_shared.analysis import assemble, kismam, segments, selfmotion
 from sunity_shared.analysis.features import (
     compute_joint_angles,
     feature_vector,
-    fill_gaps,
+    joint_uncertainty,
 )
 from sunity_shared.analysis.coach_writer import CerebrasCoachWriter
 from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
 from sunity_shared.analysis.interfaces import NoHumanError
 from sunity_shared.analysis.motiondtw import motion_dtw, per_joint_deviation
-from sunity_shared.analysis.pose_estimator import YoloVitPoseEstimator
+from sunity_shared.analysis.pose_estimator import NlfPoseEstimator
+from sunity_shared.analysis.temporal import temporal_fill
 from sunity_shared.events import iter_s3_keys_from_sqs
 from sunity_shared.s3keys import parse_upload_key
 
@@ -43,10 +43,10 @@ log.setLevel(logging.INFO)
 _s3 = boto3.client("s3")
 _PLAYBACK_EXPIRES = 3600  # 결과 화면 영상 재생 서명 URL 만료(초)
 
-# ML 어댑터 (#7-follow Phase 1). 모듈 로드 시 1회 생성 — Lambda 콜드스타트에
-# 모델을 메모리에 올리고 핸들러 재호출 간 재사용.
+# ML 어댑터 (#7-follow). 모듈 로드 시 1회 생성 — 추론 환경 콜드스타트에 모델을
+# 메모리(GPU)에 올리고 핸들러 재호출 간 재사용.
 _FRAME_EXTRACTOR = FfmpegFrameExtractor()
-_POSE_ESTIMATOR = YoloVitPoseEstimator()
+_POSE_ESTIMATOR = NlfPoseEstimator()
 _COACH_WRITER = CerebrasCoachWriter()
 
 
@@ -59,12 +59,13 @@ def _signed_get(bucket: str, key: str) -> str:
 
 
 def _angles_from_video(bucket: str, key: str) -> np.ndarray:
-    """S3 영상 → 프레임 → keypoints → 관절각(T,J), 결측 보간."""
+    """S3 영상 → 프레임 → NLF 3D keypoints → 관절각(T,J), 시간축 폐색 보간."""
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
         _s3.download_file(bucket, key, tmp.name)
         frames = _FRAME_EXTRACTOR.extract(tmp.name)
-    keypoints = _POSE_ESTIMATOR.estimate(frames)  # 미감지 시 NoHumanError
-    return fill_gaps(compute_joint_angles(keypoints))
+    keypoints = _POSE_ESTIMATOR.estimate(frames)  # (T,17,4) — 미감지 시 NoHumanError
+    angles = compute_joint_angles(keypoints)
+    return temporal_fill(angles, joint_uncertainty(keypoints))
 
 
 def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
@@ -169,10 +170,6 @@ def lambda_handler(event: dict, _context) -> dict:
                 models.ERR_NO_HUMAN,
                 models.ERROR_MESSAGE[models.ERR_NO_HUMAN],
             )
-        except NotImplementedError:
-            # #7-follow 미구현 — 가짜 상태로 덮지 않고 가시화(DLQ)
-            log.exception("파이프라인 미구현 단계 analysis_id=%s", analysis_id)
-            raise
         except Exception:  # noqa: BLE001
             log.exception("분석 실패 analysis_id=%s", analysis_id)
             firestore_admin.fail_analysis(

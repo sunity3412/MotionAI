@@ -161,24 +161,35 @@
 ## 진행 중
 
 ```
-#7-follow — ML 파이프라인 (2026-05-22 재설계: 2D 단일모델 → 3D+시간축 하이브리드)
-  검증 결과(Phase 2): ViTPose(2D)는 폴 폐색·접힌 인버트 자세에 천장 — 확정.
-    방향보정(0/180°)·ViTPose+ huge 로도 접힌 자세는 안 풀림.
-  방향: docs/research/pole-sports-motion-analysis-techniques.md 의 하이브리드
-    파이프라인 — 복원 → 2D검출 → 2D-3D리프팅(PoseFormerV2) → 메쉬피팅 →
-    시간축 폐색보간(TEMP3D). 접힌 프레임은 단독 불가, 시퀀스로 해결.
-  인프라: ML 추론은 GPU 필요 → 기존 "Lambda CPU 컨테이너" 계획 폐기.
-    개발 GPU = RunPod 클라우드(RTX 4090). 운영 = 서버리스 GPU 추론.
-    Lambda 는 오케스트레이션만.
-  검증 완료(2026-05-22, RunPod RTX 4090): NLF 가 GPU 에서 안정 동작 —
-    overlay 18프레임 전부 867점 유효, NaN·크래시·천장 산란 0. 폴 폐색부도
-    인체 prior 로 메워짐. 가장 접힌 인버트(butterfly f56·gemini f128)는
-    점군이 몸엔 얹히나 2D 투영상 덩어리 — 시간축 단계 필요(예측대로).
-  현 단계: NLF 3D 백본 채택 확정 → 하이브리드 파이프라인 설계·구축.
-  검증 자산: backend/scripts/verify_nlf_overlay.py(GPU/CUDA 대응)·
-    _nlf_smoke.py, backend/scripts/overlay_*_nlf/(검증 overlay 18장),
-    backend/.venv-ml(Python 3.13). pose_estimator.py 2D 방향보정은
-    3D 전환 시 재설계 대상.
+#7-follow — ML 하이브리드 파이프라인 (2026-05-22)
+  배경: ViTPose(2D)는 폴 폐색·접힌 인버트에 천장 확정 → NLF(3D HMR) 백본
+    채택. docs/research/pole-sports-motion-analysis-techniques.md 가 정답
+    아키텍처. ML 추론은 GPU 필요 — "Lambda CPU 컨테이너" 계획 폐기, Lambda
+    는 오케스트레이션만.
+
+  구축 완료 (유닛 1~3, CPU 유닛테스트 70개 통과):
+    유닛 1 — NlfPoseEstimator (pose_estimator.py): YOLO11 박스 → NLF
+      estimate_poses_batched 로 17 COCO joint 3D + 불확실도. SMPL J_template
+      에서 COCO-17 canonical 점 재배열해 질의. YoloVitPoseEstimator(2D) 폐기.
+    유닛 2 — 분석 코어 2D→3D: compute_joint_angles 가 3D 좌표에서 관절각
+      계산(투영 왜곡 자유), joint_uncertainty 추가. motiondtw/kismam/
+      selfmotion/segments/assemble 는 각도 스칼라 기반이라 무변경.
+    유닛 3 — temporal.py: NLF 불확실도 상대 이상치로 폐색 프레임 판정 →
+      인접 신뢰 프레임 보간 + 신뢰도 가중 스무딩. 보정 상수 없음.
+    파이프라인(functions/pipeline/app.py)을 3D 흐름으로 배선.
+
+  남은 것:
+    - GPU 검증 (belle, RunPod RTX 4090): backend/scripts/verify_nlf_pipeline.py
+      로 정은지 5영상 end-to-end. 특히 인버트 콤보 2개에서 폐색 보간 동작 확인.
+      NLF 는 GPU 전제 — CPU 는 좌표가 NaN 으로 발산(검증됨).
+    - 유닛 4 (이번 범위 밖, 후속): 운영 GPU 추론 환경 분리. 지금은
+      interfaces 어댑터 seam 만 유지.
+    - mode1 기준 모션 angles 등록: app.py 가 reference doc 의 angles 를
+      읽음 — 정은지 영상을 같은 파이프라인에 1회 통과시켜 저장하는 별도 작업.
+
+  검증 자산: verify_nlf_pipeline.py(신규 end-to-end)·verify_nlf_overlay.py·
+    _nlf_smoke.py, overlay_*_nlf/, backend/.venv-ml(Python 3.13). NLF 모델
+    = backend/scripts/nlf_l_multi.torchscript.
 ```
 
 ---
@@ -192,8 +203,8 @@
 4. [x] 영상 소스 선택 화면 (UI+검증, 실제 업로드는 #6~7)
 5. [x] AI 분석 로딩 화면 (단계별, 계약 기반 — 백엔드서 실데이터 연결)
 6. [x] 백엔드 Lambda 기본 구조 세팅 (SAM 스캐폴딩 — 배포는 계정 준비 후)
-7. [~] pose-extractor — 알고리즘 코어/오케스트레이션 완료,
-       모델 어댑터(YOLO/ViTPose/Cerebras)+컨테이너는 #7-follow(계정/가중치)
+7. [~] pose-extractor — 코어/오케스트레이션/3D 어댑터(NLF) 완료.
+       GPU 검증·운영 인프라(유닛 4)는 #7-follow 남음
 8. [x] 분석 결과 화면 (Mode 3 — 자기 비교) — 시뮬 데이터, 백엔드 연결은 #7-follow
 9. [x] 기준 모션 선택 화면 (Firestore 직접 구독, 시드 별도)
 10.[x] 분석 결과 화면 (Mode 1 — 정은지 비교) — 헤더·요약 카피·메타카드·
@@ -290,3 +301,16 @@
  - belle research 문서(docs/research/)가 정답 아키텍처. ML 추론 GPU 필수.
  - 결정: 정식 파이프라인 먼저. 개발 GPU = RunPod(RTX 4090).
  - belle action item: RunPod 계정 생성 + 크레딧 등록.
+
+*2026-05-22 (이어서) — #7-follow 하이브리드 파이프라인 유닛 1~3 구축:
+ - NLF torchscript API 직접 확인 → NlfPoseEstimator 작성. SMPL J_template
+   에서 COCO-17 canonical 점 재배열 → get_weights_for_canonical_points →
+   estimate_poses_batched. 구조는 CPU 로 검증(출력 형상·키), 수치는 GPU 필요.
+ - 분석 코어 2D→3D 전환(compute_joint_angles/joint_uncertainty). 코어 나머지
+   (motiondtw/kismam/selfmotion/segments/assemble)는 각도 스칼라 기반 무변경.
+ - temporal.py — 불확실도 상대 이상치 기반 시간축 폐색 보간(보정 상수 없음).
+ - pipeline/app.py 3D 배선. 백엔드 유닛테스트 70개 통과(2D→3D 테스트 갱신).
+ - 폐기: YoloVitPoseEstimator(2D)·verify_pose_overlay.py·interfaces 의
+   NotImplemented* stub. transformers(ViTPose) 의존성 제거.
+ - belle action item: RunPod Pod 띄워 verify_nlf_pipeline.py 로 정은지 5영상
+   GPU 검증 (인버트 콤보 2개의 폐색 보간 동작 확인).

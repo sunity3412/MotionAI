@@ -3,11 +3,7 @@
 import numpy as np
 
 from sunity_shared.analysis import assemble, kismam
-from sunity_shared.analysis.interfaces import (
-    FallbackCoachWriter,
-    NotImplementedFrameExtractor,
-    NotImplementedPoseEstimator,
-)
+from sunity_shared.analysis.interfaces import FallbackCoachWriter
 from sunity_shared.analysis.skeleton import JOINT_KEYS, NUM_JOINTS
 
 REF = {"motionId": "m1", "name": "인사이드 레그 행", "athleteName": "정은지"}
@@ -140,11 +136,6 @@ def test_joint_structured_fields_omitted_when_no_angles():
         assert "direction" not in j
 
 
-def test_stub_interfaces_raise_or_empty():
-    import pytest
-
-    with pytest.raises(NotImplementedError):
-        NotImplementedFrameExtractor().extract("/tmp/v.mp4")
-    with pytest.raises(NotImplementedError):
-        NotImplementedPoseEstimator().estimate(np.zeros((1, 17, 3)))
+def test_fallback_coach_writer_returns_empty():
+    # CoachWriter 폴백 — Cerebras 미연결 시 빈 dict → assemble 수치 폴백.
     assert FallbackCoachWriter().write({}) == {}

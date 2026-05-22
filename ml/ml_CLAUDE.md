@@ -16,26 +16,29 @@
 ③ 고속 회전(Spin): 빠른 회전 동작
    → 프레임 간 관절 연속성 깨짐.
 
-→ 이것이 YOLO11-Pose(단일) 대신 YOLO11+ViTPose-S 2단계를 선택한 이유.
-   ViTPose는 전역 어텐션(ViT)으로 가려진 관절을 주변 맥락으로 유추.
+→ 2D 포즈 추정(ViTPose 포함)은 접힌 인버트에서 천장 확인(plan.md #7-follow).
+   3D HMR 백본 NLF 로 전환 — 인체 prior 로 가려진 관절을 3D 복원하고,
+   시간축 보간으로 단일 프레임이 못 푸는 폐색 구간을 시퀀스로 메운다.
 ```
 
 ## 모델 선택 근거
 
-| 모델 | 역할 | 폐색 대응 | 단계 |
-|------|------|----------|------|
-| MediaPipe BlazePose | - | ❌ 취약 | 사용 안 함 |
-| YOLO11 | 사람 탐지 전용 | ✅ | MVP |
-| ViTPose-S | 포즈 추정 MVP | ✅ 전역 어텐션 | MVP 서버 |
-| ViTPose-H | 포즈 추정 고도화 | ✅ 최고 | Phase 2 |
-| ST-GCN | 폐색 극복 (그래프) | ✅ 최고 | Phase 2 |
+| 모델 | 역할 | 단계 |
+|------|------|------|
+| MediaPipe BlazePose | 폐색 취약 — 사용 안 함 | - |
+| YOLO11n | 인체 bbox 탐지 (NLF 입력 박스) | 현행 |
+| NLF (Neural Localizer Fields) | 3D 포즈 백본 — 17 COCO joint 3D + 불확실도 | 현행 |
+| ViTPose-S/H (2D) | 폴 폐색·인버트 천장 — 폐기 | - |
 
 ## 파이프라인 구조
 
 ```
 영상 입력
-  → YOLO11 (인체 감지 + 바운딩 박스)
-  → ViTPose-S (17개 관절 키포인트 추출)
+  → ffmpeg 프레임 추출
+  → YOLO11 (인체 bbox 탐지 — NLF 입력 박스)
+  → NLF (박스마다 17 COCO joint 3D 좌표 + per-joint 불확실도)
+  → 3D 관절각 계산 (compute_joint_angles — 투영 왜곡 자유)
+  → 시간축 폐색 보간 (temporal — 불확실도로 접힌 프레임 복원)
   → FastDTW MotionDTW (기준 모션과 비교)
   → KISMAM 점수 계산 (0~100)
   → Cerebras LLM (코칭 피드백 텍스트 생성)

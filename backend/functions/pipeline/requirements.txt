@@ -3,13 +3,13 @@ firebase-admin>=6,<7
 numpy>=1.26,<3   # 분석 알고리즘 코어 (features/motiondtw/kismam)
 
 # ── #7-follow ML 어댑터 의존성 ─────────────────────────────────────
-# Lambda 컨테이너(ECR) 패키징 전제 — zip 250MB 한계 초과. Dockerfile 참조.
-# torch 는 CPU 전용 휠 사용 (CUDA 라이브러리 제외 → 이미지 수 GB 절감).
---extra-index-url https://download.pytorch.org/whl/cpu
+# 3D 포즈 백본 NLF 는 GPU 전제(plan.md #7-follow) — torch/torchvision 은
+# GPU 런타임에 맞춘 CUDA 휠을 쓴다. NLF 모델은 torchscript 파일이라 별도
+# pip 의존성이 없다(torchvision 은 TorchScript 연산 등록에 필요). 운영 GPU
+# 추론 환경 분리·패키징은 #7-follow 인프라 단계.
 torch>=2.2,<3
 torchvision>=0.17,<1
-ultralytics>=8.3,<9        # YOLO11n 인체 탐지
-transformers>=4.47,<5      # ViTPose 포즈 추정
+ultralytics>=8.3,<9        # YOLO11n 인체 탐지 (NLF 입력 박스)
 imageio>=2.34,<3           # 영상 디코딩
 imageio-ffmpeg>=0.5,<1     # imageio 의 ffmpeg 백엔드
 Pillow>=10,<12             # 프레임 리사이즈

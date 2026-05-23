@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import {
@@ -9,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
+import { VideoCompare } from '../../components/VideoCompare';
 import {
   LEVEL_EXPECTED_SCORE,
   LEVEL_LABEL_KO,
@@ -301,20 +301,22 @@ export default function AnalysisResult() {
           ))}
         </View>
 
-        {/* 동작 비교 — 영상·실분석은 #7-follow. 지금은 자리표시만 (구조만 열어둠) */}
+        {/* 동작 비교 — 좌(내 영상) / 우(정은지 or 지난). 영상 URL 이 들어오면
+            자동으로 슬롯에 끼워짐. URL 비어 있으면 같은 레이아웃의 자리표시. */}
         <Text style={styles.sectionTitle}>동작 비교</Text>
-        <View style={[styles.card, styles.comingCard]}>
-          <Ionicons
-            name="videocam-outline"
-            size={26}
-            color={colors.textDisabled}
-          />
-          <Text style={styles.comingText}>
-            분석 서버가 연결되면 내 영상과{' '}
-            {cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난'} 영상을
-            나란히 놓고 관절 차이를 비교할 수 있어요.
-          </Text>
-        </View>
+        <VideoCompare
+          leftLabel="내 영상"
+          rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
+          leftUrl={result.myVideoUrl || undefined}
+          // mode1: 저장된 referenceVideoUrl 우선, 없으면 reference doc 의 videoUrl
+          //   (presigned URL — 7일 서명, 시드 시점 발급).
+          // mode3: 이전 영상 URL 은 현 시점 데이터 모델에 없어 자리표시(#7-follow).
+          rightUrl={
+            cmp.mode === 'mode1'
+              ? result.referenceVideoUrl || refMotion?.videoUrl || undefined
+              : undefined
+          }
+        />
 
         {/* 코칭 팁 (AC-RES-001-3) */}
         <Text style={styles.sectionTitle}>코칭 팁</Text>
@@ -496,17 +498,6 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 5,
     backgroundColor: colors.brand,
-  },
-  comingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  comingText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    flexShrink: 1,
-    lineHeight: 18,
   },
   tipCard: { alignItems: 'flex-start', gap: 8 },
   tipHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },

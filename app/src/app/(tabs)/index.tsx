@@ -44,7 +44,13 @@ function challengeCopy(motion: ReferenceMotion, isFirstOfLevel: boolean): string
   return `${lv} 새로 추가됨`;
 }
 
-function formatDate(epochMs: number): string {
+// Figma 1:719: "마지막 접속일 | 2일 전" — 한 달 안은 상대, 더 오래는 절대.
+function formatRelative(epochMs: number): string {
+  const diffDays = Math.floor((Date.now() - epochMs) / (24 * 60 * 60 * 1000));
+  if (diffDays <= 0) return '오늘';
+  if (diffDays === 1) return '어제';
+  if (diffDays < 7) return `${diffDays}일 전`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전`;
   const d = new Date(epochMs);
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
@@ -98,7 +104,7 @@ export default function Home() {
         <Text style={styles.sportTitle}>{SPORT_LABEL}</Text>
         <Text style={styles.sportSub}>
           {recent
-            ? `마지막 접속일 ${formatDate(recent.createdAt)}${avg != null ? ` · 평균 ${avg}점` : ''}`
+            ? `마지막 접속일 | ${formatRelative(recent.createdAt)}${avg != null ? ` (평균 ${avg}점)` : ''}`
             : 'AI 코치와 함께 자세를 다듬어 보세요'}
         </Text>
         {newest && (
@@ -149,7 +155,9 @@ export default function Home() {
           )}
 
           <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>오늘 도전해볼 동작</Text>
+            <Text style={styles.sectionTitle}>
+              {recent ? '오늘 도전해볼 동작' : '아래 동작으로 시작해보세요'}
+            </Text>
             {motions.length > 0 && (
               <Pressable
                 onPress={() => router.push('/analysis/reference')}
@@ -222,7 +230,7 @@ function RecentAnalysisCard({
         <Text style={styles.recentMotion} numberOfLines={1}>
           {motionName}
         </Text>
-        <Text style={styles.recentDate}>최근 분석 · {formatDate(doc.createdAt)}</Text>
+        <Text style={styles.recentDate}>최근 분석 | {formatRelative(doc.createdAt)}</Text>
       </View>
       <OctagonScore score={score} />
     </Pressable>
@@ -230,10 +238,13 @@ function RecentAnalysisCard({
 }
 
 function EmptyAnalysisCard({ onPress }: { onPress: () => void }) {
-  // design.md §6 상태 B: "프로와 얼마나 가까운지 확인해봐요!" + 첫 분석하기 그라디언트 버튼
+  // Figma 1:794: 좌측 제목+서브 / 우측 pill CTA. 보조 카피로 분석 흐름 예고.
   return (
     <View style={styles.emptyCard}>
-      <Text style={styles.emptyTitle}>프로와 얼마나{'\n'}가까운지 확인해봐요!</Text>
+      <View style={styles.emptyTextCol}>
+        <Text style={styles.emptyTitle}>프로와 얼마나{'\n'}가까운지 확인해봐요!</Text>
+        <Text style={styles.emptySub}>AI가 자세 분석을 시작해요.</Text>
+      </View>
       <Pressable onPress={onPress} accessibilityRole="button">
         <LinearGradient
           colors={gradients.brandButton.colors}
@@ -277,24 +288,23 @@ function ChallengeRow({
 }
 
 function GrowthCard({ analyses }: { analyses: AnalysisDoc[] }) {
-  // 분석 점수(overallScore) 추이 꺾은선. 점수는 KISMAM 실측값이라
-  // #7-follow 실데이터로 바뀌어도 그대로 유효 (영상 의존 화면과 다름).
+  // 분석 점수(overallScore) 추이 꺾은선. Figma 1:719 — 차트 안 상단 라벨.
   const recent = analyses.slice(0, 6).reverse(); // 최근 6건, 오래된→최근
   const scores = recent.map((a) => a.result?.overallScore ?? 0);
   return (
     <View style={styles.growthCard}>
+      <Text style={styles.growthHeader}>이번주 성장 그래프</Text>
       <GrowthChart scores={scores} />
-      <Text style={styles.growthCaption}>최근 {recent.length}회 분석 점수</Text>
     </View>
   );
 }
 
 function GrowthLockedCard() {
+  // Figma 1:794: 솔리드 회색 박스 + 가운데 카피. 아이콘·점선 없음.
   return (
     <View style={styles.growthLocked}>
-      <Ionicons name="bar-chart-outline" size={28} color={colors.brand} />
       <Text style={styles.growthLockedText}>
-        분석을 2번 이상 하면 성장 그래프를 볼 수 있어요.
+        분석을 2번 이상 하면{'\n'}AI 그래프가 보여요
       </Text>
     </View>
   );
@@ -370,19 +380,22 @@ const styles = StyleSheet.create({
   recentMotion: { ...typography.listTitle, color: colors.textPrimary },
   recentDate: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   emptyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.cardBg,
     borderWidth: layout.cardBorderWidth,
     borderColor: colors.divider,
     borderRadius: radius.card,
     padding: spacing.cardPadding + 4,
-    gap: 16,
-    alignItems: 'flex-start',
+    gap: 12,
   },
+  emptyTextCol: { flex: 1, gap: 6 },
   emptyTitle: { ...typography.listTitle, color: colors.textPrimary },
+  emptySub: { ...typography.caption, color: colors.textSecondary },
   emptyCta: {
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: 999, // pill (design.md §6 상태 B)
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 999, // pill (Figma 1:794)
   },
   emptyCtaText: { ...typography.button, color: colors.textWhite },
   sectionHead: {
@@ -424,22 +437,25 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     borderRadius: radius.card,
     padding: spacing.cardPadding,
-    gap: 12,
+    gap: 8,
   },
-  growthCaption: {
+  growthHeader: {
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
   },
   growthLocked: {
-    backgroundColor: colors.cardBg,
-    borderWidth: layout.cardBorderWidth,
-    borderColor: colors.divider,
-    borderStyle: 'dashed', // §6 상태 B "점선 테두리"
+    backgroundColor: '#EFEFEF', // Figma 1:794 — 솔리드 회색 박스
     borderRadius: radius.card,
-    padding: spacing.cardPadding + 6,
+    paddingVertical: spacing.cardPadding + 18,
+    paddingHorizontal: spacing.cardPadding,
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
   },
-  growthLockedText: { ...typography.caption, color: colors.textSecondary, textAlign: 'center' },
+  growthLockedText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
 });

@@ -1,0 +1,14 @@
+# .easignore — EAS Build 업로드 시 제외 (기본은 .gitignore 따름, 여기엔 추가분만)
+#
+# git-tracked 인데 빌드에 불필요한 것:
+.env.example
+scripts/seed-reference-motions.mjs
+.claude/
+
+# 로컬 캐시·아티팩트
+.expo/
+*.log
+
+# 시크릿 (EAS 서버 env vars 가 권위 있는 소스)
+.env
+.env.local

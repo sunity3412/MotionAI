@@ -4,6 +4,9 @@
     "slug": "sunity-ai-coach",
     "scheme": "sunityaicoach",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,16 +18,25 @@
     },
     "ios": {
       "bundleIdentifier": "com.sunity.aicoach",
-      "supportsTablet": true
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.sunity.aicoach",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,7 +50,18 @@
           "cameraPermission": "연습 자세를 촬영해 AI 자세 분석에 사용하기 위해 카메라 접근이 필요합니다.",
           "microphonePermission": "영상 촬영 시 소리를 함께 녹화하기 위해 마이크 접근이 필요합니다."
         }
-      ]
-    ]
+      ],
+      "expo-video"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d2872ef6-c8be-467f-8fd8-d2cd8a8d4bb2"
+      }
+    },
+    "owner": "sunity3412",
+    "updates": {
+      "url": "https://u.expo.dev/d2872ef6-c8be-467f-8fd8-d2cd8a8d4bb2"
+    }
   }
 }

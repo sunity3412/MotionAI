@@ -15,12 +15,71 @@
 //   - 구간 공유 트리: ref-invert → ref-foxtop → ref-foxtop-split (베이스 공유).
 //   - ⚠ checkpoint 가중치·peak·자유 다리 좌우 등은 추정 — MVP 시연 후 정은지 선수와 일괄 수정.
 
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
+// 선택 인자 --angles <path>: backend/scripts/extract_reference_angles.py 가 만든
+// JSON. 있으면 angles + anglesUpdatedAt + jointKeys 필드를 doc 에 함께 쓴다.
+// 없으면 angles 는 건드리지 않음(기존 값 유지) — presigned URL 만 갱신하는 주간
+// 재시드 시 안전. backend/functions/pipeline/app.py 가 ref["angles"] 를 읽는다.
+function parseArgs(argv) {
+  const out = { anglesPath: null };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--angles' && i + 1 < argv.length) {
+      out.anglesPath = argv[i + 1];
+      i++;
+    }
+  }
+  return out;
+}
+
+function loadAnglesPayload(path) {
+  const raw = readFileSync(path, 'utf8');
+  const data = JSON.parse(raw);
+  if (!data.motions || !Array.isArray(data.jointKeys)) {
+    throw new Error(`잘못된 angles JSON 형식: ${path}`);
+  }
+  return data;
+}
+
 const PROJECT_ID = 'sunity-ai-coach';
 const ATHLETE = '정은지';
-const VIDEO_PREFIX = 's3://sunity-motion-pilot-videos/reference';
+
+// S3 reference 영상을 7일 서명 URL 로 발급해 Firestore videoUrl 에 저장한다.
+// 만료(7일) 뒤엔 앱 동작 비교가 멈추므로, 시연 직전 1주일 안에 재시드 필수.
+// 서명 발급에 aws CLI 가 ~/.aws/credentials (sunity-api) 를 사용한다.
+const S3_BUCKET = 'sunity-motion-pilot-videos';
+const S3_PREFIX_KEY = 'reference';
+const S3_REGION = 'ap-northeast-2';
+const PRESIGN_EXPIRES_SEC = 7 * 24 * 60 * 60; // 7일 = AWS 서명 최대 (sig v4 + IAM 사용자 키)
+
+function presignReferenceUrl(motionId) {
+  const s3Uri = `s3://${S3_BUCKET}/${S3_PREFIX_KEY}/${motionId}.mp4`;
+  try {
+    const url = execFileSync(
+      'aws',
+      [
+        's3',
+        'presign',
+        s3Uri,
+        '--expires-in',
+        String(PRESIGN_EXPIRES_SEC),
+        '--region',
+        S3_REGION,
+      ],
+      { encoding: 'utf8' },
+    ).trim();
+    if (!url.startsWith('https://')) {
+      throw new Error(`presign 결과가 https URL 이 아님: ${url}`);
+    }
+    return url;
+  } catch (err) {
+    const msg = err?.stderr?.toString() || err?.message || String(err);
+    throw new Error(`[presign FAIL] ${motionId}: ${msg}`);
+  }
+}
 
 // 정은지 선수 명칭 확정(2026-05-22) 전의 구 motionId — 새 ID 로 교체되며 폐기.
 // 시드 시 함께 삭제. batch.delete 는 문서가 없어도 에러 없음 → idempotent.
@@ -167,10 +226,23 @@ const MOTIONS = [
 ];
 
 async function main() {
+  const { anglesPath } = parseArgs(process.argv.slice(2));
+  const anglesPayload = anglesPath ? loadAnglesPayload(anglesPath) : null;
+
   initializeApp({ credential: applicationDefault(), projectId: PROJECT_ID });
   const db = getFirestore();
 
+  const expiresAt = new Date(Date.now() + PRESIGN_EXPIRES_SEC * 1000);
   console.log(`[seed] 프로젝트 ${PROJECT_ID} · reference/ 컬렉션에 ${MOTIONS.length}건 쓰기`);
+  console.log(`[presign] S3 서명 만료: ${expiresAt.toISOString()} (7일 뒤 — 시연 임박해 재시드 필요)`);
+  if (anglesPayload) {
+    const count = Object.keys(anglesPayload.motions).length;
+    console.log(
+      `[angles] ${anglesPath} 로드 — ${count}건 angles 포함 (${anglesPayload.jointKeys.join(', ')})`,
+    );
+  } else {
+    console.log('[angles] --angles 인자 없음 — angles 필드는 건드리지 않음(기존 값 유지)');
+  }
   const batch = db.batch();
   for (const id of OBSOLETE_MOTION_IDS) {
     batch.delete(db.collection('reference').doc(id));
@@ -187,7 +259,9 @@ async function main() {
       entryType: m.entryType,
       entryDescription: m.entryDescription,
       description: m.description,
-      videoUrl: `${VIDEO_PREFIX}/${m.motionId}.mp4`,
+      videoUrl: presignReferenceUrl(m.motionId), // 7일 서명 URL (HTTPS)
+      videoUrlExpiresAt: expiresAt.getTime(), // epoch ms — 앱이 만료 임박 안내에 활용 가능
+      videoS3Key: `${S3_PREFIX_KEY}/${m.motionId}.mp4`, // 백엔드 pipeline 이 비교 영상 서명 URL 발급에 사용
       clipRange: m.clipRange,
       checkpoints: m.checkpoints,
       isActive: true,
@@ -196,6 +270,15 @@ async function main() {
     if (m.sharedBaseMotionId) {
       doc.sharedBaseMotionId = m.sharedBaseMotionId;
       doc.baseUntilS = m.baseUntilS;
+    }
+    if (anglesPayload && anglesPayload.motions[m.motionId]) {
+      const a = anglesPayload.motions[m.motionId];
+      // Firestore 는 nested array(배열의 배열)를 허용 안 함 → flat 으로 저장.
+      // 백엔드는 anglesJointKeys 길이로 (T, J) 로 reshape.
+      doc.angles = a.angles.flat();
+      doc.anglesUpdatedAt = Date.now();
+      doc.anglesFrames = a.numFrames;
+      doc.anglesJointKeys = anglesPayload.jointKeys;
     }
     batch.set(ref, doc, { merge: true });
     const combo = m.sharedBaseMotionId ? ` ← ${m.sharedBaseMotionId} 베이스` : '';

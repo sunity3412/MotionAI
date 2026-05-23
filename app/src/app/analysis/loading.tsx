@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
+import { auth } from '../../lib/firebase';
 import { saveSimulatedAnalysis } from '../../lib/simulationWriter';
 import {
   type AnalysisErrorCode,
@@ -291,10 +292,15 @@ export default function AnalysisLoading() {
     );
   }
 
-  const titleLine =
-    mode === 'mode1'
-      ? '전문가 동작과 내 포즈를\n분석하고 있어요.'
-      : '내 포즈를\n분석하고 있어요.';
+  // Figma 1:429/436/445 카피 — 모드 무관 통일, 사용자 이름 인터폴.
+  // 게스트(displayName 없음)는 "회원님" fallback. 이미 "님" 으로 끝나면 중복 안 함.
+  const rawName = auth.currentUser?.displayName?.trim() ?? '';
+  const greetName = !rawName
+    ? '회원님'
+    : rawName.endsWith('님')
+      ? rawName
+      : `${rawName}님`;
+  const titleLine = `전문가와 ${greetName}의\n포즈를 분석하고 있어요.`;
 
   return (
     <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>

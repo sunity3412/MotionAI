@@ -166,6 +166,16 @@ export default function Analyze() {
           <Text style={styles.link}>설정에서 권한 허용하기</Text>
         </Pressable>
       )}
+
+      <View style={styles.spacer} />
+      {/* 시연·검토용 진입점 — 실 분석 파이프라인(#7-follow) 켜지면 같이 제거. */}
+      <Pressable
+        onPress={() => router.push('/analysis/samples')}
+        accessibilityRole="button"
+        hitSlop={6}
+      >
+        <Text style={styles.sampleLink}>샘플 결과 미리보기</Text>
+      </Pressable>
     </View>
   );
 }
@@ -247,6 +257,12 @@ const styles = StyleSheet.create({
     color: colors.brand,
     textDecorationLine: 'underline',
     marginTop: 12,
+  },
+  sampleLink: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   confirmCard: {
     flexDirection: 'row',

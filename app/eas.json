@@ -31,7 +31,8 @@
     "production": {
       "ios": {
         "appleId": "sunity3412@gmail.com",
-        "appleTeamId": "8ZL3YL358P"
+        "appleTeamId": "8ZL3YL358P",
+        "ascAppId": "6772934567"
       }
     }
   }

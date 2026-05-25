@@ -4,3 +4,8 @@
 정은지님 영상/
 *.mp4
 *.mov
+
+# AWS access key 다운로드 파일 — 절대 commit 금지
+sunity-api_accessKeys.csv
+*_accessKeys.csv
+*.pem

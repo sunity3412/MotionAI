@@ -19,7 +19,12 @@ import {
   where,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { getSimulatedResult, simulatedSegmentScores } from './simulatedResult';
+import {
+  getSimulatedResult,
+  getSimulatedResultFromScenario,
+  simulatedSegmentScores,
+  type SampleScenario,
+} from './simulatedResult';
 import type {
   AnalysisDoc,
   AnalysisMode,
@@ -133,6 +138,55 @@ export async function saveSimulatedAnalysis(
     mode: input.mode,
     status: 'done',
     fileName: input.fileName,
+    createdAt: now,
+    updatedAt: now,
+    result,
+  });
+  return analysisId;
+}
+
+/**
+ * 샘플 시나리오 1건을 Firestore done 문서로 저장. 영상 없는 시연/검토용.
+ * Mode1: reference doc 의 sharedBaseMotionId 가 있으면 segmentScores 자동 채움.
+ * Mode3: scenario.isFirst/deltaFromPrevious 를 그대로 사용 (실 prev 조회 안 함).
+ */
+export async function saveSampleAnalysis(
+  scenario: SampleScenario,
+): Promise<string | null> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return null;
+
+  const docRef = doc(collection(db, 'users', uid, 'analyses'));
+  const analysisId = docRef.id;
+  const result: AnalysisResult = getSimulatedResultFromScenario(
+    scenario,
+    analysisId,
+  );
+
+  if (
+    result.comparison.mode === 'mode1' &&
+    result.comparison.referenceMotionId
+  ) {
+    const refMotion = await loadReferenceMotion(
+      result.comparison.referenceMotionId,
+    );
+    if (refMotion?.sharedBaseMotionId) {
+      const baseMotion = await loadReferenceMotion(refMotion.sharedBaseMotionId);
+      const segmentScores: SegmentScores = simulatedSegmentScores(
+        result.overallScore,
+        refMotion.sharedBaseMotionId,
+        baseMotion?.name ?? '',
+      );
+      result.comparison = { ...result.comparison, segmentScores };
+    }
+  }
+
+  const now = Date.now();
+  await setDoc(docRef, {
+    analysisId,
+    mode: scenario.mode,
+    status: 'done',
+    fileName: `샘플 · ${scenario.label}`,
     createdAt: now,
     updatedAt: now,
     result,

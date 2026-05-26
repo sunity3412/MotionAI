@@ -21,6 +21,20 @@ Parameters:
     Description: >
       Firebase 서비스 계정 JSON 을 담은 SSM Parameter Store(SecureString) 이름.
       이 템플릿은 비밀값을 만들지 않는다 — 배포 전 콘솔/CLI 로 별도 생성.
+  RunpodAnalyzeUrl:
+    Type: String
+    Default: ""
+    Description: >
+      RunPod 분석 서버의 POST /analyze 엔드포인트 URL.
+      빈 문자열이면 PipelineFunction 이 자체적으로 NLF 추론 시도(폴백, Lambda CPU
+      에선 NaN). 운영 배포 시 https://<pod-id>-8000.proxy.runpod.net/analyze.
+  RunpodAuthToken:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: >
+      RunPod 서버와 공유하는 인증 토큰. server.py 가 X-RunPod-Token 헤더로 검증.
+      RunPod 측 RUNPOD_AUTH_TOKEN 과 정확히 같은 값. NoEcho 로 CFN/콘솔에 마스킹.
 
 Globals:
   Function:
@@ -171,8 +185,14 @@ Resources:
       FunctionName: !Sub sunity-motion-${Stage}-pipeline
       CodeUri: functions/pipeline/
       Handler: app.lambda_handler
-      Timeout: 900           # 15분 (backend_CLAUDE.md)
+      # RunPod 위임 모드에서는 Pod 가 202 를 즉시 반환하므로 Lambda 는 수 초 안에 끝남.
+      # Timeout 900 은 폴백(직접 NLF) 경로 안전 마진. 위임 모드에선 사실상 사용 안 됨.
+      Timeout: 900
       MemorySize: 1024
+      Environment:
+        Variables:
+          RUNPOD_ANALYZE_URL: !Ref RunpodAnalyzeUrl
+          RUNPOD_AUTH_TOKEN: !Ref RunpodAuthToken
       Policies:
         - Statement:
             - Effect: Allow

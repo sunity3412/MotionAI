@@ -129,10 +129,14 @@ def _process_in_background(bucket: str, key: str, uid: str, analysis_id: str) ->
 
 @app.on_event("startup")
 def _warmup() -> None:
-    """모델/어댑터 미리 GPU 메모리 로드. 실패해도 첫 /analyze 에서 재시도."""
+    """모델/어댑터 미리 GPU 메모리 로드. 실패해도 첫 /analyze 에서 재시도.
+    pipeline 모듈은 어댑터 import 를 lazy 로 미루므로 _ensure_adapters() 까지
+    명시적으로 호출 — startup 비용을 첫 요청이 아닌 부팅 시점에 지불."""
     log.info("RunPod 분석 서버 startup — auth=%s", "ON" if _AUTH_TOKEN else "OFF")
     try:
-        _load_pipeline_module()
+        mod = _load_pipeline_module()
+        mod._ensure_adapters()
+        log.info("어댑터 워밍업 완료 (NLF/ffmpeg/coach)")
     except Exception:  # noqa: BLE001
         log.exception("워밍업 실패 — 첫 요청 처리 시 재시도")
 

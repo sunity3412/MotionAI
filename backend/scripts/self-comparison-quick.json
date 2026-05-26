@@ -1,0 +1,647 @@
+{
+  "generatedAt": "2026-05-26T00:48:24.842211+00:00",
+  "mode": "quick",
+  "jointKeys": [
+    "left_elbow",
+    "right_elbow",
+    "left_shoulder",
+    "right_shoulder",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee"
+  ],
+  "referenceFile": "scripts/reference-angles.json",
+  "results": {
+    "ref-sideway-spin": {
+      "similarity": 100,
+      "partScores": {
+        "상체": 100,
+        "코어": 100,
+        "하체": 100
+      },
+      "dtwDistance": 0.0,
+      "dtwPathLength": 198,
+      "userSegment": [
+        0,
+        198
+      ],
+      "joints": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 49.77,
+          "targetAngle": 49.77,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 142.04,
+          "targetAngle": 142.04,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 18.57,
+          "targetAngle": 18.57,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_shoulder",
+          "labelKo": "오른쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 19.22,
+          "targetAngle": 19.22,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_hip",
+          "labelKo": "왼쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 48.28,
+          "targetAngle": 48.28,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "right_hip",
+          "labelKo": "오른쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 56.01,
+          "targetAngle": 56.01,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "left_knee",
+          "labelKo": "왼쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 143.73,
+          "targetAngle": 143.73,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        },
+        {
+          "key": "right_knee",
+          "labelKo": "오른쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 135.67,
+          "targetAngle": 135.67,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        }
+      ],
+      "topIssues": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0
+        }
+      ],
+      "userFrames": 198,
+      "referenceFrames": 198
+    },
+    "ref-climb": {
+      "similarity": 100,
+      "partScores": {
+        "상체": 100,
+        "코어": 100,
+        "하체": 100
+      },
+      "dtwDistance": 0.0,
+      "dtwPathLength": 171,
+      "userSegment": [
+        0,
+        171
+      ],
+      "joints": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 43.07,
+          "targetAngle": 43.07,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 112.83,
+          "targetAngle": 112.83,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 20.13,
+          "targetAngle": 20.13,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_shoulder",
+          "labelKo": "오른쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 27.59,
+          "targetAngle": 27.59,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_hip",
+          "labelKo": "왼쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 46.41,
+          "targetAngle": 46.41,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "right_hip",
+          "labelKo": "오른쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 50.95,
+          "targetAngle": 50.95,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "left_knee",
+          "labelKo": "왼쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 149.37,
+          "targetAngle": 149.37,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        },
+        {
+          "key": "right_knee",
+          "labelKo": "오른쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 133.56,
+          "targetAngle": 133.56,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        }
+      ],
+      "topIssues": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0
+        }
+      ],
+      "userFrames": 171,
+      "referenceFrames": 171
+    },
+    "ref-invert": {
+      "similarity": 100,
+      "partScores": {
+        "상체": 100,
+        "코어": 100,
+        "하체": 100
+      },
+      "dtwDistance": 0.0,
+      "dtwPathLength": 173,
+      "userSegment": [
+        0,
+        173
+      ],
+      "joints": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 71.22,
+          "targetAngle": 71.22,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 98.22,
+          "targetAngle": 98.22,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 22.85,
+          "targetAngle": 22.85,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_shoulder",
+          "labelKo": "오른쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 22.99,
+          "targetAngle": 22.99,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_hip",
+          "labelKo": "왼쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 47.13,
+          "targetAngle": 47.13,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "right_hip",
+          "labelKo": "오른쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 37.74,
+          "targetAngle": 37.74,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "left_knee",
+          "labelKo": "왼쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 147.69,
+          "targetAngle": 147.69,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        },
+        {
+          "key": "right_knee",
+          "labelKo": "오른쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 149.37,
+          "targetAngle": 149.37,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        }
+      ],
+      "topIssues": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0
+        }
+      ],
+      "userFrames": 173,
+      "referenceFrames": 173
+    },
+    "ref-foxtop": {
+      "similarity": 100,
+      "partScores": {
+        "상체": 100,
+        "코어": 100,
+        "하체": 100
+      },
+      "dtwDistance": 0.0,
+      "dtwPathLength": 284,
+      "userSegment": [
+        0,
+        284
+      ],
+      "joints": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 76.06,
+          "targetAngle": 76.06,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 74.46,
+          "targetAngle": 74.46,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 27.08,
+          "targetAngle": 27.08,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_shoulder",
+          "labelKo": "오른쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 23.23,
+          "targetAngle": 23.23,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_hip",
+          "labelKo": "왼쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 39.16,
+          "targetAngle": 39.16,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "right_hip",
+          "labelKo": "오른쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 36.38,
+          "targetAngle": 36.38,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "left_knee",
+          "labelKo": "왼쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 153.74,
+          "targetAngle": 153.74,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        },
+        {
+          "key": "right_knee",
+          "labelKo": "오른쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 147.77,
+          "targetAngle": 147.77,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        }
+      ],
+      "topIssues": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0
+        }
+      ],
+      "userFrames": 284,
+      "referenceFrames": 284
+    },
+    "ref-foxtop-split": {
+      "similarity": 100,
+      "partScores": {
+        "상체": 100,
+        "코어": 100,
+        "하체": 100
+      },
+      "dtwDistance": 0.0,
+      "dtwPathLength": 323,
+      "userSegment": [
+        0,
+        323
+      ],
+      "joints": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 79.29,
+          "targetAngle": 79.29,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 76.27,
+          "targetAngle": 76.27,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 26.9,
+          "targetAngle": 26.9,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "right_shoulder",
+          "labelKo": "오른쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 23.81,
+          "targetAngle": 23.81,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "상체"
+        },
+        {
+          "key": "left_hip",
+          "labelKo": "왼쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 40.83,
+          "targetAngle": 40.83,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "right_hip",
+          "labelKo": "오른쪽 고관절",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 34.22,
+          "targetAngle": 34.22,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "코어"
+        },
+        {
+          "key": "left_knee",
+          "labelKo": "왼쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 153.89,
+          "targetAngle": 153.89,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        },
+        {
+          "key": "right_knee",
+          "labelKo": "오른쪽 무릎",
+          "score": 100,
+          "deviationDeg": 0.0,
+          "currentAngle": 147.85,
+          "targetAngle": 147.85,
+          "signedDeltaDeg": 0.0,
+          "direction": null,
+          "part": "하체"
+        }
+      ],
+      "topIssues": [
+        {
+          "key": "left_elbow",
+          "labelKo": "왼쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "right_elbow",
+          "labelKo": "오른쪽 팔꿈치",
+          "score": 100,
+          "deviationDeg": 0.0
+        },
+        {
+          "key": "left_shoulder",
+          "labelKo": "왼쪽 어깨",
+          "score": 100,
+          "deviationDeg": 0.0
+        }
+      ],
+      "userFrames": 323,
+      "referenceFrames": 323
+    }
+  }
+}

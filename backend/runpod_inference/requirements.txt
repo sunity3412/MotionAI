@@ -1,0 +1,23 @@
+# RunPod Pod 위에서 server.py 가 의존하는 패키지.
+# Pod base image 는 PyTorch + CUDA 가 이미 깔린 것을 가정 (RunPod PyTorch 2.4 등).
+# torch/torchvision 은 base 가 제공하니 명시 안 함.
+
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+pydantic>=2.5,<3.0
+
+# S3 다운로드
+boto3>=1.34,<2.0
+
+# Firestore Admin (서비스 계정 JSON 으로 직접 초기화)
+firebase-admin>=6.5,<7.0
+
+# 영상 프레임 추출 (FfmpegFrameExtractor)
+imageio>=2.34
+imageio-ffmpeg>=0.5.1
+
+# YOLO11 박스 (NLF 입력) — analysis/pose_estimator.py
+ultralytics>=8.2
+
+# 수치 계산
+numpy>=1.26,<2.0

@@ -37,8 +37,38 @@ def _bearer_token(event: dict) -> str:
     return token
 
 
+def _load_service_account_dict() -> dict:
+    """서비스 계정 JSON 로드. 우선순위:
+      1. FIREBASE_SA_JSON   — JSON 원문 (RunPod/Pod 등 AWS SSM 접근 불가 환경)
+      2. FIREBASE_SA_PATH   — 파일 경로 (RunPod 마운트 시드)
+      3. FIREBASE_SA_PARAM  — AWS SSM Parameter Store (Lambda 기본)
+
+    1·2 는 비-AWS 환경(#7-follow GPU Pod) 지원 목적. Lambda 는 3 그대로.
+    """
+    sa_json_inline = os.environ.get("FIREBASE_SA_JSON")
+    if sa_json_inline:
+        return json.loads(sa_json_inline)
+
+    sa_path = os.environ.get("FIREBASE_SA_PATH")
+    if sa_path:
+        with open(sa_path, encoding="utf-8") as f:
+            return json.load(f)
+
+    param_name = os.environ.get("FIREBASE_SA_PARAM")
+    if not param_name:
+        raise AuthError(
+            "FIREBASE_SA_JSON / FIREBASE_SA_PATH / FIREBASE_SA_PARAM 중 하나 필요."
+        )
+    import boto3  # Lambda 런타임 제공
+    ssm = boto3.client("ssm")
+    sa_json = ssm.get_parameter(Name=param_name, WithDecryption=True)[
+        "Parameter"
+    ]["Value"]
+    return json.loads(sa_json)
+
+
 def _ensure_firebase():
-    """firebase-admin 1회 초기화. 서비스 계정은 Parameter Store 에서 로드."""
+    """firebase-admin 1회 초기화. SA 키 소스는 _load_service_account_dict 참조."""
     global _initialized
     if _initialized:
         return
@@ -46,21 +76,13 @@ def _ensure_firebase():
         if _initialized:
             return
         try:
-            import boto3  # Lambda 런타임 제공
             import firebase_admin
             from firebase_admin import credentials
         except ImportError as e:  # pragma: no cover - 배포 환경에선 존재
             raise AuthError("인증 모듈이 구성되지 않았습니다.") from e
 
-        param_name = os.environ.get("FIREBASE_SA_PARAM")
-        if not param_name:
-            raise AuthError("FIREBASE_SA_PARAM 미설정 — 배포 시 Parameter Store 연결 필요.")
-
-        ssm = boto3.client("ssm")
-        sa_json = ssm.get_parameter(Name=param_name, WithDecryption=True)[
-            "Parameter"
-        ]["Value"]
-        cred = credentials.Certificate(json.loads(sa_json))
+        sa_dict = _load_service_account_dict()
+        cred = credentials.Certificate(sa_dict)
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred)
         _initialized = True

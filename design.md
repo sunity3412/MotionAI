@@ -1,6 +1,7 @@
 # Sunity AI Coach — design.md
 > Figma 분석 기반 디자인 레퍼런스. Claude Code 개발 시 항상 참조.
-> 피그마 파일: https://www.figma.com/design/npL3Iq2wYvTDHszDGrjG9l/
+> 피그마 파일: https://www.figma.com/design/jrdI7kp245HkPfLB0nclsz/모션-분석-디자인
+> (이전엔 펀딩 플랫폼 Figma 가 잘못 적혀 있었음 — 2026-05-23 정정)
 
 ---
 

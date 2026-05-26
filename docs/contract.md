@@ -112,12 +112,18 @@ entryType?         'step_entry'|'jump_entry'|'swing_entry'
                    |'lift_entry'|'invert_entry'|'combo_entry'
 entryDescription?  string                 진입 방식 상세 (사용자 안내)
 description?       string
-videoUrl?          string                 s3://... 분석 reference 원본
+videoUrl?          string                 HTTPS presigned URL (S3, 7일 서명) — 앱 동작 비교 영상 재생
+videoUrlExpiresAt? number (epoch ms)      위 URL 만료 시각 (재시드 시점 추정)
+videoS3Key?        string                 'reference/{motionId}.mp4' — 백엔드 pipeline mode1 비교 영상 서명 URL 발급에 사용
 thumbnailUrl?      string
 clipRange?         ClipRange              구간 시점(초)
 checkpoints?       Checkpoint[]           KISMAM 가중 관절 (weight 합 1.0)
 sharedBaseMotionId? string                공유 베이스 — 베이스 제공 기술 ID
 baseUntilS?        number                 공유 베이스가 끝나는 시점(초)
+angles?            number[][]             (T, 8) 시퀀스 — backend pipeline mode1 비교 입력. extract_reference_angles.py 가 NLF 로 추출, jointKeys 순서는 backend skeleton.JOINT_KEYS
+anglesJointKeys?   string[]               angles 의 J 축 순서 (방어적 명시)
+anglesFrames?      number                 angles 의 T (검증·디버깅용)
+anglesUpdatedAt?   number (epoch ms)      angles 재추출 시점
 updatedAt?         number (epoch ms)
 ```
 `ClipRange` = { prepStartS, execStartS, execPeakS, landEndS, recommendedRecordS }

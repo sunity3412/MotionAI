@@ -9,3 +9,8 @@
 sunity-api_accessKeys.csv
 *_accessKeys.csv
 *.pem
+
+# Firebase 서비스 계정 키 — Firestore Admin 권한 전체. 절대 commit 금지.
+*firebase-adminsdk*.json
+firebase-sa.json
+firebase-service-account.json

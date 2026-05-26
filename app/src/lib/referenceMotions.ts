@@ -31,6 +31,38 @@ export interface ReferenceMotionsState {
   error: string | null;
 }
 
+// Firestore 의 flat 저장 angles(T*J) + anglesJointKeys → 관절 평균 각도(deg) 계산.
+// nested-array 금지(2026-05-23 시드 메모) 우회로 flat 으로 들어옴. 길이가 J 의
+// 배수가 아니거나 키 누락이면 undefined — 결과 화면이 자동으로 시뮬 폴백.
+// NaN/inf 가 평균에 섞이면 nanmean (값이 하나라도 finite 이면 그것만 평균).
+function deriveMeanAngles(
+  anglesFlat: unknown,
+  jointKeys: unknown,
+): Record<string, number> | undefined {
+  if (!Array.isArray(anglesFlat) || !Array.isArray(jointKeys)) return undefined;
+  const keys = jointKeys.filter((k): k is string => typeof k === 'string');
+  const J = keys.length;
+  if (J === 0) return undefined;
+  if (anglesFlat.length === 0 || anglesFlat.length % J !== 0) return undefined;
+  const T = anglesFlat.length / J;
+  const sums = new Array<number>(J).fill(0);
+  const counts = new Array<number>(J).fill(0);
+  for (let t = 0; t < T; t += 1) {
+    for (let j = 0; j < J; j += 1) {
+      const v = anglesFlat[t * J + j];
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        sums[j] += v;
+        counts[j] += 1;
+      }
+    }
+  }
+  const out: Record<string, number> = {};
+  for (let j = 0; j < J; j += 1) {
+    if (counts[j] > 0) out[keys[j]] = sums[j] / counts[j];
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 // Firestore 문서를 앱 타입으로 정규화. 필수 필드 누락 시 null → 화면에서 무시.
 function normalize(id: string, raw: Record<string, unknown>): ReferenceMotion | null {
   const name = typeof raw.name === 'string' ? raw.name : null;
@@ -41,6 +73,29 @@ function normalize(id: string, raw: Record<string, unknown>): ReferenceMotion | 
   if (raw.isActive === false) return null;
   const str = (v: unknown): string | undefined =>
     typeof v === 'string' ? v : undefined;
+
+  // meanAngles: 시드가 미리 저장했으면 그걸 우선, 없으면 angles flat 에서 derive.
+  // 둘 다 없으면 undefined → 결과 화면은 시뮬 픽스처 targetAngle 폴백.
+  const seededMean =
+    raw.meanAngles && typeof raw.meanAngles === 'object'
+      ? Object.fromEntries(
+          Object.entries(raw.meanAngles as Record<string, unknown>).filter(
+            (entry): entry is [string, number] =>
+              typeof entry[1] === 'number' && Number.isFinite(entry[1]),
+          ),
+        )
+      : undefined;
+  const meanAngles =
+    seededMean && Object.keys(seededMean).length
+      ? seededMean
+      : deriveMeanAngles(raw.angles, raw.anglesJointKeys);
+
+  const anglesJointKeys = Array.isArray(raw.anglesJointKeys)
+    ? (raw.anglesJointKeys as unknown[]).filter(
+        (k): k is string => typeof k === 'string',
+      )
+    : undefined;
+
   return {
     motionId: id,
     name,
@@ -58,6 +113,10 @@ function normalize(id: string, raw: Record<string, unknown>): ReferenceMotion | 
     sharedBaseMotionId: str(raw.sharedBaseMotionId),
     baseUntilS: typeof raw.baseUntilS === 'number' ? raw.baseUntilS : undefined,
     updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : undefined,
+    anglesJointKeys,
+    anglesFrames:
+      typeof raw.anglesFrames === 'number' ? raw.anglesFrames : undefined,
+    meanAngles,
   };
 }
 

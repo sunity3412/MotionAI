@@ -173,6 +173,16 @@ export interface ReferenceMotion {
   sharedBaseMotionId?: string;
   baseUntilS?: number;
   updatedAt?: number; // epoch ms — 시드/관리자 등록 시 갱신. NEW 배너 정렬용
+
+  // NLF 추출 시퀀스 (extract_reference_angles.py 결과를 seed-reference-motions
+  // 가 Firestore 에 채움). nested-array 금지 회피로 flat 저장 — 백엔드/앱에서
+  // anglesJointKeys 길이로 reshape. 결과 화면 코칭팁이 reference 실측 각도를
+  // 표시하려면 meanAngles 가 필요. 시드 전이거나 등록 안 된 모션은 모두 undef.
+  anglesJointKeys?: string[]; // 길이 = J (보통 8)
+  anglesFrames?: number; // T (디버깅용; angles.length === T*J 인지 확인)
+  // 시퀀스 평균 각도(deg). 결과 화면이 targetAngle 로 사용. meanAngles 필드를
+  // 시드에서 미리 채우거나 (없으면) 앱이 angles 에서 derive — 둘 다 지원.
+  meanAngles?: Record<string, number>; // key -> degrees
 }
 
 // ── 표시 매핑 (design.md §5-9 단계별 메시지 / §6 오류) ──────────────────

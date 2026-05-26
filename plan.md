@@ -560,6 +560,129 @@
   - 또는 extract_reference_angles.py 가 사용하는 NlfPoseEstimator 가 모델
     경로를 보는 위치 backend/scripts/nlf_l_multi.torchscript (어제부터 약속).
 
+*2026-05-26 (이어서) — #7-follow 유닛 4 RunPod 분석 서버 코드 준비 (belle 자격증명 없이 가능한 부분 완성):
+ - 결정 배경: 정밀 분석을 앱에 진짜 넣으려면 Lambda 가 NLF GPU 추론을 직접
+   못 돌리는 문제(CPU NaN) 를 풀어야 함. 가장 현실적 경로 = RunPod 24/7 Pod
+   + FastAPI 서버, Lambda 가 HTTP 위임. belle 가 1~2시간 자리비울 동안 자격증명
+   필요한 부분(Pod 띄움·env)을 제외한 코드/문서 일체 완성.
+
+ - 시뮬 작업 보존 검토: 계약(contract.md/types/analysis.ts) 기반 점진 개발
+   덕에 시뮬 → 실데이터 교체 시 분기 0. result.tsx·reference 등록·
+   verify_self_comparison·enrichJoints 등은 그대로 유지. 폐기 = simulationWriter,
+   getSimulatedResult (의도된 임시 스캐폴드, 두 파일 헤더에 명시).
+
+ - 신규 backend/runpod_inference/ (4 파일 + __init__):
+   server.py        FastAPI · POST /analyze · GET /health · X-RunPod-Token 인증
+                    pipeline/app.py 의 _process 를 background task 로 재사용
+                    (분기 0 · 코드 1벌). NLF 모델은 startup hook 에서 워밍업.
+   requirements.txt fastapi/uvicorn/boto3/firebase-admin/imageio/ultralytics
+                    (torch 는 RunPod base image 가 제공)
+   setup.sh         의존성 설치 + NLF 모델 v0.3.2 다운로드 + CUDA 확인.
+                    멱등 — 재실행 안전.
+   README.md        belle 절차(Pod 시작·git clone·setup.sh·env 셋업·기동)
+                    + curl health/analyze 수동 테스트 + 환경변수 레퍼런스 표
+                    + Lambda 측 디스패처 코드 견본(검토 후 적용)
+                    + 운영 메모(Pod stop 금지·모니터링·DLQ)
+
+ - sunity_shared/auth.py 확장(add-only): _load_service_account_dict() 추가.
+   우선순위 FIREBASE_SA_JSON → FIREBASE_SA_PATH → FIREBASE_SA_PARAM(SSM).
+   Lambda 는 기존 SSM 흐름 동일, RunPod 은 env/file 우선. 기존 SSM 호출
+   import 도 함수 안으로 이동 — Pod 에서 boto3 없어도 Firebase 초기화 가능.
+
+ - 유닛 테스트 신규 (총 79 통과, 이전 70 + 신규 9):
+   tests/test_auth_env.py     4 케이스 · SA 키 디스패치 (json/path/ssm/missing)
+   tests/test_runpod_server.py 5 케이스 · /health · /analyze 인증·키 검증·
+                              accepted 동작·토큰 미설정 503
+
+ - 안전 분리: Lambda 코드는 손대지 않음 (롤백 0 위험). 추후 belle 검토 후
+   pipeline/app.py 에 RUNPOD_ANALYZE_URL 분기 추가. SAM template 도 동일.
+   견본 코드는 README.md "Lambda 측 변경" 섹션에 그대로 둠.
+
+ belle next action — 다음 세션 1~2시간 (자격증명 필요):
+   1) Firebase 서비스 계정 JSON 발급
+        Firebase Console → 프로젝트 sunity-ai-coach → 설정 → 서비스 계정 →
+        "새 비공개 키 생성" → JSON 다운로드 → firebase-sa.json 으로 저장(로컬·Pod).
+   2) RunPod Pod 시작 (RTX 3090/4090 24GB · PyTorch base · 포트 8000 노출)
+        SSH 키 등록 권장 (RunPod 콘솔 SSH Keys). [[runpod-gpu-env]] 메모 재활용.
+        ⚠ Pod 비용 발생 시점은 Pod 시작 — 셋업 끝나면 동작 확인 후 belle 결정.
+   3) Pod 안에서:
+        cd /workspace && git clone https://github.com/sunity3412/MotionAI.git SunityMotion
+        cd SunityMotion/backend && bash runpod_inference/setup.sh    # ~5분
+        # firebase-sa.json 을 Pod 으로 전송 (scp 또는 콘솔 업로드)
+        export RUNPOD_AUTH_TOKEN="$(openssl rand -hex 32)"
+        export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
+        export AWS_DEFAULT_REGION=ap-northeast-2
+        export FIREBASE_SA_PATH=/workspace/firebase-sa.json
+        export CUDA_VISIBLE_DEVICES=0
+        uvicorn runpod_inference.server:app --host 0.0.0.0 --port 8000 --workers 1
+   4) Pod 공개 URL 확인(RunPod 콘솔 → Connect → HTTP Service) 후 curl 로:
+        curl https://<pod-id>-8000.proxy.runpod.net/health
+        → {"status":"ok","auth_configured":true,"pipeline_loaded":true}
+   5) Lambda 측 분기 적용(README "Lambda 측 변경" 섹션 코드 그대로):
+        backend/functions/pipeline/app.py + backend/template.yaml 수정 + sam deploy.
+        (이 단계는 belle 와 함께 — Lambda 배포라 회귀 위험)
+   6) 앱에서 영상 1개 업로드 → Pod 로그·Firestore 갱신·결과 화면 정밀 수치 확인.
+
+*2026-05-26 — 비교값 정밀도 검증 + 결과 화면 reference 실측 각도 연결:
+ - belle 질문: "결과 화면의 71점/145°→168° 가 진짜 정밀한 수치인가?"
+   답: 71점·각도값 전부 app/src/lib/simulatedResult.ts 시뮬 픽스처.
+       reference 각도(정은지)만 실측(Firestore (T,8) — 2026-05-23 등록).
+       사용자 영상 추출은 백엔드 GPU 인프라(#7-follow 유닛 4) 미완.
+
+ - backend/scripts/verify_self_comparison.py 신규 — 알고리즘 정밀도 검증 도구.
+     --quick : NLF 재추출 없이 reference-angles.json 자체 self-DTW (로컬 CPU OK)
+     기본    : S3 영상 → NLF 재추출 → reference 와 비교 (GPU 필수)
+   quick 결과(2026-05-26, 로컬): 5개 영상 모두 similarity=100점·DTW=0.0000·
+     관절 dev 0.00°. DTW+KISMAM 알고리즘 자체는 무결.
+     각도 정밀도 확인: ref-foxtop 정은지 평균 각도 = 왼쪽 팔꿈치 76.06° /
+     왼쪽 어깨 27.08° / 왼쪽 고관절 39.16° / 왼쪽 무릎 153.74° / 오른쪽 무릎
+     147.77° — 접힌 팔꿈치 + 펴진 무릎 + 좌우 비대칭 모두 자연스럽게 잡힘.
+
+ - 앱: refMotion.meanAngles 로 결과 화면 코칭팁 정밀치 표시:
+     types/analysis.ts ReferenceMotion 에 anglesJointKeys/anglesFrames/
+       meanAngles 옵셔널 추가.
+     lib/referenceMotions.ts normalize 에 deriveMeanAngles() —
+       Firestore 의 flat angles(T*J) + anglesJointKeys → 관절 평균 dict.
+       시드 meanAngles 가 미리 채워져 있으면 그쪽 우선.
+     app/analysis/result.tsx 에 enrichJoints() — refMotion.meanAngles 가 있으면
+       시뮬 JointScore.targetAngle/deltaDeg/direction 을 실측 reference 평균
+       으로 덮어쓴다. currentAngle 은 백엔드 NLF 미연결이라 시뮬 유지.
+       angleGuide 가 자동으로 "현재 145° → 기준 154°" (시뮬 168° 가 아닌 실측).
+     simulatedResult.ts TIPS detail 에서 시뮬 도수(23°/18°/14°) 제거 —
+       angleGuide 한 줄과 어긋나지 않도록 일반화.
+   tsc 클린 + iOS 번들 4.42MB 스모크 통과.
+
+ belle next action — Top 5 #2 (B) 풀 정밀도 검증 (RunPod, 선택):
+   1) RunPod Pod 시작 (RTX 3090/4090 24GB) — [[runpod-gpu-env]]·[[eas-build-gotchas]]
+      환경 셋업은 어제와 동일.
+   2) Pod 안에서:
+        cd /workspace/SunityMotion && git pull
+        cd backend && source .venv-ml/bin/activate  # 또는 시스템 python
+        pip install boto3 imageio imageio-ffmpeg ultralytics   # Pod 새로 띄웠으면
+        # NLF 모델 다운로드 (어제 정정한 v0.3.2 URL):
+        curl -L -o scripts/nlf_l_multi.torchscript \
+          https://github.com/isarandi/nlf/releases/download/v0.3.2/nlf_l_multi_0.3.2.torchscript
+        export AWS_ACCESS_KEY_ID="..." AWS_SECRET_ACCESS_KEY="..."
+        export AWS_DEFAULT_REGION=ap-northeast-2
+        export CUDA_VISIBLE_DEVICES=0       # 빈 문자열로 와서 덮어야 함(어제 메모)
+        python scripts/verify_self_comparison.py \
+          --reference scripts/reference-angles.json \
+          --out scripts/self-comparison.json
+   3) Pod → 로컬 전달 (S3 경유, SSH 회피):
+        Pod  : aws s3 cp scripts/self-comparison.json \
+                 s3://sunity-motion-pilot-videos/_artifacts/
+        로컬 : aws s3 cp s3://sunity-motion-pilot-videos/_artifacts/self-comparison.json \
+                 backend/scripts/
+   4) self-comparison.json 의 similarity 값 검토:
+        95+ 점 = NLF 결정성·전 파이프라인 정상 (시연용 정밀도 확보).
+        90 미만 = NLF stochasticity 또는 폐색 보간 영향 — 원인 분석 필요.
+
+ 시연 의미: 정은지 선수에게 보여줄 때 mode1 결과 화면이 코칭팁 카드에서
+   "왼쪽 무릎: 현재 145° → 정은지 폭스탑 기준 154° · 더 펴주세요" 형태로
+   실측 reference 각도를 노출. 시뮬 픽스처 168° 가 아닌 진짜 추출치.
+   reference 5개 동작 모두 동일 — Firestore 시드 갱신 없이 즉시 반영
+   (앱이 angles flat 에서 derive).
+
 *2026-05-25 — 샘플 시연 모드 추가 (TestFlight build #7 이후):
  - lib/simulatedResult.ts: SAMPLE_SCENARIOS 6개 (mode1 3개 점수대별 +
    mode3 3개 변형: 첫분석/성장/정체기) + getSimulatedResultFromScenario

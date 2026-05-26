@@ -46,6 +46,54 @@ const DIRECTION_LABEL: Record<JointDirection, string> = {
   close: '더 모아주세요',
 };
 
+// kismam.JOINT_DIRECTION_PAIRS 동일 (계약 일치). signed delta < 0 → 첫 라벨.
+//   delta = currentAngle - targetAngle.
+const JOINT_DIRECTION_PAIRS: Record<string, [JointDirection, JointDirection]> = {
+  left_knee: ['extend', 'flex'],
+  right_knee: ['extend', 'flex'],
+  left_elbow: ['extend', 'flex'],
+  right_elbow: ['extend', 'flex'],
+  left_hip: ['open', 'close'],
+  right_hip: ['open', 'close'],
+  left_shoulder: ['raise', 'lower'],
+  right_shoulder: ['raise', 'lower'],
+};
+
+function directionFor(jointKey: string, signedDelta: number): JointDirection | undefined {
+  const pair = JOINT_DIRECTION_PAIRS[jointKey];
+  if (!pair || signedDelta === 0) return undefined;
+  return signedDelta < 0 ? pair[0] : pair[1];
+}
+
+// 결과 화면용 joint 보강: reference doc 의 실측 평균 각도(meanAngles)가 있으면
+// JointScore.targetAngle/deltaDeg/direction 을 실측 기준으로 덮어쓴다.
+// currentAngle 은 백엔드 NLF 가 아직 채우지 못해(시뮬 픽스처) 그대로 둔다 —
+// reference 쪽만 정밀해져도 "기준 168° → 154°" 등 시연 임팩트가 크다(#7-follow).
+function enrichJoints(
+  joints: JointScore[],
+  meanAngles: Record<string, number> | undefined,
+): JointScore[] {
+  if (!meanAngles) return joints;
+  return joints.map((j) => {
+    const target = meanAngles[j.key];
+    if (typeof target !== 'number' || !Number.isFinite(target)) return j;
+    // currentAngle 이 있으면 실측 target 으로 delta·direction 재계산.
+    // currentAngle 이 없어도 target 자체는 표시 가능 — angleGuide() 가 둘 다 요구
+    // 하므로 시뮬 픽스처에서 빠진 5개 관절은 결과 화면 코칭팁에 노출 안 됨
+    // (그 5개는 score 만 표시; result.tips 가 골라낸 worst 3개에 대해서만 가이드).
+    if (typeof j.currentAngle === 'number' && Number.isFinite(j.currentAngle)) {
+      const signed = j.currentAngle - target;
+      return {
+        ...j,
+        targetAngle: target,
+        deltaDeg: signed,
+        direction: directionFor(j.key, signed) ?? j.direction,
+      };
+    }
+    return { ...j, targetAngle: target };
+  });
+}
+
 // 구조화 가이드 한 줄. 데이터 부족하면 null → UI 가 노출 생략(폴백은 issue 텍스트).
 function angleGuide(j: Pick<JointScore, 'currentAngle' | 'targetAngle' | 'deltaDeg' | 'direction'>):
   | { line: string; cue: string | null }
@@ -215,6 +263,14 @@ export default function AnalysisResult() {
     cmp.mode === 'mode1' ? cmp.referenceMotionId : undefined,
   );
 
+  // refMotion.meanAngles 가 있으면 시뮬 픽스처의 targetAngle 을 정은지 실측 평균
+  // 으로 덮어쓴다 (예: 168° → 153.74°). 코칭팁 angleGuide 가 자동으로 정밀치 표시.
+  // mode3 는 refMotion=null 이라 시뮬 그대로 — 자기 비교는 reference 없음.
+  const joints = useMemo(
+    () => enrichJoints(result.joints, refMotion?.meanAngles),
+    [result.joints, refMotion?.meanAngles],
+  );
+
   const summary =
     cmp.mode === 'mode1'
       ? mode1Summary(cmp.athleteName, cmp.similarity)
@@ -322,7 +378,7 @@ export default function AnalysisResult() {
         <Text style={styles.sectionTitle}>코칭 팁</Text>
         {result.tips.map((tip, i) => {
           const joint = tip.joint
-            ? result.joints.find((j) => j.key === tip.joint)
+            ? joints.find((j) => j.key === tip.joint)
             : undefined;
           const guide = joint ? angleGuide(joint) : null;
           return (

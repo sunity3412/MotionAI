@@ -22,7 +22,7 @@ import boto3  # Lambda 런타임 제공
 import numpy as np
 
 from sunity_shared import firestore_admin, models
-from sunity_shared.analysis import assemble, kismam, segments, selfmotion
+from sunity_shared.analysis import assemble, kismam, segments, selfmotion, skeleton
 from sunity_shared.analysis.features import (
     compute_joint_angles,
     feature_vector,
@@ -94,7 +94,12 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         ref = firestore_admin.get_reference_motion(meta.get("referenceMotionId"))
         if ref is None or "angles" not in ref:
             raise RuntimeError("기준 모션 또는 keyframe 데이터 없음")
+        # seed 는 Firestore 의 nested-array 금지 회피로 angles 를 flat 저장.
+        # anglesJointKeys 길이로 (T, J) 복원.
         a_ref = np.asarray(ref["angles"], dtype=float)
+        if a_ref.ndim == 1:
+            num_joints = len(ref.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
+            a_ref = a_ref.reshape(-1, num_joints)
         match = motion_dtw(feature_vector(angles), feature_vector(a_ref))
         user_seg = angles[match.start : match.end]
         deviation = per_joint_deviation(match.path, user_seg, a_ref)

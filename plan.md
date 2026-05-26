@@ -375,12 +375,12 @@
    URL 자동 만료라 시연 후 별도 정리 명령 불필요, 자연스러운 수명 주기.
  - seed-reference-motions.mjs: aws CLI 'presign' shell-out 으로 7일 서명
    URL 발급해 videoUrl 필드에 저장(+ videoUrlExpiresAt epoch ms). 시드 1회
-   실행 = 2026-05-30 만료. 시연 임박 7일 안으로 belle 이 다시 'npm run
+   실행 = 2026-05-30 만료. 만료 7일 전쯤 belle 이 다시 'npm run
    seed:reference' 1회 돌리면 됨. AWS SDK 의존성 추가 X (CLI shell-out).
  - result.tsx VideoCompare 우측: 저장된 referenceVideoUrl 우선, 없으면
    useReferenceMotion 가 가져온 reference doc 의 videoUrl(시드 시 채워진
    presigned)로 폴백 → mode1 시연 시 정은지 영상 자동 슬롯. tsc 클린.
- - belle next: 시연 임박 시 'cd app && npm run seed:reference' 1회 재실행.
+ - belle next: presigned URL 만료 전 'cd app && npm run seed:reference' 1회 재실행.
 
 *2026-05-23 (이어서) — Top 5 #2 (B) mode1 기준 angles 등록 준비 완료:
  - 스키마 결정: reference/{motionId}.angles = (T, 8) float[][] (skeleton.JOINT_KEYS
@@ -559,6 +559,51 @@
     → -o nlf_l_multi.torchscript 로 저장 (코드가 그 이름 기대).
   - 또는 extract_reference_angles.py 가 사용하는 NlfPoseEstimator 가 모델
     경로를 보는 위치 backend/scripts/nlf_l_multi.torchscript (어제부터 약속).
+
+*2026-05-26 (이어서) — SAM 배포 진행 중 (Pod Stop, 다음 세션 재개):
+
+ 진행 완료:
+   ✅ IAM 사용자 분리 — sunity-motion (AdministratorAccess) 신규 생성,
+      sunity-api 에 임시 부착한 AdministratorAccess detach (펀딩 보호 복구).
+      AWS_PROFILE=sunity-motion 환경변수 (현재 셸만).
+   ✅ Firebase SA JSON → SSM SecureString 업로드
+      /sunity/motion/firebase-sa (Version 1).
+   ✅ belle Mac python@3.12 brew 설치 (Lambda runtime).
+   ✅ AWS SAM CLI 설치 + sam build 성공.
+   ✅ pipeline Lambda 의 RunPod 위임 분기 + template.yaml 환경변수 슬롯 commit/push.
+   ✅ template.yaml 의 VideoBucket 리소스 외부화 (기존 버킷 보존).
+   ✅ backend/runpod_inference/ FastAPI 서버 코드 + Pod 셋업 README.
+   ✅ RunPod Pod 가동 → /health 200 ok / auth_configured=true / pipeline_loaded=true 확인.
+
+ 다음 세션 재개 절차 — belle action item:
+   1) RunPod 콘솔에서 Pod (latin_indigo_woodpecker · ID pgvoe6nymnyqft) Start.
+      Pod IP/port/HTTP service URL 보통 동일 — RUNPOD URL 변경 X.
+   2) Pod 터미널 (Jupyter Lab File>New>Terminal):
+        cd /workspace/SunityMotion/backend
+        # 메모해둔 token 으로 환경변수 복구:
+        export RUNPOD_AUTH_TOKEN="<메모해둔 64자 hex>"
+        export AWS_ACCESS_KEY_ID="..."        # 동일 키 (sunity-api)
+        export AWS_SECRET_ACCESS_KEY="..."
+        export AWS_DEFAULT_REGION=ap-northeast-2
+        export FIREBASE_SA_PATH=/workspace/firebase-sa.json
+        export CUDA_VISIBLE_DEVICES=0
+        uvicorn runpod_inference.server:app --host 0.0.0.0 --port 8000 --workers 1
+   3) belle Mac 에서 새 헬스체크 — 브라우저로
+        https://pgvoe6nymnyqft-8000.proxy.runpod.net/health
+      auth_configured=true / pipeline_loaded=true 확인.
+   4) D-2 ~ G 단계 (이 메모 아래 task 16~19):
+        D-2 Token/URL 확인 (1)에서 이미 복구)
+        E   cd ~/Dev/SunityMotion/backend && sam deploy --guided
+             Parameter RunpodAnalyzeUrl: https://pgvoe6nymnyqft-8000.proxy.runpod.net/analyze
+             Parameter RunpodAuthToken : <메모 토큰>
+             Stack Name: sunity-motion-pilot
+             Region: ap-northeast-2
+             Confirm changes: Y / IAM 역할 자동 생성: Y / samconfig 저장: Y
+        F   외부 버킷 노티 (backend/README.md "외부 버킷 노티 설정" 섹션 awscli 3줄)
+        G   앱 영상 1개 업로드 → Pod 로그 + Firestore + 결과 화면 정밀 수치 확인
+
+ ⚠ Pod Stop 중 휘발: 환경변수 / uvicorn 프로세스. 디스크(코드·NLF 모델·firebase-sa.json) 는 보존.
+   token 을 메모 안 했다면 새로 생성 → uvicorn 재기동 → sam deploy 단계에서 새 token 사용.
 
 *2026-05-26 (이어서) — #7-follow 유닛 4 RunPod 분석 서버 코드 준비 (belle 자격증명 없이 가능한 부분 완성):
  - 결정 배경: 정밀 분석을 앱에 진짜 넣으려면 Lambda 가 NLF GPU 추론을 직접

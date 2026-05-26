@@ -14,7 +14,12 @@ Parameters:
   VideoBucketName:
     Type: String
     Default: sunity-motion-pilot-videos
-    Description: 영상 원본/결과 S3 버킷명 (전역 고유해야 함).
+    Description: >
+      영상 원본/결과 S3 버킷명 (전역 고유해야 함).
+      ⚠ 이 템플릿은 버킷 자체를 만들지 않는다 — belle 가 awscli 로 직접
+      만든 기존 버킷(reference/ 5 영상 포함)을 보존하기 위함. 배포 후
+      별도로 버킷 Notification(s3:ObjectCreated:* → AnalysisQueue)을 설정.
+      절차는 README 의 "외부 버킷 노티 설정" 섹션 참조.
   FirebaseSaParam:
     Type: String
     Default: /sunity/motion/firebase-sa
@@ -59,38 +64,16 @@ Resources:
       CompatibleRuntimes: [python3.12]
       RetentionPolicy: Delete
 
-  # ── 영상 버킷 (원본 30일 후 만료 — 비용 관리) ───────────────────────
-  VideoBucket:
-    Type: AWS::S3::Bucket
-    DependsOn: AnalysisQueuePolicy
-    Properties:
-      BucketName: !Ref VideoBucketName
-      LifecycleConfiguration:
-        Rules:
-          - Id: expire-raw-uploads-30d
-            Status: Enabled
-            Prefix: uploads/
-            ExpirationInDays: 30
-      CorsConfiguration:
-        CorsRules:
-          - AllowedMethods: [PUT]
-            AllowedOrigins: ["*"]
-            AllowedHeaders: ["*"]
-            MaxAge: 3000
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      NotificationConfiguration:
-        QueueConfigurations:
-          - Event: s3:ObjectCreated:*
-            Queue: !GetAtt AnalysisQueue.Arn
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: uploads/
+  # ── 영상 버킷: 외부 — belle 가 awscli 로 사전 생성한 버킷 사용. ─────
+  # CloudFormation import 없이 외부 reference 로 두는 이유:
+  #  · 기존 reference/ 5 영상이 들어있어 보존 우선
+  #  · CFN import 는 절차 복잡 (이전 belle 작업 보존 + 추가 시간)
+  # 향후 운영 단에서 SAM 으로 흡수하려면 backend/README.md "CFN import" 절차.
+  #
+  # 버킷 자체에 필요한 설정(라이프사이클·CORS·Notification)은 README 참조:
+  #   1) aws s3api put-bucket-lifecycle-configuration ... (uploads/ 30일 만료)
+  #   2) aws s3api put-bucket-cors ...                    (앱 PUT 허용)
+  #   3) aws s3api put-bucket-notification-configuration  (s3:ObjectCreated → SQS)
 
   # ── 분석 비동기 큐 (S3 → SQS → pipeline) ────────────────────────────
   AnalysisQueue:

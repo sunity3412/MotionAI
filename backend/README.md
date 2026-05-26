@@ -28,22 +28,21 @@ python3 -m pip install -r requirements-dev.txt
 python3 -m pytest -q
 ```
 
-## 배포 (AWS 계정/자격증명 준비된 뒤 — 현재 보류)
-
-> 이 환경엔 AWS CLI/자격증명이 없어 `#6` 단계에서는 **배포하지 않는다**.
-> 아래는 계정이 준비된 후 1회 셋업 + 배포 절차.
+## 배포 (belle 첫 sam deploy 절차)
 
 사전 1회 준비:
 
-1. AWS CLI · SAM CLI 설치, `aws configure` 로 자격증명 등록 (리전 `ap-northeast-2`).
-2. Firebase 서비스 계정 키(JSON)를 Parameter Store 에 SecureString 으로 저장
-   (코드/.env 하드코딩 금지 — `backend_CLAUDE.md` 보안 원칙):
-
+1. **AWS CLI** (이미 셋업됨 — `sunity-api` 사용자 키), **SAM CLI** 설치:
+   ```bash
+   brew install aws-sam-cli
+   sam --version    # 1.x.x 나오면 OK
+   ```
+2. **Firebase 서비스 계정 키를 SSM SecureString 으로 저장** (코드/.env 하드코딩 금지):
    ```bash
    aws ssm put-parameter \
      --name /sunity/motion/firebase-sa \
      --type SecureString \
-     --value file://service-account.json \
+     --value file://sunity-ai-coach-firebase-adminsdk-fbsvc-7055d7d3d1.json \
      --region ap-northeast-2
    ```
 
@@ -52,14 +51,69 @@ python3 -m pytest -q
 ```bash
 cd backend
 sam build
-sam deploy            # samconfig.toml 기본값 사용. 첫 배포는 변경셋 확인 후 y
+sam deploy --guided      # 첫 배포 1회. 이후엔 sam deploy (samconfig 기본값 사용)
 ```
 
-배포 후 출력되는 `ApiBaseUrl` 을 앱 `.env` 에 연결한다(다음 단계 작업).
+`--guided` 가 묻는 값:
+- Stack Name: `sunity-motion-pilot`
+- AWS Region: `ap-northeast-2`
+- Parameter Stage: `pilot`
+- Parameter VideoBucketName: `sunity-motion-pilot-videos` (기존 버킷 그대로)
+- Parameter FirebaseSaParam: `/sunity/motion/firebase-sa`
+- **Parameter RunpodAnalyzeUrl**: `https://<pod-id>-8000.proxy.runpod.net/analyze`
+- **Parameter RunpodAuthToken**: (RunPod 측 `$RUNPOD_AUTH_TOKEN` 64자)
+- Confirm changes before deploy: `Y`
+- Allow SAM CLI IAM role creation: `Y`
+- Disable rollback: `N`
+- Save arguments to configuration file: `Y` (samconfig.toml 갱신)
+
+배포 후 출력되는 `ApiBaseUrl` 을 앱 `.env` 에 연결한다.
+
+## 외부 버킷 노티 설정 (배포 후 1회)
+
+이 SAM 스택은 **`sunity-motion-pilot-videos` 버킷 자체를 만들지 않는다** — belle 가
+awscli 로 직접 만들어 reference/ 5 영상을 이미 넣어둔 기존 버킷을 보존하기 위함.
+그래서 버킷의 라이프사이클/CORS/Notification 은 별도로 1회 설정.
+
+```bash
+# 1) Lifecycle (uploads/ 30일 만료 — 비용 관리)
+aws s3api put-bucket-lifecycle-configuration \
+  --bucket sunity-motion-pilot-videos \
+  --lifecycle-configuration '{"Rules":[{"ID":"expire-raw-uploads-30d","Status":"Enabled","Filter":{"Prefix":"uploads/"},"Expiration":{"Days":30}}]}'
+
+# 2) CORS (앱이 직접 PUT)
+aws s3api put-bucket-cors --bucket sunity-motion-pilot-videos --cors-configuration '{
+  "CORSRules": [{
+    "AllowedMethods": ["PUT"],
+    "AllowedOrigins": ["*"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3000
+  }]
+}'
+
+# 3) S3 → SQS Notification (uploads/* 가 올라오면 분석 큐로)
+#    QUEUE_ARN = sam deploy outputs 의 AnalysisQueueUrl 에서 ARN 으로 변환
+#    (보통 arn:aws:sqs:ap-northeast-2:<acct>:sunity-motion-pilot-analysis)
+QUEUE_ARN="$(aws sqs get-queue-attributes \
+  --queue-url <AnalysisQueueUrl> \
+  --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)"
+
+aws s3api put-bucket-notification-configuration \
+  --bucket sunity-motion-pilot-videos \
+  --notification-configuration "{
+    \"QueueConfigurations\": [{
+      \"QueueArn\": \"$QUEUE_ARN\",
+      \"Events\": [\"s3:ObjectCreated:*\"],
+      \"Filter\": {\"Key\": {\"FilterRules\": [{\"Name\": \"prefix\", \"Value\": \"uploads/\"}]}}
+    }]
+  }"
+```
+
+설정 후 확인: 앱에서 영상 1개 업로드 → CloudWatch `/aws/lambda/sunity-motion-pilot-pipeline`
+로그에 `RunPod 위임 모드 ON` + `/analyze accepted` 가 보여야 정상.
 
 ## 다음 단계
 
-- `#7` pose-extractor: `functions/pipeline` 의 stub 를 YOLO11 → ViTPose-S →
-  MotionDTW → KISMAM → Cerebras 로 교체 (상태 머신/계약은 유지).
+- `#7-follow 유닛 4`: 운영 GPU 인프라(RunPod) 가동 — `backend/runpod_inference/README.md`.
 - 앱 연동: `ApiBaseUrl` 환경변수화, 로딩 화면을 시뮬레이션 훅에서
   Firestore `onSnapshot` 구독으로 교체.

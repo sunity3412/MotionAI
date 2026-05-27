@@ -1,16 +1,6 @@
-# Firestore Admin 갱신용. boto3 는 Lambda 런타임 포함.
+# 운영(RunPod 위임) 전용 의존성. Lambda 250MB unzipped 한도 준수.
+# torch/ultralytics/imageio/Pillow/cerebras 는 RunPod 서버측에서만 사용 —
+# Lambda 폴백(_process) 경로는 deploy 환경에서 ImportError 로 의도적 차단.
+# 운영 검증은 reference: backend/runpod_inference/server.py.
 firebase-admin>=6,<7
-numpy>=1.26,<3   # 분석 알고리즘 코어 (features/motiondtw/kismam)
-
-# ── #7-follow ML 어댑터 의존성 ─────────────────────────────────────
-# 3D 포즈 백본 NLF 는 GPU 전제(plan.md #7-follow) — torch/torchvision 은
-# GPU 런타임에 맞춘 CUDA 휠을 쓴다. NLF 모델은 torchscript 파일이라 별도
-# pip 의존성이 없다(torchvision 은 TorchScript 연산 등록에 필요). 운영 GPU
-# 추론 환경 분리·패키징은 #7-follow 인프라 단계.
-torch>=2.2,<3
-torchvision>=0.17,<1
-ultralytics>=8.3,<9        # YOLO11n 인체 탐지 (NLF 입력 박스)
-imageio>=2.34,<3           # 영상 디코딩
-imageio-ffmpeg>=0.5,<1     # imageio 의 ffmpeg 백엔드
-Pillow>=10,<12             # 프레임 리사이즈
-cerebras-cloud-sdk>=1,<2   # 코칭 문장 LLM
+numpy>=1.26,<3

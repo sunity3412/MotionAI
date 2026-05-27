@@ -26,8 +26,11 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function ReferenceSelect() {
   const router = useRouter();
-  const { name, motionId: preselectId } = useLocalSearchParams<{
+  const { name, uri, size, format, motionId: preselectId } = useLocalSearchParams<{
     name?: string;
+    uri?: string;
+    size?: string;
+    format?: string;
     motionId?: string;
   }>();
   const { motions, loading, error } = useReferenceMotions();
@@ -64,6 +67,9 @@ export default function ReferenceSelect() {
       params: {
         mode: 'mode1',
         name: name ?? '',
+        uri: uri ?? '',
+        size: size ?? '0',
+        format: format ?? 'mp4',
         referenceMotionId: selectedId,
         // 결과 화면 표시용. #7-follow 실데이터 붙으면 Firestore 결과 문서가
         // referenceMotionName 을 직접 들고 옴 → 이 param 은 자연스럽게 폐기.

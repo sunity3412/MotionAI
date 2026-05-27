@@ -69,7 +69,11 @@ def _runpod_enabled() -> bool:
 
 def _delegate_to_runpod(bucket: str, key: str) -> None:
     """RunPod /analyze 로 위임. 202/200 외 응답은 예외 → Lambda 가 fail_analysis 매핑.
-    urllib 표준 라이브러리만 사용(requests 의존성 X — Layer 추가 부담 없음)."""
+    urllib 표준 라이브러리만 사용(requests 의존성 X — Layer 추가 부담 없음).
+
+    RunPod proxy(*.proxy.runpod.net) 는 Cloudflare 뒤에 있다. urllib 의 기본
+    User-Agent("Python-urllib/3.x") 가 Cloudflare 의 봇 차단(에러 1010) 에 걸려
+    403 이 떨어진다. 일반적인 UA 와 Accept 헤더를 박아 통과시킨다."""
     payload = json.dumps({"bucket": bucket, "key": key}).encode("utf-8")
     req = urllib.request.Request(
         _RUNPOD_URL,
@@ -77,6 +81,8 @@ def _delegate_to_runpod(bucket: str, key: str) -> None:
         data=payload,
         headers={
             "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "sunity-motion-pilot/1.0 (+aws-lambda)",
             "X-RunPod-Token": _RUNPOD_TOKEN,
         },
     )

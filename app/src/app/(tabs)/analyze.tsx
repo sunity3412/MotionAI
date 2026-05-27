@@ -12,7 +12,13 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 const MAX_BYTES = 100 * 1024 * 1024; // design.md: 100MB 초과 불가
 const ALLOWED = ['mp4', 'mov']; // design.md: mp4, mov만 지원
 
-type Picked = { name: string };
+type VideoFormat = 'mp4' | 'mov';
+type Picked = {
+  name: string;
+  uri: string;
+  size: number;
+  format: VideoFormat;
+};
 
 export default function Analyze() {
   const router = useRouter();
@@ -45,7 +51,14 @@ export default function Analyze() {
       return;
     }
     setError(null);
-    setPicked({ name: asset.fileName ?? '선택한 영상' });
+    const source = asset.fileName ?? asset.uri;
+    const ext = (source.split('.').pop()?.toLowerCase() ?? 'mp4') as VideoFormat;
+    setPicked({
+      name: asset.fileName ?? '선택한 영상',
+      uri: asset.uri,
+      size: asset.fileSize ?? 0,
+      format: ext,
+    });
   };
 
   const pickFromCamera = async () => {
@@ -108,7 +121,12 @@ export default function Analyze() {
             onPress={() =>
               router.push({
                 pathname: '/analysis/reference',
-                params: { name: picked.name },
+                params: {
+                  name: picked.name,
+                  uri: picked.uri,
+                  size: String(picked.size),
+                  format: picked.format,
+                },
               })
             }
             disabled={false}
@@ -120,7 +138,13 @@ export default function Analyze() {
             onPress={() =>
               router.push({
                 pathname: '/analysis/loading',
-                params: { mode: 'mode3', name: picked.name },
+                params: {
+                  mode: 'mode3',
+                  name: picked.name,
+                  uri: picked.uri,
+                  size: String(picked.size),
+                  format: picked.format,
+                },
               })
             }
             disabled={false}

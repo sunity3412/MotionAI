@@ -741,3 +741,91 @@
  - tsc 클린 + iOS 번들 4.42MB 스모크 통과. 다음 빌드에서 함께 배포 가능.
  - 다음(belle 결정): EAS build → submit (백그라운드 자동, ASC API Key 등록됨)
    또는 내일 단계 A(정은지 reference angles 등록) 직진.
+
+*2026-05-27 — SAM 배포 완료 + 실분석 end-to-end 통과 ✅:
+
+ 마일스톤: 앱 → S3 PUT → SQS → Lambda → RunPod /analyze → NLF GPU 추출 →
+   Firestore 갱신 → 결과 화면 (mode3) 전체 흐름이 실데이터로 1회 통과.
+   분석 화면에 실제 NLF 분석 결과가 표시됨 (시뮬레이션 아님).
+
+ 막혔다 풀린 4가지 함정 (다음 세션 재발 방지용):
+   1) Lambda IAM SSM ARN 이중 슬래시 — SAM `SSMParameterReadPolicy` 가
+      leading-slash 가 있는 ParameterName 을 `parameter//sunity/...` 로 박음.
+      해결: 명시적 Statement 로 작성 (template.yaml).
+   2) RunPod Cloudflare 1010 차단 — urllib 기본 User-Agent 가 봇으로 차단.
+      해결: pipeline/app.py `_delegate_to_runpod` 에 일반 UA + Accept 헤더.
+   3) macOS native binary in Lambda — belle Mac 의 cryptography Mach-O 가
+      Linux Lambda 에서 ImportError. 해결: `sam build --use-container` 로
+      Docker 안에서 Linux/arm64 빌드. ⚠ Docker Desktop 켜둬야 함.
+      → [[sam-build-native-deps]] 메모 참고.
+   4) Pod AWS 자격증명 typo — sunity-api 시크릿 paste 오타로 SignatureMismatch
+      → 403. 해결: sunity-motion (admin) 키 임시 사용. ⚠ 시연 후 정리 큐.
+   + Firestore composite index 누락 — get_previous_analysis 쿼리용.
+     콘솔 URL 1클릭으로 생성.
+
+ 코드 변경 (이 세션):
+   backend/template.yaml         IAM Statement 명시적
+   backend/functions/pipeline/app.py    User-Agent 헤더 + 폴백 deps lazy
+   backend/functions/pipeline/requirements.txt   torch 제거 (위임 전용 200MB)
+   app/.env(.example)             EXPO_PUBLIC_API_BASE_URL 추가
+   app/src/lib/api.ts             신규 — requestUploadUrl + uploadToS3
+   app/src/app/(tabs)/analyze.tsx  영상 URI/크기/포맷 라우팅
+   app/src/app/analysis/reference.tsx   같은 정보 통과
+   app/src/app/analysis/loading.tsx   시뮬 → 실 업로드 + Firestore 구독
+   app/src/lib/simulationWriter.ts   saveSimulatedAnalysis 제거 (sample 만 유지)
+   app/src/app/analysis/result.tsx   코멘트 갱신
+
+ 인프라 상태 스냅샷:
+   - CFN 스택 sunity-motion-pilot (region ap-northeast-2):
+     Lambda 3개 + SQS·DLQ + HttpApi + 로그 + IAM Role
+   - API: https://2rbpecm4d8.execute-api.ap-northeast-2.amazonaws.com/pilot
+   - S3 sunity-motion-pilot-videos: lifecycle uploads/ 30일 + CORS + Notification
+   - RunPod Pod (마이그레이션 후 새 ID): nwx3v7bo7wqjey
+     URL: https://nwx3v7bo7wqjey-8000.proxy.runpod.net
+     ⚠ uvicorn env: sunity-motion (admin) 키 + RUNPOD_AUTH_TOKEN
+     (e190b1a068785a3bae57c40edd8e47ec445c328d42acca15e8b04c96656e7ea1 —
+      채팅 노출됨, 시연 후 회전)
+   - Firestore index: users/{uid}/analyses (mode + status + createdAt) 추가
+
+ belle 피드백 (시연 통과 후 작업) — 우선순위:
+
+   🔴 P0 (분석 정확도):
+   4. 점수가 이상함 — kismam scoring 검증 or 영상이 폴 아니어서 정상값인지 확인
+   6. 결과 화면에 본인 영상 안 나옴 — result.tsx 의 my_video_url 렌더 누락
+
+   🟡 P1 (UX 흐름):
+   1. mode3 인데 카피 "전문가와 회원님의 포즈" 떠 — loading.tsx 카피 분기 필요
+   2. 영상 선택 전 비교 모드 먼저 선택 — UX 흐름 재설계
+   3. mode3 = 두 영상 업로드 또는 이전 영상 활용 — UX + 데이터 모델
+   7. 홈 기술명 클릭 시 영상 없이 분석 진입 버그 — 라우팅 가드
+   8. 비폴 영상 차단 안전망 — DTW 점수 임계값 게이트 + 안내 화면 (A 방안)
+
+   🟢 P2 (UX 윤색):
+   9. 로딩 화면 % 진행률 표기
+   10. 카피 사이클 ("분석중이에요·닫지마세요·조금만 기다려주세요")
+   11. 폴댄스 동작 애니메이션 (멈춤 인상 방지)
+
+   🟢 P3 (콘텐츠/데이터):
+   5. 오늘 도전 동작에 기술별 사진/아이콘
+   mode1 reference angles Firestore 시드 (현재 "기준 모션 없음" 에러)
+
+   ⚪ 정리 큐 (별도):
+   - sunity-motion admin 키 회전 + Pod 으로 새 키 export
+   - sunity-api 노출 키 (AKIA...64A) deactivate
+   - RUNPOD_AUTH_TOKEN 새 토큰 발급 + SAM 재배포
+   - Pod 코드 git pull (latest pipeline/app.py 동기화)
+
+ 다음 세션 재개 절차:
+   1) Docker Desktop 켜두기 (sam build --use-container 용)
+   2) RunPod Pod nwx3v7bo7wqjey Start (Stop 했다면)
+      ⚠ [[runpod-gpu-env]] — Stop 시 GPU 회수 위험. 또 마이그레이션 필요할 수 있음.
+   3) Pod 안에서 env 복구 + uvicorn 재시작:
+        export RUNPOD_AUTH_TOKEN="<현재 토큰>"
+        export AWS_ACCESS_KEY_ID="<sunity-motion 키>"
+        export AWS_SECRET_ACCESS_KEY="<sunity-motion 시크릿>"
+        export AWS_DEFAULT_REGION=ap-northeast-2
+        export FIREBASE_SA_PATH=/workspace/firebase-sa.json
+        export CUDA_VISIBLE_DEVICES=0
+        uvicorn runpod_inference.server:app --host 0.0.0.0 --port 8000 --workers 1
+   4) /health 확인 + belle Mac 에서 expo start --clear --tunnel
+   5) belle 피드백 우선순위 따라 진행 (위 P0·P1·P2·P3 순서 권장)

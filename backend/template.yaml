@@ -132,8 +132,14 @@ Resources:
             - Effect: Allow
               Action: s3:PutObject
               Resource: !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
-        - SSMParameterReadPolicy:
-            ParameterName: !Ref FirebaseSaParam
+        - Statement:
+            # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
+            # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
+            # 있어 명시적 Statement 로 작성. ARN 은 `parameter${name}` 형식이라
+            # FirebaseSaParam(`/sunity/motion/firebase-sa`) 의 leading slash 가 그대로 ARN 의 `/` 와 합쳐진다.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
       Events:
         Post:
           Type: HttpApi
@@ -151,8 +157,14 @@ Resources:
       Handler: app.lambda_handler
       Timeout: 10
       Policies:
-        - SSMParameterReadPolicy:
-            ParameterName: !Ref FirebaseSaParam
+        - Statement:
+            # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
+            # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
+            # 있어 명시적 Statement 로 작성. ARN 은 `parameter${name}` 형식이라
+            # FirebaseSaParam(`/sunity/motion/firebase-sa`) 의 leading slash 가 그대로 ARN 의 `/` 와 합쳐진다.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
       Events:
         Get:
           Type: HttpApi
@@ -181,8 +193,14 @@ Resources:
             - Effect: Allow
               Action: [s3:GetObject, s3:PutObject]
               Resource: !Sub arn:aws:s3:::${VideoBucketName}/*
-        - SSMParameterReadPolicy:
-            ParameterName: !Ref FirebaseSaParam
+        - Statement:
+            # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
+            # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
+            # 있어 명시적 Statement 로 작성. ARN 은 `parameter${name}` 형식이라
+            # FirebaseSaParam(`/sunity/motion/firebase-sa`) 의 leading slash 가 그대로 ARN 의 `/` 와 합쳐진다.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
       Events:
         Queue:
           Type: SQS

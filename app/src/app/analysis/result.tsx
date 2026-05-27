@@ -117,7 +117,11 @@ function mode1Summary(athleteName: string, similarity: number): string {
 // 분석 결과 화면 (plan.md #8, design.md §8, ia AC-RES-001).
 // 미설계 화면 → design.md §0 결정 트리로 자체 설계. 흰 배경(§5-1),
 // 브랜드 포인트(#FF4B33), 스피너/이모지 없음, 토큰만 사용.
-// 데이터는 시뮬레이션(getSimulatedResult) — 백엔드 연결 시 동일 타입으로 교체.
+//
+// 데이터: Firestore users/{uid}/analyses/{analysisId} doc (백엔드 갱신) 우선.
+// getSimulatedResult 폴백은 dev 안전망 — 샘플 시드 누락·딥링크·새로고침 등 doc 가
+// 아직 없는 케이스에서만 발동. 실 분석 경로는 loading.tsx 가 status='uploading'
+// 부터 doc 를 쓰므로 폴백이 활성화될 일은 없다.
 
 const PARTS: BodyPart[] = ['상체', '코어', '하체'];
 
@@ -235,8 +239,7 @@ export default function AnalysisResult() {
       referenceMotionId?: string;
       referenceMotionName?: string;
     }>();
-  // analysisId 가 있으면 Firestore 저장값을 권위 있는 소스로 사용 (홈/기록에서
-  // 들어왔거나, 시뮬이 저장 완료된 경우). 없으면 시뮬 폴백(deep link 등).
+  // Firestore doc 가 권위 있는 소스. 없을 때만 시뮬 폴백(dev 안전망).
   const { doc: storedDoc } = useAnalysisDoc(analysisId);
   const analysisMode: AnalysisMode = mode === 'mode1' ? 'mode1' : 'mode3';
   const result: AnalysisResult = useMemo(() => {

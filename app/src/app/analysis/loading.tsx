@@ -12,21 +12,29 @@ import {
   View,
 } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
-import { auth } from '../../lib/firebase';
-import { saveSimulatedAnalysis } from '../../lib/simulationWriter';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../lib/firebase';
+import { requestUploadUrl, uploadToS3 } from '../../lib/api';
+import { useAnalysisDoc } from '../../lib/userAnalyses';
 import {
   type AnalysisErrorCode,
   type AnalysisMode,
   type AnalysisStatus,
   ERROR_MESSAGE,
-  PROGRESS_SEQUENCE,
   STATUS_MESSAGE,
+  type VideoFormat,
 } from '../../types/analysis';
 import { layout, radius, spacing, typography } from '../../theme';
 
 // AI 분석 로딩 (plan.md #5, design.md §5-9·§10, Figma 1:429/436/445).
 // 라이트 테마 단독 예외 — 다크 네이비. 분석 중: 글로우 그라디언트 링(안에 텍스트)
 // + 링 아래 단계 한 줄. 오류/완료: 하단 웨이브 그라디언트(오류 분홍/완료 민트).
+//
+// 동작:
+//   ① analysisId 없이 uri 와 함께 진입 (analyze/reference 경로) — 실 업로드 흐름:
+//      POST /upload-url → Firestore status='uploading' 문서 생성 → S3 PUT → 끝.
+//      이후 백엔드(Lambda → RunPod)가 status 를 순차 갱신, 앱은 onSnapshot 구독.
+//   ② analysisId 와 함께 진입 (samples 경로) — 업로드 없이 Firestore 만 구독.
 
 const NAVY_TOP = '#13152B';
 const NAVY_BOT = '#1E2348';
@@ -37,26 +45,45 @@ const ERROR_RED = '#FF5A6A';
 const DONE_TEAL = '#3FD8AE';
 const TEXT_DIM = 'rgba(255,255,255,0.55)';
 
-function useSimulatedAnalysis(): {
-  status: AnalysisStatus;
-  errorCode: AnalysisErrorCode | null;
-} {
-  const [status, setStatus] = useState<AnalysisStatus>('queued');
-  useEffect(() => {
-    const order = PROGRESS_SEQUENCE.filter((s) => s !== 'uploading');
-    let i = 0;
-    const timer = setInterval(() => {
-      i += 1;
-      if (i >= order.length) {
-        clearInterval(timer);
-        setStatus('done');
-        return;
-      }
-      setStatus(order[i]);
-    }, 1300);
-    return () => clearInterval(timer);
-  }, []);
-  return { status, errorCode: null };
+interface UploadInput {
+  mode: AnalysisMode;
+  fileName: string;
+  uri: string;
+  size: number;
+  format: VideoFormat;
+  referenceMotionId?: string;
+}
+
+// 영상 업로드 + Firestore 문서 생성. 성공 시 analysisId 리턴.
+// 실패는 throw — 호출자가 화면 상태를 'failed' 로 전환.
+async function startAnalysisUpload(input: UploadInput): Promise<string> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('로그인이 필요합니다.');
+
+  // 1) presigned URL + analysisId 발급
+  const { analysisId, uploadUrl } = await requestUploadUrl({
+    mode: input.mode,
+    fileName: input.fileName,
+    fileSizeBytes: input.size,
+    format: input.format,
+    referenceMotionId: input.referenceMotionId,
+  });
+
+  // 2) Firestore 문서 생성 (status='uploading') — 보안 규칙상 본인만 가능.
+  //    이후 백엔드는 Admin SDK 로 같은 문서를 갱신한다.
+  const now = Date.now();
+  await setDoc(doc(db, 'users', uid, 'analyses', analysisId), {
+    analysisId,
+    mode: input.mode,
+    status: 'uploading',
+    fileName: input.fileName,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // 3) S3 PUT — 끝나면 S3 ObjectCreated 가 SQS → Lambda → RunPod 위임을 트리거.
+  await uploadToS3(uploadUrl, input.uri);
+  return analysisId;
 }
 
 // 둘레가 살짝 울퉁한 닫힌 곡선(블롭). Catmull-Rom → cubic bezier 로 부드럽게.
@@ -185,54 +212,87 @@ function WaveBackground({ tint }: { tint: string }) {
 
 export default function AnalysisLoading() {
   const router = useRouter();
-  const { mode, name, analysisId, referenceMotionId, referenceMotionName } =
-    useLocalSearchParams<{
-      mode?: string;
-      name?: string;
-      analysisId?: string;
-      referenceMotionId?: string;
-      referenceMotionName?: string;
-    }>();
-  const { status, errorCode } = useSimulatedAnalysis();
+  const {
+    mode,
+    name,
+    uri,
+    size,
+    format,
+    analysisId: presetAnalysisId,
+    referenceMotionId,
+    referenceMotionName,
+  } = useLocalSearchParams<{
+    mode?: string;
+    name?: string;
+    uri?: string;
+    size?: string;
+    format?: string;
+    analysisId?: string;
+    referenceMotionId?: string;
+    referenceMotionName?: string;
+  }>();
 
+  // 분석 ID: samples 경로(이미 있음) 또는 업로드 후 발급. 발급 전엔 null.
+  const [analysisId, setAnalysisId] = useState<string | null>(
+    presetAnalysisId ?? null,
+  );
+  // 업로드 실패 등 로컬 단계 오류 — Firestore 까지 못 간 케이스용.
+  const [localError, setLocalError] = useState<AnalysisErrorCode | null>(null);
+  const startedRef = useRef(false);
+
+  // 영상 업로드 흐름 (uri 가 있고 analysisId 가 아직 없을 때 한 번만).
+  useEffect(() => {
+    if (startedRef.current) return;
+    if (analysisId) return; // samples 경로 — 업로드 스킵
+    if (!uri) return; // 라우팅 사고 — 업로드할 영상 없음
+    startedRef.current = true;
+
+    const analysisMode: AnalysisMode = mode === 'mode1' ? 'mode1' : 'mode3';
+    const sizeBytes = size ? parseInt(size, 10) : 0;
+    const fmt: VideoFormat = format === 'mov' ? 'mov' : 'mp4';
+    startAnalysisUpload({
+      mode: analysisMode,
+      fileName: typeof name === 'string' ? name : '',
+      uri,
+      size: sizeBytes,
+      format: fmt,
+      referenceMotionId,
+    })
+      .then((id) => setAnalysisId(id))
+      .catch((e) => {
+        if (__DEV__) console.warn('[loading] upload failed', e);
+        setLocalError('server_error');
+      });
+  }, [analysisId, uri, size, format, mode, name, referenceMotionId]);
+
+  // Firestore 분석 문서 실시간 구독 (백엔드가 상태 갱신).
+  const { doc: storedDoc } = useAnalysisDoc(analysisId ?? undefined);
+
+  // 표시할 상태: localError > Firestore doc > 업로드 전 기본.
+  const status: AnalysisStatus = localError
+    ? 'failed'
+    : (storedDoc?.status ?? 'uploading');
+  const errorCode: AnalysisErrorCode | null =
+    localError ?? storedDoc?.error?.code ?? null;
   const failed = status === 'failed' || errorCode != null;
   const done = status === 'done';
 
-  // 시뮬 종료 시 Firestore done 문서 저장 → 저장 끝나면 결과 화면 자동 전환
-  // (Figma 완료 화면: "잠시만 기다려주세요"). 백엔드 붙으면 simulationWriter 폐기.
-  const savingRef = useRef(false);
+  // done 도달 시 결과 화면 자동 이동 — 완료 메시지 약간 보여주고 전환.
   useEffect(() => {
-    if (!done || savingRef.current) return;
-    savingRef.current = true;
-    const analysisMode: AnalysisMode = mode === 'mode1' ? 'mode1' : 'mode3';
-    let savedId: string | null = null;
-    saveSimulatedAnalysis({
-      mode: analysisMode,
-      fileName: typeof name === 'string' ? name : '',
-      referenceMotionId,
-      referenceMotionName,
-    })
-      .then((id) => {
-        savedId = id;
-      })
-      .catch((e) => {
-        if (__DEV__) console.warn('[loading] saveSimulatedAnalysis failed', e);
-      })
-      .finally(() => {
-        // 완료 화면을 잠깐 보여준 뒤 결과로 (저장 시간 + 최소 노출).
-        setTimeout(() => {
-          router.replace({
-            pathname: '/analysis/result',
-            params: {
-              mode: mode ?? 'mode3',
-              name,
-              analysisId: savedId ?? analysisId,
-              referenceMotionId,
-              referenceMotionName,
-            },
-          });
-        }, 900);
+    if (!done) return;
+    const t = setTimeout(() => {
+      router.replace({
+        pathname: '/analysis/result',
+        params: {
+          mode: mode ?? 'mode3',
+          name,
+          analysisId: analysisId ?? undefined,
+          referenceMotionId,
+          referenceMotionName,
+        },
       });
+    }, 900);
+    return () => clearTimeout(t);
   }, [done, mode, name, analysisId, referenceMotionId, referenceMotionName, router]);
 
   if (failed) {

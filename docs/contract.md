@@ -195,13 +195,16 @@ comparison       기준 모션과 비교 중...
 done             분석이 완료되었어요!
 ```
 
-`ERROR_MESSAGE` (ml/CLAUDE.md = design.md §6 오류 4종)
+`ERROR_MESSAGE` (ml/CLAUDE.md = design.md §6 오류 4종 + 비폴 차단 안전망)
 ```
 no_human            영상에서 사람을 찾지 못했어요. 전신이 보이게 다시 촬영해주세요.
 size_exceeded       100MB 이하 영상만 분석할 수 있어요.
 unsupported_format  mp4, mov 형식의 영상만 분석할 수 있어요.
 server_error        분석 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.
+not_pole_motion     선택한 기준 동작과 너무 달라요. 폴스포츠 동작이 맞는지 확인하고 다시 시도해주세요.
 ```
+
+`not_pole_motion` — mode1 비교 시 KISMAM similarity 가 `models.NOT_POLE_SIMILARITY_THRESHOLD`(현재 25) 미만이면 백엔드 pipeline 이 `NotPoleMotionError` 로 분기. mode3 는 reference 가 없어 적용 불가.
 
 ---
 

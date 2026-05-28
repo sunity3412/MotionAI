@@ -40,7 +40,7 @@ from sunity_shared.analysis.features import (
     feature_vector,
     joint_uncertainty,
 )
-from sunity_shared.analysis.interfaces import NoHumanError  # 가벼움 — 예외만
+from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # 가벼움 — 예외만
 from sunity_shared.analysis.motiondtw import motion_dtw, per_joint_deviation
 from sunity_shared.analysis.temporal import temporal_fill
 from sunity_shared.events import iter_s3_keys_from_sqs
@@ -55,7 +55,11 @@ log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 _s3 = boto3.client("s3")
-_PLAYBACK_EXPIRES = 3600  # 결과 화면 영상 재생 서명 URL 만료(초)
+# 결과 화면 영상 재생 서명 URL 만료(초). 7일 = sigv4 + 영구 IAM 키의 최대값.
+# 3600s 였을 때 belle 가 시연 후 다시 결과 화면을 열면 URL 이 만료돼 본인 영상이
+# 비어 보였다(P0 #6). 운영 경로(RunPod)는 sunity-motion 영구 키로 서명하므로
+# 7일 풀로 사용 가능. Lambda 폴백 경로의 임시 자격증명은 세션 길이로 자동 캡됨.
+_PLAYBACK_EXPIRES = 7 * 24 * 60 * 60
 
 # RunPod 위임 환경 — 운영에서만 set. 미설정 시 폴백(_process) 이라 개발은 그대로.
 _RUNPOD_URL = os.environ.get("RUNPOD_ANALYZE_URL", "").strip()
@@ -175,6 +179,17 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         deviation = per_joint_deviation(match.path, user_seg, a_ref)
         assessments = kismam.assess(deviation)
         similarity = kismam.overall_score(assessments)
+        # 비폴 영상 차단 안전망(belle P1 #8). 기준 동작과 너무 동떨어진 자세는
+        # 폴 영상이 아닐 가능성이 높아 의미 없는 점수를 결과 화면에 노출하지 않는다.
+        if similarity < models.NOT_POLE_SIMILARITY_THRESHOLD:
+            log.info(
+                "비폴 영상 추정 차단 similarity=%d threshold=%d",
+                similarity,
+                models.NOT_POLE_SIMILARITY_THRESHOLD,
+            )
+            raise NotPoleMotionError(
+                f"similarity {similarity} < {models.NOT_POLE_SIMILARITY_THRESHOLD}"
+            )
         # 콤보 모션이면 베이스/확장 구간 부분 점수 (reference-motions.md §7).
         seg_scores = None
         if ref.get("sharedBaseMotionId"):
@@ -260,6 +275,14 @@ def lambda_handler(event: dict, _context) -> dict:
                 analysis_id,
                 models.ERR_NO_HUMAN,
                 models.ERROR_MESSAGE[models.ERR_NO_HUMAN],
+            )
+        except NotPoleMotionError:
+            log.info("비폴 영상 차단 uid=%s analysis_id=%s", uid, analysis_id)
+            firestore_admin.fail_analysis(
+                uid,
+                analysis_id,
+                models.ERR_NOT_POLE_MOTION,
+                models.ERROR_MESSAGE[models.ERR_NOT_POLE_MOTION],
             )
         except Exception:  # noqa: BLE001
             log.exception("분석 실패 analysis_id=%s", analysis_id)

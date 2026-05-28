@@ -33,16 +33,21 @@ PIPELINE_SEQUENCE = (
     STATUS_DONE,
 )
 
-# ── 분석 오류 코드 (contract.md §5 / ml_CLAUDE.md 4종) ─────────────────
+# ── 분석 오류 코드 (contract.md §5 / ml_CLAUDE.md) ────────────────────
 ERR_NO_HUMAN = "no_human"
 ERR_SIZE_EXCEEDED = "size_exceeded"
 ERR_UNSUPPORTED_FORMAT = "unsupported_format"
 ERR_SERVER_ERROR = "server_error"
+# 비폴 영상 차단 안전망(belle P1 #8). mode1 비교 시 KISMAM similarity 가
+# NOT_POLE_SIMILARITY_THRESHOLD 미만이면 분석 자체를 실패로 표시 — 의미 없는
+# 점수를 결과 화면에 띄우지 않는다. mode3 는 reference 가 없어 적용 불가.
+ERR_NOT_POLE_MOTION = "not_pole_motion"
 ANALYSIS_ERROR_CODES = (
     ERR_NO_HUMAN,
     ERR_SIZE_EXCEEDED,
     ERR_UNSUPPORTED_FORMAT,
     ERR_SERVER_ERROR,
+    ERR_NOT_POLE_MOTION,
 )
 
 # UI 고정 문구. app/src/types/analysis.ts ERROR_MESSAGE 와 동일 문자열.
@@ -51,7 +56,14 @@ ERROR_MESSAGE = {
     ERR_SIZE_EXCEEDED: "100MB 이하 영상만 분석할 수 있어요.",
     ERR_UNSUPPORTED_FORMAT: "mp4, mov 형식의 영상만 분석할 수 있어요.",
     ERR_SERVER_ERROR: "분석 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.",
+    ERR_NOT_POLE_MOTION: "선택한 기준 동작과 너무 달라요. 폴스포츠 동작이 맞는지 확인하고 다시 시도해주세요.",
 }
+
+# 비폴 차단 임계값. mode1 비교 결과 similarity(KISMAM overall_score) 가
+# 이 값 미만이면 ERR_NOT_POLE_MOTION 으로 분기. 보수적으로 시작(위양성 방지) —
+# 실제 폴 영상이라도 동작이 매우 달라 30 점 이하 나올 수 있으니 25 점.
+# 시연·튜닝 데이터 누적 후 belle 와 조정.
+NOT_POLE_SIMILARITY_THRESHOLD = 25
 
 
 def analysis_doc_path(uid: str, analysis_id: str) -> str:

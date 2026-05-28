@@ -145,3 +145,33 @@ def test_invalid_key_is_skipped(pipeline):
     assert pipeline._test_calls["failed"] == []
     assert pipeline._test_calls["process"] == []
     assert pipeline._test_calls["delegate"] == []
+
+
+def test_no_human_maps_to_no_human_error(monkeypatch, pipeline):
+    from sunity_shared.analysis.interfaces import NoHumanError
+
+    def fake_process_raises(*a):
+        raise NoHumanError("no pose")
+
+    monkeypatch.setattr(pipeline, "_process", fake_process_raises)
+    out = pipeline.lambda_handler(_sqs_event("b", "uploads/u4/a4.mp4"), None)
+    assert out == {"processed": 0}
+    assert pipeline._test_calls["failed"] == [
+        ("u4", "a4", pipeline.models.ERR_NO_HUMAN)
+    ]
+
+
+def test_not_pole_motion_maps_to_not_pole_error(monkeypatch, pipeline):
+    # belle P1 #8 — mode1 similarity < threshold → NotPoleMotionError →
+    # lambda_handler 가 contract not_pole_motion 으로 매핑해야 한다.
+    from sunity_shared.analysis.interfaces import NotPoleMotionError
+
+    def fake_process_raises(*a):
+        raise NotPoleMotionError("similarity 12 < 25")
+
+    monkeypatch.setattr(pipeline, "_process", fake_process_raises)
+    out = pipeline.lambda_handler(_sqs_event("b", "uploads/u5/a5.mp4"), None)
+    assert out == {"processed": 0}
+    assert pipeline._test_calls["failed"] == [
+        ("u5", "a5", pipeline.models.ERR_NOT_POLE_MOTION)
+    ]

@@ -45,7 +45,7 @@ _BACKEND = _HERE.parent
 sys.path.insert(0, str(_BACKEND / "shared" / "python"))
 
 from sunity_shared import firestore_admin, models  # noqa: E402
-from sunity_shared.analysis.interfaces import NoHumanError  # noqa: E402
+from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # noqa: E402
 from sunity_shared.s3keys import parse_upload_key  # noqa: E402
 
 log = logging.getLogger("runpod_inference")
@@ -104,7 +104,8 @@ def _verify_token(x_runpod_token: str = Header(default="", alias="X-RunPod-Token
 
 def _process_in_background(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     """pipeline.lambda_handler 의 try/except 와 동일 매핑.
-    NoHumanError → ERR_NO_HUMAN, 그 외 → ERR_SERVER_ERROR."""
+    NoHumanError → ERR_NO_HUMAN, NotPoleMotionError → ERR_NOT_POLE_MOTION,
+    그 외 → ERR_SERVER_ERROR."""
     try:
         pipeline_app = _load_pipeline_module()
         pipeline_app._process(bucket, key, uid, analysis_id)
@@ -116,6 +117,14 @@ def _process_in_background(bucket: str, key: str, uid: str, analysis_id: str) ->
             analysis_id,
             models.ERR_NO_HUMAN,
             models.ERROR_MESSAGE[models.ERR_NO_HUMAN],
+        )
+    except NotPoleMotionError:
+        log.info("비폴 영상 차단 uid=%s analysisId=%s", uid, analysis_id)
+        firestore_admin.fail_analysis(
+            uid,
+            analysis_id,
+            models.ERR_NOT_POLE_MOTION,
+            models.ERROR_MESSAGE[models.ERR_NOT_POLE_MOTION],
         )
     except Exception:  # noqa: BLE001
         log.exception("분석 실패 uid=%s analysisId=%s", uid, analysis_id)

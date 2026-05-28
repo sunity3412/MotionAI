@@ -40,12 +40,13 @@ export type AnalysisStatus =
   | 'done'
   | 'failed';
 
-// ml/CLAUDE.md 분석 오류 처리 = design.md §6 오류 4종
+// ml/CLAUDE.md 분석 오류 처리 = design.md §6 오류 4종 + 비폴 차단(belle P1 #8)
 export type AnalysisErrorCode =
   | 'no_human'
   | 'size_exceeded'
   | 'unsupported_format'
-  | 'server_error';
+  | 'server_error'
+  | 'not_pole_motion'; // mode1 비교 similarity 가 임계값 미만
 
 export type BodyPart = '상체' | '코어' | '하체'; // design.md §8 파트별 점수
 
@@ -201,6 +202,8 @@ export const ERROR_MESSAGE: Record<AnalysisErrorCode, string> = {
   size_exceeded: '100MB 이하 영상만 분석할 수 있어요.',
   unsupported_format: 'mp4, mov 형식의 영상만 분석할 수 있어요.',
   server_error: '분석 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.',
+  not_pole_motion:
+    '선택한 기준 동작과 너무 달라요. 폴스포츠 동작이 맞는지 확인하고 다시 시도해주세요.',
 };
 
 // 로딩 화면 단계 진행 순서 (design.md §5-9). failed 는 별도 처리.

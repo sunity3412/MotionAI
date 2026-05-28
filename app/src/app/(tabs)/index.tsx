@@ -179,9 +179,11 @@ export default function Home() {
                   motion={m}
                   contextCopy={challengeCopy(m, isFirstOfLevel)}
                   onPress={() =>
+                    // 챌린지 카드 = 이 동작으로 mode1 분석하겠다는 의도. 모드 선택을
+                    // 건너뛰고 분석탭의 영상 선택 단계로 바로 보낸다 (belle P1 #7).
                     router.push({
-                      pathname: '/analysis/reference',
-                      params: { motionId: m.motionId },
+                      pathname: '/(tabs)/analyze',
+                      params: { referenceMotionId: m.motionId },
                     })
                   }
                 />

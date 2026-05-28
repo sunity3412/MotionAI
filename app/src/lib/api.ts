@@ -4,7 +4,11 @@
 // EXPO_PUBLIC_API_BASE_URL 미설정 시 명확히 에러 — .env 참고.
 
 import { auth } from './firebase';
-import type { UploadUrlRequest, UploadUrlResponse } from '../types/analysis';
+import type {
+  UploadUrlRequest,
+  UploadUrlResponse,
+  VideoFormat,
+} from '../types/analysis';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -45,15 +49,27 @@ export function requestUploadUrl(
   });
 }
 
-// S3 presigned PUT 으로 영상 업로드. Content-Type 은 서명에 묶지 않음(서버 정책).
-// 성공 = res.ok. 실패 시 RN fetch 의 status/body 를 그대로 노출.
+// S3 presigned PUT 으로 영상 업로드. Content-Type 은 서명에 묶지 않지만
+// (upload-url Lambda 가 Params 에서 제외) PUT 헤더로 보내면 S3 가 그 값을 객체
+// 메타데이터로 저장한다. 이걸 안 박으면 binary/octet-stream 으로 저장돼서
+// 나중에 결과 화면의 expo-video 가 영상으로 인식 못 한다(P0 #6).
+const CONTENT_TYPE_BY_FORMAT: Record<VideoFormat, string> = {
+  mp4: 'video/mp4',
+  mov: 'video/quicktime',
+};
+
 export async function uploadToS3(
   uploadUrl: string,
   fileUri: string,
+  format: VideoFormat,
 ): Promise<void> {
   const file = await fetch(fileUri);
   const blob = await file.blob();
-  const res = await fetch(uploadUrl, { method: 'PUT', body: blob });
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    body: blob,
+    headers: { 'Content-Type': CONTENT_TYPE_BY_FORMAT[format] },
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`s3 PUT ${res.status}: ${text.slice(0, 200)}`);

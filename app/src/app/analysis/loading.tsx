@@ -45,6 +45,29 @@ const ERROR_RED = '#FF5A6A';
 const DONE_TEAL = '#3FD8AE';
 const TEXT_DIM = 'rgba(255,255,255,0.55)';
 
+// 안심 카피 사이클 (belle P2 #10). 멈춤 인상 방지 — 분석이 흐르고 있다는 신호.
+// 4초마다 다음 카피로 회전. 마지막 카피까지 가면 첫 번째로 돌아간다.
+const REASSURANCE_COPIES: readonly string[] = [
+  '분석 중이에요',
+  '화면을 닫지 마세요',
+  '조금만 기다려주세요',
+] as const;
+const COPY_ROTATE_MS = 4000;
+
+// 단계별 가짜 진행률 (belle P2 #9). 백엔드 status 머신 인덱스 기반. 균등하게
+// 분포해서 사용자가 "안 멈췄다" 는 인상 받게 한다. comparison(85%) 후에 done(100%)
+// 으로 한 번에 튀는 게 자연스러움 — 실 분석 시간의 대부분은 pose_analysis 와
+// comparison 에 있다.
+const PROGRESS_PCT: Record<AnalysisStatus, number> = {
+  uploading: 8,
+  queued: 22,
+  frame_extraction: 40,
+  pose_analysis: 65,
+  comparison: 85,
+  done: 100,
+  failed: 0,
+};
+
 interface UploadInput {
   mode: AnalysisMode;
   fileName: string;
@@ -82,7 +105,9 @@ async function startAnalysisUpload(input: UploadInput): Promise<string> {
   });
 
   // 3) S3 PUT — 끝나면 S3 ObjectCreated 가 SQS → Lambda → RunPod 위임을 트리거.
-  await uploadToS3(uploadUrl, input.uri);
+  //    format 을 Content-Type 헤더로 박아 S3 가 video/mp4 또는 video/quicktime
+  //    으로 저장하게 한다. 안 그러면 결과 화면 expo-video 가 못 읽음(P0 #6).
+  await uploadToS3(uploadUrl, input.uri, input.format);
   return analysisId;
 }
 
@@ -298,6 +323,12 @@ export default function AnalysisLoading() {
   if (failed) {
     const code: AnalysisErrorCode = errorCode ?? 'server_error';
     const isNoHuman = code === 'no_human';
+    const isNotPole = code === 'not_pole_motion';
+    const errorTitle = isNoHuman
+      ? '사람을 찾지 못했어요'
+      : isNotPole
+        ? '기준 동작과 너무 달라요'
+        : '분석 중 문제가 발생했어요';
     return (
       <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
         <StatusBar style="light" />
@@ -309,9 +340,7 @@ export default function AnalysisLoading() {
           <View style={[styles.statusRing, { borderColor: ERROR_RED }]}>
             <Ionicons name="close" size={36} color={ERROR_RED} />
           </View>
-          <Text style={styles.title}>
-            {isNoHuman ? '사람을 찾지 못했어요' : '분석 중 문제가 발생했어요'}
-          </Text>
+          <Text style={styles.title}>{errorTitle}</Text>
           <Text style={styles.sub}>{ERROR_MESSAGE[code]}</Text>
           {isNoHuman && (
             <View style={styles.tipCard}>
@@ -322,6 +351,17 @@ export default function AnalysisLoading() {
               <Text style={styles.tipItem}>· 측면 45°, 2~3m 거리</Text>
               <Text style={styles.tipItem}>· 밝은 환경, 폴 전체로 보이게</Text>
               <Text style={styles.tipItem}>· 3초 이상, 동작 전체 포함</Text>
+            </View>
+          )}
+          {isNotPole && (
+            <View style={styles.tipCard}>
+              <View style={styles.tipHeadRow}>
+                <Ionicons name="alert-circle" size={16} color={ERROR_RED} />
+                <Text style={styles.tipHead}>확인해보세요</Text>
+              </View>
+              <Text style={styles.tipItem}>· 폴스포츠 연습 영상이 맞는지</Text>
+              <Text style={styles.tipItem}>· 선택한 기준 동작이 영상과 같은지</Text>
+              <Text style={styles.tipItem}>· 전신이 다 보이는지</Text>
             </View>
           )}
         </View>
@@ -352,24 +392,41 @@ export default function AnalysisLoading() {
     );
   }
 
-  // Figma 1:429/436/445 카피 — 모드 무관 통일, 사용자 이름 인터폴.
-  // 게스트(displayName 없음)는 "회원님" fallback. 이미 "님" 으로 끝나면 중복 안 함.
+  // 카피 — 모드별 분기. 사용자 이름 인터폴, 게스트는 "회원님" fallback.
+  // mode1 = 전문가(정은지) 비교 → "전문가와 ~ 분석", Figma 1:429/436/445 와 동일.
+  // mode3 = 자기 동작/지난 비교 → "전문가" 가 어색해 본인 동작으로 한정(belle P1 #1).
   const rawName = auth.currentUser?.displayName?.trim() ?? '';
   const greetName = !rawName
     ? '회원님'
     : rawName.endsWith('님')
       ? rawName
       : `${rawName}님`;
-  const titleLine = `전문가와 ${greetName}의\n포즈를 분석하고 있어요.`;
+  const isMode1 = mode === 'mode1';
+  const titleLine = isMode1
+    ? `전문가와 ${greetName}의\n포즈를 분석하고 있어요`
+    : `${greetName}의 동작을\n분석하고 있어요`;
+
+  // 안심 카피 회전 (belle P2 #10) — 4초마다 인덱스 +1.
+  const [copyIdx, setCopyIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(
+      () => setCopyIdx((i) => (i + 1) % REASSURANCE_COPIES.length),
+      COPY_ROTATE_MS,
+    );
+    return () => clearInterval(t);
+  }, []);
+
+  const progressPct = PROGRESS_PCT[status] ?? 0;
 
   return (
     <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.center}>
         <BlobRing>
-          <Text style={styles.ringTitle}>{titleLine}</Text>
-          <Text style={styles.ringSub}>화면을 닫지 마세요.</Text>
+          <Text style={styles.ringPct}>{progressPct}%</Text>
+          <Text style={styles.ringSub}>{REASSURANCE_COPIES[copyIdx]}</Text>
         </BlobRing>
+        <Text style={styles.titleBelowRing}>{titleLine}</Text>
         <Text style={styles.stepLine}>{STATUS_MESSAGE[status]}</Text>
       </View>
     </LinearGradient>
@@ -409,11 +466,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
+  // 진행률 큰 숫자 — 링 안 중앙. 멈춤 인상 방지(P2 #9).
+  ringPct: {
+    color: '#FFFFFF',
+    fontSize: 44,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: -1,
+  },
   ringSub: { ...typography.caption, color: TEXT_DIM, textAlign: 'center' },
+  titleBelowRing: {
+    ...typography.listTitle,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginTop: 32,
+  },
   stepLine: {
     ...typography.caption,
     color: TEXT_DIM,
-    marginTop: 44,
+    marginTop: 12,
     textAlign: 'center',
   },
   // 오류/완료 공통

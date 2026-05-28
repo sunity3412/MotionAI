@@ -60,19 +60,30 @@ export default function ReferenceSelect() {
     if (selected && selected.level !== next) setSelectedId(null);
   };
 
+  // 새 흐름(belle P1 #2): analyze.tsx 가 모드 선택 후 mode1 일 때만 여기로
+  // 영상 동반 진입. 홈 챌린지 카드 우회는 analyze.tsx?referenceMotionId 으로
+  // 직행하므로 여기로 안 옴 → uri 가 비어 있을 일이 정상 흐름에선 없다. 안전망으로
+  // 그래도 비어 있으면 분석탭(모드 선택)으로 돌려보낸다.
   const startAnalysis = () => {
     if (!selectedId) return;
+    if (!uri) {
+      router.replace({
+        pathname: '/(tabs)/analyze',
+        params: { referenceMotionId: selectedId },
+      });
+      return;
+    }
     router.push({
       pathname: '/analysis/loading',
       params: {
         mode: 'mode1',
         name: name ?? '',
-        uri: uri ?? '',
+        uri,
         size: size ?? '0',
         format: format ?? 'mp4',
         referenceMotionId: selectedId,
-        // 결과 화면 표시용. #7-follow 실데이터 붙으면 Firestore 결과 문서가
-        // referenceMotionName 을 직접 들고 옴 → 이 param 은 자연스럽게 폐기.
+        // 결과 화면 표시용. 백엔드가 result 문서에 referenceMotionName 을 직접
+        // 들고 오면 이 param 은 자연스럽게 폐기.
         referenceMotionName: selected?.name ?? '',
       },
     });
@@ -145,7 +156,7 @@ export default function ReferenceSelect() {
         ]}
       >
         <Text style={styles.ctaText}>
-          {selected ? `${selected.name}으로 분석 시작` : '분석 시작'}
+          {selected ? `${selected.name}으로 분석 시작` : '동작을 먼저 골라주세요'}
         </Text>
       </Pressable>
     </View>

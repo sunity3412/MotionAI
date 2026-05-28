@@ -39,6 +39,12 @@ class NoHumanError(Exception):
     """프레임에서 사람을 찾지 못함 → contract no_human 으로 매핑."""
 
 
+class NotPoleMotionError(Exception):
+    """mode1 비교 시 KISMAM similarity 가 임계값(models.NOT_POLE_SIMILARITY_THRESHOLD)
+    미만 → 비폴 영상으로 추정. contract not_pole_motion 으로 매핑 (belle P1 #8).
+    위양성 방지를 위해 보수적 임계값 채택 — 시연 데이터로 튜닝."""
+
+
 class FallbackCoachWriter:
     """Cerebras 미연결 시의 무해한 폴백 — 문장 생성을 assemble 폴백에 위임."""
 

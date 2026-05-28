@@ -829,3 +829,123 @@
         uvicorn runpod_inference.server:app --host 0.0.0.0 --port 8000 --workers 1
    4) /health 확인 + belle Mac 에서 expo start --clear --tunnel
    5) belle 피드백 우선순위 따라 진행 (위 P0·P1·P2·P3 순서 권장)
+
+*2026-05-28 — belle 피드백 P0·P1·P2 코드 일괄 처리 + Pod 재셋업 트랙 분리:
+
+ belle 결정: Pod 정리 큐(키 회전·새 토큰·재셋업)를 belle 가 콘솔에서 진행하는
+   동안 내가 앱·백엔드 코드 작업 병행. 시연 통과 후 1주일 만에 채팅 노출 토큰
+   회전이 필요해진 시점이라, Pod terminate 후 깨끗하게 재셋업.
+
+ 트랙 A — belle 콘솔 작업 (가이드 전달 완료):
+   1) Pod nwx3v7bo7wqjey Terminate (firebase-sa.json 로컬 백업 확인 후)
+   2) IAM: sunity-motion 키 회전(기존 inactive→delete, 신규 발급)
+   3) IAM: sunity-api 노출 키(AKIA...64A) inactive→delete (펀딩용 키는 보존)
+   4) 새 RUNPOD_AUTH_TOKEN 발급: `openssl rand -hex 32` (로컬)
+   5) 새 Pod 배포 (RTX 3090/4090 24GB, PyTorch 2.4, 8000 노출)
+   6) git clone + bash runpod_inference/setup.sh
+   7) firebase-sa.json 업로드 → env 설정 → uvicorn 기동
+   8) /health 확인 → 새 Pod URL 메모
+   9) SAM 재배포 (Parameter RunpodAnalyzeUrl + RunpodAuthToken 신규로 덮어쓰기)
+
+ 트랙 B — 코드 변경 (전부 커밋 대기):
+
+   🔴 P0 #6 — 결과 화면 본인 영상 안 나옴 해결:
+     원인 진단 = 두 가지가 겹침.
+     (a) api.ts uploadToS3 가 S3 PUT 시 Content-Type 헤더 안 보냈음 →
+         S3 가 binary/octet-stream 으로 저장 → expo-video 가 영상으로 인식 불가.
+     (b) pipeline/app.py _PLAYBACK_EXPIRES=3600s(1시간) → belle 가 시연 직후
+         결과 화면을 다시 열 시점엔 URL 만료.
+     해결:
+       app/src/lib/api.ts        Content-Type 헤더 박음(video/mp4·video/quicktime).
+                                 uploadToS3 시그니처에 format: VideoFormat 추가.
+       app/src/app/analysis/loading.tsx  startAnalysisUpload 가 format 전달.
+       backend/functions/pipeline/app.py  _PLAYBACK_EXPIRES = 7 * 24 * 60 * 60
+                                 (sigv4 + 영구 IAM 키 최대값. RunPod 경로는 풀
+                                  7일, Lambda 폴백은 임시 자격증명 세션 길이로 캡됨)
+
+   🟡 P1 #1 — mode3 로딩 카피 분기:
+     loading.tsx titleLine 이 모드 무관 "전문가와 ~ 분석" 이었음. mode3 에선
+     비교 대상이 자기 자신이라 "전문가" 가 어색. mode1=기존 / mode3="{이름}의
+     동작을 분석하고 있어요" 로 분기.
+
+   🟡 P1 #7 — 홈 챌린지 → 영상 없이 분석 진입 가드:
+     기존: 홈 챌린지 → /analysis/reference?motionId=X → CTA 누르면 빈 uri 로
+     로딩 진입 → 업로드 실패.
+     새: 홈 챌린지 → /(tabs)/analyze?referenceMotionId=X 직행 → 모드 자동
+     mode1 + 영상 선택 단계로 시작. reference.tsx 의 가드 코드는 안전망으로
+     유지(딥링크 우회 대비).
+
+   🟡 P1 #2+#3 — 비교 모드 먼저 + mode3 두 영상:
+     belle 핵심 통찰: "비교 영상 없이 심사 기준에서 의견을 주는" 기능이 사실
+     이미 코드에 있음(selfmotion + KISMAM 절대 평가). mode3 의 본질은 "내 자세
+     평가"이지 "두 영상 비교"가 아님. 첫 분석은 절대 평가, 이후 분석은 자동
+     으로 가장 최근 mode3 와 delta 비교(get_previous_analysis).
+     → mode3 두 영상 옵션은 폐기. 다음과 같이 재설계:
+       analyze.tsx 단계 1 = 모드 선택 ("전문가와 비교" / "내 자세 분석")
+       analyze.tsx 단계 2 = 영상 선택 (모드별 안내 카피 분기)
+       영상 선택 후 자동 라우팅: mode1+ref=loading / mode1=reference /
+                                  mode3=loading
+       mode3 카드 부텍스트는 이전 분석 갯수로 분기:
+         0건: "첫 자세 점수와 코칭을 받아보세요"
+         1건+: "지난 분석과 얼마나 늘었는지도 확인"
+     영향: (tabs)/analyze.tsx 전면 재구성, (tabs)/index.tsx 챌린지 라우팅
+     변경, analysis/reference.tsx 안전망 정리.
+
+   🟡 P1 #8 — 비폴 영상 차단 안전망:
+     백엔드 mode1 처리 후 KISMAM similarity < models.NOT_POLE_SIMILARITY_THRESHOLD
+     (현재 25) 미만이면 NotPoleMotionError 로 분기 → contract not_pole_motion
+     매핑 → 결과 화면 갖다 놓지 않음.
+       backend/shared/.../models.py    ERR_NOT_POLE_MOTION + 임계값 상수 + 메시지
+       backend/shared/.../analysis/interfaces.py    NotPoleMotionError 정의
+       backend/functions/pipeline/app.py            similarity 게이트 + except 매핑
+       backend/runpod_inference/server.py           except 매핑 동일
+       app/src/types/analysis.ts        AnalysisErrorCode + ERROR_MESSAGE 동기화
+       app/src/app/analysis/loading.tsx 'not_pole_motion' 별도 UI 분기
+                                        (제목 "기준 동작과 너무 달라요" + 확인 TIP)
+       docs/contract.md                  not_pole_motion 명시
+       tests/test_pipeline_dispatch.py   no_human + not_pole_motion 매핑 검증 2개 추가
+     임계값 25 점은 보수적 시작값 — 시연 데이터 누적 후 belle 와 튜닝.
+
+   🟢 P2 #9+#10 — 로딩 % 진행률 + 카피 사이클:
+     멈춤 인상 방지. loading.tsx 의 BlobRing 안에:
+       · 진행률 큰 숫자(44pt) "NN%" — 단계 기반 가짜 진행률
+         (uploading=8, queued=22, frame_extraction=40, pose_analysis=65,
+          comparison=85, done=100). PROGRESS_PCT 매핑.
+       · 안심 카피 회전 ("분석 중이에요" / "화면을 닫지 마세요" /
+         "조금만 기다려주세요") — 4초마다 인덱스 +1, setInterval cleanup.
+     모드별 타이틀(titleLine)은 링 아래로 이동, 단계 텍스트는 그 아래.
+
+   🟢 P2 #11 — 폴댄스 동작 애니메이션:
+     기존 BlobRing 의 두 layer 회전(7s/9.5s 다른 방향) + 추가된 % 카운터 +
+     카피 사이클로 멈춤 인상 충분히 해결. 별도 폴댄스 실루엣 자산은 #3 자산
+     준비될 때 같이.
+
+   🟢 P3 #5 — 도전 동작 사진/아이콘:
+     thumbnailUrl 자산 미확보 + 별도 디자인 결정 필요. P0/P1 통과 후 belle 와
+     함께 카테고리 아이콘 vs 동작 사진 결정.
+
+   🔴 P0 #4 — 점수 정확도 검증:
+     Pod 살아있어야 검증 가능 — 트랙 A 완료 후 진행. self-comparison 또는
+     실 사용자 영상 1~2개로 KISMAM 점수가 합리적인지 같이 보기.
+
+ 결과:
+   - 앱 tsc 클린
+   - 백엔드 테스트 85 passed (이전 83 + 신규 2: no_human + not_pole_motion 매핑)
+   - belle 의 P0·P1 전부 코드 반영 / P2 핵심 2개 (#9+#10) 반영 / P2 #11 ·
+     P3 #5 는 자산 의존이라 보류
+
+ 다음 세션 belle action item:
+   1) 트랙 A 가이드대로 Pod 재셋업 (1~9 단계)
+   2) SAM 재배포 (이번 코드 변경 모두 포함): cd backend && sam build
+      --use-container && sam deploy --parameter-overrides
+      "RunpodAnalyzeUrl=https://<NEW_POD_ID>-8000.proxy.runpod.net/analyze
+       RunpodAuthToken=<NEW_TOKEN>"
+   3) 앱에서 실 영상 1개 업로드 → 결과 화면에서:
+      - 본인 영상 슬롯이 채워지는지 (P0 #6)
+      - 모드 선택 → 영상 선택 흐름이 자연스러운지 (P1 #2/#3)
+      - 비폴 영상 올렸을 때 차단 화면이 뜨는지 (P1 #8 자발 검증)
+      - 로딩 % 가 단계별로 증가하는지 (P2 #9)
+      - 카피가 4초마다 회전하는지 (P2 #10)
+   4) 점수 정확도 (#4) — 폭스탑 등 reference 와 동일 동작으로 테스트하면
+      similarity 50~80 정도 나와야 정상. 너무 낮으면 임계값(현재 25) 만지거나
+      kismam scoring 추가 검증.

@@ -949,3 +949,102 @@
    4) 점수 정확도 (#4) — 폭스탑 등 reference 와 동일 동작으로 테스트하면
       similarity 50~80 정도 나와야 정상. 너무 낮으면 임계값(현재 25) 만지거나
       kismam scoring 추가 검증.
+
+*2026-05-28 (오후) — Pod 재셋업 + mode1 통과 + mode3 사용자 의도 발견:
+
+ belle 가 키 회전은 미루고 (sunity-motion·sunity-api·RUNPOD_AUTH_TOKEN 그대로
+   사용) Pod 만 새로 띄움. 새 Pod URL = https://p56qusi8cgc91z-8000.proxy.runpod.net.
+   SAM 재배포 통과 (sunity-motion-pilot in ap-northeast-2). EAS Build #9 (1.0.0(9))
+   ASC 자동 제출 Success.
+
+ 새 빌드 #9 TestFlight launch crash → Expo Go 진단으로 좁힘:
+  · 원인 1: loading.tsx 의 `ringPct` 스타일 `letterSpacing: -1` 가 iOS 26.4.2
+    RCTMountingManager NSCFNumber 처리에서 SIGABRT. crash log 에 RCTMountingManager
+    performTransaction + UISnapshotViewRectAfterCommit + OBJC_CLASS_$___NSCFNumber
+    스택. letterSpacing 음수값 제거로 해결. 메모로 박을 가치 — iOS 26+ native
+    style 처리 변화 가능성.
+  · 원인 2(예방): loading.tsx 의 새 setInterval hook 이 early return 뒤에 있었음.
+    Hook 규칙 위반 잠재. status='done' 전환 시 터질 수 있음 → 미리 정정해서 모든
+    hook 을 early return 이전으로.
+
+ mode1 통과 (99점) + 진짜 큰 발견 — Firestore analysis doc 의 referenceMotionId 누락:
+  · loading.tsx 의 startAnalysisUpload 가 setDoc 으로 Firestore 분석 doc 만들 때
+    `referenceMotionId` 를 빠뜨림. 백엔드 pipeline 이 meta.get("referenceMotionId")
+    → None → get_reference_motion(None) → None → RuntimeError("기준 모션 또는
+    keyframe 데이터 없음"). 어제 시연 (mode3 만) 에선 발견 안 됨, 오늘 mode1 첫
+    실분석에서 표면화.
+  · fix: setDoc payload 에 `...(input.referenceMotionId ? { referenceMotionId } : {})`
+    spread 추가. mode1 영상 = 정은지 영상 self-비교 시 99점 정상 산출 확인.
+
+ reference angles 5개 진단(2026-05-23 시드 유지 확인):
+   ref-sideway-spin angles_len=1584 keys=[8 joints]
+   ref-climb        angles_len=1368
+   ref-invert       angles_len=1384
+   ref-foxtop       angles_len=2272
+   ref-foxtop-split angles_len=2584
+   → 시드 멀쩡, NLF 재추출 불필요.
+
+ mode3 사용자 의도 재정의 — belle 통찰:
+   현 알고리즘 = selfmotion.symmetry_deviation (좌우 대칭). 폴 동작은 의도적
+     비대칭이라 self-symmetry 점수 항상 50점대 → 같은 영상 두 번 분석해도 54점.
+   belle 사용자 관점: "같은 영상이면 100점, 다른 영상이면 일치도 점수" 가 진짜
+     mode3 다. 이전 영상 vs 이번 영상 DTW 비교가 자연스럽다.
+   → mode3 알고리즘 전면 재설계 결정 (옵션 A). 본질적으로 mode1 의 reference
+     자리에 사용자의 이전 분석 영상이 들어가는 구조. 변경 범위:
+     1) analysis doc 에 추출된 angles 저장 (현재는 result 만)
+     2) 백엔드 mode3 처리 = 이전 분석 doc 의 angles 를 reference 처럼 활용
+        get_previous_analysis 가 angles 도 함께 반환하도록.
+     3) 첫 분석은 비교 대상 없음 → 점수 큰 숫자 X, "다음 분석부터 비교" 안내
+        + 좌우 대칭 코칭 (개선 포인트만)
+     4) 두 번째+ 분석: mode1 처럼 큰 점수 + 비교 영상 슬롯에 이전 영상 URL
+   → belle 가 저녁에 시작 결정. mode3 알고리즘 + 남은 피드백 + EAS 새 빌드
+      한 번에 진행 (오늘 변경분이 빌드 #9 에는 없음 — 빌드 후 push 한 fix 들).
+
+ 오늘 inflight 코드 변경 (commit 권고):
+   app/src/app/analysis/loading.tsx
+     · referenceMotionId Firestore 박기 (mode1 통과 결정타)
+     · ringPct letterSpacing 제거 (TestFlight crash 회피)
+     · Hook 순서 정정 (Hook 규칙 위반 예방)
+   plan.md 본 블록 + memory s3-presigned-video-playback.md 신규
+
+ 인프라 상태 (이번 세션 변경):
+   - RunPod Pod: p56qusi8cgc91z (이전 nwx3v7bo7wqjey terminate)
+   - URL: https://p56qusi8cgc91z-8000.proxy.runpod.net
+   - uvicorn 떠 있음. env: sunity-motion 키 + RUNPOD_AUTH_TOKEN (이전과 동일 토큰
+     belle 보유). FIREBASE_SA_PATH=/workspace/firebase-sa.json
+   - CFN sunity-motion-pilot 갱신 (RunpodAnalyzeUrl 새 Pod)
+   - 새 빌드 9 = 1.0.0(9) TestFlight 등장. ⚠ 빌드 9 자체는 launch crash 라
+     belle 폰에선 사용 X. Expo Go 만 사용 중. 저녁에 새 빌드 10 띄울 것.
+
+ belle 저녁 재개 절차:
+   1) 위 commit 명령 1개 (안 했으면)
+   2) /loop 또는 새 세션 시작 시 plan.md 의 이 블록 + 위 블록 읽기.
+   3) mode3 알고리즘 (A) 작업 — 이번 세션의 가장 큰 변경. 다음 단계 제안:
+      a. types/analysis.ts AnalysisDoc 에 angles/anglesJointKeys/anglesFrames
+         옵셔널 필드 추가 (Firestore nested-array 금지라 flat — [[firestore-nested-array-flat]])
+      b. backend pipeline/app.py _process 에서 mode3 처리 분기 재작성:
+         - 첫 분석 (previous=None): angles 저장만, 점수 산출 X
+         - 두 번째+: 이전 doc 의 angles 를 reference 로 사용해 mode1 와 동일한
+           DTW + KISMAM 흐름
+      c. firestore_admin.get_previous_analysis 가 angles 도 반환하도록 (현재는
+         result 만 사용). 또는 별도 헬퍼 추가.
+      d. assemble.build_mode3 시그니처 갱신 — similarity 받도록.
+      e. result.tsx mode3 분기:
+         - isFirst 시 점수 큰 숫자 안 보이고 "다음 분석부터 비교" + 좌우 대칭 코칭
+         - 두 번째+ 시 mode1 처럼 큰 점수 + 비교 영상 슬롯에 이전 myVideoUrl
+      f. VideoCompare 에 mode3 일 때 이전 영상 URL 채우기 (useAnalysisDoc(previousAnalysisId))
+      g. 백엔드 테스트 갱신 (mode3 두 경로 모두)
+   4) 남은 피드백:
+      - P0 #4 점수 정확도 — mode3 알고리즘 바뀌면 자동 검증.
+        mode1 은 99점 확인 (같은 영상 비교) — 다른 영상은 시연 시 belle 추가 검증.
+      - P2 #11 폴댄스 동작 애니메이션 — 자산 의존, 시연 후 작업 권고.
+      - P3 #5 도전 동작 사진/아이콘 — 자산 의존, 마찬가지.
+   5) EAS 새 빌드 (build 10):
+      - 위 작업 끝나면 git commit + push → `npx eas-cli build --platform ios
+        --profile production --auto-submit` 한 번 더.
+      - 새 빌드는 letterSpacing crash 없으니 정상 launch 보장.
+   6) 정리 큐 (별도 일정):
+      - sunity-motion admin 키 회전 (현재 사용 중인 키 그대로)
+      - sunity-api 노출 키 (AKIA...64A) deactivate
+      - RUNPOD_AUTH_TOKEN 새 토큰 발급
+      - 그 후 SAM 재배포 필요 (RunpodAuthToken 신규).

@@ -94,6 +94,9 @@ async function startAnalysisUpload(input: UploadInput): Promise<string> {
 
   // 2) Firestore 문서 생성 (status='uploading') — 보안 규칙상 본인만 가능.
   //    이후 백엔드는 Admin SDK 로 같은 문서를 갱신한다.
+  //    mode1 의 referenceMotionId 는 백엔드 pipeline 이 reference 모션을
+  //    Firestore 에서 찾을 때 사용 (meta.get("referenceMotionId")). 이걸 빠뜨리면
+  //    백엔드가 None 으로 받아 RuntimeError("기준 모션 또는 keyframe 데이터 없음").
   const now = Date.now();
   await setDoc(doc(db, 'users', uid, 'analyses', analysisId), {
     analysisId,
@@ -102,6 +105,9 @@ async function startAnalysisUpload(input: UploadInput): Promise<string> {
     fileName: input.fileName,
     createdAt: now,
     updatedAt: now,
+    ...(input.referenceMotionId
+      ? { referenceMotionId: input.referenceMotionId }
+      : {}),
   });
 
   // 3) S3 PUT — 끝나면 S3 ObjectCreated 가 SQS → Lambda → RunPod 위임을 트리거.
@@ -320,6 +326,18 @@ export default function AnalysisLoading() {
     return () => clearTimeout(t);
   }, [done, mode, name, analysisId, referenceMotionId, referenceMotionName, router]);
 
+  // 안심 카피 회전 (belle P2 #10) — 4초마다 인덱스 +1.
+  // 모든 early return 이전에 호출돼야 React Hook 규칙(같은 순서) 유지.
+  // failed/done 상태에선 링이 안 보이므로 카피 값은 안 쓰이지만 hook 자체는 호출.
+  const [copyIdx, setCopyIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(
+      () => setCopyIdx((i) => (i + 1) % REASSURANCE_COPIES.length),
+      COPY_ROTATE_MS,
+    );
+    return () => clearInterval(t);
+  }, []);
+
   if (failed) {
     const code: AnalysisErrorCode = errorCode ?? 'server_error';
     const isNoHuman = code === 'no_human';
@@ -406,16 +424,6 @@ export default function AnalysisLoading() {
     ? `전문가와 ${greetName}의\n포즈를 분석하고 있어요`
     : `${greetName}의 동작을\n분석하고 있어요`;
 
-  // 안심 카피 회전 (belle P2 #10) — 4초마다 인덱스 +1.
-  const [copyIdx, setCopyIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(
-      () => setCopyIdx((i) => (i + 1) % REASSURANCE_COPIES.length),
-      COPY_ROTATE_MS,
-    );
-    return () => clearInterval(t);
-  }, []);
-
   const progressPct = PROGRESS_PCT[status] ?? 0;
 
   return (
@@ -467,12 +475,13 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   // 진행률 큰 숫자 — 링 안 중앙. 멈춤 인상 방지(P2 #9).
+  // letterSpacing 음수값이 iOS 26.4.2 의 RCTMountingManager NSCFNumber 처리에서
+  // SIGABRT 를 일으킨 사례 확인 — 음수 letterSpacing 회피 (build 9 crash).
   ringPct: {
     color: '#FFFFFF',
     fontSize: 44,
     fontWeight: '700',
     textAlign: 'center',
-    letterSpacing: -1,
   },
   ringSub: { ...typography.caption, color: TEXT_DIM, textAlign: 'center' },
   titleBelowRing: {

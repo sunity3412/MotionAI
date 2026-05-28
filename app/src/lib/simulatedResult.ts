@@ -1,24 +1,19 @@
-// 분석 결과 시뮬레이션 (UI 개발용 픽스처). 백엔드 미연결 동안만 사용.
-// loading.tsx 의 useSimulatedAnalysis 와 같은 취지 — 계약(docs/contract.md)
-// 모양 그대로라 백엔드 연결 시 재작업 없음.
+// 분석 결과 시뮬레이션 (UI 개발/시연용 픽스처). 실 분석 doc 가 없을 때만 폴백.
+// 계약(types/analysis.ts AnalysisResult) 모양 그대로라 백엔드 연결 시 재작업 없음.
 //
-// TODO(#7-follow): 이 함수를 Firestore users/{uid}/analyses/{analysisId}
-// 문서 onSnapshot 구독으로 교체. 출력 타입(AnalysisResult)은 동일하게 유지.
+// 점수 차원 = IPSF 실행 기준 (각도/라인/균형/안정성). mode1 = 4차원, mode3 = 절대
+// 3차원(라인/균형/안정성) — 자기 성장은 기준 없는 절대 지표로 발전을 비교.
 
 import type {
   AnalysisMode,
   AnalysisResult,
-  BodyPart,
   JointScore,
+  ScoreDimension,
   SegmentScores,
 } from '../types/analysis';
 
-// ViTPose 17 keypoint 중 평가 관절 (백엔드 skeleton 과 동일 key/라벨).
-// 구조화 가이드 필드(currentAngle/targetAngle/deltaDeg/direction)는
-// #7-follow 에서 ML 이 실측값으로 채움 — 여기 값은 폴스포츠 동작에서 그럴듯한 시연용.
-//   - 무릎/팔꿈치: 180° 가 완전 신전. 사용자 각도 < 기준 → 'extend'(더 펴기)
-//   - 고관절    : 큰 각도 = 더 열림. 사용자 < 기준 → 'open'(더 열기)
-//   - 어깨      : 큰 각도 = 더 들림. 사용자 < 기준 → 'raise'(더 올리기)
+// ViTPose 평가 관절 (백엔드 skeleton 과 동일 key/라벨). 구조화 가이드 필드는
+// 백엔드 NLF 실측이 채움 — 여기 값은 폴스포츠 동작에서 그럴듯한 시연용.
 const JOINTS: JointScore[] = [
   { key: 'left_shoulder', labelKo: '왼쪽 어깨', score: 88 },
   { key: 'right_shoulder', labelKo: '오른쪽 어깨', score: 84 },
@@ -57,10 +52,6 @@ const JOINTS: JointScore[] = [
   { key: 'right_knee', labelKo: '오른쪽 무릎', score: 81 },
 ];
 
-// detail 은 #7-follow 에서 Cerebras 가 실제 키프레임·각속도까지 반영해 생성.
-// 지금은 시연용으로 회전력/반동 같은 동적 큐도 한 줄씩 자연어로 섞어둠.
-// 숫자(도수)는 적지 않는다 — 결과 화면이 reference 실측 평균각도로 angleGuide 한 줄을
-// 별도로 보여주므로(°), detail 안에 시뮬 숫자가 섞이면 어긋난다(2026-05-26).
 const TIPS = [
   {
     joint: 'left_knee',
@@ -82,21 +73,14 @@ const TIPS = [
   },
 ];
 
-// mode1(전문가 비교)은 정은지 선수가 기준이라 자기 비교(mode3)보다 박하게 평가됨.
-// mode3 는 자기 성장 추적이라 절대치는 후한 편 — 두 모드 결과를 동시 시연했을
-// 때 자연스럽도록 의도적으로 차이를 둠.
-const SCORES_MODE1 = {
-  overall: 71,
-  parts: { 상체: 78, 코어: 65, 하체: 62 },
-} as const;
-const SCORES_MODE3 = {
-  overall: 76,
-  parts: { 상체: 84, 코어: 73, 하체: 70 },
-} as const;
+// mode1(정은지 비교)은 각도 정확도가 기준이라 후하지 않게. mode3 는 절대 3차원만.
+type Dims = Partial<Record<ScoreDimension, number>>;
+const DIMS_MODE1: Dims = { angle: 66, line: 74, balance: 80, stability: 64 };
+const DIMS_MODE3: Dims = { line: 84, balance: 78, stability: 66 };
+const OVERALL_MODE1 = 71;
+const OVERALL_MODE3 = 76;
 
-// 구간별 점수 시뮬 (reference-motions.md §7). 베이스 구간은 익숙해서 높고,
-// 확장(고유) 구간은 어려워서 낮게 — 학생이 어디서 막혔는지 자연스럽게 드러남.
-// #7-follow 에서 백엔드 segments.segment_scores 실측치로 교체.
+// 구간별 점수 시뮬 (reference-motions.md §7).
 export function simulatedSegmentScores(
   overallScore: number,
   baseMotionId: string,
@@ -117,8 +101,8 @@ export function getSimulatedResult(
 ): AnalysisResult {
   if (mode === 'mode1') {
     return {
-      overallScore: SCORES_MODE1.overall,
-      partScores: { ...SCORES_MODE1.parts },
+      overallScore: OVERALL_MODE1,
+      dimensionScores: { ...DIMS_MODE1 },
       joints: JOINTS.map((j) => ({ ...j })),
       tips: TIPS.map((t) => ({ ...t })),
       myVideoUrl: '',
@@ -127,17 +111,16 @@ export function getSimulatedResult(
         referenceMotionId: 'ref-foxtop',
         referenceMotionName: '폭스탑',
         athleteName: '정은지',
-        similarity: SCORES_MODE1.overall, // 게이지 점수 = 일치도
-        // segmentScores 는 simulationWriter 가 고른 기술의 베이스 공유 여부를 보고 채움.
+        similarity: DIMS_MODE1.angle ?? OVERALL_MODE1, // 게이지 일치도 = 각도 정확도
       },
       referenceVideoUrl: '',
     };
   }
 
-  // mode3 = 자기 성장. 이전 기록이 있다고 가정(델타 표시 확인용).
+  // mode3 = 자기 성장. 이전 기록이 있다고 가정(발전 델타 표시 확인용).
   return {
-    overallScore: SCORES_MODE3.overall,
-    partScores: { ...SCORES_MODE3.parts },
+    overallScore: OVERALL_MODE3,
+    dimensionScores: { ...DIMS_MODE3 },
     joints: JOINTS.map((j) => ({ ...j })),
     tips: TIPS.map((t) => ({ ...t })),
     myVideoUrl: '',
@@ -145,16 +128,13 @@ export function getSimulatedResult(
       mode: 'mode3',
       isFirst: false,
       previousAnalysisId: `${analysisId}-prev`,
-      deltaFromPrevious: { 상체: 5, 코어: 0, 하체: -3 },
+      deltaFromPrevious: { line: 5, balance: 0, stability: -3 },
     },
   };
 }
 
 // ── 샘플 시연 시나리오 ──────────────────────────────────────────────────
 // 영상 없이도 결과 화면을 다양한 점수대/모드로 보여주기 위한 픽스처.
-// 실 분석 파이프라인이 켜지면(#7-follow) 이 모듈 전체 폐기 대상이지만 그 전까지
-// belle/직원 시연 검토 + 화면 회귀 점검용. JOINTS/TIPS 는 재사용하고 overall
-// 변화량만큼 관절 점수도 함께 이동시켜 표시 정합성 유지.
 export type SampleScenarioId =
   | 'mode1-climb-good'
   | 'mode1-sideway-mid'
@@ -169,13 +149,13 @@ export interface SampleScenario {
   description: string; // 카드 본문 한 줄
   mode: AnalysisMode;
   overall: number;
-  parts: { 상체: number; 코어: number; 하체: number };
+  dims: Dims; // mode1=4차원, mode3=절대 3차원
   // mode1
   referenceMotionId?: string;
   referenceMotionName?: string;
   // mode3
   isFirst?: boolean;
-  deltaFromPrevious?: Record<BodyPart, number>;
+  deltaFromPrevious?: Dims; // 절대 차원 발전 델타
 }
 
 export const SAMPLE_SCENARIOS: readonly SampleScenario[] = [
@@ -185,7 +165,7 @@ export const SAMPLE_SCENARIOS: readonly SampleScenario[] = [
     description: '입문 동작을 잘 따라한 학생 케이스 (82점)',
     mode: 'mode1',
     overall: 82,
-    parts: { 상체: 86, 코어: 80, 하체: 79 },
+    dims: { angle: 80, line: 86, balance: 84, stability: 78 },
     referenceMotionId: 'ref-climb',
     referenceMotionName: '클라임',
   },
@@ -195,7 +175,7 @@ export const SAMPLE_SCENARIOS: readonly SampleScenario[] = [
     description: '회전 진입은 되지만 가동 범위 부족 (65점)',
     mode: 'mode1',
     overall: 65,
-    parts: { 상체: 72, 코어: 60, 하체: 63 },
+    dims: { angle: 60, line: 68, balance: 70, stability: 62 },
     referenceMotionId: 'ref-sideway-spin',
     referenceMotionName: '사이드웨이 스핀',
   },
@@ -205,38 +185,38 @@ export const SAMPLE_SCENARIOS: readonly SampleScenario[] = [
     description: '베이스(인버트)는 가능, 폭스탑 확장 구간에서 막힘 (48점)',
     mode: 'mode1',
     overall: 48,
-    parts: { 상체: 55, 코어: 45, 하체: 44 },
+    dims: { angle: 44, line: 52, balance: 50, stability: 46 },
     referenceMotionId: 'ref-foxtop',
     referenceMotionName: '폭스탑',
   },
   {
     id: 'mode3-first',
     label: '내 기록 · 첫 분석',
-    description: '비교할 이전 기록이 없는 상태 (델타 없음)',
+    description: '비교할 이전 기록이 없는 상태 (발전 델타 없음)',
     mode: 'mode3',
     overall: 76,
-    parts: { 상체: 84, 코어: 73, 하체: 70 },
+    dims: { line: 84, balance: 78, stability: 66 },
     isFirst: true,
   },
   {
     id: 'mode3-growth',
-    label: '내 기록 · 성장 추세',
-    description: '이전 분석 대비 전 파트가 올라간 케이스 (+5/+2/+3)',
+    label: '내 기록 · 발전 추세',
+    description: '이전 분석 대비 전 차원이 올라간 케이스 (+5/+2/+3)',
     mode: 'mode3',
-    overall: 78,
-    parts: { 상체: 86, 코어: 75, 하체: 73 },
+    overall: 79,
+    dims: { line: 88, balance: 80, stability: 69 },
     isFirst: false,
-    deltaFromPrevious: { 상체: 5, 코어: 2, 하체: 3 },
+    deltaFromPrevious: { line: 5, balance: 2, stability: 3 },
   },
   {
     id: 'mode3-plateau',
     label: '내 기록 · 정체기',
-    description: '이전 대비 일부 파트가 떨어진 케이스 (-2/0/-3)',
+    description: '이전 대비 일부 차원이 떨어진 케이스 (-2/0/-3)',
     mode: 'mode3',
     overall: 73,
-    parts: { 상체: 82, 코어: 71, 하체: 67 },
+    dims: { line: 82, balance: 78, stability: 60 },
     isFirst: false,
-    deltaFromPrevious: { 상체: -2, 코어: 0, 하체: -3 },
+    deltaFromPrevious: { line: -2, balance: 0, stability: -3 },
   },
 ];
 
@@ -260,7 +240,7 @@ export function getSimulatedResultFromScenario(
   if (scenario.mode === 'mode1') {
     return {
       overallScore: scenario.overall,
-      partScores: { ...scenario.parts },
+      dimensionScores: { ...scenario.dims },
       joints,
       tips,
       myVideoUrl: '',
@@ -269,8 +249,7 @@ export function getSimulatedResultFromScenario(
         referenceMotionId: scenario.referenceMotionId ?? 'ref-foxtop',
         referenceMotionName: scenario.referenceMotionName ?? '폭스탑',
         athleteName: '정은지',
-        similarity: scenario.overall,
-        // segmentScores 는 simulationWriter 가 reference doc 의 sharedBaseMotionId 보고 채움.
+        similarity: scenario.dims.angle ?? scenario.overall,
       },
       referenceVideoUrl: '',
     };
@@ -284,14 +263,14 @@ export function getSimulatedResultFromScenario(
         isFirst: false,
         previousAnalysisId: `${analysisId}-prev`,
         deltaFromPrevious: scenario.deltaFromPrevious ?? {
-          상체: 0,
-          코어: 0,
-          하체: 0,
+          line: 0,
+          balance: 0,
+          stability: 0,
         },
       };
   return {
     overallScore: scenario.overall,
-    partScores: { ...scenario.parts },
+    dimensionScores: { ...scenario.dims },
     joints,
     tips,
     myVideoUrl: '',

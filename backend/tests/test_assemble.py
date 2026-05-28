@@ -7,6 +7,7 @@ from sunity_shared.analysis.interfaces import FallbackCoachWriter
 from sunity_shared.analysis.skeleton import JOINT_KEYS, NUM_JOINTS
 
 REF = {"motionId": "m1", "name": "인사이드 레그 행", "athleteName": "정은지"}
+DIMS = {"angle": 72, "line": 80, "balance": 91, "stability": 84}
 
 
 def _assess(dev_map=None):
@@ -19,17 +20,22 @@ def _assess(dev_map=None):
 def test_result_has_exact_contract_keys():
     a = _assess({"left_knee": 50})
     r = assemble.build_result(
-        a, assemble.build_mode1(REF, similarity=72), my_video_url="s3://my"
+        a,
+        DIMS,
+        overall_score=82,
+        comparison=assemble.build_mode1(REF, similarity=72),
+        my_video_url="s3://my",
     )
     assert set(r) == {
         "overallScore",
-        "partScores",
+        "dimensionScores",
         "joints",
         "tips",
         "comparison",
         "myVideoUrl",
     }
-    assert set(r["partScores"]) == {"상체", "코어", "하체"}
+    assert set(r["dimensionScores"]) == {"angle", "line", "balance", "stability"}
+    assert r["overallScore"] == 82
     assert len(r["tips"]) == 3
     assert len(r["joints"]) == NUM_JOINTS
     for j in r["joints"]:
@@ -73,26 +79,40 @@ def test_mode1_segment_scores_included_only_when_given():
 
 
 def test_mode3_first_has_no_delta():
-    c = assemble.build_mode3(True, None, None, {"상체": 80, "코어": 70, "하체": 60})
+    # 첫 분석 = 비교 대상 없음 → 절대 점수만 (delta 없음).
+    c = assemble.build_mode3(is_first=True)
     assert c == {"mode": "mode3", "isFirst": True}
 
 
-def test_mode3_delta_from_previous():
+def test_mode3_delta_is_progress_on_absolute_dimensions():
+    # 발전(progress) = 절대 차원(라인/균형/안정성)의 세션 간 증감. %일치 아님.
     c = assemble.build_mode3(
-        False,
-        "prev123",
-        {"상체": 70, "코어": 60, "하체": 50},
-        {"상체": 78, "코어": 60, "하체": 45},
+        is_first=False,
+        previous_analysis_id="prev123",
+        prev_dimension_scores={"line": 70, "balance": 60, "stability": 50},
+        cur_dimension_scores={"line": 78, "balance": 60, "stability": 45},
     )
     assert c["previousAnalysisId"] == "prev123"
-    assert c["deltaFromPrevious"] == {"상체": 8, "코어": 0, "하체": -5}
+    assert c["deltaFromPrevious"] == {"line": 8, "balance": 0, "stability": -5}
+
+
+def test_mode3_delta_only_over_common_dimensions():
+    # 이전이 mode1(angle 포함)이어도 현재 절대 3차원만 비교 → 교집합만 델타.
+    c = assemble.build_mode3(
+        is_first=False,
+        previous_analysis_id="p",
+        prev_dimension_scores={"angle": 99, "line": 70, "balance": 60, "stability": 50},
+        cur_dimension_scores={"line": 75, "balance": 65, "stability": 55},
+    )
+    assert set(c["deltaFromPrevious"]) == {"line", "balance", "stability"}
 
 
 def test_referenceVideoUrl_only_when_given():
     a = _assess()
-    r1 = assemble.build_result(a, assemble.build_mode1(REF, 90), "s3://my")
+    r1 = assemble.build_result(a, DIMS, 90, assemble.build_mode1(REF, 90), "s3://my")
     r2 = assemble.build_result(
-        a, assemble.build_mode1(REF, 90), "s3://my", reference_video_url="s3://ref"
+        a, DIMS, 90, assemble.build_mode1(REF, 90), "s3://my",
+        reference_video_url="s3://ref",
     )
     assert "referenceVideoUrl" not in r1
     assert r2["referenceVideoUrl"] == "s3://ref"

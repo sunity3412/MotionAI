@@ -12,6 +12,46 @@
 
 ---
 
+*2026-05-28 (저녁) — 점수 차원 IPSF 재설계 (상체/코어/하체 → 각도/라인/균형/안정성):
+
+ belle 두 지적으로 오늘 mode3 7단계 계획을 폐기하고 점수 모델 전면 재설계:
+  (1) mode3 는 '이전과 몇% 일치'가 아니라 발전(progress)을 보여줘야 한다.
+  (2) 점수 차원을 신체부위가 아니라 IPSF 폴스포츠 심사기준(각도/균형 등)으로.
+      → docs/research/폴스포츠-지식.md (보고서 4·5·6) 단일 참조.
+
+ 새 점수 모델 — IPSF 실행 차원 4개 (mode1·mode3 공통, belle 확정):
+   - angle 각도정확도: 관절각 vs 기준. reference 필요(mode1=정은지, mode3 second+=이전영상).
+   - line 라인·확장 / balance 균형·정렬 / stability 안정성·홀딩: 기준 불필요 절대 지표.
+   - 절대 3차원은 mode3 에서 영상 1개로 절대 점수 산출 → 세션 간 델타가 같은 척도
+     = 진짜 발전 측정 (belle 의 '발전 not 일치' 해결). overall: mode1=4차원평균,
+     mode3=절대3차원평균(각도는 일관성으로 별도 표기, overall/delta 제외).
+
+ 변경 파일 (커밋 권고):
+   backend/shared/python/sunity_shared/analysis/dimensions.py (신규 — line/balance/
+     stability/angle + hold_window. 가우시안은 kismam.score_from_deviation 공유)
+   backend .../analysis/kismam.py (score_from_deviation 추출), models.py (DIM_* 상수),
+     analysis/assemble.py (build_result(dimension_scores,overall), build_mode3 발전델타),
+     firestore_admin.py (complete_analysis 가 angles flat 저장),
+     functions/pipeline/app.py (_deviation_against·_mode3_comparison, 4차원 산출, mode3
+       이전영상 DTW, not_pole 는 각도 기준, angles 저장)
+   app/src/types/analysis.ts (ScoreDimension/DIMENSION_LABEL_KO/ORDER, dimensionScores,
+     Mode3 delta 차원키, AnalysisDoc angles 필드)
+   app/src/app/analysis/result.tsx (차원 행, mode3 발전 카피, second+ 이전영상 비교,
+     first 는 비교 섹션 생략), app/src/lib/simulatedResult.ts (차원 픽스처)
+   docs/contract.md §4, design.md §8, 신규 메모리 2개(scoring-dimensions-ipsf,
+     mode3-progress-not-similarity)
+   tests: test_dimensions.py(신규), test_pipeline_mode3.py(신규), test_assemble.py 갱신
+     → 백엔드 96 pass / app tsc·lint clean.
+
+ ⚠ 아직 안 한 것 / 다음:
+   - 신규 ML 지표 tol 값(_LINE_TOL=15·_STABILITY_TOL=8·_BALANCE_TOL=15·hold window
+     =T//4)은 휴리스틱 — belle 실영상으로 튜닝 필요. dimensions.py 상단에 상수화.
+   - UI 는 device 검증 못 함(Expo). belle Expo Go/TestFlight 확인 필요.
+   - 회전 360°/모멘텀·예술성 차원은 현 파이프라인 범위 밖(보류).
+   - 커밋·EAS 새 빌드 미실행 (belle 지시 대기).
+
+---
+
 ## 완료된 것
 
 ```

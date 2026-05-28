@@ -78,32 +78,47 @@ def build_mode1(
 
 def build_mode3(
     is_first: bool,
-    previous_analysis_id: str | None,
-    prev_part_scores: dict | None,
-    cur_part_scores: dict,
+    previous_analysis_id: str | None = None,
+    prev_dimension_scores: dict | None = None,
+    cur_dimension_scores: dict | None = None,
 ) -> dict:
+    """자기 성장(mode3) 비교 블록.
+
+    핵심은 '이전과 몇 % 일치'가 아니라 '발전(progress)'이다([[mode3-progress-not-similarity]]).
+    절대 차원(라인/균형/안정성)은 기준 없이 산출돼 세션 간 같은 척도이므로,
+    deltaFromPrevious = 이번 점수 − 지난 점수 가 진짜 발전을 의미한다.
+    첫 분석이면 비교 대상이 없어 절대 점수만 (delta 없음)."""
     out: dict = {"mode": "mode3", "isFirst": bool(is_first)}
-    if is_first or not previous_analysis_id or not prev_part_scores:
-        return out  # 첫 분석이면 절대값만 (비교 대상 없음)
+    if is_first or not previous_analysis_id:
+        return out
     out["previousAnalysisId"] = previous_analysis_id
-    out["deltaFromPrevious"] = {
-        part: int(cur_part_scores[part] - prev_part_scores.get(part, 0))
-        for part in cur_part_scores
-    }
+    if prev_dimension_scores and cur_dimension_scores:
+        # 양쪽에 공통으로 있는 차원만(절대 지표는 항상 일치). 같은 척도라 델타 정합.
+        out["deltaFromPrevious"] = {
+            d: int(cur_dimension_scores[d] - prev_dimension_scores.get(d, 0))
+            for d in cur_dimension_scores
+            if d in prev_dimension_scores
+        }
     return out
 
 
 def build_result(
     assessments: list[JointAssessment],
+    dimension_scores: dict,
+    overall_score: int,
     comparison: dict,
     my_video_url: str,
     reference_video_url: str | None = None,
     coach_details: dict | None = None,
 ) -> dict:
-    """contract AnalysisResult. status='done' 일 때 Firestore result 에 저장."""
+    """contract AnalysisResult. status='done' 일 때 Firestore result 에 저장.
+
+    dimension_scores = IPSF 실행 차원 점수(angle/line/balance/stability). overall_score 는
+    파이프라인이 모드별로 계산(mode1=4차원, mode3=절대 3차원 평균). joints/tips 는
+    관절각 편차 기반(코칭 포인트)으로 차원과 별개."""
     result = {
-        "overallScore": kismam.overall_score(assessments),
-        "partScores": kismam.part_scores(assessments),
+        "overallScore": int(max(0, min(100, overall_score))),
+        "dimensionScores": {k: int(v) for k, v in dimension_scores.items()},
         "joints": build_joints(assessments),
         "tips": build_tips(kismam.top_issues(assessments, n=3), coach_details),
         "comparison": comparison,

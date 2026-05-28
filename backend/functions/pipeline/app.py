@@ -34,7 +34,14 @@ import boto3  # Lambda 런타임 제공
 import numpy as np
 
 from sunity_shared import firestore_admin, models
-from sunity_shared.analysis import assemble, kismam, segments, selfmotion, skeleton
+from sunity_shared.analysis import (
+    assemble,
+    dimensions,
+    kismam,
+    segments,
+    selfmotion,
+    skeleton,
+)
 from sunity_shared.analysis.features import (
     compute_joint_angles,
     feature_vector,
@@ -141,6 +148,53 @@ def _angles_from_video(bucket: str, key: str) -> np.ndarray:
     return temporal_fill(angles, joint_uncertainty(keypoints))
 
 
+def _deviation_against(
+    user_angles: np.ndarray, ref_angles_flat, num_joints: int
+):
+    """기준 시퀀스 대비 관절별 각도 편차(도) — mode1(정은지)·mode3 second+(이전 영상)
+    공용 코어. flat 저장 angles 를 reshape → DTW 정렬 → per_joint_deviation.
+    반환: (deviation(J,), match, user_seg, a_ref) — mode1 은 segment 점수에 match 사용."""
+    a_ref = np.asarray(ref_angles_flat, dtype=float)
+    if a_ref.ndim == 1:
+        a_ref = a_ref.reshape(-1, num_joints)
+    match = motion_dtw(feature_vector(user_angles), feature_vector(a_ref))
+    user_seg = user_angles[match.start : match.end]
+    deviation = per_joint_deviation(match.path, user_seg, a_ref)
+    return deviation, match, user_seg, a_ref
+
+
+def _mode3_comparison(angles: np.ndarray, prev: dict | None):
+    """자기 성장(mode3) 분기 — 순수(어댑터/S3/Firestore 불필요, 테스트 가능).
+
+    절대 차원(라인/균형/안정성)은 기준 없이 산출 → 세션 간 같은 척도라 발전 측정 가능
+    ([[mode3-progress-not-similarity]]). 각도 차원은 기준이 필요하므로 이전 분석이
+    있을 때만(이전 영상 대비 일관성) 표시하고 overall/delta 에선 제외(척도 안정).
+
+    반환: (assessments, dimension_scores, overall, comparison).
+      - assessments: 관절각 기반(코칭 tips 용). 첫 분석은 좌우 대칭, 이후는 이전 영상 대비.
+      - dimension_scores: 첫 분석=절대 3차원, 이후=절대 3 + angle(일관성).
+      - overall: 절대 3차원 평균(첫 분석/이후 동일 척도)."""
+    abs_dims = dimensions.absolute_dimension_scores(angles)
+    overall = dimensions.overall_from_dimensions(abs_dims)
+    prev_angles = (prev or {}).get("angles")
+    if not prev or not prev_angles:
+        # 첫 분석(또는 이전 angles 미저장) — 비교 대상 없음. 코칭은 좌우 대칭 기준.
+        assessments = kismam.assess(selfmotion.symmetry_deviation(angles))
+        return assessments, abs_dims, overall, assemble.build_mode3(is_first=True)
+    num_joints = len(prev.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
+    deviation, *_ = _deviation_against(angles, prev_angles, num_joints)
+    assessments = kismam.assess(deviation)
+    dim_scores = {dimensions.DIM_ANGLE: kismam.overall_score(assessments), **abs_dims}
+    prev_dims = (prev.get("result") or {}).get("dimensionScores")
+    comparison = assemble.build_mode3(
+        is_first=False,
+        previous_analysis_id=prev.get("analysisId"),
+        prev_dimension_scores=prev_dims,
+        cur_dimension_scores=abs_dims,  # 발전 델타는 절대 3차원만(같은 척도)
+    )
+    return assessments, dim_scores, overall, comparison
+
+
 def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     _ensure_adapters()
     firestore_admin.update_analysis_status(uid, analysis_id, models.STATUS_QUEUED)
@@ -164,32 +218,34 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     my_video_url = _signed_get(bucket, key)
     reference_video_url = None
 
+    # 절대 차원(라인/균형/안정성)은 기준 영상 없이 항상 산출 (IPSF 실행 기준).
+    abs_dims = dimensions.absolute_dimension_scores(angles)
+
     if mode == models.MODE_EXPERT:
         ref = firestore_admin.get_reference_motion(meta.get("referenceMotionId"))
         if ref is None or "angles" not in ref:
             raise RuntimeError("기준 모션 또는 keyframe 데이터 없음")
         # seed 는 Firestore 의 nested-array 금지 회피로 angles 를 flat 저장.
-        # anglesJointKeys 길이로 (T, J) 복원.
-        a_ref = np.asarray(ref["angles"], dtype=float)
-        if a_ref.ndim == 1:
-            num_joints = len(ref.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
-            a_ref = a_ref.reshape(-1, num_joints)
-        match = motion_dtw(feature_vector(angles), feature_vector(a_ref))
-        user_seg = angles[match.start : match.end]
-        deviation = per_joint_deviation(match.path, user_seg, a_ref)
+        num_joints = len(ref.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
+        deviation, match, user_seg, a_ref = _deviation_against(
+            angles, ref["angles"], num_joints
+        )
         assessments = kismam.assess(deviation)
-        similarity = kismam.overall_score(assessments)
+        # 각도 정확도 차원 = 정은지 대비 관절각 일치도. 모드1 게이지/일치도이기도 함.
+        angle_dim = kismam.overall_score(assessments)
         # 비폴 영상 차단 안전망(belle P1 #8). 기준 동작과 너무 동떨어진 자세는
         # 폴 영상이 아닐 가능성이 높아 의미 없는 점수를 결과 화면에 노출하지 않는다.
-        if similarity < models.NOT_POLE_SIMILARITY_THRESHOLD:
+        if angle_dim < models.NOT_POLE_SIMILARITY_THRESHOLD:
             log.info(
-                "비폴 영상 추정 차단 similarity=%d threshold=%d",
-                similarity,
+                "비폴 영상 추정 차단 angle=%d threshold=%d",
+                angle_dim,
                 models.NOT_POLE_SIMILARITY_THRESHOLD,
             )
             raise NotPoleMotionError(
-                f"similarity {similarity} < {models.NOT_POLE_SIMILARITY_THRESHOLD}"
+                f"angle {angle_dim} < {models.NOT_POLE_SIMILARITY_THRESHOLD}"
             )
+        dimension_scores = {dimensions.DIM_ANGLE: angle_dim, **abs_dims}
+        overall = dimensions.overall_from_dimensions(dimension_scores)  # 4차원 평균
         # 콤보 모션이면 베이스/확장 구간 부분 점수 (reference-motions.md §7).
         seg_scores = None
         if ref.get("sharedBaseMotionId"):
@@ -203,17 +259,13 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 user_seg,
                 a_ref,
             )
-        comparison = assemble.build_mode1(ref, similarity, seg_scores)
+        comparison = assemble.build_mode1(ref, angle_dim, seg_scores)
         if ref.get("videoS3Key"):
             reference_video_url = _signed_get(bucket, ref["videoS3Key"])
-    else:  # MODE_SELF — 좌우 대칭 자기 기준
-        assessments = kismam.assess(selfmotion.symmetry_deviation(angles))
+    else:  # MODE_SELF — 자기 성장. 절대 차원 + (이전 분석 있으면) 발전 델타.
         prev = firestore_admin.get_previous_analysis(uid, analysis_id)
-        comparison = assemble.build_mode3(
-            is_first=prev is None,
-            previous_analysis_id=prev.get("analysisId") if prev else None,
-            prev_part_scores=(prev or {}).get("result", {}).get("partScores"),
-            cur_part_scores=kismam.part_scores(assessments),
+        assessments, dimension_scores, overall, comparison = _mode3_comparison(
+            angles, prev
         )
 
     coach_details = _COACH_WRITER.write(
@@ -232,12 +284,22 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     )
     result = assemble.build_result(
         assessments,
+        dimension_scores,
+        overall,
         comparison,
         my_video_url,
         reference_video_url=reference_video_url,
         coach_details=coach_details,
     )
-    firestore_admin.complete_analysis(uid, analysis_id, result)
+    # 추출 angles 를 flat 저장 — 다음 mode3 분석이 '이전 영상' 기준으로 DTW 비교.
+    firestore_admin.complete_analysis(
+        uid,
+        analysis_id,
+        result,
+        angles=np.asarray(angles, dtype=float).reshape(-1).tolist(),
+        angles_joint_keys=list(skeleton.JOINT_KEYS),
+        angles_frames=int(np.asarray(angles).shape[0]),
+    )
     log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
 
 

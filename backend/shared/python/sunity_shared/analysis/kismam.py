@@ -66,6 +66,15 @@ def _direction_for(joint_key: str, signed_delta_deg: float) -> str | None:
     return pair[0] if signed_delta_deg < 0 else pair[1]
 
 
+def score_from_deviation(
+    deviation_deg: float, tolerance_deg: float = _IPSF_TOLERANCE_DEG
+) -> int:
+    """편차(도) → 0~100 점수 (가우시안 감쇠 z=dev/tol). assess 와 동일 매핑.
+    차원 점수(dimensions.py)도 이 함수를 공유해 점수 스케일을 일관되게 유지한다."""
+    z = float(deviation_deg) / max(tolerance_deg, 1e-6)
+    return max(0, min(100, int(round(100.0 * float(np.exp(-0.5 * z * z))))))
+
+
 @dataclass(frozen=True)
 class JointAssessment:
     key: str
@@ -100,9 +109,7 @@ def assess(
     ra = reference_angles or {}
     out = []
     for i, key in enumerate(JOINT_KEYS):
-        z = dev[i] / max(tol[key], 1e-6)
-        score = int(round(100.0 * float(np.exp(-0.5 * z * z))))
-        score = max(0, min(100, score))
+        score = score_from_deviation(dev[i], tol[key])
         cur = ua.get(key)
         tgt = ra.get(key)
         if cur is not None and tgt is not None:

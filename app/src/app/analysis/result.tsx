@@ -17,12 +17,16 @@ import {
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { getSimulatedResult } from '../../lib/simulatedResult';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
+import {
+  DIMENSION_LABEL_KO,
+  DIMENSION_ORDER,
+} from '../../types/analysis';
 import type {
   AnalysisMode,
   AnalysisResult,
-  BodyPart,
   JointDirection,
   JointScore,
+  ScoreDimension,
   SegmentScores,
   SkillLevel,
 } from '../../types/analysis';
@@ -114,6 +118,17 @@ function mode1Summary(athleteName: string, similarity: number): string {
   return `${head} 천천히 자세부터 잡아볼까요?`;
 }
 
+// mode3 두 번째+ 요약 — '몇 % 일치'가 아니라 발전(progress)을 강조 (belle 피드백).
+// 절대 차원 평균(overall)이 같은 척도라 지난 분석 대비 증감이 진짜 성장이다.
+function mode3Summary(current: number, previous: number | undefined): string {
+  if (previous == null) return '지난 분석과 비교했어요.';
+  const d = current - previous;
+  if (d > 0) return `지난 분석보다 ${d}점 발전했어요!`;
+  if (d < 0)
+    return `지난 분석보다 ${-d}점 내려갔어요. 아래 차원별 변화를 확인해보세요.`;
+  return '지난 분석과 같은 수준을 유지했어요.';
+}
+
 // 분석 결과 화면 (plan.md #8, design.md §8, ia AC-RES-001).
 // 미설계 화면 → design.md §0 결정 트리로 자체 설계. 흰 배경(§5-1),
 // 브랜드 포인트(#FF4B33), 스피너/이모지 없음, 토큰만 사용.
@@ -122,8 +137,6 @@ function mode1Summary(athleteName: string, similarity: number): string {
 // getSimulatedResult 폴백은 dev 안전망 — 샘플 시드 누락·딥링크·새로고침 등 doc 가
 // 아직 없는 케이스에서만 발동. 실 분석 경로는 loading.tsx 가 status='uploading'
 // 부터 doc 를 쓰므로 폴백이 활성화될 일은 없다.
-
-const PARTS: BodyPart[] = ['상체', '코어', '하체'];
 
 function LevelBenchmark({ score }: { score: number }) {
   // 입문 65 / 중급 78 / 고급 88 픽스처 대비 사용자 위치. KISMAM 자체가 절대 평가라
@@ -164,19 +177,19 @@ function LevelBenchmark({ score }: { score: number }) {
   );
 }
 
-function PartScoreRow({
-  part,
+function DimensionScoreRow({
+  dim,
   score,
   delta,
 }: {
-  part: BodyPart;
+  dim: ScoreDimension;
   score: number;
   delta?: number;
 }) {
   return (
     <View style={styles.partRow}>
       <View style={styles.partHead}>
-        <Text style={styles.partLabel}>{part}</Text>
+        <Text style={styles.partLabel}>{DIMENSION_LABEL_KO[dim]}</Text>
         <View style={styles.partValueWrap}>
           <Text style={styles.partScore}>{score}</Text>
           {delta != null && delta !== 0 && (
@@ -274,16 +287,26 @@ export default function AnalysisResult() {
     [result.joints, refMotion?.meanAngles],
   );
 
+  // mode3 두 번째+ 면 이전 분석 doc 구독 — 비교 영상(myVideoUrl)·발전 요약(overallScore)용.
+  const prevAnalysisId =
+    cmp.mode === 'mode3' && !cmp.isFirst ? cmp.previousAnalysisId : undefined;
+  const { doc: prevDoc } = useAnalysisDoc(prevAnalysisId);
+
   const summary =
     cmp.mode === 'mode1'
       ? mode1Summary(cmp.athleteName, cmp.similarity)
       : cmp.isFirst
-        ? '첫 분석이에요. 다음 분석부터 성장을 비교해드려요.'
-        : '지난 분석과 파트별로 비교했어요.';
+        ? '첫 분석이에요. 다음 분석부터 발전을 비교해드려요.'
+        : mode3Summary(result.overallScore, prevDoc?.result?.overallScore);
 
-  const deltaFor = (part: BodyPart): number | undefined =>
+  // 표시할 차원 = 결과에 존재하는 차원만 (mode1=4, mode3 first=3, mode3 second+=4).
+  // 재설계 이전 문서(옛 partScores·dimensionScores 없음)는 빈 객체로 폴백 — 크래시 방지.
+  const dimensionScores = result.dimensionScores ?? {};
+  const dims = DIMENSION_ORDER.filter((d) => dimensionScores[d] != null);
+
+  const deltaFor = (dim: ScoreDimension): number | undefined =>
     cmp.mode === 'mode3' && !cmp.isFirst
-      ? cmp.deltaFromPrevious?.[part]
+      ? cmp.deltaFromPrevious?.[dim]
       : undefined;
 
   return (
@@ -347,35 +370,40 @@ export default function AnalysisResult() {
           </>
         )}
 
-        {/* 세부 점수 (AC-RES-001-4) */}
+        {/* 세부 점수 — IPSF 실행 차원 (각도/라인/균형/안정성). mode3 면 발전 델타 표시 */}
         <Text style={styles.sectionTitle}>세부 점수</Text>
         <View style={styles.card}>
-          {PARTS.map((part) => (
-            <PartScoreRow
-              key={part}
-              part={part}
-              score={result.partScores[part]}
-              delta={deltaFor(part)}
+          {dims.map((dim) => (
+            <DimensionScoreRow
+              key={dim}
+              dim={dim}
+              score={dimensionScores[dim] as number}
+              delta={deltaFor(dim)}
             />
           ))}
         </View>
 
-        {/* 동작 비교 — 좌(내 영상) / 우(정은지 or 지난). 영상 URL 이 들어오면
-            자동으로 슬롯에 끼워짐. URL 비어 있으면 같은 레이아웃의 자리표시. */}
-        <Text style={styles.sectionTitle}>동작 비교</Text>
-        <VideoCompare
-          leftLabel="내 영상"
-          rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
-          leftUrl={result.myVideoUrl || undefined}
-          // mode1: 저장된 referenceVideoUrl 우선, 없으면 reference doc 의 videoUrl
-          //   (presigned URL — 7일 서명, 시드 시점 발급).
-          // mode3: 이전 영상 URL 은 현 시점 데이터 모델에 없어 자리표시(#7-follow).
-          rightUrl={
-            cmp.mode === 'mode1'
-              ? result.referenceVideoUrl || refMotion?.videoUrl || undefined
-              : undefined
-          }
-        />
+        {/* 동작 비교 — 좌(내 영상) / 우(정은지 or 지난 분석). mode3 첫 분석은 비교
+            대상이 없어 섹션 자체를 생략. URL 이 들어오면 자동으로 슬롯에 끼워짐. */}
+        {!(cmp.mode === 'mode3' && cmp.isFirst) && (
+          <>
+            <Text style={styles.sectionTitle}>동작 비교</Text>
+            <VideoCompare
+              leftLabel="내 영상"
+              rightLabel={
+                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'
+              }
+              leftUrl={result.myVideoUrl || undefined}
+              // mode1: 저장된 referenceVideoUrl 우선, 없으면 reference doc 의 videoUrl.
+              // mode3 second+: 이전 분석 doc 의 myVideoUrl (지난 영상).
+              rightUrl={
+                cmp.mode === 'mode1'
+                  ? result.referenceVideoUrl || refMotion?.videoUrl || undefined
+                  : prevDoc?.result?.myVideoUrl || undefined
+              }
+            />
+          </>
+        )}
 
         {/* 코칭 팁 (AC-RES-001-3) */}
         <Text style={styles.sectionTitle}>코칭 팁</Text>

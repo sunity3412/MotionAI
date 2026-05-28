@@ -42,16 +42,32 @@ def update_analysis_status(uid: str, analysis_id: str, status: str) -> None:
     )
 
 
-def complete_analysis(uid: str, analysis_id: str, result: dict) -> None:
-    """status='done' + result (contract.md §4 AnalysisResult)."""
-    _doc(models.analysis_doc_path(uid, analysis_id)).set(
-        {
-            "status": models.STATUS_DONE,
-            "result": result,
-            "updatedAt": int(time.time() * 1000),
-        },
-        merge=True,
-    )
+def complete_analysis(
+    uid: str,
+    analysis_id: str,
+    result: dict,
+    *,
+    angles: list | None = None,
+    angles_joint_keys: list | None = None,
+    angles_frames: int | None = None,
+) -> None:
+    """status='done' + result (contract.md §4 AnalysisResult).
+
+    angles 가 주어지면 추출된 관절각을 doc top-level 에 flat 저장한다 — mode3(자기
+    성장)가 '이전 분석 영상'을 기준 시퀀스로 DTW 비교할 때 읽는다. Firestore 는
+    nested-array 금지라 flat list + anglesJointKeys(길이 J) + anglesFrames(T) 로
+    저장하고 읽는 쪽에서 reshape ([[firestore-nested-array-flat]]). get_previous_analysis
+    는 to_dict() 로 이 필드를 자동 반환한다."""
+    payload: dict = {
+        "status": models.STATUS_DONE,
+        "result": result,
+        "updatedAt": int(time.time() * 1000),
+    }
+    if angles is not None:
+        payload["angles"] = angles
+        payload["anglesJointKeys"] = angles_joint_keys
+        payload["anglesFrames"] = angles_frames
+    _doc(models.analysis_doc_path(uid, analysis_id)).set(payload, merge=True)
 
 
 def fail_analysis(uid: str, analysis_id: str, code: str, message: str) -> None:

@@ -48,7 +48,30 @@ export type AnalysisErrorCode =
   | 'server_error'
   | 'not_pole_motion'; // mode1 비교 similarity 가 임계값 미만
 
-export type BodyPart = '상체' | '코어' | '하체'; // design.md §8 파트별 점수
+// 점수 차원 = IPSF 폴스포츠 실행 심사기준 (docs/research/폴스포츠-지식.md 보고서 4·5·6).
+// 신체 부위(상체/코어/하체)가 아니라 심판이 실제로 보는 실행 차원.
+//   angle     각도 정확도 : 관절각 vs 기준(reference). reference 필요 → mode1·mode3 second+.
+//   line      라인·확장   : 사지 신전 완성도. 절대 지표(기준 불필요).
+//   balance   균형·정렬   : 좌우 대칭. 절대 지표.
+//   stability 안정성·홀딩 : 피크 구간 떨림. 절대 지표.
+// 절대 3차원(line/balance/stability)은 기준 없이 산출 → mode3 자기 성장의 세션 간
+// 발전 델타가 같은 척도로 비교됨.
+export type ScoreDimension = 'angle' | 'line' | 'balance' | 'stability';
+
+export const DIMENSION_LABEL_KO: Record<ScoreDimension, string> = {
+  angle: '각도 정확도',
+  line: '라인·확장',
+  balance: '균형·정렬',
+  stability: '안정성·홀딩',
+};
+
+// 표시 순서. mode1 = 4차원 전부, mode3 = 절대 3차원(+ second+ 면 angle 일관성).
+export const DIMENSION_ORDER: readonly ScoreDimension[] = [
+  'angle',
+  'line',
+  'balance',
+  'stability',
+];
 
 // 사용자가 무엇을 더 해야 하는지(코칭 방향). 백엔드가 joint 종류 + signed delta로 결정.
 //  extend/flex : 관절 펴기/굽히기 (무릎·팔꿈치)
@@ -101,13 +124,17 @@ export interface Mode3Comparison {
   mode: 'mode3';
   isFirst: boolean; // 첫 분석이면 절대값만 (비교 대상 없음)
   previousAnalysisId?: string;
-  deltaFromPrevious?: Record<BodyPart, number>; // 이전 대비 증감(±). isFirst면 없음
+  // 발전(progress) = 절대 차원(라인/균형/안정성)의 이전 대비 증감(±). isFirst면 없음.
+  // '몇 % 일치'가 아니라 발전을 보여주는 게 mode3 의 핵심.
+  deltaFromPrevious?: Partial<Record<ScoreDimension, number>>;
 }
 
 export interface AnalysisResult {
-  overallScore: number; // 0~100 (KISMAM 정규화)
-  partScores: Record<BodyPart, number>; // 상체/코어/하체 0~100
-  joints: JointScore[]; // 관절별 (보통 17)
+  overallScore: number; // 0~100. mode1=4차원 평균, mode3=절대 3차원 평균
+  // IPSF 실행 차원 점수. mode1=angle+line+balance+stability(4), mode3=line/balance/stability
+  // (+second+ 면 angle 일관성). 표시는 DIMENSION_ORDER 순서로 존재하는 키만.
+  dimensionScores: Partial<Record<ScoreDimension, number>>;
+  joints: JointScore[]; // 관절별 (보통 8). 코칭 팁 근거(각도 편차)
   tips: CoachingTip[]; // 상위 3개
   comparison: Mode1Comparison | Mode3Comparison;
   myVideoUrl: string; // 재생용 서명 URL (design.md §8 좌: 내 영상)
@@ -124,6 +151,11 @@ export interface AnalysisDoc {
   updatedAt: number; // epoch ms
   error?: { code: AnalysisErrorCode; message: string }; // status==='failed'
   result?: AnalysisResult; // status==='done'
+  // 추출된 관절각 flat 저장 (백엔드 전용 — mode3 가 '이전 영상' 기준 DTW 비교에 사용).
+  // Firestore nested-array 금지 회피로 flat. 앱 UI 는 사용 안 함(normalize 제외).
+  angles?: number[]; // 길이 = anglesFrames * anglesJointKeys.length
+  anglesJointKeys?: string[]; // 길이 J (보통 8)
+  anglesFrames?: number; // T
 }
 
 // 기준 모션 (Firestore: reference/{motionId}, 읽기 전용)

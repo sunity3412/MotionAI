@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Gemini 기술 인식기** - 영상→기술 인식→관절별 EXTEND/BENT 판정으로 line 차원을 의미있게 살린다 (핵심 레버)
 - [ ] **Phase 2: Overall 점수 합성 견고화** - 단일 차원에 휘둘리지 않는 안정적 overall 합성
 - [ ] **Phase 3: 각도 정확도 100 아티팩트 수정** - 같은/유사 영상 비교 시 잘못된 라벨·점수 정정
-- [ ] **Phase 4: 실측 관절 각도 표시** - 결과 화면에 "현재 87° → 기준 110°" 실데이터 노출
+- [ ] **Phase 4: 실측 관절 각도 표시 + 키포인트 오버레이** - "현재 87° → 기준 110°" 실데이터 + 어깨/골반/무릎/손/중심축 오버레이
 - [ ] **Phase 5: 원인→해결 피드백** - "실패 원인 → 필요한 힘/유연성 → 보조 동작" 순서 코칭 (Cerebras 프롬프트)
 - [ ] **Phase 6: 강사 보조 도구 포지셔닝** - 결과 카피에서 AI가 강사를 대체한다는 인상 제거
 - [ ] **Phase 7: 정은지 기준 모션 등록** - 비교 정확도를 최대화하는 방식으로 기준 모션 등록
@@ -33,10 +33,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Mode:** mvp
 **Depends on**: Nothing (first phase — 기존 `TechniqueRecognizer` Protocol 위에 어댑터 교체)
 **Requirements**: SCORE-01
+**Scope 제약**: 초기 인식 대상은 3~5개 동작군(후굴 계열·인버트 계열·특정 기본 포징)으로 한정. 모든 동작 범용 모델 금지.
 **Success Criteria** (what must be TRUE):
   1. 굽은 그립을 포함한 폴 동작 영상에서 line 차원이 None이 아닌 실제 점수로 산출된다
   2. 인식기가 동작 이름과 관절별 EXTEND/BENT 기대치를 반환하고, `dimensions.py`의 line 채점이 그 프로파일을 사용한다
   3. Gemini 인식기 호출 실패 시 `FallbackRecognizer`로 graceful degrade하고 분석이 크래시하지 않는다
+  4. 인식 범위가 3~5개 동작군으로 한정되고, 범위 밖 동작은 명시적으로 "미지원"으로 처리된다
 **Plans**: TBD
 **External dependency**: belle의 Gemini API 키(Google AI Studio) 필요 → AWS Parameter Store / RunPod Pod env 주입. 키 미확보 시 Phase 1 블로킹 — belle에게 키 발급 요청 우선.
 
@@ -62,27 +64,29 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. 유사하지만 동일하지 않은 영상에서 100이 아닌 차등 점수가 나온다
 **Plans**: TBD
 
-### Phase 4: 실측 관절 각도 표시
-**Goal**: 결과 화면에 관절 각도 수치가 "현재 87° → 기준 110°" 형태로 명확히 표시되고, 사용자 current 각도가 fixture가 아닌 실데이터다
+### Phase 4: 실측 관절 각도 표시 + 키포인트 오버레이
+**Goal**: 결과 화면에 관절 각도 수치가 "현재 87° → 기준 110°" 형태로 표시되고(실데이터), 영상 위에 어깨·골반·무릎·손 키포인트와 중심축이 오버레이로 그려진다
 **Mode:** mvp
 **Depends on**: Phase 3 (정확한 각도 채점 위에 표시)
-**Requirements**: FEED-01
+**Requirements**: FEED-01, VIS-01
 **Success Criteria** (what must be TRUE):
   1. 결과 화면 angleGuide가 백엔드가 산출한 실제 user current 각도를 표시한다 (fixture 아님)
   2. 각 관절이 "현재 N° → 기준 M°" 형태로 현재값과 기준값을 나란히 보여준다
   3. 데이터 계약(`analysis.ts` ↔ `models.py` ↔ `assemble.py`)이 lockstep으로 갱신되어 currentAngle 키가 양쪽에 존재한다
+  4. 영상 프레임 위에 어깨·골반·무릎·손 키포인트와 중심축이 오버레이로 표시된다 (발끝은 toe keypoint 미지원 — v2)
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 5: 원인→해결 피드백
-**Goal**: 피드백이 "실패 원인 → 필요한 힘/유연성 → 보조 동작" 순서로 구성된다 (수치는 보조, "왜 안 되는지 + 무엇이 필요한지"가 한 세트)
+**Goal**: 피드백이 "실패 원인 → 내 몸 기준 힘 쓰는 방향·중심축 → 필요한 유연성/근력 → 보조 동작" 순서로 구성되고, 부위별 언어로 표현된다 (수치는 보조, "왜 안 되는지 + 무엇이 부족한지"가 한 세트)
 **Mode:** mvp
 **Depends on**: Phase 4 (실측 각도 위에 원인 코칭)
 **Requirements**: FEED-02
 **Success Criteria** (what must be TRUE):
-  1. KISMAM Top-3가 "무릎 신전 부족" 수준이 아니라 "왜 이 동작이 안 되는지" 언어로 번역된다
-  2. 각 피드백 항목이 원인 → 필요한 힘/유연성 → 보조 동작 순서로 제시된다
-  3. Cerebras 키 미설정 시에도 graceful no-op로 분석이 완료되고 fallback 카피가 표시된다
+  1. KISMAM Top-3가 "무릎 신전 부족" 수준이 아니라 "왜 이 동작이 안 되는지 + 어디에 힘을 줘야 하는지" 언어로 번역된다
+  2. 각 피드백 항목이 원인 → 힘 쓰는 방향·중심축 → 필요한 유연성/근력 → 보조 동작 순서로 제시된다
+  3. 코칭이 부위별 언어(고관절·후굴·코어·내전근·전완근·광배 등)와 힘의 방향성을 사용한다
+  4. Cerebras 키 미설정 시에도 graceful no-op로 분석이 완료되고 fallback 카피가 표시된다
 **Plans**: TBD
 **UI hint**: yes
 
@@ -103,6 +107,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Mode:** mvp
 **Depends on**: Phase 1 (인식기가 기준 모션의 EXTEND 프로파일을 정확히 산출해야 비교 신뢰도 확보)
 **Requirements**: REF-01
+**Scope 제약**: 기준 모션도 초기 3~5개 동작군(후굴/인버트/기본 포징) 범위에서 등록.
 **Success Criteria** (what must be TRUE):
   1. 정은지 영상을 업로드하면 기준 모션으로 등록되어 `reference/{motionId}`에 저장되고 앱 Mode 1 선택 목록에 나타난다
   2. 등록된 기준 모션이 실제 meanAngles와 EXTEND 프로파일을 포함해 Mode 1 비교에 바로 쓰인다
@@ -138,6 +143,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Mode:** mvp
 **Depends on**: Phase 8, Phase 9 (두 모드가 실영상으로 동작한 위에 신뢰도 검증)
 **Requirements**: SCORE-04
+**Scope 제약**: 검증 대상은 초기 3~5개 동작군. 범위 밖 동작 false-reject는 허용(미지원 처리).
 **Success Criteria** (what must be TRUE):
   1. 정은지(고수) 영상이 41점 같은 위양성 없이 자세 품질을 반영하는 높은 점수로 산출된다
   2. 스피닝 폴 영상에서 폴 회전·배경 움직임과 인체 움직임이 분리되어 인체 추적이 안정적이다

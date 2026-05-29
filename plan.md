@@ -12,6 +12,41 @@
 
 ---
 
+*2026-05-29 — 실분석 가동(RunPod Blackwell) + IPSF 채점 재설계 (균형 제거·기술조건부):
+
+ ① RunPod 운영 가동: 새 Pod(NVIDIA RTX PRO 4000 Blackwell sm_120 / torch 2.8+cu128)
+    git clone→setup.sh(NLF 4.2GB)→env→uvicorn. /health OK. Lambda(sunity-motion-pilot
+    -pipeline) 환경변수 RUNPOD_ANALYZE_URL(x9vsw5a6au1i4h)+TOKEN 을 `aws lambda
+    update-function-configuration`(profile sunity-motion=admin)로 새 Pod에 동기화.
+    버킷 알림 이미 연결됨 → 앱 업로드 → 실 NLF 분석 end-to-end 최초 통과.
+    ⚠ Pod env AWS 키 = sunity-motion(AdministratorAccess) — 시연 후 S3 read-only로 강등 권장.
+
+ ② belle 게이트 지적: 세계챔피언 정은지 영상이 mode3에서 41점 = 채점이 깨진 증거.
+    원인 분석(보고서 5·6 정독): '균형(좌우대칭)' 차원은 IPSF 기술감점 프로토콜에
+    근거 0 + 폴 동작은 의도적 비대칭 정상 → 정상 동작을 깎는 위양성(41점 주범).
+
+ ③ 채점 엔진 재설계 (commit):
+    - 신규 analysis/technique.py: TechniqueProfile + TechniqueRecognizer(프로토콜,
+      swappable) + 보수적 FallbackRecognizer(모르면 안 깎음). 인식층=Gemini로 시작
+      예정(턴키), 도메인 완성은 Pole-arina식 분류기(나중). [[scoring-dimensions-ipsf]]
+    - dimensions.py: balance_score/symmetry 제거. line=기술조건부(profile.expects_
+      extension 관절만 180° 대비, 없으면 None). _LINE_TOL 15→20(IPSF 허용오차).
+      extension_deviation() 신규(첫 분석 코칭=신전 부족분). absolute=(line?,stability).
+    - models.py DIM_BALANCE 제거. pipeline _process/_mode3_comparison 가 profile 사용.
+    - app analysis.ts/simulatedResult.ts/result.tsx 에서 balance 차원 제거.
+    - 백엔드 103 pass, 앱 tsc clean. 화면값 역산 재계산: 41(D)→63(C) (균형 삭제+라인 tol).
+
+ ④ 측정 한계(정직): 현 포즈=COCO-17 8관절각 → 라인/유지/각도만 측정 가능. 정렬(무릎-
+    발끝=발끝 keypoint 없음)·자세(머리 keypoint)는 포즈 데이터 업그레이드(Phase 3) 필요.
+
+ 다음:
+   - [게이트] Pod git pull→uvicorn 재시작→정은지 영상 재업로드 → 실제 새 점수 확인.
+     통과 시 다른 영상·비폴 영상(not_pole 거부) 확장.
+   - 라인이 다음 레버: Gemini 인식기(기술별 EXTEND/BENT 판정) + NLF 홀딩 각도 정확도 점검.
+   - 카메라 앵글 합성(CameraCtrl II/UCPE)=데이터 증강/시점보정/코치뷰 = Phase 2.
+
+---
+
 *2026-05-28 (저녁) — 점수 차원 IPSF 재설계 (상체/코어/하체 → 각도/라인/균형/안정성):
 
  belle 두 지적으로 오늘 mode3 7단계 계획을 폐기하고 점수 모델 전면 재설계:

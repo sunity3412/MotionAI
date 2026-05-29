@@ -14,12 +14,12 @@ MODES = (MODE_EXPERT, MODE_SELF)
 # IPSF 실행 심사기준 기반 (docs/research/폴스포츠-지식.md). 신체 부위가 아니라
 # 심판이 실제로 보는 실행 차원. angle 만 기준(reference) 필요, 나머지는 절대 지표.
 DIM_ANGLE = "angle"        # 각도 정확도 (관절각 vs 기준)
-DIM_LINE = "line"          # 라인·확장 (사지 신전 완성도)
-DIM_BALANCE = "balance"    # 균형·정렬 (좌우 대칭)
+DIM_LINE = "line"          # 라인·확장 (기술이 신전 요구하는 사지의 완성도)
 DIM_STABILITY = "stability"  # 안정성·홀딩 (피크 구간 떨림)
-SCORE_DIMENSIONS = (DIM_ANGLE, DIM_LINE, DIM_BALANCE, DIM_STABILITY)
+SCORE_DIMENSIONS = (DIM_ANGLE, DIM_LINE, DIM_STABILITY)
 # 기준 영상 없이 산출 가능 — mode3 자기 성장(세션 간 델타 같은 척도) 핵심.
-ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_BALANCE, DIM_STABILITY)
+# 2026-05-29 'balance/좌우대칭' 제거 — IPSF 근거 없음(dimensions.py 참조).
+ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_STABILITY)
 
 # ── 영상 형식 (contract.md: mp4/mov, ≤100MB) ───────────────────────────
 VIDEO_FORMATS = ("mp4", "mov")

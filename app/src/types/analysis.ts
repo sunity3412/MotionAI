@@ -48,28 +48,26 @@ export type AnalysisErrorCode =
   | 'server_error'
   | 'not_pole_motion'; // mode1 비교 similarity 가 임계값 미만
 
-// 점수 차원 = IPSF 폴스포츠 실행 심사기준 (docs/research/폴스포츠-지식.md 보고서 4·5·6).
+// 점수 차원 = IPSF 폴스포츠 실행 심사기준 (docs/research/폴스포츠-지식.md 보고서 5·6).
 // 신체 부위(상체/코어/하체)가 아니라 심판이 실제로 보는 실행 차원.
 //   angle     각도 정확도 : 관절각 vs 기준(reference). reference 필요 → mode1·mode3 second+.
-//   line      라인·확장   : 사지 신전 완성도. 절대 지표(기준 불필요).
-//   balance   균형·정렬   : 좌우 대칭. 절대 지표.
+//   line      라인·확장   : 기술이 신전 요구하는 사지의 완성도. 절대 지표(기준 불필요).
 //   stability 안정성·홀딩 : 피크 구간 떨림. 절대 지표.
-// 절대 3차원(line/balance/stability)은 기준 없이 산출 → mode3 자기 성장의 세션 간
-// 발전 델타가 같은 척도로 비교됨.
-export type ScoreDimension = 'angle' | 'line' | 'balance' | 'stability';
+// 2026-05-29 'balance(좌우대칭)' 제거 — IPSF 근거 없음(의도적 비대칭 동작을 깎는 위양성).
+// 절대 차원(line/stability)은 기준 없이 산출 → mode3 자기 성장의 세션 간 발전 델타가
+// 같은 척도로 비교됨.
+export type ScoreDimension = 'angle' | 'line' | 'stability';
 
 export const DIMENSION_LABEL_KO: Record<ScoreDimension, string> = {
   angle: '각도 정확도',
   line: '라인·확장',
-  balance: '균형·정렬',
   stability: '안정성·홀딩',
 };
 
-// 표시 순서. mode1 = 4차원 전부, mode3 = 절대 3차원(+ second+ 면 angle 일관성).
+// 표시 순서. mode1 = 3차원 전부, mode3 = 절대 차원(line/stability)(+ second+ 면 angle 일관성).
 export const DIMENSION_ORDER: readonly ScoreDimension[] = [
   'angle',
   'line',
-  'balance',
   'stability',
 ];
 
@@ -124,14 +122,14 @@ export interface Mode3Comparison {
   mode: 'mode3';
   isFirst: boolean; // 첫 분석이면 절대값만 (비교 대상 없음)
   previousAnalysisId?: string;
-  // 발전(progress) = 절대 차원(라인/균형/안정성)의 이전 대비 증감(±). isFirst면 없음.
+  // 발전(progress) = 절대 차원(라인/안정성)의 이전 대비 증감(±). isFirst면 없음.
   // '몇 % 일치'가 아니라 발전을 보여주는 게 mode3 의 핵심.
   deltaFromPrevious?: Partial<Record<ScoreDimension, number>>;
 }
 
 export interface AnalysisResult {
   overallScore: number; // 0~100. mode1=4차원 평균, mode3=절대 3차원 평균
-  // IPSF 실행 차원 점수. mode1=angle+line+balance+stability(4), mode3=line/balance/stability
+  // IPSF 실행 차원 점수. mode1=angle+line+stability, mode3=line/stability
   // (+second+ 면 angle 일관성). 표시는 DIMENSION_ORDER 순서로 존재하는 키만.
   dimensionScores: Partial<Record<ScoreDimension, number>>;
   joints: JointScore[]; // 관절별 (보통 8). 코칭 팁 근거(각도 편차)

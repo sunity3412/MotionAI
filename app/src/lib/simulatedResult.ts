@@ -1,8 +1,8 @@
 // 분석 결과 시뮬레이션 (UI 개발/시연용 픽스처). 실 분석 doc 가 없을 때만 폴백.
 // 계약(types/analysis.ts AnalysisResult) 모양 그대로라 백엔드 연결 시 재작업 없음.
 //
-// 점수 차원 = IPSF 실행 기준 (각도/라인/균형/안정성). mode1 = 4차원, mode3 = 절대
-// 3차원(라인/균형/안정성) — 자기 성장은 기준 없는 절대 지표로 발전을 비교.
+// 점수 차원 = IPSF 실행 기준 (각도/라인/안정성). mode1 = 3차원, mode3 = 절대
+// 차원(라인/안정성) — 자기 성장은 기준 없는 절대 지표로 발전을 비교.
 
 import type {
   AnalysisMode,
@@ -75,10 +75,10 @@ const TIPS = [
 
 // mode1(정은지 비교)은 각도 정확도가 기준이라 후하지 않게. mode3 는 절대 3차원만.
 type Dims = Partial<Record<ScoreDimension, number>>;
-const DIMS_MODE1: Dims = { angle: 66, line: 74, balance: 80, stability: 64 };
-const DIMS_MODE3: Dims = { line: 84, balance: 78, stability: 66 };
-const OVERALL_MODE1 = 71;
-const OVERALL_MODE3 = 76;
+const DIMS_MODE1: Dims = { angle: 66, line: 74, stability: 64 };
+const DIMS_MODE3: Dims = { line: 84, stability: 66 };
+const OVERALL_MODE1 = 68;
+const OVERALL_MODE3 = 75;
 
 // 구간별 점수 시뮬 (reference-motions.md §7).
 export function simulatedSegmentScores(
@@ -128,7 +128,7 @@ export function getSimulatedResult(
       mode: 'mode3',
       isFirst: false,
       previousAnalysisId: `${analysisId}-prev`,
-      deltaFromPrevious: { line: 5, balance: 0, stability: -3 },
+      deltaFromPrevious: { line: 5, stability: -3 },
     },
   };
 }
@@ -149,7 +149,7 @@ export interface SampleScenario {
   description: string; // 카드 본문 한 줄
   mode: AnalysisMode;
   overall: number;
-  dims: Dims; // mode1=4차원, mode3=절대 3차원
+  dims: Dims; // mode1=3차원, mode3=절대 차원(line/stability)
   // mode1
   referenceMotionId?: string;
   referenceMotionName?: string;
@@ -164,8 +164,8 @@ export const SAMPLE_SCENARIOS: readonly SampleScenario[] = [
     label: '정은지 · 클라임 · 우수',
     description: '입문 동작을 잘 따라한 학생 케이스 (82점)',
     mode: 'mode1',
-    overall: 82,
-    dims: { angle: 80, line: 86, balance: 84, stability: 78 },
+    overall: 81,
+    dims: { angle: 80, line: 86, stability: 78 },
     referenceMotionId: 'ref-climb',
     referenceMotionName: '클라임',
   },
@@ -174,8 +174,8 @@ export const SAMPLE_SCENARIOS: readonly SampleScenario[] = [
     label: '정은지 · 사이드웨이 스핀 · 보통',
     description: '회전 진입은 되지만 가동 범위 부족 (65점)',
     mode: 'mode1',
-    overall: 65,
-    dims: { angle: 60, line: 68, balance: 70, stability: 62 },
+    overall: 63,
+    dims: { angle: 60, line: 68, stability: 62 },
     referenceMotionId: 'ref-sideway-spin',
     referenceMotionName: '사이드웨이 스핀',
   },
@@ -184,8 +184,8 @@ export const SAMPLE_SCENARIOS: readonly SampleScenario[] = [
     label: '정은지 · 폭스탑(콤보) · 부족',
     description: '베이스(인버트)는 가능, 폭스탑 확장 구간에서 막힘 (48점)',
     mode: 'mode1',
-    overall: 48,
-    dims: { angle: 44, line: 52, balance: 50, stability: 46 },
+    overall: 47,
+    dims: { angle: 44, line: 52, stability: 46 },
     referenceMotionId: 'ref-foxtop',
     referenceMotionName: '폭스탑',
   },
@@ -194,8 +194,8 @@ export const SAMPLE_SCENARIOS: readonly SampleScenario[] = [
     label: '내 기록 · 첫 분석',
     description: '비교할 이전 기록이 없는 상태 (발전 델타 없음)',
     mode: 'mode3',
-    overall: 76,
-    dims: { line: 84, balance: 78, stability: 66 },
+    overall: 75,
+    dims: { line: 84, stability: 66 },
     isFirst: true,
   },
   {
@@ -204,19 +204,19 @@ export const SAMPLE_SCENARIOS: readonly SampleScenario[] = [
     description: '이전 분석 대비 전 차원이 올라간 케이스 (+5/+2/+3)',
     mode: 'mode3',
     overall: 79,
-    dims: { line: 88, balance: 80, stability: 69 },
+    dims: { line: 88, stability: 69 },
     isFirst: false,
-    deltaFromPrevious: { line: 5, balance: 2, stability: 3 },
+    deltaFromPrevious: { line: 5, stability: 3 },
   },
   {
     id: 'mode3-plateau',
     label: '내 기록 · 정체기',
     description: '이전 대비 일부 차원이 떨어진 케이스 (-2/0/-3)',
     mode: 'mode3',
-    overall: 73,
-    dims: { line: 82, balance: 78, stability: 60 },
+    overall: 71,
+    dims: { line: 82, stability: 60 },
     isFirst: false,
-    deltaFromPrevious: { line: -2, balance: 0, stability: -3 },
+    deltaFromPrevious: { line: -2, stability: -3 },
   },
 ];
 
@@ -264,7 +264,6 @@ export function getSimulatedResultFromScenario(
         previousAnalysisId: `${analysisId}-prev`,
         deltaFromPrevious: scenario.deltaFromPrevious ?? {
           line: 0,
-          balance: 0,
           stability: 0,
         },
       };

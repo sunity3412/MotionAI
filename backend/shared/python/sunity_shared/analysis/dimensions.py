@@ -1,45 +1,42 @@
-"""IPSF 실행 심사기준 기반 점수 차원 (docs/research/폴스포츠-지식.md 보고서 4·5·6).
+"""IPSF 실행 심사기준 기반 점수 차원 (docs/research/폴스포츠-지식.md 보고서 5·6).
 
 신체 부위(상체/코어/하체)가 아니라 심판이 실제로 보는 실행 차원으로 채점한다:
 
   - angle      각도 정확도  : 관절각 vs 기준(reference) 편차. reference 필요.
                              (mode1=정은지, mode3=이전 영상). kismam.overall_score 사용.
-  - line       라인·확장    : 펴야 할 사지(팔꿈치·무릎)의 신전 완성도. 절대 지표.
-  - balance    균형·정렬    : 좌우 대칭. selfmotion.symmetry_deviation. 절대 지표.
+  - line       라인·확장    : '펴야 하는' 사지의 신전 완성도. **기술 조건부** — 어떤
+                             관절이 펴져야 하는지는 TechniqueProfile 이 정한다.
   - stability  안정성·홀딩  : 피크/홀딩 구간의 시간축 떨림(분산). 절대 지표.
 
-line/balance/stability 는 기준 영상이 필요 없는 '절대 지표'다 — mode3(자기 성장)에서
-영상 1개만으로 절대 점수가 나오고, 세션 간 델타가 같은 척도라 진짜 발전을 측정한다.
+2026-05-29 재교정: '균형(좌우 대칭)' 차원 제거. IPSF 기술감점 프로토콜(보고서 6 §4)에
+좌우 신체 대칭 항목이 없고, 폴 동작 상당수가 의도적 비대칭이라 대칭 페널티가 정상
+동작(세계챔피언 포함)을 깎는 위양성이었다. line 도 무조건 180° 가 아니라 기술이 신전을
+요구하는 관절(profile.expects_extension)에만 적용 — '의도된 굽힘'을 결함으로 깎지 않는다.
 
 점수 스케일은 kismam.score_from_deviation(가우시안 z=편차/허용오차)을 공유한다.
-허용오차(tol)는 IPSF 기준에서 출발한 휴리스틱 — belle 시연 데이터로 튜닝 예정.
+허용오차(tol)는 IPSF 기준(각도 허용오차 20°)에서 출발한 휴리스틱 — belle 시연
+데이터로 튜닝 예정.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from . import kismam, selfmotion
+from . import kismam
 from .skeleton import JOINT_KEYS
+from .technique import TechniqueProfile
 
 # 차원 키 (contract / app dimensionScores 키와 동일 문자열).
 DIM_ANGLE = "angle"
 DIM_LINE = "line"
-DIM_BALANCE = "balance"
 DIM_STABILITY = "stability"
 # 기준 영상 없이 산출 가능한 절대 지표 — mode3 첫 분석부터 사용.
-ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_BALANCE, DIM_STABILITY)
+ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_STABILITY)
 
 # 허용오차(도). z=dev/tol 가우시안 → tol 만큼 벗어나면 점수 ~61.
-_BALANCE_TOL_DEG = 15.0   # 좌우 비대칭
-_LINE_TOL_DEG = 15.0      # 완전 신전(180°) 대비 부족분
-_STABILITY_TOL_DEG = 8.0  # 홀딩 구간 관절각 표준편차
+_LINE_TOL_DEG = 20.0      # 완전 신전(180°) 대비 부족분. IPSF 각도 허용오차 20° 기준.
+_STABILITY_TOL_DEG = 8.0  # 홀딩 구간 관절각 표준편차(떨림)
 
-# 신전(폄)을 평가하는 사지 관절 — 180°가 완전 신전. 어깨/고관절은 '폄' 의미가
-# 달라 제외. 이 관절이 신전 영역(>= _EXTENSION_ZONE_DEG)에 있을 때만 라인 결함으로 봄
-# (의도적으로 깊게 굽힌 자세는 라인 감점 대상이 아님 — IPSF 라인 정의).
-_EXTENSION_JOINTS = ("left_elbow", "right_elbow", "left_knee", "right_knee")
-_EXTENSION_ZONE_DEG = 150.0
 _FULL_EXTENSION_DEG = 180.0
 
 
@@ -66,12 +63,6 @@ def hold_window(angles) -> tuple[int, int]:
     return best_s, best_s + w
 
 
-def balance_score(angles) -> int:
-    """좌우 대칭 점수. 대칭 편차(도) 평균 → 가우시안."""
-    dev = selfmotion.symmetry_deviation(angles)  # (J,) 좌우 쌍 편차
-    return kismam.score_from_deviation(float(np.mean(dev)), _BALANCE_TOL_DEG)
-
-
 def stability_score(angles) -> int:
     """홀딩 구간 관절각 표준편차(떨림) → 가우시안. 낮은 떨림 = 통제된 정지."""
     a = _as_tj(angles)
@@ -82,35 +73,45 @@ def stability_score(angles) -> int:
     return kismam.score_from_deviation(wobble, _STABILITY_TOL_DEG)
 
 
-def line_score(angles) -> int:
-    """라인·확장 점수. 홀딩 구간 대표 포즈에서 사지 신전 완성도(180° 대비 부족분).
-
-    신전 영역(>=150°)에 있는 팔꿈치/무릎만 라인 결함으로 본다. 의도적으로 굽힌
-    자세(Chair/Tuck 등)는 제외. 신전 관절이 하나도 없으면 가장 펴진 관절의 부족분으로
-    대체(폄을 유도) — 항상 값이 나오게 해 차원 누락을 막는다."""
+def line_score(angles, profile: TechniqueProfile) -> int | None:
+    """라인·확장 점수. 홀딩 구간 대표 포즈에서, profile 이 신전(EXTEND)을 요구한
+    관절만 180° 대비 부족분으로 채점한다. 신전 요구 관절이 하나도 없으면(전부 의도적
+    굽힘) 라인 평가 대상이 아니므로 None → 해당 차원 생략(가짜 점수 안 만듦)."""
     a = _as_tj(angles)
     s, e = hold_window(a)
-    rep = np.mean(a[s:e], axis=0)  # 대표 포즈 (J,)
-    deficits = []
-    for key in _EXTENSION_JOINTS:
-        ang = float(rep[JOINT_KEYS.index(key)])
-        if ang >= _EXTENSION_ZONE_DEG:
-            deficits.append(_FULL_EXTENSION_DEG - ang)
+    rep = np.mean(a[s:e], axis=0)
+    deficits = [
+        max(0.0, _FULL_EXTENSION_DEG - float(rep[JOINT_KEYS.index(k)]))
+        for k in JOINT_KEYS
+        if profile.expects_extension(k)
+    ]
     if not deficits:
-        # 신전 영역에 든 사지가 없음 → 가장 펴진 사지의 부족분으로 대체.
-        max_ext = max(float(rep[JOINT_KEYS.index(k)]) for k in _EXTENSION_JOINTS)
-        deficits.append(_FULL_EXTENSION_DEG - max_ext)
+        return None
     return kismam.score_from_deviation(float(np.mean(deficits)), _LINE_TOL_DEG)
 
 
-def absolute_dimension_scores(angles) -> dict[str, int]:
-    """기준 영상 없이 산출하는 절대 차원 점수 (line/balance/stability).
+def extension_deviation(angles, profile: TechniqueProfile) -> np.ndarray:
+    """관절별 신전 부족분(도) 벡터 (J,) — 코칭 tips 용. EXTEND 관절만 (180-각),
+    그 외는 0. mode3 첫 분석에서 '더 펴주세요' 코칭의 IPSF 라인 근거."""
+    a = _as_tj(angles)
+    s, e = hold_window(a)
+    rep = np.mean(a[s:e], axis=0)
+    dev = np.zeros(len(JOINT_KEYS), dtype=float)
+    for i, k in enumerate(JOINT_KEYS):
+        if profile.expects_extension(k):
+            dev[i] = max(0.0, _FULL_EXTENSION_DEG - float(rep[i]))
+    return dev
+
+
+def absolute_dimension_scores(angles, profile: TechniqueProfile) -> dict[str, int]:
+    """기준 영상 없이 산출하는 절대 차원 점수. 항상 stability, 신전 관절이 있으면 line.
     mode3 첫 분석 + 모든 분석의 절대 지표 부분."""
-    return {
-        DIM_LINE: line_score(angles),
-        DIM_BALANCE: balance_score(angles),
-        DIM_STABILITY: stability_score(angles),
-    }
+    out: dict[str, int] = {}
+    ls = line_score(angles, profile)
+    if ls is not None:
+        out[DIM_LINE] = ls
+    out[DIM_STABILITY] = stability_score(angles)
+    return out
 
 
 def overall_from_dimensions(dimension_scores: dict[str, int]) -> int:

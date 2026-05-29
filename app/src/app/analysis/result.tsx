@@ -370,7 +370,7 @@ export default function AnalysisResult() {
           </>
         )}
 
-        {/* 세부 점수 — IPSF 실행 차원 (각도/라인/균형/안정성). mode3 면 발전 델타 표시 */}
+        {/* 세부 점수 — IPSF 실행 차원 (각도/라인/안정성). mode3 면 발전 델타 표시 */}
         <Text style={styles.sectionTitle}>세부 점수</Text>
         <View style={styles.card}>
           {dims.map((dim) => (

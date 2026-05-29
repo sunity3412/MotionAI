@@ -39,8 +39,8 @@ from sunity_shared.analysis import (
     dimensions,
     kismam,
     segments,
-    selfmotion,
     skeleton,
+    technique,
 )
 from sunity_shared.analysis.features import (
     compute_joint_angles,
@@ -114,6 +114,11 @@ _FRAME_EXTRACTOR = None  # type: ignore[var-annotated]
 _POSE_ESTIMATOR = None  # type: ignore[var-annotated]
 _COACH_WRITER = None  # type: ignore[var-annotated]
 
+# 기술 인식 어댑터 — swappable (technique.TechniqueRecognizer 프로토콜).
+# 지금은 보수적 Fallback(모르면 안 깎음). Gemini/Pole-arina 어댑터로 교체 예정.
+# technique 모듈은 numpy+skeleton 만 의존(가벼움) → 모듈 로드 시 즉시 생성 OK.
+_RECOGNIZER: technique.TechniqueRecognizer = technique.FallbackRecognizer()
+
 
 def _ensure_adapters() -> None:
     """폴백 처리(_process) 진입 시 1회 어댑터 생성 + lazy import.
@@ -163,23 +168,26 @@ def _deviation_against(
     return deviation, match, user_seg, a_ref
 
 
-def _mode3_comparison(angles: np.ndarray, prev: dict | None):
+def _mode3_comparison(
+    angles: np.ndarray, prev: dict | None, profile: technique.TechniqueProfile
+):
     """자기 성장(mode3) 분기 — 순수(어댑터/S3/Firestore 불필요, 테스트 가능).
 
-    절대 차원(라인/균형/안정성)은 기준 없이 산출 → 세션 간 같은 척도라 발전 측정 가능
+    절대 차원(라인/안정성)은 기준 없이 산출 → 세션 간 같은 척도라 발전 측정 가능
     ([[mode3-progress-not-similarity]]). 각도 차원은 기준이 필요하므로 이전 분석이
     있을 때만(이전 영상 대비 일관성) 표시하고 overall/delta 에선 제외(척도 안정).
 
     반환: (assessments, dimension_scores, overall, comparison).
-      - assessments: 관절각 기반(코칭 tips 용). 첫 분석은 좌우 대칭, 이후는 이전 영상 대비.
-      - dimension_scores: 첫 분석=절대 3차원, 이후=절대 3 + angle(일관성).
-      - overall: 절대 3차원 평균(첫 분석/이후 동일 척도)."""
-    abs_dims = dimensions.absolute_dimension_scores(angles)
+      - assessments: 관절각 기반(코칭 tips 용). 첫 분석은 신전 부족분(IPSF 라인),
+        이후는 이전 영상 대비.
+      - dimension_scores: 첫 분석=절대 차원, 이후=절대 + angle(일관성).
+      - overall: 절대 차원 평균(첫 분석/이후 동일 척도)."""
+    abs_dims = dimensions.absolute_dimension_scores(angles, profile)
     overall = dimensions.overall_from_dimensions(abs_dims)
     prev_angles = (prev or {}).get("angles")
     if not prev or not prev_angles:
-        # 첫 분석(또는 이전 angles 미저장) — 비교 대상 없음. 코칭은 좌우 대칭 기준.
-        assessments = kismam.assess(selfmotion.symmetry_deviation(angles))
+        # 첫 분석(또는 이전 angles 미저장) — 비교 대상 없음. 코칭은 신전 부족분(IPSF 라인) 기준.
+        assessments = kismam.assess(dimensions.extension_deviation(angles, profile))
         return assessments, abs_dims, overall, assemble.build_mode3(is_first=True)
     num_joints = len(prev.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
     deviation, *_ = _deviation_against(angles, prev_angles, num_joints)
@@ -218,8 +226,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     my_video_url = _signed_get(bucket, key)
     reference_video_url = None
 
-    # 절대 차원(라인/균형/안정성)은 기준 영상 없이 항상 산출 (IPSF 실행 기준).
-    abs_dims = dimensions.absolute_dimension_scores(angles)
+    # 기술 인식(swappable) → 절대 차원(라인/안정성)은 기준 영상 없이 항상 산출.
+    profile = _RECOGNIZER.recognize(angles)
+    abs_dims = dimensions.absolute_dimension_scores(angles, profile)
 
     if mode == models.MODE_EXPERT:
         ref = firestore_admin.get_reference_motion(meta.get("referenceMotionId"))
@@ -265,7 +274,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     else:  # MODE_SELF — 자기 성장. 절대 차원 + (이전 분석 있으면) 발전 델타.
         prev = firestore_admin.get_previous_analysis(uid, analysis_id)
         assessments, dimension_scores, overall, comparison = _mode3_comparison(
-            angles, prev
+            angles, prev, profile
         )
 
     coach_details = _COACH_WRITER.write(

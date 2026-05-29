@@ -84,23 +84,23 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCORE-01 | TBD | Pending |
-| SCORE-02 | TBD | Pending |
-| SCORE-03 | TBD | Pending |
-| SCORE-04 | TBD | Pending |
-| FEED-01 | TBD | Pending |
-| FEED-02 | TBD | Pending |
-| FEED-03 | TBD | Pending |
-| MODE-01 | TBD | Pending |
-| MODE-02 | TBD | Pending |
-| REF-01 | TBD | Pending |
-| DELIV-01 | TBD | Pending |
+| SCORE-01 | Phase 1 | Pending |
+| SCORE-03 | Phase 2 | Pending |
+| SCORE-02 | Phase 3 | Pending |
+| FEED-01 | Phase 4 | Pending |
+| FEED-02 | Phase 5 | Pending |
+| FEED-03 | Phase 6 | Pending |
+| REF-01 | Phase 7 | Pending |
+| MODE-01 | Phase 8 | Pending |
+| MODE-02 | Phase 9 | Pending |
+| SCORE-04 | Phase 10 | Pending |
+| DELIV-01 | Phase 11 | Pending |
 
 **Coverage:**
 - v1 requirements: 11 total
-- Mapped to phases: 0 (로드맵 생성 시 매핑)
-- Unmapped: 11 ⚠️
+- Mapped to phases: 11 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-29*
-*Last updated: 2026-05-29 after field-research integration (수강생/강사 설문조사)*
+*Last updated: 2026-05-29 after roadmap creation (11 phases, 11/11 매핑)*

@@ -218,20 +218,17 @@ def _score_from_angles(angles: np.ndarray, kp_array: np.ndarray) -> dict:
     # 기술 프로파일 (FallbackRecognizer — 폴 동작 일반)
     profile = technique.FallbackRecognizer().recognize(angles)
 
-    # 차원별 점수 계산
+    # 차원별 점수 계산 — 운영 pipeline (functions/pipeline/app.py:185) 과 동일 시그니처.
+    # absolute_dimension_scores(angles, profile) 는 angles 와 profile 두 인자만 받는다.
     try:
-        dim_scores = dimensions.absolute_dimension_scores(
-            angles=angles,
-            uncertainty=kp_array[:, :, 3],
-            profile=profile,
-        )
+        dim_scores = dimensions.absolute_dimension_scores(angles, profile)
     except Exception:
         log.exception("차원 점수 계산 실패 — 빈 scores 반환")
         dim_scores = {}
 
-    # 종합 점수 계산 (100점 만점)
+    # 종합 점수 계산 (100점 만점) — 함수명은 overall_from_dimensions.
     try:
-        overall = dimensions.overall_score(dim_scores)
+        overall = dimensions.overall_from_dimensions(dim_scores)
     except Exception:
         log.exception("종합 점수 계산 실패 — 0.0 반환")
         overall = 0.0

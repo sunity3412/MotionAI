@@ -1,5 +1,14 @@
 """MediaPipe 2D + MotionBERT 3D lift 스파이크 하네스.
 
+DEPRECATED (Plan 01-08):
+  이 파일은 Plan 01-07 spike 원본입니다. Plan 01-08에서 production 엔진으로 승격되었습니다.
+  5영상 회귀 검증은 compare_engines.py --engine nlf-vs-mediapipe-lifter 로 실행하세요:
+    python3 -m backend.research.evaluations.compare_engines \\
+      --engine nlf-vs-mediapipe-lifter \\
+      --motions ref-climb ref-foxtop-split ref-foxtop ref-invert ref-sideway-spin \\
+      --out backend/research/evaluations/reports/compare_lifter_$(date +%Y%m%d_%H%M).json
+  이 파일은 Plan 09+ 에서 backend/research/spikes/ 디렉터리 정리 시 삭제됩니다.
+
 Plan 01-07: ref-foxtop-split 1개 영상으로 MP+MotionBERT stability/line 점수를
 NLF baseline 대비 측정한다.
 

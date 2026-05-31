@@ -125,6 +125,62 @@ PipelineFunction:
 | `FIREBASE_SA_PATH` | 둘 중 하나 | 파일 경로 (`/workspace/firebase-sa.json`) |
 | `CUDA_VISIBLE_DEVICES` | ✅ | `0` 으로 덮음 (`runpod-gpu-env` 메모 참조) |
 | `NLF_MODEL_PATH` | ⚪ | 기본 `backend/scripts/nlf_l_multi.torchscript` (setup.sh 가 받음) |
+| `MOTIONBERT_ROOT` | ⚪ | MotionBERT 저장소 클론 경로. 기본 `/workspace/MotionBERT`. setup.sh 가 클론. |
+| `MOTIONBERT_WEIGHTS` | ⚪ | best_epoch.bin 경로. 기본 `$MOTIONBERT_ROOT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin`. **scp 로 수동 배치 필요** (아래 참조). |
+
+### MotionBERT 가중치 scp 절차
+
+가중치 파일은 용량이 크므로 git 미포함. 로컬 → Pod 로 scp 로 전송한다.
+
+```bash
+# 1) MotionBERT 가중치 다운로드 (로컬 PC):
+#    https://github.com/Walter0807/MotionBERT#model-zoo
+#    파일: MB_ft_h36m_global_lite/best_epoch.bin
+
+# 2) Pod IP 확인 (RunPod 콘솔 → Pod → "Connect" → SSH 섹션)
+
+# 3) Pod 로 전송:
+scp best_epoch.bin root@<pod-ip>:/workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin
+
+# 4) 전송 확인 (Pod 터미널에서):
+ls -lh /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin
+```
+
+### MediaPipe 모델 위치
+
+setup.sh 가 자동 다운로드:
+
+```
+backend/models/pose_landmarker_heavy.task
+```
+
+환경변수 `MEDIAPIPE_POSE_MODEL_PATH` 로 경로 오버라이드 가능.
+
+## sanity check — MotionBERT + MediaPipe (Plan 01-08 regression용)
+
+```bash
+# Pod 터미널에서:
+cd /workspace/SunityMotion/backend
+
+# MotionBERT 저장소 구조 확인
+ls /workspace/MotionBERT/lib/model/DSTformer.py
+
+# 가중치 존재 확인
+ls -lh /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin
+
+# MediaPipe 모델 확인
+ls -lh models/pose_landmarker_heavy.task
+
+# compare_engines.py 로 회귀 테스트 (nlf-vs-mediapipe-lifter):
+python3 research/evaluations/compare_engines.py \
+  --videos <video1.mp4> <video2.mp4> <video3.mp4> <video4.mp4> <video5.mp4> \
+  --engine mediapipe-vs-mediapipe-lifter
+
+# nlf 대비 전체 비교:
+python3 research/evaluations/compare_engines.py \
+  --videos <video1.mp4> ... \
+  --engine nlf-vs-mediapipe-lifter
+```
 
 ## 운영 메모
 

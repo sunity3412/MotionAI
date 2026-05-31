@@ -153,7 +153,7 @@ def _run_mediapipe(frames: np.ndarray, pole_axis: object) -> tuple[list, dict]:
     lazy import: mediapipe는 RunPod x86_64에서만 가용 (Pitfall 1).
     score_payload: {'overall': float, 'dimensions': dict, 'top3': list, 'avg_conf': float}
     """
-    from sunity_shared.analysis.features import compute_joint_angles
+    from sunity_shared.analysis.features import compute_joint_angles, joint_uncertainty
     from sunity_shared.analysis.pose_engines.mediapipe_engine import MediaPipePoseEngine
     from sunity_shared.analysis.pose_frame import to_coco17_array
     from sunity_shared.analysis.temporal import temporal_fill
@@ -164,7 +164,8 @@ def _run_mediapipe(frames: np.ndarray, pole_axis: object) -> tuple[list, dict]:
     # COCO-17 배열 변환 (T,17,4) — 기존 downstream 인터페이스
     kp_array = to_coco17_array(pose_frames)
     angles = compute_joint_angles(kp_array)
-    filled_angles = temporal_fill(angles, uncertainty=kp_array[:, :, 3])
+    # uncertainty 는 (T,J) joint-angle-level. 운영 pipeline 과 동일하게 joint_uncertainty 사용.
+    filled_angles = temporal_fill(angles, uncertainty=joint_uncertainty(kp_array))
 
     # dimensions 점수 계산
     score_payload = _score_from_angles(filled_angles, kp_array)
@@ -188,7 +189,7 @@ def _run_nlf(frames: np.ndarray, pole_axis: object) -> tuple[np.ndarray, dict]:
     GPU 필요: NLF는 CUDA 필수 (CPU에서 NaN 발산). RunPod Pod에서만 실행.
     """
     # Wave 2 시점 옛 위치 import (H-1 박제 — atomic swap 직전)
-    from sunity_shared.analysis.features import compute_joint_angles
+    from sunity_shared.analysis.features import compute_joint_angles, joint_uncertainty
     from sunity_shared.analysis.pose_estimator import NlfPoseEstimator  # noqa: PLC0415 — Wave 2 옛 위치
     from sunity_shared.analysis.temporal import temporal_fill
 
@@ -196,7 +197,8 @@ def _run_nlf(frames: np.ndarray, pole_axis: object) -> tuple[np.ndarray, dict]:
     kp_array = estimator.estimate(frames)  # (T,17,4) = COCO-17 · (x,y,z,uncertainty)
 
     angles = compute_joint_angles(kp_array)
-    filled_angles = temporal_fill(angles, uncertainty=kp_array[:, :, 3])
+    # 운영 pipeline (functions/pipeline/app.py) 과 동일: joint_uncertainty(kp_array) 는 (T,J).
+    filled_angles = temporal_fill(angles, uncertainty=joint_uncertainty(kp_array))
 
     score_payload = _score_from_angles(filled_angles, kp_array)
     score_payload["avg_conf"] = float("nan")  # NLF: confidence 개념 없음

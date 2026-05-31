@@ -188,3 +188,48 @@ mediapipe_to_h36m17.py 단위 테스트는 mediapipe 없이 로컬 실행 가능
 
 커밋 존재 확인:
 - `ce2fbbc` feat(01-07): MotionBERT spike harness + MP33→H36M17 adapter + 38 tests FOUND
+
+---
+
+## belle Pod 실행 결과 — STRONG_PASS (2026-05-31)
+
+**보고서**: `backend/research/spikes/reports/spike_motionbert_20260531_1330.md`
+
+### 결과 (ref-foxtop-split)
+
+| 항목 | MP+MotionBERT | NLF baseline | 갭 |
+|---|---|---|---|
+| overall | **84.0** | 62.0 | +22.0 |
+| stability | **84.0** | 53.0 | +31.0 |
+| line | N/A | 72.0 | N/A |
+| angle | N/A | N/A | N/A |
+| ms/frame | **86.8** | 243.8 | 1/3 |
+| avg_mp_conf | 0.7088 | — | — |
+
+### 판정: STRONG_PASS
+
+- stability ≥ 55 기준 압도 (84)
+- overall ≥ 60 기준 압도 (84)
+- 추론 속도 NLF 의 1/3
+
+### belle 결정: "approved, proceed to Plan 08"
+
+Plan 08 (5영상 회귀 + 본 통합) 진입 승인.
+
+### Plan 08 에서 검증해야 할 잔존 question
+
+1. **stability over-smoothing 의심** — MotionBERT 시간축 transformer 가 motion variance 자체를 깎고 있을 가능성. 5영상 분산이 NLF 와 상관 있게 차등하면 진짜 quality 좋음, 모두 일정하면 over-smoothing.
+2. **line 차원 회수율** — MP+MotionBERT 에서 line N/A. FallbackRecognizer 가 MotionBERT angles 로 같은 technique profile 인식 못하는 이슈. 5영상에서 line trigger 빈도 측정 + 필요시 profile recognizer tune.
+3. **angle 차원** — self-mode 첫 분석에서는 정의상 N/A. Mode1 (vs 정은지 reference) 에서 kismam 으로 산출. 본 plan 범위 밖.
+
+### Pod 환경 잔존물 (Plan 08 에서 재사용)
+
+- `/workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin` 업로드 완료
+- MotionBERT clone + einops/timm 설치
+- MP→H36M17 어댑터 (`backend/research/spikes/mediapipe_to_h36m17.py`) — production 으로 승격할 때 재사용
+
+### Wave 2 spike 중 발견한 코드 버그 (fix 완료)
+
+| 커밋 | 내용 |
+|---|---|
+| `c164700` | `norm_layer=None` 명시 제거 — DSTformer 기본값 nn.LayerNorm 사용 (Block.__init__ TypeError) |

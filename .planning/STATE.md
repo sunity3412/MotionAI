@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 1 context gathered (4 areas: MediaPipe variant, NLF R&D 격리, 폴 축 검출, 회귀 검증 — 16 decisions)"
-last_updated: "2026-05-31T10:12:58.785Z"
-last_activity: 2026-05-31 -- Phase 01 execution started
+status: paused
+stopped_at: "Plan 08 belle 5영상 검증 4/5 PASS — Path B (AlphaPose 측면 보강) 확정. Plan 09 stub 작성됨. RunPod Pod Terminate 후 내일 setup.sh 재실행 → Plan 09 spike 진입."
+last_updated: "2026-05-31T15:00:00.000Z"
+last_activity: 2026-05-31 -- Plan 08 belle 검증 완료, Path B 결정 (AlphaPose)
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 6
-  completed_plans: 0
-  percent: 0
+  total_plans: 9
+  completed_plans: 6
+  percent: 67
 ---
 
 # Project State
@@ -21,16 +21,62 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — poseengine-mediapipe-nlf-r-d
+**Current focus:** Phase 01 — Wave 2 belle 검증 진행 중. Plan 06/07/08 통과, Plan 09 (AlphaPose spike) 진입 대기.
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 01
-Last activity: 2026-05-31 -- Phase 01 execution started
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — PAUSED at Plan 09 진입 직전
+Plan: 6/9 complete (01, 02, 03, 06, 07, 08 done)
+Status: Paused — belle 내일 재진입
+Last activity: 2026-05-31 -- Plan 08 belle 검증 완료, B 결정
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████░░░░] 67%
+
+## ▶ 내일 재개 — Plan 09 진입 절차
+
+1. **RunPod 새 Pod 생성** (PyTorch 2.4+, RTX 4090 / 3090 / RTX 5000 Ada, 16GB+ VRAM)
+2. **환경 복원** (Pod SSH):
+   ```bash
+   cd /workspace
+   git clone https://github.com/sunity3412/MotionAI.git SunityMotion
+   cd SunityMotion/backend
+   bash runpod_inference/setup.sh
+   ```
+3. **MotionBERT 가중치 scp** (Plan 08 와 동일):
+   ```bash
+   # belle 로컬에서
+   scp -P <port> -i ~/.ssh/id_ed25519 -r \
+     ~/Downloads/FT_MB_lite_MB_ft_h36m_global_lite \
+     root@<pod-ip>:/workspace/MotionBERT/checkpoint/pose3d/
+   ```
+4. **AWS 키 export + PYTHONPATH** (Plan 08 README 참조)
+5. **Plan 09 진입**:
+   ```bash
+   # 로컬에서 (이 디렉토리에서)
+   /gsd-execute-phase 1
+   ```
+   → Plan 09 만 incomplete 로 잡혀서 자동 실행. spike code → belle Pod 에서 ref-sideway-spin 실행 → 결과 보고
+
+## Plan 08 5영상 검증 결과 (재인용)
+
+| 모션 | MP+lifter | NLF | D-15① ≥70 |
+|---|---|---|---|
+| ref-climb | 85 | 58 | PASS |
+| ref-foxtop-split | 75 | 62 | PASS |
+| ref-foxtop | 90 | 64 | PASS |
+| ref-invert | 92 | 65 | PASS |
+| **ref-sideway-spin** | **64** | 81 | **FAIL** |
+
+평균 81.2 (Plan 06 단독 MP: 22.8 → **3.5배 회복**). D-15① 4/5 PASS.
+
+**Path B 결정**: AlphaPose 2D 어댑터로 측면 자세 보강 → ref-sideway-spin ≥ 70 회복 spike (Plan 09) → 통과 시 5영상 sweep + 게이트 룰 재정의 + Wave 3 진입 (Plan 10).
+
+## Performance Metrics
+
+**Velocity:**
+
+- Total plans completed: 6 (01-01, 01-02, 01-03, 01-06, 01-07, 01-08)
+- Average duration: ~30 min/plan (executor) + belle Pod 실행 별도
 
 ## Performance Metrics
 

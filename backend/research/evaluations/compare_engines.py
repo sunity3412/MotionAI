@@ -20,12 +20,18 @@ A9 threshold 박제:
   Plan 06 Task 2 회귀 결과 후 belle가 5영상 avg_confidence 분포 확인해 확정.
   확정값 반영 위치: 본 파일 AVG_CONFIDENCE_THRESHOLD + plan.md 갱신.
 
+Plan 01-08 추가 — --engine 옵션:
+  nlf-vs-mediapipe         (기본, 기존 호환)
+  nlf-vs-mediapipe-lifter  MP+MotionBERT vs NLF 비교 (Wave 3 진입 판정용)
+  mediapipe-vs-mediapipe-lifter  순수 lifter 효과 비교
+
 실행 경로 (L-2 박제): /workspace/SunityMotion
   cd /workspace/SunityMotion
   python -m backend.research.evaluations.compare_engines \\
     --motions ref-ballerina-spin ref-front-hook-spin ref-plank-spin \\
               ref-invert-butterfly-combo ref-gemini-to-ayesha-combo \\
-    --out backend/research/evaluations/reports/compare_$(date +%Y%m%d).json
+    --out backend/research/evaluations/reports/compare_$(date +%Y%m%d).json \\
+    --engine nlf-vs-mediapipe-lifter
 
 출력: JSON 보고서 + Markdown 보고서 (--out 경로와 같은 이름, .md 확장자).
 """
@@ -41,6 +47,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
+
+# --engine 옵션 허용 값 (Plan 01-08 T-4)
+EngineMode = Literal[
+    "nlf-vs-mediapipe",           # 기본: 기존 호환
+    "nlf-vs-mediapipe-lifter",    # MP+MotionBERT vs NLF (Wave 3 진입 판정용)
+    "mediapipe-vs-mediapipe-lifter",  # lifter 효과 단독 비교
+]
+_ENGINE_MODE_CHOICES = ("nlf-vs-mediapipe", "nlf-vs-mediapipe-lifter", "mediapipe-vs-mediapipe-lifter")
 
 import numpy as np
 
@@ -206,6 +220,40 @@ def _run_nlf(frames: np.ndarray, pole_axis: object) -> tuple[np.ndarray, dict]:
     return kp_array, score_payload
 
 
+def _run_mediapipe_lifter(frames: np.ndarray, pole_axis: object) -> tuple[list, dict]:
+    """MediaPipeWithLifterEngine 으로 분석 수행 → (pose_frames, score_payload).
+
+    Plan 01-08 T-4-2: _run_mediapipe 패턴과 동일한 다운스트림 체인 사용.
+
+    MediaPipeWithLifterEngine 은 MP 2D xy + MotionBERT z 를 합성 → COCO-17 PoseFrame.
+    lazy import: mediapipe + torch 는 RunPod Pod 에서만 가용.
+
+    score_payload: {'overall': float, 'dimensions': dict, 'top3': list, 'avg_conf': float}
+    """
+    from sunity_shared.analysis.features import compute_joint_angles, joint_uncertainty
+    from sunity_shared.analysis.pose_engines.mediapipe_lifter_engine import (  # noqa: PLC0415
+        MediaPipeWithLifterEngine,
+    )
+    from sunity_shared.analysis.pose_frame import to_coco17_array
+    from sunity_shared.analysis.temporal import temporal_fill
+
+    engine = MediaPipeWithLifterEngine()
+    pose_frames = engine.estimate(frames, pole_axis)
+
+    # COCO-17 배열 변환 (T,17,4) — 기존 downstream 인터페이스
+    kp_array = to_coco17_array(pose_frames)
+    angles = compute_joint_angles(kp_array)
+    filled_angles = temporal_fill(angles, uncertainty=joint_uncertainty(kp_array))
+
+    score_payload = _score_from_angles(filled_angles, kp_array)
+
+    # avg_confidence (D-15 ③) — lifter confidence (1 - uncertainty_proxy 평균)
+    avg_conf = _extract_avg_confidence(pose_frames)
+    score_payload["avg_conf"] = avg_conf
+
+    return pose_frames, score_payload
+
+
 def _score_from_angles(angles: np.ndarray, kp_array: np.ndarray) -> dict:
     """관절각 배열 → 종합 점수 + 차원 점수 payload.
 
@@ -247,7 +295,7 @@ def _score_from_angles(angles: np.ndarray, kp_array: np.ndarray) -> dict:
 
 
 def run_engine(
-    engine_name: Literal["mediapipe", "nlf"],
+    engine_name: Literal["mediapipe", "nlf", "mediapipe-lifter"],
     video_s3_key: str,
     bucket: str,
 ) -> EngineResult:
@@ -256,8 +304,12 @@ def run_engine(
     T-1-03 박제: tempfile 사용 — 임시 다운로드 영상은 자동 cleanup.
     임시 파일 경로 이외에 영상 내용을 보관하지 않음.
 
+    Plan 01-08 T-4: 'mediapipe-lifter' 엔진 추가
+      MediaPipeWithLifterEngine (MP 2D + MotionBERT z) 로 추론.
+      기존 'mediapipe' | 'nlf' 호환 유지.
+
     Args:
-        engine_name: 'mediapipe' 또는 'nlf'.
+        engine_name: 'mediapipe' | 'nlf' | 'mediapipe-lifter'.
         video_s3_key: S3 내부 키 (예: "reference/ref-ballerina-spin.mp4").
         bucket: S3 버킷 이름.
 
@@ -266,11 +318,12 @@ def run_engine(
                        avg_keypoint_confidence, ms_per_frame.
 
     Raises:
-        ValueError: engine_name이 'mediapipe' | 'nlf' 아닐 때.
+        ValueError: engine_name이 유효하지 않을 때.
         NoHumanError: 영상에서 사람을 못 찾을 때.
     """
-    if engine_name not in ("mediapipe", "nlf"):
-        raise ValueError(f"engine_name must be 'mediapipe' or 'nlf', got {engine_name!r}")
+    _valid = ("mediapipe", "nlf", "mediapipe-lifter")
+    if engine_name not in _valid:
+        raise ValueError(f"engine_name must be one of {_valid}, got {engine_name!r}")
 
     log.info("run_engine engine=%s key=%s bucket=%s", engine_name, video_s3_key, bucket)
 
@@ -292,6 +345,8 @@ def run_engine(
 
         if engine_name == "mediapipe":
             _, score_payload = _run_mediapipe(frames, pole_axis)
+        elif engine_name == "mediapipe-lifter":
+            _, score_payload = _run_mediapipe_lifter(frames, pole_axis)
         else:
             _, score_payload = _run_nlf(frames, pole_axis)
 
@@ -317,31 +372,50 @@ def run_engine(
 def compare_engines(
     motion_ids: list[str],
     bucket: str = "sunity-motion-pilot-videos",
+    engine_mode: str = "nlf-vs-mediapipe",
 ) -> dict:
     """motion_ids 목록에 대해 두 엔진을 비교하고 보고서 payload를 반환.
 
     D-13: 정은지 영상 5개 기본. D-14/D-15 게이트 4개 박제.
     summary.phase1_ready_to_swap이 True여야 Wave 3 진행 가능 (D-08/D-16/H-1).
 
+    Plan 01-08 T-4: engine_mode 추가.
+      'nlf-vs-mediapipe'          — 기존 호환 (기본값)
+      'nlf-vs-mediapipe-lifter'   — MP+MotionBERT vs NLF (Wave 3 판정용)
+      'mediapipe-vs-mediapipe-lifter' — lifter 효과 단독 비교
+
+    엔진 이름 매핑:
+      'nlf-vs-mediapipe':               engine_a='nlf', engine_b='mediapipe'
+      'nlf-vs-mediapipe-lifter':        engine_a='nlf', engine_b='mediapipe-lifter'
+      'mediapipe-vs-mediapipe-lifter':  engine_a='mediapipe', engine_b='mediapipe-lifter'
+
+    보고서 키 명명:
+      engine_a 결과 → 'engine_a', engine_b 결과 → 'engine_b'.
+      기존 'nlf-vs-mediapipe' 모드에서는 backward compat 을 위해
+      'nlf' / 'mediapipe' 키를 추가로 포함.
+
     Args:
         motion_ids: 비교할 motion_id 목록.
         bucket: S3 버킷 이름.
+        engine_mode: 비교 모드 ('nlf-vs-mediapipe' | 'nlf-vs-mediapipe-lifter' | 'mediapipe-vs-mediapipe-lifter').
 
     Returns:
         {
+          "engine_mode": str,
           "criteria": {...},           # 검증 기준값 (D-14, D-15)
           "generated_at": str,         # ISO 8601 UTC
           "motions": {                 # motion별 결과
             "<motion_id>": {
-              "mediapipe": {...},
-              "nlf": {...},
+              "engine_a": {...},        # engine_a 결과
+              "engine_b": {...},        # engine_b 결과
+              # 기존 호환 (nlf-vs-mediapipe 모드 전용): "nlf", "mediapipe" 키 추가
               "gates": {
                 "score_gap": float,
                 "within_tolerance_5pt": bool,       # D-14
-                "mediapipe_score_ge_70": bool,       # D-15 ①
+                "mediapipe_score_ge_70": bool,       # D-15 ① (engine_b 기준)
                 "top3_overlap_2_of_3": bool,         # D-15 ②
-                "avg_confidence_ok": bool,           # D-15 ③
-                "mediapipe_ms_per_frame": float,     # D-15 ④
+                "avg_confidence_ok": bool,           # D-15 ③ (engine_b 기준)
+                "mediapipe_ms_per_frame": float,     # D-15 ④ (engine_b ms)
               }
             }
           },
@@ -354,87 +428,109 @@ def compare_engines(
           }
         }
     """
+    if engine_mode not in _ENGINE_MODE_CHOICES:
+        raise ValueError(
+            f"engine_mode must be one of {_ENGINE_MODE_CHOICES}, got {engine_mode!r}"
+        )
+
+    # 모드 → 엔진 이름 매핑
+    _mode_to_engines = {
+        "nlf-vs-mediapipe": ("nlf", "mediapipe"),
+        "nlf-vs-mediapipe-lifter": ("nlf", "mediapipe-lifter"),
+        "mediapipe-vs-mediapipe-lifter": ("mediapipe", "mediapipe-lifter"),
+    }
+    engine_a_name, engine_b_name = _mode_to_engines[engine_mode]
+    log.info(
+        "compare_engines mode=%s engine_a=%s engine_b=%s motions=%s",
+        engine_mode, engine_a_name, engine_b_name, motion_ids,
+    )
+
     results: dict = {}
 
     for motion_id in motion_ids:
         log.info("--- compare_engines: motion_id=%s ---", motion_id)
         s3_key = f"{_REFERENCE_VIDEO_PREFIX}/{motion_id}.mp4"
 
-        try:
-            mp_result = run_engine("mediapipe", s3_key, bucket)
-        except Exception:
-            log.exception("mediapipe 실패 motion_id=%s", motion_id)
-            mp_result = EngineResult(
-                overall_score=float("nan"),
-                dimension_scores={},
-                top3_failures=[],
-                avg_keypoint_confidence=float("nan"),
-                ms_per_frame=float("nan"),
-            )
+        _empty = EngineResult(
+            overall_score=float("nan"),
+            dimension_scores={},
+            top3_failures=[],
+            avg_keypoint_confidence=float("nan"),
+            ms_per_frame=float("nan"),
+        )
 
         try:
-            nlf_result = run_engine("nlf", s3_key, bucket)
+            a_result = run_engine(engine_a_name, s3_key, bucket)
         except Exception:
-            log.exception("nlf 실패 motion_id=%s", motion_id)
-            nlf_result = EngineResult(
-                overall_score=float("nan"),
-                dimension_scores={},
-                top3_failures=[],
-                avg_keypoint_confidence=float("nan"),
-                ms_per_frame=float("nan"),
-            )
+            log.exception("engine_a=%s 실패 motion_id=%s", engine_a_name, motion_id)
+            a_result = _empty
+
+        try:
+            b_result = run_engine(engine_b_name, s3_key, bucket)
+        except Exception:
+            log.exception("engine_b=%s 실패 motion_id=%s", engine_b_name, motion_id)
+            b_result = _empty
 
         # D-14: 점수 갭
-        score_gap = abs(mp_result.overall_score - nlf_result.overall_score)
+        score_gap = abs(a_result.overall_score - b_result.overall_score)
         within_tolerance = (
             score_gap <= SCORE_GAP_TOLERANCE_PT
             and not np.isnan(score_gap)
         )
 
-        # D-15 ①: 위양성 없음 — 정은지 영상은 ≥70점
-        mp_ge_70 = (
-            not np.isnan(mp_result.overall_score)
-            and mp_result.overall_score >= MEDIAPIPE_MIN_SCORE_FOR_EXPERT
+        # D-15 ①: 위양성 없음 — engine_b (MP 혹은 MP+lifter)가 ≥70점
+        b_ge_70 = (
+            not np.isnan(b_result.overall_score)
+            and b_result.overall_score >= MEDIAPIPE_MIN_SCORE_FOR_EXPERT
         )
 
         # D-15 ②: Top-3 실패 원인 ≥2/3 겹침
         overlap_count = len(
-            set(mp_result.top3_failures) & set(nlf_result.top3_failures)
+            set(a_result.top3_failures) & set(b_result.top3_failures)
         )
         top3_overlap = overlap_count >= 2
 
-        # D-15 ③: confidence 임계값
+        # D-15 ③: confidence 임계값 (engine_b 기준)
         avg_conf_ok = (
-            not np.isnan(mp_result.avg_keypoint_confidence)
-            and mp_result.avg_keypoint_confidence >= AVG_CONFIDENCE_THRESHOLD
+            not np.isnan(b_result.avg_keypoint_confidence)
+            and b_result.avg_keypoint_confidence >= AVG_CONFIDENCE_THRESHOLD
         )
 
-        results[motion_id] = {
-            "mediapipe": {
-                "overall_score": _safe_float(mp_result.overall_score),
-                "dimension_scores": mp_result.dimension_scores,
-                "top3_failures": mp_result.top3_failures,
-                "avg_keypoint_confidence": _safe_float(mp_result.avg_keypoint_confidence),
-                "ms_per_frame": _safe_float(mp_result.ms_per_frame),
+        motion_data: dict = {
+            "engine_a": {
+                "name": engine_a_name,
+                "overall_score": _safe_float(a_result.overall_score),
+                "dimension_scores": a_result.dimension_scores,
+                "top3_failures": a_result.top3_failures,
+                "avg_keypoint_confidence": _safe_float(a_result.avg_keypoint_confidence),
+                "ms_per_frame": _safe_float(a_result.ms_per_frame),
             },
-            "nlf": {
-                "overall_score": _safe_float(nlf_result.overall_score),
-                "dimension_scores": nlf_result.dimension_scores,
-                "top3_failures": nlf_result.top3_failures,
-                "avg_keypoint_confidence": _safe_float(nlf_result.avg_keypoint_confidence),
-                "ms_per_frame": _safe_float(nlf_result.ms_per_frame),
+            "engine_b": {
+                "name": engine_b_name,
+                "overall_score": _safe_float(b_result.overall_score),
+                "dimension_scores": b_result.dimension_scores,
+                "top3_failures": b_result.top3_failures,
+                "avg_keypoint_confidence": _safe_float(b_result.avg_keypoint_confidence),
+                "ms_per_frame": _safe_float(b_result.ms_per_frame),
             },
             "gates": {
                 "score_gap": _safe_float(score_gap),
                 "within_tolerance_5pt": within_tolerance,       # D-14
-                "mediapipe_score_ge_70": mp_ge_70,              # D-15 ①
+                "mediapipe_score_ge_70": b_ge_70,               # D-15 ① (engine_b 기준)
                 "top3_overlap_2_of_3": top3_overlap,            # D-15 ②
                 "avg_confidence_ok": avg_conf_ok,               # D-15 ③
                 "mediapipe_ms_per_frame": _safe_float(          # D-15 ④
-                    mp_result.ms_per_frame
+                    b_result.ms_per_frame
                 ),
             },
         }
+
+        # backward compat: nlf-vs-mediapipe 모드에서 기존 'nlf'/'mediapipe' 키 제공
+        if engine_mode == "nlf-vs-mediapipe":
+            motion_data["nlf"] = motion_data["engine_a"]
+            motion_data["mediapipe"] = motion_data["engine_b"]
+
+        results[motion_id] = motion_data
 
     # 전체 summary
     all_within_tolerance = all(
@@ -459,6 +555,7 @@ def compare_engines(
     )
 
     return {
+        "engine_mode": engine_mode,
         "criteria": {
             "score_gap_tolerance_pt": SCORE_GAP_TOLERANCE_PT,
             "mediapipe_min_score_for_expert": MEDIAPIPE_MIN_SCORE_FOR_EXPERT,
@@ -496,17 +593,32 @@ def generate_markdown_report(payload: dict) -> str:
     """compare_engines 결과 payload → Markdown 보고서 문자열.
 
     포맷 (D-13~D-16 + H-1 박제):
-      헤더 + 생성시각 + 검증 기준 박스
-      → motion별 표 (MP score / NLF score / gap / top3 / avg_conf / ms / 게이트)
+      헤더 + 생성시각 + 엔진 모드 + 검증 기준 박스
+      → motion별 표 (engine_a / engine_b 점수 / gap / top3 / avg_conf / ms / 게이트)
       → 요약 표 (4개 게이트 PASS/FAIL)
       → 최종 결정 박스 (phase1_ready_to_swap)
+
+    Plan 01-08 T-4: engine_mode 에 따라 헤더 + 열 이름 변경.
+    backward compat: nlf-vs-mediapipe 모드에서 'MediaPipe vs NLF' 제목 유지.
     """
     lines: list[str] = []
 
+    engine_mode = payload.get("engine_mode", "nlf-vs-mediapipe")
+
+    # 엔진 이름 레이블 (헤더용)
+    _mode_labels = {
+        "nlf-vs-mediapipe": ("NLF", "MediaPipe"),
+        "nlf-vs-mediapipe-lifter": ("NLF", "MP+MotionBERT"),
+        "mediapipe-vs-mediapipe-lifter": ("MediaPipe", "MP+MotionBERT"),
+    }
+    label_a, label_b = _mode_labels.get(engine_mode, ("Engine A", "Engine B"))
+
     lines.append(
-        "# Phase 1 회귀 검증 보고서 — MediaPipe vs NLF (Wave 2, atomic swap 직전 게이트)"
+        f"# Phase 1 회귀 검증 보고서 — {label_b} vs {label_a} "
+        f"(Wave 2, atomic swap 직전 게이트)"
     )
     lines.append("")
+    lines.append(f"엔진 모드: `{engine_mode}`")
     lines.append(f"생성: {payload.get('generated_at', 'N/A')}")
     lines.append("")
 
@@ -515,7 +627,8 @@ def generate_markdown_report(payload: dict) -> str:
     lines.append("")
     lines.append(f"- 점수 갭 허용: ±{criteria.get('score_gap_tolerance_pt', 5.0):.0f}점 이내 (D-14)")
     lines.append(
-        f"- 정은지 영상 최소 점수: {criteria.get('mediapipe_min_score_for_expert', 70.0):.0f}점 (D-15 ① — SCORE-04)"
+        f"- 정은지 영상 최소 점수 ({label_b}): "
+        f"{criteria.get('mediapipe_min_score_for_expert', 70.0):.0f}점 (D-15 ① — SCORE-04)"
     )
     lines.append(
         f"- 평균 confidence 임계값: {criteria.get('avg_confidence_threshold', 0.5):.2f}"
@@ -529,8 +642,8 @@ def generate_markdown_report(payload: dict) -> str:
     lines.append("## motion별 결과")
     lines.append("")
     lines.append(
-        "| motion_id | MP 점수 | NLF 점수 | 갭 | within_tolerance | ge_70 "
-        "| top3_overlap | avg_conf | ms/frame | 판정 |"
+        f"| motion_id | {label_b} 점수 | {label_a} 점수 | 갭 | within_tolerance | ge_70 "
+        f"| top3_overlap | avg_conf | ms/frame | 판정 |"
     )
     lines.append(
         "|-----------|---------|---------|-----|-----------------|------|"
@@ -538,16 +651,17 @@ def generate_markdown_report(payload: dict) -> str:
     )
 
     for motion_id, data in motions.items():
-        mp = data.get("mediapipe", {})
+        b = data.get("engine_b", data.get("mediapipe", {}))
+        a = data.get("engine_a", data.get("nlf", {}))
         gates = data.get("gates", {})
 
-        mp_score = _fmt_score(mp.get("overall_score"))
-        nlf_score = _fmt_score(data.get("nlf", {}).get("overall_score"))
+        b_score = _fmt_score(b.get("overall_score"))
+        a_score = _fmt_score(a.get("overall_score"))
         gap = _fmt_score(gates.get("score_gap"))
         within = _gate_str(gates.get("within_tolerance_5pt"))
         ge70 = _gate_str(gates.get("mediapipe_score_ge_70"))
         top3 = _gate_str(gates.get("top3_overlap_2_of_3"))
-        avg_conf = _fmt_score(mp.get("avg_keypoint_confidence"))
+        avg_conf = _fmt_score(b.get("avg_keypoint_confidence"))
         ms_fr = _fmt_score(gates.get("mediapipe_ms_per_frame"))
 
         # 모든 게이트 PASS면 PASS
@@ -560,7 +674,7 @@ def generate_markdown_report(payload: dict) -> str:
         verdict = "PASS" if all_gates else "FAIL"
 
         lines.append(
-            f"| {motion_id} | {mp_score} | {nlf_score} | {gap} "
+            f"| {motion_id} | {b_score} | {a_score} | {gap} "
             f"| {within} | {ge70} | {top3} | {avg_conf} | {ms_fr} | {verdict} |"
         )
 
@@ -577,7 +691,7 @@ def generate_markdown_report(payload: dict) -> str:
     )
     lines.append(
         f"| all_mediapipe_ge_70 (D-15 ①) | {_gate_str(summary.get('all_mediapipe_ge_70'))} "
-        f"| 정은지 영상 ≥{criteria.get('mediapipe_min_score_for_expert', 70.0):.0f}점 |"
+        f"| {label_b} 영상 ≥{criteria.get('mediapipe_min_score_for_expert', 70.0):.0f}점 |"
     )
     lines.append(
         f"| all_top3_overlap_ok (D-15 ②) | {_gate_str(summary.get('all_top3_overlap_ok'))} "
@@ -639,15 +753,27 @@ def main() -> None:
 
     사용법 (L-2 박제 — /workspace/SunityMotion):
       cd /workspace/SunityMotion
-      python -m backend.research.evaluations.compare_engines \\
+
+      # 기존 호환 (nlf vs mediapipe):
+      python3 -m backend.research.evaluations.compare_engines \\
         --motions ref-ballerina-spin ref-front-hook-spin ref-plank-spin \\
                   ref-invert-butterfly-combo ref-gemini-to-ayesha-combo \\
-        --out backend/research/evaluations/reports/compare_20260601.json \\
-        --bucket sunity-motion-pilot-videos
+        --out backend/research/evaluations/reports/compare_20260601.json
+
+      # Plan 01-08 Wave 2 게이트 재판정 (nlf vs MP+MotionBERT):
+      python3 -m backend.research.evaluations.compare_engines \\
+        --engine nlf-vs-mediapipe-lifter \\
+        --motions ref-climb ref-foxtop-split ref-foxtop ref-invert ref-sideway-spin \\
+        --out backend/research/evaluations/reports/compare_lifter_20260601.json
+
+      # lifter 효과 단독 비교 (mediapipe vs mediapipe+lifter):
+      python3 -m backend.research.evaluations.compare_engines \\
+        --engine mediapipe-vs-mediapipe-lifter \\
+        --motions ref-foxtop-split
     """
     parser = argparse.ArgumentParser(
         description=(
-            "MediaPipe vs NLF 회귀 검증 (D-13~D-16, H-1 박제). "
+            "엔진 회귀 검증 (D-13~D-16, H-1 박제). "
             "실행 경로: /workspace/SunityMotion (L-2)."
         )
     )
@@ -668,21 +794,40 @@ def main() -> None:
         default="sunity-motion-pilot-videos",
         help="S3 버킷 이름",
     )
+    parser.add_argument(
+        "--engine",
+        choices=list(_ENGINE_MODE_CHOICES),
+        default="nlf-vs-mediapipe",
+        help=(
+            "비교 엔진 모드. "
+            "nlf-vs-mediapipe (기본, 기존 호환) | "
+            "nlf-vs-mediapipe-lifter (Wave 3 판정용) | "
+            "mediapipe-vs-mediapipe-lifter (lifter 효과 단독)"
+        ),
+    )
 
     args = parser.parse_args()
 
     # 출력 경로 결정
     if args.out is None:
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        out_json = Path(__file__).parent / "reports" / f"compare_{ts}.json"
+        engine_tag = args.engine.replace("-vs-", "_vs_")
+        out_json = Path(__file__).parent / "reports" / f"compare_{engine_tag}_{ts}.json"
     else:
         out_json = args.out
     out_md = out_json.with_suffix(".md")
     out_json.parent.mkdir(parents=True, exist_ok=True)
 
-    log.info("compare_engines start motions=%s bucket=%s", args.motions, args.bucket)
+    log.info(
+        "compare_engines start engine=%s motions=%s bucket=%s",
+        args.engine, args.motions, args.bucket,
+    )
 
-    payload = compare_engines(motion_ids=args.motions, bucket=args.bucket)
+    payload = compare_engines(
+        motion_ids=args.motions,
+        bucket=args.bucket,
+        engine_mode=args.engine,
+    )
 
     # JSON 출력
     with open(out_json, "w", encoding="utf-8") as f:
@@ -699,7 +844,8 @@ def main() -> None:
     summary = payload["summary"]
     print(f"\n보고서 위치: {out_json}")
     print(f"Markdown: {out_md}")
-    print(f"\n=== 요약 ===")
+    print(f"엔진 모드: {args.engine}")
+    print("\n=== 요약 ===")
     print(f"  all_within_tolerance (D-14):   {'PASS' if summary['all_within_tolerance'] else 'FAIL'}")
     print(f"  all_mediapipe_ge_70  (D-15 ①): {'PASS' if summary['all_mediapipe_ge_70'] else 'FAIL'}")
     print(f"  all_top3_overlap_ok  (D-15 ②): {'PASS' if summary['all_top3_overlap_ok'] else 'FAIL'}")

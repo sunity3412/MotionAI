@@ -108,12 +108,12 @@ def _download_video(s3_key: str, bucket: str, dest: Path) -> None:
 def _extract_frames(video_path: str) -> np.ndarray:
     """영상 → (T,H,W,3) RGB uint8 numpy 배열.
 
-    lazy import: FrameExtractor는 imageio/ffmpeg 의존 — 모듈 load 시점엔 불필요.
+    lazy import: FfmpegFrameExtractor는 imageio/ffmpeg 의존 — 모듈 load 시점엔 불필요.
     9fps / 640px 다운샘플 (frame_extractor.py 기본값).
     """
-    from sunity_shared.analysis.frame_extractor import FrameExtractor
+    from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
 
-    extractor = FrameExtractor()
+    extractor = FfmpegFrameExtractor()
     frames = extractor.extract(video_path)
     return frames
 

@@ -216,6 +216,122 @@ export interface ReferenceMotion {
   meanAngles?: Record<string, number>; // key -> degrees
 }
 
+// ── Pose Engine 데이터 계약 (Phase 1, D-04/D-05/D-11/D-12) ─────────────────
+//
+// PoseFrame/PoleAxis 는 backend/shared/python/sunity_shared/analysis/pose_frame.py 의
+// dataclass 와 lockstep (CLAUDE.md Cross-cutting). 변경 시 양쪽 + docs/contract.md §6 모두 갱신.
+// M-1: rawVisibility/rawPresence 는 별도 필드 (D-05).
+// H-3: PoseFrame.poleAxis 필수 (D-12).
+// H-4: PoseFrame.reliability 필수 (D-05 저신뢰 게이트).
+
+// M-2 D-11 박제: PoleAxis.confidenceLevel 과 PoseFrame.reliability 둘 다 동일 값 도메인.
+// 의도 분리를 위해 두 alias 로 선언.
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+export type ReliabilityLevel = 'high' | 'medium' | 'low';
+
+// H-3 reviewer 명세: D-09/D-11.
+// 'detected' = Hough 검출 성공, 'vertical_fallback' = 검출 실패 수직 가정.
+export type PoleAxisSource = 'detected' | 'vertical_fallback';
+
+/**
+ * MediaPipe 33 raw world landmark (metric 3D).
+ * M-1 D-05: raw_visibility / raw_presence 별도 필드 (visibility / presence 단축명 없음).
+ */
+export interface Landmark3D {
+  x: number;
+  y: number;
+  z: number;
+  /** MediaPipe API: Landmark.visibility — D-05 */
+  rawVisibility: number;
+  /** MediaPipe API: Landmark.presence — D-05 */
+  rawPresence: number;
+}
+
+/**
+ * COCO-17 keypoint. confidence = rawVisibility x rawPresence (D-05).
+ * uncertaintyProxy = 1 - confidence.
+ */
+export interface Keypoint3D {
+  x: number;
+  y: number;
+  z: number;
+  confidence: number;
+  uncertaintyProxy: number;
+}
+
+/**
+ * 폴 축 정렬된 좌표 (D-12). 신뢰도는 keypoints3D 의 같은 키로 lookup.
+ */
+export interface Keypoint3DAligned {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * image normalized 0~1 (D-03 UI 오버레이용).
+ * image landmark 는 raw_presence 별도 API 미제공 → visibility 한 필드.
+ */
+export interface Keypoint2D {
+  x: number;
+  y: number;
+  visibility: number;
+}
+
+/**
+ * 폴 확장 랜드마크 — toe / heel / grip (D-04).
+ * 가림 발생이 잦아 confidence 게이트 별도 저장.
+ */
+export interface PoleExtensionLandmark {
+  x: number;
+  y: number;
+  z: number;
+  confidence: number;
+}
+
+/**
+ * 폴 축 메타 (H-3 + D-09/D-11/D-12 박제).
+ * axisVector: 3D 단위 벡터.
+ * confidenceLevel: M-2 D-11 enum — 검출 실패 시 'low'.
+ * source: D-09/D-11 — 'detected' | 'vertical_fallback'.
+ * frameIndex: null 이면 video-level (D-10 영상 전체 평균 축 1개).
+ */
+export interface PoleAxis {
+  axisVector: { x: number; y: number; z: number };
+  /** M-2 D-11: 검출 실패 시 'low' */
+  confidenceLevel: ConfidenceLevel;
+  source: PoleAxisSource;
+  /** D-10: null = video-level (모든 frame 공유) */
+  frameIndex?: number | null;
+}
+
+/**
+ * 영상 한 프레임 포즈 계약 (D-04/D-05/D-11/D-12 + H-3/H-4).
+ *
+ * Python lockstep: backend/shared/python/sunity_shared/analysis/pose_frame.py PoseFrame
+ * camelCase ↔ snake_case 1:1 매핑 — 9개 필드:
+ *   frameIndex, timestampMs, rawLandmarks33, keypoints3D, keypoints3DPoleAligned,
+ *   keypoints2D, poleExtensionLandmarks, poleAxis, reliability
+ */
+export interface PoseFrame {
+  frameIndex: number;
+  timestampMs: number;
+  /** D-04 원본 보존 (MediaPipe 33) */
+  rawLandmarks33?: Record<string, Landmark3D>;
+  /** COCO-17 분석용 */
+  keypoints3D: Record<string, Keypoint3D>;
+  /** D-12 폴 축 정렬 좌표 */
+  keypoints3DPoleAligned: Record<string, Keypoint3DAligned>;
+  /** D-03 UI 오버레이용 */
+  keypoints2D?: Record<string, Keypoint2D>;
+  /** D-04 폴 확장 (toe/heel/grip) */
+  poleExtensionLandmarks?: Record<string, PoleExtensionLandmark>;
+  /** H-3 D-12: video-level PoleAxis 메타 (모든 frame 공유) */
+  poleAxis: PoleAxis | null;
+  /** H-4 D-05: frame-level 신뢰 게이트 — 'low' 시 단정형 코멘트 금지 */
+  reliability: ReliabilityLevel;
+}
+
 // ── 표시 매핑 (design.md §5-9 단계별 메시지 / §6 오류) ──────────────────
 export const STATUS_MESSAGE: Record<AnalysisStatus, string> = {
   uploading: '영상을 올리는 중...',

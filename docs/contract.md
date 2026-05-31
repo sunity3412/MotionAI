@@ -120,8 +120,8 @@ clipRange?         ClipRange              구간 시점(초)
 checkpoints?       Checkpoint[]           KISMAM 가중 관절 (weight 합 1.0)
 sharedBaseMotionId? string                공유 베이스 — 베이스 제공 기술 ID
 baseUntilS?        number                 공유 베이스가 끝나는 시점(초)
-angles?            number[][]             (T, 8) 시퀀스 — backend pipeline mode1 비교 입력. extract_reference_angles.py 가 NLF 로 추출, jointKeys 순서는 backend skeleton.JOINT_KEYS
-anglesJointKeys?   string[]               angles 의 J 축 순서 (방어적 명시)
+angles?            number[]               flat 시퀀스 — Firestore nested array 금지 회피. 길이 = anglesFrames × anglesJointKeys.length. 읽는 쪽이 reshape (T, J). (M-5 정정)
+anglesJointKeys?   string[]               angles 의 J 축 순서 (방어적 명시, backend skeleton.JOINT_KEYS 와 일치)
 anglesFrames?      number                 angles 의 T (검증·디버깅용)
 anglesUpdatedAt?   number (epoch ms)      angles 재추출 시점
 updatedAt?         number (epoch ms)
@@ -222,4 +222,80 @@ not_pole_motion     선택한 기준 동작과 너무 달라요. 폴스포츠 �
 
 ---
 
+---
+
+## §6. PoseFrame + PoleAxis (Phase 1 신규 — D-04/D-05/D-11/D-12)
+
+> **변경 시 lockstep 경고**: 아래 3 파일 동시 갱신 필수.
+>   - `app/src/types/analysis.ts` (TS interface)
+>   - `backend/shared/python/sunity_shared/analysis/pose_frame.py` (Python dataclass)
+>   - 이 문서 §6 (docs/contract.md)
+
+### Type aliases
+
+| alias | 값 | 용도 |
+|-------|----|------|
+| `ConfidenceLevel` | `'high' \| 'medium' \| 'low'` | M-2 D-11 — PoleAxis.confidenceLevel, reliability 둘 다 사용 |
+| `ReliabilityLevel` | `'high' \| 'medium' \| 'low'` | H-4 — frame-level 신뢰 게이트 |
+| `PoleAxisSource` | `'detected' \| 'vertical_fallback'` | D-09/D-11 — Hough 검출 성공/실패 |
+
+### PoseFrame (영상 한 프레임 포즈 계약)
+
+| TS 필드 (camelCase) | Python 필드 (snake_case) | TS 타입 | D-NN | 설명 |
+|---------------------|--------------------------|---------|------|------|
+| `frameIndex` | `frame_index` | `number` | — | 프레임 인덱스 |
+| `timestampMs` | `timestamp_ms` | `number` | — | 타임스탬프 (ms) |
+| `rawLandmarks33?` | `raw_landmarks_33` | `Record<string, Landmark3D>` | D-04 | MediaPipe 33 원본 보존 |
+| `keypoints3D` | `keypoints_3d` | `Record<string, Keypoint3D>` | D-04 | COCO-17 분석용 |
+| `keypoints3DPoleAligned` | `keypoints_3d_pole_aligned` | `Record<string, Keypoint3DAligned>` | D-12 | 폴 축 정렬 좌표 |
+| `keypoints2D?` | `keypoints_2d` | `Record<string, Keypoint2D> \| null` | D-03 | UI 오버레이용 image normalized |
+| `poleExtensionLandmarks?` | `pole_extension_landmarks` | `Record<string, PoleExtensionLandmark> \| null` | D-04 | 폴 확장 (toe/heel/grip) |
+| `poleAxis` | `pole_axis` | `PoleAxis \| null` | D-12, H-3 | video-level PoleAxis 메타 (모든 frame 공유) |
+| `reliability` | `reliability` | `ReliabilityLevel` | D-05, H-4 | frame-level 신뢰 게이트 |
+
+### PoleAxis (폴 축 메타)
+
+| TS 필드 | Python 필드 | TS 타입 | D-NN | 설명 |
+|---------|------------|---------|------|------|
+| `axisVector` | `axis_vector` | `{x,y,z}` | D-12 | 3D 단위 벡터 |
+| `confidenceLevel` | `confidence_level` | `ConfidenceLevel` | M-2, D-11 | 검출 실패 시 'low' |
+| `source` | `source` | `PoleAxisSource` | D-09, D-11 | 'detected' \| 'vertical_fallback' |
+| `frameIndex?` | `frame_index` | `number \| null` | D-10 | null = video-level (영상 전체 평균 축 1개) |
+
+### Landmark3D (MediaPipe 33 raw landmark)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `x, y, z` | `number/float` | 3D metric 좌표 |
+| `rawVisibility` / `raw_visibility` | `number/float` | M-1 D-05 — MediaPipe API visibility. range [0,1] |
+| `rawPresence` / `raw_presence` | `number/float` | M-1 D-05 — MediaPipe API presence. range [0,1] |
+
+### Keypoint3D (COCO-17 분석용)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `confidence` / `confidence` | `number/float` | D-05: visibility × presence (둘 다 있을 때) 또는 visibility. range [0,1] |
+| `uncertaintyProxy` / `uncertainty_proxy` | `number/float` | D-05: 1 - confidence |
+
+### D-결정 요약 (CONTEXT.md 인용)
+
+- **D-04**: 원본 저장 = MediaPipe 33 전체. 스코어링 계약 = COCO-17 + 폴 확장(toe/heel/grip).
+- **D-05**: confidence = visibility × presence (둘 다 있을 때) 또는 visibility. raw_visibility / raw_presence 모두 별도 저장. 저신뢰 각도는 low_reliability 마킹 — 단정형 코멘트 금지.
+- **D-11**: PoleAxis 검출 실패 → 수직 가정 + confidence_level='low'. 리포트에 "카메라 기울어짐 주의" 안내.
+- **D-12**: PoseFrame 에 raw(keypoints_3d) + pole-aligned(keypoints_3d_pole_aligned) + pole_axis(PoleAxis) 메타 모두 저장. poleAxis / pole_axis 필드는 video-level (D-10).
+
+### NOTE (H-4 D-05 박제)
+
+> **reliability='low' 또는 low_reliability=True 마킹된 각도는 coach_writer/dimensions 단정형 코멘트 금지.**
+> 후속 phase 가 본 정책을 import 해 enforce — Phase 1 은 NOTE 로 명시.
+> 관련 코드: `backend/shared/python/sunity_shared/analysis/reliability.py::compute_angle_with_reliability`
+
+### Firestore 저장 정책
+
+Phase 1 에서 PoseFrame 은 RunPod 메모리 전용. Firestore 저장은 기존 angles flat 패턴 유지.
+키포인트 오버레이 저장은 Phase 12 결정.
+
+---
+
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
+*Phase 1 §6 추가: 2026-05-31 — PoseFrame/PoleAxis 3-way lockstep (H-3/H-4/M-1/M-2/M-5 REVIEWS 박제).*

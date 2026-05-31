@@ -1,6 +1,7 @@
 """Firestore 문서 모양 + 상수. docs/contract.md §3~5, app/src/types/analysis.ts 미러.
 
 이 파일이 바뀌면 contract.md 와 app 타입도 같이 맞춰야 한다(계약 단일 진실).
+PoseFrame/PoleAxis 는 analysis/pose_frame.py 에 정의 (lockstep with app/src/types/analysis.ts).
 """
 
 from __future__ import annotations
@@ -90,3 +91,15 @@ def reference_motion_path(motion_id: str) -> str:
 # Firestore 컬렉션 경로는 홀수 segment 여야 함. "reference/motions" 같은 2-segment는
 # invalid path 라 collection() 호출 시 ValueError. → reference 단일 컬렉션 채택.
 REFERENCE_MOTIONS_COLLECTION = "reference"
+
+# ── PoseFrame / PoleAxis re-export (lockstep with app/src/types/analysis.ts) ──
+# Phase 1 D-04/D-05/D-11/D-12 계약 타입.
+# 변경 시 analysis/pose_frame.py + app/src/types/analysis.ts + docs/contract.md §6 동시 갱신.
+from .analysis.pose_frame import (  # noqa: E402 — 파일 하단 re-export 패턴
+    ConfidenceLevel,
+    Landmark3D,
+    PoleAxis,
+    PoleAxisSource,
+    PoseFrame,
+    ReliabilityLevel,
+)

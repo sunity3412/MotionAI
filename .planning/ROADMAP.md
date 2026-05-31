@@ -65,8 +65,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   6. 데이터 계약(`analysis.ts` ↔ `models.py`)에 `PoseFrame` 타입이 lockstep으로 추가된다
 **Plans**: 6 plans (Wave 순서: Wave 0 → Wave 1 → Wave 2 belle gate → Wave 3 — REVIEWS H-1 박제)
   - [x] 01-01-PLAN.md — PoseFrame + PoleAxis 데이터 계약 3-way lockstep + reliability 게이트 stub + Wave 0 테스트 픽스처 (Wave 0)
-  - [ ] 01-02-PLAN.md — PoseEngine Protocol + MediaPipePoseEngine 어댑터 + 33→COCO-17 + grip 확장 매핑 (Wave 1)
-  - [ ] 01-03-PLAN.md — HoughPoleDetector + PoleAxisAligner — lazy cv2/scipy import (D-09/D-10/D-11/D-12) (Wave 1)
+  - [x] 01-02-PLAN.md — PoseEngine Protocol + MediaPipePoseEngine 어댑터 + 33→COCO-17 + grip 확장 매핑 (Wave 1)
+  - [x] 01-03-PLAN.md — HoughPoleDetector + PoleAxisAligner — lazy cv2/scipy import (D-09/D-10/D-11/D-12) (Wave 1)
   - [ ] 01-06-PLAN.md — compare_engines.py 회귀 검증 + belle 검토 checkpoint (D-13~D-16) — **Wave 3 gate** (Wave 2)
   - [ ] 01-04-PLAN.md — NLF R&D 격리 (backend/research/로 이동 + .samignore) (Wave 3 — Plan 06 belle 승인 후)
   - [ ] 01-05-PLAN.md — pipeline/app.py atomic swap + RunPod requirements.txt/setup.sh/README 갱신 (Wave 3 — Plan 06 belle 승인 후)
@@ -271,7 +271,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 1/6 | In Progress|  |
+| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 3/6 | In Progress|  |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 0/TBD | Not started | - |
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |

@@ -20,7 +20,9 @@ imageio-ffmpeg>=0.5.1
 ultralytics>=8.2
 
 # 수치 계산
-numpy>=1.26,<2.0
+# Pod 는 Lambda 와 분리 — numpy 2.x 허용 (opencv-python-headless 4.13+ 가 numpy 2.x 요구).
+# Lambda 측 (backend/functions/*) 은 별도 requirements 에서 numpy<2.0 유지.
+numpy>=1.26,<3
 
 # MediaPipe Pose Landmarker (Plan 01-08 — MediaPipeWithLifterEngine)
 # apt: libGL.so 및 libglib2.0-0 필요 — setup.sh 에서 apt install 처리

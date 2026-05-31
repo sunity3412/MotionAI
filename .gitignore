@@ -14,3 +14,8 @@ sunity-api_accessKeys.csv
 *firebase-adminsdk*.json
 firebase-sa.json
 firebase-service-account.json
+
+# MotionBERT 사전학습 가중치 — 용량 크고 Apache 2.0 redistribution 조건. git 추적 금지.
+# scp 로 Pod 에 직접 배치 (runpod_inference/README.md "MotionBERT 가중치 scp 절차" 참조).
+best_epoch.bin
+**/FT_MB_lite_MB_ft_h36m_global_lite/

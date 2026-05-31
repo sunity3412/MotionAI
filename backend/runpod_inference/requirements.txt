@@ -21,3 +21,13 @@ ultralytics>=8.2
 
 # 수치 계산
 numpy>=1.26,<2.0
+
+# MediaPipe Pose Landmarker (Plan 01-08 — MediaPipeWithLifterEngine)
+# apt: libGL.so 및 libglib2.0-0 필요 — setup.sh 에서 apt install 처리
+mediapipe>=0.10,<0.11
+opencv-python-headless>=4.13,<5
+
+# MotionBERT DSTformer 의존성 (Plan 01-08 — MotionBertLifter)
+# Apache 2.0 — 상업적 사용 허용
+einops>=0.7,<1.0
+timm>=0.9,<2.0

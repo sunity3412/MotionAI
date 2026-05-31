@@ -271,7 +271,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 4/6 | In Progress|  |
+| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 5/7 | In Progress|  |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 0/TBD | Not started | - |
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |

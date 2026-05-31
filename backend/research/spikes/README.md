@@ -60,22 +60,43 @@ git clone https://github.com/Walter0807/MotionBERT.git
 
 ### 3. 사전학습 가중치 다운로드 (1회, ~120MB)
 
-MotionBERT H3.6M 가중치는 Google Drive에서 배포된다. README 링크 확인:
-https://github.com/Walter0807/MotionBERT#readme
+MotionBERT inference 용 가중치는 **OneDrive** 에서 배포된다 (Google Drive 아님).
 
+- 공식 inference 가이드: https://github.com/Walter0807/MotionBERT/blob/main/docs/inference.md
+- OneDrive 폴더: https://1drv.ms/f/s!AvAdh0LSjEOlgT67igq_cIoYvO2y?e=bfEc73
+- 다운로드 대상: **`FT_MB_lite_MB_ft_h36m_global_lite`** (Lite 버전 — MotionBERT 공식이 inference 에 권장. 정확도 거의 동일, 메모리/속도 가벼움)
+- 배치 경로: `/workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/`
+
+**RunPod Pod 에서 OneDrive 받는 방법** (둘 중 하나):
+
+옵션 A — 브라우저에서 받아 scp:
 ```bash
-mkdir -p /workspace/MotionBERT/checkpoint/pose3d/MB_train_h36m
+# 로컬 머신에서 OneDrive 폴더 열고 FT_MB_lite_MB_ft_h36m_global_lite 디렉토리 통째로 다운로드.
+# 그다음 belle 로컬 → Pod scp (Pod SSH 경로 확인):
+scp -r FT_MB_lite_MB_ft_h36m_global_lite root@<pod-ip>:/workspace/MotionBERT/checkpoint/pose3d/
+```
 
-# gdown 사용 (Google Drive 직접 다운로드):
-pip install gdown
-gdown "https://drive.google.com/uc?id=<DRIVE_FILE_ID>" \
-  -O /workspace/MotionBERT/checkpoint/pose3d/MB_train_h36m/best_epoch.bin
+옵션 B — Pod 안에서 wget 직링크 (브라우저에서 한 번 클릭해 "직접 다운로드 URL" 추출):
+```bash
+mkdir -p /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite
+cd /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite
 
-# 또는 MotionBERT README의 최신 링크 사용.
-# 가중치 파일명: best_epoch.bin (~120MB)
+# 1. 로컬 브라우저에서 OneDrive 폴더 열기:
+#    https://1drv.ms/f/s!AvAdh0LSjEOlgT67igq_cIoYvO2y?e=bfEc73
+# 2. 폴더 안에 best_epoch.bin 우클릭 → "Copy link" → 받은 URL 의 e1=... 부분을 download=1 로 바꿈
+# 3. Pod 에서:
+wget -O best_epoch.bin '<위에서 추출한 직접 다운로드 URL>'
+```
+
+확인:
+```bash
+ls -lh /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin
+# ~120MB 이상이면 OK
 ```
 
 가중치 파일은 git에 추적하지 않는다. `/workspace/` 경로에만 보관.
+
+> **참고**: MotionBERT 공식 inference 워크플로우는 **AlphaPose** 2D keypoints 를 입력으로 받는다. 본 spike 는 그 자리를 MediaPipe 로 갈아끼우는 게 핵심 실험이라, MP→H3.6M 17-joint 매핑 어댑터(`mediapipe_to_h36m17.py`)가 spike 가설의 위험 지점이다. 결과가 weak signal 이면 AlphaPose 로 바꿔서 baseline 확인하는 게 다음 단계가 될 수 있다.
 
 ### 4. MotionBERT 의존성 설치
 
@@ -102,7 +123,7 @@ python3 -m backend.research.spikes.spike_motionbert \
   --motion ref-foxtop-split \
   --bucket sunity-motion-pilot-videos \
   --motionbert-root /workspace/MotionBERT \
-  --motionbert-weights /workspace/MotionBERT/checkpoint/pose3d/MB_train_h36m/best_epoch.bin \
+  --motionbert-weights /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin \
   --out backend/research/spikes/reports/spike_motionbert_$(date +%Y%m%d).json
 ```
 

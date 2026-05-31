@@ -190,3 +190,61 @@ compare_engines.py의 실제 5영상 비교는 RunPod Pod에서만 실행 가능
 
 커밋 존재 확인:
 - `6255380` feat(01-06): compare_engines.py 회귀 검증 스크립트 + smoke 테스트 FOUND
+
+---
+
+## belle 회귀 검증 결과 — D-16 보류 확정 (2026-05-31)
+
+**보고서**: `backend/research/evaluations/reports/compare_20260531_1249.json` / `.md`
+
+### 게이트 판정
+
+| 게이트 | 결과 | 실제 값 |
+|---|---|---|
+| D-14 점수 갭 ±5점 | FAIL | 갭 29~59 (모든 영상) |
+| D-15① MediaPipe ≥70 | FAIL | MP 3, 8, 18, 33, 52 |
+| D-15② Top-3 ≥2/3 겹침 | FAIL | overlap 0 |
+| D-15③ avg_conf ≥0.5 | PASS | MP 0.79~0.89 |
+| `phase1_ready_to_swap` | **false** | — |
+
+### 핵심 발견
+
+avg_conf 가 0.8~0.9 로 높은데 점수가 깎이는 모순 → **MediaPipe stability 차원에서 NLF 대비 28~50점 손실**. world_landmarks 의 z 추정이 인버트/측면/폴 폐색 자세에서 노이즈가 커서 시간축 일관성(stability)이 무너짐. line 차원도 절반만 등장 (FallbackRecognizer 가 노이즈 angles 로 같은 technique profile 인식 못함).
+
+| 모션 | MP stability | NLF stability | MP line | NLF line |
+|---|---|---|---|---|
+| ref-climb | 18 | 58 | — | — |
+| ref-foxtop-split | 3 | 53 | — | 72 |
+| ref-foxtop | 8 | 63 | — | 64 |
+| ref-invert | 30 | 65 | 36 | — |
+| ref-sideway-spin | 46 | 81 | 59 | — |
+
+### Wave 2 Pod 실행 중 발견한 부수 버그 (모두 fix 완료)
+
+| 커밋 | 내용 |
+|---|---|
+| `ecafc76` | FrameExtractor → FfmpegFrameExtractor (concrete class) |
+| `b261d22` | kp_array[:,:,3] → joint_uncertainty(kp_array) (shape (T,J)) |
+| `1c12e76` | dimensions API — drop uncertainty kwarg + use overall_from_dimensions |
+
+### 의사결정
+
+**D-16 보류** — atomic swap (Wave 3+4) **보류**.
+
+belle 선택: **Path B-with-spike** — MediaPipe 2D + 별도 3D Lifter (Apache/MIT) 도입. 종착지가 MP 기반 stack 이므로 단계적 튜닝(A) 대신 구조적 정답(B)으로 직진하되, 본 plan 진입 전 spike 로 위험 검증.
+
+**다음 plans 계획**:
+- **Plan 01-07** (spike): MotionBERT (또는 HybrIK/GAST-Net) 1개 lifter 로 ref-foxtop-split 1개 영상 spike. NLF z 대비 lifter z MPJPE 측정 + 단일 영상 stability 점수 회복 확인. 반일.
+- **Plan 01-08** (full integration): spike 통과 시 본 plan — MP 2D + lifter 어댑터 + RunPod deps + compare_engines.py 갱신 + 5영상 재실행 → 게이트 재판정. 2-3일.
+- **Wave 3 (Plan 04 / 05)**: Plan 08 완료 + Plan 06 재실행 게이트 통과 후에만 진입.
+
+### Pod 환경 잔존물 (다음 spike/integration 에 재사용)
+
+- `/workspace/SunityMotion` clone (main 까지 pull 완료, commit `1c12e76`)
+- MediaPipe 0.10.35 + opencv-python-headless + scipy + protobuf 설치
+- `/workspace/models/pose_landmarker_heavy.task` (MediaPipe heavy model)
+- `backend/scripts/nlf_l_multi.torchscript` (NLF, 470MB)
+- `backend/yolo11n.pt` (YOLO 가중치, 자동 다운로드됨)
+- `libgles2 libegl1 libgl1 libglib2.0-0 libsm6 libxext6 libxrender1` (OpenGL ES system libs)
+- AWS sunity-motion 키 export 됨
+- PYTHONPATH `/workspace/SunityMotion/backend/shared/python:/workspace/SunityMotion`

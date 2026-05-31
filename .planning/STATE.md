@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: paused
-stopped_at: "Plan 08 belle 5영상 검증 4/5 PASS — Path B (AlphaPose 측면 보강) 확정. Plan 09 stub 작성됨. RunPod Pod Terminate 후 내일 setup.sh 재실행 → Plan 09 spike 진입."
-last_updated: "2026-05-31T15:00:00.000Z"
-last_activity: 2026-05-31 -- Plan 08 belle 검증 완료, Path B 결정 (AlphaPose)
+stopped_at: "Plan 09 license_blocked at T-1-1 — AlphaPose 라이선스가 Noncommercial Research Only (SJTU) 로 확인. spike 코드 작성 전 STOP. belle 의 측면 보강 대안 결정 대기 (HybrIK / RTMPose / 4/5 수용 / 다중 시점)."
+last_updated: "2026-06-01T08:30:00.000Z"
+last_activity: 2026-06-01 -- Plan 09 license_blocked, belle 대안 lifter 결정 대기
 progress:
   total_phases: 1
   completed_phases: 0
@@ -21,41 +21,31 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Wave 2 belle 검증 진행 중. Plan 06/07/08 통과, Plan 09 (AlphaPose spike) 진입 대기.
+**Current focus:** Phase 01 — Wave 2 belle 검증 진행 중. Plan 06/07/08 통과, Plan 09 license_blocked (AlphaPose Noncommercial), Plan 10 방향 belle 의사결정 대기.
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — PAUSED at Plan 09 진입 직전
-Plan: 6/9 complete (01, 02, 03, 06, 07, 08 done)
-Status: Paused — belle 내일 재진입
-Last activity: 2026-05-31 -- Plan 08 belle 검증 완료, B 결정
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — PAUSED at Plan 09 license gate
+Plan: 6/9 complete (01, 02, 03, 06, 07, 08 done) + 09 closed as license_blocked
+Status: Paused — belle 측면 보강 대안 결정 대기
+Last activity: 2026-06-01 -- Plan 09 AlphaPose license_blocked, alt lifter 후보 정리
 
 Progress: [██████░░░░] 67%
 
-## ▶ 내일 재개 — Plan 09 진입 절차
+## ▶ Plan 09 license_blocked — belle 의사결정 매트릭스
 
-1. **RunPod 새 Pod 생성** (PyTorch 2.4+, RTX 4090 / 3090 / RTX 5000 Ada, 16GB+ VRAM)
-2. **환경 복원** (Pod SSH):
-   ```bash
-   cd /workspace
-   git clone https://github.com/sunity3412/MotionAI.git SunityMotion
-   cd SunityMotion/backend
-   bash runpod_inference/setup.sh
-   ```
-3. **MotionBERT 가중치 scp** (Plan 08 와 동일):
-   ```bash
-   # belle 로컬에서
-   scp -P <port> -i ~/.ssh/id_ed25519 -r \
-     ~/Downloads/FT_MB_lite_MB_ft_h36m_global_lite \
-     root@<pod-ip>:/workspace/MotionBERT/checkpoint/pose3d/
-   ```
-4. **AWS 키 export + PYTHONPATH** (Plan 08 README 참조)
-5. **Plan 09 진입**:
-   ```bash
-   # 로컬에서 (이 디렉토리에서)
-   /gsd-execute-phase 1
-   ```
-   → Plan 09 만 incomplete 로 잡혀서 자동 실행. spike code → belle Pod 에서 ref-sideway-spin 실행 → 결과 보고
+@01-09-SUMMARY.md `## 의사결정 매트릭스` 전체 박제. 요약:
+
+| belle 응답 | Plan 10 방향 |
+|---|---|
+| **option-b-1, spike MMPose RTMPose** | Apache 2.0 + 2D detector 교체 spike (executor 1순위) |
+| **option-a, spike HybrIK** | MIT + SMPL prior lift spike (Plan 07 README 백업 후보) |
+| **option-c, accept 4/5** | 게이트 룰 재정의 (80% threshold) + Wave 3 즉시 진입 |
+| **option-d, multi-view** | 다중 시점 v1 spec + 다각도 캡처 spike |
+| **option-b-2 / b-3** | MMPose HRNet / Microsoft HRNet spike |
+| **hold + research more** | Plan 09 license_blocked 로 닫고 별도 research 후 신규 plan |
+
+**Pod 상태**: belle 의사결정 결과 RTMPose/HybrIK spike 진행 시에만 Pod 필요. Option C/D 면 Pod terminate 가능.
 
 ## Plan 08 5영상 검증 결과 (재인용)
 

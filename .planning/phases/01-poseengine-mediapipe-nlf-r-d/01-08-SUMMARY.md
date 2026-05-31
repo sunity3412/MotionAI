@@ -224,3 +224,55 @@ Commits confirmed:
 - d91373c: FOUND (feat T-2)
 - e39b656: FOUND (chore T-3)
 - 84c249a: FOUND (feat T-4)
+
+---
+
+## belle 5영상 Pod 검증 결과 — 4/5 PASS (2026-05-31)
+
+**보고서 위치 (Pod 안)**: `backend/research/evaluations/reports/compare_lifter_20260531_*.json` / `.md`
+
+### Wave 2 핵심 진전
+
+| 모션 | Plan 06 MP 단독 | Plan 08 MP+lifter | NLF baseline | NLF 대비 |
+|---|---|---|---|---|
+| ref-climb | 18 | **85** | 58 | +27 |
+| ref-foxtop-split | 3 | **75** | 62 | +13 |
+| ref-foxtop | 8 | **90** | 64 | +26 |
+| ref-invert | 33 | **92** | 65 | +27 |
+| ref-sideway-spin | 52 | 64 | 81 | -17 |
+
+평균: MP 단독 22.8 → MP+lifter 81.2 (3.5배). D-15① 0/5 → 4/5 PASS.
+
+### 게이트 판정 (원래 룰 기준)
+
+| 게이트 | 결과 | 해석 |
+|---|---|---|
+| D-14 all_within_tolerance ±5pt | FAIL | MP+lifter 가 NLF 보다 +13~+27 **높음** (잘못된 방향이 아니라 desired 방향) |
+| D-15① all_mediapipe_ge_70 | FAIL (4/5) | ref-sideway-spin 만 64 |
+| D-15② all_top3_overlap_ok | FAIL | NLF 진단을 ground truth 로 본 게이트 — Plan 06 도 0/5, 룰 한계 |
+| D-15③ all_avg_confidence_ok | PASS | avg_conf 0.82~0.85 |
+
+### Plan 07 의 over-smoothing 우려 — 완전히 기각
+
+영상별 점수 차등 64~92 (분산 큼). MotionBERT 가 quality 차이를 제대로 평가 중. 5영상 모두 80+ 로 일정했으면 over-smoothing.
+
+### belle 의사결정 — Path B
+
+ref-sideway-spin 64 점이 진짜 약점 (측면 자세에서 MotionBERT lifter 가 H3.6M 정면 학습 한계). AlphaPose 2D 어댑터로 측면 보강 후 재실행 → 5영상 재측정 → 게이트 룰 재정의 (음방향 갭만 fail, 4/5 또는 80% threshold) → Wave 3 진입.
+
+다음 plan: **01-09 AlphaPose spike (ref-sideway-spin 1영상)** → 통과 시 01-10 5영상 sweep + Wave 3 진입.
+
+### Plan 08 belle 검증 중 발견한 코드 fix
+
+| 커밋 | 내용 |
+|---|---|
+| `f8266ff` | RunPod requirements — numpy<2.0 → numpy<3 (opencv-python-headless 4.13 가 numpy 2.x 요구). Lambda 측 functions/ 는 numpy<2.0 유지 |
+
+### Pod 환경 잔존물 (Plan 09 에서 재사용 — Terminate 후 새 Pod 셋업 시 setup.sh 가 복원)
+
+- `/workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin` (belle Mac 백업 있음)
+- `/workspace/models/pose_landmarker_heavy.task` (setup.sh 가 wget 으로 자동 다운로드)
+- `backend/scripts/nlf_l_multi.torchscript` (setup.sh 가 GitHub release 자동 다운로드)
+- `backend/yolo11n.pt` (ultralytics 가 첫 실행 시 자동)
+- apt: libgles2 libegl1 libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 (setup.sh 박제)
+- pip: mediapipe + opencv-python-headless + scipy + protobuf + einops + timm (setup.sh 박제)

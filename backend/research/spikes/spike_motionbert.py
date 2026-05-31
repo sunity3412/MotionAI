@@ -217,7 +217,10 @@ def _load_motionbert(motionbert_root: str, weights_path: str):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     log.info("MotionBERT device: %s", device)
 
-    # DSTformer 설정 (MotionBERT H3.6M 기본 설정 — README 참조)
+    # DSTformer 설정 (MB_ft_h36m_global_lite.yaml 와 동일).
+    # norm_layer 는 명시하지 않는다 — DSTformer 기본값 nn.LayerNorm 을 그대로 사용해야 한다.
+    # (None 을 넘기면 내부 Block 의 norm1_s = norm_layer(dim) 가 None(dim) 호출되며 TypeError)
+    # att_fuse=True 는 lite config 기본값이자 DSTformer 기본값.
     model = DSTformer(
         dim_in=3,
         dim_out=3,
@@ -226,9 +229,9 @@ def _load_motionbert(motionbert_root: str, weights_path: str):
         depth=5,
         num_heads=8,
         mlp_ratio=4,
-        norm_layer=None,
         maxlen=243,
         num_joints=17,
+        att_fuse=True,
     )
 
     checkpoint = torch.load(weights_path, map_location=device)

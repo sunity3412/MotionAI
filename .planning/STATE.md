@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: paused
-stopped_at: "Plan 09 license_blocked at T-1-1 — AlphaPose 라이선스가 Noncommercial Research Only (SJTU) 로 확인. spike 코드 작성 전 STOP. belle 의 측면 보강 대안 결정 대기 (HybrIK / RTMPose / 4/5 수용 / 다중 시점)."
-last_updated: "2026-06-01T08:30:00.000Z"
-last_activity: 2026-06-01 -- Plan 09 license_blocked, belle 대안 lifter 결정 대기
+status: active
+last_updated: "2026-06-01T12:00:00.000Z"
+last_activity: 2026-06-01 -- belle 결정 option-b-1 (RTMPose). Plan 10 작성 단계. Pod (RTX 3090) Plan 08 setup 상태 그대로 유지.
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 9
+  total_plans: 10
   completed_plans: 6
-  percent: 67
+  percent: 60
 ---
 
 # Project State
@@ -21,31 +20,37 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Wave 2 belle 검증 진행 중. Plan 06/07/08 통과, Plan 09 license_blocked (AlphaPose Noncommercial), Plan 10 방향 belle 의사결정 대기.
+**Current focus:** Phase 01 — Wave 2 belle 검증 진행 중. Plan 06/07/08 통과, Plan 09 license_blocked (AlphaPose Noncommercial). belle 결정 = **option-b-1 (RTMPose, Apache 2.0)**. Plan 10 작성 후 belle Pod 실행.
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — PAUSED at Plan 09 license gate
-Plan: 6/9 complete (01, 02, 03, 06, 07, 08 done) + 09 closed as license_blocked
-Status: Paused — belle 측면 보강 대안 결정 대기
-Last activity: 2026-06-01 -- Plan 09 AlphaPose license_blocked, alt lifter 후보 정리
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 10 작성 중
+Plan: 6/10 complete (01, 02, 03, 06, 07, 08 done) + 09 closed as license_blocked + 10 PLAN draft
+Status: Active — RTMPose spike Plan 10 작성, belle Pod 실행 대기
+Last activity: 2026-06-01 -- belle option-b-1 결정, Plan 10 RTMPose Spike (Apache 2.0)
 
-Progress: [██████░░░░] 67%
+Progress: [██████░░░░] 60%
 
-## ▶ Plan 09 license_blocked — belle 의사결정 매트릭스
+## ▶ belle 결정 박제 (2026-06-01) — Plan 10 = RTMPose Spike
 
-@01-09-SUMMARY.md `## 의사결정 매트릭스` 전체 박제. 요약:
+**Path**: Option B-1 (01-09-SUMMARY.md `## 측면 자세 보강 대안 후보`)
+**Lifter stack**: MediaPipe → **RTMPose-l (Apache 2.0)** 로 2D detector 교체. MotionBERT lift 그대로 유지.
+**검증**: ref-sideway-spin 1영상 → overall ≥ 70 회복 spike. 통과 시 Plan 11 = 5영상 sweep + 게이트 룰 재정의 + Wave 3 진입.
 
-| belle 응답 | Plan 10 방향 |
-|---|---|
-| **option-b-1, spike MMPose RTMPose** | Apache 2.0 + 2D detector 교체 spike (executor 1순위) |
-| **option-a, spike HybrIK** | MIT + SMPL prior lift spike (Plan 07 README 백업 후보) |
-| **option-c, accept 4/5** | 게이트 룰 재정의 (80% threshold) + Wave 3 즉시 진입 |
-| **option-d, multi-view** | 다중 시점 v1 spec + 다각도 캡처 spike |
-| **option-b-2 / b-3** | MMPose HRNet / Microsoft HRNet spike |
-| **hold + research more** | Plan 09 license_blocked 로 닫고 별도 research 후 신규 plan |
+**Pod 상태**: RTX 3090 + Plan 08 setup.sh 완료 + MotionBERT 가중치 (`best_epoch.bin`) scp 완료. **그대로 유지** — RTMPose 추가 install (`pip install mmpose mmengine mmcv`) 만 필요. Plan 10 작성 후 Pod 진행.
 
-**Pod 상태**: belle 의사결정 결과 RTMPose/HybrIK spike 진행 시에만 Pod 필요. Option C/D 면 Pod terminate 가능.
+**Memory 박제 완료** (`license-blocklist-pose.md`): AlphaPose Noncommercial → 향후 plan 후보군에서 영구 제외.
+
+### Plan 09 의사결정 매트릭스 (이력 보존)
+
+| belle 응답 | Plan 10 방향 | 결과 |
+|---|---|---|
+| **option-b-1, spike RTMPose** | Apache 2.0 + 2D detector 교체 | **✓ 선택됨 (2026-06-01)** |
+| option-a, spike HybrIK | MIT + SMPL prior lift | 미선택 |
+| option-c, accept 4/5 | 게이트 룰 재정의 | 미선택 |
+| option-d, multi-view | 다중 시점 v1 spec | 미선택 |
+| option-b-2 / b-3 | MMPose HRNet / MS HRNet | 미선택 |
+| hold + research more | 별도 research 후 신규 plan | 미선택 |
 
 ## Plan 08 5영상 검증 결과 (재인용)
 
@@ -59,7 +64,8 @@ Progress: [██████░░░░] 67%
 
 평균 81.2 (Plan 06 단독 MP: 22.8 → **3.5배 회복**). D-15① 4/5 PASS.
 
-**Path B 결정**: AlphaPose 2D 어댑터로 측면 자세 보강 → ref-sideway-spin ≥ 70 회복 spike (Plan 09) → 통과 시 5영상 sweep + 게이트 룰 재정의 + Wave 3 진입 (Plan 10).
+**Path B 결정 (2026-05-31)**: AlphaPose 2D 어댑터로 측면 자세 보강 → ref-sideway-spin ≥ 70 회복 spike (Plan 09).
+**Path B 수정 (2026-06-01)**: AlphaPose 라이선스 Noncommercial → **RTMPose-l (Apache 2.0)** 로 대체 (Plan 10). 통과 시 5영상 sweep + 게이트 룰 재정의 + Wave 3 진입 (Plan 11+).
 
 ## Performance Metrics
 

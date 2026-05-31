@@ -1,14 +1,6 @@
 """MediaPipe 33-landmark → H3.6M 17-joint 매핑 어댑터.
 
-DEPRECATED (Plan 01-08):
-  이 파일은 Plan 01-07 spike 원본입니다. Plan 01-08에서 production 패키지로 승격되었습니다.
-  신규 코드는 아래 경로를 사용하세요:
-    from sunity_shared.analysis.pose_lifters.mediapipe_to_h36m17 import (
-        convert_mp33_to_h36m17, h36m17_to_coco17_subset
-    )
-  이 파일은 Plan 09+ 에서 backend/research/spikes/ 디렉터리 정리 시 삭제됩니다.
-
-Plan 01-07 spike: MotionBERT 입력 형식(H3.6M 17-joint)으로 변환.
+Plan 01-08 production 승격: backend/research/spikes/mediapipe_to_h36m17.py 에서 이전.
 운영 코드 import 없음 — 순수 numpy.
 
 H3.6M 17-joint 순서 (MotionBERT/H36M 표준 컨벤션):

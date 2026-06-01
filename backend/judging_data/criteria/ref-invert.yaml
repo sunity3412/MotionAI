@@ -13,7 +13,7 @@
 # - "견갑 안정성" = IPSF §8-2 견갑 하강 (scapular depression) = EXTEND
 # - 모호 (spine 아치 등) = 1차 제외, belle 검증 시 추가/수정
 motion: ref-invert
-source: "reference-motions.md §5 ref-invert (intermediate, 인버트 스플릿 peak 7s) + §8 IPSF Code of Points (정확 동작 family §TBD by belle/강사)"
+source: "reference-motions.md §5 ref-invert (intermediate, 인버트 스플릿 peak 7s) + IPSF Aerial Pole Sports Code of Points 2024-2025 (NotebookLM lookup 2026-06-01, 정확 element code §TBD)"
 criteria:
   setup_moment: []
   hold_moment:
@@ -21,31 +21,31 @@ criteria:
       angle_target: 180.0
       tolerance_full: 20.0
       deduction_per_step: 0.2
-      minimum_requirement: 130.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (left_shoulder w=0.20 주 지지 팔 견갑 안정성) + §8-2 IPSF 견갑 하강 + §8-1 tolerance 20° (정확 §TBD)"
+      minimum_requirement: 160.0
+      source_ref: "reference-motions.md §5 ref-invert checkpoints (left_shoulder w=0.20 주 지지 팔 견갑 안정성) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Body position ±20° tolerance, Fully Extended Criteria — fail < 160°)"
     - joint: right_shoulder
       angle_target: 180.0
       tolerance_full: 20.0
       deduction_per_step: 0.2
-      minimum_requirement: 130.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (right_shoulder w=0.15 보조 지지 팔 견갑 안정성) + §8-2 IPSF 견갑 하강 + §8-1 tolerance 20° (정확 §TBD)"
+      minimum_requirement: 160.0
+      source_ref: "reference-motions.md §5 ref-invert checkpoints (right_shoulder w=0.15 보조 지지 팔 견갑 안정성) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Body position ±20° tolerance, Fully Extended Criteria — fail < 160°)"
     - joint: left_hip
       angle_target: 180.0
       tolerance_full: 20.0
       deduction_per_step: 0.2
-      minimum_requirement: 130.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (left_hip w=0.20 인버트 스플릿 골반 외전) + §8-2 IPSF Fully Extended + §8-1 tolerance 20° (정확 §TBD)"
+      minimum_requirement: 160.0
+      source_ref: "reference-motions.md §5 ref-invert checkpoints (left_hip w=0.20 인버트 스플릿 골반 외전) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
     - joint: right_hip
       angle_target: 180.0
       tolerance_full: 20.0
       deduction_per_step: 0.2
-      minimum_requirement: 130.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (right_hip w=0.20 인버트 스플릿 골반 외전 좌우 대칭) + §8-2 IPSF Fully Extended + §8-1 tolerance 20° (정확 §TBD)"
+      minimum_requirement: 160.0
+      source_ref: "reference-motions.md §5 ref-invert checkpoints (right_hip w=0.20 인버트 스플릿 골반 외전 좌우 대칭) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
     - joint: right_knee
       angle_target: 180.0
       tolerance_full: 20.0
       deduction_per_step: 0.2
-      minimum_requirement: 130.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (right_knee w=0.10 1단계 신전 다리 + 2단계 스플릿) + §8-2 IPSF 신전 불량 -0.1 + §8-1 tolerance 20° (정확 §TBD)"
+      minimum_requirement: 160.0
+      source_ref: "reference-motions.md §5 ref-invert checkpoints (right_knee w=0.10 1단계 신전 다리 + 2단계 스플릿) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
   peak_moment: []
   release_moment: []

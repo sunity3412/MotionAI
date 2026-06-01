@@ -1,31 +1,29 @@
 # IPSF Code of Points 기반 GeometricCriterion (JUDGE-DATA-01)
 # 작성 가이드 = backend/judging_data/README.md
 # 사람 점수 라벨링 금지 — 객관 임계값 수치만
-# memory: analysis-objectivity-no-human-scores, judging-baseline-ipsf-code-of-points
+# memory: analysis-objectivity-no-human-scores, judging-baseline-ipsf-code-of-points, notebook-lm-pole-sports
 #
-# Plan 01-15 (a) path 1차 박제 (2026-06-01). reference-motions.md §5 ref-climb
-# checkpoints + §8 IPSF Code of Points 기반.
-# IPSF 정식 동작 family 명칭 = belle/강사 lookup 후 source_ref 갱신.
+# Plan 01-15 (a) path — 의도된 빈 list (2026-06-01 NotebookLM lookup 후 정정).
 #
-# hold_moment (양 무릎 X자 hook peak 5s):
-# - left_knee / right_knee = X자 hook = BENT (의도적 굽힘) → 제외 (IPSF Fully Extended 평가 대상 아님)
-# - right_shoulder 견갑 안정성만 EXTEND 박제
-# - left_hip / right_hip = 외전 정렬 (각도 specific 없음) → 제외
-# - spine_mid 측면 자세 유지 — 모호, 1차 제외 (belle 검증 시 추가)
+# ref-climb 은 IPSF "Transitions & Climbs" 카테고리에 속함 — 해부학적 각도
+# 임계값이 없는 평가 패러다임. 따라서 GeometricCriterion (angle 차원) 박제 대상 X.
 #
-# 주의: ref-climb 은 BENT(hook) 자세 위주라 EXTEND IPSF 평가 대상이 적음.
-# Fully Extended 평가 외 다른 IPSF 기준 (그립 안정성, 회전 안정성 등) 추가 필요할 수 있음
-# — belle 검증 시 IPSF Code of Points climb family 별도 기준 확인.
+# IPSF Aerial Pole Sports Code of Points 2024-2025 Climbs 평가 기준 (참고만):
+#   - Bonus: Climbs Max +2.0 (Overall Bonus Points, awarded one time)
+#   - 최소 요건: 신체 위아래 이동의 2회 이상 반복 (minimum of 2 repeated movements)
+#   - 평가 차원: precision / ease / flowing movement / good body placement
+#   - 감점: re-grips / visible adjustments / loss of equilibrium = 발생 건당 -0.5
+#   - Fail: 2회 미만 반복 = climb 인정 불가
+#   - LOD 순서: Basic / Side / Seated / Outside leg hang / Walking / Caterpillar
+#               / Hands only / Hop-up
+#
+# 위 기준은 angle target 이 아닌 RepetitionCriterion / FlowCriterion / DeductionEventCriterion
+# 형식 필요 — 본 MVP 스코프 외. 후속 plan 에서 Criteria 다중 타입 확장 시 박제.
+# (belle 결정 2026-06-01: MVP 욕심 X, angle 차원만 1차 진입)
 motion: ref-climb
-source: "reference-motions.md §5 ref-climb (basic, 양 무릎 X자 hook peak 5s) + §8 IPSF Code of Points (정확 동작 family §TBD by belle/강사)"
+source: "reference-motions.md §5 ref-climb (basic, 양 무릎 X자 hook peak 5s) + IPSF Aerial Pole Sports Code of Points 2024-2025 Transitions & Climbs category (각도 임계 X — MVP scope 외)"
 criteria:
   setup_moment: []
-  hold_moment:
-    - joint: right_shoulder
-      angle_target: 180.0
-      tolerance_full: 20.0
-      deduction_per_step: 0.2
-      minimum_requirement: 130.0
-      source_ref: "reference-motions.md §5 ref-climb checkpoints (right_shoulder w=0.20 주 지지 팔 견갑 안정성 X자 훅 잠금) + §8-2 IPSF 견갑 하강 + §8-1 tolerance 20° (정확 §TBD)"
+  hold_moment: []   # IPSF Climbs 카테고리 = 해부학적 각도 임계 X (의도된 빈 list)
   peak_moment: []
   release_moment: []

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T17:00:00.000Z"
-last_activity: 2026-06-01 -- Plan 12 live mode verdict 확정 (4/5 strong, (b) weak). Plan 15 executor 완료 (스키마+로더+빈 템플릿+23 테스트 PASS). belle 라벨링 + Plan 13 PLAN 작성 진입 대기.
+last_updated: "2026-06-01T18:00:00.000Z"
+last_activity: 2026-06-01 -- Plan 15 (a) 1차 박제 IPSF NotebookLM 정정 (minimum 130→160, ref-climb Climbs 카테고리 = 각도 임계 X 빈 list, source_ref Code of Points 2024-2025 인용). 23/23 PASS. memory 2개 박제 (NotebookLM + 용어 다중 매핑 future).
 progress:
   total_phases: 1
   completed_phases: 0

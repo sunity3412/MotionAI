@@ -34,14 +34,28 @@ SWEEP_MOTIONS = (
 # ─────────────────── 5영상 빈 템플릿 ───────────────────
 
 
-class TestLoadLabeledTemplates:
-    @pytest.mark.parametrize("motion", SWEEP_MOTIONS)
-    def test_labeled_template_loads_and_validates(self, motion: str) -> None:
-        """1차 박제 (Plan 01-15 path (a), reference-motions.md §5 + §8 IPSF 기반)
-        5영상 모두 load_criteria 성공 + criteria list ≥ 1 + 모든 entry validate PASS.
+# ref-climb 은 IPSF "Transitions & Climbs" 카테고리 — 해부학적 각도 임계 X.
+# 의도된 빈 list (NotebookLM 2026-06-01 lookup 후 정정 박제).
+# 후속 plan 에서 Criteria 다중 타입 (Repetition / Flow / DeductionEvent) 신설 시 박제 대상.
+ANGLE_LABELED_MOTIONS = (
+    "ref-foxtop-split",
+    "ref-foxtop",
+    "ref-invert",
+    "ref-sideway-spin",
+)
 
-        ref-climb 은 hold 자세가 BENT(hook) 위주라 EXTEND entry 1개 (right_shoulder).
-        나머지 4영상은 3~6 entry. belle 검증 시 추가/수정 가능.
+
+class TestLoadLabeledTemplates:
+    @pytest.mark.parametrize("motion", ANGLE_LABELED_MOTIONS)
+    def test_labeled_template_loads_and_validates(self, motion: str) -> None:
+        """1차 박제 (Plan 01-15 path (a), reference-motions.md §5 + IPSF Code of Points
+        2024-2025 NotebookLM lookup 기반) 4영상 모두 load 성공 + criteria ≥ 1 + 모든
+        entry validate PASS.
+
+        - ref-invert: 5 entry (4 어깨/골반 + right_knee)
+        - ref-foxtop: 6 entry (+ 양 무릎)
+        - ref-foxtop-split: 6 entry (+ 양 무릎, ⚠ 좌우 추정)
+        - ref-sideway-spin: 3 entry (자유 다리 측, ⚠ 좌우 추정)
         """
         criteria = load_criteria(motion)
         assert len(criteria) >= 1, (
@@ -50,6 +64,17 @@ class TestLoadLabeledTemplates:
         )
         for c in criteria:
             c.validate()  # validate 실패 시 ValueError 자동 propagate
+
+    def test_ref_climb_intentionally_empty(self) -> None:
+        """ref-climb 은 IPSF 'Transitions & Climbs' 카테고리 — 각도 임계 X (의도된 빈 list).
+        해당 카테고리 평가 (반복 횟수 / 흐름 / re-grip 감점) 는 MVP scope 외.
+        후속 plan 에서 Criteria 다중 타입 확장 시 박제 대상.
+        """
+        criteria = load_criteria("ref-climb")
+        assert criteria == [], (
+            "ref-climb 은 IPSF Climbs 카테고리 = 각도 임계 X 의도. "
+            "비어있지 않으면 GeometricCriterion 으로 박제하면 안 됨 — Criteria 다중 타입 확장 후 박제."
+        )
 
     def test_default_dir_resolves_under_backend(self) -> None:
         """기본 DEFAULT_CRITERIA_DIR 가 backend/judging_data/criteria 로 풀림."""

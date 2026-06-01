@@ -1,0 +1,14 @@
+# IPSF Code of Points 기반 GeometricCriterion (JUDGE-DATA-01)
+# 작성 가이드 = backend/judging_data/README.md
+# 사람 점수 라벨링 금지 — 객관 임계값 수치만
+# memory: analysis-objectivity-no-human-scores, judging-baseline-ipsf-code-of-points
+#
+# Plan 01-15 T-2 빈 템플릿 (executor 생성). belle 라벨링 (T-5) 대기.
+# belle 가 IPSF Code of Points 동작군 규정 lookup 후 phase별 entry 채움.
+motion: ref-foxtop
+source: "IPSF Code of Points YYYY — TBD by belle (foxtop family)"
+criteria:
+  setup_moment: []
+  hold_moment: []   # belle 채움 — IPSF target angle / tolerance / deduction / minimum
+  peak_moment: []
+  release_moment: []

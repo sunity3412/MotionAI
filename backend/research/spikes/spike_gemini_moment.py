@@ -347,8 +347,8 @@ def _run_live(args: argparse.Namespace) -> dict:
         _run_motionbert_inference,
         _run_rtmpose_2d,
     )
-    from sunity_shared.analysis.features import compute_joint_angles
-    from sunity_shared.analysis.temporal import joint_uncertainty, temporal_fill
+    from sunity_shared.analysis.features import compute_joint_angles, joint_uncertainty
+    from sunity_shared.analysis.temporal import temporal_fill
 
     from sunity_shared.judging import (
         GeminiMomentExtractor,

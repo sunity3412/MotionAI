@@ -324,3 +324,112 @@ backend/tests/
 - spike 코드 (`backend/research/spikes/`) 는 운영 코드 (`functions/`, `shared/pose_lifters/`)
   import 경로를 침범하지 않는다.
 
+---
+
+# Plan 11 — 5영상 sweep + line/angle root cause
+
+> 본 섹션은 Plan 01-11 에서 추가됨. Plan 07/08/10 섹션은 위쪽 그대로 보존.
+
+## 목적 (Plan 11)
+
+Plan 10 = ref-sideway-spin 단일 영상 STRONG_PASS (overall 72.0). Plan 11 은
+같은 spike 를 Plan 08 5영상 (ref-climb / ref-foxtop-split / ref-foxtop /
+ref-invert / ref-sideway-spin) 에 회귀 실행 + line/angle N/A 정확한 원인
+박제 + 게이트 룰 (D-14 / D-15①~③) 적정성 재검토. Wave 3 (Plan 04 NLF R&D
+격리 + Plan 05 atomic swap) 진입 게이트 verdict 까지 한 번에 본다.
+
+본 plan 에서 운영 코드 (functions/, runpod_inference/, shared/pose_lifters/)
+는 1줄도 변경하지 않는다. FallbackRecognizer / dimensions.py 도 박제만,
+실제 변경은 belle 결정 + Phase 5 Gemini 통합 시점.
+
+## Plan 11 추가 파일
+
+```
+backend/research/spikes/
+  sweep_rtmpose.py                # 5영상 batch sweep 하네스 (CLI 9 args)
+  debug_dimensions.py             # line/angle N/A 원인 trace 스크립트
+
+backend/tests/
+  test_sweep_rtmpose_smoke.py     # 12 tests PASS (mmpose 없이 로컬)
+```
+
+## Pod 실행 절차 (Plan 11 sweep — belle Pod 전용)
+
+> 전제: Plan 10 belle Pod 환경 유지 (mmpose 1.3.2 / numpy 1.26.4 / mmcv 2.1.0,
+> RTMPose-l 가중치 + MotionBERT 가중치 이미 위치). 추가 install 불필요.
+
+### 1. SunityMotion 저장소 최신화
+
+```bash
+cd /workspace/SunityMotion
+git pull --ff-only origin main
+```
+
+### 2. 5영상 sweep 실행
+
+```bash
+cd /workspace/SunityMotion
+
+python3 -m backend.research.spikes.sweep_rtmpose \
+  --motions ref-climb ref-foxtop-split ref-foxtop ref-invert ref-sideway-spin \
+  --bucket sunity-motion-pilot-videos \
+  --rtmpose-config /workspace/rtmpose_weights/rtmpose-l_8xb256-420e_coco-256x192.py \
+  --rtmpose-checkpoint /workspace/rtmpose_weights/rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth \
+  --motionbert-root /workspace/MotionBERT \
+  --motionbert-weights /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin \
+  --score-threshold 0.3 \
+  --det-model none \
+  --out backend/research/spikes/reports/sweep_rtmpose_$(date +%Y%m%d_%H%M).json
+```
+
+예상 소요: 5영상 × ~2분/영상 ≈ 10분. lifter 37ms/frame, NLF baseline
+665ms/frame (영상당 NLF ~2분 차지).
+
+### 3. 결과 파일
+
+- `backend/research/spikes/reports/sweep_rtmpose_YYYYMMDD_HHMM.json`
+- `backend/research/spikes/reports/sweep_rtmpose_YYYYMMDD_HHMM.md`
+
+`.md` 의 "5영상 종합표" + "게이트 verdict" 섹션을 Claude 에 공유.
+
+## line / angle N/A 원인 박제 절차 (Plan 11 T-2)
+
+sweep 결과 JSON 을 `debug_dimensions.py` 에 입력해 원인 분류:
+
+```bash
+python3 -m backend.research.spikes.debug_dimensions \
+  --report backend/research/spikes/reports/sweep_rtmpose_YYYYMMDD_HHMM.json \
+  --out backend/research/spikes/reports/debug_dimensions_YYYYMMDD_HHMM.md
+```
+
+출력:
+- FallbackRecognizer default profile (expected_extend / expected_bent /
+  applicable_joints)
+- 영상별 line N/A 원인 (expected_extend 빈 집합 vs default 다름)
+- 영상별 angle N/A 원인 (spike 의 정상 동작 — reference 없이 호출)
+- Fix candidates 3 (score_threshold / FallbackRecognizer default / 임계 완화) —
+  박제만, 실제 적용은 belle 결정 + Phase 5 Gemini 통합 진입 시
+
+## 판정 기준 (Plan 11)
+
+| sweep 결과 | passed/total | belle 응답 | 다음 행동 |
+|---|---|---|---|
+| Strong pass | 5/5 (overall ≥70) | `approved, proceed to Wave 3` | Plan 04 / Plan 05 진입 |
+| Conditional pass | 4/5 | `accept limitation, proceed to Wave 3 with known gap` | Plan 04/05 진입 + Phase 5 우선순위 ↑ |
+| Regression | 3/5 이하 | `regression in RTMPose, evaluate path` | Plan 12 추가 검토 (HybrIK 또는 MP+MB 유지) |
+| line/angle 전부 N/A 차단 | — | `Wave 3 보류, Phase 5 선행` | Phase 5 Gemini 통합 우선 |
+
+게이트 룰 적정성 (D-14 / D-15①~③) + Wave 3 진입 조건 자세한 분석은
+`.planning/phases/01-poseengine-mediapipe-nlf-r-d/01-11-SUMMARY.md` 참조.
+
+## 주의사항 (Plan 11)
+
+- 본 plan 은 spike 디렉터리 (`backend/research/spikes/`) 외 어떤 파일도
+  수정하지 않는다. 운영 코드 (`functions/`, `runpod_inference/`,
+  `shared/pose_lifters/`) 무수정.
+- FallbackRecognizer (`shared/.../analysis/technique.py`) / dimensions.py
+  무수정. line/angle 회복은 Phase 5 (Gemini 기술 인식기 어댑터) 진입 시.
+- AlphaPose 는 라이선스 차단 (Noncommercial). 본 plan 어떤 task 에서도
+  도입 시도 금지 (memory `license-blocklist-pose.md`).
+- mmpose / numpy 추가 install 금지 — Plan 10 환경 그대로.
+

@@ -320,6 +320,280 @@ def compute_hold_window_lr(
     }
 
 
+# ── cross-engine + swap detection + verdict (T-3, numpy-only) ────────────────
+
+
+def compute_cross_engine_disagreement(
+    rtmpose_angles: np.ndarray, mediapipe_angles: np.ndarray
+) -> dict[str, Any]:
+    """RTMPose+MB vs MP+MB 의 frame-by-frame 평균 disagreement — 가설 (d).
+
+    두 (T, J=8) 행렬 frame 별 joint 평균 절대 차이. T 가 다르면 짧은 쪽 truncate.
+
+    Args:
+        rtmpose_angles: (T1, J=8) RTMPose+MB 결과.
+        mediapipe_angles: (T2, J=8) MP+MB 결과.
+
+    Returns:
+        dict with keys:
+          frame_count: int (truncated min(T1, T2)),
+          per_frame_mean_disagreement: list[float | None] (T,),
+          per_joint_mean_disagreement: joint_key → mean_abs_deg (8 키),
+          overall_mean_disagreement_deg: float | None (8 joint 평균),
+          peak_disagreement_frame_idx: int (-1 if all NaN).
+    """
+    a = _assert_tj(rtmpose_angles)
+    b = _assert_tj(mediapipe_angles)
+    min_T = min(a.shape[0], b.shape[0])
+    a = a[:min_T]
+    b = b[:min_T]
+
+    with np.errstate(invalid="ignore", all="ignore"):
+        diff = np.abs(a - b)  # (T, 8)
+        per_frame = np.nanmean(diff, axis=1)  # (T,)
+        per_joint = np.nanmean(diff, axis=0)  # (8,)
+
+    valid = ~np.isnan(per_frame)
+    if not np.any(valid):
+        overall = float("nan")
+        peak_idx = -1
+    else:
+        overall = float(np.nanmean(per_frame))
+        # NaN masked argmax
+        masked = np.where(valid, per_frame, -np.inf)
+        peak_idx = int(np.argmax(masked))
+
+    per_frame_list = [
+        None if np.isnan(x) else float(x) for x in per_frame.tolist()
+    ]
+    per_joint_dict = {
+        k: (None if np.isnan(per_joint[j]) else float(per_joint[j]))
+        for j, k in enumerate(JOINT_KEYS)
+    }
+
+    return {
+        "frame_count": int(min_T),
+        "per_frame_mean_disagreement": per_frame_list,
+        "per_joint_mean_disagreement": per_joint_dict,
+        "overall_mean_disagreement_deg": None if np.isnan(overall) else overall,
+        "peak_disagreement_frame_idx": peak_idx,
+    }
+
+
+def detect_lr_swap(
+    rtmpose_angles: np.ndarray,
+    mediapipe_angles: np.ndarray,
+    lr_pairs: tuple[tuple[str, str], ...] = LR_PAIRS,
+) -> dict[str, Any]:
+    """좌/우 부호 (L > R vs L < R) 두 lift path 가 반대인 frame 비율 — 가설 (c).
+
+    occlusion 자세 (거꾸로 매달림) 에서 lifter 가 좌/우 keypoint 를 헷갈리면
+    한 path 는 L > R, 다른 path 는 L < R 출력. NaN frame 은 판정 제외.
+
+    Args:
+        rtmpose_angles: (T1, J=8).
+        mediapipe_angles: (T2, J=8).
+        lr_pairs: pair tuple list. 기본 LR_PAIRS 4 쌍.
+
+    Returns:
+        dict with keys:
+          frame_count: int (min(T1, T2)),
+          swap_frames_per_pair: pair_name → list[int] (swap frame index),
+          swap_frame_ratio: float (0~1) — 4 pair 평균,
+          swap_frame_ratio_per_pair: pair_name → float (0~1).
+    """
+    a = _assert_tj(rtmpose_angles)
+    b = _assert_tj(mediapipe_angles)
+    min_T = min(a.shape[0], b.shape[0])
+    a = a[:min_T]
+    b = b[:min_T]
+
+    key_to_idx = {k: j for j, k in enumerate(JOINT_KEYS)}
+    swap_frames_per_pair: dict[str, list[int]] = {}
+    swap_ratios: dict[str, float] = {}
+    ratios_list: list[float] = []
+
+    for lk, rk in lr_pairs:
+        li, ri = key_to_idx[lk], key_to_idx[rk]
+        # 두 path 의 (L - R) 부호 비교
+        delta_a = a[:, li] - a[:, ri]
+        delta_b = b[:, li] - b[:, ri]
+        # NaN frame 은 판정 제외
+        valid = ~(np.isnan(delta_a) | np.isnan(delta_b))
+        # swap = 부호 반대 (한 쪽 +, 다른 쪽 -). 0 은 swap 아님 (동일).
+        sign_a = np.sign(delta_a)
+        sign_b = np.sign(delta_b)
+        swap_mask = valid & (sign_a * sign_b < 0)
+        swap_indices = np.where(swap_mask)[0].tolist()
+        n_valid = int(valid.sum())
+        ratio = (len(swap_indices) / n_valid) if n_valid > 0 else 0.0
+
+        pair_name = f"{lk}_vs_{rk}"
+        swap_frames_per_pair[pair_name] = swap_indices
+        swap_ratios[pair_name] = float(ratio)
+        ratios_list.append(float(ratio))
+
+    overall_ratio = float(np.mean(ratios_list)) if ratios_list else 0.0
+
+    return {
+        "frame_count": int(min_T),
+        "swap_frames_per_pair": swap_frames_per_pair,
+        "swap_frame_ratio_per_pair": swap_ratios,
+        "swap_frame_ratio": float(overall_ratio),
+    }
+
+
+def verdict_hypothesis(
+    measure_value: float | None, strong_threshold: float, weak_threshold: float
+) -> str:
+    """utility — 단일 측정값과 두 임계로 strong / weak / rejected / inconclusive.
+
+    NaN / None 입력은 inconclusive. strong > weak 전제 (가설 (a)(b)(d) 임계).
+
+    Returns:
+        "strong" | "weak" | "rejected" | "inconclusive"
+    """
+    if measure_value is None:
+        return "inconclusive"
+    try:
+        v = float(measure_value)
+    except (TypeError, ValueError):
+        return "inconclusive"
+    if np.isnan(v):
+        return "inconclusive"
+    if v >= strong_threshold:
+        return "strong"
+    if v >= weak_threshold:
+        return "weak"
+    return "rejected"
+
+
+def aggregate_verdicts(
+    trace_a: dict[str, Any],
+    trace_b: dict[str, Any],
+    trace_c: dict[str, Any],
+    trace_d: dict[str, Any],
+) -> dict[str, Any]:
+    """4 가설 trace 결과 → verdict 표 + dominant + next_path_recommendation.
+
+    Args:
+        trace_a: trace_angles_per_frame 결과 (mean_disagreement_deg key).
+        trace_b: compute_lr_asymmetry 결과 (overall_mean_abs_lr_deg key).
+        trace_c: detect_lr_swap 결과 (swap_frame_ratio key).
+        trace_d: compute_cross_engine_disagreement 결과
+                 (overall_mean_disagreement_deg key).
+
+    Returns:
+        dict with keys:
+          hypotheses: {a: {value, verdict, threshold_strong, threshold_weak},
+                       b: {...}, c: {...}, d: {...}},
+          dominant: list[str] of hypothesis labels that scored "strong",
+          next_path_recommendation: str (6 분기 — 추가 view 옵션 키워드 0건 박제).
+    """
+    v_a = trace_a.get("mean_disagreement_deg")
+    v_b = trace_b.get("overall_mean_abs_lr_deg")
+    v_c = trace_c.get("swap_frame_ratio")
+    v_d = trace_d.get("overall_mean_disagreement_deg")
+
+    verd_a = verdict_hypothesis(
+        v_a, HYPOTHESIS_A_FRAME_VS_WINDOW_STRONG_DEG, HYPOTHESIS_A_WEAK_DEG
+    )
+    verd_b = verdict_hypothesis(
+        v_b, HYPOTHESIS_B_LR_ASYMMETRY_STRONG_DEG, HYPOTHESIS_B_WEAK_DEG
+    )
+    verd_c = verdict_hypothesis(
+        v_c, HYPOTHESIS_C_LR_SWAP_FRAME_RATIO_STRONG, HYPOTHESIS_C_WEAK_RATIO
+    )
+    verd_d = verdict_hypothesis(
+        v_d,
+        HYPOTHESIS_D_CROSS_ENGINE_DISAGREEMENT_STRONG_DEG,
+        HYPOTHESIS_D_WEAK_DEG,
+    )
+
+    hypotheses = {
+        "a": {
+            "label": "Gemini frame_idx 정확도 (frame 단일 vs hold_window 평균)",
+            "value": v_a,
+            "verdict": verd_a,
+            "threshold_strong": HYPOTHESIS_A_FRAME_VS_WINDOW_STRONG_DEG,
+            "threshold_weak": HYPOTHESIS_A_WEAK_DEG,
+        },
+        "b": {
+            "label": "RTMPose+MB 단일 lift 좌우 noise (영상 평균 |L-R|)",
+            "value": v_b,
+            "verdict": verd_b,
+            "threshold_strong": HYPOTHESIS_B_LR_ASYMMETRY_STRONG_DEG,
+            "threshold_weak": HYPOTHESIS_B_WEAK_DEG,
+        },
+        "c": {
+            "label": "lifter occlusion 좌우 매핑 swap (두 path 부호 반대 비율)",
+            "value": v_c,
+            "verdict": verd_c,
+            "threshold_strong": HYPOTHESIS_C_LR_SWAP_FRAME_RATIO_STRONG,
+            "threshold_weak": HYPOTHESIS_C_WEAK_RATIO,
+        },
+        "d": {
+            "label": "RTMPose+MB vs MP+MB cross-engine 각도 disagreement",
+            "value": v_d,
+            "verdict": verd_d,
+            "threshold_strong": HYPOTHESIS_D_CROSS_ENGINE_DISAGREEMENT_STRONG_DEG,
+            "threshold_weak": HYPOTHESIS_D_WEAK_DEG,
+        },
+    }
+
+    dominant = [k for k, v in hypotheses.items() if v["verdict"] == "strong"]
+
+    # next_path_recommendation 6 분기 — 후속 plan path. 추가 view 옵션 0건 박제
+    # (memory `single-camera-first-multi-view-last.md` 인용 키워드만 사용).
+    if set(dominant) == {"a"}:
+        recommendation = (
+            "path D 조기 진입 또는 path B-light (window 평균 채택) — "
+            "단일 frame sampling 만이 dominant. Plan 13 moment_dimensions 의 "
+            "window=5 평균 채택 또는 Gemini frame 선택 정확도 개선."
+        )
+    elif "a" in dominant and "b" in dominant:
+        # (a)+(b) 우선 (a)+(b) 분기
+        recommendation = (
+            "path B + path D combined — 단일 frame + 단일 lift 둘 다 noise. "
+            "multi-engine averaging + Gemini frame 정확도 동시 개선."
+        )
+    elif set(dominant) == {"b"}:
+        recommendation = (
+            "path B (multi-engine averaging) 진입 — RTMPose+MB 단일 lift 좌우 noise. "
+            "MP+MB / RTMPose+MB 두 lift 평균 또는 voting."
+        )
+    elif set(dominant) == {"c"}:
+        recommendation = (
+            "좌우 매핑 sanity check 추가 + path B 검토 — lifter occlusion swap. "
+            "RTMPose+MB lift 의 좌우 sign correction layer 추가, 또는 MP+MB "
+            "단독 path 전환 검토."
+        )
+    elif set(dominant) == {"d"}:
+        recommendation = (
+            "path B (multi-engine averaging) 진입 강제 — 단일 lift path 자체가 "
+            "invert family 부적합. 두 lift 평균 / voting / ensemble 필수 "
+            "(Plan 12 (e) verdict 와 일치)."
+        )
+    elif dominant:
+        # 그 외 다중 dominant 조합
+        recommendation = (
+            f"다중 dominant {sorted(dominant)} — path B + path D combined "
+            "권고 (단일 frame + 단일 lift 동시 개선)."
+        )
+    else:
+        # 모두 weak / rejected / inconclusive
+        recommendation = (
+            "path D 정식 진입 (Phase 5 조기) — Gemini 직접 EXTEND/BENT 분류. "
+            "측정 path 자체 신뢰 불가 → Gemini 분류 결과로 측정 우회 (SCORE-01 정식 path 조기)."
+        )
+
+    return {
+        "hypotheses": hypotheses,
+        "dominant": dominant,
+        "next_path_recommendation": recommendation,
+    }
+
+
 # ── argparse parser ───────────────────────────────────────────────────────────
 
 

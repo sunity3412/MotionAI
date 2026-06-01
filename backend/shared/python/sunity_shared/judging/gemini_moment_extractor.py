@@ -292,18 +292,24 @@ class GeminiMomentExtractor:
         """Gemini 실 호출. SDK 는 lazy import — 단위 테스트는 본 메서드 override.
 
         반환은 raw 응답 텍스트 (JSON). 파싱은 `_parse_gemini_response` 가 담당.
+
+        2026-06-01: legacy `google-generativeai` (0.8.x) 는 새 AI Studio 키 포맷
+        (`AQ.` prefix, 2025-말 갱신) 인식 못 함 — discovery endpoint 가
+        ACCESS_TOKEN_TYPE_UNSUPPORTED 반환. 신 SDK `google-genai` (Client 기반,
+        v1 endpoint) 사용. 설치: `pip install google-genai`.
         """
         try:
-            import google.generativeai as genai  # type: ignore
+            from google import genai  # type: ignore
         except ImportError as exc:
             raise RuntimeError(
-                "google-generativeai 미설치 — Pod 에 `pip install google-generativeai` "
-                "필요. 로컬 단위 테스트에서는 `_call_gemini` 를 override 하세요."
+                "google-genai 미설치 — Pod 에 `pip install google-genai` 필요. "
+                "(2026-06-01 박제: legacy `google-generativeai` 는 새 AI Studio "
+                "`AQ.` 키 포맷 미지원). 로컬 단위 테스트에서는 `_call_gemini` "
+                "를 override 하세요."
             ) from exc
 
         api_key = self.api_key_loader()
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(self.model_name)
+        client = genai.Client(api_key=api_key)
 
         # 영상 업로드 — Gemini File API.
         # video_uri 가 로컬 path 면 upload, http(s) 면 fetch (Pod 측 boto3 presigned 가 일반적).
@@ -315,9 +321,12 @@ class GeminiMomentExtractor:
                 "(spike_rtmpose 의 `_resolve_video` 패턴 그대로)."
             )
 
-        uploaded = genai.upload_file(path=video_uri, mime_type="video/mp4")
+        uploaded = client.files.upload(file=video_uri)
         prompt = _GEMINI_PROMPT_TEMPLATE.format(motion=motion)
-        response = model.generate_content([uploaded, prompt])
+        response = client.models.generate_content(
+            model=self.model_name,
+            contents=[uploaded, prompt],
+        )
         text = getattr(response, "text", None)
         if not text:
             raise RuntimeError(

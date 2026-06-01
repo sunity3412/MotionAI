@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T18:45:00.000Z"
-last_activity: 2026-06-01 -- Plan 13 PLAN 작성 + T-1~T-5 executor 완료 (GeminiMomentExtractor + moment_dimensions + spike_gemini_moment CLI + 87 PASS / 110 PASS with Plan 15 regression 0). 운영 코드 0줄, 기존 spike 0줄, NLF 호출 0, 8 angle joints 한정. T-6 belle Pod live mode (ref-invert 단독 시범) 대기 = pending_belle_live.
+last_updated: "2026-06-01T19:30:00.000Z"
+last_activity: 2026-06-01 -- Plan 13 T-6 belle Pod live mode 실행 (ref-invert 단독). SDK 마이그레이션 4 fix (joint_uncertainty import / _run_rtmpose_2d kwargs / legacy google-generativeai → google-genai / File API ACTIVE 대기) 후 pipeline 통과. **verdict = measurement_unreliable_blocked** — 정은지 invert peak hold 에서 right_shoulder 18.2° 같은 인체학적 비정상 값. Plan 08 MP+MB 92 vs Plan 11 RTMPose+MB 70 vs Plan 13 단일 frame 5/5 fail cross-engine inconsistency 박제. Plan 12 (e) verdict 직접 연결. **Plan 14 진입 차단 + Plan 16 (측정 신뢰도 spike) 신설.**
 progress:
   total_phases: 1
   completed_phases: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 13 T-1~T-5 executor 완료 (Gemini key moment + IPSF criteria 모듈 + spike CLI + 87 PASS). T-6 belle Pod live mode (ref-invert 단독 시범, ~3분) 대기 — 결과 적재 후 Plan 14 (5영상 sweep) 진입. Plan 15 belle 1차 박제 (5영상 hold_moment) 적용됨, 추가 4영상 라벨링은 Plan 14 진입 전 belle 결정.
+**Current focus:** Phase 01 — Plan 13 T-6 belle Pod live mode 실행 완료, **verdict = `measurement_unreliable_blocked`**. 측정값이 인체학적 비정상 (정은지 invert peak hold right_shoulder 18.2°) + 좌우 비대칭 폭주 + Plan 08/11/13 cross-engine 4-5배 차이. Plan 12 (e) "두 엔진 3D 분포 strong" 직접 연결. Plan 14 진입 차단 + **Plan 16 (측정 신뢰도 trace spike) 신설 필수**. memory 박제 일관: "분석 정확도 최우선" + "갭/line/angle 동등 게이트 무조건 — 다른 기술 반영해서라도 잡아야 한다".
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 13 T-1~T-5 완료 (T-6 belle Pod live 대기)
-Plan: 9/15 complete (01, 02, 03, 06, 07, 08, 10, 11, 12 done) + 09 closed as license_blocked + 15 T-1~T-4 done + belle 1차 박제 (5영상 hold_moment commit 861fb3a/4264001) + 13 T-1~T-5 done (T-6 belle Pod live 대기) + 14 (Plan 13 T-6 통과 후) + 04, 05 (Wave 3 — Plan 14 통과 후)
-Status: Active — Plan 13 executor 통과. GeminiMomentExtractor (Parameter Store + env fallback + 좌표/점수/판단 정규식 가드), moment_dimensions (8 angle joints 한정, measure_moment_angles + compute_criteria_gaps), spike_gemini_moment CLI (report-only + live mode, JSON+Markdown sibling), README append (Plan 07/08/10/11/12 보존), SUMMARY status `pending_belle_live`. 운영 코드 0줄, 기존 spike 0줄, NLF 호출 0, 이모지 0건, 사람 점수 0건. 87 PASS + Plan 15 23 PASS = 110 PASS regression 0.
-Last activity: 2026-06-01 -- Plan 13 PLAN 작성 (commit 08e545a) + T-1~T-5 executor 5 atomic commits cherry-pick to main (a13bf93 / 03f6fc6 / 6e1d328 / eb97059 / d13aad7) + 87 PASS + STATE/ROADMAP 갱신.
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 13 verdict `measurement_unreliable_blocked` (Plan 14 차단, Plan 16 진입)
+Plan: 9/15 complete + Plan 13 T-1~T-6 완료 (verdict 측정 신뢰도 의심, 표면 minimum_fail) + Plan 16 신설 대기 (측정 신뢰도 spike). 14 / 04 / 05 차단 chain.
+Status: Active — Plan 13 spike 인프라는 통과 (87 PASS + SDK fix 4건). 표면 verdict = `minimum_requirement_fail` (5/5). 박제 verdict = `measurement_unreliable_blocked` — 정은지 invert peak hold 에서 right_shoulder 18.2° / left_hip 54.9° / right_knee 73° 같은 인체학적 비정상. 좌우 비대칭 폭주 (left vs right Δ=60-70°). Plan 08 (MP+MB) 92 vs Plan 11 (RTMPose+MB) 70 vs Plan 13 (RTMPose+MB hold frame 88) 5/5 fail = 4-5배 cross-engine inconsistency. 각도 컨벤션 (compute_joint_angles = inner angle, 180° = 완전 신전) IPSF target 과 일치 확인됨 — 컨벤션 미스매치 아님. root cause 가설 4 (Gemini frame_idx 정확도 / 단일 frame 좌우 noise / lifter occlusion 좌우 헷갈림 / multi-engine averaging 필요) — Plan 16 trace 책임.
+Last activity: 2026-06-01 -- Plan 13 T-6 실행 + SDK 마이그레이션 4 fix (56b5577 / 5d867a8 / 569a076 / 9f011d2) + verdict 박제 + Plan 14 차단 + Plan 16 진입 대기.
 
 Progress: [██████░░░░] 60%
 

@@ -13,7 +13,10 @@ tags:
   - plan-12-dominant-a-resolution
   - parameter-store-securestring
   - no-human-scoring
-  - pending_belle_live
+  - belle_live_executed
+  - measurement_unreliable_blocked
+  - plan_14_entry_blocked
+  - plan_16_required
 
 dependency_graph:
   requires:
@@ -72,21 +75,23 @@ requirements_completed: []
 # 본 plan = data path + spike infra 박제, 미충족.
 
 metrics:
-  duration: "~80 min executor (T-1~T-5 + 87 unit/smoke 테스트 + README + SUMMARY) — belle Pod live mode (T-6) 별도 ~3분"
-  completed_date: "pending_belle_live (T-6 belle Pod live mode 대기. ref-invert 단독 시범)"
-  tasks_completed: 5
+  duration: "~80 min executor (T-1~T-5 + 87 unit/smoke 테스트 + README + SUMMARY) + belle Pod live mode (T-6) 단일 영상 ~10분 (SDK 마이그레이션 fix 4회 포함)"
+  completed_date: "2026-06-01 belle Pod live mode 실행 — verdict measurement_unreliable_blocked"
+  tasks_completed: 6
   tasks_total: 6
   files_created: 8
   files_modified: 2
 ---
 
-# Phase 01 Plan 13: Gemini key moment + IPSF criteria spike — pending belle live
+# Phase 01 Plan 13: Gemini key moment + IPSF criteria spike — measurement unreliable, Plan 14 blocked
 
-**One-liner:** Plan 12 dominant (a) frame-mean 한계 (mean disagreement 45-52°) 해결 path —
-Gemini 2.5 Pro 가 영상에서 phase 별 key moment 시점 추출 → Plan 15 IPSF
-`GeometricCriterion` 과 비교 → 갭/감점/minimum 미달 점검. 운영 dimensions.py frame-mean path
-무수정 + 8 angle joints 한정 + 사람 점수 라벨링 0건 + Gemini 좌표/점수/판단 정규식 차단. 실
-Gemini API 호출은 belle Pod ref-invert 단독 시범 (T-6) 대기.
+**One-liner:** Plan 12 dominant (a) frame-mean 한계 해결 path 도입은 통과했으나,
+ref-invert 단독 live mode 실행 결과 = **`minimum_requirement_fail` 5/5 + 측정값 자체 의심**.
+정은지 (폴스포츠 세계챔피언) invert split peak hold 자세에서 right_shoulder 18.2° / left_hip 54.9° 등
+인체학적으로 비정상적 측정값 출력. Plan 11 sweep frame-mean 70 + Plan 08 MP+MB frame-mean **92** 와
+4-5배 차이. Plan 12 (e) verdict ("두 엔진 3D 분포 strong, distance 220+") 와 직접 연결 — RTMPose+MB
+lift 신뢰도 약점 + 단일 frame sampling 좌우 noise 폭주. **Plan 14 진입 차단 — Plan 16 신설로
+측정 신뢰도 root cause 해소 후 진입.**
 
 ---
 
@@ -94,8 +99,8 @@ Gemini API 호출은 belle Pod ref-invert 단독 시범 (T-6) 대기.
 
 | 항목 | 내용 |
 |---|---|
-| **Verdict** | **`pending_belle_live`** (T-1~T-5 완료, T-6 belle Pod live mode 대기) |
-| **단계 도달** | T-1 ~ T-5 완료. T-6 belle Pod ref-invert 단독 시범 대기 (~3분 예상) |
+| **Verdict** | **`measurement_unreliable_blocked`** (live mode 통과, 측정값 자체 의심 — Plan 14 차단) |
+| **단계 도달** | T-1 ~ T-6 완료. ref-invert 단독 시범 결과 5/5 minimum fail + 측정값 의심 박제 |
 | **scope** | 데이터 path + spike infra — moment-list sampling 모듈 + CLI spike + 87 단위/스모크 테스트 |
 | **신규 파일** | 8 (judging 모듈 2 + spike 1 + 테스트 3 + PLAN 1 + SUMMARY 1) |
 | **수정 파일** | 2 (judging/__init__.py append-only + spikes/README.md append-only) |
@@ -608,12 +613,109 @@ spike 한정.
 
 ## Verdict 요약 — orchestrator 에게
 
-- **verdict**: `pending_belle_live`
-- **one-liner**: Plan 12 dominant (a) frame-mean 한계 해결 path — Gemini multimodal key moment +
-  Plan 15 IPSF criteria 비교 spike 인프라 박제. T-1 GeminiMomentExtractor (52 unit) + T-2
-  moment_dimensions (20 unit) + T-3 spike CLI (15 smoke) + T-4 README + T-5 SUMMARY. 운영 코드 0줄
-  / 기존 spike 0줄 / Plan 15 데이터 0줄. 합계 87 unit/smoke PASS.
-- **commits (executor)**: 6 (PLAN / T-1 / T-2 / T-3 / T-4 / SUMMARY 본 docs commit).
-- **next action**: T-6 belle Pod live mode (ref-invert 단독 시범, ~3분) → 결과 적재 → 본 SUMMARY
-  status `belle_live_passed` 갱신 → Plan 14 PLAN 작성 진입 (5영상 sweep, Plan 15 4영상 belle
-  라벨링 선행 필요).
+- **verdict**: `measurement_unreliable_blocked`
+- **one-liner**: T-1~T-5 executor 인프라 통과 + T-6 belle Pod live mode (ref-invert 단독, 2026-06-01) 실행 완료.
+  Gemini File API ACTIVE 대기 / 새 AI Studio AQ. 키 포맷 SDK 마이그레이션 / _run_rtmpose_2d kwargs / temporal/features
+  import 4 fix 박제 후 pipeline 진입 성공. **결과 = 5/5 minimum fail + 측정값 자체 의심.** 정은지
+  invert split peak hold 에서 right_shoulder 18.2° 같은 인체학적 비정상 값 + Plan 08 MP+MB 92 vs
+  Plan 11 RTMPose+MB 70 vs Plan 13 단일 frame 5/5 fail 의 cross-engine inconsistency. Plan 12 (e)
+  verdict ("두 엔진 3D 분포 strong, distance 220+") 와 직접 연결. **Plan 14 진입 차단 — Plan 16
+  신설 (측정 신뢰도 root cause trace + 다른 기술 도입 검토).**
+- **commits (executor + fix)**: 11 (PLAN / T-1 / T-2 / T-3 / T-4 / SUMMARY / STATE+ROADMAP / 4 SDK fix).
+- **next action**: Plan 16 PLAN 작성 진입 (`/gsd:plan-phase 1 --plan 16`). Plan 14 5영상 sweep 은
+  Plan 16 통과 후 진입 (Wave 3 gate chain 갱신).
+
+---
+
+## belle Pod live mode 결과 (2026-06-01, ref-invert 단독)
+
+**실행 보고서**: `spike_gemini_moment_live_20260601_0927.json` + `.md` (belle 공유).
+
+### Plan 14 진입 게이트 (spike 자동 분기)
+
+- **verdict 표면**: `minimum_requirement_fail` (5/5 minimum 미달)
+- **본 SUMMARY 박제 verdict**: `measurement_unreliable_blocked` (측정 신뢰도 의심으로 인한
+  표면 verdict 무효화 — Plan 14 진입 불가)
+
+| 항목 | 값 | 임계 | 통과 |
+|---|---|---|---|
+| minimum 미달 entry | 5 | ≤ 0 | False |
+| line 차원 (hold) | 0 | ≥ 60 | False |
+| angle 차원 (hold) | 0 | ≥ 60 | False |
+
+### per-joint gap (hold moment, frame_idx=88)
+
+| joint | measured | target | gap | beyond_tol | deduction | minimum_met | score |
+|---|---|---|---|---|---|---|---|
+| left_shoulder | 88.2° | 180° | 91.8° | 71.8° | 14.36 | False | 0 |
+| right_shoulder | **18.2°** | 180° | **161.8°** | **141.8°** | **28.37** | False | 0 |
+| left_hip | 54.9° | 180° | 125.1° | 105.1° | 21.01 | False | 0 |
+| right_hip | 115.5° | 180° | 64.5° | 44.5° | 8.90 | False | 1 |
+| right_knee | 73.0° | 180° | 107.0° | 87.0° | 17.40 | False | 0 |
+
+### Measurement unreliability 박제 (3 증거)
+
+1. **인체학적 비정상**: right_shoulder 18.2° = 손을 옆구리에 거의 붙인 자세에서만 나오는 값. invert
+   split 자세 (어깨가 폴을 잡고 매달림) 에서는 80~180° 가 정상. 정은지 = 폴스포츠 세계챔피언이므로
+   IPSF minimum (160°) 못 가는 자세 불가능.
+
+2. **좌우 비대칭 폭주**: left_shoulder 88 vs right_shoulder 18 (Δ=70°), left_hip 55 vs right_hip 116
+   (Δ=61°). 정은지 invert split 은 IPSF Code of Points 상 좌우 대칭이 정합 — 한쪽 occlusion 또는
+   lifter 좌우 매핑 헷갈림 의심.
+
+3. **Cross-engine inconsistency**: 동일 ref-invert 영상에서
+   - Plan 08 (MP+MB) frame-mean → overall **92** (정은지 수준)
+   - Plan 11 (RTMPose+MB) frame-mean → overall 70 (Plan 11 sweep)
+   - **Plan 13 (RTMPose+MB) hold frame 88 → 5/5 minimum fail** (단일 frame sampling)
+   Plan 12 (e) verdict ("두 엔진 3D 분포 strong, distance 220+") 와 직접 일치 — RTMPose+MB lift
+   신뢰도 약점이 단일 frame 에서 폭주.
+
+### 측정 신뢰도 root cause 가설 (4)
+
+| # | 가설 | 디버그 path |
+|---|---|---|
+| **a** | Gemini 가 hold frame_idx=88 을 정점 아닌 transition 으로 분류 | 동일 영상 다른 frame (peak / setup / release) 의 측정값 비교 |
+| **b** | RTMPose+MB lift 가 단일 frame 좌우 noise 폭주 (Plan 12 (e) 직접 연결) | hold_window (88±5) 평균 또는 좌우 평균 산출 |
+| **c** | lifter 가 occlusion 자세 (거꾸로 매달림) 에서 좌우 keypoint 헷갈림 | raw 2D keypoint visualization (frame 88) + Plan 08 MP+MB lift 결과와 비교 |
+| **d** | RTMPose+MB 단일 lift path 자체가 invert family 부적합 — multi-engine averaging 필요 | Plan 12 (e) 후속 spike — MP+MB / RTMPose+MB / NLF 3 lift voting 또는 ensemble |
+
+### 각도 컨벤션 검증 결과 (NOT root cause)
+
+- `compute_joint_angles` (`backend/shared/python/sunity_shared/analysis/features.py:36`) = `arccos(dot(ba, bc) / (|ba|·|bc|))`
+- → **inner joint angle**, range [0°, 180°], 180° = 두 segment 가 일직선 = 완전 신전
+- IPSF Code of Points Fully Extended Criteria target=180° (tolerance ±20°, minimum 160°) 정의와 **컨벤션 일치**
+- → **각도 컨벤션 미스매치 아님**. 측정값 자체가 root cause.
+
+### 사람 점수 라벨링 / Gemini 좌표·점수·판단 출력 확인
+
+- 사람 점수 라벨링: 0건 (메모리 박제 `analysis-objectivity-no-human-scores` 준수).
+- Gemini 응답 raw excerpt: 좌표 / 점수 / 심사 판단 키워드 0건 (정규식 가드 미발동 = 응답이 정책 준수).
+
+### Plan 14 진입 차단 + Plan 16 신설 박제
+
+belle 결정 (2026-06-01, "분석 정확도 최우선 + 갭/line/angle 동등 게이트 무조건" memory 박제 일관) —
+표면 verdict `minimum_requirement_fail` 박제하되 root cause = 측정 신뢰도 약점. Plan 14 5영상 sweep
+진입은 Plan 16 (측정 신뢰도 spike) 통과 후로 chain 갱신.
+
+memory `feedback-analysis-first.md` + `gap-and-line-angle-mandatory-gates.md` 박제 일관 — "다른 기술
+반영해서라도 잡아야 한다". Plan 16 spike scope = path A (frame-by-frame trace) 우선 + path B
+(multi-engine averaging) / path C (multi-view 조기 도입) / path D (Gemini 직접 EXTEND/BENT 분류
+SCORE-01 정식 path 조기 진입) 옵션 박제. belle Plan 16 PLAN 작성 시 path 결정.
+
+---
+
+## SDK 마이그레이션 + bugfix 박제 (T-6 실행 차단 4건 해소)
+
+belle Pod live mode 진입 전 4건 차단 해소 — executor smoke 테스트가 live mode 함수 시그너처
+미검증으로 발생. 모든 fix smoke 87 PASS 유지 (regression 0).
+
+| # | commit | 차단 사유 | 해결 |
+|---|---|---|---|
+| 1 | `56b5577` | `joint_uncertainty` 를 `temporal` 에서 import 시도 (실제 `features` 모듈) | 한 줄 분리 import |
+| 2 | `5d867a8` | `_run_rtmpose_2d` 에 `config_path`/`checkpoint_path`/`score_threshold` kwargs hallucinate (실제 positional `frames, rtmpose_config, rtmpose_checkpoint`) | positional 호출로 수정 |
+| 3 | `569a076` | legacy `google-generativeai` 0.8.x 가 새 AI Studio AQ. 키 포맷 미지원 (2025-말 갱신) → 401 ACCESS_TOKEN_TYPE_UNSUPPORTED | 신 `google-genai` SDK 마이그레이션 (Client + files.upload + models.generate_content) |
+| 4 | `9f011d2` | Gemini File API 가 upload 후 PROCESSING 상태에서 즉시 generate_content 시 FAILED_PRECONDITION | `client.files.get(name=...)` polling (2s 간격, max 120s) |
+
+**Plan 16 PLAN 박제 권장 사항**:
+- live mode 함수 시그너처 smoke 추가 (현 smoke 가 mock 만 검증해서 4건 모두 belle Pod 에서 처음 발견)
+- 또는 live mode 자체를 별 통합 테스트로 분리 (단위 mock 과 격리)

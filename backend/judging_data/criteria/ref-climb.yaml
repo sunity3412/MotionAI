@@ -3,12 +3,29 @@
 # 사람 점수 라벨링 금지 — 객관 임계값 수치만
 # memory: analysis-objectivity-no-human-scores, judging-baseline-ipsf-code-of-points
 #
-# Plan 01-15 T-2 빈 템플릿 (executor 생성). belle 라벨링 (T-5) 대기.
-# belle 가 IPSF Code of Points 동작군 규정 lookup 후 phase별 entry 채움.
+# Plan 01-15 (a) path 1차 박제 (2026-06-01). reference-motions.md §5 ref-climb
+# checkpoints + §8 IPSF Code of Points 기반.
+# IPSF 정식 동작 family 명칭 = belle/강사 lookup 후 source_ref 갱신.
+#
+# hold_moment (양 무릎 X자 hook peak 5s):
+# - left_knee / right_knee = X자 hook = BENT (의도적 굽힘) → 제외 (IPSF Fully Extended 평가 대상 아님)
+# - right_shoulder 견갑 안정성만 EXTEND 박제
+# - left_hip / right_hip = 외전 정렬 (각도 specific 없음) → 제외
+# - spine_mid 측면 자세 유지 — 모호, 1차 제외 (belle 검증 시 추가)
+#
+# 주의: ref-climb 은 BENT(hook) 자세 위주라 EXTEND IPSF 평가 대상이 적음.
+# Fully Extended 평가 외 다른 IPSF 기준 (그립 안정성, 회전 안정성 등) 추가 필요할 수 있음
+# — belle 검증 시 IPSF Code of Points climb family 별도 기준 확인.
 motion: ref-climb
-source: "IPSF Code of Points YYYY — TBD by belle (climb / ascend family)"
+source: "reference-motions.md §5 ref-climb (basic, 양 무릎 X자 hook peak 5s) + §8 IPSF Code of Points (정확 동작 family §TBD by belle/강사)"
 criteria:
   setup_moment: []
-  hold_moment: []   # belle 채움 — IPSF target angle / tolerance / deduction / minimum
+  hold_moment:
+    - joint: right_shoulder
+      angle_target: 180.0
+      tolerance_full: 20.0
+      deduction_per_step: 0.2
+      minimum_requirement: 130.0
+      source_ref: "reference-motions.md §5 ref-climb checkpoints (right_shoulder w=0.20 주 지지 팔 견갑 안정성 X자 훅 잠금) + §8-2 IPSF 견갑 하강 + §8-1 tolerance 20° (정확 §TBD)"
   peak_moment: []
   release_moment: []

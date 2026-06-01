@@ -34,15 +34,22 @@ SWEEP_MOTIONS = (
 # ─────────────────── 5영상 빈 템플릿 ───────────────────
 
 
-class TestLoadEmptyTemplates:
+class TestLoadLabeledTemplates:
     @pytest.mark.parametrize("motion", SWEEP_MOTIONS)
-    def test_empty_template_loads_to_empty_list(self, motion: str) -> None:
-        """T-2 빈 템플릿 5개 다 load_criteria 성공 + criteria list 비어있음."""
+    def test_labeled_template_loads_and_validates(self, motion: str) -> None:
+        """1차 박제 (Plan 01-15 path (a), reference-motions.md §5 + §8 IPSF 기반)
+        5영상 모두 load_criteria 성공 + criteria list ≥ 1 + 모든 entry validate PASS.
+
+        ref-climb 은 hold 자세가 BENT(hook) 위주라 EXTEND entry 1개 (right_shoulder).
+        나머지 4영상은 3~6 entry. belle 검증 시 추가/수정 가능.
+        """
         criteria = load_criteria(motion)
-        assert criteria == [], (
-            f"빈 템플릿이 비어있지 않음: {motion} → {criteria} "
-            f"(belle 라벨링 진행 중이면 grouped 테스트로 확인)"
+        assert len(criteria) >= 1, (
+            f"{motion} criteria 가 비어있음 — 1차 박제 후 fail. "
+            f"파일 확인: backend/judging_data/criteria/{motion}.yaml"
         )
+        for c in criteria:
+            c.validate()  # validate 실패 시 ValueError 자동 propagate
 
     def test_default_dir_resolves_under_backend(self) -> None:
         """기본 DEFAULT_CRITERIA_DIR 가 backend/judging_data/criteria 로 풀림."""

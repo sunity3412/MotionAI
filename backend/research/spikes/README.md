@@ -690,4 +690,142 @@ python3 -m backend.research.spikes.spike_gemini_moment \
   motion 만 본 spike 입력 가능.
 - 사람 점수 라벨링 0건 (belle / 강사 / 심사자 score 출력 금지, memory 박제).
 
+---
+
+# Plan 16 — Measurement reliability frame-by-frame trace spike
+
+> 본 섹션은 Plan 01-16 에서 추가됨. Plan 07/08/10/11/12/13 섹션은 위쪽 그대로 보존.
+
+## 목적 (Plan 16)
+
+Plan 01-13 verdict `measurement_unreliable_blocked` (2026-06-01) 후속 path A — ref-invert
+hold frame 88 단일 frame 측정 결과가 정은지 (폴스포츠 세계챔피언) invert split peak hold
+자세에서 right_shoulder 18.2도 / left_hip 54.9도 / right_knee 73도 같은 인체학적 비정상 +
+5/5 minimum fail. Plan 08 (MP+MB) frame-mean 92 / Plan 11 (RTMPose+MB) frame-mean 70 /
+Plan 13 (RTMPose+MB) hold frame 88 5/5 fail = 4-5배 cross-engine inconsistency. 각도 컨벤션
+(compute_joint_angles inner angle 0-180도, 180도 = 완전 신전) IPSF target 일치 확인됨 — 측정값
+자체가 root cause.
+
+본 spike 는 4 가설 (a) Gemini frame_idx 정확도 / (b) RTMPose+MB 단일 lift 좌우 noise /
+(c) lifter occlusion 좌우 매핑 swap / (d) RTMPose+MB vs MP+MB cross-engine 부적합 을
+frame-by-frame trace + cross-engine 재현으로 dominant 박제. Plan 14 진입 보장 X — 후속 plan
+path 결과 후 진입.
+
+## 라이선스 (Plan 16 추가)
+
+| 라이브러리       | 라이선스   | 출처                                                                 |
+|-------------------|------------|----------------------------------------------------------------------|
+| MediaPipe         | Apache 2.0 | https://github.com/google/mediapipe/blob/master/LICENSE              |
+| MotionBERT        | MIT        | https://github.com/Walter0807/MotionBERT/blob/main/LICENSE           |
+| RTMPose / mmpose  | Apache 2.0 | https://github.com/open-mmlab/mmpose/blob/main/LICENSE               |
+
+NLF 호출 0 — Plan 12 (c) verdict 후 영구 폐기 (memory `license-blocklist-pose.md`).
+본 spike 비교군 = MP+MB + RTMPose+MB 두 path 만.
+
+## Plan 16 추가 파일
+
+```
+backend/research/spikes/
+  spike_measurement_trace.py     # 4 가설 trace + verdict + JSON+MD
+
+backend/tests/
+  test_spike_measurement_trace.py        # 30 unit PASS (numpy-only)
+  test_spike_measurement_trace_smoke.py  # 12 smoke PASS (mmpose 미import)
+```
+
+## report-only mode (로컬 OK)
+
+stub angles 두 set 으로 helper chain end-to-end. Pod / mmpose / torch / mediapipe 의존성 0.
+
+```bash
+PYTHONPATH=backend/shared/python:. python3 -m backend.research.spikes.spike_measurement_trace \
+  --mode report-only \
+  --motion ref-invert
+```
+
+생성물:
+- `backend/research/spikes/reports/spike_measurement_trace_<UTC>.json`
+- `backend/research/spikes/reports/spike_measurement_trace_<UTC>.md`
+
+## live mode (belle Pod 전용, ref-invert 단독, ~5분)
+
+### 1. SunityMotion 저장소 최신화
+
+```bash
+cd /workspace/SunityMotion
+git pull --ff-only origin main
+```
+
+### 2. 환경 확인 (추가 install 0 — Plan 08/10/13 setup 완료 상태)
+
+```bash
+python3 -c "import torch; import mmpose; import mediapipe; print(torch.__version__, mmpose.__version__, mediapipe.__version__)"
+```
+
+기대값: torch 2.4.1+cu124 / mmpose 1.3.2 / mediapipe 0.10.x. 정합 안 맞으면 STOP.
+
+### 3. spike 실행 (ref-invert 단독, ~5분)
+
+```bash
+python3 -m backend.research.spikes.spike_measurement_trace \
+  --mode live \
+  --motion ref-invert \
+  --frame-index 88 \
+  --hold-window 5 \
+  --bucket sunity-motion-pilot-videos \
+  --rtmpose-config /workspace/rtmpose_weights/rtmpose-l_8xb256-420e_coco-256x192.py \
+  --rtmpose-checkpoint /workspace/rtmpose_weights/rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth \
+  --motionbert-root /workspace/MotionBERT \
+  --motionbert-weights /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin \
+  --out backend/research/spikes/reports/spike_measurement_trace_live_$(date +%Y%m%d_%H%M).json
+```
+
+예상 소요:
+- RTMPose+MB 직렬 실행: ~3분 (Plan 11 sweep 패턴, ~37ms/frame).
+- MediaPipe+MB 직렬 실행: ~2분 (Plan 08 spike 패턴).
+- 4 가설 verdict + JSON+MD 산출: <1초.
+
+### 4. 결과 검증 (Claude 가 적재 시 확인)
+
+- JSON / Markdown 에 추가 view 옵션 관련 키워드 0건
+  (memory `single-camera-first-multi-view-last.md` 인용 라인만 허용).
+- 사람 점수 라벨링 0건 (좌표 / 점수 / 판단 키워드 0건).
+- 4 가설 verdict 모두 산출 (strong / weak / rejected / inconclusive 4 단계 중 하나).
+- next_path_recommendation 6 분기 중 1개 산출.
+- RTMPose+MB frame 88 single 측정값이 Plan 13 측정값 (right_shoulder 18.2도 등) 과 1도 이내로
+  일치하는지 별도 박제 (재현 검증).
+- MP+MB frame 88 single 측정값 별도 박제 (cross-engine 비교).
+
+### 5. SUMMARY 갱신
+
+- frontmatter status `pending_belle_live` → `belle_live_complete` (dominant tag 추가).
+- 본문 `belle Pod live mode 결과` 섹션 신설 — verdict 표 + dominant + next_path_recommendation +
+  Plan 14 진입 결정 박제.
+
+## 4 가설 verdict 매트릭스
+
+| #   | 가설                                              | strong 임계 | weak 임계 | 측정 path                                            |
+|-----|---------------------------------------------------|-------------|-----------|-------------------------------------------------------|
+| (a) | Gemini frame_idx=88 정확도                         | ≥30도        | ≥10도      | RTMPose+MB frame 88 단일 vs hold_window (88±5) 평균 |
+| (b) | RTMPose+MB lift 단일 frame 좌우 noise              | ≥40도        | ≥15도      | RTMPose+MB 영상 평균 4 pair |L - R|                  |
+| (c) | lifter occlusion 자세 좌우 매핑 swap               | ≥30%         | ≥10%       | RTMPose+MB vs MP+MB 두 path 부호 반대 frame 비율    |
+| (d) | RTMPose+MB vs MP+MB cross-engine 부적합            | ≥30도        | ≥10도      | RTMPose+MB vs MP+MB frame-by-frame 평균 disagreement |
+
+dominant 가설별 후속 plan path 권고는 spike 의 `next_path_recommendation` 산출 (6 분기).
+
+## 주의사항 (Plan 16)
+
+1. 단일 카메라 단독 박제 — memory `single-camera-first-multi-view-last.md` (2026-06-01)
+   영구 자동 제외. 본 spike / 권고 / 분기 어디서도 추가 view 옵션 0건.
+2. NLF 호출 0 — Plan 12 (c) verdict 후 영구 폐기. 본 spike 비교군 = MP+MB + RTMPose+MB 두 path 만.
+3. 8 angle joints (`skeleton.JOINT_KEYS`) 만 trace — derive joint (hip/spine/thorax/neck_nose/
+   head) 절대 사용 금지 (Plan 12 (d) keypoint mapping 회피).
+4. Plan 13 모듈 호출 0 — gemini_moment_extractor / moment_dimensions / spike_gemini_moment
+   무수정 + 호출 0. frame_idx=88 박제 상수만 사용.
+5. Plan 15 데이터 무수정 — geometric_criterion / loader / 5영상 YAML 0줄.
+6. 기존 spike 8개 무수정 — spike_rtmpose / sweep_rtmpose / debug_dimensions /
+   debug_gap_root_cause / spike_motionbert / rtmpose_to_h36m17 / mediapipe_to_h36m17 /
+   spike_gemini_moment 0줄. 함수 import + 호출만.
+7. 사람 점수 라벨링 0건 (belle / 강사 / 심사자 score 출력 영구 금지, memory 박제).
+8. Gemini 호출 0 — 본 plan 은 측정 trace 만. Gemini moment 추출은 Plan 13 책임.
 

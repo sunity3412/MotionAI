@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T18:00:00.000Z"
-last_activity: 2026-06-01 -- Plan 15 (a) 1차 박제 IPSF NotebookLM 정정 (minimum 130→160, ref-climb Climbs 카테고리 = 각도 임계 X 빈 list, source_ref Code of Points 2024-2025 인용). 23/23 PASS. memory 2개 박제 (NotebookLM + 용어 다중 매핑 future).
+last_updated: "2026-06-01T18:45:00.000Z"
+last_activity: 2026-06-01 -- Plan 13 PLAN 작성 + T-1~T-5 executor 완료 (GeminiMomentExtractor + moment_dimensions + spike_gemini_moment CLI + 87 PASS / 110 PASS with Plan 15 regression 0). 운영 코드 0줄, 기존 spike 0줄, NLF 호출 0, 8 angle joints 한정. T-6 belle Pod live mode (ref-invert 단독 시범) 대기 = pending_belle_live.
 progress:
   total_phases: 1
   completed_phases: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 12 verdict 확정 (4/5 strong, (b) weak). Plan 15 executor T-1~T-4 완료 (judging 모듈 + 5영상 YAML 빈 템플릿 + 23 테스트 PASS). T-5 belle IPSF 임계값 라벨링 대기 + Plan 13 PLAN 작성 (Gemini key moment + Plan 15 데이터 입력) 진입 대기.
+**Current focus:** Phase 01 — Plan 13 T-1~T-5 executor 완료 (Gemini key moment + IPSF criteria 모듈 + spike CLI + 87 PASS). T-6 belle Pod live mode (ref-invert 단독 시범, ~3분) 대기 — 결과 적재 후 Plan 14 (5영상 sweep) 진입. Plan 15 belle 1차 박제 (5영상 hold_moment) 적용됨, 추가 4영상 라벨링은 Plan 14 진입 전 belle 결정.
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 12 완료 + Plan 15 executor 완료 (belle 라벨링 T-5 대기)
-Plan: 9/15 complete (01, 02, 03, 06, 07, 08, 10, 11, 12 done) + 09 closed as license_blocked + 15 T-1~T-4 done (belle 라벨링 T-5 대기) + 13, 14 (Plan 15 라벨링 통과 후 진입) + 04, 05 (Wave 3 — Plan 14 통과 후)
-Status: Active — Plan 12 live mode 5가설 verdict 확정: (a) frame-mean strong (mean disagree 45-52°) / (b) RTMPose headdown **weak** (overall→headdown drop 0.04-0.05, dominant 아님) / (c) NLF baseline strong / (d) keypoint chain strong / (e) 두 엔진 3D 분포 strong (root-relative distance 220+). recommendation = `standard + nlf_re-spike + rtmpose_to_h36m17_correction + multi_engine_averaging`, plan_14_gate_expectation = `additional spike required`. dominant 가설 (a) + (e). Plan 13 단독으로는 부족 — 후속 spike 필요. Plan 15 (IPSF baseline 도입) 으로 (c) 해결 path 확보. Plan 13 PLAN 작성 시 위 recommendation 반영 필요.
-Last activity: 2026-06-01 -- Plan 12 live verdict 적재 (debug_gap_live_20260601_0635) + Plan 15 worktree merge (judging 모듈 + 23 테스트 PASS via backend/.venv PyYAML 6.0.3) + SUMMARY/STATE 갱신.
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 13 T-1~T-5 완료 (T-6 belle Pod live 대기)
+Plan: 9/15 complete (01, 02, 03, 06, 07, 08, 10, 11, 12 done) + 09 closed as license_blocked + 15 T-1~T-4 done + belle 1차 박제 (5영상 hold_moment commit 861fb3a/4264001) + 13 T-1~T-5 done (T-6 belle Pod live 대기) + 14 (Plan 13 T-6 통과 후) + 04, 05 (Wave 3 — Plan 14 통과 후)
+Status: Active — Plan 13 executor 통과. GeminiMomentExtractor (Parameter Store + env fallback + 좌표/점수/판단 정규식 가드), moment_dimensions (8 angle joints 한정, measure_moment_angles + compute_criteria_gaps), spike_gemini_moment CLI (report-only + live mode, JSON+Markdown sibling), README append (Plan 07/08/10/11/12 보존), SUMMARY status `pending_belle_live`. 운영 코드 0줄, 기존 spike 0줄, NLF 호출 0, 이모지 0건, 사람 점수 0건. 87 PASS + Plan 15 23 PASS = 110 PASS regression 0.
+Last activity: 2026-06-01 -- Plan 13 PLAN 작성 (commit 08e545a) + T-1~T-5 executor 5 atomic commits cherry-pick to main (a13bf93 / 03f6fc6 / 6e1d328 / eb97059 / d13aad7) + 87 PASS + STATE/ROADMAP 갱신.
 
 Progress: [██████░░░░] 60%
 

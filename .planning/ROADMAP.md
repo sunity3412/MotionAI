@@ -76,7 +76,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 01-11-PLAN.md — RTMPose 5영상 sweep + line/angle root cause + 게이트 룰 검토 — **verdict gap_too_wide_blocked** (D-15① 5/5 PASS / D-14 4/5 FAIL / line·angle 5/5 N/A) (Wave 2)
   - [~] 01-12-PLAN.md — 갭 root cause 디버그 spike — T-1~T-4 완료, T-5 belle Pod live 대기. report-only verdict (c)/(d) strong → NLF baseline 부적합 박제 → Plan 15 신설 (Wave 2, NEW 2026-06-01)
   - [ ] 01-15-PLAN.md — **JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집** (5영상 × phase별 동작 객관 임계값 표). NLF 갭 baseline 폐기 → IPSF tolerance baseline. 사람 점수 라벨링 영구 금지 원칙 박제 후 첫 객관 데이터 작업 (Wave 2, **NEW** 2026-06-01)
-  - [ ] 01-13-PLAN.md — Gemini key moment timestamp + criteria extractor (multimodal 2.5 Pro) — Plan 15 GeometricCriterion 을 입력으로 받음. dimensions sampling frame-mean → moment-list 교체. line/angle 회복 + IPSF tolerance baseline 적용 (Wave 2, NEW 2026-06-01, Plan 15 통과 후 진입)
+  - [~] 01-13-PLAN.md — Gemini key moment timestamp + criteria extractor (multimodal 2.5 Pro) — Plan 15 GeometricCriterion 입력. dimensions sampling frame-mean → moment-list 교체. T-1~T-5 executor 완료 (GeminiMomentExtractor + moment_dimensions + spike_gemini_moment CLI + 87 PASS), T-6 belle Pod live mode (ref-invert 단독 시범) 대기. (Wave 2, NEW 2026-06-01, **pending_belle_live**)
   - [ ] 01-14-PLAN.md — 5영상 재검증 sweep — Plan 13 key moment + Plan 15 IPSF 임계값 적용 후 sweep_rtmpose 재실행. **게이트 = IPSF tolerance 안 + line/angle 5/5 PASS** (Wave 2, NEW 2026-06-01, Wave 3 진입 gate)
   - [ ] 01-04-PLAN.md — NLF R&D 격리 (backend/research/로 이동 + .samignore) (Wave 3 — **Plan 14 통과 후 진입**)
   - [ ] 01-05-PLAN.md — pipeline/app.py atomic swap + RunPod requirements.txt/setup.sh/README 갱신 (Wave 3 — **Plan 14 통과 후 진입**)

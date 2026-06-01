@@ -10,8 +10,13 @@ tags:
   - nlf
   - hypothesis-trace
   - apache-2.0
-  - pending_belle
-  - gap_too_wide_blocked
+  - frame-mean-strong
+  - nlf-baseline-strong
+  - keypoint-chain-strong
+  - 3d-distribution-strong
+  - rtmpose-headdown-weak
+  - additional-spike-required
+  - completed
 
 dependency_graph:
   requires:
@@ -60,17 +65,17 @@ decisions:
 requirements_completed: []  # POSE-01 갭 ≤5 + line/angle PASS 게이트 통과 후 충족. Plan 12 는 trace 박제만, 미충족.
 
 metrics:
-  duration: "~70 min executor (T-1 ~ T-4 + smoke 테스트 + README + SUMMARY) — belle Pod live mode (T-5) 별도"
-  completed_date: "pending_belle (belle Pod live mode 실행 후 verdict 갱신)"
-  tasks_completed: 4   # T-1 ~ T-4 완료. T-5 belle 대기.
+  duration: "~70 min executor (T-1 ~ T-4 + smoke 테스트 + README + SUMMARY) + ~7 min belle Pod live mode (T-5, ref-invert + ref-sideway-spin 2영상)"
+  completed_date: "2026-06-01 (live mode verdict 적재: 4/5 strong, (b) weak)"
+  tasks_completed: 5   # T-1 ~ T-5 모두 완료
   tasks_total: 5
   files_created: 3
   files_modified: 1
 ---
 
-# Phase 01 Plan 12: 갭 root cause 디버그 spike — pending belle
+# Phase 01 Plan 12: 갭 root cause 디버그 spike — 4/5 strong, (b) weak
 
-**One-liner:** Plan 11 sweep `gap_too_wide_blocked` 후속 — 5개 가설 (a) frame-mean / (b) RTMPose headdown / (c) NLF baseline 편차 / (d) keypoint 매핑 / (e) 두 엔진 3D 분포 차이 frame-level trace + ref-invert 22점 회귀 박제 + Plan 10 spike vs Plan 11 sweep 비일관성 분기. **Fix 자체는 Plan 13/14 책임 — 본 plan 은 trace + 가설 verdict 박제만.** report-only mode 로 (c)(d) + spike_vs_sweep + ref-invert delta 1차 산출 가능, live mode 는 belle Pod 대기.
+**One-liner:** Plan 11 sweep `gap_too_wide_blocked` 후속 — 5가설 frame-level trace 결과 (a)(c)(d)(e) strong, (b) weak. ref-invert 22점 회귀 + Plan 10 spike vs Plan 11 sweep 비일관성 박제 완료. **단일 원인 아님** — frame-mean 한계 + NLF baseline 편차 + keypoint chain ordering + 두 엔진 3D 분포 차이 동시 작용. Plan 13 (Gemini key moment) 단독으로는 회복 어려움 — 후속 spike (rtmpose_to_h36m17 derive 보정 / nlf-respike / multi_engine_averaging) 필요. (b) RTMPose headdown 약점은 ref-invert 회귀의 dominant 원인 아님 (overall 0.37 vs headdown 0.32, 차이 0.05).
 
 ---
 
@@ -78,16 +83,79 @@ metrics:
 
 | 항목 | 내용 |
 |---|---|
-| **Verdict** | **`pending_belle`** (report-only 1차 트레이스 완료, live mode (a)(b)(e) belle Pod 대기) |
-| **단계 도달** | T-1 ~ T-4 완료. T-5 belle Pod live mode 대기 |
+| **Verdict** | **`completed`** — 가설 verdict 4 strong / 1 weak / 0 rejected. trace 목적 충족 |
+| **5가설 결과** | (a) strong / (b) **weak** / (c) strong / (d) strong / (e) strong |
+| **dominant 가설** | (a) frame-mean (mean disagreement 45-52°) + (e) 두 엔진 3D 분포 (root-relative 220+ distance) |
+| **recommendation** | `standard + nlf_re-spike + rtmpose_to_h36m17_correction + multi_engine_averaging` — Plan 13 단독 부족 |
+| **plan_14_gate_expectation** | **`additional spike required`** — Plan 13 후속 spike 필요 |
 | **scope** | trace + 가설 verdict 박제만 — fix 0 줄 |
 | **신규 파일** | 2 (debug spike + smoke 테스트) + 1 SUMMARY |
 | **수정 파일** | 1 (README append, Plan 07/08/10/11 보존) |
-| **단위 테스트** | 11 PASS (mmpose / torch / NLF 없이 로컬, 0.11s) |
-| **만든 커밋** | 4 (debug spike / smoke / README + SUMMARY) |
+| **단위 테스트** | 11 PASS (mmpose / torch / NLF 없이 로컬, 0.09s) |
+| **만든 커밋** | 4 (debug spike / smoke / README + SUMMARY / verdict 확정) |
 | **운영 코드 수정** | 0 (functions / runpod_inference / shared/pose_lifters / dimensions.py / technique.py / FallbackRecognizer 모두 무수정) |
 | **기존 spike 수정** | 0 (spike_rtmpose / sweep_rtmpose / debug_dimensions / rtmpose_to_h36m17 / mediapipe_to_h36m17 모두 무수정) |
-| **다음 행동** | belle Pod live mode 실행 → 결과 적재 → verdict 갱신 → Plan 13 PLAN 작성 |
+| **다음 행동** | Plan 15 belle 라벨링 + Plan 13 PLAN 작성 (Plan 15 데이터 입력으로) |
+
+---
+
+## belle Pod live mode 결과 (2026-06-01, debug_gap_live_20260601_0635)
+
+`mode=live, motions=[ref-invert, ref-sideway-spin], 2영상 ~7분`
+
+### 5가설 verdict (final)
+
+| 가설 | 설명 | report-only | live | final |
+|---|---|---|---|---|
+| (a) frame-mean 한계 | 두 엔진 frame별 각도 차이 | inconclusive | **strong** | **strong** |
+| (b) RTMPose headdown 약점 | 거꾸로 자세 keypoint 신뢰도 | inconclusive | weak | **weak** |
+| (c) NLF baseline 편차 | 영상별 NLF 점수 변동 | strong | strong | **strong** |
+| (d) keypoint 매핑 차이 | 두 chain joint 정의 | strong | strong | **strong** |
+| (e) 두 엔진 3D 분포 차이 | root-relative xyz 거리 | inconclusive | **strong** | **strong** |
+
+### (a) per-motion (frame-mean 한계)
+
+| 모션 | mean_disagreement | peak_frame |
+|---|---|---|
+| ref-invert | **45.50°** | 122 |
+| ref-sideway-spin | **51.77°** | 87 |
+
+두 엔진이 같은 frame 에서 평균 **45-52도** 차이 → frame-mean overall 점수가 의미 없음. Plan 13 key moment 도입 직접 정당화.
+
+### (b) per-motion (RTMPose headdown 약점 — weak)
+
+| 모션 | overall_avg | headdown_avg | drop | nan_drop | verdict |
+|---|---|---|---|---|---|
+| ref-invert | 0.37 | 0.32 | -0.05 | 0.34 | weak |
+| ref-sideway-spin | 0.44 | 0.40 | -0.04 | 0.15 | weak |
+
+headdown 에서 score 가 0.04-0.05 만 drop → RTMPose 가 headdown 에서 큰 약점 아님. **ref-invert 22점 회귀의 dominant 원인이 (b) 가 아님 확정.** HybrIK 비교군 시급성 낮음.
+
+### (e) per-motion (두 엔진 3D 분포 차이)
+
+| 모션 | mean_distance | peak_frame |
+|---|---|---|
+| ref-invert | **221.49** | 150 |
+| ref-sideway-spin | **228.87** | 35 |
+
+root-relative 정규화 후 distance 220+ → 두 엔진의 3D 출력 자체가 매우 다름. **Plan 13 key moment 만으로 회복 어려움** — multi_engine_averaging 또는 lift path 통일 필요.
+
+### (c)(d) — report-only 와 동일 verdict 유지
+
+- (c) NLF overall range [58, 81] span 23, variance 60.56 → strong (확정)
+- (d) RTMPose H36M ordering vs NLF COCO ordering 17/17 다름 → strong (확정). angle 계산은 8 joint 만 사용해 일치하지만 derive joint (hip/spine/thorax/neck_nose/head) 가 Plan 13 moment scoring 에 들어가면 점수 영향.
+
+## Plan 13/14 진입 권고 (final)
+
+| 항목 | 결정 |
+|---|---|
+| `plan_13_path` | `standard + nlf_re-spike + rtmpose_to_h36m17_correction + multi_engine_averaging` |
+| `plan_14_gate_expectation` | **`additional spike required`** |
+| dominant 가설 | (a) frame-mean + (e) 두 엔진 3D 분포 |
+| (b) HybrIK 비교군 | 시급성 낮음 (weak) — 후순위 또는 영구 제외 |
+| (c) NLF baseline 폐기 | **Plan 15 IPSF GeometricCriterion 으로 교체** (이미 박제) |
+| (d) rtmpose_to_h36m17 derive | 보정 spike 필요 — Plan 13 안에 통합 또는 별 |
+| (e) multi_engine_averaging | Plan 13 후속 spike — 두 lift path 통일 또는 ensemble |
 
 ---
 

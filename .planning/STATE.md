@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T16:30:00.000Z"
-last_activity: 2026-06-01 -- Plan 12 (c)(d) strong 적재 → NLF baseline 부적합 박제 → Plan 15 신설 (JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집). 사람 점수 라벨링 영구 금지 + IPSF baseline 결정 memory 박제.
+last_updated: "2026-06-01T17:00:00.000Z"
+last_activity: 2026-06-01 -- Plan 12 live mode verdict 확정 (4/5 strong, (b) weak). Plan 15 executor 완료 (스키마+로더+빈 템플릿+23 테스트 PASS). belle 라벨링 + Plan 13 PLAN 작성 진입 대기.
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 15
-  completed_plans: 8
-  percent: 53
+  completed_plans: 9
+  percent: 60
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 12 (c)/(d) strong 결과 + belle 분석 객관성 원칙 재확인 → **Plan 15 신설** (JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집). NLF 갭 baseline 영구 폐기 → IPSF Code of Points 객관 임계값 baseline. Plan 15 executor T-1~T-4 (스키마+로더+빈 템플릿+테스트) → belle 라벨링 (T-5, 5영상 × phase별 IPSF 임계값 수치).
+**Current focus:** Phase 01 — Plan 12 verdict 확정 (4/5 strong, (b) weak). Plan 15 executor T-1~T-4 완료 (judging 모듈 + 5영상 YAML 빈 템플릿 + 23 테스트 PASS). T-5 belle IPSF 임계값 라벨링 대기 + Plan 13 PLAN 작성 (Gemini key moment + Plan 15 데이터 입력) 진입 대기.
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 15 신설 직후
-Plan: 8/15 complete (01, 02, 03, 06, 07, 08, 10, 11 done) + 09 closed as license_blocked + 12 T-1~T-4 (pending_belle live mode T-5) + 15 PLAN 신설 (executor 진입 대기) + 13, 14 (Plan 15 통과 후) + 04, 05 (Wave 3 — Plan 14 통과 후)
-Status: Active — Plan 12 report-only verdict (c) NLF baseline 편차 strong (span 23, var 60.56) + (d) keypoint chain 정의 strong (17/17 다름) → belle 결정 = D-14 의 NLF baseline 폐기, IPSF Code of Points 객관 임계값으로 교체. **사람 점수 라벨링 (belle/강사/심사자) 영구 금지** — AI 분석 객관성 절대. Plan 15 (JUDGE-DATA-01 v1 평행 진행) = 5영상 × phase별 GeometricCriterion (target / tolerance / deduction / minimum). Plan 13 (Gemini key moment) 가 Plan 15 데이터를 입력으로 받음. Plan 14 게이트 = IPSF tolerance 안 + line/angle 5/5 PASS.
-Last activity: 2026-06-01 -- Plan 12 (c)/(d) strong 적재 + Plan 15 PLAN.md 작성 + ROADMAP / STATE 갱신 + memory 2개 박제 (analysis-objectivity-no-human-scores + judging-baseline-ipsf-code-of-points).
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 12 완료 + Plan 15 executor 완료 (belle 라벨링 T-5 대기)
+Plan: 9/15 complete (01, 02, 03, 06, 07, 08, 10, 11, 12 done) + 09 closed as license_blocked + 15 T-1~T-4 done (belle 라벨링 T-5 대기) + 13, 14 (Plan 15 라벨링 통과 후 진입) + 04, 05 (Wave 3 — Plan 14 통과 후)
+Status: Active — Plan 12 live mode 5가설 verdict 확정: (a) frame-mean strong (mean disagree 45-52°) / (b) RTMPose headdown **weak** (overall→headdown drop 0.04-0.05, dominant 아님) / (c) NLF baseline strong / (d) keypoint chain strong / (e) 두 엔진 3D 분포 strong (root-relative distance 220+). recommendation = `standard + nlf_re-spike + rtmpose_to_h36m17_correction + multi_engine_averaging`, plan_14_gate_expectation = `additional spike required`. dominant 가설 (a) + (e). Plan 13 단독으로는 부족 — 후속 spike 필요. Plan 15 (IPSF baseline 도입) 으로 (c) 해결 path 확보. Plan 13 PLAN 작성 시 위 recommendation 반영 필요.
+Last activity: 2026-06-01 -- Plan 12 live verdict 적재 (debug_gap_live_20260601_0635) + Plan 15 worktree merge (judging 모듈 + 23 테스트 PASS via backend/.venv PyYAML 6.0.3) + SUMMARY/STATE 갱신.
 
-Progress: [█████▎░░░░] 53%
+Progress: [██████░░░░] 60%
 
 ## ▶ Plan 11 sweep verdict `gap_too_wide_blocked` (2026-06-01) — Plan 12/13/14 신설
 

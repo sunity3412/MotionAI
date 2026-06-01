@@ -322,6 +322,25 @@ class GeminiMomentExtractor:
             )
 
         uploaded = client.files.upload(file=video_uri)
+        # Gemini File API 는 영상 업로드 후 PROCESSING → ACTIVE 비동기 전환.
+        # generate_content 호출 전 ACTIVE 대기 필수 (그렇지 않으면 FAILED_PRECONDITION).
+        # ref-invert 7s 영상 기준 통상 5~15초.
+        import time as _time
+        _start = _time.monotonic()
+        _max_wait_s = 120.0
+        while getattr(uploaded.state, "name", str(uploaded.state)) == "PROCESSING":
+            if _time.monotonic() - _start > _max_wait_s:
+                raise RuntimeError(
+                    "Gemini File API processing 가 %ds 초과 — file=%s motion=%s. "
+                    "영상이 너무 길거나 Gemini 측 일시 장애." % (int(_max_wait_s), uploaded.name, motion)
+                )
+            _time.sleep(2.0)
+            uploaded = client.files.get(name=uploaded.name)
+        if getattr(uploaded.state, "name", str(uploaded.state)) == "FAILED":
+            raise RuntimeError(
+                "Gemini File API processing 실패 — file=%s motion=%s." % (uploaded.name, motion)
+            )
+
         prompt = _GEMINI_PROMPT_TEMPLATE.format(motion=motion)
         response = client.models.generate_content(
             model=self.model_name,

@@ -137,18 +137,26 @@ def _run_rtmpose_2d(
     frames: np.ndarray,
     rtmpose_config: str,
     rtmpose_checkpoint: str,
-    det_model: str = "rtmdet-nano",
+    det_model: str | None = None,
 ) -> tuple[np.ndarray, tuple[int, int], float]:
     """RTMPose-l 로 COCO-17 키포인트 추출.
 
+    Single-person 모드 (default, det_model=None or "none"):
+        detector 없이 전체 frame 을 bbox 로 사용 후 inference_topdown 직접 호출.
+        ref-sideway-spin 같은 단일 인물 영상에 정확. mmpose↔mmdet alias 카탈로그
+        불일치 함정을 회피 (mmpose 1.3.2 + mmdet 3.2.x 환경에서 rtmdet-nano 등
+        대부분의 alias 가 카탈로그 lookup 실패).
+
+    Multi-person 모드 (det_model 명시적 지정):
+        MMPoseInferencer 가 detector + pose estimator 자동 wire. 본 spike 범위
+        밖이지만 향후 확장 위해 path 유지.
+
     Args:
         frames: (T, H, W, 3) RGB uint8.
-        rtmpose_config: RTMPose config 파일 경로 (.py) 또는 이름.
-            예: '/workspace/rtmpose_weights/rtmpose-l_8xb256-420e_coco-256x192.py'
+        rtmpose_config: RTMPose config 파일 경로 (.py).
         rtmpose_checkpoint: pretrained 가중치 .pth 경로.
-        det_model: 사람 detector alias. 기본 'rtmdet-nano' (RTMPose 표준 stack).
-            top-down pose estimator 는 detector → crop → pose 의 흐름이며
-            mmpose 의 MMPoseInferencer 가 둘을 자동 wire 한다.
+        det_model: None / "none" → single-person 우회 (default).
+            그 외 string → MMPoseInferencer alias 또는 config 경로.
 
     Returns:
         (rtmpose_kp, image_size, avg_score):
@@ -157,7 +165,8 @@ def _run_rtmpose_2d(
           avg_score: 검출 프레임 keypoint score 평균.
     """
     try:
-        from mmpose.apis import MMPoseInferencer
+        from mmpose.apis import init_model, inference_topdown
+        from mmpose.utils import register_all_modules
     except ImportError as e:
         raise RuntimeError(
             "mmpose 미설치. RunPod 에서 다음 명령으로 설치 후 재시도:\n"
@@ -166,63 +175,101 @@ def _run_rtmpose_2d(
             f"원인: {e}"
         ) from e
 
-    log.info(
-        "MMPoseInferencer init config=%s ckpt=%s det=%s",
-        rtmpose_config, rtmpose_checkpoint, det_model,
-    )
-
-    inferencer = MMPoseInferencer(
-        pose2d=rtmpose_config,
-        pose2d_weights=rtmpose_checkpoint,
-        det_model=det_model,
-        det_cat_ids=[0],  # COCO 'person' class
-    )
+    register_all_modules()
 
     T = len(frames)
     H, W = frames.shape[1], frames.shape[2]
     image_size = (int(W), int(H))
-
-    # 출력 (T, 17, 3) — x, y pixel, score. 미감지 NaN.
     rtmpose_kp = np.full((T, 17, 3), np.nan, dtype=float)
     detected = 0
 
-    for t in range(T):
-        # MMPoseInferencer 는 한 장씩 ndarray 입력 가능 (BGR/RGB 자동 처리).
-        # 영상 프레임을 그대로 전달하면 generator 가 1 batch dict 반환.
-        try:
-            gen = inferencer(frames[t])
-            result = next(gen)
-        except StopIteration:
-            continue
+    single_person = det_model is None or str(det_model).lower() == "none"
 
-        preds = result.get("predictions", [])
-        # preds: list[list[dict]] — batch x instances
-        if not preds or not preds[0]:
-            continue
+    if single_person:
+        import torch  # noqa: PLC0415
 
-        # 첫 번째 instance (가장 confident person) 사용.
-        # multi-person 영상은 본 spike 범위 밖.
-        inst = preds[0][0]
-        kp_xy = np.asarray(inst.get("keypoints", []), dtype=float)
-        kp_score = np.asarray(inst.get("keypoint_scores", []), dtype=float)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        log.info(
+            "RTMPose single-person mode (no detector): config=%s ckpt=%s device=%s",
+            rtmpose_config, rtmpose_checkpoint, device,
+        )
+        pose_model = init_model(
+            rtmpose_config, rtmpose_checkpoint, device=device
+        )
 
-        if kp_xy.ndim != 2 or kp_xy.shape != (17, 2):
-            log.warning("frame %d: unexpected keypoints shape %s", t, kp_xy.shape)
-            continue
-        if kp_score.shape != (17,):
-            log.warning("frame %d: unexpected scores shape %s", t, kp_score.shape)
-            continue
+        bboxes = np.array([[0.0, 0.0, float(W), float(H)]], dtype=np.float32)
 
-        detected += 1
-        rtmpose_kp[t, :, 0] = kp_xy[:, 0]
-        rtmpose_kp[t, :, 1] = kp_xy[:, 1]
-        rtmpose_kp[t, :, 2] = kp_score
+        for t in range(T):
+            frame_bgr = frames[t][..., ::-1]
+            results = inference_topdown(
+                pose_model, frame_bgr, bboxes=bboxes, bbox_format="xyxy"
+            )
+            if not results:
+                continue
+            inst = results[0].pred_instances
+            kp_xy = np.asarray(inst.keypoints[0], dtype=float)
+            kp_score = np.asarray(inst.keypoint_scores[0], dtype=float)
+
+            if kp_xy.shape != (17, 2) or kp_score.shape != (17,):
+                log.warning(
+                    "frame %d: unexpected shapes kp=%s score=%s",
+                    t, kp_xy.shape, kp_score.shape,
+                )
+                continue
+
+            detected += 1
+            rtmpose_kp[t, :, 0] = kp_xy[:, 0]
+            rtmpose_kp[t, :, 1] = kp_xy[:, 1]
+            rtmpose_kp[t, :, 2] = kp_score
+    else:
+        from mmpose.apis import MMPoseInferencer
+
+        log.info(
+            "RTMPose MMPoseInferencer init config=%s ckpt=%s det=%s",
+            rtmpose_config, rtmpose_checkpoint, det_model,
+        )
+        inferencer = MMPoseInferencer(
+            pose2d=rtmpose_config,
+            pose2d_weights=rtmpose_checkpoint,
+            det_model=det_model,
+            det_cat_ids=[0],
+        )
+
+        for t in range(T):
+            try:
+                gen = inferencer(frames[t])
+                result = next(gen)
+            except StopIteration:
+                continue
+
+            preds = result.get("predictions", [])
+            if not preds or not preds[0]:
+                continue
+
+            inst = preds[0][0]
+            kp_xy = np.asarray(inst.get("keypoints", []), dtype=float)
+            kp_score = np.asarray(inst.get("keypoint_scores", []), dtype=float)
+
+            if kp_xy.ndim != 2 or kp_xy.shape != (17, 2):
+                log.warning(
+                    "frame %d: unexpected keypoints shape %s", t, kp_xy.shape
+                )
+                continue
+            if kp_score.shape != (17,):
+                log.warning(
+                    "frame %d: unexpected scores shape %s", t, kp_score.shape
+                )
+                continue
+
+            detected += 1
+            rtmpose_kp[t, :, 0] = kp_xy[:, 0]
+            rtmpose_kp[t, :, 1] = kp_xy[:, 1]
+            rtmpose_kp[t, :, 2] = kp_score
 
     log.info("RTMPose detected %d / %d frames", detected, T)
     if detected == 0:
         raise RuntimeError("RTMPose: 전 프레임 미감지. 영상/모델 확인.")
 
-    # avg_score: 검출 프레임 keypoint score 평균 (NaN 무시).
     avg_score = float(np.nanmean(rtmpose_kp[:, :, 2]))
     return rtmpose_kp, image_size, avg_score
 
@@ -423,7 +470,7 @@ def run_spike(
     motionbert_root: str,
     motionbert_weights: str | None,
     video_path: str | None = None,
-    det_model: str = "rtmdet-nano",
+    det_model: str | None = None,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     out: str | None = None,
 ) -> dict:
@@ -726,8 +773,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--det-model",
-        default="rtmdet-nano",
-        help="사람 detector alias (기본: rtmdet-nano)",
+        default="none",
+        help=(
+            "사람 detector. 'none' (기본) = detector 우회 single-person 모드 "
+            "(전체 frame 을 bbox 로 사용, ref-sideway-spin 같은 단일 인물에 정확). "
+            "또는 mmpose 가 인식하는 alias / mmdet config 경로."
+        ),
     )
     parser.add_argument(
         "--score-threshold",

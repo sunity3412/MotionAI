@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T13:00:00.000Z"
-last_activity: 2026-06-01 -- Plan 10 T-1~T-4 executor 완료 (RTMPose adapter + spike runner + 36 tests + README). T-5 belle Pod 실행 대기. Plan 10 은 미완료 (belle 검증 후 마감).
+last_updated: "2026-06-01T14:00:00.000Z"
+last_activity: 2026-06-01 -- Plan 10 STRONG_PASS (ref-sideway-spin overall 72.0). belle approved. Plan 11 (C scope = 5영상 sweep + line/angle root cause + 게이트 룰) 작성.
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 10
-  completed_plans: 6
-  percent: 60
+  total_plans: 11
+  completed_plans: 7
+  percent: 64
 ---
 
 # Project State
@@ -20,33 +20,54 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Wave 2 belle 검증 진행 중. Plan 06/07/08 통과, Plan 09 license_blocked (AlphaPose Noncommercial). belle 결정 = **option-b-1 (RTMPose, Apache 2.0)**. Plan 10 작성 후 belle Pod 실행.
+**Current focus:** Phase 01 — Wave 2 belle 검증 마무리. Plan 06/07/08/10 통과 (10 = RTMPose STRONG_PASS), Plan 09 license_blocked. Plan 11 (C scope) 작성 중. belle Gemini API 키 발급 병행 (Phase 5 prep).
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 10 executor T-1~T-4 완료
-Plan: 6/10 complete (01, 02, 03, 06, 07, 08 done) + 09 closed as license_blocked + 10 T-1~T-4 done (T-5 belle Pod 대기)
-Status: Active — RTMPose spike harness + 36 tests + README 완료, belle Pod 실행 대기
-Last activity: 2026-06-01 -- Plan 10 T-1~T-4 executor 완료 (commits 19310ae / 3b38e15 / 5a823a5)
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 11 작성 진입
+Plan: 7/11 complete (01, 02, 03, 06, 07, 08, 10 done) + 09 closed as license_blocked + 11 PLAN draft
+Status: Active — Plan 10 STRONG_PASS 마감, Plan 11 = 5영상 sweep + line/angle root cause + 게이트 룰 검토 작성 중
+Last activity: 2026-06-01 -- Plan 10 STRONG_PASS (ref-sideway-spin 72.0 overall, 37ms/frame). belle approved C scope.
 
-Progress: [██████░░░░] 60%
+Progress: [██████▌░░░] 64%
 
-## ▶ belle 결정 박제 (2026-06-01) — Plan 10 = RTMPose Spike
+## ▶ Plan 10 STRONG_PASS 결과 (2026-06-01) — Plan 11 (C scope) 진입
 
-**Path**: Option B-1 (01-09-SUMMARY.md `## 측면 자세 보강 대안 후보`)
-**Lifter stack**: MediaPipe → **RTMPose-l (Apache 2.0)** 로 2D detector 교체. MotionBERT lift 그대로 유지.
-**검증**: ref-sideway-spin 1영상 → overall ≥ 70 회복 spike. 통과 시 Plan 11 = 5영상 sweep + 게이트 룰 재정의 + Wave 3 진입.
+**Plan 10 verdict** = `strong_pass`. ref-sideway-spin 1영상:
 
-**Pod 상태**: RTX 3090 + Plan 08 setup.sh 완료 + MotionBERT 가중치 (`best_epoch.bin`) scp 완료. **그대로 유지** — RTMPose 추가 install (`pip install -U openmim && mim install mmengine "mmcv>=2.0" "mmdet>=3.0" "mmpose>=1.3"`) 만 필요. Plan 10 SUMMARY "belle Pod checkpoint Payload" 섹션 참조.
+| 항목 | RTMPose+MB | NLF | 갭 | 게이트 |
+|---|---|---|---|---|
+| overall | **72.0** | 81.0 | -9.0 | D-15① PASS (≥70) |
+| stability | 72.0 | 81.0 | -9.0 | — |
+| line | N/A | N/A | N/A | **Phase 5 게이트** |
+| angle | N/A | N/A | N/A | **Phase 5 게이트** |
+| ms/frame | 37 | 665 | — | 18x faster (production win) |
 
-**Plan 10 executor 결과** (2026-06-01):
-- T-1 라이선스 검증: MMPose / mmengine / mmcv / mmdet 모두 Apache 2.0 — HALT 미발동
-- T-2 어댑터 `rtmpose_to_h36m17.py`: COCO-17 → H3.6M 17 (12 직접 + 5 derive) + image_size 정규화 + score_threshold NaN — 36 tests PASS
-- T-3 runner `spike_rtmpose.py`: MMPoseInferencer → MotionBERT lift → 점수 계산 chain (Plan 07 spike_motionbert 패턴 재사용)
-- T-4 README: Plan 07/08 섹션 보존, Plan 10 RTMPose 섹션 append (라이선스 표 + Pod 절차 + 판정 기준)
-- T-5 belle Pod 실행 대기 (SUMMARY checkpoint payload 박제)
+**핵심 발견**: line / angle N/A = FallbackRecognizer 한계 (PROJECT.md "현 핵심 블로커"와 정확히 일치 — "굽은 그립 자세에서 EXTEND 못 찾아 line 차원 None"). 해결은 **Phase 5 Gemini 기술 인식기** 통합.
 
-운영 코드 (functions/, runpod_inference/, shared/pose_lifters/) 무수정.
+### Plan 11 scope (belle approved C, 2026-06-01)
+
+- **T-1**: 5영상 sweep (ref-climb / ref-foxtop-split / ref-foxtop / ref-invert / ref-sideway-spin) — RTMPose+MB vs NLF baseline
+- **T-2**: line / angle N/A root cause 박제 — FallbackRecognizer 한계 정확히 어떤 자세/관절에서 발동? threshold 조정으로 일부 회복 가능? 다른 4영상에서도 같은 패턴?
+- **T-3**: 게이트 룰 검토 — D-15① 70 threshold 적정 여부, D-14 (NLF gap ≤5) production 우선순위 재확인
+- **T-4**: Wave 3 진입 게이트 — Plan 04 (NLF R&D 격리) + Plan 05 (atomic swap) 진입 조건 명시
+- **T-5**: belle Pod 실행 + 5영상 결과 판정
+
+Gemini 통합은 **Phase 5 별 phase** — belle Gemini API 키 (Google AI Studio) 발급 + Parameter Store 주입 wiring 선행 필요.
+
+### belle Gemini API 키 작업 (병행, 2026-06-01 발급 진행)
+
+| Phase | Gemini 역할 | 권장 모델 | 키 발급 path |
+|---|---|---|---|
+| **Phase 5** | 기술 인식기 (영상 → 분류 + EXTEND/BENT) | **Gemini 2.5 Pro** (multimodal) | Google AI Studio → /sunity/motion/gemini-api-key (SecureString) |
+| **Phase 11** | 자연어 코칭 번역 | Cerebras llama3.1 유지 권장 (이미 동작 중) | — |
+
+### Plan 10 디버그 이력 (Pod 4함정 박제)
+
+1. mmcv 빌드 실패 → `pip install --no-build-isolation "mmcv>=2.0,<2.2"` (mmcv 2.1.0)
+2. numpy ABI 불일치 → `pip install "numpy>=1.26,<2"` (1.26.4 다운그레이드)
+3. detector alias 카탈로그 실패 → spike 코드 패치 commit `f019070` (single-person 우회 default)
+4. Pod git pull 갱신 안 됨 → 로컬 commit 후 `git push origin main` 누락. push 후 Pod pull 정상.
 
 **Memory 박제 완료** (`license-blocklist-pose.md`): AlphaPose Noncommercial → 향후 plan 후보군에서 영구 제외.
 
@@ -54,7 +75,7 @@ Progress: [██████░░░░] 60%
 
 | belle 응답 | Plan 10 방향 | 결과 |
 |---|---|---|
-| **option-b-1, spike RTMPose** | Apache 2.0 + 2D detector 교체 | **✓ 선택됨 (2026-06-01)** |
+| **option-b-1, spike RTMPose** | Apache 2.0 + 2D detector 교체 | **✓ 선택됨 (2026-06-01) → STRONG_PASS** |
 | option-a, spike HybrIK | MIT + SMPL prior lift | 미선택 |
 | option-c, accept 4/5 | 게이트 룰 재정의 | 미선택 |
 | option-d, multi-view | 다중 시점 v1 spec | 미선택 |

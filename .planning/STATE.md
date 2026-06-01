@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T13:15:00.000Z"
-last_activity: 2026-06-01 -- Plan 11 executor T-1~T-4 완료 (sweep_rtmpose.py + debug_dimensions.py + smoke 12/12 PASS + SUMMARY pending_belle). T-5 belle Pod 실행 대기.
+last_updated: "2026-06-01T14:00:00.000Z"
+last_activity: 2026-06-01 -- Plan 11 sweep 적재. D-15① 5/5 PASS / D-14 4/5 FAIL / line·angle 5/5 N/A → verdict gap_too_wide_blocked. belle 결정 = D-14 강등 거부, line/angle 동등 게이트. Plan 12/13/14 신설.
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 11
-  completed_plans: 7
-  percent: 64
+  total_plans: 14
+  completed_plans: 8
+  percent: 57
 ---
 
 # Project State
@@ -20,16 +20,63 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 11 T-1~T-4 executor 완료 (5영상 sweep harness + line/angle N/A trace + 게이트 룰 박제). T-5 belle Pod 실행 대기. belle Gemini API 키 발급 병행 (Phase 5 prep).
+**Current focus:** Phase 01 — Plan 11 sweep verdict `gap_too_wide_blocked`. belle 결정 = 갭 어떻게든 줄여야 한다, line/angle 동등 게이트. Wave 3 (Plan 04/05) 진입 = Plan 14 통과 후. Plan 12 (root cause spike) 진입 대기.
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 11 T-5 belle Pod 대기
-Plan: 7/11 complete (01, 02, 03, 06, 07, 08, 10 done) + 09 closed as license_blocked + 11 pending_belle (T-1~T-4 commit) + 04, 05 incomplete (depend on 11 verdict)
-Status: Active — Plan 11 executor (sweep_rtmpose / debug_dimensions / smoke 12/12 / SUMMARY pending_belle) commit. T-5 belle Pod 실행 후 Wave 3 (Plan 04/05) 진입 여부 결정.
-Last activity: 2026-06-01 -- Plan 11 T-1~T-4 commit (61dd416, 9bdc475, 4b7e5ee). belle Pod sweep 명령 SUMMARY 박제.
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 11 마감, Plan 12 진입 대기
+Plan: 8/14 complete (01, 02, 03, 06, 07, 08, 10, 11 done) + 09 closed as license_blocked + 12, 13, 14 신설 (NEW 2026-06-01) + 04, 05 (Wave 3 — Plan 14 통과 후 진입)
+Status: Active — Plan 11 sweep adverdict `gap_too_wide_blocked` (overall 5/5 PASS, gap 4/5 FAIL, line/angle 5/5 N/A). 신설 Plan 12 (갭 root cause spike) → Plan 13 (Gemini key moment + criteria) → Plan 14 (재검증 sweep, 갭 ≤5 + line/angle PASS) → Plan 04/05.
+Last activity: 2026-06-01 -- belle sweep 적재 + 결정 (D-14 강등 거부) + ROADMAP/SUMMARY/STATE 갱신 + Plan 12/13/14 신설.
 
-Progress: [██████▌░░░] 64%
+Progress: [█████▋░░░░] 57%
+
+## ▶ Plan 11 sweep verdict `gap_too_wide_blocked` (2026-06-01) — Plan 12/13/14 신설
+
+belle Pod 5영상 sweep (`sweep_rtmpose_20260601_0411`) 결과:
+
+| 모션 | RTMPose+MB | NLF | gap | D-15① ≥70 | D-14 |gap|≤5 | line | angle |
+|---|---|---|---|---|---|---|---|
+| ref-climb | 89.0 | 58.0 | **+31** | PASS | **FAIL** | N/A | N/A |
+| ref-foxtop-split | 79.0 | 63.0 | **+16** | PASS | **FAIL** | N/A | N/A |
+| ref-foxtop | 81.0 | 64.0 | **+17** | PASS | **FAIL** | N/A | N/A |
+| ref-invert | 70.0 | 65.0 | +5 | PASS | PASS | N/A | N/A |
+| ref-sideway-spin | 80.0 | 81.0 | -1 | PASS | PASS | N/A | N/A |
+
+D-15① 5/5 PASS, D-14 2/5 PASS, line·angle 0/5 PASS. 평균 |gap| = 14점.
+
+**belle 결정 (2026-06-01)**: "갭은 어떻게든 줄여야 한다. Gemini 든 다른 수단이든 가리지 말고." + "라인과 각도도 계획에 들어가야 한다." → D-14 강등 거부. 갭 + line/angle 둘 다 Wave 3 진입 1순위 게이트. Plan 12/13/14 신설.
+
+### 신설 Plan 12 / 13 / 14
+
+| Plan | 역할 | 게이트 통과 path |
+|---|---|---|
+| **01-12** (NEW) | 갭 root cause 디버그 spike | 가설 a~e (frame-mean / RTMPose headdown / NLF baseline 편차 / keypoint 매핑 / MotionBERT lift path) + ref-invert 22점 회귀 + sideway-spin Plan10 vs Plan11 비일관성 박제 |
+| **01-13** (NEW) | Gemini key moment + criteria extractor | multimodal 2.5 Pro. hold/peak/setup/release 시점 + EXTEND/BENT criteria. dimensions sampling frame-mean → moment-list 교체. line/angle 회복 + 갭 줄이기 동시 path. |
+| **01-14** (NEW) | 5영상 재검증 sweep | Plan 12 fix + Plan 13 key moment 적용 후 sweep_rtmpose 재실행. **게이트 = 갭 ≤5 + line/angle 5/5 PASS** |
+
+Plan 14 통과 → Plan 04 / Plan 05 (Wave 3) 진입.
+
+### Plan 08 (MP+MB) 대비 RTMPose 회귀
+
+| 모션 | MP+MB (P08) | RTMPose+MB (P11) | Δ |
+|---|---|---|---|
+| ref-climb | 85 | 89 | +4 |
+| ref-foxtop-split | 75 | 79 | +4 |
+| ref-foxtop | 90 | 81 | -9 |
+| **ref-invert** | **92** | **70** | **-22** ← 회귀 |
+| ref-sideway-spin | 64 | 80 | +16 |
+
+ref-invert RTMPose headdown 약점 가설 — Plan 12 에서 frame-by-frame avg_rtm_score 분포 분석.
+
+### Plan 10 spike vs Plan 11 sweep — ref-sideway-spin 비일관성
+
+| | Plan 10 spike | Plan 11 sweep | Δ |
+|---|---|---|---|
+| overall | 72 | 80 | +8 |
+| ms/frame | 37 | 21 | 절반 |
+
+같은 영상/설정. frame seek/sampling 차이 가설 — Plan 12 에서 spike vs sweep 같은 영상 비교 trace.
 
 ## ▶ Plan 10 STRONG_PASS 결과 (2026-06-01) — Plan 11 (C scope) 진입
 

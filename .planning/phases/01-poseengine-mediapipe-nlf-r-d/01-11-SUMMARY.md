@@ -11,7 +11,7 @@ tags:
   - line-angle-debug
   - gate-rule-review
   - wave-3-entry
-  - pending_belle
+  - gap_too_wide_blocked
 
 dependency_graph:
   requires:
@@ -23,8 +23,11 @@ dependency_graph:
     - "Wave 3 (Plan 04 NLF R&D 격리 + Plan 05 atomic swap) 진입 게이트 verdict — belle Pod sweep 결과 적재 시점에 확정"
     - "게이트 룰 (D-14 / D-15①~③) 적정성 재검토 — Plan 06/07/08/10 누적 결과 기반"
   affects:
-    - 01-04  # NLF R&D 격리 — Plan 11 5/5 또는 4/5 PASS 시 진입 게이트 통과
+    - 01-04  # NLF R&D 격리 — Plan 14 (갭 ≤5 + line/angle PASS) 통과 후 진입
     - 01-05  # atomic swap — Plan 04 완료 후 자동 진입
+    - 01-12  # NEW: 갭 root cause 디버그 spike (Plan 11 sweep 결과 → 가설 a~e trace)
+    - 01-13  # NEW: Gemini key moment timestamp + criteria extractor (line/angle 회복 + 갭 줄이기)
+    - 01-14  # NEW: 5영상 재검증 sweep — 갭 ≤5 + line/angle PASS 게이트 통과 (Wave 3 진입 조건)
 
 tech_stack:
   added:
@@ -45,18 +48,19 @@ key_files:
 
 decisions:
   - "Plan 11 = belle 결정 (2026-06-01) C scope — 5영상 sweep + line/angle root cause + 게이트 룰 검토. Gemini 통합은 Phase 5 별 phase (belle Gemini API 키 발급 중)."
-  - "5/5 PASS = Wave 3 진입 (Plan 04 / Plan 05). 4/5 PASS = Wave 3 진입 + Phase 5 우선순위 ↑. 3/5 이하 = Plan 12 추가 검토 (HybrIK 또는 MP+MB 유지)."
-  - "line/angle N/A 가 모두 N/A 면 Wave 3 보류 + Phase 5 우선 진입 옵션 박제 (belle 판단)."
-  - "D-14 (NLF gap ≤5) 는 보조 게이트로 강등 권장 — Plan 10 -9 양보 가능했고, production 진입은 D-15① 우선 (CLAUDE.md 'core value = 분석 정확도'). 5영상 sweep 결과로 최종 확정."
-  - "D-15① (overall ≥70) threshold 유지 — Plan 06/07/08/10 모두 이 기준 검증됨. 변경 없음."
+  - "belle Pod sweep 결과 (2026-06-01, sweep_rtmpose_20260601_0411.md): D-15① overall ≥70 통과 (5/5 STRONG_PASS by overall metric) — 그러나 D-14 (NLF gap ≤5) 4/5 FAIL (평균 |gap| 14점). line/angle 5/5 N/A. 즉 '단일 게이트' 기준으로는 STRONG_PASS 같지만 두 게이트 합산 시 BLOCKED."
+  - "belle 결정 (2026-06-01 sweep 결과 적재 후): D-14 강등 거부 — '갭은 어떻게든 줄여야 한다. Gemini 든 다른 수단이든 가리지 말고.' D-14 + line/angle 둘 다 Wave 3 진입 1순위 게이트로 박제. 강등/우회/known limitation 수용 금지."
+  - "Wave 3 진입 조건 재정의 (2026-06-01 belle): Plan 04/05 진입 = '갭 ≤5 + line/angle 5/5 PASS' 검증 통과 후. 검증 path = Plan 12 (root cause 디버그) + Plan 13 (Gemini key moment + criteria) + Plan 14 (재검증 sweep). Phase 1 self-contained — Phase 5 의존 X."
+  - "ref-invert 22점 회귀 (MP+MB 92 → RTMPose+MB 70) = RTMPose 가 headdown/거꾸로 자세 keypoint 신뢰도 약함 가설. Plan 12 에서 frame-by-frame avg_rtm_score 분포 분석으로 박제."
+  - "ref-sideway-spin Plan 10 (72) vs Plan 11 (80) 8점 비일관성 + ms/frame 37→21 (절반) = sweep wrapper 가 spike 와 다른 frame seek/sampling 한 가설. Plan 12 에서 spike vs sweep 같은 영상 비교 trace 박제."
   - "FallbackRecognizer / dimensions.py 코드 수정 금지 — root cause 박제만. Phase 5 Gemini 어댑터 진입 시 정공법."
 
-requirements_completed: []  # belle Pod 실행 결과로 POSE-01 완전 충족 여부 확정. pending.
+requirements_completed: []  # POSE-01 갭 ≤5 + line/angle PASS 게이트 통과 후 충족. 현 sweep 결과로는 미충족.
 
 metrics:
-  duration: "~50 min executor (T-1 ~ T-4 + 테스트) — belle Pod 실행 (T-5) 미포함"
-  completed_date: "pending belle Pod 실행 (2026-06-01 작성, sweep 미실행)"
-  tasks_completed: 4   # T-1, T-2, T-3, T-4 (T-5 belle 대기)
+  duration: "~50 min executor (T-1 ~ T-4 + 테스트) + ~10 min belle Pod sweep (T-5)"
+  completed_date: "2026-06-01 (belle Pod sweep 적재, verdict gap_too_wide_blocked)"
+  tasks_completed: 5   # T-1 ~ T-5 모두 완료. verdict = gap_too_wide_blocked.
   tasks_total: 5
   files_created: 4
   files_modified: 1
@@ -64,7 +68,7 @@ metrics:
 
 # Phase 01 Plan 11: 5영상 sweep + line/angle root cause — pending belle
 
-**One-liner:** Plan 10 RTMPose-l 단일 영상 STRONG_PASS (72.0) 후속 — 정은지 5영상 전체 회귀 sweep harness + line/angle N/A 원인 박제 스크립트 + 게이트 룰 (D-14/D-15) 재검토 + Wave 3 진입 게이트 조건 명시. belle Pod 5영상 실행 결과 적재 후 verdict 확정.
+**One-liner:** Plan 10 RTMPose-l 단일 영상 STRONG_PASS (72.0) 후속 — 정은지 5영상 sweep 실행 결과 D-15① overall 5/5 PASS 그러나 **D-14 갭 4/5 FAIL + line/angle 5/5 N/A → Wave 3 BLOCKED**. belle 결정 = 갭 강등 거부, 갭+line/angle 둘 다 1순위 게이트. Plan 12/13/14 신설 (root cause + Gemini key moment + 재검증) → 통과 후 Plan 04/05 진입.
 
 ---
 
@@ -72,15 +76,79 @@ metrics:
 
 | 항목 | 내용 |
 |---|---|
-| **Verdict** | **`pending_belle`** (belle Pod 5영상 sweep 실행 대기) |
-| **단계 도달** | T-1 / T-2 / T-3 / T-4 완료. T-5 (belle Pod 실행) 대기 |
-| **scope** | C — 5영상 sweep + line/angle root cause + 게이트 룰 검토 (Gemini 통합은 Phase 5 별 phase) |
+| **Verdict** | **`gap_too_wide_blocked`** (overall 5/5 PASS, gap 4/5 FAIL, line/angle 5/5 N/A) |
+| **단계 도달** | T-1 ~ T-5 모두 완료 (belle Pod 2026-06-01 sweep 결과 적재) |
+| **belle 결정** | "갭은 어떻게든 줄여야 한다. Gemini 든 다른 수단이든 가리지 말고." D-14 강등 거부, line/angle 동등 게이트 |
+| **Wave 3 진입 조건 (재정의)** | 갭 ≤5 + line/angle 5/5 PASS 검증 통과 후 — Plan 14 통과 |
+| **신설 plan** | Plan 12 (root cause spike) + Plan 13 (Gemini key moment + criteria) + Plan 14 (재검증 sweep) |
+| **scope** | C — 5영상 sweep + line/angle root cause + 게이트 룰 검토 (실 검증 path 는 Plan 12~14) |
 | **신규 파일** | 3 (sweep harness, debug 스크립트, smoke 테스트) + 1 SUMMARY |
 | **수정 파일** | 1 (README append, Plan 07/08/10 섹션 보존) |
 | **단위 테스트** | 12 PASS (mmpose 없이 로컬, sweep_rtmpose smoke) |
-| **만든 커밋** | 4 (sweep+tests / debug / docs / closeout) |
+| **만든 커밋** | 4 (sweep+tests / debug / docs / closeout) + 후속 (verdict 갱신) |
 | **운영 코드 수정** | 0 (functions / runpod_inference / shared/pose_lifters 모두 무수정) |
-| **다음 행동** | belle Pod sweep 실행 → 결과 적재 → SUMMARY 갱신 → Plan 04 진입 결정 |
+| **다음 행동** | Plan 12 (root cause 디버그 spike) plan 작성 진입 |
+
+---
+
+## belle Pod sweep 결과 (2026-06-01, sweep_rtmpose_20260601_0411)
+
+`detector=rtmpose-l (det_model=none), lifter=motionbert_lite, score_threshold=0.3`
+
+### 5영상 종합표
+
+| 모션 | RTMPose+MB | NLF | gap | D-15① ≥70 | D-14 |gap| ≤5 | line | angle |
+|---|---|---|---|---|---|---|---|
+| ref-climb | 89.0 | 58.0 | **+31** | PASS | **FAIL** | N/A | N/A |
+| ref-foxtop-split | 79.0 | 63.0 | **+16** | PASS | **FAIL** | N/A | N/A |
+| ref-foxtop | 81.0 | 64.0 | **+17** | PASS | **FAIL** | N/A | N/A |
+| ref-invert | 70.0 | 65.0 | +5 | PASS | PASS | N/A | N/A |
+| ref-sideway-spin | 80.0 | 81.0 | -1 | PASS | PASS | N/A | N/A |
+
+평균 |gap| = 14점. D-15① 5/5 PASS / D-14 2/5 PASS / line·angle 0/5 PASS.
+
+### Plan 08 (MP+MB) 대비 — RTMPose 영상별 회귀
+
+| 모션 | MP+MB (P08) | RTMPose+MB (P11) | Δ |
+|---|---|---|---|
+| ref-climb | 85 | 89 | +4 |
+| ref-foxtop-split | 75 | 79 | +4 |
+| ref-foxtop | 90 | 81 | -9 |
+| **ref-invert** | **92** | **70** | **-22** ← 회귀 |
+| ref-sideway-spin | 64 | 80 | +16 (목표 회복) |
+
+### Plan 10 spike vs Plan 11 sweep — ref-sideway-spin 비일관성
+
+| | Plan 10 spike | Plan 11 sweep | Δ |
+|---|---|---|---|
+| overall | 72 | 80 | +8 |
+| ms/frame | 37 | 21 | 절반 |
+| avg_score | 0.4382 | 0.4 | 거의 동일 |
+
+같은 영상 / score_threshold / det_model / checkpoint. frame seek/sampling 차이 가설.
+
+### belle 결정 (sweep 적재 후)
+
+> "Gemini 를 사용해서라도 라고 했지 갭을 무시해선 안 돼. 갭은 어떻게든 줄여야 한다."
+> "라인과 각도도 계획에 들어가야 하는 거 아닌가?"
+
+→ **갭 + line/angle 둘 다 Wave 3 진입 1순위 게이트.** 강등/우회 금지. 수단 무관 (Gemini, HybrIK, debug spike, frame seek 수정 등). Plan 12/13/14 신설.
+
+---
+
+## Wave 3 진입 조건 (재정의, 2026-06-01)
+
+이전 (T-4 작성 시점): `5/5 STRONG_PASS by overall` → Plan 04/05 진입.
+
+**현 (belle 결정 적재 후)**: **Plan 14 sweep 재실행 결과 갭 ≤5 + line/angle 5/5 PASS** → Plan 04/05 진입.
+
+### Plan 12 ~ 14 신설 의도
+
+| Plan | 역할 |
+|---|---|
+| **01-12** | 갭 root cause 디버그 spike — 가설 (a) frame-mean 한계 / (b) RTMPose headdown 약점 (ref-invert) / (c) NLF baseline 영상별 편차 (58~81) / (d) keypoint 매핑 차이 / (e) MotionBERT lift path 차이 + spike vs sweep frame 비교 trace. **Gemini 미통합 상태에서도 박제 가능** — (b)~(e) 박제로 갭 원인 식별. |
+| **01-13** | Gemini key moment timestamp + criteria extractor — multimodal LLM 으로 hold/peak/setup/release 시점 + 그 시점의 expected EXTEND/BENT criteria 추출. dimensions/scoring chain 시간축 sampling 을 frame-loop → moment-list 로 교체. line/angle 회복 + 갭 줄이기 동시 path. belle Gemini API 키 (Parameter Store /sunity/motion/gemini-api-key) 사용. |
+| **01-14** | 5영상 재검증 sweep — Plan 12 fix + Plan 13 key moment + criteria 적용 후 sweep_rtmpose 재실행. 게이트 = 갭 ≤5 + line/angle 5/5 PASS. 통과 시 Plan 04/05 진입 게이트 통과. 미통과 시 추가 검토 (HybrIK 비교군 / 추가 spike). |
 
 ---
 

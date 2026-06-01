@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T15:30:00.000Z"
-last_activity: 2026-06-01 -- Plan 12 T-1~T-4 완료 (debug_gap_root_cause.py + 11 smoke 테스트 PASS). report-only verdict = (c) strong / (d) strong, live mode (a)(b)(e) belle Pod 대기. Plan 12 = pending_belle.
+last_updated: "2026-06-01T16:30:00.000Z"
+last_activity: 2026-06-01 -- Plan 12 (c)(d) strong 적재 → NLF baseline 부적합 박제 → Plan 15 신설 (JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집). 사람 점수 라벨링 영구 금지 + IPSF baseline 결정 memory 박제.
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 14
+  total_plans: 15
   completed_plans: 8
-  percent: 57
+  percent: 53
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 12 T-1~T-4 완료, T-5 belle Pod live mode 대기. report-only verdict = (c) NLF baseline 편차 strong + (d) keypoint chain 정의 strong. live mode (a) frame-mean / (b) RTMPose headdown / (e) 두 엔진 3D 분포 — belle 실행 후 verdict 확정 → Plan 13 진입 권고.
+**Current focus:** Phase 01 — Plan 12 (c)/(d) strong 결과 + belle 분석 객관성 원칙 재확인 → **Plan 15 신설** (JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집). NLF 갭 baseline 영구 폐기 → IPSF Code of Points 객관 임계값 baseline. Plan 15 executor T-1~T-4 (스키마+로더+빈 템플릿+테스트) → belle 라벨링 (T-5, 5영상 × phase별 IPSF 임계값 수치).
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 12 T-1~T-4 완료, T-5 belle Pod live mode 대기
-Plan: 8/14 complete (01, 02, 03, 06, 07, 08, 10, 11 done) + 09 closed as license_blocked + 12 T-1~T-4 (pending_belle T-5), 13, 14 진입 대기 + 04, 05 (Wave 3 — Plan 14 통과 후 진입)
-Status: Active — Plan 12 debug_gap_root_cause.py 완성, 11 smoke 테스트 PASS. report-only mode 1차 verdict (c) strong (NLF overall span 23 ≥ 20) + (d) strong (RTMPose H36M ordering vs NLF COCO ordering 17/17 다름). live mode (a)(b)(e) belle Pod 대기. belle Pod live 실행 후 → 본 SUMMARY verdict 갱신 → `/gsd:plan-phase 1 --plan 13` (Plan 13 Gemini key moment + criteria PLAN 작성) 진입.
-Last activity: 2026-06-01 -- Plan 12 T-1~T-4 commit (debug_gap_root_cause + 11 smoke 테스트 + README + SUMMARY). T-5 belle Pod live mode 대기 (2영상 또는 5영상 선택).
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 15 신설 직후
+Plan: 8/15 complete (01, 02, 03, 06, 07, 08, 10, 11 done) + 09 closed as license_blocked + 12 T-1~T-4 (pending_belle live mode T-5) + 15 PLAN 신설 (executor 진입 대기) + 13, 14 (Plan 15 통과 후) + 04, 05 (Wave 3 — Plan 14 통과 후)
+Status: Active — Plan 12 report-only verdict (c) NLF baseline 편차 strong (span 23, var 60.56) + (d) keypoint chain 정의 strong (17/17 다름) → belle 결정 = D-14 의 NLF baseline 폐기, IPSF Code of Points 객관 임계값으로 교체. **사람 점수 라벨링 (belle/강사/심사자) 영구 금지** — AI 분석 객관성 절대. Plan 15 (JUDGE-DATA-01 v1 평행 진행) = 5영상 × phase별 GeometricCriterion (target / tolerance / deduction / minimum). Plan 13 (Gemini key moment) 가 Plan 15 데이터를 입력으로 받음. Plan 14 게이트 = IPSF tolerance 안 + line/angle 5/5 PASS.
+Last activity: 2026-06-01 -- Plan 12 (c)/(d) strong 적재 + Plan 15 PLAN.md 작성 + ROADMAP / STATE 갱신 + memory 2개 박제 (analysis-objectivity-no-human-scores + judging-baseline-ipsf-code-of-points).
 
-Progress: [█████▋░░░░] 57%
+Progress: [█████▎░░░░] 53%
 
 ## ▶ Plan 11 sweep verdict `gap_too_wide_blocked` (2026-06-01) — Plan 12/13/14 신설
 

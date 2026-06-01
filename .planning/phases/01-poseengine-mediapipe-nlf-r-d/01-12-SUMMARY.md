@@ -26,8 +26,9 @@ dependency_graph:
     - "Plan 10 spike vs Plan 11 sweep 비일관성 trace 헬퍼 — gpu_warmup / frame_extractor / both 3 분기"
     - "aggregate_recommendation — 5 가설 verdict 합산 → Plan 13 path 분류 + Plan 14 게이트 기대"
   affects:
-    - 01-13  # Gemini key moment + criteria — Plan 12 가설 verdict 에 따라 standard / +hybrik / +nlf-respike / +mapping-correction
-    - 01-14  # 5영상 재검증 sweep — Plan 13 적용 후 갭 ≤5 + line/angle PASS 게이트 통과 여부
+    - 01-15  # NEW (2026-06-01): JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집. Plan 12 (c) NLF baseline 부적합 박제 → NLF 갭 baseline 폐기 + IPSF 객관 임계값 도입. Plan 13 의 입력
+    - 01-13  # Gemini key moment + criteria — Plan 15 데이터 입력 받음. Plan 12 가설 verdict 에 따라 standard / +mapping-correction
+    - 01-14  # 5영상 재검증 sweep — Plan 13 + Plan 15 적용 후 IPSF tolerance + line/angle PASS 게이트 통과 여부
 
 tech_stack:
   added:
@@ -53,6 +54,7 @@ decisions:
   - "verdict 임계 (모듈 상수): (a) strong 20° / weak 8° — frame별 mean joint disagreement. (b) strong headdown_score ≤ 0.30 + overall 대비 0.10 이상 drop. (c) strong NLF overall range ≥ 20점 / weak ≥ 10점. (e) strong root-relative distance ≥ 0.30 / weak ≥ 0.15. spike_vs_sweep ms/frame ratio ≥ 1.5 → msper_differ."
   - "live mode 5영상 vs 2영상 — Plan 12 T-5-2 명시는 ref-invert + ref-sideway-spin 2영상 우선 (가설 b headdown + 비일관성 비교 baseline). 5영상 전부 돌리면 ~12분, 2영상 ~5분. belle 선택."
   - "Plan 11 sweep 결과 NLF overall [58, 63, 64, 65, 81] → 가설 (c) report-only verdict = strong (span 23 ≥ 20). 즉 Plan 14 게이트 기대 = 'additional spike required' (NLF baseline 영상별 편차로 D-14 ≤5 회복 어려움). 단, belle 결정 (2026-06-01) 은 D-14 강등 거부 + line/angle 동등 게이트이므로 Plan 13/14 진행 자체는 멈추지 않음 — 'additional spike required' 는 후속 spike 필요 신호."
+  - "**Plan 12 verdict 후속 belle 결정 (2026-06-01, sweep 결과 + report-only verdict 적재 후)**: (c) strong → NLF baseline 부적합 확정. belle 메타 원칙 재확인 — (1) AI 분석 객관성 절대: 사람 점수 라벨링 (belle/강사/심사자) ground truth 영구 금지. (2) 채점/게이트 baseline = IPSF Code of Points 단일 기준 (이미 plan 초기 설계 시 결정, REQUIREMENTS JUDGE-01/02 박제). → **Plan 15 신설 (JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집)**. NLF 갭 baseline 영구 폐기. D-14 게이트 = '측정 각도 vs IPSF targetValue 갭 ≤ toleranceFull'. Plan 13 입력 = Plan 15 데이터. memory 박제 — `analysis-objectivity-no-human-scores.md` + `judging-baseline-ipsf-code-of-points.md`."
   - "Plan 08 MP+MB ref-invert overall 92 는 Plan 08 SUMMARY 영상별 표 행 4 (확인). 모듈 상수 PLAN_08_MP_MB_REF_INVERT_OVERALL = 92.0 로 박제 — 변경 시 Plan 08 SUMMARY 와 동기화."
 
 requirements_completed: []  # POSE-01 갭 ≤5 + line/angle PASS 게이트 통과 후 충족. Plan 12 는 trace 박제만, 미충족.

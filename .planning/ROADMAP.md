@@ -63,8 +63,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 키포인트 confidence가 임계값 미만인 프레임은 "추정"으로 표기되고 후속 분석이 단정하지 않는다
   5. R&D 평가 스크립트가 MediaPipe vs NLF 정확도 갭을 동일 영상 세트에서 측정해 보고서로 출력한다 (마이그레이션 ROI 판단 근거)
   6. 데이터 계약(`analysis.ts` ↔ `models.py`)에 `PoseFrame` 타입이 lockstep으로 추가된다
-  7. **5영상 sweep 재실행 시 (a) D-14 갭 ≤5 + (b) line/angle 5/5 PASS** — 두 게이트 모두 통과해야 Wave 3 (Plan 04/05) 진입 가능. 강등/우회/known limitation 수용 금지 (belle 결정 2026-06-01)
-**Plans**: 14 plans (Wave 순서: Wave 0 → Wave 1 → Wave 2 spike & 검증 → Wave 3 swap)
+  7. **5영상 sweep 재실행 시 (a) IPSF GeometricCriterion 갭 ≤ tolerance + (b) line/angle 5/5 PASS** — 두 게이트 모두 통과해야 Wave 3 (Plan 04/05) 진입 가능. baseline 은 NLF 갭이 아닌 **IPSF Code of Points 객관 임계값** (Plan 12 (c) strong / belle 결정 2026-06-01). 강등/우회/known limitation 수용 금지. 사람 점수 라벨링 (belle/강사/심사자) 영구 금지.
+**Plans**: 15 plans (Wave 순서: Wave 0 → Wave 1 → Wave 2 spike & 검증 → Wave 3 swap)
   - [x] 01-01-PLAN.md — PoseFrame + PoleAxis 데이터 계약 3-way lockstep + reliability 게이트 stub + Wave 0 테스트 픽스처 (Wave 0)
   - [x] 01-02-PLAN.md — PoseEngine Protocol + MediaPipePoseEngine 어댑터 + 33→COCO-17 + grip 확장 매핑 (Wave 1)
   - [x] 01-03-PLAN.md — HoughPoleDetector + PoleAxisAligner — lazy cv2/scipy import (D-09/D-10/D-11/D-12) (Wave 1)
@@ -74,9 +74,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [closed] 01-09-PLAN.md — AlphaPose 측면 보강 spike — license_blocked (Noncommercial, 영구 후보 제외) (Wave 2)
   - [x] 01-10-PLAN.md — RTMPose-l (MMPose Apache 2.0) 단일 영상 spike — STRONG_PASS (ref-sideway-spin 72) (Wave 2)
   - [x] 01-11-PLAN.md — RTMPose 5영상 sweep + line/angle root cause + 게이트 룰 검토 — **verdict gap_too_wide_blocked** (D-15① 5/5 PASS / D-14 4/5 FAIL / line·angle 5/5 N/A) (Wave 2)
-  - [ ] 01-12-PLAN.md — 갭 root cause 디버그 spike (가설 a~e trace, spike vs sweep frame 비교, ref-invert 22점 회귀 박제) (Wave 2, **NEW** 2026-06-01)
-  - [ ] 01-13-PLAN.md — Gemini key moment timestamp + criteria extractor (multimodal 2.5 Pro) — line/angle 회복 + 갭 줄이기 동시 path. dimensions sampling frame-mean → moment-list 교체 (Wave 2, **NEW** 2026-06-01)
-  - [ ] 01-14-PLAN.md — 5영상 재검증 sweep — Plan 12 fix + Plan 13 key moment 적용 후 sweep_rtmpose 재실행. **게이트 = 갭 ≤5 + line/angle 5/5 PASS** (Wave 2, **NEW** 2026-06-01, Wave 3 진입 gate)
+  - [~] 01-12-PLAN.md — 갭 root cause 디버그 spike — T-1~T-4 완료, T-5 belle Pod live 대기. report-only verdict (c)/(d) strong → NLF baseline 부적합 박제 → Plan 15 신설 (Wave 2, NEW 2026-06-01)
+  - [ ] 01-15-PLAN.md — **JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집** (5영상 × phase별 동작 객관 임계값 표). NLF 갭 baseline 폐기 → IPSF tolerance baseline. 사람 점수 라벨링 영구 금지 원칙 박제 후 첫 객관 데이터 작업 (Wave 2, **NEW** 2026-06-01)
+  - [ ] 01-13-PLAN.md — Gemini key moment timestamp + criteria extractor (multimodal 2.5 Pro) — Plan 15 GeometricCriterion 을 입력으로 받음. dimensions sampling frame-mean → moment-list 교체. line/angle 회복 + IPSF tolerance baseline 적용 (Wave 2, NEW 2026-06-01, Plan 15 통과 후 진입)
+  - [ ] 01-14-PLAN.md — 5영상 재검증 sweep — Plan 13 key moment + Plan 15 IPSF 임계값 적용 후 sweep_rtmpose 재실행. **게이트 = IPSF tolerance 안 + line/angle 5/5 PASS** (Wave 2, NEW 2026-06-01, Wave 3 진입 gate)
   - [ ] 01-04-PLAN.md — NLF R&D 격리 (backend/research/로 이동 + .samignore) (Wave 3 — **Plan 14 통과 후 진입**)
   - [ ] 01-05-PLAN.md — pipeline/app.py atomic swap + RunPod requirements.txt/setup.sh/README 갱신 (Wave 3 — **Plan 14 통과 후 진입**)
 
@@ -280,7 +281,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 8/14 | In Progress (Plan 11 gap_too_wide_blocked → Plan 12/13/14 신설)|  |
+| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 8/15 | In Progress (Plan 12 (c)/(d) strong → Plan 15 신설, IPSF baseline 도입)|  |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 0/TBD | Not started | - |
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |
@@ -302,3 +303,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 *Roadmap updated: 2026-05-31 (belle 결정 — 상용/베타 = MediaPipe + Gemini, NLF/SMPL-X = R&D 비교군 격리. Phase 1·2 재정의)*
 *Roadmap updated: 2026-05-31 (--reviews replan — Phase 1 wave 순서 정정: Wave 2 belle gate before Wave 3 swap, Success #3 video-level PoleAxis wording 정정 per L-1)*
 *Roadmap updated: 2026-06-01 (Plan 11 sweep verdict 적재 — Phase 1 Plans 07~11 박제 누락 보정 + Plan 12/13/14 신설 (갭 root cause + Gemini key moment + 재검증). Success #7 신설 (갭 ≤5 + line/angle PASS). Plan 04/05 진입 조건 = Plan 14 통과로 변경. belle 결정 — D-14 강등 거부, 둘 다 1순위 게이트.)*
+*Roadmap updated: 2026-06-01 (Plan 12 report-only (c)(d) strong — NLF baseline 부적합 박제 + belle 분석 객관성 절대 원칙 재확인. Plan 15 신설 (JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집, v1 평행 진행). Success #7 baseline 변경 — NLF 갭 → IPSF tolerance. 사람 점수 라벨링 영구 금지 원칙 박제 (memory analysis-objectivity-no-human-scores + judging-baseline-ipsf-code-of-points).)*

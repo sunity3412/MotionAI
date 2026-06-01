@@ -60,6 +60,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 # skeleton 만 모듈-load 시점 import — features / temporal 은 함수 본문에서 import
 # (numpy 만 필요, heavy deps 0). spike_rtmpose / mediapipe_to_h36m17 /
 # spike_motionbert 는 live helper 안에서 lazy import (모듈-load 시점 mmpose / torch /
@@ -140,6 +142,182 @@ def _assert_lr_pair_integrity() -> None:
 
 
 _assert_lr_pair_integrity()
+
+
+# ── frame-by-frame trace 함수 (numpy-only, mmpose/torch import 0) ─────────────
+
+
+def _assert_tj(angles_tj: np.ndarray) -> np.ndarray:
+    """(T, J=8) 형상 검증 — 8 angle joint 한정 박제 (Plan 12 (d) 회피)."""
+    arr = np.asarray(angles_tj, dtype=float)
+    if arr.ndim != 2:
+        raise ValueError(
+            f"angles_tj 형상은 (T, J) 2차원이어야 합니다. 받은 형상: {arr.shape}"
+        )
+    if arr.shape[1] != len(JOINT_KEYS):
+        raise ValueError(
+            f"angles_tj 의 J = {arr.shape[1]} 이 skeleton.JOINT_KEYS 길이 "
+            f"{len(JOINT_KEYS)} 과 다릅니다. 8 angle joint 한정 박제 (Plan 16 must_haves)."
+        )
+    return arr
+
+
+def trace_angles_per_frame(
+    angles_tj: np.ndarray, frame_index: int, hold_window: int
+) -> dict[str, Any]:
+    """frame_index 단일 vs frame_index±hold_window 평균 비교 — 가설 (a) trace.
+
+    8 joint 의 frame_index 단일 측정과 hold_window 평균 측정의 절대 차이 평균이
+    가설 (a) 임계 (HYPOTHESIS_A_FRAME_VS_WINDOW_STRONG_DEG) 와 비교된다. NaN-safe.
+
+    Args:
+        angles_tj: (T, J=8) 각도 행렬 (도). features.compute_joint_angles 출력 형식.
+        frame_index: 가설 (a) hold 시점 frame.
+        hold_window: ±N frame 평균 (dimensions.py hold_window 동등).
+
+    Returns:
+        dict with keys:
+          frame_single, frame_window_mean, frame_window_min, frame_window_max
+            (각각 joint_key → 도, 8 키),
+          window_indices (list[int]),
+          frame_vs_window_disagreement_per_joint (joint_key → abs_diff 도),
+          mean_disagreement_deg (8 joint 평균, NaN-safe).
+    """
+    arr = _assert_tj(angles_tj)
+    T = arr.shape[0]
+    if not (0 <= frame_index < T):
+        raise ValueError(
+            f"frame_index {frame_index} 가 (T, J) T={T} 범위를 벗어남."
+        )
+    if hold_window < 0:
+        raise ValueError(f"hold_window 는 0 이상이어야 합니다. 받은 값: {hold_window}")
+
+    lo = max(0, frame_index - hold_window)
+    hi = min(T, frame_index + hold_window + 1)
+    window_indices = list(range(lo, hi))
+    window = arr[lo:hi, :]  # (W, J)
+
+    single_row = arr[frame_index, :]  # (J,)
+    with np.errstate(invalid="ignore", all="ignore"):
+        window_mean = np.nanmean(window, axis=0)
+        window_min = np.nanmin(window, axis=0)
+        window_max = np.nanmax(window, axis=0)
+        diff = np.abs(single_row - window_mean)
+        mean_disagreement = float(np.nanmean(diff)) if diff.size > 0 else float("nan")
+
+    def _row_to_dict(row: np.ndarray) -> dict[str, Any]:
+        return {
+            k: (None if np.isnan(row[j]) else float(row[j]))
+            for j, k in enumerate(JOINT_KEYS)
+        }
+
+    return {
+        "frame_single": _row_to_dict(single_row),
+        "frame_window_mean": _row_to_dict(window_mean),
+        "frame_window_min": _row_to_dict(window_min),
+        "frame_window_max": _row_to_dict(window_max),
+        "window_indices": window_indices,
+        "frame_vs_window_disagreement_per_joint": _row_to_dict(diff),
+        "mean_disagreement_deg": (
+            None if np.isnan(mean_disagreement) else float(mean_disagreement)
+        ),
+    }
+
+
+def compute_lr_asymmetry(angles_tj: np.ndarray) -> dict[str, Any]:
+    """4 LR pair frame-by-frame |L - R| — 가설 (b) trace.
+
+    skeleton.JOINT_KEYS 8 joint 를 LR_PAIRS 의 4 쌍 (elbow / shoulder / hip /
+    knee) 으로 묶어 영상 전체 frame 별 |L - R| 산출. >= HYPOTHESIS_B_LR_ASYMMETRY_
+    STRONG_DEG 면 단일 lift path 좌우 noise 폭주 (Plan 13 frame 88 left vs right
+    delta 60-70도 와 직접 일치).
+
+    Args:
+        angles_tj: (T, J=8) 각도 행렬 (도).
+
+    Returns:
+        dict with keys:
+          per_frame: (T, 4) np.ndarray |L - R|, pair 순서 = LR_PAIRS,
+          per_pair: pair_name → 영상 전체 평균 |L - R| (NaN-safe),
+          overall_mean_abs_lr_deg: 4 pair 평균.
+    """
+    arr = _assert_tj(angles_tj)
+    T = arr.shape[0]
+
+    # joint_key → column index
+    key_to_idx = {k: j for j, k in enumerate(JOINT_KEYS)}
+
+    per_frame = np.full((T, len(LR_PAIRS)), np.nan, dtype=float)
+    per_pair: dict[str, float | None] = {}
+    pair_means: list[float] = []
+    for p, (lk, rk) in enumerate(LR_PAIRS):
+        li, ri = key_to_idx[lk], key_to_idx[rk]
+        diff = np.abs(arr[:, li] - arr[:, ri])
+        per_frame[:, p] = diff
+        with np.errstate(invalid="ignore", all="ignore"):
+            mean_v = float(np.nanmean(diff)) if diff.size > 0 else float("nan")
+        pair_name = f"{lk}_vs_{rk}"
+        per_pair[pair_name] = None if np.isnan(mean_v) else mean_v
+        if not np.isnan(mean_v):
+            pair_means.append(mean_v)
+
+    overall = float(np.mean(pair_means)) if pair_means else float("nan")
+
+    return {
+        "per_frame": per_frame,
+        "per_pair": per_pair,
+        "overall_mean_abs_lr_deg": None if np.isnan(overall) else overall,
+    }
+
+
+def compute_hold_window_lr(
+    angles_tj: np.ndarray, frame_index: int, hold_window: int
+) -> dict[str, Any]:
+    """frame_index 단일 |L - R| vs hold_window 평균 |L - R| — 가설 (a) + (b) 결합.
+
+    Args:
+        angles_tj: (T, J=8) 각도 행렬 (도).
+        frame_index: hold 시점 frame.
+        hold_window: ±N frame 평균.
+
+    Returns:
+        dict with keys:
+          frame_single_lr: pair_name → 도 (단일 frame |L - R|),
+          frame_window_mean_lr: pair_name → 도 (window 평균 |L - R|).
+    """
+    arr = _assert_tj(angles_tj)
+    T = arr.shape[0]
+    if not (0 <= frame_index < T):
+        raise ValueError(
+            f"frame_index {frame_index} 가 (T, J) T={T} 범위를 벗어남."
+        )
+    if hold_window < 0:
+        raise ValueError(f"hold_window 는 0 이상이어야 합니다. 받은 값: {hold_window}")
+
+    key_to_idx = {k: j for j, k in enumerate(JOINT_KEYS)}
+    lo = max(0, frame_index - hold_window)
+    hi = min(T, frame_index + hold_window + 1)
+
+    frame_single_lr: dict[str, float | None] = {}
+    frame_window_mean_lr: dict[str, float | None] = {}
+    for lk, rk in LR_PAIRS:
+        li, ri = key_to_idx[lk], key_to_idx[rk]
+        single_diff = float(abs(arr[frame_index, li] - arr[frame_index, ri]))
+        with np.errstate(invalid="ignore", all="ignore"):
+            window_diff = np.abs(arr[lo:hi, li] - arr[lo:hi, ri])
+            window_mean = (
+                float(np.nanmean(window_diff)) if window_diff.size > 0 else float("nan")
+            )
+        pair_name = f"{lk}_vs_{rk}"
+        frame_single_lr[pair_name] = None if np.isnan(single_diff) else single_diff
+        frame_window_mean_lr[pair_name] = (
+            None if np.isnan(window_mean) else window_mean
+        )
+
+    return {
+        "frame_single_lr": frame_single_lr,
+        "frame_window_mean_lr": frame_window_mean_lr,
+    }
 
 
 # ── argparse parser ───────────────────────────────────────────────────────────

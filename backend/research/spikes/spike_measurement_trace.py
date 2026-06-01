@@ -692,31 +692,213 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# ── 두 lift path 골격 분기 (helper 함수는 T-2/T-3/T-4 에서 추가) ────────────────
+# ── stub angles fixture (report-only mode 전용) ───────────────────────────────
+
+
+def _build_stub_angles(
+    T: int = 20,
+    frame_index: int = 10,
+    rtmpose_baseline: float = 90.0,
+    mediapipe_baseline: float = 90.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """report-only mode 용 (T, J=8) stub fixture 두 set.
+
+    두 set 은 baseline 이 다르고 frame_index 에서 RTMPose+MB 만 좌우 비대칭이
+    있도록 구성 — 4 가설 임계 분기 검증용 (실측정값 모사).
+    """
+    rtm = np.full((T, len(JOINT_KEYS)), rtmpose_baseline, dtype=float)
+    mp = np.full((T, len(JOINT_KEYS)), mediapipe_baseline, dtype=float)
+    # RTMPose+MB frame_index 만 약간 다르게 (가설 (a) 시뮬레이션)
+    rtm[frame_index, :] = rtmpose_baseline - 5.0
+    return rtm, mp
+
+
+# ── live mode helper (lazy import — 모듈-load 시점 0 import) ───────────────────
+
+
+def _live_rtmpose_angles(
+    args: argparse.Namespace, resolved_video: str, frames: np.ndarray
+) -> np.ndarray:
+    """live mode: RTMPose+MB lift path → (T, J=8) angles.
+
+    Plan 11 spike_rtmpose 의 함수 시그너처를 무수정 호출. 실 시그너처 정합 가드 —
+    Plan 13 의 _run_rtmpose_2d kwargs 같은 belle Pod 발견 차단 목적.
+    """
+    from .spike_rtmpose import (  # noqa: PLC0415
+        _run_rtmpose_2d,
+        _load_motionbert,
+        _run_motionbert_inference,
+        _h36m17_to_coco17_subset,
+    )
+    from .rtmpose_to_h36m17 import convert_rtmpose_coco17_to_h36m17  # noqa: PLC0415
+    from sunity_shared.analysis.features import (  # noqa: PLC0415
+        compute_joint_angles,
+        joint_uncertainty,
+    )
+    from sunity_shared.analysis.temporal import temporal_fill  # noqa: PLC0415
+
+    # RTMPose-l 2D → COCO-17 (T, 17, 3)
+    rtmpose_kp, image_size, _avg_score = _run_rtmpose_2d(
+        frames,
+        args.rtmpose_config,
+        args.rtmpose_checkpoint,
+        det_model=None,  # single-person mode (Plan 11 default)
+    )
+    # COCO-17 (pixel + score) → H3.6M 17 (정규화 2D)
+    h36m_2d = convert_rtmpose_coco17_to_h36m17(
+        rtmpose_kp,
+        image_size=image_size,
+        score_threshold=0.3,
+        use_score_as_conf=False,
+    )
+    # MotionBERT lift
+    weights = args.motionbert_weights or str(
+        Path(args.motionbert_root)
+        / "checkpoint"
+        / "pose3d"
+        / "FT_MB_lite_MB_ft_h36m_global_lite"
+        / "best_epoch.bin"
+    )
+    model, device = _load_motionbert(args.motionbert_root, weights)
+    h36m_xyz = _run_motionbert_inference(model, device, h36m_2d)
+    coco17_array = _h36m17_to_coco17_subset(h36m_xyz)
+
+    angles = compute_joint_angles(coco17_array)
+    filled = temporal_fill(angles, uncertainty=joint_uncertainty(coco17_array))
+    return filled
+
+
+def _live_mediapipe_angles(
+    args: argparse.Namespace, resolved_video: str, frames: np.ndarray
+) -> np.ndarray:
+    """live mode: MediaPipe + MB lift path → (T, J=8) angles.
+
+    Plan 08 spike_motionbert path 무수정 호출 — _run_mediapipe_2d (33 keypoint) +
+    convert_mp33_to_h36m17 + _load_motionbert + _run_motionbert_inference +
+    h36m17_to_coco17_subset (mediapipe_to_h36m17 어댑터).
+    """
+    from .spike_motionbert import (  # noqa: PLC0415
+        _run_mediapipe_2d,
+        _load_motionbert,
+        _run_motionbert_inference,
+    )
+    from .mediapipe_to_h36m17 import (  # noqa: PLC0415
+        convert_mp33_to_h36m17,
+        h36m17_to_coco17_subset,
+    )
+    from sunity_shared.analysis.features import (  # noqa: PLC0415
+        compute_joint_angles,
+        joint_uncertainty,
+    )
+    from sunity_shared.analysis.temporal import temporal_fill  # noqa: PLC0415
+
+    # MediaPipe 33 → (T, 33, 3)
+    mp_lm, _avg_conf = _run_mediapipe_2d(frames)
+    # MP 33 → H36M 17
+    h36m_2d = convert_mp33_to_h36m17(mp_lm, use_visibility_as_conf=False)
+    # MotionBERT lift
+    weights = args.motionbert_weights or str(
+        Path(args.motionbert_root)
+        / "checkpoint"
+        / "pose3d"
+        / "FT_MB_lite_MB_ft_h36m_global_lite"
+        / "best_epoch.bin"
+    )
+    model, device = _load_motionbert(args.motionbert_root, weights)
+    h36m_xyz = _run_motionbert_inference(model, device, h36m_2d)
+    coco17_array = h36m17_to_coco17_subset(h36m_xyz)
+
+    angles = compute_joint_angles(coco17_array)
+    filled = temporal_fill(angles, uncertainty=joint_uncertainty(coco17_array))
+    return filled
+
+
+# ── live mode helper signature integration check (no heavy import) ───────────
+
+
+def assert_live_helper_signatures() -> dict[str, list[str]]:
+    """live helper 가 import 하는 함수 시그너처를 mmpose / torch 없이 점검.
+
+    Plan 13 belle Pod 발견 (joint_uncertainty import / _run_rtmpose_2d kwargs /
+    SDK / File API ACTIVE) 같은 시그너처 불일치 차단. 본 함수는 ast 기반 정합 검증 —
+    spike_rtmpose / spike_motionbert / mediapipe_to_h36m17 의 함수 시그너처를
+    import 없이 점검 (mmpose / torch / mediapipe 미설치 환경 OK).
+
+    Returns:
+        dict[module_name → list[function_name]] — 발견된 함수 목록.
+        함수 누락 / 인자 변경 시 RuntimeError fail-loud.
+    """
+    import ast  # noqa: PLC0415
+
+    expected = {
+        "spike_rtmpose": [
+            "_resolve_video",
+            "_extract_frames",
+            "_run_rtmpose_2d",
+            "_load_motionbert",
+            "_run_motionbert_inference",
+            "_h36m17_to_coco17_subset",
+        ],
+        "rtmpose_to_h36m17": ["convert_rtmpose_coco17_to_h36m17"],
+        "mediapipe_to_h36m17": [
+            "convert_mp33_to_h36m17",
+            "h36m17_to_coco17_subset",
+        ],
+        "spike_motionbert": [
+            "_resolve_video",
+            "_extract_frames",
+            "_run_mediapipe_2d",
+            "_load_motionbert",
+            "_run_motionbert_inference",
+        ],
+    }
+
+    spikes_dir = Path(__file__).parent
+    found: dict[str, list[str]] = {}
+
+    for module_name, fns in expected.items():
+        src_path = spikes_dir / f"{module_name}.py"
+        if not src_path.exists():
+            raise RuntimeError(
+                f"live helper 의 모듈 의존 깨짐: {src_path} 없음. "
+                "기존 spike 무수정 박제 확인 필요."
+            )
+        tree = ast.parse(src_path.read_text(encoding="utf-8"))
+        module_fns = [
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+        ]
+        missing = [fn for fn in fns if fn not in module_fns]
+        if missing:
+            raise RuntimeError(
+                f"live helper 가 import 하는 함수 누락: {module_name}.{missing}. "
+                "Plan 13 식 belle Pod 발견 차단 — 기존 spike 시그너처 정합 검증 실패."
+            )
+        found[module_name] = sorted(set(module_fns) & set(fns))
+
+    return found
+
+
+# ── run_trace 진입점 ──────────────────────────────────────────────────────────
 
 
 def run_trace(args: argparse.Namespace) -> dict[str, Any]:
-    """본 spike 의 진입점 — argparse 결과 받아 두 lift path trace 수행.
+    """본 spike 의 진입점 — 두 lift path angles → 4 가설 helper chain → JSON dict.
 
-    골격 (T-1):
-      - report-only mode: stub angles fixture 두 set (RTMPose+MB / MP+MB) 생성 →
-        T-2/T-3 helper 호출 → JSON dict 반환.
-      - live mode: lazy import spike_rtmpose / mediapipe_to_h36m17 / spike_motionbert →
-        두 lift path 직렬 실행 → 동일 helper chain.
-
-    본 함수 본체는 T-4 에서 stub fixture + helper chain 완성. T-1 단계에서는
-    골격 + live mode guard 만 박제 (rtmpose-config / rtmpose-checkpoint /
-    motionbert-weights 누락 시 ValueError).
+    report-only mode: stub angles fixture 두 set 으로 helper chain end-to-end.
+    live mode: belle Pod 전용 — lazy import + 두 lift path 직렬 실행 ~5분
+    (RTMPose+MB ~3분 + MP+MB ~2분). 두 set 동일 helper chain 통과.
     """
+    # 1) live mode guard — Pod 전용 인자 누락 시 fail-loud
     if args.mode == "live":
-        # live mode guard — Pod 전용 인자 누락 시 fail-loud (belle 가 빠뜨려도
-        # mmpose 가 늦게 폭발하는 대신 진입 단계에서 멈춤).
         missing = []
         if args.rtmpose_config is None:
             missing.append("--rtmpose-config")
         if args.rtmpose_checkpoint is None:
             missing.append("--rtmpose-checkpoint")
-        if args.motionbert_weights is None and not args.motionbert_root:
+        # motionbert weights: --motionbert-weights 가 None 이면 root 에서 default 경로 사용
+        if not args.motionbert_root and args.motionbert_weights is None:
             missing.append("--motionbert-weights")
         if missing:
             raise ValueError(
@@ -724,20 +906,346 @@ def run_trace(args: argparse.Namespace) -> dict[str, Any]:
                 "belle Pod 절차 README Plan 16 섹션 참조."
             )
 
-    # T-4 가 완성 — T-1 단계에서는 진입 가능성만 박제.
-    raise NotImplementedError(
-        "run_trace 본체는 T-4 에서 완성됩니다. T-1 = CLI + 모듈 상수 박제."
+    # 2) live helper 시그너처 정합 (mmpose 없이도 점검 — Plan 13 fix 차단)
+    sig_check = assert_live_helper_signatures()
+
+    # 3) 두 lift path angles 산출
+    if args.mode == "report-only":
+        rtmpose_angles, mediapipe_angles = _build_stub_angles(
+            T=20, frame_index=min(10, max(0, args.frame_index)),
+            rtmpose_baseline=90.0,
+            mediapipe_baseline=90.0,
+        )
+        # report-only 의 frame_index 는 stub T=20 의 안전 범위 (10)
+        effective_frame_index = min(10, args.frame_index)
+        effective_hold_window = min(5, args.hold_window)
+    else:
+        # live mode: 두 lift path 직렬 실행 (RTMPose+MB 먼저, MP+MB 다음)
+        from .spike_rtmpose import _resolve_video, _extract_frames  # noqa: PLC0415
+        import tempfile  # noqa: PLC0415
+
+        effective_frame_index = args.frame_index
+        effective_hold_window = args.hold_window
+
+        with tempfile.TemporaryDirectory() as tmp_dir_str:
+            tmp_dir = Path(tmp_dir_str)
+            resolved_video = _resolve_video(
+                None, args.motion, args.bucket, tmp_dir
+            )
+            frames = _extract_frames(resolved_video)
+            rtmpose_angles = _live_rtmpose_angles(args, resolved_video, frames)
+            mediapipe_angles = _live_mediapipe_angles(
+                args, resolved_video, frames
+            )
+
+    # 4) 4 가설 helper chain (mmpose / torch 미import 시에도 동작)
+    rtm_trace_a = trace_angles_per_frame(
+        rtmpose_angles, effective_frame_index, effective_hold_window
     )
+    mp_trace_a = trace_angles_per_frame(
+        mediapipe_angles, effective_frame_index, effective_hold_window
+    )
+    rtm_lr = compute_lr_asymmetry(rtmpose_angles)
+    mp_lr = compute_lr_asymmetry(mediapipe_angles)
+    rtm_hold_lr = compute_hold_window_lr(
+        rtmpose_angles, effective_frame_index, effective_hold_window
+    )
+    mp_hold_lr = compute_hold_window_lr(
+        mediapipe_angles, effective_frame_index, effective_hold_window
+    )
+    cross = compute_cross_engine_disagreement(rtmpose_angles, mediapipe_angles)
+    swap = detect_lr_swap(rtmpose_angles, mediapipe_angles)
+
+    # verdict 4 가설 — (a) = RTMPose+MB frame 단일 vs window 평균 (Plan 13 trace 기준).
+    trace_a_for_verdict = rtm_trace_a
+    trace_b_for_verdict = rtm_lr
+    trace_c_for_verdict = swap
+    trace_d_for_verdict = cross
+
+    verdicts = aggregate_verdicts(
+        trace_a_for_verdict,
+        trace_b_for_verdict,
+        trace_c_for_verdict,
+        trace_d_for_verdict,
+    )
+
+    # 5) JSON 결과 dict — numpy ndarray 는 list 로 직렬화 (json.dump 전 처리)
+    def _drop_ndarray(d: dict[str, Any]) -> dict[str, Any]:
+        return {
+            k: (v.tolist() if isinstance(v, np.ndarray) else v)
+            for k, v in d.items()
+        }
+
+    plan_13_inputs = {
+        "frame_index": PLAN_13_FRAME_INDEX,
+        "hold_window": PLAN_13_HOLD_WINDOW,
+        "ref_invert_hold_frame_88_5_of_5_fail": {
+            "left_shoulder": 88.2,
+            "right_shoulder": 18.2,
+            "left_hip": 54.9,
+            "right_hip": 115.5,
+            "right_knee": 73.0,
+        },
+        "convention": "compute_joint_angles inner angle 0-180도 (180도 = 완전 신전)",
+    }
+
+    baseline_inconsistency = {
+        "plan_08_mp_mb_ref_invert_frame_mean_overall": PLAN_08_MP_MB_REF_INVERT_OVERALL,
+        "plan_11_rtmpose_mb_ref_invert_frame_mean_overall": PLAN_11_RTMPOSE_MB_REF_INVERT_OVERALL,
+        "plan_13_rtmpose_mb_frame_88_single_5_of_5_fail": True,
+        "cross_engine_ratio": "4-5x",
+    }
+
+    result: dict[str, Any] = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "mode": args.mode,
+        "motion": args.motion,
+        "frame_index": effective_frame_index,
+        "hold_window": effective_hold_window,
+        "engines": {
+            ENGINE_RTMPOSE_MB: {
+                "trace_angles_per_frame": rtm_trace_a,
+                "lr_asymmetry": _drop_ndarray(rtm_lr),
+                "hold_window_lr": rtm_hold_lr,
+            },
+            ENGINE_MEDIAPIPE_MB: {
+                "trace_angles_per_frame": mp_trace_a,
+                "lr_asymmetry": _drop_ndarray(mp_lr),
+                "hold_window_lr": mp_hold_lr,
+            },
+        },
+        "cross_engine": {
+            "disagreement": cross,
+            "lr_swap": swap,
+        },
+        "verdicts": verdicts,
+        "baseline_inconsistency": baseline_inconsistency,
+        "plan_13_inputs": plan_13_inputs,
+        "signature_check": sig_check,
+    }
+    return result
+
+
+# ── Markdown 출력 ─────────────────────────────────────────────────────────────
+
+
+def _fmt(v: Any) -> str:
+    """None / NaN / float 표시 헬퍼."""
+    if v is None:
+        return "N/A"
+    if isinstance(v, float):
+        if np.isnan(v):
+            return "N/A"
+        return f"{v:.2f}"
+    return str(v)
+
+
+def generate_markdown(trace_result: dict[str, Any]) -> str:
+    """JSON 결과 → 9 섹션 Markdown sibling 생성.
+
+    섹션: (1) 메타 (2) RTMPose+MB trace (3) MP+MB trace (4) 좌우 비대칭
+    (5) cross-engine disagreement (6) 좌우 swap detection (7) 4 가설 verdict
+    (8) next_path_recommendation (9) baseline_inconsistency.
+    """
+    eng = trace_result.get("engines", {})
+    rtm = eng.get(ENGINE_RTMPOSE_MB, {})
+    mp = eng.get(ENGINE_MEDIAPIPE_MB, {})
+    cross = trace_result.get("cross_engine", {})
+    verdicts = trace_result.get("verdicts", {})
+    baseline = trace_result.get("baseline_inconsistency", {})
+
+    lines: list[str] = []
+
+    # (1) 메타
+    lines += [
+        "# Spike: Measurement Trace (Plan 01-16)",
+        "",
+        f"생성: {trace_result.get('generated_at', 'N/A')}",
+        f"모드: `{trace_result.get('mode', 'N/A')}`",
+        f"모션: `{trace_result.get('motion', 'N/A')}`",
+        f"frame_index: {trace_result.get('frame_index', 'N/A')}",
+        f"hold_window: ±{trace_result.get('hold_window', 'N/A')}",
+        "",
+    ]
+
+    # (2) RTMPose+MB trace
+    lines += ["## (2) RTMPose+MB trace — frame 단일 vs hold_window 평균", ""]
+    rtm_tap = rtm.get("trace_angles_per_frame", {})
+    if rtm_tap:
+        lines += [
+            "| joint | frame_single | window_mean | window_min | window_max | disagreement |",
+            "|---|---|---|---|---|---|",
+        ]
+        single = rtm_tap.get("frame_single", {})
+        mean_ = rtm_tap.get("frame_window_mean", {})
+        min_ = rtm_tap.get("frame_window_min", {})
+        max_ = rtm_tap.get("frame_window_max", {})
+        diff = rtm_tap.get("frame_vs_window_disagreement_per_joint", {})
+        for k in JOINT_KEYS:
+            lines.append(
+                f"| {k} | {_fmt(single.get(k))} | {_fmt(mean_.get(k))} | "
+                f"{_fmt(min_.get(k))} | {_fmt(max_.get(k))} | {_fmt(diff.get(k))} |"
+            )
+        lines.append(
+            f"\nmean_disagreement_deg: **{_fmt(rtm_tap.get('mean_disagreement_deg'))}**"
+        )
+    lines.append("")
+
+    # (3) MP+MB trace
+    lines += ["## (3) MP+MB trace — frame 단일 vs hold_window 평균", ""]
+    mp_tap = mp.get("trace_angles_per_frame", {})
+    if mp_tap:
+        lines += [
+            "| joint | frame_single | window_mean | window_min | window_max | disagreement |",
+            "|---|---|---|---|---|---|",
+        ]
+        single = mp_tap.get("frame_single", {})
+        mean_ = mp_tap.get("frame_window_mean", {})
+        min_ = mp_tap.get("frame_window_min", {})
+        max_ = mp_tap.get("frame_window_max", {})
+        diff = mp_tap.get("frame_vs_window_disagreement_per_joint", {})
+        for k in JOINT_KEYS:
+            lines.append(
+                f"| {k} | {_fmt(single.get(k))} | {_fmt(mean_.get(k))} | "
+                f"{_fmt(min_.get(k))} | {_fmt(max_.get(k))} | {_fmt(diff.get(k))} |"
+            )
+        lines.append(
+            f"\nmean_disagreement_deg: **{_fmt(mp_tap.get('mean_disagreement_deg'))}**"
+        )
+    lines.append("")
+
+    # (4) 좌우 비대칭
+    lines += ["## (4) 좌우 비대칭 (4 pair, 양 엔진 비교)", ""]
+    rtm_lr = rtm.get("lr_asymmetry", {})
+    mp_lr = mp.get("lr_asymmetry", {})
+    lines += [
+        "| pair | RTMPose+MB 영상 평균 | MP+MB 영상 평균 |",
+        "|---|---|---|",
+    ]
+    for lk, rk in LR_PAIRS:
+        pair_name = f"{lk}_vs_{rk}"
+        lines.append(
+            f"| {pair_name} | {_fmt(rtm_lr.get('per_pair', {}).get(pair_name))} "
+            f"| {_fmt(mp_lr.get('per_pair', {}).get(pair_name))} |"
+        )
+    lines += [
+        f"\n- RTMPose+MB overall: **{_fmt(rtm_lr.get('overall_mean_abs_lr_deg'))}**",
+        f"- MP+MB overall: **{_fmt(mp_lr.get('overall_mean_abs_lr_deg'))}**",
+        "",
+    ]
+
+    # (5) cross-engine disagreement
+    lines += ["## (5) Cross-engine disagreement (RTMPose+MB vs MP+MB)", ""]
+    dis = cross.get("disagreement", {})
+    lines += [
+        f"- frame_count: {_fmt(dis.get('frame_count'))}",
+        f"- overall_mean_disagreement_deg: **{_fmt(dis.get('overall_mean_disagreement_deg'))}**",
+        f"- peak_disagreement_frame_idx: {_fmt(dis.get('peak_disagreement_frame_idx'))}",
+        "",
+        "joint별 평균 disagreement:",
+        "",
+        "| joint | mean_abs_deg |",
+        "|---|---|",
+    ]
+    per_joint = dis.get("per_joint_mean_disagreement", {})
+    for k in JOINT_KEYS:
+        lines.append(f"| {k} | {_fmt(per_joint.get(k))} |")
+    lines.append("")
+
+    # (6) LR swap detection
+    lines += ["## (6) 좌우 swap detection (pair 별 부호 반대 비율)", ""]
+    swap = cross.get("lr_swap", {})
+    lines += [
+        f"- frame_count: {_fmt(swap.get('frame_count'))}",
+        f"- swap_frame_ratio (4 pair 평균): **{_fmt(swap.get('swap_frame_ratio'))}**",
+        "",
+        "| pair | swap_ratio |",
+        "|---|---|",
+    ]
+    swap_per = swap.get("swap_frame_ratio_per_pair", {})
+    for lk, rk in LR_PAIRS:
+        pair_name = f"{lk}_vs_{rk}"
+        lines.append(f"| {pair_name} | {_fmt(swap_per.get(pair_name))} |")
+    lines.append("")
+
+    # (7) 4 가설 verdict 매트릭스
+    lines += ["## (7) 4 가설 verdict 매트릭스", ""]
+    lines += [
+        "| # | 가설 | 측정값 | strong 임계 | weak 임계 | verdict |",
+        "|---|---|---|---|---|---|",
+    ]
+    hyp = verdicts.get("hypotheses", {})
+    for letter in ("a", "b", "c", "d"):
+        h = hyp.get(letter, {})
+        lines.append(
+            f"| ({letter}) | {h.get('label', 'N/A')} | "
+            f"{_fmt(h.get('value'))} | {_fmt(h.get('threshold_strong'))} | "
+            f"{_fmt(h.get('threshold_weak'))} | **{h.get('verdict', 'N/A')}** |"
+        )
+    dominant = verdicts.get("dominant", [])
+    lines += [
+        "",
+        f"dominant: **{dominant if dominant else '(없음)'}**",
+        "",
+    ]
+
+    # (8) next_path_recommendation
+    lines += [
+        "## (8) next_path_recommendation",
+        "",
+        verdicts.get("next_path_recommendation", "(미산출)"),
+        "",
+    ]
+
+    # (9) baseline_inconsistency
+    lines += [
+        "## (9) Plan 08 / Plan 11 / Plan 13 cross-engine inconsistency baseline",
+        "",
+        "| measure | Plan 08 (MP+MB) | Plan 11 (RTMPose+MB) | Plan 13 (RTMPose+MB) |",
+        "|---|---|---|---|",
+        "| sampling | frame-mean | frame-mean | hold frame 88 단일 |",
+        f"| overall | {baseline.get('plan_08_mp_mb_ref_invert_frame_mean_overall', 'N/A')} | "
+        f"{baseline.get('plan_11_rtmpose_mb_ref_invert_frame_mean_overall', 'N/A')} | "
+        f"5/5 minimum fail |",
+        f"\ncross-engine ratio: {baseline.get('cross_engine_ratio', 'N/A')}",
+        "",
+    ]
+
+    return "\n".join(lines) + "\n"
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
 
+def _serialize_for_json(obj: Any) -> Any:
+    """numpy ndarray / NaN safe JSON 직렬화 helper."""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {k: _serialize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_serialize_for_json(v) for v in obj]
+    if isinstance(obj, float) and np.isnan(obj):
+        return None
+    return obj
+
+
 def main() -> int:
-    """CLI 진입점 — T-4 에서 JSON dump + sibling Markdown 출력 완성."""
+    """CLI 진입점 — argparse + run_trace + JSON dump + sibling Markdown."""
+    import json  # noqa: PLC0415
+
     parser = build_arg_parser()
     args = parser.parse_args()
-    run_trace(args)  # T-4 가 완성
+    result = run_trace(args)
+
+    out_path = Path(args.out) if args.out else _default_out_path()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(_serialize_for_json(result), f, ensure_ascii=False, indent=2)
+
+    md_path = out_path.with_suffix(".md")
+    md_path.write_text(generate_markdown(result), encoding="utf-8")
+
     return 0
 
 

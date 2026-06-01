@@ -433,3 +433,113 @@ python3 -m backend.research.spikes.debug_dimensions \
   도입 시도 금지 (memory `license-blocklist-pose.md`).
 - mmpose / numpy 추가 install 금지 — Plan 10 환경 그대로.
 
+---
+
+# Plan 12 — 갭 root cause 디버그 spike
+
+> 본 섹션은 Plan 01-12 에서 추가됨. Plan 07/08/10/11 섹션은 위쪽 그대로 보존.
+
+## 목적 (Plan 12)
+
+Plan 11 sweep verdict `gap_too_wide_blocked` 후속 — 5영상 sweep 에서
+영상별 갭 (RTMPose+MB - NLF) 의 방향+크기가 영상마다 다름 (+31, +16, +17,
++5, -1). 단일 요인으로 설명 불가. 5개 가설 frame-level trace 로 dominant
+원인 박제 → Plan 13 (Gemini key moment + criteria) 가 어떤 가설을 해결
+가능한지 매핑.
+
+**본 plan 은 fix 코드 0 줄.** dimensions.py / technique.py /
+FallbackRecognizer / spike_rtmpose / sweep_rtmpose 무수정. trace + verdict
+박제만.
+
+## 5개 가설 (Plan 12 PLAN <context> 표)
+
+| ID | 가설 | trace 방법 | mode |
+|---|---|---|---|
+| (a) | Frame-mean 한계 — overall = frame 평균이라 두 엔진이 같은 의미있는 시점 안 봄 | (T, J) angle 행렬 frame별 disagreement | live |
+| (b) | RTMPose headdown 약점 — COCO 학습 분포 부족, ref-invert 22점 회귀 | frame-by-frame avg_rtm_score 분포 + headdown frame 식별 | live |
+| (c) | NLF baseline 영상별 편차 — NLF 점수 58~81 범위 | sweep JSON 의 nlf.overall 분포 분석 | report-only |
+| (d) | RTMPose ↔ NLF keypoint 매핑 차이 — derive joint vs NLF skeleton | 두 chain JOINT_KEYS 비교 (Pod 의존 X) | report-only |
+| (e) | 두 엔진 3D pose 분포 차이 — RTMPose+MB 의 xyz vs NLF xyz | root-relative 17 joint Euclidean | live |
+
+추가 박제:
+- **ref-invert 22점 회귀** — Plan 08 MP+MB 92 vs Plan 11 RTMPose+MB. 가설 (b) 와 직접 연관.
+- **Plan 10 spike vs Plan 11 sweep 비일관성** — ref-sideway-spin overall 72→80, ms/frame 37→21. frames_total 비교 + ms/frame 비율로 `gpu_warmup` / `frame_extractor` / `both` 분기.
+
+## Plan 12 추가 파일
+
+```
+backend/research/spikes/
+  debug_gap_root_cause.py         # 5 가설 trace + ref-invert + spike_vs_sweep (CLI 12 args)
+
+backend/tests/
+  test_debug_gap_root_cause_smoke.py  # 11 tests PASS (mmpose 없이 로컬)
+```
+
+## 실행 — report-only mode (로컬 OK)
+
+sweep JSON 만 입력으로 분석. Pod 의존 X. 가설 (c)(d) + spike_vs_sweep +
+ref-invert 회귀 약 verdict 산출.
+
+```bash
+python3 -m backend.research.spikes.debug_gap_root_cause \
+  --mode report-only \
+  --sweep-report backend/research/spikes/reports/sweep_rtmpose_20260601_0411.json \
+  --spike-report backend/research/spikes/reports/spike_rtmpose_<Plan10>.json \
+  --out backend/research/spikes/reports/debug_gap_$(date +%Y%m%d_%H%M).json
+```
+
+출력:
+- `backend/research/spikes/reports/debug_gap_YYYYMMDD_HHMM.json`
+- `backend/research/spikes/reports/debug_gap_YYYYMMDD_HHMM.md`
+
+## 실행 — live mode (belle Pod 전용, 2영상 우선)
+
+ref-invert (헤드다운 약점 가설 b) + ref-sideway-spin (spike vs sweep 비
+일관성 비교 baseline) 2영상 우선. 5영상 전부 돌리려면 `--motions ref-climb
+ref-foxtop-split ref-foxtop ref-invert ref-sideway-spin`.
+
+```bash
+cd /workspace/SunityMotion && git pull --ff-only origin main
+
+python3 -m backend.research.spikes.debug_gap_root_cause \
+  --mode live \
+  --motions ref-invert ref-sideway-spin \
+  --bucket sunity-motion-pilot-videos \
+  --rtmpose-config /workspace/rtmpose_weights/rtmpose-l_8xb256-420e_coco-256x192.py \
+  --rtmpose-checkpoint /workspace/rtmpose_weights/rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth \
+  --motionbert-root /workspace/MotionBERT \
+  --motionbert-weights /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin \
+  --sweep-report backend/research/spikes/reports/sweep_rtmpose_20260601_0411.json \
+  --out backend/research/spikes/reports/debug_gap_live_$(date +%Y%m%d_%H%M).json
+```
+
+예상 소요: 2영상 × ~2.5분/영상 = ~5분 (RTMPose+MB chain + NLF chain 둘 다).
+5영상 전부 = ~12분.
+
+## Plan 13 진입 게이트
+
+본 spike 결과 JSON 의 `recommendation` 필드 기준:
+
+| recommendation | Plan 13 path | Plan 14 게이트 기대 |
+|---|---|---|
+| `standard` | Plan 13 (Gemini key moment + criteria) 표준 진입 | expected to pass |
+| `+ hybrik_spike` | Plan 13 + HybrIK 비교군 spike (ref-invert headdown) | additional spike required |
+| `+ nlf_re-spike` | Plan 13 + NLF baseline 재검토 | additional spike required |
+| `+ rtmpose_to_h36m17_correction` | Plan 13 + derive joint 보정 | additional spike required |
+| `+ multi_engine_averaging` | Plan 13 + lift path 신뢰도 보강 | additional spike required |
+
+상세 verdict + belle 응답 옵션은
+`.planning/phases/01-poseengine-mediapipe-nlf-r-d/01-12-SUMMARY.md` 참조.
+
+## 주의사항 (Plan 12)
+
+- 본 plan 은 spike 디렉터리 (`backend/research/spikes/`) 외 어떤 파일도
+  수정하지 않는다. 운영 코드 (`functions/`, `runpod_inference/`,
+  `shared/pose_lifters/`, `dimensions.py`, `technique.py`) 무수정.
+- 기존 spike (spike_rtmpose, sweep_rtmpose, debug_dimensions,
+  rtmpose_to_h36m17, mediapipe_to_h36m17) 무수정. README 만 append.
+- 실제 fix 는 Plan 13 (Gemini key moment + criteria) / Plan 14 (재검증)
+  책임. 본 plan 은 trace + 가설 verdict 박제만.
+- HybrIK / 새 detector / Gemini API 호출 / AlphaPose 도입 금지.
+- mmpose / numpy 추가 install 금지 — Plan 10/11 환경 그대로.
+

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T14:00:00.000Z"
-last_activity: 2026-06-01 -- Plan 11 sweep 적재. D-15① 5/5 PASS / D-14 4/5 FAIL / line·angle 5/5 N/A → verdict gap_too_wide_blocked. belle 결정 = D-14 강등 거부, line/angle 동등 게이트. Plan 12/13/14 신설.
+last_updated: "2026-06-01T15:30:00.000Z"
+last_activity: 2026-06-01 -- Plan 12 T-1~T-4 완료 (debug_gap_root_cause.py + 11 smoke 테스트 PASS). report-only verdict = (c) strong / (d) strong, live mode (a)(b)(e) belle Pod 대기. Plan 12 = pending_belle.
 progress:
   total_phases: 1
   completed_phases: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 11 sweep verdict `gap_too_wide_blocked`. belle 결정 = 갭 어떻게든 줄여야 한다, line/angle 동등 게이트. Wave 3 (Plan 04/05) 진입 = Plan 14 통과 후. Plan 12 (root cause spike) 진입 대기.
+**Current focus:** Phase 01 — Plan 12 T-1~T-4 완료, T-5 belle Pod live mode 대기. report-only verdict = (c) NLF baseline 편차 strong + (d) keypoint chain 정의 strong. live mode (a) frame-mean / (b) RTMPose headdown / (e) 두 엔진 3D 분포 — belle 실행 후 verdict 확정 → Plan 13 진입 권고.
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 11 마감, Plan 12 진입 대기
-Plan: 8/14 complete (01, 02, 03, 06, 07, 08, 10, 11 done) + 09 closed as license_blocked + 12, 13, 14 신설 (NEW 2026-06-01) + 04, 05 (Wave 3 — Plan 14 통과 후 진입)
-Status: Active — Plan 11 sweep adverdict `gap_too_wide_blocked` (overall 5/5 PASS, gap 4/5 FAIL, line/angle 5/5 N/A). 신설 Plan 12 (갭 root cause spike) → Plan 13 (Gemini key moment + criteria) → Plan 14 (재검증 sweep, 갭 ≤5 + line/angle PASS) → Plan 04/05.
-Last activity: 2026-06-01 -- belle sweep 적재 + 결정 (D-14 강등 거부) + ROADMAP/SUMMARY/STATE 갱신 + Plan 12/13/14 신설.
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 12 T-1~T-4 완료, T-5 belle Pod live mode 대기
+Plan: 8/14 complete (01, 02, 03, 06, 07, 08, 10, 11 done) + 09 closed as license_blocked + 12 T-1~T-4 (pending_belle T-5), 13, 14 진입 대기 + 04, 05 (Wave 3 — Plan 14 통과 후 진입)
+Status: Active — Plan 12 debug_gap_root_cause.py 완성, 11 smoke 테스트 PASS. report-only mode 1차 verdict (c) strong (NLF overall span 23 ≥ 20) + (d) strong (RTMPose H36M ordering vs NLF COCO ordering 17/17 다름). live mode (a)(b)(e) belle Pod 대기. belle Pod live 실행 후 → 본 SUMMARY verdict 갱신 → `/gsd:plan-phase 1 --plan 13` (Plan 13 Gemini key moment + criteria PLAN 작성) 진입.
+Last activity: 2026-06-01 -- Plan 12 T-1~T-4 commit (debug_gap_root_cause + 11 smoke 테스트 + README + SUMMARY). T-5 belle Pod live mode 대기 (2영상 또는 5영상 선택).
 
 Progress: [█████▋░░░░] 57%
 

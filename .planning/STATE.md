@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T12:00:00.000Z"
-last_activity: 2026-06-01 -- belle 결정 option-b-1 (RTMPose). Plan 10 작성 단계. Pod (RTX 3090) Plan 08 setup 상태 그대로 유지.
+last_updated: "2026-06-01T13:00:00.000Z"
+last_activity: 2026-06-01 -- Plan 10 T-1~T-4 executor 완료 (RTMPose adapter + spike runner + 36 tests + README). T-5 belle Pod 실행 대기. Plan 10 은 미완료 (belle 검증 후 마감).
 progress:
   total_phases: 1
   completed_phases: 0
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 10 작성 중
-Plan: 6/10 complete (01, 02, 03, 06, 07, 08 done) + 09 closed as license_blocked + 10 PLAN draft
-Status: Active — RTMPose spike Plan 10 작성, belle Pod 실행 대기
-Last activity: 2026-06-01 -- belle option-b-1 결정, Plan 10 RTMPose Spike (Apache 2.0)
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 10 executor T-1~T-4 완료
+Plan: 6/10 complete (01, 02, 03, 06, 07, 08 done) + 09 closed as license_blocked + 10 T-1~T-4 done (T-5 belle Pod 대기)
+Status: Active — RTMPose spike harness + 36 tests + README 완료, belle Pod 실행 대기
+Last activity: 2026-06-01 -- Plan 10 T-1~T-4 executor 완료 (commits 19310ae / 3b38e15 / 5a823a5)
 
 Progress: [██████░░░░] 60%
 
@@ -37,7 +37,16 @@ Progress: [██████░░░░] 60%
 **Lifter stack**: MediaPipe → **RTMPose-l (Apache 2.0)** 로 2D detector 교체. MotionBERT lift 그대로 유지.
 **검증**: ref-sideway-spin 1영상 → overall ≥ 70 회복 spike. 통과 시 Plan 11 = 5영상 sweep + 게이트 룰 재정의 + Wave 3 진입.
 
-**Pod 상태**: RTX 3090 + Plan 08 setup.sh 완료 + MotionBERT 가중치 (`best_epoch.bin`) scp 완료. **그대로 유지** — RTMPose 추가 install (`pip install mmpose mmengine mmcv`) 만 필요. Plan 10 작성 후 Pod 진행.
+**Pod 상태**: RTX 3090 + Plan 08 setup.sh 완료 + MotionBERT 가중치 (`best_epoch.bin`) scp 완료. **그대로 유지** — RTMPose 추가 install (`pip install -U openmim && mim install mmengine "mmcv>=2.0" "mmdet>=3.0" "mmpose>=1.3"`) 만 필요. Plan 10 SUMMARY "belle Pod checkpoint Payload" 섹션 참조.
+
+**Plan 10 executor 결과** (2026-06-01):
+- T-1 라이선스 검증: MMPose / mmengine / mmcv / mmdet 모두 Apache 2.0 — HALT 미발동
+- T-2 어댑터 `rtmpose_to_h36m17.py`: COCO-17 → H3.6M 17 (12 직접 + 5 derive) + image_size 정규화 + score_threshold NaN — 36 tests PASS
+- T-3 runner `spike_rtmpose.py`: MMPoseInferencer → MotionBERT lift → 점수 계산 chain (Plan 07 spike_motionbert 패턴 재사용)
+- T-4 README: Plan 07/08 섹션 보존, Plan 10 RTMPose 섹션 append (라이선스 표 + Pod 절차 + 판정 기준)
+- T-5 belle Pod 실행 대기 (SUMMARY checkpoint payload 박제)
+
+운영 코드 (functions/, runpod_inference/, shared/pose_lifters/) 무수정.
 
 **Memory 박제 완료** (`license-blocklist-pose.md`): AlphaPose Noncommercial → 향후 plan 후보군에서 영구 제외.
 

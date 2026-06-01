@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T22:30:00.000Z"
-last_activity: 2026-06-01 -- Plan 17 T-1 audit 완료, verdict `blocked/no-static-mapping-defect`. 5 mapping source 58 row canonical (failed 0). Plan 16 swap_ratio 1.00 root cause = static keypoint index defect 아님 — lift path 자체의 좌우 keypoint 신뢰도 약점 박제. T-2/T-3/T-4 PLAN hard abort branch (Codex Cycle 3 추가) 정확히 발동. Plan 18 신설 (multi-engine averaging) 권고.
+last_updated: "2026-06-02T00:00:00.000Z"
+last_activity: 2026-06-01 -- Plan 18 PLAN.md 작성 완료 (multi-engine averaging spike, T-1~T-7, 723 lines). STRATEGY_MEAN + STRATEGY_AGREEMENT_GATED 2 strategy. Plan 14 진입 gate 3 check (swap_per_pair ≤ 0.05 / swap_overall ≤ 0.05 / lifter.overall ≥ 85) verdict 4 분기 (BOTH_PASS / AGREEMENT_GATED_ONLY / PARTIAL / FAIL). docs/runpod-fast-restart.md 박제 (~15-20분 새 Pod 셋업 path). belle Pod 종료 권고 (Stop X, Terminate 후 Network Volume 마운트 시 ~9분 재셋업).
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 16
+  total_plans: 17
   completed_plans: 9
-  percent: 56
+  percent: 53
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 17 T-1 audit 결과 = `blocked/no-static-mapping-defect`. 5 mapping source 58 row canonical (failed 0) — Plan 16 swap_ratio 1.00 의 root cause = static keypoint index mapping 이 아니라 **lift path 자체의 좌우 keypoint 신뢰도 약점** (Plan 16 가설 (b)(c)(d) strong 박제 의 모델 자체 noise). T-2/T-3/T-4 PLAN hard abort branch (Codex Cycle 3 박제) 정확히 발동. **Plan 18 신설 — multi-engine averaging 우선순위 1** (RTMPose+MB + MP+MB voting/평균으로 noise cancel).
+**Current focus:** Phase 01 — Plan 18 PLAN.md 작성 완료 (multi-engine averaging spike). STRATEGY_MEAN + STRATEGY_AGREEMENT_GATED 2 strategy 로 RTMPose+MB + MP+MB lift path 합성, occlusion 좌우 keypoint noise cancel. T-1~T-5 자동 (numpy-only) + T-6 belle Pod live mode (~5분, ref-invert 단독, autonomous: false) + T-7 SUMMARY. Plan 14 진입 gate 3 check 박제 (Plan 17 PLAN authoritative gate 동일). docs/runpod-fast-restart.md 박제 — belle Pod 종료 가능 + 다음 세션에 ~9분 (Network Volume) / ~15-20분 (새 Pod) 재셋업.
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 17 verdict `blocked/no-static-mapping-defect` (Plan 18 진입)
-Plan: 9/15 complete + Plan 13/16/17 closed (audit only, fix 미진입) + Plan 18 신설 대기 (multi-engine averaging). 14 / 04 / 05 차단 chain (Plan 18 통과 후 14, 그 후 Wave 3).
-Status: Active — Plan 17 T-1 audit 21 unit PASS. mapping_audit_01-17.md 보고서 박제 (58 row canonical, failed 0). detect_lr_swap 자체 정합 확인 (intentional swap fixture detected 1.00). Plan 16 root cause = 모델 자체 좌우 인식 약점 (occlusion 가설 (c) + lift path 자체 가설 (d)). 다음 = Plan 18 multi-engine averaging — RTMPose+MB 와 MP+MB 결과를 평균 또는 voting 으로 좌우 noise cancel.
-Last activity: 2026-06-01 -- Plan 17 T-1 audit 통과 + 2 commits (d63f7f6 / 25a3a25) worktree merge + 21 PASS + verdict blocked/no-static-mapping-defect + Plan 18 진입 대기.
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 17 closed (audit only) + Plan 18 PLAN.md 작성 완료 (executor 진입 대기)
+Plan: 9/16 complete + Plan 13/16/17 closed (audit only, fix 미진입) + Plan 18 PLAN.md 작성 완료 (executor 진입 대기, multi-engine averaging). 14 / 04 / 05 차단 chain (Plan 18 통과 후 14, 그 후 Wave 3).
+Status: Active — Plan 18 PLAN.md (.planning/phases/01-poseengine-mediapipe-nlf-r-d/01-18-PLAN.md, 723 lines, T-1~T-7 박제). T-1~T-5 자동 + T-6 belle Pod live mode (~5분) + T-7 SUMMARY. averaging strategy 2개 (STRATEGY_MEAN / STRATEGY_AGREEMENT_GATED) 박제. Plan 14 entry gate 3 check (swap_per_pair ≤ 0.05 / swap_overall ≤ 0.05 / lifter.overall ≥ 85). verdict 4 분기 (BOTH_PASS / AGREEMENT_GATED_ONLY / PARTIAL / FAIL). 다음 세션 진입 전 RunPod 재셋업 = docs/runpod-fast-restart.md 따름.
+Last activity: 2026-06-01 22:30 -- Plan 18 PLAN.md 작성 완료 + docs/runpod-fast-restart.md 박제 + STATE 갱신. belle Pod 종료 후 다음 세션 진입 권고.
 
 Progress: [██████░░░░] 60%
 

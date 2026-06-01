@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: Ready to execute
-last_updated: "2026-06-01T13:05:52.000Z"
-last_activity: 2026-06-01 -- Plan 17 review convergence complete (Codex Cycle 3 current_high=0); 01-17-PLAN updated, 01-REVIEWS.md PASS.
+status: active
+last_updated: "2026-06-01T22:30:00.000Z"
+last_activity: 2026-06-01 -- Plan 17 T-1 audit 완료, verdict `blocked/no-static-mapping-defect`. 5 mapping source 58 row canonical (failed 0). Plan 16 swap_ratio 1.00 root cause = static keypoint index defect 아님 — lift path 자체의 좌우 keypoint 신뢰도 약점 박제. T-2/T-3/T-4 PLAN hard abort branch (Codex Cycle 3 추가) 정확히 발동. Plan 18 신설 (multi-engine averaging) 권고.
 progress:
   total_phases: 1
   completed_phases: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 17 (left/right keypoint mapping swap follow-up) planning convergence complete. Codex review Cycle 3 PASS, current_high=0. Next: execute Plan 17 T-1 audit; if canonical mappings pass, stop with blocked_no_static_mapping_defect, otherwise run the exact T-2 fix path.
+**Current focus:** Phase 01 — Plan 17 T-1 audit 결과 = `blocked/no-static-mapping-defect`. 5 mapping source 58 row canonical (failed 0) — Plan 16 swap_ratio 1.00 의 root cause = static keypoint index mapping 이 아니라 **lift path 자체의 좌우 keypoint 신뢰도 약점** (Plan 16 가설 (b)(c)(d) strong 박제 의 모델 자체 noise). T-2/T-3/T-4 PLAN hard abort branch (Codex Cycle 3 박제) 정확히 발동. **Plan 18 신설 — multi-engine averaging 우선순위 1** (RTMPose+MB + MP+MB voting/평균으로 noise cancel).
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — READY TO EXECUTE, Plan 17 reviewed
-Plan: 9/16 complete + Plan 17 ready to execute (Codex review convergence PASS). 14 / 04 / 05 remain gated by Plan 17 outcome and then Plan 14.
-Status: Ready to execute — Plan 17 cross-AI review convergence complete in 3 cycles; final Codex review PASS; no HIGH concerns remaining.
-Last activity: 2026-06-01 -- Plan 17 review convergence complete (Codex Cycle 3 current_high=0); 01-17-PLAN updated, 01-REVIEWS.md PASS.
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 17 verdict `blocked/no-static-mapping-defect` (Plan 18 진입)
+Plan: 9/15 complete + Plan 13/16/17 closed (audit only, fix 미진입) + Plan 18 신설 대기 (multi-engine averaging). 14 / 04 / 05 차단 chain (Plan 18 통과 후 14, 그 후 Wave 3).
+Status: Active — Plan 17 T-1 audit 21 unit PASS. mapping_audit_01-17.md 보고서 박제 (58 row canonical, failed 0). detect_lr_swap 자체 정합 확인 (intentional swap fixture detected 1.00). Plan 16 root cause = 모델 자체 좌우 인식 약점 (occlusion 가설 (c) + lift path 자체 가설 (d)). 다음 = Plan 18 multi-engine averaging — RTMPose+MB 와 MP+MB 결과를 평균 또는 voting 으로 좌우 noise cancel.
+Last activity: 2026-06-01 -- Plan 17 T-1 audit 통과 + 2 commits (d63f7f6 / 25a3a25) worktree merge + 21 PASS + verdict blocked/no-static-mapping-defect + Plan 18 진입 대기.
 
 Progress: [██████░░░░] 60%
 

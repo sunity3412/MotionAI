@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: active
-last_updated: "2026-06-01T20:30:00.000Z"
-last_activity: 2026-06-01 -- Plan 16 PLAN 작성 (9cc20d7) + T-1~T-5 executor 완료 (spike_measurement_trace + 42 PASS, mmpose/torch/mediapipe import 0). 신규 spike 만 — 운영 코드 / Plan 13 모듈 / Plan 15 데이터 / 기존 spike 8개 무수정. multi-view 옵션 0건 박제. T-6 belle Pod live mode (ref-invert 단독, ~5분) 대기 = pending_belle_live.
+status: Ready to execute
+last_updated: "2026-06-01T13:05:52.000Z"
+last_activity: 2026-06-01 -- Plan 17 review convergence complete (Codex Cycle 3 current_high=0); 01-17-PLAN updated, 01-REVIEWS.md PASS.
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 15
+  total_plans: 16
   completed_plans: 9
-  percent: 60
+  percent: 56
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 16 (측정 신뢰도 trace spike) T-1~T-5 executor 완료. spike_measurement_trace.py (RTMPose+MB / MP+MB 양 엔진 frame-by-frame + 좌우 비대칭 + cross-engine disagreement + 4 가설 verdict 임계) + 42 PASS (30 unit + 12 smoke, mmpose/torch/mediapipe import 0). 운영 코드 / Plan 13 모듈 / Plan 15 데이터 / 기존 spike 8개 무수정. multi-view 옵션 0건 박제 (memory single-camera-first-multi-view-last). T-6 belle Pod live mode (ref-invert 단독, ~5분) 대기.
+**Current focus:** Phase 01 — Plan 17 (left/right keypoint mapping swap follow-up) planning convergence complete. Codex review Cycle 3 PASS, current_high=0. Next: execute Plan 17 T-1 audit; if canonical mappings pass, stop with blocked_no_static_mapping_defect, otherwise run the exact T-2 fix path.
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 16 T-1~T-5 완료 (T-6 belle Pod live 대기)
-Plan: 9/15 complete + Plan 13 verdict measurement_unreliable_blocked + Plan 16 T-1~T-5 done (T-6 대기). 14 / 04 / 05 차단 chain (Plan 16 통과 후 Plan 14, 그 후 Wave 3).
-Status: Active — Plan 16 spike 인프라 통과 (42 PASS, regression 0). 본 plan = 측정값 trace + 4 가설 분기. live mode 결과로 dominant 가설 박제 → 후속 plan path (B multi-engine averaging / D Gemini 직접 EXTEND-BENT / combined / single 분기 6) 결정. multi-view 옵션 영구 제외 박제 (memory single-camera-first-multi-view-last).
-Last activity: 2026-06-01 -- Plan 16 PLAN (9cc20d7) + T-1~T-5 executor 5 commits worktree merge to main (7198f65 / fbcfb7a / 57e5eac / b9e1d96 / 5124ca5) + 42 PASS + STATE/ROADMAP 갱신.
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — READY TO EXECUTE, Plan 17 reviewed
+Plan: 9/16 complete + Plan 17 ready to execute (Codex review convergence PASS). 14 / 04 / 05 remain gated by Plan 17 outcome and then Plan 14.
+Status: Ready to execute — Plan 17 cross-AI review convergence complete in 3 cycles; final Codex review PASS; no HIGH concerns remaining.
+Last activity: 2026-06-01 -- Plan 17 review convergence complete (Codex Cycle 3 current_high=0); 01-17-PLAN updated, 01-REVIEWS.md PASS.
 
 Progress: [██████░░░░] 60%
 

@@ -22,12 +22,22 @@ from .gemini_moment_extractor import (
     assign_frame_indices,
 )
 from .loader import load_criteria, load_grouped_criteria
+from .moment_dimensions import (
+    CriteriaGap,
+    compute_criteria_gap,
+    measure_moment_angles,
+    score_moment,
+)
 
 __all__ = (
     "GeometricCriterion",
     "GeminiMomentExtractor",
     "KeyMoment",
+    "CriteriaGap",
     "assign_frame_indices",
+    "compute_criteria_gap",
     "load_criteria",
     "load_grouped_criteria",
+    "measure_moment_angles",
+    "score_moment",
 )

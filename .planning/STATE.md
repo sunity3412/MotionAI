@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: active
-last_updated: "2026-06-01T14:00:00.000Z"
-last_activity: 2026-06-01 -- Plan 10 STRONG_PASS (ref-sideway-spin overall 72.0). belle approved. Plan 11 (C scope = 5영상 sweep + line/angle root cause + 게이트 룰) 작성.
+last_updated: "2026-06-01T13:15:00.000Z"
+last_activity: 2026-06-01 -- Plan 11 executor T-1~T-4 완료 (sweep_rtmpose.py + debug_dimensions.py + smoke 12/12 PASS + SUMMARY pending_belle). T-5 belle Pod 실행 대기.
 progress:
   total_phases: 1
   completed_phases: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Wave 2 belle 검증 마무리. Plan 06/07/08/10 통과 (10 = RTMPose STRONG_PASS), Plan 09 license_blocked. Plan 11 (C scope) 작성 중. belle Gemini API 키 발급 병행 (Phase 5 prep).
+**Current focus:** Phase 01 — Plan 11 T-1~T-4 executor 완료 (5영상 sweep harness + line/angle N/A trace + 게이트 룰 박제). T-5 belle Pod 실행 대기. belle Gemini API 키 발급 병행 (Phase 5 prep).
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 11 작성 진입
-Plan: 7/11 complete (01, 02, 03, 06, 07, 08, 10 done) + 09 closed as license_blocked + 11 PLAN draft
-Status: Active — Plan 10 STRONG_PASS 마감, Plan 11 = 5영상 sweep + line/angle root cause + 게이트 룰 검토 작성 중
-Last activity: 2026-06-01 -- Plan 10 STRONG_PASS (ref-sideway-spin 72.0 overall, 37ms/frame). belle approved C scope.
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 11 T-5 belle Pod 대기
+Plan: 7/11 complete (01, 02, 03, 06, 07, 08, 10 done) + 09 closed as license_blocked + 11 pending_belle (T-1~T-4 commit) + 04, 05 incomplete (depend on 11 verdict)
+Status: Active — Plan 11 executor (sweep_rtmpose / debug_dimensions / smoke 12/12 / SUMMARY pending_belle) commit. T-5 belle Pod 실행 후 Wave 3 (Plan 04/05) 진입 여부 결정.
+Last activity: 2026-06-01 -- Plan 11 T-1~T-4 commit (61dd416, 9bdc475, 4b7e5ee). belle Pod sweep 명령 SUMMARY 박제.
 
 Progress: [██████▌░░░] 64%
 

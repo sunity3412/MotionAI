@@ -16,6 +16,18 @@ IPSF Code of Points 단일 기준으로 채점/게이트를 통합. 본 패키�
 from __future__ import annotations
 
 from .geometric_criterion import GeometricCriterion
+from .gemini_moment_extractor import (
+    GeminiMomentExtractor,
+    KeyMoment,
+    assign_frame_indices,
+)
 from .loader import load_criteria, load_grouped_criteria
 
-__all__ = ("GeometricCriterion", "load_criteria", "load_grouped_criteria")
+__all__ = (
+    "GeometricCriterion",
+    "GeminiMomentExtractor",
+    "KeyMoment",
+    "assign_frame_indices",
+    "load_criteria",
+    "load_grouped_criteria",
+)

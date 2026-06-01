@@ -372,9 +372,8 @@ def _run_live(args: argparse.Namespace) -> dict:
         log.info("RTMPose 2D — %d frames", T)
         rtmpose_kp, image_size, avg_rtm_score = _run_rtmpose_2d(
             frames,
-            config_path=args.rtmpose_config,
-            checkpoint_path=args.rtmpose_checkpoint,
-            score_threshold=args.score_threshold,
+            args.rtmpose_config,
+            args.rtmpose_checkpoint,
         )
 
         # spike_rtmpose 의 H36M 17 변환은 보존 — lift 입력만 사용.

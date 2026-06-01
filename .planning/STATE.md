@@ -69,6 +69,28 @@ Gemini 통합은 **Phase 5 별 phase** — belle Gemini API 키 (Google AI Studi
 3. detector alias 카탈로그 실패 → spike 코드 패치 commit `f019070` (single-person 우회 default)
 4. Pod git pull 갱신 안 됨 → 로컬 commit 후 `git push origin main` 누락. push 후 Pod pull 정상.
 
+상세 fix 명령 + 환경 변수 = `.claude/projects/.../memory/runpod-gpu-env.md` 박제됨.
+GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박제됨.
+
+### 현재 Pod 환경 (2026-06-01 22:00 시점, Plan 11 진입 준비됨)
+
+**Pod 살아있음. 추가 install 없음.** Plan 11 belle 실행 = git pull + sweep 명령만.
+
+| 항목 | 상태 |
+|---|---|
+| GPU / Container | RTX 3090 / RunPod PyTorch 2.4 template, Python 3.11 |
+| torch | 2.4.1+cu124 (검증됨) |
+| numpy | 1.26.4 (다운그레이드, opencv-python warning 무시 가능) |
+| mmcv / mmengine / mmdet / mmpose | 2.1.0 / 0.10.7 / 3.3.0 / 1.3.2 |
+| xtcocotools | 1.14.3 (numpy 1.x 호환) |
+| MotionBERT | `/workspace/MotionBERT/` clone + `best_epoch.bin` (~120MB) |
+| RTMPose-l weights | `/workspace/rtmpose_weights/rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth` + `.py` config |
+| SunityMotion git HEAD | 10683aa (Plan 10 closeout + Plan 11) — push 됨, Pod 에서 `git pull` 시 받음 |
+| detector default | single-person 우회 (`--det-model none`) — commit f019070 |
+| AWS 자격증명 | env 박제됨 (Plan 08 setup 이래 유지) |
+| Firebase SA | `/workspace/firebase-sa.json` |
+| Gemini API 키 | Parameter Store `/sunity/motion/gemini-api-key` (SecureString, 2026-06-01 박제). Pod env 주입은 Phase 5 진입 시 wiring |
+
 **Memory 박제 완료** (`license-blocklist-pose.md`): AlphaPose Noncommercial → 향후 plan 후보군에서 영구 제외.
 
 ### Plan 09 의사결정 매트릭스 (이력 보존)

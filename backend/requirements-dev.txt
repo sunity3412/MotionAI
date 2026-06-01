@@ -1,3 +1,4 @@
 # 로컬 유닛 테스트 전용 (AWS 불필요). 배포 런타임 의존성은 각 functions/*/requirements.txt.
 pytest>=8,<9
 numpy>=1.26,<3   # 분석 알고리즘 코어(#7) — features/motiondtw/kismam
+pyyaml>=6       # Plan 01-15 sunity_shared.judging YAML 로더 (judging_data/criteria/*.yaml)

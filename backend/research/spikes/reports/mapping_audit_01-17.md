@@ -143,14 +143,14 @@ H36M → COCO 12 tuple back-projection (양 엔진 공유). expected tuple = `(_
 
 | # | key            | a              | vertex (== key?) | c              | 자체 정합 (left/right 일관) | 판정 |
 |---|----------------|----------------|------------------|----------------|------------------------------|------|
-| 1 | left_elbow     | left_shoulder  | left_elbow ✓     | left_wrist     | L L L | OK |
-| 2 | right_elbow    | right_shoulder | right_elbow ✓    | right_wrist    | R R R | OK |
-| 3 | left_shoulder  | left_elbow     | left_shoulder ✓  | left_hip       | L L L | OK |
-| 4 | right_shoulder | right_elbow    | right_shoulder ✓ | right_hip      | R R R | OK |
-| 5 | left_hip       | left_shoulder  | left_hip ✓       | left_knee      | L L L | OK |
-| 6 | right_hip      | right_shoulder | right_hip ✓      | right_knee     | R R R | OK |
-| 7 | left_knee      | left_hip       | left_knee ✓      | left_ankle     | L L L | OK |
-| 8 | right_knee     | right_hip      | right_knee ✓     | right_ankle    | R R R | OK |
+| 1 | left_elbow     | left_shoulder  | left_elbow (match)     | left_wrist     | L L L | OK |
+| 2 | right_elbow    | right_shoulder | right_elbow (match)    | right_wrist    | R R R | OK |
+| 3 | left_shoulder  | left_elbow     | left_shoulder (match)  | left_hip       | L L L | OK |
+| 4 | right_shoulder | right_elbow    | right_shoulder (match) | right_hip      | R R R | OK |
+| 5 | left_hip       | left_shoulder  | left_hip (match)       | left_knee      | L L L | OK |
+| 6 | right_hip      | right_shoulder | right_hip (match)      | right_knee     | R R R | OK |
+| 7 | left_knee      | left_hip       | left_knee (match)      | left_ankle     | L L L | OK |
+| 8 | right_knee     | right_hip      | right_knee (match)     | right_ankle    | R R R | OK |
 
 소계 8/8 자체 정합. PLAN 16 박제 root cause 후보 #5 (JOINT_ANGLES) = **canonical, 매핑 결함 없음**.
 

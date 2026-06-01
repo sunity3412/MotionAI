@@ -174,3 +174,153 @@ spike_motionbert.py 전체 실행은 RunPod GPU Pod에서만 가능 (mediapipe +
 - 본 spike 코드는 `backend/research/spikes/` 내부에만 존재한다.
   운영 코드(`functions/`, `shared/`) import 경로를 침범하지 않는다.
 - MotionBERT 의존성은 Pod 전용. Lambda에는 배포하지 않는다.
+
+---
+
+# Plan 10 — RTMPose 측면 자세 보강 spike (Apache 2.0)
+
+> 본 섹션은 Plan 01-10 에서 추가됨. Plan 07/08 MotionBERT 섹션은 위쪽 그대로 보존.
+
+## 배경 (Plan 10)
+
+Plan 01-08 5영상 회귀 결과 — ref-sideway-spin (측면 자세) 만 overall 64 점으로
+D-15① ≥70 게이트 fail. MotionBERT 가 H3.6M (대부분 정면 walking/sitting) 학습
+이라 측면 z 복원이 약하다는 점은 알고 있었으나, 1차 가설은 **2D detector
+단계가 측면에서 keypoint 분포가 좁아져 lift 가 어려워졌다**는 것.
+
+- Plan 09 (AlphaPose spike) — 라이선스 Noncommercial Only 로 차단됨.
+- **Plan 10 = belle 결정 (2026-06-01) option-b-1**: MMPose **RTMPose-l**
+  (Apache 2.0, COCO 학습 — 정면/측면/occlusion 분포 더 균등) 로 2D detector
+  교체 spike. MotionBERT lift 그대로 유지.
+
+## 라이선스 (Plan 10 추가)
+
+| 라이브러리 | 라이선스 | 확인 일자 | 출처 |
+|---|---|---|---|
+| MMPose | Apache 2.0 | 2026-06-01 | https://github.com/open-mmlab/mmpose/blob/main/LICENSE |
+| mmengine | Apache 2.0 | 2026-06-01 | https://github.com/open-mmlab/mmengine/blob/main/LICENSE |
+| mmcv | Apache 2.0 | 2026-06-01 | https://github.com/open-mmlab/mmcv/blob/main/LICENSE |
+| mmdet | Apache 2.0 | 2026-06-01 | https://github.com/open-mmlab/mmdetection/blob/main/LICENSE |
+| RTMPose-l 가중치 | Apache 2.0 | 2026-06-01 | https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth (MMPose project zoo) |
+
+스택 전체 Apache 2.0 — 상업 파일럿 MVP 도입 가능. GitHub API license metadata
+(`apache-2.0`) 도 확인.
+
+## RTMPose-l 권장 checkpoint
+
+| 항목 | 값 |
+|---|---|
+| Config 이름 | `rtmpose-l_8xb256-420e_coco-256x192` |
+| Training 데이터 | AIC + COCO (combined) |
+| 입력 해상도 | 256 x 192 |
+| AP (COCO val) | 76.5 |
+| 가중치 크기 | ~111 MB |
+| 다운로드 URL | https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth |
+
+Spike 실패 시 다음 후보:
+- `rtmpose-l_8xb256-420e_coco-384x288` (해상도 ↑, AP 77.3)
+- `rtmpose-l_8xb256-420e_aic-coco-256x192` (AIC+COCO combined, AP 76.3 — Pipeline 표 권장)
+
+## Pod 실행 절차 (Plan 08 setup 상태에서 시작)
+
+> 전제: Plan 08 `bash runpod_inference/setup.sh` 가 이미 실행됨.
+> MotionBERT clone + 가중치 (`best_epoch.bin`) + MediaPipe pose_landmarker_heavy.task
+> 모두 이미 존재. RTMPose 만 추가 install.
+
+### 1. SunityMotion 저장소 최신화
+
+```bash
+cd /workspace/SunityMotion
+git pull --ff-only origin main
+```
+
+### 2. MMPose 스택 install (Plan 10 신규)
+
+```bash
+pip install -U openmim
+mim install mmengine "mmcv>=2.0" "mmdet>=3.0" "mmpose>=1.3"
+```
+
+mmcv 2.x 는 PyTorch 2.4 (Pod base image) 와 호환. PyTorch 다운그레이드 불요.
+
+### 3. RTMPose-l checkpoint 다운로드
+
+옵션 A — `mim download` (권장):
+```bash
+mkdir -p /workspace/rtmpose_weights
+cd /workspace/rtmpose_weights
+mim download mmpose --config rtmpose-l_8xb256-420e_coco-256x192 --dest .
+ls -lh
+# 결과:
+#   rtmpose-l_8xb256-420e_coco-256x192.py  (config, 수 KB)
+#   rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth  (~111 MB)
+```
+
+옵션 B — wget 직접:
+```bash
+mkdir -p /workspace/rtmpose_weights
+cd /workspace/rtmpose_weights
+wget https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth
+# config 는 mmpose 가 검색 가능 (이름으로 지정 가능)
+```
+
+### 4. PYTHONPATH 확인 (Plan 08 setup 과 동일)
+
+```bash
+export PYTHONPATH="/workspace/SunityMotion/backend/shared/python:/workspace/SunityMotion:$PYTHONPATH"
+export CUDA_VISIBLE_DEVICES=0
+echo $PYTHONPATH
+```
+
+### 5. spike 실행 (ref-sideway-spin 1영상)
+
+```bash
+cd /workspace/SunityMotion
+
+python3 -m backend.research.spikes.spike_rtmpose \
+  --motion ref-sideway-spin \
+  --bucket sunity-motion-pilot-videos \
+  --rtmpose-config /workspace/rtmpose_weights/rtmpose-l_8xb256-420e_coco-256x192.py \
+  --rtmpose-checkpoint /workspace/rtmpose_weights/rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth \
+  --motionbert-root /workspace/MotionBERT \
+  --motionbert-weights /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin \
+  --score-threshold 0.3 \
+  --out backend/research/spikes/reports/spike_rtmpose_$(date +%Y%m%d_%H%M).json
+```
+
+실행 완료 후:
+- `backend/research/spikes/reports/spike_rtmpose_YYYYMMDD_HHMM.json`
+- `backend/research/spikes/reports/spike_rtmpose_YYYYMMDD_HHMM.md`
+
+## 판정 기준 (Plan 10)
+
+| 결과 | overall | 다음 행동 |
+|---|---|---|
+| Strong pass | ≥ 70 | "approved, proceed to Plan 11" (5영상 sweep + 게이트 룰 재정의 + Wave 3 진입) |
+| Weak signal | 60~70 | "try other checkpoint" (RTMPose-x / 384x288) |
+| 실패 | < 60 | "accept limitation, proceed to Plan 11 with 4/5 rule" 또는 "try HybrIK" (Option A, MIT) |
+
+AlphaPose 는 라이선스 차단 (Noncommercial) — 어떤 결과여도 후보 제외.
+
+## Plan 10 파일 목록 (추가분)
+
+```
+backend/research/spikes/
+  rtmpose_to_h36m17.py            # RTMPose COCO-17 → H3.6M 17 매핑 어댑터
+  spike_rtmpose.py                # RTMPose + MotionBERT spike 하네스 (CLI)
+
+backend/tests/
+  test_spike_rtmpose_to_h36m17.py # 36 tests PASS (mmpose 의존 없이 로컬 실행 가능)
+```
+
+기존 Plan 07/08 파일 (`mediapipe_to_h36m17.py`, `spike_motionbert.py`,
+`test_spike_mediapipe_to_h36m17.py`) 은 5영상 sweep 시 비교군으로 보존.
+
+## 주의사항 (Plan 10)
+
+- RTMPose checkpoint (.pth, ~111 MB) 는 git 에 절대 커밋하지 않는다.
+  `/workspace/rtmpose_weights/` Pod 경로에만 보관.
+- mmpose 의존성은 Pod 전용. Lambda 에 배포하지 않는다 (Plan 08 RunPod 격리 원칙).
+- spike 코드 (`backend/research/spikes/`) 는 운영 코드 (`functions/`, `shared/pose_lifters/`)
+  import 경로를 침범하지 않는다.
+

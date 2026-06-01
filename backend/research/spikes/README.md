@@ -543,3 +543,151 @@ python3 -m backend.research.spikes.debug_gap_root_cause \
 - HybrIK / 새 detector / Gemini API 호출 / AlphaPose 도입 금지.
 - mmpose / numpy 추가 install 금지 — Plan 10/11 환경 그대로.
 
+---
+
+# Plan 13 — Gemini key moment + IPSF criteria spike
+
+> 본 섹션은 Plan 01-13 에서 추가됨. Plan 07/08/10/11/12 섹션은 위쪽 그대로 보존.
+
+## 목적 (Plan 13)
+
+Plan 12 verdict — dominant 가설 (a) frame-mean 한계 (mean disagreement 45-52°) 의 해결 path
+구현. Gemini 2.5 Pro 가 폴 동작 영상에서 phase 별 key moment 시점 (setup / hold / peak /
+release) 을 추출 → 그 시점의 측정 각도를 Plan 15 `GeometricCriterion` 과 비교 → 갭 / 감점 /
+minimum 미달 점검.
+
+운영 코드 (functions/, runpod_inference/, shared/analysis/, shared/pose_lifters/) 0줄 수정. 기존
+spike (spike_rtmpose, sweep_rtmpose, debug_dimensions, debug_gap_root_cause, rtmpose_to_h36m17,
+mediapipe_to_h36m17, spike_motionbert) 0줄 수정.
+
+dimensions.py frame-mean path 무수정 — 본 plan 은 별도 moment-list sampling path 도입. 운영
+코드 진입은 Plan 14 통과 후 별 plan 책임.
+
+## 라이선스 (Plan 13 추가)
+
+| 라이브러리 | 라이선스 | 출처 |
+|---|---|---|
+| google-generativeai (Python SDK) | Apache 2.0 | https://github.com/google/generative-ai-python/blob/main/LICENSE |
+| Gemini API (모델) | Google API 약관 | https://ai.google.dev/terms |
+
+Gemini 역할 = 시점 분류 + 자연어 번역만. 좌표 / 점수 / 심사 판단 출력 영구 금지
+(REQUIREMENTS.md SCORE-01, memory `analysis-objectivity-no-human-scores`).
+
+## Plan 13 추가 파일
+
+```
+backend/shared/python/sunity_shared/judging/
+  gemini_moment_extractor.py     # KeyMoment + GeminiMomentExtractor + assign_frame_indices
+  moment_dimensions.py           # measure_moment_angles / compute_criteria_gap / score_moment
+
+backend/research/spikes/
+  spike_gemini_moment.py         # report-only + live mode CLI
+
+backend/tests/
+  test_gemini_moment_extractor.py    # 52 PASS (Gemini SDK 미import)
+  test_moment_dimensions.py          # 20 PASS (numpy 만 의존)
+  test_spike_gemini_moment_smoke.py  # 15 PASS (mmpose 미import)
+```
+
+## report-only mode (로컬 OK)
+
+stub angles + stub KeyMoment 으로 moment_dimensions e2e 검증. Pod / Gemini API / mmpose /
+MotionBERT 의존성 0.
+
+```bash
+PYTHONPATH=backend/shared/python:. python3 -m backend.research.spikes.spike_gemini_moment \
+  --mode report-only \
+  --motion ref-invert \
+  --out backend/research/spikes/reports/spike_gemini_moment_$(date +%Y%m%d_%H%M).json
+```
+
+- ref-invert (Plan 15 1차 박제됨, 5 hold entries) → 5 per_joint gap + line/angle 점수 산출.
+- ref-climb (의도된 빈 list, IPSF Climbs 카테고리) → `Plan 15 IPSF 라벨링 미진입` RuntimeError.
+
+## live mode (belle Pod 전용, ref-invert 1영상 시범)
+
+### 1. SunityMotion 저장소 최신화
+
+```bash
+cd /workspace/SunityMotion
+git pull --ff-only origin main
+```
+
+### 2. Gemini API 키 주입 (Parameter Store SecureString)
+
+```bash
+export GEMINI_API_KEY=$(aws ssm get-parameter \
+  --name /sunity/motion/gemini-api-key \
+  --with-decryption \
+  --query 'Parameter.Value' \
+  --output text \
+  --region ap-northeast-2)
+```
+
+> `.env` 하드코딩 금지 (CLAUDE.md §3). 위 export 는 셸 세션 한정 — 새 셸 마다 재실행.
+
+### 3. google-generativeai 설치 (1회)
+
+```bash
+pip install google-generativeai
+```
+
+### 4. spike 실행 (ref-invert 단독 시범, ~3분)
+
+```bash
+cd /workspace/SunityMotion
+
+python3 -m backend.research.spikes.spike_gemini_moment \
+  --mode live \
+  --motion ref-invert \
+  --bucket sunity-motion-pilot-videos \
+  --gemini-model gemini-2.5-pro \
+  --rtmpose-config /workspace/rtmpose_weights/rtmpose-l_8xb256-420e_coco-256x192.py \
+  --rtmpose-checkpoint /workspace/rtmpose_weights/rtmpose-l_simcc-coco_pt-aic-coco_420e-256x192-1352a4d2_20230127.pth \
+  --motionbert-root /workspace/MotionBERT \
+  --motionbert-weights /workspace/MotionBERT/checkpoint/pose3d/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin \
+  --score-threshold 0.3 \
+  --out backend/research/spikes/reports/spike_gemini_moment_live_$(date +%Y%m%d_%H%M).json
+```
+
+예상 소요:
+- RTMPose+MB pipeline: ~2분 (Plan 11 sweep 패턴 동일, 37ms/frame * ~3000 frames).
+- Gemini API 호출: ~30초 (영상 1개, 모델 응답).
+- Plan 15 ref-invert 1차 박제 5 entries 비교: <1초.
+
+### 5. 결과 공유
+
+- `backend/research/spikes/reports/spike_gemini_moment_live_YYYYMMDD_HHMM.json`
+- `backend/research/spikes/reports/spike_gemini_moment_live_YYYYMMDD_HHMM.md`
+
+`.md` 의 "Plan 14 진입 게이트" + "per-moment 결과" + "per-joint gap" 섹션을 Claude 에 공유.
+
+## Plan 14 진입 게이트
+
+본 spike `gate.verdict` 기준:
+
+| verdict | Plan 14 진입 | 다음 행동 |
+|---|---|---|
+| `plan_14_gate_pass` | 진입 가능 | Plan 14 5영상 sweep 작성 (Plan 15 4영상 라벨링 진입 후) |
+| `minimum_requirement_fail` | 진입 보류 | RTMPose+MB 측정 오차 분석 또는 Plan 15 minimum 임계 belle 재검토 |
+| `below_target_score` | 진입 보류 | line/angle 60 미달 — Gemini 시점 추출 정확도 확인 또는 measurement chain 개선 |
+| `no_criteria` | 부적합 | Plan 15 belle 라벨링 미진입 — 다른 motion 선택 또는 belle 진행 |
+
+상세 verdict + belle 응답 옵션은 `.planning/phases/01-poseengine-mediapipe-nlf-r-d/01-13-SUMMARY.md`
+참조.
+
+## 주의사항 (Plan 13)
+
+- 본 plan 은 spike 디렉터리 (`backend/research/spikes/`) + sunity_shared/judging/ 모듈 확장
+  외 어떤 파일도 수정하지 않는다. 운영 코드 (`functions/`, `runpod_inference/`,
+  `shared/analysis/`, `shared/pose_lifters/`) + 기존 spike 무수정.
+- Gemini 응답에 좌표 / 점수 / 심사 판단이 포함되면 ValueError — SCORE-01 1차 차단선.
+- API 키는 AWS Parameter Store `/sunity/motion/gemini-api-key` (SecureString) 또는 env
+  `GEMINI_API_KEY` — `.env` 하드코딩 금지 (CLAUDE.md §3).
+- 8 angle joints (`skeleton.JOINT_KEYS`) 만 사용. derive joint (hip/spine/thorax/neck_nose/
+  head) 절대 사용 금지 (Plan 12 (d) keypoint mapping 회피).
+- empty criteria (ref-climb 의도된 빈 list 등) 는 RuntimeError — Plan 15 belle 라벨링 완료
+  motion 만 본 spike 입력 가능.
+- 사람 점수 라벨링 0건 (belle / 강사 / 심사자 score 출력 금지, memory 박제).
+
+

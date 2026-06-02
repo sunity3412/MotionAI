@@ -42,15 +42,35 @@ class PoseEstimator(Protocol):
 class PoseEngine(Protocol):
     """프레임 시퀀스 → PoseFrame 리스트. 미감지 시 NoHumanError.
 
-    PoseEstimator(구버전, DEPRECATED)를 대체하는 신규 Protocol.
+    PoseEstimator(구버전, DEPRECATED) 를 대체하는 신규 Protocol.
     RESEARCH §Pattern 1 / D-04 / D-05 / D-12 / REVIEWS H-3 (pole_axis 인자) 박제.
 
-    PoseFrame은 raw 33 landmarks (저장은 항상) + COCO-17 derived (스코어링용) +
+    RTMW pivot 박제 (2026-06-02, Plan 01-19 / D-17~D-25):
+
+      D-17: 운영 백본 = rtmlib RTMW 133 wholebody (Apache-2.0).
+            본 Protocol 은 RTMW 와 NLF_SMPLX 양쪽을 모두 만족해야 함 —
+            구현체만 교체 가능하도록 backend-agnostic 으로 유지.
+      D-20: 원본 저장은 RTMW 133 풀 키포인트, 스코어링 계약은 COCO-17 + 폴 확장.
+            어댑터(`RTMW133ToCOCO17Adapter` 등) 가 변환을 담당하며 본 Protocol
+            반환은 어댑터 결과인 PoseFrame.
+      D-21: PoseFrame.body_shape 는 nullable —
+            RTMW path = None, NLF_SMPLX path = BodyNormalizationProfile 채움.
+      D-24: 본 모듈은 어떤 백본 구현체(rtmlib/mediapipe/torch/ultralytics) 도
+            직접 import 하지 않는다. 다운스트림 분석 레이어
+            (features/temporal/motiondtw/kismam/dimensions/assemble/technique)
+            는 본 Protocol 에만 의존하며, 백본 변경 시 재작성 금지.
+
+    PoseFrame 은 raw 33 landmarks (저장은 항상) + COCO-17 derived (스코어링용) +
     폴 확장 (toe/heel/grip) + pole-aligned 좌표 (D-12) +
     visibility/presence/confidence/uncertainty_proxy (D-05) 모두 포함.
 
-    pole_axis 인자: 영상 전체 평균 축 (D-10). PoleDetector에서 산출돼 엔진으로 주입.
-    엔진이 pole alignment까지 직접 책임지면 어댑터별 로직 중복 방지 (H-3 박제).
+    pole_axis 인자: 영상 전체 평균 축 (D-10). PoleDetector 에서 산출돼 엔진으로
+    주입. 엔진이 pole alignment 까지 직접 책임지면 어댑터별 로직 중복 방지
+    (H-3 박제).
+
+    구현체 위치:
+      backend/shared/python/sunity_shared/analysis/pose_engines/  (운영)
+      backend/research/pose_engines/                              (R&D 격리)
     """
 
     def estimate(

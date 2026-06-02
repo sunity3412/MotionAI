@@ -10,6 +10,13 @@ Phase 1 결정 박제:
   D-11: PoleAxis 검출 실패 폴백 = 수직 가정 + confidence_level='low' 표기.
   D-12: raw + pole-aligned 둘 다 PoseFrame 에 저장. PoleAxis 메타도 저장.
 
+RTMW pivot 박제 (2026-06-02, Plan 01-19):
+  D-21: PoseFrame.body_shape: Optional[BodyNormalizationProfile] = None 필드 추가.
+        RTMW 운영 path = body_shape=None (Phase 1 단계 측정기 없음).
+        NLF_SMPLX R&D path = β 채워진 BodyNormalizationProfile (참고만).
+  D-19: BodyNormalizationProfile 은 SMPL-X β 없이 segment 비율 기반
+        (`backend/shared/python/sunity_shared/analysis/body_normalization.py`).
+
 REVIEWS 박제:
   H-3: PoseFrame.pole_axis: PoleAxis | None 필드 추가 (D-12 완전 박제).
   H-4: PoseFrame.reliability: ReliabilityLevel + compute_frame_reliability 게이트.
@@ -23,11 +30,16 @@ lockstep: app/src/types/analysis.ts PoseFrame/PoleAxis + docs/contract.md §6.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 import numpy as np
 
 from .skeleton import KEYPOINT_NAMES
+
+if TYPE_CHECKING:
+    # 단방향 import 규칙: pose_frame → body_normalization 만 가능.
+    # body_normalization 은 pose_frame 을 import 하지 않는다 (순환 방지).
+    from .body_normalization import BodyNormalizationProfile
 
 # ── Type aliases ──────────────────────────────────────────────────────────
 
@@ -190,7 +202,7 @@ class PoseFrame:
     TS lockstep: app/src/types/analysis.ts PoseFrame interface.
     변경 시 양쪽 + docs/contract.md §6 동시 갱신 (CLAUDE.md Cross-cutting).
 
-    필드 9개 (TS camelCase ↔ Python snake_case 1:1):
+    필드 10개 (TS camelCase ↔ Python snake_case 1:1):
       frameIndex         / frame_index
       timestampMs        / timestamp_ms
       rawLandmarks33     / raw_landmarks_33      (D-04 원본 보존)
@@ -200,6 +212,7 @@ class PoseFrame:
       poleExtensionLandmarks / pole_extension_landmarks   (D-04)
       poleAxis           / pole_axis             (H-3 D-12)
       reliability        / reliability           (H-4 D-05 게이트)
+      bodyShape          / body_shape            (D-21 RTMW pivot — nullable)
     """
 
     frame_index: int
@@ -211,6 +224,11 @@ class PoseFrame:
     pole_extension_landmarks: dict[str, PoseExtensionLandmark] | None = None
     pole_axis: PoleAxis | None = None  # H-3 D-12 — video-level PoleAxis 공유
     reliability: ReliabilityLevel = "low"  # H-4 D-05 — frame-level 게이트
+    # D-21 RTMW pivot 박제 — 본 필드는 nullable.
+    #   RTMW 운영 path = None (Phase 1 측정기 미구현)
+    #   NLF_SMPLX R&D path = body_normalization.BodyNormalizationProfile 채움
+    # forward-ref 문자열로 둬 import 순서 의존 제거.
+    body_shape: Optional["BodyNormalizationProfile"] = None
 
     @classmethod
     def empty(
@@ -218,10 +236,12 @@ class PoseFrame:
         frame_index: int,
         timestamp_ms: int,
         pole_axis: PoleAxis | None = None,
+        body_shape: Optional["BodyNormalizationProfile"] = None,
     ) -> "PoseFrame":
         """미감지 프레임 sentinel. 모든 dict 필드 empty, reliability='low'.
 
         pole_axis 는 인자 그대로 전달 — video-level axis 가 있으면 공유.
+        body_shape 는 video-level 측정값이 있으면 공유 (RTMW path 에서는 None).
         """
         return cls(
             frame_index=frame_index,
@@ -233,6 +253,7 @@ class PoseFrame:
             pole_extension_landmarks=None,
             pole_axis=pole_axis,
             reliability="low",
+            body_shape=body_shape,
         )
 
     @staticmethod

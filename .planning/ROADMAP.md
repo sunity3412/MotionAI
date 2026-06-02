@@ -26,6 +26,7 @@
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -61,6 +62,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Scope 제약**: 초기 3~5개 동작군 범위(똑바로 선·가림 적은). 스피닝 폴은 v1.5. NLF/SMPL-X는 R&D 비교군 비공개 평가에만 사용 — 공개 베타·유료 파일럿·고객 영상 처리 금지. **MediaPipe 운영 백본 도입 안 함** (Plan 02·03 결과물은 R&D 격리 또는 폐기).
 **External dependency**: **rtmlib RTMW (Apache-2.0)** 운영 백본 — 모델 가중치별 학습 데이터 상업 사용 가능 여부 확인 필수 (D-25). NLF/SMPL-X R&D 비교군은 PS:License 1.0 (비상업) 사내 평가만.
 **Success Criteria** (what must be TRUE):
+
   1. `PoseEngine` 인터페이스가 정의되고 `MediaPipePoseEngine` 어댑터가 제품 코드 경로(Lambda/RunPod 파이프라인)에서 동작한다
   2. `NlfPoseEngine` 어댑터는 별도 모듈로 격리되어 R&D 평가 스크립트에서만 호출 가능 (제품 파이프라인 import 경로에서 제거)
   3. 영상에서 폴 축이 자동 검출되고 video-level **PoleAxis가 1개 산출되어 모든 frame의 PoseFrame.pole_axis에 적용되고**, 모든 키포인트 좌표가 폴 기준 좌표계로 변환된 결과를 반환한다 (D-10 — 일반 폴 가정, 스피닝 폴은 v1.5)
@@ -68,7 +70,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. R&D 평가 스크립트가 MediaPipe vs NLF 정확도 갭을 동일 영상 세트에서 측정해 보고서로 출력한다 (마이그레이션 ROI 판단 근거)
   6. 데이터 계약(`analysis.ts` ↔ `models.py`)에 `PoseFrame` 타입이 lockstep으로 추가된다
   7. **5영상 sweep 재실행 시 (a) IPSF GeometricCriterion 갭 ≤ tolerance + (b) line/angle 5/5 PASS** — 두 게이트 모두 통과해야 Wave 3 (Plan 04/05) 진입 가능. baseline 은 NLF 갭이 아닌 **IPSF Code of Points 객관 임계값** (Plan 12 (c) strong / belle 결정 2026-06-01). 강등/우회/known limitation 수용 금지. 사람 점수 라벨링 (belle/강사/심사자) 영구 금지.
+
 **Plans**: 22 plans total — 17 existing (Wave 0~2) + 7 new RTMW pivot plans (Wave 1~6). 2026-06-02 RTMW pivot supersedes 01-04/01-05/01-14.
+
   - [x] 01-01-PLAN.md — PoseFrame + PoleAxis 데이터 계약 3-way lockstep + reliability 게이트 stub + Wave 0 테스트 픽스처 (Wave 0)
   - [x] 01-02-PLAN.md — PoseEngine Protocol + MediaPipePoseEngine 어댑터 + 33→COCO-17 + grip 확장 매핑 (Wave 1) — MediaPipe 산출물 plan 24 에서 R&D 격리 예정
   - [x] 01-03-PLAN.md — HoughPoleDetector + PoleAxisAligner — lazy cv2/scipy import (D-09/D-10/D-11/D-12) (Wave 1)
@@ -90,53 +94,63 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 01-19-PLAN.md — **NEW (RTMW pivot)** PoseEngine 인터페이스 보강 + BodyNormalizationProfile (D-19 SMPL-X 없이 segment 비율) + PoseFrame.bodyShape nullable (D-21) + TS/Python/contract.md 3-way lockstep + ADR-0001 박제 (Wave 1, gap_closure 2026-06-02)
   - [x] 01-20-PLAN.md — **NEW (RTMW pivot)** rtmlib RTMW 가중치 라이선스 audit (D-25) + weights_manifest.json + belle 검토 checkpoint (Wave 1, gap_closure 2026-06-02) — **완료 (2026-06-02)**: belle 승급, Production=`rtmw-x-384x288` (commercial_ok, validation-pilot scope), Fallback=`rtmw-l-384x288`. 출시 전 clean weight 교체 hard gate (별도 plan 작성·시작 belle 지시).
   - [x] 01-21-PLAN.md — **NEW (RTMW pivot)** rtmlib RTMW 133 wholebody 통합 + RTMW133ToCOCO17Adapter + POSE_ENGINE config (D-17/D-20/D-21/D-22/D-24/D-25) (Wave 2, gap_closure 2026-06-02)
-  - [ ] 01-22-PLAN.md — **NEW (RTMW pivot)** 단일 카메라 3D path 결정 — 옵션 A (RTMW3D 직접) vs 옵션 B (RTMW + MotionBERT lifter) — belle checkpoint (D-18) (Wave 3, gap_closure 2026-06-02)
+  - [x] 01-22-PLAN.md — **NEW (RTMW pivot)** 단일 카메라 3D path 결정 — 옵션 A (RTMW3D 직접) vs 옵션 B (RTMW + MotionBERT lifter) — belle checkpoint (D-18) (Wave 3, gap_closure 2026-06-02)
   - [ ] 01-23-PLAN.md — **NEW (RTMW pivot)** RTMW vs IPSF GeometricCriterion 5영상 회귀 검증 sweep — Wave 5 진입 게이트 (IPSF tolerance + line/angle 5/5 PASS) — plan 14 supersede (Wave 4, gap_closure 2026-06-02)
   - [ ] 01-24-PLAN.md — **NEW (RTMW pivot)** NLF + MediaPipe + 비선택 3D path R&D 격리 (D-23) + .samignore + import 차단 단위 테스트 — plan 04 supersede + 확장 (Wave 5, gap_closure 2026-06-02)
   - [ ] 01-25-PLAN.md — **NEW (RTMW pivot)** pipeline/app.py + RunPod atomic swap NLF→RTMW (D-08/D-21/D-23/D-24) + belle Pod end-to-end 검증 — plan 05 supersede (Wave 6, gap_closure 2026-06-02)
 
 ### Phase 2: BodyNormalizationProfile 자동 측정 (MediaPipe segment 기반)
+
 **Goal**: MediaPipe 키포인트로부터 신체 segment 길이(상완·전완·대퇴·하퇴·몸통, 어깨/골반 폭) 및 비율을 산출해 `BodyNormalizationProfile`(estimatedHeightScale, armScale, legScale, torsoScale, shoulderHipRatio, confidence, warnings)을 자동 출력한다 — 두 엔진의 공유 입력. SMPL-X β는 R&D 비교군에서만 정확도 평가용으로 사용.
 **Mode:** mvp
 **Depends on**: Phase 1 (MediaPipe + 폴 축 정렬된 키포인트 위에 segment 측정)
 **Requirements**: BODY-01
 **Success Criteria** (what must be TRUE):
+
   1. MediaPipe 키포인트에서 segment 길이가 시간 평균으로 안정적으로 추출된다 (jitter 스무딩)
   2. `BodyNormalizationProfile`이 키·팔/다리/몸통 스케일·어깨/골반 비율·confidence·warnings로 산출된다
   3. 낮은 confidence(가림·저화질) 시 단정하지 않고 warnings 배열에 사유가 표기된다
   4. R&D 비교군: 동일 영상에서 NLF→SMPL-X β로 추출한 BodyNormalizationProfile과의 갭을 보고서로 출력 (제품 코드 비호출, 평가 전용)
   5. 데이터 계약(`analysis.ts` ↔ `models.py`)에 `BodyNormalizationProfile` 타입이 lockstep으로 추가된다
+
 **Plans**: TBD
 
 ### Phase 3: 자가입력 BodyProfileInput
+
 **Goal**: 사용자가 키·몸무게·경력·통증부위·우세손을 앱에서 1회 입력하고, 분석에 BodyProfile이 함께 전달된다 (영상으로 단정 불가한 항목 보조)
 **Mode:** mvp
 **Depends on**: Phase 2 (BodyNormalizationProfile과 결합되는 보조 입력)
 **Requirements**: BODY-02
 **Scope 제약**: 유연성·근력 자가입력은 받지 않음(부정확). 키·몸무게·경력·통증부위만.
 **Success Criteria** (what must be TRUE):
+
   1. 마이페이지 또는 첫 분석 직전 BodyProfileInput 화면에서 키·몸무게·경력·통증부위·우세손을 입력할 수 있다
   2. 입력값이 Firestore에 저장되고 분석 요청 시 백엔드로 전달된다
   3. weightKg는 보조 정보로만 사용되고 분석 단정 근거로 쓰이지 않는다 (코드 주석 + 사용처 제한)
   4. 미입력 사용자도 분석이 graceful하게 진행된다 (BodyNormalizationProfile만으로)
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 4: 다중 시점 촬영 UX + occlusion confidence 게이트
+
 **Goal**: 사용자가 다중 시점(정면+측면 등)으로 영상을 업로드할 수 있고, 가림 프레임은 confidence 게이트로 단정하지 않는다
 **Mode:** mvp
 **Depends on**: Phase 1, Phase 2 (폴 축·체형 피팅 위에 confidence 적용)
 **Requirements**: POSE-03
 **Scope 제약**: 정면+측면 2시점 우선. 사선/뒤 시점은 v2.
 **Success Criteria** (what must be TRUE):
+
   1. 업로드 화면에서 단일/다중 영상 선택 가이드(촬영 각도 설명)가 표시된다
   2. 다중 영상 업로드 시 동일 analysisId 아래 시점별로 저장되고 백엔드가 시점 매핑된다
   3. 키포인트 confidence가 임계값 미만인 프레임은 "추정" 표기 + 후속 단정 게이트
   4. occlusion 경고가 결과 화면에 표시되고 (예: "이 구간은 가림으로 추정") 사용자가 인지할 수 있다
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 5: Gemini 기술 인식기 (분류 한정)
+
 **Goal**: 영상에서 기술명을 분류한다 (예: 인버트·후굴·기본 포징). 좌표·판단·점수 출력은 금지 — 자연어 번역만이 Gemini 역할
 **Mode:** mvp
 **Depends on**: Phase 1 (폴 축 정렬 위에서 인식)
@@ -144,129 +158,159 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Scope 제약**: 인식 범위 3~5개 동작군(후굴·인버트·기본 포징). 범위 밖은 "미지원" 처리.
 **External dependency**: belle의 Gemini API 키(Google AI Studio) → Parameter Store / RunPod env. 키 미확보 시 Phase 5 블로킹.
 **Success Criteria** (what must be TRUE):
+
   1. 영상에서 동작 분류 결과가 반환되고 관절별 EXTEND/BENT 프로파일이 산출된다
   2. Gemini 호출 실패 시 `FallbackRecognizer`로 graceful degrade하고 분석이 크래시하지 않는다
   3. Gemini 응답에 좌표·판단 출력 요청이 없다 (프롬프트 설계로 강제)
   4. 인식 범위 밖 동작은 명시적으로 "미지원"으로 처리된다
+
 **Plans**: TBD
 
 ### Phase 6: 체형 정규화 비교 엔진 (coaching 모드)
+
 **Goal**: 프로의 동작 성공 원리를 수강생의 신체 비율에 맞게 재계산해 비교한다 (`normalizeStudentPoseToProReference` 알고리즘) — 체형 차이로 인한 위양성 감점 제거
 **Mode:** mvp
 **Depends on**: Phase 2 (BodyNormalizationProfile), Phase 5 (기술 인식 결과)
 **Requirements**: PERS-01
 **Success Criteria** (what must be TRUE):
+
   1. 프로/수강생 BodyNormalizationProfile 차이로 scale 프로파일이 산출되고 세그먼트별 상대 좌표가 재계산된다
   2. 단순 확대/축소가 아닌 세그먼트별 정규화 (`normalizeByBodySegments`)가 구현된다
   3. 동일 동작에서 체형이 다른 두 사용자가 각자 체형 비율 기준의 점수를 받는다 (절대 각도 차이만으로 감점 X)
   4. coaching 모드 출력에 `bodyNormalizationConfidence`가 항상 포함된다
+
 **Plans**: TBD
 
 ### Phase 7: 차이 분류
+
 **Goal**: 정규화 비교 결과를 "체형 허용 차이 / 개선 필요 차이 / uncertain"으로 자동 분류하고 각 항목에 bodyTypeInterpretation·recommendation을 부착한다
 **Mode:** mvp
 **Depends on**: Phase 6
 **Requirements**: PERS-01
 **Success Criteria** (what must be TRUE):
+
   1. `BodyComparisonFinding[]`이 phase별·category별로 산출된다 (`body_type_allowed` / `needs_adjustment` / `uncertain`)
   2. `doNotOverCorrect`와 `recommendedFocus` 배열이 출력에 포함된다
   3. category 분류가 BodyNormalizationProfile confidence를 반영해 낮으면 `uncertain`으로 처리된다
   4. 결과 화면 카피가 "프로보다 못합니다" 같은 표현 없이 보정 중심으로 작성된다
+
 **Plans**: TBD
 
 ### Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter
+
 **Goal**: 힘 방향 패턴 추론에 필요한 기초 신호(중심축 이탈, 접촉점 안정성, 흔들림, jerk)를 phase별로 산출한다 — 가림 스무딩 필수
 **Mode:** mvp
 **Depends on**: Phase 1, Phase 4 (폴 축 정렬 + confidence 게이트 위에 측정)
 **Requirements**: FORCE-01
 **Success Criteria** (what must be TRUE):
+
   1. `AxisDeviationMetric`(골반/흉곽 폴축 거리, 어깨/골반 tilt, deviation 방향)이 phase별로 산출된다
   2. `StabilityMetric`(jitterScore, jerkScore, holdStabilityScore, unstableBodyParts)이 phase별로 산출된다
   3. `ContactStabilityMetric`(접촉점별 estimatedStable, lostContactAtMs, confidence)이 phase별로 산출된다
   4. 모든 신호에 시간적 스무딩이 적용되고 가림 프레임은 confidence로 가중 처리된다
+
 **Plans**: TBD
 
 ### Phase 9: ForceDirectionPattern + 실패 원인 후보 3개
+
 **Goal**: 기초 신호를 종합해 `ForceDirectionPattern`(pull/push/brace/rotate/release)을 추론하고, 동작 실패 원인 후보 3개를 카드 형태로 제시한다 (단정 금지, 모든 항목 "가능성"으로 표기)
 **Mode:** mvp
 **Depends on**: Phase 8
 **Requirements**: FORCE-01, FEED-02
 **Success Criteria** (what must be TRUE):
+
   1. `inferForceDirectionPattern` 함수가 5개 카테고리 중 하나 이상을 phase별로 반환한다
   2. 실패 원인 후보가 정확히 상위 3개로 정렬되어 카드 형태 데이터로 출력된다 (KISMAM Top-3 진화)
   3. 모든 finding이 `confidence`와 `interpretation` 필드를 가지며 "단정"이 아닌 "가능성" 언어로 표현된다
   4. "근육 힘 방향" 단정 표현이 출력에 없다 (코드 + 프롬프트 가드)
+
 **Plans**: TBD
 
 ### Phase 10: 부상 위험 신호 플래그
+
 **Goal**: 좌우 비대칭·요추 과신전·레벨 대비 무리한 동작 신호를 위험도 스코어로 플래그하고 결과 화면에 경고로 표시한다
 **Mode:** mvp
 **Depends on**: Phase 8 (기초 신호)
 **Requirements**: SAFE-01
 **Scope 제약**: "부상 확정" 단정 금지. "위험 가능성"으로만 표기 + 전문가 확인 권유.
 **Success Criteria** (what must be TRUE):
+
   1. 좌우 비대칭 임계값 초과 시 위험 신호 플래그가 출력에 추가된다
   2. 요추 과신전 패턴이 감지되면 "허리 부담 가능성" 경고가 표시된다
   3. 자가입력 `poleExperienceLevel`과 동작 난이도 매핑으로 "레벨 대비 무리" 경고가 동작한다
   4. 결과 화면에 부상 위험 경고가 시각적으로 구분되고 "전문가 확인 권유" 카피가 함께 표시된다
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만
+
 **Goal**: 모든 리포트에 `CoachCommentHook`이 부착되고, Gemini는 구조화된 finding을 자연어로 번역만 한다 (판단·좌표 출력 금지). 결과 화면 카피가 AI를 "강사 보조 도구"로 포지셔닝한다
 **Mode:** mvp
 **Depends on**: Phase 7, Phase 9 (두 엔진 출력 위에 코칭·번역 레이어)
 **Requirements**: COACH-01, FEED-02, FEED-03
 **Success Criteria** (what must be TRUE):
+
   1. `CoachCommentHook`(autoFindingsSummary, openQuestionsForCoach, suggestedCues, coachComment?, reviewedBy) 타입이 데이터 계약 양쪽에 추가된다
   2. 모든 리포트(BodyComparisonReport, ForcePatternInference)에 coachCommentHook이 부착된다
   3. Gemini 프롬프트가 "자연어 번역만, 좌표·판단·점수 출력 금지"로 설계되고 검증된다
   4. 결과 화면 카피가 AI를 강사 보조 도구로 포지셔닝하고 기준 모션이 "하나의 참고일 뿐"으로 명시된다
   5. Cerebras 키 미설정 시에도 fallback 카피로 분석이 완료된다
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 12: 실측 각도 표시 + 키포인트 오버레이
+
 **Goal**: 결과 화면에 관절 각도가 "현재 87° → 기준 110°" 형태로 실데이터로 표시되고, 영상 위에 어깨·골반·무릎·손 키포인트와 중심축이 오버레이로 그려진다
 **Mode:** mvp
 **Depends on**: Phase 6, Phase 7 (정규화된 각도 위에 표시)
 **Requirements**: FEED-01, VIS-01
 **Success Criteria** (what must be TRUE):
+
   1. 결과 화면 angleGuide가 백엔드 실측 currentAngle을 표시한다 (fixture 아님)
   2. 각 관절이 "현재 N° → 기준 M°" 형태로 현재값과 기준값을 나란히 보여준다
   3. 데이터 계약(`analysis.ts` ↔ `models.py` ↔ `assemble.py`)이 lockstep으로 갱신된다
   4. 영상 프레임 위에 어깨·골반·무릎·손 키포인트와 중심축이 오버레이로 표시된다 (발끝 toe는 v2)
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 13: 보완 운동·스트레칭 추천 라이브러리
+
 **Goal**: 분석 결과의 실패 원인 후보·체형 정규화 finding에 따라 보완 운동·스트레칭이 자동 매핑되어 결과 화면에 표시된다 (분석 → 행동 → 재구매)
 **Mode:** mvp
 **Depends on**: Phase 7, Phase 9 (체형 차이·실패 원인 위에 매핑)
 **Requirements**: PERS-03
 **Scope 제약**: 초기 3~5개 동작군에 대해 보완 운동 5~10개 큐레이션. 영상 가이드는 v2.
 **Success Criteria** (what must be TRUE):
+
   1. 실패 원인·체형 차이별로 매핑된 보완 운동·스트레칭 라이브러리(JSON/Firestore)가 존재한다
   2. 결과 화면이 사용자별 분석 결과에 맞는 보완 운동 3~5개를 표시한다
   3. 매핑 로직이 동작 인식 결과 + 실패 후보 + 통증부위(BodyProfile)를 함께 고려한다
   4. 사용자가 "다른 운동 보기" 같은 액션으로 라이브러리를 탐색할 수 있다
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)
+
 **Goal**: 정은지 기준 모션을 다각도 캡처 프로토콜에 따라 등록할 수 있고, 등록된 모션이 BodyNormalizationProfile·EXTEND 프로파일·ForceDirectionPattern을 포함해 Mode 1 비교에 바로 쓰인다
 **Mode:** mvp
 **Depends on**: Phase 5 (기술 인식), Phase 6 (정규화), Phase 9 (힘 패턴) — 기준 모션이 두 엔진 출력을 모두 가져야 비교 가능
 **Requirements**: REF-01
 **Scope 제약**: 기준 모션도 초기 3~5개 동작군 범위.
 **Success Criteria** (what must be TRUE):
+
   1. 정은지 영상(다각도 권장)을 업로드하면 기준 모션으로 등록되어 `reference/{motionId}`에 저장되고 앱 Mode 1 목록에 나타난다
   2. 등록된 기준 모션이 meanAngles·EXTEND 프로파일·BodyNormalizationProfile·ForceDirectionPattern을 포함한다
   3. 다각도 캡처 가이드(촬영 조건·앵글·시점 수)가 문서화되어 등록 정확도가 재현 가능하다
   4. 다각도가 없는 단일 시점 기준 모션도 graceful하게 처리되고 confidence가 낮게 표기된다
+
 **Plans**: TBD
 
 ### Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)
+
 **Goal**: 학원 용어 3분기 시스템 (AKA 매핑 / 정은지 reference / 자동 수집) + IPSF 5트랙 채점 v1 scope (a + c + Page 9 절대 트랙) 의 데이터·스펙·UX 카피를 박제한다. **MVP 가볍게**: 코드 변경 최소, 데이터/스펙/카피 박제 중심. **실증 단계 검증 후 확장**: 폴스포츠 학원 파일럿에서 사용자 입력 패턴 (분기 1/2/3 비율, 자동 수집 키워드 누적) 을 데이터로 본 다음 분기 2 reference / 분기 3 승격 알고리즘 / 분기 1 매핑 확장을 한 번에 진행. **v1 평행 진행**: Phase 1~15 의존성 없음 — 데이터/스펙/카피 박제는 코드 진척과 독립적.
 **Mode:** mvp
 **Depends on**: Nothing (v1 평행 — 데이터/스펙/카피 박제)
@@ -274,6 +318,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Scope 제약**: MVP 가볍게 — (1) AKA 매핑 13개 박제 (NotebookLM lookup 2026-06-02 출처) + 각 IPSF Code + Criteria source_ref (2) 분기 2 정은지 reference 비등재 동작 1~2개 (폭스탑 우선 — 운영자 설문 직접 예시) (3) 분기 3 자동 수집 데이터 스키마 + UX 카피 노출 stub (4) 5트랙 채점 v1 = (a) Compulsory Criteria + (c) Technical Deduction + Page 9 절대 공통 트랙. (b) Tech Bonus 연계 가산 + (d) Artistic 정성 = v2 (SCORE-V2-02/03). 사람 점수 라벨링 영구 금지 ([[analysis-objectivity-no-human-scores]] 정합 — 모든 데이터는 IPSF Code of Points 임계값 + 정은지 영상 측정값 기준만).
 **External dependency**: NotebookLM (IPSF lookup 자동화), 정은지 영상 (이미 보유 가정). belle/강사 협업 없이 박제 가능 (사람 점수 라벨링 X).
 **Success Criteria** (what must be TRUE):
+
   1. AKA 매핑 13개가 데이터 파일 (예: `backend/data/aka-mapping.json` 또는 reference-motions 확장) 에 박제되어 있고, 각 entry 가 한국 학원 명칭 + IPSF Code + IPSF 공식 영문명 + source_ref (NotebookLM citation) 을 포함한다
   2. 분기 2 정은지 reference 비등재 동작 (최소 폭스탑) 1개가 reference-motions 에 등록되어 있고, isRegistered=false 플래그로 분기 1 과 구분된다
   3. 분기 3 자동 수집 데이터 스키마 (`pending_terms` 컬렉션 또는 동등 구조) 가 정의되어 있고 입력 키워드 + 사용자 익명 ID + 누적 카운트를 저장한다
@@ -285,21 +330,26 @@ Decimal phases appear between their surrounding integers in numeric order.
      - **(b) 분기 3 신규 키워드 승격 기준 = 둘 이상 anon userId** — MVP 단순. `uniqueUserCount >= 2` 충족 시 `promotionStatus: pending → reviewing` 자동 전환 (16-AUTOCOLLECT-SCHEMA.md). 학원 ID 트래킹 기반 정밀화는 v2.
      - **(c) 분기 2 reference 사용률 = v1 게이트 아님** — belle 결정: 사용률 측정 자체보다 "분기 2 reference 사용 시 분석 정확도 (Page 9 트랙 + 정은지 측정값) 가 작동하는지" 가 진짜 검증 (정성). 운영 metric 으로만 박제, v2 belle 재논의.
      - **확장 path**: 게이트 통과 후 한 번에 진행 — 분기 2 reference 5~10개 추가 + 분기 3 승격 알고리즘 + 분기 1 NotebookLM batch lookup 자동화.
+
 **Plans**:
+
   - [x] 16-01-PLAN.md — AKA 매핑 13개 + 5트랙 v1 spec + 분기 2 정은지 reference + 자동 수집 스키마 + UX 카피 박제 위치 + 실증 검증 게이트 threshold belle 협의 (T-1~T-7, code change 0)
 
 ### Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight
+
 **Goal**: 사용자가 Mode 1(정은지 기준 비교)과 Mode 3(자기 영상 발전)을 실영상으로 완주하고, 고수 영상에서 위양성 없이 신뢰할 만한 점수를 받고, TestFlight 게스트 모드에서 회원가입 없이 실기기로 완주한다
 **Mode:** mvp
 **Depends on**: Phase 11, Phase 12, Phase 13, Phase 14 (리포트·표시·보완운동·기준모션 모두 준비됨)
 **Requirements**: MODE-01, MODE-02, SCORE-04, DELIV-01
 **Scope 제약**: 검증 대상은 초기 3~5개 동작군. 범위 밖 false-reject 허용.
 **Success Criteria** (what must be TRUE):
+
   1. Mode 1: 사용자가 정은지 기준 모션을 선택해 본인 영상을 올리면 실분석 결과와 전문가 기준 점수가 표시된다 (referenceMotionId lockstep)
   2. Mode 3: 사용자가 본인 영상 2개를 올리면 절대 지표의 세션 간 델타가 "지난 분석보다 무릎 신전 8° 개선" 형태로 표시된다
   3. 신뢰도 게이트: 정은지(고수) 영상이 41점 같은 위양성 없이 자세 품질을 반영하는 점수로 산출된다
   4. 다양한 동작/앵글 영상 세트에서 분석이 크래시 없이 일관된 점수를 낸다
   5. TestFlight: 수강생이 익명 게스트로 진입해 회원가입 없이 Mode 1·Mode 3를 실기기에서 완주하고 결과 영상이 재생된다 (presigned URL 만료/Content-Type 이슈 없음, letterSpacing SIGABRT 회귀 없음)
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -319,7 +369,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 20/24 | In Progress|  |
+| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 21/24 | In Progress|  |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 0/TBD | Not started | - |
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |

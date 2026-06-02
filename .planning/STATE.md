@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: "Phase 1 context gathered (4 areas: MediaPipe variant, NLF R&D 격리, 폴 축 검출, 회귀 검증 — 16 decisions)"
-last_updated: "2026-06-02T11:25:53.109Z"
-last_activity: 2026-06-02 -- Phase 16 execution started
+last_updated: "2026-06-02T14:49:33.336Z"
+last_activity: 2026-06-02 -- Phase 01 execution started
 progress:
-  total_phases: 2
-  completed_phases: 0
-  total_plans: 18
-  completed_plans: 14
-  percent: 0
+  total_phases: 16
+  completed_phases: 1
+  total_plans: 25
+  completed_plans: 21
+  percent: 6
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 16 — studio-term-foundation
+**Current focus:** Phase 01 — poseengine-mediapipe-nlf-r-d
 
 ## Current Position
 
-Phase: 16 (studio-term-foundation) — EXECUTING
-Plan: 1 of 1
-Status: Executing Phase 16
-Last activity: 2026-06-02 -- Phase 16 execution started
+Phase: 01 (poseengine-mediapipe-nlf-r-d) — EXECUTING
+Plan: 1 of 24
+Status: Executing Phase 01
+Last activity: 2026-06-02 -- Phase 01 execution started
 
 Progress: [██████░░░░] 60%
 

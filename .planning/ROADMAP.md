@@ -80,15 +80,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 01-11-PLAN.md — RTMPose 5영상 sweep + line/angle root cause + 게이트 룰 검토 — **verdict gap_too_wide_blocked** (D-15① 5/5 PASS / D-14 4/5 FAIL / line·angle 5/5 N/A) (Wave 2)
   - [~] 01-12-PLAN.md — 갭 root cause 디버그 spike — T-1~T-4 완료, T-5 belle Pod live 대기. report-only verdict (c)/(d) strong → NLF baseline 부적합 박제 → Plan 15 신설 (Wave 2, NEW 2026-06-01)
   - [~] 01-13-PLAN.md — Gemini key moment timestamp + criteria extractor (multimodal 2.5 Pro). verdict `measurement_unreliable_blocked` (Wave 2, NEW 2026-06-01)
-  - [ ] 01-15-PLAN.md — **JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집** — plan 23 의 baseline (Wave 2, NEW 2026-06-01)
+  - [x] 01-15-PLAN.md — **JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집** — plan 23 의 baseline (Wave 2, NEW 2026-06-01)
   - [x] 01-16-PLAN.md — **측정 신뢰도 trace spike** (Wave 2, COMPLETE 2026-06-01)
   - [x] 01-17-PLAN.md — **keypoint mapping audit + swap fix** (Codex Cycle 3 PASS) (Wave 2, COMPLETE 2026-06-01)
   - [on hold] 01-18-PLAN.md — **multi-engine averaging spike** — **2026-06-02 RTMW pivot 으로 보류** (abandoned 아님)
   - [SUPERSEDED] 01-14-PLAN.md — 5영상 재검증 sweep (RTMPose+MB+lifter baseline) — **plan 23 가 SUPERSEDE** (RTMW + IPSF baseline). 미실행 상태로 SUPERSEDED 마킹.
   - [SUPERSEDED] 01-04-PLAN.md — NLF R&D 격리 (NLF 만) — **plan 24 가 SUPERSEDE + 확장** (NLF + MediaPipe + 비선택 3D path). 미실행 상태로 SUPERSEDED 마킹.
   - [SUPERSEDED] 01-05-PLAN.md — pipeline/app.py atomic swap (NLF→MediaPipe) — **plan 25 가 SUPERSEDE** (NLF→RTMW). 미실행 상태로 SUPERSEDED 마킹.
-  - [ ] 01-19-PLAN.md — **NEW (RTMW pivot)** PoseEngine 인터페이스 보강 + BodyNormalizationProfile (D-19 SMPL-X 없이 segment 비율) + PoseFrame.bodyShape nullable (D-21) + TS/Python/contract.md 3-way lockstep + ADR-0001 박제 (Wave 1, gap_closure 2026-06-02)
-  - [ ] 01-20-PLAN.md — **NEW (RTMW pivot)** rtmlib RTMW 가중치 라이선스 audit (D-25) + weights_manifest.json + belle 검토 checkpoint (Wave 1, gap_closure 2026-06-02)
+  - [x] 01-19-PLAN.md — **NEW (RTMW pivot)** PoseEngine 인터페이스 보강 + BodyNormalizationProfile (D-19 SMPL-X 없이 segment 비율) + PoseFrame.bodyShape nullable (D-21) + TS/Python/contract.md 3-way lockstep + ADR-0001 박제 (Wave 1, gap_closure 2026-06-02)
+  - [x] 01-20-PLAN.md — **NEW (RTMW pivot)** rtmlib RTMW 가중치 라이선스 audit (D-25) + weights_manifest.json + belle 검토 checkpoint (Wave 1, gap_closure 2026-06-02)
   - [ ] 01-21-PLAN.md — **NEW (RTMW pivot)** rtmlib RTMW 133 wholebody 통합 + RTMW133ToCOCO17Adapter + POSE_ENGINE config (D-17/D-20/D-21/D-22/D-24/D-25) (Wave 2, gap_closure 2026-06-02)
   - [ ] 01-22-PLAN.md — **NEW (RTMW pivot)** 단일 카메라 3D path 결정 — 옵션 A (RTMW3D 직접) vs 옵션 B (RTMW + MotionBERT lifter) — belle checkpoint (D-18) (Wave 3, gap_closure 2026-06-02)
   - [ ] 01-23-PLAN.md — **NEW (RTMW pivot)** RTMW vs IPSF GeometricCriterion 5영상 회귀 검증 sweep — Wave 5 진입 게이트 (IPSF tolerance + line/angle 5/5 PASS) — plan 14 supersede (Wave 4, gap_closure 2026-06-02)
@@ -318,7 +318,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 8/15 | In Progress (Plan 12 (c)/(d) strong → Plan 15 신설, IPSF baseline 도입)|  |
+| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 19/24 | In Progress|  |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 0/TBD | Not started | - |
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |

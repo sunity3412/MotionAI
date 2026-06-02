@@ -17,6 +17,12 @@ RTMW pivot 박제 (2026-06-02, Plan 01-19):
   D-19: BodyNormalizationProfile 은 SMPL-X β 없이 segment 비율 기반
         (`backend/shared/python/sunity_shared/analysis/body_normalization.py`).
 
+RTMW 133 원본 보존 (2026-06-02, Plan 01-21):
+  D-20: PoseFrame.raw_keypoints_133 — RTMW 133 wholebody 원본 키포인트 dict 저장.
+        RTMW path = {이름: Keypoint3D} 133개. MediaPipe path = None (raw_landmarks_33 사용).
+        이 필드는 COCO-17 (keypoints_3d) 와 폴 확장 (pole_extension_landmarks) 의
+        소스로서 원본 데이터 보존 목적. 알고리즘 스코어링에는 keypoints_3d 사용.
+
 REVIEWS 박제:
   H-3: PoseFrame.pole_axis: PoleAxis | None 필드 추가 (D-12 완전 박제).
   H-4: PoseFrame.reliability: ReliabilityLevel + compute_frame_reliability 게이트.
@@ -202,10 +208,10 @@ class PoseFrame:
     TS lockstep: app/src/types/analysis.ts PoseFrame interface.
     변경 시 양쪽 + docs/contract.md §6 동시 갱신 (CLAUDE.md Cross-cutting).
 
-    필드 10개 (TS camelCase ↔ Python snake_case 1:1):
+    필드 11개 (Plan 01-21 갱신 — raw_keypoints_133 추가, D-20 RTMW 원본 보존):
       frameIndex         / frame_index
       timestampMs        / timestamp_ms
-      rawLandmarks33     / raw_landmarks_33      (D-04 원본 보존)
+      rawLandmarks33     / raw_landmarks_33      (D-04 MediaPipe 원본 보존, RTMW path = {})
       keypoints3D        / keypoints_3d          (COCO-17)
       keypoints3DPoleAligned / keypoints_3d_pole_aligned  (D-12 aligned)
       keypoints2D        / keypoints_2d          (D-03 UI 오버레이)
@@ -213,6 +219,10 @@ class PoseFrame:
       poleAxis           / pole_axis             (H-3 D-12)
       reliability        / reliability           (H-4 D-05 게이트)
       bodyShape          / body_shape            (D-21 RTMW pivot — nullable)
+      rawKeypoints133    / raw_keypoints_133     (D-20 RTMW 133 원본 보존 — nullable)
+
+    TS lockstep: app/src/types/analysis.ts PoseFrame interface.
+    변경 시 양쪽 + docs/contract.md §6 동시 갱신 (CLAUDE.md Cross-cutting).
     """
 
     frame_index: int
@@ -229,6 +239,11 @@ class PoseFrame:
     #   NLF_SMPLX R&D path = body_normalization.BodyNormalizationProfile 채움
     # forward-ref 문자열로 둬 import 순서 의존 제거.
     body_shape: Optional["BodyNormalizationProfile"] = None
+    # D-20 RTMW 133 원본 보존 (Plan 01-21) — nullable.
+    #   RTMW path = {이름: Keypoint3D} 133개 (wholebody 원본)
+    #   MediaPipe path = None (raw_landmarks_33 사용)
+    #   알고리즘 스코어링에는 keypoints_3d(COCO-17) 사용 — 본 필드는 원본 보존 전용.
+    raw_keypoints_133: dict[str, "Keypoint3D"] | None = None
 
     @classmethod
     def empty(

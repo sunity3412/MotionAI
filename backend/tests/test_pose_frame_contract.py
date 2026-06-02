@@ -29,6 +29,7 @@ from sunity_shared.analysis.pose_frame import (
 # Task 7 에서 TS PoseFrame interface 와 lockstep 검증에 사용하는 기대 필드 집합.
 # TS camelCase 필드를 snake_case 로 변환하면 이 집합과 일치해야 함.
 # 2026-06-02 Plan 01-19 갱신: body_shape 추가 (D-21 RTMW pivot — nullable).
+# 2026-06-02 Plan 01-21 갱신: raw_keypoints_133 추가 (D-20 RTMW 133 원본 보존 — nullable).
 EXPECTED_POSE_FRAME_FIELDS = frozenset(
     {
         "frame_index",
@@ -40,7 +41,8 @@ EXPECTED_POSE_FRAME_FIELDS = frozenset(
         "pole_extension_landmarks",
         "pole_axis",
         "reliability",
-        "body_shape",  # D-21 RTMW pivot (Plan 01-19) — nullable
+        "body_shape",        # D-21 RTMW pivot (Plan 01-19) — nullable
+        "raw_keypoints_133", # D-20 RTMW 133 원본 보존 (Plan 01-21) — nullable
     }
 )
 

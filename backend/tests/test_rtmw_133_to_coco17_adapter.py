@@ -135,7 +135,12 @@ def test_rtmw_foot_6_indices_present(rtmw_kp_indices):
 # ── Test 4: hand root 인덱스 존재 ────────────────────────────────────────
 
 def test_rtmw_hand_indices_present(rtmw_kp_indices):
-    """left_hand_root=91, right_hand_root=112 존재 (COCO-WholeBody hand layout)."""
+    """left_hand_root=91, right_hand_root=112 존재 (COCO-WholeBody hand layout).
+
+    COCO-WholeBody hand 순서 (thumb-first, mmpose 표준):
+      91=wrist(root), 92=thumb_cmc, 93=thumb_mcp, 94=thumb_ip, 95=thumb_tip,
+      96=index_mcp, 97=index_pip, 98=index_dip, 99=index_tip, ...
+    """
     assert "left_hand_root" in rtmw_kp_indices, "left_hand_root 누락"
     assert "right_hand_root" in rtmw_kp_indices, "right_hand_root 누락"
     assert rtmw_kp_indices["left_hand_root"] == 91, (
@@ -144,10 +149,16 @@ def test_rtmw_hand_indices_present(rtmw_kp_indices):
     assert rtmw_kp_indices["right_hand_root"] == 112, (
         f"right_hand_root = {rtmw_kp_indices['right_hand_root']}, 112 이어야 함"
     )
-    # 손가락 일부 검증 (left_index_finger_mcp = 92)
+    # 손가락 일부 검증 — thumb-first 순서: 92=thumb_cmc, 96=index_finger_mcp
+    # [CITED: COCO-WholeBody + mmpose hand annotation format (thumb→index→middle→ring→little)]
+    assert "left_thumb_cmc" in rtmw_kp_indices, "left_thumb_cmc 누락"
+    assert rtmw_kp_indices["left_thumb_cmc"] == 92, (
+        f"left_thumb_cmc = {rtmw_kp_indices['left_thumb_cmc']}, 92 이어야 함 (thumb-first)"
+    )
     assert "left_index_finger_mcp" in rtmw_kp_indices, "left_index_finger_mcp 누락"
-    assert rtmw_kp_indices["left_index_finger_mcp"] == 92, (
-        f"left_index_finger_mcp = {rtmw_kp_indices['left_index_finger_mcp']}, 92 이어야 함"
+    assert rtmw_kp_indices["left_index_finger_mcp"] == 96, (
+        f"left_index_finger_mcp = {rtmw_kp_indices['left_index_finger_mcp']}, "
+        "96 이어야 함 (thumb 4개 후)"
     )
 
 

@@ -252,6 +252,7 @@ not_pole_motion     선택한 기준 동작과 너무 달라요. 폴스포츠 �
 | `poleExtensionLandmarks?` | `pole_extension_landmarks` | `Record<string, PoleExtensionLandmark> \| null` | D-04 | 폴 확장 (toe/heel/grip) |
 | `poleAxis` | `pole_axis` | `PoleAxis \| null` | D-12, H-3 | video-level PoleAxis 메타 (모든 frame 공유) |
 | `reliability` | `reliability` | `ReliabilityLevel` | D-05, H-4 | frame-level 신뢰 게이트 |
+| `bodyShape` | `body_shape` | `BodyNormalizationProfile \| null` | D-21 | 체형 정규화 (RTMW=null, NLF_SMPLX=β path). Plan 01-19 추가. |
 
 ### PoleAxis (폴 축 메타)
 
@@ -297,5 +298,51 @@ Phase 1 에서 PoseFrame 은 RunPod 메모리 전용. Firestore 저장은 기존
 
 ---
 
+## §7. BodyNormalizationProfile (Plan 01-19 신설 — D-19/D-21 RTMW pivot)
+
+> **2026-06-02 RTMW pivot 박제**: 체형 정규화는 **SMPL-X β 없이 세그먼트 길이 비율** 만으로
+> 표현 (D-19). SMPL-X / shape_params / betas 필드는 **영구히 도입하지 않는다**.
+> NLF_SMPLX R&D path 에서 β 가 필요하면 R&D 전용 별도 타입을 둘 것 — 본 contract 아님.
+>
+> **변경 시 lockstep 경고**: 아래 3 파일 동시 갱신 필수 (CLAUDE.md Cross-cutting).
+>   - `app/src/types/analysis.ts` `BodyNormalizationProfile` interface
+>   - `backend/shared/python/sunity_shared/analysis/body_normalization.py` dataclass
+>   - 이 문서 §7
+
+### BodyNormalizationProfile (체형 정규화 프로파일)
+
+| TS 필드 (camelCase) | Python 필드 (snake_case) | TS 타입 | D-NN | 설명 |
+|---------------------|--------------------------|---------|------|------|
+| `estimatedHeightScale` | `estimated_height_scale` | `number` | D-19 | 추정 신장 비율 (1.0 = 평균). RTMW segment 합으로 산출. |
+| `armScale` | `arm_scale` | `number` | D-19 | 팔 segment 비율 (1.0 = 평균). |
+| `legScale` | `leg_scale` | `number` | D-19 | 다리 segment 비율 (1.0 = 평균). |
+| `torsoScale` | `torso_scale` | `number` | D-19 | 몸통 segment 비율 (1.0 = 평균). |
+| `shoulderHipRatio` | `shoulder_hip_ratio` | `number` | D-19 | 어깨너비 / 골반너비 비율 (체형 분류 단서). |
+| `confidence` | `confidence` | `number` | D-19 | 측정 신뢰도 `[0.0, 1.0]`. RTMW score 또는 측정기 자체 신뢰도. |
+| `warnings` | `warnings` | `string[]` | D-19 | 측정 품질 이슈 (예: `'short_arm_clip'`, `'occluded_torso'`). 기본값 `[]`. |
+
+### D-결정 요약 (CONTEXT.md 인용)
+
+- **D-19**: 체형 정규화 = SMPL-X 없이 **세그먼트 길이 비율**. 파라미터형 메시 의존 영구 제거.
+- **D-21**: `PoseFrame.bodyShape` 필드 **nullable** — RTMW 운영 path = `null`,
+  NLF_SMPLX R&D path = `BodyNormalizationProfile` 채움. 양쪽 호환.
+
+### Consumer 예고 (Phase 2 BODY-01)
+
+Phase 1 (Plan 01-19 ~ 01-25) 단계는 **contract 박제만**. 본 dataclass 를 채우는
+실제 segment-ratio 측정기는 **Phase 2 BODY-01** 에서 구현. 그 시점에 RTMW
+어댑터가 `PoseFrame.bodyShape` 에 측정값을 주입한다.
+
+### 향후 재도입 절차 (NLF_SMPLX path)
+
+NLF/SMPL-X 의 상업 라이선스가 클리어되고 매출이 정당화되는 시점에 `POSE_ENGINE`
+config 플래그를 `NLF_SMPLX` 로 swap. 이 path 에서는 SMPL-X β 가 자체적으로
+필요할 수 있으나 **본 contract 에는 들어오지 않는다** — R&D 전용 어댑터 내부에서만
+사용하고, 다운스트림에 노출되는 정규화 표현은 항상 `BodyNormalizationProfile`
+(segment 비율) 형식으로 변환되어야 한다. 다운스트림 무수정 (D-24) 약속의 핵심.
+
+---
+
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
 *Phase 1 §6 추가: 2026-05-31 — PoseFrame/PoleAxis 3-way lockstep (H-3/H-4/M-1/M-2/M-5 REVIEWS 박제).*
+*Plan 01-19 §7 추가: 2026-06-02 — BodyNormalizationProfile (D-19 segment 비율, D-21 nullable). RTMW pivot 박제.*

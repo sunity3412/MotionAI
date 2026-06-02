@@ -306,17 +306,48 @@ export interface PoleAxis {
 }
 
 /**
- * 영상 한 프레임 포즈 계약 (D-04/D-05/D-11/D-12 + H-3/H-4).
+ * 체형 정규화 프로파일 (D-19 RTMW pivot — SMPL-X β 없이 segment 비율).
+ *
+ * Python lockstep: backend/shared/python/sunity_shared/analysis/body_normalization.py
+ *   BodyNormalizationProfile
+ * 변경 시 양쪽 + docs/contract.md §6 동시 갱신 (CLAUDE.md Cross-cutting).
+ *
+ * SMPL-X β / shape_params 필드는 **영구히 도입하지 않는다** (D-19).
+ * NLF_SMPLX R&D path 에서 β 가 필요하면 R&D 전용 별도 타입을 둘 것 — 본 contract 아님.
+ *
+ * Consumer 예고 (Phase 2 BODY-01): segment-ratio 측정기가 채운 profile 을
+ * PoseFrame.bodyShape 로 주입한다. Phase 1 단계에는 측정기 미구현.
+ */
+export interface BodyNormalizationProfile {
+  /** 추정 신장 비율 (1.0 = 평균). RTMW segment 합으로 산출. */
+  estimatedHeightScale: number;
+  /** 팔 segment 비율 (1.0 = 평균). */
+  armScale: number;
+  /** 다리 segment 비율 (1.0 = 평균). */
+  legScale: number;
+  /** 몸통 segment 비율 (1.0 = 평균). */
+  torsoScale: number;
+  /** 어깨너비 / 골반너비 비율 (체형 분류 단서). */
+  shoulderHipRatio: number;
+  /** 측정 신뢰도 [0.0 ~ 1.0]. RTMW score 또는 측정기 자체 신뢰도. */
+  confidence: number;
+  /** 측정 품질 이슈 (예: 'short_arm_clip'). 기본값 []. */
+  warnings: string[];
+}
+
+/**
+ * 영상 한 프레임 포즈 계약 (D-04/D-05/D-11/D-12/D-21 + H-3/H-4).
  *
  * Python lockstep: backend/shared/python/sunity_shared/analysis/pose_frame.py PoseFrame
- * camelCase ↔ snake_case 1:1 매핑 — 9개 필드:
+ * camelCase ↔ snake_case 1:1 매핑 — 10개 필드:
  *   frameIndex, timestampMs, rawLandmarks33, keypoints3D, keypoints3DPoleAligned,
- *   keypoints2D, poleExtensionLandmarks, poleAxis, reliability
+ *   keypoints2D, poleExtensionLandmarks, poleAxis, reliability,
+ *   bodyShape (D-21 RTMW pivot — nullable)
  */
 export interface PoseFrame {
   frameIndex: number;
   timestampMs: number;
-  /** D-04 원본 보존 (MediaPipe 33) */
+  /** D-04 원본 보존 (MediaPipe 33 또는 RTMW 133) */
   rawLandmarks33?: Record<string, Landmark3D>;
   /** COCO-17 분석용 */
   keypoints3D: Record<string, Keypoint3D>;
@@ -330,6 +361,12 @@ export interface PoseFrame {
   poleAxis: PoleAxis | null;
   /** H-4 D-05: frame-level 신뢰 게이트 — 'low' 시 단정형 코멘트 금지 */
   reliability: ReliabilityLevel;
+  /**
+   * D-21 RTMW pivot: 체형 정규화 프로파일.
+   * - RTMW 운영 path = null (Phase 1 단계 측정기 미구현)
+   * - NLF_SMPLX R&D path = BodyNormalizationProfile 채움
+   */
+  bodyShape: BodyNormalizationProfile | null;
 }
 
 // ── 표시 매핑 (design.md §5-9 단계별 메시지 / §6 오류) ──────────────────

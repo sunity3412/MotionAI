@@ -103,3 +103,12 @@ from .analysis.pose_frame import (  # noqa: E402 — 파일 하단 re-export 패
     PoseFrame,
     ReliabilityLevel,
 )
+
+# RTMW pivot (2026-06-02, Plan 01-19) — D-19/D-21 박제.
+#   BodyNormalizationProfile = SMPL-X β 없이 segment 비율 + confidence + warnings.
+#   PoseFrame.body_shape: Optional[BodyNormalizationProfile] = None nullable.
+# TS 미러: app/src/types/analysis.ts BodyNormalizationProfile interface.
+# 변경 시 TS + contract.md §6 동시 갱신 (CLAUDE.md Cross-cutting).
+from .analysis.body_normalization import (  # noqa: E402 — 파일 하단 re-export 패턴
+    BodyNormalizationProfile,
+)

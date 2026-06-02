@@ -3,7 +3,7 @@
 > **Audit 작성일:** 2026-06-02
 > **Plan:** 01-20 (`.planning/phases/01-poseengine-mediapipe-nlf-r-d/01-20-PLAN.md`)
 > **목적:** belle 명시 (개발지시 §5) "rtmlib/RTMPose 코드는 Apache-2.0 이지만, 모델 가중치의 학습 데이터 상업 사용 가능 여부는 모델별로 반드시 확인". 본 문서는 plan 21 (RTMWPoseEngine 통합) 진입 전 가중치 라이선스 게이트.
-> **결정 상태:** belle 검토 대기 (Plan 01-20 Task 2 checkpoint). 본 문서 §4 가 belle 응답 박제 자리.
+> **결정 상태:** **APPROVED (검증 단계 한정)** — belle 2026-06-02. Production = `rtmw-x-384x288`, Fallback = `rtmw-l-384x288`. 정식 상업 출시 전 clean weight 교체 hard gate (§4-1/§4-2).
 > **출처 fetch 일자:** 2026-06-02 (rtmlib README, mmpose projects/rtmpose README, COCO Wholebody 공식)
 
 ---
@@ -85,14 +85,14 @@ mmpose `projects/rtmpose/README.md` (main branch, 2026-06-02 fetch) 의 "Cocktai
 
 본 audit 은 **dataset license weakest-link 원칙**을 적용한다. 학습 데이터 중 1개라도 비상업 라이선스면 파생 가중치는 비상업으로 분류 — 데이터셋 라이선스 침해의 향후 소송 리스크는 belle 의 SaaS 파일럿을 차단할 수 있다.
 
-### 3-1. 가중치별 판정
+### 3-1. 가중치별 판정 (belle 결정 후 — §4 참조)
 
-| ID | 가중치 | 코드 라이선스 (rtmlib/mmpose) | 학습 데이터 weakest license | `license_status` | `production_eligible` (초기값) | 근거 |
+| ID | 가중치 | 코드 라이선스 (rtmlib/mmpose) | 학습 데이터 weakest license | `license_status` | `production_eligible` | 근거 |
 |---|---|---|---|---|---|---|
-| (a) | RTMW-l 256x192 | Apache-2.0 | non-commercial (AIC 등) | **restricted** | false | Cocktail14 의 비상업 dataset 포함. 가중치 자체 사용 시 데이터셋 약관 위반 위험. |
-| (b) | RTMW-l 384x288 | Apache-2.0 | non-commercial | **restricted** | false | (a) 동일 |
-| (c) | RTMW-x 384x288 | Apache-2.0 | non-commercial | **restricted** | false | (a) 동일. UBody+COCO pretrained 단계도 UBody 비상업 영향 받음. |
-| (d) | RTMW3D-x 384x288 | Apache-2.0 (rtmlib 코드) / hugging face 호스팅 (Soykaf 계정) | non-commercial | **restricted** | false | (a) 동일 + 호스팅 채널 비공식 (belle 확인 필요) |
+| (a) | RTMW-l 256x192 | Apache-2.0 | non-commercial (AIC 등) | **restricted** | false | Cocktail14 의 비상업 dataset 포함. 본 단계 미사용. |
+| (b) | RTMW-l 384x288 | Apache-2.0 | non-commercial | **restricted** | false | **Fallback** (옵션 보존, 운영 미선택). 단일 backbone 충분. |
+| (c) | RTMW-x 384x288 | Apache-2.0 | non-commercial | **commercial_ok** (검증 한정 승급, §4-1 belle 결정) | **true** | **Production**. belle 위험 수용 = 검증 파일럿, 사용자 데이터 미학습. 상업 출시 전 교체 hard gate. |
+| (d) | RTMW3D-x 384x288 | Apache-2.0 (rtmlib 코드) / hugging face 호스팅 (Soykaf 계정) | non-commercial | **restricted** | false | (a) 동일 + 호스팅 채널 비공식. 본 단계 미사용. |
 
 ### 3-2. belle action items (Task 2 checkpoint 에서 결정 필요)
 
@@ -114,18 +114,21 @@ mmpose `projects/rtmpose/README.md` (main branch, 2026-06-02 fetch) 의 "Cocktai
 
 ## 4. belle 결정
 
-_(belle 검토 대기 — Task 2 checkpoint 후 박제)_
+### 4-1. belle 응답 (2026-06-02)
 
-이 섹션은 belle 응답 적재 시점에 다음 형식으로 갱신:
+- **Production 가중치:** (c) RTMW-x 384x288 (AP 70.2, 최상위) — 검증 단계 정확도 우선.
+- **Fallback 가중치:** (b) RTMW-l 384x288 — single backbone 으로 충분, 연산 부담 완화용. manifest 에서는 `production_eligible=false` 유지 (본 단계 운영은 production 1개만).
+- **license_status 변경 근거:** 본 단계는 단일 파트너 스튜디오(정은지) 1곳 한정의 **검증(validation) 파일럿**이며, 사용자 데이터로 모델을 학습하지 않는 **추론 전용** 사용임. 가중치 학습 데이터셋(Cocktail14)의 상업 약관 리스크는 본 검증 단계에 한해 의식적으로 수용함. **정식 상업 출시(공개·과금) 전, mmpose 공식 commercial-friendly weight 또는 자체 clean-data fine-tune 으로 교체하는 것을 하드 게이트로 둠.**
+- **미해결 unknown 가중치 처리:** 본 단계는 production 1개(RTMW-x)만 운영. unknown 가중치는 미사용. 상업 출시 전 교체 시점에 전체 재audit. 동시에 **출시용 clean weight 경로(B) 별도 plan 작성·시작** 지시 (후속 plan 책임).
 
-```
-### 4-1. belle 응답 (YYYY-MM-DD)
+### 4-2. 결정 = approved
 
-- Production 가중치: <name> (sha256 검증 후 manifest production_eligible=true)
-- Fallback 가중치: <name> 또는 "single backbone 충분"
-- license_status 변경 근거: <belle 의 dataset 약관 위험 평가 / OpenMMLab 공식 답변 인용 / 자체 fine-tune 결정>
-- 미해결 unknown 가중치 처리: <belle 추가 확인 진행 / 후보 제외>
-```
+- **Production:** `rtmw-x-384x288` → manifest `production_eligible=true`, `license_status=commercial_ok` 승급.
+- **Fallback:** `rtmw-l-384x288` → manifest `production_eligible=false` 유지 (옵션 보존). 운영 단일 backbone 충분, 연산 부담 완화 필요 시 후속 plan 에서 전환 검토.
+- **Plan 21 진입 가능:** RTMWPoseEngine 가 `production_eligible=true` entry 1개 (rtmw-x-384x288) 로드 가능.
+- **출시 게이트 (hard):** 상업 출시 전 clean weight 교체 별도 plan 작성·시작 필요 (belle 명시 — §4-1 마지막 항목). 본 audit 은 검증 단계 한정 승급.
+
+### 4-3. belle 응답 옵션 양식 (참조용)
 
 belle 응답 옵션 (Plan 01-20 Task 2 §how-to-verify 5-6 항목):
 
@@ -175,4 +178,4 @@ Plan 21 (RTMW 통합) 의 `RTMWPoseEngine.__init__` 는 `backend/shared/python/s
 
 ---
 
-*본 audit 은 Plan 01-20 Task 1 산출. Plan 01-20 Task 2 belle checkpoint 통과까지 production_eligible 0 개 유지 — plan 21 진입 차단 상태.*
+*본 audit 은 Plan 01-20 Task 1 산출. Plan 01-20 Task 2 belle checkpoint 통과 (2026-06-02) — production_eligible = 1개 (rtmw-x-384x288). Plan 21 진입 가능. 상업 출시 전 clean weight 교체 별도 plan 작성·시작 hard gate.*

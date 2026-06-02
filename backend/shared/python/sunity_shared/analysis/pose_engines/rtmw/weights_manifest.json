@@ -80,9 +80,16 @@
         "InterHand"
       ],
       "training_data_summary": "Cocktail14 (UBody+COCO pretrain → cocktail14 fine-tune)",
-      "license_status": "restricted",
-      "production_eligible": false,
-      "source_audit_ref": "docs/licenses/rtmw-weights-audit.md#3"
+      "license_status": "commercial_ok",
+      "production_eligible": true,
+      "source_audit_ref": "docs/licenses/rtmw-weights-audit.md#4",
+      "belle_decision": {
+        "date": "2026-06-02",
+        "verdict": "approved",
+        "scope": "validation-pilot-only",
+        "rationale": "단일 파트너 스튜디오(정은지) 검증 파일럿, 사용자 데이터 미학습, 추론 전용. Cocktail14 상업 약관 리스크는 본 검증 단계 한해 의식적 수용. 정식 상업 출시 전 mmpose 공식 commercial-friendly weight 또는 자체 clean-data fine-tune 으로 교체하는 것이 hard gate.",
+        "release_gate": "상업 출시(공개·과금) 전 clean weight 경로(B) 별도 plan 으로 작성·시작 후 교체 완료해야 함."
+      }
     },
     {
       "name": "rtmw3d-x-384x288",

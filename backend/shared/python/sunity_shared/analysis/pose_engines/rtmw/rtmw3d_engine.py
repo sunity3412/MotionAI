@@ -1,12 +1,12 @@
-"""RTMW3DPoseEngine — 옵션 A 어댑터 stub (Plan 01-22 Task 1).
+"""RTMW3DPoseEngine — 옵션 A 어댑터 stub (Plan 01-22 비선택, R&D 격리 대상).
 
 D-18 옵션 A: 단일 카메라 3D path = RTMW3D 직접 사용 (rtmlib RTMW3D 변형).
   RTMW 133 → (x, y, z, score) 단일 추론 → RTMW133ToCOCO17Adapter → PoseFrame.
 
-본 파일 (Plan 22 Task 1) = stub 상태 — Task 2 belle checkpoint 응답이
-"옵션 A (option_a)" 일 때만 estimate() 실 구현 + sweep weight 라이선스
-승급 (`weights_manifest.json` 의 `rtmw3d-*` entry production_eligible=true)
-진행. 옵션 B 선택 시 본 모듈은 plan 24 에서 R&D 격리 대상.
+본 파일 = belle = "approved: option_b" (2026-06-03, 본 plan
+`three_d_path_decision.md` §5 박제) 으로 인해 옵션 A 비선택. 따라서
+NotImplementedError stub 유지. 본 모듈은 plan 24 R&D 격리 대상 — plan 24 가
+`backend/research/pose_engines/` 트리로 이동 또는 stub 잔존 결정.
 
 PoseEngine Protocol 호환 (D-24):
   estimate(frames: np.ndarray, pole_axis: PoleAxis) → list[PoseFrame]

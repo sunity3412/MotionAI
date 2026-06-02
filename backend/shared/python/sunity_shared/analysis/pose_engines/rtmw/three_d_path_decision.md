@@ -142,18 +142,49 @@ plan 24 단계에서 path 재변경 가능 (단, swap 비용 발생 — 본 plan
 
 ## 5. belle 결정
 
-> **Status:** PENDING (Task 2 checkpoint — belle 응답 대기).
->
-> belle 가 본 §5 에 다음 마커 라인 추가 (정확 문자열 — plan 24 grep 의존):
->
-> - 옵션 A 선택 시: `selected: option_a`
-> - 옵션 B 선택 시: `selected: option_b`
->
-> 결정 박제 형식 (Task 2 채울 항목):
->
-> - 결정일자
-> - 결정 근거 (정확도 / latency / 라이선스 / swap 위험 중 핵심 1~2개)
-> - 비선택 옵션의 R&D 격리 대상 (plan 24 입력)
+selected: option_b
+
+- **결정일자:** 2026-06-03
+- **응답자:** belle (`approved: option_b`)
+- **선택 path:** 옵션 B — RTMW 2D + MotionBERT lifter (plan 07 재사용).
+
+### 결정 근거 (핵심)
+
+**1. 라이선스 (기준 c, 우선순위 3):** 옵션 A 의 RTMW3D 가중치
+`rtmw3d-x-384x288` 은 현재 `weights_manifest.json` 에서
+`license_status: "restricted"` + `production_eligible: false`
+박제. plan 20 audit (`docs/licenses/rtmw-weights-audit.md`) 가 동일
+결론. 옵션 A 채택 시 belle 가중치 승급 결정 + 별도 commercial-clean
+가중치 확보가 필요 — 비용 + 일정 리스크. 반면 옵션 B 는 운영
+RTMW 2D 가중치 (`rtmw-x-384x288`, plan 20 belle 승급 완료) +
+MotionBERT lite Apache-2.0 (plan 07 SUMMARY 박제) + H3.6M 학습셋
+(validation-pilot scope 한정, 상업 출시 전 별도 plan 확보) 로 즉시
+조립 가능.
+
+**2. 운영 path 단계적 검증 (기준 b/d, 우선순위 2/4):** 옵션 B 는 2D
+(plan 21 RTMW) 와 3D (plan 07 MotionBERT) 가 분리된 path — 두 단계
+독립 디버깅 + plan 23 회귀 검증에서 swap_ratio + latency 를 각 단계별로
+측정 가능. plan 17 mapping fix (Cycle 3 audit, swap_ratio 회귀
+root cause 박제) 가 옵션 B path 에 즉시 적용됨. 옵션 A 는 단일 모델로
+회귀 발견 시 디버깅 단위가 크다.
+
+**3. 정확도 비교는 plan 23 단계로 이연 (기준 a, 우선순위 1):** 본
+plan 단계에서 (a) 측정 불가. plan 23 회귀 검증에서 옵션 B path 의
+ms/frame + 정확도가 임계 미달이면 옵션 A 재평가 (별 plan 24/25 의
+입력) — 단, 옵션 B 의 라이선스/단계 분리 이점이 plan 23 결과보다
+선결과제.
+
+### 비선택 옵션 A 의 R&D 격리 (plan 24 입력)
+
+- **격리 대상:** `backend/shared/python/sunity_shared/analysis/pose_engines/rtmw/rtmw3d_engine.py`
+  (NotImplementedError stub 유지). `weights_manifest.json` 의
+  `rtmw3d-x-384x288` entry 는 `production_eligible: false` 유지 (D-25 게이트).
+- **격리 위치 (plan 24 책임):** 별도 R&D 트리 또는 stub 잔존. 본 plan 은
+  운영 path 격리만 박제, 실제 이동은 plan 24 가 일괄 처리.
+- **운영 코드 유지:** `RTMWPoseEngine` (plan 21) + 본 plan
+  `RTMWLifterPoseEngine` (옵션 B 실 구현) + `MotionBertLifter` (plan 07).
+- **`MediaPipeWithLifterEngine` 의 격리:** 옵션 B 채택으로 MediaPipe path 가
+  RTMW 로 교체됨 — `mediapipe_lifter_engine.py` 는 plan 24 의 R&D 격리 대상.
 
 ---
 

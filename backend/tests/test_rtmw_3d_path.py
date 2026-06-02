@@ -1,14 +1,15 @@
-"""Plan 01-22 Task 1 — RTMW 3D path stub 단위 테스트.
+"""Plan 01-22 Task 1+2 — RTMW 3D path 단위 테스트.
 
 D-18 옵션 A (RTMW3DPoseEngine) / 옵션 B (RTMWLifterPoseEngine) 두 어댑터의:
   1. three_d_path_decision.md 비교 문서 존재 + 핵심 섹션 박제.
   2. PoseEngine Protocol 만족 (estimate(frames, pole_axis) 시그니처).
   3. module-level rtmlib / mmpose / mmcv / torch / mediapipe import 0건 (H-2 박제).
-  4. belle 결정 전 두 엔진 모두 estimate() 호출 시 NotImplementedError.
+  4. belle = approved: option_b (2026-06-03 박제) 후 비선택 옵션 A 의
+     NotImplementedError stub 유지 (plan 24 R&D 격리 입력 게이트).
 
-Task 2 belle 응답 ('option_a' 또는 'option_b') 후 선택된 1개 어댑터만 실 구현
-→ test_rtmw_3d_path_selected.py 에서 z 채움 + swap_ratio 0 + Protocol contract
-검증 (별 plan 22 Task 2 책임). 본 모듈은 Task 1 stub-level 게이트.
+Task 2 (옵션 B 실 구현) 의 estimate() contract 검증
+(NotImplementedError 미발생 + z 채움 + swap_ratio 0) 은
+test_rtmw_3d_path_selected.py 에서 별도 게이트로 검증.
 """
 
 from __future__ import annotations
@@ -160,14 +161,18 @@ def test_both_engines_no_module_level_heavy_import():
                         )
 
 
-# ── Test 5: 두 엔진 모두 estimate() 호출 시 NotImplementedError ──────────
+# ── Test 5: 비선택 옵션 A 의 estimate() 가 NotImplementedError (Task 2 후 갱신) ──
 
-def test_both_engines_unselected_raises_not_implemented():
-    """belle 결정 전 — 두 어댑터 모두 estimate() 호출 시 NotImplementedError.
+def test_unselected_option_a_raises_not_implemented():
+    """belle = approved: option_b (2026-06-03) 후 — 비선택 옵션 A 만 stub 유지.
 
-    Task 1 stub-level 게이트: 둘 다 옵션 미선택 상태이므로 estimate() 실 구현 없음.
-    Task 2 belle 응답 ('option_a' 또는 'option_b') 후 선택된 1개만 NotImplementedError
-    제거 + 실 구현 (test_rtmw_3d_path_selected.py 에서 별도 검증).
+    Task 2 가 옵션 B (RTMWLifterPoseEngine) 의 estimate() 실 구현 → 옵션 B 의
+    NotImplementedError 검증은 본 테스트에서 제거 (test_rtmw_3d_path_selected.py
+    가 list[PoseFrame] 반환 contract 검증으로 대체).
+
+    옵션 A (RTMW3DPoseEngine) 는 비선택 — plan 24 R&D 격리 대상으로
+    NotImplementedError stub 유지 강제. plan 24 의 conditional 격리 acceptance
+    가 본 게이트에 의존.
 
     DI factory 로 인스턴스화 시도 — RTMW3DPoseEngine 은 RTMW3D production_eligible
     가중치 부재로 LicenseViolationError 가 먼저 발생할 수 있음 (현재 manifest 박제 상태).
@@ -175,10 +180,7 @@ def test_both_engines_unselected_raises_not_implemented():
     estimate() 에서 발생함을 보장하기 위해 factory 의 manifest gate 를 우회한 instance
     직접 구성 path 로 검증.
     """
-    from sunity_shared.analysis.pose_engines import (
-        RTMW3DPoseEngine,
-        RTMWLifterPoseEngine,
-    )
+    from sunity_shared.analysis.pose_engines import RTMW3DPoseEngine
     from sunity_shared.analysis.pose_frame import PoleAxis
 
     pole_axis = PoleAxis(
@@ -188,9 +190,8 @@ def test_both_engines_unselected_raises_not_implemented():
     )
     frames = np.zeros((2, 64, 64, 3), dtype=np.uint8)
 
-    # RTMW3DPoseEngine — factory manifest gate 통과 위해 mock instance 구성
-    # (manifest 에 production_eligible=true 인 RTMW3D entry 없으면 LicenseViolationError
-    # 도 정합 — 옵션 A 미선택 상태). 본 테스트는 estimate() 의 NotImplementedError 만 검증.
+    # RTMW3DPoseEngine — factory manifest gate 통과 위해 mock instance 구성.
+    # 본 테스트는 estimate() 의 NotImplementedError 만 검증 (비선택 옵션 A stub 보존).
     rtmw3d_instance = RTMW3DPoseEngine.__new__(RTMW3DPoseEngine)
     rtmw3d_instance._inferencer = MagicMock()
     rtmw3d_instance._selected_weight = {"name": "rtmw3d-stub"}
@@ -198,20 +199,6 @@ def test_both_engines_unselected_raises_not_implemented():
     with pytest.raises(NotImplementedError) as exc_info_a:
         rtmw3d_instance.estimate(frames=frames, pole_axis=pole_axis)
     assert "옵션 A" in str(exc_info_a.value) or "option_a" in str(exc_info_a.value), (
-        f"RTMW3DPoseEngine.estimate NotImplementedError 메시지에 옵션 A 명시 필요: "
-        f"{exc_info_a.value}"
-    )
-
-    # RTMWLifterPoseEngine — create_with_engines factory 통과 후 estimate 호출.
-    mock_rtmw = MagicMock()
-    mock_lifter = MagicMock()
-    lifter_engine = RTMWLifterPoseEngine.create_with_engines(
-        rtmw_engine=mock_rtmw,
-        lifter=mock_lifter,
-    )
-    with pytest.raises(NotImplementedError) as exc_info_b:
-        lifter_engine.estimate(frames=frames, pole_axis=pole_axis)
-    assert "옵션 B" in str(exc_info_b.value) or "option_b" in str(exc_info_b.value), (
-        f"RTMWLifterPoseEngine.estimate NotImplementedError 메시지에 옵션 B 명시 필요: "
-        f"{exc_info_b.value}"
+        f"RTMW3DPoseEngine.estimate NotImplementedError 메시지에 옵션 A 명시 필요 "
+        f"(비선택 옵션, plan 24 R&D 격리 입력): {exc_info_a.value}"
     )

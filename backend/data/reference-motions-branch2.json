@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastUpdated": "2026-06-02",
+  "branch": 2,
+  "branchDescription": "분기 2 — IPSF 비등재 + 정은지 reference 보유. 한국 학원 통용 명칭 + 정은지 영상 측정값 기준 채점. mode1 reference 자산 재사용.",
+  "scoringPath": "정은지 영상 측정값 (각도/라인/홀드) → DTW + (c) Technical Deduction + Page 9 절대 트랙 (16-SCORING-SPEC.md). (a) Compulsory Criteria 비활성 (IPSF 비등재). 정은지 측정값 = 객관 측정만, 사람 점수 라벨링 X ([[analysis-objectivity-no-human-scores]]).",
+  "objectivityNote": "본 컬렉션의 geometricCriteria 는 모두 정은지 영상에서 자동 추출한 측정값. 사람 (belle/강사/심사자) 이 점수를 매기지 않음. championPersonalAlias 는 reference 인물 본인 호칭 박제용 — 학원 AKA 와 별개.",
+  "entries": [
+    {
+      "motionId": "ref-foxtop",
+      "studioName": "폭스탑",
+      "studioNameAliases": ["폭스탑", "Foxtop"],
+      "championPersonalAlias": "버터플라이 콤보",
+      "championPersonalAliasNote": "정은지 선수 본인은 폭스탑 동작을 '버터플라이 콤보' 라고 호칭 (belle 2026-06-02 확인). 학원/IPSF/reference 인물 명칭이 다른 케이스 — 분기 2 의 명명 갈등 박제 예시.",
+      "ipsfRegistered": false,
+      "ipsfRelatedCode": "F401/F402 (Inverted Torso Hook / Butterfly 와 유사 family — 정확한 매핑은 Phase 5 NotebookLM 재lookup)",
+      "ipsfRelatedNote": "폭스탑 자체는 IPSF 비등재 (NotebookLM lookup 2026-06-02 결과). 한국 학원 통용 hybrid 동작. IPSF 룰상 Transitions & Climbs 카테고리 흐름 평가로 처리.",
+      "championReferenceVideoId": "PLACEHOLDER_EUNJI_FOXTOP_VIDEO_ID",
+      "championReferenceVideoNote": "정은지 영상 폴더에 보유 확인 (belle 2026-06-02). 영상 ID + S3 경로 확정 + 측정값 자동 추출은 Phase 14 (정은지 기준 모션 등록 — 다각도 캡처 가이드) 진입 시 처리.",
+      "geometricCriteria": {
+        "extractionStatus": "pending",
+        "extractionPhase": "Phase 14",
+        "criteriaPlaceholder": [
+          "각도 차원: 무릎/팔꿈치/고관절 신전 각도 (정은지 영상 자동 추출)",
+          "라인 차원: 신체-폴 정렬 각도 (정은지 영상 자동 추출)",
+          "안정성 차원: 홀드 시간 + jerk (정은지 영상 자동 추출)",
+          "Page 9 절대 트랙: Fall/Slip/Balance/Alignment/Toe Point (사용자 영상 직접 측정)"
+        ],
+        "extractionRule": "정은지 영상 = 측정값 자동 추출. 사람이 점수 라벨링 X. extraction wiring 은 Phase 14 진입 시 backend/shared/.../analysis/ 의 dimension extractor 재사용."
+      },
+      "sourceRef": "champion reference (Jeong Eunji) extracted from video, IPSF non-registered hybrid technique / belle 2026-06-02 영상 보유 확인 + 정은지 본인 호칭 '버터플라이 콤보' 박제",
+      "note": "분기 2 — IPSF 비등재 한국 학원 통용 동작. Page 9 절대 트랙 + 정은지 측정값 기준 채점. (a) Compulsory 비활성, (c) + Page 9 활성. (b)/(d) v2.",
+      "isRegistered": false,
+      "scoringMode": "branch2",
+      "createdAt": "2026-06-02"
+    }
+  ]
+}

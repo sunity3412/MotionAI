@@ -46,7 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 13: 보완 운동·스트레칭 추천 라이브러리** - 분석 → 행동 매핑 (PERS-03 v1)
 - [ ] **Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)** - 비교 정확도 최대화 + 다각도 캡처 프로토콜
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주
-- [ ] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path.
+- [x] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path. (completed 2026-06-02)
 
 ## Phase Details
 
@@ -276,7 +276,7 @@ Decimal phases appear between their surrounding integers in numeric order.
      - **(c) 분기 2 reference 사용률 = v1 게이트 아님** — belle 결정: 사용률 측정 자체보다 "분기 2 reference 사용 시 분석 정확도 (Page 9 트랙 + 정은지 측정값) 가 작동하는지" 가 진짜 검증 (정성). 운영 metric 으로만 박제, v2 belle 재논의.
      - **확장 path**: 게이트 통과 후 한 번에 진행 — 분기 2 reference 5~10개 추가 + 분기 3 승격 알고리즘 + 분기 1 NotebookLM batch lookup 자동화.
 **Plans**:
-  - [ ] 16-01-PLAN.md — AKA 매핑 13개 + 5트랙 v1 spec + 분기 2 정은지 reference + 자동 수집 스키마 + UX 카피 박제 위치 + 실증 검증 게이트 threshold belle 협의 (T-1~T-7, code change 0)
+  - [x] 16-01-PLAN.md — AKA 매핑 13개 + 5트랙 v1 spec + 분기 2 정은지 reference + 자동 수집 스키마 + UX 카피 박제 위치 + 실증 검증 게이트 threshold belle 협의 (T-1~T-7, code change 0)
 
 ### Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight
 **Goal**: 사용자가 Mode 1(정은지 기준 비교)과 Mode 3(자기 영상 발전)을 실영상으로 완주하고, 고수 영상에서 위양성 없이 신뢰할 만한 점수를 받고, TestFlight 게스트 모드에서 회원가입 없이 실기기로 완주한다
@@ -323,7 +323,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 13. 보완 운동·스트레칭 추천 | 0/TBD | Not started | - |
 | 14. 정은지 기준 모션 등록 (다각도) | 0/TBD | Not started | - |
 | 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 0/TBD | Not started | - |
-| 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 0/TBD | Not started (NEW 2026-06-02) | - |
+| 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 1/1 | Complete   | 2026-06-02 |
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

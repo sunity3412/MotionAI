@@ -9,6 +9,10 @@ Plan 01-21 추가 (D-17 운영 백본 RTMW pivot):
   - RTMWPoseEngine: RTMW 133 wholebody 어댑터 (Apache-2.0)
   - LicenseViolationError: D-25 라이선스 게이트 예외
 
+Plan 01-22 추가 (D-18 단일 카메라 3D path stub):
+  - RTMW3DPoseEngine: 옵션 A 어댑터 stub (RTMW3D 직접 사용)
+  - RTMWLifterPoseEngine: 옵션 B 어댑터 stub (RTMW 2D + MotionBERT lifter)
+
 H-2 박제: 모든 엔진은 lazy export (접근 시점에만 import).
   Module load 단계에서 mediapipe/torch/rtmlib import 없음 — Lambda fail-fast 안전.
 """
@@ -24,6 +28,8 @@ __all__ = [
     "MediaPipeWithLifterEngine",
     "RTMWPoseEngine",
     "LicenseViolationError",
+    "RTMW3DPoseEngine",
+    "RTMWLifterPoseEngine",
 ]
 
 
@@ -41,4 +47,10 @@ def __getattr__(name: str) -> object:
     if name == "LicenseViolationError":
         from .rtmw.rtmw_engine import LicenseViolationError  # noqa: PLC0415
         return LicenseViolationError
+    if name == "RTMW3DPoseEngine":
+        from .rtmw.rtmw3d_engine import RTMW3DPoseEngine  # noqa: PLC0415
+        return RTMW3DPoseEngine
+    if name == "RTMWLifterPoseEngine":
+        from .rtmw.lifter_pipeline import RTMWLifterPoseEngine  # noqa: PLC0415
+        return RTMWLifterPoseEngine
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

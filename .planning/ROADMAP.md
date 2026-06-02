@@ -31,7 +31,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: PoseEngine 추상화 + MediaPipe 어댑터 + 폴 축 정렬 + NLF R&D 격리** - 상용 제품 코드를 MediaPipe로 마이그레이션, NLF/SMPL-X는 R&D 비교군으로 격리, 폴 축 좌표계 산출 (모든 분석의 기반)
+- [ ] **Phase 1: PoseEngine 추상화 + RTMW 어댑터 + 폴 축 정렬 + NLF R&D 격리** - 상용 제품 코드를 RTMW 133 wholebody (Apache-2.0) 로 마이그레이션, NLF/SMPL-X 는 R&D 비교군으로 격리, 폴 축 좌표계 산출 (모든 분석의 기반). MediaPipe 운영 백본 도입 안 함 (2026-06-02 pivot).
 - [ ] **Phase 2: BodyNormalizationProfile 자동 측정 (MediaPipe segment 기반)** - 키·팔/다리/몸통 비율·좌우 비대칭 자동 추출. SMPL-X β는 R&D 비교군에서만 (제품 코드 사용 금지)
 - [ ] **Phase 3: 자가입력 BodyProfileInput** - 키·몸무게·경력·통증부위 1회 입력 UX
 - [ ] **Phase 4: 다중 시점 촬영 UX + occlusion confidence 게이트** - 가림 완화 + 저신뢰 프레임 "추정" 표기
@@ -50,13 +50,16 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ## Phase Details
 
-### Phase 1: PoseEngine 추상화 + MediaPipe 어댑터 + 폴 축 정렬 + NLF R&D 격리
-**Goal**: 상용 제품 코드를 NLF → MediaPipe로 마이그레이션하고, `PoseEngine` 인터페이스 + 공통 계약(`PoseFrame` / `BodyNormalizationProfile`)을 도입한다. NLF/SMPL-X는 R&D 비교군 어댑터로 격리(제품 호출 경로에서 제거). 동시에 폴 축 자동 검출 + 기준 좌표계 정렬을 MediaPipe 위에서 산출한다 — 모든 다운스트림의 기반.
+### Phase 1: PoseEngine 추상화 + ~~MediaPipe~~ RTMW 어댑터 + 폴 축 정렬 + NLF R&D 격리
+
+> **2026-06-02 belle pivot — RTMW 무료 스택:** 운영 백본을 **MediaPipe + MotionBERT → RTMW 133 wholebody (Apache-2.0) 단일 백본** 으로 전환. 3D 는 RTMW3D / monocular 리프팅 (단일 카메라) + Pose2Sim (멀티 카메라). 체형 정규화는 SMPL-X 없이 세그먼트 길이 비율. NLF/SMPL-X 의존 영구 제거 (매출 검증 후 옵션 업그레이드). **PoseEngine 인터페이스 추상화 필수** — 다운스트림 분석 레이어 무수정. 자세 사항: `01-CONTEXT.md` D-17~D-25, `/Users/kimtaesung/Downloads/Sunity_v1_개발지시_RTMW무료스택.md`. Plan 02·03 MediaPipe 코드 결과물 → R&D 격리 또는 폐기 (플래너 판단).
+
+**Goal**: 상용 제품 코드를 **NLF → RTMW 133 wholebody (Apache-2.0)** 로 마이그레이션하고, `PoseEngine` 인터페이스 + 공통 계약(`PoseFrame` / `BodyNormalizationProfile`)을 도입한다. NLF/SMPL-X 는 R&D 비교군 어댑터로 격리(제품 호출 경로에서 제거). 동시에 폴 축 자동 검출 + 기준 좌표계 정렬을 RTMW 위에서 산출한다 — 모든 다운스트림의 기반.
 **Mode:** mvp
 **Depends on**: Nothing (공통 레이어 첫 단계 — 현 NLF 코드 마이그레이션 포함)
 **Requirements**: POSE-01, POSE-02
-**Scope 제약**: 초기 3~5개 동작군 범위(똑바로 선·가림 적은). 스피닝 폴은 v1.5. NLF/SMPL-X는 R&D 비교군 비공개 평가에만 사용 — 공개 베타·유료 파일럿·고객 영상 처리 금지.
-**External dependency**: MediaPipe Pose (Apache 2.0, 라이선스 리스크 0). NLF/SMPL-X R&D 비교군은 PS:License 1.0 (비상업) 사내 평가만.
+**Scope 제약**: 초기 3~5개 동작군 범위(똑바로 선·가림 적은). 스피닝 폴은 v1.5. NLF/SMPL-X는 R&D 비교군 비공개 평가에만 사용 — 공개 베타·유료 파일럿·고객 영상 처리 금지. **MediaPipe 운영 백본 도입 안 함** (Plan 02·03 결과물은 R&D 격리 또는 폐기).
+**External dependency**: **rtmlib RTMW (Apache-2.0)** 운영 백본 — 모델 가중치별 학습 데이터 상업 사용 가능 여부 확인 필수 (D-25). NLF/SMPL-X R&D 비교군은 PS:License 1.0 (비상업) 사내 평가만.
 **Success Criteria** (what must be TRUE):
   1. `PoseEngine` 인터페이스가 정의되고 `MediaPipePoseEngine` 어댑터가 제품 코드 경로(Lambda/RunPod 파이프라인)에서 동작한다
   2. `NlfPoseEngine` 어댑터는 별도 모듈로 격리되어 R&D 평가 스크립트에서만 호출 가능 (제품 파이프라인 import 경로에서 제거)
@@ -80,7 +83,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [~] 01-13-PLAN.md — Gemini key moment timestamp + criteria extractor (multimodal 2.5 Pro). T-1~T-6 완료. **verdict `measurement_unreliable_blocked`** — Gemini moment 추출 + IPSF criteria 비교 pipeline 통과했으나 측정값 자체 의심 (정은지 invert peak hold right_shoulder 18.2° 같은 인체학적 비정상). Plan 12 (e) "두 엔진 3D 분포 strong" 직접 연결. (Wave 2, NEW 2026-06-01, **Plan 14 차단 → Plan 16 필수**)
   - [x] 01-16-PLAN.md — **측정 신뢰도 trace spike** — T-1~T-6 완료. belle Pod live mode 결과 dominant ['b', 'c', 'd'] — left_elbow swap_ratio 1.00 / cross-engine disagreement 34.57° / 영상 평균 |L-R| 43.14°. (a) frame_idx rejected. (Wave 2, COMPLETE 2026-06-01)
   - [x] 01-17-PLAN.md — **keypoint mapping audit + swap fix** (Codex Cycle 3 PASS) — T-1 audit 결과 `blocked/no-static-mapping-defect`. 5 mapping source 58 row canonical (failed 0). Plan 16 swap_ratio 1.00 root cause = static index defect 가 아니라 lift path 자체의 좌우 신뢰도 약점. T-2/T-3/T-4 hard abort branch 정확히 발동. (Wave 2, COMPLETE 2026-06-01)
-  - [ ] 01-18-PLAN.md — **multi-engine averaging spike** (NEW) — Plan 16 가설 (d) cross-engine 34.57° strong + Plan 17 audit 통과 후속. RTMPose+MB + MP+MB voting/평균으로 좌우 noise cancel. ref-invert 단독 시범 → swap_ratio ≤ 0.05 + lifter.overall ≥ 85 게이트. (Wave 2, NEW 2026-06-01, **Plan 14 진입 gate**)
+  - [on hold] 01-18-PLAN.md — **multi-engine averaging spike** — **2026-06-02 RTMW pivot 으로 보류** (abandoned 아님). RTMW 단일 wholebody 백본 채택 으로 averaging target (RTMPose+MB / MP+MB) 두 path 자체가 메인 백본에서 빠짐. RTMW pivot plan 들 (신규) 의 비교 하니스에서 averaging 결론 흡수 가능. 코드 작성 0, SUMMARY 0.
   - [ ] 01-14-PLAN.md — 5영상 재검증 sweep — Plan 13 key moment + Plan 15 IPSF 임계값 적용 후 sweep_rtmpose 재실행. **게이트 = IPSF tolerance 안 + line/angle 5/5 PASS** (Wave 2, NEW 2026-06-01, Wave 3 진입 gate — **Plan 16 통과 후 진입**)
   - [ ] 01-04-PLAN.md — NLF R&D 격리 (backend/research/로 이동 + .samignore) (Wave 3 — **Plan 14 통과 후 진입**)
   - [ ] 01-05-PLAN.md — pipeline/app.py atomic swap + RunPod requirements.txt/setup.sh/README 갱신 (Wave 3 — **Plan 14 통과 후 진입**)

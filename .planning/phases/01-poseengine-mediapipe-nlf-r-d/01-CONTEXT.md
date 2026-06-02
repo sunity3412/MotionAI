@@ -1,12 +1,21 @@
 # Phase 1: PoseEngine 추상화 + MediaPipe 어댑터 + 폴 축 정렬 + NLF R&D 격리 - Context
 
 **Gathered:** 2026-05-31
-**Status:** Ready for planning
+**Updated:** 2026-06-02 — RTMW free-stack pivot 박제 (D-17~D-25 추가, D-01~D-08 일부 supersede)
+**Status:** Ready for planning (RTMW pivot 반영 — 신규 plan 작성용 컨텍스트)
+
+> **2026-06-02 Pivot 요약 (belle 결정):** v1 운영 백본을 **MediaPipe + MotionBERT** 에서 **RTMW 133 wholebody (Apache-2.0) 단일 백본** 으로 전환. 3D 는 RTMW3D / monocular 리프팅 (단일 카메라) + Pose2Sim (멀티 카메라). 체형 정규화는 SMPL-X 없이 세그먼트 길이 비율. NLF/SMPL-X 의존 영구 제거 (매출 검증 후 옵션 업그레이드로 deferred). **PoseEngine 인터페이스 추상화 필수** — 다운스트림 분석 레이어 무수정 박제 위해. 자세 사항은 `<decisions>` D-17 ~ D-25.
+>
+> **Plan 영향:** Plan 18 (multi-engine averaging spike) = **on hold** (abandoned 아님 — RTMW pivot 후 averaging target 두 path 자체가 메인 백본에서 빠짐, 의미 재평가 대상). Plan 04/05 (NLF R&D 격리 + atomic swap) 는 RTMW 구현체로 대상 변경 후 진행.
+>
+> **출처:** `/Users/kimtaesung/Downloads/Sunity_v1_개발지시_RTMW무료스택.md` + memory `rtmw-free-stack-pivot`, `plan-18-on-hold-rtmw-pivot`, `lifter-mp-motionbert-decision` (재평가 박제).
 
 <domain>
 ## Phase Boundary
 
-상용 제품 코드의 포즈 엔진을 NLF→MediaPipe로 마이그레이션하고, `PoseEngine` 인터페이스 + 공통 계약(`PoseFrame`)을 도입한다. NLF/SMPL-X는 R&D 비교군 어댑터로 격리(제품 import 경로에서 완전 제거). 동시에 폴 축 자동 검출 + 기준 좌표계 정렬을 MediaPipe 위에서 산출한다 — 모든 다운스트림 분석의 기반.
+상용 제품 코드의 포즈 엔진을 **NLF → RTMW 133 wholebody (Apache-2.0)** 로 마이그레이션하고, `PoseEngine` 인터페이스 + 공통 계약(`PoseFrame`, `BodyNormalizationProfile`)을 도입한다. NLF/SMPL-X 는 R&D 비교군 어댑터로 격리(제품 import 경로에서 완전 제거). 동시에 폴 축 자동 검출 + 기준 좌표계 정렬을 RTMW 위에서 산출한다 — 모든 다운스트림 분석의 기반.
+
+> **2026-06-02 pivot:** 원래 boundary 는 NLF→**MediaPipe** 마이그레이션이었으나, belle 결정으로 **MediaPipe + MotionBERT → RTMW** 로 재pivot. MediaPipe 코드 (Plan 02·03 결과물) 는 운영 경로에서 제거되거나 R&D 측 격리. 자세 사항 D-17~D-25.
 
 **In scope:**
 - `PoseEngine` 인터페이스 정의 + `PoseFrame` 공통 계약 (TS/Python lockstep)
@@ -64,6 +73,29 @@
   4. 추론 속도 — 프레임당 ms. MediaPipe Heavy가 Lambda CPU에서 일정 안에 도는지 확인
 - **D-16:** 검증 실패 시 = **Phase 1 종료 보류, 원인 분석 후 재시도**. Hough·keypoint 매핑·confidence 계산 튜닝 재시도. swap 안 됐으니 제품 회귀 없음. 시간 소요 허용
 
+### RTMW Pivot (2026-06-02 belle 결정 — D-01~D-08 일부 supersede)
+
+- **D-17 [supersedes D-01/D-02/D-03]:** 운영 백본 = **rtmlib RTMW 133 키포인트 wholebody (Apache-2.0)**. MediaPipe BlazePose Heavy 는 운영 백본에서 제외 (R&D 비교군 또는 폐기 — 플래너 판단). RTMW Tasks API / Solutions 비교는 무의미 (RTMW 는 mmpose/rtmlib 직접 호출).
+- **D-18:** 3D 산출 = **단일 카메라는 RTMW3D 또는 monocular 리프팅** (RTMW + MotionBERT 류), **멀티 카메라는 Pose2Sim** (스포츠 특화 무료). 단일 카메라 우선, 다각도는 occlusion/측정오류 해결 시 자동 제외 ([[single-camera-first-multi-view-last]] 정책 그대로 적용).
+- **D-19:** 체형 정규화 = **SMPL-X 없이 세그먼트 길이 비율**. 파라미터형 메시 없음. Phase 2 (`BodyNormalizationProfile`) 는 RTMW 세그먼트 기반으로 재정의 — SMPL-X β 의존 제거.
+- **D-20 [supersedes D-04]:** 원본 저장 = **RTMW 133 풀 키포인트**. COCO-17 으로 떨궈 저장 X. 스코어링/분석 계약은 **COCO-17 + 폴 확장(toe·heel·grip)** 유지 (다운스트림 무수정). 어댑터 `RTMW133ToCOCO17Adapter` (+폴 확장 추출) — `MediaPipe33ToCOCO17Adapter` 는 사용 안 함 (작성 안 함 또는 R&D 측 격리).
+- **D-21:** 엔진 선택 config 플래그 `POSE_ENGINE = RTMW | NLF_SMPLX`. `NLF_SMPLX` 는 R&D 비공개 평가 전용. 기본값 = `RTMW`. `PoseFrame.bodyShape` 필드 nullable (RTMW = null, NLF_SMPLX = β 채움).
+- **D-22 [supersedes D-05 보완]:** Confidence 변환 정책은 RTMW 의 키포인트 score(0~1) 로 매핑 — `confidence = rtmw_score`, `uncertainty_proxy = 1 - confidence`. visibility/presence 두 필드 가정 제거 (RTMW 단일 score). 기존 D-05 의 사용처·규칙·고객 리포트 정책·NLF 통합 시 동일 인터페이스 매핑은 그대로 유지.
+- **D-23 [supersedes D-06/D-07]:** **NLF 위치 = `backend/research/pose_engines/nlf/`** 유지 (제품 패키지 `sunity_shared` 밖). **새로 RTMW 도 동일 패턴으로 격리 X** — RTMW 는 제품 운영 백본이라 `sunity_shared/analysis/pose_engines/rtmw/` 로 들어옴. 기존 `pose_engines/` 디렉터리 신설 가능 (계획 수립 시 플래너 판단). MediaPipe 코드 (Plan 02·03 결과물) 는 폐기 또는 R&D 격리 — 운영 import 경로에서 제거.
+- **D-24:** **PoseEngine 인터페이스 추상화 필수** — `PoseEngine` Protocol + `PoseFrame` 공통 계약 + `BodyNormalizationProfile` 공통 입력. 모든 다운스트림 분석 레이어(`features`/`temporal`/`motiondtw`/`kismam`/`dimensions`/`assemble`/`technique`)는 **인터페이스에만 의존**. RTMW→NLF→SMPL-X 도입 시 **구현체만 교체**, 다운스트림 재작성 금지. belle 명시: "대량 코딩 전 모듈 구조 / PoseEngine 인터페이스 / 공통 타입 먼저 제안 + 질문 단계" — 인터페이스 합의 전에 RTMW 코드 직진 금지.
+- **D-25:** **라이선스 위생** — RTMW 코드 자체는 Apache-2.0 이지만 **모델 가중치별 학습 데이터 상업 사용 가능 여부 확인 필수** (일부 wholebody 가중치 데이터셋 제약 가능). 고객 대면/상업 배포 전 가중치 라이선스 확정 + 박제. [[license-blocklist-pose]] 유효 (RTMPose OK 박제 그대로).
+
+**Supersede 정리:**
+- D-01/D-02/D-03 (MediaPipe variant·API·world landmarks 선택) → D-17 로 대체. MediaPipe 운영 도입 안 함.
+- D-04 (MediaPipe 33 원본 저장) → D-20 (RTMW 133 원본 저장) 으로 대체.
+- D-05 (Confidence 변환식) → D-22 (RTMW 단일 score 로 매핑) 로 변환식 수정. 사용처·정책은 유지.
+- D-06/D-07 (NLF 격리 위치·import 차단) → D-23 (RTMW 운영 경로 신설 + MediaPipe 폐기 또는 R&D 격리) 로 확장.
+- D-08 (atomic swap) → 대상 변경 (NLF → RTMW). swap 전략 자체는 유지. Plan 04/05 가 atomic swap 수행.
+
+**유효 유지 (변경 없음):**
+- D-09/D-10/D-11/D-12 (폴 축 검출·시간 안정·폴백·좌표 저장) — RTMW 위에서도 동일 적용.
+- D-13/D-14/D-15/D-16 (회귀 검증 영상 5개·점수 갭·추가 지표·실패 대응) — 비교 대상이 RTMW vs NLF 로 변경. NotebookLM lookup 기준 + IPSF GeometricCriterion baseline (Plan 12 verdict 박제) 그대로.
+
 ### Claude's Discretion
 - 폴 확장 landmark(toe/heel/grip)의 정확한 MediaPipe 33 인덱스 매핑 — 플래너가 MediaPipe 문서 참고해 확정
 - `PoseEngine` 인터페이스 메서드 시그니처 세부 (estimate 반환 타입, 에러 매핑 등)
@@ -81,7 +113,8 @@
 **Downstream agents MUST read these before planning or implementing.**
 
 ### 시스템 아키텍처·결정 (필수)
-- `.planning/ROADMAP.md` — Overview 섹션의 belle 결정 7건 + Phase 1·2 상세
+- `.planning/ROADMAP.md` — Overview 섹션의 belle 결정 7건 + Phase 1·2 상세 (RTMW pivot 반영 갱신 진행)
+- `/Users/kimtaesung/Downloads/Sunity_v1_개발지시_RTMW무료스택.md` — **2026-06-02 belle pivot 지시문 (필독)**. RTMW 무료 스택 채택 이유·범위·인터페이스 요구사항. 다른 ROADMAP/CONTEXT 문구와 충돌 시 이 문서 우선.
 - `.planning/REQUIREMENTS.md` — POSE-01, POSE-02, POSE-03, BODY-01, COACH-01 등 v1 18개. belle 결정 박스 (라이선스·모드·UX)
 - `.planning/STATE.md` — current decisions 9건, blockers (Phase 1 마이그레이션 HIGH)
 - `.planning/PROJECT.md` — Core value (분석 정확도), 폴스포츠 도메인 컨텍스트
@@ -163,3 +196,4 @@
 
 *Phase: 1-PoseEngine 추상화 + MediaPipe 어댑터 + 폴 축 정렬 + NLF R&D 격리*
 *Context gathered: 2026-05-31*
+*Pivot update: 2026-06-02 (RTMW free-stack pivot — D-17~D-25 추가, D-01~D-08 일부 supersede)*

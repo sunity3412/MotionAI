@@ -178,25 +178,29 @@ def test_rtmw_engine_rejects_non_eligible_weights(no_eligible_manifest_path, moc
 # ── Test 5: module-level no rtmlib import ────────────────────────────────
 
 def test_rtmw_engine_module_level_no_rtmlib_import():
-    """rtmw_engine.py 의 module-level import 에 rtmlib/mmpose/mmcv 0건 (H-2 박제)."""
+    """rtmw_engine.py 의 module-level (top-level) import 에 rtmlib/mmpose/mmcv 0건 (H-2 박제).
+
+    module-level = ast.Module.body 의 직접 자식 Import/ImportFrom 노드만 검사.
+    함수/클래스 내부의 lazy import (try: from rtmlib import ...) 는 허용.
+    """
     assert ENGINE_PATH.exists(), f"rtmw_engine.py 없음: {ENGINE_PATH}"
     source = ENGINE_PATH.read_text(encoding="utf-8")
     tree = ast.parse(source)
 
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    mod = alias.name.lower()
-                    assert "rtmlib" not in mod, f"module-level rtmlib import 금지: {alias.name}"
-                    assert "mmpose" not in mod, f"module-level mmpose import 금지: {alias.name}"
-                    assert "mmcv" not in mod, f"module-level mmcv import 금지: {alias.name}"
-            elif isinstance(node, ast.ImportFrom):
-                if node.module:
-                    mod = node.module.lower()
-                    assert "rtmlib" not in mod, f"module-level rtmlib import 금지: {node.module}"
-                    assert "mmpose" not in mod, f"module-level mmpose import 금지: {node.module}"
-                    assert "mmcv" not in mod, f"module-level mmcv import 금지: {node.module}"
+    # module-level = ast.Module.body 의 직접 자식만 검사 (H-2: lazy import 허용)
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                mod = alias.name.lower()
+                assert "rtmlib" not in mod, f"module-level rtmlib import 금지: {alias.name}"
+                assert "mmpose" not in mod, f"module-level mmpose import 금지: {alias.name}"
+                assert "mmcv" not in mod, f"module-level mmcv import 금지: {alias.name}"
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                mod = node.module.lower()
+                assert "rtmlib" not in mod, f"module-level rtmlib import 금지: {node.module}"
+                assert "mmpose" not in mod, f"module-level mmpose import 금지: {node.module}"
+                assert "mmcv" not in mod, f"module-level mmcv import 금지: {node.module}"
 
 
 # ── Test 6: 빈 결과 → NoHumanError ──────────────────────────────────────

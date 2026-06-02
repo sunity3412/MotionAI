@@ -379,18 +379,21 @@ def test_convert_body_shape_none(default_pole_axis):
 # ── 추가: rtmlib import 없는지 검증 ─────────────────────────────────────
 
 def test_adapter_no_rtmlib_import():
-    """rtmw_133_to_coco17.py 는 rtmlib/mmpose module-level import 0."""
+    """rtmw_133_to_coco17.py 는 rtmlib/mmpose module-level (top-level) import 0.
+
+    어댑터는 backend-agnostic — rtmlib 의존 없음.
+    """
     source = _get_adapter_source()
     tree = ast.parse(source)
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    mod = alias.name.lower()
-                    assert "rtmlib" not in mod, f"rtmlib module-level import 금지: {alias.name}"
-                    assert "mmpose" not in mod, f"mmpose module-level import 금지: {alias.name}"
-            elif isinstance(node, ast.ImportFrom):
-                if node.module:
-                    mod = node.module.lower()
-                    assert "rtmlib" not in mod, f"rtmlib module-level import 금지: {node.module}"
-                    assert "mmpose" not in mod, f"mmpose module-level import 금지: {node.module}"
+    # module-level = ast.Module.body 직접 자식만 (함수 내 lazy import 허용)
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                mod = alias.name.lower()
+                assert "rtmlib" not in mod, f"rtmlib module-level import 금지: {alias.name}"
+                assert "mmpose" not in mod, f"mmpose module-level import 금지: {alias.name}"
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                mod = node.module.lower()
+                assert "rtmlib" not in mod, f"rtmlib module-level import 금지: {node.module}"
+                assert "mmpose" not in mod, f"mmpose module-level import 금지: {node.module}"

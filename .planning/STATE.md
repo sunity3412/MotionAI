@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: active
-last_updated: "2026-06-02T00:00:00.000Z"
-last_activity: 2026-06-01 -- Plan 18 PLAN.md 작성 완료 (multi-engine averaging spike, T-1~T-7, 723 lines). STRATEGY_MEAN + STRATEGY_AGREEMENT_GATED 2 strategy. Plan 14 진입 gate 3 check (swap_per_pair ≤ 0.05 / swap_overall ≤ 0.05 / lifter.overall ≥ 85) verdict 4 분기 (BOTH_PASS / AGREEMENT_GATED_ONLY / PARTIAL / FAIL). docs/runpod-fast-restart.md 박제 (~15-20분 새 Pod 셋업 path). belle Pod 종료 권고 (Stop X, Terminate 후 Network Volume 마운트 시 ~9분 재셋업).
+status: executing
+stopped_at: "Phase 1 context gathered (4 areas: MediaPipe variant, NLF R&D 격리, 폴 축 검출, 회귀 검증 — 16 decisions)"
+last_updated: "2026-06-02T11:23:57.178Z"
+last_activity: 2026-06-02 -- Phase 16 execution started
 progress:
-  total_phases: 1
+  total_phases: 2
   completed_phases: 0
-  total_plans: 17
-  completed_plans: 9
-  percent: 53
+  total_plans: 18
+  completed_plans: 14
+  percent: 0
 ---
 
 # Project State
@@ -20,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — Plan 18 PLAN.md 작성 완료 (multi-engine averaging spike). STRATEGY_MEAN + STRATEGY_AGREEMENT_GATED 2 strategy 로 RTMPose+MB + MP+MB lift path 합성, occlusion 좌우 keypoint noise cancel. T-1~T-5 자동 (numpy-only) + T-6 belle Pod live mode (~5분, ref-invert 단독, autonomous: false) + T-7 SUMMARY. Plan 14 진입 gate 3 check 박제 (Plan 17 PLAN authoritative gate 동일). docs/runpod-fast-restart.md 박제 — belle Pod 종료 가능 + 다음 세션에 ~9분 (Network Volume) / ~15-20분 (새 Pod) 재셋업.
+**Current focus:** Phase 16 — studio-term-foundation
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — ACTIVE, Plan 17 closed (audit only) + Plan 18 PLAN.md 작성 완료 (executor 진입 대기)
-Plan: 9/16 complete + Plan 13/16/17 closed (audit only, fix 미진입) + Plan 18 PLAN.md 작성 완료 (executor 진입 대기, multi-engine averaging). 14 / 04 / 05 차단 chain (Plan 18 통과 후 14, 그 후 Wave 3).
-Status: Active — Plan 18 PLAN.md (.planning/phases/01-poseengine-mediapipe-nlf-r-d/01-18-PLAN.md, 723 lines, T-1~T-7 박제). T-1~T-5 자동 + T-6 belle Pod live mode (~5분) + T-7 SUMMARY. averaging strategy 2개 (STRATEGY_MEAN / STRATEGY_AGREEMENT_GATED) 박제. Plan 14 entry gate 3 check (swap_per_pair ≤ 0.05 / swap_overall ≤ 0.05 / lifter.overall ≥ 85). verdict 4 분기 (BOTH_PASS / AGREEMENT_GATED_ONLY / PARTIAL / FAIL). 다음 세션 진입 전 RunPod 재셋업 = docs/runpod-fast-restart.md 따름.
-Last activity: 2026-06-01 22:30 -- Plan 18 PLAN.md 작성 완료 + docs/runpod-fast-restart.md 박제 + STATE 갱신. belle Pod 종료 후 다음 세션 진입 권고.
+Phase: 16 (studio-term-foundation) — EXECUTING
+Plan: 1 of 1
+Status: Executing Phase 16
+Last activity: 2026-06-02 -- Phase 16 execution started
 
 Progress: [██████░░░░] 60%
 
@@ -211,6 +212,7 @@ Recent decisions affecting current work:
 - [Phase 14]: 기준 모션 등록 = 다각도 캡처 프로토콜 + 두 엔진 출력 포함 (Mode 1 신뢰도의 기준)
 - [Phase 15]: Mode 3 = 발전(progress) 표시, %일치 헤드라인 금지 (세션 간 델타)
 - [2026-06-02 학원 용어 + 5트랙]: Phase 16 신설 — Studio Terminology Foundation. 학원 용어 3분기 시스템 (AKA 매핑 13개 / 정은지 reference 비등재 동작 / 자동 수집 + UX 카피) + IPSF 5트랙 채점 v1 scope (a) Compulsory Criteria + (c) Technical Deduction + Page 9 "all components" 절대 트랙. **MVP 가볍게 — 코드 통합 후속, 박제만 v1**. **실증 검증 게이트** = 파일럿 후 사용자 키워드 분기 1/2/3 비율 + 자동 수집 누적 패턴 → 한 번에 확장. NotebookLM IPSF CoP 2024-2025 lookup 박제 (Element Code Matching p.138-139, Page 9 "all components" CoP 2021-2024, AKA 13개 매핑). v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01 + v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제.
+- [Phase ?]: Plan 16-01 T-6 belle threshold 결정
 
 ### Pending Todos
 

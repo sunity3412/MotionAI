@@ -270,7 +270,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 분기 3 UX 카피가 belle 작성 그대로 (변경/요약/재가공 X) 분석 흐름에 노출되는 위치가 박제되어 있다 (코드 통합은 후속 plan, 박제만 v1)
   5. 5트랙 채점 v1 scope = (a) + (c) + Page 9 절대 트랙이 채점 엔진 코드의 architectural decision 으로 박제되어 있다 (PROJECT.md Key Decisions + memory [[ipsf-5-track-scoring]] cross-reference)
   6. JUDGE-DATA-01 (v1.5) 와 데이터 형식 동일 (GeometricCriterion) — v1.5 진입 시 추가 박제만 하면 되는 구조
-  7. **실증 검증 게이트** (파일럿 후): (a) 사용자가 입력한 키워드 중 분기 1 매핑률 ≥ X% (b) 분기 3 자동 수집된 신규 키워드 누적 패턴 (둘 이상 사용자 입력 키워드 수) (c) 분기 2 reference 사용률. 게이트 통과 후 한 번에 확장 진행 (분기 2 reference 5~10개 추가 + 분기 3 승격 알고리즘 + 분기 1 NotebookLM batch lookup 자동화). X% threshold 는 16-01-PLAN.md 에서 belle 협의 후 박제
+  7. **실증 검증 게이트** (파일럿 후, belle 2026-06-02 결정 박제 — Plan 16-01 T-6):
+     - **(a) 분기 1 매핑률 X% threshold = deferred** — belle 결정: 매핑률 자체가 v1 게이트 아님. 진짜 게이트 = 분석 정확도 (특히 고수 위양성 방지, 정은지 41점 같은 케이스 없음). 매핑률은 실증 데이터 수집 후 belle 와 재결정 ([[feedback-analysis-first]] + Core Value 정합).
+     - **(b) 분기 3 신규 키워드 승격 기준 = 둘 이상 anon userId** — MVP 단순. `uniqueUserCount >= 2` 충족 시 `promotionStatus: pending → reviewing` 자동 전환 (16-AUTOCOLLECT-SCHEMA.md). 학원 ID 트래킹 기반 정밀화는 v2.
+     - **(c) 분기 2 reference 사용률 = v1 게이트 아님** — belle 결정: 사용률 측정 자체보다 "분기 2 reference 사용 시 분석 정확도 (Page 9 트랙 + 정은지 측정값) 가 작동하는지" 가 진짜 검증 (정성). 운영 metric 으로만 박제, v2 belle 재논의.
+     - **확장 path**: 게이트 통과 후 한 번에 진행 — 분기 2 reference 5~10개 추가 + 분기 3 승격 알고리즘 + 분기 1 NotebookLM batch lookup 자동화.
 **Plans**:
   - [ ] 16-01-PLAN.md — AKA 매핑 13개 + 5트랙 v1 spec + 분기 2 정은지 reference + 자동 수집 스키마 + UX 카피 박제 위치 + 실증 검증 게이트 threshold belle 협의 (T-1~T-7, code change 0)
 

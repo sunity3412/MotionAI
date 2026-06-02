@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastUpdated": "2026-06-02",
+  "sourceNotebook": "96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+  "sourceNotebookName": "Sunity Motion AI — IPSF Code of Points 2024-2025 / 2025-2027 + Biomechanical and Terminological Taxonomy of Pole Sports",
+  "branch": 1,
+  "branchDescription": "분기 1 — IPSF 등재 + 한국 학원 통용 AKA 매핑. 정밀 채점 가능 (IPSF Code + Criteria).",
+  "scoringPath": "IPSF Code + GeometricCriterion lookup → (a) Compulsory Criteria + (c) Technical Deduction + Page 9 절대 트랙 (16-SCORING-SPEC.md)",
+  "entries": [
+    {
+      "studioName": "나비",
+      "studioNameAliases": ["나비 자세", "Butterfly", "버터플라이"],
+      "ipsfCode": "F401/F402",
+      "ipsfOfficialName": "Inverted Torso Hook",
+      "category": "Flexibility",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드). IPSF Pole Sports CoP 2025-2027 의 정확한 element code 는 Phase 5 진입 시 NotebookLM batch lookup 으로 확정."
+    },
+    {
+      "studioName": "큐피드",
+      "studioNameAliases": ["Cupid", "Side Knee Hook"],
+      "ipsfCode": "S105/S106",
+      "ipsfOfficialName": "Side Knee Hook Hold",
+      "category": "Strength",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드)"
+    },
+    {
+      "studioName": "데드리프트",
+      "studioNameAliases": ["Deadlift", "Dead Lift", "Aerial Dead Lift", "ADL"],
+      "ipsfCode": "DL1/DL2/DL3 / ADL1/ADL2/ADL3",
+      "ipsfOfficialName": "Dead Lift / Aerial Dead Lift",
+      "category": "Dead Lift",
+      "sourceRef": "IPSF Pole Sports CoP 2025-2027 Page 101-102 / Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "2025-2027 공식 규정집에서 그립 종류 (Shoulder/Twist/Flag) 별로 DL1~3 / ADL1~3 명시 (CoP Page 101-102). criteria 박제 가능."
+    },
+    {
+      "studioName": "아이샤",
+      "studioNameAliases": ["Aysha", "Ayesha", "Ayshia", "Strength Flag Balance"],
+      "ipsfCode": "F101/S102 (구 규정: S34)",
+      "ipsfOfficialName": "Strength Flag Balance (Ayshia)",
+      "category": "Strength/Flexibility",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / IPSF Competitions CoP (구 규정 Ayshia S34) / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드). 과거 규정집에 Ayshia S34 명시. 현재 표준 생체역학 명칭 = Strength Flag Balance."
+    },
+    {
+      "studioName": "제이드 스플릿",
+      "studioNameAliases": ["Jade Split", "Hip Hold Split", "Jade"],
+      "ipsfCode": "F201/F202 (구 규정: F22)",
+      "ipsfOfficialName": "Hip Hold Split (AKA Jade)",
+      "category": "Flexibility",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / IPSF Competitions CoP F22 'Hip hold split AKA Jade' / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "과거 IPSF 규정집에 F22 'Hip hold split AKA Jade' 직접 등재. Criteria 박제 가능 (split angle ≥ 180°, body parallel to floor, opposite hand holds opposite leg, inside arm fully extended, no hand contact on pole)."
+    },
+    {
+      "studioName": "제미니",
+      "studioNameAliases": ["Gemini", "Outside Leg Hang", "아웃사이드 레그 행"],
+      "ipsfCode": "F301/F302",
+      "ipsfOfficialName": "Inverted Thigh Hook (AKA Outside Leg Hang / Gemini)",
+      "category": "Flexibility",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드)"
+    },
+    {
+      "studioName": "스콜피오",
+      "studioNameAliases": ["Scorpio", "Inside Leg Hang", "인사이드 레그 행"],
+      "ipsfCode": "F303/F304",
+      "ipsfOfficialName": "Inverted Inner Thigh Hook (AKA Inside Leg Hang / Scorpio)",
+      "category": "Flexibility",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드)"
+    },
+    {
+      "studioName": "숄더 마운트",
+      "studioNameAliases": ["Shoulder Mount", "Inverted Trapezius Mount"],
+      "ipsfCode": "S103/S104",
+      "ipsfOfficialName": "Inverted Trapezius Mount (AKA Shoulder Mount)",
+      "category": "Strength",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드)"
+    },
+    {
+      "studioName": "펜실 홀드",
+      "studioNameAliases": ["Pencil Hold", "Straight Flag", "일자 플래그", "Inverted Vertical Lever"],
+      "ipsfCode": "S203/S204",
+      "ipsfOfficialName": "Inverted Vertical Lever (AKA Pencil Hold / Straight Flag)",
+      "category": "Strength",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드)"
+    },
+    {
+      "studioName": "아이언 엑스",
+      "studioNameAliases": ["Iron X", "Horizontal Strength Flag"],
+      "ipsfCode": "S201/S202 (과거 규정: S41 계열)",
+      "ipsfOfficialName": "Horizontal Strength Flag (AKA Iron X)",
+      "category": "Strength",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / IPSF Competitions CoP (구 규정 Iron flag bottom leg passé S41) / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드). 과거 규정집에 S41 'Iron flag bottom leg passé' 등 명시. Criteria: 2초 홀드, 신체 + upper leg = 폴 90° 평행 (tolerance ±20°), upper leg fully extended, 양손 폴 접촉."
+    },
+    {
+      "studioName": "테디",
+      "studioNameAliases": ["Teddy", "Armpit Pivot Hold", "Armpit Hold"],
+      "ipsfCode": "S301/S302",
+      "ipsfOfficialName": "Armpit Pivot Hold (AKA Teddy)",
+      "category": "Strength",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드)"
+    },
+    {
+      "studioName": "플랫라인",
+      "studioNameAliases": ["Flatline", "Flatline Scorpio", "Flag", "Horizontal Back Plank"],
+      "ipsfCode": "S205/S206",
+      "ipsfOfficialName": "Horizontal Back Plank (AKA Flatline / Flag)",
+      "category": "Strength",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드)"
+    },
+    {
+      "studioName": "요기니",
+      "studioNameAliases": ["Yogini", "Inverted Armpit Suspension"],
+      "ipsfCode": "F403/F404",
+      "ipsfOfficialName": "Inverted Armpit Suspension (AKA Yogini)",
+      "category": "Flexibility",
+      "sourceRef": "Biomechanical and Terminological Taxonomy of Pole Sports / NotebookLM lookup 2026-06-02 notebook 96b061e8-bb7c-41c5-8606-8ceef2ce1aa3",
+      "isRegistered": true,
+      "codeNote": "approximate (Taxonomy 기준 매핑 코드)"
+    }
+  ]
+}

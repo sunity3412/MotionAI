@@ -32,6 +32,7 @@
 - [ ] "각도 정확도 100" 아티팩트 수정 — 같은/유사 영상 비교 케이스 처리, 라벨·로직 정정
 - [ ] overall 점수 구성 취약성 수정 — 차원 한 개(예: 안정성)에 휘둘리지 않는 합성
 - [ ] 신뢰도 게이트 — 정은지(고수) 위양성 없음 + 스피닝 폴 포함 다양한 영상에서 인체 추적·분석 정확 (강사/운영자 신뢰의 핵심)
+- [ ] **IPSF 5트랙 채점 시스템 v1 박제** — (a) Compulsory Criteria + (c) Technical Deduction + Page 9 "all components" 절대 공통 트랙. 동작 인식 실패/비등재/자유 루틴 모든 케이스에서 Page 9 절대 트랙 단독으로도 자세 품질 채점 가능 (mode3 reference 없는 채점의 IPSF 공식 근거). (b) Tech Bonus 연계 + (d) Artistic 정성 = v2 (Phase 16 → v2)
 
 **피드백 품질 (전문가 수준 구체성 — 현장 리서치 P0):**
 - [ ] 관절 각도 수치 표시 — 결과 화면에 "현재 87° → 기준 110°" 형태로
@@ -46,6 +47,7 @@
 **기준 모션 + 진입:**
 - [ ] 정은지 기준 모션 등록 — 비교 분석이 가장 정확해지는 방식(촬영 조건/앵글 통제 포함)으로 설계
 - [ ] TestFlight 게스트 모드로 수강생이 혼자 Mode 1 + Mode 3 완주 가능 (실기기 검증)
+- [ ] **학원 용어 3분기 시스템 박제 (Phase 16)** — 분기 1 AKA 매핑 13개 (IPSF 등재 ↔ 한국 학원 통용) + 분기 2 정은지 reference (폭스탑 등 비등재 한국 통용 동작) + 분기 3 자동 수집 + UX 카피 노출. 학원 사용자 1차 진입 시 학원 용어 그대로 입력 가능. 현장 니즈 충족: 강사 5-1 "기본기 표준화" + 운영자 5-2 "기술 데이터 표준화" + "폭스탑 3회 분석" 예시
 
 ### Out of Scope
 
@@ -60,7 +62,7 @@
 
 **안티패턴 (현장 최종 전달 — 하지 말 것):** 영상 공개 커뮤니티 랭킹(개인정보 노출), 월 구독형 B2C 단독 출시(B2B 학원 우선), 프로 자세 단순 유사도 비교(기술/원인 기반이어야), 모든 동작 범용 모델, AI가 점수만 매김, "AI가 선생님 대체" 메시지. → 이대로 가면 정확도 논란·전문가 반발·개인정보 우려가 동시에 터짐.
 
-**v2로 연기 (현장 리서치 P1/P2 — 파일럿 후):** 체형 입력+맞춤 피드백, 부상 위험 경고, 회차별 성장 그래프, 영상 인앱 다운로드(CloudFront 서명 URL), 학원 운영자 대시보드, 분석 자료 공유 제한, 프라이버시 설명 화면, 카메라 앵글 합성, 측정 차원 확장(정렬/자세). 상세는 REQUIREMENTS.md v2.
+**v2로 연기 (현장 리서치 P1/P2 — 파일럿 후):** 체형 입력+맞춤 피드백, 부상 위험 경고, 회차별 성장 그래프, 영상 인앱 다운로드(CloudFront 서명 URL), 학원 운영자 대시보드, 분석 자료 공유 제한, 프라이버시 설명 화면, 카메라 앵글 합성, 측정 차원 확장(정렬/자세), **IPSF (b) Technical Bonus 연계 가산 자동 인식** (Dynamic Combinations / Combining Spins), **IPSF (d) Artistic Flow 측정 + Stage Usage** (정성 영역 일부, 나머지는 코치 영역 영구 분리), **다국 alias 풀 구현** (`aliases.ipsf_code` / `aliases.kpsa_name` / `aliases.coach_variants`), **자동 수집 → 표준화 승격 알고리즘**. 상세는 REQUIREMENTS.md v2.
 
 ## Context
 
@@ -98,6 +100,9 @@
 | 초기 분석 = 3~5개 동작군으로 한정 (범용 모델 금지) | 처음부터 전 동작 커버는 실패 가능성 큼 (현장 최종 전달) | — Pending |
 | Mode 1 = 단순 유사도 아님, 기술/원인 기반 | "프로 자세 단순 유사도 비교"는 강사 철학과 충돌 (안티패턴) | — Pending |
 | 커뮤니티 랭킹·B2C 구독 단독 출시 안 함 | 개인정보·신체 노출 우려 + B2B 학원 우선 (안티패턴) | — Pending |
+| IPSF 5트랙 채점 v1 scope = (a) Compulsory Criteria + (c) Technical Deduction + Page 9 절대 공통 트랙 | NotebookLM IPSF CoP 2024-2025 lookup (2026-06-02) — Page 9 "all components" 명시로 동작 인식 실패/비등재 케이스에도 합법 채점. mode3 reference 없는 채점의 IPSF 공식 근거. (b) Tech Bonus / (d) Artistic = v2 | — Pending (Phase 16) |
+| 학원 용어 처리 = 3분기 (AKA 매핑 / 정은지 reference / 자동 수집) | 학원 사용자 1차 진입 시 한국 학원 통용 용어 (폭스탑 등) 그대로 입력 가능해야 함. 13개 AKA 매핑 NotebookLM 확보. 자동 수집 = 한국 최초 학원 용어 표준화 데이터 (KPSA 미작성 영역) | — Pending (Phase 16) |
+| UX 카피 박제 (분기 3 미등재 안내) | belle 직접 작성 카피 — "공식 등재되어 있지 않은 기술명입니다. 서니티는 국제 대회 기준 명칭을 기준으로 평가하며 추가로 학원에서 등록된 명칭을 사용합니다..." 변경/요약/재가공 금지 | — Pending (Phase 16) |
 
 ## Evolution
 
@@ -118,3 +123,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 *Last updated: 2026-05-29 after initialization + field-research integration (수강생/강사 설문조사 + 핵심기능 8 + 안티패턴)*
+*Updated 2026-06-02: Phase 16 신설 — 학원 용어 3분기 + 5트랙 채점 v1 scope. NotebookLM IPSF CoP 2024-2025 lookup 박제. v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제. Active 그룹 (점수 신뢰도 / 기준 모션) 항목 추가, Out of Scope v2 보강, Key Decisions 3건 추가.*

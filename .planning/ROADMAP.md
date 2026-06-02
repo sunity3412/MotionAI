@@ -46,6 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 13: 보완 운동·스트레칭 추천 라이브러리** - 분석 → 행동 매핑 (PERS-03 v1)
 - [ ] **Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)** - 비교 정확도 최대화 + 다각도 캡처 프로토콜
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주
+- [ ] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path.
 
 ## Phase Details
 
@@ -255,6 +256,24 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 다각도가 없는 단일 시점 기준 모션도 graceful하게 처리되고 confidence가 낮게 표기된다
 **Plans**: TBD
 
+### Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)
+**Goal**: 학원 용어 3분기 시스템 (AKA 매핑 / 정은지 reference / 자동 수집) + IPSF 5트랙 채점 v1 scope (a + c + Page 9 절대 트랙) 의 데이터·스펙·UX 카피를 박제한다. **MVP 가볍게**: 코드 변경 최소, 데이터/스펙/카피 박제 중심. **실증 단계 검증 후 확장**: 폴스포츠 학원 파일럿에서 사용자 입력 패턴 (분기 1/2/3 비율, 자동 수집 키워드 누적) 을 데이터로 본 다음 분기 2 reference / 분기 3 승격 알고리즘 / 분기 1 매핑 확장을 한 번에 진행. **v1 평행 진행**: Phase 1~15 의존성 없음 — 데이터/스펙/카피 박제는 코드 진척과 독립적.
+**Mode:** mvp
+**Depends on**: Nothing (v1 평행 — 데이터/스펙/카피 박제)
+**Requirements**: SCORE-05, TERM-01, TERM-DATA-01, TERM-COPY-01
+**Scope 제약**: MVP 가볍게 — (1) AKA 매핑 13개 박제 (NotebookLM lookup 2026-06-02 출처) + 각 IPSF Code + Criteria source_ref (2) 분기 2 정은지 reference 비등재 동작 1~2개 (폭스탑 우선 — 운영자 설문 직접 예시) (3) 분기 3 자동 수집 데이터 스키마 + UX 카피 노출 stub (4) 5트랙 채점 v1 = (a) Compulsory Criteria + (c) Technical Deduction + Page 9 절대 공통 트랙. (b) Tech Bonus 연계 가산 + (d) Artistic 정성 = v2 (SCORE-V2-02/03). 사람 점수 라벨링 영구 금지 ([[analysis-objectivity-no-human-scores]] 정합 — 모든 데이터는 IPSF Code of Points 임계값 + 정은지 영상 측정값 기준만).
+**External dependency**: NotebookLM (IPSF lookup 자동화), 정은지 영상 (이미 보유 가정). belle/강사 협업 없이 박제 가능 (사람 점수 라벨링 X).
+**Success Criteria** (what must be TRUE):
+  1. AKA 매핑 13개가 데이터 파일 (예: `backend/data/aka-mapping.json` 또는 reference-motions 확장) 에 박제되어 있고, 각 entry 가 한국 학원 명칭 + IPSF Code + IPSF 공식 영문명 + source_ref (NotebookLM citation) 을 포함한다
+  2. 분기 2 정은지 reference 비등재 동작 (최소 폭스탑) 1개가 reference-motions 에 등록되어 있고, isRegistered=false 플래그로 분기 1 과 구분된다
+  3. 분기 3 자동 수집 데이터 스키마 (`pending_terms` 컬렉션 또는 동등 구조) 가 정의되어 있고 입력 키워드 + 사용자 익명 ID + 누적 카운트를 저장한다
+  4. 분기 3 UX 카피가 belle 작성 그대로 (변경/요약/재가공 X) 분석 흐름에 노출되는 위치가 박제되어 있다 (코드 통합은 후속 plan, 박제만 v1)
+  5. 5트랙 채점 v1 scope = (a) + (c) + Page 9 절대 트랙이 채점 엔진 코드의 architectural decision 으로 박제되어 있다 (PROJECT.md Key Decisions + memory [[ipsf-5-track-scoring]] cross-reference)
+  6. JUDGE-DATA-01 (v1.5) 와 데이터 형식 동일 (GeometricCriterion) — v1.5 진입 시 추가 박제만 하면 되는 구조
+  7. **실증 검증 게이트** (파일럿 후): (a) 사용자가 입력한 키워드 중 분기 1 매핑률 ≥ X% (b) 분기 3 자동 수집된 신규 키워드 누적 패턴 (둘 이상 사용자 입력 키워드 수) (c) 분기 2 reference 사용률. 게이트 통과 후 한 번에 확장 진행 (분기 2 reference 5~10개 추가 + 분기 3 승격 알고리즘 + 분기 1 NotebookLM batch lookup 자동화). X% threshold 는 16-01-PLAN.md 에서 belle 협의 후 박제
+**Plans**:
+  - [ ] 16-01-PLAN.md — AKA 매핑 13개 + 5트랙 v1 spec + 분기 2 정은지 reference + 자동 수집 스키마 + UX 카피 박제 위치 + 실증 검증 게이트 threshold belle 협의 (T-1~T-7, code change 0)
+
 ### Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight
 **Goal**: 사용자가 Mode 1(정은지 기준 비교)과 Mode 3(자기 영상 발전)을 실영상으로 완주하고, 고수 영상에서 위양성 없이 신뢰할 만한 점수를 받고, TestFlight 게스트 모드에서 회원가입 없이 실기기로 완주한다
 **Mode:** mvp
@@ -281,6 +300,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 
 **Execution Order:**
 Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15
+**Phase 16** is independent (v1 평행 — Phase 1~15 의존성 없음). 데이터/스펙/카피 박제가 코드 진척과 독립적이므로 Phase 1 진행 중 평행 진입 가능. Phase 5 (Gemini 기술 인식기) / Phase 14 (정은지 reference) 가 Phase 16 의 데이터를 소비.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -299,6 +319,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 13. 보완 운동·스트레칭 추천 | 0/TBD | Not started | - |
 | 14. 정은지 기준 모션 등록 (다각도) | 0/TBD | Not started | - |
 | 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 0/TBD | Not started | - |
+| 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 0/TBD | Not started (NEW 2026-06-02) | - |
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
@@ -307,3 +328,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 *Roadmap updated: 2026-05-31 (--reviews replan — Phase 1 wave 순서 정정: Wave 2 belle gate before Wave 3 swap, Success #3 video-level PoleAxis wording 정정 per L-1)*
 *Roadmap updated: 2026-06-01 (Plan 11 sweep verdict 적재 — Phase 1 Plans 07~11 박제 누락 보정 + Plan 12/13/14 신설 (갭 root cause + Gemini key moment + 재검증). Success #7 신설 (갭 ≤5 + line/angle PASS). Plan 04/05 진입 조건 = Plan 14 통과로 변경. belle 결정 — D-14 강등 거부, 둘 다 1순위 게이트.)*
 *Roadmap updated: 2026-06-01 (Plan 12 report-only (c)(d) strong — NLF baseline 부적합 박제 + belle 분석 객관성 절대 원칙 재확인. Plan 15 신설 (JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집, v1 평행 진행). Success #7 baseline 변경 — NLF 갭 → IPSF tolerance. 사람 점수 라벨링 영구 금지 원칙 박제 (memory analysis-objectivity-no-human-scores + judging-baseline-ipsf-code-of-points).)*
+*Roadmap updated: 2026-06-02 (Phase 16 신설 — Studio Terminology Foundation. belle 결정: 학원 사용자 1차 진입 시 학원 용어 처리 path 가 v1 필수. 3분기 시스템 (AKA / 정은지 reference / 자동 수집) + IPSF 5트랙 채점 v1 scope (a+c+Page9). NotebookLM IPSF CoP 2024-2025 lookup 결과 박제. MVP 가볍게 + 실증 검증 게이트 통과 후 한 번에 확장 path. Phase 16 은 의존성 없음 → v1 평행 진행 가능. 현장 설문 강사 5-1 "기본기 표준화" + 운영자 5-2 "기술 데이터 표준화" + 운영자 5-2 "폭스탑 3회 분석" 예시 직접 충족.)*

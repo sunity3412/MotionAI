@@ -34,6 +34,13 @@
 
 - [ ] **SCORE-01**: 기술 인식기(Gemini 어댑터)가 영상에서 기술을 인식하고 관절별 EXTEND/BENT 프로파일을 반환하며, Gemini는 분류·자연어 번역만 (좌표·판단 출력 금지)
 - [ ] **SCORE-04**: 고수(정은지) 영상이 위양성 감점 없이 신뢰할 만한 점수로 산출되고, 다양한 영상에서 인체 추적·분석이 정확하다 (신뢰도 게이트 — 강사/운영자 신뢰의 핵심)
+- [ ] **SCORE-05**: 5트랙 채점 시스템 v1 — IPSF 4공식 트랙 중 (a) Compulsory Criteria + (c) Technical Deduction 두 트랙 + Page 9 "all components" 절대 공통 트랙이 작동한다. 동작 인식 성공/실패/비등재/자유 루틴 모든 케이스에서 Page 9 절대 트랙 단독으로도 자세 품질 채점이 가능하다 (mode3 reference 없는 채점의 IPSF 공식 근거). (b) Tech Bonus 연계 가산 + (d) Artistic 정성 평가는 v2. (출처: IPSF Pole Sports CoP 2021-2024 Page 9 / NotebookLM lookup 2026-06-02)
+
+### 학원 용어 (Studio Terminology)
+
+- [ ] **TERM-01**: 학원 용어 3분기 시스템이 작동한다. 분기 1 — AKA 매핑 (IPSF 등재 + 한국 학원 통용 매핑된 동작) → IPSF Code + Criteria 정밀 채점. 분기 2 — 한국 학원 통용 (정은지 reference 보유 비등재 동작, 예: 폭스탑) → 정은지 측정값 기준 + Page 9 절대 트랙. 분기 3 — 미등재 + 자동 수집 → Page 9 단독 + UX 카피 노출 + 키워드/영상 익명 박제. (현장 니즈: 강사 5-1 "기본기 표준화" + 운영자 5-2 "기술 데이터 표준화" + 운영자 5-2 "폭스탑 3회 분석 예시")
+- [ ] **TERM-DATA-01**: 학원 용어 매핑 데이터 v1 박제 — (1) AKA 매핑 13개 (NotebookLM lookup 2026-06-02 출처: 나비/큐피드/펜실/데드리프트/스콜피오/제미니/숄더마운트/아이샤/제이드스플릿/아이언엑스/테디/플랫라인/요기니) + 각 IPSF Code + Criteria source_ref. (2) 분기 2 정은지 reference 보유 비등재 동작 1~2개 (폭스탑 우선). (3) 분기 3 자동 수집 데이터 스키마 — 입력 키워드 + 사용자 익명 ID + 누적 카운트. belle/강사 협업 없이 NotebookLM lookup + 정은지 영상으로 박제 가능 (사람 점수 라벨링 X — analysis-objectivity 정합)
+- [ ] **TERM-COPY-01**: 분기 3 UX 카피가 belle 작성 그대로 박제되어 노출된다 — "공식 등재되어 있지 않은 기술명입니다. 서니티는 국제 대회 기준 명칭을 기준으로 평가하며 추가로 학원에서 등록된 명칭을 사용합니다. 귀하께서 입력한 기술 키워드는 지금 바로 '자동 수집' 되었으며 하나의 학원 이상에서 사용하는 기술임이 확인되면 업데이트 예정입니다." 변경/요약/재가공 금지
 
 ### 개인화 (Personalization) — research 01
 
@@ -70,8 +77,8 @@
 
 ## v1.5 Requirements (별도 마일스톤, 데이터 수집은 v1 평행)
 
-- **JUDGE-01**: IPSF Code of Points 절대 기준으로 기하 점검(무릎-발끝 정렬·발끝 포인트·라인·홀드)이 동작하고 `JudgingModeReport`가 "예술 점수 제외, 기술 점검" 디스클레이머와 함께 렌더된다 (judging 모드, 정규화 OFF)
-- **JUDGE-DATA-01** *(v1 평행 데이터 수집)*: 3~5개 동작 × phase별 `GeometricCriterion`(targetValue, toleranceFull, deductionPerStep, minimumRequirement) 라벨링 — belle/강사 협업
+- **JUDGE-01**: IPSF Code of Points 절대 기준으로 기하 점검(무릎-발끝 정렬·발끝 포인트·라인·홀드)이 동작하고 `JudgingModeReport`가 "예술 점수 제외, 기술 점검" 디스클레이머와 함께 렌더된다 (judging 모드, 정규화 OFF). **SCORE-05 5트랙의 (a) Compulsory Criteria 정밀 채점이 judging 모드 코드 path 의 본체**
+- **JUDGE-DATA-01** *(v1 평행 데이터 수집)*: 3~5개 동작 × phase별 `GeometricCriterion`(targetValue, toleranceFull, deductionPerStep, minimumRequirement) 라벨링 — belle/강사 협업. **TERM-DATA-01 의 AKA 매핑 13개 + 정은지 reference 1~2개와 평행 진행. 데이터 형식 동일 (GeometricCriterion)**
 
 ## v2 Requirements
 
@@ -102,6 +109,16 @@
 - **PRIV-01**: 프라이버시 설명 화면 — 영상 처리 흐름 + 삭제 시점 명시
 - **GROW-01**: 같은 동작 반복 분석의 회차별 개선 그래프 ("폭스탑 62→71→78점")
 - **DLVR-02**: 영상 인앱 다운로드 (CloudFront 서명 URL 기반 — 운영자 요청)
+
+### 5트랙 채점 확장 (Scoring V2 — Out of Scope for v1)
+
+- **SCORE-V2-02**: IPSF (b) Technical Bonus 연계 가산 자동 인식 — Dynamic Combinations (조합당 +0.5, max +3.0) + Combining Spins (결합당 +0.5~+1.0, max +2.0~+3.0). 동작 인식기 + 연계 인식기 둘 다 필요. (출처: IPSF Mid-Cycle Update Appendix 2024 Page 5, CoP 2025-2027 Page 16)
+- **SCORE-V2-03**: IPSF (d) Artistic & Choreography 측정 가능 영역 — Flow (max +2.0, jerk + 멈춤 감지) + Stage Usage (위치 추적 → 무대 점유율). 정성 영역 (Musicality / Charisma / Theme / Originality 본질) 은 코치/심사위원 영역으로 영구 분리. (출처: IPSF Aerial Pole CoP 2024-2025 Page 12, Pole Sports CoP 2025-2027 Page 4)
+
+### 학원 용어 확장 (Terminology V2 — Out of Scope for v1)
+
+- **TERM-V2-01**: 다국 alias 풀 구현 — motionId 에 `aliases.ipsf_code` / `aliases.ipsf_name` / `aliases.kpsa_name` / `aliases.coach_variants` / `aliases.competition_variants` 신설. 사용자가 "학원 / 코치 / 대회" 모드 선택 시 해당 명칭 표시. (출처: [[terminology-multimap-future]] 2026-06-01 박제)
+- **TERM-V2-02**: 분기 3 자동 수집 → 표준화 승격 알고리즘 — 누적 카운트 threshold + NotebookLM batch lookup 자동화 + 정은지 reference 우선순위 큐. KPSA 한국어 표준 작성 협업 path (강사 5-1 "기본기 표준화" 니즈 충족, 우리가 한국 최초 표준 후보 작성)
 
 ## Out of Scope
 
@@ -153,13 +170,18 @@
 | MODE-02 | Phase 15 | Pending |
 | SCORE-04 | Phase 15 | Pending |
 | DELIV-01 | Phase 15 | Pending |
+| SCORE-05 | Phase 16 | Pending |
+| TERM-01 | Phase 16 | Pending |
+| TERM-DATA-01 | Phase 16 | Pending |
+| TERM-COPY-01 | Phase 16 | Pending |
 
 **Coverage:**
-- v1 requirements: 18 total
-- Mapped to phases: 18 ✓
+- v1 requirements: 22 total (18 → 22, +4 신설 2026-06-02)
+- Mapped to phases: 22 ✓
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-29*
 *Last updated: 2026-05-31 — research 3 docs 통합, v2→v1 승격 (PERS-01·SAFE-01·PERS-03), 신규 v1 (POSE-02·03·BODY-01·02·COACH-01·FORCE-01), v1.5 분리 (judging 모드)*
 *Updated 2026-05-31 — belle 결정: 상용/베타 = MediaPipe + Gemini, NLF/SMPL-X = R&D 비교군. POSE-01 신규 추가 (PoseEngine 추상화 + MediaPipe 마이그레이션 + NLF 격리), BODY-01 재정의 (MediaPipe segment 기반)*
+*Updated 2026-06-02 — belle 결정: 학원 용어 3분기 시스템 + 5트랙 채점 (IPSF 4공식 + Page 9 절대 공통). NotebookLM IPSF CoP 2024-2025 / 2025-2027 lookup 결과 박제 — Element Code Matching IPSF 룰 (page 138-139), Page 9 "all components" 절대 트랙 (CoP 2021-2024), Dynamic Combinations / Flow 트랙, AKA 13개 매핑 (한국 학원 ↔ IPSF Code). v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. Phase 16 신설. 현장 설문 강사 5-1 "기본기 표준화" + 운영자 5-2 "기술 데이터 표준화" + "폭스탑 3회 분석 예시" 직접 충족*

@@ -68,25 +68,32 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. R&D 평가 스크립트가 MediaPipe vs NLF 정확도 갭을 동일 영상 세트에서 측정해 보고서로 출력한다 (마이그레이션 ROI 판단 근거)
   6. 데이터 계약(`analysis.ts` ↔ `models.py`)에 `PoseFrame` 타입이 lockstep으로 추가된다
   7. **5영상 sweep 재실행 시 (a) IPSF GeometricCriterion 갭 ≤ tolerance + (b) line/angle 5/5 PASS** — 두 게이트 모두 통과해야 Wave 3 (Plan 04/05) 진입 가능. baseline 은 NLF 갭이 아닌 **IPSF Code of Points 객관 임계값** (Plan 12 (c) strong / belle 결정 2026-06-01). 강등/우회/known limitation 수용 금지. 사람 점수 라벨링 (belle/강사/심사자) 영구 금지.
-**Plans**: 15 plans (Wave 순서: Wave 0 → Wave 1 → Wave 2 spike & 검증 → Wave 3 swap)
+**Plans**: 22 plans total — 17 existing (Wave 0~2) + 7 new RTMW pivot plans (Wave 1~6). 2026-06-02 RTMW pivot supersedes 01-04/01-05/01-14.
   - [x] 01-01-PLAN.md — PoseFrame + PoleAxis 데이터 계약 3-way lockstep + reliability 게이트 stub + Wave 0 테스트 픽스처 (Wave 0)
-  - [x] 01-02-PLAN.md — PoseEngine Protocol + MediaPipePoseEngine 어댑터 + 33→COCO-17 + grip 확장 매핑 (Wave 1)
+  - [x] 01-02-PLAN.md — PoseEngine Protocol + MediaPipePoseEngine 어댑터 + 33→COCO-17 + grip 확장 매핑 (Wave 1) — MediaPipe 산출물 plan 24 에서 R&D 격리 예정
   - [x] 01-03-PLAN.md — HoughPoleDetector + PoleAxisAligner — lazy cv2/scipy import (D-09/D-10/D-11/D-12) (Wave 1)
   - [x] 01-06-PLAN.md — compare_engines.py 회귀 검증 + belle 검토 checkpoint (D-13~D-16) — **Wave 3 gate (구)** (Wave 2)
-  - [x] 01-07-PLAN.md — MotionBERT-lite lifter spike (2D→3D pose lift) — MIT 라이선스 박제 (Wave 2)
+  - [x] 01-07-PLAN.md — MotionBERT-lite lifter spike (2D→3D pose lift) — MIT 라이선스 박제 (Wave 2) — plan 22 옵션 A 선택 시 R&D 격리 대상
   - [x] 01-08-PLAN.md — MediaPipe + MotionBERT 운영 통합 + 5영상 회귀 — 4/5 PASS, ref-sideway-spin 64 FAIL (Wave 2)
   - [closed] 01-09-PLAN.md — AlphaPose 측면 보강 spike — license_blocked (Noncommercial, 영구 후보 제외) (Wave 2)
   - [x] 01-10-PLAN.md — RTMPose-l (MMPose Apache 2.0) 단일 영상 spike — STRONG_PASS (ref-sideway-spin 72) (Wave 2)
   - [x] 01-11-PLAN.md — RTMPose 5영상 sweep + line/angle root cause + 게이트 룰 검토 — **verdict gap_too_wide_blocked** (D-15① 5/5 PASS / D-14 4/5 FAIL / line·angle 5/5 N/A) (Wave 2)
   - [~] 01-12-PLAN.md — 갭 root cause 디버그 spike — T-1~T-4 완료, T-5 belle Pod live 대기. report-only verdict (c)/(d) strong → NLF baseline 부적합 박제 → Plan 15 신설 (Wave 2, NEW 2026-06-01)
-  - [ ] 01-15-PLAN.md — **JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집** (5영상 × phase별 동작 객관 임계값 표). NLF 갭 baseline 폐기 → IPSF tolerance baseline. 사람 점수 라벨링 영구 금지 원칙 박제 후 첫 객관 데이터 작업 (Wave 2, **NEW** 2026-06-01)
-  - [~] 01-13-PLAN.md — Gemini key moment timestamp + criteria extractor (multimodal 2.5 Pro). T-1~T-6 완료. **verdict `measurement_unreliable_blocked`** — Gemini moment 추출 + IPSF criteria 비교 pipeline 통과했으나 측정값 자체 의심 (정은지 invert peak hold right_shoulder 18.2° 같은 인체학적 비정상). Plan 12 (e) "두 엔진 3D 분포 strong" 직접 연결. (Wave 2, NEW 2026-06-01, **Plan 14 차단 → Plan 16 필수**)
-  - [x] 01-16-PLAN.md — **측정 신뢰도 trace spike** — T-1~T-6 완료. belle Pod live mode 결과 dominant ['b', 'c', 'd'] — left_elbow swap_ratio 1.00 / cross-engine disagreement 34.57° / 영상 평균 |L-R| 43.14°. (a) frame_idx rejected. (Wave 2, COMPLETE 2026-06-01)
-  - [x] 01-17-PLAN.md — **keypoint mapping audit + swap fix** (Codex Cycle 3 PASS) — T-1 audit 결과 `blocked/no-static-mapping-defect`. 5 mapping source 58 row canonical (failed 0). Plan 16 swap_ratio 1.00 root cause = static index defect 가 아니라 lift path 자체의 좌우 신뢰도 약점. T-2/T-3/T-4 hard abort branch 정확히 발동. (Wave 2, COMPLETE 2026-06-01)
-  - [on hold] 01-18-PLAN.md — **multi-engine averaging spike** — **2026-06-02 RTMW pivot 으로 보류** (abandoned 아님). RTMW 단일 wholebody 백본 채택 으로 averaging target (RTMPose+MB / MP+MB) 두 path 자체가 메인 백본에서 빠짐. RTMW pivot plan 들 (신규) 의 비교 하니스에서 averaging 결론 흡수 가능. 코드 작성 0, SUMMARY 0.
-  - [ ] 01-14-PLAN.md — 5영상 재검증 sweep — Plan 13 key moment + Plan 15 IPSF 임계값 적용 후 sweep_rtmpose 재실행. **게이트 = IPSF tolerance 안 + line/angle 5/5 PASS** (Wave 2, NEW 2026-06-01, Wave 3 진입 gate — **Plan 16 통과 후 진입**)
-  - [ ] 01-04-PLAN.md — NLF R&D 격리 (backend/research/로 이동 + .samignore) (Wave 3 — **Plan 14 통과 후 진입**)
-  - [ ] 01-05-PLAN.md — pipeline/app.py atomic swap + RunPod requirements.txt/setup.sh/README 갱신 (Wave 3 — **Plan 14 통과 후 진입**)
+  - [~] 01-13-PLAN.md — Gemini key moment timestamp + criteria extractor (multimodal 2.5 Pro). verdict `measurement_unreliable_blocked` (Wave 2, NEW 2026-06-01)
+  - [ ] 01-15-PLAN.md — **JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집** — plan 23 의 baseline (Wave 2, NEW 2026-06-01)
+  - [x] 01-16-PLAN.md — **측정 신뢰도 trace spike** (Wave 2, COMPLETE 2026-06-01)
+  - [x] 01-17-PLAN.md — **keypoint mapping audit + swap fix** (Codex Cycle 3 PASS) (Wave 2, COMPLETE 2026-06-01)
+  - [on hold] 01-18-PLAN.md — **multi-engine averaging spike** — **2026-06-02 RTMW pivot 으로 보류** (abandoned 아님)
+  - [SUPERSEDED] 01-14-PLAN.md — 5영상 재검증 sweep (RTMPose+MB+lifter baseline) — **plan 23 가 SUPERSEDE** (RTMW + IPSF baseline). 미실행 상태로 SUPERSEDED 마킹.
+  - [SUPERSEDED] 01-04-PLAN.md — NLF R&D 격리 (NLF 만) — **plan 24 가 SUPERSEDE + 확장** (NLF + MediaPipe + 비선택 3D path). 미실행 상태로 SUPERSEDED 마킹.
+  - [SUPERSEDED] 01-05-PLAN.md — pipeline/app.py atomic swap (NLF→MediaPipe) — **plan 25 가 SUPERSEDE** (NLF→RTMW). 미실행 상태로 SUPERSEDED 마킹.
+  - [ ] 01-19-PLAN.md — **NEW (RTMW pivot)** PoseEngine 인터페이스 보강 + BodyNormalizationProfile (D-19 SMPL-X 없이 segment 비율) + PoseFrame.bodyShape nullable (D-21) + TS/Python/contract.md 3-way lockstep + ADR-0001 박제 (Wave 1, gap_closure 2026-06-02)
+  - [ ] 01-20-PLAN.md — **NEW (RTMW pivot)** rtmlib RTMW 가중치 라이선스 audit (D-25) + weights_manifest.json + belle 검토 checkpoint (Wave 1, gap_closure 2026-06-02)
+  - [ ] 01-21-PLAN.md — **NEW (RTMW pivot)** rtmlib RTMW 133 wholebody 통합 + RTMW133ToCOCO17Adapter + POSE_ENGINE config (D-17/D-20/D-21/D-22/D-24/D-25) (Wave 2, gap_closure 2026-06-02)
+  - [ ] 01-22-PLAN.md — **NEW (RTMW pivot)** 단일 카메라 3D path 결정 — 옵션 A (RTMW3D 직접) vs 옵션 B (RTMW + MotionBERT lifter) — belle checkpoint (D-18) (Wave 3, gap_closure 2026-06-02)
+  - [ ] 01-23-PLAN.md — **NEW (RTMW pivot)** RTMW vs IPSF GeometricCriterion 5영상 회귀 검증 sweep — Wave 5 진입 게이트 (IPSF tolerance + line/angle 5/5 PASS) — plan 14 supersede (Wave 4, gap_closure 2026-06-02)
+  - [ ] 01-24-PLAN.md — **NEW (RTMW pivot)** NLF + MediaPipe + 비선택 3D path R&D 격리 (D-23) + .samignore + import 차단 단위 테스트 — plan 04 supersede + 확장 (Wave 5, gap_closure 2026-06-02)
+  - [ ] 01-25-PLAN.md — **NEW (RTMW pivot)** pipeline/app.py + RunPod atomic swap NLF→RTMW (D-08/D-21/D-23/D-24) + belle Pod end-to-end 검증 — plan 05 supersede (Wave 6, gap_closure 2026-06-02)
 
 ### Phase 2: BodyNormalizationProfile 자동 측정 (MediaPipe segment 기반)
 **Goal**: MediaPipe 키포인트로부터 신체 segment 길이(상완·전완·대퇴·하퇴·몸통, 어깨/골반 폭) 및 비율을 산출해 `BodyNormalizationProfile`(estimatedHeightScale, armScale, legScale, torsoScale, shoulderHipRatio, confidence, warnings)을 자동 출력한다 — 두 엔진의 공유 입력. SMPL-X β는 R&D 비교군에서만 정확도 평가용으로 사용.
@@ -336,3 +343,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 *Roadmap updated: 2026-06-01 (Plan 11 sweep verdict 적재 — Phase 1 Plans 07~11 박제 누락 보정 + Plan 12/13/14 신설 (갭 root cause + Gemini key moment + 재검증). Success #7 신설 (갭 ≤5 + line/angle PASS). Plan 04/05 진입 조건 = Plan 14 통과로 변경. belle 결정 — D-14 강등 거부, 둘 다 1순위 게이트.)*
 *Roadmap updated: 2026-06-01 (Plan 12 report-only (c)(d) strong — NLF baseline 부적합 박제 + belle 분석 객관성 절대 원칙 재확인. Plan 15 신설 (JUDGE-DATA-01 IPSF GeometricCriterion 데이터 수집, v1 평행 진행). Success #7 baseline 변경 — NLF 갭 → IPSF tolerance. 사람 점수 라벨링 영구 금지 원칙 박제 (memory analysis-objectivity-no-human-scores + judging-baseline-ipsf-code-of-points).)*
 *Roadmap updated: 2026-06-02 (Phase 16 신설 — Studio Terminology Foundation. belle 결정: 학원 사용자 1차 진입 시 학원 용어 처리 path 가 v1 필수. 3분기 시스템 (AKA / 정은지 reference / 자동 수집) + IPSF 5트랙 채점 v1 scope (a+c+Page9). NotebookLM IPSF CoP 2024-2025 lookup 결과 박제. MVP 가볍게 + 실증 검증 게이트 통과 후 한 번에 확장 path. Phase 16 은 의존성 없음 → v1 평행 진행 가능. 현장 설문 강사 5-1 "기본기 표준화" + 운영자 5-2 "기술 데이터 표준화" + 운영자 5-2 "폭스탑 3회 분석" 예시 직접 충족.)*
+*Roadmap updated: 2026-06-02 (RTMW free-stack pivot — Phase 1 신규 plan 7개 추가 (01-19 ~ 01-25, gap_closure). 운영 백본 = MediaPipe + MotionBERT → RTMW 133 wholebody (Apache-2.0) 단일 백본 (D-17~D-25). 01-04/01-05/01-14 SUPERSEDED 마킹. 01-18 on hold 유지. Phase 2 BodyNormalizationProfile = RTMW segment 기반 재정의 (D-19, 추후 Phase 2 plan 에서 반영). 출처 = CONTEXT.md D-17~D-25 + /Users/kimtaesung/Downloads/Sunity_v1_개발지시_RTMW무료스택.md + memory rtmw-free-stack-pivot.)*

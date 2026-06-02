@@ -2,33 +2,33 @@
 phase: 01-poseengine-mediapipe-nlf-r-d
 plan: "20"
 subsystem: ml-pose-engine
-status: awaiting_belle_checkpoint
+status: complete
 tags:
   - rtmw
   - license-audit
   - weights-manifest
   - cocktail14
   - apache-2.0-code
-  - dataset-restricted
-  - awaiting-belle
+  - belle-approved
+  - validation-pilot-scope
   - gap_closure
-  - blocking-human
 
 dependency_graph:
   requires: []
   provides:
-    - "docs/licenses/rtmw-weights-audit.md — RTMW 4 후보 가중치 라이선스 audit (D-25)"
-    - "weights_manifest.json — plan 21 의 가중치 선택 hard gate (production_eligible 0 초기)"
-    - "test_rtmw_weights_manifest.py — schema + license gate 자동 강제 (7 tests)"
+    - "docs/licenses/rtmw-weights-audit.md — RTMW 4 후보 가중치 라이선스 audit (D-25) + belle 승급 결정 §4"
+    - "weights_manifest.json — plan 21 의 가중치 선택 hard gate (rtmw-x-384x288 production_eligible=true, fallback rtmw-l-384x288)"
+    - "test_rtmw_weights_manifest.py — schema + license gate 자동 강제 (7 tests, production_eligible→commercial_ok 강제 PASS)"
   affects:
-    - 01-21  # RTMW 통합 — Task 2 belle 승급 commit 필요. 현 상태 진입 차단.
+    - 01-21  # RTMW 통합 — Task 2 belle 승급 완료 (2026-06-02). 진입 가능.
 
 tech_stack:
   added: []  # plan 20 은 라이선스 박제만, 코드 의존성 0
   patterns:
     - "manifest gate — production_eligible=true 인 entry 만 RTMWPoseEngine 로드 가능"
-    - "weakest-link license — 학습 데이터 14개 중 1개라도 비상업이면 가중치 = restricted"
+    - "weakest-link license — 학습 데이터 14개 중 1개라도 비상업이면 가중치 = restricted (기본 판정)"
     - "audit doc §4 + manifest entry production_eligible 동시 갱신 강제 (T-20-02 mitigation)"
+    - "검증 단계 한정 위험 수용 — 사용자 데이터 미학습 + 단일 파트너 스튜디오. 상업 출시 전 clean weight 교체 hard gate (별도 plan 작성·시작 belle 지시)"
 
 key_files:
   created:
@@ -41,25 +41,26 @@ key_files:
 
 decisions:
   - "RTMW3D-l 부재 → RTMW3D-x 384x288 로 (d) 박제 (deviation, §1-1). rtmlib README + mmpose project zoo 2026-06-02 fetch 기준 RTMW3D-l 공식 배포 채널 없음. RTMW3D-x 만 huggingface Soykaf 호스팅으로 등재."
-  - "Cocktail14 = 14 dataset (AIC/CrowdPose/MPII/sub-JHMDB/Halpe/PoseTrack18/COCO-Wholebody/UBody/Human-Art/WFLW/300W/COFW/LaPa/InterHand). weakest-link 분석 — 10+ dataset 명시적 non-commercial, 2 unknown, 2 commercial OK 후보. 가중치 license_status=restricted 보수 판정."
-  - "4 후보 모두 production_eligible=false 초기값. belle 검토 (Task 2) 통과 전까지 plan 21 진입 차단."
+  - "Cocktail14 = 14 dataset (AIC/CrowdPose/MPII/sub-JHMDB/Halpe/PoseTrack18/COCO-Wholebody/UBody/Human-Art/WFLW/300W/COFW/LaPa/InterHand). weakest-link 분석 — 10+ dataset 명시적 non-commercial, 2 unknown, 2 commercial OK 후보. 가중치 license_status=restricted 기본 판정."
+  - "belle 결정 (2026-06-02, audit §4-1/§4-2): Production=rtmw-x-384x288 (commercial_ok, production_eligible=true), Fallback=rtmw-l-384x288 (production_eligible=false 옵션 보존). 검증 파일럿 단계 한정 위험 수용."
   - "RTMW 코드 라이선스 (rtmlib/mmpose 본체) = Apache-2.0 — 차단 목록 (AlphaPose/NLF/SMPL-X/VideoPose3D) cross-reference 위반 0건. memory license-blocklist-pose 화이트리스트 정합."
-  - "Plan 01-20 Task 2 (belle license checkpoint) 는 blocking-human 게이트 — auto-mode 자동 승인 불가. orchestrator 가 belle 에게 직접 surface."
+  - "출시 hard gate: 정식 상업 출시(공개·과금) 전 mmpose 공식 commercial-friendly weight 또는 자체 clean-data fine-tune 으로 교체. belle 지시 — clean weight 경로(B) 별도 plan 작성·시작 필요 (본 phase 외 후속 plan 책임)."
 
-requirements_completed: []  # POSE-01 부분 — audit 박제만. license_status='commercial_ok' 가중치 0건이므로 manifest 가 plan 21 게이트로 기능. 완전 충족은 belle 승급 후.
+requirements_completed:
+  - POSE-01-license-audit  # RTMW 라이선스 검토 + production 가중치 승급 (검증 단계 한정)
 
 metrics:
-  duration: "~50 min (rtmlib README + mmpose project README + COCO Wholebody 약관 fetch + audit 작성 + manifest + tests)"
-  completed_date: null  # belle Task 2 응답 후 갱신
-  tasks_completed: 1  # Task 1 완료. Task 2 belle 대기.
+  duration: "~50 min (Task 1) + belle async checkpoint (Task 2, 2026-06-02 응답)"
+  completed_date: "2026-06-02"
+  tasks_completed: 2
   tasks_total: 2
   files_created: 4
-  files_modified: 0
+  files_modified: 2  # belle 승급 commit: audit §4 + manifest rtmw-x-384x288 entry
 ---
 
-# Phase 01 Plan 20: RTMW weights license audit — awaiting belle checkpoint
+# Phase 01 Plan 20: RTMW weights license audit — belle approved (validation-pilot scope)
 
-**One-liner:** Task 1 audit + manifest + tests 박제 완료. Cocktail14 dataset weakest-link 분석 결과 RTMW 후보 4개 모두 `license_status=restricted` → `production_eligible=0` → plan 21 진입 차단. Task 2 belle 라이선스 검토 대기 (blocking-human, license business decision — auto-approve 불가).
+**One-liner:** Task 1 audit + manifest + tests 박제 완료. Task 2 belle 라이선스 검토 통과 (2026-06-02) — Production=`rtmw-x-384x288` (commercial_ok, production_eligible=true), Fallback=`rtmw-l-384x288` (옵션 보존). 검증 파일럿 단계 한정 위험 수용. 정식 상업 출시 전 clean weight 교체 hard gate. Plan 21 진입 가능.
 
 ---
 
@@ -67,14 +68,15 @@ metrics:
 
 | 항목 | 내용 |
 |---|---|
-| **Verdict** | **`awaiting_belle_license_review`** |
+| **Verdict** | **`approved` (validation-pilot scope)** |
 | **Task 1** | 완료 — audit doc + manifest + 7 tests PASS + placeholder `__init__.py` 박제 |
-| **Task 2** | **belle 대기** — blocking-human (license 결정은 비즈니스 판단, 자동화 불가) |
-| **Plan 21 진입** | **차단** — production_eligible=true 인 entry 0건 |
-| **만든 커밋** | 1 (Task 1 atomic) + 본 SUMMARY commit |
-| **단위 테스트** | 7 PASS (`backend/tests/test_rtmw_weights_manifest.py`) |
+| **Task 2** | **완료 (2026-06-02)** — belle 라이선스 결정 audit §4-1/§4-2 박제 + manifest 승급 commit |
+| **Plan 21 진입** | **가능** — `rtmw-x-384x288` 1개 production_eligible=true |
+| **만든 커밋** | 2 (Task 1 atomic + belle 승급 atomic) + 본 SUMMARY commit |
+| **단위 테스트** | 7 PASS (`backend/tests/test_rtmw_weights_manifest.py`, production_eligible→commercial_ok gate PASS) |
 | **운영 코드 수정** | 0 (라이선스 박제 plan, 코드 통합은 plan 21) |
 | **차단 목록 위반** | 0 건 (AlphaPose/NLF/SMPL-X/VideoPose3D 부분문자열 0) |
+| **출시 hard gate** | belle 지시 — 상업 출시 전 clean weight 경로(B) 별도 plan 작성·시작 필요 |
 
 ---
 

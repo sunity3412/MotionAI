@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,12 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 _DEFAULT_MANIFEST_PATH = Path(__file__).parent / "weights_manifest.json"
+
+# rtmlib 0.0.15 의 Wholebody 는 `pose=` 인자에 alias("rtmw-x") 매핑이 없어
+# raw onnx URL 또는 절대 path 만 받는다. manifest production_eligible 가중치의
+# unzipped onnx 파일 경로를 환경변수로 명시해야 한다 (D-25 정신 유지).
+# 예: export RTMW_ONNX_PATH=/workspace/rtmw_weights/.../end2end.onnx
+_RTMW_POSE_ENV = "RTMW_ONNX_PATH"
 
 
 # ── LicenseViolationError ─────────────────────────────────────────────────
@@ -93,10 +100,19 @@ class RTMWPoseEngine:
                 f"원인: {e}"
             ) from e
 
-        # rtmlib Wholebody 초기화 (ONNX backend 기본)
+        # rtmlib Wholebody 초기화 (ONNX backend 기본).
+        # pose= 인자는 RTMW_ONNX_PATH 환경변수의 절대 경로 — alias 미지원 (Plan 01-23 박제).
+        rtmw_onnx_path = os.environ.get(_RTMW_POSE_ENV)
+        if not rtmw_onnx_path:
+            raise RuntimeError(
+                f"환경변수 {_RTMW_POSE_ENV} 미설정. rtmlib 0.0.15 의 Wholebody.pose "
+                "인자는 alias 매핑 없이 절대 onnx path 또는 URL 만 받는다. "
+                "manifest production_eligible 가중치를 unzip 한 end2end.onnx 의 절대 "
+                "경로를 환경변수로 명시할 것 (D-25 정신 유지)."
+            )
         self._inferencer = RTMWWholebody(
             det=None,  # person detector 없음 — 전체 이미지에서 추론
-            pose="rtmw-x",
+            pose=rtmw_onnx_path,
             to_openpose=False,
             backend="onnxruntime",
             device="cpu",

@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 1 context gathered (4 areas: MediaPipe variant, NLF R&D 격리, 폴 축 검출, 회귀 검증 — 16 decisions)"
-last_updated: "2026-06-02T14:49:33.336Z"
-last_activity: 2026-06-02 -- Phase 01 execution started
+stopped_at: "Plan 23 sweep 결과 phase1_ready_to_swap=False — Wave 5/6 차단, root cause 3종 동시 발현 (FallbackRecognizer 한계 + HoughPoleDetector 미설치 + yaml criteria 재검증 필요)"
+last_updated: "2026-06-03T14:30:00.000Z"
+last_activity: 2026-06-03 -- Plan 23 Task 2 belle Pod sweep 실행 + 결과 박제
 progress:
   total_phases: 16
   completed_phases: 1
@@ -31,6 +31,61 @@ Status: Executing Phase 01
 Last activity: 2026-06-02 -- Phase 01 execution started
 
 Progress: [██████░░░░] 60%
+
+## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
+
+belle Pod 5영상 sweep (`backend/research/evaluations/reports/sweep_rtmw_20260603_1409/report.md`) 결과:
+
+| 게이트 | 결과 | 박제 기준 |
+|---|---|---|
+| IPSF within_tolerance | **1/5 PASS** | 5/5 필요 |
+| line PASS | **3/5 PASS** | 5/5 필요 |
+| angle PASS | **0/5 PASS** | 5/5 필요 |
+| pole_axis | 5/5 low (수직 폴백) | high 필요 |
+
+| 모션 | pole_axis | IPSF | line | angle | ms/f | rtmw_score |
+|---|---|---|---|---|---|---|
+| ref-climb | low | PASS | PASS | FAIL | 2201 | 95.4 |
+| ref-foxtop-split | low | FAIL | FAIL | FAIL | 2164 | 93.0 |
+| ref-foxtop | low | FAIL | FAIL | FAIL | 2083 | 93.3 |
+| ref-invert | low | FAIL | PASS | FAIL | 2116 | 93.6 |
+| ref-sideway-spin | low | FAIL | PASS | FAIL | 2009 | 94.8 |
+
+**핵심 진단 (root cause 3종 동시 발현)**:
+
+1. **IPSF criteria target=180° 일률 — FallbackRecognizer 한계**
+   - 모든 hold moment 의 shoulder/hip/knee target=180° (완전 EXTEND 가정)
+   - measured 값 21~107° = 실제 자세는 굽힘인데 yaml 은 폄 가정
+   - Plan 11 박제 ("FallbackRecognizer 가 굽은 자세에서 EXTEND 못 찾아 line 차원 None") 그대로 — Phase 5 (Gemini 기술 인식기) 통합 전엔 IPSF angle 게이트 의미 없음
+
+2. **HoughPoleDetector 미설치 → pole_axis 부정확**
+   - 5영상 모두 axis_vector=(0,1,0) low confidence (수직 폴백)
+   - 실제 카메라 각도/폴 회전 있을 시 line 측정값 부정확
+   - line 3/5 PASS 도 폴백 영향 가능
+
+3. **AKA 매핑 vs yaml criteria 정합 미검증**
+   - belle 매핑: `ref-foxtop.yaml` ← 인버트 버터플라이, `ref-invert.yaml` ← 플랭크 스핀, 등
+   - yaml hold target=180° 가 그 자세의 IPSF 기준인지 belle/정은지/NotebookLM IPSF CoP 2024-2025 재검증 필요
+
+**belle 결정 (2026-06-03)**: 결과 박제 commit 먼저 + 다음 plan 의논. 박제 [[gap-and-line-angle-mandatory-gates.md]] "강등/우회 금지" 정신 유지.
+
+**Plan 24 / 25 진입 차단 — D-16 보류**. 다음 후보:
+- (A) Phase 5 (Gemini 기술 인식기) 통합 선행
+- (B) Plan 26 (가칭) — root cause 3종 동시 fix plan 신설 (Gemini wiring + HoughPoleDetector + yaml 재검증)
+
+### Plan 23 belle Pod sweep 함정 5종 박제 (재사용 위함)
+
+| 함정 | Fix |
+|---|---|
+| `imageio` pyav 플러그인 누락 | `pip install 'imageio[pyav]'` |
+| rtmlib 0.0.15 `pose` alias 부재 | `export RTMW_ONNX_PATH=<unzipped end2end.onnx>` 강제 (commit 3b27c25) |
+| rtmlib Wholebody batch 미지원 | 단일 (H,W,3) frame 입력 (commit 375c21c) |
+| mmpose `chumpy` 빌드 fail | `pip install --no-build-isolation chumpy` 선행 |
+| onnx 위치 패턴 | `<weights_root>/20230928/rtmpose_onnx/<model>/end2end.onnx` |
+
+상세 박제 = [[runpod-gpu-env.md]] 업데이트 누적 중.
+
+---
 
 ## ▶ Plan 11 sweep verdict `gap_too_wide_blocked` (2026-06-01) — Plan 12/13/14 신설
 

@@ -2,7 +2,7 @@
 phase: 01-poseengine-mediapipe-nlf-r-d
 plan: "23"
 subsystem: ml-pose-engine
-status: checkpoint_reached
+status: gate_blocked
 tags:
   - rtmw
   - ipsf
@@ -167,35 +167,51 @@ T-23-04 mitigation 완료 — sweep 이 HoughPoleDetector 없이 tolerance PASS 
 
 ---
 
-## Task 2 (blocking-human checkpoint) — belle 검토 대기
+## Task 2 — belle Pod sweep 실행 결과 (2026-06-03) — phase1_ready_to_swap=False
 
-**belle Pod 5영상 sweep 미실행 — checkpoint 대기 중.**
+**보고서**: `backend/research/evaluations/reports/sweep_rtmw_20260603_1409/report.{json,md}`
 
-### 실행 방법 (belle Pod 에서)
+### 결과
 
-```bash
-# 1. Pod git pull
-cd /workspace/SunityMotion && git pull origin main
+| 게이트 | 결과 | 박제 기준 | 판정 |
+|---|---|---|---|
+| IPSF within_tolerance | 1/5 PASS | 5/5 | FAIL |
+| line PASS | 3/5 PASS | 5/5 | FAIL |
+| angle PASS | 0/5 PASS | 5/5 | FAIL |
+| pole_axis high confidence | 0/5 | 5/5 | FAIL |
 
-# 2. RTMW 의존성 확인 (plan 21 가중치 + plan 22 옵션 B lifter)
-# rtmlib, MotionBERT 설치 상태 확인
+| 모션 | IPSF | line | angle | ms/f | rtmw_score |
+|---|---|---|---|---|---|
+| ref-climb | PASS | PASS | FAIL | 2201 | 95.4 |
+| ref-foxtop-split | FAIL | FAIL | FAIL | 2164 | 93.0 |
+| ref-foxtop | FAIL | FAIL | FAIL | 2083 | 93.3 |
+| ref-invert | FAIL | PASS | FAIL | 2116 | 93.6 |
+| ref-sideway-spin | FAIL | PASS | FAIL | 2009 | 94.8 |
 
-# 3. 5영상 sweep 실행
-python backend/research/evaluations/compare_rtmw_vs_ipsf.py \
-  --videos <ref-climb.mp4> <ref-foxtop-split.mp4> <ref-foxtop.mp4> <ref-invert.mp4> <ref-sideway-spin.mp4> \
-  --output-dir backend/research/evaluations/reports/sweep_rtmw_$(date +%Y%m%d_%H%M)/ \
-  --pose-engine rtmw \
-  --criteria-dir backend/judging_data/criteria/
+### 핵심 진단 (root cause 3종 동시 발현)
 
-# 4. 보고서 검토 (.md 파일)
-```
+1. **IPSF criteria target=180° 일률** — 모든 hold moment shoulder/hip/knee target=180° (완전 EXTEND 가정). measured 21~107° = 굽힘 자세. FallbackRecognizer 한계 (Plan 11 박제 그대로) — Phase 5 (Gemini 기술 인식기) 통합 전엔 IPSF angle 게이트 의미 없음.
+2. **HoughPoleDetector 미설치** — 5영상 모두 axis_vector=(0,1,0) low confidence (수직 폴백). D-11 박제대로 fallback 동작은 했으나 실제 카메라 각도 반영 0.
+3. **AKA 매핑 vs yaml 정합 미검증** — belle 매핑 (`ref-foxtop` ← 인버트 버터플라이 등) 의 yaml hold target 이 그 자세의 IPSF 기준인지 belle/정은지/NotebookLM IPSF CoP 재검증 필요.
+
+### belle Pod sweep 진행 중 함정 5종 (재사용 박제)
+
+| 함정 | Fix | Commit |
+|---|---|---|
+| `imageio` pyav 플러그인 누락 | `pip install 'imageio[pyav]'` | — |
+| rtmlib 0.0.15 `pose` alias 부재 | `RTMW_ONNX_PATH` env var 강제 | 3b27c25 |
+| rtmlib Wholebody batch 미지원 | 단일 (H,W,3) frame 입력 | 375c21c |
+| mmpose `chumpy` 빌드 fail | `pip install --no-build-isolation chumpy` 선행 | — |
+| onnx 위치 패턴 | `<weights_root>/20230928/rtmpose_onnx/<model>/end2end.onnx` | — |
+
+상세 박제 → 메모리 [[runpod-gpu-env.md]] 누적.
 
 ### 결정 path
 
 | 조건 | 결과 | 다음 행동 |
 |---|---|---|
 | IPSF 5/5 + line/angle 5/5 PASS | phase1_ready_to_swap=True | "approved: proceed to plan 25" → Wave 5 진입 |
-| 한쪽이라도 FAIL | phase1_ready_to_swap=False | "blocked: <reason> + next plan" → D-16 보류 |
+| **한쪽이라도 FAIL** | **phase1_ready_to_swap=False** | **"blocked" → D-16 보류 → 후속 plan 의논 중 (Phase 5 선행 vs Plan 26 root cause 3종 동시 fix)** |
 
 ---
 
@@ -223,4 +239,9 @@ python backend/research/evaluations/compare_rtmw_vs_ipsf.py \
 - 운영 코드 수정 0줄: ✓
 - 사람 점수 라벨링 0건: ✓
 - 이모지 0건: ✓
-- Task 2 blocking-human checkpoint 정상 반환: ✓ (belle 검토 대기 중)
+- Task 2 blocking-human checkpoint 정상 반환: ✓
+- Task 2 belle Pod sweep 실행 완료 (2026-06-03): ✓
+- 보고서 박제: ✓ (`backend/research/evaluations/reports/sweep_rtmw_20260603_1409/`)
+- 게이트 판정: phase1_ready_to_swap=False (D-16 보류)
+- root cause 3종 박제: ✓ (Phase 5 통합 + HoughPoleDetector + yaml 재검증)
+- 후속 plan 의논: 진행 중

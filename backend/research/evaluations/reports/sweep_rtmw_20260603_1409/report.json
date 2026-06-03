@@ -1,0 +1,256 @@
+{
+  "timestamp": "2026-06-03T14:09:44.124939+00:00",
+  "motions": {
+    "ref-climb": {
+      "pole_axis": {
+        "axis_vector": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "confidence": "low"
+      },
+      "ipsf_gaps": [],
+      "line_pass": true,
+      "angle_pass": false,
+      "ms_per_frame": 2201.382380693758,
+      "rtmw_mean_score": 95.37555665284505,
+      "lift_swap_ratio": 0.5625
+    },
+    "ref-foxtop-split": {
+      "pole_axis": {
+        "axis_vector": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "confidence": "low"
+      },
+      "ipsf_gaps": [
+        {
+          "joint": "left_shoulder",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 20.959634370484423,
+          "gap": 159.04036562951558,
+          "within_tolerance": false
+        },
+        {
+          "joint": "right_shoulder",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 34.03857258269389,
+          "gap": 145.9614274173061,
+          "within_tolerance": false
+        },
+        {
+          "joint": "left_hip",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 80.09404668448956,
+          "gap": 99.90595331551044,
+          "within_tolerance": false
+        },
+        {
+          "joint": "right_hip",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 137.00253928994513,
+          "gap": 42.99746071005487,
+          "within_tolerance": false
+        },
+        {
+          "joint": "left_knee",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 105.45556563309104,
+          "gap": 74.54443436690896,
+          "within_tolerance": false
+        },
+        {
+          "joint": "right_knee",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 162.87378403435827,
+          "gap": 17.126215965641734,
+          "within_tolerance": true
+        }
+      ],
+      "line_pass": false,
+      "angle_pass": false,
+      "ms_per_frame": 2164.2550416093527,
+      "rtmw_mean_score": 92.96137070084986,
+      "lift_swap_ratio": 0.5402892561983471
+    },
+    "ref-foxtop": {
+      "pole_axis": {
+        "axis_vector": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "confidence": "low"
+      },
+      "ipsf_gaps": [
+        {
+          "joint": "left_shoulder",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 107.86149744981162,
+          "gap": 72.13850255018838,
+          "within_tolerance": false
+        },
+        {
+          "joint": "right_shoulder",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 76.70385167767901,
+          "gap": 103.29614832232099,
+          "within_tolerance": false
+        },
+        {
+          "joint": "left_hip",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 74.58287438550754,
+          "gap": 105.41712561449246,
+          "within_tolerance": false
+        },
+        {
+          "joint": "right_hip",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 88.77757515877899,
+          "gap": 91.22242484122101,
+          "within_tolerance": false
+        },
+        {
+          "joint": "left_knee",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 170.03345768485875,
+          "gap": 9.966542315141254,
+          "within_tolerance": true
+        },
+        {
+          "joint": "right_knee",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 154.2760325929502,
+          "gap": 25.7239674070498,
+          "within_tolerance": false
+        }
+      ],
+      "line_pass": false,
+      "angle_pass": false,
+      "ms_per_frame": 2082.6769183829724,
+      "rtmw_mean_score": 93.31198812784444,
+      "lift_swap_ratio": 0.5053003533568905
+    },
+    "ref-invert": {
+      "pole_axis": {
+        "axis_vector": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "confidence": "low"
+      },
+      "ipsf_gaps": [
+        {
+          "joint": "left_shoulder",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 32.4259493194358,
+          "gap": 147.5740506805642,
+          "within_tolerance": false
+        },
+        {
+          "joint": "right_shoulder",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 34.898877652046465,
+          "gap": 145.10112234795355,
+          "within_tolerance": false
+        },
+        {
+          "joint": "left_hip",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 29.64968886071744,
+          "gap": 150.35031113928255,
+          "within_tolerance": false
+        },
+        {
+          "joint": "right_hip",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 94.55283181386592,
+          "gap": 85.44716818613408,
+          "within_tolerance": false
+        },
+        {
+          "joint": "right_knee",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 162.7678468833907,
+          "gap": 17.23215311660931,
+          "within_tolerance": true
+        }
+      ],
+      "line_pass": true,
+      "angle_pass": false,
+      "ms_per_frame": 2116.269865036335,
+      "rtmw_mean_score": 93.63452889553339,
+      "lift_swap_ratio": 0.5957446808510638
+    },
+    "ref-sideway-spin": {
+      "pole_axis": {
+        "axis_vector": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "confidence": "low"
+      },
+      "ipsf_gaps": [
+        {
+          "joint": "right_shoulder",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 137.2887165995815,
+          "gap": 42.711283400418495,
+          "within_tolerance": false
+        },
+        {
+          "joint": "left_hip",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 137.23440329092074,
+          "gap": 42.76559670907926,
+          "within_tolerance": false
+        },
+        {
+          "joint": "left_knee",
+          "moment": "hold",
+          "target": 180.0,
+          "measured": 174.70166428929068,
+          "gap": 5.298335710709324,
+          "within_tolerance": true
+        }
+      ],
+      "line_pass": true,
+      "angle_pass": false,
+      "ms_per_frame": 2008.9312180488812,
+      "rtmw_mean_score": 94.80050827122766,
+      "lift_swap_ratio": 0.4974704890387858
+    }
+  },
+  "summary": {
+    "phase1_ready_to_swap": false,
+    "total_motions": 5,
+    "ipsf_within_tolerance_count": 1,
+    "line_pass_count": 3,
+    "angle_pass_count": 0
+  }
+}

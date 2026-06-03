@@ -179,9 +179,10 @@ class RTMWPoseEngine:
             timestamp_ms = int(t * 1000 / self._target_fps)
             frame = frames[t]
 
-            # rtmlib inferencer 호출 — (keypoints, scores) 반환
-            # rtmlib Wholebody: input=HWC uint8, output=((N,133,2or3), (N,133))
-            result = self._inferencer(frame[np.newaxis])  # (1, H, W, 3)
+            # rtmlib inferencer 호출 — (keypoints, scores) 반환.
+            # rtmlib Wholebody 0.0.15 는 단일 (H,W,3) frame 만 받음 — batch 미지원.
+            # output = ((N,133,2or3), (N,133)) — N 명 사람.
+            result = self._inferencer(frame)
             kps_batch, scores_batch = result  # (N, 133, 2/3), (N, 133)
 
             if kps_batch is None or len(kps_batch) == 0:

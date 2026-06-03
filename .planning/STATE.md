@@ -158,12 +158,14 @@ ref-invert RTMPose headdown 약점 가설 — Plan 12 에서 frame-by-frame avg_
 
 Gemini 통합은 **Phase 5 별 phase** — belle Gemini API 키 (Google AI Studio) 발급 + Parameter Store 주입 wiring 선행 필요.
 
-### belle Gemini API 키 작업 (병행, 2026-06-01 발급 진행)
+### belle Gemini API 키 작업 (병행, 2026-06-01 발급 진행 / 2026-06-03 모델 갱신)
 
-| Phase | Gemini 역할 | 권장 모델 | 키 발급 path |
+| Phase | Gemini 역할 | 권장 모델 (2026-06-03 belle 결정) | 키 발급 path |
 |---|---|---|---|
-| **Phase 5** | 기술 인식기 (영상 → 분류 + EXTEND/BENT) | **Gemini 2.5 Pro** (multimodal) | Google AI Studio → /sunity/motion/gemini-api-key (SecureString) |
-| **Phase 11** | 자연어 코칭 번역 | Cerebras llama3.1 유지 권장 (이미 동작 중) | — |
+| **Phase 5** | 기술 인식기 (영상 → 분류 + EXTEND/BENT) | **Gemini 3.0 Pro 또는 3.1 Pro** (multimodal, 정확도 우선 영역) + **3.5 Flash** 를 효율적으로 (저비용/저지연 케이스 — 분류 1차/캐시 등) | Google AI Studio → /sunity/motion/gemini-api-key (SecureString) |
+| **Phase 11** | 자연어 코칭 번역 | Cerebras llama3.1 유지 권장 (이미 동작 중) — Gemini 3.5 Flash 도 후보 (한국어 품질 비교 필요) | — |
+
+belle 박제 (2026-06-03): "분석이 완벽해야 한다는 것 = 모든 박제 기준. 우회/대체 상황이면 언제든 제안 OK". 모델 선택은 분석 정확도 기준 — 이전 박제 (2.5 Pro) 는 정보 부족 시점 추정, 3.0/3.1 Pro 가 실제 사용 가능 시점에 정확도 + multimodal 성능 우위.
 
 ### Plan 10 디버그 이력 (Pod 4함정 박제)
 

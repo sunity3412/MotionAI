@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-04 -- Wave 2 (Plan 5-03) 종료, Wave 3 진입 대기
-Stopped at: Plan 5-03 (pipeline _RECOGNIZER lazy swap + env switch + B8 fix helper) 완료 (6분, 23 tests PASS, 4 commits). worktree 병합 + cleanup 완료. Post-merge gate 통과 (venv 활성화 후 23 PASS, regression 0). main HEAD = cd8cb25. D-12 박제 (RunPod server.py 무수정) 검증됨 (git diff --stat == 0). env switch: GEMINI_RECOGNIZER_ENABLED ∪ RECOGNIZER_BACKEND ∈ {1,true,on,yes,gemini} → Gemini, 미설정 = FallbackRecognizer 회귀 0.
-Resume file: .planning/phases/05-gemini/05-03-SUMMARY.md
-Next: Wave 3 진입 — Plan 5-04 (Pod requirements + setup.sh + _warmup fail-loud) 단일. autonomous, 단 belle 다음 Pod 세션부터 적용.
+Last session: 2026-06-04 -- Wave 3 (Plan 5-04) 종료, Wave 4 (5-05 belle Pod sweep blocking-human) 진입 대기
+Stopped at: Plan 5-04 (Pod requirements + setup.sh + _warmup fail-loud) 완료 (10분, 4 tests PASS, 4 commits). worktree 병합 + cleanup 완료. Post-merge gate 통과 (4 PASS). main HEAD = e60cf9c. setup.sh 갱신 = 다음 Pod 세션부터 자동 적용 (현 Pod 영향 X). belle 결정: Wave 4 진입 시 현 Pod 유지 + google-genai 1개 추가 + GEMINI_API_KEY SSM fetch 박제 (재기동 X). 박제 완료: D-12/D-13/D-15/D-16 + Common Pitfall 4 (fail-loud).
+Resume file: .planning/phases/05-gemini/05-04-SUMMARY.md
+Next: Wave 4 진입 — Plan 5-05 (sweep --recognizer gemini + belle Pod sweep verdict) 단일. blocking-human checkpoint. 게이트 = "정은지 reference 측정값 기준 4영상 angle 4/4 PASS + ref-climb out-of-scope counted as PASS" (D-01).

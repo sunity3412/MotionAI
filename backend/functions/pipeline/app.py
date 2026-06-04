@@ -27,8 +27,10 @@ import json
 import logging
 import os
 import tempfile
+import threading
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import boto3  # Lambda 런타임 제공
 import numpy as np
@@ -115,9 +117,86 @@ _POSE_ESTIMATOR = None  # type: ignore[var-annotated]
 _COACH_WRITER = None  # type: ignore[var-annotated]
 
 # 기술 인식 어댑터 — swappable (technique.TechniqueRecognizer 프로토콜).
-# 지금은 보수적 Fallback(모르면 안 깎음). Gemini/Pole-arina 어댑터로 교체 예정.
-# technique 모듈은 numpy+skeleton 만 의존(가벼움) → 모듈 로드 시 즉시 생성 OK.
-_RECOGNIZER: technique.TechniqueRecognizer = technique.FallbackRecognizer()
+# Plan 5-03 박제 — 즉시 생성 박제 X → `_ensure_recognizer()` lazy creation 분기.
+#
+# 박제 정신 (D-12 / D-16 / Plan 5-03):
+#   · D-12: RunPod server.py 무수정 1pass — pipeline 모듈 1점 swap 박제로 자동 작동.
+#   · D-16: lazy import — pipeline 모듈 로드 시 google.genai / firebase_admin / boto3
+#     (Lambda 런타임 제외) 0 import. Gemini 모드 진입 시점에만 lazy import.
+#   · default = FallbackRecognizer (env 미설정 시) — 회귀 위험 최소 + A/B 비교 가능.
+#
+# env switch 박제 (둘 중 하나):
+#   · GEMINI_RECOGNIZER_ENABLED=1|true|on|yes  (case-insensitive)
+#   · RECOGNIZER_BACKEND=gemini                 (case-insensitive)
+# 그 외 (미설정 / 다른 값) = FallbackRecognizer 박제 보존.
+_RECOGNIZER: technique.TechniqueRecognizer | None = None
+_RECOGNIZER_LOCK = threading.Lock()
+
+# env switch 박제 값 (case-insensitive lower).
+_GEMINI_ENV_TRUTHY = frozenset({"1", "true", "on", "yes", "gemini"})
+
+
+def _gemini_enabled() -> bool:
+    """env 기반 Gemini 어댑터 활성 여부 박제.
+
+    두 env var 박제 (호환 alias):
+      · GEMINI_RECOGNIZER_ENABLED — Plan 5-03 신설 박제
+      · RECOGNIZER_BACKEND        — 기존 RunPod env 박제 패턴 정합
+
+    case-insensitive. 박제 truthy 값 = {"1", "true", "on", "yes", "gemini"}.
+    그 외 또는 미설정 = False (FallbackRecognizer 박제 보존).
+    """
+    for env_var in ("GEMINI_RECOGNIZER_ENABLED", "RECOGNIZER_BACKEND"):
+        val = os.environ.get(env_var, "").strip().lower()
+        if val in _GEMINI_ENV_TRUTHY:
+            return True
+    return False
+
+
+def _ensure_recognizer() -> technique.TechniqueRecognizer:
+    """lazy creation + env switch 박제 (Plan 5-03).
+
+    double-checked locking 박제로 thread 안전 — Pod uvicorn 은 `--workers 1` 박제
+    기본이지만 BackgroundTasks 가 다중 분석 동시 진입 가능 (다중 SQS 메시지).
+
+    분기:
+      · env switch ON  → GeminiTechniqueRecognizer + TechniqueCache + record_unregistered_keyword hook 합성
+      · env switch OFF → FallbackRecognizer 박제 (회귀 0)
+
+    return: technique.TechniqueRecognizer 인스턴스 (멱등 — 2회 호출 = 같은 instance).
+    """
+    global _RECOGNIZER
+    if _RECOGNIZER is not None:
+        return _RECOGNIZER
+    with _RECOGNIZER_LOCK:
+        if _RECOGNIZER is not None:
+            return _RECOGNIZER
+        if _gemini_enabled():
+            # D-16 lazy import — Gemini 모드 진입 시점에만 import.
+            from sunity_shared.analysis.gemini_technique_recognizer import (
+                GeminiTechniqueRecognizer,
+            )
+            from sunity_shared.analysis.technique_cache import TechniqueCache
+
+            cache = TechniqueCache()
+            # D-09 case 3 박제 — Phase 16 TERM-DATA-01 분기 3 자동 수집 hook.
+            # uid = "anonymous-pipeline" 박제 (Pod 가 호출 시점 uid 정보 없음 — _process
+            # caller 시점에서 알지만 cache 생성 시점엔 미상). 향후 hook 시그너처에
+            # uid 주입 path 별 plan 책임.
+            def _record_unregistered(keyword: str, video_hash: str) -> None:
+                firestore_admin.record_unregistered_keyword(
+                    keyword, uid="anonymous-pipeline", video_hash=video_hash
+                )
+
+            _RECOGNIZER = GeminiTechniqueRecognizer(
+                cache=cache,
+                unregistered_hook=_record_unregistered,
+            )
+            log.info("Recognizer = GeminiTechniqueRecognizer (env switch ON)")
+        else:
+            _RECOGNIZER = technique.FallbackRecognizer()
+            log.info("Recognizer = Fallback (env switch OFF — default)")
+        return _RECOGNIZER
 
 
 def _ensure_adapters() -> None:
@@ -144,13 +223,56 @@ def _signed_get(bucket: str, key: str) -> str:
 
 
 def _angles_from_video(bucket: str, key: str) -> np.ndarray:
-    """S3 영상 → 프레임 → NLF 3D keypoints → 관절각(T,J), 시간축 폐색 보간."""
+    """S3 영상 → 프레임 → NLF 3D keypoints → 관절각(T,J), 시간축 폐색 보간.
+
+    B8 fix (2026-06-04 revision) — 시그너처 무변경 유지 박제. RunPod server.py
+    `_process` 호출이 본 함수 path 를 직접 사용 X (server.py 는 pipeline 모듈을
+    import 만 함). 본 함수의 시그너처는 단위 테스트가 박제로 검증 — 변경 시
+    test_pipeline_recognizer_switch.TestB8FixSignature 가 차단.
+    """
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
         _s3.download_file(bucket, key, tmp.name)
         frames = _FRAME_EXTRACTOR.extract(tmp.name)
     keypoints = _POSE_ESTIMATOR.estimate(frames)  # (T,17,4) — 미감지 시 NoHumanError
     angles = compute_joint_angles(keypoints)
     return temporal_fill(angles, joint_uncertainty(keypoints))
+
+
+def _angles_and_video_path_from_video(
+    bucket: str, key: str
+) -> tuple[np.ndarray, str]:
+    """B8 fix (2026-06-04 revision) — Gemini 어댑터 path 전용 helper 박제.
+
+    `_angles_from_video` 의 변형 — frames 인자로 local video path 가 필요한
+    GeminiTechniqueRecognizer.recognize 호출 path 만 사용. delete=False
+    tempfile 박제 — caller (`_process` Gemini 분기) 가 finally 에서 unlink 책임.
+
+    박제 사유 (B8 fix):
+      · 기존 `_angles_from_video` 시그너처 무변경 — 회귀 위험 0
+      · RunPod server.py D-12 무수정 박제 정합 (호출처 갱신 0)
+      · 신설 함수 분리 — 호출처 명시적 분기 (Gemini path 만 사용)
+
+    Returns:
+      (angles_filled, local_video_path) — caller 가 video_path 를 Gemini File API
+      에 전달 + 분석 끝나면 unlink 박제.
+
+    Raises:
+      예외 발생 시 임시 파일 즉시 unlink 박제 (디스크 누수 보호).
+    """
+    _ensure_adapters()
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    try:
+        _s3.download_file(bucket, key, tmp_path)
+        frames = _FRAME_EXTRACTOR.extract(tmp_path)
+        keypoints = _POSE_ESTIMATOR.estimate(frames)
+        angles = compute_joint_angles(keypoints)
+        angles_filled = temporal_fill(angles, joint_uncertainty(keypoints))
+        return angles_filled, tmp_path
+    except Exception:
+        Path(tmp_path).unlink(missing_ok=True)
+        raise
 
 
 def _deviation_against(
@@ -218,7 +340,16 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     firestore_admin.update_analysis_status(
         uid, analysis_id, models.STATUS_POSE_ANALYSIS
     )
-    angles = _angles_from_video(bucket, key)
+
+    # Plan 5-03 박제 — env switch ON 분기 시 video path 가 Gemini File API 입력으로
+    # 필요. 박제 사유: Gemini 어댑터의 recognize(angles, frames=local_video_path) 호출
+    # path. env 미설정 시 기존 path (회귀 0) 박제 보존.
+    recognizer = _ensure_recognizer()
+    local_video_path: str | None = None
+    if _gemini_enabled():
+        angles, local_video_path = _angles_and_video_path_from_video(bucket, key)
+    else:
+        angles = _angles_from_video(bucket, key)
 
     firestore_admin.update_analysis_status(
         uid, analysis_id, models.STATUS_COMPARISON
@@ -226,90 +357,100 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     my_video_url = _signed_get(bucket, key)
     reference_video_url = None
 
-    # 기술 인식(swappable) → 절대 차원(라인/안정성)은 기준 영상 없이 항상 산출.
-    profile = _RECOGNIZER.recognize(angles)
-    abs_dims = dimensions.absolute_dimension_scores(angles, profile)
+    try:
+        # 기술 인식(swappable) → 절대 차원(라인/안정성)은 기준 영상 없이 항상 산출.
+        # Plan 5-03 박제 — recognize(angles, frames=local_video_path) 호출. Gemini
+        # 어댑터는 frames 인자 (video path) 를 File API 입력으로 사용. Fallback 은
+        # frames 인자 ignore (Protocol 정합 — TestProtocolCompat 박제 검증).
+        profile = recognizer.recognize(angles, frames=local_video_path)
+        abs_dims = dimensions.absolute_dimension_scores(angles, profile)
 
-    if mode == models.MODE_EXPERT:
-        ref = firestore_admin.get_reference_motion(meta.get("referenceMotionId"))
-        if ref is None or "angles" not in ref:
-            raise RuntimeError("기준 모션 또는 keyframe 데이터 없음")
-        # seed 는 Firestore 의 nested-array 금지 회피로 angles 를 flat 저장.
-        num_joints = len(ref.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
-        deviation, match, user_seg, a_ref = _deviation_against(
-            angles, ref["angles"], num_joints
-        )
-        assessments = kismam.assess(deviation)
-        # 각도 정확도 차원 = 정은지 대비 관절각 일치도. 모드1 게이지/일치도이기도 함.
-        angle_dim = kismam.overall_score(assessments)
-        # 비폴 영상 차단 안전망(belle P1 #8). 기준 동작과 너무 동떨어진 자세는
-        # 폴 영상이 아닐 가능성이 높아 의미 없는 점수를 결과 화면에 노출하지 않는다.
-        if angle_dim < models.NOT_POLE_SIMILARITY_THRESHOLD:
-            log.info(
-                "비폴 영상 추정 차단 angle=%d threshold=%d",
-                angle_dim,
-                models.NOT_POLE_SIMILARITY_THRESHOLD,
+        if mode == models.MODE_EXPERT:
+            ref = firestore_admin.get_reference_motion(meta.get("referenceMotionId"))
+            if ref is None or "angles" not in ref:
+                raise RuntimeError("기준 모션 또는 keyframe 데이터 없음")
+            # seed 는 Firestore 의 nested-array 금지 회피로 angles 를 flat 저장.
+            num_joints = len(ref.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
+            deviation, match, user_seg, a_ref = _deviation_against(
+                angles, ref["angles"], num_joints
             )
-            raise NotPoleMotionError(
-                f"angle {angle_dim} < {models.NOT_POLE_SIMILARITY_THRESHOLD}"
+            assessments = kismam.assess(deviation)
+            # 각도 정확도 차원 = 정은지 대비 관절각 일치도. 모드1 게이지/일치도이기도 함.
+            angle_dim = kismam.overall_score(assessments)
+            # 비폴 영상 차단 안전망(belle P1 #8). 기준 동작과 너무 동떨어진 자세는
+            # 폴 영상이 아닐 가능성이 높아 의미 없는 점수를 결과 화면에 노출하지 않는다.
+            if angle_dim < models.NOT_POLE_SIMILARITY_THRESHOLD:
+                log.info(
+                    "비폴 영상 추정 차단 angle=%d threshold=%d",
+                    angle_dim,
+                    models.NOT_POLE_SIMILARITY_THRESHOLD,
+                )
+                raise NotPoleMotionError(
+                    f"angle {angle_dim} < {models.NOT_POLE_SIMILARITY_THRESHOLD}"
+                )
+            dimension_scores = {dimensions.DIM_ANGLE: angle_dim, **abs_dims}
+            overall = dimensions.overall_from_dimensions(dimension_scores)  # 4차원 평균
+            # 콤보 모션이면 베이스/확장 구간 부분 점수 (reference-motions.md §7).
+            seg_scores = None
+            if ref.get("sharedBaseMotionId"):
+                base_ref = firestore_admin.get_reference_motion(
+                    ref["sharedBaseMotionId"]
+                )
+                seg_scores = segments.segment_scores(
+                    ref,
+                    (base_ref or {}).get("name", ""),
+                    match.path,
+                    user_seg,
+                    a_ref,
+                )
+            comparison = assemble.build_mode1(ref, angle_dim, seg_scores)
+            if ref.get("videoS3Key"):
+                reference_video_url = _signed_get(bucket, ref["videoS3Key"])
+        else:  # MODE_SELF — 자기 성장. 절대 차원 + (이전 분석 있으면) 발전 델타.
+            prev = firestore_admin.get_previous_analysis(uid, analysis_id)
+            assessments, dimension_scores, overall, comparison = _mode3_comparison(
+                angles, prev, profile
             )
-        dimension_scores = {dimensions.DIM_ANGLE: angle_dim, **abs_dims}
-        overall = dimensions.overall_from_dimensions(dimension_scores)  # 4차원 평균
-        # 콤보 모션이면 베이스/확장 구간 부분 점수 (reference-motions.md §7).
-        seg_scores = None
-        if ref.get("sharedBaseMotionId"):
-            base_ref = firestore_admin.get_reference_motion(
-                ref["sharedBaseMotionId"]
-            )
-            seg_scores = segments.segment_scores(
-                ref,
-                (base_ref or {}).get("name", ""),
-                match.path,
-                user_seg,
-                a_ref,
-            )
-        comparison = assemble.build_mode1(ref, angle_dim, seg_scores)
-        if ref.get("videoS3Key"):
-            reference_video_url = _signed_get(bucket, ref["videoS3Key"])
-    else:  # MODE_SELF — 자기 성장. 절대 차원 + (이전 분석 있으면) 발전 델타.
-        prev = firestore_admin.get_previous_analysis(uid, analysis_id)
-        assessments, dimension_scores, overall, comparison = _mode3_comparison(
-            angles, prev, profile
-        )
 
-    coach_details = _COACH_WRITER.write(
-        {
-            "mode": mode,
-            "joints": [
-                {
-                    "key": a.key,
-                    "labelKo": a.label_ko,
-                    "deviation_deg": a.deviation_deg,
-                    "direction": a.direction,
-                }
-                for a in kismam.top_issues(assessments, n=3)
-            ],
-        }
-    )
-    result = assemble.build_result(
-        assessments,
-        dimension_scores,
-        overall,
-        comparison,
-        my_video_url,
-        reference_video_url=reference_video_url,
-        coach_details=coach_details,
-    )
-    # 추출 angles 를 flat 저장 — 다음 mode3 분석이 '이전 영상' 기준으로 DTW 비교.
-    firestore_admin.complete_analysis(
-        uid,
-        analysis_id,
-        result,
-        angles=np.asarray(angles, dtype=float).reshape(-1).tolist(),
-        angles_joint_keys=list(skeleton.JOINT_KEYS),
-        angles_frames=int(np.asarray(angles).shape[0]),
-    )
-    log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
+        coach_details = _COACH_WRITER.write(
+            {
+                "mode": mode,
+                "joints": [
+                    {
+                        "key": a.key,
+                        "labelKo": a.label_ko,
+                        "deviation_deg": a.deviation_deg,
+                        "direction": a.direction,
+                    }
+                    for a in kismam.top_issues(assessments, n=3)
+                ],
+            }
+        )
+        result = assemble.build_result(
+            assessments,
+            dimension_scores,
+            overall,
+            comparison,
+            my_video_url,
+            reference_video_url=reference_video_url,
+            coach_details=coach_details,
+        )
+        # 추출 angles 를 flat 저장 — 다음 mode3 분석이 '이전 영상' 기준으로 DTW 비교.
+        firestore_admin.complete_analysis(
+            uid,
+            analysis_id,
+            result,
+            angles=np.asarray(angles, dtype=float).reshape(-1).tolist(),
+            angles_joint_keys=list(skeleton.JOINT_KEYS),
+            angles_frames=int(np.asarray(angles).shape[0]),
+        )
+        log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
+    finally:
+        # Plan 5-03 박제 — Gemini 어댑터 path 에서 신설한 임시 파일 정리.
+        # delete=False NamedTemporaryFile 박제 정신 정합 — caller 책임 (B8 fix).
+        # T-05-03-02 (DoS — 디스크 누수) 박제 — try/finally + missing_ok=True.
+        if local_video_path is not None:
+            Path(local_video_path).unlink(missing_ok=True)
 
 
 def lambda_handler(event: dict, _context) -> dict:

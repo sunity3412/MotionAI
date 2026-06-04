@@ -300,7 +300,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-04 -- Phase 5 CONTEXT 박제 완료 (commit c25aa51)
-Stopped at: Phase 5 context gathered (4 areas: scope / output shape / fallback / call arch — 16 decisions). belle 갱신 = Gemini 3.1 Pro 단일 (3.0 삭제), STATE.md Phase 5 권장 모델 박제 갱신 반영.
-Resume file: .planning/phases/05-gemini/05-CONTEXT.md
-Next: /gsd:plan-phase 5 — Phase 5 plan 작성. 5영상 게이트 = ref-climb / foxtop / foxtop-split / invert / sideway-spin angle 5/5 PASS 목표. (Y+Z) 출력 구조 + 3케이스 fallback + Pod 안 1pass + 영상 hash 캡싱.
+Last session: 2026-06-04 -- Phase 5 RESEARCH 진행 + NotebookLM IPSF lookup critical finding 박제
+Stopped at: gsd-phase-researcher background 진행 중 (Gemini multimodal API wiring + KeyMoment timestamp 정확도 + Plan 13 spike 차별점 + production wiring). NotebookLM IPSF lookup 완료 — 05-IPSF-LOOKUP.md 박제 (Critical: 5영상 중 4영상 IPSF 미등재 + ref-invert 도 Body Position 채점만, yaml hold_moment angle_target=180° = IPSF source 박제 X).
+Resume file: .planning/phases/05-gemini/05-IPSF-LOOKUP.md
+Next: belle Phase 5 게이트 재검토 — angle 5/5 PASS 자체가 IPSF 룰상 4/5 영상에서 불가능. 추천 옵션 (가+다) = scope 5영상 유지 + yaml source 정은지 reference 박제 (분기 2 path) + 게이트 재정의. RESEARCH.md 완료 후 belle 박제.

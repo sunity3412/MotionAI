@@ -683,12 +683,21 @@ def _build_recognizer(name: str) -> Any:
         from sunity_shared.judging import GeminiMomentExtractor
         from sunity_shared import firestore_admin
 
+        # fix 2026-06-04 (Plan 5-05 Task 2): unregistered_hook graceful degrade 박제
+        # Firestore SA env (FIREBASE_SA_PATH/JSON/PARAM) 박제 X 환경에서도 sweep 진행.
+        # 5영상 모두 분기 1/2 등재 박제 → hook 호출 가능성 낮음, 단 호출 시 fail 안 함.
+        def _safe_unregistered_hook(kw: str, vh: str) -> None:
+            try:
+                firestore_admin.record_unregistered_keyword(
+                    kw, uid="sweep-rtmw-gemini", video_hash=vh,
+                )
+            except Exception as e:  # noqa: BLE001 — Firestore SA 박제 X 환경 graceful degrade
+                log.warning("unregistered_hook Firestore 박제 실패 (skip, keyword=%s): %s", kw, e)
+
         return GeminiTechniqueRecognizer(
             extractor=GeminiMomentExtractor(),
             cache=TechniqueCache(),
-            unregistered_hook=lambda kw, vh: firestore_admin.record_unregistered_keyword(
-                kw, uid="sweep-rtmw-gemini", video_hash=vh,
-            ),
+            unregistered_hook=_safe_unregistered_hook,
         )
 
     # default fallback (Plan 11/23 박제 보존)
@@ -854,8 +863,16 @@ def main(argv: list[str] | None = None) -> int:
         log.info("처리 중: %s (%s)", motion_name, video_path)
 
         try:
+            # fix 2026-06-04 (Plan 5-05 Task 2): S3 URI 명시적 다운로드 → local path 박제
+            # GeminiTechniqueRecognizer 의 frames 인자 (file API path) 가 local path 필요.
+            # _load_video_frames 내부 S3 처리는 backward compat 박제 (단위 테스트 보존).
+            if isinstance(video_path, str) and video_path.startswith("s3://"):
+                local_video_path = _download_s3_video(video_path)
+            else:
+                local_video_path = Path(video_path)
+
             # 영상 로드
-            frames = _load_video_frames(video_path)
+            frames = _load_video_frames(local_video_path)
             T = frames.shape[0]
 
             # POSE-02: video-level PoleAxis 1개 산출
@@ -883,7 +900,7 @@ def main(argv: list[str] | None = None) -> int:
                 line_verdict, angle_verdict = compute_line_angle_gates(
                     joint_angles, pole_axis,
                     recognizer=recognizer,
-                    video_path=str(video_path),
+                    video_path=str(local_video_path),
                 )
             except Exception as e:
                 log.warning("%s line/angle gate 오류: %s — FAIL 처리", motion_name, e)

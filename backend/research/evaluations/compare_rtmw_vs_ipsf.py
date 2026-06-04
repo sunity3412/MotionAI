@@ -698,13 +698,20 @@ def _build_recognizer(name: str) -> Any:
 def _load_pose_engine(engine_name: str) -> Any:
     """pose engine 인스턴스 로드.
 
-    기본 = 'rtmw' → RTMWLifterPoseEngine (plan 22 옵션 B 선택).
+    박제 [[rtmw-free-stack-pivot]] 정합 (2026-06-04 박제 정정):
+    - 기본 = 'rtmw' → RTMWPoseEngine 단일 백본 (Apache-2.0, MotionBERT 의존 영구 제거)
+    - 'rtmw-lifter' → RTMWLifterPoseEngine (Plan 22 옵션 B, MotionBERT 가중치 필요) — 박제 외 옵션
+    - measure_eunji_reference.py 박제 패턴 정합 (RTMW only 5영상 측정 성공)
+
     단위 테스트는 create_with_engines mock 주입 사용.
     """
     if engine_name == "rtmw":
+        from sunity_shared.analysis.pose_engines.rtmw.rtmw_engine import RTMWPoseEngine
+        return RTMWPoseEngine()
+    if engine_name == "rtmw-lifter":
         from sunity_shared.analysis.pose_engines.rtmw.lifter_pipeline import RTMWLifterPoseEngine
         return RTMWLifterPoseEngine()
-    raise ValueError(f"알 수 없는 pose engine: {engine_name!r}. 현재 지원 = 'rtmw'.")
+    raise ValueError(f"알 수 없는 pose engine: {engine_name!r}. 지원 = 'rtmw' (단일 백본), 'rtmw-lifter' (MotionBERT 의존, 박제 [[rtmw-free-stack-pivot]] 외).")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

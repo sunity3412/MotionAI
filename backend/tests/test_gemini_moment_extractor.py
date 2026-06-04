@@ -401,8 +401,9 @@ class TestExtractor:
         assert ext.call_count == 2
 
     def test_default_model_constant(self) -> None:
+        # Phase 5 D-13 (belle 2026-06-04 확정) — gemini-3.1-pro 단일.
         ext = _StubExtractor(_VALID_GEMINI_RESPONSE)
-        assert ext.model_name == DEFAULT_GEMINI_MODEL == "gemini-2.5-pro"
+        assert ext.model_name == DEFAULT_GEMINI_MODEL == "gemini-3.1-pro"
 
 
 # ─────────────────── assign_frame_indices ───────────────────

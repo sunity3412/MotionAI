@@ -39,8 +39,9 @@ log = logging.getLogger(__name__)
 # AWS SSM Parameter Store 경로 — STATE.md 2026-06-01 박제됨.
 GEMINI_API_KEY_PARAM_NAME = "/sunity/motion/gemini-api-key"
 
-# 기본 Gemini 모델 — STATE.md "Phase 5 권장 모델" 인용.
-DEFAULT_GEMINI_MODEL = "gemini-2.5-pro"
+# 기본 Gemini 모델 — Phase 5 D-13 (belle 2026-06-04 확정) — gemini-3.1-pro 단일.
+# 3.0 삭제, 3.5 Flash 후속 plan.
+DEFAULT_GEMINI_MODEL = "gemini-3.1-pro"
 
 # Gemini 응답이 좌표·점수·판단을 출력하지 못하도록 거부할 패턴.
 # memory: analysis-objectivity-no-human-scores — 출력은 시점/분류만, 점수·좌표 금지.
@@ -260,6 +261,12 @@ class GeminiMomentExtractor:
     _cache: dict[tuple[str, str, str], list[KeyMoment]] = field(
         default_factory=dict, init=False, repr=False
     )
+    # Phase 5 B5/W3 fix (2026-06-04 revision) — 어댑터 layer 2차 가드 (D-08,
+    # [[analysis-objectivity-no-human-scores]]) 가 실 응답 텍스트를 검사하려면
+    # raw_text 보존 필요. GeminiTechniqueRecognizer 가 본 attribute 를 읽어
+    # _enforce_no_coordinate_or_score 호출.
+    _last_raw_response: str = field(default="", init=False, repr=False)
+    _last_motion_name: str = field(default="", init=False, repr=False)
 
     def extract_key_moments(
         self,
@@ -276,12 +283,17 @@ class GeminiMomentExtractor:
           ValueError: Gemini 응답이 좌표/점수/판단 포함, 스키마 위반, moment_key invalid.
           RuntimeError: API 키 로드 실패, SDK import 실패, 네트워크 실패.
         """
+        # Phase 5 B5/W3 fix — 호출 시점의 motion query 박제. adapter 가 raw_motion_name
+        # 으로 사용 (Gemini 가 motion 분류 응답 X 인 spike 박제 path 와 분리).
+        self._last_motion_name = motion
+
         cache_key = (video_uri, motion, self.model_name)
         if cache_key in self._cache:
             log.debug("KeyMoment 캐시 hit: %s", cache_key)
             return list(self._cache[cache_key])
 
         raw_response = self._call_gemini(video_uri, motion)
+        # _last_raw_response 는 _call_gemini 가 박제 (실패 path 도 박제 보존).
         moments = _parse_gemini_response(motion, raw_response)
         # frame_index 는 호출자가 후처리 — 본 메서드는 timestamp만 신뢰.
         # validate() 도 호출자가 frame_index 채운 뒤 수행.
@@ -347,6 +359,9 @@ class GeminiMomentExtractor:
             contents=[uploaded, prompt],
         )
         text = getattr(response, "text", None)
+        # Phase 5 B5/W3 fix — adapter layer 2차 가드 (D-08) 가 raw_text 검사 필요.
+        # 빈 응답도 박제 (디버그 보존).
+        self._last_raw_response = text or ""
         if not text:
             raise RuntimeError(
                 "Gemini 응답이 비어있음 — model='%s' video='%s' motion='%s'."

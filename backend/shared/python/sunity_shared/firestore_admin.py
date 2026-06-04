@@ -130,3 +130,100 @@ def get_previous_analysis(uid: str, current_id: str) -> dict | None:
         data.setdefault("analysisId", snap.id)
         return data
     return None
+
+
+# ─────────────────── Plan 5-02 (2026-06-04) Gemini 캡싱 helper ───────────────────
+#
+# D-14 박제 — 영상 hash 캡싱 (gemini_cache/{hash} top-level 전역 공유).
+# D-09 case 3 박제 — TERM-DATA-01 분기 3 자동 수집 (term_collection/{keyword}).
+# [[firestore-nested-array-flat]] 정합 — moments[i] flat dict array 강제.
+# D-16 lazy import — firebase_admin.firestore 는 record_unregistered_keyword
+# 안에서만 import (Increment / ArrayUnion 만 필요).
+
+_GEMINI_CACHE_COLLECTION = "gemini_cache"  # top-level, uid 비의존 전역 공유
+_TERM_COLLECTION = "term_collection"  # TERM-DATA-01 분기 3 자동 수집 (D-09 case 3)
+
+
+def get_gemini_cache(video_hash: str) -> dict | None:
+    """gemini_cache/{hash} document → dict 또는 None.
+
+    Plan 5-02 박제. TechniqueCache.lookup 가 호출.
+    """
+    snap = _doc(f"{_GEMINI_CACHE_COLLECTION}/{video_hash}").get()
+    if not snap.exists:
+        return None
+    return snap.to_dict() or None
+
+
+def store_gemini_cache(video_hash: str, payload: dict) -> None:
+    """gemini_cache/{hash} document 박제. video_hash + timestamps 자동 추가.
+
+    Plan 5-02 박제. TechniqueCache.store 가 호출.
+
+    [[firestore-nested-array-flat]] 정합 — moments entry 가 flat dict 아니거나
+    value 가 list/tuple 이면 TypeError raise (Firestore crash 1차 차단선).
+
+    timestamps 박제:
+      · created_at — payload 에 이미 있으면 보존 (재박제 시 첫 박제 시각 유지)
+      · updated_at — 항상 현재 시각 박제
+
+    Raises:
+      TypeError: moments entry 가 flat dict 아님 또는 value 가 list/tuple.
+    """
+    # nested-array 정합 검증 ([[firestore-nested-array-flat]])
+    if "moments" in payload and payload["moments"]:
+        for i, m in enumerate(payload["moments"]):
+            if not isinstance(m, dict):
+                raise TypeError(
+                    f"moments[{i}] must be flat dict "
+                    f"(firestore-nested-array-flat): got {type(m).__name__}"
+                )
+            for k, v in m.items():
+                if isinstance(v, (list, tuple)):
+                    raise TypeError(
+                        f"moments[{i}][{k}] must be scalar "
+                        f"(firestore nested array 금지): got {type(v).__name__}"
+                    )
+
+    now_ms = int(time.time() * 1000)
+    doc = {
+        **payload,
+        "video_hash": video_hash,
+        "created_at": payload.get("created_at", now_ms),
+        "updated_at": now_ms,
+    }
+    _doc(f"{_GEMINI_CACHE_COLLECTION}/{video_hash}").set(doc)
+
+
+def record_unregistered_keyword(keyword: str, *, uid: str, video_hash: str) -> None:
+    """TERM-DATA-01 분기 3 자동 수집 트리거 (D-09 case 3 — Plan 5-02 박제).
+
+    Phase 16 TERM-DATA-01 schema 정합 (uid 익명 + 누적 카운트):
+      · keyword: 박제 keyword string
+      · count: Increment(1) — 호출마다 +1
+      · unique_users: ArrayUnion([uid]) — set 정합 (같은 uid 멱등)
+      · last_video_hash: 마지막 박제 영상 hash
+      · promotion_status: "pending" (Phase 16 16-AUTOCOLLECT-SCHEMA 박제 워크플로:
+        pending → reviewing → approved)
+      · created_at / updated_at: ms timestamps
+
+    UI 카피 TERM-COPY-01 = Phase 12 책임 (본 helper = 데이터 트리거만).
+
+    멱등: 같은 (keyword, uid) 재호출 시 unique_users set 박제 = 1 (중복 무시).
+    """
+    from firebase_admin import firestore as _firestore  # lazy import (D-16)
+
+    ref = _doc(f"{_TERM_COLLECTION}/{keyword}")
+    now_ms = int(time.time() * 1000)
+    ref.set(
+        {
+            "keyword": keyword,
+            "count": _firestore.Increment(1),
+            "unique_users": _firestore.ArrayUnion([uid]),
+            "last_video_hash": video_hash,
+            "updated_at": now_ms,
+            "created_at": now_ms,  # set merge=True 가 첫 박제만 사용
+            "promotion_status": "pending",  # Phase 16 schema 박제 정합
+        },
+        merge=True,
+    )

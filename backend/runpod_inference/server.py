@@ -139,13 +139,45 @@ def _process_in_background(bucket: str, key: str, uid: str, analysis_id: str) ->
 @app.on_event("startup")
 def _warmup() -> None:
     """모델/어댑터 미리 GPU 메모리 로드. 실패해도 첫 /analyze 에서 재시도.
-    pipeline 모듈은 어댑터 import 를 lazy 로 미루므로 _ensure_adapters() 까지
-    명시적으로 호출 — startup 비용을 첫 요청이 아닌 부팅 시점에 지불."""
+    pipeline 모듈은 어댑터 import 를 lazy 로 미루므로 _ensure_adapters() +
+    _ensure_recognizer() 까지 명시적으로 호출 — startup 비용을 첫 요청이 아닌
+    부팅 시점에 지불.
+
+    Phase 5 (Plan 5-04, 2026-06-04) — Gemini fail-loud 박제:
+      env RECOGNIZER_BACKEND=gemini + GEMINI_API_KEY 누락 시 startup 시점에
+      log.error + RuntimeError 발생. outer except 가 흡수 → FastAPI server 자체는
+      살아있음, 첫 /analyze 호출에서 503/실패 (Common Pitfall 4 박제 정신).
+      박제 정신 = "갑작스러운 미스터리 X — log 로 원인 명시 + 첫 분석 시점 명시 실패".
+    """
     log.info("RunPod 분석 서버 startup — auth=%s", "ON" if _AUTH_TOKEN else "OFF")
     try:
         mod = _load_pipeline_module()
         mod._ensure_adapters()
         log.info("어댑터 워밍업 완료 (NLF/ffmpeg/coach)")
+
+        # Plan 5-04 박제 — recognizer 워밍업 (lazy creation + env switch).
+        # env 미설정 시 FallbackRecognizer 박제 (회귀 0).
+        recognizer = mod._ensure_recognizer()
+        log.info("Recognizer 워밍업 완료 — type=%s", type(recognizer).__name__)
+
+        # Gemini 선택 시 API 키 명시 검증 — _load_api_key() 호출 시 키 없으면
+        # RuntimeError 발생 (fail-loud 박제). recognize() 첫 호출 시점에서
+        # 갑작스러운 에러 발생 회피 (Common Pitfall 4 박제 정신).
+        if mod._gemini_enabled():
+            try:
+                # D-16 lazy import — Gemini 모드 진입 시점에만 import.
+                from sunity_shared.judging.gemini_moment_extractor import (
+                    _load_api_key,
+                )
+                _load_api_key()  # 키 값 자체는 버림 (검증만 — 로그에 키 노출 X).
+                log.info("Gemini API 키 검증 완료")
+            except RuntimeError as exc:
+                log.error(
+                    "Gemini API 키 검증 실패 — Pod env GEMINI_API_KEY 또는 SSM "
+                    "Parameter Store /sunity/motion/gemini-api-key 박제 누락: %s",
+                    exc,
+                )
+                raise  # fail-loud — outer except 가 흡수 (server 는 살아있음).
     except Exception:  # noqa: BLE001
         log.exception("워밍업 실패 — 첫 요청 처리 시 재시도")
 

@@ -39,12 +39,13 @@ log = logging.getLogger(__name__)
 # AWS SSM Parameter Store 경로 — STATE.md 2026-06-01 박제됨.
 GEMINI_API_KEY_PARAM_NAME = "/sunity/motion/gemini-api-key"
 
-# 기본 Gemini 모델 — Phase 5 D-13 (belle 2026-06-04 확정) — Gemini Pro 단일.
-# fix 2026-06-05 (Plan 5-05 verify): "gemini-3.1-pro" → "gemini-3-pro-preview" 정정.
-# Gemini API v1beta 박제 가능 모델명 (404 NOT_FOUND 박제 후 정정).
-# setup_gemini.sh 사전 검증 시 사용 모델 (hello world 호출 PASS).
-# D-13 박제 정신 = "Gemini Pro 정확도 우선 모델 단일" — 모델명은 API 박제 정확치.
-DEFAULT_GEMINI_MODEL = "gemini-3-pro-preview"
+# 기본 Gemini 모델 — Phase 5 D-13 (belle 2026-06-04 확정) — Gemini 3.1 Pro 단일.
+# fix v2 2026-06-05 (Plan 5-05 verify ListModels 박제):
+#   "gemini-3-pro-preview" = deprecated ("This model is no longer available")
+#   → "gemini-3.1-pro-preview" 박제 = belle D-13 정신 정확 박제 모델명.
+# ListModels 출력 (2026-06-05 박제): gemini-3.1-pro-preview 박제 = generateContent +
+#   countTokens + createCachedContent + batchGenerateContent (video API 박제).
+DEFAULT_GEMINI_MODEL = "gemini-3.1-pro-preview"
 
 # Gemini 응답이 좌표·점수·판단을 출력하지 못하도록 거부할 패턴.
 # memory: analysis-objectivity-no-human-scores — 출력은 시점/분류만, 점수·좌표 금지.

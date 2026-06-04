@@ -711,12 +711,40 @@ def _load_pose_engine(engine_name: str) -> Any:
 # _load_video_frames: 영상 → numpy (T, H, W, 3)
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _download_s3_video(s3_uri: str) -> Path:
+    """S3 URI (s3://bucket/key) → 로컬 tempfile path 다운로드.
+
+    fix 2026-06-04 (Plan 5-05 Task 2): Pod sweep 시 S3 URI 직접 입력 지원.
+    boto3 lazy import — 로컬 단위 테스트 비호환 환경 보호 (D-16 정합).
+    """
+    import boto3  # lazy import — Lambda 런타임 또는 Pod 환경에서만 사용
+    import tempfile
+
+    if not s3_uri.startswith("s3://"):
+        raise ValueError(f"S3 URI 형식 위반 (s3://bucket/key 필요): {s3_uri}")
+    rest = s3_uri[len("s3://"):]
+    if "/" not in rest:
+        raise ValueError(f"S3 URI 의 key 누락: {s3_uri}")
+    bucket, key = rest.split("/", 1)
+
+    suffix = Path(key).suffix or ".mp4"
+    tmp_path = Path(tempfile.mkstemp(suffix=suffix, prefix="sweep_video_")[1])
+    s3 = boto3.client("s3")
+    log.info("S3 영상 다운로드: %s → %s", s3_uri, tmp_path)
+    s3.download_file(bucket, key, str(tmp_path))
+    return tmp_path
+
+
 def _load_video_frames(video_path: str | Path) -> np.ndarray:
     """영상 파일 → (T, H, W, 3) RGB uint8 numpy 배열.
 
     imageio + ffmpeg 사용. 9fps / 640px 다운샘플 (frame_extractor.py 정합).
+    S3 URI (s3://bucket/key) 입력 시 자동 다운로드 후 처리.
     파일이 없거나 로드 실패 시 ValueError.
     """
+    # S3 URI 자동 다운로드 (Plan 5-05 Task 2 fix 박제)
+    if isinstance(video_path, str) and video_path.startswith("s3://"):
+        video_path = _download_s3_video(video_path)
     path = Path(video_path)
     if not path.exists():
         raise ValueError(f"영상 파일 없음: {path}")

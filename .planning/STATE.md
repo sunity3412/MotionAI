@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-04 -- Plan 5-00 Task 1 박제 + Task 2 belle Pod 측정 + tolerance 룰 승인 대기 (blocking-human checkpoint)
-Stopped at: Wave 0 Plan 05-00 Task 2 checkpoint — belle Pod 측정 + tolerance 룰 승인 대기. Task 1 (measure_eunji_reference.py spike 박제, commit 82fa0db) 완료. Task 2 = belle 가 (1) hold timestamp JSON 박제 + (2) Pod sweep 실행 + (3) measurements.json 검토 + (4) D-18 tolerance/minimum 룰 (±15° / -25°) 승인 또는 변경. 승인 후 Task 3 (yaml 5개 정정) 진입 가능. blocking-human gate — 자동 승인 불가.
-Resume file: .planning/phases/05-gemini/05-00-PLAN.md (Task 2 checkpoint)
-Next: belle Pod 작업 → measurements.json commit + push → A/B/C/D/E 답변 박제 → Task 3 진입 권한 부여 → /gsd:execute-phase 5 resume Wave 0 Plan 05-00 Task 3.
+Last session: 2026-06-04 -- Wave 0 (Plan 5-00) 종료, Wave 1 진입 대기
+Stopped at: Plan 5-00 SUMMARY 박제 완료 (4 commits: 82fa0db spike + 114e106 PoleAxis fix + 3edfb1b measurements + 570093c yaml 4개 정정). 정은지 reference 측정값 5영상 박제 (ref-climb skip, 4영상 hold_window mean), yaml source 분기 2 path 정정. belle 박제 답변 (2026-06-04): (A) 측정값 정합 yes, (B) tolerance ±15° 유지, (C) D-18 minimum 룰 유지 (음수 = Gemini 자동 BENT_OK 신호), (D) D-19 별 phase OK, (E) D-20 별 phase OK. Pod 환경 자동화 박제 ([[runpod-gpu-env.md]] 갱신: 매 세션 새 Pod + wrapper script path).
+Resume file: .planning/phases/05-gemini/05-00-SUMMARY.md
+Next: Wave 1 진입 — Plan 5-01 (GeminiTechniqueRecognizer) + Plan 5-02 (TechniqueCache) 평행 실행. /gsd:execute-phase 5 --wave 1 로 dispatch.

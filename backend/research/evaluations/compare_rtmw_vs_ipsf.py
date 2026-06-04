@@ -45,9 +45,18 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
+
+# Plan 5-05 박제 — B1 fix (2026-06-04 revision belle 박제 결정).
+# 게이트 verdict 3-state literal (W4 fix: Literal import 명시).
+#   · "PASS"               = 채점 영역 모션 통과
+#   · "FAIL"               = 채점 영역 모션 미통과
+#   · "out_of_scope_PASS"  = 채점 영역 외 모션 (yaml hold_moment 빈 list — 예: ref-climb)
+#                            D-20 박제 정신 정합 = ref-climb 차원 별 phase 책임. PASS counted.
+# 박제 정신 정합 ([[gap-and-line-angle-mandatory-gates]] "강등/우회 금지" 정의 정확화).
+GateVerdict = Literal["PASS", "FAIL", "out_of_scope_PASS"]
 
 # sys.path 보장 (runpod / local 실행 공통)
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -128,6 +137,10 @@ class SweepReport:
     timestamp: str
     motions: list[MotionResult] = field(default_factory=list)
     phase1_ready_to_swap: bool = False
+    # Plan 5-05 박제 — sweep CLI 박제 (recognizer + GateVerdict).
+    recognizer: str = "fallback"
+    line_verdicts: list[str] = field(default_factory=list)
+    angle_verdicts: list[str] = field(default_factory=list)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -323,27 +336,71 @@ def compare_to_ipsf(
 def compute_line_angle_gates(
     joint_angles: np.ndarray,
     pole_axis: PoleAxis,
-) -> tuple[bool, bool]:
-    """line_score + stability_score (angle proxy) 에서 5/5 PASS 여부 계산.
+    recognizer: Any = None,
+    video_path: str | None = None,
+) -> tuple[GateVerdict, GateVerdict]:
+    """line_score + stability_score (angle proxy) 게이트 verdict 산정.
 
-    T-23-03: line_score / angle_score = None 이면 False (N/A 를 PASS 로 카운트 금지).
+    Plan 5-05 박제 — recognizer + video_path 인자 추가 (Gemini 어댑터 주입 path).
+
+    B1 fix 박제 (2026-06-04 revision belle 박제 결정):
+      · line_score / angle_score = None (yaml hold_moment 빈 list, 예: ref-climb)
+        → "out_of_scope_PASS" 분기 (False 박제 X — D-20 박제 정신 정합).
+      · 채점 영역 모션 (line/angle score 산출 가능) → "PASS" / "FAIL".
+      · [[gap-and-line-angle-mandatory-gates]] "강등/우회 금지" 정신 정합 = 정의 정확화.
+
+    T-23-03 박제 (기존): None = N/A — B1 fix 박제로 "N/A 박제 = 별 phase 채점 영역"
+    의도된 박제 시 "out_of_scope_PASS" counted (D-20 정합). 의도되지 않은 N/A 는 "FAIL".
+
+    Args:
+        joint_angles: (T, NUM_JOINTS) 관절각 배열.
+        pole_axis: video-level PoleAxis.
+        recognizer: TechniqueRecognizer 인스턴스. None = FallbackRecognizer default
+            (회귀 보존). Plan 5-05 박제 — GeminiTechniqueRecognizer 주입 path.
+        video_path: Gemini 어댑터 frames 인자 (영상 경로). None = FallbackRecognizer
+            기본 동작 정합 (frames 미사용).
 
     Returns:
-        (line_pass, angle_pass) — bool. None 반환 시 False.
+        (line_verdict, angle_verdict) — GateVerdict 3-state literal.
     """
-    recognizer = FallbackRecognizer()
-    profile = recognizer.recognize(joint_angles)
+    if recognizer is None:
+        recognizer = FallbackRecognizer()
+
+    # Plan 5-05 박제 — GeminiTechniqueRecognizer 는 frames=video_path 사용.
+    # FallbackRecognizer 는 frames 무시 (동일 시그너처 호환).
+    profile = recognizer.recognize(joint_angles, frames=video_path)
+
+    # B1 fix 박제: profile.joint_expectations 빈 dict (ref-climb yaml hold_moment
+    # 빈 list 정합) → out_of_scope_PASS (D-20 박제 정신 정합).
+    if not profile.joint_expectations:
+        return "out_of_scope_PASS", "out_of_scope_PASS"
 
     ls = line_score(joint_angles, profile)
-    # line_pass: line_score 가 None 이 아니고 >= 50 이면 PASS (합리적 임계)
-    line_pass = (ls is not None) and (ls >= 50)
+    line_verdict: GateVerdict = (
+        "PASS" if (ls is not None and ls >= 50) else "FAIL"
+    )
 
     # angle_pass: stability_score 를 angle proxy 로 사용 (plan 23 스코프 내 proxy)
-    # phase1_ready_to_swap 게이트에서는 보수적으로 stability >= 50 을 요구
     ss = stability_score(joint_angles)
-    angle_pass = ss >= 50
+    angle_verdict: GateVerdict = "PASS" if ss >= 50 else "FAIL"
 
-    return line_pass, angle_pass
+    return line_verdict, angle_verdict
+
+
+def gate_passed(verdict: GateVerdict) -> bool:
+    """B1 fix 박제 — verdict counter (X/N) 산정 helper.
+
+    PASS 와 out_of_scope_PASS 모두 PASS counted (D-20 정합).
+    """
+    return verdict in ("PASS", "out_of_scope_PASS")
+
+
+def is_in_scope(verdict: GateVerdict) -> bool:
+    """B1 fix 박제 — 채점 영역 모션 카운트 (out_of_scope 박제 제외).
+
+    verdict 표의 분모 N = 채점 영역 모션 수 산정용 (분모 = PASS + FAIL).
+    """
+    return verdict != "out_of_scope_PASS"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -414,17 +471,40 @@ def write_report(results: SweepReport, output_dir: Path) -> tuple[Path, Path]:
             "lift_swap_ratio": m.lift_swap_ratio,
         }
 
+    # Plan 5-05 박제 — B1 fix verdict 카운트 (out_of_scope_PASS = PASS counted).
+    line_pass_count = sum(1 for v in results.line_verdicts if gate_passed(v))
+    angle_pass_count = sum(1 for v in results.angle_verdicts if gate_passed(v))
+    line_inscope_count = sum(1 for v in results.line_verdicts if is_in_scope(v))
+    angle_inscope_count = sum(1 for v in results.angle_verdicts if is_in_scope(v))
+    out_of_scope_count = sum(
+        1 for v in results.line_verdicts if not is_in_scope(v)
+    )
+
+    # Plan 5-05 박제 — D-16 보류 해제 게이트 = recognizer=gemini + ready_to_swap True.
+    # gemini path 만 phase5_ready_to_release_d16_block 산정 (fallback path = N/A).
+    phase5_ready = bool(
+        results.recognizer == "gemini" and results.phase1_ready_to_swap
+    )
+
     report_dict = {
         "timestamp": results.timestamp,
+        "recognizer": results.recognizer,
         "motions": motions_dict,
         "summary": {
             "phase1_ready_to_swap": results.phase1_ready_to_swap,
+            "phase5_ready_to_release_d16_block": phase5_ready,
+            "recognizer": results.recognizer,
             "total_motions": len(results.motions),
             "ipsf_within_tolerance_count": sum(
                 1 for m in results.motions if m.within_tolerance_all
             ),
-            "line_pass_count": sum(1 for m in results.motions if m.line_pass),
-            "angle_pass_count": sum(1 for m in results.motions if m.angle_pass),
+            "line_pass_count": line_pass_count,
+            "angle_pass_count": angle_pass_count,
+            "line_inscope_count": line_inscope_count,
+            "angle_inscope_count": angle_inscope_count,
+            "out_of_scope_count": out_of_scope_count,
+            "line_verdicts": list(results.line_verdicts),
+            "angle_verdicts": list(results.angle_verdicts),
         },
     }
 
@@ -442,37 +522,81 @@ def write_report(results: SweepReport, output_dir: Path) -> tuple[Path, Path]:
 def _write_markdown(results: SweepReport, report_dict: dict, md_path: Path) -> None:
     """Markdown 표 형식 보고서 작성."""
     lines: list[str] = []
-    lines.append("# RTMW vs IPSF 회귀 검증 보고서 (Plan 01-23)")
+    lines.append("# RTMW vs IPSF 회귀 검증 보고서 (Plan 01-23 + Plan 5-05)")
     lines.append(f"\n생성 시각: {results.timestamp}")
+    # Plan 5-05 박제 — sweep recognizer 박제 (B1 fix 게이트 정의 정확화).
+    lines.append(f"\n**Recognizer:** {results.recognizer}")
     lines.append(
         f"\n**phase1_ready_to_swap: {results.phase1_ready_to_swap}**"
         f"  (Wave 3 plan 25 atomic swap 진입 게이트)"
     )
+    lines.append(
+        f"\n**phase5_ready_to_release_d16_block:** "
+        f"{report_dict['summary']['phase5_ready_to_release_d16_block']}"
+        f"  (Plan 5-05 박제 — Plan 24/25 D-16 보류 해제 게이트, "
+        f"recognizer=gemini + ready_to_swap=True 시 True)"
+    )
     lines.append("")
+    lines.append(
+        "> **B1 fix (2026-06-04 belle 박제)** Phase 5 게이트 = "
+        "`ref-climb 제외 채점 영역 모션 N/N PASS + ref-climb out-of-scope counted as PASS`. "
+        "verdict 표 분자 = `out_of_scope_PASS counted as PASS`, "
+        "분모 N = 채점 영역 모션 수 (out_of_scope 제외)."
+    )
 
     # 요약 표
     summary = report_dict["summary"]
+    lines.append("")
     lines.append("## 요약")
     lines.append("| 항목 | 값 |")
     lines.append("| --- | --- |")
+    lines.append(f"| recognizer | {summary['recognizer']} |")
     lines.append(f"| phase1_ready_to_swap | {summary['phase1_ready_to_swap']} |")
+    lines.append(
+        f"| phase5_ready_to_release_d16_block | "
+        f"{summary['phase5_ready_to_release_d16_block']} |"
+    )
     lines.append(f"| 전체 모션 수 | {summary['total_motions']} |")
-    lines.append(f"| IPSF within_tolerance PASS | {summary['ipsf_within_tolerance_count']}/{summary['total_motions']} |")
-    lines.append(f"| line PASS | {summary['line_pass_count']}/{summary['total_motions']} |")
-    lines.append(f"| angle PASS | {summary['angle_pass_count']}/{summary['total_motions']} |")
+    lines.append(
+        f"| IPSF within_tolerance PASS | "
+        f"{summary['ipsf_within_tolerance_count']}/{summary['total_motions']} |"
+    )
+    # B1 fix 박제 — verdict 표 분자/분모 정의 정확화 (out_of_scope counted as PASS).
+    lines.append(
+        f"| line PASS (채점 영역) | {summary['line_pass_count']}/"
+        f"{summary['line_inscope_count']} (out-of-scope counted: "
+        f"{summary['out_of_scope_count']} PASS) |"
+    )
+    lines.append(
+        f"| angle PASS (채점 영역) | {summary['angle_pass_count']}/"
+        f"{summary['angle_inscope_count']} (out-of-scope counted: "
+        f"{summary['out_of_scope_count']} PASS) |"
+    )
 
     lines.append("")
     lines.append("## 모션별 결과")
-    lines.append("| 모션 | pole_axis (vec) | pole 신뢰도 | IPSF within_tolerance | line PASS | angle PASS | ms/frame | rtmw_mean_score | swap_ratio |")
-    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    lines.append(
+        "| 모션 | pole_axis (vec) | pole 신뢰도 | IPSF within_tolerance "
+        "| line verdict | angle verdict | ms/frame | rtmw_mean_score | swap_ratio |"
+    )
+    lines.append(
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    )
 
-    for m in results.motions:
+    # Plan 5-05 박제 — verdict 박제 (line/angle 3-state).
+    line_vs = results.line_verdicts
+    angle_vs = results.angle_verdicts
+
+    for idx, m in enumerate(results.motions):
         av = [f"{v:.3f}" for v in m.pole_axis_vector]
         ipsf_pass = "PASS" if m.within_tolerance_all else "FAIL"
+        lv = line_vs[idx] if idx < len(line_vs) else ("PASS" if m.line_pass else "FAIL")
+        avd = angle_vs[idx] if idx < len(angle_vs) else (
+            "PASS" if m.angle_pass else "FAIL"
+        )
         lines.append(
             f"| {m.motion_name} | [{', '.join(av)}] | {m.pole_axis_confidence} "
-            f"| {ipsf_pass} | {'PASS' if m.line_pass else 'FAIL'} "
-            f"| {'PASS' if m.angle_pass else 'FAIL'} "
+            f"| {ipsf_pass} | {lv} | {avd} "
             f"| {m.ms_per_frame:.1f} | {m.rtmw_mean_score:.1f} "
             f"| {m.lift_swap_ratio if m.lift_swap_ratio is not None else 'N/A'} |"
         )
@@ -532,6 +656,44 @@ def compute_phase1_ready_to_swap(motions: list[MotionResult]) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # _load_pose_engine: RTMWLifterPoseEngine (옵션 B) 로드
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _build_recognizer(name: str) -> Any:
+    """recognizer name → instance. lazy import (D-16 박제).
+
+    Plan 5-05 박제 — sweep CLI `--recognizer {fallback,gemini}` factory.
+
+    Args:
+        name: "fallback" (default, Plan 11/23 박제 보존) 또는 "gemini" (Plan 5-05 박제).
+
+    Returns:
+        TechniqueRecognizer 인스턴스. fallback = FallbackRecognizer, gemini =
+        GeminiTechniqueRecognizer + TechniqueCache + unregistered_hook.
+
+    박제 정신:
+        · D-14: cache 박제 효과 — Gemini path 만 TechniqueCache 합성.
+        · D-16: lazy import — gemini 선택 시에만 google.genai/firebase_admin import.
+        · D-09 case 3: unregistered_hook = firestore_admin.record_unregistered_keyword.
+    """
+    if name == "gemini":
+        # D-16 lazy import — gemini 선택 시점에만 import.
+        from sunity_shared.analysis.gemini_technique_recognizer import (
+            GeminiTechniqueRecognizer,
+        )
+        from sunity_shared.analysis.technique_cache import TechniqueCache
+        from sunity_shared.judging import GeminiMomentExtractor
+        from sunity_shared import firestore_admin
+
+        return GeminiTechniqueRecognizer(
+            extractor=GeminiMomentExtractor(),
+            cache=TechniqueCache(),
+            unregistered_hook=lambda kw, vh: firestore_admin.record_unregistered_keyword(
+                kw, uid="sweep-rtmw-gemini", video_hash=vh,
+            ),
+        )
+
+    # default fallback (Plan 11/23 박제 보존)
+    return FallbackRecognizer()
+
 
 def _load_pose_engine(engine_name: str) -> Any:
     """pose engine 인스턴스 로드.
@@ -606,6 +768,17 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="IPSF criteria YAML 디렉터리. 기본 = backend/judging_data/criteria/",
     )
+    parser.add_argument(
+        "--recognizer",
+        choices=["fallback", "gemini"],
+        default="fallback",
+        help=(
+            "기술 인식기 선택. fallback (default, Plan 11/23 박제) = FallbackRecognizer. "
+            "gemini (Plan 5-05 박제) = GeminiTechniqueRecognizer + 영상 hash 캡싱. "
+            "Phase 5 게이트 = --recognizer gemini 로 5영상 sweep — "
+            "채점 영역 모션 N/N PASS + ref-climb out-of-scope counted as PASS (B1 fix)."
+        ),
+    )
 
     args = parser.parse_args(argv)
 
@@ -622,7 +795,23 @@ def main(argv: list[str] | None = None) -> int:
         log.error("pose engine 로드 실패: %s", e)
         return 1
 
+    # Plan 5-05 박제 — recognizer 1회 합성 + 5영상 loop 안에서 재사용.
+    # D-14 cache 박제 효과 = sweep 재실행 시 cache hit (instance 재사용 필수).
+    try:
+        recognizer = _build_recognizer(args.recognizer)
+    except Exception as e:
+        log.error("recognizer 합성 실패 (name=%s): %s", args.recognizer, e)
+        return 1
+    log.info(
+        "sweep recognizer = %s (instance type=%s)",
+        args.recognizer,
+        type(recognizer).__name__,
+    )
+
     motion_results: list[MotionResult] = []
+    # Plan 5-05 박제 — verdict 박제 (verdict 표 산정용).
+    line_verdicts: list[GateVerdict] = []
+    angle_verdicts: list[GateVerdict] = []
 
     for video_path in args.videos:
         motion_name = Path(video_path).stem  # 파일명에서 동작 ID 추출
@@ -654,12 +843,21 @@ def main(argv: list[str] | None = None) -> int:
             ipsf_gaps = compare_to_ipsf(motion_name, joint_angles, criteria_dir)
             within_tolerance_all = all(g.within_tolerance for g in ipsf_gaps) if ipsf_gaps else True
 
-            # line / angle 게이트
+            # line / angle 게이트 (Plan 5-05 박제 — recognizer DI + GateVerdict tuple).
             try:
-                line_pass, angle_pass = compute_line_angle_gates(joint_angles, pole_axis)
+                line_verdict, angle_verdict = compute_line_angle_gates(
+                    joint_angles, pole_axis,
+                    recognizer=recognizer,
+                    video_path=str(video_path),
+                )
             except Exception as e:
-                log.warning("%s line/angle gate 오류: %s — False 처리", motion_name, e)
-                line_pass, angle_pass = False, False
+                log.warning("%s line/angle gate 오류: %s — FAIL 처리", motion_name, e)
+                line_verdict, angle_verdict = "FAIL", "FAIL"
+            # B1 fix 박제 — verdict 박제 + bool 변환 (gate_passed 가 out_of_scope counted).
+            line_verdicts.append(line_verdict)
+            angle_verdicts.append(angle_verdict)
+            line_pass = gate_passed(line_verdict)
+            angle_pass = gate_passed(angle_verdict)
 
             # rtmw_mean_score (D-22 proxy)
             rtmw_mean_score = compute_rtmw_mean_score(pose_frames)
@@ -703,6 +901,9 @@ def main(argv: list[str] | None = None) -> int:
                 angle_pass=False,
                 within_tolerance_all=False,
             ))
+            # Plan 5-05 박제 — verdict 박제 정합 (motion_results 와 길이 일치).
+            line_verdicts.append("FAIL")
+            angle_verdicts.append("FAIL")
 
     # phase1_ready_to_swap 계산 (두 게이트 모두 PASS 필요)
     ready = compute_phase1_ready_to_swap(motion_results)
@@ -711,6 +912,9 @@ def main(argv: list[str] | None = None) -> int:
         timestamp=datetime.now(timezone.utc).isoformat(),
         motions=motion_results,
         phase1_ready_to_swap=ready,
+        recognizer=args.recognizer,
+        line_verdicts=list(line_verdicts),
+        angle_verdicts=list(angle_verdicts),
     )
 
     # 보고서 출력

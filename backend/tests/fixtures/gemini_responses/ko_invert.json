@@ -1,0 +1,19 @@
+{
+  "_comment": "Plan 5-01 Task 1 fixture — 한국어 motion_name 응답 (학원 통용, 분기 1).",
+  "raw_response_text": "{\n  \"motion_name\": \"인버트\",\n  \"motion_name_lang\": \"ko\",\n  \"confidence\": 0.85,\n  \"moments\": [\n    {\"moment_key\": \"hold\", \"timestamp_seconds\": 7.2, \"confidence\": 0.85, \"description\": \"동작이 완성되어 정지한 시점\"}\n  ]\n}",
+  "payload": {
+    "motion_name": "인버트",
+    "motion_name_lang": "ko",
+    "confidence": 0.85,
+    "moments": [
+      {
+        "moment_key": "hold",
+        "timestamp_seconds": 7.2,
+        "confidence": 0.85,
+        "description": "동작이 완성되어 정지한 시점"
+      }
+    ]
+  },
+  "expected_canonical": "ref-invert",
+  "expected_scope_status": "recognized"
+}

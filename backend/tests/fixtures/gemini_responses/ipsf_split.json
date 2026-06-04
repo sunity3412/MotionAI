@@ -1,0 +1,19 @@
+{
+  "_comment": "Plan 5-01 Task 1 fixture — IPSF code prefix 응답 (괄호 + 영어 명).",
+  "raw_response_text": "{\n  \"motion_name\": \"IPSF §4.2 Inverted Split (code XYZ)\",\n  \"motion_name_lang\": \"ipsf_code\",\n  \"confidence\": 0.72,\n  \"moments\": [\n    {\"moment_key\": \"hold\", \"timestamp_seconds\": 12.0, \"confidence\": 0.72, \"description\": \"인버트 자세에서 다리가 벌어진 시점\"}\n  ]\n}",
+  "payload": {
+    "motion_name": "IPSF §4.2 Inverted Split (code XYZ)",
+    "motion_name_lang": "ipsf_code",
+    "confidence": 0.72,
+    "moments": [
+      {
+        "moment_key": "hold",
+        "timestamp_seconds": 12.0,
+        "confidence": 0.72,
+        "description": "인버트 자세에서 다리가 벌어진 시점"
+      }
+    ]
+  },
+  "expected_canonical": "ref-foxtop-split",
+  "expected_scope_status": "recognized"
+}

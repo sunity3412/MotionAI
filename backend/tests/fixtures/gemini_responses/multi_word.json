@@ -1,0 +1,19 @@
+{
+  "_comment": "Plan 5-01 Task 1 fixture — multi-word 한국어 응답 (substring 매치 path 검증).",
+  "raw_response_text": "{\n  \"motion_name\": \"기본 사이드웨이 스핀 시연\",\n  \"motion_name_lang\": \"ko\",\n  \"confidence\": 0.80,\n  \"moments\": [\n    {\"moment_key\": \"hold\", \"timestamp_seconds\": 9.0, \"confidence\": 0.80, \"description\": \"옆돌기 정점\"}\n  ]\n}",
+  "payload": {
+    "motion_name": "기본 사이드웨이 스핀 시연",
+    "motion_name_lang": "ko",
+    "confidence": 0.80,
+    "moments": [
+      {
+        "moment_key": "hold",
+        "timestamp_seconds": 9.0,
+        "confidence": 0.80,
+        "description": "옆돌기 정점"
+      }
+    ]
+  },
+  "expected_canonical": "ref-sideway-spin",
+  "expected_scope_status": "recognized"
+}

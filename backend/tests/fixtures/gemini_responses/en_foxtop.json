@@ -1,0 +1,19 @@
+{
+  "_comment": "Plan 5-01 Task 1 fixture — 영어 motion_name 응답 (공식 명).",
+  "raw_response_text": "{\n  \"motion_name\": \"Fox Top\",\n  \"motion_name_lang\": \"en\",\n  \"confidence\": 0.78,\n  \"moments\": [\n    {\"moment_key\": \"hold\", \"timestamp_seconds\": 17.0, \"confidence\": 0.78, \"description\": \"양 다리가 폴을 후크하고 상체가 안정된 시점\"}\n  ]\n}",
+  "payload": {
+    "motion_name": "Fox Top",
+    "motion_name_lang": "en",
+    "confidence": 0.78,
+    "moments": [
+      {
+        "moment_key": "hold",
+        "timestamp_seconds": 17.0,
+        "confidence": 0.78,
+        "description": "양 다리가 폴을 후크하고 상체가 안정된 시점"
+      }
+    ]
+  },
+  "expected_canonical": "ref-foxtop",
+  "expected_scope_status": "recognized"
+}

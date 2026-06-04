@@ -1,0 +1,19 @@
+{
+  "_comment": "Plan 5-01 Task 1 fixture — 5영상 scope 외 동작 응답 (D-09 case 3 trigger).",
+  "raw_response_text": "{\n  \"motion_name\": \"Aerial Yogi\",\n  \"motion_name_lang\": \"en\",\n  \"confidence\": 0.45,\n  \"moments\": [\n    {\"moment_key\": \"hold\", \"timestamp_seconds\": 5.0, \"confidence\": 0.45, \"description\": \"공중 자세 유지\"}\n  ]\n}",
+  "payload": {
+    "motion_name": "Aerial Yogi",
+    "motion_name_lang": "en",
+    "confidence": 0.45,
+    "moments": [
+      {
+        "moment_key": "hold",
+        "timestamp_seconds": 5.0,
+        "confidence": 0.45,
+        "description": "공중 자세 유지"
+      }
+    ]
+  },
+  "expected_canonical": "Aerial Yogi",
+  "expected_scope_status": "unregistered"
+}

@@ -280,7 +280,13 @@ def _compute_rtmw_angles(frames: np.ndarray) -> np.ndarray:
 
     # 폴 축은 본 spike scope 외 — HoughPoleDetector 미설치 (Plan 23 박제).
     # 수직 폴백 (axis_vector=(0, 1, 0), confidence=low) 사용.
-    pole_axis = PoleAxis.vertical_fallback()
+    # fix 2026-06-04: PoleAxis 는 @dataclass(frozen=True) — vertical_fallback() 클래스메서드 부재. 직접 생성자 호출.
+    pole_axis = PoleAxis(
+        axis_vector=(0.0, 1.0, 0.0),
+        confidence_level="low",
+        source="vertical_fallback",
+        frame_index=None,
+    )
 
     pose_frames = engine.estimate(frames, pole_axis)
     keypoints = to_coco17_array(pose_frames)  # (T, 17, 4=xyz+uncertainty)

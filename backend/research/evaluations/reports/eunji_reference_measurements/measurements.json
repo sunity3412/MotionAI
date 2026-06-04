@@ -1,0 +1,241 @@
+{
+  "tolerance_rule_version": "D-18-2026-06-04",
+  "tolerance_full_deg": 15.0,
+  "minimum_offset_deg": 25.0,
+  "measured_at_utc": "2026-06-04T11:30:13.432348+00:00",
+  "source_path": "분기 2 (studio-term-3branch-system) — 정은지 reference 측정값",
+  "ipsf_lookup_ref": "05-IPSF-LOOKUP.md (NotebookLM 2026-06-04)",
+  "motions": {
+    "ref-climb": {
+      "motion": "ref-climb",
+      "video_path": null,
+      "hold_window": null,
+      "joints": {},
+      "tolerance_rule_version": "D-18-2026-06-04",
+      "source": "정은지 reference 측정값 (분기 2 path) — ref-climb 은 IPSF Climbs 카테고리 = angle 채점 X, hold_window 측정 skip",
+      "ipsf_source": "IPSF Transitions & Climbs",
+      "ipsf_source_note": "Climbs 카테고리 = 이동 횟수 채점 (D-20 별 phase 책임), angle 채점 X — yaml hold_moment 빈 list 유지 (의도). NotebookLM IPSF lookup 2026-06-04 결과 박제 (05-IPSF-LOOKUP.md §1).",
+      "measured_at_utc": "2026-06-04T11:30:13.432713+00:00"
+    },
+    "ref-foxtop": {
+      "motion": "ref-foxtop",
+      "video_path": "/tmp/eunji_measure_b32fnvcj/ref-foxtop.mp4",
+      "hold_window": {
+        "start_sec": 15.0,
+        "end_sec": 21.0,
+        "start_frame": 135,
+        "end_frame": 189,
+        "fps": 9.0,
+        "window_frames": 54
+      },
+      "joints": {
+        "left_shoulder": {
+          "measured_deg": 139.0216691252885,
+          "angle_target": 139.0216691252885,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 114.0216691252885
+        },
+        "right_shoulder": {
+          "measured_deg": 74.31397693749472,
+          "angle_target": 74.31397693749472,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 49.313976937494715
+        },
+        "left_hip": {
+          "measured_deg": 127.46460076350026,
+          "angle_target": 127.46460076350026,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 102.46460076350026
+        },
+        "right_hip": {
+          "measured_deg": 78.68716047689776,
+          "angle_target": 78.68716047689776,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 53.68716047689776
+        },
+        "left_knee": {
+          "measured_deg": 151.9856008935474,
+          "angle_target": 151.9856008935474,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 126.9856008935474
+        },
+        "right_knee": {
+          "measured_deg": 147.2549042237424,
+          "angle_target": 147.2549042237424,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 122.25490422374239
+        }
+      },
+      "tolerance_rule_version": "D-18-2026-06-04",
+      "source": "정은지 reference 측정값 (분기 2 path) — RTMW wholebody + hold_window mean (D-18 박제 룰)",
+      "ipsf_source": null,
+      "ipsf_source_note": "NotebookLM IPSF Code of Points 2024-2025 lookup 2026-06-04 결과 IPSF source 박제 X (05-IPSF-LOOKUP.md). yaml source = 분기 2 path (studio-term-3branch-system).",
+      "measured_at_utc": "2026-06-04T11:30:13.432805+00:00"
+    },
+    "ref-foxtop-split": {
+      "motion": "ref-foxtop-split",
+      "video_path": "/tmp/eunji_measure_b32fnvcj/ref-foxtop-split.mp4",
+      "hold_window": {
+        "start_sec": 11.0,
+        "end_sec": 13.0,
+        "start_frame": 99,
+        "end_frame": 117,
+        "fps": 9.0,
+        "window_frames": 18
+      },
+      "joints": {
+        "left_shoulder": {
+          "measured_deg": 42.11590806296985,
+          "angle_target": 42.11590806296985,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 17.11590806296985
+        },
+        "right_shoulder": {
+          "measured_deg": 62.56792752806044,
+          "angle_target": 62.56792752806044,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 37.56792752806044
+        },
+        "left_hip": {
+          "measured_deg": 125.53809053991262,
+          "angle_target": 125.53809053991262,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 100.53809053991262
+        },
+        "right_hip": {
+          "measured_deg": 106.447809704171,
+          "angle_target": 106.447809704171,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 81.447809704171
+        },
+        "left_knee": {
+          "measured_deg": 144.0483377340946,
+          "angle_target": 144.0483377340946,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 119.04833773409459
+        },
+        "right_knee": {
+          "measured_deg": 78.92426490078726,
+          "angle_target": 78.92426490078726,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 53.924264900787264
+        }
+      },
+      "tolerance_rule_version": "D-18-2026-06-04",
+      "source": "정은지 reference 측정값 (분기 2 path) — RTMW wholebody + hold_window mean (D-18 박제 룰)",
+      "ipsf_source": null,
+      "ipsf_source_note": "NotebookLM IPSF Code of Points 2024-2025 lookup 2026-06-04 결과 IPSF source 박제 X (05-IPSF-LOOKUP.md). yaml source = 분기 2 path (studio-term-3branch-system).",
+      "measured_at_utc": "2026-06-04T11:39:18.380872+00:00"
+    },
+    "ref-invert": {
+      "motion": "ref-invert",
+      "video_path": "/tmp/eunji_measure_b32fnvcj/ref-invert.mp4",
+      "hold_window": {
+        "start_sec": 6.0,
+        "end_sec": 10.0,
+        "start_frame": 54,
+        "end_frame": 90,
+        "fps": 9.0,
+        "window_frames": 36
+      },
+      "joints": {
+        "left_shoulder": {
+          "measured_deg": 28.34523770615575,
+          "angle_target": 28.34523770615575,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 3.34523770615575
+        },
+        "right_shoulder": {
+          "measured_deg": 21.051088587013734,
+          "angle_target": 21.051088587013734,
+          "tolerance_full": 15.0,
+          "minimum_requirement": -3.9489114129862664
+        },
+        "left_hip": {
+          "measured_deg": 55.90321705214763,
+          "angle_target": 55.90321705214763,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 30.90321705214763
+        },
+        "right_hip": {
+          "measured_deg": 71.71745651949692,
+          "angle_target": 71.71745651949692,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 46.71745651949692
+        },
+        "left_knee": {
+          "measured_deg": 136.967416897299,
+          "angle_target": 136.967416897299,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 111.96741689729899
+        },
+        "right_knee": {
+          "measured_deg": 138.11856025695428,
+          "angle_target": 138.11856025695428,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 113.11856025695428
+        }
+      },
+      "tolerance_rule_version": "D-18-2026-06-04",
+      "source": "정은지 reference 측정값 (분기 2 path) — RTMW wholebody + hold_window mean (D-18 박제 룰)",
+      "ipsf_source": null,
+      "ipsf_source_note": "NotebookLM IPSF Code of Points 2024-2025 lookup 2026-06-04 결과 IPSF source 박제 X (05-IPSF-LOOKUP.md). yaml source = 분기 2 path (studio-term-3branch-system).",
+      "measured_at_utc": "2026-06-04T11:49:29.291406+00:00"
+    },
+    "ref-sideway-spin": {
+      "motion": "ref-sideway-spin",
+      "video_path": "/tmp/eunji_measure_b32fnvcj/ref-sideway-spin.mp4",
+      "hold_window": {
+        "start_sec": 7.0,
+        "end_sec": 11.0,
+        "start_frame": 63,
+        "end_frame": 99,
+        "fps": 9.0,
+        "window_frames": 36
+      },
+      "joints": {
+        "left_shoulder": {
+          "measured_deg": 58.81501304970727,
+          "angle_target": 58.81501304970727,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 33.81501304970727
+        },
+        "right_shoulder": {
+          "measured_deg": 142.1145739023111,
+          "angle_target": 142.1145739023111,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 117.1145739023111
+        },
+        "left_hip": {
+          "measured_deg": 145.28289813261836,
+          "angle_target": 145.28289813261836,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 120.28289813261836
+        },
+        "right_hip": {
+          "measured_deg": 144.9649030403183,
+          "angle_target": 144.9649030403183,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 119.96490304031829
+        },
+        "left_knee": {
+          "measured_deg": 162.507494018621,
+          "angle_target": 162.507494018621,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 137.507494018621
+        },
+        "right_knee": {
+          "measured_deg": 159.0779520565182,
+          "angle_target": 159.0779520565182,
+          "tolerance_full": 15.0,
+          "minimum_requirement": 134.0779520565182
+        }
+      },
+      "tolerance_rule_version": "D-18-2026-06-04",
+      "source": "정은지 reference 측정값 (분기 2 path) — RTMW wholebody + hold_window mean (D-18 박제 룰)",
+      "ipsf_source": null,
+      "ipsf_source_note": "NotebookLM IPSF Code of Points 2024-2025 lookup 2026-06-04 결과 IPSF source 박제 X (05-IPSF-LOOKUP.md). yaml source = 분기 2 path (studio-term-3branch-system).",
+      "measured_at_utc": "2026-06-04T11:54:57.152605+00:00"
+    }
+  }
+}

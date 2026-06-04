@@ -88,13 +88,13 @@ class GeometricCriterion:
                 f"angle_target={self.angle_target}"
             )
 
-        # 4. 0 ≤ minimum_requirement ≤ angle_target
-        if self.minimum_requirement < 0:
-            raise ValueError(
-                f"minimum_requirement 는 0 이상이어야 합니다. "
-                f"motion={self.motion} moment={self.moment_key} joint={self.joint_key} "
-                f"minimum_requirement={self.minimum_requirement}"
-            )
+        # 4. minimum_requirement ≤ angle_target
+        # 박제 정정 (2026-06-04 belle 결정, Plan 5-00 + 5-05 박제):
+        # D-18 룰 (minimum = measured - 25°) 적용 시 작은 측정값 (예: ref-invert
+        # right_shoulder = 21°) 에서 minimum 음수 박제 가능. B 박제 = 코사인 0~180° →
+        # 음수 도달 불가 = "이 관절 평가 자체 부적합" 신호 = Phase 5 Gemini 자동
+        # BENT_OK 라벨링 + dimensions.py 채점 제외 박제 정합 (D-08 정신).
+        # 따라서 음수 minimum 허용 (이전 박제 = 음수 거부 = belle 결정 위반).
         if self.minimum_requirement > self.angle_target:
             raise ValueError(
                 f"minimum_requirement 는 angle_target 보다 클 수 없습니다 "

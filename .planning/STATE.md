@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-04 -- Wave 1 (Plan 5-01 + 5-02) 평행 종료, Wave 2 진입 대기
-Stopped at: Wave 1 평행 dispatch 완료 (worktree isolation). Plan 5-01 (GeminiTechniqueRecognizer 어댑터 + spike + tests, 122 PASS, 12분) + Plan 5-02 (TechniqueCache + Firestore wiring, 36 PASS, 7m39s) 두 worktree 모두 main 병합. Post-merge gate 통과 (106 new tests PASS). Worktree cleanup 완료. main HEAD = 21fb6ed (merge commit).
-Resume file: .planning/phases/05-gemini/05-01-SUMMARY.md + 05-02-SUMMARY.md
-Next: Wave 2 진입 — Plan 5-03 (pipeline _RECOGNIZER swap + env switch) 단일 실행. autonomous + 5-01/5-02 산출물 소비.
+Last session: 2026-06-04 -- Wave 2 (Plan 5-03) 종료, Wave 3 진입 대기
+Stopped at: Plan 5-03 (pipeline _RECOGNIZER lazy swap + env switch + B8 fix helper) 완료 (6분, 23 tests PASS, 4 commits). worktree 병합 + cleanup 완료. Post-merge gate 통과 (venv 활성화 후 23 PASS, regression 0). main HEAD = cd8cb25. D-12 박제 (RunPod server.py 무수정) 검증됨 (git diff --stat == 0). env switch: GEMINI_RECOGNIZER_ENABLED ∪ RECOGNIZER_BACKEND ∈ {1,true,on,yes,gemini} → Gemini, 미설정 = FallbackRecognizer 회귀 0.
+Resume file: .planning/phases/05-gemini/05-03-SUMMARY.md
+Next: Wave 3 진입 — Plan 5-04 (Pod requirements + setup.sh + _warmup fail-loud) 단일. autonomous, 단 belle 다음 Pod 세션부터 적용.

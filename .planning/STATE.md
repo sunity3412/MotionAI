@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-04 -- Wave 0 (Plan 5-00) 종료, Wave 1 진입 대기
-Stopped at: Plan 5-00 SUMMARY 박제 완료 (4 commits: 82fa0db spike + 114e106 PoleAxis fix + 3edfb1b measurements + 570093c yaml 4개 정정). 정은지 reference 측정값 5영상 박제 (ref-climb skip, 4영상 hold_window mean), yaml source 분기 2 path 정정. belle 박제 답변 (2026-06-04): (A) 측정값 정합 yes, (B) tolerance ±15° 유지, (C) D-18 minimum 룰 유지 (음수 = Gemini 자동 BENT_OK 신호), (D) D-19 별 phase OK, (E) D-20 별 phase OK. Pod 환경 자동화 박제 ([[runpod-gpu-env.md]] 갱신: 매 세션 새 Pod + wrapper script path).
-Resume file: .planning/phases/05-gemini/05-00-SUMMARY.md
-Next: Wave 1 진입 — Plan 5-01 (GeminiTechniqueRecognizer) + Plan 5-02 (TechniqueCache) 평행 실행. /gsd:execute-phase 5 --wave 1 로 dispatch.
+Last session: 2026-06-04 -- Wave 1 (Plan 5-01 + 5-02) 평행 종료, Wave 2 진입 대기
+Stopped at: Wave 1 평행 dispatch 완료 (worktree isolation). Plan 5-01 (GeminiTechniqueRecognizer 어댑터 + spike + tests, 122 PASS, 12분) + Plan 5-02 (TechniqueCache + Firestore wiring, 36 PASS, 7m39s) 두 worktree 모두 main 병합. Post-merge gate 통과 (106 new tests PASS). Worktree cleanup 완료. main HEAD = 21fb6ed (merge commit).
+Resume file: .planning/phases/05-gemini/05-01-SUMMARY.md + 05-02-SUMMARY.md
+Next: Wave 2 진입 — Plan 5-03 (pipeline _RECOGNIZER swap + env switch) 단일 실행. autonomous + 5-01/5-02 산출물 소비.

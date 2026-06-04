@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "Plan 23 sweep 결과 phase1_ready_to_swap=False — Wave 5/6 차단, root cause 3종 동시 발현 (FallbackRecognizer 한계 + HoughPoleDetector 미설치 + yaml criteria 재검증 필요)"
-last_updated: "2026-06-03T14:30:00.000Z"
-last_activity: 2026-06-03 -- Plan 23 Task 2 belle Pod sweep 실행 + 결과 박제
+stopped_at: "/gsd:plan-phase 5 완료 — Pattern mapper + Planner (6 plan) + Plan-checker iter 1 (8 blocker + 6 warning) + Revision iter 1 (15/15 fix) + Plan-checker iter 2 (0 blocker + 4 warning) + 인라인 fix (4 warning). 6 plan 박제 = 5-00 (yaml 정정 belle checkpoint Wave 0) → 5-01+5-02 평행 (어댑터+캡싱 Wave 1) → 5-03 (pipeline swap Wave 2) → 5-04 (Pod wiring Wave 3) → 5-05 (sweep + belle Pod checkpoint Wave 4). D-01 게이트 = "채점 영역 모션 N/N PASS + out-of-scope counted as PASS" (B1 fix, ref-climb out-of-scope 박제). CONTEXT.md/RESEARCH.md/IPSF-LOOKUP.md/PATTERNS.md 박제 완비."
+last_updated: "2026-06-04T07:26:31.965Z"
+last_activity: 2026-06-04 -- Phase 05 execution started
 progress:
-  total_phases: 16
+  total_phases: 3
   completed_phases: 1
-  total_plans: 25
-  completed_plans: 21
-  percent: 6
+  total_plans: 31
+  completed_plans: 23
+  percent: 33
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 01 — poseengine-mediapipe-nlf-r-d
+**Current focus:** Phase 05 — gemini
 
 ## Current Position
 
-Phase: 01 (poseengine-mediapipe-nlf-r-d) — EXECUTING
-Plan: 1 of 24
-Status: Executing Phase 01
-Last activity: 2026-06-02 -- Phase 01 execution started
+Phase: 05 (gemini) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 05
+Last activity: 2026-06-04 -- Phase 05 execution started
 
 Progress: [██████░░░░] 60%
 
@@ -70,6 +70,7 @@ belle Pod 5영상 sweep (`backend/research/evaluations/reports/sweep_rtmw_202606
 **belle 결정 (2026-06-03)**: 결과 박제 commit 먼저 + 다음 plan 의논. 박제 [[gap-and-line-angle-mandatory-gates.md]] "강등/우회 금지" 정신 유지.
 
 **Plan 24 / 25 진입 차단 — D-16 보류**. 다음 후보:
+
 - (A) Phase 5 (Gemini 기술 인식기) 통합 선행
 - (B) Plan 26 (가칭) — root cause 3종 동시 fix plan 신설 (Gemini wiring + HoughPoleDetector + yaml 재검증)
 
@@ -300,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-04 -- Phase 5 PLAN 박제 완료 (6 plan, 2 iter revision, 0 blocker)
-Stopped at: /gsd:plan-phase 5 완료 — Pattern mapper + Planner (6 plan) + Plan-checker iter 1 (8 blocker + 6 warning) + Revision iter 1 (15/15 fix) + Plan-checker iter 2 (0 blocker + 4 warning) + 인라인 fix (4 warning). 6 plan 박제 = 5-00 (yaml 정정 belle checkpoint Wave 0) → 5-01+5-02 평행 (어댑터+캡싱 Wave 1) → 5-03 (pipeline swap Wave 2) → 5-04 (Pod wiring Wave 3) → 5-05 (sweep + belle Pod checkpoint Wave 4). D-01 게이트 = "채점 영역 모션 N/N PASS + out-of-scope counted as PASS" (B1 fix, ref-climb out-of-scope 박제). CONTEXT.md/RESEARCH.md/IPSF-LOOKUP.md/PATTERNS.md 박제 완비.
-Resume file: .planning/phases/05-gemini/05-00-PLAN.md
-Next: /gsd:execute-phase 5 — Wave 0 (5-00) belle blocking-human checkpoint 단독 실행 후 Wave 1+2+3+4 자동 진행. Wave 4 (5-05) 도 belle Pod sweep checkpoint.
+Last session: 2026-06-04 -- Plan 5-00 Task 1 박제 + Task 2 belle Pod 측정 + tolerance 룰 승인 대기 (blocking-human checkpoint)
+Stopped at: Wave 0 Plan 05-00 Task 2 checkpoint — belle Pod 측정 + tolerance 룰 승인 대기. Task 1 (measure_eunji_reference.py spike 박제, commit 82fa0db) 완료. Task 2 = belle 가 (1) hold timestamp JSON 박제 + (2) Pod sweep 실행 + (3) measurements.json 검토 + (4) D-18 tolerance/minimum 룰 (±15° / -25°) 승인 또는 변경. 승인 후 Task 3 (yaml 5개 정정) 진입 가능. blocking-human gate — 자동 승인 불가.
+Resume file: .planning/phases/05-gemini/05-00-PLAN.md (Task 2 checkpoint)
+Next: belle Pod 작업 → measurements.json commit + push → A/B/C/D/E 답변 박제 → Task 3 진입 권한 부여 → /gsd:execute-phase 5 resume Wave 0 Plan 05-00 Task 3.

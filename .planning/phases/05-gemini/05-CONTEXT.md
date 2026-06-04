@@ -23,7 +23,7 @@ Phase 5 = `TechniqueRecognizer` Protocol 의 **Gemini 어댑터** 를 production
 
 ### Scope (인식 범위)
 
-- **D-01:** v1 인식 스코프 = **5영상 인버트 계열 우선** (`ref-climb` / `ref-foxtop` / `ref-foxtop-split` / `ref-invert` / `ref-sideway-spin`). Plan 23 sweep 5/5 PASS 게이트 직결 — chain 1차 게이트 통과 최단 경로. yaml 5개 이미 `backend/judging_data/criteria/` 박제됨, 입장 최소.
+- **D-01:** v1 인식 스코프 = **5영상 인버트 계열 우선** (`ref-climb` / `ref-foxtop` / `ref-foxtop-split` / `ref-invert` / `ref-sideway-spin`). **게이트 = "정은지 reference 측정값 기준 5/5 PASS"** (NotebookLM IPSF lookup 2026-06-04 박제 후 belle 승인 — IPSF 직접 채점 박제 path X, 분기 2 정은지 reference path 박제). 박제 [[studio-term-3branch-system.md]] 분기 2 + [[analysis-objectivity-no-human-scores.md]] 객관 측정값 정합.
 - **D-02:** Phase 16 AKA 매핑 13개 + 분기 2 정은지 reference 비등재 동작 (폭스탑 등) 의 확장은 v1 외. v2 또는 Phase 5 후속 plan 으로 미룸. v1 = "5영상 게이트 통과" 단일 목표.
 - **D-03:** 스코프 밖 동작 = "미등록" 처리 → Page 9 절대 트랙 단독 채점 + TERM-COPY-01 분기 3 카피 노출 + 키워드 자동 박제 (D-09 참조).
 
@@ -33,7 +33,7 @@ Phase 5 = `TechniqueRecognizer` Protocol 의 **Gemini 어댑터** 를 production
 - **D-05:** **v1 채점 = hold moment 라벨만 활성**. setup/peak/release 라벨은 Firestore 분석 doc 에 박제만 (사용자 노출 X, dimensions.py 미소비). yaml `setup_moment` / `peak_moment` / `release_moment` 비어있어 v1 dead data — 정상.
 - **D-06:** **v2 자동 활성 path**: yaml `setup_moment` / `peak_moment` / `release_moment` criteria 가 belle/강사/NotebookLM IPSF CoP lookup 으로 채워지면 코드 변경 0 으로 자동 활성. 박제 [[mvp-simple-pilot-quality.md]] "구조만 열어두기" 정신 정합.
 - **D-07:** timestamp 오차 = Gemini multimodal 시점 인식 ±1~2초 인정. hold (2~5초 지속) 는 windowing 으로 흡수. v2 peak (0.5~1초 짧음) 활성 시 timestamp 정확도 재평가 (별 plan).
-- **D-08:** Gemini = EXTEND/BENT_OK/CONTACT **라벨러만**. yaml 의 `angle_target=180°` / `tolerance=±20°` / `minimum=160°` 수치는 IPSF Code of Points source 그대로 유지 — Gemini 가 수치 생성 X (좌표·점수·판단 출력 금지 정신 보호).
+- **D-08:** Gemini = EXTEND/BENT_OK/CONTACT **라벨러만**. yaml 의 `angle_target` / `tolerance` / `minimum` 수치는 **정은지 reference 측정값 (분기 2 path)** 박제 — Gemini 가 수치 생성 X (좌표·점수·판단 출력 금지 정신 보호). NotebookLM IPSF lookup 2026-06-04 결과: 5영상 yaml 의 IPSF 직접 박제 source 없음 (ref-climb 도 hold angle 채점 X, ref-invert 도 Body Position 채점만, 나머지 3영상 미등재). yaml source_ref 정정 = Phase 5 첫 plan 책임 (D-17).
 
 ### Fallback Policy (3케이스 분리)
 
@@ -56,6 +56,13 @@ Phase 5 = `TechniqueRecognizer` Protocol 의 **Gemini 어댑터** 를 production
 - **D-15:** API 키 path = AWS Parameter Store `/sunity/motion/gemini-api-key` (SecureString, belle 박제 완료 2026-06-01). RunPod Pod env 주입 wiring = Phase 5 첫 plan 책임. env `GEMINI_API_KEY` fallback 유지 (`gemini_moment_extractor.py` 기존 구현).
 - **D-16:** `google-generativeai` + `boto3` lazy import 유지 — 모듈 로드 시점 0 import (`gemini_moment_extractor.py` 박제 패턴 그대로). 로컬 단위 테스트 + Lambda 콜드스타트 보호.
 
+### yaml Source 정정 (NotebookLM IPSF lookup 후 박제, 2026-06-04 belle 승인)
+
+- **D-17:** **Phase 5 첫 plan = yaml source 정은지 reference 측정값 정정 작업** (5영상 reference 영상 측정 → yaml hold_moment 6관절 angle_target / tolerance / minimum 정은지 실측값으로 갱신 + source_ref = "정은지 reference 측정값 (분기 2 path)" 박제). Gemini wiring (D-04~D-16) 은 yaml 정정 후 plan. 박제 [[gap-and-line-angle-mandatory-gates.md]] "강등/우회 금지" 정신 = "정은지 reference 기준 5/5 PASS" 게이트 (D-01) 박제 정합.
+- **D-18:** yaml 정정 path = (1) 정은지 reference 영상 5개 (각 motion 1개) RTMW pose 산출 → (2) hold moment timestamp 박제 (수동 또는 belle 직접 시점 박제) → (3) 6관절 angle 측정값 박제 → (4) tolerance / minimum 수치 박제 룰 (예: tolerance = 측정값 ±15°, minimum = 측정값 - 25°). 룰 자체는 첫 plan 안에서 belle 승인.
+- **D-19:** ref-invert 의 Body Position Inverted (골반-머리 상대 위치 ±20°) 차원 신규 추가는 Phase 5 scope 외 — 별 phase 또는 Phase 8 (중심축 이탈) 책임 박제. v1 ref-invert = 6관절 angle 박제 (정은지 측정값) 단독 채점.
+- **D-20:** ref-climb 의 "이동 횟수 2회 이상" 차원 신규 추가는 Phase 5 scope 외 — 별 phase 책임 박제. v1 ref-climb = 6관절 angle 박제 (정은지 측정값) 단독 채점.
+
 ### Claude's Discretion
 
 - Firestore `gemini_result` 박제 schema 구체적 필드 = 출력 구조 D-04 박제로 자연 결정 (gemini_moment_extractor.py 의 KeyMoment dataclass 직렬화).
@@ -68,6 +75,10 @@ Phase 5 = `TechniqueRecognizer` Protocol 의 **Gemini 어댑터** 를 production
 ## Canonical References
 
 **Downstream agents MUST read these before planning or implementing.**
+
+### NotebookLM IPSF lookup (2026-06-04 박제, belle 승인 후)
+
+- `.planning/phases/05-gemini/05-IPSF-LOOKUP.md` — **MANDATORY** NotebookLM IPSF Code of Points 2024-2025 lookup 결과. 5영상 catalog 분석 + IPSF source 박제 X 결론 + 옵션 (가+다) 박제 정신 정합 path. Phase 5 첫 plan (yaml 정정 작업) source.
 
 ### REQUIREMENTS & ROADMAP
 

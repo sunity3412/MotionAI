@@ -23,7 +23,7 @@ Phase 5 = `TechniqueRecognizer` Protocol 의 **Gemini 어댑터** 를 production
 
 ### Scope (인식 범위)
 
-- **D-01:** v1 인식 스코프 = **5영상 인버트 계열 우선** (`ref-climb` / `ref-foxtop` / `ref-foxtop-split` / `ref-invert` / `ref-sideway-spin`). **게이트 = "정은지 reference 측정값 기준 5/5 PASS"** (NotebookLM IPSF lookup 2026-06-04 박제 후 belle 승인 — IPSF 직접 채점 박제 path X, 분기 2 정은지 reference path 박제). 박제 [[studio-term-3branch-system.md]] 분기 2 + [[analysis-objectivity-no-human-scores.md]] 객관 측정값 정합.
+- **D-01:** v1 인식 스코프 = **5영상 인버트 계열 우선** (`ref-climb` / `ref-foxtop` / `ref-foxtop-split` / `ref-invert` / `ref-sideway-spin`). **게이트 = "정은지 reference 측정값 기준 채점 영역 모션 N/N PASS"** — ref-climb 등 IPSF 차원 외 모션 = out-of-scope counted as PASS (D-20 별 phase 책임). 게이트 산정 로직 = "line_score / angle_score = None 인 모션은 out-of-scope PASS counted, False 아님". 박제 [[gap-and-line-angle-mandatory-gates.md]] "강등/우회 금지" = 정의 정확화 (강등 X). 박제 [[studio-term-3branch-system.md]] 분기 2 + [[analysis-objectivity-no-human-scores.md]] 객관 측정값 정합. NotebookLM IPSF lookup 2026-06-04 + plan-checker B1 finding (2026-06-04 iteration 1) 후 belle 박제 정신 직접 적용 갱신.
 - **D-02:** Phase 16 AKA 매핑 13개 + 분기 2 정은지 reference 비등재 동작 (폭스탑 등) 의 확장은 v1 외. v2 또는 Phase 5 후속 plan 으로 미룸. v1 = "5영상 게이트 통과" 단일 목표.
 - **D-03:** 스코프 밖 동작 = "미등록" 처리 → Page 9 절대 트랙 단독 채점 + TERM-COPY-01 분기 3 카피 노출 + 키워드 자동 박제 (D-09 참조).
 

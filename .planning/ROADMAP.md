@@ -164,7 +164,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Gemini 응답에 좌표·판단 출력 요청이 없다 (프롬프트 설계로 강제)
   4. 인식 범위 밖 동작은 명시적으로 "미지원"으로 처리된다
 
-**Plans**: TBD
+**Plans**: 6 plans total — Wave 0 yaml source 정정 (선행 필수) + Wave 1~4 Gemini wiring + belle Pod sweep checkpoint. NotebookLM IPSF lookup 2026-06-04 결과 박제 (yaml hold_moment IPSF source 박제 X → 정은지 reference 측정값 분기 2 path 정정).
+
+  - [ ] 05-00-PLAN.md — yaml source 정은지 reference 측정값 정정 (Plan 5-00 선행 필수, D-17/D-18 박제) + belle 승인 checkpoint (Wave 0)
+  - [ ] 05-01-PLAN.md — GeminiTechniqueRecognizer 어댑터 신설 + 3-case fallback + motion_name 정규화 spike + response_schema 작동 spike (Wave 1)
+  - [ ] 05-02-PLAN.md — TechniqueCache 영상 hash 캡싱 + firestore_admin helper 3종 (D-14 박제) (Wave 1)
+  - [ ] 05-03-PLAN.md — pipeline _RECOGNIZER lazy swap + env switch + _process recognize(angles, frames) wiring (Wave 2)
+  - [ ] 05-04-PLAN.md — Pod requirements/setup.sh + server.py _warmup fail-loud (D-13/D-15, Common Pitfall 4) (Wave 3)
+  - [ ] 05-05-PLAN.md — sweep --recognizer gemini flag + belle Pod sweep checkpoint (Phase 5 게이트 = 정은지 reference 기준 5/5 PASS) (Wave 4)
 
 ### Phase 6: 체형 정규화 비교 엔진 (coaching 모드)
 
@@ -373,7 +380,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. BodyNormalizationProfile (MediaPipe segment) | 0/TBD | Not started | - |
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |
-| 5. Gemini 기술 인식기 (분류 한정) | 0/TBD | Not started | - |
+| 5. Gemini 기술 인식기 (분류 한정) | 0/6 | Planned   | - |
 | 6. 체형 정규화 비교 엔진 | 0/TBD | Not started | - |
 | 7. 차이 분류 | 0/TBD | Not started | - |
 | 8. 중심축·접촉점·jerk 분석 | 0/TBD | Not started | - |

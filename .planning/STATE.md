@@ -300,7 +300,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-04 -- Phase 5 RESEARCH + NotebookLM IPSF lookup 완료 + belle 승인 (yaml source 정은지 reference 정정 path)
-Stopped at: Phase 5 박제 갱신 완료 — D-01 게이트 재정의 ("정은지 reference 측정값 기준 5/5 PASS"), D-08 갱신 (yaml source = 정은지 reference 박제), D-17~D-20 신설 (Plan 5-00 yaml 정정 작업 + ref-invert/climb 차원 확장 별 phase). RESEARCH.md 에 IPSF SUPPLEMENT 절 박제 (Plan 5-00 선행 필수 박제). researcher 박제 6 plan + 1 신설 = Plan 5-00 (yaml 정정) → Plan 5-01 (Gemini 어댑터) → 5-02 (캡싱) → 5-03 (pipeline swap) → 5-04 (Pod wiring) → 5-05 (sweep 통합 + belle checkpoint) → 5-06 (선택 low conf).
-Resume file: .planning/phases/05-gemini/05-RESEARCH.md (SUPPLEMENT 절 박제)
-Next: /gsd:plan-phase 5 — Phase 5 plan 작성. researcher 박제 path + belle 승인 게이트 + Plan 5-00 yaml 정정 선행 박제.
+Last session: 2026-06-04 -- Phase 5 PLAN 박제 완료 (6 plan, 2 iter revision, 0 blocker)
+Stopped at: /gsd:plan-phase 5 완료 — Pattern mapper + Planner (6 plan) + Plan-checker iter 1 (8 blocker + 6 warning) + Revision iter 1 (15/15 fix) + Plan-checker iter 2 (0 blocker + 4 warning) + 인라인 fix (4 warning). 6 plan 박제 = 5-00 (yaml 정정 belle checkpoint Wave 0) → 5-01+5-02 평행 (어댑터+캡싱 Wave 1) → 5-03 (pipeline swap Wave 2) → 5-04 (Pod wiring Wave 3) → 5-05 (sweep + belle Pod checkpoint Wave 4). D-01 게이트 = "채점 영역 모션 N/N PASS + out-of-scope counted as PASS" (B1 fix, ref-climb out-of-scope 박제). CONTEXT.md/RESEARCH.md/IPSF-LOOKUP.md/PATTERNS.md 박제 완비.
+Resume file: .planning/phases/05-gemini/05-00-PLAN.md
+Next: /gsd:execute-phase 5 — Wave 0 (5-00) belle blocking-human checkpoint 단독 실행 후 Wave 1+2+3+4 자동 진행. Wave 4 (5-05) 도 belle Pod sweep checkpoint.

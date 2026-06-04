@@ -308,9 +308,10 @@ class TestLazyImport:
 
 
 class TestDefaultModel:
-    def test_default_model_is_gemini_3_1_pro(self) -> None:
-        # D-13 belle 2026-06-04 확정.
-        assert DEFAULT_GEMINI_MODEL == "gemini-3.1-pro"
+    def test_default_model_is_gemini_pro(self) -> None:
+        # D-13 belle 2026-06-04 확정 (Gemini Pro 단일).
+        # fix 2026-06-05: gemini-3-pro-preview (API v1beta 박제 가능 정확 모델명).
+        assert DEFAULT_GEMINI_MODEL == "gemini-3-pro-preview"
 
 
 # ─────────────────── Test 8: ref-invert joint_expectations ───────────────────

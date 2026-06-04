@@ -1,51 +1,58 @@
-# IPSF Code of Points 기반 GeometricCriterion (JUDGE-DATA-01)
+# 정은지 reference 측정값 기반 GeometricCriterion (분기 2 path)
 # 작성 가이드 = backend/judging_data/README.md
-# 사람 점수 라벨링 금지 — 객관 임계값 수치만
-# memory: analysis-objectivity-no-human-scores, judging-baseline-ipsf-code-of-points
+# 사람 점수 라벨링 금지 — 객관 측정값 박제만
+# memory: analysis-objectivity-no-human-scores, studio-term-3branch-system, feedback-analysis-first
 #
-# Plan 01-15 (a) path 1차 박제 (2026-06-01). reference-motions.md §5 ref-invert
-# checkpoints + §8 IPSF Code of Points (tolerance 20° + Fully Extended 규정) 기반.
-# IPSF 정식 동작 family 명칭 = belle/강사 lookup 후 source_ref 갱신 (수치 변경 없음).
+# Plan 5-00 (2026-06-04) yaml source 정정 박제:
+# - NotebookLM IPSF Code of Points 2024-2025 lookup 결과 (05-IPSF-LOOKUP.md §4)
+#   ref-invert = IPSF Body Position Inverted (등재) — 그러나 IPSF 채점 = 관절 angle 차원 X, body position ±20° 차원
+#   → angle 차원 박제는 정은지 reference 측정값 (분기 2 path) 으로 박제 (D-19: Body Position 차원 추가는 별 phase)
+# - 갱신 source = 정은지 reference 측정값 (RTMW wholebody + hold_window mean, D-18 박제 룰)
+# - tolerance_full=15° (D-18), minimum_requirement=measured-25° (D-18, 음수 박제 OK)
+# - NOTE: shoulder 측정값 매우 작음 (28°/21°) — 거꾸로 매달림 자세에서 팔이 몸과 거의 평행
+#   → minimum_requirement 음수 박제. Phase 5 Gemini 어댑터 진입 후 자동 BENT_OK 라벨링 (D-08) 으로 평가 제외
 #
-# hold_moment 박제 정책:
-# - reference-motions.md note 에 "신전" / "굽으면 라인 흐려짐" 표현 = EXTEND (angle_target 180°)
-# - "X자 hook" / "감싸기" / 의도적 굽힘 = BENT (제외, 추후 belle 확장)
-# - "견갑 안정성" = IPSF §8-2 견갑 하강 (scapular depression) = EXTEND
-# - 모호 (spine 아치 등) = 1차 제외, belle 검증 시 추가/수정
+# hold_window: 6.0s ~ 10.0s (36 frames @ 9fps) — basic invert hold (reference-motions.md §5 execution-B)
 motion: ref-invert
-source: "reference-motions.md §5 ref-invert (intermediate, 인버트 스플릿 peak 7s) + IPSF Aerial Pole Sports Code of Points 2024-2025 (NotebookLM lookup 2026-06-01, 정확 element code §TBD)"
+source: "정은지 reference 측정값 (분기 2 path) — RTMW wholebody + hold_window mean 박제 (2026-06-04, basic invert hold 6~10s). 측정 결과 = measurements.json. IPSF Body Position Inverted 등재 (05-IPSF-LOOKUP.md §4), 관절 angle 차원은 정은지 측정값 박제 (Body Position 차원 = D-19 별 phase)."
 criteria:
   setup_moment: []
   hold_moment:
     - joint: left_shoulder
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 28.35
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (left_shoulder w=0.20 주 지지 팔 견갑 안정성) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Body position ±20° tolerance, Fully Extended Criteria — fail < 160°)"
+      minimum_requirement: 3.35
+      source_ref: "정은지 reference 측정값 (basic invert hold 6~10s, w=0.20 주 지지 팔 왼손 상단). RTMW + hold_window mean = 28.35°. 박제 정합: 거꾸로 매달림에서 팔이 몸과 거의 평행 (작은 측정값 → Phase 5 Gemini 자동 BENT_OK 라벨링 신호)."
     - joint: right_shoulder
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 21.05
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (right_shoulder w=0.15 보조 지지 팔 견갑 안정성) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Body position ±20° tolerance, Fully Extended Criteria — fail < 160°)"
+      minimum_requirement: -3.95
+      source_ref: "정은지 reference 측정값 (basic invert hold 6~10s, w=0.15 보조 지지 팔). RTMW + hold_window mean = 21.05°. 박제 정합: 보조 어깨 굽힘 박제. minimum 음수 = D-18 룰 적용 결과 (B 박제 = 코사인 0~180°, 음수 도달 불가 = Phase 5 Gemini 자동 BENT_OK 라벨링 신호)."
     - joint: left_hip
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 55.90
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (left_hip w=0.20 인버트 스플릿 골반 외전) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
+      minimum_requirement: 30.90
+      source_ref: "정은지 reference 측정값 (인버트 스플릿 왼다리 외전, w=0.20). RTMW + hold_window mean = 55.90°."
     - joint: right_hip
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 71.72
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (right_hip w=0.20 인버트 스플릿 골반 외전 좌우 대칭) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
+      minimum_requirement: 46.72
+      source_ref: "정은지 reference 측정값 (인버트 스플릿 오른다리 외전, w=0.20). RTMW + hold_window mean = 71.72°."
+    - joint: left_knee
+      angle_target: 136.97
+      tolerance_full: 15.0
+      deduction_per_step: 0.2
+      minimum_requirement: 111.97
+      source_ref: "정은지 reference 측정값 (인버트 스플릿 무릎 신전, w=0.10). RTMW + hold_window mean = 136.97°."
     - joint: right_knee
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 138.12
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-invert checkpoints (right_knee w=0.10 1단계 신전 다리 + 2단계 스플릿) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
-  peak_moment: []
-  release_moment: []
+      minimum_requirement: 113.12
+      source_ref: "정은지 reference 측정값 (인버트 스플릿 무릎 신전, w=0.10). RTMW + hold_window mean = 138.12°. 박제 정합: 좌우 대칭 박제."
+  peak_moment: []      # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제
+  release_moment: []   # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제

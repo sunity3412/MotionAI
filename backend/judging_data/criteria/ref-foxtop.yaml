@@ -1,55 +1,56 @@
-# IPSF Code of Points 기반 GeometricCriterion (JUDGE-DATA-01)
+# 정은지 reference 측정값 기반 GeometricCriterion (분기 2 path)
 # 작성 가이드 = backend/judging_data/README.md
-# 사람 점수 라벨링 금지 — 객관 임계값 수치만
-# memory: analysis-objectivity-no-human-scores, judging-baseline-ipsf-code-of-points
+# 사람 점수 라벨링 금지 — 객관 측정값 박제만
+# memory: analysis-objectivity-no-human-scores, studio-term-3branch-system, feedback-analysis-first
 #
-# Plan 01-15 (a) path 1차 박제 (2026-06-01). reference-motions.md §5 ref-foxtop
-# checkpoints + §8 IPSF Code of Points 기반.
-# IPSF 정식 동작 family 명칭 = belle/강사 lookup 후 source_ref 갱신.
+# Plan 5-00 (2026-06-04) yaml source 정정 박제:
+# - NotebookLM IPSF Code of Points 2024-2025 lookup 결과 (05-IPSF-LOOKUP.md §2)
+#   ref-foxtop = IPSF 미등재 (Unrecognized) → P9 절대 트랙만 + 분기 2 정은지 reference path 박제
+# - 이전 박제 (angle_target=180° / tolerance=±20° / minimum=160°) = IPSF source 박제 X
+# - 갱신 source = 정은지 reference 측정값 (RTMW wholebody + hold_window mean, D-18 박제 룰)
+# - tolerance_full=15° (D-18), minimum_requirement=measured-25° (D-18, 음수 박제 OK = Phase 5 Gemini 자동 BENT_OK 라벨링 신호)
 #
-# hold_moment (수직 스플릿 peak 18s) — 양 다리 일자 찢기 인버트 유지:
-# - 4 어깨/골반 + 양 무릎 신전 박제
-# - spine_mid 정렬 모호 — 1차 제외 (belle 검증 시 추가)
+# hold_window: 15.0s ~ 21.0s (54 frames @ 9fps) — 수직 스플릿 hold (reference-motions.md §5 vertical-split)
 motion: ref-foxtop
-source: "reference-motions.md §5 ref-foxtop (advanced, 수직 스플릿 peak 18s, sharedBase=ref-invert) + IPSF Aerial Pole Sports Code of Points 2024-2025 (NotebookLM lookup 2026-06-01, 정확 element code §TBD)"
+source: "정은지 reference 측정값 (분기 2 path, studio-term-3branch-system) — RTMW wholebody + hold_window mean 박제 (2026-06-04). 측정 결과 = backend/research/evaluations/reports/eunji_reference_measurements/measurements.json. IPSF source 박제 X — NotebookLM IPSF CoP 2024-2025 lookup 결과 미등재 (05-IPSF-LOOKUP.md §2)."
 criteria:
   setup_moment: []
   hold_moment:
     - joint: left_shoulder
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 139.02
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-foxtop checkpoints (left_shoulder w=0.20 주 지지 팔 견갑 안정성) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Body position ±20° tolerance, Fully Extended Criteria — fail < 160°)"
+      minimum_requirement: 114.02
+      source_ref: "정은지 reference 측정값 (수직 스플릿 hold 15~21s, w=0.20 주 지지 팔). RTMW + hold_window mean = 139.02° (D-18 박제 룰: tolerance=±15° / minimum=measured-25°)."
     - joint: right_shoulder
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 74.31
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-foxtop checkpoints (right_shoulder w=0.15 보조 지지 팔 견갑 안정성) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Body position ±20° tolerance, Fully Extended Criteria — fail < 160°)"
+      minimum_requirement: 49.31
+      source_ref: "정은지 reference 측정값 (수직 스플릿 hold 15~21s, w=0.15 보조 지지 팔). RTMW + hold_window mean = 74.31°. 박제 정합: 보조 어깨 굽힘 박제."
     - joint: left_hip
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 127.46
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-foxtop checkpoints (left_hip w=0.15 수직 스플릿 위 다리 신전 시작점) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
+      minimum_requirement: 102.46
+      source_ref: "정은지 reference 측정값 (수직 스플릿 위 다리 hold, w=0.15). RTMW + hold_window mean = 127.46°."
     - joint: right_hip
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 78.69
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-foxtop checkpoints (right_hip w=0.15 수직 스플릿 좌우 대칭) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
+      minimum_requirement: 53.69
+      source_ref: "정은지 reference 측정값 (수직 스플릿 hook 측 다리 hold, w=0.15). RTMW + hold_window mean = 78.69°. 박제 정합: hook 측 다리 굽힘 박제."
     - joint: left_knee
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 151.99
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-foxtop checkpoints (left_knee w=0.10 수직 스플릿 위 다리 무릎 신전) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
+      minimum_requirement: 126.99
+      source_ref: "정은지 reference 측정값 (위 다리 무릎 신전, w=0.10). RTMW + hold_window mean = 151.99°."
     - joint: right_knee
-      angle_target: 180.0
-      tolerance_full: 20.0
+      angle_target: 147.25
+      tolerance_full: 15.0
       deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "reference-motions.md §5 ref-foxtop checkpoints (right_knee w=0.10 수직 스플릿 아래 다리 무릎 신전) + IPSF Aerial Pole Sports Code of Points 2024-2025 (Fully Extended Criteria, ±20° tolerance, fail < 160°)"
-  peak_moment: []
-  release_moment: []
+      minimum_requirement: 122.25
+      source_ref: "정은지 reference 측정값 (아래 다리 무릎 신전, w=0.10). RTMW + hold_window mean = 147.25°."
+  peak_moment: []      # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제
+  release_moment: []   # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제

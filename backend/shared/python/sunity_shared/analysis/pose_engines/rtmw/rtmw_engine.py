@@ -230,8 +230,7 @@ class RTMWPoseEngine:
                 "영상에 사람이 없거나 카메라 각도를 확인하세요."
             )
 
-        # Path D-v2 (2026-06-05): face-anchor 기반 좌/우 swap correction.
-        return _correct_left_right_swap(pose_frames)
+        return pose_frames
 
 
 # ── 내부 헬퍼 ─────────────────────────────────────────────────────────────
@@ -273,89 +272,3 @@ def _load_eligible_weight(manifest_path: Path) -> dict:
         selected.get("license_status"),
     )
     return selected
-
-
-# ── Path D-v2 (2026-06-05): face-anchor 기반 좌/우 swap correction ─────────
-
-_LR_SWAP_PAIRS: tuple[tuple[str, str], ...] = (
-    ("left_shoulder", "right_shoulder"),
-    ("left_elbow", "right_elbow"),
-    ("left_wrist", "right_wrist"),
-    ("left_hip", "right_hip"),
-    ("left_knee", "right_knee"),
-    ("left_ankle", "right_ankle"),
-    ("left_eye", "right_eye"),
-    ("left_ear", "right_ear"),
-)
-
-_FACE_CONFIDENCE_MIN = 0.3
-
-
-def _correct_left_right_swap(pose_frames: list[PoseFrame]) -> list[PoseFrame]:
-    """face-anchor 기반 RTMW 좌/우 keypoint swap correction.
-
-    박제 정신 박제 정합 (Path D-v2):
-    - face landmarks (left_ear/right_ear) 가 카메라 view 박제 좌/우 박제 = anatomical ground truth
-    - shoulder 가 face 좌/우 박제 정합 검증 → swap 가시성 frame 박제
-    - face invisible frame = visible frame 의 majority vote 박제 정신 박제
-
-    가정: RTMW 가 face landmarks 는 좌/우 정확히 박제 (눈/귀 위치 박제 분명).
-    가설: shoulder/hip 박제 박제 박제 박제 swap 만 발생.
-
-    박제 알고리즘:
-    1. 각 frame 별 face_orient (left_ear.x - right_ear.x) 박제
-    2. shoulder_orient (left_shoulder.x - right_shoulder.x) 박제
-    3. 두 박제 박제 박제 sign 정합 (face_orient * shoulder_orient > 0) = normal
-    4. sign 박제 (< 0) = swap → 6 keypoint pair 박제 박제 정정
-    5. face invisible frame = 직전 visible frame 의 swap 상태 박제 박제 박제
-    """
-    from dataclasses import replace
-
-    if len(pose_frames) <= 1:
-        return pose_frames
-
-    corrected: list[PoseFrame] = []
-    last_known_swap = False  # face invisible 시 fallback
-
-    for pf in pose_frames:
-        kp = pf.keypoints_3d
-        is_swap: bool | None = None
-
-        # face anchor 박제 검증
-        le = kp.get("left_ear")
-        re = kp.get("right_ear")
-        ls = kp.get("left_shoulder")
-        rs = kp.get("right_shoulder")
-
-        if (
-            le is not None and re is not None and ls is not None and rs is not None
-            and le.confidence > _FACE_CONFIDENCE_MIN
-            and re.confidence > _FACE_CONFIDENCE_MIN
-            and ls.confidence > _FACE_CONFIDENCE_MIN
-            and rs.confidence > _FACE_CONFIDENCE_MIN
-        ):
-            face_orient = le.x - re.x
-            shoulder_orient = ls.x - rs.x
-            if abs(face_orient) > 1.0 and abs(shoulder_orient) > 1.0:
-                is_swap = (face_orient * shoulder_orient) < 0
-                last_known_swap = is_swap
-
-        if is_swap is None:
-            # fallback — 직전 visible frame 박제 박제 박제
-            is_swap = last_known_swap
-
-        if is_swap:
-            new_kp = dict(kp)
-            new_aligned = dict(pf.keypoints_3d_pole_aligned)
-            for left_key, right_key in _LR_SWAP_PAIRS:
-                if left_key in new_kp and right_key in new_kp:
-                    new_kp[left_key], new_kp[right_key] = new_kp[right_key], new_kp[left_key]
-                if left_key in new_aligned and right_key in new_aligned:
-                    new_aligned[left_key], new_aligned[right_key] = (
-                        new_aligned[right_key], new_aligned[left_key]
-                    )
-            corrected.append(replace(pf, keypoints_3d=new_kp, keypoints_3d_pole_aligned=new_aligned))
-        else:
-            corrected.append(pf)
-
-    return corrected

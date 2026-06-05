@@ -33,13 +33,22 @@
 
 set -e
 
+# Path E2E (2026-06-05): production E2E 정합 — Pod ID 인자 받아 자동 Lambda env update
+# 사용법: POD_ID=xxxxxxxxx bash setup_pod_full.sh
+POD_ID="${POD_ID:-}"
+if [ -z "$POD_ID" ]; then
+  echo "WARN: POD_ID 미설정 — Lambda env 자동 update + production server 자동 시작 skip"
+  echo "  (sweep 검증만 가능. production E2E test 박제 시 POD_ID 필수)"
+  echo "  사용법: POD_ID=<runpod-pod-id> bash $0"
+fi
+
 if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
   echo "ERROR: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY 미설정"
   echo ""
   echo "사용법:"
   echo "  export AWS_ACCESS_KEY_ID=<키>"
   echo "  export AWS_SECRET_ACCESS_KEY=<시크릿>"
-  echo "  bash $0"
+  echo "  POD_ID=<runpod-pod-id> bash $0"
   exit 1
 fi
 
@@ -168,13 +177,64 @@ echo ""
 echo "=========================================="
 echo "✅ Pod 환경 박제 완료 + Gemini 검증 PASS"
 echo "=========================================="
-echo ""
-echo "다음 단계 (Gemini recognizer sweep 시):"
-echo "  1. firebase-sa.json 박제 (없으면 학원 용어 매핑 폴백):"
-echo "       로컬: scp -P <port> -i <key> firebase-sa.json root@<host>:/workspace/firebase-sa.json"
-echo "       또는: aws ssm get-parameter --name /sunity/motion/firebase-sa --with-decryption \\"
-echo "              --query Parameter.Value --output text > /workspace/firebase-sa.json"
-echo "  2. sweep 실행:"
-echo "       bash /workspace/run_sweep_gemini.sh"
-echo ""
-echo "예상 시간 = ~10-15분 (GPU + 영상별 ~2분 + Gemini API)."
+
+# Path E2E (2026-06-05): POD_ID 인자 박제 시 production E2E 자동 박제
+if [ -n "$POD_ID" ]; then
+  PROXY_URL="https://${POD_ID}-8000.proxy.runpod.net/analyze"
+  echo ""
+  echo "=== [9/10] production server 자동 시작 (uvicorn) ==="
+  cd /workspace/SunityMotion/backend
+  export PYTHONPATH=shared/python:.
+  # 기존 server 종료 (idempotent)
+  pkill -f "uvicorn.*server:app" 2>/dev/null || true
+  sleep 1
+  # 자동 server 시작 (background, log /tmp/runpod_server.log)
+  nohup uvicorn runpod_inference.server:app \
+    --host 0.0.0.0 --port 8000 --workers 1 \
+    > /tmp/runpod_server.log 2>&1 &
+  SERVER_PID=$!
+  echo "server PID: $SERVER_PID"
+  sleep 3
+  if curl -fsS http://localhost:8000/health > /dev/null 2>&1; then
+    echo "✓ server /health OK"
+  else
+    echo "⚠ server /health 미응답 — /tmp/runpod_server.log 확인"
+  fi
+
+  echo ""
+  echo "=== [10/10] Lambda env RUNPOD_ANALYZE_URL 자동 update ==="
+  echo "proxy URL: $PROXY_URL"
+  python3 << PYEOF
+import boto3
+lambda_client = boto3.client('lambda', region_name='ap-northeast-2')
+fn = 'sunity-motion-pilot-pipeline'
+try:
+    cfg = lambda_client.get_function_configuration(FunctionName=fn)
+    env = cfg['Environment']['Variables']
+    env['RUNPOD_ANALYZE_URL'] = '$PROXY_URL'
+    lambda_client.update_function_configuration(
+        FunctionName=fn,
+        Environment={'Variables': env},
+    )
+    print('✓ Lambda env RUNPOD_ANALYZE_URL = $PROXY_URL')
+except Exception as e:
+    print(f'⚠ Lambda env update 실패: {e}')
+PYEOF
+
+  echo ""
+  echo "=========================================="
+  echo "✅ Production E2E 박제 완료"
+  echo "=========================================="
+  echo "  server: localhost:8000 (PID $SERVER_PID)"
+  echo "  proxy:  $PROXY_URL"
+  echo "  Lambda env 자동 update"
+  echo ""
+  echo "이제 앱에서 영상 분석 trigger 가능."
+else
+  echo ""
+  echo "다음 단계 (sweep 검증 시):"
+  echo "  bash /workspace/run_sweep_gemini.sh"
+  echo ""
+  echo "production E2E 박제 시 = POD_ID 인자 박제 후 재실행:"
+  echo "  POD_ID=<runpod-pod-id> bash $0"
+fi

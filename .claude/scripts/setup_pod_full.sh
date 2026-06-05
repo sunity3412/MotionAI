@@ -7,13 +7,29 @@
 #   cd /workspace && git clone https://github.com/sunity3412/MotionAI.git SunityMotion && \
 #     bash SunityMotion/.claude/scripts/setup_pod_full.sh
 #
-# 자동 처리:
+# 별도 (Gemini recognizer 사용 시 필수): firebase-sa.json 을 로컬에서 scp 또는 SSM fetch
+#   로컬에서: scp -P <port> -i <key> firebase-sa.json root@<host>:/workspace/firebase-sa.json
+#   또는 Pod 안: aws ssm get-parameter --name /sunity/motion/firebase-sa --with-decryption \
+#                  --query Parameter.Value --output text > /workspace/firebase-sa.json
+#
+# 자동 처리 (예상 시간 ~15분 with MAX_JOBS=nproc, ~45분 single-core):
 #   1. apt deps (ffmpeg + libgl1 + libglib2 + unzip)
-#   2. Python deps (mmpose stack + boto3 + google-genai + firebase-admin + imageio)
-#   3. RTMW weights 다운로드 + unzip
-#   4. .bashrc 영구 박제 (PATHs, AWS region, RECOGNIZER_BACKEND)
-#   5. Gemini API 호출 검증
-#   6. 5영상 sweep 백그라운드 실행
+#   2. mmcv CUDA build (MAX_JOBS=$(nproc), ~5-10분)
+#   3. mmpose stack
+#   4. Python deps (mmpose stack + boto3 + google-genai + firebase-admin + imageio + onnxruntime-gpu)
+#   5. RTMW weights 다운로드 + unzip (~73초, 327MB)
+#   6. .bashrc 영구 박제 (PATHs, RTMW_DEVICE, LD_LIBRARY_PATH, FIREBASE_SA_PATH)
+#   7. Gemini API 호출 검증
+#   8. 5영상 sweep wrapper 박제 (별도 명령으로 실행)
+#
+# 박제 함정 누적 7종 ([[runpod-gpu-env.md]] 참조):
+#   - mmcv CUDA build single-core → MAX_JOBS=nproc
+#   - onnxruntime (CPU only) → onnxruntime-gpu 명시
+#   - RTMW device='cpu' hardcode → RTMW_DEVICE env var (commit 50af90b)
+#   - onnxruntime-gpu 버전/cuDNN 매트릭스 → 1.19.2 (CUDA 12 + cuDNN 9 native)
+#   - cuDNN 9 system path 미설치 → torch 번들 LD_LIBRARY_PATH 추가
+#   - cublasLt 11 vs 12 → 1.19.x CUDA 12 native (1.18.x 함정)
+#   - _load_video_frames OOM (4K 21GB allocation) → FfmpegFrameExtractor 위임 (commit 391c933)
 
 set -e
 
@@ -38,8 +54,10 @@ apt-get install -y -qq ffmpeg libgl1 libglib2.0-0 unzip 2>&1 | tail -3
 echo "=== [2/8] numpy 다운그레이드 (mmpose 1.x ABI) ==="
 pip install -q "numpy>=1.26,<2"
 
-echo "=== [3/8] mmcv (no-build-isolation 함정) ==="
-pip install -q --no-build-isolation "mmcv>=2.0,<2.2"
+echo "=== [3/8] mmcv (no-build-isolation 함정 + MAX_JOBS 가속) ==="
+# 박제 함정 (2026-06-05): MAX_JOBS 미설정 시 single-core build → 30분+ (cudafe++/cicc).
+# nproc 병렬 빌드로 5-10분 단축.
+MAX_JOBS=$(nproc) pip install -q --no-build-isolation "mmcv>=2.0,<2.2"
 
 echo "=== [4/8] mmpose stack + chumpy ==="
 pip install -q --no-build-isolation chumpy
@@ -48,9 +66,12 @@ pip install -q rtmlib==0.0.15 mmpose==1.3.2 mmengine==0.10.7 mmdet==3.3.0 xtcoco
 echo "=== [5/8] python deps (boto3 / imageio / google-genai / firebase-admin / onnxruntime-gpu) ==="
 pip install -q boto3 'imageio[pyav]' imageio-ffmpeg firebase-admin google-genai
 # 박제 함정 (2026-06-05): rtmlib 디폴트 의존성에 onnxruntime (CPU) 만 포함 → CUDA EP 미활성 → 영상당 30분+ CPU inference.
-# onnxruntime 제거 + onnxruntime-gpu 명시 install 필수.
+# onnxruntime 제거 + onnxruntime-gpu 1.19.2 (CUDA 12 + cuDNN 9 native) 명시 install 필수.
+# - 1.18.x = CUDA 11 기본 (libcublasLt.so.11 요구) — 시스템 CUDA 12 환경 미스매치
+# - 1.26.x = cuDNN 9 + 시스템 path 요구 (torch 번들로 못 찾음) — LD_LIBRARY_PATH 추가도 필요
+# 1.19.2 가 가장 안전 (torch 2.4 cu124 매칭).
 pip uninstall -y -q onnxruntime 2>/dev/null || true
-pip install -q onnxruntime-gpu
+pip install -q "onnxruntime-gpu==1.19.2"
 
 echo "=== [6/8] RTMW weights 다운로드 ==="
 mkdir -p /workspace/rtmw_weights
@@ -71,6 +92,14 @@ export RECOGNIZER_BACKEND=gemini
 export RTMW_ONNX_PATH=/workspace/rtmw_weights/20230928/rtmpose_onnx/rtmw-x_simcc-cocktail13_pt-ucoco_270e-384x288-0949e3a9_20230925/end2end.onnx
 export PYTHONPATH=/workspace/SunityMotion/backend/shared/python:.
 export RTMW_DEVICE=cuda  # 박제 함정 (2026-06-05): cpu 디폴트 → GPU 0% → 영상당 30분+. cuda 강제.
+
+# 박제 함정 (2026-06-05): onnxruntime-gpu 가 시스템 cuDNN 9 / cublasLt 12 못 찾음 → CUDAExecutionProvider load fail.
+# torch 번들 nvidia/cudnn + nvidia/cublas path 를 LD_LIBRARY_PATH 에 추가.
+export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cublas/lib:$LD_LIBRARY_PATH
+
+# Firebase SA path (Gemini recognizer 의 학원 용어 매핑 + gemini_cache 필수).
+# 파일 자체는 belle 가 scp 또는 SSM ssm get-parameter 로 박제. 박제 시 path 박제됨.
+export FIREBASE_SA_PATH=/workspace/firebase-sa.json
 
 # GEMINI_API_KEY = SSM fetch 매번 (보안상 .bashrc 박제 X)
 # AWS_KEY = belle 가 매 세션 export 또는 RunPod 콘솔 Env 박제
@@ -103,6 +132,15 @@ if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then echo "AW
 export AWS_DEFAULT_REGION=ap-northeast-2
 export RECOGNIZER_BACKEND=gemini
 export RTMW_ONNX_PATH=/workspace/rtmw_weights/20230928/rtmpose_onnx/rtmw-x_simcc-cocktail13_pt-ucoco_270e-384x288-0949e3a9_20230925/end2end.onnx
+export RTMW_DEVICE=cuda  # GPU 강제 (박제 함정 2026-06-05)
+# torch 번들 cuDNN 9 / cublas 12 — onnxruntime-gpu 가 시스템 path 못 찾음
+export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cublas/lib:$LD_LIBRARY_PATH
+# Firebase SA — gemini_cache + unregistered_hook 필수 (없으면 학원 용어 매핑 graceful degrade)
+export FIREBASE_SA_PATH=${FIREBASE_SA_PATH:-/workspace/firebase-sa.json}
+if [ ! -f "$FIREBASE_SA_PATH" ]; then
+  echo "WARN: Firebase SA 파일 없음 — Gemini recognizer 가 학원 용어 매핑 못함 (motion='auto' 폴백)."
+  echo "      scp 또는 SSM 으로 박제 필요: scp firebase-sa.json root@<pod>:$FIREBASE_SA_PATH"
+fi
 export GEMINI_API_KEY=$(python3 -c "
 import boto3
 ssm = boto3.client('ssm', region_name='ap-northeast-2')
@@ -131,7 +169,12 @@ echo "=========================================="
 echo "✅ Pod 환경 박제 완료 + Gemini 검증 PASS"
 echo "=========================================="
 echo ""
-echo "다음 명령으로 5영상 sweep 백그라운드 시작:"
-echo "  bash /workspace/run_sweep_gemini.sh"
+echo "다음 단계 (Gemini recognizer sweep 시):"
+echo "  1. firebase-sa.json 박제 (없으면 학원 용어 매핑 폴백):"
+echo "       로컬: scp -P <port> -i <key> firebase-sa.json root@<host>:/workspace/firebase-sa.json"
+echo "       또는: aws ssm get-parameter --name /sunity/motion/firebase-sa --with-decryption \\"
+echo "              --query Parameter.Value --output text > /workspace/firebase-sa.json"
+echo "  2. sweep 실행:"
+echo "       bash /workspace/run_sweep_gemini.sh"
 echo ""
-echo "예상 시간 = 약 50분. PID 확인 후 polling 가능."
+echo "예상 시간 = ~10-15분 (GPU + 영상별 ~2분 + Gemini API)."

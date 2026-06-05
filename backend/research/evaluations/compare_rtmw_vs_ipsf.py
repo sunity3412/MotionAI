@@ -754,9 +754,13 @@ def _download_s3_video(s3_uri: str) -> Path:
 def _load_video_frames(video_path: str | Path) -> np.ndarray:
     """영상 파일 → (T, H, W, 3) RGB uint8 numpy 배열.
 
-    imageio + ffmpeg 사용. 9fps / 640px 다운샘플 (frame_extractor.py 정합).
+    FfmpegFrameExtractor 위임 — 9fps / 640px 다운샘플 (frame_extractor.py 정합).
     S3 URI (s3://bucket/key) 입력 시 자동 다운로드 후 처리.
     파일이 없거나 로드 실패 시 ValueError.
+
+    박제 함정 (2026-06-05): 이전 구현 `iio.imread(...)` = 전체 영상 한 번에 메모리 로드,
+    4K 28초 영상 = ~21GB allocation → container memory limit 30.9GB OOM kill. comment 는
+    9fps 정합 박제였지만 코드 미적용 = 박제-코드 불일치. extractor 위임으로 정합 회복.
     """
     # S3 URI 자동 다운로드 (Plan 5-05 Task 2 fix 박제)
     if isinstance(video_path, str) and video_path.startswith("s3://"):
@@ -765,17 +769,9 @@ def _load_video_frames(video_path: str | Path) -> np.ndarray:
     if not path.exists():
         raise ValueError(f"영상 파일 없음: {path}")
 
-    try:
-        import imageio.v3 as iio  # type: ignore[import]
-    except ImportError:
-        raise ImportError("imageio 미설치 — `pip install imageio imageio-ffmpeg`")
-
-    frames = iio.imread(str(path), plugin="pyav", format="rgb24")
-    # frames: (T, H, W, C) 또는 (T, H, W)
-    if frames.ndim == 3:
-        # 그레이스케일 → RGB
-        frames = np.stack([frames] * 3, axis=-1)
-    return frames.astype(np.uint8)
+    from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+    extractor = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
+    return extractor.extract(str(path))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -199,16 +199,46 @@ def _ensure_recognizer() -> technique.TechniqueRecognizer:
         return _RECOGNIZER
 
 
+class _RTMWNlfCompat:
+    """Plan 25 atomic swap (2026-06-05): RTMW → NLF interface 호환 어댑터.
+
+    pipeline/_process 의 `_POSE_ESTIMATOR.estimate(frames) → np.ndarray (T,17,4)` 호출
+    유지. 내부에서 RTMWPoseEngine + vertical pole_axis fallback + to_coco17_array 변환.
+
+    박제 정신 [[rtmw-free-stack-pivot]] 정합 — NLF/ultralytics 의존 제거.
+    """
+
+    def __init__(self) -> None:
+        from sunity_shared.analysis.pose_engines.rtmw.rtmw_engine import RTMWPoseEngine
+        from sunity_shared.analysis.pose_frame import PoleAxis
+        self._engine = RTMWPoseEngine()
+        self._default_pole = PoleAxis(
+            axis_vector=(0.0, 1.0, 0.0),
+            confidence_level="low",
+            source="vertical_fallback",
+            frame_index=None,
+        )
+
+    def estimate(self, frames):
+        """RTMW pose estimation → COCO-17 array (T,17,4) — NLF 호환 interface."""
+        from sunity_shared.analysis.pose_frame import to_coco17_array
+        pose_frames = self._engine.estimate(frames, self._default_pole)
+        return to_coco17_array(pose_frames)
+
+
 def _ensure_adapters() -> None:
     """폴백 처리(_process) 진입 시 1회 어댑터 생성 + lazy import.
-    RunPod 모드에선 이 함수가 호출되지 않아 imageio·torch 도 import 안 됨."""
+    RunPod 모드에선 이 함수가 호출되지 않아 imageio·torch 도 import 안 됨.
+
+    Plan 25 atomic swap (2026-06-05): NlfPoseEstimator → _RTMWNlfCompat (RTMW 기반,
+    NLF interface 호환). 박제 정신 [[rtmw-free-stack-pivot]] 정합.
+    """
     global _FRAME_EXTRACTOR, _POSE_ESTIMATOR, _COACH_WRITER
     if _FRAME_EXTRACTOR is None:
         from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
         _FRAME_EXTRACTOR = FfmpegFrameExtractor()
     if _POSE_ESTIMATOR is None:
-        from sunity_shared.analysis.pose_estimator import NlfPoseEstimator
-        _POSE_ESTIMATOR = NlfPoseEstimator()
+        _POSE_ESTIMATOR = _RTMWNlfCompat()
     if _COACH_WRITER is None:
         from sunity_shared.analysis.coach_writer import CerebrasCoachWriter
         _COACH_WRITER = CerebrasCoachWriter()

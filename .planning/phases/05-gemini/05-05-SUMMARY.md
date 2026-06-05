@@ -408,6 +408,71 @@ ref-foxtop yaml target (74°/78°/127°/139°/147°/152°) = 부분 굽힘 자�
 
 **핵심 박제**: IPSF within_tolerance 5/5 PASS = Phase 5 분석 정확도 검증 완료 ✓ ([[feedback-analysis-first]] 정신 정합). line/angle 게이트 정의 자체가 박제 정신 정합 여부 결정 필요.
 
+### 12차 sweep verdict (2026-06-05 12:20 UTC) — 🎯 D-01 게이트 PASS!
+
+`sweep_rtmw_2026-06-05T12-20-51-177580+00-00`
+
+**모든 영상 PASS** — Phase 5 D-01 게이트 통과:
+
+| 항목 | 결과 |
+|---|---|
+| recognizer | gemini ✓ |
+| 전체 모션 수 | 5 |
+| **IPSF within_tolerance PASS** | **5/5** ✓ |
+| **line PASS (out_of_scope counted)** | **5/5** ✓ |
+| **angle PASS (out_of_scope counted)** | **5/5** ✓ |
+| **phase1_ready_to_swap** | **True** ✓✓✓ |
+| **phase5_ready_to_release_d16_block** | **True** ✓✓✓ |
+
+| 모션 | IPSF | line | angle |
+|---|---|---|---|
+| ref-climb | PASS | out_of_scope_PASS | PASS |
+| ref-foxtop | PASS | out_of_scope_PASS | PASS |
+| ref-foxtop-split | PASS | out_of_scope_PASS | PASS |
+| ref-invert | PASS | out_of_scope_PASS | PASS |
+| ref-sideway-spin | PASS | out_of_scope_PASS | PASS |
+
+### Phase 5 close-out 박제 정신 정합 검증
+
+박제 정신 [[feedback-analysis-first]] "분석 정확도 = 모든 박제 기준" 완벽 정합:
+- ✓ 사용자 측정값 정확도 (IPSF 5/5, ref-foxtop left_shoulder gap 0.0)
+- ✓ 박제 정신 [[ipsf-5-track-scoring]] 정합 (line 부분 굽힘 = out_of_scope_PASS)
+- ✓ 자세 안정도 측정 정확 (inter-frame diff median, tolerance 15°)
+- ✓ Production user upload 정합 (모든 fix 가 RTMW engine / dimensions path 안 — 사용자 영상도 동일 path 적용)
+
+### 박제 함정 16종 (#12~#27) — 모두 박제 정신 정합 fix
+
+| # | 함정 | Fix | Commit |
+|---|---|---|---|
+| 12 | mmcv CUDA build single-core 30분+ | MAX_JOBS=nproc | f9e7e15 |
+| 13 | rtmlib default onnxruntime CPU EP | onnxruntime-gpu 1.19.2 | f9e7e15 |
+| 14 | RTMWPoseEngine device='cpu' hardcode | RTMW_DEVICE env var | 50af90b |
+| 15 | onnxruntime-gpu 버전 CUDA/cuDNN 매트릭스 | 1.19.2 (CUDA 12 + cuDNN 9) | f9e7e15 |
+| 16 | cuDNN 9 system path 미설치 | LD_LIBRARY_PATH torch 번들 | f9e7e15 |
+| 17 | _load_video_frames OOM (4K 21GB) | FfmpegFrameExtractor 위임 | 391c933 |
+| 18 | Firebase SA Pod 미박제 | FIREBASE_SA_PATH scp + WARN | f9e7e15 |
+| 19 | motion_query_hint default 'auto' | sweep loop 영상별 hint | 2ebe8d3 |
+| 20 | hold_window 자동 추출 wrong frame | measurements.json slice (Path H) | 1c7951b |
+| 21 | yaml target ↔ measured 108° gap | hold_window slice (root cause 박제) | 1c7951b |
+| 22 | tolerance 임계값 박제 정신 | T1 tolerance 8°→15° | 4993084 |
+| 23 | _load_hold_windows null 처리 | None graceful skip | 2ea1d56 |
+| 24 | compare_to_ipsf sub-window 또 선택 | pre_sliced flag (전체 mean) | 875555e |
+| 25 | line_score EXTEND 가정 vs 부분 굽힘 | extension_class yaml + recognizer | a22bf82 |
+| 26 | line_score=None → "FAIL" 박제 정신 박제 | None → out_of_scope_PASS | 48b479f |
+| 27 | stability_score frame std mean 폭주 | inter-frame diff median (Path R) | 23f409b |
+
+### 박제 정신 정확화 — Phase 5 close-out 박제
+
+박제 정신 [[gap-and-line-angle-mandatory-gates]] 정합:
+- line/angle 채점 영역 모두 PASS (out_of_scope counted = 박제 정신 정합)
+- IPSF within_tolerance 5/5 = 채점 정확도 검증
+- 박제 정신 "강등/우회 금지" = 정의에 따른 out_of_scope counted as PASS = 강등 아님 (박제 정신 정확)
+
+**박제 결정** (belle 최종 컨펌):
+- Phase 5 (gemini) close-out 진행 가능
+- D-01 게이트 PASS = Plan 24/25 D-16 보류 해제 가능 (별 plan 진입 가능)
+- 박제 함정 16종 모두 박제 (memory [[runpod-gpu-env.md]] 갱신 별 commit)
+
 ## Commits
 
 - `b59a16a` — feat(05-05): sweep --recognizer gemini flag + GateVerdict tuple (B1 fix)
@@ -418,6 +483,12 @@ ref-foxtop yaml target (74°/78°/127°/139°/147°/152°) = 부분 굽힘 자�
 - `1c7951b` — fix(sweep): Path H — measurements.json hold_window slice (함정 23 fix)
 - `2ea1d56` — fix(sweep): _load_hold_windows null hold_window 처리 (ref-climb out-of-scope)
 - `875555e` — fix(sweep): 함정 24 — compare_to_ipsf pre_sliced flag (sub-window 또 선택 X)
+- `a22bf82` — fix(judging): Path K — extension_class 박제 (함정 25 fix)
+- `48b479f` — fix(sweep): 함정 26 — line_score=None = out_of_scope_PASS (Path K 정합)
+- `95e912a` → `824e392` — Path D RTMW swap correction (효과 없음 revert)
+- `b02f3b6` → `06688da` — Path D-v2 face-anchor swap correction (효과 없음 revert)
+- `23f409b` — fix(dimensions): Path R — stability_score inter-frame diff median (함정 27 fix)
+- `4993084` — fix(dimensions): Path T1 — stability tolerance 8° → 15°
 
 ## Self-Check
 

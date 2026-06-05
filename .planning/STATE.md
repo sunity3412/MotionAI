@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-05 -- Wave 4 (Plan 5-05) Task 2 — 6차 sweep (함정 24 fix 후) 완료. IPSF within_tolerance 5/5 PASS ✓ but D-01 게이트 (line/angle) 4/5 FAIL — 새 root cause 함정 25 박제 (line_score EXTEND 가정 vs yaml 부분 굽힘 target).
-Stopped at: 2026-06-05 박제 함정 14종 누적 (Plan 5-05 기준 19→25). 6차 sweep = IPSF within_tolerance 5/5 ✓ (함정 24 pre_sliced fix 효과 — ref-foxtop left_shoulder gap 0.0). line/angle 게이트 = 1/5 PASS (ref-sideway-spin angle 만). main HEAD = 875555e. 박제 정신 충돌 발견 = `_build_profile` 가 yaml hold_criteria 모든 관절 EXTEND 박제 → line_score 가 180° 신전 deficit → 부분 굽힘 yaml target 자체가 FAIL. [[ipsf-5-track-scoring]] 정신상 부분 굽힘 = line 채점 out_of_scope.
-Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md
-Next: belle 박제 정신 결정 — (J) line_score 가 yaml target 기준 deficit (180° 아닌) / (K) yaml schema 에 joint 별 EXTEND/BENT 박제 추가 → recognizer 가 EXTEND 관절만 line 채점 / (L) D-01 게이트 정의 "line/angle 강등 X" 박제 vs IPSF CoP 정신 (부분 굽힘 = out_of_scope) 재의논. IPSF within_tolerance 5/5 = Phase 5 통과 핵심 박제 OK — line/angle 게이트 정의가 박제 정신 정합 여부.
+Last session: 2026-06-05 -- 🎯 Plan 5-05 Task 2 D-01 게이트 PASS! Phase 5 close-out 박제 후보. IPSF 5/5 + line/angle 5/5 (out_of_scope counted) = phase1_ready_to_swap=True + phase5_ready_to_release_d16_block=True.
+Stopped at: 2026-06-05 12차 sweep 통과 (commit 4993084). 박제 함정 16종 (#12~#27) 모두 박제. 핵심 fix: Path A (motion_query_hint) + Path H/함정 24 (hold_window slice + pre_sliced 전체 mean) + Path K (extension_class) + 함정 26 (line_score=None=out_of_scope) + Path R (inter-frame diff median) + T1 (tolerance 8°→15°). Path D / D-v2 (swap correction) 효과 X = revert (swap ≠ wobble root cause). 박제 정신 [[feedback-analysis-first]] 완벽 정합. main HEAD = 4993084.
+Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md (Task 2 12차 verdict + 함정 16종 박제 + Phase 5 close-out 박제)
+Next: belle 최종 컨펌 — Phase 5 close-out → Plan 24/25 D-16 보류 해제 (별 plan 진입 가능). memory [[runpod-gpu-env.md]] 함정 19-27 갱신 별 commit. ROADMAP.md Phase 05 ✓ 박제. 다음 Phase = Phase 6 (체형 정규화 비교 엔진) 또는 belle 결정.

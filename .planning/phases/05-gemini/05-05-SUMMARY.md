@@ -298,6 +298,60 @@ D-01 게이트 = "ref-climb 제외 채점 영역 모션 N/N PASS + ref-climb out
 
 Path A 가 sweep 즉시 진행 가능 (Phase 5 게이트 재판정). Path B/C 는 production 시점 별 plan.
 
+### 3차 sweep verdict (2026-06-05 04:32 UTC — Path A 적용 후, commit 2ebe8d3)
+
+`sweep_rtmw_2026-06-05T04-32-12-972175+00-00`
+
+**Path A 효과 박제 ✓** = motion 분류 정상화 (out_of_scope_PASS 폴백 0 — 실제 채점 영역 진입). 그러나 D-01 게이트 여전히 FAIL — 새 root cause 3개 박제.
+
+| 항목 | 결과 | 박제 |
+|---|---|---|
+| (A) IPSF within_tolerance | 1/5 | ref-climb 만 PASS |
+| (B) line PASS (채점 영역) | **0/5** | 채점 영역 진입했으나 모두 FAIL |
+| (C) angle PASS (채점 영역) | **0/5** | 동일 |
+| (D) Gemini reject 위반 | 0건 | 정상 |
+| (E) Gemini motion 분류 정확도 | **5/5** | Path A 효과 — 모든 영상 ref motion 매핑 ✓ |
+| (F) Phase 5 게이트 verdict | **fail** | 채점 결과 0/5 |
+| (G) startup fail-loud 검증 | PASS | 정상 |
+
+**모션별 결과** (3차):
+
+| 모션 | IPSF | line | angle | gap detail |
+|---|---|---|---|---|
+| ref-climb | PASS | **FAIL** | **FAIL** | yaml hold_moment 빈 list — out_of_scope_PASS 분기 동작 안 함 (함정 20 후보) |
+| ref-foxtop | FAIL | FAIL | FAIL | 0/6 within_tol — left_shoulder target 139° vs measured 30.4° (108.6° gap!) yaml target 의문 |
+| ref-foxtop-split | FAIL | FAIL | FAIL | 3/6 within_tol — 일부 PASS, right_knee 58.6° gap (target 78.9° vs 137.5°) |
+| ref-invert | FAIL | FAIL | FAIL | **5/6 within_tol** — knee 1개 (17.8° gap) 만 FAIL |
+| ref-sideway-spin | FAIL | FAIL | FAIL | **5/6 within_tol** — right_knee 1개 (16.9° gap) 만 FAIL |
+
+### 새 root cause 3종 박제 (3차 sweep)
+
+**함정 20 후보 — ref-climb out_of_scope_PASS 분기 동작 안 함**:
+- 박제 (B1 fix 2026-06-04 belle) = "ref-climb yaml hold_moment 빈 list → line/angle out_of_scope_PASS counted as PASS"
+- 실제 (3차 sweep) = ref-climb `line=FAIL angle=FAIL` + `out-of-scope counted: 0 PASS`
+- `compute_line_angle_gates` 의 out_of_scope_PASS 분기 조건 검증 필요 (joint_expectations 가 모두 BENT_OK 일 때 OR yaml hold_criteria 가 빈 list 일 때 — 어느 조건 박제?)
+
+**함정 21 — yaml target vs RTMW measured 큰 갭 (Plan 23 root cause #1 재발현 가능성)**:
+- ref-foxtop left_shoulder: target 139.0° vs measured 30.4° = **108.6° gap** (거의 90° 차이)
+- 박제 Plan 23 root cause = "yaml hold_moment target=180° 일률 (FallbackRecognizer 한계)". Plan 5-00 에서 정은지 측정값 기준 yaml 박제 후 일부 해소 추정했으나, ref-foxtop 같은 큰 갭은 의문.
+- 후보: (a) yaml target 박제값 자체 잘못, (b) RTMW pose 정확도 한계 (특히 head-down 자세), (c) Gemini key moment timestamp 가 wrong frame 선택, (d) 좌/우 swap 같은 정렬 문제
+
+**함정 22 — within_tolerance_all 정의 ("모두 PASS = True") tolerance 임계값 검토**:
+- ref-invert / ref-sideway-spin = **5/6 within_tol** (knee 1개 만 17~18° gap 으로 FAIL)
+- within_tolerance_all 정의상 1개만 FAIL 이어도 전체 FAIL → 5/6 가 0/5 카운트
+- tolerance 임계값 (현재 ±?°) 박제 검토 가능 영역 — 박제 [[judging-baseline-ipsf-code-of-points]] IPSF Code of Points 2024-2025 의 tolerance 정의 lookup 필요
+
+### Path forward 후보 (belle 결정)
+
+| Path | 내용 | 효과 |
+|---|---|---|
+| **D** | 함정 20 fix — `compute_line_angle_gates` out_of_scope_PASS 분기 코드 path 검증 + B1 fix 정신 정합 | ref-climb 만 PASS 카운트 회복 — D-01 게이트 분모 4, ref-climb out-of-scope counted as PASS |
+| **E** | 함정 21 진단 spike — ref-foxtop yaml target ↔ RTMW measured 갭 root cause (a/b/c/d) 정확히 박제 | yaml 자체 fix 필요? RTMW 한계? Plan 5-00 측정값 vs 현재 yaml 정합 검증 |
+| **F** | 함정 22 검토 — IPSF tolerance 임계값 박제 정신 검증 ([[ipsf-5-track-scoring]] / IPSF CoP lookup) | ref-invert/sideway-spin 5/6 → 6/6 가능성 — knee 1개 FAIL 의 임계값 의문 |
+| **G** | D-01 게이트 정의 자체 재검토 — "N/N PASS" 가 within_tolerance_all (관절 6/6) 인지 IPSF gap counted (관절별 카운트) 인지 | 박제 정신 명확화 후 코드 path 정합 |
+
+D + E + F 3개 동시 진행 필요할 듯 — D 가 가장 단순 (코드 path 1개), E 가 가장 깊음 (Gemini/RTMW/yaml 정합), F 가 belle 정책 결정.
+
 ## Commits
 
 - `b59a16a` — feat(05-05): sweep --recognizer gemini flag + GateVerdict tuple (B1 fix)

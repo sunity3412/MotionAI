@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-05 -- Wave 4 (Plan 5-05) Task 2 — 1차/2차 sweep 모두 D-01 게이트 FAIL. 진짜 root cause 박제됨 (함정 19, motion_query_hint default 'auto').
-Stopped at: 2026-06-05 박제 함정 8종 누적 박제. 2차 sweep (Firebase SA 박제 후) 결과 = 1차와 동일 (Firebase SA 영향 0). 진짜 root cause = `_build_recognizer("gemini")` 가 motion_query_hint 안 넘김 → recognizer default 'auto' → 모든 영상 unregistered → out_of_scope_PASS → 게이트 분모=0. 박제 정신 = "sweep 영상은 motion known case (file name = motion ID)" 인데 코드 정합 위배. main HEAD = cd7addc.
-Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md (Task 2 1차+2차 verdict + 함정 8종 + 진짜 root cause 박제 + fix path 후보 A/B/C 박제)
-Next: belle 결정 — fix path A (sweep loop motion_query_hint 영상별 박제, 단순 3 line code change) / B (Gemini prompt 분류 응답 추가, production user upload path) / C (extractor B5/W3 fix 박제 변경, 박제 정신 재의논). Path A = sweep 즉시 재실행 가능 + Phase 5 게이트 재판정.
+Last session: 2026-06-05 -- Wave 4 (Plan 5-05) Task 2 — 3차 sweep (Path A 적용 후) 완료. motion 분류 정상화 ✓ but D-01 게이트 여전히 FAIL — 새 root cause 3종 박제 (함정 20/21/22).
+Stopped at: 2026-06-05 박제 함정 11종 누적 (Plan 5-05 기준 19→22). 3차 sweep = 5/5 ref motion 매핑 ✓ but line/angle 0/5 PASS. ref-climb out_of_scope_PASS 분기 동작 안 함 (함정 20). ref-foxtop yaml target ↔ RTMW measured 108° gap (함정 21). ref-invert/sideway-spin 5/6 within_tol — knee 1개만 FAIL (함정 22 tolerance 검토). main HEAD = 2ebe8d3.
+Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md (Task 2 1차+2차+3차 verdict + 함정 11종 + Path A 효과 박제 + Path D/E/F/G 후보 박제)
+Next: belle 결정 — Path D (함정 20 ref-climb out_of_scope_PASS 분기 fix, 단순) + E (함정 21 ref-foxtop yaml target ↔ RTMW measured 갭 진단 spike, 깊음) + F (함정 22 tolerance 임계값 IPSF CoP lookup, 정책) 동시 진행 또는 우선순위 결정. ref-invert/sideway-spin 5/6 = 거의 통과 — tolerance 가 핵심일 수도.

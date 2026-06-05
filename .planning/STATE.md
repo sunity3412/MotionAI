@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-05 -- 🎯 Plan 5-05 Task 2 D-01 게이트 PASS! Phase 5 close-out 박제 후보. IPSF 5/5 + line/angle 5/5 (out_of_scope counted) = phase1_ready_to_swap=True + phase5_ready_to_release_d16_block=True.
-Stopped at: 2026-06-05 12차 sweep 통과 (commit 4993084). 박제 함정 16종 (#12~#27) 모두 박제. 핵심 fix: Path A (motion_query_hint) + Path H/함정 24 (hold_window slice + pre_sliced 전체 mean) + Path K (extension_class) + 함정 26 (line_score=None=out_of_scope) + Path R (inter-frame diff median) + T1 (tolerance 8°→15°). Path D / D-v2 (swap correction) 효과 X = revert (swap ≠ wobble root cause). 박제 정신 [[feedback-analysis-first]] 완벽 정합. main HEAD = 4993084.
-Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md (Task 2 12차 verdict + 함정 16종 박제 + Phase 5 close-out 박제)
-Next: belle 최종 컨펌 — Phase 5 close-out → Plan 24/25 D-16 보류 해제 (별 plan 진입 가능). memory [[runpod-gpu-env.md]] 함정 19-27 갱신 별 commit. ROADMAP.md Phase 05 ✓ 박제. 다음 Phase = Phase 6 (체형 정규화 비교 엔진) 또는 belle 결정.
+Last session: 2026-06-05 -- 🎯 Phase 5 D-01 게이트 PASS + production E2E 자동 박제 path 완료. Lambda deploy (UPDATE_COMPLETE).
+Stopped at: 2026-06-05 (1) 12차 sweep D-01 게이트 PASS (commit 4993084) — IPSF 5/5 + line/angle 5/5. 박제 함정 16종 (#12~#27) 모두 fix. (2) production pipeline 정합 commit da1fae8 — Path A (motion_query_hint) + Path H (TechniqueProfile.hold_window) + dimensions stability_score profile 인자. (3) SAM build/deploy UPDATE_COMPLETE — Lambda PipelineFunction + SharedLayer 신버전. (4) setup_pod_full.sh E2E 자동 박제 commit 40781e3 — POD_ID 인자 시 production server 자동 시작 + Lambda env RUNPOD_ANALYZE_URL 자동 update. main HEAD = 40781e3.
+Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md
+Next: belle 새 Pod 띄울 때 한 줄로 자동 셋업 (POD_ID + AWS keys + bash setup_pod_full.sh) → 앱에서 영상 분석 trigger → Firestore 결과 확인 = Phase 5 production E2E 검증 완료. 그 후: Phase 5 close-out (ROADMAP.md Phase 5 ✓ 박제) + memory [[runpod-gpu-env.md]] 함정 19-27 갱신 + Phase 6 (체형 정규화 비교 엔진) 진입.

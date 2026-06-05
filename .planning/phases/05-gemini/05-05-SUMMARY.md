@@ -210,9 +210,56 @@ Task 2 = `checkpoint:human-verify gate="blocking-human"` — belle Pod sweep
 
 박제 결정 항목 (A)~(G) 박제 후 본 SUMMARY.md 박제 = orchestrator 가 보강.
 
+### 1차 sweep verdict (2026-06-05 03:16 UTC — Pod RTX 3090, Firebase SA 미박제)
+
+`sweep_rtmw_2026-06-05T03-16-03-950082+00-00`
+
+| 항목 | 결과 | 박제 |
+|---|---|---|
+| (A) IPSF within_tolerance | 1/5 (전체) | ref-climb 만 PASS |
+| (B) line PASS (채점 영역) | **5/0** | 분모=0 — 모든 영상 motion='auto' → out_of_scope_PASS |
+| (C) angle PASS (채점 영역) | **5/0** | 동일 — 분모=0 |
+| (D) Gemini 좌표/점수/판단 reject 위반 | 0건 | reject pattern 가드 정상 |
+| (E) Gemini motion 분류 정확도 | **0/5** | 5영상 모두 motion='auto' (Firestore SA lookup 실패) |
+| (F) Phase 5 게이트 verdict | **fail** | D-01 게이트 = "ref-climb 제외 N/N PASS + ref-climb out-of-scope counted" 정의상 분모 0 통과 불가 |
+| (G) startup fail-loud 검증 | PASS | RTMW init + Gemini init OK, log 정상 진행 |
+
+**모션별 결과** (1차):
+
+| 모션 | IPSF | line | angle | ms/f | rtmw_score |
+|---|---|---|---|---|---|
+| ref-climb | PASS | out_of_scope_PASS | out_of_scope_PASS | 94.8 | 81.1 |
+| ref-foxtop | FAIL | out_of_scope_PASS | out_of_scope_PASS | 31.9 | 72.1 |
+| ref-foxtop-split | FAIL | out_of_scope_PASS | out_of_scope_PASS | 32.3 | 72.1 |
+| ref-invert | FAIL | out_of_scope_PASS | out_of_scope_PASS | 33.1 | 74.7 |
+| ref-sideway-spin | FAIL | out_of_scope_PASS | out_of_scope_PASS | 31.9 | 80.3 |
+
+ms/f 평균 44.8 (CPU 박제 ~2000ms 대비 **45배 GPU 가속** ✓).
+
+### 1차 sweep 박제 함정 7종 누적 (commit/fix)
+
+| # | 함정 | Fix |
+|---|---|---|
+| 12 | mmcv CUDA build single-core 30분+ | setup_pod_full.sh `MAX_JOBS=$(nproc)` (commit f9e7e15) |
+| 13 | rtmlib default = onnxruntime CPU only | setup_pod_full.sh onnxruntime-gpu 명시 install |
+| 14 | RTMWPoseEngine `device="cpu"` hardcode | commit 50af90b — `RTMW_DEVICE` env var 매개 |
+| 15 | onnxruntime-gpu 1.18.x = CUDA 11 미스매치 | 1.19.2 (CUDA 12 + cuDNN 9 native) 명시 |
+| 16 | cuDNN 9 system path 미설치 | torch 번들 `LD_LIBRARY_PATH` 박제 |
+| 17 | `_load_video_frames` OOM (4K 영상 21GB 전체 로드) | commit 391c933 — `FfmpegFrameExtractor` 위임 (175MB, 120배 감소) |
+| 18 | Firebase SA Pod 미박제 → Gemini 학원 용어 매핑 graceful degrade | `FIREBASE_SA_PATH` 박제 + setup_pod_full.sh WARN |
+
+박제 누적 = [[runpod-gpu-env.md]] 함정 1-18 (Plan 11 era 1-5 + Plan 23 6-11 + Plan 5-05 12-18).
+
+### 2차 sweep (Firebase SA 박제 후) — 진행 중
+
+PID 101310 ~25분 예상. 결과 박제 추가 예정.
+
 ## Commits
 
 - `b59a16a` — feat(05-05): sweep --recognizer gemini flag + GateVerdict tuple (B1 fix)
+- `50af90b` — fix(pose-engine): RTMW device hardcode='cpu' → env var (RTMW_DEVICE) — 함정 14 fix
+- `391c933` — fix(sweep): _load_video_frames 9fps/640px 다운샘플 회복 (OOM 함정 17 fix)
+- `f9e7e15` — chore(pod): setup_pod_full.sh 박제 갱신 — 함정 12,13,15,16,18 누적 fix
 
 ## Self-Check
 

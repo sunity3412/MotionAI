@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-04 -- Wave 3 (Plan 5-04) 종료, Wave 4 (5-05 belle Pod sweep blocking-human) 진입 대기
-Stopped at: Plan 5-04 (Pod requirements + setup.sh + _warmup fail-loud) 완료 (10분, 4 tests PASS, 4 commits). worktree 병합 + cleanup 완료. Post-merge gate 통과 (4 PASS). main HEAD = e60cf9c. setup.sh 갱신 = 다음 Pod 세션부터 자동 적용 (현 Pod 영향 X). belle 결정: Wave 4 진입 시 현 Pod 유지 + google-genai 1개 추가 + GEMINI_API_KEY SSM fetch 박제 (재기동 X). 박제 완료: D-12/D-13/D-15/D-16 + Common Pitfall 4 (fail-loud).
-Resume file: .planning/phases/05-gemini/05-04-SUMMARY.md
-Next: Wave 4 진입 — Plan 5-05 (sweep --recognizer gemini + belle Pod sweep verdict) 단일. blocking-human checkpoint. 게이트 = "정은지 reference 측정값 기준 4영상 angle 4/4 PASS + ref-climb out-of-scope counted as PASS" (D-01).
+Last session: 2026-06-05 -- Wave 4 (Plan 5-05) Task 2 belle Pod sweep 진행 중 — 2차 sweep (Firebase SA 박제 후) 결과 대기
+Stopped at: 2026-06-05 새 Pod (RTX 3090) 셋업 + 박제 함정 7종 fix 완료. 1차 sweep verdict = D-01 게이트 FAIL (5영상 모두 motion='auto' 폴백 — Gemini 학원 용어 매핑 Firestore SA 의존 미박제). 2차 sweep PID 101310 진행 중 (Firebase SA scp + FIREBASE_SA_PATH 박제 후). main HEAD = f9e7e15. commits = 50af90b (RTMW device env var) + 391c933 (_load_video_frames OOM fix) + f9e7e15 (setup_pod_full.sh 함정 7종 누적 박제 + memory runpod-gpu-env.md 함정 12-18 박제).
+Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md (Task 2 1차 verdict + 함정 7종 박제 완료)
+Next: 2차 sweep verdict 박제 → motion 분류 'auto' 안 잡히고 실제 ref motion name 으로 매핑되는지 검증 → D-01 게이트 재판정 → Phase 5 close-out (PASS 시) 또는 Gemini 분류 디버그 plan 신설 (FAIL 시) — belle 결정.

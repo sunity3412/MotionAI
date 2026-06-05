@@ -64,12 +64,27 @@ def hold_window(angles) -> tuple[int, int]:
 
 
 def stability_score(angles) -> int:
-    """홀딩 구간 관절각 표준편차(떨림) → 가우시안. 낮은 떨림 = 통제된 정지."""
+    """홀딩 구간 관절각 안정도 → 가우시안. 낮은 떨림 = 통제된 정지.
+
+    Path R (2026-06-05): inter-frame difference median 알고리즘 — 박제 정신 정합.
+    - 이전: frame std mean → RTMW frame 별 noise + swap outlier 모두 흡수 → wobble 폭주
+    - 현재: |frame_diff| 의 관절별 median → outlier frame (swap/jitter) 제외, 자세 변화량 측정
+
+    inter-frame diff = 인접 frame 간 angle 변화 = 자세 변화 (의도 + noise) 양쪽.
+    median = swap 영향 받은 frame 또는 RTMW noise spike outlier 제외 — robust.
+    자세 정지 hold = inter-frame diff 작음 = wobble 작음 = score 높음.
+    """
     a = _as_tj(angles)
     if a.shape[0] <= 1:
         return 100  # 프레임이 1개뿐이면 떨림 측정 불가 — 감점 근거 없음
     s, e = hold_window(a)
-    wobble = float(np.mean(np.std(a[s:e], axis=0)))
+    sliced = a[s:e]
+    if sliced.shape[0] < 2:
+        return 100
+    # 인접 frame 간 angle 차이 (jerk) — outlier robust median 사용
+    inter_frame_diff = np.abs(np.diff(sliced, axis=0))  # (T-1, J)
+    median_jerk = np.nanmedian(inter_frame_diff, axis=0)  # (J,)
+    wobble = float(np.nanmean(median_jerk))
     return kismam.score_from_deviation(wobble, _STABILITY_TOL_DEG)
 
 

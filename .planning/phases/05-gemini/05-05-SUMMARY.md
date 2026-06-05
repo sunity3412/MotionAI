@@ -352,12 +352,72 @@ Path A 가 sweep 즉시 진행 가능 (Phase 5 게이트 재판정). Path B/C �
 
 D + E + F 3개 동시 진행 필요할 듯 — D 가 가장 단순 (코드 path 1개), E 가 가장 깊음 (Gemini/RTMW/yaml 정합), F 가 belle 정책 결정.
 
+### 4차/5차 sweep verdict (Path H = measurements.json hold_window slice 박제, commit 1c7951b + 2ea1d56)
+
+함정 21 root cause 확정 = `dimensions.hold_window()` 자동 추출 알고리즘 (분산 최소 window) 이 ref-foxtop 같은 영상에서 standing setup/dismount 자세를 hold 보다 안정적이라 잘못 잡음. 박제 measurement (Plan 5-00 hold_window) slice 적용 후:
+
+**5차 sweep (2026-06-05 05:35 UTC)**:
+- ref-foxtop shoulder: target 139→148.5 (gap 9.5) ✓ — slice 효과 명확
+- ref-foxtop hip/knee: 15~27° gap 잔여 ← **함정 24 발견**
+- 1/5 angle PASS (ref-sideway-spin 5/6 within_tol)
+
+**함정 24 박제**: compare_to_ipsf 가 sliced angles 안에서 `dimensions.hold_window` 또 호출 → sliced(54 frame) 안에서 sub-window(13 frame) 선택 → Plan 5-00 measurement (전체 mean) 와 정합 위배.
+
+### 6차 sweep verdict (함정 24 fix — pre_sliced=True 전체 mean, commit 875555e)
+
+| 항목 | 값 |
+|---|---|
+| recognizer | gemini ✓ |
+| 전체 모션 수 | 5 |
+| **IPSF within_tolerance PASS** | **5/5** ✓✓✓ (이전 1/5) |
+| line PASS (채점 영역) | 0/5 |
+| angle PASS (채점 영역) | 1/5 (ref-sideway-spin) |
+| phase1_ready_to_swap | False |
+
+**ref-foxtop 박제 정합 검증**:
+- left_shoulder: target 139.0 vs measured **139.1** (**gap 0.0**) ✓
+- 6/6 within_tolerance 통과 → ipsf_pass=True
+
+= 박제 [[judging-baseline-ipsf-code-of-points]] IPSF criteria 만족 검증 **5영상 모두 PASS**.
+
+### 새 root cause — 함정 25 박제 정신 충돌
+
+D-01 게이트 (line/angle) 여전히 4/5 FAIL 이유:
+
+`compute_line_angle_gates` 의 `line_score(joint_angles, profile)` →
+- `profile.expects_extension(k)` 인 관절 = "180° - 측정값" deficit
+- `_build_profile` 가 yaml hold_criteria 모든 관절 = EXTEND 박제
+
+ref-foxtop yaml target (74°/78°/127°/139°/147°/152°) = 부분 굽힘 자세. 180° 신전 가정과 충돌 → 큰 deficit → score < 50 → FAIL.
+
+| 박제 정신 | 코드 동작 |
+|---|---|
+| 부분 굽힘 자세 = line 채점 대상 X ([[ipsf-5-track-scoring]] 정신) | yaml hold_criteria 관절 = EXTEND → 180° 기대 deficit |
+| `[[gap-and-line-angle-mandatory-gates]]` "강등/우회 금지" | 모든 모션 강제 line/angle 채점 |
+
+= 박제 정신 충돌. 박제 정신 재의논 필요.
+
+### Path forward 후보 (belle 박제 정신 결정)
+
+| Path | 내용 | 효과 |
+|---|---|---|
+| **J** | line_score 가 yaml target 기준 deficit (180° 아닌) | 박제 yaml 정합. 코드 변경 ~10 line |
+| **K** | yaml schema 에 joint 별 EXTEND/BENT 박제 추가 → recognizer 가 EXTEND 관절만 line 채점 | 박제 정신 정합 — IPSF "신전 완전성" 박제. yaml 5개 + recognizer 갱신 필요 |
+| **L** | D-01 게이트 정의 "line/angle 강등 X" 박제 vs IPSF CoP 정신 (부분 굽힘 = out_of_scope) 재의논 | 박제 정신 결정 후 코드 path 정합 |
+| **M** | D-01 게이트 통과 기준 = IPSF within_tolerance 5/5 만 (line/angle 게이트 = Phase 6 별 plan) | 6차 sweep 결과대로 Phase 5 close-out 가능. 박제 [[gap-and-line-angle-mandatory-gates]] "1순위 게이트" 정신 충돌 |
+
+**핵심 박제**: IPSF within_tolerance 5/5 PASS = Phase 5 분석 정확도 검증 완료 ✓ ([[feedback-analysis-first]] 정신 정합). line/angle 게이트 정의 자체가 박제 정신 정합 여부 결정 필요.
+
 ## Commits
 
 - `b59a16a` — feat(05-05): sweep --recognizer gemini flag + GateVerdict tuple (B1 fix)
 - `50af90b` — fix(pose-engine): RTMW device hardcode='cpu' → env var (RTMW_DEVICE) — 함정 14 fix
 - `391c933` — fix(sweep): _load_video_frames 9fps/640px 다운샘플 회복 (OOM 함정 17 fix)
 - `f9e7e15` — chore(pod): setup_pod_full.sh 박제 갱신 — 함정 12,13,15,16,18 누적 fix
+- `2ebe8d3` — fix(sweep): Path A — 영상별 motion_query_hint 박제 (함정 19 fix)
+- `1c7951b` — fix(sweep): Path H — measurements.json hold_window slice (함정 23 fix)
+- `2ea1d56` — fix(sweep): _load_hold_windows null hold_window 처리 (ref-climb out-of-scope)
+- `875555e` — fix(sweep): 함정 24 — compare_to_ipsf pre_sliced flag (sub-window 또 선택 X)
 
 ## Self-Check
 

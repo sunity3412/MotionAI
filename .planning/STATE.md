@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-05 -- Wave 4 (Plan 5-05) Task 2 — 3차 sweep (Path A 적용 후) 완료. motion 분류 정상화 ✓ but D-01 게이트 여전히 FAIL — 새 root cause 3종 박제 (함정 20/21/22).
-Stopped at: 2026-06-05 박제 함정 11종 누적 (Plan 5-05 기준 19→22). 3차 sweep = 5/5 ref motion 매핑 ✓ but line/angle 0/5 PASS. ref-climb out_of_scope_PASS 분기 동작 안 함 (함정 20). ref-foxtop yaml target ↔ RTMW measured 108° gap (함정 21). ref-invert/sideway-spin 5/6 within_tol — knee 1개만 FAIL (함정 22 tolerance 검토). main HEAD = 2ebe8d3.
-Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md (Task 2 1차+2차+3차 verdict + 함정 11종 + Path A 효과 박제 + Path D/E/F/G 후보 박제)
-Next: belle 결정 — Path D (함정 20 ref-climb out_of_scope_PASS 분기 fix, 단순) + E (함정 21 ref-foxtop yaml target ↔ RTMW measured 갭 진단 spike, 깊음) + F (함정 22 tolerance 임계값 IPSF CoP lookup, 정책) 동시 진행 또는 우선순위 결정. ref-invert/sideway-spin 5/6 = 거의 통과 — tolerance 가 핵심일 수도.
+Last session: 2026-06-05 -- Wave 4 (Plan 5-05) Task 2 — 6차 sweep (함정 24 fix 후) 완료. IPSF within_tolerance 5/5 PASS ✓ but D-01 게이트 (line/angle) 4/5 FAIL — 새 root cause 함정 25 박제 (line_score EXTEND 가정 vs yaml 부분 굽힘 target).
+Stopped at: 2026-06-05 박제 함정 14종 누적 (Plan 5-05 기준 19→25). 6차 sweep = IPSF within_tolerance 5/5 ✓ (함정 24 pre_sliced fix 효과 — ref-foxtop left_shoulder gap 0.0). line/angle 게이트 = 1/5 PASS (ref-sideway-spin angle 만). main HEAD = 875555e. 박제 정신 충돌 발견 = `_build_profile` 가 yaml hold_criteria 모든 관절 EXTEND 박제 → line_score 가 180° 신전 deficit → 부분 굽힘 yaml target 자체가 FAIL. [[ipsf-5-track-scoring]] 정신상 부분 굽힘 = line 채점 out_of_scope.
+Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md
+Next: belle 박제 정신 결정 — (J) line_score 가 yaml target 기준 deficit (180° 아닌) / (K) yaml schema 에 joint 별 EXTEND/BENT 박제 추가 → recognizer 가 EXTEND 관절만 line 채점 / (L) D-01 게이트 정의 "line/angle 강등 X" 박제 vs IPSF CoP 정신 (부분 굽힘 = out_of_scope) 재의논. IPSF within_tolerance 5/5 = Phase 5 통과 핵심 박제 OK — line/angle 게이트 정의가 박제 정신 정합 여부.

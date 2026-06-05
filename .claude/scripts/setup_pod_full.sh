@@ -45,8 +45,12 @@ echo "=== [4/8] mmpose stack + chumpy ==="
 pip install -q --no-build-isolation chumpy
 pip install -q rtmlib==0.0.15 mmpose==1.3.2 mmengine==0.10.7 mmdet==3.3.0 xtcocotools==1.14.3
 
-echo "=== [5/8] python deps (boto3 / imageio / google-genai / firebase-admin) ==="
+echo "=== [5/8] python deps (boto3 / imageio / google-genai / firebase-admin / onnxruntime-gpu) ==="
 pip install -q boto3 'imageio[pyav]' imageio-ffmpeg firebase-admin google-genai
+# 박제 함정 (2026-06-05): rtmlib 디폴트 의존성에 onnxruntime (CPU) 만 포함 → CUDA EP 미활성 → 영상당 30분+ CPU inference.
+# onnxruntime 제거 + onnxruntime-gpu 명시 install 필수.
+pip uninstall -y -q onnxruntime 2>/dev/null || true
+pip install -q onnxruntime-gpu
 
 echo "=== [6/8] RTMW weights 다운로드 ==="
 mkdir -p /workspace/rtmw_weights
@@ -66,6 +70,7 @@ export AWS_DEFAULT_REGION=ap-northeast-2
 export RECOGNIZER_BACKEND=gemini
 export RTMW_ONNX_PATH=/workspace/rtmw_weights/20230928/rtmpose_onnx/rtmw-x_simcc-cocktail13_pt-ucoco_270e-384x288-0949e3a9_20230925/end2end.onnx
 export PYTHONPATH=/workspace/SunityMotion/backend/shared/python:.
+export RTMW_DEVICE=cuda  # 박제 함정 (2026-06-05): cpu 디폴트 → GPU 0% → 영상당 30분+. cuda 강제.
 
 # GEMINI_API_KEY = SSM fetch 매번 (보안상 .bashrc 박제 X)
 # AWS_KEY = belle 가 매 세션 export 또는 RunPod 콘솔 Env 박제

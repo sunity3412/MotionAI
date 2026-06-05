@@ -110,12 +110,17 @@ class RTMWPoseEngine:
                 "manifest production_eligible 가중치를 unzip 한 end2end.onnx 의 절대 "
                 "경로를 환경변수로 명시할 것 (D-25 정신 유지)."
             )
+        # device — env var RTMW_DEVICE 매개 (디폴트 cpu = 회귀 0).
+        # Pod 박제: .bashrc 에 RTMW_DEVICE=cuda → onnxruntime-gpu CUDAExecutionProvider 사용.
+        # 단위 테스트 (mock inferencer) 는 env 미주입 시 cpu 디폴트.
+        # 박제 함정 (2026-06-05): 이전 hardcode 'cpu' 때문에 새 Pod sweep 가 GPU 0% — 영상당 30분+.
+        rtmw_device = os.environ.get("RTMW_DEVICE", "cpu")
         self._inferencer = RTMWWholebody(
             det=None,  # person detector 없음 — 전체 이미지에서 추론
             pose=rtmw_onnx_path,
             to_openpose=False,
             backend="onnxruntime",
-            device="cpu",
+            device=rtmw_device,
         )
         self._selected_weight = selected_weight
         self._target_fps = target_fps

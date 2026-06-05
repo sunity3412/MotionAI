@@ -301,7 +301,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-05 -- Wave 4 (Plan 5-05) Task 2 belle Pod sweep 진행 중 — 2차 sweep (Firebase SA 박제 후) 결과 대기
-Stopped at: 2026-06-05 새 Pod (RTX 3090) 셋업 + 박제 함정 7종 fix 완료. 1차 sweep verdict = D-01 게이트 FAIL (5영상 모두 motion='auto' 폴백 — Gemini 학원 용어 매핑 Firestore SA 의존 미박제). 2차 sweep PID 101310 진행 중 (Firebase SA scp + FIREBASE_SA_PATH 박제 후). main HEAD = f9e7e15. commits = 50af90b (RTMW device env var) + 391c933 (_load_video_frames OOM fix) + f9e7e15 (setup_pod_full.sh 함정 7종 누적 박제 + memory runpod-gpu-env.md 함정 12-18 박제).
-Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md (Task 2 1차 verdict + 함정 7종 박제 완료)
-Next: 2차 sweep verdict 박제 → motion 분류 'auto' 안 잡히고 실제 ref motion name 으로 매핑되는지 검증 → D-01 게이트 재판정 → Phase 5 close-out (PASS 시) 또는 Gemini 분류 디버그 plan 신설 (FAIL 시) — belle 결정.
+Last session: 2026-06-05 -- Wave 4 (Plan 5-05) Task 2 — 1차/2차 sweep 모두 D-01 게이트 FAIL. 진짜 root cause 박제됨 (함정 19, motion_query_hint default 'auto').
+Stopped at: 2026-06-05 박제 함정 8종 누적 박제. 2차 sweep (Firebase SA 박제 후) 결과 = 1차와 동일 (Firebase SA 영향 0). 진짜 root cause = `_build_recognizer("gemini")` 가 motion_query_hint 안 넘김 → recognizer default 'auto' → 모든 영상 unregistered → out_of_scope_PASS → 게이트 분모=0. 박제 정신 = "sweep 영상은 motion known case (file name = motion ID)" 인데 코드 정합 위배. main HEAD = cd7addc.
+Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md (Task 2 1차+2차 verdict + 함정 8종 + 진짜 root cause 박제 + fix path 후보 A/B/C 박제)
+Next: belle 결정 — fix path A (sweep loop motion_query_hint 영상별 박제, 단순 3 line code change) / B (Gemini prompt 분류 응답 추가, production user upload path) / C (extractor B5/W3 fix 박제 변경, 박제 정신 재의논). Path A = sweep 즉시 재실행 가능 + Phase 5 게이트 재판정.

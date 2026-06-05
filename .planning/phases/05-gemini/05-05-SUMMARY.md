@@ -250,9 +250,53 @@ ms/f 평균 44.8 (CPU 박제 ~2000ms 대비 **45배 GPU 가속** ✓).
 
 박제 누적 = [[runpod-gpu-env.md]] 함정 1-18 (Plan 11 era 1-5 + Plan 23 6-11 + Plan 5-05 12-18).
 
-### 2차 sweep (Firebase SA 박제 후) — 진행 중
+### 2차 sweep verdict (2026-06-05 03:45 UTC — Firebase SA 박제 후)
 
-PID 101310 ~25분 예상. 결과 박제 추가 예정.
+`sweep_rtmw_2026-06-05T03-45-05-503023+00-00`
+
+**결과 = 1차와 동일 (motion='auto' 폴백 유지)**. Firebase SA 박제 영향 0.
+
+| 항목 | 결과 | 박제 |
+|---|---|---|
+| (A) IPSF within_tolerance | 1/5 (전체) | ref-climb 만 PASS (1차 동일) |
+| (B) line PASS (채점 영역) | **5/0** | 분모=0 유지 |
+| (C) angle PASS (채점 영역) | **5/0** | 분모=0 유지 |
+| (D) Gemini reject 위반 | 0건 | 정상 |
+| (E) Gemini motion 분류 정확도 | **0/5** | 5영상 모두 'auto' 유지 |
+| (F) Phase 5 게이트 verdict | **fail** | 1차 동일 |
+| (G) startup fail-loud 검증 | PASS | 1차 동일 |
+
+소수점 차이 (sampling 변동 + ms/f 약간 다름) 외 결과 변화 0.
+
+### 박제 함정 19 — Gemini recognizer motion_query_hint default 'auto' 박제-코드 정합 위배
+
+2차 sweep 결과 확인 후 코드 path 진단 결과:
+
+- `gemini_technique_recognizer.py:235`: `motion_query = self.motion_query_hint or "auto"`
+- `_build_recognizer("gemini")` (compare_rtmw_vs_ipsf.py:697) 가 `motion_query_hint` 안 넘김
+- sweep main loop 가 영상 파일명 (`ref-climb`/`ref-foxtop` 등) 알면서도 recognizer 에 안 넘김
+
+흐름:
+1. recognizer 가 motion_query='auto' 로 extractor 호출
+2. extractor `_last_motion_name = 'auto'` (caller query 그대로 박제 — B5/W3 fix 박제 정신)
+3. recognizer 가 `raw_motion_name='auto'` → `classify_motion_name('auto')` → unregistered (REGISTERED_MOTIONS / _ALIAS_TABLE 어디에도 'auto' 없음)
+4. → out_of_scope_PASS, D-01 게이트 분모=0
+
+**핵심 진단**: sweep 박제 정신 = "정은지 reference 영상은 motion known case (file name = motion ID)" 인데, `_build_recognizer` 가 motion_query_hint 미박제. 박제 정신과 코드 정합 위배.
+
+### Phase 5 게이트 verdict = FAIL (D-01)
+
+D-01 게이트 = "ref-climb 제외 채점 영역 모션 N/N PASS + ref-climb out-of-scope counted as PASS". 분모 0 = 통과 불가.
+
+후속 fix path 후보 (belle 결정):
+
+| Path | 내용 | 적용 범위 |
+|---|---|---|
+| **A** | sweep main loop 가 영상별 `recognizer.motion_query_hint = motion_name` 박제 | ref motion known 케이스 (sweep 한정). 단순 (3 line code change). 박제 정신 정합 |
+| **B** | Gemini prompt 에 motion 분류 응답 추가 → caller 가 Gemini 응답 motion 사용 | production user upload path. Gemini 의 "auto" 분류 능력 검증 필요 |
+| **C** | extractor `_last_motion_name` 가 caller query 아닌 Gemini 응답 반영 | B5/W3 fix 박제 정신 변경. 박제 정신 재의논 필요 |
+
+Path A 가 sweep 즉시 진행 가능 (Phase 5 게이트 재판정). Path B/C 는 production 시점 별 plan.
 
 ## Commits
 

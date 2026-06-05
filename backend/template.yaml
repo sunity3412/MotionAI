@@ -62,7 +62,11 @@ Resources:
       LayerName: !Sub sunity-motion-${Stage}-shared
       ContentUri: shared/
       CompatibleRuntimes: [python3.12]
+      CompatibleArchitectures: [arm64]
       RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: python3.12
+      BuildArchitecture: arm64
 
   # ── 영상 버킷: 외부 — belle 가 awscli 로 사전 생성한 버킷 사용. ─────
   # CloudFormation import 없이 외부 reference 로 두는 이유:

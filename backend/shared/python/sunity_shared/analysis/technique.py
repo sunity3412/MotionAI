@@ -43,6 +43,11 @@ class TechniqueProfile:
     required_split_deg: float | None = None  # 스플릿/수평 요구 각(없으면 None)
     requires_hold: bool = True  # 완성포즈 2초 유지 평가 여부
     is_symmetric: bool = False  # 좌우 대칭이 기대되는 기술인지(폴은 대부분 False)
+    # Path H production 정합 (2026-06-05): Gemini KeyMoments 의 hold timestamp →
+    # (start_frame, end_frame) tuple. dimensions.line_score / stability_score 가
+    # 자동 추출 (분산 최소 sub-window) 대신 이 윈도우 사용 (None = 자동 추출 fallback).
+    # 사용자 영상의 standing setup/dismount frame 잡힘 위양성 박제 정신 정합 fix.
+    hold_window: tuple[int, int] | None = None
 
     def expects_extension(self, joint_key: str) -> bool:
         return self.joint_expectations.get(joint_key) == JOINT_EXTEND

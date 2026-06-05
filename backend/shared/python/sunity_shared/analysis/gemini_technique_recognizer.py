@@ -288,6 +288,25 @@ class GeminiTechniqueRecognizer:
             expectations[joint_key] = (
                 JOINT_EXTEND if joint_key in extend_joints else JOINT_BENT_OK
             )
+
+        # Path H production 정합 (2026-06-05): Gemini KeyMoments[hold] 의 timestamp →
+        # frame_index 변환 후 hold_window 박제. dimensions.line_score / stability_score
+        # 가 자동 추출 (분산 최소 sub-window) 대신 이 윈도우 사용.
+        # 사용자 영상의 standing setup/dismount frame 잡힘 위양성 박제 정신 정합.
+        # 박제: hold KeyMoment 가 여러 개면 첫/마지막 timestamp 로 박제. 1개면 ±2초 박제.
+        hold_window_tuple: tuple[int, int] | None = None
+        hold_moments = [m for m in moments if m.moment_key == "hold"]
+        if hold_moments:
+            fps = 9.0  # frame_extractor.py target_fps (박제 정신 정합)
+            ts_list = sorted(m.timestamp_seconds for m in hold_moments)
+            if len(ts_list) >= 2:
+                start_sec, end_sec = ts_list[0], ts_list[-1]
+            else:
+                # 단일 hold moment = ±2초 window 박제
+                start_sec = max(0.0, ts_list[0] - 2.0)
+                end_sec = ts_list[0] + 2.0
+            hold_window_tuple = (int(round(start_sec * fps)), int(round(end_sec * fps)))
+
         return TechniqueProfile(
             name=motion,
             category="recognized",
@@ -295,6 +314,7 @@ class GeminiTechniqueRecognizer:
             required_split_deg=None,
             requires_hold=True,
             is_symmetric=False,
+            hold_window=hold_window_tuple,
         )
 
     def _profile_from_cache(self, cached: dict) -> TechniqueProfile:

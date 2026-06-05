@@ -63,21 +63,22 @@ def hold_window(angles) -> tuple[int, int]:
     return best_s, best_s + w
 
 
-def stability_score(angles) -> int:
+def stability_score(angles, profile: "TechniqueProfile | None" = None) -> int:
     """홀딩 구간 관절각 안정도 → 가우시안. 낮은 떨림 = 통제된 정지.
 
     Path R (2026-06-05): inter-frame difference median 알고리즘 — 박제 정신 정합.
-    - 이전: frame std mean → RTMW frame 별 noise + swap outlier 모두 흡수 → wobble 폭주
-    - 현재: |frame_diff| 의 관절별 median → outlier frame (swap/jitter) 제외, 자세 변화량 측정
-
-    inter-frame diff = 인접 frame 간 angle 변화 = 자세 변화 (의도 + noise) 양쪽.
-    median = swap 영향 받은 frame 또는 RTMW noise spike outlier 제외 — robust.
-    자세 정지 hold = inter-frame diff 작음 = wobble 작음 = score 높음.
+    Path H production (2026-06-05): profile.hold_window 우선 사용 (Gemini KeyMoments 박제),
+    없으면 자동 추출 fallback (FallbackRecognizer path 회귀 0).
     """
     a = _as_tj(angles)
     if a.shape[0] <= 1:
         return 100  # 프레임이 1개뿐이면 떨림 측정 불가 — 감점 근거 없음
-    s, e = hold_window(a)
+    if profile is not None and profile.hold_window is not None:
+        s, e = profile.hold_window
+        s = max(0, min(s, a.shape[0]))
+        e = max(s, min(e, a.shape[0]))
+    else:
+        s, e = hold_window(a)
     sliced = a[s:e]
     if sliced.shape[0] < 2:
         return 100
@@ -91,9 +92,17 @@ def stability_score(angles) -> int:
 def line_score(angles, profile: TechniqueProfile) -> int | None:
     """라인·확장 점수. 홀딩 구간 대표 포즈에서, profile 이 신전(EXTEND)을 요구한
     관절만 180° 대비 부족분으로 채점한다. 신전 요구 관절이 하나도 없으면(전부 의도적
-    굽힘) 라인 평가 대상이 아니므로 None → 해당 차원 생략(가짜 점수 안 만듦)."""
+    굽힘) 라인 평가 대상이 아니므로 None → 해당 차원 생략(가짜 점수 안 만듦).
+
+    Path H production (2026-06-05): profile.hold_window 우선 사용.
+    """
     a = _as_tj(angles)
-    s, e = hold_window(a)
+    if profile.hold_window is not None:
+        s, e = profile.hold_window
+        s = max(0, min(s, a.shape[0]))
+        e = max(s, min(e, a.shape[0]))
+    else:
+        s, e = hold_window(a)
     rep = np.mean(a[s:e], axis=0)
     deficits = [
         max(0.0, _FULL_EXTENSION_DEG - float(rep[JOINT_KEYS.index(k)]))
@@ -125,7 +134,7 @@ def absolute_dimension_scores(angles, profile: TechniqueProfile) -> dict[str, in
     ls = line_score(angles, profile)
     if ls is not None:
         out[DIM_LINE] = ls
-    out[DIM_STABILITY] = stability_score(angles)
+    out[DIM_STABILITY] = stability_score(angles, profile)
     return out
 
 

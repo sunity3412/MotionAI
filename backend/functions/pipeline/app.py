@@ -351,6 +351,14 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     else:
         angles = _angles_from_video(bucket, key)
 
+    # Path A production 정합 (2026-06-05): mode=expert = motion known case
+    # (사용자가 referenceMotionId 선택). recognizer.motion_query_hint 박제 →
+    # Gemini extractor 가 알려진 motion 기준 key moment 추출 (default 'auto' 폴백 차단).
+    # mode=self (mode3) = motion 미상 (본인 영상 비교) → hint 미박제 = 'auto' default.
+    ref_motion_id = meta.get("referenceMotionId")
+    if mode == models.MODE_EXPERT and ref_motion_id and hasattr(recognizer, "motion_query_hint"):
+        recognizer.motion_query_hint = str(ref_motion_id)
+
     firestore_admin.update_analysis_status(
         uid, analysis_id, models.STATUS_COMPARISON
     )

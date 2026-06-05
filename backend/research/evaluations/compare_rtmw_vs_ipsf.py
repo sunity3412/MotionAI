@@ -266,6 +266,7 @@ def compare_to_ipsf(
     motion_name: str,
     measured_angles: np.ndarray,
     criteria_dir: Path | None = None,
+    pre_sliced: bool = False,
 ) -> list[IpsfGapEntry]:
     """IPSF GeometricCriterion 와 측정 관절 각도 비교.
 
@@ -290,12 +291,17 @@ def compare_to_ipsf(
     if not criteria:
         return []
 
-    # hold moment 대표 각도: dimensions.py hold_window 와 동일 로직
+    # hold moment 대표 각도: dimensions.py hold_window 와 동일 로직 (pre_sliced=False).
+    # Path H + 함정 24 fix (2026-06-05): pre_sliced=True 면 입력이 이미 박제 hold_window
+    # slice → sub-window 또 선택하지 말고 전체 mean 사용 (measure_eunji_reference 정합).
     from sunity_shared.analysis.dimensions import hold_window
     a = np.asarray(measured_angles, dtype=float)
     if a.ndim == 2 and a.shape[0] > 0:
-        s, e = hold_window(a)
-        representative = np.nanmean(a[s:e], axis=0)
+        if pre_sliced:
+            representative = np.nanmean(a, axis=0)
+        else:
+            s, e = hold_window(a)
+            representative = np.nanmean(a[s:e], axis=0)
     else:
         representative = np.full(len(JOINT_KEYS), np.nan)
 
@@ -955,9 +961,10 @@ def main(argv: list[str] | None = None) -> int:
             # measurements.json (Plan 5-00 박제 정은지 reference hold_window) 으로 slice
             # → compare_to_ipsf + compute_line_angle_gates 가 hold 영역만 측정.
             sliced_angles = _slice_hold_window(motion_name, joint_angles, fps=9.0)
+            is_sliced = sliced_angles is not joint_angles  # slice 적용됐는지
 
-            # IPSF tolerance 갭 계산
-            ipsf_gaps = compare_to_ipsf(motion_name, sliced_angles, criteria_dir)
+            # IPSF tolerance 갭 계산 (pre_sliced=True: sub-window 또 선택 X, 전체 mean)
+            ipsf_gaps = compare_to_ipsf(motion_name, sliced_angles, criteria_dir, pre_sliced=is_sliced)
             within_tolerance_all = all(g.within_tolerance for g in ipsf_gaps) if ipsf_gaps else True
 
             # line / angle 게이트 (Plan 5-05 박제 — recognizer DI + GateVerdict tuple).

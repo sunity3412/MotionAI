@@ -775,7 +775,9 @@ def _load_hold_windows() -> dict[str, tuple[float, float]]:
         with open(_MEASUREMENTS_JSON_PATH) as f:
             data = json.load(f)
         for motion, info in data.get("motions", {}).items():
-            hw = info.get("hold_window", {})
+            hw = info.get("hold_window") or {}
+            if not isinstance(hw, dict):
+                continue
             s = hw.get("start_sec")
             e = hw.get("end_sec")
             if s is not None and e is not None:

@@ -301,7 +301,16 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-05 -- 🎯 Phase 5 D-01 게이트 PASS + production E2E 자동 박제 path 완료. Lambda deploy (UPDATE_COMPLETE).
-Stopped at: 2026-06-05 (1) 12차 sweep D-01 게이트 PASS (commit 4993084) — IPSF 5/5 + line/angle 5/5. 박제 함정 16종 (#12~#27) 모두 fix. (2) production pipeline 정합 commit da1fae8 — Path A (motion_query_hint) + Path H (TechniqueProfile.hold_window) + dimensions stability_score profile 인자. (3) SAM build/deploy UPDATE_COMPLETE — Lambda PipelineFunction + SharedLayer 신버전. (4) setup_pod_full.sh E2E 자동 박제 commit 40781e3 — POD_ID 인자 시 production server 자동 시작 + Lambda env RUNPOD_ANALYZE_URL 자동 update. main HEAD = 40781e3.
+Last session: 2026-06-06 -- SAM SharedLayer numpy 의존성 fix 완료. RunPod Pod 죽어서 production E2E 미완료, 내일 이어서.
+Stopped at: 2026-06-06 belle 졸려서 중단. 진행 상황:
+  (1) commit 9b83f8a — SharedLayer numpy 의존성 install path 1차 fix (Metadata.BuildMethod + shared/requirements.txt). 배포 후 `No module named 'sunity_shared'` 발견.
+  (2) 미커밋 fix-of-fix — ContentUri `shared/` → `shared/python/`, requirements.txt 도 `shared/python/requirements.txt` 로 이동. sam build + deploy UPDATE_COMPLETE. upload-url Lambda 200 OK 확인 (uid=FDJrNnHHCtbORvY5ODKRdnrkeNI2, analysis_id=b1d9f4b9198c433fb767fa96a83249e3).
+  (3) 앱 분석 trigger → 22%에서 pipeline Lambda fail. CloudWatch 로그 = `RuntimeError: runpod HTTPError 404`. RunPod Pod `p56qusi8cgc91z` proxy URL (https://p56qusi8cgc91z-8000.proxy.runpod.net) 가 cloudflare 단에서 404 = Pod stopped/terminated.
 Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md
-Next: belle 새 Pod 띄울 때 한 줄로 자동 셋업 (POD_ID + AWS keys + bash setup_pod_full.sh) → 앱에서 영상 분석 trigger → Firestore 결과 확인 = Phase 5 production E2E 검증 완료. 그 후: Phase 5 close-out (ROADMAP.md Phase 5 ✓ 박제) + memory [[runpod-gpu-env.md]] 함정 19-27 갱신 + Phase 6 (체형 정규화 비교 엔진) 진입.
+Next (내일):
+  1. RunPod 콘솔 가서 Pod `p56qusi8cgc91z` 상태 확인 (running / stopped / terminated).
+  2. 죽었으면 새 Pod 생성 → SSH → `POD_ID=<새-id> AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... bash SunityMotion/.claude/scripts/setup_pod_full.sh` (Lambda env 자동 update 포함).
+  3. 앱 분석 trigger 재시도 → 정상 결과 확인.
+  4. 미커밋 fix-of-fix commit (`backend/template.yaml`, `backend/shared/python/requirements.txt` 신규, `backend/shared/requirements.txt` 삭제 staged).
+  5. Phase 5 close-out (ROADMAP.md Phase 5 ✓) + memory [[runpod-gpu-env.md]] 갱신 + Phase 6 진입.
+  6. TestFlight 튕김 별도 디버그 (blockers `iOS 26+ native style 회귀` 후보).

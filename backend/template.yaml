@@ -60,7 +60,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: !Sub sunity-motion-${Stage}-shared
-      ContentUri: shared/
+      ContentUri: shared/python/
       CompatibleRuntimes: [python3.12]
       CompatibleArchitectures: [arm64]
       RetentionPolicy: Delete

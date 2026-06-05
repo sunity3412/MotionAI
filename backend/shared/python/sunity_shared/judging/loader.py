@@ -130,6 +130,8 @@ def _entry_to_criterion(
             deduction_per_step=float(entry["deduction_per_step"]),
             minimum_requirement=float(entry["minimum_requirement"]),
             source_ref=str(entry["source_ref"]),
+            # Path K (2026-06-05, 함정 25 fix): 미박제 시 BENT_OK default (회귀 0).
+            extension_class=str(entry.get("extension_class", "BENT_OK")),
         )
     except (TypeError, ValueError) as exc:
         # float() 변환 실패 등 — 어느 entry 인지 메시지에 박제.

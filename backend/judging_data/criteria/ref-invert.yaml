@@ -24,35 +24,41 @@ criteria:
       deduction_per_step: 0.2
       minimum_requirement: 3.35
       source_ref: "정은지 reference 측정값 (basic invert hold 6~10s, w=0.20 주 지지 팔 왼손 상단). RTMW + hold_window mean = 28.35°. 박제 정합: 거꾸로 매달림에서 팔이 몸과 거의 평행 (작은 측정값 → Phase 5 Gemini 자동 BENT_OK 라벨링 신호)."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: right_shoulder
       angle_target: 21.05
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: -3.95
       source_ref: "정은지 reference 측정값 (basic invert hold 6~10s, w=0.15 보조 지지 팔). RTMW + hold_window mean = 21.05°. 박제 정합: 보조 어깨 굽힘 박제. minimum 음수 = D-18 룰 적용 결과 (B 박제 = 코사인 0~180°, 음수 도달 불가 = Phase 5 Gemini 자동 BENT_OK 라벨링 신호)."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: left_hip
       angle_target: 55.90
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 30.90
       source_ref: "정은지 reference 측정값 (인버트 스플릿 왼다리 외전, w=0.20). RTMW + hold_window mean = 55.90°."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: right_hip
       angle_target: 71.72
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 46.72
       source_ref: "정은지 reference 측정값 (인버트 스플릿 오른다리 외전, w=0.20). RTMW + hold_window mean = 71.72°."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: left_knee
       angle_target: 136.97
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 111.97
       source_ref: "정은지 reference 측정값 (인버트 스플릿 무릎 신전, w=0.10). RTMW + hold_window mean = 136.97°."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: right_knee
       angle_target: 138.12
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 113.12
       source_ref: "정은지 reference 측정값 (인버트 스플릿 무릎 신전, w=0.10). RTMW + hold_window mean = 138.12°. 박제 정합: 좌우 대칭 박제."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
   peak_moment: []      # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제
   release_moment: []   # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제

@@ -34,6 +34,12 @@ from typing import Final
 # IPSF Code of Points 기반 4 phase — Plan 13 Gemini key moment 분류와 동일.
 VALID_MOMENT_KEYS: Final[tuple[str, ...]] = ("setup", "hold", "peak", "release")
 
+# Path K (2026-06-05, 함정 25 fix): joint 별 신전(EXTEND)/부분굽힘(BENT_OK) 박제.
+# - EXTEND  = IPSF Code of Points 의 "신전 완전성" 평가 대상. line_score 가 180° deficit 측정.
+# - BENT_OK = 부분 굽힘 의도된 자세 (정은지 reference hold 자세 등). line 채점 out_of_scope.
+# 박제 정신 [[ipsf-5-track-scoring]] + [[gap-and-line-angle-mandatory-gates]] 정합.
+VALID_EXTENSION_CLASSES: Final[tuple[str, ...]] = ("EXTEND", "BENT_OK")
+
 
 @dataclass(frozen=True)
 class GeometricCriterion:
@@ -51,6 +57,7 @@ class GeometricCriterion:
     deduction_per_step: float
     minimum_requirement: float
     source_ref: str
+    extension_class: str = "BENT_OK"  # Path K: line 채점 대상 분류 (default BENT_OK = 회귀 0)
 
     def validate(self) -> None:
         """IPSF 객관성 가드. 위반 시 명확한 한국어 메시지로 ValueError.
@@ -117,4 +124,12 @@ class GeometricCriterion:
                 f"moment_key 부정확. 유효 값 = {VALID_MOMENT_KEYS}. "
                 f"motion={self.motion} joint={self.joint_key} "
                 f"moment_key={self.moment_key!r}"
+            )
+
+        # 7. extension_class ∈ VALID_EXTENSION_CLASSES (Path K)
+        if self.extension_class not in VALID_EXTENSION_CLASSES:
+            raise ValueError(
+                f"extension_class 부정확. 유효 값 = {VALID_EXTENSION_CLASSES}. "
+                f"motion={self.motion} moment={self.moment_key} joint={self.joint_key} "
+                f"extension_class={self.extension_class!r}"
             )

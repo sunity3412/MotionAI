@@ -21,35 +21,41 @@ criteria:
       deduction_per_step: 0.2
       minimum_requirement: 17.12
       source_ref: "정은지 reference 측정값 (스플릿 채점 피크 11~13s, w=0.20 주 지지 팔). RTMW + hold_window mean = 42.12°. 박제 정합: 그립 굽힘 박제 (작은 측정값 → Phase 5 Gemini 자동 BENT_OK 라벨링 신호)."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: right_shoulder
       angle_target: 62.57
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 37.57
       source_ref: "정은지 reference 측정값 (스플릿 채점 피크 11~13s, w=0.15 보조 지지 팔). RTMW + hold_window mean = 62.57°. 박제 정합: 그립 굽힘 박제."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: left_hip
       angle_target: 125.54
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 100.54
       source_ref: "정은지 reference 측정값 (스플릿 좌우 다리 hold, w=0.15). RTMW + hold_window mean = 125.54°."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: right_hip
       angle_target: 106.45
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 81.45
       source_ref: "정은지 reference 측정값 (스플릿 좌우 다리 hold, w=0.15). RTMW + hold_window mean = 106.45°."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: left_knee
       angle_target: 144.05
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 119.05
       source_ref: "정은지 reference 측정값 (스플릿 다리 신전 측, w=0.08). RTMW + hold_window mean = 144.05°."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: right_knee
       angle_target: 78.92
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 53.92
       source_ref: "정은지 reference 측정값 (스플릿 hook 측 다리, w=0.07). RTMW + hold_window mean = 78.92°. 박제 정합: hook 측 무릎 굽힘 박제."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
   peak_moment: []      # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제
   release_moment: []   # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제

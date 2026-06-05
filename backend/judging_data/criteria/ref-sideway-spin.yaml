@@ -21,35 +21,41 @@ criteria:
       deduction_per_step: 0.2
       minimum_requirement: 33.82
       source_ref: "정은지 reference 측정값 (측면 회전 peak ± 2s, w=0.20 자유 어깨). RTMW + hold_window mean = 58.82°. 박제 정합: 자유 측 어깨 굽힘 박제 (작은 측정값 → Phase 5 Gemini 자동 BENT_OK 라벨링 신호)."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: right_shoulder
       angle_target: 142.11
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 117.11
       source_ref: "정은지 reference 측정값 (측면 회전 peak ± 2s, w=0.20 주 그립 오른손 상단). RTMW + hold_window mean = 142.11°. 박제 정합: 주 지지 팔 견갑 신전 박제 (정은지 영상 = 오른손 상단 그립)."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: left_hip
       angle_target: 145.28
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 120.28
       source_ref: "정은지 reference 측정값 (백 아치 hold, w=0.20 자유 다리 측 고관절 신전). RTMW + hold_window mean = 145.28°."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: right_hip
       angle_target: 144.96
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 119.96
       source_ref: "정은지 reference 측정값 (백 아치 hold, w=0.15 폴 측 다리). RTMW + hold_window mean = 144.96°. 박제 정합: 좌우 hip 대칭 박제."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: left_knee
       angle_target: 162.51
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 137.51
       source_ref: "정은지 reference 측정값 (자유 다리 신전, w=0.20). RTMW + hold_window mean = 162.51°."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
     - joint: right_knee
       angle_target: 159.08
       tolerance_full: 15.0
       deduction_per_step: 0.2
       minimum_requirement: 134.08
       source_ref: "정은지 reference 측정값 (지지 다리 신전, w=0.15). RTMW + hold_window mean = 159.08°. 박제 정합: 좌우 knee 대칭 박제."
+      extension_class: BENT_OK  # Path K: 정은지 hold 자세 = 부분 굽힘 (< 170°) = line 채점 out_of_scope
   peak_moment: []      # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제
   release_moment: []   # D-06 박제: v2 yaml 작업 시 자동 활성 path 박제

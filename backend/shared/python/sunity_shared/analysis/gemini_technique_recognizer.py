@@ -268,7 +268,13 @@ class GeminiTechniqueRecognizer:
             hold_criteria = criteria_by_moment.get("hold_moment", []) or criteria_by_moment.get(
                 "hold", []
             )
-            extend_joints = {c.joint_key for c in hold_criteria}
+            # Path K (2026-06-05, 함정 25 fix): yaml hold_criteria 의 extension_class 박제
+            # 정합. EXTEND 박제 관절만 line 채점 대상 (180° 신전 deficit). BENT_OK 박제 관절
+            # 은 line 채점 out_of_scope (부분 굽힘 의도된 자세). 박제 정신 [[ipsf-5-track-scoring]]
+            # 의 "신전 완전성" 평가 정의 정합.
+            extend_joints = {
+                c.joint_key for c in hold_criteria if c.extension_class == "EXTEND"
+            }
         except (FileNotFoundError, ImportError, ValueError) as exc:
             log.warning(
                 "yaml lookup 실패 (motion=%s, 8관절 BENT_OK fallback): %s",

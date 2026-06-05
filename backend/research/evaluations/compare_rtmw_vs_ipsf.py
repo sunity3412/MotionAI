@@ -751,6 +751,60 @@ def _download_s3_video(s3_uri: str) -> Path:
     return tmp_path
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Path H fix (2026-06-05, 함정 23): measurements.json hold_window slice
+# ─────────────────────────────────────────────────────────────────────────────
+
+_MEASUREMENTS_JSON_PATH = (
+    Path(__file__).parent / "reports" / "eunji_reference_measurements" / "measurements.json"
+)
+_HOLD_WINDOWS_CACHE: dict[str, tuple[float, float]] | None = None
+
+
+def _load_hold_windows() -> dict[str, tuple[float, float]]:
+    """measurements.json → motion 별 (start_sec, end_sec) dict. cache.
+
+    Plan 5-00 박제 정은지 reference hold_window. 미존재/오류 시 빈 dict (graceful).
+    """
+    global _HOLD_WINDOWS_CACHE
+    if _HOLD_WINDOWS_CACHE is not None:
+        return _HOLD_WINDOWS_CACHE
+    result: dict[str, tuple[float, float]] = {}
+    try:
+        import json
+        with open(_MEASUREMENTS_JSON_PATH) as f:
+            data = json.load(f)
+        for motion, info in data.get("motions", {}).items():
+            hw = info.get("hold_window", {})
+            s = hw.get("start_sec")
+            e = hw.get("end_sec")
+            if s is not None and e is not None:
+                result[motion] = (float(s), float(e))
+    except (FileNotFoundError, ValueError, KeyError) as exc:
+        log.warning("measurements.json hold_window 로드 실패 — 자동 추출 fallback: %s", exc)
+    _HOLD_WINDOWS_CACHE = result
+    return result
+
+
+def _slice_hold_window(motion_name: str, joint_angles: np.ndarray, fps: float = 9.0) -> np.ndarray:
+    """measurements.json 박제 hold_window 으로 joint_angles slice.
+
+    박제값 미존재 시 원본 그대로 반환 (graceful — dimensions.hold_window 자동 추출 path).
+    """
+    windows = _load_hold_windows()
+    if motion_name not in windows:
+        return joint_angles
+    start_sec, end_sec = windows[motion_name]
+    start_idx = max(0, int(round(start_sec * fps)))
+    end_idx = min(joint_angles.shape[0], int(round(end_sec * fps)))
+    if end_idx <= start_idx:
+        return joint_angles
+    log.info("%s hold_window slice 박제: %.1fs~%.1fs → frame [%d:%d] (T=%d → %d)",
+             motion_name, start_sec, end_sec, start_idx, end_idx,
+             joint_angles.shape[0], end_idx - start_idx)
+    return joint_angles[start_idx:end_idx]
+
+
 def _load_video_frames(video_path: str | Path) -> np.ndarray:
     """영상 파일 → (T, H, W, 3) RGB uint8 numpy 배열.
 
@@ -893,14 +947,21 @@ def main(argv: list[str] | None = None) -> int:
             kp_array = to_coco17_array(pose_frames)  # (T, 17, 4)
             joint_angles = compute_joint_angles(kp_array)  # (T, NUM_JOINTS)
 
+            # Path H fix (2026-06-05, 함정 23 root cause): hold_window slice 박제.
+            # dimensions.hold_window() 자동 추출 알고리즘 = "관절각 분산 최소" — ref-foxtop
+            # 같이 standing setup/dismount 가 hold 자세보다 안정적인 영상은 wrong frame 잡음.
+            # measurements.json (Plan 5-00 박제 정은지 reference hold_window) 으로 slice
+            # → compare_to_ipsf + compute_line_angle_gates 가 hold 영역만 측정.
+            sliced_angles = _slice_hold_window(motion_name, joint_angles, fps=9.0)
+
             # IPSF tolerance 갭 계산
-            ipsf_gaps = compare_to_ipsf(motion_name, joint_angles, criteria_dir)
+            ipsf_gaps = compare_to_ipsf(motion_name, sliced_angles, criteria_dir)
             within_tolerance_all = all(g.within_tolerance for g in ipsf_gaps) if ipsf_gaps else True
 
             # line / angle 게이트 (Plan 5-05 박제 — recognizer DI + GateVerdict tuple).
             try:
                 line_verdict, angle_verdict = compute_line_angle_gates(
-                    joint_angles, pole_axis,
+                    sliced_angles, pole_axis,
                     recognizer=recognizer,
                     video_path=str(local_video_path),
                 )

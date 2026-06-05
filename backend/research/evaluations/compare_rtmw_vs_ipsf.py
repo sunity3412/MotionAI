@@ -856,6 +856,12 @@ def main(argv: list[str] | None = None) -> int:
     for video_path in args.videos:
         motion_name = Path(video_path).stem  # 파일명에서 동작 ID 추출
 
+        # Path A fix (2026-06-05, 박제 함정 19): sweep 영상별 motion_query_hint 박제.
+        # 박제 정신 = 정은지 reference 영상 = motion known case (file name = motion ID).
+        # 미박제 시 recognizer default 'auto' → unregistered → 게이트 분모=0 통과 불가.
+        if args.recognizer == "gemini":
+            recognizer.motion_query_hint = motion_name
+
         log.info("처리 중: %s (%s)", motion_name, video_path)
 
         try:

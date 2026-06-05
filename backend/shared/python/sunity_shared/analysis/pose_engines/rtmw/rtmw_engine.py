@@ -230,11 +230,7 @@ class RTMWPoseEngine:
                 "영상에 사람이 없거나 카메라 각도를 확인하세요."
             )
 
-        # Path D fix (2026-06-05, 함정 27): RTMW frame 간 좌/우 keypoint swap correction.
-        # Plan 17 era 박제 정신 ("swap_ratio 0 기대") 실제 측정 = 45~57% swap 발생.
-        # 폴스포츠 영상 (자세 회전) 에서 frame 간 RTMW 가 좌/우 매핑 헷갈림 → wobble 폭주.
-        # inter-frame shoulder/hip distance 매칭으로 swap 감지 + correction.
-        return _correct_left_right_swap(pose_frames)
+        return pose_frames
 
 
 # ── 내부 헬퍼 ─────────────────────────────────────────────────────────────
@@ -276,90 +272,3 @@ def _load_eligible_weight(manifest_path: Path) -> dict:
         selected.get("license_status"),
     )
     return selected
-
-
-# ── Path D fix (2026-06-05): frame 간 좌/우 swap correction ─────────────────
-
-_LR_SWAP_PAIRS: tuple[tuple[str, str], ...] = (
-    ("left_shoulder", "right_shoulder"),
-    ("left_elbow", "right_elbow"),
-    ("left_wrist", "right_wrist"),
-    ("left_hip", "right_hip"),
-    ("left_knee", "right_knee"),
-    ("left_ankle", "right_ankle"),
-)
-
-
-def _correct_left_right_swap(pose_frames: list[PoseFrame]) -> list[PoseFrame]:
-    """RTMW frame 간 좌/우 keypoint swap detection + correction.
-
-    가설: 폴스포츠 영상 (자세 회전) 에서 RTMW 가 frame 간 좌/우 keypoint 매핑 헷갈림.
-    인접 frame 의 shoulder + hip 거리 (4 landmark) 매칭으로 swap 감지 후 정정.
-
-    distance(normal) = |Δl| + |Δr|     (정상 매칭)
-    distance(swapped) = |l_curr - r_prev| + |r_curr - l_prev|
-
-    distance(swapped) < distance(normal) = swap 발생 → 좌/우 keypoint 교환.
-
-    박제 정신:
-    - 박제 [[license-blocklist-pose]] 정합 — raw_keypoints_133 (원본) 보존, 분석 path
-      (keypoints_3d / keypoints_3d_pole_aligned) 만 정정.
-    - 첫 frame 은 reference 로 고정 (correction 0). 이후 frame 만 비교.
-    - 누적 correction — corrected[i-1] 와 비교해 i 의 swap 판정.
-    """
-    from dataclasses import replace
-
-    if len(pose_frames) <= 1:
-        return pose_frames
-
-    corrected: list[PoseFrame] = [pose_frames[0]]
-
-    for i in range(1, len(pose_frames)):
-        prev = corrected[-1]
-        curr = pose_frames[i]
-
-        # shoulder + hip 4 landmark 거리 비교 (가장 안정적 reference)
-        d_normal = 0.0
-        d_swapped = 0.0
-        compared = 0
-        for left_key, right_key in (("left_shoulder", "right_shoulder"), ("left_hip", "right_hip")):
-            if (
-                left_key in prev.keypoints_3d
-                and right_key in prev.keypoints_3d
-                and left_key in curr.keypoints_3d
-                and right_key in curr.keypoints_3d
-            ):
-                pl = prev.keypoints_3d[left_key]
-                pr = prev.keypoints_3d[right_key]
-                cl = curr.keypoints_3d[left_key]
-                cr = curr.keypoints_3d[right_key]
-                d_normal += (
-                    abs(cl.x - pl.x) + abs(cl.y - pl.y)
-                    + abs(cr.x - pr.x) + abs(cr.y - pr.y)
-                )
-                d_swapped += (
-                    abs(cl.x - pr.x) + abs(cl.y - pr.y)
-                    + abs(cr.x - pl.x) + abs(cr.y - pl.y)
-                )
-                compared += 1
-
-        if compared > 0 and d_swapped < d_normal:
-            # swap correction — 새 PoseFrame (frozen 박제)
-            new_kp = dict(curr.keypoints_3d)
-            new_aligned = dict(curr.keypoints_3d_pole_aligned)
-            for left_key, right_key in _LR_SWAP_PAIRS:
-                if left_key in new_kp and right_key in new_kp:
-                    new_kp[left_key], new_kp[right_key] = new_kp[right_key], new_kp[left_key]
-                if left_key in new_aligned and right_key in new_aligned:
-                    new_aligned[left_key], new_aligned[right_key] = (
-                        new_aligned[right_key], new_aligned[left_key]
-                    )
-            curr = replace(
-                curr,
-                keypoints_3d=new_kp,
-                keypoints_3d_pole_aligned=new_aligned,
-            )
-
-        corrected.append(curr)
-
-    return corrected

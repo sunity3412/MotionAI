@@ -35,7 +35,7 @@ ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_STABILITY)
 
 # 허용오차(도). z=dev/tol 가우시안 → tol 만큼 벗어나면 점수 ~61.
 _LINE_TOL_DEG = 20.0      # 완전 신전(180°) 대비 부족분. IPSF 각도 허용오차 20° 기준.
-_STABILITY_TOL_DEG = 8.0  # 홀딩 구간 관절각 표준편차(떨림)
+_STABILITY_TOL_DEG = 15.0  # Path T1 (2026-06-05): inter-frame diff median 기준. 정은지 reference 5영상 wobble 측정 6~16° 박제 → 사용자 영상 정상 wobble 범위 박제 정신 정합 (RTMW noise + 자세 미세 변화 흡수). 진짜 떨림 (20°+) 만 FAIL.
 
 _FULL_EXTENSION_DEG = 180.0
 

@@ -382,9 +382,13 @@ def compute_line_angle_gates(
         return "out_of_scope_PASS", "out_of_scope_PASS"
 
     ls = line_score(joint_angles, profile)
-    line_verdict: GateVerdict = (
-        "PASS" if (ls is not None and ls >= 50) else "FAIL"
-    )
+    # Path K + 함정 26 fix (2026-06-05): line_score=None = EXTEND 관절 0개 = line 채점
+    # 대상 X (박제 정신 [[ipsf-5-track-scoring]] 정합) = out_of_scope_PASS counted.
+    # 이전 박제 = None → "FAIL" 처리 = 박제 정신 위배 (부분 굽힘 자세 강제 채점).
+    if ls is None:
+        line_verdict: GateVerdict = "out_of_scope_PASS"
+    else:
+        line_verdict = "PASS" if ls >= 50 else "FAIL"
 
     # angle_pass: stability_score 를 angle proxy 로 사용 (plan 23 스코프 내 proxy)
     ss = stability_score(joint_angles)

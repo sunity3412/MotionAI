@@ -472,6 +472,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             my_video_url,
             reference_video_url=reference_video_url,
             coach_details=coach_details,
+            my_video_key=key,  # 박제 (2026-06-06): GET /playback-url 재발급용
         )
         # 추출 angles 를 flat 저장 — 다음 mode3 분석이 '이전 영상' 기준으로 DTW 비교.
         firestore_admin.complete_analysis(

@@ -31,16 +31,20 @@ _IPSF_TOLERANCE_DEG = 20.0
 DEFAULT_TOLERANCE_DEG: dict[str, float] = {k: _IPSF_TOLERANCE_DEG for k in JOINT_KEYS}
 DEFAULT_WEIGHT: dict[str, float] = {k: 1.0 for k in JOINT_KEYS}
 
-# 교정 포인트 제목 시드 (관절 → 코칭 초점). Cerebras 가 detail 을 자연어로 확장.
+# 교정 포인트 제목 시드 (관절 → 코칭 초점). assemble.build_tips 가
+# `f"{a.label_ko} {COACHING_FOCUS[a.key]}"` 박제 시 사용 — JOINT_LABEL_KO 에
+# 이미 부위 한글이 포함되므로 (예: "오른쪽 어깨") COACHING_FOCUS 값에서는
+# 부위 키워드 (어깨/팔꿈치/고관절/무릎) 를 제외해서 박제 — 미박제 시 중복 발현
+# (예: "오른쪽 어깨 어깨 안정성", 2026-06-06 belle 스크린샷 박제).
 COACHING_FOCUS: dict[str, str] = {
-    "left_elbow": "팔꿈치 정렬",
-    "right_elbow": "팔꿈치 정렬",
-    "left_shoulder": "어깨 안정성",
-    "right_shoulder": "어깨 안정성",
-    "left_hip": "고관절 가동",
-    "right_hip": "고관절 가동",
-    "left_knee": "무릎 신전",
-    "right_knee": "무릎 신전",
+    "left_elbow": "정렬",
+    "right_elbow": "정렬",
+    "left_shoulder": "안정성",
+    "right_shoulder": "안정성",
+    "left_hip": "가동",
+    "right_hip": "가동",
+    "left_knee": "신전",
+    "right_knee": "신전",
 }
 
 

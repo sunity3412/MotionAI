@@ -49,6 +49,24 @@ export function requestUploadUrl(
   });
 }
 
+// 박제 (2026-06-06 belle): myVideoUrl 의 S3 signed URL 은 7일 TTL.
+// mode3 second+ 가 일주일 뒤 prev 영상 fetch 시 만료 → 영상 안 뜸 보고.
+// POST /playback-url — analysisId + ext 박제 → fresh signed GET URL 반환.
+export interface PlaybackUrlResponse {
+  playbackUrl: string;
+  expiresInSec: number;
+}
+
+export function requestPlaybackUrl(
+  analysisId: string,
+  ext: VideoFormat = 'mp4',
+): Promise<PlaybackUrlResponse> {
+  return authedJson<PlaybackUrlResponse>('/playback-url', {
+    method: 'POST',
+    body: { analysisId, ext },
+  });
+}
+
 // S3 presigned PUT 으로 영상 업로드. Content-Type 은 서명에 묶지 않지만
 // (upload-url Lambda 가 Params 에서 제외) PUT 헤더로 보내면 S3 가 그 값을 객체
 // 메타데이터로 저장한다. 이걸 안 박으면 binary/octet-stream 으로 저장돼서

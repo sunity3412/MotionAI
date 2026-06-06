@@ -136,6 +136,9 @@ export interface AnalysisResult {
   tips: CoachingTip[]; // 상위 3개
   comparison: Mode1Comparison | Mode3Comparison;
   myVideoUrl: string; // 재생용 서명 URL (design.md §8 좌: 내 영상)
+  // 박제 (2026-06-06): myVideoUrl 의 S3 sign 은 7일 TTL. 일주일 뒤 mode3 prev
+  // 영상 fetch 시 만료 → POST /playback-url 박제 재발급용 S3 key.
+  myVideoKey?: string;
   referenceVideoUrl?: string; // mode1 우: 정은지 영상
 }
 
@@ -154,6 +157,7 @@ export interface AnalysisDoc {
   angles?: number[]; // 길이 = anglesFrames * anglesJointKeys.length
   anglesJointKeys?: string[]; // 길이 J (보통 8)
   anglesFrames?: number; // T
+  videoFormat?: VideoFormat; // 박제 (2026-06-06): playback-url 재발급 시 ext 박제
 }
 
 // 기준 모션 (Firestore: reference/{motionId}, 읽기 전용)

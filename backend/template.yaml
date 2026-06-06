@@ -152,6 +152,33 @@ Resources:
             Method: POST
             Path: /upload-url
 
+  # ── POST /playback-url : 영상 재생용 GET signed URL 재발급 ───────────
+  # 박제 (2026-06-06 belle): myVideoUrl 7일 TTL 만료 → mode3 second+ 영상 안 뜸.
+  # 신설 endpoint — uid + analysisId + ext 박제 → fresh signed GET URL 반환.
+  PlaybackUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-playback-url
+      CodeUri: functions/playback-url/
+      Handler: app.lambda_handler
+      Timeout: 10
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: POST
+            Path: /playback-url
+
   # ── GET /reference : 기준 모션 목록 (기준 모션 선택 화면 #9) ─────────
   ReferenceApiFunction:
     Type: AWS::Serverless::Function

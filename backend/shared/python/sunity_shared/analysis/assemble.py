@@ -110,20 +110,44 @@ def build_result(
     my_video_url: str,
     reference_video_url: str | None = None,
     coach_details: dict | None = None,
+    my_video_key: str | None = None,
 ) -> dict:
     """contract AnalysisResult. status='done' 일 때 Firestore result 에 저장.
 
     dimension_scores = IPSF 실행 차원 점수(angle/line/balance/stability). overall_score 는
     파이프라인이 모드별로 계산(mode1=4차원, mode3=절대 3차원 평균). joints/tips 는
     관절각 편차 기반(코칭 포인트)으로 차원과 별개."""
+    # 박제 (2026-06-06 belle): angle dim 95+ 시 "완벽 수행" 메시지 박제.
+    # 편차 거의 0 인 perfect 자세 시 worst 3 박제하면 "0° 차이" 어색.
+    # 박제 정신상 영상 자체 동일성 아닌 자세 동일성 박제 — 같은 영상이어도
+    # 다른 영상이어도 자세 100% 매칭 시 같은 메시지.
+    angle_dim_score = dimension_scores.get("angle")
+    if angle_dim_score is not None and angle_dim_score >= 95:
+        tips = [
+            {
+                "joint": None,
+                "title": "정은지 선수와 거의 동일한 자세입니다",
+                "detail": (
+                    f"각도 정확도 {int(angle_dim_score)}점 — 관절각 차이가 거의 없어요. "
+                    "안정성과 라인 차원을 함께 확인해 보세요."
+                ),
+            }
+        ]
+    else:
+        tips = build_tips(kismam.top_issues(assessments, n=3), coach_details)
     result = {
         "overallScore": int(max(0, min(100, overall_score))),
         "dimensionScores": {k: int(v) for k, v in dimension_scores.items()},
         "joints": build_joints(assessments),
-        "tips": build_tips(kismam.top_issues(assessments, n=3), coach_details),
+        "tips": tips,
         "comparison": comparison,
         "myVideoUrl": my_video_url,
     }
+    # 박제 (2026-06-06 belle): myVideoUrl 의 S3 signed URL 은 7일 TTL.
+    # mode3 second+ 가 일주일 뒤 prev 영상 fetch 시 만료 → 영상 안 뜸 보고.
+    # myVideoKey 박제 → frontend 가 만료 시 GET /playback-url 호출 + fresh sign.
+    if my_video_key:
+        result["myVideoKey"] = my_video_key
     if reference_video_url:
         result["referenceVideoUrl"] = reference_video_url
     return result

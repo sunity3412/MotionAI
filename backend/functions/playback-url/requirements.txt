@@ -1,0 +1,2 @@
+# playback-url Lambda. sunity_shared (auth/responses/s3keys) 는 Layer 박제.
+# boto3 는 Lambda 런타임 제공. 추가 deps 없음.

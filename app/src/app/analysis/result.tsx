@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -17,6 +17,7 @@ import {
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { getSimulatedResult } from '../../lib/simulatedResult';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
+import { requestPlaybackUrl } from '../../lib/api';
 import {
   DIMENSION_LABEL_KO,
   DIMENSION_ORDER,
@@ -67,6 +68,22 @@ function directionFor(jointKey: string, signedDelta: number): JointDirection | u
   const pair = JOINT_DIRECTION_PAIRS[jointKey];
   if (!pair || signedDelta === 0) return undefined;
   return signedDelta < 0 ? pair[0] : pair[1];
+}
+
+// 박제 (2026-06-06 belle): 분석 글 안 숫자 (각도/점수/거리) 를 브랜드 컬러
+// (#FF4B33) 로 강조 박제. design.md §5-3 정합. tip.detail / guide.line 박제 시
+// inline Text 분할 후 색 박제.
+function highlightNumbers(text: string): React.ReactNode[] {
+  const parts = text.split(/(\d+(?:\.\d+)?\s*(?:°|점|%|초|kg)?)/g);
+  return parts.map((part, i) =>
+    /\d/.test(part) ? (
+      <Text key={i} style={{ color: colors.brand, fontWeight: '600' }}>
+        {part}
+      </Text>
+    ) : (
+      part
+    ),
+  );
 }
 
 // 결과 화면용 joint 보강: reference doc 의 실측 평균 각도(meanAngles)가 있으면
@@ -292,6 +309,31 @@ export default function AnalysisResult() {
     cmp.mode === 'mode3' && !cmp.isFirst ? cmp.previousAnalysisId : undefined;
   const { doc: prevDoc } = useAnalysisDoc(prevAnalysisId);
 
+  // 박제 (2026-06-06 belle): prev doc 의 myVideoUrl S3 sign 7일 TTL 만료 시
+  // (이전 분석이 6일+ 전이면) POST /playback-url 박제 재발급. fresh URL state 박제.
+  const [freshPrevUrl, setFreshPrevUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!prevDoc) return;
+    const SAFE_TTL_MS = 6 * 24 * 60 * 60 * 1000; // 6일 margin (7일 TTL 안전)
+    const age = Date.now() - (prevDoc.createdAt || 0);
+    if (age < SAFE_TTL_MS) {
+      setFreshPrevUrl(null); // 만료 X — 기존 URL 사용
+      return;
+    }
+    const ext = prevDoc.videoFormat || 'mp4';
+    let cancelled = false;
+    requestPlaybackUrl(prevDoc.analysisId, ext)
+      .then((resp) => {
+        if (!cancelled) setFreshPrevUrl(resp.playbackUrl);
+      })
+      .catch((err) => {
+        if (__DEV__) console.warn('[playback-url] 재발급 실패', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [prevDoc?.analysisId, prevDoc?.createdAt, prevDoc?.videoFormat]);
+
   const summary =
     cmp.mode === 'mode1'
       ? mode1Summary(cmp.athleteName, cmp.similarity)
@@ -395,11 +437,11 @@ export default function AnalysisResult() {
               }
               leftUrl={result.myVideoUrl || undefined}
               // mode1: 저장된 referenceVideoUrl 우선, 없으면 reference doc 의 videoUrl.
-              // mode3 second+: 이전 분석 doc 의 myVideoUrl (지난 영상).
+              // mode3 second+: freshPrevUrl (만료 시 재발급) 우선, 없으면 prev doc 의 myVideoUrl.
               rightUrl={
                 cmp.mode === 'mode1'
                   ? result.referenceVideoUrl || refMotion?.videoUrl || undefined
-                  : prevDoc?.result?.myVideoUrl || undefined
+                  : freshPrevUrl || prevDoc?.result?.myVideoUrl || undefined
               }
             />
           </>
@@ -420,13 +462,13 @@ export default function AnalysisResult() {
               </View>
               {guide && (
                 <View style={styles.tipAngleRow}>
-                  <Text style={styles.tipAngle}>{guide.line}</Text>
+                  <Text style={styles.tipAngle}>{highlightNumbers(guide.line)}</Text>
                   {guide.cue && (
                     <Text style={styles.tipAngleCue}>{guide.cue}</Text>
                   )}
                 </View>
               )}
-              <Text style={styles.tipDetail}>{tip.detail}</Text>
+              <Text style={styles.tipDetail}>{highlightNumbers(tip.detail)}</Text>
             </View>
           );
         })}

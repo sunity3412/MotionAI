@@ -65,8 +65,13 @@ pip install -q "numpy>=1.26,<2"
 
 echo "=== [3/8] mmcv (no-build-isolation 함정 + MAX_JOBS 가속) ==="
 # 박제 함정 (2026-06-05): MAX_JOBS 미설정 시 single-core build → 30분+ (cudafe++/cicc).
-# nproc 병렬 빌드로 5-10분 단축.
-MAX_JOBS=$(nproc) pip install -q --no-build-isolation "mmcv>=2.0,<2.2"
+# 박제 함정 (2026-06-06): inline `MAX_JOBS=$(nproc) pip install ...` 만으론 single-core 폴백.
+#   원인 = torch.utils.cpp_extension.BuildExtension 이 ninja 미설치 시 distutils 폴백 →
+#   MAX_JOBS 환경변수 자체를 무시. 64-core 머신에서 1 nvcc/cicc 만 도는 증상.
+#   Fix = (1) ninja 선행 install, (2) export 로 자식 프로세스 전파.
+pip install -q ninja
+export MAX_JOBS=$(nproc)
+pip install -q --no-build-isolation "mmcv>=2.0,<2.2"
 
 echo "=== [4/8] mmpose stack + chumpy ==="
 pip install -q --no-build-isolation chumpy

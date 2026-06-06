@@ -113,16 +113,22 @@ def get_reference_motion(motion_id: str) -> dict | None:
     return data
 
 
-def get_previous_analysis(uid: str, current_id: str) -> dict | None:
-    """Mode3 비교용: 가장 최근 완료(done) 분석 1건 (현재 건 제외)."""
+def get_previous_analysis(
+    uid: str, current_id: str, mode: str | None = None
+) -> dict | None:
+    """Mode3 비교용: 가장 최근 완료(done) 분석 1건 (현재 건 제외).
+
+    박제 (2026-06-07 belle): mode 인자 박제. mode3 first 판정 시 mode1 (정은지)
+    분석을 prev 로 잡는 함정 fix — belle 의 mode3 첫 시도가 직전 mode1 분석을
+    prev 로 잡아 second+ 처리됨. mode 박제 = "같은 mode" 박제 안에서만 prev 검색.
+    """
     from firebase_admin import firestore
 
     col = _db().collection(f"users/{uid}/analyses")
-    q = (
-        col.where("status", "==", models.STATUS_DONE)
-        .order_by("createdAt", direction=firestore.Query.DESCENDING)
-        .limit(5)
-    )
+    q = col.where("status", "==", models.STATUS_DONE)
+    if mode is not None:
+        q = q.where("mode", "==", mode)
+    q = q.order_by("createdAt", direction=firestore.Query.DESCENDING).limit(5)
     for snap in q.stream():
         if snap.id == current_id:
             continue

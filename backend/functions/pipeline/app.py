@@ -451,7 +451,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             if ref.get("videoS3Key"):
                 reference_video_url = _signed_get(bucket, ref["videoS3Key"])
         else:  # MODE_SELF — 자기 성장. 절대 차원 + (이전 분석 있으면) 발전 델타.
-            prev = firestore_admin.get_previous_analysis(uid, analysis_id)
+            # 박제 (2026-06-07 belle): mode=MODE_SELF 박제 — mode1 (정은지) 분석을
+            # prev 로 잡는 함정 fix. 같은 mode 안에서만 prev 검색.
+            prev = firestore_admin.get_previous_analysis(
+                uid, analysis_id, mode=models.MODE_SELF
+            )
             assessments, dimension_scores, overall, comparison = _mode3_comparison(
                 angles, prev, profile
             )

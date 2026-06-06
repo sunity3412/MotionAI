@@ -301,9 +301,34 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-06 -- 새 Pod (1ablelgbtrzcgb) 셋업 + OpenMMLab CDN 글로벌 만료 우회 + mock E2E PASS. 백엔드 production wiring 검증 완료.
+Last session: 2026-06-07 -- belle 실제 분석 PASS + UI/UX fix 6종 + letterSpacing iOS 26 SIGABRT fix + EAS Build 10 ship.
 
-Stopped at: 2026-06-06 mock E2E PASS (Firestore status=done, 49.8초). belle TestFlight 분석 trigger 자체 튕김 (별개 blocker, letterSpacing SIGABRT 후보) — Expo Go 또는 빌드 fix 후 진짜 E2E 가능.
+Stopped at: 2026-06-07 EAS Build 빌드 10 (Build ID 36332431-4321-489a-a0e6-67a654437cdc) 진행 중 + auto-submit 스케줄. TestFlight ASC processing ~10분 후 belle 검증 가능.
+
+### 2026-06-07 세션 핵심 박제
+
+**Phase 5 사실상 완료** — mock E2E mode1/mode3 PASS + belle 실제 분석 mode1 점수 94/97 PASS + 5가지 UI/UX 의문 fix:
+1. (b3) 코칭팁 라벨 중복 fix ("오른쪽 어깨 어깨" → "오른쪽 어깨")
+2. (b4) 숫자 브랜드 컬러 강조 (#FF4B33)
+3. (b5) 완벽 수행 메시지 (angle 95+ 시 + mode 분기)
+4. (b1) backend playback-url Lambda 신설 + (b2) frontend wiring (S3 7일 TTL 만료 fix)
+5. mode3 second+ overall 산식 변경 — (각도+안정성) 평균 (belle 의문 정합)
+
+**Phase 15 진행** — TestFlight letterSpacing SIGABRT fix:
+- root cause = `theme/typography.ts` 의 `track(size) = size * -0.04` (음수 letterSpacing)
+- fix = `track(size) = 0` (commit 787a901)
+- EAS Build 10 + auto-submit (commit e3bf753 lock sync)
+
+**Cerebras 모델 fix** — `llama3.1-8b` deprecated → `gpt-oss-120b` (commit 1110935)
+
+**SAM deploy regression fix** — Lambda env RUNPOD_ANALYZE_URL 직접 update (SAM template parameter default reset 함정 28)
+
+### belle 박제 의문 정합 안내 (코드 fix 없이 박제 정신)
+
+1. mode1=95 vs mode3=100 차이 = belle 영상 (_talkv_high.mp4) ≠ reference (ref-climb.mp4) 다른 cut → 정합
+2. line 차원 누락 = `ref-climb` 은 IPSF "Transitions & Climbs" 박제 각도 임계 X (의도된 빈 list). 다른 motion (foxtop/invert) 시 line 정상 박제 — Phase 16 코드 통합 후속
+3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
+4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
 Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md
 

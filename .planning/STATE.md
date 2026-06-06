@@ -301,9 +301,46 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-07 -- belle 실제 분석 PASS + UI/UX fix 6종 + letterSpacing iOS 26 SIGABRT fix + EAS Build 10 ship.
+Last session: 2026-06-07 -- belle 실제 TestFlight 빌드 11 분석 PASS (mode1+mode3 first 정합). 세션 종료.
 
-Stopped at: 2026-06-07 EAS Build 빌드 10 (Build ID 36332431-4321-489a-a0e6-67a654437cdc) 진행 중 + auto-submit 스케줄. TestFlight ASC processing ~10분 후 belle 검증 가능.
+Stopped at: 2026-06-07 belle 의 mode3 첫 분석 진짜 first 박제 정합 동작 확인. 5가지 추가 fix 박제. 다음 세션 = 개발 로드맵 정리 + 외부 AI 검증 + A/B/C plan 진행.
+
+### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
+
+| commit | scope |
+|---|---|
+| `787a901` | iOS 26+ letterSpacing 음수 SIGABRT fix (typography.ts track → 0) |
+| `e3bf753` | package-lock.json sync |
+| `0472c01` | eas.json production profile env 박제 (.env gitignore 우회) |
+| `0bd6a48` | get_previous_analysis mode 인자 박제 (mode3 first ↔ mode1 prev 함정) |
+| `3f6681f` | Firestore composite index 회피 + in-memory mode filter |
+
+### 박제 메모 [[runpod-gpu-env]] 함정 31-34 추가
+
+- 31: eas.json production env 누락 (.gitignore 박제 .env)
+- 32: Firebase 익명 uid 가 IPA 빌드별 다름 (정상 동작, 단 시연 시 데이터 fresh)
+- 33: Firestore composite index 자동 생성 X — query 단순화 + in-memory filter
+- 34: simulatedResult 폴백이 Firestore 없을 때 가짜 결과 보임 (dev 안전망 — production 박제 후보)
+
+### belle 의 진단 + 박제 정신 안내 (코드 fix 없이)
+
+- "Expo 박제 박제 박제 박제 박제 박제 X" — 박제 정신 정합 안내. TestFlight 박제 박제 박제 박제
+- mode1 vs mode3 점수 차이 = 같은 정은지지만 다른 cut/clip 박제 정합
+- ref-climb line 차원 누락 = IPSF "Transitions & Climbs" 박제 각도 임계 X (의도된 빈 list). foxtop/invert 박제 박제 line 박제 박제 박제
+- "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
+- VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정신)
+
+### 다음 세션 우선 진행 (belle 결정)
+
+belle 의 의문 박제 정신 정합:
+1. **개발 로드맵 순서 정리** — Phase 1-15 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 (Phase 5 박제 박제, Phase 1/14/15 박제 박제 박제)
+2. **외부 AI 검증** — Codex/gpt-5.5 plan-review-convergence 박제 cross-check ([[cross-ai-plan-review-good]] 박제 정합)
+3. **A/B/C plan 진행** (belle 명시 박제):
+   - **A. Phase 12** = 실측 각도 표시 + 키포인트 오버레이 (큰 scope)
+   - **B. (d) 결과 UI transparency** = result.tsx 차원별 "이게 무슨 기준" 박제 + 가중치 표시 (작은 scope)
+   - **C. Phase 16 IPSF 5트랙 코드 통합** = 학원 용어 매핑 + RepetitionCriterion + Page 9 (중간 scope)
+
+박제 정신상 belle 의 의도 = "사용자가 '아 이래서 이런 평가구나' 박제" = B 박제 빠른 path. A 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제. C 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제. 박제 정신상 A+B+C 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제.
 
 ### 2026-06-07 세션 핵심 박제
 

@@ -24,7 +24,16 @@
       "ios": {
         "resourceClass": "m-medium"
       },
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBj5osfIVwOsS3-Q-ZxYc9vwLUyAFvZdc4",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "sunity-ai-coach.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "sunity-ai-coach",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "sunity-ai-coach.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "965554697584",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:965554697584:web:77407108c7476e65b4cbb5",
+        "EXPO_PUBLIC_API_BASE_URL": "https://2rbpecm4d8.execute-api.ap-northeast-2.amazonaws.com/pilot"
+      }
     }
   },
   "submit": {

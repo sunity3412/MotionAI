@@ -4,8 +4,8 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: "/gsd:plan-phase 5 완료 — Pattern mapper + Planner (6 plan) + Plan-checker iter 1 (8 blocker + 6 warning) + Revision iter 1 (15/15 fix) + Plan-checker iter 2 (0 blocker + 4 warning) + 인라인 fix (4 warning). 6 plan 박제 = 5-00 (yaml 정정 belle checkpoint Wave 0) → 5-01+5-02 평행 (어댑터+캡싱 Wave 1) → 5-03 (pipeline swap Wave 2) → 5-04 (Pod wiring Wave 3) → 5-05 (sweep + belle Pod checkpoint Wave 4). D-01 게이트 = "채점 영역 모션 N/N PASS + out-of-scope counted as PASS" (B1 fix, ref-climb out-of-scope 박제). CONTEXT.md/RESEARCH.md/IPSF-LOOKUP.md/PATTERNS.md 박제 완비."
-last_updated: "2026-06-04T07:26:31.965Z"
-last_activity: 2026-06-04 -- Phase 05 execution started
+last_updated: "2026-06-06T13:55:00.000Z"
+last_activity: 2026-06-06 -- OpenMMLab CDN 만료 우회 + mock E2E PASS
 progress:
   total_phases: 3
   completed_phases: 1
@@ -301,16 +301,60 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-06 -- SAM SharedLayer numpy 의존성 fix 완료. RunPod Pod 죽어서 production E2E 미완료, 내일 이어서.
-Stopped at: 2026-06-06 belle 졸려서 중단. 진행 상황:
-  (1) commit 9b83f8a — SharedLayer numpy 의존성 install path 1차 fix (Metadata.BuildMethod + shared/requirements.txt). 배포 후 `No module named 'sunity_shared'` 발견.
-  (2) 미커밋 fix-of-fix — ContentUri `shared/` → `shared/python/`, requirements.txt 도 `shared/python/requirements.txt` 로 이동. sam build + deploy UPDATE_COMPLETE. upload-url Lambda 200 OK 확인 (uid=FDJrNnHHCtbORvY5ODKRdnrkeNI2, analysis_id=b1d9f4b9198c433fb767fa96a83249e3).
-  (3) 앱 분석 trigger → 22%에서 pipeline Lambda fail. CloudWatch 로그 = `RuntimeError: runpod HTTPError 404`. RunPod Pod `p56qusi8cgc91z` proxy URL (https://p56qusi8cgc91z-8000.proxy.runpod.net) 가 cloudflare 단에서 404 = Pod stopped/terminated.
+Last session: 2026-06-06 -- 새 Pod (1ablelgbtrzcgb) 셋업 + OpenMMLab CDN 글로벌 만료 우회 + mock E2E PASS. 백엔드 production wiring 검증 완료.
+
+Stopped at: 2026-06-06 mock E2E PASS (Firestore status=done, 49.8초). belle TestFlight 분석 trigger 자체 튕김 (별개 blocker, letterSpacing SIGABRT 후보) — Expo Go 또는 빌드 fix 후 진짜 E2E 가능.
+
 Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md
-Next (내일):
-  1. RunPod 콘솔 가서 Pod `p56qusi8cgc91z` 상태 확인 (running / stopped / terminated).
-  2. 죽었으면 새 Pod 생성 → SSH → `POD_ID=<새-id> AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... bash SunityMotion/.claude/scripts/setup_pod_full.sh` (Lambda env 자동 update 포함).
-  3. 앱 분석 trigger 재시도 → 정상 결과 확인.
-  4. 미커밋 fix-of-fix commit (`backend/template.yaml`, `backend/shared/python/requirements.txt` 신규, `backend/shared/requirements.txt` 삭제 staged).
-  5. Phase 5 close-out (ROADMAP.md Phase 5 ✓) + memory [[runpod-gpu-env.md]] 갱신 + Phase 6 진입.
-  6. TestFlight 튕김 별도 디버그 (blockers `iOS 26+ native style 회귀` 후보).
+
+### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
+
+`download.openmmlab.com` 도메인이 2026-06-04 즈음 만료 — `dig +trace` 권한 NS 자체가 `expirens3/4.hichina.com` (Alibaba HiChina 만료 도메인 전용 NS). 박제된 RTMW URL + YOLOX URL 모두 도달 불가. mmpose 사용자 전체 영향. 박제 메모 [[rtmw-clean-weight-release-gate.md]] 의 우려 적중.
+
+belle 결정 (mirror 검색 path) → HuggingFace anonymous mirror 활용 우회 완료:
+- RTMW-X-384: `hf://bukuroo/RTMW-ONNX/rtmw-x-384.onnx` (369MB) + S3 백업 `s3://sunity-motion-pilot-videos/_artifacts/rtmw-x-384_bukuroo_hf.onnx`
+- YOLOX-M (person detector): `hf://hr16/yolox-onnx/yolox_m.onnx` (97MB, Apache-2.0)
+
+### 박제 commit + 함정 추가 (이번 세션)
+
+| commit | 영역 | 내용 |
+|---|---|---|
+| 4b823de | setup_pod_full.sh | mmcv build ninja 선행 install + MAX_JOBS export (함정 26) |
+| 081192b | rtmw_engine.py | YOLOX_ONNX_PATH env 박제 — OpenMMLab CDN 만료 우회 (함정 22) |
+
+박제 메모 [[runpod-gpu-env.md]] 갱신 = 함정 20~27 추가 (누적 27종). 핵심:
+- 함정 20: OpenMMLab CDN 글로벌 만료 (2026-06-04)
+- 함정 21/22: RTMW + YOLOX HF mirror path
+- 함정 23/24: setup_pod_full.sh 박제 누락 (runpod_inference/requirements.txt install + RUNPOD_AUTH_TOKEN .bashrc)
+- 함정 25: server.py auth header = `X-RunPod-Token` (Authorization Bearer 아님)
+- 함정 27: stale __pycache__ — git pull 후 uvicorn restart 시 cache 청소 필요
+
+### 백엔드 검증 결과
+
+| 검증 | 결과 |
+|---|---|
+| Pod /health 외부 | 200 OK, `pipeline_loaded:true, auth_configured:true` |
+| Pod /analyze 외부 mock (X-RunPod-Token + dummy body) | 422 Pydantic validation (endpoint alive) |
+| Lambda env RUNPOD_ANALYZE_URL | Active, 새 Pod URL 정합 |
+| **mock E2E** (Pod 안에서 _process 직접 호출) | **PASS** — Firestore status=done, 49.8s |
+
+### Pod 환경 (2026-06-06 종료 시점, Pod 1ablelgbtrzcgb 살아있음)
+
+| 항목 | 상태 |
+|---|---|
+| GPU / Container | RTX 3090 / RunPod PyTorch 2.4, Python 3.11 |
+| SSH | `ssh -p 14818 -i ~/.ssh/id_ed25519 root@64.119.209.250` |
+| /workspace | SunityMotion HEAD = 081192b, firebase-sa.json, rtmw_weights/rtmw-x-384.onnx, yolox_weights/yolox_m.onnx |
+| .bashrc env | RUNPOD_AUTH_TOKEN/RTMW_ONNX_PATH/YOLOX_ONNX_PATH/RECOGNIZER_BACKEND=gemini/RTMW_DEVICE=cuda/LD_LIBRARY_PATH/FIREBASE_SA_PATH 박제 |
+| uvicorn server | PID 9652 살아있음, 0.0.0.0:8000 LISTEN, 워밍업 완료 (RTMW+YOLOX+Gemini API 검증) |
+| Lambda env RUNPOD_ANALYZE_URL | https://1ablelgbtrzcgb-8000.proxy.runpod.net/analyze |
+
+### 남은 작업
+
+- [ ] **TestFlight 튕김 fix** (별개 blocker, [Phase 15 — iOS] letterSpacing SIGABRT 후보) — belle 가 진짜 E2E 검증할 channel 필요
+- [ ] **belle 진짜 E2E 검증** — Expo Go QR 또는 빌드 10 ship 후 TestFlight 재시도. mock 가 동일 path PASS 확인.
+- [ ] Phase 5 close-out (ROADMAP Phase 5 ✓) — belle 진짜 E2E 통과 후
+- [ ] Phase 6 진입 — Phase 5 close-out 후
+- [ ] setup_pod_full.sh 후속 갱신 commit — 함정 23/24 박제 (runpod_inference/requirements.txt install + RUNPOD_AUTH_TOKEN + YOLOX_ONNX_PATH .bashrc + OpenMMLab CDN 우회 download path)
+- [ ] mock E2E artifact cleanup (선택) — S3 `uploads/mock_e2e_belle_1780754054/` + Firestore mock doc
+- [ ] sweep 박제 baseline 재산정 (선택) — cocktail13 → bukuroo 가중치 변경 영향 평가 (`sweep_rtmw_20260603_1409` baseline 과 직접 비교 무효 가능)

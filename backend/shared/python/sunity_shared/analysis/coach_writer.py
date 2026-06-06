@@ -53,7 +53,10 @@ def _build_prompt(joints: list[dict]) -> str:
 
 
 class CerebrasCoachWriter:
-    def __init__(self, model: str = "llama3.1-8b") -> None:
+    # 박제 (2026-06-06): llama3.1-8b deprecated (Cerebras 정책 변경, 404 not_found).
+    # 박제 모델 = gpt-oss-120b (OpenAI gpt-oss 120B Apache 2.0, 한국어 OK)
+    # + zai-glm-4.7 (preview). gpt-oss-120b 안정성 정합.
+    def __init__(self, model: str = "gpt-oss-120b") -> None:
         self._model = model
         self._client = None
         api_key = _load_api_key()

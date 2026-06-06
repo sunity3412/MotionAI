@@ -44,6 +44,13 @@ _DEFAULT_MANIFEST_PATH = Path(__file__).parent / "weights_manifest.json"
 # 예: export RTMW_ONNX_PATH=/workspace/rtmw_weights/.../end2end.onnx
 _RTMW_POSE_ENV = "RTMW_ONNX_PATH"
 
+# 박제 함정 (2026-06-06): OpenMMLab CDN 글로벌 만료 (download.openmmlab.com → expired.hichina.com).
+# rtmlib 의 det 디폴트 자동 다운로드가 fail. det=None 박제해도 rtmlib 가 default detector 강제 로드.
+# Fix = YOLOX onnx 절대 path 를 env var 로 박제 — BaseTool 이 os.path.exists() 검사로
+# 다운로드 skip. mirror = HuggingFace hr16/yolox-onnx/yolox_m.onnx (Apache-2.0, 97MB).
+# 미박제 시 None 폴백 → 다음 Pod 재생성 시 동일 함정 재현.
+_YOLOX_DET_ENV = "YOLOX_ONNX_PATH"
+
 
 # ── LicenseViolationError ─────────────────────────────────────────────────
 
@@ -115,8 +122,12 @@ class RTMWPoseEngine:
         # 단위 테스트 (mock inferencer) 는 env 미주입 시 cpu 디폴트.
         # 박제 함정 (2026-06-05): 이전 hardcode 'cpu' 때문에 새 Pod sweep 가 GPU 0% — 영상당 30분+.
         rtmw_device = os.environ.get("RTMW_DEVICE", "cpu")
+        # 박제 함정 (2026-06-06): det=None 박제해도 rtmlib 가 default detector 강제 자동
+        # 다운로드 (OpenMMLab CDN 만료로 fail). YOLOX_ONNX_PATH 절대 path 박제 → skip.
+        yolox_onnx_path = os.environ.get(_YOLOX_DET_ENV)
         self._inferencer = RTMWWholebody(
-            det=None,  # person detector 없음 — 전체 이미지에서 추론
+            det=yolox_onnx_path,  # None 이면 rtmlib default (OpenMMLab CDN 의존 — 만료됨)
+            det_input_size=(640, 640),  # yolox_m 표준 input
             pose=rtmw_onnx_path,
             to_openpose=False,
             backend="onnxruntime",

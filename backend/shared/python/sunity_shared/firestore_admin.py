@@ -121,18 +121,25 @@ def get_previous_analysis(
     박제 (2026-06-07 belle): mode 인자 박제. mode3 first 판정 시 mode1 (정은지)
     분석을 prev 로 잡는 함정 fix — belle 의 mode3 첫 시도가 직전 mode1 분석을
     prev 로 잡아 second+ 처리됨. mode 박제 = "같은 mode" 박제 안에서만 prev 검색.
+
+    박제 함정 (2026-06-07): mode + status + createdAt 박제 composite index
+    Firestore 자동 생성 X. query 박제 status + createdAt 만 (기존 index 박제)
+    in-memory filter 박제 mode 박제.
     """
     from firebase_admin import firestore
 
     col = _db().collection(f"users/{uid}/analyses")
-    q = col.where("status", "==", models.STATUS_DONE)
-    if mode is not None:
-        q = q.where("mode", "==", mode)
-    q = q.order_by("createdAt", direction=firestore.Query.DESCENDING).limit(5)
+    q = (
+        col.where("status", "==", models.STATUS_DONE)
+        .order_by("createdAt", direction=firestore.Query.DESCENDING)
+        .limit(20)  # mode filter 박제 충분 박제
+    )
     for snap in q.stream():
         if snap.id == current_id:
             continue
         data = snap.to_dict() or {}
+        if mode is not None and data.get("mode") != mode:
+            continue  # in-memory filter
         data.setdefault("analysisId", snap.id)
         return data
     return None

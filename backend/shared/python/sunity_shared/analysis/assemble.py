@@ -119,17 +119,21 @@ def build_result(
     관절각 편차 기반(코칭 포인트)으로 차원과 별개."""
     # 박제 (2026-06-06 belle): angle dim 95+ 시 "완벽 수행" 메시지 박제.
     # 편차 거의 0 인 perfect 자세 시 worst 3 박제하면 "0° 차이" 어색.
-    # 박제 정신상 영상 자체 동일성 아닌 자세 동일성 박제 — 같은 영상이어도
-    # 다른 영상이어도 자세 100% 매칭 시 같은 메시지.
+    # mode 분기 박제 — mode1 만 "정은지 선수" 박제, mode3 박제 = 자기 영상 박제.
     angle_dim_score = dimension_scores.get("angle")
+    cmp_mode = comparison.get("mode") if isinstance(comparison, dict) else None
     if angle_dim_score is not None and angle_dim_score >= 95:
+        if cmp_mode == "mode1":
+            title = "정은지 선수와 거의 동일한 자세입니다"
+        else:
+            title = "이전 분석과 거의 동일한 자세입니다"
         tips = [
             {
                 "joint": None,
-                "title": "정은지 선수와 거의 동일한 자세입니다",
+                "title": title,
                 "detail": (
-                    f"각도 정확도 {int(angle_dim_score)}점 — 관절각 차이가 거의 없어요. "
-                    "안정성과 라인 차원을 함께 확인해 보세요."
+                    f"관절각 일치도 {int(angle_dim_score)}점 — 자세 차이가 거의 없어요. "
+                    "안정성·라인 차원도 함께 확인해 보세요."
                 ),
             }
         ]

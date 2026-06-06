@@ -335,16 +335,22 @@ def _mode3_comparison(
       - dimension_scores: 첫 분석=절대 차원, 이후=절대 + angle(일관성).
       - overall: 절대 차원 평균(첫 분석/이후 동일 척도)."""
     abs_dims = dimensions.absolute_dimension_scores(angles, profile)
-    overall = dimensions.overall_from_dimensions(abs_dims)
     prev_angles = (prev or {}).get("angles")
     if not prev or not prev_angles:
         # 첫 분석(또는 이전 angles 미저장) — 비교 대상 없음. 코칭은 신전 부족분(IPSF 라인) 기준.
+        overall = dimensions.overall_from_dimensions(abs_dims)
         assessments = kismam.assess(dimensions.extension_deviation(angles, profile))
         return assessments, abs_dims, overall, assemble.build_mode3(is_first=True)
     num_joints = len(prev.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
     deviation, *_ = _deviation_against(angles, prev_angles, num_joints)
     assessments = kismam.assess(deviation)
     dim_scores = {dimensions.DIM_ANGLE: kismam.overall_score(assessments), **abs_dims}
+    # 박제 (2026-06-06 belle): mode3 second+ overall = 모든 차원 평균.
+    # 이전 박제 = abs_dims 만 평균 (박제 메모 [[mode3-progress-not-similarity]] 정신).
+    # belle 의문: "각도 100, 안정성 93 인데 총점 93? 각도 점수 어디 가나" — 정합.
+    # overall 박제 변경 = (angle + line + stability) 평균. delta 박제는 abs_dims 만
+    # 유지 (절대 척도 안정 — 박제 메모 정신 유지).
+    overall = dimensions.overall_from_dimensions(dim_scores)
     prev_dims = (prev.get("result") or {}).get("dimensionScores")
     comparison = assemble.build_mode3(
         is_first=False,

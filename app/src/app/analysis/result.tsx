@@ -128,8 +128,10 @@ function angleGuide(j: Pick<JointScore, 'currentAngle' | 'targetAngle' | 'deltaD
 }
 
 // mode1 similarity 점수대별 요약 카피. 시연 시 점수 임팩트 강조용.
+// 박제 (2026-06-06 belle): similarity = 관절각 차원 박제 (overall 박제 X — 모든
+// 차원 평균). belle 의문 "94 vs 95% 갭" → label 박제 명확화 "관절각" 박제.
 function mode1Summary(athleteName: string, similarity: number): string {
-  const head = `${athleteName} 선수와 ${similarity}% 일치해요.`;
+  const head = `${athleteName} 선수와 관절각 ${similarity}% 일치해요.`;
   if (similarity >= 75) return `${head} 거의 다 왔어요!`;
   if (similarity >= 50) return `${head} 핵심 구간을 다듬어 보세요.`;
   return `${head} 천천히 자세부터 잡아볼까요?`;

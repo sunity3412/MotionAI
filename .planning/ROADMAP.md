@@ -32,18 +32,19 @@
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: PoseEngine 추상화 + RTMW 어댑터 + 폴 축 정렬 + NLF R&D 격리** - 상용 제품 코드를 RTMW 133 wholebody (Apache-2.0) 로 마이그레이션, NLF/SMPL-X 는 R&D 비교군으로 격리, 폴 축 좌표계 산출 (모든 분석의 기반). MediaPipe 운영 백본 도입 안 함 (2026-06-02 pivot).
+- [x] **Phase 1: PoseEngine 추상화 + RTMW 어댑터 + 폴 축 정렬 + NLF R&D 격리** - 상용 제품 코드를 RTMW 133 wholebody (Apache-2.0) 로 마이그레이션 완료 (commit 2a8aa72 atomic swap), NLF/SMPL-X 는 R&D 비교군으로 격리, 폴 축 좌표계 산출. **2026-06-07 close-out 사실상 완료** — Plan 01-25 swap 완료, Plan 01-23 sweep 은 Phase 5 12차 sweep 으로 대체. 미완 = Plan 01-24 (.samignore + import 차단 단위 테스트) — 후속 별도 plan.
 - [ ] **Phase 2: BodyNormalizationProfile 자동 측정 (MediaPipe segment 기반)** - 키·팔/다리/몸통 비율·좌우 비대칭 자동 추출. SMPL-X β는 R&D 비교군에서만 (제품 코드 사용 금지)
 - [ ] **Phase 3: 자가입력 BodyProfileInput** - 키·몸무게·경력·통증부위 1회 입력 UX
 - [ ] **Phase 4: 다중 시점 촬영 UX + occlusion confidence 게이트** - 가림 완화 + 저신뢰 프레임 "추정" 표기
-- [ ] **Phase 5: Gemini 기술 인식기 (분류 한정)** - 동작 분류만, 좌표·판단 출력 금지 (역할 축소)
+- [x] **Phase 5: Gemini 기술 인식기 (분류 한정)** - 동작 분류만, 좌표·판단 출력 금지. **2026-06-05 12차 sweep D-01 PASS** (phase1_ready_to_swap=True, phase5_ready_to_release_d16_block=True). 빌드 11 실분석 mode1 94 + mode3 100 PASS.
 - [ ] **Phase 6: 체형 정규화 비교 엔진 (coaching 모드)** - 프로 패턴을 수강생 체형 비율로 재계산
 - [ ] **Phase 7: 차이 분류** - 체형 허용 차이 / 개선 필요 차이 / 감점 분리
 - [ ] **Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter** - 힘 패턴 추론을 위한 기초 신호
 - [ ] **Phase 9: ForceDirectionPattern + 실패 원인 후보 3개** - pull/push/brace/rotate/release + 실패 후보 3카드
 - [ ] **Phase 10: 부상 위험 신호 플래그** - 좌우 비대칭·요추 과신전·무리 동작 신호 (SAFE-01 v1)
 - [ ] **Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만** - AI+코치 비즈니스 모델 + 설명 엔진 한정
-- [ ] **Phase 12: 실측 각도 표시 + 키포인트 오버레이** - "현재 87° → 기준 110°" + 어깨/골반/무릎/손/중심축
+- [ ] **Phase 12: 실측 각도 표시 + 키포인트 오버레이** - "현재 87° → 기준 110°" + 어깨/골반/무릎/손/중심축. **2026-06-07 belle 결정: A 항목, B → C → A 시퀀싱의 마지막. feature flag + git branch 박제로 빌드 11 stable 유지하며 진행.**
+- [ ] **Phase 12.5: UI Transparency — 차원별 카피 + 가중치 표시 + 강사 보조 카피** - `result.tsx` 차원별 (`angle`/`line`/`stability`) 카드에 (a) "IPSF 기준 + 정은지 측정값" 한 줄 카피, (b) 가중치 표시, (c) "왜 이 점수인지" 차원별 deficit, (d) "AI = 강사 보조 도구" 헤더/footer 카피. backend `assemble.py` 가 `dimensionExplanation` 출력. **2026-06-07 belle 결정: B 항목, B → C → A 시퀀싱의 첫 단계 (빌드 12).**
 - [ ] **Phase 13: 보완 운동·스트레칭 추천 라이브러리** - 분석 → 행동 매핑 (PERS-03 v1)
 - [ ] **Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)** - 비교 정확도 최대화 + 다각도 캡처 프로토콜
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주
@@ -283,6 +284,27 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 12.5: UI Transparency — 차원별 카피 + 가중치 표시 + 강사 보조 카피
+
+**Goal**: 사용자가 "아 이래서 이런 평가구나" 박제 — `result.tsx` 차원별 (`angle`/`line`/`stability`) 카드에 (a) "이게 무슨 기준 (IPSF 기준 + 정은지 측정값)" 한 줄 카피, (b) 가중치 표시 ("각도 40% + 라인 30% + 안정성 30%"), (c) "왜 이 점수인지" 차원별 deficit, (d) "AI = 강사 보조 도구" 헤더/footer 카피. backend `assemble.py` 가 `dimensionExplanation` 출력.
+**Mode:** mvp
+**Depends on**: Phase 1 (RTMW), Phase 5 (Gemini), Phase 16 (Studio Term v1) — 모두 close-out
+**Requirements**: FEED-02 (피드백 명확성), COACH-01 (강사 보조 카피 부분)
+**Scope 제약**: 작은 단위 — backend 약 50 line + frontend 약 30 line + contract 양쪽. mode1 / mode3 first / mode3 second+ 분기 카피 박제. 메모리 [[mode3-progress-not-similarity]] 정합 ("지난 분석보다 +5점" 박제, "%일치" 박제 X).
+**Success Criteria** (what must be TRUE):
+
+  1. `result.tsx` 차원별 카드에 "이게 무슨 기준" 한 줄 카피가 표시된다 (각도 = IPSF + 정은지 측정값, 라인 = 신전 완성도, 안정성 = inter-frame diff)
+  2. 차원별 가중치 합 = 100% 표시 (현재 `assemble.py` 산식 정합)
+  3. 차원별 deficit 카피 — worst 관절 1~2개 박제 ("오른쪽 어깨 22° 더 펴주세요 = -8점" 박제 박제)
+  4. 헤더 "이 분석은 강사 수업을 대체하지 않아요" + footer "강사와 함께 보세요" 박제 (메모리 [[field-research-stakeholders]] H4 해소)
+  5. backend `assemble.py:build_result` 가 `dimensionExplanation: { weight: float; baseline: string; deficitSummary: string }` 출력 — 차원별 weight + baseline 박제 박제 + deficitSummary 박제 박제
+  6. 데이터 contract (`analysis.ts` ↔ `models.py`) 양쪽 lockstep 추가
+  7. mode 분기 카피 정합: mode1 ("정은지 측정값 기준"), mode3 first ("이번이 첫 분석"), mode3 second+ ("지난 분석 대비 +5점")
+  8. 빌드 12 TestFlight ship 박제 (letterSpacing/Cerebras 회귀 박제 X)
+
+**Plans**: TBD
+**UI hint**: yes
+
 ### Phase 13: 보완 운동·스트레칭 추천 라이브러리
 
 **Goal**: 분석 결과의 실패 원인 후보·체형 정규화 finding에 따라 보완 운동·스트레칭이 자동 매핑되어 결과 화면에 표시된다 (분석 → 행동 → 재구매)
@@ -371,23 +393,32 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15
-**Phase 16** is independent (v1 평행 — Phase 1~15 의존성 없음). 데이터/스펙/카피 박제가 코드 진척과 독립적이므로 Phase 1 진행 중 평행 진입 가능. Phase 5 (Gemini 기술 인식기) / Phase 14 (정은지 reference) 가 Phase 16 의 데이터를 소비.
+~~Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15~~
+
+**2026-06-07 belle 결정 — A+B+C 우선, Phase 2~11 보류 (파일럿 후 v1.5)**:
+- Phase 1 ✓ (close-out, Plan 01-24 후속), Phase 5 ✓ (12차 sweep PASS), Phase 16 ✓ (v1 데이터/카피 박제 완료)
+- **시퀀스 (B → C → A)**:
+  1. **Phase 12.5 (B)** = UI transparency + 강사 보조 카피 — 3~5일, 빌드 12 ship
+  2. **Phase 16 코드 통합 (C)** = AKA 매핑 + 5트랙 채점 v1 + 분기 3 자동 수집 스키마 — 1~2주, 빌드 13 ship
+  3. **Phase 12 (A)** = 실측 각도 + 키포인트 오버레이 — 2주~, 빌드 14 ship (feature flag + branch 박제로 stable 유지)
+  4. **parallel: Plan 01-24** = NLF R&D 격리 명시 + import 차단 — 0.5~1일, B 와 별도 PR
+- **Phase 2~11 / 13 / 14 보류 reasoning**: 메모리 [[feedback-analysis-first]] 정합 — 현 RTMW + IPSF (a)+(c)+Page 9 + 정은지 reference 가 5/5 PASS 충족. 두 엔진 본체 (체형 정규화 + 힘 패턴 + CoachCommentHook) 는 파일럿 실증 후 v1.5 진입. 상세 = `.planning/roadmap-replan-2026-06-07.md` + `roadmap-replan-2026-06-07-review.md`.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. PoseEngine + MediaPipe + 폴 축 + NLF R&D 격리 | 21/24 | In Progress|  |
+| 1. PoseEngine + RTMW + 폴 축 + NLF R&D 격리 | 21/24 | Sufficient (close-out) | 2026-06-07 (Plan 01-24 후속) |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 0/TBD | Not started | - |
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |
-| 5. Gemini 기술 인식기 (분류 한정) | 3/6 | In Progress|  |
+| 5. Gemini 기술 인식기 (분류 한정) | 6/6 | Complete | 2026-06-05 (12차 sweep D-01 PASS) |
 | 6. 체형 정규화 비교 엔진 | 0/TBD | Not started | - |
 | 7. 차이 분류 | 0/TBD | Not started | - |
 | 8. 중심축·접촉점·jerk 분석 | 0/TBD | Not started | - |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 0/TBD | Not started | - |
 | 10. 부상 위험 신호 플래그 | 0/TBD | Not started | - |
 | 11. CoachCommentHook + Gemini 번역 | 0/TBD | Not started | - |
-| 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started | - |
+| 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (A, 3rd) | - |
+| 12.5. UI Transparency (차원별 카피 + 강사 보조) | 0/1 | Not started (B, 1st) | - |
 | 13. 보완 운동·스트레칭 추천 | 0/TBD | Not started | - |
 | 14. 정은지 기준 모션 등록 (다각도) | 0/TBD | Not started | - |
 | 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 0/TBD | Not started | - |

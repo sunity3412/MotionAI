@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "/gsd:plan-phase 5 완료 — Pattern mapper + Planner (6 plan) + Plan-checker iter 1 (8 blocker + 6 warning) + Revision iter 1 (15/15 fix) + Plan-checker iter 2 (0 blocker + 4 warning) + 인라인 fix (4 warning). 6 plan 박제 = 5-00 (yaml 정정 belle checkpoint Wave 0) → 5-01+5-02 평행 (어댑터+캡싱 Wave 1) → 5-03 (pipeline swap Wave 2) → 5-04 (Pod wiring Wave 3) → 5-05 (sweep + belle Pod checkpoint Wave 4). D-01 게이트 = "채점 영역 모션 N/N PASS + out-of-scope counted as PASS" (B1 fix, ref-climb out-of-scope 박제). CONTEXT.md/RESEARCH.md/IPSF-LOOKUP.md/PATTERNS.md 박제 완비."
-last_updated: "2026-06-06T13:55:00.000Z"
-last_activity: 2026-06-06 -- OpenMMLab CDN 만료 우회 + mock E2E PASS
+stopped_at: "2026-06-07 belle 로드맵 재정렬 결정 — A+B+C 시퀀싱 B→C→A. Phase 1 (Plan 01-24 후속) / Phase 5 (12차 sweep PASS) / Phase 16 (v1 박제) close-out. Phase 12.5 신설 (B = UI transparency + 강사 보조 카피, 3~5일, 빌드 12). 다음 진입 = /gsd-plan-phase 12.5. 상세 = .planning/roadmap-replan-2026-06-07.md + roadmap-replan-2026-06-07-review.md."
+last_updated: "2026-06-07T00:35:00.000Z"
+last_activity: 2026-06-07 -- 로드맵 재정렬 + self-review + Phase 12.5 신설
 progress:
-  total_phases: 3
-  completed_phases: 1
+  total_phases: 16
+  completed_phases: 3
   total_plans: 31
   completed_plans: 23
-  percent: 33
+  percent: 50
 ---
 
 # Project State
@@ -25,12 +25,20 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 05 (gemini) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 05
-Last activity: 2026-06-04 -- Phase 05 execution started
+Phase: 12.5 (UI Transparency, B 단계) — READY TO PLAN
+Plan: 1 of 1 (예정)
+Status: 진입 대기 (/gsd-plan-phase 12.5)
+Last activity: 2026-06-07 -- 로드맵 재정렬 + Phase 12.5 신설
 
-Progress: [██████░░░░] 60%
+**시퀀스 (belle 2026-06-07 결정 — B → C → A)**:
+1. **B (Phase 12.5)** — 3~5일 — UI transparency + 강사 보조 카피 — 빌드 12 ship
+2. **C (Phase 16 코드 통합)** — 1~2주 — AKA 매핑 + 5트랙 v1 + 분기 3 — 빌드 13 ship
+3. **A (Phase 12)** — 2주~ — 실측 각도 + 키포인트 오버레이 — 빌드 14 ship
+4. parallel: Plan 01-24 — NLF R&D 격리 명시 — 0.5~1일, B 와 별도 PR
+
+상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
+
+Progress: [██████████░░░░░░] 50% (Phase 1/5/16 close-out + 12.5 진입)
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 

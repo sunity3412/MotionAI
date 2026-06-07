@@ -110,10 +110,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: BODY-01
 **Success Criteria** (what must be TRUE):
 
-  1. RTMW 키포인트에서 segment 길이가 시간 평균으로 안정적으로 추출된다 (jitter 스무딩)
-  2. `BodyNormalizationProfile`이 키·팔/다리/몸통 스케일·어깨/골반 비율·confidence·warnings로 산출된다
+  1. RTMW 키포인트에서 segment 길이가 시간 평균으로 안정적으로 추출된다 (jitter 스무딩) — v1 acceptance: synthetic + RTMW adapter-path validation; real RTMW network output coverage 는 v1.5 sweep 실행 (belle Pod 5영상 keypoint dump 산출) 으로 deferred (MEDIUM-2 v4 박제)
+  2. **Phase 2 v1 closure**: 측정기 함수 `measure_body_profile` + helper `_angles_and_body_profile_from_video` 가 박제되고 단위 테스트가 `BodyNormalizationProfile` 7필드 산출을 검증한다. `_process` / Firestore 통합은 Phase 6 plan 책임 — **Phase 6 closure**: production analysis document (Firestore AnalysisDoc) 가 `bodyNormalizationProfile` 을 포함한다 (Phase 6 plan 이 본 phase 의 helper 호출 site 박제) (MEDIUM-1 v5 박제)
   3. 낮은 confidence(가림·저화질) 시 단정하지 않고 warnings 배열에 사유가 표기된다
-  4. R&D 비교군: 동일 영상에서 NLF→SMPL-X β로 추출한 BodyNormalizationProfile과의 갭을 보고서로 출력 (제품 코드 비호출, 평가 전용)
+  4. RTMW `measure_body_profile` 산출이 §1 v1.5 sweep run 에서 5영상 실 산출로 검증된다 (RTMW-native validation, SMPL-X 비교 폐기 — 2026-06-02 RTMW pivot 정합, 2026-06-08 belle 스코프 정정: SMPL-X 는 paid commercial license 로 R&D 에서도 last-resort 만; β-only pure-math 변환은 fake 이므로 폐기, joints rendering 도 별도 weights 필수라 운영 path 무관). §4 closure 는 §1 v1.5 단일 게이트로 단일화.
   5. 데이터 계약(`analysis.ts` ↔ `models.py`)에 `BodyNormalizationProfile` 타입이 lockstep으로 추가된다
 
 **Plans**: 1 plan

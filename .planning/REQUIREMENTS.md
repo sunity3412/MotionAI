@@ -27,7 +27,7 @@
 - [ ] **POSE-01**: 상용 제품 코드의 포즈 엔진이 NLF → MediaPipe로 마이그레이션되고 `PoseEngine` 인터페이스 + 공통 계약(`PoseFrame`)이 도입된다. `NlfPoseEngine` 어댑터는 R&D 비교군으로 격리되어 제품 파이프라인 import 경로에서 제거되고 사내 평가 스크립트에서만 호출된다 (라이선스 리스크 0)
 - [ ] **POSE-02**: 폴 축이 자동 검출되고 모든 키포인트가 폴 기준 좌표계로 정렬되며, 가림 프레임은 confidence 낮음으로 표기되어 후속 분석이 단정하지 않는다 (스피닝 폴은 v1.5)
 - [ ] **POSE-03**: 사용자가 다중 시점(정면+측면) 영상을 업로드할 수 있고, 키포인트 confidence 임계값 미만 프레임은 "추정" 표기 + 결과 화면에 occlusion 경고 표시
-- [ ] **BODY-01**: MediaPipe 키포인트로부터 신체 segment 길이·비율·좌우 비대칭이 자동 추출되어 `BodyNormalizationProfile`(키·팔/다리/몸통 스케일·어깨/골반 비율·confidence·warnings)이 두 엔진의 공유 입력으로 산출된다. SMPL-X β 비교군은 R&D 평가 스크립트에서만 갭 보고 (제품 코드 비호출)
+- [ ] **BODY-01**: RTMW 133 wholebody 키포인트로부터 신체 segment 길이·비율·좌우 비대칭이 자동 추출되어 `BodyNormalizationProfile`(키·팔/다리/몸통 스케일·어깨/골반 비율·confidence·warnings)이 두 엔진의 공유 입력으로 산출된다. SMPL-X β 비교군은 R&D 평가 스크립트에서만 갭 보고 (제품 코드 비호출)
 - [ ] **BODY-02**: 사용자가 키·몸무게·경력·통증부위·우세손을 1회 입력하고 분석에 BodyProfile이 함께 전달된다. weightKg는 보조 정보로만 사용, 유연성·근력 자가입력은 받지 않음(부정확)
 
 ### 점수 신뢰도 (Scoring)
@@ -185,3 +185,5 @@
 *Last updated: 2026-05-31 — research 3 docs 통합, v2→v1 승격 (PERS-01·SAFE-01·PERS-03), 신규 v1 (POSE-02·03·BODY-01·02·COACH-01·FORCE-01), v1.5 분리 (judging 모드)*
 *Updated 2026-05-31 — belle 결정: 상용/베타 = MediaPipe + Gemini, NLF/SMPL-X = R&D 비교군. POSE-01 신규 추가 (PoseEngine 추상화 + MediaPipe 마이그레이션 + NLF 격리), BODY-01 재정의 (MediaPipe segment 기반)*
 *Updated 2026-06-02 — belle 결정: 학원 용어 3분기 시스템 + 5트랙 채점 (IPSF 4공식 + Page 9 절대 공통). NotebookLM IPSF CoP 2024-2025 / 2025-2027 lookup 결과 박제 — Element Code Matching IPSF 룰 (page 138-139), Page 9 "all components" 절대 트랙 (CoP 2021-2024), Dynamic Combinations / Flow 트랙, AKA 13개 매핑 (한국 학원 ↔ IPSF Code). v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. Phase 16 신설. 현장 설문 강사 5-1 "기본기 표준화" + 운영자 5-2 "기술 데이터 표준화" + "폭스탑 3회 분석 예시" 직접 충족*
+*Updated 2026-06-07 — Phase 2 plan 01 RTMW pivot 정합 (BODY-01 MediaPipe → RTMW 갱신, v4/v5 박제).*
+*Updated 2026-06-08 — Phase 2 plan 01 RTMW pivot 2차 정합: BODY-01 의 "SMPL-X β 비교군은 R&D 평가 스크립트에서만 갭 보고" 문구는 ROADMAP §4 (SMPL-X 비교) 폐기와 함께 R&D scope 에서도 last-resort 만 (paid commercial license — PS:License 1.0). 운영 path 는 RTMW-native 단일.*

@@ -109,3 +109,88 @@ def test_ts_python_field_name_lockstep() -> None:
         assert snake in py_src, (
             f"Python body_normalization.py 에 {snake} 필드 누락"
         )
+
+
+# ── Phase 2 v5 박제: 추가 lockstep — string/regex 검증 (AST 아님, LOW-1 v4 호칭) ──
+
+# 5종 warning enum (Phase 2 BODY-01 박제). 3 파일 모두 동일 문자열.
+_WARNING_ENUM = (
+    "low_keypoint_confidence",
+    "occluded_endpoint",
+    "insufficient_frames",
+    "asymmetric_landmark_count",
+    "pose_too_inverted",
+)
+
+_PY_BODY_NORM_PATH = (
+    _REPO_ROOT
+    / "backend"
+    / "shared"
+    / "python"
+    / "sunity_shared"
+    / "analysis"
+    / "body_normalization.py"
+)
+
+
+def test_warnings_enum_lockstep_across_3_files() -> None:
+    """5종 warning enum 이 contract.md / analysis.ts / body_normalization.py 3 파일에 등장.
+
+    string/regex 검증 — AST 아님 (LOW-1 v4).
+    """
+    ts_src = _TS_PATH.read_text(encoding="utf-8")
+    py_src = _PY_BODY_NORM_PATH.read_text(encoding="utf-8")
+    contract_src = _CONTRACT_PATH.read_text(encoding="utf-8")
+
+    for enum_val in _WARNING_ENUM:
+        assert enum_val in ts_src, (
+            f"TS analysis.ts 에 warning enum '{enum_val}' 누락"
+        )
+        assert enum_val in py_src, (
+            f"Python body_normalization.py 에 warning enum '{enum_val}' 누락"
+        )
+        assert enum_val in contract_src, (
+            f"docs/contract.md 에 warning enum '{enum_val}' 누락"
+        )
+
+
+def test_estimated_height_scale_semantics_lockstep() -> None:
+    """'torso-relative proportion heuristic' 표현이 3 파일 모두 등장 (M3).
+
+    string/regex 검증 — AST 아님 (LOW-1 v4).
+    """
+    ts_src = _TS_PATH.read_text(encoding="utf-8")
+    py_src = _PY_BODY_NORM_PATH.read_text(encoding="utf-8")
+    contract_src = _CONTRACT_PATH.read_text(encoding="utf-8")
+
+    needle = "torso-relative proportion heuristic"
+    assert needle in ts_src, (
+        f"TS analysis.ts 에 '{needle}' (M3 박제) 누락"
+    )
+    assert needle in py_src, (
+        f"Python body_normalization.py 에 '{needle}' (M3 박제) 누락"
+    )
+    assert needle in contract_src, (
+        f"docs/contract.md 에 '{needle}' (M3 박제) 누락"
+    )
+
+
+def test_numeric_scale_contract_lockstep() -> None:
+    """5 numeric scale 필드 contract — 'finite' + 'strictly positive' 3 파일 박제.
+
+    MEDIUM-2 v5: __post_init__ validator 확장. 3 파일 모두 ≥1회 등장.
+    """
+    ts_src = _TS_PATH.read_text(encoding="utf-8")
+    py_src = _PY_BODY_NORM_PATH.read_text(encoding="utf-8")
+    contract_src = _CONTRACT_PATH.read_text(encoding="utf-8")
+
+    for needle in ("finite", "strictly positive"):
+        assert needle in ts_src, (
+            f"TS analysis.ts 에 '{needle}' (MEDIUM-2 v5 박제) 누락"
+        )
+        assert needle in py_src, (
+            f"Python body_normalization.py 에 '{needle}' (MEDIUM-2 v5 박제) 누락"
+        )
+        assert needle in contract_src, (
+            f"docs/contract.md 에 '{needle}' (MEDIUM-2 v5 박제) 누락"
+        )

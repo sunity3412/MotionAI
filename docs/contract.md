@@ -333,13 +333,23 @@ Phase 1 에서 PoseFrame 은 RunPod 메모리 전용. Firestore 저장은 기존
 
 | TS 필드 (camelCase) | Python 필드 (snake_case) | TS 타입 | D-NN | 설명 |
 |---------------------|--------------------------|---------|------|------|
-| `estimatedHeightScale` | `estimated_height_scale` | `number` | D-19 | 추정 신장 비율 (1.0 = 평균). RTMW segment 합으로 산출. |
-| `armScale` | `arm_scale` | `number` | D-19 | 팔 segment 비율 (1.0 = 평균). |
-| `legScale` | `leg_scale` | `number` | D-19 | 다리 segment 비율 (1.0 = 평균). |
-| `torsoScale` | `torso_scale` | `number` | D-19 | 몸통 segment 비율 (1.0 = 평균). |
-| `shoulderHipRatio` | `shoulder_hip_ratio` | `number` | D-19 | 어깨너비 / 골반너비 비율 (체형 분류 단서). |
-| `confidence` | `confidence` | `number` | D-19 | 측정 신뢰도 `[0.0, 1.0]`. RTMW score 또는 측정기 자체 신뢰도. |
-| `warnings` | `warnings` | `string[]` | D-19 | 측정 품질 이슈 (예: `'short_arm_clip'`, `'occluded_torso'`). 기본값 `[]`. |
+| `estimatedHeightScale` | `estimated_height_scale` | `number` | D-19 | torso-relative proportion heuristic — 절대 키가 아니라 torso 길이 대비 사지 비율 (`(armScale + legScale + 1.0) / 3`). Phase 6 coarse normalizer hint 로만 사용. **Contract: finite (no NaN/inf) + strictly positive (> 0). 위반 시 dataclass `__post_init__` ValueError (MEDIUM-2 v5).** |
+| `armScale` | `arm_scale` | `number` | D-19 | torso-relative proportion heuristic — torso 길이 대비 팔 segment 비율 (1.0 = torso 와 동일 길이). Phase 6 coarse normalizer hint 로만 사용. **Contract: finite (no NaN/inf) + strictly positive (> 0). 위반 시 dataclass `__post_init__` ValueError (MEDIUM-2 v5).** |
+| `legScale` | `leg_scale` | `number` | D-19 | torso-relative proportion heuristic — torso 길이 대비 다리 segment 비율. Phase 6 coarse normalizer hint 로만 사용. **Contract: finite (no NaN/inf) + strictly positive (> 0). 위반 시 dataclass `__post_init__` ValueError (MEDIUM-2 v5).** |
+| `torsoScale` | `torso_scale` | `number` | D-19 | 몸통 정규화 단위 (self-reference 1.0). **Contract: finite (no NaN/inf) + strictly positive (> 0). 위반 시 dataclass `__post_init__` ValueError (MEDIUM-2 v5).** |
+| `shoulderHipRatio` | `shoulder_hip_ratio` | `number` | D-19 | 어깨너비 / 골반너비 비율 (체형 분류 단서). **Contract: finite (no NaN/inf) + strictly positive (> 0). 위반 시 dataclass `__post_init__` ValueError (MEDIUM-2 v5).** |
+| `confidence` | `confidence` | `number` | D-19 | 측정 신뢰도 `[0.0, 1.0]`. RTMW score 또는 측정기 자체 신뢰도. fallback path 는 0.0. |
+| `warnings` | `warnings` | `string[]` | D-19 | 측정 품질 이슈 enum (아래 5종). Phase 11 coach_writer 가 한국어 카피로 번역. 기본값 `[]`. |
+
+### warnings enum (5종, Phase 2 BODY-01 박제)
+
+| Enum 값 | 의미 |
+|---------|------|
+| `low_keypoint_confidence` | 전체 키포인트 평균 confidence 가 임계값 (0.4) 미만 — 영상 품질 / 조명 부족. |
+| `occluded_endpoint` | 한쪽 endpoint (shoulder / hip / knee / ankle / wrist) 의 confidence < 0.5 가 frame 60% 초과 — 가림. |
+| `insufficient_frames` | 분석 frame 수가 30 미만 — 짧은 클립. measurer fallback path 진입 신호. |
+| `asymmetric_landmark_count` | 좌우 endpoint valid frame 차이가 30% 초과 — 한쪽 가림 추정. |
+| `pose_too_inverted` | 인버트 자세가 50% 초과 — image y-down 좌표 직접 비교 (mean shoulder.y vs mean hip.y). PoleAxis.axisVector 부호와 독립적 (MEDIUM-3 v5). |
 
 ### D-결정 요약 (CONTEXT.md 인용)
 

@@ -371,19 +371,47 @@ export interface PoleAxis {
  * PoseFrame.bodyShape 로 주입한다. Phase 1 단계에는 측정기 미구현.
  */
 export interface BodyNormalizationProfile {
-  /** 추정 신장 비율 (1.0 = 평균). RTMW segment 합으로 산출. */
+  /**
+   * torso-relative proportion heuristic — 절대 키가 아니라 torso 길이 대비 사지 비율.
+   * 산식: `estimatedHeightScale = (armScale + legScale + 1.0) / 3`.
+   * Phase 6 coarse normalizer hint 로만 사용.
+   * Contract: finite + strictly positive (>0). Python __post_init__ ValueError on violation (MEDIUM-2 v5).
+   */
   estimatedHeightScale: number;
-  /** 팔 segment 비율 (1.0 = 평균). */
+  /**
+   * torso-relative proportion heuristic — torso 길이 대비 팔 segment 비율
+   * (1.0 = torso 와 동일 길이). Phase 6 coarse normalizer hint 로만 사용.
+   * Contract: finite + strictly positive (>0). Python __post_init__ ValueError on violation (MEDIUM-2 v5).
+   */
   armScale: number;
-  /** 다리 segment 비율 (1.0 = 평균). */
+  /**
+   * torso-relative proportion heuristic — torso 길이 대비 다리 segment 비율.
+   * Phase 6 coarse normalizer hint 로만 사용.
+   * Contract: finite + strictly positive (>0). Python __post_init__ ValueError on violation (MEDIUM-2 v5).
+   */
   legScale: number;
-  /** 몸통 segment 비율 (1.0 = 평균). */
+  /**
+   * 몸통 정규화 단위 (self-reference 1.0).
+   * Contract: finite + strictly positive (>0). Python __post_init__ ValueError on violation (MEDIUM-2 v5).
+   */
   torsoScale: number;
-  /** 어깨너비 / 골반너비 비율 (체형 분류 단서). */
+  /**
+   * 어깨너비 / 골반너비 비율 (체형 분류 단서).
+   * Contract: finite + strictly positive (>0). Python __post_init__ ValueError on violation (MEDIUM-2 v5).
+   */
   shoulderHipRatio: number;
-  /** 측정 신뢰도 [0.0 ~ 1.0]. RTMW score 또는 측정기 자체 신뢰도. */
+  /** 측정 신뢰도 [0.0 ~ 1.0]. RTMW score 또는 측정기 자체 신뢰도. fallback path = 0.0. */
   confidence: number;
-  /** 측정 품질 이슈 (예: 'short_arm_clip'). 기본값 []. */
+  /**
+   * 측정 품질 이슈 enum (5종, Phase 2 BODY-01 박제). Phase 11 coach_writer 가 한국어 카피로 번역.
+   *   - 'low_keypoint_confidence': 평균 confidence 가 0.4 미만 (영상 품질).
+   *   - 'occluded_endpoint': endpoint conf<0.5 in >60% frame (가림).
+   *   - 'insufficient_frames': frame<30 (짧은 클립, fallback 진입).
+   *   - 'asymmetric_landmark_count': 좌우 valid frame 차이>30% (한쪽 가림).
+   *   - 'pose_too_inverted': 인버트 자세 frame>50% (image y-down 좌표 직접 비교,
+   *     PoleAxis.axisVector 부호와 독립적 — MEDIUM-3 v5).
+   * 기본값 [].
+   */
   warnings: string[];
 }
 

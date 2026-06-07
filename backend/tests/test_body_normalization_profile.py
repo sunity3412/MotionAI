@@ -130,3 +130,93 @@ def test_warnings_must_be_list_of_str() -> None:
             confidence=0.7,
             warnings=[123, "ok"],  # type: ignore[list-item]
         )
+
+
+# ── Phase 2 v5 박제 (MEDIUM-2 v5): 5 numeric scale 필드 finite + strictly positive ──
+
+import math  # noqa: E402
+
+_NUMERIC_FIELDS = (
+    "estimated_height_scale",
+    "arm_scale",
+    "leg_scale",
+    "torso_scale",
+    "shoulder_hip_ratio",
+)
+
+
+def _build_kwargs(**overrides: float) -> dict:
+    """정상 값 baseline + overrides 로 dataclass 인자 dict 생성."""
+    base = {
+        "estimated_height_scale": 1.0,
+        "arm_scale": 1.0,
+        "leg_scale": 1.0,
+        "torso_scale": 1.0,
+        "shoulder_hip_ratio": 1.0,
+        "confidence": 0.9,
+    }
+    base.update(overrides)
+    return base
+
+
+@pytest.mark.parametrize("field_name", _NUMERIC_FIELDS)
+def test_numeric_field_rejects_nan(field_name: str) -> None:
+    """5 필드 각각 NaN → ValueError + message 에 필드명 (MEDIUM-2 v5)."""
+    from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
+
+    with pytest.raises(ValueError, match=field_name):
+        BodyNormalizationProfile(**_build_kwargs(**{field_name: math.nan}))
+
+
+@pytest.mark.parametrize("field_name", _NUMERIC_FIELDS)
+def test_numeric_field_rejects_positive_inf(field_name: str) -> None:
+    """5 필드 각각 +inf → ValueError (MEDIUM-2 v5)."""
+    from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
+
+    with pytest.raises(ValueError, match=field_name):
+        BodyNormalizationProfile(**_build_kwargs(**{field_name: math.inf}))
+
+
+@pytest.mark.parametrize("field_name", _NUMERIC_FIELDS)
+def test_numeric_field_rejects_negative_inf(field_name: str) -> None:
+    """5 필드 각각 -inf → ValueError (MEDIUM-2 v5)."""
+    from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
+
+    with pytest.raises(ValueError, match=field_name):
+        BodyNormalizationProfile(**_build_kwargs(**{field_name: -math.inf}))
+
+
+@pytest.mark.parametrize("field_name", _NUMERIC_FIELDS)
+def test_numeric_field_rejects_zero(field_name: str) -> None:
+    """5 필드 각각 0.0 → ValueError (strictly positive, MEDIUM-2 v5)."""
+    from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
+
+    with pytest.raises(ValueError, match=field_name):
+        BodyNormalizationProfile(**_build_kwargs(**{field_name: 0.0}))
+
+
+@pytest.mark.parametrize("field_name", _NUMERIC_FIELDS)
+def test_numeric_field_rejects_negative(field_name: str) -> None:
+    """5 필드 각각 음수 → ValueError (MEDIUM-2 v5)."""
+    from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
+
+    with pytest.raises(ValueError, match=field_name):
+        BodyNormalizationProfile(**_build_kwargs(**{field_name: -1.0}))
+
+
+def test_valid_profile_passes_validator() -> None:
+    """정상 값 5 필드 + confidence + warnings=[] → 객체 생성 OK (MEDIUM-2 v5)."""
+    from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
+
+    p = BodyNormalizationProfile(
+        estimated_height_scale=1.0,
+        arm_scale=1.1,
+        leg_scale=1.05,
+        torso_scale=1.0,
+        shoulder_hip_ratio=0.85,
+        confidence=0.9,
+        warnings=[],
+    )
+    assert p.arm_scale == 1.1
+    assert p.confidence == 0.9
+    assert p.warnings == []

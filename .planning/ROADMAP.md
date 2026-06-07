@@ -404,15 +404,22 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 **Execution Order:**
 ~~Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15~~
 
-**2026-06-07 belle 결정 — A+B+C 우선, Phase 2~11 보류 (파일럿 후 v1.5)**:
+**2026-06-08 belle 갱신 — 분석 정확도 핵심 차원 v1 진행 (이전 보류 결정 무효)**:
 
-- Phase 1 ✓ (close-out, Plan 01-24 후속), Phase 5 ✓ (12차 sweep PASS), Phase 16 ✓ (v1 데이터/카피 박제 완료)
-- **시퀀스 (B → C → A)**:
-  1. **Phase 12.5 (B)** = UI transparency + 강사 보조 카피 — 3~5일, 빌드 12 ship
-  2. **Phase 16 코드 통합 (C)** = AKA 매핑 + 5트랙 채점 v1 + 분기 3 자동 수집 스키마 — 1~2주, 빌드 13 ship
-  3. **Phase 12 (A)** = 실측 각도 + 키포인트 오버레이 — 2주~, 빌드 14 ship (feature flag + branch 박제로 stable 유지)
-  4. **parallel: Plan 01-24** = NLF R&D 격리 명시 + import 차단 — 0.5~1일, B 와 별도 PR
-- **Phase 2~11 / 13 / 14 보류 reasoning**: 메모리 [[feedback-analysis-first]] 정합 — 현 RTMW + IPSF (a)+(c)+Page 9 + 정은지 reference 가 5/5 PASS 충족. 두 엔진 본체 (체형 정규화 + 힘 패턴 + CoachCommentHook) 는 파일럿 실증 후 v1.5 진입. 상세 = `.planning/roadmap-replan-2026-06-07.md` + `roadmap-replan-2026-06-07-review.md`.
+- close-out 박제: Phase 1 ✓ / Phase 2 ✓ / Phase 5 ✓ / Phase 12.5 ✓ / Phase 16 ✓
+- **belle 박제** (2026-06-08): "분석이 제대로 되는 게 목표. 오버레이, 체형 정규화, 힘 패턴은 필수적이지. 어떻게든 기필코 개발하려고 하는 게 지금."
+- **v1 시퀀스 (분석 정확도 chain — ROADMAP dep 그래프 정합)**:
+  1. **Phase 6** = 체형 정규화 비교 엔진 (coaching 모드) — dep: 2 ✓, 5 ✓ — **현재 진입 (`06-CONTEXT.md` 2026-06-08 박제, plan-phase 2026-06-09 오전 9시 진입)**
+  2. **Phase 7** = 차이 분류 (체형 허용 / 개선 필요 / uncertain) — dep: 6
+  3. **Phase 8** = 중심축 이탈 + 접촉점 안정성 + jerk/jitter — dep: 1 ✓, 4 (단일 시점 fallback 박제 검토)
+  4. **Phase 9** = ForceDirectionPattern + 실패 원인 후보 3 — dep: 8
+  5. **Phase 12** = 실측 각도 + 키포인트 오버레이 — dep: 6, 7 (정규화된 각도 위에 표시)
+  6. **Phase 13** = 보완 운동 + LLM 분기 카피 — dep: 7, 9, 12.5 ✓
+- **이전 보류 reasoning 무효** — 2026-06-07 결정의 "두 엔진 본체 (체형 정규화 + 힘 패턴 + CoachCommentHook) 는 파일럿 후 v1.5" 박제는 본 갱신으로 무효. 메모리 [[feedback-analysis-first]] (분석이 망하면 다 망함 — 도메인 제대로 우선) + [[plan-vs-pivot-cross-check]] 정합. `.planning/roadmap-replan-2026-06-07.md` 는 이력 보존용.
+- **Phase 10 (부상 위험) / Phase 11 (CoachCommentHook + Gemini 자연어 번역)** = Phase 9 close-out 후 belle 박제 (v1 / v1.5 분기). 현 시점 미결정.
+- **Phase 14 (정은지 기준 모션 등록 다각도)** = Phase 6 D-06-B2 (reference-motions 컬렉션 BodyProfile 필드 추가) 가 plumbing 박제 후 일회 백필 fixture 로 우회 가능. 정식 Phase 14 진입 시점은 belle 박제.
+- **Phase 15 (Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight)** = Phase 11/12/13/14 박제 후. 빌드 N (빌드 12 ship 후) 박제.
+- **(이력) 2026-06-07 belle 결정 — A+B+C 우선, Phase 2~11 보류 (파일럿 후 v1.5)**: Phase 12.5 (B) + Phase 16 코드 통합 (C) + Phase 12 (A) 우선 시퀀스. Phase 12.5 ✓ close-out 후 belle 가 분석 정확도 우선으로 보류 결정 무효.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -421,15 +428,15 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |
 | 5. Gemini 기술 인식기 (분류 한정) | 6/6 | Complete | 2026-06-05 (12차 sweep D-01 PASS) |
-| 6. 체형 정규화 비교 엔진 | 0/TBD | Not started | - |
+| 6. 체형 정규화 비교 엔진 | 0/TBD | CONTEXT 박제 (2026-06-08), plan-phase 2026-06-09 진입 예정 | - |
 | 7. 차이 분류 | 0/TBD | Not started | - |
 | 8. 중심축·접촉점·jerk 분석 | 0/TBD | Not started | - |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 0/TBD | Not started | - |
 | 10. 부상 위험 신호 플래그 | 0/TBD | Not started | - |
 | 11. CoachCommentHook + Gemini 번역 | 0/TBD | Not started | - |
-| 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (A, 3rd) | - |
-| 12.5. UI Transparency (차원별 카피 + 강사 보조) | 0/1 | Not started (B, 1st) | - |
-| 13. 보완 운동·스트레칭 추천 | 0/TBD | Not started | - |
+| 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
+| 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |
+| 13. 보완 운동·스트레칭 추천 | 0/TBD | Not started (v1 chain #6) | - |
 | 14. 정은지 기준 모션 등록 (다각도) | 0/TBD | Not started | - |
 | 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 0/TBD | Not started | - |
 | 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 1/1 | Complete   | 2026-06-02 |

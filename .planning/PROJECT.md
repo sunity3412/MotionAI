@@ -103,6 +103,9 @@
 | IPSF 5트랙 채점 v1 scope = (a) Compulsory Criteria + (c) Technical Deduction + Page 9 절대 공통 트랙 | NotebookLM IPSF CoP 2024-2025 lookup (2026-06-02) — Page 9 "all components" 명시로 동작 인식 실패/비등재 케이스에도 합법 채점. mode3 reference 없는 채점의 IPSF 공식 근거. (b) Tech Bonus / (d) Artistic = v2 | — Pending (Phase 16) |
 | 학원 용어 처리 = 3분기 (AKA 매핑 / 정은지 reference / 자동 수집) | 학원 사용자 1차 진입 시 한국 학원 통용 용어 (폭스탑 등) 그대로 입력 가능해야 함. 13개 AKA 매핑 NotebookLM 확보. 자동 수집 = 한국 최초 학원 용어 표준화 데이터 (KPSA 미작성 영역) | — Pending (Phase 16) |
 | UX 카피 박제 (분기 3 미등재 안내) | belle 직접 작성 카피 — "공식 등재되어 있지 않은 기술명입니다. 서니티는 국제 대회 기준 명칭을 기준으로 평가하며 추가로 학원에서 등록된 명칭을 사용합니다..." 변경/요약/재가공 금지 | — Pending (Phase 16) |
+| (2026-06-08) 분석 정확도 핵심 차원 v1 진행 — 체형 정규화 + 힘 패턴 + 오버레이 (이전 보류 결정 무효) | belle 박제 — "분석이 제대로 되는 게 목표. 오버레이, 체형 정규화, 힘 패턴은 필수적. 어떻게든 기필코 개발하려고 하는 게 지금." 메모리 [[feedback-analysis-first]] (분석이 망하면 다 망함, 도메인 제대로 우선) 정합. 2026-06-07 "Phase 2~11 보류" 박제는 본 결정으로 무효 | — 진입 (Phase 6 CONTEXT 박제, plan-phase 2026-06-09 진입) |
+| (2026-06-08) Phase 6 좌표 변환 방향 = B (프로 → 수강생 체형) | belle intent — "사용자 목적은 자신의 동작에서 수정". Phase 12 오버레이 = 사용자 영상 위에 "내 키로 환산된 정은지 자세" 표시 직관. 점수 산출은 방향 A/B 동치, 시각화만 다름 | — Pending (Phase 6 plan) |
+| (2026-06-08) Phase 6 universal — confidence-tiered hybrid | confidence 낮음 = 안전 fallback (raw 비교 / Page 9 단독 / 정규화 OFF), confidence 높음 = 분석 가능한 모든 path 활성화 (5 필드 정규화 + 매칭 reference fallback + 모든 차원). 메모리 [[feedback-analysis-first]] + [[mvp-simple-pilot-quality]] 동시 정합 | — Pending (Phase 6 plan) |
 
 ## Evolution
 
@@ -124,3 +127,4 @@ This document evolves at phase transitions and milestone boundaries.
 ---
 *Last updated: 2026-05-29 after initialization + field-research integration (수강생/강사 설문조사 + 핵심기능 8 + 안티패턴)*
 *Updated 2026-06-02: Phase 16 신설 — 학원 용어 3분기 + 5트랙 채점 v1 scope. NotebookLM IPSF CoP 2024-2025 lookup 박제. v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제. Active 그룹 (점수 신뢰도 / 기준 모션) 항목 추가, Out of Scope v2 보강, Key Decisions 3건 추가.*
+*Updated 2026-06-08: 분석 정확도 핵심 차원 v1 진행 결정 (이전 2026-06-07 "Phase 2~11 보류" 박제 무효). v1 시퀀스 = Phase 6 → 7 → 8 → 9 → 12 → 13. belle 박제 — "오버레이, 체형 정규화, 힘 패턴은 필수적. 어떻게든 기필코 개발하려고 하는 게 지금." Phase 6 CONTEXT.md 박제 (좌표 변환 방향 B + confidence-tiered hybrid + 3 케이스 통합 schema). Key Decisions 3건 추가.*

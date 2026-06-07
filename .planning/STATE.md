@@ -21,21 +21,26 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase null
+**Current focus:** Phase 6 (체형 정규화 비교 엔진 coaching)
 
 ## Current Position
 
-Phase: 02 — COMPLETE
-Plan: 1 of ?
-Next phase: **2 (BodyNormalizationProfile RTMW segment)** — READY TO EXECUTE
-Status: Phase 02 complete
+Phase: 06 — CONTEXT 박제 (2026-06-08)
+Plan: 0 of TBD
+Next: `/gsd-plan-phase 6` 진입 (2026-06-09 오전 9시 belle 결정)
+Status: Phase 02 ✓ → Phase 06 진입 (체형 정규화 비교 엔진 coaching 모드)
 
-### 진입 chain 결정 (belle 2026-06-07)
+### 진입 chain 갱신 (belle 2026-06-08)
 
-1. 빌드 12 ship 후보 → 보류 (Phase 12 키포인트 오버레이 먼저 결정)
-2. Phase 12 진입 시도 → ROADMAP dep = Phase 6+7 미완 → belle "Phase 6+7 먼저"
-3. Phase 6 dep = Phase 2 (BodyProfile) 미완 → belle "자가 입력 X, 자동 측정 우선" → **Phase 2 진입**
-4. ROADMAP rename: Phase 2 "MediaPipe segment" → "RTMW segment" (Phase 1 RTMW pivot 정합)
+belle 박제 — "분석이 제대로 되는 게 목표. 오버레이, 체형 정규화, 힘 패턴은 필수적. 어떻게든 기필코 개발하려고 하는 게 지금."
+
+v1 시퀀스 (분석 정확도 chain — ROADMAP dep 그래프 정합):
+
+**Phase 6 (체형 정규화) → 7 (차이 분류) → 8 (중심축·접촉점·jerk) → 9 (ForceDirectionPattern + 실패 후보 3) → 12 (실측 각도 + 키포인트 오버레이) → 13 (보완 운동 + LLM)**
+
+이전 chain 박제 (이력 보존):
+- 2026-06-07 belle 결정: A+B+C 우선, Phase 2~11 보류 (파일럿 후 v1.5) — Phase 12.5 close-out 후 belle 갱신으로 무효
+- 2026-06-07 belle 결정: "Phase 2 → 6 → 7 → 12 → 13" — 힘 패턴 (8, 9) 누락, 본 갱신으로 8/9 추가
 
 ### Phase 2 plan 산출
 

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: executing
-stopped_at: "2026-06-07 Phase 2 plan-phase 완료 (CONTEXT + RESEARCH + PLAN + PLAN-CHECK). belle 결정 chain: 빌드 12 ship 대신 Phase 12 (키포인트 오버레이) 진입 → dep Phase 6+7+2 발견 → belle '자동 측정 우선' → Phase 2 (RTMW segment) 부터. ROADMAP rename (MediaPipe → RTMW), plan-checker 15/15 PASS_WITH_CONCERNS (non-blocking risks: 실 영상 갭 보고서 stub, AST scope 한정, synthetic fixture만, estimatedHeightScale 임계값 임시). 진입 순서: Phase 2 → 6 → 7 → 12. 다음 = /gsd-execute-phase 02."
-last_updated: "2026-06-07T18:30:00.000Z"
-last_activity: 2026-06-07 -- Phase 2 plan-phase 완료 (RTMW segment 측정기 — 6 atomic commits)
+status: completed
+stopped_at: 2026-06-07 belle 의 mode3 첫 분석 진짜 first 박제 정합 동작 확인. 5가지 추가 fix 박제. 다음 세션 = 개발 로드맵 정리 + 외부 AI 검증 + A/B/C plan 진행.
+last_updated: "2026-06-07T15:16:50.020Z"
+last_activity: 2026-06-07
 progress:
-  total_phases: 16
-  completed_phases: 4
-  total_plans: 31
-  completed_plans: 23
-  percent: 56
+  total_phases: 17
+  completed_phases: 2
+  total_plans: 34
+  completed_plans: 30
+  percent: 12
 ---
 
 # Project State
@@ -21,13 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 05 — gemini
+**Current focus:** Phase null
 
 ## Current Position
 
-Phase: 12.5 (UI Transparency) — DONE (2026-06-07 close-out)
+Phase: 02 — COMPLETE
+Plan: 1 of ?
 Next phase: **2 (BodyNormalizationProfile RTMW segment)** — READY TO EXECUTE
-Status: plan 완료, /gsd-execute-phase 02 대기
+Status: Phase 02 complete
 
 ### 진입 chain 결정 (belle 2026-06-07)
 
@@ -67,9 +68,11 @@ Phase 2 → 6 (체형 정규화) → 7 (차이 분류) → 12 (키포인트 오�
 1. **학원 용어 vs IPSF 등재 분기 카피** — 폭스탑 = "정은지 선수 기준" / 클라임 = "세계 심사 기준 (IPSF) + 180°". 메모리 [`studio-term-3branch-system`] 분기 1/2 정합
 2. **angle 차원 동작별 IPSF 정의 각도** — 어깨 90° / 엉덩이 110° 등 동작별 fixture 또는 LLM 매핑
 3. **시뮬 segments 일부 시나리오 X** — mode 3 first 정답 (이전 영상 없음), 그 외는 실 분석에서 backend `assemble.build_segments` 자동 생성
-Last activity: 2026-06-07 -- 로드맵 재정렬 + Phase 12.5 신설
+
+Last activity: 2026-06-07
 
 **시퀀스 (belle 2026-06-07 결정 — B → C → A)**:
+
 1. **B (Phase 12.5)** — 3~5일 — UI transparency + 강사 보조 카피 — 빌드 12 ship
 2. **C (Phase 16 코드 통합)** — 1~2주 — AKA 매핑 + 5트랙 v1 + 분기 3 — 빌드 13 ship
 3. **A (Phase 12)** — 2주~ — 실측 각도 + 키포인트 오버레이 — 빌드 14 ship
@@ -380,6 +383,7 @@ Stopped at: 2026-06-07 belle 의 mode3 첫 분석 진짜 first 박제 정합 동
 ### 다음 세션 우선 진행 (belle 결정)
 
 belle 의 의문 박제 정신 정합:
+
 1. **개발 로드맵 순서 정리** — Phase 1-15 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 박제 (Phase 5 박제 박제, Phase 1/14/15 박제 박제 박제)
 2. **외부 AI 검증** — Codex/gpt-5.5 plan-review-convergence 박제 cross-check ([[cross-ai-plan-review-good]] 박제 정합)
 3. **A/B/C plan 진행** (belle 명시 박제):
@@ -392,6 +396,7 @@ belle 의 의문 박제 정신 정합:
 ### 2026-06-07 세션 핵심 박제
 
 **Phase 5 사실상 완료** — mock E2E mode1/mode3 PASS + belle 실제 분석 mode1 점수 94/97 PASS + 5가지 UI/UX 의문 fix:
+
 1. (b3) 코칭팁 라벨 중복 fix ("오른쪽 어깨 어깨" → "오른쪽 어깨")
 2. (b4) 숫자 브랜드 컬러 강조 (#FF4B33)
 3. (b5) 완벽 수행 메시지 (angle 95+ 시 + mode 분기)
@@ -399,6 +404,7 @@ belle 의 의문 박제 정신 정합:
 5. mode3 second+ overall 산식 변경 — (각도+안정성) 평균 (belle 의문 정합)
 
 **Phase 15 진행** — TestFlight letterSpacing SIGABRT fix:
+
 - root cause = `theme/typography.ts` 의 `track(size) = size * -0.04` (음수 letterSpacing)
 - fix = `track(size) = 0` (commit 787a901)
 - EAS Build 10 + auto-submit (commit e3bf753 lock sync)
@@ -421,6 +427,7 @@ Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md
 `download.openmmlab.com` 도메인이 2026-06-04 즈음 만료 — `dig +trace` 권한 NS 자체가 `expirens3/4.hichina.com` (Alibaba HiChina 만료 도메인 전용 NS). 박제된 RTMW URL + YOLOX URL 모두 도달 불가. mmpose 사용자 전체 영향. 박제 메모 [[rtmw-clean-weight-release-gate.md]] 의 우려 적중.
 
 belle 결정 (mirror 검색 path) → HuggingFace anonymous mirror 활용 우회 완료:
+
 - RTMW-X-384: `hf://bukuroo/RTMW-ONNX/rtmw-x-384.onnx` (369MB) + S3 백업 `s3://sunity-motion-pilot-videos/_artifacts/rtmw-x-384_bukuroo_hf.onnx`
 - YOLOX-M (person detector): `hf://hr16/yolox-onnx/yolox_m.onnx` (97MB, Apache-2.0)
 
@@ -432,6 +439,7 @@ belle 결정 (mirror 검색 path) → HuggingFace anonymous mirror 활용 우회
 | 081192b | rtmw_engine.py | YOLOX_ONNX_PATH env 박제 — OpenMMLab CDN 만료 우회 (함정 22) |
 
 박제 메모 [[runpod-gpu-env.md]] 갱신 = 함정 20~27 추가 (누적 27종). 핵심:
+
 - 함정 20: OpenMMLab CDN 글로벌 만료 (2026-06-04)
 - 함정 21/22: RTMW + YOLOX HF mirror path
 - 함정 23/24: setup_pod_full.sh 박제 누락 (runpod_inference/requirements.txt install + RUNPOD_AUTH_TOKEN .bashrc)

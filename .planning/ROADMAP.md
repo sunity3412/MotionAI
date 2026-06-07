@@ -45,8 +45,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만** - AI+코치 비즈니스 모델 + 설명 엔진 한정
 - [ ] **Phase 12: 실측 각도 표시 + 키포인트 오버레이** - "현재 87° → 기준 110°" + 어깨/골반/무릎/손/중심축. **2026-06-07 belle 결정: A 항목, B → C → A 시퀀싱의 마지막. feature flag + git branch 박제로 빌드 11 stable 유지하며 진행.**
 - [x] **Phase 12.5: UI Transparency — 차원별 카피 + 자세히 모달 + LLM-ready coaching** - `result.tsx` 차원별 카드 (각도 정확도 / 팔다리 펴기 / 동작 안정성) + 자세히 모달 (점수 산출 설명, 동작·사용자 동적 카피, "심사평" 자연어) + 코칭 팁 자세히 모달 (LLM 동적 다중 원인 + 부상 경고 + coachNote). backend `assemble.build_dimension_explanation` + `coach_writer` JSON 출력 + Cerebras 시스템 프롬프트 갱신. **2026-06-07 close-out** (commits 1c0d20a T1+T2 / 62fdeed T9 backend / e968074 T8+T9 frontend). belle UX 검증 PASS — 모달 스크롤 정상 동작 + 심사평 톤 (평가+이유+결정 3박자) 적용.
-- [ ] **Phase 12.6: LLM 분기 카피 + 학원/IPSF 동작 분기 (실 LLM 활성화)** - Pod 갱신 + uvicorn 재시작 후 실 영상 분석에서 Cerebras `tip.detail2` 검증. `assemble.build_dimension_explanation` 에 `ipsfCode` 유무로 분기 1 (IPSF 등재, 예: 클라임 = "세계 심사 기준 + 180°") vs 분기 2 (학원 통용, 예: 폭스탑 = "정은지 선수 기준") 카피 분리. `coach_writer` 시스템 프롬프트에 동작 분기 + IPSF 정의 각도 fixture 주입. 메모리 [`studio-term-3branch-system`] 정합. **belle 2026-06-07 결정: Phase 12.5 시뮬 한계 (학원 용어 어색 + 180° 명시 없음) 의 실 LLM 해결.**
-- [ ] **Phase 13: 보완 운동·스트레칭 추천 라이브러리** - 분석 → 행동 매핑 (PERS-03 v1)
+- [ ] **Phase 13: 보완 운동 추천 + LLM 분기 카피 + coaching detail 완성** - (a) 분석 결과의 실패 원인 후보·체형 정규화 finding 에 맞는 보완 운동·스트레칭 자동 매핑 (분석 → 행동 → 재구매, PERS-03), (b) 실 LLM 활성화 — Pod 갱신 + Cerebras `tip.detail2` 실 영상 검증, (c) `assemble.build_dimension_explanation` 에 `ipsfCode` 분기로 분기 1 (IPSF 등재 = "세계 심사 기준 + 180°") vs 분기 2 (학원 통용 = "정은지 선수 기준") 카피 분리, (d) `coach_writer` 시스템 프롬프트에 동작 분기 + IPSF 정의 각도 fixture 주입. 메모리 [`studio-term-3branch-system`] 정합. **belle 2026-06-07 결정: Phase 12.5 시뮬 한계 (폭스탑 학원 용어 어색 + angle 차원 180° 명시 X) 의 실 LLM 해결을 보완 운동 추천과 같은 phase 로 통합 — backend coach_writer 단일 phase 작업.**
 - [ ] **Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)** - 비교 정확도 최대화 + 다각도 캡처 프로토콜
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주
 - [x] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path. (completed 2026-06-02)
@@ -306,21 +305,25 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 13: 보완 운동·스트레칭 추천 라이브러리
+### Phase 13: 보완 운동 추천 + LLM 분기 카피 + coaching detail 완성
 
-**Goal**: 분석 결과의 실패 원인 후보·체형 정규화 finding에 따라 보완 운동·스트레칭이 자동 매핑되어 결과 화면에 표시된다 (분석 → 행동 → 재구매)
+**Goal**: (a) 분석 결과의 실패 원인 후보·체형 정규화 finding 에 따라 보완 운동·스트레칭이 자동 매핑되어 결과 화면에 표시되고, (b) Cerebras LLM 이 실 영상 분석에서 `tip.detail2` (causes/injuryRisk/coachNote) 동적 생성하며, (c) 동작이 IPSF 등재인지 학원 통용인지에 따라 차원 자세히 모달의 formula/baseline/심사평 카피가 분기되어 출력된다 (분석 → 행동 → 재구매 + 코칭 신뢰도)
 **Mode:** mvp
-**Depends on**: Phase 7, Phase 9 (체형 차이·실패 원인 위에 매핑)
-**Requirements**: PERS-03
-**Scope 제약**: 초기 3~5개 동작군에 대해 보완 운동 5~10개 큐레이션. 영상 가이드는 v2.
+**Depends on**: Phase 7, Phase 9 (체형 차이·실패 원인 위에 매핑), Phase 12.5 (UI transparency layer 완성된 후 backend 채움)
+**Requirements**: PERS-03, [`studio-term-3branch-system`] 메모리
+**Scope 제약**: 초기 3~5개 동작군에 대해 보완 운동 5~10개 큐레이션. 영상 가이드는 v2. LLM 분기는 분기 1 (IPSF 등재) + 분기 2 (학원 통용 정은지 reference) 만 v1, 분기 3 (자동 수집) 은 v2.
 **Success Criteria** (what must be TRUE):
 
   1. 실패 원인·체형 차이별로 매핑된 보완 운동·스트레칭 라이브러리(JSON/Firestore)가 존재한다
   2. 결과 화면이 사용자별 분석 결과에 맞는 보완 운동 3~5개를 표시한다
   3. 매핑 로직이 동작 인식 결과 + 실패 후보 + 통증부위(BodyProfile)를 함께 고려한다
   4. 사용자가 "다른 운동 보기" 같은 액션으로 라이브러리를 탐색할 수 있다
+  5. Pod 갱신 + uvicorn 재시작 후 실 영상 분석에서 Cerebras `tip.detail2` 가 채워져 Firestore doc 에 저장되고, 결과 화면 "코칭 팁 자세히 ›" 가 시뮬 fixture 와 동일 UI 로 실 LLM 응답 표시
+  6. `assemble.build_dimension_explanation` 이 `motionId` 의 `ipsfCode` 유무로 분기 1 vs 분기 2 카피 분리 (분기 1 = "세계 심사 기준 (IPSF) + 180°", 분기 2 = "정은지 선수 기준 자세")
+  7. `coach_writer` 시스템 프롬프트에 동작 이름 + 분기 정보 + IPSF 정의 각도 fixture (angle 차원, 어깨 90° 등) 가 주입되어 자연어 응답이 정확한 기준 각도를 인용
+  8. 학원 용어 (폭스탑) 입력 시 결과 화면이 "세계 심사 기준" 어색 표현 없이 "정은지 선수 기준" 으로 자연 노출
 
-**Plans**: TBD
+**Plans**: TBD — 보완 운동 라이브러리 plan + LLM 분기 plan 분리 또는 통합 결정은 planner 가
 **UI hint**: yes
 
 ### Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)

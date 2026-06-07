@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-06-07 Phase 12.5 close-out (commits 1c0d20a T1+T2 backend / 62fdeed T9 backend / e968074 T8+T9 frontend). 자세히 모달 2종 (차원/코칭) + LLM-ready coach_writer JSON 프롬프트 + dimensionExplanation 분기-1 mode-aware 카피 + belle UX 검증 PASS (모달 스크롤 정상 + 심사평 3박자 톤). 후속 Phase 12.6 신설 = LLM 분기 카피 (학원/IPSF 분기 1/2 분리 + ipsfCode 동작별 IPSF 정의 각도 fixture). 시뮬 한계 (폭스탑 학원 용어 어색 + 180° 명시 angle 차원 X) 는 실 LLM + 분기 시스템으로 해결 예정."
-last_updated: "2026-06-07T17:30:00.000Z"
-last_activity: 2026-06-07 -- Phase 12.5 close-out (T8+T9 자세히 모달 + belle UX iteration finalize)
+stopped_at: "2026-06-07 Phase 12.5 close-out (commits 1c0d20a T1+T2 backend / 62fdeed T9 backend / e968074 T8+T9 frontend). 자세히 모달 2종 (차원/코칭) + LLM-ready coach_writer JSON 프롬프트 + dimensionExplanation 분기-1 mode-aware 카피 + belle UX 검증 PASS (모달 스크롤 정상 + 심사평 3박자 톤). Phase 12.5 시뮬 한계 3종 (폭스탑 학원 용어 어색 / angle 차원 180° 명시 X / 시뮬 segments 일부) 는 Phase 13 으로 통합 — 보완 운동 추천 (PERS-03) + LLM 분기 카피 + coaching detail 완성 단일 phase. backend coach_writer 한 번에 작업."
+last_updated: "2026-06-07T17:45:00.000Z"
+last_activity: 2026-06-07 -- Phase 12.5 close-out + Phase 13 scope 확장 (LLM 분기 카피 통합)
 progress:
-  total_phases: 17
+  total_phases: 16
   completed_phases: 4
   total_plans: 31
   completed_plans: 23
-  percent: 53
+  percent: 56
 ---
 
 # Project State
@@ -26,8 +26,10 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 12.5 (UI Transparency) — **DONE** (2026-06-07 close-out)
-Next phase: 12.6 (LLM 분기 카피 + 학원/IPSF 동작 분기) — READY TO PLAN
-Status: 진입 대기 (/gsd-plan-phase 12.6)
+Next phase: 13 (보완 운동 추천 + LLM 분기 카피 + coaching detail 완성) — READY TO PLAN
+Status: 진입 대기 (/gsd-plan-phase 13)
+
+> Phase 13 scope 확장 (belle 2026-06-07): 원래 "보완 운동·스트레칭 추천 라이브러리" (PERS-03) 단독이었으나, Phase 12.5 시뮬 한계의 backend 후속 작업 (LLM 활성화 + 분기 1/2 카피 분리 + IPSF 정의 각도 fixture) 을 같은 phase 로 통합. 이유: backend `coach_writer` 단일 작업 + 동작 분기 후 그 동작별 보완 운동 추천이 같은 흐름. 이전에 신설한 Phase 12.6 = revert.
 
 ### Phase 12.5 close-out 내역
 

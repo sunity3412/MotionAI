@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: completed
-stopped_at: 2026-06-07 belle 의 mode3 첫 분석 진짜 first 박제 정합 동작 확인. 5가지 추가 fix 박제. 다음 세션 = 개발 로드맵 정리 + 외부 AI 검증 + A/B/C plan 진행.
-last_updated: "2026-06-07T15:16:50.020Z"
+stopped_at: Phase 6 context gathered (A 정규화 대상 + B mode 분기 + Universal confidence-tiered hybrid)
+last_updated: "2026-06-07T16:16:16.053Z"
 last_activity: 2026-06-07
 progress:
-  total_phases: 17
-  completed_phases: 2
-  total_plans: 34
+  total_phases: 6
+  completed_phases: 3
+  total_plans: 33
   completed_plans: 30
-  percent: 12
+  percent: 50
 ---
 
 # Project State
@@ -351,9 +351,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-07 -- belle 실제 TestFlight 빌드 11 분석 PASS (mode1+mode3 first 정합). 세션 종료.
+Last session: 2026-06-07T16:16:16.038Z
 
-Stopped at: 2026-06-07 belle 의 mode3 첫 분석 진짜 first 박제 정합 동작 확인. 5가지 추가 fix 박제. 다음 세션 = 개발 로드맵 정리 + 외부 AI 검증 + A/B/C plan 진행.
+Stopped at: Phase 6 context gathered (A 정규화 대상 + B mode 분기 + Universal confidence-tiered hybrid)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -420,7 +420,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/05-gemini/05-05-SUMMARY.md
+Resume file: .planning/phases/06-coaching/06-CONTEXT.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

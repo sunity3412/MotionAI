@@ -1,10 +1,10 @@
 ---
 phase: 2
 phase_dir: .planning/phases/02-bodynormalizationprofile-rtmw-segment
-plan_revision: v3
+plan_revision: v4
 reviewers: [codex]
 attempted_reviewers: [claude, codex]
-reviewed_at: 2026-06-07T12:14:36Z
+reviewed_at: 2026-06-07T13:12:33Z
 plans_reviewed: [02-01-PLAN.md]
 review_limitations:
   - "Claude CLI was installed but failed before review: Not logged in - Please run /login"
@@ -26,45 +26,45 @@ review_limitations:
 
 ### Summary
 
-The plan is unusually thorough and does a good job preserving prior review feedback, especially around B8 signature preservation, RTMW coordinate convention, lockstep schema updates, and R&D isolation. As-is, I would not approve it without one design change: `_RTMWNlfCompat.last_body_profile` as a shared mutable sidecar is risky in the RunPod/FastAPI background-task path. The plan is otherwise strong, but Task 5b also hides too much real implementation behind a human checkpoint.
+The plan is unusually thorough and has clearly absorbed prior review feedback, especially around B8 signature preservation, R&D isolation, and avoiding mutable sidecar state. I would not approve it as-is for phase closure, though. Two issues are material: the NLF -> SMPL-X beta comparison path risks producing scientifically meaningless profiles if it tries to derive body ratios from beta without the actual SMPL-X model/joints, and Task 5b still pushes a multi-step console workflow onto belle despite project constraints. The core measurer/pipeline-helper work is directionally sound.
 
 ### Strengths
 
-- Clear traceability from BODY-01 success criteria to concrete tasks and tests.
-- Good preservation of B8 signature locks in [test_pipeline_recognizer_switch.py](/Users/kimtaesung/Dev/SunityMotion/backend/tests/test_pipeline_recognizer_switch.py:225).
-- RTMW image y-down convention is explicitly handled, with adapter-path tests planned.
-- R&D import isolation is scoped correctly and avoids breaking legacy MediaPipe code prematurely.
-- Contract lockstep thinking is strong: `docs/contract.md`, TS, Python dataclass, Firestore payload.
-- The plan avoids new numeric dependencies like scipy and keeps the measurer as a pure numpy module.
+- Strong traceability from BODY-01 to tasks, tests, and ROADMAP criteria.
+- Good correction from the earlier sidecar design: `estimate_with_profile()` plus local tuple return is the right race-safe shape for `_RTMWNlfCompat`.
+- Firestore/AnalysisDoc deferral is pragmatic and matches Phase 2 scope better than the earlier 4-way lockstep.
+- Test plan covers important regressions: y-down convention, stale profile leakage, B8 signatures, import isolation, and warning lockstep.
+- R&D import isolation is well-scoped: deployable paths are scanned while `backend/research` remains allowed.
 
 ### Concerns
 
-- **HIGH: Shared `last_body_profile` can race or leak across analyses.** `_POSE_ESTIMATOR` is global in [pipeline/app.py](/Users/kimtaesung/Dev/SunityMotion/backend/functions/pipeline/app.py:116), and RunPod accepts FastAPI `BackgroundTasks` in [server.py](/Users/kimtaesung/Dev/SunityMotion/backend/runpod_inference/server.py:198). `--workers 1` does not prove only one background analysis is active. Sequential leakage tests are not enough.
+- **HIGH:** The planned `beta_to_body_profile(beta)` is not valid if it is truly "pure NumPy, weights-free" for real SMPL-X beta. Beta coefficients only become body geometry through SMPL-X shapedirs, joint regression, and model data. A weights-free conversion can be a CI fake, but it must not satisfy ROADMAP criterion 4.
 
-- **HIGH: Task 5b contains substantial hidden implementation.** It asks belle to implement the real NLF -> SMPL-X beta loader, run RTMW extraction, generate reports, and commit data. That is more than a checkpoint. Also, the scaffold describes `load_nlf_smplx_keypoints() -> list[PoseFrame]`, while the actual R&D output should likely be per-video `BodyNormalizationProfile`.
+- **HIGH:** Task 5b still requires belle to run four repo-root commands, manage env, generate reports, and commit. Project context says belle is non-developer and console/multistep work should not be handed to her. This is a phase-closure blocker unless an operator/agent runs it or it is reduced to one audited command.
 
-- **MEDIUM: Firestore persistence expands scope.** Saving `bodyNormalizationProfile` is useful for Phase 6, but the research recommendation originally leaned toward RAM-only until Phase 6. If kept, this needs app-side type/build verification, not only backend pytest.
+- **MEDIUM:** Phase 2 says "automatic output" and "shared input for both engines," but the plan intentionally leaves `_process` unchanged and does not persist or return the profile in the live analysis path. That may be acceptable as a narrowed v1 scope, but the ROADMAP closure language must not imply product-path output yet.
 
-- **MEDIUM: Verification is still mostly synthetic.** RTMW-adapter-derived fixtures are useful, but they do not prove the real RTMW engine output distribution, detector behavior, or real video score confidence. The real keypoint dump is deferred to Task 5b, which means success criterion 1 is only partially proven before the human gate.
+- **MEDIUM:** `BodyNormalizationProfile.__post_init__` currently validates only `confidence` and `warnings` type in [body_normalization.py](/Users/kimtaesung/Dev/SunityMotion/backend/shared/python/sunity_shared/analysis/body_normalization.py:30). The plan relies on the measurer to avoid NaN/inf, but the data contract itself still allows invalid numeric scales.
 
-- **MEDIUM: `estimatedHeightScale` remains semantically weak.** The plan documents it as a torso-relative heuristic, which helps, but the field name still implies actual height. This can mislead Phase 6 unless consumers are explicitly tested to treat it as a coarse proportion hint only.
+- **MEDIUM:** `pose_too_inverted` depends on pole-axis sign. If detected pole axes can have arbitrary direction, dot-product inversion can flip warnings. The plan should require a canonical pole-axis sign or use image y-order directly for this warning.
 
-- **LOW: "AST lockstep" is mostly substring validation.** That is acceptable for enum drift, but the plan should call it string/regex lockstep rather than AST validation.
+- **MEDIUM:** Synthetic plus adapter-path validation is good, but body-ratio measurement from a full pole trick clip is vulnerable to foreshortening, motion, and occlusion bias. Deferring real RTMW output to v1.5 is honest, but it weakens criterion 1.
 
-- **LOW: Import isolation does not catch all dynamic imports.** It catches `importlib.import_module("smplx")`, but not `__import__("smplx")`, nonliteral dynamic imports, or `spec_from_file_location` abuse. This is probably acceptable, but worth documenting as residual risk.
+- **LOW:** The `estimatedHeightScale` semantic guard only scans `sunity_shared`. Misuse could happen in `backend/functions`, research scripts, or TS once the field is surfaced.
+
+- **LOW:** Verification like `grep -c "bodyNormalizationProfile" app/src/types/analysis.ts -> 1` is brittle. Prefer scoped regex against `AnalysisDoc`.
 
 ### Suggestions
 
-- Replace the mutable sidecar with a local return path that preserves B8: add a new helper such as `_angles_and_body_profile_from_video(...) -> tuple[np.ndarray, BodyNormalizationProfile | None]`; leave `_angles_from_video(...) -> np.ndarray` unchanged for B8 compatibility.
-- Add a concurrency regression test with two overlapping `_process` calls and a barriered fake estimator to prove profiles cannot cross between analyses.
-- Add a stale-failure test: if pose estimation raises after a previous successful call, no old `BodyNormalizationProfile` can be written.
-- Make Task 5b execution-only. Move the real NLF -> SMPL-X loader design into Task 5a or a separate auto task, and make its loader return per-video `BodyNormalizationProfile` records.
-- Add app verification after `AnalysisDoc.bodyNormalizationProfile?`, for example the repo's existing TypeScript compile/test command under `app`.
-- Promote one real RTMW PoseFrame JSON fixture into committed test data when Task 5b produces keypoint dumps, then run the measurer against it as a non-skip regression.
+- Replace `beta_to_body_profile(beta)` with `smplx_joints_to_body_profile(joints)` for real comparison. CI can use synthetic joint arrays; Pod execution should use actual fitted SMPL-X joints/vertices.
+- Convert Task 5b into one script, for example `python -m backend.research.evaluations.run_body_profile_gap_report --videos ... --date ...`, with extract -> loader -> compare -> manifest handled internally.
+- Add finite/positive validation for all numeric `BodyNormalizationProfile` fields, not just confidence.
+- Clarify ROADMAP status: Phase 2 closes "measurer + helper ready," while "product analysis document contains profile" is Phase 6.
+- Canonicalize `PoleAxis.axis_vector` direction before inversion checks, or define inversion from y-down shoulder/hip ordering independent of pole sign.
 
 ### Risk Assessment
 
-**Overall risk: HIGH as written.** The implementation plan is technically mature, but the shared mutable sidecar is a real correctness risk in the RunPod background-task architecture, and Task 5b hides critical R&D implementation behind a manual gate. If the profile propagation is changed to a local return/helper path and Task 5b is narrowed to execution/reporting, the risk drops to **MEDIUM**.
+**Overall risk: MEDIUM-HIGH.** The main implementation path is credible, but the R&D comparison and human checkpoint can undermine phase closure. If those two HIGH items are fixed, the remaining risks are manageable and mostly about validation depth rather than architecture.
 
 ## Consensus Summary
 
@@ -72,14 +72,15 @@ Only one reviewer produced usable output, so this is a single-reviewer synthesis
 
 ### Highest Priority Findings
 
-- **HIGH:** Replace the planned `_RTMWNlfCompat.last_body_profile` mutable sidecar. The global estimator plus RunPod background tasks can race or leak profiles across analyses.
-- **HIGH:** Narrow Task 5b so it is an execution/reporting gate, not hidden design and implementation work for the NLF -> SMPL-X loader and RTMW extraction path.
+- **HIGH:** Replace the planned weights-free `beta_to_body_profile(beta)` as the real SMPL-X comparison path. ROADMAP criterion 4 needs actual fitted SMPL-X joints or vertices, not a fake beta-only conversion.
+- **HIGH:** Replace Task 5b's four-command belle console workflow with one audited command or have an operator/agent run it. The project constraints explicitly avoid handing multistep console work to belle.
 
 ### Medium Priority Findings
 
-- Firestore persistence should include app-side type/build verification if `bodyNormalizationProfile` remains a top-level `AnalysisDoc` field.
-- Real RTMW output coverage is still deferred; synthetic and adapter-derived fixtures do not fully prove engine-output stability.
-- `estimatedHeightScale` remains a potentially misleading field name and should be protected by consumer semantics tests.
+- ROADMAP closure wording should distinguish "measurer + helper ready" from product-path analysis output, which is deferred to Phase 6.
+- `BodyNormalizationProfile` should validate numeric scale fields for finite and positive values at the contract boundary.
+- `pose_too_inverted` should not depend on arbitrary pole-axis sign.
+- Real RTMW output remains deferred to v1.5, so criterion 1 is only partially proven in Phase 2.
 
 ### Divergent Views
 

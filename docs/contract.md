@@ -145,8 +145,9 @@ updatedAt?         number (epoch ms)
 
 design.md §8 결과 화면이 그리는 데이터.
 ```
-overallScore   number              0~100 종합 (mode1=4차원 평균, mode3=절대 3차원 평균)
-dimensionScores { angle?, line, balance, stability } 각 0~100  ← IPSF 실행 차원
+overallScore   number              0~100 종합 (mode1=3차원 평균, mode3=절대 차원 평균)
+dimensionScores { angle?, line?, stability } 각 0~100  ← IPSF 실행 차원 (3차원)
+dimensionExplanation { [dim]: DimensionExplanation } optional  ← Phase 12.5 (2026-06-07)
 joints         JointScore[]        관절별 (8 — 평가 관절). 코칭 팁 근거
 tips           CoachingTip[]       상위 3개 (KISMAM Top-3 + Cerebras 문장)
 comparison     Mode1 | Mode3       아래
@@ -154,13 +155,31 @@ myVideoUrl     string              내 영상 재생 서명 URL (좌)
 referenceVideoUrl string?          mode1: 정은지 영상 (우)
 ```
 `dimensionScores` = IPSF 폴스포츠 실행 심사기준 (docs/research/폴스포츠-지식.md).
-  신체 부위가 아니라 심판이 보는 실행 차원.
+  신체 부위가 아니라 심판이 보는 실행 차원. **3차원** (2026-05-29 balance 차원 제거 —
+  IPSF 근거 없음, 의도적 비대칭 동작 위양성 제거).
   - angle     각도 정확도 (관절각 vs 기준). reference 필요 → mode1 항상, mode3 second+.
-  - line      라인·확장 (사지 신전 완성도). 절대 지표.
-  - balance   균형·정렬 (좌우 대칭). 절대 지표.
+  - line      라인·확장 (사지 신전 완성도). 절대 지표. 신전 요구 관절 없으면 생략.
   - stability 안정성·홀딩 (피크 구간 떨림). 절대 지표.
-  절대 3차원은 기준 없이 산출 → mode3 자기 성장의 세션 간 발전 델타가 같은 척도.
-  mode1=4키, mode3 first=3키(line/balance/stability), mode3 second+=4키.
+  절대 차원 (line/stability) 은 기준 없이 산출 → mode3 세션 간 발전 델타가 같은 척도.
+  mode1 = 3키, mode3 first = 2키 (line/stability — line 생략 가능 시 1키 stability),
+  mode3 second+ = 3키.
+
+`DimensionExplanation` (Phase 12.5, 2026-06-07 추가)
+```
+weightPercent  int    각 차원이 overall 에 기여하는 비중 (%). 모든 차원의 합 = 100.
+                      Largest Remainder Method: 3차원=[34,33,33], 2차원=[50,50], 1차원=[100].
+baseline       string mode-aware 기준 카피. mode1 = 정은지 측정값 참조,
+                      mode3 = 절대 지표 기반 (정은지 비교 X).
+deficitSummary string 점수 산출과 동일 source 의 deficit 한 줄 카피.
+                      angle ← kismam.top_issues worst 관절,
+                      line  ← dimensions.line_deficits_by_joint (EXTEND 관절만),
+                      stability ← dimensions.stability_wobble_by_joint (inter-frame diff).
+                      양호 점수 (≥ 80) 시 수치 X 카피 ("안정").
+```
+  - 결과 화면 "왜 이 점수인지" 가시화 용도. 점수 산식 source 와 동일 windowing 사용
+    (`dimensions._select_window` 공유) — drift 0 보장.
+  - 이전 빌드 doc 호환: 옵셔널 필드. 키 부재 시 frontend 추가 라인 표시 X.
+  - 신 backend 는 빈 `{}` 라도 항상 emit (호환성).
 
 `JointScore`
 ```
@@ -186,10 +205,11 @@ segmentScores?   베이스 공유 기술 분석 시에만
 `Mode3Comparison` (자기 성장)
 ```
 mode='mode3', isFirst(bool),
-previousAnalysisId?, deltaFromPrevious?{line,balance,stability}  (isFirst면 없음)
+previousAnalysisId?, deltaFromPrevious?{line?,stability,angle?}  (isFirst면 없음)
 ```
-  deltaFromPrevious = 발전(progress). '몇 % 일치'가 아니라 절대 차원(라인/균형/안정성)의
+  deltaFromPrevious = 발전(progress). '몇 % 일치'가 아니라 절대 차원(라인/안정성)의
   이전 분석 대비 증감(±). 절대 지표라 세션 간 같은 척도. 첫 분석이면 없음.
+  키는 양쪽 분석 공통 차원만 (line 이 한쪽에 없으면 stability 만).
 
 추출된 관절각은 done 문서 top-level 에 flat 저장 (백엔드 전용, mode3 가 '이전 영상'
 기준 DTW 비교에 사용). `angles`(number[]), `anglesJointKeys`(string[] 길이 J),

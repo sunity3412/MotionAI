@@ -127,11 +127,26 @@ export interface Mode3Comparison {
   deltaFromPrevious?: Partial<Record<ScoreDimension, number>>;
 }
 
+// Phase 12.5 (2026-06-07): 차원별 explanation. 결과 화면 "왜 이 점수인지" 가시화.
+// point: backend 산식 source 와 동일 windowing 사용 (dimensions._select_window 공유) —
+// line/stability deficit 가 점수 산출과 같은 frames 만 본다. 옵셔널 — 이전 빌드 doc 호환.
+// 신 backend 는 빈 {} 라도 항상 emit. baseline 카피는 mode-aware (정은지 비교 mode1 vs
+// 절대 지표 기반 mode3). weightPercent 는 정수, 모든 차원 합 = 100 (Largest Remainder).
+export interface DimensionExplanation {
+  weightPercent: number; // 정수 0~100. 모든 차원의 weightPercent 합 = 100.
+  baseline: string; // mode-aware 기준 카피 (한국어)
+  deficitSummary: string; // 산식과 동일 source 의 deficit 한 줄. 양호 시 수치 X.
+}
+
 export interface AnalysisResult {
-  overallScore: number; // 0~100. mode1=4차원 평균, mode3=절대 3차원 평균
-  // IPSF 실행 차원 점수. mode1=angle+line+stability, mode3=line/stability
-  // (+second+ 면 angle 일관성). 표시는 DIMENSION_ORDER 순서로 존재하는 키만.
+  overallScore: number; // 0~100. mode1=3차원 평균, mode3=절대 차원 평균
+  // IPSF 실행 차원 점수 (3차원: angle/line/stability).
+  // mode1=3키 / mode3 first=2키 (line/stability — line 생략 가능 시 1키 stability)
+  // / mode3 second+=3키 (+ angle 일관성). 표시는 DIMENSION_ORDER 순서로 존재 키만.
   dimensionScores: Partial<Record<ScoreDimension, number>>;
+  // Phase 12.5: 차원별 weight/baseline/deficit 설명. 키는 dimensionScores 의 부분 집합.
+  // 옵셔널 — 이전 빌드 doc 호환 (없으면 frontend 추가 라인 표시 X).
+  dimensionExplanation?: Partial<Record<ScoreDimension, DimensionExplanation>>;
   joints: JointScore[]; // 관절별 (보통 8). 코칭 팁 근거(각도 편차)
   tips: CoachingTip[]; // 상위 3개
   comparison: Mode1Comparison | Mode3Comparison;

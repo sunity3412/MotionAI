@@ -66,23 +66,13 @@ def hold_window(angles) -> tuple[int, int]:
 def stability_score(angles, profile: "TechniqueProfile | None" = None) -> int:
     """홀딩 구간 관절각 안정도 → 가우시안. 낮은 떨림 = 통제된 정지.
 
-    Path R (2026-06-05): inter-frame difference median 알고리즘 — 박제 정신 정합.
-    Path H production (2026-06-05): profile.hold_window 우선 사용 (Gemini KeyMoments 박제),
-    없으면 자동 추출 fallback (FallbackRecognizer path 회귀 0).
+    Path R (2026-06-05): inter-frame difference median 알고리즘.
+    Phase 12.5 v4 (Codex v3 HIGH-2): `_select_window` 박제 stability_wobble_by_joint /
+    line helpers 와 같은 windowing — drift 방지.
     """
-    a = _as_tj(angles)
-    if a.shape[0] <= 1:
-        return 100  # 프레임이 1개뿐이면 떨림 측정 불가 — 감점 근거 없음
-    if profile is not None and profile.hold_window is not None:
-        s, e = profile.hold_window
-        s = max(0, min(s, a.shape[0]))
-        e = max(s, min(e, a.shape[0]))
-    else:
-        s, e = hold_window(a)
-    sliced = a[s:e]
+    sliced, _ = _select_window(angles, profile)
     if sliced.shape[0] < 2:
-        return 100
-    # 인접 frame 간 angle 차이 (jerk) — outlier robust median 사용
+        return 100  # 프레임 부족 시 떨림 측정 불가 — 감점 근거 없음
     inter_frame_diff = np.abs(np.diff(sliced, axis=0))  # (T-1, J)
     median_jerk = np.nanmedian(inter_frame_diff, axis=0)  # (J,)
     wobble = float(np.nanmean(median_jerk))
@@ -94,20 +84,17 @@ def line_score(angles, profile: TechniqueProfile) -> int | None:
     관절만 180° 대비 부족분으로 채점한다. 신전 요구 관절이 하나도 없으면(전부 의도적
     굽힘) 라인 평가 대상이 아니므로 None → 해당 차원 생략(가짜 점수 안 만듦).
 
-    Path H production (2026-06-05): profile.hold_window 우선 사용.
+    Phase 12.5 v4 (Codex v3 HIGH-2): `_select_window` 박제 line_deficits_by_joint /
+    extension_deviation 박제 박제 박제 박제 박제 박제 박제 — drift 방지.
     """
-    a = _as_tj(angles)
-    if profile.hold_window is not None:
-        s, e = profile.hold_window
-        s = max(0, min(s, a.shape[0]))
-        e = max(s, min(e, a.shape[0]))
-    else:
-        s, e = hold_window(a)
-    rep = np.mean(a[s:e], axis=0)
+    sliced, _ = _select_window(angles, profile)
+    if sliced.shape[0] == 0:
+        return None
+    rep = np.nanmean(sliced, axis=0)
     deficits = [
         max(0.0, _FULL_EXTENSION_DEG - float(rep[JOINT_KEYS.index(k)]))
         for k in JOINT_KEYS
-        if profile.expects_extension(k)
+        if profile.expects_extension(k) and not np.isnan(rep[JOINT_KEYS.index(k)])
     ]
     if not deficits:
         return None
@@ -116,15 +103,91 @@ def line_score(angles, profile: TechniqueProfile) -> int | None:
 
 def extension_deviation(angles, profile: TechniqueProfile) -> np.ndarray:
     """관절별 신전 부족분(도) 벡터 (J,) — 코칭 tips 용. EXTEND 관절만 (180-각),
-    그 외는 0. mode3 첫 분석에서 '더 펴주세요' 코칭의 IPSF 라인 근거."""
-    a = _as_tj(angles)
-    s, e = hold_window(a)
-    rep = np.mean(a[s:e], axis=0)
+    그 외는 0. mode3 첫 분석에서 '더 펴주세요' 코칭의 IPSF 라인 근거.
+
+    Phase 12.5 (Codex v3 HIGH-2 fix): `_select_window` 박제 line_score / 신
+    line_deficits_by_joint / stability_score 와 동일 windowing 박제 — drift 방지.
+    """
+    sliced, _ = _select_window(angles, profile)
+    rep = np.mean(sliced, axis=0) if sliced.shape[0] > 0 else np.zeros(len(JOINT_KEYS))
     dev = np.zeros(len(JOINT_KEYS), dtype=float)
     for i, k in enumerate(JOINT_KEYS):
         if profile.expects_extension(k):
             dev[i] = max(0.0, _FULL_EXTENSION_DEG - float(rep[i]))
     return dev
+
+
+# ── Phase 12.5 (v4): 공유 window helper + 차원별 deficit source ────────
+# Codex v3 HIGH-2 fix: line_score/stability_score/extension_deviation/신helpers 모두
+# 동일 windowing 사용 — `dimensionExplanation` 의 deficitSummary 가 점수 산출과 같은
+# frames 만 보도록 보장 (transparency phase 의 핵심 신뢰 조건).
+
+
+def _select_window(angles, profile: "TechniqueProfile | None" = None) -> tuple[np.ndarray, tuple[int, int]]:
+    """공유 window 선택 — profile.hold_window 우선, fallback 자동 (분산 최소).
+
+    line_score, line_deficits_by_joint, stability_score, stability_wobble_by_joint,
+    extension_deviation 모두 이 함수 하나만 호출 — drift 방지 (Codex v3 HIGH-2).
+
+    Returns:
+        (sliced, (s, e)): sliced = angles[s:e] (shape (T', J)), (s, e) = 윈도우 인덱스.
+    """
+    a = _as_tj(angles)
+    t = a.shape[0]
+    if t <= 1:
+        return a, (0, t)
+    if profile is not None and getattr(profile, "hold_window", None) is not None:
+        s, e = profile.hold_window
+        s = max(0, min(int(s), t))
+        e = max(s, min(int(e), t))
+    else:
+        s, e = hold_window(a)
+    return a[s:e], (s, e)
+
+
+def line_deficits_by_joint(angles, profile: TechniqueProfile) -> dict[str, float]:
+    """관절별 신전 부족분 (EXTEND 관절만). line deficit summary 의 source.
+
+    line_score 와 동일 windowing (`_select_window`) 사용 — 점수 산출과 동일 frames.
+    Codex v2 HIGH-1 + v3 HIGH-2 fix.
+
+    Edge cases:
+    - sliced 가 비어있음 → 빈 dict
+    - profile.expects_extension 이 모든 관절 False → 빈 dict (line score 도 None)
+    - NaN frames → np.nanmean 으로 처리 (그래도 NaN 이면 그 관절 제외)
+    """
+    sliced, _ = _select_window(angles, profile)
+    if sliced.shape[0] == 0:
+        return {}
+    rep = np.nanmean(sliced, axis=0)  # (J,)
+    out: dict[str, float] = {}
+    for i, k in enumerate(JOINT_KEYS):
+        if profile.expects_extension(k) and not np.isnan(rep[i]):
+            out[k] = max(0.0, _FULL_EXTENSION_DEG - float(rep[i]))
+    return out
+
+
+def stability_wobble_by_joint(angles, profile: "TechniqueProfile | None" = None) -> dict[str, float]:
+    """관절별 inter-frame diff median (windowed). stability deficit summary source.
+
+    stability_score 와 동일 windowing (`_select_window`) + 동일 산식 (inter-frame
+    abs diff median). `_STABILITY_TOL_DEG=15` 와 같은 임계값 의미.
+    Codex v2 HIGH-2 + v3 HIGH-2 fix.
+
+    Edge cases:
+    - sliced shape[0] < 2 (single frame) → 빈 dict (떨림 측정 불가)
+    - NaN frames → np.nanmedian 으로 처리, 그래도 NaN 인 관절 제외
+    """
+    sliced, _ = _select_window(angles, profile)
+    if sliced.shape[0] < 2:
+        return {}
+    inter_frame_diff = np.abs(np.diff(sliced, axis=0))  # (T-1, J)
+    median = np.nanmedian(inter_frame_diff, axis=0)  # (J,)
+    out: dict[str, float] = {}
+    for i, k in enumerate(JOINT_KEYS):
+        if not np.isnan(median[i]):
+            out[k] = float(median[i])
+    return out
 
 
 def absolute_dimension_scores(angles, profile: TechniqueProfile) -> dict[str, int]:

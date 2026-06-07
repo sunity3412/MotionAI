@@ -7,7 +7,7 @@ from sunity_shared.analysis.interfaces import FallbackCoachWriter
 from sunity_shared.analysis.skeleton import JOINT_KEYS, NUM_JOINTS
 
 REF = {"motionId": "m1", "name": "인사이드 레그 행", "athleteName": "정은지"}
-DIMS = {"angle": 72, "line": 80, "balance": 91, "stability": 84}
+DIMS = {"angle": 72, "line": 80, "stability": 84}
 
 
 def _assess(dev_map=None):
@@ -29,12 +29,13 @@ def test_result_has_exact_contract_keys():
     assert set(r) == {
         "overallScore",
         "dimensionScores",
+        "dimensionExplanation",
         "joints",
         "tips",
         "comparison",
         "myVideoUrl",
     }
-    assert set(r["dimensionScores"]) == {"angle", "line", "balance", "stability"}
+    assert set(r["dimensionScores"]) == {"angle", "line", "stability"}
     assert r["overallScore"] == 82
     assert len(r["tips"]) == 3
     assert len(r["joints"]) == NUM_JOINTS
@@ -89,11 +90,11 @@ def test_mode3_delta_is_progress_on_absolute_dimensions():
     c = assemble.build_mode3(
         is_first=False,
         previous_analysis_id="prev123",
-        prev_dimension_scores={"line": 70, "balance": 60, "stability": 50},
-        cur_dimension_scores={"line": 78, "balance": 60, "stability": 45},
+        prev_dimension_scores={"line": 70, "stability": 50},
+        cur_dimension_scores={"line": 78, "stability": 45},
     )
     assert c["previousAnalysisId"] == "prev123"
-    assert c["deltaFromPrevious"] == {"line": 8, "balance": 0, "stability": -5}
+    assert c["deltaFromPrevious"] == {"line": 8, "stability": -5}
 
 
 def test_mode3_delta_only_over_common_dimensions():
@@ -101,10 +102,10 @@ def test_mode3_delta_only_over_common_dimensions():
     c = assemble.build_mode3(
         is_first=False,
         previous_analysis_id="p",
-        prev_dimension_scores={"angle": 99, "line": 70, "balance": 60, "stability": 50},
-        cur_dimension_scores={"line": 75, "balance": 65, "stability": 55},
+        prev_dimension_scores={"angle": 99, "line": 70, "stability": 50},
+        cur_dimension_scores={"line": 75, "stability": 55},
     )
-    assert set(c["deltaFromPrevious"]) == {"line", "balance", "stability"}
+    assert set(c["deltaFromPrevious"]) == {"line", "stability"}
 
 
 def test_referenceVideoUrl_only_when_given():

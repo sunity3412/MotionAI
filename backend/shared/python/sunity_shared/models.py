@@ -22,6 +22,18 @@ SCORE_DIMENSIONS = (DIM_ANGLE, DIM_LINE, DIM_STABILITY)
 # 2026-05-29 'balance/좌우대칭' 제거 — IPSF 근거 없음(dimensions.py 참조).
 ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_STABILITY)
 
+# ── Phase 12.5 (2026-06-07): dimensionExplanation 키 명세 ──────────────
+# 결과 화면 "왜 이 점수인지" 가시화. 차원별 weight/baseline/deficit summary.
+# - 키 = dimensionScores 의 부분 집합 (보유 차원만 emit).
+# - weightPercent 합 = 100 (Largest Remainder Method: 3차원=[34,33,33] 등).
+# - baseline = mode-aware (comparison["mode"] 추출, mode1 = 정은지 참조 / mode3 = 절대).
+# - deficitSummary = 점수 산식과 동일 source (dimensions._select_window 공유):
+#     angle ← kismam.top_issues / line ← line_deficits_by_joint /
+#     stability ← stability_wobble_by_joint
+# - 옵셔널 — 이전 빌드 doc 호환 (app/src/types/analysis.ts:DimensionExplanation 정합).
+# - 신 backend 는 빈 {} 라도 항상 emit.
+DIMENSION_EXPLANATION_KEYS = ("weightPercent", "baseline", "deficitSummary")
+
 # ── 영상 형식 (contract.md: mp4/mov, ≤100MB) ───────────────────────────
 VIDEO_FORMATS = ("mp4", "mov")
 MAX_VIDEO_BYTES = 100 * 1024 * 1024  # design.md: 100MB 초과 불가

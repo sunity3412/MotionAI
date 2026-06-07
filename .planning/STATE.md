@@ -460,7 +460,19 @@ belle 결정 (mirror 검색 path) → HuggingFace anonymous mirror 활용 우회
 | Lambda env RUNPOD_ANALYZE_URL | Active, 새 Pod URL 정합 |
 | **mock E2E** (Pod 안에서 _process 직접 호출) | **PASS** — Firestore status=done, 49.8s |
 
-### Pod 환경 (2026-06-06 종료 시점, Pod 1ablelgbtrzcgb 살아있음)
+### Pod 환경 (2026-06-08 시점, Pod xbdkj1g2ylnfwi 살아있음 — community RTX 4090)
+
+| 항목 | 상태 |
+|---|---|
+| GPU / Container | RTX 4090 / RunPod (community, secure 아님) |
+| Pod ID | `xbdkj1g2ylnfwi` |
+| SSH (proxy) | `ssh xbdkj1g2ylnfwi-64411701@ssh.runpod.io -i ~/.ssh/id_ed25519` |
+| SSH (direct TCP) | `ssh root@66.222.130.188 -p 10834 -i ~/.ssh/id_ed25519` |
+| HTTP Port 8000 | Ready (proxy URL `https://xbdkj1g2ylnfwi-8000.proxy.runpod.net`) |
+| Jupyter Lab | Port 8888 Ready |
+| Lambda env RUNPOD_ANALYZE_URL | **`https://xbdkj1g2ylnfwi-8000.proxy.runpod.net/analyze` 동기화 필요 (Pod 교체)** — `aws lambda update-function-configuration` 로 갱신 후 검증 |
+
+### 이전 Pod 이력 (2026-06-06 종료 시점, Pod 1ablelgbtrzcgb — 교체됨)
 
 | 항목 | 상태 |
 |---|---|

@@ -180,20 +180,34 @@ def build_joints(assessments: list[JointAssessment]) -> list[dict]:
 def build_tips(
     top: list[JointAssessment], coach_details: dict | None = None
 ) -> list[dict]:
+    """CoachingTip[] 조립. Phase 12.5 T9 (2026-06-07): coach_details 가
+    legacy string 또는 신 dict ({"detail": str, "detail2"?: dict}) 둘 다 지원.
+
+    detail2 (causes/injuryRisk/coachNote) = 자세히 모달용. dict 인 경우만 박제,
+    없으면 카드 본문만 (이전 동작과 동일).
+    """
     details = coach_details or {}
     tips = []
+    fallback = lambda a: (
+        f"{a.label_ko} 각도가 기준과 평균 {round(a.deviation_deg)}° "
+        f"차이가 납니다. 해당 동작 구간을 천천히 교정해 보세요."
+    )
     for a in top:
-        detail = details.get(a.key) or (
-            f"{a.label_ko} 각도가 기준과 평균 {round(a.deviation_deg)}° "
-            f"차이가 납니다. 해당 동작 구간을 천천히 교정해 보세요."
-        )
-        tips.append(
-            {
-                "joint": a.key,
-                "title": f"{a.label_ko} {COACHING_FOCUS[a.key]}",
-                "detail": detail,
-            }
-        )
+        raw = details.get(a.key)
+        tip: dict = {
+            "joint": a.key,
+            "title": f"{a.label_ko} {COACHING_FOCUS[a.key]}",
+        }
+        if isinstance(raw, dict):
+            tip["detail"] = raw.get("detail") or fallback(a)
+            d2 = raw.get("detail2")
+            if isinstance(d2, dict) and d2.get("causes"):
+                tip["detail2"] = d2
+        elif isinstance(raw, str) and raw.strip():
+            tip["detail"] = raw
+        else:
+            tip["detail"] = fallback(a)
+        tips.append(tip)
     return tips
 
 

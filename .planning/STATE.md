@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-06-07 Phase 12.5 close-out (commits 1c0d20a T1+T2 backend / 62fdeed T9 backend / e968074 T8+T9 frontend). 자세히 모달 2종 (차원/코칭) + LLM-ready coach_writer JSON 프롬프트 + dimensionExplanation 분기-1 mode-aware 카피 + belle UX 검증 PASS (모달 스크롤 정상 + 심사평 3박자 톤). Phase 12.5 시뮬 한계 3종 (폭스탑 학원 용어 어색 / angle 차원 180° 명시 X / 시뮬 segments 일부) 는 Phase 13 으로 통합 — 보완 운동 추천 (PERS-03) + LLM 분기 카피 + coaching detail 완성 단일 phase. backend coach_writer 한 번에 작업."
-last_updated: "2026-06-07T17:45:00.000Z"
-last_activity: 2026-06-07 -- Phase 12.5 close-out + Phase 13 scope 확장 (LLM 분기 카피 통합)
+stopped_at: "2026-06-07 Phase 2 plan-phase 완료 (CONTEXT + RESEARCH + PLAN + PLAN-CHECK). belle 결정 chain: 빌드 12 ship 대신 Phase 12 (키포인트 오버레이) 진입 → dep Phase 6+7+2 발견 → belle '자동 측정 우선' → Phase 2 (RTMW segment) 부터. ROADMAP rename (MediaPipe → RTMW), plan-checker 15/15 PASS_WITH_CONCERNS (non-blocking risks: 실 영상 갭 보고서 stub, AST scope 한정, synthetic fixture만, estimatedHeightScale 임계값 임시). 진입 순서: Phase 2 → 6 → 7 → 12. 다음 = /gsd-execute-phase 02."
+last_updated: "2026-06-07T18:30:00.000Z"
+last_activity: 2026-06-07 -- Phase 2 plan-phase 완료 (RTMW segment 측정기 — 6 atomic commits)
 progress:
   total_phases: 16
   completed_phases: 4
@@ -25,11 +25,31 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 12.5 (UI Transparency) — **DONE** (2026-06-07 close-out)
-Next phase: 13 (보완 운동 추천 + LLM 분기 카피 + coaching detail 완성) — READY TO PLAN
-Status: 진입 대기 (/gsd-plan-phase 13)
+Phase: 12.5 (UI Transparency) — DONE (2026-06-07 close-out)
+Next phase: **2 (BodyNormalizationProfile RTMW segment)** — READY TO EXECUTE
+Status: plan 완료, /gsd-execute-phase 02 대기
 
-> Phase 13 scope 확장 (belle 2026-06-07): 원래 "보완 운동·스트레칭 추천 라이브러리" (PERS-03) 단독이었으나, Phase 12.5 시뮬 한계의 backend 후속 작업 (LLM 활성화 + 분기 1/2 카피 분리 + IPSF 정의 각도 fixture) 을 같은 phase 로 통합. 이유: backend `coach_writer` 단일 작업 + 동작 분기 후 그 동작별 보완 운동 추천이 같은 흐름. 이전에 신설한 Phase 12.6 = revert.
+### 진입 chain 결정 (belle 2026-06-07)
+
+1. 빌드 12 ship 후보 → 보류 (Phase 12 키포인트 오버레이 먼저 결정)
+2. Phase 12 진입 시도 → ROADMAP dep = Phase 6+7 미완 → belle "Phase 6+7 먼저"
+3. Phase 6 dep = Phase 2 (BodyProfile) 미완 → belle "자가 입력 X, 자동 측정 우선" → **Phase 2 진입**
+4. ROADMAP rename: Phase 2 "MediaPipe segment" → "RTMW segment" (Phase 1 RTMW pivot 정합)
+
+### Phase 2 plan 산출
+
+| 파일 | 내용 |
+|---|---|
+| 02-CONTEXT.md | scope + 6 dependencies + 6 locked decisions (D-02-01~06) |
+| 02-RESEARCH.md | RTMW COCO-17 mapping + MAD smoothing + torso self-ref normalize + R&D 격리 path |
+| 02-01-PLAN.md | 6 atomic commits (T1 contract → T2 fixture → T3 measurer → T4 pipeline 통합 + T5 R&D harness → T6 AST gate + BODY-01 rename) |
+| 02-PLAN-CHECK.md | 15/15 binary PASS, PASS_WITH_CONCERNS (4 non-blocking risks) |
+
+### Phase 2 진입 순서 (전체)
+
+Phase 2 → 6 (체형 정규화) → 7 (차이 분류) → 12 (키포인트 오버레이) → 13 (보완 운동 + LLM)
+
+> Phase 13 scope 확장 (belle 2026-06-07): 원래 "보완 운동·스트레칭 추천 라이브러리" (PERS-03) 단독이었으나, Phase 12.5 시뮬 한계의 backend 후속 작업 (LLM 활성화 + 분기 1/2 카피 분리 + IPSF 정의 각도 fixture) 을 같은 phase 로 통합. 이전 Phase 12.6 = revert.
 
 ### Phase 12.5 close-out 내역
 

@@ -33,7 +33,7 @@
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: PoseEngine 추상화 + RTMW 어댑터 + 폴 축 정렬 + NLF R&D 격리** - 상용 제품 코드를 RTMW 133 wholebody (Apache-2.0) 로 마이그레이션 완료 (commit 2a8aa72 atomic swap), NLF/SMPL-X 는 R&D 비교군으로 격리, 폴 축 좌표계 산출. **2026-06-07 close-out 사실상 완료** — Plan 01-25 swap 완료, Plan 01-23 sweep 은 Phase 5 12차 sweep 으로 대체. 미완 = Plan 01-24 (.samignore + import 차단 단위 테스트) — 후속 별도 plan.
-- [ ] **Phase 2: BodyNormalizationProfile 자동 측정 (MediaPipe segment 기반)** - 키·팔/다리/몸통 비율·좌우 비대칭 자동 추출. SMPL-X β는 R&D 비교군에서만 (제품 코드 사용 금지)
+- [ ] **Phase 2: BodyNormalizationProfile 자동 측정 (RTMW segment 기반)** - 키·팔/다리/몸통 비율·좌우 비대칭 자동 추출. SMPL-X β는 R&D 비교군에서만 (제품 코드 사용 금지). **2026-06-07 belle pivot 정합**: Phase 1 RTMW 백본 swap 완료 (commit 2a8aa72) 후 Phase 2 도 MediaPipe → RTMW segment 산출로 갱신.
 - [ ] **Phase 3: 자가입력 BodyProfileInput** - 키·몸무게·경력·통증부위 1회 입력 UX
 - [ ] **Phase 4: 다중 시점 촬영 UX + occlusion confidence 게이트** - 가림 완화 + 저신뢰 프레임 "추정" 표기
 - [x] **Phase 5: Gemini 기술 인식기 (분류 한정)** - 동작 분류만, 좌표·판단 출력 금지. **2026-06-05 12차 sweep D-01 PASS** (phase1_ready_to_swap=True, phase5_ready_to_release_d16_block=True). 빌드 11 실분석 mode1 94 + mode3 100 PASS.
@@ -100,21 +100,25 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [ ] 01-24-PLAN.md — **NEW (RTMW pivot)** NLF + MediaPipe + 비선택 3D path R&D 격리 (D-23) + .samignore + import 차단 단위 테스트 — plan 04 supersede + 확장 (Wave 5, gap_closure 2026-06-02)
   - [ ] 01-25-PLAN.md — **NEW (RTMW pivot)** pipeline/app.py + RunPod atomic swap NLF→RTMW (D-08/D-21/D-23/D-24) + belle Pod end-to-end 검증 — plan 05 supersede (Wave 6, gap_closure 2026-06-02)
 
-### Phase 2: BodyNormalizationProfile 자동 측정 (MediaPipe segment 기반)
+### Phase 2: BodyNormalizationProfile 자동 측정 (RTMW segment 기반)
 
-**Goal**: MediaPipe 키포인트로부터 신체 segment 길이(상완·전완·대퇴·하퇴·몸통, 어깨/골반 폭) 및 비율을 산출해 `BodyNormalizationProfile`(estimatedHeightScale, armScale, legScale, torsoScale, shoulderHipRatio, confidence, warnings)을 자동 출력한다 — 두 엔진의 공유 입력. SMPL-X β는 R&D 비교군에서만 정확도 평가용으로 사용.
+> **2026-06-07 RTMW pivot 정합**: Phase 1 백본 swap 후 (NLF → RTMW 133 wholebody Apache-2.0, commit 2a8aa72), Phase 2 segment 산출도 **RTMW 키포인트** 기반으로 갱신. MediaPipe 는 운영 백본에서 폐기. NLF/SMPL-X 는 R&D 비교군으로만.
+
+**Goal**: RTMW 키포인트로부터 신체 segment 길이(상완·전완·대퇴·하퇴·몸통, 어깨/골반 폭) 및 비율을 산출해 `BodyNormalizationProfile`(estimatedHeightScale, armScale, legScale, torsoScale, shoulderHipRatio, confidence, warnings)을 자동 출력한다 — 두 엔진의 공유 입력. SMPL-X β는 R&D 비교군에서만 정확도 평가용으로 사용.
 **Mode:** mvp
 **Depends on**: Phase 1 (MediaPipe + 폴 축 정렬된 키포인트 위에 segment 측정)
 **Requirements**: BODY-01
 **Success Criteria** (what must be TRUE):
 
-  1. MediaPipe 키포인트에서 segment 길이가 시간 평균으로 안정적으로 추출된다 (jitter 스무딩)
+  1. RTMW 키포인트에서 segment 길이가 시간 평균으로 안정적으로 추출된다 (jitter 스무딩)
   2. `BodyNormalizationProfile`이 키·팔/다리/몸통 스케일·어깨/골반 비율·confidence·warnings로 산출된다
   3. 낮은 confidence(가림·저화질) 시 단정하지 않고 warnings 배열에 사유가 표기된다
   4. R&D 비교군: 동일 영상에서 NLF→SMPL-X β로 추출한 BodyNormalizationProfile과의 갭을 보고서로 출력 (제품 코드 비호출, 평가 전용)
   5. 데이터 계약(`analysis.ts` ↔ `models.py`)에 `BodyNormalizationProfile` 타입이 lockstep으로 추가된다
 
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 02-01-PLAN.md — RTMW segment 측정기 + 5종 warnings + R&D 격리 + 3-way lockstep 갱신 (Wave 1, BODY-01)
 
 ### Phase 3: 자가입력 BodyProfileInput
 

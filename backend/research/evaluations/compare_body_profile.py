@@ -1,17 +1,23 @@
-"""Phase 2 ROADMAP §4 R&D 비교 — RTMW segment vs SMPL-X joints → BodyNormalizationProfile gap.
+"""Phase 2 R&D — two-profile gap math + report (RTMW-native after 2026-06-08 scope correction).
 
-HIGH-1 v5 박제: NLF→SMPL-X path 는 joints-based (smplx_joints_to_body_profile).
-v4 의 β-only fake 단축 변환 영구 폐기. 본 모듈은 두 profile dict 의 gap 계산
-+ 보고서만 책임.
+2026-06-08 belle scope correction (supersedes v5 §4 + Task 5b):
+  RTMW pivot ([[rtmw-free-stack-pivot]]) 가 NLF/SMPL-X 의존을 영구 제거했으므로,
+  v5 §4 의 "NLF→SMPL-X β BodyNormalizationProfile 갭" 비교는 폐기. SMPL-X 는
+  paid commercial license (PS:License 1.0) 로 사내 평가에서도 last-resort 만.
 
-HIGH-2 v5 박제: run_body_profile_gap_report.py 가 orchestrator — 본 파일은
-일부 phase 만 (load + compute_profile_gap + 보고서 산출).
+  본 모듈은 다음 둘만 책임:
+    1. load_rtmw_profiles(path, videos) — RTMW keypoint dump → {video: Profile}
+    2. compute_profile_gap(profiles_a, profiles_b) — 두 profile dict 의 gap 계산
 
-HIGH-3 v3 박제: load_smplx_profiles 가 graceful-empty — 비존재/빈 dir → {}.
+  재사용 시나리오 (Phase 2 이후):
+    - student RTMW Profile vs reference (정은지) RTMW Profile 갭 보고서
+    - sweep v1.5 (Phase 1 ROADMAP §1) 5영상 RTMW 측정 자체검증 (load_rtmw_profiles)
 
-LOW-1 v3 박제: 실행 경로 = repo root.
-  python -m backend.research.evaluations.compare_body_profile --rtmw-keypoints-dir ... \\
-    --smplx-joints-dir ... --videos ... --output ...
+CLI: `python -m backend.research.evaluations.compare_body_profile \\
+        --profiles-a-dir <RTMW dump dir A> --profiles-b-dir <RTMW dump dir B> \\
+        --videos ref-foxtop ref-invert ... --output <json path>`
+
+HIGH-3 v3 박제 유지: graceful-empty — 비존재/빈 dir → {}.
 """
 
 from __future__ import annotations
@@ -38,7 +44,6 @@ def _load_rtmw_pose_frames_from_dump(dump_path: Path) -> list:
         Keypoint3D,
         Keypoint3DAligned,
         PoleAxis,
-        PoseExtensionLandmark,
         PoseFrame,
     )
 
@@ -107,31 +112,6 @@ def load_rtmw_profiles(path: Path, videos: list[str]) -> dict:
     return result
 
 
-def load_smplx_profiles(path: Path, videos: list[str]) -> dict:
-    """HIGH-1 v5 박제: extract_smplx_joints_from_video.py 산출 joints dir →
-    smplx_joints_to_body_profile 변환 → {video: BodyNormalizationProfile}.
-
-    v4 의 load_nlf_smplx_profiles (β 기반 fake) 폐기. HIGH-3 v3 graceful.
-    """
-    from backend.research.evaluations.smplx_joints_to_body_profile import (
-        load_smplx_joints,
-        smplx_joints_to_body_profile,
-    )
-
-    joints_dict = load_smplx_joints(path)
-    if not joints_dict:
-        return {}
-    result: dict = {}
-    for video in videos:
-        if video not in joints_dict:
-            continue
-        try:
-            result[video] = smplx_joints_to_body_profile(joints_dict[video])
-        except Exception:  # noqa: BLE001
-            continue
-    return result
-
-
 # ── gap 계산 ────────────────────────────────────────────────────────────
 
 
@@ -143,13 +123,16 @@ _NUMERIC_SCALE_FIELDS = (
     "shoulder_hip_ratio",
 )
 
-_GAP_TOLERANCE = 0.05  # 5% 이내 — D-02-04 박제
+_GAP_TOLERANCE = 0.05  # 5% 이내 — RTMW pivot 후에도 동일 휴리스틱
 
 
 def compute_profile_gap(
-    rtmw_profiles: dict, smplx_profiles: dict
+    profiles_a: dict, profiles_b: dict
 ) -> dict:
     """per-video 5 numeric scale 필드 abs diff + aggregate mean diff + verdict.
+
+    2026-06-08 scope correction: 입력은 임의의 두 profile dict (RTMW vs RTMW
+    가 active path). v5 의 RTMW vs SMPL-X 비교는 폐기.
 
     Returns:
       {
@@ -158,16 +141,16 @@ def compute_profile_gap(
         "verdict": "within_5pct_tolerance" | "gap_too_wide",
       }
     """
-    common = sorted(set(rtmw_profiles.keys()) & set(smplx_profiles.keys()))
+    common = sorted(set(profiles_a.keys()) & set(profiles_b.keys()))
     per_video: dict = {}
     field_sums: dict = {f: [] for f in _NUMERIC_SCALE_FIELDS}
 
     for video in common:
-        r = rtmw_profiles[video]
-        s = smplx_profiles[video]
+        a = profiles_a[video]
+        b = profiles_b[video]
         diffs = {}
         for f in _NUMERIC_SCALE_FIELDS:
-            diff = abs(getattr(r, f) - getattr(s, f))
+            diff = abs(getattr(a, f) - getattr(b, f))
             diffs[f] = diff
             field_sums[f].append(diff)
         per_video[video] = diffs
@@ -198,7 +181,7 @@ def compute_profile_gap(
 def _write_markdown(gap: dict, output_path: Path) -> None:
     md_path = output_path.with_suffix(".md")
     lines = [
-        "# SMPL-X vs RTMW BodyNormalizationProfile gap report",
+        "# RTMW BodyNormalizationProfile gap report",
         "",
         f"- Verdict: **{gap['verdict']}**",
         f"- Videos compared: {len(gap['videos_compared'])}",
@@ -223,19 +206,22 @@ def _write_markdown(gap: dict, output_path: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="SMPL-X joints vs RTMW segment BodyNormalizationProfile gap report (HIGH-1 v5)."
+        description=(
+            "두 RTMW BodyNormalizationProfile dict 의 gap 보고서. "
+            "2026-06-08 RTMW pivot 정합 — SMPL-X 비교 폐기."
+        )
     )
     parser.add_argument(
         "--rtmw-keypoints-dir",
         type=Path,
         required=True,
-        help="RTMW keypoint dump 디렉터리 (extract_rtmw_body_profile_keypoints 산출).",
+        help="RTMW keypoint dump 디렉터리 A (extract_rtmw_body_profile_keypoints 산출).",
     )
     parser.add_argument(
-        "--smplx-joints-dir",
+        "--rtmw-keypoints-dir-b",
         type=Path,
         required=True,
-        help="SMPL-X joints 디렉터리 (extract_smplx_joints_from_video 산출, HIGH-1 v5).",
+        help="RTMW keypoint dump 디렉터리 B (비교 대상).",
     )
     parser.add_argument(
         "--videos",
@@ -251,9 +237,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    rtmw = load_rtmw_profiles(args.rtmw_keypoints_dir, args.videos)
-    smplx = load_smplx_profiles(args.smplx_joints_dir, args.videos)
-    gap = compute_profile_gap(rtmw, smplx)
+    profiles_a = load_rtmw_profiles(args.rtmw_keypoints_dir, args.videos)
+    profiles_b = load_rtmw_profiles(args.rtmw_keypoints_dir_b, args.videos)
+    gap = compute_profile_gap(profiles_a, profiles_b)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

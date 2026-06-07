@@ -23,6 +23,7 @@ Cerebras(coach_writer). NLF 추론은 GPU 필요(plan.md #7-follow).
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import os
@@ -220,10 +221,44 @@ class _RTMWNlfCompat:
         )
 
     def estimate(self, frames):
-        """RTMW pose estimation → COCO-17 array (T,17,4) — NLF 호환 interface."""
+        """RTMW pose estimation → COCO-17 array (T,17,4) — NLF 호환 interface.
+
+        B8 박제 (2026-06-04 revision) — 시그너처 `-> np.ndarray` 무변경.
+        body_shape injection 은 estimate_with_profile 의 책임 — 본 method
+        는 회귀 0 유지.
+        """
         from sunity_shared.analysis.pose_frame import to_coco17_array
         pose_frames = self._engine.estimate(frames, self._default_pole)
         return to_coco17_array(pose_frames)
+
+    def estimate_with_profile(self, frames):
+        """RTMW pose estimation + BodyNormalizationProfile measure → race-safe tuple.
+
+        HIGH-1 v4 박제: 본 method 는 local-return tuple 반환. 사이드카
+        mutable instance attribute (v3 의 stale-cache pattern) 영구 폐기.
+        RunPod FastAPI BackgroundTasks (server.py:198, 213) 환경에서
+        concurrent analyses 가 _POSE_ESTIMATOR 글로벌 공유해도 profile
+        leak 0 — caller 가 자기 frame 의 profile 만 local tuple 로 받음.
+        B8 박제 (estimate / _angles_from_video /
+        _angles_and_video_path_from_video 시그너처) 무변경.
+
+        Returns:
+          (coco_array, profile) — coco_array shape (T,17,4), profile 은
+          measure_body_profile 산출 BodyNormalizationProfile (fallback 가능).
+        """
+        from sunity_shared.analysis.body_normalization_measurer import (
+            measure_body_profile,
+        )
+        from sunity_shared.analysis.pose_frame import to_coco17_array
+
+        pose_frames = self._engine.estimate(frames, self._default_pole)
+        profile = measure_body_profile(pose_frames)
+        # body_shape 주입 — caller 가 dataclasses.asdict 시 동일 video-level profile.
+        pose_frames_with_profile = [
+            dataclasses.replace(pf, body_shape=profile) for pf in pose_frames
+        ]
+        coco_array = to_coco17_array(pose_frames_with_profile)
+        return coco_array, profile
 
 
 def _ensure_adapters() -> None:
@@ -266,6 +301,35 @@ def _angles_from_video(bucket: str, key: str) -> np.ndarray:
     keypoints = _POSE_ESTIMATOR.estimate(frames)  # (T,17,4) — 미감지 시 NoHumanError
     angles = compute_joint_angles(keypoints)
     return temporal_fill(angles, joint_uncertainty(keypoints))
+
+
+def _angles_and_body_profile_from_video(
+    bucket: str, key: str
+):
+    """Phase 2 v4 박제 — race-safe local-return helper (HIGH-1 v4).
+
+    HIGH-1 v4 박제: _POSE_ESTIMATOR.estimate_with_profile 가 local tuple 로
+    (angles_filled, profile) 반환. 사이드카 mutable state 0. RunPod FastAPI
+    BackgroundTasks 환경 concurrent analyses 가 module-level _POSE_ESTIMATOR
+    글로벌 공유해도 caller 가 자기 frame 의 profile 만 받음.
+    B8 박제 (_angles_from_video / _angles_and_video_path_from_video) 무변경 —
+    본 helper 는 그 옆 신설.
+
+    Returns:
+      (angles_filled, profile) — angles shape (T,J), profile 은
+      BodyNormalizationProfile 또는 None.
+
+    MEDIUM-1 v4 박제: Firestore 저장 / AnalysisDoc 갱신 X — Phase 6 plan
+    이 본 helper 를 호출하여 wire-up. 본 phase 는 helper 박제만.
+    """
+    _ensure_adapters()
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
+        _s3.download_file(bucket, key, tmp.name)
+        frames = _FRAME_EXTRACTOR.extract(tmp.name)
+    keypoints, profile = _POSE_ESTIMATOR.estimate_with_profile(frames)
+    angles = compute_joint_angles(keypoints)
+    angles_filled = temporal_fill(angles, joint_uncertainty(keypoints))
+    return angles_filled, profile
 
 
 def _angles_and_video_path_from_video(

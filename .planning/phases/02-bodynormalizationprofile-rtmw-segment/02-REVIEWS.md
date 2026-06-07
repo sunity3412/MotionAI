@@ -1,9 +1,10 @@
 ---
 phase: 2
 phase_dir: .planning/phases/02-bodynormalizationprofile-rtmw-segment
+plan_revision: v2
 reviewers: [codex]
 attempted_reviewers: [claude, codex]
-reviewed_at: 2026-06-07T10:01:29Z
+reviewed_at: 2026-06-07T11:45:10Z
 plans_reviewed: [02-01-PLAN.md]
 review_limitations:
   - "Claude CLI was installed but failed before review: Not logged in - Please run /login"
@@ -23,78 +24,66 @@ review_limitations:
 
 ## Codex Review
 
-## Summary
+### Summary
 
-`02-01-PLAN.md` is directionally strong and well aligned with BODY-01: it keeps RTMW as the operating backbone, avoids new heavy dependencies, defines confidence/warnings, adds tests, and preserves SMPL-X as R&D-only. However, as written it has several execution blockers and one scope/acceptance mismatch. The biggest issue is that `_RTMWNlfCompat.estimate()` currently returns only a COCO array, so injecting `body_shape` into internal `PoseFrame` objects is likely discarded and not available downstream. The R&D comparison is also only stubbed while the roadmap success criterion requires an actual gap report.
+The plan is much stronger than a typical phase plan: it has clear traceability, explicit gates, fixture strategy, lockstep contract checks, R&D isolation, and a realistic human checkpoint for SMPL-X comparison. However, I would not approve it as-is. The main risks are not missing ambition; they are integration mismatches with the current pipeline/tests, a likely wrong `pose_too_inverted` coordinate convention, and an R&D gate that can fail or break tests after implementation.
 
-## Strengths
+### Strengths
 
-- Clear mapping from ROADMAP success criteria to tasks and tests.
-- Good architectural boundary: pure numpy measurer under `sunity_shared.analysis`, R&D comparison under `backend/research`.
-- Conservative smoothing choice: MAD rejection plus robust median is reasonable for occlusion-heavy pole-sports footage.
-- Warnings-first design matches the project's "do not overclaim" coaching principle.
-- Firestore persistence is intentionally deferred, which avoids schema churn during a narrow algorithm phase.
-- The import-isolation idea is valuable for SMPL-X/NLF license containment.
+- Strong traceability from BODY-01 success criteria to concrete tasks and tests.
+- Good correction of earlier plan issues: `PoseFrame.from_dict` is acknowledged as absent, fixtures are test-only, and SMPL-X is kept out of product code.
+- `measure_body_profile()` is appropriately scoped as a pure numpy function.
+- Firestore propagation is a reasonable answer to "Phase 6 consumer can access it."
+- The plan correctly treats the real NLF -> SMPL-X report as a human/RunPod gate, not something a scaffold can satisfy.
+- Contract lockstep testing for warning enums and scale semantics is valuable.
 
-## Concerns
+### Concerns
 
-- **HIGH: `body_shape` injection may be discarded.** `backend/functions/pipeline/app.py` returns `to_coco17_array(pose_frames)`, not `PoseFrame[]`. If the profile is only attached before conversion, the phase does not actually make BodyNormalizationProfile available to downstream engines.
+- **HIGH:** Task 4 changes `_angles_from_video` / `_angles_and_video_path_from_video` return contracts but does not include all existing migration work. Current tests explicitly lock `_angles_from_video(...) -> np.ndarray` in [test_pipeline_recognizer_switch.py](/Users/kimtaesung/Dev/SunityMotion/backend/tests/test_pipeline_recognizer_switch.py:225), and Gemini integration stubs return only `angles` or `(angles, path)`. Without updating those tests/stubs, `pytest tests/ -x` will fail.
 
-- **HIGH: Fixture plan references APIs/schema that do not exist.** The plan says fixtures should pass `PoseFrame.from_dict()`, but `pose_frame.py` has no `from_dict`. The proposed JSON also uses `timestamp_seconds`, `origin`, and incomplete `Keypoint3D` fields, while the dataclasses require `timestamp_ms`, no `origin` on `PoleAxis`, and `uncertainty_proxy`.
+- **HIGH:** `pose_too_inverted` is probably sign-wrong for the current RTMW coordinate convention. RTMW stores image pixel coordinates where `y` increases downward, and the default pole axis is `(0, 1, 0)` in [app.py](/Users/kimtaesung/Dev/SunityMotion/backend/functions/pipeline/app.py:214). For upright posture, `mid_shoulder - mid_hip` has negative y, so `dot(torso_vec, pole_axis) < 0` would flag normal upright frames as inverted. The proposed "raw y flip but same PoleAxis" test is also mathematically invalid.
 
-- **HIGH: Task 6 import-isolation test would fail as written.** Existing `sunity_shared` still has lazy MediaPipe imports in `pose_engines/mediapipe_engine.py`. Blocking `mediapipe` imports globally without removing or exempting legacy modules creates an immediate test failure and expands scope beyond Phase 2.
+- **HIGH:** Task 5a/5b test lifecycle is inconsistent. Task 5a plans a smoke test that asserts `load_nlf_smplx_keypoints()` raises `NotImplementedError`; Task 5b then replaces that stub. Unless the smoke test is updated in Task 5b, the final full suite will fail.
 
-- **HIGH: R&D comparison success criterion is not actually met.** Task 5 creates a `NotImplementedError` SMPL-X stub, but ROADMAP criterion 4 requires a same-video NLF -> SMPL-X beta gap report. A scaffold plus smoke test should not count as completion of that criterion.
+- **HIGH:** The R&D report gate still lacks a reliable RTMW input generation path. The plan acknowledges the Phase 1 sweep keypoint dump is absent, but Task 5b's command still assumes `.../sweep_rtmw_<date>/keypoints/` exists. Add an explicit RTMW extraction/profile-generation path from the same 5 videos.
 
-- **MEDIUM: Synthetic-only tests can validate math but not RTMW integration.** Because no real RTMW keypoint dump is used, tests will not catch real coordinate orientation, confidence distribution, keypoint naming, or adapter quirks.
+- **MEDIUM:** Import isolation only scans `sunity_shared`. Product/deployed code also includes `backend/functions` and `backend/runpod_inference`; a legal leak through `pipeline/app.py` would not be caught. The isolation test should cover all deployable product paths, excluding `backend/research` and tests.
 
-- **MEDIUM: Inversion warning likely depends on coordinate convention.** `mid_shoulder.y < mid_hip.y` may be wrong depending on whether coordinates are image, RTMW normalized, or pole-aligned. Synthetic fixtures can accidentally encode the same wrong assumption.
+- **MEDIUM:** Firestore `bodyNormalizationProfile` is a new `AnalysisDoc` field, but Task 4 does not require updating `docs/contract.md`'s `AnalysisDoc` section. Updating only `analysis.ts` and `firestore_admin.py` leaves the contract incomplete.
 
-- **MEDIUM: `armScale`, `legScale`, and `estimatedHeightScale` semantics are under-specified.** `estimatedHeightScale = (arm + leg + torso) / 3` is not an estimated height scale in the normal sense. This could mislead Phase 6 unless the contract explicitly says it is a torso-relative proportion heuristic.
+- **MEDIUM:** Dependency ordering is inconsistent. Task 6 depends only on Task 5a, but the summary chain places it after blocking human Task 5b. Run Task 6 before the human gate so R&D isolation and REQUIREMENTS RTMW alignment land even if the Pod report is delayed.
 
-- **LOW: Lockstep warning enum is only grep-verified.** Current lockstep tests check field presence, not warning enum consistency. The plan's supplemental grep is useful but should become an automated assertion.
+- **LOW:** Some verification commands are path-fragile. From `cd backend`, `python -m backend.research...` is likely wrong; existing R&D docs run that module from repo root. Use either repo-root execution or `python -m research.evaluations...`.
 
-## Suggestions
+### Suggestions
 
-- Add an explicit propagation design before implementation: either return a `PoseEstimationResult(pose_frames, coco17_array, body_profile)` object, add a helper that downstream can call, or persist `bodyNormalizationProfile` at the analysis-result boundary now. Test the actual boundary that Phase 6 will consume.
+- Treat Task 4 as a full call-contract migration: update `test_pipeline_recognizer_switch.py`, all Gemini integration stubs, docstrings, and any return annotation gates in the same atomic commit.
+- Consider a small `PoseEstimateResult` dataclass instead of naked tuples. It will reduce tuple-order mistakes across `_RTMWNlfCompat`, `_angles_from_video`, and Gemini path helpers.
+- Redefine inversion with verified RTMW coordinates. Likely options: use `mid_hip - mid_shoulder`, or compute from pole-aligned coordinates with a documented "up/down" convention. Add a fixture derived through `convert_rtmw_keypoints_to_coco17_and_pole_ext`, not only synthetic hand-authored frames.
+- Revise Task 5b so it also updates/removes the "stub must raise" smoke test after implementation.
+- Extend import-isolation scanning to `backend/shared/python/sunity_shared`, `backend/functions`, and `backend/runpod_inference`, and optionally catch dynamic imports like `importlib.import_module("smplx")`.
+- Add explicit finite/zero-denominator tests for torso length, hip width, shoulder width, and all scale outputs. `BodyNormalizationProfile.__post_init__` does not currently validate finite numeric scale values.
 
-- Replace JSON fixture deserialization assumptions with a real helper: either add `PoseFrame` test factory functions in Python, or implement explicit `pose_frame_from_dict()` test utility matching the actual dataclasses.
+### Risk Assessment
 
-- Narrow Task 6 import isolation to `backend.research`, `research`, `nlf`, `smplx`, and `smpl_x` first. Treat MediaPipe removal as a separate cleanup unless this phase also deletes or quarantines existing MediaPipe modules.
-
-- Split R&D harness into two acceptance levels: scaffold smoke test for this plan, and real gap-report generation as a required manual or automated gate before marking ROADMAP criterion 4 complete.
-
-- Add one real RTMW fixture if possible, even a small regenerated dump from one known video. Keep synthetic cases for warning coverage, but include one integration fixture for naming and coordinate sanity.
-
-- Use pole-aligned torso direction or a documented coordinate-frame helper for `pose_too_inverted`, instead of raw `y` comparisons.
-
-- Update contract wording for `estimatedHeightScale` to state "torso-relative body proportion heuristic, not absolute height," or defer that field's meaningful use until BODY-02/Phase 6.
-
-## Risk Assessment
-
-**Overall risk: HIGH as written.** The plan is conceptually solid, but it currently has at least three implementation blockers: discarded `body_shape` propagation, nonexistent fixture deserialization, and an import-isolation rule that conflicts with existing shared code. It also risks overstating completion of the R&D comparison criterion. Once those are corrected, the remaining algorithmic risk looks medium and manageable.
-
----
+**Overall risk: MEDIUM-HIGH.** The architecture is sound and the plan is detailed, but the current version has several high-probability integration failures and one likely algorithmic sign error. Fixing the tuple migration scope, inversion convention, and Task 5 lifecycle would bring this down to MEDIUM.
 
 ## Consensus Summary
 
 Only one reviewer produced usable output, so this is a single-reviewer synthesis rather than true cross-reviewer consensus.
 
-### Agreed Strengths
+### Highest Priority Findings
 
-- The plan is well aligned with BODY-01 and the RTMW pivot.
-- The pure numpy measurer boundary is appropriate.
-- The R&D-vs-production separation is the right architecture.
-- Warnings-first confidence handling matches the product's trust constraints.
-- The planned tests are broad in intent and cover unit, contract, pipeline, and isolation surfaces.
+- **HIGH:** Task 4 needs a complete call-contract migration for `_angles_from_video`, `_angles_and_video_path_from_video`, existing signature tests, Gemini integration stubs, docstrings, and any return annotation gates.
+- **HIGH:** `pose_too_inverted` likely uses the wrong sign convention for RTMW image coordinates and default pole-axis orientation. The test design should be revised against verified RTMW coordinates.
+- **HIGH:** Task 5a and Task 5b have a conflicting test lifecycle: a smoke test that expects `NotImplementedError` must be updated or removed when the real loader is implemented.
+- **HIGH:** The R&D gap-report gate still needs an explicit RTMW extraction/profile-generation path from the same five comparison videos.
 
-### Agreed Concerns
+### Medium Priority Findings
 
-- **Highest priority:** BodyNormalizationProfile propagation is not proven because the current pipeline adapter converts `PoseFrame[]` to a COCO array and discards `body_shape`.
-- **Highest priority:** fixture/schema assumptions must be aligned with the actual `PoseFrame`, `PoleAxis`, and `Keypoint3D` dataclasses.
-- **Highest priority:** MediaPipe import blocking conflicts with existing lazy MediaPipe modules under `sunity_shared`; the isolation rule needs narrowing or a separate cleanup plan.
-- **Highest priority:** an SMPL-X stub cannot satisfy the roadmap's R&D gap-report criterion.
-- **Medium priority:** at least one real RTMW fixture should supplement synthetic fixtures to catch coordinate and keypoint-name drift.
+- Import isolation should cover deployable product paths, including `backend/functions` and `backend/runpod_inference`, not only `sunity_shared`.
+- The new Firestore top-level `bodyNormalizationProfile` field should be added to `docs/contract.md`'s `AnalysisDoc` section.
+- Task 6 should be ordered before the blocking human/RunPod gate so product-safe cleanup and requirement alignment can land while the R&D report is pending.
 
 ### Divergent Views
 

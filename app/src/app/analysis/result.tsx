@@ -7,6 +7,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
+import { DimensionDetailModal } from '../../components/DimensionDetailModal';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { VideoCompare } from '../../components/VideoCompare';
 import {
@@ -21,10 +23,12 @@ import { requestPlaybackUrl } from '../../lib/api';
 import {
   DIMENSION_LABEL_KO,
   DIMENSION_ORDER,
+  DIMENSION_SUBLABEL_KO,
 } from '../../types/analysis';
 import type {
   AnalysisMode,
   AnalysisResult,
+  CoachingTip,
   DimensionExplanation,
   JointDirection,
   JointScore,
@@ -202,45 +206,51 @@ function DimensionScoreRow({
   score,
   delta,
   explanation,
+  onDetailPress,
 }: {
   dim: ScoreDimension;
   score: number;
   delta?: number;
-  // Phase 12.5: 차원별 baseline + weightPercent + deficitSummary. 옵셔널 — 이전
-  // 빌드 doc 진입 시 (서비스 doc 에 dimensionExplanation 키 자체 없음) 추가 라인 표시 X.
+  // Phase 12.5: 차원별 baseline + deficitSummary. 옵셔널 — 이전 빌드 doc 호환.
   explanation?: DimensionExplanation;
+  // Phase 12.5 v2 (belle 피드백): "자세히 ›" 링크 → 모달 (DimensionDetailModal).
+  onDetailPress?: (dim: ScoreDimension) => void;
 }) {
   return (
     <View style={styles.partRow}>
       <View style={styles.partHead}>
-        <View style={styles.partLabelWrap}>
-          <Text style={styles.partLabel}>{DIMENSION_LABEL_KO[dim]}</Text>
-          {explanation && (
-            <Text style={styles.partWeight}>{explanation.weightPercent}%</Text>
-          )}
-        </View>
-        <View style={styles.partValueWrap}>
-          <Text style={styles.partScore}>{score}</Text>
-          {delta != null && delta !== 0 && (
-            <Text
-              style={[
-                styles.partDelta,
-                { color: delta > 0 ? colors.brand : colors.inputError },
-              ]}
-            >
-              {delta > 0 ? `+${delta}` : `${delta}`}
-            </Text>
-          )}
-        </View>
+        <Text style={styles.partLabel}>{DIMENSION_LABEL_KO[dim]}</Text>
+        <Text style={styles.partScore}>{score}</Text>
       </View>
+      {/* Phase 12.5 v2: delta row 분리 (점수 아래 별도 줄, deficit 과 시각 분리) */}
+      {delta != null && delta !== 0 && (
+        <Text
+          style={[
+            styles.partDelta,
+            { color: delta > 0 ? colors.brand : colors.textSecondary },
+          ]}
+        >
+          {delta > 0 ? `지난 분석 대비 +${delta}점` : `지난 분석 대비 ${delta}점`}
+        </Text>
+      )}
       <View style={styles.track}>
         <View style={[styles.trackFill, { width: `${Math.max(0, Math.min(100, score))}%` }]} />
       </View>
-      {/* Phase 12.5: baseline 카피 (mode-aware, "IPSF 실행 기준 참고" 표현) */}
-      {explanation?.baseline && (
-        <Text style={styles.dimBaseline}>{explanation.baseline}</Text>
-      )}
-      {/* Phase 12.5: deficit summary — 산식 정합 source. 양호 시 수치 X 카피. */}
+      {/* sub row: 차원 부제 + "자세히 ›" 링크 */}
+      <View style={styles.partSubRow}>
+        <Text style={styles.dimSublabel}>{DIMENSION_SUBLABEL_KO[dim]}</Text>
+        {onDetailPress && (
+          <Pressable
+            onPress={() => onDetailPress(dim)}
+            accessibilityRole="button"
+            accessibilityLabel={`${DIMENSION_LABEL_KO[dim]} 자세히 보기`}
+            hitSlop={8}
+          >
+            <Text style={styles.dimMore}>자세히 ›</Text>
+          </Pressable>
+        )}
+      </View>
+      {/* deficit summary — 측정값/진단 (코칭 팁과 분리: 코칭 팁 = 행동 지시) */}
       {explanation?.deficitSummary && (
         <Text style={styles.dimDeficit}>
           {highlightNumbers(explanation.deficitSummary)}
@@ -372,6 +382,11 @@ export default function AnalysisResult() {
   const hasExplanation =
     dimensionExplanation != null &&
     Object.keys(dimensionExplanation).length > 0;
+  // Phase 12.5 T8: 차원 "자세히 ›" 모달 state. dim null = 닫힘.
+  const [detailDim, setDetailDim] = useState<ScoreDimension | null>(null);
+  const detailMode: 'mode1' | 'mode3' = cmp.mode === 'mode1' ? 'mode1' : 'mode3';
+  // Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달 state. tip null = 닫힘.
+  const [detailTip, setDetailTip] = useState<CoachingTip | null>(null);
 
   const deltaFor = (dim: ScoreDimension): number | undefined =>
     cmp.mode === 'mode3' && !cmp.isFirst
@@ -439,15 +454,11 @@ export default function AnalysisResult() {
           </>
         )}
 
-        {/* 세부 점수 — IPSF 실행 차원 (각도/라인/안정성). mode3 면 발전 델타 표시.
-            Phase 12.5: 차원별 baseline + weightPercent + deficit summary. */}
+        {/* 세부 점수 — IPSF 실행 차원 (각도/팔다리 펴기/동작 안정성). mode3 면 delta 표시.
+            Phase 12.5: 차원별 baseline + deficit summary. 메타 텍스트 ("동등 비중") 제거.
+            belle 피드백 (2026-06-07): 메타 노출이 사용자 혼동 → 제거. */}
         <Text style={styles.sectionTitle}>세부 점수</Text>
         <View style={styles.card}>
-          {hasExplanation && (
-            <Text style={styles.dimWeightNote}>
-              각 차원 동등 비중 (표시 반올림)
-            </Text>
-          )}
           {dims.map((dim) => (
             <DimensionScoreRow
               key={dim}
@@ -455,6 +466,7 @@ export default function AnalysisResult() {
               score={dimensionScores[dim] as number}
               delta={deltaFor(dim)}
               explanation={dimensionExplanation?.[dim]}
+              onDetailPress={(d) => setDetailDim(d)}
             />
           ))}
         </View>
@@ -503,6 +515,19 @@ export default function AnalysisResult() {
                 </View>
               )}
               <Text style={styles.tipDetail}>{highlightNumbers(tip.detail)}</Text>
+              {/* Phase 12.5 T9: detail2 (causes/injuryRisk/coachNote) 있을 때만
+                  "자세히 ›" 링크 표시. LLM 응답 graceful 처리. */}
+              {tip.detail2 && (
+                <Pressable
+                  onPress={() => setDetailTip(tip)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${tip.title} 자세히 보기`}
+                  hitSlop={8}
+                  style={styles.tipMoreRow}
+                >
+                  <Text style={styles.tipMore}>자세히 ›</Text>
+                </Pressable>
+              )}
             </View>
           );
         })}
@@ -522,6 +547,25 @@ export default function AnalysisResult() {
           <Text style={styles.link}>다시 분석하기</Text>
         </Pressable>
       </ScrollView>
+      {/* Phase 12.5 T8: 차원별 "자세히 ›" 모달. dim=null 시 닫힘.
+          belle 피드백 (2026-06-07): 동작 이름 + 사용자 이름 동적 카피 — 모달이
+          "폭스탑 동작에서 ... OO님의 분석을 반영하여" 식으로 자연어 안내. */}
+      <DimensionDetailModal
+        visible={detailDim != null}
+        dim={detailDim}
+        score={detailDim != null ? (dimensionScores[detailDim] ?? null) : null}
+        explanation={detailDim != null ? dimensionExplanation?.[detailDim] : undefined}
+        mode={detailMode}
+        motionName={cmp.mode === 'mode1' ? cmp.referenceMotionName : undefined}
+        userName={undefined /* TODO: Firebase displayName 박제 박제 박제 박제 */}
+        onClose={() => setDetailDim(null)}
+      />
+      {/* Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달. tip=null 시 닫힘. */}
+      <CoachingTipDetailModal
+        visible={detailTip != null}
+        tip={detailTip}
+        onClose={() => setDetailTip(null)}
+      />
     </View>
   );
 }
@@ -647,25 +691,28 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   partLabel: { ...typography.boxLabel, color: colors.textPrimary },
-  partLabelWrap: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  // Phase 12.5: 가중치 표시 (33% / 50% / 100%) — secondary 색, 작은 폰트.
-  partWeight: { ...typography.caption, color: colors.textSecondary },
-  partValueWrap: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
   partScore: { ...typography.listTitle, color: colors.brand },
-  partDelta: { ...typography.caption },
-  // Phase 12.5: 차원 카드 묶음 위 한 줄 안내 (Codex v3 MED-2 — 33% × 3 = 99% 오해 회피)
-  dimWeightNote: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginBottom: 10,
-  },
-  // Phase 12.5: 차원별 baseline 카피 (mode-aware "IPSF 실행 기준 참고").
-  dimBaseline: {
-    ...typography.caption,
-    color: colors.textSecondary,
+  // Phase 12.5 v2: delta = 점수 아래 별도 row (deficit 과 시각 분리)
+  partDelta: { ...typography.caption, textAlign: 'right', marginTop: 2 },
+  // Phase 12.5 v2: track bar 아래 sub row (차원 부제 + 자세히 링크)
+  partSubRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 6,
   },
-  // Phase 12.5: 차원별 deficit summary (산식 정합 source). 수치는 highlightNumbers 로 강조.
+  // 차원 부제 — "정은지 선수 자세 기준" 등 (DIMENSION_SUBLABEL_KO)
+  dimSublabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  // "자세히 ›" 링크 — brand color
+  dimMore: {
+    ...typography.caption,
+    color: colors.brand,
+    fontWeight: '600',
+  },
+  // 차원별 deficit summary (측정값/진단). 수치는 highlightNumbers 로 강조.
   dimDeficit: {
     ...typography.caption,
     color: colors.textPrimary,
@@ -709,6 +756,9 @@ const styles = StyleSheet.create({
   },
   tipTitle: { ...typography.listTitle, color: colors.textPrimary, flexShrink: 1 },
   tipDetail: { ...typography.caption, color: colors.textSecondary, lineHeight: 18 },
+  // Phase 12.5 T9: 코칭 팁 "자세히 ›" 링크 (카드 우측 하단 정렬)
+  tipMoreRow: { alignSelf: 'flex-end', marginTop: 4 },
+  tipMore: { ...typography.caption, color: colors.brand, fontWeight: '600' },
   cta: {
     width: '100%',
     height: layout.ctaHeight,

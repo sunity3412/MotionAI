@@ -58,10 +58,20 @@ export type AnalysisErrorCode =
 // 같은 척도로 비교됨.
 export type ScoreDimension = 'angle' | 'line' | 'stability';
 
+// 차원 메인 라벨 — 사용자 친화 (Phase 12.5 belle 피드백: "라인·확장 / 안정성·홀딩"
+// 묶음 라벨이 사용자에게 불명확. "팔다리 펴기" / "동작 안정성" 풀어 표현).
 export const DIMENSION_LABEL_KO: Record<ScoreDimension, string> = {
   angle: '각도 정확도',
-  line: '라인·확장',
-  stability: '안정성·홀딩',
+  line: '팔다리 펴기',
+  stability: '동작 안정성',
+};
+
+// 차원 부제 — track bar 아래 secondary text (Phase 12.5).
+// "이게 무슨 기준인지" 한 줄 안내. mode 분기는 result.tsx 에서 동적 처리 시 갱신.
+export const DIMENSION_SUBLABEL_KO: Record<ScoreDimension, string> = {
+  angle: '정은지 선수 자세 기준',
+  line: '팔/다리 완전히 펴는 정도',
+  stability: '핵심 자세에서 떨림 정도',
 };
 
 // 표시 순서. mode1 = 3차원 전부, mode3 = 절대 차원(line/stability)(+ second+ 면 angle 일관성).
@@ -94,7 +104,30 @@ export interface JointScore {
 export interface CoachingTip {
   joint?: string; // 관련 관절 key (선택)
   title: string; // KISMAM Top-3 교정 포인트 (예: '무릎 신전 부족')
-  detail: string; // Cerebras 자연어 가이드 문장
+  detail: string; // Cerebras 자연어 가이드 문장 (카드 본문 짧은 한 줄)
+  // Phase 12.5 T9 (2026-06-07): "자세히 ›" 모달용 상세 박제. LLM 동적 생성.
+  // 옵셔널 — backend graceful (LLM 실패 시 없음) + 이전 빌드 doc 호환.
+  detail2?: CoachingTipDetail;
+}
+
+// Phase 12.5 T9: 코칭 팁 자세히 모달 데이터 (LLM 동적).
+// belle 의도 (2026-06-07): "원인 후보 3~5 + 각 case 처방 + 부상 경고 + 코치 권고"
+// = Phase 11 CoachCommentHook + Phase 13 보완 운동 라이브러리 결합의 압축 layer.
+// Cerebras (gpt-oss-120b) 가 한 호출로 짧은 detail + 긴 detail2 둘 다 생성.
+export interface CoachingTipDetail {
+  // 원인 후보 3~5개. 각 case 별 진단 + 처방.
+  // 사용자 input = 정확한 원인 모르므로 "이런 경우 박제 박제" 식으로 다중 제시.
+  causes: CoachingCause[];
+  // 부상 위험 경고 (해당 시). LLM 판단 — 없으면 omitted.
+  injuryRisk?: string;
+  // 코치 상의 권고 (마무리 한 줄). 항상 표시.
+  coachNote: string;
+}
+
+export interface CoachingCause {
+  title: string; // 원인 짧은 제목 (예: '받침 팔 힘 부족')
+  explanation: string; // 왜 이 원인이 점수에 영향 (1~2문장)
+  fix: string; // 이 case 인 경우 연습 방법 (1~2문장)
 }
 
 // 구간별 점수 (reference-motions.md §7 공유 베이스 모션).

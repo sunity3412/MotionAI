@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "2026-06-07 belle 로드맵 재정렬 결정 — A+B+C 시퀀싱 B→C→A. Phase 1 (Plan 01-24 후속) / Phase 5 (12차 sweep PASS) / Phase 16 (v1 박제) close-out. Phase 12.5 신설 (B = UI transparency + 강사 보조 카피, 3~5일, 빌드 12). 다음 진입 = /gsd-plan-phase 12.5. 상세 = .planning/roadmap-replan-2026-06-07.md + roadmap-replan-2026-06-07-review.md."
-last_updated: "2026-06-07T00:35:00.000Z"
-last_activity: 2026-06-07 -- 로드맵 재정렬 + self-review + Phase 12.5 신설
+stopped_at: "2026-06-07 Phase 12.5 close-out (commits 1c0d20a T1+T2 backend / 62fdeed T9 backend / e968074 T8+T9 frontend). 자세히 모달 2종 (차원/코칭) + LLM-ready coach_writer JSON 프롬프트 + dimensionExplanation 분기-1 mode-aware 카피 + belle UX 검증 PASS (모달 스크롤 정상 + 심사평 3박자 톤). 후속 Phase 12.6 신설 = LLM 분기 카피 (학원/IPSF 분기 1/2 분리 + ipsfCode 동작별 IPSF 정의 각도 fixture). 시뮬 한계 (폭스탑 학원 용어 어색 + 180° 명시 angle 차원 X) 는 실 LLM + 분기 시스템으로 해결 예정."
+last_updated: "2026-06-07T17:30:00.000Z"
+last_activity: 2026-06-07 -- Phase 12.5 close-out (T8+T9 자세히 모달 + belle UX iteration finalize)
 progress:
-  total_phases: 16
-  completed_phases: 3
+  total_phases: 17
+  completed_phases: 4
   total_plans: 31
   completed_plans: 23
-  percent: 50
+  percent: 53
 ---
 
 # Project State
@@ -25,9 +25,26 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 12.5 (UI Transparency, B 단계) — READY TO PLAN
-Plan: 1 of 1 (예정)
-Status: 진입 대기 (/gsd-plan-phase 12.5)
+Phase: 12.5 (UI Transparency) — **DONE** (2026-06-07 close-out)
+Next phase: 12.6 (LLM 분기 카피 + 학원/IPSF 동작 분기) — READY TO PLAN
+Status: 진입 대기 (/gsd-plan-phase 12.6)
+
+### Phase 12.5 close-out 내역
+
+| 영역 | 결과 |
+|---|---|
+| backend `assemble.build_dimension_explanation` | weightPercent (Largest Remainder) + mode-aware baseline + source-faithful deficits (commit 1c0d20a) |
+| backend `coach_writer` LLM | Cerebras gpt-oss-120b JSON 프롬프트 — 다중 원인 + case 처방 + 부상 경고 + coachNote. graceful `_normalize_entry` (commit 62fdeed) |
+| frontend `DimensionDetailModal` | 동작·사용자 동적 formula ("세계 심사 기준은 [동작]에서 ... [회원]님의 영상 자세를 반영") + "심사평" 자연어 3박자 (평가+이유+결정) |
+| frontend `CoachingTipDetailModal` | LLM `tip.detail2` 렌더 (causes 카드 + injury 경고 + coachNote). detail2 없으면 graceful fallback |
+| UX 함정 fix | (a) sheet useWindowDimensions 명시 height (b) backdrop = pure View + 위 빈 영역만 Pressable — Pressable+stopPropagation 가 ScrollView gesture 가로채는 함정 회피 |
+| belle UX 검증 | PASS — 스크롤 어디서든 정상 동작, 심사평 톤 OK |
+
+### Phase 12.5 남은 한계 (Phase 12.6 이관)
+
+1. **학원 용어 vs IPSF 등재 분기 카피** — 폭스탑 = "정은지 선수 기준" / 클라임 = "세계 심사 기준 (IPSF) + 180°". 메모리 [`studio-term-3branch-system`] 분기 1/2 정합
+2. **angle 차원 동작별 IPSF 정의 각도** — 어깨 90° / 엉덩이 110° 등 동작별 fixture 또는 LLM 매핑
+3. **시뮬 segments 일부 시나리오 X** — mode 3 first 정답 (이전 영상 없음), 그 외는 실 분석에서 backend `assemble.build_segments` 자동 생성
 Last activity: 2026-06-07 -- 로드맵 재정렬 + Phase 12.5 신설
 
 **시퀀스 (belle 2026-06-07 결정 — B → C → A)**:

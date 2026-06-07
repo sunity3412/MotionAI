@@ -44,7 +44,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 10: 부상 위험 신호 플래그** - 좌우 비대칭·요추 과신전·무리 동작 신호 (SAFE-01 v1)
 - [ ] **Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만** - AI+코치 비즈니스 모델 + 설명 엔진 한정
 - [ ] **Phase 12: 실측 각도 표시 + 키포인트 오버레이** - "현재 87° → 기준 110°" + 어깨/골반/무릎/손/중심축. **2026-06-07 belle 결정: A 항목, B → C → A 시퀀싱의 마지막. feature flag + git branch 박제로 빌드 11 stable 유지하며 진행.**
-- [ ] **Phase 12.5: UI Transparency — 차원별 카피 + 가중치 표시 + 강사 보조 카피** - `result.tsx` 차원별 (`angle`/`line`/`stability`) 카드에 (a) "IPSF 기준 + 정은지 측정값" 한 줄 카피, (b) 가중치 표시, (c) "왜 이 점수인지" 차원별 deficit, (d) "AI = 강사 보조 도구" 헤더/footer 카피. backend `assemble.py` 가 `dimensionExplanation` 출력. **2026-06-07 belle 결정: B 항목, B → C → A 시퀀싱의 첫 단계 (빌드 12).**
+- [x] **Phase 12.5: UI Transparency — 차원별 카피 + 자세히 모달 + LLM-ready coaching** - `result.tsx` 차원별 카드 (각도 정확도 / 팔다리 펴기 / 동작 안정성) + 자세히 모달 (점수 산출 설명, 동작·사용자 동적 카피, "심사평" 자연어) + 코칭 팁 자세히 모달 (LLM 동적 다중 원인 + 부상 경고 + coachNote). backend `assemble.build_dimension_explanation` + `coach_writer` JSON 출력 + Cerebras 시스템 프롬프트 갱신. **2026-06-07 close-out** (commits 1c0d20a T1+T2 / 62fdeed T9 backend / e968074 T8+T9 frontend). belle UX 검증 PASS — 모달 스크롤 정상 동작 + 심사평 톤 (평가+이유+결정 3박자) 적용.
+- [ ] **Phase 12.6: LLM 분기 카피 + 학원/IPSF 동작 분기 (실 LLM 활성화)** - Pod 갱신 + uvicorn 재시작 후 실 영상 분석에서 Cerebras `tip.detail2` 검증. `assemble.build_dimension_explanation` 에 `ipsfCode` 유무로 분기 1 (IPSF 등재, 예: 클라임 = "세계 심사 기준 + 180°") vs 분기 2 (학원 통용, 예: 폭스탑 = "정은지 선수 기준") 카피 분리. `coach_writer` 시스템 프롬프트에 동작 분기 + IPSF 정의 각도 fixture 주입. 메모리 [`studio-term-3branch-system`] 정합. **belle 2026-06-07 결정: Phase 12.5 시뮬 한계 (학원 용어 어색 + 180° 명시 없음) 의 실 LLM 해결.**
 - [ ] **Phase 13: 보완 운동·스트레칭 추천 라이브러리** - 분석 → 행동 매핑 (PERS-03 v1)
 - [ ] **Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)** - 비교 정확도 최대화 + 다각도 캡처 프로토콜
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주

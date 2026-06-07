@@ -25,6 +25,7 @@ import {
 import type {
   AnalysisMode,
   AnalysisResult,
+  DimensionExplanation,
   JointDirection,
   JointScore,
   ScoreDimension,
@@ -200,15 +201,24 @@ function DimensionScoreRow({
   dim,
   score,
   delta,
+  explanation,
 }: {
   dim: ScoreDimension;
   score: number;
   delta?: number;
+  // Phase 12.5: 차원별 baseline + weightPercent + deficitSummary. 옵셔널 — 이전
+  // 빌드 doc 진입 시 (서비스 doc 에 dimensionExplanation 키 자체 없음) 추가 라인 표시 X.
+  explanation?: DimensionExplanation;
 }) {
   return (
     <View style={styles.partRow}>
       <View style={styles.partHead}>
-        <Text style={styles.partLabel}>{DIMENSION_LABEL_KO[dim]}</Text>
+        <View style={styles.partLabelWrap}>
+          <Text style={styles.partLabel}>{DIMENSION_LABEL_KO[dim]}</Text>
+          {explanation && (
+            <Text style={styles.partWeight}>{explanation.weightPercent}%</Text>
+          )}
+        </View>
         <View style={styles.partValueWrap}>
           <Text style={styles.partScore}>{score}</Text>
           {delta != null && delta !== 0 && (
@@ -226,6 +236,16 @@ function DimensionScoreRow({
       <View style={styles.track}>
         <View style={[styles.trackFill, { width: `${Math.max(0, Math.min(100, score))}%` }]} />
       </View>
+      {/* Phase 12.5: baseline 카피 (mode-aware, "IPSF 실행 기준 참고" 표현) */}
+      {explanation?.baseline && (
+        <Text style={styles.dimBaseline}>{explanation.baseline}</Text>
+      )}
+      {/* Phase 12.5: deficit summary — 산식 정합 source. 양호 시 수치 X 카피. */}
+      {explanation?.deficitSummary && (
+        <Text style={styles.dimDeficit}>
+          {highlightNumbers(explanation.deficitSummary)}
+        </Text>
+      )}
     </View>
   );
 }
@@ -343,10 +363,15 @@ export default function AnalysisResult() {
         ? '첫 분석이에요. 다음 분석부터 발전을 비교해드려요.'
         : mode3Summary(result.overallScore, prevDoc?.result?.overallScore);
 
-  // 표시할 차원 = 결과에 존재하는 차원만 (mode1=4, mode3 first=3, mode3 second+=4).
+  // 표시할 차원 = 결과에 존재하는 차원만 (mode1=3, mode3 first=2 또는 1, mode3 second+=3).
   // 재설계 이전 문서(옛 partScores·dimensionScores 없음)는 빈 객체로 폴백 — 크래시 방지.
   const dimensionScores = result.dimensionScores ?? {};
   const dims = DIMENSION_ORDER.filter((d) => dimensionScores[d] != null);
+  // Phase 12.5: 차원별 explanation. 이전 빌드 doc 호환 — 없으면 hasExplanation=false.
+  const dimensionExplanation = result.dimensionExplanation;
+  const hasExplanation =
+    dimensionExplanation != null &&
+    Object.keys(dimensionExplanation).length > 0;
 
   const deltaFor = (dim: ScoreDimension): number | undefined =>
     cmp.mode === 'mode3' && !cmp.isFirst
@@ -414,15 +439,22 @@ export default function AnalysisResult() {
           </>
         )}
 
-        {/* 세부 점수 — IPSF 실행 차원 (각도/라인/안정성). mode3 면 발전 델타 표시 */}
+        {/* 세부 점수 — IPSF 실행 차원 (각도/라인/안정성). mode3 면 발전 델타 표시.
+            Phase 12.5: 차원별 baseline + weightPercent + deficit summary. */}
         <Text style={styles.sectionTitle}>세부 점수</Text>
         <View style={styles.card}>
+          {hasExplanation && (
+            <Text style={styles.dimWeightNote}>
+              각 차원 동등 비중 (표시 반올림)
+            </Text>
+          )}
           {dims.map((dim) => (
             <DimensionScoreRow
               key={dim}
               dim={dim}
               score={dimensionScores[dim] as number}
               delta={deltaFor(dim)}
+              explanation={dimensionExplanation?.[dim]}
             />
           ))}
         </View>
@@ -615,9 +647,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   partLabel: { ...typography.boxLabel, color: colors.textPrimary },
+  partLabelWrap: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  // Phase 12.5: 가중치 표시 (33% / 50% / 100%) — secondary 색, 작은 폰트.
+  partWeight: { ...typography.caption, color: colors.textSecondary },
   partValueWrap: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
   partScore: { ...typography.listTitle, color: colors.brand },
   partDelta: { ...typography.caption },
+  // Phase 12.5: 차원 카드 묶음 위 한 줄 안내 (Codex v3 MED-2 — 33% × 3 = 99% 오해 회피)
+  dimWeightNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: 10,
+  },
+  // Phase 12.5: 차원별 baseline 카피 (mode-aware "IPSF 실행 기준 참고").
+  dimBaseline: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 6,
+  },
+  // Phase 12.5: 차원별 deficit summary (산식 정합 source). 수치는 highlightNumbers 로 강조.
+  dimDeficit: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    marginTop: 2,
+  },
   track: {
     width: '100%',
     height: 10,

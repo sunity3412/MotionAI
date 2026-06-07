@@ -7,6 +7,7 @@
 import type {
   AnalysisMode,
   AnalysisResult,
+  DimensionExplanation,
   JointScore,
   ScoreDimension,
   SegmentScores,
@@ -80,6 +81,64 @@ const DIMS_MODE3: Dims = { line: 84, stability: 66 };
 const OVERALL_MODE1 = 68;
 const OVERALL_MODE3 = 75;
 
+// ── Phase 12.5: dimensionExplanation 시뮬 ─────────────────────────────────
+// backend 의 assemble.build_dimension_explanation 출력 모양 그대로. baseline 카피
+// 와 deficitSummary 카피는 backend 와 동일 — 실 분석 doc 진입 전 UI 검토용.
+
+const SIM_BASELINE_MODE1: Record<ScoreDimension, string> = {
+  angle: '정은지 측정값 + IPSF 실행 기준 참고',
+  line: '정은지 측정값 + 신전 완성도 (IPSF 실행 기준 참고)',
+  stability: 'hold 구간 떨림 (절대 지표)',
+};
+const SIM_BASELINE_MODE3: Record<ScoreDimension, string> = {
+  angle: '이전 영상 대비 관절 각도 일관성',
+  line: '신전 완성도 (실행 기준 참고)',
+  stability: 'hold 구간 떨림 (절대 지표)',
+};
+
+const SIM_GOOD_BY_DIM: Record<ScoreDimension, string> = {
+  angle: '관절 각도 안정',
+  line: '신전 자세 안정',
+  stability: 'hold 구간 떨림 작음',
+};
+
+// 시뮬 deficit (점수 < 80 시 표시). 실제 backend 는 산식 source 사용 —
+// 시뮬은 시연용 카피만 (수치 + brand color 강조 동작 확인용).
+const SIM_DEFICIT_BY_DIM: Record<ScoreDimension, string> = {
+  angle: '오른쪽 어깨 22° 차이',
+  line: '왼쪽 무릎 신전 부족',
+  stability: '오른쪽 무릎 hold 구간 떨림',
+};
+
+// 모든 차원이 점수 ≥ 80 박제 박제 시 = 양호 카피만 (수치 X).
+const GOOD_SCORE_THRESHOLD = 80;
+
+function buildExplanationForSim(
+  dims: Dims,
+  mode: AnalysisMode,
+): Partial<Record<ScoreDimension, DimensionExplanation>> {
+  const keys = (Object.keys(dims) as ScoreDimension[]).filter(
+    (k) => dims[k] != null,
+  );
+  const n = keys.length;
+  if (n === 0) return {};
+  // Largest Remainder Method — 합 100% 보장 (backend 와 동일 산식).
+  const base = Math.floor(100 / n);
+  const remainder = 100 - base * n;
+  const baselines = mode === 'mode1' ? SIM_BASELINE_MODE1 : SIM_BASELINE_MODE3;
+  const out: Partial<Record<ScoreDimension, DimensionExplanation>> = {};
+  keys.forEach((key, i) => {
+    const score = dims[key] ?? 0;
+    const good = score >= GOOD_SCORE_THRESHOLD;
+    out[key] = {
+      weightPercent: i < remainder ? base + 1 : base,
+      baseline: baselines[key],
+      deficitSummary: good ? SIM_GOOD_BY_DIM[key] : SIM_DEFICIT_BY_DIM[key],
+    };
+  });
+  return out;
+}
+
 // 구간별 점수 시뮬 (reference-motions.md §7).
 export function simulatedSegmentScores(
   overallScore: number,
@@ -103,6 +162,8 @@ export function getSimulatedResult(
     return {
       overallScore: OVERALL_MODE1,
       dimensionScores: { ...DIMS_MODE1 },
+      // Phase 12.5: 차원별 baseline + weightPercent + deficit (시뮬용).
+      dimensionExplanation: buildExplanationForSim(DIMS_MODE1, 'mode1'),
       joints: JOINTS.map((j) => ({ ...j })),
       tips: TIPS.map((t) => ({ ...t })),
       myVideoUrl: '',
@@ -121,6 +182,7 @@ export function getSimulatedResult(
   return {
     overallScore: OVERALL_MODE3,
     dimensionScores: { ...DIMS_MODE3 },
+    dimensionExplanation: buildExplanationForSim(DIMS_MODE3, 'mode3'),
     joints: JOINTS.map((j) => ({ ...j })),
     tips: TIPS.map((t) => ({ ...t })),
     myVideoUrl: '',
@@ -241,6 +303,8 @@ export function getSimulatedResultFromScenario(
     return {
       overallScore: scenario.overall,
       dimensionScores: { ...scenario.dims },
+      // Phase 12.5: 시나리오 점수 기반 explanation (각 차원 동등 비중).
+      dimensionExplanation: buildExplanationForSim(scenario.dims, 'mode1'),
       joints,
       tips,
       myVideoUrl: '',
@@ -270,6 +334,7 @@ export function getSimulatedResultFromScenario(
   return {
     overallScore: scenario.overall,
     dimensionScores: { ...scenario.dims },
+    dimensionExplanation: buildExplanationForSim(scenario.dims, 'mode3'),
     joints,
     tips,
     myVideoUrl: '',

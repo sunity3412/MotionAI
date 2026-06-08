@@ -76,6 +76,21 @@ Phase 9 의 `ForceDirectionPattern` 추론 + "실패 원인 후보 3개 카드" 
 - **D-08-U2:** **모든 metric 에 confidence 필드** — research 02 의 "모든 finding 에 confidence + interpretation" 박제. severity (low/medium/high) 와 confidence (수치 0~1) 는 다른 차원: severity = 측정값 자체 크기, confidence = 측정값 신뢰도.
 - **D-08-U3:** **3-way contract lockstep** — `app/src/types/analysis.ts` ↔ `backend/shared/python/sunity_shared/analysis/force_signals.py` (또는 models.py re-export) ↔ `docs/contract.md` §X 동시 atomic commit 박제. Phase 6/7 박제 패턴 정합.
 
+### Plan-Checker Round-1 Promoted Decisions (2026-06-08)
+
+> RESEARCH.md `## Open Questions` Q1/Q2/Q5 의 Recommendation 을 Dimension 11 정합으로 D-08-E* locked decisions 로 승급. plan-checker pass 후 plans 가 본 결정 박제.
+
+- **D-08-E1:** **`_validate_dict_only_scalars` 명세 확장 = Option A (list[scalar] 허용)** — list[str], list[int], list[float], list[bool], list[None] 허용 + list[list] / list[dict] 거부 유지. Firestore nested-array 회피 핵심은 list[list] / list[dict] 차단이며 list[scalar] 는 SDK 직렬화 안전. Phase 6 BodyComparisonReport.warnings list[str] 와 일관성. Plan 08-03 Task 1 박제.
+
+- **D-08-E2:** **`keep_local_video` = helper 함수 `_should_keep_local_video()` 박제** — `_extract_video_analysis_inputs.keep_local_video` default=False 유지 (Phase 6 path 회귀 0). Phase 8 wiring 시 module-level helper `_should_keep_local_video() -> bool` 신설 (`pipeline/app.py`) — 본체 = `os.environ.get("RECOGNIZER_BACKEND") == "gemini"`. `_get_gemini_moment_extractor()` 와 **동일 env probe 단일 박제** → drift 차단 (향후 backend 변경/추가 시 한 곳만 수정). mode1/mode3 양쪽 call site = `keep_local_video=_should_keep_local_video()` 명시 전달.
+
+- **D-08-E3:** **Layer 2 wiring 박제 + pre-flight spike 별 plan 신설 X** — Plan 03 가 Layer 2 wiring 단일 plan 박제. 안전성 근거 3종:
+  1. **graceful fallback 코드 박제** — `try/except (RuntimeError, ValueError, ConnectionError)` → Layer 1 단독 + `warnings: ["layer2_call_failed"]` + confidence='medium'. RECOGNIZER_BACKEND env unset 시 Layer 1 default path 단독 active (분석 죽지 않음, D-08-A4 정합).
+  2. **env flag 명시 활성화 필요** — `RECOGNIZER_BACKEND=gemini` env 명시 설정 안 하면 Layer 2 wiring 호출 X. Plan 08-03 Task 1 acceptance 박제: "default state (env unset) = Layer 1 단독 path active = analysis pipeline 안전". 운영 default 안전 박제 후 RunPod Pod 에서 belle 가 명시 활성화.
+  3. **Plan 08-03 Task 3 checkpoint = pre-flight spike 역할 대신** — manual checkpoint 가 (a) ref-invert 1영상 Layer 2 timestamp ±300ms sensible 검증, (b) 5영상 sweep severity 분포 sanity, (c) Layer 1 25-timestamp belle 라벨링 ≥ 80% 일치. **모든 sanity check 실패 시 unwind path = RECOGNIZER_BACKEND env unset** (코드 변경 0, 1 env 변경으로 Layer 1 단독 path active). 별 spike plan 박제 시 동일 검증 1회 추가 = redundancy.
+
+- **D-08-E4:** **D-08-A2 sub-refinement (motion_id=None 시 Layer 1 confidence)** — D-08-A2 의 "Layer 1 만 → medium" 정신은 motion_id 인식 케이스 가정. motion_id=None 케이스에서는 Layer 1 단독 confidence 가 더 약함 (yaml expected_contact_points lookup 불가능 + Phase 5 인식 실패 의미). Plan 02 박제: motion_id 인식 시 Layer 1 단독 = `confidence='medium'`, motion_id=None 시 Layer 1 단독 = `confidence='low'` + `source='heuristic_fallback'` + warning `"motion_id_unrecognized_fallback"`. CONTEXT.md `<Claude's Discretion>` 항목 lift.
+
 ### Claude's Discretion
 
 - **`force_signals.py` 모듈의 정확한 함수 시그니처** — `compute_axis_deviation(frames, phase_boundaries, body_profile, pole_axis) → list[AxisDeviationMetric]` 같은 시그니처. researcher / planner 영역.

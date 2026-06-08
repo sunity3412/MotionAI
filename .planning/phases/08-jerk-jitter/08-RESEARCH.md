@@ -1820,42 +1820,38 @@ python3 -m backend.research.spikes.sweep_force_signals \
 
 **모든 [ASSUMED] 박제는 belle 검수 권장.** belle Pod 5영상 sweep 으로 threshold sanity check 후 lock.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **`_validate_dict_only_scalars` 명세 확장 (Option A vs B vs C)**
-   - What we know: 현재 명세는 list[dict] 의 dict 안에서 nested 모두 금지 (firestore_admin.py:104-123). Phase 8 metric 안 `warnings: list[str]` 가 위반.
-   - What's unclear: 명세 확장 (list[str] 허용) 이 firestore-nested-array 정합인지 — Firestore SDK 가 list-of-string 은 직렬화 가능.
-   - Recommendation: **Option A** (명세 확장, list[str] 허용). planner 가 firestore_admin 단일 commit 박제. Phase 6 의 BodyComparisonReport.warnings list[str] 와 일관성.
+**Resolution policy** (Dimension 11 정합, 2026-06-08): 모든 Q1~Q7 박제 = RESOLVED 또는 CONTEXT.md D-08-E* 로 승급. RESOLVED 결정은 plan-checker pass 후 plans 에 직접 반영됨.
 
-2. **`_extract_video_analysis_inputs` 의 `keep_local_video` default 변경**
-   - What we know: 현재 default=False (Phase 6 박제). Phase 8 Layer 2 wiring 시 True 필요.
-   - What's unclear: default 변경 시 기존 Phase 6 path 메모리/디스크 누수 위험.
-   - Recommendation: default=False 유지 + Phase 8 호출 site 에서 명시적 `keep_local_video=True` + try/finally 정리. pipeline/app.py 의 기존 `Path(local_video_path).unlink(missing_ok=True)` 패턴 정합.
+1. **`_validate_dict_only_scalars` 명세 확장 (Option A vs B vs C)** — **RESOLVED → CONTEXT.md D-08-E1**
+   - Decision: **Option A** (명세 확장, list[str/int/float/bool/None] 허용, list[list]/list[dict] 거부). Phase 6 BodyComparisonReport.warnings list[str] 정합. Plan 08-03 Task 1 박제.
+   - Rationale: Firestore SDK 가 list-of-scalar 직렬화 지원. nested-array 회피 핵심은 list[list] / list[dict] 차단 — list[scalar] 는 안전.
 
-3. **Layer 2 호출 비용 vs Phase 5 cache 활용**
-   - What we know: `GeminiMomentExtractor._cache` 가 `(video_uri, motion, model)` 키로 응답 보관. Phase 5 (TechniqueRecognizer) 가 같은 영상 호출했으면 cache hit.
-   - What's unclear: Phase 5 와 Phase 8 의 motion 인자가 같은지 — Phase 5 가 `recognize()` 시 그 영상의 motion_id 를 인자로 호출하면 Phase 8 도 same motion_id 사용 → cache hit. 그러나 GeminiTechniqueRecognizer 의 호출 시그너처는 다른 path 일 수 있음.
-   - Recommendation: Phase 8 의 Layer 2 = `extract_key_moments(video_uri=local_path, motion=motion_id)` 호출. Phase 5 가 다른 method (`recognize_technique`) 호출이라면 cache miss → 별 Gemini 호출 1회. cost = $0.02~0.05/영상 (belle 예상 박제). planner 가 비용/latency 영향 박제 시 검토.
+2. **`_extract_video_analysis_inputs` 의 `keep_local_video` default 변경** — **RESOLVED → CONTEXT.md D-08-E2**
+   - Decision: **default=False 유지** + Phase 8 호출 site 에서 `_should_keep_local_video() -> bool` helper 로 conditional 박제. Helper 가 `os.environ.get("RECOGNIZER_BACKEND") == "gemini"` 검사 — `_get_gemini_moment_extractor()` 와 단일 env probe 정합 (drift 차단).
+   - Rationale: helper 단일 박제 = 양쪽 call site (mode1 + mode3) 가 같은 검사 — 향후 backend 추가/변경 시 한 곳만 수정.
 
-4. **`PoseFrame.timestamp_ms` 의 정확한 의미 (frame_index × (1000/fps) vs 실제 video timestamp)**
-   - What we know: Phase 1 박제 — `timestamp_ms: int` field 가 PoseFrame 에 있음.
-   - What's unclear: frame extractor 가 timestamp_ms 를 정확한 영상 시각으로 박제하는지 (vs index × 111ms @ 9fps 근사).
-   - Recommendation: planner 가 `frame_extractor.py` 박제 정신 확인 — Phase 8 의 ContactStability.lostContactAtMs 는 frame index × (1000/fps) 로 충분 (정밀도 < 100ms).
+3. **Layer 2 호출 비용 vs Phase 5 cache 활용** — **RESOLVED (planner discretion 박제)**
+   - Decision: Phase 5 와 Phase 8 의 Gemini cache key 가 같은 (`(video_uri, motion, model)`) tuple 이지만 method 호출 (`recognize_technique` vs `extract_key_moments`) 가 다른 path. **cache hit 미보장 — 별 Gemini 호출 1회 가정** (cost = $0.02~0.05/영상 belle 예상). Plan 08-03 Task 1 acceptance 에 비용 가정 박제.
+   - Rationale: cache hit 검증은 v1.5 latency optimization. v1 = 별 호출 가정으로 안전 박제.
 
-5. **Plan 01-13 verdict 직접 검증 — Layer 2 spike**
-   - What we know: Plan 01-13 의 5/5 minimum_fail 는 IPSF criteria 비교 (measure_moment_angles → score_moment) 의 의심.
-   - What's unclear: Phase 8 의 Layer 2 = timestamp 만 사용 — 측정 chain 무관. 그러나 belle Pod 실 테스트 없이 단정 X.
-   - Recommendation: Phase 8 plan 단계에서 **별 Layer 2 spike** 신설 (선택) — ref-invert 영상 1개로 Gemini key_moment timestamp 가 정은지 영상에서 sensible 한지 belle Pod 검증. spike 통과 시 v1 wiring, 실패 시 Layer 1 단독 (D-08-A2 confidence='medium' fallback 그대로). v1.5 후속 plan 으로 본격화.
+4. **`PoseFrame.timestamp_ms` 의 정확한 의미** — **RESOLVED**
+   - Decision: Phase 8 ContactStability.lostContactAtMs 는 `frame_index × (1000/fps)` 로 박제. fps 는 video metadata (frame_extractor.py 산출) 사용. 정밀도 ≤ 111ms @ 9fps 충분.
+   - Rationale: 동작 단계 boundary 검출 정밀도가 100ms 단위면 force-pattern 추론 충분. belle Layer 1 25-timestamp 라벨링 검증 (±200ms) 와 정합.
 
-6. **5단계 분할 의 belle 검증 set (timestamp 라벨링)**
-   - What we know: motion boundary timestamp 는 **객관적 video event** ([[analysis-objectivity-no-human-scores]] 와 별개 — "어디서 손이 폴에 닿는지" 는 점수 라벨 아님).
-   - What's unclear: belle 가 5영상 × 5단계 = 25 timestamp 라벨 박제 가능한지.
-   - Recommendation: planner 가 belle Pod sweep 단계에서 25 timestamp belle 검증 박제 — Layer 1 휴리스틱 정확도 sanity check (>= 80% 정합 보면 통과).
+5. **Plan 01-13 verdict 직접 검증 — Layer 2 spike** — **RESOLVED → CONTEXT.md D-08-E3**
+   - Decision: **Layer 2 wiring 박제 + graceful fallback (try/except RuntimeError/ValueError → Layer 1 단독 + 'layer2_call_failed' warning)** — pre-flight spike 별도 plan 신설 X. 안전성 근거: (a) Layer 2 fallback path 가 코드 박제됨, (b) RECOGNIZER_BACKEND env flag 가 default Layer 1 단독 박제 — Gemini wiring 은 env flag 명시 활성화 필요, (c) belle Pod Layer 2 sanity check 는 Plan 08-03 Task 3 (manual checkpoint) 에서 검증.
+   - Rationale: spike + wiring 분리는 추가 plan/checkpoint 1회 — Plan 03 Task 3 가 동일 검증 역할. fallback 박제로 위험 0. belle "정확도 우선" + "Plan 01-13 blocker 직접 무관" 박제 정합.
+   - Risk mitigation: Plan 03 Task 1 acceptance 에 "RECOGNIZER_BACKEND env unset = Layer 1 단독 path active (default 안전)" 박제. Task 3 checkpoint 에서 Layer 2 timestamp sensible 박제 실패 시 RECOGNIZER_BACKEND unset 으로 unwind.
 
-7. **`hip` ContactPoint (research §5.3 enum) 의 COCO-17 매핑**
-   - What we know: research 02 §5.3 의 12 ContactPoint enum 안 `hip` 단독.
-   - What's unclear: COCO-17 에는 `hip` 단일 keypoint 없음 (left_hip + right_hip).
-   - Recommendation: 본 RESEARCH `_CONTACT_POINT_TO_KEYPOINTS` 박제 — `hip` → `("left_hip", "right_hip")` midpoint 사용. planner 가 yaml 매핑 시 belle 검수.
+6. **5단계 분할 의 belle 검증 set (timestamp 라벨링)** — **RESOLVED**
+   - Decision: Plan 08-03 Task 3 manual checkpoint 박제 — belle 5영상 × 5 phase = 25 timestamp 수동 라벨링 + Layer 1 산출 비교 (±200ms 안 일치율 ≥ 80% = pass). VALIDATION.md Manual-Only Verifications 박제됨.
+   - Rationale: motion boundary timestamp 는 객관적 video event ([[analysis-objectivity-no-human-scores]] 별개). belle Pod 단일 sweep 단계 박제.
+
+7. **`hip` ContactPoint (research §5.3 enum) 의 COCO-17 매핑** — **RESOLVED**
+   - Decision: `_CONTACT_POINT_TO_KEYPOINTS["hip"] = ("left_hip", "right_hip")` midpoint. Plan 08-01 Task 2 yaml + Plan 08-02 Task 2 compute_contact_stability 박제. belle 검수 = Plan 08-01 Task 2 done condition (manual yaml domain check).
+   - Rationale: COCO-17 keypoint 명세 직접 정합 — 별 alternatives 없음.
 
 ## Environment Availability
 

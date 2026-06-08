@@ -88,6 +88,7 @@ from typing import Literal
 import numpy as np
 
 from .body_normalization import BodyNormalizationProfile
+from .copy_templates import _EMPTY_FOCUS_FALLBACK, render_finding_copy
 from .pose_frame import PoseFrame, to_coco17_array
 from .skeleton import KEYPOINT_NAMES
 
@@ -937,6 +938,177 @@ class BodyComparisonReport:
                     f"warnings[{i}]='{w}' not in BODY_COMPARISON_WARNING_CODES. "
                     f"valid: {sorted(BODY_COMPARISON_WARNING_CODES)}"
                 )
+
+
+# ── Phase 7 (Plan 07-02) — classify_findings + joint group resolver ─────
+#
+# 박제 순서 강제 (Plan 07-02 must_haves §10):
+#   1. `_DEFICIT_TO_GROUP` (deficit_code → joint_group, 5 entries)
+#   2. `_JOINT_TO_GROUP` (joint_key → joint_group, 12 entries — arm/leg)
+#   3. `_resolve_joint_group(finding)` helper (CR-02 fix path: clean_lines
+#      + joint_key=None → "global")
+#   4. `classify_findings(...)` 본체 (D-07-A1 + D-07-A2 + Decision 1 +
+#      CR-01 + WR-03 fix)
+#
+# 본 박제 위치 = BodyComparisonReport dataclass 직후 + measure_ipsf_absolute_deficits 직전.
+# import 의존: render_finding_copy + _EMPTY_FOCUS_FALLBACK (위 import block).
+
+# 5 entries — clean_lines 제외 (CR-02 fix path: clean_lines 는
+# joint_key 가 있으면 _JOINT_TO_GROUP lookup, 없으면 "global" 로 처리).
+_DEFICIT_TO_GROUP: dict[str, str] = {
+    "knee_toe_alignment": "leg",
+    "extension": "torso",
+    "posture": "arm",
+    "body_placement": "pole_axis",
+    "pose_reliability_low": "global",
+}
+
+# 12 entries — arm/leg 관절 (clean_lines + joint_key 케이스만 lookup).
+_JOINT_TO_GROUP: dict[str, str] = {
+    # arm (6)
+    "left_shoulder": "arm",
+    "right_shoulder": "arm",
+    "left_elbow": "arm",
+    "right_elbow": "arm",
+    "left_wrist": "arm",
+    "right_wrist": "arm",
+    # leg (6)
+    "left_hip": "leg",
+    "right_hip": "leg",
+    "left_knee": "leg",
+    "right_knee": "leg",
+    "left_ankle": "leg",
+    "right_ankle": "leg",
+}
+
+
+def _resolve_joint_group(finding: "BodyComparisonFinding") -> str:
+    """finding 의 (deficit_code, joint_key) → joint_group 결정.
+
+    CR-02 fix path:
+      - clean_lines + joint_key 보유 → _JOINT_TO_GROUP[joint_key] (fallback "arm")
+      - clean_lines + joint_key=None → "global" (Plan 01 신설 12 global keys 활용)
+      - 그 외 → _DEFICIT_TO_GROUP.get(deficit_code, "global")
+    """
+    if finding.deficit_code == "clean_lines" and finding.joint_key:
+        return _JOINT_TO_GROUP.get(finding.joint_key, "arm")
+    if finding.deficit_code == "clean_lines":
+        return "global"
+    return _DEFICIT_TO_GROUP.get(finding.deficit_code, "global")
+
+
+def classify_findings(
+    findings: list["BodyComparisonFinding"],
+    body_normalization_confidence: float,
+    comparison_type: ComparisonType,
+    *,
+    used_reference_fallback: bool = False,
+) -> tuple[list["BodyComparisonFinding"], list[str], list[str], str | None]:
+    """Phase 7 본체 — BodyComparisonFinding category 분류 + 카피 분배.
+
+    pure function (numpy / boto3 / network / LLM 무관) — per D-07-A1.
+    새 BodyComparisonFinding 인스턴스 생성 (dataclasses.replace 우회 X) —
+    frozen dataclass __post_init__ validator 통과 필수.
+
+    분류 룰 (D-07-A1 + D-07-A2 + D-07-U1 + Decision 1):
+      1. is_low_global = (body_normalization_confidence < CATEGORY_CONF_GATE)
+         OR (comparison_type == "mode3_first" AND used_reference_fallback)
+      2. 개별 finding: is_low_global OR f.confidence < CATEGORY_CONF_GATE OR
+         not f.body_type_adjusted → category="uncertain"
+      3. 그 외: abs(f.deduction_score) <= CATEGORY_GATE → "body_type_allowed",
+         아니면 "needs_adjustment"
+
+    CR-01 fix path (mode3_first + used_reference_fallback=True):
+      render_finding_copy(..., used_reference_fallback=True) thread →
+      interpretation = None + recommendation = unprefixed 단일 카피.
+
+    카피 분배 룰 (D-07-B3 + Decision 1):
+      - body_type_allowed → do_not_over_correct[].append(recommendation)
+      - needs_adjustment + uncertain → recommended_focus[].append(recommendation)
+
+    WR-03 fix — recommended_focus_fallback:
+      - 빈 recommended_focus[] → _EMPTY_FOCUS_FALLBACK (단일 카피)
+      - 그 외 → None
+
+    Returns:
+        (classified_findings, do_not_over_correct, recommended_focus,
+         recommended_focus_fallback).
+    """
+    is_low_global = (
+        body_normalization_confidence < CATEGORY_CONF_GATE
+        or (
+            comparison_type == "mode3_first" and used_reference_fallback
+        )
+    )
+    is_mode3_first_fallback = (
+        comparison_type == "mode3_first" and used_reference_fallback
+    )
+
+    classified: list[BodyComparisonFinding] = []
+    do_not_over_correct: list[str] = []
+    recommended_focus: list[str] = []
+
+    for f in findings:
+        # 1) category 결정
+        if (
+            is_low_global
+            or f.confidence < CATEGORY_CONF_GATE
+            or not f.body_type_adjusted
+        ):
+            category: Literal[
+                "body_type_allowed", "needs_adjustment", "uncertain"
+            ] = "uncertain"
+        elif abs(f.deduction_score) <= CATEGORY_GATE:
+            category = "body_type_allowed"
+        else:
+            category = "needs_adjustment"
+
+        # 2) joint_group + canned 카피 lookup (CR-01 fix thread)
+        group = _resolve_joint_group(f)
+        interp, recom = render_finding_copy(
+            f.deficit_code,
+            category,
+            group,
+            comparison_type,
+            used_reference_fallback=is_mode3_first_fallback,
+        )
+
+        # 3) 새 BodyComparisonFinding 인스턴스 생성 — dataclasses.replace 우회 X.
+        # 6 원본 측정 필드 보존 + 신설 4 필드 (category / phase / interpretation / recommendation).
+        new_finding = BodyComparisonFinding(
+            deficit_code=f.deficit_code,
+            joint_key=f.joint_key,
+            measured_value=f.measured_value,
+            deduction_score=f.deduction_score,
+            confidence=f.confidence,
+            body_type_adjusted=f.body_type_adjusted,
+            category=category,
+            phase="hold",
+            body_type_interpretation=interp,
+            recommendation=recom,
+        )
+        classified.append(new_finding)
+
+        # 4) 분배 (Decision 1 — uncertain 통합 → recommended_focus)
+        if recom is None:
+            # render_finding_copy 는 항상 str 반환 — defensive (Phase 11 LLM 통합 대비)
+            continue
+        if category == "body_type_allowed":
+            do_not_over_correct.append(recom)
+        else:
+            recommended_focus.append(recom)
+
+    # 5) WR-03 fix — recommended_focus_fallback 박제.
+    recommended_focus_fallback: str | None = (
+        _EMPTY_FOCUS_FALLBACK if not recommended_focus else None
+    )
+
+    return (
+        classified,
+        do_not_over_correct,
+        recommended_focus,
+        recommended_focus_fallback,
+    )
 
 
 # ── IPSF Absolute Deficit 측정 (C14 fix: pose_reliability_low) ───────────

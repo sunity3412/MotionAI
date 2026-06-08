@@ -202,18 +202,19 @@ def _ensure_recognizer() -> technique.TechniqueRecognizer:
             from sunity_shared.analysis.technique_cache import TechniqueCache
 
             cache = TechniqueCache()
-            # D-09 case 3 박제 — Phase 16 TERM-DATA-01 분기 3 자동 수집 hook.
-            # uid = "anonymous-pipeline" 박제 (Pod 가 호출 시점 uid 정보 없음 — _process
-            # caller 시점에서 알지만 cache 생성 시점엔 미상). 향후 hook 시그너처에
-            # uid 주입 path 별 plan 책임.
-            def _record_unregistered(keyword: str, video_hash: str) -> None:
+            # D-09 case 3 — Phase 16 TERM-DATA-01 분기 3 자동 수집 hook.
+            # cache 생성 시점에 uid 미상이므로 default uid="anonymous-pipeline".
+            # WR-03 fix: _process 진입 시점에 closure 로 rebind 해서 실제 caller
+            # uid 가 record_unregistered_keyword(uid=...) 에 전달됨. 본 default 는
+            # _process 우회 path (직접 recognize 호출 — 현재 없음) 의 안전망.
+            def _record_unregistered_default(keyword: str, video_hash: str) -> None:
                 firestore_admin.record_unregistered_keyword(
                     keyword, uid="anonymous-pipeline", video_hash=video_hash
                 )
 
             _RECOGNIZER = GeminiTechniqueRecognizer(
                 cache=cache,
-                unregistered_hook=_record_unregistered,
+                unregistered_hook=_record_unregistered_default,
             )
             log.info("Recognizer = GeminiTechniqueRecognizer (env switch ON)")
         else:
@@ -704,6 +705,24 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     ref_motion_id = meta.get("referenceMotionId")
     if mode == models.MODE_EXPERT and ref_motion_id and hasattr(recognizer, "motion_query_hint"):
         recognizer.motion_query_hint = str(ref_motion_id)
+
+    # WR-03 (2026-06-08 review) — unregistered_hook 의 uid 를 실제 caller uid 로 교체.
+    # _ensure_recognizer 의 hook 은 cache 생성 시점에 uid 미상이라 "anonymous-pipeline"
+    # 으로 박힘 — term_collection.unique_users 가 single-element set 으로 수렴해서
+    # Phase 16 TERM-DATA-01 promotion (pending → reviewing → approved) 의 unique_users
+    # 임계 결정이 불가. _process 진입 시점에 uid 가 알려져 있으므로 closure 로 rebind.
+    if hasattr(recognizer, "unregistered_hook"):
+        def _record_unregistered_with_uid(
+            keyword: str, video_hash: str, _uid: str = uid
+        ) -> None:
+            firestore_admin.record_unregistered_keyword(
+                keyword, uid=_uid, video_hash=video_hash
+            )
+        try:
+            recognizer.unregistered_hook = _record_unregistered_with_uid
+        except (AttributeError, TypeError):
+            # frozen / Protocol-only recognizer 는 set 거절 — graceful skip.
+            pass
 
     firestore_admin.update_analysis_status(
         uid, analysis_id, models.STATUS_COMPARISON

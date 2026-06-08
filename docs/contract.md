@@ -373,6 +373,160 @@ config 플래그를 `NLF_SMPLX` 로 swap. 이 path 에서는 SMPL-X β 가 자�
 
 ---
 
+## §8. BodyComparisonReport (Plan 06-01 신설 — D-06-B3 confidence-tiered hybrid + W1 + C14 IPSF divergence + R8 extra_warnings + R2 source pose)
+
+> **2026-06-08 박제**: Phase 6 의 체형 정규화 비교 출력. mode1 / mode3_first /
+> mode3_progress 3 케이스 통합 schema (W1 — 4번째 fallback 변형 케이스 금지.
+> Gemini fallback 신호는 sibling boolean `usedReferenceFallback`).
+>
+> **변경 시 lockstep 경고**: 아래 3 파일 동시 갱신 필수 (CLAUDE.md Cross-cutting).
+>   - `app/src/types/analysis.ts` `BodyComparisonReport` interface
+>   - `backend/shared/python/sunity_shared/analysis/body_normalizer.py` dataclass
+>   - 이 문서 §8 (+ §8.2 BodyComparisonSourcePose, R2 fix)
+
+### ComparisonType union
+
+```typescript
+type ComparisonType = 'mode1' | 'mode3_first' | 'mode3_progress';
+```
+
+3 케이스만 — W1 박제. mode3_first + Gemini fallback 매칭 시 `usedReferenceFallback: true` 로
+표현하며 comparisonType 자체는 `'mode3_first'` 유지.
+
+### ScaleProfile (D-06-A3 5 필드 + apply 플래그)
+
+| TS 필드 (camelCase) | Python 필드 (snake_case) | TS 타입 | 설명 |
+|---|---|---|---|
+| `estimatedHeightScale` | `estimated_height_scale` | `number` | 전체 키 비율 (target/source). finite + strictly positive. |
+| `armScale` | `arm_scale` | `number` | 팔 길이 비율. finite + strictly positive. |
+| `legScale` | `leg_scale` | `number` | 다리 길이 비율. finite + strictly positive. |
+| `torsoScale` | `torso_scale` | `number` | 몸통 길이 비율. finite + strictly positive. |
+| `shoulderHipRatio` | `shoulder_hip_ratio` | `number` | 어깨너비/골반너비 비율. 점수 차원 미적용 (D-06-A3, [[scoring-dimensions-ipsf]]). |
+| `shoulderHipRatioApplied` | `shoulder_hip_ratio_applied` | `boolean` | 폭 보정 적용 여부 (foreshortening 시 false, W6). |
+
+### BodyComparisonFinding (R9 fix: 5 IPSF + Sunity pose_reliability_low — 6 enum)
+
+| TS 필드 | Python 필드 | TS 타입 | 설명 |
+|---|---|---|---|
+| `deficitCode` | `deficit_code` | `string` | 6 enum 중 하나 (아래 표). |
+| `jointKey` | `joint_key` | `string \| null` | finding 이 단일 관절에 귀속될 때만. |
+| `measuredValue` | `measured_value` | `number` | 측정값 (각도 deg / 거리 px). |
+| `deductionScore` | `deduction_score` | `number` | IPSF Page 21 절대 감점 (-0.2, -0.5). 체형 ratio 곱하지 않음 (Notebook §3.3). |
+| `confidence` | `confidence` | `number` | 0~1. |
+| `bodyTypeAdjusted` | `body_type_adjusted` | `boolean` | true = 정규화 좌표에서 측정, false = raw 좌표. |
+
+#### deficitCode enum (6종 — R9 fix: '7 deficits' 옛 표현 금지. poor_transitions v1.5 deferred)
+
+| Enum | 감점 | 설명 |
+|---|---|---|
+| `knee_toe_alignment` | -0.2 | kneecap → toe 180° 직선 정렬 실패 (IPSF Page 21). |
+| `clean_lines` | -0.2 | technique_profile.expects_extension 관절들이 180°-LINE_TOL_DEG 미달. |
+| `extension` | -0.2 | 척추/목 라인 평균 각도 < 160° (rounded). |
+| `posture` | -0.2 | 좌우 어깨 z 깊이 차이 > shoulder_width × 0.3 (rounded shoulders). |
+| `body_placement` | -0.2 | mid_hip 의 폴 축 대비 수평 거리 > shoulder_width × 0.5. |
+| `pose_reliability_low` | -0.5 | **C14 fix — 구 `bad_angle` rename.** §8.1 IPSF divergence note 참조. |
+
+### §8.1 IPSF divergence note (C14 fix)
+
+본 시스템의 `pose_reliability_low` deficit code 는 **IPSF Page 21 의 'bad_angle'
+judge-observation deduction 과 의미가 다르다.**
+
+- **IPSF 'bad angle'** (Page 21): 심판이 카메라 가림 / 시야 차단으로 인해 선수의
+  실행 각도를 **관찰하지 못함**. Judge-observation deduction.
+- **Sunity `pose_reliability_low`**: 본 시스템의 RTMW pose-estimation 결과의
+  평균 keypoint confidence < `POSE_RELIABILITY_LOW_CONF_THRESHOLD` (0.4) 인 frame 의
+  비율 > `POSE_RELIABILITY_LOW_FRAME_RATIO` (0.5) 일 때 emit. Pose-estimator
+  reliability metric.
+
+이름 충돌을 피하기 위해 C14 fix (2026-06-08 cross-AI review) 에서 `bad_angle` →
+`pose_reliability_low` 로 rename. v1.5 에서 judge-observation 모드 plumbing 시 별도
+`bad_angle` enum 신설 가능.
+
+### BodyComparisonReport (W1 — 3 ComparisonType + usedReferenceFallback)
+
+| TS 필드 | Python 필드 | TS 타입 | 설명 |
+|---|---|---|---|
+| `comparisonType` | `comparison_type` | `ComparisonType` | 'mode1' / 'mode3_first' / 'mode3_progress' (W1 — 3 cases). |
+| `bodyNormalizationConfidence` | `body_normalization_confidence` | `number` | 0~1. D-06-U1 confidence-tiered hybrid 게이트. **항상 emit**. |
+| `scaleProfile` | `scale_profile` | `ScaleProfile \| null` | 정규화 OFF 시 null. |
+| `findings` | `findings` | `BodyComparisonFinding[]` | IPSF 절대 deficit list. |
+| `warnings` | `warnings` | `string[]` | 8 enum 중 (아래 표). frozen set 검증 (R8). |
+| `referenceMotionId` | `reference_motion_id` | `string \| null` | mode1 + mode3 fallback. |
+| `referenceAthleteName` | `reference_athlete_name` | `string \| null` | mode1. |
+| `previousAnalysisId` | `previous_analysis_id` | `string \| null` | mode3_progress 일 때 필수 (None → backend ValueError). |
+| `usedReferenceFallback` | `used_reference_fallback` | `boolean` | **W1 — Gemini fallback 신호. mode3_first 에서만 true 허용. default false.** |
+
+### warnings enum (R2 fix — 8종, reference_source_pose_missing 신규 추가)
+
+| Enum | 의미 |
+|---|---|
+| `low_confidence_normalization_off` | confidence < 0.5 시 정규화 OFF (D-06-A4 gate). |
+| `foreshortening_off` | foreshortening 감지 시 shoulderHipRatio 폭 보정 OFF (W6). |
+| `shoulder_hip_ratio_off` | shoulderHipRatio 폭 보정 OFF (foreshortening 동반). |
+| `temporal_variance_high` | 5 핵심 segment temporal variance > 10% (Notebook §4.2). |
+| `spatial_dispersion_high` | spatial dispersion > 1.0 penalty (R5 fix 자연 산식). |
+| `reference_profile_missing` | reference_profile=None + comparison_type != 'mode3_first'. |
+| `fallback_reference_not_found` | mode3_first Gemini fallback 매칭 실패 (caller-injected, R8). |
+| `reference_source_pose_missing` | source_keypoints=None — 백필 미완 reference (caller-injected, R2 fix). |
+
+### Universal Principle (D-06-U1) — confidence-tiered hybrid
+
+- **confidence < 0.5** → 안전 fallback: 정규화 OFF + raw 비교 + warning emit +
+  mode3_first 도 Page 9 단독.
+- **confidence ≥ 0.5** → 분석 가능한 모든 path 활성화: 5 필드 정규화 +
+  매칭 reference fallback + 모든 deficit 출력.
+
+---
+
+## §8.2 BodyComparisonSourcePose (Plan 06-01 신설, R2 fix 2026-06-08 round-2 reviews) — Reference 측 대표 hold frame keypoints flat 영속
+
+### 목적
+
+Phase 6 의 `normalize_pose_by_segments` 가 reference 측 keypoints 를 source 로
+받아 student 의 target_profile 비율로 reproject. reference 영상을 매 분석마다
+재실행하지 않고 백필된 대표 frame 을 영속해 분석 latency 와 비용을 줄임.
+
+### 필드
+
+| TS 필드 | Python 필드 | TS 타입 | 설명 |
+|---|---|---|---|
+| `jointKeys` | `joint_keys` | `string[]` | RTMW COCO-17 joint 이름 17개. |
+| `values` | `values` | `number[]` | **flat float array. length = 4 × jointKeys.length** (COCO-17 의 경우 68). 순서 `[x_0, y_0, z_0, c_0, x_1, y_1, z_1, c_1, ...]`. |
+| `frameIndex` | `frame_index` | `number` | 대표 frame 의 원본 index (디버깅용). |
+| `torsoPx` | `torso_px` | `number` | mid_shoulder ↔ mid_hip 픽셀 거리 (scale anchor). |
+| `confidence` | `confidence` | `number` | 0~1 — 대표 frame 의 평균 keypoint confidence. |
+| `measuredAt` | `measured_at` | `number` | unix ms timestamp. |
+
+### Firestore 저장 path
+
+`reference/{motionId}.bodyComparisonSourcePose` (top-level 필드).
+
+### Firestore nested-array 회피 ([[firestore-nested-array-flat]] 박제)
+
+`values` 는 flat float array (nested-array 금지). reshape 책임은 backend
+`BodyComparisonSourcePose.to_keypoints_array()` — `(J, 4)` ndarray 반환.
+
+### 백필 procedure
+
+Plan 06-03 Task 2 + Task 3:
+- `extract_reference_body_profiles.py` (RunPod GPU 직접 실행) — RTMW 결과의 대표
+  hold frame (hold_window 중앙 또는 confidence 최고 frame) 을 추출.
+- `seed-reference-body-profile.mjs` (Firebase Admin SDK) — Firestore reference 컬렉션의
+  `bodyNormalizationProfile` + `bodyComparisonSourcePose` 두 필드 atomic merge.
+
+### Read 경로 (Plan 06-02 wiring)
+
+`mode1` + `mode3 fallback` path 모두 reference 의 `bodyComparisonSourcePose` 를
+fetch 해서 `BodyComparisonSourcePose.to_keypoints_array()` 로 reshape 후
+`compare_body_profiles(..., source_keypoints=...)` 인자로 전달.
+
+R2 fix 직접 효과: source_keypoints=None 시 `compare_body_profiles` 는
+`'reference_source_pose_missing'` warning 을 emit + `bodyNormalizationConfidence`
+하향 + 정규화 OFF (silently 처리 X).
+
+---
+
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
 *Phase 1 §6 추가: 2026-05-31 — PoseFrame/PoleAxis 3-way lockstep (H-3/H-4/M-1/M-2/M-5 REVIEWS 박제).*
 *Plan 01-19 §7 추가: 2026-06-02 — BodyNormalizationProfile (D-19 segment 비율, D-21 nullable). RTMW pivot 박제.*
+*Plan 06-01 §8 + §8.2 추가: 2026-06-08 — BodyComparisonReport (D-06-B3 + W1 + C14) + BodyComparisonSourcePose (R2 round-2 reviews).*

@@ -188,6 +188,9 @@ export interface AnalysisResult {
   // 영상 fetch 시 만료 → POST /playback-url 박제 재발급용 S3 key.
   myVideoKey?: string;
   referenceVideoUrl?: string; // mode1 우: 정은지 영상
+  // Phase 6 (Plan 06-01) — D-06-B3. 체형 정규화 비교 리포트.
+  // Plan 06-02 wiring 에서 backend pipeline 이 채움 (currently nullable).
+  bodyComparisonReport?: BodyComparisonReport | null;
 }
 
 // Firestore 문서 전체 모양
@@ -266,6 +269,16 @@ export interface ReferenceMotion {
   // 시퀀스 평균 각도(deg). 결과 화면이 targetAngle 로 사용. meanAngles 필드를
   // 시드에서 미리 채우거나 (없으면) 앱이 angles 에서 derive — 둘 다 지원.
   meanAngles?: Record<string, number>; // key -> degrees
+
+  // Phase 6 (Plan 06-01, D-06-B2) — reference 측 BodyNormalizationProfile.
+  // Plan 06-03 백필 (extract_reference_body_profiles.py + seed-reference-body-profile.mjs)
+  // 가 채움. nullable — 백필 미완 reference 정합.
+  bodyNormalizationProfile?: BodyNormalizationProfile | null;
+  // Phase 6 (Plan 06-01, R2 fix round-2 reviews) — reference 측 대표 hold frame
+  // keypoints (flat values, nested-array 회피). Plan 06-03 백필이 함께 저장.
+  // mode1 + mode3 fallback path 가 본 필드를 fetch 해서 compare_body_profiles
+  // 의 source_keypoints 인자로 to_keypoints_array() 변환 후 전달.
+  bodyComparisonSourcePose?: BodyComparisonSourcePose | null;
 }
 
 // ── Pose Engine 데이터 계약 (Phase 1, D-04/D-05/D-11/D-12) ─────────────────
@@ -413,6 +426,127 @@ export interface BodyNormalizationProfile {
    * 기본값 [].
    */
   warnings: string[];
+}
+
+/**
+ * Phase 6 (2026-06-08, Plan 06-01) — D-06-B3 박제.
+ * BodyComparisonReport family + BodyComparisonSourcePose (R2 fix round-2 reviews).
+ *
+ * Python lockstep:
+ *   backend/shared/python/sunity_shared/analysis/body_normalizer.py
+ *     BodyComparisonReport / BodyComparisonFinding / ScaleProfile /
+ *     BodyComparisonSourcePose / ComparisonType
+ * 변경 시 양쪽 + docs/contract.md §8 + §8.2 동시 갱신 (CLAUDE.md Cross-cutting).
+ *
+ * W1 (2026-06-08): 3 ComparisonType (mode1 / mode3_first / mode3_progress).
+ *                  Gemini fallback 신호는 sibling boolean `usedReferenceFallback`.
+ * C14 (2026-06-08 reviews): deficit code 'pose_reliability_low' (IPSF
+ *                  judge-observation 'bad_angle' 과 의미 다름 — divergence docs §8.1).
+ * R2 (2026-06-08 round-2): BodyComparisonSourcePose 신규 — Firestore reference
+ *                  컬렉션 영속, flat values (nested-array 회피).
+ * R8 (2026-06-08 round-2): backend compare_body_profiles extra_warnings 파라미터.
+ * R9 (2026-06-08 round-2): 5 IPSF + Sunity pose_reliability_low. poor_transitions
+ *                  v1.5 deferred (Phase 8 jerk/jitter 통합).
+ */
+
+/** 3 ComparisonType (W1 박제 — 4번째 케이스 금지. Gemini fallback 은 usedReferenceFallback boolean 으로 표현). */
+export type ComparisonType = 'mode1' | 'mode3_first' | 'mode3_progress';
+
+/**
+ * 프로/수강생 체형 scale ratio (D-06-A3 — 5 필드 + apply 플래그).
+ * 모든 numeric 필드 finite + strictly positive.
+ */
+export interface ScaleProfile {
+  /** 전체 키 비율 (target/source). */
+  estimatedHeightScale: number;
+  /** 팔 길이 비율. */
+  armScale: number;
+  /** 다리 길이 비율. */
+  legScale: number;
+  /** 몸통 길이 비율. */
+  torsoScale: number;
+  /** 어깨너비/골반너비 비율 — 점수 차원 미적용 (D-06-A3, [[scoring-dimensions-ipsf]]). */
+  shoulderHipRatio: number;
+  /** 폭 보정 적용 여부 (foreshortening 시 false, W6). */
+  shoulderHipRatioApplied: boolean;
+}
+
+/**
+ * 단일 IPSF GeometricCriterion deficit (R9 fix: 5 IPSF + Sunity pose_reliability_low).
+ *
+ * deficitCode enum 6종 — '7 deficits' 옛 표현 X. poor_transitions v1.5 deferred:
+ *   - 'knee_toe_alignment' (-0.2): kneecap → toe 180° 직선 정렬 실패
+ *   - 'clean_lines' (-0.2): 팔/다리 fully extended 미충족
+ *   - 'extension' (-0.2): 척추/목 라인 굽음
+ *   - 'posture' (-0.2): 좌우 어깨 z 깊이 차이 (rounded shoulders)
+ *   - 'body_placement' (-0.2): 폴 대비 잘못된 위치
+ *   - 'pose_reliability_low' (-0.5): C14 fix — 구 'bad_angle' rename.
+ *     본 시스템의 pose-estimation confidence frame 비율 측정. IPSF Page 21 의
+ *     'bad angle' (judge-observation deduction) 과 의미 다름 (docs §8.1).
+ *
+ * body_type_adjusted: true = 정규화 좌표에서 측정, false = raw 좌표.
+ * 체형 ratio 를 deductionScore 에 직접 곱하지 않음 (Notebook §3.3 IPSF 절대).
+ */
+export interface BodyComparisonFinding {
+  deficitCode: string;
+  jointKey?: string | null;
+  measuredValue: number;
+  deductionScore: number;
+  confidence: number;
+  bodyTypeAdjusted: boolean;
+}
+
+/**
+ * R2 fix (2026-06-08 round-2). reference 측 대표 hold frame keypoints
+ * (17 joint × 4 channel x/y/z/confidence). Firestore reference 컬렉션의
+ * `bodyComparisonSourcePose` 필드에 영속.
+ *
+ * nested-array 회피 위해 values 는 flat float array
+ * (length = 4 × jointKeys.length, COCO-17 의 경우 68).
+ * reshape 책임은 backend BodyComparisonSourcePose.to_keypoints_array().
+ *
+ * Plan 06-02 mode1 + mode3 fallback path 가 fetch 해서 backend
+ * compare_body_profiles 의 source_keypoints 인자로 전달.
+ */
+export interface BodyComparisonSourcePose {
+  jointKeys: string[];
+  /** flat float array. length = 4 × jointKeys.length. 순서 [x_0, y_0, z_0, c_0, ...]. */
+  values: number[];
+  frameIndex: number;
+  /** mid_shoulder ↔ mid_hip 픽셀 거리 (scale anchor). */
+  torsoPx: number;
+  /** 0~1 — 대표 frame 의 평균 keypoint confidence. */
+  confidence: number;
+  /** unix ms timestamp. */
+  measuredAt: number;
+}
+
+/**
+ * 체형 정규화 비교 리포트 (D-06-B3 통합 schema + W1 3 ComparisonType).
+ *
+ * 8 warning enum (R2 fix — reference_source_pose_missing 추가):
+ *   - 'low_confidence_normalization_off' / 'foreshortening_off' /
+ *     'shoulder_hip_ratio_off' / 'temporal_variance_high' / 'spatial_dispersion_high' /
+ *     'reference_profile_missing' / 'fallback_reference_not_found' /
+ *     'reference_source_pose_missing'
+ *
+ * usedReferenceFallback (W1): Gemini fallback 신호 (mode3_first 에서만 true 허용).
+ *                            comparisonType 자체는 'mode3_first' 유지.
+ */
+export interface BodyComparisonReport {
+  comparisonType: ComparisonType;
+  /** 0.0~1.0 — D-06-U1 confidence-tiered hybrid 의 게이트. */
+  bodyNormalizationConfidence: number;
+  /** 정규화 OFF 시 null. */
+  scaleProfile?: ScaleProfile | null;
+  findings: BodyComparisonFinding[];
+  warnings: string[];
+  referenceMotionId?: string | null;
+  referenceAthleteName?: string | null;
+  /** mode3_progress 일 때만. null 시 backend 가 ValueError. */
+  previousAnalysisId?: string | null;
+  /** W1: Gemini fallback 신호 (mode3_first 에서만 true). default false. */
+  usedReferenceFallback: boolean;
 }
 
 /**

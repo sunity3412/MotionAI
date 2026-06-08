@@ -124,3 +124,24 @@ from .analysis.pose_frame import (  # noqa: E402 — 파일 하단 re-export 패
 from .analysis.body_normalization import (  # noqa: E402 — 파일 하단 re-export 패턴
     BodyNormalizationProfile,
 )
+
+# Phase 6 (2026-06-08, Plan 06-01) — D-06-B3 박제.
+#   BodyComparisonReport = comparisonType (3 cases — W1) + scaleProfile + findings
+#   + bodyNormalizationConfidence + usedReferenceFallback boolean.
+# 확장: ScaleProfile, BodyComparisonFinding, BodyComparisonSourcePose, ComparisonType Literal.
+# C14 deficit_code 'pose_reliability_low' (IPSF judge-observation 'bad_angle' 과
+# 의미 다름 — divergence docs/contract.md §8.1).
+# R2 (2026-06-08 round-2 reviews) — BodyComparisonSourcePose 신규 (reference 측
+# 대표 hold frame keypoints flat 영속, Firestore nested-array 회피).
+# R8 (round-2) — compare_body_profiles extra_warnings 파라미터 + frozenset validation.
+# TS 미러: app/src/types/analysis.ts
+#   BodyComparisonReport / BodyComparisonFinding / ScaleProfile /
+#   BodyComparisonSourcePose / ComparisonType interface.
+# 변경 시 TS + docs/contract.md §8 + §8.2 동시 갱신 (CLAUDE.md Cross-cutting).
+from .analysis.body_normalizer import (  # noqa: E402 — 파일 하단 re-export 패턴
+    BodyComparisonFinding,
+    BodyComparisonReport,
+    BodyComparisonSourcePose,
+    ComparisonType,
+    ScaleProfile,
+)

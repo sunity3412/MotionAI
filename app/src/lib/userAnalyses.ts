@@ -40,6 +40,10 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
     updatedAt == null
   )
     return null;
+  // Phase 6 (2026-06-08, Plan 06-02): AnalysisResult.bodyComparisonReport 는 TS
+  // 타입 정합으로 자동 정상화 (defensive validation 없음 — backend validator
+  // (_validate_flat_dict_no_nested_array, W5) 가 nested-array 차단 보장).
+  // Plan 06-02 I2 positive assertion — literal "bodyComparisonReport" 표기.
   return {
     analysisId: id,
     mode,

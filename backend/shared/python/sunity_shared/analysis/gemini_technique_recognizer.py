@@ -178,6 +178,7 @@ class GeminiTechniqueRecognizer:
                 required_split_deg=None,
                 requires_hold=True,
                 is_symmetric=False,
+                motion_id=None,  # C2 fix — low_confidence path 의 motion_id 는 None
             )
 
         # Step 7: motion 정규화 + 미등록 (D-09 case 3).
@@ -201,6 +202,7 @@ class GeminiTechniqueRecognizer:
                 required_split_deg=None,
                 requires_hold=True,
                 is_symmetric=False,
+                motion_id=None,  # C2 fix — unregistered path 의 motion_id 는 None
             )
 
         # Step 8: 정상 — KeyMoment → joint_expectations 변환 (D-05 hold 라벨만 활성).
@@ -315,10 +317,15 @@ class GeminiTechniqueRecognizer:
             requires_hold=True,
             is_symmetric=False,
             hold_window=hold_window_tuple,
+            motion_id=motion,  # C2 fix — canonical motion 이 곧 motion_id (stable key)
         )
 
     def _profile_from_cache(self, cached: dict) -> TechniqueProfile:
-        """cache hit 시 dict → TechniqueProfile 복원."""
+        """cache hit 시 dict → TechniqueProfile 복원.
+
+        C2 fix — cache 의 motion key 도 canonical name 이므로 motion_id 로 복원.
+        cache 에 motion 키 없으면 motion_id = None.
+        """
         return TechniqueProfile(
             name=cached.get("motion", "cached"),
             category="recognized",
@@ -326,6 +333,7 @@ class GeminiTechniqueRecognizer:
             required_split_deg=None,
             requires_hold=True,
             is_symmetric=False,
+            motion_id=cached.get("motion"),  # C2 fix
         )
 
 

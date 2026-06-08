@@ -48,6 +48,14 @@ class TechniqueProfile:
     # 자동 추출 (분산 최소 sub-window) 대신 이 윈도우 사용 (None = 자동 추출 fallback).
     # 사용자 영상의 standing setup/dismount frame 잡힘 위양성 박제 정신 정합 fix.
     hold_window: tuple[int, int] | None = None
+    # C2 fix (2026-06-08, Plan 06-02 reviews) + R1 fix (2026-06-08 round-2).
+    # Gemini canonical motion name 을 reference 컬렉션 lookup 의 stable key 로
+    # 박제. None 가능 (FallbackRecognizer / Gemini low_confidence / unregistered
+    # path 등). 위치 = dataclass 맨 끝 (hold_window 뒤) — R1 fix: default 있는
+    # 필드는 non-default 필드 뒤에 와야 dataclass import 거부 회피. Plan 06-02
+    # 의 mode3-first Gemini fallback path 가 본 필드를 사용해
+    # firestore_admin.get_reference_motion(motion_id) exact-match 수행.
+    motion_id: str | None = None
 
     def expects_extension(self, joint_key: str) -> bool:
         return self.joint_expectations.get(joint_key) == JOINT_EXTEND

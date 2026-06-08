@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: executing
-stopped_at: Phase 7 Plan 07-01 (차이 분류 schema + canned copy + test scaffold) 완료 — 226 PASS, 3 atomic commits
-last_updated: "2026-06-08T10:55:40Z"
+status: Plan 07-02 완료 — Phase 7 complete (2/2). phase07 108 PASS + phase06 회귀 0 + tsc clean. 3 atomic commits.
+stopped_at: Phase 7 Plan 07-02 완료 — classify_findings 본체 + compare_body_profiles wiring + WR-02 frontend normalize null-guard. Phase 8 진입 대기.
+last_updated: "2026-06-08T11:25:00Z"
 last_activity: 2026-06-08
 progress:
-  total_phases: 17
-  completed_phases: 3
-  total_plans: 39
-  completed_plans: 35
-  percent: 21
+  total_phases: 7
+  completed_phases: 6
+  total_plans: 38
+  completed_plans: 36
+  percent: 73
 ---
 
 # Project State
@@ -25,10 +25,26 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 07 (차이 분류)
-Plan: 07-01 완료 → Plan 07-02 진입 준비됨
-Next: `/gsd-execute-phase 7` (Plan 07-02 — classify_findings + integration test). Wave 0 인프라 + copy_templates.py 즉시 활용.
-Status: Plan 07-01 완료 (3 atomic commits + 226 tests PASS + zero Phase 6 regression)
+Phase: 07 (차이 분류) — **complete (2/2 plans)**
+Plan: 07-02 완료 → Phase 7 close-out 검증 대기
+Next: `/gsd-verify-work 7` (Phase 7 close-out). 완료 후 Phase 8 (중심축·접촉점·jerk) 진입 — belle chain 2026-06-08: 6 → 7 → **8** → 9 → 12 → 13.
+Status: Plan 07-02 완료 (3 atomic commits + 108 phase07 PASS + 136 phase06 PASS 회귀 0 + tsc --noEmit clean)
+
+### Plan 07-02 close-out (2026-06-08)
+
+| 영역 | 결과 |
+|---|---|
+| classify_findings 본체 | pure function (D-07-A1 + D-07-A2 + Decision 1 + CR-01 + WR-03) + module-level _DEFICIT_TO_GROUP (5) + _JOINT_TO_GROUP (12) + _resolve_joint_group (CR-02 path) — body_normalizer.py:958-1140 |
+| compare_body_profiles wiring | measure_ipsf_absolute_deficits 호출 직후 classify_findings 1줄 + BodyComparisonReport 조립 4 신설 kwarg 주입 (findings/dnoc/rec_focus/recommended_focus_fallback) — line 1503 + 1531-1539 |
+| WR-02 frontend normalize | userAnalyses.normalize() immutable spread + map 패턴, bodyComparisonReport 신설 7 필드 null-guard (iteration 1 B1 retract). TS interface non-optional 유지 — normalize() 가 compat layer |
+| CR-01 thread | render_finding_copy(used_reference_fallback=is_mode3_first_fallback) — mode3_first fallback path 에서 unprefixed 단일 카피 + interpretation=None |
+| WR-03 fallback | recommended_focus[] 빈 list → _EMPTY_FOCUS_FALLBACK 자동 박제, 채워진 list → None |
+| INF-01 preserves | test_classify_findings_preserves_measurement_fields.py — 6 원본 측정 필드 보존 behavioral primary safety property |
+| Test | phase07 108 PASS (Plan 01 90 + Plan 02 18 신설) + phase06 136 PASS + 1 skipped (회귀 0) + tsc --noEmit clean |
+| 3 commits | `2aedb84` Task 1 (classify_findings + 12 unit tests + tests/__init__.py 환경 fix) / `4851a43` Task 2 (wiring + 6 integration/camelCase tests) / `8559c6f` Task 3 (WR-02 retract B1 frontend) |
+| Deviation | (1) Rule 3: backend/tests/__init__.py 신설 — pre-existing 환경 blocker (2) Rule 1: AST grep gate docstring false positive — ast.get_docstring 패턴 적용 |
+
+Phase 8 진입 시그널: 중심축 이탈 + 접촉점 안정성 + jerk/jitter 측정 — phase별 산출 + 가림 스무딩. FORCE-01 요구사항.
 
 ### Plan 07-01 close-out (2026-06-08)
 

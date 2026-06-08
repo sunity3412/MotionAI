@@ -38,7 +38,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4: 다중 시점 촬영 UX + occlusion confidence 게이트** - 가림 완화 + 저신뢰 프레임 "추정" 표기
 - [x] **Phase 5: Gemini 기술 인식기 (분류 한정)** - 동작 분류만, 좌표·판단 출력 금지. **2026-06-05 12차 sweep D-01 PASS** (phase1_ready_to_swap=True, phase5_ready_to_release_d16_block=True). 빌드 11 실분석 mode1 94 + mode3 100 PASS.
 - [x] **Phase 6: 체형 정규화 비교 엔진 (coaching 모드)** - 프로 패턴을 수강생 체형 비율로 재계산 (completed 2026-06-08)
-- [ ] **Phase 7: 차이 분류** - 체형 허용 차이 / 개선 필요 차이 / 감점 분리
+- [x] **Phase 7: 차이 분류** - 체형 허용 차이 / 개선 필요 차이 / uncertain 분리 + bodyTypeInterpretation·recommendation 박제 (completed 2026-06-08, 2 plans 108 phase07 PASS + Phase 6 회귀 0)
 - [ ] **Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter** - 힘 패턴 추론을 위한 기초 신호
 - [ ] **Phase 9: ForceDirectionPattern + 실패 원인 후보 3개** - pull/push/brace/rotate/release + 실패 후보 3카드
 - [ ] **Phase 10: 부상 위험 신호 플래그** - 좌우 비대칭·요추 과신전·무리 동작 신호 (SAFE-01 v1)
@@ -223,7 +223,7 @@ Plans:
 **Plans**: 2 plans
 
   - [x] 07-01-PLAN.md — Wave 1: schema 3-way lockstep (BodyComparisonFinding +4 / BodyComparisonReport +2+1 WR-03) + copy_templates.py 신설 모듈 (33 canned CR-02 + 3 mode prefix + 9 grep gate FORBIDDEN + render_finding_copy CR-01 fallback) + Wave 0 test 인프라 (phase07/ 디렉토리 + 6 fixture JSON + factory loader) + drift defense test ✅ 완료 2026-06-08 (3 commits: 3e1fbf7 / fcb4025 / d4d8af4, 226 PASS)
-  - [ ] 07-02-PLAN.md — Wave 2: classify_findings pure function 본체 (D-07-A1 + D-07-A2 + Decision 1 mode3_first fallback) + compare_body_profiles wiring 1줄 + integration test 3종 + _dataclass_to_camel_case_dict 자동 변환 test + frontend userAnalyses.normalize() graceful default
+  - [x] 07-02-PLAN.md — Wave 2: classify_findings pure function 본체 (D-07-A1 + D-07-A2 + Decision 1 mode3_first fallback + CR-01 + WR-03) + compare_body_profiles wiring 1줄 + 4 신설 kwarg 주입 (findings/dnoc/rec_focus/recommended_focus_fallback) + integration test 4종 + _dataclass_to_camel_case_dict 자동 변환 test 2 + frontend userAnalyses.normalize() WR-02 retract B1 null-guard ✅ 완료 2026-06-08 (3 commits: 2aedb84 / 4851a43 / 8559c6f, 108 phase07 PASS + 136 phase06 PASS 회귀 0 + tsc clean)
 
 ### Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter
 

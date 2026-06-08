@@ -238,7 +238,10 @@ Plans:
   3. `ContactStabilityMetric`(접촉점별 estimatedStable, lostContactAtMs, confidence)이 phase별로 산출된다
   4. 모든 신호에 시간적 스무딩이 적용되고 가림 프레임은 confidence로 가중 처리된다
 
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 08-01-PLAN.md — Wave 1: 3-way contract lockstep (TS 7 type + Python placeholder + docs/contract.md §9) + dimensions.stability_wobble raw helper 분리 (drift defense source) + backend/judging_data/contact_points.yaml 신설 (5 motion + default) + Wave 0 test 인프라 (phase08/ 디렉토리 + 6 fixture JSON + conftest + 3 test 파일)
+  - [ ] 08-02-PLAN.md — Wave 2: force_signals.py 본체 신설 (5 dataclass + 5 type alias + 5 public 함수 + 15+ private helper) + models.py import 활성화 (3-way lockstep 완성) + Layer 1 motion-agnostic 휴리스틱 + 4 metric 산출 함수 + compute_force_signals umbrella + drift defense test + 26+ 단위 test
+  - [ ] 08-03-PLAN.md — Wave 3: Layer 2 Gemini 본체 활성 (Plan 01-13 reuse) + _validate_dict_only_scalars 명세 확장 (list[str] 허용) + complete_analysis force_signals_report kwarg + pipeline/app.py wiring 1줄 + frontend userAnalyses.ts normalize (forceSignalsReport null-guard) + 11 신설 test + 5 pipeline 통합 test + SAM build smoke (belle 운영 manual checkpoint)
 
 ### Phase 9: ForceDirectionPattern + 실패 원인 후보 3개
 

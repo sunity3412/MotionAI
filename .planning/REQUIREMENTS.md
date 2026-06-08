@@ -44,7 +44,7 @@
 
 ### 개인화 (Personalization) — research 01
 
-- [ ] **PERS-01**: 체형 정규화 비교 엔진(`normalizeStudentPoseToProReference`)이 프로의 동작 성공 원리를 수강생 신체 비율에 맞게 재계산하고, 차이를 "체형 허용 / 개선 필요 / uncertain"으로 분류한다 — coaching 모드 정규화 ON
+- [x] **PERS-01**: 체형 정규화 비교 엔진(`normalizeStudentPoseToProReference`)이 프로의 동작 성공 원리를 수강생 신체 비율에 맞게 재계산하고, 차이를 "체형 허용 / 개선 필요 / uncertain"으로 분류한다 — coaching 모드 정규화 ON
 - [ ] **PERS-03**: 실패 원인·체형 차이별로 매핑된 보완 운동·스트레칭 라이브러리가 결과 화면에 동작별 3~5개 표시되어 분석 → 행동으로 이어진다
 
 ### 힘 패턴 (Force Pattern) — research 02
@@ -156,7 +156,7 @@
 | BODY-02 | Phase 3 | Pending |
 | POSE-03 | Phase 4 | Pending |
 | SCORE-01 | Phase 5 | Pending |
-| PERS-01 | Phase 6, Phase 7 | Pending |
+| PERS-01 | Phase 6, Phase 7 | Complete |
 | FORCE-01 | Phase 8, Phase 9 | Pending |
 | FEED-02 | Phase 9, Phase 11 | Pending |
 | SAFE-01 | Phase 10 | Pending |

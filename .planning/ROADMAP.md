@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: 자가입력 BodyProfileInput** - 키·몸무게·경력·통증부위 1회 입력 UX
 - [ ] **Phase 4: 다중 시점 촬영 UX + occlusion confidence 게이트** - 가림 완화 + 저신뢰 프레임 "추정" 표기
 - [x] **Phase 5: Gemini 기술 인식기 (분류 한정)** - 동작 분류만, 좌표·판단 출력 금지. **2026-06-05 12차 sweep D-01 PASS** (phase1_ready_to_swap=True, phase5_ready_to_release_d16_block=True). 빌드 11 실분석 mode1 94 + mode3 100 PASS.
-- [ ] **Phase 6: 체형 정규화 비교 엔진 (coaching 모드)** - 프로 패턴을 수강생 체형 비율로 재계산
+- [x] **Phase 6: 체형 정규화 비교 엔진 (coaching 모드)** - 프로 패턴을 수강생 체형 비율로 재계산 (completed 2026-06-08)
 - [ ] **Phase 7: 차이 분류** - 체형 허용 차이 / 개선 필요 차이 / 감점 분리
 - [ ] **Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter** - 힘 패턴 추론을 위한 기초 신호
 - [ ] **Phase 9: ForceDirectionPattern + 실패 원인 후보 3개** - pull/push/brace/rotate/release + 실패 후보 3카드
@@ -205,7 +205,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 06-03-PLAN.md — Task 1: firestore_admin.**`update_reference_body_data` helper (R2 fix: 두 필드 atomic merge — bodyNormalizationProfile + bodyComparisonSourcePose, 구 `update_reference_body_profile` 단일 필드 helper 폐기)** + Task 2: extract_reference_body_profiles.py (Pod GPU 직접 실행 + **R2 fix: BodyComparisonSourcePose 산출 — 대표 hold frame 17 keypoint × 4채널 flat 68 float values + torsoPx** + --dry-run [C5 fix]) + Task 3: seed-reference-body-profile.mjs (Firebase Admin SDK ADC + 두 필드 atomic merge + --dry-run [C5 fix] + **R7 fix: 명시적 ordering — parse → validate → if dry-run: stdout + exit (Firebase init 미접촉) → real-run: init + commit**) + Task 4 (C5 + **R7 fix**): dry-run 통합 검증 unit test (**ADC 미설정 환경 + Firebase 호출 0 검증**) + Task 4.5 (C12 + R2): revert-reference-body-profile.mjs (**두 필드 모두 FieldValue.delete**) + Task 5: 실행 checkpoint (C7 filler 제거, **두 필드 모두 검증 항목** 명시, 구체 expected output) + Task 6 (C6 + R9 deferred): belle Pod sweep 사양 박제 (R9 정합 카피 — 5 IPSF + Sunity pose_reliability_low) (Wave 3, PERS-01, 7 task, reviews-revised + round-2)
+- [x] 06-03-PLAN.md — Task 1: firestore_admin.**`update_reference_body_data` helper (R2 fix: 두 필드 atomic merge — bodyNormalizationProfile + bodyComparisonSourcePose, 구 `update_reference_body_profile` 단일 필드 helper 폐기)** + Task 2: extract_reference_body_profiles.py (Pod GPU 직접 실행 + **R2 fix: BodyComparisonSourcePose 산출 — 대표 hold frame 17 keypoint × 4채널 flat 68 float values + torsoPx** + --dry-run [C5 fix]) + Task 3: seed-reference-body-profile.mjs (Firebase Admin SDK ADC + 두 필드 atomic merge + --dry-run [C5 fix] + **R7 fix: 명시적 ordering — parse → validate → if dry-run: stdout + exit (Firebase init 미접촉) → real-run: init + commit**) + Task 4 (C5 + **R7 fix**): dry-run 통합 검증 unit test (**ADC 미설정 환경 + Firebase 호출 0 검증**) + Task 4.5 (C12 + R2): revert-reference-body-profile.mjs (**두 필드 모두 FieldValue.delete**) + Task 5: 실행 checkpoint (C7 filler 제거, **두 필드 모두 검증 항목** 명시, 구체 expected output) + Task 6 (C6 + R9 deferred): belle Pod sweep 사양 박제 (R9 정합 카피 — 5 IPSF + Sunity pose_reliability_low) (Wave 3, PERS-01, 7 task, reviews-revised + round-2)
 
 ### Phase 7: 차이 분류
 
@@ -441,7 +441,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |
 | 5. Gemini 기술 인식기 (분류 한정) | 6/6 | Complete | 2026-06-05 (12차 sweep D-01 PASS) |
-| 6. 체형 정규화 비교 엔진 | 0/2 | Plans created (2026-06-08) | - |
+| 6. 체형 정규화 비교 엔진 | 3/3 | Complete   | 2026-06-08 |
 | 7. 차이 분류 | 0/TBD | Not started | - |
 | 8. 중심축·접촉점·jerk 분석 | 0/TBD | Not started | - |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 0/TBD | Not started | - |

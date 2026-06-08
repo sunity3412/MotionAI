@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: executing
-stopped_at: Plan 06-02 complete (pipeline wiring + Firestore 통합 + retro Phase 5 patch) — Plan 06-03 진입 가능
-last_updated: "2026-06-08T12:30:00.000Z"
+status: verifying
+stopped_at: Phase 6 context gathered (A 정규화 대상 + B mode 분기 + Universal confidence-tiered hybrid)
+last_updated: "2026-06-08T04:46:04.627Z"
 last_activity: 2026-06-08
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 36
-  completed_plans: 32
-  percent: 53
+  completed_plans: 33
+  percent: 67
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 Phase: 06 (coaching) — EXECUTING
 Plan: 3 of 3 (Plan 06-01 + 06-02 complete → Plan 06-03 진입)
 Next: Plan 06-03 — 정은지 reference 5개 영상의 bodyNormalizationProfile + bodyComparisonSourcePose 백필 (Phase 6 wave 3)
-Status: Executing Phase 06
+Status: Phase complete — ready for verification
 
 ### Plan 06-02 close-out (2026-06-08)
 
@@ -112,7 +112,7 @@ Last activity: 2026-06-08
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [██████████░░░░░░] 50% (Phase 1/5/16 close-out + 12.5 진입)
+Progress: [█████████░] 92%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -334,6 +334,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 06 P03 | 50 | 7 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -364,6 +365,9 @@ Recent decisions affecting current work:
 - [2026-06-08 Plan 06-02 W5]: _validate_flat_dict_no_nested_array recursive validator + _validate_dict_only_scalars helper. list[str] (warnings) + list[dict-of-scalars-only] (findings) 허용. list[list] / list[dict-with-nested-list] TypeError raise.
 - [2026-06-08 Plan 06-02 C8]: _dataclass_to_camel_case_dict 5-case 명시 (None / dataclass / list / dict / Enum / scalar). BodyComparisonReport 중첩 ScaleProfile + list[BodyComparisonFinding] camelCase 변환.
 - [Phase ?]: Plan 16-01 T-6 belle threshold 결정
+- [Phase ?]: Plan 06-03 R2: 단일 helper update_reference_body_data(motion_id, body_profile, source_pose) — 두 필드 atomic merge. 구 update_reference_body_profile 폐기. Phase 14 정은지 reference 등록 helper 재사용 진입점.
+- [Phase ?]: Plan 06-03 R7: seed-reference-body-profile.mjs explicit ordering — Step 1 parse + validate → Step 2 if dry-run early return (Firebase 미접촉) → Step 3 real-run. ADC 미설정 환경에서도 dry-run path 안전 (Firebase init 호출 0).
+- [Phase ?]: Plan 06-03 C12: revert-reference-body-profile.mjs 신설 + 안전 기본값 (--commit 미지정 시 강제 dry-run) + R2 정합 (두 필드 모두 FieldValue.delete).
 
 ### Pending Todos
 
@@ -383,6 +387,7 @@ None yet.
 - [Phase 15 — 운영]: RunPod Pod 생명주기 수동. 재생성 시 proxy URL 변경 → Lambda env(RunpodAnalyzeUrl) 동기화 필요. 중단 시 실분석 전면 중단.
 - [Phase 15 — iOS]: iOS 26+ native style 회귀(letterSpacing SIGABRT) — 빌드 10에서 ship 필요, 음수 style 값 audit.
 - [Phase 16 — 데이터/스펙 박제]: Phase 1~15 의존성 없음 (v1 평행). Phase 1 진행 중 평행 진입 가능. 단 Phase 5 (Gemini 기술 인식기) / Phase 14 (정은지 reference) 가 Phase 16 데이터를 소비하므로 그 시점에 통합 필요. 첫 plan (16-01-PLAN.md) = AKA 매핑 13개 + 5트랙 spec + 카피 박제 (코드 통합 X).
+- Plan 06-03 Task 5 pending checkpoint — belle 운영 작업 (Pod GPU 측정 + 로컬 seed + Firestore Console verify) 필요. Phase 14 reference 등록 helper 재사용 path 박제 완료, 실 데이터 백필만 잔여.
 
 ## Deferred Items
 
@@ -394,7 +399,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-07T16:16:16.038Z
+Last session: 2026-06-08T04:45:24.995Z
 
 Stopped at: Phase 6 context gathered (A 정규화 대상 + B mode 분기 + Universal confidence-tiered hybrid)
 
@@ -463,7 +468,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/06-coaching/06-CONTEXT.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

@@ -122,6 +122,55 @@ def test_dataclass_to_camel_case_dict_serializes_enum_literal():
     assert result == "red"
 
 
+def test_body_comparison_report_comparison_type_is_plain_str():
+    """WR-06 (2026-06-08 review) — production BodyComparisonReport 의 comparisonType /
+    deficitCode 가 Enum 이 아니라 plain str.
+
+    contract lockstep: comparisonType 은 `Literal["mode1", ...]` (= str), deficitCode 도
+    str. 향후 contributor 가 Enum 으로 바꾸면 dataclasses.asdict 가 Enum instance
+    그대로 반환 + Firestore SDK 직렬화 실패. 본 테스트가 그 회귀를 차단.
+    """
+    app = _app()
+    from sunity_shared.analysis.body_normalizer import (
+        BodyComparisonFinding,
+        BodyComparisonReport,
+    )
+
+    bcr = BodyComparisonReport(
+        comparison_type="mode1",
+        body_normalization_confidence=0.9,
+        scale_profile=None,
+        findings=[
+            BodyComparisonFinding(
+                deficit_code="knee_toe_alignment",
+                joint_key="left_knee",
+                measured_value=160.0,
+                deduction_score=-0.2,
+                confidence=0.85,
+                body_type_adjusted=True,
+            )
+        ],
+        warnings=[],
+        reference_motion_id="inversion",
+        reference_athlete_name="정은지",
+        previous_analysis_id=None,
+        used_reference_fallback=False,
+    )
+    result = app._dataclass_to_camel_case_dict(bcr)
+
+    # comparisonType plain str
+    assert isinstance(result["comparisonType"], str)
+    assert result["comparisonType"] == "mode1"
+    # deficitCode (finding 안) plain str
+    f0 = result["findings"][0]
+    assert isinstance(f0["deficitCode"], str)
+    assert f0["deficitCode"] == "knee_toe_alignment"
+    # Enum instance 가 leak 되면 직렬화 실패 — 명시적 negation
+    from enum import Enum
+    assert not isinstance(result["comparisonType"], Enum)
+    assert not isinstance(f0["deficitCode"], Enum)
+
+
 def test_dataclass_to_camel_case_dict_passthrough_scalar():
     """Default case — scalar 는 그대로 반환."""
     app = _app()

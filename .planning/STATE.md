@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: Plan 07-02 완료 (3 atomic commits + 108 phase07 PASS + 136 phase06 PASS 회귀 0 + tsc --noEmit clean)
-stopped_at: Phase 8 context gathered
-last_updated: "2026-06-08T13:44:49.538Z"
+stopped_at: Phase 8 plans complete (3 plans verified)
+last_updated: "2026-06-08T14:41:43.808Z"
 last_activity: 2026-06-08
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 38
+  total_plans: 41
   completed_plans: 35
   percent: 63
 ---
@@ -432,9 +432,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-08T13:44:49.521Z
+Last session: 2026-06-08T14:41:43.792Z
 
-Stopped at: Phase 8 context gathered
+Stopped at: Phase 8 plans complete (3 plans verified)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -501,7 +501,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/08-jerk-jitter/08-CONTEXT.md
+Resume file: .planning/phases/08-jerk-jitter/08-01-PLAN.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

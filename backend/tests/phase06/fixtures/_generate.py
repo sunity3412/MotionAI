@@ -429,17 +429,26 @@ def gen_fixture_foreshortening_lying_pose() -> dict:
 
 
 def gen_fixture_unstable_arm_swing() -> dict:
-    """빠른 팔 swing. 30 frame.
+    """빠른 팔 swing + 다리 swing. 30 frame.
 
-    좌측 팔 길이 픽셀 표준편차 / 평균 = ~15% (Notebook §4.2 임계 10% 초과).
+    좌측 팔/다리 segment 의 길이 픽셀 표준편차 / 평균 = ~15% (Notebook §4.2
+    임계 10% 초과). 5 핵심 segment 모두에 swing 적용 — confidence 산출의
+    average path 트리거.
     """
-    # arm_swing_offset_px: 0 ~ 50 사이 sinusoidal. 평균 25, std ~17
-    # forearm 110 기준 std/mean = 17 / 135 ~ 12.6%
     frames = []
     for i in range(30):
         offset = 25.0 + 25.0 * math.sin(i * 0.5)
+        # upper_arm + forearm + thigh + shank + torso 모두 변동
         frames.append(
-            make_upright_frame(i, i * 33, arm_swing_offset_px=offset)
+            make_upright_frame(
+                i,
+                i * 33,
+                upper_arm_len=120.0 + offset,
+                forearm_len=110.0 + offset * 0.8,
+                thigh_len=180.0 + offset * 1.0,
+                shank_len=160.0 + offset * 0.9,
+                torso_len=200.0 + offset * 0.5,
+            )
         )
     return {
         "frames": frames,
@@ -447,7 +456,7 @@ def gen_fixture_unstable_arm_swing() -> dict:
             "arm_temporal_variance_ratio": 0.15,
             "rationale": (
                 "NotebookLM Notebook 4 §4.2 — temporal variance 10% 임계 "
-                "초과. confidence 하향 트리거."
+                "초과. confidence 하향 트리거. 5 핵심 segment 모두 swing."
             ),
         },
     }

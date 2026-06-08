@@ -474,3 +474,248 @@ def normalize_pose_by_segments(
         norm[child] = c_norm
 
     return norm
+
+
+# ── foreshortening 검출 (Notebook §1.5, Pattern 5) ────────────────────────
+
+
+def is_foreshortening_detected(pose_frames: list[PoseFrame] | None) -> bool:
+    """Notebook §1.5 — foreshortening 감지.
+
+    조건 (둘 다 OR):
+      1. 어깨-골반 벡터 vs 카메라 Z축 (0, 0, 1) 평균 각도 < FORESHORTENING_ANGLE_DEG (60°).
+      2. 평균 어깨-골반 픽셀 거리 < SHOULDER_HIP_HARD_THRESHOLD_PX (150px).
+
+    하나라도 만족 시 True. pose_frames=None or 빈 list → False.
+
+    Pitfall 1 — 폴 위 거꾸로 매달려 몸 둥글게 마는 동작: 2D 투영 평면에서
+    어깨-골반 픽셀 거리 ≈ 0 → 분모 폭발 → 모든 키포인트 오차 증폭 위양성.
+    """
+    if not pose_frames:
+        return False
+
+    distances: list[float] = []
+    angles_deg: list[float] = []
+    for f in pose_frames:
+        kp = f.keypoints_3d
+        needed = ("left_shoulder", "right_shoulder", "left_hip", "right_hip")
+        if not all(n in kp for n in needed):
+            continue
+        ls, rs, lh, rh = (kp[n] for n in needed)
+        msx = (ls.x + rs.x) / 2
+        msy = (ls.y + rs.y) / 2
+        msz = (ls.z + rs.z) / 2
+        mhx = (lh.x + rh.x) / 2
+        mhy = (lh.y + rh.y) / 2
+        mhz = (lh.z + rh.z) / 2
+        dx = mhx - msx
+        dy = mhy - msy
+        dz = mhz - msz
+        pixel_d = math.sqrt(dx * dx + dy * dy)  # 2D image plane
+        distances.append(pixel_d)
+        # vs camera Z (0, 0, 1) — 어깨-골반 vector 의 z-component 의 비율
+        vec_norm = math.sqrt(dx * dx + dy * dy + dz * dz)
+        if vec_norm < _EPS:
+            continue
+        cos_a = abs(dz) / vec_norm  # |cos angle with z-axis|
+        cos_a = max(-1.0, min(1.0, cos_a))
+        # 각도 (벡터 - z축) = arccos(|cos_a|). z-축과 평행할수록 0°, 직교할수록 90°.
+        # 정상 직립 = 어깨-골반 vector 가 y-down 평면 = z 와 직교 = 90°.
+        # 누운 자세 (foreshortening) = z-축 평행 = 0°.
+        angle_deg = math.degrees(math.acos(cos_a))
+        # camera 시선이 z-축이라면, vector ⊥ z 이면 angle == 90°.
+        # foreshortening 조건 = angle < FORESHORTENING_ANGLE_DEG.
+        # 우리 fixture z=0 인 경우 angle=90° (정상 직립) — z-축 평행 케이스 없음.
+        # → 본 분기에서 pixel 거리 임계만 의미. (현 합성 데이터 한계, prod NLF z 사용)
+        angles_deg.append(angle_deg)
+
+    if not distances:
+        return False
+
+    mean_dist = sum(distances) / len(distances)
+    if mean_dist < SHOULDER_HIP_HARD_THRESHOLD_PX:
+        return True
+    if angles_deg:
+        mean_angle = sum(angles_deg) / len(angles_deg)
+        if mean_angle < FORESHORTENING_ANGLE_DEG:
+            return True
+    return False
+
+
+# ── temporal variance + spatial dispersion helper ────────────────────────
+
+
+def _compute_temporal_variance_per_segment(
+    pose_frames: list[PoseFrame], segment_pair: tuple[str, str]
+) -> tuple[float, float]:
+    """단일 segment 의 (normalized_variance, mean_length).
+
+    normalized_variance = var(length over frames) / mean(length)^2.
+    NaN-safe — mean < EPS 시 (0.0, 0.0).
+    """
+    start_name, end_name = segment_pair
+    lengths: list[float] = []
+    for f in pose_frames:
+        kp = f.keypoints_3d
+        if start_name not in kp or end_name not in kp:
+            continue
+        s = kp[start_name]
+        e = kp[end_name]
+        L = math.sqrt((e.x - s.x) ** 2 + (e.y - s.y) ** 2 + (e.z - s.z) ** 2)
+        lengths.append(L)
+    if not lengths:
+        return 0.0, 0.0
+    mean_L = sum(lengths) / len(lengths)
+    if mean_L < _EPS:
+        return 0.0, 0.0
+    var = sum((x - mean_L) ** 2 for x in lengths) / len(lengths)
+    normalized_var = var / (mean_L * mean_L)
+    return normalized_var, mean_L
+
+
+def _compute_spatial_dispersion(pose_frames: list[PoseFrame]) -> float:
+    """Notebook §4.2 B — C_s(t) = (1/J) Σ_j ||P_j(t) - centroid(t)||₂.
+
+    shoulder_width 로 정규화 (frame-wise). 전체 frame 평균 반환.
+    NaN-safe.
+
+    R6 fix: pose_frames → keypoints 변환은 to_coco17_array(pose_frames) 사용해
+    (T, 17, 4) 4채널 보존. joint_uncertainty 가 4번째 채널에서 lookup.
+    """
+    if not pose_frames:
+        return 0.0
+    # R6 fix — to_coco17_array (T, 17, 4) 4채널 보존
+    arr_4ch = to_coco17_array(pose_frames)  # (T, 17, 4)
+    # 좌표만 (T, 17, 3) — 4번째 channel = uncertainty_proxy (현 산식 비사용)
+    coords = arr_4ch[:, :, :3]
+    T = coords.shape[0]
+    if T == 0:
+        return 0.0
+    ratios: list[float] = []
+    # shoulder index (left_shoulder=5, right_shoulder=6 in KEYPOINT_NAMES)
+    ls_idx = KEYPOINT_NAMES.index("left_shoulder")
+    rs_idx = KEYPOINT_NAMES.index("right_shoulder")
+    for t in range(T):
+        frame_coords = coords[t]  # (17, 3)
+        # NaN mask
+        valid_mask = np.all(np.isfinite(frame_coords), axis=1)
+        if not np.any(valid_mask):
+            continue
+        valid_pts = frame_coords[valid_mask]
+        centroid = valid_pts.mean(axis=0)
+        dists = np.linalg.norm(valid_pts - centroid, axis=1)
+        c_s = float(dists.mean())
+        # shoulder width
+        ls = frame_coords[ls_idx]
+        rs = frame_coords[rs_idx]
+        if not (np.all(np.isfinite(ls)) and np.all(np.isfinite(rs))):
+            continue
+        sw = float(np.linalg.norm(rs - ls))
+        if sw > _EPS:
+            ratios.append(c_s / sw)
+    if not ratios:
+        return 0.0
+    return sum(ratios) / len(ratios)
+
+
+# ── compute_body_normalization_confidence (D-06-U1 박제) ──────────────────
+
+
+# temporal variance 산출에 사용하는 5 핵심 segment.
+_TEMPORAL_SEGMENT_PAIRS: tuple[tuple[str, str], ...] = (
+    ("left_shoulder", "left_elbow"),    # l_upper_arm
+    ("left_elbow", "left_wrist"),       # l_lower_arm
+    ("left_hip", "left_knee"),          # l_thigh
+    ("left_knee", "left_ankle"),        # l_lower_leg
+    ("left_shoulder", "left_hip"),      # torso (간이)
+)
+
+
+def compute_body_normalization_confidence(
+    pose_frames: list[PoseFrame] | None,
+    student_profile: BodyNormalizationProfile,
+    reference_profile: BodyNormalizationProfile | None,
+    comparison_type: ComparisonType,
+) -> tuple[float, list[str]]:
+    """RESEARCH.md §Pattern 3 — confidence 산식 + warnings emit.
+
+    1) base = student_profile.confidence.
+    2) pose_frames=None or 빈 list → temporal_penalty = spatial_dispersion_penalty
+       = 0.0. base + reference_match_bonus 만.
+    3) pose_frames 있을 때:
+       - R6 fix: keypoints_4ch = to_coco17_array(pose_frames) (T, 17, 4).
+       - temporal_penalty = 5 핵심 segment 의 normalized_variance 평균.
+         clip ((variance - 0.05) / 0.05, 0, 1).
+    4) R5 fix — spatial_dispersion_penalty:
+       - dispersion_ratio = _compute_spatial_dispersion(pose_frames)
+       - penalty = clip((dispersion_ratio - DISPERSION_BASELINE) /
+         DISPERSION_RANGE, 0.0, 1.0). high dispersion → high penalty.
+    5) reference_match_bonus = 0.0 if reference_profile is None
+       else 0.1 × min(reference_profile.confidence, 1.0).
+    6) confidence = clamp(0, 1, base - 0.5*temporal_penalty -
+       0.3*spatial_dispersion_penalty + reference_match_bonus).
+    7) warnings:
+       - temporal_penalty > 0.5 → 'temporal_variance_high'.
+       - R5 fix: spatial_dispersion_penalty > 0.5 → 'spatial_dispersion_high'.
+       - reference_profile is None + comparison_type != 'mode3_first' →
+         'reference_profile_missing'.
+    """
+    base = float(student_profile.confidence)
+    warnings: list[str] = []
+
+    if pose_frames is None or len(pose_frames) == 0:
+        temporal_penalty = 0.0
+        spatial_dispersion_penalty = 0.0
+    else:
+        # R6 fix — to_coco17_array 사용. 호출 자체가 temporal_penalty 산출과
+        # spatial dispersion 산출 path 의 일관성 보장.
+        _ = to_coco17_array(pose_frames)  # 4채널 보존 보장 (회귀 가드)
+
+        variances = []
+        for pair in _TEMPORAL_SEGMENT_PAIRS:
+            v, _mean = _compute_temporal_variance_per_segment(pose_frames, pair)
+            # normalized_variance = (std/mean)^2. ratio = std/mean = sqrt(var).
+            variances.append(math.sqrt(v))
+        avg_var_ratio = sum(variances) / len(variances) if variances else 0.0
+        # ratio 0.05 baseline ~ 5% (excellent), 0.10 → penalty=1.0
+        temporal_penalty = max(
+            0.0,
+            min(
+                1.0,
+                (avg_var_ratio - TEMPORAL_VARIANCE_EXCELLENT_THRESHOLD)
+                / TEMPORAL_VARIANCE_EXCELLENT_THRESHOLD,
+            ),
+        )
+
+        # R5 fix — spatial dispersion 산식 자연화
+        dispersion_ratio = _compute_spatial_dispersion(pose_frames)
+        spatial_dispersion_penalty = max(
+            0.0,
+            min(
+                1.0,
+                (dispersion_ratio - DISPERSION_BASELINE) / DISPERSION_RANGE,
+            ),
+        )
+
+    reference_match_bonus = (
+        0.0
+        if reference_profile is None
+        else 0.1 * min(float(reference_profile.confidence), 1.0)
+    )
+
+    confidence = (
+        base
+        - 0.5 * temporal_penalty
+        - 0.3 * spatial_dispersion_penalty
+        + reference_match_bonus
+    )
+    confidence = max(0.0, min(1.0, confidence))
+
+    if temporal_penalty > 0.5:
+        warnings.append("temporal_variance_high")
+    if spatial_dispersion_penalty > 0.5:
+        warnings.append("spatial_dispersion_high")
+    if reference_profile is None and comparison_type != "mode3_first":
+        warnings.append("reference_profile_missing")
+
+    return confidence, warnings

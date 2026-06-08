@@ -1,0 +1,22 @@
+{
+  "_comment": "Plan 07-01 Task 1 fixture #4 — uncertain 분류 (finding-level confidence < 0.5). D-07-A2 게이트.",
+  "finding": {
+    "deficit_code": "knee_toe_alignment",
+    "joint_key": "left_knee",
+    "measured_value": 158.0,
+    "deduction_score": -0.2,
+    "confidence": 0.3,
+    "body_type_adjusted": true
+  },
+  "context": {
+    "body_normalization_confidence": 0.85,
+    "comparison_type": "mode1",
+    "used_reference_fallback": false
+  },
+  "expected": {
+    "category": "uncertain",
+    "phase": "hold",
+    "do_not_over_correct_count": 0,
+    "recommended_focus_count": 1
+  }
+}

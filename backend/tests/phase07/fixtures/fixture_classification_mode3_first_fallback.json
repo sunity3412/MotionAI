@@ -1,0 +1,23 @@
+{
+  "_comment": "Plan 07-01 Task 1 fixture #6 — mode3_first + used_reference_fallback=True path (Decision 1). CR-01 fix: expected.recommendation 은 unprefixed 단일 문장 exact 박제. Plan 02 Task 1 의 test_uncertain_when_mode3_first_fallback 가 본 문자열 exact match.",
+  "finding": {
+    "deficit_code": "knee_toe_alignment",
+    "joint_key": "left_knee",
+    "measured_value": 158.0,
+    "deduction_score": -0.2,
+    "confidence": 0.85,
+    "body_type_adjusted": true
+  },
+  "context": {
+    "body_normalization_confidence": 0.85,
+    "comparison_type": "mode3_first",
+    "used_reference_fallback": true
+  },
+  "expected": {
+    "category": "uncertain",
+    "phase": "hold",
+    "recommendation": "이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. 강사와 함께 확인 권유드려요.",
+    "do_not_over_correct_count": 0,
+    "recommended_focus_count": 1
+  }
+}

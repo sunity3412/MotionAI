@@ -1,0 +1,22 @@
+{
+  "_comment": "Plan 07-01 Task 1 fixture #2 — needs_adjustment 분류. D-07-A1 룰 (body_type_adjusted=True + |deduction| > 0.2). pose_reliability_low = -0.5.",
+  "finding": {
+    "deficit_code": "pose_reliability_low",
+    "joint_key": null,
+    "measured_value": 0.7,
+    "deduction_score": -0.5,
+    "confidence": 0.9,
+    "body_type_adjusted": true
+  },
+  "context": {
+    "body_normalization_confidence": 0.85,
+    "comparison_type": "mode1",
+    "used_reference_fallback": false
+  },
+  "expected": {
+    "category": "needs_adjustment",
+    "phase": "hold",
+    "do_not_over_correct_count": 0,
+    "recommended_focus_count": 1
+  }
+}

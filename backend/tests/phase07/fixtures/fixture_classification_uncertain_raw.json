@@ -1,0 +1,22 @@
+{
+  "_comment": "Plan 07-01 Task 1 fixture #3 — uncertain 분류 (raw 좌표 path). D-07-A1: body_type_adjusted=False → 항상 uncertain.",
+  "finding": {
+    "deficit_code": "extension",
+    "joint_key": null,
+    "measured_value": 145.0,
+    "deduction_score": -0.2,
+    "confidence": 0.85,
+    "body_type_adjusted": false
+  },
+  "context": {
+    "body_normalization_confidence": 0.85,
+    "comparison_type": "mode1",
+    "used_reference_fallback": false
+  },
+  "expected": {
+    "category": "uncertain",
+    "phase": "hold",
+    "do_not_over_correct_count": 0,
+    "recommended_focus_count": 1
+  }
+}

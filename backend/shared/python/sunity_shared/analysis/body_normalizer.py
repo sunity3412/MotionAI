@@ -936,8 +936,18 @@ def measure_ipsf_absolute_deficits(
                 )
 
     # clean_lines (-0.2): technique_profile.expects_extension 관절들의 평균 각도
-    # < 180 - LINE_TOL_DEG. technique_profile 가 None 또는 expects_extension 없을 시 skip.
-    expects = getattr(technique_profile, "expects_extension", None) if technique_profile else None
+    # < 180 - LINE_TOL_DEG. technique_profile 가 None 또는 joint_expectations 비었을 시 skip.
+    # Plan 06-02 wiring fix (Rule 1 — bug): TechniqueProfile.expects_extension 은 method
+    # (joint_key → bool) 라 직접 iterate 불가. joint_expectations dict 에서 JOINT_EXTEND
+    # 값을 가진 키들의 list 로 derive. technique.JOINT_EXTEND 값은 "extend".
+    joint_expectations = (
+        getattr(technique_profile, "joint_expectations", None) if technique_profile else None
+    )
+    expects = (
+        [k for k, v in joint_expectations.items() if v == "extend"]
+        if joint_expectations
+        else None
+    )
     if expects:
         # expects = list of joint keys (e.g., ('left_elbow', 'right_elbow')).
         joint_angles_to_check = []

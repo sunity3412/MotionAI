@@ -237,14 +237,16 @@ class TestB8FixSignature:
             f"return type = np.ndarray 박제 위반: {sig.return_annotation}"
         )
 
-    def test_angles_and_video_path_helper_exists(self):
-        """별 helper `_angles_and_video_path_from_video(bucket, key) -> tuple` 신설 박제."""
+    def test_unified_extract_video_analysis_inputs_helper_exists(self):
+        """Phase 6 R3 fix (Plan 06-02): `_angles_and_video_path_from_video` 폐기 →
+        단일 `_extract_video_analysis_inputs(bucket, key, default_pole, *, keep_local_video=False)` 통합.
+        """
         app = _import_pipeline()
-        assert hasattr(app, "_angles_and_video_path_from_video"), (
-            "별 helper _angles_and_video_path_from_video 미신설 (B8 fix 박제 위반)"
+        # 신설 박제
+        assert hasattr(app, "_extract_video_analysis_inputs"), (
+            "_extract_video_analysis_inputs (R3 fix) 미신설"
         )
-        sig = inspect.signature(app._angles_and_video_path_from_video)
-        params = list(sig.parameters.keys())
-        assert params == ["bucket", "key"], (
-            f"helper 시그너처 위반: params={params}"
+        # 폐기 박제
+        assert not hasattr(app, "_angles_and_video_path_from_video"), (
+            "R3 fix 위반 — _angles_and_video_path_from_video 폐기 안 됨"
         )

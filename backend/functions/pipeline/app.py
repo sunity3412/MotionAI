@@ -19,6 +19,16 @@ Cerebras(coach_writer). NLF 추론은 GPU 필요(plan.md #7-follow).
   - 그 외 런타임 오류 → server_error 로 실패 기록(사용자 노출 문구).
 
 상태/오류/경로는 docs/contract.md, 단계는 models.PIPELINE_SEQUENCE.
+
+Phase 6 (2026-06-08, Plan 06-02) — body_normalizer 통합 wiring:
+  - R3 fix: 단일 `_extract_video_analysis_inputs` helper — S3 download + frame
+    extract + RTMW estimate 1회만 실행. Gemini ON 시 keep_local_video=True.
+  - R4 fix: student_profile 반환 non-null (measure_body_profile fallback 정합).
+  - R2 wiring: reference 의 bodyComparisonSourcePose 도 fetch + source_keypoints 전달.
+  - R8 fix: extra_warnings injection (dataclasses.replace 우회 금지).
+  - C2 fix: _match_reference_by_motion_id exact-match (profile.motion_id 기반).
+  - C8 fix: _dataclass_to_camel_case_dict 4-case helper (Task 3 wiring).
+  - W1: comparisonType 3 cases + usedReferenceFallback boolean.
 """
 
 from __future__ import annotations
@@ -31,7 +41,9 @@ import tempfile
 import threading
 import urllib.error
 import urllib.request
+from enum import Enum
 from pathlib import Path
+from typing import NamedTuple
 
 import boto3  # Lambda 런타임 제공
 import numpy as np
@@ -39,12 +51,15 @@ import numpy as np
 from sunity_shared import firestore_admin, models
 from sunity_shared.analysis import (
     assemble,
+    body_normalizer,
     dimensions,
     kismam,
     segments,
     skeleton,
     technique,
 )
+from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
+from sunity_shared.analysis.body_normalization_measurer import measure_body_profile
 from sunity_shared.analysis.features import (
     compute_joint_angles,
     feature_vector,
@@ -52,6 +67,7 @@ from sunity_shared.analysis.features import (
 )
 from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # 가벼움 — 예외만
 from sunity_shared.analysis.motiondtw import motion_dtw, per_joint_deviation
+from sunity_shared.analysis.pose_frame import PoleAxis, to_coco17_array
 from sunity_shared.analysis.temporal import temporal_fill
 from sunity_shared.events import iter_s3_keys_from_sqs
 from sunity_shared.s3keys import parse_upload_key
@@ -116,6 +132,12 @@ def _delegate_to_runpod(bucket: str, key: str) -> None:
 _FRAME_EXTRACTOR = None  # type: ignore[var-annotated]
 _POSE_ESTIMATOR = None  # type: ignore[var-annotated]
 _COACH_WRITER = None  # type: ignore[var-annotated]
+# R3 fix (Phase 6, Plan 06-02): _extract_video_analysis_inputs 가 직접 호출하는
+# RTMW engine singleton. _POSE_ESTIMATOR (RTMWNlfCompat) 는 NLF interface 호환용
+# 래퍼. 새 통합 helper 는 estimate(frames, pole_axis) → list[PoseFrame] 시그너처
+# 의 RTMW 본체를 직접 호출 — pose_frames 가 measure_body_profile / body_normalizer
+# 양 경로에서 필요. None 기본값 — lazy init in _ensure_adapters().
+_RTMW_ENGINE = None  # type: ignore[var-annotated]
 
 # 기술 인식 어댑터 — swappable (technique.TechniqueRecognizer 프로토콜).
 # Plan 5-03 박제 — 즉시 생성 박제 X → `_ensure_recognizer()` lazy creation 분기.
@@ -267,13 +289,20 @@ def _ensure_adapters() -> None:
 
     Plan 25 atomic swap (2026-06-05): NlfPoseEstimator → _RTMWNlfCompat (RTMW 기반,
     NLF interface 호환). 박제 정신 [[rtmw-free-stack-pivot]] 정합.
+
+    Plan 06-02 R3 fix: _RTMW_ENGINE singleton 추가 — _extract_video_analysis_inputs
+    가 RTMW 본체를 직접 호출 (pose_frames list[PoseFrame] 필요).
     """
-    global _FRAME_EXTRACTOR, _POSE_ESTIMATOR, _COACH_WRITER
+    global _FRAME_EXTRACTOR, _POSE_ESTIMATOR, _COACH_WRITER, _RTMW_ENGINE
     if _FRAME_EXTRACTOR is None:
         from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
         _FRAME_EXTRACTOR = FfmpegFrameExtractor()
     if _POSE_ESTIMATOR is None:
         _POSE_ESTIMATOR = _RTMWNlfCompat()
+    if _RTMW_ENGINE is None:
+        # _POSE_ESTIMATOR._engine 재사용 — 동일 RTMW instance.
+        # _POSE_ESTIMATOR (RTMWNlfCompat) 의 _engine attribute 가 RTMWPoseEngine.
+        _RTMW_ENGINE = _POSE_ESTIMATOR._engine  # type: ignore[attr-defined]
     if _COACH_WRITER is None:
         from sunity_shared.analysis.coach_writer import CerebrasCoachWriter
         _COACH_WRITER = CerebrasCoachWriter()
@@ -332,41 +361,198 @@ def _angles_and_body_profile_from_video(
     return angles_filled, profile
 
 
-def _angles_and_video_path_from_video(
-    bucket: str, key: str
-) -> tuple[np.ndarray, str]:
-    """B8 fix (2026-06-04 revision) — Gemini 어댑터 path 전용 helper 박제.
+# ── R3 fix (Phase 6, Plan 06-02) — 통합 helper _extract_video_analysis_inputs ──
+#
+# 기존 `_angles_and_video_path_from_video` (B8 fix Gemini path) 폐기 — 새 단일
+# helper 가 Gemini ON / OFF 분기 모두 수용. RTMW estimate 1회만 실행 보장
+# (T-06-02-06 mitigation — 두 helper 가 동시 호출되면 double RTMW).
+#
+# `_angles_from_video` + `_angles_and_body_profile_from_video` (Phase 2 caller) 는
+# 무수정 보존 — RunPod server.py + 기존 테스트 정합.
 
-    `_angles_from_video` 의 변형 — frames 인자로 local video path 가 필요한
-    GeminiTechniqueRecognizer.recognize 호출 path 만 사용. delete=False
-    tempfile 박제 — caller (`_process` Gemini 분기) 가 finally 에서 unlink 책임.
 
-    박제 사유 (B8 fix):
-      · 기존 `_angles_from_video` 시그너처 무변경 — 회귀 위험 0
-      · RunPod server.py D-12 무수정 박제 정합 (호출처 갱신 0)
-      · 신설 함수 분리 — 호출처 명시적 분기 (Gemini path 만 사용)
+class _VideoAnalysisInputs(NamedTuple):
+    """R3 fix Phase 6 — 단일 helper 반환 4종.
 
-    Returns:
-      (angles_filled, local_video_path) — caller 가 video_path 를 Gemini File API
-      에 전달 + 분석 끝나면 unlink 박제.
+    angles: (T, J) 시간축 보간된 관절각.
+    student_profile: BodyNormalizationProfile (R4 fix — 항상 non-null,
+      measure_body_profile 의 _fallback_profile 정합).
+    pose_frames: list[PoseFrame] — body_normalizer.compare_body_profiles 의
+      pose_frames 인자 + _extract_target_torso_px helper 입력.
+    local_video_path: Path | None — Gemini ON path (keep_local_video=True) 일
+      때만 Path. caller 가 unlink 책임.
+    """
 
-    Raises:
-      예외 발생 시 임시 파일 즉시 unlink 박제 (디스크 누수 보호).
+    angles: np.ndarray
+    student_profile: BodyNormalizationProfile
+    pose_frames: list
+    local_video_path: Path | None
+
+
+def _extract_video_analysis_inputs(
+    bucket: str,
+    key: str,
+    default_pole: PoleAxis,
+    *,
+    keep_local_video: bool = False,
+) -> _VideoAnalysisInputs:
+    """R3 fix (2026-06-08 round-2, Plan 06-02 reviews).
+
+    Phase 6 + Gemini path 의 video extraction 을 단일 helper 로 통합. S3 download +
+    frame_extract + RTMW estimate 단 1회 실행 — 기존 `_angles_and_video_path_from_video`
+    와 신설 예정이었던 `_angles_profile_and_frames_from_video` 가 동시 호출되면
+    double RTMW 실행 (T-06-02-06). keep_local_video=True 시 local_video_path 반환
+    (caller 가 unlink 책임). keep_local_video=False 시 cleanup. student_profile 은
+    measure_body_profile 의 fallback 보장으로 non-null (R4 fix).
     """
     _ensure_adapters()
-    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-    tmp_path = tmp.name
-    tmp.close()
-    try:
-        _s3.download_file(bucket, key, tmp_path)
-        frames = _FRAME_EXTRACTOR.extract(tmp_path)
-        keypoints = _POSE_ESTIMATOR.estimate(frames)
-        angles = compute_joint_angles(keypoints)
-        angles_filled = temporal_fill(angles, joint_uncertainty(keypoints))
-        return angles_filled, tmp_path
-    except Exception:
-        Path(tmp_path).unlink(missing_ok=True)
-        raise
+    tmp_path: str | None = None
+    if keep_local_video:
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+        tmp_path = tmp.name
+        tmp.close()
+        try:
+            _s3.download_file(bucket, key, tmp_path)
+            frames = _FRAME_EXTRACTOR.extract(tmp_path)
+            pose_frames = _RTMW_ENGINE.estimate(frames, default_pole)
+        except Exception:
+            Path(tmp_path).unlink(missing_ok=True)
+            raise
+    else:
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
+            _s3.download_file(bucket, key, tmp.name)
+            frames = _FRAME_EXTRACTOR.extract(tmp.name)
+            pose_frames = _RTMW_ENGINE.estimate(frames, default_pole)
+
+    # R4 fix — measure_body_profile 의 _fallback_profile 정합 (non-null 보장).
+    student_profile = measure_body_profile(pose_frames)
+
+    # angles 산출 — R6 정합 (to_coco17_array 4채널 보존).
+    keypoints_4ch = to_coco17_array(pose_frames)
+    angles = compute_joint_angles(keypoints_4ch)
+    angles_filled = temporal_fill(angles, joint_uncertainty(keypoints_4ch))
+
+    local_video_path = Path(tmp_path) if tmp_path else None
+    return _VideoAnalysisInputs(
+        angles=angles_filled,
+        student_profile=student_profile,
+        pose_frames=pose_frames,
+        local_video_path=local_video_path,
+    )
+
+
+def _coerce_source_pose_dict(raw: dict | None) -> dict | None:
+    """R2 wiring helper — Firestore stored source_pose dict → BodyComparisonSourcePose 생성자 dict.
+
+    Firestore 가 list 로 저장한 joint_keys / values 를 tuple 로 변환 (frozen dataclass
+    validator 정합). camelCase / snake_case 둘 다 수용 — Plan 06-03 백필이 camelCase
+    로 저장할 가능성 박제 (TS contract 정합).
+    """
+    if raw is None:
+        return None
+    # camelCase → snake_case fallback lookup
+    def _g(snake: str, camel: str):
+        if snake in raw:
+            return raw[snake]
+        return raw.get(camel)
+
+    joint_keys = _g("joint_keys", "jointKeys") or ()
+    values = _g("values", "values") or ()
+    return {
+        "joint_keys": tuple(joint_keys),
+        "values": tuple(float(v) for v in values),
+        "frame_index": int(_g("frame_index", "frameIndex") or 0),
+        "torso_px": float(_g("torso_px", "torsoPx") or 1.0),
+        "confidence": float(_g("confidence", "confidence") or 0.0),
+        "measured_at": int(_g("measured_at", "measuredAt") or 0),
+    }
+
+
+def _match_reference_by_motion_id(motion_id: str | None) -> dict | None:
+    """C2 fix (2026-06-08, Plan 06-02 reviews) — exact-match reference lookup.
+
+    TechniqueProfile.motion_id (Gemini canonical) → reference 컬렉션 exact-match.
+    R2 wiring 정합 — 반환 dict 의 bodyNormalizationProfile + bodyComparisonSourcePose
+    모두 read. motion_id None 시 None 반환 (FallbackRecognizer / low_confidence
+    / unregistered path 등).
+    """
+    if not motion_id:
+        return None
+    return firestore_admin.get_reference_motion(motion_id)
+
+
+def _extract_target_torso_px(pose_frames: list) -> float | None:
+    """R2 wiring (2026-06-08 round-2) — target 영상의 평균 mid_shoulder↔mid_hip 픽셀 거리.
+
+    각 frame 의 keypoints_3d_pole_aligned 에서 mid_shoulder = (l_shoulder +
+    r_shoulder) / 2, mid_hip = (l_hip + r_hip) / 2. 두 좌표의 Euclidean 거리.
+    NaN-safe — endpoint 미감지 frame skip + 모든 frame skip 시 None 반환
+    (compare_body_profiles 가 student_profile.torso_scale 로 fallback).
+    """
+    if not pose_frames:
+        return None
+    distances: list[float] = []
+    for f in pose_frames:
+        kp = getattr(f, "keypoints_3d", None)
+        if not kp:
+            continue
+        needed = ("left_shoulder", "right_shoulder", "left_hip", "right_hip")
+        if not all(n in kp for n in needed):
+            continue
+        ls, rs, lh, rh = (kp[n] for n in needed)
+        ms_x = (ls.x + rs.x) / 2
+        ms_y = (ls.y + rs.y) / 2
+        mh_x = (lh.x + rh.x) / 2
+        mh_y = (lh.y + rh.y) / 2
+        dx = mh_x - ms_x
+        dy = mh_y - ms_y
+        d = (dx * dx + dy * dy) ** 0.5
+        if d > 0:
+            distances.append(d)
+    if not distances:
+        return None
+    mean = sum(distances) / len(distances)
+    import math as _math
+
+    if not _math.isfinite(mean) or mean <= 0:
+        return None
+    return float(mean)
+
+
+# ── C8 fix (Phase 6, Plan 06-02) — _dataclass_to_camel_case_dict 4-case 명세 ──
+#
+# Plan 06-02 Task 3 에서 사용 — body_comparison_report / student_profile dataclass
+# → Firestore camelCase dict 변환. 4 case 명시 + 4 unit test.
+
+def _snake_to_camel(key: str) -> str:
+    """snake_case → camelCase. 첫 단어 lowercase + 나머지 capitalize."""
+    parts = key.split("_")
+    if not parts:
+        return key
+    return parts[0] + "".join(w.capitalize() for w in parts[1:])
+
+
+def _dataclass_to_camel_case_dict(obj):
+    """C8 fix (2026-06-08, Plan 06-02 reviews). 5 case 명시.
+
+    dataclass / list / dict / Enum / scalar 5 case 명시. BodyComparisonReport 의
+    중첩 ScaleProfile + list[BodyComparisonFinding] 까지 모두 camelCase 변환.
+    None 입력 시 None 반환.
+    """
+    if obj is None:
+        return None
+    if dataclasses.is_dataclass(obj):
+        raw = dataclasses.asdict(obj)
+        return {_snake_to_camel(k): _dataclass_to_camel_case_dict(v) for k, v in raw.items()}
+    if isinstance(obj, Enum):
+        return str(obj.value)
+    if isinstance(obj, list):
+        return [_dataclass_to_camel_case_dict(x) for x in obj]
+    if isinstance(obj, tuple):
+        return [_dataclass_to_camel_case_dict(x) for x in obj]
+    if isinstance(obj, dict):
+        return {_snake_to_camel(k): _dataclass_to_camel_case_dict(v) for k, v in obj.items()}
+    return obj
 
 
 def _deviation_against(
@@ -441,15 +627,25 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         uid, analysis_id, models.STATUS_POSE_ANALYSIS
     )
 
-    # Plan 5-03 박제 — env switch ON 분기 시 video path 가 Gemini File API 입력으로
-    # 필요. 박제 사유: Gemini 어댑터의 recognize(angles, frames=local_video_path) 호출
-    # path. env 미설정 시 기존 path (회귀 0) 박제 보존.
+    # R3 fix (Phase 6, Plan 06-02) — 단일 helper _extract_video_analysis_inputs.
+    # 기존 분기 (`_angles_from_video` vs `_angles_and_video_path_from_video`) 폐기.
+    # S3 download + frame extract + RTMW estimate 단 1회만 실행.
+    # Gemini ON 시 keep_local_video=True (local_video_path 반환 — caller cleanup).
     recognizer = _ensure_recognizer()
-    local_video_path: str | None = None
-    if _gemini_enabled():
-        angles, local_video_path = _angles_and_video_path_from_video(bucket, key)
-    else:
-        angles = _angles_from_video(bucket, key)
+    default_pole = PoleAxis(
+        axis_vector=(0.0, 1.0, 0.0),
+        confidence_level="low",
+        source="vertical_fallback",
+        frame_index=None,
+    )
+    inputs = _extract_video_analysis_inputs(
+        bucket, key, default_pole, keep_local_video=_gemini_enabled()
+    )
+    angles = inputs.angles
+    student_profile = inputs.student_profile  # R4 fix — non-null
+    pose_frames = inputs.pose_frames
+    local_video_path_obj = inputs.local_video_path
+    local_video_path = str(local_video_path_obj) if local_video_path_obj else None
 
     # Path A production 정합 (2026-06-05): mode=expert = motion known case
     # (사용자가 referenceMotionId 선택). recognizer.motion_query_hint 박제 →
@@ -465,6 +661,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     my_video_url = _signed_get(bucket, key)
     reference_video_url = None
 
+    # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
+    target_torso = _extract_target_torso_px(pose_frames)
+
     try:
         # 기술 인식(swappable) → 절대 차원(라인/안정성)은 기준 영상 없이 항상 산출.
         # Plan 5-03 박제 — recognize(angles, frames=local_video_path) 호출. Gemini
@@ -473,10 +672,48 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         profile = recognizer.recognize(angles, frames=local_video_path)
         abs_dims = dimensions.absolute_dimension_scores(angles, profile)
 
+        # body_comparison_report — D-06-B3 통합 schema 박제 위치.
+        # Task 3 가 firestore_admin.complete_analysis 에 wiring (camelCase 변환).
+        body_comparison_report = None
+
         if mode == models.MODE_EXPERT:
             ref = firestore_admin.get_reference_motion(meta.get("referenceMotionId"))
             if ref is None or "angles" not in ref:
                 raise RuntimeError("기준 모션 또는 keyframe 데이터 없음")
+            # R2 wiring — reference 의 bodyNormalizationProfile + bodyComparisonSourcePose 둘 다 fetch.
+            ref_profile_dict = ref.get("bodyNormalizationProfile")
+            ref_profile = (
+                BodyNormalizationProfile(**ref_profile_dict)
+                if ref_profile_dict
+                else None
+            )
+            ref_source_pose_dict = ref.get("bodyComparisonSourcePose")
+            ref_source_pose = (
+                body_normalizer.BodyComparisonSourcePose(**_coerce_source_pose_dict(ref_source_pose_dict))
+                if ref_source_pose_dict
+                else None
+            )
+            source_keypoints = (
+                ref_source_pose.to_keypoints_array() if ref_source_pose else None
+            )
+            # R2 canary — bodyNormalizationProfile 있는데 source_pose 만 None 일 때 명시적 경고.
+            extra_warnings: list[str] = []
+            if ref_profile_dict and not ref_source_pose:
+                extra_warnings.append("reference_source_pose_missing")
+            body_comparison_report = body_normalizer.compare_body_profiles(
+                pose_frames=pose_frames,
+                student_profile=student_profile,
+                reference_profile=ref_profile,
+                comparison_type="mode1",
+                source_keypoints=source_keypoints,
+                angles=angles,
+                technique_profile=profile,
+                reference_motion_id=meta.get("referenceMotionId"),
+                reference_athlete_name=(ref or {}).get("athleteName"),
+                used_reference_fallback=False,
+                target_torso_px=target_torso,
+                extra_warnings=extra_warnings or None,
+            )
             # seed 는 Firestore 의 nested-array 금지 회피로 angles 를 flat 저장.
             num_joints = len(ref.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
             deviation, match, user_seg, a_ref = _deviation_against(
@@ -524,6 +761,87 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 angles, prev, profile
             )
 
+            # body_comparison_report mode3 분기 — prev 유무 → mode3_first vs mode3_progress.
+            # R2 wiring + R8 fix + C2 fix (exact-match fallback by profile.motion_id).
+            if not prev or not prev.get("bodyNormalizationProfile"):
+                # mode3_first path — Gemini fallback 매칭 시도.
+                used_fallback = False
+                ref_profile_m3: BodyNormalizationProfile | None = None
+                source_keypoints_m3 = None
+                extra_warnings_m3: list[str] = []
+                motion_id = getattr(profile, "motion_id", None)
+                if motion_id is not None and student_profile.confidence >= 0.5:
+                    matched = _match_reference_by_motion_id(motion_id)
+                    if matched and matched.get("bodyNormalizationProfile"):
+                        ref_profile_m3 = BodyNormalizationProfile(
+                            **matched["bodyNormalizationProfile"]
+                        )
+                        matched_source_pose_dict = matched.get("bodyComparisonSourcePose")
+                        matched_source_pose = (
+                            body_normalizer.BodyComparisonSourcePose(
+                                **_coerce_source_pose_dict(matched_source_pose_dict)
+                            )
+                            if matched_source_pose_dict
+                            else None
+                        )
+                        source_keypoints_m3 = (
+                            matched_source_pose.to_keypoints_array()
+                            if matched_source_pose
+                            else None
+                        )
+                        if not matched_source_pose:
+                            extra_warnings_m3.append("reference_source_pose_missing")
+                        used_fallback = True
+                    elif matched is None:
+                        # R8 fix — caller-injected warning (dataclasses.replace 우회 금지).
+                        extra_warnings_m3.append("fallback_reference_not_found")
+                body_comparison_report = body_normalizer.compare_body_profiles(
+                    pose_frames=pose_frames,
+                    student_profile=student_profile,
+                    reference_profile=ref_profile_m3,
+                    comparison_type="mode3_first",
+                    source_keypoints=source_keypoints_m3,
+                    angles=angles,
+                    technique_profile=profile,
+                    used_reference_fallback=used_fallback,
+                    target_torso_px=target_torso,
+                    extra_warnings=extra_warnings_m3 or None,
+                )
+            else:
+                # mode3_progress path — prev.bodyNormalizationProfile 박제 정합.
+                prev_profile = BodyNormalizationProfile(
+                    **prev["bodyNormalizationProfile"]
+                )
+                prev_source_pose_raw = prev.get("bodyComparisonSourcePose")
+                prev_source_pose = (
+                    body_normalizer.BodyComparisonSourcePose(
+                        **_coerce_source_pose_dict(prev_source_pose_raw)
+                    )
+                    if prev_source_pose_raw
+                    else None
+                )
+                prev_source_keypoints = (
+                    prev_source_pose.to_keypoints_array() if prev_source_pose else None
+                )
+                prev_extra_warnings = (
+                    ["reference_source_pose_missing"]
+                    if (prev_profile and not prev_source_pose)
+                    else None
+                )
+                body_comparison_report = body_normalizer.compare_body_profiles(
+                    pose_frames=pose_frames,
+                    student_profile=student_profile,
+                    reference_profile=prev_profile,
+                    comparison_type="mode3_progress",
+                    source_keypoints=prev_source_keypoints,
+                    angles=angles,
+                    technique_profile=profile,
+                    previous_analysis_id=prev.get("analysisId"),
+                    used_reference_fallback=False,
+                    target_torso_px=target_torso,
+                    extra_warnings=prev_extra_warnings,
+                )
+
         coach_details = _COACH_WRITER.write(
             {
                 "mode": mode,
@@ -554,6 +872,14 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             profile=profile,
         )
         # 추출 angles 를 flat 저장 — 다음 mode3 분석이 '이전 영상' 기준으로 DTW 비교.
+        # Phase 6 (Plan 06-02 Task 3) wiring — body_comparison_report (camelCase 변환) +
+        # body_normalization_profile (mode3 progress prev fetch path).
+        body_comparison_report_dict = _dataclass_to_camel_case_dict(
+            body_comparison_report
+        ) if body_comparison_report is not None else None
+        body_normalization_profile_dict = _dataclass_to_camel_case_dict(
+            student_profile
+        ) if student_profile is not None else None
         firestore_admin.complete_analysis(
             uid,
             analysis_id,
@@ -561,6 +887,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             angles=np.asarray(angles, dtype=float).reshape(-1).tolist(),
             angles_joint_keys=list(skeleton.JOINT_KEYS),
             angles_frames=int(np.asarray(angles).shape[0]),
+            body_comparison_report=body_comparison_report_dict,
+            body_normalization_profile=body_normalization_profile_dict,
         )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
     finally:

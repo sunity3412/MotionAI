@@ -256,13 +256,22 @@ def test_stale_profile_not_leaked_on_failure(app_mod):
 
 
 def test_b8_signature_lock_preserved(app_mod):
-    """B8 박제: _angles_from_video / _angles_and_video_path_from_video / _angles_and_body_profile_from_video 시그너처."""
+    """B8 박제: _angles_from_video / _angles_and_body_profile_from_video 시그너처.
+
+    Phase 6 R3 fix (Plan 06-02): `_angles_and_video_path_from_video` 폐기 — 단일
+    helper `_extract_video_analysis_inputs` 로 통합 (RTMW 1회 실행 보장).
+    """
     sig1 = inspect.signature(app_mod._angles_from_video)
     assert list(sig1.parameters.keys()) == ["bucket", "key"]
-    sig2 = inspect.signature(app_mod._angles_and_video_path_from_video)
-    assert list(sig2.parameters.keys()) == ["bucket", "key"]
     sig3 = inspect.signature(app_mod._angles_and_body_profile_from_video)
     assert list(sig3.parameters.keys()) == ["bucket", "key"]
+    # R3 fix — `_angles_and_video_path_from_video` 폐기 + `_extract_video_analysis_inputs` 신설.
+    assert not hasattr(app_mod, "_angles_and_video_path_from_video"), (
+        "R3 fix 위반 — _angles_and_video_path_from_video 폐기 안 됨"
+    )
+    assert hasattr(app_mod, "_extract_video_analysis_inputs"), (
+        "R3 fix 신설 helper _extract_video_analysis_inputs 미존재"
+    )
 
 
 def test_estimate_injects_body_shape_into_all_frames(app_mod):

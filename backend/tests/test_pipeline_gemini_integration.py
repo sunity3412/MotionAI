@@ -124,7 +124,7 @@ def base_mocks(monkeypatch):
     monkeypatch.setattr(
         pipeline.firestore_admin,
         "get_previous_analysis",
-        lambda uid, aid: None,  # 첫 분석 박제 (prev 없음 → assemble.build_mode3(is_first=True))
+        lambda uid, aid, mode=None: None,  # 첫 분석 박제 (prev 없음 → assemble.build_mode3(is_first=True))
     )
     monkeypatch.setattr(
         pipeline.firestore_admin, "complete_analysis", lambda *a, **k: None
@@ -151,15 +151,43 @@ def _stub_angles_only(bucket, key):
     return _angles_8j()
 
 
-def _stub_angles_with_path(tmp_video_path: str):
-    """`_angles_and_video_path_from_video` mock factory 박제 (Gemini path)."""
+def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
+    """Phase 6 R3 fix (Plan 06-02) — `_extract_video_analysis_inputs` mock factory.
 
-    def _impl(bucket, key):
-        # 임시 파일 생성 (cleanup 검증용)
-        Path(tmp_video_path).write_bytes(b"fake video bytes")
-        return _angles_8j(), tmp_video_path
+    기존 `_angles_and_video_path_from_video` 가 폐기되고 단일 helper
+    `_extract_video_analysis_inputs(bucket, key, default_pole, *, keep_local_video)`
+    로 통합 (RTMW 1회 실행 보장). Gemini path 시 keep_local_video=True.
+    """
+    from pathlib import Path as _P
+
+    from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
+
+    def _impl(bucket, key, default_pole, *, keep_local_video=False):
+        local_path = _P(tmp_video_path) if keep_local_video else None
+        if keep_local_video:
+            _P(tmp_video_path).write_bytes(b"fake video bytes")
+        fallback_profile = BodyNormalizationProfile(
+            estimated_height_scale=1.0,
+            arm_scale=1.0,
+            leg_scale=1.0,
+            torso_scale=1.0,
+            shoulder_hip_ratio=1.0,
+            confidence=0.0,
+            warnings=["mock"],
+        )
+        return pipeline_mod._VideoAnalysisInputs(
+            angles=_angles_8j(),
+            student_profile=fallback_profile,
+            pose_frames=[],
+            local_video_path=local_path,
+        )
 
     return _impl
+
+
+def _stub_extract_inputs_no_path(pipeline_mod):
+    """env OFF path — keep_local_video=False, local_video_path=None."""
+    return _stub_extract_inputs(pipeline_mod, "/tmp/__unused_phase06.mp4")
 
 
 # ─────────────────── Test 1: env ON → Gemini path ───────────────────
@@ -186,7 +214,7 @@ def test_process_with_gemini_recognizer_uses_gemini(
     monkeypatch.setattr(
         pipeline.firestore_admin,
         "get_previous_analysis",
-        lambda uid, aid: None,
+        lambda uid, aid, mode=None: None,
     )
     monkeypatch.setattr(
         pipeline.firestore_admin, "complete_analysis", lambda *a, **k: None
@@ -199,12 +227,12 @@ def test_process_with_gemini_recognizer_uses_gemini(
     pipeline._COACH_WRITER = coach_mock
     monkeypatch.setattr(pipeline, "_ensure_adapters", lambda: None)
 
-    # Mock the Gemini path angles helper
+    # Mock R3 fix unified helper (Phase 6, Plan 06-02)
     fake_video = tmp_path / "fake.mp4"
     monkeypatch.setattr(
         pipeline,
-        "_angles_and_video_path_from_video",
-        _stub_angles_with_path(str(fake_video)),
+        "_extract_video_analysis_inputs",
+        _stub_extract_inputs(pipeline, str(fake_video)),
     )
 
     # Inject mock extractor into recognizer (recognizer is lazy — force creation)
@@ -235,8 +263,12 @@ def test_process_without_env_uses_fallback(base_mocks, monkeypatch):
     """env 미설정 → FallbackRecognizer + Gemini SDK 호출 0 박제 (회귀 0)."""
     pipeline = base_mocks
 
-    # Fallback path angles mock
-    monkeypatch.setattr(pipeline, "_angles_from_video", _stub_angles_only)
+    # R3 fix — Fallback path 도 같은 helper 사용 (keep_local_video=False).
+    monkeypatch.setattr(
+        pipeline,
+        "_extract_video_analysis_inputs",
+        _stub_extract_inputs_no_path(pipeline),
+    )
 
     # Gemini SDK 호출이 들어오면 fail (회귀 검증 박제)
     sentinel_called = {"gemini_sdk_imported": False}
@@ -296,7 +328,7 @@ def test_gemini_api_failure_falls_back_to_fallback(
     monkeypatch.setattr(
         pipeline.firestore_admin,
         "get_previous_analysis",
-        lambda uid, aid: None,
+        lambda uid, aid, mode=None: None,
     )
     monkeypatch.setattr(
         pipeline.firestore_admin, "complete_analysis", lambda *a, **k: None
@@ -312,8 +344,8 @@ def test_gemini_api_failure_falls_back_to_fallback(
     fake_video = tmp_path / "fake.mp4"
     monkeypatch.setattr(
         pipeline,
-        "_angles_and_video_path_from_video",
-        _stub_angles_with_path(str(fake_video)),
+        "_extract_video_analysis_inputs",
+        _stub_extract_inputs(pipeline, str(fake_video)),
     )
 
     # 실패하는 extractor 박제
@@ -369,7 +401,7 @@ def test_tempfile_cleanup(base_mocks, monkeypatch, tmp_path):
     monkeypatch.setattr(
         pipeline.firestore_admin,
         "get_previous_analysis",
-        lambda uid, aid: None,
+        lambda uid, aid, mode=None: None,
     )
     monkeypatch.setattr(
         pipeline.firestore_admin, "complete_analysis", lambda *a, **k: None
@@ -386,8 +418,8 @@ def test_tempfile_cleanup(base_mocks, monkeypatch, tmp_path):
     fake_video = tmp_path / "cleanup-test.mp4"
     monkeypatch.setattr(
         pipeline,
-        "_angles_and_video_path_from_video",
-        _stub_angles_with_path(str(fake_video)),
+        "_extract_video_analysis_inputs",
+        _stub_extract_inputs(pipeline, str(fake_video)),
     )
 
     # 정상 Gemini 박제 (api_failure path 회피)

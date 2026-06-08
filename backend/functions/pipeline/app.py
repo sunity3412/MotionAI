@@ -712,10 +712,19 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # Path A production 정합 (2026-06-05): mode=expert = motion known case
     # (사용자가 referenceMotionId 선택). recognizer.motion_query_hint 박제 →
     # Gemini extractor 가 알려진 motion 기준 key moment 추출 (default 'auto' 폴백 차단).
-    # mode=self (mode3) = motion 미상 (본인 영상 비교) → hint 미박제 = 'auto' default.
+    # mode=self (mode3) = motion 미상 (본인 영상 비교) → hint=None (Gemini 'auto').
+    #
+    # WR-07 (2026-06-08 review): module-global singleton (_RECOGNIZER) 가 SQS
+    # 메시지 / BackgroundTask 간 공유됨. 이전 분석이 set 한 hint 가 다음 분석에
+    # leak 하면 Gemini 가 잘못된 motion 으로 biased. **항상** rebind (None 또는
+    # 새 motion_id) — set/unset 분기 X.
     ref_motion_id = meta.get("referenceMotionId")
-    if mode == models.MODE_EXPERT and ref_motion_id and hasattr(recognizer, "motion_query_hint"):
-        recognizer.motion_query_hint = str(ref_motion_id)
+    if hasattr(recognizer, "motion_query_hint"):
+        recognizer.motion_query_hint = (
+            str(ref_motion_id)
+            if mode == models.MODE_EXPERT and ref_motion_id
+            else None
+        )
 
     # WR-03 (2026-06-08 review) — unregistered_hook 의 uid 를 실제 caller uid 로 교체.
     # _ensure_recognizer 의 hook 은 cache 생성 시점에 uid 미상이라 "anonymous-pipeline"

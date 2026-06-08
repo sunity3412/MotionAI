@@ -751,6 +751,20 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             extra_warnings: list[str] = []
             if ref_profile_dict and not ref_source_pose:
                 extra_warnings.append("reference_source_pose_missing")
+            # WR-01 (2026-06-08 review) — ref_source_pose.torso_px 를 사용해서 sanity
+            # 체크 log. 정규화 산식은 student-anchored (target_torso_px) 이므로 알고리즘
+            # 본체에는 영향 X. ratio > 3 차이는 사용자가 다른 거리/focal 로 촬영한 경우
+            # — 무효 정규화 가능성 신호. 향후 plan 에서 'source_torso_px_mismatch' warning
+            # enum 도입 시 본 log → warnings.append 로 승격 가능 (3-way contract lockstep 필요).
+            if ref_source_pose is not None and target_torso is not None and target_torso > 0:
+                ratio = target_torso / ref_source_pose.torso_px
+                if ratio > 3.0 or ratio < 1.0 / 3.0:
+                    log.warning(
+                        "torso_px ratio extreme uid=%s analysis_id=%s "
+                        "target=%.1f ref=%.1f ratio=%.2f — student/reference 촬영 거리 불일치 가능",
+                        uid, analysis_id, target_torso,
+                        ref_source_pose.torso_px, ratio,
+                    )
             body_comparison_report = body_normalizer.compare_body_profiles(
                 pose_frames=pose_frames,
                 student_profile=student_profile,

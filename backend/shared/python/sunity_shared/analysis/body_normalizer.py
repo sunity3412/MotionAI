@@ -212,7 +212,7 @@ class BodyComparisonSourcePose:
       values: flat float array. 길이 = 4 × len(joint_keys).
         순서 = [x_0, y_0, z_0, c_0, x_1, y_1, z_1, c_1, ...].
       frame_index: 대표 frame 의 원본 frame index (디버깅용).
-      torso_px: mid_shoulder ↔ mid_hip 픽셀 거리 (scale anchor).
+      torso_px: mid_shoulder ↔ mid_hip 픽셀 거리 (reference frame 측정값).
       confidence: 0.0~1.0 — 대표 frame 의 평균 keypoint confidence.
       measured_at: unix ms timestamp.
 
@@ -221,6 +221,14 @@ class BodyComparisonSourcePose:
       모든 values 가 math.isfinite — ValueError 위반 시.
       0 <= confidence <= 1.0 — ValueError 위반 시.
       torso_px > 0 — ValueError 위반 시.
+
+    WR-01 (2026-06-08 review) — torso_px 역할 문서화:
+      compare_body_profiles 의 정규화 산식은 **target (student) 측 torso_px** 만
+      사용 (L_ref = target_segment_ratio × target_torso_px, C1 fix 정합). 본
+      필드의 torso_px 는 reference frame 측정값을 영속해서 (a) pipeline 의 sanity
+      체크 — student 와 reference 의 촬영 거리/focal length 가 극단적으로 다를 때
+      경고, (b) 향후 R&D path 에서 reference 측 scale 비교에 사용. 알고리즘 본체는
+      reference 의 torso_px 를 사용 X — 정규화는 항상 student-anchored.
     """
 
     joint_keys: tuple[str, ...]

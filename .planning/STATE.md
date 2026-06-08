@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: completed
+status: executing
 stopped_at: Phase 6 context gathered (A 정규화 대상 + B mode 분기 + Universal confidence-tiered hybrid)
-last_updated: "2026-06-07T16:16:16.053Z"
-last_activity: 2026-06-07
+last_updated: "2026-06-08T01:43:34.757Z"
+last_activity: 2026-06-08
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 33
+  total_plans: 36
   completed_plans: 30
   percent: 50
 ---
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 Phase: 06 — CONTEXT 박제 (2026-06-08)
 Plan: 0 of TBD
 Next: `/gsd-plan-phase 6` 진입 (2026-06-09 오전 9시 belle 결정)
-Status: Phase 02 ✓ → Phase 06 진입 (체형 정규화 비교 엔진 coaching 모드)
+Status: Ready to execute
 
 ### 진입 chain 갱신 (belle 2026-06-08)
 
@@ -39,6 +39,7 @@ v1 시퀀스 (분석 정확도 chain — ROADMAP dep 그래프 정합):
 **Phase 6 (체형 정규화) → 7 (차이 분류) → 8 (중심축·접촉점·jerk) → 9 (ForceDirectionPattern + 실패 후보 3) → 12 (실측 각도 + 키포인트 오버레이) → 13 (보완 운동 + LLM)**
 
 이전 chain 박제 (이력 보존):
+
 - 2026-06-07 belle 결정: A+B+C 우선, Phase 2~11 보류 (파일럿 후 v1.5) — Phase 12.5 close-out 후 belle 갱신으로 무효
 - 2026-06-07 belle 결정: "Phase 2 → 6 → 7 → 12 → 13" — 힘 패턴 (8, 9) 누락, 본 갱신으로 8/9 추가
 
@@ -74,7 +75,7 @@ Phase 2 → 6 (체형 정규화) → 7 (차이 분류) → 12 (키포인트 오�
 2. **angle 차원 동작별 IPSF 정의 각도** — 어깨 90° / 엉덩이 110° 등 동작별 fixture 또는 LLM 매핑
 3. **시뮬 segments 일부 시나리오 X** — mode 3 first 정답 (이전 영상 없음), 그 외는 실 분석에서 backend `assemble.build_segments` 자동 생성
 
-Last activity: 2026-06-07
+Last activity: 2026-06-08
 
 **시퀀스 (belle 2026-06-07 결정 — B → C → A)**:
 

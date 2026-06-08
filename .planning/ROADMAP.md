@@ -192,7 +192,20 @@ Plans:
   3. 동일 동작에서 체형이 다른 두 사용자가 각자 체형 비율 기준의 점수를 받는다 (절대 각도 차이만으로 감점 X)
   4. coaching 모드 출력에 `bodyNormalizationConfidence`가 항상 포함된다
 
-**Plans**: TBD
+**Plans**: 3 plans (Plan 06-01 = algorithm + contract lockstep, Plan 06-02 = pipeline wiring + Firestore + smoke, Plan 06-03 = 정은지 reference 백필) — 2026-06-08 revision (W4 박제 박제 9 task 박제 5 + 4 split)
+
+Plans:
+**Wave 1**
+
+- [ ] 06-01-PLAN.md — body_normalizer.py (Kinematic Tree Reprojection + IPSF deficit + confidence) + ScaleProfile/BodyComparisonReport (3 ComparisonType + usedReferenceFallback boolean) + 3-way contract lockstep (TS + Python + docs/contract.md §8) + 5 fixture + 4 algorithm test 파일 + drift lockstep test (Wave 1, PERS-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06-02-PLAN.md — pipeline _process wiring (`_angles_profile_and_frames_from_video` sibling helper for pose_frames + `_match_reference_by_name` Gemini fallback via profile.name) + firestore_admin.complete_analysis 확장 + `_validate_flat_dict_no_nested_array` validator (list[str] + list[dict-scalar] 허용) + `list_reference_motions_by_name` helper + frontend userAnalyses.normalize defensive validation + SAM build smoke + 4 integration test 파일 (Wave 2, PERS-01)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 06-03-PLAN.md — firestore_admin.update_reference_body_profile helper + extract_reference_body_profiles.py (Pod GPU 직접 실행, `-m` invocation 박제 X) + seed-reference-body-profile.mjs (Firebase Admin SDK ADC) + 실행 checkpoint (Wave 3, PERS-01)
 
 ### Phase 7: 차이 분류
 
@@ -428,7 +441,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |
 | 5. Gemini 기술 인식기 (분류 한정) | 6/6 | Complete | 2026-06-05 (12차 sweep D-01 PASS) |
-| 6. 체형 정규화 비교 엔진 | 0/TBD | CONTEXT 박제 (2026-06-08), plan-phase 2026-06-09 진입 예정 | - |
+| 6. 체형 정규화 비교 엔진 | 0/2 | Plans created (2026-06-08) | - |
 | 7. 차이 분류 | 0/TBD | Not started | - |
 | 8. 중심축·접촉점·jerk 분석 | 0/TBD | Not started | - |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 0/TBD | Not started | - |

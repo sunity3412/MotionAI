@@ -220,7 +220,10 @@ Plans:
   3. category 분류가 BodyNormalizationProfile confidence를 반영해 낮으면 `uncertain`으로 처리된다
   4. 결과 화면 카피가 "프로보다 못합니다" 같은 표현 없이 보정 중심으로 작성된다
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+  - [ ] 07-01-PLAN.md — Wave 1: schema 3-way lockstep (BodyComparisonFinding +4 / BodyComparisonReport +2) + copy_templates.py 신설 모듈 (21 canned + 3 mode prefix + 9 grep gate FORBIDDEN) + Wave 0 test 인프라 (phase07/ 디렉토리 + 6 fixture JSON + factory loader) + drift defense test
+  - [ ] 07-02-PLAN.md — Wave 2: classify_findings pure function 본체 (D-07-A1 + D-07-A2 + Decision 1 mode3_first fallback) + compare_body_profiles wiring 1줄 + integration test 3종 + _dataclass_to_camel_case_dict 자동 변환 test + frontend userAnalyses.normalize() graceful default
 
 ### Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter
 

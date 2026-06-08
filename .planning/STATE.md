@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 6 context gathered (A 정규화 대상 + B mode 분기 + Universal confidence-tiered hybrid)
-last_updated: "2026-06-08T01:43:34.757Z"
+stopped_at: Plan 06-01 complete (algorithm + 3-way contract lockstep) — Plan 06-02 진입 가능
+last_updated: "2026-06-08T10:30:00.000Z"
 last_activity: 2026-06-08
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 36
-  completed_plans: 30
-  percent: 50
+  completed_plans: 31
+  percent: 52
 ---
 
 # Project State
@@ -21,14 +21,26 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 6 (체형 정규화 비교 엔진 coaching)
+**Current focus:** Phase 06 — coaching
 
 ## Current Position
 
-Phase: 06 — CONTEXT 박제 (2026-06-08)
-Plan: 0 of TBD
-Next: `/gsd-plan-phase 6` 진입 (2026-06-09 오전 9시 belle 결정)
-Status: Ready to execute
+Phase: 06 (coaching) — EXECUTING
+Plan: 2 of 3 (Plan 06-01 complete → Plan 06-02 진입)
+Next: Plan 06-02 — pipeline wiring (mode1/mode3/Gemini fallback + Firestore complete_analysis 확장 + frontend normalize + SAM build smoke)
+Status: Executing Phase 06
+
+### Plan 06-01 close-out (2026-06-08)
+
+| 영역 | 결과 |
+|---|---|
+| body_normalizer.py | Kinematic Tree Reprojection (C1 target-profile L_ref) + IPSF deficit (C14 pose_reliability_low rename) + confidence-tiered hybrid 산식 (R5 dispersion + R6 4채널) + BodyComparisonReport + BodyComparisonSourcePose (R2) |
+| 3-way contract lockstep | TS `analysis.ts` + Python `models.py` re-export + `docs/contract.md §8 + §8.1 + §8.2` atomic commit |
+| 6 fixture Validation Architecture | 합성 데이터 (160cm pro vs 140cm student, twist, foreshortening, unstable swing, split angle, **high dispersion R5 신규**) |
+| Test | pytest 52/52 PASS, tsc --noEmit clean |
+| 5 commits | `daa4e8b` test fixtures / `12ed249` Kinematic Tree / `d9c50e1` confidence / `116f400` IPSF deficit + compare_body_profiles / `a444726` 3-way lockstep |
+
+Plan 06-02 진입 시그널: pipeline _process wiring + mode1/mode3/Gemini fallback (C2 retro Phase 5 patch + R3 단일 helper + R4 student non-null + R2 source pose fetch + R8 extra_warnings injection) + Firestore complete_analysis 확장 + frontend normalize + SAM build smoke.
 
 ### 진입 chain 갱신 (belle 2026-06-08)
 
@@ -326,6 +338,11 @@ Recent decisions affecting current work:
 - [Phase 14]: 기준 모션 등록 = 다각도 캡처 프로토콜 + 두 엔진 출력 포함 (Mode 1 신뢰도의 기준)
 - [Phase 15]: Mode 3 = 발전(progress) 표시, %일치 헤드라인 금지 (세션 간 델타)
 - [2026-06-02 학원 용어 + 5트랙]: Phase 16 신설 — Studio Terminology Foundation. 학원 용어 3분기 시스템 (AKA 매핑 13개 / 정은지 reference 비등재 동작 / 자동 수집 + UX 카피) + IPSF 5트랙 채점 v1 scope (a) Compulsory Criteria + (c) Technical Deduction + Page 9 "all components" 절대 트랙. **MVP 가볍게 — 코드 통합 후속, 박제만 v1**. **실증 검증 게이트** = 파일럿 후 사용자 키워드 분기 1/2/3 비율 + 자동 수집 누적 패턴 → 한 번에 확장. NotebookLM IPSF CoP 2024-2025 lookup 박제 (Element Code Matching p.138-139, Page 9 "all components" CoP 2021-2024, AKA 13개 매핑). v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01 + v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제.
+- [2026-06-08 Plan 06-01 C1]: normalize_pose_by_segments 시그너처 = (source_keypoints, source_profile, target_profile, target_torso_px). L_ref = target(student) 의 segment ratio × target_torso_px (segment-aware, uniform scale degeneration 회피)
+- [2026-06-08 Plan 06-01 C14]: deficit code bad_angle → pose_reliability_low rename. IPSF Page 21 judge-observation 'bad_angle' 과 의미 분리, docs/contract.md §8.1 divergence note 박제
+- [2026-06-08 Plan 06-01 R2]: BodyComparisonSourcePose 신설 — Firestore reference 컬렉션의 reference 측 대표 hold frame keypoints 영속. flat values (4 × J = 68) + to_keypoints_array reshape. Plan 06-03 백필 contract source
+- [2026-06-08 Plan 06-01 R5]: spatial_dispersion_penalty 산식 자연화 = clip((C_s/sw - 1.5) / 1.5, 0, 1). high dispersion → high penalty 자연 방향
+- [2026-06-08 Plan 06-01 W1]: BodyComparisonReport.comparisonType 3 cases 만 (mode1 / mode3_first / mode3_progress). Gemini fallback 은 sibling boolean usedReferenceFallback (mode3_first 에서만 true 허용). 4번째 fallback 변형 케이스 금지
 - [Phase ?]: Plan 16-01 T-6 belle threshold 결정
 
 ### Pending Todos

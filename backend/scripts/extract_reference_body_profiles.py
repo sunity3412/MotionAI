@@ -110,10 +110,15 @@ def _representative_frame_confidence(pose_frame) -> float:
 
 
 def _frame_torso_px(pose_frame) -> float:
-    """단일 frame 의 mid_shoulder ↔ mid_hip 픽셀 거리.
+    """단일 frame 의 mid_shoulder ↔ mid_hip 거리 (3D Euclidean).
 
-    keypoints_3d 좌표계는 RTMW path 에서 image 픽셀 (x/y) 기준.
+    keypoints_3d 좌표계는 RTMW path 에서 image 픽셀 (x/y) + z (depth) 기준.
     Plan 06-02 _extract_target_torso_px 와 동일 산식 (단일 frame 버전).
+
+    WR-04 (2026-06-08 review): 3D Euclidean (x/y/z) 사용 — pipeline 의 target
+    측정과 self-consistent. 2D 만으로는 lean/fold 자세에서 비현실적으로 작은
+    anchor 산출 → reproject segment 비례 축소.
+
     Endpoint 미감지 시 0.0 반환.
     """
     kp = getattr(pose_frame, "keypoints_3d", None) or {}
@@ -123,11 +128,14 @@ def _frame_torso_px(pose_frame) -> float:
     ls, rs, lh, rh = (kp[n] for n in needed)
     ms_x = (ls.x + rs.x) / 2
     ms_y = (ls.y + rs.y) / 2
+    ms_z = (ls.z + rs.z) / 2
     mh_x = (lh.x + rh.x) / 2
     mh_y = (lh.y + rh.y) / 2
+    mh_z = (lh.z + rh.z) / 2
     dx = mh_x - ms_x
     dy = mh_y - ms_y
-    d = (dx * dx + dy * dy) ** 0.5
+    dz = mh_z - ms_z
+    d = (dx * dx + dy * dy + dz * dz) ** 0.5
     if not np.isfinite(d) or d <= 0:
         return 0.0
     return float(d)

@@ -302,6 +302,44 @@ def test_extract_target_torso_px_helper(app_mod):
     assert app_mod._extract_target_torso_px([]) is None
 
 
+def test_extract_target_torso_px_uses_3d_distance(app_mod):
+    """WR-04 regression — _extract_target_torso_px 는 3D Euclidean (x/y/z) 사용.
+
+    forward lean (Z 축 dominant) 자세에서 2D 만으로는 anchor 가 비현실적으로 작아짐.
+    z 성분이 있을 때 3D 거리가 2D 거리보다 커야 함.
+    """
+    from sunity_shared.analysis.pose_frame import (
+        Keypoint3D,
+        Keypoint3DAligned,
+        PoleAxis,
+        PoseFrame,
+    )
+
+    # 2D dy = 50, dz = 150 → 3D = sqrt(50^2 + 150^2) ≈ 158.11
+    kp = {
+        "left_shoulder":  Keypoint3D(x=430.0, y=100.0, z=0.0,   confidence=0.9, uncertainty_proxy=0.1),
+        "right_shoulder": Keypoint3D(x=570.0, y=100.0, z=0.0,   confidence=0.9, uncertainty_proxy=0.1),
+        "left_hip":       Keypoint3D(x=450.0, y=150.0, z=150.0, confidence=0.9, uncertainty_proxy=0.1),
+        "right_hip":      Keypoint3D(x=550.0, y=150.0, z=150.0, confidence=0.9, uncertainty_proxy=0.1),
+    }
+    aligned = {n: Keypoint3DAligned(x=v.x, y=v.y, z=v.z) for n, v in kp.items()}
+    frame = PoseFrame(
+        frame_index=0, timestamp_ms=0, raw_landmarks_33={},
+        keypoints_3d=kp, keypoints_3d_pole_aligned=aligned, keypoints_2d=None,
+        pole_extension_landmarks=None,
+        pole_axis=PoleAxis(axis_vector=(0.0, 1.0, 0.0), confidence_level="medium",
+                           source="vertical_fallback", frame_index=None),
+        reliability="high", body_shape=None,
+    )
+    torso_px = app_mod._extract_target_torso_px([frame])
+    assert torso_px is not None
+    # 3D distance = sqrt(0^2 + 50^2 + 150^2) ≈ 158.11. 2D 만이었으면 50.
+    assert torso_px > 100.0, (
+        f"WR-04 위반 — torso_px={torso_px} 이 2D 거리 (50) 같음. 3D 거리 (≈158) 가 정답"
+    )
+    assert abs(torso_px - 158.11) < 1.0
+
+
 # ── 직접 _process 호출 path 박제 helpers ────────────────────────────────
 
 

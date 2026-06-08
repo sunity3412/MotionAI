@@ -533,12 +533,20 @@ def _match_reference_by_motion_id(motion_id: str | None) -> dict | None:
 
 
 def _extract_target_torso_px(pose_frames: list) -> float | None:
-    """R2 wiring (2026-06-08 round-2) — target 영상의 평균 mid_shoulder↔mid_hip 픽셀 거리.
+    """R2 wiring (2026-06-08 round-2) — target 영상의 평균 mid_shoulder↔mid_hip 거리.
 
-    각 frame 의 keypoints_3d_pole_aligned 에서 mid_shoulder = (l_shoulder +
-    r_shoulder) / 2, mid_hip = (l_hip + r_hip) / 2. 두 좌표의 Euclidean 거리.
+    각 frame 의 keypoints_3d 에서 mid_shoulder = (l_shoulder + r_shoulder) / 2,
+    mid_hip = (l_hip + r_hip) / 2. 두 좌표의 3D Euclidean 거리.
+
+    WR-04 (2026-06-08 review): 3D Euclidean (x/y/z) 사용. 알고리즘 본체
+    (normalize_pose_by_segments / _compute_temporal_variance_per_segment) 가
+    3D 로 동작하므로 anchor 도 3D 이어야 self-consistent. 2D 만 사용하던 구
+    버전은 forward/back lean 시 20-40% 작게 산출 → 모든 reproject segment 가
+    비례 축소되어 spurious deficit 유발. 2D 변형은 is_foreshortening_detected
+    안에서만 유지 (projection 이 점 자체인 케이스).
+
     NaN-safe — endpoint 미감지 frame skip + 모든 frame skip 시 None 반환
-    (compare_body_profiles 가 student_profile.torso_scale 로 fallback).
+    (compare_body_profiles 가 'target_torso_px_missing' warning emit, WR-02).
     """
     if not pose_frames:
         return None
@@ -553,11 +561,14 @@ def _extract_target_torso_px(pose_frames: list) -> float | None:
         ls, rs, lh, rh = (kp[n] for n in needed)
         ms_x = (ls.x + rs.x) / 2
         ms_y = (ls.y + rs.y) / 2
+        ms_z = (ls.z + rs.z) / 2
         mh_x = (lh.x + rh.x) / 2
         mh_y = (lh.y + rh.y) / 2
+        mh_z = (lh.z + rh.z) / 2
         dx = mh_x - ms_x
         dy = mh_y - ms_y
-        d = (dx * dx + dy * dy) ** 0.5
+        dz = mh_z - ms_z
+        d = (dx * dx + dy * dy + dz * dz) ** 0.5
         if d > 0:
             distances.append(d)
     if not distances:

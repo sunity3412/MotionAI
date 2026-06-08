@@ -592,20 +592,26 @@ def render_finding_copy(
     return (interp, recom)
 ```
 
-### Canned String Coverage Audit
+### Canned String Coverage Audit (iteration 2 갱신 per CR-02 fix)
+
+> CR-02 fix path 정합 — Phase 6 의 6 BodyComparisonFinding emit pattern 중 5 deficit (clean_lines / extension / posture / body_placement / pose_reliability_low) 가 `joint_key=None` 으로 emit. `_resolve_joint_group()` 의 fallback path 가 본 5 deficit 의 4 종 (pose_reliability_low 제외) 을 `global` 그룹으로 매핑. 따라서 4 deficit × 3 category = 12 신규 global 키 추가.
 
 | deficit_code | category | joint_group | 카피 박제? |
 |---|---|---|---|
 | knee_toe_alignment | body_type_allowed / needs_adjustment / uncertain | leg | 3/3 ✓ |
 | clean_lines | × 3 | arm | 3/3 ✓ |
 | clean_lines | × 3 | leg | 3/3 ✓ |
+| **clean_lines (CR-02 fix)** | × 3 | **global** | **3/3 ✓ (신규)** |
 | extension | × 3 | torso | 3/3 ✓ |
+| **extension (CR-02 fix)** | × 3 | **global** | **3/3 ✓ (신규)** |
 | posture | × 3 | arm | 3/3 ✓ |
+| **posture (CR-02 fix)** | × 3 | **global** | **3/3 ✓ (신규)** |
 | body_placement | × 3 | pole_axis | 3/3 ✓ |
+| **body_placement (CR-02 fix)** | × 3 | **global** | **3/3 ✓ (신규)** |
 | pose_reliability_low | × 3 | global | 3/3 ✓ |
-| **합계** | | | **21 카피 + 3 mode prefix = 24 line** |
+| **합계** | | | **33 카피 + 3 mode prefix = 36 line** (was 21 + 3 = 24) |
 
-planner 가 dict literal 수정 시 본 표 그대로 검증 가능.
+planner 가 dict literal 수정 시 본 표 그대로 검증 가능. WR-04 fix 의 `test_copy_templates_resolver_coverage.py` 가 Phase 6 emit 패턴 6 종 × 3 category = 18 + 15 global keys coverage = 33 조합 모두 검증.
 
 ## Schema Extension
 
@@ -684,9 +690,12 @@ class BodyComparisonReport:
     previous_analysis_id: str | None = None
     used_reference_fallback: bool = False
 
-    # ── Phase 7 신설 2 필드 ──
+    # ── Phase 7 신설 2+1 필드 (iteration 2 갱신 per WR-03 fix) ──
     do_not_over_correct: list[str] = field(default_factory=list)
     recommended_focus: list[str] = field(default_factory=list)
+    # WR-03 fix — recommended_focus[] 가 빈 list 일 때 fallback 카피 (Phase 11 LLM 풍부화 후속). 
+    # copy_templates._EMPTY_FOCUS_FALLBACK 단일 상수 박제.
+    recommended_focus_fallback: str | None = None
 ```
 
 TypeScript:
@@ -695,11 +704,13 @@ export interface BodyComparisonReport {
   // ── 기존 필드 (Phase 6) ──
   // …
 
-  // ── Phase 7 신설 2 필드 ──
+  // ── Phase 7 신설 2+1 필드 (iteration 2 갱신 per WR-03 fix) ──
   /** body_type_allowed 분류 finding 의 카피 aggregate. 결과 화면 "체형 허용 차이" 박스 source. */
   doNotOverCorrect: string[];
   /** needs_adjustment + uncertain 분류 finding 의 카피 aggregate. "개선 필요" 박스 source. */
   recommendedFocus: string[];
+  /** WR-03 fix — recommendedFocus[] 가 빈 list 일 때 단일 fallback 카피. Phase 12 가 빈 박스 회피용으로 활용. */
+  recommendedFocusFallback?: string | null;
 }
 ```
 
@@ -1084,28 +1095,38 @@ def test_phase7_new_fields_camel_case_automatic() -> None:
 
 ## Open Questions (RESOLVED)
 
-> RESOLVED 2026-06-08 — gsd-plan-checker revision 1 round. 4 문항 모두 결정 사양 확정. 모두 planner-side 결정 (belle confirmation 불필요 — 본 phase 의 scope 안 사양).
+> RESOLVED 2026-06-08 — initial gsd-plan-checker revision 1 round + **iteration 2 cross-AI plan-risk review (07-REVIEW.md)** 후속 revision. 4 문항 모두 결정 사양 확정. Q1 + Q2 + Q4 는 iteration 2 에서 갱신.
 
-1. **mode3_first + `used_reference_fallback=True` 카피 fallback 형식** — RESOLVED
-   - Decision: fallback canned 카피 단일 문구 = `"이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. 강사와 함께 확인 권유드려요."` (research §10.1 톤 + Page 9 단독 path 정합 + [[ipsf-5-track-scoring]] 박제 메모 정합).
-   - 박제 위치: Plan 01 Task 2 `<action>` 안 inline 박제 (fallback tuple 의 recommendation 자리). interpretation 자리 = `"이 동작은 등록된 기준 영상이 없어 AI 가 IPSF 절대 기준만으로 분석했어요."` (간결판).
-   - 적용 path: `classify_findings` 가 `is_mode3_first_fallback = (comparison_type=="mode3_first" and used_reference_fallback)` 분기에서 모든 finding `uncertain` demotion + render_finding_copy 호출 시 mode prefix 가 본 fallback 카피로 prepended (mode3_first prefix `"세계 심사 기준 (IPSF) 으로 보면"` 유지).
-   - test 박제: `fixture_classification_mode3_first_fallback.json` 의 `expected.recommendation` 도 본 카피로 박제 (Plan 02 Task 1 `test_uncertain_when_mode3_first_fallback` 검증).
+1. **mode3_first + `used_reference_fallback=True` 카피 fallback 형식** — RESOLVED (iteration 2 갱신 per CR-01 fix)
+   - Decision: fallback canned 카피 단일 문장 = `"이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. 강사와 함께 확인 권유드려요."` (unprefixed — mode prefix 결합 X).
+   - `body_type_interpretation` = `None` (fallback path 에선 deficit 별 해석 X).
+   - `recommended_focus_fallback` 은 본 path 와 무관 (모든 finding 이 recommended_focus[] 에 단일 fallback 카피로 들어감 — Plan 02 Task 1 의 분배 룰).
+   - 박제 위치: copy_templates.py 의 `render_finding_copy(..., used_reference_fallback: bool = False)` 시그너처 — `used_reference_fallback=True` 분기에서 `return (None, "이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. 강사와 함께 확인 권유드려요.")` 단일 반환.
+   - 적용 path: classify_findings 가 `is_mode3_first_fallback = (comparison_type=="mode3_first" and used_reference_fallback)` 분기에서 `render_finding_copy(..., used_reference_fallback=is_mode3_first_fallback)` thread (Plan 02 Task 1).
+   - test 박제: `fixture_classification_mode3_first_fallback.json` 의 `expected.recommendation = "이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. 강사와 함께 확인 권유드려요."` exact match (Plan 02 Task 1 `test_uncertain_when_mode3_first_fallback`).
+   - **이전 iteration 1 의 mode prefix 결합 결정 retract** — CR-01 fix path 정합.
 
-2. **빈 `recommended_focus[]` 결과 화면 fallback 카피** — RESOLVED (Phase 7 scope 외)
-   - Phase 12 화면 컴포넌트 책임. 본 phase 백엔드는 빈 `list[]` 보장 (`field(default_factory=list)` 박제). `test_compare_body_profiles_phase7_integration` 가 빈 list 허용 (sweep_rtmw_20260603_1409 sweep 데이터상 `needs_adjustment` 빈 리스트 가능성 박제).
-   - Phase 7 scope = 빈 리스트 정상 산출까지. 화면 분기 ("보정 우선순위 없음" vs 박스 숨김) 는 Phase 12 plan 영역.
+2. **빈 `recommended_focus[]` 결과 화면 fallback 카피** — RESOLVED (iteration 2 갱신 per WR-03 fix)
+   - **Decision (iteration 2 revision per WR-03)**: 백엔드에 default fallback 카피 박제 채택 (option A).
+   - 박제 위치: `copy_templates.py` 의 `_EMPTY_FOCUS_FALLBACK: str = "현재 영상에서 즉시 보정할 항목이 명확히 보이지 않아요. 강사와 함께 다음 단계를 정해보세요."` (단일 캔드 문자열 상수).
+   - `BodyComparisonReport.recommended_focus_fallback: str | None = None` schema 필드 추가 (Plan 01 Task 3).
+   - classify_findings 가 `recommended_focus[]` 빈 list 일 때 `recommended_focus_fallback = _EMPTY_FOCUS_FALLBACK` 박제, populated 일 때 `None` (Plan 02 Task 1).
+   - **이전 iteration 1 의 Phase 12 책임 결정 retract** — 박제 메모 [[feedback-analysis-first]] (분석 가능한 모든 path 활성화) 정합. Phase 12 화면 분기 책임 = "fallback 카피 표시 vs 박스 숨김" 선택만, 카피 생성은 백엔드 단일 source.
 
-3. **`body_type_interpretation` 의 Phase 11 LLM 입력 형식** — RESOLVED (Phase 11 영역)
-   - Phase 7 v1 의 `body_type_interpretation` 필드 type = `str | None`, 본 phase canned string 으로 채움 (D-07-B1 박제).
-   - Phase 11 LLM 입력 형식 (system prompt inline vs metadata 분리) 은 Phase 11 plan 진입 시 결정. Phase 7 의 schema (per-finding 4 필드 + per-report 2 필드) 가 Phase 11 의 input source 로 충분.
+3. **`body_type_interpretation` 의 Phase 11 LLM 입력 형식** — RESOLVED (Phase 11 영역, iteration 1 결정 유지)
+   - Phase 7 v1 의 `body_type_interpretation` 필드 type = `str | None`, 본 phase canned string 으로 채움 (D-07-B1).
+   - Phase 11 LLM 입력 형식 (system prompt inline vs metadata 분리) 은 Phase 11 plan 영역.
 
-4. **Phase 12 frontend `userAnalyses.normalize()` 의 default 처리** — RESOLVED
-   - Decision: Phase 7 = TS interface 박제만 (Plan 01 Task 3). frontend `userAnalyses.normalize()` 미수정 — Phase 6 박제 패턴 (`result: raw.result as AnalysisDoc['result']` 단순 assertion) 유지.
-   - 이유: backend (Plan 02 Task 2 wiring 적용 후) 가 항상 `do_not_over_correct: list[str]` / `recommended_focus: list[str]` (default `[]`) 산출 보장. W5 validator (`_validate_flat_dict_no_nested_array`) 자동 통과. TS interface 가 두 list `string[]` non-optional 박제 (Plan 01).
-   - Phase 6 이전 backfill 안 된 Firestore doc 의 frontend null guard 는 Phase 12 화면 컴포넌트 책임 — Phase 12 진입 시 호출 site 에서 `report?.doNotOverCorrect ?? []` 처리. CONTEXT.md `<deferred>` 섹션의 "uncertain 박스 별도 표시 vs recommendedFocus 통합" 박제와 함께 Phase 12 영역.
-   - **결과: Plan 02 Task 3 (userAnalyses.normalize 확장) 삭제** — gsd-plan-checker B1 fix path 정합.
-
+4. **Frontend `userAnalyses.normalize()` 의 default 처리** — RESOLVED (iteration 2 갱신 per WR-02 fix)
+   - **Decision (iteration 2 revision per WR-02)**: Plan 02 Task 3 신설 — frontend `userAnalyses.normalize()` mini-fix 박제 (~10 줄, immutable pattern).
+   - 박제 위치: `app/src/lib/userAnalyses.ts::normalize()` 안 `result` assertion 직전 — `bodyComparisonReport` 존재 시 4 필드 null-guard:
+     * `report.doNotOverCorrect ?? []`
+     * `report.recommendedFocus ?? []`
+     * `report.recommendedFocusFallback ?? null`
+     * `report.findings.map(f => ({ ...f, category: f.category ?? 'uncertain', phase: f.phase ?? 'hold' }))`
+   - TS interface non-optional 유지 (production 데이터는 항상 보유, normalize() 가 old doc 호환 layer).
+   - **이전 iteration 1 의 B1 fix (Plan 02 Task 3 삭제) 결정 retract** — old Firestore doc 호환성 박제 필수. minimal scope (~10 줄) 라 task 단위 박제 가능.
+   - 적용 범위: Phase 6 이전 백필 안 된 Firestore doc 도 `undefined.map` style crash 회피. Phase 12 화면 컴포넌트는 normalize() 가 보장하는 default 위에서 자유롭게 render 가능.
 
 ## Environment Availability
 
@@ -1283,9 +1304,9 @@ backend/tests/phase07/fixtures/
    - **현상:** "감점" 이 Phase 13 보완 운동 카피 등 다른 도메인에서 정당 사용 가능.
    - **Mitigation:** grep gate scope = Phase 7 canned string 모듈만 (`copy_templates._COPY_TEMPLATES + _MODE_PREFIX`). Phase 11/13 캔드 별도 grep 룰 박제.
 
-7. **frontend `userAnalyses.normalize()` 신설 필드 처리 누락**
-   - **현상:** Firestore doc 에 신설 4+2 필드 부재 시 frontend crash.
-   - **Mitigation:** TS interface 의 두 list 를 `string[]` (non-optional) + normalize() 안에서 `?? []` default. per-finding 4 필드는 optional. plan 의 frontend 작업 task 명시.
+7. **frontend `userAnalyses.normalize()` 신설 필드 처리 누락** (iteration 2 갱신 per WR-02 fix)
+   - **현상:** Firestore doc 에 신설 4+3 필드 (WR-03 fallback 포함) 부재 시 frontend crash 가능 (Phase 6 이전 backfill 안 된 doc).
+   - **Mitigation (iteration 2 active fix):** Plan 02 Task 3 — `userAnalyses.normalize()` 안 bodyComparisonReport 의 4 필드 null-guard 박제 (~10 줄, immutable pattern). TS interface non-optional 유지 (production 데이터는 항상 보유, normalize() 가 compat layer). iteration 1 의 B1 (Plan 02 Task 3 삭제) 결정 retract.
 
 8. **mode3_first + Gemini fallback 의 `uncertain` 전체 demotion 톤 위화감**
    - **현상:** Phase 6 D-06-B1 박제 (Page 9 절대 트랙 단독) path 가 의미상 "정밀 분석" 인데 본 phase 룰이 "uncertain 강제" 로 정합.
@@ -1372,12 +1393,12 @@ backend/tests/phase07/fixtures/
 | Classification Rule | HIGH | sweep 데이터 + IPSF Page 21 단위 정합 검증 |
 | Validation Architecture | HIGH | Phase 6 phase06/ 디렉토리 패턴 정합 |
 
-### Open Questions (RESOLVED — gsd-plan-checker revision 1 round 2026-06-08)
+### Open Questions (RESOLVED — iteration 2 cross-AI plan-risk review 2026-06-08)
 
-1. mode3_first + `used_reference_fallback=True` fallback 카피 — RESOLVED (Plan 01 Task 2 inline 박제). 단일 fallback recommendation = `"이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. 강사와 함께 확인 권유드려요."`
-2. 빈 `recommended_focus[]` frontend 화면 fallback — RESOLVED (Phase 12 책임). 본 phase 백엔드는 빈 list[] 보장.
-3. `body_type_interpretation` / `recommendation` 의 Phase 11 LLM 입력 형식 — RESOLVED (Phase 11 영역). 본 phase schema 박제만 (4 + 2 필드).
-4. frontend `userAnalyses.normalize()` 신설 필드 default 처리 — RESOLVED. **Phase 7 = TS interface 박제만, frontend normalize() 미수정.** Phase 12 화면 컴포넌트 호출 site 에서 `?.doNotOverCorrect ?? []` 처리. Plan 02 Task 3 삭제.
+1. mode3_first + `used_reference_fallback=True` fallback 카피 — RESOLVED (iteration 2 갱신 per CR-01 fix). 단일 fallback recommendation = `"이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. 강사와 함께 확인 권유드려요."` **unprefixed** (mode prefix 결합 X). `body_type_interpretation = None`. 박제: `render_finding_copy(..., used_reference_fallback: bool = False)` 시그너처 (Plan 01 Task 2) + classify_findings 가 thread (Plan 02 Task 1).
+2. 빈 `recommended_focus[]` fallback — RESOLVED (iteration 2 갱신 per WR-03 fix). 백엔드 default 카피 박제 채택 (option A). `_EMPTY_FOCUS_FALLBACK: str = "현재 영상에서 즉시 보정할 항목이 명확히 보이지 않아요. 강사와 함께 다음 단계를 정해보세요."` + `BodyComparisonReport.recommended_focus_fallback: str | None` schema 필드 추가. Phase 12 책임 = "fallback 카피 표시 vs 박스 숨김" 선택만.
+3. `body_type_interpretation` / `recommendation` 의 Phase 11 LLM 입력 형식 — RESOLVED (Phase 11 영역, iteration 1 결정 유지). 본 phase schema 박제만 (4 + 3 필드 — iteration 2 갱신 per WR-03 fix).
+4. frontend `userAnalyses.normalize()` 신설 필드 default 처리 — RESOLVED (iteration 2 갱신 per WR-02 fix). **iteration 1 의 B1 결정 retract** — Plan 02 Task 3 재추가. `userAnalyses.normalize()` 안 bodyComparisonReport 의 4 필드 (doNotOverCorrect / recommendedFocus / recommendedFocusFallback / findings[*].category / phase) null-guard 박제 (~10 줄, immutable pattern). Old Firestore doc 호환성 박제.
 
 ### Ready for Planning
 

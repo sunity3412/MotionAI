@@ -1496,6 +1496,17 @@ def compare_body_profiles(
         pose_frames=pose_frames,
     )
 
+    # 5.5) [Phase 7, Plan 07-02] 분류 + 카피 wiring.
+    # CR-01 thread: used_reference_fallback 가 mode3_first + Gemini 매칭 실패 시
+    # 자동으로 render_finding_copy(used_reference_fallback=True) 호출 (unprefixed 단일 카피).
+    # WR-03: 빈 recommended_focus[] → recommended_focus_fallback 박제.
+    classified_findings, do_not_over_correct, recommended_focus, recommended_focus_fallback = classify_findings(
+        findings,
+        body_normalization_confidence=confidence,
+        comparison_type=comparison_type,
+        used_reference_fallback=used_reference_fallback,
+    )
+
     # 6) R8 fix — extra_warnings merge + validate (frozenset)
     if extra_warnings:
         for w in extra_warnings:
@@ -1512,14 +1523,18 @@ def compare_body_profiles(
         merged_warnings = warnings
 
     # 7) BodyComparisonReport 조립 — __post_init__ 의 frozenset 검증 통과 보장.
+    # Plan 07-02 Task 2: findings=classified_findings + 3 신설 kwarg 주입 (WR-03 포함).
     return BodyComparisonReport(
         comparison_type=comparison_type,
         body_normalization_confidence=confidence,
         scale_profile=scale_profile,
-        findings=findings,
+        findings=classified_findings,
         warnings=merged_warnings,
         reference_motion_id=reference_motion_id,
         reference_athlete_name=reference_athlete_name,
         previous_analysis_id=previous_analysis_id,
         used_reference_fallback=used_reference_fallback,
+        do_not_over_correct=do_not_over_correct,
+        recommended_focus=recommended_focus,
+        recommended_focus_fallback=recommended_focus_fallback,
     )

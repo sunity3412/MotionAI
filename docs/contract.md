@@ -456,7 +456,7 @@ judge-observation deduction 과 의미가 다르다.**
 | `previousAnalysisId` | `previous_analysis_id` | `string \| null` | mode3_progress 일 때 필수 (None → backend ValueError). |
 | `usedReferenceFallback` | `used_reference_fallback` | `boolean` | **W1 — Gemini fallback 신호. mode3_first 에서만 true 허용. default false.** |
 
-### warnings enum (R2 fix — 8종, reference_source_pose_missing 신규 추가)
+### warnings enum (WR-02 fix — 9종, target_torso_px_missing 신규 추가)
 
 | Enum | 의미 |
 |---|---|
@@ -468,6 +468,7 @@ judge-observation deduction 과 의미가 다르다.**
 | `reference_profile_missing` | reference_profile=None + comparison_type != 'mode3_first'. |
 | `fallback_reference_not_found` | mode3_first Gemini fallback 매칭 실패 (caller-injected, R8). |
 | `reference_source_pose_missing` | source_keypoints=None — 백필 미완 reference (caller-injected, R2 fix). |
+| `target_torso_px_missing` | target_torso_px=None — _extract_target_torso_px 가 측정 실패. 정규화 OFF (WR-02 fix — magic-number fallback 폐기). |
 
 ### Universal Principle (D-06-U1) — confidence-tiered hybrid
 

@@ -141,6 +141,7 @@ POSE_RELIABILITY_LOW_FRAME_RATIO: float = 0.5
 _EPS: float = 1e-8
 
 # R2 fix — 8 warning enum frozen (reference_source_pose_missing 포함).
+# WR-02 (2026-06-08 review) — target_torso_px_missing 신규 9번째.
 BODY_COMPARISON_WARNING_CODES: frozenset[str] = frozenset({
     "low_confidence_normalization_off",
     "foreshortening_off",
@@ -150,6 +151,7 @@ BODY_COMPARISON_WARNING_CODES: frozenset[str] = frozenset({
     "reference_profile_missing",
     "fallback_reference_not_found",
     "reference_source_pose_missing",  # R2 fix — 신규 8번째
+    "target_torso_px_missing",        # WR-02 fix — 신규 9번째
 })
 
 
@@ -1128,11 +1130,16 @@ def compare_body_profiles(
     # mode3_progress 의 previous_analysis_id 게이트는 __post_init__ 에서 검증
     # (None 시 ValueError).
 
+    # WR-02 (2026-06-08 review) — target_torso_px=None 도 게이트 닫음.
+    # 정규화 산식이 student-anchored scale anchor 필요. 부재 시 magic-number
+    # (200.0 * torso_scale) fallback 은 silently 잘못된 absolute 픽셀 거리 산출 —
+    # IPSF deficit 의미 손실. 명시적 warning + 정규화 OFF 가 정직.
     # 4) 정규화 gate
     gate_open = (
         confidence >= CONFIDENCE_GATE
         and reference_profile is not None
         and source_keypoints is not None
+        and target_torso_px is not None
     )
 
     scale_profile: ScaleProfile | None = None
@@ -1145,6 +1152,10 @@ def compare_body_profiles(
             # R2 fix — production 에서 백필 미완 reference 의 silently OFF 차단.
             if "reference_source_pose_missing" not in warnings:
                 warnings.append("reference_source_pose_missing")
+        if target_torso_px is None:
+            # WR-02 fix — magic-number fallback 폐기. caller 가 미측정 시 명시.
+            if "target_torso_px_missing" not in warnings:
+                warnings.append("target_torso_px_missing")
     else:
         # 5 필드 ScaleProfile (student vs pro reference)
         ratio_height = (
@@ -1199,15 +1210,14 @@ def compare_body_profiles(
         else:
             source_kp_dict = source_keypoints  # type: ignore[assignment]
 
-        torso_px = target_torso_px if target_torso_px is not None else (
-            200.0 * float(student_profile.torso_scale)
-        )
-
+        # WR-02 fix — gate 가 target_torso_px=None 도 차단하므로 여기서는 항상 non-None.
+        # 구 magic-number fallback (200.0 * torso_scale) 폐기.
+        assert target_torso_px is not None  # gate invariant
         normalized_keypoints = normalize_pose_by_segments(
             source_kp_dict,
             reference_profile,  # source_profile (R10 fix — 비사용)
             student_profile,  # target_profile (C1 fix)
-            torso_px,
+            target_torso_px,
             apply_shoulder_hip_ratio=apply_shoulder_hip_ratio,
         )
 

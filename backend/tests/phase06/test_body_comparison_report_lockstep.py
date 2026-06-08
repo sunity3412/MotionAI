@@ -102,7 +102,7 @@ def test_docs_contract_md_section_8() -> None:
     assert "'mode1'" in src and "'mode3_first'" in src and "'mode3_progress'" in src
     # usedReferenceFallback
     assert "usedReferenceFallback" in src
-    # 8 warning enum (reference_source_pose_missing — R2 fix)
+    # 9 warning enum (target_torso_px_missing — WR-02 fix)
     for w in (
         "low_confidence_normalization_off",
         "foreshortening_off",
@@ -112,6 +112,7 @@ def test_docs_contract_md_section_8() -> None:
         "reference_profile_missing",
         "fallback_reference_not_found",
         "reference_source_pose_missing",  # R2 fix
+        "target_torso_px_missing",        # WR-02 fix
     ):
         assert w in src, f"contract.md §8 warning enum '{w}' 누락"
     # C14 IPSF divergence note (§8.1)

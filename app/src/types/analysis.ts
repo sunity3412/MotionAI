@@ -524,11 +524,11 @@ export interface BodyComparisonSourcePose {
 /**
  * 체형 정규화 비교 리포트 (D-06-B3 통합 schema + W1 3 ComparisonType).
  *
- * 8 warning enum (R2 fix — reference_source_pose_missing 추가):
+ * 9 warning enum (WR-02 fix — target_torso_px_missing 추가):
  *   - 'low_confidence_normalization_off' / 'foreshortening_off' /
  *     'shoulder_hip_ratio_off' / 'temporal_variance_high' / 'spatial_dispersion_high' /
  *     'reference_profile_missing' / 'fallback_reference_not_found' /
- *     'reference_source_pose_missing'
+ *     'reference_source_pose_missing' / 'target_torso_px_missing'
  *
  * usedReferenceFallback (W1): Gemini fallback 신호 (mode3_first 에서만 true 허용).
  *                            comparisonType 자체는 'mode3_first' 유지.

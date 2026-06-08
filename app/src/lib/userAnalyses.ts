@@ -44,6 +44,29 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
   // 타입 정합으로 자동 정상화 (defensive validation 없음 — backend validator
   // (_validate_flat_dict_no_nested_array, W5) 가 nested-array 차단 보장).
   // Plan 06-02 I2 positive assertion — literal "bodyComparisonReport" 표기.
+  //
+  // Phase 7 (2026-06-08, Plan 07-02 Task 3 WR-02 fix): old Firestore doc 호환성 —
+  // bodyComparisonReport 의 신설 4+3 필드 (Plan 01 Task 3 lockstep) default 처리.
+  // iteration 1 의 B1 fix (Plan 02 Task 3 삭제) retract — old doc 가 신설 필드 없어도 crash X.
+  // TS interface 는 non-optional 유지 (production 데이터는 항상 보유, normalize() 가 compat layer).
+  let result = raw.result as AnalysisDoc['result'] | undefined;
+  if (result?.bodyComparisonReport) {
+    const report = result.bodyComparisonReport;
+    result = {
+      ...result,
+      bodyComparisonReport: {
+        ...report,
+        doNotOverCorrect: report.doNotOverCorrect ?? [],
+        recommendedFocus: report.recommendedFocus ?? [],
+        recommendedFocusFallback: report.recommendedFocusFallback ?? null,
+        findings: (report.findings ?? []).map((f) => ({
+          ...f,
+          category: f.category ?? 'uncertain',
+          phase: f.phase ?? 'hold',
+        })),
+      },
+    };
+  }
   return {
     analysisId: id,
     mode,
@@ -52,7 +75,7 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
     createdAt,
     updatedAt,
     error: raw.error as AnalysisDoc['error'],
-    result: raw.result as AnalysisDoc['result'],
+    result,
   };
 }
 

@@ -170,6 +170,111 @@ def complete_analysis(
     _doc(models.analysis_doc_path(uid, analysis_id)).set(payload, merge=True)
 
 
+# ─────────────────── Plan 06-03 (2026-06-08, R2 fix round-2) ─────────────
+#
+# Phase 6 (2026-06-08, Plan 06-03) — D-06-B2 + R2 fix (round-2). mode1 silently
+# OFF 차단 (두 canary: reference_profile_missing + reference_source_pose_missing) +
+# Phase 14 정은지 reference 등록 helper. 두 필드 atomic merge.
+
+_REF_BODY_PROFILE_REQUIRED: tuple[str, ...] = (
+    "estimatedHeightScale",
+    "armScale",
+    "legScale",
+    "torsoScale",
+    "shoulderHipRatio",
+    "confidence",
+    "warnings",
+)
+
+_REF_SOURCE_POSE_REQUIRED: tuple[str, ...] = (
+    "jointKeys",
+    "values",
+    "frameIndex",
+    "torsoPx",
+    "confidence",
+    "measuredAt",
+)
+
+
+def update_reference_body_data(
+    motion_id: str,
+    body_profile: dict,
+    source_pose: dict | None = None,
+) -> None:
+    """R2 fix (2026-06-08 round-2, Plan 06-03). 정은지 reference 의 두 필드
+    (bodyNormalizationProfile + bodyComparisonSourcePose) atomic 백필 + Phase 14
+    정은지 reference 등록 helper (단일 진입점, D-06-B2). idempotent — 동일 입력 2회
+    실행 시 동일 결과. source_pose=None 시 body_profile 만 merge (partial backfill
+    허용 — 백필 도중 일부 motion 의 대표 frame 추출 실패 graceful).
+
+    Args:
+      motion_id: reference/{motion_id} doc id. 빈 문자열 거부.
+      body_profile: BodyNormalizationProfile camelCase dict (7 필수 필드).
+      source_pose: BodyComparisonSourcePose camelCase dict (6 필수 필드) 또는 None.
+        values 길이 == 4 × len(jointKeys) 강제.
+
+    Raises:
+      ValueError: motion_id 빈 / 필수 필드 누락 / values 길이 불일치.
+      TypeError: nested-array 위반 (W5 validator 재사용).
+
+    [[firestore-nested-array-flat]] + Plan 06-02 Task 2 validator 정합.
+    """
+    if not motion_id:
+        raise ValueError("motion_id required")
+
+    # body_profile 필수 필드 검증.
+    missing_bp = [k for k in _REF_BODY_PROFILE_REQUIRED if k not in body_profile]
+    if missing_bp:
+        raise ValueError(
+            f"body_profile missing required fields: {missing_bp}"
+        )
+    _validate_flat_dict_no_nested_array(
+        body_profile, path="bodyNormalizationProfile"
+    )
+
+    # source_pose 검증 — None-aware.
+    if source_pose is not None:
+        missing_sp = [k for k in _REF_SOURCE_POSE_REQUIRED if k not in source_pose]
+        if missing_sp:
+            raise ValueError(
+                f"source_pose missing required fields: {missing_sp}"
+            )
+        joint_keys = source_pose["jointKeys"]
+        values = source_pose["values"]
+        expected_len = 4 * len(joint_keys)
+        if len(values) != expected_len:
+            raise ValueError(
+                f"source_pose.values length must be 4 × len(jointKeys) = "
+                f"{expected_len}, got {len(values)}"
+            )
+        # nested-array gate — values 가 list[float] flat 임을 보장.
+        _validate_flat_dict_no_nested_array(
+            source_pose, path="bodyComparisonSourcePose"
+        )
+
+    now_ms = int(time.time() * 1000)
+    payload: dict = {
+        "bodyNormalizationProfile": body_profile,
+        "bodyNormalizationProfileUpdatedAt": now_ms,
+    }
+    if source_pose is not None:
+        payload["bodyComparisonSourcePose"] = source_pose
+        payload["bodyComparisonSourcePoseUpdatedAt"] = now_ms
+
+    _doc(models.reference_motion_path(motion_id)).set(payload, merge=True)
+
+    import logging
+
+    log = logging.getLogger(__name__)
+    log.info(
+        "update_reference_body_data ok motion_id=%s body_conf=%s "
+        "source_pose_present=%s",
+        motion_id,
+        body_profile.get("confidence"),
+        source_pose is not None,
+    )
+
+
 def fail_analysis(uid: str, analysis_id: str, code: str, message: str) -> None:
     """status='failed' + error{code,message} (contract.md §5)."""
     _doc(models.analysis_doc_path(uid, analysis_id)).set(

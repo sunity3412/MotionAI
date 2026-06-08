@@ -64,7 +64,7 @@ R6 fix (2026-06-08 round-2):
 
 R8 fix (2026-06-08 round-2):
   compare_body_profiles 시그너처에 extra_warnings 파라미터 추가. caller-injected
-  warnings 를 frozenset 으로 validate. dataclasses.replace 우회 금지.
+  warnings 를 frozenset 으로 validate. 우회 패턴 (dataclass replace helper) 금지.
 
 R9 fix (2026-06-08 round-2):
   '7 deficits' 옛 표현 정정 — 5 IPSF GeometricCriterion + 1 Sunity 자체
@@ -719,3 +719,512 @@ def compute_body_normalization_confidence(
         warnings.append("reference_profile_missing")
 
     return confidence, warnings
+
+
+# ── BodyComparisonFinding (IPSF deficit + Sunity pose_reliability_low) ───
+
+# R9 fix (2026-06-08 round-2): 5 IPSF geometric + 1 Sunity 자체 신호.
+# '7 deficits' 옛 표현 사용 금지. poor_transitions v1.5 deferred (Phase 8 통합).
+_DEFICIT_CODES: frozenset[str] = frozenset({
+    "knee_toe_alignment",
+    "clean_lines",
+    "extension",
+    "posture",
+    "body_placement",
+    "pose_reliability_low",  # C14 fix — 구 bad_angle rename
+})
+
+
+@dataclass(frozen=True)
+class BodyComparisonFinding:
+    """단일 IPSF GeometricCriterion deficit (RESEARCH.md Example 1).
+
+    R9 fix (2026-06-08 round-2): 5 IPSF geometric + 1 Sunity pose_reliability_low.
+
+    C14 fix (2026-06-08 reviews): deficit_code enum 6종. 'bad_angle' → 'pose_reliability_low' rename.
+    IPSF Page 21 의 'bad angle' (judge 가 카메라 가림으로 angle 을 관찰 못함) 과
+    본 시스템의 'pose-estimation confidence frame 비율' 측정은 의미가 다르다.
+    docs/contract.md §8.1 divergence note 참조.
+
+    필드:
+      deficit_code: 6 enum 중 하나.
+      joint_key: nullable — finding 이 단일 관절에 귀속될 때만.
+      measured_value: 측정값 (각도 deg / 거리 px).
+      deduction_score: IPSF Page 21 절대 감점 (-0.2, -0.5).
+      confidence: 0.0~1.0.
+      body_type_adjusted: 정규화된 keypoint 에서 측정되었는지 (True = 정규화 좌표,
+        False = raw 좌표). 체형 ratio 를 deduction 에 직접 곱하지 않는 것이 핵심.
+    """
+
+    deficit_code: str
+    joint_key: str | None
+    measured_value: float
+    deduction_score: float
+    confidence: float
+    body_type_adjusted: bool
+
+    def __post_init__(self) -> None:
+        if not (0.0 <= self.confidence <= 1.0):
+            raise ValueError(
+                f"BodyComparisonFinding.confidence must be in [0, 1], "
+                f"got {self.confidence}"
+            )
+
+
+# ── BodyComparisonReport (W1 3 ComparisonType + usedReferenceFallback) ──
+
+
+@dataclass(frozen=True)
+class BodyComparisonReport:
+    """체형 정규화 비교 리포트 (D-06-B3 통합 schema + 3 ComparisonType, W1).
+
+    TS camelCase ↔ Python snake_case 1:1 (3-way lockstep — analysis.ts +
+    docs/contract.md §8 동시 갱신).
+
+    W1: comparison_type 은 3 cases (mode1 / mode3_first / mode3_progress).
+        Gemini fallback 신호는 sibling boolean `used_reference_fallback` (default False).
+        mode3_first + used_reference_fallback=True 로 처리.
+
+    Phase 12 / 12.5 / Phase 7 downstream 이 comparisonType 으로 UI / 로직 분기.
+    """
+
+    comparison_type: ComparisonType
+    body_normalization_confidence: float
+    scale_profile: ScaleProfile | None = None
+    findings: list[BodyComparisonFinding] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    reference_motion_id: str | None = None
+    reference_athlete_name: str | None = None
+    previous_analysis_id: str | None = None
+    used_reference_fallback: bool = False  # W1 — Gemini fallback 신호
+
+    def __post_init__(self) -> None:
+        # confidence 범위
+        if not (0.0 <= self.body_normalization_confidence <= 1.0):
+            raise ValueError(
+                f"body_normalization_confidence must be in [0, 1], "
+                f"got {self.body_normalization_confidence}"
+            )
+        # comparison_type literal 검증
+        if self.comparison_type not in ("mode1", "mode3_first", "mode3_progress"):
+            raise ValueError(
+                f"comparison_type must be one of (mode1, mode3_first, "
+                f"mode3_progress), got {self.comparison_type!r}"
+            )
+        # mode3_progress 는 previous_analysis_id 필수
+        if (
+            self.comparison_type == "mode3_progress"
+            and self.previous_analysis_id is None
+        ):
+            raise ValueError(
+                "comparison_type='mode3_progress' requires previous_analysis_id"
+            )
+        # used_reference_fallback 은 mode3_first 에서만 True 허용
+        if (
+            self.used_reference_fallback
+            and self.comparison_type != "mode3_first"
+        ):
+            raise ValueError(
+                f"used_reference_fallback=True 는 comparison_type='mode3_first' "
+                f"에서만 허용. got {self.comparison_type}"
+            )
+        # warnings type
+        if not isinstance(self.warnings, list):
+            raise TypeError(
+                f"warnings must be list[str], got {type(self.warnings).__name__}"
+            )
+        # R8 fix: 모든 warnings element 가 BODY_COMPARISON_WARNING_CODES 내
+        for i, w in enumerate(self.warnings):
+            if not isinstance(w, str):
+                raise TypeError(
+                    f"warnings[{i}] must be str, got {type(w).__name__}"
+                )
+            if w not in BODY_COMPARISON_WARNING_CODES:
+                raise ValueError(
+                    f"warnings[{i}]='{w}' not in BODY_COMPARISON_WARNING_CODES. "
+                    f"valid: {sorted(BODY_COMPARISON_WARNING_CODES)}"
+                )
+
+
+# ── IPSF Absolute Deficit 측정 (C14 fix: pose_reliability_low) ───────────
+
+
+def measure_ipsf_absolute_deficits(
+    angles: np.ndarray | None,
+    technique_profile,
+    normalized_keypoints: dict | None = None,
+    *,
+    pose_frames: list | None = None,
+) -> list[BodyComparisonFinding]:
+    """IPSF Page 21 절대 deficit 산식 + Sunity pose_reliability_low (C14 fix).
+
+    R9 fix (2026-06-08 round-2): 5 IPSF geometric + 1 Sunity pose_reliability_low.
+    '7 deficits' 옛 표현 사용 금지. poor_transitions v1.5 deferred.
+
+    체형 ratio 는 곱하지 않음 — IPSF 절대 기준 정합 (Notebook §3.3).
+    split 각도는 hip→knee 라인 각도만 사용. toe-to-toe Euclidean 절대 금지
+    (Notebook §3.4 위양성 회피).
+
+    Args:
+        angles: (T, J) joint angles 또는 None (raw 좌표만 사용 시).
+        technique_profile: Gemini 기술 인식 결과 (expects_extension 등).
+        normalized_keypoints: 정규화된 keypoint dict (체형 보정 좌표) 또는 None.
+        pose_frames: pose-estimation confidence 측정용 (pose_reliability_low).
+
+    Returns:
+        list[BodyComparisonFinding].
+    """
+    findings: list[BodyComparisonFinding] = []
+    body_type_adjusted = normalized_keypoints is not None
+
+    # 1) pose_reliability_low (C14 fix — 구 bad_angle rename)
+    if pose_frames:
+        low_conf_count = 0
+        total = 0
+        for f in pose_frames:
+            kp = f.keypoints_3d
+            if not kp:
+                continue
+            avg_conf = sum(v.confidence for v in kp.values()) / len(kp)
+            total += 1
+            if avg_conf < POSE_RELIABILITY_LOW_CONF_THRESHOLD:
+                low_conf_count += 1
+        if total > 0:
+            ratio = low_conf_count / total
+            if ratio > POSE_RELIABILITY_LOW_FRAME_RATIO:
+                findings.append(
+                    BodyComparisonFinding(
+                        deficit_code="pose_reliability_low",
+                        joint_key=None,
+                        measured_value=float(ratio),
+                        deduction_score=-0.5,
+                        confidence=0.9,
+                        body_type_adjusted=body_type_adjusted,
+                    )
+                )
+
+    # 2) 5 IPSF GeometricCriterion (v1 단순 산식). normalized_keypoints 가 있을 때만.
+    if normalized_keypoints is None:
+        return findings
+
+    # knee_toe_alignment (-0.2): kneecap → toe 180° 직선 정렬 실패.
+    # RTMW COCO-17 에는 big_toe 없음 → ankle 사용. 단순 v1: hip-knee-ankle 각도.
+    # 좌측만 측정 (v1 단순; v1.5 양쪽).
+    if all(k in normalized_keypoints for k in ("left_hip", "left_knee", "left_ankle")):
+        lh = np.array(normalized_keypoints["left_hip"])
+        lk = np.array(normalized_keypoints["left_knee"])
+        la = np.array(normalized_keypoints["left_ankle"])
+        v1 = lh - lk
+        v2 = la - lk
+        n1 = np.linalg.norm(v1)
+        n2 = np.linalg.norm(v2)
+        if n1 > _EPS and n2 > _EPS:
+            cos_a = float(np.dot(v1, v2) / (n1 * n2))
+            cos_a = max(-1.0, min(1.0, cos_a))
+            angle = math.degrees(math.acos(cos_a))
+            # 180° 기준 ±LINE_TOL_DEG (20°)
+            if abs(angle - 180.0) > LINE_TOL_DEG:
+                findings.append(
+                    BodyComparisonFinding(
+                        deficit_code="knee_toe_alignment",
+                        joint_key="left_knee",
+                        measured_value=float(angle),
+                        deduction_score=-0.2,
+                        confidence=0.85,
+                        body_type_adjusted=body_type_adjusted,
+                    )
+                )
+
+    # clean_lines (-0.2): technique_profile.expects_extension 관절들의 평균 각도
+    # < 180 - LINE_TOL_DEG. technique_profile 가 None 또는 expects_extension 없을 시 skip.
+    expects = getattr(technique_profile, "expects_extension", None) if technique_profile else None
+    if expects:
+        # expects = list of joint keys (e.g., ('left_elbow', 'right_elbow')).
+        joint_angles_to_check = []
+        for joint_key in expects:
+            tri = {
+                "left_elbow": ("left_shoulder", "left_elbow", "left_wrist"),
+                "right_elbow": ("right_shoulder", "right_elbow", "right_wrist"),
+                "left_knee": ("left_hip", "left_knee", "left_ankle"),
+                "right_knee": ("right_hip", "right_knee", "right_ankle"),
+            }.get(joint_key)
+            if tri is None or not all(k in normalized_keypoints for k in tri):
+                continue
+            a = np.array(normalized_keypoints[tri[0]])
+            b = np.array(normalized_keypoints[tri[1]])
+            c = np.array(normalized_keypoints[tri[2]])
+            v1 = a - b
+            v2 = c - b
+            n1 = np.linalg.norm(v1)
+            n2 = np.linalg.norm(v2)
+            if n1 > _EPS and n2 > _EPS:
+                cos_a = float(np.dot(v1, v2) / (n1 * n2))
+                cos_a = max(-1.0, min(1.0, cos_a))
+                joint_angles_to_check.append(math.degrees(math.acos(cos_a)))
+        if joint_angles_to_check:
+            mean_angle = sum(joint_angles_to_check) / len(joint_angles_to_check)
+            if mean_angle < (180.0 - LINE_TOL_DEG):
+                findings.append(
+                    BodyComparisonFinding(
+                        deficit_code="clean_lines",
+                        joint_key=None,
+                        measured_value=float(mean_angle),
+                        deduction_score=-0.2,
+                        confidence=0.85,
+                        body_type_adjusted=body_type_adjusted,
+                    )
+                )
+
+    # extension (-0.2): mid_shoulder ↔ mid_hip ↔ neck 라인 평균 각도 < 160°.
+    # neck 미존재 → mid_shoulder 위 50px 가정. v1 단순.
+    if (
+        "mid_shoulder" in normalized_keypoints
+        and "mid_hip" in normalized_keypoints
+    ):
+        ms = np.array(normalized_keypoints["mid_shoulder"])
+        mh = np.array(normalized_keypoints["mid_hip"])
+        neck = ms + np.array([0.0, -50.0, 0.0])
+        v1 = mh - ms
+        v2 = neck - ms
+        n1 = np.linalg.norm(v1)
+        n2 = np.linalg.norm(v2)
+        if n1 > _EPS and n2 > _EPS:
+            cos_a = float(np.dot(v1, v2) / (n1 * n2))
+            cos_a = max(-1.0, min(1.0, cos_a))
+            ang = math.degrees(math.acos(cos_a))
+            if ang < 160.0:
+                findings.append(
+                    BodyComparisonFinding(
+                        deficit_code="extension",
+                        joint_key=None,
+                        measured_value=float(ang),
+                        deduction_score=-0.2,
+                        confidence=0.7,
+                        body_type_adjusted=body_type_adjusted,
+                    )
+                )
+
+    # posture (-0.2): 좌우 어깨 line z-axis 깊이 차이 > shoulder_width × 0.3.
+    if all(
+        k in normalized_keypoints for k in ("left_shoulder", "right_shoulder")
+    ):
+        ls = np.array(normalized_keypoints["left_shoulder"])
+        rs = np.array(normalized_keypoints["right_shoulder"])
+        shoulder_width = float(np.linalg.norm(rs - ls))
+        z_diff = abs(float(ls[2] - rs[2]))
+        if shoulder_width > _EPS and z_diff > shoulder_width * 0.3:
+            findings.append(
+                BodyComparisonFinding(
+                    deficit_code="posture",
+                    joint_key=None,
+                    measured_value=float(z_diff),
+                    deduction_score=-0.2,
+                    confidence=0.8,
+                    body_type_adjusted=body_type_adjusted,
+                )
+            )
+
+    # body_placement (-0.2): mid_hip 의 폴 축 (PoleAxis) 대비 수평 거리.
+    # 단순 v1: mid_hip.x 가 normalized_keypoints 의 mid_shoulder.x 와 shoulder_width × 0.5 초과 차이.
+    if (
+        "mid_hip" in normalized_keypoints
+        and "mid_shoulder" in normalized_keypoints
+        and "left_shoulder" in normalized_keypoints
+        and "right_shoulder" in normalized_keypoints
+    ):
+        mh = np.array(normalized_keypoints["mid_hip"])
+        ms = np.array(normalized_keypoints["mid_shoulder"])
+        ls = np.array(normalized_keypoints["left_shoulder"])
+        rs = np.array(normalized_keypoints["right_shoulder"])
+        shoulder_width = float(np.linalg.norm(rs - ls))
+        horizontal_diff = abs(float(mh[0] - ms[0]))
+        if shoulder_width > _EPS and horizontal_diff > shoulder_width * 0.5:
+            findings.append(
+                BodyComparisonFinding(
+                    deficit_code="body_placement",
+                    joint_key=None,
+                    measured_value=float(horizontal_diff),
+                    deduction_score=-0.2,
+                    confidence=0.75,
+                    body_type_adjusted=body_type_adjusted,
+                )
+            )
+
+    return findings
+
+
+# ── compare_body_profiles (W1 + R8 fix extra_warnings + R2 fix source_keypoints) ──
+
+
+def compare_body_profiles(
+    pose_frames: list[PoseFrame] | None,
+    student_profile: BodyNormalizationProfile,
+    reference_profile: BodyNormalizationProfile | None,
+    comparison_type: ComparisonType,
+    *,
+    source_keypoints: dict[str, tuple[float, float, float]] | np.ndarray | None = None,
+    angles: np.ndarray | None = None,
+    technique_profile=None,
+    reference_motion_id: str | None = None,
+    reference_athlete_name: str | None = None,
+    previous_analysis_id: str | None = None,
+    used_reference_fallback: bool = False,
+    target_torso_px: float | None = None,
+    extra_warnings: list[str] | None = None,
+) -> BodyComparisonReport:
+    """체형 정규화 비교 본체 — D-06-U1 confidence-tiered hybrid.
+
+    1) confidence + warnings 산출.
+    2) foreshortening 검출 → shoulderHipRatio OFF 게이트 (W6).
+    3) confidence < CONFIDENCE_GATE 또는 reference_profile=None 또는 source_keypoints=None
+       → 정규화 OFF, scale_profile=None, findings=raw IPSF deficit.
+    4) confidence >= gate + reference_profile + source_keypoints 있을 시 →
+       ScaleProfile 산출 + normalize_pose_by_segments + findings (body_type_adjusted=True).
+    5) R8 fix: extra_warnings merge + frozenset validate.
+    6) BodyComparisonReport 조립.
+
+    C1 fix: normalize_pose_by_segments 인자 순서 = (source_keypoints,
+    source_profile, target_profile, target_torso_px). source = pro reference.
+
+    R2 fix: source_keypoints 는 ndarray 또는 dict. caller (Plan 06-02) 가
+    BodyComparisonSourcePose.to_keypoints_array() 로 변환해 전달.
+
+    R8 fix: extra_warnings 는 caller-injected warning list. 내부 산출 warnings 와
+    merge + dedup. BodyComparisonReport.__post_init__ 의 frozenset 검증이 gate.
+    우회 패턴 (dataclass replace helper) 금지.
+    """
+    # 1) confidence 산출
+    confidence, warnings = compute_body_normalization_confidence(
+        pose_frames, student_profile, reference_profile, comparison_type
+    )
+
+    # 2) foreshortening (W6)
+    foreshortening = is_foreshortening_detected(pose_frames) if pose_frames else False
+    apply_shoulder_hip_ratio = not foreshortening
+    if foreshortening:
+        if "foreshortening_off" not in warnings:
+            warnings.append("foreshortening_off")
+        if "shoulder_hip_ratio_off" not in warnings:
+            warnings.append("shoulder_hip_ratio_off")
+
+    # mode3_progress 의 previous_analysis_id 게이트는 __post_init__ 에서 검증
+    # (None 시 ValueError).
+
+    # 4) 정규화 gate
+    gate_open = (
+        confidence >= CONFIDENCE_GATE
+        and reference_profile is not None
+        and source_keypoints is not None
+    )
+
+    scale_profile: ScaleProfile | None = None
+    normalized_keypoints: dict | None = None
+
+    if not gate_open:
+        if "low_confidence_normalization_off" not in warnings:
+            warnings.append("low_confidence_normalization_off")
+        if source_keypoints is None:
+            # R2 fix — production 에서 백필 미완 reference 의 silently OFF 차단.
+            if "reference_source_pose_missing" not in warnings:
+                warnings.append("reference_source_pose_missing")
+    else:
+        # 5 필드 ScaleProfile (student vs pro reference)
+        ratio_height = (
+            float(student_profile.estimated_height_scale)
+            / max(float(reference_profile.estimated_height_scale), _EPS)
+        )
+        ratio_arm = (
+            float(student_profile.arm_scale)
+            / max(float(reference_profile.arm_scale), _EPS)
+        )
+        ratio_leg = (
+            float(student_profile.leg_scale)
+            / max(float(reference_profile.leg_scale), _EPS)
+        )
+        ratio_torso = (
+            float(student_profile.torso_scale)
+            / max(float(reference_profile.torso_scale), _EPS)
+        )
+        ratio_sh = (
+            float(student_profile.shoulder_hip_ratio)
+            / max(float(reference_profile.shoulder_hip_ratio), _EPS)
+        )
+        scale_profile = ScaleProfile(
+            estimated_height_scale=ratio_height,
+            arm_scale=ratio_arm,
+            leg_scale=ratio_leg,
+            torso_scale=ratio_torso,
+            shoulder_hip_ratio=ratio_sh,
+            shoulder_hip_ratio_applied=apply_shoulder_hip_ratio,
+        )
+
+        # normalize_pose_by_segments — C1 fix (source_keypoints, source_profile,
+        # target_profile, target_torso_px)
+        # source = pro reference, target = student.
+        source_kp_dict: dict[str, tuple[float, float, float]]
+        if isinstance(source_keypoints, np.ndarray):
+            # ndarray (J, 4 또는 3) → dict
+            if source_keypoints.ndim != 2 or source_keypoints.shape[1] < 3:
+                raise ValueError(
+                    f"source_keypoints ndarray shape (J, >=3) expected, "
+                    f"got {source_keypoints.shape}"
+                )
+            source_kp_dict = {
+                name: (
+                    float(source_keypoints[i, 0]),
+                    float(source_keypoints[i, 1]),
+                    float(source_keypoints[i, 2]),
+                )
+                for i, name in enumerate(KEYPOINT_NAMES)
+                if i < source_keypoints.shape[0]
+            }
+        else:
+            source_kp_dict = source_keypoints  # type: ignore[assignment]
+
+        torso_px = target_torso_px if target_torso_px is not None else (
+            200.0 * float(student_profile.torso_scale)
+        )
+
+        normalized_keypoints = normalize_pose_by_segments(
+            source_kp_dict,
+            reference_profile,  # source_profile (R10 fix — 비사용)
+            student_profile,  # target_profile (C1 fix)
+            torso_px,
+            apply_shoulder_hip_ratio=apply_shoulder_hip_ratio,
+        )
+
+    # 5) IPSF deficit 측정 (gate 무관 — confidence 낮으면 raw 좌표만)
+    findings = measure_ipsf_absolute_deficits(
+        angles,
+        technique_profile,
+        normalized_keypoints=normalized_keypoints,
+        pose_frames=pose_frames,
+    )
+
+    # 6) R8 fix — extra_warnings merge + validate (frozenset)
+    if extra_warnings:
+        for w in extra_warnings:
+            if w not in BODY_COMPARISON_WARNING_CODES:
+                raise ValueError(
+                    f"invalid extra_warning: '{w}' not in "
+                    f"BODY_COMPARISON_WARNING_CODES"
+                )
+        # dedup, preserve order: 기존 warnings 먼저, 그다음 extra
+        merged_warnings = list(
+            dict.fromkeys([*warnings, *extra_warnings])
+        )
+    else:
+        merged_warnings = warnings
+
+    # 7) BodyComparisonReport 조립 — __post_init__ 의 frozenset 검증 통과 보장.
+    return BodyComparisonReport(
+        comparison_type=comparison_type,
+        body_normalization_confidence=confidence,
+        scale_profile=scale_profile,
+        findings=findings,
+        warnings=merged_warnings,
+        reference_motion_id=reference_motion_id,
+        reference_athlete_name=reference_athlete_name,
+        previous_analysis_id=previous_analysis_id,
+        used_reference_fallback=used_reference_fallback,
+    )

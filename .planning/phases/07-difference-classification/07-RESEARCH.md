@@ -1082,27 +1082,30 @@ def test_phase7_new_fields_camel_case_automatic() -> None:
 | A7 | 6 금지 표현 + Sunity 추가 3종 grep gate 가 false positive 거의 없음 ("감점" 한국어 generic 단어 위험) | §Pitfall 4 + §Code Examples Test 3 | "감점" 같은 한국어 단어는 일반 명사 — Phase 13 보완 운동 카피 등에서 정당히 사용 가능. **본 grep gate scope 는 Phase 7 canned string 모듈만** 으로 한정 권장. Phase 13/11 캔드는 별도 grep 룰. [ASSUMED — Phase 11/13 plan 미작성 시점] |
 | A8 | mode3_first + `used_reference_fallback=True` → 모든 finding `uncertain` demotion 룰이 UX 정합 | §Schema Extension Decision 1 | belle 검수 시점에 본 룰 재검토 가능. plan 단계에서 belle confirmation 권장. [ASSUMED — UX 정합 추정] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **mode3_first + `used_reference_fallback=True` 카피 fallback 형식**
-   - What we know: Phase 6 가 fallback 신호 박제. Page 9 절대 트랙 단독 path.
-   - What's unclear: 본 path 의 canned string 톤 — 모든 finding `uncertain` 으로 강제 demotion 시 결과 화면이 빈약. "이 동작은 등록된 기준 부족, 강사 확인 권유" 단일 메시지 출력 vs 신뢰도 낮은 분류 그대로 출력.
-   - Recommendation: planner 가 belle 검수 단계에서 결정. v1 박제는 **단일 fallback 메시지** + `uncertain` 분류 강제 권장 (정직성 우위).
+> RESOLVED 2026-06-08 — gsd-plan-checker revision 1 round. 4 문항 모두 결정 사양 확정. 모두 planner-side 결정 (belle confirmation 불필요 — 본 phase 의 scope 안 사양).
 
-2. **빈 `recommended_focus[]` 결과 화면 fallback 카피**
-   - What we know: v1 deficit code 산식상 `needs_adjustment` 빈 리스트 가능성 높음.
-   - What's unclear: 결과 화면 분기 — 빈 박스 숨김 vs "보정 우선순위 없음" 카피.
-   - Recommendation: Phase 12 책임 박제. Phase 7 백엔드 출력은 빈 리스트 그대로. Phase 12 frontend plan 에서 belle 검수 후 결정.
+1. **mode3_first + `used_reference_fallback=True` 카피 fallback 형식** — RESOLVED
+   - Decision: fallback canned 카피 단일 문구 = `"이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. 강사와 함께 확인 권유드려요."` (research §10.1 톤 + Page 9 단독 path 정합 + [[ipsf-5-track-scoring]] 박제 메모 정합).
+   - 박제 위치: Plan 01 Task 2 `<action>` 안 inline 박제 (fallback tuple 의 recommendation 자리). interpretation 자리 = `"이 동작은 등록된 기준 영상이 없어 AI 가 IPSF 절대 기준만으로 분석했어요."` (간결판).
+   - 적용 path: `classify_findings` 가 `is_mode3_first_fallback = (comparison_type=="mode3_first" and used_reference_fallback)` 분기에서 모든 finding `uncertain` demotion + render_finding_copy 호출 시 mode prefix 가 본 fallback 카피로 prepended (mode3_first prefix `"세계 심사 기준 (IPSF) 으로 보면"` 유지).
+   - test 박제: `fixture_classification_mode3_first_fallback.json` 의 `expected.recommendation` 도 본 카피로 박제 (Plan 02 Task 1 `test_uncertain_when_mode3_first_fallback` 검증).
 
-3. **`body_type_interpretation` 의 Phase 11 LLM 입력 형식**
-   - What we know: D-07-B1 박제 — Phase 11 이 캔드 → 자연어 풍부화.
-   - What's unclear: 본 phase 의 canned string 이 Phase 11 시스템 프롬프트에 그대로 inline vs 별도 metadata 로 전달.
-   - Recommendation: Phase 11 plan 진입 시 결정. Phase 7 의 schema 는 per-finding 4 필드 박제 (Phase 11 에 충분한 input source).
+2. **빈 `recommended_focus[]` 결과 화면 fallback 카피** — RESOLVED (Phase 7 scope 외)
+   - Phase 12 화면 컴포넌트 책임. 본 phase 백엔드는 빈 `list[]` 보장 (`field(default_factory=list)` 박제). `test_compare_body_profiles_phase7_integration` 가 빈 list 허용 (sweep_rtmw_20260603_1409 sweep 데이터상 `needs_adjustment` 빈 리스트 가능성 박제).
+   - Phase 7 scope = 빈 리스트 정상 산출까지. 화면 분기 ("보정 우선순위 없음" vs 박스 숨김) 는 Phase 12 plan 영역.
 
-4. **Phase 12 frontend `userAnalyses.normalize()` 의 default 처리**
-   - What we know: TS interface 의 두 list 는 `string[]` non-optional.
-   - What's unclear: Phase 7 백엔드 변경 시점 vs frontend 갱신 시점 misalignment 시 (Firestore doc 에 두 필드 없음) frontend 동작.
-   - Recommendation: TS interface 두 list 를 `string[]` (non-optional) 으로 박제 + `normalize()` 안에서 `do_not_over_correct ?? []` default. plan 의 frontend 작업 task 에 명시.
+3. **`body_type_interpretation` 의 Phase 11 LLM 입력 형식** — RESOLVED (Phase 11 영역)
+   - Phase 7 v1 의 `body_type_interpretation` 필드 type = `str | None`, 본 phase canned string 으로 채움 (D-07-B1 박제).
+   - Phase 11 LLM 입력 형식 (system prompt inline vs metadata 분리) 은 Phase 11 plan 진입 시 결정. Phase 7 의 schema (per-finding 4 필드 + per-report 2 필드) 가 Phase 11 의 input source 로 충분.
+
+4. **Phase 12 frontend `userAnalyses.normalize()` 의 default 처리** — RESOLVED
+   - Decision: Phase 7 = TS interface 박제만 (Plan 01 Task 3). frontend `userAnalyses.normalize()` 미수정 — Phase 6 박제 패턴 (`result: raw.result as AnalysisDoc['result']` 단순 assertion) 유지.
+   - 이유: backend (Plan 02 Task 2 wiring 적용 후) 가 항상 `do_not_over_correct: list[str]` / `recommended_focus: list[str]` (default `[]`) 산출 보장. W5 validator (`_validate_flat_dict_no_nested_array`) 자동 통과. TS interface 가 두 list `string[]` non-optional 박제 (Plan 01).
+   - Phase 6 이전 backfill 안 된 Firestore doc 의 frontend null guard 는 Phase 12 화면 컴포넌트 책임 — Phase 12 진입 시 호출 site 에서 `report?.doNotOverCorrect ?? []` 처리. CONTEXT.md `<deferred>` 섹션의 "uncertain 박스 별도 표시 vs recommendedFocus 통합" 박제와 함께 Phase 12 영역.
+   - **결과: Plan 02 Task 3 (userAnalyses.normalize 확장) 삭제** — gsd-plan-checker B1 fix path 정합.
+
 
 ## Environment Availability
 
@@ -1369,12 +1372,12 @@ backend/tests/phase07/fixtures/
 | Classification Rule | HIGH | sweep 데이터 + IPSF Page 21 단위 정합 검증 |
 | Validation Architecture | HIGH | Phase 6 phase06/ 디렉토리 패턴 정합 |
 
-### Open Questions (planner 처리 영역)
+### Open Questions (RESOLVED — gsd-plan-checker revision 1 round 2026-06-08)
 
-1. mode3_first + `used_reference_fallback=True` 단일 fallback 메시지 형식 — belle 검수
-2. 빈 `recommended_focus[]` frontend 화면 fallback — Phase 12 책임
-3. `body_type_interpretation` / `recommendation` 의 Phase 11 LLM 입력 형식 — Phase 11 plan 진입 시
-4. frontend `userAnalyses.normalize()` 신설 필드 default 처리 — Phase 7 frontend task 또는 Phase 12
+1. mode3_first + `used_reference_fallback=True` fallback 카피 — RESOLVED (Plan 01 Task 2 inline 박제). 단일 fallback recommendation = `"이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. 강사와 함께 확인 권유드려요."`
+2. 빈 `recommended_focus[]` frontend 화면 fallback — RESOLVED (Phase 12 책임). 본 phase 백엔드는 빈 list[] 보장.
+3. `body_type_interpretation` / `recommendation` 의 Phase 11 LLM 입력 형식 — RESOLVED (Phase 11 영역). 본 phase schema 박제만 (4 + 2 필드).
+4. frontend `userAnalyses.normalize()` 신설 필드 default 처리 — RESOLVED. **Phase 7 = TS interface 박제만, frontend normalize() 미수정.** Phase 12 화면 컴포넌트 호출 site 에서 `?.doNotOverCorrect ?? []` 처리. Plan 02 Task 3 삭제.
 
 ### Ready for Planning
 

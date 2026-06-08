@@ -52,8 +52,6 @@ plans_emitted: ["07-01-PLAN.md", "07-02-PLAN.md"]
 | 07-02-T1-mode3-fallback | 07-02 | 2 | PERS-01 | T-07-08 | Decision 1 — mode3_first + used_reference_fallback → 전체 uncertain | unit | `pytest backend/tests/phase07/test_classify_findings.py::test_uncertain_when_mode3_first_fallback -x` | ❌ W0 (Plan 02 Task 1 creates) | ⬜ pending |
 | 07-02-T2-integration | 07-02 | 2 | PERS-01 | — | compare_body_profiles wiring + Phase 6 fixture 재사용 | integration | `pytest backend/tests/phase07/test_compare_body_profiles_phase7_integration.py -x` | ❌ W0 (Plan 02 Task 2 creates) | ⬜ pending |
 | 07-02-T2-camel | 07-02 | 2 | PERS-01 | T-07-06 | _dataclass_to_camel_case_dict 5-case 자동 변환 (Phase 6 C8 정합) | unit | `pytest backend/tests/phase07/test_dataclass_to_camel_case_dict_phase7.py -x` | ❌ W0 (Plan 02 Task 2 creates) | ⬜ pending |
-| 07-02-T3-tsc | 07-02 | 2 | PERS-01 | T-07-07 | userAnalyses.normalize() graceful default + tsc clean | unit | `cd app && npx tsc --noEmit` | ❌ pending Plan 02 Task 3 | ⬜ pending |
-| 07-02-T3-defaults | 07-02 | 2 | PERS-01 | T-07-07 | doNotOverCorrect/recommendedFocus default [] 박제 grep | unit | `grep -c 'doNotOverCorrect' app/src/lib/userAnalyses.ts` >= 1 AND `grep -c 'recommendedFocus' app/src/lib/userAnalyses.ts` >= 1 | ❌ pending Plan 02 Task 3 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

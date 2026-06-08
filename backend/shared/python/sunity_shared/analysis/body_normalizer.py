@@ -112,6 +112,26 @@ KINEMATIC_TREE_EDGES: tuple[tuple[str, str], ...] = (
     ("right_knee", "right_ankle"),
 )
 
+# WR-05 (2026-06-08 review) — _ref_segment_ratio 가 인식하는 edge set 박제.
+# KINEMATIC_TREE_EDGES 와 본 set 의 정합을 모듈 import 시점에 assert (아래 _ref_segment_ratio
+# 정의 뒤). edge 추가 시 _ref_segment_ratio 의 if 분기와 본 set 모두 갱신 필요 — import
+# 실패 시점에서 회귀 차단 (production runtime fail-closed 대신 dev-time fail-fast).
+_KNOWN_REF_SEGMENT_RATIO_EDGES: frozenset[tuple[str, str]] = frozenset({
+    ("mid_hip", "mid_shoulder"),
+    ("mid_shoulder", "left_shoulder"),
+    ("mid_shoulder", "right_shoulder"),
+    ("mid_hip", "left_hip"),
+    ("mid_hip", "right_hip"),
+    ("left_shoulder", "left_elbow"),
+    ("right_shoulder", "right_elbow"),
+    ("left_elbow", "left_wrist"),
+    ("right_elbow", "right_wrist"),
+    ("left_hip", "left_knee"),
+    ("right_hip", "right_knee"),
+    ("left_knee", "left_ankle"),
+    ("right_knee", "right_ankle"),
+})
+
 # D-06-A4 게이트
 CONFIDENCE_GATE: float = 0.5
 
@@ -354,6 +374,25 @@ def _ref_segment_ratio(
         return profile.leg_scale * 0.5
 
     raise KeyError(f"_ref_segment_ratio: unknown edge ({parent}, {child})")
+
+
+# WR-05 (2026-06-08 review) — module-load-time gate.
+# KINEMATIC_TREE_EDGES 와 _KNOWN_REF_SEGMENT_RATIO_EDGES 의 정합 강제. edge 추가
+# 시 _ref_segment_ratio 의 if 분기 갱신을 깜빡하면 본 assert 가 import 시점에
+# 즉시 fail — production runtime 의 KeyError → server_error → silent 실패 회피.
+_TREE_EDGE_SET = frozenset(KINEMATIC_TREE_EDGES)
+_unmapped_edges = _TREE_EDGE_SET - _KNOWN_REF_SEGMENT_RATIO_EDGES
+assert not _unmapped_edges, (
+    f"KINEMATIC_TREE_EDGES has edges with no _ref_segment_ratio mapping: "
+    f"{sorted(_unmapped_edges)}. Update both _KNOWN_REF_SEGMENT_RATIO_EDGES "
+    f"and the if-chain in _ref_segment_ratio."
+)
+# 역방향도 검증 — _ref_segment_ratio 가 알고 있는데 tree 에서 사라진 dead mapping
+_dead_mappings = _KNOWN_REF_SEGMENT_RATIO_EDGES - _TREE_EDGE_SET
+assert not _dead_mappings, (
+    f"_KNOWN_REF_SEGMENT_RATIO_EDGES has dead mappings not in KINEMATIC_TREE_EDGES: "
+    f"{sorted(_dead_mappings)}. Remove from _KNOWN_REF_SEGMENT_RATIO_EDGES."
+)
 
 
 # ── normalize_pose_by_segments — C1 fix ───────────────────────────────────

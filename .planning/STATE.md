@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Plan 06-01 complete (algorithm + 3-way contract lockstep) — Plan 06-02 진입 가능
-last_updated: "2026-06-08T10:30:00.000Z"
+stopped_at: Plan 06-02 complete (pipeline wiring + Firestore 통합 + retro Phase 5 patch) — Plan 06-03 진입 가능
+last_updated: "2026-06-08T12:30:00.000Z"
 last_activity: 2026-06-08
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 36
-  completed_plans: 31
-  percent: 52
+  completed_plans: 32
+  percent: 53
 ---
 
 # Project State
@@ -26,9 +26,23 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 06 (coaching) — EXECUTING
-Plan: 2 of 3 (Plan 06-01 complete → Plan 06-02 진입)
-Next: Plan 06-02 — pipeline wiring (mode1/mode3/Gemini fallback + Firestore complete_analysis 확장 + frontend normalize + SAM build smoke)
+Plan: 3 of 3 (Plan 06-01 + 06-02 complete → Plan 06-03 진입)
+Next: Plan 06-03 — 정은지 reference 5개 영상의 bodyNormalizationProfile + bodyComparisonSourcePose 백필 (Phase 6 wave 3)
 Status: Executing Phase 06
+
+### Plan 06-02 close-out (2026-06-08)
+
+| 영역 | 결과 |
+|---|---|
+| pipeline wiring | _extract_video_analysis_inputs 단일 helper (R3) + R4 non-null student_profile + R2 reference source_pose fetch + R8 extra_warnings injection + C2 motion_id exact-match (retro Phase 5 patch) |
+| firestore_admin | complete_analysis(body_comparison_report=, body_normalization_profile=) 확장 + _validate_flat_dict_no_nested_array recursive validator (W5) + _validate_dict_only_scalars (list-of-dict 안 nested 금지) |
+| _dataclass_to_camel_case_dict | C8 4-case 명세 (None / dataclass / list / dict / Enum / scalar) + BodyComparisonReport 중첩 변환 |
+| frontend | userAnalyses.ts I2 positive assertion (bodyComparisonReport literal) + Korean defensive comment |
+| Rule 1 fix | body_normalizer.measure_ipsf_absolute_deficits 의 expects 변수 iterate 오류 (joint_expectations dict 에서 JOINT_EXTEND 값 키로 derive) |
+| Test | 본 plan 55/55 PASS, 전체 phase06 107/107 PASS, 기존 pipeline 156/156 PASS, tsc --noEmit clean, sam validate exit 0 |
+| 5 commits | `8c5b002` Task 0 (motion_id + Gemini populate) / `2e7d97c` Task 1 (pipeline wiring) / `a60b034` Task 2 (firestore_admin + W5) / `fc75212` Task 3 (camelCase + frontend) / `77383a1` Task 4 (통합 smoke) |
+
+Plan 06-03 진입 시그널: 정은지 reference 5개 영상 백필 (extract_reference_body_profiles.py + seed-reference-body-profile.mjs) — bodyNormalizationProfile + bodyComparisonSourcePose 둘 다.
 
 ### Plan 06-01 close-out (2026-06-08)
 
@@ -343,6 +357,12 @@ Recent decisions affecting current work:
 - [2026-06-08 Plan 06-01 R2]: BodyComparisonSourcePose 신설 — Firestore reference 컬렉션의 reference 측 대표 hold frame keypoints 영속. flat values (4 × J = 68) + to_keypoints_array reshape. Plan 06-03 백필 contract source
 - [2026-06-08 Plan 06-01 R5]: spatial_dispersion_penalty 산식 자연화 = clip((C_s/sw - 1.5) / 1.5, 0, 1). high dispersion → high penalty 자연 방향
 - [2026-06-08 Plan 06-01 W1]: BodyComparisonReport.comparisonType 3 cases 만 (mode1 / mode3_first / mode3_progress). Gemini fallback 은 sibling boolean usedReferenceFallback (mode3_first 에서만 true 허용). 4번째 fallback 변형 케이스 금지
+- [2026-06-08 Plan 06-02 C2 + R1]: TechniqueProfile.motion_id 필드 (위치: dataclass 맨 끝, hold_window 뒤 — R1 fix non-default 앞 금지). Gemini recognizer 4 path keyword populate. mode3-first Gemini fallback path 가 firestore_admin.get_reference_motion(motion_id) exact-match 사용 (Phase 5 retroactive patch).
+- [2026-06-08 Plan 06-02 R3]: 단일 _extract_video_analysis_inputs(bucket, key, default_pole, *, keep_local_video=False) helper. S3 download + frame extract + RTMW estimate 1회만 실행 (T-06-02-06 mitigation). 기존 _angles_and_video_path_from_video 폐기. Phase 2 _angles_and_body_profile_from_video 무수정 보존.
+- [2026-06-08 Plan 06-02 R4]: student_profile 반환 타입 = BodyNormalizationProfile (non-null). measure_body_profile 의 _fallback_profile 정합. caller 별도 None check 불요.
+- [2026-06-08 Plan 06-02 R8]: caller-injected extra_warnings injection (compare_body_profiles 신규 파라미터). 'fallback_reference_not_found' / 'reference_source_pose_missing' 주입. dataclasses.replace 우회 패턴 금지.
+- [2026-06-08 Plan 06-02 W5]: _validate_flat_dict_no_nested_array recursive validator + _validate_dict_only_scalars helper. list[str] (warnings) + list[dict-of-scalars-only] (findings) 허용. list[list] / list[dict-with-nested-list] TypeError raise.
+- [2026-06-08 Plan 06-02 C8]: _dataclass_to_camel_case_dict 5-case 명시 (None / dataclass / list / dict / Enum / scalar). BodyComparisonReport 중첩 ScaleProfile + list[BodyComparisonFinding] camelCase 변환.
 - [Phase ?]: Plan 16-01 T-6 belle threshold 결정
 
 ### Pending Todos

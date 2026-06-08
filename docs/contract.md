@@ -404,7 +404,7 @@ type ComparisonType = 'mode1' | 'mode3_first' | 'mode3_progress';
 | `shoulderHipRatio` | `shoulder_hip_ratio` | `number` | 어깨너비/골반너비 비율. 점수 차원 미적용 (D-06-A3, [[scoring-dimensions-ipsf]]). |
 | `shoulderHipRatioApplied` | `shoulder_hip_ratio_applied` | `boolean` | 폭 보정 적용 여부 (foreshortening 시 false, W6). |
 
-### BodyComparisonFinding (R9 fix: 5 IPSF + Sunity pose_reliability_low — 6 enum)
+### BodyComparisonFinding (R9 fix: 5 IPSF + Sunity pose_reliability_low — 6 enum + Phase 7 신설 4 필드)
 
 | TS 필드 | Python 필드 | TS 타입 | 설명 |
 |---|---|---|---|
@@ -414,6 +414,10 @@ type ComparisonType = 'mode1' | 'mode3_first' | 'mode3_progress';
 | `deductionScore` | `deduction_score` | `number` | IPSF Page 21 절대 감점 (-0.2, -0.5). 체형 ratio 곱하지 않음 (Notebook §3.3). |
 | `confidence` | `confidence` | `number` | 0~1. |
 | `bodyTypeAdjusted` | `body_type_adjusted` | `boolean` | true = 정규화 좌표에서 측정, false = raw 좌표. |
+| `category` | `category` | `'body_type_allowed' \| 'needs_adjustment' \| 'uncertain'` | **Phase 7 신설 (Plan 07-01).** D-07-A1 분류. iteration 2 WR-01 fix: backend 의 6 emit 위치 placeholder `"uncertain"` (fail-safe). Plan 02 classify_findings 재할당. |
+| `phase` | `phase` | `string \| null` | **Phase 7 신설 (Plan 07-01).** v1 = 'hold' 단일 (D-07-C1). v2 (Phase 8 또는 Plan 13 Gemini key_moments) 에서 entry/lock/transition/final_shape/release 확장. |
+| `bodyTypeInterpretation` | `body_type_interpretation` | `string \| null` | **Phase 7 신설 (Plan 07-01).** Korean canned interpretation — Phase 11 LLM 풍부화 입력 source. CR-01 fix fallback path 시 null. |
+| `recommendation` | `recommendation` | `string \| null` | **Phase 7 신설 (Plan 07-01).** Korean canned recommendation — mode prefix prepended. CR-01 fix fallback path 시 unprefixed 단일 문장. |
 
 #### deficitCode enum (6종 — R9 fix: '7 deficits' 옛 표현 금지. poor_transitions v1.5 deferred)
 
@@ -455,6 +459,9 @@ judge-observation deduction 과 의미가 다르다.**
 | `referenceAthleteName` | `reference_athlete_name` | `string \| null` | mode1. |
 | `previousAnalysisId` | `previous_analysis_id` | `string \| null` | mode3_progress 일 때 필수 (None → backend ValueError). |
 | `usedReferenceFallback` | `used_reference_fallback` | `boolean` | **W1 — Gemini fallback 신호. mode3_first 에서만 true 허용. default false.** |
+| `doNotOverCorrect` | `do_not_over_correct` | `string[]` | **Phase 7 신설 (Plan 07-01, D-07-B3).** body_type_allowed 분류 finding 의 카피 aggregate. 결과 화면 "체형 허용 차이" 박스 source. |
+| `recommendedFocus` | `recommended_focus` | `string[]` | **Phase 7 신설 (Plan 07-01, D-07-B3).** needs_adjustment + uncertain 분류 finding 의 카피 aggregate. 결과 화면 "개선 필요" 박스 source (Decision 1 — uncertain 통합). |
+| `recommendedFocusFallback` | `recommended_focus_fallback` | `string \| null` | **Phase 7 신설 (Plan 07-01, WR-03 fix).** recommendedFocus[] 가 빈 list 일 때 단일 fallback 카피. Phase 12 가 빈 박스 회피용으로 활용. backend `copy_templates._EMPTY_FOCUS_FALLBACK` 박제. |
 
 ### warnings enum (WR-02 fix — 9종, target_torso_px_missing 신규 추가)
 
@@ -527,7 +534,113 @@ R2 fix 직접 효과: source_keypoints=None 시 `compare_body_profiles` 는
 
 ---
 
+## §8.3 Phase 7 분류 룰 (Plan 07-01 신설 — D-07-A1 + D-07-A2 + D-07-U1)
+
+> **2026-06-08 박제 (iteration 2)**: Phase 7 의 차이 분류 (category) 룰 + canned
+> copy 매핑 명세. backend `body_normalizer.py` 의 module-level 상수 +
+> `copy_templates.py` 33 canned 매핑 + Plan 02 의 `classify_findings()` 진입점.
+
+### Module-level 임계 상수 (backend `body_normalizer.py`)
+
+| 상수 | 값 | 근거 |
+|---|---|---|
+| `CATEGORY_GATE` | `0.2` | D-07-A1: `abs(deduction_score)` 이 본 값 이하 + `body_type_adjusted=True` → `body_type_allowed`. 초과 시 `needs_adjustment` (D-07-A2 gate 미진입 시). IPSF Page 21 표준 감점 단위 정합. |
+| `CATEGORY_CONF_GATE` | `0.5` | D-07-A2 + D-07-U1: `confidence` 또는 `bodyNormalizationConfidence` 가 본 값 미만 → `uncertain` 강제 demotion. Phase 6 D-06-U1 confidence-tiered hybrid 게이트 재사용. |
+
+### 분류 결정 룰 (D-07-A1 + D-07-A2)
+
+| 조건 | category |
+|---|---|
+| `body_normalization_confidence < 0.5` (global) | `uncertain` (모든 finding 강제 demotion) |
+| `finding.confidence < 0.5` (per-finding) | `uncertain` |
+| `body_type_adjusted == false` (raw 좌표) | `uncertain` (정규화 안 됨 → 키 차이 섞임) |
+| mode3_first + `used_reference_fallback == true` (Decision 1, CR-01 fix) | `uncertain` + 단일 fallback recommendation |
+| `body_type_adjusted == true` + `abs(deduction_score) <= CATEGORY_GATE` | `body_type_allowed` |
+| `body_type_adjusted == true` + `abs(deduction_score) > CATEGORY_GATE` | `needs_adjustment` |
+
+**fail-safe (WR-01 fix, iteration 2)**: `measure_ipsf_absolute_deficits` 의 6
+emit 위치는 모두 `category="uncertain"` placeholder 박제. Plan 02 의
+`classify_findings()` 가 본 룰로 재할당. Plan 01 단독 deploy 시에도 모든 finding
+이 "AI 확신 부족" 으로 표시 → 사용자가 보정 가이드로 오해할 위험 0.
+
+### 카피 분배 룰 (D-07-B3, Decision 1)
+
+| category | 박스 |
+|---|---|
+| `body_type_allowed` | `doNotOverCorrect[]` 에 append |
+| `needs_adjustment` | `recommendedFocus[]` 에 append |
+| `uncertain` | `recommendedFocus[]` 에 append (강사 확인 권유 톤) |
+
+`recommendedFocus[]` 가 빈 list 인 경우 (WR-03 fix): `recommendedFocusFallback` 에
+단일 fallback 카피 박제 — Phase 12 가 빈 박스 회피용으로 활용.
+
+### 33 canned coverage 표 (CR-02 fix)
+
+backend `copy_templates._COPY_TEMPLATES` dict literal — `(deficit_code, category,
+joint_group)` 3-tuple key → `(interpretation, recommendation)` 2-tuple value.
+
+| deficit_code | joint_group | × category | 합계 |
+|---|---|---|---|
+| `knee_toe_alignment` | `leg` | 3 | 3 |
+| `clean_lines` | `arm` | 3 | 3 |
+| `clean_lines` | `leg` | 3 | 3 |
+| `clean_lines` | `global` (CR-02 fix) | 3 | 3 |
+| `extension` | `torso` | 3 | 3 |
+| `extension` | `global` (CR-02 fix) | 3 | 3 |
+| `posture` | `arm` | 3 | 3 |
+| `posture` | `global` (CR-02 fix) | 3 | 3 |
+| `body_placement` | `pole_axis` | 3 | 3 |
+| `body_placement` | `global` (CR-02 fix) | 3 | 3 |
+| `pose_reliability_low` | `global` | 3 | 3 |
+| **합계** | | | **33 카피** |
+
+신규 12 global keys (CR-02 fix path) — Phase 6 의 `joint_key=None` 으로 emit 되는
+4 deficit (`clean_lines` / `extension` / `posture` / `body_placement`) 가 Plan 02
+의 `_resolve_joint_group` 에서 `"global"` 그룹으로 fallback 되어도 카피 미발견
+path 진입 빈도 0 보장.
+
+추가로 `_MODE_PREFIX` (3 항: mode1 / mode3_first / mode3_progress) 는
+`recommendation` 에만 prepend. `interpretation` 은 mode 무관 (D-07-D3).
+
+### CR-01 fix — used_reference_fallback path
+
+`render_finding_copy(used_reference_fallback=True)` 호출 시 deficit / category /
+joint_group / comparison_type 입력 무관 단일 unprefixed 카피 반환:
+
+```
+("이 동작은 기준 영상이 없어, AI 가 IPSF 절대 기준만으로 분석했어요. "
+ "강사와 함께 확인 권유드려요.")
+```
+
+mode prefix 결합 X (정직성 우위 — Page 9 절대 트랙 단독 적용 상황 명시).
+
+### 카피 톤 룰 (D-07-D1) + 금지 표현 grep gate (D-07-D2)
+
+backend `copy_templates.py` 의 `FORBIDDEN_PHRASES` (research §10.3, 6종) +
+`FORBIDDEN_PHRASES_SUNITY` (memory 박제, 3종) AST 기반 grep gate test
+(`test_copy_templates_no_forbidden.py`).
+
+| 금지 표현 | 출처 |
+|---|---|
+| `프로보다 못합` | research §10.3 |
+| `정답 자세가 아닙` | research §10.3 |
+| `근육량이 부족` | research §10.3 |
+| `체형이 안 맞` | research §10.3 |
+| `대회 총점` | research §10.3 |
+| `감점입니다` | research §10.3 |
+| `박제` | memory [[no-baekje-filler]] |
+| `%일치` | memory [[mode3-progress-not-similarity]] |
+| `유사도` | memory [[mode3-progress-not-similarity]] |
+
+권장 톤 (D-07-D1):
+- (a) 가능성 언어 — "~로 보이네요" / "~일 가능성이 있어요" — [[analysis-objectivity-no-human-scores]]
+- (b) AI = 강사 보조 도구 — "강사와 함께 확인 권유" — [[feedback-no-echo-confirm]]
+- (c) 부위별 원인 — 고관절·후굴·코어·내전근·전완근·광배·흉곽·골반·견갑 — [[feedback-analysis-first]]
+
+---
+
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
 *Phase 1 §6 추가: 2026-05-31 — PoseFrame/PoleAxis 3-way lockstep (H-3/H-4/M-1/M-2/M-5 REVIEWS 박제).*
 *Plan 01-19 §7 추가: 2026-06-02 — BodyNormalizationProfile (D-19 segment 비율, D-21 nullable). RTMW pivot 박제.*
 *Plan 06-01 §8 + §8.2 추가: 2026-06-08 — BodyComparisonReport (D-06-B3 + W1 + C14) + BodyComparisonSourcePose (R2 round-2 reviews).*
+*Plan 07-01 §8.3 추가: 2026-06-08 — Phase 7 차이 분류 룰 (D-07-A1 + D-07-A2 + D-07-U1) + 33 canned coverage (CR-02 fix) + CR-01 fallback path + WR-01/WR-03/WR-04 iteration 2.*

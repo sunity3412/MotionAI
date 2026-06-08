@@ -494,6 +494,21 @@ export interface BodyComparisonFinding {
   deductionScore: number;
   confidence: number;
   bodyTypeAdjusted: boolean;
+  // ── Phase 7 (Plan 07-01, 2026-06-08) 신설 4 필드 — D-07-A1 + D-07-C1 ──
+  // iteration 2 WR-01 fix: backend measure_ipsf_absolute_deficits 의 6 호출
+  // 위치는 placeholder 'uncertain' (fail-safe). Plan 02 classify_findings 재할당.
+  /** 분류 결과 — D-07-A1 룰. 'body_type_allowed' = 체형 허용, 'needs_adjustment'
+   * = 개선 필요, 'uncertain' = AI 확신 부족. */
+  category: 'body_type_allowed' | 'needs_adjustment' | 'uncertain';
+  /** v1 = 'hold' 단일 (D-07-C1). v2 (Phase 8 또는 Plan 13) 에서
+   * 'entry'/'lock'/'transition'/'final_shape'/'release' 확장. nullable. */
+  phase?: string | null;
+  /** Korean canned interpretation — Phase 11 LLM 풍부화 입력 source. CR-01 fix
+   * fallback path 시 null. */
+  bodyTypeInterpretation?: string | null;
+  /** Korean canned recommendation — mode prefix prepended. CR-01 fix fallback
+   * path 시 unprefixed 단일 문장. */
+  recommendation?: string | null;
 }
 
 /**
@@ -547,6 +562,17 @@ export interface BodyComparisonReport {
   previousAnalysisId?: string | null;
   /** W1: Gemini fallback 신호 (mode3_first 에서만 true). default false. */
   usedReferenceFallback: boolean;
+  // ── Phase 7 (Plan 07-01, 2026-06-08) 신설 2+1 필드 — D-07-B3 + WR-03 fix ──
+  /** body_type_allowed 분류 finding 의 카피 aggregate. 결과 화면 "체형 허용 차이"
+   * 박스 source. */
+  doNotOverCorrect: string[];
+  /** needs_adjustment + uncertain 분류 finding 의 카피 aggregate. 결과 화면
+   * "개선 필요" 박스 source (Decision 1 — uncertain 통합). */
+  recommendedFocus: string[];
+  /** WR-03 fix — recommendedFocus[] 가 빈 list 일 때 단일 fallback 카피. Phase
+   * 12 가 빈 박스 회피용으로 활용. backend copy_templates._EMPTY_FOCUS_FALLBACK
+   * 박제. */
+  recommendedFocusFallback?: string | null;
 }
 
 /**

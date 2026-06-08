@@ -134,10 +134,18 @@ from .analysis.body_normalization import (  # noqa: E402 — 파일 하단 re-ex
 # R2 (2026-06-08 round-2 reviews) — BodyComparisonSourcePose 신규 (reference 측
 # 대표 hold frame keypoints flat 영속, Firestore nested-array 회피).
 # R8 (round-2) — compare_body_profiles extra_warnings 파라미터 + frozenset validation.
+# Phase 7 (2026-06-08, Plan 07-01) — 차이 분류 schema 확장.
+#   BodyComparisonFinding +4 필드 (category / phase / body_type_interpretation /
+#     recommendation) — D-07-A1 + D-07-C1.
+#   BodyComparisonReport +3 필드 (do_not_over_correct / recommended_focus /
+#     recommended_focus_fallback) — D-07-B3 + WR-03 fix.
+#   WR-01 fix: measure_ipsf_absolute_deficits 의 6 호출 위치 placeholder
+#     category="uncertain" (fail-safe — Plan 02 가 재할당).
+# iteration 2 cross-AI review fix 7 finding 정합 (CR-01/CR-02/WR-01/WR-03/WR-04).
 # TS 미러: app/src/types/analysis.ts
 #   BodyComparisonReport / BodyComparisonFinding / ScaleProfile /
 #   BodyComparisonSourcePose / ComparisonType interface.
-# 변경 시 TS + docs/contract.md §8 + §8.2 동시 갱신 (CLAUDE.md Cross-cutting).
+# 변경 시 TS + docs/contract.md §8 + §8.2 + §8.3 동시 갱신 (CLAUDE.md Cross-cutting).
 from .analysis.body_normalizer import (  # noqa: E402 — 파일 하단 re-export 패턴
     BodyComparisonFinding,
     BodyComparisonReport,

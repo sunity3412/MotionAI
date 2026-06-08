@@ -175,6 +175,15 @@ BODY_COMPARISON_WARNING_CODES: frozenset[str] = frozenset({
 })
 
 
+# Phase 7 (Plan 07-01) — 분류 룰 임계 (D-07-A1 + D-07-A2).
+#   |deduction_score| <= CATEGORY_GATE → body_type_allowed (allowed band).
+#   |deduction_score|  > CATEGORY_GATE → needs_adjustment (조건부, A2 gate 미진입 시).
+#   confidence < CATEGORY_CONF_GATE OR body_normalization_confidence < CATEGORY_CONF_GATE
+#     → uncertain demotion (D-07-A2 + D-06-U1 재사용).
+CATEGORY_GATE: float = 0.2
+CATEGORY_CONF_GATE: float = 0.5
+
+
 # ── ComparisonType (D-06-B3, W1 — 3 cases 만) ────────────────────────────
 
 ComparisonType = Literal["mode1", "mode3_first", "mode3_progress"]
@@ -795,6 +804,11 @@ class BodyComparisonFinding:
     본 시스템의 'pose-estimation confidence frame 비율' 측정은 의미가 다르다.
     docs/contract.md §8.1 divergence note 참조.
 
+    Phase 7 (Plan 07-01, 2026-06-08) 신설 4 필드 — D-07-A1 + D-07-C1.
+    iteration 2 WR-01 fix: measure_ipsf_absolute_deficits 의 6 호출 위치에서
+    placeholder `category="uncertain"` (fail-safe) 박제. Plan 02 의 classify_findings
+    가 재할당. Plan 01 단독 deploy 시에도 모든 finding 이 "AI 확신 부족" 으로 표시.
+
     필드:
       deficit_code: 6 enum 중 하나.
       joint_key: nullable — finding 이 단일 관절에 귀속될 때만.
@@ -803,6 +817,13 @@ class BodyComparisonFinding:
       confidence: 0.0~1.0.
       body_type_adjusted: 정규화된 keypoint 에서 측정되었는지 (True = 정규화 좌표,
         False = raw 좌표). 체형 ratio 를 deduction 에 직접 곱하지 않는 것이 핵심.
+      category (Phase 7 신설): 분류 결과 3 enum (D-07-A1).
+      phase (Phase 7 신설, D-07-C1): v1 = 'hold' 단일. v2 (Phase 8 / Plan 13) 에서
+        entry/lock/transition/final_shape/release 확장. nullable.
+      body_type_interpretation (Phase 7 신설): Korean canned interpretation —
+        Phase 11 LLM 풍부화 입력 source. None 허용 (CR-01 fix path: fallback 카피).
+      recommendation (Phase 7 신설): Korean canned recommendation — mode prefix
+        prepended. CR-01 fix path 시 mode prefix 결합 X.
     """
 
     deficit_code: str
@@ -811,12 +832,25 @@ class BodyComparisonFinding:
     deduction_score: float
     confidence: float
     body_type_adjusted: bool
+    # ── Phase 7 (Plan 07-01) 신설 4 필드 — per D-07-A1 + D-07-C1 ──
+    category: Literal["body_type_allowed", "needs_adjustment", "uncertain"] = "uncertain"
+    phase: str | None = "hold"
+    body_type_interpretation: str | None = None
+    recommendation: str | None = None
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.confidence <= 1.0):
             raise ValueError(
                 f"BodyComparisonFinding.confidence must be in [0, 1], "
                 f"got {self.confidence}"
+            )
+        # Phase 7 D-07-A1 — category Literal enum 검증 (Plan 07-01 Task 3).
+        # frozen dataclass + __post_init__ backstop. Plan 02 classify_findings 의
+        # 산출 finding 도 본 게이트 통과 필수.
+        if self.category not in ("body_type_allowed", "needs_adjustment", "uncertain"):
+            raise ValueError(
+                f"BodyComparisonFinding.category must be one of "
+                f"(body_type_allowed, needs_adjustment, uncertain), got {self.category!r}"
             )
 
 
@@ -846,6 +880,16 @@ class BodyComparisonReport:
     reference_athlete_name: str | None = None
     previous_analysis_id: str | None = None
     used_reference_fallback: bool = False  # W1 — Gemini fallback 신호
+    # ── Phase 7 (Plan 07-01) 신설 2+1 필드 — per D-07-B3 + WR-03 fix ──
+    # do_not_over_correct: body_type_allowed 분류 finding 의 카피 aggregate.
+    #   결과 화면 "체형 허용 차이" 박스 source.
+    # recommended_focus: needs_adjustment + uncertain 분류 finding 의 카피 aggregate.
+    #   결과 화면 "개선 필요" 박스 source (Decision 1 — uncertain 통합).
+    # recommended_focus_fallback (WR-03 fix): recommended_focus[] 가 빈 list 일 때
+    #   단일 fallback 카피. Plan 02 가 copy_templates._EMPTY_FOCUS_FALLBACK 으로 박제.
+    do_not_over_correct: list[str] = field(default_factory=list)
+    recommended_focus: list[str] = field(default_factory=list)
+    recommended_focus_fallback: str | None = None
 
     def __post_init__(self) -> None:
         # confidence 범위
@@ -949,6 +993,8 @@ def measure_ipsf_absolute_deficits(
                         deduction_score=-0.5,
                         confidence=0.9,
                         body_type_adjusted=body_type_adjusted,
+                        # Phase 7 WR-01 fail-safe placeholder — Plan 02 classify_findings 가 재할당.
+                        category="uncertain",
                     )
                 )
 
@@ -981,6 +1027,8 @@ def measure_ipsf_absolute_deficits(
                         deduction_score=-0.2,
                         confidence=0.85,
                         body_type_adjusted=body_type_adjusted,
+                        # Phase 7 WR-01 fail-safe placeholder — Plan 02 classify_findings 가 재할당.
+                        category="uncertain",
                     )
                 )
 
@@ -1031,6 +1079,8 @@ def measure_ipsf_absolute_deficits(
                         deduction_score=-0.2,
                         confidence=0.85,
                         body_type_adjusted=body_type_adjusted,
+                        # Phase 7 WR-01 fail-safe placeholder — Plan 02 classify_findings 가 재할당.
+                        category="uncertain",
                     )
                 )
 
@@ -1060,6 +1110,8 @@ def measure_ipsf_absolute_deficits(
                         deduction_score=-0.2,
                         confidence=0.7,
                         body_type_adjusted=body_type_adjusted,
+                        # Phase 7 WR-01 fail-safe placeholder — Plan 02 classify_findings 가 재할당.
+                        category="uncertain",
                     )
                 )
 
@@ -1080,6 +1132,8 @@ def measure_ipsf_absolute_deficits(
                     deduction_score=-0.2,
                     confidence=0.8,
                     body_type_adjusted=body_type_adjusted,
+                    # Phase 7 WR-01 fail-safe placeholder — Plan 02 classify_findings 가 재할당.
+                    category="uncertain",
                 )
             )
 
@@ -1106,6 +1160,8 @@ def measure_ipsf_absolute_deficits(
                     deduction_score=-0.2,
                     confidence=0.75,
                     body_type_adjusted=body_type_adjusted,
+                    # Phase 7 WR-01 fail-safe placeholder — Plan 02 classify_findings 가 재할당.
+                    category="uncertain",
                 )
             )
 

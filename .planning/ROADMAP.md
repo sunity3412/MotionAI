@@ -192,20 +192,20 @@ Plans:
   3. 동일 동작에서 체형이 다른 두 사용자가 각자 체형 비율 기준의 점수를 받는다 (절대 각도 차이만으로 감점 X)
   4. coaching 모드 출력에 `bodyNormalizationConfidence`가 항상 포함된다
 
-**Plans**: 3 plans (Plan 06-01 = algorithm + contract lockstep, Plan 06-02 = pipeline wiring + Firestore + smoke, Plan 06-03 = 정은지 reference 백필) — 2026-06-08 revision (W4 박제 박제 9 task 박제 5 + 4 split)
+**Plans**: 3 plans (Plan 06-01 = algorithm + contract lockstep, Plan 06-02 = pipeline wiring + Firestore + smoke, Plan 06-03 = 정은지 reference 백필) — 2026-06-08 reviews revision (C1/C2/C3/C5/C6/C7/C8/C9/C12/C14/C15 fix; Plan 06-01 = 5 task, Plan 06-02 = 5 task (Task 0 C2 retro Phase 5 patch 추가), Plan 06-03 = 6 task (3.5 dry-run / 3.6 revert / 5 deferred sweep 추가))
 
 Plans:
 **Wave 1**
 
-- [ ] 06-01-PLAN.md — body_normalizer.py (Kinematic Tree Reprojection + IPSF deficit + confidence) + ScaleProfile/BodyComparisonReport (3 ComparisonType + usedReferenceFallback boolean) + 3-way contract lockstep (TS + Python + docs/contract.md §8) + 5 fixture + 4 algorithm test 파일 + drift lockstep test (Wave 1, PERS-01)
+- [ ] 06-01-PLAN.md — body_normalizer.py (Kinematic Tree Reprojection [C1 fix: target-profile-based L_ref] + IPSF deficit [C14 fix: pose_reliability_low rename, IPSF divergence note] + confidence) + ScaleProfile/BodyComparisonReport (3 ComparisonType + usedReferenceFallback boolean) + 3-way contract lockstep + 5 fixture + 4 algorithm test 파일 + drift lockstep test (Wave 1, PERS-01, 5 task, reviews-revised)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06-02-PLAN.md — pipeline _process wiring (`_angles_profile_and_frames_from_video` sibling helper for pose_frames + `_match_reference_by_name` Gemini fallback via profile.name) + firestore_admin.complete_analysis 확장 + `_validate_flat_dict_no_nested_array` validator (list[str] + list[dict-scalar] 허용) + `list_reference_motions_by_name` helper + frontend userAnalyses.normalize defensive validation + SAM build smoke + 4 integration test 파일 (Wave 2, PERS-01)
+- [ ] 06-02-PLAN.md — Task 0 (C2 retro Phase 5 patch): TechniqueProfile.motion_id + Gemini populate + Task 1: pipeline _process wiring (_angles_profile_and_frames_from_video sibling helper [C3 fix: RTMW estimate 직접 사용, _build_pose_frames 폐기] + _match_reference_by_motion_id exact-match [C2 fix: list_reference_motions_by_name 폐기]) + Task 2: firestore_admin.complete_analysis 확장 + _validate_flat_dict_no_nested_array (W5) + Task 3: _dataclass_to_camel_case_dict 4-case 명세 [C8 fix] + frontend userAnalyses normalize + Task 4: SAM build smoke + artifact 존재 검증 [C15 fix] + C9 canary test (mode1 missing ref → warnings + confidence 둘 다 검증) + C14 grep gate (bad_angle 부재) (Wave 2, PERS-01, 5 task, reviews-revised)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 06-03-PLAN.md — firestore_admin.update_reference_body_profile helper + extract_reference_body_profiles.py (Pod GPU 직접 실행, `-m` invocation 박제 X) + seed-reference-body-profile.mjs (Firebase Admin SDK ADC) + 실행 checkpoint (Wave 3, PERS-01)
+- [ ] 06-03-PLAN.md — Task 1: firestore_admin.update_reference_body_profile helper + Task 2: extract_reference_body_profiles.py (Pod GPU 직접 실행 + --dry-run [C5 fix]) + Task 3: seed-reference-body-profile.mjs (Firebase Admin SDK ADC + --dry-run [C5 fix]) + Task 3.5 (C5): dry-run 통합 검증 unit test + Task 3.6 (C12): revert-reference-body-profile.mjs (FieldValue.delete rollback) + Task 4: 실행 checkpoint (C7 filler 제거, 구체 expected output) + Task 5 (C6 deferred): belle Pod sweep 사양 박제 (Wave 3, PERS-01, 6 task, reviews-revised)
 
 ### Phase 7: 차이 분류
 

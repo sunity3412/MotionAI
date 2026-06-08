@@ -446,7 +446,11 @@ def _coerce_source_pose_dict(raw: dict | None) -> dict | None:
 
     Firestore 가 list 로 저장한 joint_keys / values 를 tuple 로 변환 (frozen dataclass
     validator 정합). camelCase / snake_case 둘 다 수용 — Plan 06-03 백필이 camelCase
-    로 저장할 가능성 박제 (TS contract 정합).
+    로 저장.
+
+    CR-03 fix (2026-06-08 review): silent `or` defaults 제거 — 실데이터 결손은 명시적
+    ValueError. 진단 메시지는 server_error 로그에서 root cause 식별 가능. 정상 데이터
+    (0.0 confidence, frame_index=0 등) 가 falsy 로 짤리는 함정도 동시 해결.
     """
     if raw is None:
         return None
@@ -456,15 +460,61 @@ def _coerce_source_pose_dict(raw: dict | None) -> dict | None:
             return raw[snake]
         return raw.get(camel)
 
-    joint_keys = _g("joint_keys", "jointKeys") or ()
-    values = _g("values", "values") or ()
+    joint_keys = _g("joint_keys", "jointKeys")
+    # values 는 TS/Python 필드명 동일 — alias 없음. raw.get 직접.
+    values = raw.get("values")
+    if not joint_keys or not values:
+        raise ValueError(
+            "bodyComparisonSourcePose missing joint_keys or values "
+            "(firestore document corrupted — refusing to coerce silently)"
+        )
+    frame_index = _g("frame_index", "frameIndex")
+    torso_px = _g("torso_px", "torsoPx")
+    confidence = _g("confidence", "confidence")
+    measured_at = _g("measured_at", "measuredAt")
+    if frame_index is None or torso_px is None or confidence is None or measured_at is None:
+        raise ValueError(
+            "bodyComparisonSourcePose missing required scalar field "
+            "(frame_index / torso_px / confidence / measured_at)"
+        )
     return {
         "joint_keys": tuple(joint_keys),
         "values": tuple(float(v) for v in values),
-        "frame_index": int(_g("frame_index", "frameIndex") or 0),
-        "torso_px": float(_g("torso_px", "torsoPx") or 1.0),
-        "confidence": float(_g("confidence", "confidence") or 0.0),
-        "measured_at": int(_g("measured_at", "measuredAt") or 0),
+        "frame_index": int(frame_index),
+        "torso_px": float(torso_px),
+        "confidence": float(confidence),
+        "measured_at": int(measured_at),
+    }
+
+
+def _coerce_body_profile_dict(raw: dict | None) -> dict | None:
+    """CR-01/CR-02 fix (2026-06-08 review) — Firestore stored bodyNormalizationProfile
+    dict → BodyNormalizationProfile 생성자 dict.
+
+    Firestore 가 camelCase 로 저장 (extract_reference_body_profiles.py:_bp_to_camel_dict,
+    seed-reference-body-profile.mjs:REQUIRED_BODY_PROFILE_FIELDS, firestore_admin.complete_analysis
+    의 _dataclass_to_camel_case_dict 결과). 그러나 BodyNormalizationProfile dataclass
+    는 snake_case 필드. 본 helper 가 camel/snake 양쪽 수용해서 snake_case kwargs 생성.
+
+    camelCase 우선 시도, snake_case fallback — 테스트 fixture (snake) 와 production
+    (camel) 모두 통과. None 입력 시 None 반환 (caller 의 None-skip 분기 정합).
+    """
+    if raw is None:
+        return None
+
+    def _g(snake: str, camel: str):
+        if snake in raw:
+            return raw[snake]
+        return raw.get(camel)
+
+    return {
+        "estimated_height_scale": float(_g("estimated_height_scale", "estimatedHeightScale")),
+        "arm_scale": float(_g("arm_scale", "armScale")),
+        "leg_scale": float(_g("leg_scale", "legScale")),
+        "torso_scale": float(_g("torso_scale", "torsoScale")),
+        "shoulder_hip_ratio": float(_g("shoulder_hip_ratio", "shoulderHipRatio")),
+        "confidence": float(_g("confidence", "confidence")),
+        "warnings": list(_g("warnings", "warnings") or []),
     }
 
 
@@ -681,9 +731,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             if ref is None or "angles" not in ref:
                 raise RuntimeError("기준 모션 또는 keyframe 데이터 없음")
             # R2 wiring — reference 의 bodyNormalizationProfile + bodyComparisonSourcePose 둘 다 fetch.
+            # CR-01 fix — Firestore camelCase → snake_case 변환 (_coerce_body_profile_dict).
             ref_profile_dict = ref.get("bodyNormalizationProfile")
             ref_profile = (
-                BodyNormalizationProfile(**ref_profile_dict)
+                BodyNormalizationProfile(**_coerce_body_profile_dict(ref_profile_dict))
                 if ref_profile_dict
                 else None
             )
@@ -773,8 +824,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 if motion_id is not None and student_profile.confidence >= 0.5:
                     matched = _match_reference_by_motion_id(motion_id)
                     if matched and matched.get("bodyNormalizationProfile"):
+                        # CR-01 fix — Firestore camelCase → snake_case 변환.
                         ref_profile_m3 = BodyNormalizationProfile(
-                            **matched["bodyNormalizationProfile"]
+                            **_coerce_body_profile_dict(matched["bodyNormalizationProfile"])
                         )
                         matched_source_pose_dict = matched.get("bodyComparisonSourcePose")
                         matched_source_pose = (
@@ -808,9 +860,13 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                     extra_warnings=extra_warnings_m3 or None,
                 )
             else:
-                # mode3_progress path — prev.bodyNormalizationProfile 박제 정합.
+                # mode3_progress path — prev.bodyNormalizationProfile 정합.
+                # CR-02 fix — get_previous_analysis 가 반환하는 Firestore doc 의
+                # bodyNormalizationProfile 은 production 에서 항상 camelCase
+                # (complete_analysis 가 _dataclass_to_camel_case_dict 로 저장).
+                # snake_case 도 수용 — 테스트 fixture 정합.
                 prev_profile = BodyNormalizationProfile(
-                    **prev["bodyNormalizationProfile"]
+                    **_coerce_body_profile_dict(prev["bodyNormalizationProfile"])
                 )
                 prev_source_pose_raw = prev.get("bodyComparisonSourcePose")
                 prev_source_pose = (

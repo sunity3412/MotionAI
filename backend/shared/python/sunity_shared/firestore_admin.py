@@ -42,6 +42,87 @@ def update_analysis_status(uid: str, analysis_id: str, status: str) -> None:
     )
 
 
+def _validate_flat_dict_no_nested_array(payload: dict, *, path: str = "") -> None:
+    """W5 (2026-06-08, Plan 06-02). Firestore nested-array 금지 보장.
+
+    [[firestore-nested-array-flat]] 정합 — BodyComparisonReport.warnings (list[str]) +
+    BodyComparisonReport.findings (list[dict-of-scalars-only]) 허용. list[list] /
+    list[dict-with-nested-list] reject. store_gemini_cache:186-199 의 기존 검증을
+    일반화. 위반 시 TypeError + path 정보. caller (pipeline) 가 catch →
+    fail_analysis(server_error) 진입.
+
+    명세:
+      - dict 입력 → 각 (key, value) 순회
+      - value 가 scalar (str, int, float, bool, None) → PASS
+      - value 가 dict → 재귀 (top-level dict 안에서는 list[scalar] 도 허용)
+      - value 가 list →
+        * list 원소가 scalar → PASS
+        * list 원소가 dict → 각 원소는 _validate_dict_only_scalars (list / nested 금지)
+        * list 원소가 list → TypeError raise
+        * 빈 list / None → PASS
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise TypeError(
+            f"_validate_flat_dict_no_nested_array: dict 입력만 허용. "
+            f"path={path!r} got {type(payload).__name__}"
+        )
+    for key, value in payload.items():
+        sub_path = f"{path}.{key}" if path else key
+        if value is None or isinstance(value, (str, int, float, bool)):
+            continue
+        if isinstance(value, dict):
+            _validate_flat_dict_no_nested_array(value, path=sub_path)
+            continue
+        if isinstance(value, list):
+            for i, item in enumerate(value):
+                item_path = f"{sub_path}[{i}]"
+                if item is None or isinstance(item, (str, int, float, bool)):
+                    continue
+                if isinstance(item, list):
+                    raise TypeError(
+                        f"{item_path} contains nested list "
+                        f"(firestore-nested-array-flat): got nested list"
+                    )
+                if isinstance(item, dict):
+                    _validate_dict_only_scalars(item, path=item_path)
+                    continue
+                # 기타 타입 (tuple 등) — Firestore 가 직렬화하지 못함.
+                raise TypeError(
+                    f"{item_path} must be scalar / dict / null "
+                    f"(firestore-nested-array-flat): got {type(item).__name__}"
+                )
+            continue
+        # scalar / dict / list / None 외 — Firestore 직렬화 불가.
+        raise TypeError(
+            f"{sub_path} must be flat (firestore-nested-array-flat): "
+            f"got nested {type(value).__name__}"
+        )
+
+
+def _validate_dict_only_scalars(d: dict, *, path: str) -> None:
+    """list[dict] 의 dict 원소 안에서는 nested list / nested dict 금지.
+
+    [[firestore-nested-array-flat]] 정합 — findings entry 의 dict 는 flat scalar 만.
+    store_gemini_cache:186-199 의 moments[i] 검증 패턴 재사용.
+    """
+    if not isinstance(d, dict):
+        raise TypeError(
+            f"{path} must be flat dict (firestore-nested-array-flat): "
+            f"got {type(d).__name__}"
+        )
+    for k, v in d.items():
+        sub_path = f"{path}.{k}"
+        if v is None or isinstance(v, (str, int, float, bool)):
+            continue
+        # findings entry 의 dict 안에서는 list / dict 도 모두 금지.
+        raise TypeError(
+            f"{sub_path} must be scalar (firestore-nested-array-flat — "
+            f"list-of-dict entry 안에서는 nested 금지): got {type(v).__name__}"
+        )
+
+
 def complete_analysis(
     uid: str,
     analysis_id: str,
@@ -50,6 +131,8 @@ def complete_analysis(
     angles: list | None = None,
     angles_joint_keys: list | None = None,
     angles_frames: int | None = None,
+    body_comparison_report: dict | None = None,
+    body_normalization_profile: dict | None = None,
 ) -> None:
     """status='done' + result (contract.md §4 AnalysisResult).
 
@@ -57,16 +140,33 @@ def complete_analysis(
     성장)가 '이전 분석 영상'을 기준 시퀀스로 DTW 비교할 때 읽는다. Firestore 는
     nested-array 금지라 flat list + anglesJointKeys(길이 J) + anglesFrames(T) 로
     저장하고 읽는 쪽에서 reshape ([[firestore-nested-array-flat]]). get_previous_analysis
-    는 to_dict() 로 이 필드를 자동 반환한다."""
+    는 to_dict() 로 이 필드를 자동 반환한다.
+
+    Phase 6 (2026-06-08, Plan 06-02) — D-06-B3 + [[firestore-nested-array-flat]] +
+    W5 validator + C14 (pose_reliability_low):
+      - body_comparison_report = result 내부 (AnalysisResult.bodyComparisonReport 정합)
+      - body_normalization_profile = top-level (mode3 progress prev fetch path).
+      - 두 dict 모두 _validate_flat_dict_no_nested_array 통과 강제 — 위반 시 TypeError.
+    """
     payload: dict = {
         "status": models.STATUS_DONE,
-        "result": result,
+        "result": dict(result) if result else {},
         "updatedAt": int(time.time() * 1000),
     }
     if angles is not None:
         payload["angles"] = angles
         payload["anglesJointKeys"] = angles_joint_keys
         payload["anglesFrames"] = angles_frames
+    if body_comparison_report is not None:
+        _validate_flat_dict_no_nested_array(
+            body_comparison_report, path="bodyComparisonReport"
+        )
+        payload["result"]["bodyComparisonReport"] = body_comparison_report
+    if body_normalization_profile is not None:
+        _validate_flat_dict_no_nested_array(
+            body_normalization_profile, path="bodyNormalizationProfile"
+        )
+        payload["bodyNormalizationProfile"] = body_normalization_profile
     _doc(models.analysis_doc_path(uid, analysis_id)).set(payload, merge=True)
 
 

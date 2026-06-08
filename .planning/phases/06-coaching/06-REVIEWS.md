@@ -1,7 +1,19 @@
 ---
 phase: 6
-reviewers: [claude]
+reviewers: [claude, codex-direct]
 reviewed_at: 2026-06-08T01:54:03Z
+latest_reviewed_at: 2026-06-08T02:42:50Z
+review_rounds:
+  - reviewer: claude
+    method: external_cli
+    reviewed_at: 2026-06-08T01:54:03Z
+    scope: original phase 6 plans before review revisions
+  - reviewer: codex-direct
+    method: current_agent_direct_review
+    reviewed_at: 2026-06-08T02:42:50Z
+    scope: revised phase 6 plans after Claude/GSD review feedback
+    external_cli: false
+    excluded_scope: SMPL-X adoption direction
 plans_reviewed:
   - .planning/phases/06-coaching/06-01-PLAN.md
   - .planning/phases/06-coaching/06-02-PLAN.md
@@ -144,3 +156,82 @@ Only one independent reviewer was available, so there is no multi-reviewer conse
 ### Divergent Views
 
 - None. Only the Claude CLI reviewer completed successfully in this environment.
+
+---
+
+## Codex Direct Review — Revised Phase 6 Plans
+
+Reviewed at: 2026-06-08T02:42:50Z
+
+Scope: revised `06-01-PLAN.md`, `06-02-PLAN.md`, and `06-03-PLAN.md` after the Claude/GSD review feedback was incorporated.
+
+Excluded scope: SMPL-X adoption or migration direction. This review only evaluates the current RTMW + segment-ratio Phase 6 plan.
+
+### Summary
+
+The revised plans address the original Claude HIGH concerns in the intended direction: target/student-profile reprojection replaces pro-profile scaling, Gemini fallback moves toward `motion_id`, RTMW `PoseFrame` reuse replaces the vague `_build_pose_frames` helper, dry-run/revert operational controls are added, and `bad_angle` is renamed to `pose_reliability_low`.
+
+The remaining risks are implementation-contract risks, not model-choice risks. The largest blocker is that production reprojection still needs reference/pro source keypoints, but the revised production and backfill plans persist only `bodyNormalizationProfile`. Without a persisted or retrievable reference pose source, `normalize_pose_by_segments(source_keypoints, ...)` cannot run in the real mode1/mode3 fallback path.
+
+### Findings
+
+#### HIGH
+
+- **R1 [HIGH] — `TechniqueProfile.motion_id` placement will break dataclass construction if inserted after `name`.** `06-02-PLAN.md` asks to add `motion_id: str | None = None` directly below `name`, before existing non-default fields `category` and `joint_expectations`. Python dataclasses reject default fields before non-default fields (`non-default argument follows default argument`). Put `motion_id` at the end of the dataclass, or make all following fields keyword-only, with the first option safer for existing positional callers.
+
+- **R2 [HIGH] — Production path lacks reference/pro source keypoints required by `normalize_pose_by_segments`.** The revised algorithm correctly requires `source_keypoints`, `source_profile`, `target_profile`, and `target_torso_px`, with `source_keypoints` as the pro/reference motion direction source. But `06-02` reads only `ref["bodyNormalizationProfile"]`, and `06-03` backfills only `reference/{motionId}.bodyNormalizationProfile`. The existing reference seed stores `angles`, not keypoints or pose frames. Add a plan task to persist reference representative keypoints/pose frames, or explicitly re-run RTMW on the reference video at analysis time and pass those keypoints into `compare_body_profiles`.
+
+- **R3 [HIGH] — Gemini-enabled `_process` can double-download and double-run RTMW.** Existing `_process` uses `_angles_and_video_path_from_video` when Gemini is enabled because Gemini needs a local video path. The revised plan also introduces `_angles_profile_and_frames_from_video` to produce angles/profile/pose_frames. If both are used, Gemini ON path downloads, extracts frames, and runs RTMW twice. Replace both with one helper that returns `angles`, `student_profile`, `pose_frames`, and optionally `local_video_path`, or extract frames once and share them.
+
+- **R4 [HIGH] — `student_profile` is typed nullable but downstream confidence assumes non-null.** `06-02` specifies `_angles_profile_and_frames_from_video(...) -> tuple[..., BodyNormalizationProfile | None, ...]`, while `06-01` confidence starts from `student_profile.confidence`, and `06-02` passes `student_profile` into `compare_body_profiles` without a guard. The existing `measure_body_profile` returns a fallback profile rather than `None`, so the plan should make `student_profile` non-null and codify fallback behavior instead of allowing `None`.
+
+#### MEDIUM
+
+- **R5 [MEDIUM] — `spatial_dispersion_penalty` formula appears inverted.** `06-01` defines `spatial_dispersion_penalty = 1 - clip(C_s / shoulder_width, 0, 1)`. This penalizes low dispersion more than high dispersion, then emits `spatial_dispersion_high` when the penalty is high. Either rename it to a compactness/occlusion penalty or invert the formula so larger dispersion yields larger penalty. Add one explicit high-dispersion fixture test.
+
+- **R6 [MEDIUM] — PoseFrame-to-keypoints conversion loses uncertainty if it stacks only `(T,17,3)`.** The revised helper says to stack `pose_frames.keypoints_3d` into `(T, 17, 3)` and pass it to `joint_uncertainty`. In the current feature code, `joint_uncertainty` returns zeros when the fourth channel is absent. Use `to_coco17_array(pose_frames)` or construct `(x, y, z, uncertainty_proxy)` explicitly so temporal fill keeps confidence information.
+
+- **R7 [MEDIUM] — Seed script dry-run contract conflicts with Firebase initialization steps.** `06-03 Task 3` initializes Firebase Admin SDK and `getFirestore()` before looping, while `Task 3.5` says dry-run must skip Firebase init so ADC is not required. Make the Task 3 implementation order explicit: parse/load/validate first; if `--dry-run`, produce proposed payload without `initializeApp` or `getFirestore`; initialize Firebase only in real-run.
+
+- **R8 [MEDIUM] — `fallback_reference_not_found` is appended after frozen dataclass construction.** The plan uses `dataclasses.replace` after `compare_body_profiles` returns. That works, but it bypasses centralized warning validation unless the dataclass validates warnings on replace. Prefer passing `extra_warnings` into `compare_body_profiles`, or exposing a small helper that preserves validation semantics.
+
+#### LOW
+
+- **R9 [LOW] — Top-level wording still says IPSF deficit 7종 while implementation scope is 5 + `pose_reliability_low`.** The revised Task 4 explicitly defers `poor_transitions` and renames `bad_angle`, but the `must_haves.truths` line still says 7 deficits. Align the wording to "5 IPSF geometric deficits + Sunity `pose_reliability_low`; `poor_transitions` deferred."
+
+- **R10 [LOW] — `source_profile` is retained but unused.** This is acceptable as a debugging/reserved parameter, but tests should assert the output does not depend on `source_profile`; otherwise future implementers may accidentally reintroduce the original pro-profile scaling bug.
+
+### Recommended Gates Before Execute
+
+1. Add a reference-keypoints contract before implementation starts: persist representative reference pose keypoints/poseFrames, or add an on-demand reference-video RTMW extraction path.
+2. Move `TechniqueProfile.motion_id` to the end of the dataclass, then update tests to cover old positional construction.
+3. Collapse Gemini and Phase 6 pose extraction into a single video processing helper to avoid double RTMW inference.
+4. Make `student_profile` non-null by contract, using `measure_body_profile` fallback behavior.
+5. Fix the spatial dispersion formula and preserve uncertainty when converting PoseFrames to keypoint arrays.
+
+### Risk Assessment
+
+Overall risk after the revisions: **MEDIUM-HIGH**.
+
+The earlier algorithm-direction risk is substantially reduced, but production viability still depends on R2. If reference source keypoints are not available, the revised algorithm cannot execute in the real pipeline even though its pure-function tests pass.
+
+---
+
+## Revised-Plan Consensus Summary
+
+This section compares the original Claude review against the revised Codex direct review.
+
+### Addressed From Original Review
+
+- Original C1 is directionally addressed: the plan now uses target/student segment ratios for `L_ref`.
+- Original C2 is directionally addressed: fallback lookup now uses `motion_id` exact-match instead of free-form `profile.name`.
+- Original C3 is directionally addressed: the plan reuses `RTMWPoseEngine.estimate()` returning `list[PoseFrame]`.
+- Original C5/C12 are addressed at plan level: dry-run and revert scripts are added.
+- Original C14/C15 are addressed at plan level: `pose_reliability_low` and SAM artifact checks are included.
+
+### Remaining Blockers
+
+- Production still needs reference/pro source keypoints for reprojection.
+- `TechniqueProfile.motion_id` insertion order must be fixed to avoid dataclass import failure.
+- Gemini ON path must avoid duplicate RTMW work.
+- `student_profile` nullability must be made consistent with confidence computation.

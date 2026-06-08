@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: planning
-stopped_at: Phase 7 plans revised per 07-REVIEW.md (2 critical + 4 warning + 1 info fixed, plan-checker iteration 3 PASS)
-last_updated: "2026-06-08T10:15:40.703Z"
+status: executing
+stopped_at: Phase 7 Plan 07-01 (차이 분류 schema + canned copy + test scaffold) 완료 — 226 PASS, 3 atomic commits
+last_updated: "2026-06-08T10:55:40Z"
 last_activity: 2026-06-08
 progress:
-  total_phases: 7
-  completed_phases: 4
-  total_plans: 38
-  completed_plans: 33
-  percent: 57
+  total_phases: 17
+  completed_phases: 3
+  total_plans: 39
+  completed_plans: 35
+  percent: 21
 ---
 
 # Project State
@@ -26,9 +26,24 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 07 (차이 분류)
-Plan: Not started
-Next: `/gsd-discuss-phase 7` — Phase 6 종료 + HUMAN-UAT 2건 (Pod GPU 백필 + sweep) 은 belle 운영 후 `/gsd-verify-work 6` 으로 정리.
-Status: Ready to plan
+Plan: 07-01 완료 → Plan 07-02 진입 준비됨
+Next: `/gsd-execute-phase 7` (Plan 07-02 — classify_findings + integration test). Wave 0 인프라 + copy_templates.py 즉시 활용.
+Status: Plan 07-01 완료 (3 atomic commits + 226 tests PASS + zero Phase 6 regression)
+
+### Plan 07-01 close-out (2026-06-08)
+
+| 영역 | 결과 |
+|---|---|
+| schema lockstep | BodyComparisonFinding +4 + BodyComparisonReport +3 (recommended_focus_fallback WR-03 fix 포함) — Python dataclass + TS interface + docs §8 + §8.3 단일 atomic commit (d4d8af4) |
+| copy_templates.py | 33 canned (21 + 12 global CR-02 fix) + 3 mode prefix + render_finding_copy(used_reference_fallback CR-01 fix) + FORBIDDEN 9 종 + _EMPTY_FOCUS_FALLBACK WR-03 (fcb4025) |
+| Wave 0 인프라 | phase07/__init__.py + conftest.py + fixtures/_factory.py + 6 fixture JSON (3e1fbf7) |
+| WR-01 fail-safe | measure_ipsf_absolute_deficits 의 6 BodyComparisonFinding emit 위치 placeholder category="uncertain" (Plan 02 재할당) |
+| iteration 2 fix | CR-01 / CR-02 / WR-01 / WR-03 / WR-04 모두 mitigation. WR-02 + INF-01 은 Plan 02 scope |
+| Test | phase07 90 PASS / phase06 136 PASS + 1 skipped (회귀 0) / tsc --noEmit clean |
+| 3 commits | `3e1fbf7` Task 1 (fixture infra) / `fcb4025` Task 2 (copy_templates + 3 test) / `d4d8af4` Task 3 (3-way lockstep + WR-01 atomic, 5 files) |
+| Deviation | (1) Rule 1 schema: BodyComparisonFinding.category default = "uncertain" — Phase 6 회귀 0 + WR-01 fail-safe 정합 (2) Rule 1 AST gate: Assign + AnnAssign 양쪽 검사 — copy_templates.py 의 typed dict literal 검출 |
+
+Plan 07-02 진입 시그널: `classify_findings(findings, body_normalization_confidence, comparison_type, *, used_reference_fallback)` 본체 + integration test. body_normalizer.py 의 6 placeholder 를 D-07-A1 + D-07-A2 룰로 재할당.
 
 > Phase 6 close-out (2026-06-08): 알고리즘 + production wiring 4/4 검증 PASS. 코드 리뷰 10/10 fix (3 Critical + 7 Warning). phase06 tests 136 pass / 1 skip. Plan 06-03 Task 5 (실 Firestore 백필) + Task 6 (Pod sweep) 은 belle 운영 작업으로 `06-HUMAN-UAT.md` 박제.
 

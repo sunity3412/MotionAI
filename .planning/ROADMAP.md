@@ -269,7 +269,7 @@ Plans:
 Plans:
 
 - [ ] 08.1-00-PLAN.md — Wave 0: Schema migration — AxisDeviationMetric distance hard break (5 필드 제거, D-01) + 3-way lockstep atomic (TS + Python + docs §9.3) + Firestore validator backwards-compat + 신설 phase08_1 test infra
-- [ ] 08.1-01-PLAN.md — Wave 1: Tilt metric 재설계 — compute_axis_deviation tilt-only 재작성 + AXIS_TILT_THRESHOLDS_DEG → tilt_thresholds.yaml lazy load + calibrate_tilt_thresholds.py + 정은지 5영상 P25/P75/P90 분포 + IPSF ±20° default
+- [ ] 08.1-01-PLAN.md — Wave 1: Tilt metric 재설계 — compute_axis_deviation tilt-only 재작성 + `_normalize_angle_undirected` (modulo 180°) + AXIS_TILT_THRESHOLDS_DEG → tilt_thresholds.yaml schema_v2 lazy load + calibrate_tilt_thresholds.py (source 분기 firestore/repo-artifact/wave2-explicit + null tilt preflight hard gate) + **정은지 5영상 P100 + margin 5° calibration** (P90 폐기) + IPSF tolerance_deg=20° / major_fault_deg=40° floor + boundary-low strict severity (`>` + 1e-9 eps, unsigned [0, 90])
 - [ ] 08.1-02-PLAN.md — Wave 2: Pipeline rewire + 정은지 5영상 재sweep + SWEEP-EVIDENCE.md — pipeline caller-side audit + mock E2E test + Pod 재배포 manual checkpoint + ROADMAP SC #1-5 evidence 박제
 
 **Future plan (deferred, Codex C-MH1 정합)**: `AxisDeviationMetric` → `BodyLineTiltMetric` rename — distance 차원 제거 후 의미적 정합. 본 phase 미적용 (docstring caveat 만), 별도 plan 으로 분리 (TS interface + Python dataclass + docs §9.3 + tests + frontend 영향).

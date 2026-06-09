@@ -49,7 +49,7 @@
 
 ### 힘 패턴 (Force Pattern) — research 02
 
-- [ ] **FORCE-01**: 중심축 이탈·접촉점 안정성·jerk/jitter 기초 신호로부터 ForceDirectionPattern(pull/push/brace/rotate/release)이 phase별로 추론되고, 동작 실패 원인 후보 상위 3개가 카드 형태로 제시된다. "근육 힘 방향" 단정 금지 — 모두 "가능성"으로 표기
+- [x] **FORCE-01**: 중심축 이탈·접촉점 안정성·jerk/jitter 기초 신호로부터 ForceDirectionPattern(pull/push/brace/rotate/release)이 phase별로 추론되고, 동작 실패 원인 후보 상위 3개가 카드 형태로 제시된다. "근육 힘 방향" 단정 금지 — 모두 "가능성"으로 표기
 
 ### 안전 (Safety)
 
@@ -157,7 +157,7 @@
 | POSE-03 | Phase 4 | Pending |
 | SCORE-01 | Phase 5 | Pending |
 | PERS-01 | Phase 6, Phase 7 | Complete |
-| FORCE-01 | Phase 8, Phase 9 | Pending |
+| FORCE-01 | Phase 8, Phase 9 | Complete |
 | FEED-02 | Phase 9, Phase 11 | Pending |
 | SAFE-01 | Phase 10 | Pending |
 | COACH-01 | Phase 11 | Pending |

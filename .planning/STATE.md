@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: executing
-stopped_at: Phase 08.1 Wave 1 (Plan 01) close-out 2026-06-09 — compute_axis_deviation 실 tilt-only 본체 (pole_aligned 3D + image_2d fallback + 'tilt_unavailable' 분기) + tilt_thresholds.yaml schema_v2 ('elite_p100_plus_margin', shoulder cutoff 63.28°/94.92°, hip 54.62°/81.93°) + calibrate_tilt_thresholds.py + C-M1 _normalize_angle_undirected + C-H2 boundary-low severity + C-H3 preflight hard gate. 3 commits (30fd7d2/e08be9c/80c9a6b), 413 PASS + 1 skipped. Wave 2 (08.1-02, pipeline rewire + Pod 재배포 + 정은지 재sweep evidence) 진입 가능.
-last_updated: "2026-06-09T13:00:00.000Z"
+status: verifying
+stopped_at: Completed Phase 8.1 (Wave 2 — 정은지 재sweep evidence). Phase 8.1 verifier 진입 ready
+last_updated: "2026-06-09T13:00:02.748Z"
 last_activity: 2026-06-09
 progress:
-  total_phases: 18
-  completed_phases: 5
-  total_plans: 46
-  completed_plans: 41
-  percent: 28
+  total_phases: 9
+  completed_phases: 7
+  total_plans: 45
+  completed_plans: 42
+  percent: 78
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 Phase: 08.1 (axis-metric-redesign) — EXECUTING
 Plan: 3 of 3 (Wave 0+1 done, Wave 2 next)
 Next: Plan 08.1-02 (Wave 2: pipeline rewire + Pod 재배포 + 정은지 5영상 재sweep evidence). Phase 9 평행 진입 가능 (axis raw signal only guard). belle chain: 6 ✓ → 7 ✓ → 8 ✓ → 8.1 Wave 0 ✓ → 8.1 Wave 1 ✓ + 9 (평행) → 8.1 Wave 2 → 12 → 13.
-Status: Executing Phase 08.1
+Status: Phase complete — ready for verification
 
 ### Plan 08.1-01 close-out (2026-06-09)
 
@@ -196,7 +196,7 @@ Last activity: 2026-06-09
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 92%
+Progress: [█████████░] 93%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -419,6 +419,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 
 *Updated after each plan completion*
 | Phase 06 P03 | 50 | 7 tasks | 10 files |
+| Phase 08.1 P02 | 90 min | 5 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -457,6 +458,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Plan 06-03 R2: 단일 helper update_reference_body_data(motion_id, body_profile, source_pose) — 두 필드 atomic merge. 구 update_reference_body_profile 폐기. Phase 14 정은지 reference 등록 helper 재사용 진입점.
 - [Phase ?]: Plan 06-03 R7: seed-reference-body-profile.mjs explicit ordering — Step 1 parse + validate → Step 2 if dry-run early return (Firebase 미접촉) → Step 3 real-run. ADC 미설정 환경에서도 dry-run path 안전 (Firebase init 호출 0).
 - [Phase ?]: Plan 06-03 C12: revert-reference-body-profile.mjs 신설 + 안전 기본값 (--commit 미지정 시 강제 dry-run) + R2 정합 (두 필드 모두 FieldValue.delete).
+- [Phase 08.1]: Wave 2: production sweep + 8조건 measured-low gate 8/8 PASS (25/25 'low' + 5/5 sensitivity) — 정은지 5영상 sweep_phase8_1_1781009003567 exit 0 + 25/25 axisMetric measured_low_count=25 severity_low_count=25 + Task 2.5 synthetic 5/5. ROADMAP Phase 8.1 SC #1-5 backward coverage 박제.
+- [Phase 08.1]: Layer 2 evidence only — Pass 게이트 아님 — 본 sweep 0/25 gemini_assisted + 5/5 layer2_unavailable warning. recognizer factory 미초기화 추정. 본 phase 의 axis metric fix 가 본질 scope. Layer 2 활성도 검증 = Phase 9/11 deferred.
+- [Phase 08.1]: pipeline/app.py caller-side 변경 0 (Wave 1 시그너처 보존) — grep audit 결과 distance kwarg 부재 + 3 coordinate_space reference 모두 pole_axis_measurement.coordinate_space (PoleAxisMeasurement unchanged field). Plan must_haves Wave 2 'caller-side 변경 0 가능' 정합.
 
 ### Pending Todos
 
@@ -488,9 +492,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-09T13:00:00.000Z
+Last session: 2026-06-09T13:00:02.739Z
 
-Stopped at: Phase 08.1 Wave 1 (Plan 01) close-out — compute_axis_deviation 실 tilt-only 본체 (Wave 0 stub 교체) + tilt_thresholds.yaml schema_v2 정은지 25 sample P100+margin 5° calibration + calibrate_tilt_thresholds.py + C-M1 _normalize_angle_undirected + C-H2 boundary-low + C-H3 preflight hard gate. 3 commits pushed (30fd7d2/e08be9c/80c9a6b). 413 PASS + 1 skipped. Wave 2 (08.1-02 pipeline rewire + Pod 재배포 + 정은지 재sweep evidence) 진입 가능. Phase 9 평행 진입 가능 (raw signal only guard, D-05 정합).
+Stopped at: Completed Phase 8.1 (Wave 2 — 정은지 재sweep evidence). Phase 8.1 verifier 진입 ready
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -557,7 +561,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/08-jerk-jitter/08-01-PLAN.md
+Resume file: .planning/phases/08.1-axis-metric-redesign/08.1-SWEEP-EVIDENCE.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

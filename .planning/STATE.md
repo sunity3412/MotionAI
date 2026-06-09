@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 8 plans 4/4 done (08-00/01/02/03 SUMMARY 박제 완료). 정은지 5/5 영상 axis severity='high' 도메인 정합성 문제 발견 → Phase 8.5 (axis-metric-redesign, NEW) 신설 예정 (belle α 결정 2026-06-09). Phase 9 평행 진입 가능 (tilt 데이터 rotation-only 유의미).
-last_updated: "2026-06-09T15:35:00.000Z"
+stopped_at: Phase 08.1 Wave 0 (Plan 00) close-out 2026-06-09 — AxisDeviationMetric distance hard break (3-way lockstep atomic, 5 필드 영구 제거) + compute_axis_deviation transitional stub. 2 commits (6a294d5/1cb3e6e), 372 PASS + 1 skipped. Wave 1 (08.1-01-PLAN.md, tilt metric 본체) 진입 가능. Phase 9 평행 진입 가능 (axis raw signal only guard, severity 무시).
+last_updated: "2026-06-09T12:30:00.000Z"
 last_activity: 2026-06-09
 progress:
-  total_phases: 17
+  total_phases: 18
   completed_phases: 5
-  total_plans: 43
-  completed_plans: 39
-  percent: 29
+  total_plans: 46
+  completed_plans: 40
+  percent: 28
 ---
 
 # Project State
@@ -21,14 +21,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 7 — 차이 분류 (belle chain: 6 → 7 → 8 → 9 → 12 → 13)
+**Current focus:** Phase 08.1 — axis-metric-redesign
 
 ## Current Position
 
-Phase: 08 (중심축·접촉점·jerk) — **complete (4/4 plans)** — Plan 08-00 / 08-01 / 08-02 / 08-03 SUMMARY 박제 완료
-Plan: 08-03 종료 → Phase 8 close-out 완료 (FORCE-01 requirement 박제)
-Next: Phase 8.5 (axis-metric-redesign, NEW) 신설 예정 (belle α 결정 2026-06-09). Phase 9 평행 진입 가능. belle chain: 6 ✓ → 7 ✓ → **8 ✓** → 8.5 (NEW) + 9 (평행) → 12 → 13.
-Status: Phase 8 complete
+Phase: 08.1 (axis-metric-redesign) — EXECUTING
+Plan: 2 of 3 (Wave 0 done, Wave 1 next)
+Next: Plan 08.1-01 (Wave 1: tilt metric 본체 + 정은지 분포 기반 threshold yaml). Phase 9 평행 진입 가능 (axis raw signal only guard). belle chain: 6 ✓ → 7 ✓ → 8 ✓ → 8.1 Wave 0 ✓ → 8.1 Wave 1 + 9 (평행) → 8.1 Wave 2 → 12 → 13.
+Status: Executing Phase 08.1
+
+### Plan 08.1-00 close-out (2026-06-09)
+
+| 영역 | 결과 |
+|---|---|
+| 3-way lockstep atomic | AxisDeviationMetric 5 distance 필드 (pelvisDistanceFromPoleAxis / chestDistanceFromPoleAxis / scaleDenominator / coordinateSpace / deviationDirection) 영구 제거 + 6 필드 만 보존 (phase / shoulderTilt / hipTilt / severity / confidence / warnings). TS interface + Python dataclass + docs §9.3 + models.py 주석 single commit atomic |
+| Transitional stub | compute_axis_deviation 본체 = stub (모든 phase boundary 에 대해 severity='low' default + warnings=['phase_8_1_wave_0_transitional'] 반환). distance 산출 path 영구 제거 + helper 함수 + 모듈 상수 보존 (Wave 1 cleanup) |
+| C-B1 fix | compute_force_signals 본체 의 `coordinate_space == 'unavailable'` 참조 제거 → `axis_metric_transitional` 검출 로직 (모든 axis_metric warnings 박제 stub 신호 포함 시 top-level warning emit). C-H1 downstream guard 동일 신호 |
+| C-H1 fix | Wave 0 단독 production 진입 금지 박제 (severity='low' 가 'measurement 안 됨' 을 '낮은 위험' 으로 silently 변환 차단). Wave 2 production sweep 게이트 = warning 부재 |
+| C-MH1 박제 | AxisDeviationMetric naming caveat (실 의미 tilt-only) docstring/JSDoc 박제 + ROADMAP rename 별도 plan 메모 |
+| Phase 8 test 수술 | test_compute_axis_deviation.py 11 → 5 함수 (distance 기반 6 함수 제거 + stub 동작 검증 5 함수 신설). test_force_signals_lockstep.py _FIELD_MAP 5 distance entry + coordinate_space_unavailable warning entry 제거 (coordinateSpace 박제 ContactStabilityMetric 보존). test_firestore_lockstep.py axisMetrics fixture 6 필드 dict 갱신 |
+| Phase 08_1 test infra | __init__.py + conftest.py + 4 test 파일 신설 — 20 test (6 schema lockstep + 6 dataclass invariants + 5 firestore validator backwards-compat + 3 C-B1 grep guard). legacy 5 필드 dict 의 scalar backwards-compat 검증 박제 |
+| 회귀 게이트 | phase06 137 + phase07 108 + phase08 97 + phase08_1 20 + pipeline 11 = 373 collected, **372 PASS + 1 skipped**. TS strict mode clean (tsc --noEmit) |
+| 2 commits | `6a294d5` Task 1 (3-way lockstep atomic + stub + C-B1 + C-H1 + C-MH1 + Phase 8 test 수술 + phase08_1 신설 infra) / `1cb3e6e` Task 2 (firestore scoped validator backwards-compat + C-B1 grep guard) |
+
+Wave 1 진입 차단 해소 — AxisDeviationMetric 6 필드 contract + stub 위에 compute_axis_deviation 본체 실 tilt 알고리즘 + threshold yaml 박제 가능.
 
 ### Plan 08-03 close-out (2026-06-09)
 
@@ -449,9 +465,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-09T15:35:00.000Z
+Last session: 2026-06-09T12:30:00.000Z
 
-Stopped at: Phase 8 plans 4/4 done (08-00/01/02/03 SUMMARY 박제 완료). 정은지 5/5 영상 axis severity='high' 도메인 정합성 문제 발견 → Phase 8.5 (axis-metric-redesign, NEW) 신설 예정 (belle α 결정 2026-06-09). Phase 9 평행 진입 가능 (tilt 데이터 rotation-only 유의미).
+Stopped at: Phase 08.1 Wave 0 (Plan 00) close-out — AxisDeviationMetric distance hard break atomic + compute_axis_deviation transitional stub. 2 commits pushed (6a294d5/1cb3e6e). 372 PASS + 1 skipped. Wave 1 진입 가능.
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

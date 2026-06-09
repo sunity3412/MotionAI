@@ -1,13 +1,17 @@
 ---
 phase: 8
 reviewers: [codex]
-reviewed_at: 2026-06-09T01:57:03Z
+reviewed_at: 2026-06-09T03:35:00Z
 plans_reviewed:
+  - .planning/phases/08-jerk-jitter/08-00-PLAN.md
   - .planning/phases/08-jerk-jitter/08-01-PLAN.md
   - .planning/phases/08-jerk-jitter/08-02-PLAN.md
   - .planning/phases/08-jerk-jitter/08-03-PLAN.md
 prior_review_referenced: .planning/phases/08-jerk-jitter/08-DIRECT-REVIEW.md
-cycle: 1
+cycles_recorded: [1, 2]
+latest_cycle: 2
+latest_verdict: revise-before-execute
+latest_unresolved_high: 4
 ---
 
 # Cross-AI Plan Review — Phase 8
@@ -280,3 +284,151 @@ To incorporate feedback into planning:
 ```
 /gsd-plan-phase 8 --reviews
 ```
+
+---
+
+# Cross-AI Plan Review — Phase 8 (Cycle 2)
+
+Cycle 2 of the plan-review-convergence loop. Cycle 1 verdict was `block` with
+9 HIGH concerns (including 1 BLOCKER, R1). The planner replan (commit
+`b606192`) inserted a NEW Wave-0 plan `08-00-PLAN.md` and revised 08-01/02/03.
+This cycle audits whether each Cycle 1 HIGH is actually addressed in the plan
+text — not merely claimed in the replan summary — and surfaces new HIGH risks
+introduced by the revision.
+
+- **cycle:** 2
+- **reviewers:** [codex]
+- **reviewed_at:** 2026-06-09T03:35:00Z
+- **plans_reviewed:**
+  - .planning/phases/08-jerk-jitter/08-00-PLAN.md (NEW Wave-0)
+  - .planning/phases/08-jerk-jitter/08-01-PLAN.md (revised)
+  - .planning/phases/08-jerk-jitter/08-02-PLAN.md (revised)
+  - .planning/phases/08-jerk-jitter/08-03-PLAN.md (revised)
+- **prior_review_referenced:** 08-REVIEWS.md cycle 1 (this file, above)
+
+## Codex Review (Cycle 2)
+
+### 1. Cycle 1 HIGH Resolution Audit
+
+| ID | Status | Justification |
+|---|---|---|
+| R1 | FULLY RESOLVED | 08-00 defines `PoleLine2D` / `PoleAxisMeasurement` and `point_to_pole_line_distance_2d()` with `line=None → coordinate_space='unavailable'`; 08-02 uses nullable axis distances instead of direction-only `PoleAxis` (08-00 lines 32–33, 265–282; 08-02 lines 438–457). |
+| R2 | FULLY RESOLVED | 08-00 adds `median_torso_length()` and bans `BodyNormalizationProfile`; 08-02 imports/uses it with drift-defense tests (08-00 lines 283–294, 347; 08-02 lines 438–439, 571–576). |
+| R3 | FULLY RESOLVED | Contact primitive kinds, YAML `kind`, nullable `estimatedStable`, `nearPoleRatio`, and segment/region-proxy handling are specified and tested (08-00 line 35; 08-01 lines 317–363; 08-02 lines 498–531). |
+| R4 | PARTIALLY RESOLVED | Spec/CSV and function parameter exist, but production wiring hardcodes `preflight_label_gate_passed=None`; a PASS cannot be applied without code/config changes (08-00 lines 466–488; 08-03 lines 427–435, 583–588). |
+| R5 | FULLY RESOLVED | Jerk is `deg/sec^3` via `dt=1/fps`, `temporal_fill()` is banned inside `compute_force_signals()`, and tests cover call count and FPS invariance (08-02 lines 474–489, 608–624, 640–646). |
+| R6 | FULLY RESOLVED | Layer 2 uses `TechniqueProfile.key_moments`; `gemini_extractor` arg removed and duplicate-Gemini-call test specified. `_gemini_enabled()` is reused for local-video retention (08-03 lines 272–295, 342–348, 427–440). |
+| R7 | FULLY RESOLVED | Separate `FORCE_SIGNALS_LAYER2_ENABLED` flag plus four env-combination pipeline tests are specified (08-03 lines 30, 462–470, 508–511). |
+| R8 | NOT RESOLVED | The revised default `gemini-2.0-flash-exp` is stale; per Google's current docs Gemini 2.0 Flash is scheduled to be shut down (2026-06-01) and the current stable Flash family is `gemini-3.5-flash`. Also the real model default lives in `judging/gemini_moment_extractor.py`, not just `gemini_technique_recognizer.py` — only one of the two call paths is being made env-driven. |
+| R10 | FULLY RESOLVED | `_VideoAnalysisInputs` is extended with `pole_axis_measurement`, built from vertical fallback with `line=None`, exposing `coordinate_space='unavailable'` instead of pretending detection exists (08-03 lines 384–390, 494–505). |
+| H1 | FULLY RESOLVED | Factories use `frame_index`, omit `visibility` for `Keypoint3DAligned`, and omit `asymmetry`; grep acceptance criteria enforce these (08-00 lines 301–318, 348–351). |
+
+### 2. New HIGH Concerns (introduced by the Cycle 2 revision)
+
+1. **Preflight gate cannot pass in production.** `pipeline/app.py::_process` is
+   planned to hardcode `preflight_label_gate_passed=None` (08-03 lines 427–
+   435). The manual checkpoint instructs belle to set the gate to `True` via
+   "Lambda env or force_signals call," but no env-driven plumbing path is
+   defined in any of the four plans. Result: even after a successful 25-
+   timestamp PASS, Layer-1 confidence cannot reach `medium` without a code
+   change. This is the residual R4 blocker.
+2. **Layer-2 failure upgrades unvalidated Layer-1 confidence to `medium`.**
+   The Layer-2 try/except branch (08-03 lines 288–295) does
+   `_promote_layer1(..., "medium", "heuristic", ["layer2_call_failed"], ...)`,
+   bypassing `_layer1_confidence_from_preflight()`. A failed Gemini-assisted
+   path must not promote Layer-1 above whatever the preflight gate allows.
+   This contradicts the Cycle 1 R4 fix in the same plan.
+3. **Firestore flat-array invariant is weakened.** `ForceSignalsReport` carries
+   metric arrays of dicts with `warnings: list[str]` and
+   `unstableBodyParts: list[str]` (08-01 lines 436–439). 08-03 expands
+   `_validate_dict_only_scalars` to permit scalar lists inside `list[dict]`
+   (08-03 lines 297–299). Cycle 1 flagged this as MEDIUM; in Cycle 2 it is
+   relaxed into the validator itself — which is a project-wide invariant
+   change, not a Phase-8-scoped one. Either (a) formally re-state the
+   invariant, or (b) keep warning lists as separate top-level fields.
+
+### 3. MEDIUM / LOW Concerns
+
+- `preflight_gate_pending` warning is emitted by 08-02 but is not present in
+  the 19-code warning enum in 08-01 §9.8.
+- `TechniqueCache` cache-hit reconstruction currently does not round-trip
+  `moments`; on a cache hit `TechniqueProfile.key_moments` will be `None`,
+  silently disabling Layer 2. Plan needs a deserialization step.
+- 08-03 references `from .features import assign_frame_indices`, but the
+  helper currently lives in `sunity_shared.judging`. Import path drift.
+- Monotonic boundary validation only catches frame-order violations; it does
+  not resolve the Cycle 1 semantic ambiguity that `setup → lock start` and
+  `hold → hold start` are not contractually guaranteed by the recognizer
+  prompt.
+- The 9 fps / 18 fps jerk invariance test uses linear interpolation to
+  upsample, which by construction flattens third-difference noise. This may
+  hide rather than prove FPS robustness; a real captured 18 fps trace would
+  be a stronger test.
+
+### 4. Per-Plan Risk Assessment
+
+- **08-00:** MEDIUM — coordinate/scale contract is sound; the preflight gate
+  is document-only until 08-03 plumbs it.
+- **08-01:** HIGH — schema introduces nested scalar lists inside metric
+  arrays (Firestore invariant exposure).
+- **08-02:** MEDIUM — core R1/R2/R3/R5 fixes are well specified; warning-enum
+  completeness and FPS-invariance test realism are open.
+- **08-03:** HIGH — stale Gemini model default, preflight plumbing gap,
+  Layer-2-failure confidence promotion, and Firestore invariant change all
+  land here.
+
+### 5. Phase-Level Verdict
+
+`revise-before-execute`
+
+The geometry/scale blockers (R1/R2/R3/R5/R10/H1) are substantively closed,
+and Layer-2 reuse (R6) and env separation (R7) land cleanly. Execution should
+wait for: (a) env/config plumbing for `preflight_label_gate_passed` so the
+gate is actually reachable from belle's manual checkpoint; (b) Layer-2
+failure path that does not promote Layer-1 confidence; (c) a decision on
+whether to relax the Firestore flat-array invariant project-wide or keep
+warnings as flat siblings; (d) a current Gemini Flash model default applied
+in both `gemini_technique_recognizer.py` AND
+`judging/gemini_moment_extractor.py`.
+
+### 6. CYCLE_SUMMARY
+
+CYCLE_SUMMARY: current_high=4
+
+## Consensus Summary (Cycle 2)
+
+Only Codex was invoked this cycle. Compared with Cycle 1:
+
+- **Closed:** R1, R2, R3, R5, R6, R7, R10, H1 (8 of 9 prior HIGHs FULLY
+  RESOLVED).
+- **Still open (Cycle 1 carryover):** R4 (partial — plumbing gap), R8 (model
+  default).
+- **Newly raised (Cycle 2):** Layer-2 failure confidence promotion, Firestore
+  flat-array invariant relaxation.
+
+Net unresolved HIGH = 4 (R4 partial + R8 not-resolved + 2 new).
+
+### Recommended Next Steps Before Execution
+
+1. Add env-driven plumbing for `preflight_label_gate_passed` in
+   `pipeline/app.py::_process` (e.g. `os.environ.get("PREFLIGHT_LABEL_GATE_PASSED", "")` → bool) so the gate becomes reachable without code edits.
+2. In `force_signals.compute_phase_boundaries`, route the Layer-2 except
+   branch through `_layer1_confidence_from_preflight()` so failure cannot
+   exceed the preflight-gated ceiling.
+3. Make `GEMINI_MODEL` env-driven in BOTH
+   `gemini_technique_recognizer.py` AND
+   `judging/gemini_moment_extractor.py`, and pick a model that is not
+   end-of-life as of 2026-06-09 (verify against Google's deprecation page).
+4. Either (a) make ForceSignalsReport metrics carry no list fields (move
+   `warnings` and `unstableBodyParts` to top-level keyed maps), or (b)
+   explicitly update the project Firestore invariant ADR before relaxing
+   `_validate_dict_only_scalars`.
+5. Add `preflight_gate_pending` to the §9.8 warning enum and document the
+   `TechniqueCache` round-trip for `key_moments`.
+
+To incorporate feedback into planning:
+
+```
+/gsd-plan-phase 8 --reviews
+```
+

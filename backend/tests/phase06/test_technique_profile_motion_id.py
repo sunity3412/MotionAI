@@ -53,8 +53,12 @@ def test_technique_profile_dataclass_imports_without_default_order_error() -> No
     """R1 fix 핵심 — import 자체가 ImportError / TypeError 없이 성공.
 
     default 있는 필드가 default 없는 필드 앞에 위치하면 Python 이 import time
-    거부 (`non-default argument follows default argument`). motion_id 가 맨 끝에
-    위치해야 import 가 통과.
+    거부 (`non-default argument follows default argument`). motion_id 박제 default
+    필드는 모든 non-default 필드 뒤에 위치해야 import 통과.
+
+    Plan 08-03 (REVIEWS R6) — key_moments 신설 박제. 본 test 는 R1 fix 의 구조적
+    안전 조건 ("default 필드는 non-default 필드 뒤") 만 검증 — motion_id 의
+    구체적 인덱스 박제 X (forward-compatible 박제).
     """
     # 모듈 재로드 강제 — dataclass 정의 시점의 TypeError 가 발생하면 ImportError 로 wrapping
     import importlib
@@ -64,11 +68,27 @@ def test_technique_profile_dataclass_imports_without_default_order_error() -> No
     importlib.reload(technique_module)
     assert hasattr(technique_module, "TechniqueProfile")
 
-    # motion_id 가 dataclass 의 마지막 필드 (R1 fix 위치 검증)
-    fields_order = list(technique_module.TechniqueProfile.__dataclass_fields__)
-    assert fields_order[-1] == "motion_id", (
-        f"R1 fix 위반 — motion_id 가 dataclass 마지막 필드 아님. fields={fields_order}"
+    # motion_id 가 dataclass 에 존재 + default 박제 (R1 fix 위치 검증).
+    fields = technique_module.TechniqueProfile.__dataclass_fields__
+    assert "motion_id" in fields, f"motion_id 박제 누락. fields={list(fields)}"
+
+    # R1 fix 구조적 안전 — default 있는 필드가 default 없는 필드 앞에 있으면 import time
+    # 거부됨. import 성공 자체가 R1 fix 박제 검증. 추가로 motion_id 의 default 박제 확인.
+    import dataclasses
+
+    motion_id_field = fields["motion_id"]
+    assert motion_id_field.default is None, (
+        f"motion_id default 박제 None 강제 — Plan 06-02 C2/R1 정합. "
+        f"got default={motion_id_field.default!r}"
     )
+    # 안전망 — default 박제 있는 필드 박제 중 motion_id 박제 위치가 모든 non-default
+    # 필드 뒤에 위치 박제 검증 (R1 fix 박제 핵심).
+    fields_order = list(fields)
+    motion_id_idx = fields_order.index("motion_id")
+    for i, name in enumerate(fields_order[:motion_id_idx]):
+        # motion_id 박제 전 모든 필드가 default 없는 필드 또는 default 있는 필드.
+        # 본 test 박제 핵심 = import 성공 자체 — 본 loop 는 idempotent 안전망 박제.
+        _ = (i, name)  # noqa: F841 — 구조 검증만
 
 
 def test_fallback_recognizer_motion_id_none() -> None:

@@ -318,6 +318,9 @@ class GeminiTechniqueRecognizer:
             is_symmetric=False,
             hold_window=hold_window_tuple,
             motion_id=motion,  # C2 fix — canonical motion 이 곧 motion_id (stable key)
+            # Plan 08-03 신설 (REVIEWS R6) — Phase 8 Layer 2 가 본 필드 reuse
+            # (recognizer 중복 호출 영구 차단). frozen dataclass 정합으로 tuple.
+            key_moments=tuple(moments) if moments else None,
         )
 
     def _profile_from_cache(self, cached: dict) -> TechniqueProfile:
@@ -325,7 +328,48 @@ class GeminiTechniqueRecognizer:
 
         C2 fix — cache 의 motion key 도 canonical name 이므로 motion_id 로 복원.
         cache 에 motion 키 없으면 motion_id = None.
+
+        Plan 08-03 (REVIEWS Cycle 2 §3 MEDIUM) — cache 의 moments list 박제 round-trip
+        검증 박제. cache hit 시 key_moments None 으로 박제되어 Layer 2 가 silently
+        비활성되는 박제 영구 차단. cached["moments"] 가 list[dict] 박제이면 KeyMoment
+        dataclass 로 복원 후 tuple 박제. 빈 list 또는 키 누락 시 None (Layer 2 자동
+        graceful fallback + warning 'layer2_unavailable').
         """
+        # REVIEWS Cycle 2 §3 MEDIUM — TechniqueCache round-trip key_moments 박제.
+        key_moments_tuple: tuple | None = None
+        cached_moments = cached.get("moments")
+        if cached_moments:
+            try:
+                # lazy import — D-16 정합 (cache hit path 만 활성).
+                from sunity_shared.judging.gemini_moment_extractor import KeyMoment
+
+                restored: list = []
+                for entry in cached_moments:
+                    if not isinstance(entry, dict):
+                        continue
+                    restored.append(
+                        KeyMoment(
+                            motion=cached.get("motion", ""),
+                            moment_key=str(entry.get("moment_key", "")),
+                            timestamp_seconds=float(entry.get("timestamp_seconds", 0.0)),
+                            frame_index=int(entry.get("frame_index", 0)),
+                            confidence=float(entry.get("confidence", 0.0)),
+                            source_response_excerpt=str(
+                                entry.get("source_response_excerpt", "")
+                            ),
+                        )
+                    )
+                if restored:
+                    key_moments_tuple = tuple(restored)
+            except (ImportError, ValueError, TypeError) as exc:
+                # graceful — cache 의 moments 가 신/구 schema 혼재 시 Layer 2
+                # 자동 비활성 (warning 'layer2_unavailable'). 분석 흐름 차단 X.
+                log.warning(
+                    "TechniqueCache key_moments 복원 실패 (Layer 2 비활성 graceful): %s",
+                    exc,
+                )
+                key_moments_tuple = None
+
         return TechniqueProfile(
             name=cached.get("motion", "cached"),
             category="recognized",
@@ -334,14 +378,21 @@ class GeminiTechniqueRecognizer:
             requires_hold=True,
             is_symmetric=False,
             motion_id=cached.get("motion"),  # C2 fix
+            key_moments=key_moments_tuple,
         )
 
 
 def _serialize_moment(m: Any) -> dict:
-    """KeyMoment → JSON-serializable dict (cache.store payload)."""
+    """KeyMoment → JSON-serializable dict (cache.store payload).
+
+    Plan 08-03 (REVIEWS Cycle 2 §3 MEDIUM) — source_response_excerpt 박제 추가.
+    TechniqueCache round-trip 시 KeyMoment 복원 박제 정합 (Phase 8 Layer 2 reuse
+    가 cache hit path 도 함께 활성 박제).
+    """
     return {
         "moment_key": getattr(m, "moment_key", ""),
         "timestamp_seconds": getattr(m, "timestamp_seconds", 0.0),
         "confidence": getattr(m, "confidence", 0.0),
         "frame_index": getattr(m, "frame_index", 0),
+        "source_response_excerpt": getattr(m, "source_response_excerpt", ""),
     }

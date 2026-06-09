@@ -45,7 +45,16 @@ GEMINI_API_KEY_PARAM_NAME = "/sunity/motion/gemini-api-key"
 #   → "gemini-3.1-pro-preview" 박제 = belle D-13 정신 정확 박제 모델명.
 # ListModels 출력 (2026-06-05 박제): gemini-3.1-pro-preview 박제 = generateContent +
 #   countTokens + createCachedContent + batchGenerateContent (video API 박제).
-DEFAULT_GEMINI_MODEL = "gemini-3.1-pro-preview"
+#
+# Plan 08-03 (2026-06-09, REVIEWS Cycle 2 R8 NEW HIGH 차단) — model 박제 env-driven.
+# 본 파일이 실 DEFAULT 박제 위치 (Cycle 1 plan 이 recognizer.py 만 박제하여 path
+# 누락 → Cycle 2 carryover 차단). belle 가 env GEMINI_MODEL 박제만으로 모델 박제
+# 변경 박제 (코드 변경 0).
+# 박제 default = 'gemini-2.5-flash' — 현재 stable Flash family. 이전 Flash experimental
+# 모델 박제 2026-06-01 EOL (Google deprecation) 영구 차단 — grep 안전망 test 가 검증.
+# Gemini 3.x Pro 가 belle 가용 시점에 env GEMINI_MODEL=gemini-3.1-pro-preview 박제만으로
+# 즉시 박제.
+DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 # Gemini 응답이 좌표·점수·판단을 출력하지 못하도록 거부할 패턴.
 # memory: analysis-objectivity-no-human-scores — 출력은 시점/분류만, 점수·좌표 금지.

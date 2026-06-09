@@ -106,6 +106,11 @@ def _validate_dict_only_scalars(d: dict, *, path: str) -> None:
 
     [[firestore-nested-array-flat]] 정합 — findings entry 의 dict 는 flat scalar 만.
     store_gemini_cache:186-199 의 moments[i] 검증 패턴 재사용.
+
+    Plan 08-03 (REVIEWS Cycle 2 §3 NEW HIGH #3) — 본 validator 본체 변경 영구 0.
+    project-wide [[firestore-nested-array-flat]] 영구 보존. body_comparison_report 등
+    다른 path 박제 strict 유지. force_signals_report 전용 relaxation 은 신설
+    scoped validator `_validate_force_signals_report` 에서만 활성.
     """
     if not isinstance(d, dict):
         raise TypeError(
@@ -123,6 +128,138 @@ def _validate_dict_only_scalars(d: dict, *, path: str) -> None:
         )
 
 
+# ── Plan 08-03 (REVIEWS Cycle 2 §3 NEW HIGH #3) — force_signals 전용 scoped validator ──
+#
+# `_validate_dict_only_scalars` 본체 변경 영구 0 — project-wide
+# [[firestore-nested-array-flat]] 보존. 본 scoped validator 만 `forceSignalsReport`
+# 안 metric dict 의 list[str] (`warnings`, `unstableBodyParts`) 박제 허용.
+# 다른 path (bodyComparisonReport 등) 박제 strict 유지.
+
+# `forceSignalsReport` 안에서만 list[scalar] inside list[dict] 박제 허용되는 필드.
+# 본 화이트리스트가 아닌 list[scalar] 박제 시 reject.
+_FORCE_SIGNALS_SCALAR_LIST_KEYS_IN_METRIC: frozenset[str] = frozenset(
+    {
+        "warnings",  # 모든 metric dict 의 list[str] warning 박제
+        "unstableBodyParts",  # StabilityMetric.unstable_body_parts → camelCase
+    }
+)
+
+
+def _validate_force_signals_report(
+    payload: dict, *, path: str = "forceSignalsReport"
+) -> None:
+    """force_signals_report 전용 scoped validator — Plan 08-03 (REVIEWS Cycle 2 §3 NEW HIGH #3).
+
+    `_validate_dict_only_scalars` 본체 변경 영구 0 박제 정합 — 본 validator 만
+    forceSignalsReport 안 metric dict 의 list[str] (warnings, unstableBodyParts) 박제
+    허용. 다른 list[scalar] 박제 시 ValueError (Firestore nested-array 보호 유지).
+
+    명세:
+      · top-level forceSignalsReport.warnings: list[str] PASS
+      · phaseBoundaries / axisMetrics / stabilityMetrics / contactMetrics: list[dict] 박제
+      · 각 metric dict 안:
+        - scalar (str/int/float/bool/None) → PASS
+        - list[str] 박제이고 키가 화이트리스트 (warnings, unstableBodyParts) → PASS
+        - list[scalar] 박제이고 키가 화이트리스트 미포함 → reject
+        - list[list] / list[dict] / nested dict → reject
+
+    위반 시 ValueError + path 정보 (caller 가 catch → fail_analysis 진입).
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"_validate_force_signals_report: dict 입력만 허용. "
+            f"path={path!r} got {type(payload).__name__}"
+        )
+    for key, value in payload.items():
+        sub_path = f"{path}.{key}"
+        if value is None or isinstance(value, (str, int, float, bool)):
+            continue
+        if isinstance(value, dict):
+            # nested dict — top-level forceSignalsReport 안에는 dict scalar 박제 X
+            # (모든 metric 은 list[dict] 박제). 보수적 reject.
+            raise ValueError(
+                f"{sub_path} unexpected nested dict at force_signals top-level "
+                f"(forceSignalsReport schema: scalar / list[dict] / list[str] only)"
+            )
+        if isinstance(value, list):
+            # top-level list — top-level forceSignalsReport.warnings 박제 list[str] 박제 허용.
+            if key == "warnings":
+                for i, item in enumerate(value):
+                    if not isinstance(item, (str, int, float, bool)) and item is not None:
+                        raise ValueError(
+                            f"{sub_path}[{i}] warnings list 원소는 scalar 박제 강제: "
+                            f"got {type(item).__name__}"
+                        )
+                continue
+            # 그 외 top-level list = metric list (phaseBoundaries / axisMetrics /
+            # stabilityMetrics / contactMetrics). list[dict] 박제 강제.
+            for i, item in enumerate(value):
+                item_path = f"{sub_path}[{i}]"
+                if not isinstance(item, dict):
+                    raise ValueError(
+                        f"{item_path} metric list 원소는 dict 박제 강제: "
+                        f"got {type(item).__name__}"
+                    )
+                _validate_metric_dict_with_scalar_lists(item, path=item_path)
+            continue
+        raise ValueError(
+            f"{sub_path} unexpected type at force_signals top-level: "
+            f"got {type(value).__name__}"
+        )
+
+
+def _validate_metric_dict_with_scalar_lists(d: dict, *, path: str) -> None:
+    """metric dict 안 검증 — scalar / list[str] (화이트리스트 한정) 박제 허용.
+
+    list[list] / list[dict] / nested dict 박제 영구 reject ([[firestore-nested-array-flat]]
+    project-wide 보존 정합).
+    """
+    if not isinstance(d, dict):
+        raise ValueError(
+            f"{path} must be dict, got {type(d).__name__}"
+        )
+    for k, v in d.items():
+        sub_path = f"{path}.{k}"
+        if v is None or isinstance(v, (str, int, float, bool)):
+            continue
+        if isinstance(v, dict):
+            # metric dict 안에는 nested dict 박제 X.
+            raise ValueError(
+                f"{sub_path} nested dict in metric entry not allowed "
+                f"(firestore-nested-array-flat — metric dict 안에는 scalar / "
+                f"list[scalar] 박제만 허용)"
+            )
+        if isinstance(v, list):
+            # 화이트리스트 키만 list[scalar] 박제 허용.
+            if k not in _FORCE_SIGNALS_SCALAR_LIST_KEYS_IN_METRIC:
+                raise ValueError(
+                    f"{sub_path} list field not in force_signals whitelist "
+                    f"({sorted(_FORCE_SIGNALS_SCALAR_LIST_KEYS_IN_METRIC)}); "
+                    f"non-whitelist list in metric dict 영구 reject "
+                    f"(firestore-nested-array-flat 보존)"
+                )
+            # 화이트리스트 list 의 원소는 scalar 박제 강제 — list[list] / list[dict] reject.
+            for i, item in enumerate(v):
+                if isinstance(item, (list, dict)):
+                    raise ValueError(
+                        f"{sub_path}[{i}] nested {type(item).__name__} in "
+                        f"force_signals list field reject "
+                        f"(firestore-nested-array-flat 보존)"
+                    )
+                if item is not None and not isinstance(item, (str, int, float, bool)):
+                    raise ValueError(
+                        f"{sub_path}[{i}] must be scalar / None: "
+                        f"got {type(item).__name__}"
+                    )
+            continue
+        raise ValueError(
+            f"{sub_path} unexpected type in metric dict: "
+            f"got {type(v).__name__}"
+        )
+
+
 def complete_analysis(
     uid: str,
     analysis_id: str,
@@ -133,6 +270,7 @@ def complete_analysis(
     angles_frames: int | None = None,
     body_comparison_report: dict | None = None,
     body_normalization_profile: dict | None = None,
+    force_signals_report: dict | None = None,
 ) -> None:
     """status='done' + result (contract.md §4 AnalysisResult).
 
@@ -147,6 +285,14 @@ def complete_analysis(
       - body_comparison_report = result 내부 (AnalysisResult.bodyComparisonReport 정합)
       - body_normalization_profile = top-level (mode3 progress prev fetch path).
       - 두 dict 모두 _validate_flat_dict_no_nested_array 통과 강제 — 위반 시 TypeError.
+
+    Phase 8 (2026-06-09, Plan 08-03 — REVIEWS Cycle 2 §3 NEW HIGH #3):
+      - force_signals_report = result 내부 (AnalysisResult.forceSignalsReport 정합).
+      - **`_validate_force_signals_report` 전용 scoped validator** 박제 호출
+        (`_validate_dict_only_scalars` 본체 변경 영구 0 — project-wide
+        [[firestore-nested-array-flat]] 보존). force_signals 안 metric dict 의
+        `warnings` / `unstableBodyParts` list[str] 박제만 허용, 다른 list[scalar]
+        박제 시 ValueError. 다른 path 박제 strict 유지.
     """
     payload: dict = {
         "status": models.STATUS_DONE,
@@ -167,6 +313,11 @@ def complete_analysis(
             body_normalization_profile, path="bodyNormalizationProfile"
         )
         payload["bodyNormalizationProfile"] = body_normalization_profile
+    if force_signals_report is not None:
+        # Plan 08-03 (REVIEWS Cycle 2 §3 NEW HIGH #3) — scoped validator 박제.
+        # `_validate_dict_only_scalars` 호출 X (다른 path 박제 strict 유지).
+        _validate_force_signals_report(force_signals_report)
+        payload["result"]["forceSignalsReport"] = force_signals_report
     _doc(models.analysis_doc_path(uid, analysis_id)).set(payload, merge=True)
 
 

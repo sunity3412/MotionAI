@@ -76,7 +76,8 @@ from .pose_frame import Keypoint3DAligned, PoleAxis, PoseFrame
 
 if TYPE_CHECKING:
     # Layer 2 hook — Plan 08-03 활성화.
-    from ..judging.gemini_moment_extractor import GeminiMomentExtractor  # noqa: F401
+    from ..judging.gemini_moment_extractor import GeminiMomentExtractor, KeyMoment  # noqa: F401
+    from .technique import TechniqueProfile  # noqa: F401
 
 
 log = logging.getLogger(__name__)
@@ -456,11 +457,156 @@ class ForceSignalsReport:
 
 def _should_invoke_layer2(
     motion_id: str | None,
-    gemini_extractor: object | None,
-    video_uri: str | None,
+    technique_profile: object | None,
 ) -> bool:
-    """Layer 2 hook (Plan 08-03 활성화). 본 plan 항상 False."""
-    return False
+    """Layer 2 activation gate — Plan 08-03 (REVIEWS R6 정합).
+
+    technique_profile.key_moments != None AND FORCE_SIGNALS_LAYER2_ENABLED env truthy
+    시 True. env 검사는 caller (compute_phase_boundaries) 에서 module-level lookup.
+
+    motion_id None 시 False — Phase 5 Gemini recognizer 가 미인식 → Layer 1 단독.
+    technique_profile None 또는 key_moments None 시 False — Layer 1 단독 + warning
+    'layer2_unavailable' 자동 박제 (compute_force_signals umbrella 에서).
+    """
+    if motion_id is None:
+        return False
+    if technique_profile is None:
+        return False
+    key_moments = getattr(technique_profile, "key_moments", None)
+    if not key_moments:
+        return False
+    return True
+
+
+def _map_moments_to_5phase(
+    layer1: list["PhaseBoundary"],
+    key_moments: tuple,
+    fps: float,
+) -> list[tuple[str, int, int]]:
+    """Gemini KeyMoments → 5-phase boundary raw tuples 박제 (REVIEWS R6).
+
+    Plan 08-03 박제 — recognizer 가 추출한 4 moment_key (setup / hold / peak / release)
+    timestamp 박제 frame index 변환 후 5-phase boundary 박제 매핑.
+
+    설계 가정 (REVIEWS R6 MEDIUM 박제 — recognizer prompt 의 박제 contract 가 아님):
+      · setup → entry 끝점 + lock 시작 박제
+      · hold → final_shape 끝점 + hold 시작 박제
+      · peak → final_shape representative (boundary 변경 X)
+      · release → hold 끝점 박제 (Layer 1 의 마지막 frame 박제 default)
+      · transition boundary 는 Gemini 미제공 → Layer 1 박제 위치 박제 유지.
+
+    Returns: list of (phase_name, start_frame_idx, end_frame_idx). end-exclusive.
+
+    Raises:
+      ValueError: monotonic boundary 위반 (start_ms < end_ms 위반 또는 5 phase
+                  start_ms 순서 위반). caller 가 except → Layer 1 fallback (preflight
+                  ceiling 박제 유지 + warning 'layer2_call_failed').
+    """
+    if not layer1:
+        raise ValueError("layer1 boundaries empty")
+
+    T = layer1[-1].end_frame_idx
+    moments_by_key: dict[str, int] = {}
+    for m in key_moments:
+        key = getattr(m, "moment_key", "")
+        if not key:
+            continue
+        # frame_index 우선, 미설정 (0) 시 timestamp_seconds * fps 박제.
+        idx = getattr(m, "frame_index", 0)
+        if idx <= 0:
+            ts = getattr(m, "timestamp_seconds", 0.0)
+            idx = int(round(ts * fps))
+        idx = max(0, min(idx, T - 1))
+        moments_by_key.setdefault(key, idx)
+
+    # Layer 1 박제 5 phase 박제 시작점.
+    by_phase = {b.phase: (b.start_frame_idx, b.end_frame_idx) for b in layer1}
+
+    # Layer 1 박제 단일 hold fallback (T<10) — Layer 2 박제 X.
+    if len(layer1) < 5:
+        raise ValueError(
+            f"Layer 1 박제 5-phase 미생성 (len={len(layer1)}) — Layer 2 박제 X"
+        )
+
+    entry_start = by_phase["entry"][0]
+    lock_start = moments_by_key.get(
+        "setup", by_phase["entry"][1]
+    )  # setup → entry 끝 / lock 시작
+    transition_start = by_phase["lock"][1]  # Layer 1 박제 위치 유지
+    final_shape_start = by_phase["transition"][1]  # Layer 1 박제 위치 유지
+    hold_start = moments_by_key.get(
+        "hold", by_phase["final_shape"][1]
+    )  # hold → final_shape 끝 / hold 시작
+    hold_end = moments_by_key.get(
+        "release", by_phase["hold"][1]
+    )  # release → hold 끝
+    if hold_end <= hold_start:
+        hold_end = by_phase["hold"][1]  # Layer 1 박제 fallback
+
+    raw = [
+        ("entry", entry_start, lock_start),
+        ("lock", lock_start, transition_start),
+        ("transition", transition_start, final_shape_start),
+        ("final_shape", final_shape_start, hold_start),
+        ("hold", hold_start, hold_end),
+    ]
+
+    # monotonic 검증 (REVIEWS R6 MEDIUM 정합) — start_ms < end_ms 강제 + 5 phase
+    # 의 start_ms 순서 강제. 위반 시 ValueError → caller 가 except → Layer 1
+    # fallback + warning 'layer2_call_failed'.
+    prev_start = -1
+    for name, s, e in raw:
+        if s >= e:
+            raise ValueError(
+                f"Layer 2 박제 monotonic 위반 — phase={name} start={s} >= end={e}"
+            )
+        if s <= prev_start:
+            raise ValueError(
+                f"Layer 2 박제 monotonic 위반 — phase={name} start={s} <= "
+                f"previous start={prev_start} (5 phase 순서 위반)"
+            )
+        prev_start = s
+    return raw
+
+
+def _layer2_boundaries_from_technique_profile(
+    layer1: list["PhaseBoundary"],
+    key_moments: tuple,
+    fps: float,
+) -> list[tuple[str, int, int]]:
+    """REVIEWS R6 — recognizer key_moments 박제 Layer 2 boundary 산출.
+
+    import path 박제 메모 (REVIEWS Cycle 2 §3 MEDIUM): assign_frame_indices 의 실
+    위치는 `judging.gemini_moment_extractor:489`. 본 helper 는 recognizer 가 이미
+    frame_index 채운 KeyMoment 박제 가정 — assign_frame_indices 호출 X (recognizer
+    가 _build_profile 시점에 frame_index 박제 보장).
+    """
+    return _map_moments_to_5phase(layer1, key_moments, fps)
+
+
+def _confidence_from_agreement(
+    layer1: list["PhaseBoundary"],
+    layer2_raw: list[tuple[str, int, int]],
+) -> tuple[MetricConfidence, list[str]]:
+    """Layer 1 / Layer 2 boundary 차이 비교 → (agreement_confidence, warnings).
+
+    timestamp 차이 max 박제:
+      · <= LAYER_AGREEMENT_TOLERANCE_FRAMES (2)  → 'high' + []
+      · <= LAYER_DISAGREEMENT_MAJOR_FRAMES (5)   → 'medium' + ['layer_disagreement_minor']
+      · 그 외                                     → 'low' + ['layer_disagreement_major']
+    """
+    by_phase_l1 = {b.phase: (b.start_frame_idx, b.end_frame_idx) for b in layer1}
+    max_diff = 0
+    for name, s2, e2 in layer2_raw:
+        if name not in by_phase_l1:
+            continue
+        s1, e1 = by_phase_l1[name]
+        max_diff = max(max_diff, abs(s2 - s1), abs(e2 - e1))
+    if max_diff <= LAYER_AGREEMENT_TOLERANCE_FRAMES:
+        return ("high", [])
+    if max_diff <= LAYER_DISAGREEMENT_MAJOR_FRAMES:
+        return ("medium", ["layer_disagreement_minor"])
+    return ("low", ["layer_disagreement_major"])
 
 
 def _layer1_heuristic_boundaries(
@@ -500,39 +646,26 @@ def _layer1_heuristic_boundaries(
     ]
 
 
-def compute_phase_boundaries(
-    pose_frames: list[PoseFrame],
-    pole_axis_measurement: PoleAxisMeasurement,
-    body_profile: object | None,
-    angles: np.ndarray,
-    *,
-    motion_id: str | None = None,
-    fps: float = 9.0,
-    preflight_label_gate_passed: bool | None = None,
-    gemini_extractor: object | None = None,
-    video_uri: str | None = None,
-) -> list[PhaseBoundary]:
-    """Layer 1 휴리스틱 5-phase boundary 산출 (REVIEWS R4).
+def _force_signals_layer2_env_enabled() -> bool:
+    """FORCE_SIGNALS_LAYER2_ENABLED env 박제 (REVIEWS R7 정합).
 
-    preflight_label_gate_passed → confidence 분기:
-      True  → 'medium' / False → 'low' + warning / None → 'low' + warning.
-
-    Layer 2 (Plan 08-03 활성화) — _should_invoke_layer2 가 본 plan 항상 False.
+    Phase 5 RECOGNIZER_BACKEND 와 분리. default off — env 박제 unset 시 Phase 8
+    Layer 2 박제 비활성.
     """
-    # Layer 2 hook — 본 plan 본체 = no-op.
-    if _should_invoke_layer2(motion_id, gemini_extractor, video_uri):
-        # Plan 08-03 가 Layer 2 활성화.
-        pass
+    import os
 
-    raw = _layer1_heuristic_boundaries(pose_frames, angles)
-    base_confidence, _base_warnings = _layer1_confidence_from_preflight(
-        preflight_label_gate_passed
-    )
-    # motion_id 미인식 시 source='heuristic_fallback'.
-    source: Literal[
-        "heuristic", "gemini_assisted", "heuristic_fallback"
-    ] = "heuristic" if motion_id else "heuristic_fallback"
+    raw = os.environ.get("FORCE_SIGNALS_LAYER2_ENABLED", "").strip().lower()
+    return raw in ("1", "true", "on", "yes")
 
+
+def _build_phase_boundaries(
+    raw: list[tuple[str, int, int]],
+    fps: float,
+    confidence: MetricConfidence,
+    source: str,
+    preflight_label_gate_passed: bool | None,
+) -> list[PhaseBoundary]:
+    """raw (phase_name, start, end) tuples → list[PhaseBoundary] 박제 helper."""
     boundaries: list[PhaseBoundary] = []
     dt_ms = 1000.0 / fps if fps > 0 else 111.0
     for phase_name, s, e in raw:
@@ -543,12 +676,124 @@ def compute_phase_boundaries(
                 end_frame_idx=e,
                 start_ms=int(round(s * dt_ms)),
                 end_ms=int(round(e * dt_ms)),
-                confidence=base_confidence,
-                source=source,
+                confidence=confidence,
+                source=source,  # type: ignore[arg-type]
                 preflight_label_gate_passed=preflight_label_gate_passed,
             )
         )
     return boundaries
+
+
+def compute_phase_boundaries(
+    pose_frames: list[PoseFrame],
+    pole_axis_measurement: PoleAxisMeasurement,
+    body_profile: object | None,
+    angles: np.ndarray,
+    *,
+    motion_id: str | None = None,
+    fps: float = 9.0,
+    preflight_label_gate_passed: bool | None = None,
+    technique_profile: object | None = None,
+    # Plan 08-03 박제 — backward compat 박제 (Cycle 1 stub 본체 사용 자리). Layer 2
+    # 박제 본체는 technique_profile.key_moments 박제 reuse (REVIEWS R6 — 신규
+    # GeminiMomentExtractor singleton 영구 차단). 본 인자는 deprecated 박제 noop.
+    gemini_extractor: object | None = None,
+    video_uri: str | None = None,
+) -> list[PhaseBoundary]:
+    """Layer 1 휴리스틱 + Layer 2 (Gemini key_moments reuse) — Plan 08-03.
+
+    preflight_label_gate_passed → ceiling confidence 분기:
+      True  → 'medium' / False → 'low' + warning / None → 'low' + warning.
+
+    Layer 2 활성 조건 (REVIEWS R6 + R7 정합):
+      · FORCE_SIGNALS_LAYER2_ENABLED env truthy (default off)
+      · motion_id != None (Phase 5 recognizer 인식 박제)
+      · technique_profile.key_moments != None (recognizer 가 박제)
+
+    Layer 2 success 분기:
+      · agreement_confidence = _confidence_from_agreement(layer1, layer2_raw)
+      · effective_confidence = _min_confidence(agreement, ceiling)  # REVIEWS Cycle 2 NEW HIGH #2
+      · effective_confidence == 'low' 시 layer1 fallback + source='heuristic'
+      · 그 외 layer2 boundary + source='gemini_assisted'
+
+    Layer 2 except 분기 (REVIEWS Cycle 2 NEW HIGH #2 차단):
+      · ceiling_confidence 그대로 박제 (Cycle 1 hardcoded 'medium' 영구 제거)
+      · warnings = ceiling_warnings + ['layer2_call_failed']
+      · source='heuristic'
+    """
+    layer1 = _layer1_heuristic_boundaries(pose_frames, angles)
+    layer1_boundaries = _build_phase_boundaries(
+        layer1,
+        fps,
+        confidence="low",  # placeholder, overridden below
+        source="heuristic",
+        preflight_label_gate_passed=preflight_label_gate_passed,
+    )
+
+    # REVIEWS Cycle 2 NEW HIGH #2 차단 — preflight gate ceiling 박제 모든 분기 공통.
+    ceiling_confidence, ceiling_warnings = _layer1_confidence_from_preflight(
+        preflight_label_gate_passed
+    )
+
+    # motion_id 미인식 시 source='heuristic_fallback'.
+    layer1_source: str = "heuristic" if motion_id else "heuristic_fallback"
+
+    layer2_env = _force_signals_layer2_env_enabled()
+    if layer2_env and _should_invoke_layer2(motion_id, technique_profile):
+        try:
+            key_moments = getattr(technique_profile, "key_moments", None) or ()
+            layer2_raw = _layer2_boundaries_from_technique_profile(
+                layer1_boundaries, key_moments, fps
+            )
+            agreement_confidence, agreement_warnings = _confidence_from_agreement(
+                layer1_boundaries, layer2_raw
+            )
+            # REVIEWS Cycle 2 NEW HIGH #2 — ceiling 박제 위로 promote 영구 차단.
+            effective_confidence = _min_confidence(
+                agreement_confidence, ceiling_confidence
+            )
+            # warnings 박제는 PhaseBoundary 의 필드가 아님 → caller (compute_force_signals)
+            # 가 ceiling/agreement warning 박제 top-level warnings 박제 시 박제 산출.
+            del agreement_warnings  # noqa: F841 — warning collection 은 caller 책임
+            if effective_confidence == "low":
+                # disagreement major or low ceiling — Layer 1 fallback (preflight
+                # ceiling 박제 유지). source 박제 'heuristic' (Gemini 박제 신뢰 X).
+                return _build_phase_boundaries(
+                    layer1,
+                    fps,
+                    confidence=effective_confidence,
+                    source=layer1_source,
+                    preflight_label_gate_passed=preflight_label_gate_passed,
+                )
+            return _build_phase_boundaries(
+                layer2_raw,
+                fps,
+                confidence=effective_confidence,
+                source="gemini_assisted",
+                preflight_label_gate_passed=preflight_label_gate_passed,
+            )
+        except (RuntimeError, ValueError) as exc:
+            log.warning("Layer 2 fallback to Layer 1 — %s", exc)
+            # REVIEWS Cycle 2 NEW HIGH #2 차단 — Cycle 1 의 hardcoded "medium"
+            # 박제 영구 제거. except 분기는 preflight gate ceiling 박제 그대로 박제 —
+            # ceiling 위로 promote 영구 X.
+            del ceiling_warnings  # caller (compute_force_signals) 가 'layer2_call_failed' 박제
+            return _build_phase_boundaries(
+                layer1,
+                fps,
+                confidence=ceiling_confidence,
+                source=layer1_source,
+                preflight_label_gate_passed=preflight_label_gate_passed,
+            )
+
+    # Layer 1 only — ceiling 박제 적용.
+    return _build_phase_boundaries(
+        layer1,
+        fps,
+        confidence=ceiling_confidence,
+        source=layer1_source,
+        preflight_label_gate_passed=preflight_label_gate_passed,
+    )
 
 
 # ── compute_axis_deviation: REVIEWS R1 + R2 ─────────────────────────────
@@ -1253,6 +1498,9 @@ def compute_force_signals(
     fps: float,
     motion_id: str | None = None,
     preflight_label_gate_passed: bool | None = None,
+    technique_profile: object | None = None,
+    # Plan 08-03 박제 — backward compat 박제 (deprecated, REVIEWS R6 — 신규
+    # GeminiMomentExtractor singleton 영구 차단. technique_profile 박제 사용).
     gemini_extractor: object | None = None,
     video_uri: str | None = None,
 ) -> ForceSignalsReport:
@@ -1262,11 +1510,16 @@ def compute_force_signals(
     전달. **본 함수는 temporal smoothing 호출 영구 금지** (double smoothing 차단,
     REVIEWS R5 정합). angles=None 인자 영구 금지 (caller responsibility).
 
+    Plan 08-03 신설 (REVIEWS R6) — technique_profile 박제 Layer 2 reuse path:
+      · technique_profile.key_moments != None AND FORCE_SIGNALS_LAYER2_ENABLED env
+        truthy 시 Layer 2 활성 (gemini_assisted source).
+      · 그 외 Layer 1 단독 + warning 'layer2_unavailable' 자동 박제.
+
     Step 1: angles 검증 (None ValueError)
-    Step 2: compute_phase_boundaries (preflight gate 박제 source 전달)
+    Step 2: compute_phase_boundaries (technique_profile + preflight gate 박제 source 전달)
     Step 3: 3 metric 함수 호출
     Step 4: _overall_confidence (min propagation)
-    Step 5: warnings 조립 (motion_id/gemini/preflight gate/coordinate_space/
+    Step 5: warnings 조립 (motion_id/Layer 2/preflight gate/coordinate_space/
             fps_normalization_applied 박제)
     Step 6: ForceSignalsReport 조립 + return
     """
@@ -1283,7 +1536,7 @@ def compute_force_signals(
             f"angles must be 2D (T, J), got shape {angles_arr.shape}"
         )
 
-    # Step 2: phase boundaries (preflight gate source 전달).
+    # Step 2: phase boundaries (technique_profile + preflight gate source 전달).
     phase_boundaries = compute_phase_boundaries(
         pose_frames,
         pole_axis_measurement,
@@ -1292,8 +1545,7 @@ def compute_force_signals(
         motion_id=motion_id,
         fps=fps,
         preflight_label_gate_passed=preflight_label_gate_passed,
-        gemini_extractor=gemini_extractor,
-        video_uri=video_uri,
+        technique_profile=technique_profile,
     )
 
     # Step 3: 3 metric 산출.
@@ -1319,8 +1571,9 @@ def compute_force_signals(
     # motion_id 미인식.
     if motion_id is None:
         warnings_top.append("motion_unrecognized_layer1_only")
-    # Layer 2 hook 미활성.
-    if gemini_extractor is None:
+    # Layer 2 활성 판정 — phase_boundaries 의 source 박제 검사 (REVIEWS R6).
+    layer2_used = any(b.source == "gemini_assisted" for b in phase_boundaries)
+    if not layer2_used:
         warnings_top.append("layer2_unavailable")
     # preflight gate 상태.
     _, gate_warnings = _layer1_confidence_from_preflight(

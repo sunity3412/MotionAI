@@ -13,11 +13,17 @@ IPSF 심사는 '기술 조건부'다: 같은 굽은 무릎이 Attitude(의도)�
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
 from .skeleton import JOINT_KEYS
+
+if TYPE_CHECKING:
+    # Plan 08-03 신설 — Phase 8 Layer 2 가 본 필드 reuse (recognizer 중복 호출
+    # 영구 차단, REVIEWS R6). lazy import (TYPE_CHECKING) — 본 모듈은 judging
+    # 패키지 의존 0 유지.
+    from ..judging.gemini_moment_extractor import KeyMoment
 
 # 관절 기대 상태 — line(신전) 채점이 이 값으로 갈린다.
 JOINT_EXTEND = "extend"    # 완전 신전(≈180°) 요구 → 부족분이 라인 감점
@@ -56,6 +62,13 @@ class TechniqueProfile:
     # 의 mode3-first Gemini fallback path 가 본 필드를 사용해
     # firestore_admin.get_reference_motion(motion_id) exact-match 수행.
     motion_id: str | None = None
+    # Plan 08-03 신설 (REVIEWS R6 정합) — Phase 8 Layer 2 가 본 필드 reuse
+    # (GeminiTechniqueRecognizer 가 추출 후 박제, force_signals.py 가 reuse —
+    # 신규 GeminiMomentExtractor singleton 영구 차단). frozen dataclass 정합으로
+    # tuple 사용. None = Gemini 미호출 또는 추출 실패 path (FallbackRecognizer
+    # 등) — Phase 8 Layer 2 가 본 필드 None 시 Layer 1 단독 + warning
+    # 'layer2_unavailable' 자동 박제.
+    key_moments: tuple["KeyMoment", ...] | None = None
 
     def expects_extension(self, joint_key: str) -> bool:
         return self.joint_expectations.get(joint_key) == JOINT_EXTEND

@@ -370,6 +370,77 @@ export interface PoleAxis {
   frameIndex?: number | null;
 }
 
+// ── Phase 8 Coordinate/Scale Contract (Plan 08-00 신설, 2026-06-09) ────────
+// REVIEWS Cycle 1 R1 / R2 / R3 blocker 해소.
+//
+// Python lockstep:
+//   backend/shared/python/sunity_shared/analysis/pole_geometry.py
+//     PoleLine2D / PoleAxisMeasurement / CoordinateSpace / ContactPrimitiveKind
+//   backend/shared/python/sunity_shared/analysis/body_scale.py
+//     median_torso_length
+// docs/contract.md §9.0 Coordinate/Scale Contract.
+//
+// 박제 위치: PoleAxis 직후, BodyNormalizationProfile 직전. Plan 08-01 의
+// ForceSignalsReport schema 가 본 contract 위에 박제.
+
+/**
+ * distance metric 의 좌표공간 enum (R1 + Suggestions §1).
+ *   image_2d:     image 평면 normalized 0~1 좌표 (Phase 1 Hough 검출 공간)
+ *   pole_aligned: PoleAxis 정렬 3D 좌표 (Keypoint3DAligned)
+ *   world_3d:     metric world 3D 좌표 (Keypoint3D)
+ *   unavailable:  계산 불가 — caller 가 numeric 필드 null + warning 박제
+ */
+export type CoordinateSpace = 'image_2d' | 'pole_aligned' | 'world_3d' | 'unavailable';
+
+/**
+ * 12 contact point 의 본질적 분류 (R3 blocker 해소).
+ *   keypoint:     COCO-17 직접 가용 keypoint (left_hand 등 10 point)
+ *   segment:      두 keypoint 의 mid-segment 거리 (left/right_inner_thigh 2 point)
+ *   region_proxy: 다중 keypoint midpoint region proxy (hip 1 point)
+ */
+export type ContactPrimitiveKind = 'keypoint' | 'segment' | 'region_proxy';
+
+/**
+ * image 평면 (normalized 0~1) 의 폴 축 직선 (R1).
+ *
+ * Phase 1 HoughPoleDetector 가 이미 image 평면 검출 — 본 interface 는 그 표현
+ * contract. axis distance 산출 = 점-직선 거리 공식 (image 2D).
+ *
+ * Python lockstep: pole_geometry.PoleLine2D (frozen dataclass).
+ */
+export interface PoleLine2D {
+  /** 직선 위의 한 점 (x, y), image normalized 0~1. */
+  pointImage: [number, number];
+  /** 직선 방향 단위벡터 (dx, dy), norm ≈ 1.0. */
+  directionImage: [number, number];
+  /** 검출 신뢰도 [0.0, 1.0]. */
+  confidence: number;
+  /** 'detected' = Hough 성공, 'vertical_fallback' = 수직 가정. */
+  source: 'detected' | 'vertical_fallback';
+}
+
+/**
+ * axis_3d (PoleAxis, direction-only) + line (image 2D position) 묶음 (R1).
+ *
+ * invariant: line=null ↔ coordinateSpace='unavailable'. Python __post_init__
+ * 가 강제. line 미가용 시 caller 가 axis distance 필드 null + warning
+ * 'pole_line_missing' 박제.
+ *
+ * Python lockstep: pole_geometry.PoleAxisMeasurement.
+ */
+export interface PoleAxisMeasurement {
+  /** Phase 1 PoleAxis (direction-only) — 본체 변경 0. */
+  axis3d: PoleAxis;
+  /** image 2D 선 (fallback 시 null). */
+  line: PoleLine2D | null;
+  /** distance 산출 좌표공간. line=null 시 'unavailable' 강제. */
+  coordinateSpace: CoordinateSpace;
+  /** video-level (Phase 1 D-10) 시 null. */
+  frameIndex: number | null;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
 /**
  * 체형 정규화 프로파일 (D-19 RTMW pivot — SMPL-X β 없이 segment 비율).
  *

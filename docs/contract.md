@@ -639,8 +639,160 @@ backend `copy_templates.py` 의 `FORBIDDEN_PHRASES` (research §10.3, 6종) +
 
 ---
 
+## §9.0. Coordinate/Scale Contract (Plan 08-00 신설 — Phase 8 pre-contract)
+
+> **2026-06-09 박제 (REVIEWS Cycle 1 R1 + R2 + R3 + R4 blocker 해소)**:
+> Phase 8 의 axis distance / contact distance metric 의 좌표공간 + observed
+> length denominator + 12 contact primitive 분류 + Layer-1 pre-flight label
+> gate 박제. Phase 1 PoleAxis (direction-only) 한계 보강 + Phase 2
+> BodyNormalizationProfile.torso_scale (ratio self-reference) 사용 영구 금지.
+> Plan 08-01 의 ForceSignalsReport (§9 예정) 는 본 §9.0 contract 위에 박제.
+
+### §9.0.1 CoordinateSpace enum (R1 + Suggestions §1)
+
+| 값 | 의미 |
+|---|---|
+| `image_2d` | image 평면 normalized 0~1 좌표 (Phase 1 HoughPoleDetector 검출 공간) |
+| `pole_aligned` | PoleAxis 정렬 3D 좌표 (PoseFrame.keypoints_3d_pole_aligned) |
+| `world_3d` | metric world 3D 좌표 (PoseFrame.keypoints_3d) |
+| `unavailable` | 계산 불가 — caller 가 numeric 필드 null + warning 박제 |
+
+모든 distance metric (axis distance / contact distance) 은 `coordinateSpace` 필드를
+**필수로 동행**. `'unavailable'` 시 numeric 필드 null + warning
+`'pole_line_missing'` 또는 `'scale_unavailable'` 박제.
+
+### §9.0.2 ContactPrimitiveKind enum (R3)
+
+| 값 | 의미 |
+|---|---|
+| `keypoint` | COCO-17 직접 가용 keypoint (10 point) |
+| `segment` | 두 keypoint 의 mid-segment 거리로 산출 (2 point: inner_thigh) |
+| `region_proxy` | 다중 keypoint midpoint region proxy (1 point: hip = 좌우 hip midpoint) |
+
+§9.0.7 의 12 contact 분류 표가 각 entry 의 kind 필드 결정 source.
+
+### §9.0.3 PoleLine2D (R1)
+
+image 평면 (normalized 0~1) 의 폴 축 직선. Phase 1 HoughPoleDetector 의 image-평면
+검출 결과 표현 contract.
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `pointImage` / `point_image` | `[number, number]` / `tuple[float, float]` | 직선 위의 한 점 (x, y), normalized 0~1 |
+| `directionImage` / `direction_image` | `[number, number]` / `tuple[float, float]` | 방향 단위벡터 (dx, dy), norm ≈ 1.0 |
+| `confidence` | `number` / `float` | 검출 신뢰도 [0.0, 1.0] |
+| `source` | `'detected' \| 'vertical_fallback'` | 'detected' = Hough 성공, 'vertical_fallback' = 수직 가정 |
+
+박제 위치:
+- TS: `app/src/types/analysis.ts` PoleLine2D interface (Plan 08-00).
+- Python: `backend/shared/python/sunity_shared/analysis/pole_geometry.py` PoleLine2D
+  (frozen dataclass).
+
+### §9.0.4 PoleAxisMeasurement (R1 blocker 해소)
+
+axis_3d (PoleAxis, direction-only) + line (image 2D position) 묶음.
+PoleAxis 의 direction-only 한계를 image 평면 line 정보로 보강.
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `axis3d` / `axis_3d` | `PoleAxis` | Phase 1 박제 본체 (direction-only). 본체 변경 0 |
+| `line` | `PoleLine2D \| null` | image 2D 선 (fallback 시 null) |
+| `coordinateSpace` / `coordinate_space` | `CoordinateSpace` | distance 산출 공간. line=null ↔ 'unavailable' 강제 invariant |
+| `frameIndex` / `frame_index` | `number \| null` / `int \| None` | video-level (Phase 1 D-10) 시 null |
+
+**invariant (Python `__post_init__` 강제)**: `line=None` ↔ `coordinate_space='unavailable'`.
+위반 시 ValueError raise. caller 가 line None 시 axis distance 필드 null +
+warning `'pole_line_missing'` 박제 강제.
+
+helper:
+- `build_pole_axis_measurement(axis_3d, line, *, frame_index=None)` — line 가용
+  여부로 coordinate_space 자동 결정.
+- `point_to_pole_line_distance_2d(point, line)` — image 2D 점-직선 수직거리.
+
+### §9.0.5 median_torso_length helper (R2 blocker 해소)
+
+observed shoulder-hip midpoint Euclidean distance median.
+
+```python
+def median_torso_length(
+    pose_frames: list[PoseFrame],
+    *,
+    space: Literal["image_2d", "pole_aligned", "world_3d"],
+) -> float | None: ...
+```
+
+space 분기:
+- `'image_2d'`     → `PoseFrame.keypoints_2d` (Keypoint2D)
+- `'pole_aligned'` → `PoseFrame.keypoints_3d_pole_aligned` (Keypoint3DAligned)
+- `'world_3d'`     → `PoseFrame.keypoints_3d` (Keypoint3D)
+
+각 frame 별 산출:
+```
+shoulder_mid = (left_shoulder + right_shoulder) / 2
+hip_mid      = (left_hip + right_hip) / 2
+torso_length = euclidean(shoulder_mid, hip_mid)
+```
+
+valid frame (4 required keypoint 모두 존재 + finite length) < 5 시 None 반환 —
+caller 가 warning `'scale_unavailable'` 박제.
+
+**CRITICAL drift defense (R2)**: `BodyNormalizationProfile.torso_scale` 은 segment
+비율 (1.0 self-reference) — observed length 가 아니다. distance metric 의
+denominator 로 사용 **영구 금지**. `body_scale.py` 본체는
+`BodyNormalizationProfile` 을 영구 import 하지 않는다 — AST gate test 가 검증.
+
+### §9.0.6 Pre-flight 25-timestamp label gate (R4 blocker 해소)
+
+Layer-1 motion-agnostic 휴리스틱의 5 phase boundary 검증 gate.
+
+| 항목 | 값 |
+|---|---|
+| 라벨링 범위 | 5 reference 영상 × 5 phase boundary = 25 timestamp |
+| 5 영상 | ref-invert / ref-foxtop / ref-foxtop-split / ref-climb / ref-sideway-spin |
+| 5 phase boundary | entry_start / lock_start / transition_start / final_shape_start / hold_start |
+| 일치 기준 | delta_ms = abs(belle - layer1) ≤ 200ms |
+| PASS 기준 | 25 timestamp 중 ≥ 80% (20/25 이상) 일치 |
+| PASS → | Layer 1 confidence='medium' 승급 |
+| FAIL → | Layer 1 confidence='low' 강제 + warning 'preflight_label_gate_failed' |
+
+박제:
+- spec: `.planning/phases/08-jerk-jitter/preflight/PREFLIGHT-LABEL-SPEC.md`
+- template: `.planning/phases/08-jerk-jitter/preflight/preflight_label_template.csv`
+
+FAIL 시 unwind path = Plan 08-03 의 `RECOGNIZER_BACKEND` env unset +
+`FORCE_SIGNALS_LAYER2_ENABLED` env unset (D-08-E3 정합). 분석 pipeline 자체는
+영향 0 (Layer 1 confidence='low' 박제로 downstream 가 보수적 추론).
+
+### §9.0.7 12 contact point × ContactPrimitiveKind 분류 표 (R3)
+
+Plan 08-01 의 expected_contact_points yaml 박제 시 본 표가 kind 필드 source.
+
+| Contact Point | Kind | 산출 방식 |
+|---|---|---|
+| `left_hand` | `keypoint` | COCO-17 left_wrist 직접 |
+| `right_hand` | `keypoint` | COCO-17 right_wrist 직접 |
+| `left_ankle` | `keypoint` | COCO-17 left_ankle 직접 |
+| `right_ankle` | `keypoint` | COCO-17 right_ankle 직접 |
+| `left_foot` | `keypoint` | pole_extension_landmarks left_toe 또는 left_ankle |
+| `right_foot` | `keypoint` | pole_extension_landmarks right_toe 또는 right_ankle |
+| `left_knee` | `keypoint` | COCO-17 left_knee 직접 |
+| `right_knee` | `keypoint` | COCO-17 right_knee 직접 |
+| `left_inner_thigh` | `segment` | left_hip ↔ left_knee 의 mid-segment 거리 |
+| `right_inner_thigh` | `segment` | right_hip ↔ right_knee 의 mid-segment 거리 |
+| `hip` | `region_proxy` | left_hip + right_hip midpoint |
+| `unknown` | `keypoint` | motion_id 미인식 fallback (Phase 5 unrecognized) — keypoint 무관 |
+
+박제 메모:
+- [[single-camera-first-multi-view-last]] — coordinateSpace='image_2d' 우선 박제.
+- [[mvp-simple-pilot-quality]] — line 미가용 시 distance=null + warning (graceful).
+- [[scoring-dimensions-ipsf]] — pre-flight label = phase boundary 시각 박제
+  (수치 score 아님, [[analysis-objectivity-no-human-scores]] 정합).
+
+---
+
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
 *Phase 1 §6 추가: 2026-05-31 — PoseFrame/PoleAxis 3-way lockstep (H-3/H-4/M-1/M-2/M-5 REVIEWS 박제).*
 *Plan 01-19 §7 추가: 2026-06-02 — BodyNormalizationProfile (D-19 segment 비율, D-21 nullable). RTMW pivot 박제.*
 *Plan 06-01 §8 + §8.2 추가: 2026-06-08 — BodyComparisonReport (D-06-B3 + W1 + C14) + BodyComparisonSourcePose (R2 round-2 reviews).*
 *Plan 07-01 §8.3 추가: 2026-06-08 — Phase 7 차이 분류 룰 (D-07-A1 + D-07-A2 + D-07-U1) + 33 canned coverage (CR-02 fix) + CR-01 fallback path + WR-01/WR-03/WR-04 iteration 2.*
+*Plan 08-00 §9.0 추가: 2026-06-09 — Coordinate/Scale Contract (PoleLine2D + PoleAxisMeasurement + CoordinateSpace + ContactPrimitiveKind + median_torso_length + preflight label gate). REVIEWS Cycle 1 R1 + R2 + R3 + R4 blocker 해소.*

@@ -153,3 +153,70 @@ from .analysis.body_normalizer import (  # noqa: E402 — 파일 하단 re-expor
     ComparisonType,
     ScaleProfile,
 )
+
+# Phase 8 Force Signals (Plan 08-01 revised — REVIEWS Cycle 1).
+# Plan 08-02 신설 후 import 활성화 (force_signals.py dataclass 본체 박제 후).
+# 본 plan 은 placeholder = forward-declare 주석만 (3-way lockstep 의 Python 측면
+# 박제 위치 강제 — Plan 07-01 / 06-01 패턴 정합).
+#
+# Plan 08-00 박제 §9.0 contract 위에 박제:
+#   - CoordinateSpace (image_2d / pole_aligned / world_3d / unavailable)
+#   - ContactPrimitiveKind (keypoint / segment / region_proxy)
+#   - PoleAxisMeasurement (axis_3d + line + coordinate_space)
+#   - median_torso_length helper (body_scale.py)
+#
+# REVIEWS Cycle 1 반영 schema (lockstep test_force_signals_lockstep.py 가 grep 검증):
+#   R1/R2: AxisDeviationMetric.{pelvis_distance_from_pole_axis,
+#          chest_distance_from_pole_axis} nullable + coordinate_space +
+#          scale_denominator 동행.
+#   R3:    ContactStabilityMetric = evidence-with-confidence: estimated_stable
+#          nullable + distance_to_pole_norm + near_pole_ratio +
+#          lost_near_pole_at_ms + measurement_kind.
+#   R4:    PhaseBoundary.preflight_label_gate_passed nullable 신설.
+#   R5:    StabilityMetric.jerk_unit='deg_per_sec_cubed' + jerk_score (deg/sec^3
+#          FPS-normalized).
+#
+# from .analysis.force_signals import (
+#     MotionPhase,
+#     DeviationDirection,
+#     SeverityLevel,
+#     MetricConfidence,
+#     ContactPoint,
+#     PhaseBoundary,                  # fields: phase, start_frame_idx, end_frame_idx,
+#                                     #         start_ms, end_ms, confidence, source,
+#                                     #         preflight_label_gate_passed
+#     AxisDeviationMetric,            # fields: phase, pelvis_distance_from_pole_axis,
+#                                     #         chest_distance_from_pole_axis,
+#                                     #         shoulder_tilt, hip_tilt,
+#                                     #         deviation_direction, severity,
+#                                     #         confidence, coordinate_space,
+#                                     #         scale_denominator, warnings
+#     StabilityMetric,                # fields: phase, jitter_score, jerk_score,
+#                                     #         jerk_unit, hold_stability_score,
+#                                     #         unstable_body_parts, severity,
+#                                     #         confidence, warnings
+#     ContactStabilityMetric,         # fields: phase, contact_point,
+#                                     #         measurement_kind, estimated_stable,
+#                                     #         distance_to_pole_norm,
+#                                     #         near_pole_ratio,
+#                                     #         lost_near_pole_at_ms,
+#                                     #         coordinate_space, severity,
+#                                     #         confidence, warnings
+#     ForceSignalsReport,             # fields: version, overall_confidence, warnings,
+#                                     #         phase_boundaries, axis_metrics,
+#                                     #         stability_metrics, contact_metrics
+# )
+#
+# AnalysisResult lockstep:
+#   forceSignalsReport optional + nullable (Plan 08-02 wiring 박제 후 활성화).
+#
+# 20 warning code enum (docs/contract.md §9.8 mirror):
+#   기존 13: occlusion_high_in_phase / layer2_unavailable / layer_disagreement_minor /
+#           layer_disagreement_major / layer2_call_failed / motion_unrecognized /
+#           motion_unrecognized_layer1_only / abnormal_release_during_hold /
+#           partial_motion_video / video_too_short / heavy_occlusion /
+#           entry_not_detected / all_frames_unreliable.
+#   Cycle 1 신설 6: pole_line_missing / scale_unavailable /
+#           preflight_label_gate_failed / fps_normalization_applied /
+#           contact_evidence_only / coordinate_space_unavailable.
+#   Cycle 2 신설 1: preflight_gate_pending (gate 미실행 default).

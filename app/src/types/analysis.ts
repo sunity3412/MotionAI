@@ -191,6 +191,11 @@ export interface AnalysisResult {
   // Phase 6 (Plan 06-01) — D-06-B3. 체형 정규화 비교 리포트.
   // Plan 06-02 wiring 에서 backend pipeline 이 채움 (currently nullable).
   bodyComparisonReport?: BodyComparisonReport | null;
+  // Phase 8 (Plan 08-01 revised — REVIEWS Cycle 1) — Force Signals umbrella.
+  // Plan 08-02 wiring 에서 backend pipeline 이 채움 (currently nullable).
+  // Plan 08-00 §9.0 contract (CoordinateSpace / ContactPrimitiveKind /
+  // PoleAxisMeasurement / median_torso_length) 위에 박제.
+  forceSignalsReport?: ForceSignalsReport | null;
 }
 
 // Firestore 문서 전체 모양
@@ -437,6 +442,197 @@ export interface PoleAxisMeasurement {
   coordinateSpace: CoordinateSpace;
   /** video-level (Phase 1 D-10) 시 null. */
   frameIndex: number | null;
+}
+
+// ── Phase 8 Force Signals (Plan 08-01 revised — REVIEWS Cycle 1) ──────────
+// Plan 08-00 박제 §9.0 contract (CoordinateSpace / ContactPrimitiveKind /
+// PoleAxisMeasurement) 위에 박제. ForceSignalsReport = AxisDeviationMetric +
+// StabilityMetric + ContactStabilityMetric + PhaseBoundary 4종 metric umbrella.
+//
+// Python lockstep (Plan 08-02 신설 후 활성화 예정):
+//   backend/shared/python/sunity_shared/analysis/force_signals.py
+//   re-export via backend/shared/python/sunity_shared/models.py
+// docs/contract.md §9 ForceSignalsReport.
+//
+// REVIEWS Cycle 1 반영:
+//   R1/R2: AxisDeviationMetric 의 distance 필드 nullable + coordinateSpace +
+//          scaleDenominator 동행.
+//   R3:    ContactStabilityMetric = evidence-with-confidence (estimatedStable
+//          nullable, distanceToPoleNorm, nearPoleRatio, lostNearPoleAtMs,
+//          measurementKind 박제).
+//   R4:    PhaseBoundary 에 preflightLabelGatePassed 신설 (nullable).
+//   R5:    StabilityMetric.jerkUnit='deg_per_sec_cubed' — FPS 정규화 박제.
+
+/** 5단계 motion phase (research 02 §6/§7 정합). */
+export type MotionPhase = 'entry' | 'lock' | 'transition' | 'final_shape' | 'hold';
+
+/** 이탈 방향 — 좌표공간 (image_2d 시 image 평면) 기준. */
+export type DeviationDirection =
+  | 'up'
+  | 'down'
+  | 'left'
+  | 'right'
+  | 'outward'
+  | 'inward'
+  | 'unknown';
+
+/** severity = 측정값 자체 크기 (low/medium/high). confidence 와 별 차원. */
+export type SeverityLevel = 'low' | 'medium' | 'high';
+
+/** confidence = 측정값 신뢰도. (research 02 finding-with-confidence 정합) */
+export type MetricConfidence = 'low' | 'medium' | 'high';
+
+/**
+ * 12 contact point enum (docs §9.0.7 12 분류 표 source).
+ * Plan 08-01 contact_points.yaml 박제 시 본 enum 의 name 사용.
+ */
+export type ContactPoint =
+  | 'left_hand'
+  | 'right_hand'
+  | 'left_inner_thigh'
+  | 'right_inner_thigh'
+  | 'left_knee'
+  | 'right_knee'
+  | 'left_foot'
+  | 'right_foot'
+  | 'left_ankle'
+  | 'right_ankle'
+  | 'hip'
+  | 'unknown';
+
+/**
+ * 5단계 motion-phase 경계 (Layer 1 휴리스틱 + Layer 2 Gemini key_moments 합성).
+ *
+ * REVIEWS R4 박제 — preflightLabelGatePassed 신설 nullable:
+ *   null  = gate 미실행 (default — preflight CSV 채워지지 전).
+ *   true  = gate PASS (≥80%, Layer 1 confidence='medium' 승급).
+ *   false = gate FAIL (Layer 1 confidence='low' 강제 + warning
+ *           'preflight_label_gate_failed').
+ */
+export interface PhaseBoundary {
+  phase: MotionPhase;
+  startFrameIdx: number;
+  endFrameIdx: number;
+  startMs: number;
+  endMs: number;
+  confidence: MetricConfidence;
+  source: 'heuristic' | 'gemini_assisted' | 'heuristic_fallback';
+  /** REVIEWS R4 — pre-flight 25-timestamp label gate 결과. nullable default. */
+  preflightLabelGatePassed: boolean | null;
+}
+
+/**
+ * 중심축 이탈 metric — phase 별 측정.
+ *
+ * REVIEWS R1 + R2 박제:
+ *   - distance 필드 nullable: line 미가용 시 두 distance 모두 null + warning
+ *     'pole_line_missing' + coordinateSpace='unavailable' + scaleDenominator='unavailable'.
+ *   - coordinateSpace: distance 산출 좌표공간 (Plan 08-00 §9.0.1).
+ *   - scaleDenominator: 'observed_torso_length' (median_torso_length helper, Plan
+ *     08-00 §9.0.5) | 'unavailable'. BodyNormalizationProfile.torsoScale 영구
+ *     사용 금지 (R2 drift defense).
+ */
+export interface AxisDeviationMetric {
+  phase: MotionPhase;
+  /** image_2d 좌표공간 시 normalized 거리, scaleDenominator 로 정규화. line 미가용 시 null. */
+  pelvisDistanceFromPoleAxis: number | null;
+  chestDistanceFromPoleAxis: number | null;
+  /** degrees. */
+  shoulderTilt: number | null;
+  hipTilt: number | null;
+  deviationDirection: DeviationDirection;
+  severity: SeverityLevel;
+  confidence: MetricConfidence;
+  /** Plan 08-00 §9.0.1 CoordinateSpace. line=null → 'unavailable'. */
+  coordinateSpace: CoordinateSpace;
+  /** distance 정규화 denominator. line/scale 미가용 시 'unavailable'. */
+  scaleDenominator: 'observed_torso_length' | 'unavailable';
+  warnings: string[];
+}
+
+/**
+ * 흔들림 metric — phase 별 측정.
+ *
+ * REVIEWS R5 박제:
+ *   - jerkScore 단위 = deg/sec^3 (NOT deg/frame^3). FPS-normalized.
+ *     Plan 08-02 의 _compute_jerk 가 dt=1/fps 정규화 강제 — 9 fps vs 18 fps
+ *     동일 값 보장.
+ *   - jerkUnit='deg_per_sec_cubed' 필드로 단위 contract 명시.
+ *
+ * jitterScore 단위 = deg (frame inter median wobble, unchanged from Plan 08-01 v1).
+ */
+export interface StabilityMetric {
+  phase: MotionPhase;
+  /** degrees (frame inter median wobble). dimensions.stability_wobble() 박제. */
+  jitterScore: number;
+  /** deg/sec^3 (FPS-normalized 3차 미분). */
+  jerkScore: number;
+  /** jerk 단위 contract — REVIEWS R5. */
+  jerkUnit: 'deg_per_sec_cubed';
+  /** hold phase 안 stability score (0~100). hold 외 phase 시 null. */
+  holdStabilityScore: number | null;
+  unstableBodyParts: string[];
+  severity: SeverityLevel;
+  confidence: MetricConfidence;
+  warnings: string[];
+}
+
+/**
+ * 접촉점 안정성 metric — (contact_point, phase) 별 측정.
+ *
+ * REVIEWS R3 박제 (evidence-with-confidence, NOT boolean truth):
+ *   - estimatedStable: boolean | null — evidence 부족 시 null.
+ *   - distanceToPoleNorm: number | null — observed_torso_length 정규화.
+ *   - nearPoleRatio: number | null — phase 안 distance <= threshold frame 비율.
+ *   - lostNearPoleAtMs: number | null — v1 의 lostContactAtMs 명칭 변경 (boolean
+ *     truth 가 아닌 distance evidence 박제 정합).
+ *   - measurementKind: 산출 방식 (Plan 08-00 ContactPrimitiveKind). motion_id 미인식 시 null.
+ *   - coordinateSpace: distance 산출 좌표공간.
+ */
+export interface ContactStabilityMetric {
+  phase: MotionPhase;
+  contactPoint: ContactPoint;
+  /** Plan 08-00 §9.0.2 ContactPrimitiveKind. motion_id 미인식 시 null. */
+  measurementKind: ContactPrimitiveKind | null;
+  /** evidence 부족 (line/scale 미가용 등) 시 null. */
+  estimatedStable: boolean | null;
+  distanceToPoleNorm: number | null;
+  nearPoleRatio: number | null;
+  /** v1 의 lostContactAtMs 명칭 변경 (REVIEWS R3 evidence 박제 정합). */
+  lostNearPoleAtMs: number | null;
+  coordinateSpace: CoordinateSpace;
+  severity: SeverityLevel;
+  confidence: MetricConfidence;
+  warnings: string[];
+}
+
+/**
+ * Phase 8 산출 umbrella — AnalysisResult.forceSignalsReport 로 저장.
+ *
+ * Phase 9 의 inferForceDirectionPattern + 실패 원인 후보 카드 의 입력 신호.
+ * Plan 08-00 §9.0 contract 위에 박제 (CoordinateSpace / ContactPrimitiveKind /
+ * PoleAxisMeasurement / median_torso_length).
+ *
+ * 20 warning code enum (docs §9.8):
+ *   기존 13: occlusion_high_in_phase / layer2_unavailable /
+ *           layer_disagreement_minor / layer_disagreement_major /
+ *           layer2_call_failed / motion_unrecognized /
+ *           motion_unrecognized_layer1_only / abnormal_release_during_hold /
+ *           partial_motion_video / video_too_short / heavy_occlusion /
+ *           entry_not_detected / all_frames_unreliable.
+ *   Cycle 1 신설 6: pole_line_missing / scale_unavailable /
+ *           preflight_label_gate_failed / fps_normalization_applied /
+ *           contact_evidence_only / coordinate_space_unavailable.
+ *   Cycle 2 신설 1: preflight_gate_pending (gate 미실행 default).
+ */
+export interface ForceSignalsReport {
+  version: string;
+  overallConfidence: MetricConfidence;
+  warnings: string[];
+  phaseBoundaries: PhaseBoundary[];
+  axisMetrics: AxisDeviationMetric[];
+  stabilityMetrics: StabilityMetric[];
+  contactMetrics: ContactStabilityMetric[];
 }
 
 // ──────────────────────────────────────────────────────────────────────────

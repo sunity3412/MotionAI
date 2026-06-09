@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 08.1 Wave 0 (Plan 00) close-out 2026-06-09 — AxisDeviationMetric distance hard break (3-way lockstep atomic, 5 필드 영구 제거) + compute_axis_deviation transitional stub. 2 commits (6a294d5/1cb3e6e), 372 PASS + 1 skipped. Wave 1 (08.1-01-PLAN.md, tilt metric 본체) 진입 가능. Phase 9 평행 진입 가능 (axis raw signal only guard, severity 무시).
-last_updated: "2026-06-09T12:30:00.000Z"
+stopped_at: Phase 08.1 Wave 1 (Plan 01) close-out 2026-06-09 — compute_axis_deviation 실 tilt-only 본체 (pole_aligned 3D + image_2d fallback + 'tilt_unavailable' 분기) + tilt_thresholds.yaml schema_v2 ('elite_p100_plus_margin', shoulder cutoff 63.28°/94.92°, hip 54.62°/81.93°) + calibrate_tilt_thresholds.py + C-M1 _normalize_angle_undirected + C-H2 boundary-low severity + C-H3 preflight hard gate. 3 commits (30fd7d2/e08be9c/80c9a6b), 413 PASS + 1 skipped. Wave 2 (08.1-02, pipeline rewire + Pod 재배포 + 정은지 재sweep evidence) 진입 가능.
+last_updated: "2026-06-09T13:00:00.000Z"
 last_activity: 2026-06-09
 progress:
   total_phases: 18
   completed_phases: 5
   total_plans: 46
-  completed_plans: 40
+  completed_plans: 41
   percent: 28
 ---
 
@@ -26,9 +26,27 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 08.1 (axis-metric-redesign) — EXECUTING
-Plan: 2 of 3 (Wave 0 done, Wave 1 next)
-Next: Plan 08.1-01 (Wave 1: tilt metric 본체 + 정은지 분포 기반 threshold yaml). Phase 9 평행 진입 가능 (axis raw signal only guard). belle chain: 6 ✓ → 7 ✓ → 8 ✓ → 8.1 Wave 0 ✓ → 8.1 Wave 1 + 9 (평행) → 8.1 Wave 2 → 12 → 13.
+Plan: 3 of 3 (Wave 0+1 done, Wave 2 next)
+Next: Plan 08.1-02 (Wave 2: pipeline rewire + Pod 재배포 + 정은지 5영상 재sweep evidence). Phase 9 평행 진입 가능 (axis raw signal only guard). belle chain: 6 ✓ → 7 ✓ → 8 ✓ → 8.1 Wave 0 ✓ → 8.1 Wave 1 ✓ + 9 (평행) → 8.1 Wave 2 → 12 → 13.
 Status: Executing Phase 08.1
+
+### Plan 08.1-01 close-out (2026-06-09)
+
+| 영역 | 결과 |
+|---|---|
+| compute_axis_deviation 실 본체 | Wave 0 transitional stub → 실 tilt-only 알고리즘 교체. pole_aligned 3D path 우선 + image_2d fallback + 둘 다 미가용 → 'tilt_unavailable'. severity = `_max_severity(_severity_from_tilt(shoulder), _severity_from_tilt(hip))`. confidence ≥ 70% high-reliability frame → 'medium', else 'low'. AxisDeviationMetric 6 필드 (Wave 0 schema 정합) |
+| 신설 helpers | `_normalize_angle_undirected` (C-M1, modulo 180° + min(a, 180-a) → unsigned [0, 90], keypoint ordering swap artifact 차단) / `_severity_from_tilt` (C-H2, boundary-low + 1e-9 epsilon strict, boundary value = 'low', 정은지 baseline 25/25 'low' invariant) / `_get_tilt_thresholds` (lazy load + schema_v2 강제 검증, W10 정합 — fallback 신호 cache tuple 3rd element 단일 source, module-global flag 부재) / `_reset_tilt_thresholds_cache` |
+| Helper cleanup (W9 audit) | 8 distance helper 삭제 (`_observed_torso_length_pole_aligned` + `_pelvis_position_*` + `_chest_position_*` + `_pole_aligned_axis_distance` + `_pelvis_position_image_2d` + `_chest_position_image_2d`) + `_severity_from_distance` + `_deviation_direction_from_pelvis`. 4 helper 보존 (`_observed_torso_length` + `_kp_pole_aligned_xy` + `_kp2d_xy` + `_midpoint` — compute_contact_stability 의존). `_shoulder_tilt_2d` / `_hip_tilt_2d` 갱신 — `_normalize_angle_undirected` 적용 |
+| 모듈 상수 cleanup | `AXIS_PELVIS_DISTANCE_THRESHOLDS` + `AXIS_CHEST_DISTANCE_THRESHOLDS` 삭제. `AXIS_TILT_THRESHOLDS_DEG = (25.0, 37.5)` fallback default 보존 |
+| tilt_thresholds.yaml | schema_v2 산출 (calibration_method='elite_p100_plus_margin', calibration_version='1.1', null_tilt_verified=true, 25 sample, 5 doc_ids). shoulder dist {p25=17.12, p50=24.84, p75=31.24, p90=42.36, p100=58.28} → medium=63.28° / high=94.92°. hip dist {p25=22.01, p50=27.73, p75=36.25, p90=44.36, p100=49.62} → medium=54.62° / high=81.93°. ipsf_tolerance.tolerance_deg=20.0 + major_fault_deg=40.0 |
+| calibrate_tilt_thresholds.py | CLI (--sweep-uid / --source-type firestore/repo-artifact/wave2-explicit / --source-path / --output-path / --margin-deg 5.0 / --dry-run / --allow-recalibrate). C-H3 preflight hard gate (25 non-null + transitional 부재 + tilt_unavailable 부재 + 5 doc count + 5 phase/doc). P100+margin operational cutoff. D-04 future re-run entry point (value-only zero-code-change) |
+| 옵션 A | Firestore reachable (FIREBASE_SA_PATH=`firebase-sa.json`) + sweep_phase8_1780986673 5 docs × 5 axisMetrics × 0 null × 0 transitional 검증 통과. Task 0 precondition belle 박제 완료 |
+| 신설 phase08_1 test (46) | test_compute_axis_tilt_only (6) + test_axis_2d_angle_normalization (6) + test_severity_boundary_value_is_low (5) + test_severity_above_medium (3) + test_severity_above_high (3) + test_tilt_thresholds_loader (5) + test_tilt_thresholds_yaml_drift (12) + test_calibration_preflight (6). 모두 PASS |
+| Wave 0 cleanup item | phase08/test_compute_axis_deviation.py — 4 stub assertion 제거, R2 drift defense (torso_scale denominator 영구 금지) 만 보존. phase08_1/test_compute_force_signals_does_not_reference_coordinate_space.py — test_compute_axis_deviation_emits_phase_8_1_transitional_warning (1 test) 제거 (Wave 1 새 본체 검증은 test_compute_axis_tilt_only.py 가 보유). C-B1 grep guard 2 tests 보존 |
+| 회귀 게이트 | phase06 137 + phase07 108 + phase08 94 (Wave 0 cleanup -3) + phase08_1 63 (Wave 0 20 + Wave 1 46 - cleanup 3) + pipeline 11 = **413 PASS + 1 skipped**. TS strict mode clean (tsc --noEmit) |
+| 3 commits | `30fd7d2` Task 1 (compute_axis_deviation tilt-only + yaml lazy loader + helper cleanup W9 audit + module-global flag 부재 W10) / `e08be9c` Task 2a (calibrate_tilt_thresholds.py + tilt_thresholds.yaml schema_v2) / `80c9a6b` Task 2b (yaml drift v2 (12) + calibration preflight (6)). Wave 0 + Wave 1 한 release boundary 박제 (Codex 권장 정합) |
+
+Wave 2 진입 차단 해소 — schema_v2 yaml 존재 + null_tilt_verified=true. pipeline rewire + Pod 재배포 + 정은지 재sweep evidence 박제 가능.
 
 ### Plan 08.1-00 close-out (2026-06-09)
 
@@ -430,6 +448,11 @@ Recent decisions affecting current work:
 - [2026-06-08 Plan 06-02 R8]: caller-injected extra_warnings injection (compare_body_profiles 신규 파라미터). 'fallback_reference_not_found' / 'reference_source_pose_missing' 주입. dataclasses.replace 우회 패턴 금지.
 - [2026-06-08 Plan 06-02 W5]: _validate_flat_dict_no_nested_array recursive validator + _validate_dict_only_scalars helper. list[str] (warnings) + list[dict-of-scalars-only] (findings) 허용. list[list] / list[dict-with-nested-list] TypeError raise.
 - [2026-06-08 Plan 06-02 C8]: _dataclass_to_camel_case_dict 5-case 명시 (None / dataclass / list / dict / Enum / scalar). BodyComparisonReport 중첩 ScaleProfile + list[BodyComparisonFinding] camelCase 변환.
+- [2026-06-09 Plan 08.1-01 C-H2]: tilt_thresholds.yaml operational cutoff = P100 + margin_deg (P90 폐기). medium = max(P100 + margin, ipsf_tolerance.tolerance_deg=20°), high = max(medium × 1.5, ipsf_tolerance.major_fault_deg=40°). 정은지 baseline 25/25 'low' 유지 보장 (boundary value = 'low' rule 정합). `_severity_from_tilt` boundary semantics: strict `>` + 1e-9 epsilon (float-safety). boundary value 정확히 cutoff → 'low'.
+- [2026-06-09 Plan 08.1-01 C-M1]: `_normalize_angle_undirected(angle_deg) = (a % 180.0; return 180.0 - a if a > 90.0 else a)`. modulo 180° + min(a, 180-a) = undirected line angle [0, 90]. keypoint ordering swap (left↔right) artifact 차단. 2D path (`_shoulder_tilt_2d` / `_hip_tilt_2d`) 가 본 helper 적용 → unsigned [0, 90] 강제. 3D path 는 이미 arcsin(|Δz|/||Δ||) 로 unsigned [0, 90] 산출.
+- [2026-06-09 Plan 08.1-01 C-H3]: calibrate_tilt_thresholds.py preflight hard gate — 5 doc × 5 axisMetric per doc + non-null shoulderTilt/hipTilt + 'phase_8_1_wave_0_transitional' 부재 + 'tilt_unavailable' 부재 검증. 위반 시 RuntimeError + 명시 doc_id. yaml schema_v2 의 source.null_tilt_verified=true 박제 (loader 의 schema 검증 통과 조건).
+- [2026-06-09 Plan 08.1-01 W10]: tilt_thresholds.yaml fallback 신호 = cache tuple 3rd element (`['tilt_thresholds_fallback']`) 단일 source. module-global mutable boolean flag 부재 (test 로 강제 검증 — `_TILT_THRESHOLDS_FALLBACK_FLAG` 등 forbidden name set).
+- [2026-06-09 Plan 08.1-01 source 분기]: calibrate_tilt_thresholds.py `--source-type` 3 분기 — `firestore` (default, Phase 8 inherited sweep) / `repo-artifact` (Firestore 미가용 시 08.1-CALIBRATION-SOURCE.json) / `wave2-explicit` (Wave 2 자기 sweep 재calibrate, `--allow-recalibrate` 명시 강제 = circular threshold chasing 차단).
 - [Phase ?]: Plan 16-01 T-6 belle threshold 결정
 - [Phase ?]: Plan 06-03 R2: 단일 helper update_reference_body_data(motion_id, body_profile, source_pose) — 두 필드 atomic merge. 구 update_reference_body_profile 폐기. Phase 14 정은지 reference 등록 helper 재사용 진입점.
 - [Phase ?]: Plan 06-03 R7: seed-reference-body-profile.mjs explicit ordering — Step 1 parse + validate → Step 2 if dry-run early return (Firebase 미접촉) → Step 3 real-run. ADC 미설정 환경에서도 dry-run path 안전 (Firebase init 호출 0).
@@ -465,9 +488,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-09T12:30:00.000Z
+Last session: 2026-06-09T13:00:00.000Z
 
-Stopped at: Phase 08.1 Wave 0 (Plan 00) close-out — AxisDeviationMetric distance hard break atomic + compute_axis_deviation transitional stub. 2 commits pushed (6a294d5/1cb3e6e). 372 PASS + 1 skipped. Wave 1 진입 가능.
+Stopped at: Phase 08.1 Wave 1 (Plan 01) close-out — compute_axis_deviation 실 tilt-only 본체 (Wave 0 stub 교체) + tilt_thresholds.yaml schema_v2 정은지 25 sample P100+margin 5° calibration + calibrate_tilt_thresholds.py + C-M1 _normalize_angle_undirected + C-H2 boundary-low + C-H3 preflight hard gate. 3 commits pushed (30fd7d2/e08be9c/80c9a6b). 413 PASS + 1 skipped. Wave 2 (08.1-02 pipeline rewire + Pod 재배포 + 정은지 재sweep evidence) 진입 가능. Phase 9 평행 진입 가능 (raw signal only guard, D-05 정합).
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

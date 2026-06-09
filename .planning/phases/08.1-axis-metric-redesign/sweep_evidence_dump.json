@@ -1,0 +1,317 @@
+[
+  {
+    "name": "ref-foxtop-split",
+    "analysisId": "0e3cdfbbfaed4461b162e70e8c2b1fe5",
+    "sweepCreatedAtMs": 1781009298344,
+    "sweepCommitHash": "9aa0bc78cc4a2a8dadf962224155db2675feef74",
+    "thresholdChecksum": "c94bb8c7cc87120255c244548bd59464840130cbf9144fd109490588a3e1e87c",
+    "thresholdCalibrationMethod": "elite_p100_plus_margin",
+    "thresholdCalibrationVersion": "1.1",
+    "topWarnings": [
+      "fps_normalization_applied",
+      "layer2_unavailable",
+      "preflight_label_gate_failed"
+    ],
+    "phaseBoundariesSource": [
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic"
+    ],
+    "axisMetrics": [
+      {
+        "phase": "entry",
+        "shoulderTilt": 40.719545057412965,
+        "hipTilt": 30.07261780500204,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "lock",
+        "shoulderTilt": 52.69604674917686,
+        "hipTilt": 38.45372760434417,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "transition",
+        "shoulderTilt": 15.53472497144545,
+        "hipTilt": 49.62131591226401,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "final_shape",
+        "shoulderTilt": 22.677979035483148,
+        "hipTilt": 42.964282885356425,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "hold",
+        "shoulderTilt": 14.85858797943618,
+        "hipTilt": 17.198565442575738,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "ref-climb",
+    "analysisId": "26b78bb37cf44fbaac516e4268cfe25b",
+    "sweepCreatedAtMs": 1781009126555,
+    "sweepCommitHash": "9aa0bc78cc4a2a8dadf962224155db2675feef74",
+    "thresholdChecksum": "c94bb8c7cc87120255c244548bd59464840130cbf9144fd109490588a3e1e87c",
+    "thresholdCalibrationMethod": "elite_p100_plus_margin",
+    "thresholdCalibrationVersion": "1.1",
+    "topWarnings": [
+      "fps_normalization_applied",
+      "layer2_unavailable",
+      "preflight_label_gate_failed"
+    ],
+    "phaseBoundariesSource": [
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic"
+    ],
+    "axisMetrics": [
+      {
+        "phase": "entry",
+        "shoulderTilt": 20.37109835803058,
+        "hipTilt": 10.37119694923426,
+        "severity": "low",
+        "confidence": "medium",
+        "warnings": []
+      },
+      {
+        "phase": "lock",
+        "shoulderTilt": 17.115207317084945,
+        "hipTilt": 36.689691218000675,
+        "severity": "low",
+        "confidence": "medium",
+        "warnings": []
+      },
+      {
+        "phase": "transition",
+        "shoulderTilt": 30.872096749656325,
+        "hipTilt": 45.289368470759285,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "final_shape",
+        "shoulderTilt": 31.44606060286913,
+        "hipTilt": 47.254792835450225,
+        "severity": "low",
+        "confidence": "medium",
+        "warnings": []
+      },
+      {
+        "phase": "hold",
+        "shoulderTilt": 15.751212229951205,
+        "hipTilt": 12.528913852029353,
+        "severity": "low",
+        "confidence": "medium",
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "ref-invert",
+    "analysisId": "4195ea917d594807b1bf99c7e4b37f47",
+    "sweepCreatedAtMs": 1781009019889,
+    "sweepCommitHash": "9aa0bc78cc4a2a8dadf962224155db2675feef74",
+    "thresholdChecksum": "c94bb8c7cc87120255c244548bd59464840130cbf9144fd109490588a3e1e87c",
+    "thresholdCalibrationMethod": "elite_p100_plus_margin",
+    "thresholdCalibrationVersion": "1.1",
+    "topWarnings": [
+      "fps_normalization_applied",
+      "layer2_unavailable",
+      "preflight_label_gate_failed"
+    ],
+    "phaseBoundariesSource": [
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic"
+    ],
+    "axisMetrics": [
+      {
+        "phase": "entry",
+        "shoulderTilt": 17.87873073420904,
+        "hipTilt": 10.66589140727892,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "lock",
+        "shoulderTilt": 43.461276776292145,
+        "hipTilt": 32.47118106750183,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "transition",
+        "shoulderTilt": 31.239189393732786,
+        "hipTilt": 30.875126521806415,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "final_shape",
+        "shoulderTilt": 49.06511832035979,
+        "hipTilt": 22.38493973057995,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "hold",
+        "shoulderTilt": 12.470481611623994,
+        "hipTilt": 23.19878806581895,
+        "severity": "low",
+        "confidence": "medium",
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "ref-foxtop",
+    "analysisId": "9f5a19181dc64e1c8093f04c6c75e058",
+    "sweepCreatedAtMs": 1781009206874,
+    "sweepCommitHash": "9aa0bc78cc4a2a8dadf962224155db2675feef74",
+    "thresholdChecksum": "c94bb8c7cc87120255c244548bd59464840130cbf9144fd109490588a3e1e87c",
+    "thresholdCalibrationMethod": "elite_p100_plus_margin",
+    "thresholdCalibrationVersion": "1.1",
+    "topWarnings": [
+      "fps_normalization_applied",
+      "layer2_unavailable",
+      "preflight_label_gate_failed"
+    ],
+    "phaseBoundariesSource": [
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic"
+    ],
+    "axisMetrics": [
+      {
+        "phase": "entry",
+        "shoulderTilt": 30.671442926232693,
+        "hipTilt": 22.01130355471223,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "lock",
+        "shoulderTilt": 35.77215794067625,
+        "hipTilt": 28.390620652857244,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "transition",
+        "shoulderTilt": 11.659296339260765,
+        "hipTilt": 32.005397583986486,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "final_shape",
+        "shoulderTilt": 10.738887428524585,
+        "hipTilt": 34.592951116158744,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "hold",
+        "shoulderTilt": 17.771329582829566,
+        "hipTilt": 23.19859774894036,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "ref-sideway-spin",
+    "analysisId": "f0efaf600057487d960233884a55b384",
+    "sweepCreatedAtMs": 1781009361796,
+    "sweepCommitHash": "9aa0bc78cc4a2a8dadf962224155db2675feef74",
+    "thresholdChecksum": "c94bb8c7cc87120255c244548bd59464840130cbf9144fd109490588a3e1e87c",
+    "thresholdCalibrationMethod": "elite_p100_plus_margin",
+    "thresholdCalibrationVersion": "1.1",
+    "topWarnings": [
+      "fps_normalization_applied",
+      "layer2_unavailable",
+      "preflight_label_gate_failed"
+    ],
+    "phaseBoundariesSource": [
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic",
+      "heuristic"
+    ],
+    "axisMetrics": [
+      {
+        "phase": "entry",
+        "shoulderTilt": 24.8424482829814,
+        "hipTilt": 17.35398021136188,
+        "severity": "low",
+        "confidence": "medium",
+        "warnings": []
+      },
+      {
+        "phase": "lock",
+        "shoulderTilt": 20.48917698487639,
+        "hipTilt": 35.49640752198098,
+        "severity": "low",
+        "confidence": "low",
+        "warnings": []
+      },
+      {
+        "phase": "transition",
+        "shoulderTilt": 26.221981689775475,
+        "hipTilt": 26.029632932954804,
+        "severity": "low",
+        "confidence": "medium",
+        "warnings": []
+      },
+      {
+        "phase": "final_shape",
+        "shoulderTilt": 27.16067492213176,
+        "hipTilt": 22.2106349730834,
+        "severity": "low",
+        "confidence": "medium",
+        "warnings": []
+      },
+      {
+        "phase": "hold",
+        "shoulderTilt": 25.3230748156305,
+        "hipTilt": 13.831620374872276,
+        "severity": "low",
+        "confidence": "medium",
+        "warnings": []
+      }
+    ]
+  }
+]

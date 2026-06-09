@@ -239,10 +239,36 @@ Plans:
   4. 모든 신호에 시간적 스무딩이 적용되고 가림 프레임은 confidence로 가중 처리된다
 
 **Plans**: 3 plans
+
   - [x] 08-00-PLAN.md — Wave 0: PoleLine2D + PoleAxisMeasurement + CoordinateSpace + ContactPrimitiveKind contract + median_torso_length helper + Wave 0 test 인프라 + 25-timestamp preflight gate spec (completed 2026-06-09)
   - [x] 08-01-PLAN.md — Wave 1: 3-way contract lockstep (TS 7 type + Python placeholder + docs/contract.md §9) + dimensions.stability_wobble raw helper 분리 (drift defense source) + backend/judging_data/contact_points.yaml 신설 (5 motion + default) + 6 programmatic fixture builders (completed 2026-06-09)
   - [x] 08-02-PLAN.md — Wave 2: force_signals.py 본체 신설 (5 dataclass + 5 type alias + 5 public 함수 + 25 private helper) + models.py import 활성화 (3-way lockstep 완성) + Layer 1 motion-agnostic 휴리스틱 + 4 metric 산출 함수 + compute_force_signals umbrella + _layer1_confidence_from_preflight + _min_confidence ceiling helper (completed 2026-06-09)
   - [x] 08-03-PLAN.md — Wave 3: Layer 2 Gemini 활성 (TechniqueProfile.key_moments reuse, R6) + FORCE_SIGNALS_LAYER2_ENABLED env separation (R7) + GEMINI_MODEL env wiring (R8 carryover) + _preflight_label_gate_passed env helper (Cycle 2 NEW HIGH #1) + Layer 2 except ceiling (Cycle 2 NEW HIGH #2) + Firestore scoped validator `_validate_force_signals_report` (Cycle 2 NEW HIGH #3, firestore-nested-array-flat 보존) + _VideoAnalysisInputs.pole_axis_measurement (R10) + pipeline _process wiring + userAnalyses.normalize null-guard + 23 신설 test + 11 pipeline 통합 test. **In-line sweep-driven fix (4건): A sweep_temp/ prefix / B HoughPoleDetector.detect_with_line / B' compute_axis_deviation pole_aligned 3D fallback / C _map_moments_to_5phase setup/hold/release 단독 boundary.** **Phase 8.5 (axis-metric-redesign) 신설 결정** — 정은지 5/5 axis severity='high' 도메인 정합성 문제 발견. (completed 2026-06-09)
+
+### Phase 08.1: axis-metric-redesign
+
+**Goal**: Phase 8 의 axis distance metric 이 도메인 정합성을 위반 (정은지 5/5 영상 모든 phase severity='high' 출력) — 좌표계 origin 미정의 + threshold 단위 mismatch. IPSF Code of Points 의 axis 채점 항목 + 폴스포츠 도메인 "축 이탈" 정의 research 위에서 axis metric 을 재설계. 정은지 baseline 이 `severity='low'` 로 출력되도록 도메인 정합 metric + threshold calibration.
+**Mode:** mvp
+**Depends on:** Phase 8
+**Requirements**: FORCE-01 (Phase 8 와 공유 — axis 차원 의미 부여)
+**Single evidence source**: `.planning/phases/08-jerk-jitter/PHASE8-INHERITED-ISSUES.md` (정은지 5영상 sweep raw distance/severity/tilt 분포 + root cause 분석 + 의사결정 공간 α-1~4 / β-1~3 + 외부 AI reviewer 5 핵심 질문)
+**Scope 제약**:
+  - tilt 데이터 (shoulder/hip, rotation-only) 는 Phase 8 본체에서 보존 — Phase 9 평행 진입 시 사용 가능, 본 phase 가 손대지 않음
+  - schema (`ForceSignalsReport` + `coordinate_space` 필드 enum) 보존 — 새 metric 도 본 contract 내 박제
+  - [[analysis-objectivity-no-human-scores]] 정합 — 정은지/belle 점수 라벨링 ground truth 금지. threshold 수치 calibration 만 OK (정은지 sweep 분포 + IPSF deduction 카테고리 매핑)
+**Success Criteria** (what must be TRUE):
+
+  1. 정은지 5/5 reference 영상 axis severity 가 `low` 으로 출력 (현재 5/5 `high` → fix 후 5/5 `low`)
+  2. 좌표계 origin 정의 또는 metric 자체 변경으로 axis distance 가 카메라 거리/줌/dancer 화면 위치에 invariant
+  3. IPSF Code of Points 의 axis 채점 항목 (deduction category) 과 metric severity 가 mapping 박제
+  4. threshold 값 + 도출 근거 가 `.planning/phases/08.1-axis-metric-redesign/` 의 plan 산출물 에 기록
+  5. Phase 8.1 종료 시 sweep 재실행 + 정은지 분포 확인 + 분포 변경 evidence 박제
+
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-research-phase 08.1 → /gsd-discuss-phase 08.1 → /gsd-plan-phase 08.1)
 
 ### Phase 9: ForceDirectionPattern + 실패 원인 후보 3개
 

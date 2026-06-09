@@ -161,6 +161,7 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
     from pathlib import Path as _P
 
     from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
+    from sunity_shared.analysis.pole_geometry import build_pole_axis_measurement
 
     def _impl(bucket, key, default_pole, *, keep_local_video=False):
         local_path = _P(tmp_video_path) if keep_local_video else None
@@ -175,11 +176,17 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
             confidence=0.0,
             warnings=["mock"],
         )
+        # Plan 08-03 — pole_axis_measurement 박제 신설 (REVIEWS R10 정합).
+        # vertical fallback default_pole 박제 + line=None → coordinate_space='unavailable'.
+        pole_axis_measurement = build_pole_axis_measurement(
+            axis_3d=default_pole, line=None, frame_index=None
+        )
         return pipeline_mod._VideoAnalysisInputs(
             angles=_angles_8j(),
             student_profile=fallback_profile,
             pose_frames=[],
             local_video_path=local_path,
+            pole_axis_measurement=pole_axis_measurement,
         )
 
     return _impl

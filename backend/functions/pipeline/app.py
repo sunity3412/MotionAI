@@ -58,6 +58,7 @@ from sunity_shared.analysis import (
     skeleton,
     technique,
 )
+from sunity_shared.analysis import force_signals as fs
 from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
 from sunity_shared.analysis.body_normalization_measurer import measure_body_profile
 from sunity_shared.analysis.features import (
@@ -67,6 +68,10 @@ from sunity_shared.analysis.features import (
 )
 from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # 가벼움 — 예외만
 from sunity_shared.analysis.motiondtw import motion_dtw, per_joint_deviation
+from sunity_shared.analysis.pole_geometry import (
+    PoleAxisMeasurement,
+    build_pole_axis_measurement,
+)
 from sunity_shared.analysis.pose_frame import PoleAxis, to_coco17_array
 from sunity_shared.analysis.temporal import temporal_fill
 from sunity_shared.events import iter_s3_keys_from_sqs
@@ -168,12 +173,78 @@ def _gemini_enabled() -> bool:
 
     case-insensitive. 박제 truthy 값 = {"1", "true", "on", "yes", "gemini"}.
     그 외 또는 미설정 = False (FallbackRecognizer 박제 보존).
+
+    Plan 08-03 (REVIEWS R6 helper drift 차단) — Phase 8 Layer 2 wiring 박제도
+    본 helper 재사용 (신규 keep-local-video 박제 helper 영구 차단).
     """
     for env_var in ("GEMINI_RECOGNIZER_ENABLED", "RECOGNIZER_BACKEND"):
         val = os.environ.get(env_var, "").strip().lower()
         if val in _GEMINI_ENV_TRUTHY:
             return True
     return False
+
+
+# ── Phase 8 Plan 08-03 wiring — Layer 2 + preflight gate env helper ─────────
+
+
+def _force_signals_layer2_enabled() -> bool:
+    """REVIEWS R7 — FORCE_SIGNALS_LAYER2_ENABLED 별도 env flag 박제.
+
+    Phase 5 RECOGNIZER_BACKEND 와 분리. Phase 8 Layer 2 default off — env 박제
+    unset 시 비활성. belle 운영 작업 시 Lambda env / RunPod Pod env 박제만으로
+    flip (코드 변경 0).
+    """
+    raw = os.environ.get("FORCE_SIGNALS_LAYER2_ENABLED", "").strip().lower()
+    return raw in ("1", "true", "on", "yes")
+
+
+def _preflight_label_gate_passed() -> bool | None:
+    """REVIEWS Cycle 2 NEW HIGH #1 차단 (R4 carryover plumbing).
+
+    belle 운영 작업: Plan 08-00 박제 25-timestamp PASS 검증 후 Lambda env 또는
+    RunPod Pod env 박제 `PREFLIGHT_LABEL_GATE_PASSED=1` 박제만으로 Layer 1
+    confidence='medium' 승급 박제 — 코드 변경 0.
+
+    3-state 박제:
+      · '1'/'true'/'on'/'yes'   → True  (gate PASS, confidence='medium' 승급)
+      · '0'/'false'/'off'/'no'  → False (gate FAIL, 'low' + warning 'preflight_label_gate_failed')
+      · '' (unset) 또는 그 외   → None  (gate 미실행 default, 'low' + warning 'preflight_gate_pending')
+
+    Plan 08-00 박제 preflight_label_template.csv + Plan 08-02 박제
+    compute_phase_boundaries 의 preflight_label_gate_passed 인자 박제 정합.
+    """
+    raw = os.environ.get("PREFLIGHT_LABEL_GATE_PASSED", "").strip().lower()
+    if raw in ("1", "true", "on", "yes"):
+        return True
+    if raw in ("0", "false", "off", "no"):
+        return False
+    return None
+
+
+# Phase 5 박제 GeminiTechniqueRecognizer 재사용 박제 singleton — Phase 8 Layer 2
+# 가 동일 instance 박제 reuse (신규 instance 영구 차단, REVIEWS R6).
+_FORCE_SIGNALS_LAYER2_RECOGNIZER = None  # type: ignore[var-annotated]
+
+
+def _get_force_signals_layer2_recognizer():
+    """Phase 8 Layer 2 박제 recognizer singleton 박제 (REVIEWS R6 정합).
+
+    FORCE_SIGNALS_LAYER2_ENABLED env truthy AND _gemini_enabled() truthy 시 lazy
+    init. Phase 5 _ensure_recognizer 박제와는 별도 path — 본 helper 는 force_signals
+    가 단순 reuse 박제 hook (실제 Layer 2 박제는 technique_profile.key_moments
+    박제 reuse 박제이므로 recognizer 직접 호출 X).
+
+    Plan 08-03 박제 — 본 helper 는 활성화 판정 source 박제 (env 둘 다 truthy 시 True).
+    """
+    global _FORCE_SIGNALS_LAYER2_RECOGNIZER
+    if not _force_signals_layer2_enabled():
+        return None
+    if not _gemini_enabled():
+        return None
+    # Phase 5 _ensure_recognizer 박제 singleton 재사용 — 신규 instance 영구 차단.
+    if _FORCE_SIGNALS_LAYER2_RECOGNIZER is None:
+        _FORCE_SIGNALS_LAYER2_RECOGNIZER = _ensure_recognizer()
+    return _FORCE_SIGNALS_LAYER2_RECOGNIZER
 
 
 def _ensure_recognizer() -> technique.TechniqueRecognizer:
@@ -373,7 +444,7 @@ def _angles_and_body_profile_from_video(
 
 
 class _VideoAnalysisInputs(NamedTuple):
-    """R3 fix Phase 6 — 단일 helper 반환 4종.
+    """R3 fix Phase 6 — 단일 helper 반환 5종 (Plan 08-03 박제 pole_axis_measurement 신설).
 
     angles: (T, J) 시간축 보간된 관절각.
     student_profile: BodyNormalizationProfile (R4 fix — 항상 non-null,
@@ -382,12 +453,18 @@ class _VideoAnalysisInputs(NamedTuple):
       pose_frames 인자 + _extract_target_torso_px helper 입력.
     local_video_path: Path | None — Gemini ON path (keep_local_video=True) 일
       때만 Path. caller 가 unlink 책임.
+    pole_axis_measurement: PoleAxisMeasurement — Plan 08-03 신설 (REVIEWS R10
+      정합). 기존 vertical fallback PoleAxis 박제 한계 explicit 노출. line=None
+      → coordinate_space='unavailable' (Plan 08-00 박제 build_pole_axis_measurement
+      박제). Phase 8 의 axis distance None 분기 자동 활성. 추후 HoughPoleDetector
+      활성화 plan 박제 시 line 박제.
     """
 
     angles: np.ndarray
     student_profile: BodyNormalizationProfile
     pose_frames: list
     local_video_path: Path | None
+    pole_axis_measurement: PoleAxisMeasurement
 
 
 def _extract_video_analysis_inputs(
@@ -434,11 +511,21 @@ def _extract_video_analysis_inputs(
     angles_filled = temporal_fill(angles, joint_uncertainty(keypoints_4ch))
 
     local_video_path = Path(tmp_path) if tmp_path else None
+
+    # Plan 08-03 (REVIEWS R10 정합) — pole_axis_measurement 박제. 현재 vertical
+    # fallback (line=None → coordinate_space='unavailable'). 추후 HoughPoleDetector
+    # 활성 plan 박제 시 line 박제. Phase 8 의 axis distance None 분기 자동 활성 박제.
+    pole_axis_measurement = build_pole_axis_measurement(
+        axis_3d=default_pole,
+        line=None,
+        frame_index=None,
+    )
     return _VideoAnalysisInputs(
         angles=angles_filled,
         student_profile=student_profile,
         pose_frames=pose_frames,
         local_video_path=local_video_path,
+        pole_axis_measurement=pole_axis_measurement,
     )
 
 
@@ -989,6 +1076,31 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         body_normalization_profile_dict = _dataclass_to_camel_case_dict(
             student_profile
         ) if student_profile is not None else None
+
+        # Phase 8 (Plan 08-03) — force signals 산출.
+        #   REVIEWS R5 정합: angles 는 _extract_video_analysis_inputs 가 1회 temporal_fill
+        #     적용 (double smoothing 차단).
+        #   REVIEWS R6 정합: technique_profile 는 compare_body_profiles 호출 시점에 이미 박제됨
+        #     (recognizer reuse — 신규 GeminiMomentExtractor singleton 영구 차단).
+        #   REVIEWS R7 정합: FORCE_SIGNALS_LAYER2_ENABLED env flag check (Phase 5 와 분리).
+        #   REVIEWS R10 정합: pole_axis_measurement coordinate_space='unavailable' 박제
+        #     vertical fallback (Phase 8 의 axis distance None 분기 자동 활성).
+        #   REVIEWS Cycle 2 NEW HIGH #1 차단: preflight_label_gate_passed 는 env 박제
+        #     helper 활용 — belle 가 Lambda env / RunPod Pod env 박제만으로 gate flip
+        #     (코드 변경 0).
+        layer2_recognizer = _get_force_signals_layer2_recognizer()
+        force_signals_report = fs.compute_force_signals(
+            inputs.pose_frames,
+            inputs.pole_axis_measurement,  # REVIEWS R10
+            student_profile,
+            angles=angles,  # _extract_video_analysis_inputs 가 temporal_fill 적용 (REVIEWS R5)
+            fps=9.0,
+            motion_id=getattr(profile, "motion_id", None),
+            preflight_label_gate_passed=_preflight_label_gate_passed(),  # Cycle 2 NEW HIGH #1
+            technique_profile=profile if layer2_recognizer is not None else None,  # REVIEWS R6
+        )
+        force_signals_dict = _dataclass_to_camel_case_dict(force_signals_report)
+
         firestore_admin.complete_analysis(
             uid,
             analysis_id,
@@ -998,6 +1110,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             angles_frames=int(np.asarray(angles).shape[0]),
             body_comparison_report=body_comparison_report_dict,
             body_normalization_profile=body_normalization_profile_dict,
+            force_signals_report=force_signals_dict,
         )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
     finally:

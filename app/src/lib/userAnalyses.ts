@@ -67,6 +67,25 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       },
     };
   }
+  // Phase 8 (2026-06-09, Plan 08-03) — forceSignalsReport null-guard.
+  // Plan 08-01 박제 optional interface (TS interface: optional + nullable) 위 compat layer.
+  // old Firestore doc (Phase 8 wiring 전) 박제 forceSignalsReport 없어도 crash X.
+  // Phase 7 WR-02 B1 패턴 정합 — immutable spread + ?? null fallback.
+  if (result?.forceSignalsReport) {
+    const report = result.forceSignalsReport;
+    result = {
+      ...result,
+      forceSignalsReport: {
+        version: report.version ?? '1.0',
+        overallConfidence: report.overallConfidence ?? 'low',
+        warnings: report.warnings ?? [],
+        phaseBoundaries: report.phaseBoundaries ?? [],
+        axisMetrics: report.axisMetrics ?? [],
+        stabilityMetrics: report.stabilityMetrics ?? [],
+        contactMetrics: report.contactMetrics ?? [],
+      },
+    };
+  }
   return {
     analysisId: id,
     mode,

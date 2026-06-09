@@ -63,19 +63,41 @@ def hold_window(angles) -> tuple[int, int]:
     return best_s, best_s + w
 
 
+def stability_wobble(angles, profile: "TechniqueProfile | None" = None) -> float:
+    """Raw inter-frame median wobble (degrees) — stability_score 의 score 변환 전 값.
+
+    Plan 08-01 신설 — Plan 08-02 의 force_signals.py 가 본 helper 를 import 하여
+    StabilityMetric.jitter_score (degrees, frame inter median) 산출에 재사용. 산식
+    복제 차단 → drift 방지 (Phase 12.5 v4 Codex HIGH-2 패턴 정합).
+
+    jerk_score (deg/sec^3) 는 별도 산출 — Plan 08-02 의 _compute_jerk 가 dt=1/fps
+    정규화 박제 (REVIEWS R5).
+
+    Returns:
+        float (degrees). frame 부족 (T<2) 시 0.0.
+    """
+    sliced, _ = _select_window(angles, profile)
+    if sliced.shape[0] < 2:
+        return 0.0
+    inter_frame_diff = np.abs(np.diff(sliced, axis=0))  # (T-1, J)
+    median_jerk = np.nanmedian(inter_frame_diff, axis=0)  # (J,)
+    return float(np.nanmean(median_jerk))
+
+
 def stability_score(angles, profile: "TechniqueProfile | None" = None) -> int:
     """홀딩 구간 관절각 안정도 → 가우시안. 낮은 떨림 = 통제된 정지.
 
     Path R (2026-06-05): inter-frame difference median 알고리즘.
     Phase 12.5 v4 (Codex v3 HIGH-2): `_select_window` 박제 stability_wobble_by_joint /
     line helpers 와 같은 windowing — drift 방지.
+    Plan 08-01: wobble 산식이 stability_wobble() helper 로 분리됨 — 본 함수는
+    helper 호출 + kismam.score_from_deviation 변환만 담당 (force_signals.py 가
+    같은 helper 를 jitter_score 산출에 재사용, drift 차단).
     """
     sliced, _ = _select_window(angles, profile)
     if sliced.shape[0] < 2:
         return 100  # 프레임 부족 시 떨림 측정 불가 — 감점 근거 없음
-    inter_frame_diff = np.abs(np.diff(sliced, axis=0))  # (T-1, J)
-    median_jerk = np.nanmedian(inter_frame_diff, axis=0)  # (J,)
-    wobble = float(np.nanmean(median_jerk))
+    wobble = stability_wobble(angles, profile)
     return kismam.score_from_deviation(wobble, _STABILITY_TOL_DEG)
 
 

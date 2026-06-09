@@ -163,10 +163,11 @@ LAYER1_VELOCITY_MID = 0.03
 LAYER1_VELOCITY_HIGH = 0.06
 LAYER1_MIN_PHASE_FRAMES = 2
 
-# AxisDeviationMetric thresholds (normalized to observed_torso_length).
-AXIS_PELVIS_DISTANCE_THRESHOLDS = (0.15, 0.30)  # (medium, high)
-AXIS_CHEST_DISTANCE_THRESHOLDS = (0.20, 0.40)
-AXIS_TILT_THRESHOLDS_DEG = (10.0, 25.0)
+# AxisDeviationMetric tilt-only thresholds (Phase 8.1 Wave 1, D-01 distance hard break).
+# Wave 1: fallback default — `_get_tilt_thresholds()` lazy-loads tilt_thresholds.yaml
+# (정은지 elite_p100_plus_margin) 우선. yaml missing 시 본 fallback + base_warnings
+# ['tilt_thresholds_fallback'] (cache tuple 3rd element, W10 정합 — module-global flag 부재).
+AXIS_TILT_THRESHOLDS_DEG = (25.0, 37.5)
 
 # StabilityMetric — jitter is frame-rate dependent (deg/frame).
 # jitter_score is frame-rate dependent — DO NOT compare across fps.
@@ -232,6 +233,85 @@ _CONTACT_POINTS_PATH = (
     / "contact_points.yaml"
 )
 _CONTACT_POINTS_CACHE: dict | None = None
+
+
+# ── tilt_thresholds.yaml lazy load (Plan 08.1-01 Wave 1) ──────────────────
+#
+# Phase 8.1 D-02/D-03/D-04 — 정은지 5영상 P100 + margin operational cutoff,
+# IPSF tolerance 매핑. schema_v2 (calibration_method='elite_p100_plus_margin').
+#
+# fallback 신호 (yaml missing/invalid) 는 cache tuple 의 3rd element
+# (base_warnings list) 단일 source — W10 정합 (module-global mutable flag 부재).
+# fallback 자체 는 import/test safety 전용 — Wave 2 production sweep 진입 차단
+# (calibrate_tilt_thresholds.py 가 production hard gate).
+_TILT_THRESHOLDS_PATH = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "judging_data"
+    / "tilt_thresholds.yaml"
+)
+_TILT_THRESHOLDS_CACHE: tuple[tuple[float, float], tuple[float, float], list[str]] | None = None
+
+
+def _get_tilt_thresholds() -> tuple[tuple[float, float], tuple[float, float], list[str]]:
+    """tilt_thresholds.yaml lazy load (Plan 08.1-01 Wave 1).
+
+    Returns:
+        tuple of (shoulder_thresholds, hip_thresholds, base_warnings)
+        - shoulder_thresholds: (medium_cutoff_deg, high_cutoff_deg)
+        - hip_thresholds: (medium_cutoff_deg, high_cutoff_deg)
+        - base_warnings: ['tilt_thresholds_fallback'] if fallback, else [].
+
+    schema_v2 강제 검증: schema_version==2 + calibration_method=='elite_p100_plus_margin'
+    + source.null_tilt_verified==True. 위반 시 fallback.
+
+    per Plan 08.1-01 must_haves (loader 정합).
+    """
+    global _TILT_THRESHOLDS_CACHE
+    if _TILT_THRESHOLDS_CACHE is not None:
+        return _TILT_THRESHOLDS_CACHE
+    try:
+        import yaml
+
+        with open(_TILT_THRESHOLDS_PATH) as f:
+            data = yaml.safe_load(f)
+        # schema_v2 강제 검증 (loader 가 schema 정합 확인).
+        if int(data.get("schema_version", 0)) != 2:
+            raise ValueError(
+                f"schema_version != 2 (got {data.get('schema_version')})"
+            )
+        if data.get("calibration_method") != "elite_p100_plus_margin":
+            raise ValueError(
+                f"calibration_method != 'elite_p100_plus_margin' "
+                f"(got {data.get('calibration_method')!r})"
+            )
+        if not data.get("source", {}).get("null_tilt_verified"):
+            raise ValueError(
+                "source.null_tilt_verified != True (calibration preflight 미통과)"
+            )
+        shoulder_oc = data["shoulder_tilt"]["operational_cutoff"]
+        hip_oc = data["hip_tilt"]["operational_cutoff"]
+        shoulder = (
+            float(shoulder_oc["medium_cutoff_deg"]),
+            float(shoulder_oc["high_cutoff_deg"]),
+        )
+        hip = (
+            float(hip_oc["medium_cutoff_deg"]),
+            float(hip_oc["high_cutoff_deg"]),
+        )
+        _TILT_THRESHOLDS_CACHE = (shoulder, hip, [])
+    except (FileNotFoundError, KeyError, ImportError, ValueError, OSError, TypeError):
+        _TILT_THRESHOLDS_CACHE = (
+            AXIS_TILT_THRESHOLDS_DEG,
+            AXIS_TILT_THRESHOLDS_DEG,
+            ["tilt_thresholds_fallback"],
+        )
+    return _TILT_THRESHOLDS_CACHE
+
+
+def _reset_tilt_thresholds_cache() -> None:
+    """Test-only helper — phase08_1/conftest.py 의 autouse fixture 가 호출."""
+    global _TILT_THRESHOLDS_CACHE
+    _TILT_THRESHOLDS_CACHE = None
 
 
 # ── 5 frozen dataclass (Plan 08-01 schema mirror, REVIEWS Cycle 1 신설 필드) ──
@@ -804,29 +884,32 @@ def compute_phase_boundaries(
     )
 
 
-# ── compute_axis_deviation: REVIEWS R1 + R2 ─────────────────────────────
+# ── compute_axis_deviation: Phase 8.1 Wave 1 — tilt-only metric ──────────
+#
+# Phase 8.1 D-01 정합: distance 차원 hard break (5 distance helper + 2 deviation
+# helper 영구 제거). W9 audit 정합: helper cleanup 13개 + 보존 4개 + 신설
+# `_normalize_angle_undirected` (C-M1) + `_severity_from_tilt` (C-H2).
+#
+# IPSF Code of Points 박제 글로벌 distance 항목 부재 (NotebookLM citation 9,
+# Aerial Pole CoP 2024-2025 Page 87 Glossary).
 
 
 def _observed_torso_length(pose_frames: list[PoseFrame]) -> float | None:
-    """body_scale.median_torso_length(image_2d) 단순 호출. REVIEWS R2 정합."""
-    return median_torso_length(pose_frames, space="image_2d")
+    """body_scale.median_torso_length(image_2d) 단순 호출.
 
-
-def _observed_torso_length_pole_aligned(
-    pose_frames: list[PoseFrame],
-) -> float | None:
-    """Plan 08-04 (B' fix, 2026-06-09) — RTMW 가 keypoints_2d 미박제 시 fallback.
-
-    pole_aligned 3D 좌표계는 이미 폴 축을 Z+ 정렬했으므로 distance_to_pole =
-    sqrt(x² + y²). denominator 도 같은 공간 의 observed torso length 사용.
+    compute_contact_stability 에서도 호출됨 — 본 모듈 안 보존 (W9 audit 정합).
     """
-    return median_torso_length(pose_frames, space="pole_aligned")
+    return median_torso_length(pose_frames, space="image_2d")
 
 
 def _kp_pole_aligned_xy(
     frame: PoseFrame, name: str,
 ) -> tuple[float, float] | None:
-    """frame.keypoints_3d_pole_aligned 에서 (x, y) 추출 (z 무시 = pole 축까지 거리)."""
+    """frame.keypoints_3d_pole_aligned 에서 (x, y) 추출 (z 무시 = pole 축까지 거리).
+
+    W9 audit 정합 보존 — `_shoulder_tilt_pole_aligned` / `_hip_tilt_pole_aligned`
+    의 호출 대상 (현재는 dot-attr lookup 사용으로 직접 호출 안 함, but 유지).
+    """
     kp_dict = frame.keypoints_3d_pole_aligned
     if not kp_dict or name not in kp_dict:
         return None
@@ -837,37 +920,11 @@ def _kp_pole_aligned_xy(
     return (x, y)
 
 
-def _pelvis_position_pole_aligned(
-    frame: PoseFrame,
-) -> tuple[float, float] | None:
-    lh = _kp_pole_aligned_xy(frame, "left_hip")
-    rh = _kp_pole_aligned_xy(frame, "right_hip")
-    if lh is None or rh is None:
-        return None
-    return _midpoint(lh, rh)
-
-
-def _chest_position_pole_aligned(
-    frame: PoseFrame,
-) -> tuple[float, float] | None:
-    ls = _kp_pole_aligned_xy(frame, "left_shoulder")
-    rs = _kp_pole_aligned_xy(frame, "right_shoulder")
-    if ls is None or rs is None:
-        return None
-    return _midpoint(ls, rs)
-
-
-def _pole_aligned_axis_distance(point: tuple[float, float]) -> float:
-    """pole_aligned 공간에서 폴 축 (Z+) 까지의 거리 = sqrt(x² + y²)."""
-    x, y = point
-    return float(np.hypot(x, y))
-
-
 def _shoulder_tilt_pole_aligned(frame: PoseFrame) -> float | None:
-    """pole_aligned 공간 shoulder line 의 XY 평면 vs Z 축 기준 tilt 각.
+    """pole_aligned 공간 shoulder line 의 XY 평면 vs Z 축 기준 tilt 각 (unsigned [0, 90]).
 
     pole 축 = Z+. shoulder vector 가 XY 평면에 평행이면 tilt=0,
-    Z 방향 성분 크면 비율 = z / sqrt(x² + y² + z²) → angle.
+    Z 방향 성분 크면 비율 = z / sqrt(x² + y² + z²) → arcsin → unsigned [0, 90].
     """
     ls = frame.keypoints_3d_pole_aligned.get("left_shoulder") if frame.keypoints_3d_pole_aligned else None
     rs = frame.keypoints_3d_pole_aligned.get("right_shoulder") if frame.keypoints_3d_pole_aligned else None
@@ -886,7 +943,7 @@ def _shoulder_tilt_pole_aligned(frame: PoseFrame) -> float | None:
 
 
 def _hip_tilt_pole_aligned(frame: PoseFrame) -> float | None:
-    """hip line 의 pole 축 대비 tilt — shoulder_tilt 와 동일 로직."""
+    """hip line 의 pole 축 대비 tilt — shoulder_tilt 와 동일 로직 (unsigned [0, 90])."""
     lh = frame.keypoints_3d_pole_aligned.get("left_hip") if frame.keypoints_3d_pole_aligned else None
     rh = frame.keypoints_3d_pole_aligned.get("right_hip") if frame.keypoints_3d_pole_aligned else None
     if lh is None or rh is None:
@@ -902,7 +959,10 @@ def _hip_tilt_pole_aligned(frame: PoseFrame) -> float | None:
 
 
 def _kp2d_xy(frame: PoseFrame, name: str) -> tuple[float, float] | None:
-    """frame.keypoints_2d 에서 (x, y) 추출. 결손 시 None."""
+    """frame.keypoints_2d 에서 (x, y) 추출. 결손 시 None.
+
+    compute_contact_stability 에서도 호출됨 — 본 모듈 안 보존 (W9 audit 정합).
+    """
     kp2d = frame.keypoints_2d
     if not kp2d or name not in kp2d:
         return None
@@ -914,25 +974,8 @@ def _kp2d_xy(frame: PoseFrame, name: str) -> tuple[float, float] | None:
 
 
 def _midpoint(p1: tuple[float, float], p2: tuple[float, float]) -> tuple[float, float]:
+    """compute_contact_stability 에서도 호출됨 — 본 모듈 안 보존 (W9 audit 정합)."""
     return ((p1[0] + p2[0]) / 2.0, (p1[1] + p2[1]) / 2.0)
-
-
-def _pelvis_position_image_2d(frame: PoseFrame) -> tuple[float, float] | None:
-    """left_hip + right_hip midpoint (image_2d). missing → None."""
-    lh = _kp2d_xy(frame, "left_hip")
-    rh = _kp2d_xy(frame, "right_hip")
-    if lh is None or rh is None:
-        return None
-    return _midpoint(lh, rh)
-
-
-def _chest_position_image_2d(frame: PoseFrame) -> tuple[float, float] | None:
-    """left_shoulder + right_shoulder midpoint."""
-    ls = _kp2d_xy(frame, "left_shoulder")
-    rs = _kp2d_xy(frame, "right_shoulder")
-    if ls is None or rs is None:
-        return None
-    return _midpoint(ls, rs)
 
 
 def _line_direction_angle_deg(line: PoleLine2D) -> float:
@@ -941,8 +984,27 @@ def _line_direction_angle_deg(line: PoleLine2D) -> float:
     return float(np.degrees(np.arctan2(dy, dx)))
 
 
+def _normalize_angle_undirected(angle_deg: float) -> float:
+    """undirected line angle [0, 90] (Plan 08.1-01 C-M1).
+
+    modulo 180° + min(a, 180-a) — keypoint ordering swap (left↔right) artifact 차단.
+
+    예시:
+      _normalize_angle_undirected(90.0) == 90.0  (vertical worst case)
+      _normalize_angle_undirected(0.0) == 0.0    (horizontal best case)
+      _normalize_angle_undirected(175.0) == 5.0  (near-180 → small)
+      _normalize_angle_undirected(185.0) == 5.0  (swapped keypoints → same)
+    """
+    a = angle_deg % 180.0
+    return 180.0 - a if a > 90.0 else a
+
+
 def _shoulder_tilt_2d(frame: PoseFrame, line: PoleLine2D) -> float | None:
-    """shoulder line vs pole line direction angle (signed degrees)."""
+    """shoulder line vs pole line direction angle (unsigned [0, 90]).
+
+    Phase 8.1 Wave 1 정합 — `_normalize_angle_undirected` 적용 으로 unsigned 강제
+    (3D path 의 [0, 90] 산출과 동일 invariant). per C-M1.
+    """
     ls = _kp2d_xy(frame, "left_shoulder")
     rs = _kp2d_xy(frame, "right_shoulder")
     if ls is None or rs is None:
@@ -950,11 +1012,15 @@ def _shoulder_tilt_2d(frame: PoseFrame, line: PoleLine2D) -> float | None:
     sh_dx = rs[0] - ls[0]
     sh_dy = rs[1] - ls[1]
     sh_angle = float(np.degrees(np.arctan2(sh_dy, sh_dx)))
-    return sh_angle - _line_direction_angle_deg(line)
+    signed = sh_angle - _line_direction_angle_deg(line)
+    return _normalize_angle_undirected(signed)
 
 
 def _hip_tilt_2d(frame: PoseFrame, line: PoleLine2D) -> float | None:
-    """hip line vs pole line direction angle."""
+    """hip line vs pole line direction angle (unsigned [0, 90]).
+
+    Phase 8.1 Wave 1 정합 — `_normalize_angle_undirected` 적용. per C-M1.
+    """
     lh = _kp2d_xy(frame, "left_hip")
     rh = _kp2d_xy(frame, "right_hip")
     if lh is None or rh is None:
@@ -962,19 +1028,28 @@ def _hip_tilt_2d(frame: PoseFrame, line: PoleLine2D) -> float | None:
     hp_dx = rh[0] - lh[0]
     hp_dy = rh[1] - lh[1]
     hp_angle = float(np.degrees(np.arctan2(hp_dy, hp_dx)))
-    return hp_angle - _line_direction_angle_deg(line)
+    signed = hp_angle - _line_direction_angle_deg(line)
+    return _normalize_angle_undirected(signed)
 
 
-def _severity_from_distance(
-    distance: float | None,
+def _severity_from_tilt(
+    tilt_deg: float | None,
     thresholds: tuple[float, float],
 ) -> SeverityLevel:
-    """thresholds = (medium_cutoff, high_cutoff)."""
-    if distance is None or not np.isfinite(distance):
+    """boundary-low + epsilon strict (Plan 08.1-01 C-H2).
+
+    boundary value (정확히 cutoff) = 'low' 유지. epsilon 1e-9 = float-safety.
+    정은지 baseline 의 25/25 'low' 유지 보장 (calibration P100 + margin invariant).
+
+    입력 = unsigned tilt [0, 90] (3D + 2D 양쪽 박제 후 — C-M1 정합).
+    abs() 호출 불필요 (Codex iteration 4 MEDIUM 정합).
+    """
+    if tilt_deg is None:
         return "low"
-    if distance >= thresholds[1]:
+    medium_cutoff, high_cutoff = thresholds
+    if tilt_deg > high_cutoff + 1e-9:
         return "high"
-    if distance >= thresholds[0]:
+    if tilt_deg > medium_cutoff + 1e-9:
         return "medium"
     return "low"
 
@@ -989,36 +1064,6 @@ def _max_severity(*levels: SeverityLevel) -> SeverityLevel:
     return best
 
 
-def _deviation_direction_from_pelvis(
-    frame_positions: list[tuple[float, float]],
-    line: PoleLine2D,
-) -> DeviationDirection:
-    """positions 의 중심 vs pole line 의 위치 관계 → outward/inward/up/down 등.
-
-    image 평면 기준: line 의 normal 방향으로 멀어지면 outward.
-    """
-    if not frame_positions:
-        return "unknown"
-    # mean position.
-    mx = float(np.mean([p[0] for p in frame_positions]))
-    my = float(np.mean([p[1] for p in frame_positions]))
-    # line origin + direction.
-    x0, y0 = line.point_image
-    dx, dy = line.direction_image
-    # signed perpendicular distance (cross product 부호) → 좌/우.
-    cross = (mx - x0) * dy - (my - y0) * dx
-    # signed projection along direction → 위/아래.
-    proj = (mx - x0) * dx + (my - y0) * dy
-    abs_cross = abs(cross)
-    abs_proj = abs(proj)
-    # outward / inward 결정: signed_perpendicular_distance 의 절대값이 크면 outward.
-    if abs_cross > abs_proj:
-        return "outward"
-    if proj > 0:
-        return "down"
-    return "up"
-
-
 def compute_axis_deviation(
     pose_frames: list[PoseFrame],
     phase_boundaries: list[PhaseBoundary],
@@ -1026,34 +1071,89 @@ def compute_axis_deviation(
     *,
     fps: float = 9.0,
 ) -> list[AxisDeviationMetric]:
-    """Phase 8.1 Wave 0 transitional stub — 실 tilt 측정 알고리즘 + threshold 는 Wave 1 가 배포.
+    """Phase 8.1 Wave 1 — tilt-only metric. distance 차원 hard break (D-01).
 
-    모든 phase 에 대해 severity='low' default + warning 'phase_8_1_wave_0_transitional' 반환.
-    Wave 2 production sweep 이 이 warning 의 부재를 게이트로 사용 (Pod 재배포 완료 검증).
+    pole_aligned 3D path 우선 (정은지 영상, RTMW path):
+      `_shoulder_tilt_pole_aligned` + `_hip_tilt_pole_aligned` 산출 (이미 unsigned [0, 90]).
+    fallback = image_2d path:
+      `_shoulder_tilt_2d` + `_hip_tilt_2d` (C-M1 `_normalize_angle_undirected` 적용
+      → unsigned [0, 90] 강제).
+    둘 다 미가용 시:
+      shoulder_tilt=None / hip_tilt=None / severity='low' / confidence='low' /
+      warnings=['tilt_unavailable'].
 
-    distance 차원 hard break (D-01) — pelvis/chest distance 산출 path 영구 제거.
+    severity = `_max_severity(_severity_from_tilt(shoulder), _severity_from_tilt(hip))`.
+    base_warnings (yaml fallback 시 'tilt_thresholds_fallback') 박제 — Wave 2
+    production sweep 게이트의 검출 신호.
+
     AxisDeviationMetric 6 필드 (phase / shoulder_tilt / hip_tilt / severity /
-    confidence / warnings) 만 박제. IPSF Code of Points 에 글로벌 distance 항목
-    부재 (NotebookLM citation 9, Aerial Pole CoP 2024-2025 Page 87 Glossary).
+    confidence / warnings). IPSF Code of Points 박제 글로벌 distance 항목 부재
+    (NotebookLM citation 9).
 
-    Wave 0 단독 production 진입 금지 (C-H1 박제) — 본 stub 의 warning
-    'phase_8_1_wave_0_transitional' 가 Wave 2 production sweep 게이트의 검출 신호.
-    compute_force_signals umbrella 가 본 warning 검출 시 top-level warning
-    'axis_metric_transitional' 동행 박제 (C-B1).
-
-    per D-01 + D-06.
+    per D-01 + D-02 + D-03 + C-H2 + C-M1.
     """
-    return [
-        AxisDeviationMetric(
-            phase=b.phase,
-            shoulder_tilt=None,
-            hip_tilt=None,
-            severity="low",
-            confidence="low",
-            warnings=["phase_8_1_wave_0_transitional"],
+    line = pole_axis_measurement.line if pole_axis_measurement else None
+    has_pole_aligned = bool(pose_frames and pose_frames[0].keypoints_3d_pole_aligned)
+    has_kp2d = (
+        bool(pose_frames and pose_frames[0].keypoints_2d) and (line is not None)
+    )
+    shoulder_thresh, hip_thresh, base_warnings = _get_tilt_thresholds()
+
+    if not has_pole_aligned and not has_kp2d:
+        return [
+            AxisDeviationMetric(
+                phase=b.phase,
+                shoulder_tilt=None,
+                hip_tilt=None,
+                severity="low",
+                confidence="low",
+                warnings=list(base_warnings) + ["tilt_unavailable"],
+            )
+            for b in phase_boundaries
+        ]
+
+    metrics: list[AxisDeviationMetric] = []
+    for b in phase_boundaries:
+        phase_frames = pose_frames[b.start_frame_idx : b.end_frame_idx]
+        if has_pole_aligned:
+            shoulder_tilts = [
+                t for t in (_shoulder_tilt_pole_aligned(f) for f in phase_frames) if t is not None
+            ]
+            hip_tilts = [
+                t for t in (_hip_tilt_pole_aligned(f) for f in phase_frames) if t is not None
+            ]
+        else:
+            shoulder_tilts = [
+                t for t in (_shoulder_tilt_2d(f, line) for f in phase_frames) if t is not None
+            ]
+            hip_tilts = [
+                t for t in (_hip_tilt_2d(f, line) for f in phase_frames) if t is not None
+            ]
+        shoulder_tilt_val = float(np.median(shoulder_tilts)) if shoulder_tilts else None
+        hip_tilt_val = float(np.median(hip_tilts)) if hip_tilts else None
+        # iteration 4 Codex MEDIUM 정합 — 입력이 이미 unsigned [0, 90] 이므로 abs() 호출 불필요.
+        sev_s = _severity_from_tilt(shoulder_tilt_val, shoulder_thresh)
+        sev_h = _severity_from_tilt(hip_tilt_val, hip_thresh)
+        severity = _max_severity(sev_s, sev_h)
+        if phase_frames:
+            high_count = sum(
+                1 for f in phase_frames if getattr(f, "reliability", "low") == "high"
+            )
+            ratio = high_count / max(1, len(phase_frames))
+            metric_confidence: MetricConfidence = "medium" if ratio >= 0.7 else "low"
+        else:
+            metric_confidence = "low"
+        metrics.append(
+            AxisDeviationMetric(
+                phase=b.phase,
+                shoulder_tilt=shoulder_tilt_val,
+                hip_tilt=hip_tilt_val,
+                severity=severity,
+                confidence=metric_confidence,
+                warnings=list(base_warnings),
+            )
         )
-        for b in phase_boundaries
-    ]
+    return metrics
 
 
 # ── compute_stability_metrics: REVIEWS R5 FPS-normalized ────────────────

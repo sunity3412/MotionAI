@@ -58,15 +58,12 @@ def test_axis_metric_transitional_warning_top_level_emit() -> None:
     )
 
 
-def test_compute_axis_deviation_emits_phase_8_1_transitional_warning() -> None:
-    """compute_axis_deviation stub 의 warning emit 박제 source-level grep.
-
-    Wave 1 가 본 stub 을 실 본체 로 교체 시 본 test RED → 동시에 본 grep guard
-    제거 박제 plan 정합 (Wave 1 plan 박제 cleanup item).
-    """
-    from sunity_shared.analysis.force_signals import compute_axis_deviation
-
-    src = inspect.getsource(compute_axis_deviation)
-    assert "phase_8_1_wave_0_transitional" in src, (
-        "compute_axis_deviation stub 본체 안 'phase_8_1_wave_0_transitional' literal 부재"
-    )
+# NOTE (Plan 08.1-01 Wave 1, 2026-06-09): 본 파일 의 세 번째 test
+# `test_compute_axis_deviation_emits_phase_8_1_transitional_warning` 는 Wave 1 가
+# stub 을 실 본체 로 교체 시 명시적 cleanup 대상 박제 (Wave 0 plan must_haves +
+# Wave 1 plan 박제). 본 commit 에서 제거 — 새 본체 검증 은 `test_compute_axis_tilt_only.py`
+# 가 보유.
+#
+# compute_force_signals umbrella 는 여전히 'phase_8_1_wave_0_transitional' literal
+# 검출 로직 보존 (legacy stub doc 박제 호환). Wave 2 (production sweep + Pod
+# 재배포) 종료 후 umbrella 의 stub-detect 로직 제거 plan 박제.

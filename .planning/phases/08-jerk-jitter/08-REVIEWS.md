@@ -8,10 +8,14 @@ plans_reviewed:
   - .planning/phases/08-jerk-jitter/08-02-PLAN.md
   - .planning/phases/08-jerk-jitter/08-03-PLAN.md
 prior_review_referenced: .planning/phases/08-jerk-jitter/08-DIRECT-REVIEW.md
-cycles_recorded: [1, 2]
-latest_cycle: 2
-latest_verdict: revise-before-execute
-latest_unresolved_high: 4
+cycles_recorded: [1, 2, 3]
+latest_cycle: 3
+latest_verdict: ready-to-execute
+latest_unresolved_high: 0
+convergence_trajectory:
+  cycle_1: 9
+  cycle_2: 4
+  cycle_3: 0
 ---
 
 # Cross-AI Plan Review — Phase 8
@@ -432,3 +436,100 @@ To incorporate feedback into planning:
 /gsd-plan-phase 8 --reviews
 ```
 
+
+---
+
+# Cross-AI Plan Review — Phase 8 (Cycle 3 — Convergence Verification)
+
+Cycle 3 of the plan-review-convergence loop. This is the final cycle
+(MAX_CYCLES=3). Cycle 2 verdict was `revise-before-execute` with 4 HIGH
+concerns. The planner replan (commit `8f0fbd3`) addressed all four. This
+cycle audits whether the Cycle 2 replan actually closes them in the plan
+text and surfaces any NEW HIGH risks introduced by the Cycle 2 revision
+itself.
+
+- **cycle:** 3
+- **reviewers:** [codex]
+- **reviewed_at:** 2026-06-09T12:00:00Z
+- **trajectory:** Cycle 1 = 9 HIGH → Cycle 2 = 4 HIGH → Cycle 3 = 0 HIGH
+- **plans_reviewed:**
+  - .planning/phases/08-jerk-jitter/08-00-PLAN.md
+  - .planning/phases/08-jerk-jitter/08-01-PLAN.md
+  - .planning/phases/08-jerk-jitter/08-02-PLAN.md
+  - .planning/phases/08-jerk-jitter/08-03-PLAN.md
+- **prior_review_referenced:** 08-REVIEWS.md Cycle 2 (this file, above)
+
+## Codex Review (Cycle 3)
+
+Reviewed plan text at commit `8f0fbd3`.
+
+### 1. Cycle 2 HIGH Resolution Audit
+
+| ID | Status | Justification with file/line |
+|---|---|---|
+| #1 Preflight gate plumbing (R4) | FULLY RESOLVED | 08-03-PLAN.md:487 defines `_preflight_label_gate_passed()` with `PREFLIGHT_LABEL_GATE_PASSED` truthy/falsy/unset mapping. 08-03-PLAN.md:530 wires it into `compute_force_signals`. Tests cover truthy/falsy/unset at 08-03-PLAN.md:574. Manual Lambda env flip is specified at 08-03-PLAN.md:667 and 08-03-PLAN.md:705. |
+| #2 Layer-2 except ceiling | FULLY RESOLVED | 08-02-PLAN.md:426 extracts `_layer1_confidence_from_preflight()`. 08-03-PLAN.md:324 uses it as the ceiling source, 08-03-PLAN.md:332 caps success via `_min_confidence`, and 08-03-PLAN.md:338 keeps failure on `ceiling_confidence`. Tests explicitly cover failure and success capping at 08-03-PLAN.md:365. |
+| #3 Firestore scoped validator | FULLY RESOLVED | 08-03-PLAN.md:350 states `_validate_dict_only_scalars` body remains unchanged. 08-03-PLAN.md:352 scopes list-scalar relaxation to `_validate_force_signals_report()` for `forceSignalsReport`; 08-03-PLAN.md:356 routes `complete_analysis(force_signals_report=...)` through that validator only. Tests include strict bodyComparisonReport regression at 08-03-PLAN.md:367. |
+| #4 Gemini model env (R8) | FULLY RESOLVED | `gemini_moment_extractor.py` is in `files_modified` at 08-03-PLAN.md:10. The real default location and replacement default are specified at 08-03-PLAN.md:296: `os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")`. Tests cover default, env override, recognizer override, and no `gemini-2.0-flash-exp` at 08-03-PLAN.md:379. |
+
+### 2. New HIGH Concerns (introduced by Cycle 2 revision)
+
+None.
+
+### 3. MEDIUM / LOW Concerns
+
+- **LOW** (08-01-PLAN.md:564): uses a combined warning-code grep, not the
+  exact `grep -c "preflight_gate_pending" docs/contract.md >= 1` check
+  requested. Mitigated by the explicit lockstep field entry at
+  08-01-PLAN.md:524, so it is not HIGH.
+- **LOW** (08-03-PLAN.md:670): SAM smoke step initializes
+  `PREFLIGHT_LABEL_GATE_PASSED=0` while 08-03-PLAN.md:496 defines `0` as
+  gate **fail**, not pending. Conservative confidence behavior is safe
+  (still emits `low`), but ops wording should say "failed/held low" or
+  leave unset for pending semantics. Cosmetic — does not block execution.
+
+### 4. Phase-Level Verdict
+
+`ready-to-execute`
+
+The geometry/scale blockers (R1/R2/R3/R5/R10/H1) closed in Cycle 2 remain
+closed. All four Cycle 2 NEW HIGHs (#1 preflight env plumbing, #2 Layer-2
+except ceiling, #3 scoped Firestore validator preserving project-wide
+invariant, #4 Gemini model env in both files with non-EOL default) are
+verifiably addressed in plan text with helper definitions, call-site
+routing, and dedicated tests. No new HIGH-severity risks were introduced by
+the Cycle 2 revision. Two LOW cosmetic notes remain (warning-code grep
+specificity, SAM smoke env-value semantics) — neither blocks execution.
+
+### 5. CYCLE_SUMMARY
+
+CYCLE_SUMMARY: current_high=0
+
+## Consensus Summary (Cycle 3)
+
+Only Codex was invoked this cycle (per `--codex` flag).
+
+**Convergence trajectory:**
+- Cycle 1: 9 HIGH (verdict `block`)
+- Cycle 2: 4 HIGH (verdict `revise-before-execute`)
+- Cycle 3: 0 HIGH (verdict `ready-to-execute`)
+
+**Closed across all cycles:** R1, R2, R3, R5, R6, R7, R10, H1 (Cycle 2),
+plus Cycle 2 NEW HIGH #1/#2/#3 and R4/R8 carryover (Cycle 3).
+
+**Newly raised in Cycle 3:** None.
+
+**Residual LOW (non-blocking):**
+1. 08-01 acceptance grep is bundled, not per-code (cosmetic).
+2. 08-03 SAM smoke uses `PREFLIGHT_LABEL_GATE_PASSED=0` (falsy=fail) as
+   its initial value where unset (pending) would be more semantically
+   accurate; behavior is conservatively safe either way.
+
+### Recommended Next Steps
+
+Phase 8 plans (08-00 / 08-01 / 08-02 / 08-03) are ready to execute. The
+two LOW items can be folded in during execution or left as-is.
+
+```
+/gsd-execute-phase 8
+```

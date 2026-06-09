@@ -1,7 +1,11 @@
-"""Plan 08-02 Task 2 — compute_axis_deviation 단위 test (REVIEWS R1/R2).
+"""Plan 08.1-00 Wave 0 — compute_axis_deviation transitional stub test (D-01).
 
-R1: point_to_pole_line_distance_2d 사용 강제 (Plan 08-00 contract)
-R2: median_torso_length denominator + BodyNormalizationProfile import 영구 차단
+Phase 8.1 박제 (2026-06-09): distance 차원 hard break — IPSF Code of Points 글로벌
+distance 항목 부재. compute_axis_deviation 본체 = transitional stub. Wave 1 가
+실 tilt 측정 알고리즘 배포 시 본 test 들이 RED → 새 본체 test 로 교체.
+
+기존 distance 산출 기반 assertion (pelvis_distance / chest_distance /
+scale_denominator / coordinate_space / deviation_direction) 박제 제거.
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ from sunity_shared.analysis.force_signals import (
 )
 
 from .fixtures._factory import make_pole_axis_measurement
-from .fixtures._fixture_builders import build_clean_invert, build_pelvis_drop
+from .fixtures._fixture_builders import build_clean_invert
 
 
 def _angles(n: int) -> np.ndarray:
@@ -37,78 +41,97 @@ def _hold_boundary(start: int, end: int) -> PhaseBoundary:
     )
 
 
-def test_pelvis_distance_uses_observed_torso_length_denominator():
-    """pelvis distance = raw_distance / median_torso_length(image_2d).
+def _multi_phase_boundaries() -> list[PhaseBoundary]:
+    """3 phase boundary 박제 — stub fan-out 검증."""
+    return [
+        PhaseBoundary(
+            phase="entry",
+            start_frame_idx=0,
+            end_frame_idx=10,
+            start_ms=0,
+            end_ms=1111,
+            confidence="low",
+            source="heuristic",
+            preflight_label_gate_passed=None,
+        ),
+        PhaseBoundary(
+            phase="final_shape",
+            start_frame_idx=10,
+            end_frame_idx=30,
+            start_ms=1111,
+            end_ms=3333,
+            confidence="low",
+            source="heuristic",
+            preflight_label_gate_passed=None,
+        ),
+        PhaseBoundary(
+            phase="hold",
+            start_frame_idx=30,
+            end_frame_idx=60,
+            start_ms=3333,
+            end_ms=6666,
+            confidence="low",
+            source="heuristic",
+            preflight_label_gate_passed=None,
+        ),
+    ]
 
-    build_clean_invert: shoulder y=0.30, hip y=0.60 → torso_length ≈ 0.30.
-    pelvis (hip midpoint x=0.5, y=0.6) → pole (x=0.5 vertical) 거리 = 0.0.
+
+# ── Wave 0 stub 동작 검증 ─────────────────────────────────────────────────
+
+
+def test_compute_axis_returns_stub_for_all_phases() -> None:
+    """3 phase boundary 입력 → 3 metric 반환 + 모두 stub default.
+
+    severity='low' / confidence='low' / shoulder_tilt=None / hip_tilt=None /
+    warnings 박제 'phase_8_1_wave_0_transitional' 포함.
+    """
+    frames, pole, _, _ = build_clean_invert()
+    boundaries = _multi_phase_boundaries()
+    metrics = compute_axis_deviation(frames, boundaries, pole)
+    assert len(metrics) == 3
+    expected_phases = ["entry", "final_shape", "hold"]
+    for i, m in enumerate(metrics):
+        assert m.phase == expected_phases[i]
+        assert m.shoulder_tilt is None
+        assert m.hip_tilt is None
+        assert m.severity == "low"
+        assert m.confidence == "low"
+        assert "phase_8_1_wave_0_transitional" in m.warnings
+
+
+def test_shoulder_tilt_stub_returns_none() -> None:
+    """Wave 0 stub: shoulder_tilt=None 반환 + warning 'phase_8_1_wave_0_transitional'.
+
+    Wave 1 가 실 tilt 측정 알고리즘 배포 시 본 test RED → 새 본체 test 로 교체.
     """
     frames, pole, _, _ = build_clean_invert()
     boundaries = [_hold_boundary(0, 60)]
     metrics = compute_axis_deviation(frames, boundaries, pole)
-    assert len(metrics) == 1
     m = metrics[0]
-    assert m.pelvis_distance_from_pole_axis is not None
-    # pelvis ≈ on the pole → distance ≈ 0 / 0.30 ≈ 0.0.
-    assert m.pelvis_distance_from_pole_axis < 0.02
-    assert m.scale_denominator == "observed_torso_length"
-    assert m.coordinate_space == "image_2d"
+    assert m.shoulder_tilt is None
+    assert "phase_8_1_wave_0_transitional" in m.warnings
 
 
-def test_chest_distance_uses_observed_torso_length_denominator():
-    """chest distance = shoulder midpoint → pole line."""
+def test_hip_tilt_stub_returns_none() -> None:
+    """Wave 0 stub: hip_tilt=None 반환 + warning 'phase_8_1_wave_0_transitional'."""
     frames, pole, _, _ = build_clean_invert()
     boundaries = [_hold_boundary(0, 60)]
     metrics = compute_axis_deviation(frames, boundaries, pole)
     m = metrics[0]
-    assert m.chest_distance_from_pole_axis is not None
-    assert m.chest_distance_from_pole_axis < 0.02
+    assert m.hip_tilt is None
+    assert "phase_8_1_wave_0_transitional" in m.warnings
 
 
-def test_line_missing_returns_null_distance_with_warning():
-    """pole_axis_measurement.line=None → distance None + warning 'pole_line_missing'."""
-    frames, _, _, _ = build_clean_invert()
-    pole_no_line = make_pole_axis_measurement(line=None)
-    boundaries = [_hold_boundary(0, 60)]
-    metrics = compute_axis_deviation(frames, boundaries, pole_no_line)
-    m = metrics[0]
-    assert m.pelvis_distance_from_pole_axis is None
-    assert m.chest_distance_from_pole_axis is None
-    assert m.coordinate_space == "unavailable"
-    assert m.scale_denominator == "unavailable"
-    assert "pole_line_missing" in m.warnings
+# ── R2 drift defense — 본 plan 박제 보존 (Wave 1 cleanup) ─────────────────
 
 
-def test_scale_unavailable_returns_null_distance_with_warning():
-    """valid frame < 5 → median_torso_length None → scale_denominator='unavailable'."""
-    frames, pole, _, _ = build_clean_invert()
-    # 5 frame 미만 → median_torso_length 가 None 반환.
-    short_frames = frames[:3]
-    boundaries = [_hold_boundary(0, 3)]
-    metrics = compute_axis_deviation(short_frames, boundaries, pole)
-    m = metrics[0]
-    assert m.scale_denominator == "unavailable"
-    assert "scale_unavailable" in m.warnings
-
-
-def test_coordinate_space_image_2d_when_line_present():
-    frames, pole, _, _ = build_clean_invert()
-    boundaries = [_hold_boundary(0, 60)]
-    metrics = compute_axis_deviation(frames, boundaries, pole)
-    assert metrics[0].coordinate_space == "image_2d"
-
-
-def test_coordinate_space_unavailable_when_line_none():
-    frames, _, _, _ = build_clean_invert()
-    pole_no_line = make_pole_axis_measurement(line=None)
-    boundaries = [_hold_boundary(0, 60)]
-    metrics = compute_axis_deviation(frames, boundaries, pole_no_line)
-    assert metrics[0].coordinate_space == "unavailable"
-
-
-def test_torso_scale_not_used_as_denominator():
+def test_torso_scale_not_used_as_denominator() -> None:
     """REVIEWS R2 drift defense — compute_axis_deviation source 안에서
     BodyNormalizationProfile.torso_scale 사용 영구 금지.
+
+    본 plan (Wave 0) 의 stub body 자체는 torso 사용 X. 모듈 차원 invariant
+    유지 (helper 함수들 Wave 1 cleanup 까지 보존).
     """
     import inspect
 
@@ -122,41 +145,24 @@ def test_torso_scale_not_used_as_denominator():
     assert ".torso_scale" not in src
 
 
-def test_pelvis_drop_fixture_emits_high_severity_outward():
-    """build_pelvis_drop: hold 구간 pelvis +0.35 outward → severity='high'."""
-    frames, pole, _, expected = build_pelvis_drop()
-    # hold = frame 30~50 (pelvis drop 구간).
-    boundaries = [_hold_boundary(30, 50)]
-    metrics = compute_axis_deviation(frames, boundaries, pole)
-    m = metrics[0]
-    # raw distance ≈ 0.35, normalized by torso (0.30) → 1.17. > 0.30 = high.
-    assert m.severity == "high"
-    assert m.deviation_direction in ("outward", "left", "right")
+# ── Wave 0 stub 의 pole_axis_measurement 의존성 부재 검증 ────────────────
 
 
-def test_shoulder_tilt_signed_degrees():
-    """shoulder_tilt 가 float (signed degrees) 반환."""
+def test_stub_ignores_pole_axis_measurement_line() -> None:
+    """Wave 0 stub: pole_axis_measurement.line 가용성에 무관 동일 결과 반환.
+
+    distance 산출 path 영구 제거 → line=None / line=PoleLine2D 두 입력 동일 결과.
+    """
     frames, pole, _, _ = build_clean_invert()
     boundaries = [_hold_boundary(0, 60)]
-    metrics = compute_axis_deviation(frames, boundaries, pole)
-    m = metrics[0]
-    assert m.shoulder_tilt is not None
-    assert isinstance(m.shoulder_tilt, float)
 
+    metrics_with_line = compute_axis_deviation(frames, boundaries, pole)
+    pole_no_line = make_pole_axis_measurement(line=None)
+    metrics_no_line = compute_axis_deviation(frames, boundaries, pole_no_line)
 
-def test_hip_tilt_signed_degrees():
-    frames, pole, _, _ = build_clean_invert()
-    boundaries = [_hold_boundary(0, 60)]
-    metrics = compute_axis_deviation(frames, boundaries, pole)
-    m = metrics[0]
-    assert m.hip_tilt is not None
-    assert isinstance(m.hip_tilt, float)
-
-
-def test_deviation_direction_outward():
-    """pelvis +0.35 outward drift → deviation_direction != 'unknown'."""
-    frames, pole, _, _ = build_pelvis_drop()
-    boundaries = [_hold_boundary(30, 50)]
-    metrics = compute_axis_deviation(frames, boundaries, pole)
-    m = metrics[0]
-    assert m.deviation_direction != "unknown"
+    assert len(metrics_with_line) == len(metrics_no_line) == 1
+    a, b = metrics_with_line[0], metrics_no_line[0]
+    assert a.shoulder_tilt == b.shoulder_tilt is None
+    assert a.hip_tilt == b.hip_tilt is None
+    assert a.severity == b.severity == "low"
+    assert a.warnings == b.warnings == ["phase_8_1_wave_0_transitional"]

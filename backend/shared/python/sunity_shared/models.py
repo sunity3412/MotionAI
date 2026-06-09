@@ -166,9 +166,11 @@ from .analysis.body_normalizer import (  # noqa: E402 — 파일 하단 re-expor
 #   - median_torso_length helper (body_scale.py)
 #
 # REVIEWS Cycle 1 반영 schema (lockstep test_force_signals_lockstep.py 가 grep 검증):
-#   R1/R2: AxisDeviationMetric.{pelvis_distance_from_pole_axis,
-#          chest_distance_from_pole_axis} nullable + coordinate_space +
-#          scale_denominator 동행.
+#   R1/R2: [Plan 08.1-00 Wave 0 박제 hard break] AxisDeviationMetric 의
+#          pelvis_distance_from_pole_axis / chest_distance_from_pole_axis /
+#          coordinate_space / scale_denominator / deviation_direction 5 필드 영구
+#          제거. tilt-only metric — IPSF Code of Points 글로벌 distance 항목 부재
+#          (NotebookLM citation 9). per D-01.
 #   R3:    ContactStabilityMetric = evidence-with-confidence: estimated_stable
 #          nullable + distance_to_pole_norm + near_pole_ratio +
 #          lost_near_pole_at_ms + measurement_kind.
@@ -196,10 +198,12 @@ from .analysis.force_signals import (  # noqa: E402, F401 — 파일 하단 re-e
 # 통과 유지). camelCase ↔ snake_case mirror 박제 위치.
 #   PhaseBoundary: phase / start_frame_idx / end_frame_idx / start_ms / end_ms /
 #                  confidence / source / preflight_label_gate_passed (R4)
-#   AxisDeviationMetric: phase / pelvis_distance_from_pole_axis /
-#                  chest_distance_from_pole_axis / shoulder_tilt / hip_tilt /
-#                  deviation_direction / severity / confidence /
-#                  coordinate_space (R1) / scale_denominator (R2) / warnings
+#   AxisDeviationMetric: [Plan 08.1-00 Wave 0 hard break — 6 필드 only]
+#                  phase / shoulder_tilt / hip_tilt / severity / confidence /
+#                  warnings. Wave 0 stub: 모든 phase 에 대해 shoulder_tilt=None /
+#                  hip_tilt=None / severity='low' / confidence='low' /
+#                  warnings=['phase_8_1_wave_0_transitional']. Wave 1 가 실 tilt
+#                  측정 알고리즘 + 정은지 분포 기반 threshold 배포.
 #   StabilityMetric: phase / jitter_score / jerk_score /
 #                  jerk_unit='deg_per_sec_cubed' (R5) / hold_stability_score /
 #                  unstable_body_parts / severity / confidence / warnings
@@ -221,7 +225,12 @@ from .analysis.force_signals import (  # noqa: E402, F401 — 파일 하단 re-e
 #           motion_unrecognized_layer1_only / abnormal_release_during_hold /
 #           partial_motion_video / video_too_short / heavy_occlusion /
 #           entry_not_detected / all_frames_unreliable.
-#   Cycle 1 신설 6: pole_line_missing / scale_unavailable /
+#   Cycle 1 신설 5: pole_line_missing / scale_unavailable /
 #           preflight_label_gate_failed / fps_normalization_applied /
-#           contact_evidence_only / coordinate_space_unavailable.
+#           contact_evidence_only.
+#           ([Plan 08.1-00 Wave 0 박제 제거] coordinate_space_unavailable —
+#           AxisDeviationMetric coordinate_space 필드 hard break 동행).
 #   Cycle 2 신설 1: preflight_gate_pending (gate 미실행 default).
+#   Phase 8.1 신설 2: axis_metric_transitional (top-level, compute_force_signals
+#           가 stub 검출 시 emit) / phase_8_1_wave_0_transitional (axis_metrics
+#           per-metric, compute_axis_deviation stub 박제 default).

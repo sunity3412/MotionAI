@@ -840,24 +840,23 @@ REVIEWS Cycle 1 반영 5 schema 변경:
 
 ### §9.3 AxisDeviationMetric
 
-중심축 이탈 metric — phase 별 측정. REVIEWS R1 + R2 박제.
+중심축 이탈 metric — phase 별 측정. **Phase 8.1 박제 (2026-06-09)**: distance 차원
+hard break (IPSF Code of Points 글로벌 distance 항목 부재, NotebookLM citation 9).
+tilt-only metric.
 
 | 필드 (TS / Python) | 타입 | 의미 |
 |---|---|---|
-| `phase` | `MotionPhase` | 어느 단계 |
-| `pelvisDistanceFromPoleAxis` / `pelvis_distance_from_pole_axis` | `number \| null` | scaleDenominator 로 정규화. line 미가용 시 null. |
-| `chestDistanceFromPoleAxis` / `chest_distance_from_pole_axis` | `number \| null` | 동일 |
-| `shoulderTilt` / `shoulder_tilt` | `number \| null` | degrees |
-| `hipTilt` / `hip_tilt` | `number \| null` | degrees |
-| `deviationDirection` / `deviation_direction` | `DeviationDirection` | 이탈 방향 |
-| `severity` | `SeverityLevel` | 측정값 크기 |
-| `confidence` | `MetricConfidence` | 신뢰도 |
-| `coordinateSpace` / `coordinate_space` | `CoordinateSpace` | **REVIEWS R1 신설** — distance 산출 좌표공간 (Plan 08-00 §9.0.1). line=null → `'unavailable'` |
-| `scaleDenominator` / `scale_denominator` | `'observed_torso_length' \| 'unavailable'` | **REVIEWS R2 신설** — Plan 08-00 박제 `median_torso_length` helper 정합. `BodyNormalizationProfile.torsoScale` 영구 사용 금지. |
-| `warnings` | `string[]` / `list[str]` | warning code (docs §9.8) |
+| `phase` / `phase` | `MotionPhase` | 어느 단계 |
+| `shoulderTilt` / `shoulder_tilt` | `number \| null` | degrees, rotation-only, pole_aligned 좌표계 |
+| `hipTilt` / `hip_tilt` | `number \| null` | degrees, rotation-only, pole_aligned 좌표계 |
+| `severity` / `severity` | `SeverityLevel` | max(shoulderTilt severity, hipTilt severity) |
+| `confidence` / `confidence` | `MetricConfidence` | phase frame reliability ratio |
+| `warnings` / `warnings` | `string[]` / `list[str]` | e.g. `'tilt_unavailable'`, `'tilt_thresholds_fallback'`, `'phase_8_1_wave_0_transitional'` |
 
-**박제 메모 (R1 + R2)**: line 미가용 시 두 distance 모두 null + warning
-`pole_line_missing` + `coordinateSpace='unavailable'` + `scaleDenominator='unavailable'`.
+**박제 메모 (Phase 8.1)**: tilt 값은 rotation-only / origin-invariant (RESEARCH §4.3).
+shoulderTilt / hipTilt = arcsin(|Δz|/||Δ||) (pole_aligned 좌표계). 미가용 시 두 tilt
+모두 null + severity='low' + warning `'tilt_unavailable'`. per RESEARCH §4 α-4 +
+IPSF NotebookLM citation 9.
 
 ### §9.4 StabilityMetric
 
@@ -994,3 +993,4 @@ R1~R4 정합. 핵심:
 *Plan 07-01 §8.3 추가: 2026-06-08 — Phase 7 차이 분류 룰 (D-07-A1 + D-07-A2 + D-07-U1) + 33 canned coverage (CR-02 fix) + CR-01 fallback path + WR-01/WR-03/WR-04 iteration 2.*
 *Plan 08-00 §9.0 추가: 2026-06-09 — Coordinate/Scale Contract (PoleLine2D + PoleAxisMeasurement + CoordinateSpace + ContactPrimitiveKind + median_torso_length + preflight label gate). REVIEWS Cycle 1 R1 + R2 + R3 + R4 blocker 해소.*
 *Plan 08-01 §9 추가: 2026-06-09 — ForceSignalsReport (PhaseBoundary + AxisDeviationMetric + StabilityMetric + ContactStabilityMetric + 20 warning code enum). REVIEWS Cycle 1 R1/R2/R3/R4/R5 + Cycle 2 §3 MEDIUM (preflight_gate_pending) 박제.*
+*Plan 08.1-00 §9.3 변경: 2026-06-09 — AxisDeviationMetric distance 차원 hard break. 5 필드 (pelvisDistanceFromPoleAxis / chestDistanceFromPoleAxis / scaleDenominator / coordinateSpace / deviationDirection) 제거 + tilt-only. Wave 0 = transitional stub. IPSF Code of Points NotebookLM citation 9 (Page 87 Glossary — 'Tilt' / 'Lean' / 'Off-axis' 용어 부재) 정합. RESEARCH §4 α-4 + CONTEXT D-01.*

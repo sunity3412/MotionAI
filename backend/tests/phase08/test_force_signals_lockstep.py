@@ -58,19 +58,19 @@ _FIELD_MAP: list[tuple[str, str, str]] = [
     ("endFrameIdx", "end_frame_idx", "camelCase ↔ snake_case"),
     ("startMs", "start_ms", "camelCase ↔ snake_case"),
     ("endMs", "end_ms", "camelCase ↔ snake_case"),
-    ("pelvisDistanceFromPoleAxis", "pelvis_distance_from_pole_axis", "camelCase ↔ snake_case"),
-    ("chestDistanceFromPoleAxis", "chest_distance_from_pole_axis", "camelCase ↔ snake_case"),
     ("shoulderTilt", "shoulder_tilt", "camelCase ↔ snake_case"),
     ("hipTilt", "hip_tilt", "camelCase ↔ snake_case"),
-    ("deviationDirection", "deviation_direction", "camelCase ↔ snake_case"),
     ("jitterScore", "jitter_score", "camelCase ↔ snake_case"),
     ("jerkScore", "jerk_score", "camelCase ↔ snake_case"),
     ("holdStabilityScore", "hold_stability_score", "camelCase ↔ snake_case"),
     ("unstableBodyParts", "unstable_body_parts", "camelCase ↔ snake_case"),
     ("contactPoint", "contact_point", "camelCase ↔ snake_case"),
     # ── REVIEWS Cycle 1 신설 필드 ──
-    ("coordinateSpace", "coordinate_space", "REVIEWS R1/R2"),
-    ("scaleDenominator", "scale_denominator", "REVIEWS R2"),
+    # Phase 8.1 박제 (Plan 08.1-00 Wave 0, D-01): coordinateSpace / scaleDenominator
+    # / deviationDirection / pelvisDistanceFromPoleAxis / chestDistanceFromPoleAxis
+    # 5 entry 영구 제거 (AxisDeviationMetric distance 차원 hard break). coordinateSpace
+    # 는 ContactStabilityMetric (§9.5) 에서 사용 유지 → camelCase mirror entry 보존.
+    ("coordinateSpace", "coordinate_space", "REVIEWS R1 (ContactStabilityMetric 박제 유지)"),
     ("measurementKind", "measurement_kind", "REVIEWS R3"),
     ("preflightLabelGatePassed", "preflight_label_gate_passed", "REVIEWS R4"),
     ("jerkUnit", "jerk_unit", "REVIEWS R5"),
@@ -78,14 +78,15 @@ _FIELD_MAP: list[tuple[str, str, str]] = [
     ("distanceToPoleNorm", "distance_to_pole_norm", "REVIEWS R3 신설"),
     ("nearPoleRatio", "near_pole_ratio", "REVIEWS R3 신설"),
     ("lostNearPoleAtMs", "lost_near_pole_at_ms", "REVIEWS R3 — lostContactAtMs 명칭 변경"),
-    # ── 20 warning code enum (기존 13 + Cycle 1 신설 6 + Cycle 2 신설 1) ──
+    # ── warning code enum (기존 13 + Cycle 1 신설 5 + Cycle 2 신설 1 + Phase 8.1 신설 2) ──
+    # Phase 8.1 박제 (Plan 08.1-00 Wave 0): coordinate_space_unavailable 박제 제거 +
+    # axis_metric_transitional / phase_8_1_wave_0_transitional 박제 신설 (C-B1/C-H1).
     ("pole_line_missing", "pole_line_missing", "warning code REVIEWS R1"),
     ("scale_unavailable", "scale_unavailable", "warning code REVIEWS R2"),
     ("preflight_label_gate_failed", "preflight_label_gate_failed", "warning code REVIEWS R4"),
     ("preflight_gate_pending", "preflight_gate_pending", "warning code REVIEWS Cycle 2 §3 MEDIUM"),
     ("fps_normalization_applied", "fps_normalization_applied", "warning code REVIEWS R5"),
     ("contact_evidence_only", "contact_evidence_only", "warning code REVIEWS R3"),
-    ("coordinate_space_unavailable", "coordinate_space_unavailable", "warning code REVIEWS R1/R2"),
 ]
 
 

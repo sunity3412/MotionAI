@@ -13,15 +13,19 @@ Plan 08-02 신설 (2026-06-09) — REVIEWS Cycle 1 R1/R2/R3/R4/R5 반영.
 
 REVIEWS Cycle 1 핵심 박제 메모:
 
-  R1 (PoleAxis position 부재):
-    point_to_pole_line_distance_2d(point, line) 사용. line=None 시 distance None
-    + warning 'pole_line_missing' + coordinate_space='unavailable' (graceful).
+  R1 (PoleAxis position 부재) — [Plan 08.1-00 Wave 0 박제 AxisDeviationMetric 영구 제거]:
+    AxisDeviationMetric 의 distance 차원 hard break (D-01) — pelvis_distance /
+    chest_distance / coordinate_space / scale_denominator / deviation_direction
+    5 필드 영구 제거. tilt-only metric. compute_axis_deviation = transitional stub
+    (Wave 0). 본 R1 박제 정신은 ContactStabilityMetric 의 coordinate_space 필드
+    (line=None 시 'unavailable') 박제 유지.
 
   R2 (torso_scale 오용):
     body_scale.median_torso_length(pose_frames, space='image_2d') denominator 사용.
     **body_normalization 모듈 / torso_scale 사용 영구 금지** — drift defense
     test 가 source code grep 검증. observed length 미가용 (valid frame < 5) 시
-    None + warning 'scale_unavailable'.
+    None + warning 'scale_unavailable'. [Plan 08.1-00 Wave 0] AxisDeviationMetric
+    의 scale_denominator 필드 영구 제거 — ContactStabilityMetric 박제 유지.
 
   R3 (contact primitive 불명확):
     yaml entry 의 kind 필드 (keypoint / segment / region_proxy) 별 lookup 분기.
@@ -270,36 +274,37 @@ class PhaseBoundary:
 
 @dataclass(frozen=True)
 class AxisDeviationMetric:
-    """pelvis/chest distance from pole axis + shoulder/hip tilt.
+    """tilt-only axis deviation metric per phase.
 
-    REVIEWS R1/R2 신설: coordinate_space + scale_denominator 동행.
-      line 미가용 → 모든 distance None + coordinate_space='unavailable' +
-        scale_denominator='unavailable' + warning 'pole_line_missing'.
-      torso_length 미가용 → distance None + scale_denominator='unavailable' +
-        warning 'scale_unavailable'.
+    Phase 8.1 박제 (2026-06-09): distance 차원 hard break — IPSF Code of Points 에
+    글로벌 distance 항목 부재 (NotebookLM citation 9, Aerial Pole CoP 2024-2025
+    Page 87 Glossary). tilt-only metric.
+
+    naming caveat (C-MH1): class name 박제 'AxisDeviationMetric' 보존 — 실 의미는
+    tilt-only 박제. ROADMAP 박제 별도 plan 에서 rename 후보 (예: AxisTiltMetric).
+
+    Wave 0 = transitional stub. compute_axis_deviation() 가 모든 phase 에 대해
+    shoulder_tilt=None / hip_tilt=None / severity='low' / confidence='low' /
+    warnings=['phase_8_1_wave_0_transitional'] 반환.
+
+    Wave 1 = 실 tilt 측정 알고리즘 + 정은지 분포 기반 threshold yaml 배포.
+    Wave 2 = production sweep 검증 (warning 'phase_8_1_wave_0_transitional' 부재
+    가 Pod 재배포 완료 게이트).
+
+    per D-01.
     """
 
     phase: MotionPhase
-    pelvis_distance_from_pole_axis: float | None
-    chest_distance_from_pole_axis: float | None
     shoulder_tilt: float | None
     hip_tilt: float | None
-    deviation_direction: DeviationDirection
     severity: SeverityLevel
     confidence: MetricConfidence
-    coordinate_space: CoordinateSpace
-    scale_denominator: Literal["observed_torso_length", "unavailable"]
     warnings: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.phase not in _MOTION_PHASES:
             raise ValueError(
                 f"phase must be one of {_MOTION_PHASES}, got {self.phase!r}"
-            )
-        if self.deviation_direction not in _DEVIATION_DIRECTIONS:
-            raise ValueError(
-                f"deviation_direction must be one of {_DEVIATION_DIRECTIONS}, "
-                f"got {self.deviation_direction!r}"
             )
         if self.severity not in _SEVERITY_LEVELS:
             raise ValueError(
@@ -310,26 +315,6 @@ class AxisDeviationMetric:
                 f"confidence must be one of {_METRIC_CONFIDENCES}, "
                 f"got {self.confidence!r}"
             )
-        if self.coordinate_space not in _COORDINATE_SPACES:
-            raise ValueError(
-                f"coordinate_space must be one of {_COORDINATE_SPACES}, "
-                f"got {self.coordinate_space!r}"
-            )
-        if self.scale_denominator not in _SCALE_DENOMINATORS:
-            raise ValueError(
-                f"scale_denominator must be one of {_SCALE_DENOMINATORS}, "
-                f"got {self.scale_denominator!r}"
-            )
-        # invariant: coordinate_space='unavailable' ↔ 모든 distance None.
-        if self.coordinate_space == "unavailable":
-            if (
-                self.pelvis_distance_from_pole_axis is not None
-                or self.chest_distance_from_pole_axis is not None
-            ):
-                raise ValueError(
-                    "coordinate_space='unavailable' requires all distance "
-                    "fields to be None (REVIEWS R1 invariant)"
-                )
 
 
 @dataclass(frozen=True)
@@ -1041,190 +1026,34 @@ def compute_axis_deviation(
     *,
     fps: float = 9.0,
 ) -> list[AxisDeviationMetric]:
-    """pelvis/chest distance from pole axis + tilt (REVIEWS R1 + R2).
+    """Phase 8.1 Wave 0 transitional stub — 실 tilt 측정 알고리즘 + threshold 는 Wave 1 가 배포.
 
-    line 미가용 → distance None + coordinate_space='unavailable' + warning.
-    torso_length 미가용 → distance None + scale_denominator='unavailable' + warning.
+    모든 phase 에 대해 severity='low' default + warning 'phase_8_1_wave_0_transitional' 반환.
+    Wave 2 production sweep 이 이 warning 의 부재를 게이트로 사용 (Pod 재배포 완료 검증).
+
+    distance 차원 hard break (D-01) — pelvis/chest distance 산출 path 영구 제거.
+    AxisDeviationMetric 6 필드 (phase / shoulder_tilt / hip_tilt / severity /
+    confidence / warnings) 만 박제. IPSF Code of Points 에 글로벌 distance 항목
+    부재 (NotebookLM citation 9, Aerial Pole CoP 2024-2025 Page 87 Glossary).
+
+    Wave 0 단독 production 진입 금지 (C-H1 박제) — 본 stub 의 warning
+    'phase_8_1_wave_0_transitional' 가 Wave 2 production sweep 게이트의 검출 신호.
+    compute_force_signals umbrella 가 본 warning 검출 시 top-level warning
+    'axis_metric_transitional' 동행 박제 (C-B1).
+
+    per D-01 + D-06.
     """
-    # Plan 08-04 (B' fix, 2026-06-09) — coordinate space 자동 선택.
-    # image_2d (PoleLine2D 가용 + keypoints_2d 가용 + torso_length(image_2d) 가용)
-    #   → 기존 path.
-    # pole_aligned (위 미충족 + keypoints_3d_pole_aligned + torso_length(pole_aligned))
-    #   → 폴 축 = Z+, distance = sqrt(x² + y²).
-    # 둘 다 미충족 → 'unavailable'.
-    line = pole_axis_measurement.line
-    torso_2d = _observed_torso_length(pose_frames)
-    torso_aligned = _observed_torso_length_pole_aligned(pose_frames)
-
-    # 첫 frame keypoints_2d 가용성 검증 (RTMW 는 None — 이 경우 pole_aligned fallback).
-    has_kp2d = bool(pose_frames and pose_frames[0].keypoints_2d)
-    use_image_2d = (line is not None) and has_kp2d and (torso_2d is not None)
-    use_pole_aligned = (not use_image_2d) and bool(
-        pose_frames and pose_frames[0].keypoints_3d_pole_aligned
-    ) and (torso_aligned is not None)
-
-    if not use_image_2d and not use_pole_aligned:
-        coordinate_space: CoordinateSpace = "unavailable"
-        scale_denominator: Literal[
-            "observed_torso_length", "unavailable"
-        ] = "unavailable"
-        warnings_base = []
-        if line is None:
-            warnings_base.append("pole_line_missing")
-        if torso_2d is None and torso_aligned is None:
-            warnings_base.append("scale_unavailable")
-        elif not has_kp2d and torso_2d is None:
-            warnings_base.append("keypoints_2d_missing")
-        return [
-            AxisDeviationMetric(
-                phase=b.phase,
-                pelvis_distance_from_pole_axis=None,
-                chest_distance_from_pole_axis=None,
-                shoulder_tilt=None,
-                hip_tilt=None,
-                deviation_direction="unknown",
-                severity="low",
-                confidence="low",
-                coordinate_space=coordinate_space,
-                scale_denominator=scale_denominator,
-                warnings=list(warnings_base),
-            )
-            for b in phase_boundaries
-        ]
-
-    # 선택된 공간 박제.
-    if use_image_2d:
-        coordinate_space = "image_2d"
-        torso_length = torso_2d
-        scale_denominator = "observed_torso_length"
-        scale_warnings: list[str] = []
-    else:
-        coordinate_space = "pole_aligned"
-        torso_length = torso_aligned
-        scale_denominator = "observed_torso_length"
-        scale_warnings = ["coordinate_space_pole_aligned_fallback"]
-
-    metrics: list[AxisDeviationMetric] = []
-    for b in phase_boundaries:
-        phase_frames = pose_frames[b.start_frame_idx : b.end_frame_idx]
-        if use_image_2d:
-            pelvis_positions = [
-                p for p in (_pelvis_position_image_2d(f) for f in phase_frames) if p is not None
-            ]
-            chest_positions = [
-                p for p in (_chest_position_image_2d(f) for f in phase_frames) if p is not None
-            ]
-            pelvis_dists_raw = [
-                point_to_pole_line_distance_2d(p, line) for p in pelvis_positions
-            ]
-            chest_dists_raw = [
-                point_to_pole_line_distance_2d(p, line) for p in chest_positions
-            ]
-            shoulder_tilts = [
-                t
-                for t in (_shoulder_tilt_2d(f, line) for f in phase_frames)
-                if t is not None
-            ]
-            hip_tilts = [
-                t for t in (_hip_tilt_2d(f, line) for f in phase_frames) if t is not None
-            ]
-        else:
-            # pole_aligned 3D path — distance = sqrt(x² + y²), tilt = arcsin(|Δz|/||Δ||).
-            pelvis_positions = [
-                p for p in (_pelvis_position_pole_aligned(f) for f in phase_frames) if p is not None
-            ]
-            chest_positions = [
-                p for p in (_chest_position_pole_aligned(f) for f in phase_frames) if p is not None
-            ]
-            pelvis_dists_raw = [_pole_aligned_axis_distance(p) for p in pelvis_positions]
-            chest_dists_raw = [_pole_aligned_axis_distance(p) for p in chest_positions]
-            shoulder_tilts = [
-                t
-                for t in (_shoulder_tilt_pole_aligned(f) for f in phase_frames)
-                if t is not None
-            ]
-            hip_tilts = [
-                t for t in (_hip_tilt_pole_aligned(f) for f in phase_frames) if t is not None
-            ]
-
-        # normalize if torso_length 가용. 아니면 None + warning.
-        if torso_length is not None and pelvis_dists_raw:
-            pelvis_dist: float | None = float(np.median(pelvis_dists_raw)) / torso_length
-        else:
-            pelvis_dist = None
-        if torso_length is not None and chest_dists_raw:
-            chest_dist: float | None = float(np.median(chest_dists_raw)) / torso_length
-        else:
-            chest_dist = None
-
-        shoulder_tilt_val = float(np.median(shoulder_tilts)) if shoulder_tilts else None
-        hip_tilt_val = float(np.median(hip_tilts)) if hip_tilts else None
-
-        # severity.
-        sev_pelvis = _severity_from_distance(
-            pelvis_dist, AXIS_PELVIS_DISTANCE_THRESHOLDS
+    return [
+        AxisDeviationMetric(
+            phase=b.phase,
+            shoulder_tilt=None,
+            hip_tilt=None,
+            severity="low",
+            confidence="low",
+            warnings=["phase_8_1_wave_0_transitional"],
         )
-        sev_chest = _severity_from_distance(
-            chest_dist, AXIS_CHEST_DISTANCE_THRESHOLDS
-        )
-        sev_shoulder = _severity_from_distance(
-            abs(shoulder_tilt_val) if shoulder_tilt_val is not None else None,
-            AXIS_TILT_THRESHOLDS_DEG,
-        )
-        sev_hip = _severity_from_distance(
-            abs(hip_tilt_val) if hip_tilt_val is not None else None,
-            AXIS_TILT_THRESHOLDS_DEG,
-        )
-        severity = _max_severity(sev_pelvis, sev_chest, sev_shoulder, sev_hip)
-
-        # deviation direction.
-        if pelvis_positions and use_image_2d and line is not None:
-            direction = _deviation_direction_from_pelvis(pelvis_positions, line)
-        elif pelvis_positions and use_pole_aligned:
-            # pole_aligned: pole = Z+, XY 평면 에서 pelvis 의 평균 (x, y) 위치 기반.
-            mx = float(np.mean([p[0] for p in pelvis_positions]))
-            my = float(np.mean([p[1] for p in pelvis_positions]))
-            if abs(mx) >= abs(my):
-                direction = "outward" if mx > 0 else "inward"
-            else:
-                direction = "up" if my > 0 else "down"
-        else:
-            direction = "unknown"
-
-        # confidence (frame 신뢰도 기반).
-        if torso_length is None:
-            metric_confidence: MetricConfidence = "low"
-        elif phase_frames:
-            high_count = sum(
-                1 for f in phase_frames if getattr(f, "reliability", "low") == "high"
-            )
-            ratio = high_count / max(1, len(phase_frames))
-            if ratio >= 0.7:
-                metric_confidence = "medium"
-            elif ratio >= LOW_RELIABILITY_PHASE_THRESHOLD:
-                metric_confidence = "low"
-            else:
-                metric_confidence = "low"
-        else:
-            metric_confidence = "low"
-
-        metrics.append(
-            AxisDeviationMetric(
-                phase=b.phase,
-                pelvis_distance_from_pole_axis=pelvis_dist,
-                chest_distance_from_pole_axis=chest_dist,
-                shoulder_tilt=shoulder_tilt_val,
-                hip_tilt=hip_tilt_val,
-                deviation_direction=direction,
-                severity=severity,
-                confidence=metric_confidence,
-                coordinate_space=coordinate_space,
-                scale_denominator=scale_denominator,
-                warnings=list(scale_warnings),
-            )
-        )
-
-    return metrics
+        for b in phase_boundaries
+    ]
 
 
 # ── compute_stability_metrics: REVIEWS R5 FPS-normalized ────────────────
@@ -1737,11 +1566,15 @@ def compute_force_signals(
         preflight_label_gate_passed
     )
     warnings_top.extend(gate_warnings)
-    # 모든 axis metric 의 coordinate_space='unavailable' 인 경우.
+    # Phase 8.1 Wave 0 stub 검출 (C-B1 fix) — coordinate_space 필드 부재 후
+    # 모든 axis metric 의 warning 박제 'phase_8_1_wave_0_transitional' 동행 시
+    # top-level 'axis_metric_transitional' warning emit. C-H1 의 downstream guard
+    # (Wave 0 stub 잔존 detection) 와 동일 신호. Wave 2 production sweep 게이트.
     if axis_metrics and all(
-        m.coordinate_space == "unavailable" for m in axis_metrics
+        "phase_8_1_wave_0_transitional" in (m.warnings or [])
+        for m in axis_metrics
     ):
-        warnings_top.append("coordinate_space_unavailable")
+        warnings_top.append("axis_metric_transitional")
 
     # Step 6: ForceSignalsReport 조립.
     return ForceSignalsReport(

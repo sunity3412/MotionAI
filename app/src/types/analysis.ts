@@ -522,31 +522,30 @@ export interface PhaseBoundary {
 }
 
 /**
- * 중심축 이탈 metric — phase 별 측정.
+ * Axis deviation metric per phase (Phase 8.1, 2026-06-09).
+ * Phase 8.1 distance hard break — IPSF Code of Points 에 글로벌 distance 항목 부재
+ * (NotebookLM citation 9, Aerial Pole CoP 2024-2025 Page 87 Glossary).
+ * tilt-only metric. shoulderTilt / hipTilt = degrees, rotation-only / origin-invariant.
+ * severity = max(shoulderTilt severity, hipTilt severity) per Wave 1 thresholds.
  *
- * REVIEWS R1 + R2 박제:
- *   - distance 필드 nullable: line 미가용 시 두 distance 모두 null + warning
- *     'pole_line_missing' + coordinateSpace='unavailable' + scaleDenominator='unavailable'.
- *   - coordinateSpace: distance 산출 좌표공간 (Plan 08-00 §9.0.1).
- *   - scaleDenominator: 'observed_torso_length' (median_torso_length helper, Plan
- *     08-00 §9.0.5) | 'unavailable'. BodyNormalizationProfile.torsoScale 영구
- *     사용 금지 (R2 drift defense).
+ * Wave 0 transitional: shoulderTilt/hipTilt=null + severity='low' + warning
+ * 'phase_8_1_wave_0_transitional'. compute_force_signals umbrella 가 본 warning
+ * 검출 시 top-level warning 'axis_metric_transitional' 동행 박제 (Wave 2
+ * production sweep 게이트 신호).
+ *
+ * naming caveat (C-MH1): 인터페이스 이름 'AxisDeviationMetric' 보존 — 실 의미는
+ * tilt-only. ROADMAP 박제 별도 plan 에서 rename 후보 (예: AxisTiltMetric).
+ *
+ * per D-01.
  */
 export interface AxisDeviationMetric {
   phase: MotionPhase;
-  /** image_2d 좌표공간 시 normalized 거리, scaleDenominator 로 정규화. line 미가용 시 null. */
-  pelvisDistanceFromPoleAxis: number | null;
-  chestDistanceFromPoleAxis: number | null;
-  /** degrees. */
+  /** degrees, rotation-only / origin-invariant. Wave 0 stub default null. */
   shoulderTilt: number | null;
+  /** degrees, rotation-only / origin-invariant. Wave 0 stub default null. */
   hipTilt: number | null;
-  deviationDirection: DeviationDirection;
   severity: SeverityLevel;
   confidence: MetricConfidence;
-  /** Plan 08-00 §9.0.1 CoordinateSpace. line=null → 'unavailable'. */
-  coordinateSpace: CoordinateSpace;
-  /** distance 정규화 denominator. line/scale 미가용 시 'unavailable'. */
-  scaleDenominator: 'observed_torso_length' | 'unavailable';
   warnings: string[];
 }
 

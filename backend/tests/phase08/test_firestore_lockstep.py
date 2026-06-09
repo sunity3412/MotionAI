@@ -56,8 +56,11 @@ def test_validate_force_signals_report_passes_warnings_list_of_str():
         "axisMetrics": [
             {
                 "phase": "entry",
-                "pelvisDistanceFromPoleAxis": None,
-                "warnings": ["pole_line_missing"],
+                "shoulderTilt": None,
+                "hipTilt": None,
+                "severity": "low",
+                "confidence": "low",
+                "warnings": ["phase_8_1_wave_0_transitional"],
             }
         ],
         "stabilityMetrics": [

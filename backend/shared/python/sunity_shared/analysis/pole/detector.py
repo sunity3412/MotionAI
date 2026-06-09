@@ -26,6 +26,7 @@ import math
 
 import numpy as np
 
+from ..pole_geometry import PoleLine2D
 from ..pose_frame import (
     PoleAxis,
     RELIABILITY_HIGH_THRESHOLD,
@@ -113,6 +114,134 @@ class HoughPoleDetector:
         self._hough_max_line_gap: int = int(
             hough_overrides.get("max_line_gap", HOUGH_MAX_LINE_GAP)
         )
+
+    def detect_with_line(
+        self, frames: np.ndarray
+    ) -> tuple[PoleAxis, PoleLine2D | None]:
+        """(T, H, W, 3) RGB uint8 → (PoleAxis, PoleLine2D | None).
+
+        Plan 08-04 (B fix, 2026-06-09) — detect() 와 동일한 방향 산출 + 검출된 수직 line
+        들의 image-space midpoint x 좌표 median 을 PoleLine2D.point_image 로 박제.
+        confidence='low' 인 경우에도 (검출 line 1+ 개 존재 시) PoleLine2D 반환 — caller
+        가 axis distance 산출 가능 + warning 동행 (Phase 8 axisMetrics 실효성).
+
+        line=None 반환 조건:
+          - frames empty
+          - HoughLinesP 가 vertical-filter 통과 line 0 개
+          - avg_dir norm 0 (수치 fallback)
+        """
+        cv2 = self._cv2
+        if frames.shape[0] == 0:
+            return (
+                PoleAxis(
+                    axis_vector=(0.0, 1.0, 0.0),
+                    confidence_level="low",
+                    source="vertical_fallback",
+                    frame_index=None,
+                ),
+                None,
+            )
+
+        directions: list[tuple[float, float]] = []
+        confidences: list[float] = []
+        midpoints_x_norm: list[float] = []
+        frame_w = float(frames.shape[2])
+        frame_h = float(frames.shape[1])
+
+        for frame_rgb in frames:
+            h = frame_rgb.shape[0]
+            gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
+            edges = cv2.Canny(
+                gray, self._canny_low, self._canny_high,
+                apertureSize=self._canny_aperture,
+            )
+            lines = cv2.HoughLinesP(
+                edges, self._hough_rho, self._hough_theta, self._hough_threshold,
+                minLineLength=self._hough_min_line_length,
+                maxLineGap=self._hough_max_line_gap,
+            )
+            if lines is None:
+                continue
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                dx = x2 - x1
+                dy = y2 - y1
+                angle_deg = math.degrees(math.atan2(abs(dy), abs(dx)))
+                if abs(angle_deg - 90.0) > self._vertical_tolerance_deg:
+                    continue
+                length = math.hypot(dx, dy)
+                if length < self._hough_min_line_length:
+                    continue
+                vy = abs(dy)
+                vx = math.copysign(abs(dx), dx) if dy != 0 else float(dx)
+                norm = math.hypot(vx, vy)
+                if norm < 1e-9:
+                    continue
+                directions.append((vx / norm, vy / norm))
+                confidences.append(min(length / h, 1.0))
+                # B fix — line midpoint x in normalized [0,1].
+                mx = (float(x1) + float(x2)) * 0.5 / frame_w
+                midpoints_x_norm.append(max(0.0, min(mx, 1.0)))
+
+        if not directions:
+            return (
+                PoleAxis(
+                    axis_vector=(0.0, 1.0, 0.0),
+                    confidence_level="low",
+                    source="vertical_fallback",
+                    frame_index=None,
+                ),
+                None,
+            )
+
+        dirs = np.array(directions, dtype=np.float64)
+        weights = np.array(confidences, dtype=np.float64)
+        avg_dir = (dirs * weights[:, None]).sum(axis=0) / weights.sum()
+        norm_val = np.linalg.norm(avg_dir)
+        if norm_val < 1e-9:
+            return (
+                PoleAxis(
+                    axis_vector=(0.0, 1.0, 0.0),
+                    confidence_level="low",
+                    source="vertical_fallback",
+                    frame_index=None,
+                ),
+                None,
+            )
+        avg_dir /= norm_val
+        axis_3d = (float(avg_dir[0]), float(avg_dir[1]), 0.0)
+        ax, ay, az = axis_3d
+        norm_3d = math.sqrt(ax * ax + ay * ay + az * az)
+        if norm_3d < 1e-9:
+            axis_3d = (0.0, 1.0, 0.0)
+        else:
+            axis_3d = (ax / norm_3d, ay / norm_3d, az / norm_3d)
+        numeric_confidence = float(min(weights.mean(), 1.0))
+        confidence_level = _map_numeric_to_confidence_level(numeric_confidence)
+        pole_axis = PoleAxis(
+            axis_vector=axis_3d,
+            confidence_level=confidence_level,
+            source="detected",
+            frame_index=None,
+        )
+        # PoleLine2D construction — median x of all detected line midpoints (robust to outliers).
+        # point_image y = 0.5 (frame middle) — direction 로 extrapolate.
+        median_x = float(np.median(midpoints_x_norm))
+        # direction_image must be unit vector — use detected 2D direction (image plane).
+        det_dx = float(avg_dir[0])
+        det_dy = float(avg_dir[1])
+        dir_norm = math.hypot(det_dx, det_dy)
+        if dir_norm < 1e-9:
+            direction_image = (0.0, 1.0)
+        else:
+            direction_image = (det_dx / dir_norm, det_dy / dir_norm)
+        line = PoleLine2D(
+            point_image=(median_x, 0.5),
+            direction_image=direction_image,
+            confidence=numeric_confidence,
+            source="detected",
+        )
+        return pole_axis, line
 
     def detect(self, frames: np.ndarray) -> PoleAxis:
         """(T, H, W, 3) RGB uint8 → 단일 video-level PoleAxis.

@@ -143,6 +143,10 @@ _COACH_WRITER = None  # type: ignore[var-annotated]
 # 의 RTMW 본체를 직접 호출 — pose_frames 가 measure_body_profile / body_normalizer
 # 양 경로에서 필요. None 기본값 — lazy init in _ensure_adapters().
 _RTMW_ENGINE = None  # type: ignore[var-annotated]
+# Plan 08-04 (B fix, 2026-06-09) — HoughPoleDetector singleton 박제. lazy init
+# _ensure_adapters() 안. detect_with_line() 호출로 PoleLine2D 박제 → Phase 8
+# axisMetrics 실효성.
+_POLE_DETECTOR = None  # type: ignore[var-annotated]
 
 # 기술 인식 어댑터 — swappable (technique.TechniqueRecognizer 프로토콜).
 # Plan 5-03 박제 — 즉시 생성 박제 X → `_ensure_recognizer()` lazy creation 분기.
@@ -365,7 +369,7 @@ def _ensure_adapters() -> None:
     Plan 06-02 R3 fix: _RTMW_ENGINE singleton 추가 — _extract_video_analysis_inputs
     가 RTMW 본체를 직접 호출 (pose_frames list[PoseFrame] 필요).
     """
-    global _FRAME_EXTRACTOR, _POSE_ESTIMATOR, _COACH_WRITER, _RTMW_ENGINE
+    global _FRAME_EXTRACTOR, _POSE_ESTIMATOR, _COACH_WRITER, _RTMW_ENGINE, _POLE_DETECTOR
     if _FRAME_EXTRACTOR is None:
         from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
         _FRAME_EXTRACTOR = FfmpegFrameExtractor()
@@ -378,6 +382,16 @@ def _ensure_adapters() -> None:
     if _COACH_WRITER is None:
         from sunity_shared.analysis.coach_writer import CerebrasCoachWriter
         _COACH_WRITER = CerebrasCoachWriter()
+    if _POLE_DETECTOR is None:
+        # Plan 08-04 (B fix) — HoughPoleDetector lazy init. cv2 미설치 환경 (Lambda
+        # CPU fallback / test) 에선 None 유지 → _extract_video_analysis_inputs
+        # 가 vertical_fallback 박제 (graceful degrade).
+        try:
+            from sunity_shared.analysis.pole.detector import HoughPoleDetector
+            _POLE_DETECTOR = HoughPoleDetector()
+        except Exception:  # noqa: BLE001 - cv2 부재 시 graceful
+            log.warning("HoughPoleDetector lazy init 실패 — vertical_fallback 박제")
+            _POLE_DETECTOR = None
 
 
 def _signed_get(bucket: str, key: str) -> str:
@@ -512,12 +526,24 @@ def _extract_video_analysis_inputs(
 
     local_video_path = Path(tmp_path) if tmp_path else None
 
-    # Plan 08-03 (REVIEWS R10 정합) — pole_axis_measurement 박제. 현재 vertical
-    # fallback (line=None → coordinate_space='unavailable'). 추후 HoughPoleDetector
-    # 활성 plan 박제 시 line 박제. Phase 8 의 axis distance None 분기 자동 활성 박제.
+    # Plan 08-04 (B fix, 2026-06-09) — HoughPoleDetector.detect_with_line() 활성
+    # 박제. 검출된 vertical line midpoint x median 으로 PoleLine2D 산출 → Phase 8
+    # axisMetrics 실효성. 검출 실패 시 line=None → coordinate_space='unavailable'
+    # graceful fallback (08-03 박제 정합).
+    frame_arr = frames.frames if hasattr(frames, "frames") else np.asarray(frames)
+    if _POLE_DETECTOR is None:
+        detected_pole = default_pole
+        detected_line = None
+    else:
+        try:
+            detected_pole, detected_line = _POLE_DETECTOR.detect_with_line(frame_arr)
+        except Exception:  # noqa: BLE001 - detector 실패 시 vertical_fallback (graceful)
+            log.exception("HoughPoleDetector 실패 — vertical_fallback 박제")
+            detected_pole = default_pole
+            detected_line = None
     pole_axis_measurement = build_pole_axis_measurement(
-        axis_3d=default_pole,
-        line=None,
+        axis_3d=detected_pole,
+        line=detected_line,
         frame_index=None,
     )
     return _VideoAnalysisInputs(

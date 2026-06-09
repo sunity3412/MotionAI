@@ -528,20 +528,43 @@ def _map_moments_to_5phase(
             f"Layer 1 박제 5-phase 미생성 (len={len(layer1)}) — Layer 2 박제 X"
         )
 
+    # Plan 08-05 (C fix, 2026-06-09) — Gemini moments 단독 boundary 도출.
+    # Layer 1 by_phase 의 transition/final_shape 위치 mixing 금지 (monotonic 위반
+    # 원인). setup/hold/release 3 moment 필수 — 누락 시 Layer 1 fallback (raise).
+    # entry_start 만 Layer 1 anchor (영상 시작) 재사용 — Gemini 미제공.
     entry_start = by_phase["entry"][0]
-    lock_start = moments_by_key.get(
-        "setup", by_phase["entry"][1]
-    )  # setup → entry 끝 / lock 시작
-    transition_start = by_phase["lock"][1]  # Layer 1 박제 위치 유지
-    final_shape_start = by_phase["transition"][1]  # Layer 1 박제 위치 유지
-    hold_start = moments_by_key.get(
-        "hold", by_phase["final_shape"][1]
-    )  # hold → final_shape 끝 / hold 시작
-    hold_end = moments_by_key.get(
-        "release", by_phase["hold"][1]
-    )  # release → hold 끝
-    if hold_end <= hold_start:
-        hold_end = by_phase["hold"][1]  # Layer 1 박제 fallback
+    lock_start = moments_by_key.get("setup")
+    hold_start = moments_by_key.get("hold")
+    hold_end = moments_by_key.get("release")
+    if lock_start is None or hold_start is None or hold_end is None:
+        missing = [
+            k for k, v in {
+                "setup": lock_start, "hold": hold_start, "release": hold_end,
+            }.items() if v is None
+        ]
+        raise ValueError(
+            f"Layer 2 박제 Gemini moments 누락 — {missing} (Layer 1 fallback)"
+        )
+    # 중간 boundary (transition_start, final_shape_start) = Gemini lock_start ~
+    # hold_start 사이 3 등분 박제. Layer 1 by_phase 미사용 — monotonic 보장.
+    middle_span = hold_start - lock_start
+    if middle_span <= 0:
+        raise ValueError(
+            f"Layer 2 박제 monotonic 위반 — hold_start={hold_start} <= "
+            f"lock_start={lock_start} (Gemini moments inconsistent)"
+        )
+    transition_start = lock_start + middle_span // 3
+    final_shape_start = lock_start + (2 * middle_span) // 3
+    # 동률 보정 — span<3 시 3 등분 불가, 최소 +1 step 박제.
+    if transition_start <= lock_start:
+        transition_start = lock_start + 1
+    if final_shape_start <= transition_start:
+        final_shape_start = transition_start + 1
+    if hold_start <= final_shape_start:
+        raise ValueError(
+            f"Layer 2 박제 monotonic 위반 — middle_span={middle_span} 너무 작음 "
+            f"(hold_start={hold_start} <= final_shape_start={final_shape_start})"
+        )
 
     raw = [
         ("entry", entry_start, lock_start),

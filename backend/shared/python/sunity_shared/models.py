@@ -176,36 +176,41 @@ from .analysis.body_normalizer import (  # noqa: E402 — 파일 하단 re-expor
 #   R5:    StabilityMetric.jerk_unit='deg_per_sec_cubed' + jerk_score (deg/sec^3
 #          FPS-normalized).
 #
-# from .analysis.force_signals import (
-#     MotionPhase,
-#     DeviationDirection,
-#     SeverityLevel,
-#     MetricConfidence,
-#     ContactPoint,
-#     PhaseBoundary,                  # fields: phase, start_frame_idx, end_frame_idx,
-#                                     #         start_ms, end_ms, confidence, source,
-#                                     #         preflight_label_gate_passed
-#     AxisDeviationMetric,            # fields: phase, pelvis_distance_from_pole_axis,
-#                                     #         chest_distance_from_pole_axis,
-#                                     #         shoulder_tilt, hip_tilt,
-#                                     #         deviation_direction, severity,
-#                                     #         confidence, coordinate_space,
-#                                     #         scale_denominator, warnings
-#     StabilityMetric,                # fields: phase, jitter_score, jerk_score,
-#                                     #         jerk_unit, hold_stability_score,
-#                                     #         unstable_body_parts, severity,
-#                                     #         confidence, warnings
-#     ContactStabilityMetric,         # fields: phase, contact_point,
-#                                     #         measurement_kind, estimated_stable,
-#                                     #         distance_to_pole_norm,
-#                                     #         near_pole_ratio,
-#                                     #         lost_near_pole_at_ms,
-#                                     #         coordinate_space, severity,
-#                                     #         confidence, warnings
-#     ForceSignalsReport,             # fields: version, overall_confidence, warnings,
-#                                     #         phase_boundaries, axis_metrics,
-#                                     #         stability_metrics, contact_metrics
-# )
+# Plan 08-02 활성화 (2026-06-09) — Plan 08-01 placeholder forward-declare 의
+# 주석 prefix 제거. 3-way lockstep 의 Python 측면 active import 박제.
+# 본 import 활성화 후에도 Plan 08-01 lockstep test 가 PASS 유지 강제 — field
+# 이름이 grep 검증 source (placeholder 시기 + active import 시기 모두 통과).
+from .analysis.force_signals import (  # noqa: E402, F401 — 파일 하단 re-export 패턴
+    AxisDeviationMetric,
+    ContactPoint,
+    ContactStabilityMetric,
+    DeviationDirection,
+    ForceSignalsReport,
+    MetricConfidence,
+    MotionPhase,
+    PhaseBoundary,
+    SeverityLevel,
+    StabilityMetric,
+)
+# Field name lockstep — Plan 08-01 lockstep test grep source (active import 시기에도
+# 통과 유지). camelCase ↔ snake_case mirror 박제 위치.
+#   PhaseBoundary: phase / start_frame_idx / end_frame_idx / start_ms / end_ms /
+#                  confidence / source / preflight_label_gate_passed (R4)
+#   AxisDeviationMetric: phase / pelvis_distance_from_pole_axis /
+#                  chest_distance_from_pole_axis / shoulder_tilt / hip_tilt /
+#                  deviation_direction / severity / confidence /
+#                  coordinate_space (R1) / scale_denominator (R2) / warnings
+#   StabilityMetric: phase / jitter_score / jerk_score /
+#                  jerk_unit='deg_per_sec_cubed' (R5) / hold_stability_score /
+#                  unstable_body_parts / severity / confidence / warnings
+#   ContactStabilityMetric: phase / contact_point / measurement_kind (R3) /
+#                  estimated_stable (R3, nullable) / distance_to_pole_norm (R3) /
+#                  near_pole_ratio (R3) / lost_near_pole_at_ms (R3) /
+#                  coordinate_space / severity / confidence / warnings
+#   ForceSignalsReport: version / overall_confidence / warnings /
+#                  phase_boundaries / axis_metrics / stability_metrics /
+#                  contact_metrics
+#   AnalysisResult field: forceSignalsReport optional (Plan 08-03 wiring 박제 후 활성화)
 #
 # AnalysisResult lockstep:
 #   forceSignalsReport optional + nullable (Plan 08-02 wiring 박제 후 활성화).

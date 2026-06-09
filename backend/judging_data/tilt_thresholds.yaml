@@ -1,0 +1,40 @@
+schema_version: 2
+calibration_method: elite_p100_plus_margin
+calibration_version: '1.1'
+calibrated_at: '2026-06-09T12:24:29.139658+00:00'
+source:
+  sweep_uid: sweep_phase8_1780986673
+  sample_size: 25
+  source_doc_ids:
+  - 025ee11f61c9473a9f00122dcd0cb8fd
+  - 1d6843dde73a42708dc4d731a312ed89
+  - 8ac29fd13e0246c9972f8ac9b2e02688
+  - af8073a3b67148daa3911ec1232416f3
+  - da59a84303604335b7fae94563ac6769
+  null_tilt_verified: true
+  margin_deg: 5.0
+shoulder_tilt:
+  distribution:
+    p25: 17.115017052881193
+    p50: 24.842378584794314
+    p75: 31.239184672628973
+    p90: 42.36458441722693
+    p100: 58.282592731820785
+  operational_cutoff:
+    medium_cutoff_deg: 63.282592731820785
+    high_cutoff_deg: 94.92388909773118
+hip_tilt:
+  distribution:
+    p25: 22.011268393001565
+    p50: 27.725182918889757
+    p75: 36.25367215596129
+    p90: 44.3593277680813
+    p100: 49.621341819988174
+  operational_cutoff:
+    medium_cutoff_deg: 54.621341819988174
+    high_cutoff_deg: 81.93201272998226
+ipsf_tolerance:
+  source_ref: "NotebookLM citation 9 Page 87 Glossary + Aerial Pole CoP Page 63 S55\
+    \ Iron X (\xB120\xB0)"
+  tolerance_deg: 20.0
+  major_fault_deg: 40.0

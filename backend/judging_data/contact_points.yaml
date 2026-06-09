@@ -1,0 +1,47 @@
+# Plan 08-01 신설 (REVIEWS Cycle 1 revised). motion_id × expected_contact_points 매핑 —
+# Plan 08-00 박제 ContactPrimitiveKind 정합 (각 entry 가 kind 필드 동행).
+# belle/강사 도메인 검수 필수 — researcher 초안.
+#
+# 분류 규칙 (docs/contract.md §9.0.7):
+#   - left/right_hand, left/right_ankle, left/right_knee = keypoint
+#   - left/right_inner_thigh = segment (hip ↔ knee mid-segment)
+#   - hip = region_proxy (좌우 hip midpoint)
+#
+# yaml.safe_load 사용 강제 — python object tag 영구 금지 (test_yaml_uses_safe_load_path).
+
+motions:
+  ref-invert:
+    expected_contact_points:
+      - {name: left_hand, kind: keypoint}
+      - {name: right_hand, kind: keypoint}
+      - {name: left_inner_thigh, kind: segment}
+      - {name: right_inner_thigh, kind: segment}
+  ref-foxtop:
+    expected_contact_points:
+      - {name: left_hand, kind: keypoint}
+      - {name: right_hand, kind: keypoint}
+      - {name: left_ankle, kind: keypoint}
+      - {name: right_ankle, kind: keypoint}
+      - {name: hip, kind: region_proxy}
+  ref-foxtop-split:
+    expected_contact_points:
+      - {name: left_hand, kind: keypoint}
+      - {name: right_hand, kind: keypoint}
+      - {name: left_ankle, kind: keypoint}
+      - {name: right_ankle, kind: keypoint}
+      - {name: hip, kind: region_proxy}
+  ref-climb:
+    expected_contact_points:
+      - {name: left_hand, kind: keypoint}
+      - {name: right_hand, kind: keypoint}
+      - {name: left_inner_thigh, kind: segment}
+      - {name: right_inner_thigh, kind: segment}
+  ref-sideway-spin:
+    expected_contact_points:
+      - {name: left_hand, kind: keypoint}
+      - {name: right_hand, kind: keypoint}
+      - {name: left_knee, kind: keypoint}
+      - {name: right_knee, kind: keypoint}
+
+default:
+  expected_contact_points: []

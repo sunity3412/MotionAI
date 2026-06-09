@@ -272,12 +272,15 @@ Plans:
 - [ ] 08.1-01-PLAN.md — Wave 1: Tilt metric 재설계 — compute_axis_deviation tilt-only 재작성 + AXIS_TILT_THRESHOLDS_DEG → tilt_thresholds.yaml lazy load + calibrate_tilt_thresholds.py + 정은지 5영상 P25/P75/P90 분포 + IPSF ±20° default
 - [ ] 08.1-02-PLAN.md — Wave 2: Pipeline rewire + 정은지 5영상 재sweep + SWEEP-EVIDENCE.md — pipeline caller-side audit + mock E2E test + Pod 재배포 manual checkpoint + ROADMAP SC #1-5 evidence 박제
 
+**Future plan (deferred, Codex C-MH1 정합)**: `AxisDeviationMetric` → `BodyLineTiltMetric` rename — distance 차원 제거 후 의미적 정합. 본 phase 미적용 (docstring caveat 만), 별도 plan 으로 분리 (TS interface + Python dataclass + docs §9.3 + tests + frontend 영향).
+
 ### Phase 9: ForceDirectionPattern + 실패 원인 후보 3개
 
 **Goal**: 기초 신호를 종합해 `ForceDirectionPattern`(pull/push/brace/rotate/release)을 추론하고, 동작 실패 원인 후보 3개를 카드 형태로 제시한다 (단정 금지, 모든 항목 "가능성"으로 표기)
 **Mode:** mvp
-**Depends on**: Phase 8
+**Depends on**: Phase 8 (Phase 8.1 종료 기다리지 않고 평행 진입 가능 — Phase 8.1 D-05 iteration 2 정합)
 **Requirements**: FORCE-01, FEED-02
+**Axis raw signal only guard (Codex C-M4 정합, 2026-06-09)**: Phase 9 가 `forceSignalsReport.axisMetrics[*].severity` 직접 trust 금지. raw `shoulder_tilt` + `hip_tilt` + `confidence` + `warnings` 만 사용. severity 는 warnings 가 `axis_metric_transitional` 또는 `tilt_unavailable` 또는 `tilt_thresholds_fallback` 포함 시 무시. Phase 8.1 SWEEP-EVIDENCE §11 sensitivity 통과 후 severity 사용 OK.
 **Success Criteria** (what must be TRUE):
 
   1. `inferForceDirectionPattern` 함수가 5개 카테고리 중 하나 이상을 phase별로 반환한다

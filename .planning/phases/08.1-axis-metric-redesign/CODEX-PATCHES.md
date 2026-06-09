@@ -1,11 +1,24 @@
 ---
 phase: 08.1-axis-metric-redesign
 type: iteration-2-patches
-status: locked
+status: archived-2026-06-09-merged-into-plans
 created: 2026-06-09
-review_origin: 08.1-DIRECT-REVIEW.md (Codex)
+archived_at: 2026-06-09
+review_origin: 08.1-DIRECT-REVIEW.md (Codex iteration 1)
 applies_to: [08.1-00-PLAN.md, 08.1-01-PLAN.md, 08.1-02-PLAN.md]
+merged_status: |
+  Codex iteration 2 review (08.1-DIRECT-REVIEW-ITERATION2.md) found dual
+  source of truth conflict between this patches doc and plan bodies. Per
+  belle decision (2026-06-09 "단일 source of truth로 잠그는 것"), all
+  C-B1/C-H1/C-H2/C-H3/C-M1/C-M3/C-M4/C-M5/C-MH1 patches were merged
+  DIRECTLY into the 3 plan files + 08.1-CONTEXT.md + ROADMAP.md. This
+  doc is preserved as history only — DO NOT treat as override or active
+  spec. Plan bodies are now the single source of truth.
 ---
+
+> **ARCHIVED 2026-06-09** — content merged into plan bodies. Read 08.1-00/01/02-PLAN.md + 08.1-CONTEXT.md + ROADMAP.md for current spec. This doc retained only for audit trail of Codex iteration 1 findings.
+
+
 
 # Phase 8.1 Codex Patches — Iteration 2
 

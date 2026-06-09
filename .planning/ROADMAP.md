@@ -264,11 +264,13 @@ Plans:
   4. threshold 값 + 도출 근거 가 `.planning/phases/08.1-axis-metric-redesign/` 의 plan 산출물 에 기록
   5. Phase 8.1 종료 시 sweep 재실행 + 정은지 분포 확인 + 분포 변경 evidence 박제
 
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-research-phase 08.1 → /gsd-discuss-phase 08.1 → /gsd-plan-phase 08.1)
+- [ ] 08.1-00-PLAN.md — Wave 0: Schema migration — AxisDeviationMetric distance hard break (5 필드 제거, D-01) + 3-way lockstep atomic (TS + Python + docs §9.3) + Firestore validator backwards-compat + 신설 phase08_1 test infra
+- [ ] 08.1-01-PLAN.md — Wave 1: Tilt metric 재설계 — compute_axis_deviation tilt-only 재작성 + AXIS_TILT_THRESHOLDS_DEG → tilt_thresholds.yaml lazy load + calibrate_tilt_thresholds.py + 정은지 5영상 P25/P75/P90 분포 + IPSF ±20° default
+- [ ] 08.1-02-PLAN.md — Wave 2: Pipeline rewire + 정은지 5영상 재sweep + SWEEP-EVIDENCE.md — pipeline caller-side audit + mock E2E test + Pod 재배포 manual checkpoint + ROADMAP SC #1-5 evidence 박제
 
 ### Phase 9: ForceDirectionPattern + 실패 원인 후보 3개
 

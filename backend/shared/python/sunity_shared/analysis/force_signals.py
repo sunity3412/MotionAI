@@ -827,6 +827,95 @@ def _observed_torso_length(pose_frames: list[PoseFrame]) -> float | None:
     return median_torso_length(pose_frames, space="image_2d")
 
 
+def _observed_torso_length_pole_aligned(
+    pose_frames: list[PoseFrame],
+) -> float | None:
+    """Plan 08-04 (B' fix, 2026-06-09) — RTMW 가 keypoints_2d 미박제 시 fallback.
+
+    pole_aligned 3D 좌표계는 이미 폴 축을 Z+ 정렬했으므로 distance_to_pole =
+    sqrt(x² + y²). denominator 도 같은 공간 의 observed torso length 사용.
+    """
+    return median_torso_length(pose_frames, space="pole_aligned")
+
+
+def _kp_pole_aligned_xy(
+    frame: PoseFrame, name: str,
+) -> tuple[float, float] | None:
+    """frame.keypoints_3d_pole_aligned 에서 (x, y) 추출 (z 무시 = pole 축까지 거리)."""
+    kp_dict = frame.keypoints_3d_pole_aligned
+    if not kp_dict or name not in kp_dict:
+        return None
+    kp = kp_dict[name]
+    x, y = float(kp.x), float(kp.y)
+    if not (np.isfinite(x) and np.isfinite(y)):
+        return None
+    return (x, y)
+
+
+def _pelvis_position_pole_aligned(
+    frame: PoseFrame,
+) -> tuple[float, float] | None:
+    lh = _kp_pole_aligned_xy(frame, "left_hip")
+    rh = _kp_pole_aligned_xy(frame, "right_hip")
+    if lh is None or rh is None:
+        return None
+    return _midpoint(lh, rh)
+
+
+def _chest_position_pole_aligned(
+    frame: PoseFrame,
+) -> tuple[float, float] | None:
+    ls = _kp_pole_aligned_xy(frame, "left_shoulder")
+    rs = _kp_pole_aligned_xy(frame, "right_shoulder")
+    if ls is None or rs is None:
+        return None
+    return _midpoint(ls, rs)
+
+
+def _pole_aligned_axis_distance(point: tuple[float, float]) -> float:
+    """pole_aligned 공간에서 폴 축 (Z+) 까지의 거리 = sqrt(x² + y²)."""
+    x, y = point
+    return float(np.hypot(x, y))
+
+
+def _shoulder_tilt_pole_aligned(frame: PoseFrame) -> float | None:
+    """pole_aligned 공간 shoulder line 의 XY 평면 vs Z 축 기준 tilt 각.
+
+    pole 축 = Z+. shoulder vector 가 XY 평면에 평행이면 tilt=0,
+    Z 방향 성분 크면 비율 = z / sqrt(x² + y² + z²) → angle.
+    """
+    ls = frame.keypoints_3d_pole_aligned.get("left_shoulder") if frame.keypoints_3d_pole_aligned else None
+    rs = frame.keypoints_3d_pole_aligned.get("right_shoulder") if frame.keypoints_3d_pole_aligned else None
+    if ls is None or rs is None:
+        return None
+    dx = float(rs.x) - float(ls.x)
+    dy = float(rs.y) - float(ls.y)
+    dz = float(rs.z) - float(ls.z)
+    norm = float(np.sqrt(dx * dx + dy * dy + dz * dz))
+    if norm < 1e-9:
+        return None
+    # shoulder line 이 Z 축 (pole) 과 평행 = 90도 tilt (최대).
+    # shoulder line 이 XY 평면 (pole 수직) 과 평행 = 0도 tilt.
+    abs_z_ratio = abs(dz) / norm
+    return float(np.degrees(np.arcsin(min(1.0, abs_z_ratio))))
+
+
+def _hip_tilt_pole_aligned(frame: PoseFrame) -> float | None:
+    """hip line 의 pole 축 대비 tilt — shoulder_tilt 와 동일 로직."""
+    lh = frame.keypoints_3d_pole_aligned.get("left_hip") if frame.keypoints_3d_pole_aligned else None
+    rh = frame.keypoints_3d_pole_aligned.get("right_hip") if frame.keypoints_3d_pole_aligned else None
+    if lh is None or rh is None:
+        return None
+    dx = float(rh.x) - float(lh.x)
+    dy = float(rh.y) - float(lh.y)
+    dz = float(rh.z) - float(lh.z)
+    norm = float(np.sqrt(dx * dx + dy * dy + dz * dz))
+    if norm < 1e-9:
+        return None
+    abs_z_ratio = abs(dz) / norm
+    return float(np.degrees(np.arcsin(min(1.0, abs_z_ratio))))
+
+
 def _kp2d_xy(frame: PoseFrame, name: str) -> tuple[float, float] | None:
     """frame.keypoints_2d 에서 (x, y) 추출. 결손 시 None."""
     kp2d = frame.keypoints_2d
@@ -957,17 +1046,35 @@ def compute_axis_deviation(
     line 미가용 → distance None + coordinate_space='unavailable' + warning.
     torso_length 미가용 → distance None + scale_denominator='unavailable' + warning.
     """
+    # Plan 08-04 (B' fix, 2026-06-09) — coordinate space 자동 선택.
+    # image_2d (PoleLine2D 가용 + keypoints_2d 가용 + torso_length(image_2d) 가용)
+    #   → 기존 path.
+    # pole_aligned (위 미충족 + keypoints_3d_pole_aligned + torso_length(pole_aligned))
+    #   → 폴 축 = Z+, distance = sqrt(x² + y²).
+    # 둘 다 미충족 → 'unavailable'.
     line = pole_axis_measurement.line
-    torso_length = _observed_torso_length(pose_frames)
+    torso_2d = _observed_torso_length(pose_frames)
+    torso_aligned = _observed_torso_length_pole_aligned(pose_frames)
 
-    if line is None:
+    # 첫 frame keypoints_2d 가용성 검증 (RTMW 는 None — 이 경우 pole_aligned fallback).
+    has_kp2d = bool(pose_frames and pose_frames[0].keypoints_2d)
+    use_image_2d = (line is not None) and has_kp2d and (torso_2d is not None)
+    use_pole_aligned = (not use_image_2d) and bool(
+        pose_frames and pose_frames[0].keypoints_3d_pole_aligned
+    ) and (torso_aligned is not None)
+
+    if not use_image_2d and not use_pole_aligned:
         coordinate_space: CoordinateSpace = "unavailable"
         scale_denominator: Literal[
             "observed_torso_length", "unavailable"
         ] = "unavailable"
-        warnings_base = ["pole_line_missing"]
-        if torso_length is None:
+        warnings_base = []
+        if line is None:
+            warnings_base.append("pole_line_missing")
+        if torso_2d is None and torso_aligned is None:
             warnings_base.append("scale_unavailable")
+        elif not has_kp2d and torso_2d is None:
+            warnings_base.append("keypoints_2d_missing")
         return [
             AxisDeviationMetric(
                 phase=b.phase,
@@ -985,41 +1092,60 @@ def compute_axis_deviation(
             for b in phase_boundaries
         ]
 
-    # line 가용.
-    coordinate_space = "image_2d"
-    if torso_length is None:
-        scale_denominator = "unavailable"
-        scale_warnings = ["scale_unavailable"]
-    else:
+    # 선택된 공간 박제.
+    if use_image_2d:
+        coordinate_space = "image_2d"
+        torso_length = torso_2d
         scale_denominator = "observed_torso_length"
-        scale_warnings = []
+        scale_warnings: list[str] = []
+    else:
+        coordinate_space = "pole_aligned"
+        torso_length = torso_aligned
+        scale_denominator = "observed_torso_length"
+        scale_warnings = ["coordinate_space_pole_aligned_fallback"]
 
     metrics: list[AxisDeviationMetric] = []
     for b in phase_boundaries:
         phase_frames = pose_frames[b.start_frame_idx : b.end_frame_idx]
-        # pelvis distances.
-        pelvis_positions = [
-            p for p in (_pelvis_position_image_2d(f) for f in phase_frames) if p is not None
-        ]
-        chest_positions = [
-            p for p in (_chest_position_image_2d(f) for f in phase_frames) if p is not None
-        ]
-        # raw distances.
-        pelvis_dists_raw = [
-            point_to_pole_line_distance_2d(p, line) for p in pelvis_positions
-        ]
-        chest_dists_raw = [
-            point_to_pole_line_distance_2d(p, line) for p in chest_positions
-        ]
-        # tilts.
-        shoulder_tilts = [
-            t
-            for t in (_shoulder_tilt_2d(f, line) for f in phase_frames)
-            if t is not None
-        ]
-        hip_tilts = [
-            t for t in (_hip_tilt_2d(f, line) for f in phase_frames) if t is not None
-        ]
+        if use_image_2d:
+            pelvis_positions = [
+                p for p in (_pelvis_position_image_2d(f) for f in phase_frames) if p is not None
+            ]
+            chest_positions = [
+                p for p in (_chest_position_image_2d(f) for f in phase_frames) if p is not None
+            ]
+            pelvis_dists_raw = [
+                point_to_pole_line_distance_2d(p, line) for p in pelvis_positions
+            ]
+            chest_dists_raw = [
+                point_to_pole_line_distance_2d(p, line) for p in chest_positions
+            ]
+            shoulder_tilts = [
+                t
+                for t in (_shoulder_tilt_2d(f, line) for f in phase_frames)
+                if t is not None
+            ]
+            hip_tilts = [
+                t for t in (_hip_tilt_2d(f, line) for f in phase_frames) if t is not None
+            ]
+        else:
+            # pole_aligned 3D path — distance = sqrt(x² + y²), tilt = arcsin(|Δz|/||Δ||).
+            pelvis_positions = [
+                p for p in (_pelvis_position_pole_aligned(f) for f in phase_frames) if p is not None
+            ]
+            chest_positions = [
+                p for p in (_chest_position_pole_aligned(f) for f in phase_frames) if p is not None
+            ]
+            pelvis_dists_raw = [_pole_aligned_axis_distance(p) for p in pelvis_positions]
+            chest_dists_raw = [_pole_aligned_axis_distance(p) for p in chest_positions]
+            shoulder_tilts = [
+                t
+                for t in (_shoulder_tilt_pole_aligned(f) for f in phase_frames)
+                if t is not None
+            ]
+            hip_tilts = [
+                t for t in (_hip_tilt_pole_aligned(f) for f in phase_frames) if t is not None
+            ]
 
         # normalize if torso_length 가용. 아니면 None + warning.
         if torso_length is not None and pelvis_dists_raw:
@@ -1052,8 +1178,16 @@ def compute_axis_deviation(
         severity = _max_severity(sev_pelvis, sev_chest, sev_shoulder, sev_hip)
 
         # deviation direction.
-        if pelvis_positions:
+        if pelvis_positions and use_image_2d and line is not None:
             direction = _deviation_direction_from_pelvis(pelvis_positions, line)
+        elif pelvis_positions and use_pole_aligned:
+            # pole_aligned: pole = Z+, XY 평면 에서 pelvis 의 평균 (x, y) 위치 기반.
+            mx = float(np.mean([p[0] for p in pelvis_positions]))
+            my = float(np.mean([p[1] for p in pelvis_positions]))
+            if abs(mx) >= abs(my):
+                direction = "outward" if mx > 0 else "inward"
+            else:
+                direction = "up" if my > 0 else "down"
         else:
             direction = "unknown"
 

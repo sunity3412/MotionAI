@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 8 plans verified (12/12 PASS). 내일 시작 = cross-AI plan review 결과 인입 → /gsd-plan-phase 8 --reviews (HIGH 우려 있을 시) 또는 /gsd-execute-phase 8 (clean). Pod = 켜둠 (belle).
-last_updated: "2026-06-09T02:59:23.798Z"
+stopped_at: Phase 8 plans 4/4 done (08-00/01/02/03 SUMMARY 박제 완료). 정은지 5/5 영상 axis severity='high' 도메인 정합성 문제 발견 → Phase 8.5 (axis-metric-redesign, NEW) 신설 예정 (belle α 결정 2026-06-09). Phase 9 평행 진입 가능 (tilt 데이터 rotation-only 유의미).
+last_updated: "2026-06-09T15:35:00.000Z"
 last_activity: 2026-06-09
 progress:
   total_phases: 17
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 43
-  completed_plans: 35
-  percent: 24
+  completed_plans: 39
+  percent: 29
 ---
 
 # Project State
@@ -25,10 +25,27 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 07 (차이 분류) — **complete (2/2 plans)**
-Plan: 07-02 완료 → Phase 7 close-out 검증 대기
-Next: `/gsd-verify-work 7` (Phase 7 close-out). 완료 후 Phase 8 (중심축·접촉점·jerk) 진입 — belle chain 2026-06-08: 6 → 7 → **8** → 9 → 12 → 13.
-Status: Ready to execute
+Phase: 08 (중심축·접촉점·jerk) — **complete (4/4 plans)** — Plan 08-00 / 08-01 / 08-02 / 08-03 SUMMARY 박제 완료
+Plan: 08-03 종료 → Phase 8 close-out 완료 (FORCE-01 requirement 박제)
+Next: Phase 8.5 (axis-metric-redesign, NEW) 신설 예정 (belle α 결정 2026-06-09). Phase 9 평행 진입 가능. belle chain: 6 ✓ → 7 ✓ → **8 ✓** → 8.5 (NEW) + 9 (평행) → 12 → 13.
+Status: Phase 8 complete
+
+### Plan 08-03 close-out (2026-06-09)
+
+| 영역 | 결과 |
+|---|---|
+| Layer 2 wiring | TechniqueProfile.key_moments reuse (R6, 신규 Gemini call 영구 차단) + FORCE_SIGNALS_LAYER2_ENABLED 별도 env flag (R7) + _layer2_boundaries_from_technique_profile + _confidence_from_agreement + Cycle 2 NEW HIGH #2 ceiling 박제 (Layer 2 success/except 둘 다 `_layer1_confidence_from_preflight()` + `_min_confidence(agreement, ceiling)`) |
+| pipeline wiring | _process Phase 8 wiring (compare_body_profiles 직후 1줄 호출) + _preflight_label_gate_passed env helper (Cycle 2 NEW HIGH #1, env 3-state) + _get_force_signals_layer2_recognizer singleton + _VideoAnalysisInputs.pole_axis_measurement 5번째 필드 (R10) |
+| Gemini model env | R8 carryover (Codex Cycle 2) — 실 default 위치 = judging/gemini_moment_extractor.py:48 (`DEFAULT_GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')`). 'gemini-2.0-flash-exp' EOL 안전망 + recognizer.py 도 동일 GEMINI_MODEL env reuse |
+| Firestore scoped validator | Cycle 2 NEW HIGH #3 — `_validate_dict_only_scalars` 본체 변경 영구 0 (firestore-nested-array-flat 보존) + 신설 scoped validator `_validate_force_signals_report` (forceSignalsReport path 만 화이트리스트) + complete_analysis(force_signals_report=) kwarg |
+| frontend normalize | userAnalyses.ts forceSignalsReport null-guard (Phase 7 WR-02 B1 immutable spread + ?? null fallback, 7 필드 default) |
+| In-line sweep fix (A/B/B'/C) | A: sweep_temp/ prefix 박제 (SQS race 우회). B: HoughPoleDetector.detect_with_line() image-space PoleLine2D 박제. B': compute_axis_deviation pole_aligned 3D fallback (RTMW keypoints_2d 부재 시 자동, warning 'coordinate_space_pole_aligned_fallback' + 'keypoints_2d_missing'). C: _map_moments_to_5phase setup/hold/release 단독 boundary 도출 (monotonic 위반 by construction 차단) |
+| Manual checkpoint 자동화 | SAM validate PASS / Lambda env 갱신 (FORCE_SIGNALS_LAYER2_ENABLED=1, GEMINI_MODEL=gemini-2.5-flash, PREFLIGHT_LABEL_GATE_PASSED=0, file URI 방식) / Pod env 26개 복원 + Phase 8 3개 추가 + uvicorn restart (auth_configured:true, pipeline_loaded:true) / Pod phase08 pytest 103/103 PASS / 3차 sweep 정은지 5영상 schema 정합 5/5, axis distance 실값 산출, 0 server_error |
+| Test | phase06 156 + phase07 88 + phase08 103 + pipeline 11 = 358 PASS + 1 skipped (회귀 0). TS strict mode clean |
+| 4 commits | `fc3b6b7` Task 1 (Layer 2 wiring + Cycle 2 NEW HIGH #2/#3 + R8) / `ced1d87` Task 2 (pipeline wiring + Cycle 2 NEW HIGH #1 + R10 + frontend) / `c71c75b` in-line fix B+C (pole detection + Layer 2 monotonic) / `f627905` in-line fix B' (pole_aligned 3D fallback) |
+| Deviation | (1) Rule 1 phase06 brittle assertion 구조적 강화 (key_moments 신설 forward-compatible) + (2) 4 in-scope additions A/B/B'/C — manual checkpoint sweep 결과 발견된 정합성 fix in-line commit |
+
+Phase 8.5 (NEW, axis-metric-redesign) 신설 결정 — 정은지 5/5 영상 axis severity='high' 도메인 정합성 문제 (pole_aligned 좌표계 origin 미정의 + thresholds 단위 mismatch) 발견. research → discuss → plan path 박제. tilt 데이터 (rotation-only) 는 유의미 → Phase 9 1차 사용 가능.
 
 ### Plan 07-02 close-out (2026-06-08)
 
@@ -432,9 +449,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-08T14:58:17.250Z
+Last session: 2026-06-09T15:35:00.000Z
 
-Stopped at: Phase 8 plans verified (12/12 PASS). 내일 시작 = cross-AI plan review 결과 인입 → /gsd-plan-phase 8 --reviews (HIGH 우려 있을 시) 또는 /gsd-execute-phase 8 (clean). Pod = 켜둠 (belle).
+Stopped at: Phase 8 plans 4/4 done (08-00/01/02/03 SUMMARY 박제 완료). 정은지 5/5 영상 axis severity='high' 도메인 정합성 문제 발견 → Phase 8.5 (axis-metric-redesign, NEW) 신설 예정 (belle α 결정 2026-06-09). Phase 9 평행 진입 가능 (tilt 데이터 rotation-only 유의미).
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

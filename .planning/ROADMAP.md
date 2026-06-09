@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Gemini 기술 인식기 (분류 한정)** - 동작 분류만, 좌표·판단 출력 금지. **2026-06-05 12차 sweep D-01 PASS** (phase1_ready_to_swap=True, phase5_ready_to_release_d16_block=True). 빌드 11 실분석 mode1 94 + mode3 100 PASS.
 - [x] **Phase 6: 체형 정규화 비교 엔진 (coaching 모드)** - 프로 패턴을 수강생 체형 비율로 재계산 (completed 2026-06-08)
 - [x] **Phase 7: 차이 분류** - 체형 허용 차이 / 개선 필요 차이 / uncertain 분리 + bodyTypeInterpretation·recommendation 박제 (completed 2026-06-08, 2 plans 108 phase07 PASS + Phase 6 회귀 0)
-- [ ] **Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter** - 힘 패턴 추론을 위한 기초 신호
+- [x] **Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter** - 힘 패턴 추론을 위한 기초 신호. **2026-06-09 close-out** — 4 plans (08-00/01/02/03) 완료. 4 commits Plan 03 (fc3b6b7/ced1d87/c71c75b/f627905). 358 PASS + 1 skipped. 단, 정은지 5/5 영상 axis severity='high' 도메인 정합성 문제 발견 → Phase 8.5 (axis-metric-redesign, NEW) 신설 예정 (belle α 결정). tilt 데이터 (rotation-only) 는 유의미 → Phase 9 1차 사용 가능.
 - [ ] **Phase 9: ForceDirectionPattern + 실패 원인 후보 3개** - pull/push/brace/rotate/release + 실패 후보 3카드
 - [ ] **Phase 10: 부상 위험 신호 플래그** - 좌우 비대칭·요추 과신전·무리 동작 신호 (SAFE-01 v1)
 - [ ] **Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만** - AI+코치 비즈니스 모델 + 설명 엔진 한정
@@ -239,9 +239,10 @@ Plans:
   4. 모든 신호에 시간적 스무딩이 적용되고 가림 프레임은 confidence로 가중 처리된다
 
 **Plans**: 3 plans
-  - [ ] 08-01-PLAN.md — Wave 1: 3-way contract lockstep (TS 7 type + Python placeholder + docs/contract.md §9) + dimensions.stability_wobble raw helper 분리 (drift defense source) + backend/judging_data/contact_points.yaml 신설 (5 motion + default) + Wave 0 test 인프라 (phase08/ 디렉토리 + 6 fixture JSON + conftest + 3 test 파일)
-  - [ ] 08-02-PLAN.md — Wave 2: force_signals.py 본체 신설 (5 dataclass + 5 type alias + 5 public 함수 + 15+ private helper) + models.py import 활성화 (3-way lockstep 완성) + Layer 1 motion-agnostic 휴리스틱 + 4 metric 산출 함수 + compute_force_signals umbrella + drift defense test + 26+ 단위 test
-  - [ ] 08-03-PLAN.md — Wave 3: Layer 2 Gemini 본체 활성 (Plan 01-13 reuse) + _validate_dict_only_scalars 명세 확장 (list[str] 허용) + complete_analysis force_signals_report kwarg + pipeline/app.py wiring 1줄 + frontend userAnalyses.ts normalize (forceSignalsReport null-guard) + 11 신설 test + 5 pipeline 통합 test + SAM build smoke (belle 운영 manual checkpoint)
+  - [x] 08-00-PLAN.md — Wave 0: PoleLine2D + PoleAxisMeasurement + CoordinateSpace + ContactPrimitiveKind contract + median_torso_length helper + Wave 0 test 인프라 + 25-timestamp preflight gate spec (completed 2026-06-09)
+  - [x] 08-01-PLAN.md — Wave 1: 3-way contract lockstep (TS 7 type + Python placeholder + docs/contract.md §9) + dimensions.stability_wobble raw helper 분리 (drift defense source) + backend/judging_data/contact_points.yaml 신설 (5 motion + default) + 6 programmatic fixture builders (completed 2026-06-09)
+  - [x] 08-02-PLAN.md — Wave 2: force_signals.py 본체 신설 (5 dataclass + 5 type alias + 5 public 함수 + 25 private helper) + models.py import 활성화 (3-way lockstep 완성) + Layer 1 motion-agnostic 휴리스틱 + 4 metric 산출 함수 + compute_force_signals umbrella + _layer1_confidence_from_preflight + _min_confidence ceiling helper (completed 2026-06-09)
+  - [x] 08-03-PLAN.md — Wave 3: Layer 2 Gemini 활성 (TechniqueProfile.key_moments reuse, R6) + FORCE_SIGNALS_LAYER2_ENABLED env separation (R7) + GEMINI_MODEL env wiring (R8 carryover) + _preflight_label_gate_passed env helper (Cycle 2 NEW HIGH #1) + Layer 2 except ceiling (Cycle 2 NEW HIGH #2) + Firestore scoped validator `_validate_force_signals_report` (Cycle 2 NEW HIGH #3, firestore-nested-array-flat 보존) + _VideoAnalysisInputs.pole_axis_measurement (R10) + pipeline _process wiring + userAnalyses.normalize null-guard + 23 신설 test + 11 pipeline 통합 test. **In-line sweep-driven fix (4건): A sweep_temp/ prefix / B HoughPoleDetector.detect_with_line / B' compute_axis_deviation pole_aligned 3D fallback / C _map_moments_to_5phase setup/hold/release 단독 boundary.** **Phase 8.5 (axis-metric-redesign) 신설 결정** — 정은지 5/5 axis severity='high' 도메인 정합성 문제 발견. (completed 2026-06-09)
 
 ### Phase 9: ForceDirectionPattern + 실패 원인 후보 3개
 
@@ -449,7 +450,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 5. Gemini 기술 인식기 (분류 한정) | 6/6 | Complete | 2026-06-05 (12차 sweep D-01 PASS) |
 | 6. 체형 정규화 비교 엔진 | 3/3 | Complete   | 2026-06-08 |
 | 7. 차이 분류 | 0/TBD | Not started | - |
-| 8. 중심축·접촉점·jerk 분석 | 0/TBD | Not started | - |
+| 8. 중심축·접촉점·jerk 분석 | 4/4 | Complete (axis-metric Phase 8.5 신설) | 2026-06-09 |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 0/TBD | Not started | - |
 | 10. 부상 위험 신호 플래그 | 0/TBD | Not started | - |
 | 11. CoachCommentHook + Gemini 번역 | 0/TBD | Not started | - |

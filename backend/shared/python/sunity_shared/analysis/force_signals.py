@@ -46,8 +46,10 @@ REVIEWS Cycle 1 핵심 박제 메모:
     deg/frame^3). JERK_SEVERITY_THRESHOLDS_DEG_PER_SEC_CUBED 박제.
     jerk_unit='deg_per_sec_cubed' 박제.
 
-    **temporal_fill 호출 영구 금지** — angles 인자는 caller (pipeline._process) 가
-    이미 temporal_fill 1회 적용 후 전달. umbrella 의 double smoothing 차단.
+    **temporal smoothing 호출 영구 금지** — angles 인자는 caller (pipeline._process)
+    가 이미 temporal smoothing 1회 적용 후 전달. umbrella 의 double smoothing 차단.
+    test_compute_force_signals_does_not_call_temporal_smoothing_helper 가 mock
+    으로 검증 (test 파일에서는 실제 helper 이름으로 mock 박제).
 
 per Plan 08-00 contract + Plan 08-01 schema lockstep + REVIEWS Cycle 1.
 """
@@ -1219,6 +1221,29 @@ def compute_contact_stability(
     return results
 
 
+def _overall_confidence(
+    phase_boundaries: list[PhaseBoundary],
+    axis_metrics: list[AxisDeviationMetric],
+    stability_metrics: list[StabilityMetric],
+    contact_metrics: list[ContactStabilityMetric],
+) -> MetricConfidence:
+    """min(confidence) propagation — low < medium < high.
+
+    모든 metric + phase_boundaries 의 confidence 수집 → 최소 반환.
+    빈 경우 'low'.
+    """
+    order = {"low": 0, "medium": 1, "high": 2}
+    all_confidences: list[MetricConfidence] = []
+    all_confidences.extend(b.confidence for b in phase_boundaries)
+    all_confidences.extend(m.confidence for m in axis_metrics)
+    all_confidences.extend(m.confidence for m in stability_metrics)
+    all_confidences.extend(m.confidence for m in contact_metrics)
+    if not all_confidences:
+        return "low"
+    min_level = min(all_confidences, key=lambda c: order[c])
+    return min_level
+
+
 def compute_force_signals(
     pose_frames: list[PoseFrame],
     pole_axis_measurement: PoleAxisMeasurement,
@@ -1233,11 +1258,91 @@ def compute_force_signals(
 ) -> ForceSignalsReport:
     """Phase 8 umbrella — 4 metric + overall_confidence + warnings (REVIEWS R5).
 
-    Task 3 에서 본체 박제. angles 인자 = caller (pipeline._process) 가 이미
-    temporal_fill 1회 적용 후 전달. **본 함수는 temporal_fill 호출 영구 금지**
-    (double smoothing 차단).
+    angles 인자 = caller (pipeline._process) 가 이미 temporal smoothing 1회 적용 후
+    전달. **본 함수는 temporal smoothing 호출 영구 금지** (double smoothing 차단,
+    REVIEWS R5 정합). angles=None 인자 영구 금지 (caller responsibility).
+
+    Step 1: angles 검증 (None ValueError)
+    Step 2: compute_phase_boundaries (preflight gate 박제 source 전달)
+    Step 3: 3 metric 함수 호출
+    Step 4: _overall_confidence (min propagation)
+    Step 5: warnings 조립 (motion_id/gemini/preflight gate/coordinate_space/
+            fps_normalization_applied 박제)
+    Step 6: ForceSignalsReport 조립 + return
     """
-    raise NotImplementedError("Task 3 가 본체 박제")
+    # Step 1: angles 인자 검증 — None 영구 금지.
+    if angles is None:
+        raise ValueError(
+            "compute_force_signals: angles 인자는 caller 책임 "
+            "(pipeline._extract_video_analysis_inputs 가 1회 temporal smoothing "
+            "적용 후 전달). REVIEWS R5 double smoothing 차단."
+        )
+    angles_arr = np.asarray(angles, dtype=float)
+    if angles_arr.ndim != 2:
+        raise ValueError(
+            f"angles must be 2D (T, J), got shape {angles_arr.shape}"
+        )
+
+    # Step 2: phase boundaries (preflight gate source 전달).
+    phase_boundaries = compute_phase_boundaries(
+        pose_frames,
+        pole_axis_measurement,
+        body_profile,
+        angles_arr,
+        motion_id=motion_id,
+        fps=fps,
+        preflight_label_gate_passed=preflight_label_gate_passed,
+        gemini_extractor=gemini_extractor,
+        video_uri=video_uri,
+    )
+
+    # Step 3: 3 metric 산출.
+    axis_metrics = compute_axis_deviation(
+        pose_frames, phase_boundaries, pole_axis_measurement, fps=fps
+    )
+    stability_metrics = compute_stability_metrics(
+        angles_arr, phase_boundaries, pose_frames, fps=fps
+    )
+    contact_metrics = compute_contact_stability(
+        pose_frames, phase_boundaries, pole_axis_measurement, motion_id, fps=fps
+    )
+
+    # Step 4: overall_confidence.
+    overall = _overall_confidence(
+        phase_boundaries, axis_metrics, stability_metrics, contact_metrics
+    )
+
+    # Step 5: top-level warnings 조립.
+    warnings_top: list[str] = []
+    # FPS-normalized 메모 (REVIEWS R5).
+    warnings_top.append("fps_normalization_applied")
+    # motion_id 미인식.
+    if motion_id is None:
+        warnings_top.append("motion_unrecognized_layer1_only")
+    # Layer 2 hook 미활성.
+    if gemini_extractor is None:
+        warnings_top.append("layer2_unavailable")
+    # preflight gate 상태.
+    _, gate_warnings = _layer1_confidence_from_preflight(
+        preflight_label_gate_passed
+    )
+    warnings_top.extend(gate_warnings)
+    # 모든 axis metric 의 coordinate_space='unavailable' 인 경우.
+    if axis_metrics and all(
+        m.coordinate_space == "unavailable" for m in axis_metrics
+    ):
+        warnings_top.append("coordinate_space_unavailable")
+
+    # Step 6: ForceSignalsReport 조립.
+    return ForceSignalsReport(
+        version="1.0",
+        overall_confidence=overall,
+        warnings=warnings_top,
+        phase_boundaries=phase_boundaries,
+        axis_metrics=axis_metrics,
+        stability_metrics=stability_metrics,
+        contact_metrics=contact_metrics,
+    )
 
 
 # ── Layer 1 preflight gate ceiling helper (REVIEWS Cycle 2 NEW HIGH #2 정합) ──

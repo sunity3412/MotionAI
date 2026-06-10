@@ -40,7 +40,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: 체형 정규화 비교 엔진 (coaching 모드)** - 프로 패턴을 수강생 체형 비율로 재계산 (completed 2026-06-08)
 - [x] **Phase 7: 차이 분류** - 체형 허용 차이 / 개선 필요 차이 / uncertain 분리 + bodyTypeInterpretation·recommendation 박제 (completed 2026-06-08, 2 plans 108 phase07 PASS + Phase 6 회귀 0)
 - [x] **Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter** - 힘 패턴 추론을 위한 기초 신호. **2026-06-09 close-out** — 4 plans (08-00/01/02/03) 완료. 4 commits Plan 03 (fc3b6b7/ced1d87/c71c75b/f627905). 358 PASS + 1 skipped. 단, 정은지 5/5 영상 axis severity='high' 도메인 정합성 문제 발견 → Phase 8.5 (axis-metric-redesign, NEW) 신설 예정 (belle α 결정). tilt 데이터 (rotation-only) 는 유의미 → Phase 9 1차 사용 가능.
-- [ ] **Phase 9: ForceDirectionPattern + 실패 원인 후보 3개** - pull/push/brace/rotate/release + 실패 후보 3카드
+- [x] **Phase 9: ForceDirectionPattern + 실패 원인 후보 3개** - pull/push/brace/rotate/release + 실패 후보 3카드 (completed 2026-06-10)
 - [ ] **Phase 10: 부상 위험 신호 플래그** - 좌우 비대칭·요추 과신전·무리 동작 신호 (SAFE-01 v1)
 - [ ] **Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만** - AI+코치 비즈니스 모델 + 설명 엔진 한정
 - [ ] **Phase 12: 실측 각도 표시 + 키포인트 오버레이** - "현재 87° → 기준 110°" + 어깨/골반/무릎/손/중심축. **2026-06-07 belle 결정: A 항목, B → C → A 시퀀싱의 마지막. feature flag + git branch 박제로 빌드 11 stable 유지하며 진행.**
@@ -482,7 +482,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 6. 체형 정규화 비교 엔진 | 3/3 | Complete   | 2026-06-08 |
 | 7. 차이 분류 | 0/TBD | Not started | - |
 | 8. 중심축·접촉점·jerk 분석 | 4/4 | Complete (axis-metric Phase 8.5 신설) | 2026-06-09 |
-| 9. ForceDirectionPattern + 실패 후보 3개 | 1/2 | In Progress|  |
+| 9. ForceDirectionPattern + 실패 후보 3개 | 2/2 | Complete   | 2026-06-10 |
 | 10. 부상 위험 신호 플래그 | 0/TBD | Not started | - |
 | 11. CoachCommentHook + Gemini 번역 | 0/TBD | Not started | - |
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |

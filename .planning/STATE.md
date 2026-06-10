@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: verifying
 stopped_at: Completed 09-01-PLAN.md (Wave 0 atomic commit)
-last_updated: "2026-06-10T03:58:08.724Z"
+last_updated: "2026-06-10T04:20:00.105Z"
 last_activity: 2026-06-10
 progress:
   total_phases: 10
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 47
-  completed_plans: 43
-  percent: 70
+  completed_plans: 44
+  percent: 80
 ---
 
 # Project State
@@ -196,7 +196,7 @@ Last activity: 2026-06-10
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 94%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -421,6 +421,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 06 P03 | 50 | 7 tasks | 10 files |
 | Phase 08.1 P02 | 90 min | 5 tasks | 6 files |
 | Phase 09 P01 | 25min | 7 tasks | 11 files |
+| Phase 09 P02 | 30 | 5 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -463,6 +464,7 @@ Recent decisions affecting current work:
 - [Phase 08.1]: Layer 2 evidence only — Pass 게이트 아님 — 본 sweep 0/25 gemini_assisted + 5/5 layer2_unavailable warning. recognizer factory 미초기화 추정. 본 phase 의 axis metric fix 가 본질 scope. Layer 2 활성도 검증 = Phase 9/11 deferred.
 - [Phase 08.1]: pipeline/app.py caller-side 변경 0 (Wave 1 시그너처 보존) — grep audit 결과 distance kwarg 부재 + 3 coordinate_space reference 모두 pole_axis_measurement.coordinate_space (PoleAxisMeasurement unchanged field). Plan must_haves Wave 2 'caller-side 변경 0 가능' 정합.
 - [Phase ?]: D-09-D1 / D-09-U1 / D-09-U3 / D-09-U4 / D-09-U5 박제 — Wave 0 11 files 단일 atomic commit (defc973)
+- [Phase ?]: Wave 1 Plan 09-02: D-09-D6 mode_context inline (no helper) + R4 iter-3 two-tier axis warning + R4 None guard for pelvis_drop + R5 high_jitter wins tie-break + R11 conservative v1 cf cap when axis missing
 
 ### Pending Todos
 
@@ -494,7 +496,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-10T03:58:01.452Z
+Last session: 2026-06-10T04:19:47.948Z
 
 Stopped at: Completed 09-01-PLAN.md (Wave 0 atomic commit)
 

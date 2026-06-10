@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: verifying
-stopped_at: Phase 9 context gathered (autonomous mode after gray-area selection)
-last_updated: "2026-06-10T01:22:54.972Z"
-last_activity: 2026-06-09
+stopped_at: Completed 09-01-PLAN.md (Wave 0 atomic commit)
+last_updated: "2026-06-10T03:58:08.724Z"
+last_activity: 2026-06-10
 progress:
   total_phases: 10
   completed_phases: 7
-  total_plans: 45
-  completed_plans: 42
+  total_plans: 47
+  completed_plans: 43
   percent: 70
 ---
 
@@ -185,7 +185,7 @@ Phase 2 → 6 (체형 정규화) → 7 (차이 분류) → 12 (키포인트 오�
 2. **angle 차원 동작별 IPSF 정의 각도** — 어깨 90° / 엉덩이 110° 등 동작별 fixture 또는 LLM 매핑
 3. **시뮬 segments 일부 시나리오 X** — mode 3 first 정답 (이전 영상 없음), 그 외는 실 분석에서 backend `assemble.build_segments` 자동 생성
 
-Last activity: 2026-06-09
+Last activity: 2026-06-10
 
 **시퀀스 (belle 2026-06-07 결정 — B → C → A)**:
 
@@ -196,7 +196,7 @@ Last activity: 2026-06-09
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 93%
+Progress: [█████████░] 91%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -420,6 +420,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 *Updated after each plan completion*
 | Phase 06 P03 | 50 | 7 tasks | 10 files |
 | Phase 08.1 P02 | 90 min | 5 tasks | 6 files |
+| Phase 09 P01 | 25min | 7 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -461,6 +462,7 @@ Recent decisions affecting current work:
 - [Phase 08.1]: Wave 2: production sweep + 8조건 measured-low gate 8/8 PASS (25/25 'low' + 5/5 sensitivity) — 정은지 5영상 sweep_phase8_1_1781009003567 exit 0 + 25/25 axisMetric measured_low_count=25 severity_low_count=25 + Task 2.5 synthetic 5/5. ROADMAP Phase 8.1 SC #1-5 backward coverage 박제.
 - [Phase 08.1]: Layer 2 evidence only — Pass 게이트 아님 — 본 sweep 0/25 gemini_assisted + 5/5 layer2_unavailable warning. recognizer factory 미초기화 추정. 본 phase 의 axis metric fix 가 본질 scope. Layer 2 활성도 검증 = Phase 9/11 deferred.
 - [Phase 08.1]: pipeline/app.py caller-side 변경 0 (Wave 1 시그너처 보존) — grep audit 결과 distance kwarg 부재 + 3 coordinate_space reference 모두 pole_axis_measurement.coordinate_space (PoleAxisMeasurement unchanged field). Plan must_haves Wave 2 'caller-side 변경 0 가능' 정합.
+- [Phase ?]: D-09-D1 / D-09-U1 / D-09-U3 / D-09-U4 / D-09-U5 박제 — Wave 0 11 files 단일 atomic commit (defc973)
 
 ### Pending Todos
 
@@ -492,9 +494,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-10T01:22:54.954Z
+Last session: 2026-06-10T03:58:01.452Z
 
-Stopped at: Phase 9 context gathered (autonomous mode after gray-area selection)
+Stopped at: Completed 09-01-PLAN.md (Wave 0 atomic commit)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -561,7 +563,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/09-forcedirectionpattern-3/09-CONTEXT.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

@@ -58,7 +58,7 @@
 ### 피드백·코치 훅 (Feedback & Coach Hook)
 
 - [ ] **FEED-01**: 결과 화면에 관절 각도 수치가 "현재 87° → 기준 110°" 형태로 명확히 표시되고 영상 위에 어깨·골반·무릎·손 키포인트와 중심축이 오버레이로 표시된다
-- [ ] **FEED-02**: 피드백이 "실패 원인 후보 3개 카드 → 내 몸 기준 힘 쓰는 방향·중심축 → 필요한 유연성/근력 → 보조 동작" 순서로 구성되고 부위별 언어(고관절·후굴·코어·내전근·전완근·광배 등)로 표현된다 (수치는 보조)
+- [x] **FEED-02**: 피드백이 "실패 원인 후보 3개 카드 → 내 몸 기준 힘 쓰는 방향·중심축 → 필요한 유연성/근력 → 보조 동작" 순서로 구성되고 부위별 언어(고관절·후굴·코어·내전근·전완근·광배 등)로 표현된다 (수치는 보조)
 - [ ] **FEED-03**: 결과 화면 카피가 AI를 "강사 보조 도구"로 포지셔닝한다 (AI가 강사를 대체한다는 인상 제거)
 - [ ] **COACH-01**: 모든 리포트(BodyComparisonReport, ForcePatternInference 등)에 `CoachCommentHook`(autoFindingsSummary, openQuestionsForCoach, suggestedCues, coachComment?, reviewedBy)이 부착되어 AI+코치 비즈니스 모델의 데이터 구조 기반이 마련된다. UI/입력은 v2 옵션
 
@@ -158,7 +158,7 @@
 | SCORE-01 | Phase 5 | Pending |
 | PERS-01 | Phase 6, Phase 7 | Complete |
 | FORCE-01 | Phase 8, Phase 9 | Complete |
-| FEED-02 | Phase 9, Phase 11 | Pending |
+| FEED-02 | Phase 9, Phase 11 | Complete |
 | SAFE-01 | Phase 10 | Pending |
 | COACH-01 | Phase 11 | Pending |
 | FEED-03 | Phase 11 | Pending |

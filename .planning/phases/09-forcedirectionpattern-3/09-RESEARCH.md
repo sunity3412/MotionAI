@@ -856,27 +856,27 @@ else:
 
 **Mitigation:** Wave 1 plan 의 첫 task 에 A1 (pelvis_drop 임계) + A3 (jointHint 매핑) + A5 (canned 본문) belle 검수 checkpoint 박제 권장. cross-AI plan-review (Codex) D-09-E3 정합.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **`rotate` pattern enum 박제만 + detection 0 의 frontend 노출 정합성**
+1. **RESOLVED — `rotate` pattern enum 박제만 + detection 0 의 frontend 노출 정합성**
    - What we know: D-09-deferred 의 "rotate pattern detection 정밀화 → v2" 박제. enum 박제만 (`pattern: 'rotate'` 산출 X).
-   - What's unclear: ForcePatternFinding.pattern 의 TS Literal union 에 'rotate' 포함하지만 backend 가 절대 emit X 시 dead code 인지. v2 박제 시점에 union 갱신 vs 이미 박제 둘 다 정합.
-   - Recommendation: 본 phase Wave 0 schema 에 `'rotate'` literal 포함 (v2 박제 시 schema migration 0) + 단위 test 에 "rotate 미산출" 검증 (`assert not any(f.pattern == "rotate" for f in findings)` regression guard).
+   - What was unclear: ForcePatternFinding.pattern 의 TS Literal union 에 'rotate' 포함하지만 backend 가 절대 emit X 시 dead code 인지. v2 박제 시점에 union 갱신 vs 이미 박제 둘 다 정합.
+   - **RESOLVED:** 본 phase Wave 0 schema 에 `'rotate'` literal 포함 (v2 박제 시 schema migration 0) + 단위 test 에 "rotate 미산출" 검증 (`assert not any(f.pattern == "rotate" for f in findings)` regression guard). Plan 09-02-T2 `test_no_rotate_pattern_emitted` 가 박제.
 
-2. **IPSF tolerance 20° = fixed const vs yaml loader 확장**
+2. **RESOLVED — IPSF tolerance 20° = fixed const vs yaml loader 확장**
    - What we know: `tilt_thresholds.yaml::ipsf_tolerance.tolerance_deg = 20.0` 박제, `force_signals._get_tilt_thresholds()` 는 operational_cutoff 만 반환.
-   - What's unclear: 본 phase 가 yaml 의 `ipsf_tolerance` 도 load 하는 helper 신설할지, fixed const `IPSF_TOL = 20.0` 박제 만 할지.
-   - Recommendation: **fixed const 박제** (Wave 1 plan). 근거 = (1) Phase 8.1 yaml 의 single source — 본 phase 가 추가 helper 신설 시 cache invalidation 책임 분산. (2) 20° 는 IPSF 박제 — calibration 변경 시 yaml 의 operational_cutoff 만 영향, ipsf_tolerance 는 ground truth. (3) tilt_thresholds.yaml schema_v2 의 ipsf_tolerance section 이 향후 변경되면 별도 plan 으로 yaml loader 확장 (현 phase boundary 외).
+   - What was unclear: 본 phase 가 yaml 의 `ipsf_tolerance` 도 load 하는 helper 신설할지, fixed const `IPSF_TOL = 20.0` 박제 만 할지.
+   - **RESOLVED:** fixed const 박제 (Wave 1 plan). 근거 = (1) Phase 8.1 yaml 의 single source — 본 phase 가 추가 helper 신설 시 cache invalidation 책임 분산. (2) 20° 는 IPSF 박제 — calibration 변경 시 yaml 의 operational_cutoff 만 영향, ipsf_tolerance 는 ground truth. (3) tilt_thresholds.yaml schema_v2 의 ipsf_tolerance section 이 향후 변경되면 별도 plan 으로 yaml loader 확장 (현 phase boundary 외). Plan 09-01-T2 `_IPSF_TOLERANCE_DEG = 20.0` const 박제.
 
-3. **0 finding 시 fallback interpretation 본문 vs mode 분기 본문**
+3. **RESOLVED — 0 finding 시 fallback interpretation 본문 vs mode 분기 본문**
    - What we know: D-09-B4 의 fallback = "이 영상에서는 분명한 힘 흐름 이슈 신호가 보이지 않습니다. 강사와 함께 확인하는 것을 권장해요."
-   - What's unclear: 본 fallback 이 mode 분기 무관 단일인지, mode1 / mode3 별 다른 본문인지.
-   - Recommendation: **단일 본문 박제** (CONTEXT.md 의 표기 그대로). 근거 = (1) fallback 자체가 "이슈 없음" 신호이므로 mode 분기 효용 낮음. (2) mode3 progress 의 "지난 영상 대비" 의미 자체가 부재 (이슈 없음 → 비교 무의미). 단, Wave 1 plan 단계 belle 검수.
+   - What was unclear: 본 fallback 이 mode 분기 무관 단일인지, mode1 / mode3 별 다른 본문인지.
+   - **RESOLVED:** 단일 본문 박제 (CONTEXT.md 의 표기 그대로). 근거 = (1) fallback 자체가 "이슈 없음" 신호이므로 mode 분기 효용 낮음. (2) mode3 progress 의 "지난 영상 대비" 의미 자체가 부재 (이슈 없음 → 비교 무의미). Plan 09-02-T1 `_FALLBACK_BODY` 단일 const 박제. (belle 검수 follow-up 별도 박제.)
 
-4. **단위 test fixture 의 ForceSignalsReport 생성 방법**
+4. **RESOLVED — 단위 test fixture 의 ForceSignalsReport 생성 방법**
    - What we know: Phase 8 `backend/tests/phase08/fixtures/` 의 dict literal fixture 박제. Phase 8 _compute_force_signals 의 단위 test 가 frozen dataclass instantiation.
-   - What's unclear: Phase 9 단위 test 가 Phase 8 frozen dataclass 직접 instantiate vs dict fixture → dataclass 변환 helper 사용.
-   - Recommendation: **frozen dataclass 직접 instantiate** + factory helper (`_make_axis_metric(phase='lock', shoulder_tilt=25.0, ...)` 같은). 근거 = Phase 8 단위 test 패턴 정합 + frozen dataclass __post_init__ 검증 동시 통과.
+   - What was unclear: Phase 9 단위 test 가 Phase 8 frozen dataclass 직접 instantiate vs dict fixture → dataclass 변환 helper 사용.
+   - **RESOLVED:** frozen dataclass 직접 instantiate + factory helper (`_make_axis_metric(phase='lock', shoulder_tilt=25.0, ...)` 같은). 근거 = Phase 8 단위 test 패턴 정합 + frozen dataclass __post_init__ 검증 동시 통과. Plan 09-01-T1 `backend/tests/phase09/conftest.py` 가 factory helper 박제.
 
 ## Environment Availability
 

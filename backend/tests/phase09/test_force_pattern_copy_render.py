@@ -65,19 +65,20 @@ def test_force_pattern_canned_text_lookup(sig: str, mc: str) -> None:
 
 
 def test_joint_hint_mapping() -> None:
-    """6 hint (4 string + 2 None) — Assumption A3 정합."""
-    assert joint_hint_for("axis_tilt") == "코어"
-    assert joint_hint_for("pelvis_drop") == "고관절"
-    assert joint_hint_for("late_contact") == "내전근"
-    assert joint_hint_for("abnormal_release") == "광배"
+    """6 hint (4 string + 2 None) — Assumption A3 + 2026-06-10 belle 쉬운 어휘 정합.
+    실증 테스트 시점 belle + 강사 + 수강생 함께 어휘 검수 (deferred-items.md)."""
+    assert joint_hint_for("axis_tilt") == "몸 중심"
+    assert joint_hint_for("pelvis_drop") == "엉덩이 관절"
+    assert joint_hint_for("late_contact") == "허벅지 안쪽"
+    assert joint_hint_for("abnormal_release") == "등 근육"
     assert joint_hint_for("high_jerk") is None
     assert joint_hint_for("high_jitter") is None
     # 직접 dict lookup 도 동일 결과.
     assert _JOINT_HINT_BY_SIGNAL == {
-        "axis_tilt": "코어",
-        "pelvis_drop": "고관절",
-        "late_contact": "내전근",
-        "abnormal_release": "광배",
+        "axis_tilt": "몸 중심",
+        "pelvis_drop": "엉덩이 관절",
+        "late_contact": "허벅지 안쪽",
+        "abnormal_release": "등 근육",
         "high_jerk": None,
         "high_jitter": None,
     }

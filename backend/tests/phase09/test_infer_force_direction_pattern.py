@@ -81,7 +81,7 @@ def test_axis_tilt_signal_emits_release_finding() -> None:
     )
     assert axis_finding is not None
     assert axis_finding.pattern == "release"
-    assert axis_finding.joint_hint == "코어"
+    assert axis_finding.joint_hint == "몸 중심"
 
 
 def test_pelvis_drop_signal_emits_release_finding() -> None:
@@ -119,7 +119,7 @@ def test_pelvis_drop_signal_emits_release_finding() -> None:
     assert len(findings) == 1
     assert findings[0].pattern == "release"
     assert findings[0].source_signal == "pelvis_drop"
-    assert findings[0].joint_hint == "고관절"
+    assert findings[0].joint_hint == "엉덩이 관절"
 
 
 def test_late_contact_signal_emits_brace_finding() -> None:
@@ -140,7 +140,7 @@ def test_late_contact_signal_emits_brace_finding() -> None:
     )
     assert late_finding is not None
     assert late_finding.pattern == "brace"
-    assert late_finding.joint_hint == "내전근"
+    assert late_finding.joint_hint == "허벅지 안쪽"
 
 
 def test_high_jitter_signal_emits_unknown_finding() -> None:
@@ -209,7 +209,7 @@ def test_abnormal_release_signal_emits_release_finding() -> None:
     )
     assert rel_finding is not None
     assert rel_finding.pattern == "release"
-    assert rel_finding.joint_hint == "광배"
+    assert rel_finding.joint_hint == "등 근육"
 
 
 # ── Axis warning ignore (R4 per-metric tier) ─────────────────────────────
@@ -697,7 +697,7 @@ def test_abnormal_release_detected_from_contact_warnings() -> None:
     rel = [f for f in result.findings if f.source_signal == "abnormal_release"]
     assert len(rel) == 1
     assert rel[0].pattern == "release"
-    assert rel[0].joint_hint == "광배"
+    assert rel[0].joint_hint == "등 근육"
 
 
 # ── overall_confidence 단순 매핑 ─────────────────────────────────────────
@@ -720,7 +720,7 @@ def test_overall_confidence_thresholds() -> None:
         reason="x",
         interpretation="정은지 선수 기준 패턴과 비교했을 때, x",
         confidence=0.8,
-        joint_hint="코어",
+        joint_hint="몸 중심",
         warnings=[],
     )
     medium_finding = ForcePatternFinding(
@@ -730,7 +730,7 @@ def test_overall_confidence_thresholds() -> None:
         reason="x",
         interpretation="정은지 선수 기준 패턴과 비교했을 때, x",
         confidence=0.5,
-        joint_hint="코어",
+        joint_hint="몸 중심",
         warnings=[],
     )
     low_finding = ForcePatternFinding(
@@ -740,7 +740,7 @@ def test_overall_confidence_thresholds() -> None:
         reason="x",
         interpretation="정은지 선수 기준 패턴과 비교했을 때, x",
         confidence=0.2,
-        joint_hint="코어",
+        joint_hint="몸 중심",
         warnings=[],
     )
     assert _overall_confidence_from_findings([high_finding]) == "high"

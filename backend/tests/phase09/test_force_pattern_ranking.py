@@ -40,7 +40,7 @@ def _finding(
     phase: str = "lock",
     source_signal: str = "axis_tilt",
     confidence: float = 0.5,
-    joint_hint: str | None = "코어",
+    joint_hint: str | None = "몸 중심",
 ) -> ForcePatternFinding:
     """ForcePatternFinding 합성 박제 helper."""
     return ForcePatternFinding(
@@ -63,7 +63,7 @@ def test_top3_ranking_by_score() -> None:
     xs = [
         _finding(pattern="release", phase="lock", source_signal="axis_tilt", confidence=0.5),
         _finding(pattern="release", phase="hold", source_signal="axis_tilt", confidence=0.8),
-        _finding(pattern="brace", phase="lock", source_signal="late_contact", confidence=0.7, joint_hint="내전근"),
+        _finding(pattern="brace", phase="lock", source_signal="late_contact", confidence=0.7, joint_hint="허벅지 안쪽"),
         _finding(pattern="unknown", phase="transition", source_signal="high_jitter", confidence=0.6, joint_hint=None),
         _finding(pattern="unknown", phase="entry", source_signal="high_jerk", confidence=0.4, joint_hint=None),
     ]
@@ -109,7 +109,7 @@ def test_abnormal_release_weight_priority() -> None:
             phase="hold",
             source_signal="abnormal_release",
             confidence=0.65,
-            joint_hint="광배",
+            joint_hint="등 근육",
         ),
     ]
     out = _rank_top3(xs)
@@ -142,7 +142,7 @@ def test_tie_break_signal_priority() -> None:
             phase="lock",
             source_signal="late_contact",
             confidence=cf_late,
-            joint_hint="내전근",
+            joint_hint="허벅지 안쪽",
         ),
         _finding(pattern="release", phase="lock", source_signal="axis_tilt", confidence=0.5),
     ]
@@ -214,7 +214,7 @@ def test_max_three_findings() -> None:
     xs = [
         _finding(pattern="release", phase="lock", source_signal="axis_tilt", confidence=0.8),
         _finding(pattern="release", phase="hold", source_signal="axis_tilt", confidence=0.7),
-        _finding(pattern="brace", phase="lock", source_signal="late_contact", confidence=0.6, joint_hint="내전근"),
+        _finding(pattern="brace", phase="lock", source_signal="late_contact", confidence=0.6, joint_hint="허벅지 안쪽"),
         _finding(pattern="unknown", phase="transition", source_signal="high_jitter", confidence=0.5, joint_hint=None),
         _finding(pattern="unknown", phase="entry", source_signal="high_jerk", confidence=0.4, joint_hint=None),
     ]

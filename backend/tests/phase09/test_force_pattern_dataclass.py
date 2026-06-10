@@ -28,7 +28,7 @@ def _kwargs(**overrides) -> dict:
         reason="raw shoulder_tilt above ipsf 20deg",
         interpretation="canned KO 본문",
         confidence=0.72,
-        joint_hint="코어",
+        joint_hint="몸 중심",
         warnings=[],
     )
     base.update(overrides)

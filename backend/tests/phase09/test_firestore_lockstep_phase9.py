@@ -21,9 +21,9 @@ def _valid_finding() -> dict:
         "phase": "lock",
         "sourceSignal": "axis_tilt",
         "reason": "raw shoulder_tilt above ipsf 20deg",
-        "interpretation": "정은지 선수 기준 패턴과 비교했을 때, 코어 고정 가능성이 보여요.",
+        "interpretation": "정은지 선수 기준 패턴과 비교했을 때, 몸 중심 잡는 힘이 약해지는 모습이 보여요.",
         "confidence": 0.72,
-        "jointHint": "코어",
+        "jointHint": "몸 중심",
         "warnings": [],
     }
 

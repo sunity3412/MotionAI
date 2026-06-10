@@ -731,6 +731,55 @@ def _dataclass_to_camel_case_dict(obj):
     return obj
 
 
+# ── Phase 12 Wave 0A R4 (Codex 직접 리뷰 2026-06-10) — kismam.assess() wiring helpers ──
+#
+# 3 call site (mode1 / mode3_progress / mode3_first) 모두 user_angles + reference_angles +
+# target_source kwarg 박제. 이전: kwarg 없이 호출 → JointAssessment.current_angle/
+# target_angle 항상 None → JointScore 가 currentAngle/targetAngle 비어 내려감 →
+# result.tsx 가 "시뮬 픽스처" fallback. 본 helper 가 백엔드 실측치 wiring 의 source.
+
+def _angles_to_mean_dict(
+    angles_tj: np.ndarray | None, joint_keys: tuple[str, ...]
+) -> dict[str, float]:
+    """Phase aligned segment 평균 각도. (T, J) → {joint_name: mean_deg}. NaN 무시.
+
+    Phase 12 Wave 0A R4 — kismam.assess() 의 user_angles / reference_angles kwarg source.
+    빈 입력 시 빈 dict (caller 가 assess 에 빈 dict 넘기면 모든 joint → None).
+    """
+    if angles_tj is None:
+        return {}
+    arr = np.asarray(angles_tj, dtype=float)
+    if arr.ndim != 2 or arr.shape[0] == 0:
+        return {}
+    # all-NaN column 시 RuntimeWarning 회피 — warnings catch_warnings 박제.
+    import warnings as _warnings
+
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore", RuntimeWarning)
+        means = np.nanmean(arr, axis=0)
+    return {
+        joint: float(mean)
+        for joint, mean in zip(joint_keys, means)
+        if not np.isnan(mean)
+    }
+
+
+def _extension_target_dict(
+    profile: technique.TechniqueProfile,
+) -> dict[str, float]:
+    """mode3 first 의 reference_angles — extension-required joint 만 IPSF 180°.
+
+    Phase 12 Wave 0A R4 정합 — non-extension joint 는 dict 에 key 없음.
+    kismam.assess() 가 reference_angles 에 key 없는 joint 를 target_source='unavailable'
+    + target_angle=None 으로 분기 (kismam.assess body 박제 참조).
+    """
+    return {
+        key: 180.0
+        for key in skeleton.JOINT_KEYS
+        if profile.expects_extension(key)
+    }
+
+
 def _deviation_against(
     user_angles: np.ndarray, ref_angles_flat, num_joints: int
 ):
@@ -762,14 +811,34 @@ def _mode3_comparison(
       - overall: 절대 차원 평균(첫 분석/이후 동일 척도)."""
     abs_dims = dimensions.absolute_dimension_scores(angles, profile)
     prev_angles = (prev or {}).get("angles")
+    user_mean = _angles_to_mean_dict(angles, skeleton.JOINT_KEYS)
     if not prev or not prev_angles:
         # 첫 분석(또는 이전 angles 미저장) — 비교 대상 없음. 코칭은 신전 부족분(IPSF 라인) 기준.
         overall = dimensions.overall_from_dimensions(abs_dims)
-        assessments = kismam.assess(dimensions.extension_deviation(angles, profile))
+        # Phase 12 Wave 0A R4 (Codex 직접 리뷰 2026-06-10) — kismam.assess() 3 kwarg 박제.
+        # mode3 first: extension-required joint 만 IPSF 180° target,
+        # 그 외 joint 는 reference_angles 에 key 없음 → assess 가 target_source='unavailable'
+        # 분기 박제 (kismam.assess body 의 else branch).
+        ext_targets = _extension_target_dict(profile)
+        assessments = kismam.assess(
+            dimensions.extension_deviation(angles, profile),
+            user_angles=user_mean,
+            reference_angles=ext_targets,
+            target_source="extension_requirement",
+        )
         return assessments, abs_dims, overall, assemble.build_mode3(is_first=True)
     num_joints = len(prev.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
-    deviation, *_ = _deviation_against(angles, prev_angles, num_joints)
-    assessments = kismam.assess(deviation)
+    deviation, _match, _user_seg, prev_seg = _deviation_against(
+        angles, prev_angles, num_joints
+    )
+    # Phase 12 Wave 0A R4 — mode3 progress: 이전 영상 measured mean = previous_analysis.
+    ref_mean = _angles_to_mean_dict(prev_seg, skeleton.JOINT_KEYS)
+    assessments = kismam.assess(
+        deviation,
+        user_angles=user_mean,
+        reference_angles=ref_mean,
+        target_source="previous_analysis",
+    )
     dim_scores = {dimensions.DIM_ANGLE: kismam.overall_score(assessments), **abs_dims}
     # 박제 (2026-06-06 belle): mode3 second+ overall = 모든 차원 평균.
     # 이전 박제 = abs_dims 만 평균 (박제 메모 [[mode3-progress-not-similarity]] 정신).
@@ -937,7 +1006,16 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             deviation, match, user_seg, a_ref = _deviation_against(
                 angles, ref["angles"], num_joints
             )
-            assessments = kismam.assess(deviation)
+            # Phase 12 Wave 0A R4 (Codex 직접 리뷰 2026-06-10) — mode1: 정은지 measured.
+            # user_seg = DTW 정렬된 사용자 구간, a_ref = reference (정은지) 각도 시퀀스.
+            user_mean_mode1 = _angles_to_mean_dict(user_seg, skeleton.JOINT_KEYS)
+            ref_mean_mode1 = _angles_to_mean_dict(a_ref, skeleton.JOINT_KEYS)
+            assessments = kismam.assess(
+                deviation,
+                user_angles=user_mean_mode1,
+                reference_angles=ref_mean_mode1,
+                target_source="reference_motion",
+            )
             # 각도 정확도 차원 = 정은지 대비 관절각 일치도. 모드1 게이지/일치도이기도 함.
             angle_dim = kismam.overall_score(assessments)
             # 비폴 영상 차단 안전망(belle P1 #8). 기준 동작과 너무 동떨어진 자세는

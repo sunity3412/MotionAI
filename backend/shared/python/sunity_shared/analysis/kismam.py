@@ -13,6 +13,7 @@ ml_CLAUDE.md:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
@@ -22,6 +23,19 @@ from .skeleton import (
     JOINT_TO_PART,
     PARTS,
 )
+
+
+# Phase 12 Wave 0A R2/R4 (Codex 직접 리뷰 2026-06-10) — target_angle 산출 출처.
+# mode1 = 정은지 measured / mode3_progress = 이전 영상 measured /
+# mode3_first 의 extension-required joint = IPSF 180° / 그 외 = 기준 없음.
+# 3-way lockstep: app/src/types/analysis.ts JointScore.targetSource (4 enum) +
+# docs/contract.md §JointScore.
+TargetSource = Literal[
+    "reference_motion",
+    "previous_analysis",
+    "extension_requirement",
+    "unavailable",
+]
 
 # 허용 편차(도) = Z-score 스케일. dev 가 이만큼 벗어나면 z=1 (점수 ~61).
 # IPSF Code of Points 는 관절 각도/스플릿에 20도 허용 오차를 적용
@@ -92,6 +106,9 @@ class JointAssessment:
     target_angle: float | None = None
     signed_delta_deg: float | None = None
     direction: str | None = None
+    # Phase 12 Wave 0A R2/R4 (Codex 직접 리뷰 2026-06-10): target 산출 출처.
+    # assemble.build_joints 가 camelCase 'targetSource' 로 JointScore 에 export.
+    target_source: TargetSource | None = None
 
 
 def assess(
@@ -99,11 +116,18 @@ def assess(
     tolerance: dict | None = None,
     user_angles: dict | None = None,
     reference_angles: dict | None = None,
+    target_source: TargetSource | None = None,
 ) -> list[JointAssessment]:
     """관절별 편차(JOINT_KEYS 순서, 길이 NUM_JOINTS) → JointAssessment 목록.
 
     user_angles/reference_angles 가 주어지면(관절키→평균각도 dict) 각 관절에
     current/target/signed_delta/direction 을 함께 채운다. 없으면 None.
+
+    Phase 12 Wave 0A R2/R4 (Codex 직접 리뷰 2026-06-10):
+      target_source 가 주어지면 모든 JointAssessment 의 target_source 박제.
+      mode3 first 의 non-extension joint (= reference_angles 에 key 없음) →
+      target_source='unavailable', target_angle=None 자동 분기 (extension_requirement
+      caller 의 의도 = 'extension 안 필요한 관절은 기준 없음').
     """
     dev = np.asarray(deviation_deg, dtype=float)
     if dev.shape != (len(JOINT_KEYS),):
@@ -119,8 +143,16 @@ def assess(
         if cur is not None and tgt is not None:
             signed = float(cur) - float(tgt)
             direction = _direction_for(key, signed)
+            joint_target_source = target_source
         else:
             cur = tgt = signed = direction = None
+            # mode3 first 의 extension_requirement caller: 해당 관절이 reference_angles
+            # 에 없다 = expects_extension(joint) == False → 기준 없음.
+            joint_target_source = (
+                "unavailable"
+                if target_source == "extension_requirement"
+                else target_source
+            )
         out.append(
             JointAssessment(
                 key=key,
@@ -132,6 +164,7 @@ def assess(
                 target_angle=tgt,
                 signed_delta_deg=signed,
                 direction=direction,
+                target_source=joint_target_source,
             )
         )
     return out

@@ -185,12 +185,22 @@ deficitSummary string 점수 산출과 동일 source 의 deficit 한 줄 카피.
 ```
 key, labelKo, score(0~100)
 currentAngle? targetAngle? deltaDeg?(signed) direction?  ← 구조화 가이드 (옵셔널)
+targetSource?                                            ← target 산출 출처 (Phase 12)
 issue?                                                    ← 사람 가독 폴백
 ```
 `direction` = 'extend' | 'flex' | 'raise' | 'lower' | 'open' | 'close'
   → UI 가 "현재 145° → 기준 168° · 더 펴주세요" 형태로 표시. 구조화 필드가
   없으면 issue 텍스트로 폴백. 동적 큐(회전력·반동)는 CoachingTip.detail
   자연어로 노출(LLM 출력) — 별도 필드 만들지 않음.
+
+`targetSource` = 'reference_motion' | 'previous_analysis' | 'extension_requirement' | 'unavailable'
+  Phase 12 Wave 0A (Codex 직접 리뷰 2026-06-10 R2/R4) 신설. target 산출 출처:
+    - reference_motion       mode1 — 정은지 measured angle
+    - previous_analysis      mode3_progress — 이전 분석 measured angle
+    - extension_requirement  mode3_first 의 extension-required joint = IPSF 180°
+    - unavailable            mode3_first 의 extension 불필요 관절 (targetAngle 없음)
+  UI 의 "기준 N°" prefix 분기 source (정은지 / 지난 영상 / IPSF 180° / 기준 없음).
+  옵셔널 — 이전 빌드 doc 호환 (없으면 targetAngle 자체로 판단).
 
 `CoachingTip` = { joint?, title, detail }
 

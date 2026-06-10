@@ -20,11 +20,132 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Literal
+
 import numpy as np
 
 from . import kismam
+from .pose_frame import Keypoint2D, PoseFrame
 from .skeleton import JOINT_KEYS
 from .technique import TechniqueProfile
+
+
+# Phase 12 Wave 0A R2 (Codex 직접 리뷰 2026-06-10) — 중심축 폴리라인 정의.
+# 12-CONTEXT.md: 중심축 = 어깨중심 ↔ 골반중심 ↔ 무릎중심 선.
+# 기존 plan 의 axis = midpoint(left_shoulder, right_shoulder) 단일 점 박제는
+# UI-SPEC 의 "중심축 선" 과 모순. AxisFrame 폴리라인으로 재정의.
+
+@dataclass(frozen=True)
+class AxisFrame:
+    """중심축 폴리라인 (R2 정합) — 어깨중심 ↔ 골반중심 ↔ 무릎중심 (옵션).
+
+    Phase 12 Wave 0A R2 (Codex 직접 리뷰 2026-06-10) — 단일 midpoint 폐기,
+    3 point 폴리라인 박제. Wave 0B (12-01) 의 `axisData` Firestore field source.
+
+      shoulder_mid: 좌우 어깨 keypoints_2d 중점 (normalized [0, 1]).
+      hip_mid: 좌우 골반 keypoints_2d 중점.
+      knee_mid: 좌우 무릎 keypoints_2d 중점 (옵션 — keypoint 누락 시 None).
+
+    어깨 또는 골반 keypoint 누락 시 AxisFrame 생성 X (compute_axis_frames 가
+    list 안 None 반환). 무릎만 누락 시 knee_mid=None (어깨↔골반 선만).
+    """
+
+    shoulder_mid: tuple[float, float]
+    hip_mid: tuple[float, float]
+    knee_mid: tuple[float, float] | None  # 무릎 keypoint 누락 시 None
+
+
+def _midpoint(a: Keypoint2D, b: Keypoint2D) -> tuple[float, float]:
+    """좌우 keypoint 중점 — Phase 12 axis polyline source."""
+    return ((a.x + b.x) / 2.0, (a.y + b.y) / 2.0)
+
+
+def compute_axis_frames(
+    pose_frames: list[PoseFrame],
+) -> list[AxisFrame | None]:
+    """각 PoseFrame 의 중심축 폴리라인 산출. Phase 12 Wave 0A R2 정합.
+
+    Phase 12 Wave 0A R2 (Codex 직접 리뷰 2026-06-10):
+      - 어깨중심/골반중심 둘 다 있으면 AxisFrame 생성 (knee_mid 는 옵션).
+      - 어깨 또는 골반 keypoint 누락 → None (외부 fallback 책임).
+      - keypoints_2d=None (RTMW R1 fallback) frame → None.
+
+    Args:
+        pose_frames: PoseFrame 시퀀스. 각 frame.keypoints_2d 사용.
+
+    Returns:
+        list[AxisFrame | None] — len == len(pose_frames). frame 별 1:1 매핑.
+    """
+    result: list[AxisFrame | None] = []
+    for frame in pose_frames:
+        kp = frame.keypoints_2d
+        if not kp:
+            result.append(None)
+            continue
+        try:
+            sm = _midpoint(kp["left_shoulder"], kp["right_shoulder"])
+            hm = _midpoint(kp["left_hip"], kp["right_hip"])
+        except KeyError:
+            # 어깨 또는 골반 keypoint 누락 — axis polyline 산출 불가.
+            result.append(None)
+            continue
+        # knee 는 옵션 — 누락 시 knee_mid=None (어깨↔골반 선만 유지).
+        try:
+            km = _midpoint(kp["left_knee"], kp["right_knee"])
+        except KeyError:
+            km = None
+        result.append(AxisFrame(shoulder_mid=sm, hip_mid=hm, knee_mid=km))
+    return result
+
+
+# Phase 12 Wave 0A R4 (Codex 직접 리뷰 2026-06-10) — target_angle 산출 출처 enum.
+# kismam.TargetSource 와 동일 4 enum (lockstep). dimensions.py 안에서 mode3 first 의
+# joint 별 target 산출 helper (_target_source_for_extension) 가 사용.
+TargetSource = Literal[
+    "reference_motion",        # mode1 = 정은지 measured
+    "previous_analysis",       # mode3_progress = 이전 영상 measured
+    "extension_requirement",   # mode3_first 의 extension-required joint = IPSF 180°
+    "unavailable",             # mode3_first 의 non-extension joint OR data missing
+]
+
+# Phase 12 Wave 0A R4 — TargetSource 허용 값 validator (kismam.TargetSource 1:1).
+_TARGET_SOURCES: frozenset[str] = frozenset(
+    {
+        "reference_motion",
+        "previous_analysis",
+        "extension_requirement",
+        "unavailable",
+    }
+)
+
+
+def _validate_target_source(value: str) -> str:
+    """Phase 12 Wave 0A R4 — TargetSource Literal 입력 검증.
+
+    허용되지 않은 값은 ValueError. mode 분기 미스, typo, 외부 입력 오염 차단.
+    """
+    if value not in _TARGET_SOURCES:
+        raise ValueError(
+            f"target_source must be one of {sorted(_TARGET_SOURCES)}, got {value!r}"
+        )
+    return value
+
+
+def _target_source_for_extension(
+    joint_name: str, profile: TechniqueProfile
+) -> tuple[float | None, TargetSource]:
+    """mode3 first 의 joint 별 target 산출. Phase 12 Wave 0A R4 정합.
+
+    profile.expects_extension(joint) == True → (180.0, 'extension_requirement')
+    profile.expects_extension(joint) == False → (None, 'unavailable')
+
+    IPSF 180° = extension-required joint 의 신전 완성 기준. 그 외 관절은
+    의도된 굽힘 (예: chair pose 의 무릎) — 기준 없음.
+    """
+    if profile.expects_extension(joint_name):
+        return 180.0, "extension_requirement"
+    return None, "unavailable"
 
 # 차원 키 (contract / app dimensionScores 키와 동일 문자열).
 DIM_ANGLE = "angle"

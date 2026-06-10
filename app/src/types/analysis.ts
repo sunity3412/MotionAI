@@ -98,6 +98,17 @@ export interface JointScore {
   targetAngle?: number; // 기준 동작의 평균/대표 각도(deg)
   deltaDeg?: number; // signed = currentAngle - targetAngle
   direction?: JointDirection;
+  // Phase 12 Wave 0A R2/R4 (Codex 직접 리뷰 2026-06-10) — target 산출 출처.
+  //   reference_motion       = mode1 (정은지 measured)
+  //   previous_analysis      = mode3_progress (이전 영상 measured)
+  //   extension_requirement  = mode3_first 의 extension 필요 관절 (IPSF 180°)
+  //   unavailable            = mode3_first 의 extension 불필요 관절 (기준 없음)
+  // UI 의 "기준 N°" prefix 분기 (정은지 / 지난 영상 / IPSF 180° / 기준 없음).
+  targetSource?:
+    | 'reference_motion'
+    | 'previous_analysis'
+    | 'extension_requirement'
+    | 'unavailable';
   issue?: string; // 사람 가독 폴백 (예: '기준 대비 평균 23° 차이'). 없으면 양호
 }
 

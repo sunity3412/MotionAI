@@ -170,6 +170,12 @@ def build_joints(assessments: list[JointAssessment]) -> list[dict]:
             j["deltaDeg"] = round(float(a.signed_delta_deg), 1)
         if a.direction:
             j["direction"] = a.direction
+        # Phase 12 Wave 0A R2/R4 (Codex 직접 리뷰 2026-06-10):
+        # JointScore.targetSource camelCase wiring. 4 enum (reference_motion /
+        # previous_analysis / extension_requirement / unavailable) — kismam.assess
+        # 의 target_source kwarg 흐름.
+        if a.target_source is not None:
+            j["targetSource"] = a.target_source
         issue = _issue_text(a)
         if issue:
             j["issue"] = issue

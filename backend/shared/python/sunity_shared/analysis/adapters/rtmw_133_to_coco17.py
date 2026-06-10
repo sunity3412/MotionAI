@@ -19,6 +19,7 @@ import numpy as np
 
 from ..pose_frame import (
     PoseFrame,
+    Keypoint2D,
     Keypoint3D,
     Keypoint3DAligned,
     PoseExtensionLandmark,
@@ -92,6 +93,49 @@ def _build_keypoint3d_from_score(
         confidence=confidence,
         uncertainty_proxy=uncertainty_proxy,
     )
+
+
+def _build_keypoints_2d_from_rtmw(
+    keypoints_133: np.ndarray,
+    scores_133: np.ndarray,
+    img_w: int,
+    img_h: int,
+) -> dict[str, Keypoint2D]:
+    """RTMW 133 keypoints + scores → COCO-17 2D normalized [0, 1].
+
+    Phase 12 Wave 0A R1 fix + B1 iter-4 fix (Codex 직접 리뷰 2026-06-10):
+      - 기존 None 반환 폐기 → 실 COCO-17 2D 좌표 박제.
+      - confidence source = scores_133 (별도 1D array, shape (133,)). keypoints_133[i][2]
+        는 3D path 에서 z 좌표 — visibility 로 쓰면 z 가 누설됨.
+      - 좌표 normalization: image native px → 0..1 normalized (RESEARCH §Pattern 1 정합).
+      - visibility = float(np.clip(score, 0.0, 1.0)).
+      - Keypoint2D 는 x/y/visibility 3 필드만 (R6 정합 — raw_visibility/raw_presence 는
+        Landmark2D/Landmark3D 영역, Keypoint2D 와 혼동 X).
+      - Phase 12 KeypointOverlay (Wave 1/2) 의 데이터 source.
+
+    Args:
+        keypoints_133: (133, 3) float array — (x, y, z) px.
+        scores_133: (133,) float array — per-keypoint confidence score [0~1].
+        img_w: 원본 프레임 폭 (px). <= 0 → 빈 dict + log warning.
+        img_h: 원본 프레임 높이 (px). <= 0 → 빈 dict + log warning.
+
+    Returns:
+        dict[COCO joint name -> Keypoint2D]. img dim 부적합 시 빈 dict.
+    """
+    if img_w <= 0 or img_h <= 0:
+        # 좌표 normalization 실패 — keypoint_2d_unavailable warning 박제 (R1 fallback).
+        # log import 회피 — 호출 빈도 낮고, 빈 dict 반환만으로 caller 가 fallback 가능.
+        return {}
+    result: dict[str, Keypoint2D] = {}
+    for coco_name, rtmw_idx in RTMW_133_TO_COCO17.items():
+        kp = keypoints_133[rtmw_idx]  # shape (3,) = (x, y, z) — z 무시
+        score = float(np.clip(scores_133[rtmw_idx], 0.0, 1.0))
+        result[coco_name] = Keypoint2D(
+            x=float(kp[0]) / float(img_w),
+            y=float(kp[1]) / float(img_h),
+            visibility=score,
+        )
+    return result
 
 
 def _build_pole_extension_from_rtmw(
@@ -223,7 +267,12 @@ def convert_rtmw_keypoints_to_coco17_and_pole_ext(
         raw_landmarks_33={},        # RTMW path: 빈 dict (raw_keypoints_133 사용)
         keypoints_3d=keypoints_3d,
         keypoints_3d_pole_aligned=keypoints_3d_pole_aligned,
-        keypoints_2d=None,          # RTMW 2D path: plan 22 (3D path) 에서 추가 예정
+        # Phase 12 Wave 0A R1 fix (2026-06-10 Codex 직접 리뷰) — 기존 None 폐기.
+        # COCO-17 keypoint name → Keypoint2D(x, y, visibility) normalized [0,1].
+        # scores_133 별도 인자 (B1 iter-4 — kp[2] 는 z, visibility 와 무관).
+        keypoints_2d=_build_keypoints_2d_from_rtmw(
+            keypoints_133, scores_133, image_width, image_height
+        ),
         pole_extension_landmarks=pole_extension_landmarks,
         pole_axis=pole_axis,        # H-3 박제
         reliability=reliability,    # H-4 박제

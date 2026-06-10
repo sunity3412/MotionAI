@@ -336,9 +336,10 @@ belle chain (Phase 12.5 ✓ → 16 ✓ → 12 = A 항목, "B→C→A 시퀀싱�
 
 1. `/gsd-ui-phase 12` — UI-SPEC.md 생성 (Figma 없음 → design.md + Phase 12.5 코드 기반 자체 UI-SPEC 박제. KeypointOverlay + ForcePatternCard 신규 component design + 결과 화면 layout 재정비 명세)
 2. `/gsd-plan-phase 12` — wave 분할 + plan 박제. 예상 wave 구조:
-   - Wave 0: 데이터 흐름 정합 (assemble.py wiring 전수 확인 + KeypointFrame schema 신설 + Firestore flat 저장 + 3-way contract lockstep)
-   - Wave 1: UI 신영역 component 신설 (KeypointOverlay + ForcePatternCard + result.tsx layout 재정비)
-   - Wave 2: 오버레이 frame 동기화 + delta 강조 룰 + confidence/occlusion 표기 + 단위 test
+   - **Wave 0A** (12-00): data contract foundation — RTMW adapter keypoints_2d 실 채움 (R1) + kismam.assess() 3 call site wiring fix (R4 CRITICAL) + axisData polyline 정의 (R2) + targetSource enum (R4) + Keypoint2D.raw_visibility confidence source 명시 (R6). **Codex 리뷰 2026-06-10 4 blocker 해소**.
+   - **Wave 0B** (12-01): KeypointReport 3-way schema lockstep (TS + Python + docs §9.12 + Firestore scoped validator + 8 body keypoint + axisData 별도 field + fps required + size budget test). Single atomic commit (D-09-U1 mirror).
+   - **Wave 1** (12-02): UI 신영역 3 component (KeypointOverlay + ForcePatternCard + ForcePatternDetailModal) + VideoCompare **render prop** slot (R7) + result.tsx 6 영역 layout 재정비.
+   - **Wave 2** (12-03): useEvent(player, 'timeUpdate', ...) 동기화 + delta ≥ 10° 강조 + 토글 AsyncStorage (`@sunity:keypoint_overlay_enabled`, R8) + confidence/occlusion 표기 + iOS TestFlight UAT.
 3. plan-review (cross-AI Codex 등 권장) — D-12-C3 delta 강조 룰 + D-12-E2 contract lockstep 검증
 4. Wave 0 → 1 → 2 순차 실행 + 각 wave 종료 시 회귀 PASS gate
 5. Wave 2 종료 → Phase 12 verifier → ROADMAP Phase 12 entry "completed" 표시

@@ -112,7 +112,7 @@
 │    - mode3_progress: 차원 3개 + delta 표기    │
 │      (지난 분석 대비 +N / -N)                  │
 ├──────────────────────────────────────────────┤
-│ 6. 각도 가이드 (Phase 12 신규, 5 joint)        │
+│ 6. 각도 가이드 (Phase 12 신규, 5 joint 그룹*)  │
 │    - 어깨 / 골반 / 무릎 / 손 + 중심축          │
 │    - "현재 N° → 기준 M°" 형식                 │
 │    - 저신뢰 frame "추정 N°" + ⓘ              │
@@ -157,7 +157,7 @@
 - mode3_progress delta: 점수 아래 11pt Semi Bold "지난 분석 대비 +N점" (초록) / "-N점" (빨강)
 
 **6. 각도 가이드 (angle-guide-card, 358×184-226 가변)**:
-- 5 joint × row (16pt y간격, divider 1px BORDER)
+- 5 joint **그룹** × row (어깨/골반/무릎/손 좌우 평균 + 중심축 — UI 표시상 5 그룹, R11 정합. KeypointReport 의 8 keypoint + axisData 로부터 산출). 16pt y간격, divider 1px BORDER
 - row 구성: 이름 13pt Medium + 현재 14pt Semi Bold + → + 기준 13pt Medium
 - 저신뢰: 현재 "추정 N°" estimateGray + ⓘ 14×14 회색 ellipse (tap → tooltip)
 - mode 분기:
@@ -257,7 +257,8 @@ type KeypointOverlayProps = {
 
 - `react-native-svg` `<Svg>` element, absolute positioning over `<expo-video>`
 - viewBox = `videoSize` (e.g. "0 0 720 1280")
-- 5 joints: `shoulder_left/right`, `hip_left/right`, `knee_left/right`, `hand_left/right`, `axis` (어깨중심 ↔ 골반중심)
+- **8 body keypoints** (R11 정합): `shoulder_left/right`, `hip_left/right`, `knee_left/right`, `hand_left/right` — Phase 12 KEYPOINT_NAMES Literal 8 (axis 는 별도 contract).
+- **axis polyline** (R2 정합 — 별도 `axisData`): `shoulder_mid ↔ hip_mid ↔ knee_mid?` (3-point polyline). 12-00 `compute_axis_frames()` 산출, KeypointReport.axisData flat array (T × 3 × 2). knee_mid 가 None 인 frame 은 2-point 만 렌더.
 - 각 joint = `<Circle>` 10pt radius (디자인 mockup 기준 — viewBox 좌표로 변환)
 - 각 bone = `<Line>` 1.8pt stroke (강조 시 3pt)
 - 컬러: 기본 WHITE stroke `#000` 0.6 / 강조 brand `#FF4B33`
@@ -376,7 +377,7 @@ const highlighted = delta >= deltaThresholdDeg;  // default 10°
 ### Toggle (overlay ON/OFF)
 
 - 영상 카드 우상단, 46×22 toggle
-- AsyncStorage key `force_pattern_overlay_enabled`, default `true`
+- AsyncStorage key `@sunity:keypoint_overlay_enabled` (R8 정합 — keypoint overlay 토글로 scope narrow), default `true`
 - OFF 시: KeypointOverlay `visible={false}` → SVG 렌더 0 (성능 절약)
 - ON 시: KeypointOverlay 렌더 + 영상 frame 동기화
 
@@ -451,7 +452,7 @@ const highlighted = delta >= deltaThresholdDeg;  // default 10°
 ### Firestore nested-array
 
 - `keypoints` 저장 = flat (`{joints: [...], frames: N, data: [x0,y0,x1,y1,...]}`) per [[firestore-nested-array-flat]]
-- 읽기 = `userAnalyses.ts::normalize` 가 reshape (5 joint × N frame × 2 axis)
+- 읽기 = `userAnalyses.ts::normalize` 가 reshape (R11 정합 — 8 body keypoint × N frame × 2 axis + 별도 axisData T × 3-point × 2)
 - `referenceKeypoints` 도 동일 패턴 (mode1 시 reference doc 의 동일 schema)
 
 ### 점수 게이지 mode3 차이

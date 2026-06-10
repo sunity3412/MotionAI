@@ -260,6 +260,150 @@ def _validate_metric_dict_with_scalar_lists(d: dict, *, path: str) -> None:
         )
 
 
+# ── Plan 09-01 (2026-06-10, Phase 9) — force_pattern_inference scoped validator ──
+#
+# D-09-U5 + RESEARCH Pattern 5. `_validate_force_signals_report` 패턴 직접 mirror —
+# nested-array 금지 + 화이트리스트 list field 만 허용. forcePatternInference 안에서만
+# list[dict-of-scalars] (findings) + list[str] (warnings) 박제 가능.
+#
+# scope: 본 validator 만 `result.forcePatternInference` path 박제 호출. 다른 path
+# (body_comparison_report 등) 박제 strict 유지 ([[firestore-nested-array-flat]]
+# project-wide 보존).
+
+# finding entry 안 list 허용 키 화이트리스트 (camelCase — validator 는
+# _dataclass_to_camel_case_dict 호출 후 dict 입력 받음).
+_FORCE_PATTERN_FINDING_SCALAR_LIST_KEYS: frozenset[str] = frozenset({"warnings"})
+
+# R2 (Codex iter-5) — finding dict 전체 key whitelist (camelCase only).
+# schema lockstep 강제: 미정의 key (예: 'unexpectedScalar') reject.
+_FORCE_PATTERN_FINDING_KEYS: frozenset[str] = frozenset(
+    {
+        "pattern",
+        "phase",
+        "sourceSignal",
+        "reason",
+        "interpretation",
+        "confidence",
+        "jointHint",
+        "warnings",
+    }
+)
+
+
+def _validate_force_pattern_finding_dict(d: dict, *, path: str) -> None:
+    """Phase 9 finding entry dict 검증 — 8 필드 strict whitelist (camelCase).
+
+    D-09-U5 + RESEARCH Pattern 5 — nested dict/list reject + warnings strict
+    list[str] only.
+    """
+    if not isinstance(d, dict):
+        raise ValueError(
+            f"{path} must be dict, got {type(d).__name__}"
+        )
+    for k, v in d.items():
+        sub = f"{path}.{k}"
+        # R2 (Codex iter-5) — schema lockstep 강제, 미정의 key reject.
+        if k not in _FORCE_PATTERN_FINDING_KEYS:
+            raise ValueError(
+                f"{sub} key not in force_pattern_finding whitelist "
+                f"({sorted(_FORCE_PATTERN_FINDING_KEYS)}); reject"
+            )
+        if v is None or isinstance(v, (str, int, float, bool)):
+            continue
+        if isinstance(v, dict):
+            raise ValueError(
+                f"{sub} nested dict in finding entry not allowed "
+                f"(forcePatternInference schema: scalar fields + 'warnings' list[str] only)"
+            )
+        if isinstance(v, list):
+            if k not in _FORCE_PATTERN_FINDING_SCALAR_LIST_KEYS:
+                raise ValueError(
+                    f"{sub} list field not in force_pattern_finding whitelist "
+                    f"({sorted(_FORCE_PATTERN_FINDING_SCALAR_LIST_KEYS)}); reject"
+                )
+            # R2 (Codex iter-2) — `warnings` 는 contract 상 list[str] only.
+            # Phase 8 의 permissive scalar 허용을 mirror 하지 X — Phase 9 는 더 strict.
+            for i, item in enumerate(v):
+                if isinstance(item, (list, dict)):
+                    raise ValueError(
+                        f"{sub}[{i}] nested {type(item).__name__} reject "
+                        f"(firestore-nested-array-flat 보존)"
+                    )
+                if not isinstance(item, str) or not item:
+                    raise ValueError(
+                        f"{sub}[{i}] must be non-empty str warning code "
+                        f"(contract list[str]), got {type(item).__name__}={item!r}"
+                    )
+            continue
+        raise ValueError(
+            f"{sub} unexpected type at force_pattern_finding: {type(v).__name__}"
+        )
+
+
+def _validate_force_pattern_inference(
+    payload: dict, *, path: str = "forcePatternInference"
+) -> None:
+    """force_pattern_inference top-level scoped validator (D-09-U5).
+
+    Plan 09-01 (Phase 9) — `_validate_force_signals_report` 패턴 직접 mirror.
+    `_validate_dict_only_scalars` 본체 변경 영구 0 박제 정합 — 본 validator 만
+    forcePatternInference 안 finding dict 의 list[str] (warnings) 박제 허용.
+
+    명세:
+      · top-level forcePatternInference.warnings: list[str] strict (non-empty str only)
+      · findings: list[dict] 박제 (Top-3 cap, length <= 3)
+      · 각 finding dict: _validate_force_pattern_finding_dict 위임
+      · 기타 nested dict / nested list / 화이트리스트 외 list → reject
+
+    위반 시 ValueError + path 정보 (caller 가 catch → fail_analysis 진입).
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"_validate_force_pattern_inference: dict 입력만 허용. "
+            f"path={path!r} got {type(payload).__name__}"
+        )
+    for key, value in payload.items():
+        sub = f"{path}.{key}"
+        if value is None or isinstance(value, (str, int, float, bool)):
+            continue
+        if isinstance(value, dict):
+            raise ValueError(
+                f"{sub} unexpected nested dict at forcePatternInference top-level"
+            )
+        if isinstance(value, list):
+            if key == "warnings":
+                # R2 (Codex iter-2) — top-level warnings 도 non-empty str only.
+                for i, item in enumerate(value):
+                    if isinstance(item, (list, dict)):
+                        raise ValueError(
+                            f"{sub}[{i}] nested {type(item).__name__} reject"
+                        )
+                    if not isinstance(item, str) or not item:
+                        raise ValueError(
+                            f"{sub}[{i}] must be non-empty str warning code "
+                            f"(contract list[str]), got {type(item).__name__}={item!r}"
+                        )
+                continue
+            if key == "findings":
+                if len(value) > 3:
+                    raise ValueError(
+                        f"{sub} length > 3 — D-09-B4 fabrication 금지 "
+                        f"(len={len(value)})"
+                    )
+                for i, item in enumerate(value):
+                    _validate_force_pattern_finding_dict(item, path=f"{sub}[{i}]")
+                continue
+            raise ValueError(
+                f"{sub} unexpected list at forcePatternInference top-level "
+                f"(only 'warnings' and 'findings' allowed)"
+            )
+        raise ValueError(
+            f"{sub} unexpected type at forcePatternInference: {type(value).__name__}"
+        )
+
+
 def complete_analysis(
     uid: str,
     analysis_id: str,
@@ -271,6 +415,7 @@ def complete_analysis(
     body_comparison_report: dict | None = None,
     body_normalization_profile: dict | None = None,
     force_signals_report: dict | None = None,
+    force_pattern_inference: dict | None = None,
 ) -> None:
     """status='done' + result (contract.md §4 AnalysisResult).
 
@@ -318,6 +463,12 @@ def complete_analysis(
         # `_validate_dict_only_scalars` 호출 X (다른 path 박제 strict 유지).
         _validate_force_signals_report(force_signals_report)
         payload["result"]["forceSignalsReport"] = force_signals_report
+    if force_pattern_inference is not None:
+        # Plan 09-01 (Phase 9, 2026-06-10) — D-09-U5 scoped validator.
+        # top-level forcePatternInference 만 nested list[dict] 허용,
+        # [[firestore-nested-array-flat]] 보존. Phase 8 패턴 1:1 mirror.
+        _validate_force_pattern_inference(force_pattern_inference)
+        payload["result"]["forcePatternInference"] = force_pattern_inference
     _doc(models.analysis_doc_path(uid, analysis_id)).set(payload, merge=True)
 
 

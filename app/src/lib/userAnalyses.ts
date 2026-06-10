@@ -86,6 +86,28 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       },
     };
   }
+  // Phase 9 §9.11 forcePatternInference null-guard (D-09-D1 / RESEARCH Pitfall 8 / R1).
+  // Mirrors forceSignalsReport pattern at lines 74-88. forcePatternInference 는
+  // result 내부 필드 — 이미 narrowing 된 result 변수를 사용해야 typecheck PASS
+  // (R1 Codex iter-2: raw.result 는 unknown 이라 raw?.result?.forcePatternInference
+  // 접근 시 tsc 실패).
+  // 필드 자체가 missing 이면 undefined 유지 — TS contract
+  // `forcePatternInference?: ForcePatternInference | null` 가 undefined 허용.
+  if (result?.forcePatternInference) {
+    const inference = result.forcePatternInference;
+    result = {
+      ...result,
+      forcePatternInference: {
+        ...inference,
+        findings: (inference.findings ?? []).map((f) => ({
+          ...f,
+          warnings: f.warnings ?? [],
+          jointHint: f.jointHint ?? null,
+        })),
+        warnings: inference.warnings ?? [],
+      },
+    };
+  }
   return {
     analysisId: id,
     mode,

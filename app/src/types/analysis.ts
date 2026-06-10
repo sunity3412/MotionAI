@@ -196,6 +196,12 @@ export interface AnalysisResult {
   // Plan 08-00 §9.0 contract (CoordinateSpace / ContactPrimitiveKind /
   // PoleAxisMeasurement / median_torso_length) 위에 박제.
   forceSignalsReport?: ForceSignalsReport | null;
+  // Phase 9 (Plan 09-01) — §9.11 ForcePatternInference (D-09-D1 / D-09-U1).
+  // Wave 0 = schema only. Wave 1 (Plan 09-02) 가 본체 함수 + canned + pipeline
+  // wiring 박제. 본 필드는 Wave 1 wiring 이후 backend pipeline 이 채움.
+  // 책임 경계: Phase 11 (CoachCommentHook) 가 findings[].interpretation 위
+  // LLM 자연어 풍부화. Phase 12 가 raw 수치 UI 노출. Phase 9 자체는 canned 만.
+  forcePatternInference?: ForcePatternInference | null;
 }
 
 // Firestore 문서 전체 모양
@@ -632,6 +638,77 @@ export interface ForceSignalsReport {
   axisMetrics: AxisDeviationMetric[];
   stabilityMetrics: StabilityMetric[];
   contactMetrics: ContactStabilityMetric[];
+}
+
+// ── Phase 9 §9.11 ForcePatternInference (D-09-D1 / D-09-U1) ─────────────
+//
+// Source contract: docs/contract.md §9.11 + backend force_pattern.py (frozen dataclass).
+// Phase 9 = canned KO only; Phase 11 가 LLM 자연어 풍부화. Phase 12 가 raw 수치 노출.
+//
+// Wave 0 (Plan 09-01) = TS interface + Python frozen dataclass + docs §9.11 +
+// Firestore scoped validator + frontend null-guard 단일 atomic commit.
+// Wave 1 (Plan 09-02) = `infer_force_direction_pattern` 본체 함수 + 18 canned 본문 +
+// pipeline `_process` wiring.
+
+export type ForceDirectionPattern =
+  | 'pull'
+  | 'push'
+  | 'brace'
+  | 'rotate'
+  | 'release'
+  | 'unknown';
+
+export type ForceSourceSignal =
+  | 'axis_tilt'
+  | 'pelvis_drop'
+  | 'late_contact'
+  | 'high_jitter'
+  | 'high_jerk'
+  | 'abnormal_release';
+
+export type ForcePatternModeContext = 'mode1' | 'mode3_first' | 'mode3_progress';
+
+/**
+ * Phase 9 Top-3 finding 카드 1건 (D-09-D1 — 8 필드).
+ *
+ * Python lockstep: backend/shared/python/sunity_shared/analysis/force_pattern.py
+ *   ForcePatternFinding (frozen dataclass + __post_init__ validator).
+ * docs lockstep: docs/contract.md §9.11.2.
+ */
+export interface ForcePatternFinding {
+  pattern: ForceDirectionPattern;
+  phase: MotionPhase;
+  sourceSignal: ForceSourceSignal;
+  /** EN 1 sentence — LLM input 용 (debug + Phase 11 풍부화 source). */
+  reason: string;
+  /** KO canned — D-09-D2 18 mapping, '가능성' 언어 (D-09-D3 grep gate). */
+  interpretation: string;
+  /** [0, 1] — D-09-A5 base × phase_metric_confidence_factor (motion_id boost 후). */
+  confidence: number;
+  /** 부위 키워드 (코어 / 고관절 / 광배 / 내전근 / null). */
+  jointHint: string | null;
+  /** signal-specific (예: 'axis_signal_unavailable'). list[str] only. */
+  warnings: string[];
+}
+
+/**
+ * Phase 9 추론 layer 의 단일 산출 (D-09-D1 — 5 필드).
+ *
+ * Firestore 저장 경로: `users/{uid}/analyses/{analysisId}.result.forcePatternInference`.
+ * `_validate_force_pattern_inference` scoped validator 가 nested-array 차단.
+ */
+export interface ForcePatternInference {
+  /** "1.0" 초기 (non-empty). */
+  version: string;
+  /** Top-3 cap — length [0, 3] (D-09-B4 fabrication 금지). */
+  findings: ForcePatternFinding[];
+  /** 0 finding 시 'low' + warning. */
+  overallConfidence: MetricConfidence;
+  /** pipeline `_process` 산출 (D-09-D6). */
+  modeContext: ForcePatternModeContext;
+  /** umbrella (예: 'no_significant_force_pattern_signal', 'phase_unavailable_for_inference',
+   *  'axis_signal_unavailable'). */
+  warnings: string[];
 }
 
 // ──────────────────────────────────────────────────────────────────────────

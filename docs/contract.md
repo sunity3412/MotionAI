@@ -984,6 +984,63 @@ R1~R4 정합. 핵심:
   필드 source.
 - 12 contact 분류 표 (§9.0.7) — `ContactPoint` enum + `measurementKind` 분류 source.
 
+### §9.11 ForcePatternInference (Phase 9 신설)
+
+본 섹션은 Phase 9 (`ForceDirectionPattern + 실패 원인 후보 3개`) 가 산출하는 추론 layer 의 contract.
+
+#### §9.11.1 Enum
+
+| Alias | Values |
+|-------|--------|
+| `ForceDirectionPattern` | `pull` / `push` / `brace` / `rotate` / `release` / `unknown` (`rotate` = v2 deferred, Phase 9 backend emit 0 — Open Q 1) |
+| `ForceSourceSignal` | `axis_tilt` / `pelvis_drop` / `late_contact` / `high_jitter` / `high_jerk` / `abnormal_release` |
+| `ModeContext` | `mode1` / `mode3_first` / `mode3_progress` |
+
+#### §9.11.2 ForcePatternFinding (8 필드)
+
+| Field (camelCase / snake_case) | Type | Notes |
+|--------------------------------|------|-------|
+| `pattern` | `ForceDirectionPattern` | D-09-A1 매핑 |
+| `phase` | `MotionPhase` | §9.2 PhaseBoundary 정합 |
+| `sourceSignal` / `source_signal` | `ForceSourceSignal` | D-09-A1 6 종 |
+| `reason` | `string` (EN) | LLM input 용 1 sentence — D-09-D1 |
+| `interpretation` | `string` (KO canned) | D-09-D2 18 canned mapping, "가능성" 언어 (D-09-D3 grep gate) |
+| `confidence` | `number` ∈ [0, 1] | D-09-A5 산식 |
+| `jointHint` / `joint_hint` | `string \| null` | 부위 키워드 (코어 / 고관절 / 광배 / 내전근 / null) — D-09-D1 / Assumption A3 |
+| `warnings` | `string[]` | signal-specific (예: `axis_signal_unavailable`) — list[str] (Firestore scalar list OK) |
+
+#### §9.11.3 ForcePatternInference (5 필드)
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `version` | `string` | "1.0" 초기 (non-empty) |
+| `findings` | `ForcePatternFinding[]` | 길이 [0, 3] — D-09-B4 fabrication 금지 |
+| `overallConfidence` / `overall_confidence` | `MetricConfidence` (`low`/`medium`/`high`) | 0 finding 시 `'low'` + warning |
+| `modeContext` / `mode_context` | `ModeContext` | pipeline `_process` 가 산출 (D-09-D6) |
+| `warnings` | `string[]` | umbrella (예: `no_significant_force_pattern_signal`, `phase_unavailable_for_inference`, `axis_signal_unavailable`) — Python dataclass field 순서상 마지막 (default_factory=list, R1 정합) |
+
+#### §9.11.4 Firestore 저장 위치
+
+- `users/{uid}/analyses/{analysisId}.result.forcePatternInference` — `_validate_force_pattern_inference` scoped validator 박제 ([[firestore-nested-array-flat]] 정합).
+- `complete_analysis(..., force_pattern_inference=...)` kwarg 로 write (Wave 1 Plan 09-02 wiring).
+
+#### §9.11.5 Phase 책임 경계
+
+- Phase 9 = canned KO interpretation 단독 (Layer 2 / Gemini 영구 차단 — D-09-C1).
+- Phase 11 (CoachCommentHook) = `findings[].interpretation` 위 LLM 자연어 풍부화 (Gemini 자연어 번역만).
+- Phase 12 = `confidence` / raw 수치 (예: `shoulder_tilt 87°`) UI 노출 책임.
+- Phase 9 자체는 UI hint 없음 (D-09-D5).
+
+#### §9.11.6 Warning Code (Phase 9 신설)
+
+| Code | Trigger |
+|------|---------|
+| `phase_unavailable_for_inference` | phaseBoundaries 에 해당 phase 없음 (D-09-A4) |
+| `axis_signal_unavailable` | top-level `forceSignalsReport.warnings` ∋ `axis_metric_transitional` (R4 report tier) OR axisMetric.warnings ∈ {`phase_8_1_wave_0_transitional`, `tilt_unavailable`, `tilt_thresholds_fallback`} (R4 per-metric tier) (D-09-A2 / RESEARCH Pitfall 2) |
+| `no_significant_force_pattern_signal` | 6 signal 모두 detection 미통과 (D-09-B4) — fabrication 금지 |
+
+*Phase 9 추가: 2026-06-10 — ForcePatternInference + ForcePatternFinding 신설. D-09-A1~U6 박제. 본 contract = TS `analysis.ts` + Python `force_pattern.py` 와 atomic commit lockstep (D-09-U1).*
+
 ---
 
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
@@ -994,3 +1051,4 @@ R1~R4 정합. 핵심:
 *Plan 08-00 §9.0 추가: 2026-06-09 — Coordinate/Scale Contract (PoleLine2D + PoleAxisMeasurement + CoordinateSpace + ContactPrimitiveKind + median_torso_length + preflight label gate). REVIEWS Cycle 1 R1 + R2 + R3 + R4 blocker 해소.*
 *Plan 08-01 §9 추가: 2026-06-09 — ForceSignalsReport (PhaseBoundary + AxisDeviationMetric + StabilityMetric + ContactStabilityMetric + 20 warning code enum). REVIEWS Cycle 1 R1/R2/R3/R4/R5 + Cycle 2 §3 MEDIUM (preflight_gate_pending) 박제.*
 *Plan 08.1-00 §9.3 변경: 2026-06-09 — AxisDeviationMetric distance 차원 hard break. 5 필드 (pelvisDistanceFromPoleAxis / chestDistanceFromPoleAxis / scaleDenominator / coordinateSpace / deviationDirection) 제거 + tilt-only. Wave 0 = transitional stub. IPSF Code of Points NotebookLM citation 9 (Page 87 Glossary — 'Tilt' / 'Lean' / 'Off-axis' 용어 부재) 정합. RESEARCH §4 α-4 + CONTEXT D-01.*
+*Plan 09-01 §9.11 추가: 2026-06-10 — ForcePatternInference + ForcePatternFinding 신설 (Wave 0 = TS interface + Python frozen dataclass + Firestore scoped validator + frontend null-guard 단일 atomic commit). D-09-D1 / D-09-U1 (3-way atomic lockstep) / D-09-U3 / D-09-U4 / D-09-U5. Wave 1 (Plan 09-02) 가 본체 함수 + 18 canned + pipeline wiring 박제.*

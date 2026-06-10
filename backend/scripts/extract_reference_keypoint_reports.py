@@ -1,0 +1,155 @@
+"""Phase 12 hotfix (2026-06-11) — 정은지 reference 5건 referenceKeypointReport 산출.
+
+belle UAT 1차 결과 5번 (정은지 측 KeypointOverlay 안 그려짐) fix.
+
+Pod GPU 전용 (RTMW 의존). S3 → frame extract → RTMW pose → build_keypoint_report
+→ JSON. 로컬에서 seed-reference-motions.mjs --keypoint-reports 로 Firestore merge.
+
+Usage (Pod):
+  cd /workspace/SunityMotion/backend
+  source pod.env
+  export PYTHONPATH=$PWD:$PWD/shared/python
+  python scripts/extract_reference_keypoint_reports.py \
+      --out /workspace/reference-keypoint-reports.json
+
+Output JSON format (seed-reference-motions.mjs §loadKeypointReportsPayload 정합):
+  {
+    "motions": {
+      "<motion_id>": {
+        "version", "joints", "frames", "fps",
+        "data", "confidence", "reliability",
+        "axisData", "axisMask", "warnings"
+      }, ...
+    }
+  }
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+import boto3
+import numpy as np
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "shared" / "python"))
+
+from sunity_shared.analysis.assemble import build_keypoint_report  # noqa: E402
+from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor  # noqa: E402
+from sunity_shared.analysis.pose_estimator import NlfPoseEstimator  # noqa: E402
+
+
+# Firestore reference doc id 와 동기 유지 (extract_reference_angles.py MOTION_IDS mirror).
+MOTION_IDS = [
+    "ref-sideway-spin",
+    "ref-climb",
+    "ref-invert",
+    "ref-foxtop",
+    "ref-foxtop-split",
+]
+
+S3_BUCKET = "sunity-motion-pilot-videos"
+S3_PREFIX = "reference"
+
+
+def _camel_case_report(report) -> dict:
+    """KeypointReport dataclass → seed JSON 형식 (camelCase axisData / axisMask)."""
+    return {
+        "version": report.version,
+        "joints": list(report.joints),
+        "frames": int(report.frames),
+        "fps": float(report.fps),
+        "data": list(report.data),
+        "confidence": list(report.confidence),
+        "reliability": list(report.reliability),
+        "axisData": list(report.axis_data),
+        "axisMask": list(report.axis_mask),
+        "warnings": list(report.warnings),
+    }
+
+
+def _process_motion(
+    motion_id: str,
+    s3: "boto3.client",  # type: ignore[name-defined]
+    extractor: FfmpegFrameExtractor,
+    estimator: NlfPoseEstimator,
+) -> dict:
+    """1 motion → KeypointReport dict (camelCase)."""
+    key = f"{S3_PREFIX}/{motion_id}.mp4"
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+        local_path = Path(tmp.name)
+    try:
+        print(f"  [{motion_id}] S3 download s3://{S3_BUCKET}/{key}")
+        s3.download_file(S3_BUCKET, key, str(local_path))
+
+        print(f"  [{motion_id}] frame extract (9 fps)")
+        frames = extractor.extract(str(local_path))
+
+        print(f"  [{motion_id}] RTMW pose estimate ({frames.shape[0]} frame)")
+        pose_frames = estimator.estimate(frames)
+
+        print(f"  [{motion_id}] build_keypoint_report")
+        report = build_keypoint_report(pose_frames, fps=9.0)
+        if report is None:
+            raise RuntimeError(f"build_keypoint_report 반환 None — {motion_id}")
+
+        return _camel_case_report(report)
+    finally:
+        try:
+            local_path.unlink()
+        except OSError:
+            pass
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path("/workspace/reference-keypoint-reports.json"),
+        help="Output JSON path",
+    )
+    parser.add_argument(
+        "--motions",
+        nargs="+",
+        default=MOTION_IDS,
+        help="Override motion id list (default = MOTION_IDS).",
+    )
+    args = parser.parse_args()
+
+    s3 = boto3.client("s3")
+    extractor = FfmpegFrameExtractor(target_fps=9.0)
+    estimator = NlfPoseEstimator()  # RTMW 어댑터 — pose_estimator 모듈 내부 swap.
+
+    payload: dict = {"motions": {}}
+    t_start = time.time()
+    for motion_id in args.motions:
+        t0 = time.time()
+        try:
+            payload["motions"][motion_id] = _process_motion(
+                motion_id, s3, extractor, estimator
+            )
+            print(f"  [{motion_id}] OK ({time.time() - t0:.1f}s)")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [{motion_id}] FAIL — {exc}", file=sys.stderr)
+            # 일부 실패해도 다른 motion 결과는 박제 (R2 partial backfill 정신).
+            continue
+
+    print(
+        f"\n총 {len(payload['motions'])}/{len(args.motions)} motion 박제 "
+        f"({time.time() - t_start:.1f}s)"
+    )
+
+    args.out.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
+    print(f"  → {args.out}")
+    return 0 if payload["motions"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

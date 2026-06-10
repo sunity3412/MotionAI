@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -15,6 +16,7 @@ import {
 } from '../../components/ForcePatternCard';
 import { ForcePatternDetailModal } from '../../components/ForcePatternDetailModal';
 import { KeypointOverlay } from '../../components/KeypointOverlay';
+import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { VideoCompare } from '../../components/VideoCompare';
 import {
@@ -431,6 +433,49 @@ export default function AnalysisResult() {
   const userKeypointReport = result.keypointReport ?? null;
   const referenceKeypointReport = refMotion?.referenceKeypointReport ?? null;
 
+  // Phase 12 Wave 2 (Plan 12-03 T2) — KeypointOverlay 토글 (D-12-C4 박제).
+  // Pitfall 6 우회: useState(true) initial — 깜빡임 무시. OFF 사용자는 진입 시
+  // 잠시 ON 보였다가 useEffect 가 AsyncStorage 읽어 false 로 전환 (수용 가능).
+  //
+  // AsyncStorage key '@sunity:keypoint_overlay_enabled' — Firebase Auth backing
+  // store 와 namespace 충돌 0 ([[firebase-project-account]] 정합, T-12-03-T4).
+  const [overlayVisible, setOverlayVisible] = useState<boolean>(true);
+  useEffect(() => {
+    AsyncStorage.getItem('@sunity:keypoint_overlay_enabled')
+      .then((v) => {
+        if (v === 'false') setOverlayVisible(false);
+      })
+      .catch(() => {
+        /* graceful — 시각 토글 default 보존 */
+      });
+  }, []);
+  const handleToggleOverlay = (next: boolean) => {
+    setOverlayVisible(next);
+    AsyncStorage.setItem(
+      '@sunity:keypoint_overlay_enabled',
+      next ? 'true' : 'false',
+    ).catch(() => {
+      /* graceful — UI 는 이미 반영 */
+    });
+  };
+
+  // Phase 12 Wave 2 — 사용자 측 키포인트만 floating angle label 노출.
+  // mode1 reference 측 jointAngles 는 미공급 (A2 deferred, 12-deferred-items.md).
+  //
+  // jointAngles 구성 = JointScore (kismam 산출) 의 평균 current/target 각도.
+  // angle key (left_elbow 등) → KeypointOverlay 내부 JOINT_KEY_TO_ANGLE_KEY 가
+  // KeypointName 으로 변환. 산출 출처 분리: backend 만 (UI 단 좌표/각도 산출 0).
+  const userJointAngles = useMemo(() => {
+    const map: Record<string, { current: number | null; target: number | null }> = {};
+    for (const j of joints) {
+      map[j.key] = {
+        current: typeof j.currentAngle === 'number' ? j.currentAngle : null,
+        target: typeof j.targetAngle === 'number' ? j.targetAngle : null,
+      };
+    }
+    return map;
+  }, [joints]);
+
   const deltaFor = (dim: ScoreDimension): number | undefined =>
     cmp.mode === 'mode3' && !cmp.isFirst
       ? cmp.deltaFromPrevious?.[dim]
@@ -480,14 +525,20 @@ export default function AnalysisResult() {
         {/* ── 영역 2: 영상 + 키포인트 오버레이 (D-12-A1 #2 / D-12-C1 mode 분기) ─
             mode1 = 사용자 + 정은지 split (둘 다 오버레이 박제).
             mode3 second+ = 사용자 + 지난 분석 split (오버레이는 사용자 측만).
-            mode3 first = 비교 대상 없음 → 섹션 자체 미렌더 (단일 영상 위 오버
-            레이는 단일 영상 카드로 별도 후속). KeypointOverlay 가 keypointReport
-            null 시 자동 return null (caller placeholder X — VideoCompare 의
-            slot empty UI 가 fallback). Wave 1 = 정적 frameIndex=0 + visible=true.
-            토글 / sync / delta 강조 는 Wave 2 (Plan 12-03). */}
+            mode3 first = 비교 대상 없음 → 섹션 자체 미렌더.
+            KeypointOverlay 가 keypointReport null 시 자동 return null
+            (caller placeholder X — VideoCompare slot empty UI 가 fallback).
+            Wave 2 (Plan 12-03 T1/T2): player 전달 → useEvent(player,'timeUpdate')
+            로 frame index 자동 산출 + delta ≥ 10° 강조 + 토글 visible 제어. */}
         {!(cmp.mode === 'mode3' && cmp.isFirst) && (
           <>
-            <Text style={styles.sectionTitle}>동작 비교</Text>
+            <View style={styles.compareHeader}>
+              <Text style={styles.sectionTitle}>동작 비교</Text>
+              <KeypointOverlayToggle
+                value={overlayVisible}
+                onValueChange={handleToggleOverlay}
+              />
+            </View>
             <VideoCompare
               leftLabel="내 영상"
               rightLabel={
@@ -499,21 +550,22 @@ export default function AnalysisResult() {
                   ? result.referenceVideoUrl || refMotion?.videoUrl || undefined
                   : freshPrevUrl || prevDoc?.result?.myVideoUrl || undefined
               }
-              leftOverlay={(_player) => (
+              leftOverlay={(player) => (
                 <KeypointOverlay
+                  player={player}
                   keypointReport={userKeypointReport}
                   videoSize={overlayVideoSize}
-                  visible={true}
-                  frameIndex={0}
+                  visible={overlayVisible}
+                  jointAngles={userJointAngles}
                 />
               )}
-              rightOverlay={(_player) =>
+              rightOverlay={(player) =>
                 cmp.mode === 'mode1' ? (
                   <KeypointOverlay
+                    player={player}
                     keypointReport={referenceKeypointReport}
                     videoSize={overlayVideoSize}
-                    visible={true}
-                    frameIndex={0}
+                    visible={overlayVisible}
                   />
                 ) : null
               }
@@ -732,6 +784,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.sectionTitle,
     color: colors.textPrimary,
+    marginTop: 8,
+  },
+  // Phase 12 Wave 2 (Plan 12-03 T2) — 동작 비교 헤더 row.
+  // 좌측 sectionTitle + 우측 KeypointOverlayToggle (영역 2 카드 위, D-12-C4).
+  compareHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 8,
   },
   bench: {

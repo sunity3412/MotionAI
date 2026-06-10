@@ -33,6 +33,23 @@ export const colors = {
   tabInactive: '#A5A5A5',
   highlight: '#006FFD',
   neutralDark: '#1F2024',
+
+  // ── Phase 12 신설 토큰 (UI-SPEC §1) ──────────────────────────────────
+  // 기존 brand #FF4B33 는 변경 0 (CLAUDE.md §4 / D-12-U5). 신규 키만 추가.
+  // Phase 9 카드 / KeypointOverlay / ForcePatternCard / 영상 카드 전용.
+  brandSoft: '#FFD9D2', // Phase 9 작은 카드 chip 배경
+  brandBg: '#FFE5E0', // 옥타곤 outer ring 톤
+  softBg: '#F5F5F5', // jointHint chip 배경
+  estimateGray: '#B0B0B0', // 저신뢰 "추정 N°" 컬러
+  progressGreen: '#22B47A', // mode3_progress +N점 발전
+  progressRed: '#E64545', // mode3_progress -N점 후퇴
+  warnAmber: '#E6A300', // ⚠ occlusion badge
+  videoBg: '#2A2A2A', // 영상 카드 배경 (design.md §5-1 다크 예외)
+  textHi: '#1A1A1A', // Phase 12 본문
+  textMid: '#5A5A5A', // Phase 12 sub 본문
+  textLo: '#888888', // Phase 12 hint / footer
+  border: '#E0E0E0', // Phase 12 카드 테두리
+  trackBg: '#EBEBEB', // Phase 12 점수 트랙 배경
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

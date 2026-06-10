@@ -1254,12 +1254,15 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # ── Phase 12 Wave 0B (Plan 12-01) — KeypointReport 산출 + wiring ──
         # D-12-E2 + R3 정합. KeypointOverlay (Wave 1+) 소비 source.
         # 분석 algorithm (DTW / threshold / Phase 6/7/8 calibration) = 9fps 유지.
-        # 저장 시점에 30fps 로 선형 upsample (Phase 12 hotfix 2026-06-11 belle UAT
-        # 1차: 빠른 회전 시 keypoint 끊김 + 끝부분 정지 자세 mitigation. Firestore
-        # size 3.3x ≈ 170 → ~560 KiB 예산 안).
+        # 저장 시점에 18fps 로 선형 upsample (Phase 12 hotfix 2026-06-11 belle UAT
+        # 1차: 빠른 회전 시 keypoint 끊김 + 끝부분 정지 자세 mitigation).
+        # 18fps 선택 이유 — Firestore 40k index entry/document 한도:
+        #   30fps × 60s × 8 joints × 2 = 28,800 data + confidence/axis 합 ~60k → 한도 초과.
+        #   18fps × 60s × 8 × 2 = 17,280 data + 기타 합 ~26k → 안전.
+        # belle UAT 1차 17초 영상에선 9fps → 18fps 만으로도 충분히 부드러움 개선.
         keypoint_report_raw = build_keypoint_report(pose_frames, fps=9.0)
         keypoint_report_obj = (
-            upsample_to_fps(keypoint_report_raw, target_fps=30.0)
+            upsample_to_fps(keypoint_report_raw, target_fps=18.0)
             if keypoint_report_raw is not None
             else None
         )

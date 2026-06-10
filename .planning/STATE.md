@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: verifying
-stopped_at: Completed Phase 8.1 (Wave 2 — 정은지 재sweep evidence). Phase 8.1 verifier 진입 ready
-last_updated: "2026-06-09T13:00:02.748Z"
+stopped_at: Phase 9 context gathered (autonomous mode after gray-area selection)
+last_updated: "2026-06-10T01:22:54.972Z"
 last_activity: 2026-06-09
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 7
   total_plans: 45
   completed_plans: 42
-  percent: 78
+  percent: 70
 ---
 
 # Project State
@@ -492,9 +492,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-09T13:00:02.739Z
+Last session: 2026-06-10T01:22:54.954Z
 
-Stopped at: Completed Phase 8.1 (Wave 2 — 정은지 재sweep evidence). Phase 8.1 verifier 진입 ready
+Stopped at: Phase 9 context gathered (autonomous mode after gray-area selection)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -561,7 +561,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/08.1-axis-metric-redesign/08.1-SWEEP-EVIDENCE.md
+Resume file: .planning/phases/09-forcedirectionpattern-3/09-CONTEXT.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

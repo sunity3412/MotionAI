@@ -9,6 +9,12 @@ import {
 } from 'react-native';
 import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
 import { DimensionDetailModal } from '../../components/DimensionDetailModal';
+import {
+  ForcePatternCard,
+  _FALLBACK_BODY,
+} from '../../components/ForcePatternCard';
+import { ForcePatternDetailModal } from '../../components/ForcePatternDetailModal';
+import { KeypointOverlay } from '../../components/KeypointOverlay';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { VideoCompare } from '../../components/VideoCompare';
 import {
@@ -30,6 +36,7 @@ import type {
   AnalysisResult,
   CoachingTip,
   DimensionExplanation,
+  ForcePatternFinding,
   JointDirection,
   JointScore,
   ScoreDimension,
@@ -93,8 +100,10 @@ function highlightNumbers(text: string): React.ReactNode[] {
 
 // 결과 화면용 joint 보강: reference doc 의 실측 평균 각도(meanAngles)가 있으면
 // JointScore.targetAngle/deltaDeg/direction 을 실측 기준으로 덮어쓴다.
-// currentAngle 은 백엔드 NLF 가 아직 채우지 못해(시뮬 픽스처) 그대로 둔다 —
-// reference 쪽만 정밀해져도 "기준 168° → 154°" 등 시연 임팩트가 크다(#7-follow).
+//
+// Wave 0 (Plan 12-01) wiring fix 후 j.currentAngle 박제 — 정상 path 는 백엔드
+// (assemble.py) 가 실측치 채움. enrichJoints 는 reference meanAngles 가 박제
+// 됐을 때 targetAngle / delta / direction 만 보강 (구 doc 호환 fallback).
 function enrichJoints(
   joints: JointScore[],
   meanAngles: Record<string, number> | undefined,
@@ -103,10 +112,6 @@ function enrichJoints(
   return joints.map((j) => {
     const target = meanAngles[j.key];
     if (typeof target !== 'number' || !Number.isFinite(target)) return j;
-    // currentAngle 이 있으면 실측 target 으로 delta·direction 재계산.
-    // currentAngle 이 없어도 target 자체는 표시 가능 — angleGuide() 가 둘 다 요구
-    // 하므로 시뮬 픽스처에서 빠진 5개 관절은 결과 화면 코칭팁에 노출 안 됨
-    // (그 5개는 score 만 표시; result.tips 가 골라낸 worst 3개에 대해서만 가이드).
     if (typeof j.currentAngle === 'number' && Number.isFinite(j.currentAngle)) {
       const signed = j.currentAngle - target;
       return {
@@ -116,6 +121,8 @@ function enrichJoints(
         direction: directionFor(j.key, signed) ?? j.direction,
       };
     }
+    // currentAngle 미가용 시 (구 doc 호환) target 만 표시. angleGuide() 가 둘 다
+    // 요구하므로 코칭팁 본문 노출 X — 차원 카드 score 는 정상 표시.
     return { ...j, targetAngle: target };
   });
 }
@@ -328,9 +335,10 @@ export default function AnalysisResult() {
     cmp.mode === 'mode1' ? cmp.referenceMotionId : undefined,
   );
 
-  // refMotion.meanAngles 가 있으면 시뮬 픽스처의 targetAngle 을 정은지 실측 평균
-  // 으로 덮어쓴다 (예: 168° → 153.74°). 코칭팁 angleGuide 가 자동으로 정밀치 표시.
-  // mode3 는 refMotion=null 이라 시뮬 그대로 — 자기 비교는 reference 없음.
+  // refMotion.meanAngles 가 있으면 result.joints 의 targetAngle 을 정은지 실측
+  // 평균으로 덮어쓴다 (예: 168° → 153.74°). 코칭팁 angleGuide 가 자동으로 정밀치
+  // 표시. mode3 는 refMotion=null 이라 reference fallback path 미발동.
+  // (Wave 0 wiring fix 후 currentAngle 박제 — enrichJoints 는 reference 측 보강만.)
   const joints = useMemo(
     () => enrichJoints(result.joints, refMotion?.meanAngles),
     [result.joints, refMotion?.meanAngles],
@@ -387,6 +395,41 @@ export default function AnalysisResult() {
   const detailMode: 'mode1' | 'mode3' = cmp.mode === 'mode1' ? 'mode1' : 'mode3';
   // Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달 state. tip null = 닫힘.
   const [detailTip, setDetailTip] = useState<CoachingTip | null>(null);
+  // Phase 12 Wave 1 (Plan 12-02 T4) — ForcePatternCard tap → 자세히 모달 state.
+  // finding null = 닫힘. modeContext 별 mode 분기 코드 X (D-12-U3 — backend 자동).
+  const [detailFinding, setDetailFinding] = useState<ForcePatternFinding | null>(
+    null,
+  );
+
+  // Phase 12 Wave 1 (Plan 12-02 T4) — Phase 9 finding Top-3 + 0-finding fallback.
+  // findings.length ∈ {0, 1, 2, 3}: D-12-B1 박제 (0 → fallback big / 1 → big /
+  // 2 → big + small × 1 / 3 → big + small × 2). 본 useMemo 가 fallback finding
+  // 생성 (interpretation = _FALLBACK_BODY, pattern='unknown', confidence=0).
+  const forcePatternFindings: ForcePatternFinding[] = useMemo(() => {
+    const list = result.forcePatternInference?.findings ?? [];
+    if (list.length > 0) return list.slice(0, 3);
+    const fallback: ForcePatternFinding = {
+      pattern: 'unknown',
+      phase: 'hold',
+      sourceSignal: 'high_jitter',
+      reason: '',
+      interpretation: _FALLBACK_BODY,
+      confidence: 0,
+      jointHint: null,
+      warnings: [],
+    };
+    return [fallback];
+  }, [result.forcePatternInference]);
+
+  // Phase 12 Wave 1 (Plan 12-02 T4) — KeypointOverlay 박제 site (R7 render prop).
+  // VideoCompare 가 player lifecycle 안에서 callback 호출. Wave 1 = 정적
+  // frameIndex=0 + visible=true (토글 UI 는 Wave 2 책임).
+  // videoSize 는 9:16 영상 native 비율 기본값 — VideoView contentFit="contain"
+  // 위 normalized 0..1 좌표 그대로 박제 (KeypointOverlay viewBox 가 자동 scale).
+  const overlayVideoSize = { width: 720, height: 1280 };
+
+  const userKeypointReport = result.keypointReport ?? null;
+  const referenceKeypointReport = refMotion?.referenceKeypointReport ?? null;
 
   const deltaFor = (dim: ScoreDimension): number | undefined =>
     cmp.mode === 'mode3' && !cmp.isFirst
@@ -424,7 +467,7 @@ export default function AnalysisResult() {
           </View>
         )}
 
-        {/* 점수 개요 (AC-RES-001-1) + 레벨 벤치마크 */}
+        {/* ── Phase 12 Wave 1 (Plan 12-02 T4) — 영역 1: 점수 게이지 ─────── */}
         <View style={styles.card}>
           <OctagonScore score={result.overallScore} size={168} />
           <View style={styles.gradeRow}>
@@ -434,7 +477,86 @@ export default function AnalysisResult() {
           <LevelBenchmark score={result.overallScore} />
         </View>
 
-        {/* 콤보 부분 점수 — 콤보 모션 분석 시에만 (reference-motions.md §7) */}
+        {/* ── 영역 2: 영상 + 키포인트 오버레이 (D-12-A1 #2 / D-12-C1 mode 분기) ─
+            mode1 = 사용자 + 정은지 split (둘 다 오버레이 박제).
+            mode3 second+ = 사용자 + 지난 분석 split (오버레이는 사용자 측만).
+            mode3 first = 비교 대상 없음 → 섹션 자체 미렌더 (단일 영상 위 오버
+            레이는 단일 영상 카드로 별도 후속). KeypointOverlay 가 keypointReport
+            null 시 자동 return null (caller placeholder X — VideoCompare 의
+            slot empty UI 가 fallback). Wave 1 = 정적 frameIndex=0 + visible=true.
+            토글 / sync / delta 강조 는 Wave 2 (Plan 12-03). */}
+        {!(cmp.mode === 'mode3' && cmp.isFirst) && (
+          <>
+            <Text style={styles.sectionTitle}>동작 비교</Text>
+            <VideoCompare
+              leftLabel="내 영상"
+              rightLabel={
+                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'
+              }
+              leftUrl={result.myVideoUrl || undefined}
+              rightUrl={
+                cmp.mode === 'mode1'
+                  ? result.referenceVideoUrl || refMotion?.videoUrl || undefined
+                  : freshPrevUrl || prevDoc?.result?.myVideoUrl || undefined
+              }
+              leftOverlay={(_player) => (
+                <KeypointOverlay
+                  keypointReport={userKeypointReport}
+                  videoSize={overlayVideoSize}
+                  visible={true}
+                  frameIndex={0}
+                />
+              )}
+              rightOverlay={(_player) =>
+                cmp.mode === 'mode1' ? (
+                  <KeypointOverlay
+                    keypointReport={referenceKeypointReport}
+                    videoSize={overlayVideoSize}
+                    visible={true}
+                    frameIndex={0}
+                  />
+                ) : null
+              }
+            />
+          </>
+        )}
+
+        {/* ── 영역 3: Phase 9 실패 원인 카드 Top-3 (D-12-B1 박제) ───────────
+            findings.length=0 → fallback big × 1.
+            findings.length=1 → big × 1 (작은 카드 slot 비움).
+            findings.length=2 → big × 1 + small × 1 (왼쪽).
+            findings.length=3 → big × 1 + small × 2.
+            interpretation 본문 = backend canned KO (force_pattern_copy.py).
+            Phase 11 통합 시 동일 필드 LLM 풍부화 자동 교체 (D-12-B2). */}
+        <Text style={styles.sectionTitle}>실패 원인 후보</Text>
+        <ForcePatternCard
+          finding={forcePatternFindings[0]}
+          rank={0}
+          variant="big"
+          onTap={() => setDetailFinding(forcePatternFindings[0])}
+        />
+        {forcePatternFindings.length >= 2 && (
+          <View style={styles.findingSmallRow}>
+            <ForcePatternCard
+              finding={forcePatternFindings[1]}
+              rank={1}
+              variant="small"
+              onTap={() => setDetailFinding(forcePatternFindings[1])}
+            />
+            {forcePatternFindings.length >= 3 ? (
+              <ForcePatternCard
+                finding={forcePatternFindings[2]}
+                rank={2}
+                variant="small"
+                onTap={() => setDetailFinding(forcePatternFindings[2])}
+              />
+            ) : (
+              <View style={styles.findingSmallSpacer} />
+            )}
+          </View>
+        )}
+
+        {/* ── 영역 4: 콤보 부분 점수 (mode1 콤보 모션 분석 시에만) ───────── */}
         {cmp.mode === 'mode1' && cmp.segmentScores && (
           <>
             <Text style={styles.sectionTitle}>구간별 점수</Text>
@@ -454,9 +576,7 @@ export default function AnalysisResult() {
           </>
         )}
 
-        {/* 세부 점수 — IPSF 실행 차원 (각도/팔다리 펴기/동작 안정성). mode3 면 delta 표시.
-            Phase 12.5: 차원별 baseline + deficit summary. 메타 텍스트 ("동등 비중") 제거.
-            belle 피드백 (2026-06-07): 메타 노출이 사용자 혼동 → 제거. */}
+        {/* ── 영역 5: 차원 점수 (Phase 12.5 그대로 — 변경 0) ──────────────── */}
         <Text style={styles.sectionTitle}>세부 점수</Text>
         <View style={styles.card}>
           {dims.map((dim) => (
@@ -471,29 +591,7 @@ export default function AnalysisResult() {
           ))}
         </View>
 
-        {/* 동작 비교 — 좌(내 영상) / 우(정은지 or 지난 분석). mode3 첫 분석은 비교
-            대상이 없어 섹션 자체를 생략. URL 이 들어오면 자동으로 슬롯에 끼워짐. */}
-        {!(cmp.mode === 'mode3' && cmp.isFirst) && (
-          <>
-            <Text style={styles.sectionTitle}>동작 비교</Text>
-            <VideoCompare
-              leftLabel="내 영상"
-              rightLabel={
-                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'
-              }
-              leftUrl={result.myVideoUrl || undefined}
-              // mode1: 저장된 referenceVideoUrl 우선, 없으면 reference doc 의 videoUrl.
-              // mode3 second+: freshPrevUrl (만료 시 재발급) 우선, 없으면 prev doc 의 myVideoUrl.
-              rightUrl={
-                cmp.mode === 'mode1'
-                  ? result.referenceVideoUrl || refMotion?.videoUrl || undefined
-                  : freshPrevUrl || prevDoc?.result?.myVideoUrl || undefined
-              }
-            />
-          </>
-        )}
-
-        {/* 코칭 팁 (AC-RES-001-3) */}
+        {/* ── 영역 6: 각도 가이드 (코칭 팁) — Phase 12.5 그대로 유지 ────── */}
         <Text style={styles.sectionTitle}>코칭 팁</Text>
         {result.tips.map((tip, i) => {
           const joint = tip.joint
@@ -565,6 +663,18 @@ export default function AnalysisResult() {
         visible={detailTip != null}
         tip={detailTip}
         onClose={() => setDetailTip(null)}
+      />
+      {/* Phase 12 Wave 1 (Plan 12-02 T4): Phase 9 finding 자세히 모달.
+          ForcePatternCard tap → setDetailFinding(finding). null 시 닫힘. */}
+      <ForcePatternDetailModal
+        visible={detailFinding != null}
+        finding={detailFinding}
+        rank={
+          detailFinding != null
+            ? forcePatternFindings.findIndex((f) => f === detailFinding)
+            : undefined
+        }
+        onClose={() => setDetailFinding(null)}
       />
     </View>
   );
@@ -730,6 +840,13 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: colors.brand,
   },
+  // Phase 12 Wave 1 (Plan 12-02 T4) — Phase 9 finding 작은 카드 row.
+  // 두 개 가로 정렬 (gap 8). 단일 small 카드인 경우 오른쪽 spacer 로 균형.
+  findingSmallRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  findingSmallSpacer: { flex: 1 },
   tipCard: { alignItems: 'flex-start', gap: 8 },
   tipHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tipAngleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },

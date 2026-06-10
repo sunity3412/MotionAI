@@ -9,7 +9,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, layout, radius, spacing, typography } from '../theme';
 
@@ -17,6 +17,14 @@ type SlotProps = {
   label: string;
   url?: string;
   player: VideoPlayer | null;
+  /**
+   * Phase 12 신설 (Plan 12-02 T4 / R7 render prop).
+   * 영상 위 absolute overlay layer (KeypointOverlay 등). pointerEvents 'none'.
+   * VideoCompare 가 player lifecycle 안에서 callback 호출 — caller (result.tsx)
+   * 가 player state 별도 관리 X (R7 dual-state pattern 차단).
+   * Wave 2 가 KeypointOverlay 내부 useEvent(player, 'timeUpdate') 박제 site.
+   */
+  overlay?: (player: VideoPlayer | null) => React.ReactNode;
 };
 
 function fmtTime(s: number): string {
@@ -26,19 +34,26 @@ function fmtTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
-function VideoSlot({ label, url, player }: SlotProps) {
+function VideoSlot({ label, url, player, overlay }: SlotProps) {
   return (
     <View style={styles.slot}>
       <View style={styles.slotFrame}>
         {url && player ? (
-          <VideoView
-            player={player}
-            style={styles.video}
-            contentFit="contain"
-            nativeControls={false}
-            allowsFullscreen={false}
-            allowsPictureInPicture={false}
-          />
+          <>
+            <VideoView
+              player={player}
+              style={styles.video}
+              contentFit="contain"
+              nativeControls={false}
+              allowsFullscreen={false}
+              allowsPictureInPicture={false}
+            />
+            {overlay && (
+              <View style={styles.overlayContainer} pointerEvents="none">
+                {overlay(player)}
+              </View>
+            )}
+          </>
         ) : (
           <View style={styles.slotEmpty}>
             <Ionicons
@@ -60,6 +75,15 @@ export type VideoCompareProps = {
   rightLabel: string;
   leftUrl?: string;
   rightUrl?: string;
+  /**
+   * Phase 12 신설 (Plan 12-02 T4) — 영상 위 absolute layer (KeypointOverlay 등).
+   * pointerEvents 'none'. R7 render prop — (player: VideoPlayer | null) =>
+   * React.ReactNode. result.tsx 가 player state 들지 않고 VideoCompare 가 자기
+   * player lifecycle 안에서 callback 호출. Wave 2 가 KeypointOverlay 내부
+   * useEvent(player, 'timeUpdate') 박제 site (B3 iter-4 정합).
+   */
+  leftOverlay?: (player: VideoPlayer | null) => React.ReactNode;
+  rightOverlay?: (player: VideoPlayer | null) => React.ReactNode;
 };
 
 export function VideoCompare({
@@ -67,6 +91,8 @@ export function VideoCompare({
   rightLabel,
   leftUrl,
   rightUrl,
+  leftOverlay,
+  rightOverlay,
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
@@ -148,8 +174,18 @@ export function VideoCompare({
   return (
     <View style={styles.card}>
       <View style={styles.row}>
-        <VideoSlot label={leftLabel} url={leftUrl} player={leftPlayer} />
-        <VideoSlot label={rightLabel} url={rightUrl} player={rightPlayer} />
+        <VideoSlot
+          label={leftLabel}
+          url={leftUrl}
+          player={leftPlayer}
+          overlay={leftOverlay}
+        />
+        <VideoSlot
+          label={rightLabel}
+          url={rightUrl}
+          player={rightPlayer}
+          overlay={rightOverlay}
+        />
       </View>
 
       {hasAny ? (
@@ -232,6 +268,15 @@ const styles = StyleSheet.create({
   video: {
     width: '100%',
     height: '100%',
+  },
+  // Phase 12 신설 (Plan 12-02 T4) — KeypointOverlay 박제 site. pointerEvents
+  // 'none' 박제 — overlay 가 영상 tap/pinch 막지 않음.
+  overlayContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   slotEmpty: {
     flex: 1,

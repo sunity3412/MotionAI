@@ -58,6 +58,7 @@ from sunity_shared.analysis import (
     skeleton,
     technique,
 )
+from sunity_shared.analysis import force_pattern as fp
 from sunity_shared.analysis import force_signals as fs
 from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
 from sunity_shared.analysis.body_normalization_measurer import measure_body_profile
@@ -1127,6 +1128,37 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         )
         force_signals_dict = _dataclass_to_camel_case_dict(force_signals_report)
 
+        # ── Phase 9 (Plan 09-02) — ForcePatternInference 추론 layer ──────
+        # D-09-D6: mode_context 산출 inline (별도 helper 신설 X — RESEARCH Open Q,
+        # Pattern 6, Pitfall 3 정합). pipeline `_mode3_comparison` 가 산출한
+        # comparison["isFirst"] 를 single source 로 재사용 (Phase 12.5
+        # build_mode3 패턴 정합 — assemble.py:244).
+        #
+        # D-09-A2 raw signal only guard — force_pattern.py 가 axis severity 직접
+        # trust X (AST gate test_force_pattern_no_severity_use.py 회귀 차단).
+        # D-09-C1 Layer 2 (Gemini) 영구 차단 — pure-function inference.
+        force_pattern_inference_dict: dict | None = None
+        if force_signals_report is not None:
+            if mode == models.MODE_EXPERT:
+                mode_context: fp.ModeContext = "mode1"
+            else:  # MODE_SELF
+                is_first = (
+                    comparison.get("isFirst", True)
+                    if isinstance(comparison, dict)
+                    else True
+                )
+                mode_context = "mode3_first" if is_first else "mode3_progress"
+
+            force_pattern_inference = fp.infer_force_direction_pattern(
+                force_signals_report,
+                motion_id=getattr(profile, "motion_id", None),
+                mode_context=mode_context,
+            )
+            force_pattern_inference_dict = _dataclass_to_camel_case_dict(
+                force_pattern_inference
+            )
+        # ────────────────────────────────────────────────────────────────
+
         firestore_admin.complete_analysis(
             uid,
             analysis_id,
@@ -1137,6 +1169,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             body_comparison_report=body_comparison_report_dict,
             body_normalization_profile=body_normalization_profile_dict,
             force_signals_report=force_signals_dict,
+            force_pattern_inference=force_pattern_inference_dict,  # Phase 9 (Plan 09-02)
         )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
     finally:

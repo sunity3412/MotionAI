@@ -22,7 +22,7 @@ created: 2026-06-10
 | **Config file** | `backend/requirements-dev.txt` + `backend/tests/conftest.py` (Phase 8 박제 패턴) — Phase 9 신설 `backend/tests/phase09/conftest.py` (Wave 0) |
 | **Quick run command** | `cd backend && pytest tests/phase09/ tests/pipeline/test_pipeline_phase9.py -x -q` |
 | **Full suite command** | `cd backend && pytest tests/ -x && cd ../app && npm run typecheck` |
-| **Estimated runtime** | ~15 seconds (phase09 only) / ~90 seconds (full backend suite + tsc) |
+| **Estimated runtime** | ~20 seconds (phase09 + pipeline_phase9 integration) / ~90 seconds (full backend suite + tsc) |
 
 ---
 

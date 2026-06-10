@@ -121,11 +121,15 @@ belle chain (Phase 12.5 ✓ → 16 ✓ → 12 = A 항목, "B→C→A 시퀀싱�
 
 ### (E) 데이터 흐름 정합 (실측 wiring 검증)
 
-- **D-12-E1**: **assemble.py 의 angleGuide wiring 전수 확인** — 현재 line 167-168 이 `currentAngle / targetAngle` 채우지만 모든 joint 가 wire 됐는지 검증:
-  - 5 joint (어깨/골반/무릎/손 좌우 4 × 2 + 중심축) 모두 백엔드 실측치 채워지는지
-  - mode1 = targetAngle = 정은지 measured / mode3_first = targetAngle = IPSF baseline / mode3_progress = targetAngle = 이전 영상 measured
-  - 채워지지 않는 joint 가 있으면 Wave 0 에서 wiring 완성
-  - result.tsx 78-110 의 "시뮬 픽스처" 주석 제거 + currentAngle null fallback 처리
+- **D-12-E1** (2026-06-10 Codex 직접 리뷰 R2/R4/R11 반영): **kismam.assess() wiring fix + KeypointReport schema 신설**:
+  - **8 body joint** (어깨/골반/무릎/손 좌우 4 × 2) — 백엔드 실측치 + **별도 axisData polyline** (어깨중심 ↔ 골반중심 ↔ 무릎중심 옵션, R2 정합)
+  - mode 별 `target_source` enum 분기 (R4 정합):
+    - mode1 = `reference_motion` (정은지 measured)
+    - mode3_first = `extension_requirement` (extension-required joint 만 180°, 나머지 `unavailable` — IPSF baseline 박제 X)
+    - mode3_progress = `previous_analysis` (이전 영상 measured)
+  - **Wave 0A** (12-00) — kismam.assess() 3 call site wiring fix + RTMW keypoints_2d 실 채움 + axisData polyline 정의 + TargetSource enum (R1/R2/R4/R6 Codex 리뷰 BLOCKER 해소)
+  - **Wave 0B** (12-01) — KeypointReport 3-way schema lockstep (TS + Python + docs §9.12 + Firestore validator) + Wave 0A 데이터 위에 박제
+  - result.tsx 78-110 의 "시뮬 픽스처" 주석 제거 + currentAngle null fallback 처리 (Wave 1 책임)
 
 - **D-12-E2**: **3-way contract lockstep** (`analysis.ts` ↔ `models.py` ↔ `assemble.py`):
   - `JointScore` interface 의 `currentAngle` / `targetAngle` 이미 있음 — 변경 X

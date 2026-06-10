@@ -240,22 +240,27 @@ type ForcePatternCardProps = {
 
 **Location:** `app/src/components/KeypointOverlay.tsx`
 
-### Props (Wave 1 contract — 정합 박제)
+### Props — **B3 iter-4 정합: Wave 1/2 단일 잠금 contract** (Codex iter-4 recommended)
 
 ```typescript
-// Wave 1 T1 (12-02-PLAN.md) — 정적 렌더 + 외부에서 frameIndex 주입.
-// VideoCompare 의 leftOverlay/rightOverlay render prop 이 player 를 받아 frameIndex 산출, KeypointOverlay 는 frameIndex 만 소비.
+// 12-02-PLAN.md / 12-03-PLAN.md / 본 UI-SPEC 모두 동일 props block 박제.
+// Wave 1 = player 생략 + frameIndex 명시 (정적).
+// Wave 2 = player 전달 + frameIndex 생략 (component 내부 useEvent 산출).
 type KeypointOverlayProps = {
-  videoSize: { width: number; height: number };     // 비디오 native size — viewBox 산출
-  keypointReport: KeypointReport | null;            // 사용자 영상 (Wave 0B schema, 10 필드)
-  frameIndex: number;                                // 0 ≤ index < frames. VideoCompare render prop 이 useEvent(player, 'timeUpdate') → Math.floor(currentTime * fps) 산출
-  visible: boolean;                                  // 토글 OFF 시 SVG 0 (성능 절약, D-12-C4)
-  jointAngles?: ReadonlyArray<JointAssessment>;     // delta 강조용 (currentAngle/targetAngle/signedDeltaDeg). 미공급 시 강조 0 (정적 렌더만)
-  deltaThresholdDeg?: number;                        // default 10 (D-12-C3)
+  player?: VideoPlayer | null;                       // Wave 2 박제. 공급 시 component 내부 useEvent('timeUpdate') 가 frame index 자동 산출
+  keypointReport: KeypointReport | null;             // 사용자 또는 reference 영상 (Wave 0B schema, 10 필드)
+  videoSize: { width: number; height: number };      // 비디오 native size — viewBox 산출
+  visible: boolean;                                   // 토글 OFF 시 SVG 0 (성능 절약, D-12-C4)
+  frameIndex?: number;                                // Wave 1 = 0 (정적), Wave 2 = 생략 → 내부 산출, 테스트/snapshot override 가능
+  jointAngles?: Record<string, { current: number | null; target: number | null }>;  // delta 강조용. Wave 1 미공급 / Wave 2 공급 (JointScore Record 변환)
+  deltaThresholdDeg?: number;                         // default 10 (D-12-C3, KEYPOINT_DELTA_HIGHLIGHT_DEG)
+  showAngleLabels?: boolean;                          // Wave 2 floating label 표시, default true
 };
 ```
 
-**Wave 2 확장 (12-03-PLAN.md T1):** mode1 split 영상은 `referenceKeypointReport?: KeypointReport | null` + reference 측 frameIndex 별도 산출 (반대편 video player 의 timeUpdate). 본 props block 은 Wave 1 contract — mode 분기 prop X (UI 단 mode 분기 코드 0, D-12-U3 정합). Wave 2 R10 (polling + useEvent 공존) 산식 = frameIndex 가 video player 의 currentTime 기반 산출 — KeypointOverlay 자체는 player 의존 X.
+**Hook 위치 박제 (Codex iter-4 — 명확화)**: `useEvent` 는 KeypointOverlay component body 안에서만 호출. VideoCompare 의 render prop 은 player 를 KeypointOverlay 에 전달만 — render prop 안에서 hook 직접 호출 금지 (Rules of Hooks 위반).
+
+**mode 분기 (B2 iter-4 정합)**: mode1 split 영상은 양측 각각 `<KeypointOverlay>` 박제 — 사용자 측 `keypointReport={result.keypointReport}`, 정은지 측 `keypointReport={refMotion?.referenceKeypointReport ?? null}`. mode 분기 prop X (UI 단 mode 분기 코드 0, D-12-U3 정합).
 
 ### Rendering
 
@@ -289,11 +294,12 @@ const highlighted = delta >= deltaThresholdDeg;  // default 10°
   - 텍스트: "88°" 10pt Semi Bold WHITE (현재 각도)
   - mode1 reference 측에는 동일 위치에 다른 컬러 ("110°" textHi on WHITE 0.85)
 
-### Frame 동기화
+### Frame 동기화 (B3 iter-4 정합 — Hook 위치 lock)
 
-- **Wave 1 (12-02 T1)**: `frameIndex` prop 외부 주입. VideoCompare render prop 이 `useEvent(player, 'timeUpdate', initial)` 으로 currentTime 구독 → `Math.floor(currentTime * keypointReport.fps)` 산출 후 KeypointOverlay 에 전달. frameIndex 범위 검사 → `0 ≤ idx < frames` 안전 박제.
-- **Wave 2 (12-03 T1)**: R10 정합 — useEvent + 250ms polling 공존 (useEvent miss 시 polling fallback, 깜빡임 0).
+- **Wave 1 (12-02 T1)**: `frameIndex` prop 외부 주입 (정적 = 0). player 미전달 → KeypointOverlay 내부 useEvent 미발동. 정적 렌더만.
+- **Wave 2 (12-03 T1)**: `player` prop 전달 + `frameIndex` 생략. KeypointOverlay component body 안에서 `useEvent(player, 'timeUpdate', { currentTime: player?.currentTime ?? 0 })` 직접 호출 → `Math.floor(currentTime * keypointReport.fps)` 산출. frameIndex 범위 검사 = `Math.min(Math.max(idx, 0), frames - 1)` 안전 박제. R10 정합 — useEvent miss 시 250ms polling fallback (깜빡임 0, Pitfall 6).
 - 비디오 native fps (촬영) vs analysis fps (9 운영) mismatch — fps source = `keypointReport.fps` (백엔드 권위, R3 정합). UI 자체 fps 결정 X.
+- **금지**: VideoCompare 의 render prop 콜백 안에서 useEvent 직접 호출 (Rules of Hooks 위반). 모든 hook 은 KeypointOverlay component body 에만.
 
 ### Fallback
 

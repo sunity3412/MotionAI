@@ -337,7 +337,10 @@ Plans:
   3. 데이터 계약(`analysis.ts` ↔ `models.py` ↔ `assemble.py`)이 lockstep으로 갱신된다
   4. 영상 프레임 위에 어깨·골반·무릎·손 키포인트와 중심축이 오버레이로 표시된다 (발끝 toe는 v2)
 
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 12-01-PLAN.md — Wave 0: kismam.assess() wiring fix + KeypointReport 3-way schema lockstep (single atomic commit per D-09-U1 mirror)
+- [ ] 12-02-PLAN.md — Wave 1: UI 신영역 3 component 신설 (KeypointOverlay + ForcePatternCard + ForcePatternDetailModal) + result.tsx 6 영역 layout 재정비
+- [ ] 12-03-PLAN.md — Wave 2: Frame 동기화 (useEvent timeUpdate) + delta 강조 + confidence/occlusion 표기 + 토글 + iOS belle UAT
 **UI hint**: yes
 
 ### Phase 12.5: UI Transparency — 차원별 카피 + 가중치 표시 + 강사 보조 카피

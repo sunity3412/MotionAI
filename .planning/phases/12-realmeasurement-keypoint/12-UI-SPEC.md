@@ -246,8 +246,8 @@ type ForcePatternCardProps = {
 type KeypointOverlayProps = {
   videoSize: { width: number; height: number };  // 비디오 native size
   videoCurrentTime: number;                       // expo-video currentTime hook
-  keypoints: KeypointFrame[];                     // frame-by-frame (x, y, confidence) 데이터
-  referenceKeypoints?: KeypointFrame[];           // mode1 only — 정은지 데이터 비교
+  keypointReport: KeypointReport | null;          // 사용자 영상 — 8 body keypoint + axisData polyline (Wave 0B)
+  referenceKeypointReport?: KeypointReport | null; // R3 iter-2 신설 — mode1 only, reference/{motionId}.referenceKeypointReport 에서 조회
   mode: 'mode1' | 'mode3';
   deltaThresholdDeg?: number;                     // default 10
 };
@@ -334,7 +334,7 @@ const highlighted = delta >= deltaThresholdDeg;  // default 10°
 │ 중심이 옆으로 기울며 중심 잡는 힘이 약해   │  (16pt Semi Bold lineHeight 26)
 │ 지는 모습이 보여요.                          │
 │                                              │
-│ 💬 강사가 함께 보면 더 구체적 피드백을      │  (12pt Regular textLo)
+│  강사가 함께 보면 더 구체적 피드백을        │  (12pt Regular textLo — R14 iter-2 정합 이모지 제거)
 │ 받을 수 있어요                              │
 │                                              │
 │ ┌──────────────────────────────────────────┐│
@@ -447,13 +447,13 @@ const highlighted = delta >= deltaThresholdDeg;  // default 10°
 
 - `analysisDoc.angles` (flat) + 신설 `analysisDoc.keypoints` (flat) 둘 다 필요
 - `keypoints` 없으면 → 영상 영역 placeholder ("키포인트 데이터 미가용 — 영상만 표시") + 오버레이 layer 렌더 X
-- `referenceKeypoints` 없으면 (mode1 시) → split 영상 유지하되 정은지 측 오버레이만 X (사용자 측은 그대로)
+- `referenceKeypointReport` 없으면 (mode1 시) → split 영상 유지하되 정은지 측 오버레이만 X (사용자 측은 그대로)
 
 ### Firestore nested-array
 
 - `keypoints` 저장 = flat (`{joints: [...], frames: N, data: [x0,y0,x1,y1,...]}`) per [[firestore-nested-array-flat]]
 - 읽기 = `userAnalyses.ts::normalize` 가 reshape (R11 정합 — 8 body keypoint × N frame × 2 axis + 별도 axisData T × 3-point × 2)
-- `referenceKeypoints` 도 동일 패턴 (mode1 시 reference doc 의 동일 schema)
+- `referenceKeypointReport` 도 동일 패턴 (mode1 시 reference doc 의 동일 schema)
 
 ### 점수 게이지 mode3 차이
 
@@ -562,7 +562,7 @@ UI 단위 test (Wave 1 책임 — planner 가 구체화):
 - expo-video Expo SDK 54 의 currentTime hook API 정확한 형식 (`useVideoPlayer` vs deprecated API)
 - react-native-svg overlay 위 비디오 frame 동기화 fps drift 처리 best practice
 - KEYPOINT_DELTA_HIGHLIGHT_DEG = 10.0 임계값 sensitive 검증 (실증 테스트 시점 belle 검수 — `12-deferred-items.md` 박제)
-- `keypoints` Firestore vs Storage 저장 위치 (60s × 30fps × 9 keypoint × 2 axis = 32400 number — Firestore 1MB 검토)
+- `keypointReport` Firestore vs Storage 저장 위치 (60s × 9fps × 8 body keypoint × 2 axis + axisData T × 3 × 2 ≈ 0.12 MiB — Firestore 1 MiB 안전 per R5 iter-1)
 - 성장 차트 (영역 7) 위치 미세 조정 (차원 카드 ↔ 각도 상세 사이로 이동 가능성)
 - 한국어 stick figure mockup 의 폴 (수직 막대) 표시 여부 — Figma frame 에는 없으나 실제 폴댄스 영상 위 = 폴 keypoint 추가 가능 (v2 deferred 가능)
 

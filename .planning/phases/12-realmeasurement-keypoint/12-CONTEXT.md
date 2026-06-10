@@ -13,8 +13,8 @@ belle chain (Phase 12.5 ✓ → 16 ✓ → 12 = A 항목, "B→C→A 시퀀싱�
 본 phase 가 산출 (output 본체):
 
 - **결과 화면 (app/src/app/analysis/result.tsx) 전체 layout 재정비** — 영역 5개 + (mode3) 성장 차트, 신규 순서 박제
-- **실측 angleGuide 데이터 흐름 정합** — 5 joint (어깨/골반/무릎/손 + 중심축) 전부 백엔드 `currentAngle`/`targetAngle` 실데이터로 표시 (assemble.py 167-168 이미 일부 wired, result.tsx 78-110 의 "시뮬 픽스처" 주석 제거 + 모든 joint cover)
-- **VideoCompare.tsx 키포인트 오버레이 layer 신설** — react-native-svg 기반 5 joint + 중심축 overlay, 비디오 frame 동기화
+- **실측 angleGuide 데이터 흐름 정합** — 5 joint **그룹** (어깨/골반/무릎/손 좌우 평균 + 중심축; storage = 8 body keypoint + axisData polyline) 전부 백엔드 `currentAngle`/`targetAngle` 실데이터로 표시 (assemble.py 167-168 이미 일부 wired, result.tsx 78-110 의 "시뮬 픽스처" 주석 제거 + 모든 joint cover)
+- **VideoCompare.tsx 키포인트 오버레이 layer 신설** — react-native-svg 기반 8 body keypoint + axisData polyline overlay, 비디오 frame 동기화
 - **mode1 delta 강조 룰** — 정은지 vs 사용자 joint angle delta ≥ 10° 시 자동 #FF4B33 강조 (둘 다 영상 위)
 - **Phase 9 finding 카드 UI 박제** — finding[0] 큰 카드 + finding[1..2] 가로 작은 카드 × 2, tap → 자세히 모달 (Phase 12.5 패턴 정합)
 - **occlusion + confidence 표기** — 저신뢰 각도 "추정 N°" + 회색 + ⓘ, 차원 카드 ⚠ 배지 + 모달 설명
@@ -133,7 +133,7 @@ belle chain (Phase 12.5 ✓ → 16 ✓ → 12 = A 항목, "B→C→A 시퀀싱�
 
 - **D-12-E2**: **3-way contract lockstep** (`analysis.ts` ↔ `models.py` ↔ `assemble.py`):
   - `JointScore` interface 의 `currentAngle` / `targetAngle` 이미 있음 — 변경 X
-  - 신설 = `KeypointFrame` interface (frame-level keypoint 데이터) — 백엔드 `_dataclass_to_camel_case_dict` 자동 변환
+  - 신설 = `KeypointReport` interface (frame-level keypoint 데이터) — 백엔드 `_dataclass_to_camel_case_dict` 자동 변환
   - 단, **frame-level keypoint 가 Firestore 에 저장되는지 확인 필수** — 이미 `analysisDoc.angles` (flat) 가 있으나 keypoint (x, y) 좌표는 별도 필드 필요할 수 있음. researcher 검증.
 
 - **D-12-E3**: **Firestore nested-array 금지 정합** ([[firestore-nested-array-flat]]):
@@ -154,7 +154,7 @@ belle chain (Phase 12.5 ✓ → 16 ✓ → 12 = A 항목, "B→C→A 시퀀싱�
 - **expo-video currentTime hook 의 정확한 API** — Expo SDK 54 의 useVideoPlayer / VideoPlayer 변경 가능성. researcher 가 docs 확인.
 - **react-native-svg overlay 위 비디오 동기화 fps drift 처리** — 비디오 native fps vs JS thread fps mismatch 시 keypoint 가 영상 frame 보다 한 박자 늦거나 빨라질 가능성. researcher 가 베스트 프랙티스 확인.
 - **KEYPOINT_DELTA_HIGHLIGHT_DEG = 10.0 임계값 정합성** — 도메인 검증 필요 (10° 가 시각적으로 의미있는 강조인지 vs 너무 빈번하게 발동하는지). belle 검수 → 실증 테스트 점검 리스트 박제 가능.
-- **frame-level keypoint 가 Firestore 또는 Storage 어디 저장돼야** — 비디오 길이 60s × 30fps × 9 keypoint × 2 (x,y) = 32400 number. Firestore 1MB doc 제한 검토 필요. researcher / planner 결정.
+- **frame-level keypoint 가 Firestore 또는 Storage 어디 저장돼야** — 비디오 길이 60s × 9fps × 8 body keypoint × 2 (x,y) + axisData T × 3 × 2 = ~0.12 MiB. Firestore 1 MiB doc 안전 (R5 iter-1 정합). researcher → planner 결정.
 - **신영역 component 위치 — `src/components/` 직접 or `src/components/result/` 서브폴더** — planner 결정.
 - **mode3 성장 차트 위치 (배치 순서 6번)** — D-12-A1 박제됐으나 디테일 (성장 차트가 차원 카드 / 각도 상세 사이에 들어가는 게 더 자연스러운지) belle 검수 후 조정 가능.
 
@@ -239,13 +239,13 @@ belle chain (Phase 12.5 ✓ → 16 ✓ → 12 = A 항목, "B→C→A 시퀀싱�
 - **Slot pattern** (VideoCompare children) — KeypointOverlay 를 VideoCompare 의 child 로 절대 위치 박제
 - **Modal pattern** (DimensionDetailModal) — tap → BottomSheet 또는 fullScreen modal, 헤더 chip + 본문 + footer
 - **mode 분기 자동화** — 백엔드 modeContext 박제, UI 단에서 분기 코드 최소 (Phase 9 / 12.5 정합)
-- **3-way contract lockstep** — `analysis.ts` ↔ `models.py` ↔ `docs/contract.md` (Phase 6/7/8/8.1/9 패턴, 신설 KeypointFrame interface 시 정합)
+- **3-way contract lockstep** — `analysis.ts` ↔ `models.py` ↔ `docs/contract.md` (Phase 6/7/8/8.1/9 패턴, 신설 KeypointReport interface 시 정합)
 - **react-native-svg overlay** — OctagonScore + GrowthChart 박제. KeypointOverlay 동일 기술
-- **`_dataclass_to_camel_case_dict` 자동 변환** — Phase 9 까지 박제. KeypointFrame dataclass 신설 시 자동 적용
+- **`_dataclass_to_camel_case_dict` 자동 변환** — Phase 9 까지 박제. KeypointReport dataclass 신설 시 자동 적용
 
 ### Integration Points
 
-- **`assemble.py::build_result`** — 결과 dict 생성 site. KeypointFrame data 추가 박제 site (D-12-E2)
+- **`assemble.py::build_result`** — 결과 dict 생성 site. KeypointReport data 추가 박제 site (D-12-E2)
 - **`firestore_admin.complete_analysis`** — Firestore 저장 site. keypoint flat 저장 분기 (D-12-E3)
 - **`userAnalyses.ts::normalize`** — Firestore raw → AnalysisDoc null-guard. keypoint 신설 필드 null-guard 추가
 - **`pipeline/app.py::_process`** — Phase 9 wiring 박제 site. keypoint frame data 출력 추가 (researcher 가 frame data 어디서 산출되는지 확인)
@@ -310,7 +310,7 @@ belle chain (Phase 12.5 ✓ → 16 ✓ → 12 = A 항목, "B→C→A 시퀀싱�
 
 ### Wave 0 종료 후 — assemble.py wiring 전수 확인
 - **Trigger**: Wave 0 commit + `pytest tests/phase06/ tests/phase07/ -x -q` 회귀 0
-- **Action**: 5 joint (어깨/골반/무릎/손 좌우 4 × 2 + 중심축) 의 currentAngle / targetAngle 이 모든 mode (mode1 / mode3_first / mode3_progress) 에서 채워지는지 데이터 흐름 grep + 실 분석 1건 test fixture 검증
+- **Action**: 8 body joint (어깨/골반/무릎/손 좌우 4 × 2) + axis polyline 의 currentAngle / targetAngle 이 모든 mode (mode1 / mode3_first / mode3_progress) 에서 채워지는지 데이터 흐름 grep + 실 분석 1건 test fixture 검증
 
 ### Wave 1 종료 후 — UI 시각 회귀 + 단위 test
 - **Trigger**: Wave 1 commit + `cd app && npm run typecheck` 0 error

@@ -10,13 +10,18 @@
 
 | Req ID | Behavior | Test Type | Automated Command | Wave |
 |--------|----------|-----------|-------------------|------|
-| FEED-01 | `kismam.assess(user_angles=, reference_angles=)` 3 call site wiring fix — `JointAssessment.current_angle != None` + `target_angle != None` | unit (backend) | `pytest backend/tests/phase12/test_kismam_assess_with_angles.py -x` | 0 |
-| FEED-01 | `assemble.build_joints` 가 모든 8 angle key 의 currentAngle / targetAngle 채움 | unit (backend) | `pytest backend/tests/phase12/test_build_joints_with_real_angles.py -x` | 0 |
-| FEED-01 | `pipeline._process` 의 3 call site (mode1/mode3_first/mode3_progress) 정합 + build_keypoint_report 호출 | integration (backend) | `pytest backend/tests/phase12/test_assemble_wiring_all_joints.py -x` | 0 |
-| FEED-01 | `KeypointReport.__post_init__` validator (data length = T × J × 2 / confidence = T × J / reliability = T / reliability item ∈ {high,medium,low}) | unit (backend) | `pytest backend/tests/phase12/test_keypoint_report_dataclass.py -x` | 0 |
-| FEED-01 | 3-way schema lockstep — TS interface + Python dataclass + docs §9.12 박제 | unit (backend) | `pytest backend/tests/phase12/test_keypoint_report_lockstep.py -x` | 0 |
-| FEED-01 | `_dataclass_to_camel_case_dict(KeypointReport(...))` snake → camel 변환 정합 (Phase 9 패턴 mirror) | unit (backend) | `pytest backend/tests/phase12/test_dataclass_to_camel_case_dict_phase12.py -x` | 0 |
-| FEED-01 | `firestore_admin._validate_keypoint_report` scoped validator 박제 + `complete_analysis(..., keypoint_report=...)` kwarg | unit (backend) | `pytest backend/tests/phase12/test_firestore_lockstep_phase12.py -x` | 0 |
+| VIS-01 | **R1 iter-1** RTMW adapter 의 `keypoints_2d` 가 None 0회 + 8+ COCO joint 박제 + visibility [0,1] | unit (backend) | `pytest backend/tests/phase12/test_rtmw_keypoints_2d_populated.py -x` | 0A |
+| FEED-01 | **R4 iter-1/iter-2** kismam.assess() 3 call site + JointAssessment.target_source 필드 + `_target_source_for_extension` mode3_first 분기 | unit (backend) | `pytest backend/tests/phase12/test_kismam_assess_with_angles.py tests/phase12/test_mode3_first_target_source.py -x` | 0A |
+| FEED-01 | **R4 iter-1/iter-2** TargetSource Literal 4 enum + invalid raises | unit (backend) | `pytest backend/tests/phase12/test_target_source_enum.py -x` | 0A |
+| VIS-01 | **R2 iter-1** AxisFrame dataclass + compute_axis_frames 3-point polyline (knee_mid optional, R7 axisMask) | unit (backend) | `pytest backend/tests/phase12/test_axis_polyline_definition.py -x` | 0A |
+| FEED-01 | `assemble.build_joints` 가 모든 8 angle key 의 currentAngle / targetAngle / **targetSource** 채움 | unit (backend) | `pytest backend/tests/phase12/test_build_joints_with_real_angles.py -x` | 0B |
+| FEED-01 | `pipeline._process` 의 3 call site (mode1/mode3_first/mode3_progress) 정합 + build_keypoint_report 호출 | integration (backend) | `pytest backend/tests/phase12/test_assemble_wiring_all_joints.py -x` | 0B |
+| FEED-01 | `KeypointReport.__post_init__` validator (data length = T × 8 × 2 / confidence = T × 8 / axis_data = T × 3 × 2 / axis_mask = T × 3 / reliability = T) | unit (backend) | `pytest backend/tests/phase12/test_keypoint_report_dataclass.py -x` | 0B |
+| FEED-01 | 3-way schema lockstep — TS interface + Python dataclass + docs §9.12 박제 (10 필드 incl. axis_data + axis_mask) | unit (backend) | `pytest backend/tests/phase12/test_keypoint_report_lockstep.py -x` | 0B |
+| FEED-01 | `_dataclass_to_camel_case_dict(KeypointReport(...))` snake → camel (axis_data → axisData, axis_mask → axisMask) | unit (backend) | `pytest backend/tests/phase12/test_dataclass_to_camel_case_dict_phase12.py -x` | 0B |
+| FEED-01 | `firestore_admin._validate_keypoint_report` scoped validator + `complete_analysis(..., keypoint_report=...)` kwarg | unit (backend) | `pytest backend/tests/phase12/test_firestore_lockstep_phase12.py -x` | 0B |
+| VIS-01 | **R3 iter-2** reference/{motionId}.referenceKeypointReport seed script + ReferenceMotion TS field + useReferenceMotion normalize null-guard | unit (backend + frontend) | `pytest backend/tests/phase12/test_reference_keypoint_report_seed.py -x && cd app && npm run typecheck` | 0B |
+| FEED-01 | **R5 iter-1** Firestore size budget (9fps × 60s worst case ≤ 700 KiB) | unit (backend) | `pytest backend/tests/phase12/test_keypoint_report_firestore_size_budget.py -x` | 0B |
 | VIS-01 | `userAnalyses.ts::normalize` 가 result.keypointReport 필드 null-guard 통과 (구 doc / 신 doc) | type-check (frontend) | `cd app && npm run typecheck` | 0 |
 | VIS-01 | 결과 화면 6 영역 순서 (점수 → 영상+오버레이 → 원인 카드 → 차원 → 각도 → 성장 차트) | manual UAT | belle 검수 (Figma frame01 1:1) | 1 |
 | VIS-01 | ForcePatternCard 0/1/2/3 finding edge case 정확한 카드 수 렌더 | manual UAT | belle 검수 (mode1/mode3 fixture) | 1 |

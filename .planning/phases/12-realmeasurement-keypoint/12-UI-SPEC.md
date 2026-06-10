@@ -240,25 +240,29 @@ type ForcePatternCardProps = {
 
 **Location:** `app/src/components/KeypointOverlay.tsx`
 
-### Props
+### Props (Wave 1 contract — 정합 박제)
 
 ```typescript
+// Wave 1 T1 (12-02-PLAN.md) — 정적 렌더 + 외부에서 frameIndex 주입.
+// VideoCompare 의 leftOverlay/rightOverlay render prop 이 player 를 받아 frameIndex 산출, KeypointOverlay 는 frameIndex 만 소비.
 type KeypointOverlayProps = {
-  videoSize: { width: number; height: number };  // 비디오 native size
-  videoCurrentTime: number;                       // expo-video currentTime hook
-  keypointReport: KeypointReport | null;          // 사용자 영상 — 8 body keypoint + axisData polyline (Wave 0B)
-  referenceKeypointReport?: KeypointReport | null; // R3 iter-2 신설 — mode1 only, reference/{motionId}.referenceKeypointReport 에서 조회
-  mode: 'mode1' | 'mode3';
-  deltaThresholdDeg?: number;                     // default 10
+  videoSize: { width: number; height: number };     // 비디오 native size — viewBox 산출
+  keypointReport: KeypointReport | null;            // 사용자 영상 (Wave 0B schema, 10 필드)
+  frameIndex: number;                                // 0 ≤ index < frames. VideoCompare render prop 이 useEvent(player, 'timeUpdate') → Math.floor(currentTime * fps) 산출
+  visible: boolean;                                  // 토글 OFF 시 SVG 0 (성능 절약, D-12-C4)
+  jointAngles?: ReadonlyArray<JointAssessment>;     // delta 강조용 (currentAngle/targetAngle/signedDeltaDeg). 미공급 시 강조 0 (정적 렌더만)
+  deltaThresholdDeg?: number;                        // default 10 (D-12-C3)
 };
 ```
+
+**Wave 2 확장 (12-03-PLAN.md T1):** mode1 split 영상은 `referenceKeypointReport?: KeypointReport | null` + reference 측 frameIndex 별도 산출 (반대편 video player 의 timeUpdate). 본 props block 은 Wave 1 contract — mode 분기 prop X (UI 단 mode 분기 코드 0, D-12-U3 정합). Wave 2 R10 (polling + useEvent 공존) 산식 = frameIndex 가 video player 의 currentTime 기반 산출 — KeypointOverlay 자체는 player 의존 X.
 
 ### Rendering
 
 - `react-native-svg` `<Svg>` element, absolute positioning over `<expo-video>`
 - viewBox = `videoSize` (e.g. "0 0 720 1280")
 - **8 body keypoints** (R11 정합): `shoulder_left/right`, `hip_left/right`, `knee_left/right`, `hand_left/right` — Phase 12 KEYPOINT_NAMES Literal 8 (axis 는 별도 contract).
-- **axis polyline** (R2 정합 — 별도 `axisData`): `shoulder_mid ↔ hip_mid ↔ knee_mid?` (3-point polyline). 12-00 `compute_axis_frames()` 산출, KeypointReport.axisData flat array (T × 3 × 2). knee_mid 가 None 인 frame 은 2-point 만 렌더.
+- **axis polyline** (R2 + R7 iter-2 정합 — 별도 `axisData` + `axisMask`): `shoulder_mid ↔ hip_mid ↔ knee_mid?` (3-point polyline). 12-00 `compute_axis_frames()` 산출, KeypointReport.axisData flat finite array (T × 3 × 2, NaN 영구 0회) + KeypointReport.axisMask flat bool (T × 3). **UI 분기 산식**: `mask[idx*3 + 2] === false` → 2-point polyline (shoulder_mid → hip_mid 만) / `true` → 3-point polyline (knee_mid 포함). NaN 검사 절대 X — mask 만 참조.
 - 각 joint = `<Circle>` 10pt radius (디자인 mockup 기준 — viewBox 좌표로 변환)
 - 각 bone = `<Line>` 1.8pt stroke (강조 시 3pt)
 - 컬러: 기본 WHITE stroke `#000` 0.6 / 강조 brand `#FF4B33`
@@ -287,8 +291,9 @@ const highlighted = delta >= deltaThresholdDeg;  // default 10°
 
 ### Frame 동기화
 
-- `videoCurrentTime` (초) → `Math.floor(currentTime * frameRate)` index 로 `keypoints[index]` lookup
-- 비디오 native fps vs JS fps mismatch 시 latest available frame 사용 (researcher 가 best practice 확인)
+- **Wave 1 (12-02 T1)**: `frameIndex` prop 외부 주입. VideoCompare render prop 이 `useEvent(player, 'timeUpdate', initial)` 으로 currentTime 구독 → `Math.floor(currentTime * keypointReport.fps)` 산출 후 KeypointOverlay 에 전달. frameIndex 범위 검사 → `0 ≤ idx < frames` 안전 박제.
+- **Wave 2 (12-03 T1)**: R10 정합 — useEvent + 250ms polling 공존 (useEvent miss 시 polling fallback, 깜빡임 0).
+- 비디오 native fps (촬영) vs analysis fps (9 운영) mismatch — fps source = `keypointReport.fps` (백엔드 권위, R3 정합). UI 자체 fps 결정 X.
 
 ### Fallback
 
@@ -504,7 +509,7 @@ const highlighted = delta >= deltaThresholdDeg;  // default 10°
 - ❌ UI 단 mode 분기 코드 (backend modeContext 자동 분기 — D-12-U3)
 - ❌ 영상 위 각도 라벨 = 직접 측정값 (백엔드 산출만 사용 — 자체 계산 X)
 - ❌ 키포인트 좌표 (x, y) 직접 계산 (백엔드 산출만 read)
-- ❌ 이모지 (CLAUDE.md §7) — 단 footer 의 💬 같은 안내 이모지는 design.md §10 의 한정 예외 (검수 후 결정)
+- ❌ 이모지 (CLAUDE.md §7 — 영구 금지. design.md §10 의 안내 카피도 텍스트만 박제. footer/모달/카드 어디든 0 emoji)
 
 ---
 

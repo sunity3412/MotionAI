@@ -42,7 +42,10 @@ sys.path.insert(0, str(REPO_ROOT / "shared" / "python"))
 
 from sunity_shared.analysis.assemble import build_keypoint_report  # noqa: E402
 from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor  # noqa: E402
-from sunity_shared.analysis.pose_estimator import NlfPoseEstimator  # noqa: E402
+from sunity_shared.analysis.pose_engines.rtmw.rtmw_engine import (  # noqa: E402
+    RTMWPoseEngine,
+)
+from sunity_shared.analysis.pose_frame import PoleAxis  # noqa: E402
 
 
 # Firestore reference doc id 와 동기 유지 (extract_reference_angles.py MOTION_IDS mirror).
@@ -74,27 +77,37 @@ def _camel_case_report(report) -> dict:
     }
 
 
+_DEFAULT_POLE = PoleAxis(
+    axis_vector=(0.0, 1.0, 0.0),
+    confidence_level="low",
+    source="vertical_fallback",
+)
+
+
 def _process_motion(
     motion_id: str,
     s3: "boto3.client",  # type: ignore[name-defined]
     extractor: FfmpegFrameExtractor,
-    estimator: NlfPoseEstimator,
+    engine: RTMWPoseEngine,
 ) -> dict:
     """1 motion → KeypointReport dict (camelCase)."""
     key = f"{S3_PREFIX}/{motion_id}.mp4"
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
         local_path = Path(tmp.name)
     try:
-        print(f"  [{motion_id}] S3 download s3://{S3_BUCKET}/{key}")
+        print(f"  [{motion_id}] S3 download s3://{S3_BUCKET}/{key}", flush=True)
         s3.download_file(S3_BUCKET, key, str(local_path))
 
-        print(f"  [{motion_id}] frame extract (9 fps)")
+        print(f"  [{motion_id}] frame extract (9 fps)", flush=True)
         frames = extractor.extract(str(local_path))
 
-        print(f"  [{motion_id}] RTMW pose estimate ({frames.shape[0]} frame)")
-        pose_frames = estimator.estimate(frames)
+        print(
+            f"  [{motion_id}] RTMW pose estimate ({frames.shape[0]} frame)",
+            flush=True,
+        )
+        pose_frames = engine.estimate(frames, _DEFAULT_POLE)
 
-        print(f"  [{motion_id}] build_keypoint_report")
+        print(f"  [{motion_id}] build_keypoint_report", flush=True)
         report = build_keypoint_report(pose_frames, fps=9.0)
         if report is None:
             raise RuntimeError(f"build_keypoint_report 반환 None — {motion_id}")
@@ -125,7 +138,9 @@ def main() -> int:
 
     s3 = boto3.client("s3")
     extractor = FfmpegFrameExtractor(target_fps=9.0)
-    estimator = NlfPoseEstimator()  # RTMW 어댑터 — pose_estimator 모듈 내부 swap.
+    print("RTMW 엔진 init (가중치 로드 ~30초)...", flush=True)
+    engine = RTMWPoseEngine()
+    print("RTMW init 완료", flush=True)
 
     payload: dict = {"motions": {}}
     t_start = time.time()
@@ -133,7 +148,7 @@ def main() -> int:
         t0 = time.time()
         try:
             payload["motions"][motion_id] = _process_motion(
-                motion_id, s3, extractor, estimator
+                motion_id, s3, extractor, engine
             )
             print(f"  [{motion_id}] OK ({time.time() - t0:.1f}s)")
         except Exception as exc:  # noqa: BLE001

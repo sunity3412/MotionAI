@@ -20,7 +20,7 @@ created: 2026-06-10
 |----------|-------|
 | **Framework** | pytest >=8,<9 (backend) + tsc --noEmit (app) |
 | **Config file** | `backend/requirements-dev.txt` + `backend/tests/conftest.py` (Phase 8 박제 패턴) — Phase 9 신설 `backend/tests/phase09/conftest.py` (Wave 0) |
-| **Quick run command** | `cd backend && pytest tests/phase09/ -x -q` |
+| **Quick run command** | `cd backend && pytest tests/phase09/ tests/pipeline/test_pipeline_phase9.py -x -q` |
 | **Full suite command** | `cd backend && pytest tests/ -x && cd ../app && npm run typecheck` |
 | **Estimated runtime** | ~15 seconds (phase09 only) / ~90 seconds (full backend suite + tsc) |
 
@@ -28,7 +28,7 @@ created: 2026-06-10
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd backend && pytest tests/phase09/ -x -q`
+- **After every task commit:** Run `cd backend && pytest tests/phase09/ tests/pipeline/test_pipeline_phase9.py -x -q`
 - **After every plan wave:** Run `cd backend && pytest tests/ -x && cd ../app && npm run typecheck`
 - **Before `/gsd-verify-work`:** Full suite + tsc --noEmit + 금지 표현 grep gate 10/10 PASS
 - **Max feedback latency:** 15 seconds (per-task), 90 seconds (per-wave)

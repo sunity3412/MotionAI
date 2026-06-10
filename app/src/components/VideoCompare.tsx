@@ -96,13 +96,20 @@ export function VideoCompare({
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
+  //
+  // Phase 12 Wave 2 (Plan 12-03 T1): timeUpdateEventInterval=0.033 (~30fps).
+  // KeypointOverlay 가 useEvent(player, 'timeUpdate') 로 native emit 구독 →
+  // frame index 자동 산출. 기존 250ms 폴링(타임라인 label) 과 공존 — 타임라인은
+  // 250ms / 오버레이는 33ms 분기 (R10 iter-2 정합, D-12-C5).
   const leftPlayer = useVideoPlayer(leftUrl ?? null, (p) => {
     p.muted = true;
     p.loop = false;
+    p.timeUpdateEventInterval = 0.033;
   });
   const rightPlayer = useVideoPlayer(rightUrl ?? null, (p) => {
     p.muted = true;
     p.loop = false;
+    p.timeUpdateEventInterval = 0.033;
   });
 
   const hasLeft = !!leftUrl;

@@ -2,8 +2,8 @@
 phase: 09
 slug: forcedirectionpattern-3
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-06-10
 ---
 
@@ -112,11 +112,11 @@ Threat refs cited above (per RESEARCH §Security Domain):
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies (Wave 0 task 7개 박제, Wave 1 task 14개 박제 — manual-only 3건 분리)
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify (Wave 0/1 all automated, manual-only 3 건은 별도 트랙 — belle 검수 / belle 임계값 검수 / Phase 11·15 통합 검증)
-- [ ] Wave 0 covers all MISSING references (7개 신설 파일 박제)
-- [ ] No watch-mode flags (모든 command 가 `-x -q` 단발성)
-- [ ] Feedback latency < 90s (full suite + tsc)
-- [ ] `nyquist_compliant: true` set in frontmatter (planner 박제 완료 후)
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies (Wave 0 task 7개 박제, Wave 1 task 14개 박제 — manual-only 3건 분리)
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify (Wave 0/1 all automated, manual-only 3 건은 별도 트랙 — belle 검수 / belle 임계값 검수 / Phase 11·15 통합 검증)
+- [x] Wave 0 covers all MISSING references (7개 신설 파일 박제)
+- [x] No watch-mode flags (모든 command 가 `-x -q` 단발성)
+- [x] Feedback latency < 90s (full suite + tsc)
+- [x] `nyquist_compliant: true` set in frontmatter (planner 박제 완료 후)
 
-**Approval:** pending
+**Approval:** Wave 1 complete — verifier 진입 OK.

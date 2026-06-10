@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 09-01-PLAN.md (Wave 0 atomic commit)
-last_updated: "2026-06-10T04:20:00.105Z"
+status: complete
+stopped_at: Phase 9 VERIFIED — 4/4 SC + 13/13 D-09-* PASS, 550 backend tests + 0 typecheck errors
+last_updated: "2026-06-10T05:00:00.000Z"
 last_activity: 2026-06-10
 progress:
   total_phases: 10
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 47
-  completed_plans: 44
-  percent: 80
+  completed_plans: 47
+  percent: 90
 ---
 
 # Project State
@@ -21,14 +21,39 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 08.1 — axis-metric-redesign
+**Current focus:** Phase 9 close-out — ForceDirectionPattern 추론 + Top-3 finding 카드 E2E 완료 (2026-06-10)
 
 ## Current Position
 
-Phase: 08.1 (axis-metric-redesign) — EXECUTING
-Plan: 3 of 3 (Wave 0+1 done, Wave 2 next)
-Next: Plan 08.1-02 (Wave 2: pipeline rewire + Pod 재배포 + 정은지 5영상 재sweep evidence). Phase 9 평행 진입 가능 (axis raw signal only guard). belle chain: 6 ✓ → 7 ✓ → 8 ✓ → 8.1 Wave 0 ✓ → 8.1 Wave 1 ✓ + 9 (평행) → 8.1 Wave 2 → 12 → 13.
-Status: Phase complete — ready for verification
+Phase: 9 (ForceDirectionPattern + 실패 원인 후보 3개) — **VERIFIED PASS** (2026-06-10)
+Plan: 2 of 2 complete (Wave 0 schema lockstep + Wave 1 inference body + pipeline wiring)
+Verification: 4/4 SC + 13/13 D-09-* VERIFIED (see 09-VERIFICATION.md). 550 backend tests + 0 typecheck errors. 0 regression on Phase 6/7/8/8.1.
+Next: belle 박제 검수 (18 canned 본문 + jointHint 부위 어휘 + pelvis_drop 임계 Assumption A1) + optional Codex cross-AI plan-review. 그 후 belle chain candidates = Phase 10 (SAFE-01 위험 플래그) / Phase 11 (CoachCommentHook + Gemini 자연어 풍부화 — Phase 9 finding consume) / Phase 8.1 Wave 2 (production sweep).
+Status: Phase complete — verified, awaiting next-phase routing decision.
+
+### Plan 09-01 close-out (2026-06-10)
+
+| 영역 | 결과 |
+|---|---|
+| Wave 0 atomic commit | `defc973` — 11 files (TS + Python + docs §9.11 + Firestore validator + frontend null-guard + 4 tests) 단일 atomic commit per D-09-U1 |
+| force_pattern.py 신설 | Literal aliases (`ForceDirectionPattern` / `ForceSourceSignal` / `ModeContext`) + frozen dataclass `ForcePatternFinding` (8 필드 / R7+R1+R2 strict `__post_init__` validator — `_MOTION_PHASES` reuse, list 컨테이너 강제, non-empty str warnings) + `ForcePatternInference` (5 필드 / non-default → default 순서) + module-level 상수 (`_PHASE_PRIORITY` / `_SIGNAL_PRIORITY` / `_SIGNAL_WEIGHT` / `_BASE_CONFIDENCE` / `_CONFIDENCE_TO_FACTOR` / `_MOTION_ID_BOOST=1.05` / `_IPSF_TOLERANCE_DEG=20.0`) |
+| Firestore scoped validator | `_validate_force_pattern_inference` + `_validate_force_pattern_finding_dict` (R2 iter-5 — 8-key camelCase whitelist + strict `list[str]` warnings) + `complete_analysis(force_pattern_inference=)` kwarg |
+| 3-way contract lockstep | TS `analysis.ts` + Python `force_pattern.py` + `docs/contract.md §9.11` 단일 atomic commit (D-09-U1). 5 lockstep 테스트 PASS |
+| Frontend null-guard | `userAnalyses.ts::normalize` 가 `result?.forcePatternInference` 패턴으로 `forceSignalsReport` precedent 1:1 mirror (R1 iter-2/iter-4) |
+| 회귀 게이트 | phase09 49 PASS + phase06/07/08/08.1 408 PASS / 1 skipped + tsc --noEmit clean |
+
+### Plan 09-02 close-out (2026-06-10)
+
+| 영역 | 결과 |
+|---|---|
+| 5 atomic commits | `d51ed37` T1 (canned + grep gate) / `24b974e` T2 (6 detector + confidence formula + phase fallback + AST severity guard) / `87bdcd3` T3 (Top-3 ranking + tie-break + dedup + motion_id boost) / `c9b6286` T4 (pipeline wiring + integration test) / `bed84e6` T5 (Wave 1 close-out + VALIDATION flip) |
+| force_pattern_copy.py 신설 | `_FORCE_PATTERN_COPY_DATA` 18 canned (sourceSignal × modeContext) + `MappingProxyType` wrap (R9/R8 narrow scope) + `_MODE_PREFIX` 3 + `_JOINT_HINT_BY_SIGNAL` 6 + `_FALLBACK_BODY` 1 + `FORBIDDEN_PHRASES_RESEARCH` 8 substring + `FORBIDDEN_PHRASES_PHASE9_REGEX` 2 regex (incl. `근육 힘 방향.*확정` 조사 변형 catch + `\d+%\s*감점`) |
+| force_pattern.py 본체 | 6 `_detect_*` (axis_tilt / pelvis_drop with None guard R4 iter-3 / late_contact / high_jitter / high_jerk / abnormal_release) + `_phase_metric_confidence_factor` (R11 conservative v1 documented) + `_apply_motion_id_boost` (×1.05 cap 1.0, ranking 전) + `_rank_top3` (4-stage sort + (pattern, phase) dedup) + `_overall_confidence_from_findings` + `_AXIS_IGNORE_WARNINGS_PER_METRIC` / `_AXIS_IGNORE_WARNINGS_REPORT` (R4 iter-3 two-tier) + `infer_force_direction_pattern` public entry |
+| pipeline wiring | `_process` 안 mode_context inline (no helper) — `models.MODE_EXPERT` → "mode1" / `MODE_SELF + isFirst` → "mode3_first" / `MODE_SELF + !isFirst` → "mode3_progress" + `infer_force_direction_pattern` 호출 직후 `_dataclass_to_camel_case_dict` 변환 + `complete_analysis(force_pattern_inference=)` kwarg |
+| 회귀 게이트 | phase09 + pipeline_phase9 131 PASS + phase06/07/08/08.1 408 / 1 skipped (regression 0) + tsc clean + 금지 표현 grep gate 10/10 PASS + AST severity guard `axis*.severity` 0 occurrence |
+| Verification | 09-VERIFICATION.md — 4/4 SC VERIFIED + 13/13 D-09-* VERIFIED. Wave 2 production sweep OUT (D-09-E2 — Phase 11/15 자연 검증). |
+| Follow-ups | belle 박제 검수 (18 canned + jointHint + pelvis_drop A1) + optional Codex cross-AI plan-review. |
+
 
 ### Plan 08.1-01 close-out (2026-06-09)
 

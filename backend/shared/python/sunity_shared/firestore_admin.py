@@ -404,6 +404,200 @@ def _validate_force_pattern_inference(
         )
 
 
+# ── Plan 12-01 (2026-06-10, Phase 12) — keypoint_report scoped validator ──
+#
+# D-12-E3 + RESEARCH Pattern 5. Phase 9 `_validate_force_pattern_inference` 1:1
+# mirror — nested-array 금지 + 화이트리스트 list field 만 허용. keypointReport
+# 안에서만 list[float] (data/confidence/axisData) + list[bool] (axisMask) +
+# list[str] (joints/reliability/warnings) 박제 가능.
+#
+# scope: 본 validator 만 `result.keypointReport` path 박제 호출. 다른 path
+# 박제 strict 유지 ([[firestore-nested-array-flat]] project-wide 보존).
+
+# H3 iter-4 (Codex) — finite + range 강제 import.
+import math as _math_kr  # noqa: E402 — scope-local 박제, 다른 path 영향 X
+
+_KEYPOINT_REPORT_KEYS: frozenset[str] = frozenset(
+    {
+        "version",
+        "joints",
+        "frames",
+        "fps",
+        "data",
+        "confidence",
+        "reliability",
+        "axisData",
+        "axisMask",
+        "warnings",
+    }
+)
+"""R10 + R7 iter-2 — 10 키 strict whitelist (camelCase only)."""
+
+_KEYPOINT_VALID_RELIABILITY: frozenset[str] = frozenset({"high", "medium", "low"})
+
+
+def _validate_keypoint_report(
+    payload: dict, *, path: str = "keypointReport"
+) -> None:
+    """keypoint_report top-level scoped validator (D-12-E3).
+
+    Plan 12-01 (Phase 12) — `_validate_force_pattern_inference` 패턴 1:1 mirror.
+    `_validate_dict_only_scalars` 본체 변경 영구 0 박제 정합 — 본 validator 만
+    keypointReport 안 flat list (data/confidence/axisData/axisMask/joints/
+    reliability/warnings) 박제 허용.
+
+    명세:
+      · top-level keypointReport.version/frames/fps: scalar.
+      · joints: list[non-empty str] (nested list/dict reject).
+      · data: list[number] flat — finite only (H3 iter-4).
+      · confidence: list[number] flat — finite + [0, 1] (H3 iter-4).
+      · axisData: list[number] flat — finite only (R7 iter-2).
+      · axisMask: list[bool strict] — type(item) is bool 강제 (R7 iter-2 / H3).
+      · reliability: list[str ∈ {"high","medium","low"}].
+      · warnings: list[non-empty str].
+      · 화이트리스트 외 key 박제 시 reject.
+
+    위반 시 ValueError + path 정보 (caller 가 catch → fail_analysis 진입).
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"_validate_keypoint_report: dict 입력만 허용. "
+            f"path={path!r} got {type(payload).__name__}"
+        )
+    for key, value in payload.items():
+        sub = f"{path}.{key}"
+        if key not in _KEYPOINT_REPORT_KEYS:
+            raise ValueError(
+                f"{sub} key not in keypointReport whitelist "
+                f"({sorted(_KEYPOINT_REPORT_KEYS)}); reject"
+            )
+        if value is None or isinstance(value, (str, int, float, bool)):
+            # scalar (version/frames/fps) — type guard 는 dataclass __post_init__
+            # 가 산출 시점에 강제. validator 는 nested 차단이 핵심.
+            continue
+        if isinstance(value, dict):
+            raise ValueError(
+                f"{sub} unexpected nested dict at keypointReport top-level "
+                f"(schema: scalar + flat list only)"
+            )
+        if isinstance(value, list):
+            if key == "joints":
+                for i, item in enumerate(value):
+                    if isinstance(item, (list, dict)):
+                        raise ValueError(
+                            f"{sub}[{i}] nested {type(item).__name__} reject "
+                            f"(firestore-nested-array-flat 보존)"
+                        )
+                    if not isinstance(item, str) or not item:
+                        raise ValueError(
+                            f"{sub}[{i}] must be non-empty str (joint name), "
+                            f"got {type(item).__name__}={item!r}"
+                        )
+                continue
+            if key == "reliability":
+                for i, item in enumerate(value):
+                    if isinstance(item, (list, dict)):
+                        raise ValueError(
+                            f"{sub}[{i}] nested {type(item).__name__} reject"
+                        )
+                    if item not in _KEYPOINT_VALID_RELIABILITY:
+                        raise ValueError(
+                            f"{sub}[{i}] must be one of "
+                            f"{sorted(_KEYPOINT_VALID_RELIABILITY)}, got {item!r}"
+                        )
+                continue
+            if key == "warnings":
+                for i, item in enumerate(value):
+                    if isinstance(item, (list, dict)):
+                        raise ValueError(
+                            f"{sub}[{i}] nested {type(item).__name__} reject"
+                        )
+                    if not isinstance(item, str) or not item:
+                        raise ValueError(
+                            f"{sub}[{i}] must be non-empty str warning code, "
+                            f"got {type(item).__name__}={item!r}"
+                        )
+                continue
+            if key == "data":
+                # H3 iter-4 — finite only.
+                for i, item in enumerate(value):
+                    if isinstance(item, (list, dict)):
+                        raise ValueError(
+                            f"{sub}[{i}] nested {type(item).__name__} reject "
+                            f"(firestore-nested-array-flat 보존)"
+                        )
+                    if not isinstance(item, (int, float)) or isinstance(item, bool):
+                        raise ValueError(
+                            f"{sub}[{i}] must be number (flat float), "
+                            f"got {type(item).__name__}={item!r}"
+                        )
+                    if not _math_kr.isfinite(float(item)):
+                        raise ValueError(
+                            f"{sub}[{i}] data finite required (H3 iter-4 — "
+                            f"no NaN/Inf), got {item!r}"
+                        )
+                continue
+            if key == "confidence":
+                # H3 iter-4 — finite + [0, 1].
+                for i, item in enumerate(value):
+                    if isinstance(item, (list, dict)):
+                        raise ValueError(
+                            f"{sub}[{i}] nested {type(item).__name__} reject"
+                        )
+                    if not isinstance(item, (int, float)) or isinstance(item, bool):
+                        raise ValueError(
+                            f"{sub}[{i}] must be number, "
+                            f"got {type(item).__name__}={item!r}"
+                        )
+                    fv = float(item)
+                    if not _math_kr.isfinite(fv) or not (0.0 <= fv <= 1.0):
+                        raise ValueError(
+                            f"{sub}[{i}] confidence range [0, 1] finite required "
+                            f"(H3 iter-4), got {item!r}"
+                        )
+                continue
+            if key == "axisData":
+                # R7 iter-2 — finite only.
+                for i, item in enumerate(value):
+                    if isinstance(item, (list, dict)):
+                        raise ValueError(
+                            f"{sub}[{i}] nested {type(item).__name__} reject"
+                        )
+                    if not isinstance(item, (int, float)) or isinstance(item, bool):
+                        raise ValueError(
+                            f"{sub}[{i}] must be number, "
+                            f"got {type(item).__name__}={item!r}"
+                        )
+                    if not _math_kr.isfinite(float(item)):
+                        raise ValueError(
+                            f"{sub}[{i}] axisData finite required (R7 iter-2 — "
+                            f"no NaN/Inf), got {item!r}"
+                        )
+                continue
+            if key == "axisMask":
+                # R7 iter-2 + H3 iter-4 — type(item) is bool strict (int 0/1 reject).
+                for i, item in enumerate(value):
+                    if isinstance(item, (list, dict)):
+                        raise ValueError(
+                            f"{sub}[{i}] nested {type(item).__name__} reject"
+                        )
+                    if type(item) is not bool:
+                        raise ValueError(
+                            f"{sub}[{i}] axisMask must be bool strict (H3 — "
+                            f"int 0/1 reject), got {type(item).__name__}={item!r}"
+                        )
+                continue
+            # 그 외 list 키 (whitelist 통과했지만 list 핸들러 없음 — 방어적 fallback).
+            raise ValueError(
+                f"{sub} unexpected list field — no list handler defined"
+            )
+        raise ValueError(
+            f"{sub} unexpected type at keypointReport: {type(value).__name__}"
+        )
+
+
 def complete_analysis(
     uid: str,
     analysis_id: str,
@@ -416,6 +610,7 @@ def complete_analysis(
     body_normalization_profile: dict | None = None,
     force_signals_report: dict | None = None,
     force_pattern_inference: dict | None = None,
+    keypoint_report: dict | None = None,
 ) -> None:
     """status='done' + result (contract.md §4 AnalysisResult).
 
@@ -469,6 +664,12 @@ def complete_analysis(
         # [[firestore-nested-array-flat]] 보존. Phase 8 패턴 1:1 mirror.
         _validate_force_pattern_inference(force_pattern_inference)
         payload["result"]["forcePatternInference"] = force_pattern_inference
+    if keypoint_report is not None:
+        # Plan 12-01 (Phase 12, 2026-06-10) — D-12-E3 scoped validator.
+        # `_validate_keypoint_report` 가 flat 강제 + nested list reject.
+        # [[firestore-nested-array-flat]] 보존. Phase 9 패턴 1:1 mirror.
+        _validate_keypoint_report(keypoint_report)
+        payload["result"]["keypointReport"] = keypoint_report
     _doc(models.analysis_doc_path(uid, analysis_id)).set(payload, merge=True)
 
 

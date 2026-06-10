@@ -108,6 +108,29 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       },
     };
   }
+  // Phase 12 §9.12 keypointReport null-guard (D-12-E2 / Phase 9 D-09-U1 mirror).
+  // Mirrors forcePatternInference pattern (lines 96-110). Wave 0B = schema only,
+  // Wave 1 KeypointOverlay 가 본 필드 소비.
+  // 필드 자체가 missing 이면 undefined 유지 — TS contract
+  // `keypointReport?: KeypointReport | null` 가 undefined 허용.
+  if (result?.keypointReport) {
+    const kr = result.keypointReport;
+    result = {
+      ...result,
+      keypointReport: {
+        version: kr.version ?? '1.0',
+        joints: kr.joints ?? [],
+        frames: kr.frames ?? 0,
+        fps: kr.fps ?? 9.0, // R3 — 운영 값. default 30 박제 금지.
+        data: kr.data ?? [],
+        confidence: kr.confidence ?? [],
+        reliability: kr.reliability ?? [],
+        axisData: kr.axisData ?? [], // R2 — 별도 polyline (finite only, R7 iter-2)
+        axisMask: kr.axisMask ?? [], // R7 iter-2 — knee_mid 가용 여부 bool
+        warnings: kr.warnings ?? [],
+      },
+    };
+  }
   return {
     analysisId: id,
     mode,

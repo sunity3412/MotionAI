@@ -12,6 +12,13 @@ Phase 12.5 (2026-06-07): dimensionExplanation 추가 — 사용자가 결과 화
 from __future__ import annotations
 
 from . import dimensions, kismam
+from .dimensions import AxisFrame, compute_axis_frames
+from .keypoint_frame import (
+    JOINT_KEY_TO_ANGLE_KEY,
+    _AXIS_POLYLINE_POINTS,
+    _KEYPOINT_NAMES,
+    KeypointReport,
+)
 from .kismam import COACHING_FOCUS, JointAssessment
 from .skeleton import JOINT_LABEL_KO
 
@@ -327,3 +334,188 @@ def build_result(
     if reference_video_url:
         result["referenceVideoUrl"] = reference_video_url
     return result
+
+
+# ── Phase 12 Wave 0B (Plan 12-01) — build_keypoint_report ─────────────────
+# KeypointOverlay (Wave 1+) 소비 source. compute_axis_frames (12-00 T4) 결과를
+# 받아 KeypointReport 의 axis_data + axis_mask 박제 (UI 자체 계산 차단, A7 해소).
+# Codex 직접 리뷰 2026-06-10:
+#   R2 — axisData 별도 field, 3-point polyline.
+#   R3 — fps required kw-only.
+#   R6 — confidence source = clamp(Keypoint2D.visibility, 0, 1).
+#   R7 iter-2 — axisData finite only (NaN 0회).
+#   H4 iter-4 — early-return 완화 (첫 frame keypoints_2d None 단독은 drop X).
+
+
+def _clamp_unit(v: float) -> float:
+    """clamp [0, 1] — Keypoint2D.visibility → confidence 정규화."""
+    if v < 0.0:
+        return 0.0
+    if v > 1.0:
+        return 1.0
+    return float(v)
+
+
+def build_keypoint_report(
+    pose_frames: list,
+    *,
+    fps: float,
+) -> KeypointReport | None:
+    """8 body keypoint flat + axisData polyline → KeypointReport 산출.
+
+    Phase 12 Wave 0B (Plan 12-01) 박제 — KeypointOverlay Wave 1+ 소비.
+
+    Args:
+        pose_frames: PoseFrame 시퀀스. 각 frame.keypoints_2d 사용 (R1 RTMW 채움).
+        fps: 영상 frame rate (kw-only, R3 정합 — default 제거).
+
+    Returns:
+        KeypointReport 또는 None (pose_frames 빈/전수 keypoints_2d None 시).
+        개별 frame keypoints_2d=None 은 (0.0, 0.0) placeholder + confidence 0 +
+        reliability "low" 강제 (D-12-U6 fallback).
+
+    Raises:
+        ValueError: fps <= 0.
+    """
+    if not isinstance(fps, (int, float)) or fps <= 0:
+        raise ValueError(f"fps must be > 0, got {fps!r}")
+
+    # H4 iter-4 — early-return 조건: 빈 list 또는 모든 frame 의 keypoints_2d 가 None.
+    if not pose_frames:
+        return None
+    if not any(getattr(f, "keypoints_2d", None) for f in pose_frames):
+        return None
+
+    T = len(pose_frames)
+    joints_list = list(_KEYPOINT_NAMES)
+    J = len(joints_list)
+
+    data: list[float] = []
+    confidence: list[float] = []
+    reliability: list[str] = []
+
+    for frame in pose_frames:
+        kp = getattr(frame, "keypoints_2d", None)
+        frame_reliability = getattr(frame, "reliability", "low") or "low"
+        # missing frame fallback — 강제 low.
+        if kp is None:
+            for _ in range(J):
+                data.extend((0.0, 0.0))
+                confidence.append(0.0)
+            reliability.append("low")
+            continue
+
+        any_missing = False
+        for name in joints_list:
+            coco_key = JOINT_KEY_TO_ANGLE_KEY[name]
+            kpt = kp.get(coco_key) if isinstance(kp, dict) else None
+            if kpt is None:
+                # keypoint 누락 → (0.0, 0.0) + conf 0.
+                data.extend((0.0, 0.0))
+                confidence.append(0.0)
+                any_missing = True
+                continue
+            # Keypoint2D = (x, y, visibility) — pose_frame.py 정의.
+            x = float(getattr(kpt, "x", 0.0))
+            y = float(getattr(kpt, "y", 0.0))
+            vis_raw = getattr(kpt, "visibility", None)
+            # R6 — visibility None → 0.0 + frame "low" 강제.
+            if vis_raw is None:
+                data.extend((0.0, 0.0))
+                confidence.append(0.0)
+                any_missing = True
+                continue
+            # NaN/Inf 좌표 → fallback (0.0, 0.0) + conf 0.
+            if not (
+                isinstance(x, float)
+                and isinstance(y, float)
+                and (x == x)  # noqa: PLR0124 — NaN check
+                and (y == y)
+            ):
+                data.extend((0.0, 0.0))
+                confidence.append(0.0)
+                any_missing = True
+                continue
+            # finite 검증 (Inf 제거).
+            import math as _math
+
+            if not _math.isfinite(x) or not _math.isfinite(y):
+                data.extend((0.0, 0.0))
+                confidence.append(0.0)
+                any_missing = True
+                continue
+            data.extend((x, y))
+            confidence.append(_clamp_unit(float(vis_raw)))
+
+        if any_missing:
+            reliability.append("low")
+        else:
+            # frame_reliability 가 _VALID_RELIABILITY 안 값이면 그대로, 아니면 "low" 강제.
+            reliability.append(
+                frame_reliability
+                if frame_reliability in ("high", "medium", "low")
+                else "low"
+            )
+
+    # axis_data + axis_mask — compute_axis_frames (12-00 T4) 결과 박제.
+    axis_frames: list[AxisFrame | None] = compute_axis_frames(pose_frames)
+    axis_data: list[float] = []
+    axis_mask: list[bool] = []
+
+    for af in axis_frames:
+        if af is None:
+            # 전 frame 누락 의미 — placeholder (0.0)*6 + mask all False.
+            axis_data.extend((0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            axis_mask.extend((False, False, False))
+            continue
+        sx, sy = af.shoulder_mid
+        hx, hy = af.hip_mid
+        if af.knee_mid is None:
+            kx, ky = 0.0, 0.0
+            knee_ok = False
+        else:
+            kx, ky = af.knee_mid
+            knee_ok = True
+        # finite guard — non-finite → placeholder + mask false (R7 iter-2 — NaN 0회).
+        import math as _math
+
+        def _safe(v: float) -> tuple[float, bool]:
+            fv = float(v)
+            if _math.isfinite(fv):
+                return fv, True
+            return 0.0, False
+
+        sx_v, sx_ok = _safe(sx)
+        sy_v, sy_ok = _safe(sy)
+        hx_v, hx_ok = _safe(hx)
+        hy_v, hy_ok = _safe(hy)
+        kx_v, kx_ok = _safe(kx)
+        ky_v, ky_ok = _safe(ky)
+        axis_data.extend((sx_v, sy_v, hx_v, hy_v, kx_v, ky_v))
+        axis_mask.extend(
+            (
+                bool(sx_ok and sy_ok),
+                bool(hx_ok and hy_ok),
+                bool(knee_ok and kx_ok and ky_ok),
+            )
+        )
+
+    # 길이 invariants — KeypointReport.__post_init__ 가 강제 검증.
+    assert len(data) == T * J * 2
+    assert len(confidence) == T * J
+    assert len(reliability) == T
+    assert len(axis_data) == T * _AXIS_POLYLINE_POINTS * 2
+    assert len(axis_mask) == T * _AXIS_POLYLINE_POINTS
+
+    return KeypointReport(
+        version="1.0",
+        joints=joints_list,
+        frames=T,
+        fps=float(fps),
+        data=data,
+        confidence=confidence,
+        reliability=reliability,
+        axis_data=axis_data,
+        axis_mask=axis_mask,
+        warnings=[],
+    )

@@ -1051,6 +1051,74 @@ R1~R4 정합. 핵심:
 
 *Phase 9 추가: 2026-06-10 — ForcePatternInference + ForcePatternFinding 신설. D-09-A1~U6 박제. 본 contract = TS `analysis.ts` + Python `force_pattern.py` 와 atomic commit lockstep (D-09-U1).*
 
+### §9.12 KeypointReport (Phase 12 / FEED-01 + VIS-01)
+
+본 섹션은 Phase 12 Wave 0B (Plan 12-01) 가 신설한 KeypointOverlay 소비 schema. Phase 9 §9.11 mirror — single atomic commit (D-12-U1 / D-09-U1).
+
+- **TS source:** `app/src/types/analysis.ts::KeypointReport` (10 필드, R10 + R7 iter-2 정합)
+- **Python source:** `backend/shared/python/sunity_shared/analysis/keypoint_frame.py::KeypointReport` (frozen dataclass + `__post_init__` validator)
+- **Firestore 저장 경로:** `users/{uid}/analyses/{analysisId}.result.keypointReport` — `_validate_keypoint_report` scoped validator 박제 ([[firestore-nested-array-flat]] 정합)
+- **camelCase 변환:** `_dataclass_to_camel_case_dict` (pipeline/app.py) 가 `axis_data` → `axisData`, `axis_mask` → `axisMask` 자동 변환
+
+#### §9.12.1 KeypointName Literal (R11 — 8 body keypoint, axis 제외)
+
+`left_shoulder` / `right_shoulder` / `left_hip` / `right_hip` / `left_knee` / `right_knee` / `left_hand` / `right_hand`
+
+- `left_hand` / `right_hand` 는 COCO-17 의 `left_wrist` / `right_wrist` 매핑 (loose hand 박제, v2 wrist 신설은 후속 plan).
+- axis 는 별도 `axisData` field (R2 정합 — UI 자체 계산 차단, A7 해소).
+
+#### §9.12.2 KeypointReport (10 필드)
+
+| Field (camelCase / snake_case) | Type | Notes |
+|--------------------------------|------|-------|
+| `version` | `string` | "1.0" 초기 (non-empty) |
+| `joints` | `KeypointName[]` | length = J = 8 (`_KEYPOINT_NAMES` tuple) — R11 |
+| `frames` | `number` | T (>= 0) |
+| `fps` | `number` | > 0 — R3 정합, default 제거 (운영 값 9.0) |
+| `data` | `number[]` | flat T × J × 2 — H3 iter-4 finite only (NaN/Inf reject) |
+| `confidence` | `number[]` | flat T × J — R6 visibility source, H3 iter-4 finite + [0, 1] |
+| `reliability` | `('high'/'medium'/'low')[]` | length T, item enum |
+| `axisData` / `axis_data` | `number[]` | R2 + R7 iter-2 — flat T × 3 × 2 polyline (shoulder_mid / hip_mid / knee_mid?). **finite only — NaN/Inf 영구 0회**. knee_mid 미가용 frame 은 (0.0, 0.0) placeholder |
+| `axisMask` / `axis_mask` | `boolean[]` | R7 iter-2 신설 — flat T × 3 strict bool (int 0/1 reject). knee_mid 미가용 frame 은 mask[2] = false. UI 가 mask 참조해서 polyline 2-point or 3-point 분기 |
+| `warnings` | `string[]` | non-empty str only |
+
+#### §9.12.3 axisData polyline + axisMask 산출 (R2 + R7 iter-2)
+
+- 산출 위치: `backend/shared/python/sunity_shared/analysis/dimensions.py::compute_axis_frames` (Wave 0A T4 박제).
+- 입력: `pose_frames` 의 각 `keypoints_2d` dict.
+- 출력 형식 (frame i):
+  - `axisData[i*6 .. i*6+5]` = `(shoulder_mid.x, shoulder_mid.y, hip_mid.x, hip_mid.y, knee_mid.x or 0.0, knee_mid.y or 0.0)`
+  - `axisMask[i*3 .. i*3+2]` = `(True, True, knee_mid is not None)`
+- 어깨 또는 골반 keypoint 누락 시 `axisData = (0.0)*6` + `axisMask = (False, False, False)` (전 frame 누락 의미).
+- **NaN 영구 0회** — JSON / Firestore / SVG NaN edge case 우회 (R7 iter-2).
+
+#### §9.12.4 frame index lookup
+
+Wave 1 UI 가 `currentTime` (영상 재생 위치, 초) → frame index 변환:
+
+```ts
+const frameIdx = Math.floor(currentTime * report.fps);
+// data[i] = report.data[frameIdx * joints.length * 2 + i * 2]
+// axis[k] = report.axisData[frameIdx * 3 * 2 + k * 2]
+// mask[k] = report.axisMask[frameIdx * 3 + k]
+```
+
+#### §9.12.5 Phase 책임 경계
+
+- **Wave 0B (Plan 12-01) = schema only.** 3-way atomic commit (TS + Python + docs §9.12 + Firestore validator + frontend null-guard).
+- **Wave 1 (Plan 12-02+)** = KeypointOverlay 컴포넌트 + `result.keypointReport` 소비. mask 참조해서 polyline 2-point or 3-point 분기.
+- **mode1 split overlay** = `useReferenceMotion(motionId)` 가 반환하는 `refMotion.referenceKeypointReport` (별도 `ReferenceMotion` 필드) 직접 read. analysis doc 에 mirror 안 함 (H2 iter-4 — Firestore 1 MiB 안전 마진 + single source-of-truth).
+- **reference seed** = `app/scripts/seed-reference-motions.mjs` 가 정은지 영상 분석 결과의 `referenceKeypointReport` 박제 (Wave 0B close-out 직후 production 1 회 실 분석으로 채움).
+
+#### §9.12.6 Warning Code (Phase 12 신설)
+
+| Code | Trigger |
+|------|---------|
+| `pose_reliability_low_all_frames` | 모든 frame 의 reliability 가 "low" — 영상 품질 한계 |
+| `axis_polyline_unavailable` | `compute_axis_frames` 가 모든 frame 에서 None 반환 (어깨/골반 keypoint 누락) |
+
+*Phase 12 Wave 0B 추가: 2026-06-10 — KeypointReport 신설 (Wave 0B = TS interface + Python frozen dataclass + Firestore scoped validator + frontend null-guard + reference seed 확장 단일 atomic commit). D-12-E2 / D-12-U1 (3-way atomic lockstep) / D-12-E3. Wave 1 (Plan 12-02+) 가 KeypointOverlay 컴포넌트 + UI wiring 박제.*
+
 ---
 
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*

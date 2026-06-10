@@ -24,11 +24,19 @@ import { getFirestore } from 'firebase-admin/firestore';
 // JSON. 있으면 angles + anglesUpdatedAt + jointKeys 필드를 doc 에 함께 쓴다.
 // 없으면 angles 는 건드리지 않음(기존 값 유지) — presigned URL 만 갱신하는 주간
 // 재시드 시 안전. backend/functions/pipeline/app.py 가 ref["angles"] 를 읽는다.
+//
+// 선택 인자 --keypoint-reports <path>: Phase 12 Wave 0B (Plan 12-01, R3 iter-2).
+// 정은지 영상을 production analysis 1 회 돌린 결과의 result.keypointReport 를
+// motionId 별로 모은 JSON. 있으면 referenceKeypointReport 필드를 doc 에 함께
+// 쓴다. 없으면 건드리지 않음 (구 doc fallback — useReferenceMotion null-guard).
 function parseArgs(argv) {
-  const out = { anglesPath: null };
+  const out = { anglesPath: null, keypointReportsPath: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--angles' && i + 1 < argv.length) {
       out.anglesPath = argv[i + 1];
+      i++;
+    } else if (argv[i] === '--keypoint-reports' && i + 1 < argv.length) {
+      out.keypointReportsPath = argv[i + 1];
       i++;
     }
   }
@@ -40,6 +48,43 @@ function loadAnglesPayload(path) {
   const data = JSON.parse(raw);
   if (!data.motions || !Array.isArray(data.jointKeys)) {
     throw new Error(`잘못된 angles JSON 형식: ${path}`);
+  }
+  return data;
+}
+
+// Phase 12 Wave 0B (Plan 12-01, R3 iter-2) — keypoint_reports payload loader.
+// 형식: { "motions": { "ref-sideway-spin": { version, joints, frames, fps,
+//   data, confidence, reliability, axisData, axisMask, warnings }, ... } }
+// 10 필드 모두 박제 강제 — 누락 시 Firestore validator 가 reject.
+function loadKeypointReportsPayload(path) {
+  const raw = readFileSync(path, 'utf8');
+  const data = JSON.parse(raw);
+  if (!data.motions || typeof data.motions !== 'object') {
+    throw new Error(`잘못된 keypoint-reports JSON 형식: ${path}`);
+  }
+  const required = [
+    'version',
+    'joints',
+    'frames',
+    'fps',
+    'data',
+    'confidence',
+    'reliability',
+    'axisData',
+    'axisMask',
+    'warnings',
+  ];
+  for (const [motionId, report] of Object.entries(data.motions)) {
+    if (!report || typeof report !== 'object') {
+      throw new Error(`keypoint-reports[${motionId}] 가 object 아님`);
+    }
+    for (const key of required) {
+      if (!(key in report)) {
+        throw new Error(
+          `keypoint-reports[${motionId}] 누락 필드: ${key} (10 필드 모두 박제 강제)`,
+        );
+      }
+    }
   }
   return data;
 }
@@ -226,8 +271,13 @@ const MOTIONS = [
 ];
 
 async function main() {
-  const { anglesPath } = parseArgs(process.argv.slice(2));
+  const { anglesPath, keypointReportsPath } = parseArgs(
+    process.argv.slice(2),
+  );
   const anglesPayload = anglesPath ? loadAnglesPayload(anglesPath) : null;
+  const keypointReportsPayload = keypointReportsPath
+    ? loadKeypointReportsPayload(keypointReportsPath)
+    : null;
 
   initializeApp({ credential: applicationDefault(), projectId: PROJECT_ID });
   const db = getFirestore();
@@ -242,6 +292,16 @@ async function main() {
     );
   } else {
     console.log('[angles] --angles 인자 없음 — angles 필드는 건드리지 않음(기존 값 유지)');
+  }
+  if (keypointReportsPayload) {
+    const count = Object.keys(keypointReportsPayload.motions).length;
+    console.log(
+      `[keypoint-reports] ${keypointReportsPath} 로드 — ${count}건 referenceKeypointReport 포함 (Phase 12 Wave 0B)`,
+    );
+  } else {
+    console.log(
+      '[keypoint-reports] --keypoint-reports 인자 없음 — referenceKeypointReport 필드는 건드리지 않음(기존 값 유지, Wave 0B follow-up)',
+    );
   }
   const batch = db.batch();
   for (const id of OBSOLETE_MOTION_IDS) {
@@ -279,6 +339,18 @@ async function main() {
       doc.anglesUpdatedAt = Date.now();
       doc.anglesFrames = a.numFrames;
       doc.anglesJointKeys = anglesPayload.jointKeys;
+    }
+    if (
+      keypointReportsPayload
+      && keypointReportsPayload.motions[m.motionId]
+    ) {
+      // Phase 12 Wave 0B (Plan 12-01, R3 iter-2) — referenceKeypointReport 박제.
+      // 10 필드 모두 flat (Firestore nested-array 회피). 백엔드 validator 가
+      // 동일 schema 강제 (_validate_keypoint_report — keypointReport path 와
+      // 동일 strictness, reference 측은 별도 path 라 collection 검증 X).
+      doc.referenceKeypointReport
+        = keypointReportsPayload.motions[m.motionId];
+      doc.referenceKeypointReportUpdatedAt = Date.now();
     }
     batch.set(ref, doc, { merge: true });
     const combo = m.sharedBaseMotionId ? ` ← ${m.sharedBaseMotionId} 베이스` : '';

@@ -213,6 +213,12 @@ export interface AnalysisResult {
   // 책임 경계: Phase 11 (CoachCommentHook) 가 findings[].interpretation 위
   // LLM 자연어 풍부화. Phase 12 가 raw 수치 UI 노출. Phase 9 자체는 canned 만.
   forcePatternInference?: ForcePatternInference | null;
+  // Phase 12 Wave 0B (Plan 12-01) — §9.12 KeypointReport (D-12-E2 / D-12-U1).
+  // 사용자 분석 영상의 keypoint flat 좌표 + axisData polyline + axisMask.
+  // Wave 0B = schema only. Wave 1 KeypointOverlay 가 본 필드 소비.
+  // mode1 reference overlay 는 별도 `ReferenceMotion.referenceKeypointReport`
+  // 에서 직접 read (analysis doc 에 mirror X — H2 iter-4 / Firestore 1 MiB 안전 마진).
+  keypointReport?: KeypointReport | null;
 }
 
 // Firestore 문서 전체 모양
@@ -301,6 +307,17 @@ export interface ReferenceMotion {
   // mode1 + mode3 fallback path 가 본 필드를 fetch 해서 compare_body_profiles
   // 의 source_keypoints 인자로 to_keypoints_array() 변환 후 전달.
   bodyComparisonSourcePose?: BodyComparisonSourcePose | null;
+
+  // Phase 12 Wave 0B (Plan 12-01, R3 iter-2) — mode1 split overlay 의 정은지 측
+  // 오버레이 데이터. seed 시점 박제, missing 가능 (구 doc fallback).
+  //
+  // 의도 분리: `keypointReport` (사용자 분석 결과) vs `referenceKeypointReport`
+  // (reference 영상의 keypoint) 의미 혼동 차단. H2 iter-4 — analysis doc 에
+  // mirror X (Firestore 1 MiB 안전 마진 + single source-of-truth).
+  //
+  // UI 의 mode1 split 오버레이 = `analysisDoc.result.keypointReport` (사용자) +
+  // `refMotion.referenceKeypointReport` (정은지) 양쪽 read.
+  referenceKeypointReport?: KeypointReport | null;
 }
 
 // ── Pose Engine 데이터 계약 (Phase 1, D-04/D-05/D-11/D-12) ─────────────────
@@ -719,6 +736,78 @@ export interface ForcePatternInference {
   modeContext: ForcePatternModeContext;
   /** umbrella (예: 'no_significant_force_pattern_signal', 'phase_unavailable_for_inference',
    *  'axis_signal_unavailable'). */
+  warnings: string[];
+}
+
+// ── Phase 12 §9.12 KeypointReport (D-12-E2 / D-12-U1) ────────────────────
+//
+// Source contract: docs/contract.md §9.12 + backend keypoint_frame.py
+// (frozen dataclass).
+// Wave 0B (Plan 12-01) = TS interface + Python frozen dataclass + docs §9.12 +
+// Firestore scoped validator + frontend null-guard 단일 atomic commit (Phase 9
+// D-09-U1 1:1 mirror).
+// Wave 1+ = KeypointOverlay 컴포넌트 + mode1 split overlay.
+
+/**
+ * 8 body keypoint enum (R11 — axis 제외, axisData 별도 field).
+ * `left_hand` / `right_hand` 는 COCO-17 의 `left_wrist` / `right_wrist` 매핑.
+ */
+export type KeypointName =
+  | 'left_shoulder'
+  | 'right_shoulder'
+  | 'left_hip'
+  | 'right_hip'
+  | 'left_knee'
+  | 'right_knee'
+  | 'left_hand'
+  | 'right_hand';
+
+/**
+ * Phase 12 신설 — KeypointOverlay 소비.
+ *
+ * 10 필드 (R10 + R7 iter-2 정합):
+ *   - 8 body keypoint flat (T × 8 × 2) — `data`
+ *   - axisData polyline (T × 3 × 2, shoulder_mid / hip_mid / knee_mid?,
+ *     finite only — NaN 영구 0회, R7 iter-2)
+ *   - axisMask (T × 3 bool, knee_mid 미가용 frame 은 `mask[2] = false`
+ *     → UI 가 polyline 2-point 만 그림)
+ *
+ * Python lockstep: backend/shared/python/sunity_shared/analysis/keypoint_frame.py
+ *   `KeypointReport` (frozen dataclass + __post_init__ validator).
+ * docs lockstep: docs/contract.md §9.12.
+ *
+ * R1/R2/R3/R6/R7 Codex 리뷰 2026-06-10 정합.
+ *
+ * Firestore 저장 경로: `users/{uid}/analyses/{analysisId}.result.keypointReport`
+ * (`_validate_keypoint_report` scoped validator 가 nested-array 차단).
+ */
+export interface KeypointReport {
+  /** "1.0" 초기 (non-empty). */
+  version: string;
+  /** 8 body keypoint name (R11 — axis 제외). */
+  joints: KeypointName[];
+  /** T (>= 0). */
+  frames: number;
+  /** 영상 frame rate (> 0). R3 — default 제거, 운영 값 9.0. */
+  fps: number;
+  /** flat T × joints.length × 2 — finite only (H3 iter-4). */
+  data: number[];
+  /** flat T × joints.length — finite + [0, 1] (R6 visibility source). */
+  confidence: number[];
+  /** length T, item ∈ {'high','medium','low'}. */
+  reliability: ReadonlyArray<'high' | 'medium' | 'low'>;
+  /**
+   * R2 + R7 iter-2 — 별도 polyline (shoulder_mid / hip_mid / knee_mid?).
+   * flat T × 3 × 2 — finite only (NaN 영구 0회). knee_mid 미가용 frame 은
+   * (0.0, 0.0) placeholder.
+   */
+  axisData: number[];
+  /**
+   * R7 iter-2 — knee_mid 가용 여부 bool.
+   * flat T × 3 — UI 가 mask 참조해서 polyline 2-point or 3-point 분기.
+   */
+  axisMask: boolean[];
+  /** signal-specific (예: 'axis_signal_unavailable'). list[str] only. */
   warnings: string[];
 }
 

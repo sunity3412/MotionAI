@@ -17,7 +17,11 @@ import {
 } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { db } from './firebase';
-import type { ReferenceMotion, SkillLevel } from '../types/analysis';
+import type {
+  KeypointReport,
+  ReferenceMotion,
+  SkillLevel,
+} from '../types/analysis';
 
 const LEVEL_ORDER: Record<SkillLevel, number> = {
   basic: 0,
@@ -96,6 +100,35 @@ function normalize(id: string, raw: Record<string, unknown>): ReferenceMotion | 
       )
     : undefined;
 
+  // Phase 12 Wave 0B (Plan 12-01, R3 iter-2) — referenceKeypointReport null-guard.
+  // seed script 가 정은지 영상 분석 결과로 박제. 누락 시 undefined 유지 (구 doc 호환).
+  // mode1 split overlay 의 정은지 측 데이터 source — `useReferenceMotion` 직접 read.
+  const refKpRaw = raw.referenceKeypointReport;
+  let referenceKeypointReport: KeypointReport | null | undefined;
+  if (refKpRaw && typeof refKpRaw === 'object') {
+    const kr = refKpRaw as Record<string, unknown>;
+    referenceKeypointReport = {
+      version: typeof kr.version === 'string' ? kr.version : '1.0',
+      joints: Array.isArray(kr.joints)
+        ? (kr.joints as KeypointReport['joints'])
+        : [],
+      frames: typeof kr.frames === 'number' ? kr.frames : 0,
+      fps: typeof kr.fps === 'number' ? kr.fps : 9.0,
+      data: Array.isArray(kr.data) ? (kr.data as number[]) : [],
+      confidence: Array.isArray(kr.confidence)
+        ? (kr.confidence as number[])
+        : [],
+      reliability: Array.isArray(kr.reliability)
+        ? (kr.reliability as KeypointReport['reliability'])
+        : [],
+      axisData: Array.isArray(kr.axisData) ? (kr.axisData as number[]) : [],
+      axisMask: Array.isArray(kr.axisMask) ? (kr.axisMask as boolean[]) : [],
+      warnings: Array.isArray(kr.warnings) ? (kr.warnings as string[]) : [],
+    };
+  } else if (refKpRaw === null) {
+    referenceKeypointReport = null;
+  }
+
   return {
     motionId: id,
     name,
@@ -117,6 +150,7 @@ function normalize(id: string, raw: Record<string, unknown>): ReferenceMotion | 
     anglesFrames:
       typeof raw.anglesFrames === 'number' ? raw.anglesFrames : undefined,
     meanAngles,
+    referenceKeypointReport,
   };
 }
 

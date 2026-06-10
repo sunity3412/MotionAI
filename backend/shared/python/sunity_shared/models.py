@@ -194,6 +194,17 @@ from .analysis.force_signals import (  # noqa: E402, F401 — 파일 하단 re-e
     SeverityLevel,
     StabilityMetric,
 )
+
+# Phase 12 Wave 0B (Plan 12-01, 2026-06-10) — KeypointReport 신설 박제.
+#   KeypointReport = 8 body keypoint flat + axisData polyline + axisMask.
+#   TS 미러: app/src/types/analysis.ts KeypointReport interface.
+#   docs 미러: docs/contract.md §9.12.
+# 변경 시 양쪽 + docs/contract.md §9.12 동시 갱신 (CLAUDE.md Cross-cutting).
+from .analysis.keypoint_frame import (  # noqa: E402, F401 — 파일 하단 re-export 패턴
+    NUM_KEYPOINTS_PHASE12,
+    KeypointName,
+    KeypointReport,
+)
 # Field name lockstep — Plan 08-01 lockstep test grep source (active import 시기에도
 # 통과 유지). camelCase ↔ snake_case mirror 박제 위치.
 #   PhaseBoundary: phase / start_frame_idx / end_frame_idx / start_ms / end_ms /

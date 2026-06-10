@@ -62,6 +62,9 @@ from sunity_shared.analysis import force_pattern as fp
 from sunity_shared.analysis import force_signals as fs
 from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
 from sunity_shared.analysis.body_normalization_measurer import measure_body_profile
+# Phase 12 Wave 0B (Plan 12-01, 2026-06-10) — KeypointReport build wiring.
+from sunity_shared.analysis.assemble import build_keypoint_report
+from sunity_shared.analysis.keypoint_frame import KeypointReport
 from sunity_shared.analysis.features import (
     compute_joint_angles,
     feature_vector,
@@ -1237,6 +1240,18 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             )
         # ────────────────────────────────────────────────────────────────
 
+        # ── Phase 12 Wave 0B (Plan 12-01) — KeypointReport 산출 + wiring ──
+        # D-12-E2 + R3 정합. KeypointOverlay (Wave 1+) 소비 source.
+        # fps single source = 9.0 (frame_extractor 운영 값, R3 정합 — default X).
+        # pose_frames empty / 전수 keypoints_2d None → None graceful skip
+        # (Wave 1 의 D-12-U6 fallback placeholder 노출).
+        keypoint_report_obj = build_keypoint_report(pose_frames, fps=9.0)
+        keypoint_report_dict = (
+            _dataclass_to_camel_case_dict(keypoint_report_obj)
+            if keypoint_report_obj is not None
+            else None
+        )
+
         firestore_admin.complete_analysis(
             uid,
             analysis_id,
@@ -1248,6 +1263,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             body_normalization_profile=body_normalization_profile_dict,
             force_signals_report=force_signals_dict,
             force_pattern_inference=force_pattern_inference_dict,  # Phase 9 (Plan 09-02)
+            keypoint_report=keypoint_report_dict,  # Phase 12 Wave 0B (Plan 12-01)
         )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
     finally:

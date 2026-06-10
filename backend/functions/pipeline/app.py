@@ -64,7 +64,7 @@ from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
 from sunity_shared.analysis.body_normalization_measurer import measure_body_profile
 # Phase 12 Wave 0B (Plan 12-01, 2026-06-10) — KeypointReport build wiring.
 from sunity_shared.analysis.assemble import build_keypoint_report
-from sunity_shared.analysis.keypoint_frame import KeypointReport
+from sunity_shared.analysis.keypoint_frame import KeypointReport, upsample_to_fps
 from sunity_shared.analysis.features import (
     compute_joint_angles,
     feature_vector,
@@ -1235,6 +1235,17 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 motion_id=getattr(profile, "motion_id", None),
                 mode_context=mode_context,
             )
+            # Phase 12 hotfix (2026-06-11 belle UAT 1차) — high score finding gate.
+            # 자기-비교 (정은지 vs 정은지) / 거의 동일 영상 시 finding 의미 없음.
+            # overall >= 90 → findings 비움 + umbrella warning. UI 가 빈 list 일 때
+            # Wave 1 fallback ("분명한 힘 흐름 이슈 신호가 보이지 않습니다") 노출.
+            if overall >= 90 and force_pattern_inference.findings:
+                force_pattern_inference = dataclasses.replace(
+                    force_pattern_inference,
+                    findings=[],
+                    warnings=list(force_pattern_inference.warnings)
+                    + ["high_score_finding_gated"],
+                )
             force_pattern_inference_dict = _dataclass_to_camel_case_dict(
                 force_pattern_inference
             )
@@ -1242,10 +1253,16 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
 
         # ── Phase 12 Wave 0B (Plan 12-01) — KeypointReport 산출 + wiring ──
         # D-12-E2 + R3 정합. KeypointOverlay (Wave 1+) 소비 source.
-        # fps single source = 9.0 (frame_extractor 운영 값, R3 정합 — default X).
-        # pose_frames empty / 전수 keypoints_2d None → None graceful skip
-        # (Wave 1 의 D-12-U6 fallback placeholder 노출).
-        keypoint_report_obj = build_keypoint_report(pose_frames, fps=9.0)
+        # 분석 algorithm (DTW / threshold / Phase 6/7/8 calibration) = 9fps 유지.
+        # 저장 시점에 30fps 로 선형 upsample (Phase 12 hotfix 2026-06-11 belle UAT
+        # 1차: 빠른 회전 시 keypoint 끊김 + 끝부분 정지 자세 mitigation. Firestore
+        # size 3.3x ≈ 170 → ~560 KiB 예산 안).
+        keypoint_report_raw = build_keypoint_report(pose_frames, fps=9.0)
+        keypoint_report_obj = (
+            upsample_to_fps(keypoint_report_raw, target_fps=30.0)
+            if keypoint_report_raw is not None
+            else None
+        )
         keypoint_report_dict = (
             _dataclass_to_camel_case_dict(keypoint_report_obj)
             if keypoint_report_obj is not None

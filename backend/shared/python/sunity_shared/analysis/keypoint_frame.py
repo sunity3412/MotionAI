@@ -259,6 +259,87 @@ class KeypointReport:
                 )
 
 
+def upsample_to_fps(
+    report: KeypointReport, target_fps: float
+) -> KeypointReport:
+    """KeypointReport 시각 frame rate 만 target_fps 로 선형 보간.
+
+    Phase 12 hotfix (2026-06-11 belle UAT 1차):
+      - 분석 알고리즘 (DTW / threshold / Phase 6/7/8 calibration) 은 9fps 유지.
+      - KeypointOverlay 시각 부드러움만 위해 저장 시점에 30fps 로 upsample.
+      - Firestore size 3.3x (170 KiB → ~560 KiB, 예산 < 700 KiB 안).
+
+    `data` / `confidence` / `axis_data` = 선형 보간.
+    `reliability` / `axis_mask` = nearest-neighbor (categorical / boolean).
+    `warnings` = 그대로 유지 (per-frame 아님).
+
+    target_fps <= report.fps → 원본 반환.
+    report.frames < 2 → 원본 반환 (보간 불가).
+    """
+    if target_fps <= report.fps:
+        return report
+    if report.frames < 2:
+        return report
+
+    src_frames = report.frames
+    src_duration = src_frames / report.fps
+    new_frames = int(round(src_duration * target_fps))
+    if new_frames <= src_frames:
+        return report
+
+    J = len(report.joints)
+    # new_t : 0..src_frames-1 범위의 float 위치 (보간 인덱스)
+    new_t = [
+        min(max(i * (report.fps / target_fps), 0.0), float(src_frames - 1))
+        for i in range(new_frames)
+    ]
+
+    def _interp_flat(src: list[float], outer: int) -> list[float]:
+        """flat src[T * outer] 를 new_frames * outer 로 선형 보간."""
+        out: list[float] = [0.0] * (new_frames * outer)
+        for n, t in enumerate(new_t):
+            lo = int(t)
+            hi = min(lo + 1, src_frames - 1)
+            w = t - lo
+            for c in range(outer):
+                a = src[lo * outer + c]
+                b = src[hi * outer + c]
+                out[n * outer + c] = a + (b - a) * w
+        return out
+
+    def _nearest_per_frame(src: list, length: int) -> list:
+        """per-frame[T] 을 new_frames 로 nearest-neighbor 복제."""
+        return [src[min(int(round(t)), length - 1)] for t in new_t]
+
+    new_data = _interp_flat(report.data, J * 2)
+    new_confidence = _interp_flat(report.confidence, J)
+    new_axis_data = _interp_flat(report.axis_data, _AXIS_POLYLINE_POINTS * 2)
+    new_reliability = _nearest_per_frame(report.reliability, src_frames)
+    new_axis_mask_per_frame = _nearest_per_frame(
+        [
+            report.axis_mask[t * _AXIS_POLYLINE_POINTS : (t + 1) * _AXIS_POLYLINE_POINTS]
+            for t in range(src_frames)
+        ],
+        src_frames,
+    )
+    new_axis_mask: list[bool] = []
+    for chunk in new_axis_mask_per_frame:
+        new_axis_mask.extend(chunk)
+
+    return KeypointReport(
+        version=report.version,
+        joints=list(report.joints),
+        frames=new_frames,
+        fps=float(target_fps),
+        data=new_data,
+        confidence=new_confidence,
+        reliability=new_reliability,
+        axis_data=new_axis_data,
+        axis_mask=new_axis_mask,
+        warnings=list(report.warnings),
+    )
+
+
 __all__ = [
     "KeypointName",
     "KeypointReport",
@@ -267,4 +348,5 @@ __all__ = [
     "_KEYPOINT_NAMES",
     "_AXIS_POLYLINE_POINTS",
     "_VALID_RELIABILITY",
+    "upsample_to_fps",
 ]

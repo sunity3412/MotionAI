@@ -604,13 +604,39 @@ def _overall_confidence_from_findings(
 def _rank_top3(
     candidates: list[ForcePatternFinding],
 ) -> list[ForcePatternFinding]:
-    """Stub for T2 — T3 (Plan 09-02 Task 3) 가 본체 박제.
+    """Top-3 by score + tie-break (D-09-B2 / B3) + (pattern, phase) dedup (D-09-B5).
 
-    Wave 1 T2 단위 test 는 ranking 무관 케이스 (단일 phase / 단일 signal /
-    0-finding fallback / phase 미인식 / confidence 산식) 만 검증. Top-3 정렬 +
-    tie-break + dedup 검증은 T3 의 책임.
+    Sort key tuple — 모두 ASC 정렬 (낮을수록 우선):
+      0. `-score` (score = confidence × _SIGNAL_WEIGHT[source_signal]) — DESC.
+      1. `_PHASE_PRIORITY[phase]` — lock < hold < transition < final_shape < entry.
+      2. `_SIGNAL_PRIORITY[source_signal]` — axis < contact < stability.
+      3. `-confidence` — DESC (signal_weight 가 동일한 경우 confidence 단독 비교).
+
+    Dedup: (pattern, phase) 조합 동일 시 top confidence 1개만 유지. 동일 pattern
+    다른 phase 는 통과 (D-09-B5 정합).
     """
-    return candidates[:3]
+
+    def key(f: ForcePatternFinding) -> tuple[float, int, int, float]:
+        score = f.confidence * _SIGNAL_WEIGHT[f.source_signal]
+        return (
+            -score,
+            _PHASE_PRIORITY[f.phase],
+            _SIGNAL_PRIORITY[f.source_signal],
+            -f.confidence,
+        )
+
+    ranked = sorted(candidates, key=key)
+    seen: set[tuple[str, str]] = set()
+    result: list[ForcePatternFinding] = []
+    for f in ranked:
+        sig = (f.pattern, f.phase)
+        if sig in seen:
+            continue
+        seen.add(sig)
+        result.append(f)
+        if len(result) == 3:
+            break
+    return result
 
 
 def infer_force_direction_pattern(

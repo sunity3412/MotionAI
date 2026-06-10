@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -41,6 +43,7 @@ import type {
   ForcePatternFinding,
   JointDirection,
   JointScore,
+  KeypointReport,
   ScoreDimension,
   SegmentScores,
   SkillLevel,
@@ -161,6 +164,57 @@ function mode3Summary(current: number, previous: number | undefined): string {
     return `지난 분석보다 ${-d}점 내려갔어요. 아래 차원별 변화를 확인해보세요.`;
   return '지난 분석과 같은 수준을 유지했어요.';
 }
+
+// Phase 12 Wave 2 (Plan 12-03 T3) — D-12-D1/D2/D3 박제.
+//
+// joint 단위 평균 confidence — keypointReport.confidence flat (T × J) 의 j 열 평균.
+// joint 가 KeypointName 인 경우 직접 lookup, JointScore.key (예: 'left_elbow') 인
+// 경우 KeypointName 으로 매핑하지 않고 직접 매칭 시 indexOf=-1 → null 반환.
+// 손 (kismam left_elbow) ↔ keypoint (left_hand) 매핑은 caller (각도 가이드 row)
+// 가 책임. 본 helper 는 keypointReport.joints 의 KeypointName 만 받음.
+function jointConfidenceFromReport(
+  report: KeypointReport | null | undefined,
+  keypointName: string,
+): number | null {
+  if (!report) return null;
+  const j = report.joints.indexOf(keypointName as never);
+  if (j < 0) return null;
+  const J = report.joints.length;
+  if (J <= 0 || report.frames <= 0) return null;
+  let sum = 0;
+  let count = 0;
+  for (let t = 0; t < report.frames; t += 1) {
+    const v = report.confidence[t * J + j];
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      sum += v;
+      count += 1;
+    }
+  }
+  return count > 0 ? sum / count : null;
+}
+
+// reliability == 'low' frame 비율. D-12-D2 (≥ 0.20) / D-12-D1 (≥ 0.30) 분기 source.
+function lowReliabilityRatio(report: KeypointReport | null | undefined): number {
+  if (!report || report.frames <= 0) return 0;
+  let low = 0;
+  for (const r of report.reliability) {
+    if (r === 'low') low += 1;
+  }
+  return low / report.frames;
+}
+
+// JointScore.key (kismam: left_elbow / left_knee 등) → keypoint name (left_hand 등).
+// 손 = elbow angle key 의 시각 keypoint. shoulder/hip/knee 는 1:1.
+const ANGLE_KEY_TO_KEYPOINT: Record<string, string> = {
+  left_shoulder: 'left_shoulder',
+  right_shoulder: 'right_shoulder',
+  left_hip: 'left_hip',
+  right_hip: 'right_hip',
+  left_knee: 'left_knee',
+  right_knee: 'right_knee',
+  left_elbow: 'left_hand',
+  right_elbow: 'right_hand',
+};
 
 // 분석 결과 화면 (plan.md #8, design.md §8, ia AC-RES-001).
 // 미설계 화면 → design.md §0 결정 트리로 자체 설계. 흰 배경(§5-1),
@@ -476,6 +530,34 @@ export default function AnalysisResult() {
     return map;
   }, [joints]);
 
+  // Phase 12 Wave 2 (Plan 12-03 T3) — confidence/occlusion 표기 (D-12-D1/D2 박제).
+  // 영상 전체 low reliability frame 비율 — 차원 카드 ⚠ badge (≥ 0.20) +
+  // 코칭 팁 row 추정 표기 (≥ 0.30) 분기 source.
+  const lowReliabilityRatioVal = useMemo(
+    () => lowReliabilityRatio(userKeypointReport),
+    [userKeypointReport],
+  );
+  const showOcclusionBadge = lowReliabilityRatioVal >= 0.2;
+  const occlusionPercent = Math.round(lowReliabilityRatioVal * 100);
+
+  // 코칭 팁 row 의 각도 표시 분기 = (joint 평균 confidence < 0.5) 또는
+  // (low reliability frame 비율 ≥ 0.30). 추정 표기 + ⓘ tap → Alert.
+  const isAngleEstimated = (jointKey: string): boolean => {
+    if (lowReliabilityRatioVal >= 0.3) return true;
+    const kpName = ANGLE_KEY_TO_KEYPOINT[jointKey];
+    if (!kpName) return false;
+    const c = jointConfidenceFromReport(userKeypointReport, kpName);
+    if (c == null) return false;
+    return c < 0.5;
+  };
+
+  const showEstimateTooltip = () => {
+    Alert.alert(
+      '추정값',
+      '이 구간은 가림 또는 측정 불확실로 추정값입니다.',
+    );
+  };
+
   const deltaFor = (dim: ScoreDimension): number | undefined =>
     cmp.mode === 'mode3' && !cmp.isFirst
       ? cmp.deltaFromPrevious?.[dim]
@@ -628,8 +710,21 @@ export default function AnalysisResult() {
           </>
         )}
 
-        {/* ── 영역 5: 차원 점수 (Phase 12.5 그대로 — 변경 0) ──────────────── */}
-        <Text style={styles.sectionTitle}>세부 점수</Text>
+        {/* ── 영역 5: 차원 점수 (Phase 12.5 + Wave 2 ⚠ amber occlusion badge) ─
+            영상 reliability=='low' frame 비율 ≥ 20% → 카드 상단 우측 ⚠ amber
+            badge 노출 (D-12-D2). 카드 tap 시 DimensionDetailModal 안 occlusion
+            한 줄 동행. */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>세부 점수</Text>
+          {showOcclusionBadge && (
+            <View style={styles.occlusionBadge}>
+              <Ionicons name="warning" size={12} color={colors.warnAmber} />
+              <Text style={styles.occlusionBadgeText}>
+                {`가림 ${occlusionPercent}%`}
+              </Text>
+            </View>
+          )}
+        </View>
         <View style={styles.card}>
           {dims.map((dim) => (
             <DimensionScoreRow
@@ -643,13 +738,16 @@ export default function AnalysisResult() {
           ))}
         </View>
 
-        {/* ── 영역 6: 각도 가이드 (코칭 팁) — Phase 12.5 그대로 유지 ────── */}
+        {/* ── 영역 6: 각도 가이드 (코칭 팁) — Phase 12.5 + Wave 2 추정 표기 ─
+            joint 평균 confidence < 0.5 또는 low reliability frame 비율 ≥ 30%
+            → "추정 N°" + estimateGray + ⓘ tap → Alert (D-12-D1 박제). */}
         <Text style={styles.sectionTitle}>코칭 팁</Text>
         {result.tips.map((tip, i) => {
           const joint = tip.joint
             ? joints.find((j) => j.key === tip.joint)
             : undefined;
           const guide = joint ? angleGuide(joint) : null;
+          const estimated = tip.joint ? isAngleEstimated(tip.joint) : false;
           return (
             <View key={tip.joint ?? i} style={[styles.card, styles.tipCard]}>
               <View style={styles.tipHead}>
@@ -658,8 +756,34 @@ export default function AnalysisResult() {
               </View>
               {guide && (
                 <View style={styles.tipAngleRow}>
-                  <Text style={styles.tipAngle}>{highlightNumbers(guide.line)}</Text>
-                  {guide.cue && (
+                  {estimated && joint?.currentAngle != null ? (
+                    <>
+                      <Text style={styles.tipAngleEstimate}>
+                        {`추정 ${Math.round(joint.currentAngle)}° → 기준 ${
+                          joint.targetAngle != null
+                            ? Math.round(joint.targetAngle)
+                            : '-'
+                        }°`}
+                      </Text>
+                      <Pressable
+                        onPress={showEstimateTooltip}
+                        accessibilityRole="button"
+                        accessibilityLabel="추정값 안내"
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name="information-circle"
+                          size={14}
+                          color={colors.estimateGray}
+                        />
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Text style={styles.tipAngle}>
+                      {highlightNumbers(guide.line)}
+                    </Text>
+                  )}
+                  {guide.cue && !estimated && (
                     <Text style={styles.tipAngleCue}>{guide.cue}</Text>
                   )}
                 </View>
@@ -708,6 +832,7 @@ export default function AnalysisResult() {
         mode={detailMode}
         motionName={cmp.mode === 'mode1' ? cmp.referenceMotionName : undefined}
         userName={undefined /* TODO: Firebase displayName 박제 박제 박제 박제 */}
+        lowReliabilityRatio={lowReliabilityRatioVal}
         onClose={() => setDetailDim(null)}
       />
       {/* Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달. tip=null 시 닫힘. */}
@@ -793,6 +918,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 8,
+  },
+  // Phase 12 Wave 2 (Plan 12-03 T3) — 차원 카드 영역 ⚠ amber badge 박제 row.
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  occlusionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 9,
+    backgroundColor: colors.softBg,
+  },
+  occlusionBadgeText: {
+    ...typography.captionSmall,
+    color: colors.warnAmber,
+    fontWeight: '600',
   },
   bench: {
     width: '100%',
@@ -911,6 +1057,8 @@ const styles = StyleSheet.create({
   tipHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tipAngleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   tipAngle: { ...typography.boxLabel, color: colors.brand },
+  // Phase 12 Wave 2 (Plan 12-03 T3) — D-12-D1 박제 저신뢰 추정 N° 컬러.
+  tipAngleEstimate: { ...typography.boxLabel, color: colors.estimateGray },
   tipAngleCue: {
     ...typography.captionSmall,
     color: colors.textWhite,

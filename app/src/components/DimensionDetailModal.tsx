@@ -41,6 +41,10 @@ interface Props {
   //      그 기준에서 OO님의 분석을 반영하여 점수가 계산됩니다."
   motionName?: string; // 예: "폭스탑", "인사이드 레그 행". mode1 만.
   userName?: string; // 예: "OO" (Firebase displayName 또는 anon). 없으면 "회원"
+  // Phase 12 Wave 2 (Plan 12-03 T3) — keypointReport.reliability == 'low' 비율
+  // (0..1). ≥ 0.20 시 본문 끝에 occlusion 한 줄 박제 (D-12-D2). 옵셔널 —
+  // 이전 빌드 host 호환.
+  lowReliabilityRatio?: number;
   onClose: () => void;
 }
 
@@ -112,6 +116,7 @@ export function DimensionDetailModal({
   mode = 'mode1',
   motionName,
   userName,
+  lowReliabilityRatio,
   onClose,
 }: Props) {
   // useWindowDimensions: sheet 명시 height — ScrollView 가 그 안에서 flex:1 로
@@ -195,6 +200,17 @@ export function DimensionDetailModal({
                 </Text>
               </View>
             )}
+
+            {/* Phase 12 Wave 2 (Plan 12-03 T3) — occlusion 한 줄 박제 (D-12-D2).
+                lowReliabilityRatio ≥ 0.20 시 점수 신뢰 ↓ 안내. */}
+            {typeof lowReliabilityRatio === 'number' &&
+              lowReliabilityRatio >= 0.2 && (
+                <Text style={styles.occlusionNote}>
+                  {`이 분석은 영상 ${Math.round(
+                    lowReliabilityRatio * 100,
+                  )}% 가 가림으로 추정 — 점수 신뢰 ↓`}
+                </Text>
+              )}
 
             <Text style={styles.coachNote}>
               자세한 교정 방법은 코칭 팁의 “자세히 보기”와 영상 (강사와 함께
@@ -332,6 +348,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '400',
     color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 8,
+  },
+  // Phase 12 Wave 2 (Plan 12-03 T3) — D-12-D2 occlusion 한 줄.
+  occlusionNote: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.warnAmber,
     lineHeight: 18,
     marginTop: 8,
   },

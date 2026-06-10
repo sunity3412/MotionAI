@@ -48,6 +48,14 @@ function confidenceLabel(c: number): { text: string; color: string } {
   return { text: '신뢰도 낮음', color: colors.textLo };
 }
 
+// Phase 12 Wave 2 (Plan 12-03 T3) — D-12-D3 박제. variant='big' 만.
+// 채움 색 = label 컬러 (≥0.7 brand / 0.5~0.7 textMid / <0.5 textLo).
+function confidenceFillColor(c: number): string {
+  if (c >= 0.7) return colors.brand;
+  if (c >= 0.5) return colors.textMid;
+  return colors.textLo;
+}
+
 export type ForcePatternCardProps = {
   finding: ForcePatternFinding;
   rank: 0 | 1 | 2;
@@ -103,6 +111,20 @@ export function ForcePatternCard({
           <Text style={[styles.confLabelBig, { color: confLabel.color }]}>
             {confLabel.text}
           </Text>
+        </View>
+        {/* Phase 12 Wave 2 (Plan 12-03 T3) — D-12-D3 confidence 시각 바.
+            variant='big' 전용. 높이 4pt + bg trackBg + fill = conf × 100%.
+            UI-SPEC §4 박제. variant='small' 은 spacing 제약으로 미박제. */}
+        <View style={styles.confBarTrackBig}>
+          <View
+            style={[
+              styles.confBarFillBig,
+              {
+                width: `${Math.round(Math.max(0, Math.min(1, conf)) * 100)}%`,
+                backgroundColor: confidenceFillColor(conf),
+              },
+            ]}
+          />
         </View>
         <Text style={styles.bigBody}>{finding.interpretation}</Text>
         <Text style={styles.bigHint}>탭하여 자세히 보기 ›</Text>
@@ -199,6 +221,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
     marginLeft: 'auto',
+  },
+  // Phase 12 Wave 2 (Plan 12-03 T3) — D-12-D3 confidence 시각 바 (big 만).
+  confBarTrackBig: {
+    width: '100%',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.trackBg,
+    overflow: 'hidden',
+  },
+  confBarFillBig: {
+    height: '100%',
+    borderRadius: 2,
   },
   bigBody: {
     fontSize: 14,

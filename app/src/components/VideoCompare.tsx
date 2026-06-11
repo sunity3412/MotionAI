@@ -146,13 +146,6 @@ export function VideoCompare({
   // Build 16 (iter-2): hysteresis 제거. UAT 5차에서 보정 후 0.15 미만 안 들어와
   // 다음 보정 못 하는 사이 drift 1-2s 누적 finding. 매 tick drift > 0.2 면 즉시
   // 보정 (stutter 위험 < 동기화 우선). 보정 직후 100ms 안에 또 보정 진입은 fine.
-  //
-  // OTA iter-3 (UAT 6차 Build 16): 정은지 영상 random stall finding (5회 중 4회).
-  // S3 buffer 미달 시 iOS AVPlayer 가 자동 wait. tick 마다 currentTime 변화량
-  // 측정 → expected 진행률 (tick interval × 0.5) 미만이면 stall 감지 → play() 재호출.
-  // cooldown 500ms — 연속 호출 방지.
-  const prevCurrentRef = useRef({ left: 0, right: 0 });
-  const lastRecoverRef = useRef({ left: 0, right: 0 });
 
   useEffect(() => {
     if (!hasAny) return;
@@ -197,43 +190,6 @@ export function VideoCompare({
           }
         }
       }
-
-      // OTA iter-3 — stall 자동 복구 (UAT 6차 Build 16 finding).
-      //   원인: iOS AVPlayer 가 S3 buffer 미달 시 자동 wait (정은지 영상이 4K 30fps
-      //         15-32MB 라 buffer 더 자주 미달). expo-video 가 stall 자동 복구 X.
-      //   해결: tick 마다 prev currentTime 과 비교. 100ms 사이 변화 < 0.02s 이면
-      //         (= 20% 미만 진행, 거의 멈춤) stall 감지 → play() 재호출.
-      //   조건: 둘 다 재생 중 + 끝부분 진입 전 + cooldown 500ms 후.
-      const nowTs = Date.now();
-      if (
-        hasLeft &&
-        hasRight &&
-        bothPlaying &&
-        shorter > 0 &&
-        Math.max(cL, cR) < shorter - 0.5 &&
-        leftPlayer &&
-        rightPlayer
-      ) {
-        const STALL_DELTA_S = 0.02;
-        const RECOVER_COOLDOWN_MS = 500;
-        const leftDelta = cL - prevCurrentRef.current.left;
-        const rightDelta = cR - prevCurrentRef.current.right;
-        if (
-          leftDelta < STALL_DELTA_S &&
-          nowTs - lastRecoverRef.current.left > RECOVER_COOLDOWN_MS
-        ) {
-          leftPlayer.play();
-          lastRecoverRef.current.left = nowTs;
-        }
-        if (
-          rightDelta < STALL_DELTA_S &&
-          nowTs - lastRecoverRef.current.right > RECOVER_COOLDOWN_MS
-        ) {
-          rightPlayer.play();
-          lastRecoverRef.current.right = nowTs;
-        }
-      }
-      prevCurrentRef.current = { left: cL, right: cR };
 
       // UAT 4차 Finding 2 — 짧은 쪽 끝났는데 다른 쪽이 계속 가는 상황 방지.
       //   이전 (Build 14): OR (`cL >= shorter || cR >= shorter`) — 빠른 쪽이

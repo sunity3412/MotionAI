@@ -86,6 +86,14 @@ export type VideoCompareProps = {
   rightOverlay?: (player: VideoPlayer | null) => React.ReactNode;
 };
 
+// UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 15.
+//   DRIFT_CORRECT_THRESHOLD_S = 0.3 초 = 보정 진입 임계. 보정 한 번 적용 후
+//   DRIFT_RESET_THRESHOLD_S 미만으로 돌아와야 다음 보정 가능 (stutter 방지).
+//   REPLAY_SEEK_DELAY_MS = togglePlay restart 시 seek→play race 회피용 지연.
+const DRIFT_CORRECT_THRESHOLD_S = 0.3;
+const DRIFT_RESET_THRESHOLD_S = 0.15;
+const REPLAY_SEEK_DELAY_MS = 60;
+
 export function VideoCompare({
   leftLabel,
   rightLabel,
@@ -128,6 +136,9 @@ export function VideoCompare({
   const [rightDuration, setRightDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // UAT 4차 Finding 1 — drift 보정 hysteresis. 매 tick 마다 seek 하면 stutter
+  // 생김. true 이면 "최근에 보정 적용함" → reset threshold 까지 추가 보정 차단.
+  const correctingDriftRef = useRef(false);
 
   useEffect(() => {
     if (!hasAny) return;
@@ -144,9 +155,59 @@ export function VideoCompare({
       const shorter =
         dL > 0 && dR > 0 ? Math.min(dL, dR) : Math.max(dL, dR);
       const ref = hasLeft ? leftPlayer : rightPlayer;
+      const bothPlaying = !!leftPlayer?.playing && !!rightPlayer?.playing;
       setPlaying(!!ref?.playing);
-      // 짧은 쪽이 끝났는데 다른 쪽이 계속 가는 상황 방지.
-      if (shorter > 0 && (cL >= shorter - 0.05 || cR >= shorter - 0.05)) {
+
+      // UAT 4차 Finding 1 — drift 보정 (정은지 영상이 1~2초 빨라지는 현상).
+      //   원인: 두 player buffer/fps 미세 차이 (사용자 24fps vs 정은지 30fps 등)
+      //         가 누적되며 currentTime 어긋남. expo-video 는 sync API 없음.
+      //   해결: 매 tick 에서 |cL - cR| > 0.3s 이면 느린 쪽 시각으로 빠른 쪽을
+      //         seek (back-seek). hysteresis 로 reset threshold 0.15s 미만 까지
+      //         돌아와야 다음 보정 진입 — 매 tick seek 로 stutter 방지.
+      //   조건: 둘 다 재생 중 + 둘 다 native duration 산정됨 + 끝부분 진입 전.
+      if (
+        hasLeft &&
+        hasRight &&
+        bothPlaying &&
+        dL > 0 &&
+        dR > 0 &&
+        shorter > 0 &&
+        Math.max(cL, cR) < shorter - 0.1 &&
+        leftPlayer &&
+        rightPlayer
+      ) {
+        const drift = Math.abs(cL - cR);
+        if (!correctingDriftRef.current && drift > DRIFT_CORRECT_THRESHOLD_S) {
+          // 느린 쪽 시각을 authoritative time 으로 사용 (빠른 쪽 back-seek).
+          const slowerTime = Math.min(cL, cR);
+          if (cL > cR) {
+            leftPlayer.currentTime = slowerTime;
+          } else {
+            rightPlayer.currentTime = slowerTime;
+          }
+          correctingDriftRef.current = true;
+        } else if (
+          correctingDriftRef.current &&
+          drift < DRIFT_RESET_THRESHOLD_S
+        ) {
+          // 다음 drift 이벤트 진입 허용.
+          correctingDriftRef.current = false;
+        }
+      }
+
+      // UAT 4차 Finding 2 — 짧은 쪽 끝났는데 다른 쪽이 계속 가는 상황 방지.
+      //   이전 (Build 14): OR (`cL >= shorter || cR >= shorter`) — 빠른 쪽이
+      //   먼저 도달하면 양쪽 pause → 느린 쪽은 실 native duration 못 채운 채
+      //   pause, 다음 replay 시 빠른 쪽은 이미 자기 native end 넘어 진행 X.
+      //   현재 (Build 15): AND-like (Math.min 둘 다 도달) — drift 보정 위와 결합.
+      //   드물게 둘 중 한 쪽만 end 도달하면 보정 fail 케이스 → safety net 으로
+      //   max 가 자기 native duration 도달 시도 같이 pause (둘 다 native end).
+      const minReachedShortEnd = shorter > 0 && Math.min(cL, cR) >= shorter - 0.05;
+      const leftReachedOwnEnd = dL > 0 && cL >= dL - 0.05;
+      const rightReachedOwnEnd = dR > 0 && cR >= dR - 0.05;
+      const bothReachedOwnEnd =
+        (!hasLeft || leftReachedOwnEnd) && (!hasRight || rightReachedOwnEnd);
+      if (minReachedShortEnd || bothReachedOwnEnd) {
         leftPlayer?.pause();
         rightPlayer?.pause();
       }
@@ -157,7 +218,7 @@ export function VideoCompare({
       if (tickRef.current) clearInterval(tickRef.current);
       tickRef.current = null;
     };
-  }, [hasAny, hasLeft, leftPlayer, rightPlayer]);
+  }, [hasAny, hasLeft, hasRight, leftPlayer, rightPlayer]);
 
   // progress bar / restart 등 단일 기준 값 — 짧은 쪽 기준 (기존 로직 보존).
   const current = hasLeft ? leftCurrent : rightCurrent;
@@ -177,14 +238,33 @@ export function VideoCompare({
       rightPlayer?.pause();
       setPlaying(false);
     } else {
-      // 끝까지 재생됐으면 처음부터.
-      if (duration > 0 && current >= duration - 0.05) {
+      // UAT 4차 Finding 2 — 끝난 상태에서 다시 재생 시 정은지 영상 멈춤 finding.
+      //   이전 (Build 14): `current` (= leftCurrent) 한쪽만 검사 → 우측이 자기
+      //   native end 넘어가 있어도 reset 발동 안 함. 또한 seek = 0 직후 즉시
+      //   play() → expo-video 가 seek 적용 전에 play 호출 받아 우측 정지.
+      //   현재 (Build 15):
+      //     1) 끝 판정 = Math.max(leftCurrent, rightCurrent) — 어느 한쪽이라도
+      //        end 도달했으면 둘 다 reset.
+      //     2) reset 시 explicit seek=0 + REPLAY_SEEK_DELAY_MS 후 play() — seek
+      //        완료 보장 (60ms 는 한 frame 보다 살짝 길게).
+      //     3) drift 보정 상태 reset (`correctingDriftRef`).
+      const maxCurrent = Math.max(leftCurrent, rightCurrent);
+      const isAtEnd = duration > 0 && maxCurrent >= duration - 0.05;
+      if (isAtEnd) {
         if (leftPlayer) leftPlayer.currentTime = 0;
         if (rightPlayer) rightPlayer.currentTime = 0;
+        correctingDriftRef.current = false;
+        // seek 적용 시간 확보 후 play. iOS expo-video 의 seek→play race 회피.
+        setTimeout(() => {
+          leftPlayer?.play();
+          rightPlayer?.play();
+          setPlaying(true);
+        }, REPLAY_SEEK_DELAY_MS);
+      } else {
+        leftPlayer?.play();
+        rightPlayer?.play();
+        setPlaying(true);
       }
-      leftPlayer?.play();
-      rightPlayer?.play();
-      setPlaying(true);
     }
   };
 
@@ -194,6 +274,7 @@ export function VideoCompare({
     if (rightPlayer) rightPlayer.currentTime = 0;
     setLeftCurrent(0);
     setRightCurrent(0);
+    correctingDriftRef.current = false;
   };
 
   const progressPct =

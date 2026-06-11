@@ -108,47 +108,61 @@ belle iOS UAT 2차 (TestFlight Build 12, 18fps + finding gate + reference keypoi
 - **추정 작업량**: 1-2일 + 별도 test fixtures
 - **Phase 13 신규 plan 으로 박제**.
 
-### 12-B — 영상 끝 ~0.5초 keypoint 정지 (Phase 12 내일 fix)
+### 12-B — 영상 끝 ~0.5초 keypoint 정지 (✅ 2026-06-11 fix, commit 4156a89)
 
 - **현상**: 17초 영상의 15~17초 구간에서 keypoint 가 종료 자세로 정지 (사람은
   아직 회전 중). 9fps 추출 결과: 17 × 9 = 153 frame, 마지막 frame = 16.89초.
 - **원인**: `frame_extractor.py` 의 step loop 가 균등 sample 만 박제 — 영상 끝
   근처 잔여 frame 무시. 18fps upsample 도 마지막 frame 이후 데이터 없음 → 보간
   X.
-- **해결 방향**: `frame_extractor.py` 의 step loop 가 마지막 frame 강제 포함.
-  ~5줄 패치.
-- **작업량**: 30분. Phase 12 내일 fix.
+- **Fix (commit 4156a89)**: loop 안에서 `last_resized` + `last_idx_seen` 추적,
+  loop 종료 후 `last_idx_seen > last_idx_appended` 면 last_resized 추가.
+  step 정확 배수 영상에서는 idempotent (중복 추가 X).
+- **검증**: `backend/tests/test_frame_extractor_last_frame.py` 5 시나리오 PASS
+  (remainder skip / no-dup / clip / empty / UAT 17s).
+- **다음**: reference keypoint 5영상 재추출 → Firestore 갱신 → belle UAT 3차에서
+  영상 끝 정지 finding 해소 검증.
 
-### 12-C — 두 영상 timeline 미세 drift (Phase 12 내일 fix)
+### 12-C — 두 영상 timeline 미세 drift (✅ 2026-06-11 fix, commit ddbe074)
 
 - **현상**: 1초 시점에 사용자 영상 vs 정은지 영상이 미세하게 다른 위치 표시.
   분석쪽이 약간 빠름.
 - **원인**: 두 영상 native duration / native fps 가 다름. `VideoCompare.tsx` 가
   하나의 progress bar 만 표시 (현재 어느 쪽 기준인지 모호).
-- **해결 방향**:
-  - Option A: 각 player 별 currentTime 표시 (player1: "0:01 / 0:17",
-    player2: "0:01 / 0:16")
-  - Option B: 짧은 영상 기준으로 progress bar normalize, 긴 쪽은 종료 시점에
-    정지 + indicator
-- **작업량**: 1-2시간. Phase 12 내일 fix (UI 작업).
+- **Fix (commit ddbe074)**: Option A 채택 — left/right currentTime + duration
+  state 4개 분리. tick 폴링이 두 player 동시 갱신. progress bar 는 단일 유지
+  (짧은 쪽 기준 — 정지 로직 보존). 시간 라벨이 두 영상 모두 표시:
+  `"{leftLabel} 0:01 / 0:17  ·  {rightLabel} 0:01 / 0:16"`.
+- **검증**: TS check PASS. belle UAT 3차에서 두 영상 시간 분리 가시화 확인.
 
-### 12-D — 저신뢰 keypoint 시각 처리 (Wave 2 #2 끌어올림 — Phase 12 내일)
+### 12-D — 저신뢰 keypoint 시각 처리 (✅ 2026-06-11 fix, commit 62270f2)
 
 - **현상**: 14초 다리 keypoint 가 폴 밖 (occluded — 폴 뒤 다리). confidence
   낮은 추정인데 일반 keypoint 와 같은 표시 → 사용자 혼동.
 - **원인**: Wave 2 MVP 에선 occlusion 표기를 결과 화면 (영역 4 ⚠ amber badge,
   영역 5 "추정 N°") 만 박제. KeypointOverlay 자체는 시각 변경 X (Wave 2 #2
   deferred 박제).
-- **해결 방향**: KeypointOverlay 가 `visibility < 0.5` keypoint 를 회색 stroke +
-  dashed line 처리. 본 plan deferred items #2 정합.
-- **작업량**: 1시간. Phase 12 내일 fix.
+- **Fix (commit 62270f2)**: `KEYPOINT_LOW_CONFIDENCE_THRESHOLD = 0.5` 박제.
+  `readFramePositions` 가 `KeypointReport.confidence` flat array 함께 read,
+  새 `KeypointPoint` type 에 confidence 동봉. visibility < 0.5 분기:
+  - Circle: fill/stroke = `colors.estimateGray` (#B0B0B0), fillOpacity 0.7
+  - Bone (endpoint 한쪽이라도 저신뢰): stroke = estimateGray, dasharray = 4/W
+  - 저신뢰 분기가 highlightedJoints 강조 분기보다 우선
+  - floating angle label 도 저신뢰 joint 는 표시 X
+- **검증**: TS check PASS. belle UAT 3차에서 14초 폴 밖 다리 keypoint 가
+  회색 dashed 로 표시되는지 확인 — Wave 2 #2 deferred item 본격 해소.
 
-### 박제 우선순위 (내일 belle 합류 시)
+### 박제 우선순위 — 진행 상태 (2026-06-11)
 
-1. **12-B** 30분 — frame_extractor 마지막 frame 보장 (가장 명확한 효과)
-2. **12-D** 1시간 — 저신뢰 keypoint 회색/dashed (가장 사용자 인지 효과)
-3. **12-C** 1-2시간 — 두 영상 timeline 분리 표시
-4. **12-A** (Phase 13 분리) — 새 plan, 새 scope
+1. **12-B** ✅ commit `4156a89` — frame_extractor 마지막 frame 보장 + 5 단위 테스트
+2. **12-D** ✅ commit `62270f2` — KeypointOverlay 저신뢰 keypoint 회색 + dashed
+3. **12-C** ✅ commit `ddbe074` — VideoCompare 두 영상 timeline 분리 표시
+4. **12-A** Phase 13 신규 plan — 좌/우 mirror correction (별도 plan)
+
+**다음 단계**:
+- Pod 에서 5영상 reference keypoint 재추출 → Firestore 갱신 (B fix 효과)
+- TestFlight Build 13 → belle UAT 3차 (12-A 외 3건 해소 검증)
+- Phase 12 verifier + STATE/ROADMAP closeout
 
 ### Phase 13 신규 scope (잠정)
 

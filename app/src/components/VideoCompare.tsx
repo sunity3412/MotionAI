@@ -86,13 +86,20 @@ export type VideoCompareProps = {
   rightOverlay?: (player: VideoPlayer | null) => React.ReactNode;
 };
 
-// UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 15.
-//   DRIFT_CORRECT_THRESHOLD_S = 0.3 초 = 보정 진입 임계. 보정 한 번 적용 후
-//   DRIFT_RESET_THRESHOLD_S 미만으로 돌아와야 다음 보정 가능 (stutter 방지).
-//   REPLAY_SEEK_DELAY_MS = togglePlay restart 시 seek→play race 회피용 지연.
-const DRIFT_CORRECT_THRESHOLD_S = 0.3;
-const DRIFT_RESET_THRESHOLD_S = 0.15;
-const REPLAY_SEEK_DELAY_MS = 60;
+// UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).
+//
+// Build 15 → Build 16 변경 (UAT 5차에서 drift 1-2s 잔존 + 반복 재생 멈춤 + 랜덤 버벅):
+//   - tick interval 250ms → 100ms — drift 누적 전 빨리 잡음
+//   - DRIFT_CORRECT_THRESHOLD_S 0.3 → 0.2 — 더 일찍 보정 진입
+//   - hysteresis (DRIFT_RESET_THRESHOLD_S + correctingDriftRef) 제거 —
+//     매 tick drift > 0.2 면 즉시 보정 (stutter 위험 < 동기화 우선)
+//   - REPLAY_SEEK_DELAY_MS 60 → 200 — 정은지 영상 S3 buffer reset 충분 시간
+//   - togglePlay 시작 시 강제 sync — play() 전 둘이 currentTime 다르면 작은 값
+//     으로 맞춤. 초기 drift 0 보장.
+const TICK_INTERVAL_MS = 100;
+const DRIFT_CORRECT_THRESHOLD_S = 0.2;
+const REPLAY_SEEK_DELAY_MS = 200;
+const START_SYNC_THRESHOLD_S = 0.05;
 
 export function VideoCompare({
   leftLabel,
@@ -136,9 +143,9 @@ export function VideoCompare({
   const [rightDuration, setRightDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // UAT 4차 Finding 1 — drift 보정 hysteresis. 매 tick 마다 seek 하면 stutter
-  // 생김. true 이면 "최근에 보정 적용함" → reset threshold 까지 추가 보정 차단.
-  const correctingDriftRef = useRef(false);
+  // Build 16 (iter-2): hysteresis 제거. UAT 5차에서 보정 후 0.15 미만 안 들어와
+  // 다음 보정 못 하는 사이 drift 1-2s 누적 finding. 매 tick drift > 0.2 면 즉시
+  // 보정 (stutter 위험 < 동기화 우선). 보정 직후 100ms 안에 또 보정 진입은 fine.
 
   useEffect(() => {
     if (!hasAny) return;
@@ -158,12 +165,8 @@ export function VideoCompare({
       const bothPlaying = !!leftPlayer?.playing && !!rightPlayer?.playing;
       setPlaying(!!ref?.playing);
 
-      // UAT 4차 Finding 1 — drift 보정 (정은지 영상이 1~2초 빨라지는 현상).
-      //   원인: 두 player buffer/fps 미세 차이 (사용자 24fps vs 정은지 30fps 등)
-      //         가 누적되며 currentTime 어긋남. expo-video 는 sync API 없음.
-      //   해결: 매 tick 에서 |cL - cR| > 0.3s 이면 느린 쪽 시각으로 빠른 쪽을
-      //         seek (back-seek). hysteresis 로 reset threshold 0.15s 미만 까지
-      //         돌아와야 다음 보정 진입 — 매 tick seek 로 stutter 방지.
+      // UAT 4차 Finding 1 — drift 보정 (Build 16 iter-2).
+      //   tick 100ms 마다 매번 drift > 0.2s 면 즉시 보정. hysteresis 없음.
       //   조건: 둘 다 재생 중 + 둘 다 native duration 산정됨 + 끝부분 진입 전.
       if (
         hasLeft &&
@@ -177,7 +180,7 @@ export function VideoCompare({
         rightPlayer
       ) {
         const drift = Math.abs(cL - cR);
-        if (!correctingDriftRef.current && drift > DRIFT_CORRECT_THRESHOLD_S) {
+        if (drift > DRIFT_CORRECT_THRESHOLD_S) {
           // 느린 쪽 시각을 authoritative time 으로 사용 (빠른 쪽 back-seek).
           const slowerTime = Math.min(cL, cR);
           if (cL > cR) {
@@ -185,13 +188,6 @@ export function VideoCompare({
           } else {
             rightPlayer.currentTime = slowerTime;
           }
-          correctingDriftRef.current = true;
-        } else if (
-          correctingDriftRef.current &&
-          drift < DRIFT_RESET_THRESHOLD_S
-        ) {
-          // 다음 drift 이벤트 진입 허용.
-          correctingDriftRef.current = false;
         }
       }
 
@@ -213,7 +209,7 @@ export function VideoCompare({
       }
     };
     tick();
-    tickRef.current = setInterval(tick, 250);
+    tickRef.current = setInterval(tick, TICK_INTERVAL_MS);
     return () => {
       if (tickRef.current) clearInterval(tickRef.current);
       tickRef.current = null;
@@ -250,14 +246,28 @@ export function VideoCompare({
       //     3) drift 보정 상태 reset (`correctingDriftRef`).
       const maxCurrent = Math.max(leftCurrent, rightCurrent);
       const isAtEnd = duration > 0 && maxCurrent >= duration - 0.05;
+      // Build 16 iter-2: 시작/재시작 강제 sync — play() 호출 전 둘이 currentTime
+      // 다르면 작은 값으로 맞춤. 초기 drift 0 보장.
+      const drift = Math.abs(leftCurrent - rightCurrent);
+      const needsStartSync =
+        hasLeft && hasRight && drift > START_SYNC_THRESHOLD_S;
       if (isAtEnd) {
         if (leftPlayer) leftPlayer.currentTime = 0;
         if (rightPlayer) rightPlayer.currentTime = 0;
-        correctingDriftRef.current = false;
-        // seek 적용 시간 확보 후 play. iOS expo-video 의 seek→play race 회피.
+        // Build 16: seek 적용 시간 확보 후 play (60→200ms — 정은지 S3 buffer reset).
         setTimeout(() => {
           leftPlayer?.play();
           rightPlayer?.play();
+          setPlaying(true);
+        }, REPLAY_SEEK_DELAY_MS);
+      } else if (needsStartSync && leftPlayer && rightPlayer) {
+        // 중간 정지 후 다시 재생 시 두 player drift 가 있으면 동기화 먼저.
+        const slowerTime = Math.min(leftCurrent, rightCurrent);
+        leftPlayer.currentTime = slowerTime;
+        rightPlayer.currentTime = slowerTime;
+        setTimeout(() => {
+          leftPlayer.play();
+          rightPlayer.play();
           setPlaying(true);
         }, REPLAY_SEEK_DELAY_MS);
       } else {
@@ -274,7 +284,6 @@ export function VideoCompare({
     if (rightPlayer) rightPlayer.currentTime = 0;
     setLeftCurrent(0);
     setRightCurrent(0);
-    correctingDriftRef.current = false;
   };
 
   const progressPct =

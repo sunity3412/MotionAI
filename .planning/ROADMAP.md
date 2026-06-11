@@ -445,6 +445,23 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 17: Gemini Vision Integration — 4 영역 통합
+
+**Goal**: Gemini Vision API (multimodal 영상 이해) 를 4 영역에 도입해서 분석 정확도 + 사용자 가치 본질 강화. 신규 reference 영상 추가 부담 해소 + RTMW 의 자세 인식 약점 보강.
+**Depends on**: Phase 9 (ForceDirectionPattern finding 구조), Phase 11 (CoachCommentHook 데이터 구조), Phase 14 (정은지 기준 모션 등록 구조)
+**Requirements**: VISION-01, VISION-02, VISION-03, VISION-04 (신규 도입 — REQUIREMENTS.md 박힘 박힘)
+**Background**: belle 2026-06-12 결정 (`[[gemini-vision-active-use]]` 메모리). 신규 6 motion 의 NLF↔RTMW 호환 깨짐 finding (UAT 2026-06-12) 후속.
+**Success Criteria** (what must be TRUE):
+
+  1. **A. Reference 자동 등록**: 정은지 영상 업로드 → Gemini Vision 이 IPSF 명칭 매칭 + clipRange (prepStartS/execPeakS/landEndS) + checkpoint joint 자동 산출 → Firestore `reference/{motionId}` 박힘. 정성 검증 = 3 path cross-check (claude.ai + Gemini + RTMW) 와 일치.
+  2. **B. 코칭 멘트 품질**: 분석 결과의 `tips[]` / `coach` 멘트가 RTMW 수치 + Gemini Vision 의 영상 장면 이해 결합 → 구체성 강화 ("팔꿈치가 더 펴져야" → "왼쪽 팔꿈치 hook 시 폴 접촉면 박힘 박힘 박힘 — 어깨 견갑 안정성 부족"). belle / 강사 1차 검수 통과.
+  3. **C. Finding 장면 인식**: `forcePatternInference.findings[]` 가 Gemini Vision 의 장면 정보 (그립 종류 / 백벤드 정도 / occlusion / 카메라 angle) 입력으로 강화. `high_score_finding_gated` warning 감소.
+  4. **D. 관절 추출 보강**: RTMW 가 낮은 confidence (< 0.5) 박힘 자세 (inverted / twist / 폐색) 의 keypoint 박힘 박힘 박힘 박힘 박힘. KeypointReport 의 `data` 의 0.5 미만 비율 < 5% (현 신규 6 = 13-35%).
+  5. **비용/지연 budget**: 1회 분석당 Gemini Vision API 비용 < $0.20 (belle "비용 신경X but 효율 잡기" 박힘). 분석 완료 latency 추가 < 15s.
+
+**Plans**: TBD
+**UI hint**: no (백엔드 통합 위주, UI 변경 X — 결과 화면의 멘트/finding/keypoint 만 풍부화)
+
 ## v1.5 (Planned, 별도 마일스톤)
 
 v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (belle/강사 협업).

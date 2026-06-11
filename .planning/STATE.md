@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: complete
-stopped_at: Phase 9 VERIFIED — 4/4 SC + 13/13 D-09-* PASS, 550 backend tests + 0 typecheck errors
-last_updated: "2026-06-10T05:00:00.000Z"
-last_activity: 2026-06-10
+status: executing
+stopped_at: Phase 12 §12 B+C+D fix 완료 (UAT 2차 finding 3건) + reference keypoint 5영상 재추출 + Firestore 갱신. belle UAT 3차 (TestFlight Build 13) pending.
+last_updated: "2026-06-11T05:25:00.000Z"
+last_activity: 2026-06-11
 progress:
-  total_phases: 10
-  completed_phases: 9
-  total_plans: 47
-  completed_plans: 47
-  percent: 90
+  total_phases: 18
+  completed_phases: 7
+  total_plans: 55
+  completed_plans: 44
+  percent: 39
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 9 close-out — ForceDirectionPattern 추론 + Top-3 finding 카드 E2E 완료 (2026-06-10)
+**Current focus:** Phase 12 — realmeasurement-keypoint
 
 ## Current Position
 
-Phase: 9 (ForceDirectionPattern + 실패 원인 후보 3개) — **VERIFIED PASS** (2026-06-10)
-Plan: 2 of 2 complete (Wave 0 schema lockstep + Wave 1 inference body + pipeline wiring)
+Phase: 12 (realmeasurement-keypoint) — EXECUTING
+Plan: 1 of 4
 Verification: 4/4 SC + 13/13 D-09-* VERIFIED (see 09-VERIFICATION.md). 550 backend tests + 0 typecheck errors. 0 regression on Phase 6/7/8/8.1.
 Next: belle 박제 검수 (18 canned 본문 + jointHint 부위 어휘 + pelvis_drop 임계 Assumption A1) + optional Codex cross-AI plan-review. 그 후 belle chain candidates = Phase 10 (SAFE-01 위험 플래그) / Phase 11 (CoachCommentHook + Gemini 자연어 풍부화 — Phase 9 finding consume) / Phase 8.1 Wave 2 (production sweep).
-Status: Phase complete — verified, awaiting next-phase routing decision.
+Status: Executing Phase 12
 
 ### Plan 09-01 close-out (2026-06-10)
 
@@ -53,7 +53,6 @@ Status: Phase complete — verified, awaiting next-phase routing decision.
 | 회귀 게이트 | phase09 + pipeline_phase9 131 PASS + phase06/07/08/08.1 408 / 1 skipped (regression 0) + tsc clean + 금지 표현 grep gate 10/10 PASS + AST severity guard `axis*.severity` 0 occurrence |
 | Verification | 09-VERIFICATION.md — 4/4 SC VERIFIED + 13/13 D-09-* VERIFIED. Wave 2 production sweep OUT (D-09-E2 — Phase 11/15 자연 검증). |
 | Follow-ups | belle 박제 검수 (18 canned + jointHint + pelvis_drop A1) + optional Codex cross-AI plan-review. |
-
 
 ### Plan 08.1-01 close-out (2026-06-09)
 
@@ -210,7 +209,30 @@ Phase 2 → 6 (체형 정규화) → 7 (차이 분류) → 12 (키포인트 오�
 2. **angle 차원 동작별 IPSF 정의 각도** — 어깨 90° / 엉덩이 110° 등 동작별 fixture 또는 LLM 매핑
 3. **시뮬 segments 일부 시나리오 X** — mode 3 first 정답 (이전 영상 없음), 그 외는 실 분석에서 backend `assemble.build_segments` 자동 생성
 
-Last activity: 2026-06-10
+### Phase 12 §12 UAT 2차 finding fix (2026-06-11)
+
+belle iOS UAT 2차 (TestFlight Build 12) 에서 4 finding 박혀있음. 3건 (B/C/D) Phase 12 내 해소, 1건 (A 좌/우 mirror) 은 Phase 13 신규 plan 분리.
+
+| 항목 | 결과 |
+|---|---|
+| 12-B frame_extractor 마지막 frame | `4156a89` — last_resized 추적 + step 모듈로 미달 시 강제 추가. 5 단위 테스트 (`backend/tests/test_frame_extractor_last_frame.py`) PASS — remainder skip / no-dup / clip / empty / UAT 17s 시나리오 모두 검증 |
+| 12-D KeypointOverlay 저신뢰 keypoint | `62270f2` — `KEYPOINT_LOW_CONFIDENCE_THRESHOLD = 0.5`. `KeypointReport.confidence` flat array read, `KeypointPoint` type 신설. visibility<0.5 → estimateGray (#B0B0B0) + dashed 4/W + opacity 0.7. 강조 분기 (highlightedJoints) 보다 우선. floating angle label 도 저신뢰 joint 표시 X (각도 자체 불신뢰). TS PASS |
+| 12-C VideoCompare 두 영상 timeline 분리 | `ddbe074` — left/right currentTime + duration 4 state 분리. progress bar 단일 유지 (짧은 쪽 기준). 시간 라벨 두 영상 동시 표시 `{leftLabel} 0:01 / 0:17 · {rightLabel} 0:01 / 0:16`. TS PASS |
+| reference keypoint 5영상 재추출 | Pod (RTX 4090 z3fy82pjgu4mga) extract_reference_keypoint_reports.py 5/5 OK (453.9s) → /workspace/reference-keypoint-reports.json (1.0M) → seed-reference-motions.mjs --keypoint-reports 로 Firestore reference/{motionId}.referenceKeypointReport 5건 갱신 (presigned URL 도 7일 연장, 만료 2026-06-18) |
+| deferred-items.md §12 박제 갱신 | `c3dca7c` — B/C/D 완료 + 우선순위 진행 상태 갱신 |
+| pod setup_pod_full.sh OpenMMLab CDN 만료 패치 | `7f81eb2` — RTMW HF/S3 mirror, YOLOX HF mirror, RUNPOD_AUTH_TOKEN auto-fetch, uvicorn __pycache__ 청소. 다음 Pod 셋업 시 함정 20-27 자동 회피 |
+
+**Pod 인프라 결정 (2026-06-11)**:
+- Network Volume EU-RO-1 (`sunity-motion-vol`, 31GB, $2.17/월) 생성. 단 RunPod Community Cloud GPU 호스트가 Network Volume mount 미지원 → ephemeral 진행. Volume 은 향후 Secure Cloud 전환 또는 mmpose 작업 시 재평가.
+- mmcv CUDA 빌드 40분+ stall → fast-path 셋업 (boto3 / imageio / rtmlib / onnxruntime-gpu 1.19.2 / RTMW S3 백업 / YOLOX HF mirror / Firebase SA SSM) 으로 우회. extract 스크립트엔 mmpose 불필요.
+
+**다음 단계**:
+1. belle EAS Build profile production → TestFlight Build 13 빌드 + submit
+2. belle UAT 3차 (12-A 외 3 finding 해소 검증)
+3. UAT 3차 PASS → Phase 12 전체 close-out + ROADMAP `[x]` 표기
+4. Phase 13 신규 plan (좌/우 mirror correction post-process)
+
+Last activity: 2026-06-11
 
 **시퀀스 (belle 2026-06-07 결정 — B → C → A)**:
 

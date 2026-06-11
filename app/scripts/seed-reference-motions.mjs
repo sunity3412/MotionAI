@@ -268,6 +268,165 @@ const MOTIONS = [
       { joint: 'right_knee', weight: 0.07, note: '다리 hook + 펼침 시 무릎 신전. 굽으면 라인이 흐려져 자세가 흐트러짐' },
     ],
   },
+  // ── 정은지 추가 영상 6 motion (2026-06-12 belle 결정, claude.ai + Gemini Vision 매칭) ──
+  // 학원 통용명 그대로 사용. IPSF 정식 등재 strict 매칭 X — 분기 2 (정은지 reference 측정값 = 채점 기준).
+  // CROSS-CHECK: .planning/research/new-motions-ipsf-matching-2026-06-12/CROSS-CHECK.md
+  {
+    motionId: 'ref-kip-up',
+    name: '킵업',
+    level: 'basic',
+    entryType: 'swing_entry',
+    entryDescription:
+      '폴 옆에서 양손 그립 셋업 후 점프 이륙. 다리 사이드 스윕 후방 통과 시 와이드 스트래들로 진입.',
+    description:
+      '폴에 양손으로 매달려 다리 반동으로 회전을 만드는 동적 entry 스킬. 인버전 (머리 골반 아래) 없이 머리 위·발 아래 자세 유지하며 약 3-3.5회전 (1080-1260°). 콤보 연결기 또는 코어/팔 근력 트레이닝용. IPSF 미등재 dynamic transition.',
+    clipRange: {
+      prepStartS: 0,
+      execStartS: 1,
+      execPeakS: 4,
+      landEndS: 7.2,
+      recommendedRecordS: 10,
+    },
+    checkpoints: [
+      { joint: 'left_shoulder', weight: 0.2, note: '풀업 그립 측 견갑 안정성. 어깨 처지면 다리 스윙 추진력 손실' },
+      { joint: 'right_shoulder', weight: 0.2, note: '푸시 그립 측 견갑 안정성. 보조 지지 약하면 회전축 흔들림' },
+      { joint: 'left_hip', weight: 0.15, note: '스윙 추진력 핵심. 후방 통과 시 와이드 스트래들 폭 결정' },
+      { joint: 'right_hip', weight: 0.15, note: '좌우 대칭 스트래들. 비대칭이면 회전이 한쪽으로 기울어짐' },
+      { joint: 'left_knee', weight: 0.1, note: '스윙 시 무릎 신전. 굽으면 추진 모멘트 작아짐' },
+      { joint: 'right_knee', weight: 0.1, note: '좌우 무릎 신전 대칭. 짧아지면 다리 라인 흐트러짐' },
+      { joint: 'spine_mid', weight: 0.1, note: '상체 후굴 + 다리 모음 사이클. 흉추 안 열리면 회전이 끊김' },
+    ],
+  },
+  {
+    motionId: 'ref-peter-pan',
+    name: '피터팬',
+    level: 'basic',
+    entryType: 'swing_entry',
+    entryDescription:
+      '폴 옆에서 상하 스플릿 그립(위쪽 손 head 위, 아래 손 가슴~골반 높이) 셋업 후 공중에 매달려 셰이프 정리.',
+    description:
+      '상하 스플릿 그립으로 매달린 채 한 다리 무릎을 폴에 hook, 다른 다리는 뒤로 길게 펴는 스태그(stag) 셰이프. 약 4회전 연속 hold-in-rotation. 하늘을 나는 피터팬 실루엣 닮음. 한국/세계 학원 통용 기초 스핀. IPSF 미등재.',
+    clipRange: {
+      prepStartS: 0,
+      execStartS: 0.7,
+      execPeakS: 4,
+      landEndS: 7.4,
+      recommendedRecordS: 10,
+    },
+    checkpoints: [
+      { joint: 'left_shoulder', weight: 0.2, note: '위쪽 그립 측 견갑. 회전 중 어깨 떨어지면 셰이프 라인 무너짐' },
+      { joint: 'right_shoulder', weight: 0.15, note: '아래 보조 그립. 두 손 거리 유지 안 되면 셰이프 불안정' },
+      { joint: 'left_hip', weight: 0.2, note: '폴 hook 측 골반 외전. 깊게 접혀야 hook 안정' },
+      { joint: 'right_hip', weight: 0.2, note: '뒤로 펴는 자유 다리 측 고관절 신전. 신전 부족하면 피터팬 실루엣 안 나옴' },
+      { joint: 'left_knee', weight: 0.1, note: 'hook 측 무릎 굽힘 각도. 너무 펴면 hook 풀림' },
+      { joint: 'right_knee', weight: 0.1, note: '자유 다리 무릎 신전. 굽으면 라인 짧아짐' },
+      { joint: 'spine_mid', weight: 0.05, note: '척추 정렬. 측면 plank 라인 유지' },
+    ],
+  },
+  {
+    motionId: 'ref-power-spin',
+    name: '파워스핀',
+    level: 'intermediate',
+    entryType: 'swing_entry',
+    entryDescription:
+      '폴 옆에서 양손 스플릿 그립(오른손 위·왼손 아래) 셋업 후 푸시오프로 공중 진입. 다리 턱(tuck)으로 회전력 만들기.',
+    description:
+      '스플릿 그립으로 양손 매달려 다리를 턱↔extension 으로 반복(펌핑)하며 약 3.5-4회전. 후반(약 6.6s 이후)에 오른다리 폴 따라 수직 위로, 왼다리 아래로 펴는 vertical split 자세로 약 2.5회전 hold. 강한 원심력을 버티는 split 그립 dynamic 회전. IPSF 미등재.',
+    clipRange: {
+      prepStartS: 0,
+      execStartS: 0.5,
+      execPeakS: 7,
+      landEndS: 9.9,
+      recommendedRecordS: 12,
+    },
+    checkpoints: [
+      { joint: 'left_shoulder', weight: 0.2, note: '아래 푸시 그립 측 견갑. 강한 원심력을 버티는 핵심 — 무너지면 split 라인 불안정' },
+      { joint: 'right_shoulder', weight: 0.2, note: '위쪽 풀업 그립 측 견갑. 회전축 기준 — 떨어지면 vertical split 한쪽으로 기울어짐' },
+      { joint: 'left_hip', weight: 0.15, note: '아래 다리 측 고관절. 펌핑 시 신전→굴곡 부드러움이 회전 모멘텀 결정' },
+      { joint: 'right_hip', weight: 0.15, note: '위 다리(폴 따라 수직) 측 고관절. 후반 split 의 vertical alignment' },
+      { joint: 'left_knee', weight: 0.1, note: '아래 다리 무릎 신전. 굽으면 split 라인 짧아짐' },
+      { joint: 'right_knee', weight: 0.1, note: '위 다리 무릎 신전. 굽으면 수직 라인 무너짐' },
+      { joint: 'spine_mid', weight: 0.1, note: '몸통 정렬. 펌핑 ↔ split 전환 사이 흉추 안정성' },
+    ],
+  },
+  {
+    motionId: 'ref-elbow-twist-sister',
+    name: '엘보 트위스트 시스터',
+    level: 'advanced',
+    entryType: 'lift_entry',
+    entryDescription:
+      '공중에서 양손 그립 + 다리 셰이프 변화로 진입. 1.5~5.5s 사이 다리를 폴에 hook 하며 상체 뒤로 젖혀 점진적 도립.',
+    description:
+      '인버트 + 무릎 hook + 엘보 백 그립 + 윗다리 수직 익스텐션의 결합. 5.5~9.5s 빌드업(프리암 → 엘보 그립 → 다리 익스텐션) 후 9.5~17.5s 메인 hold 약 8초 — 도립 + 백벤드 + 트위스트 + 수직 익스텐션 유지하며 회전 지속. 17.5s 이후 릴리즈→ 직립 복귀. IPSF 미등재 (Inverted Inner Thigh Hook/Scorpio + Elbow back grip + split 결합 변형).',
+    clipRange: {
+      prepStartS: 0,
+      execStartS: 5.5,
+      execPeakS: 13,
+      landEndS: 21.9,
+      recommendedRecordS: 25,
+    },
+    checkpoints: [
+      { joint: 'left_shoulder', weight: 0.15, note: '엘보 백 그립 측 견갑. 등 뒤로 돌린 팔의 안정성 — hold 8초 핵심' },
+      { joint: 'right_shoulder', weight: 0.15, note: '폴 그립 측 견갑. 도립+트위스트 유지의 주 지지점' },
+      { joint: 'left_hip', weight: 0.15, note: '무릎 hook 측 고관절. 도립 자세 잠금' },
+      { joint: 'right_hip', weight: 0.2, note: '윗다리(수직 익스텐션) 측 고관절 신전. Pencil/Vertical 라인 결정' },
+      { joint: 'left_knee', weight: 0.1, note: 'hook 무릎 굽힘 깊이. 풀리면 도립 자세 무너짐' },
+      { joint: 'right_knee', weight: 0.15, note: '윗다리 무릎 완전 신전. 굽으면 vertical 라인 손상 — 채점 핵심' },
+      { joint: 'spine_mid', weight: 0.1, note: '백벤드 곡률. 흉추까지 열려야 트위스트 깊이 살아남' },
+    ],
+  },
+  {
+    motionId: 'ref-pdshape',
+    name: 'pdshape',
+    level: 'advanced',
+    entryType: 'lift_entry',
+    entryDescription:
+      '영상 시작 시점에 이미 인버전 + 회전 상태 (지면→공중 entry 영상 밖). 다리 셰이프 정리(턱 → 신전 → 스트래들 경유)로 hold 진입.',
+    description:
+      '정식 명칭 없는 연계 동작 — 학원에서 "pdshape" 로 통용. 0~3.5s 인버전 셰이프 정리 후 3.5~11.5s 메인 클로즈드 셰이프 hold 약 8초 — 한 다리 hip-knee hook + 다른 다리 굽힘(folded) + 양손 폴 + 비대칭 inverted hold + 회전 유지. 11.5~13.7s 오픈 레그 라인 변형 (시저→수평 신전). 12회전+ 등속. IPSF 미등재 (Inverted Torso Hook/Butterfly + Scorpio variation 결합).',
+    clipRange: {
+      prepStartS: 0,
+      execStartS: 3.5,
+      execPeakS: 8,
+      landEndS: 15,
+      recommendedRecordS: 18,
+    },
+    checkpoints: [
+      { joint: 'left_shoulder', weight: 0.2, note: '한쪽 폴 그립 측 견갑. 메인 hold 8초 동안 비대칭 체중 받치는 핵심' },
+      { joint: 'right_shoulder', weight: 0.15, note: '보조 폴 그립 측 견갑. 비대칭 안정성' },
+      { joint: 'left_hip', weight: 0.2, note: 'hook 측 고관절. 한 다리 hook 깊이 — 클로즈드 셰이프 잠금' },
+      { joint: 'right_hip', weight: 0.15, note: '굽힌 다리 측 고관절. folded position 의 좌우 균형' },
+      { joint: 'left_knee', weight: 0.1, note: 'hook 측 무릎. 풀리면 hold 무너짐' },
+      { joint: 'right_knee', weight: 0.1, note: '굽힌 다리 무릎 각도. 너무 펴거나 굽으면 셰이프 흐트러짐' },
+      { joint: 'spine_mid', weight: 0.1, note: '척추 비대칭 정렬. 회전 중 라인 변형 (오픈 레그) 시 흉추 안정성' },
+    ],
+  },
+  {
+    motionId: 'ref-combo',
+    name: '콤보',
+    level: 'advanced',
+    entryType: 'swing_entry',
+    entryDescription:
+      '스탠딩 준비(0~1.5s) → 워크어라운드(팔 벌려 진입) → 스핀 콤보 시작. 약 62초 multi-segment 연계.',
+    description:
+      '여러 IPSF 등재/미등재 기술을 끊김 없이 연결한 콤보. 10 segment 박힘: Spin sequence(1.5~13.5s, 5-6개 다리 셰이프 변경) → Climb(13.5~18.5s) → Inverted entry V/chopper(18.5~20.5s) → Leg Hang hold + 익스텐션(28~37.5s, 33s 아웃사이드 레그 행 명확) → Butterfly 계열(37.5~44s, 익스텐디드 버터플라이) → 인버티드 셰이프 전환(44~53s) → Finale display(53~57.5s) → Dismount(57.5~62s). IPSF Dynamic Combinations 카테고리 + Outside Leg Hang + Butterfly 등 등재 카테고리 mix.',
+    clipRange: {
+      prepStartS: 0,
+      execStartS: 1.5,
+      execPeakS: 33,
+      landEndS: 57.5,
+      recommendedRecordS: 65,
+    },
+    checkpoints: [
+      { joint: 'left_shoulder', weight: 0.15, note: '주 그립 측 견갑. 62초 multi-segment 전체에 걸친 지지점. 클라임~버터플라이 전환 핵심' },
+      { joint: 'right_shoulder', weight: 0.15, note: '보조 그립 측 견갑. 다양한 그립 전환(스플릿/엘보/하이 그립) 안정성' },
+      { joint: 'left_hip', weight: 0.15, note: '레그 행 + 버터플라이 + 셰이프 전환의 좌측 골반. 다양한 hook 깊이 변동 큰 구간' },
+      { joint: 'right_hip', weight: 0.15, note: '우측 골반. 좌우 다리 교대 hook 시 비대칭 변화 큼' },
+      { joint: 'left_knee', weight: 0.1, note: '훅/익스텐션 사이 무릎 변화량 큰 segment 마다 신전' },
+      { joint: 'right_knee', weight: 0.1, note: '우측 무릎. 다리 교대 시 풀림→hook 부드러움' },
+      { joint: 'spine_mid', weight: 0.2, note: '척추 정렬. 직립→인버트→백벤드 등 다양한 정렬 변화 — 콤보 흐름의 핵심 신호' },
+    ],
+  },
 ];
 
 async function main() {

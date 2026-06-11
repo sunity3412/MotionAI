@@ -31,6 +31,10 @@ import type { KeypointName, KeypointReport } from '../types/analysis';
 // D-12-C3 — Phase 9 IPSF tolerance 20° 와 분리. UX 시각 강조 임계 (Wave 2 가 소비).
 export const KEYPOINT_DELTA_HIGHLIGHT_DEG = 10.0;
 
+// 12-deferred §12-D — confidence 미만이면 회색 stroke + dashed line.
+// 사용자 혼동 방지 (occluded keypoint 가 정상과 같은 표시였던 finding 박제).
+export const KEYPOINT_LOW_CONFIDENCE_THRESHOLD = 0.5;
+
 // Wave 2 (Plan 12-03 T1) — KeypointName → JointScore.key 매핑.
 // 손은 시각 keypoint, elbow 는 kismam angle key (delta 산출 source).
 // 어깨/엉덩이/무릎 = 1:1, 손 = elbow 로 reuse (v1, wrist 신설 v2).
@@ -82,25 +86,31 @@ export type KeypointOverlayProps = {
 };
 
 type Point = { x: number; y: number };
+type KeypointPoint = Point & { confidence: number };
 
-// frame=0 (또는 prop frameIndex) 의 8 keypoint 좌표 reshape.
+// frame=0 (또는 prop frameIndex) 의 8 keypoint 좌표 + confidence reshape.
 // flat array 전체 reshape 회피 — 한 frame 만 slice (T × J × 2 → J point).
+// confidence flat array (T × J) 도 동일 frame slice 동시 read (12-deferred §12-D).
 function readFramePositions(
   report: KeypointReport,
   frameIdx: number,
-): Map<KeypointName, Point> | null {
+): Map<KeypointName, KeypointPoint> | null {
   const T = report.frames;
   const J = report.joints.length;
   if (T <= 0 || J <= 0) return null;
   const idx = Math.min(Math.max(frameIdx, 0), T - 1);
   const base = idx * J * 2;
+  const confBase = idx * J;
   if (report.data.length < base + J * 2) return null;
-  const map = new Map<KeypointName, Point>();
+  const hasConf = report.confidence.length >= confBase + J;
+  const map = new Map<KeypointName, KeypointPoint>();
   for (let j = 0; j < J; j += 1) {
     const x = report.data[base + j * 2];
     const y = report.data[base + j * 2 + 1];
     if (typeof x !== 'number' || typeof y !== 'number') continue;
-    map.set(report.joints[j], { x, y });
+    // confidence 누락 frame 은 1.0 (강조 분기 영향 X) 대신 high-conf 가정.
+    const c = hasConf ? report.confidence[confBase + j] : 1.0;
+    map.set(report.joints[j], { x, y, confidence: typeof c === 'number' ? c : 1.0 });
   }
   return map;
 }
@@ -264,12 +274,26 @@ export function KeypointOverlay({
             );
           })}
 
-        {/* Bones (8). 강조된 joint 한쪽이라도 포함되면 brand. */}
+        {/* Bones (8). 12-deferred §12-D 분기 우선순위:
+            1. 저신뢰 (endpoint 한쪽이라도 conf < 0.5) → estimateGray + dashed
+            2. 강조 (highlighted joint 포함) → brand
+            3. 기본 → 흰색 */}
         {BONES.map(([a, b], i) => {
           const pa = positions.get(a);
           const pb = positions.get(b);
           if (!pa || !pb) return null;
+          const isLowConf =
+            pa.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD ||
+            pb.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD;
           const isHi = highlightedJoints.has(a) || highlightedJoints.has(b);
+          const stroke = isLowConf
+            ? colors.estimateGray
+            : isHi
+              ? colors.brand
+              : '#FFFFFF';
+          const strokeWidth = isHi && !isLowConf ? STROKE_HI : STROKE_BASE;
+          // dasharray viewBox 1×1 normalize → 짧은 dash + gap.
+          const dashArray = isLowConf ? `${4 / W} ${4 / W}` : undefined;
           return (
             <Line
               key={`bone-${i}`}
@@ -277,25 +301,38 @@ export function KeypointOverlay({
               y1={pa.y}
               x2={pb.x}
               y2={pb.y}
-              stroke={isHi ? colors.brand : '#FFFFFF'}
-              strokeWidth={isHi ? STROKE_HI : STROKE_BASE}
-              strokeOpacity={0.95}
+              stroke={stroke}
+              strokeWidth={strokeWidth}
+              strokeOpacity={isLowConf ? 0.7 : 0.95}
               strokeLinecap="round"
+              strokeDasharray={dashArray}
             />
           );
         })}
 
-        {/* 8 keypoint circles. */}
+        {/* 8 keypoint circles. 저신뢰 keypoint 는 estimateGray (12-deferred §12-D). */}
         {Array.from(positions.entries()).map(([joint, p]) => {
+          const isLowConf = p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD;
           const isHi = highlightedJoints.has(joint);
+          const fill = isLowConf
+            ? colors.estimateGray
+            : isHi
+              ? colors.brand
+              : '#FFFFFF';
+          const stroke = isLowConf
+            ? colors.estimateGray
+            : isHi
+              ? colors.brand
+              : 'rgba(0,0,0,0.6)';
           return (
             <Circle
               key={`kp-${joint}`}
               cx={p.x}
               cy={p.y}
               r={RADIUS}
-              fill={isHi ? colors.brand : '#FFFFFF'}
-              stroke={isHi ? colors.brand : 'rgba(0,0,0,0.6)'}
+              fill={fill}
+              fillOpacity={isLowConf ? 0.7 : 1.0}
+              stroke={stroke}
               strokeWidth={STROKE_CIRCLE_OUTLINE}
             />
           );
@@ -310,6 +347,8 @@ export function KeypointOverlay({
             const angleKey = JOINT_KEY_TO_ANGLE_KEY[joint];
             const pair = angleKey ? jointAngles?.[angleKey] : undefined;
             if (!p || !pair || pair.current == null) return null;
+            // 12-deferred §12-D — 저신뢰 keypoint 의 각도는 불신뢰 → label 숨김.
+            if (p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD) return null;
             const labelW = 48 / W;
             const labelH = 18 / H;
             // keypoint 우측 +12pt offset.

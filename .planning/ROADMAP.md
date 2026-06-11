@@ -459,8 +459,15 @@ Plans:
   4. **D. 관절 추출 보강**: RTMW 가 낮은 confidence (< 0.5) 박힘 자세 (inverted / twist / 폐색) 의 keypoint 박힘 박힘 박힘 박힘 박힘. KeypointReport 의 `data` 의 0.5 미만 비율 < 5% (현 신규 6 = 13-35%).
   5. **비용/지연 budget**: 1회 분석당 Gemini Vision API 비용 < $0.20 (belle "비용 신경X but 효율 잡기" 박힘). 분석 완료 latency 추가 < 15s.
 
-**Plans**: TBD
-**UI hint**: no (백엔드 통합 위주, UI 변경 X — 결과 화면의 멘트/finding/keypoint 만 풍부화)
+**Plans**: 7 plans
+  - [ ] 17-01-PLAN.md — 공통 Gemini client + 4 영역 Pydantic schemas + 객관성 guardrail (G1)
+  - [ ] 17-02-PLAN.md — 영역 C Finding 인식 (Flash) + Pod _process wave 1 + G4 정은지 occlusion FP 가드
+  - [ ] 17-03-PLAN.md — 영역 D Keypoint 보강 (Pro, RTMW < 0.5 conf frame) + G5 좌표 환각 가드
+  - [ ] 17-04-PLAN.md — 영역 B 코칭 멘트 (Pro Vision) + Cerebras dual-track + 강사 보조 톤 schema 강제
+  - [ ] 17-05-PLAN.md — 영역 A Reference 자동 등록 (신규 Lambda + SAM + 분기 1/2/3 라우팅 + G3 화이트리스트 가드)
+  - [ ] 17-06-PLAN.md — Eval + Guardrail wiring (Phoenix self-host + Promptfoo + LLM judge + smart sampling + 30-example dataset)
+  - [ ] 17-07-PLAN.md — 신규 6 motion 재활성화 (RTMW engine swap + 영역 A endpoint 자동화 + belle 검수 — UAT 2026-06-12 F4 finding 해소)
+**UI hint**: no
 
 ## v1.5 (Planned, 별도 마일스톤)
 

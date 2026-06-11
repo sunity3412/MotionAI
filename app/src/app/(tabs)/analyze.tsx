@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { useMyAnalyses } from '../../lib/userAnalyses';
@@ -53,6 +53,15 @@ export default function Analyze() {
   const [error, setError] = useState<string | null>(null);
   const [permissionBlocked, setPermissionBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // belle UAT 2026-06-12 F1 — 홈 챌린지 카드에서 진입 시 모드 선택 화면이 떴음.
+  // useState initial 만으로는 mount 후 referenceMotionId 가 늦게 들어오거나
+  // 탭 재진입 시 못 잡음. param 변경 시 자동으로 mode1 설정.
+  useEffect(() => {
+    if (referenceMotionId && mode === null) {
+      setMode('mode1');
+    }
+  }, [referenceMotionId, mode]);
 
   const backToModeSelect = () => {
     setMode(null);

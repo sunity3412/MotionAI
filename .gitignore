@@ -19,3 +19,19 @@ firebase-service-account.json
 # scp 로 Pod 에 직접 배치 (runpod_inference/README.md "MotionBERT 가중치 scp 절차" 참조).
 best_epoch.bin
 **/FT_MB_lite_MB_ft_h36m_global_lite/
+
+# Ad-hoc diagnostic scripts (Phase 17 development) — gitignored. 향후 재사용 시 정식 파일로 rename.
+app/scripts/_*.mjs
+
+# GSD framework + tooling — 로컬 환경 박힘 박힘 박힘. 다른 머신에서 다시 install.
+.claude/
+.codex/
+.planning/WAITING.json
+
+# Reference keypoint/angles JSON — Pod 추출 결과 박힘 박힘. Firestore seed 후 git 추적 X (재추출 가능).
+reference-keypoint-reports*.json
+new6-angles.json
+new6-body-profiles.json
+
+# Diagnostic visualization scripts (Pod 박힘 박힘 / debug 용도)
+app/scripts/_viz_*.py

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 12 close-out (UAT 7차 PASS — 1080p 영상 압축으로 stall 해소). 다음 = 신규 6 motion reference 확장 (A) + VideoCompare scrub 컨트롤 (B) OTA push 준비.
-last_updated: "2026-06-12T13:15:00.000Z"
+stopped_at: 2026-06-12 22:00 — 일정 끝. A (신규 6 reference 확장) + B (VideoCompare scrub) OTA push 완료. F1 (홈 챌린지 mode skip) OTA. F4 (신규 6 mode1 분석 실패) root cause = NLF↔RTMW 호환 깨짐 가설 + 신규 6 isActive=false 임시 차단. Phase 17 (Gemini Vision Integration) AI-SPEC + RESEARCH + PLAN(7 waves) + 내 PLAN-CHECK 박힘. 외부 AI plan-review 대기. 내일 시작 = 외부 review 통합 후 /gsd-execute-phase 17 또는 Phase 13 (좌/우 mirror).
+last_updated: "2026-06-12T22:00:00.000Z"
 last_activity: 2026-06-12
 progress:
   total_phases: 18

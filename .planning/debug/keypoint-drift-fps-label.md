@@ -1,6 +1,6 @@
 ---
 slug: keypoint-drift-fps-label
-status: root_cause_confirmed
+status: fixed
 trigger: belle UAT 3차 (TestFlight Build 13) — keypoint 가 사람을 안 따라가고 영상 중앙에 들러붙음. 영상 끝부분에 keypoint 가 종료 자세로 정지. 사용자 영상의 keypoint 가 정은지 영상 자세와 유사한 모양으로 표시.
 created: 2026-06-11
 updated: 2026-06-11
@@ -103,13 +103,13 @@ test: Fix A 적용 후 belle 영상 + reference 양쪽에서 t=0 / 중간 / 끝 
 
 expecting: Fix A 적용 후 drift 0 — frame_index = floor(currentTime × frames/duration) 이므로 currentTime=duration 시점에 idx=frames-1 정확히 도달
 
-next_action: Fix A 코드 적용 → typecheck → commit/push → EAS Build 14 → submit → belle UAT 4차
+next_action: belle TestFlight Build 14 UAT 4차 — 영상 끝까지 keypoint 가 사람 따라가는지 확인
 
-reasoning_checkpoint: fable 진단 + Pod raw 시각화 + 6영상 전수 ffprobe 검증 모두 정합. 가설 5/6 다 기각. 다른 가능성 추가 탐색 불요.
+reasoning_checkpoint: fable 진단 + Pod raw 시각화 + 6영상 전수 ffprobe 검증 모두 정합. 가설 5/6 다 기각. Fix A 코드 반영 + EAS Build 14 submit 완료.
 
 ## Files involved
 
-- `app/src/components/KeypointOverlay.tsx` (Fix A 적용 대상)
+- `app/src/components/KeypointOverlay.tsx` (Fix A 적용 완료, commit 15a7f21)
 - `backend/shared/python/sunity_shared/analysis/frame_extractor.py` (Fix B 대상, 후속)
 - `backend/functions/pipeline/app.py` (Fix B 대상, 후속)
 - `backend/scripts/extract_reference_keypoint_reports.py` (Fix B 대상, 후속)
@@ -122,10 +122,14 @@ reasoning_checkpoint: fable 진단 + Pod raw 시각화 + 6영상 전수 ffprobe 
 - timestamp: 2026-06-11T06:15:00Z — 우리가 우회 시도 2: YOLOX 식물 detect / 거울 가설 → Pod raw 시각화 + belle 의 "거울 없음" 박제로 기각
 - timestamp: 2026-06-11T06:30:00Z — fable review 도착: timing drift / fps 라벨 불일치 진단. 6영상 전수 검증 완료
 - timestamp: 2026-06-11T06:35:00Z — Pod raw 시각화 PNG 확인 → keypoint 좌표 자체는 사람 위 정확 (fable 진단 정합)
+- timestamp: 2026-06-11T07:15:00Z — Fix A 적용 (KeypointOverlay frames/duration → effective fps). typecheck PASS. commit 15a7f21 → origin/main push. EAS Build 14 (b7c73d0e-3563-40df-b483-ffe0c8eae3ed) production iOS auto-submit 트리거. ASC submission d8772313-c8c2-4974-b4d9-b52ab047cf71.
 
-## Resolution (pending Fix A 적용 + UAT 검증)
+## Resolution
 
 root_cause: KeypointReport.fps 라벨 = target_fps (요청값) ≠ 실효 fps (src_fps / step). KeypointOverlay 가 라벨로 frame index 산출 → 시간 진행할수록 drift.
 fix: KeypointOverlay 가 frames / player.duration 으로 실효 fps 직접 산출 (Fix A). 백엔드 라벨 정직화는 Fix B 별도.
-verification: belle UAT 4차 — TestFlight Build 14 에서 keypoint 가 영상 끝까지 사람 따라가는지 확인.
-files_changed: (pending) app/src/components/KeypointOverlay.tsx
+verification: pending — belle TestFlight Build 14 UAT 4차 (영상 끝까지 keypoint 가 사람 따라가는지 확인).
+files_changed: app/src/components/KeypointOverlay.tsx
+commit: 15a7f21
+eas_build: b7c73d0e-3563-40df-b483-ffe0c8eae3ed (https://expo.dev/accounts/sunity3412/projects/sunity-ai-coach/builds/b7c73d0e-3563-40df-b483-ffe0c8eae3ed)
+asc_submission: d8772313-c8c2-4974-b4d9-b52ab047cf71 (https://expo.dev/accounts/sunity3412/projects/sunity-ai-coach/submissions/d8772313-c8c2-4974-b4d9-b52ab047cf71)

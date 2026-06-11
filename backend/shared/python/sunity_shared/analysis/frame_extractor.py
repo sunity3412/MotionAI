@@ -46,17 +46,36 @@ class FfmpegFrameExtractor:
             end_idx = None if end_s is None else int(end_s * src_fps)
 
             frames: list[np.ndarray] = []
+            # 12-deferred §12-B — 마지막 frame 강제 포함 추적.
+            # step 모듈로 떨어지지 않은 영상 끝의 잔여 frame 이 무시되면 결과 영상의
+            # 마지막 ~step/src_fps 초가 keypoint 정지 표시되는 finding (belle UAT 2차).
+            last_resized: np.ndarray | None = None
+            last_idx_seen = -1
+            last_idx_appended = -1
             for i, frame in enumerate(reader):
                 if i < start_idx:
                     continue
                 if end_idx is not None and i >= end_idx:
                     break
+                last_idx_seen = i
                 if (i - start_idx) % step != 0:
+                    rgb = np.asarray(frame)[:, :, :3]  # RGBA 입력 대비
+                    last_resized = self._resize(rgb)
                     continue
                 rgb = np.asarray(frame)[:, :, :3]  # RGBA 입력 대비
-                frames.append(self._resize(rgb))
+                last_resized = self._resize(rgb)
+                frames.append(last_resized)
+                last_idx_appended = i
         finally:
             reader.close()
+
+        # 12-deferred §12-B — loop 종료 후 마지막 frame 이 step 모듈로 미달이라
+        # 미포함된 경우 강제 추가. 영상 끝 keypoint 정지 finding 해소.
+        if (
+            last_resized is not None
+            and last_idx_seen > last_idx_appended
+        ):
+            frames.append(last_resized)
 
         if not frames:
             raise ValueError(f"프레임을 추출하지 못했습니다: {local_video_path}")

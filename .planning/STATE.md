@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 12 §12 B+C+D fix 완료 (UAT 2차 finding 3건) + reference keypoint 5영상 재추출 + Firestore 갱신. belle UAT 3차 (TestFlight Build 13) pending.
-last_updated: "2026-06-11T05:25:00.000Z"
-last_activity: 2026-06-11
+stopped_at: Phase 12 close-out (UAT 7차 PASS — 1080p 영상 압축으로 stall 해소). 다음 = 신규 6 motion reference 확장 (A) + VideoCompare scrub 컨트롤 (B) OTA push 준비.
+last_updated: "2026-06-12T13:15:00.000Z"
+last_activity: 2026-06-12
 progress:
   total_phases: 18
   completed_phases: 7

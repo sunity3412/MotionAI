@@ -9,8 +9,15 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
-import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type LayoutChangeEvent,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { colors, layout, radius, spacing, typography } from '../theme';
 
 type SlotProps = {
@@ -32,6 +39,14 @@ function fmtTime(s: number): string {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+// Phase 12 후속 B — currentTime 은 0.1s 정밀 표시. belle 요구: "0.0초 단위".
+function fmtTimeDecimal(s: number): string {
+  if (!isFinite(s) || s < 0) return '0:00.0';
+  const m = Math.floor(s / 60);
+  const sec = s - m * 60;
+  return `${m}:${sec.toFixed(1).padStart(4, '0')}`;
 }
 
 function VideoSlot({ label, url, player, overlay }: SlotProps) {
@@ -101,6 +116,12 @@ const DRIFT_CORRECT_THRESHOLD_S = 0.2;
 const REPLAY_SEEK_DELAY_MS = 200;
 const START_SYNC_THRESHOLD_S = 0.05;
 
+// Phase 12 후속 B — VideoCompare scrub/step 컨트롤.
+//   STEP_SECONDS: ← / → 버튼 한 번 = 0.1s 이동 (belle "0.0초 단위" 요구).
+//   THUMB_RADIUS: timeline 위 drag 손잡이 hit area 반지름. 트랙 두께 4 + 손잡이 12.
+const STEP_SECONDS = 0.1;
+const THUMB_DIAMETER = 14;
+
 export function VideoCompare({
   leftLabel,
   rightLabel,
@@ -147,6 +168,13 @@ export function VideoCompare({
   // 다음 보정 못 하는 사이 drift 1-2s 누적 finding. 매 tick drift > 0.2 면 즉시
   // 보정 (stutter 위험 < 동기화 우선). 보정 직후 100ms 안에 또 보정 진입은 fine.
 
+  // Phase 12 후속 B — scrub 중일 때 drift correction 우회. PanResponder 가
+  // 양쪽 currentTime 을 동일 값으로 setter — 다음 tick 의 drift > 0.2 가짜로
+  // 잡혀 또 seek 보내면 stutter. drag 중에는 보정 skip.
+  const scrubbingRef = useRef(false);
+  const wasPlayingBeforeScrubRef = useRef(false);
+  const trackWidthRef = useRef(0);
+
   useEffect(() => {
     if (!hasAny) return;
     const tick = () => {
@@ -168,10 +196,13 @@ export function VideoCompare({
       // UAT 4차 Finding 1 — drift 보정 (Build 16 iter-2).
       //   tick 100ms 마다 매번 drift > 0.2s 면 즉시 보정. hysteresis 없음.
       //   조건: 둘 다 재생 중 + 둘 다 native duration 산정됨 + 끝부분 진입 전.
+      //   Phase 12 후속 B — scrub 중에는 보정 skip (PanResponder 가 동시 seek 한
+      //   상태에서 또 보정 들어가면 stutter).
       if (
         hasLeft &&
         hasRight &&
         bothPlaying &&
+        !scrubbingRef.current &&
         dL > 0 &&
         dR > 0 &&
         shorter > 0 &&
@@ -286,6 +317,96 @@ export function VideoCompare({
     setRightCurrent(0);
   };
 
+  // Phase 12 후속 B — 양쪽 동시 seek (drift 0 보장). target 은 짧은 쪽 duration
+  // 으로 clamp — 비교 기준 길이를 넘어가지 않게.
+  const seekBoth = useCallback(
+    (target: number) => {
+      const dL = leftPlayer?.duration ?? 0;
+      const dR = rightPlayer?.duration ?? 0;
+      const maxAllowed =
+        hasLeft && hasRight && dL > 0 && dR > 0
+          ? Math.min(dL, dR)
+          : hasLeft
+            ? dL
+            : dR;
+      const safe = Math.max(0, Math.min(maxAllowed > 0 ? maxAllowed : target, target));
+      if (leftPlayer) leftPlayer.currentTime = safe;
+      if (rightPlayer) rightPlayer.currentTime = safe;
+      // 폴링은 다음 tick 까지 0~100ms 지연 — 즉시 라벨 갱신.
+      if (hasLeft) setLeftCurrent(safe);
+      if (hasRight) setRightCurrent(safe);
+    },
+    [hasLeft, hasRight, leftPlayer, rightPlayer],
+  );
+
+  // 0.1s 앞/뒤 step. 현재 시각 = 둘 중 작은 값 (slower side 가 진짜 sync 위치).
+  const stepBy = useCallback(
+    (deltaS: number) => {
+      if (!hasAny) return;
+      const base =
+        hasLeft && hasRight
+          ? Math.min(leftCurrent, rightCurrent)
+          : hasLeft
+            ? leftCurrent
+            : rightCurrent;
+      seekBoth(base + deltaS);
+    },
+    [hasAny, hasLeft, hasRight, leftCurrent, rightCurrent, seekBoth],
+  );
+
+  // PanResponder — timeline track drag = scrub. locationX 가 track element 내부
+  // 좌표를 반환 → trackWidthRef 측정값과 비율 계산. drag 중 재생 중이면 pause,
+  // release 시 wasPlaying 복원.
+  const onTrackLayout = useCallback((e: LayoutChangeEvent) => {
+    trackWidthRef.current = e.nativeEvent.layout.width;
+  }, []);
+
+  const scrubAtX = useCallback(
+    (x: number) => {
+      const w = trackWidthRef.current;
+      if (w <= 0 || duration <= 0) return;
+      const ratio = Math.max(0, Math.min(1, x / w));
+      seekBoth(duration * ratio);
+    },
+    [duration, seekBoth],
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => hasAny,
+        onMoveShouldSetPanResponder: () => hasAny,
+        onPanResponderGrant: (e) => {
+          scrubbingRef.current = true;
+          wasPlayingBeforeScrubRef.current = playing;
+          if (playing) {
+            leftPlayer?.pause();
+            rightPlayer?.pause();
+            setPlaying(false);
+          }
+          scrubAtX(e.nativeEvent.locationX);
+        },
+        onPanResponderMove: (e) => {
+          scrubAtX(e.nativeEvent.locationX);
+        },
+        onPanResponderRelease: () => {
+          scrubbingRef.current = false;
+          if (wasPlayingBeforeScrubRef.current) {
+            // seek 적용 후 play — 빠른 release 시 seek 미반영 stall 방지.
+            setTimeout(() => {
+              leftPlayer?.play();
+              rightPlayer?.play();
+              setPlaying(true);
+            }, REPLAY_SEEK_DELAY_MS);
+          }
+        },
+        onPanResponderTerminate: () => {
+          scrubbingRef.current = false;
+        },
+      }),
+    [hasAny, leftPlayer, playing, rightPlayer, scrubAtX],
+  );
+
   const progressPct =
     duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
 
@@ -321,21 +442,65 @@ export function VideoCompare({
               color={colors.textWhite}
             />
           </Pressable>
+          {/* Phase 12 후속 B — 0.1s 앞/뒤 step.
+              자세 미세 비교 시 1-frame 수준 정렬용. belle 요구: "0.0초 단위". */}
+          <Pressable
+            onPress={() => stepBy(-STEP_SECONDS)}
+            accessibilityRole="button"
+            accessibilityLabel="0.1초 뒤로"
+            hitSlop={8}
+            style={styles.stepBtn}
+          >
+            <Ionicons
+              name="play-back"
+              size={16}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+          <Pressable
+            onPress={() => stepBy(STEP_SECONDS)}
+            accessibilityRole="button"
+            accessibilityLabel="0.1초 앞으로"
+            hitSlop={8}
+            style={styles.stepBtn}
+          >
+            <Ionicons
+              name="play-forward"
+              size={16}
+              color={colors.textSecondary}
+            />
+          </Pressable>
           <View style={styles.timeline}>
-            <View style={styles.timelineTrack}>
+            {/* Phase 12 후속 B — track 자체가 PanResponder. drag 시 양쪽 동시
+                seek + scrubbingRef 가 drift 보정 우회 (tick 가드). */}
+            <View
+              style={styles.timelineTrack}
+              onLayout={onTrackLayout}
+              {...panResponder.panHandlers}
+            >
+              <View style={styles.timelineRail} pointerEvents="none" />
               <View
                 style={[styles.timelineFill, { width: `${progressPct}%` }]}
+                pointerEvents="none"
+              />
+              <View
+                style={[
+                  styles.timelineThumb,
+                  { left: `${progressPct}%` },
+                ]}
+                pointerEvents="none"
               />
             </View>
             {/* 12-deferred §12-C — 두 영상 timeline 분리 표시.
-                progress bar 는 단일 (짧은 쪽 기준), 시간 라벨은 좌·우 분리. */}
+                progress bar 는 단일 (짧은 쪽 기준), 시간 라벨은 좌·우 분리.
+                Phase 12 후속 B — 0.1s 정밀 표시(소수 1자리). */}
             <Text style={styles.timeText} numberOfLines={1}>
               {hasLeft
-                ? `${leftLabel} ${fmtTime(leftCurrent)} / ${fmtTime(leftDuration)}`
+                ? `${leftLabel} ${fmtTimeDecimal(leftCurrent)} / ${fmtTime(leftDuration)}`
                 : ''}
               {hasLeft && hasRight ? '  ·  ' : ''}
               {hasRight
-                ? `${rightLabel} ${fmtTime(rightCurrent)} / ${fmtTime(rightDuration)}`
+                ? `${rightLabel} ${fmtTimeDecimal(rightCurrent)} / ${fmtTime(rightDuration)}`
                 : ''}
             </Text>
           </View>
@@ -423,7 +588,7 @@ const styles = StyleSheet.create({
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   playBtn: {
     width: 36,
@@ -433,21 +598,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Phase 12 후속 B — 0.1s 앞/뒤 step 버튼.
+  stepBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.divider,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   timeline: {
     flex: 1,
-    gap: 4,
+    gap: 6,
   },
+  // Phase 12 후속 B — track 이 PanResponder 박힘 site. 두께 12 로 키워 drag hit
+  // area 확보 (시각 트랙 4 + 손잡이 14 가 안쪽에 박힘). overflow 'visible' 가
+  // 손잡이 위/아래로 비집고 나옴.
   timelineTrack: {
     width: '100%',
+    height: 14,
+    justifyContent: 'center',
+  },
+  timelineRail: {
+    position: 'absolute',
+    top: 5,
+    left: 0,
+    right: 0,
     height: 4,
-    borderRadius: 2,
     backgroundColor: colors.divider,
-    overflow: 'hidden',
+    borderRadius: 2,
   },
   timelineFill: {
-    height: '100%',
+    position: 'absolute',
+    top: 5,
+    left: 0,
+    height: 4,
     backgroundColor: colors.brand,
     borderRadius: 2,
+  },
+  timelineThumb: {
+    position: 'absolute',
+    top: (14 - THUMB_DIAMETER) / 2,
+    width: THUMB_DIAMETER,
+    height: THUMB_DIAMETER,
+    borderRadius: THUMB_DIAMETER / 2,
+    backgroundColor: colors.brand,
+    marginLeft: -THUMB_DIAMETER / 2,
+    borderWidth: 2,
+    borderColor: colors.cardBg,
   },
   timeText: {
     ...typography.captionSmall,

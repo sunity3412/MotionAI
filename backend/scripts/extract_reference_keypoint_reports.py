@@ -89,6 +89,7 @@ def _process_motion(
     s3: "boto3.client",  # type: ignore[name-defined]
     extractor: FfmpegFrameExtractor,
     engine: RTMWPoseEngine,
+    target_fps: float,
 ) -> dict:
     """1 motion → KeypointReport dict (camelCase)."""
     key = f"{S3_PREFIX}/{motion_id}.mp4"
@@ -98,7 +99,7 @@ def _process_motion(
         print(f"  [{motion_id}] S3 download s3://{S3_BUCKET}/{key}", flush=True)
         s3.download_file(S3_BUCKET, key, str(local_path))
 
-        print(f"  [{motion_id}] frame extract (9 fps)", flush=True)
+        print(f"  [{motion_id}] frame extract ({target_fps:g} fps)", flush=True)
         frames = extractor.extract(str(local_path))
 
         print(
@@ -108,7 +109,7 @@ def _process_motion(
         pose_frames = engine.estimate(frames, _DEFAULT_POLE)
 
         print(f"  [{motion_id}] build_keypoint_report", flush=True)
-        report = build_keypoint_report(pose_frames, fps=9.0)
+        report = build_keypoint_report(pose_frames, fps=target_fps)
         if report is None:
             raise RuntimeError(f"build_keypoint_report 반환 None — {motion_id}")
 
@@ -134,10 +135,20 @@ def main() -> int:
         default=MOTION_IDS,
         help="Override motion id list (default = MOTION_IDS).",
     )
+    parser.add_argument(
+        "--target-fps",
+        type=float,
+        default=18.0,
+        help=(
+            "Target sampling fps. Default 18.0 — backend pipeline 의 18fps "
+            "upsample (commit e6350ed) 정합. 9fps 박힘 시 사용자 vs reference "
+            "fps 박힘 으로 KeypointOverlay drift 발생 (12-deferred §12 박힘)."
+        ),
+    )
     args = parser.parse_args()
 
     s3 = boto3.client("s3")
-    extractor = FfmpegFrameExtractor(target_fps=9.0)
+    extractor = FfmpegFrameExtractor(target_fps=args.target_fps)
     print("RTMW 엔진 init (가중치 로드 ~30초)...", flush=True)
     engine = RTMWPoseEngine()
     print("RTMW init 완료", flush=True)
@@ -148,7 +159,7 @@ def main() -> int:
         t0 = time.time()
         try:
             payload["motions"][motion_id] = _process_motion(
-                motion_id, s3, extractor, engine
+                motion_id, s3, extractor, engine, args.target_fps
             )
             print(f"  [{motion_id}] OK ({time.time() - t0:.1f}s)")
         except Exception as exc:  # noqa: BLE001

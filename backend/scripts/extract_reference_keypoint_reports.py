@@ -90,9 +90,10 @@ def _process_motion(
     extractor: FfmpegFrameExtractor,
     engine: RTMWPoseEngine,
     target_fps: float,
+    s3_prefix: str,
 ) -> dict:
     """1 motion → KeypointReport dict (camelCase)."""
-    key = f"{S3_PREFIX}/{motion_id}.mp4"
+    key = f"{s3_prefix}/{motion_id}.mp4"
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
         local_path = Path(tmp.name)
     try:
@@ -145,6 +146,12 @@ def main() -> int:
             "fps 박힘 으로 KeypointOverlay drift 발생 (12-deferred §12 박힘)."
         ),
     )
+    parser.add_argument(
+        "--s3-prefix",
+        type=str,
+        default=S3_PREFIX,
+        help=f"S3 prefix (default '{S3_PREFIX}'). fixtures/ 같은 다른 prefix 사용 시 명시.",
+    )
     args = parser.parse_args()
 
     s3 = boto3.client("s3")
@@ -159,7 +166,7 @@ def main() -> int:
         t0 = time.time()
         try:
             payload["motions"][motion_id] = _process_motion(
-                motion_id, s3, extractor, engine, args.target_fps
+                motion_id, s3, extractor, engine, args.target_fps, args.s3_prefix
             )
             print(f"  [{motion_id}] OK ({time.time() - t0:.1f}s)")
         except Exception as exc:  # noqa: BLE001

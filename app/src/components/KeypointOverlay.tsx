@@ -189,14 +189,22 @@ export function KeypointOverlay({
 
   // Wave 2: player 전달 시 useEvent.currentTime → frameIndex 자동 산출.
   // player 없거나 frameIndex prop 명시 시 override.
+  //
+  // 12-KEYPOINT-DRIFT-ROOT-CAUSE-REVIEW.md Fix A — fps 라벨 drift hotfix.
+  //   FfmpegFrameExtractor 의 step 정수 양자화로 keypointReport.fps (target_fps 라벨)
+  //   ≠ 실효 fps (src_fps / step). 실효 fps 는 frames / duration 으로 직접 산출.
+  //   player.duration 미가용 시 라벨 fallback (Fix B 배포 후 정직 라벨이 채워짐).
   const frameIndex = useMemo(() => {
     if (typeof frameIndexProp === 'number') return frameIndexProp;
     if (!keypointReport || keypointReport.frames < 1) return 0;
     const currentTime = timeUpdate?.currentTime ?? 0;
-    const fps = keypointReport.fps > 0 ? keypointReport.fps : 1;
-    const idx = Math.floor(currentTime * fps);
+    const duration = player?.duration ?? 0;
+    const effectiveFps = duration > 0
+      ? keypointReport.frames / duration
+      : (keypointReport.fps > 0 ? keypointReport.fps : 1);
+    const idx = Math.floor(currentTime * effectiveFps);
     return Math.min(Math.max(idx, 0), keypointReport.frames - 1);
-  }, [frameIndexProp, timeUpdate?.currentTime, keypointReport]);
+  }, [frameIndexProp, timeUpdate?.currentTime, keypointReport, player?.duration]);
 
   const positions = useMemo(
     () =>

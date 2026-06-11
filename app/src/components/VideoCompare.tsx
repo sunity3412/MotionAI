@@ -118,26 +118,35 @@ export function VideoCompare({
 
   // currentTime 폴링 — expo-video 는 prop 변경 이벤트가 따로 없음. 재생 중에만
   // 250ms 마다 갱신 → 타임라인 따라잡기. 정지 상태면 폴링 멈춰 배터리 보호.
-  const [current, setCurrent] = useState(0);
-  const [duration, setDuration] = useState(0);
+  //
+  // 12-deferred §12-C — 두 영상 native duration / fps 가 다르면 단일 타임라인이
+  // drift 시각화 가림. left/right currentTime + duration 분리 상태로 저장 → 시간
+  // 라벨 두 개 동시 표시 (progress bar 는 짧은 쪽 기준 단일 유지).
+  const [leftCurrent, setLeftCurrent] = useState(0);
+  const [leftDuration, setLeftDuration] = useState(0);
+  const [rightCurrent, setRightCurrent] = useState(0);
+  const [rightDuration, setRightDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!hasAny) return;
     const tick = () => {
-      const ref = hasLeft ? leftPlayer : rightPlayer;
-      if (!ref) return;
-      setCurrent(ref.currentTime ?? 0);
+      const cL = leftPlayer?.currentTime ?? 0;
+      const cR = rightPlayer?.currentTime ?? 0;
       const dL = leftPlayer?.duration ?? 0;
       const dR = rightPlayer?.duration ?? 0;
+      setLeftCurrent(cL);
+      setRightCurrent(cR);
+      setLeftDuration(dL);
+      setRightDuration(dR);
       // 비교 기준 길이 = 둘 중 짧은 쪽. 짧은 쪽 끝나면 함께 멈추도록.
       const shorter =
         dL > 0 && dR > 0 ? Math.min(dL, dR) : Math.max(dL, dR);
-      setDuration(shorter);
-      setPlaying(!!ref.playing);
+      const ref = hasLeft ? leftPlayer : rightPlayer;
+      setPlaying(!!ref?.playing);
       // 짧은 쪽이 끝났는데 다른 쪽이 계속 가는 상황 방지.
-      if (shorter > 0 && (ref.currentTime ?? 0) >= shorter - 0.05) {
+      if (shorter > 0 && (cL >= shorter - 0.05 || cR >= shorter - 0.05)) {
         leftPlayer?.pause();
         rightPlayer?.pause();
       }
@@ -149,6 +158,17 @@ export function VideoCompare({
       tickRef.current = null;
     };
   }, [hasAny, hasLeft, leftPlayer, rightPlayer]);
+
+  // progress bar / restart 등 단일 기준 값 — 짧은 쪽 기준 (기존 로직 보존).
+  const current = hasLeft ? leftCurrent : rightCurrent;
+  const duration =
+    hasLeft && hasRight
+      ? leftDuration > 0 && rightDuration > 0
+        ? Math.min(leftDuration, rightDuration)
+        : Math.max(leftDuration, rightDuration)
+      : hasLeft
+        ? leftDuration
+        : rightDuration;
 
   const togglePlay = () => {
     if (!hasAny) return;
@@ -172,7 +192,8 @@ export function VideoCompare({
     if (!hasAny) return;
     if (leftPlayer) leftPlayer.currentTime = 0;
     if (rightPlayer) rightPlayer.currentTime = 0;
-    setCurrent(0);
+    setLeftCurrent(0);
+    setRightCurrent(0);
   };
 
   const progressPct =
@@ -216,8 +237,16 @@ export function VideoCompare({
                 style={[styles.timelineFill, { width: `${progressPct}%` }]}
               />
             </View>
-            <Text style={styles.timeText}>
-              {fmtTime(current)} / {fmtTime(duration)}
+            {/* 12-deferred §12-C — 두 영상 timeline 분리 표시.
+                progress bar 는 단일 (짧은 쪽 기준), 시간 라벨은 좌·우 분리. */}
+            <Text style={styles.timeText} numberOfLines={1}>
+              {hasLeft
+                ? `${leftLabel} ${fmtTime(leftCurrent)} / ${fmtTime(leftDuration)}`
+                : ''}
+              {hasLeft && hasRight ? '  ·  ' : ''}
+              {hasRight
+                ? `${rightLabel} ${fmtTime(rightCurrent)} / ${fmtTime(rightDuration)}`
+                : ''}
             </Text>
           </View>
           <Pressable

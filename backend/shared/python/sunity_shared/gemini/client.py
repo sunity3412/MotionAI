@@ -1,0 +1,330 @@
+"""Phase 17 Wave 0 — GeminiVisionCall 베이스 클라이언트.
+
+박제 정신:
+  · AI-SPEC §4 Core Pattern + §4b "Structured Outputs with Pydantic" 박제.
+  · 후속 plan 02~05 가 본 클래스만 instantiate (`schema=...`, `prompt=...`) — Files API
+    upload / ACTIVE 폴링 / response_schema 검증 / retry / 객관성 가드 재구현 0.
+  · api_key 미설정 / Files API FAILED / Files API 120s 초과 / APIError 4xx / ValidationError
+    2회 / APIError 5xx 2회 = graceful return None. 객관성 reject regex 매치만 ValueError
+    raise (graceful X — caller hard fail 인지).
+  · 외부 의존: google-genai >=1.0,<2.0 (이미 backend/runpod_inference/requirements.txt 박제).
+
+테스트 가능성:
+  · `genai.Client` / `files.upload` / `files.get` / `models.generate_content` 는
+    monkeypatch 가능. test_client.py 가 외부 네트워크 호출 0 박제.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable, Generic, TypeVar
+
+from google import genai
+from google.genai import errors as genai_errors
+from google.genai import types as genai_types
+from pydantic import BaseModel, ValidationError
+
+from .guardrails import _enforce_no_reject_patterns
+
+log = logging.getLogger(__name__)
+
+
+T = TypeVar("T", bound=BaseModel)
+
+
+# Files API 폴링 박제 — ref-invert 7s 영상 기준 통상 5~15s, 상한 박제.
+_FILES_PROCESSING_TIMEOUT_S: float = 120.0
+_FILES_POLL_INTERVAL_S: float = 2.0
+
+# generate_content http timeout 박제 (ms).
+_HTTP_TIMEOUT_MS: int = 60_000
+
+
+def _default_api_key_loader() -> str:
+    """기본 API 키 로더 — sunity_shared.judging.gemini_moment_extractor 박제 재사용.
+
+    lazy import — Plan 02~05 의 host runtime 에서 boto3 / SSM 의존성 박제 정합.
+    """
+    from sunity_shared.judging.gemini_moment_extractor import _load_api_key
+
+    return _load_api_key()
+
+
+def _mime_type_for(video_path: str) -> str:
+    """확장자 → mime type 박제. 미지 확장자는 'video/mp4' 박제 fallback."""
+    ext = Path(video_path).suffix.lower()
+    if ext in (".mov", ".qt"):
+        return "video/quicktime"
+    if ext == ".webm":
+        return "video/webm"
+    return "video/mp4"
+
+
+@dataclass
+class GeminiVisionCall(Generic[T]):
+    """4 영역 공통 Gemini Vision 호출 베이스.
+
+    Fields:
+      schema: Pydantic BaseModel subclass — response_schema 주입 + model_validate 폴백.
+      model: Gemini 모델 string (예: 'gemini-3.1-pro-preview'). gemini/config.py 의
+        DEFAULT_*_MODEL 상수 박제 (raw string 박제 0).
+      prompt: 영역별 prompt (자연어). caller 가 박제.
+      temperature: 기본 0.1 박제 — 객관 분류 task 우선.
+      max_output_tokens: 기본 2048 박제 — 4 영역 모두 schema 박제 응답 사이즈 박제.
+      thinking_budget: None = ThinkingConfig 박제 X. int 박제 시 types.ThinkingConfig
+        (thinking_budget=...) 박제 (3.x 박제 default-on thinking 비용 박제).
+      enforce_object_guard: True = raw text 에 _enforce_no_reject_patterns 박제. False
+        = 영역 D (KeypointRefinement) 전용 — guardrail 우회는 caller 가 allow_coords=True
+        로 직접 호출.
+      allow_coords: enforce_object_guard 박제 시 좌표 패턴 우회 (영역 D 박제). 점수/판단
+        어휘는 영구 차단.
+      api_key_loader: None = 기본 (env GEMINI_API_KEY → SSM fallback). caller 박제 가능.
+    """
+
+    schema: type[T]
+    model: str
+    prompt: str
+    temperature: float = 0.1
+    max_output_tokens: int = 2048
+    thinking_budget: int | None = None
+    enforce_object_guard: bool = True
+    allow_coords: bool = False
+    api_key_loader: Callable[[], str] | None = None
+
+    def call(self, video_path: str) -> T | None:
+        """video_path → schema 인스턴스 또는 None (graceful 폴백).
+
+        graceful 폴백 trigger (return None):
+          1. api_key_loader 실패 (RuntimeError / Exception).
+          2. Files API state == FAILED.
+          3. Files API 폴링 > 120s.
+          4. APIError 4xx (즉시 — retry X).
+          5. APIError 5xx 2회.
+          6. ValidationError / JSONDecodeError 2회.
+
+        hard fail trigger (ValueError raise):
+          1. enforce_object_guard=True 시 raw text 에 점수/좌표/판단 매치.
+
+        Args:
+          video_path: 로컬 영상 path (Lambda /tmp 또는 Pod tmpfs).
+
+        Returns:
+          schema 인스턴스 또는 None.
+
+        Raises:
+          ValueError: 객관성 reject regex 매치 (graceful X — caller hard fail 인지).
+        """
+        # ── Step 1: api_key 로드 (graceful — Plan 02~05 의 'API 키 미설정' fallback path).
+        loader = self.api_key_loader or _default_api_key_loader
+        try:
+            api_key = loader()
+        except Exception as exc:  # noqa: BLE001 - api 키 실패는 graceful return None
+            log.warning(
+                "Gemini API key load 실패 — graceful skip (model=%s): %s",
+                self.model,
+                exc,
+            )
+            return None
+        if not api_key:
+            log.warning(
+                "Gemini API key 비어있음 — graceful skip (model=%s).", self.model
+            )
+            return None
+
+        # ── Step 2: Client 생성 + Files API upload.
+        client = genai.Client(api_key=api_key)
+        mime_type = _mime_type_for(video_path)
+        try:
+            uploaded = client.files.upload(
+                file=video_path,
+                config=genai_types.UploadFileConfig(mime_type=mime_type),
+            )
+        except TypeError:
+            # 일부 stub 환경에서 UploadFileConfig 미지원 — kwargs file 단독 호출 박제.
+            uploaded = client.files.upload(file=video_path)
+        except genai_errors.APIError as exc:
+            return self._handle_api_error_first(exc, label="files.upload")
+
+        # ── Step 3: ACTIVE 폴링 (PROCESSING → ACTIVE / FAILED / timeout).
+        active_file = self._wait_for_active(client, uploaded)
+        if active_file is None:
+            return None
+
+        # ── Step 4: generate_content + retry.
+        config = self._build_config()
+        return self._generate_with_retry(client, active_file, config)
+
+    # ─────────────────── 내부 helpers ───────────────────
+
+    def _wait_for_active(self, client: Any, uploaded: Any) -> Any | None:
+        """Files API state machine 박제 — ACTIVE 면 객체, FAILED/timeout 면 None."""
+        start = time.monotonic()
+        state_name = _state_name(uploaded)
+        while state_name == "PROCESSING":
+            if time.monotonic() - start > _FILES_PROCESSING_TIMEOUT_S:
+                log.warning(
+                    "Gemini Files API processing > %ds — graceful skip (model=%s).",
+                    int(_FILES_PROCESSING_TIMEOUT_S),
+                    self.model,
+                )
+                return None
+            time.sleep(_FILES_POLL_INTERVAL_S)
+            try:
+                uploaded = client.files.get(name=uploaded.name)
+            except genai_errors.APIError as exc:
+                return self._handle_api_error_first(exc, label="files.get")
+            state_name = _state_name(uploaded)
+
+        if state_name == "FAILED":
+            log.warning(
+                "Gemini Files API state=FAILED — graceful skip (model=%s name=%s).",
+                self.model,
+                getattr(uploaded, "name", "?"),
+            )
+            return None
+        if state_name != "ACTIVE":
+            log.warning(
+                "Gemini Files API state=%s 미지원 — graceful skip (model=%s).",
+                state_name,
+                self.model,
+            )
+            return None
+        return uploaded
+
+    def _build_config(self) -> Any:
+        """generate_content config 박제 — response_mime_type / response_schema /
+        temperature / max_output_tokens / http timeout + 선택 ThinkingConfig.
+        """
+        kwargs: dict[str, Any] = dict(
+            response_mime_type="application/json",
+            response_schema=self.schema,
+            temperature=self.temperature,
+            max_output_tokens=self.max_output_tokens,
+            http_options=genai_types.HttpOptions(timeout=_HTTP_TIMEOUT_MS),
+        )
+        if self.thinking_budget is not None:
+            kwargs["thinking_config"] = genai_types.ThinkingConfig(
+                thinking_budget=self.thinking_budget
+            )
+        return genai_types.GenerateContentConfig(**kwargs)
+
+    def _generate_with_retry(
+        self, client: Any, active_file: Any, config: Any
+    ) -> T | None:
+        """generate_content + parsed/text 폴백 + 1회 retry 박제.
+
+        retry trigger:
+          · ValidationError / JSONDecodeError → 즉시 재시도 (attempt 1만).
+          · APIError 5xx → 1초 backoff 후 재시도 (attempt 1만).
+          · APIError 4xx → 즉시 None (retry X).
+        """
+        last_text: str = ""
+        for attempt in (1, 2):
+            try:
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=[active_file, self.prompt],
+                    config=config,
+                )
+            except genai_errors.APIError as exc:
+                code = getattr(exc, "code", None)
+                if isinstance(code, int) and 400 <= code < 500:
+                    log.warning(
+                        "Gemini APIError 4xx code=%s — graceful skip (model=%s, attempt=%s).",
+                        code,
+                        self.model,
+                        attempt,
+                    )
+                    return None
+                # 5xx — attempt 1 만 retry, 그 외 None.
+                if attempt == 1:
+                    log.warning(
+                        "Gemini APIError code=%s — retry 1회 (model=%s).",
+                        code,
+                        self.model,
+                    )
+                    time.sleep(1.0)
+                    continue
+                log.warning(
+                    "Gemini APIError code=%s — retry 2회 모두 실패 (model=%s).",
+                    code,
+                    self.model,
+                )
+                return None
+
+            raw_text = getattr(response, "text", "") or ""
+            last_text = raw_text
+
+            # 객관성 가드 (G1 hard fail — graceful X).
+            if self.enforce_object_guard:
+                _enforce_no_reject_patterns(
+                    raw_text,
+                    context=self.model,
+                    allow_coords=self.allow_coords,
+                )
+
+            # response.parsed 우선 — 없으면 text JSON → model_validate 폴백.
+            parsed = getattr(response, "parsed", None)
+            if parsed is not None and isinstance(parsed, self.schema):
+                return parsed
+
+            try:
+                if parsed is None:
+                    if not raw_text:
+                        raise ValueError("Gemini 응답 text 가 비어있음")
+                    payload = json.loads(raw_text)
+                    return self.schema.model_validate(payload)
+                # parsed 가 schema 인스턴스가 아니면 model_validate 재시도.
+                return self.schema.model_validate(parsed)
+            except (ValidationError, json.JSONDecodeError, ValueError) as exc:
+                if attempt == 1:
+                    log.warning(
+                        "Gemini schema 검증 실패 — retry 1회 (model=%s): %s",
+                        self.model,
+                        exc,
+                    )
+                    continue
+                log.warning(
+                    "Gemini schema 검증 2회 실패 — graceful skip (model=%s): %s",
+                    self.model,
+                    exc,
+                )
+                return None
+
+        # for loop 미도달 (이중 안전망).
+        return None
+
+    def _handle_api_error_first(
+        self, exc: genai_errors.APIError, *, label: str
+    ) -> None:
+        """upload / files.get 단계의 APIError — graceful return None.
+
+        Files API 단계 4xx/5xx 는 retry path 가 다름 (generate_content 와 분리). 본 단계는
+        둘 다 graceful return None — caller 가 후속 plan 박제 path 로 위임.
+        """
+        code = getattr(exc, "code", None)
+        log.warning(
+            "Gemini %s APIError code=%s — graceful skip (model=%s).",
+            label,
+            code,
+            self.model,
+        )
+        return None
+
+
+def _state_name(uploaded: Any) -> str:
+    """Files API state → string (enum vs str 박제 흡수)."""
+    state = getattr(uploaded, "state", None)
+    if state is None:
+        return ""
+    name = getattr(state, "name", None)
+    if isinstance(name, str):
+        return name
+    return str(state)
+
+
+__all__ = ["GeminiVisionCall"]

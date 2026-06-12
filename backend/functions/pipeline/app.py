@@ -192,6 +192,63 @@ def _gemini_enabled() -> bool:
     return False
 
 
+# Phase 17 4 영역 토글 박제 — Plan 17-01 Task 4 (R-B4 정합).
+# B/C 는 default "1" — Plan 03 (coach) / 04 (finding) 의 default ON 박제.
+# A/D 는 default unset = False — Plan 02 (reference 등록) / 05 (keypoint refinement)
+# 의 default OFF 박제 (운영자 명시 opt-in).
+_VISION_ENV_DEFAULTS: tuple[tuple[str, str], ...] = (
+    ("GEMINI_REFERENCE_ENABLED", ""),  # 영역 A — default OFF
+    ("GEMINI_COACH_ENABLED", "1"),  # 영역 B — default ON
+    ("GEMINI_FINDING_ENABLED", "1"),  # 영역 C — default ON
+    ("GEMINI_D_ENABLED", ""),  # 영역 D — default OFF
+)
+
+# falsy 박제 값 — "0" / "false" / "False" / "" 모두 OFF. 그 외는 ON (Phase 5 helper 와 분리 박제).
+_VISION_FALSY = frozenset({"0", "false", ""})
+
+
+def _gemini_vision_enabled() -> bool:
+    """Phase 17 4 영역 (A/B/C/D) Gemini Vision 토글 중 하나라도 ON 인지 박제.
+
+    박제 정신 (Plan 17-01 R-B4):
+      · 4 토글 중 하나라도 truthy 면 True — keep_local_video=True 게이트.
+      · 기존 `_gemini_enabled()` 시그니처/동작 변경 0 — backward compat.
+      · B/C default "1" 박제 (Plan 03/04 default ON). A/D 미설정 = False (default OFF).
+      · falsy 박제 = {"0", "false", "False", ""} — case-insensitive lower 비교.
+        그 외 (예: "1", "true", "yes", "on") 는 ON.
+
+    Returns:
+        True = 4 영역 중 ≥1 ON. False = 모두 OFF.
+    """
+    for env_var, default_val in _VISION_ENV_DEFAULTS:
+        raw = os.environ.get(env_var, default_val)
+        if raw.strip().lower() not in _VISION_FALSY:
+            return True
+    return False
+
+
+def _safe_unlink_local_video(local_video_path: str | None) -> None:
+    """local_video_path 안전 unlink — 실패 시 log.warning + graceful return.
+
+    박제 정신 (Plan 17-01 Task 4 — 2차 R-W6 정합):
+      · B/C default ON 으로 모든 분석에서 keep_local_video=True 가 될 수 있음 →
+        finally 박제 unlink 가 disk budget (Lambda /tmp 512MB / Pod tmpfs) 누수 차단.
+      · `Path.unlink(missing_ok=True)` 는 FileNotFoundError 만 흡수 — PermissionError /
+        OSError 는 raise. 본 wrapper 가 모든 예외를 흡수 (graceful) 하여 분석 흐름 차단 0.
+      · 실패 시 log.warning 1회 — 운영자 가시성 박제.
+    """
+    if local_video_path is None:
+        return
+    try:
+        Path(local_video_path).unlink(missing_ok=True)
+    except (OSError, PermissionError) as exc:  # noqa: BLE001 - 차단 0 박제
+        log.warning(
+            "local_video_path unlink 실패 — graceful skip path=%s err=%s",
+            local_video_path,
+            exc,
+        )
+
+
 # ── Phase 8 Plan 08-03 wiring — Layer 2 + preflight gate env helper ─────────
 
 
@@ -886,8 +943,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         source="vertical_fallback",
         frame_index=None,
     )
+    # Plan 17-01 Task 4 (R-B4 정합) — Phase 17 4 영역 토글 중 하나만 ON 이어도
+    # local_video_path 보존. Phase 5 recognizer 기존 path 와 OR 박제.
     inputs = _extract_video_analysis_inputs(
-        bucket, key, default_pole, keep_local_video=_gemini_enabled()
+        bucket, key, default_pole,
+        keep_local_video=_gemini_enabled() or _gemini_vision_enabled(),
     )
     angles = inputs.angles
     student_profile = inputs.student_profile  # R4 fix — non-null
@@ -1290,8 +1350,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # Plan 5-03 박제 — Gemini 어댑터 path 에서 신설한 임시 파일 정리.
         # delete=False NamedTemporaryFile 박제 정신 정합 — caller 책임 (B8 fix).
         # T-05-03-02 (DoS — 디스크 누수) 박제 — try/finally + missing_ok=True.
-        if local_video_path is not None:
-            Path(local_video_path).unlink(missing_ok=True)
+        # Plan 17-01 Task 4 (R-W6 정합) — B/C default ON 으로 모든 분석에서
+        # keep_local_video=True 가 될 수 있음 → _safe_unlink_local_video 박제
+        # (PermissionError 등 unlink 실패 시 log.warning + 분석 흐름 차단 0).
+        _safe_unlink_local_video(local_video_path)
 
 
 def lambda_handler(event: dict, _context) -> dict:

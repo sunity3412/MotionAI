@@ -95,27 +95,73 @@ from sunity_shared.gemini.keypoint_augmenter import augment_low_confidence
 
 # ── 기존: RTMW estimate ──
 coco_array, profile = _POSE_ESTIMATOR.estimate_with_profile(frames)
-# ... compute_joint_angles, DTW, KISMAM 등 ...
+# ... compute_joint_angles, DTW, KISMAM, dim_scores 등 — RTMW 원본 그대로 계산 ...
 
 # ── Phase 17 wave 1: 영역 C (모든 분석 1회) ──
 # 빈도 100%, latency-sensitive → Flash. wave 2 와 병렬 가능.
 async def wave1():
     return await find_scene_flags(local_video_path)
 
-# ── Phase 17 wave 2: 영역 D + B (조건부) ──
+# ── Phase 17 wave 2: 영역 B (조건부) ──
+# (2차 R-B1 정합: D 는 별도 위치 — wave 2 와 분리)
 async def wave2():
-    # D 영역: confidence < 0.5 frame 이 1개 이상일 때만 호출.
-    low_conf_frames = [i for i, conf in enumerate(coco_array[:, :, 3].min(axis=1)) if conf < 0.5]
-    d_task = augment_low_confidence(local_video_path, low_conf_frames, coco_array) if low_conf_frames else None
-    # B 영역: 분석 결과 (joints + dim scores) 와 영상 결합.
-    b_task = write_coach_gemini(local_video_path, joints, dim_scores) if GEMINI_COACH_ENABLED else None
-    return await asyncio.gather(*[t for t in [d_task, b_task] if t is not None])
+    # B 영역: 분석 결과 (joints + dim scores) + 영상. v1 에서는 geminiD context 포함 X.
+    coach_context = _build_coach_context(
+        angles=angles, dim_scores=dim_scores, mode=mode,
+        local_video_path=local_video_path, scene_flags=scene_flags,
+    )
+    if GEMINI_COACH_ENABLED:
+        return gemini_coach_writer.write(coach_context)
+    return cerebras_coach_writer.write(coach_context)
 
-# wave 1+2 병렬 실행 — 전체 추가 latency 30~40s (AI-SPEC §4b Latency 예산)
-scene_flags, wave2_results = await asyncio.gather(wave1(), wave2())
+# wave 1+2 병렬 실행
+scene_flags, coach_result = await asyncio.gather(wave1(), wave2())
 
-# ── 기존: assemble result + Firestore complete_analysis ──
+# ── 기존: assemble.build_result (RTMW 원본 dim_scores 박제) ──
+result = assemble.build_result(assessments, dim_scores, overall_score, comparison, ...)
+
+# ── 기존: build_keypoint_report (RTMW 원본 + assemble) ──
+keypoint_report = build_keypoint_report(pose_frames, fps=9.0)
+
+# ── Phase 17 영역 D (B2 정합 — KeypointReport.data/confidence 만 보강) ──
+# 위치: build_keypoint_report 직후 + complete_analysis 직전. coco_array mutate 0.
+# 식별: uncertainty_proxy (4번째 채널) max > 0.5 — pose_frame.py to_coco17_array 정합.
+if GEMINI_D_ENABLED and local_video_path and not scene_flags.get("occlusion_severe"):
+    low_uncertainty_frames = [
+        i for i, u in enumerate(coco_array[:, :, 3].max(axis=1)) if u > 0.5
+    ]
+    if low_uncertainty_frames:
+        # augment_low_confidence 시그니처: KeypointReport 입력/출력 — coco_array 인자 0.
+        d_result = augment_low_confidence(
+            local_video_path, low_uncertainty_frames, keypoint_report, frame_w, frame_h,
+        )
+        # KeypointReport dataclass replace (frozen 정합) — data/confidence/reliability/warnings 만 갱신.
+        keypoint_report = dataclasses.replace(
+            keypoint_report,
+            data=apply_refined_to_data(keypoint_report.data, d_result["refined"]),
+            confidence=apply_refined_to_confidence(keypoint_report.confidence, d_result["refined"]),
+            reliability=recompute_reliability(...),
+            warnings=keypoint_report.warnings + ["gemini_d_augmented"],
+        )
+
+# ── 기존: complete_analysis — 보강된 keypoint_report + audit geminiD ──
+firestore_admin.complete_analysis(
+    uid, analysis_id, ...,
+    keypoint_report=keypoint_report,  # user-visible (D 보강 반영)
+    gemini_c=scene_flags, gemini_b=coach_audit, gemini_d=d_result,  # top-level audit
+)
 ```
+
+**Phase 17 v1 wave 순서 박제 (2차 R-B1 정정):**
+1. RTMW estimate (`coco_array`, `pose_frames`)
+2. compute_joint_angles / DTW / KISMAM / dim_scores — 모두 RTMW 원본
+3. wave 1 (C) + wave 2 (B) 병렬 (asyncio.gather)
+4. `assemble.build_result(dim_scores, ...)` — RTMW 원본 dim_scores
+5. `build_keypoint_report(pose_frames)` — RTMW 원본 KeypointReport
+6. **영역 D (B2-v1)** — KeypointReport.data/confidence 보강 + mirror hint
+7. `complete_analysis(..., keypoint_report=augmented, gemini_d=audit)`
+
+**D-v2 deferred** (좌표계 계약 박은 후 별도 plan): coco_array 주입 + DTW/KISMAM/dim_scores 재계산. v2 진입 시 wave 순서 재조정 — D 가 B/build_result 보다 먼저, B context 에 geminiD 박제 가능.
 
 **왜 wave 1+2 분리?** wave 1 (C) 는 모든 분석. wave 2 (B/D) 는 조건부 / feature flag. 분리하면 wave 2 가 실패해도 C 결과 손실 0.
 

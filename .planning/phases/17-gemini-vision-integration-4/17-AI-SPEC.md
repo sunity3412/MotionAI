@@ -44,7 +44,7 @@
 - **영역 A** 출력은 reference DB 에 영구 박제 → mode1 의 비교 baseline. 잘못된 IPSF 명칭/clipRange/checkpointJoints 가 들어가면 그 reference 로 비교되는 모든 수강생 분석이 오염.
 - **영역 B** 출력은 결과 화면 카드 본문 + detail2 (causes/injuryRisk/coachNote). 수강생이 그대로 읽고 다음 연습에 반영 → 잘못된 코칭 = 잘못된 자세 학습 + 부상 가능.
 - **영역 C** 출력은 후속 분석 path 게이팅 (occlusion_severe → D skip, camera_angle_problematic → 점수 신뢰도 표시, backbend_present → IPSF Backbend Criteria 활성). flag 오인식 → 채점 path 자체가 잘못 분기.
-- **영역 D** 출력은 RTMW keypoint 행렬에 직접 주입 → DTW + 8 관절각 차원 점수 계산. 좌표 환각 시 점수 전체 왜곡 (단 영역 D 는 RTMW confidence 낮은 frame 만 호출 → blast radius 제한).
+- **영역 D (v1, 2차 R-B2 정합)** 출력은 user-visible `KeypointReport.data` (2D normalized 좌표) + `KeypointReport.confidence` 보강 + 좌우 mirror hint audit 까지. **RTMW 3D pole-aligned scoring 행렬 (`coco_array`) 은 mutate 0** — DTW / 8 관절각 차원 점수 / KISMAM 은 RTMW 원본으로 계산. 좌표 환각 시 영향 = user 가 보는 KeypointOverlay 시각화만, 점수는 불변. **D-v2 deferred**: 좌표계 계약 (RTMW 3D ↔ Gemini normalized 2D) + 2D→3D lifter 박은 후 후속 plan 에서 scoring 행렬 주입 재진입.
 
 ### What Domain Experts Evaluate Against
 
@@ -701,7 +701,7 @@ async def analyze_all_regions(video_path: str, api_key: str) -> dict:
 | **E4** | 코칭 멘트 "원인 → 해결" 구조 + 강사 보조 톤 | B | **PASS (binary)**: (1) `causes` 가 3~5개 + 각 cause 가 `title`+`explanation`+`fix` 3-field 모두 채워짐 (Pydantic 강제), (2) `explanation` 에 부위별 용어 (고관절/후굴/코어/내전근/외회전/햄스트링 등 14개 화이트리스트) 1개 이상, (3) `coach_note` 에 "강사" / "함께" / "확인" 어휘 동시 포함, (4) LLM judge 가 "강사 보조 톤 (단정/지시형 아님)" PASS 판정. <br/> **FAIL:** "이렇게 하세요" 단정형, "당신은 87도입니다" 수치-only, "허리를 펴세요" generic 어휘. | **Code** (1~3 schema/regex) + **LLM Judge** (4 — Gemini Flash 0.0, calibration ≥ 0.7 against belle binary) | **Critical** |
 | **E5** | 시각 단서 인식 정확도 (Finding flag) | C | **PASS:** 라벨된 calibration set 30건 (그립 명확 / 백벤드 / occlusion / 측면) 에서 4 flag 의 precision ≥ 0.95 + recall ≥ 0.95 동시 충족 (belle 2026-06-12 정확도 우선 결정 — 0.85/0.80 → 0.95 상향). 정은지 영상 5건에서 `occlusion_severe=True` false positive = 0 (hard gate). <br/> **FAIL:** 정은지 영상 occlusion_severe FP 1건이라도, 또는 calibration set precision < 0.95 OR recall < 0.95. <br/> **Auto-escalation gate (belle 2026-06-12 결정)**: production 4-day rolling sample 의 E5 PASS rate < 95% 시 C 영역 default model 을 `gemini-3.5-flash` → `gemini-3.1-pro-preview` 로 **Pro 승급**. 구현은 runtime config (Firestore `visionConfig.regionC.model` 또는 SSM Parameter Store) — env 자동 set 은 process-level 이라 in-flight 변경 불가. emergency manual override 는 `GEMINI_C_MODEL_OVERRIDE=gemini-3.1-pro-preview` env 로 유지. PR 알림 + §7 F8 flywheel 박는다. (참조: WARNING-5) | **Code** (라벨 vs 출력 confusion matrix, sklearn `classification_report`) | **High** |
 | **E6** | 고수 위양성 게이트 (정은지 영상 신뢰) | A+B+C 합산 | **PASS:** 정은지 영상 5~10건 전체에서 (a) 영역 A 가 IPSF 등재 매핑 OR 분기 2 등록 성공 (분기 3 fallback 0건), (b) 영역 B 코칭 멘트가 "강사 보조 톤 + 원인-해결" PASS, (c) 영역 C `occlusion_severe=False` & `camera_angle_problematic=False`. <br/> **FAIL:** 정은지 영상에서 위 조건 1건이라도 위반 → Phase 17 hard gate 차단. PROJECT.md "정은지 영상 41점 같은 위양성 없이" 직격. | **Code** (a/c) + **Human** (b — belle binary 검수) | **Critical** |
-| **E7** | 영역 D keypoint 보강 좌표 정합성 | D | **PASS:** 보강 좌표가 (a) `x_normalized`, `y_normalized` ∈ [0, 1] (Pydantic 강제), (b) RTMW 인접 frame (±2) 의 동일 joint 좌표와의 L2 거리 < 0.15 (정규화 좌표 단위, frame 너비 15% 임계값), (c) 보강 frame 의 RTMW 원본 confidence < 0.3 (저신뢰 frame 만 호출 검증). <br/> **FAIL:** 인접 frame 거리 ≥ 0.15 (좌표 환각 의심) 또는 confidence ≥ 0.3 frame 에 호출 (불필요한 호출). | **Code** (RTMW 행렬과 비교 distance check) | **High** |
+| **E7** | 영역 D keypoint 보강 좌표 정합성 (D-v1, 2차 R-B2 정합) | D | **PASS:** 보강 좌표가 (a) `x_normalized`, `y_normalized` ∈ [0, 1] (Pydantic 강제), (b) `KeypointReport.data` (정규화 2D) 의 인접 frame (±2) 동일 joint 좌표와의 L2 거리 < 0.15 (frame 너비 15% 임계값), (c) 보강 frame 의 `KeypointReport.confidence` < 0.5 (저신뢰 frame 만 호출 검증 — `1 - uncertainty_proxy` 가 KeypointReport.confidence 와 동등). <br/> **FAIL:** 인접 frame 거리 ≥ 0.15 (좌표 환각 의심) 또는 `KeypointReport.confidence` ≥ 0.5 frame 에 호출 (불필요한 호출). | **Code** (`KeypointReport.data` flat list 와 비교 distance check) | **High** |
 | **E8** | Schema 검증 통과율 + Latency 예산 | A/B/C/D | **PASS:** (a) Pydantic `response_schema` 검증 통과율 ≥ 95% (1회 retry 포함), (b) 4 영역 wave 1+2 병렬 latency p95 ≤ 40초 (§4b Cost and Latency Budget 박제값), (c) per-call 비용 p95 ≤ $0.08. <br/> **FAIL:** 검증 통과율 < 95% 또는 p95 latency > 60s. | **Code** (Phoenix trace span attributes — span.attributes.gen_ai.usage.total_tokens, span.duration, parse_success counter) | **Medium** |
 
 ### Eval Tooling
@@ -713,7 +713,7 @@ async def analyze_all_regions(video_path: str, api_key: str) -> dict:
 - LangChain/LangGraph 미사용 → LangSmith 비대상.
 
 **보조 도구:**
-- **Promptfoo** — CI/CD prompt regression. 4 영역 reference dataset 을 Promptfoo YAML 로 박제 → PR 마다 자동 회귀 검증.
+- **Promptfoo** — **local prompt regression eval** (2차 R-W1 정합). 4 영역 reference dataset 을 Promptfoo YAML 로 박제 → belle/Claude 가 PR 작성 전 수동 로컬 실행. **자동 CI/CD 게이트 (.github/workflows 또는 merge block) 는 Phase 17 scope 밖** — 별도 후속 plan 으로 분리.
 - **`gemini-3.5-flash` LLM judge** — 영역 B 코칭 톤 calibration (E4 dimension 4번 항목). temperature=0.0, belle binary 라벨 30건으로 calibration, target correlation ≥ 0.7.
 - **sklearn `classification_report`** — E5 (Finding flag confusion matrix), E3 (분기 라우팅 confusion matrix) 산출.
 
@@ -757,10 +757,10 @@ else:
 GoogleGenAIInstrumentor().instrument()
 ```
 
-**CI/CD Integration:**
+**Local Eval Workflow (2차 R-W1 정합 — CI 자동 게이트 별도 plan):**
 
 ```bash
-# GitHub Actions / 로컬 PR pre-merge 회귀 게이트
+# belle/Claude 가 PR 작성 전 수동 로컬 실행 — 자동 CI block 박제 X.
 # backend/evals/phase17/ 에 reference dataset YAML + assertions 박제
 
 cd backend/evals/phase17
@@ -769,16 +769,18 @@ promptfoo eval \
   --output ../results/phase17-$(git rev-parse --short HEAD).json \
   --max-concurrency 4
 
-# 4 영역별 통과 임계값 (메인 분기 merge gate):
-#   E1 (객관성)        = 100% (1건도 실패 시 PR block)
+# 4 영역별 통과 임계값 (belle 수동 검수용 — 미달 시 belle 가 PR 작성 보류):
+#   E1 (객관성)        = 100% (1건도 미달 시 PR 박제 보류 — belle 수동 판단)
 #   E2 (IPSF 정합)     = ≥ 90% on reference set
 #   E3 (분기 라우팅)    = ≥ 90% on labeled set
 #   E4 (코칭 톤)       = ≥ 85% binary pass + judge correlation ≥ 0.7
-#   E5 (Finding flag)  = precision ≥ 0.85, recall ≥ 0.80
-#   E6 (정은지 게이트) = 100% (1건도 실패 시 PR block)
+#   E5 (Finding flag)  = precision ≥ 0.95, recall ≥ 0.95 (belle 정확도 우선 결정)
+#   E6 (정은지 게이트) = 100% (1건도 미달 시 PR 박제 보류)
 #   E7 (영역 D 좌표)   = ≥ 90%
 #   E8 (latency/cost)  = p95 ≤ 40s, ≤ $0.08/call
 ```
+
+**자동 CI 게이트 (.github/workflows/phase17-evals.yml + merge block) = 별도 후속 plan**. 현재 repo 에 `.github/workflows/` 부재 — Phase 17 scope 안에서 신설하지 않음.
 
 ### Reference Dataset
 

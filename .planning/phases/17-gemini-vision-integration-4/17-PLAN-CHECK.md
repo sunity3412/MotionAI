@@ -18,7 +18,7 @@
 | SC1 | A. Reference 자동 등록 (IPSF + clipRange + checkpoint joint) | **05** | **COVERED** | Plan 05 Task 1+2 가 extract_reference_metadata + 분기 1/2/3 + G3 fallback + Lambda endpoint + Firestore upsert 박제. ReferenceRegistration schema (AI-SPEC §4b) 그대로 박힘. |
 | SC2 | B. 코칭 멘트 품질 (RTMW 수치 + Gemini Vision 결합 + 강사 검수 통과) | **04** | **COVERED** | Plan 04 Task 1 의 GeminiCoachWriter + 부위별 용어 14개 화이트리스트 + coach_note 3 어휘 강제 + blocklist + Cerebras dual-track + LLM judge (Plan 06 F1 flywheel) 박제. |
 | SC3 | C. Finding 장면 인식 (high_score_finding_gated warning 감소) | **02** | **COVERED** | Plan 02 Task 1+2 의 find_scene_flags + G4 정은지 가드 + Firestore geminiC + wave 1 wiring 박제. 단 "high_score_finding_gated warning 감소" 의 측정 path (현 비율 → 목표 비율) 는 직접 박혀있지 않음 — ⚠️ WARN-3 참조. |
-| SC4 | D. 관절 추출 보강 (confidence < 0.5 비율 < 5%) | **03**, **07** | **COVERED** | Plan 03 의 augment_low_confidence + G5 좌표 환각 가드 + RTMW 행렬 in-place 주입 + Plan 07 의 신규 6 motion mock e2e 분석 (KeypointReport.data confidence < 0.5 비율 < 5% 검증) 박제. ROADMAP "현 신규 6 = 13-35% → < 5%" 직격. |
+| SC4 | D-v1. KeypointReport overlay 품질 (`KeypointReport.confidence < 0.5` 비율 < 5%, mirror hint audit) | **03**, **07** | **COVERED** | Plan 03 의 augment_low_confidence + G5 좌표 환각 가드 + **KeypointReport.data/confidence 보강 (B2 정합)** + Plan 07 의 신규 6 motion mock e2e 분석 (`KeypointReport.confidence` field — `data` 가 아님, `assemble.py:393-448` 검증 — < 0.5 비율 < 5% 검증). ROADMAP "현 신규 6 = 13-35% → < 5%" 직격. **D-v2 deferred (별도 후속 plan)**: 좌표계 계약 박은 후 coco_array 주입 + DTW/KISMAM/dim_scores 재계산으로 점수 회복. |
 | SC5 | 비용/지연 budget (< $0.20 / call, latency 추가 < 15s) | **06** (간접), **AI-SPEC §4b** | **PARTIAL** | Plan 06 Task 1 의 Phoenix 자동 계측 + Promptfoo assertion E8 (p95 latency ≤ 40s, per-call cost ≤ $0.08) 박힘. **단 ROADMAP 의 임계값 ("latency 추가 < 15s") vs AI-SPEC §4b 박제값 ("4 영역 병렬 30~40s") 불일치** — ⚠️ WARN-1 참조. |
 
 **Phase goal 달성 가능성**: 5 SC 중 4 COVERED + 1 PARTIAL. 핵심 분석 path 는 박힘 박힘 — phase goal "분석 정확도 + 사용자 가치 본질 강화" 의 4 영역 wiring 자체는 검증 통과. SC5 의 임계값 불일치는 BLOCKER 아닌 WARNING (실측 후 조정 가능).
@@ -116,7 +116,7 @@ Wave 7: 07 (deps=[05, 06])                               ✓ 신규 6 재활성�
 | 3. RTMW 로 신규 6 영상 angles 재추출 (NLF → _RTMWNlfCompat swap) | Plan 07 Task 1 extract_reference_angles.py swap | ✅ |
 | 4. Firestore seed 재실행 (angles + bodyComparisonSourcePose + geminiA) | Plan 07 Task 1 reactivate_new6_motions.py | ✅ |
 | 5. isActive=true 박는다 | Plan 07 Task 2 checkpoint | ✅ |
-| 6. D 영역 (keypoint 보강) 으로 inverted/twist 정확도 회복 | Plan 03 augment_low_confidence + Plan 07 mock e2e 분석 (KeypointReport.data conf < 0.5 비율 < 5% 검증) | ✅ |
+| 6. D-v1 영역 (keypoint overlay 보강) 으로 inverted/twist 시각화 정확도 회복 | Plan 03 augment_low_confidence (B2 정합: KeypointReport.data/confidence 만) + Plan 07 mock e2e 분석 (`KeypointReport.confidence < 0.5` 비율 < 5% — `data` 가 아닌 `confidence` field) | ✅ (단 점수 회복은 D-v2 후속 plan deferred) |
 
 **6/6 단계 박혀있음.** F4 finding 해소 path 가 PLAN 합으로 완성됨.
 

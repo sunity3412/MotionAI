@@ -42,6 +42,22 @@ from .client import GeminiVisionCall
 from .config import resolve_model
 from .schemas import ReferenceRegistration
 
+# Phase 17 Plan 06B — Phoenix span event 박제 (TELEMETRY_OK gate).
+try:
+    from sunity_shared.eval import TELEMETRY_OK
+except ImportError:  # pragma: no cover
+    TELEMETRY_OK = False
+
+if TELEMETRY_OK:
+    try:
+        from opentelemetry import trace as _otel_trace
+
+        _tracer = _otel_trace.get_tracer(__name__)
+    except ImportError:  # pragma: no cover
+        _tracer = None
+else:
+    _tracer = None
+
 
 log = logging.getLogger(__name__)
 
@@ -346,6 +362,13 @@ def extract_reference_metadata(
         ipsf_entry=ipsf_entry,
         studio_entry=studio_entry,
     )
+
+    # Phase 17 Plan 06B — G3 span event 박제 (TELEMETRY_OK gate).
+    # branch_3_auto = IPSF 화이트리스트 + studio_alias 둘 다 miss → belle 검수 큐 진입.
+    if routing_branch == _BRANCH_3_AUTO:
+        if TELEMETRY_OK and _tracer is not None:
+            current_span = _otel_trace.get_current_span()
+            current_span.add_event("guardrail.G3.routing_branch3_auto", attributes={"gemini.model": model, "gemini.motion_name_ipsf": parsed.motion_name_ipsf, "gemini.inactive_reason": inactive_reason or ""})
 
     # motion_id 박제.
     motion_id = _decide_motion_id(

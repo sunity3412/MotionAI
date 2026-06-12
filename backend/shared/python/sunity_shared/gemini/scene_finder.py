@@ -37,6 +37,22 @@ from .client import GeminiVisionCall
 from .config import resolve_model
 from .schemas import FindingFlags
 
+# Phase 17 Plan 06B — Phoenix span event 박제 (TELEMETRY_OK gate).
+try:
+    from sunity_shared.eval import TELEMETRY_OK
+except ImportError:  # pragma: no cover
+    TELEMETRY_OK = False
+
+if TELEMETRY_OK:
+    try:
+        from opentelemetry import trace as _otel_trace
+
+        _tracer = _otel_trace.get_tracer(__name__)
+    except ImportError:  # pragma: no cover
+        _tracer = None
+else:
+    _tracer = None
+
 
 log = logging.getLogger(__name__)
 
@@ -182,6 +198,10 @@ def find_scene_flags(
             "G4 guardrail 발동 — is_reference=True + occlusion_severe=True model=%s",
             model,
         )
+        # Phase 17 Plan 06B — G4 span event 박제 (TELEMETRY_OK gate).
+        if TELEMETRY_OK and _tracer is not None:
+            current_span = _otel_trace.get_current_span()
+            current_span.add_event("guardrail.G4.reference_occlusion_fp", attributes={"gemini.model": model, "gemini.is_reference": True})
         payload = {
             "grip_visible": False,
             "backbend_present": False,

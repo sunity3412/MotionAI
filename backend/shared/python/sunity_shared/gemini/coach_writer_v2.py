@@ -37,6 +37,22 @@ from .client import GeminiVisionCall
 from .config import resolve_model
 from .schemas import CoachPayload
 
+# Phase 17 Plan 06B — Phoenix span event 박제 (TELEMETRY_OK gate).
+try:
+    from sunity_shared.eval import TELEMETRY_OK
+except ImportError:  # pragma: no cover
+    TELEMETRY_OK = False
+
+if TELEMETRY_OK:
+    try:
+        from opentelemetry import trace as _otel_trace
+
+        _tracer = _otel_trace.get_tracer(__name__)
+    except ImportError:  # pragma: no cover
+        _tracer = None
+else:
+    _tracer = None
+
 
 log = logging.getLogger(__name__)
 
@@ -417,6 +433,10 @@ class GeminiCoachWriter:
                 )
                 last_exc = exc
                 if attempt == 2:
+                    # Phase 17 Plan 06B — G2 span event 박제 (TELEMETRY_OK gate).
+                    if TELEMETRY_OK and _tracer is not None:
+                        current_span = _otel_trace.get_current_span()
+                        current_span.add_event("guardrail.G2.tone_validation_fallback", attributes={"gemini.model": call.model, "gemini.retry_count": attempt, "gemini.fallback_reason": _FB_TONE_VALIDATION_FAILED})
                     return {_FB_REASON_KEY: _FB_TONE_VALIDATION_FAILED}
                 continue
 

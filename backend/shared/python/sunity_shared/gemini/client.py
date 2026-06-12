@@ -30,6 +30,23 @@ from pydantic import BaseModel, ValidationError
 
 from .guardrails import _enforce_no_reject_patterns
 
+# Phase 17 Plan 06B — Phoenix span event 박제 (TELEMETRY_OK gate).
+# extras 미설치 환경에서도 import 자체는 깨지지 않게 박제.
+try:
+    from sunity_shared.eval import TELEMETRY_OK
+except ImportError:  # pragma: no cover - import 시그너처 회귀 안전망
+    TELEMETRY_OK = False
+
+if TELEMETRY_OK:
+    try:
+        from opentelemetry import trace as _otel_trace
+
+        _tracer = _otel_trace.get_tracer(__name__)
+    except ImportError:  # pragma: no cover
+        _tracer = None
+else:
+    _tracer = None
+
 log = logging.getLogger(__name__)
 
 
@@ -260,16 +277,36 @@ class GeminiVisionCall(Generic[T]):
             last_text = raw_text
 
             # 객관성 가드 (G1 hard fail — graceful X).
+            # Phase 17 Plan 06B — TELEMETRY_OK gate 박제 + G1/G5 span event 박제.
+            # G1 = 점수/판단 어휘 매치 (hard fail), G5 = 좌표 매치 차단 (영역 D 외).
             if self.enforce_object_guard:
-                _enforce_no_reject_patterns(
-                    raw_text,
-                    context=self.model,
-                    allow_coords=self.allow_coords,
-                )
+                try:
+                    _enforce_no_reject_patterns(
+                        raw_text,
+                        context=self.model,
+                        allow_coords=self.allow_coords,
+                    )
+                except ValueError as guard_exc:
+                    if TELEMETRY_OK and _tracer is not None:
+                        current_span = _otel_trace.get_current_span()
+                        # G1 (점수/판단) vs G5 (좌표) 분기 — guard exc 메시지로 식별.
+                        guard_text = str(guard_exc)
+                        if "좌표" in guard_text:
+                            current_span.add_event("guardrail.G5.coord_blocked", attributes={"gemini.model": self.model, "gemini.allow_coords": self.allow_coords})
+                        else:
+                            current_span.add_event("guardrail.G1.triggered", attributes={"gemini.model": self.model, "gemini.enforce_object_guard": True})
+                    # hard fail — caller (4 영역 wrapper) 가 ValueError 인지.
+                    raise
 
             # response.parsed 우선 — 없으면 text JSON → model_validate 폴백.
+            # Phase 17 Plan 06B — parse_success attribute 박제.
             parsed = getattr(response, "parsed", None)
             if parsed is not None and isinstance(parsed, self.schema):
+                if TELEMETRY_OK and _tracer is not None:
+                    current_span = _otel_trace.get_current_span()
+                    current_span.set_attribute("gemini.parse_success", True)
+                    current_span.set_attribute("gemini.retry_count", attempt - 1)
+                    current_span.set_attribute("gemini.model", self.model)
                 return parsed
 
             try:
@@ -277,9 +314,16 @@ class GeminiVisionCall(Generic[T]):
                     if not raw_text:
                         raise ValueError("Gemini 응답 text 가 비어있음")
                     payload = json.loads(raw_text)
-                    return self.schema.model_validate(payload)
-                # parsed 가 schema 인스턴스가 아니면 model_validate 재시도.
-                return self.schema.model_validate(parsed)
+                    result = self.schema.model_validate(payload)
+                else:
+                    # parsed 가 schema 인스턴스가 아니면 model_validate 재시도.
+                    result = self.schema.model_validate(parsed)
+                if TELEMETRY_OK and _tracer is not None:
+                    current_span = _otel_trace.get_current_span()
+                    current_span.set_attribute("gemini.parse_success", True)
+                    current_span.set_attribute("gemini.retry_count", attempt - 1)
+                    current_span.set_attribute("gemini.model", self.model)
+                return result
             except (ValidationError, json.JSONDecodeError, ValueError) as exc:
                 if attempt == 1:
                     log.warning(

@@ -179,6 +179,47 @@ Resources:
             Method: POST
             Path: /playback-url
 
+  # ── POST /reference/auto-register : 정은지 영상 → Gemini A → reference 자동 등록 ──
+  # Plan 17-05. AI-SPEC §1b 영역 A. belle 만 호출 가능 (BELLE_UID 이중 인증).
+  # Timeout 240s — Files API 폴링 upper bound 120s + Pro 호출 ~15s + S3 download/
+  # Firestore write ~5s + cold start/jitter 여유 100s. 120s 박제는 폴링 자체로
+  # timeout 예산 소진 위험 (Plan 05 WARN-2 정합).
+  # MemorySize 512MB — Gemini SDK + firebase-admin + pydantic + boto3 load 박제.
+  ReferenceAutoRegisterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-reference-auto-register
+      CodeUri: functions/reference-auto-register/
+      Handler: app.lambda_handler
+      Timeout: 240
+      MemorySize: 512
+      Environment:
+        Variables:
+          # GEMINI_A_MODEL — resolve_model('A', env_override=...) 단일 source.
+          # 미설정 시 sunity_shared.gemini.config.DEFAULT_A_MODEL ('gemini-3.1-pro-preview').
+          GEMINI_A_MODEL: ""
+          # BELLE_UID — belle Firebase uid 박제. 비박힘 시 403 강제 reject.
+          BELLE_UID: ""
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub arn:aws:s3:::${VideoBucketName}/reference/*
+        - Statement:
+            # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
+            # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
+            # 있어 명시적 Statement 로 작성.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: POST
+            Path: /reference/auto-register
+
   # ── GET /reference : 기준 모션 목록 (기준 모션 선택 화면 #9) ─────────
   ReferenceApiFunction:
     Type: AWS::Serverless::Function
@@ -249,6 +290,11 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-reference
+      RetentionInDays: 30
+  ReferenceAutoRegisterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-reference-auto-register
       RetentionInDays: 30
   PipelineLogGroup:
     Type: AWS::Logs::LogGroup

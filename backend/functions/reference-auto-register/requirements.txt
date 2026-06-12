@@ -1,0 +1,13 @@
+# Plan 17-05 — reference-auto-register Lambda 의존성.
+# CLAUDE.md sam-build-native-deps — `sam build --use-container` 필수 (Mac native
+# binary 가 Lambda Linux 에서 ImportError).
+# boto3 는 Lambda python3.12 런타임 제공.
+
+# Firebase Auth ID token 검증 + Firestore Admin (firestore_admin).
+firebase-admin>=6,<7
+
+# Gemini A Pro Vision 호출 (sunity_shared.gemini.client.GeminiVisionCall).
+google-genai>=1.0,<2.0
+
+# Pydantic — sunity_shared.gemini.schemas (ReferenceRegistration).
+pydantic>=2.5,<3.0

@@ -806,6 +806,91 @@ def update_reference_body_data(
     )
 
 
+# ─────────────────── Plan 17-05 — 영역 A reference 자동 등록 helper ──────────
+#
+# reference/{motion_id} 에 Gemini A 결과 박제. idempotent 박제 — 기존 doc 있으면
+# isActive/inactiveReason 보존 (belle 검수 결과 유지), 새 doc 이면 분기 라우팅에
+# 따라 isActive 결정. T-17-25 mitigation — 동일 motion_id 재호출 시 belle 검수
+# 결과 덮어쓰기 차단.
+
+def set_reference_motion_with_gemini(
+    motion_id: str,
+    gemini_a: dict,
+    *,
+    idempotent: bool = True,
+) -> None:
+    """reference/{motion_id} 에 Gemini A 결과 박제 (idempotent upsert).
+
+    Plan 17-05 박제 정합:
+      · 새 doc (exists=False) 면 — geminiA + isActive + inactiveReason 박힘.
+        isActive = (routing_branch != 'branch_3_auto'). G3 trigger 시 false.
+      · 기존 doc (exists=True) + idempotent=True 면 — geminiA 만 갱신, isActive/
+        inactiveReason 은 기존 보존 (belle 검수 결과 유지). G3 trigger 시 inactiveReason
+        도 갱신 (G3 발동을 audit 용으로 박는다).
+      · idempotent=False 면 — 새 doc 처럼 isActive/inactiveReason 강제 갱신.
+
+    Args:
+      motion_id: Firestore reference doc id. 빈 string reject.
+      gemini_a: extract_reference_metadata 결과 dict. routing_branch /
+        inactive_reason / motion_name_ipsf / clip_range / checkpoint_joints /
+        confidence / model / registered_at / raw_response 박힘.
+      idempotent: True (default) = 기존 doc 의 isActive/inactiveReason 보존.
+
+    Raises:
+      ValueError: motion_id 빈 / gemini_a 빈 / routing_branch 박혀있지 X.
+    """
+    if not motion_id:
+        raise ValueError("motion_id required")
+    if not gemini_a:
+        raise ValueError("gemini_a required")
+    routing_branch = gemini_a.get("routing_branch")
+    if not routing_branch:
+        raise ValueError("gemini_a.routing_branch required")
+
+    doc = _doc(models.reference_motion_path(motion_id))
+    snap = doc.get()
+    exists = snap.exists if snap else False
+
+    now_ms = int(time.time() * 1000)
+    is_g3 = routing_branch == "branch_3_auto"
+
+    payload: dict = {
+        "motionId": motion_id,
+        "geminiA": gemini_a,
+        "geminiAUpdatedAt": now_ms,
+    }
+
+    if not exists or not idempotent:
+        # 새 doc 또는 force override — 분기 라우팅에 따라 isActive/inactiveReason 결정.
+        payload["isActive"] = not is_g3
+        payload["inactiveReason"] = (
+            gemini_a.get("inactive_reason") if is_g3 else None
+        )
+    else:
+        # 기존 doc + idempotent — belle 검수 결과 보존.
+        existing = snap.to_dict() or {}
+        # G3 trigger 시 inactiveReason 만 audit 박제 (isActive 는 기존 보존).
+        if is_g3:
+            payload["inactiveReason"] = gemini_a.get("inactive_reason")
+        # isActive 는 기존 값 그대로 박는다 (merge=True 가 미박제 필드 보존).
+        if "isActive" in existing:
+            payload["isActive"] = existing["isActive"]
+
+    doc.set(payload, merge=True)
+
+    import logging
+
+    log = logging.getLogger(__name__)
+    log.info(
+        "set_reference_motion_with_gemini ok motion_id=%s routing_branch=%s "
+        "exists=%s is_active=%s",
+        motion_id,
+        routing_branch,
+        exists,
+        payload.get("isActive"),
+    )
+
+
 def fail_analysis(uid: str, analysis_id: str, code: str, message: str) -> None:
     """status='failed' + error{code,message} (contract.md §5)."""
     _doc(models.analysis_doc_path(uid, analysis_id)).set(

@@ -140,20 +140,20 @@ scene_flags, wave2_results = await asyncio.gather(wave1(), wave2())
     "occlusionSevere": false,
     "cameraAngleProblematic": false,
     "notesKo": "...",
-    "model": "gemini-3.5-flash",  // E5 auto-escalation 시 "gemini-3.1-pro"
+    "model": "gemini-3.5-flash",  // E5 auto-escalation 시 "gemini-3.1-pro-preview"
     "tokensUsed": 384,
     "latencyMs": 3200
   },
   "geminiB": {
     "causes": [{"title": "...", "explanation": "...", "fix": "..."}, ...],
     "coachNote": "...",
-    "model": "gemini-3.1-pro",
+    "model": "gemini-3.1-pro-preview",
     "judgeScore": null  // F1 flywheel 이 채움
   },
   "geminiD": {
     "augmentedFrames": [12, 13, 14],  // 보강된 frame index
     "originalConfidence": [0.21, 0.18, 0.25],
-    "model": "gemini-3.1-pro"
+    "model": "gemini-3.1-pro-preview"
   }
 }
 ```
@@ -188,7 +188,7 @@ scene_flags, wave2_results = await asyncio.gather(wave1(), wave2())
     ],
     "rawJsonResponse": "...",  // 원본 Gemini 출력 (review용)
     "reviewRequired": false,  // G3 guardrail = true 면 belle 검수 필요
-    "model": "gemini-3.1-pro",
+    "model": "gemini-3.1-pro-preview",
     "registeredAt": "2026-06-12T..."
   },
   "isActive": true,  // belle 검수 후 true. G3 fallback 시 false 유지.
@@ -227,11 +227,11 @@ scene_flags, wave2_results = await asyncio.gather(wave1(), wave2())
 |---|---|---|---|
 | `GEMINI_API_KEY` | Lambda + Pod 양쪽 | `AQ.xxx` (기존) | client init |
 | `GEMINI_MODEL` | (deprecated) | — | Phase 17 후 영역별 분리 |
-| `GEMINI_A_MODEL` | Lambda | `gemini-3.1-pro` | A 영역 model |
-| `GEMINI_B_MODEL` | Pod | `gemini-3.1-pro` (또는 `cerebras` 로 swap) | B 영역 model |
+| `GEMINI_A_MODEL` | Lambda | `gemini-3.1-pro-preview` | A 영역 model |
+| `GEMINI_B_MODEL` | Pod | `gemini-3.1-pro-preview` (또는 `cerebras` 로 swap) | B 영역 model |
 | `GEMINI_C_MODEL` | Pod | `gemini-3.5-flash` | C 영역 model (기본) |
-| `GEMINI_C_MODEL_OVERRIDE` | Pod | `gemini-3.1-pro` (E5 auto-escalation 시) | C 영역 Pro 승급 우회 |
-| `GEMINI_D_MODEL` | Pod | `gemini-3.1-pro` | D 영역 model |
+| `GEMINI_C_MODEL_OVERRIDE` | Pod | `gemini-3.1-pro-preview` (E5 manual emergency override; auto-escalation 은 runtime config) | C 영역 Pro 승급 우회 |
+| `GEMINI_D_MODEL` | Pod | `gemini-3.1-pro-preview` | D 영역 model |
 | `GEMINI_COACH_ENABLED` | Pod | `1` (default) / `0` (Cerebras fallback) | B 영역 toggle |
 | `PHOENIX_OTLP_ENDPOINT` | Lambda + Pod | (optional) | tracing self-host endpoint |
 

@@ -31,6 +31,14 @@ Verification: 4/4 SC + 13/13 D-09-* VERIFIED (see 09-VERIFICATION.md). 550 backe
 Next: belle 박제 검수 (18 canned 본문 + jointHint 부위 어휘 + pelvis_drop 임계 Assumption A1) + optional Codex cross-AI plan-review. 그 후 belle chain candidates = Phase 10 (SAFE-01 위험 플래그) / Phase 11 (CoachCommentHook + Gemini 자연어 풍부화 — Phase 9 finding consume) / Phase 8.1 Wave 2 (production sweep).
 Status: Phase 17 complete
 
+Last activity: 2026-06-12 - Completed quick task 260612-t9m: stability 점수 보정 + 사용자 안내
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260612-t9m | stability 점수 보정 + 사용자 안내 (TOL 15° → 25° + result.tsx 안내 캡션) | 2026-06-12 | 947570f | [260612-t9m-stability](./quick/260612-t9m-stability/) |
+
 ### Plan 09-01 close-out (2026-06-10)
 
 | 영역 | 결과 |

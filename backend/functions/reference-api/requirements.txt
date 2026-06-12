@@ -1,2 +1,6 @@
 # Firestore Admin 조회 + 토큰 검증용. boto3 는 런타임 포함.
 firebase-admin>=6,<7
+
+# PyYAML — sunity_shared.firestore_admin transitive (force_signals 박힘).
+# 2026-06-12 deploy fix.
+pyyaml>=6.0,<7.0

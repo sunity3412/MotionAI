@@ -1,3 +1,8 @@
 # boto3 는 Lambda python3.12 런타임에 포함 → 명시 안 함.
 # 인증 토큰 검증용 (sunity_shared.auth).
 firebase-admin>=6,<7
+
+# PyYAML — sunity_shared.firestore_admin 의 transitive import
+# (sunity_shared.analysis.force_signals.py module-level yaml import).
+# 2026-06-12 deploy fix: belle iPhone TestFlight 분석 8% 에러 직격 원인.
+pyyaml>=6.0,<7.0

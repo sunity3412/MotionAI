@@ -79,6 +79,7 @@ from sunity_shared.analysis.pole_geometry import (
 from sunity_shared.analysis.pose_frame import PoleAxis, to_coco17_array
 from sunity_shared.analysis.temporal import temporal_fill
 from sunity_shared.events import iter_s3_keys_from_sqs
+from sunity_shared.gemini.coach_writer_v2 import GeminiCoachWriter
 from sunity_shared.gemini.keypoint_augmenter import augment_low_confidence
 from sunity_shared.gemini.scene_finder import find_scene_flags
 from sunity_shared.s3keys import parse_upload_key
@@ -514,6 +515,142 @@ def _apply_keypoint_refinement_to_report(
         reliability=new_reliability,
         warnings=new_warnings,
     )
+
+
+# ── Plan 17-04 Wave 3 — 영역 B 코칭 멘트 dual-track wiring ──────────────────
+#
+# 박제 정신 (3차 R-B1 Option A + R-B2 + R-W4):
+#   · 기존 Cerebras coach writer 호출부 (`_process` 의 `_COACH_WRITER.write(...)`)
+#     를 dual-track 으로 감싸 GEMINI_COACH_ENABLED=1 (default) 시 GeminiCoachWriter
+#     우선, fallback dict (`{}` 또는 `{"_fallbackReason": ...}`) 시 Cerebras 폴백.
+#   · 3차 R-B1 (Option A) — wave 1 (`find_scene_flags`) 가 먼저 await 종료 후 B 호출.
+#     `_process` 본체 박제 순서로 자연 박힘 (wave 1 = line 1238, wave 3 B = line ~1494).
+#   · 3차 R-B2 — B 삽입 위치는 기존 Cerebras coach writer 호출부 (`assemble.build_result`
+#     직전). Plan 03 D 는 build_keypoint_report 직후 박혀 B 보다 늦음 → v1 에서 B 가 D
+#     결과 받을 수 없음 (geminiD context 박제 X — v2 후속 plan).
+#   · 2차 R-W4 — None 반환 박제 0. dual-track 분기 = `_fallbackReason` 키 또는 빈 dict
+#     여부로 결정. 양쪽 writer 가 단일 `_build_coach_context` 결과 dict 공유 (B3 정합).
+#   · B4 hard gate — caller (`_process`) 가 keep_local_video=True 박제 후 local_video_path
+#     만 전달. Gemini writer 안에서 S3 재다운로드 / RTMW 재실행 0.
+
+
+def _coach_enabled() -> bool:
+    """GEMINI_COACH_ENABLED env 박제 — wave 3 영역 B 토글 (default ON).
+
+    Plan 17-01 R-B4 정합 — `_VISION_ENV_DEFAULTS` 와 동일 박제 (default "1" = ON,
+    `_VISION_FALSY` = {"0", "false", ""} 박제 OFF).
+    """
+    raw = os.environ.get("GEMINI_COACH_ENABLED", "1")
+    return raw.strip().lower() not in _VISION_FALSY
+
+
+# Gemini Coach writer 인스턴스 — RunPod / Lambda 콜드스타트 1회 박제.
+_GEMINI_COACH_WRITER = None  # type: ignore[var-annotated]
+
+
+def _ensure_gemini_coach_writer() -> "GeminiCoachWriter":
+    """GeminiCoachWriter singleton lazy init.
+
+    `_COACH_WRITER` (Cerebras) 와 별도 — Gemini 는 _ensure_adapters 외부에서 박제.
+    (Gemini import 가 boto3 / SSM 의존성 부담 적음 — 항상 lazy 박제 가능.)
+    """
+    global _GEMINI_COACH_WRITER
+    if _GEMINI_COACH_WRITER is None:
+        _GEMINI_COACH_WRITER = GeminiCoachWriter()
+    return _GEMINI_COACH_WRITER
+
+
+def _build_coach_context(
+    *,
+    mode: str,
+    assessments,
+    dim_scores: dict | None,
+    local_video_path: str | None,
+    scene_flags: dict | None,
+) -> dict:
+    """Cerebras / Gemini 양 writer 가 공유하는 단일 coach_context dict 박제 (B3 정합).
+
+    박제 정신 (3차 R-B2 — geminiD 키 v1 박제 X):
+      · 기존 Cerebras 호환 키 (`mode`, `joints`) — coach_writer.py L121~123 정합.
+      · Phase 17 신규 키 — `videoPath`, `dimensionScores`, `sceneFlags`. Cerebras 는
+        `context.get("joints")` 만 박제하므로 신규 키 무시 (graceful).
+      · gemini_d_result 인자 박제 X — D wave 가 B 보다 늦게 실행 (`_process` line ~1634)
+        → v1 에서 B 가 D 결과 받을 수 없음. v2 후속 plan 에서 wave 순서 재조정 후 진입.
+
+    Args:
+      mode: models.MODE_EXPERT / MODE_SELF.
+      assessments: kismam top issues 박제 source (`kismam.top_issues(assessments, n=3)`).
+      dim_scores: dimensions.absolute_dimension_scores 결과 dict (또는 None).
+      local_video_path: keep_local_video=True 박제 후 caller 가 박은 path (또는 None).
+      scene_flags: Plan 17-02 영역 C `find_scene_flags` 결과 dict (또는 None).
+
+    Returns:
+      dict — 양 writer 가 그대로 박는 단일 context.
+    """
+    return {
+        "mode": mode,
+        "joints": [
+            {
+                "key": a.key,
+                "labelKo": a.label_ko,
+                "deviation_deg": a.deviation_deg,
+                "direction": a.direction,
+            }
+            for a in kismam.top_issues(assessments, n=3)
+        ],
+        "videoPath": local_video_path,
+        "dimensionScores": dim_scores,
+        "sceneFlags": scene_flags,
+    }
+
+
+def _strip_reserved_keys(d: dict) -> dict:
+    """`_` prefix 키 strip — user-visible result 에 reserved 키 (`_fallbackReason` /
+    `_meta`) leak 차단 (Codex B3 + WARNING-3 정합).
+
+    audit (Firestore top-level `geminiB`) 박제는 caller 가 strip 전 dict 에서 추출.
+    """
+    return {k: v for k, v in d.items() if not str(k).startswith("_")}
+
+
+def _gemini_b_audit_payload(
+    writer_result: dict,
+    *,
+    cerebras_used: bool,
+    cerebras_fallback_reason: str | None,
+) -> dict | None:
+    """Firestore top-level `geminiB` audit dict 박제 (성공 / 폴백 양쪽 분기).
+
+    Args:
+      writer_result: Gemini writer 결과 dict (성공 시 reserved `_meta` 키 포함).
+        Cerebras-only path 박제 시 `{}` 박제.
+      cerebras_used: Cerebras 폴백 활성 여부.
+      cerebras_fallback_reason: Cerebras 폴백 trigger 박제 reason 박제 (또는 None).
+
+    Returns:
+      dict — Firestore top-level `geminiB` 박제 audit. `None` 박제 X (caller 가 None
+        체크 후 키 자체 박제 차단).
+    """
+    meta = writer_result.get("_meta") if isinstance(writer_result, dict) else None
+    if cerebras_used:
+        return {
+            "model": "gpt-oss-120b",  # CerebrasCoachWriter L93 정합
+            "fallback": "cerebras",
+            "fallbackReason": cerebras_fallback_reason or "unknown",
+            "judgeScore": None,
+            "latencyMs": int(meta.get("latency_ms", 0)) if isinstance(meta, dict) else 0,
+            "tokensUsed": 0,
+        }
+    if not isinstance(meta, dict):
+        return None
+    return {
+        "model": str(meta.get("model", "")),
+        "latencyMs": int(meta.get("latency_ms", 0)),
+        "tokensUsed": int(meta.get("tokens_used", 0)),
+        "judgeScore": meta.get("judgeScore"),  # None or float
+        "fallback": None,
+        "fallbackReason": None,
+    }
 
 
 # ── Phase 8 Plan 08-03 wiring — Layer 2 + preflight gate env helper ─────────
@@ -1491,20 +1628,52 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                     extra_warnings=prev_extra_warnings,
                 )
 
-        coach_details = _COACH_WRITER.write(
-            {
-                "mode": mode,
-                "joints": [
-                    {
-                        "key": a.key,
-                        "labelKo": a.label_ko,
-                        "deviation_deg": a.deviation_deg,
-                        "direction": a.direction,
-                    }
-                    for a in kismam.top_issues(assessments, n=3)
-                ],
-            }
+        # ── Plan 17-04 Wave 3 — 영역 B 코칭 멘트 dual-track 박제 ──────────
+        # 박제 위치 (3차 R-B2): 기존 Cerebras coach writer 호출부 — `assemble.build_result`
+        # 직전. Plan 03 augment_low_confidence (D) 는 `build_keypoint_report` 직후 박혀
+        # B 보다 늦음 → v1 에서 B 가 D 결과 받을 수 없음 (geminiD context 박제 X).
+        # 3차 R-B1 (Option A) — wave 1 (find_scene_flags, line ~1238) 가 이미 종료된
+        # 후 박힘 (자연 박힘 — _process 본체 박제 순서).
+        # 2차 R-W4 — None 박제 0. dual-track 분기 = `_fallbackReason` 키 또는 빈 dict.
+        coach_context = _build_coach_context(
+            mode=mode,
+            assessments=assessments,
+            dim_scores=dimension_scores,
+            local_video_path=local_video_path,
+            scene_flags=scene_result,
         )
+        gemini_b_audit: dict | None = None
+        if _coach_enabled():
+            gemini_writer_result = _ensure_gemini_coach_writer().write(coach_context)
+            # joint 키 ≥ 1 (reserved `_` prefix 제외) 면 성공 path.
+            user_visible_keys = [
+                k for k in gemini_writer_result.keys() if not str(k).startswith("_")
+            ]
+            if user_visible_keys:
+                # 성공 — reserved 키 strip 후 assemble 입력 박제.
+                coach_details = _strip_reserved_keys(gemini_writer_result)
+                gemini_b_audit = _gemini_b_audit_payload(
+                    gemini_writer_result,
+                    cerebras_used=False,
+                    cerebras_fallback_reason=None,
+                )
+            else:
+                # Gemini fallback dict (`{}` 또는 `{"_fallbackReason": ...}`) → Cerebras 폴백.
+                fb_reason = gemini_writer_result.get("_fallbackReason")
+                log.info(
+                    "GeminiCoachWriter fallback dict — Cerebras 폴백 (reason=%s)",
+                    fb_reason,
+                )
+                coach_details = _COACH_WRITER.write(coach_context)
+                gemini_b_audit = _gemini_b_audit_payload(
+                    {},
+                    cerebras_used=True,
+                    cerebras_fallback_reason=fb_reason,
+                )
+        else:
+            # GEMINI_COACH_ENABLED OFF — Cerebras only (기존 path 그대로). audit 박제 X.
+            coach_details = _COACH_WRITER.write(coach_context)
+            gemini_b_audit = None
         result = assemble.build_result(
             assessments,
             dimension_scores,
@@ -1665,6 +1834,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             force_signals_report=force_signals_dict,
             force_pattern_inference=force_pattern_inference_dict,  # Phase 9 (Plan 09-02)
             keypoint_report=keypoint_report_dict,  # Phase 12 Wave 0B (Plan 12-01)
+            gemini_b=gemini_b_audit,  # Plan 17-04 Wave 3 (영역 B Coach audit)
             gemini_c=scene_result,  # Plan 17-02 Wave 1 (영역 C Finding flag)
             gemini_d=gemini_d_result,  # Plan 17-03 Wave 2 (영역 D Keypoint 보강)
         )

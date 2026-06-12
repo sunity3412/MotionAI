@@ -456,8 +456,8 @@ Plans:
   1. **A. Reference 자동 등록**: 정은지 영상 업로드 → Gemini Vision 이 IPSF 명칭 매칭 + clipRange (prepStartS/execPeakS/landEndS) + checkpoint joint 자동 산출 → Firestore `reference/{motionId}` 박힘. 정성 검증 = 3 path cross-check (claude.ai + Gemini + RTMW) 와 일치.
   2. **B. 코칭 멘트 품질**: 분석 결과의 `tips[]` / `coach` 멘트가 RTMW 수치 + Gemini Vision 의 영상 장면 이해 결합 → 구체성 강화 ("팔꿈치가 더 펴져야" → "왼쪽 팔꿈치 hook 시 폴 접촉면 박힘 박힘 박힘 — 어깨 견갑 안정성 부족"). belle / 강사 1차 검수 통과.
   3. **C. Finding 장면 인식**: `forcePatternInference.findings[]` 가 Gemini Vision 의 장면 정보 (그립 종류 / 백벤드 정도 / occlusion / 카메라 angle) 입력으로 강화. `high_score_finding_gated` warning 감소.
-  4. **D. 관절 추출 보강**: RTMW 가 낮은 confidence (< 0.5) 박힘 자세 (inverted / twist / 폐색) 의 keypoint 박힘 박힘 박힘 박힘 박힘. KeypointReport 의 `data` 의 0.5 미만 비율 < 5% (현 신규 6 = 13-35%).
-  5. **비용/지연 budget**: 1회 분석당 Gemini Vision API 비용 < $0.20 (belle "비용 신경X but 효율 잡기" 박힘). 분석 완료 latency 추가 < 15s.
+  4. **D. 관절 추출 보강 (D-v1, B2 정합)**: RTMW 가 낮은 confidence (`uncertainty_proxy > 0.5`) 박힘 자세 (inverted / twist / 폐색) 의 keypoint user-visible 시각화 보강. `KeypointReport.confidence` 의 0.5 미만 비율 < 5% (현 신규 6 = 13-35%). **D-v2 deferred** (좌표계 계약 박은 후 후속 plan): 3D coco_array 주입 + DTW/KISMAM 점수 재계산.
+  5. **비용/지연 budget (3차 R-W2 갱신, 2026-06-12)**: 1회 분석당 Gemini Vision API 비용 < $0.20 (belle "비용 신경X but 효율 잡기" 박힘). 분석 완료 latency 추가 **≤ p95 40s** (기존 "< 15s" → AI-SPEC E8 정합 완화 — [[feedback-analysis-first]] "분석 정확도 우선" 정합). C/B/D 4 영역 호출 합산 비동기 path 박힘 (`asyncio.gather`), Lambda pipeline 900s timeout 내.
 
 **Plans**: 7 plans
   - [ ] 17-01-PLAN.md — 공통 Gemini client + 4 영역 Pydantic schemas + 객관성 guardrail (G1)

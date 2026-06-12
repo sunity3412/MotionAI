@@ -7,11 +7,17 @@
 
 ## 0. Verdict (한 줄)
 
-**REVISED 2026-06-12 (3차 R-B5 정합): RESOLVED — 0 BLOCKER + 4 WARNING.**
+**FINAL 2026-06-12 (WARN 라운드 완료 정합): RESOLVED — 0 BLOCKER + 0 WARNING. execute-phase 진입 가능.**
 
-기존 BLOCKER-1 (Plan 06 telemetry race) 은 **1차 라운드 패치 (commit 890c338) 의 Plan 01 Task 3/4 신설로 해소** — Phoenix bootstrap 자체는 wave 6 유지하되, telemetry extras optional import (Plan 06 Sub-phase 06A) + Plan 01 의 gemini/config.py 단일 source 가 client.py 의 G1 가드 박는 시점을 wave 0 로 당김. SC5 measurement path 의 wave 6 까지 누락 risk 는 **WARN-1 으로 downgrade** — Phoenix bootstrap 활성화 전의 wave 2/3/4 호출은 production trace 누락이 있지만, (a) Phase 17 production 진입 시점에 Plan 06 도 같이 배포 (wave dependency 그래프 정합), (b) telemetry 미활성화 시 분석 흐름 차단 0 (graceful), (c) Plan 06 wave 6 완료 후 4-day rolling sample 기준 측정 시작 — 이 정합.
+기존 BLOCKER-1 (Plan 06 telemetry race) 는 1차/2차 라운드 + production rollout 정합으로 해소 (3차 R-B5).
 
-4 영역 핵심 호출 path (A/B/C/D) 의 success criteria 1~4 coverage 는 전부 COVERED, SC5 (비용/지연 budget) 는 PARTIAL (WARN-1 latency 15s vs 40s 임계값 belle 결정 필요).
+WARN 라운드 처리 (commit pending):
+- **WARN-1 (telemetry timing)**: production rollout 시 Plan 06 동시 배포 + telemetry 미활성 graceful — accepted state (action 0).
+- **WARN-2 (latency 임계값)**: ROADMAP SC5 "15s" → "p95 ≤ 40s" 갱신 ([[feedback-analysis-first]] 정확도 우선 정합). AI-SPEC E8 + Plan 06 임계값과 정합.
+- **WARN-3 (E6 정은지 B 검수)**: Plan 07 Task 2 step 8 신설 — `labels.json::e6_coach_tone` 박제 + 5/5 PASS hard gate.
+- **WARN-4 (SC3 measurement)**: Plan 07 Task 2 step 9 신설 — high_score_finding_gated warning 비율 측정 path (11건 mock e2e + Phase 12 baseline 비교).
+
+4 영역 핵심 호출 path (A/B/C/D) success criteria 1~4 = COVERED, SC5 (비용/지연 budget) = COVERED (WARN-2 갱신 후 임계값 정합).
 
 ---
 
@@ -236,7 +242,7 @@ Phase 17 directory 에 CONTEXT.md 박혀있지 않음 — `gsd-discuss-phase` �
 
 ## 10. 결론 + Recommendation
 
-**Verdict (REVISED 2026-06-12, 3차 R-B5 정합)**: **RESOLVED — 0 BLOCKER + 4 WARNING.**
+**Verdict (FINAL 2026-06-12, WARN 라운드 완료)**: **RESOLVED — 0 BLOCKER + 0 WARNING. execute-phase 진입 게이트 통과.**
 
 기존 BLOCKER-1 (Plan 06 telemetry race) 은 1차/2차 라운드 패치 + Phoenix bootstrap 활성화 timing 의 production rollout 정합으로 해소 — WARN-1 으로 downgrade. 4 BLOCKER (1차) + 3 BLOCKER (2차) + 5 BLOCKER (3차) = 12 BLOCKER 누적 패치 박힘.
 

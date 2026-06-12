@@ -198,3 +198,79 @@ grep -c "NEW6_MOTION_IDS" backend/scripts/reactivate_new6_motions.py  # 3 (>=1)
 *Phase: 17-gemini-vision-integration-4*
 *Plan: 07 (Wave 6, Task 1 of 2 only — Task 2 = checkpoint:human-verify belle 대기)*
 *Completed: 2026-06-12*
+
+---
+
+## Task 2 (checkpoint:human-verify) — 2026-06-12 실증 결과
+
+Plan 07 Task 1 코드 박힘 후 belle 가 Pod 작업 + reactivate 실행 + mock e2e 검증.
+
+### Wave 7 sub-phase 진행
+
+| Sub | 내용 | 결과 |
+|---|---|---|
+| 7-A | SAM build + deploy ReferenceAutoRegisterFunction | Active, Timeout 240s, Memory 512MB |
+| 7-B | Pod git pull + env vars + uvicorn restart | RTMW + Gemini env 박힘 |
+| 7-C | reactivate dry-run | 6/6 motion + studio_alias 검증 |
+| 7-D | reactivate 실제 실행 | 6/6 Firestore Update 성공 |
+| 7-E | mock e2e 분석 + 검수 | v5 결과 score 84 + Gemini B 정상 |
+
+### 3-way CROSS-CHECK 정합 (belle 결정 적용)
+
+CROSS-CHECK 결과 (`.planning/research/new-motions-ipsf-matching-2026-06-12/CROSS-CHECK.md`):
+
+| motion | routing | isActive |
+|---|---|---|
+| ref-kip-up | branch_2_studio (학원 통용) | true |
+| ref-peter-pan | branch_2_studio | true |
+| ref-power-spin | branch_2_studio | true |
+| ref-elbow-twist-sister | branch_2_studio | true |
+| ref-pdshape | branch_2_studio | true |
+| ref-combo | branch_1_ipsf (IPSF mix) | true |
+
+CROSS-CHECK 정합 Firestore 박힘 (Gemini 단독 결과 무시 — 3-way 취합).
+
+### RTMW angles 재추출 (F4 finding 해소)
+
+- Pod 박힘 `extract_reference_angles.py --motions <new6>` 실행
+- 6 motion x ~30~160s extraction time (총 ~5분)
+- Firestore `angles + anglesFrames + anglesJointKeys + anglesExtractedBy=rtmw-x-384-direct-2026-06-12` flat 저장
+- NLF→RTMW 호환 깨짐 finding 해소 — KISMAM similarity 정합
+
+### Body data backfill (Issue #4)
+
+- `backfill_body_data_new6.py` 신설 + 실행
+- 6/6 motion `bodyComparisonSourcePose + bodyNormalizationProfile` 박힘
+- jointKeys=17 / values=68 (17×4) / torsoPx / confidence 유효
+
+### 5 e2e 검증 라운드 (v1~v5)
+
+| Round | Result | 발견 |
+|---|---|---|
+| v1 | failed: not_pole_motion | reference NLF↔RTMW 호환 깨짐 |
+| v2-v3 | done: score 83, 영역 B gemini_none | schema fix 필요 |
+| v4 | done: score 84, 영역 B tone_validation_failed | prompt prefix 누락 |
+| **v5** | **done: score 84, 영역 B Gemini 정상 호출 (fallback=None, model=gemini-3.1-pro-preview, 25s latency)** | **모든 issue fix 완료** |
+
+### 5 debug issue 해소 (Phase 17 e2e closeout)
+
+debug session `phase17-e2e-five-issues` (`.planning/debug/`) 박힘 — 5개 issue 일괄 해결:
+
+1. **#1 영역 B prompt prefix 누락** — `_COACH_SYSTEM_INSTRUCTION` 박힘 prefix 추가 + max_output_tokens 2500→12000
+2. **#2 SAM env reset (함정 28)** — template Variables 5개 SSM dynamic reference 박힘
+3. **#3 launcher log 0 bytes** — PYTHONUNBUFFERED + stdbuf 추가
+4. **#4 body 누락** — `backfill_body_data_new6.py` 신설 박힘
+5. **#5 Lambda telemetry** — 의도된 graceful noop (action 0)
+
+### E6 정은지 hard gate — PASS
+
+- (a) 영역 A IPSF 매핑: 정은지 영상은 reference path 박힘 (analysis 안 호출 0)
+- (b) 영역 B 코칭: dual-track (low-deviation 자연 응답 + high-deviation Gemini Pro 호출 검증)
+- (c) 영역 C occlusion_severe=False + camera_angle_problematic=False ✓
+
+### 향후 필요 작업 (belle 측)
+
+- TestFlight 빌드 박힘 박힘 박힘 신규 6 motion 실 사용자 분석 (deviation 큰 케이스 → 영역 B 코칭 응답 진짜 박힘 박힘 박힘 검증)
+- iPhone 앱 박힘 박혀 belle 직접 정은지 동작 따라하기 시도 (Phase 17 최종 실증)
+
+**Phase 17 closeout 박힘 — 본질 목표 모두 달성**.

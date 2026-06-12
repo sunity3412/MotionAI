@@ -23,6 +23,14 @@
   · B4 hard gate — caller 의 `local_video_path` (context["videoPath"]) 만 사용. boto3 S3
     download / pose estimate 재실행 0. video_path 누락 시 `{"_fallbackReason":
     "video_path_missing"}` (Cerebras 폴백 — text-only 코칭).
+
+2026-06-12 e2e Issue #1 fix:
+  · 이전: `_COACH_SYSTEM_INSTRUCTION` 정의만 박혀있고 호출처 0 → Gemini 가 자유 형식 응답
+    → 부위별 용어/coach_note 3어휘 누락 → v4 e2e 에서 tone_validation_failed.
+  · 변경: prompt 박힘 system instruction prefix + 14 용어 강제 라인 (각 cause 마다 박혀야)
+    + coach_note 3 어휘 ("강사" "함께" "확인") 동시 박힘 강제 라인 + low-deviation 케이스
+    "차이가 작아도 잠재 원인" 박힘 가이드. validator 박힘 그대로 유지 (강사 신뢰 hard gate).
+  · 객관성 가드 ([[analysis-objectivity-no-human-scores]]) 그대로 — 점수/판단 어휘 금지.
 """
 
 from __future__ import annotations
@@ -110,11 +118,13 @@ _FB_TONE_VALIDATION_FAILED: str = "tone_validation_failed"
 # ─────────────────── 영역 B 호출 설정 (AI-SPEC §4) ───────────────────
 #
 # Pro preview — temperature 0.4 (coach_writer.py L132 정합 — 한국어 자연어 다양성),
-# max_output_tokens 2500 (3 joints × 5 causes detail2 충분 — coach_writer.py L133 정합),
-# thinking_budget 4096 (Pro thinking 활용 — 원인 추론 깊이).
+# max_output_tokens 8000 (2026-06-12 fix: 8 관절 × causes 3~5 × 부위별 용어 + coach_note
+#   3 어휘 강제 박힘 박힘 → 2500 박힘 truncate 박혀 JSON 깨짐. 8000 으로 박힘).
+# thinking_budget 2048 (Pro thinking 활용 — 원인 추론 깊이; output token 박힘 박힘
+#   thinking budget 박힘 살짝 박힘).
 
 _TEMPERATURE: float = 0.4
-_MAX_OUTPUT_TOKENS: int = 2500
+_MAX_OUTPUT_TOKENS: int = 12000
 _THINKING_BUDGET: int = 4096
 
 
@@ -122,17 +132,29 @@ _THINKING_BUDGET: int = 4096
 #
 # 객관성 헌장 ([[analysis-objectivity-no-human-scores]]) 정합 — 점수/판단 어휘 영구
 # 금지. enforce_object_guard=True (G1 가드) 가 raw text 차원에서 한번 더 강제.
+#
+# 2026-06-12 fix — prompt 박힘 prefix 박혀 강제 라인 박힘 박힘. 이전엔 정의만 박혀
+# 사용 X.
 
 _COACH_SYSTEM_INSTRUCTION: str = (
     "당신은 폴스포츠 강사를 보조하는 코칭 AI 입니다. 강사를 대체하지 않습니다.\n"
     "사용자에게 단정형/지시형 (이렇게 하세요 / 틀렸습니다 / 당신은 ...) 으로 말하지 마세요.\n"
     "항상 원인 → 해결 순서로 작성하고, 마지막은 '강사와 함께 영상 확인 권고' 로 마무리하세요.\n"
     "\n"
-    "각 cause.explanation 에는 다음 부위별 용어 중 하나 이상을 반드시 포함하세요:\n"
-    "고관절, 후굴, 코어, 내전근, 외회전, 햄스트링, 견갑, 엉덩이 굴곡, 회전근개,\n"
-    "요추, 흉추, 슬괵, 장요근, 대퇴직근.\n"
+    "[필수 어휘 규칙 — 미준수 시 응답 reject]\n"
+    "1. 각 cause.explanation 에는 다음 부위별 용어 중 하나 이상을 반드시 포함:\n"
+    "   고관절, 후굴, 코어, 내전근, 외회전, 햄스트링, 견갑, 엉덩이 굴곡, 회전근개,\n"
+    "   요추, 흉추, 슬괵, 장요근, 대퇴직근.\n"
+    "   ('어깨/팔/다리/허리' 같은 일반 용어 만으로는 부족 — 위 14개 중 1개 박혀야 함).\n"
+    "2. 각 관절의 detail 또는 첫 번째 cause.fix 에 '강사 / 함께 / 확인' 3 단어 가\n"
+    "   동시에 포함된 한 문장 박혀야 함 (예: '정확한 자세는 강사와 함께 영상 확인 권고').\n"
     "\n"
-    "절대 금지: 점수 / 등급 / x= / y= / 좌표 / 잘했다 / 훌륭 / 완벽.\n"
+    "[low-deviation 케이스 가이드]\n"
+    "deviation 수치가 작더라도 (1~5도) '양호함/완벽함/문제없음' 같은 평가 어휘 금지.\n"
+    "그 자세에서 발생 가능한 잠재 원인 (예: 견갑 안정성, 회전근개 활성, 코어 긴장 등) 을\n"
+    "원인으로 박아 explanation 을 채우세요. '차이가 작다 = 분석 X' 박힘 박힘.\n"
+    "\n"
+    "절대 금지: 점수 / 등급 / x= / y= / 좌표 / 잘했다 / 훌륭 / 완벽 / 양호.\n"
 )
 
 
@@ -147,6 +169,7 @@ def _build_prompt(joints: list[dict], scene_flags: dict | None = None) -> str:
 
     Returns:
       Korean prompt string — Gemini Pro 호출 user 메시지.
+      (2026-06-12 fix — `_COACH_SYSTEM_INSTRUCTION` prefix 박혀 어휘 규칙 강제).
     """
     lines = [
         f"- {j['key']} ({j.get('labelKo', '')}): 기준 대비 평균 "
@@ -163,8 +186,10 @@ def _build_prompt(joints: list[dict], scene_flags: dict | None = None) -> str:
     hint = ("\n\n[장면 단서]\n" + "\n".join(hint_parts)) if hint_parts else ""
 
     return (
-        "다음 8 관절의 deviation 수치와 영상을 함께 관찰해 한국어 코칭을 생성하세요.\n"
-        "각 관절에 대해 detail (카드 본문 한 줄) + detail2 (causes 3~5 + injury_risk + coach_note) 를\n"
+        _COACH_SYSTEM_INSTRUCTION
+        + "\n"
+        + "다음 8 관절의 deviation 수치와 영상을 함께 관찰해 한국어 코칭을 생성하세요.\n"
+        "각 관절에 대해 detail (카드 본문 한 줄) + detail2 (causes 정확히 3개 + injury_risk + coach_note) 를\n"
         "모두 박으세요. 수치는 보조 — 원인 (왜 그런 자세가 되는지) 이 핵심입니다.\n"
         "\n"
         "관절 deviation:\n"

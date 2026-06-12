@@ -270,7 +270,7 @@ class TestSuccessPath:
         assert stub.last_init_kwargs["schema"] is CoachPayload
         assert stub.last_init_kwargs["model"] == "gemini-3.1-pro-preview"
         assert stub.last_init_kwargs["temperature"] == 0.4
-        assert stub.last_init_kwargs["max_output_tokens"] == 2500
+        assert stub.last_init_kwargs["max_output_tokens"] == 12000
         assert stub.last_init_kwargs["thinking_budget"] == 4096
         assert stub.last_init_kwargs["enforce_object_guard"] is True
         # call 1회만 — retry 미발동.

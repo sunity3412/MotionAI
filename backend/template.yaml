@@ -195,11 +195,16 @@ Resources:
       MemorySize: 512
       Environment:
         Variables:
+          # 2026-06-12 e2e Issue #2 fix — SSM dynamic reference 박힘 박힘 sam deploy
+          # 후에도 env 박힘 박힘 (이전: SAM default "" 박힘 reset). SSM 박힘 박힘 박힘
+          # belle 가 console/CLI 박힘 박힘.
           # GEMINI_A_MODEL — resolve_model('A', env_override=...) 단일 source.
           # 미설정 시 sunity_shared.gemini.config.DEFAULT_A_MODEL ('gemini-3.1-pro-preview').
-          GEMINI_A_MODEL: ""
+          GEMINI_A_MODEL: "{{resolve:ssm:/sunity/motion/gemini-a-model}}"
           # BELLE_UID — belle Firebase uid 박제. 비박힘 시 403 강제 reject.
-          BELLE_UID: ""
+          BELLE_UID: "{{resolve:ssm:/sunity/motion/belle-uid}}"
+          # GEMINI_API_KEY — Gemini A 호출 박힘 (Google AI Studio key).
+          GEMINI_API_KEY: "{{resolve:ssm:/sunity/motion/gemini-api-key}}"
       Policies:
         - Statement:
             - Effect: Allow
@@ -258,8 +263,11 @@ Resources:
       MemorySize: 1024
       Environment:
         Variables:
-          RUNPOD_ANALYZE_URL: !Ref RunpodAnalyzeUrl
-          RUNPOD_AUTH_TOKEN: !Ref RunpodAuthToken
+          # 2026-06-12 e2e Issue #2 fix — SSM dynamic reference 박힘. RunpodAnalyzeUrl/
+          # RunpodAuthToken parameter 박힘 박힘 X (legacy default ""). 박힘 박힘 SSM
+          # 박힘 박힘 박힘 belle 박힘 박힘 박힘 박힘 (Pod 재생성 시 SSM put-parameter).
+          RUNPOD_ANALYZE_URL: "{{resolve:ssm:/sunity/motion/runpod-analyze-url}}"
+          RUNPOD_AUTH_TOKEN: "{{resolve:ssm:/sunity/motion/runpod-auth-token}}"
       Policies:
         - Statement:
             - Effect: Allow

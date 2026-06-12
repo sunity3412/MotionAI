@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: 2026-06-12 22:00 — 일정 끝. A (신규 6 reference 확장) + B (VideoCompare scrub) OTA push 완료. F1 (홈 챌린지 mode skip) OTA. F4 (신규 6 mode1 분석 실패) root cause = NLF↔RTMW 호환 깨짐 가설 + 신규 6 isActive=false 임시 차단. Phase 17 (Gemini Vision Integration) AI-SPEC + RESEARCH + PLAN(7 waves) + 내 PLAN-CHECK 박힘. 외부 AI plan-review 대기. 내일 시작 = 외부 review 통합 후 /gsd-execute-phase 17 또는 Phase 13 (좌/우 mirror).
-last_updated: "2026-06-12T22:00:00.000Z"
+stopped_at: Completed 09-01-PLAN.md (Wave 0 atomic commit)
+last_updated: "2026-06-12T01:37:54.605Z"
 last_activity: 2026-06-12
 progress:
-  total_phases: 18
+  total_phases: 19
   completed_phases: 7
-  total_plans: 55
-  completed_plans: 44
-  percent: 39
+  total_plans: 66
+  completed_plans: 48
+  percent: 37
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 12 — realmeasurement-keypoint
+**Current focus:** Phase 17 — gemini-vision-integration-4
 
 ## Current Position
 
-Phase: 12 (realmeasurement-keypoint) — EXECUTING
-Plan: 1 of 4
+Phase: 17 (gemini-vision-integration-4) — EXECUTING
+Plan: 1 of 7
 Verification: 4/4 SC + 13/13 D-09-* VERIFIED (see 09-VERIFICATION.md). 550 backend tests + 0 typecheck errors. 0 regression on Phase 6/7/8/8.1.
 Next: belle 박제 검수 (18 canned 본문 + jointHint 부위 어휘 + pelvis_drop 임계 Assumption A1) + optional Codex cross-AI plan-review. 그 후 belle chain candidates = Phase 10 (SAFE-01 위험 플래그) / Phase 11 (CoachCommentHook + Gemini 자연어 풍부화 — Phase 9 finding consume) / Phase 8.1 Wave 2 (production sweep).
-Status: Executing Phase 12
+Status: Executing Phase 17
 
 ### Plan 09-01 close-out (2026-06-10)
 
@@ -223,16 +223,18 @@ belle iOS UAT 2차 (TestFlight Build 12) 에서 4 finding 박혀있음. 3건 (B/
 | pod setup_pod_full.sh OpenMMLab CDN 만료 패치 | `7f81eb2` — RTMW HF/S3 mirror, YOLOX HF mirror, RUNPOD_AUTH_TOKEN auto-fetch, uvicorn __pycache__ 청소. 다음 Pod 셋업 시 함정 20-27 자동 회피 |
 
 **Pod 인프라 결정 (2026-06-11)**:
+
 - Network Volume EU-RO-1 (`sunity-motion-vol`, 31GB, $2.17/월) 생성. 단 RunPod Community Cloud GPU 호스트가 Network Volume mount 미지원 → ephemeral 진행. Volume 은 향후 Secure Cloud 전환 또는 mmpose 작업 시 재평가.
 - mmcv CUDA 빌드 40분+ stall → fast-path 셋업 (boto3 / imageio / rtmlib / onnxruntime-gpu 1.19.2 / RTMW S3 백업 / YOLOX HF mirror / Firebase SA SSM) 으로 우회. extract 스크립트엔 mmpose 불필요.
 
 **다음 단계**:
+
 1. belle EAS Build profile production → TestFlight Build 13 빌드 + submit
 2. belle UAT 3차 (12-A 외 3 finding 해소 검증)
 3. UAT 3차 PASS → Phase 12 전체 close-out + ROADMAP `[x]` 표기
 4. Phase 13 신규 plan (좌/우 mirror correction post-process)
 
-Last activity: 2026-06-11
+Last activity: 2026-06-12
 
 **시퀀스 (belle 2026-06-07 결정 — B → C → A)**:
 

@@ -156,11 +156,8 @@ ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_STABILITY)
 
 # 허용오차(도). z=dev/tol 가우시안 → tol 만큼 벗어나면 점수 ~61.
 _LINE_TOL_DEG = 20.0      # 완전 신전(180°) 대비 부족분. IPSF 각도 허용오차 20° 기준.
-_STABILITY_TOL_DEG = 25.0  # Path T1 (2026-06-05): inter-frame diff median 기준.
-# 2026-06-12 belle 결정 (옵션 A): tol 15° → 25° 완화. 정은지 reference 5영상 wobble 측정 6~16° 와
-# tol 15° 가 거의 같아 reference 자체 z=0.4~1.0 → stability 68~94 (만점 X). tol 25° 면 reference
-# wobble z<0.7 → 95+ 안정, 같은 영상 self-test 도 95+ 회복, "90+ 정상" 사용자 인지 임계 정합.
-# RTMW noise + 자세 미세 변화 흡수 폭 확보, 진짜 떨림 (30°+) 만 stability < 70 으로 깎임.
+_STABILITY_TOL_DEG = 15.0  # Path T1 (2026-06-05): inter-frame diff median 기준. 정은지 reference 5영상 wobble 측정 6~16° 박제 → 사용자 영상 정상 wobble 범위 박제 정신 정합 (RTMW noise + 자세 미세 변화 흡수). 진짜 떨림 (20°+) 만 FAIL.
+# 2026-06-12 belle 결정: tol 25° 완화는 짜맞추기 — talkv 영상 같은 영상인데 angle=59 의 진짜 원인 (시간 정렬 / RTMW 변형 강건성) 우회 X. 15° 원복 + 별도 debug 로 root cause 진단.
 
 _FULL_EXTENSION_DEG = 180.0
 

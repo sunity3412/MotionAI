@@ -81,6 +81,43 @@ def _mime_type_for(video_path: str) -> str:
     return "video/mp4"
 
 
+# Gemini proto schema 가 인식 못 하는 JSON Schema key 박힘 — 2026-06-12 deploy fix.
+# google-genai SDK 가 이 key 들을 proto field 박혀 변환하면 Gemini API 400
+# INVALID_ARGUMENT 박힘 ("Unknown name '...'").
+_GEMINI_UNSUPPORTED_SCHEMA_KEYS = frozenset({
+    "additionalProperties",  # Pydantic strict mode default → Gemini 400
+    "$defs",                  # Pydantic ref 정의 — inline 박은 후 제거
+    "discriminator",          # union 박힘 박힘 박힘 박힘 박힘
+})
+
+
+def _strip_unsupported_schema_keys(schema: Any) -> Any:
+    """JSON Schema 박혀 Gemini 가 인식 못 하는 key 박힘 재귀 제거.
+
+    Pydantic 의 `$defs` ref 박힘 inline 박혀 박혀 박혀 박힘 (간단 1-level
+    inline — 본 phase 의 schema 박힘 nested 박혀 박혀 ref 박혀 충분).
+    """
+    if isinstance(schema, dict):
+        # $defs ref 박힘 inline (1-pass — 본 schema 박혀 ref 박혀 1 단계).
+        defs = schema.pop("$defs", None) or schema.pop("definitions", None) or {}
+        cleaned: dict[str, Any] = {}
+        for k, v in schema.items():
+            if k in _GEMINI_UNSUPPORTED_SCHEMA_KEYS:
+                continue
+            if k == "$ref" and isinstance(v, str) and v.startswith("#/$defs/"):
+                ref_name = v.split("/")[-1]
+                if ref_name in defs:
+                    cleaned.update(
+                        _strip_unsupported_schema_keys(defs[ref_name])
+                    )
+                continue
+            cleaned[k] = _strip_unsupported_schema_keys(v)
+        return cleaned
+    if isinstance(schema, list):
+        return [_strip_unsupported_schema_keys(v) for v in schema]
+    return schema
+
+
 @dataclass
 class GeminiVisionCall(Generic[T]):
     """4 영역 공통 Gemini Vision 호출 베이스.
@@ -215,10 +252,18 @@ class GeminiVisionCall(Generic[T]):
     def _build_config(self) -> Any:
         """generate_content config 박제 — response_mime_type / response_schema /
         temperature / max_output_tokens / http timeout + 선택 ThinkingConfig.
+
+        2026-06-12 deploy fix: Pydantic 2 의 json_schema 가 nested model 박혀
+        `additionalProperties: false` 박힘 → google-genai SDK 가 이걸 proto field
+        `additional_properties` 박혀 변환 → Gemini API 400 INVALID_ARGUMENT
+        ("Unknown name 'additional_properties'"). Pydantic 모델 직접 박혀
+        response_schema 박는 대신 dict 박혀 변환 후 unsupported key 박힘 strip.
         """
         kwargs: dict[str, Any] = dict(
             response_mime_type="application/json",
-            response_schema=self.schema,
+            response_schema=_strip_unsupported_schema_keys(
+                self.schema.model_json_schema()
+            ),
             temperature=self.temperature,
             max_output_tokens=self.max_output_tokens,
             http_options=genai_types.HttpOptions(timeout=_HTTP_TIMEOUT_MS),

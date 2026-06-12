@@ -104,9 +104,9 @@ def _fetch_reference_doc(motion_id: str) -> dict | None:
     (Firestore 호출 실패 시 caller 가 RuntimeError raise — script 가 graceful
     매핑).
     """
-    from sunity_shared.firestore_admin import get_db  # lazy import
+    from sunity_shared.firestore_admin import _db  # lazy import
 
-    db = get_db()
+    db = _db()
     snap = db.collection("reference").document(motion_id).get()
     if not snap.exists:
         return None

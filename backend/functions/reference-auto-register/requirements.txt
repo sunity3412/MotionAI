@@ -11,3 +11,8 @@ google-genai>=1.0,<2.0
 
 # Pydantic — sunity_shared.gemini.schemas (ReferenceRegistration).
 pydantic>=2.5,<3.0
+
+# PyYAML — sunity_shared.firestore_admin 의 transitive import
+# (sunity_shared.analysis.force_signals.py module-level yaml import).
+# 2026-06-12 deploy fix: 500 ImportError 박힘.
+pyyaml>=6.0,<7.0

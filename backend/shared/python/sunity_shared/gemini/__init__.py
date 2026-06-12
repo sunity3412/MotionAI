@@ -13,6 +13,15 @@
 from __future__ import annotations
 
 from .client import GeminiVisionCall
+from .config import (
+    ALLOWED_MODELS,
+    DEFAULT_A_MODEL,
+    DEFAULT_B_MODEL,
+    DEFAULT_C_MODEL,
+    DEFAULT_C_MODEL_OVERRIDE,
+    DEFAULT_D_MODEL,
+    resolve_model,
+)
 from .guardrails import _enforce_no_reject_patterns
 from .schemas import (
     CheckpointJoint,
@@ -31,6 +40,14 @@ from .schemas import (
 __all__ = [
     # client
     "GeminiVisionCall",
+    # config
+    "ALLOWED_MODELS",
+    "DEFAULT_A_MODEL",
+    "DEFAULT_B_MODEL",
+    "DEFAULT_C_MODEL",
+    "DEFAULT_C_MODEL_OVERRIDE",
+    "DEFAULT_D_MODEL",
+    "resolve_model",
     # guardrails
     "_enforce_no_reject_patterns",
     # schemas
@@ -46,5 +63,3 @@ __all__ = [
     "ReferenceRegistration",
     "RefinedKeypoint",
 ]
-
-# Task 3 (config) 은 후속 task 에서 본 __init__.py 에 추가.

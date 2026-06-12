@@ -23,6 +23,7 @@ from .config import (
     resolve_model,
 )
 from .guardrails import _enforce_no_reject_patterns
+from .keypoint_augmenter import augment_low_confidence
 from .scene_finder import find_scene_flags
 from .schemas import (
     CheckpointJoint,
@@ -51,6 +52,8 @@ __all__ = [
     "resolve_model",
     # guardrails
     "_enforce_no_reject_patterns",
+    # keypoint_augmenter (Plan 17-03 — 영역 D Keypoint)
+    "augment_low_confidence",
     # scene_finder (Plan 17-02 — 영역 C Finding)
     "find_scene_flags",
     # schemas

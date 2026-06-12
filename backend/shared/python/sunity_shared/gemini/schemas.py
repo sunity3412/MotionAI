@@ -159,11 +159,15 @@ class RefinedKeypoint(BaseModel):
     """영역 D — 1개 프레임의 1개 keypoint 보정값.
 
     좌표 (x/y) 는 영역 D 만 허용 — guardrails.allow_coords=True 박제 분기.
+    joint_key 는 JointKeyLiteral 8개 (skeleton.JOINT_KEYS 정합) — Plan 17-03 박제.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     frame_index: int = Field(ge=0, description="대상 프레임 인덱스 (0 이상)")
+    joint_key: JointKeyLiteral = Field(
+        description="보정 대상 관절 (skeleton.JOINT_KEYS 8개 박제 — Plan 17-03)"
+    )
     x_normalized: float = Field(
         ge=0.0, le=1.0, description="x 좌표 (영상 width 정규화, 0~1)"
     )

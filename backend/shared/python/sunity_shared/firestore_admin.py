@@ -612,6 +612,7 @@ def complete_analysis(
     force_pattern_inference: dict | None = None,
     keypoint_report: dict | None = None,
     gemini_c: dict | None = None,
+    gemini_d: dict | None = None,
 ) -> None:
     """status='done' + result (contract.md §4 AnalysisResult).
 
@@ -679,6 +680,15 @@ def complete_analysis(
         # 회귀 차단.
         _validate_flat_dict_no_nested_array(gemini_c, path="geminiC")
         payload["geminiC"] = gemini_c
+    if gemini_d is not None:
+        # Plan 17-03 — 영역 D Keypoint 보강 audit (flat object 박제).
+        # WARNING-3 정합 — user-visible result.keypointReport 와 audit top-level
+        # geminiD 분리. flat object 박제 — scalar (model / guardrail_blocked_count)
+        # + list[scalar] (augmentedFrames / originalRtmwUncertaintyProxy) + dict[str, str]
+        # (mirrorHint) 박제. nested list / nested dict 영구 0. 기존 W5 validator
+        # 재사용으로 회귀 차단.
+        _validate_flat_dict_no_nested_array(gemini_d, path="geminiD")
+        payload["geminiD"] = gemini_d
     _doc(models.analysis_doc_path(uid, analysis_id)).set(payload, merge=True)
 
 

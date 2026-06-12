@@ -250,6 +250,7 @@ class TestKeypointRefinement:
             "refined": [
                 {
                     "frame_index": 12,
+                    "joint_key": "left_shoulder",
                     "x_normalized": 0.5,
                     "y_normalized": 0.42,
                     "confidence": 0.78,
@@ -265,6 +266,7 @@ class TestKeypointRefinement:
             "refined": [
                 {
                     "frame_index": -1,
+                    "joint_key": "left_shoulder",
                     "x_normalized": 0.5,
                     "y_normalized": 0.5,
                     "confidence": 0.5,
@@ -279,6 +281,7 @@ class TestKeypointRefinement:
             "refined": [
                 {
                     "frame_index": 0,
+                    "joint_key": "left_shoulder",
                     "x_normalized": 1.1,
                     "y_normalized": 0.5,
                     "confidence": 0.5,
@@ -293,6 +296,7 @@ class TestKeypointRefinement:
             "refined": [
                 {
                     "frame_index": i,
+                    "joint_key": "left_shoulder",
                     "x_normalized": 0.5,
                     "y_normalized": 0.5,
                     "confidence": 0.5,

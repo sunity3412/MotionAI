@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 from .client import GeminiVisionCall
+from .coach_writer_v2 import GeminiCoachWriter
 from .config import (
     ALLOWED_MODELS,
     DEFAULT_A_MODEL,
@@ -42,6 +43,8 @@ from .schemas import (
 __all__ = [
     # client
     "GeminiVisionCall",
+    # coach_writer_v2 (Plan 17-04 — 영역 B Coach)
+    "GeminiCoachWriter",
     # config
     "ALLOWED_MODELS",
     "DEFAULT_A_MODEL",

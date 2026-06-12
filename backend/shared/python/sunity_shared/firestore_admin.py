@@ -611,6 +611,7 @@ def complete_analysis(
     force_signals_report: dict | None = None,
     force_pattern_inference: dict | None = None,
     keypoint_report: dict | None = None,
+    gemini_b: dict | None = None,
     gemini_c: dict | None = None,
     gemini_d: dict | None = None,
 ) -> None:
@@ -672,6 +673,14 @@ def complete_analysis(
         # [[firestore-nested-array-flat]] 보존. Phase 9 패턴 1:1 mirror.
         _validate_keypoint_report(keypoint_report)
         payload["result"]["keypointReport"] = keypoint_report
+    if gemini_b is not None:
+        # Plan 17-04 — 영역 B Coach 박제 (flat audit object, WARNING-3 정합).
+        # user-visible result.tips/coach 와 분리 — Firestore top-level `geminiB` 박힘.
+        # flat object 강제 — scalar (model / latencyMs / fallback / fallbackReason /
+        # judgeScore=null) + list[dict-of-scalars] (causes) 만 박제. nested list /
+        # nested dict 영구 0. 기존 W5 validator 재사용으로 회귀 차단.
+        _validate_flat_dict_no_nested_array(gemini_b, path="geminiB")
+        payload["geminiB"] = gemini_b
     if gemini_c is not None:
         # Plan 17-02 — 영역 C Finding flag 박제 (flat object).
         # [[firestore-nested-array-flat]] 정합 — 4 boolean + str (notes_ko) +

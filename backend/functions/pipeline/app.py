@@ -79,9 +79,12 @@ from sunity_shared.analysis.pole_geometry import (
 from sunity_shared.analysis.pose_frame import PoleAxis, to_coco17_array
 from sunity_shared.analysis.temporal import temporal_fill
 from sunity_shared.events import iter_s3_keys_from_sqs
-from sunity_shared.gemini.coach_writer_v2 import GeminiCoachWriter
-from sunity_shared.gemini.keypoint_augmenter import augment_low_confidence
-from sunity_shared.gemini.scene_finder import find_scene_flags
+# sunity_shared.gemini 박제 — Lambda 250MB 한도 정합 박제 (lazy import).
+# 운영 path = RunPod 위임 (RUNPOD_ANALYZE_URL 박힘) — Lambda 의 _process CPU
+# 폴백 path 에서만 Gemini Vision 호출. lazy import 로 google-genai 의 ~100MB
+# transitive deps (googleapiclient 등) 를 Lambda 배포에서 제거 + Pod 에는 영향 0
+# (Pod 의 runpod_inference/requirements.txt 박힘 유지).
+# 박제 후속 사용 위치 안에서 `from sunity_shared.gemini.* import ...` 박는다.
 from sunity_shared.s3keys import parse_upload_key
 
 # FfmpegFrameExtractor / NlfPoseEstimator / CerebrasCoachWriter 는 imageio·torch·
@@ -332,6 +335,9 @@ def _call_wave1_scene_finder(
         log.info("GEMINI_FINDING_ENABLED OFF — wave 1 skip")
         return None
     try:
+        # Lazy import — Lambda 250MB 정합 (top-level import 시 google-genai 박힘).
+        from sunity_shared.gemini.scene_finder import find_scene_flags
+
         return find_scene_flags(local_video_path, is_reference=is_reference)
     except Exception as exc:  # noqa: BLE001 - 분석 흐름 차단 0 박제
         log.warning(
@@ -402,6 +408,9 @@ def _call_wave2_keypoint_augmenter(
         log.info("occlusion_severe=True — wave 2 skip (영역 D)")
         return None
     try:
+        # Lazy import — Lambda 250MB 정합.
+        from sunity_shared.gemini.keypoint_augmenter import augment_low_confidence
+
         return augment_low_confidence(
             video_path=local_video_path,
             low_uncertainty_frame_indices=low_uncertainty_frame_indices,
@@ -556,6 +565,9 @@ def _ensure_gemini_coach_writer() -> "GeminiCoachWriter":
     """
     global _GEMINI_COACH_WRITER
     if _GEMINI_COACH_WRITER is None:
+        # Lazy import — Lambda 250MB 정합.
+        from sunity_shared.gemini.coach_writer_v2 import GeminiCoachWriter
+
         _GEMINI_COACH_WRITER = GeminiCoachWriter()
     return _GEMINI_COACH_WRITER
 

@@ -2,13 +2,23 @@
 # torch/ultralytics/imageio/Pillow/cerebras 는 RunPod 서버측에서만 사용 —
 # Lambda 폴백(_process) 경로는 deploy 환경에서 ImportError 로 의도적 차단.
 # 운영 검증은 reference: backend/runpod_inference/server.py.
+#
+# 박제 (2026-06-12, deploy fix): numpy 박제 X — SharedLayer 의 numpy 사용 박제
+# (중복 박제 시 ~54 MB 추가). 250MB 한도 정합.
 firebase-admin>=6,<7
-numpy>=1.26,<3
 
 # Phase 17 Plan 06A (W1 정합) — Lambda 는 in-process Phoenix UI launch X.
 # OTLP HTTP exporter 로 외부 collector (Pod / 별도 endpoint) 에 전송만.
 # arize-phoenix UI 자체는 박제 X (Lambda 250MB 한도 박제 정합 — UI 의존성 무거움).
 # extras 미설치 시 phoenix_setup.bootstrap_tracing 이 noop — 분석 흐름 차단 0.
-openinference-instrumentation-google-genai>=0.1,<1.0
+#
+# 박제 (2026-06-12, deploy fix): `openinference-instrumentation-google-genai`
+# 박제 X. 이유 — 본 패키지가 google-genai 를 transitive 로 끌어옴 →
+# googleapiclient (96 MB) + grpc + cryptography 등 합산 ~100 MB. Lambda 250MB
+# 한도 초과 (실측 262 MB). 운영 path 는 RunPod 위임 (RUNPOD_ANALYZE_URL 박힘)
+# — Lambda _process 의 CPU 폴백에서 Gemini Vision 호출 0건. sunity_shared.gemini
+# import 는 pipeline 의 helper 함수 안으로 lazy 박제 (module load 시점에 google
+# import 미발동). openinference 자동 계측은 Pod (runpod_inference/requirements.txt)
+# 에서만 활성.
 opentelemetry-sdk>=1.27,<2.0
 opentelemetry-exporter-otlp-proto-http>=1.27,<2.0

@@ -23,6 +23,7 @@ from .config import (
     resolve_model,
 )
 from .guardrails import _enforce_no_reject_patterns
+from .scene_finder import find_scene_flags
 from .schemas import (
     CheckpointJoint,
     CoachCause,
@@ -50,6 +51,8 @@ __all__ = [
     "resolve_model",
     # guardrails
     "_enforce_no_reject_patterns",
+    # scene_finder (Plan 17-02 — 영역 C Finding)
+    "find_scene_flags",
     # schemas
     "CheckpointJoint",
     "CoachCause",

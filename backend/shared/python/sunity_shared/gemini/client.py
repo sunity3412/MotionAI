@@ -92,30 +92,45 @@ _GEMINI_UNSUPPORTED_SCHEMA_KEYS = frozenset({
 
 
 def _strip_unsupported_schema_keys(schema: Any) -> Any:
-    """JSON Schema 박혀 Gemini 가 인식 못 하는 key 박힘 재귀 제거.
+    """JSON Schema 에서 Gemini 가 인식 못 하는 key 제거 + `$defs` ref 재귀 resolve.
 
-    Pydantic 의 `$defs` ref 박힘 inline 박혀 박혀 박혀 박힘 (간단 1-level
-    inline — 본 phase 의 schema 박힘 nested 박혀 박혀 ref 박혀 충분).
+    Pydantic 2 의 nested model 은 `$defs/{Name}` 으로 분리되고 사용처는 `$ref`
+    로 가리킨다. Gemini 는 ref 미지원이므로 inline 박제 필요. 단순 1-level
+    inline 으로는 `CoachPayload.joints.items.$ref → JointCoaching → detail2.$ref
+    → CoachDetail2 → causes.items.$ref → CoachCause` 같은 다단계 ref 가
+    빈 `{}` 로 박힘 → Gemini 가 schema 의도 못 읽고 자유 형식 응답 → Pydantic
+    validation fail. 재귀 resolver 로 모든 ref 를 inline 박는다.
     """
-    if isinstance(schema, dict):
-        # $defs ref 박힘 inline (1-pass — 본 schema 박혀 ref 박혀 1 단계).
-        defs = schema.pop("$defs", None) or schema.pop("definitions", None) or {}
-        cleaned: dict[str, Any] = {}
-        for k, v in schema.items():
+    if not isinstance(schema, dict):
+        return schema
+    # 최상위 $defs 보관 (재귀 호출 박혀 resolve)
+    defs = schema.get("$defs") or schema.get("definitions") or {}
+    return _resolve_and_strip(schema, defs)
+
+
+def _resolve_and_strip(node: Any, defs: dict) -> Any:
+    """node 재귀 순회 — $ref 인라인 + unsupported key 제거."""
+    if isinstance(node, dict):
+        # $ref 박혀 박힘 → defs 박혀 resolve + 재귀
+        if "$ref" in node and isinstance(node["$ref"], str):
+            ref_path = node["$ref"]
+            if ref_path.startswith("#/$defs/") or ref_path.startswith("#/definitions/"):
+                ref_name = ref_path.split("/")[-1]
+                if ref_name in defs:
+                    return _resolve_and_strip(defs[ref_name], defs)
+            # ref 못 풀면 빈 dict (Gemini 가 type 만 보고 추측)
+            return {}
+        out: dict[str, Any] = {}
+        for k, v in node.items():
             if k in _GEMINI_UNSUPPORTED_SCHEMA_KEYS:
                 continue
-            if k == "$ref" and isinstance(v, str) and v.startswith("#/$defs/"):
-                ref_name = v.split("/")[-1]
-                if ref_name in defs:
-                    cleaned.update(
-                        _strip_unsupported_schema_keys(defs[ref_name])
-                    )
+            if k in ("$defs", "definitions"):
                 continue
-            cleaned[k] = _strip_unsupported_schema_keys(v)
-        return cleaned
-    if isinstance(schema, list):
-        return [_strip_unsupported_schema_keys(v) for v in schema]
-    return schema
+            out[k] = _resolve_and_strip(v, defs)
+        return out
+    if isinstance(node, list):
+        return [_resolve_and_strip(v, defs) for v in node]
+    return node
 
 
 @dataclass

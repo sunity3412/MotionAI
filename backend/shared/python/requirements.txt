@@ -1,1 +1,6 @@
 numpy>=1.26,<3
+
+# Phase 17 Plan 06A (W1 정합) — opentelemetry-api 는 shared layer (Pod + Lambda
+# 공통) 박제. 4 영역 client (gemini/client.py 외) 가 TELEMETRY_OK gate 박힌
+# trace.get_tracer / span.add_event 박제 시 import 대상.
+opentelemetry-api>=1.27,<2.0

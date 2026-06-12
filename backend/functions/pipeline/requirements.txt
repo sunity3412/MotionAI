@@ -4,3 +4,11 @@
 # 운영 검증은 reference: backend/runpod_inference/server.py.
 firebase-admin>=6,<7
 numpy>=1.26,<3
+
+# Phase 17 Plan 06A (W1 정합) — Lambda 는 in-process Phoenix UI launch X.
+# OTLP HTTP exporter 로 외부 collector (Pod / 별도 endpoint) 에 전송만.
+# arize-phoenix UI 자체는 박제 X (Lambda 250MB 한도 박제 정합 — UI 의존성 무거움).
+# extras 미설치 시 phoenix_setup.bootstrap_tracing 이 noop — 분석 흐름 차단 0.
+openinference-instrumentation-google-genai>=0.1,<1.0
+opentelemetry-sdk>=1.27,<2.0
+opentelemetry-exporter-otlp-proto-http>=1.27,<2.0

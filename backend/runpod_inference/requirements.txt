@@ -44,3 +44,12 @@ google-genai>=1.0,<2.0
 # 박제 누락이었음 — pipeline/requirements.txt 박제 정신은 "RunPod 서버측에서만"
 # 인데 runpod_inference/requirements.txt 박제 X 였음. setup_pod_full.sh 박제 누락.
 cerebras-cloud-sdk>=1.0,<2.0
+
+# Phase 17 Plan 06A (W1 정합) — Phoenix telemetry (Pod in-process 호스트 + google-genai
+# 자동 계측). 4 영역 latency/cost/parse_success/guardrail trigger span 수집 박제.
+# AI-SPEC §5 + §7 박제. extras 미설치 시 phoenix_setup.bootstrap_tracing 은
+# noop — 분석 흐름 차단 0.
+arize-phoenix>=4.0,<5.0
+openinference-instrumentation-google-genai>=0.1,<1.0
+opentelemetry-sdk>=1.27,<2.0
+opentelemetry-exporter-otlp-proto-http>=1.27,<2.0

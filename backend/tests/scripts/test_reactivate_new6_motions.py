@@ -188,9 +188,12 @@ def test_extract_reference_angles_uses_rtmw_engine_directly():
     assert "RTMWPoseEngine" in src, (
         "extract_reference_angles.py 가 RTMWPoseEngine 박제 X — Phase 17 Plan 07 swap 미완"
     )
+    # multi-line `from X import (  # noqa\n    RTMWPoseEngine,)` 형식 박제 정합.
+    # `import` 와 `RTMWPoseEngine` 사이에 noqa/괄호/공백 임의 박힘 — DOTALL + 임의 박제.
     assert re.search(
-        r"from\s+sunity_shared\.analysis\.pose_engines\.rtmw\.rtmw_engine\s+import\s+RTMWPoseEngine",
+        r"from\s+sunity_shared\.analysis\.pose_engines\.rtmw\.rtmw_engine\s+import\b[^\n]*\n?[^A-Za-z_]*RTMWPoseEngine",
         src,
+        flags=re.DOTALL,
     ), "RTMWPoseEngine 의 정식 import path 박제 X"
     # helper 박제.
     assert "to_coco17_array" in src, "to_coco17_array helper 박제 X"
@@ -198,16 +201,32 @@ def test_extract_reference_angles_uses_rtmw_engine_directly():
     assert "PoleAxis" in src, "PoleAxis (vertical_fallback) 박제 X"
 
     # pipeline private adapter 박제 0건 (운영 path 정합 + side-effect 차단).
-    assert "_RTMWNlfCompat" not in src, (
-        "pipeline 의 private `_RTMWNlfCompat` adapter 가 박힘 — script context 는 "
-        "RTMWPoseEngine 직접 박제 (3차 R-B4 정합)"
-    )
+    # 박제 정신 = active import / 코드 reference 박지 못함 — 박힌 코멘트/docstring
+    # 박제 (왜 박지 않았는지 박은 박제) 는 허용. 박제 박는 방법 = 코드 라인만
+    # 필터링 (docstring 박제는 # 박지 않으므로 별도 박제 필요 — 모듈 ast 분석
+    # 박제는 과한 박제. 박제 간소화 = 박힌 line 박은 `import` 시작 또는
+    # `_RTMWNlfCompat(` 호출 박제만 박지 못함).
+    forbidden_patterns = [
+        r"^\s*from\s.*_RTMWNlfCompat",  # active import
+        r"^\s*import\s.*_RTMWNlfCompat",
+        r"_RTMWNlfCompat\s*\(",  # 호출
+        r"=\s*_RTMWNlfCompat",  # 할당
+    ]
+    for pattern in forbidden_patterns:
+        matches = re.findall(pattern, src, flags=re.MULTILINE)
+        assert not matches, (
+            f"pipeline 의 private `_RTMWNlfCompat` 박제 박힘 — pattern={pattern!r}, "
+            f"matches={matches!r}. 3차 R-B4 정합 위반 — script context 는 "
+            f"RTMWPoseEngine 직접 박제."
+        )
 
     # NLF 박제 흔적은 legacy 주석 박제로만 보존 — active import line 박혀있으면 fail.
     active_import_lines = [
         ln
         for ln in src.splitlines()
-        if "NlfPoseEstimator" in ln and not ln.lstrip().startswith("#")
+        if "NlfPoseEstimator" in ln
+        and not ln.lstrip().startswith("#")
+        and ln.lstrip().startswith(("from ", "import "))
     ]
     assert not active_import_lines, (
         f"NlfPoseEstimator 가 active import 라인에 박힘: {active_import_lines!r}"

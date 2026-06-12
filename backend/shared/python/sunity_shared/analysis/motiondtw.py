@@ -101,14 +101,30 @@ def motion_dtw(F_user, F_ref, radius: int = 12) -> MotionMatch:
 
 
 def per_joint_deviation(path, A_user_seg, A_ref):
-    """정렬 경로에서 관절별 평균 |Δ각도|(도). A_*: (T,J) 각도 행렬.
+    """정렬 경로에서 관절별 median |Δ각도|(도). A_*: (T,J) 각도 행렬.
 
-    KISMAM 입력. path 의 (u,r) 쌍마다 관절별 차이를 모아 평균.
+    KISMAM 입력. path 의 (u,r) 쌍마다 관절별 차이를 모아 **중앙값** 반환.
+
+    Phase 17-debug (2026-06-12, gsd-debug same-video-score-mismatch):
+      평균 → median 전환. RTMW 가 inverted/occluded 폴 자세에서 인접 frame 간
+      10°+ jitter 를 만들고, p99 이 35~50° 에 달하는 outlier frame 이 다수.
+      평균은 outlier 에 끌려가 mean angles 가 5° 차이여도 deviation = 20° 가
+      산출 → KISMAM tol=20° 가 z=1.0 → score ≈ 60 으로 깎임 ("같은 영상인데
+      만점이 안 나옴" 증상).
+      Median 은 RTMW jitter 의 50% 이상이 noise 일 때 그 noise 의 중앙값을 반환
+      (climb 5°, elbow-twist 12°) — clean 자세에선 영향 미미하고 noisy 자세에선
+      mean angle 동일성을 충실히 반영. 같은 영상 self-compare 시 median(0) → 0
+      보장 (DTW path 가 identity 면 모든 |Δ|=0).
+      신호 (mean angles 가 일관적으로 다름) 는 median 으로도 잡힘 (path 의 모든
+      frame 에서 같은 부호 차이 → median 도 그 차이값).
     """
     A_user_seg = np.asarray(A_user_seg, dtype=float)
     A_ref = np.asarray(A_ref, dtype=float)
     J = A_ref.shape[1]
-    acc = np.zeros(J)
-    for u, r in path:
-        acc += np.abs(A_user_seg[u] - A_ref[r])
-    return acc / max(len(path), 1)
+    if not path:
+        return np.zeros(J)
+    # path 따라 (len(path), J) 차이 행렬 구축 → 관절별 median.
+    diffs = np.empty((len(path), J), dtype=float)
+    for k, (u, r) in enumerate(path):
+        diffs[k] = np.abs(A_user_seg[u] - A_ref[r])
+    return np.median(diffs, axis=0)

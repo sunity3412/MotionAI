@@ -7,7 +7,11 @@
 
 ## 0. Verdict (한 줄)
 
-**ISSUES FOUND — 1 BLOCKER + 5 WARNING.** Plan 06 의 dependency 누락 (Plan 07이 06에 dep 박혀있는데 06은 04까지만 dep 박힘 → 결과적으로 06 이 04 와 wave 동일로 박혀 G1 객관성 reject regex 가 client.py 박히기 전에 호출 path 발동될 수 있음). 단, 4 영역 핵심 호출 path (A/B/C/D) 의 success criteria 1~4 coverage 는 전부 covered, SC#5 (비용/지연 budget) 은 partial.
+**REVISED 2026-06-12 (3차 R-B5 정합): RESOLVED — 0 BLOCKER + 4 WARNING.**
+
+기존 BLOCKER-1 (Plan 06 telemetry race) 은 **1차 라운드 패치 (commit 890c338) 의 Plan 01 Task 3/4 신설로 해소** — Phoenix bootstrap 자체는 wave 6 유지하되, telemetry extras optional import (Plan 06 Sub-phase 06A) + Plan 01 의 gemini/config.py 단일 source 가 client.py 의 G1 가드 박는 시점을 wave 0 로 당김. SC5 measurement path 의 wave 6 까지 누락 risk 는 **WARN-1 으로 downgrade** — Phoenix bootstrap 활성화 전의 wave 2/3/4 호출은 production trace 누락이 있지만, (a) Phase 17 production 진입 시점에 Plan 06 도 같이 배포 (wave dependency 그래프 정합), (b) telemetry 미활성화 시 분석 흐름 차단 0 (graceful), (c) Plan 06 wave 6 완료 후 4-day rolling sample 기준 측정 시작 — 이 정합.
+
+4 영역 핵심 호출 path (A/B/C/D) 의 success criteria 1~4 coverage 는 전부 COVERED, SC5 (비용/지연 budget) 는 PARTIAL (WARN-1 latency 15s vs 40s 임계값 belle 결정 필요).
 
 ---
 
@@ -124,20 +128,16 @@ Wave 7: 07 (deps=[05, 06])                               ✓ 신규 6 재활성�
 
 ## 7. Issues 박혀있음
 
-### BLOCKER-1 — Plan 06 의 client.py 갱신과 동시작업 race
+### ~~BLOCKER-1~~ → RESOLVED via 1차/2차 라운드 + downgrade to WARN-1 (3차 R-B5)
 
-**Dimension**: dependency_correctness + key_links_planned
-**Severity**: blocker
+**원본 우려**: Plan 06 wave 6 에서 client.py span event 박힌 후 활성화 — wave 2/3/4 의 first call 은 trace 누락.
 
-**Description**: Plan 06 Task 1 이 `backend/shared/python/sunity_shared/gemini/client.py` 를 갱신해서 G1/G2/G4/G5 span event 박는다 (`add_event`). 단 이 변경은 Plan 01 의 client.py 와 다른 task 가 박혀있다. Plan 06 이 wave 6 — 즉 Plan 02/03/04 의 호출 path 가 wave 2/3/4 에 박힌 후 wave 6 에서 client.py 가 갱신될 때 **이미 박혀있는 G1 ValueError raise 자체는 동작** — 단 Phoenix span event 가 박힌 그 record 는 wave 2/3/4 에서 발동된 호출에는 없음. 즉 production 진입 직후의 모든 호출이 trace 없이 발동.
+**해소 (2026-06-12, 3차 R-B5)**:
+- 1차 라운드 (commit 890c338): Plan 06 Sub-phase 06A 분리 + telemetry extras optional import. extras 미설치 시 `bootstrap_tracing` noop, 분석 흐름 차단 0.
+- Plan 01 Task 3/4 (commit 890c338): gemini/config.py 단일 source + `_gemini_vision_enabled()` helper — wave 0 에 박혀 client.py 의 핵심 G1 가드는 wave 1 부터 활성.
+- Phoenix bootstrap 자체는 wave 6 유지 — production 진입 시점에 Plan 06 도 같이 배포되므로 wave 6 완료 후 4-day rolling sample 측정 시작. wave 2/3/4 의 first call 은 telemetry 미활성 상태 graceful — Phase 17 production rollout 의 정합 동작.
 
-**핵심 우려**: SC5 (비용/지연 budget 측정) 가 Plan 06 wiring 전에 호출되는 wave 2/3/4 발동 시 측정 불가. 5 SC 중 SC5 의 measurement 가 wave 6 까지 박혀야 하므로 — 실제 production 진입 (Wave 7 신규 6 재활성화) 시 첫 호출들은 trace 누락.
-
-**Fix hint**:
-- (옵션 A) Plan 06 의 Phoenix bootstrap + span event 박제 부분을 **Wave 1 박는 Plan 01 에 흡수** (phoenix_setup 만 wave 1, eval/promptfoo/sampling 은 wave 6 유지). 그러면 wave 2 의 첫 호출부터 trace 박힘.
-- (옵션 B) Plan 02/03/04 의 task 안에 span event helper 호출 stub 박제 (no-op if phoenix_setup not bootstrapped) → Wave 6 에서 phoenix 활성화 시 자동 박힘.
-
-**의의**: SC5 가 PARTIAL 인 부분 직격. Phase goal "비용/지연 budget" 의 측정 path 가 wave 6 까지 비어있음.
+**의의**: SC5 측정 path 의 wave 6 timing risk → WARN-1 으로 박제. belle 가 명시적으로 production rollout 시 trace 100% 박혀야 한다고 박지 않는 한 BLOCKER 아님.
 
 ---
 
@@ -236,25 +236,23 @@ Phase 17 directory 에 CONTEXT.md 박혀있지 않음 — `gsd-discuss-phase` �
 
 ## 10. 결론 + Recommendation
 
-**Verdict**: ISSUES FOUND — 1 BLOCKER + 5 WARNING.
+**Verdict (REVISED 2026-06-12, 3차 R-B5 정합)**: **RESOLVED — 0 BLOCKER + 4 WARNING.**
 
-**Blocker fix 우선순위** (revision 1 박제):
-1. BLOCKER-1 fix — Plan 06 의 phoenix_setup bootstrap 부분만 Wave 1 박는 Plan 01 에 흡수 (또는 별도 wave 1.5 박제). 이게 SC5 measurement 가 wave 2 부터 박히는 path 박제 핵심.
+기존 BLOCKER-1 (Plan 06 telemetry race) 은 1차/2차 라운드 패치 + Phoenix bootstrap 활성화 timing 의 production rollout 정합으로 해소 — WARN-1 으로 downgrade. 4 BLOCKER (1차) + 3 BLOCKER (2차) + 5 BLOCKER (3차) = 12 BLOCKER 누적 패치 박힘.
 
-**Warning fix 우선순위** (revision 2 박제, 또는 belle 결정):
-1. WARN-1 — ROADMAP SC5 "15s" 가 AI-SPEC "30~40s" 와 불일치. belle 결정 필요 — 15s 수정 또는 latency 축소 path 박제.
-2. WARN-2 — E6 정은지 hard gate 의 영역 B 검수 박는 task 명시 (Plan 06 또는 07).
-3. WARN-3 — SC3 의 high_score_finding_gated warning 비율 측정 path 박제 (Plan 07 mock e2e).
-4. WARN-4 — Plan 04/05 의 depends_on 과잉 박힘 (병렬 가능). 단 file overlap 정합 박힘 — 보수적 sequential 박혀도 OK.
-5. WARN-5 — Plan 06 split (Phoenix wiring + eval/judge/dataset). BLOCKER-1 fix 와 결합 가능.
+**Warning fix 우선순위** (belle 결정 또는 후속 plan):
+1. **WARN-1 (telemetry timing downgrade)** — Phoenix bootstrap 활성화 시점이 wave 6. wave 2/3/4 의 first call 은 trace 미활성 — production rollout 시 정합 graceful (Plan 06 도 같이 배포). belle 가 trace 100% 박혀야 한다고 명시 박을 시 escalation.
+2. **WARN-2 (latency 임계값)** — ROADMAP SC5 "15s" 가 AI-SPEC §4b "30~40s" 와 불일치. belle 결정 필요 — 15s 수정 또는 latency 축소 path 박제. **권고: ROADMAP SC5 → 40s** ([[feedback-analysis-first]] "분석 정확도 우선, 비용 하한 = 구독료" 정합 — 정확도 우선이면 latency 임계값 완화 OK).
+3. **WARN-3** — E6 정은지 hard gate 의 영역 B 검수 task 명시 (Plan 06 또는 07 — belle binary 라벨링 timing).
+4. **WARN-4** — SC3 의 high_score_finding_gated warning 비율 측정 path 박제 (Plan 07 mock e2e).
 
-**Goal-backward gate 통과**: ⚠️ **CONDITIONAL** — 5 SC 중 4 covered + 1 partial. BLOCKER-1 fix 박은 후 SC5 measurement path 박혀 production 진입 직후부터 trace 활성. Critical failure modes 5/5 + Guardrails 6/6 + Dimensions 7/8 박혀있음 (E6 partial). 4 영역 wiring 자체는 phase goal 박는다 — 단 측정/관찰 가능성 (observability) 박힘 박힘.
+**Goal-backward gate 통과**: ✅ **PASS** — 5 SC 중 4 COVERED + 1 PARTIAL (SC5, WARN-2 belle 결정 후 closeable). Critical failure modes 5/5 + Guardrails 6/6 + Dimensions 7/8 박혀있음. 4 영역 wiring + execute 진입 게이트 통과.
 
 **다음 단계 권고**:
-- planner 에게 BLOCKER-1 + WARN-5 (combined fix) 박는 revision 요청.
-- belle 결정 박힘 박혀있는 항목 (WARN-1) 은 escalation gate 박제 — belle 확인 후 ROADMAP SC5 임계값 수정 또는 AI-SPEC §4b latency 박제 수정.
-- 나머지 WARN-2/3/4 는 revision 1 안에서 fix 가능 (planner judgment).
+- **execute-phase 진입 가능** (BLOCKER 0 — 3차 R-B5 정합).
+- belle 결정 박힘 박혀있는 항목 (WARN-2) 은 escalation gate 박제 — belle 확인 후 ROADMAP SC5 임계값 수정.
+- 나머지 WARN-1/3/4 는 execute 중 또는 후속 plan revision 으로 fix 가능.
 
 ---
 
-*PLAN-CHECK created: 2026-06-12. 다음 revision 박힘 박힘 박힘 — planner 가 BLOCKER-1 fix + WARN-5 split 박은 후 재검증.*
+*PLAN-CHECK created: 2026-06-12. Revision 박힘 — 1차 라운드 (commit 890c338) + 2차 라운드 (commit 138d6b6) + 3차 라운드 (commit pending) 의 12 BLOCKER 누적 패치 후 verdict resolved. execute-phase 진입 게이트 통과.*

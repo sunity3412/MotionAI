@@ -40,7 +40,7 @@ Phase 17 = **신규 인프라 0**. 기존 Lambda + RunPod Pod 위에 Gemini 호�
 | A Reference 등록 | **Lambda** (신규 endpoint) | sync (HTTP 응답) | belle UX = 등록 직후 결과 확인. 정은지 영상만 호출 (빈도 낮음). RunPod 의존 X = belle 가 폰/노트북에서 직접 호출 가능. |
 | B 코칭 멘트 | **Pod** (`_process` 안) | async (BackgroundTask) | 영상이 이미 Pod GPU 메모리. Cerebras 호출 자리 swap target. |
 | C Finding flag | **Pod** (`_process` 안) | async (BackgroundTask) | 영상 frame 이미 있음. 빈도 = 모든 분석 1회. |
-| D Keypoint 보강 | **Pod** (`_process` 안) | async (BackgroundTask) | RTMW 결과 + frame 둘 다 Pod 에. RTMW confidence < 0.5 frame 만 호출 (조건부, 빈도 낮음). |
+| D Keypoint 보강 | **Pod** (`_process` 안) | async (BackgroundTask) | RTMW 결과 + frame 둘 다 Pod 에. **`uncertainty_proxy > 0.5` frame 만 호출** (B2 정합 — `to_coco17_array` 4번째 채널 = uncertainty_proxy, 1.0 = 미감지. KeypointReport.confidence 와 audit 분리 — 3차 R-W2). |
 
 ---
 
@@ -48,7 +48,7 @@ Phase 17 = **신규 인프라 0**. 기존 Lambda + RunPod Pod 위에 Gemini 호�
 
 | 기존 모듈 (절대 경로) | Phase 17 작업 | 변경 형태 |
 |---|---|---|
-| `backend/functions/pipeline/app.py::_process` | wave 1+2 추가 — `_RTMWNlfCompat.estimate` 직후 + `kismam.assess` 직전 | 신규 코드 ~80 lines (asyncio.gather 2 wave) |
+| `backend/functions/pipeline/app.py::_process` | wave 1 (C) → wave 2 (B) 순차 — `_extract_video_analysis_inputs` 직후 + KISMAM/DTW 사이 (3차 R-B1 정합 Option A: B가 sceneFlags 받음). D wave 는 별도 위치 — `build_keypoint_report` 직후 + `complete_analysis` 직전 (2차 R-B1 정정). 신규 코드 ~100 lines. |
 | `backend/functions/pipeline/app.py::_ensure_recognizer` | 그대로 유지 — 영역 A 는 별도 path (Phase 5 GeminiTechniqueRecognizer 는 그대로) | 변경 0 |
 | `backend/shared/python/sunity_shared/analysis/coach_writer.py` | B 영역 swap — `CerebrasCoachWriter` interface 유지. `GeminiCoachWriter` 신설 → adapter 선택 env | 신규 클래스 1개, 기존 변경 0 (additive) |
 | `backend/shared/python/sunity_shared/analysis/gemini_moment_extractor.py` | A/B/C/D 의 client init / Files API 패턴 직접 재사용. `_load_api_key` / `AQ.` 키 fallback 그대로 | 변경 0 (참조만) |
@@ -90,7 +90,7 @@ backend/functions/reference-auto-register/
 
 import asyncio
 from sunity_shared.gemini.scene_finder import find_scene_flags
-from sunity_shared.gemini.coach_writer_v2 import write_coach_gemini
+from sunity_shared.gemini.coach_writer_v2 import GeminiCoachWriter  # Plan 04 정합 (3차 R-W1 정정 — write_coach_gemini 박제 X)
 from sunity_shared.gemini.keypoint_augmenter import augment_low_confidence
 
 # ── 기존: RTMW estimate ──
@@ -98,24 +98,23 @@ coco_array, profile = _POSE_ESTIMATOR.estimate_with_profile(frames)
 # ... compute_joint_angles, DTW, KISMAM, dim_scores 등 — RTMW 원본 그대로 계산 ...
 
 # ── Phase 17 wave 1: 영역 C (모든 분석 1회) ──
-# 빈도 100%, latency-sensitive → Flash. wave 2 와 병렬 가능.
-async def wave1():
-    return await find_scene_flags(local_video_path)
+# 빈도 100%, latency-sensitive → Flash 2~5s.
+# (3차 R-B1 정합: B/C 병렬 박제 X — B 가 sceneFlags 를 prompt hint 로 사용해서
+# C 가 먼저 끝나야 함. Option A — C → B 순차. Plan 04 의 sceneFlags 의존
+# 보존이 prompt 품질 우선. latency 2~5s 추가 = AI-SPEC E8 p95 ≤ 40s 안에 흡수.)
+scene_flags = await find_scene_flags(local_video_path)
 
 # ── Phase 17 wave 2: 영역 B (조건부) ──
-# (2차 R-B1 정합: D 는 별도 위치 — wave 2 와 분리)
-async def wave2():
-    # B 영역: 분석 결과 (joints + dim scores) + 영상. v1 에서는 geminiD context 포함 X.
-    coach_context = _build_coach_context(
-        angles=angles, dim_scores=dim_scores, mode=mode,
-        local_video_path=local_video_path, scene_flags=scene_flags,
-    )
-    if GEMINI_COACH_ENABLED:
-        return gemini_coach_writer.write(coach_context)
-    return cerebras_coach_writer.write(coach_context)
-
-# wave 1+2 병렬 실행
-scene_flags, coach_result = await asyncio.gather(wave1(), wave2())
+# v1 에서는 geminiD context 포함 X (2차 R-B1 정합 — D 가 build_keypoint_report
+# 직후 + complete_analysis 직전 박혀서 B 보다 늦음).
+coach_context = _build_coach_context(
+    angles=angles, dim_scores=dim_scores, mode=mode,
+    local_video_path=local_video_path, scene_flags=scene_flags,
+)
+if GEMINI_COACH_ENABLED:
+    coach_result = gemini_coach_writer.write(coach_context)
+else:
+    coach_result = cerebras_coach_writer.write(coach_context)
 
 # ── 기존: assemble.build_result (RTMW 원본 dim_scores 박제) ──
 result = assemble.build_result(assessments, dim_scores, overall_score, comparison, ...)
@@ -163,7 +162,7 @@ firestore_admin.complete_analysis(
 
 **D-v2 deferred** (좌표계 계약 박은 후 별도 plan): coco_array 주입 + DTW/KISMAM/dim_scores 재계산. v2 진입 시 wave 순서 재조정 — D 가 B/build_result 보다 먼저, B context 에 geminiD 박제 가능.
 
-**왜 wave 1+2 분리?** wave 1 (C) 는 모든 분석. wave 2 (B/D) 는 조건부 / feature flag. 분리하면 wave 2 가 실패해도 C 결과 손실 0.
+**왜 wave 분리 (3차 R-W1 정정)?** wave 1 (C) 는 모든 분석. wave 2 (B) 는 조건부 / feature flag. **D 는 별도 wave** — `build_keypoint_report` 직후 + `complete_analysis` 직전 (2차 R-B1 정합 — B 보다 늦음). 분리하면 wave 2 가 실패해도 C 결과 손실 0, D 가 실패해도 B/score 손실 0.
 
 ---
 
@@ -258,7 +257,7 @@ firestore_admin.complete_analysis(
 |---|---|
 | 1 | 영역 A endpoint 호출 — 신규 6 영상 → Gemini A → `motionNameIpsf` + `clipRange` + `checkpointJoints` 자동 산출 |
 | 2 | belle 검수 (`reviewRequired=false` 인지 확인, 분기 라벨 검토) |
-| 3 | RTMW 로 신규 6 영상의 angles 재추출 — 운영과 동일 engine (extract_reference_angles.py 의 NlfPoseEstimator → `_RTMWNlfCompat` swap 필요) |
+| 3 | RTMW 로 신규 6 영상의 angles 재추출 — 운영과 동일 engine (extract_reference_angles.py 의 NlfPoseEstimator → **RTMWPoseEngine direct path** swap — 3차 R-B4 정합, pipeline private `_RTMWNlfCompat` 박제 X) |
 | 4 | Firestore seed 재실행 — angles + bodyComparisonSourcePose + geminiA |
 | 5 | isActive=true |
 | 6 | 사용자 분석 시 D 영역 (keypoint 보강) 이 RTMW 저신뢰 frame 박혀있는 거 fallback — inverted/twist 자세 정확도 회복 |
@@ -333,13 +332,13 @@ firestore_admin.complete_analysis(
 
 **Wave 5**: Eval + Guardrail wiring.
 - Arize Phoenix self-host (Pod 또는 별도 EC2)
-- Promptfoo CI/CD config
+- Promptfoo local eval config (CI 자동 게이트 별도 후속 plan — 2차 R-W1 정합)
 - §6 guardrail 6개 코드 박힘 (G1 객관성 reject regex 가 가장 critical)
 - 60-example reference dataset 박는다
 - Test: G1 hard fail 회귀 (정은지 영상 5건 객관성 검사)
 
 **Wave 6**: 신규 6 motion 재활성화.
-- `extract_reference_angles.py` 의 NLF → `_RTMWNlfCompat` swap
+- `extract_reference_angles.py` 의 NLF → **RTMWPoseEngine direct path** swap (3차 R-B4 정합)
 - 신규 6 영상 RTMW 재추출 + Firestore seed (angles + geminiA)
 - isActive=true
 - mock e2e 분석 (belle 폰 또는 mock script) — F4 finding 해소 검증
@@ -373,7 +372,7 @@ firestore_admin.complete_analysis(
 ## 12. Source 박힘
 
 **Codebase (직접 read)**:
-- `backend/functions/pipeline/app.py` L156, 237-258, 862-947, 1192-1297 (`_process` + `_ensure_recognizer` + `_RTMWNlfCompat`)
+- `backend/functions/pipeline/app.py` L156, 237-258, 862-947, 1192-1297 (`_process` + `_ensure_recognizer` + `_RTMWNlfCompat` — pipeline 내부 박제 유지. extract_reference_angles.py 의 swap 은 RTMWPoseEngine direct path — 3차 R-B4)
 - `backend/runpod_inference/server.py` L63-196 (`_load_pipeline_module` + `/analyze` endpoint)
 - `backend/shared/python/sunity_shared/analysis/coach_writer.py` (전체 — `CerebrasCoachWriter` interface)
 - `backend/shared/python/sunity_shared/analysis/technique.py` L40-92 (`TechniqueProfile` + `TechniqueRecognizer` Protocol + `FallbackRecognizer`)

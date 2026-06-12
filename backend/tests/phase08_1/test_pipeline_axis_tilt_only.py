@@ -25,7 +25,7 @@ import numpy as np
 import pytest
 
 from sunity_shared.analysis.force_signals import (
-    AxisDeviationMetric,
+    BodyLineTiltMetric,
     compute_axis_deviation,
     compute_force_signals,
 )
@@ -69,7 +69,7 @@ def _mock_body_profile():
 
 def test_pipeline_axis_metrics_have_six_fields() -> None:
     """compute_force_signals → forceSignalsReport.axisMetrics 의 각 metric 가
-    AxisDeviationMetric 의 6 필드만 보유 — distance/scale_denominator/
+    BodyLineTiltMetric 의 6 필드만 보유 — distance/scale_denominator/
     coordinate_space/deviation_direction 5 필드 부재.
     """
     pose_frames = [
@@ -90,7 +90,7 @@ def test_pipeline_axis_metrics_have_six_fields() -> None:
         fps=9.0,
     )
 
-    assert report.axis_metrics, "expected at least one AxisDeviationMetric"
+    assert report.axis_metrics, "expected at least one BodyLineTiltMetric"
     expected_fields = {
         "phase",
         "shoulder_tilt",
@@ -99,7 +99,7 @@ def test_pipeline_axis_metrics_have_six_fields() -> None:
         "confidence",
         "warnings",
     }
-    schema_fields = {f.name for f in dataclasses.fields(AxisDeviationMetric)}
+    schema_fields = {f.name for f in dataclasses.fields(BodyLineTiltMetric)}
     assert schema_fields == expected_fields
 
     # distance 필드 직접 access 시 AttributeError — 5 distance 필드 부재.

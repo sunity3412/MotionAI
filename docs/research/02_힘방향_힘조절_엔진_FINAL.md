@@ -234,7 +234,7 @@ flowchart TD
 ### 7.1 중심축 이탈
 
 ```ts
-type AxisDeviationMetric = {
+type BodyLineTiltMetric = {
   phase: string;
   pelvisDistanceFromPoleAxis: number;
   chestDistanceFromPoleAxis: number;
@@ -278,7 +278,7 @@ function inferForceDirectionPattern(
   phaseFrames: PoseFrame[],
   poleAxis: PoleAxis,
   contactMetrics: ContactStabilityMetric[],
-  axisMetrics: AxisDeviationMetric[],
+  axisMetrics: BodyLineTiltMetric[],
   stabilityMetrics: StabilityMetric[]
 ): ForcePatternInference {
   const findings: ForcePatternFinding[] = [];

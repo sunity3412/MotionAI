@@ -1,4 +1,4 @@
-"""Plan 08.1-00 Wave 0 Task 1 — AxisDeviationMetric 6 필드 dataclass invariant test.
+"""Plan 08.1-00 Wave 0 Task 1 — BodyLineTiltMetric 6 필드 dataclass invariant test.
 
 D-01 정합 — 6 필드 인스턴스화 PASS + invalid severity/confidence/phase ValueError +
 제거된 5 필드 kwarg TypeError.
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from sunity_shared.analysis.force_signals import AxisDeviationMetric
+from sunity_shared.analysis.force_signals import BodyLineTiltMetric
 
 
 # ── 6 필드 인스턴스화 PASS ────────────────────────────────────────────────
@@ -18,7 +18,7 @@ from sunity_shared.analysis.force_signals import AxisDeviationMetric
 
 def test_axis_dataclass_six_fields_instantiation() -> None:
     """6 필드 인스턴스화 PASS — phase='hold' / shoulder_tilt=12.5 / hip_tilt=8.3."""
-    m = AxisDeviationMetric(
+    m = BodyLineTiltMetric(
         phase="hold",
         shoulder_tilt=12.5,
         hip_tilt=8.3,
@@ -36,7 +36,7 @@ def test_axis_dataclass_six_fields_instantiation() -> None:
 
 def test_axis_dataclass_nullable_tilts() -> None:
     """shoulder_tilt=None + hip_tilt=None 박제 PASS (Wave 0 stub default)."""
-    m = AxisDeviationMetric(
+    m = BodyLineTiltMetric(
         phase="entry",
         shoulder_tilt=None,
         hip_tilt=None,
@@ -53,7 +53,7 @@ def test_axis_dataclass_nullable_tilts() -> None:
 
 def test_axis_dataclass_invalid_severity_raises() -> None:
     with pytest.raises(ValueError, match="severity"):
-        AxisDeviationMetric(
+        BodyLineTiltMetric(
             phase="hold",
             shoulder_tilt=None,
             hip_tilt=None,
@@ -65,7 +65,7 @@ def test_axis_dataclass_invalid_severity_raises() -> None:
 
 def test_axis_dataclass_invalid_confidence_raises() -> None:
     with pytest.raises(ValueError, match="confidence"):
-        AxisDeviationMetric(
+        BodyLineTiltMetric(
             phase="hold",
             shoulder_tilt=None,
             hip_tilt=None,
@@ -77,7 +77,7 @@ def test_axis_dataclass_invalid_confidence_raises() -> None:
 
 def test_axis_dataclass_invalid_phase_raises() -> None:
     with pytest.raises(ValueError, match="phase"):
-        AxisDeviationMetric(
+        BodyLineTiltMetric(
             phase="invalid",  # type: ignore[arg-type]
             shoulder_tilt=None,
             hip_tilt=None,
@@ -97,7 +97,7 @@ def test_axis_dataclass_distance_kwarg_raises_typeerror() -> None:
     D-01 hard break 검증.
     """
     with pytest.raises(TypeError, match="pelvis_distance_from_pole_axis|unexpected keyword"):
-        AxisDeviationMetric(
+        BodyLineTiltMetric(
             phase="hold",
             shoulder_tilt=None,
             hip_tilt=None,

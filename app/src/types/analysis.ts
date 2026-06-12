@@ -480,7 +480,7 @@ export interface PoleAxisMeasurement {
 
 // ── Phase 8 Force Signals (Plan 08-01 revised — REVIEWS Cycle 1) ──────────
 // Plan 08-00 박제 §9.0 contract (CoordinateSpace / ContactPrimitiveKind /
-// PoleAxisMeasurement) 위에 박제. ForceSignalsReport = AxisDeviationMetric +
+// PoleAxisMeasurement) 위에 박제. ForceSignalsReport = BodyLineTiltMetric +
 // StabilityMetric + ContactStabilityMetric + PhaseBoundary 4종 metric umbrella.
 //
 // Python lockstep (Plan 08-02 신설 후 활성화 예정):
@@ -489,7 +489,7 @@ export interface PoleAxisMeasurement {
 // docs/contract.md §9 ForceSignalsReport.
 //
 // REVIEWS Cycle 1 반영:
-//   R1/R2: AxisDeviationMetric 의 distance 필드 nullable + coordinateSpace +
+//   R1/R2: BodyLineTiltMetric 의 distance 필드 nullable + coordinateSpace +
 //          scaleDenominator 동행.
 //   R3:    ContactStabilityMetric = evidence-with-confidence (estimatedStable
 //          nullable, distanceToPoleNorm, nearPoleRatio, lostNearPoleAtMs,
@@ -567,12 +567,13 @@ export interface PhaseBoundary {
  * 검출 시 top-level warning 'axis_metric_transitional' 동행 박제 (Wave 2
  * production sweep 게이트 신호).
  *
- * naming caveat (C-MH1): 인터페이스 이름 'AxisDeviationMetric' 보존 — 실 의미는
- * tilt-only. ROADMAP 박제 별도 plan 에서 rename 후보 (예: AxisTiltMetric).
+ * naming history (C-MH1 resolved 2026-06-12): renamed from prior name
+ * AxisDeviationMetric → BodyLineTiltMetric — tilt-only 의미 정합 (Phase 8.1
+ * follow-up rename plan).
  *
  * per D-01.
  */
-export interface AxisDeviationMetric {
+export interface BodyLineTiltMetric {
   phase: MotionPhase;
   /** degrees, rotation-only / origin-invariant. Wave 0 stub default null. */
   shoulderTilt: number | null;
@@ -663,7 +664,7 @@ export interface ForceSignalsReport {
   overallConfidence: MetricConfidence;
   warnings: string[];
   phaseBoundaries: PhaseBoundary[];
-  axisMetrics: AxisDeviationMetric[];
+  axisMetrics: BodyLineTiltMetric[];
   stabilityMetrics: StabilityMetric[];
   contactMetrics: ContactStabilityMetric[];
 }

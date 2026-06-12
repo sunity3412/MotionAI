@@ -1,7 +1,7 @@
-"""Plan 08.1-00 Wave 0 Task 1 — AxisDeviationMetric 3-way lockstep grep 검증.
+"""Plan 08.1-00 Wave 0 Task 1 — BodyLineTiltMetric 3-way lockstep grep 검증.
 
 D-01 (Distance Hard Break) 정합 — TS interface + Python dataclass + docs §9.3
-모두 AxisDeviationMetric 박제 6 필드 (phase / shoulder_tilt / hip_tilt / severity /
+모두 BodyLineTiltMetric 박제 6 필드 (phase / shoulder_tilt / hip_tilt / severity /
 confidence / warnings) 만 존재 + 제거된 5 필드 (pelvis_distance_from_pole_axis /
 chest_distance_from_pole_axis / scale_denominator / coordinate_space /
 deviation_direction) 부재.
@@ -52,13 +52,13 @@ _PY_REMOVED_FIELDS = {
 
 
 def _extract_ts_interface_block() -> str:
-    """app/src/types/analysis.ts 의 `export interface AxisDeviationMetric { ... }` block 추출."""
+    """app/src/types/analysis.ts 의 `export interface BodyLineTiltMetric { ... }` block 추출."""
     src = _TS_PATH.read_text(encoding="utf-8")
     m = re.search(
-        r"export interface AxisDeviationMetric \{[\s\S]*?\n\}",
+        r"export interface BodyLineTiltMetric \{[\s\S]*?\n\}",
         src,
     )
-    assert m is not None, "TS interface AxisDeviationMetric block 부재"
+    assert m is not None, "TS interface BodyLineTiltMetric block 부재"
     return m.group(0)
 
 
@@ -66,7 +66,7 @@ def _extract_contract_93_block() -> str:
     """docs/contract.md §9.3 block 추출 (§9.3 ~ 다음 §9.[4-9])."""
     src = _CONTRACT_PATH.read_text(encoding="utf-8")
     m = re.search(
-        r"### §9\.3 AxisDeviationMetric[\s\S]*?(?=### §9\.[4-9])",
+        r"### §9\.3 BodyLineTiltMetric[\s\S]*?(?=### §9\.[4-9])",
         src,
     )
     assert m is not None, "docs §9.3 block 부재"
@@ -77,17 +77,17 @@ def _extract_contract_93_block() -> str:
 
 
 def test_axis_six_fields_present_in_ts() -> None:
-    """TS interface AxisDeviationMetric block 박제 6 필드 모두 존재."""
+    """TS interface BodyLineTiltMetric block 박제 6 필드 모두 존재."""
     block = _extract_ts_interface_block()
     missing = [f for f in _TS_KEEP_FIELDS if f not in block]
     assert not missing, f"TS interface 박제 6 필드 누락: {missing}"
 
 
 def test_axis_six_fields_present_in_python() -> None:
-    """Python dataclass AxisDeviationMetric 박제 fields() 가 정확히 6 필드 set."""
-    from sunity_shared.analysis.force_signals import AxisDeviationMetric
+    """Python dataclass BodyLineTiltMetric 박제 fields() 가 정확히 6 필드 set."""
+    from sunity_shared.analysis.force_signals import BodyLineTiltMetric
 
-    names = {f.name for f in dataclasses.fields(AxisDeviationMetric)}
+    names = {f.name for f in dataclasses.fields(BodyLineTiltMetric)}
     assert names == _PY_KEEP_FIELDS, (
         f"Python dataclass 6 필드 정합 위반:\n"
         f"  expected: {_PY_KEEP_FIELDS}\n"
@@ -110,7 +110,7 @@ def test_axis_six_fields_present_in_docs() -> None:
 def test_distance_fields_removed_from_ts() -> None:
     """TS interface block 박제 5 필드 부재 (D-01 hard break).
 
-    scope = `export interface AxisDeviationMetric { ... }` block 내부만.
+    scope = `export interface BodyLineTiltMetric { ... }` block 내부만.
     CoordinateSpace type alias 등 다른 위치 박제 허용.
     """
     block = _extract_ts_interface_block()
@@ -122,9 +122,9 @@ def test_distance_fields_removed_from_ts() -> None:
 
 def test_distance_fields_removed_from_python() -> None:
     """Python dataclass fields() 박제 5 필드 부재."""
-    from sunity_shared.analysis.force_signals import AxisDeviationMetric
+    from sunity_shared.analysis.force_signals import BodyLineTiltMetric
 
-    names = {f.name for f in dataclasses.fields(AxisDeviationMetric)}
+    names = {f.name for f in dataclasses.fields(BodyLineTiltMetric)}
     present = _PY_REMOVED_FIELDS & names
     assert not present, (
         f"Python dataclass 5 필드 잔존 — D-01 hard break 위반: {present}"

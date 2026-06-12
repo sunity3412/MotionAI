@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from .force_signals import (  # noqa: F401 — _MOTION_PHASES re-uses Phase 8 source
-    AxisDeviationMetric,
+    BodyLineTiltMetric,
     ContactStabilityMetric,
     ForceSignalsReport,
     JERK_SEVERITY_THRESHOLDS_DEG_PER_SEC_CUBED,
@@ -156,7 +156,7 @@ _IPSF_TOLERANCE_DEG: float = 20.0
 class ForcePatternFinding:
     """Phase 9 Top-3 finding 카드 1건 (D-09-D1 — 8 필드).
 
-    Phase 8 frozen dataclass 박제 패턴 정합 (force_signals.AxisDeviationMetric 등).
+    Phase 8 frozen dataclass 박제 패턴 정합 (force_signals.BodyLineTiltMetric 등).
 
     필드:
       pattern: ForceDirectionPattern (D-09-A1 매핑).
@@ -338,7 +338,7 @@ _PHASE_ITERATION_ORDER: tuple[str, ...] = (
 
 
 def _phase_metric_confidence_factor(
-    axis: AxisDeviationMetric | None,
+    axis: BodyLineTiltMetric | None,
     stab: StabilityMetric | None,
 ) -> float:
     """D-09-A5 — cf = min(_CONFIDENCE_TO_FACTOR[axis.confidence],
@@ -366,7 +366,7 @@ def _phase_metric_confidence_factor(
 
 
 def _detect_axis_tilt(
-    axis: AxisDeviationMetric | None,
+    axis: BodyLineTiltMetric | None,
     phase: MotionPhase,
     cf: float,
     mode_context: ModeContext,
@@ -402,7 +402,7 @@ def _detect_axis_tilt(
 
 
 def _detect_pelvis_drop(
-    axis: AxisDeviationMetric | None,
+    axis: BodyLineTiltMetric | None,
     phase: MotionPhase,
     cf: float,
     mode_context: ModeContext,
@@ -654,7 +654,7 @@ def infer_force_direction_pattern(
     boundaries_by_phase: dict[str, PhaseBoundary] = {
         b.phase: b for b in force_signals_report.phase_boundaries
     }
-    axis_by_phase: dict[str, AxisDeviationMetric] = {
+    axis_by_phase: dict[str, BodyLineTiltMetric] = {
         m.phase: m for m in force_signals_report.axis_metrics
     }
     stability_by_phase: dict[str, StabilityMetric] = {

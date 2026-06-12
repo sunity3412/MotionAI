@@ -816,9 +816,9 @@ contract 위에 박제** — `CoordinateSpace` / `ContactPrimitiveKind` /
 
 REVIEWS Cycle 1 반영 5 schema 변경:
 - **R1**: PoleAxis position 부재 → PoleAxisMeasurement 박제 (Plan 08-00) +
-  AxisDeviationMetric distance 필드 nullable.
+  BodyLineTiltMetric distance 필드 nullable.
 - **R2**: BodyNormalizationProfile.torso_scale 오용 → observed median_torso_length
-  helper + AxisDeviationMetric.scaleDenominator 동행.
+  helper + BodyLineTiltMetric.scaleDenominator 동행.
 - **R3**: ContactStabilityMetric = evidence-with-confidence (boolean truth X).
 - **R4**: PhaseBoundary.preflightLabelGatePassed nullable 신설.
 - **R5**: StabilityMetric.jerkUnit='deg_per_sec_cubed' — FPS 정규화 박제.
@@ -848,7 +848,7 @@ REVIEWS Cycle 1 반영 5 schema 변경:
 | `source` | `'heuristic' \| 'gemini_assisted' \| 'heuristic_fallback'` | Layer 1 단독 / Layer 2 합성 / motion_id=None fallback |
 | `preflightLabelGatePassed` / `preflight_label_gate_passed` | `boolean \| null` | **REVIEWS R4 신설** — pre-flight 25-timestamp label gate 결과. `null` = gate 미실행 (default), `true` = PASS (≥80%, Layer 1 confidence='medium' 승급), `false` = FAIL (Layer 1 confidence='low' 강제 + warning `preflight_label_gate_failed`). |
 
-### §9.3 AxisDeviationMetric
+### §9.3 BodyLineTiltMetric
 
 중심축 이탈 metric — phase 별 측정. **Phase 8.1 박제 (2026-06-09)**: distance 차원
 hard break (IPSF Code of Points 글로벌 distance 항목 부재, NotebookLM citation 9).
@@ -922,7 +922,7 @@ Phase 8 산출 umbrella — `AnalysisResult.forceSignalsReport` 로 저장.
 | `overallConfidence` / `overall_confidence` | `MetricConfidence` | 전체 신뢰도 (4 metric confidence 조합) |
 | `warnings` | `string[]` / `list[str]` | top-level warning code |
 | `phaseBoundaries` / `phase_boundaries` | `PhaseBoundary[]` | 5단계 경계 |
-| `axisMetrics` / `axis_metrics` | `AxisDeviationMetric[]` | phase × 1 |
+| `axisMetrics` / `axis_metrics` | `BodyLineTiltMetric[]` | phase × 1 |
 | `stabilityMetrics` / `stability_metrics` | `StabilityMetric[]` | phase × 1 |
 | `contactMetrics` / `contact_metrics` | `ContactStabilityMetric[]` | (contact_point × phase) cross product |
 
@@ -1127,6 +1127,6 @@ const frameIdx = Math.floor(currentTime * report.fps);
 *Plan 06-01 §8 + §8.2 추가: 2026-06-08 — BodyComparisonReport (D-06-B3 + W1 + C14) + BodyComparisonSourcePose (R2 round-2 reviews).*
 *Plan 07-01 §8.3 추가: 2026-06-08 — Phase 7 차이 분류 룰 (D-07-A1 + D-07-A2 + D-07-U1) + 33 canned coverage (CR-02 fix) + CR-01 fallback path + WR-01/WR-03/WR-04 iteration 2.*
 *Plan 08-00 §9.0 추가: 2026-06-09 — Coordinate/Scale Contract (PoleLine2D + PoleAxisMeasurement + CoordinateSpace + ContactPrimitiveKind + median_torso_length + preflight label gate). REVIEWS Cycle 1 R1 + R2 + R3 + R4 blocker 해소.*
-*Plan 08-01 §9 추가: 2026-06-09 — ForceSignalsReport (PhaseBoundary + AxisDeviationMetric + StabilityMetric + ContactStabilityMetric + 20 warning code enum). REVIEWS Cycle 1 R1/R2/R3/R4/R5 + Cycle 2 §3 MEDIUM (preflight_gate_pending) 박제.*
-*Plan 08.1-00 §9.3 변경: 2026-06-09 — AxisDeviationMetric distance 차원 hard break. 5 필드 (pelvisDistanceFromPoleAxis / chestDistanceFromPoleAxis / scaleDenominator / coordinateSpace / deviationDirection) 제거 + tilt-only. Wave 0 = transitional stub. IPSF Code of Points NotebookLM citation 9 (Page 87 Glossary — 'Tilt' / 'Lean' / 'Off-axis' 용어 부재) 정합. RESEARCH §4 α-4 + CONTEXT D-01.*
+*Plan 08-01 §9 추가: 2026-06-09 — ForceSignalsReport (PhaseBoundary + BodyLineTiltMetric + StabilityMetric + ContactStabilityMetric + 20 warning code enum). REVIEWS Cycle 1 R1/R2/R3/R4/R5 + Cycle 2 §3 MEDIUM (preflight_gate_pending) 박제.*
+*Plan 08.1-00 §9.3 변경: 2026-06-09 — BodyLineTiltMetric distance 차원 hard break. 5 필드 (pelvisDistanceFromPoleAxis / chestDistanceFromPoleAxis / scaleDenominator / coordinateSpace / deviationDirection) 제거 + tilt-only. Wave 0 = transitional stub. IPSF Code of Points NotebookLM citation 9 (Page 87 Glossary — 'Tilt' / 'Lean' / 'Off-axis' 용어 부재) 정합. RESEARCH §4 α-4 + CONTEXT D-01.*
 *Plan 09-01 §9.11 추가: 2026-06-10 — ForcePatternInference + ForcePatternFinding 신설 (Wave 0 = TS interface + Python frozen dataclass + Firestore scoped validator + frontend null-guard 단일 atomic commit). D-09-D1 / D-09-U1 (3-way atomic lockstep) / D-09-U3 / D-09-U4 / D-09-U5. Wave 1 (Plan 09-02) 가 본체 함수 + 18 canned + pipeline wiring 박제.*

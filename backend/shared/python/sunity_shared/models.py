@@ -166,7 +166,7 @@ from .analysis.body_normalizer import (  # noqa: E402 — 파일 하단 re-expor
 #   - median_torso_length helper (body_scale.py)
 #
 # REVIEWS Cycle 1 반영 schema (lockstep test_force_signals_lockstep.py 가 grep 검증):
-#   R1/R2: [Plan 08.1-00 Wave 0 박제 hard break] AxisDeviationMetric 의
+#   R1/R2: [Plan 08.1-00 Wave 0 박제 hard break] BodyLineTiltMetric 의
 #          pelvis_distance_from_pole_axis / chest_distance_from_pole_axis /
 #          coordinate_space / scale_denominator / deviation_direction 5 필드 영구
 #          제거. tilt-only metric — IPSF Code of Points 글로벌 distance 항목 부재
@@ -183,7 +183,7 @@ from .analysis.body_normalizer import (  # noqa: E402 — 파일 하단 re-expor
 # 본 import 활성화 후에도 Plan 08-01 lockstep test 가 PASS 유지 강제 — field
 # 이름이 grep 검증 source (placeholder 시기 + active import 시기 모두 통과).
 from .analysis.force_signals import (  # noqa: E402, F401 — 파일 하단 re-export 패턴
-    AxisDeviationMetric,
+    BodyLineTiltMetric,
     ContactPoint,
     ContactStabilityMetric,
     DeviationDirection,
@@ -209,7 +209,7 @@ from .analysis.keypoint_frame import (  # noqa: E402, F401 — 파일 하단 re-
 # 통과 유지). camelCase ↔ snake_case mirror 박제 위치.
 #   PhaseBoundary: phase / start_frame_idx / end_frame_idx / start_ms / end_ms /
 #                  confidence / source / preflight_label_gate_passed (R4)
-#   AxisDeviationMetric: [Plan 08.1-00 Wave 0 hard break — 6 필드 only]
+#   BodyLineTiltMetric: [Plan 08.1-00 Wave 0 hard break — 6 필드 only]
 #                  phase / shoulder_tilt / hip_tilt / severity / confidence /
 #                  warnings. Wave 0 stub: 모든 phase 에 대해 shoulder_tilt=None /
 #                  hip_tilt=None / severity='low' / confidence='low' /
@@ -240,7 +240,7 @@ from .analysis.keypoint_frame import (  # noqa: E402, F401 — 파일 하단 re-
 #           preflight_label_gate_failed / fps_normalization_applied /
 #           contact_evidence_only.
 #           ([Plan 08.1-00 Wave 0 박제 제거] coordinate_space_unavailable —
-#           AxisDeviationMetric coordinate_space 필드 hard break 동행).
+#           BodyLineTiltMetric coordinate_space 필드 hard break 동행).
 #   Cycle 2 신설 1: preflight_gate_pending (gate 미실행 default).
 #   Phase 8.1 신설 2: axis_metric_transitional (top-level, compute_force_signals
 #           가 stub 검출 시 emit) / phase_8_1_wave_0_transitional (axis_metrics

@@ -4,7 +4,7 @@ TS analysis.ts ↔ Python models.py placeholder ↔ docs/contract.md §9 — Pha
 ForceSignalsReport schema 박제 필드 grep 검증.
 
 REVIEWS Cycle 1 신설 필드 박제 검증:
-  R1/R2: coordinateSpace + scaleDenominator (AxisDeviationMetric)
+  R1/R2: coordinateSpace + scaleDenominator (BodyLineTiltMetric)
   R3:    estimatedStable nullable + measurementKind + distanceToPoleNorm +
          nearPoleRatio + lostNearPoleAtMs (ContactStabilityMetric)
   R4:    preflightLabelGatePassed (PhaseBoundary)
@@ -42,7 +42,7 @@ _FIELD_MAP: list[tuple[str, str, str]] = [
     ("ContactPoint", "ContactPoint", "type alias"),
     # ── 5 interface/dataclass 이름 ──
     ("PhaseBoundary", "PhaseBoundary", "dataclass"),
-    ("AxisDeviationMetric", "AxisDeviationMetric", "dataclass"),
+    ("BodyLineTiltMetric", "BodyLineTiltMetric", "dataclass"),
     ("StabilityMetric", "StabilityMetric", "dataclass"),
     ("ContactStabilityMetric", "ContactStabilityMetric", "dataclass"),
     ("ForceSignalsReport", "ForceSignalsReport", "dataclass"),
@@ -68,7 +68,7 @@ _FIELD_MAP: list[tuple[str, str, str]] = [
     # ── REVIEWS Cycle 1 신설 필드 ──
     # Phase 8.1 박제 (Plan 08.1-00 Wave 0, D-01): coordinateSpace / scaleDenominator
     # / deviationDirection / pelvisDistanceFromPoleAxis / chestDistanceFromPoleAxis
-    # 5 entry 영구 제거 (AxisDeviationMetric distance 차원 hard break). coordinateSpace
+    # 5 entry 영구 제거 (BodyLineTiltMetric distance 차원 hard break). coordinateSpace
     # 는 ContactStabilityMetric (§9.5) 에서 사용 유지 → camelCase mirror entry 보존.
     ("coordinateSpace", "coordinate_space", "REVIEWS R1 (ContactStabilityMetric 박제 유지)"),
     ("measurementKind", "measurement_kind", "REVIEWS R3"),

@@ -1,7 +1,7 @@
 """Plan 08.1-00 Wave 0 — C-B1 grep guard.
 
 compute_force_signals 본체 안 `coordinate_space == 'unavailable'` 참조 영구 부재.
-AxisDeviationMetric 에서 coordinate_space 필드 제거 후 본 block 잔존 시
+BodyLineTiltMetric 에서 coordinate_space 필드 제거 후 본 block 잔존 시
 AttributeError 발생 — Codex iteration 1 사전 예측 박제.
 
 본 grep guard 는 회귀 0 강제 (Wave 1 cleanup 시 동일 invariant 유지).
@@ -21,7 +21,7 @@ from sunity_shared.analysis.force_signals import compute_force_signals
 def test_compute_force_signals_body_no_coordinate_space_unavailable_reference() -> None:
     """compute_force_signals 본체 안 coordinate_space == 'unavailable' 참조 0건.
 
-    AxisDeviationMetric 에서 coordinate_space 필드 영구 제거 → 본 참조 잔존 시
+    BodyLineTiltMetric 에서 coordinate_space 필드 영구 제거 → 본 참조 잔존 시
     AttributeError. C-B1 fix 박제 회귀 0 강제.
     """
     src = inspect.getsource(compute_force_signals)

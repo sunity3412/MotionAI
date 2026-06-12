@@ -60,8 +60,8 @@ def _make_axis_metric(
     warnings: tuple[str, ...] = (),
     severity: str = "low",
     tilt_unavailable: bool = False,
-) -> fs.AxisDeviationMetric:
-    """Phase 8.1 AxisDeviationMetric frozen dataclass — D-09-A2 raw signal source.
+) -> fs.BodyLineTiltMetric:
+    """Phase 8.1 BodyLineTiltMetric frozen dataclass — D-09-A2 raw signal source.
 
     severity 인자는 Phase 8 dataclass __post_init__ 통과용 — Phase 9 detection
     coverage 가 axis severity 직접 trust 영구 차단 (D-09-A2 / RESEARCH Anti-Pattern).
@@ -74,7 +74,7 @@ def _make_axis_metric(
         shoulder_tilt = None
         hip_tilt = None
         warnings = ("phase_8_1_wave_0_transitional",)
-    return fs.AxisDeviationMetric(
+    return fs.BodyLineTiltMetric(
         phase=phase,
         shoulder_tilt=shoulder_tilt,
         hip_tilt=hip_tilt,

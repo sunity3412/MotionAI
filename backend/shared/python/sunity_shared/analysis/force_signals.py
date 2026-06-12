@@ -13,8 +13,8 @@ Plan 08-02 신설 (2026-06-09) — REVIEWS Cycle 1 R1/R2/R3/R4/R5 반영.
 
 REVIEWS Cycle 1 핵심 박제 메모:
 
-  R1 (PoleAxis position 부재) — [Plan 08.1-00 Wave 0 박제 AxisDeviationMetric 영구 제거]:
-    AxisDeviationMetric 의 distance 차원 hard break (D-01) — pelvis_distance /
+  R1 (PoleAxis position 부재) — [Plan 08.1-00 Wave 0 박제 BodyLineTiltMetric 영구 제거]:
+    BodyLineTiltMetric 의 distance 차원 hard break (D-01) — pelvis_distance /
     chest_distance / coordinate_space / scale_denominator / deviation_direction
     5 필드 영구 제거. tilt-only metric. compute_axis_deviation = transitional stub
     (Wave 0). 본 R1 박제 정신은 ContactStabilityMetric 의 coordinate_space 필드
@@ -24,7 +24,7 @@ REVIEWS Cycle 1 핵심 박제 메모:
     body_scale.median_torso_length(pose_frames, space='image_2d') denominator 사용.
     **body_normalization 모듈 / torso_scale 사용 영구 금지** — drift defense
     test 가 source code grep 검증. observed length 미가용 (valid frame < 5) 시
-    None + warning 'scale_unavailable'. [Plan 08.1-00 Wave 0] AxisDeviationMetric
+    None + warning 'scale_unavailable'. [Plan 08.1-00 Wave 0] BodyLineTiltMetric
     의 scale_denominator 필드 영구 제거 — ContactStabilityMetric 박제 유지.
 
   R3 (contact primitive 불명확):
@@ -163,7 +163,7 @@ LAYER1_VELOCITY_MID = 0.03
 LAYER1_VELOCITY_HIGH = 0.06
 LAYER1_MIN_PHASE_FRAMES = 2
 
-# AxisDeviationMetric tilt-only thresholds (Phase 8.1 Wave 1, D-01 distance hard break).
+# BodyLineTiltMetric tilt-only thresholds (Phase 8.1 Wave 1, D-01 distance hard break).
 # Wave 1: fallback default — `_get_tilt_thresholds()` lazy-loads tilt_thresholds.yaml
 # (정은지 elite_p100_plus_margin) 우선. yaml missing 시 본 fallback + base_warnings
 # ['tilt_thresholds_fallback'] (cache tuple 3rd element, W10 정합 — module-global flag 부재).
@@ -353,15 +353,16 @@ class PhaseBoundary:
 
 
 @dataclass(frozen=True)
-class AxisDeviationMetric:
+class BodyLineTiltMetric:
     """tilt-only axis deviation metric per phase.
 
     Phase 8.1 박제 (2026-06-09): distance 차원 hard break — IPSF Code of Points 에
     글로벌 distance 항목 부재 (NotebookLM citation 9, Aerial Pole CoP 2024-2025
     Page 87 Glossary). tilt-only metric.
 
-    naming caveat (C-MH1): class name 박제 'AxisDeviationMetric' 보존 — 실 의미는
-    tilt-only 박제. ROADMAP 박제 별도 plan 에서 rename 후보 (예: AxisTiltMetric).
+    naming history (C-MH1 resolved 2026-06-12): class renamed from prior name
+    AxisDeviationMetric → BodyLineTiltMetric — tilt-only 의미 정합 (Phase 8.1
+    follow-up rename plan).
 
     Wave 0 = transitional stub. compute_axis_deviation() 가 모든 phase 에 대해
     shoulder_tilt=None / hip_tilt=None / severity='low' / confidence='low' /
@@ -502,7 +503,7 @@ class ForceSignalsReport:
     overall_confidence: MetricConfidence = "low"
     warnings: list[str] = field(default_factory=list)
     phase_boundaries: list[PhaseBoundary] = field(default_factory=list)
-    axis_metrics: list[AxisDeviationMetric] = field(default_factory=list)
+    axis_metrics: list[BodyLineTiltMetric] = field(default_factory=list)
     stability_metrics: list[StabilityMetric] = field(default_factory=list)
     contact_metrics: list[ContactStabilityMetric] = field(default_factory=list)
 
@@ -1070,7 +1071,7 @@ def compute_axis_deviation(
     pole_axis_measurement: PoleAxisMeasurement,
     *,
     fps: float = 9.0,
-) -> list[AxisDeviationMetric]:
+) -> list[BodyLineTiltMetric]:
     """Phase 8.1 Wave 1 — tilt-only metric. distance 차원 hard break (D-01).
 
     pole_aligned 3D path 우선 (정은지 영상, RTMW path):
@@ -1086,7 +1087,7 @@ def compute_axis_deviation(
     base_warnings (yaml fallback 시 'tilt_thresholds_fallback') 박제 — Wave 2
     production sweep 게이트의 검출 신호.
 
-    AxisDeviationMetric 6 필드 (phase / shoulder_tilt / hip_tilt / severity /
+    BodyLineTiltMetric 6 필드 (phase / shoulder_tilt / hip_tilt / severity /
     confidence / warnings). IPSF Code of Points 박제 글로벌 distance 항목 부재
     (NotebookLM citation 9).
 
@@ -1101,7 +1102,7 @@ def compute_axis_deviation(
 
     if not has_pole_aligned and not has_kp2d:
         return [
-            AxisDeviationMetric(
+            BodyLineTiltMetric(
                 phase=b.phase,
                 shoulder_tilt=None,
                 hip_tilt=None,
@@ -1112,7 +1113,7 @@ def compute_axis_deviation(
             for b in phase_boundaries
         ]
 
-    metrics: list[AxisDeviationMetric] = []
+    metrics: list[BodyLineTiltMetric] = []
     for b in phase_boundaries:
         phase_frames = pose_frames[b.start_frame_idx : b.end_frame_idx]
         if has_pole_aligned:
@@ -1144,7 +1145,7 @@ def compute_axis_deviation(
         else:
             metric_confidence = "low"
         metrics.append(
-            AxisDeviationMetric(
+            BodyLineTiltMetric(
                 phase=b.phase,
                 shoulder_tilt=shoulder_tilt_val,
                 hip_tilt=hip_tilt_val,
@@ -1554,7 +1555,7 @@ def compute_contact_stability(
 
 def _overall_confidence(
     phase_boundaries: list[PhaseBoundary],
-    axis_metrics: list[AxisDeviationMetric],
+    axis_metrics: list[BodyLineTiltMetric],
     stability_metrics: list[StabilityMetric],
     contact_metrics: list[ContactStabilityMetric],
 ) -> MetricConfidence:
@@ -1746,7 +1747,7 @@ __all__ = (
     "ContactPoint",
     # Dataclasses
     "PhaseBoundary",
-    "AxisDeviationMetric",
+    "BodyLineTiltMetric",
     "StabilityMetric",
     "ContactStabilityMetric",
     "ForceSignalsReport",

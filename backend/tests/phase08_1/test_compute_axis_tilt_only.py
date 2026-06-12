@@ -6,7 +6,7 @@
   - 둘 다 미가용 path → severity='low' + warnings 'tilt_unavailable'
 
 invariants:
-  - 6 필드 AxisDeviationMetric 정합 (Wave 0 schema 보존)
+  - 6 필드 BodyLineTiltMetric 정합 (Wave 0 schema 보존)
   - tilt 값 ∈ [0, 90] (unsigned) 또는 None
   - FPS-invariance — 9 fps vs 18 fps (2x resample) 동일 tilt
 
@@ -20,7 +20,7 @@ import dataclasses
 import pytest
 
 from sunity_shared.analysis.force_signals import (
-    AxisDeviationMetric,
+    BodyLineTiltMetric,
     _severity_from_tilt,
     compute_axis_deviation,
 )
@@ -161,7 +161,7 @@ def test_fps_invariance_tilt_metric() -> None:
 def test_axis_metric_has_only_six_fields() -> None:
     """Wave 0 schema 보존 — 6 필드 (phase / shoulder_tilt / hip_tilt / severity /
     confidence / warnings) 만 정합."""
-    field_names = {f.name for f in dataclasses.fields(AxisDeviationMetric)}
+    field_names = {f.name for f in dataclasses.fields(BodyLineTiltMetric)}
     assert field_names == {
         "phase",
         "shoulder_tilt",

@@ -79,6 +79,7 @@ from sunity_shared.analysis.pole_geometry import (
 from sunity_shared.analysis.pose_frame import PoleAxis, to_coco17_array
 from sunity_shared.analysis.temporal import temporal_fill
 from sunity_shared.events import iter_s3_keys_from_sqs
+from sunity_shared.gemini.scene_finder import find_scene_flags
 from sunity_shared.s3keys import parse_upload_key
 
 # FfmpegFrameExtractor / NlfPoseEstimator / CerebrasCoachWriter 는 imageio·torch·
@@ -247,6 +248,96 @@ def _safe_unlink_local_video(local_video_path: str | None) -> None:
             local_video_path,
             exc,
         )
+
+
+# ── Plan 17-02 Wave 1 — 영역 C Finding 장면 인식 wiring ─────────────────────
+#
+# 박제 정신 (3차 R-W3):
+#   · `_process(bucket, key, uid, analysis_id)` 시그너처 변경 0 — caller (RunPod
+#     server.py / Lambda SQS) 갱신 0.
+#   · `_resolve_is_reference` 가 S3 key prefix 1차 + Firestore mode 2차 박제로
+#     is_reference 산출 — 단일 source 신뢰 X (T-17-09 spoofing 정합).
+#   · `_call_wave1_scene_finder` 가 wave 1 진입점:
+#       - GEMINI_FINDING_ENABLED=0 / local_video_path=None → skip + None 반환.
+#       - find_scene_flags 호출 후 결과 dict 반환 (G4 가드는 find_scene_flags 안에서).
+#       - 예외 흡수 — graceful None (분석 흐름 차단 0).
+#   · find_scene_flags 안에서 S3 재다운로드 / RTMW 재실행 0 (B4 hard gate). caller
+#     의 `local_video_path` (Phase 6 `_extract_video_analysis_inputs` 가 1회만
+#     download + RTMW 1회만 실행) 만 사용.
+
+
+# `mode1_register` 은 정은지 영상 등록 모드 (영역 A 후속 plan 박제). models.MODE_*
+# 에 아직 박제 X — 본 모듈 상수로 로컬 박제 (후속 plan 에서 models.MODE_REGISTER
+# 박제 시 단일 source 로 마이그레이션).
+_MODE_REFERENCE_REGISTER: str = "mode1_register"
+
+# S3 key prefix 박제 — 정은지 reference 영상 업로드 위치.
+_REFERENCE_KEY_PREFIX: str = "reference/"
+
+
+def _resolve_is_reference(key: str, meta: dict | None) -> bool:
+    """is_reference 박제 — S3 key prefix 1차 + Firestore analysis doc mode 2차.
+
+    박제 정신 (Plan 17-02 R-W3 정합):
+      · S3 key 가 `reference/` 로 시작 → True (Firestore 조회 0, 1차 source).
+      · 그 외엔 Firestore analysis doc `mode == 'mode1_register'` → True (2차).
+      · 단일 source 신뢰 X — T-17-09 spoofing 정합. 일반 사용자 영상이 reference
+        분기로 박혀 G4 가드 우회되는 risk 차단.
+
+    Args:
+      key: S3 object key (이미 caller 가 `parse_upload_key` 통과).
+      meta: `firestore_admin.get_analysis(uid, analysis_id)` 결과 dict 또는 None.
+
+    Returns:
+      True = reference 영상 (G4 가드 활성). False = 일반 사용자 영상.
+    """
+    if key.startswith(_REFERENCE_KEY_PREFIX):
+        return True
+    if meta is not None and meta.get("mode") == _MODE_REFERENCE_REGISTER:
+        return True
+    return False
+
+
+def _finding_enabled() -> bool:
+    """GEMINI_FINDING_ENABLED env 박제 — wave 1 영역 C 토글.
+
+    Plan 17-01 R-B4 정합 — `_VISION_ENV_DEFAULTS` 와 동일 박제 (default '1' = ON,
+    `_VISION_FALSY` = {"0", "false", ""} 박제 OFF). `_gemini_vision_enabled()` 의
+    OR-gate 와 일관성 박제.
+    """
+    raw = os.environ.get("GEMINI_FINDING_ENABLED", "1")
+    return raw.strip().lower() not in _VISION_FALSY
+
+
+def _call_wave1_scene_finder(
+    local_video_path: str | None,
+    is_reference: bool,
+) -> dict | None:
+    """Wave 1 영역 C Finding 호출 진입점 — graceful 폴백 + skip 조건 박제.
+
+    Skip 조건 (return None):
+      · `GEMINI_FINDING_ENABLED` env = "0"/"false"/"" → 운영자 박제 차단 path.
+      · `local_video_path` = None → caller 가 keep_local_video=False 박혔거나 (
+        Phase 17 4 영역 모두 OFF) 임시 path 박혀있지 않음.
+      · find_scene_flags 예외 (객관성 가드 ValueError 등) → 흡수 + None.
+
+    Returns:
+      find_scene_flags 결과 dict 또는 None (skip / 폴백).
+    """
+    if local_video_path is None:
+        return None
+    if not _finding_enabled():
+        log.info("GEMINI_FINDING_ENABLED OFF — wave 1 skip")
+        return None
+    try:
+        return find_scene_flags(local_video_path, is_reference=is_reference)
+    except Exception as exc:  # noqa: BLE001 - 분석 흐름 차단 0 박제
+        log.warning(
+            "find_scene_flags raise — graceful skip (is_reference=%s): %s",
+            is_reference,
+            exc,
+        )
+        return None
 
 
 # ── Phase 8 Plan 08-03 wiring — Layer 2 + preflight gate env helper ─────────
@@ -955,6 +1046,18 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     local_video_path_obj = inputs.local_video_path
     local_video_path = str(local_video_path_obj) if local_video_path_obj else None
 
+    # ── Plan 17-02 Wave 1 — 영역 C Finding 호출 (RTMW estimate 직후 / KISMAM 직전) ──
+    # is_reference 박제: S3 key prefix 1차 + Firestore mode 2차 (R-W3 정합 — `_process`
+    # 시그너처 인자 추가 X). find_scene_flags 안에서 G4 정은지 영상 가드 발동.
+    # B4 hard gate — local_video_path 만 사용 (S3 재다운로드 / RTMW 재실행 0).
+    # graceful — find_scene_flags 예외 / GEMINI_FINDING_ENABLED OFF / local path 없음
+    # 시 None 반환 후 분석 흐름 계속.
+    is_reference_local = _resolve_is_reference(key, meta)
+    scene_result = _call_wave1_scene_finder(
+        local_video_path=local_video_path,
+        is_reference=is_reference_local,
+    )
+
     # Path A production 정합 (2026-06-05): mode=expert = motion known case
     # (사용자가 referenceMotionId 선택). recognizer.motion_query_hint 박제 →
     # Gemini extractor 가 알려진 motion 기준 key moment 추출 (default 'auto' 폴백 차단).
@@ -1344,6 +1447,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             force_signals_report=force_signals_dict,
             force_pattern_inference=force_pattern_inference_dict,  # Phase 9 (Plan 09-02)
             keypoint_report=keypoint_report_dict,  # Phase 12 Wave 0B (Plan 12-01)
+            gemini_c=scene_result,  # Plan 17-02 Wave 1 (영역 C Finding flag)
         )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
     finally:

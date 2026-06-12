@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+from .client import GeminiVisionCall
 from .guardrails import _enforce_no_reject_patterns
 from .schemas import (
     CheckpointJoint,
@@ -28,6 +29,8 @@ from .schemas import (
 )
 
 __all__ = [
+    # client
+    "GeminiVisionCall",
     # guardrails
     "_enforce_no_reject_patterns",
     # schemas
@@ -44,4 +47,4 @@ __all__ = [
     "RefinedKeypoint",
 ]
 
-# Task 2 (client) / Task 3 (config) 은 후속 task 에서 본 __init__.py 에 추가.
+# Task 3 (config) 은 후속 task 에서 본 __init__.py 에 추가.

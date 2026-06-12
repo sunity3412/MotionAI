@@ -79,6 +79,7 @@ from sunity_shared.analysis.pole_geometry import (
 from sunity_shared.analysis.pose_frame import PoleAxis, to_coco17_array
 from sunity_shared.analysis.temporal import temporal_fill
 from sunity_shared.events import iter_s3_keys_from_sqs
+from sunity_shared.gemini.keypoint_augmenter import augment_low_confidence
 from sunity_shared.gemini.scene_finder import find_scene_flags
 from sunity_shared.s3keys import parse_upload_key
 
@@ -338,6 +339,181 @@ def _call_wave1_scene_finder(
             exc,
         )
         return None
+
+
+# ── Plan 17-03 Wave 2 — 영역 D Keypoint 보강 wiring ─────────────────────────
+#
+# 박제 정신 (B2 hard gate + 3차 R-B3):
+#   · `_d_enabled()` — GEMINI_D_ENABLED env truthy (default OFF, AI-SPEC §4 "Pod
+#     RTMW failure path 만 호출, 빈도 낮음" 정합).
+#   · `_call_wave2_keypoint_augmenter` 가 wave 2 진입점:
+#       - occlusion_severe=True (wave 1 결과) → skip + None (게이트 1).
+#       - GEMINI_D_ENABLED=0 → skip + None (게이트 2).
+#       - local_video_path=None → skip + None (B4 hard gate).
+#       - low_uncertainty_frame_indices 빈 → skip + None (Gemini 호출 0).
+#       - augment_low_confidence 예외 흡수 — graceful None.
+#   · **3D coco_array 행렬은 본 wave 입력/출력 모두 격리** (B2 hard gate).
+#     augment_low_confidence 시그너처에 coco_array 인자 영구 박제 X. user-visible
+#     KeypointReport.data + confidence 만 보강.
+
+
+def _d_enabled() -> bool:
+    """GEMINI_D_ENABLED env 박제 — wave 2 영역 D 토글 (default OFF).
+
+    Plan 17-01 R-B4 정합 — _VISION_ENV_DEFAULTS 와 동일 박제 (default "" = OFF,
+    `_VISION_FALSY` = {"0", "false", ""} 박제 OFF). 운영자 박제 opt-in.
+    """
+    raw = os.environ.get("GEMINI_D_ENABLED", "")
+    return raw.strip().lower() not in _VISION_FALSY
+
+
+def _call_wave2_keypoint_augmenter(
+    local_video_path: str | None,
+    low_uncertainty_frame_indices: list[int],
+    keypoint_report_2d,
+    scene_result: dict | None,
+) -> dict | None:
+    """Wave 2 영역 D Keypoint 보강 호출 진입점 — graceful 폴백 + skip 조건 박제.
+
+    Skip 조건 (return None):
+      · `scene_result["occlusion_severe"]==True` → 가려진 frame 에 좌표 보강 의미 0
+        (AI-SPEC §4b async pattern).
+      · `GEMINI_D_ENABLED` env = "0"/"false"/"" → 운영자 박제 차단 path (default OFF).
+      · `local_video_path` = None → B4 hard gate (S3 재다운로드 X).
+      · `keypoint_report_2d` is None → 보강할 KeypointReport 없음.
+      · augment_low_confidence 예외 (객관성 가드 ValueError 등) → 흡수 + None.
+
+    빈 low_uncertainty_frame_indices 는 augment_low_confidence 내부에서 graceful
+    빈 dict 반환 — 본 helper 가 그대로 전달.
+
+    Returns:
+      augment_low_confidence 결과 dict 또는 None (skip / 폴백).
+    """
+    if local_video_path is None:
+        return None
+    if not _d_enabled():
+        log.info("GEMINI_D_ENABLED OFF — wave 2 skip")
+        return None
+    if keypoint_report_2d is None:
+        return None
+    # 게이트 1 — occlusion_severe=True → 가려진 frame 보강 의미 X.
+    if scene_result is not None and bool(scene_result.get("occlusion_severe")):
+        log.info("occlusion_severe=True — wave 2 skip (영역 D)")
+        return None
+    try:
+        return augment_low_confidence(
+            video_path=local_video_path,
+            low_uncertainty_frame_indices=low_uncertainty_frame_indices,
+            keypoint_report_2d=keypoint_report_2d,
+        )
+    except Exception as exc:  # noqa: BLE001 - 분석 흐름 차단 0 박제
+        log.warning(
+            "augment_low_confidence raise — graceful skip: %s", exc
+        )
+        return None
+
+
+def _low_uncertainty_frame_indices(keypoints_4ch) -> list[int]:
+    """3차 R-B3 정합 — `coco_array[:, :, 3].max(axis=1) > 0.5` 인 frame index 산출.
+
+    keypoints_4ch shape (T, 17, 4). 4번째 채널 = uncertainty_proxy
+    (pose_frame.py:325-353, 1.0 = 미감지). 본 frame 의 17개 keypoint 중 어떤 하나라도
+    uncertainty_proxy > 0.5 면 보강 대상 (max(axis=1) > 0.5). `min < 0.5` 박제 금지
+    (의미 정반대 — 이전 plan 박제 오해 정정).
+    """
+    if keypoints_4ch is None:
+        return []
+    arr = np.asarray(keypoints_4ch)
+    if arr.ndim != 3 or arr.shape[-1] != 4:
+        return []
+    max_uncertainty = arr[:, :, 3].max(axis=1)
+    return [int(i) for i, u in enumerate(max_uncertainty) if float(u) > 0.5]
+
+
+def _apply_keypoint_refinement_to_report(
+    keypoint_report,
+    augment_result: dict,
+):
+    """augment_low_confidence 결과 dict 의 refined 좌표를 KeypointReport 에 박제.
+
+    박제 정신 (B2 정합):
+      · KeypointReport.data / confidence / reliability / warnings 만 보강 — 3D
+        scoring 행렬 (coco_array) mutate 0.
+      · dataclasses.replace — frozen dataclass 정합.
+      · refined entry 의 joint_key 가 KeypointReport.joints 에 없으면 skip
+        (예: elbow — audit only, KeypointReport 에 elbow 없음).
+      · warnings 에 "gemini_d_augmented" 추가.
+
+    Args:
+      keypoint_report: KeypointReport instance (frozen dataclass).
+      augment_result: augment_low_confidence 결과 dict.
+
+    Returns:
+      보강된 새 KeypointReport instance (원본은 변경 X).
+    """
+    refined: list[dict] = augment_result.get("refined", [])
+    if not refined:
+        # 보강 0 — 원본 그대로.
+        return keypoint_report
+
+    joints = list(keypoint_report.joints)
+    J = len(joints)
+    # Plan 17-03 박제 schema joint_key → KeypointReport joint name 매핑 박제.
+    # schema 는 elbow/shoulder/hip/knee, KeypointReport 는 shoulder/hip/knee/hand.
+    # elbow 는 KeypointReport 에 없어서 skip (audit only).
+    schema_to_report: dict[str, str | None] = {
+        "left_elbow": None,
+        "right_elbow": None,
+        "left_shoulder": "left_shoulder",
+        "right_shoulder": "right_shoulder",
+        "left_hip": "left_hip",
+        "right_hip": "right_hip",
+        "left_knee": "left_knee",
+        "right_knee": "right_knee",
+    }
+
+    new_data = list(keypoint_report.data)
+    new_confidence = list(keypoint_report.confidence)
+    augmented_frames_set: set[int] = set()
+
+    for entry in refined:
+        f_idx = int(entry["frame_index"])
+        schema_joint = str(entry["joint_key"])
+        report_joint = schema_to_report.get(schema_joint)
+        if report_joint is None or report_joint not in joints:
+            continue
+        joint_idx = joints.index(report_joint)
+        if f_idx < 0 or f_idx >= keypoint_report.frames:
+            continue
+        data_base = (f_idx * J + joint_idx) * 2
+        conf_idx = f_idx * J + joint_idx
+        if data_base + 1 >= len(new_data) or conf_idx >= len(new_confidence):
+            continue
+        new_data[data_base] = float(entry["x_normalized"])
+        new_data[data_base + 1] = float(entry["y_normalized"])
+        new_confidence[conf_idx] = float(entry["confidence"])
+        augmented_frames_set.add(f_idx)
+
+    # reliability — 보강된 frame 은 적어도 "medium" 으로 승급 (R6 정합 — Gemini conf
+    # 가 RTMW 저신뢰 frame 보다 신뢰도 ↑). 단순화: 보강 frame = "medium" 으로 박제.
+    new_reliability = list(keypoint_report.reliability)
+    for f_idx in augmented_frames_set:
+        if f_idx < len(new_reliability):
+            # 기존 "high" 은 유지, "low" / "medium" 은 "medium" 으로 박제.
+            if new_reliability[f_idx] != "high":
+                new_reliability[f_idx] = "medium"
+
+    new_warnings = list(keypoint_report.warnings)
+    if "gemini_d_augmented" not in new_warnings:
+        new_warnings.append("gemini_d_augmented")
+
+    return dataclasses.replace(
+        keypoint_report,
+        data=new_data,
+        confidence=new_confidence,
+        reliability=new_reliability,
+        warnings=new_warnings,
+    )
 
 
 # ── Phase 8 Plan 08-03 wiring — Layer 2 + preflight gate env helper ─────────
@@ -610,7 +786,7 @@ def _angles_and_body_profile_from_video(
 
 
 class _VideoAnalysisInputs(NamedTuple):
-    """R3 fix Phase 6 — 단일 helper 반환 5종 (Plan 08-03 박제 pole_axis_measurement 신설).
+    """R3 fix Phase 6 — 단일 helper 반환 6종 (Plan 17-03 박제 keypoints_4ch 신설).
 
     angles: (T, J) 시간축 보간된 관절각.
     student_profile: BodyNormalizationProfile (R4 fix — 항상 non-null,
@@ -624,6 +800,10 @@ class _VideoAnalysisInputs(NamedTuple):
       → coordinate_space='unavailable' (Plan 08-00 박제 build_pole_axis_measurement
       박제). Phase 8 의 axis distance None 분기 자동 활성. 추후 HoughPoleDetector
       활성화 plan 박제 시 line 박제.
+    keypoints_4ch: np.ndarray shape (T, 17, 4) — Plan 17-03 (3차 R-B3) 신설. to_coco17_array
+      산출 (x, y, z, uncertainty_proxy). _extract_video_analysis_inputs 가 1회만 계산
+      → 재계산 0 박제 (Phase 6 의 "RTMW estimate 1회" 보장 유지). 영역 D wave 가
+      `keypoints_4ch[:, :, 3].max(axis=1) > 0.5` 로 low confidence frame 식별.
     """
 
     angles: np.ndarray
@@ -631,6 +811,7 @@ class _VideoAnalysisInputs(NamedTuple):
     pose_frames: list
     local_video_path: Path | None
     pole_axis_measurement: PoleAxisMeasurement
+    keypoints_4ch: np.ndarray
 
 
 def _extract_video_analysis_inputs(
@@ -704,6 +885,7 @@ def _extract_video_analysis_inputs(
         pose_frames=pose_frames,
         local_video_path=local_video_path,
         pole_axis_measurement=pole_axis_measurement,
+        keypoints_4ch=keypoints_4ch,
     )
 
 
@@ -1429,6 +1611,42 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             if keypoint_report_raw is not None
             else None
         )
+
+        # ── Plan 17-03 Wave 2 — 영역 D Keypoint 보강 wiring ──────────────
+        # 박제 위치 (2차 R-B1 정정): build_keypoint_report 직후 + complete_analysis
+        # 직전. build_result + DTW/KISMAM/각도/dim_scores 는 wave 2 진입 전에 이미
+        # 끝난 상태 — D wave 가 점수 surface 0 (B2 hard gate).
+        #
+        # **3D `coco_array` (inputs.keypoints_4ch) 는 mutate 0** — user-visible
+        # KeypointReport.data / confidence 만 보강. DTW/KISMAM/8 관절각 차원 점수
+        # 입력은 RTMW 원본 그대로 (B2 정합).
+        gemini_d_result: dict | None = None
+        if keypoint_report_obj is not None:
+            low_uncertainty_indices = _low_uncertainty_frame_indices(
+                inputs.keypoints_4ch
+            )
+            # build_keypoint_report 가 9fps 박제, upsample_to_fps 가 18fps 로 박제.
+            # keypoints_4ch 는 9fps RTMW 원본 → low_uncertainty_indices 는 9fps frame
+            # index 박제. KeypointReport (18fps) 의 data 위치 와 mismatch — 본 1차
+            # PR 박제는 _process_for_wave2 박제 frame index space 정합 (9fps 박제)
+            # 으로 9fps KeypointReport (upsample 전) 박제로 wave 2 호출.
+            keypoint_report_for_wave2 = keypoint_report_raw
+            gemini_d_result = _call_wave2_keypoint_augmenter(
+                local_video_path=local_video_path,
+                low_uncertainty_frame_indices=low_uncertainty_indices,
+                keypoint_report_2d=keypoint_report_for_wave2,
+                scene_result=scene_result,
+            )
+            if gemini_d_result is not None and gemini_d_result.get("refined"):
+                # 보강된 KeypointReport 박제 — frozen dataclass 정합.
+                keypoint_report_raw = _apply_keypoint_refinement_to_report(
+                    keypoint_report_raw, gemini_d_result
+                )
+                # upsample 재실행 — 18fps 박제.
+                keypoint_report_obj = upsample_to_fps(
+                    keypoint_report_raw, target_fps=18.0
+                )
+
         keypoint_report_dict = (
             _dataclass_to_camel_case_dict(keypoint_report_obj)
             if keypoint_report_obj is not None
@@ -1448,6 +1666,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             force_pattern_inference=force_pattern_inference_dict,  # Phase 9 (Plan 09-02)
             keypoint_report=keypoint_report_dict,  # Phase 12 Wave 0B (Plan 12-01)
             gemini_c=scene_result,  # Plan 17-02 Wave 1 (영역 C Finding flag)
+            gemini_d=gemini_d_result,  # Plan 17-03 Wave 2 (영역 D Keypoint 보강)
         )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
     finally:

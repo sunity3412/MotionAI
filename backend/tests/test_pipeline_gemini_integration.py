@@ -187,6 +187,8 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
             pose_frames=[],
             local_video_path=local_path,
             pole_axis_measurement=pole_axis_measurement,
+            # Plan 17-03 박제 — _VideoAnalysisInputs.keypoints_4ch 신설 (3차 R-B3 정합).
+            keypoints_4ch=np.zeros((_angles_8j().shape[0], 17, 4), dtype=float),
         )
 
     return _impl

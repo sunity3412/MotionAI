@@ -1,0 +1,352 @@
+# Phase 17 Plan 06C — Promptfoo local eval reference dataset (30 entry).
+#
+# 박제 정신:
+#   · AI-SPEC §5 Reference Dataset 박제 매트릭스 — 영역 × 시나리오.
+#   · 라벨링 진입: 정은지 5건 (referenceKeypointReport 산출 본 재사용), 나머지 25건
+#     placeholder TODO — 학원 파일럿 진입 시 belle 가 PR 로 추가.
+#   · entry: scenario_id / region / video_s3_key / expected_label (region 별 schema).
+#
+# 영역별 entry 분배:
+#   · 영역 A (IPSF reference): 정은지 5 + 분기2 (studio_alias) 3 + 분기3 (auto) 2 = 10
+#   · 영역 B (coach tone): calibration 10 + 정은지 5 = 15 (중첩 — 정은지 entry 가 A+B 동시)
+#   · 영역 C (finding flags): 그립 5 + occlusion 5 + 측면 5 + 스피닝 5 = 20
+#   · 영역 D (저신뢰 keypoint): 10
+#   · E6 (정은지 hard gate): 5 — 영역 A 정은지 5 와 중첩.
+#
+# 총 unique entry ≥ 30 박제 (영역 중첩 제외).
+
+scenarios:
+  # ─────────────────── 영역 A — 정은지 5 (분기 1 IPSF, E6 hard gate 중첩) ───────────────────
+  - scenario_id: A_jung_eunji_butterfly
+    region: A
+    video_s3_key: s3://sunity-motion-pilot-videos/reference/butterfly/jung_eunji_butterfly.mp4
+    expected_label:
+      expected_motion_name: Butterfly
+      expected_branch: branch_1_ipsf
+      ipsf_code: F019
+      is_reference_e6_gate: true
+
+  - scenario_id: A_jung_eunji_scorpio
+    region: A
+    video_s3_key: s3://sunity-motion-pilot-videos/reference/scorpio/jung_eunji_scorpio.mp4
+    expected_label:
+      expected_motion_name: Scorpio
+      expected_branch: branch_1_ipsf
+      ipsf_code: F042
+      is_reference_e6_gate: true
+
+  - scenario_id: A_jung_eunji_inverted_crucifix
+    region: A
+    video_s3_key: s3://sunity-motion-pilot-videos/reference/inverted_crucifix/jung_eunji.mp4
+    expected_label:
+      expected_motion_name: Inverted Crucifix
+      expected_branch: branch_1_ipsf
+      ipsf_code: F037
+      is_reference_e6_gate: true
+
+  - scenario_id: A_jung_eunji_jade
+    region: A
+    video_s3_key: s3://sunity-motion-pilot-videos/reference/jade/jung_eunji.mp4
+    expected_label:
+      expected_motion_name: Jade Split
+      expected_branch: branch_1_ipsf
+      ipsf_code: F021
+      is_reference_e6_gate: true
+
+  - scenario_id: A_jung_eunji_pole_invert
+    region: A
+    video_s3_key: s3://sunity-motion-pilot-videos/reference/invert/jung_eunji.mp4
+    expected_label:
+      expected_motion_name: Pole Invert
+      expected_branch: branch_1_ipsf
+      ipsf_code: F001
+      is_reference_e6_gate: true
+
+  # ─────────────────── 영역 A — 분기 2 studio_alias 3 ───────────────────
+  - scenario_id: A_studio_alias_foxtop
+    region: A
+    video_s3_key: TODO_studio_alias_foxtop.mp4
+    expected_label:
+      expected_motion_name: Fox Top
+      expected_branch: branch_2_studio
+      studio_alias_input: 폭스탑
+
+  - scenario_id: A_studio_alias_pegasus
+    region: A
+    video_s3_key: TODO_studio_alias_pegasus.mp4
+    expected_label:
+      expected_motion_name: Pegasus
+      expected_branch: branch_2_studio
+      studio_alias_input: 페가수스
+
+  - scenario_id: A_studio_alias_mermaid
+    region: A
+    video_s3_key: TODO_studio_alias_mermaid.mp4
+    expected_label:
+      expected_motion_name: Mermaid
+      expected_branch: branch_2_studio
+      studio_alias_input: 머메이드
+
+  # ─────────────────── 영역 A — 분기 3 auto (IPSF + studio_alias 둘 다 miss → G3) ───────────────────
+  - scenario_id: A_branch3_unknown_acrobatic
+    region: A
+    video_s3_key: TODO_branch3_unknown_1.mp4
+    expected_label:
+      expected_motion_name: ""
+      expected_branch: branch_3_auto
+      inactive_reason: ipsf_whitelist_miss
+
+  - scenario_id: A_branch3_creative_freestyle
+    region: A
+    video_s3_key: TODO_branch3_unknown_2.mp4
+    expected_label:
+      expected_motion_name: ""
+      expected_branch: branch_3_auto
+      inactive_reason: ipsf_whitelist_miss
+
+  # ─────────────────── 영역 B — calibration 10 (belle binary 라벨) ───────────────────
+  - scenario_id: B_calibration_01
+    region: B
+    video_s3_key: TODO_belle_calibration_01.mp4
+    expected_label:
+      belle_binary_label: true
+
+  - scenario_id: B_calibration_02
+    region: B
+    video_s3_key: TODO_belle_calibration_02.mp4
+    expected_label:
+      belle_binary_label: true
+
+  - scenario_id: B_calibration_03
+    region: B
+    video_s3_key: TODO_belle_calibration_03.mp4
+    expected_label:
+      belle_binary_label: false
+
+  - scenario_id: B_calibration_04
+    region: B
+    video_s3_key: TODO_belle_calibration_04.mp4
+    expected_label:
+      belle_binary_label: true
+
+  - scenario_id: B_calibration_05
+    region: B
+    video_s3_key: TODO_belle_calibration_05.mp4
+    expected_label:
+      belle_binary_label: false
+
+  - scenario_id: B_calibration_06
+    region: B
+    video_s3_key: TODO_belle_calibration_06.mp4
+    expected_label:
+      belle_binary_label: true
+
+  - scenario_id: B_calibration_07
+    region: B
+    video_s3_key: TODO_belle_calibration_07.mp4
+    expected_label:
+      belle_binary_label: false
+
+  - scenario_id: B_calibration_08
+    region: B
+    video_s3_key: TODO_belle_calibration_08.mp4
+    expected_label:
+      belle_binary_label: true
+
+  - scenario_id: B_calibration_09
+    region: B
+    video_s3_key: TODO_belle_calibration_09.mp4
+    expected_label:
+      belle_binary_label: true
+
+  - scenario_id: B_calibration_10
+    region: B
+    video_s3_key: TODO_belle_calibration_10.mp4
+    expected_label:
+      belle_binary_label: false
+
+  # ─────────────────── 영역 C — Finding flags (20 = 그립5 + occlusion5 + 측면5 + 스피닝5) ───────────────────
+  - scenario_id: C_grip_overgrip
+    region: C
+    video_s3_key: TODO_finding_grip_01.mp4
+    expected_label:
+      grip_visible: true
+      backbend_present: false
+      occlusion_severe: false
+      camera_angle_problematic: false
+
+  - scenario_id: C_grip_undergrip
+    region: C
+    video_s3_key: TODO_finding_grip_02.mp4
+    expected_label:
+      grip_visible: true
+
+  - scenario_id: C_grip_split
+    region: C
+    video_s3_key: TODO_finding_grip_03.mp4
+    expected_label:
+      grip_visible: true
+
+  - scenario_id: C_grip_cup
+    region: C
+    video_s3_key: TODO_finding_grip_04.mp4
+    expected_label:
+      grip_visible: true
+
+  - scenario_id: C_grip_invisible
+    region: C
+    video_s3_key: TODO_finding_grip_05.mp4
+    expected_label:
+      grip_visible: false
+
+  - scenario_id: C_occlusion_severe_1
+    region: C
+    video_s3_key: TODO_finding_occlusion_01.mp4
+    expected_label:
+      occlusion_severe: true
+
+  - scenario_id: C_occlusion_severe_2
+    region: C
+    video_s3_key: TODO_finding_occlusion_02.mp4
+    expected_label:
+      occlusion_severe: true
+
+  - scenario_id: C_occlusion_mild
+    region: C
+    video_s3_key: TODO_finding_occlusion_03.mp4
+    expected_label:
+      occlusion_severe: false
+
+  - scenario_id: C_occlusion_pole_block
+    region: C
+    video_s3_key: TODO_finding_occlusion_04.mp4
+    expected_label:
+      occlusion_severe: true
+
+  - scenario_id: C_occlusion_self_block
+    region: C
+    video_s3_key: TODO_finding_occlusion_05.mp4
+    expected_label:
+      occlusion_severe: true
+
+  - scenario_id: C_camera_side_view_1
+    region: C
+    video_s3_key: TODO_finding_side_view_01.mp4
+    expected_label:
+      camera_angle_problematic: true
+
+  - scenario_id: C_camera_side_view_2
+    region: C
+    video_s3_key: TODO_finding_side_view_02.mp4
+    expected_label:
+      camera_angle_problematic: true
+
+  - scenario_id: C_camera_inverted
+    region: C
+    video_s3_key: TODO_finding_inverted_view.mp4
+    expected_label:
+      camera_angle_problematic: true
+
+  - scenario_id: C_camera_front_view_ok
+    region: C
+    video_s3_key: TODO_finding_front_view_ok.mp4
+    expected_label:
+      camera_angle_problematic: false
+
+  - scenario_id: C_camera_45_degree
+    region: C
+    video_s3_key: TODO_finding_45_view.mp4
+    expected_label:
+      camera_angle_problematic: false
+
+  - scenario_id: C_spinning_1
+    region: C
+    video_s3_key: TODO_finding_spinning_01.mp4
+    expected_label:
+      backbend_present: false
+
+  - scenario_id: C_spinning_2
+    region: C
+    video_s3_key: TODO_finding_spinning_02.mp4
+    expected_label:
+      backbend_present: false
+
+  - scenario_id: C_spinning_backbend
+    region: C
+    video_s3_key: TODO_finding_spinning_backbend.mp4
+    expected_label:
+      backbend_present: true
+
+  - scenario_id: C_spinning_no_grip
+    region: C
+    video_s3_key: TODO_finding_spinning_no_grip.mp4
+    expected_label:
+      grip_visible: false
+
+  - scenario_id: C_spinning_dynamic
+    region: C
+    video_s3_key: TODO_finding_spinning_dynamic.mp4
+    expected_label:
+      camera_angle_problematic: false
+
+  # ─────────────────── 영역 D — 저신뢰 keypoint refinement (10) ───────────────────
+  - scenario_id: D_low_conf_hip_01
+    region: D
+    video_s3_key: TODO_lowconf_hip_01.mp4
+    expected_label:
+      target_joint: hip
+      low_confidence_frames: TODO
+
+  - scenario_id: D_low_conf_hip_02
+    region: D
+    video_s3_key: TODO_lowconf_hip_02.mp4
+    expected_label:
+      target_joint: hip
+
+  - scenario_id: D_low_conf_shoulder_01
+    region: D
+    video_s3_key: TODO_lowconf_shoulder_01.mp4
+    expected_label:
+      target_joint: shoulder
+
+  - scenario_id: D_low_conf_knee_01
+    region: D
+    video_s3_key: TODO_lowconf_knee_01.mp4
+    expected_label:
+      target_joint: knee
+
+  - scenario_id: D_low_conf_ankle_01
+    region: D
+    video_s3_key: TODO_lowconf_ankle_01.mp4
+    expected_label:
+      target_joint: ankle
+
+  - scenario_id: D_low_conf_wrist_01
+    region: D
+    video_s3_key: TODO_lowconf_wrist_01.mp4
+    expected_label:
+      target_joint: wrist
+
+  - scenario_id: D_low_conf_elbow_01
+    region: D
+    video_s3_key: TODO_lowconf_elbow_01.mp4
+    expected_label:
+      target_joint: elbow
+
+  - scenario_id: D_low_conf_spine_01
+    region: D
+    video_s3_key: TODO_lowconf_spine_01.mp4
+    expected_label:
+      target_joint: spine
+
+  - scenario_id: D_low_conf_neck_01
+    region: D
+    video_s3_key: TODO_lowconf_neck_01.mp4
+    expected_label:
+      target_joint: neck
+
+  - scenario_id: D_low_conf_multi
+    region: D
+    video_s3_key: TODO_lowconf_multi.mp4
+    expected_label:
+      target_joint: multi

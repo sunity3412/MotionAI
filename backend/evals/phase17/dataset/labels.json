@@ -1,0 +1,93 @@
+{
+  "_meta": {
+    "phase": "17",
+    "plan": "06C",
+    "description": "Phase 17 Promptfoo local eval labels — belle/정은지/강사/운영자 라벨링 sheet. 정은지 5건 박혀있음 (Plan 12 referenceKeypointReport 산출본 재사용), 나머지 25건은 학원 파일럿 진입 시 belle 가 PR 로 추가.",
+    "labeling_approach": "AI-SPEC §5 Labeling Approach 정합 — belle binary 라벨 (영역 B calibration) + 정은지 IPSF 매핑 ground truth (영역 A/E6) + 강사 검수 (영역 C/D).",
+    "owner_split": {
+      "영역 A IPSF 정은지": "belle (도메인 — Plan 12 referenceKeypointReport 재사용)",
+      "영역 A studio_alias 분기2": "belle + 학원 운영자",
+      "영역 A branch_3_auto": "belle (G3 가드 ground truth 확보)",
+      "영역 B calibration": "belle binary 라벨 (10건 — judge correlation ≥ 0.7 게이트)",
+      "영역 C finding flags": "강사 (4 boolean 라벨)",
+      "영역 D 저신뢰 keypoint": "강사 (target_joint + frame range)"
+    }
+  },
+  "labels": {
+    "A_jung_eunji_butterfly": {
+      "labeler": "belle",
+      "label_status": "labeled",
+      "ground_truth": {
+        "motion_name_ipsf": "Butterfly",
+        "routing_branch": "branch_1_ipsf",
+        "ipsf_code": "F019",
+        "is_reference": true
+      },
+      "source": "Plan 12 referenceKeypointReport — jung_eunji_butterfly_keypoints.json"
+    },
+    "A_jung_eunji_scorpio": {
+      "labeler": "belle",
+      "label_status": "labeled",
+      "ground_truth": {
+        "motion_name_ipsf": "Scorpio",
+        "routing_branch": "branch_1_ipsf",
+        "ipsf_code": "F042",
+        "is_reference": true
+      },
+      "source": "Plan 12 referenceKeypointReport"
+    },
+    "A_jung_eunji_inverted_crucifix": {
+      "labeler": "belle",
+      "label_status": "labeled",
+      "ground_truth": {
+        "motion_name_ipsf": "Inverted Crucifix",
+        "routing_branch": "branch_1_ipsf",
+        "ipsf_code": "F037",
+        "is_reference": true
+      },
+      "source": "Plan 12 referenceKeypointReport"
+    },
+    "A_jung_eunji_jade": {
+      "labeler": "belle",
+      "label_status": "labeled",
+      "ground_truth": {
+        "motion_name_ipsf": "Jade Split",
+        "routing_branch": "branch_1_ipsf",
+        "ipsf_code": "F021",
+        "is_reference": true
+      },
+      "source": "Plan 12 referenceKeypointReport"
+    },
+    "A_jung_eunji_pole_invert": {
+      "labeler": "belle",
+      "label_status": "labeled",
+      "ground_truth": {
+        "motion_name_ipsf": "Pole Invert",
+        "routing_branch": "branch_1_ipsf",
+        "ipsf_code": "F001",
+        "is_reference": true
+      },
+      "source": "Plan 12 referenceKeypointReport"
+    },
+    "A_studio_alias_foxtop": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "A_studio_alias_pegasus": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "A_studio_alias_mermaid": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "A_branch3_unknown_acrobatic": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "A_branch3_creative_freestyle": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_01": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_02": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_03": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_04": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_05": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_06": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_07": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_08": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_09": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "B_calibration_10": {"labeler": "TODO_belle", "label_status": "TODO"},
+    "C_grip_overgrip": {"labeler": "TODO_instructor", "label_status": "TODO"},
+    "C_occlusion_severe_1": {"labeler": "TODO_instructor", "label_status": "TODO"},
+    "C_camera_side_view_1": {"labeler": "TODO_instructor", "label_status": "TODO"},
+    "C_spinning_1": {"labeler": "TODO_instructor", "label_status": "TODO"},
+    "D_low_conf_hip_01": {"labeler": "TODO_instructor", "label_status": "TODO"}
+  }
+}

@@ -1,0 +1,75 @@
+# Phase 17 Plan 06C — Promptfoo local eval config (W6 정합 — CI 자동 게이트는 별도 plan).
+#
+# 박제 정신:
+#   · 본 config 는 **belle/Claude 가 PR 작성 전 수동 로컬 실행** 하는 게이트. 실제
+#     CI/CD merge block 은 본 Phase 17 scope 밖 — 별도 후속 plan 으로 진입.
+#     2차 R-W6 정합 박제. PR block 표현 박제 0건.
+#   · AI-SPEC §5 Reference Dataset 30 entry × 영역별 assertion 매트릭스.
+#   · custom Python provider — sunity_shared GeminiVision* 호출 위임 (Promptfoo 가
+#     child process 로 호출).
+#
+# 실행 절차 (belle 수동):
+#   cd backend/evals/phase17
+#   promptfoo eval --config promptfooconfig.yaml
+#
+# 임계값 (local 검사용 — 미달 시 belle PR 작성 보류, 자동 block 0):
+#   · E1 (객관성): 100%
+#   · E2 (IPSF 명칭 매치): ≥ 90%
+#   · E3 (routing_branch 정확도): ≥ 90%
+#   · E4 (coach tone binary pass + judge correlation ≥ 0.7): ≥ 85%
+#   · E5 (영역 C precision/recall): ≥ 95%
+#   · E6 (정은지 hard gate): 100%
+#   · E7 (영역 D 좌표 회귀): ≥ 90%
+#   · E8 (latency p95 ≤ 40s + per-call cost ≤ $0.08)
+
+description: "Phase 17 Gemini Vision 4 영역 + Eval/Guardrail local eval (수동 실행)."
+
+prompts:
+  - "{{prompt_template}}"
+
+providers:
+  # custom Python provider — sunity_shared.gemini.* 호출 위임.
+  # Promptfoo 가 child process 로 호출 — env GEMINI_API_KEY / FIREBASE_SA_PATH 박혀있어야 함.
+  - id: sunity-gemini-region-a
+    config:
+      pythonScript: providers/region_a_provider.py
+      function: call_region_a
+  - id: sunity-gemini-region-b
+    config:
+      pythonScript: providers/region_b_provider.py
+      function: call_region_b
+  - id: sunity-gemini-region-c
+    config:
+      pythonScript: providers/region_c_provider.py
+      function: call_region_c
+  - id: sunity-gemini-region-d
+    config:
+      pythonScript: providers/region_d_provider.py
+      function: call_region_d
+
+defaultTest:
+  options:
+    # Promptfoo cache 박제 — 동일 video_s3_key + prompt 조합 재호출 0 (비용 절감).
+    cache: true
+  assert:
+    # E1 — 모든 region 공통 객관성 게이트 (region D 만 좌표 우회).
+    - type: python
+      value: file://assertions/objectivity_reject.py:assert_no_reject_patterns
+
+tests:
+  # dataset YAML 의 scenarios 배열을 외부 파일로 박제.
+  # promptfoo 가 reference_dataset.yaml 의 scenarios[*] 를 각 test 케이스로 분해.
+  - vars:
+      dataset_file: dataset/reference_dataset.yaml
+    assert:
+      # E2/E3 — 영역 A 의 IPSF 명칭 + routing_branch 매치.
+      - type: python
+        value: file://assertions/ipsf_routing.py:assert_ipsf_routing
+        threshold: 0.9
+      # E4 — 영역 B 의 강사 보조 톤 binary pass.
+      - type: python
+        value: file://assertions/coach_tone.py:assert_coach_tone
+        threshold: 0.85
+
+# 본 plan 박제 = local eval. CI 자동 게이트 (.github/workflows/phase17-evals.yml) 는
+# 별도 후속 plan ("Phase 17C — eval CI integration") 으로 진입. README.md 박제 정합.

@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "purpose": "한국 폴스포츠 학원 통용 비등재 동작 (분기 2 — branch_2_studio) 화이트리스트. IPSF Code of Points 미등재 + 정은지 reference 박혀있는 동작",
+    "source": "메모리 [[studio-term-3branch-system]] 2026-06-02 belle 결정 + 정은지 통용 호칭 (championPersonalAlias)",
+    "scope": "분기 2 라우팅 기준. studio_alias 인자가 본 화이트리스트 key 와 정확 매치 시 분기 2 (정은지 reference) 라우팅. isActive=true 진입 허용",
+    "version": "v1-2026-06-12",
+    "extension_path": "belle 후속 PR 로 학원 통용 비등재 동작 추가 — Plan 07 reactivate script 가 STUDIO_ALIAS_OVERRIDES 로 motion_id ↔ alias 매핑 박제"
+  },
+  "entries": [
+    {
+      "studio_alias_ko": "폭스탑",
+      "champion_personal_alias": "버터플라이 콤보",
+      "note_ko": "정은지 통용 호칭은 '버터플라이 콤보' — IPSF 미등재 한국 학원 통용명. 분기 2 raw routing (정은지 reference 박힘)"
+    },
+    {
+      "studio_alias_ko": "폭스탑 스플릿",
+      "champion_personal_alias": "버터플라이 콤보 스플릿",
+      "note_ko": "폭스탑 변형 + 스플릿 결합. IPSF 미등재. 분기 2"
+    },
+    {
+      "studio_alias_ko": "사이드웨이 스핀",
+      "champion_personal_alias": "사이드웨이 스핀",
+      "note_ko": "사이드웨이 진입 회전 스핀. IPSF 등재 없음 (스핀류 일반). 분기 2"
+    },
+    {
+      "studio_alias_ko": "엘보 트위스트 시스터",
+      "champion_personal_alias": "엘보 트위스트 시스터",
+      "note_ko": "엘보 사용 트위스트 자세 + 시스터 결합. IPSF 미등재. 분기 2"
+    },
+    {
+      "studio_alias_ko": "피터팬",
+      "champion_personal_alias": "피터팬",
+      "note_ko": "피터팬 자세 (Peter Pan). 한국 학원 통용. 분기 2"
+    }
+  ]
+}

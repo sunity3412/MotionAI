@@ -1,0 +1,109 @@
+{
+  "_meta": {
+    "purpose": "IPSF Pole Sports Code of Points 2025-2027 등재 코드 + 13+ AKA 한국어 매핑 화이트리스트",
+    "source": "AI-SPEC §1b + NotebookLM [[notebook-lm-pole-sports]] + 메모리 [[judging-baseline-ipsf-code-of-points]] + 메모리 [[studio-term-3branch-system]]",
+    "scope": "분기 1 (branch_1_ipsf) 라우팅 기준. Gemini A 출력 motion_name_ipsf 또는 studio_alias 가 본 화이트리스트의 ipsf_name / aka_ko / aka_en 중 하나와 정확 매치 시 분기 1 라우팅",
+    "version": "v1-2026-06-12",
+    "extension_path": "belle 후속 PR 로 ~120 entry IPSF CoP 2025-2027 전체 등재 (Plan 05 외 scope)"
+  },
+  "entries": [
+    {
+      "ipsf_code": "B201",
+      "ipsf_name": "Butterfly",
+      "aka_ko": ["나비", "버터플라이"],
+      "aka_en": ["butterfly", "inverted butterfly"],
+      "compulsory_criteria_summary": "양 무릎 EXTEND + 골반 90도 굴곡"
+    },
+    {
+      "ipsf_code": "B202",
+      "ipsf_name": "Cupid",
+      "aka_ko": ["큐피드"],
+      "aka_en": ["cupid"],
+      "compulsory_criteria_summary": "한 무릎 EXTEND + 다른 무릎 BENT_OK + 골반 굴곡"
+    },
+    {
+      "ipsf_code": "B301",
+      "ipsf_name": "Deadlift",
+      "aka_ko": ["데드리프트", "데드리프트 인버트"],
+      "aka_en": ["deadlift"],
+      "compulsory_criteria_summary": "양 다리 EXTEND + 양 팔 EXTEND + 폴 수직 통과"
+    },
+    {
+      "ipsf_code": "F101",
+      "ipsf_name": "Inverted Crucifix",
+      "aka_ko": ["인버티드 크루시픽스", "역십자"],
+      "aka_en": ["inverted crucifix"],
+      "compulsory_criteria_summary": "양 팔 EXTEND + 양 다리 EXTEND + 십자 형태"
+    },
+    {
+      "ipsf_code": "F401",
+      "ipsf_name": "Inverted Torso Hook",
+      "aka_ko": ["인버티드 토르소 훅"],
+      "aka_en": ["inverted torso hook"],
+      "compulsory_criteria_summary": "토르소 폴 CONTACT + 양 다리 EXTEND"
+    },
+    {
+      "ipsf_code": "F501",
+      "ipsf_name": "Scorpio",
+      "aka_ko": ["스콜피오", "전갈"],
+      "aka_en": ["scorpio", "scorpion"],
+      "compulsory_criteria_summary": "한 다리 EXTEND + 다른 다리 BENT_OK (전갈 꼬리)"
+    },
+    {
+      "ipsf_code": "F601",
+      "ipsf_name": "Inverted Thigh Hold",
+      "aka_ko": ["인버티드 사이 홀드", "허벅지 홀드"],
+      "aka_en": ["inverted thigh hold"],
+      "compulsory_criteria_summary": "허벅지 폴 CONTACT + 양 팔 EXTEND"
+    },
+    {
+      "ipsf_code": "F701",
+      "ipsf_name": "Genie",
+      "aka_ko": ["지니"],
+      "aka_en": ["genie"],
+      "compulsory_criteria_summary": "양 다리 BENT_OK 교차 + 골반 굴곡"
+    },
+    {
+      "ipsf_code": "F801",
+      "ipsf_name": "Ayesha",
+      "aka_ko": ["아예샤"],
+      "aka_en": ["ayesha"],
+      "compulsory_criteria_summary": "양 다리 EXTEND + 양 팔 EXTEND + 옆 자세"
+    },
+    {
+      "ipsf_code": "F901",
+      "ipsf_name": "Pencil",
+      "aka_ko": ["펜슬"],
+      "aka_en": ["pencil"],
+      "compulsory_criteria_summary": "양 다리 EXTEND + 양 팔 EXTEND + 폴 평행"
+    },
+    {
+      "ipsf_code": "F1001",
+      "ipsf_name": "Flag",
+      "aka_ko": ["플래그", "휴먼 플래그"],
+      "aka_en": ["flag", "human flag"],
+      "compulsory_criteria_summary": "양 팔 EXTEND + 양 다리 EXTEND + 수평"
+    },
+    {
+      "ipsf_code": "F1101",
+      "ipsf_name": "Attitude",
+      "aka_ko": ["애티튜드"],
+      "aka_en": ["attitude"],
+      "compulsory_criteria_summary": "한 다리 BENT_OK (90도 굴곡) + 다른 다리 EXTEND"
+    },
+    {
+      "ipsf_code": "F1201",
+      "ipsf_name": "Splits",
+      "aka_ko": ["스플릿", "다리찢기"],
+      "aka_en": ["splits", "side splits"],
+      "compulsory_criteria_summary": "양 다리 EXTEND + 180도 개각"
+    },
+    {
+      "ipsf_code": "F1301",
+      "ipsf_name": "Jade Split",
+      "aka_ko": ["제이드 스플릿"],
+      "aka_en": ["jade split"],
+      "compulsory_criteria_summary": "옆 스플릿 + 한 손 폴 CONTACT"
+    }
+  ]
+}

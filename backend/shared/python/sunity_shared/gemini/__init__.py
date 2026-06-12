@@ -25,6 +25,7 @@ from .config import (
 )
 from .guardrails import _enforce_no_reject_patterns
 from .keypoint_augmenter import augment_low_confidence
+from .reference_extractor import extract_reference_metadata
 from .scene_finder import find_scene_flags
 from .schemas import (
     CheckpointJoint,
@@ -57,6 +58,8 @@ __all__ = [
     "_enforce_no_reject_patterns",
     # keypoint_augmenter (Plan 17-03 — 영역 D Keypoint)
     "augment_low_confidence",
+    # reference_extractor (Plan 17-05 — 영역 A Reference 자동 등록)
+    "extract_reference_metadata",
     # scene_finder (Plan 17-02 — 영역 C Finding)
     "find_scene_flags",
     # schemas

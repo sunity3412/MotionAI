@@ -602,6 +602,10 @@ export default function AnalysisResult() {
             <Text style={styles.summary}>{summary}</Text>
           </View>
           <LevelBenchmark score={result.overallScore} />
+          {/* 260612-t9m: 점수 안내 캡션 — stability tol 25° 보정과 함께 "90+ 정상" 사용자 인지 정합 */}
+          <Text style={styles.scoreCaption}>
+            촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요. 90점 이상이면 정상 자세에 가깝습니다.
+          </Text>
         </View>
 
         {/* ── 영역 2: 영상 + 키포인트 오버레이 (D-12-A1 #2 / D-12-C1 mode 분기) ─
@@ -905,6 +909,14 @@ const styles = StyleSheet.create({
     ...typography.boxLabel,
     color: colors.textPrimary,
     flexShrink: 1,
+  },
+  scoreCaption: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 18,
+    paddingHorizontal: 4,
   },
   sectionTitle: {
     ...typography.sectionTitle,

@@ -51,7 +51,8 @@
           "microphonePermission": "영상 촬영 시 소리를 함께 녹화하기 위해 마이크 접근이 필요합니다."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-asset"
     ],
     "extra": {
       "router": {},

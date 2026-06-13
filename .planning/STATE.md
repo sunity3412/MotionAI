@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 Wave 2 완료 — Stage 3 user 3D viewer 수직 슬라이스 (R3F + ErrorBoundary + AccuracyLimitBadge). belle 실기기 smoke 보류 (EAS 환경 이슈, R8 ErrorBoundary 안전망 의존) — 다음 native build 시점에 PoseViewer3D 실기기 확인.
-last_updated: "2026-06-13T13:50:41.976Z"
-last_activity: 2026-06-13 -- Phase 04 Wave 2 완료 (3/6 plan)
+stopped_at: Phase 4 Wave 3a 완료 (4/6 plan) — Stage 3 CylindricalMeshAdapter + virtual_renderer 12-view EGL render + license gate (D-18 SECONDARY, D-20 SMPL-X 의존 0). +0.15 placeholder boost 는 scoring promote 근거 아님. Wave 3b 실 RunPod RTMW 재추론 @integration parked (RunPod 필요, phase blocker 아님).
+last_updated: "2026-06-13T14:05:39.510Z"
+last_activity: 2026-06-13 -- Phase 04 Wave 3a 완료 (4/6 plan)
 progress:
   total_phases: 19
   completed_phases: 7
   total_plans: 72
-  completed_plans: 61
-  percent: 85
+  completed_plans: 62
+  percent: 86
 ---
 
 # Project State
@@ -26,16 +26,16 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 04 (ux-occlusion-confidence) — EXECUTING
-Plan: 3 of 6 (04-00, 04-01, 04-02 완료 / 04-03, 04-04, 04-05 남음)
-Verification: Wave 2 (04-02) — npm run typecheck 0 errors / `/native` import 1 hit / `result.angles` 0 hits / `reshapePose3dData` 4 hits / `AccuracyLimitBadge` 2 hits / `ErrorBoundary` 12 hits / `joints3dKeys` wiring 4 hits / forbidden phrases 0 hits / dark hex 0 hits. Plan `<done>` 게이트 all PASS.
-Next: Wave 3 — 04-03 (Stage 3' backend mesh render: cylindrical_mesh + virtual_renderer + evaluate_4way), 04-04 (Stage 4 video gen plug-in stub), 04-05 (정은지 5영상 Phase 4-compatible 재처리 + versioned/atomic write + rollback). 04-03 / 04-04 는 `synthesis/interfaces.py` 공유 → 순차 실행 권장. 04-05 는 04-03 의존.
-Status: Executing Phase 04 (Wave 2 closed)
+Plan: 5 of 6 (04-00, 04-01, 04-02, 04-03 완료 / 04-04, 04-05 남음)
+Verification: Wave 3a (04-03) — verify smoke script PYRENDER_AVAILABLE=False + mesh (1452, 3) + 12 views OK + applied/skipped status + SMPL-X gate PASS / pytest phase04 31 PASS + 2 SKIP / `pytest -m "not integration"` Wave 3a 4 PASS + 1 SKIP / `pytest -m integration` Wave 3b 1 SKIP / requirements.txt trimesh + pyrender + pyopengl 3 hit / cylindrical_mesh.py 소스 `smplx` 0 hit / B4 hard gate (test_mesh_adapter_excluded_without_env_flag) PASS. Plan `<done>` 게이트 all PASS.
+Next: Wave 4 — 04-04 (Stage 4 video_gen_adapter stub: SynthesisAdapter Protocol 3번째 구현체 + Vertex endpoint stub), Wave 5 — 04-05 (정은지 5영상 Phase 4-compatible 재처리 + versioned/atomic write + rollback + test_evaluate_4way.py 하단 RunPod 통합 테스트 append). Wave 3b @integration (실 RTMW 재추론) 은 별도 parked (RunPod 필요, phase blocker 아님 — must-haves 6번째 박제 정합).
+Status: Executing Phase 04 (Wave 3a closed)
 
 > ⚠ Wave 2 belle override (2026-06-13): EAS preview build 환경 이슈로 실기기 smoke checkpoint 보류. R8 ErrorBoundary (PoseViewer3D Canvas 감쌈) + typecheck/grep 게이트가 로컬 안전망. 다음 native build 시점에 belle TestFlight 실기기로 OrbitControls 제스처 + Canvas/GL init + 4 카메라 preset 동작 검증 필요 (SUMMARY 04-02 deviation 섹션 박제).
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-13 -- Phase 04 execution started
+Last activity: 2026-06-13 -- Phase 04 Wave 3a execution complete (4/6 plan)
 
 ### Quick Tasks Completed
 
@@ -257,7 +257,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 94%
+Progress: [██████████] 97%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -483,6 +483,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 08.1 P02 | 90 min | 5 tasks | 6 files |
 | Phase 09 P01 | 25min | 7 tasks | 11 files |
 | Phase 09 P02 | 30 | 5 tasks | 11 files |
+| Phase 04 P03 | ~20min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -557,7 +558,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-13T01:46:45.332Z
+Last session: 2026-06-13T14:05:35.640Z
 
 Stopped at: Phase 4 spike 세션 완료 - Decoupling 4-stage 아키텍처 박제, 6 spike 결과 정리, plan-phase 진입 준비
 
@@ -626,7 +627,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/spikes/WRAP-UP-SUMMARY.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

@@ -516,7 +516,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 1. PoseEngine + RTMW + 폴 축 + NLF R&D 격리 | 21/24 | Sufficient (close-out) | 2026-06-07 (Plan 01-24 후속) |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 1/1 | Complete   | 2026-06-07 |
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
-| 4. 다중 시점 촬영 + occlusion 게이트 | 2/6 | In Progress|  |
+| 4. 다중 시점 촬영 + occlusion 게이트 | 4/6 | In Progress|  |
 | 5. Gemini 기술 인식기 (분류 한정) | 6/6 | Complete | 2026-06-05 (12차 sweep D-01 PASS) |
 | 6. 체형 정규화 비교 엔진 | 3/3 | Complete   | 2026-06-08 |
 | 7. 차이 분류 | 0/TBD | Not started | - |

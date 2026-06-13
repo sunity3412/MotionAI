@@ -26,7 +26,7 @@
 
 - [ ] **POSE-01**: 상용 제품 코드의 포즈 엔진이 NLF → MediaPipe로 마이그레이션되고 `PoseEngine` 인터페이스 + 공통 계약(`PoseFrame`)이 도입된다. `NlfPoseEngine` 어댑터는 R&D 비교군으로 격리되어 제품 파이프라인 import 경로에서 제거되고 사내 평가 스크립트에서만 호출된다 (라이선스 리스크 0)
 - [ ] **POSE-02**: 폴 축이 자동 검출되고 모든 키포인트가 폴 기준 좌표계로 정렬되며, 가림 프레임은 confidence 낮음으로 표기되어 후속 분석이 단정하지 않는다 (스피닝 폴은 v1.5)
-- [ ] **POSE-03**: (2026-06-13 Camera Angle AI pivot — `.planning/phases/04-ux-occlusion-confidence/04-CONTEXT.md` D-01 정합) 사용자는 1 영상만 업로드하고, 백엔드가 confidence 미달 구간/가려진 관절만 AI 가상 시점으로 핀포인트 보완(재추론·병합)한다. 키포인트 confidence 임계값 미만 프레임은 "추정" 표기 + 결과 화면에 occlusion 경고 표시, 합성 실패 시 graceful degrade + 정확도 제한 표기. (구 "다중 시점 직접 업로드 UX" 는 영구 폐기 — D-01)
+- [x] **POSE-03**: (2026-06-13 Camera Angle AI pivot — `.planning/phases/04-ux-occlusion-confidence/04-CONTEXT.md` D-01 정합) 사용자는 1 영상만 업로드하고, 백엔드가 confidence 미달 구간/가려진 관절만 AI 가상 시점으로 핀포인트 보완(재추론·병합)한다. 키포인트 confidence 임계값 미만 프레임은 "추정" 표기 + 결과 화면에 occlusion 경고 표시, 합성 실패 시 graceful degrade + 정확도 제한 표기. (구 "다중 시점 직접 업로드 UX" 는 영구 폐기 — D-01)
 - [ ] **BODY-01**: RTMW 133 wholebody 키포인트로부터 신체 segment 길이·비율·좌우 비대칭이 자동 추출되어 `BodyNormalizationProfile`(키·팔/다리/몸통 스케일·어깨/골반 비율·confidence·warnings)이 두 엔진의 공유 입력으로 산출된다. SMPL-X β 비교군은 R&D 평가 스크립트에서만 갭 보고 (제품 코드 비호출)
 - [ ] **BODY-02**: 사용자가 키·몸무게·경력·통증부위·우세손을 1회 입력하고 분석에 BodyProfile이 함께 전달된다. weightKg는 보조 정보로만 사용, 유연성·근력 자가입력은 받지 않음(부정확)
 
@@ -154,7 +154,7 @@
 | POSE-02 | Phase 1 | Pending |
 | BODY-01 | Phase 2 | Pending |
 | BODY-02 | Phase 3 | Pending |
-| POSE-03 | Phase 4 | Pending |
+| POSE-03 | Phase 4 | Complete |
 | SCORE-01 | Phase 5 | Pending |
 | PERS-01 | Phase 6, Phase 7 | Complete |
 | FORCE-01 | Phase 8, Phase 9 | Complete |

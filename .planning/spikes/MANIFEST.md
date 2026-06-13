@@ -23,7 +23,8 @@ belle 박제 (변경 금지). spike 진행 중 새 requirement 발생 시 즉시
 - **🎯 SMPL-X 박제 정정 (2026-06-13 belle 명시):** SMPL-X = **완전 최후의 보류**. Primary mission = "SMPL-X 없이 가능하게 해보라." 도입 조건 = (1) AI 로 모든 license-clear path 가 99% 미달 + (2) SMPL-X 효과성 입증. 비용 = 880만원/yr.
 - **🎯 Spike 002a/c 발견:** Higgsfield Angles (public API 미존재 + ToS §5.1(iii)) + MagicMan (weight transitive 비상업) **둘 다 production BLOCKED**. 외부 API/모델 path 모두 차단.
 - **🎯 Spike 003 발견 (신규 path):** Gemini Vision multimodal reasoning = **현재 PRIMARY PATH #1**. 비용 SMPL-X 대비 100배 우위 ($0.60/5영상 batch vs 880만원/yr). 픽셀 합성 X, joint 좌표 추정만.
-- **🎯 Spike 004 발견 (belle 박제 정합, 2026-06-13):** Gemini Omni 의 영상 직접 편집 + 카메라 앵글 변경 = **Vertex AI GA (~2026-Q3) 후 PRIMARY 후보**. Phase 17 SDK 동일 호환, Google ToS clean (DPA + zero-data-retention). 단 폴스포츠 motion clean-data 검증 gate 필수 (Motion Realism 4/5, "stylized risk"). belle 의 multimodal AI 트렌드 감각 정확.
+- **🎯 Spike 004 발견 (belle 박제 정합, 2026-06-13):** Gemini Omni 의 영상 직접 편집 + 카메라 앵글 변경 = **Vertex AI GA (~mid-late June 2026) 후 PRIMARY 후보**. Phase 17 SDK 동일 호환, Google ToS clean (DPA + zero-data-retention). 단 폴스포츠 motion clean-data 검증 gate 필수 (Motion Realism 4/5, "stylized risk"). belle 의 multimodal AI 트렌드 감각 정확.
+- **🎯 Spike 005 발견 (belle 결정적 깨달음, 2026-06-13):** **"AI 영상 생성 불필요 — 수학적 가상 카메라 연산으로 사용자 인터랙티브 360° 가능"** → react-three-fiber + expo-three frontend viewer 로 RN Expo 통합. v2 deferred 박제한 "구글맵 스트리트뷰 뷰어" 가 **MVP 가능 박제로 승격**. Decoupling 4-stage 아키텍처 박제: Stage 1 분석코어 (Gemini 3.x) → 2 3D pose (RTMW) → 3 시각화 (R3F frontend / cylindrical mesh backend) → 4 영상생성 plug-in (Omni 출시 후).
 
 ## Spikes
 
@@ -36,6 +37,7 @@ belle 박제 (변경 금지). spike 진행 중 새 requirement 발생 시 즉시
 | 002d | rtmw-mirror-baseline | comparison | 보정 없는 현 운영 stack 상한 정확도 박제 | ✓ VALIDATED-BASELINE | baseline, rtmw, mirror, operational-stack |
 | 003 | gemini-vision-view-reasoning | standard | Gemini multimodal reasoning 으로 occluded joint 좌표 추정 (픽셀 합성 X). SMPL-X 없이 occlusion 보완 | ✓ VALIDATED-PROTOTYPE | gemini-vision, multimodal-reasoning, license-clear, low-cost |
 | 004 | gemini-omni-view-editing | standard | Gemini Omni 의 영상 입력 → 카메라 앵글 변경 + 편집. Phase 17 SDK 호환, Vertex GA 후 PRIMARY 후보. clean-data gate 필수 | ⏳ VALIDATED-DEFERRED-VERTEX-GA | gemini-omni, video-editing, vertex-ai, deferred, hybrid-primary |
+| 005 | frontend-3d-viewer | standard | RTMW 3D joints + react-three-fiber + expo-three frontend viewer. AI 영상 생성 없이 사용자 360° 인터랙션 가능. v2 deferred → MVP 가능 승격 | ✓ VALIDATED-ARCHITECTURE | frontend, 3d-viewer, react-three-fiber, expo, decoupling, user-interactive, mvp-viable |
 
 ## Risk Order Rationale
 

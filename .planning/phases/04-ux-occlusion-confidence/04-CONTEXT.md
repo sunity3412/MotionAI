@@ -114,6 +114,21 @@
   - Spike 004 Gemini Omni editing: 추정 $2-6/10초 영상 → 30~60초 영상 분할 시 $6-36/영상 (50-300배)
   - 비용 차이로 Spike 004 = 조건부 트리거 정합 (occluded frame 만)
 
+### Decoupling 4-stage 아키텍처 (Spike 005, 2026-06-13 belle 결정적 깨달음)
+- **D-29:** **belle 박제 (2026-06-13):** "굳이 AI 로 비디오를 새로 생성하지 않더라도 수학적인 가상 카메라 연산을 통해 사용자가 앱 화면을 손가락으로 돌려가며 측면, 후면의 관절 각도와 골반 뒤틀림을 입체적 그래프나 3D 아바타 형태로 즉시 확인할 수 있음." → **Spike 005 신설**. v2 deferred ("구글맵 스트리트뷰 뷰어") = **MVP 가능 박제로 승격** (deferred 섹션의 해당 항목 갱신).
+- **D-30:** **Decoupling 4-stage 아키텍처 박제** (메모리 [[rtmw-free-stack-pivot]] PoseEngine 추상화 확장):
+  - Stage 1 분석 코어 = **Gemini 3.x** (gemini-3.1-pro-preview / gemini-3.5-flash, 메모리 "2.5 영구 금지" 정합) — 기술 식별 + 타임스탬프 + 핵심 frame 추출 (Spike 003)
+  - Stage 2 3D pose estimation = **RTMW 133 wholebody** (Apache-2.0, Phase 1 운영)
+  - Stage 3 시각화 (사용자 UX) = **Spike 005 react-three-fiber + expo-three frontend viewer** — AI 영상 생성 0, 사용자 손가락 360° 인터랙션. MVP 가능.
+  - Stage 3' 시각화 (분석 정확도) = Spike 002b cylindrical mesh + RunPod render (backend)
+  - Stage 4 영상 생성 plug-in = Spike 004 Gemini Omni (Vertex GA 후, 시각화 모듈에 plug-in 추가)
+- **D-31:** **Plan-phase Wave 권고 (Decoupling 정합):**
+  - Wave 1: Stage 1+2 통합 (Gemini 3.x + RTMW 운영)
+  - Wave 2: Stage 3 frontend viewer (Spike 005 — react-three-fiber)
+  - Wave 3: Stage 3' backend mesh render (Spike 002b — RunPod)
+  - Wave 4: Stage 4 plug-in 슬롯 (Spike 004 — Omni 출시 후 활성화, 인터페이스만 박제)
+- **D-32:** **새 의존성 (Stage 3 frontend viewer):** three (MIT), @react-three/fiber (MIT), expo-three (MIT), @react-three/drei (MIT) — 100% commercial OK, [[rtmw-clean-weight-release-gate]] 함정 회피
+
 ### 비용 절감 전략 (D-03 보강, plan-phase 디테일)
 - **D-14:** 조건부 트리거 (D-03), 부분 합성 (D-03) 외 추가 전략:
   - **캐싱** — 같은 영상 재분석 시 합성 결과 재사용 (deferred 박제 — plan-phase)
@@ -227,7 +242,7 @@
   → 정은지 영상 셋에 점수 stability + IPSF GeometricCriterion 만족도 비교. 휴리스틱이 GeoCalib 90% 이상 따라잡으면 자체 path 확정.
 
   **진입 시점:** Phase 4 spike 결과로 잔여 정확도 gap 확정 후 Phase 4.5 진입. roadmap 정식 추가는 belle 결정.
-- **다각도 뷰 사용자 노출 (구글맵 스트리트뷰 식)** — 합성 결과를 사용자가 직접 회전/측면/뒤 인터랙티브 뷰어로 볼 수 있게 하는 UX. belle 의 "본인 평소 못 보는 각도 보고 싶을 수도" 흥미 정합. v2 후속 — 별도 phase 박제 (UX + 합성 결과 캐싱 + 뷰어 인터랙션).
+- ~~**다각도 뷰 사용자 노출 (구글맵 스트리트뷰 식)** — v2 후속~~ → **2026-06-13 belle 결정적 깨달음으로 MVP 가능 박제로 승격 (Spike 005, D-29~D-32 박제).** AI 영상 생성 불필요, 수학적 가상 카메라 연산 + react-three-fiber frontend viewer 로 사용자 손가락 360° 인터랙션 즉시 가능. Phase 4 plan-phase Wave 2 박제.
 - **사선/뒤 시점 합성** — Phase 4 는 측면 + 회전 동작 우선. 사선/뒤 시점은 occlusion 빈도 낮으므로 v2 — 메모리 박제 유지.
 - **스피닝 폴 핸들링** — Phase 1 D-10 정합. v1.5 별도 phase.
 - **합성 결과 캐싱 + 재사용** — 같은 영상 재분석 시 합성 호출 0 비용. 사용량 데이터 확보 후 정책 박제 (deferred).

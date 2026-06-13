@@ -27,7 +27,7 @@ belle 박제 (변경 금지). spike 진행 중 새 requirement 발생 시 즉시
 |---|------|------|-----------|---------|------|
 | 001 | dataset-eval-harness | foundation | 정은지 5영상 + IPSF rubric (NLM lookup) 위에 4-way 비교용 평가 harness 셋업 | ✓ VALIDATED | foundation, ipsf, nlm, eval |
 | 002a | higgsfield-angles-api | comparison | Higgsfield Angles API 의 license/cost/약관 박제 + 실제 호출 검증 | ✗ INVALIDATED | external-api, closed-wrapper, novel-view, license-block |
-| 002c | magicman-zero-shot | comparison | MagicMan license 검증 + 인체 NVS zero-shot 추론 품질 | PENDING | human-nvs, license-gate, smplx |
+| 002c | magicman-zero-shot | comparison | MagicMan license 검증 + 인체 NVS zero-shot 추론 품질 | ✗ INVALIDATED | human-nvs, license-gate, smplx, blocked |
 | 002b | smplx-virtual-render | comparison | RTMW 3D → SMPL-X fit → 12 virtual camera render → RTMW 재추론 | PENDING | self-path, smplx, virtual-render |
 | 002d | rtmw-mirror-baseline | comparison | 보정 없는 현 운영 stack 상한 정확도 박제 | PENDING | baseline, rtmw, mirror |
 

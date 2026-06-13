@@ -540,7 +540,7 @@ def merge_with_temporal(
 
 | Category | Items Found | Action Required |
 |----------|-------------|-----------------|
-| Stored data | Firestore `referenceMotions/{id}` — 정은지 5영상 분석 결과 (angles, joint sequence, scores 등). 현재 1차 RTMW 결과로 저장됨. | Phase 4 파이프라인 완성 후 재처리 스크립트 (D-09). 기존 문서 덮어쓰기 or 신규 버전 필드 추가 결정 필요. |
+| Stored data | Firestore `reference/{id}` (canonical — HIGH-3 정정, referenceMotions 아님) — 정은지 5영상 분석 결과 (angles, joint sequence, scores 등). 현재 1차 RTMW 결과로 저장됨. | Phase 4 재처리 스크립트 (D-09): `reference/{id}/versions/phase4_v1` versioned write + 5개 통과 후 top-level mirror (04-05 BLOCKER-2 계약). |
 | Live service config | Lambda env: `RUNPOD_ANALYZE_URL`, `RUNPOD_AUTH_TOKEN` — Pod URL 변경 시 수동 갱신 필요. Phase 4 신규: Gemini API key (`GEMINI_API_KEY` or SSM path) 확인 필요. | Pod 재생성 시 Lambda env 동기화 (runpod-gpu-env 박제 정합). Gemini key = Phase 17 에서 이미 Parameter Store 주입됨 — 재확인만. |
 | OS-registered state | RunPod Pod 에 trimesh + pyrender 추가 설치 필요 (매 Pod 재생성 시). 현 setup script (`setup_pod_rtmw.sh`) 에 미포함. | `setup_pod_rtmw.sh` 에 `pip install trimesh pyrender pyopengl` 추가. |
 | Secrets/env vars | `GEMINI_API_KEY` (or `GEMINI_C_MODEL_OVERRIDE`) — Phase 17 scene_finder 에서 이미 사용 중. Phase 4 신규 Gemini 호출도 동일 key 재사용 가능. | None (기존 key 재사용). model string 확인: Vision 영역은 `gemini-2.5-pro` 일시 허용 (WRAP-UP-SUMMARY.md 박제). |
@@ -587,7 +587,7 @@ def merge_with_temporal(
    - Recommendation: Wave 1 착수 전 Spike 001 evaluate_4way RunPod 실행으로 정량화. 초기 구현은 confidence < 0.3 시작, 0.4/0.2 도 테스트.
 
 2. **정은지 5영상 재처리 전략 (덮어쓰기 vs 버전 필드)**
-   - What we know: Firestore `referenceMotions/{id}` 에 기존 분석 결과 저장됨. D-09 = 자동 재처리.
+   - What we know: Firestore `reference/{id}` (canonical — HIGH-3, referenceMotions 아님) 에 기존 분석 결과 저장됨. D-09 = 자동 재처리.
    - What's unclear: 기존 문서 덮어쓰기 시 재처리 중 mode1 비교 사용자 영향.
    - Recommendation: belle 에게 확인 후 plan-phase 에서 결정. 권장: 신규 `pipelineVersion` 필드 추가 + 원자적 교체.
 

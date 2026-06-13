@@ -1,6 +1,11 @@
 """Phase 4 Wave 1 — SynthesisResult dataclass + SynthesisAdapter Protocol +
 identify_occlusion_targets + merge_with_temporal (POSE-03 D-08 R1 R2 R6).
 
+Wave 4 추가 (04-04): VideoGenerationAdapter Protocol — Stage 4 영상 생성
+plug-in 슬롯. Omni Vertex GA 후 활성화 예정 (D-30, D-31). 현재 stub 만 존재.
+파일 하단에 SynthesisAdapter 와 분리된 Protocol 로 추가됨 — 두 어댑터는
+입출력 시그니처가 다르므로 별도 인터페이스로 박제.
+
 박제 정신:
   · R2 fix: all-zero array 를 실패 sentinel 로 쓰지 않는다. 실패 → status='failed'
     + joints=None + confidence=None. 성공 → status='applied'|'partial' + joints/conf
@@ -24,7 +29,7 @@ identify_occlusion_targets + merge_with_temporal (POSE-03 D-08 R1 R2 R6).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from typing import Literal, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -199,9 +204,52 @@ def merge_with_temporal(
     return merged_joints, merged_conf
 
 
+# ---------------------------------------------------------------------------
+# Phase 4 Wave 4 — Stage 4 영상 생성 plug-in slot (POSE-03 D-30 D-31).
+#
+# Stage 4 활성화 시 예상 비용: Omni $2-6/10초 영상, Veo 3.1 Vertex Public Preview
+# (가격 변동 가능). 조건부 트리거 (occluded frame 만) 전용. D-28 박제.
+# 비교 기준선 (PRIMARY 채널): Gemini Vision reasoning $0.12/video.
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class VideoGenerationAdapter(Protocol):
+    """Stage 4 영상 생성 어댑터 Protocol (D-30 D-31 stub 박제).
+
+    SynthesisAdapter (좌표 추정) 와 별도 인터페이스 — 입출력 시그니처가 다르다.
+    SynthesisAdapter: (T,17,3) joints 입력 → SynthesisResult (좌표) 출력.
+    VideoGenerationAdapter: (T,H,W,3) RGB frames + camera delta → (T',H,W,3) 합성
+    프레임 출력. 픽셀 합성 결과는 향후 SynthesisResult 로 래핑되어 pipeline 의
+    KeypointReport / aiSynthesisMeta 채널로만 흘러야 한다 (R1 non-scoring 하드월).
+
+    구현체 (Wave 4 시점 stub):
+      · OmniVertexAdapter (Gemini Omni via Vertex AI, D-30/D-31 — Vertex GA 후 활성화)
+      · VeoAdapter (Veo 3.1 Vertex Public Preview, D-27 PoC 대상)
+
+    @runtime_checkable 데코레이터:
+      isinstance(obj, VideoGenerationAdapter) 구조적 서브타입 체크 지원.
+      test_protocol_structural_subtyping 단위 테스트 게이트 정합 (04-04 Task 2).
+    """
+
+    def generate_virtual_view(
+        self,
+        frames: np.ndarray,                                 # (T, H, W, 3) RGB uint8 입력 프레임
+        target_camera_delta: tuple[float, float, float],    # (pan_deg, tilt_deg, roll_deg)
+    ) -> np.ndarray:
+        """가상 카메라 이동 합성 프레임 (T', H, W, 3) RGB uint8 반환.
+
+        target_camera_delta = (pan_deg, tilt_deg, roll_deg) — 픽셀 합성 X.
+        향후 Omni 의 conversational edit prompt 파라미터로 변환될 자리.
+        실패/미구현 시 NotImplementedError raise.
+        """
+        ...
+
+
 __all__ = [
     "SynthesisResult",
     "SynthesisAdapter",
+    "VideoGenerationAdapter",
     "identify_occlusion_targets",
     "merge_with_temporal",
 ]

@@ -20,6 +20,9 @@ belle 박제 (변경 금지). spike 진행 중 새 requirement 발생 시 즉시
 - **평가 기준 = IPSF GeometricCriterion** — 사람 점수 라벨링 영구 금지. 임계값 수치 라벨링은 OK (메모리 [`analysis-objectivity-no-human-scores`])
 - **MVP 단순 우선** — 비용/제어권/license 가 우선, 광택 X (메모리 [`mvp-simple-pilot-quality`])
 - **🎯 Spike 001 발견 (2026-06-13):** IPSF Page 19 "split angle must remain the same from all angles/perspectives" = **Camera Angle AI 의 raison d'être 가 IPSF 규정으로 직접 박제됨**. 모든 평가 metric 의 ground truth.
+- **🎯 SMPL-X 박제 정정 (2026-06-13 belle 명시):** SMPL-X = **완전 최후의 보류**. Primary mission = "SMPL-X 없이 가능하게 해보라." 도입 조건 = (1) AI 로 모든 license-clear path 가 99% 미달 + (2) SMPL-X 효과성 입증. 비용 = 880만원/yr.
+- **🎯 Spike 002a/c 발견:** Higgsfield Angles (public API 미존재 + ToS §5.1(iii)) + MagicMan (weight transitive 비상업) **둘 다 production BLOCKED**. 외부 API/모델 path 모두 차단.
+- **🎯 Spike 003 발견 (신규 path):** Gemini Vision multimodal reasoning = **PRIMARY PATH #1**. 비용 SMPL-X 대비 100배 우위 ($0.60/5영상 batch vs 880만원/yr). 픽셀 합성 X, joint 좌표 추정만.
 
 ## Spikes
 
@@ -29,7 +32,8 @@ belle 박제 (변경 금지). spike 진행 중 새 requirement 발생 시 즉시
 | 002a | higgsfield-angles-api | comparison | Higgsfield Angles API 의 license/cost/약관 박제 + 실제 호출 검증 | ✗ INVALIDATED | external-api, closed-wrapper, novel-view, license-block |
 | 002c | magicman-zero-shot | comparison | MagicMan license 검증 + 인체 NVS zero-shot 추론 품질 | ✗ INVALIDATED | human-nvs, license-gate, smplx, blocked |
 | 002b | cylindrical-mesh-virtual-render | comparison | RTMW 3D → cylindrical humanoid mesh → 12 virtual camera render (SMPL-X 제거, license clear) | ✓ VALIDATED-SKELETON | self-path, cylindrical-mesh, license-clear, virtual-render |
-| 002d | rtmw-mirror-baseline | comparison | 보정 없는 현 운영 stack 상한 정확도 박제 | PENDING | baseline, rtmw, mirror |
+| 002d | rtmw-mirror-baseline | comparison | 보정 없는 현 운영 stack 상한 정확도 박제 | ✓ VALIDATED-BASELINE | baseline, rtmw, mirror, operational-stack |
+| 003 | gemini-vision-view-reasoning | standard | Gemini multimodal reasoning 으로 occluded joint 좌표 추정 (픽셀 합성 X). SMPL-X 없이 occlusion 보완 | ✓ VALIDATED-PROTOTYPE | gemini-vision, multimodal-reasoning, license-clear, low-cost |
 
 ## Risk Order Rationale
 

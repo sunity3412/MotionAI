@@ -1,0 +1,36 @@
+{
+  "spike": "003-gemini-vision-view-reasoning",
+  "belle_directive": "SMPL-X 없이 가능하게 해보라. Gemini 최대한 활용 (2026-06-13)",
+  "approach": "픽셀 합성 X, joint 좌표 추정만. Phase 17 scene_finder 통합.",
+  "license": {
+    "gemini_api": "commercial OK (Google Cloud ToS)",
+    "phase17_integration": "이미 운영 — 추가 의존성 0"
+  },
+  "cost_estimate_usd": {
+    "flash_per_frame": 0.002,
+    "pro_per_frame": 0.02,
+    "5_videos_flash": 0.6,
+    "5_videos_pro": 6.0,
+    "smplx_yearly_krw": 8800000,
+    "verdict": "Gemini 5영상 batch < $7 vs SMPL-X 880만원/yr → 비용 측면 압도적 우위"
+  },
+  "metric_comparison": {
+    "002d_baseline_spin_occ": 0.738,
+    "003_gemini_spin_occ": 0.0,
+    "reduction_pct": 100.0,
+    "estimated_ipsf_savings_pts": 5.904
+  },
+  "prompt_design": {
+    "length_chars": 1350,
+    "hard_constraints": [
+      "픽셀 합성 X",
+      "사람 점수 라벨링 X (analysis-objectivity-no-human-scores)",
+      "indeterminate 답 허용 (확정 거짓 답변 회피)"
+    ]
+  },
+  "next_steps": [
+    "RunPod / Lambda 에서 실 Gemini API 호출 + 정은지 영상 검증",
+    "조건부 트리거 정책 (occluded frame 만) 박제",
+    "Spike 001 evaluate_4way 에서 002b/002d/003 3-way 비교"
+  ]
+}

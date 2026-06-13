@@ -1,0 +1,29 @@
+{
+  "spike": "002d-rtmw-mirror-baseline",
+  "purpose": "\ud604 \uc6b4\uc601 stack \uc758 IPSF \ucc44\uc810 \uc57d\uc810 \uc815\ub7c9\ud654 + 002b \ub300\ube44 baseline \ubc15\uc81c",
+  "baseline_path": "rtmw_mirror",
+  "video_id": "je-04",
+  "motion_category": "spin",
+  "occlusion_frame_rate": 0.07450980392156863,
+  "estimated_ipsf_penalty_pts": 7.6,
+  "axis_b_baseline": {
+    "rtmw_mirror": {
+      "occlusion_frame_rate": 0.07450980392156863,
+      "rate_reduction_pct": 0.0,
+      "estimated_ipsf_savings_pts": 0.0
+    }
+  },
+  "axis_c_baseline": {
+    "rtmw_mirror": {
+      "fully_extended": 0.0,
+      "twist_alignment": 1.0,
+      "hold_time_capable": 1.0,
+      "spin_rotation_capable": 1.0
+    }
+  },
+  "notes": [
+    "Spike 001 PathOutput \uc7ac\uc0ac\uc6a9 \u2014 eval harness \ud638\ud658 \uac80\uc99d \u2713",
+    "\ud68c\uc804 \ub3d9\uc791 \uc2dc\ubbac: \uc6b4\uc601 stack \uc758 spin phase \uc57d\uc810 \ubc15\uc81c",
+    "\uc2e4 \uc6b4\uc601 stack \uacb0\uacfc\ub294 RunPod \uc704\uc784 (\ubcc4\ub3c4 task)"
+  ]
+}

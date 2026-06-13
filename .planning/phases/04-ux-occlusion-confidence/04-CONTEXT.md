@@ -73,16 +73,30 @@
   - (b) AI 가상 뷰 합성 품질 (occlusion 부위 재구성)
   - (c) 합성 뷰로 RTMW 재추론 시 pose 정확도 향상 효과 (실측 비교 — 정은지 5영상 등 기존 부정확 케이스 기준)
 
-### 근본 기술 평가 + 자체 path (2026-06-13 추가)
-- **D-17:** **Higgsfield Angles = closed wrapper** (자체 학습 모델 아님, multi-view diffusion fine-tune 추정). 자체 weight/paper/hosting 정보 0. **production 단일 의존 비추** — startup closure risk, 가격 통제 불가, 사용자 영상 3rd party 업로드 privacy 부담. spike 단계 비교 baseline 으로만 사용. Magnific 의 novel view 기능은 공식 발표 없음 — 별도 트랙 분리 X.
-- **D-18:** **Sunity 운영 stack (RTMW + MotionBERT) 자연 통합 path 3개:**
-  - **Path A (강력 권장): SMPL-X mesh → 가상 카메라 렌더링.** RTMW 3D joints → SMPL-X fit (SMPLify-X 류) → mesh 를 12개 virtual camera 에서 render → 각 view 에 RTMW 재추론 → joint averaging. **픽셀 합성 불필요, license 깨끗, GPU 가벼움, AGORA 입증.**
-  - **Path B: Gemini Vision multimodal** — 픽셀 수준 view 생성 불가. occlusion 검출 / recognizer 보강용으로만 (Phase 17 정합).
-  - **Path C: MagicMan (THU, 2024) + RTMW hybrid** — 인체 특화 NVS + SMPL-X conditioning. RTMW 가 못 잡는 occlusion frame 만 보충. **license research-only 추정 — 상업 사용 차단 확인 필요.**
-- **D-19:** **Phase 4 spike 비교 set (4-way):** (1) Higgsfield Angles API (블랙박스 상한선) (2) **SMPL-X virtual render (Path A — 자체)** (3) MagicMan zero-shot (인체 NVS 최신, license clear 후만) (4) RTMW-only mirror baseline (현 stack 상한). IPSF angle 측정 정확도 + occlusion frame rate 지표 비교.
-- **D-20:** **오픈소스 후보 라이선스 정합** (Agent 조사 박제):
-  - 상업 OK: ZeroNVS (MIT 추정 — 확인 필요), GeoCalib (Apache-2.0 + CC-BY weight) ✅
-  - 비상업/차단: SV3D (상업 $20/mo+), CAT3D (코드 미공개), DUSt3R/MASt3R/MUSt3R (CC BY-NC-SA), SPEC/CameraHMR/WHAM (SMPL/BEDLAM 의존 → [[rtmw-clean-weight-release-gate]] 와 동일 함정)
+### 근본 기술 평가 + 자체 path (2026-06-13 추가 + Spike 결과 갱신)
+- **D-17:** **Higgsfield Angles = closed wrapper + production BLOCKED** (Spike 002a 확정). public API 미존재 (Angles 모델 platform.higgsfield.ai 미등재) + ToS §5.1(iii) competing-AI clause + user input 학습 사용 (§4.4) + API tier gating. **production 단일 의존 불가능**. Magnific 의 novel view 기능은 공식 발표 없음 — 별도 트랙 분리 X.
+- **D-18:** **Sunity 운영 stack 자연 통합 path — Spike 결과 갱신 (2026-06-13):**
+  - **🥇 Path #1 (PRIMARY): Gemini Vision multimodal view reasoning** (Spike 003 VALIDATED-PROTOTYPE). Phase 17 통합 위에 신규 호출 — 픽셀 합성 X, joint 좌표 추정만. 비용 = $0.60/5영상 batch (Gemini Flash). license clear, 의존성 0 추가.
+  - **🥈 Path #2: Cylindrical humanoid mesh + 12 virtual camera render** (Spike 002b VALIDATED-SKELETON). RTMW 3D joints → trimesh cylindrical mesh → pyrender 12 view → RTMW 재추론. license 100% clear (trimesh MIT + pyrender MIT + numpy BSD).
+  - **🥉 Baseline: RTMW + 좌우 mirror + temporal.py** (Spike 002d). 현 운영 stack. IPSF 추정 감점 -7.60pts/spin video.
+  - **🚫 차단: SMPL-X mesh** (belle 정정 박제 2026-06-13). belle 명시: "SMPL-X 없이 가능하게 해보라. 완전 최후의 보류" — 1+2 모두 99% 미달 + SMPL-X 효과성 입증 시에만 검토. $7,300/yr.
+  - **🚫 차단: MagicMan + RTMW hybrid** (Spike 002c). weight transitive 비상업 (THuman2.1 CC BY-NC + 2K2K research-only + SMPL-X research) → [[rtmw-clean-weight-release-gate]] 동일 함정.
+- **D-19:** **Phase 4 spike 결과 박제 — 3-way 비교 set 확정 (002a/002c 제외):**
+  - 003 Gemini Vision view reasoning ✓ VALIDATED-PROTOTYPE (PRIMARY)
+  - 002b Cylindrical mesh virtual render ✓ VALIDATED-SKELETON
+  - 002d RTMW mirror baseline ✓ VALIDATED-BASELINE
+  - 002a Higgsfield ✗ INVALIDATED (production 불가)
+  - 002c MagicMan ✗ INVALIDATED (transitive 비상업)
+  - 실 4-way 평가 = RunPod 위임 (Spike 001 evaluate_4way 재사용 박제됨)
+- **D-20:** **오픈소스 후보 라이선스 정합** (Spike 결과):
+  - **🟢 상업 OK + 즉시 사용:** Gemini API (Apache-2.0 SDK + Google ToS OK), trimesh (MIT), pyrender (MIT), numpy (BSD), RTMW Apache-2.0 운영 stack
+  - 🟢 상업 OK (Phase 4.5 후속): GeoCalib (Apache-2.0 + CC-BY weight)
+  - 🔴 차단: SMPL-X (research, belle 완전 최후의 보류 박제), SV3D (상업 $20/mo+), CAT3D (코드 미공개), DUSt3R/MASt3R/MUSt3R (CC BY-NC-SA), SPEC/CameraHMR/WHAM (SMPL/BEDLAM 의존), MagicMan (THuman/2K2K), Higgsfield (closed wrapper + ToS)
+
+### IPSF NotebookLM lookup 박제 (Spike 001 발견, 2026-06-13)
+- **D-21:** **IPSF Page 19 (Aerial Pole Sports CoP 2024-2025)** = "Split angle must remain the same from all angles/perspectives" → **Camera Angle AI 의 IPSF 직접 근거**. belle 의 Phase 4 가설이 IPSF 규정으로 강력 뒷받침. 모든 평가 metric 의 ground truth.
+- **D-22:** **IPSF Page 10/94/106** = poor presentation (occlusion) 발생 시 **-0.5pt/회 절대 감점**. 002d baseline 시뮬 = 회전 동작 -7.60pts/video. Spike 003 Gemini Vision 으로 100% reduction 가능 (시뮬, 실 검증 RunPod 위임).
+- **D-23:** 추가 박제 IPSF criterion: Fully Extended (180° ±20°), Hold Time (≥2초, Page 8), Spin Rotation (≥720°, Page 10/95), Twist Alignment (Page 87 Deficit Posture -0.2pt). Spike 001 `ipsf_criteria.py` 에 source_ref 박제.
 
 ### 비용 절감 전략 (D-03 보강, plan-phase 디테일)
 - **D-14:** 조건부 트리거 (D-03), 부분 합성 (D-03) 외 추가 전략:

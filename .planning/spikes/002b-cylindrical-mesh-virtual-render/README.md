@@ -16,7 +16,7 @@ tags: [self-path, cylindrical-mesh, license-clear, virtual-render, smplx-removed
 **when** SMPL-X 의존 제거 + 12 virtual camera render path 박제,
 **then** license-clear 자체 path 가 IPSF Page 19 split angle metric 정합 + RTMW 재추론 호환 mesh/image 출력.
 
-> **Scope 재정의 (2026-06-13 belle 결정):** 초기 002b scope = "SMPL-X virtual render". 002a/002c license 차단 발견 + Phase 1 박제 [`rtmw-free-stack-pivot`] "SMPL-X 의존 영구 제거" 와 충돌 → belle 의 옵션 A 선택으로 cylindrical humanoid mesh path 로 전환.
+> **Scope 재정의 (2026-06-13 belle 결정 + 정정):** 초기 002b scope = "SMPL-X virtual render". 002a/002c license 차단 발견 + belle 명시 박제 ("SMPL-X 없이 가능하게 해보라. SMPL-X = 완전 최후의 보류") 정합 → cylindrical humanoid mesh path 로 전환. SMPL-X 는 cylindrical mesh + Gemini Vision (Spike 003) + 다른 path 모두 99% 정확도 미달 + SMPL-X 효과성 검증 시에만 도입 검토 (deferred, $7,300/yr).
 
 ## Research
 

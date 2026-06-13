@@ -73,6 +73,17 @@
   - (b) AI 가상 뷰 합성 품질 (occlusion 부위 재구성)
   - (c) 합성 뷰로 RTMW 재추론 시 pose 정확도 향상 효과 (실측 비교 — 정은지 5영상 등 기존 부정확 케이스 기준)
 
+### 근본 기술 평가 + 자체 path (2026-06-13 추가)
+- **D-17:** **Higgsfield Angles = closed wrapper** (자체 학습 모델 아님, multi-view diffusion fine-tune 추정). 자체 weight/paper/hosting 정보 0. **production 단일 의존 비추** — startup closure risk, 가격 통제 불가, 사용자 영상 3rd party 업로드 privacy 부담. spike 단계 비교 baseline 으로만 사용. Magnific 의 novel view 기능은 공식 발표 없음 — 별도 트랙 분리 X.
+- **D-18:** **Sunity 운영 stack (RTMW + MotionBERT) 자연 통합 path 3개:**
+  - **Path A (강력 권장): SMPL-X mesh → 가상 카메라 렌더링.** RTMW 3D joints → SMPL-X fit (SMPLify-X 류) → mesh 를 12개 virtual camera 에서 render → 각 view 에 RTMW 재추론 → joint averaging. **픽셀 합성 불필요, license 깨끗, GPU 가벼움, AGORA 입증.**
+  - **Path B: Gemini Vision multimodal** — 픽셀 수준 view 생성 불가. occlusion 검출 / recognizer 보강용으로만 (Phase 17 정합).
+  - **Path C: MagicMan (THU, 2024) + RTMW hybrid** — 인체 특화 NVS + SMPL-X conditioning. RTMW 가 못 잡는 occlusion frame 만 보충. **license research-only 추정 — 상업 사용 차단 확인 필요.**
+- **D-19:** **Phase 4 spike 비교 set (4-way):** (1) Higgsfield Angles API (블랙박스 상한선) (2) **SMPL-X virtual render (Path A — 자체)** (3) MagicMan zero-shot (인체 NVS 최신, license clear 후만) (4) RTMW-only mirror baseline (현 stack 상한). IPSF angle 측정 정확도 + occlusion frame rate 지표 비교.
+- **D-20:** **오픈소스 후보 라이선스 정합** (Agent 조사 박제):
+  - 상업 OK: ZeroNVS (MIT 추정 — 확인 필요), GeoCalib (Apache-2.0 + CC-BY weight) ✅
+  - 비상업/차단: SV3D (상업 $20/mo+), CAT3D (코드 미공개), DUSt3R/MASt3R/MUSt3R (CC BY-NC-SA), SPEC/CameraHMR/WHAM (SMPL/BEDLAM 의존 → [[rtmw-clean-weight-release-gate]] 와 동일 함정)
+
 ### 비용 절감 전략 (D-03 보강, plan-phase 디테일)
 - **D-14:** 조건부 트리거 (D-03), 부분 합성 (D-03) 외 추가 전략:
   - **캐싱** — 같은 영상 재분석 시 합성 결과 재사용 (deferred 박제 — plan-phase)
@@ -160,18 +171,32 @@
 ## Deferred Ideas
 
 ### 별도 phase 후보 (Phase 4 와 함께 다뤄야 belle 의 "5보정" 풀세트 완성)
-- **원근 왜곡 보정 (Perspective Distortion Correction) — 별도 phase 강력 권고** (2026-06-13 추가 박제)
-  - **Camera Angle AI (Phase 4) ≠ perspective correction**. Higgsfield Change Camera 류는 novel view synthesis (새 각도 *생성*) 이지 원본의 perspective distortion 을 *수정*하는 게 아님 (공식 블로그에 intrinsics/focal length 처리 언급 0). 생성 모델이 원본 distortion 을 학습한 latent 로 새 view 를 만들어 RTMW 입력으로 들어가면 distortion 이 **승계 + 증폭** 가능.
-  - **폴스포츠 distortion 종류:** (a) 카메라 ↑ tilt → hip/leg foreshortening + 광축 회전 (b) 폴 높이 변화 → frame 마다 subject off-center → RTMW bbox crop 안 "virtual camera" 회전 → MotionBERT lifter 가 잘못된 ray 로 3D 복원 (CameraHMR / SPEC ICCV'21 박제 실패 모드).
-  - **2024-2026 후보 (라이선스 정합 확인):**
-    - **CameraHMR (MPI, 2024)** — bbox perspective 보정, research-only 확인 필요
-    - **CamCalib/SPEC (Kocabas, ICCV'21)** — single-image focal/tilt 회귀, **non-commercial 차단**
-    - **Discorpy (Apache-2.0, 2025)** — 일반 calibration (radial+perspective), 상업 OK
-    - **WHAM (yohanshin)** — CLIFF 기반 focal length 가정, SLAM intrinsics 주입 가능
-    - **MoGe / W-HMR (2024)** — weak-supervised calibration, research
-  - **Sunity 권장 구성:** RTMW → CamCalib-style focal/tilt 추정 → MotionBERT 입력 좌표 unproject 보정. 상업 가능 clean 구현 없으면 **Discorpy + 휴리스틱 tilt 추정**으로 시작.
-  - **왜 별도 phase 인가:** Phase 4 (생성) ≠ perspective correction (보정) — 다른 문제, 다른 모델, 다른 evaluation metric. Phase 4 에 합치면 scope creep + Higgsfield 가 자동 처리한다는 잘못된 기대로 평가 흐려짐.
-  - **roadmap 추가 후보:** "Phase 4.5: Perspective Correction (focal/tilt 추정 + MotionBERT 입력 보정)" — Phase 4 spike 결과로 잔여 정확도 gap 확정 후 진입.
+- **Phase 4.5 후보: Perspective Distortion Correction (원근 왜곡 + 줌인/줌아웃 + tilt 통합 보정)** — 2026-06-13 추가 박제. belle 의 "줌인/줌아웃도 포함" 직관 정합 (2026-06-13).
+  - **scope:** 카메라 tilt (pitch/roll), 사선/대각 (yaw), **줌인/줌아웃 (focal length 변화)**, 촬영 거리, 폴 위 높이별 off-center bbox crop — 전부 한 카테고리 = intrinsics (focal/principal point) + extrinsics (rotation) 추정 문제. GeoCalib / 휴리스틱 폴축 calibration 모두 focal length 를 부산물로 출력하므로 **줌인/줌아웃 보정은 perspective correction 의 무료 부산물**. 별도 모듈 X.
+  - **왜 별도 phase 인가:** Phase 4 (생성) ≠ perspective correction (보정) — 다른 문제, 다른 모델, 다른 evaluation metric. Higgsfield/Magnific 류 novel view synthesis 가 새 view 합성 시 카메라 거리/줌을 implicit 조정해도 그건 *생성*이지 원본 *보정*이 아님 → RTMW 입력으로 들어가면 distortion 승계+증폭 가능 (공식 블로그 intrinsics 처리 언급 0).
+  - **폴스포츠 distortion 종류:** (a) 카메라 ↑ tilt → hip/leg foreshortening + 광축 회전 (b) 폴 높이 변화 → frame 마다 subject off-center → RTMW bbox crop 안 "virtual camera" 회전 → MotionBERT lifter 가 잘못된 ray 로 3D 복원 (CameraHMR / SPEC ICCV'21 박제 실패 모드) (c) 줌인/줌아웃 → frame 별 focal length 변화 → MotionBERT 가 weak-perspective 정규화 가정 깸.
+
+  **2024-2026 근본 기술 평가 (Agent 조사 결과):**
+  | 후보 | 라이선스 | Sunity 적용성 |
+  |---|---|---|
+  | **GeoCalib (ETH/Microsoft, ECCV'24)** | **코드 Apache-2.0 + weight CC-BY 4.0** ✅ | 상업 가능 1순위. Deep + geometric hybrid. 폴=vertical line geometric residual 안정적 |
+  | **휴리스틱 폴축 calibration (자체)** | N/A | **폴 = 명확한 vertical reference + 학원 표준 길이 (2.8~4m)** → vanishing point 1개로 focal length closed-form. 학습 데이터 0, GPU 0, <10ms |
+  | CameraHMR (MPI, 2024) | BEDLAM 비상업 의존 → 상업 차단 | 제외 |
+  | SPEC (Kocabas, ICCV'21) | non-commercial | 제외 |
+  | WHAM (yohanshin) | 코드 MIT, SMPL/AMASS weight 비상업 → 상업 차단 | 제외 (rtmw-clean-weight-release-gate 와 동일 함정) |
+  | PerspectiveFields (CMU/Adobe, CVPR'23) | weight license 확인 필요 | 보조 |
+  | Discorpy (2025) | Apache-2.0 | 일반 calibration, 폴 도메인 prior 0 → 휴리스틱 보다 약함 |
+
+  **Sunity 권장 path:** `pole_geometry.py` (Phase 1 D-11) 가 이미 폴 축 좌표 산출 중 → **휴리스틱 폴축 calibration 1단계 추가** → focal/tilt closed-form 역산 → MotionBERT 입력 좌표 unproject 보정. 학습 데이터 0, GPU 0. 휴리스틱이 검증 실패 시에만 GeoCalib 도입 (feedback-analysis-first 정합).
+
+  **Phase 4.5 spike 베이스라인 3종 (Agent 권고):**
+  1. 무보정 (현 RTMW+MotionBERT)
+  2. **휴리스틱 폴축 calibration (자체 path)**
+  3. GeoCalib intrinsics 주입
+
+  → 정은지 영상 셋에 점수 stability + IPSF GeometricCriterion 만족도 비교. 휴리스틱이 GeoCalib 90% 이상 따라잡으면 자체 path 확정.
+
+  **진입 시점:** Phase 4 spike 결과로 잔여 정확도 gap 확정 후 Phase 4.5 진입. roadmap 정식 추가는 belle 결정.
 - **다각도 뷰 사용자 노출 (구글맵 스트리트뷰 식)** — 합성 결과를 사용자가 직접 회전/측면/뒤 인터랙티브 뷰어로 볼 수 있게 하는 UX. belle 의 "본인 평소 못 보는 각도 보고 싶을 수도" 흥미 정합. v2 후속 — 별도 phase 박제 (UX + 합성 결과 캐싱 + 뷰어 인터랙션).
 - **사선/뒤 시점 합성** — Phase 4 는 측면 + 회전 동작 우선. 사선/뒤 시점은 occlusion 빈도 낮으므로 v2 — 메모리 박제 유지.
 - **스피닝 폴 핸들링** — Phase 1 D-10 정합. v1.5 별도 phase.

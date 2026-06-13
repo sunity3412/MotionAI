@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { AccuracyLimitBadge } from '../../components/AccuracyLimitBadge';
 import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
 import { DimensionDetailModal } from '../../components/DimensionDetailModal';
 import {
@@ -20,12 +21,14 @@ import { ForcePatternDetailModal } from '../../components/ForcePatternDetailModa
 import { KeypointOverlay } from '../../components/KeypointOverlay';
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
+import { PoseViewer3D } from '../../components/PoseViewer3D';
 import { VideoCompare } from '../../components/VideoCompare';
 import {
   LEVEL_EXPECTED_SCORE,
   LEVEL_LABEL_KO,
   levelStanding,
 } from '../../lib/levels';
+import { reshapePose3dData } from '../../lib/joints';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { getSimulatedResult } from '../../lib/simulatedResult';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
@@ -47,6 +50,7 @@ import type {
   ScoreDimension,
   SegmentScores,
   SkillLevel,
+  SynthesisWarningCode,
 } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
@@ -201,6 +205,17 @@ function lowReliabilityRatio(report: KeypointReport | null | undefined): number 
     if (r === 'low') low += 1;
   }
   return low / report.frames;
+}
+
+// Phase 4 (04-02 BLOCKER-3 / MEDIUM-4 4차 게이트 리뷰) — 합성 경고 helper.
+// canonical surface = result.aiSynthesisMeta.warnings (top-level
+// result.warnings 아님). 본 helper 가 null/undefined guard 를 단일화해
+// 호출 site 가 optional chain 을 중복 작성하지 않도록 한다.
+function hasSynthesisWarning(
+  result: AnalysisResult | undefined,
+  code: SynthesisWarningCode,
+): boolean {
+  return (result?.aiSynthesisMeta?.warnings ?? []).includes(code);
 }
 
 // JointScore.key (kismam: left_elbow / left_knee 등) → keypoint name (left_hand 등).
@@ -540,6 +555,21 @@ export default function AnalysisResult() {
   const showOcclusionBadge = lowReliabilityRatioVal >= 0.2;
   const occlusionPercent = Math.round(lowReliabilityRatioVal * 100);
 
+  // Phase 4 (04-02 R3) — 3D 자세 뷰어 데이터 소스. doc.result.joints3d (04-01
+  // 신설 flat 필드) → (T, J, 3) reshape. angles 는 절대 전달 금지 — 관절각
+  // (T, J) 스칼라이므로 좌표 reshape 불가. reshapePose3dData 의 length guard
+  // 가 잡지만 source 단계에서 차단.
+  const joints3d = useMemo(
+    () =>
+      reshapePose3dData(
+        result.joints3d ?? null,
+        result.joints3dKeys ?? [],
+        result.joints3dFrames ?? 0,
+      ),
+    [result.joints3d, result.joints3dKeys, result.joints3dFrames],
+  );
+  const [currentFrame, setCurrentFrame] = useState(0);
+
   // 코칭 팁 row 의 각도 표시 분기 = (joint 평균 confidence < 0.5) 또는
   // (low reliability frame 비율 ≥ 0.30). 추정 표기 + ⓘ tap → Alert.
   const isAngleEstimated = (jointKey: string): boolean => {
@@ -576,6 +606,13 @@ export default function AnalysisResult() {
               ? `${cmp.athleteName} 선수 · ${cmp.referenceMotionName} 기준으로 분석했어요.`
               : `${name ? `${name} · ` : ''}분석이 완료됐어요. 점수를 확인해보세요.`}
           </Text>
+          {/* Phase 4 (04-02 D-08 / BLOCKER-3) — 정확도 제한 배지.
+              canonical surface = result.aiSynthesisMeta.warnings (top-level
+              result.warnings 아님). 합성 경고 없는 정상 분석에서는 visible=false
+              로 자동 미렌더 (블랙박스 R7 박제 — 사용자에게 내부 코드명 노출 X). */}
+          <AccuracyLimitBadge
+            visible={hasSynthesisWarning(result, 'ai_synthesis_failed')}
+          />
         </View>
 
         {/* mode1 전용: 기준 모션 메타 카드 (선수·동작·레벨·설명) */}
@@ -657,6 +694,22 @@ export default function AnalysisResult() {
               }
             />
           </>
+        )}
+
+        {/* ── Phase 4 (04-02 Task 4) — Stage 3 사용자 3D 자세 뷰어 ─────────
+            joints3d null = Phase 4 이전 doc / joints3d 없는 분석 → 섹션 자체
+            graceful 생략 (UI-SPEC §Surface 1 상태별 UI). reshapePose3dData 가
+            형식 불일치 / 누락 시 null 반환. R3 박제 — angles 절대 미사용,
+            joints3d 전용. HIGH-3 박제 — referenceJoints 는 Wave 2 에서 전달 X
+            (PoseViewer3D props 에 예약만 두고 follow-up plan 에서 mode1 overlay
+            활성화). R8 박제 — Canvas/GL 충돌은 PoseViewer3D 내부 ErrorBoundary
+            가 격리. */}
+        {joints3d && (
+          <PoseViewer3D
+            joints={joints3d}
+            currentFrame={currentFrame}
+            onFrameChange={setCurrentFrame}
+          />
         )}
 
         {/* ── 영역 3: Phase 9 실패 원인 카드 Top-3 (D-12-B1 박제) ───────────

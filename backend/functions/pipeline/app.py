@@ -526,6 +526,169 @@ def _apply_keypoint_refinement_to_report(
     )
 
 
+# ── Plan 04-01 Wave 1 (Phase 4) — Occlusion 합성 어댑터 wiring ──────────────
+#
+# 박제 정신 (POSE-03 D-07 / D-08 / R1 / R2 / R6):
+#   · _call_synthesis_adapter 진입점:
+#       - is_reference=True → G4 가드 (최우선) → SynthesisResult(status="skipped",
+#         warnings=("g4_reference_guard",)). adapter 호출 0.
+#       - SYNTHESIS_ENABLED env OFF (default) → SynthesisResult(status="skipped").
+#       - 그 외 모든 except → SynthesisResult(status="failed",
+#         warnings=("ai_synthesis_failed",)) — graceful degrade.
+#   · R1 non-scoring 하드월: 본 wrapper 가 반환한 SynthesisResult 는 pipeline 의
+#     KeypointReport / aiSynthesisMeta / joints3d 흐름에만 흘러간다. DTW/kismam/
+#     IPSF coco_array 에 절대 mutate 0 (B2 hard gate 정합).
+#   · _get_synthesis_adapter() — module-level lazy singleton. 첫 호출 시
+#     GeminiViewReasoner 인스턴스 박제.
+#   · warning surface (BLOCKER-3 canonical) — warning 은 `ai_synthesis_meta["warnings"]`
+#     리스트로 흘러가야 함. `profile.extra_warnings` 같은 경로 영구 금지 (warning
+#     surface 단일화). pipeline 의 _process 가 ai_synthesis_meta dict 를 조립해
+#     complete_analysis 의 ai_synthesis_meta= kwarg 로 주입한다.
+
+
+_SYNTHESIS_FALSY: frozenset[str] = frozenset({"0", "false", ""})
+_SYNTHESIS_ADAPTER = None  # module-level lazy singleton
+
+
+def _synthesis_enabled() -> bool:
+    """SYNTHESIS_ENABLED env 박제 — Phase 4 wave 1 합성 토글 (default OFF, D-07).
+
+    운영 안전 스위치 — Wave 1 wiring 박제 후에도 default OFF 로 두어 시연/배포 시
+    명시적 ON 박제. `_VISION_FALSY` 와 동일한 falsy set ({"0", "false", ""}) 사용.
+    """
+    raw = os.environ.get("SYNTHESIS_ENABLED", "0")
+    return raw.strip().lower() not in _SYNTHESIS_FALSY
+
+
+def _get_synthesis_adapter():
+    """Lazy singleton — GeminiViewReasoner (Stage 1 PRIMARY, D-18).
+
+    Wave 3 (04-03) 이후 CylindricalMeshAdapter 추가 시 본 helper 에서 chain 분기 박제.
+    현 단계는 PRIMARY 만.
+    """
+    global _SYNTHESIS_ADAPTER
+    if _SYNTHESIS_ADAPTER is None:
+        # Lazy import — Lambda 250MB 정합 + Wave 1 신설 패키지 path 박제.
+        from sunity_shared.analysis.synthesis.gemini_view_reasoner import (
+            GeminiViewReasoner,
+        )
+
+        _SYNTHESIS_ADAPTER = GeminiViewReasoner()
+    return _SYNTHESIS_ADAPTER
+
+
+def _call_synthesis_adapter(
+    *,
+    adapter,
+    joint_sequence,
+    confidence_sequence,
+    occlusion_mask,
+    scene_findings: dict | None,
+    is_reference: bool = False,
+):
+    """Phase 4 — SynthesisResult 기반 조건부 합성 (D-03/D-07 R2 fix).
+
+    G4 가드 (최우선): is_reference=True → SynthesisResult(status='skipped',
+    warnings=('g4_reference_guard',)). adapter.synthesize_occluded_joints 자체 호출 0.
+
+    합성 output 은 KeypointReport / aiSynthesisMeta / joints3d 에만 흘러간다 —
+    DTW/kismam/IPSF coco_array 에 절대 mutate 금지 (R1 non-scoring 하드월,
+    [[gap-and-line-angle-mandatory-gates]] 정합 — Wave 3 진입 1순위인 line/angle
+    게이트는 본 합성 path 와 무관, 채점은 1차 RTMW 원본만).
+
+    Args:
+      adapter: SynthesisAdapter Protocol 구현체 (GeminiViewReasoner 등).
+      joint_sequence: (T, 17, 3) 1차 RTMW joints.
+      confidence_sequence: (T, 17) keypoint confidence.
+      occlusion_mask: (T, 17) bool — 합성 대상 영역.
+      scene_findings: scene_finder.find_scene_flags 결과 dict (또는 None).
+      is_reference: 정은지 reference 영상 여부 (G4 가드 trigger).
+
+    Returns:
+      SynthesisResult dataclass. None 반환 영구 금지 (R2 fix).
+    """
+    # Lazy import — Wave 1 신설 패키지.
+    from sunity_shared.analysis.synthesis.interfaces import SynthesisResult
+
+    # G4 가드 — 최우선. test_synthesis_g4_guard 회귀 게이트.
+    if is_reference:
+        log.info("synthesis — is_reference=True G4 guard skip")
+        return SynthesisResult(
+            status="skipped",
+            warnings=("g4_reference_guard",),
+        )
+
+    # SYNTHESIS_ENABLED env 게이트는 caller (_process) 측에서 처리한다.
+    # 본 wrapper 는 G4 가드 + graceful degrade 만 책임 — adapter 가 명시적으로
+    # 전달되면 항상 호출 시도 (test_synthesis_adapter 회귀 게이트 정합).
+
+    # adapter 호출 — 모든 예외 graceful degrade (R2 fix).
+    try:
+        return adapter.synthesize_occluded_joints(
+            joint_sequence,
+            confidence_sequence,
+            occlusion_mask,
+            scene_findings or {},
+        )
+    except Exception:  # noqa: BLE001 - 분석 흐름 차단 0 + graceful degrade
+        log.exception("synthesis adapter raise — graceful degrade")
+        return SynthesisResult(
+            status="failed",
+            warnings=("ai_synthesis_failed",),
+        )
+
+
+def _build_ai_synthesis_meta(synth_result, *, synthesis_path: str) -> dict:
+    """SynthesisResult → aiSynthesisMeta dict (warnings 분류 + cost 카운터 통합).
+
+    public warning ('ai_synthesis_failed' / 'ai_synthesis_partial') 만 warnings 에,
+    raw reason ('gemini_api_error' / 'g4_reference_guard' / 'exception' 등) 은
+    debugWarnings 에 분리 보존 (HIGH-4 — public enum 오염 금지).
+
+    promotion 은 별도 후속 phase — 본 Wave 1 박제는 audit 메타 저장만.
+    """
+    raw_warnings = list(getattr(synth_result, "warnings", ()) or ())
+    public_codes = set(getattr(models, "SYNTHESIS_WARNING_CODES", frozenset()))
+
+    # status 기반 public warning 매핑 — adapter 의 raw warning 과 별개.
+    public_warnings: list[str] = []
+    debug_warnings: list[str] = []
+    if synth_result.status == "failed":
+        if "ai_synthesis_failed" not in public_warnings:
+            public_warnings.append("ai_synthesis_failed")
+    elif synth_result.status == "partial":
+        if "ai_synthesis_partial" not in public_warnings:
+            public_warnings.append("ai_synthesis_partial")
+    for w in raw_warnings:
+        if w in public_codes:
+            if w not in public_warnings:
+                public_warnings.append(w)
+        else:
+            if w not in debug_warnings:
+                debug_warnings.append(w)
+
+    meta = dict(getattr(synth_result, "meta", {}) or {})
+    # 기본 cost 카운터 (adapter 가 채우지 않은 경우 0 박제).
+    out: dict = {
+        "synthesizedFrameCount": int(meta.get("framesSynthesized", 0)),
+        "synthesizedJointKeys": list(meta.get("synthesizedJointKeys", []) or []),
+        "synthesisPath": synthesis_path,
+        "degraded": synth_result.status in ("failed", "skipped"),
+        "modelId": str(meta.get("modelId", "")),
+        "modelVersion": str(meta.get("modelVersion", "")),
+        "promptHash": str(meta.get("promptHash", "")),
+        "framesConsidered": int(meta.get("framesConsidered", 0)),
+        "framesSynthesized": int(meta.get("framesSynthesized", 0)),
+        "geminiCalls": int(meta.get("geminiCalls", 0)),
+        "framesSkipped": int(meta.get("framesSkipped", 0)),
+        "framesFailed": int(meta.get("framesFailed", 0)),
+        "estCostUsd": float(meta.get("estCostUsd", 0.0)),
+        "warnings": public_warnings,
+        "debugWarnings": debug_warnings,
+    }
+    return out
+
+
 # ── Plan 17-04 Wave 3 — 영역 B 코칭 멘트 dual-track wiring ──────────────────
 #
 # 박제 정신 (3차 R-B1 Option A + R-B2 + R-W4):
@@ -1834,6 +1997,100 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             else None
         )
 
+        # ── Plan 04-01 Wave 1 (Phase 4) — Occlusion 합성 어댑터 호출 ──────────
+        # R1 non-scoring 하드월: 본 분기는 KeypointReport / aiSynthesisMeta /
+        # joints3d 흐름에만 흘러간다. DTW/kismam/IPSF 점수 산출은 이미 위에서
+        # 1차 RTMW 원본 (inputs.keypoints_4ch) 로 완료된 상태 — coco_array mutate
+        # 0 (B2 hard gate 정합, RESEARCH Pitfall 7).
+        #
+        # G4 가드: _call_synthesis_adapter 내부에서 is_reference=True 시
+        # status="skipped" + ("g4_reference_guard",) 반환 — adapter 호출 0.
+        # default OFF: SYNTHESIS_ENABLED env 미설정 시 status="skipped".
+        ai_synthesis_meta_dict: dict | None = None
+        try:
+            from sunity_shared.analysis.synthesis.interfaces import (
+                identify_occlusion_targets,
+            )
+
+            kp_4ch = inputs.keypoints_4ch
+            if kp_4ch is not None and np.asarray(kp_4ch).ndim == 3:
+                kp_arr = np.asarray(kp_4ch)
+                # uncertainty_proxy (channel 3) → confidence ≈ 1 - uncertainty.
+                synth_conf_in = np.clip(
+                    1.0 - kp_arr[:, :, 3], 0.0, 1.0
+                ).astype(np.float32)
+                synth_joints_in = kp_arr[:, :, :3].astype(np.float32)
+                occlusion_mask = identify_occlusion_targets(
+                    synth_conf_in,
+                    scene_result or {},
+                    [],
+                    threshold=0.3,
+                )
+                # G4 가드는 wrapper 가 처리. SYNTHESIS_ENABLED 게이트는 본
+                # 호출 site 에서 — wrapper 가 invoke 하기 전에 skipped 결정.
+                if not _synthesis_enabled() or is_reference_local:
+                    from sunity_shared.analysis.synthesis.interfaces import (
+                        SynthesisResult as _SR,
+                    )
+
+                    synth_result = (
+                        _SR(
+                            status="skipped",
+                            warnings=("g4_reference_guard",),
+                        )
+                        if is_reference_local
+                        else _SR(status="skipped")
+                    )
+                else:
+                    adapter = _get_synthesis_adapter()
+                    synth_result = _call_synthesis_adapter(
+                        adapter=adapter,
+                        joint_sequence=synth_joints_in,
+                        confidence_sequence=synth_conf_in,
+                        occlusion_mask=occlusion_mask,
+                        scene_findings=scene_result,
+                        is_reference=is_reference_local,
+                    )
+                # aiSynthesisMeta 만 채움 — joints/confidence 는 KeypointReport
+                # 측 별도 wiring (후속 wave). DTW/kismam coco_array mutate 0.
+                ai_synthesis_meta_dict = _build_ai_synthesis_meta(
+                    synth_result,
+                    synthesis_path="gemini_view"
+                    if synth_result.status in ("applied", "partial")
+                    else "none",
+                )
+        except Exception:  # noqa: BLE001 - 분석 흐름 차단 0
+            log.exception(
+                "synthesis wiring raise — graceful skip aiSynthesisMeta"
+            )
+            ai_synthesis_meta_dict = None
+
+        # ── joints3d flat 박제 (R3 fix + BLOCKER-4) ─────────────────────────
+        # source = inputs.keypoints_4ch[:, :, :3] (T, 17, 3 — 4ch uncertainty 제외).
+        # to_coco17_array 산출이라 좌표계 = pole_aligned (BLOCKER-1 정정 —
+        # rtmw3d 아님). 04-02 가 doc.result.joints3d 를 reshapePose3dData 로 소비.
+        joints3d_flat: list[float] | None = None
+        joints3d_keys_list: list[str] | None = None
+        joints3d_frames_int: int | None = None
+        coord_dim_int: int | None = None
+        space_str: str | None = None
+        try:
+            kp_4ch = inputs.keypoints_4ch
+            if kp_4ch is not None and np.asarray(kp_4ch).ndim == 3:
+                src = np.asarray(kp_4ch)[:, :, :3].astype(np.float32)
+                # NaN sentinel → 0.0 (validator 가 finite-only 강제, viewer 안전).
+                src = np.nan_to_num(src, nan=0.0, posinf=0.0, neginf=0.0)
+                joints3d_frames_int = int(src.shape[0])
+                joints3d_keys_list = list(skeleton.KEYPOINT_NAMES)
+                coord_dim_int = 3
+                space_str = "pole_aligned"
+                joints3d_flat = src.reshape(-1).tolist()
+        except Exception:  # noqa: BLE001 - 분석 흐름 차단 0
+            log.exception(
+                "joints3d flat wiring raise — graceful skip joints3d 저장"
+            )
+            joints3d_flat = None
+
         firestore_admin.complete_analysis(
             uid,
             analysis_id,
@@ -1849,6 +2106,12 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             gemini_b=gemini_b_audit,  # Plan 17-04 Wave 3 (영역 B Coach audit)
             gemini_c=scene_result,  # Plan 17-02 Wave 1 (영역 C Finding flag)
             gemini_d=gemini_d_result,  # Plan 17-03 Wave 2 (영역 D Keypoint 보강)
+            ai_synthesis_meta=ai_synthesis_meta_dict,  # Plan 04-01 Wave 1 (R3 fix)
+            joints3d=joints3d_flat,  # Plan 04-01 Wave 1 (R3 fix flat)
+            joints3d_keys=joints3d_keys_list,
+            joints3d_frames=joints3d_frames_int,
+            coord_dim=coord_dim_int,
+            space=space_str,
         )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
     finally:

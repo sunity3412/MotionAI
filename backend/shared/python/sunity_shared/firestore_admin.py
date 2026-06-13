@@ -598,6 +598,87 @@ def _validate_keypoint_report(
         )
 
 
+# ── Plan 04-01 (Phase 4 Wave 1, 2026-06-13) — joints3d 전용 validator ─────
+#
+# R3 fix + BLOCKER-4 — 범용 _validate_flat_dict_no_nested_array 우회 아님. flat
+# length, finite-only, coord_dim==3, space ∈ allowed set 강제. 04-02 가
+# `doc.result.joints3d` 를 reshapePose3dData 로 소비 — 본 validator 가
+# Firestore 저장 단계의 회귀 차단.
+
+_VALID_JOINTS3D_SPACES: frozenset[str] = frozenset({"rtmw3d", "pole_aligned"})
+
+
+def _validate_joints3d_payload(
+    joints3d: list,
+    joints3d_keys: list,
+    joints3d_frames: int,
+    coord_dim: int,
+    space: str,
+) -> None:
+    """R3 fix + BLOCKER-4 — joints3d flat 저장 invariant 검증.
+
+    invariant:
+      · joints3d (list[float]) 길이 == joints3d_frames × len(joints3d_keys) × coord_dim
+      · joints3d 의 모든 원소 finite (NaN/Inf 금지 — 04-02 reshape 시 viewer 폭주 방지)
+      · joints3d_keys 길이 == 17 (COCO-17)
+      · coord_dim == 3
+      · space ∈ {"rtmw3d", "pole_aligned"}
+
+    raises:
+      ValueError: 위 invariant 위반 시.
+      TypeError: 잘못된 타입 (e.g. nested list) 전달 시.
+    """
+    import math
+
+    if not isinstance(joints3d, list):
+        raise TypeError(
+            f"joints3d must be flat list[float] (firestore-nested-array-flat): "
+            f"got {type(joints3d).__name__}"
+        )
+    if not isinstance(joints3d_keys, list):
+        raise TypeError(
+            f"joints3d_keys must be list[str]: got {type(joints3d_keys).__name__}"
+        )
+    if len(joints3d_keys) != 17:
+        raise ValueError(
+            f"joints3d_keys length must be 17 (COCO-17): got {len(joints3d_keys)}"
+        )
+    if not isinstance(joints3d_frames, int) or joints3d_frames <= 0:
+        raise ValueError(
+            f"joints3d_frames must be positive int: got {joints3d_frames!r}"
+        )
+    if coord_dim != 3:
+        raise ValueError(
+            f"coord_dim must be 3 (joints3d xyz only): got {coord_dim!r}"
+        )
+    if space not in _VALID_JOINTS3D_SPACES:
+        raise ValueError(
+            f"space must be one of {sorted(_VALID_JOINTS3D_SPACES)}: got {space!r}"
+        )
+    expected_len = joints3d_frames * len(joints3d_keys) * coord_dim
+    if len(joints3d) != expected_len:
+        raise ValueError(
+            f"joints3d length must be frames * keys * coord_dim = {expected_len}, "
+            f"got {len(joints3d)}"
+        )
+    # finite-only 검증 — nested list 가 들어왔다면 TypeError, 그 외 NaN/Inf 는
+    # ValueError. 빈 list 는 위 길이 검증에서 이미 reject (expected_len > 0).
+    for i, v in enumerate(joints3d):
+        if isinstance(v, list):
+            raise TypeError(
+                f"joints3d[{i}] is nested list (firestore-nested-array-flat): "
+                f"flat list[float] 만 허용"
+            )
+        if not isinstance(v, (int, float)):
+            raise TypeError(
+                f"joints3d[{i}] must be scalar float: got {type(v).__name__}"
+            )
+        if not math.isfinite(float(v)):
+            raise ValueError(
+                f"joints3d[{i}] must be finite (no NaN/Inf): got {v!r}"
+            )
+
+
 def complete_analysis(
     uid: str,
     analysis_id: str,
@@ -614,6 +695,12 @@ def complete_analysis(
     gemini_b: dict | None = None,
     gemini_c: dict | None = None,
     gemini_d: dict | None = None,
+    ai_synthesis_meta: dict | None = None,
+    joints3d: list | None = None,
+    joints3d_keys: list | None = None,
+    joints3d_frames: int | None = None,
+    coord_dim: int | None = None,
+    space: str | None = None,
 ) -> None:
     """status='done' + result (contract.md §4 AnalysisResult).
 
@@ -698,6 +785,39 @@ def complete_analysis(
         # 재사용으로 회귀 차단.
         _validate_flat_dict_no_nested_array(gemini_d, path="geminiD")
         payload["geminiD"] = gemini_d
+    if ai_synthesis_meta is not None:
+        # Plan 04-01 Wave 1 (Phase 4) — POSE-03 D-08 / R3 fix.
+        # 합성 메타 — result 내부 박제 (AnalysisResult.aiSynthesisMeta 정합).
+        # warnings 필드는 public enum (ai_synthesis_failed / ai_synthesis_partial),
+        # debugWarnings 필드는 raw reason — 둘 다 list[str] 로 W5 validator 통과.
+        # BLOCKER-3 canonical surface — pipeline 이 raw → public 분류 매핑 후 주입.
+        _validate_flat_dict_no_nested_array(
+            ai_synthesis_meta, path="aiSynthesisMeta"
+        )
+        payload["result"]["aiSynthesisMeta"] = ai_synthesis_meta
+    if joints3d is not None:
+        # Plan 04-01 Wave 1 (Phase 4) — R3 fix + BLOCKER-1/4. flat 저장.
+        # 04-02 가 doc.result.joints3d 를 reshapePose3dData 로 소비. 위치 = result
+        # 내부 (angles 가 top-level 인 건 reference doc 호환 quirk, joints3d 는
+        # analysis 산출물이라 result 박제).
+        if (
+            joints3d_keys is None
+            or joints3d_frames is None
+            or coord_dim is None
+            or space is None
+        ):
+            raise ValueError(
+                "joints3d 저장 시 joints3d_keys / joints3d_frames / coord_dim / "
+                "space 모두 필수"
+            )
+        _validate_joints3d_payload(
+            joints3d, joints3d_keys, joints3d_frames, coord_dim, space
+        )
+        payload["result"]["joints3d"] = joints3d
+        payload["result"]["joints3dKeys"] = joints3d_keys
+        payload["result"]["joints3dFrames"] = joints3d_frames
+        payload["result"]["coordDim"] = coord_dim
+        payload["result"]["space"] = space
     _doc(models.analysis_doc_path(uid, analysis_id)).set(payload, merge=True)
 
 

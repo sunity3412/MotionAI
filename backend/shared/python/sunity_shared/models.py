@@ -245,3 +245,21 @@ from .analysis.keypoint_frame import (  # noqa: E402, F401 — 파일 하단 re-
 #   Phase 8.1 신설 2: axis_metric_transitional (top-level, compute_force_signals
 #           가 stub 검출 시 emit) / phase_8_1_wave_0_transitional (axis_metrics
 #           per-metric, compute_axis_deviation stub 박제 default).
+#   Phase 4 신설 2 (Plan 04-01, POSE-03 D-08): ai_synthesis_failed (합성 어댑터
+#           실패 → graceful degrade 발동) / ai_synthesis_partial (일부 frame
+#           만 합성 성공 — indeterminate 응답 다수). docs/contract.md §9.8 mirror.
+
+# ── Phase 4 Wave 1 (Plan 04-01) — SYNTHESIS_WARNING_CODES 박제 ──
+# POSE-03 D-08 — Phase 4 합성 어댑터의 public warning enum.
+# 3-way lockstep: docs/contract.md §9.8 + app/src/types/analysis.ts
+# SynthesisWarningCode union 동시 갱신 (R3 fix). raw reason
+# ('gemini_api_error' / 'gemini_parse_error' / 'g4_reference_guard' /
+# 'exception' / 'invalid_input_shape' / 'model_resolve_failed' 등) 은
+# ai_synthesis_meta["debugWarnings"] 에만 보존되고 본 frozenset 에는
+# 포함하지 않는다 (HIGH-4 raw ↔ public 분리).
+SYNTHESIS_WARNING_CODES: frozenset[str] = frozenset(
+    {
+        "ai_synthesis_failed",
+        "ai_synthesis_partial",
+    }
+)

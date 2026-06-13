@@ -89,7 +89,7 @@ class SynthesisAdapter(Protocol):
         confidence_sequence: np.ndarray,    # (T, 17) rtmw_score
         occluded_mask: np.ndarray,         # (T, 17) bool — 합성 대상
         scene_findings: dict,              # scene_finder.FindingFlags
-    ) -> tuple[np.ndarray, np.ndarray]:    # (T, 17, 3) synthesized, (T, 17) conf
+    ) -> "SynthesisResult":  # ⚠ SUPERSEDED (BLOCKER-1) — 구 tuple 반환 폐기. 04-01 SynthesisResult(status=applied|partial|skipped|failed) 계약 사용. 이 예시 복사 금지.
         ...
 ```
 
@@ -310,9 +310,11 @@ def _call_synthesis_adapter(
     *,
     is_reference: bool = False,        # G4 가드 — True 시 호출 0
 ) -> tuple[np.ndarray, np.ndarray] | None:
-    """Phase 4 합성 어댑터 호출 — graceful 폴백 + skip 조건 박제.
+    """⚠ SUPERSEDED (BLOCKER-1/BLOCKER-3) — 이 예시는 구 None/tuple 계약. 최신 = 04-01 SynthesisResult(status) 반환 + warning 은 ai_synthesis_meta["warnings"] (profile.extra_warnings 아님). 아래 코드 복사 금지 — 04-01 PLAN 우선.
 
-    Skip 조건 (return None → graceful degrade):
+    Phase 4 합성 어댑터 호출 — graceful 폴백 + skip 조건 박제.
+
+    Skip 조건 (구 예시 — 최신은 SynthesisResult(status="skipped")):
       · is_reference=True → G4 가드 (D-10 박제).
       · SYNTHESIS_ENABLED env = "0" → 운영자 차단.
       · adapter 예외 → 흡수 + None + ai_synthesis_failed warning 주입.
@@ -335,7 +337,7 @@ def _call_synthesis_adapter(
         return None
 ```
 
-**extra_warnings injection 패턴 (R8 fix)** (pipeline/app.py 주석):
+**⚠ SUPERSEDED (BLOCKER-1/BLOCKER-3)** — 아래 None/tuple/extra_warnings 패턴 폐기. 최신 = SynthesisResult.status 분기 + warning 은 `ai_synthesis_meta["warnings"]` (profile.extra_warnings 아님, 04-01 우선). 복사 금지:
 ```python
 # R8 fix: extra_warnings injection (dataclasses.replace 우회 금지).
 import dataclasses
@@ -524,6 +526,7 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
  * @param frames number (T)
  * @returns number[][][] (T, 17, 3) 또는 null (필드 없음 / 형식 불일치 — graceful)
  */
+// ⚠ SUPERSEDED (BLOCKER-1) — reshapeJoints3d → reshapePose3dData (04-02), angles 파라미터 → (joints3d, joints3dKeys, joints3dFrames). result.angles 입력 금지. 이 예시 복사 금지.
 export function reshapeJoints3d(
   angles: unknown,
   jointKeys: unknown,

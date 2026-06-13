@@ -1,0 +1,63 @@
+{
+  "video_id": "je-03",
+  "motion_category": "split",
+  "axis_a": {
+    "rtmw_mirror": 0.0,
+    "higgsfield": 0.0,
+    "smplx_render": 0.0,
+    "magicman": 0.0
+  },
+  "axis_b": {
+    "rtmw_mirror": {
+      "occlusion_frame_rate": 0.14313725490196078,
+      "rate_reduction_pct": 0.0,
+      "estimated_ipsf_savings_pts": 0.0
+    },
+    "higgsfield": {
+      "occlusion_frame_rate": 0.0,
+      "rate_reduction_pct": 99.99999930136987,
+      "estimated_ipsf_savings_pts": 14.6
+    },
+    "smplx_render": {
+      "occlusion_frame_rate": 0.0,
+      "rate_reduction_pct": 99.99999930136987,
+      "estimated_ipsf_savings_pts": 14.6
+    },
+    "magicman": {
+      "occlusion_frame_rate": 0.0,
+      "rate_reduction_pct": 99.99999930136987,
+      "estimated_ipsf_savings_pts": 14.6
+    }
+  },
+  "axis_c": {
+    "rtmw_mirror": {
+      "fully_extended": 1.0,
+      "twist_alignment": 0.9,
+      "hold_time_capable": 1.0,
+      "spin_rotation_capable": 1.0
+    },
+    "higgsfield": {
+      "fully_extended": 1.0,
+      "twist_alignment": 1.0,
+      "hold_time_capable": 1.0,
+      "spin_rotation_capable": 1.0
+    },
+    "smplx_render": {
+      "fully_extended": 1.0,
+      "twist_alignment": 0.8,
+      "hold_time_capable": 1.0,
+      "spin_rotation_capable": 1.0
+    },
+    "magicman": {
+      "fully_extended": 1.0,
+      "twist_alignment": 0.95,
+      "hold_time_capable": 1.0,
+      "spin_rotation_capable": 1.0
+    }
+  },
+  "notes": [
+    "baseline=rtmw_mirror",
+    "occlusion_threshold=0.3",
+    "IPSF source: NotebookLM CoP 2024-2025 query 2026-06-13"
+  ]
+}

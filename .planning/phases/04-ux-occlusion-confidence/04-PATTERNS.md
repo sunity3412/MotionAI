@@ -4,6 +4,8 @@
 **Files analyzed:** 14 (신규 생성 8 + 수정 6)
 **Analogs found:** 13 / 14
 
+> ⚠ SUPERSEDED CONTRACT NOTE (2026-06-13, 2차 리뷰 HIGH-3): 본 문서의 adapter 예시 중 tuple/None 반환 패턴 + `reshapeJoints3d(angles...)` 는 **폐기**. 최신 계약 = `SynthesisResult(status=applied|partial|skipped|failed)` (04-01) + `reshapePose3dData(result.joints3d...)` (04-02) + `identify_occlusion_targets` + joints3d 저장 위치 `result.joints3d` + joints3d source `keypoints_4ch[:,:,:3]`. 충돌 시 **04-DIRECT-REVIEW-RESPONSE.md + 04-01 PLAN 이 우선**한다. (executor 는 PATTERNS 의 옛 tuple/None 예시를 따르지 말 것.)
+
 ---
 
 ## File Classification
@@ -321,7 +323,7 @@ def _call_synthesis_adapter(
     if not _synthesis_enabled():
         return None
     try:
-        mask = identify_synthesis_targets(joint_sequence, confidence_sequence, scene_findings)
+        mask = identify_occlusion_targets(joint_sequence, confidence_sequence, scene_findings)
         if not mask.any():
             return None  # 합성 필요 target 없음 — 비용 0
         adapter = _get_synthesis_adapter()  # lazy singleton

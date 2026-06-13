@@ -4,6 +4,8 @@
 **Domain:** Occlusion confidence gate + AI virtual view synthesis + 3D frontend viewer
 **Confidence:** HIGH (spike 6건 완료, 코드베이스 직접 검증)
 
+> ⚠ SUPERSEDED CONTRACT NOTE (2026-06-13, 2차 리뷰 HIGH-3): 본 문서의 adapter 예시 중 tuple/None 반환 + `reshapeJoints3d(angles...)` 패턴은 **폐기**. 최신 계약 = `SynthesisResult(status=applied|partial|skipped|failed)` (04-01) + `reshapePose3dData(result.joints3d...)` (04-02) + `identify_occlusion_targets` (이름 통일) + joints3d source = `keypoints_4ch[:,:,:3]`. 충돌 시 **04-DIRECT-REVIEW-RESPONSE.md + 04-01 PLAN 이 우선**한다.
+
 ---
 
 <user_constraints>
@@ -281,7 +283,7 @@ class SynthesisAdapter(Protocol):
 
 from sunity_shared.analysis.temporal import occluded_mask
 
-def identify_synthesis_targets(
+def identify_occlusion_targets(
     joint_seq: np.ndarray,      # (T, 17, 3)
     confidence_seq: np.ndarray, # (T, 17)
     occlusion_high_phases: list[str],  # force_signals occlusion_high_in_phase

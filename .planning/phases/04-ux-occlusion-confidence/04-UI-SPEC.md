@@ -156,7 +156,7 @@ VideoCompare 바로 아래에 삽입. 이유: 영상 비교를 본 직후 3D로 
   <PoseViewer3D
     joints={result.joints3d}          // (T, 17, 3) Firestore flat → reshape
     referenceJoints={refMotion?.joints3d}  // mode1 만, null이면 사용자만 표시
-    ipsf ViolationFrames={iпsfViolationFrames}
+    ipsfViolationFrames={ipsfViolationFrames}
     currentFrame={currentFrame}
     onFrameChange={setCurrentFrame}
   />

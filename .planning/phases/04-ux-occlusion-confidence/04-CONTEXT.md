@@ -56,6 +56,15 @@
 - **D-09:** Phase 4 파이프라인 완성 후 **자동 재처리**. mode 1 비교의 양쪽 원터필 — 신규 사용자 영상은 새 파이프라인, reference 는 옛 파이프라인이면 비교 무의미.
 - **D-10:** belle 가 지적한 "5영상 중 분석 이상한 거 많음" (Phase 17 G4 occlusion FP, Phase 8.1 axis severity 등) 이 AI 합성으로 해결되는지 **동시 검증**. 해결되면 Phase 4 의 부가 가치 박제, 안 되면 별도 추적 (Phase 17 G4 가드 + 도메인 root cause 후속).
 
+### belle 의 "5보정" 카테고리 매핑 (2026-06-13 추가)
+- **D-15:** belle 가 제시한 5가지 보정 카테고리 ↔ phase 박제 매핑:
+  1. **카메라 앵글 보정 (정밀 분석)** = Phase 4 D-1~D-13 핵심 (Camera Angle AI = single-view → AI 가상 다각도 합성). ✅
+  2. **시점 회전 보정 (정확도 향상 분석)** = Phase 4 D-3 의 부분집합 (회전·매달림 트리거 D-4.d) — Camera Angle AI 의 한 출력 형태. ✅
+  3. **원근 왜곡 보정 (촬영 각도 보정)** = **Phase 4 와 별개**. 별도 phase 후보 ("Phase 4.5: Perspective Correction") — deferred 섹션 박제. ❌→deferred
+  4. **3D 추정 보정 (입체 움직임 분석)** = Phase 1 D-18 + Plan 01-22 옵션 B (RTMW 2D + MotionBERT lifter) 운영 중. Phase 4 의 AI 합성은 이 정확도를 추가로 끌어올리는 부가 효과 (D-13.c 평가 축). ✅
+  5. **불확실성 감소 (더 신뢰도 높은 리포트)** = Phase 4 D-3, D-4, D-7, D-8 (confidence 게이트 + graceful degrade + warning system). ✅
+- **D-16:** D-15.3 (원근 왜곡 보정) 은 **Phase 4 결과만으로 충족 X**. Higgsfield/Magnific 류는 novel view *생성* 이지 perspective *보정* 이 아님. Phase 4 spike 결과로 잔여 정확도 gap 확정 후 Phase 4.5 진입 결정.
+
 ### Spike 선행
 - **D-11:** Phase 4 본격 plan-phase 진입 **전에 `/gsd:spike` 로 PoC** 필수. 메모리 [[gemini-vision-active-use]] 정합.
 - **D-12:** Spike **기준선 = Gemini Vision** (이미 Phase 17 통합 완료, 추가 도입 비용 0). 비교 후보 = Higgsfield Change Camera, Magnific, 기타 single-view → multi-view synth API.
@@ -150,7 +159,19 @@
 <deferred>
 ## Deferred Ideas
 
-### v2 (Phase 4 외)
+### 별도 phase 후보 (Phase 4 와 함께 다뤄야 belle 의 "5보정" 풀세트 완성)
+- **원근 왜곡 보정 (Perspective Distortion Correction) — 별도 phase 강력 권고** (2026-06-13 추가 박제)
+  - **Camera Angle AI (Phase 4) ≠ perspective correction**. Higgsfield Change Camera 류는 novel view synthesis (새 각도 *생성*) 이지 원본의 perspective distortion 을 *수정*하는 게 아님 (공식 블로그에 intrinsics/focal length 처리 언급 0). 생성 모델이 원본 distortion 을 학습한 latent 로 새 view 를 만들어 RTMW 입력으로 들어가면 distortion 이 **승계 + 증폭** 가능.
+  - **폴스포츠 distortion 종류:** (a) 카메라 ↑ tilt → hip/leg foreshortening + 광축 회전 (b) 폴 높이 변화 → frame 마다 subject off-center → RTMW bbox crop 안 "virtual camera" 회전 → MotionBERT lifter 가 잘못된 ray 로 3D 복원 (CameraHMR / SPEC ICCV'21 박제 실패 모드).
+  - **2024-2026 후보 (라이선스 정합 확인):**
+    - **CameraHMR (MPI, 2024)** — bbox perspective 보정, research-only 확인 필요
+    - **CamCalib/SPEC (Kocabas, ICCV'21)** — single-image focal/tilt 회귀, **non-commercial 차단**
+    - **Discorpy (Apache-2.0, 2025)** — 일반 calibration (radial+perspective), 상업 OK
+    - **WHAM (yohanshin)** — CLIFF 기반 focal length 가정, SLAM intrinsics 주입 가능
+    - **MoGe / W-HMR (2024)** — weak-supervised calibration, research
+  - **Sunity 권장 구성:** RTMW → CamCalib-style focal/tilt 추정 → MotionBERT 입력 좌표 unproject 보정. 상업 가능 clean 구현 없으면 **Discorpy + 휴리스틱 tilt 추정**으로 시작.
+  - **왜 별도 phase 인가:** Phase 4 (생성) ≠ perspective correction (보정) — 다른 문제, 다른 모델, 다른 evaluation metric. Phase 4 에 합치면 scope creep + Higgsfield 가 자동 처리한다는 잘못된 기대로 평가 흐려짐.
+  - **roadmap 추가 후보:** "Phase 4.5: Perspective Correction (focal/tilt 추정 + MotionBERT 입력 보정)" — Phase 4 spike 결과로 잔여 정확도 gap 확정 후 진입.
 - **다각도 뷰 사용자 노출 (구글맵 스트리트뷰 식)** — 합성 결과를 사용자가 직접 회전/측면/뒤 인터랙티브 뷰어로 볼 수 있게 하는 UX. belle 의 "본인 평소 못 보는 각도 보고 싶을 수도" 흥미 정합. v2 후속 — 별도 phase 박제 (UX + 합성 결과 캐싱 + 뷰어 인터랙션).
 - **사선/뒤 시점 합성** — Phase 4 는 측면 + 회전 동작 우선. 사선/뒤 시점은 occlusion 빈도 낮으므로 v2 — 메모리 박제 유지.
 - **스피닝 폴 핸들링** — Phase 1 D-10 정합. v1.5 별도 phase.

@@ -131,6 +131,90 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       },
     };
   }
+  // Phase 4 (04-02 R3) — joints3d Firestore flat null-guard.
+  // 04-01 신설 joints3d / joints3dKeys / joints3dFrames / coordDim / space 필드.
+  // angles 는 이 compat block 에서 절대 읽지 않는다 — 관절각 스칼라이므로
+  // 3D 좌표 소스 불가. result.tsx → reshapePose3dData 가 joints3d 만 read.
+  //
+  // BLOCKER-1 (4차 게이트 리뷰): AnalysisResult 의 joints3d 계열 필드는 nullable
+  // 이 아니라 optional — 형식 불일치 시 null 대입 금지, undefined 로 두어 optional 유지.
+  if (
+    result?.joints3d !== undefined ||
+    result?.joints3dKeys !== undefined ||
+    result?.joints3dFrames !== undefined
+  ) {
+    result = {
+      ...result,
+      joints3d: Array.isArray(result.joints3d) ? result.joints3d : undefined,
+      joints3dKeys: Array.isArray(result.joints3dKeys)
+        ? result.joints3dKeys
+        : undefined,
+      joints3dFrames:
+        typeof result.joints3dFrames === 'number'
+          ? result.joints3dFrames
+          : undefined,
+      coordDim: result.coordDim === 3 ? 3 : undefined,
+      space:
+        result.space === 'rtmw3d' || result.space === 'pole_aligned'
+          ? result.space
+          : undefined,
+    };
+  }
+  // Phase 4 (04-02 BLOCKER-3 / HIGH-2 / HIGH-5) — aiSynthesisMeta compat layer.
+  //   · canonical warning surface = aiSynthesisMeta.warnings (top-level
+  //     result.warnings 금지). AccuracyLimitBadge 는 hasSynthesisWarning(result)
+  //     helper 로만 읽는다.
+  //   · HIGH-2: Wave 1 pipeline 이 raw reason 을 public/debug 분류 매핑한
+  //     debugWarnings 를 normalize 가 절대 드롭하면 안 된다 (운영/리뷰 근거).
+  //   · HIGH-5: 감사/비용 필드 (modelId / modelVersion / promptHash / framesConsidered
+  //     / framesSynthesized / geminiCalls / framesSkipped / framesFailed / estCostUsd)
+  //     도 보존. UI 미사용이어도 debug/audit boundary 유지.
+  //   · Firestore raw 방어: 타입 검증 후 통과만 보존, 실패 시 undefined.
+  if (result?.aiSynthesisMeta) {
+    const meta = result.aiSynthesisMeta;
+    result = {
+      ...result,
+      aiSynthesisMeta: {
+        synthesizedFrameCount: meta.synthesizedFrameCount ?? 0,
+        synthesizedJointKeys: meta.synthesizedJointKeys ?? [],
+        synthesisPath: meta.synthesisPath ?? 'none',
+        degraded: meta.degraded ?? true,
+        // BLOCKER-3 canonical warning surface (public enum 만).
+        warnings: Array.isArray(meta.warnings) ? meta.warnings : [],
+        // HIGH-2 raw debug warnings (UI 비노출, 운영 근거).
+        debugWarnings: Array.isArray(meta.debugWarnings)
+          ? meta.debugWarnings
+          : [],
+        // HIGH-5 감사 필드 (optional 보존).
+        modelId: typeof meta.modelId === 'string' ? meta.modelId : undefined,
+        modelVersion:
+          typeof meta.modelVersion === 'string' ? meta.modelVersion : undefined,
+        promptHash:
+          typeof meta.promptHash === 'string' ? meta.promptHash : undefined,
+        // HIGH-5 비용 카운터.
+        framesConsidered:
+          typeof meta.framesConsidered === 'number'
+            ? meta.framesConsidered
+            : undefined,
+        framesSynthesized:
+          typeof meta.framesSynthesized === 'number'
+            ? meta.framesSynthesized
+            : undefined,
+        geminiCalls:
+          typeof meta.geminiCalls === 'number' ? meta.geminiCalls : undefined,
+        framesSkipped:
+          typeof meta.framesSkipped === 'number'
+            ? meta.framesSkipped
+            : undefined,
+        framesFailed:
+          typeof meta.framesFailed === 'number'
+            ? meta.framesFailed
+            : undefined,
+        estCostUsd:
+          typeof meta.estCostUsd === 'number' ? meta.estCostUsd : undefined,
+      },
+    };
+  }
   return {
     analysisId: id,
     mode,

@@ -50,6 +50,16 @@ export const colors = {
   textLo: '#888888', // Phase 12 hint / footer
   border: '#E0E0E0', // Phase 12 카드 테두리
   trackBg: '#EBEBEB', // Phase 12 점수 트랙 배경
+
+  // ── Phase 4 신설 토큰 (04-UI-SPEC §Color) ─────────────────────────────
+  // alias 방식 — 기존 토큰 hex 복사 (softBg / neutralDark / brand / textSecondary
+  // / warnAmber 의 의미 alias). 라이트 배경 + 다크 배경 금지 (CLAUDE.md §4).
+  viewer3dBg: '#F5F5F5', // 3D 캔버스 배경 (softBg alias)
+  viewer3dBone: '#1F2024', // stick figure 뼈대 (neutralDark alias)
+  viewer3dJoint: '#FF4B33', // IPSF 위반 관절 highlight (brand alias)
+  viewer3dJointNormal: '#ACACAC', // 정상 관절 점 (textSecondary alias)
+  accuracyLimitBg: '#F5F5F5', // 정확도 제한 배지 배경 (softBg alias)
+  accuracyLimitText: '#E6A300', // 정확도 제한 배지 텍스트 (warnAmber alias)
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

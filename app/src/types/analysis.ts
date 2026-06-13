@@ -209,16 +209,19 @@ export interface AiSynthesisMeta {
   // graceful degrade 발생 여부 — true 시 1차 RTMW 결과 그대로.
   degraded: boolean;
   // 감사 필드 (R5 fix). 후속 회귀 추적 + 버전 관리.
-  modelId: string; // 예: 'gemini-3.5-flash' / 'gemini-3.1-pro-preview'
-  modelVersion: string; // 예: 'v1' (Phase 4 박제 시점 버전 tag)
-  promptHash: string; // OCCLUDED_JOINT_REASONING_PROMPT sha256 앞 16자
-  // Cost 카운터 6 (R5 fix). belle pricing visibility 박제.
-  framesConsidered: number; // 합성 대상 후보 frame 수
-  framesSynthesized: number; // 실제 합성된 frame 수
-  geminiCalls: number; // 호출 횟수
-  framesSkipped: number; // skip 된 frame 수
-  framesFailed: number; // 실패 frame 수
-  estCostUsd: number; // 추정 비용 (USD)
+  // 04-02 HIGH-5 (4차 게이트 리뷰): backend payload 보다 좁지 않게 optional 로
+  // 선언. normalize() 가 타입 검증 실패 시 undefined 로 두고, 합성 자체가
+  // 발생하지 않은 분석 (path='none') 의 누락도 허용한다.
+  modelId?: string; // 예: 'gemini-3.5-flash' / 'gemini-3.1-pro-preview'
+  modelVersion?: string; // 예: 'v1' (Phase 4 박제 시점 버전 tag)
+  promptHash?: string; // OCCLUDED_JOINT_REASONING_PROMPT sha256 앞 16자
+  // Cost 카운터 6 (R5 fix). belle pricing visibility 박제 — 04-02 HIGH-5 optional.
+  framesConsidered?: number; // 합성 대상 후보 frame 수
+  framesSynthesized?: number; // 실제 합성된 frame 수
+  geminiCalls?: number; // 호출 횟수
+  framesSkipped?: number; // skip 된 frame 수
+  framesFailed?: number; // 실패 frame 수
+  estCostUsd?: number; // 추정 비용 (USD)
   // Public warning surface (canonical, BLOCKER-3). UI 가 읽는 enum.
   // raw reason 은 debugWarnings 에 분리 보존 — 본 list 는 public enum 만.
   warnings?: SynthesisWarningCode[];

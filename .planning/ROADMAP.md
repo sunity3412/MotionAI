@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: PoseEngine 추상화 + RTMW 어댑터 + 폴 축 정렬 + NLF R&D 격리** - 상용 제품 코드를 RTMW 133 wholebody (Apache-2.0) 로 마이그레이션 완료 (commit 2a8aa72 atomic swap), NLF/SMPL-X 는 R&D 비교군으로 격리, 폴 축 좌표계 산출. **2026-06-07 close-out 사실상 완료** — Plan 01-25 swap 완료, Plan 01-23 sweep 은 Phase 5 12차 sweep 으로 대체. 미완 = Plan 01-24 (.samignore + import 차단 단위 테스트) — 후속 별도 plan.
 - [x] **Phase 2: BodyNormalizationProfile 자동 측정 (RTMW segment 기반)** - 키·팔/다리/몸통 비율·좌우 비대칭 자동 추출. SMPL-X β는 R&D 비교군에서만 (제품 코드 사용 금지). **2026-06-07 belle pivot 정합**: Phase 1 RTMW 백본 swap 완료 (commit 2a8aa72) 후 Phase 2 도 MediaPipe → RTMW segment 산출로 갱신. (completed 2026-06-07)
 - [ ] **Phase 3: 자가입력 BodyProfileInput** - 키·몸무게·경력·통증부위 1회 입력 UX
-- [ ] **Phase 4: 다중 시점 촬영 UX + occlusion confidence 게이트** - 가림 완화 + 저신뢰 프레임 "추정" 표기
+- [ ] **Phase 4: Camera Angle AI (single-view 가상 다각도) + occlusion confidence 게이트** - 1영상 업로드 유지, 가림/저신뢰 구간만 AI 보완 + "추정" 표기 (2026-06-13 belle pivot 재정의 — 다중 시점 직접 업로드 영구 제거)
 - [x] **Phase 5: Gemini 기술 인식기 (분류 한정)** - 동작 분류만, 좌표·판단 출력 금지. **2026-06-05 12차 sweep D-01 PASS** (phase1_ready_to_swap=True, phase5_ready_to_release_d16_block=True). 빌드 11 실분석 mode1 94 + mode3 100 PASS.
 - [x] **Phase 6: 체형 정규화 비교 엔진 (coaching 모드)** - 프로 패턴을 수강생 체형 비율로 재계산 (completed 2026-06-08)
 - [x] **Phase 7: 차이 분류** - 체형 허용 차이 / 개선 필요 차이 / uncertain 분리 + bodyTypeInterpretation·recommendation 박제 (completed 2026-06-08, 2 plans 108 phase07 PASS + Phase 6 회귀 0)
@@ -139,19 +139,24 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 4: 다중 시점 촬영 UX + occlusion confidence 게이트
+### Phase 4: Camera Angle AI (single-view 가상 다각도) + occlusion confidence 게이트
 
-**Goal**: 사용자가 다중 시점(정면+측면 등)으로 영상을 업로드할 수 있고, 가림 프레임은 confidence 게이트로 단정하지 않는다
+> 2026-06-13 재정의 — belle pivot ([[camera-angle-ai-single-view-synth]] + Spike 001~005 wrap-up). 구 scope "정면+측면 2시점 직접 업로드 UX" 폐기 (구 SC #1/#2 폐기). 상세 박제 = `04-CONTEXT.md` D-01~D-32 + `.planning/spikes/WRAP-UP-SUMMARY.md` (Decoupling 4-stage).
+
+**Goal**: 사용자는 1 영상만 업로드하고, 백엔드가 confidence 미달 구간/가려진 관절만 AI 가상 시점으로 핀포인트 보완(재추론·병합)하며, 가림 프레임은 confidence 게이트로 단정하지 않는다
 **Mode:** mvp
-**Depends on**: Phase 1, Phase 2 (폴 축·체형 피팅 위에 confidence 적용)
+**Depends on**: Phase 1, Phase 2 (폴 축·체형 피팅 위에 confidence 적용), Phase 17 (Gemini Vision scene_finder 트리거 재사용)
 **Requirements**: POSE-03
-**Scope 제약**: 정면+측면 2시점 우선. 사선/뒤 시점은 v2.
+**Scope 제약**: 단일 영상 입력 고정 (다중 시점 직접 업로드 영구 제거). 사선/뒤 시점 합성·스피닝 폴·Omni 영상 생성 본검증은 v2/후속 (Stage 4는 인터페이스 stub만).
 **Success Criteria** (what must be TRUE):
 
-  1. 업로드 화면에서 단일/다중 영상 선택 가이드(촬영 각도 설명)가 표시된다
-  2. 다중 영상 업로드 시 동일 analysisId 아래 시점별로 저장되고 백엔드가 시점 매핑된다
+  1. 사용자 업로드 UX는 1영상 그대로 유지된다 (다중 시점 업로드 UI 미존재)
+  2. 1차 RTMW 분석에서 confidence 미달 phase/가려진 관절이 식별되고, 해당 구간만 조건부 AI 보완이 트리거된다 (영상 전체 합성 금지 — 비용 효율)
   3. 키포인트 confidence가 임계값 미만인 프레임은 "추정" 표기 + 후속 단정 게이트
   4. occlusion 경고가 결과 화면에 표시되고 (예: "이 구간은 가림으로 추정") 사용자가 인지할 수 있다
+  5. AI 보완 실패/시간초과 시 1차 RTMW 결과로 graceful degrade 하고 결과 화면에 정확도 제한이 표기된다
+  6. 사용자가 결과 화면 3D 뷰어로 동작을 360° 회전하며 확인할 수 있다 (Stage 3 — react-three-fiber, Spike 005)
+  7. 정은지 reference 5영상이 신규 파이프라인으로 자동 재처리된다 (mode1 비교 양쪽 동일 파이프라인)
 
 **Plans**: TBD
 **UI hint**: yes

@@ -575,7 +575,9 @@ def merge_with_temporal(
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED — plan-phase 2026-06-13)
+
+> 3개 질문 모두 plan task 로 처리됨. Q1 = 04-01 threshold=0.3 초기값 (CONTEXT Claude's Discretion 영역, Wave 1 후 RunPod sweep 조정). Q2 = 04-05 `pipelineVersion="phase4_v1"` + 원자적 교체 결정. Q3 = 04-02 checkpoint Task 0 실기기 검증 + drei /native 미존재 시 PanResponder 대체 분기. 실행 비차단.
 
 1. **RTMW confidence 임계값 확정**
    - What we know: temporal.py `DEFAULT_OUTLIER_K = 3.0`, force_signals.py `LOW_RELIABILITY_PHASE_THRESHOLD` 존재. Spike 002d baseline: confidence < 0.3 frame 비율 7.5%.

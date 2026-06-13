@@ -155,7 +155,9 @@ VideoCompare 바로 아래에 삽입. 이유: 영상 비교를 본 직후 3D로 
   </View>
   <PoseViewer3D
     joints={result.joints3d}          // (T, 17, 3) Firestore flat → reshape
-    referenceJoints={refMotion?.joints3d}  // mode1 만, null이면 사용자만 표시
+    /* referenceJoints: Wave 2 MVP 에서는 전달하지 않음 (HIGH-3 4차 게이트 리뷰).
+       PoseViewer3D props 에 예약만 두고, ReferenceMotion 타입 + referenceMotions.ts normalize 가
+       joints3d 필드를 흘리기 시작하는 follow-up plan 에서 활성화. mode1 overlay 는 그 후 phase. */
     ipsfViolationFrames={ipsfViolationFrames}
     currentFrame={currentFrame}
     onFrameChange={setCurrentFrame}

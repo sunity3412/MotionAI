@@ -287,7 +287,7 @@ VideoCompare 바로 아래에 삽입. 이유: 영상 비교를 본 직후 3D로 
 
 **DimensionDetailModal 내 일관성 (Phase 12.5 정합):**
 - `lowReliabilityRatio >= 0.20` 이면 모달 하단에 기존 1줄 주석 유지: `"가림이 많은 구간이 있어 일부 점수는 추정값입니다."` (`typography.caption`, `colors.textSecondary`)
-- `ai_synthesis_failed` warning 있을 때 추가: `"이 분석에서는 가림 구간 AI 보완이 적용되지 않았어요."` — Phase 12.5 카피 톤 정합 ("추정" 계열).
+- `ai_synthesis_failed` warning 있을 때 추가: `"일부 구간은 가림 또는 측정 불확실로 추정값입니다."` — 블랙박스 카피 (D-05 / R7): "AI", "보완", "다각도 분석" 류 단어 금지. `ai_synthesis_failed` 는 내부 warning code 로만 쓰고 사용자 카피로 노출 금지. Phase 12.5 "추정" 톤 정합.
 
 ### 표기 우선순위 (동시 발생 시)
 

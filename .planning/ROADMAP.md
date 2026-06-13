@@ -158,7 +158,7 @@ Plans:
   6. 사용자가 결과 화면 3D 뷰어로 동작을 360° 회전하며 확인할 수 있다 (Stage 3 — react-three-fiber, Spike 005)
   7. 정은지 reference 5영상이 신규 파이프라인으로 자동 재처리된다 (mode1 비교 양쪽 동일 파이프라인)
 
-**Plans**: TBD
+**Plans**: 6 plans (Wave 0~5) — 04-00 테스트 인프라 / 04-01 Stage1+2 Gemini Vision backend (SynthesisResult + joints3d 3-way lockstep + non-scoring 하드월) / 04-02 Stage3 3D 뷰어 (R3F + Canvas fallback) / 04-03 Stage3' mesh render (Wave 3a smoke + 3b RunPod accuracy gate) / 04-04 Stage4 plug-in stub / 04-05 정은지 재처리 (behavioral guard + versioned/atomic write). 외부 리뷰 1차: 04-DIRECT-REVIEW.md (Codex, revise-before-execution) → 04-DIRECT-REVIEW-RESPONSE.md (5 blocker 반영 완료, 2차 리뷰 대기).
 **UI hint**: yes
 
 ### Phase 5: Gemini 기술 인식기 (분류 한정)

@@ -87,3 +87,5 @@ created: 2026-06-13
 - [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** approved 2026-06-13 (계획 단계 검증 — Wave 0 실행 시 wave_0_complete 갱신)
+
+> ⚠ (R11) 본 sign-off 는 **plan 커버리지 검증만** 한다 — Wave 0 테스트 파일이 실제로 생성·collect 되기 전까지 구현 증명이 아니다. Wave 0 실행 후 실제 collect count 로 갱신하고 `wave_0_complete: true` 로 전환할 것.

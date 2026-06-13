@@ -1,0 +1,29 @@
+{
+  "spike": "002b-cylindrical-mesh-virtual-render",
+  "license_stack": {
+    "trimesh": "MIT",
+    "pyrender": "MIT",
+    "numpy": "BSD",
+    "rtmw_input": "Apache-2.0 (Sunity \uc6b4\uc601)",
+    "smpl_x_dependency": "REMOVED \u2713"
+  },
+  "fixture": {
+    "split_angle_deg": 179.99359413712537,
+    "ipsf_page19_pass": true
+  },
+  "mesh": {
+    "vertices": 1556,
+    "faces": 3040,
+    "watertight": true
+  },
+  "render": {
+    "pyrender_available": false,
+    "n_views": 12,
+    "view_resolution": [
+      256,
+      256,
+      3
+    ],
+    "note": "PYRENDER_AVAILABLE=False \uc2dc dummy gradient image. RunPod GPU \uc704\uc784 \ud544\uc694."
+  }
+}

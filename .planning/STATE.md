@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 4 spike 세션 완료 - Decoupling 4-stage 아키텍처 박제, 6 spike 결과 정리, plan-phase 진입 준비
-last_updated: "2026-06-13T03:37:10.165Z"
-last_activity: 2026-06-13 -- Phase 04 planning complete
+last_updated: "2026-06-13T09:17:48.508Z"
+last_activity: 2026-06-13
 progress:
-  total_phases: 13
-  completed_phases: 10
-  total_plans: 64
-  completed_plans: 58
-  percent: 77
+  total_phases: 19
+  completed_phases: 7
+  total_plans: 72
+  completed_plans: 59
+  percent: 37
 ---
 
 # Project State
@@ -21,19 +21,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 17 — gemini-vision-integration-4
+**Current focus:** Phase 4 — UX Occlusion Confidence
 
 ## Current Position
 
-Phase: 17 — COMPLETE
-Plan: 7 of 7
+Phase: 4 (UX Occlusion Confidence) — EXECUTING
+Plan: 2 of 6
 Verification: 4/4 SC + 13/13 D-09-* VERIFIED (see 09-VERIFICATION.md). 550 backend tests + 0 typecheck errors. 0 regression on Phase 6/7/8/8.1.
 Next: belle 박제 검수 (18 canned 본문 + jointHint 부위 어휘 + pelvis_drop 임계 Assumption A1) + optional Codex cross-AI plan-review. 그 후 belle chain candidates = Phase 10 (SAFE-01 위험 플래그) / Phase 11 (CoachCommentHook + Gemini 자연어 풍부화 — Phase 9 finding consume) / Phase 8.1 Wave 2 (production sweep).
 Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-13 -- Phase 04 planning complete
+Last activity: 2026-06-13
 
 ### Quick Tasks Completed
 

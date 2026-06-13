@@ -259,9 +259,11 @@ Plans:
 **Requirements**: FORCE-01 (Phase 8 와 공유 — axis 차원 의미 부여)
 **Single evidence source**: `.planning/phases/08-jerk-jitter/PHASE8-INHERITED-ISSUES.md` (정은지 5영상 sweep raw distance/severity/tilt 분포 + root cause 분석 + 의사결정 공간 α-1~4 / β-1~3 + 외부 AI reviewer 5 핵심 질문)
 **Scope 제약**:
+
   - tilt 데이터 (shoulder/hip, rotation-only) 는 Phase 8 본체에서 보존 — Phase 9 평행 진입 시 사용 가능, 본 phase 가 손대지 않음
   - schema (`ForceSignalsReport` + `coordinate_space` 필드 enum) 보존 — 새 metric 도 본 contract 내 박제
   - [[analysis-objectivity-no-human-scores]] 정합 — 정은지/belle 점수 라벨링 ground truth 금지. threshold 수치 calibration 만 OK (정은지 sweep 분포 + IPSF deduction 카테고리 매핑)
+
 **Success Criteria** (what must be TRUE):
 
   1. 정은지 5/5 reference 영상 axis severity 가 `low` 으로 출력 (현재 5/5 `high` → fix 후 5/5 `low`)
@@ -270,7 +272,7 @@ Plans:
   4. threshold 값 + 도출 근거 가 `.planning/phases/08.1-axis-metric-redesign/` 의 plan 산출물 에 기록
   5. Phase 8.1 종료 시 sweep 재실행 + 정은지 분포 확인 + 분포 변경 evidence 박제
 
-**Plans:** 3/3 plans complete
+**Plans:** 2/6 plans executed
 
 Plans:
 
@@ -344,9 +346,11 @@ Plans:
   4. 영상 프레임 위에 어깨·골반·무릎·손 키포인트와 중심축이 오버레이로 표시된다 (발끝 toe는 v2)
 
 **Plans**: 3 plans
+
 - [ ] 12-01-PLAN.md — Wave 0: kismam.assess() wiring fix + KeypointReport 3-way schema lockstep (single atomic commit per D-09-U1 mirror)
 - [ ] 12-02-PLAN.md — Wave 1: UI 신영역 3 component 신설 (KeypointOverlay + ForcePatternCard + ForcePatternDetailModal) + result.tsx 6 영역 layout 재정비
 - [ ] 12-03-PLAN.md — Wave 2: Frame 동기화 (useEvent timeUpdate) + delta 강조 + confidence/occlusion 표기 + 토글 + iOS belle UAT
+
 **UI hint**: yes
 
 ### Phase 12.5: UI Transparency — 차원별 카피 + 가중치 표시 + 강사 보조 카피
@@ -466,6 +470,7 @@ Plans:
   5. **비용/지연 budget (3차 R-W2 갱신, 2026-06-12)**: 1회 분석당 Gemini Vision API 비용 < $0.20 (belle "비용 신경X but 효율 잡기" 박힘). 분석 완료 latency 추가 **≤ p95 40s** (기존 "< 15s" → AI-SPEC E8 정합 완화 — [[feedback-analysis-first]] "분석 정확도 우선" 정합). C/B/D 4 영역 호출 합산 비동기 path 박힘 (`asyncio.gather`), Lambda pipeline 900s timeout 내.
 
 **Plans**: 7 plans
+
   - [ ] 17-01-PLAN.md — 공통 Gemini client + 4 영역 Pydantic schemas + 객관성 guardrail (G1)
   - [ ] 17-02-PLAN.md — 영역 C Finding 인식 (Flash) + Pod _process wave 1 + G4 정은지 occlusion FP 가드
   - [ ] 17-03-PLAN.md — 영역 D Keypoint 보강 (Pro, RTMW < 0.5 conf frame) + G5 좌표 환각 가드
@@ -473,6 +478,7 @@ Plans:
   - [ ] 17-05-PLAN.md — 영역 A Reference 자동 등록 (신규 Lambda + SAM + 분기 1/2/3 라우팅 + G3 화이트리스트 가드)
   - [ ] 17-06-PLAN.md — Eval + Guardrail wiring (Phoenix self-host + Promptfoo + LLM judge + smart sampling + 30-example dataset)
   - [ ] 17-07-PLAN.md — 신규 6 motion 재활성화 (RTMW engine swap + 영역 A endpoint 자동화 + belle 검수 — UAT 2026-06-12 F4 finding 해소)
+
 **UI hint**: no
 
 ## v1.5 (Planned, 별도 마일스톤)
@@ -510,7 +516,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 1. PoseEngine + RTMW + 폴 축 + NLF R&D 격리 | 21/24 | Sufficient (close-out) | 2026-06-07 (Plan 01-24 후속) |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 1/1 | Complete   | 2026-06-07 |
 | 3. 자가입력 BodyProfileInput | 0/TBD | Not started | - |
-| 4. 다중 시점 촬영 + occlusion 게이트 | 0/TBD | Not started | - |
+| 4. 다중 시점 촬영 + occlusion 게이트 | 2/6 | In Progress|  |
 | 5. Gemini 기술 인식기 (분류 한정) | 6/6 | Complete | 2026-06-05 (12차 sweep D-01 PASS) |
 | 6. 체형 정규화 비교 엔진 | 3/3 | Complete   | 2026-06-08 |
 | 7. 차이 분류 | 0/TBD | Not started | - |

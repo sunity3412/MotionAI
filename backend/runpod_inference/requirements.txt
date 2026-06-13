@@ -53,3 +53,14 @@ arize-phoenix>=4.0,<5.0
 openinference-instrumentation-google-genai>=0.1,<1.0
 opentelemetry-sdk>=1.27,<2.0
 opentelemetry-exporter-otlp-proto-http>=1.27,<2.0
+
+# Phase 4 Plan 04-03 (Wave 3a) — Stage 3' CylindricalMeshAdapter 의존성 박제.
+# SECONDARY 합성 path (D-18) — Gemini Vision (PRIMARY, Wave 1) 손절 시 fallback.
+# License: trimesh MIT + pyrender MIT + pyopengl (BSD-style) — 상업 허용
+# (D-20 SMPL-X 의존 0 박제).
+# RunPod EGL headless 환경에서 동작 (PYOPENGL_PLATFORM=egl, RESEARCH Pitfall 3).
+# Mac local dev 환경에서는 pyrender ImportError → PYRENDER_AVAILABLE=False
+# graceful fallback (분석 흐름 차단 0).
+trimesh>=4.12.2
+pyrender>=0.1.45
+pyopengl

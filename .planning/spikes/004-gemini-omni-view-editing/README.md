@@ -32,11 +32,36 @@ tags: [gemini-omni, video-editing, vertex-ai, deferred, hybrid-primary]
 | Generative Inpainting | 객체 교체, 배경 변경, material 변환 (단어 미사용, "대화형 edit" 으로 brand) |
 | **SynthID 워터마크** | **강제 삽입** — 사용자 화면 노출 시 혼란 가능 |
 
-### Vertex AI / Google Cloud platform 상태
+### Vertex AI / Google Cloud platform 상태 (2026-06-13 정정 박제)
 
-- **현재 (2026-06-13):** Consumer 출시 (Gemini app / Google Flow / YouTube Shorts) 만
-- **Vertex AI API:** "coming weeks" — 2026-05-19 I/O 발표, ~2026-Q3 추정 GA
-- **Sunity 직접 통합:** Vertex GA 전까지 production 불가
+**Vertex AI 플랫폼 자체 = 이미 완전 GA** (Sunity Phase 17 에서 이미 사용 중 — `gemini-3.1-pro-preview`). belle 박제 정합. 이전 박제 "Vertex AI 미출시" = 잘못된 표현 → 정정.
+
+**정확한 상태 (2026-06-13 fact-check):**
+
+| 항목 | 상태 |
+|---|---|
+| Vertex AI 플랫폼 | ✅ 이미 완전 GA — Sunity 운영 중 |
+| 소비자 채널 (Gemini app / Flow / YouTube Shorts) Omni | ✅ 이미 GA (2026-05-19 live) — belle 가 본 YouTube 영상 출처 |
+| **Vertex AI Model Garden 의 Gemini Omni endpoint** | ⏳ **미등록** (어떤 model id 도 공개 catalog 없음) |
+| Vertex AI 개발자 API (Omni) | ⏳ "coming weeks" — **mid-to-late June 2026 윈도우 (수 주 내 가능)** |
+| AI Studio Omni | ⏳ 미등록 (통상 consumer launch 후 ~1개월) |
+| 현재 production-ready 영상 path | ✅ **Veo 3.1 (Vertex paid preview)** — 단 image-to-video 위주, "기존 영상 → 다른 앵글" 부분 대체 |
+
+**갱신 박제:** 1주일 전 "~2026-Q3 GA" 박제는 **부분 정정** — 소비자 GA 완료, Vertex API 는 여전히 미출시지만 **Q3 까지 갈 가능성 낮음. June~July 윈도우가 현실적** (이번 주~다음 주 출시 가능성도 미확정으로 존재).
+
+### belle 이미지 박제 정합 (2026-06-13, Google blog.google + Google Cloud Documentation 공식 출처)
+
+belle 가 2026-06-13 외부 공식 출처 박제. 위 fact-check 결과와 정합 + 추가 박제:
+
+| 박제 항목 | belle 이미지 출처 | Sunity 적용 |
+|---|---|---|
+| Omni Flash 소비자 출시 | ✅ Gemini app / Flow / YT Shorts | Sunity SaaS 통합 부적합 |
+| 개발자 API "수주 내" | ✅ Vertex AI + AI Studio | Spike 004 본 검증 대기 |
+| **Gemini 2.5 Flash / Pro = Vertex GA, 멀티모달 비디오 처리** | ✅ Google Cloud Documentation | ⚠ Sunity 메모리 [[gemini-latest-model-versions]] "2.5 영구 금지" 박제 — Sunity 는 **3.x 동등 모델** 사용 (gemini-3.1-pro-preview / gemini-3.5-flash, 이미 Phase 17 운영) |
+| **Veo 3.1 = Vertex Public Preview, 엔터프라이즈 영상 생성** | ✅ Google Cloud Documentation | **현재 (2026-06-13) 즉시 사용 가능 대안 #2** (이전 "backup" 박제 정정) — Phase 17 동일 DPA cover, image-to-video 위주이나 spike 004 의 conversational re-edit 부분 대체 |
+| Omni API 오픈 시 model id | `gemini-omni-flash` (예시) + Gemini Enterprise Agent Platform 문서 업데이트 | 출시 시 즉시 spike 004 본 검증 진입 |
+
+**Sunity 내부 박제 충돌 확인:** belle 이미지가 "Gemini 2.5" 박제했으나 Sunity 메모리 = "2.5 영구 금지, 3.x 사용" 박제. **이 정책 유지 시 동등 path = `gemini-3.1-pro-preview` / `gemini-3.5-flash` 사용** (Phase 17 운영 stack). belle 가 명시적 정책 변경 박제 없는 한 메모리 정책 유지.
 
 ### License + ToS
 
@@ -144,16 +169,21 @@ Vertex AI GA 전까지 spike 자체 실행 불가. 박제 + roadmap 만.
 
 ### Carry-forward for Phase 4 plan-phase
 
-**HYBRID PRIMARY path 박제:**
+**HYBRID PRIMARY path 박제 (2026-06-13 belle 이미지 박제 보강):**
 
 | 우선순위 | Path | 시기 |
 |---|---|---|
-| #1 즉시 | Spike 003 Gemini Vision **reasoning** (joint 좌표 추정, 픽셀 합성 X) | 현재 PRIMARY |
+| #1 즉시 | Spike 003 Gemini Vision **reasoning** (joint 좌표 추정, gemini-3.1-pro-preview, 픽셀 합성 X) | 현재 PRIMARY |
 | #2 즉시 | Spike 002b cylindrical mesh + virtual render (자체 path) | 현재 SECONDARY |
+| **#3 즉시 (정정 박제)** | **Veo 3.1 (Vertex Public Preview)** — image-to-video / reference-image consistency. Phase 17 동일 DPA cover. "기존 영상 다른 앵글 재합성" 부분 대체 (Omni 의 conversational editing 보다 약하지만 즉시 가능) | **현재 secondary 즉시 가능** |
 | baseline | Spike 002d RTMW mirror | 비교 기준 |
-| **#3 deferred** | **Spike 004 Gemini Omni view editing** (영상 직접 편집, Phase 17 정합) | **Vertex GA 후 (~2026-Q3) PRIMARY 후보 — clean-data gate 통과 시** |
-| backup | Veo 3.1 inpainting/outpainting | Omni 실패 시 |
+| **#4 deferred** | **Spike 004 Gemini Omni view editing** (영상 직접 편집, Phase 17 정합) | **Vertex API 출시 후 (June~July 2026 윈도우, 이번 주~수 주 내) PRIMARY 후보 — clean-data gate 통과 시** |
 | 완전 최후의 보류 | SMPL-X mesh ($7,300/yr) | 모든 path 99% 미달 + 효과성 입증 시 |
+
+**Spike 004 2-track 분리 (Agent #15 권고):**
+- (i) **즉시:** Veo 3.1 으로 image-to-video 카메라 prompt PoC — 부분 대체로 spike 004 기능 검증 시작
+- (ii) **Watch:** Vertex AI early access program 신청 + 매주 release notes 폴. Omni 출시 시 즉시 본 검증 진입
+- (iii) **본 검증:** Omni Vertex 출시 후 폴스포츠 motion clean-data gate 측정 (회전 5 / 역수직 3 / spin 2 = 10건 pose consistency)
 
 ### Memory implication
 

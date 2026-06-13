@@ -100,14 +100,15 @@
 
 ### Gemini Omni view editing — Vertex GA 후 PRIMARY (Spike 004, 2026-06-13 추가)
 - **D-24:** **Gemini Omni 영상 편집 path 박제 (belle 박제 정합).** belle 가 2026-06-13 지적: "Gemini Omni 가 카메라 앵글 변경 + 조명 변경 가능. 1년 전 출시." → Spike 003 의 "reasoning only" 박제 보강. Spike 004 신설.
-- **D-25:** **Spike 004 verdict = VALIDATED-DEFERRED-VERTEX-GA.** 현재 (2026-06-13) Vertex AI API 미출시 (consumer tier 만) → ~2026-Q3 GA 후 진입 가능. Phase 17 SDK 동일 호환, ToS clean (DPA + zero-data-retention), Lambda 직접 호출 적합.
+- **D-25:** **Spike 004 verdict = VALIDATED-DEFERRED-OMNI-VERTEX (정정 박제 2026-06-13).** Vertex AI 플랫폼 자체는 이미 GA — Sunity Phase 17 운영 중. **정확한 박제: Vertex AI 의 Gemini Omni model endpoint 가 미등록** (Model Garden 어떤 model id 도 공개 catalog 없음). 출시 윈도우 = "coming weeks" — **mid-to-late June 2026** (이번 주~수 주 내 가능성도 있음). Phase 17 SDK 동일 호환, ToS clean (DPA + zero-data-retention), Lambda 직접 호출 적합.
 - **D-26:** **폴스포츠 motion clean-data 검증 gate 필수** (Spike 004 진입 전). Omni 의 Motion Realism 4/5, "high-energy / physics-intensive scene 단순화" 정의 = 폴스포츠 회전/역수직/spin 직접 적용. Sunity "분석 정확도 절대 원칙" 충돌 가능성. [[sensitivity-gate-not-just-elite-low]] 정합 — 회전 5 / 역수직 3 / spin 2 = 10건 pose consistency 정량 측정 통과 시에만 PRIMARY 전환.
-- **D-27:** **HYBRID PRIMARY path 박제 (시간축):**
-  - 현재 PRIMARY: Spike 003 Gemini Vision reasoning (저비용 $0.12/video, 즉시 사용 가능)
+- **D-27:** **HYBRID PRIMARY path 박제 (시간축, 2026-06-13 belle 이미지 박제 정합):**
+  - 현재 PRIMARY: Spike 003 Gemini Vision reasoning (저비용 $0.12/video, gemini-3.1-pro-preview, 즉시 사용 가능)
   - 현재 SECONDARY: Spike 002b cylindrical mesh (자체 path)
-  - **Vertex GA 후 PRIMARY 전환 후보:** Spike 004 Gemini Omni (clean-data gate 통과 시)
-  - Backup: Veo 3.1 inpainting/outpainting (1080p, 사용자 영상 편집 비공식 use case — Omni 실패 시)
+  - **현재 secondary 즉시 가능 (정정 박제): Veo 3.1 (Vertex Public Preview)** — image-to-video, Phase 17 DPA cover. "기존 영상 다른 앵글 재합성" 부분 대체 (Omni 의 conversational editing 보다 약하지만 즉시 가능)
+  - **Omni Vertex 출시 후 (mid-to-late June 2026 윈도우) PRIMARY 전환 후보:** Spike 004 Gemini Omni (clean-data gate 통과 시)
   - 완전 최후의 보류: SMPL-X mesh ($7,300/yr)
+  - **Spike 004 2-track 분리 (Agent #15 권고):** (i) 즉시 Veo 3.1 PoC (ii) Omni Vertex watch + early access 신청 (iii) Omni 출시 후 본 검증
 - **D-28:** **비용 박제** (Spike 003 vs 004):
   - Spike 003 Gemini Vision reasoning: $0.12/video (5영상 batch $0.60)
   - Spike 004 Gemini Omni editing: 추정 $2-6/10초 영상 → 30~60초 영상 분할 시 $6-36/영상 (50-300배)

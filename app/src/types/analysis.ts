@@ -182,6 +182,51 @@ export interface DimensionExplanation {
   deficitSummary: string; // 산식과 동일 source 의 deficit 한 줄. 양호 시 수치 X.
 }
 
+// Phase 4 Wave 1 (Plan 04-01) — POSE-03 D-08 (R3 fix 3-way lockstep TS side).
+// 합성 어댑터의 public warning enum. 3-way lockstep:
+//   · backend/shared/python/sunity_shared/models.py SYNTHESIS_WARNING_CODES frozenset
+//   · docs/contract.md §9.8 (Phase 4 신설 2)
+//   · 본 TS union
+// raw reason ('gemini_api_error' / 'gemini_parse_error' / 'g4_reference_guard' /
+// 'exception' / 'invalid_input_shape' / 'model_resolve_failed' 등) 은
+// aiSynthesisMeta.debugWarnings 에만 보존되고 본 union 에는 포함하지 않는다
+// (HIGH-4 raw ↔ public 분리). UI 가 hasSynthesisWarning(result) 로 읽음.
+export type SynthesisWarningCode =
+  | 'ai_synthesis_failed'
+  | 'ai_synthesis_partial';
+
+// AiSynthesisMeta: result 내부 표시되는 합성 메타 (사용자에겐 블랙박스 D-05).
+// R5 fix — 감사 필드 (modelId / modelVersion / promptHash) + cost 카운터 6개.
+// 합성 자체가 발생하지 않은 분석은 본 필드를 채우지 않거나 비울 수 있음
+// (옵셔널). 백엔드는 always-emit 가 아닌 conditional emit (occlusion 발견 시).
+export interface AiSynthesisMeta {
+  // 어떤 frame 들에 합성을 시도/적용했는지 (T 인덱스 list).
+  synthesizedFrameCount: number;
+  // 합성을 시도/적용한 keypoint 이름 list (COCO-17 부분 집합).
+  synthesizedJointKeys: string[];
+  // 사용한 합성 path. 'none' = 합성 미수행 (skipped 등).
+  synthesisPath: 'gemini_view' | 'cylindrical_mesh' | 'none';
+  // graceful degrade 발생 여부 — true 시 1차 RTMW 결과 그대로.
+  degraded: boolean;
+  // 감사 필드 (R5 fix). 후속 회귀 추적 + 버전 관리.
+  modelId: string; // 예: 'gemini-3.5-flash' / 'gemini-3.1-pro-preview'
+  modelVersion: string; // 예: 'v1' (Phase 4 박제 시점 버전 tag)
+  promptHash: string; // OCCLUDED_JOINT_REASONING_PROMPT sha256 앞 16자
+  // Cost 카운터 6 (R5 fix). belle pricing visibility 박제.
+  framesConsidered: number; // 합성 대상 후보 frame 수
+  framesSynthesized: number; // 실제 합성된 frame 수
+  geminiCalls: number; // 호출 횟수
+  framesSkipped: number; // skip 된 frame 수
+  framesFailed: number; // 실패 frame 수
+  estCostUsd: number; // 추정 비용 (USD)
+  // Public warning surface (canonical, BLOCKER-3). UI 가 읽는 enum.
+  // raw reason 은 debugWarnings 에 분리 보존 — 본 list 는 public enum 만.
+  warnings?: SynthesisWarningCode[];
+  // Debug-only raw reason 보존 (HIGH-4 — public enum 오염 금지).
+  // 예: ['gemini_api_error', 'g4_reference_guard']. UI 에 노출 안 함.
+  debugWarnings?: string[];
+}
+
 export interface AnalysisResult {
   overallScore: number; // 0~100. mode1=3차원 평균, mode3=절대 차원 평균
   // IPSF 실행 차원 점수 (3차원: angle/line/stability).
@@ -219,6 +264,19 @@ export interface AnalysisResult {
   // mode1 reference overlay 는 별도 `ReferenceMotion.referenceKeypointReport`
   // 에서 직접 read (analysis doc 에 mirror X — H2 iter-4 / Firestore 1 MiB 안전 마진).
   keypointReport?: KeypointReport | null;
+  // Phase 4 Wave 1 (Plan 04-01) — POSE-03 D-08 / R3 fix.
+  // 합성 메타 — UI 는 hasSynthesisWarning(result) 로 warnings 만 surface.
+  // 사용자에겐 블랙박스 (D-05). 합성이 발생하지 않은 분석은 옵셔널 omitted.
+  aiSynthesisMeta?: AiSynthesisMeta;
+  // Phase 4 Wave 1 (Plan 04-01, R3 fix) — joints3d flat 저장 (RTMW pose-aligned
+  // T×17×3). 04-02 가 doc.result.joints3d 를 reshapePose3dData 로 읽음.
+  // angles (AnalysisDoc top-level quirk) 와 별개 — joints3d 는 result 내부.
+  // Firestore nested-array 금지로 flat (length = joints3dFrames * 17 * 3).
+  joints3d?: number[];
+  joints3dKeys?: string[]; // COCO-17 17 keypoint 이름 (length 17)
+  joints3dFrames?: number; // T
+  coordDim?: number; // = 3
+  space?: 'rtmw3d' | 'pole_aligned'; // 좌표계 (to_coco17_array → pole_aligned)
 }
 
 // Firestore 문서 전체 모양

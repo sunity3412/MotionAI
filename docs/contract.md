@@ -960,6 +960,65 @@ ForceSignalsReport 의 `warnings` + 각 metric 의 `warnings` 가 공유하는 e
 | | `coordinate_space_unavailable` | **R1/R2** — coordinateSpace='unavailable' |
 | **Cycle 2 신설 1** | | |
 | | `preflight_gate_pending` | **Cycle 2 §3 MEDIUM** — pre-flight gate 미실행 default (preflight CSV 채워지지 전) |
+| **Phase 4 신설 2 (Plan 04-01, POSE-03 D-08)** | | |
+| | `ai_synthesis_failed` | 합성 어댑터 실패 → graceful degrade 발동 (1차 RTMW 결과 유지) |
+| | `ai_synthesis_partial` | 일부 frame/joint 만 합성 성공 (indeterminate 응답 다수) |
+
+### §9.8.1 AiSynthesisMeta (Phase 4 신설)
+
+Plan 04-01 (POSE-03 D-08 / R3 / R5 fix) — `AnalysisResult.aiSynthesisMeta?` 옵셔널 필드.
+사용자에겐 블랙박스 (D-05). UI 는 `hasSynthesisWarning(result)` 로 warnings 만 surface.
+
+Public warning surface (canonical, BLOCKER-3):
+  · `aiSynthesisMeta.warnings: SynthesisWarningCode[]` — `ai_synthesis_failed` /
+    `ai_synthesis_partial` 두 enum 만 박힘.
+  · `aiSynthesisMeta.debugWarnings: string[]` — adapter 의 raw reason
+    (`gemini_api_error` / `gemini_parse_error` / `g4_reference_guard` /
+    `exception` / `invalid_input_shape` / `model_resolve_failed` 등) 보존. UI
+    노출 금지 — 회귀 추적 + audit 전용.
+
+| Field (camelCase) | Type | Notes |
+|---|---|---|
+| `synthesizedFrameCount` | `number` | 합성 시도/적용한 frame 수 (T 인덱스 list 크기) |
+| `synthesizedJointKeys` | `string[]` | 합성 대상 COCO-17 keypoint 이름 부분집합 |
+| `synthesisPath` | `'gemini_view' \| 'cylindrical_mesh' \| 'none'` | D-18 PRIMARY/SECONDARY/skipped |
+| `degraded` | `boolean` | true 시 1차 RTMW 결과 그대로 (graceful degrade) |
+| `modelId` | `string` | 예: `gemini-3.5-flash` / `gemini-3.1-pro-preview` |
+| `modelVersion` | `string` | 예: `v1` (Phase 4 박제 시점 버전 tag) |
+| `promptHash` | `string` | `OCCLUDED_JOINT_REASONING_PROMPT` sha256 앞 16자 |
+| `framesConsidered` | `number` | 합성 대상 후보 frame 수 |
+| `framesSynthesized` | `number` | 실제 합성된 frame 수 |
+| `geminiCalls` | `number` | Gemini 호출 횟수 |
+| `framesSkipped` | `number` | skip 된 frame 수 |
+| `framesFailed` | `number` | 실패 frame 수 |
+| `estCostUsd` | `number` | 추정 비용 (USD) |
+| `warnings` | `SynthesisWarningCode[]` | public enum — UI surface |
+| `debugWarnings` | `string[]` | raw reason — audit only |
+
+3-way lockstep:
+  · `backend/shared/python/sunity_shared/models.py` — `SYNTHESIS_WARNING_CODES` frozenset.
+  · `app/src/types/analysis.ts` — `SynthesisWarningCode` union + `AiSynthesisMeta` interface.
+  · 본 §9.8.1 표.
+
+### §9.8.2 joints3d flat 저장 (Phase 4 신설)
+
+Plan 04-01 (R3 fix) — `AnalysisResult.joints3d?` 옵셔널 필드. 04-02 가
+`doc.result.joints3d` 를 `reshapePose3dData` 로 읽어 3D PoseViewer 가 소비한다.
+`angles` (관절각, `AnalysisDoc` top-level quirk) 와 별개로 `result` 내부 박제.
+
+| Field (camelCase) | Type | Notes |
+|---|---|---|
+| `joints3d` | `number[]` | flat — 길이 = `joints3dFrames * 17 * 3` |
+| `joints3dKeys` | `string[]` | COCO-17 17 keypoint 이름 (length 17) |
+| `joints3dFrames` | `number` | T |
+| `coordDim` | `number` | =3 (명시적 저장) |
+| `space` | `'rtmw3d' \| 'pole_aligned'` | `to_coco17_array` 산출 → `pole_aligned` |
+
+Firestore 저장 제약 ([[firestore-nested-array-flat]]):
+  · 모든 필드는 flat — nested list 금지.
+  · `firestore_admin.complete_analysis` 가 `_validate_joints3d_payload` 통과 강제
+    (flat length == frames\*len(keys)\*coord_dim / finite only / coord_dim==3 /
+    space in {"rtmw3d","pole_aligned"} — BLOCKER-4).
 
 ### §9.9 D-결정 요약
 

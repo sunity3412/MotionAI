@@ -36,7 +36,7 @@ created: 2026-06-13
 | `expo-three` | latest Expo SDK 54 정합 | GL context 브릿지 |
 | `@react-three/drei` | latest RN 정합 | OrbitControls 등 helpers |
 
-`expo-gl` 은 Expo SDK 54 포함 — 별도 설치 불필요.
+`expo-gl` 은 `expo install expo-gl` 로 명시 설치 (SDK 54 기본 포함이나 버전 정합 위해 명시 실행 권장 — Pitfall 1 방지. 04-02 Task 0 와 정합).
 
 ---
 

@@ -605,7 +605,7 @@ occlusionBadgeText: {
 **AccuracyLimitBadge.tsx 신규 파일 — 위 occlusionBadge 스타일을 확장해 작성 (UI-SPEC Surface 2 정합):**
 ```typescript
 // Phase 4 D-08 — "정확도 제한적" 배지 컴포넌트.
-// 트리거: Firestore warnings 배열에 'ai_synthesis_failed' 포함 시.
+// 트리거: result.aiSynthesisMeta.warnings 배열에 'ai_synthesis_failed' 포함 시 (BLOCKER-3 — top-level warnings 아님).
 // 블랙박스 원칙 (D-05): "AI 보완 실패" 문구 금지. "가림 구간 정확도가 제한적이에요" 만 허용.
 
 import { Ionicons } from '@expo/vector-icons';
@@ -614,7 +614,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../theme';
 
 interface AccuracyLimitBadgeProps {
-  visible: boolean;  // warnings.includes('ai_synthesis_failed')
+  visible: boolean;  // result.aiSynthesisMeta.warnings.includes('ai_synthesis_failed') (BLOCKER-3)
 }
 
 export function AccuracyLimitBadge({ visible }: AccuracyLimitBadgeProps) {
@@ -840,7 +840,7 @@ const styles = StyleSheet.create({
 ```typescript
 {/* [헤더 하단] AccuracyLimitBadge — ai_synthesis_failed warning 있을 때 */}
 <AccuracyLimitBadge
-  visible={result.warnings?.includes('ai_synthesis_failed') ?? false}
+  visible={hasSynthesisWarning(result, 'ai_synthesis_failed')}  /* BLOCKER-3: = result.aiSynthesisMeta.warnings.includes(...), top-level result.warnings 아님 */
 />
 
 {/* [VideoCompare 바로 아래] PoseViewer3D — joints3d 있을 때만 (Wave 2) */}

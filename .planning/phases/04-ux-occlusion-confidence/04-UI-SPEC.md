@@ -255,7 +255,7 @@ VideoCompare 바로 아래에 삽입. 이유: 영상 비교를 본 직후 3D로 
 
 ### Phase 4 신규 추가: "정확도 제한적" 배지 (D-08 대응)
 
-**트리거:** Firestore 분석 doc 에 `warnings` 배열에 `'ai_synthesis_failed'` warning code 포함 시.
+**트리거:** `result.aiSynthesisMeta.warnings` 배열에 `'ai_synthesis_failed'` 포함 시 (BLOCKER-3 canonical surface — top-level `doc.warnings`/`result.warnings` 아님). UI helper `hasSynthesisWarning(result, 'ai_synthesis_failed')`.
 
 **표시 위치:** 결과 화면 헤더 (`styles.header`) 하단, sub 텍스트 아래. 기존 sub 텍스트와 구분을 위해 8pt gap.
 
@@ -410,7 +410,7 @@ npm install three @react-three/fiber expo-three @react-three/drei
 | A-5 | scrubber 는 PanResponder (react-native-gesture-handler) 구현. Three.js AnimationMixer 미사용. | RTMW 출력이 frame 시퀀스 배열 — 외부 타임라인 scrubber 가 frame index 직접 제어. |
 | A-6 | 관절 탭 팝업은 Three.js Raycaster + RN absolute View (TextGeometry 미사용). | TextGeometry 는 추가 폰트 로더 필요. RN View overlay 가 Pretendard 적용 자동 정합. |
 | A-7 | Phase 12.5 CONTEXT.md 파일 부재로 직접 읽기 불가. 기존 `result.tsx` 내 Phase 12.5 구현 코드에서 카피 톤 + 표기 패턴 역추출. | `result.tsx` 주석에 "Phase 12.5 T8/T9/Wave 2" 박제 명시. 충분한 컨텍스트. |
-| A-8 | `AccuracyLimitBadge` 는 `warnings.includes('ai_synthesis_failed')` 단일 트리거. 향후 warning code 추가 시 배지 prop 확장. | D-08 명시 `ai_synthesis_failed` code 정합. |
+| A-8 | `AccuracyLimitBadge` 는 `hasSynthesisWarning(result, 'ai_synthesis_failed')` (= `result.aiSynthesisMeta.warnings.includes(...)`, BLOCKER-3) 단일 트리거. 향후 warning code 추가 시 배지 prop 확장. | D-08 명시 `ai_synthesis_failed` code 정합. |
 | A-9 | 3D viewer 는 Phase 4 Wave 2 작업. Wave 1 (Stage 1+2 통합) 완료 전까지 `result.tsx` 에서 섹션 자체 조건부 노출 가능 (`joints3d` 있을 때만). | WRAP-UP-SUMMARY.md Wave 권고 정합. |
 
 ---

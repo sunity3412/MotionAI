@@ -48,5 +48,20 @@ verdict: ACCEPT-ALL (4 BLOCKER + 5 HIGH + 3 MEDIUM 전부 코드 확인 후 수�
 
 ## 잔여 실행 시 주의 (계약 → 코드 번역 시)
 
-- z degenerate: RTMW 2D path 에서 keypoints_4ch z 가 0 일 수 있음 → 3D viewer 평면 투영 (MVP 허용, space="rtmw3d"; MotionBERT lifter 좌표 가용 시 "pole_aligned").
+- z degenerate: RTMW 2D path 에서 keypoints_4ch z 가 0 일 수 있음 → 3D viewer 평면 투영 (MVP 허용). space="pole_aligned" (3차 BLOCKER-1 정정 — to_coco17_array 가 keypoints_3d_pole_aligned 산출).
 - top-level mirror 필드 집합: angles 계열과 joints3d 계열을 함께 mirror (mode1 reference 3D viewer 가 reference joints3d 를 읽을 경우 대비).
+
+---
+
+## Iteration 3 응답 (3차 리뷰 반영, 2026-06-13)
+
+3차 리뷰 4 BLOCKER 전부 코드/plan 확인 후 수용 — "잔재 0" 주장과 active plan 간 drift 가 실제로 남아 있었음(직접 편집의 한계 — grep 패턴이 변형 표현을 놓침). 이번엔 변형까지 grep 검증.
+
+| 3차 BLOCKER | 확인 | 수정 |
+|---|---|---|
+| B1 좌표계 | `to_coco17_array` docstring + 코드 = `keypoints_3d_pole_aligned` 산출 (확정) | 04-01 written space `"rtmw3d"` → **`"pole_aligned"`** (enum 은 둘 다 유지) |
+| B2 warning surface 미반영 | UI-SPEC 258/413, PATTERNS 608/617/843(`result.warnings` 명시), 04-02 일부 잔존 (확정) | 전부 `result.aiSynthesisMeta.warnings` + `hasSynthesisWarning` 로. 잔여 `result.warnings` 는 "아님" 부정 표현만 (live trigger 0) |
+| B3 AnalysisDoc.joints3d stale | 04-01 7곳 (31/49/131/243/335/364/378) (확정) | 전부 **AnalysisResult** 로. read_first line hint 도 185-224 로 정정 |
+| B4 checkpoint 구조 | checkpoint 가 여전히 첫 task (2차 1.5 우회 불충분, 확정) | 구조 reorder — **Task1(auto: install+smoke screen) → Task2(checkpoint) → Task3 → Task4**. cross-ref 재정렬 (Task1↔3 충돌 방지 개별 수정) |
+
+검증: B1 rtmw3d written 0 / B2 live trigger 0 / B3 stale 0 / B4 첫 task=auto. 6 plan frontmatter 유효. 이번에도 직접 편집(병렬 agent 미사용). 4차 외부 리뷰 대기.

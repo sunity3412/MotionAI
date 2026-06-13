@@ -6,7 +6,7 @@ identify_occlusion_targets + merge_with_temporal (POSE-03 D-08 R1 R2 R6).
     + joints=None + confidence=None. 성공 → status='applied'|'partial' + joints/conf
     non-None. skipped → joints/conf 가 무엇이든 (보통 None) merge 시도 0.
   · R1 non-scoring 하드월: 본 모듈의 출력은 KeypointReport / aiSynthesisMeta /
-    joints3d 에만 흐른다. DTW/kismam/IPSF 의 coco_array 에 절대 mutate 되지
+    joints3d 에만 흐른다. DTW/kismam/IPSF 의 DTW/kismam 입력 에 절대 mutate 되지
     않는다. 본 파일 어디서도 DTW/kismam/IPSF 입력 행렬 / temporal 의 mask 함수를
     import 하지 않는다 (acceptance grep gate 정합).
   · R6 fix: identify_occlusion_targets 는 (T,17) keypoint confidence + scene flags
@@ -68,7 +68,7 @@ class SynthesisAdapter(Protocol):
       · CylindricalMeshAdapter (Stage 3 backend, 04-03 박제 예정)
       · OmniVertexAdapter (Stage 4 Wave 4 stub, 04-04 박제)
 
-    합성 output 은 영구 non-scoring — DTW/kismam/IPSF coco_array 에 절대 흐르지
+    합성 output 은 영구 non-scoring — DTW/kismam/IPSF DTW/kismam 입력 에 절대 흐르지
     않는다 (R1 하드월). pipeline 의 merge_with_temporal 가 KeypointReport 의
     data/confidence 또는 joints3d 표시용 경로로만 합성 좌표를 흘려보낸다.
     """
@@ -163,7 +163,7 @@ def merge_with_temporal(
 
     R1 non-scoring 하드월:
       본 함수가 반환한 (joints, conf) 는 KeypointReport / aiSynthesisMeta 에만
-      흐른다. DTW/kismam/IPSF 의 coco_array 에 절대 흘려보내지 않는다 — pipeline
+      흐른다. DTW/kismam/IPSF 의 DTW/kismam 입력 에 절대 흘려보내지 않는다 — pipeline
       측 wiring 책임 (D-18 Anti-Pattern 박제, RESEARCH.md Pitfall 7).
 
     Anti-Pattern (D-18):

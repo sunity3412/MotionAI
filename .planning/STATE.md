@@ -25,26 +25,23 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 04 (ux-occlusion-confidence) — EXECUTING
-Plan: 2 of 6
+Phase: 04 (ux-occlusion-confidence) — 6/6 PLANS COMPLETE (formal verify-phase optional)
+Plan: 6 of 6
 Verification: Wave 4 (04-04) — pytest backend/tests/phase04/test_video_gen_adapter.py 5 PASS / pytest backend/tests/phase04/ 36 PASS + 2 SKIP (Wave 3a 31 → +5) / pytest backend/tests/ 1704 PASS (regression 0, 기존 36 fail 불변) / import gate (VideoGenerationAdapter + OmniVertexAdapter + VeoAdapter + get_video_gen_adapter) PASS / grep SYNTHESIS_VIDEO_GEN_ENABLED hit / @runtime_checkable Protocol structural subtyping PASS / pipeline/app.py unchanged (D-31 정합 — last commit 2790f57 pre-Wave 4). Plan `<done>` 게이트 all PASS.
 Next: Wave 5 — 04-05 (정은지 5영상 Phase 4-compatible 재처리 + versioned/atomic write + rollback + test_evaluate_4way.py 하단 RunPod 통합 테스트 append). Wave 3b @integration (실 RTMW 재추론) 여전히 parked (RunPod 필요, phase blocker 아님).
-Status: 04-05 PARTIAL — code(Task 1+2) done+pushed, RunPod reprocess done; Firestore write BLOCKED (아래 ⚠)
+Status: 04-05 COMPLETE ✓ — Wave 5 끝. Phase 04 = 6/6 plan 완료.
 
-> ⚠ Wave 5 (04-05) BLOCKER (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
-> Task 1+2 완료+push (daf6803/969a2c6, local pytest 41 pass/3 skip). RunPod GPU 재처리 5/5 성공
-> (150s, RTMW onnxruntime-gpu sm_120 cuda 정상 ~50fps) → schema gate 5/5 PASS → JSON 저장
-> (/tmp/reference-phase4-reprocess.json 로컬 보존 + Pod /workspace). 그러나 Firestore versioned write FAIL:
-> "too many index entries for entity /reference/{id}/versions/phase4_v1" (INDEX_ENTRIES_COUNT_LIMIT_EXCEEDED).
-> 원인 = payload 의 joints3d(T*17*3 flat) + angles + keypointReport 대형 배열을 Firestore 가 element 단위
-> auto-index(asc+desc 2x) → ref-sideway-spin ~55k > 40k 한도. **--no-flip 실행 → active pointer 미변경
-> = production mode1 무영향 (안전).** plan 04-05 미반영 제약. 해결 후보:
->   (a) single-field index 면제(joints3d/angles/keypointReport, collectionGroup reference+versions) —
->       firestore_admin_v1.update_field (composite mode3 index 무영향). firebase/gcloud 로컬 미설치.
->   (b) joints3d JSON 문자열 blob 저장 (contract 변경 — app 3D viewer/firestore_admin reshape 영향).
->   (c) joints3d Firestore 미저장 (04-02 3D viewer 미완 시 보류) — angles 만 mirror.
-> belle 결정 필요 (contract/prod 영향). 그 후: write → 시각검증(점수 비악화) → active flip.
-> :8000 server UP (proxy d9xxudi1i6xlpz, /health ok, Lambda RUNPOD_ANALYZE_URL z3fy82→d9xx 동기화 완료).
+> ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
+> code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
+> sm_120 cuda ~50fps, 150s, NaN 0) → schema gate 5/5 → Firestore versioned write reference/{id}/versions/phase4_v1
+> 5/5 → belle 시각검증 PASS (현 active 대비 관절각 Δ 0~6°, NaN 0, 프레임 1.5x↑ 더 촘촘) → active flip 5/5
+> (activeVersion=phase4_v1, top-level mirror 11필드 incl joints3d/keypointReport, pre_phase4 백업 = rollback 소스).
+> **Firestore 40k index-entry 한도 차단 해결**: gcloud `firestore indexes fields update --disable-indexes`
+> 6개 면제 (joints3d/angles/keypointReport × collectionGroup reference+versions, owner sunity3412 login).
+> composite mode3 index 무영향. [[firestore-index-entry-limit]] + [[rtmw-blackwell-lean-bootstrap]] 박제.
+> rollback: `python backend/scripts/rollback_reference_motions_phase4.py --to-version pre_phase4`.
+> :8000 server UP (proxy d9xxudi1i6xlpz /health ok, Lambda RUNPOD_ANALYZE_URL z3fy82→d9xx 동기화).
+> 잔여(optional, phase blocker 아님): Wave 3b @integration evaluate_4way axis_b RunPod 증거 (parked, SKIP/XFAIL).
 
 > ⚠ Wave 2 belle override (2026-06-13): EAS preview build 환경 이슈로 실기기 smoke checkpoint 보류. R8 ErrorBoundary (PoseViewer3D Canvas 감쌈) + typecheck/grep 게이트가 로컬 안전망. 다음 native build 시점에 belle TestFlight 실기기로 OrbitControls 제스처 + Canvas/GL init + 4 카메라 preset 동작 검증 필요 (SUMMARY 04-02 deviation 섹션 박제).
 

@@ -175,3 +175,30 @@ task_3_mitigation: T-04-W5-01 (로그 키 마스킹), T-04-W5-02 (G4 guard behav
 - `len(MOTION_IDS)` → 5 (reprocess + rollback) ✓
 
 **Task 3 Status:** checkpoint pending — orchestrator RunPod 담당. SUMMARY.md 는 Task 1+2 박제 + Task 3 checkpoint 명시로 작성.
+
+---
+
+## Task 3 — Orchestrator RunPod Closeout (2026-06-14) ✓ COMPLETE
+
+RunPod Pod `d9xxudi1i6xlpz` (RTX PRO 4500 Blackwell sm_120, Network Volume) 에서 orchestrator 실행:
+
+1. **GPU 재처리 5/5** — RTMW(rtmlib/onnxruntime-gpu 1.19.2) sm_120 cuda ~50fps, 150s, NaN 0.
+   schema gate 5/5 PASS → `reference-phase4-reprocess.json` (로컬 /tmp + Pod /workspace 보존).
+   RTMWPoseEngine 은 torch/mmpose 불필요 (rtmlib 단독) → lean bootstrap. [[rtmw-blackwell-lean-bootstrap]]
+2. **Firestore 40k index-entry 한도 BLOCKER 해결** — versioned write 가 joints3d(T*17*3)+angles+keypointReport
+   대형 배열 auto-index 로 ref-sideway-spin ~55k > 40k 차단. belle 승인 후 옵션(a) field 면제:
+   `gcloud firestore indexes fields update {joints3d,angles,keypointReport} --collection-group={reference,versions}
+   --disable-indexes` 6개 (owner sunity3412 login). composite mode3 index 무영향. [[firestore-index-entry-limit]]
+3. **versioned write 5/5** → `reference/{id}/versions/phase4_v1` (`--no-flip` 단계, prod 무영향).
+4. **belle 시각 검증 PASS** — 현 active 대비 관절각 평균 Δ 0~6° (max 5.9° ref-invert), NaN 0,
+   프레임 1.5x↑ (fps 18 더 촘촘). 점수 비악화 확인.
+5. **active flip 5/5** — `_flip_active_pointer`: pre_phase4 백업(rollback 소스) → activeVersion=phase4_v1
+   → top-level mirror 11필드(joints3d/keypointReport 포함). 검증: 5/5 top-level activeVersion=phase4_v1,
+   anglesFrames=298/257/260/426/485, joints3d+keypointReport+pre_phase4 백업 all present.
+
+**Rollback:** `python backend/scripts/rollback_reference_motions_phase4.py --to-version pre_phase4`
+
+**잔여(optional, phase blocker 아님):** Wave 3b @integration `test_evaluate_4way_reprocess_vs_baseline`
+axis_b RunPod 증거 = parked (cylindrical mesh path / RunPod 3b accuracy gate). 04-05 hard gate (A) 7항 전부 PASS.
+
+**Wave 5 = COMPLETE. Phase 04 = 6/6 plan 완료.**

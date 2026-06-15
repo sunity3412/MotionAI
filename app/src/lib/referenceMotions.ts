@@ -129,6 +129,41 @@ function normalize(id: string, raw: Record<string, unknown>): ReferenceMotion | 
     referenceKeypointReport = null;
   }
 
+  // Phase 14 (Plan 14-01, R2-4) — 백필 다운스트림 필드 surfacing.
+  // 기존 normalize() 는 고정 subset 만 반환해 bodyNormalizationProfile 등 type 이
+  // 선언한 필드를 silently strip 했다. type/contract/normalize 3-way lockstep
+  // (CLAUDE.md Cross-cutting) 정합을 위해 null-safe 로 추출·반환한다. 백필 미완
+  // reference 는 undefined 유지 (defensive — referenceKeypointReport guard idiom
+  // 정합). Pitfall 5 — T-scaled per-frame array 는 추가하지 않는다 (40k index).
+  const obj = (v: unknown): Record<string, unknown> | undefined =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? (v as Record<string, unknown>)
+      : undefined;
+
+  const bodyNormalizationProfile =
+    raw.bodyNormalizationProfile === null
+      ? null
+      : (obj(raw.bodyNormalizationProfile) as
+          | ReferenceMotion['bodyNormalizationProfile']
+          | undefined);
+
+  const techniqueProfile =
+    raw.techniqueProfile === null
+      ? null
+      : (obj(raw.techniqueProfile) as ReferenceMotion['techniqueProfile'] | undefined);
+
+  const forceDirectionPattern =
+    raw.forceDirectionPattern === null
+      ? null
+      : (obj(raw.forceDirectionPattern) as
+          | ReferenceMotion['forceDirectionPattern']
+          | undefined);
+
+  const captureViews =
+    typeof raw.captureViews === 'number' && Number.isFinite(raw.captureViews)
+      ? raw.captureViews
+      : undefined;
+
   return {
     motionId: id,
     name,
@@ -151,6 +186,10 @@ function normalize(id: string, raw: Record<string, unknown>): ReferenceMotion | 
       typeof raw.anglesFrames === 'number' ? raw.anglesFrames : undefined,
     meanAngles,
     referenceKeypointReport,
+    bodyNormalizationProfile,
+    techniqueProfile,
+    forceDirectionPattern,
+    captureViews,
   };
 }
 

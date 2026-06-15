@@ -42,7 +42,7 @@ created: 2026-06-15
 |----|----------|-----------|---------------------------|-------------|
 | SC#1 | All 11 references appear in Mode 1 list | integration | seeder `--verify` reads all 11 + `referenceMotions.ts normalize()` returns 11; `cd app && npm run typecheck` | ✅ 14-01 (TS), 14-02 (seeder), 14-03 (run) |
 | SC#2 (presence) | Each reference has meanAngles + EXTEND + BodyNormalizationProfile + ForceDirectionPattern | integration | post-seed Firestore read asserts 4 fields present + non-empty for all 11 | ✅ 14-03 (verify-read) |
-| SC#2 (compute = student path, D-01) | Backfill outputs equal student `_process` downstream outputs | unit | pytest: fixture `pose_frames`/`angles` to backfill helper AND `_process` downstream calls; identical dataclasses | ✅ 14-01 (RED) → 14-02 (GREEN) |
+| SC#2 (compute = student path, D-01) | Backfill outputs equal student `_process` downstream outputs, incl. the SAME pinned `preflight_label_gate_passed` value (provably exact, not default-equivalent) | unit | pytest: fixture `pose_frames`/`angles` to backfill helper AND `_process` downstream calls with `preflight_label_gate_passed=None` + `technique_profile=None`; identical dataclasses | ✅ 14-01 (RED) → 14-02 (GREEN) |
 | SC#3 | Multi-angle capture guide documented | manual | review `docs/reference-capture-guide.md` contains 촬영 조건·앵글·시점 수 | ✅ 14-02 |
 | SC#4 | Single-view graceful + low confidence | unit | pytest: vertical-fallback `line=None` → contact metrics None + `pole_line_missing` warning (no crash); captureViews=1 flag | ✅ 14-01 |
 | D-02 verdict | Stored-sufficient vs hybrid correctness | unit | pytest: `measure_body_profile`/`compute_force_signals` diverge on reconstructed-from-flat data (HYBRID); EXTEND/meanAngles match from `angles` alone (STORED-SUFFICIENT) | ✅ 14-01 |
@@ -56,12 +56,12 @@ created: 2026-06-15
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 14-01-T1 | 14-01 | 1 | REF-01 | T-14-01, T-14-03 | Read-only audit; keys-not-values; zero `set(` | integration | `node --check app/scripts/audit-reference-fields.mjs` + grep 11 IDs + grep `set(`==0 | ✅ | ⬜ pending |
-| 14-01-T2 | 14-01 | 1 | REF-01 | — | Single temporal_fill; no fabricated findings | unit | `cd backend && python -m pytest tests/test_reference_backfill.py -q` | ✅ | ⬜ pending |
+| 14-01-T2 | 14-01 | 1 | REF-01 | — | Single temporal_fill; no fabricated findings; D-01 parity pins SAME `preflight_label_gate_passed`=None (provably exact) | unit | `cd backend && python -m pytest tests/test_reference_backfill.py -q` | ✅ | ⬜ pending |
 | 14-01-T3 | 14-01 | 1 | REF-01 | T-14-02 | Optional/nullable fields; lockstep; no T-scaled array | unit (typecheck) | `cd app && npm run typecheck` + grep contract/TS fields | ✅ | ⬜ pending |
-| 14-02-T1 | 14-02 | 2 | REF-01 | T-14-04, T-14-05 | No Firestore write; never overwrite active pose; keys-not-values | unit | `cd backend && python -m pytest tests/test_reference_backfill.py -x -q` + `--help` exit 0 | ✅ | ⬜ pending |
+| 14-02-T1 | 14-02 | 2 | REF-01 | T-14-04, T-14-05 | No Firestore write; never overwrite active pose; keys-not-values; pins `preflight_label_gate_passed=None` + `technique_profile=None` (D-01 exact parity) | unit | `cd backend && python -m pytest tests/test_reference_backfill.py -x -q` + `--help` exit 0 | ✅ | ⬜ pending |
 | 14-02-T2 | 14-02 | 2 | REF-01 | T-14-06, T-14-07 | ADD-only merge; nested-array reject; no active flip; dry-run-first | unit | `node --check seed-reference-downstream.mjs` + import `update_reference_downstream_data` | ✅ | ⬜ pending |
 | 14-02-T3 | 14-02 | 2 | REF-01 | — | No emoji; doc deliverable | manual/grep | `grep 촬영 조건 / 앵글 / 시점 docs/reference-capture-guide.md` | ✅ | ⬜ pending |
-| 14-03-T1 | 14-03 | 3 | REF-01 | T-14-08..11 | Commit-push-before-Pod; ADD-only; active pose read-only; no secrets in log | integration | grep 11 IDs + `activeVersion` in 14-BACKFILL-RUN.md; seeder `--verify`; full suite | ✅ | ⬜ pending |
+| 14-03-T1 | 14-03 | 3 | REF-01 | T-14-08..12 | Commit-push-before-Pod; Pod /health ABORT GATE (STOP if not ok — no CPU NaN run); ADD-only; active pose read-only; distinct verify-read step; no secrets in log | integration | grep 11 IDs + `activeVersion` + `health` in 14-BACKFILL-RUN.md; seeder `--verify`; full suite | ✅ | ⬜ pending |
 | 14-03-T2 | 14-03 | 3 | REF-01 | T-14-09 | belle approval before any production state change; no flip | manual (human-check) | belle reviews verify-read table + spot-check | n/a | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
@@ -72,11 +72,11 @@ created: 2026-06-15
 
 > Phase 14 has no separate Wave 0; the Wave-0 audit/test/contract scaffolding is Plan 14-01 (the first wave). All compute (14-02) and run (14-03) depend on it.
 
-- [x] `backend/tests/test_reference_backfill.py` — SC#2 compute parity (RED target), SC#4 graceful, D-02 verdict → **14-01 T2**
+- [x] `backend/tests/test_reference_backfill.py` — SC#2 compute parity incl. pinned preflight-gate parity (RED target), SC#4 graceful, D-02 verdict → **14-01 T2**
 - [x] Firestore-read audit (no GPU): which of 11 have a body profile (A2) → **14-01 T1**
 - [x] Extend seeder `--verify` to assert the 4 new fields on all 11 → **14-02 T2** (seeder) / **14-03 T1** (run)
 - [x] Capture-guide markdown skeleton (SC#3) → **14-02 T3**
-- [x] Pod env fail-fast check at backfill start (rtmlib/imageio/boto3) → **14-02 T1** (in script) / **14-03 T1** (at run)
+- [x] Pod env fail-fast check at backfill start (rtmlib/imageio/boto3) + Pod /health abort gate → **14-02 T1** (in script) / **14-03 T1** (at run)
 
 ---
 

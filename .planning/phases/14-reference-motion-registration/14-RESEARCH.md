@@ -279,10 +279,19 @@ body_profile = measure_body_profile(pose_frames)
 
 # 4) ForceDirectionPattern (HYBRID input: pose_frames)
 pole_meas = build_pole_axis_measurement(axis_3d=vertical_pole, line=None, frame_index=None)
+# NOTE (D-01 parity, WARNING #2): the student `_process` passes
+#   technique_profile=<recognizer output> and
+#   preflight_label_gate_passed=_preflight_label_gate_passed() (env-driven).
+# The v1 reference backfill PINS technique_profile=None and
+#   preflight_label_gate_passed=None (recognizer=Fallback, layer-2 force-signal off)
+#   so "동일 코드 1벌" is provably EXACT, not merely default-equivalent. The 14-01
+#   parity test asserts the backfill helper passes the SAME preflight value the
+#   student path uses under this pinned config (env flip would otherwise diverge).
 fsr = fs.compute_force_signals(pose_frames, pole_meas, body_profile,
                                angles=angles, fps=9.0,
                                motion_id=getattr(profile, "motion_id", None),
-                               technique_profile=None)
+                               technique_profile=None,
+                               preflight_label_gate_passed=None)
 fpi = fp.infer_force_direction_pattern(fsr, motion_id=getattr(profile, "motion_id", None),
                                        mode_context="mode1")
 # → emit camelCase JSON via _dataclass_to_camel_case_dict-equivalent; seed via .mjs
@@ -322,12 +331,16 @@ batch.set(db.collection('reference').doc(motionId), docPayload, { merge: true })
 | A4 | `mode_context="mode1"` is correct for reference force inference | Code Examples | reference is the Mode 1 target; if a neutral context is wanted, `infer_force_direction_pattern` branching differs slightly |
 | A5 | Single-view confidence flagging = surface existing `bodyNormalizationProfile.confidence` + force report `overall_confidence` + a `singleView:true`/`captureViews:1` flag | Single-view handling | If a distinct schema field is required by Phase 15, contract update needed |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **EXTEND recognizer choice (A1).** Fallback (angles-only, STORED-SUFFICIENT) vs Gemini (needs video, richer profile). Recommendation: use Fallback for v1 backfill to match the conservative production default; flag for discuss if Gemini reference EXTEND is desired.
+1. **EXTEND recognizer choice (A1).** Fallback (angles-only, STORED-SUFFICIENT) vs Gemini (needs video, richer profile).
+   - **A1 — RESOLVED:** Use `FallbackRecognizer` for the v1 backfill (CONTEXT A1 / conservative production default "모르면 깎지 않음"); Gemini reference EXTEND deferred (would need S3 video frames + Gemini env). Pinned in plan **14-02 Task 1** (`FallbackRecognizer().recognize(angles)`, NOT Gemini) and asserted by the **14-01** D-01 parity test.
 2. **Body-profile coverage of the 6 later motions (A2).** Resolve with a Wave-0 read of all 11 docs before backfill (cheap, no GPU).
+   - **A2 — RESOLVED:** A read-only Firestore audit in **14-01 Task 1** (`audit-reference-fields.mjs`) enumerates which of the 11 already carry `bodyNormalizationProfile` (and the other new fields). Backfill (14-02/14-03) covers all 11 regardless (`--motions` = 11-union); ADD-only `--force` makes a redundant re-measure harmless.
 3. **Contract update.** `docs/contract.md` §`ReferenceMotion` does not list `meanAngles`/`techniqueProfile`/`bodyNormalizationProfile`/`forceDirectionPattern`. Backfill adds them ⇒ contract + `app/src/types/analysis.ts` should gain optional fields (3-way lockstep rule, CLAUDE.md Cross-cutting). App `referenceMotions.ts` `normalize()` ignores unknown fields gracefully, so the Mode 1 list will **not** break even before the type update [VERIFIED: `referenceMotions.ts:70+` defensive normalize].
+   - **A3 — RESOLVED:** 3-way contract lockstep (`docs/contract.md` §3 + `app/src/types/analysis.ts` ReferenceMotion; Python `force_pattern.py`/`technique.py` already define the source shapes) is done in **14-01 Task 3**, adding `techniqueProfile?`/`forceDirectionPattern?`/`captureViews?` as OPTIONAL/nullable fields. Top-level merge (A3 assumption) confirmed — no versioned resolver needed.
 4. **Single-view confidence representation (SC#4 / D-03).** Lightweight: all 11 are single-view, so set a `captureViews: 1` (or `singleView: true`) flag + rely on existing `confidence` fields. Confirm desired field name with discuss.
+   - **A5 — RESOLVED:** Field name = `captureViews: number` (= 1 for the single-view v1 references) per RESEARCH A5, adopted by all three plans (14-01 contract field, 14-02 seeder/helper payload, 14-03 verify-read) alongside the existing `bodyNormalizationProfile.confidence` + force-report `overall_confidence`. No distinct schema field beyond `captureViews` for v1.
 
 ## Environment Availability
 
@@ -362,7 +375,7 @@ batch.set(db.collection('reference').doc(motionId), docPayload, { merge: true })
 |----|----------|-----------------|-----------------|---------|
 | SC#1 | All 11 references appear in Mode 1 list | integration | `node app/scripts/<seed>.mjs --verify` reads all 11 + `referenceMotions.ts normalize()` returns 11; app `npm run typecheck` | ❌ Wave 0 (verify step) |
 | SC#2 | Each reference has meanAngles + EXTEND + BodyNormalizationProfile + ForceDirectionPattern | integration | Post-seed Firestore read asserts 4 fields present + non-empty for all 11 (extend `.mjs` verify loop) | ❌ Wave 0 |
-| SC#2 (compute) | Backfill outputs equal student-path outputs (D-01) | unit | pytest: feed a fixture `pose_frames`/`angles` to the backfill helper AND to `_process`'s downstream calls; assert identical dataclasses | ❌ Wave 0 (`backend/tests/test_reference_backfill.py`) |
+| SC#2 (compute) | Backfill outputs equal student-path outputs (D-01) | unit | pytest: feed a fixture `pose_frames`/`angles` to the backfill helper AND to `_process`'s downstream calls; assert identical dataclasses + SAME `preflight_label_gate_passed` value | ❌ Wave 0 (`backend/tests/test_reference_backfill.py`) |
 | SC#3 | Capture guide documented | manual | review `docs/` markdown deliverable exists with 촬영 조건/앵글/시점 수 | manual |
 | SC#4 | Single-view graceful + low confidence | unit | pytest: vertical-fallback `line=None` → force contact metrics return None + `pole_line_missing` warning (no crash); confidence flag set | ❌ Wave 0 |
 | D-02 verdict | Stored-sufficient vs hybrid correctness | unit | pytest: assert `measure_body_profile`/`compute_force_signals` raise/NaN when fed reconstructed-from-flat data, proving HYBRID necessity; assert EXTEND/meanAngles match from `angles` alone (STORED-SUFFICIENT) | ❌ Wave 0 |
@@ -373,76 +386,7 @@ batch.set(db.collection('reference').doc(motionId), docPayload, { merge: true })
 - **Phase gate:** full suite green + manual Firestore read of all 11 (4 fields each) + belle visual spot-check before any flip; full suite before `/gsd-verify-work`.
 
 ### Wave 0 Gaps
-- [ ] `backend/tests/test_reference_backfill.py` — covers SC#2 (compute equals student path), SC#4 (single-view graceful), D-02 verdict assertions
+- [ ] `backend/tests/test_reference_backfill.py` — covers SC#2 (compute equals student path + same preflight value), SC#4 (single-view graceful), D-02 verdict assertions
 - [ ] Firestore-read audit task (no GPU): list which of 11 already have body profile (resolves A2)
 - [ ] Extend `.mjs` seeder `--verify` to assert the 4 new fields on all 11
 - [ ] Capture-guide markdown skeleton (SC#3)
-- [ ] Pod env fail-fast check at backfill start (rtmlib/imageio/boto3 import)
-
-## Project Constraints (from CLAUDE.md)
-
-- **분석 정확도 최우선** — trade-offs favor analysis accuracy; cost floor = subscription level.
-- **이모지 금지 / 슬롭 코드 금지** in code and output.
-- **Backend IaC = AWS SAM**; Motion AI separate from sunity.ai EC2.
-- **시크릿 = AWS Parameter Store** (Lambda) / Pod env (`FIREBASE_SA_*`, `AWS_*`); `.env` 하드코딩 금지.
-- **Firestore nested-array 금지** → flat arrays + keys ([[firestore-nested-array-flat]]); **40k index-entry limit** ([[firestore-index-entry-limit]]).
-- **Korean** for user-facing copy + most comments; identifiers English. Cite specs in comments (`contract.md §3`, `D-02`, `[[memory]]`).
-- **Contract lockstep:** changing `reference/{motionId}` shape requires `docs/contract.md` + `app/src/types/analysis.ts` (+ Python models if applicable) updated together.
-- **Pod ops = Claude runs; flip = belle approves** ([[pod-ops-claude-runs]]). Commit→push before Pod work ([[gsd-pod-work-push-first]]).
-- **No human score labeling** as ground truth ([[analysis-objectivity-no-human-scores]]) — threshold numbers OK.
-
-## Security Domain
-
-> `security_enforcement` absent in config.json (treated as enabled). This is an admin-CLI/data-backfill phase with no new public surface.
-
-### Applicable ASVS Categories
-| ASVS Category | Applies | Standard Control |
-|---------------|---------|-----------------|
-| V2 Authentication | no | Admin CLI run by operator; Firebase Admin SDK via ADC/SA key |
-| V3 Session | no | — |
-| V4 Access Control | yes | Firebase Admin SDK bypasses rules by design (server-side only); SA key never logged (`reprocess_*` T-04-W5-01) |
-| V5 Input Validation | yes | `.mjs` validates required fields + nested-array rejection; Python schema gate (`_validate_payload_schema` pattern) |
-| V6 Cryptography | no | No new crypto; reuse presigned/SA mechanisms |
-
-### Known Threat Patterns
-| Pattern | STRIDE | Standard Mitigation |
-|---------|--------|---------------------|
-| Secret/SA key in logs | Information Disclosure | Log keys-not-values (`reprocess_*` precedent T-04-W5-01) |
-| Partial backfill flips active state | Tampering/DoS | Idempotent merge of ADD-only fields; never flip active phase4_v1; all-or-nothing gate if a `versions/` write is chosen |
-| Wrong-ecosystem / corrupted fixture seeded | Tampering | `--dry-run` + required-field validation before commit; verify-read after |
-
-## Sources
-
-### Primary (HIGH confidence)
-- `backend/functions/pipeline/app.py:1135-1207` (`_extract_video_analysis_inputs`), `1510-1936` (`_process` downstream order, force/EXTEND/body wiring), `1617-1715` (mode1 reference reads)
-- `backend/shared/python/sunity_shared/analysis/pose_frame.py:204-354` (PoseFrame fields, `to_coco17_array`)
-- `backend/shared/python/sunity_shared/analysis/body_normalization_measurer.py:78-110,212-298` (`measure_body_profile` reads raw keypoints_3d)
-- `backend/shared/python/sunity_shared/analysis/technique.py:39-114` (EXTEND, FallbackRecognizer angles-only)
-- `backend/shared/python/sunity_shared/analysis/force_signals.py:495-505,898-1157,1221-1280,1443-1542,1579-1689` (force inputs)
-- `backend/shared/python/sunity_shared/analysis/force_pattern.py:156-340,642-666` (inference consumes only report)
-- `backend/scripts/reprocess_reference_motions_phase4.py` (phase4_v1 write payload, versioned write, flip/mirror, rollback)
-- `backend/scripts/extract_reference_body_profiles.py` (Phase 6 Pod-side re-inference precedent)
-- `app/scripts/seed-reference-body-profile.mjs` (atomic merge, dry-run, idempotent, nested-array rejection)
-- `app/src/lib/referenceMotions.ts:38-70` (`deriveMeanAngles`, defensive normalize)
-- `docs/contract.md` §3 ReferenceMotion (current field set — no force/EXTEND/meanAngles)
-- `.planning/phases/14-reference-motion-registration/14-CONTEXT.md` (D-01..D-05, authoritative)
-
-### Secondary (MEDIUM confidence)
-- Memory [[reference-library-phase4-all11]] (11 motion IDs, default-5 trap, index exemption applied)
-- Memory [[firestore-index-entry-limit]] (40k limit, exemption mechanism)
-- Memory [[runpod-gpu-env]] / [[rtmw-blackwell-lean-bootstrap]] (Pod env, rtmlib lean stack)
-
-### Tertiary (LOW confidence)
-- None — all claims traced to source or project memory.
-
-## Metadata
-
-**Confidence breakdown:**
-- D-02 verdict (stored-sufficient vs hybrid): HIGH — traced exact consumed inputs vs exact stored payload, line-level.
-- Standard stack (reuse-only): HIGH — every function is the one `_process` calls; no new packages.
-- Architecture/backfill shape: HIGH — Phase 6 precedent directly extensible.
-- Body-profile coverage of 6 later motions: MEDIUM — inferred from extractor default; Wave-0 read resolves.
-- EXTEND recognizer choice: MEDIUM — Fallback recommended, Gemini possible (ASSUMED A1).
-
-**Research date:** 2026-06-15
-**Valid until:** 2026-07-15 (stable; reference set + pipeline functions unlikely to shift unless Phase 15 changes consumption)

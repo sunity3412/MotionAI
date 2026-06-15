@@ -46,7 +46,7 @@ function parseArgs(argv) {
   const out = { confirm: false, motions: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--confirm') out.confirm = true;
-    else if (argv[i] === '--motions' && i + 1 < argv.length) { out.motions = argv[i + 1].split(','); i++; }
+    else if (argv[i] === '--motions' && i + 1 < argv.length) { out.motions = argv[i + 1].split(',').map((s) => s.trim()).filter(Boolean); i++; }
     else if (argv[i] === '--help' || argv[i] === '-h') {
       console.log('Usage: node scripts/rollback-reference-downstream.mjs [--confirm] [--motions a,b]');
       process.exit(0);

@@ -20,7 +20,8 @@
   `pose_frames` (raw keypoints_3d + confidence) 를 얻기 위함이며, 이것은
   BodyNormalizationProfile + ForceDirectionPattern 만 소비한다 (phase4_v1 엔 raw
   keypoint/confidence 가 없음). 재추론 angles 는 검증 전용 — stored-vs-rerun 각도
-  integrity gate 가 발산 시 (maxAngleDelta > EPSILON_DEG) 전체 seed 를 중단한다 (R1).
+  integrity gate 가 발산 시 (meanAngleDelta > MEAN_EPSILON_DEG OR p99 > P99_EPSILON_DEG —
+  robust, RTMW transient spike 허용) 전체 seed 를 중단한다 (R1).
 
 실행 (Pod, `-m` 미사용):
   # 1) 먼저 credential + 11-doc completeness gate (no S3/RTMW). 14-03 Task 1 이 호출.
@@ -113,8 +114,18 @@ REFERENCE_V1_FORCE_CONFIG: dict = {
     "forceMotionId": None,
 }
 
-# stored-vs-rerun 각도 integrity gate 임계 (R1). 1.0 deg 초과 → 전체 seed 중단.
-EPSILON_DEG = 1.0
+# stored-vs-rerun 각도 integrity gate 임계 (R1) — ROBUST 버전.
+# RTMW 는 길고 복잡한(가림/모호한) 동작의 일부 프레임에서 비결정적이다 — 동일 영상·동일
+# 코드인데도 ref-combo 가 한 실행 23.43° → 다음 실행 0.193° (단일 프레임 keypoint L/R
+# swap 류). MAX 단일 프레임 게이트는 이 transient spike 에 걸려 매 실행 다른 motion 이
+# 랜덤 실패한다 (11/11 동시 통과가 운에 의존). 따라서 gate 는 SYSTEMATIC shift 만 본다:
+#   · meanAngleDelta > MEAN_EPSILON_DEG  (전체 평균 이동 = 진짜 pose-version 변화)
+#   · p99AngleDelta  > P99_EPSILON_DEG   (분위 99%까지 이동 = 산발적 spike 가 아님)
+# transient single-frame spike (mean≈0, p99≈0, max 만 큼) 는 허용 — 학생 _process 도
+# 같은 RTMW 로 같은 프레임 모호성을 겪으므로 일관적이다. 진단용 maxAngleDelta 는 계속 기록.
+# 향후 신규 전문가/동작에도 일관 동작 (belle 2026-06-15 robust gate 결정).
+MEAN_EPSILON_DEG = 0.1
+P99_EPSILON_DEG = 1.0
 
 # 백필 re-inference 의 frame-extraction fps. phase4_v1 active angles 는
 # reprocess_reference_motions_phase4.py --target-fps 18.0 ("pipeline 정합") 로 생성됐다
@@ -522,21 +533,29 @@ def _process_one(
     diff = np.abs(stored_angles - rerun_angles)
     max_delta = float(np.nanmax(diff)) if diff.size else 0.0
     mean_delta = float(np.nanmean(diff)) if diff.size else 0.0
+    p99_delta = float(np.nanpercentile(diff, 99)) if diff.size else 0.0
     rerun_hash = _sha256_angles(rerun_angles)
     # 진단 로깅 — divergence 가 단일 프레임 spike(예: L/R flip) 인지 pervasive 인지 분류용.
     if diff.size:
         p95 = float(np.nanpercentile(diff, 95))
-        p99 = float(np.nanpercentile(diff, 99))
-        over1 = int(np.count_nonzero(diff > EPSILON_DEG))
+        over1 = int(np.count_nonzero(diff > 1.0))
         fi, ji = (int(x) for x in np.unravel_index(int(np.nanargmax(diff)), diff.shape))
         log.info(
             "[%s] angle-delta diag: max=%.3f mean=%.4f p95=%.3f p99=%.3f over1deg=%d/%d argmax=(frame=%d,joint=%d)",
-            motion_id, max_delta, mean_delta, p95, p99, over1, diff.size, fi, ji,
+            motion_id, max_delta, mean_delta, p95, p99_delta, over1, diff.size, fi, ji,
         )
-    if not math.isfinite(max_delta) or max_delta > EPSILON_DEG:
+    # ROBUST gate (R1) — systematic shift 만 차단, RTMW transient single-frame spike 허용.
+    gate_failed = (
+        not math.isfinite(mean_delta)
+        or not math.isfinite(p99_delta)
+        or mean_delta > MEAN_EPSILON_DEG
+        or p99_delta > P99_EPSILON_DEG
+    )
+    if gate_failed:
         raise RuntimeError(
-            f"[{motion_id}] stored-vs-rerun angle gate 실패 — maxAngleDelta={max_delta} "
-            f"> EPSILON_DEG={EPSILON_DEG} (pose-version 재검증 문제, derived-field 백필 X). "
+            f"[{motion_id}] stored-vs-rerun angle gate 실패 — meanAngleDelta={mean_delta:.4f} "
+            f"(>{MEAN_EPSILON_DEG}) 또는 p99AngleDelta={p99_delta:.3f} (>{P99_EPSILON_DEG}); "
+            f"maxAngleDelta={max_delta:.3f} (참고). pose-version 재검증 문제 — derived-field 백필 X, "
             f"전체 real seed 중단 (R1)."
         )
 
@@ -561,6 +580,7 @@ def _process_one(
             "anglesFrames": rerun_frames,
             "maxAngleDelta": max_delta,
             "meanAngleDelta": mean_delta,
+            "p99AngleDelta": p99_delta,
             # DEFERRED 결정: raw forceSignalsReport 를 Firestore 에 persist 할지는
             # 미정 — 현재는 diagnostics summary 만 (artifact-only).
         }

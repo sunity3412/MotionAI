@@ -20,6 +20,11 @@ _LAYER = Path(__file__).resolve().parents[1] / "shared" / "python"
 if str(_LAYER) not in sys.path:
     sys.path.insert(0, str(_LAYER))
 
+# pipeline app.py import 경로 (coach-context seam 검증용 — wiring test 패턴 정합).
+_PIPELINE_DIR = Path(__file__).resolve().parents[1] / "functions" / "pipeline"
+if str(_PIPELINE_DIR) not in sys.path:
+    sys.path.insert(0, str(_PIPELINE_DIR))
+
 from sunity_shared import models  # noqa: E402
 
 
@@ -110,3 +115,70 @@ class TestNormalizeBodyProfile:
             "painAreas": ["shoulder", "wrist"],
             "dominantHand": "right",
         }
+
+
+# ─────────────────── _build_coach_context (D-04 seam) ───────────────────
+
+
+def _mk_assessments():
+    """kismam.top_issues 가 .key/.label_ko/.deviation_deg/.direction 박힌 객체를
+    받도록 JointAssessment list 박제 (test_pipeline_geminib_wiring 패턴 정합)."""
+    from sunity_shared.analysis.kismam import JointAssessment
+
+    return [
+        JointAssessment(
+            key="left_elbow",
+            label_ko="왼팔꿈치",
+            score=70,
+            deviation_deg=23.0,
+            part="상체",
+            direction="extend",
+        ),
+    ]
+
+
+class TestCoachContextBodyProfileSeam:
+    def test_body_profile_none_graceful(self) -> None:
+        # SC#4 — body_profile 없어도 crash 없이 "bodyProfile" 키 None 포함.
+        pipeline_app = pytest.importorskip("app")
+        ctx = pipeline_app._build_coach_context(
+            mode=models.MODE_SELF,
+            assessments=_mk_assessments(),
+            dim_scores=None,
+            local_video_path=None,
+            scene_flags=None,
+            body_profile=None,
+        )
+        assert "bodyProfile" in ctx
+        assert ctx["bodyProfile"] is None
+
+    def test_body_profile_dict_echoed(self) -> None:
+        pipeline_app = pytest.importorskip("app")
+        profile = {
+            "heightCm": 165,
+            "weightKg": None,
+            "experience": "intermediate",
+            "painAreas": ["shoulder"],
+            "dominantHand": "right",
+        }
+        ctx = pipeline_app._build_coach_context(
+            mode=models.MODE_EXPERT,
+            assessments=_mk_assessments(),
+            dim_scores=None,
+            local_video_path=None,
+            scene_flags=None,
+            body_profile=profile,
+        )
+        assert ctx["bodyProfile"] == profile
+
+    def test_body_profile_kwarg_defaults_to_none(self) -> None:
+        # body_profile 인자 생략 시에도 graceful (기본값 None, 키 존재).
+        pipeline_app = pytest.importorskip("app")
+        ctx = pipeline_app._build_coach_context(
+            mode=models.MODE_SELF,
+            assessments=_mk_assessments(),
+            dim_scores=None,
+            local_video_path=None,
+            scene_flags=None,
+        )
+        assert ctx["bodyProfile"] is None

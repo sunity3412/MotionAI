@@ -742,6 +742,7 @@ def _build_coach_context(
     dim_scores: dict | None,
     local_video_path: str | None,
     scene_flags: dict | None,
+    body_profile: dict | None = None,
 ) -> dict:
     """Cerebras / Gemini 양 writer 가 공유하는 단일 coach_context dict 박제 (B3 정합).
 
@@ -776,6 +777,11 @@ def _build_coach_context(
         "videoPath": local_video_path,
         "dimensionScores": dim_scores,
         "sceneFlags": scene_flags,
+        # Phase 3 (Plan 03-01, D-04) — 자가입력 컨텍스트 훅. Phase 13 LLM 이 소비
+        # (통증부위 회피·경력별 톤). 현 writer 는 context.get("joints") 만 박제하므로
+        # 신규 키 graceful 무시 (위 docstring 748-751 정합 — zero behavior change).
+        # weightKg 보조 ONLY (D-05) — 점수 경로 진입 금지, coach context 전달만 허용.
+        "bodyProfile": body_profile,
     }
 
 
@@ -1816,6 +1822,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             dim_scores=dimension_scores,
             local_video_path=local_video_path,
             scene_flags=scene_result,
+            # Phase 3 (Plan 03-01, D-04) — analysis doc 에 snapshot 된 자가입력
+            # 프로필을 meta free-read (referenceMotionId 와 동일 메커니즘). server
+            # normalize_body_profile 로 unknown enum/범위 밖 → None graceful (SC#4).
+            body_profile=models.normalize_body_profile(meta.get("bodyProfile")),
         )
         gemini_b_audit: dict | None = None
         if _coach_enabled():

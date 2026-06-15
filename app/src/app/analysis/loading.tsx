@@ -15,6 +15,7 @@ import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-nati
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { requestUploadUrl, uploadToS3 } from '../../lib/api';
+import { getBodyProfileOnce } from '../../lib/bodyProfile';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
 import {
   type AnalysisErrorCode,
@@ -97,6 +98,14 @@ async function startAnalysisUpload(input: UploadInput): Promise<string> {
   //    mode1 의 referenceMotionId 는 백엔드 pipeline 이 reference 모션을
   //    Firestore 에서 찾을 때 사용 (meta.get("referenceMotionId")). 이걸 빠뜨리면
   //    백엔드가 None 으로 받아 RuntimeError("기준 모션 또는 keyframe 데이터 없음").
+  // Phase 3 (Plan 03-01, R1/R5) — 분석-당시 자가입력 프로필 SNAPSHOT.
+  //   · getBodyProfileOnce() = client normalize + all-empty→null 규칙 박제.
+  //     raw getDoc spread 금지 (오래된/dev-console 수정 raw 오염 차단, R5).
+  //   · live cross-read 아니라 snapshot-at-creation — 이후 라이브 프로필이
+  //     바뀌어도 이 분석 결과는 당시 값을 유지 (결과 화면 재현성).
+  //   · null 이면 spread 안 함 (graceful + snapshot 생략). painAreas 는
+  //     top-level scalar array 라 nested-array 위반 없음 (Pitfall 7).
+  const bodyProfile = await getBodyProfileOnce();
   const now = Date.now();
   await setDoc(doc(db, 'users', uid, 'analyses', analysisId), {
     analysisId,
@@ -108,6 +117,7 @@ async function startAnalysisUpload(input: UploadInput): Promise<string> {
     ...(input.referenceMotionId
       ? { referenceMotionId: input.referenceMotionId }
       : {}),
+    ...(bodyProfile ? { bodyProfile } : {}),
   });
 
   // 3) S3 PUT — 끝나면 S3 ObjectCreated 가 SQS → Lambda → RunPod 위임을 트리거.

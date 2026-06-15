@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useReferenceMotion } from '../../lib/referenceMotions';
@@ -66,6 +66,11 @@ export default function Analyze() {
   const [pendingPicked, setPendingPicked] = useState<Picked | null>(null);
   const [promptVisible, setPromptVisible] = useState(false);
   const [formVisible, setFormVisible] = useState(false); // [입력하기] → 폼 진입
+  // [WR-04] 세션-로컬 재권유 차단. dismissBodyProfilePrompt 의 영속 write 가
+  // 실패해도(오프라인 게스트·rules transient) promptDismissedAt 가 안 남아 매
+  // 첫-pick 마다 모달이 다시 뜨는 것을 방지 — 한 번 권유를 처리한 세션 안에서는
+  // 영속 결과와 무관하게 모달을 다시 띄우지 않는다 (재권유 0, D-06 graceful).
+  const promptedThisSession = useRef(false);
 
   // belle UAT 2026-06-12 F1 — 홈 챌린지 카드에서 진입 시 모드 선택 화면이 떴음.
   // useState initial 만으로는 mount 후 referenceMotionId 가 늦게 들어오거나
@@ -148,6 +153,11 @@ export default function Analyze() {
       routeAfterPick(picked);
       return;
     }
+    // [WR-04] 이 세션에서 이미 권유를 처리했으면(영속 dismiss 실패 포함) 재출현 X.
+    if (promptedThisSession.current) {
+      routeAfterPick(picked);
+      return;
+    }
     const notEntered = profile === null;
     const notDismissed = promptDismissedAt == null;
     if (notEntered && notDismissed) {
@@ -170,6 +180,9 @@ export default function Analyze() {
 
   // [건너뛰기 / 백드롭 / native back] → once-flag 세팅 후 분석 계속 (재권유 0, D-06).
   const skipPrompt = async () => {
+    // [WR-04] 영속 write 보다 먼저 세션 flag 를 세워 둔다 — dismiss 가 실패해도
+    // 이 세션 안에서는 모달이 다시 뜨지 않도록 (재권유 0 보장의 in-memory 폴백).
+    promptedThisSession.current = true;
     try {
       await dismissBodyProfilePrompt();
     } catch {

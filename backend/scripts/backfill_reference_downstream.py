@@ -116,6 +116,16 @@ REFERENCE_V1_FORCE_CONFIG: dict = {
 # stored-vs-rerun 각도 integrity gate 임계 (R1). 1.0 deg 초과 → 전체 seed 중단.
 EPSILON_DEG = 1.0
 
+# 백필 re-inference 의 frame-extraction fps. phase4_v1 active angles 는
+# reprocess_reference_motions_phase4.py --target-fps 18.0 ("pipeline 정합") 로 생성됐다
+# (예: ref-climb anglesFrames=257). 백필 rerun 이 9fps 면 frame 수가 어긋나(≈172)
+# stored-vs-rerun angle gate (R1) 가 항상 frame-count mismatch 로 abort 한다.
+# 따라서 rerun 은 phase4_v1 과 동일한 18fps 로 추출해야 gate 가 정렬되고,
+# body/force 필드도 stored pose 와 같은 frame 기반으로 산출된다.
+# (학생 _process 는 FfmpegFrameExtractor() 기본 9fps — reference(18) vs student(9) 의
+#  fps 차이는 Phase 14 가 만든 게 아닌 기존 조건이며 Mode 1 비교 정합은 Phase 15 의 몫.)
+REFERENCE_TARGET_FPS = 18.0
+
 # 단일시점 baseline (D-03) — 모든 motion captureViews=1.
 DEFAULT_CAPTURE_VIEWS = 1
 
@@ -525,7 +535,7 @@ def _process_one(
         pose_frames,
         pole_axis_measurement=pole_meas,
         angles=stored_angles,  # R1 — STORED, 재추론 angles 아님.
-        fps=9.0,
+        fps=REFERENCE_TARGET_FPS,  # phase4_v1 정합 (18fps) — 추출 fps 와 일치.
         motion_id=motion_id,
         mode_context="mode1",
         force_config=REFERENCE_V1_FORCE_CONFIG,
@@ -597,7 +607,8 @@ def _run_backfill(args, motion_ids: list[str]) -> int:
     )
 
     s3 = _boto3.client("s3", region_name=region)
-    extractor = FfmpegFrameExtractor()
+    # phase4_v1 정합 — 18fps 추출 (stored anglesFrames 와 frame 정렬, R1 gate 통과).
+    extractor = FfmpegFrameExtractor(target_fps=REFERENCE_TARGET_FPS)
     rtmw_engine = RTMWPoseEngine()
 
     log.info(

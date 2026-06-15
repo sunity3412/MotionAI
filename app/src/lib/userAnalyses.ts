@@ -16,6 +16,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { auth, db } from './firebase';
+import { normalizeBodyProfile } from './bodyProfile';
 import type { AnalysisDoc, AnalysisStatus } from '../types/analysis';
 
 export interface UserAnalysesState {
@@ -224,6 +225,12 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
     updatedAt,
     error: raw.error as AnalysisDoc['error'],
     result,
+    // Phase 3 (Plan 03-01, R1) — 분석-당시 자가입력 SNAPSHOT 보존. 같은 단일
+    // normalizer(bodyProfile.ts)로 graceful 정규화 → 결과 화면이
+    // storedDoc?.bodyProfile 로 snapshot 을 읽음 (live 프로필 아님, 재현성).
+    bodyProfile: normalizeBodyProfile(
+      raw.bodyProfile as Record<string, unknown> | undefined,
+    ),
   };
 }
 

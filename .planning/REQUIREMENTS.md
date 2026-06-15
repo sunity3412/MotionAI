@@ -69,7 +69,7 @@
 
 ### 기준 모션 (Reference)
 
-- [ ] **REF-01**: 정은지 기준 모션을 다각도 캡처 프로토콜에 따라 등록할 수 있고, 등록 경로는 비교 분석 정확도가 최대화되는 방식(촬영 조건/앵글 통제 + BodyNormalizationProfile·EXTEND·ForceDirectionPattern 포함)으로 설계된다
+- [x] **REF-01**: 정은지 기준 모션을 다각도 캡처 프로토콜에 따라 등록할 수 있고, 등록 경로는 비교 분석 정확도가 최대화되는 방식(촬영 조건/앵글 통제 + BodyNormalizationProfile·EXTEND·ForceDirectionPattern 포함)으로 설계된다 (Phase 14 완료 2026-06-15 — 11/11 reference 백필 + active pose 불변 증명)
 
 ### 전달 (Delivery)
 
@@ -165,7 +165,7 @@
 | FEED-01 | Phase 12 | Pending |
 | VIS-01 | Phase 12 | Pending |
 | PERS-03 | Phase 13 | Pending |
-| REF-01 | Phase 14 | Pending |
+| REF-01 | Phase 14 | Complete |
 | MODE-01 | Phase 15 | Pending |
 | MODE-02 | Phase 15 | Pending |
 | SCORE-04 | Phase 15 | Pending |

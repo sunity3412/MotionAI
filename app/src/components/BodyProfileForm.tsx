@@ -32,6 +32,11 @@ import type {
   ExperienceLevel,
   PainArea,
 } from '../types/analysis';
+import {
+  DOMINANT_HAND_LABEL_KO,
+  EXPERIENCE_LABEL_KO,
+  PAIN_AREA_LABEL_KO,
+} from '../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../theme';
 
 // height/weight 합리적 범위 (bodyProfile.ts / models.normalize_body_profile 와 동일 — 이중 검증).
@@ -40,32 +45,21 @@ const HEIGHT_CM_MAX = 250;
 const WEIGHT_KG_MIN = 25;
 const WEIGHT_KG_MAX = 200;
 
-// 경력 옵션 (analysis.ts ExperienceLevel union 정합).
-const EXPERIENCE_OPTIONS: ReadonlyArray<{ value: ExperienceLevel; label: string }> = [
-  { value: 'beginner', label: '초급' },
-  { value: 'intermediate', label: '중급' },
-  { value: 'advanced', label: '고급' },
-];
+// [WR-03] 표시 순서만 여기서 정하고 라벨은 analysis.ts 단일 출처(*_LABEL_KO)에서
+// 끌어 쓴다 — union 멤버 추가 시 라벨 누락이 빌드에서 막힌다. value 배열은
+// 화면 노출 순서 정의용 (닫힌 union, 자유텍스트 불가, D-03).
+const EXPERIENCE_OPTIONS: ReadonlyArray<{ value: ExperienceLevel; label: string }> = (
+  ['beginner', 'intermediate', 'advanced'] as const
+).map((value) => ({ value, label: EXPERIENCE_LABEL_KO[value] }));
 
-// 우세손 옵션 (analysis.ts DominantHand union 정합).
-const HAND_OPTIONS: ReadonlyArray<{ value: DominantHand; label: string }> = [
-  { value: 'left', label: '왼손' },
-  { value: 'right', label: '오른손' },
-  { value: 'both', label: '양손' },
-];
+const HAND_OPTIONS: ReadonlyArray<{ value: DominantHand; label: string }> = (
+  ['left', 'right', 'both'] as const
+).map((value) => ({ value, label: DOMINANT_HAND_LABEL_KO[value] }));
 
-// 통증부위 KO 라벨 — 폴스포츠 고하중 관절 (analysis.ts PainArea union /
-// docs/research/폴스포츠-지식.md 정합). 자유텍스트 불가 (닫힌 union, D-03).
-const PAIN_AREA_OPTIONS: ReadonlyArray<{ value: PainArea; label: string }> = [
-  { value: 'shoulder', label: '어깨' },
-  { value: 'wrist', label: '손목' },
-  { value: 'lower_back', label: '허리' },
-  { value: 'knee', label: '무릎' },
-  { value: 'ankle', label: '발목' },
-  { value: 'neck', label: '목' },
-  { value: 'hip', label: '고관절' },
-  { value: 'elbow', label: '팔꿈치' },
-];
+// 통증부위 — 폴스포츠 고하중 관절 (docs/research/폴스포츠-지식.md 정합).
+const PAIN_AREA_OPTIONS: ReadonlyArray<{ value: PainArea; label: string }> = (
+  ['shoulder', 'wrist', 'lower_back', 'knee', 'ankle', 'neck', 'hip', 'elbow'] as const
+).map((value) => ({ value, label: PAIN_AREA_LABEL_KO[value] }));
 
 type Props = {
   initial?: BodyProfile | null;

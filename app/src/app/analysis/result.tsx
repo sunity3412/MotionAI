@@ -38,6 +38,9 @@ import {
   DIMENSION_LABEL_KO,
   DIMENSION_ORDER,
   DIMENSION_SUBLABEL_KO,
+  DOMINANT_HAND_LABEL_KO,
+  EXPERIENCE_LABEL_KO,
+  PAIN_AREA_LABEL_KO,
 } from '../../types/analysis';
 import type {
   AnalysisMode,
@@ -45,13 +48,10 @@ import type {
   BodyProfile,
   CoachingTip,
   DimensionExplanation,
-  DominantHand,
-  ExperienceLevel,
   ForcePatternFinding,
   JointDirection,
   JointScore,
   KeypointReport,
-  PainArea,
   ScoreDimension,
   SegmentScores,
   SkillLevel,
@@ -67,41 +67,20 @@ const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
 
 const LEVEL_ORDER: SkillLevel[] = ['basic', 'intermediate', 'advanced'];
 
-// [R1] BodyProfile snapshot 요약 라벨 (analysis.ts union / BodyProfileForm 정합).
-// 결과 화면은 분석-당시 SNAPSHOT(storedDoc.bodyProfile)을 source-of-truth 로
-// 표기 — live useBodyProfile 아님 (재현성). weightKg 는 보조 ONLY (D-05) 라
-// 요약에 포함하지 않는다 (점수 경로 무관 + 표기 노이즈 방지).
-const BODY_EXPERIENCE_LABEL: Record<ExperienceLevel, string> = {
-  beginner: '초급',
-  intermediate: '중급',
-  advanced: '고급',
-};
-const BODY_HAND_LABEL: Record<DominantHand, string> = {
-  left: '왼손',
-  right: '오른손',
-  both: '양손',
-};
-const BODY_PAIN_AREA_LABEL: Record<PainArea, string> = {
-  shoulder: '어깨',
-  wrist: '손목',
-  lower_back: '허리',
-  knee: '무릎',
-  ankle: '발목',
-  neck: '목',
-  hip: '고관절',
-  elbow: '팔꿈치',
-};
-
+// [R1] BodyProfile snapshot 요약 — 결과 화면은 분석-당시 SNAPSHOT(storedDoc.
+// bodyProfile)을 source-of-truth 로 표기(재현성, live useBodyProfile 아님).
+// weightKg 는 보조 ONLY (D-05) 라 요약에서 제외(점수 경로 무관 + 표기 노이즈 방지).
+// 라벨은 analysis.ts 단일 출처(WR-03) — *_LABEL_KO 사용.
 // 채워진 필드만 "·" 로 묶어 요약 (부분 입력 graceful). 전부 비면 null → 표기 생략.
 function summarizeBodyProfile(profile: BodyProfile | null | undefined): string | null {
   if (!profile) return null;
   const parts: string[] = [];
   if (profile.heightCm != null) parts.push(`키 ${profile.heightCm}cm`);
-  if (profile.experience) parts.push(`경력 ${BODY_EXPERIENCE_LABEL[profile.experience]}`);
-  if (profile.dominantHand) parts.push(`우세손 ${BODY_HAND_LABEL[profile.dominantHand]}`);
+  if (profile.experience) parts.push(`경력 ${EXPERIENCE_LABEL_KO[profile.experience]}`);
+  if (profile.dominantHand) parts.push(`우세손 ${DOMINANT_HAND_LABEL_KO[profile.dominantHand]}`);
   if (profile.painAreas.length > 0) {
     parts.push(
-      `통증 ${profile.painAreas.map((a) => BODY_PAIN_AREA_LABEL[a]).join('·')}`,
+      `통증 ${profile.painAreas.map((a) => PAIN_AREA_LABEL_KO[a]).join('·')}`,
     );
   }
   return parts.length > 0 ? parts.join(' · ') : null;

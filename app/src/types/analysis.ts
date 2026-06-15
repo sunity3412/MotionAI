@@ -43,6 +43,34 @@ export interface BodyProfile {
   promptDismissedAt?: number; // 03-03 첫 분석 권유 모달 once-flag
 }
 
+// [WR-03] BodyProfile enum → KO 라벨 단일 출처 (DIMENSION_LABEL_KO 와 동일 패턴).
+// profile.tsx / result.tsx / BodyProfileForm.tsx 가 동일 매핑을 각자 복제하면
+// union 멤버 추가 시 한 곳을 놓쳐도 컴파일이 안 막히고 undefined 가 렌더된다.
+// Record<Union, string> 로 여기 한 곳에 두면 멤버 추가 시 모든 소비처가 빌드에서
+// 강제로 갱신된다 (라벨 lockstep). BodyProfileForm 의 옵션 배열은 표시 순서가
+// 필요해 이 맵에서 label 을 끌어 쓰되 value 순서는 자체 배열로 유지한다.
+export const EXPERIENCE_LABEL_KO: Record<ExperienceLevel, string> = {
+  beginner: '초급',
+  intermediate: '중급',
+  advanced: '고급',
+};
+export const DOMINANT_HAND_LABEL_KO: Record<DominantHand, string> = {
+  left: '왼손',
+  right: '오른손',
+  both: '양손',
+};
+// 폴스포츠 고하중 관절 KO 라벨 (docs/research/폴스포츠-지식.md 정합).
+export const PAIN_AREA_LABEL_KO: Record<PainArea, string> = {
+  shoulder: '어깨',
+  wrist: '손목',
+  lower_back: '허리',
+  knee: '무릎',
+  ankle: '발목',
+  neck: '목',
+  hip: '고관절',
+  elbow: '팔꿈치',
+};
+
 // ── 1. 업로드 URL 발급 (POST /upload-url) ──────────────────────────────
 // 앱이 S3에 직접 PUT 하기 위한 presigned URL 요청. (Lambda 경유 업로드 금지)
 export interface UploadUrlRequest {

@@ -14,12 +14,11 @@ import { auth } from '../../lib/firebase';
 import { useMyAnalyses } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
 import BodyProfileForm from '../../components/BodyProfileForm';
-import type {
-  AnalysisDoc,
-  BodyProfile,
-  DominantHand,
-  ExperienceLevel,
-  PainArea,
+import type { AnalysisDoc, BodyProfile } from '../../types/analysis';
+import {
+  DOMINANT_HAND_LABEL_KO,
+  EXPERIENCE_LABEL_KO,
+  PAIN_AREA_LABEL_KO,
 } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
@@ -38,37 +37,16 @@ function shortenUid(uid: string): string {
   return uid.length <= 8 ? uid : `${uid.slice(0, 4)}…${uid.slice(-4)}`;
 }
 
-// BodyProfile 요약 라벨 (analysis.ts union 정합, BodyProfileForm 과 동일 KO 매핑).
-const EXPERIENCE_LABEL: Record<ExperienceLevel, string> = {
-  beginner: '초급',
-  intermediate: '중급',
-  advanced: '고급',
-};
-const HAND_LABEL: Record<DominantHand, string> = {
-  left: '왼손',
-  right: '오른손',
-  both: '양손',
-};
-const PAIN_AREA_LABEL: Record<PainArea, string> = {
-  shoulder: '어깨',
-  wrist: '손목',
-  lower_back: '허리',
-  knee: '무릎',
-  ankle: '발목',
-  neck: '목',
-  hip: '고관절',
-  elbow: '팔꿈치',
-};
-
 // 채워진 필드만 "·" 로 묶어 요약 (부분 입력 graceful, D-06). 전부 비면 null.
+// 라벨은 analysis.ts 단일 출처(WR-03) — *_LABEL_KO 사용.
 function summarizeBodyProfile(profile: BodyProfile | null): string | null {
   if (!profile) return null;
   const parts: string[] = [];
   if (profile.heightCm != null) parts.push(`${profile.heightCm}cm`);
-  if (profile.experience) parts.push(EXPERIENCE_LABEL[profile.experience]);
-  if (profile.dominantHand) parts.push(HAND_LABEL[profile.dominantHand]);
+  if (profile.experience) parts.push(EXPERIENCE_LABEL_KO[profile.experience]);
+  if (profile.dominantHand) parts.push(DOMINANT_HAND_LABEL_KO[profile.dominantHand]);
   if (profile.painAreas.length > 0) {
-    parts.push(profile.painAreas.map((a) => PAIN_AREA_LABEL[a]).join('·'));
+    parts.push(profile.painAreas.map((a) => PAIN_AREA_LABEL_KO[a]).join('·'));
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }

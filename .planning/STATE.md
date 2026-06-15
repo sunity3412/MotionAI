@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-06-15T02:39:56.247Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-06-15T02:46:55.144Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 14
   completed_phases: 11
   total_plans: 67
-  completed_plans: 65
+  completed_plans: 66
   percent: 79
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 03 (bodyprofileinput) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Verification: Wave 4 (04-04) — pytest backend/tests/phase04/test_video_gen_adapter.py 5 PASS / pytest backend/tests/phase04/ 36 PASS + 2 SKIP (Wave 3a 31 → +5) / pytest backend/tests/ 1704 PASS (regression 0, 기존 36 fail 불변) / import gate (VideoGenerationAdapter + OmniVertexAdapter + VeoAdapter + get_video_gen_adapter) PASS / grep SYNTHESIS_VIDEO_GEN_ENABLED hit / @runtime_checkable Protocol structural subtyping PASS / pipeline/app.py unchanged (D-31 정합 — last commit 2790f57 pre-Wave 4). Plan `<done>` 게이트 all PASS.
 Next: Wave 5 — 04-05 (정은지 5영상 Phase 4-compatible 재처리 + versioned/atomic write + rollback + test_evaluate_4way.py 하단 RunPod 통합 테스트 append). Wave 3b @integration (실 RTMW 재추론) 여전히 parked (RunPod 필요, phase blocker 아님).
 Status: Ready to execute
@@ -287,7 +287,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [██████████] 97%
+Progress: [██████████] 99%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -516,6 +516,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 04 P03 | ~20min | 2 tasks | 4 files |
 | Phase 04 P05 | 15 | 2 tasks | 4 files |
 | Phase 03 P01 | 9min | 3 tasks | 8 files |
+| Phase 03 P02 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -561,6 +562,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Wave 1 Plan 09-02: D-09-D6 mode_context inline (no helper) + R4 iter-3 two-tier axis warning + R4 None guard for pelvis_drop + R5 high_jitter wins tie-break + R11 conservative v1 cf cap when axis missing
 - [Phase ?]: (2026-06-15, Plan 03-01) BodyProfile 3-way 계약 lockstep + AnalysisDoc.bodyProfile snapshot — 결과 화면 재현성(R1), client+server 이중 normalize graceful(D-06).
 - [Phase 03]: (2026-06-15, Plan 03-01) weightKg 보조 ONLY — 6 scoring-consumer 모듈 grep gate 로 유입 차단 (D-05/R4). coach context(D-04)에만 전달.
+- [Phase ?]: 03-02: BodyProfileForm presentation = 전체화면 Modal(pageSheet), 신규 route 없이 재사용 component 유지
+- [Phase ?]: 03-02: Segmented 토글 해제 허용 (오선택 정정 + 부분입력 D-06)
 
 ### Pending Todos
 
@@ -592,9 +595,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-15T02:39:56.237Z
+Last session: 2026-06-15T02:46:55.134Z
 
-Stopped at: Completed 03-01-PLAN.md
+Stopped at: Completed 03-02-PLAN.md
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

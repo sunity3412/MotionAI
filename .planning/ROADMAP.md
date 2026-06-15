@@ -139,7 +139,7 @@ Plans:
 **Plans**: 3 plans (Wave 1~3 MVP vertical slices)
 Plans:
 - [x] 03-01-PLAN.md — Wave 1: thin E2E + 3-way BodyProfile 계약 lockstep (TS↔Python↔contract.md) + bodyProfile.ts hook + loading.tsx snapshot + pipeline coach seam (D-04) + D-05 weightKg grep gate + Wave 0 backend 테스트
-- [ ] 03-02-PLAN.md — Wave 2: BodyProfileForm (5필드 RN primitive + a11y + 토큰) + profile.tsx BodyProfileCard 상시 편집 진입점 (D-01/D-02/D-03)
+- [x] 03-02-PLAN.md — Wave 2: BodyProfileForm (5필드 RN primitive + a11y + 토큰) + profile.tsx BodyProfileCard 상시 편집 진입점 (D-01/D-02/D-03)
 - [ ] 03-03-PLAN.md — Wave 3: BodyProfilePromptModal dismissible 첫분석 권유 + analyze.tsx 게이트 + once-flag (D-01/D-06) + result.tsx BodyProfile 표기 (D-04)
 **UI hint**: yes
 
@@ -519,7 +519,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 |-------|----------------|--------|-----------|
 | 1. PoseEngine + RTMW + 폴 축 + NLF R&D 격리 | 21/24 | Sufficient (close-out) | 2026-06-07 (Plan 01-24 후속) |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 1/1 | Complete   | 2026-06-07 |
-| 3. 자가입력 BodyProfileInput | 1/3 | In Progress|  |
+| 3. 자가입력 BodyProfileInput | 2/3 | In Progress|  |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 6/6 | Complete   | 2026-06-14 |
 | 5. Gemini 기술 인식기 (분류 한정) | 6/6 | Complete | 2026-06-05 (12차 sweep D-01 PASS) |
 | 6. 체형 정규화 비교 엔진 | 3/3 | Complete   | 2026-06-08 |

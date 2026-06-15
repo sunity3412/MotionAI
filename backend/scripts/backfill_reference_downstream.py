@@ -196,6 +196,10 @@ def _dataclass_to_camel_dict(obj):
         return str(obj.value)
     if isinstance(obj, (list, tuple)):
         return [_dataclass_to_camel_dict(x) for x in obj]
+    if isinstance(obj, np.ndarray):
+        # WR-06 — dataclass 필드에 raw ndarray 가 leaf 로 섞이면 scalar fallback
+        # 으로 흘러 Firestore 직렬화/NaN 가드를 우회한다. list 로 명시 변환.
+        return [_dataclass_to_camel_dict(x) for x in obj.tolist()]
     if isinstance(obj, dict):
         return {_snake_to_camel(k): _dataclass_to_camel_dict(v) for k, v in obj.items()}
     if isinstance(obj, (np.floating,)):
@@ -531,6 +535,17 @@ def _process_one(
             f"(stored T={stored_angles.shape[0]} rerun T={rerun_angles.shape[0]})"
         )
     diff = np.abs(stored_angles - rerun_angles)
+    # WR-04 — NaN-coverage 게이트. nanmean/nanpercentile 은 stored/rerun 의 NaN
+    # 위치가 어긋난 element 를 조용히 무시하므로, joint column 단위로 NaN-coverage 가
+    # 갈라진 경우(예: stored 는 knee 있음, rerun 은 유실) robust 통계가 보지 못한다.
+    # 비교 가능한(non-NaN) element 비율이 낮으면 pose-version drift 로 보고 abort.
+    comparable = np.isfinite(diff)
+    coverage = float(comparable.mean()) if diff.size else 1.0
+    if coverage < 0.95:
+        raise RuntimeError(
+            f"[{motion_id}] angle gate — NaN coverage {coverage:.2%} < 95%, "
+            f"pose-version 재검증 필요 (stored/rerun NaN 위치 divergence)."
+        )
     max_delta = float(np.nanmax(diff)) if diff.size else 0.0
     mean_delta = float(np.nanmean(diff)) if diff.size else 0.0
     p99_delta = float(np.nanpercentile(diff, 99)) if diff.size else 0.0
@@ -599,8 +614,10 @@ def _process_one(
 
 def _has_nan_or_inf(obj) -> bool:
     """seedPayload 내부에 NaN/inf scalar 가 있으면 True (R5 all-or-nothing)."""
-    if isinstance(obj, float):
-        return not math.isfinite(obj)
+    # WR-02 — np.float32 등 float-비서브클래스 numpy scalar 도 명시 포함
+    # (np.float64 만 float subclass 라 우회될 수 있음).
+    if isinstance(obj, (float, np.floating)):
+        return not math.isfinite(float(obj))
     if isinstance(obj, dict):
         return any(_has_nan_or_inf(v) for v in obj.values())
     if isinstance(obj, (list, tuple)):

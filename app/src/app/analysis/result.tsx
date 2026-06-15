@@ -32,6 +32,7 @@ import { reshapePose3dData } from '../../lib/joints';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { getSimulatedResult } from '../../lib/simulatedResult';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
+import { useBodyProfile } from '../../lib/bodyProfile';
 import { requestPlaybackUrl } from '../../lib/api';
 import {
   DIMENSION_LABEL_KO,
@@ -41,12 +42,16 @@ import {
 import type {
   AnalysisMode,
   AnalysisResult,
+  BodyProfile,
   CoachingTip,
   DimensionExplanation,
+  DominantHand,
+  ExperienceLevel,
   ForcePatternFinding,
   JointDirection,
   JointScore,
   KeypointReport,
+  PainArea,
   ScoreDimension,
   SegmentScores,
   SkillLevel,
@@ -61,6 +66,46 @@ const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
 };
 
 const LEVEL_ORDER: SkillLevel[] = ['basic', 'intermediate', 'advanced'];
+
+// [R1] BodyProfile snapshot 요약 라벨 (analysis.ts union / BodyProfileForm 정합).
+// 결과 화면은 분석-당시 SNAPSHOT(storedDoc.bodyProfile)을 source-of-truth 로
+// 표기 — live useBodyProfile 아님 (재현성). weightKg 는 보조 ONLY (D-05) 라
+// 요약에 포함하지 않는다 (점수 경로 무관 + 표기 노이즈 방지).
+const BODY_EXPERIENCE_LABEL: Record<ExperienceLevel, string> = {
+  beginner: '초급',
+  intermediate: '중급',
+  advanced: '고급',
+};
+const BODY_HAND_LABEL: Record<DominantHand, string> = {
+  left: '왼손',
+  right: '오른손',
+  both: '양손',
+};
+const BODY_PAIN_AREA_LABEL: Record<PainArea, string> = {
+  shoulder: '어깨',
+  wrist: '손목',
+  lower_back: '허리',
+  knee: '무릎',
+  ankle: '발목',
+  neck: '목',
+  hip: '고관절',
+  elbow: '팔꿈치',
+};
+
+// 채워진 필드만 "·" 로 묶어 요약 (부분 입력 graceful). 전부 비면 null → 표기 생략.
+function summarizeBodyProfile(profile: BodyProfile | null | undefined): string | null {
+  if (!profile) return null;
+  const parts: string[] = [];
+  if (profile.heightCm != null) parts.push(`키 ${profile.heightCm}cm`);
+  if (profile.experience) parts.push(`경력 ${BODY_EXPERIENCE_LABEL[profile.experience]}`);
+  if (profile.dominantHand) parts.push(`우세손 ${BODY_HAND_LABEL[profile.dominantHand]}`);
+  if (profile.painAreas.length > 0) {
+    parts.push(
+      `통증 ${profile.painAreas.map((a) => BODY_PAIN_AREA_LABEL[a]).join('·')}`,
+    );
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
 
 // 백엔드 direction → 한국어 코칭 동사. 동적 큐(회전력)는 CoachingTip.detail 문장.
 const DIRECTION_LABEL: Record<JointDirection, string> = {
@@ -381,6 +426,16 @@ export default function AnalysisResult() {
     }>();
   // Firestore doc 가 권위 있는 소스. 없을 때만 시뮬 폴백(dev 안전망).
   const { doc: storedDoc } = useAnalysisDoc(analysisId);
+  // [R1] 결과 화면 BodyProfile 표기 = 분석-당시 SNAPSHOT (storedDoc.bodyProfile).
+  // live useBodyProfile 을 기본 소스로 쓰지 않는다 (분석 이후 프로필을 바꿔도
+  // 과거 결과 표기는 분석 당시 값으로 재현되어야 함). snapshot 이 없는 구 doc
+  // 에서만 live read 를 fallback 으로 허용.
+  const { profile: liveProfile } = useBodyProfile();
+  const bodyProfileSnapshot = storedDoc?.bodyProfile ?? liveProfile;
+  const bodyProfileSummary = useMemo(
+    () => summarizeBodyProfile(bodyProfileSnapshot),
+    [bodyProfileSnapshot],
+  );
   const analysisMode: AnalysisMode = mode === 'mode1' ? 'mode1' : 'mode3';
   const result: AnalysisResult = useMemo(() => {
     if (storedDoc?.result) return storedDoc.result;
@@ -613,6 +668,18 @@ export default function AnalysisResult() {
           <AccuracyLimitBadge
             visible={hasSynthesisWarning(result, 'ai_synthesis_failed')}
           />
+          {/* [R1] 분석-당시 자가입력 SNAPSHOT 표기 — 채워진 필드만, 미입력이면
+              생략(graceful). weightKg 보조 ONLY 라 요약에서 제외 (D-05). */}
+          {bodyProfileSummary ? (
+            <View style={styles.bodyProfileRow}>
+              <Ionicons
+                name="body-outline"
+                size={14}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.bodyProfileText}>{bodyProfileSummary}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* mode1 전용: 기준 모션 메타 카드 (선수·동작·레벨·설명) */}
@@ -931,6 +998,18 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 8,
+  },
+  // [R1] BodyProfile snapshot 요약 row — 토큰만 (하드코딩 금지, R3).
+  bodyProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  bodyProfileText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    flexShrink: 1,
   },
   card: {
     backgroundColor: colors.cardBg,

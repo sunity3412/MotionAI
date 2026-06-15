@@ -97,11 +97,18 @@ export function normalizeBodyProfile(
 
 // 라이브 프로필 구독 (마이페이지 read / old-doc fallback 전용). 결과 화면 기본
 // 소스 아님 (결과는 AnalysisDoc.bodyProfile snapshot 을 읽음, R1).
+//
+// promptDismissedAt: 첫 분석 권유 once-flag (03-03 게이트). normalizeBodyProfile 은
+// all-empty → null 로 접고 measurement 필드만 반환하므로, once-flag 는 raw 에서
+// 별도로 읽어 노출한다 (게이트가 "미입력 AND 미dismiss" 를 정확히 판별 — 미입력
+// 상태에서 dismiss 해도 normalize 가 null 이 되어 flag 가 유실되는 것을 방지, R2).
 export function useBodyProfile(): {
   profile: BodyProfile | null;
+  promptDismissedAt: number | null;
   loading: boolean;
 } {
   const [profile, setProfile] = useState<BodyProfile | null>(null);
+  const [promptDismissedAt, setPromptDismissedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(!!auth.currentUser);
   const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
 
@@ -114,6 +121,7 @@ export function useBodyProfile(): {
   useEffect(() => {
     if (!uid) {
       setProfile(null);
+      setPromptDismissedAt(null);
       setLoading(false);
       return;
     }
@@ -126,18 +134,21 @@ export function useBodyProfile(): {
           ? (snap.data()?.bodyProfile as Record<string, unknown> | undefined)
           : undefined;
         setProfile(normalizeBodyProfile(raw));
+        const dismissed = raw?.promptDismissedAt;
+        setPromptDismissedAt(typeof dismissed === 'number' ? dismissed : null);
         setLoading(false);
       },
       (err: FirestoreError) => {
         if (__DEV__) console.warn('[useBodyProfile] error', err);
         setProfile(null);
+        setPromptDismissedAt(null);
         setLoading(false);
       },
     );
     return unsub;
   }, [uid]);
 
-  return { profile, loading };
+  return { profile, promptDismissedAt, loading };
 }
 
 // [R5] one-shot 읽기 — loading.tsx 의 snapshot 전용 (raw getDoc spread 금지 강제).

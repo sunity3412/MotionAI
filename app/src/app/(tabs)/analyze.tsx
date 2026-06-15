@@ -2,9 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { useMyAnalyses } from '../../lib/userAnalyses';
+import { dismissBodyProfilePrompt, useBodyProfile } from '../../lib/bodyProfile';
+import { BodyProfilePromptModal } from '../../components/BodyProfilePromptModal';
+import BodyProfileForm from '../../components/BodyProfileForm';
 import type { AnalysisMode } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
@@ -53,6 +57,15 @@ export default function Analyze() {
   const [error, setError] = useState<string | null>(null);
   const [permissionBlocked, setPermissionBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // [R2] 첫 분석 권유 게이트 상태머신. profile/promptDismissedAt 구독으로 게이트
+  // 조건(미입력 AND 미dismiss)을 판별. pendingPicked 로 라우팅을 보류했다가
+  // 모달 결과(입력완료/건너뛰기/백드롭/native back) 4-경로 모두 continuePendingRoute
+  // 로 수렴해 동일 picked 영상으로 분석을 재개 (stale closure/영상 유실 방지).
+  const { profile, promptDismissedAt } = useBodyProfile();
+  const [pendingPicked, setPendingPicked] = useState<Picked | null>(null);
+  const [promptVisible, setPromptVisible] = useState(false);
+  const [formVisible, setFormVisible] = useState(false); // [입력하기] → 폼 진입
 
   // belle UAT 2026-06-12 F1 — 홈 챌린지 카드에서 진입 시 모드 선택 화면이 떴음.
   // useState initial 만으로는 mount 후 referenceMotionId 가 늦게 들어오거나
@@ -121,6 +134,42 @@ export default function Analyze() {
     }
   };
 
+  // [R2] 게이트: 프로필 미입력 AND 권유 미dismiss 이면 picked 를 보류하고 권유
+  // 모달을 띄운다. 프로필이 이미 있거나(profile != null) 이미 dismiss 했으면
+  // (promptDismissedAt != null) 즉시 routeAfterPick — 분석을 막지 않음 (게스트
+  // 우선, SC#4 미입력 graceful). profile 은 normalizer 가 all-empty → null 로
+  // 접으므로 null = 미입력 판정에 그대로 사용.
+  const maybePromptBeforeRoute = (picked: Picked) => {
+    const notEntered = profile === null;
+    const notDismissed = promptDismissedAt == null;
+    if (notEntered && notDismissed) {
+      setPendingPicked(picked);
+      setPromptVisible(true);
+      return;
+    }
+    routeAfterPick(picked);
+  };
+
+  // [R2] 단일 수렴점 — 4-경로(입력완료/건너뛰기/백드롭/native back) 모두 여기로.
+  // 보류된 picked 를 캡처 후 state 초기화하고 동일 영상으로 라우팅 재개.
+  const continuePendingRoute = () => {
+    const p = pendingPicked;
+    setPendingPicked(null);
+    setPromptVisible(false);
+    setFormVisible(false);
+    if (p) routeAfterPick(p);
+  };
+
+  // [건너뛰기 / 백드롭 / native back] → once-flag 세팅 후 분석 계속 (재권유 0, D-06).
+  const skipPrompt = async () => {
+    try {
+      await dismissBodyProfilePrompt();
+    } catch {
+      // graceful — once-flag 저장 실패해도 분석은 막지 않음 (게스트 우선).
+    }
+    continuePendingRoute();
+  };
+
   const handleResult = (result: ImagePicker.ImagePickerResult) => {
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
@@ -132,7 +181,7 @@ export default function Analyze() {
     setError(null);
     const source = asset.fileName ?? asset.uri;
     const ext = (source.split('.').pop()?.toLowerCase() ?? 'mp4') as VideoFormat;
-    routeAfterPick({
+    maybePromptBeforeRoute({
       name: asset.fileName ?? '선택한 영상',
       uri: asset.uri,
       size: asset.fileSize ?? 0,
@@ -228,6 +277,34 @@ export default function Analyze() {
             <Text style={styles.link}>설정에서 권한 허용하기</Text>
           </Pressable>
         )}
+
+        {/* [R2] 첫 분석 권유 게이트. 건너뛰기/백드롭/native back → skipPrompt
+            (once-flag + 분석 계속). 입력하기 → 폼 진입. */}
+        <BodyProfilePromptModal
+          visible={promptVisible}
+          onInput={() => {
+            setPromptVisible(false);
+            setFormVisible(true);
+          }}
+          onSkip={skipPrompt}
+        />
+
+        {/* [입력하기] 진입 폼 — 저장 완료(onSaved) 또는 닫기(onClose) 모두 보류된
+            picked 로 분석 재개 (continuePendingRoute 단일 수렴). */}
+        <Modal
+          visible={formVisible}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={continuePendingRoute}
+        >
+          <SafeAreaView style={styles.formSafe} edges={['top']}>
+            <BodyProfileForm
+              initial={profile}
+              onSaved={continuePendingRoute}
+              onClose={continuePendingRoute}
+            />
+          </SafeAreaView>
+        </Modal>
       </View>
     );
   }
@@ -365,4 +442,5 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   spacer: { flex: 1 },
+  formSafe: { flex: 1, backgroundColor: colors.bg },
 });

@@ -228,9 +228,20 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
     // Phase 3 (Plan 03-01, R1) — 분석-당시 자가입력 SNAPSHOT 보존. 같은 단일
     // normalizer(bodyProfile.ts)로 graceful 정규화 → 결과 화면이
     // storedDoc?.bodyProfile 로 snapshot 을 읽음 (live 프로필 아님, 재현성).
-    bodyProfile: normalizeBodyProfile(
-      raw.bodyProfile as Record<string, unknown> | undefined,
-    ),
+    //
+    // [IN-04] "키 없음(구 doc)" 과 "빈 프로필(신 doc, 의도적 null)" 을 구분한다.
+    // normalize 가 all-empty → null 로 접으므로 둘 다 null 이 되면, 결과 화면의
+    // `?? liveProfile` 폴백이 분석-당시 프로필이 없던 신 doc 에도 발동해 현재
+    // live 프로필을 과거 결과에 잘못 표기한다(재현성 위반). bodyProfile 키가
+    // raw 에 실제로 있을 때만 필드를 세팅(null 가능)하고, 키가 없으면 undefined
+    // 로 둔다 → 결과 화면은 undefined(키 부재=구 doc)일 때만 live 로 폴백.
+    ...('bodyProfile' in raw
+      ? {
+          bodyProfile: normalizeBodyProfile(
+            raw.bodyProfile as Record<string, unknown> | undefined,
+          ),
+        }
+      : {}),
   };
 }
 

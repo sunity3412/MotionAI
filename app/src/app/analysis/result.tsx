@@ -410,7 +410,14 @@ export default function AnalysisResult() {
   // 과거 결과 표기는 분석 당시 값으로 재현되어야 함). snapshot 이 없는 구 doc
   // 에서만 live read 를 fallback 으로 허용.
   const { profile: liveProfile } = useBodyProfile();
-  const bodyProfileSnapshot = storedDoc?.bodyProfile ?? liveProfile;
+  // [IN-04] live 폴백은 snapshot 키가 진짜 부재(구 doc)일 때만. 신 doc 이
+  // 의도적으로 빈 프로필(null)을 기록한 경우엔 폴백하지 않는다 — 분석-당시
+  // 프로필이 없었으면 결과에도 없어야 재현성이 유지된다. userAnalyses 가 키
+  // 부재 시 bodyProfile 을 undefined 로 두므로 undefined 만 폴백 트리거.
+  const bodyProfileSnapshot =
+    storedDoc?.bodyProfile === undefined
+      ? liveProfile
+      : storedDoc.bodyProfile;
   const bodyProfileSummary = useMemo(
     () => summarizeBodyProfile(bodyProfileSnapshot),
     [bodyProfileSnapshot],

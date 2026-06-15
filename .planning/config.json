@@ -1,5 +1,8 @@
 {
   "model_profile": "quality",
+  "model_overrides": {
+    "gsd-planner": "opus"
+  },
   "commit_docs": true,
   "parallelization": true,
   "search_gitignored": false,

@@ -926,6 +926,115 @@ def update_reference_body_data(
     )
 
 
+# ── Plan 14-02 (Phase 14) — downstream 4필드 ADD-only merge helper ───────────
+#
+# meanAngles + techniqueProfile + bodyNormalizationProfile + forceDirectionPattern.
+# R3-1 — forceDirectionPattern 만 EXISTING scoped `_validate_force_pattern_inference`
+# (firestore_admin.py:343) 로 검증 (findings[].warnings: list[str] 정합 허용); 나머지
+# 3개 flat dict (meanAngles / techniqueProfile / bodyNormalizationProfile) 는 generic
+# `_validate_flat_dict_no_nested_array`. 이는 result.forcePatternInference (:751-755) 에
+# 이미 적용된 sanctioned exception 을 reference mirror path 에 동일 적용하는 것이며,
+# project-wide [[firestore-nested-array-flat]] 정책을 약화시키지 않는다. ADD-only —
+# joints3d/angles/activeVersion 은 절대 payload 에 포함하지 않는다 (Pitfall 4 / D-02).
+
+# meanAngles 는 JOINT_KEYS → float|None flat dict — 필수 key 강제는 비어있지 않음만.
+# techniqueProfile EXTEND surface 필수 key.
+_REF_TECHNIQUE_PROFILE_REQUIRED: tuple[str, ...] = (
+    "name",
+    "category",
+    "jointExpectations",
+)
+
+
+def update_reference_downstream_data(
+    motion_id: str,
+    *,
+    mean_angles: dict,
+    technique_profile: dict,
+    body_normalization_profile: dict,
+    force_direction_pattern: dict,
+    capture_views: int = 1,
+) -> None:
+    """Plan 14-02 (Phase 14, D-02 hybrid 백필) — downstream 4필드 atomic ADD-only merge.
+
+    update_reference_body_data 패턴 mirror. R3-1 검증 분기:
+      · mean_angles / technique_profile / body_normalization_profile →
+        generic `_validate_flat_dict_no_nested_array` (flat scalar / list[scalar]).
+      · force_direction_pattern → EXISTING scoped `_validate_force_pattern_inference`
+        (firestore_admin.py:343). ForcePatternInference contract 는 top-level
+        `warnings: list[str]` + `findings[].warnings: list[str]` (analysis.ts:846)
+        를 허용하는데, generic validator 는 finding dict 를 `_validate_dict_only_scalars`
+        로 라우팅해 list[str] 를 reject 하므로 VALID forceDirectionPattern 을 거부한다.
+        production scoped validator 재사용 (이미 result.forcePatternInference :751-755
+        에 적용) → project-wide [[firestore-nested-array-flat]] 약화 없음 (R3-1).
+
+    ADD-only — joints3d/angles/activeVersion 을 절대 payload 에 포함하지 않는다
+    (Pitfall 4 / D-02). set(merge=True) + per-field *UpdatedAt. idempotent.
+
+    Raises:
+      ValueError: motion_id 빈 / 필수 필드 누락 / forceDirectionPattern scoped 검증 실패.
+      TypeError: 3 flat dict 의 nested-array 위반.
+    """
+    if not motion_id:
+        raise ValueError("motion_id required")
+
+    if not mean_angles:
+        raise ValueError("mean_angles required (non-empty)")
+    missing_tp = [
+        k for k in _REF_TECHNIQUE_PROFILE_REQUIRED if k not in technique_profile
+    ]
+    if missing_tp:
+        raise ValueError(
+            f"technique_profile missing required fields: {missing_tp}"
+        )
+    missing_bp = [
+        k for k in _REF_BODY_PROFILE_REQUIRED if k not in body_normalization_profile
+    ]
+    if missing_bp:
+        raise ValueError(
+            f"body_normalization_profile missing required fields: {missing_bp}"
+        )
+
+    # R3-1 — 3 flat dict 은 generic validator, forceDirectionPattern 만 scoped.
+    _validate_flat_dict_no_nested_array(mean_angles, path="meanAngles")
+    _validate_flat_dict_no_nested_array(technique_profile, path="techniqueProfile")
+    _validate_flat_dict_no_nested_array(
+        body_normalization_profile, path="bodyNormalizationProfile"
+    )
+    # forceDirectionPattern → EXISTING scoped validator (findings[].warnings 허용).
+    _validate_force_pattern_inference(
+        force_direction_pattern, path="forceDirectionPattern"
+    )
+
+    now_ms = int(time.time() * 1000)
+    payload: dict = {
+        "meanAngles": mean_angles,
+        "meanAnglesUpdatedAt": now_ms,
+        "techniqueProfile": technique_profile,
+        "techniqueProfileUpdatedAt": now_ms,
+        "bodyNormalizationProfile": body_normalization_profile,
+        "bodyNormalizationProfileUpdatedAt": now_ms,
+        "forceDirectionPattern": force_direction_pattern,
+        "forceDirectionPatternUpdatedAt": now_ms,
+        "captureViews": int(capture_views),
+        "captureViewsUpdatedAt": now_ms,
+    }
+    # ADD-only — joints3d/angles/activeVersion 은 절대 포함 X (Pitfall 4 / D-02).
+    _doc(models.reference_motion_path(motion_id)).set(payload, merge=True)
+
+    import logging
+
+    log = logging.getLogger(__name__)
+    log.info(
+        "update_reference_downstream_data ok motion_id=%s body_conf=%s "
+        "capture_views=%s force_findings=%s",
+        motion_id,
+        body_normalization_profile.get("confidence"),
+        capture_views,
+        len(force_direction_pattern.get("findings") or []),
+    )
+
+
 # ─────────────────── Plan 17-05 — 영역 A reference 자동 등록 helper ──────────
 #
 # reference/{motion_id} 에 Gemini A 결과 박제. idempotent 박제 — 기존 doc 있으면

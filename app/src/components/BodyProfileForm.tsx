@@ -79,7 +79,8 @@ function validateNumber(
   const n = Number(trimmed);
   if (!Number.isFinite(n)) return { value: null, error: '숫자만 입력해주세요.' };
   if (n < lo || n > hi) {
-    return { value: null, error: `${lo}${unit} ~ ${hi}${unit} 사이로 입력해주세요.` };
+    // [IN-02] 범위는 물결로 묶고 단위는 끝에 1회만 (90~250cm). 공백 물결 / 단위 중복 제거.
+    return { value: null, error: `${lo}~${hi}${unit} 사이로 입력해주세요.` };
   }
   return { value: n, error: null };
 }
@@ -195,6 +196,8 @@ export default function BodyProfileForm({ initial, onSaved, onClose }: Props) {
             error={heightError}
             onChangeText={onChangeHeight}
             accessibilityLabel="키, 센티미터"
+            // [IN-03] 입력 자릿수 상한을 범위 상수에서 파생 — 매직넘버 제거, 범위 변경 시 자동 추종.
+            maxLength={String(HEIGHT_CM_MAX).length}
           />
 
           {/* 몸무게 (kg) — 보조 ONLY (D-05): 분석 점수에 절대 반영되지 않음 */}
@@ -206,6 +209,7 @@ export default function BodyProfileForm({ initial, onSaved, onClose }: Props) {
             error={weightError}
             onChangeText={onChangeWeight}
             accessibilityLabel="몸무게, 킬로그램"
+            maxLength={String(WEIGHT_KG_MAX).length}
           />
 
           {/* 경력 */}
@@ -280,6 +284,7 @@ function NumberField({
   error,
   onChangeText,
   accessibilityLabel,
+  maxLength,
 }: {
   label: string;
   unit: string;
@@ -288,6 +293,7 @@ function NumberField({
   error: string | null;
   onChangeText: (t: string) => void;
   accessibilityLabel: string;
+  maxLength: number;
 }) {
   return (
     <View style={styles.field}>
@@ -299,7 +305,7 @@ function NumberField({
           placeholder={placeholder}
           placeholderTextColor={colors.textSecondary}
           keyboardType="number-pad"
-          maxLength={3}
+          maxLength={maxLength}
           accessibilityLabel={accessibilityLabel}
           style={styles.input}
         />

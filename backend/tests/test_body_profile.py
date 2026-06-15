@@ -98,6 +98,17 @@ class TestNormalizeBodyProfile:
         assert models.normalize_body_profile({"heightCm": "170"}) is None
         assert models.normalize_body_profile({"heightCm": True}) is None
 
+    def test_non_integer_measurements_dropped(self) -> None:
+        # [WR-02] cm/kg 정수 계약 — float(165.7) 은 거부 (전 필드 빈 → 전체 None).
+        assert models.normalize_body_profile({"heightCm": 165.7}) is None
+        assert models.normalize_body_profile({"weightKg": 55.5}) is None
+
+    def test_integer_valued_float_kept(self) -> None:
+        # [WR-02] 165.0 처럼 정수와 동일한 float 는 허용.
+        out = models.normalize_body_profile({"heightCm": 165.0})
+        assert out is not None
+        assert out["heightCm"] == 165.0
+
     def test_full_profile_roundtrip(self) -> None:
         out = models.normalize_body_profile(
             {

@@ -51,6 +51,10 @@ function numberInRange(
   hi: number,
 ): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  // [WR-02] cm/kg 는 정수 계약 — 폼은 [0-9] 만 받지만 normalizer 는 폼이 아닌 다른
+  // 경로(dev 콘솔·import·타 writer)로 들어온 float(165.7)도 방어해야 하는 경계다.
+  // 정수가 아니면 거부해 "165.7cm" 같은 표기가 저장/렌더되지 않도록 한다.
+  if (!Number.isInteger(value)) return null;
   if (value < lo || value > hi) return null;
   return value;
 }

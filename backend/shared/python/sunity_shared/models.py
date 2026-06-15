@@ -70,10 +70,16 @@ def _coerce_number_in_range(value, lo, hi):  # noqa: ANN001
     """숫자 + 범위 검증 helper. bool 은 int subclass 라 명시 거부.
 
     lo/hi 는 inclusive. 비-숫자·범위 밖 → None.
+
+    [WR-02] cm/kg 는 정수 계약이다. 폼은 정수만 보내지만 이 normalizer 는 폼이
+    아닌 경로(dev 콘솔·import·타 writer)로 들어온 float(165.7) 도 방어하는 경계
+    이므로, 정수가 아닌 값은 거부한다. 165.0 처럼 정수와 동일한 float 는 허용.
     """
     if isinstance(value, bool):
         return None
     if not isinstance(value, (int, float)):
+        return None
+    if value != int(value):
         return None
     if value < lo or value > hi:
         return None

@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 14 complete (3/3) — ready to discuss Phase 16
-last_updated: 2026-06-15T14:53:17.658Z
-last_activity: 2026-06-15 -- Phase 14 execution started
+status: planning
+stopped_at: Phase 14 context gathered
+last_updated: "2026-06-15T15:16:29.671Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 15
   completed_phases: 12
@@ -522,6 +522,10 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 03-bodyprofileinput P03 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 18 added: 전문가 일부러-실수 reference eval 세트 (가칭, Phase 15 이후, belle 2026-06-16)
 
 ### Decisions
 

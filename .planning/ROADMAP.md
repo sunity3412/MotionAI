@@ -539,6 +539,22 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 0/TBD | Not started | - |
 | 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 1/1 | Complete   | 2026-06-02 |
 
+### Phase 18: Expert deliberate-fault reference eval set (정은지 일부러-실수 영상 검증 테스트 세트) — 가칭
+
+> **가칭 / 미상세 (belle 2026-06-16 결정).** 정은지가 제공한 '일부러 실수한' reference 영상을 활용한다. Phase 15(Mode 1·3 end-to-end)가 동작한 뒤 진입. 상세 scope·요건은 discuss/plan 단계에서 확정.
+
+**Goal:** 정은지가 제공한 '일부러 실수한' reference 영상을 영구 eval/검증 테스트 세트(regression fixture)로 만든다 — 각 실수 영상에 '어떤 fault를 시연하는지' 라벨(영상 입력이지 사람 점수 라벨 아님)을 달아, 분석기가 그 fault를 잡아내고 + 높은 점수를 주지 않는지(고수 위양성 역검증) 자동 assert 한다. 핵심 가치(점수 신뢰)와 Phase 15 '고수 위양성 없음' 게이트에 직결. 같은 자산은 나중에 in-app 대조 교육(정타↔실수)에도 재사용 가능.
+**Requirements**: TBD (plan 단계에서 신규 EVAL-* 요건 확정)
+**Depends on:** Phase 15 (Mode 1·3 실영상 + 신뢰도 게이트가 동작해야 fault 검증 의미)
+**Plans:** 0 plans
+
+**주의 (plan 시 박제):**
+- 임계값 calibration 에 직접 쓰면 사람-라벨 ground-truth 경계 — 신중 ([[analysis-objectivity-no-human-scores]]). v1 은 "fault 가 잡히는지" 검증용으로 한정.
+- Phase 14 의 seeder / snapshot / rollback 스크립트(14-REVIEW.md CR-01/CR-02 수정 반영) 재사용.
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 18 to break down)
+
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*

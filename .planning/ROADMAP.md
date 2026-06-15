@@ -47,7 +47,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 12: 실측 각도 표시 + 키포인트 오버레이** - 6 build iteration (B/C/D fix + KeypointOverlay frame index Fix A + drift correction + 1080p 영상 압축) + 6 belle UAT (2026-06-10~12) close-out. **2026-06-12 PASS** — keypoint 사람 따라감 ✓ / 두 영상 동기화 ✓ / stall 해소 (4K → 1080p 압축 결정타) ✓. 잔여: 12-A 좌/우 mirror + ankle keypoint 추가 → Phase 13. Build 16 + OTA bundles ship.
 - [x] **Phase 12.5: UI Transparency — 차원별 카피 + 자세히 모달 + LLM-ready coaching** - `result.tsx` 차원별 카드 (각도 정확도 / 팔다리 펴기 / 동작 안정성) + 자세히 모달 (점수 산출 설명, 동작·사용자 동적 카피, "심사평" 자연어) + 코칭 팁 자세히 모달 (LLM 동적 다중 원인 + 부상 경고 + coachNote). backend `assemble.build_dimension_explanation` + `coach_writer` JSON 출력 + Cerebras 시스템 프롬프트 갱신. **2026-06-07 close-out** (commits 1c0d20a T1+T2 / 62fdeed T9 backend / e968074 T8+T9 frontend). belle UX 검증 PASS — 모달 스크롤 정상 동작 + 심사평 톤 (평가+이유+결정 3박자) 적용.
 - [ ] **Phase 13: 보완 운동 추천 + LLM 분기 카피 + coaching detail 완성** - (a) 분석 결과의 실패 원인 후보·체형 정규화 finding 에 맞는 보완 운동·스트레칭 자동 매핑 (분석 → 행동 → 재구매, PERS-03), (b) 실 LLM 활성화 — Pod 갱신 + Cerebras `tip.detail2` 실 영상 검증, (c) `assemble.build_dimension_explanation` 에 `ipsfCode` 분기로 분기 1 (IPSF 등재 = "세계 심사 기준 + 180°") vs 분기 2 (학원 통용 = "정은지 선수 기준") 카피 분리, (d) `coach_writer` 시스템 프롬프트에 동작 분기 + IPSF 정의 각도 fixture 주입. 메모리 [`studio-term-3branch-system`] 정합. **belle 2026-06-07 결정: Phase 12.5 시뮬 한계 (폭스탑 학원 용어 어색 + angle 차원 180° 명시 X) 의 실 LLM 해결을 보완 운동 추천과 같은 phase 로 통합 — backend coach_writer 단일 phase 작업.**
-- [ ] **Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)** - 비교 정확도 최대화 + 다각도 캡처 프로토콜
+- [x] **Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)** - 비교 정확도 최대화 + 다각도 캡처 프로토콜 (completed 2026-06-15)
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주
 - [x] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path. (completed 2026-06-02)
 
@@ -417,7 +417,7 @@ Plans:
 
   - [x] 14-01-PLAN.md — Wave-0 foundation: Firestore 필드 audit(A2) + 백필 테스트 하니스(D-01 parity / SC#4 graceful / D-02 verdict) + contract 3-way lockstep(techniqueProfile/forceDirectionPattern/captureViews)
   - [x] 14-02-PLAN.md — 백필 compute(동일 _process 함수, RTMW 1회 재추론) + ADD-only merge seeder + firestore_admin helper + 다각도 캡처 가이드 문서(SC#3)
-  - [ ] 14-03-PLAN.md — Pod 백필 실행(11개 전체) + dry-run/real-run/verify-read + belle 시각 검수 체크포인트 (active flip 없음)
+  - [x] 14-03-PLAN.md — Pod 백필 실행(11개 전체) + dry-run/real-run/verify-read + belle 시각 검수 체크포인트 (active flip 없음)
 
 ### Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)
 
@@ -535,7 +535,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |
 | 13. 보완 운동·스트레칭 추천 | 0/TBD | Not started (v1 chain #6) | - |
-| 14. 정은지 기준 모션 등록 (다각도) | 2/3 | In Progress|  |
+| 14. 정은지 기준 모션 등록 (다각도) | 3/3 | Complete    | 2026-06-15 |
 | 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 0/TBD | Not started | - |
 | 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 1/1 | Complete   | 2026-06-02 |
 

@@ -22,6 +22,7 @@
 - ✓ IPSF 기반 채점 엔진 (각도/라인/안정성 차원, 균형·대칭 제거) — existing
 - ✓ Cerebras LLM 한국어 코칭 문장 생성 (키 없으면 graceful no-op) — existing
 - ✓ TestFlight 빌드/제출 파이프라인 (EAS Build + ASC API Key 무인 submit) — existing
+- ✓ 자가입력 BodyProfile (키·몸무게·경력·통증부위·우세손) — 마이페이지 상시 편집 + 첫분석 1회 권유, BodyProfile 3-way 계약(TS↔Python↔contract.md) + 분석 doc snapshot → coach context 전달 (BODY-02). Validated in Phase 3: bodyprofileinput (2개 실기기 UAT 항목 잔여)
 
 ### Active
 
@@ -125,6 +126,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-29 after initialization + field-research integration (수강생/강사 설문조사 + 핵심기능 8 + 안티패턴)*
+*Last updated: 2026-06-15 — Phase 3 (자가입력 BodyProfileInput, BODY-02) 완료 반영*
 *Updated 2026-06-02: Phase 16 신설 — 학원 용어 3분기 + 5트랙 채점 v1 scope. NotebookLM IPSF CoP 2024-2025 lookup 박제. v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제. Active 그룹 (점수 신뢰도 / 기준 모션) 항목 추가, Out of Scope v2 보강, Key Decisions 3건 추가.*
 *Updated 2026-06-08: 분석 정확도 핵심 차원 v1 진행 결정 (이전 2026-06-07 "Phase 2~11 보류" 박제 무효). v1 시퀀스 = Phase 6 → 7 → 8 → 9 → 12 → 13. belle 박제 — "오버레이, 체형 정규화, 힘 패턴은 필수적. 어떻게든 기필코 개발하려고 하는 게 지금." Phase 6 CONTEXT.md 박제 (좌표 변환 방향 B + confidence-tiered hybrid + 3 케이스 통합 schema). Key Decisions 3건 추가.*

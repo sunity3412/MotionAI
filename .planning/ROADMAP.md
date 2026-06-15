@@ -416,7 +416,7 @@ Plans:
 **Plans**: 3 plans (CONTEXT D-01~D-05 정합 — 기존 11개 백필, 신규 촬영 0)
 
   - [x] 14-01-PLAN.md — Wave-0 foundation: Firestore 필드 audit(A2) + 백필 테스트 하니스(D-01 parity / SC#4 graceful / D-02 verdict) + contract 3-way lockstep(techniqueProfile/forceDirectionPattern/captureViews)
-  - [ ] 14-02-PLAN.md — 백필 compute(동일 _process 함수, RTMW 1회 재추론) + ADD-only merge seeder + firestore_admin helper + 다각도 캡처 가이드 문서(SC#3)
+  - [x] 14-02-PLAN.md — 백필 compute(동일 _process 함수, RTMW 1회 재추론) + ADD-only merge seeder + firestore_admin helper + 다각도 캡처 가이드 문서(SC#3)
   - [ ] 14-03-PLAN.md — Pod 백필 실행(11개 전체) + dry-run/real-run/verify-read + belle 시각 검수 체크포인트 (active flip 없음)
 
 ### Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)
@@ -535,7 +535,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |
 | 13. 보완 운동·스트레칭 추천 | 0/TBD | Not started (v1 chain #6) | - |
-| 14. 정은지 기준 모션 등록 (다각도) | 1/3 | In Progress|  |
+| 14. 정은지 기준 모션 등록 (다각도) | 2/3 | In Progress|  |
 | 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 0/TBD | Not started | - |
 | 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 1/1 | Complete   | 2026-06-02 |
 

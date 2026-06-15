@@ -1,15 +1,26 @@
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../../lib/firebase';
 import { useMyAnalyses } from '../../lib/userAnalyses';
-import type { AnalysisDoc } from '../../types/analysis';
+import { useBodyProfile } from '../../lib/bodyProfile';
+import BodyProfileForm from '../../components/BodyProfileForm';
+import type {
+  AnalysisDoc,
+  BodyProfile,
+  DominantHand,
+  ExperienceLevel,
+  PainArea,
+} from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
 // 마이 탭 — 파일럿 단순 정보. (IA AC-MY-* 의 프로필 편집·구독·알림 등은 MVP 밖.)
@@ -27,11 +38,50 @@ function shortenUid(uid: string): string {
   return uid.length <= 8 ? uid : `${uid.slice(0, 4)}…${uid.slice(-4)}`;
 }
 
+// BodyProfile 요약 라벨 (analysis.ts union 정합, BodyProfileForm 과 동일 KO 매핑).
+const EXPERIENCE_LABEL: Record<ExperienceLevel, string> = {
+  beginner: '초급',
+  intermediate: '중급',
+  advanced: '고급',
+};
+const HAND_LABEL: Record<DominantHand, string> = {
+  left: '왼손',
+  right: '오른손',
+  both: '양손',
+};
+const PAIN_AREA_LABEL: Record<PainArea, string> = {
+  shoulder: '어깨',
+  wrist: '손목',
+  lower_back: '허리',
+  knee: '무릎',
+  ankle: '발목',
+  neck: '목',
+  hip: '고관절',
+  elbow: '팔꿈치',
+};
+
+// 채워진 필드만 "·" 로 묶어 요약 (부분 입력 graceful, D-06). 전부 비면 null.
+function summarizeBodyProfile(profile: BodyProfile | null): string | null {
+  if (!profile) return null;
+  const parts: string[] = [];
+  if (profile.heightCm != null) parts.push(`${profile.heightCm}cm`);
+  if (profile.experience) parts.push(EXPERIENCE_LABEL[profile.experience]);
+  if (profile.dominantHand) parts.push(HAND_LABEL[profile.dominantHand]);
+  if (profile.painAreas.length > 0) {
+    parts.push(profile.painAreas.map((a) => PAIN_AREA_LABEL[a]).join('·'));
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 export default function Profile() {
   const { analyses } = useMyAnalyses({ doneOnly: true });
+  const { profile } = useBodyProfile();
   const uid = auth.currentUser?.uid ?? null;
   const avg = useMemo(() => averageScore(analyses), [analyses]);
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+
+  const [editing, setEditing] = useState(false);
+  const summary = useMemo(() => summarizeBodyProfile(profile), [profile]);
 
   return (
     <View style={styles.container}>
@@ -54,6 +104,30 @@ export default function Profile() {
             </Text>
           </View>
         </View>
+
+        {/* 내 몸 정보 — 미입력=권유 / 입력됨=요약+수정 (D-01/D-02/D-06) */}
+        <Pressable
+          onPress={() => setEditing(true)}
+          accessibilityRole="button"
+          accessibilityLabel={
+            summary ? `내 몸 정보 수정, 현재 ${summary}` : '내 몸 정보 입력하기'
+          }
+          style={({ pressed }) => [
+            summary ? styles.bodyCard : styles.bodyPrompt,
+            pressed && styles.bodyCardPressed,
+          ]}
+        >
+          <View style={styles.bodyCardText}>
+            <Text style={styles.bodyCardTitle}>내 몸 정보</Text>
+            <Text
+              style={summary ? styles.bodyCardSummary : styles.bodyPromptText}
+              numberOfLines={1}
+            >
+              {summary ?? '키·경력·통증부위를 입력하면 코칭이 더 정확해져요'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.brand} />
+        </Pressable>
 
         {/* 통계 */}
         <View style={styles.stats}>
@@ -89,6 +163,22 @@ export default function Profile() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* 내 몸 정보 편집 — 전체화면 폼 (기존값 prefill, 저장 후 onSnapshot 자동 갱신) */}
+      <Modal
+        visible={editing}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setEditing(false)}
+      >
+        <SafeAreaView style={styles.modalSafe} edges={['top']}>
+          <BodyProfileForm
+            initial={profile}
+            onClose={() => setEditing(false)}
+            onSaved={() => setEditing(false)}
+          />
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -162,6 +252,30 @@ const styles = StyleSheet.create({
   profileText: { flex: 1, gap: 4 },
   profileName: { ...typography.listTitle, color: colors.textPrimary },
   profileMeta: { ...typography.caption, color: colors.textSecondary },
+  bodyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.cardBg,
+    borderWidth: layout.cardBorderWidth,
+    borderColor: colors.divider,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+  },
+  bodyPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.brandTint,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+  },
+  bodyCardPressed: { opacity: 0.7 },
+  bodyCardText: { flex: 1, gap: 4 },
+  bodyCardTitle: { ...typography.listTitle, color: colors.textPrimary },
+  bodyCardSummary: { ...typography.caption, color: colors.textSecondary },
+  bodyPromptText: { ...typography.caption, color: colors.textPrimary },
+  modalSafe: { flex: 1, backgroundColor: colors.bg },
   stats: { flexDirection: 'row', gap: 10 },
   statBox: {
     flex: 1,

@@ -185,6 +185,15 @@ function validateForceDirectionPattern(motionId, fdp) {
       `[${motionId}] forceDirectionPattern.${key} unexpected nested dict`,
     );
   }
+  // WR-05 — contract (analysis.ts §9.11 ForcePatternInference) 가 non-empty 로
+  // 선언한 required scalar surface 강제.
+  for (const req of ['version', 'overallConfidence', 'modeContext']) {
+    if (typeof fdp[req] !== 'string' || !fdp[req]) {
+      throw new Error(
+        `[${motionId}] forceDirectionPattern.${req} 누락/빈 문자열`,
+      );
+    }
+  }
 }
 
 function validateFinding(motionId, path, finding) {
@@ -277,14 +286,34 @@ function loadSeedPayload(path) {
   return data.seedPayload; // diagnostics 는 절대 반환/검증하지 않는다.
 }
 
-// 기존 doc 가 PHASE14_REQUIRED 전부 present+valid 인지 (skip 판정용, R3).
-function hasAllRequired(existing) {
+// 기존 Firestore 값이 단순 present 가 아니라 VALID 인지 (CR-01).
+// fixture 를 gate 하는 동일 field-level validator 를 기존 값에도 적용해 present-
+// but-corrupt 필드를 repairable(=invalid) 로 취급한다.
+function fieldValid(motionId, field, value) {
+  if (value === undefined || value === null) return false;
+  try {
+    if (field === 'meanAngles') {
+      return value && typeof value === 'object' && Object.keys(value).length > 0;
+    }
+    if (field === 'forceDirectionPattern') {
+      validateForceDirectionPattern(motionId, value);
+      return true;
+    }
+    if (field === 'captureViews') return typeof value === 'number';
+    // techniqueProfile / bodyNormalizationProfile.
+    rejectNestedArray(motionId, field, value);
+    return value && typeof value === 'object';
+  } catch {
+    return false; // present 하지만 malformed → repairable 로 취급.
+  }
+}
+
+// 기존 doc 가 PHASE14_REQUIRED 전부 present+valid 인지 (skip 판정용, R3 + CR-01).
+function hasAllRequired(motionId, existing) {
   if (!existing) {
     return false;
   }
-  return PHASE14_REQUIRED.every(
-    (f) => existing[f] !== undefined && existing[f] !== null,
-  );
+  return PHASE14_REQUIRED.every((f) => fieldValid(motionId, f, existing[f]));
 }
 
 async function main() {
@@ -313,9 +342,17 @@ async function main() {
   }
 
   // 대상 id — subset run 이면 명시 id 만, 아니면 전체 seedPayload.
-  const targetIds = isSubsetRun
-    ? args.motions.filter((m) => ids.includes(m))
-    : ids;
+  // CR-02 — fixture 에 없는 요청 id 는 silent drop 금지: fail closed.
+  if (isSubsetRun) {
+    const missing = args.motions.filter((m) => !ids.includes(m));
+    if (missing.length) {
+      console.error(
+        `[seed FAIL] --motions 요청 중 fixture 에 없는 id: ${missing.join(',')}`,
+      );
+      process.exit(1);
+    }
+  }
+  const targetIds = isSubsetRun ? args.motions : ids;
   if (isSubsetRun && !args.repairMissing && !args.dryRun) {
     console.error(
       '[seed FAIL] --motions subset real-run 은 --repair-missing 명시 필요 (R5).',
@@ -365,9 +402,9 @@ async function main() {
       const snap = await db.collection('reference').doc(motionId).get();
       const v = snap.exists ? snap.data() || {} : {};
       const present = PHASE14_REQUIRED.map(
-        (f) => `${f}=${v[f] !== undefined && v[f] !== null}`,
+        (f) => `${f}=${fieldValid(motionId, f, v[f])}`,
       );
-      const complete = hasAllRequired(v);
+      const complete = hasAllRequired(motionId, v);
       if (complete) completeCount++;
       console.log(`  - ${motionId.padEnd(24)} ${present.join(' ')} complete=${complete}`);
     }
@@ -388,7 +425,7 @@ async function main() {
     const ref = db.collection('reference').doc(motionId);
     const snap = await ref.get();
     const existing = snap.exists ? snap.data() : null;
-    const complete = hasAllRequired(existing);
+    const complete = hasAllRequired(motionId, existing);
 
     // R3 skip rule — 전부 present+valid AND --force false → skip.
     if (complete && !args.force) {
@@ -400,7 +437,7 @@ async function main() {
     // 어떤 필드를 쓸지: --force → 전체, 아니면 누락 필드만 (repair-missing).
     const docPayload = {};
     for (const f of PHASE14_REQUIRED) {
-      const fieldMissing = !existing || existing[f] === undefined || existing[f] === null;
+      const fieldMissing = !existing || !fieldValid(motionId, f, existing[f]);
       if (args.force || fieldMissing) {
         docPayload[f] = entry[f];
         docPayload[`${f}UpdatedAt`] = now;

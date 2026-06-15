@@ -62,7 +62,7 @@ export default function Analyze() {
   // 조건(미입력 AND 미dismiss)을 판별. pendingPicked 로 라우팅을 보류했다가
   // 모달 결과(입력완료/건너뛰기/백드롭/native back) 4-경로 모두 continuePendingRoute
   // 로 수렴해 동일 picked 영상으로 분석을 재개 (stale closure/영상 유실 방지).
-  const { profile, promptDismissedAt } = useBodyProfile();
+  const { profile, promptDismissedAt, loading: profileLoading } = useBodyProfile();
   const [pendingPicked, setPendingPicked] = useState<Picked | null>(null);
   const [promptVisible, setPromptVisible] = useState(false);
   const [formVisible, setFormVisible] = useState(false); // [입력하기] → 폼 진입
@@ -139,7 +139,15 @@ export default function Analyze() {
   // (promptDismissedAt != null) 즉시 routeAfterPick — 분석을 막지 않음 (게스트
   // 우선, SC#4 미입력 graceful). profile 은 normalizer 가 all-empty → null 로
   // 접으므로 null = 미입력 판정에 그대로 사용.
+  // [CR-01] 구독이 아직 로딩 중이면 profile/promptDismissedAt 가 일시적으로 null
+  // 이라 기존 프로필·이미 dismiss 한 사용자에게도 권유가 잘못 뜰 수 있다(콜드스타트/
+  // 느린 네트워크 레이스). loading 중에는 권유를 보류하고 즉시 라우팅 — 게스트 우선
+  // 원칙상 모달 미출현이 오출현보다 안전.
   const maybePromptBeforeRoute = (picked: Picked) => {
+    if (profileLoading) {
+      routeAfterPick(picked);
+      return;
+    }
     const notEntered = profile === null;
     const notDismissed = promptDismissedAt == null;
     if (notEntered && notDismissed) {

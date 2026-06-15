@@ -21,16 +21,17 @@ expected: 첫 분석 게스트로 영상 pick → 권유 모달 1회 출현(분�
 result: [pending]
 
 ### 3. CR-01 회귀 — 콜드스타트/느린 네트워크 prompt 오출현
-expected: 이상적으로는 프로필을 이미 입력했거나 이미 건너뛴 사용자에게는 콜드스타트(앱 첫 진입 직후) 또는 느린 네트워크에서 영상 pick 시 권유 모달이 뜨지 않아야 함. 현재 코드는 `useBodyProfile()` 의 `loading` 플래그를 게이트에서 무시하므로 구독 미완료 시점에 pick 하면 모달이 잘못 뜰 수 있음. 재현 여부 확인 후 폴리시 결정(게스트 우선 통과 vs 게이트에 loading 보강) 필요.
-result: [pending]
+expected: 이상적으로는 프로필을 이미 입력했거나 이미 건너뛴 사용자에게는 콜드스타트(앱 첫 진입 직후) 또는 느린 네트워크에서 영상 pick 시 권유 모달이 뜨지 않아야 함.
+result: resolved (code fix) — `maybePromptBeforeRoute` 에 `if (profileLoading) { routeAfterPick(picked); return; }` 가드 추가. 구독 로딩 중에는 권유를 보류하고 즉시 라우팅(게스트 우선). 잔여 확인: 실기기에서 콜드스타트 pick 시 모달 미출현 스모크 확인 권장.
 
 ## Summary
 
 total: 3
 passed: 0
 issues: 0
-pending: 3
+pending: 2
 skipped: 0
 blocked: 0
+resolved: 1
 
 ## Gaps

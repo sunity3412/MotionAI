@@ -35,3 +35,6 @@ new6-body-profiles.json
 
 # Diagnostic visualization scripts (Pod 박힘 박힘 / debug 용도)
 app/scripts/_viz_*.py
+
+# Phase 14 pre-seed active-pose snapshot (hashes only in run log; raw snapshot not committed)
+.planning/phases/14-reference-motion-registration/14-PRESEED-SNAPSHOT.json

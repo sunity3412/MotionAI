@@ -1,0 +1,153 @@
+{
+  "generatedMode": "post",
+  "motionCount": 11,
+  "unchangedActivePoseCount": 11,
+  "changedActivePoseCount": 0,
+  "completeDownstreamFieldCount": 11,
+  "seededMotionCount": 11,
+  "perMotion": [
+    {
+      "motionId": "ref-climb",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-foxtop",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-foxtop-split",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-invert",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-sideway-spin",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-combo",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-elbow-twist-sister",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-kip-up",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-pdshape",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-peter-pan",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    },
+    {
+      "motionId": "ref-power-spin",
+      "activePoseUnchanged": true,
+      "activeDiffs": [],
+      "downstreamComplete": true,
+      "fields": {
+        "meanAngles": true,
+        "techniqueProfile": true,
+        "bodyNormalizationProfile": true,
+        "forceDirectionPattern": true,
+        "captureViews": true
+      }
+    }
+  ]
+}

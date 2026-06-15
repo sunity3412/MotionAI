@@ -34,6 +34,108 @@ ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_STABILITY)
 # - 신 backend 는 빈 {} 라도 항상 emit.
 DIMENSION_EXPLANATION_KEYS = ("weightPercent", "baseline", "deficitSummary")
 
+# ── Phase 3 (Plan 03-01) — BodyProfile 자가입력 계약 (3-way lockstep #2) ──
+# 사람용 명세: docs/contract.md "BodyProfile (자가입력)" 섹션.
+# TS 미러: app/src/types/analysis.ts (ExperienceLevel/DominantHand/PainArea
+#   union + interface BodyProfile + AnalysisDoc.bodyProfile).
+# 이 셋(analysis.ts / models.py / contract.md)이 바뀌면 동시 갱신 필수.
+#
+# 저장: 라이브 users/{uid}.bodyProfile + per-analysis SNAPSHOT
+#   users/{uid}/analyses/{id}.bodyProfile (결과 화면 재현성, R1 — 결과는
+#   분석-당시 snapshot 을 source-of-truth 로 읽음, live 프로필 아님).
+# 자가입력 보조 데이터 — 점수/분석 단정에 사용 금지. weightKg 는 특히 보조
+# ONLY 이며 scoring/analysis consumer 모듈에 유입되면 안 됨 (D-05).
+EXPERIENCE_LEVELS = ("beginner", "intermediate", "advanced")
+DOMINANT_HANDS = ("left", "right", "both")
+# 폴스포츠 고하중 관절 (docs/research/폴스포츠-지식.md 정합) — 통증부위 다중선택.
+PAIN_AREAS = (
+    "shoulder",
+    "wrist",
+    "lower_back",
+    "knee",
+    "ankle",
+    "neck",
+    "hip",
+    "elbow",
+)
+
+# height/weight 합리적 범위 (범위 밖 → None, 위조/오타 graceful 차단).
+_BODY_HEIGHT_CM_MIN = 90
+_BODY_HEIGHT_CM_MAX = 250
+_BODY_WEIGHT_KG_MIN = 25
+_BODY_WEIGHT_KG_MAX = 200
+
+
+def _coerce_number_in_range(value, lo, hi):  # noqa: ANN001
+    """숫자 + 범위 검증 helper. bool 은 int subclass 라 명시 거부.
+
+    lo/hi 는 inclusive. 비-숫자·범위 밖 → None.
+    """
+    if isinstance(value, bool):
+        return None
+    if not isinstance(value, (int, float)):
+        return None
+    if value < lo or value > hi:
+        return None
+    return value
+
+
+def normalize_body_profile(meta_value) -> dict | None:  # noqa: ANN001
+    """자가입력 BodyProfile 방어 정규화 (D-06 graceful, raise 안 함).
+
+    owner-write client 값이라 HTTP validator(validate_upload_request)와 달리
+    실패 시 ValidationError 가 아니라 None / per-field None 을 반환한다.
+
+    per-field 검증:
+      · heightCm/weightKg : 숫자 + 범위 (90~250 / 25~200), 밖이면 None.
+      · experience        : EXPERIENCE_LEVELS 멤버만, 아니면 None.
+      · dominantHand      : DOMINANT_HANDS 멤버만, 아니면 None.
+      · painAreas         : PAIN_AREAS 멤버인 string 만 유지 (비-string·비-멤버 제거).
+      · 알 수 없는 키     : 무시.
+
+    전 필드 None/빈([]) 이면 전체 None 반환 ("all-empty → omit snapshot" — R5).
+    """
+    if not isinstance(meta_value, dict):
+        return None
+
+    height = _coerce_number_in_range(
+        meta_value.get("heightCm"), _BODY_HEIGHT_CM_MIN, _BODY_HEIGHT_CM_MAX
+    )
+    weight = _coerce_number_in_range(
+        meta_value.get("weightKg"), _BODY_WEIGHT_KG_MIN, _BODY_WEIGHT_KG_MAX
+    )
+
+    exp = meta_value.get("experience")
+    experience = exp if exp in EXPERIENCE_LEVELS else None
+
+    hand = meta_value.get("dominantHand")
+    dominant_hand = hand if hand in DOMINANT_HANDS else None
+
+    raw_pain = meta_value.get("painAreas")
+    pain_areas: list[str] = []
+    if isinstance(raw_pain, list):
+        pain_areas = [
+            p for p in raw_pain if isinstance(p, str) and p in PAIN_AREAS
+        ]
+
+    if (
+        height is None
+        and weight is None
+        and experience is None
+        and dominant_hand is None
+        and not pain_areas
+    ):
+        return None
+
+    return {
+        "heightCm": height,
+        "weightKg": weight,
+        "experience": experience,
+        "painAreas": pain_areas,
+        "dominantHand": dominant_hand,
+    }
+
+
 # ── 영상 형식 (contract.md: mp4/mov, ≤100MB) ───────────────────────────
 VIDEO_FORMATS = ("mp4", "mov")
 MAX_VIDEO_BYTES = 100 * 1024 * 1024  # design.md: 100MB 초과 불가

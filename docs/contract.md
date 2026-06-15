@@ -383,6 +383,51 @@ config 플래그를 `NLF_SMPLX` 로 swap. 이 path 에서는 SMPL-X β 가 자�
 
 ---
 
+## BodyProfile (자가입력) (Phase 3, Plan 03-01 신설 — BODY-02)
+
+> **2026-06-15 박제**: 게스트가 직접 입력하는 신체 프로필. **자가입력 보조
+> 데이터** — 분석 단정·점수 가중에 사용하지 않는다. 미입력/부분/잘못된 값에도
+> pipeline 은 crash 없이 graceful 진행 (SC#4).
+>
+> **변경 시 lockstep 경고**: 아래 3 곳 동시 갱신 필수 (CLAUDE.md Cross-cutting).
+>   - `app/src/types/analysis.ts` `BodyProfile` interface + 3 union (ExperienceLevel / DominantHand / PainArea)
+>   - `backend/shared/python/sunity_shared/models.py` `EXPERIENCE_LEVELS` / `DOMINANT_HANDS` / `PAIN_AREAS` + `normalize_body_profile`
+>   - 이 섹션
+
+### 필드
+
+| TS 필드 (camelCase) | TS 타입 | nullable | 설명 |
+|---------------------|---------|----------|------|
+| `heightCm` | `number` | ✓ | 키 (cm). 90~250 범위 밖 → null (graceful). |
+| `weightKg` | `number` | ✓ | 몸무게 (kg). 25~200 범위 밖 → null. **D-05: 보조 ONLY — 점수/분석 단정·scoring 모듈 유입 금지.** |
+| `experience` | `ExperienceLevel` (`beginner`/`intermediate`/`advanced`) | ✓ | 폴스포츠 경력. 알 수 없는 값 → null. |
+| `painAreas` | `PainArea[]` | (빈 배열 가능) | 통증부위 다중선택. PainArea 멤버 string 만 유지 (비-string·비-멤버 제거). flat scalar array (Firestore nested-array 안전). |
+| `dominantHand` | `DominantHand` (`left`/`right`/`both`) | ✓ | 우세손. 알 수 없는 값 → null. |
+| `updatedAt` | `number` | (옵셔널) | 마지막 저장 epoch ms (saveBodyProfile merge). |
+| `promptDismissedAt` | `number` | (옵셔널) | 첫 분석 권유 모달 once-flag (03-03). |
+
+`PainArea` 멤버: `shoulder` / `wrist` / `lower_back` / `knee` / `ankle` / `neck` / `hip` / `elbow` (폴스포츠 고하중 관절, `docs/research/폴스포츠-지식.md` 정합).
+
+### 저장 위치
+
+- **라이브**: `users/{uid}.bodyProfile` — 마이페이지에서 읽고/쓰는 현재 프로필.
+- **per-analysis SNAPSHOT**: `users/{uid}/analyses/{id}.bodyProfile` — 분석 시작
+  시점(`loading.tsx`)에 `getBodyProfileOnce()`(client normalize)로 복사. 결과
+  화면은 **snapshot 을 source-of-truth** 로 읽는다 (분석-당시 값 재현성, R1 —
+  이후 라이브 프로필이 바뀌어도 과거 분석 결과는 당시 값 유지).
+
+### graceful / 보안 제약
+
+- **graceful-missing (SC#4)**: 미입력/부분/잘못된 enum/범위 밖 값에도 pipeline
+  crash 없음. 전 필드 None/빈이면 snapshot 자체를 생략 (all-empty → omit).
+- **이중 정규화**: client `normalizeBodyProfile` (getBodyProfileOnce) +
+  server `normalize_body_profile` (pipeline) 둘 다 unknown enum/범위 밖 → None.
+- **D-05 (weightKg 보조-only)**: 어떤 프로필 값도 scoring 경로에 유입 금지 —
+  위조된 height/weight 로 점수 game 불가. coach context(D-04)에만 전달.
+- **owner-only**: `users/{uid}/{**}` Firestore 규칙으로 본인 doc 한정 (rules 변경 불필요).
+
+---
+
 ## §8. BodyComparisonReport (Plan 06-01 신설 — D-06-B3 confidence-tiered hybrid + W1 + C14 IPSF divergence + R8 extra_warnings + R2 source pose)
 
 > **2026-06-08 박제**: Phase 6 의 체형 정규화 비교 출력. mode1 / mode3_first /

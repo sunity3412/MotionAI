@@ -11,6 +11,38 @@ export type VideoFormat = 'mp4' | 'mov';
 
 export const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // design.md: 100MB 초과 불가
 
+// ── BodyProfile 자가입력 (Phase 3, Plan 03-01) — 3-way lockstep #1 ──────
+// Python 미러: backend/shared/python/sunity_shared/models.py
+//   (EXPERIENCE_LEVELS / DOMINANT_HANDS / PAIN_AREAS + normalize_body_profile).
+// 사람용 명세: docs/contract.md "BodyProfile (자가입력)" 섹션.
+// 이 셋이 바뀌면 동시 갱신 필수 (위 co-edit 명령 정합).
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+export type DominantHand = 'left' | 'right' | 'both';
+// 폴스포츠 고하중 관절 (docs/research/폴스포츠-지식.md 정합) — 통증부위 다중선택.
+export type PainArea =
+  | 'shoulder'
+  | 'wrist'
+  | 'lower_back'
+  | 'knee'
+  | 'ankle'
+  | 'neck'
+  | 'hip'
+  | 'elbow';
+
+// 게스트 자가입력 신체 프로필. 모든 측정값 nullable (부분 입력 graceful, D-06).
+// 저장: 라이브 users/{uid}.bodyProfile + per-analysis SNAPSHOT (AnalysisDoc).
+export interface BodyProfile {
+  heightCm: number | null;
+  // 보조 ONLY — 분석 단정·점수 가중 금지 (D-05). scoring consumer 모듈 유입 금지.
+  weightKg: number | null;
+  experience: ExperienceLevel | null;
+  // flat scalar array — Firestore nested-array 안전 (top-level 보관, Pitfall 7).
+  painAreas: PainArea[];
+  dominantHand: DominantHand | null;
+  updatedAt?: number; // 마지막 저장 epoch ms (saveBodyProfile merge)
+  promptDismissedAt?: number; // 03-03 첫 분석 권유 모달 once-flag
+}
+
 // ── 1. 업로드 URL 발급 (POST /upload-url) ──────────────────────────────
 // 앱이 S3에 직접 PUT 하기 위한 presigned URL 요청. (Lambda 경유 업로드 금지)
 export interface UploadUrlRequest {
@@ -298,6 +330,11 @@ export interface AnalysisDoc {
   anglesJointKeys?: string[]; // 길이 J (보통 8)
   anglesFrames?: number; // T
   videoFormat?: VideoFormat; // 박제 (2026-06-06): playback-url 재발급 시 ext 박제
+  // 분석-당시 자가입력 SNAPSHOT (live users/{uid}.bodyProfile 아님 — 결과 화면
+  // 재현성, R1). 03-03 result.tsx 가 이 snapshot 을 우선 표시. loading.tsx 가
+  // getBodyProfileOnce() (client normalize) 로 기록. painAreas 는 top-level
+  // scalar array 라 AnalysisDoc 안에서도 nested-array 위반 없음 (Pitfall 7).
+  bodyProfile?: BodyProfile | null;
 }
 
 // 기준 모션 (Firestore: reference/{motionId}, 읽기 전용)

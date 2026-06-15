@@ -157,14 +157,31 @@ export function useBodyProfile(): {
 export async function getBodyProfileOnce(): Promise<BodyProfile | null> {
   const uid = auth.currentUser?.uid;
   if (!uid) return null;
-  const snap = await getDoc(doc(db, 'users', uid));
-  const raw = snap.exists()
-    ? (snap.data()?.bodyProfile as Record<string, unknown> | undefined)
-    : undefined;
-  return normalizeBodyProfile(raw);
+  // [WR-05] 보조 snapshot 읽기는 절대 분석 흐름을 막으면 안 된다 (D-06 graceful).
+  // getDoc 이 offline/transient Firestore 오류로 reject 하면 startAnalysisUpload
+  // 가 통째로 중단되므로, live useBodyProfile 의 onSnapshot 오류 처리와 동일하게
+  // null 로 graceful degrade — snapshot 만 생략하고 분석은 계속한다.
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    const raw = snap.exists()
+      ? (snap.data()?.bodyProfile as Record<string, unknown> | undefined)
+      : undefined;
+    return normalizeBodyProfile(raw);
+  } catch (err) {
+    if (__DEV__) console.warn('[getBodyProfileOnce] error', err);
+    return null;
+  }
 }
 
 // 부분 입력 merge-write (D-06). 기존 필드 보존하며 전달된 필드만 갱신.
+//
+// [WR-01] 주의 — Firestore merge:true 는 nested map 을 **deep merge** 한다.
+// 따라서 partial 에서 생략한(undefined) 키는 기존 값이 그대로 남고, NULL 로
+// 덮어쓰지 않는 한 지워지지 않는다. 현재 유일 caller(BodyProfileForm)는 5개
+// 측정 필드를 항상 보내고 빈 값은 null 로 채우므로 clear 가 정상 동작하지만,
+// 향후 진짜 부분 caller 가 특정 필드를 "삭제"하려면 키 생략으로는 안 되고
+// deleteField() 를 명시 기록해야 한다. (Partial 타입이 허용하는 키 생략은
+// "그 필드를 비운다"가 아니라 "그 필드를 건드리지 않는다"는 의미임.)
 export async function saveBodyProfile(
   partial: Partial<BodyProfile>,
 ): Promise<void> {

@@ -4,9 +4,9 @@ fixed_at: 2026-06-15T00:00:00Z
 review_path: .planning/phases/03-bodyprofileinput/03-REVIEW.md
 iteration: 1
 findings_in_scope: 10
-fixed: 7
-skipped: 3
-status: partial
+fixed: 9
+skipped: 1
+status: all_fixed
 ---
 
 # Phase 3: Code Review Fix Report
@@ -17,8 +17,12 @@ status: partial
 
 **Summary:**
 - Findings in scope: 10
-- Fixed: 7
-- Skipped: 3
+- Fixed: 9
+- Skipped: 1 (CR-01 — already fixed in a prior commit, nothing to apply)
+
+**Note:** IN-02/IN-03 were initially deferred as cosmetic/"none required" but were
+applied in a follow-up pass (commit 0e63f56) at the user's request to close out
+everything fixable now.
 
 **Verification:** `cd app && npm run typecheck` (tsc --noEmit) passes clean after
 every app/TS edit. `cd backend && python -m pytest tests/test_body_profile.py -q`
@@ -107,29 +111,36 @@ intended runtime behavior (old docs fall back, new empty docs do not, live
 profile never leaks onto a past result) should be confirmed against real
 Firestore docs of both shapes.
 
+### IN-02: `validateNumber` range-copy polish
+
+**Files modified:** `app/src/components/BodyProfileForm.tsx`
+**Commit:** 0e63f56
+**Applied fix:** Tightened the range error copy from `90cm ~ 250cm 사이로...`
+to `90~250cm 사이로...` — range bound by a space-free tilde with the unit
+appended once. The reviewer's `·` suggestion was rejected because `·` is a
+list/middle-dot separator, semantically wrong for a numeric range; `~` is the
+conventional Korean range notation.
+
+### IN-03: `maxLength={3}` magic number co-located with duplicated range constants
+
+**Files modified:** `app/src/components/BodyProfileForm.tsx`
+**Commit:** 0e63f56
+**Applied fix:** Added a `maxLength` prop to `NumberField` and derive it at the
+call sites from the actual range constants (`String(HEIGHT_CM_MAX).length`,
+`String(WEIGHT_KG_MAX).length`). The disconnected magic `3` is gone — the input
+cap now follows the range bound automatically if it ever widens. Behavior is
+unchanged (both maxima are 3-digit).
+
 ## Skipped Issues
 
 ### CR-01: Prompt gate misfires during async profile load
 
 **File:** `app/src/app/(tabs)/analyze.tsx:142-151`
-**Reason:** skipped: already fixed in commit 02555f7. Verified the loading-gate
-guard is present — `analyze.tsx` destructures `loading: profileLoading` from
-`useBodyProfile()` (line 65) and `maybePromptBeforeRoute` routes straight
-through while `profileLoading` is true (lines 146-150). Not re-applied.
-
-### IN-02: `validateNumber` `~` range-copy stylistically inconsistent with `·`
-
-**File:** `app/src/components/BodyProfileForm.tsx:88`
-**Reason:** skipped: cosmetic only, reviewer marked "no functional issue". The
-`~` is conventional numeric-range notation (`90cm ~ 250cm`) and arguably clearer
-than `·` in a range context; changing it is subjective copy polish with no
-correctness value. Left as-is per run guidance.
-
-### IN-03: `maxLength={3}` magic number co-located with duplicated range constants
-
-**File:** `app/src/components/BodyProfileForm.tsx:308`
-**Reason:** skipped: reviewer states "Fix: None required." The cap is defensive
-redundancy (validators reject out-of-range anyway), not a bug. No change made.
+**Reason:** skipped: already fixed in commit 02555f7 (nothing to apply). Verified
+the loading-gate guard is present — `analyze.tsx` destructures
+`loading: profileLoading` from `useBodyProfile()` (line 65) and
+`maybePromptBeforeRoute` routes straight through while `profileLoading` is true
+(lines 146-150). Not re-applied.
 
 ---
 

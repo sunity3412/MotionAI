@@ -413,7 +413,11 @@ Plans:
   3. 다각도 캡처 가이드(촬영 조건·앵글·시점 수)가 문서화되어 등록 정확도가 재현 가능하다
   4. 다각도가 없는 단일 시점 기준 모션도 graceful하게 처리되고 confidence가 낮게 표기된다
 
-**Plans**: TBD
+**Plans**: 3 plans (CONTEXT D-01~D-05 정합 — 기존 11개 백필, 신규 촬영 0)
+
+  - [ ] 14-01-PLAN.md — Wave-0 foundation: Firestore 필드 audit(A2) + 백필 테스트 하니스(D-01 parity / SC#4 graceful / D-02 verdict) + contract 3-way lockstep(techniqueProfile/forceDirectionPattern/captureViews)
+  - [ ] 14-02-PLAN.md — 백필 compute(동일 _process 함수, RTMW 1회 재추론) + ADD-only merge seeder + firestore_admin helper + 다각도 캡처 가이드 문서(SC#3)
+  - [ ] 14-03-PLAN.md — Pod 백필 실행(11개 전체) + dry-run/real-run/verify-read + belle 시각 검수 체크포인트 (active flip 없음)
 
 ### Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)
 

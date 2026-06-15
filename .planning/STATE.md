@@ -51,6 +51,15 @@ Status: 04-05 COMPLETE ✓ — Wave 5 끝. Phase 04 = 6/6 plan 완료.
 > SYNTHESIS_MESH_ENABLED OFF default(B4 hard gate) 유지 = 코드 변경 0. 근거/재개조건 박제:
 > `.planning/phases/04-ux-occlusion-confidence/04-WAVE3B-EVIDENCE-DECISION.md`. [[gsd-model-overrides-opus]] 무관.
 
+> ✓ Reference 라이브러리 전체 RTMW 재처리 완료 (2026-06-15, belle 승인). Wave 5 가 5개만 했고
+> 나머지 6개(ref-combo/elbow-twist-sister/kip-up/pdshape/peter-pan/power-spin)는 구 8관절 2D 파이프라인
+> 이라 분석 품질 저하 — belle 지적. RunPod RTMW 로 6개 재처리(--no-flip → schema gate 6/6 → phase4_v1
+> versioned write 6/6 → NaN 0, 8관절 2D→17관절 3D) → belle flip 승인 → active flip 6/6 (activeVersion=
+> phase4_v1 + top-level mirror 11필드 + pre_phase4 백업=rollback). **전체 11개 reference 모두 phase4_v1
+> active + top-level 3D = ALL GREEN.** flip JSON = Pod `/workspace/reference-phase4-reprocess-6new.json`.
+> rollback: `rollback_reference_motions_phase4.py --to-version pre_phase4`. (후속 후보: reprocess 스크립트
+> MOTION_IDS 5→11 영구 반영 — 현재는 --motions override 로 처리, repo 변경 X.)
+
 > ⚠ Wave 2 belle override (2026-06-13): EAS preview build 환경 이슈로 실기기 smoke checkpoint 보류. R8 ErrorBoundary (PoseViewer3D Canvas 감쌈) + typecheck/grep 게이트가 로컬 안전망. 다음 native build 시점에 belle TestFlight 실기기로 OrbitControls 제스처 + Canvas/GL init + 4 카메라 preset 동작 검증 필요 (SUMMARY 04-02 deviation 섹션 박제).
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").

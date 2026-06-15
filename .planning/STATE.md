@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: completed
-stopped_at: Phase 3 context gathered
-last_updated: "2026-06-15T01:24:06.725Z"
+stopped_at: Phase 3 planned (3 plans, verified)
+last_updated: "2026-06-15T01:53:29.363Z"
 last_activity: "2026-06-15 - Completed quick task 260615-cxe: vision Gemini default model gemini-2.5-flash → gemini-2.5-pro"
 progress:
   total_phases: 14
   completed_phases: 11
-  total_plans: 64
+  total_plans: 67
   completed_plans: 64
   percent: 79
 ---
@@ -589,9 +589,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-15T01:24:06.710Z
+Last session: 2026-06-15T01:53:29.352Z
 
-Stopped at: Phase 3 context gathered
+Stopped at: Phase 3 planned (3 plans, verified)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -658,7 +658,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/03-bodyprofileinput/03-CONTEXT.md
+Resume file: .planning/phases/03-bodyprofileinput/03-01-PLAN.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

@@ -109,6 +109,29 @@ class TestNormalizeBodyProfile:
         assert out is not None
         assert out["heightCm"] == 165.0
 
+    def test_normalizer_strips_updated_at_and_prompt_flag(self) -> None:
+        # [IN-01] snapshot normalizer 는 5개 측정 필드만 반환하고 updatedAt /
+        # promptDismissedAt 는 떨군다 (once-flag 는 호출부가 raw 에서 별도로 읽음).
+        # 이 비대칭을 계약으로 잠가, 향후 reader 가 normalize 출력에 once-flag 가
+        # 있다고 가정해 유실하는 일을 막는다.
+        out = models.normalize_body_profile(
+            {
+                "heightCm": 165,
+                "updatedAt": 1234567890,
+                "promptDismissedAt": 1234567890,
+            }
+        )
+        assert out is not None
+        assert "updatedAt" not in out
+        assert "promptDismissedAt" not in out
+        assert set(out.keys()) == {
+            "heightCm",
+            "weightKg",
+            "experience",
+            "painAreas",
+            "dominantHand",
+        }
+
     def test_full_profile_roundtrip(self) -> None:
         out = models.normalize_body_profile(
             {

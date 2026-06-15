@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: executing
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-06-15T02:46:55.144Z"
+status: verifying
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-06-15T02:57:02.791Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 14
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 67
-  completed_plans: 66
-  percent: 79
+  completed_plans: 67
+  percent: 86
 ---
 
 # Project State
@@ -29,7 +29,7 @@ Phase: 03 (bodyprofileinput) — EXECUTING
 Plan: 3 of 3
 Verification: Wave 4 (04-04) — pytest backend/tests/phase04/test_video_gen_adapter.py 5 PASS / pytest backend/tests/phase04/ 36 PASS + 2 SKIP (Wave 3a 31 → +5) / pytest backend/tests/ 1704 PASS (regression 0, 기존 36 fail 불변) / import gate (VideoGenerationAdapter + OmniVertexAdapter + VeoAdapter + get_video_gen_adapter) PASS / grep SYNTHESIS_VIDEO_GEN_ENABLED hit / @runtime_checkable Protocol structural subtyping PASS / pipeline/app.py unchanged (D-31 정합 — last commit 2790f57 pre-Wave 4). Plan `<done>` 게이트 all PASS.
 Next: Wave 5 — 04-05 (정은지 5영상 Phase 4-compatible 재처리 + versioned/atomic write + rollback + test_evaluate_4way.py 하단 RunPod 통합 테스트 append). Wave 3b @integration (실 RTMW 재추론) 여전히 parked (RunPod 필요, phase blocker 아님).
-Status: Ready to execute
+Status: Phase complete — ready for verification
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -287,7 +287,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [██████████] 99%
+Progress: [██████████] 100%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -517,6 +517,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 04 P05 | 15 | 2 tasks | 4 files |
 | Phase 03 P01 | 9min | 3 tasks | 8 files |
 | Phase 03 P02 | 4 | 2 tasks | 2 files |
+| Phase 03-bodyprofileinput P03 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -564,6 +565,8 @@ Recent decisions affecting current work:
 - [Phase 03]: (2026-06-15, Plan 03-01) weightKg 보조 ONLY — 6 scoring-consumer 모듈 grep gate 로 유입 차단 (D-05/R4). coach context(D-04)에만 전달.
 - [Phase ?]: 03-02: BodyProfileForm presentation = 전체화면 Modal(pageSheet), 신규 route 없이 재사용 component 유지
 - [Phase ?]: 03-02: Segmented 토글 해제 허용 (오선택 정정 + 부분입력 D-06)
+- [Phase ?]: 03-03: useBodyProfile 가 promptDismissedAt once-flag 노출 — normalizer all-empty→null 우회로 게이트가 미입력+dismiss 정확 판별 (R2)
+- [Phase ?]: 03-03: pendingPicked 게이트 4-경로 모두 continuePendingRoute 단일 수렴 — 영상 유실/stale closure 방지
 
 ### Pending Todos
 
@@ -595,9 +598,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-15T02:46:55.134Z
+Last session: 2026-06-15T02:57:02.761Z
 
-Stopped at: Completed 03-02-PLAN.md
+Stopped at: Completed 03-03-PLAN.md
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

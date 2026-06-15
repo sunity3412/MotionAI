@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: PoseEngine 추상화 + RTMW 어댑터 + 폴 축 정렬 + NLF R&D 격리** - 상용 제품 코드를 RTMW 133 wholebody (Apache-2.0) 로 마이그레이션 완료 (commit 2a8aa72 atomic swap), NLF/SMPL-X 는 R&D 비교군으로 격리, 폴 축 좌표계 산출. **2026-06-07 close-out 사실상 완료** — Plan 01-25 swap 완료, Plan 01-23 sweep 은 Phase 5 12차 sweep 으로 대체. 미완 = Plan 01-24 (.samignore + import 차단 단위 테스트) — 후속 별도 plan.
 - [x] **Phase 2: BodyNormalizationProfile 자동 측정 (RTMW segment 기반)** - 키·팔/다리/몸통 비율·좌우 비대칭 자동 추출. SMPL-X β는 R&D 비교군에서만 (제품 코드 사용 금지). **2026-06-07 belle pivot 정합**: Phase 1 RTMW 백본 swap 완료 (commit 2a8aa72) 후 Phase 2 도 MediaPipe → RTMW segment 산출로 갱신. (completed 2026-06-07)
-- [ ] **Phase 3: 자가입력 BodyProfileInput** - 키·몸무게·경력·통증부위 1회 입력 UX
+- [x] **Phase 3: 자가입력 BodyProfileInput** - 키·몸무게·경력·통증부위 1회 입력 UX (completed 2026-06-15)
 - [x] **Phase 4: Camera Angle AI (single-view 가상 다각도) + occlusion confidence 게이트** - 1영상 업로드 유지, 가림/저신뢰 구간만 AI 보완 + "추정" 표기 (2026-06-13 belle pivot 재정의 — 다중 시점 직접 업로드 영구 제거) (completed 2026-06-14)
 - [x] **Phase 5: Gemini 기술 인식기 (분류 한정)** - 동작 분류만, 좌표·판단 출력 금지. **2026-06-05 12차 sweep D-01 PASS** (phase1_ready_to_swap=True, phase5_ready_to_release_d16_block=True). 빌드 11 실분석 mode1 94 + mode3 100 PASS.
 - [x] **Phase 6: 체형 정규화 비교 엔진 (coaching 모드)** - 프로 패턴을 수강생 체형 비율로 재계산 (completed 2026-06-08)
@@ -140,7 +140,7 @@ Plans:
 Plans:
 - [x] 03-01-PLAN.md — Wave 1: thin E2E + 3-way BodyProfile 계약 lockstep (TS↔Python↔contract.md) + bodyProfile.ts hook + loading.tsx snapshot + pipeline coach seam (D-04) + D-05 weightKg grep gate + Wave 0 backend 테스트
 - [x] 03-02-PLAN.md — Wave 2: BodyProfileForm (5필드 RN primitive + a11y + 토큰) + profile.tsx BodyProfileCard 상시 편집 진입점 (D-01/D-02/D-03)
-- [ ] 03-03-PLAN.md — Wave 3: BodyProfilePromptModal dismissible 첫분석 권유 + analyze.tsx 게이트 + once-flag (D-01/D-06) + result.tsx BodyProfile 표기 (D-04)
+- [x] 03-03-PLAN.md — Wave 3: BodyProfilePromptModal dismissible 첫분석 권유 + analyze.tsx 게이트 + once-flag (D-01/D-06) + result.tsx BodyProfile 표기 (D-04)
 **UI hint**: yes
 
 ### Phase 4: Camera Angle AI (single-view 가상 다각도) + occlusion confidence 게이트
@@ -519,7 +519,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 |-------|----------------|--------|-----------|
 | 1. PoseEngine + RTMW + 폴 축 + NLF R&D 격리 | 21/24 | Sufficient (close-out) | 2026-06-07 (Plan 01-24 후속) |
 | 2. BodyNormalizationProfile (MediaPipe segment) | 1/1 | Complete   | 2026-06-07 |
-| 3. 자가입력 BodyProfileInput | 2/3 | In Progress|  |
+| 3. 자가입력 BodyProfileInput | 3/3 | Complete   | 2026-06-15 |
 | 4. 다중 시점 촬영 + occlusion 게이트 | 6/6 | Complete   | 2026-06-14 |
 | 5. Gemini 기술 인식기 (분류 한정) | 6/6 | Complete | 2026-06-05 (12차 sweep D-01 PASS) |
 | 6. 체형 정규화 비교 엔진 | 3/3 | Complete   | 2026-06-08 |

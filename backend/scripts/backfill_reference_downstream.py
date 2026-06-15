@@ -523,6 +523,16 @@ def _process_one(
     max_delta = float(np.nanmax(diff)) if diff.size else 0.0
     mean_delta = float(np.nanmean(diff)) if diff.size else 0.0
     rerun_hash = _sha256_angles(rerun_angles)
+    # 진단 로깅 — divergence 가 단일 프레임 spike(예: L/R flip) 인지 pervasive 인지 분류용.
+    if diff.size:
+        p95 = float(np.nanpercentile(diff, 95))
+        p99 = float(np.nanpercentile(diff, 99))
+        over1 = int(np.count_nonzero(diff > EPSILON_DEG))
+        fi, ji = (int(x) for x in np.unravel_index(int(np.nanargmax(diff)), diff.shape))
+        log.info(
+            "[%s] angle-delta diag: max=%.3f mean=%.4f p95=%.3f p99=%.3f over1deg=%d/%d argmax=(frame=%d,joint=%d)",
+            motion_id, max_delta, mean_delta, p95, p99, over1, diff.size, fi, ji,
+        )
     if not math.isfinite(max_delta) or max_delta > EPSILON_DEG:
         raise RuntimeError(
             f"[{motion_id}] stored-vs-rerun angle gate 실패 — maxAngleDelta={max_delta} "

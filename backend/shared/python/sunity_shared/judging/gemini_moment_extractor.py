@@ -50,11 +50,12 @@ GEMINI_API_KEY_PARAM_NAME = "/sunity/motion/gemini-api-key"
 # 본 파일이 실 DEFAULT 박제 위치 (Cycle 1 plan 이 recognizer.py 만 박제하여 path
 # 누락 → Cycle 2 carryover 차단). belle 가 env GEMINI_MODEL 박제만으로 모델 박제
 # 변경 박제 (코드 변경 0).
-# 박제 default = 'gemini-2.5-flash' — 현재 stable Flash family. 이전 Flash experimental
-# 모델 박제 2026-06-01 EOL (Google deprecation) 영구 차단 — grep 안전망 test 가 검증.
-# Gemini 3.x Pro 가 belle 가용 시점에 env GEMINI_MODEL=gemini-3.1-pro-preview 박제만으로
-# 즉시 박제.
-DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+# vision-only 2.5 예외 (memory: gemini-latest-model-versions, 2026-06-15):
+#   Google 이 video multimodal 을 완전 지원하는 3.x 모델을 아직 미출시.
+#   따라서 이 경로에 한해 2.5-pro (stable, suffix 없음) 가 올바른 중간 모델.
+#   ListModels 2026-06-15 박제: gemini-2.5-pro = generateContent + multimodal 지원.
+#   3.x video-capable 모델 출시 시 env GEMINI_MODEL=gemini-3.x-pro 로 즉시 전환 가능.
+DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-pro")
 
 # Gemini 응답이 좌표·점수·판단을 출력하지 못하도록 거부할 패턴.
 # memory: analysis-objectivity-no-human-scores — 출력은 시점/분류만, 점수·좌표 금지.

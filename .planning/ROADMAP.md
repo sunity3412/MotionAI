@@ -136,7 +136,11 @@ Plans:
   3. weightKg는 보조 정보로만 사용되고 분석 단정 근거로 쓰이지 않는다 (코드 주석 + 사용처 제한)
   4. 미입력 사용자도 분석이 graceful하게 진행된다 (BodyNormalizationProfile만으로)
 
-**Plans**: TBD
+**Plans**: 3 plans (Wave 1~3 MVP vertical slices)
+Plans:
+- [ ] 03-01-PLAN.md — Wave 1: thin E2E + 3-way BodyProfile 계약 lockstep (TS↔Python↔contract.md) + bodyProfile.ts hook + loading.tsx snapshot + pipeline coach seam (D-04) + D-05 weightKg grep gate + Wave 0 backend 테스트
+- [ ] 03-02-PLAN.md — Wave 2: BodyProfileForm (5필드 RN primitive + a11y + 토큰) + profile.tsx BodyProfileCard 상시 편집 진입점 (D-01/D-02/D-03)
+- [ ] 03-03-PLAN.md — Wave 3: BodyProfilePromptModal dismissible 첫분석 권유 + analyze.tsx 게이트 + once-flag (D-01/D-06) + result.tsx BodyProfile 표기 (D-04)
 **UI hint**: yes
 
 ### Phase 4: Camera Angle AI (single-view 가상 다각도) + occlusion confidence 게이트

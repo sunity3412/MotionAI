@@ -74,6 +74,16 @@ function hasField(data, field) {
   return data != null && data[field] !== undefined && data[field] !== null;
 }
 
+// WR-03 — present-but-empty 가 complete count 를 부풀리지 않도록 비어있지 않음 확인
+// (snapshot 의 downstreamComplete predicate mirror).
+function nonEmpty(v) {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'string') return v.length > 0;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object') return Object.keys(v).length > 0;
+  return true; // number / boolean 등 scalar.
+}
+
 async function main() {
   // ADC 의존 — lazy import (validate-before-init 패턴, seed-reference-body-profile.mjs 정합).
   const { applicationDefault, initializeApp } = await import('firebase-admin/app');
@@ -117,7 +127,9 @@ async function main() {
     });
     console.log([motionId.padEnd(24), ...cells].join(' '));
 
-    const complete = PHASE14_REQUIRED_FIELDS.every((f) => hasField(data, f));
+    const complete = PHASE14_REQUIRED_FIELDS.every(
+      (f) => hasField(data, f) && nonEmpty(data[f]),
+    );
     if (complete) completeRequiredSet++;
   }
 

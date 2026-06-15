@@ -213,8 +213,9 @@ async function main() {
     // 다운스트림 완성도 (post 기준, present + non-empty).
     const downstreamComplete = PHASE14_REQUIRED.every((f) => present(postData, f) && nonEmpty(postData[f]));
     if (downstreamComplete) completeDownstreamFieldCount++;
-    // seeded = 4 신필드 모두 존재 (captureViews 포함 시 == required).
-    const seeded = PHASE14_REQUIRED.every((f) => present(postData, f));
+    // seeded = 5 (PHASE14_REQUIRED) 모두 present + non-empty (WR-03 —
+    // present-but-empty 가 count 부풀리지 않도록 downstreamComplete 와 동일 predicate).
+    const seeded = PHASE14_REQUIRED.every((f) => present(postData, f) && nonEmpty(postData[f]));
     if (seeded) seededMotionCount++;
 
     perMotion.push({

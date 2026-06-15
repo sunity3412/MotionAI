@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: completed
-stopped_at: Phase 3 planned (3 plans, verified)
-last_updated: "2026-06-15T01:53:29.363Z"
-last_activity: "2026-06-15 - Completed quick task 260615-cxe: vision Gemini default model gemini-2.5-flash → gemini-2.5-pro"
+status: executing
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-06-15T02:39:56.247Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 14
   completed_phases: 11
   total_plans: 67
-  completed_plans: 64
+  completed_plans: 65
   percent: 79
 ---
 
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 04 — ux-occlusion-confidence
+**Current focus:** Phase 03 — bodyprofileinput
 
 ## Current Position
 
-Phase: 04 (ux-occlusion-confidence) — 6/6 PLANS COMPLETE (formal verify-phase optional)
-Plan: 6 of 6
+Phase: 03 (bodyprofileinput) — EXECUTING
+Plan: 2 of 3
 Verification: Wave 4 (04-04) — pytest backend/tests/phase04/test_video_gen_adapter.py 5 PASS / pytest backend/tests/phase04/ 36 PASS + 2 SKIP (Wave 3a 31 → +5) / pytest backend/tests/ 1704 PASS (regression 0, 기존 36 fail 불변) / import gate (VideoGenerationAdapter + OmniVertexAdapter + VeoAdapter + get_video_gen_adapter) PASS / grep SYNTHESIS_VIDEO_GEN_ENABLED hit / @runtime_checkable Protocol structural subtyping PASS / pipeline/app.py unchanged (D-31 정합 — last commit 2790f57 pre-Wave 4). Plan `<done>` 게이트 all PASS.
 Next: Wave 5 — 04-05 (정은지 5영상 Phase 4-compatible 재처리 + versioned/atomic write + rollback + test_evaluate_4way.py 하단 RunPod 통합 테스트 append). Wave 3b @integration (실 RTMW 재추론) 여전히 parked (RunPod 필요, phase blocker 아님).
-Status: 04-05 COMPLETE ✓ — Wave 5 끝. Phase 04 = 6/6 plan 완료.
+Status: Ready to execute
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -64,7 +64,7 @@ Status: 04-05 COMPLETE ✓ — Wave 5 끝. Phase 04 = 6/6 plan 완료.
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-15 - Completed quick task 260615-cxe: vision Gemini default model gemini-2.5-flash → gemini-2.5-pro
+Last activity: 2026-06-15
 
 ### Quick Tasks Completed
 
@@ -287,7 +287,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [██████████] 100%
+Progress: [██████████] 97%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -515,6 +515,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 09 P02 | 30 | 5 tasks | 11 files |
 | Phase 04 P03 | ~20min | 2 tasks | 4 files |
 | Phase 04 P05 | 15 | 2 tasks | 4 files |
+| Phase 03 P01 | 9min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -558,6 +559,8 @@ Recent decisions affecting current work:
 - [Phase 08.1]: pipeline/app.py caller-side 변경 0 (Wave 1 시그너처 보존) — grep audit 결과 distance kwarg 부재 + 3 coordinate_space reference 모두 pole_axis_measurement.coordinate_space (PoleAxisMeasurement unchanged field). Plan must_haves Wave 2 'caller-side 변경 0 가능' 정합.
 - [Phase ?]: D-09-D1 / D-09-U1 / D-09-U3 / D-09-U4 / D-09-U5 박제 — Wave 0 11 files 단일 atomic commit (defc973)
 - [Phase ?]: Wave 1 Plan 09-02: D-09-D6 mode_context inline (no helper) + R4 iter-3 two-tier axis warning + R4 None guard for pelvis_drop + R5 high_jitter wins tie-break + R11 conservative v1 cf cap when axis missing
+- [Phase ?]: (2026-06-15, Plan 03-01) BodyProfile 3-way 계약 lockstep + AnalysisDoc.bodyProfile snapshot — 결과 화면 재현성(R1), client+server 이중 normalize graceful(D-06).
+- [Phase 03]: (2026-06-15, Plan 03-01) weightKg 보조 ONLY — 6 scoring-consumer 모듈 grep gate 로 유입 차단 (D-05/R4). coach context(D-04)에만 전달.
 
 ### Pending Todos
 
@@ -589,9 +592,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-15T01:53:29.352Z
+Last session: 2026-06-15T02:39:56.237Z
 
-Stopped at: Phase 3 planned (3 plans, verified)
+Stopped at: Completed 03-01-PLAN.md
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -658,7 +661,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/03-bodyprofileinput/03-01-PLAN.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

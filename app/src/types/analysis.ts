@@ -444,6 +444,28 @@ export interface ReferenceMotion {
   // UI 의 mode1 split 오버레이 = `analysisDoc.result.keypointReport` (사용자) +
   // `refMotion.referenceKeypointReport` (정은지) 양쪽 read.
   referenceKeypointReport?: KeypointReport | null;
+
+  // Phase 14 (Plan 14-01, SC#2 / D-03) — reference 다운스트림 백필 필드.
+  // 14-02/14-03 가 학생 _process 와 SAME sunity_shared 함수를 REFERENCE_V1_FORCE_CONFIG
+  // (pinned) 로 거쳐 채운다 (위양성 방지 = reference·학생 동일 계산 경로, D-01).
+  // 3-way lockstep: docs/contract.md §3 + 이 인터페이스 + Python source shapes
+  // (force_pattern.ForcePatternInference / technique.TechniqueProfile). CLAUDE.md
+  // Cross-cutting. 모두 OPTIONAL/nullable — 백필 미완 reference 와 normalize() 정합.
+  // Pitfall 5 — T-scaled per-frame array 추가 금지 (40k index-entry 한도).
+  //
+  // EXTEND joint_expectations (FallbackRecognizer 산출). 채점 line 차원의 기준.
+  // technique.TechniqueProfile.joint_expectations 형태 (JOINT_KEYS → EXTEND/BENT_OK/CONTACT).
+  techniqueProfile?: {
+    name: string;
+    category: string;
+    jointExpectations: Record<string, string>;
+  } | null;
+  // ForceDirectionPattern (infer_force_direction_pattern 산출). Phase 9 §9.11 의
+  // ForcePatternInference shape 재사용. nullable.
+  forceDirectionPattern?: ForcePatternInference | null;
+  // D-03 / SC#4 — 단일시점 v1 reference 는 모두 captureViews=1. 다각도 부재 시
+  // confidence 를 낮게 표기하기 위한 플래그 (RESEARCH A5 / Open-Q4 default).
+  captureViews?: number;
 }
 
 // ── Pose Engine 데이터 계약 (Phase 1, D-04/D-05/D-11/D-12) ─────────────────

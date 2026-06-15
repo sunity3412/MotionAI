@@ -124,8 +124,21 @@ angles?            number[]               flat 시퀀스 — Firestore nested ar
 anglesJointKeys?   string[]               angles 의 J 축 순서 (방어적 명시, backend skeleton.JOINT_KEYS 와 일치)
 anglesFrames?      number                 angles 의 T (검증·디버깅용)
 anglesUpdatedAt?   number (epoch ms)      angles 재추출 시점
+meanAngles?        Record<string,number>  관절 평균 각도(deg). 결과 화면 targetAngle. 시드/derive (Phase 6)
+bodyNormalizationProfile? BodyNormalizationProfile  체형 정규화 (Phase 6 백필, §8). nullable
+techniqueProfile?  { name, category, jointExpectations } EXTEND joint_expectations (FallbackRecognizer 산출). Phase 14 백필. nullable (D-01/SC#2)
+forceDirectionPattern? ForcePatternInference  힘 방향 패턴 (§9.11 shape). Phase 14 백필. nullable (D-01/SC#2)
+captureViews?      number                 단일시점 v1 = 1 (D-03/SC#4). 다각도 부재 시 confidence 낮춤 (RESEARCH A5)
 updatedAt?         number (epoch ms)
 ```
+
+> Phase 14 (Plan 14-01) — techniqueProfile / forceDirectionPattern / captureViews
+> 신설. meanAngles / bodyNormalizationProfile 도 §3 에 명시 (Open-Q3 contract gap
+> 해소). 모두 OPTIONAL/nullable — 백필 미완 reference 정합. 백필(14-02/14-03)은 학생
+> _process 와 SAME sunity_shared 함수를 REFERENCE_V1_FORCE_CONFIG (pinned) 로 거침
+> (D-01). 3-way lockstep: 본 §3 + app/src/types/analysis.ts ReferenceMotion +
+> Python source shapes (force_pattern.ForcePatternInference / technique.TechniqueProfile).
+> 단일시점 캡처 프로토콜은 촬영 가이드 문서로만 (D-03).
 `ClipRange` = { prepStartS, execStartS, execPeakS, landEndS, recommendedRecordS }
   → 분석 런타임은 execStartS~landEndS 만 사용 (reference-motions.md §4).
 `Checkpoint` = { joint, weight, note? }

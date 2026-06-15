@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-06-15T02:57:02.791Z"
+status: ready_to_plan
+stopped_at: Phase 03 complete (3/3) — ready to discuss Phase 04
+last_updated: 2026-06-15T03:12:29.184Z
 last_activity: 2026-06-15
 progress:
   total_phases: 14
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 03 — bodyprofileinput
+**Current focus:** Phase 04 — ux occlusion confidence
 
 ## Current Position
 
-Phase: 03 (bodyprofileinput) — EXECUTING
-Plan: 3 of 3
+Phase: 04
+Plan: Not started
 Verification: Wave 4 (04-04) — pytest backend/tests/phase04/test_video_gen_adapter.py 5 PASS / pytest backend/tests/phase04/ 36 PASS + 2 SKIP (Wave 3a 31 → +5) / pytest backend/tests/ 1704 PASS (regression 0, 기존 36 fail 불변) / import gate (VideoGenerationAdapter + OmniVertexAdapter + VeoAdapter + get_video_gen_adapter) PASS / grep SYNTHESIS_VIDEO_GEN_ENABLED hit / @runtime_checkable Protocol structural subtyping PASS / pipeline/app.py unchanged (D-31 정합 — last commit 2790f57 pre-Wave 4). Plan `<done>` 게이트 all PASS.
 Next: Wave 5 — 04-05 (정은지 5영상 Phase 4-compatible 재처리 + versioned/atomic write + rollback + test_evaluate_4way.py 하단 RunPod 통합 테스트 append). Wave 3b @integration (실 RTMW 재추론) 여전히 parked (RunPod 필요, phase blocker 아님).
-Status: Phase complete — ready for verification
+Status: Ready to plan
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -486,7 +486,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 
 **Velocity:**
 
-- Total plans completed: 9 (01-01, 01-02, 01-03, 01-06, 01-07, 01-08)
+- Total plans completed: 12 (01-01, 01-02, 01-03, 01-06, 01-07, 01-08)
 - Average duration: ~30 min/plan (executor) + belle Pod 실행 별도
 
 ## Performance Metrics
@@ -502,6 +502,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 06 | 3 | - | - |
+| 03 | 3 | - | - |
 
 **Recent Trend:**
 

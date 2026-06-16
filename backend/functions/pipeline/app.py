@@ -862,6 +862,58 @@ def _strip_reserved_keys(d: dict) -> dict:
     return {k: v for k, v in d.items() if not str(k).startswith("_")}
 
 
+# ── Phase 13-C: writer 재시도 래퍼 + user-visible 키 판정 ────────────────────
+# belle 2026-06-16 [[section-dual-coach-report]] — 계층형 폴백 (1) 두 writer 동시
+# 호출 + 재시도 1회 + 짧은 타임아웃. coach_writer 는 자체 타임아웃이 없으므로
+# 호출부에서 1회 재시도 래퍼로 감싼다. 둘 다 동일 coach_context 공유 (B3 정합).
+
+# 파일럿 규모 rate-limit≈0 (decisions_13c). 짧은 타임아웃 — provider 장애 구간만
+# 폴백 진입. SDK 자체 네트워크 타임아웃에 더해 시도당 1회 재시도.
+_COACH_RETRY_ATTEMPTS = 2  # 최초 1 + 재시도 1
+
+
+def _coach_user_visible_keys(result: dict) -> list[str]:
+    """writer 결과에서 reserved(`_`) 키 제외한 joint 키 (≥1 면 성공 path)."""
+    if not isinstance(result, dict):
+        return []
+    return [k for k in result.keys() if not str(k).startswith("_")]
+
+
+def _call_coach_writer_with_retry(
+    writer_name: str, write_fn, context: dict
+) -> dict:
+    """writer.write(context) 를 재시도 1회로 호출 (13-C 계층형 폴백 1).
+
+    fallback dict(`{}` / `{"_fallbackReason": ...}` / user-visible 키 0) 또는 예외면
+    재시도. 최종 결과(성공 dict 또는 마지막 fallback dict) 반환 — None 반환 0 (R-W4).
+    """
+    last: dict = {}
+    for attempt in range(1, _COACH_RETRY_ATTEMPTS + 1):
+        try:
+            result = write_fn(context)
+        except Exception:  # noqa: BLE001 — writer 예외 = 폴백 trigger, 분석 중단 X.
+            log.exception(
+                "coach writer 호출 예외 (writer=%s, attempt=%d)", writer_name, attempt
+            )
+            result = {}
+        last = result if isinstance(result, dict) else {}
+        if _coach_user_visible_keys(last):
+            if attempt > 1:
+                log.info(
+                    "coach writer 재시도 성공 (writer=%s, attempt=%d)",
+                    writer_name,
+                    attempt,
+                )
+            return last
+        if attempt < _COACH_RETRY_ATTEMPTS:
+            log.info(
+                "coach writer fallback dict — 재시도 (writer=%s, attempt=%d)",
+                writer_name,
+                attempt,
+            )
+    return last
+
+
 def _gemini_b_audit_payload(
     writer_result: dict,
     *,
@@ -1902,34 +1954,72 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # normalize_body_profile 로 unknown enum/범위 밖 → None graceful (SC#4).
             body_profile=models.normalize_body_profile(meta.get("bodyProfile")),
         )
+        # ── Phase 13-C: 섹션형 듀얼 coach — 둘 다 호출 + 섹션 조립 + 계층형 폴백 ──
+        # belle 2026-06-16 [[section-dual-coach-report]]. GEMINI_COACH_ENABLED=1
+        # (default) 시 양쪽 writer 를 둘 다 호출해 섹션별로 조립 (원인/강사확인=Gemini,
+        # 교정처방/부상위험=Cerebras). 한쪽 실패(재시도 후) → cross-fill, 둘 다 실패 →
+        # coach_details={} (build_result 수치 폴백). env OFF 시 기존 Cerebras-only 보존.
         gemini_b_audit: dict | None = None
         if _coach_enabled():
-            gemini_writer_result = _ensure_gemini_coach_writer().write(coach_context)
-            # joint 키 ≥ 1 (reserved `_` prefix 제외) 면 성공 path.
-            user_visible_keys = [
-                k for k in gemini_writer_result.keys() if not str(k).startswith("_")
-            ]
-            if user_visible_keys:
-                # 성공 — reserved 키 strip 후 assemble 입력 박제.
-                coach_details = _strip_reserved_keys(gemini_writer_result)
-                gemini_b_audit = _gemini_b_audit_payload(
-                    gemini_writer_result,
-                    cerebras_used=False,
-                    cerebras_fallback_reason=None,
+            # (1) 양쪽 writer 동시 호출 + 시도당 재시도 1회 (단일 coach_context 공유, B3).
+            gemini_result = _call_coach_writer_with_retry(
+                "gemini", _ensure_gemini_coach_writer().write, coach_context
+            )
+            cerebras_result = _call_coach_writer_with_retry(
+                "cerebras", _COACH_WRITER.write, coach_context
+            )
+            gemini_ok = bool(_coach_user_visible_keys(gemini_result))
+            cerebras_ok = bool(_coach_user_visible_keys(cerebras_result))
+
+            if gemini_ok or cerebras_ok:
+                # (2) 섹션 조립 — top 3 관절키 기준. cross-fill 이 빈 섹션 0 보장.
+                top_keys = [a.key for a in kismam.top_issues(assessments, n=3)]
+                coach_details, section_audit = assemble.assemble_dual_coach_sections(
+                    _strip_reserved_keys(gemini_result) if gemini_ok else {},
+                    _strip_reserved_keys(cerebras_result) if cerebras_ok else {},
+                    top_keys,
                 )
-            else:
-                # Gemini fallback dict (`{}` 또는 `{"_fallbackReason": ...}`) → Cerebras 폴백.
-                fb_reason = gemini_writer_result.get("_fallbackReason")
+                # (5) 섹션별 출처 + cross-fill audit 로깅 (성공/폴백률 실측 전환 근거).
+                cross_filled_joints = [
+                    j for j, a in section_audit.items() if a.get("crossFilled")
+                ]
                 log.info(
-                    "GeminiCoachWriter fallback dict — Cerebras 폴백 (reason=%s)",
-                    fb_reason,
+                    "coach dual-track 섹션 조립 — gemini_ok=%s cerebras_ok=%s "
+                    "joints=%d cross_filled=%s audit=%s",
+                    gemini_ok,
+                    cerebras_ok,
+                    len(top_keys),
+                    cross_filled_joints,
+                    section_audit,
                 )
-                coach_details = _COACH_WRITER.write(coach_context)
+                gemini_b_audit = _gemini_b_audit_payload(
+                    gemini_result if gemini_ok else {},
+                    cerebras_used=not gemini_ok,
+                    cerebras_fallback_reason=(
+                        None
+                        if gemini_ok
+                        else gemini_result.get("_fallbackReason") or "gemini_fallback"
+                    ),
+                )
+                if gemini_b_audit is not None:
+                    gemini_b_audit["dualTrack"] = True
+                    gemini_b_audit["sectionAudit"] = section_audit
+                    gemini_b_audit["crossFilledJoints"] = cross_filled_joints
+            else:
+                # (4) 둘 다 실패 → coach_details={} → build_result 수치 폴백 (최후 바닥).
+                g_reason = gemini_result.get("_fallbackReason") or "gemini_fallback"
+                log.info(
+                    "coach dual-track 양쪽 실패 — 수치 폴백 (gemini_reason=%s cerebras=fallback)",
+                    g_reason,
+                )
+                coach_details = {}
                 gemini_b_audit = _gemini_b_audit_payload(
                     {},
                     cerebras_used=True,
-                    cerebras_fallback_reason=fb_reason,
+                    cerebras_fallback_reason="both_failed",
                 )
+                if gemini_b_audit is not None:
+                    gemini_b_audit["dualTrack"] = True
         else:
             # GEMINI_COACH_ENABLED OFF — Cerebras only (기존 path 그대로). audit 박제 X.
             coach_details = _COACH_WRITER.write(coach_context)

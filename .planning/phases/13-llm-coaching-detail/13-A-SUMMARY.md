@@ -129,6 +129,10 @@ None. The corrective library fixture is fully populated; map_exercises wires rea
 - Plan 13-B (LLM coaching / motion branch routing) can proceed independently (depends_on: []).
 - recommendedExercises now flows pipeline → Firestore → app result screen. Real values appear once a pipeline analysis runs (GPU Pod); the full-library modal is always available regardless of analysis output.
 
+## Self-Check: PASSED
+
+All created files exist on disk and all task commits are present in git history (3068a7c, 0e9302a, c89b670, 1580a6f, d284499).
+
 ---
 *Phase: 13-llm-coaching-detail*
 *Completed: 2026-06-16*

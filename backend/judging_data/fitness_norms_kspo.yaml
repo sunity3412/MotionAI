@@ -1,0 +1,175 @@
+# 국민체력100 인증기준(등급표) — 연령·성별 체력 규준
+#
+# 출처: 서울올림픽기념국민체육진흥공단 국민체력100 인증기준
+#   https://nfa.kspo.or.kr/reserve/0/selectMeasureGradeItemListByAgeSe.kspo
+#   (raw 개인기록 dataset data.go.kr 15108938 = 규준 아님, 미사용)
+#
+# 추출: 2026-06-16, 페이지 HTML 테이블 직접 파싱.
+#   등급 위치추론은 알려진 셀 7개로 교차검증 통과
+#   (예: 여13세 1등급 상대악력=44.7 / 남19~24 1등급=62.6 / 남19~24 3등급=51.8).
+#
+# 용도 (memory [[kspo-fitness-norms-report-context]]):
+#   - 리포트 맥락 + 보완운동/코칭 톤 (Phase 13) 전용.
+#   - 점수/분석 차원 단정에 사용 금지 (models.py:46 D-05 정합).
+#   - 이 항목들은 체육관 측정값이라 폴 영상에서 측정 불가 →
+#     사용자 자동 등급 배치 금지. "동작이 요구하는 일반적 체력 수준"
+#     교육 맥락 + 연령·성별 맞춤 보완운동 입력으로만 인용.
+#   - 상대악력 = 악력(kg)/체중(kg)x100 (%). 체중 정규화 지표라
+#     우리가 받는 키·몸무게 입력과 가장 정합.
+
+schema_version: 2
+status: complete
+source:
+  org: 서울올림픽기념국민체육진흥공단
+  program: 국민체력100
+  doc: 체력인증센터 인증기준(등급표)
+  url: https://nfa.kspo.or.kr/reserve/0/selectMeasureGradeItemListByAgeSe.kspo
+  extracted_at: '2026-06-16'
+  extraction_method: html_table_parse
+  validated_cells: 7
+  scope_note: >-
+    청소년기(만13~18) + 성인기(만19~64)만 수록. 원본의 유아기/어린이(만11~12)/
+    어르신(만65+) 구간은 폴 사용자 범위 밖이라 의도적으로 제외(필요시 동일 페이지에서 확장).
+
+# 등급: 국민체력100 인증 3등급 체계 (g1=1등급 최상 ~ g3=3등급).
+grades:
+  g1: 1등급
+  g2: 2등급
+  g3: 3등급
+
+# 측정항목 키 (cutoff = 해당 등급 인증 기준값, '이상'이면 통과).
+legend:
+  relative_grip_pct:        { ko: 상대악력, category: 근력,     unit: percent, note: 악력/체중x100 }
+  core_endurance_reps:      { ko: 근지구력,  category: 근지구력, unit: reps,    note: "청소년=윗몸말아올리기 / 성인=교차윗몸일으키기" }
+  repeat_jump_reps:         { ko: 반복점프,  category: 순발력,   unit: reps,    note: 청소년기 전용 }
+  standing_long_jump_cm:    { ko: 제자리멀리뛰기, category: 순발력, unit: cm,  note: "성인기 전용 (3등급표는 신체조성으로 대체되어 g1/g2만 존재)" }
+  flexibility_sit_reach_cm: { ko: 앉아윗몸앞으로굽히기, category: 유연성, unit: cm }
+  shuttle_run_20m_reps:     { ko: 20m왕복오래달리기, category: 심폐지구력, unit: reps }
+
+norms:
+  youth:   # 청소년기(만13~18)
+    male:
+      "13":
+        g1: { relative_grip_pct: 51.8, core_endurance_reps: 61, repeat_jump_reps: 44, flexibility_sit_reach_cm: 9.6, shuttle_run_20m_reps: 50 }
+        g2: { relative_grip_pct: 46.4, core_endurance_reps: 49, repeat_jump_reps: 39, flexibility_sit_reach_cm: 5.3, shuttle_run_20m_reps: 40 }
+        g3: { relative_grip_pct: 41.0, core_endurance_reps: 36, repeat_jump_reps: 33, flexibility_sit_reach_cm: 1.0, shuttle_run_20m_reps: 30 }
+      "14":
+        g1: { relative_grip_pct: 55.0, core_endurance_reps: 60, repeat_jump_reps: 48, flexibility_sit_reach_cm: 10.9, shuttle_run_20m_reps: 56 }
+        g2: { relative_grip_pct: 49.8, core_endurance_reps: 48, repeat_jump_reps: 42, flexibility_sit_reach_cm: 6.5, shuttle_run_20m_reps: 46 }
+        g3: { relative_grip_pct: 44.6, core_endurance_reps: 37, repeat_jump_reps: 36, flexibility_sit_reach_cm: 2.1, shuttle_run_20m_reps: 36 }
+      "15":
+        g1: { relative_grip_pct: 58.7, core_endurance_reps: 49, repeat_jump_reps: 50, flexibility_sit_reach_cm: 11.9, shuttle_run_20m_reps: 56 }
+        g2: { relative_grip_pct: 53.0, core_endurance_reps: 39, repeat_jump_reps: 44, flexibility_sit_reach_cm: 6.9, shuttle_run_20m_reps: 46 }
+        g3: { relative_grip_pct: 47.3, core_endurance_reps: 29, repeat_jump_reps: 38, flexibility_sit_reach_cm: 1.9, shuttle_run_20m_reps: 36 }
+      "16":
+        g1: { relative_grip_pct: 61.8, core_endurance_reps: 49, repeat_jump_reps: 50, flexibility_sit_reach_cm: 13.8, shuttle_run_20m_reps: 57 }
+        g2: { relative_grip_pct: 55.5, core_endurance_reps: 38, repeat_jump_reps: 45, flexibility_sit_reach_cm: 8.9, shuttle_run_20m_reps: 47 }
+        g3: { relative_grip_pct: 49.2, core_endurance_reps: 27, repeat_jump_reps: 39, flexibility_sit_reach_cm: 4.0, shuttle_run_20m_reps: 36 }
+      "17":
+        g1: { relative_grip_pct: 62.6, core_endurance_reps: 46, repeat_jump_reps: 50, flexibility_sit_reach_cm: 14.0, shuttle_run_20m_reps: 59 }
+        g2: { relative_grip_pct: 56.4, core_endurance_reps: 36, repeat_jump_reps: 44, flexibility_sit_reach_cm: 9.0, shuttle_run_20m_reps: 48 }
+        g3: { relative_grip_pct: 50.2, core_endurance_reps: 25, repeat_jump_reps: 38, flexibility_sit_reach_cm: 4.0, shuttle_run_20m_reps: 37 }
+      "18":
+        g1: { relative_grip_pct: 61.8, core_endurance_reps: 53, repeat_jump_reps: 52, flexibility_sit_reach_cm: 14.8, shuttle_run_20m_reps: 61 }
+        g2: { relative_grip_pct: 56.0, core_endurance_reps: 41, repeat_jump_reps: 46, flexibility_sit_reach_cm: 9.7, shuttle_run_20m_reps: 49 }
+        g3: { relative_grip_pct: 50.2, core_endurance_reps: 29, repeat_jump_reps: 40, flexibility_sit_reach_cm: 4.6, shuttle_run_20m_reps: 37 }
+    female:
+      "13":
+        g1: { relative_grip_pct: 44.7, core_endurance_reps: 48, repeat_jump_reps: 31, flexibility_sit_reach_cm: 16.6, shuttle_run_20m_reps: 32 }
+        g2: { relative_grip_pct: 40.5, core_endurance_reps: 37, repeat_jump_reps: 27, flexibility_sit_reach_cm: 12.0, shuttle_run_20m_reps: 25 }
+        g3: { relative_grip_pct: 36.3, core_endurance_reps: 25, repeat_jump_reps: 22, flexibility_sit_reach_cm: 7.4, shuttle_run_20m_reps: 19 }
+      "14":
+        g1: { relative_grip_pct: 44.7, core_endurance_reps: 47, repeat_jump_reps: 34, flexibility_sit_reach_cm: 18.2, shuttle_run_20m_reps: 34 }
+        g2: { relative_grip_pct: 40.4, core_endurance_reps: 36, repeat_jump_reps: 28, flexibility_sit_reach_cm: 13.4, shuttle_run_20m_reps: 26 }
+        g3: { relative_grip_pct: 36.1, core_endurance_reps: 24, repeat_jump_reps: 23, flexibility_sit_reach_cm: 8.6, shuttle_run_20m_reps: 19 }
+      "15":
+        g1: { relative_grip_pct: 44.2, core_endurance_reps: 48, repeat_jump_reps: 35, flexibility_sit_reach_cm: 19.1, shuttle_run_20m_reps: 32 }
+        g2: { relative_grip_pct: 40.2, core_endurance_reps: 36, repeat_jump_reps: 29, flexibility_sit_reach_cm: 14.3, shuttle_run_20m_reps: 26 }
+        g3: { relative_grip_pct: 36.2, core_endurance_reps: 23, repeat_jump_reps: 24, flexibility_sit_reach_cm: 9.5, shuttle_run_20m_reps: 19 }
+      "16":
+        g1: { relative_grip_pct: 43.5, core_endurance_reps: 41, repeat_jump_reps: 34, flexibility_sit_reach_cm: 18.9, shuttle_run_20m_reps: 32 }
+        g2: { relative_grip_pct: 39.0, core_endurance_reps: 30, repeat_jump_reps: 28, flexibility_sit_reach_cm: 13.7, shuttle_run_20m_reps: 25 }
+        g3: { relative_grip_pct: 34.5, core_endurance_reps: 19, repeat_jump_reps: 22, flexibility_sit_reach_cm: 8.5, shuttle_run_20m_reps: 19 }
+      "17":
+        g1: { relative_grip_pct: 45.7, core_endurance_reps: 41, repeat_jump_reps: 33, flexibility_sit_reach_cm: 18.9, shuttle_run_20m_reps: 35 }
+        g2: { relative_grip_pct: 41.2, core_endurance_reps: 29, repeat_jump_reps: 27, flexibility_sit_reach_cm: 13.5, shuttle_run_20m_reps: 27 }
+        g3: { relative_grip_pct: 36.7, core_endurance_reps: 18, repeat_jump_reps: 21, flexibility_sit_reach_cm: 8.1, shuttle_run_20m_reps: 19 }
+      "18":
+        g1: { relative_grip_pct: 48.4, core_endurance_reps: 41, repeat_jump_reps: 36, flexibility_sit_reach_cm: 19.5, shuttle_run_20m_reps: 40 }
+        g2: { relative_grip_pct: 43.6, core_endurance_reps: 29, repeat_jump_reps: 29, flexibility_sit_reach_cm: 14.1, shuttle_run_20m_reps: 30 }
+        g3: { relative_grip_pct: 38.8, core_endurance_reps: 16, repeat_jump_reps: 23, flexibility_sit_reach_cm: 8.7, shuttle_run_20m_reps: 21 }
+  adult:   # 성인기(만19~64)
+    male:
+      "19~24":
+        g1: { relative_grip_pct: 62.6, core_endurance_reps: 55, standing_long_jump_cm: 229, flexibility_sit_reach_cm: 16.1, shuttle_run_20m_reps: 62 }
+        g2: { relative_grip_pct: 57.2, core_endurance_reps: 48, standing_long_jump_cm: 213, flexibility_sit_reach_cm: 11.1, shuttle_run_20m_reps: 52 }
+        g3: { relative_grip_pct: 51.8, core_endurance_reps: 42, flexibility_sit_reach_cm: 6.1, shuttle_run_20m_reps: 41 }
+      "25~29":
+        g1: { relative_grip_pct: 62.4, core_endurance_reps: 51, standing_long_jump_cm: 223, flexibility_sit_reach_cm: 14.9, shuttle_run_20m_reps: 54 }
+        g2: { relative_grip_pct: 57.0, core_endurance_reps: 45, standing_long_jump_cm: 208, flexibility_sit_reach_cm: 10.1, shuttle_run_20m_reps: 44 }
+        g3: { relative_grip_pct: 51.6, core_endurance_reps: 38, flexibility_sit_reach_cm: 5.3, shuttle_run_20m_reps: 34 }
+      "30~34":
+        g1: { relative_grip_pct: 62.6, core_endurance_reps: 47, standing_long_jump_cm: 219, flexibility_sit_reach_cm: 14.2, shuttle_run_20m_reps: 49 }
+        g2: { relative_grip_pct: 57.2, core_endurance_reps: 41, standing_long_jump_cm: 204, flexibility_sit_reach_cm: 9.4, shuttle_run_20m_reps: 40 }
+        g3: { relative_grip_pct: 51.8, core_endurance_reps: 35, flexibility_sit_reach_cm: 4.6, shuttle_run_20m_reps: 31 }
+      "35~39":
+        g1: { relative_grip_pct: 62.1, core_endurance_reps: 45, standing_long_jump_cm: 214, flexibility_sit_reach_cm: 14.0, shuttle_run_20m_reps: 45 }
+        g2: { relative_grip_pct: 56.6, core_endurance_reps: 39, standing_long_jump_cm: 199, flexibility_sit_reach_cm: 9.3, shuttle_run_20m_reps: 37 }
+        g3: { relative_grip_pct: 51.1, core_endurance_reps: 33, flexibility_sit_reach_cm: 4.6, shuttle_run_20m_reps: 28 }
+      "40~44":
+        g1: { relative_grip_pct: 62.8, core_endurance_reps: 44, standing_long_jump_cm: 209, flexibility_sit_reach_cm: 14.2, shuttle_run_20m_reps: 42 }
+        g2: { relative_grip_pct: 57.2, core_endurance_reps: 38, standing_long_jump_cm: 195, flexibility_sit_reach_cm: 9.5, shuttle_run_20m_reps: 35 }
+        g3: { relative_grip_pct: 51.6, core_endurance_reps: 32, flexibility_sit_reach_cm: 4.8, shuttle_run_20m_reps: 27 }
+      "45~49":
+        g1: { relative_grip_pct: 62.0, core_endurance_reps: 41, standing_long_jump_cm: 202, flexibility_sit_reach_cm: 13.6, shuttle_run_20m_reps: 40 }
+        g2: { relative_grip_pct: 56.7, core_endurance_reps: 36, standing_long_jump_cm: 188, flexibility_sit_reach_cm: 9.1, shuttle_run_20m_reps: 32 }
+        g3: { relative_grip_pct: 51.4, core_endurance_reps: 30, flexibility_sit_reach_cm: 4.6, shuttle_run_20m_reps: 24 }
+      "50~54":
+        g1: { relative_grip_pct: 60.5, core_endurance_reps: 38, standing_long_jump_cm: 192, flexibility_sit_reach_cm: 13.9, shuttle_run_20m_reps: 35 }
+        g2: { relative_grip_pct: 55.3, core_endurance_reps: 32, standing_long_jump_cm: 177, flexibility_sit_reach_cm: 9.3, shuttle_run_20m_reps: 28 }
+        g3: { relative_grip_pct: 50.1, core_endurance_reps: 26, flexibility_sit_reach_cm: 4.7, shuttle_run_20m_reps: 21 }
+      "55~59":
+        g1: { relative_grip_pct: 59.4, core_endurance_reps: 35, standing_long_jump_cm: 183, flexibility_sit_reach_cm: 13.3, shuttle_run_20m_reps: 31 }
+        g2: { relative_grip_pct: 54.2, core_endurance_reps: 29, standing_long_jump_cm: 168, flexibility_sit_reach_cm: 8.6, shuttle_run_20m_reps: 25 }
+        g3: { relative_grip_pct: 49.0, core_endurance_reps: 23, flexibility_sit_reach_cm: 3.9, shuttle_run_20m_reps: 18 }
+      "60~64":
+        g1: { relative_grip_pct: 56.8, core_endurance_reps: 31, standing_long_jump_cm: 170, flexibility_sit_reach_cm: 11.8, shuttle_run_20m_reps: 26 }
+        g2: { relative_grip_pct: 51.7, core_endurance_reps: 25, standing_long_jump_cm: 154, flexibility_sit_reach_cm: 7.1, shuttle_run_20m_reps: 20 }
+        g3: { relative_grip_pct: 46.6, core_endurance_reps: 19, flexibility_sit_reach_cm: 2.3, shuttle_run_20m_reps: 15 }
+    female:
+      "19~24":
+        g1: { relative_grip_pct: 46.8, core_endurance_reps: 36, standing_long_jump_cm: 162, flexibility_sit_reach_cm: 19.7, shuttle_run_20m_reps: 30 }
+        g2: { relative_grip_pct: 42.4, core_endurance_reps: 30, standing_long_jump_cm: 149, flexibility_sit_reach_cm: 14.9, shuttle_run_20m_reps: 25 }
+        g3: { relative_grip_pct: 38.0, core_endurance_reps: 23, flexibility_sit_reach_cm: 10.1, shuttle_run_20m_reps: 19 }
+      "25~29":
+        g1: { relative_grip_pct: 47.0, core_endurance_reps: 33, standing_long_jump_cm: 156, flexibility_sit_reach_cm: 18.5, shuttle_run_20m_reps: 28 }
+        g2: { relative_grip_pct: 42.6, core_endurance_reps: 27, standing_long_jump_cm: 144, flexibility_sit_reach_cm: 13.8, shuttle_run_20m_reps: 23 }
+        g3: { relative_grip_pct: 38.2, core_endurance_reps: 21, flexibility_sit_reach_cm: 9.1, shuttle_run_20m_reps: 17 }
+      "30~34":
+        g1: { relative_grip_pct: 49.6, core_endurance_reps: 31, standing_long_jump_cm: 154, flexibility_sit_reach_cm: 18.2, shuttle_run_20m_reps: 26 }
+        g2: { relative_grip_pct: 45.2, core_endurance_reps: 25, standing_long_jump_cm: 142, flexibility_sit_reach_cm: 13.8, shuttle_run_20m_reps: 21 }
+        g3: { relative_grip_pct: 40.8, core_endurance_reps: 19, flexibility_sit_reach_cm: 9.4, shuttle_run_20m_reps: 16 }
+      "35~39":
+        g1: { relative_grip_pct: 47.5, core_endurance_reps: 31, standing_long_jump_cm: 155, flexibility_sit_reach_cm: 18.9, shuttle_run_20m_reps: 25 }
+        g2: { relative_grip_pct: 43.1, core_endurance_reps: 25, standing_long_jump_cm: 144, flexibility_sit_reach_cm: 14.5, shuttle_run_20m_reps: 20 }
+        g3: { relative_grip_pct: 38.7, core_endurance_reps: 19, flexibility_sit_reach_cm: 10.1, shuttle_run_20m_reps: 15 }
+      "40~44":
+        g1: { relative_grip_pct: 47.1, core_endurance_reps: 30, standing_long_jump_cm: 153, flexibility_sit_reach_cm: 18.8, shuttle_run_20m_reps: 24 }
+        g2: { relative_grip_pct: 42.8, core_endurance_reps: 25, standing_long_jump_cm: 142, flexibility_sit_reach_cm: 14.6, shuttle_run_20m_reps: 20 }
+        g3: { relative_grip_pct: 38.5, core_endurance_reps: 19, flexibility_sit_reach_cm: 10.4, shuttle_run_20m_reps: 15 }
+      "45~49":
+        g1: { relative_grip_pct: 46.2, core_endurance_reps: 28, standing_long_jump_cm: 148, flexibility_sit_reach_cm: 18.9, shuttle_run_20m_reps: 23 }
+        g2: { relative_grip_pct: 41.9, core_endurance_reps: 22, standing_long_jump_cm: 136, flexibility_sit_reach_cm: 14.8, shuttle_run_20m_reps: 18 }
+        g3: { relative_grip_pct: 37.6, core_endurance_reps: 16, flexibility_sit_reach_cm: 10.7, shuttle_run_20m_reps: 14 }
+      "50~54":
+        g1: { relative_grip_pct: 44.7, core_endurance_reps: 24, standing_long_jump_cm: 138, flexibility_sit_reach_cm: 19.5, shuttle_run_20m_reps: 21 }
+        g2: { relative_grip_pct: 40.6, core_endurance_reps: 19, standing_long_jump_cm: 126, flexibility_sit_reach_cm: 15.6, shuttle_run_20m_reps: 16 }
+        g3: { relative_grip_pct: 36.5, core_endurance_reps: 13, flexibility_sit_reach_cm: 11.7, shuttle_run_20m_reps: 12 }
+      "55~59":
+        g1: { relative_grip_pct: 43.2, core_endurance_reps: 20, standing_long_jump_cm: 129, flexibility_sit_reach_cm: 19.5, shuttle_run_20m_reps: 18 }
+        g2: { relative_grip_pct: 39.2, core_endurance_reps: 15, standing_long_jump_cm: 117, flexibility_sit_reach_cm: 15.7, shuttle_run_20m_reps: 14 }
+        g3: { relative_grip_pct: 35.2, core_endurance_reps: 9, flexibility_sit_reach_cm: 11.9, shuttle_run_20m_reps: 11 }
+      "60~64":
+        g1: { relative_grip_pct: 41.9, core_endurance_reps: 17, standing_long_jump_cm: 120, flexibility_sit_reach_cm: 19.6, shuttle_run_20m_reps: 15 }
+        g2: { relative_grip_pct: 38.0, core_endurance_reps: 12, standing_long_jump_cm: 107, flexibility_sit_reach_cm: 15.7, shuttle_run_20m_reps: 12 }
+        g3: { relative_grip_pct: 34.1, core_endurance_reps: 7, flexibility_sit_reach_cm: 11.8, shuttle_run_20m_reps: 9 }

@@ -335,11 +335,16 @@ Plans:
   4. 결과 화면 카피가 AI를 강사 보조 도구로 포지셔닝하고 기준 모션이 "하나의 참고일 뿐"으로 명시된다
   5. Cerebras 키 미설정 시에도 fallback 카피로 분석이 완료된다
 
-**Plans**: 3 plans (Wave 0~2 MVP vertical slices). **LOCKED design fork**: 단일 LLM 호출 — 기존 dual-track coach call 출력 스키마 확장 (두번째 round-trip 없음, D-03/Pitfall 5).
-Plans:
+**Plans**: 3 plans (Wave 0~2 MVP vertical slices). **LOCKED design fork**: 단일 LLM 호출 — 기존 dual-track coach call 출력 스키마 확장 (두번째 round-trip 없음, D-03/Pitfall 5).Plans:
+**Wave 1**
+
 - [ ] 11-00-PLAN.md — Wave 0: CoachCommentHook 3-way lockstep (TS↔models.py↔contract.md) + coach_hook.py 데이터 구조 + phase11 test scaffold (translation-only / fallback / nested-array RED) (COACH-01)
 - [ ] 11-01-PLAN.md — Wave 1: 단일 호출 hook 텍스트 생성 (text-only, _build_coach_context 공유) + _enforce_no_reject_patterns reject-and-fallback + canned fallback + 두 리포트 부착 + ForcePatternInference scoped validator 확장 (landmine) (COACH-01/FEED-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 11-02-PLAN.md — Wave 2: result.tsx "강사에게 확인할 점" 섹션(openQuestionsForCoach만) + 포지셔닝 카피(상단 1줄+코치 헤더) + Mode 1 기준모션 "하나의 참고일 뿐" + userAnalyses null-guard + belle 시각 checkpoint (FEED-03)
+
 **UI hint**: yes
 
 ### Phase 12: 실측 각도 표시 + 키포인트 오버레이

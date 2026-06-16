@@ -121,5 +121,3 @@ None — todo 매칭 0 (todo_count=0).
 
 *Phase: 11-coachcommenthook-gemini*
 *Context gathered: 2026-06-16*
-</content>
-</invoke>

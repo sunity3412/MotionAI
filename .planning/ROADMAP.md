@@ -333,7 +333,7 @@ Plans:
   2. 모든 리포트(BodyComparisonReport, ForcePatternInference)에 coachCommentHook이 부착된다
   3. Gemini 프롬프트가 "자연어 번역만, 좌표·판단·점수 출력 금지"로 설계되고 검증된다
   4. 결과 화면 카피가 AI를 강사 보조 도구로 포지셔닝하고 기준 모션이 "하나의 참고일 뿐"으로 명시된다
-  5. Cerebras 키 미설정 시에도 fallback 카피로 분석이 완료된다
+  5. Gemini hook-writer LLM 키 미설정 또는 hook 호출 실패 시에도 canned fallback 카피로 분석이 완료된다 [2026-06-16 review correction: hook fallback 은 Gemini api_key_loader seam 기반 — Cerebras 아님. Cerebras coach fallback 은 Phase 13/17 범위]
 
 **Plans**: 3 plans (Wave 0~2 MVP vertical slices). **LOCKED design fork** [2026-06-16 review correction]: 별도 text-only `GeminiCoachHookWriter` 1회 호출 — 두 리포트 hook 을 한 호출에 bundle, 두 리포트 조립 완료 후 생성. 기존 Vision `GeminiCoachWriter.write()` 미변경 (영상 의존이라 재사용 시 Vision 독립 lock / Phase 11·17 경계 위반). model=Gemini, _build_coach_context 철학 + _enforce_no_reject_patterns 재사용 (D-03 addendum).Plans:
 **Wave 1**

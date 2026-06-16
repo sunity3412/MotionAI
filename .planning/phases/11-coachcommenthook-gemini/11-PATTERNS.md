@@ -6,6 +6,20 @@
 
 > **3-way lockstep mandate (CLAUDE.md Cross-cutting):** `app/src/types/analysis.ts` ↔ `backend/.../models.py` (re-export) ↔ `docs/contract.md` MUST change in one atomic commit. Planner: assign all three to the same plan/wave.
 
+> ## ⚠ [SUPERSEDED 2026-06-16 Codex review iter-1 + iter-2] — READ THIS FIRST, OVERRIDES STALE GUIDANCE BELOW
+>
+> Pattern 3 (:115-131 `write_report_hook` on `GeminiCoachWriter` + `_client is None`), the pipeline integration note (:201 "SAME dual-track path"), and Pattern 5 (:217-224 UI `??` chain) describe the **pre-review** design. **REPLACED by the LOCKED design:**
+> 1. Separate `gemini/coach_hook_writer.py::GeminiCoachHookWriter` (Vision writer untouched, iter-1 BLOCKER-1). No `videoPath`.
+> 2. Fallback seam = `api_key_loader`/None-return, NOT `self._client` (iter-1 WARNING-2).
+> 3. Hook generated AFTER `force_pattern_inference` / before `complete_analysis`; `coach_hooks` separate var from `coach_details` (iter-1 BLOCKER-2/3).
+> 4. Dedicated `_validate_coach_comment_hook` (force scoped + body precheck) — NOT generic `_validate_flat_dict_no_nested_array` delegation, which allows `list[dict]` (iter-2 BLOCKER-1).
+> 5. Degree/% guard HOOK-SCOPED only (flag/helper) — global `_SCORE_PATTERNS` untouched; scene_finder/reference_extractor echo "30도"/"50%" legitimately (iter-2 BLOCKER-2).
+> 6. Reuse `_strip_unsupported_schema_keys` config + `HttpOptions(timeout=_HTTP_TIMEOUT_MS)` + 5xx/ValidationError retry (iter-2 HIGH-1).
+> 7. Per-report partial fallback (iter-2 HIGH-2).
+> 8. UI = concat/trim/dedupe/slice of BOTH reports' openQuestionsForCoach, NOT first-non-null `??` chain (iter-1 HIGH-2).
+>
+> Where text below conflicts with this banner, **the banner wins.**
+
 ---
 
 ## ⚠️ LANDMINE — Asymmetric Firestore validator (read first)
@@ -116,7 +130,9 @@ NEVER `list[dict]` — trips the nested-array gate. If structured questions are 
 
 **Analog:** `GeminiCoachWriter` class L350, `.write(context: dict) -> dict` L388, `_COACH_SYSTEM_INSTRUCTION` L139 (objectivity clause), wired into prompt at L189.
 
-**Pattern 3 — TEXT-ONLY method sharing context.** Add `write_report_hook(context: dict) -> dict` consuming the SAME `_build_coach_context` output (D-03). Reuse the existing objectivity system-prompt clause (`_COACH_SYSTEM_INSTRUCTION`, L139) — it already forbids 점수/등급/좌표/판정 vocabulary. Two-layer enforcement (D-05): prompt + runtime guard (next section).
+**[SUPERSEDED 2026-06-16 Codex review — see top banner item 1-2, 5-6]** ~~Pattern 3 — TEXT-ONLY method sharing context. Add `write_report_hook(context: dict) -> dict`~~  → instead: SEPARATE `GeminiCoachHookWriter` module, `api_key_loader`/None seam, reused `_strip_unsupported_schema_keys` config + retry, hook-scoped degree/% guard. Original (stale) text:
+
+_Original:_ Add `write_report_hook(context: dict) -> dict` consuming the SAME `_build_coach_context` output (D-03). Reuse the existing objectivity system-prompt clause (`_COACH_SYSTEM_INSTRUCTION`, L139) — it already forbids 점수/등급/좌표/판정 vocabulary. Two-layer enforcement (D-05): prompt + runtime guard (next section).
 
 **Graceful no-op precedent** (D-08 — `coach_writer.py:178`, same in both writers):
 ```python
@@ -198,7 +214,7 @@ coach_context = _build_coach_context(
 )
 ```
 
-**Integration point (Pitfall 5 — single round-trip):** the dual-track block at L1963-2026 already calls `_call_coach_writer_with_retry("gemini", _ensure_gemini_coach_writer().write, coach_context)`. Generate the hook in the SAME path sharing `coach_context` — either extend that call's output schema or add `write_report_hook` on the same writer/context. Do NOT add an independent second Gemini round-trip (breaks D-03 "1회 분석의 기존 LLM 호출 경로에 통합").
+**Integration point** **[SUPERSEDED 2026-06-16 Codex review — banner item 3: hook is generated AFTER force_pattern_inference on a SEPARATE text-only writer, NOT on the :1945 dual-track joint call site]** _stale:_ the dual-track block at L1963-2026 already calls `_call_coach_writer_with_retry("gemini", _ensure_gemini_coach_writer().write, coach_context)`. Generate the hook in the SAME path sharing `coach_context` — either extend that call's output schema or add `write_report_hook` on the same writer/context. Do NOT add an independent second Gemini round-trip (breaks D-03 "1회 분석의 기존 LLM 호출 경로에 통합").
 
 **Serialize precedent (L1493):**
 ```python
@@ -214,7 +230,7 @@ The hook dataclass passes through this unchanged → `coachCommentHook: {autoFin
 
 **Analog:** force-pattern section render L524-538 (null-guard) + L779-794 (card section), mode1 reference label `styles.refName` L684 (positioning-copy site).
 
-**Pattern 5 — null-guarded read + read-only section (D-06).** Mirror the `?? []` guard:
+**Pattern 5 — null-guarded read + read-only section (D-06).** **[SUPERSEDED 2026-06-16 Codex review — banner item 8]** the first-non-null `??` chain below DROPS body questions when force hook exists. Use concat/trim/dedupe/slice of BOTH reports instead (see 11-02-PLAN.md Task 1). Stale example kept for null-guard shape only:
 ```typescript
 // result.tsx:525 (verified) — guard precedent
 const list = result.forcePatternInference?.findings ?? [];

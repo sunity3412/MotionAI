@@ -4,6 +4,21 @@
 **Domain:** Contract-first data-layer extension (TS↔Python↔docs 3-way lockstep) + LLM "translation-only" enforcement + result-screen positioning copy. Vision-independent text/data layer.
 **Confidence:** HIGH (all findings verified against actual repo code; no external deps introduced)
 
+> ## ⚠ [SUPERSEDED 2026-06-16 Codex review iter-1 + iter-2] — READ THIS FIRST, OVERRIDES STALE GUIDANCE BELOW
+>
+> Several sections below (Summary :43, Alternatives :89, Architecture diagram :125, Recommended structure :161, **Pattern 3 :214-226**, Pitfall 5 :311-315, Code Examples :330, Open Questions :398-401) still describe the **pre-review** design of *extending* `GeminiCoachWriter.write_report_hook()` on the same dual-track Gemini call path, gating on `self._client is None`, and a result-screen `??` chain. **That design is REPLACED.** Implement the LOCKED design instead:
+>
+> 1. **Separate text-only writer** `gemini/coach_hook_writer.py::GeminiCoachHookWriter` — Vision `GeminiCoachWriter.write()` is UNTOUCHED (iter-1 BLOCKER-1). No `videoPath`/`GeminiVisionCall`.
+> 2. **Fallback seam = `api_key_loader` + None-return**, NOT private `self._client` (iter-1 WARNING-2).
+> 3. **Hook generated AFTER `force_pattern_inference` exists / before `complete_analysis`** — NOT on the existing :1945 dual-track coach call site (iter-1 BLOCKER-2). `coach_details` (joint) and `coach_hooks` (report) are separate pipeline vars (iter-1 BLOCKER-3).
+> 4. **Dedicated `_validate_coach_comment_hook`** (force scoped branch + body `complete_analysis` precheck) — do NOT delegate to the generic `_validate_flat_dict_no_nested_array`, which allows `list[dict]` (iter-2 BLOCKER-1).
+> 5. **Degree/% guard is HOOK-SCOPED only** (`forbid_measurement_units` flag or `_enforce_no_hook_number_patterns`) — do NOT add `°|도|deg|%` to the global `_SCORE_PATTERNS`; scene_finder/reference_extractor legitimately echo "30도"/"50%" (iter-2 BLOCKER-2).
+> 6. **Reuse `_strip_unsupported_schema_keys(CoachHookBundle.model_json_schema())` + `HttpOptions(timeout=_HTTP_TIMEOUT_MS)` config** + a `_generate_with_retry`-style 5xx/ValidationError retry path — raw Pydantic schema 400s live (iter-2 HIGH-1).
+> 7. **Per-report partial fallback** — resolve each report independently so a partial `CoachHookBundle` still gives BOTH reports a hook (iter-2 HIGH-2).
+> 8. **UI** = concat/trim/dedupe/slice of BOTH reports' `openQuestionsForCoach` — NOT a first-non-null `??` chain (iter-1 HIGH-2).
+>
+> The historical text below is kept for context only. Where it conflicts with this banner, **this banner wins.**
+
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
 
@@ -86,7 +101,7 @@ This phase introduces **no new libraries**. It reuses existing project assets. T
 
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| Extend existing `GeminiCoachWriter.write` | New `GeminiCoachWriter.write_report_hook()` method | D-03 says "report-hook 생성 메서드 추가". A **separate method** is cleaner (different output shape: hook ≠ joint coaching) but must still share `_build_coach_context`. Recommend separate method, same context, same client/guardrails. |
+| ~~Extend existing `GeminiCoachWriter.write` / add `write_report_hook`~~ **[SUPERSEDED — separate `GeminiCoachHookWriter` module, banner item 1]** | New standalone `GeminiCoachHookWriter` (text-only, schema-strip config reuse) | D-03 says "report-hook 생성 메서드 추가". A **separate method** is cleaner (different output shape: hook ≠ joint coaching) but must still share `_build_coach_context`. Recommend separate method, same context, same client/guardrails. |
 | Runtime sanitize of LLM output | Prompt constraint + guard + test (D-05) | **D-05 explicitly rejects runtime sanitize** (corrupts natural language). Guard = reject-and-fallback, not edit. Do NOT regex-strip and re-emit. |
 | Per-report scoped validator | Reuse generic `_validate_flat_dict_no_nested_array` | Generic validator allows `dict → list[str]` and `dict → list[dict-of-scalars]`, which covers the hook IF attached at a path that routes through the generic validator. But reports route through their OWN scoped validators (`_validate_force_pattern_inference`) which **reject unknown top-level keys**. See Pitfall 1. |
 
@@ -213,6 +228,8 @@ class CoachCommentHook:
 
 ### Pattern 3: TEXT-ONLY LLM method sharing `_build_coach_context`
 
+> **[SUPERSEDED 2026-06-16 Codex review]** Do NOT add `GeminiCoachWriter.write_report_hook` or gate on `self._client`. Use a SEPARATE `GeminiCoachHookWriter` (own module), `api_key_loader`/None-return seam, reused `_strip_unsupported_schema_keys` config + retry path, hook-scoped degree/% guard. See top-of-file banner items 1-2, 5-6.
+
 **What:** Add `GeminiCoachWriter.write_report_hook(context: dict) -> dict` that consumes the SAME `_build_coach_context` output (D-03) and emits ONLY Korean prose fields. System prompt must forbid numbers/coordinates/scores/judgments. Reuse the existing `_COACH_SYSTEM_INSTRUCTION` objectivity clause (`coach_writer_v2.py`: "절대 금지: 점수 / 등급 / x= / y= / 좌표 / 잘했다 / 훌륭 / 완벽 / 양호").
 
 **Example (existing objectivity prompt clause to reuse/adapt):**
@@ -308,7 +325,7 @@ for key, value in payload.items():
 **How to avoid:** Two layers — (1) prompt forbids it (reuse `_COACH_SYSTEM_INSTRUCTION` clause), (2) call `guardrails._enforce_no_reject_patterns(raw_text, context="coach_hook")` → on ValueError, fall back to canned hook (D-08). Do NOT sanitize-and-emit (D-05).
 **Warning signs:** Forbidden-pattern unit test fails on golden fixtures; guard ValueError in logs.
 
-### Pitfall 5: Hook generation adds a second LLM round-trip
+### Pitfall 5: Hook generation adds a second LLM round-trip  [PARTIALLY SUPERSEDED — single hook call is fine; it is a SEPARATE text-only writer, NOT the dual-track joint call. See banner item 3]
 **What goes wrong:** Generating the hook in a SEPARATE Gemini call doubles latency/cost and breaks D-03 "1회 분석의 기존 LLM 호출 경로에 통합".
 **Why it happens:** Naively adding `write_report_hook` as an independent call.
 **How to avoid:** D-03 says integrate into the existing call path sharing `_build_coach_context`. Either (a) extend the existing coach call's output schema to also return hook fields, or (b) accept one additional call ONLY if pilot scale makes it negligible — but prefer single-call. Confirm with planner; this is the main open design choice.

@@ -4,7 +4,7 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 13 context gathered
-last_updated: "2026-06-16T04:26:40.185Z"
+last_updated: "2026-06-16T05:11:10.689Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 20
@@ -593,6 +593,7 @@ None yet.
 - [Phase 15 — iOS]: iOS 26+ native style 회귀(letterSpacing SIGABRT) — 빌드 10에서 ship 필요, 음수 style 값 audit.
 - [Phase 16 — 데이터/스펙 박제]: Phase 1~15 의존성 없음 (v1 평행). Phase 1 진행 중 평행 진입 가능. 단 Phase 5 (Gemini 기술 인식기) / Phase 14 (정은지 reference) 가 Phase 16 데이터를 소비하므로 그 시점에 통합 필요. 첫 plan (16-01-PLAN.md) = AKA 매핑 13개 + 5트랙 spec + 카피 박제 (코드 통합 X).
 - Plan 06-03 Task 5 pending checkpoint — belle 운영 작업 (Pod GPU 측정 + 로컬 seed + Firestore Console verify) 필요. Phase 14 reference 등록 helper 재사용 path 박제 완료, 실 데이터 백필만 잔여.
+- 13-B Task 4 (criteria 5) Cerebras Pod E2E checkpoint 대기 — belle: SSM 키 + Lambda/Pod env + uvicorn 재시작 + 1건 실분석 검증. Tasks 2-3 완료(db252c9, 79d862c).
 
 ## Deferred Items
 
@@ -604,7 +605,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-16T01:47:45.657Z
+Last session: 2026-06-16T05:10:52.991Z
 
 Stopped at: Phase 13 context gathered
 
@@ -673,7 +674,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/13-llm-coaching-detail/13-CONTEXT.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

@@ -402,7 +402,7 @@ Plans:
 Plans:
 
 - [x] 13-A-corrective-exercises-PLAN.md — Wave 1: 보완운동 라이브러리 fixture + 순수 map_exercises(findings + painAreas + motion_id) + recommendedExercises 3-way 계약 + result.tsx 보완운동 섹션 + 다른 운동 보기 모달 (PERS-03, D-03/D-04/D-05, criteria 1-4, autonomous)
-- [ ] 13-B-llm-branch-copy-PLAN.md — Wave 2: motion_ipsf_map + registered_move_angles fixture + assemble ipsfCode 분기(분기1 IPSF 180° / 분기2 정은지 기준) + coach_writer 프롬프트 각도 주입 + 실 Cerebras Pod 활성화 (studio-term-3branch, criteria 5-8, non-autonomous — angle fixture human-verify + criteria 5 Pod E2E)
+- [~] 13-B-llm-branch-copy-PLAN.md — Wave 2 IN-PROGRESS (Tasks 2-3 done, Task 4 Cerebras Pod E2E checkpoint 대기): motion_ipsf_map 11-motion curated join(belle 2026-06-16 5→11 확장 + unknown→branch2 안전 기본) + registered_move_angles {schemaVersion, angles:{}} + assemble copyBranch 분기(분기1 IPSF / 분기2 정은지 기준) + coach_writer 프롬프트 각도 주입 + pipeline lookup_motion_branch wiring. 단위테스트 81 green. **belle 액션 대기**: Cerebras 키 SSM + Lambda/Pod env + uvicorn 재시작 → 1건 실분석 E2E (criteria 5). (studio-term-3branch, criteria 5-8, non-autonomous)
 
 **UI hint**: yes
 

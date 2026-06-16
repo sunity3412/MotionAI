@@ -119,5 +119,37 @@ None — todo 매칭 없음.
 
 ---
 
+## 13-C: 섹션형 듀얼 coach 보고서 (belle 2026-06-16, 추가 plan — Wave 3)
+
+> 13-A·13-B 완료 후 belle 가 추가. coaching detail = 본 phase 도메인이라 phase 19 신설 X, 13-C 로 처리. 머지(섞기) 아님 — **출처별 라벨 섹션 분리**.
+
+<decisions_13c>
+- **섹션 역할 배분 (locked):** 원인(왜 안 되는지)=**Gemini** / 교정 처방(무엇이 필요한지)=**Cerebras** / 부상 위험=**Cerebras** / 강사 확인=**Gemini**. belle 핵심가치 "왜 + 무엇" 직접 매핑. [[section-dual-coach-report]]
+- **레이아웃:** 자세히 모달 안 **세로 스택(스크롤)**, 순서 원인→처방→부상위험→강사확인. Phase 12.5 modal 패턴 재사용. (탭/아코디언 기각 — 원인+처방 동시 비교가 핵심)
+- **출처 라벨:** **기능 라벨만** 노출("원인 / 교정 처방 / 부상 위험 / 강사 확인"). AI/벤더명(Gemini/Cerebras) 숨김 — 수강생은 내용이 중요.
+- **실패 처리 = 계층형:** (1) 두 writer 동시 호출 + **재시도 1회 + 짧은 타임아웃** → 평상시 항상 이상적 페어링. (2) 재시도 후 한쪽 실패 → **다른 LLM이 그 섹션 대신 채움**(빈 섹션 금지). (3) 둘 다 실패 → 기존 수치/단일 폴백(최후 바닥). 편차(B)는 실제 provider 장애 구간으로만 한정. 실패 확률은 낮음(파일럿 규모 rate-limit≈0, 소프트 파싱실패는 `_normalize_entry`가 흡수).
+- **보완운동(13-A) 관계:** **별도 유지.** 화면 하단 보완운동 카드(13-A) = 큐레이션 라이브러리 / Cerebras 처방 섹션 = 동적 LLM 텍스트 — 성격·출처 다름, 통합 X(중복 아니라 보강).
+- **검증:** coach **성공/폴백률 로깅** 추가(추정→파일럿 실측 전환). "실증 시 둘 중 하나 drop 여부" = **Phase 15** 검증 기준(13-C 빌드 ≠ drop 결정).
+- **파일럿 기본값:** 현재 단일 Gemini(`GEMINI_COACH_ENABLED=1`). 13-C 가 섹션용으로 양쪽 활성 — toggle("택1")을 "둘 다 호출 + 섹션 조립"으로 확장.
+</decisions_13c>
+
+<code_context_13c>
+- **dual-track 이미 존재:** `pipeline/app.py` `_coach_enabled()`/`_GEMINI_COACH_WRITER` + `_COACH_WRITER`(Cerebras). 13-C = toggle 분기를 "둘 다 호출 후 섹션별 조립"으로 확장. 양쪽 writer 가 단일 `_build_coach_context` 공유(기존).
+- **detail2 계약:** `{causes[], injuryRisk, coachNote}` (`coach_writer.py` `_build_prompt` / `assemble.py` `_normalize_*` / `app/src/types/analysis.ts` 3-way lockstep). 출처 태깅 방식(source 필드 추가 vs 섹션 구조) = planner 결정.
+- **UI:** `app/src/app/analysis/result.tsx` 자세히 모달 + `RecommendedExerciseModal.tsx`(13-A) + Phase 12.5 modal 패턴. 라이트 테마 / brand #FF4B33 토큰.
+- **검증 코드:** `coach_writer.py` graceful 폴백 기존 — 재시도/타임아웃/섹션 조립 신규.
+</code_context_13c>
+
+<canonical_refs_13c>
+- `.claude/projects/.../memory/section-dual-coach-report.md` (13-C 결정 박제 — MUST read)
+- `backend/shared/python/sunity_shared/analysis/coach_writer.py` (CerebrasCoachWriter + _build_prompt)
+- `backend/functions/pipeline/app.py` (_coach_enabled dual-track + GeminiCoachWriter)
+- `backend/shared/python/sunity_shared/analysis/assemble.py` (build_result / detail2 normalize / branch)
+- `app/src/types/analysis.ts` (detail2 계약 — 3-way lockstep)
+- `app/src/app/analysis/result.tsx` + `app/src/components/RecommendedExerciseModal.tsx` (UI)
+</canonical_refs_13c>
+
+---
+
 *Phase: 13-llm-coaching-detail*
-*Context gathered: 2026-06-16*
+*Context gathered: 2026-06-16 (13-A/13-B) · 13-C 추가: 2026-06-16*

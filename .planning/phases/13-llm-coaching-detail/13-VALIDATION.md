@@ -1,8 +1,8 @@
 ---
 phase: 13
 slug: llm-coaching-detail
-status: draft
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-16
 ---
@@ -74,6 +74,6 @@ created: 2026-06-16
 - [ ] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags
 - [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-06-16 (gsd-plan-checker PASS — plans nyquist-sound: Wave 0 = 13-A T1, every autonomous task carries an automated command, no 3-consecutive-unverified window. Per-task verification lives in each PLAN.md `<acceptance_criteria>`.)

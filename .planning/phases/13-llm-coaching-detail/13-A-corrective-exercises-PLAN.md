@@ -13,6 +13,7 @@ files_modified:
   - backend/shared/python/sunity_shared/models.py
   - docs/contract.md
   - app/src/lib/userAnalyses.ts
+  - app/src/data/corrective_exercises.json
   - app/src/data/correctiveExercises.ts
   - app/src/components/RecommendedExerciseModal.tsx
   - app/src/app/analysis/result.tsx
@@ -31,6 +32,8 @@ must_haves:
     - "분석 결과(실패 원인 후보 + 통증부위)에 맞는 보완 운동 3~5개가 result 에 산출된다 (criteria 1,2)"
     - "매핑은 forcePatternInference.findings + bodyProfile.painAreas + motion_id 를 입력으로 쓴다 (criteria 3)"
     - "사용자가 결과 화면에서 보완 운동 카드를 보고 '다른 운동 보기' 모달로 전체 라이브러리(app/src/data/correctiveExercises.ts)를 열람한다 — Firestore recommendedExercises 는 3~5 개인화 subset, 모달은 풀 라이브러리 browse (criteria 4, HIGH-1 옵션 a)"
+    - "개인화 추천이 빈 배열이어도 '보완 운동' 섹션은 라이브러리가 비어있지 않으면 렌더되고 '전체 보완 운동 보기' 버튼이 유지된다 — criteria 4 entry point 가 사라지지 않음 (MEDIUM-1)"
+    - "app/src/data/corrective_exercises.json 이 backend/data/corrective_exercises.json 의 byte-for-byte 복사이고 full-content lockstep(schemaVersion/defects/painAreas/모든 exercise·avoid·trigger 필드)이 drift 시 fail 한다 (HIGH-2)"
     - "painAreas 가 dimension_scores 등 채점 경로로 유입되지 않는다 (D-05)"
   artifacts:
     - path: "backend/data/corrective_exercises.json"
@@ -39,9 +42,12 @@ must_haves:
     - path: "backend/shared/python/sunity_shared/analysis/exercise_map.py"
       provides: "pure map_exercises(force_pattern_inference, pain_areas, motion_id) -> list[dict]"
       exports: ["map_exercises"]
-    - path: "app/src/data/correctiveExercises.ts"
-      provides: "백엔드 corrective_exercises.json 의 app-side mirror (전체 라이브러리 browse data source) + schemaVersion"
+    - path: "app/src/data/corrective_exercises.json"
+      provides: "backend/data/corrective_exercises.json 의 byte-for-byte 복사 (app-side single source, HIGH-2 옵션 BEST)"
       contains: "schemaVersion"
+    - path: "app/src/data/correctiveExercises.ts"
+      provides: "corrective_exercises.json 을 import 하는 typed wrapper (전체 라이브러리 browse data source)"
+      contains: "corrective_exercises.json"
     - path: "app/src/components/RecommendedExerciseModal.tsx"
       provides: "다른 운동 보기 전체 라이브러리 모달 (correctiveExercises.ts read)"
       min_lines: 60
@@ -58,6 +64,10 @@ must_haves:
       to: "app/src/data/correctiveExercises.ts"
       via: "전체 라이브러리 운동 목록 import 후 browse (Firestore subset 아님)"
       pattern: "correctiveExercises"
+    - from: "app/src/data/correctiveExercises.ts"
+      to: "app/src/data/corrective_exercises.json"
+      via: "byte-copy JSON import + typed wrapper (HIGH-2 — manual TS object 아님)"
+      pattern: "corrective_exercises\\.json"
 ---
 
 <objective>
@@ -68,6 +78,7 @@ Output: 커밋된 라이브러리 fixture(백엔드) + app-side mirror(correctiv
 
 Negative scope fence: D-01 (연령·성별 + 국민체력100 규준 맞춤 = v2 PERS-04) 와 D-02 (`backend/judging_data/fitness_norms_kspo.yaml` = 커밋된 채 대기, v1 미소비) 는 본 phase 비대상 — 매핑 입력은 Phase 9 findings + painAreas 만(D-03), 체력 자동 등급배치 금지. fitness_norms_kspo.yaml 을 import/소비하지 않는다.
 HIGH-1 (direct review) 박제: "다른 운동 보기" = 옵션 (a) 전체 라이브러리 app data path. 옵션 (b) 개인화 alternates(v2) / 옵션 (c) narrow scope 금지 — 모달은 풀 라이브러리를 browse 한다.
+Direct-review iteration-2 박제 (see 13-REVIEW-FIXES.md): HIGH-2 = app mirror 는 `app/src/data/corrective_exercises.json` byte-for-byte 복사 + typed wrapper(`correctiveExercises.ts`) + full-content lockstep(name-set 만 비교하는 smoke check 금지). MEDIUM-1 = 개인화 추천이 비어도 라이브러리가 있으면 "보완 운동" 섹션 + "전체 보완 운동 보기" 버튼 유지 — criteria 4 entry point 가 사라지지 않는다.
 </objective>
 
 <phase_goal>
@@ -98,6 +109,7 @@ HIGH-1 (direct review) 박제: "다른 운동 보기" = 옵션 (a) 전체 라이
   <name>Task 1: 라이브러리 fixture + Wave 0 test 인프라 + 보완운동 fixture 스키마 게이트</name>
   <files>backend/data/corrective_exercises.json, backend/tests/phase13/__init__.py, backend/tests/phase13/conftest.py, backend/tests/phase13/fixtures/sample_force_pattern_inference.json, backend/tests/phase13/test_corrective_exercises_fixture.py</files>
   <read_first>
+    - .planning/phases/13-llm-coaching-detail/13-REVIEW-FIXES.md (supersession ledger — 13-RESEARCH.md 보다 먼저, 충돌 시 우선)
     - backend/data/aka-mapping.json (헤더/엔트리/sourceRef 메타 컨벤션 analog — 1:1 mirror)
     - .planning/phases/13-llm-coaching-detail/13-RESEARCH.md §"NotebookLM Primary-Source Findings B" (운동 content verbatim + cite) + §"Plan A — Storage Decision" (스키마)
     - backend/shared/python/sunity_shared/models.py L51-60 (PAIN_AREAS 8 멤버 frozenset — painAreas 키 정합 강제)
@@ -157,8 +169,9 @@ HIGH-1 (direct review) 박제: "다른 운동 보기" = 옵션 (a) 전체 라이
 
 <task type="auto">
   <name>Task 3: 3-way 계약 lockstep + firestore validator + pipeline wiring + frontend(전체 라이브러리 모달+섹션) + app data mirror</name>
-  <files>app/src/types/analysis.ts, backend/shared/python/sunity_shared/models.py, docs/contract.md, backend/shared/python/sunity_shared/firestore_admin.py, backend/functions/pipeline/app.py, app/src/lib/userAnalyses.ts, app/src/data/correctiveExercises.ts, app/src/components/RecommendedExerciseModal.tsx, app/src/app/analysis/result.tsx, backend/tests/phase13/test_recommended_exercises_lockstep.py, backend/tests/phase13/test_corrective_exercises_app_lockstep.py</files>
+  <files>app/src/types/analysis.ts, backend/shared/python/sunity_shared/models.py, docs/contract.md, backend/shared/python/sunity_shared/firestore_admin.py, backend/functions/pipeline/app.py, app/src/lib/userAnalyses.ts, app/src/data/corrective_exercises.json, app/src/data/correctiveExercises.ts, app/src/components/RecommendedExerciseModal.tsx, app/src/app/analysis/result.tsx, backend/tests/phase13/test_recommended_exercises_lockstep.py, backend/tests/phase13/test_corrective_exercises_app_lockstep.py</files>
   <read_first>
+    - .planning/phases/13-llm-coaching-detail/13-REVIEW-FIXES.md §5(app mirror = JSON byte-copy + full-content lockstep) §6(빈 추천 browse 유지) — 13-RESEARCH.md 보다 먼저, 충돌 시 우선
     - app/src/types/analysis.ts L293-327 (AnalysisResult + dimensionExplanation? optional 컨벤션 + L188 CoachingTipDetail interface 모양)
     - docs/contract.md L157-195 (§4 AnalysisResult + DimensionExplanation block 형식)
     - backend/shared/python/sunity_shared/models.py L37-60 (BodyProfile 3-way lockstep 헤더 코멘트 mandate)
@@ -173,12 +186,12 @@ HIGH-1 (direct review) 박제: "다른 운동 보기" = 옵션 (a) 전체 라이
     **단일 atomic commit 으로 3-way 계약**: (1) analysis.ts — `RecommendedExercise` interface(name/setsReps/purpose/sourceRef? — CoachingTipDetail 모양 + Phase 13 코멘트) + AnalysisResult 에 `recommendedExercises?: RecommendedExercise[]`(dimensionExplanation? optional 패턴, 이전 빌드 doc 호환). (2) models.py — BodyProfile lockstep 헤더 컨벤션대로 `recommendedExercises` 계약 코멘트 추가(생산자=exercise_map, 검증=firestore_admin, static fixture 이므로 normalizer 불필요 박제). (3) docs/contract.md §4 — `recommendedExercises RecommendedExercise[] optional ← Phase 13` 라인 + DimensionExplanation block 모델로 RecommendedExercise shape block. camelCase Firestore / 본 리스트는 plain camelCase dict 라 `_dataclass_to_camel_case_dict` 우회 박제.
     firestore_admin.py: `_validate_recommended_exercises(payload, *, path="recommendedExercises")` 신설 — _validate_force_pattern_inference 1:1 mirror. None graceful, list 아니면 reject, len > 5 reject(criteria 2 cap), 각 item 에 `_validate_dict_only_scalars`(flat scalar — _validate_dict_only_scalars 본체 변경 0). complete_analysis 에 `recommended_exercises=None` kwarg 추가 + force_pattern_inference 블록 mirror 로 검증 후 `payload["result"]["recommendedExercises"]` 할당.
     pipeline app.py: L1948 force_pattern_inference_dict build 직후 `recommended_exercises = exercise_map.map_exercises(force_pattern_inference_dict, pain_areas=(models.normalize_body_profile(meta.get("bodyProfile")) or {}).get("painAreas", []) or [], motion_id=getattr(profile, "motion_id", None))` 호출(exercise_map import 추가). complete_analysis(L2104) 에 `recommended_exercises=recommended_exercises` kwarg 전달. **painAreas 만 소비, weightKg 점수 경로 진입 0 (D-05).**
-    **HIGH-1 옵션 (a) app data path: `app/src/data/correctiveExercises.ts` 신설** — backend/data/corrective_exercises.json 의 schema/version/content 를 manual mirror(`export const CORRECTIVE_EXERCISES`). `schemaVersion`(백엔드와 동일 문자열) + `defects`/`painAreas` 전체 운동 목록을 typed export(RecommendedExercise[] 호환 shape). 모달이 result.recommendedExercises(3~5 subset)이 아니라 본 풀 라이브러리를 browse 하는 single source.
+    **HIGH-2 (iteration-2): app data path = JSON byte-copy + typed wrapper (manual TS object 금지).** (1) `app/src/data/corrective_exercises.json` 신설 = `backend/data/corrective_exercises.json` 의 **byte-for-byte 복사**(동일 바이트 — `cp backend/data/corrective_exercises.json app/src/data/corrective_exercises.json` 으로 생성, 손으로 재작성 금지). (2) `app/src/data/correctiveExercises.ts` = 그 JSON 을 import 하는 **typed wrapper** — `import data from './corrective_exercises.json'` 후 `export const CORRECTIVE_EXERCISES = data as CorrectiveLibrary`(RecommendedExercise[] 호환 shape) + `export const CORRECTIVE_SCHEMA_VERSION = data.schemaVersion`. tsconfig 가 `resolveJsonModule` 를 켜야 함(없으면 추가). 모달이 result.recommendedExercises(3~5 subset)이 아니라 본 풀 라이브러리를 browse 하는 single source. **app JSON 은 backend JSON 의 복사이지 별도 진실원이 아님 — 항상 backend 가 canonical.**
     userAnalyses.ts: normalize() 에 forcePatternInference null-guard mirror — `if (Array.isArray(result?.recommendedExercises)) normalizedResult.recommendedExercises = result.recommendedExercises`.
     `RecommendedExerciseModal.tsx` 신설: CoachingTipDetailModal.tsx 전체 scaffold mirror(Modal transparent + animationType="slide", backdrop pure View + backdropTop Pressable tap=close, sheet useWindowDimensions height, ScrollView). **내용 = app/src/data/correctiveExercises.ts 의 전체 라이브러리 운동 카드 목록(causeCard 패턴) — Firestore subset 이 아닌 풀 라이브러리 browse (criteria 4, HIGH-1).** theme 토큰만(colors.brand #FF4B33 / colors.divider / radius.card / radius.button) — 하드코딩 금지, 라이트 테마.
-    result.tsx: "코칭 팁" 섹션(L854-917) 뒤, `</ScrollView>`(L933) 전에 "보완 운동" 섹션 추가 — sectionTitle "보완 운동" + result.recommendedExercises 카드 목록(개인화 3~5 subset) + "다른 운동 보기" Pressable(L905 tipMore 패턴). `const [exerciseModalOpen, setExerciseModalOpen] = useState(false)` 추가(detailTip 패턴) + 기존 모달 mount 옆에 `<RecommendedExerciseModal visible={exerciseModalOpen} onClose={() => setExerciseModalOpen(false)} />` mount. recommendedExercises 부재/빈 배열이면 카드 섹션 graceful 숨김(단 "다른 운동 보기" 모달은 풀 라이브러리이므로 항상 동작).
+    result.tsx: "코칭 팁" 섹션(L854-917) 뒤, `</ScrollView>`(L933) 전에 "보완 운동" 섹션 추가 — sectionTitle "보완 운동". **MEDIUM-1 (iteration-2): 섹션 가시성 조건 = `(result.recommendedExercises?.length ?? 0) > 0 || CORRECTIVE_EXERCISES has items`** (개인화 추천이 비어도 라이브러리가 있으면 렌더 — criteria 4 entry point 가 절대 사라지지 않음). 본문 분기: (a) 개인화 추천 있으면 result.recommendedExercises 카드 목록(3~5 subset) + "다른 운동 보기" Pressable(L905 tipMore 패턴). (b) 개인화 추천 없으면 neutral state 한 줄 "이번 분석에서는 뚜렷한 보완 운동 매핑이 없어요." + "전체 보완 운동 보기" Pressable. 두 분기 모두 동일 모달을 연다. `const [exerciseModalOpen, setExerciseModalOpen] = useState(false)` 추가(detailTip 패턴) + 기존 모달 mount 옆에 `<RecommendedExerciseModal visible={exerciseModalOpen} onClose={() => setExerciseModalOpen(false)} />` mount. **유일하게 섹션 전체가 숨는 경우 = 라이브러리도 비고 추천도 빌 때(실무상 fixture 가 항상 차 있으므로 미발생).**
     `test_recommended_exercises_lockstep.py`: complete_analysis(recommended_exercises=[...]) → result.recommendedExercises 저장 검증 + validator 가 len>5 / nested-array reject 검증.
-    **`test_corrective_exercises_app_lockstep.py`(신규, HIGH-1): backend/data/corrective_exercises.json ↔ app/src/data/correctiveExercises.ts schema/version/content lockstep** — test_body_normalization_lockstep.py 패턴으로 repo-root Path 해석, (1) 양쪽 schemaVersion 문자열 동일, (2) defects 5 키 / painAreas 8 키 동일 집합, (3) 운동 name 전체 집합이 양쪽 1:1 일치(content drift 0). 3-way contract drift test precedent 준수.
+    **`test_corrective_exercises_app_lockstep.py`(신규, HIGH-2): backend/data/corrective_exercises.json ↔ app/src/data/corrective_exercises.json FULL-CONTENT lockstep (name-set smoke check 아님)** — test_body_normalization_lockstep.py 패턴으로 repo-root Path 해석 후 두 JSON 을 로드. BEST 게이트: `json.load` 두 객체를 **canonical 직렬화(sort_keys=True, ensure_ascii=False) hash 또는 deep-equal** 로 1:1 비교 → 어떤 필드 drift 든 fail. deep-equal 이 불가하면 최소: (1) 양쪽 schemaVersion 동일, (2) defects 5 키 / painAreas 8 키 동일 집합, (3) **각 defect 의 모든 exercise `{name, setsReps, purpose, sourceRef}` 전부 일치**, (4) **각 painArea 의 `avoid` + 모든 exercise 필드 일치**, (5) **각 defect trigger 의 `sourceSignals` + `jointHints` 일치**. (app 측은 byte-copy 이므로 deep-equal 이 정상 통과해야 함 — 통과 못하면 복사 누락.) name-set 만 비교하는 약식 게이트 금지.
   </action>
   <verify>
     <automated>cd backend && python -m pytest tests/phase13/test_recommended_exercises_lockstep.py tests/phase13/test_corrective_exercises_app_lockstep.py -x -q && cd ../app && npm run typecheck</automated>
@@ -187,12 +200,14 @@ HIGH-1 (direct review) 박제: "다른 운동 보기" = 옵션 (a) 전체 라이
     - analysis.ts + models.py + docs/contract.md §4 가 recommendedExercises 를 동시 박제(3-way)
     - _validate_recommended_exercises 가 len>5 + nested-array reject, complete_analysis kwarg 동작
     - pipeline 이 map_exercises 호출 + complete_analysis 에 전달(painAreas만, weightKg 점수경로 0)
-    - app/src/data/correctiveExercises.ts 존재 + 백엔드 fixture 와 schema/version/content lockstep (HIGH-1)
+    - app/src/data/corrective_exercises.json 이 backend JSON 의 byte-copy + correctiveExercises.ts 가 그 JSON 을 import 하는 typed wrapper (manual TS object 아님, HIGH-2)
+    - test_corrective_exercises_app_lockstep.py 가 FULL-CONTENT(schemaVersion/defects/painAreas/모든 exercise·avoid·trigger 필드) drift 를 fail (name-set smoke check 아님, HIGH-2)
     - RecommendedExerciseModal 이 correctiveExercises.ts 풀 라이브러리를 read (result.recommendedExercises subset 아님)
-    - result.tsx 에 "보완 운동" 섹션 + RecommendedExerciseModal mount, theme 토큰만 사용
+    - result.tsx "보완 운동" 섹션이 개인화 추천 빈 배열에도 라이브러리가 있으면 렌더 + "전체 보완 운동 보기" 버튼 유지(neutral state "뚜렷한 보완 운동 매핑이 없어요"), criteria 4 entry point 미소멸 (MEDIUM-1)
+    - result.tsx 에 RecommendedExerciseModal mount, theme 토큰만 사용
     - test_recommended_exercises_lockstep.py + test_corrective_exercises_app_lockstep.py 그린 + tsc --noEmit clean
   </acceptance_criteria>
-  <done>계약+검증+wiring+UI vertical slice 완성 — 결과 화면에 개인화 보완 운동 카드 + 전체 라이브러리 "다른 운동 보기" 모달 (criteria 4, HIGH-1 옵션 a).</done>
+  <done>계약+검증+wiring+UI vertical slice 완성 — 결과 화면에 개인화 보완 운동 카드 + 전체 라이브러리 "다른 운동 보기" 모달(빈 추천에도 유지) + JSON byte-copy app mirror full-content lockstep (criteria 4, HIGH-1 옵션 a + HIGH-2 + MEDIUM-1).</done>
 </task>
 
 </tasks>
@@ -215,7 +230,7 @@ HIGH-1 (direct review) 박제: "다른 운동 보기" = 옵션 (a) 전체 라이
 | T-13A-02 | Tampering/DoS | firestore recommendedExercises write | mitigate | scoped `_validate_recommended_exercises` 화이트리스트 + len<=5 cap, _validate_dict_only_scalars 본체 불변 (nested-array ban 보존) |
 | T-13A-03 | Information Disclosure / 의료 단정 | 운동 content 카피 | accept | content 는 NotebookLM 큐레이션 운동명/세트수만, 의학적 진단·치료 단정 없음 (D-05 / objectivity). painArea avoid 는 일반 안전 라인 |
 | T-13A-04 | Tampering | client 위조 painAreas | mitigate | models.normalize_body_profile 가 PAIN_AREAS frozenset 멤버만 통과 (비멤버 drop) |
-| T-13A-05 | Tampering (content drift) | app mirror correctiveExercises.ts 가 backend fixture 와 어긋남 | mitigate | test_corrective_exercises_app_lockstep.py 가 schemaVersion/키/운동명 1:1 강제 (HIGH-1) |
+| T-13A-05 | Tampering (content drift) | app mirror corrective_exercises.json 이 backend fixture 와 어긋남 | mitigate | app JSON = backend JSON byte-copy + test_corrective_exercises_app_lockstep.py 가 schemaVersion/키/모든 exercise·avoid·trigger 필드 FULL-CONTENT deep-equal 강제 (HIGH-2, name-set smoke 아님) |
 </threat_model>
 
 <verification>
@@ -223,15 +238,16 @@ HIGH-1 (direct review) 박제: "다른 운동 보기" = 옵션 (a) 전체 라이
 - `cd backend && python -m pytest -q` (회귀 0 — phase06/07/08/08.1/09 그린 유지)
 - `cd app && npm run typecheck` (tsc --noEmit clean)
 - grep: exercise_map.py 소스에 채점 토큰 0 (D-05)
-- app/src/data/correctiveExercises.ts ↔ backend/data/corrective_exercises.json lockstep (HIGH-1)
+- app/src/data/corrective_exercises.json ↔ backend/data/corrective_exercises.json FULL-CONTENT lockstep (HIGH-2, byte-copy + deep-equal)
+- result.tsx 보완 운동 섹션 빈-추천 케이스: 라이브러리 있으면 "전체 보완 운동 보기" 버튼 유지 (MEDIUM-1, manual UAT 라인 또는 RN snapshot)
 </verification>
 
 <success_criteria>
 - corrective_exercises.json fixture 박제(5 defect + 8 painArea) — criteria 1
 - map_exercises 가 분석당 3~5 운동 산출 — criteria 2
 - 매핑 입력 = findings + painAreas + motion_id — criteria 3
-- result.tsx 보완 운동 섹션 + "다른 운동 보기" 전체 라이브러리 모달(app data mirror) — criteria 4
-- D-05 비유입 게이트 + app lockstep + 회귀 0
+- result.tsx 보완 운동 섹션 + "다른 운동 보기" 전체 라이브러리 모달(app JSON byte-copy mirror), 빈 추천에도 browse entry 유지 — criteria 4 + MEDIUM-1
+- D-05 비유입 게이트 + app FULL-CONTENT lockstep(HIGH-2) + 회귀 0
 </success_criteria>
 
 <output>

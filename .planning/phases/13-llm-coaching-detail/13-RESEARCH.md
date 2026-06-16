@@ -1,5 +1,8 @@
 # Phase 13: 보완 운동 추천 + LLM 분기 카피 + coaching detail 완성 - Research
 
+> **Direct-review supersession (see 13-REVIEW-FIXES.md).** 본 RESEARCH 의 일부 가이드는 1차/2차 direct-review 로 뒤집혔다. 충돌 시 우선순위: 13-REVIEW-FIXES.md > plan `<action>` > 본 문서.
+> 주요 supersession: (a) `motion_ipsf_map` 은 **curated(명시 join table)**, derived 아님 — 아래 "derived" 권고 무효. (b) 라우팅은 단일 `isRegistered` boolean 이 아니라 **copyBranch + angleSource + angleFixtureKey** (둘은 직교). (c) `180°` 는 **line/extension 전용**, universal angle baseline 아님 — 아래 "세계 심사 기준 (IPSF) + 180°" 라인은 angle 차원에 적용 금지. (d) app mirror = JSON byte-copy + full-content lockstep. (e) 빈 추천 시에도 전체 라이브러리 browse 유지.
+
 **Researched:** 2026-06-16
 **Domain:** (Plan A) corrective-exercise mapping over existing analysis findings + RN result UI; (Plan B) real-LLM coaching activation (Cerebras) + IPSF/학원 branch copy in backend assemble/coach_writer
 **Confidence:** HIGH (codebase paths grepped + read; NotebookLM primary source queried live; no new external packages)
@@ -230,12 +233,12 @@ NotebookLM MCP/CLI was **available and queried live** (nlm 0.7.1, authenticated)
 ### Plan B — `ipsfCode` branch in build_dimension_explanation
 **Current:** `build_dimension_explanation(assessments, dimension_scores, comparison, joint_angles, profile)` derives `mode` from `comparison["mode"]` and picks `_DIMENSION_BASELINES_MODE1/3`. (assemble.py:98-99)
 **Add:** resolve `ipsf_code` from `profile.motion_id` via the new fixture, then branch the angle/line baseline copy:
-- **branch 1 (registered, `ipsfCode` present):** "세계 심사 기준 (IPSF) — 어깨/무릎 180° 신전" (criteria 6).
+- **branch 1 (registered, `ipsfCode` present):** "세계 심사 기준 (IPSF) — 어깨/무릎 180° 신전" (criteria 6).  **[SUPERSEDED — 13-REVIEW-FIXES.md §3: 180° 는 line/extension(EXTEND joint) 전용. angle 차원 baseline = 동작별 정의 각도(NON-180).]**
 - **branch 2 (정은지 reference, `ipsfRegistered:false`):** "정은지 선수 기준 자세" (criteria 6 + 8) — never say "세계 심사 기준" for branch-2.
 - Pass `ipsf_code`/`branch` into `build_dimension_explanation` (new kwarg, default None → falls back to today's mode-aware copy = backward compatible, mirrors how `joint_angles`/`profile` were added in 12.5).
 
 ### Plan B — `ipsfCode` Source (RECOMMEND: separate small fixture keyed by motion_id)
-`ipsf_code` does **not** exist anywhere in code today (grep confirmed) — only as data in `backend/data/aka-mapping.json` (`isRegistered:true`, has `ipsfCode`) and `reference-motions-branch2.json` (`ipsfRegistered:false`). `TechniqueProfile` has `motion_id` but no `ipsf_code`. **Recommend** a tiny derived fixture `backend/data/motion_ipsf_map.json` (`{motion_id: {ipsfCode|null, isRegistered, officialName}}`) generated from the two existing files, looked up at assemble time. Rationale: keeps `build_dimension_explanation` dependency-light (no aka-mapping parse coupling), and the branch only needs `isRegistered` + a display string. Do NOT add `ipsf_code` to `TechniqueProfile` scoring path (objectivity / D-05).
+`ipsf_code` does **not** exist anywhere in code today (grep confirmed) — only as data in `backend/data/aka-mapping.json` (`isRegistered:true`, has `ipsfCode`) and `reference-motions-branch2.json` (`ipsfRegistered:false`). `TechniqueProfile` has `motion_id` but no `ipsf_code`. **[SUPERSEDED — 13-REVIEW-FIXES.md §1/§2: curated, NOT derived; route via copyBranch+angleSource+angleFixtureKey]** ~~Recommend a tiny derived fixture~~ `backend/data/motion_ipsf_map.json` (`{motion_id: {ipsfCode|null, isRegistered, officialName}}`) generated from the two existing files, looked up at assemble time. Rationale: keeps `build_dimension_explanation` dependency-light (no aka-mapping parse coupling), and the branch only needs `isRegistered` + a display string. Do NOT add `ipsf_code` to `TechniqueProfile` scoring path (objectivity / D-05).
 
 ### Plan B — IPSF angle fixture → coach prompt (criteria 7)
 `coach_writer._build_prompt(joints)` currently lists only deviation degrees. Extend signature to accept `motion_name`, `branch`, and a per-move `angle_fixture` (from §NotebookLM A, branch-1) or branch-2 정은지 measured angles (from the criteria yaml already on disk). Inject into the user prompt so the LLM cites correct degrees ("아이샤 아래 어깨 180°"). System prompt `_SYSTEM` gets a one-line "정확한 기준 각도만 인용, 임의 수치 생성 금지" guard.

@@ -138,9 +138,11 @@ Plans:
 
 **Plans**: 3 plans (Wave 1~3 MVP vertical slices)
 Plans:
+
 - [x] 03-01-PLAN.md — Wave 1: thin E2E + 3-way BodyProfile 계약 lockstep (TS↔Python↔contract.md) + bodyProfile.ts hook + loading.tsx snapshot + pipeline coach seam (D-04) + D-05 weightKg grep gate + Wave 0 backend 테스트
 - [x] 03-02-PLAN.md — Wave 2: BodyProfileForm (5필드 RN primitive + a11y + 토큰) + profile.tsx BodyProfileCard 상시 편집 진입점 (D-01/D-02/D-03)
 - [x] 03-03-PLAN.md — Wave 3: BodyProfilePromptModal dismissible 첫분석 권유 + analyze.tsx 게이트 + once-flag (D-01/D-06) + result.tsx BodyProfile 표기 (D-04)
+
 **UI hint**: yes
 
 ### Phase 4: Camera Angle AI (single-view 가상 다각도) + occlusion confidence 게이트
@@ -398,8 +400,10 @@ Plans:
 
 **Plans**: 2 plans (D-05 분리 — Plan A = criteria 1-4 GPU 불필요, Plan B = criteria 5-8 분기 + 실 Cerebras)
 Plans:
-- [ ] 13-A-corrective-exercises-PLAN.md — Wave 1: 보완운동 라이브러리 fixture + 순수 map_exercises(findings + painAreas + motion_id) + recommendedExercises 3-way 계약 + result.tsx 보완운동 섹션 + 다른 운동 보기 모달 (PERS-03, D-03/D-04/D-05, criteria 1-4, autonomous)
+
+- [x] 13-A-corrective-exercises-PLAN.md — Wave 1: 보완운동 라이브러리 fixture + 순수 map_exercises(findings + painAreas + motion_id) + recommendedExercises 3-way 계약 + result.tsx 보완운동 섹션 + 다른 운동 보기 모달 (PERS-03, D-03/D-04/D-05, criteria 1-4, autonomous)
 - [ ] 13-B-llm-branch-copy-PLAN.md — Wave 2: motion_ipsf_map + registered_move_angles fixture + assemble ipsfCode 분기(분기1 IPSF 180° / 분기2 정은지 기준) + coach_writer 프롬프트 각도 주입 + 실 Cerebras Pod 활성화 (studio-term-3branch, criteria 5-8, non-autonomous — angle fixture human-verify + criteria 5 Pod E2E)
+
 **UI hint**: yes
 
 ### Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)
@@ -537,7 +541,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 11. CoachCommentHook + Gemini 번역 | 0/TBD | Not started | - |
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |
-| 13. 보완 운동·스트레칭 추천 | 0/TBD | Not started (v1 chain #6) | - |
+| 13. 보완 운동·스트레칭 추천 | 1/2 | In Progress|  |
 | 14. 정은지 기준 모션 등록 (다각도) | 3/3 | Complete    | 2026-06-15 |
 | 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 0/TBD | Not started | - |
 | 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 1/1 | Complete   | 2026-06-02 |
@@ -549,13 +553,15 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 **Goal:** 정은지가 제공한 '일부러 실수한' reference 영상을 영구 eval/검증 테스트 세트(regression fixture)로 만든다 — 각 실수 영상에 '어떤 fault를 시연하는지' 라벨(영상 입력이지 사람 점수 라벨 아님)을 달아, 분석기가 그 fault를 잡아내고 + 높은 점수를 주지 않는지(고수 위양성 역검증) 자동 assert 한다. 핵심 가치(점수 신뢰)와 Phase 15 '고수 위양성 없음' 게이트에 직결. 같은 자산은 나중에 in-app 대조 교육(정타↔실수)에도 재사용 가능.
 **Requirements**: TBD (plan 단계에서 신규 EVAL-* 요건 확정)
 **Depends on:** Phase 15 (Mode 1·3 실영상 + 신뢰도 게이트가 동작해야 fault 검증 의미)
-**Plans:** 0 plans
+**Plans:** 1/2 plans executed
 
 **주의 (plan 시 박제):**
+
 - 임계값 calibration 에 직접 쓰면 사람-라벨 ground-truth 경계 — 신중 ([[analysis-objectivity-no-human-scores]]). v1 은 "fault 가 잡히는지" 검증용으로 한정.
 - Phase 14 의 seeder / snapshot / rollback 스크립트(14-REVIEW.md CR-01/CR-02 수정 반영) 재사용.
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 18 to break down)
 
 ---

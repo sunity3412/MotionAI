@@ -23,6 +23,7 @@
 - ✓ Cerebras LLM 한국어 코칭 문장 생성 (키 없으면 graceful no-op) — existing
 - ✓ TestFlight 빌드/제출 파이프라인 (EAS Build + ASC API Key 무인 submit) — existing
 - ✓ 자가입력 BodyProfile (키·몸무게·경력·통증부위·우세손) — 마이페이지 상시 편집 + 첫분석 1회 권유, BodyProfile 3-way 계약(TS↔Python↔contract.md) + 분석 doc snapshot → coach context 전달 (BODY-02). Validated in Phase 3: bodyprofileinput (2개 실기기 UAT 항목 잔여)
+- ✓ CoachCommentHook 데이터 구조 + text-only Gemini 자연어 번역 (number-free, 객관) — 두 리포트(ForcePatternInference/BodyComparisonReport)에 hook 부착, 결과 화면 "강사에게 확인할 점" 병합 노출 + "강사 보조 도구" 포지셔닝. Validated in Phase 11: coachcommenthook-gemini (COACH-01, FEED-03; hook은 best-effort — 분석 절대 실패 안 함 D-08). 실 LLM E2E는 Phase 15 실증
 
 ### Active
 
@@ -39,7 +40,7 @@
 - [ ] 관절 각도 수치 표시 — 결과 화면에 "현재 87° → 기준 110°" 형태로
 - [ ] 키포인트·중심축 오버레이 — 영상 위에 어깨/골반/무릎/손/중심축 표시 (발끝은 v2)
 - [ ] 원인 → 해결 순서 피드백 — "실패 원인 → 내 몸 기준 힘 방향·중심축 → 필요한 유연성/근력 → 보조 동작", 부위별 언어(고관절/후굴/코어/내전근 등) (Cerebras 프롬프트)
-- [ ] "강사 보조 도구" 포지셔닝 — 결과 카피에서 AI가 강사를 대체한다는 인상 제거
+- [x] "강사 보조 도구" 포지셔닝 — 결과 카피에서 AI가 강사를 대체한다는 인상 제거 (Phase 11 — "강사에게 확인할 점" 섹션 + 상단 1줄 + Mode 1 "하나의 참고일 뿐")
 
 **두 모드 실영상 동작:**
 - [ ] Mode 1 — 정은지 기준 모션 불러와 비교, 전문가 기준 점수 실영상 end-to-end
@@ -126,6 +127,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-15 — Phase 3 (자가입력 BodyProfileInput, BODY-02) 완료 반영*
+*Last updated: 2026-06-17 — Phase 11 (CoachCommentHook + Gemini 자연어 번역, COACH-01·FEED-03) 완료 반영*
 *Updated 2026-06-02: Phase 16 신설 — 학원 용어 3분기 + 5트랙 채점 v1 scope. NotebookLM IPSF CoP 2024-2025 lookup 박제. v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제. Active 그룹 (점수 신뢰도 / 기준 모션) 항목 추가, Out of Scope v2 보강, Key Decisions 3건 추가.*
 *Updated 2026-06-08: 분석 정확도 핵심 차원 v1 진행 결정 (이전 2026-06-07 "Phase 2~11 보류" 박제 무효). v1 시퀀스 = Phase 6 → 7 → 8 → 9 → 12 → 13. belle 박제 — "오버레이, 체형 정규화, 힘 패턴은 필수적. 어떻게든 기필코 개발하려고 하는 게 지금." Phase 6 CONTEXT.md 박제 (좌표 변환 방향 B + confidence-tiered hybrid + 3 케이스 통합 schema). Key Decisions 3건 추가.*

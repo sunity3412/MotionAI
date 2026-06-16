@@ -339,7 +339,7 @@ Plans:
 **Wave 1**
 
 - [x] 11-00-PLAN.md — Wave 0: CoachCommentHook 3-way lockstep (TS↔models.py↔contract.md) + coach_hook.py 데이터 구조 + phase11 test scaffold (translation-only / fallback / nested-array RED) (COACH-01)
-- [ ] 11-01-PLAN.md — Wave 1: 별도 text-only GeminiCoachHookWriter (coach_hook_writer.py, CoachHookBundle 스키마, 두 리포트 1회 bundle 호출) + degree/% 포함 _enforce_no_reject_patterns reject-and-fallback + api_key_loader-seam canned fallback + force_pattern_inference 생성 후·complete_analysis 전 부착 + ForcePatternInference scoped validator 확장 (landmine) (COACH-01/FEED-03)
+- [x] 11-01-PLAN.md — Wave 1: 별도 text-only GeminiCoachHookWriter (coach_hook_writer.py, CoachHookBundle 스키마, 두 리포트 1회 bundle 호출) + degree/% 포함 _enforce_no_reject_patterns reject-and-fallback + api_key_loader-seam canned fallback + force_pattern_inference 생성 후·complete_analysis 전 부착 + ForcePatternInference scoped validator 확장 (landmine) (COACH-01/FEED-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -556,7 +556,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 8. 중심축·접촉점·jerk 분석 | 4/4 | Complete (axis-metric Phase 8.5 신설) | 2026-06-09 |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 2/2 | Complete   | 2026-06-10 |
 | 10. 부상 위험 신호 플래그 | 0/TBD | Not started | - |
-| 11. CoachCommentHook + Gemini 번역 | 1/3 | In Progress|  |
+| 11. CoachCommentHook + Gemini 번역 | 2/3 | In Progress|  |
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |
 | 13. 보완 운동·스트레칭 추천 | 3/2 | Complete   | 2026-06-16 |

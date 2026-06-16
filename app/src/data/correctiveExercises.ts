@@ -56,6 +56,7 @@ const DEFECT_TITLES: Record<string, string> = {
   core_weak: '코어 강화',
   legs_not_extended: '다리 신전 강화',
   hip_hamstring_tight: '고관절·유연성',
+  glute_hip_unstable: '둔근·골반 안정화',
 };
 
 const PAIN_AREA_TITLES: Record<string, string> = {

@@ -33,7 +33,9 @@ _CORRECTIVE_EXERCISES_PATH = (
 )
 _CORRECTIVE_EXERCISES_CACHE: dict | None = None
 
-# 5 defect 키 검증용 frozenset (fixture defects 키와 lockstep).
+# defect 키 검증용 frozenset (fixture defects 키와 lockstep).
+# glute_hip_unstable = 13-A GAP 클로저 (pelvis_drop 커버리지 — 중둔근/고관절
+# 외전근 STABILITY 결함, hip_hamstring_tight 의 flexibility 와 구분).
 _DEFECT_KEYS: frozenset[str] = frozenset(
     {
         "grip_weak",
@@ -41,6 +43,7 @@ _DEFECT_KEYS: frozenset[str] = frozenset(
         "core_weak",
         "legs_not_extended",
         "hip_hamstring_tight",
+        "glute_hip_unstable",
     }
 )
 # painArea 키 = models.PAIN_AREAS 재사용 (단일 진실원).

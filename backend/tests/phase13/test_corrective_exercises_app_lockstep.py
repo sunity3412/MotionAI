@@ -26,6 +26,7 @@ _DEFECT_KEYS = {
     "core_weak",
     "legs_not_extended",
     "hip_hamstring_tight",
+    "glute_hip_unstable",
 }
 _PAIN_AREA_KEYS = {
     "shoulder",

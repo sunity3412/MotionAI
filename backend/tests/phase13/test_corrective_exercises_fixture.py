@@ -22,6 +22,7 @@ _EXPECTED_DEFECT_KEYS = {
     "core_weak",
     "legs_not_extended",
     "hip_hamstring_tight",
+    "glute_hip_unstable",
 }
 _EXERCISE_FIELDS = {"name", "setsReps", "purpose", "sourceRef"}
 

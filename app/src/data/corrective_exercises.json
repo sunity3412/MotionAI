@@ -68,6 +68,19 @@
         {"name": "Dynamic Leg Swings", "setsReps": "전 10회", "purpose": "고관절 동적 가동", "sourceRef": "NotebookLM e688fb4e [5]"},
         {"name": "PNF Stretch", "setsReps": "파트너 수축/이완", "purpose": "고관절 가동범위 확장", "sourceRef": "NotebookLM e688fb4e [5]"}
       ]
+    },
+    "glute_hip_unstable": {
+      "triggers": {
+        "sourceSignals": ["pelvis_drop"],
+        "jointHints": ["둔근", "중둔근", "골반", "엉덩이 관절", "고관절 외전근"]
+      },
+      "exercises": [
+        {"name": "Lateral Leg Raise", "setsReps": "양측 10~15회", "purpose": "중둔근/고관절 외전근 강화로 골반 측면 안정성 확보", "sourceRef": "NotebookLM e688fb4e [7]"},
+        {"name": "Plank with Leg Lift", "setsReps": "30~60s", "purpose": "한 다리 들고 버티며 몸통 안정화 + 골반/척추 처짐 저지", "sourceRef": "NotebookLM e688fb4e [7]"},
+        {"name": "Side Planks", "setsReps": "양측 30~60s", "purpose": "측면 코어로 골반 좌우 균형 유지", "sourceRef": "NotebookLM e688fb4e [7]"},
+        {"name": "Squats", "setsReps": "10~15회", "purpose": "둔근/대퇴사두 밸런스로 골반 주변 하체 통제력 강화", "sourceRef": "NotebookLM e688fb4e [7]"},
+        {"name": "Lunges", "setsReps": "양발 10~15회", "purpose": "단측 둔근/고관절 통제력 강화로 골반 처짐 보완", "sourceRef": "NotebookLM e688fb4e [7]"}
+      ]
     }
   },
   "painAreas": {

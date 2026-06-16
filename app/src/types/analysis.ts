@@ -184,14 +184,24 @@ export interface CoachingTip {
 // Phase 12.5 T9: 코칭 팁 자세히 모달 데이터 (LLM 동적).
 // belle 의도 (2026-06-07): "원인 후보 3~5 + 각 case 처방 + 부상 경고 + 코치 권고"
 // = Phase 11 CoachCommentHook + Phase 13 보완 운동 라이브러리 결합의 압축 layer.
-// Cerebras (gpt-oss-120b) 가 한 호출로 짧은 detail + 긴 detail2 둘 다 생성.
+//
+// Phase 13-C (2026-06-16, [[section-dual-coach-report]]): 출처별 섹션 듀얼 coach.
+// 형상 불변(3-way lockstep) — 출처는 별도 데이터(source 필드)가 아니라 백엔드
+// 섹션 조립 결과로만 표현. 자세히 모달은 4개 "기능 라벨" 섹션으로 세로 스택 렌더하며
+// AI/벤더명(Gemini/Cerebras)은 절대 노출하지 않는다:
+//   원인        = causes[].title + causes[].explanation  (Gemini 조립)
+//   교정 처방    = causes[].fix                            (Cerebras 조립)
+//   부상 위험    = injuryRisk                              (Cerebras 조립, 옵셔널)
+//   강사 확인    = coachNote                               (Gemini 조립)
+// 한쪽 writer 실패 시 다른 writer 가 그 섹션을 cross-fill (빈 섹션 0), 둘 다 실패
+// 시 detail2 생략 → 수치 폴백.
 export interface CoachingTipDetail {
-  // 원인 후보 3~5개. 각 case 별 진단 + 처방.
-  // 사용자 input = 정확한 원인 모르므로 "이런 경우 박제 박제" 식으로 다중 제시.
+  // 원인 후보 3~5개. 각 case 별 진단(원인) + 처방(교정 처방).
+  // 사용자 input = 정확한 원인 모르므로 "이런 경우 ..." 식으로 다중 제시.
   causes: CoachingCause[];
-  // 부상 위험 경고 (해당 시). LLM 판단 — 없으면 omitted.
+  // 부상 위험 경고 (해당 시). LLM 판단 — 없으면 omitted (섹션 자체 생략).
   injuryRisk?: string;
-  // 코치 상의 권고 (마무리 한 줄). 항상 표시.
+  // 강사 확인 — 코치 상의 권고 (마무리 한 줄). 항상 표시.
   coachNote: string;
 }
 

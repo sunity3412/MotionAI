@@ -360,6 +360,164 @@ def build_tips(
     return tips
 
 
+# ── Phase 13-C: 섹션형 듀얼 coach 조립 + 계층형 cross-fill 폴백 ────────────────
+# belle 2026-06-16 [[section-dual-coach-report]]. 토글(택1)을 "둘 다 호출 + 섹션
+# 조립"으로 확장. 머지(섞기) 아님 — 출처별 섹션 분리.
+#
+# 13-C locked 섹션 배분:
+#   원인(causes title/explanation) = Gemini (개념적 framing 강함)
+#   교정 처방(causes[].fix)         = Cerebras (구체 운동·세트·시간)
+#   부상 위험(injuryRisk)           = Cerebras (injuryRisk 강함)
+#   강사 확인(coachNote)            = Gemini (강사 철학 존중 톤)
+#
+# 한쪽 writer 가 해당 관절키를 비웠으면(빈 dict / 키 누락) → 다른 writer 의 같은
+# 섹션으로 cross-fill (빈 섹션 0). 양쪽 모두 비면 detail2 생략 → build_tips 의
+# 수치 폴백이 detail 만 채운다 (둘 다 실패 = 최후 바닥).
+#
+# detail2 계약 형상은 불변: {causes:[{title,explanation,fix}], injuryRisk?, coachNote}.
+# 출처는 별도 데이터(source 필드)가 아니라 섹션 조립 결과 + 반환 audit dict 로만 표현
+# — 벤더명 비노출(13-C locked), 3-way lockstep 최소 변경 (source 필드 추가 금지).
+
+
+def _entry_detail2(details: dict, joint: str) -> dict | None:
+    """writer 결과(details)에서 joint 의 detail2 dict 추출 (없으면 None).
+
+    coach_writer._normalize_entry 가 이미 {detail, detail2?} 로 정규화. causes 가
+    비어있으면(빈 list / 키 누락) detail2 자체를 없는 것으로 본다 (cross-fill trigger).
+    """
+    entry = details.get(joint)
+    if not isinstance(entry, dict):
+        return None
+    d2 = entry.get("detail2")
+    if not isinstance(d2, dict):
+        return None
+    causes = d2.get("causes")
+    if not isinstance(causes, list) or not causes:
+        return None
+    return d2
+
+
+def _norm_cause_title_explanation(c: dict) -> tuple[str, str]:
+    return str(c.get("title", "")), str(c.get("explanation", ""))
+
+
+def assemble_dual_coach_sections(
+    gemini_details: dict | None,
+    cerebras_details: dict | None,
+    joint_keys: list[str],
+) -> tuple[dict, dict]:
+    """양쪽 writer 결과를 관절키별 detail2 로 섹션 출처에 따라 조립 (13-C).
+
+    Args:
+        gemini_details: GeminiCoachWriter.write() 결과 ({joint: {detail, detail2?}}).
+        cerebras_details: CerebrasCoachWriter.write() 결과 (동일 형상).
+        joint_keys: 조립 대상 관절키 (보통 top_assessments 의 key — top 3).
+
+    Returns:
+        (merged_details, section_audit) 튜플.
+        - merged_details: {joint: {detail, detail2?}} — build_tips 가 그대로 소비.
+          양쪽 모두 빈 관절키는 detail2 생략 (수치 폴백 진입). detail 은 Gemini 우선,
+          없으면 Cerebras, 둘 다 없으면 키 누락 (build_tips fallback).
+        - section_audit: {joint: {causes, fix, coachNote, injuryRisk, crossFilled}}.
+          각 섹션 출처('gemini'/'cerebras'/None) + cross-fill 된 섹션 이름 list.
+          Task 2 의 pipeline 로깅이 소비 (성공/폴백률 실측 전환 근거).
+    """
+    gemini = gemini_details or {}
+    cerebras = cerebras_details or {}
+    merged: dict = {}
+    audit: dict = {}
+
+    for joint in joint_keys:
+        g2 = _entry_detail2(gemini, joint)
+        c2 = _entry_detail2(cerebras, joint)
+
+        section_src = {
+            "causes": None,
+            "fix": None,
+            "coachNote": None,
+            "injuryRisk": None,
+            "crossFilled": [],
+        }
+
+        # detail (카드 본문) — Gemini 우선, 없으면 Cerebras.
+        g_entry = gemini.get(joint) if isinstance(gemini.get(joint), dict) else {}
+        c_entry = cerebras.get(joint) if isinstance(cerebras.get(joint), dict) else {}
+        detail = g_entry.get("detail") or c_entry.get("detail")
+
+        if g2 is None and c2 is None:
+            # 둘 다 누락 → detail2 생략 (build_tips 수치 폴백 진입). detail 도 비면 키 누락.
+            audit[joint] = section_src
+            if isinstance(detail, str) and detail.strip():
+                merged[joint] = {"detail": detail}
+            continue
+
+        # ── 원인(causes title/explanation) = Gemini, 없으면 Cerebras cross-fill.
+        if g2 is not None:
+            cause_src = g2["causes"]
+            section_src["causes"] = "gemini"
+        else:
+            cause_src = c2["causes"]
+            section_src["causes"] = "cerebras"
+            section_src["crossFilled"].append("causes")
+
+        # ── 교정 처방(causes[].fix) = Cerebras, 없으면 해당 cause 본인 fix(Gemini).
+        if c2 is not None:
+            section_src["fix"] = "cerebras"
+            cerebras_fixes = [str(c.get("fix", "")) for c in c2["causes"]]
+        else:
+            section_src["fix"] = section_src["causes"]  # cause 출처와 동일 (Gemini)
+            section_src["crossFilled"].append("fix")
+            cerebras_fixes = []
+
+        out_causes = []
+        for i, c in enumerate(cause_src):
+            if not isinstance(c, dict):
+                continue
+            title, explanation = _norm_cause_title_explanation(c)
+            # Cerebras fix 가 있으면 i 번째 처방을 매핑, 없으면 cause 본인 fix.
+            if i < len(cerebras_fixes) and cerebras_fixes[i].strip():
+                fix = cerebras_fixes[i]
+            else:
+                fix = str(c.get("fix", ""))
+            out_causes.append(
+                {"title": title, "explanation": explanation, "fix": fix}
+            )
+
+        detail2: dict = {"causes": out_causes}
+
+        # ── 부상 위험(injuryRisk) = Cerebras, 없으면 Gemini cross-fill. 둘 다 없으면 생략.
+        injury = None
+        if c2 is not None and isinstance(c2.get("injuryRisk"), str) and c2["injuryRisk"].strip():
+            injury = c2["injuryRisk"]
+            section_src["injuryRisk"] = "cerebras"
+        elif g2 is not None and isinstance(g2.get("injuryRisk"), str) and g2["injuryRisk"].strip():
+            injury = g2["injuryRisk"]
+            section_src["injuryRisk"] = "gemini"
+            section_src["crossFilled"].append("injuryRisk")
+        if injury is not None:
+            detail2["injuryRisk"] = injury
+
+        # ── 강사 확인(coachNote) = Gemini, 없으면 Cerebras cross-fill.
+        if g2 is not None and isinstance(g2.get("coachNote"), str) and g2["coachNote"].strip():
+            detail2["coachNote"] = g2["coachNote"]
+            section_src["coachNote"] = "gemini"
+        elif c2 is not None and isinstance(c2.get("coachNote"), str) and c2["coachNote"].strip():
+            detail2["coachNote"] = c2["coachNote"]
+            section_src["coachNote"] = "cerebras"
+            section_src["crossFilled"].append("coachNote")
+        else:
+            detail2["coachNote"] = "강사와 함께 영상을 보며 확인해 보세요."
+            # 출처 없음(둘 다 빈 coachNote) — 기본 문구. None 유지.
+
+        entry_out: dict = {"detail2": detail2}
+        if isinstance(detail, str) and detail.strip():
+            entry_out["detail"] = detail
+        merged[joint] = entry_out
+        audit[joint] = section_src
+
+    return merged, audit
+
+
 def build_mode1(
     reference_motion: dict,
     similarity: int,

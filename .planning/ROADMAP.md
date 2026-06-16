@@ -46,7 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만** - AI+코치 비즈니스 모델 + 설명 엔진 한정
 - [x] **Phase 12: 실측 각도 표시 + 키포인트 오버레이** - 6 build iteration (B/C/D fix + KeypointOverlay frame index Fix A + drift correction + 1080p 영상 압축) + 6 belle UAT (2026-06-10~12) close-out. **2026-06-12 PASS** — keypoint 사람 따라감 ✓ / 두 영상 동기화 ✓ / stall 해소 (4K → 1080p 압축 결정타) ✓. 잔여: 12-A 좌/우 mirror + ankle keypoint 추가 → Phase 13. Build 16 + OTA bundles ship.
 - [x] **Phase 12.5: UI Transparency — 차원별 카피 + 자세히 모달 + LLM-ready coaching** - `result.tsx` 차원별 카드 (각도 정확도 / 팔다리 펴기 / 동작 안정성) + 자세히 모달 (점수 산출 설명, 동작·사용자 동적 카피, "심사평" 자연어) + 코칭 팁 자세히 모달 (LLM 동적 다중 원인 + 부상 경고 + coachNote). backend `assemble.build_dimension_explanation` + `coach_writer` JSON 출력 + Cerebras 시스템 프롬프트 갱신. **2026-06-07 close-out** (commits 1c0d20a T1+T2 / 62fdeed T9 backend / e968074 T8+T9 frontend). belle UX 검증 PASS — 모달 스크롤 정상 동작 + 심사평 톤 (평가+이유+결정 3박자) 적용.
-- [ ] **Phase 13: 보완 운동 추천 + LLM 분기 카피 + coaching detail 완성** - (a) 분석 결과의 실패 원인 후보·체형 정규화 finding 에 맞는 보완 운동·스트레칭 자동 매핑 (분석 → 행동 → 재구매, PERS-03), (b) 실 LLM 활성화 — Pod 갱신 + Cerebras `tip.detail2` 실 영상 검증, (c) `assemble.build_dimension_explanation` 에 `ipsfCode` 분기로 분기 1 (IPSF 등재 = "세계 심사 기준 + 180°") vs 분기 2 (학원 통용 = "정은지 선수 기준") 카피 분리, (d) `coach_writer` 시스템 프롬프트에 동작 분기 + IPSF 정의 각도 fixture 주입. 메모리 [`studio-term-3branch-system`] 정합. **belle 2026-06-07 결정: Phase 12.5 시뮬 한계 (폭스탑 학원 용어 어색 + angle 차원 180° 명시 X) 의 실 LLM 해결을 보완 운동 추천과 같은 phase 로 통합 — backend coach_writer 단일 phase 작업.**
+- [x] **Phase 13: 보완 운동 추천 + LLM 분기 카피 + coaching detail 완성** - (a) 분석 결과의 실패 원인 후보·체형 정규화 finding 에 맞는 보완 운동·스트레칭 자동 매핑 (분석 → 행동 → 재구매, PERS-03), (b) 실 LLM 활성화 — Pod 갱신 + Cerebras `tip.detail2` 실 영상 검증, (c) `assemble.build_dimension_explanation` 에 `ipsfCode` 분기로 분기 1 (IPSF 등재 = "세계 심사 기준 + 180°") vs 분기 2 (학원 통용 = "정은지 선수 기준") 카피 분리, (d) `coach_writer` 시스템 프롬프트에 동작 분기 + IPSF 정의 각도 fixture 주입. 메모리 [`studio-term-3branch-system`] 정합. **belle 2026-06-07 결정: Phase 12.5 시뮬 한계 (폭스탑 학원 용어 어색 + angle 차원 180° 명시 X) 의 실 LLM 해결을 보완 운동 추천과 같은 phase 로 통합 — backend coach_writer 단일 phase 작업.** (completed 2026-06-16)
 - [x] **Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)** - 비교 정확도 최대화 + 다각도 캡처 프로토콜 (completed 2026-06-15)
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주
 - [x] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path. (completed 2026-06-02)
@@ -398,11 +398,12 @@ Plans:
   7. `coach_writer` 시스템 프롬프트에 동작 이름 + 분기 정보 + IPSF 정의 각도 fixture (angle 차원, 어깨 90° 등) 가 주입되어 자연어 응답이 정확한 기준 각도를 인용
   8. 학원 용어 (폭스탑) 입력 시 결과 화면이 "세계 심사 기준" 어색 표현 없이 "정은지 선수 기준" 으로 자연 노출
 
-**Plans**: 2 plans (D-05 분리 — Plan A = criteria 1-4 GPU 불필요, Plan B = criteria 5-8 분기 + 실 Cerebras)
+**Plans**: 3 plans (D-05 분리 — Plan A = criteria 1-4 GPU 불필요, Plan B = criteria 5-8 분기 + 실 Cerebras, Plan C = 섹션형 듀얼 coach 보고서)
 Plans:
 
-- [x] 13-A-corrective-exercises-PLAN.md — Wave 1: 보완운동 라이브러리 fixture + 순수 map_exercises(findings + painAreas + motion_id) + recommendedExercises 3-way 계약 + result.tsx 보완운동 섹션 + 다른 운동 보기 모달 (PERS-03, D-03/D-04/D-05, criteria 1-4, autonomous)
-- [~] 13-B-llm-branch-copy-PLAN.md — Wave 2 IN-PROGRESS (Tasks 2-3 done, Task 4 Cerebras Pod E2E checkpoint 대기): motion_ipsf_map 11-motion curated join(belle 2026-06-16 5→11 확장 + unknown→branch2 안전 기본) + registered_move_angles {schemaVersion, angles:{}} + assemble copyBranch 분기(분기1 IPSF / 분기2 정은지 기준) + coach_writer 프롬프트 각도 주입 + pipeline lookup_motion_branch wiring. 단위테스트 81 green. **belle 액션 대기**: Cerebras 키 SSM + Lambda/Pod env + uvicorn 재시작 → 1건 실분석 E2E (criteria 5). (studio-term-3branch, criteria 5-8, non-autonomous)
+- [x] 13-A-corrective-exercises-PLAN.md — Wave 1: 보완운동 라이브러리 fixture + 순수 map_exercises(findings + painAreas + motion_id) + recommendedExercises 3-way 계약 + result.tsx 보완운동 섹션 + 다른 운동 보기 모달 (PERS-03, D-03/D-04/D-05, criteria 1-4, autonomous). **+ 갭클로저(`glute_hip_unstable` defect — pelvis_drop 6번째 force 신호 커버 + 회귀 테스트).**
+- [x] 13-B-llm-branch-copy-PLAN.md — Wave 2 **완료 2026-06-16**: motion_ipsf_map 11-motion curated join(belle 5→11 확장 + unknown→branch2 안전 기본) + registered_move_angles {schemaVersion, angles:{}} + assemble copyBranch 분기 + coach_writer 프롬프트 각도 주입 + pipeline wiring. **criteria 5-8 풀 E2E 검증**: Pod(ref-foxtop) upload→Firestore, 양쪽 coach status=done, 분기2 "정은지 선수 기준" + 금지문구 0, detail2 실 LLM 채움. 파일럿 coach = **Gemini**(belle 선택, Cerebras fallback 유지). 인프라: 신규 Pod 부트스트랩 + Firestore analyses 인덱스 면제 7개 신규 적용. (studio-term-3branch, criteria 5-8)
+- [ ] 13-C-section-dual-coach-PLAN.md — Wave 3 (신규, belle 2026-06-16): **섹션형 듀얼 coach 보고서** — 두 writer 동시 호출 + detail2 출처 태깅 + UI 섹션 렌더. 섹션: 원인(왜)=Gemini / 교정 처방(무엇)=Cerebras / 부상위험=Cerebras / 강사확인=Gemini. "왜 안 되는지 + 무엇이 필요한지" 핵심가치 직접 매핑. **실증 시 둘 중 하나 drop 여부 = Phase 15 검증 기준.** (coaching detail 완성 = 본 phase 도메인이라 phase 19 신설 X, 13-C 로 처리)
 
 **UI hint**: yes
 
@@ -541,7 +542,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 11. CoachCommentHook + Gemini 번역 | 0/TBD | Not started | - |
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |
-| 13. 보완 운동·스트레칭 추천 | 1/2 | In Progress|  |
+| 13. 보완 운동·스트레칭 추천 | 3/2 | Complete   | 2026-06-16 |
 | 14. 정은지 기준 모션 등록 (다각도) | 3/3 | Complete    | 2026-06-15 |
 | 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 0/TBD | Not started | - |
 | 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 1/1 | Complete   | 2026-06-02 |
@@ -553,7 +554,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 **Goal:** 정은지가 제공한 '일부러 실수한' reference 영상을 영구 eval/검증 테스트 세트(regression fixture)로 만든다 — 각 실수 영상에 '어떤 fault를 시연하는지' 라벨(영상 입력이지 사람 점수 라벨 아님)을 달아, 분석기가 그 fault를 잡아내고 + 높은 점수를 주지 않는지(고수 위양성 역검증) 자동 assert 한다. 핵심 가치(점수 신뢰)와 Phase 15 '고수 위양성 없음' 게이트에 직결. 같은 자산은 나중에 in-app 대조 교육(정타↔실수)에도 재사용 가능.
 **Requirements**: TBD (plan 단계에서 신규 EVAL-* 요건 확정)
 **Depends on:** Phase 15 (Mode 1·3 실영상 + 신뢰도 게이트가 동작해야 fault 검증 의미)
-**Plans:** 1/2 plans executed
+**Plans:** 3/2 plans complete
 
 **주의 (plan 시 박제):**
 

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: executing
+status: verifying
 stopped_at: Phase 13 context gathered
-last_updated: "2026-06-16T05:11:10.689Z"
+last_updated: "2026-06-16T07:32:36.356Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 20
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 81
-  completed_plans: 71
-  percent: 50
+  completed_plans: 73
+  percent: 55
 ---
 
 # Project State
@@ -29,7 +29,7 @@ Phase: 13 (llm-coaching-detail) — EXECUTING
 Plan: 2 of 2
 Verification: Wave 4 (04-04) — pytest backend/tests/phase04/test_video_gen_adapter.py 5 PASS / pytest backend/tests/phase04/ 36 PASS + 2 SKIP (Wave 3a 31 → +5) / pytest backend/tests/ 1704 PASS (regression 0, 기존 36 fail 불변) / import gate (VideoGenerationAdapter + OmniVertexAdapter + VeoAdapter + get_video_gen_adapter) PASS / grep SYNTHESIS_VIDEO_GEN_ENABLED hit / @runtime_checkable Protocol structural subtyping PASS / pipeline/app.py unchanged (D-31 정합 — last commit 2790f57 pre-Wave 4). Plan `<done>` 게이트 all PASS.
 Next: Wave 5 — 04-05 (정은지 5영상 Phase 4-compatible 재처리 + versioned/atomic write + rollback + test_evaluate_4way.py 하단 RunPod 통합 테스트 append). Wave 3b @integration (실 RTMW 재추론) 여전히 parked (RunPod 필요, phase blocker 아님).
-Status: Ready to execute
+Status: Phase complete — ready for verification
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu

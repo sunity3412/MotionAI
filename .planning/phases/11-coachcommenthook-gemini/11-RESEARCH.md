@@ -17,6 +17,8 @@
 > 7. **Per-report partial fallback** — resolve each report independently so a partial `CoachHookBundle` still gives BOTH reports a hook (iter-2 HIGH-2).
 > 8. **UI** = concat/trim/dedupe/slice of BOTH reports' `openQuestionsForCoach` — NOT a first-non-null `??` chain (iter-1 HIGH-2).
 >
+> **[iter-3 2026-06-17 additions]:** (9) `GeminiCoachHookWriter.build_coach_hooks(...) -> CoachHookBundle | None` returns ONLY bundle/None; per-report fallback lives in a PURE `coach_hook_builder.resolve_coach_hook_bundle(bundle, *, force_findings, body_findings) -> tuple[CoachCommentHook, CoachCommentHook]` (writer/pipeline책임 분리, iter-3 HIGH-1). (10) Hook guard rejects ALL Arabic digits (`\d`), not just degree/% — bare "3초"/"2회"/"15cm"/"180" also rejected (number-free D-04, iter-3 HIGH-2). (11) BOTH `CoachCommentHookPayload` AND `CoachHookBundle` carry `ConfigDict(extra="forbid")` + drift test (iter-3 MEDIUM-1).
+>
 > The historical text below is kept for context only. Where it conflicts with this banner, **this banner wins.**
 
 <user_constraints>

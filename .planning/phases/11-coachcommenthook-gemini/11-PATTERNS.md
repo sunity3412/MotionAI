@@ -18,6 +18,8 @@
 > 7. Per-report partial fallback (iter-2 HIGH-2).
 > 8. UI = concat/trim/dedupe/slice of BOTH reports' openQuestionsForCoach, NOT first-non-null `??` chain (iter-1 HIGH-2).
 >
+> **[iter-3 2026-06-17 additions]:** (9) `build_coach_hooks(...) -> CoachHookBundle | None` only; per-report fallback in PURE `resolve_coach_hook_bundle(...) -> tuple[CoachCommentHook, CoachCommentHook]` (iter-3 HIGH-1). (10) Hook guard rejects ALL `\d` incl. bare "3초"/"2회"/"15cm"/"180" (iter-3 HIGH-2). (11) Both `CoachCommentHookPayload` + `CoachHookBundle` `ConfigDict(extra="forbid")` + drift test (iter-3 MEDIUM-1).
+>
 > Where text below conflicts with this banner, **the banner wins.**
 
 ---

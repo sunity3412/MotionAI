@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 
 # CheckpointJoint.joint_key Literal — sunity_shared.analysis.skeleton.JOINT_KEYS 8개 박제.
@@ -130,6 +131,61 @@ class CoachPayload(BaseModel):
     )
 
 
+# ─────────────────── Phase 11 (CoachCommentHook) ───────────────────
+#
+# 신규 text-only GeminiCoachHookWriter 의 response_schema (iter-3 MEDIUM-1 / HIGH-1).
+# 1회 분석당 hook 호출 1회로 두 리포트(ForcePatternInference / BodyComparisonReport)
+# 의 hook 텍스트를 함께 산출한다 (single call). 두 모델 모두 extra=forbid — LLM 이
+# mint 한 stray top-level key (예: Gemini typo) 가 조용히 drop 되지 않고 ValidationError
+# (T-11-08 schema drift 조기 차단). 점수/좌표/판정/숫자는 schema 차원이 아니라
+# guardrails 가 raw text 차원에서 차단 (number-free 잠금, D-04).
+#
+# CoachHookBundle 은 nested model (CoachCommentHookPayload) 을 2개 참조하므로
+# model_json_schema() 에 `$defs` 가 생긴다 — coach_hook_writer 가 client.py 의
+# _strip_unsupported_schema_keys 로 inline 해야 한다 (raw 주입 시 Gemini 400, HIGH-1).
+
+
+class CoachCommentHookPayload(BaseModel):
+    """단일 리포트의 CoachCommentHook 텍스트 payload (LLM 산출).
+
+    list 필드는 list[str] strict (list[dict] 금지 — Firestore validator 와 동일 계약).
+    coach_comment / reviewed_by 등 v2 강사 콘솔 필드는 LLM 산출 대상 아님 (D-06) —
+    builder/resolver 가 v1 None 으로 채운다. extra=forbid 로 unknown 필드 reject.
+    """
+
+    # camelCase alias (TS contract / Gemini JSON 키) + snake_case 본명 둘 다 허용.
+    model_config = ConfigDict(
+        extra="forbid", alias_generator=to_camel, populate_by_name=True
+    )
+
+    auto_findings_summary: str = Field(
+        min_length=1, description="findings interpretation 자연어 요약 (number-free)"
+    )
+    open_questions_for_coach: list[str] = Field(
+        description="강사에게 던지는 질문 list[str] (number-free)"
+    )
+    suggested_cues: list[str] = Field(
+        description="수강생용 큐 list[str] (number-free)"
+    )
+
+
+class CoachHookBundle(BaseModel):
+    """1회 hook 호출의 산출 — 두 리포트 hook 을 묶는다 (single call, iter-3 HIGH-1).
+
+    두 report hook 모두 optional — Gemini 가 한쪽만 채워도 (partial) parse 성공.
+    per-report 폴백은 coach_hook_builder.resolve_coach_hook_bundle (pure helper) 가
+    소유한다 (writer / bundle 자체는 폴백 정책 미보유). extra=forbid 로 stray
+    top-level key (Gemini typo bodyComparison 등) reject (T-11-08).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid", alias_generator=to_camel, populate_by_name=True
+    )
+
+    force_pattern_inference: CoachCommentHookPayload | None = None
+    body_comparison_report: CoachCommentHookPayload | None = None
+
+
 # ─────────────────── 영역 C (finding 인식) ───────────────────
 
 
@@ -193,7 +249,9 @@ class KeypointRefinement(BaseModel):
 __all__ = [
     "CheckpointJoint",
     "CoachCause",
+    "CoachCommentHookPayload",
     "CoachDetail2",
+    "CoachHookBundle",
     "CoachPayload",
     "ExpectationLiteral",
     "FindingFlags",

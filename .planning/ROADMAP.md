@@ -396,7 +396,10 @@ Plans:
   7. `coach_writer` 시스템 프롬프트에 동작 이름 + 분기 정보 + IPSF 정의 각도 fixture (angle 차원, 어깨 90° 등) 가 주입되어 자연어 응답이 정확한 기준 각도를 인용
   8. 학원 용어 (폭스탑) 입력 시 결과 화면이 "세계 심사 기준" 어색 표현 없이 "정은지 선수 기준" 으로 자연 노출
 
-**Plans**: TBD — 보완 운동 라이브러리 plan + LLM 분기 plan 분리 또는 통합 결정은 planner 가
+**Plans**: 2 plans (D-05 분리 — Plan A = criteria 1-4 GPU 불필요, Plan B = criteria 5-8 분기 + 실 Cerebras)
+Plans:
+- [ ] 13-A-corrective-exercises-PLAN.md — Wave 1: 보완운동 라이브러리 fixture + 순수 map_exercises(findings + painAreas + motion_id) + recommendedExercises 3-way 계약 + result.tsx 보완운동 섹션 + 다른 운동 보기 모달 (PERS-03, D-03/D-04/D-05, criteria 1-4, autonomous)
+- [ ] 13-B-llm-branch-copy-PLAN.md — Wave 2: motion_ipsf_map + registered_move_angles fixture + assemble ipsfCode 분기(분기1 IPSF 180° / 분기2 정은지 기준) + coach_writer 프롬프트 각도 주입 + 실 Cerebras Pod 활성화 (studio-term-3branch, criteria 5-8, non-autonomous — angle fixture human-verify + criteria 5 Pod E2E)
 **UI hint**: yes
 
 ### Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)

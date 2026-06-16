@@ -556,7 +556,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 8. 중심축·접촉점·jerk 분석 | 4/4 | Complete (axis-metric Phase 8.5 신설) | 2026-06-09 |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 2/2 | Complete   | 2026-06-10 |
 | 10. 부상 위험 신호 플래그 | 0/TBD | Not started | - |
-| 11. CoachCommentHook + Gemini 번역 | 3/3 | Complete   | 2026-06-16 |
+| 11. CoachCommentHook + Gemini 번역 | 3/3 | Complete    | 2026-06-16 |
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |
 | 13. 보완 운동·스트레칭 추천 | 3/2 | Complete   | 2026-06-16 |

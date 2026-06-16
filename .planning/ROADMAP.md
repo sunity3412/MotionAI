@@ -335,11 +335,11 @@ Plans:
   4. 결과 화면 카피가 AI를 강사 보조 도구로 포지셔닝하고 기준 모션이 "하나의 참고일 뿐"으로 명시된다
   5. Cerebras 키 미설정 시에도 fallback 카피로 분석이 완료된다
 
-**Plans**: 3 plans (Wave 0~2 MVP vertical slices). **LOCKED design fork**: 단일 LLM 호출 — 기존 dual-track coach call 출력 스키마 확장 (두번째 round-trip 없음, D-03/Pitfall 5).Plans:
+**Plans**: 3 plans (Wave 0~2 MVP vertical slices). **LOCKED design fork** [2026-06-16 review correction]: 별도 text-only `GeminiCoachHookWriter` 1회 호출 — 두 리포트 hook 을 한 호출에 bundle, 두 리포트 조립 완료 후 생성. 기존 Vision `GeminiCoachWriter.write()` 미변경 (영상 의존이라 재사용 시 Vision 독립 lock / Phase 11·17 경계 위반). model=Gemini, _build_coach_context 철학 + _enforce_no_reject_patterns 재사용 (D-03 addendum).Plans:
 **Wave 1**
 
 - [ ] 11-00-PLAN.md — Wave 0: CoachCommentHook 3-way lockstep (TS↔models.py↔contract.md) + coach_hook.py 데이터 구조 + phase11 test scaffold (translation-only / fallback / nested-array RED) (COACH-01)
-- [ ] 11-01-PLAN.md — Wave 1: 단일 호출 hook 텍스트 생성 (text-only, _build_coach_context 공유) + _enforce_no_reject_patterns reject-and-fallback + canned fallback + 두 리포트 부착 + ForcePatternInference scoped validator 확장 (landmine) (COACH-01/FEED-03)
+- [ ] 11-01-PLAN.md — Wave 1: 별도 text-only GeminiCoachHookWriter (coach_hook_writer.py, CoachHookBundle 스키마, 두 리포트 1회 bundle 호출) + degree/% 포함 _enforce_no_reject_patterns reject-and-fallback + api_key_loader-seam canned fallback + force_pattern_inference 생성 후·complete_analysis 전 부착 + ForcePatternInference scoped validator 확장 (landmine) (COACH-01/FEED-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

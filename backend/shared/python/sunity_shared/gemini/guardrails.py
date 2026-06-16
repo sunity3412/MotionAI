@@ -44,11 +44,44 @@ _JUDGMENT_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
+# ─────────────────── Phase 11 hook-scoped number-free 가드 ───────────────────
+#
+# iter-2 BLOCKER-2 + iter-3 HIGH-2: CoachCommentHook 텍스트는 **모든 Arabic digit
+# (\\d)** 를 금지한다 (도/% 뿐 아니라 bare/measurement 수치 전부 — number-free 잠금,
+# D-04). 이 regex 는 **글로벌 _SCORE_PATTERNS / _COORDINATE_PATTERNS /
+# _JUDGMENT_PATTERNS tuple 밖**(hook 전용 블록)에만 존재한다 — scene_finder.py /
+# reference_extractor.py 가 같은 글로벌 가드로 "30도"/"50%" 를 정당하게 echo 하므로
+# 글로벌 tuple 에 \\d 를 추가하면 Phase 17 Vision 호출이 회귀한다 (iter-2 BLOCKER-2).
+_HOOK_NUMBER_PATTERN: re.Pattern[str] = re.compile(r"\d")
+
+
+def _enforce_no_hook_number_patterns(text: str, *, context: str = "coach_hook") -> None:
+    """CoachCommentHook 텍스트 전용 number-free 가드 (iter-3 HIGH-2).
+
+    hook text value 안의 **모든 Arabic digit (\\d)** 매치 시 ValueError — 도/%/cm/
+    초/회/bare 정수 전부 포괄. number-free 잠금 (D-04). 글로벌 가드와 분리된 hook
+    전용 게이트 (scene_finder/reference_extractor 비회귀 — iter-2 BLOCKER-2).
+
+    Raises:
+        ValueError: text 에 임의 Arabic digit 매치 시.
+    """
+    if not text:
+        return
+    m = _HOOK_NUMBER_PATTERN.search(text)
+    if m:
+        raise ValueError(
+            f"CoachCommentHook 텍스트에 숫자가 포함됨 (context={context}): "
+            f"매치='{m.group(0)}'. hook 은 number-free — 수치/도(degree)/%/cm 출력 "
+            f"금지 (D-04 number-free 잠금). reject-and-fallback (런타임 sanitize 금지)."
+        )
+
+
 def _enforce_no_reject_patterns(
     text: str,
     *,
     context: str,
     allow_coords: bool = False,
+    forbid_measurement_units: bool = False,
 ) -> None:
     """Gemini 응답이 점수/좌표/판단 어휘를 포함하는지 정규식 가드.
 
@@ -59,9 +92,14 @@ def _enforce_no_reject_patterns(
         context: 호출 context (모델명 / 영역명 등). 예외 메시지에 박제.
         allow_coords: True 시 좌표 패턴 skip (영역 D 전용 — KeypointRefinement 박제).
             점수/판단 어휘는 영역 D 도 영구 차단.
+        forbid_measurement_units: Phase 11 hook 전용 (iter-3 HIGH-2). True 시 hook-scoped
+            number-free 게이트 (_enforce_no_hook_number_patterns) 를 **추가** 적용 —
+            모든 Arabic digit reject. 기본 False — scene_finder/reference_extractor 등
+            글로벌 가드 호출자는 "30도"/"50%" 를 절대 reject 하지 않는다 (iter-2 BLOCKER-2).
 
     Raises:
-        ValueError: 점수 / (allow_coords=False 시) 좌표 / 사람 판단 어휘 매치 시.
+        ValueError: 점수 / (allow_coords=False 시) 좌표 / 사람 판단 어휘 / (forbid_measurement_units
+            =True 시) 임의 숫자 매치 시.
     """
     if not text:
         # 빈 응답은 별도 path 에서 처리 (필수 필드 누락 ValueError 등).
@@ -101,5 +139,11 @@ def _enforce_no_reject_patterns(
                 f"([[analysis-objectivity-no-human-scores]] 헌장)."
             )
 
+    # Phase 11 hook 전용 number-free 게이트 (iter-3 HIGH-2) — opt-in only.
+    # 글로벌 호출자 (scene_finder/reference_extractor) 는 forbid_measurement_units=False
+    # 라 이 블록을 건너뛴다 ("30도"/"50%" 비회귀 — iter-2 BLOCKER-2).
+    if forbid_measurement_units:
+        _enforce_no_hook_number_patterns(text, context=context)
 
-__all__ = ["_enforce_no_reject_patterns"]
+
+__all__ = ["_enforce_no_reject_patterns", "_enforce_no_hook_number_patterns"]

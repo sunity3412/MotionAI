@@ -59,6 +59,9 @@ from sunity_shared.analysis import (
     technique,
 )
 from sunity_shared.analysis import exercise_map  # Phase 13 (Plan 13-A, PERS-03)
+from sunity_shared.analysis.coach_hook_builder import (  # Phase 11 (Plan 11-01)
+    resolve_coach_hook_bundle,
+)
 from sunity_shared.analysis import force_pattern as fp
 from sunity_shared.analysis import force_signals as fs
 from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
@@ -2112,6 +2115,44 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                     warnings=list(force_pattern_inference.warnings)
                     + ["high_score_finding_gated"],
                 )
+
+            # ── Phase 11 (Plan 11-01) — CoachCommentHook 부착 (single call) ──
+            # BLOCKER-2: hook 생성은 force_pattern_inference 생성/high-score gate 직후 +
+            #   complete_analysis 직전 window 에서 1회. ForcePatternInference.findings 를 본다.
+            # BLOCKER-3: coach_hooks 는 별도 변수 — coach_details(joint writer) 무오염.
+            # iter-3 HIGH-1: writer 는 bundle|None 만 반환, per-report 폴백은 helper(resolve_
+            #   coach_hook_bundle) 소유 — pipeline 은 tuple 소비만 (자체 폴백 분기 0).
+            # D-08: 키 미설정/가드 reject 시 bundle=None → helper canned → 분석 절대 실패 안 함.
+            _force_findings = list(force_pattern_inference.findings)
+            _body_findings = (
+                list(body_comparison_report.findings)
+                if body_comparison_report is not None
+                else []
+            )
+            # lazy import — Lambda 250MB 한도 정합 (gemini 의존 콜드스타트 절감).
+            from sunity_shared.gemini.coach_hook_writer import GeminiCoachHookWriter
+
+            _hook_bundle = GeminiCoachHookWriter().build_coach_hooks(
+                force_findings=_force_findings,
+                body_findings=_body_findings,
+            )
+            _force_hook, _body_hook = resolve_coach_hook_bundle(
+                _hook_bundle,
+                force_findings=_force_findings,
+                body_findings=_body_findings,
+            )
+            force_pattern_inference = dataclasses.replace(
+                force_pattern_inference, coach_comment_hook=_force_hook
+            )
+            if body_comparison_report is not None:
+                body_comparison_report = dataclasses.replace(
+                    body_comparison_report, coach_comment_hook=_body_hook
+                )
+                # hook 부착 후 body dict 재변환 (coachCommentHook 포함).
+                body_comparison_report_dict = _dataclass_to_camel_case_dict(
+                    body_comparison_report
+                )
+
             force_pattern_inference_dict = _dataclass_to_camel_case_dict(
                 force_pattern_inference
             )

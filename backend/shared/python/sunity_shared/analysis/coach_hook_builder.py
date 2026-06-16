@@ -177,6 +177,28 @@ def _get_payload(bundle: Any, *, attr: str) -> Any:
     return getattr(bundle, attr, None)
 
 
+def _clean_str_list(value: Any) -> list[str]:
+    """LLM list payload → trim 된 non-empty str 만 (순서보존 dedupe).
+
+    빈/공백 str · 비-str(중첩 list/dict 포함) 를 제거해 `CoachCommentHook` 의 list[str]
+    of non-empty str 검증을 항상 통과시킨다.
+      · CR-01 (review): 빈 str (흔한 LLM 산출 artifact — 후행 빈 원소/공백 큐) 가
+        dataclass 경계 `_validate_str_list` 에서 ValueError → resolve_coach_hook_bundle
+        밖으로 전파 → pipeline broad except → fail_analysis(server_error) 하던
+        크래시 경로를 차단한다 (D-08: hook 은 best-effort, 분석 절대 실패 안 함).
+      · WR-01 (review): dedupe — cap 은 호출부에서 canned 와 동일하게 slice.
+    """
+    if not isinstance(value, (list, tuple)):
+        return []
+    cleaned: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            stripped = item.strip()
+            if stripped and stripped not in cleaned:
+                cleaned.append(stripped)
+    return cleaned
+
+
 def _payload_to_hook(payload: Any, *, source_report: str) -> CoachCommentHook:
     """LLM payload (CoachCommentHookPayload duck object) → CoachCommentHook.
 
@@ -184,8 +206,9 @@ def _payload_to_hook(payload: Any, *, source_report: str) -> CoachCommentHook:
     로 읽어 변환 (Pydantic class 참조 없음 — duck-type). coach_comment / reviewed_by =
     None (v1, D-06).
 
-    필드가 누락/빈 값인 degenerate payload (Wave 0 duck object 등) 는 canned default
-    로 보강해 dataclass 경계가 raise 하지 않게 한다 (COACH-01 SC#2 — 항상 hook).
+    필드가 누락/빈 값/빈-str-원소인 degenerate payload (Wave 0 duck object · LLM 산출
+    artifact 등) 는 정제 + canned default 로 보강해 dataclass 경계가 raise 하지 않게
+    한다 (COACH-01 SC#2 — 항상 hook, CR-01 — 분석 절대 실패 안 함).
     """
 
     def _read(name: str) -> Any:
@@ -196,20 +219,25 @@ def _payload_to_hook(payload: Any, *, source_report: str) -> CoachCommentHook:
     is_force = source_report == "forcePatternInference"
 
     summary = _read("auto_findings_summary")
-    if not isinstance(summary, str) or not summary:
+    if not isinstance(summary, str) or not summary.strip():
         summary = _FORCE_NO_FINDINGS_SUMMARY if is_force else _BODY_NO_FINDINGS_SUMMARY
+    else:
+        summary = summary.strip()
 
-    questions = _read("open_questions_for_coach")
-    if not isinstance(questions, (list, tuple)) or not questions:
+    # CR-01/WR-01: 빈/공백 str 제거 + dedupe + canned 와 동일 cap (질문 3 / 큐 4, 최소 2).
+    questions = _clean_str_list(_read("open_questions_for_coach"))[:3]
+    if not questions:
         questions = [_GENERIC_QUESTION]
-    else:
-        questions = list(questions)
 
-    cues = _read("suggested_cues")
-    if not isinstance(cues, (list, tuple)) or not cues:
+    cues = _clean_str_list(_read("suggested_cues"))[:4]
+    if not cues:
         cues = list(_FORCE_CUE_DEFAULTS if is_force else _BODY_CUE_DEFAULTS)
-    else:
-        cues = list(cues)
+    elif len(cues) < 2:
+        for extra in _FORCE_CUE_DEFAULTS if is_force else _BODY_CUE_DEFAULTS:
+            if extra not in cues:
+                cues.append(extra)
+            if len(cues) >= 2:
+                break
 
     return CoachCommentHook(
         auto_findings_summary=summary,

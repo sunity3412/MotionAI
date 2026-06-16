@@ -2132,15 +2132,32 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # lazy import — Lambda 250MB 한도 정합 (gemini 의존 콜드스타트 절감).
             from sunity_shared.gemini.coach_hook_writer import GeminiCoachHookWriter
 
-            _hook_bundle = GeminiCoachHookWriter().build_coach_hooks(
-                force_findings=_force_findings,
-                body_findings=_body_findings,
-            )
-            _force_hook, _body_hook = resolve_coach_hook_bundle(
-                _hook_bundle,
-                force_findings=_force_findings,
-                body_findings=_body_findings,
-            )
+            # D-08 backstop (review CR-01): hook 생성/resolve 의 어떤 예외도
+            #   fail_analysis 로 새지 않게 한다 — hook 은 cosmetic, 분석 절대 실패 안 함.
+            #   resolve_coach_hook_bundle 은 정제 후에도 raise 하지 않도록 고쳐졌지만
+            #   (coach_hook_builder._clean_str_list), 이 try 는 미래 회귀까지 막는 2차 방어.
+            try:
+                _hook_bundle = GeminiCoachHookWriter().build_coach_hooks(
+                    force_findings=_force_findings,
+                    body_findings=_body_findings,
+                )
+                _force_hook, _body_hook = resolve_coach_hook_bundle(
+                    _hook_bundle,
+                    force_findings=_force_findings,
+                    body_findings=_body_findings,
+                )
+            except Exception:  # noqa: BLE001 - hook 결함이 분석을 죽이면 안 됨 (D-08)
+                log.exception(
+                    "CoachCommentHook 생성 실패 — canned fallback 으로 분석 계속 (D-08)."
+                )
+                from sunity_shared.analysis.coach_hook_builder import build_canned_hook
+
+                _force_hook = build_canned_hook(
+                    _force_findings, source_report="forcePatternInference"
+                )
+                _body_hook = build_canned_hook(
+                    _body_findings, source_report="bodyComparisonReport"
+                )
             force_pattern_inference = dataclasses.replace(
                 force_pattern_inference, coach_comment_hook=_force_hook
             )

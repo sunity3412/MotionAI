@@ -99,3 +99,8 @@ Note: 계획에 명시된 `test_bundle_extra_forbid` (schema extra=forbid 게이
 ## Threat Flags
 
 None — 신규 보안 surface 0. CoachCommentHook 은 기존 trust boundary (LLM output → Firestore) 안에서 list[str]-only 게이트를 강화하며, threat_model T-11-01/T-11-02 의 mitigate disposition 을 test scaffold 로 미리 박제했다 (Wave 1 런타임 enforcement).
+
+## Self-Check: PASSED
+
+- 8 created files: all FOUND.
+- 3 task/doc commits (58be472, f93ac1b, 2d72e66): all FOUND in git log.

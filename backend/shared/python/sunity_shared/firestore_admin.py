@@ -128,6 +128,81 @@ def _validate_dict_only_scalars(d: dict, *, path: str) -> None:
         )
 
 
+# ── Phase 11 (Plan 11-01, iter-2 BLOCKER-1) — CoachCommentHook 전용 strict validator ──
+#
+# generic `_validate_flat_dict_no_nested_array` 는 list[dict] (scalar-only) 를 허용
+# (line 88-90 의 _validate_dict_only_scalars 라우팅) — hook 의 list[str] 계약에 미달.
+# 본 전용 validator 가 명시 화이트리스트로 list[str]-only 를 강제한다. force scoped
+# 브랜치 + body precheck 둘 다 본 함수를 호출 (generic 위임 금지).
+
+# scalar-or-null hook 키 (camelCase — Firestore 직렬화 후 검증).
+_COACH_HOOK_SCALAR_KEYS: frozenset[str] = frozenset(
+    {"autoFindingsSummary", "coachComment", "reviewedBy", "sourceReport"}
+)
+# list[str] hook 키.
+_COACH_HOOK_LIST_KEYS: frozenset[str] = frozenset(
+    {"openQuestionsForCoach", "suggestedCues"}
+)
+
+
+def _validate_coach_comment_hook(payload, *, path: str) -> None:
+    """coachCommentHook 전용 strict 화이트리스트 (iter-2 BLOCKER-1).
+
+    generic validator 위임 금지 — list[dict]/list[list]/tuple/unknown-key 를 명시
+    reject. force scoped 브랜치 + body precheck 가 공통 호출.
+
+    명세:
+      · payload None → return (옵셔널 필드).
+      · payload dict 아님 → ValueError.
+      · scalar 키 (autoFindingsSummary/coachComment/reviewedBy/sourceReport): str/None.
+      · list 키 (openQuestionsForCoach/suggestedCues): list, 각 원소 non-empty str.
+      · 화이트리스트 외 key → ValueError (unknown hook key reject).
+
+    Raises:
+        ValueError: 계약 위반 (list[dict]/nested/unknown-key/non-str scalar 등).
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"{path} coachCommentHook must be dict | null, "
+            f"got {type(payload).__name__}"
+        )
+    for key, value in payload.items():
+        sub = f"{path}.{key}"
+        if key in _COACH_HOOK_SCALAR_KEYS:
+            if value is not None and not isinstance(value, str):
+                raise ValueError(
+                    f"{sub} must be str | null (coachCommentHook scalar), "
+                    f"got {type(value).__name__}"
+                )
+            continue
+        if key in _COACH_HOOK_LIST_KEYS:
+            if not isinstance(value, list):
+                raise ValueError(
+                    f"{sub} must be list[str] (coachCommentHook), "
+                    f"got {type(value).__name__}"
+                )
+            for i, item in enumerate(value):
+                # list[dict] / list[list] / tuple 명시 reject (BLOCKER-1 핵심).
+                if isinstance(item, (list, dict, tuple)):
+                    raise ValueError(
+                        f"{sub}[{i}] nested {type(item).__name__} reject "
+                        f"(coachCommentHook list[str] only — iter-2 BLOCKER-1)"
+                    )
+                if not isinstance(item, str) or not item:
+                    raise ValueError(
+                        f"{sub}[{i}] must be non-empty str, "
+                        f"got {type(item).__name__}={item!r}"
+                    )
+            continue
+        # 화이트리스트 외 key → reject (unknown hook key).
+        raise ValueError(
+            f"{sub} unknown coachCommentHook key — 허용 키: "
+            f"{sorted(_COACH_HOOK_SCALAR_KEYS | _COACH_HOOK_LIST_KEYS)}"
+        )
+
+
 # ── Plan 08-03 (REVIEWS Cycle 2 §3 NEW HIGH #3) — force_signals 전용 scoped validator ──
 #
 # `_validate_dict_only_scalars` 본체 변경 영구 0 — project-wide
@@ -367,6 +442,11 @@ def _validate_force_pattern_inference(
     for key, value in payload.items():
         sub = f"{path}.{key}"
         if value is None or isinstance(value, (str, int, float, bool)):
+            continue
+        # Phase 11 (Plan 11-01, iter-2 BLOCKER-1) — coachCommentHook 전용 strict validator.
+        # 일반 nested-dict reject 브랜치 위에서 먼저 처리 (generic 위임 금지).
+        if key == "coachCommentHook":
+            _validate_coach_comment_hook(value, path=sub)
             continue
         if isinstance(value, dict):
             raise ValueError(
@@ -777,6 +857,15 @@ def complete_analysis(
         payload["anglesJointKeys"] = angles_joint_keys
         payload["anglesFrames"] = angles_frames
     if body_comparison_report is not None:
+        # Phase 11 (Plan 11-01, iter-2 BLOCKER-1) — coachCommentHook body precheck.
+        # generic _validate_flat_dict_no_nested_array 는 list[dict] hook 을 허용해버리므로
+        # (scalar-only dict 라우팅) 전용 strict validator 로 먼저 hook 만 검증한 뒤
+        # 나머지 (findings/warnings) 를 generic 으로 검증한다.
+        _hook = body_comparison_report.get("coachCommentHook")
+        if _hook is not None:
+            _validate_coach_comment_hook(
+                _hook, path="bodyComparisonReport.coachCommentHook"
+            )
         _validate_flat_dict_no_nested_array(
             body_comparison_report, path="bodyComparisonReport"
         )

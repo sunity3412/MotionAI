@@ -32,6 +32,7 @@ from .force_signals import (  # noqa: F401 — _MOTION_PHASES re-uses Phase 8 so
     StabilityMetric,
     _MOTION_PHASES,
 )
+from .coach_hook import CoachCommentHook  # Phase 11 — per-report hook (순환 안전, HIGH-3).
 from .force_pattern_copy import (
     fallback_body,
     force_pattern_canned_text,
@@ -250,6 +251,8 @@ class ForcePatternInference:
     overall_confidence: MetricConfidence
     mode_context: ModeContext
     warnings: list[str] = field(default_factory=list)
+    # Phase 11 (Plan 11-01, D-02) — per-report CoachCommentHook (v1 None default, 맨 끝).
+    coach_comment_hook: CoachCommentHook | None = None
 
     def __post_init__(self) -> None:
         # version non-empty (R6).

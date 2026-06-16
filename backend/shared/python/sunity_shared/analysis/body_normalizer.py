@@ -88,6 +88,7 @@ from typing import Literal
 import numpy as np
 
 from .body_normalization import BodyNormalizationProfile
+from .coach_hook import CoachCommentHook  # Phase 11 — per-report hook (순환 안전, HIGH-3).
 from .copy_templates import _EMPTY_FOCUS_FALLBACK, render_finding_copy
 from .pose_frame import PoseFrame, to_coco17_array
 from .skeleton import KEYPOINT_NAMES
@@ -891,6 +892,8 @@ class BodyComparisonReport:
     do_not_over_correct: list[str] = field(default_factory=list)
     recommended_focus: list[str] = field(default_factory=list)
     recommended_focus_fallback: str | None = None
+    # Phase 11 (Plan 11-01, D-02) — per-report CoachCommentHook (v1 None default, 맨 끝).
+    coach_comment_hook: CoachCommentHook | None = None
 
     def __post_init__(self) -> None:
         # confidence 범위

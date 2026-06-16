@@ -736,6 +736,65 @@ def _ensure_gemini_coach_writer() -> "GeminiCoachWriter":
     return _GEMINI_COACH_WRITER
 
 
+# ── Phase 13-B: coach 프롬프트 angle_fixture 로더 (criteria 7 / HIGH-1 / WARNING-1) ──
+# angle_fixture 는 angleSource 로 선택 (copyBranch 아님 — 직교):
+#   ipsf_registered_fixture → registered_move_angles.json["angles"][angleFixtureKey]
+#   eunji_measured_yaml     → criteria/{angleFixtureKey}.yaml (motion_id 가 이미 ref-
+#                             로 시작 → double-prefix 금지, ref-ref-foxtop.yaml 0)
+#   no_angle_criterion      → None (가짜 각도 0 — _build_prompt 가 "fixture 없음" 라인)
+
+_REGISTERED_MOVE_ANGLES_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "data"
+    / "registered_move_angles.json"
+)
+_CRITERIA_DIR = (
+    Path(__file__).resolve().parents[2] / "judging_data" / "criteria"
+)
+
+
+def _load_coach_angle_fixture(branch_info) -> dict | None:
+    """angleSource 별 angle_fixture dict 로드 ({joint: {angle, isExtension}}).
+
+    no_angle_criterion / 미존재 → None (가짜 각도 미주입). 로드 실패도 None graceful.
+    """
+    source = getattr(branch_info, "angleSource", None)
+    key = getattr(branch_info, "angleFixtureKey", None)
+    if not key or source not in ("ipsf_registered_fixture", "eunji_measured_yaml"):
+        return None
+    try:
+        if source == "ipsf_registered_fixture":
+            data = json.loads(
+                _REGISTERED_MOVE_ANGLES_PATH.read_text(encoding="utf-8")
+            )
+            fixture = data.get("angles", {}).get(key)
+            return fixture if isinstance(fixture, dict) and fixture else None
+        # eunji_measured_yaml — WARNING-1: key 가 이미 ref- 로 시작, double-prefix 금지.
+        yaml_path = _CRITERIA_DIR / f"{key}.yaml"
+        if not yaml_path.exists():
+            return None
+        import yaml as _yaml
+
+        doc = _yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+        criteria = doc.get("criteria", {}) or {}
+        out: dict[str, dict] = {}
+        for moment in ("setup_moment", "hold_moment", "peak_moment", "release_moment"):
+            for entry in criteria.get(moment, []) or []:
+                if not isinstance(entry, dict):
+                    continue
+                joint = entry.get("joint")
+                angle = entry.get("angle_target")
+                if joint is None or angle is None:
+                    continue
+                # BENT_OK = 부분 굽힘 hold (line 채점 out_of_scope) → 신전 아님.
+                is_ext = entry.get("extension_class") == "EXTEND"
+                out.setdefault(joint, {"angle": angle, "isExtension": is_ext})
+        return out or None
+    except Exception:  # noqa: BLE001 — fixture 로드 실패는 가짜 각도 0 으로 graceful.
+        log.exception("coach angle_fixture 로드 실패 (key=%s, source=%s)", key, source)
+        return None
+
+
 def _build_coach_context(
     *,
     mode: str,
@@ -744,6 +803,7 @@ def _build_coach_context(
     local_video_path: str | None,
     scene_flags: dict | None,
     body_profile: dict | None = None,
+    branch_info=None,
 ) -> dict:
     """Cerebras / Gemini 양 writer 가 공유하는 단일 coach_context dict 박제 (B3 정합).
 
@@ -783,6 +843,13 @@ def _build_coach_context(
         # 신규 키 graceful 무시 (위 docstring 748-751 정합 — zero behavior change).
         # weightKg 보조 ONLY (D-05) — 점수 경로 진입 금지, coach context 전달만 허용.
         "bodyProfile": body_profile,
+        # Phase 13-B (criteria 7) — 동작 분기 + 정의 각도 주입. branch_info=None 시
+        # graceful (motionName/branch/angleFixture 모두 None → 기존 프롬프트 불변).
+        "motionName": getattr(branch_info, "officialName", None) or None,
+        "branch": getattr(branch_info, "copyBranch", None),
+        "angleFixture": _load_coach_angle_fixture(branch_info)
+        if branch_info is not None
+        else None,
     }
 
 
@@ -1817,12 +1884,19 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 3차 R-B1 (Option A) — wave 1 (find_scene_flags, line ~1238) 가 이미 종료된
         # 후 박힘 (자연 박힘 — _process 본체 박제 순서).
         # 2차 R-W4 — None 박제 0. dual-track 분기 = `_fallbackReason` 키 또는 빈 dict.
+        # Phase 13-B (HIGH-2): motion_id → MotionBranchInfo 1회 lookup. coach_context
+        # 와 build_result 양쪽에서 공유 (동일 branch_info). 미존재/None → branch2 안전
+        # 기본 (belle 2026-06-16 DECISION 2, lookup_motion_branch 내부 처리).
+        branch_info = assemble.lookup_motion_branch(
+            getattr(profile, "motion_id", None)
+        )
         coach_context = _build_coach_context(
             mode=mode,
             assessments=assessments,
             dim_scores=dimension_scores,
             local_video_path=local_video_path,
             scene_flags=scene_result,
+            branch_info=branch_info,
             # Phase 3 (Plan 03-01, D-04) — analysis doc 에 snapshot 된 자가입력
             # 프로필을 meta free-read (referenceMotionId 와 동일 메커니즘). server
             # normalize_body_profile 로 unknown enum/범위 밖 → None graceful (SC#4).
@@ -1874,6 +1948,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # _select_window + dimensions helpers 사용 (Codex v3 HIGH-2 정합).
             joint_angles=angles,
             profile=profile,
+            # Phase 13-B (HIGH-2): copyBranch 분기 카피 pass-through (coach 와 동일 lookup).
+            branch_info=branch_info,
         )
         # 추출 angles 를 flat 저장 — 다음 mode3 분석이 '이전 영상' 기준으로 DTW 비교.
         # Phase 6 (Plan 06-02 Task 3) wiring — body_comparison_report (camelCase 변환) +

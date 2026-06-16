@@ -26,6 +26,9 @@ _SYSTEM = (
     "연습할지 알려준다. 부상 위험이 보이면 명시. 마지막은 코치와 영상 함께 "
     "확인하라는 권고로 마무리한다.\n"
     "\n"
+    "정확한 기준 각도만 인용하고 임의 수치를 생성하지 않으며, 동작별 정의 각도를 "
+    "180° 로 일반화하지 않는다.\n"
+    "\n"
     "JSON 으로만 답한다. 다른 텍스트, 마크다운, 주석 금지."
 )
 
@@ -46,8 +49,42 @@ def _load_api_key() -> str | None:
         return None
 
 
-def _build_prompt(joints: list[dict]) -> str:
+def _format_angle_fixture_lines(angle_fixture: dict | None) -> list[str]:
+    """Phase 13-B: 동작별 정의 각도 fixture → 프롬프트 주입 라인 (HIGH-1 / HIGH-3).
+
+    angle_fixture 형식 (관절 → {angle, tolerance?, isExtension?, fault?}):
+      {"left_shoulder": {"angle": 139.0, ...}, ...}
+    NON-180 값도 그대로 인용 (180° 로 환원 금지). isExtension:true 인 관절만 신전(180°)
+    문맥. None / 빈 fixture → "관절 각도 fixture 가 없습니다" 라인 (가짜 각도 0).
+    """
+    if not angle_fixture:
+        return ["- 이 동작은 관절 각도 fixture 가 없습니다 (가짜 각도 인용 금지)."]
+    lines = []
+    for joint, spec in angle_fixture.items():
+        if not isinstance(spec, dict):
+            continue
+        angle = spec.get("angle")
+        if angle is None:
+            continue
+        is_ext = spec.get("isExtension")
+        kind = " (신전 기준)" if is_ext else " (동작별 정의 각도)"
+        lines.append(f"- {joint}: {round(float(angle), 1)}°{kind}")
+    if not lines:
+        return ["- 이 동작은 관절 각도 fixture 가 없습니다 (가짜 각도 인용 금지)."]
+    return lines
+
+
+def _build_prompt(
+    joints: list[dict],
+    motion_name: str | None = None,
+    branch: str | None = None,
+    angle_fixture: dict | None = None,
+) -> str:
     """Phase 12.5 T9: 짧은 detail + 긴 detail2 (causes/injuryRisk/coachNote) 한 호출.
+
+    Phase 13-B (criteria 7): motion_name/branch/angle_fixture 주입 (기본 None =
+    기존 동작 불변). angle_fixture 가 있으면 동작별 정의 각도(NON-180 포함)를 user
+    프롬프트에 prepend — LLM 이 정확한 각도를 인용하고 180° 로 환원하지 않게 한다.
 
     응답 형식:
     {
@@ -77,8 +114,27 @@ def _build_prompt(joints: list[dict]) -> str:
         '{"causes": [{"title":"...", "explanation":"...", "fix":"..."}, ...], '
         '"injuryRisk": "...", "coachNote": "..."}}, ...}'
     )
+
+    # Phase 13-B: 동작 컨텍스트 + 정의 각도 prepend (criteria 7).
+    context_lines: list[str] = []
+    if motion_name:
+        context_lines.append(f"동작: {motion_name}")
+    if branch == "branch1_ipsf_registered":
+        context_lines.append(
+            "기준: 세계 심사 기준(IPSF) — 동작별 정의 각도. EXTEND 인 팔꿈치/무릎은 180° 신전."
+        )
+    elif branch == "branch2_eunji_reference":
+        context_lines.append("기준: 정은지 선수 기준 자세 (정은지 reference 측정값).")
+    # angle_fixture 라인은 motion/branch 컨텍스트가 있을 때만 의미 있음.
+    if motion_name or branch or angle_fixture is not None:
+        context_lines.append("동작별 기준 각도 (이 값만 인용, 180° 로 일반화 금지):")
+        context_lines.extend(_format_angle_fixture_lines(angle_fixture))
+
+    prefix = ("\n".join(context_lines) + "\n\n") if context_lines else ""
+
     return (
-        "다음 관절들의 교정 코칭을 생성해줘:\n"
+        prefix
+        + "다음 관절들의 교정 코칭을 생성해줘:\n"
         + "\n".join(lines)
         + "\n\n각 관절에 대해 'detail' (카드 본문 한 줄) 과 'detail2' (자세히 모달용 — "
         "causes 3~5개 + injuryRisk + coachNote) 둘 다 만들어줘.\n"
@@ -114,7 +170,10 @@ class CerebrasCoachWriter:
         호환성: 키 없거나 실패 시 {} (assemble 폴백 — 수치 기반 한 줄만).
         legacy 호출자 (기존 build_tips) 가 string 만 기대하면 detail 만 추출 가능.
 
-        context: {"mode", "joints": [{key, labelKo, deviation_deg, direction}, ...]}
+        context: {"mode", "joints": [...], "motionName"?, "branch"?, "angleFixture"?}
+
+        Phase 13-B: motionName/branch/angleFixture 가 있으면 _build_prompt 로 전달
+        (동작 분기 + 정의 각도 주입). 없으면 None graceful (기존 동작 불변).
         """
         if self._client is None:
             return {}
@@ -126,7 +185,15 @@ class CerebrasCoachWriter:
                 model=self._model,
                 messages=[
                     {"role": "system", "content": _SYSTEM},
-                    {"role": "user", "content": _build_prompt(joints)},
+                    {
+                        "role": "user",
+                        "content": _build_prompt(
+                            joints,
+                            motion_name=context.get("motionName"),
+                            branch=context.get("branch"),
+                            angle_fixture=context.get("angleFixture"),
+                        ),
+                    },
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.4,

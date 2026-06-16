@@ -401,8 +401,16 @@ Plans:
 **Plans**: 3 plans (D-05 분리 — Plan A = criteria 1-4 GPU 불필요, Plan B = criteria 5-8 분기 + 실 Cerebras, Plan C = 섹션형 듀얼 coach 보고서)
 Plans:
 
+**Wave 1**
+
 - [x] 13-A-corrective-exercises-PLAN.md — Wave 1: 보완운동 라이브러리 fixture + 순수 map_exercises(findings + painAreas + motion_id) + recommendedExercises 3-way 계약 + result.tsx 보완운동 섹션 + 다른 운동 보기 모달 (PERS-03, D-03/D-04/D-05, criteria 1-4, autonomous). **+ 갭클로저(`glute_hip_unstable` defect — pelvis_drop 6번째 force 신호 커버 + 회귀 테스트).**
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [x] 13-B-llm-branch-copy-PLAN.md — Wave 2 **완료 2026-06-16**: motion_ipsf_map 11-motion curated join(belle 5→11 확장 + unknown→branch2 안전 기본) + registered_move_angles {schemaVersion, angles:{}} + assemble copyBranch 분기 + coach_writer 프롬프트 각도 주입 + pipeline wiring. **criteria 5-8 풀 E2E 검증**: Pod(ref-foxtop) upload→Firestore, 양쪽 coach status=done, 분기2 "정은지 선수 기준" + 금지문구 0, detail2 실 LLM 채움. 파일럿 coach = **Gemini**(belle 선택, Cerebras fallback 유지). 인프라: 신규 Pod 부트스트랩 + Firestore analyses 인덱스 면제 7개 신규 적용. (studio-term-3branch, criteria 5-8)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 13-C-section-dual-coach-PLAN.md — Wave 3 (신규, belle 2026-06-16): **섹션형 듀얼 coach 보고서** — 두 writer 동시 호출 + detail2 출처 태깅 + UI 섹션 렌더. 섹션: 원인(왜)=Gemini / 교정 처방(무엇)=Cerebras / 부상위험=Cerebras / 강사확인=Gemini. "왜 안 되는지 + 무엇이 필요한지" 핵심가치 직접 매핑. **실증 시 둘 중 하나 drop 여부 = Phase 15 검증 기준.** (coaching detail 완성 = 본 phase 도메인이라 phase 19 신설 X, 13-C 로 처리)
 
 **UI hint**: yes

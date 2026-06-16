@@ -17,7 +17,43 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { auth, db } from './firebase';
 import { normalizeBodyProfile } from './bodyProfile';
-import type { AnalysisDoc, AnalysisStatus } from '../types/analysis';
+import type {
+  AnalysisDoc,
+  AnalysisStatus,
+  CoachCommentHook,
+} from '../types/analysis';
+
+// Phase 11 (Plan 11-02, COACH-01) — CoachCommentHook null-guard normalize.
+// forcePatternInference / recommendedExercises null-guard precedent 의 1:1 mirror:
+// 이전 빌드 doc 은 hook 자체가 없고(키 부재 시 caller 가 호출 자체 skip),
+// hook 은 있으나 malformed 인 doc 은 graceful 보정한다 (T-11-03 DoS mitigate).
+//   · autoFindingsSummary: 문자열 아니면 '' (UI 비노출 필드 — D-06)
+//   · openQuestionsForCoach / suggestedCues: list[str] 만 통과 (string 외 항목 제거)
+//   · coachComment / reviewedBy: v2 강사 입력 — string 아니면 null (D-06)
+//   · sourceReport: provenance scalar — string 아니면 null
+// 입력이 객체가 아니면 null 반환 (Firestore raw 방어).
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === 'string');
+}
+
+function normalizeCoachHook(value: unknown): CoachCommentHook | null {
+  if (value == null || typeof value !== 'object') return null;
+  const hook = value as Record<string, unknown>;
+  return {
+    autoFindingsSummary:
+      typeof hook.autoFindingsSummary === 'string'
+        ? hook.autoFindingsSummary
+        : '',
+    openQuestionsForCoach: normalizeStringArray(hook.openQuestionsForCoach),
+    suggestedCues: normalizeStringArray(hook.suggestedCues),
+    coachComment:
+      typeof hook.coachComment === 'string' ? hook.coachComment : null,
+    reviewedBy: typeof hook.reviewedBy === 'string' ? hook.reviewedBy : null,
+    sourceReport:
+      typeof hook.sourceReport === 'string' ? hook.sourceReport : null,
+  };
+}
 
 export interface UserAnalysesState {
   analyses: AnalysisDoc[]; // createdAt 내림차순
@@ -65,6 +101,15 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
           category: f.category ?? 'uncertain',
           phase: f.phase ?? 'hold',
         })),
+        // Phase 11 (Plan 11-02, COACH-01) — coachCommentHook null-guard.
+        // Wave 1 backend 가 두 리포트에 hook 을 부착하지만 이전 빌드 doc /
+        // hook 미생성 분석은 필드 부재 → 키 부재 시 추가 안 함 (TS contract
+        // `coachCommentHook?: CoachCommentHook | null` 가 undefined 허용).
+        // malformed hook (필드 누락/타입 불일치) → normalizeCoachHook 가
+        // graceful 보정 (T-11-03 DoS mitigate).
+        ...('coachCommentHook' in report
+          ? { coachCommentHook: normalizeCoachHook(report.coachCommentHook) }
+          : {}),
       },
     };
   }
@@ -106,6 +151,12 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
           jointHint: f.jointHint ?? null,
         })),
         warnings: inference.warnings ?? [],
+        // Phase 11 (Plan 11-02, COACH-01) — coachCommentHook null-guard.
+        // bodyComparisonReport 블록과 동일 패턴 (Wave 1 backend 가 두 리포트에
+        // hook 부착). 키 부재 시 추가 안 함 → undefined 유지 (TS contract 허용).
+        ...('coachCommentHook' in inference
+          ? { coachCommentHook: normalizeCoachHook(inference.coachCommentHook) }
+          : {}),
       },
     };
   }

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0.0",
+  "_header": {
+    "purpose": "angleSource=ipsf_registered_fixture 동작의 IPSF 동작별 정의 각도 fixture. angleFixtureKey 가 motion_ipsf_map.json 과 동일 키 (HIGH-1 키 계약). dimension 별 joint 각도 {angle, tolerance, fault, isExtension} — isExtension:true 만 180° (line/extension 전용), 동작별 정의 각도(예: Ayesha top shoulder ~110°)는 isExtension:false 로 실제 값 박제(180° 환원 금지, HIGH-3).",
+    "current_state": "현재 production 11 동작은 angleSource=ipsf_registered_fixture 가 0개 (전부 eunji_measured_yaml 또는 no_angle_criterion — 13-REVIEW-FIXES.md §2 + belle 2026-06-16 routing). 따라서 angles:{} 빈 시작 — 미래 등재 동작 전용 path (belle 2026-06-16 Task 1 resolved: 'future-only, 빈 angles{} 로 시작'). path/test 만 유지, content 는 미래 등재 동작 human-verify 후 lock.",
+    "source": "NotebookLM 96b061e8 (IPSF Code of Points 2024-2025) + belle 확정값 — 미래 등재 동작 추가 시 박제. 임의 생성 금지."
+  },
+  "angles": {}
+}

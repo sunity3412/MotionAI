@@ -1,0 +1,110 @@
+{
+  "_header": {
+    "schemaVersion": "1.0.0",
+    "purpose": "production motion_id -> routing object (copyBranch + angleSource + angleFixtureKey) for 차원 자세히 카피 분기 + coach 프롬프트 각도 출처. 채점 경로 미진입 (objectivity / D-05) — 카피/프롬프트 분기 전용.",
+    "curated": "명시 curated join table (derived 금지 — 13-REVIEW-FIXES.md §1). aka-mapping.json 은 motionId 없음 → 자동 join 금지. 각 엔트리는 yaml/CROSS-CHECK evidence 를 sourceNote 에 박제.",
+    "coverage": "seed-reference-motions.mjs MOTIONS 11개 전수 (belle 2026-06-16 DECISION 1 — 새 영상이 들어와도 동작은 동작, 5→11 확장).",
+    "routing_fields": "copyBranch(branch1_ipsf_registered|branch2_eunji_reference|unknown) + ipsfCode(str|null) + officialName + angleSource(ipsf_registered_fixture|eunji_measured_yaml|no_angle_criterion|unavailable) + angleFixtureKey(str|null) + criteriaYaml(str|null) + sourceNote(non-empty). copyBranch 와 angleSource 는 직교 (BLOCKER-1) — 예: ref-invert = branch1 + eunji_measured_yaml.",
+    "fallback": "lookup_motion_branch(motion_id) 가 map 에 없는 motion_id 를 받으면 copyBranch='branch2_eunji_reference' 안전 기본 반환 (belle 2026-06-16 DECISION 2 — fail-closed/raise 아님). branch2 는 정은지 reference 인용이고 IPSF 주장을 안 하므로 미지/미래 동작에 항상 안전. branch1/IPSF citation 을 미확인 동작에 fabricate 하지 않는다는 원래 가드 의도는 보존됨. assemble.lookup_motion_branch docstring 에 박제.",
+    "source": "13-REVIEW-FIXES.md §2 (현재 5 동작) + CROSS-CHECK.md (신규 6 동작) + 각 criteria yaml + seed 동작 description. belle 2026-06-16 routing 확정."
+  },
+  "ref-invert": {
+    "copyBranch": "branch1_ipsf_registered",
+    "ipsfCode": "BODY_POSITION_INVERTED",
+    "officialName": "Body Position Inverted",
+    "angleSource": "eunji_measured_yaml",
+    "angleFixtureKey": "ref-invert",
+    "criteriaYaml": "ref-invert.yaml",
+    "sourceNote": "ref-invert.yaml L9/L17 — IPSF Body Position Inverted 등재(05-IPSF-LOOKUP.md §4) 이나 joint-angle 채점은 정은지 측정값(Body Position 차원 = D-19 별 phase deferred). copyBranch=branch1(IPSF 등재 카피)지만 angleSource=eunji_measured_yaml — 직교 증거."
+  },
+  "ref-climb": {
+    "copyBranch": "branch1_ipsf_registered",
+    "ipsfCode": "TRANSITIONS_AND_CLIMBS",
+    "officialName": "Transitions & Climbs",
+    "angleSource": "no_angle_criterion",
+    "angleFixtureKey": null,
+    "criteriaYaml": null,
+    "sourceNote": "ref-climb.yaml L8-21 — IPSF Transitions & Climbs 카테고리, hold_moment=[] 의도된 빈 list, 해부학적 각도 target 없음(Repetition/Flow 패러다임). CROSS-CHECK.md L38-40: strict IPSF-Climb 정의(2회 위아래 이동) 미충족 — 명칭 contested(정은지 확인 후보) 이나 §2 curated branch1 카피 유지. no_angle_criterion → 가짜 각도 미주입."
+  },
+  "ref-foxtop": {
+    "copyBranch": "branch2_eunji_reference",
+    "ipsfCode": null,
+    "officialName": "Foxtop (정은지 reference)",
+    "angleSource": "eunji_measured_yaml",
+    "angleFixtureKey": "ref-foxtop",
+    "criteriaYaml": "ref-foxtop.yaml",
+    "sourceNote": "ref-foxtop.yaml L8/L15 — IPSF 미등재(Unrecognized, NotebookLM 05-IPSF-LOOKUP.md §2) → 분기 2 정은지 reference. reference-motions-branch2.json ipsfRegistered:false."
+  },
+  "ref-foxtop-split": {
+    "copyBranch": "branch2_eunji_reference",
+    "ipsfCode": null,
+    "officialName": "Foxtop Split (정은지 reference)",
+    "angleSource": "eunji_measured_yaml",
+    "angleFixtureKey": "ref-foxtop-split",
+    "criteriaYaml": "ref-foxtop-split.yaml",
+    "sourceNote": "ref-foxtop-split.yaml L8 — IPSF 미등재(Unrecognized) → 분기 2 정은지 reference (13-REVIEW-FIXES.md §2)."
+  },
+  "ref-sideway-spin": {
+    "copyBranch": "branch2_eunji_reference",
+    "ipsfCode": null,
+    "officialName": "Sideway Spin (정은지 reference)",
+    "angleSource": "eunji_measured_yaml",
+    "angleFixtureKey": "ref-sideway-spin",
+    "criteriaYaml": "ref-sideway-spin.yaml",
+    "sourceNote": "ref-sideway-spin.yaml L8 — IPSF 미등재(Unrecognized) → 분기 2 정은지 reference (13-REVIEW-FIXES.md §2)."
+  },
+  "ref-kip-up": {
+    "copyBranch": "branch2_eunji_reference",
+    "ipsfCode": null,
+    "officialName": "킵업 (정은지 reference)",
+    "angleSource": "no_angle_criterion",
+    "angleFixtureKey": null,
+    "criteriaYaml": null,
+    "sourceNote": "CROSS-CHECK.md L24-31 — 3 path 합치 IPSF 미등재(인버전 없는 dynamic spin entry). 명칭 모호(정은지 확인 후보). criteria yaml 부재 → no_angle_criterion(가짜 각도 미주입). belle DECISION 2 안전 기본 branch2."
+  },
+  "ref-peter-pan": {
+    "copyBranch": "branch2_eunji_reference",
+    "ipsfCode": null,
+    "officialName": "피터팬 (정은지 reference)",
+    "angleSource": "no_angle_criterion",
+    "angleFixtureKey": null,
+    "criteriaYaml": null,
+    "sourceNote": "CROSS-CHECK.md L42-49 — 3 path 합치 IPSF 미등재(스태그 셰이프 + 양손 grip spin, 학원 통용). criteria yaml 부재 → no_angle_criterion. branch2."
+  },
+  "ref-power-spin": {
+    "copyBranch": "branch2_eunji_reference",
+    "ipsfCode": null,
+    "officialName": "파워스핀 (정은지 reference)",
+    "angleSource": "no_angle_criterion",
+    "angleFixtureKey": null,
+    "criteriaYaml": null,
+    "sourceNote": "CROSS-CHECK.md L51-58 — IPSF 미등재 + 후반 ≈ Vertical Split variation. criteria yaml 부재 → no_angle_criterion. branch2."
+  },
+  "ref-elbow-twist-sister": {
+    "copyBranch": "branch2_eunji_reference",
+    "ipsfCode": null,
+    "officialName": "엘보 트위스트 시스터 (정은지 reference)",
+    "angleSource": "no_angle_criterion",
+    "angleFixtureKey": null,
+    "criteriaYaml": null,
+    "sourceNote": "CROSS-CHECK.md L60-67 — IPSF 미등재 + Scorpio(Inverted Inner Thigh Hook) + Elbow back grip variation. criteria yaml 부재 → no_angle_criterion. branch2."
+  },
+  "ref-pdshape": {
+    "copyBranch": "branch2_eunji_reference",
+    "ipsfCode": null,
+    "officialName": "pdshape (정은지 reference)",
+    "angleSource": "no_angle_criterion",
+    "angleFixtureKey": null,
+    "criteriaYaml": null,
+    "sourceNote": "CROSS-CHECK.md L69-76 — IPSF 미등재(정식 명칭 없는 연계 동작 학원 통용, Inverted Torso Hook/Butterfly + Scorpio variation). criteria yaml 부재 → no_angle_criterion. branch2."
+  },
+  "ref-combo": {
+    "copyBranch": "branch2_eunji_reference",
+    "ipsfCode": null,
+    "officialName": "콤보 (정은지 reference)",
+    "angleSource": "no_angle_criterion",
+    "angleFixtureKey": null,
+    "criteriaYaml": null,
+    "sourceNote": "CROSS-CHECK.md L78-114 — 62s multi-segment, IPSF Dynamic Combinations + Outside Leg Hang + Butterfly 등 등재 카테고리 mix(정은지 확인 후보). 단일 IPSF 등재 동작 미확정 → branch2 안전 기본(belle DECISION 2, IPSF 주장 회피). criteria yaml 부재 → no_angle_criterion."
+  }
+}

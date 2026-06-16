@@ -11,6 +11,10 @@ Phase 12.5 (2026-06-07): dimensionExplanation 추가 — 사용자가 결과 화
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
+from pathlib import Path
+
 from . import dimensions, kismam
 from .dimensions import AxisFrame, compute_axis_frames
 from .keypoint_frame import (
@@ -24,6 +28,89 @@ from .skeleton import JOINT_LABEL_KO
 
 # 이 점수 미만이면 JointScore.issue 노출 (양호하면 생략)
 GOOD_SCORE_THRESHOLD = 80
+
+
+# ── Phase 13-B: motion_ipsf_map 라우팅 객체 (BLOCKER-1 / HIGH-1) ───────────────
+# 단일 boolean(isRegistered) 폐기 — copyBranch 와 angleSource 는 직교. 카피 분기는
+# copyBranch, coach 프롬프트 각도 출처는 angleSource 가 라우팅. 채점 경로 미진입
+# (objectivity / D-05) — 카피/프롬프트 분기 전용.
+
+
+@dataclass(frozen=True)
+class MotionBranchInfo:
+    """motion_id → 라우팅 객체 (13-REVIEW-FIXES.md §2, 4차 MEDIUM-1 = dict 아님).
+
+    소비측(app.py / build_result / build_dimension_explanation / coach_writer)은
+    attribute 접근 (`branch_info.copyBranch`). bare boolean / dict 아님.
+    """
+
+    copyBranch: str
+    ipsfCode: str | None
+    officialName: str
+    angleSource: str
+    angleFixtureKey: str | None
+    criteriaYaml: str | None
+    sourceNote: str
+
+
+# motion_ipsf_map.json — repo root 기준 (exercise_map._CORRECTIVE_EXERCISES_PATH 패턴
+# 정합: analysis → sunity_shared → python → shared → backend / "data").
+_MOTION_IPSF_MAP_PATH = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "data"
+    / "motion_ipsf_map.json"
+)
+_MOTION_IPSF_MAP_CACHE: dict | None = None
+
+# belle 2026-06-16 DECISION 2 — 미지/미래 동작 안전 기본. branch2 는 정은지 reference
+# 인용이고 IPSF 주장을 안 하므로 미확인 동작에 항상 안전 (fail-closed/raise 아님).
+# branch1/IPSF citation 을 미확인 동작에 fabricate 하지 않는다는 원래 가드 의도 보존.
+_SAFE_DEFAULT_BRANCH = MotionBranchInfo(
+    copyBranch="branch2_eunji_reference",
+    ipsfCode=None,
+    officialName="",
+    angleSource="unavailable",
+    angleFixtureKey=None,
+    criteriaYaml=None,
+    sourceNote="안전 기본 (belle 2026-06-16 DECISION 2) — motion_ipsf_map 미등록 motion_id. "
+    "branch2 는 IPSF 주장 없는 정은지 reference 카피라 미지 동작에 안전. fail-closed/raise 아님.",
+)
+
+
+def _load_motion_ipsf_map() -> dict:
+    """motion_ipsf_map.json lazy load + 모듈 캐시 (`_` 시작 메타 키 제외)."""
+    global _MOTION_IPSF_MAP_CACHE
+    if _MOTION_IPSF_MAP_CACHE is None:
+        raw = json.loads(_MOTION_IPSF_MAP_PATH.read_text(encoding="utf-8"))
+        _MOTION_IPSF_MAP_CACHE = {
+            k: v for k, v in raw.items() if not str(k).startswith("_")
+        }
+    return _MOTION_IPSF_MAP_CACHE
+
+
+def lookup_motion_branch(motion_id: str | None) -> MotionBranchInfo:
+    """motion_id → MotionBranchInfo (BLOCKER-1, tuple lookup_motion_ipsf 폐기).
+
+    motion_ipsf_map.json 을 motion_id 로 lookup. 미존재(None/미등록 신규)이면
+    belle 2026-06-16 DECISION 2 의 안전 기본 (copyBranch=branch2_eunji_reference)
+    반환 — fail-closed/raise/copyBranch="unknown" 아님. 안전 기본은 IPSF 주장을
+    하지 않으므로(angleSource=unavailable, ipsfCode=None) 미지 동작에 항상 안전하며,
+    build_dimension_explanation 은 분기2 카피("정은지 선수 기준")를 적용한다.
+    """
+    if not motion_id:
+        return _SAFE_DEFAULT_BRANCH
+    entry = _load_motion_ipsf_map().get(motion_id)
+    if not isinstance(entry, dict) or not entry.get("copyBranch"):
+        return _SAFE_DEFAULT_BRANCH
+    return MotionBranchInfo(
+        copyBranch=entry["copyBranch"],
+        ipsfCode=entry.get("ipsfCode"),
+        officialName=entry.get("officialName", ""),
+        angleSource=entry.get("angleSource", "unavailable"),
+        angleFixtureKey=entry.get("angleFixtureKey"),
+        criteriaYaml=entry.get("criteriaYaml"),
+        sourceNote=entry.get("sourceNote", ""),
+    )
 
 # ── Phase 12.5: dimensionExplanation baseline 카피 ────────────────────────────
 # Codex v3 HIGH-1 fix: "IPSF 기준" → "IPSF 실행 기준 참고" (현재 line/stability_score
@@ -46,6 +133,30 @@ _GOOD_COPY_BY_DIM = {
     "stability": "hold 구간 떨림 작음",
 }
 
+# ── Phase 13-B: copyBranch 별 baseline 카피 (BLOCKER-1 / HIGH-3) ────────────────
+# 180° 는 line(신전/EXTEND) 차원 전용 — angle 차원 baseline 은 동작별 정의 각도(NON-180).
+# 분기2 카피는 "세계 심사 기준" / "180°" 를 절대 포함하지 않는다 (criteria 8 게이트).
+
+_DIMENSION_BASELINES_BRANCH1 = {
+    "angle": "IPSF 동작별 정의 각도",
+    "line": "IPSF 신전 기준 — 해당 동작에서 EXTEND 인 팔꿈치/무릎은 180° 신전",
+    "stability": "hold 구간 안정성",
+}
+_DIMENSION_BASELINES_BRANCH2 = {
+    "angle": "정은지 선수 기준 관절 각도",
+    "line": "정은지 선수 기준 신전 완성도",
+    "stability": "hold 구간 안정성 (절대 지표)",
+}
+
+# 분기2 카피 가드 (criteria 8). force_pattern_copy.FORBIDDEN_PHRASES_PHASE9_REGEX
+# precedent. "180도" 도 catch (숫자 표기 변형).
+BRANCH2_FORBIDDEN_PHRASES: tuple[str, ...] = (
+    "세계 심사 기준",
+    "IPSF",
+    "180°",
+    "180도",
+)
+
 
 def _largest_remainder_pct(n: int) -> list[int]:
     """Largest Remainder Method — n 차원 정수 weightPercent, 합 = 100.
@@ -60,19 +171,35 @@ def _largest_remainder_pct(n: int) -> list[int]:
     return [base + 1 if i < remainder else base for i in range(n)]
 
 
+def _baselines_for_branch(
+    branch_info: MotionBranchInfo | None, mode: str | None
+) -> dict[str, str]:
+    """copyBranch 별 baseline 카피 선택 (Phase 13-B BLOCKER-1).
+
+    branch1/branch2 = 분기 카피. unknown/None = 기존 mode-aware baseline
+    (의도적 하위호환 폴백 — FallbackRecognizer / motion_id 미등록).
+    """
+    if branch_info is not None:
+        if branch_info.copyBranch == "branch1_ipsf_registered":
+            return _DIMENSION_BASELINES_BRANCH1
+        if branch_info.copyBranch == "branch2_eunji_reference":
+            return _DIMENSION_BASELINES_BRANCH2
+    return _DIMENSION_BASELINES_MODE1 if mode == "mode1" else _DIMENSION_BASELINES_MODE3
+
+
 def build_dimension_explanation(
     assessments: list[JointAssessment],
     dimension_scores: dict[str, int],
     comparison: dict | None,
     joint_angles=None,
     profile=None,
+    branch_info: MotionBranchInfo | None = None,
 ) -> dict[str, dict]:
     """차원별 explanation: weightPercent + baseline + deficitSummary.
 
     Phase 12.5 (Codex v2 + v3 review 반영):
     - mode = comparison["mode"] 직접 추출 (별도 mode 인자 X — drift 방지, v3 MED-1)
     - weightPercent = Largest Remainder Method (합 100% 보장, v3 HIGH-3)
-    - baseline = mode-aware (v2 MED-3), "IPSF 실행 기준 참고" 카피 (v3 HIGH-1)
     - deficitSummary = 차원별 산식-정합 source:
       - angle → kismam.top_issues (관절 각도)
       - line → dimensions.line_deficits_by_joint (EXTEND 관절, profile/_select_window 정합)
@@ -80,12 +207,21 @@ def build_dimension_explanation(
     - 양호 임계 (점수 ≥ 80) 시 deviation 수치 X (오해 회피)
     - 빈 dimension_scores 시 빈 dict 반환 (항상 emit, v3 suggestion)
 
+    Phase 13-B (BLOCKER-1 / HIGH-3): baseline 카피가 branch_info.copyBranch 로 분기.
+    - branch1_ipsf_registered → IPSF 동작별 정의 각도(angle) + EXTEND 180°(line).
+    - branch2_eunji_reference → "정은지 선수 기준" — "세계 심사 기준"/"180°" 미포함.
+    - copyBranch="unknown" 또는 branch_info is None → 기존 mode-aware baseline = 의도적
+      하위호환 폴백(FallbackRecognizer / motion_id 미등록, silent old-copy 아님).
+    angleSource 는 카피 텍스트에 영향 X — 각도 출처는 coach 프롬프트에서만 쓰임.
+    (ref-invert 처럼 branch1 + eunji_measured 조합도 정상.)
+
     Args:
         assessments: kismam.assess 결과 — angle deficit source.
         dimension_scores: 차원별 점수 (1/2/3 차원 모두 박제).
         comparison: build_mode1/build_mode3 출력 dict. "mode" 키 추출.
         joint_angles: pipeline 의 (T, J) ndarray. None 이면 line/stability source 폴백.
         profile: TechniqueProfile. None 이면 line/stability source 폴백.
+        branch_info: lookup_motion_branch 결과. None 이면 mode-aware baseline 폴백.
 
     Returns:
         dict[dim, {"weightPercent": int, "baseline": str, "deficitSummary": str}].
@@ -96,7 +232,7 @@ def build_dimension_explanation(
         return {}
 
     mode = comparison.get("mode") if isinstance(comparison, dict) else None
-    baselines = _DIMENSION_BASELINES_MODE1 if mode == "mode1" else _DIMENSION_BASELINES_MODE3
+    baselines = _baselines_for_branch(branch_info, mode)
     pcts = _largest_remainder_pct(len(dims))
 
     # angle deficit source — kismam.top_issues 의 worst joint
@@ -279,6 +415,7 @@ def build_result(
     my_video_key: str | None = None,
     joint_angles=None,
     profile=None,
+    branch_info: MotionBranchInfo | None = None,
 ) -> dict:
     """contract AnalysisResult. status='done' 일 때 Firestore result 에 저장.
 
@@ -288,7 +425,11 @@ def build_result(
 
     Phase 12.5: joint_angles + profile 가 주어지면 dimensionExplanation 출력 (line/
     stability deficit source = dimensions helpers). 둘 다 None 이면 explanation 은
-    빈 dict (호환성)."""
+    빈 dict (호환성).
+
+    Phase 13-B (HIGH-2): branch_info 를 build_dimension_explanation 으로 forward —
+    pipeline 이 build_result 경유이므로 여기서 pass-through 가 끊기면 분기가 무효.
+    None 이면 기존 mode-aware baseline (하위호환)."""
     # 박제 (2026-06-06 belle): angle dim 95+ 시 "완벽 수행" 메시지 박제.
     # 편차 거의 0 인 perfect 자세 시 worst 3 박제하면 "0° 차이" 어색.
     # mode 분기 박제 — mode1 만 "정은지 선수" 박제, mode3 박제 = 자기 영상 박제.
@@ -320,6 +461,7 @@ def build_result(
             comparison,
             joint_angles=joint_angles,
             profile=profile,
+            branch_info=branch_info,
         ),
         "joints": build_joints(assessments),
         "tips": tips,

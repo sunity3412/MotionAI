@@ -43,7 +43,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8.1: axis-metric-redesign** - 정은지 5/5 영상 axis severity high → low fix. Tilt metric 재설계 (rotation-only, distance 차원 제거) + `_normalize_angle_undirected` (modulo 180°) + `tilt_thresholds.yaml` schema_v2 lazy load + 정은지 5영상 P100+margin calibration + IPSF tolerance 20° / major fault 40°. **2026-06-09 close-out** — 3 plans (08.1-00/01/02) 완료. 413 PASS + 1 skipped. SC 5/5 PASS (정은지 5/5 axis severity 'low'). **Deferred (Codex C-MH1 정합)**: `AxisDeviationMetric` → `BodyLineTiltMetric` rename — 별도 plan.
 - [x] **Phase 9: ForceDirectionPattern + 실패 원인 후보 3개** - pull/push/brace/rotate/release + 실패 후보 3카드 (completed 2026-06-10)
 - [ ] **Phase 10: 부상 위험 신호 플래그** - 좌우 비대칭·요추 과신전·무리 동작 신호 (SAFE-01 v1)
-- [ ] **Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만** - AI+코치 비즈니스 모델 + 설명 엔진 한정
+- [x] **Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만** - AI+코치 비즈니스 모델 + 설명 엔진 한정 (completed 2026-06-16)
 - [x] **Phase 12: 실측 각도 표시 + 키포인트 오버레이** - 6 build iteration (B/C/D fix + KeypointOverlay frame index Fix A + drift correction + 1080p 영상 압축) + 6 belle UAT (2026-06-10~12) close-out. **2026-06-12 PASS** — keypoint 사람 따라감 ✓ / 두 영상 동기화 ✓ / stall 해소 (4K → 1080p 압축 결정타) ✓. 잔여: 12-A 좌/우 mirror + ankle keypoint 추가 → Phase 13. Build 16 + OTA bundles ship.
 - [x] **Phase 12.5: UI Transparency — 차원별 카피 + 자세히 모달 + LLM-ready coaching** - `result.tsx` 차원별 카드 (각도 정확도 / 팔다리 펴기 / 동작 안정성) + 자세히 모달 (점수 산출 설명, 동작·사용자 동적 카피, "심사평" 자연어) + 코칭 팁 자세히 모달 (LLM 동적 다중 원인 + 부상 경고 + coachNote). backend `assemble.build_dimension_explanation` + `coach_writer` JSON 출력 + Cerebras 시스템 프롬프트 갱신. **2026-06-07 close-out** (commits 1c0d20a T1+T2 / 62fdeed T9 backend / e968074 T8+T9 frontend). belle UX 검증 PASS — 모달 스크롤 정상 동작 + 심사평 톤 (평가+이유+결정 3박자) 적용.
 - [x] **Phase 13: 보완 운동 추천 + LLM 분기 카피 + coaching detail 완성** - (a) 분석 결과의 실패 원인 후보·체형 정규화 finding 에 맞는 보완 운동·스트레칭 자동 매핑 (분석 → 행동 → 재구매, PERS-03), (b) 실 LLM 활성화 — Pod 갱신 + Cerebras `tip.detail2` 실 영상 검증, (c) `assemble.build_dimension_explanation` 에 `ipsfCode` 분기로 분기 1 (IPSF 등재 = "세계 심사 기준 + 180°") vs 분기 2 (학원 통용 = "정은지 선수 기준") 카피 분리, (d) `coach_writer` 시스템 프롬프트에 동작 분기 + IPSF 정의 각도 fixture 주입. 메모리 [`studio-term-3branch-system`] 정합. **belle 2026-06-07 결정: Phase 12.5 시뮬 한계 (폭스탑 학원 용어 어색 + angle 차원 180° 명시 X) 의 실 LLM 해결을 보완 운동 추천과 같은 phase 로 통합 — backend coach_writer 단일 phase 작업.** (completed 2026-06-16)
@@ -343,7 +343,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 11-02-PLAN.md — Wave 2: result.tsx "강사에게 확인할 점" 섹션(openQuestionsForCoach만) + 포지셔닝 카피(상단 1줄+코치 헤더) + Mode 1 기준모션 "하나의 참고일 뿐" + userAnalyses null-guard + belle 시각 checkpoint (FEED-03)
+- [x] 11-02-PLAN.md — Wave 2: result.tsx "강사에게 확인할 점" 섹션(openQuestionsForCoach만) + 포지셔닝 카피(상단 1줄+코치 헤더) + Mode 1 기준모션 "하나의 참고일 뿐" + userAnalyses null-guard + belle 시각 checkpoint (FEED-03)
 
 **UI hint**: yes
 
@@ -556,7 +556,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 8. 중심축·접촉점·jerk 분석 | 4/4 | Complete (axis-metric Phase 8.5 신설) | 2026-06-09 |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 2/2 | Complete   | 2026-06-10 |
 | 10. 부상 위험 신호 플래그 | 0/TBD | Not started | - |
-| 11. CoachCommentHook + Gemini 번역 | 2/3 | In Progress|  |
+| 11. CoachCommentHook + Gemini 번역 | 3/3 | Complete   | 2026-06-16 |
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |
 | 13. 보완 운동·스트레칭 추천 | 3/2 | Complete   | 2026-06-16 |

@@ -50,6 +50,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 14: 정은지 기준 모션 등록 (다각도 캡처 가이드)** - 비교 정확도 최대화 + 다각도 캡처 프로토콜 (completed 2026-06-15)
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주
 - [x] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path. (completed 2026-06-02)
+- [x] **Phase 17: Gemini Vision Integration — 4 영역 통합** - Gemini Vision multimodal 을 영역 A(reference 자동 등록)/B(코칭 멘트)/C(finding 인식)/D(keypoint 보강) 4개에 도입 + Phoenix/Promptfoo eval + 객관성 guardrail. 7 plan 코드+배포+v5 e2e 검증. (completed 2026-06-12, roadmap reconciled 2026-06-17)
+- [ ] **Phase 18: Expert deliberate-fault reference eval set** - 정은지 '일부러-실수' reference 영상을 영구 regression/eval 세트로 (가칭/미상세, Phase 15 의존)
 
 ## Phase Details
 
@@ -490,6 +492,8 @@ Plans:
 
 ### Phase 17: Gemini Vision Integration — 4 영역 통합
 
+> **2026-06-12 close-out 완료 (commit 363b742).** 7 plan 전부 코드+배포+검증 박제. Wave 7-A~E (SAM deploy + Pod reactivate + body backfill + v5 mock e2e): status=done, overallScore 84, 영역 A 6/6 motion isActive=true, 영역 B Gemini gemini-3.1-pro-preview 정상 호출(fallback 없음), 영역 C E6 hard gate PASS, 영역 D opt-in skip. debug 5건 해소. **로드맵 reconcile 2026-06-17** — closeout 직후 Phase 4 Gemini Vision view-reasoning 스파이크(spike 003/002d/002b, commit ef0f6fa)로 전환하면서 체크박스 flip 누락분 정리.
+
 **Goal**: Gemini Vision API (multimodal 영상 이해) 를 4 영역에 도입해서 분석 정확도 + 사용자 가치 본질 강화. 신규 reference 영상 추가 부담 해소 + RTMW 의 자세 인식 약점 보강.
 **Depends on**: Phase 9 (ForceDirectionPattern finding 구조), Phase 11 (CoachCommentHook 데이터 구조), Phase 14 (정은지 기준 모션 등록 구조)
 **Requirements**: VISION-01, VISION-02, VISION-03, VISION-04 (신규 도입 — REQUIREMENTS.md 박힘 박힘)
@@ -504,13 +508,13 @@ Plans:
 
 **Plans**: 7 plans
 
-  - [ ] 17-01-PLAN.md — 공통 Gemini client + 4 영역 Pydantic schemas + 객관성 guardrail (G1)
-  - [ ] 17-02-PLAN.md — 영역 C Finding 인식 (Flash) + Pod _process wave 1 + G4 정은지 occlusion FP 가드
-  - [ ] 17-03-PLAN.md — 영역 D Keypoint 보강 (Pro, RTMW < 0.5 conf frame) + G5 좌표 환각 가드
-  - [ ] 17-04-PLAN.md — 영역 B 코칭 멘트 (Pro Vision) + Cerebras dual-track + 강사 보조 톤 schema 강제
-  - [ ] 17-05-PLAN.md — 영역 A Reference 자동 등록 (신규 Lambda + SAM + 분기 1/2/3 라우팅 + G3 화이트리스트 가드)
-  - [ ] 17-06-PLAN.md — Eval + Guardrail wiring (Phoenix self-host + Promptfoo + LLM judge + smart sampling + 30-example dataset)
-  - [ ] 17-07-PLAN.md — 신규 6 motion 재활성화 (RTMW engine swap + 영역 A endpoint 자동화 + belle 검수 — UAT 2026-06-12 F4 finding 해소)
+  - [x] 17-01-PLAN.md — 공통 Gemini client + 4 영역 Pydantic schemas + 객관성 guardrail (G1)
+  - [x] 17-02-PLAN.md — 영역 C Finding 인식 (Flash) + Pod _process wave 1 + G4 정은지 occlusion FP 가드
+  - [x] 17-03-PLAN.md — 영역 D Keypoint 보강 (Pro, RTMW < 0.5 conf frame) + G5 좌표 환각 가드
+  - [x] 17-04-PLAN.md — 영역 B 코칭 멘트 (Pro Vision) + Cerebras dual-track + 강사 보조 톤 schema 강제
+  - [x] 17-05-PLAN.md — 영역 A Reference 자동 등록 (신규 Lambda + SAM + 분기 1/2/3 라우팅 + G3 화이트리스트 가드)
+  - [x] 17-06-PLAN.md — Eval + Guardrail wiring (Phoenix self-host + Promptfoo + LLM judge + smart sampling + 30-example dataset)
+  - [x] 17-07-PLAN.md — 신규 6 motion 재활성화 (RTMW engine swap + 영역 A endpoint 자동화 + belle 검수 — UAT 2026-06-12 F4 finding 해소)
 
 **UI hint**: no
 

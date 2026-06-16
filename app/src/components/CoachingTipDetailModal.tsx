@@ -96,14 +96,24 @@ export function CoachingTipDetailModal({ visible, tip, onClose }: Props) {
   );
 }
 
+// Phase 13-C (2026-06-16, [[section-dual-coach-report]]) — 섹션형 듀얼 coach 렌더.
+// 자세히 모달이 4개 "기능 라벨" 섹션을 세로 스택으로 순서대로 렌더한다:
+//   원인 → 교정 처방 → 부상 위험(있을 때만) → 강사 확인.
+// 라벨은 기능 라벨만 — AI/벤더명(Gemini/Cerebras) 텍스트 0 (13-C locked).
+// 탭/아코디언 기각 — 원인+처방 동시 비교가 핵심 (13-C locked).
+// 색/radius/spacing 은 theme 토큰만. 화면 하단 보완운동 카드(13-A)는 별도 유지.
 function CausesSection({ detail2 }: { detail2: CoachingTipDetail }) {
+  const fixes = detail2.causes
+    .map((c) => c.fix)
+    .filter((f) => typeof f === 'string' && f.trim().length > 0);
+
   return (
     <>
-      <Text style={styles.sectionHead}>이런 경우일 수 있어요</Text>
+      {/* 섹션 1 — 원인 (causes title + explanation) */}
+      <Text style={styles.sectionHead}>원인</Text>
       <Text style={styles.sectionSub}>
         정확한 원인은 케이스마다 다르므로 몇 가지 가능성을 제시합니다.
       </Text>
-
       {detail2.causes.map((c, idx) => (
         <View key={idx} style={styles.causeCard}>
           <View style={styles.causeHead}>
@@ -113,21 +123,41 @@ function CausesSection({ detail2 }: { detail2: CoachingTipDetail }) {
             <Text style={styles.causeTitle}>{c.title}</Text>
           </View>
           <Text style={styles.causeBody}>{c.explanation}</Text>
-          <View style={styles.fixBox}>
-            <Text style={styles.fixLabel}>이런 경우면 이렇게</Text>
-            <Text style={styles.fixBody}>{c.fix}</Text>
-          </View>
         </View>
       ))}
 
-      {detail2.injuryRisk ? (
-        <View style={styles.injuryCard}>
-          <Text style={styles.injuryLabel}>주의 · 부상 위험</Text>
-          <Text style={styles.injuryBody}>{detail2.injuryRisk}</Text>
+      {/* 섹션 2 — 교정 처방 (각 cause.fix 모음, 13-A 보완운동 카드와 자연 연결) */}
+      {fixes.length > 0 ? (
+        <View style={styles.fixSection}>
+          <Text style={styles.sectionHead}>교정 처방</Text>
+          <Text style={styles.sectionSub}>
+            추정 원인별로 이렇게 연습해 보세요.
+          </Text>
+          {fixes.map((fix, idx) => (
+            <View key={idx} style={styles.fixBox}>
+              <Text style={styles.fixLabel}>{idx + 1}번 원인 처방</Text>
+              <Text style={styles.fixBody}>{fix}</Text>
+            </View>
+          ))}
         </View>
       ) : null}
 
-      <Text style={styles.coachNote}>{detail2.coachNote}</Text>
+      {/* 섹션 3 — 부상 위험 (injuryRisk 있을 때만 — 없으면 섹션 자체 생략) */}
+      {detail2.injuryRisk ? (
+        <View style={styles.riskSection}>
+          <Text style={styles.sectionHead}>부상 위험</Text>
+          <View style={styles.injuryCard}>
+            <Text style={styles.injuryLabel}>주의</Text>
+            <Text style={styles.injuryBody}>{detail2.injuryRisk}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* 섹션 4 — 강사 확인 (coachNote) */}
+      <View style={styles.coachSection}>
+        <Text style={styles.sectionHead}>강사 확인</Text>
+        <Text style={styles.coachNote}>{detail2.coachNote}</Text>
+      </View>
     </>
   );
 }
@@ -201,6 +231,10 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginBottom: 14,
   },
+  // Phase 13-C — 4 섹션 세로 스택 간격 (원인 → 교정 처방 → 부상 위험 → 강사 확인).
+  fixSection: { marginTop: 8 },
+  riskSection: { marginTop: 8 },
+  coachSection: { marginTop: 8 },
   causeCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -240,6 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F7F7',
     borderRadius: 8,
     padding: 10,
+    marginBottom: 8,
   },
   fixLabel: {
     fontSize: 11,
@@ -254,8 +289,6 @@ const styles = StyleSheet.create({
     borderColor: '#F5C94C',
     borderRadius: radius.card,
     padding: 14,
-    marginTop: 8,
-    marginBottom: 16,
   },
   injuryLabel: {
     fontSize: 12,

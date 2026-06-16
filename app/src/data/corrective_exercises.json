@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastUpdated": "2026-06-16",
+  "sourceNotebook": "e688fb4e-a4fb-4e83-a168-9c4726a98e09",
+  "sourceNotebookName": "폴스포츠에 대한 지식",
+  "defects": {
+    "grip_weak": {
+      "triggers": {
+        "sourceSignals": ["late_contact", "abnormal_release"],
+        "jointHints": ["손목", "전완근", "악력"]
+      },
+      "exercises": [
+        {"name": "Farmer's Walk", "setsReps": "왕복", "purpose": "전완근/악력 지구력 강화로 폴 접촉 유지", "sourceRef": "NotebookLM e688fb4e [1]"},
+        {"name": "Hand Grippers", "setsReps": "수시 반복", "purpose": "악력 직접 강화", "sourceRef": "NotebookLM e688fb4e [1]"},
+        {"name": "Assisted Pull-ups", "setsReps": "밴드 5~10회", "purpose": "당기는 그립 근력 보조 강화", "sourceRef": "NotebookLM e688fb4e [1]"},
+        {"name": "Dead Hang", "setsReps": "5~10회/초", "purpose": "매달리기 그립 지구력", "sourceRef": "NotebookLM e688fb4e [1]"},
+        {"name": "Deadlift", "setsReps": "10~15회", "purpose": "후면 사슬 + 악력 동시 강화", "sourceRef": "NotebookLM e688fb4e [1]"}
+      ]
+    },
+    "shoulder_unstable": {
+      "triggers": {
+        "sourceSignals": ["high_jitter", "high_jerk"],
+        "jointHints": ["어깨", "광배", "견갑"]
+      },
+      "exercises": [
+        {"name": "Push-ups", "setsReps": "8~12회", "purpose": "미는 근력 밸런스로 어깨 안정화", "sourceRef": "NotebookLM e688fb4e [2]"},
+        {"name": "Overhead Press", "setsReps": "10~15회", "purpose": "어깨 상방 안정성 강화", "sourceRef": "NotebookLM e688fb4e [2]"},
+        {"name": "Scapular Depression Drills", "setsReps": "매달려 버티기", "purpose": "견갑 하강 안정화", "sourceRef": "NotebookLM e688fb4e [2]"},
+        {"name": "Arm Circles", "setsReps": "전 10회/방향, 동적", "purpose": "어깨 가동 워밍업", "sourceRef": "NotebookLM e688fb4e [2]"},
+        {"name": "Cross-Shoulder Stretch", "setsReps": "후 20~30s", "purpose": "어깨 후면 이완", "sourceRef": "NotebookLM e688fb4e [2]"}
+      ]
+    },
+    "core_weak": {
+      "triggers": {
+        "sourceSignals": ["axis_tilt", "high_jitter"],
+        "jointHints": ["코어", "복부", "척추"]
+      },
+      "exercises": [
+        {"name": "Planks", "setsReps": "30~60s", "purpose": "공중 수평 자세 척추 처짐 저지", "sourceRef": "NotebookLM e688fb4e [3]"},
+        {"name": "Side Planks", "setsReps": "양측 30~60s", "purpose": "측면 코어 안정화", "sourceRef": "NotebookLM e688fb4e [3]"},
+        {"name": "Russian Twists", "setsReps": "10~15회", "purpose": "회전 코어 강화", "sourceRef": "NotebookLM e688fb4e [3]"},
+        {"name": "Hanging Leg Raise", "setsReps": "8~12회", "purpose": "하복부 + 매달림 코어", "sourceRef": "NotebookLM e688fb4e [3]"},
+        {"name": "Supermans", "setsReps": "10~15회", "purpose": "후면 코어/척추 기립근 강화", "sourceRef": "NotebookLM e688fb4e [3]"}
+      ]
+    },
+    "legs_not_extended": {
+      "triggers": {
+        "sourceSignals": ["late_contact"],
+        "jointHints": ["무릎", "발목", "다리"]
+      },
+      "exercises": [
+        {"name": "Squats", "setsReps": "10~15회", "purpose": "다리 신전 근력 기반", "sourceRef": "NotebookLM e688fb4e [4]"},
+        {"name": "Lunges", "setsReps": "양발 10~15회", "purpose": "단측 다리 신전 강화", "sourceRef": "NotebookLM e688fb4e [4]"},
+        {"name": "Calf Raises", "setsReps": "15~20회", "purpose": "발목/종아리 신전 마무리", "sourceRef": "NotebookLM e688fb4e [4]"},
+        {"name": "High Kick", "setsReps": "양발 10회, 능동", "purpose": "능동 다리 신전 가동", "sourceRef": "NotebookLM e688fb4e [4]"},
+        {"name": "Lateral Leg Raise", "setsReps": "양측 10~15회", "purpose": "측면 다리 신전 근력", "sourceRef": "NotebookLM e688fb4e [4]"}
+      ]
+    },
+    "hip_hamstring_tight": {
+      "triggers": {
+        "sourceSignals": ["axis_tilt"],
+        "jointHints": ["고관절", "내전근", "햄스트링"]
+      },
+      "exercises": [
+        {"name": "Hamstring Stretch", "setsReps": "후 20~30s", "purpose": "햄스트링 유연성 확보", "sourceRef": "NotebookLM e688fb4e [5]"},
+        {"name": "Hip Flexor Stretch", "setsReps": "후 20~30s", "purpose": "고관절 굴곡근 이완", "sourceRef": "NotebookLM e688fb4e [5]"},
+        {"name": "Quad Stretch", "setsReps": "후 20~30s", "purpose": "대퇴사두 이완", "sourceRef": "NotebookLM e688fb4e [5]"},
+        {"name": "Dynamic Leg Swings", "setsReps": "전 10회", "purpose": "고관절 동적 가동", "sourceRef": "NotebookLM e688fb4e [5]"},
+        {"name": "PNF Stretch", "setsReps": "파트너 수축/이완", "purpose": "고관절 가동범위 확장", "sourceRef": "NotebookLM e688fb4e [5]"}
+      ]
+    }
+  },
+  "painAreas": {
+    "shoulder": {
+      "avoid": "통증 시 매달리기 중단",
+      "exercises": [
+        {"name": "Push-ups", "setsReps": "8~12회", "purpose": "push 운동 밸런스로 어깨 보강", "sourceRef": "NotebookLM e688fb4e [6]"},
+        {"name": "Scapular Depression Drills", "setsReps": "매달려 버티기", "purpose": "능동 견갑 안정화", "sourceRef": "NotebookLM e688fb4e [6]"}
+      ]
+    },
+    "wrist": {
+      "avoid": "twisted grip / 꺾인 손목 고하중 제한",
+      "exercises": [
+        {"name": "Farmer's Walk", "setsReps": "왕복", "purpose": "전완근 보호 + 악력 강화", "sourceRef": "NotebookLM e688fb4e [6]"},
+        {"name": "Hand Grippers", "setsReps": "수시 반복", "purpose": "손목 주변 악력 보강", "sourceRef": "NotebookLM e688fb4e [6]"}
+      ]
+    },
+    "lower_back": {
+      "avoid": "반동 데드리프트/뒤집기 회피 (감점 요인)",
+      "exercises": [
+        {"name": "Supermans", "setsReps": "10~15회", "purpose": "척추 기립근 보강", "sourceRef": "NotebookLM e688fb4e [6]"},
+        {"name": "Planks", "setsReps": "정적 30~60s", "purpose": "정적 코어로 허리 보호", "sourceRef": "NotebookLM e688fb4e [6]"}
+      ]
+    },
+    "knee": {
+      "avoid": "오금 단독 체중 레그행 반복 감소",
+      "exercises": [
+        {"name": "Squats", "setsReps": "10~15회", "purpose": "대퇴사두 강성으로 무릎 보호", "sourceRef": "NotebookLM e688fb4e [6]"},
+        {"name": "Lunges", "setsReps": "양발 10~15회", "purpose": "무릎 주변 안정 근력", "sourceRef": "NotebookLM e688fb4e [6]"}
+      ]
+    },
+    "ankle": {
+      "avoid": "sickled foot 정렬 회피 (감점 -0.1)",
+      "exercises": [
+        {"name": "Calf Raises", "setsReps": "15~20회", "purpose": "발목 주변 근력 보강", "sourceRef": "NotebookLM e688fb4e [6]"}
+      ]
+    },
+    "neck": {
+      "avoid": "무리한 숄더 마운트/스탠드 회피",
+      "exercises": [
+        {"name": "Neck Stretch", "setsReps": "가벼운 목 스트레칭", "purpose": "목 주변 긴장 완화", "sourceRef": "NotebookLM e688fb4e [6]"}
+      ]
+    },
+    "hip": {
+      "avoid": "웜업 없는 180°+ 다리찢기 강행 금지",
+      "exercises": [
+        {"name": "Dynamic Leg Swings", "setsReps": "전 10회", "purpose": "고관절 모빌리티 워밍업", "sourceRef": "NotebookLM e688fb4e [6]"},
+        {"name": "Pigeon Pose", "setsReps": "양측 20~30s", "purpose": "고관절 모빌리티 (비둘기 자세)", "sourceRef": "NotebookLM e688fb4e [6]"}
+      ]
+    },
+    "elbow": {
+      "avoid": "엘보 그립 안쪽 과하중 경계",
+      "exercises": [
+        {"name": "Bicep/Tricep Balance", "setsReps": "수직+수평 당기기 균형", "purpose": "이두/삼두 근력 균형으로 엘보 보호", "sourceRef": "NotebookLM e688fb4e [6]"}
+      ]
+    }
+  }
+}

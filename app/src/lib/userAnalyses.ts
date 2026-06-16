@@ -109,6 +109,17 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       },
     };
   }
+  // Phase 13 (Plan 13-A, PERS-03) recommendedExercises null-guard.
+  // forcePatternInference 패턴 mirror — backend validator
+  // (_validate_recommended_exercises) 가 len<=5 + flat scalar 강제하므로
+  // 여기선 list 여부만 확인. 부재/비-list 면 undefined 유지 (TS contract
+  // recommendedExercises?: RecommendedExercise[] 가 undefined 허용).
+  if (Array.isArray(result?.recommendedExercises)) {
+    result = {
+      ...result,
+      recommendedExercises: result.recommendedExercises,
+    };
+  }
   // Phase 12 §9.12 keypointReport null-guard (D-12-E2 / Phase 9 D-09-U1 mirror).
   // Mirrors forcePatternInference pattern (lines 96-110). Wave 0B = schema only,
   // Wave 1 KeypointOverlay 가 본 필드 소비.

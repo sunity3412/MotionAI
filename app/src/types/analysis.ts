@@ -201,6 +201,20 @@ export interface CoachingCause {
   fix: string; // 이 case 인 경우 연습 방법 (1~2문장)
 }
 
+// Phase 13 (Plan 13-A, PERS-03): 보완 운동 1건. 분석 결과(실패 원인 후보 +
+// 통증부위)에 맞춰 backend exercise_map.map_exercises 가 산출 → Firestore
+// result.recommendedExercises (3~5 subset). plain camelCase scalar — nested 금지
+// (firestore-nested-array-flat / _validate_recommended_exercises scoped validator).
+// 3-way lockstep: 본 interface ↔ backend models.py recommendedExercises 계약 ↔
+// docs/contract.md §4 (CoachingCause 모양 정합). 전체 라이브러리 browse 는 별도
+// app/src/data/correctiveExercises.ts (backend fixture byte-copy mirror).
+export interface RecommendedExercise {
+  name: string; // 운동명 (예: 'Farmer's Walk')
+  setsReps: string; // 세트/반복 (예: '왕복', '8~12회')
+  purpose: string; // 한 줄 목적 (왜 이 운동인지)
+  sourceRef?: string; // 출처 cite (예: 'NotebookLM e688fb4e [1]'). 옵셔널.
+}
+
 // 구간별 점수 (reference-motions.md §7 공유 베이스 모션).
 // 일부 기술은 다른 기술의 베이스 구간을 공유함 (인버트 → 폭스탑 → 폭스탑 스플릿).
 // 한 기술 안에서 베이스 구간과 확장 구간을 나눠 평가해, 학생이 어느 단계에서
@@ -321,6 +335,13 @@ export interface AnalysisResult {
   // 책임 경계: Phase 11 (CoachCommentHook) 가 findings[].interpretation 위
   // LLM 자연어 풍부화. Phase 12 가 raw 수치 UI 노출. Phase 9 자체는 canned 만.
   forcePatternInference?: ForcePatternInference | null;
+  // Phase 13 (Plan 13-A, PERS-03) — 보완 운동 3~5개 개인화 subset.
+  // backend exercise_map.map_exercises(findings + painAreas + motion_id) 산출 →
+  // _validate_recommended_exercises scoped validator → result.recommendedExercises.
+  // 옵셔널 — 이전 빌드 doc 호환 (dimensionExplanation 패턴). 빈/부재 시 result.tsx
+  // 는 전체 라이브러리 모달 browse entry 만 유지 (MEDIUM-1). 전체 라이브러리는
+  // app/src/data/correctiveExercises.ts (backend fixture byte-copy mirror) 가 source.
+  recommendedExercises?: RecommendedExercise[];
   // Phase 12 Wave 0B (Plan 12-01) — §9.12 KeypointReport (D-12-E2 / D-12-U1).
   // 사용자 분석 영상의 keypoint flat 좌표 + axisData polyline + axisMask.
   // Wave 0B = schema only. Wave 1 KeypointOverlay 가 본 필드 소비.

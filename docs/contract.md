@@ -161,6 +161,7 @@ design.md §8 결과 화면이 그리는 데이터.
 overallScore   number              0~100 종합 (mode1=3차원 평균, mode3=절대 차원 평균)
 dimensionScores { angle?, line?, stability } 각 0~100  ← IPSF 실행 차원 (3차원)
 dimensionExplanation { [dim]: DimensionExplanation } optional  ← Phase 12.5 (2026-06-07)
+recommendedExercises RecommendedExercise[] optional  ← Phase 13 (2026-06-16, PERS-03)
 joints         JointScore[]        관절별 (8 — 평가 관절). 코칭 팁 근거
 tips           CoachingTip[]       상위 3개 (KISMAM Top-3 + Cerebras 문장)
 comparison     Mode1 | Mode3       아래
@@ -193,6 +194,25 @@ deficitSummary string 점수 산출과 동일 source 의 deficit 한 줄 카피.
     (`dimensions._select_window` 공유) — drift 0 보장.
   - 이전 빌드 doc 호환: 옵셔널 필드. 키 부재 시 frontend 추가 라인 표시 X.
   - 신 backend 는 빈 `{}` 라도 항상 emit (호환성).
+
+`RecommendedExercise[]` (Phase 13, 2026-06-16 추가 — PERS-03)
+```
+name        string 운동명 (예: "Farmer's Walk")
+setsReps    string 세트/반복 (예: "왕복", "8~12회")
+purpose     string 한 줄 목적 (왜 이 운동인지)
+sourceRef   string? 출처 cite (예: "NotebookLM e688fb4e [1]"). 옵셔널.
+```
+  - 분석 결과(실패 원인 후보 + 통증부위)에 맞춘 보완 운동 3~5개 개인화 subset.
+  - 생산자 = `analysis/exercise_map.map_exercises(forcePatternInference.findings,
+    bodyProfile.painAreas, motion_id)` — pure fn. painAreas 는 매핑 출력에만
+    흐르고 점수/차원 경로 미진입 (D-05).
+  - 검증 = `firestore_admin._validate_recommended_exercises` (len <= 5 cap + 각
+    item flat scalar — [[firestore-nested-array-flat]] 보존).
+  - 옵셔널 필드 — 빈/부재 시 result.tsx 는 전체 라이브러리 모달 browse entry 만
+    유지 (MEDIUM-1). 전체 라이브러리는 `app/src/data/correctiveExercises.ts`
+    (backend/data/corrective_exercises.json byte-copy mirror).
+  - 3-way lockstep: `app/src/types/analysis.ts:RecommendedExercise` ↔ `models.py
+    RECOMMENDED_EXERCISE_KEYS` ↔ 본 §4. 세 곳 동시 갱신 필수.
 
 `JointScore`
 ```

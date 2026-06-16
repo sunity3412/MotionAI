@@ -404,6 +404,48 @@ def _validate_force_pattern_inference(
         )
 
 
+# ── Plan 13-A (2026-06-16, Phase 13) — recommended_exercises scoped validator ──
+#
+# PERS-03. `_validate_force_pattern_inference` 1:1 mirror — `_validate_dict_only_scalars`
+# 본체 변경 영구 0 박제 정합. recommendedExercises 는 result 내부 list[dict] 이며
+# 각 dict 는 flat scalar (name/setsReps/purpose/sourceRef) 만 — 본 validator 만
+# 이 list[dict] path 를 박제 허용한다. [[firestore-nested-array-flat]] 보존.
+
+
+def _validate_recommended_exercises(
+    payload, *, path: str = "recommendedExercises"
+) -> None:
+    """recommended_exercises scoped validator (Plan 13-A / PERS-03).
+
+    명세:
+      · None graceful (미산출 분석 — return).
+      · list 아니면 reject.
+      · len > MAX_RECOMMENDED_EXERCISES(5) reject (criteria 2 cap — fabrication 금지).
+      · 각 item: dict + flat scalar 만 (`_validate_dict_only_scalars` 위임,
+        nested list / nested dict reject — firestore-nested-array-flat 보존).
+
+    위반 시 ValueError + path 정보 (caller 가 catch → fail_analysis 진입).
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, list):
+        raise ValueError(
+            f"_validate_recommended_exercises: list 입력만 허용. "
+            f"path={path!r} got {type(payload).__name__}"
+        )
+    if len(payload) > models.MAX_RECOMMENDED_EXERCISES:
+        raise ValueError(
+            f"{path} length > {models.MAX_RECOMMENDED_EXERCISES} — criteria 2 cap "
+            f"(len={len(payload)})"
+        )
+    for i, item in enumerate(payload):
+        if not isinstance(item, dict):
+            raise ValueError(
+                f"{path}[{i}] must be dict, got {type(item).__name__}"
+            )
+        _validate_dict_only_scalars(item, path=f"{path}[{i}]")
+
+
 # ── Plan 12-01 (2026-06-10, Phase 12) — keypoint_report scoped validator ──
 #
 # D-12-E3 + RESEARCH Pattern 5. Phase 9 `_validate_force_pattern_inference` 1:1
@@ -691,6 +733,7 @@ def complete_analysis(
     body_normalization_profile: dict | None = None,
     force_signals_report: dict | None = None,
     force_pattern_inference: dict | None = None,
+    recommended_exercises: list | None = None,
     keypoint_report: dict | None = None,
     gemini_b: dict | None = None,
     gemini_c: dict | None = None,
@@ -754,6 +797,12 @@ def complete_analysis(
         # [[firestore-nested-array-flat]] 보존. Phase 8 패턴 1:1 mirror.
         _validate_force_pattern_inference(force_pattern_inference)
         payload["result"]["forcePatternInference"] = force_pattern_inference
+    if recommended_exercises is not None:
+        # Plan 13-A (Phase 13, 2026-06-16) — PERS-03 scoped validator.
+        # result 내부 list[dict] (3~5 보완 운동). force_pattern_inference 블록
+        # mirror — len <= 5 cap + flat scalar 만. [[firestore-nested-array-flat]] 보존.
+        _validate_recommended_exercises(recommended_exercises)
+        payload["result"]["recommendedExercises"] = recommended_exercises
     if keypoint_report is not None:
         # Plan 12-01 (Phase 12, 2026-06-10) — D-12-E3 scoped validator.
         # `_validate_keypoint_report` 가 flat 강제 + nested list reject.

@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { AccuracyLimitBadge } from '../../components/AccuracyLimitBadge';
 import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
+import { RecommendedExerciseModal } from '../../components/RecommendedExerciseModal';
+import { CORRECTIVE_LIBRARY_HAS_ITEMS } from '../../data/correctiveExercises';
 import { DimensionDetailModal } from '../../components/DimensionDetailModal';
 import {
   ForcePatternCard,
@@ -507,6 +509,8 @@ export default function AnalysisResult() {
   const detailMode: 'mode1' | 'mode3' = cmp.mode === 'mode1' ? 'mode1' : 'mode3';
   // Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달 state. tip null = 닫힘.
   const [detailTip, setDetailTip] = useState<CoachingTip | null>(null);
+  // Phase 13 (Plan 13-A): "다른 운동 보기" 전체 라이브러리 모달 state. false = 닫힘.
+  const [exerciseModalOpen, setExerciseModalOpen] = useState(false);
   // Phase 12 Wave 1 (Plan 12-02 T4) — ForcePatternCard tap → 자세히 모달 state.
   // finding null = 닫힘. modeContext 별 mode 분기 코드 X (D-12-U3 — backend 자동).
   const [detailFinding, setDetailFinding] = useState<ForcePatternFinding | null>(
@@ -916,6 +920,58 @@ export default function AnalysisResult() {
           );
         })}
 
+        {/* ── Phase 13 (Plan 13-A, PERS-03): 보완 운동 섹션 ──────────────
+            MEDIUM-1: 가시성 = 개인화 추천 있음 OR 라이브러리에 항목 있음.
+            추천이 비어도 라이브러리가 있으면 "전체 보완 운동 보기" entry 유지
+            (criteria 4 entry point 미소멸). 분기:
+            (a) 추천 있음 → result.recommendedExercises 카드 (3~5 subset) +
+                "다른 운동 보기" → 전체 라이브러리 모달.
+            (b) 추천 없음 → neutral 한 줄 + "전체 보완 운동 보기" → 동일 모달. */}
+        {((result.recommendedExercises?.length ?? 0) > 0 ||
+          CORRECTIVE_LIBRARY_HAS_ITEMS) && (
+          <>
+            <Text style={styles.sectionTitle}>보완 운동</Text>
+            {(result.recommendedExercises?.length ?? 0) > 0 ? (
+              <>
+                {result.recommendedExercises!.map((ex, i) => (
+                  <View
+                    key={`${ex.name}-${i}`}
+                    style={[styles.card, styles.exerciseCard]}
+                  >
+                    <Text style={styles.exerciseName}>{ex.name}</Text>
+                    <Text style={styles.exerciseSets}>{ex.setsReps}</Text>
+                    <Text style={styles.exercisePurpose}>{ex.purpose}</Text>
+                  </View>
+                ))}
+                <Pressable
+                  onPress={() => setExerciseModalOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="다른 보완 운동 보기"
+                  hitSlop={8}
+                  style={styles.tipMoreRow}
+                >
+                  <Text style={styles.tipMore}>다른 운동 보기 ›</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.exerciseNeutral}>
+                  이번 분석에서는 뚜렷한 보완 운동 매핑이 없어요.
+                </Text>
+                <Pressable
+                  onPress={() => setExerciseModalOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="전체 보완 운동 보기"
+                  hitSlop={8}
+                  style={styles.tipMoreRow}
+                >
+                  <Text style={styles.tipMore}>전체 보완 운동 보기 ›</Text>
+                </Pressable>
+              </>
+            )}
+          </>
+        )}
+
         <Pressable
           style={styles.cta}
           onPress={() => router.replace('/(tabs)')}
@@ -962,6 +1018,11 @@ export default function AnalysisResult() {
             : undefined
         }
         onClose={() => setDetailFinding(null)}
+      />
+      {/* Phase 13 (Plan 13-A): "다른 운동 보기" 전체 보완 운동 라이브러리 모달. */}
+      <RecommendedExerciseModal
+        visible={exerciseModalOpen}
+        onClose={() => setExerciseModalOpen(false)}
       />
     </View>
   );
@@ -1184,6 +1245,28 @@ const styles = StyleSheet.create({
   },
   findingSmallSpacer: { flex: 1 },
   tipCard: { alignItems: 'flex-start', gap: 8 },
+  // Phase 13 (Plan 13-A): 보완 운동 카드 + neutral state.
+  exerciseCard: { alignItems: 'flex-start', gap: 4 },
+  exerciseName: {
+    ...typography.listTitle,
+    color: colors.textPrimary,
+  },
+  exerciseSets: {
+    ...typography.boxLabel,
+    color: colors.brand,
+    fontWeight: '700',
+  },
+  exercisePurpose: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  exerciseNeutral: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 4,
+  },
   tipHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tipAngleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   tipAngle: { ...typography.boxLabel, color: colors.brand },

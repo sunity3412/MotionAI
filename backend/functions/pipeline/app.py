@@ -58,6 +58,7 @@ from sunity_shared.analysis import (
     skeleton,
     technique,
 )
+from sunity_shared.analysis import exercise_map  # Phase 13 (Plan 13-A, PERS-03)
 from sunity_shared.analysis import force_pattern as fp
 from sunity_shared.analysis import force_signals as fs
 from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
@@ -1950,6 +1951,21 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             )
         # ────────────────────────────────────────────────────────────────
 
+        # ── Phase 13 (Plan 13-A, PERS-03) — 보완 운동 매핑 ──────────────────
+        # 실패 원인 후보(Phase 9 findings) + 자가입력 통증부위(bodyProfile.painAreas)
+        # + motion_id → exercise_map.map_exercises (pure fn). 3~5 개인화 subset.
+        # D-05: painAreas 만 소비 — weightKg 등 점수 경로 진입 0. normalize_body_profile
+        # 가 PAIN_AREAS frozenset 멤버만 통과 (위조 painAreas drop). graceful None/빈.
+        pain_areas = (
+            models.normalize_body_profile(meta.get("bodyProfile")) or {}
+        ).get("painAreas", []) or []
+        recommended_exercises = exercise_map.map_exercises(
+            force_pattern_inference_dict,
+            pain_areas=pain_areas,
+            motion_id=getattr(profile, "motion_id", None),
+        )
+        # ────────────────────────────────────────────────────────────────
+
         # ── Phase 12 Wave 0B (Plan 12-01) — KeypointReport 산출 + wiring ──
         # D-12-E2 + R3 정합. KeypointOverlay (Wave 1+) 소비 source.
         # 분석 algorithm (DTW / threshold / Phase 6/7/8 calibration) = 9fps 유지.
@@ -2112,6 +2128,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             body_normalization_profile=body_normalization_profile_dict,
             force_signals_report=force_signals_dict,
             force_pattern_inference=force_pattern_inference_dict,  # Phase 9 (Plan 09-02)
+            recommended_exercises=recommended_exercises,  # Phase 13 (Plan 13-A, PERS-03)
             keypoint_report=keypoint_report_dict,  # Phase 12 Wave 0B (Plan 12-01)
             gemini_b=gemini_b_audit,  # Plan 17-04 Wave 3 (영역 B Coach audit)
             gemini_c=scene_result,  # Plan 17-02 Wave 1 (영역 C Finding flag)

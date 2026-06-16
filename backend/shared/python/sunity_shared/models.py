@@ -34,6 +34,20 @@ ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_STABILITY)
 # - 신 backend 는 빈 {} 라도 항상 emit.
 DIMENSION_EXPLANATION_KEYS = ("weightPercent", "baseline", "deficitSummary")
 
+# ── Phase 13 (Plan 13-A, PERS-03): recommendedExercises 계약 명세 ───────
+# 분석 결과(실패 원인 후보 + 통증부위)에 맞춘 보완 운동 3~5개 개인화 subset.
+# - 생산자 = analysis/exercise_map.map_exercises(force_pattern_inference, pain_areas,
+#   motion_id) (pure fn, Layer 2 boto3-free). 입력은 Phase 9 findings + bodyProfile
+#   painAreas + motion_id 만 — painAreas 는 매핑 출력에만 흐르고 점수 경로 미진입 (D-05).
+# - 검증 = firestore_admin._validate_recommended_exercises scoped validator
+#   (len <= 5 cap + 각 item flat scalar — firestore-nested-array-flat 보존).
+# - 각 운동 dict = plain camelCase scalar {name, setsReps, purpose, sourceRef?}.
+#   static fixture(backend/data/corrective_exercises.json) 산출이라 normalizer 불필요.
+# - 3-way lockstep: app/src/types/analysis.ts:RecommendedExercise ↔ 본 계약 ↔
+#   docs/contract.md §4. 세 곳 동시 갱신 필수.
+RECOMMENDED_EXERCISE_KEYS = ("name", "setsReps", "purpose", "sourceRef")
+MAX_RECOMMENDED_EXERCISES = 5
+
 # ── Phase 3 (Plan 03-01) — BodyProfile 자가입력 계약 (3-way lockstep #2) ──
 # 사람용 명세: docs/contract.md "BodyProfile (자가입력)" 섹션.
 # TS 미러: app/src/types/analysis.ts (ExperienceLevel/DominantHand/PainArea

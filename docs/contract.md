@@ -550,6 +550,7 @@ judge-observation deduction 과 의미가 다르다.**
 | `doNotOverCorrect` | `do_not_over_correct` | `string[]` | **Phase 7 신설 (Plan 07-01, D-07-B3).** body_type_allowed 분류 finding 의 카피 aggregate. 결과 화면 "체형 허용 차이" 박스 source. |
 | `recommendedFocus` | `recommended_focus` | `string[]` | **Phase 7 신설 (Plan 07-01, D-07-B3).** needs_adjustment + uncertain 분류 finding 의 카피 aggregate. 결과 화면 "개선 필요" 박스 source (Decision 1 — uncertain 통합). |
 | `recommendedFocusFallback` | `recommended_focus_fallback` | `string \| null` | **Phase 7 신설 (Plan 07-01, WR-03 fix).** recommendedFocus[] 가 빈 list 일 때 단일 fallback 카피. Phase 12 가 빈 박스 회피용으로 활용. backend `copy_templates._EMPTY_FOCUS_FALLBACK` 박제. |
+| `coachCommentHook` | `coach_comment_hook` | `CoachCommentHook \| null` | **Phase 11 신설 (Plan 11-00, COACH-01 / D-02).** 리포트별 LLM 코칭 코멘트 hook. v1 nullable (백필 전/미생성). shape 은 §9.11.7 참조. |
 
 ### warnings enum (WR-02 fix — 9종, target_torso_px_missing 신규 추가)
 
@@ -1187,6 +1188,26 @@ R1~R4 정합. 핵심:
 | `no_significant_force_pattern_signal` | 6 signal 모두 detection 미통과 (D-09-B4) — fabrication 금지 |
 
 *Phase 9 추가: 2026-06-10 — ForcePatternInference + ForcePatternFinding 신설. D-09-A1~U6 박제. 본 contract = TS `analysis.ts` + Python `force_pattern.py` 와 atomic commit lockstep (D-09-U1).*
+
+#### §9.11.7 CoachCommentHook (Phase 11 신설 — COACH-01)
+
+Phase 11 이 신설한 per-report LLM 코칭 코멘트 hook (D-02). `ForcePatternInference` 와 `BodyComparisonReport` 각각에 `coachCommentHook?` 로 부착 (v1 nullable — 백필 전/미생성).
+
+| TS 필드 | Python 필드 | TS 타입 | 설명 |
+|---|---|---|---|
+| `autoFindingsSummary` | `auto_findings_summary` | `string` | LLM 자연어 요약 (findings interpretation 번역). non-empty. |
+| `openQuestionsForCoach` | `open_questions_for_coach` | `string[]` | 강사에게 던지는 질문. **list[str] 전용** (nested array 금지). 빈 list 허용. |
+| `suggestedCues` | `suggested_cues` | `string[]` | 수강생용 큐. **list[str] 전용** (nested array 금지). 빈 list 허용. |
+| `coachComment` | `coach_comment` | `string \| null` | **v2 강사 콘솔 입력 — v1 항상 null (D-06).** |
+| `reviewedBy` | `reviewed_by` | `string \| null` | **v2 리뷰어 — v1 항상 null (D-06).** |
+| `sourceReport` | `source_report` | `string \| null` | provenance scalar (`forcePatternInference` / `bodyComparisonReport`) — v2 콘솔 집계 (D-02). |
+
+- **부착 위치:** `forcePatternInference.coachCommentHook` + `bodyComparisonReport.coachCommentHook` (per-report 단위, D-02).
+- **Firestore 저장:** Wave 1 (Plan 11-01) 이 전용 `_validate_coach_comment_hook` scoped validator 박제 — list[str] 전용 게이트 (force path + body precheck). `coachCommentHook` 안 `openQuestionsForCoach` / `suggestedCues` 의 list[dict] / nested list reject ([[firestore-nested-array-flat]] 정합).
+- **모듈 분리 (HIGH-3):** `coach_hook.py` = frozen dataclass + pure validator only (finding 클래스 import 0 — 순환 차단). canned/builder 로직은 `coach_hook_builder.py`.
+- **책임 경계:** Phase 11 = `findings[].interpretation` 위 LLM 자연어 풍부화 (Gemini 자연어 번역만 — 점수/좌표/판정/도(degree)/% mint 금지, D-04/D-05). coach_comment/reviewed_by UI/입력은 v2 강사 콘솔.
+
+*Phase 11 추가: 2026-06-17 — CoachCommentHook 신설 (Wave 0 = TS interface + Python frozen dataclass + models.py re-export + docs §9.11.7/§8 단일 atomic commit). COACH-01 SC#1 / D-02 / D-06. Wave 1 (Plan 11-01) 이 GeminiCoachHookWriter + builder + Firestore 전용 validator + pipeline wiring 박제.*
 
 ### §9.12 KeypointReport (Phase 12 / FEED-01 + VIS-01)
 

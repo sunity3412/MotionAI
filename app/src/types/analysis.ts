@@ -917,6 +917,33 @@ export interface ForcePatternInference {
   /** umbrella (예: 'no_significant_force_pattern_signal', 'phase_unavailable_for_inference',
    *  'axis_signal_unavailable'). */
   warnings: string[];
+  /** Phase 11 (COACH-01) — 리포트별 LLM 코칭 코멘트 hook. v1 nullable (백필 전 / 미생성). */
+  coachCommentHook?: CoachCommentHook | null;
+}
+
+/**
+ * Phase 11 (COACH-01) — 리포트 1건에 부착되는 LLM 코칭 코멘트 hook (D-02 per-report 단위).
+ *
+ * Python lockstep: backend/shared/python/sunity_shared/analysis/coach_hook.py
+ *   CoachCommentHook (frozen dataclass + __post_init__ validator).
+ * docs lockstep: docs/contract.md §9.11.7 (+ §8 BodyComparisonReport 부착 표기).
+ *
+ * list 필드 = string[] 전용 (nested array 금지 — [[firestore-nested-array-flat]]).
+ * coachComment / reviewedBy = v2 강사 콘솔 입력용 — v1 항상 null (D-06).
+ */
+export interface CoachCommentHook {
+  /** LLM 자연어 요약 (findings interpretation 번역). non-empty. */
+  autoFindingsSummary: string;
+  /** 강사에게 던지는 질문 (string[] only). */
+  openQuestionsForCoach: string[];
+  /** 수강생용 큐 (string[] only). */
+  suggestedCues: string[];
+  /** v2 강사 입력 — v1 항상 null (D-06). */
+  coachComment?: string | null;
+  /** v2 리뷰어 — v1 항상 null (D-06). */
+  reviewedBy?: string | null;
+  /** provenance scalar ('forcePatternInference' / 'bodyComparisonReport') — v2 콘솔 집계 (D-02). */
+  sourceReport?: string | null;
 }
 
 // ── Phase 12 §9.12 KeypointReport (D-12-E2 / D-12-U1) ────────────────────
@@ -1196,6 +1223,8 @@ export interface BodyComparisonReport {
    * 12 가 빈 박스 회피용으로 활용. backend copy_templates._EMPTY_FOCUS_FALLBACK
    * 박제. */
   recommendedFocusFallback?: string | null;
+  /** Phase 11 (COACH-01) — 리포트별 LLM 코칭 코멘트 hook. v1 nullable (백필 전 / 미생성). */
+  coachCommentHook?: CoachCommentHook | null;
 }
 
 /**

@@ -276,6 +276,20 @@ from .analysis.body_normalizer import (  # noqa: E402 — 파일 하단 re-expor
     ScaleProfile,
 )
 
+# Phase 11 (2026-06-17, Plan 11-00) — COACH-01 CoachCommentHook 신설.
+#   CoachCommentHook = 리포트별 LLM 코칭 코멘트 hook (D-02 per-report 단위).
+#   list 필드 = list[str] 전용 (nested array 금지). coach_comment / reviewed_by =
+#   v1 항상 None (D-06 — v2 강사 콘솔 입력).
+# HIGH-3: coach_hook.py 는 finding 클래스를 import 하지 않는다 (force_pattern /
+#   body_normalizer 가 coach_hook 을 import 하므로 역참조 시 순환). builder 로직은
+#   별도 모듈 coach_hook_builder.py.
+# 본 위치는 re-export only (재정의 금지 — dataclass 본체는 coach_hook.py 에만 존재).
+# TS 미러: app/src/types/analysis.ts CoachCommentHook interface.
+# 변경 시 TS + docs/contract.md §9.11.7 + §8 동시 갱신 (CLAUDE.md Cross-cutting).
+from .analysis.coach_hook import (  # noqa: E402, F401 — 파일 하단 re-export 패턴
+    CoachCommentHook,
+)
+
 # Phase 8 Force Signals (Plan 08-01 revised — REVIEWS Cycle 1).
 # Plan 08-02 신설 후 import 활성화 (force_signals.py dataclass 본체 박제 후).
 # 본 plan 은 placeholder = forward-declare 주석만 (3-way lockstep 의 Python 측면

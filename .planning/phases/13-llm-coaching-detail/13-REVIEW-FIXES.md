@@ -32,7 +32,7 @@ RESEARCH(L302-307) 과 1차 patch 의 단일 `isRegistered` boolean 은 **supers
 | `sourceNote` | string (non-empty 필수) | 라우팅 결정 근거 |
 
 룩업 함수: `lookup_motion_ipsf(...) -> tuple[str|None, bool|None]` 은 **superseded** →
-`lookup_motion_branch(motion_id) -> MotionBranchInfo`(copyBranch / ipsfCode / officialName / angleSource / angleFixtureKey / criteriaYaml 노출 dict 또는 dataclass). app.py / assemble.build_result / assemble.build_dimension_explanation / coach_writer 가 모두 이 richer object 를 소비(bare boolean 아님).
+`lookup_motion_branch(motion_id) -> MotionBranchInfo`. **MotionBranchInfo = `@dataclass(frozen=True)`** (3차 MEDIUM-2 — dict 아님, attribute 접근 `branch_info.copyBranch` 일관). 필드: `copyBranch: str, ipsfCode: str|None, officialName: str, angleSource: str, angleFixtureKey: str|None, criteriaYaml: str|None, sourceNote: str`. assemble.py(또는 인접 fixture helper)에 정의. app.py / assemble.build_result / assemble.build_dimension_explanation / coach_writer 가 모두 이 dataclass 를 소비(bare boolean 아님, dict 아님).
 
 ### Fail-closed: 현재 5 production id 는 `copyBranch:"unknown"` 으로 ship 불가
 
@@ -68,7 +68,7 @@ RESEARCH(L233, L305) 의 "세계 심사 기준 (IPSF) + 180°" / "어깨/무릎 
   { "schemaVersion": "1.0.0",
     "angles": { "ipsf-ayesha": {...}, "ref-invert": {"angleSource":"eunji_measured_yaml", "criteriaYaml":"ref-invert.yaml"} } }
   ```
-- 모든 motion_ipsf_map 엔트리는 `angleFixtureKey` 를 가진다. 테스트:
+- 모든 motion_ipsf_map 엔트리는 `angleFixtureKey` **필드**를 가진다. 단 non-null 은 `ipsf_registered_fixture`/`eunji_measured_yaml` 에서만 — `no_angle_criterion`(ref-climb)에서는 **반드시 null**(3차 HIGH-1: 가짜 key 강제 금지). 테스트:
   - `angleSource=ipsf_registered_fixture` → `registered_move_angles.angles[angleFixtureKey]` 존재
   - `angleSource=eunji_measured_yaml` → `criteria/{angleFixtureKey}.yaml` 존재
   - `angleSource=no_angle_criterion` → 프롬프트가 "관절 각도 fixture 없음" 명시(가짜 각도 생성 0)

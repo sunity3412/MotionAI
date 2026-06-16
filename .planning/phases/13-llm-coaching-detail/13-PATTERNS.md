@@ -4,6 +4,8 @@
 **Files analyzed:** 12 (Plan A: 6 / Plan B: 6, some shared)
 **Analogs found:** 12 / 12 (every new file maps to an in-repo, production-exercised analog — zero greenfield infra per RESEARCH §Summary)
 
+> **Direct-review supersession (see 13-REVIEW-FIXES.md).** 본 문서의 "Branch baseline copy" 섹션은 단일 `is_registered` boolean / derived map 가정으로 작성되었으나 2·3차 리뷰로 뒤집혔다. 충돌 시 우선순위: 13-REVIEW-FIXES.md > plan `<action>` > 본 문서. 실 라우팅 = `lookup_motion_branch(motion_id) -> MotionBranchInfo`(frozen dataclass; `copyBranch` + `angleSource` + `angleFixtureKey` 직교). 아래 `is_registered is True/False/None` 분기·`derive ipsf_code` 표현은 **superseded**.
+
 > All file access in this map is read-only. The only file written is this PATTERNS.md.
 > Honors: D-05 (BodyProfile/painAreas → mapping+coaching ONLY, never scoring), 3-way contract lockstep (analysis.ts ↔ models.py ↔ contract.md atomic), light theme + #FF4B33 + theme tokens only (no hardcoded values).
 
@@ -222,16 +224,16 @@ Then thread `recommended_exercises` into the `complete_analysis(...)` write (the
 def build_dimension_explanation(
     assessments, dimension_scores, comparison,
     joint_angles=None, profile=None,
-    ipsf_code: str | None = None, is_registered: bool | None = None,  # NEW
+    branch_info: "MotionBranchInfo | None" = None,  # NEW (frozen dataclass — SUPERSEDES ipsf_code/is_registered)
 ) -> dict[str, dict]:
 ```
 
-**Branch baseline copy** — extend the `_DIMENSION_BASELINES_MODE1/MODE3` selection (assemble.py:32-41, 98-99). Add registered/branch-2 baseline dicts:
-- `is_registered is True` → "세계 심사 기준 (IPSF) — 어깨/무릎 180° 신전" (criteria 6).
-- `is_registered is False` → "정은지 선수 기준 자세" — NEVER "세계 심사 기준" (criteria 6 + 8). branch-2 angles come from `judging_data/criteria/ref-foxtop.yaml` (`extension_class: BENT_OK`, RESEARCH §A note).
-- `is_registered is None` → existing mode-aware baseline (assemble.py:99) = backward compat (FallbackRecognizer / motion_id None → RESEARCH Pitfall 3).
+**Branch baseline copy** — extend the `_DIMENSION_BASELINES_MODE1/MODE3` selection (assemble.py:32-41, 98-99). Branch on `branch_info.copyBranch`:
+- `copyBranch == "branch1_ipsf_registered"` → "세계 심사 기준 (IPSF)" — 단 "180°" 는 **angle 차원이 아니라 line/EXTEND 관절 전용** (3차 HIGH-1/2차 HIGH-3). angle 차원 baseline = 동작별 정의 각도(NON-180).
+- `copyBranch == "branch2_eunji_reference"` → "정은지 선수 기준 자세" — NEVER "세계 심사 기준" (criteria 6 + 8). 측정 각도는 `angleSource=eunji_measured_yaml` → `criteria/{angleFixtureKey}.yaml`.
+- `branch_info is None` (motion_id 미인식 / FallbackRecognizer) → existing mode-aware baseline (assemble.py:99) = backward compat.
 
-**ipsf_code resolution** — at the assemble.py call site (or a small helper), load `motion_ipsf_map.json` keyed by `profile.motion_id` to derive `ipsf_code`/`is_registered`. Do NOT add `ipsf_code` to TechniqueProfile scoring path (objectivity / D-05).
+**branch_info resolution** — at the assemble.py call site (or a small helper), `lookup_motion_branch(profile.motion_id)` loads the **curated** `motion_ipsf_map.json` (NOT derived) and returns `MotionBranchInfo`. `angleSource` (`ipsf_registered_fixture | eunji_measured_yaml | no_angle_criterion`) selects the angle fixture independently of `copyBranch`. Do NOT add `ipsf_code`/branch fields to the TechniqueProfile scoring path (objectivity / D-05).
 
 **criteria-8 grep gate:** add a forbidden-phrase test (precedent `FORBIDDEN_PHRASES_PHASE9_REGEX`, RESEARCH §Wave 0 Gaps) asserting branch-2 copy never contains "세계 심사 기준" / "180°".
 

@@ -32,7 +32,7 @@ must_haves:
     - "copyBranch(라우팅 객체)로 차원 자세히 카피가 분기된다 — branch1_ipsf_registered '세계 심사 기준(IPSF)+EXTEND 관절 180°' / branch2_eunji_reference '정은지 선수 기준' (criteria 6, BLOCKER-1)"
     - "coach 프롬프트가 동작별 IPSF/정은지 정의 각도(180° 가 아닌 값 포함)를 인용한다 (criteria 7)"
     - "분기2(학원 통용) 카피에 '세계 심사 기준' / '180°' 가 절대 나오지 않는다 (criteria 8)"
-    - "REGISTERED_MOTIONS 의 모든 motion_id 가 non-unknown copyBranch + angleSource + angleFixtureKey + non-empty sourceNote 를 가진다 (fail-closed: 현재 5 id 중 unknown ship 0, BLOCKER-1)"
+    - "REGISTERED_MOTIONS 의 모든 motion_id 가 non-unknown copyBranch + angleSource + non-empty sourceNote 를 가진다. angleFixtureKey 필드는 항상 존재하되 non-null 은 ipsf_registered_fixture/eunji_measured_yaml 에서만, no_angle_criterion(ref-climb)에서는 null (fail-closed: 현재 5 id 중 unknown ship 0, BLOCKER-1/HIGH-1)"
     - "copyBranch 와 angleSource 가 직교 라우팅된다 — 예: ref-invert 는 branch1_ipsf_registered 이지만 angleSource=eunji_measured_yaml (단일 boolean 으로 둘 다 라우팅 불가, BLOCKER-1)"
     - "angleSource 별 각도 lookup 이 angleFixtureKey 로 일관된다 — ipsf_registered_fixture→registered_move_angles.angles[key] / eunji_measured_yaml→criteria/{key}.yaml / no_angle_criterion→가짜 각도 미주입 (HIGH-1)"
   artifacts:
@@ -153,7 +153,7 @@ Iteration-1 박제(유지): build_result pass-through 잠금+테스트 / criteri
     <automated>cd backend && python -m pytest tests/phase13/test_dimension_explanation_ipsf_branch.py tests/phase13/test_motion_ipsf_map_coverage.py tests/phase13/test_build_result_branch_passthrough.py tests/phase13/test_branch2_forbidden_phrase_gate.py -x -q</automated>
   </verify>
   <acceptance_criteria>
-    - motion_ipsf_map.json 이 REGISTERED_MOTIONS 5 id 전수 cover, 각 id 가 non-unknown copyBranch + angleSource + angleFixtureKey + non-empty sourceNote (derived 아님, fail-closed unknown ship 0, BLOCKER-1)
+    - motion_ipsf_map.json 이 REGISTERED_MOTIONS 5 id 전수 cover, 각 id 가 non-unknown copyBranch + angleSource + non-empty sourceNote; angleFixtureKey 는 ipsf_registered_fixture/eunji_measured_yaml 에서 required, no_angle_criterion(ref-climb)에서 null (derived 아님, fail-closed unknown ship 0, BLOCKER-1/HIGH-1)
     - copyBranch 와 angleSource 가 직교 — ref-invert=branch1_ipsf_registered + eunji_measured_yaml 명시 assert (단일 boolean 환원 불가, BLOCKER-1)
     - registered_move_angles.json 이 schemaVersion + angleFixtureKey-keyed, motion_ipsf_map 과 키 계약 (HIGH-1); 현재 5 동작 ipsf_registered_fixture 0
     - angleSource 별 lookup 계약 통과 — ipsf_registered_fixture→angles[key] / eunji_measured_yaml→criteria/{key}.yaml / no_angle_criterion→가짜 각도 0 (HIGH-1)

@@ -18,7 +18,7 @@ All file/line anchors cited by the plans were verified against the live codebase
 | 3 | mapping uses motion + failure-cause + painAreas | A T2 (`map_exercises(force_pattern_inference, pain_areas, motion_id)`) | COVERED |
 | 4 | "다른 운동 보기" library browse | A T3 (RecommendedExerciseModal) | COVERED |
 | 5 | real Cerebras detail2 E2E in Firestore | B T4 (checkpoint:human-verify, Pod) — **not auto-claimed** | COVERED (honest) |
-| 6 | ipsfCode branch1 vs branch2 copy split | B T2 (build_dimension_explanation is_registered branch) | COVERED |
+| 6 | ipsfCode branch1 vs branch2 copy split | B T2 (build_dimension_explanation `branch_info.copyBranch` branch via `lookup_motion_branch`; is_registered boolean superseded — see 13-REVIEW-FIXES.md) | COVERED |
 | 7 | coach prompt cites correct IPSF angles | B T1 (angle fixture human-verify) + B T2/T3 (fixture + prompt inject) | COVERED |
 | 8 | branch-2 avoids "세계 심사 기준" | B T2 (test_branch2_forbidden_phrase_gate) | COVERED |
 

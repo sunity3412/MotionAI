@@ -28,8 +28,29 @@ findings:
   warning: 5
   info: 3
   total: 9
-status: issues_found
+status: resolved
+resolution:
+  critical_fixed: 1
+  fixed: [CR-01, WR-01]
+  deferred: [WR-02, WR-03, WR-04, WR-05, IN-01, IN-02, IN-03]
+  fix_commit: 70544a2
 ---
+
+> **Resolution (2026-06-17):** CR-01 (BLOCKER) fixed in commit `70544a2` —
+> `_payload_to_hook` now strips empty/whitespace items, de-dupes, and caps the
+> LLM hook lists (covering WR-01), and the pipeline wraps hook generation in a
+> try/except canned fallback so no hook defect can reach `fail_analysis` (D-08 /
+> ROADMAP SC#5). Reproduction from CR-01 now returns clean hooks with no raise;
+> phase11 33 GREEN + gemini 111 regression PASS retained.
+>
+> **Deferred (documented, not active correctness breaks under current config):**
+> WR-02 (latent force-signals coupling — gate is always-true today), WR-03/WR-04
+> (writer guard runs on the production raw-text path; the bundle/`parsed`
+> shortcuts are test-injection seams since `response_schema` is a stripped dict,
+> not the Pydantic class, so real `genai` responses are always guarded), WR-05
+> (test-fixture deficit_code fidelity + Phase-7 dataclass enum enforcement —
+> out of Phase 11 scope), IN-01/02/03 (dead retry artifacts, always-true gate
+> readability, pre-existing UI TODO filler). Candidates for a follow-up cleanup.
 
 # Phase 11: Code Review Report
 

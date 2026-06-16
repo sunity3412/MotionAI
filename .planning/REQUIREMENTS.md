@@ -87,6 +87,7 @@
 ### 개인화 확장 (Personalization Expansion)
 
 - **PERS-02**: 동작별 타깃 근육 시각화 (영상 위 muscle activation 추정 표시)
+- **PERS-04**: 연령·성별·체형 규준 맞춤 리포트 맥락 — BodyProfile 에 age band + gender 입력 신설(미성년 동의 처리 포함), 국민체력100 인증기준 규준(`backend/judging_data/fitness_norms_kspo.yaml`, Phase 13 커밋 3c937d9)을 join 하여 "또래 1등급 상대악력 ~45% 참고" 같은 교육적 맥락 + 연령·성별 맞춤 코칭 톤을 리포트에 부착한다. **점수/분석 차원 단정 금지(D-05), 영상 측정 불가라 자동 등급배치 금지 — 리포트 맥락 전용.** 데이터 fixture 는 Phase 13 에서 이미 확보(커밋만 됨, wiring 은 v2). belle 2026-06-16 결정: 연령·성별 의학적 차이 근거가 리서치에 부재(NotebookLM) + PROJECT.md "체형 입력+맞춤 피드백" v2 연기와 정합 → v1 미포함. (memory [[kspo-fitness-norms-report-context]])
 
 ### 챔피언 레퍼런스 (Champion Reference Moat — research 0.8)
 

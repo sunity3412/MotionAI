@@ -30,7 +30,7 @@
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |-------------------|------|-----------|----------------|---------------|
 | `backend/data/motion_ipsf_map.json` (NEW) | config / fixture | transform (static lookup) | `backend/data/reference-motions-branch2.json` + `aka-mapping.json` | exact |
-| `backend/shared/python/sunity_shared/analysis/assemble.py` (MODIFY: `ipsf_code`/`is_registered` kwargs + branch copy) | service (assembler) | transform | `build_dimension_explanation` self (assemble.py:63) — extend mode-aware → branch-aware | exact |
+| `backend/shared/python/sunity_shared/analysis/assemble.py` (MODIFY: `branch_info: MotionBranchInfo \| None` kwarg via `lookup_motion_branch` + `copyBranch` branch copy; `ipsf_code`/`is_registered` boolean superseded — see 13-REVIEW-FIXES.md) | service (assembler) | transform | `build_dimension_explanation` self (assemble.py:63) — extend mode-aware → branch-aware | exact |
 | `backend/shared/python/sunity_shared/analysis/coach_writer.py` (MODIFY: `_build_prompt` signature + `_SYSTEM` guard + angle fixture inject) | adapter (LLM) | request-response (LLM call) | `coach_writer.py::_build_prompt` self (coach_writer.py:49) | exact |
 | Pod/Lambda env `CEREBRAS_KEY_PARAM` + SSM SecureString (OPS, no code) | config | secret | `_load_api_key()` pattern (coach_writer.py:33) + auth.py FIREBASE_SA_PARAM | exact |
 

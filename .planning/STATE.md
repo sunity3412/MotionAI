@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 13 13-C context gathered
-last_updated: "2026-06-16T08:32:23.863Z"
-last_activity: 2026-06-16 -- Phase 13 planning complete
+stopped_at: Phase 13 13-C section-dual-coach complete
+last_updated: "2026-06-16T09:30:00.000Z"
+last_activity: 2026-06-16 -- Phase 13 13-C section-dual-coach executed (3 commits)
 progress:
   total_phases: 20
   completed_phases: 11
   total_plans: 81
-  completed_plans: 73
-  percent: 55
+  completed_plans: 74
+  percent: 56
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 13 (llm-coaching-detail) — EXECUTING
-Plan: 2 of 2
-Verification: Wave 4 (04-04) — pytest backend/tests/phase04/test_video_gen_adapter.py 5 PASS / pytest backend/tests/phase04/ 36 PASS + 2 SKIP (Wave 3a 31 → +5) / pytest backend/tests/ 1704 PASS (regression 0, 기존 36 fail 불변) / import gate (VideoGenerationAdapter + OmniVertexAdapter + VeoAdapter + get_video_gen_adapter) PASS / grep SYNTHESIS_VIDEO_GEN_ENABLED hit / @runtime_checkable Protocol structural subtyping PASS / pipeline/app.py unchanged (D-31 정합 — last commit 2790f57 pre-Wave 4). Plan `<done>` 게이트 all PASS.
-Next: Wave 5 — 04-05 (정은지 5영상 Phase 4-compatible 재처리 + versioned/atomic write + rollback + test_evaluate_4way.py 하단 RunPod 통합 테스트 append). Wave 3b @integration (실 RTMW 재추론) 여전히 parked (RunPod 필요, phase blocker 아님).
-Status: Ready to execute
+Phase: 13 (llm-coaching-detail) — 13-A/B/C 빌드 완료
+Plan: 13-C of 13-C (A/B/C 3 plan 모두 빌드 완료)
+Verification: 13-C — `assemble.assemble_dual_coach_sections` 섹션 조립 + cross-fill 폴백 7 케이스 PASS / phase13 88 passed (81+7, 회귀 0) / pipeline+geminib+dispatch 포함 131 passed / app tsc --noEmit clean / 자세히 모달 벤더명 렌더 텍스트 0 / gemini_b dual-track audit Firestore flat 검증 통과 / GEMINI_COACH_ENABLED=0 Cerebras-only path 보존. 3 atomic commit (8ec9dc5/4f7f7aa/340d0c9).
+Next: Phase 15 (실증) — 실 영상 → 실 dual-LLM 섹션 조립 E2E 라이브 검증 + "둘 중 하나 drop 여부" 결정 (13-C 빌드 ≠ drop 결정). Pod 기동 + 라이브 LLM 호출은 Phase 15 scope.
+Status: 13-C 빌드 완료, Phase 13 verify-phase 또는 Phase 14/15 진입 대기
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu

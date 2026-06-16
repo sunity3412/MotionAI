@@ -411,7 +411,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 13-C-section-dual-coach-PLAN.md — Wave 3 (신규, belle 2026-06-16): **섹션형 듀얼 coach 보고서** — 두 writer 동시 호출 + detail2 출처 태깅 + UI 섹션 렌더. 섹션: 원인(왜)=Gemini / 교정 처방(무엇)=Cerebras / 부상위험=Cerebras / 강사확인=Gemini. "왜 안 되는지 + 무엇이 필요한지" 핵심가치 직접 매핑. **실증 시 둘 중 하나 drop 여부 = Phase 15 검증 기준.** (coaching detail 완성 = 본 phase 도메인이라 phase 19 신설 X, 13-C 로 처리)
+- [x] 13-C-section-dual-coach-PLAN.md — Wave 3 **완료 2026-06-16**: **섹션형 듀얼 coach 보고서** — 두 writer 동시 호출(`_call_coach_writer_with_retry` 재시도 1회) + `assemble.assemble_dual_coach_sections` 섹션 출처 태깅 조립 + 계층형 cross-fill 폴백(빈 섹션 0) + 섹션 출처 audit 로깅 + 자세히 모달 4섹션 세로 스택 렌더. 섹션: 원인(왜)=Gemini / 교정 처방(무엇)=Cerebras / 부상위험=Cerebras / 강사확인=Gemini. detail2 형상 불변(source 필드 미추가, 벤더명 비노출). UI 라벨 = 기능 라벨만. phase13 88 passed + tsc clean. **빌드 = 단위/타입 게이트까지 — 실 dual-LLM E2E + 둘 중 하나 drop 여부 = Phase 15 검증 기준.** (coaching detail 완성 = 본 phase 도메인이라 phase 19 신설 X, 13-C 로 처리)
 
 **UI hint**: yes
 

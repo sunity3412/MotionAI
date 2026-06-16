@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "overallConfidence": "medium",
+  "modeContext": "mode1",
+  "warnings": [],
+  "findings": [
+    {
+      "pattern": "pull",
+      "phase": "lock",
+      "sourceSignal": "late_contact",
+      "reason": "Hand reaches the pole later than the reference timing during lock.",
+      "interpretation": "그립 접촉이 늦어 폴을 잡는 힘이 부족했을 가능성이 있어요.",
+      "confidence": 0.7,
+      "jointHint": "손목",
+      "warnings": []
+    },
+    {
+      "pattern": "brace",
+      "phase": "hold",
+      "sourceSignal": "axis_tilt",
+      "reason": "Body axis tilts away from vertical during the hold phase.",
+      "interpretation": "중심축이 기울어 코어로 버티는 힘이 약했을 가능성이 있어요.",
+      "confidence": 0.72,
+      "jointHint": "코어",
+      "warnings": []
+    }
+  ]
+}

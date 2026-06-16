@@ -537,6 +537,31 @@ export default function AnalysisResult() {
     return [fallback];
   }, [result.forcePatternInference]);
 
+  // Phase 11 (Plan 11-02, COACH-01 / D-06 / HIGH-2) — "강사에게 확인할 점" 섹션.
+  // 두 리포트(forcePatternInference + bodyComparisonReport)의 coachCommentHook.
+  // openQuestionsForCoach 를 **병합**한다. 첫 non-null array 만 고르는 `??`-chain
+  // 금지 — array 는 nullish 가 아니라 force hook 존재 시 body 질문이 영구 누락된다
+  // (review HIGH-2). 각 source 는 `?? []` 로 받고 concat → trim → Boolean filter →
+  // de-dupe → slice(0,5).
+  // D-06: openQuestionsForCoach 만 v1 화면에 노출한다. hook 의 나머지 LLM 요약/큐
+  // 필드는 저장만 되고 v1 비노출, 강사 입력 필드(coachComment / reviewedBy)는 v2.
+  const openQuestionsForCoach = useMemo(() => {
+    const force =
+      result.forcePatternInference?.coachCommentHook?.openQuestionsForCoach ??
+      [];
+    const body =
+      result.bodyComparisonReport?.coachCommentHook?.openQuestionsForCoach ??
+      [];
+    return [...force, ...body]
+      .map((q) => q.trim())
+      .filter(Boolean)
+      .filter((q, i, arr) => arr.indexOf(q) === i)
+      .slice(0, 5);
+  }, [
+    result.forcePatternInference?.coachCommentHook,
+    result.bodyComparisonReport?.coachCommentHook,
+  ]);
+
   // Phase 12 Wave 1 (Plan 12-02 T4) — KeypointOverlay 박제 site (R7 render prop).
   // VideoCompare 가 player lifecycle 안에서 callback 호출. Wave 1 = 정적
   // frameIndex=0 + visible=true (토글 UI 는 Wave 2 책임).
@@ -670,6 +695,13 @@ export default function AnalysisResult() {
               <Text style={styles.bodyProfileText}>{bodyProfileSummary}</Text>
             </View>
           ) : null}
+          {/* Phase 11 (Plan 11-02, FEED-03 / D-07) — AI = "강사 보조 도구"
+              포지셔닝 상단 1줄. 가볍게 한 줄만 (전용 강조 배너 채택 안 함 —
+              매 분석 반복 노출 거슬림, D-07). "강사에게 확인할 점" 섹션과 함께
+              AI 가 강사를 대체하지 않고 지도를 돕는 참고임을 명확히 한다. */}
+          <Text style={styles.coachPositioning}>
+            이 분석은 강사 지도를 돕는 참고예요.
+          </Text>
         </View>
 
         {/* mode1 전용: 기준 모션 메타 카드 (선수·동작·레벨·설명) */}
@@ -685,6 +717,12 @@ export default function AnalysisResult() {
             {refMotion?.description && (
               <Text style={styles.refDesc}>{refMotion.description}</Text>
             )}
+            {/* Phase 11 (Plan 11-02, ROADMAP SC#4) — 기준 모션은 절대 정답이
+                아니라 하나의 참고. 정은지 비교 점수를 "전문가 기준 절대값"으로
+                오인하지 않도록 라벨 근처에 명시 (강사 보조 도구 포지셔닝 정합). */}
+            <Text style={styles.refNote}>
+              기준 모션은 하나의 참고일 뿐이에요.
+            </Text>
           </View>
         )}
 
@@ -920,6 +958,34 @@ export default function AnalysisResult() {
           );
         })}
 
+        {/* ── Phase 11 (Plan 11-02, COACH-01 / D-06 / D-07 / HIGH-2):
+            강사에게 확인할 점 섹션 ─────────────────────────────────────────
+            두 리포트(force + body)의 openQuestionsForCoach 병합 결과(중복 제거 +
+            최대 5개). 수강생이 강사에게 가져갈 질문 거리 → 학원 도입·강사 보조
+            도구 포지셔닝 직접 지원. 질문이 1개 이상일 때만 섹션 렌더 (graceful —
+            hook 없는 이전 doc / 한쪽 리포트만 hook 인 doc 도 크래시 0).
+            섹션 헤더 sub 가 "AI = 강사 보조 도구" 톤을 강화한다 (D-07). */}
+        {openQuestionsForCoach.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>강사에게 확인할 점</Text>
+            <Text style={styles.coachSectionSub}>
+              아래 질문을 강사와 함께 확인해보세요.
+            </Text>
+            <View style={[styles.card, styles.coachCard]}>
+              {openQuestionsForCoach.map((q, i) => (
+                <View key={`${q}-${i}`} style={styles.coachQuestionRow}>
+                  <Ionicons
+                    name="chatbubble-ellipses-outline"
+                    size={16}
+                    color={colors.brand}
+                  />
+                  <Text style={styles.coachQuestionText}>{q}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
         {/* ── Phase 13 (Plan 13-A, PERS-03): 보완 운동 섹션 ──────────────
             MEDIUM-1: 가시성 = 개인화 추천 있음 OR 라이브러리에 항목 있음.
             추천이 비어도 라이브러리가 있으면 "전체 보완 운동 보기" entry 유지
@@ -1045,6 +1111,13 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 8,
+  },
+  // Phase 11 (Plan 11-02, D-07) — AI = "강사 보조 도구" 포지셔닝 상단 1줄.
+  // 토큰만 (하드코딩 금지). 가벼운 보조 톤이라 textSecondary.
+  coachPositioning: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 6,
   },
   // [R1] BodyProfile snapshot 요약 row — 토큰만 (하드코딩 금지, R3).
   bodyProfileRow: {
@@ -1184,6 +1257,9 @@ const styles = StyleSheet.create({
   },
   refName: { ...typography.listTitle, color: colors.textPrimary },
   refDesc: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  // Phase 11 (Plan 11-02, ROADMAP SC#4) — 기준 모션 = 하나의 참고 문구.
+  // refCard 가 brandTint 배경이라 brand 톤으로 강조 (절대값 오인 방지).
+  refNote: { ...typography.captionSmall, color: colors.brand, marginTop: 4 },
   segmentHintText: {
     ...typography.caption,
     color: colors.textSecondary,
@@ -1245,6 +1321,25 @@ const styles = StyleSheet.create({
   },
   findingSmallSpacer: { flex: 1 },
   tipCard: { alignItems: 'flex-start', gap: 8 },
+  // Phase 11 (Plan 11-02, D-06 / D-07) — "강사에게 확인할 점" 섹션.
+  // 섹션 헤더 sub = 강사 보조 도구 톤 (D-07). 카드 = 질문 리스트.
+  coachSectionSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: -6,
+  },
+  coachCard: { alignItems: 'flex-start', gap: 10 },
+  coachQuestionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  coachQuestionText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    lineHeight: 18,
+    flexShrink: 1,
+  },
   // Phase 13 (Plan 13-A): 보완 운동 카드 + neutral state.
   exerciseCard: { alignItems: 'flex-start', gap: 4 },
   exerciseName: {

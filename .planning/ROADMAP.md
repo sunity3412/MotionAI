@@ -52,6 +52,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path. (completed 2026-06-02)
 - [x] **Phase 17: Gemini Vision Integration — 4 영역 통합** - Gemini Vision multimodal 을 영역 A(reference 자동 등록)/B(코칭 멘트)/C(finding 인식)/D(keypoint 보강) 4개에 도입 + Phoenix/Promptfoo eval + 객관성 guardrail. 7 plan 코드+배포+v5 e2e 검증. (completed 2026-06-12, roadmap reconciled 2026-06-17)
 - [ ] **Phase 18: Expert deliberate-fault reference eval set** - 정은지 '일부러-실수' reference 영상을 영구 regression/eval 세트로 (가칭/미상세, Phase 15 의존)
+- [ ] **Phase 19: 분석 점수 신뢰도 재설계 (vision-hybrid 채점)** - 실증에서 드러난 점수 위양성(정은지 실패영상 Mode1 94점/89%) 근본 수정 — 이중 단순평균 집계 → 감점식 IPSF 정합 + 비전-추론 하이브리드(영상+RTMW 수치 → 품질/결함 판단)를 채점 루프에 투입 + 표시값 정합·라벨·골격 좌표 버그 + Mode3 미보유동작 게이트. 절대원칙: 일반화(어떤 영상이든 정확), 보유셋 overfit 금지. (Phase 15 실증 발견 + Phase 18 eval = 검증 일부)
 
 ## Phase Details
 
@@ -591,6 +592,26 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 Plans:
 
 - [ ] TBD (run /gsd-plan-phase 18 to break down)
+
+---
+
+### Phase 19: 분석 점수 신뢰도 재설계 (vision-hybrid 채점)
+
+> **신규 (belle 2026-06-17 결정).** Phase 15 실증 중 belle 실기기 검증에서 점수 신뢰도 붕괴 발견 — 정은지 '실패' 영상이 Mode1 94점/89% "거의 다 왔어요". 3-갈래 심층조사로 근본원인 확정. 상세 근거: `.planning/phases/15-mode-1-mode-3-testflight/deferred-items.md`.
+
+**Goal:** 점수가 실제 자세 품질을 반영하게 한다 — 어떤 영상이든(보유 정은지 셋에 국한 X) 정확. 구체: (1) 이중 단순평균 집계 → 감점식 IPSF 정합 집계(결함이 다수 정상 관절에 희석되지 않게), (2) 비전-추론 하이브리드 — RTMW 정량추출 + Gemini(3.1-pro now / Omni 추후) 영상+수치 추론으로 품질·결함·인과 판단을 채점 루프에 투입(기하학은 측정가능 IPSF 기준에만), (3) 표시 각도값을 점수 산출값과 정합(비정렬 nanmean / matched-window vs full-clip 비대칭 제거) + 어깨 '안정성' 라벨 수정 + 안정성을 종합점수 인플레에서 분리, (4) Mode3 미보유동작 유효성 게이트 + 점수근거 화면 표시(동작분류 분기 IPSF/정은지/미보유), (5) 3D 골격 실기기 미표시 버그(joints3d RTMW 픽셀좌표 → 골반중심·몸통길이 정규화), (6) 촬영 팁(전문가 시작점 정합) UX + 운동명칭 직관화.
+**Requirements**: TBD (plan 단계에서 신규 SCORE-*/TRUST-* 요건 확정)
+**Depends on:** Phase 15 (실증 발견의 출처), Phase 18 (deliberate-fault eval set = 일반화 검증 자산)
+
+**절대원칙 (박제):**
+
+- 일반화 우선 — 정은지 데이터는 기준으로 쓰되 결론은 어떤 영상이든 정확. 보유 13영상 overfit/curve-fit/teaching-to-test 금지 ([[scoring-redesign-must-generalize-no-overfit]]).
+- 임계값을 보유 sweep 으로 재calibrate 금지 ([[calibration-source-hard-gate]]). 검증은 미보유/above-cutoff 케이스 포함 ([[sensitivity-gate-not-just-elite-low]]).
+- 사람 점수 라벨 ground-truth 금지 ([[analysis-objectivity-no-human-scores]]). IPSF = 감점식 baseline ([[judging-baseline-ipsf-code-of-points]]).
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 19 to break down)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

@@ -65,7 +65,7 @@
 ### 분석 모드 (Modes)
 
 - [x] **MODE-01**: 사용자가 정은지 기준 모션을 불러와 본인 영상과 비교하고 전문가 기준 점수를 실영상으로 end-to-end 확인할 수 있다 (Mode 1 — coaching 모드 + champion_reference)
-- [ ] **MODE-02**: 사용자가 본인 영상 2개를 비교해 발전(progress)을 실영상으로 end-to-end 확인할 수 있다 (Mode 3 — coaching 모드 + self_progress)
+- [x] **MODE-02**: 사용자가 본인 영상 2개를 비교해 발전(progress)을 실영상으로 end-to-end 확인할 수 있다 (Mode 3 — coaching 모드 + self_progress)
 
 ### 기준 모션 (Reference)
 
@@ -168,7 +168,7 @@
 | PERS-03 | Phase 13 | Pending |
 | REF-01 | Phase 14 | Complete |
 | MODE-01 | Phase 15 | Complete |
-| MODE-02 | Phase 15 | Pending |
+| MODE-02 | Phase 15 | Complete |
 | SCORE-04 | Phase 15 | Complete |
 | DELIV-01 | Phase 15 | Pending |
 | SCORE-05 | Phase 16 | Pending |

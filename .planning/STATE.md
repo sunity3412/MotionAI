@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Completed 15-03-PLAN.md (Mode 1 7/7 server_error==0 PASS)
-last_updated: "2026-06-17T09:59:42.936Z"
+stopped_at: Completed 15-04-PLAN.md (Mode 3 deltaFromPrevious + SCORE-04 위양성 gate + 듀얼 coach)
+last_updated: "2026-06-17T10:51:21.385Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 20
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 15 (mode-1-mode-3-testflight) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Verification: 13-C — `assemble.assemble_dual_coach_sections` 섹션 조립 + cross-fill 폴백 7 케이스 PASS / phase13 88 passed (81+7, 회귀 0) / pipeline+geminib+dispatch 포함 131 passed / app tsc --noEmit clean / 자세히 모달 벤더명 렌더 텍스트 0 / gemini_b dual-track audit Firestore flat 검증 통과 / GEMINI_COACH_ENABLED=0 Cerebras-only path 보존. 3 atomic commit (8ec9dc5/4f7f7aa/340d0c9).
 Next: Phase 15 (실증) — 실 영상 → 실 dual-LLM 섹션 조립 E2E 라이브 검증 + "둘 중 하나 drop 여부" 결정 (13-C 빌드 ≠ drop 결정). Pod 기동 + 라이브 LLM 호출은 Phase 15 scope.
 Status: Ready to execute
@@ -523,6 +523,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 03-bodyprofileinput P03 | 5min | 2 tasks | 4 files |
 | Phase 15 P01 | 35min | 3 tasks | 4 files |
 | Phase 15 P03 | 70min | 2 tasks | 1 files |
+| Phase 15 P04 | 75min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -580,6 +581,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 15-01: 위양성 gate = 08.1 frozen baseline(c94bb8…e87c) checksum hard-gate 대조만, 재calibrate import 0 (D-02)
 - [Phase ?]: Mode 1 7/7 server_error==0 PASS — 정은지 7 student 영상 실 Pod GPU E2E (referenceMotionId lockstep). line=None 7/7 은 recognizer 미인식 anti-false-positive 폴백(blocking gate 아님)
 - [Phase ?]: Gemini 503 transient = server_error 아님 → 새 uid subset retry. onnxruntime CPU 폴백 = LD_LIBRARY_PATH(cudnn) 누락 → live uvicorn proc env 재사용으로 GPU 강제
+- [Phase ?]: 15-04: Mode 3 6 fail->success 페어 deltaFromPrevious 차원 점수(stability) 델타 — 6/6 previousAnalysisId==paired fault, MODE-02 충족
+- [Phase ?]: 15-04: SCORE-04 단독 — frozen 08.1 checksum(c94bb8)+fallback==0 12/12, SC3 41점-스타일 위양성 부재(최저 overall 55=실 결손). all-low success-severity gate=reference-motion invariant라 학생-연습 success 미전이 → Phase 18 defer(재calibrate 0)
+- [Phase ?]: 15-04: 듀얼 coach 12/12 doc dualTrack=True+nonCrossFilledGemini6(실 LLM)+빈 섹션 0(D-12). Mode 3 6-페어 status total12/done12/server_error0 → 15-05 SC4 입력
 
 ### Pending Todos
 
@@ -612,9 +616,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-17T09:59:42.927Z
+Last session: 2026-06-17T10:51:21.375Z
 
-Stopped at: Completed 15-03-PLAN.md (Mode 1 7/7 server_error==0 PASS)
+Stopped at: Completed 15-04-PLAN.md (Mode 3 deltaFromPrevious + SCORE-04 위양성 gate + 듀얼 coach)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

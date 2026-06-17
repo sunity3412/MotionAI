@@ -1,0 +1,138 @@
+{
+  "bucket": "sunity-motion-pilot-videos",
+  "items": [
+    {
+      "sourceS3Key": "fixtures/phase15/climb/correct.mp4",
+      "motionId": "climb",
+      "mode": "mode1",
+      "label": "success",
+      "referenceMotionId": "ref-climb"
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/combo/correct.mp4",
+      "motionId": "combo",
+      "mode": "mode1",
+      "label": "success",
+      "referenceMotionId": "ref-combo"
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/elbow-twist-sister/correct.mp4",
+      "motionId": "elbow-twist-sister",
+      "mode": "mode1",
+      "label": "success",
+      "referenceMotionId": "ref-elbow-twist-sister"
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/kip-up/correct.mp4",
+      "motionId": "kip-up",
+      "mode": "mode1",
+      "label": "success",
+      "referenceMotionId": "ref-kip-up"
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/pdshape/correct.mp4",
+      "motionId": "pdshape",
+      "mode": "mode1",
+      "label": "success",
+      "referenceMotionId": "ref-pdshape"
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/peter-pan/correct.mp4",
+      "motionId": "peter-pan",
+      "mode": "mode1",
+      "label": "success",
+      "referenceMotionId": "ref-peter-pan"
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/power-spin/correct.mp4",
+      "motionId": "power-spin",
+      "mode": "mode1",
+      "label": "success",
+      "referenceMotionId": "ref-power-spin"
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/pdshape/fault.mp4",
+      "motionId": "pdshape",
+      "mode": "mode3",
+      "label": "fault",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/elbow-twist-sister/fault.mp4",
+      "motionId": "elbow-twist-sister",
+      "mode": "mode3",
+      "label": "fault",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/climb/fault.mp4",
+      "motionId": "climb",
+      "mode": "mode3",
+      "label": "fault",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/kip-up/fault.mp4",
+      "motionId": "kip-up",
+      "mode": "mode3",
+      "label": "fault",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/power-spin/fault.mp4",
+      "motionId": "power-spin",
+      "mode": "mode3",
+      "label": "fault",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/peter-pan/fault.mp4",
+      "motionId": "peter-pan",
+      "mode": "mode3",
+      "label": "fault",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/climb/correct.mp4",
+      "motionId": "climb",
+      "mode": "mode3",
+      "label": "success",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/elbow-twist-sister/correct.mp4",
+      "motionId": "elbow-twist-sister",
+      "mode": "mode3",
+      "label": "success",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/kip-up/correct.mp4",
+      "motionId": "kip-up",
+      "mode": "mode3",
+      "label": "success",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/pdshape/correct.mp4",
+      "motionId": "pdshape",
+      "mode": "mode3",
+      "label": "success",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/peter-pan/correct.mp4",
+      "motionId": "peter-pan",
+      "mode": "mode3",
+      "label": "success",
+      "referenceMotionId": null
+    },
+    {
+      "sourceS3Key": "fixtures/phase15/power-spin/correct.mp4",
+      "motionId": "power-spin",
+      "mode": "mode3",
+      "label": "success",
+      "referenceMotionId": null
+    }
+  ]
+}

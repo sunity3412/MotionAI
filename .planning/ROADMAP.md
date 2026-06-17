@@ -320,7 +320,13 @@ Plans:
   3. 자가입력 `poleExperienceLevel`과 동작 난이도 매핑으로 "레벨 대비 무리" 경고가 동작한다
   4. 결과 화면에 부상 위험 경고가 시각적으로 구분되고 "전문가 확인 권유" 카피가 함께 표시된다
 
-**Plans**: TBD
+**Plans**: 5 plans (4 waves)
+
+  - [ ] 15-01-PLAN.md — Wave 0 도구 + dataset 업로드: 비-reference sweep 변종 + frozen-baseline 위양성 assert 스크립트 + 13 영상 정규화 S3 업로드
+  - [ ] 15-02-PLAN.md — Pod bring-up + env 복원 + Lambda RUNPOD_ANALYZE_URL 동기화(sunity-motion) + 실 LLM 발화 확인 (실 E2E 전제)
+  - [ ] 15-03-PLAN.md — MODE-01 + SCORE-04: 11-ref 필드 검증 + Mode 1 실 E2E + 정은지 위양성 assert (frozen 08.1 baseline, 재calibrate 0)
+  - [ ] 15-04-PLAN.md — MODE-02: 정은지 fail→success 페어 Mode 3 deltaFromPrevious + 듀얼 coach 실 LLM cross-fill 빈 섹션 0
+  - [ ] 15-05-PLAN.md — DELIV-01: eas.json preview env fix → EAS preview 빌드+submit(Claude PASS) → belle 실기기 게스트 완주 핸드오프
 **UI hint**: yes
 
 ### Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만

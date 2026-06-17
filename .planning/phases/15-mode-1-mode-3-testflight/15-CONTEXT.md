@@ -9,7 +9,7 @@
 이 phase는 **새 기능 추가가 아니라 실영상 end-to-end 검증 + 전달**이다. 코드(분석 파이프라인·리포트·오버레이·보완운동·듀얼 coach·기준모션 등록)는 Phase 1~14/17에서 이미 깔려 있다. Phase 15가 하는 일:
 
 1. **Mode 1** (정은지 기준 비교) — 사용자가 정은지 reference를 불러와 본인 영상과 비교, 전문가 기준 점수를 실영상으로 end-to-end 확인 (MODE-01)
-2. **Mode 3** (자기 발전) — 동일 인물 2영상의 절대지표 세션 간 델타 ("무릎 신전 8° 개선" 형태)를 실영상으로 확인 (MODE-02)
+2. **Mode 3** (자기 발전) — 동일 인물 2영상의 차원 점수 세션 간 델타 ("지난 분석보다 N점 발전" 형태)를 실영상으로 확인 (MODE-02). [2026-06-17 리뷰 정정 D-13] 현 계약(`build_mode3` + `result.tsx:192`)은 차원 점수 델타이지 관절 각도 델타가 아님 — Phase 15는 검증-only라 점수 델타로 통일.
 3. **위양성 게이트** — 정은지(고수) 영상이 41점 같은 위양성 없이 자세 품질을 반영하는 점수로 산출 (SCORE-04 / SC3)
 4. **TestFlight 전달** — 수강생이 익명 게스트로 회원가입 없이 Mode 1·Mode 3를 실기기에서 완주, 결과 영상 재생 (DELIV-01)
 
@@ -52,7 +52,7 @@
 
 ### 위양성 게이트 / calibration baseline
 - `.planning/phases/08.1-axis-metric-redesign/` (SWEEP-EVIDENCE.md) — 정은지 5영상 P100+margin tilt threshold (재calibrate 금지 기준선)
-- `backend/shared/python/sunity_shared/analysis/tilt_thresholds.yaml` — schema_v2 axis tilt 임계값 (lazy load)
+- `backend/judging_data/tilt_thresholds.yaml` — schema_v2 axis tilt 임계값 (frozen, sha256 c94bb8…e87c). [2026-06-17 리뷰 정정 D-13] loader = `force_signals.py:250` 가 이 경로 사용. 이전 CONTEXT 의 `analysis/tilt_thresholds.yaml` 경로는 오기 — 존재하지 않음. assert 스크립트는 force_signals.py 와 동일 경로 import.
 - `.planning/phases/01-poseengine-mediapipe-nlf-r-d/` (Plan 01-15 IPSF GeometricCriterion) — IPSF 객관 baseline
 
 ### 검증 데이터셋
@@ -97,7 +97,7 @@
 ## Specific Ideas
 
 - belle 통찰: "정은지 성공영상 + 실패영상(같은 동작)을 활용하면 Mode 3도 함께 할 수 있는 거 아니냐" — 채택. 동일 인물 페어가 Mode 3 델타와 위양성 게이트를 한 셋으로 충족.
-- Mode 3 델타 카피 형태: "지난 분석보다 무릎 신전 8° 개선" (절대지표 세션 간 차이).
+- Mode 3 델타 카피 형태: "지난 분석보다 N점 발전했어요!" (차원 점수 세션 간 차이 — 현 `result.tsx:192` 계약). 관절 각도 델타("무릎 신전 8°")는 계약 변경(TS↔Python↔contract.md lockstep + UI + 테스트) 필요라 Phase 15 검증-only 범위 밖 → Deferred.
 - TestFlight 완주 정의: 익명 게스트 진입 → Mode 1·Mode 3 둘 다 실기기 완주 → 결과 영상 재생 (presigned/Content-Type/SIGABRT 회귀 없음).
 </specifics>
 
@@ -107,6 +107,7 @@
 - **영구 라벨 regression fixture + fault 자동 assert 하니스** — 각 실패 영상에 fault 라벨 달아 분석기가 그 fault를 잡고 위양성 안 주는지 자동 assert. = **Phase 18** (Expert deliberate-fault eval set, Phase 15 의존). Phase 15는 수동 실행 + assert까지만.
 - **belle 본인 다양한 앵글/동작 크래시 테스트 영상 대량 소싱** — SC4 강건성 확장. Phase 15는 정은지 페어 + (선택) belle 2영상 페어로 최소 충족, 대량 스트레스셋은 실증 단계.
 - `combo.mp4` (성공만, 페어 없음) — Mode 3 페어 미성립이라 Mode 1 단독 분석에만 사용 가능.
+- **관절 각도 델타 Mode 3** ("무릎 신전 8° 개선") — result 형상에 관절 각도 델타 필드 추가(TS↔Python↔contract.md lockstep) + UI 렌더 + 테스트. 현 계약은 차원 점수 델타뿐. "수치는 보조, 원인이 핵심" 가치에 더 부합하나 검증-only Phase 15 범위 밖 → belle 결정(2026-06-17)으로 후속 phase 후보. 각도 데이터는 이미 저장됨(stored angles)이라 구현 가능.
 
 ### Reviewed Todos (not folded)
 None — discussion stayed within phase scope.

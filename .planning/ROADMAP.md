@@ -488,7 +488,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
 
   1. Mode 1: 사용자가 정은지 기준 모션을 선택해 본인 영상을 올리면 실분석 결과와 전문가 기준 점수가 표시된다 (referenceMotionId lockstep)
-  2. Mode 3: 사용자가 본인 영상 2개를 올리면 절대 지표의 세션 간 델타가 "지난 분석보다 무릎 신전 8° 개선" 형태로 표시된다
+  2. Mode 3: 사용자가 본인 영상 2개를 올리면 차원 점수의 세션 간 델타가 "지난 분석보다 N점 발전" 형태로 표시된다 (현 계약 `build_mode3`/`result.tsx:192`; 관절 각도 델타 "무릎 신전 8°"는 후속 phase — 2026-06-17 belle 결정, 검증-only Phase 15 범위 밖)
   3. 신뢰도 게이트: 정은지(고수) 영상이 41점 같은 위양성 없이 자세 품질을 반영하는 점수로 산출된다
   4. 다양한 동작/앵글 영상 세트에서 분석이 크래시 없이 일관된 점수를 낸다
   5. TestFlight: 수강생이 익명 게스트로 진입해 회원가입 없이 Mode 1·Mode 3를 실기기에서 완주하고 결과 영상이 재생된다 (presigned URL 만료/Content-Type 이슈 없음, letterSpacing SIGABRT 회귀 없음)

@@ -178,3 +178,44 @@ H. 3D skeleton viewer BLANK on REAL DEVICE (not just simulator — prior sim-lim
 
 This supersedes the "Phase 15 validation passed" framing: the automated sweeps deferred
 fault-detection to Phase 18 and never checked score-vs-quality, so they gave false confidence.
+
+## Deep investigation results (3 parallel agents, 2026-06-17) — evidence confirmed
+
+### E. Measurement / display artifact (right shoulder "171°→152°" visually-identical-yet-flagged) — CONFIRMED
+- Shoulder angle = 3D vector angle (elbow→shoulder, hip→shoulder), arm-to-torso elevation
+  (skeleton.py:42-43, features.py:22-55). Geometrically valid, camera/translation invariant —
+  NOT a projection/mirror bug.
+- MISLABELED "안정성": COACHING_FOCUS hardcodes shoulder→"안정성" (kismam.py:53-62), but the
+  value is a STATIC POSE ANGLE, not stability/wobble (there is a separate real DIM_STABILITY).
+  Genuine labeling artifact (locked by a 2026-06-06 screenshot note).
+- ROOT of "visually identical yet flagged 19°": the DISPLAYED "현재/기준" angles come from
+  plain whole-clip np.nanmean (_angles_to_mean_dict, app.py:1515-1538), NOT the DTW-aligned
+  MEDIAN that drives the score (motiondtw.py:103-130). Worse, NOT apples-to-apples: user side =
+  mean over the DTW-MATCHED sub-window (user_seg), reference side = mean over the ENTIRE
+  reference clip (a_ref, app.py:1800-1801). Mismatched temporal extents + mean (jitter/occlusion
+  sensitive) → multi-degree gap even when the held pose is visually identical. The display path
+  still uses the very mean-vs-median footgun the score path already abandoned (motiondtw.py:108-119).
+
+### F. DTW alignment (belle: "find the alignment point first") — ALREADY IMPLEMENTED
+- find_action_segment (motiondtw.py:80-91) searches all start offsets → min-distance window =
+  exactly "find where postures align, then compare." Then banded DTW warps (radius 12, global
+  fallback motiondtw.py:52-54). Score = DTW-aligned per-joint MEDIAN deviation. Whole-clip means
+  are display-only. Start-point + duration mismatch handled.
+- BUT residual bias is the OPPOSITE of belle's fear: DTW over-eager alignment seeks the most
+  favorable match → tends to INFLATE similarity (a contributor to fault-scores-high #1).
+- Filming-tip (watch expert first, match start point) still valuable as UX, but alignment itself
+  is not the bug. find_action_segment offset granularity is coarse (~60 windows) — minor.
+
+### H. 3D skeleton BLANK on real device — CONFIRMED BUG (coordinate scale/centering), NOT expo-three
+- joints3d is stored in RAW RTMW PIXEL coords (x,y ~0-640 uncentered; z MotionBert-scale) —
+  only rotated (pole_aligned), never recentered/rescaled (app.py:2328-2337,
+  rtmw_133_to_coco17.py:247-256, lifter_pipeline.py:288 "keypoints_3d xy = RTMW 픽셀 좌표").
+- Viewer camera is at distance 3, fov 50, sphere r=0.04 — expects NORMALIZED origin-centered
+  coords (PoseViewer3D.tsx:51-56,157-158,346-350). Real skeleton centers ~(320,240,z) with
+  hundreds of units spread → entirely outside the camera frustum → GL clears to #F5F5F5 = blank
+  gray. Section header/buttons/slider are plain RN → still render.
+- The smoke screen "worked" because it used hand-authored normalized coords [-0.4,1.0]
+  (PoseViewer3DSmokeScreen.tsx:69-84). Real data ~100-1000× larger → blank.
+- expo-three removal NOT implicated (verified: fiber/native imports expo-gl not expo-three;
+  bug predates the removal). Fix = recenter (subtract hip midpoint) + normalize (÷ torso length)
+  before render, in reshapePose3dData (app/src/lib/joints.ts) or a <group> transform.

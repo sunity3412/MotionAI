@@ -710,17 +710,19 @@ belle 결정 (mirror 검색 path) → HuggingFace anonymous mirror 활용 우회
 | Lambda env RUNPOD_ANALYZE_URL | Active, 새 Pod URL 정합 |
 | **mock E2E** (Pod 안에서 _process 직접 호출) | **PASS** — Firestore status=done, 49.8s |
 
-### Pod 환경 (2026-06-08 시점, Pod xbdkj1g2ylnfwi 살아있음 — community RTX 4090)
+### Pod 환경 (2026-06-17 시점, Pod 01emvodj1pdooe — RTX 4090, Network Storage EU-RO, 풀세팅 완료·검증)
 
 | 항목 | 상태 |
 |---|---|
-| GPU / Container | RTX 4090 / RunPod (community, secure 아님) |
-| Pod ID | `xbdkj1g2ylnfwi` |
-| SSH (proxy) | `ssh xbdkj1g2ylnfwi-64411701@ssh.runpod.io -i ~/.ssh/id_ed25519` |
-| SSH (direct TCP) | `ssh root@66.222.130.188 -p 10834 -i ~/.ssh/id_ed25519` |
-| HTTP Port 8000 | Ready (proxy URL `https://xbdkj1g2ylnfwi-8000.proxy.runpod.net`) |
-| Jupyter Lab | Port 8888 Ready |
-| Lambda env RUNPOD_ANALYZE_URL | **`https://xbdkj1g2ylnfwi-8000.proxy.runpod.net/analyze` 동기화 필요 (Pod 교체)** — `aws lambda update-function-configuration` 로 갱신 후 검증 |
+| GPU / Container | RTX 4090 24GB / RunPod, driver 565, Python 3.11.10, torch 2.4.1+cu124 |
+| Pod ID | `01emvodj1pdooe` |
+| SSH (proxy) | `ssh 01emvodj1pdooe-6441164d@ssh.runpod.io -i ~/.ssh/id_ed25519` |
+| SSH (direct TCP) | `ssh root@213.173.110.226 -p 39380 -i ~/.ssh/id_ed25519` |
+| Network Storage | `/workspace` = `mfs#euro.runpod.net` (EU-RO, persist) — repo·rtmw-x-384.onnx·yolox_m.onnx·firebase-sa.json·aws_env.sh 보존. deps(onnxruntime-gpu/rtmlib/mmpose)는 overlay라 매 세션 재설치 |
+| 서버 기동 | `nohup /workspace/start_p15_server.sh > /workspace/p15_server.log 2>&1 </dev/null &` (전체 env + GEMINI/RUNPOD_AUTH_TOKEN 명시 export 박제 — `.bashrc` early-return 우회). **kill은 ss PID로** (pkill 패턴이 ssh 명령 self-match → 셸 자살 함정) |
+| HTTP Port 8000 | UP — `/health {status:ok, auth_configured:true, pipeline_loaded:true}`, GPU 1056MiB 모델 적재, RTMW-x-384(commercial_ok)+YOLOX+GeminiTechniqueRecognizer+Gemini 키 검증 |
+| 인증 스모크 | wrong token→401 / correct token+bad key→400(auth 통과) / 외부 proxy /health→200 |
+| Lambda env RUNPOD_ANALYZE_URL | `https://01emvodj1pdooe-8000.proxy.runpod.net/analyze` — **SSM `/sunity/motion/runpod-analyze-url` + 라이브 Lambda 둘 다 동기화(boto3 merge, 4키 보존)**. SSM이 source of truth라 sam deploy 시 안 되돌아감. AWS 자격 = sunity-motion (sunity-api는 Lambda 거부) |
 
 ### 이전 Pod 이력 (2026-06-06 종료 시점, Pod 1ablelgbtrzcgb — 교체됨)
 

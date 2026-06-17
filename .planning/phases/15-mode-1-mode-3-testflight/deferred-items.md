@@ -86,3 +86,27 @@ Follow-up phase scope (NOT Phase 15 — validation-only):
 - Demo guidance: prefer IPSF-registered moves (climb/kip-up/peter-pan/power-spin/elbow) for
   expert-comparison demos; pdshape/combo line dimension unavailable until authored.
 Related memory: [[studio-term-3branch-system]], [[terminology-multimap-future]].
+
+## In-simulator verification findings (belle-driven, 2026-06-17)
+
+belle drove a genuine in-app Mode 1 run in the iOS Simulator (Xcode 26, debug build off
+local main incl. the expo-three removal fix). Results:
+- Mode 1 wrong-video → correctly detected as far-from-reference. Mode 1 correct kip-up video
+  → overallScore 98, coaching tip "정은지 선수와 거의 동일한 자세 / 관절각 일치도 99점".
+  Score + coaching report + 보완운동 section render CORRECTLY in-app.
+- **3D skeleton viewer (PoseViewer3D) renders BLANK in the Simulator** — header + controls
+  (정면/측면/후면/위 + slider) show, but the 3D area is empty gray. Diagnosis: iOS Simulator
+  expo-gl (~16.0.10) / react-three-fiber GL-render limitation, NOT a data or code bug:
+  the section only renders when joints3d exists (joints.length===0 → return null), and a GL
+  init failure would show the R8 ErrorBoundary fallback "3D 뷰어를 불러오지 못했어요" — neither
+  occurred, so data is present and GL context initialized. The expo-three removal is NOT the
+  cause (PoseViewer3D imports @react-three/fiber+drei, never expo-three; a break would throw
+  to the fallback). **The skeleton must be verified on a real device (TestFlight build 20)** —
+  the simulator cannot render it. This is now the primary real-device handoff item.
+
+## UX follow-up: motion-name + supplementary-exercise naming intuitiveness (belle, 2026-06-17)
+
+belle feedback: motion names (엘보 트위스트 시스터 / 폭스탑 / 콤보 — transliteration/jargon) and
+supplementary-exercise English names (Farmer's Walk, Hand Grippers) are not intuitive; prefer
+easier Korean descriptions. Out of Phase 15 (validation-only) scope → follow-up UX/terminology
+phase. Connects to [[studio-term-3branch-system]] / [[terminology-multimap-future]].

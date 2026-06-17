@@ -110,3 +110,33 @@ belle feedback: motion names (엘보 트위스트 시스터 / 폭스탑 / 콤보
 supplementary-exercise English names (Farmer's Walk, Hand Grippers) are not intuitive; prefer
 easier Korean descriptions. Out of Phase 15 (validation-only) scope → follow-up UX/terminology
 phase. Connects to [[studio-term-3branch-system]] / [[terminology-multimap-future]].
+
+## Mode 3 scoring-basis transparency + unknown-move validity gate (belle insight, 2026-06-17) — HIGH-VALUE follow-up
+
+belle ran Mode 3 first-analysis (kip-up, score 97) and surfaced a core-value gap: the score
+shows no explanation of its BASIS, and there is no branching by move-class. Confirmed in code:
+
+- **Mode 3 (MODE_SELF) has NO unknown-move / validity gate.** The `not_pole_motion` safety
+  gate (app.py:1812, `angle_dim < NOT_POLE_SIMILARITY_THRESHOLD`) lives ONLY inside the
+  `mode == MODE_EXPERT` branch — it works by similarity to the 정은지 reference, so it cannot
+  apply to MODE_SELF (which is reference-independent, app.py:1839). Therefore Mode 3 produces
+  a confident absolute score (IPSF Page-9 absolute + line/stability/angle) for ANY video —
+  including a move not in our data, or even a non-pole video. belle is right to doubt that a
+  97 for an ungrounded move is trustworthy.
+- **Score basis is not surfaced on the Mode-3 result screen.** assemble.py HAS branch-aware
+  per-dimension copy ("IPSF 실행 기준 참고" vs "정은지 선수 기준"), but the headline
+  (97 + "첫 분석이에요" + 입문/중급/고급 levels) does not tell the user what the score is
+  grounded in or which case applies.
+
+belle's target design (the right follow-up): classify the move, then branch the basis +
+explanation + progress contract:
+  1. IPSF-official move  → judge by IPSF criteria, explain that basis, then compare progress.
+  2. Not IPSF but 정은지-reference → compare to 정은지, explain the basis, then progress.
+  3. Neither (not in our data) → validity gate / uncertainty flag; do NOT emit a confident
+     score as if grounded (today it emits 97 like cases 1/2).
+
+This directly serves the core value (점수가 믿을 만해야 + 왜/무엇 제시). Scope = a dedicated
+follow-up phase: Mode-3 move-classification routing + scoring-basis transparency UI +
+unknown-move validity gate. Connects to [[ipsf-5-track-scoring]] (mode3 reference-free 채점 근거),
+[[motion-routing-generalize-principle]] (새 동작 분기2 안전기본), [[studio-term-3branch-system]],
+and the pdshape/combo IPSF-unregistered finding above.

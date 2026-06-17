@@ -140,3 +140,41 @@ follow-up phase: Mode-3 move-classification routing + scoring-basis transparency
 unknown-move validity gate. Connects to [[ipsf-5-track-scoring]] (mode3 reference-free 채점 근거),
 [[motion-routing-generalize-principle]] (새 동작 분기2 안전기본), [[studio-term-3branch-system]],
 and the pdshape/combo IPSF-unregistered finding above.
+
+## CRITICAL — score trustworthiness root cause (belle real-device test, 2026-06-17)
+
+belle uploaded a 정은지 FAULT video (Mode 1) → overallScore 94, "정은지 선수와 관절각 89%
+일치 — 거의 다 왔어요!", yet coaching tips listed 3 real deviations incl. 왼쪽 어깨 65°→36°
+(29° off). This is the inverse of the 41-point false positive: a FAULT scores near-perfect.
+Score does NOT reflect quality. Confirmed mechanism in code (NOT a tuning tweak — a design flaw):
+
+- **overall = plain MEAN of dimensions** (`dimensions.overall_from_dimensions` = mean). For this
+  result overall 94 = (angle 89 + stability 99)/2 (line absent — kip-up unrecognized).
+- **angle dim = equal-weight MEAN over all joints** (`kismam.overall_score`, DEFAULT_WEIGHT all
+  1.0). A few severe faults are diluted by many fine joints.
+- **per-joint score = 100·exp(-½·(dev/20)²), tolerance 20° for ALL joints.** 20° dev → 61,
+  29° → 35. Tolerance is loose; even a big joint error scores mid.
+- **stability (99) inflates overall** — stability = tremor/jitter ("hold 구간 떨림 작음"), NOT
+  correctness. A smooth fault scores 99 and pulls the average up.
+- **coaching tips use top_issues (worst joints)** while the score AVERAGES them away → the
+  세부점수-vs-코칭 contradiction belle saw is structural.
+
+ROOT: the scoring philosophy is MEAN-based (faults dilute), the OPPOSITE of the project's
+judging baseline IPSF Code of Points (DEDUCTION-based: faults deduct). [[judging-baseline-ipsf-code-of-points]]
+
+Distinct workstreams for a dedicated score-trustworthiness rework phase:
+A. Deduction/worst-fault-weighted aggregation (replace double-mean) aligned to IPSF.
+B. Tighten/justify per-joint tolerance (20° too loose for elite/expert comparison).
+C. Separate stability from the quality headline (smooth ≠ correct; don't let it inflate overall).
+D. Headline copy: "거의 다 왔어요" must not fire on a fault.
+E. Measurement accuracy: belle saw right shoulder visually identical to 정은지 yet flagged
+   (171°→152°) — verify 3D angle measurement vs reality (separate from aggregation).
+F. Start-point/timing alignment (belle): same move, different start → analyze from the
+   posture-alignment point; for expert compare, give a FILMING TIP (watch expert first, match
+   start point). Check DTW alignment behavior.
+G. 입문/중급/고급 level UI feels crude (single-select) — UX.
+H. 3D skeleton viewer BLANK on REAL DEVICE (not just simulator — prior sim-limitation hypothesis
+   was WRONG). Header+controls render, 3D empty. Real bug — investigate joints3d render on device.
+
+This supersedes the "Phase 15 validation passed" framing: the automated sweeps deferred
+fault-detection to Phase 18 and never checked score-vs-quality, so they gave false confidence.

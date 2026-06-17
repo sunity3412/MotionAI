@@ -105,6 +105,14 @@ None — belle 의 Pod 생성(체크포인트 human-action)은 사전 충족됨.
 - **Open(Wave 2):** 등록 동작에 대한 line dimension non-None 은 Mode 1 E2E(등록 reference 비교)에서 검증. 미등록 'auto' 동작 line=None 은 정상.
 - **Volatility note:** Pod 는 ephemeral — RUNPOD_ANALYZE_URL/SSM 는 Pod 재생성 시 재동기화 필요(이 plan 의 절차 재사용).
 
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/15-mode-1-mode-3-testflight/15-POD-BRINGUP-EVIDENCE.md`
+- FOUND: `.planning/phases/15-mode-1-mode-3-testflight/15-02-SUMMARY.md`
+- FOUND commit `6086485` (evidence) + `c17dec3` (summary) in worktree log
+- machine verify exit 0 (`ALL_PRESENT_AND_SSM_EQ_LAMBDA`)
+- smoke exit 0 (`DELEGATE_RAN=True`, `gemini_ok=True`, `cerebras_ok=True`)
+
 ---
 *Phase: 15-mode-1-mode-3-testflight*
 *Completed: 2026-06-17*

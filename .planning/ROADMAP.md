@@ -323,7 +323,7 @@ Plans:
 **Plans**: 5 plans (4 waves)
 
   - [x] 15-01-PLAN.md — Wave 0 도구 + dataset 업로드: 비-reference sweep 변종 + frozen-baseline 위양성 assert 스크립트 + 13 영상 정규화 S3 업로드
-  - [ ] 15-02-PLAN.md — Pod bring-up + env 복원 + Lambda RUNPOD_ANALYZE_URL 동기화(sunity-motion) + 실 LLM 발화 확인 (실 E2E 전제)
+  - [x] 15-02-PLAN.md — Pod bring-up + env 복원 + Lambda RUNPOD_ANALYZE_URL 동기화(sunity-motion) + 실 LLM 발화 확인 (실 E2E 전제)
   - [ ] 15-03-PLAN.md — MODE-01 + SCORE-04: 11-ref 필드 검증 + Mode 1 실 E2E + 정은지 위양성 assert (frozen 08.1 baseline, 재calibrate 0)
   - [ ] 15-04-PLAN.md — MODE-02: 정은지 fail→success 페어 Mode 3 deltaFromPrevious + 듀얼 coach 실 LLM cross-fill 빈 섹션 0
   - [ ] 15-05-PLAN.md — DELIV-01: eas.json preview env fix → EAS preview 빌드+submit(Claude PASS) → belle 실기기 게스트 완주 핸드오프
@@ -571,7 +571,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |
 | 13. 보완 운동·스트레칭 추천 | 3/2 | Complete   | 2026-06-16 |
 | 14. 정은지 기준 모션 등록 (다각도) | 3/3 | Complete    | 2026-06-15 |
-| 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 1/5 | In Progress|  |
+| 15. Mode 1·Mode 3 + 신뢰도 게이트 + TestFlight | 2/5 | In Progress|  |
 | 16. Studio Terminology Foundation (3-branch + 5-Track v1) | 1/1 | Complete   | 2026-06-02 |
 
 ### Phase 18: Expert deliberate-fault reference eval set (정은지 일부러-실수 영상 검증 테스트 세트) — 가칭

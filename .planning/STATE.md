@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: planning
+status: executing
 stopped_at: Phase 15 planned (5 plans, 4 waves, plan-check PASSED + W1-3 applied)
-last_updated: "2026-06-17T00:28:10.150Z"
-last_activity: 2026-06-16
+last_updated: "2026-06-17T08:30:16.814Z"
+last_activity: 2026-06-17
 progress:
   total_phases: 20
   completed_phases: 11
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 12 — realmeasurement keypoint
+**Current focus:** Phase 15 — mode-1-mode-3-testflight
 
 ## Current Position
 
-Phase: 12
-Plan: Not started
+Phase: 15 (mode-1-mode-3-testflight) — EXECUTING
+Plan: 2 of 5
 Verification: 13-C — `assemble.assemble_dual_coach_sections` 섹션 조립 + cross-fill 폴백 7 케이스 PASS / phase13 88 passed (81+7, 회귀 0) / pipeline+geminib+dispatch 포함 131 passed / app tsc --noEmit clean / 자세히 모달 벤더명 렌더 텍스트 0 / gemini_b dual-track audit Firestore flat 검증 통과 / GEMINI_COACH_ENABLED=0 Cerebras-only path 보존. 3 atomic commit (8ec9dc5/4f7f7aa/340d0c9).
 Next: Phase 15 (실증) — 실 영상 → 실 dual-LLM 섹션 조립 E2E 라이브 검증 + "둘 중 하나 drop 여부" 결정 (13-C 빌드 ≠ drop 결정). Pod 기동 + 라이브 LLM 호출은 Phase 15 scope.
-Status: Ready to plan
+Status: Ready to execute
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -64,7 +64,7 @@ Status: Ready to plan
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-16
+Last activity: 2026-06-17
 
 ### Quick Tasks Completed
 
@@ -287,7 +287,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -521,6 +521,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 03 P01 | 9min | 3 tasks | 8 files |
 | Phase 03 P02 | 4 | 2 tasks | 2 files |
 | Phase 03-bodyprofileinput P03 | 5min | 2 tasks | 4 files |
+| Phase 15 P01 | 35min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -574,6 +575,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 03-02: Segmented 토글 해제 허용 (오선택 정정 + 부분입력 D-06)
 - [Phase ?]: 03-03: useBodyProfile 가 promptDismissedAt once-flag 노출 — normalizer all-empty→null 우회로 게이트가 미입력+dismiss 정확 판별 (R2)
 - [Phase ?]: 03-03: pendingPicked 게이트 4-경로 모두 continuePendingRoute 단일 수렴 — 영상 유실/stale closure 방지
+- [Phase ?]: Phase 15-01: SOURCE fixture(비-notified fixtures/) vs per-run/per-mode 영숫자 analysis identity 분리; direct-process 가 fixtures/ 키를 _process 에 직접 넘겨 uploads/ COPY 0 (HIGH 1/HIGH 2)
+- [Phase ?]: Phase 15-01: 위양성 gate = 08.1 frozen baseline(c94bb8…e87c) checksum hard-gate 대조만, 재calibrate import 0 (D-02)
 
 ### Pending Todos
 
@@ -606,7 +609,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-17T00:28:10.140Z
+Last session: 2026-06-17T08:30:01.942Z
 
 Stopped at: Phase 15 planned (5 plans, 4 waves, plan-check PASSED + W1-3 applied)
 
@@ -675,7 +678,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/15-mode-1-mode-3-testflight/15-01-PLAN.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

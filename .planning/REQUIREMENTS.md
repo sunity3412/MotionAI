@@ -33,7 +33,7 @@
 ### 점수 신뢰도 (Scoring)
 
 - [ ] **SCORE-01**: 기술 인식기(Gemini 어댑터)가 영상에서 기술을 인식하고 관절별 EXTEND/BENT 프로파일을 반환하며, Gemini는 분류·자연어 번역만 (좌표·판단 출력 금지)
-- [ ] **SCORE-04**: 고수(정은지) 영상이 위양성 감점 없이 신뢰할 만한 점수로 산출되고, 다양한 영상에서 인체 추적·분석이 정확하다 (신뢰도 게이트 — 강사/운영자 신뢰의 핵심)
+- [x] **SCORE-04**: 고수(정은지) 영상이 위양성 감점 없이 신뢰할 만한 점수로 산출되고, 다양한 영상에서 인체 추적·분석이 정확하다 (신뢰도 게이트 — 강사/운영자 신뢰의 핵심)
 - [ ] **SCORE-05**: 5트랙 채점 시스템 v1 — IPSF 4공식 트랙 중 (a) Compulsory Criteria + (c) Technical Deduction 두 트랙 + Page 9 "all components" 절대 공통 트랙이 작동한다. 동작 인식 성공/실패/비등재/자유 루틴 모든 케이스에서 Page 9 절대 트랙 단독으로도 자세 품질 채점이 가능하다 (mode3 reference 없는 채점의 IPSF 공식 근거). (b) Tech Bonus 연계 가산 + (d) Artistic 정성 평가는 v2. (출처: IPSF Pole Sports CoP 2021-2024 Page 9 / NotebookLM lookup 2026-06-02)
 
 ### 학원 용어 (Studio Terminology)
@@ -64,7 +64,7 @@
 
 ### 분석 모드 (Modes)
 
-- [ ] **MODE-01**: 사용자가 정은지 기준 모션을 불러와 본인 영상과 비교하고 전문가 기준 점수를 실영상으로 end-to-end 확인할 수 있다 (Mode 1 — coaching 모드 + champion_reference)
+- [x] **MODE-01**: 사용자가 정은지 기준 모션을 불러와 본인 영상과 비교하고 전문가 기준 점수를 실영상으로 end-to-end 확인할 수 있다 (Mode 1 — coaching 모드 + champion_reference)
 - [ ] **MODE-02**: 사용자가 본인 영상 2개를 비교해 발전(progress)을 실영상으로 end-to-end 확인할 수 있다 (Mode 3 — coaching 모드 + self_progress)
 
 ### 기준 모션 (Reference)
@@ -167,9 +167,9 @@
 | VIS-01 | Phase 12 | Pending |
 | PERS-03 | Phase 13 | Pending |
 | REF-01 | Phase 14 | Complete |
-| MODE-01 | Phase 15 | Pending |
+| MODE-01 | Phase 15 | Complete |
 | MODE-02 | Phase 15 | Pending |
-| SCORE-04 | Phase 15 | Pending |
+| SCORE-04 | Phase 15 | Complete |
 | DELIV-01 | Phase 15 | Pending |
 | SCORE-05 | Phase 16 | Pending |
 | TERM-01 | Phase 16 | Pending |

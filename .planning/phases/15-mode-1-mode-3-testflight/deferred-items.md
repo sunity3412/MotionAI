@@ -51,3 +51,38 @@ detected deficit). Automated per-input-class severity gating (reference-motion v
 student-practice success) requires the labeled eval set → **deferred to Phase 18** alongside
 the fail per-fault gate. Threshold NOT re-calibrated (D-02 / calibration-source-hard-gate;
 yaml sha256 c94bb8 unchanged).
+
+## pdshape/combo recognizer + line=None root cause (investigated 2026-06-17, belle-directed → follow-up phase)
+
+belle directed a pause to investigate pdshape (Mode 1 line=None + Mode 3 success delta -28).
+Confirmed ROOT CAUSE (not a code bug — pipeline runs crash-free, measurements objective):
+
+1. **pdshape (and combo) are IPSF-UNREGISTERED academy combination moves** —
+   `app/scripts/seed-reference-motions.mjs:386` explicitly: "정식 명칭 없는 연계 동작 …
+   IPSF 미등재 (Inverted Torso Hook/Butterfly + Scorpio variation 결합)". No canonical
+   joint-extension technique profile exists for them, so `joint_expectations={}` →
+   `dimensions.line_score()` returns None (designed anti-false-positive omission).
+
+2. **Mode 1 DOES pass a hint** `recognizer.motion_query_hint = "ref-pdshape"`
+   (pipeline/app.py:1693-1699), but recognizer classification is driven by Gemini's OWN
+   visual read (`raw_motion_name`, gemini_technique_recognizer.py:185,237), not the hint —
+   the hint only biases key-moment extraction. So a known referenceMotionId does NOT force a
+   registered profile.
+
+3. **line=None on ALL 7 Mode-1 student videos** (not just pdshape) — Gemini does not
+   confidently classify 정은지's *student-practice* clips into a registered scope. angle
+   resolved 7/7; server_error 0. Recognizer-accuracy limitation on practice footage.
+
+4. **pdshape Mode 3 -28** = fault doc `{stability:87}` vs success doc `{stability:59,angle:51}`;
+   delta on common dim (stability) = 59-87. Success clip has a real extreme transition tilt
+   (sh/hip 90° → stability 59). "success" file label != better absolute stability.
+
+Follow-up phase scope (NOT Phase 15 — validation-only):
+- Recognizer accuracy on student-practice footage (Phase 5 recognizer track).
+- Author joint-extension profiles for IPSF-unregistered academy moves (pdshape/combo) OR a
+  Mode-1 design change to derive student line expectation from the reference's techniqueProfile
+  (since referenceMotionId is known in Mode 1). Note: unregistered refs have no extension
+  profile either, so authoring is still required for pdshape/combo.
+- Demo guidance: prefer IPSF-registered moves (climb/kip-up/peter-pan/power-spin/elbow) for
+  expert-comparison demos; pdshape/combo line dimension unavailable until authored.
+Related memory: [[studio-term-3branch-system]], [[terminology-multimap-future]].

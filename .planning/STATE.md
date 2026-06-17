@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: planning
-stopped_at: Phase 15 context gathered
-last_updated: "2026-06-16T23:47:53.234Z"
+stopped_at: Phase 15 planned (5 plans, 4 waves, plan-check PASSED + W1-3 applied)
+last_updated: "2026-06-17T00:28:10.150Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 20
@@ -606,9 +606,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-16T23:47:53.221Z
+Last session: 2026-06-17T00:28:10.140Z
 
-Stopped at: Phase 15 context gathered
+Stopped at: Phase 15 planned (5 plans, 4 waves, plan-check PASSED + W1-3 applied)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -675,7 +675,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/15-mode-1-mode-3-testflight/15-CONTEXT.md
+Resume file: .planning/phases/15-mode-1-mode-3-testflight/15-01-PLAN.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

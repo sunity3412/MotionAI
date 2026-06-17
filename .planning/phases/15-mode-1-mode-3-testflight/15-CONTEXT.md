@@ -25,7 +25,7 @@
 - **D-03:** mock E2E만으로 게이트 충족 선언 금지 — 실 LLM/듀얼 coach 포함 최신 path 재검증이 게이트의 일부.
 
 ### 실영상 검증 데이터셋
-- **D-04:** **Mode 1** 비교 대상 = 등록된 **11개 reference 전부**([[reference-library-phase4-all11]], phase4_v1 RTMW 재처리 완료). "5"는 위양성 calibration 영상 수였을 뿐 — Mode 1은 11개 기준.
+- **D-04:** **Mode 1** 비교 대상 = 등록된 **11개 reference 전부**([[reference-library-phase4-all11]], phase4_v1 RTMW 재처리 완료). "5"는 위양성 calibration 영상 수였을 뿐 — Mode 1은 11개 기준. [2026-06-17 라운드2 리뷰 정정] 11개 전부 **필드 검증**(seed-reference-downstream.mjs --verify 11/11)되지만, **실 Mode1 E2E 비교는 정은지 학생영상이 있는 7개 모션**(climb/elbow-twist-sister/kip-up/pdshape/peter-pan/power-spin/combo)만 — ref-foxtop/foxtop-split/invert/sideway-spin 4개는 학생영상 없어 live 비교 미실시(명시적 coverage limitation, 은폐 금지).
 - **D-05:** **Mode 3 + 위양성 = 정은지 6 성공/실패 페어** 활용 ([[jeongeunji-success-fail-pair-dataset]]). 위치 `~/Downloads/정은지 선수 추가 영상/`. 6 동작: pdshape · elbow-twist-sister · climb · kip-up · power-spin · peter-pan. 동일 인물·동일 동작이라 Mode 3 델타(성공 vs 실패)와 위양성 게이트(성공=높음+low severity / 실패=fault 잡고 높은 점수 안 줌)를 한 셋으로 동시 검증. "나중에 추가된 6개 = 이 영상들" (belle 확인).
 - **D-06:** **objectivity 하드가드** — `분석결과/*.md`(누군가 작성한 분석 문서)는 fault가 무엇인지 **정성 참고만**. [[analysis-objectivity-no-human-scores]]에 따라 "이 영상 N점" ground-truth 점수 라벨로 영구 금지. 분석기가 독립적으로 fault를 잡아내야 검증이 의미. fault 종류 라벨(영상 입력 라벨)은 OK.
 - **D-07:** belle 본인 2영상 페어(실 사용자 장비·체형 커버)는 **선택** — 있으면 보강, 없어도 정은지 페어로 진행 가능.

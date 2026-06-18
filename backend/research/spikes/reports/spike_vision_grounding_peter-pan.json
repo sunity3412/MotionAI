@@ -1,0 +1,53 @@
+{
+  "motion": "peter-pan",
+  "model": "gemini-3.1-pro-preview",
+  "fault_video": "/Users/kimtaesung/Downloads/정은지 선수 추가 영상/피터팬(잘못된예시).mp4",
+  "correct_video": "/Users/kimtaesung/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4",
+  "analysis": {
+    "motion": "peter-pan",
+    "primary_fault": "신전되어야 할 다리(Extended Leg)의 무릎 굽음 및 발끝 포인(Point) 부족으로 인한 기하학적 신체 라인 붕괴",
+    "differences": [
+      {
+        "body_part": "뻗은 다리 (Extended Leg) 무릎",
+        "correct_state": "무릎 관절이 완전히 펴져 허벅지부터 발목까지 일직선(약 180도)의 매끄러운 라인을 형성함",
+        "fault_state": "무릎 관절이 굽혀져 있어 다리 라인이 중간에 꺾임",
+        "approx_angle_deviation_deg": 25,
+        "severity": "major",
+        "ipsf_note": "IPSF 규정상 완전히 신전(Extension)되어야 하는 관절의 굽음은 심각한 감점 요인입니다. 피터팬 동작의 핵심인 다리의 뻗은 라인이 훼손되었습니다."
+      },
+      {
+        "body_part": "발끝 (Toes/Ankle)",
+        "correct_state": "발목과 발가락이 완전히 펴진 완벽한 포인(Point) 상태를 유지함",
+        "fault_state": "발목이 덜 펴져 있거나 발가락에 힘이 풀려 선의 연장성이 끊어짐",
+        "approx_angle_deviation_deg": 30,
+        "severity": "moderate",
+        "ipsf_note": "발끝 포인은 폴스포츠의 필수적인 미학적 요구사항(Micro-detail)이며, 발끝이 펴지지 않으면 신체 라인의 끝부분이 뭉툭해져 감점 대상이 됩니다."
+      },
+      {
+        "body_part": "어깨 및 상체 정렬",
+        "correct_state": "어깨가 아래로 눌려 있고(Depression) 가슴이 열려 있어 폴과 상체 간의 공간이 충분히 확보됨",
+        "fault_state": "어깨가 귀 쪽으로 으쓱 올라가 있고(Elevation) 상체가 다소 말려 있어 폴과의 거리가 좁아짐",
+        "approx_angle_deviation_deg": 15,
+        "severity": "minor",
+        "ipsf_note": "상체 코어 및 견갑대 주변의 긴장감이 떨어지면 동작의 안정성과 우아함이 감소하여 자세(Poor execution) 감점의 원인이 됩니다."
+      }
+    ],
+    "extension_gaps": [
+      {
+        "joint": "뻗은 다리 무릎 관절",
+        "correct_extension": "180도 완전 신전",
+        "fault_extension": "약 155도 굽힘 상태",
+        "approx_gap_deg": 25
+      },
+      {
+        "joint": "발목 관절 (저측굴곡)",
+        "correct_extension": "최대 저측굴곡(포인) 상태",
+        "fault_extension": "불완전한 저측굴곡 상태",
+        "approx_gap_deg": 30
+      }
+    ],
+    "overall_qualitative": "CORRECT 영상은 사지의 완전한 신전과 코어의 긴장을 통해 피터팬 동작 특유의 가볍고 뻗어나가는 기하학적 라인을 명확히 보여줍니다. 반면 FAULT 영상은 뻗어야 할 다리의 무릎이 굽어 있고 발끝 처리가 미흡하여 동작의 전체적인 크기(Amplitude)가 작아 보입니다. 또한 상체의 긴장도가 떨어져 어깨가 솟아오르는 등 전반적인 수행의 완성도와 미학적 품질이 저하된 상태입니다.",
+    "confidence": "high"
+  },
+  "boundary_note": "sanity 앵커 / 일반화 검증용. 임계값 curve-fit 타깃 아님. 점수 라벨 금지 (객관성)."
+}

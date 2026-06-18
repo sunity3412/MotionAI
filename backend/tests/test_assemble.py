@@ -57,12 +57,16 @@ def test_issue_only_when_below_threshold():
 
 def test_mode1_shape_and_clamp():
     c = assemble.build_mode1(REF, similarity=140)
+    # Phase 19 ITER-4/ITER-5 — build_mode1 이 신규 Mode1 doc 에 scoringBasis(=reference_motion)
+    # + scoringBasisLabel 을 항상 emit (Mode1Comparison OPTIONAL 필드, build_mode1 always-emit).
     assert c == {
         "mode": "mode1",
         "referenceMotionId": "m1",
         "referenceMotionName": "인사이드 레그 행",
         "athleteName": "정은지",
         "similarity": 100,  # clamp
+        "scoringBasis": "reference_motion",
+        "scoringBasisLabel": "정은지 측정 각도 기준 비교",
     }
 
 
@@ -76,7 +80,12 @@ def test_mode1_segment_scores_included_only_when_given():
     c = assemble.build_mode1(REF, similarity=70, segment_scores=seg)
     assert c["segmentScores"] == seg
     # 단일 모션(segment 없음)이면 키 자체가 없음
-    assert "segmentScores" not in assemble.build_mode1(REF, similarity=70)
+    c_single = assemble.build_mode1(REF, similarity=70)
+    assert "segmentScores" not in c_single
+    # Phase 19 ITER-5 — scoringBasis 는 segmentScores 유무 양쪽 doc 모두에 존재 (단순 Mode1
+    # 에 basis 누락 방어). reference_motion 은 build_mode1 에서만 set (Mode3 부재).
+    assert c["scoringBasis"] == "reference_motion"
+    assert c_single["scoringBasis"] == "reference_motion"
 
 
 def test_mode3_first_has_no_delta():

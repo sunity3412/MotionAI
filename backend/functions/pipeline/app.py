@@ -1628,6 +1628,34 @@ def _hold_window_median_dict(
     }
 
 
+def _apply_vision_veto(
+    score_result: dict,
+    local_video_path: str | None = None,
+    angles: np.ndarray | None = None,
+) -> dict:
+    """v1 비전 거부권 hook (Phase 19 TRUST-05 / ITER-2 MEDIUM-3) — pass-through 자리.
+
+    v1 은 **SAME-OBJECT identity**: 입력 score_result 를 그대로 반환하고 어떤 필드도
+    mutate 하지 않는다 (`out is score_result`, copy/deepcopy 금지). 점수 객관성
+    ([[analysis-objectivity-no-human-scores]]) 위반 차단 — v1 에서 비전이 점수를 바꾸지
+    않음을 테스트(`out is score_result` + mutation 0)가 단언한다.
+
+    _gemini_vision_enabled() OFF(또는 v2 미구현) 시 항상 입력 객체 그대로 반환. v2 가
+    실제 거부권(특정 차원 강등 등)을 도입하는 시점에 이 계약을 의도적으로 전환한다
+    (adapter Protocol 경계 — v2 본체 DEFERRED). graceful boundary: 어떤 예외도 분석
+    흐름을 막지 않고 입력 객체로 폴백.
+    """
+    try:
+        if not _gemini_vision_enabled():
+            return score_result
+        # v2 거부권 본체 DEFERRED — 현재는 identity (점수 불변). v2 가 mutation 도입 시
+        # 여기에 vision adapter 호출 + 차원 강등 로직이 들어간다 (계약 전환 시점).
+        return score_result
+    except Exception:  # noqa: BLE001 - 비전 hook 실패는 분석을 막지 않는다 (graceful)
+        log.exception("vision veto hook 실패 — score_result 그대로 통과 (graceful)")
+        return score_result
+
+
 def _extension_target_dict(
     profile: technique.TechniqueProfile,
 ) -> dict[str, float]:
@@ -1659,8 +1687,29 @@ def _deviation_against(
     return deviation, match, user_seg, a_ref
 
 
+def _mode3_scoring_basis(is_first: bool, is_reference_free: bool) -> str:
+    """Mode3 의 scoringBasis 를 실제 채점 SOURCE 로 도출 (Phase 19 TRUST-03).
+
+    first 는 reference motion 비교가 아니라 abs_dims + extension targets — 미등록이면
+    절대트랙(reference_free_absolute), 등재면 recognized_motion_absolute. progress 는
+    이전 영상 각도 일관성 + 절대트랙 — 미등록은 composite(previous_analysis_plus_
+    reference_free_absolute, HIGH-3 lossy 금지), 등재는 previous_analysis_plus_absolute.
+    reference_motion 은 절대 사용 안 함 (Mode1 전용).
+    """
+    if is_first:
+        if is_reference_free:
+            return assemble.MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE
+        return assemble.MODE3_SCORING_BASIS_RECOGNIZED_ABSOLUTE
+    if is_reference_free:
+        return assemble.MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_FREE
+    return assemble.MODE3_SCORING_BASIS_PREV_PLUS_ABSOLUTE
+
+
 def _mode3_comparison(
-    angles: np.ndarray, prev: dict | None, profile: technique.TechniqueProfile
+    angles: np.ndarray,
+    prev: dict | None,
+    profile: technique.TechniqueProfile,
+    branch_info: assemble.MotionBranchInfo | None = None,
 ):
     """자기 성장(mode3) 분기 — 순수(어댑터/S3/Firestore 불필요, 테스트 가능).
 
@@ -1674,6 +1723,14 @@ def _mode3_comparison(
       - dimension_scores: 첫 분석=절대 차원, 이후=절대 + angle(일관성).
       - overall: 절대 차원 평균(첫 분석/이후 동일 척도)."""
     abs_dims = dimensions.absolute_dimension_scores(angles, profile)
+    # Phase 19 TRUST-03 — branch_info 미전달 시 profile.motion_id 로 lookup (게이트 wiring
+    # 이 없는 단위 테스트/호출 경로 호환). is_reference_free_motion 으로 미보유 판정
+    # (copyBranch 단독 분기 금지). fail-closed/raise 없음 — 점수는 주되 근거만 라벨링.
+    if branch_info is None:
+        branch_info = assemble.lookup_motion_branch(
+            getattr(profile, "motion_id", None)
+        )
+    is_reference_free = assemble.is_reference_free_motion(branch_info)
     prev_angles = (prev or {}).get("angles")
     if not prev or not prev_angles:
         # 첫 분석(또는 이전 angles 미저장) — 비교 대상 없음. 코칭은 신전 부족분(IPSF 라인) 기준.
@@ -1693,7 +1750,15 @@ def _mode3_comparison(
             reference_angles=ext_targets,
             target_source="extension_requirement",
         )
-        return assessments, abs_dims, overall, assemble.build_mode3(is_first=True)
+        first_basis = _mode3_scoring_basis(
+            is_first=True, is_reference_free=is_reference_free
+        )
+        return (
+            assessments,
+            abs_dims,
+            overall,
+            assemble.build_mode3(is_first=True, scoring_basis=first_basis),
+        )
     num_joints = len(prev.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
     deviation, _match, _user_seg, prev_seg = _deviation_against(
         angles, prev_angles, num_joints
@@ -1718,11 +1783,15 @@ def _mode3_comparison(
     # 유지 (절대 척도 안정 — 박제 메모 정신 유지).
     overall = dimensions.overall_from_dimensions(dim_scores)
     prev_dims = (prev.get("result") or {}).get("dimensionScores")
+    progress_basis = _mode3_scoring_basis(
+        is_first=False, is_reference_free=is_reference_free
+    )
     comparison = assemble.build_mode3(
         is_first=False,
         previous_analysis_id=prev.get("analysisId"),
         prev_dimension_scores=prev_dims,
         cur_dimension_scores=abs_dims,  # 발전 델타는 절대 3차원만(같은 척도)
+        scoring_basis=progress_basis,
     )
     return assessments, dim_scores, overall, comparison
 
@@ -1829,6 +1898,14 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # frames 인자 ignore (Protocol 정합 — TestProtocolCompat 박제 검증).
         profile = recognizer.recognize(angles, frames=local_video_path)
         abs_dims = dimensions.absolute_dimension_scores(angles, profile)
+
+        # Phase 19 TRUST-03 (BLOCKER-1 iter-1 + ITER-4) — branch_info lookup 을 recognize
+        # 직후로 이동(과거엔 build_result 직전). MODE_SELF 게이트(_mode3_comparison) +
+        # coach_context + build_result 가 동일 branch_info 1개를 공유 (중복 lookup 0,
+        # single source). 미존재/None → branch2 안전 기본 (lookup_motion_branch 내부 처리).
+        branch_info = assemble.lookup_motion_branch(
+            getattr(profile, "motion_id", None)
+        )
 
         # body_comparison_report — D-06-B3 통합 schema 박제 위치.
         # Task 3 가 firestore_admin.complete_analysis 에 wiring (camelCase 변환).
@@ -1943,7 +2020,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 uid, analysis_id, mode=models.MODE_SELF
             )
             assessments, dimension_scores, overall, comparison = _mode3_comparison(
-                angles, prev, profile
+                angles, prev, profile, branch_info=branch_info
             )
 
             # body_comparison_report mode3 분기 — prev 유무 → mode3_first vs mode3_progress.
@@ -2039,12 +2116,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 3차 R-B1 (Option A) — wave 1 (find_scene_flags, line ~1238) 가 이미 종료된
         # 후 박힘 (자연 박힘 — _process 본체 박제 순서).
         # 2차 R-W4 — None 박제 0. dual-track 분기 = `_fallbackReason` 키 또는 빈 dict.
-        # Phase 13-B (HIGH-2): motion_id → MotionBranchInfo 1회 lookup. coach_context
-        # 와 build_result 양쪽에서 공유 (동일 branch_info). 미존재/None → branch2 안전
-        # 기본 (belle 2026-06-16 DECISION 2, lookup_motion_branch 내부 처리).
-        branch_info = assemble.lookup_motion_branch(
-            getattr(profile, "motion_id", None)
-        )
+        # Phase 13-B (HIGH-2) + Phase 19: branch_info 는 recognize 직후 1회 lookup 한
+        # 동일 객체를 재사용 (coach_context / build_result / MODE_SELF 게이트 공유, 중복
+        # lookup 0). 미존재/None → branch2 안전 기본 (lookup_motion_branch 내부 처리).
         coach_context = _build_coach_context(
             mode=mode,
             assessments=assessments,
@@ -2144,6 +2218,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # Phase 13-B (HIGH-2): copyBranch 분기 카피 pass-through (coach 와 동일 lookup).
             branch_info=branch_info,
         )
+        # Phase 19 TRUST-05 — v2 비전 거부권 슬롯 (v1 = SAME-object identity, 점수 불변).
+        # v2 가 mutation 도입 시 이 hook 이 차원 강등을 적용한다 (계약 의도적 전환 시점).
+        result = _apply_vision_veto(result, local_video_path, angles)
         # 추출 angles 를 flat 저장 — 다음 mode3 분석이 '이전 영상' 기준으로 DTW 비교.
         # Phase 6 (Plan 06-02 Task 3) wiring — body_comparison_report (camelCase 변환) +
         # body_normalization_profile (mode3 progress prev fetch path).

@@ -112,6 +112,29 @@ def lookup_motion_branch(motion_id: str | None) -> MotionBranchInfo:
         sourceNote=entry.get("sourceNote", ""),
     )
 
+def is_reference_free_motion(branch_info: "MotionBranchInfo | None") -> bool:
+    """미보유(reference-free) 동작 판정 (Phase 19 TRUST-03 / BLOCKER-1 iter-1).
+
+    copyBranch 단독 분기 금지 — `_SAFE_DEFAULT_BRANCH.copyBranch == "branch2_eunji_reference"`
+    이고 실제 등재 branch2 동작도 같은 copyBranch 값을 갖기 때문에 copyBranch 만으로는
+    "안전 기본(미등록)" 과 "실 branch2(정은지 등재)" 를 구분할 수 없다. 미등록은
+    angleSource='unavailable' + angleFixtureKey/ipsfCode None + officialName 없음 으로
+    판정한다 (lookup_motion_branch 가 _SAFE_DEFAULT_BRANCH 를 반환한 상태와 정합).
+
+    None(branch_info 미상) 도 reference-free 로 본다 — 어떤 등재 정보도 없으므로 절대
+    트랙(line+stability) 채점이 안전 기본 (fail-closed/raise 아님,
+    [[motion-routing-generalize-principle]]).
+    """
+    if branch_info is None:
+        return True
+    return (
+        branch_info.angleSource == "unavailable"
+        and branch_info.angleFixtureKey is None
+        and branch_info.ipsfCode is None
+        and not branch_info.officialName
+    )
+
+
 # ── Phase 12.5: dimensionExplanation baseline 카피 ────────────────────────────
 # Codex v3 HIGH-1 fix: "IPSF 기준" → "IPSF 실행 기준 참고" (현재 line/stability_score
 # 는 generic heuristic 이지 Phase 16 IPSF 정식 통합 X — 과대 주장 회피).
@@ -530,17 +553,64 @@ def assemble_dual_coach_sections(
     return merged, audit
 
 
+# ── Phase 19 TRUST-03: scoringBasis (실제 채점 SOURCE 라벨) ────────────────────
+# Mode3 의 허용 scoringBasis = 정확히 4 값. reference_motion 은 **Mode1 전용** —
+# Mode3 에 들어오면 거짓 reference 비교 함의(신뢰 문제 재발)이므로 build_mode3 가
+# ValueError 로 거부한다 (ITER-3 HIGH-2 + ITER-4 HIGH-2). first reference-free 는
+# reference motion 비교가 아니라 절대 트랙(line+stability) 평가이므로 절대 reference_motion
+# 라벨을 붙이지 않는다.
+MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE = "reference_free_absolute"
+MODE3_SCORING_BASIS_RECOGNIZED_ABSOLUTE = "recognized_motion_absolute"
+MODE3_SCORING_BASIS_PREV_PLUS_ABSOLUTE = "previous_analysis_plus_absolute"
+MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_FREE = (
+    "previous_analysis_plus_reference_free_absolute"
+)
+_MODE3_SCORING_BASES: frozenset[str] = frozenset(
+    {
+        MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE,
+        MODE3_SCORING_BASIS_RECOGNIZED_ABSOLUTE,
+        MODE3_SCORING_BASIS_PREV_PLUS_ABSOLUTE,
+        MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_FREE,
+    }
+)
+# user-facing 한국어 라벨 — 정확한 채점 source 를 화면에 노출 (TRUST-03 가시화).
+_MODE3_SCORING_BASIS_LABELS: dict[str, str] = {
+    MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE: "기준 동작 없음 — 절대 자세 기준 평가",
+    MODE3_SCORING_BASIS_RECOGNIZED_ABSOLUTE: "등재 동작 — 절대 자세 기준 평가",
+    MODE3_SCORING_BASIS_PREV_PLUS_ABSOLUTE: "이전 분석 대비 + 절대 자세 기준",
+    MODE3_SCORING_BASIS_PREV_PLUS_REFERENCE_FREE: (
+        "이전 분석 대비 + 절대 자세 기준 (기준 동작 없음)"
+    ),
+}
+
+# Mode1 전용 — 정은지 reference 각도와 실제 비교한 채점. Mode3 에는 절대 부재.
+MODE1_SCORING_BASIS = "reference_motion"
+
+
 def build_mode1(
     reference_motion: dict,
     similarity: int,
     segment_scores: dict | None = None,
 ) -> dict:
+    """Mode1(전문가 비교) comparison.
+
+    Phase 19 ITER-4 HIGH-1 — Mode1 의 scoringBasis 는 항상 `reference_motion`
+    (정은지 reference 각도와 실제 비교한 채점). 신규 Mode1 doc 에 scoringBasis +
+    scoringBasisLabel 을 **항상 emit** (Mode1Comparison schema 의 OPTIONAL 필드 —
+    legacy doc 호환). 이 값은 Mode1 에서만 set — Mode3Comparison/build_mode3 로 절대
+    전달하지 않는다 (Mode3 에는 reference_motion 이 존재하지 않음).
+    """
+    athlete = reference_motion.get("athleteName", "")
     out = {
         "mode": "mode1",
         "referenceMotionId": reference_motion["motionId"],
         "referenceMotionName": reference_motion.get("name", ""),
-        "athleteName": reference_motion.get("athleteName", ""),
+        "athleteName": athlete,
         "similarity": int(max(0, min(100, similarity))),
+        "scoringBasis": MODE1_SCORING_BASIS,
+        "scoringBasisLabel": (
+            f"{athlete} 측정 각도 기준 비교" if athlete else "기준 선수 측정 각도 기준 비교"
+        ),
     }
     # 콤보 모션 분석 시에만 (segments.segment_scores 가 dict 반환). contract §4.
     if segment_scores:
@@ -553,14 +623,33 @@ def build_mode3(
     previous_analysis_id: str | None = None,
     prev_dimension_scores: dict | None = None,
     cur_dimension_scores: dict | None = None,
+    scoring_basis: str | None = None,
+    scoring_basis_label: str | None = None,
 ) -> dict:
     """자기 성장(mode3) 비교 블록.
 
     핵심은 '이전과 몇 % 일치'가 아니라 '발전(progress)'이다([[mode3-progress-not-similarity]]).
     절대 차원(라인/균형/안정성)은 기준 없이 산출돼 세션 간 같은 척도이므로,
     deltaFromPrevious = 이번 점수 − 지난 점수 가 진짜 발전을 의미한다.
-    첫 분석이면 비교 대상이 없어 절대 점수만 (delta 없음)."""
+    첫 분석이면 비교 대상이 없어 절대 점수만 (delta 없음).
+
+    Phase 19 (ITER-2 MEDIUM-2 backward-compat + ITER-3 HIGH-2 4-value enum):
+    scoring_basis 미전달(None) 시 기존 dict 정확히 보존 (scoringBasis 키 미추가).
+    전달 시에만 scoringBasis + scoringBasisLabel emit. 허용값 = 정확히 4 Mode3 값
+    (_MODE3_SCORING_BASES). `reference_motion` 은 Mode1 전용 — Mode3 에 들어오면
+    거짓 reference 비교 함의이므로 ValueError (free-form 문자열도 거부).
+    """
+    if scoring_basis is not None and scoring_basis not in _MODE3_SCORING_BASES:
+        raise ValueError(
+            f"build_mode3 scoring_basis 는 4 Mode3 값 중 하나여야 함 "
+            f"(reference_motion 은 Mode1 전용 — Mode3 불가): {scoring_basis!r}"
+        )
     out: dict = {"mode": "mode3", "isFirst": bool(is_first)}
+    if scoring_basis is not None:
+        out["scoringBasis"] = scoring_basis
+        out["scoringBasisLabel"] = (
+            scoring_basis_label or _MODE3_SCORING_BASIS_LABELS.get(scoring_basis, "")
+        )
     if is_first or not previous_analysis_id:
         return out
     out["previousAnalysisId"] = previous_analysis_id

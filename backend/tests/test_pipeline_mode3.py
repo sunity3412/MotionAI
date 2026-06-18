@@ -55,7 +55,12 @@ def test_first_analysis_absolute_only_no_delta():
     assessments, dims, overall, comparison = app._mode3_comparison(
         _video(1), None, _profile()
     )
-    assert comparison == {"mode": "mode3", "isFirst": True}
+    # Phase 19 — _mode3_comparison 은 이제 scoringBasis(실제 채점 source 라벨)를 항상
+    # emit 한다 (TRUST-03 가시화). first + reference-free(_profile() motion_id None) →
+    # reference_free_absolute. 핵심 계약(mode/isFirst/delta 없음)은 불변.
+    assert comparison["mode"] == "mode3" and comparison["isFirst"] is True
+    assert "previousAnalysisId" not in comparison and "deltaFromPrevious" not in comparison
+    assert comparison["scoringBasis"] == "reference_free_absolute"
     assert set(dims) == {"line", "stability"}
     assert 0 <= overall <= 100
     assert len(assessments) == NUM_JOINTS
@@ -166,7 +171,10 @@ def test_unknown_move_gate(scoring_basis):
     )
     # 미등록(reference-free) vs 등재(recognized) 를 motion_id 로 구분. 미등록 → 안전 기본
     # (_SAFE_DEFAULT_BRANCH, copyBranch="branch2_eunji_reference"), 등재 → 실 branch2.
-    motion_id = None if is_reference_free else "ref-climb"
+    # ref-foxtop = copyBranch branch2_eunji_reference (안전 기본과 동일값) 이지만
+    # angleSource=eunji_measured_yaml + officialName 존재 → is_reference_free=False.
+    # 이로써 "copyBranch 동일인데 reference-free 판정 다름" 을 검증한다 (copyBranch 단독 분기 금지).
+    motion_id = None if is_reference_free else "ref-foxtop"
     branch = assemble.lookup_motion_branch(motion_id)
     # is_reference_free_motion 판정 helper (Wave 1 신설) — copyBranch 단독 분기 금지.
     is_ref_free_fn = getattr(assemble, "is_reference_free_motion", None)
@@ -175,11 +183,18 @@ def test_unknown_move_gate(scoring_basis):
     )
     assert is_ref_free_fn(branch) is is_reference_free
 
+    # 게이트 wiring — recognize 직후 lookup 한 branch_info 를 _mode3_comparison 에 흘려야
+    # first reference-free vs first recognized 를 구분해 정확한 scoringBasis 를 emit 한다
+    # (동일 angles/profile 만으로는 구분 불가 — branch_info 가 motion 인식 정보의 single source).
     if is_first:
-        _, _, _, comparison = app._mode3_comparison(_video(1), None, profile)
+        _, _, _, comparison = app._mode3_comparison(
+            _video(1), None, profile, branch_info=branch
+        )
     else:
         prev = _as_prev(_video(7), "prevA", {"line": 60, "stability": 65})
-        _, _, _, comparison = app._mode3_comparison(_video(2), prev, profile)
+        _, _, _, comparison = app._mode3_comparison(
+            _video(2), prev, profile, branch_info=branch
+        )
 
     # NOTE: scoringBasis 는 motion 인식(profile.motion_id / branch) 에 의존하므로 Wave 1 의
     # 게이트 wiring 이 _mode3_comparison 시그너처에 branch/recognized 정보를 흘려야 emit 된다.
@@ -188,7 +203,7 @@ def test_unknown_move_gate(scoring_basis):
     assert _comparison_scoring_basis(comparison) != "reference_motion"
 
     # 실 branch2(정은지)와 reference-free 가 copyBranch 동일값이어도 scoringBasis 는 달라야 함.
-    real_branch2 = assemble.lookup_motion_branch("ref-climb")
+    real_branch2 = assemble.lookup_motion_branch("ref-foxtop")
     safe_default = assemble.lookup_motion_branch(None)
     assert real_branch2.copyBranch == safe_default.copyBranch == "branch2_eunji_reference"
     assert is_ref_free_fn(real_branch2) is not is_ref_free_fn(safe_default)

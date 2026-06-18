@@ -83,9 +83,63 @@ def test_extension_deviation_targets_only_required_joints():
     assert dev[JOINT_KEYS.index("left_knee")] == 30
 
 
-def test_overall_from_dimensions_is_mean():
-    assert dimensions.overall_from_dimensions({"a": 80, "b": 60, "c": 70}) == 70
+def test_overall_from_dimensions_uses_core_dimensions():
+    # Phase 19 D-01 (모순 케이스 갱신): 종합은 core 차원(angle/line)만 반영하고 stability
+    # (떨림)는 인플레 기여하지 않는다. 평균식은 stability 가 높으면 종합을 끌어올려 위양성을
+    # 만든다 (deferred-items.md 근본원인). DIM_* 상수 사용 (literal "angle" 하드코딩 금지).
+    DIM_ANGLE = dimensions.DIM_ANGLE
+    DIM_LINE = dimensions.DIM_LINE
+    DIM_STABILITY = dimensions.DIM_STABILITY
+    # core min — angle 40 / line 80 → 종합 40 (stability 99 비기여).
+    assert (
+        dimensions.overall_from_dimensions(
+            {DIM_ANGLE: 40, DIM_LINE: 80, DIM_STABILITY: 99}
+        )
+        == 40
+    )
+    # no-core fallback — core 차원이 하나도 없으면 절대트랙(stability) 단독 사용.
+    assert dimensions.overall_from_dimensions({DIM_STABILITY: 99}) == 99
+    # 빈 입력 보존 — 0.
     assert dimensions.overall_from_dimensions({}) == 0
+
+
+# ── Phase 19 D-01 신규 RED 케이스 (단독 실행 시 현재 비례감점/평균식에 대해 behavior fail) ──
+
+
+def test_micro_bent_zero_track():
+    # SCORE-07: 신전 요구 관절(knee)의 대표 각도가 160° 미만(140°)이면 해당 요소는
+    # 무효(0점 트랙) — 비례감점이 아니라 요소 무효. 160° = 180° − 20° tol
+    # [CITED: 19-IPSF-DEDUCTION-NOTES §A 트랙1]. 현재 line_score 는 비례감점이라
+    # 140° (부족분 40°) → 가우시안 점수(0 아님) → RED.
+    p = _profile()  # elbows + knees EXTEND
+    angles = _pose({k: 140.0 for k in _EXT})  # 전 신전관절 micro-bent
+    assert dimensions.line_score(angles, p) == 0
+
+
+def test_intentional_bend_not_penalized():
+    # SCORE-07 위양성 가드 (Pitfall 4 chair-pose): expects_extension=False 관절은 140°여도
+    # 0점 트랙 미적용 — 의도적 굽힘은 결함이 아니다. 신전 요구 관절(elbows)은 180° 로 정상.
+    p = _profile(extend=("left_elbow", "right_elbow"))  # 무릎은 BENT_OK
+    angles = _pose({
+        "left_knee": 140.0, "right_knee": 140.0,   # 의도적 굽힘 — 깎이면 안 됨
+        "left_elbow": 180.0, "right_elbow": 180.0,  # 신전 요구 — 완전 신전
+    })
+    # 무릎 굽힘이 0점 트랙을 발동시키지 않으므로 line 은 만점 유지.
+    assert dimensions.line_score(angles, p) == 100
+
+
+def test_stability_does_not_inflate():
+    # TRUST-02: stability(매끄러운 fault)가 높아도 core 차원(angle/line)이 낮으면 종합은
+    # 낮아야 한다. 현재 평균식: (40+40+99)/3 ≈ 60 → `<= 50` 실패 → RED.
+    DIM_ANGLE = dimensions.DIM_ANGLE
+    DIM_LINE = dimensions.DIM_LINE
+    DIM_STABILITY = dimensions.DIM_STABILITY
+    dimension_scores = {DIM_ANGLE: 40, DIM_LINE: 40, DIM_STABILITY: 99}
+    # dimension_scores 키/순서 보존 단언 (Pitfall 2 — 입력 dict 불변).
+    keys_before = list(dimension_scores.keys())
+    overall = dimensions.overall_from_dimensions(dimension_scores)
+    assert list(dimension_scores.keys()) == keys_before
+    assert overall <= 50
 
 
 # ── Phase 12.5 v4 — 신 helpers 단위 테스트 (Codex v3 HIGH-2 fix) ────────

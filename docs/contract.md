@@ -158,7 +158,8 @@ updatedAt?         number (epoch ms)
 
 design.md §8 결과 화면이 그리는 데이터.
 ```
-overallScore   number              0~100 종합 (mode1=3차원 평균, mode3=절대 차원 평균)
+overallScore   number              0~100 종합 = core 차원(angle/line)의 min (min-of-core).
+                                   stability 는 종합 입력에서 제외(보조 지표). core 부재 시 절대트랙 단독.
 dimensionScores { angle?, line?, stability } 각 0~100  ← IPSF 실행 차원 (3차원)
 dimensionExplanation { [dim]: DimensionExplanation } optional  ← Phase 12.5 (2026-06-07)
 recommendedExercises RecommendedExercise[] optional  ← Phase 13 (2026-06-16, PERS-03)

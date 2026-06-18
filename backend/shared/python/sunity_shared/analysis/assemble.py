@@ -679,7 +679,8 @@ def build_result(
     """contract AnalysisResult. status='done' 일 때 Firestore result 에 저장.
 
     dimension_scores = IPSF 실행 차원 점수 (angle/line/stability — 3차원). overall_score
-    는 파이프라인이 모드별로 계산 (mode1 = 3차원 평균, mode3 = 절대 차원 평균).
+    는 파이프라인이 overall_from_dimensions = min-of-core(angle/line) 로 계산
+    (stability 는 종합 비기여 — 보조 지표; core 부재 시 절대트랙 단독).
     joints/tips 는 관절각 편차 기반 (코칭 포인트) 으로 차원과 별개.
 
     Phase 12.5: joint_angles + profile 가 주어지면 dimensionExplanation 출력 (line/

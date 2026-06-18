@@ -1996,7 +1996,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                     f"angle {angle_dim} < {models.NOT_POLE_SIMILARITY_THRESHOLD}"
                 )
             dimension_scores = {dimensions.DIM_ANGLE: angle_dim, **abs_dims}
-            overall = dimensions.overall_from_dimensions(dimension_scores)  # 4차원 평균
+            overall = dimensions.overall_from_dimensions(dimension_scores)  # min-of-core (angle/line); stability 비기여
             # 콤보 모션이면 베이스/확장 구간 부분 점수 (reference-motions.md §7).
             seg_scores = None
             if ref.get("sharedBaseMotionId"):

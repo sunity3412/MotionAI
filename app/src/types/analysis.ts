@@ -336,7 +336,7 @@ export interface AiSynthesisMeta {
 }
 
 export interface AnalysisResult {
-  overallScore: number; // 0~100. mode1=3차원 평균, mode3=절대 차원 평균
+  overallScore: number; // 0~100 종합 = core 차원(angle/line)의 min (min-of-core). stability 제외(보조). core 부재 시 절대트랙 단독.
   // IPSF 실행 차원 점수 (3차원: angle/line/stability).
   // mode1=3키 / mode3 first=2키 (line/stability — line 생략 가능 시 1키 stability)
   // / mode3 second+=3키 (+ angle 일관성). 표시는 DIMENSION_ORDER 순서로 존재 키만.

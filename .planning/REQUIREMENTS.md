@@ -41,7 +41,7 @@
 - [x] **TRUST-01**: 결과 화면 표시 각도값(현재/기준)이 점수를 산출한 DTW-정렬 median 값과 정합한다 — `_angles_to_mean_dict`(whole-clip nanmean) → DTW-정렬 source 교체, user matched-window vs ref full-clip 비대칭 제거. (출처: 15/deferred-items.md §E)
 - [x] **TRUST-02**: 어깨 차원 라벨이 'STATIC POSE ANGLE'을 'stability(떨림)'로 오인 표기하지 않으며(COACHING_FOCUS 어깨→'안정성' 정정), DIM_STABILITY(떨림)가 종합점수를 인플레하지 않는다(매끄러운 fault가 99점으로 평균 끌어올림 차단). (출처: 15/deferred-items.md §E, CRITICAL C)
 - [x] **TRUST-03**: Mode3(MODE_SELF)에 미보유동작 유효성 게이트 + 점수근거 표시 — 동작분류(IPSF등재/정은지reference/미보유) 분기 후, 미보유 시 "기준 동작 없음 — 절대 자세 기준 평가" 근거를 헤드라인에 명시. not_pole 안전망을 reference-free 절대 트랙으로 적용. fail-closed/raise 금지. (출처: [[mode3-scoring-basis-unknown-move-gate]], D-03)
-- [ ] **TRUST-04**: 3D 골격이 실기기에서 렌더된다 — joints3d RTMW 픽셀좌표를 골반중심 recenter + 몸통길이 정규화하여 viewer frustum 안에 들어온다. Firestore flat 저장·nested-array 금지 준수(읽는 쪽 reshape). (출처: 15/deferred-items.md §H)
+- [x] **TRUST-04**: 3D 골격이 실기기에서 렌더된다 — joints3d RTMW 픽셀좌표를 골반중심 recenter + 몸통길이 정규화하여 viewer frustum 안에 들어온다. Firestore flat 저장·nested-array 금지 준수(읽는 쪽 reshape). (출처: 15/deferred-items.md §H)
 - [x] **TRUST-05** (v2 hook, 비-차단): 감점식 schema가 v2 비전 거부권 투입 지점(adapter Protocol + audit 필드)을 막지 않는다 — score 산출 후 veto/cross-check hook 자리(v1 pass-through) + dimensionScores vision-flag 확장 여지. v2에서 채울 schema 슬롯만 남긴다. (출처: D-02 v2, D-04 v1/v2 분할)
 
 ### 학원 용어 (Studio Terminology)
@@ -183,7 +183,7 @@
 | TRUST-01 | Phase 19 | Complete |
 | TRUST-02 | Phase 19 | Complete |
 | TRUST-03 | Phase 19 | Complete |
-| TRUST-04 | Phase 19 | Pending |
+| TRUST-04 | Phase 19 | Complete |
 | TRUST-05 | Phase 19 | Complete |
 | DELIV-01 | Phase 15 | Pending |
 | SCORE-05 | Phase 16 | Pending |

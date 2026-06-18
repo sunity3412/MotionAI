@@ -212,11 +212,17 @@ export function normalizeFrames(
       out.push(normalized);
       prevValid = normalized;
       anyNormalized = true;
-    } else if (prevValid !== null) {
+    } else if (
+      prevValid !== null &&
+      prevValid.length === (jointCount > 0 ? jointCount : jointKeys.length)
+    ) {
       // last-resort (1): 직전 valid 정규화 frame 복제 (frame 수 보존).
+      // WR-04: prevValid 의 관절 수가 현재 frame 기대치와 같을 때만 복제.
+      // 다르면(잘린/깨진 frame) 복제 시 frame 별 관절 수가 어긋나 PoseViewer3D
+      // 인덱싱이 out-of-bounds 될 수 있다 → 기대 관절 수의 zero-skeleton 폴백.
       out.push(prevValid.map((p) => [p[0], p[1], p[2]]));
     } else {
-      // last-resort (2): finite all-zero skeleton (직전 valid 없음).
+      // last-resort (2): finite all-zero skeleton (직전 valid 없음 또는 관절 수 불일치).
       out.push(zeroSkeleton(jointCount > 0 ? jointCount : jointKeys.length));
     }
   }

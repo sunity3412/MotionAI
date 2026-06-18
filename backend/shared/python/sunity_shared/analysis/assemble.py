@@ -12,9 +12,12 @@ Phase 12.5 (2026-06-07): dimensionExplanation 추가 — 사용자가 결과 화
 from __future__ import annotations
 
 import json
+import logging
 import math
 from dataclasses import dataclass
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from . import dimensions, kismam
 from .dimensions import AxisFrame, compute_axis_frames
@@ -79,14 +82,25 @@ _SAFE_DEFAULT_BRANCH = MotionBranchInfo(
 
 
 def _load_motion_ipsf_map() -> dict:
-    """motion_ipsf_map.json lazy load + 모듈 캐시 (`_` 시작 메타 키 제외)."""
+    """motion_ipsf_map.json lazy load + 모듈 캐시 (`_` 시작 메타 키 제외).
+
+    WR-07: 파일 부재/파싱 실패 시 raise 하지 않고 빈 map 으로 degrade —
+    lookup_motion_branch 가 자연히 _SAFE_DEFAULT_BRANCH 로 폴백한다 (배포가
+    데이터 파일을 누락해도 매 분석이 unhandled exception 으로 죽지 않음).
+    반환 dict 는 캐시의 얕은 복사 — 호출자가 mutate 해도 공유 캐시(Lambda
+    컨테이너 재사용 + 스레드 간 공유)가 오염되지 않는다.
+    """
     global _MOTION_IPSF_MAP_CACHE
     if _MOTION_IPSF_MAP_CACHE is None:
-        raw = json.loads(_MOTION_IPSF_MAP_PATH.read_text(encoding="utf-8"))
+        try:
+            raw = json.loads(_MOTION_IPSF_MAP_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            log.exception("motion_ipsf_map load 실패 — 안전 기본(_SAFE_DEFAULT_BRANCH) 사용")
+            raw = {}
         _MOTION_IPSF_MAP_CACHE = {
             k: v for k, v in raw.items() if not str(k).startswith("_")
         }
-    return _MOTION_IPSF_MAP_CACHE
+    return dict(_MOTION_IPSF_MAP_CACHE)
 
 
 def lookup_motion_branch(motion_id: str | None) -> MotionBranchInfo:

@@ -32,7 +32,7 @@
 **점수 신뢰도 (분석이 믿을 만해야 함):**
 - [ ] Gemini 기술 인식기 어댑터 — 영상 → 기술 인식 → 관절별 EXTEND/BENT 판정 → line 차원이 의미있게 작동
 - [ ] "각도 정확도 100" 아티팩트 수정 — 같은/유사 영상 비교 케이스 처리, 라벨·로직 정정
-- [ ] overall 점수 구성 취약성 수정 — 차원 한 개(예: 안정성)에 휘둘리지 않는 합성
+- [x] overall 점수 구성 취약성 수정 — 차원 한 개(예: 안정성)에 휘둘리지 않는 합성 (Phase 19 — IPSF 감점식 집계로 단일 major fault 지배 + stability 종합 분리 + micro-bent 0점, SCORE-06/07·TRUST-02. 실영상 end-to-end 검증은 Phase 15)
 - [ ] 신뢰도 게이트 — 정은지(고수) 위양성 없음 + 스피닝 폴 포함 다양한 영상에서 인체 추적·분석 정확 (강사/운영자 신뢰의 핵심)
 - [ ] **IPSF 5트랙 채점 시스템 v1 박제** — (a) Compulsory Criteria + (c) Technical Deduction + Page 9 "all components" 절대 공통 트랙. 동작 인식 실패/비등재/자유 루틴 모든 케이스에서 Page 9 절대 트랙 단독으로도 자세 품질 채점 가능 (mode3 reference 없는 채점의 IPSF 공식 근거). (b) Tech Bonus 연계 + (d) Artistic 정성 = v2 (Phase 16 → v2)
 
@@ -127,6 +127,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-17 — Phase 11 (CoachCommentHook + Gemini 자연어 번역, COACH-01·FEED-03) 완료 반영*
+*Last updated: 2026-06-18 — Phase 19 (vision-hybrid: IPSF 감점식 채점 재설계 + 확정 버그 3건 + Mode3 미보유 게이트 + v2 vision hook 자리, SCORE-06/07·TRUST-01~05) 완료 반영. TRUST-04 실기기 3D 렌더 육안은 다음 native build 시점 deferred(19-HUMAN-UAT)*
 *Updated 2026-06-02: Phase 16 신설 — 학원 용어 3분기 + 5트랙 채점 v1 scope. NotebookLM IPSF CoP 2024-2025 lookup 박제. v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제. Active 그룹 (점수 신뢰도 / 기준 모션) 항목 추가, Out of Scope v2 보강, Key Decisions 3건 추가.*
 *Updated 2026-06-08: 분석 정확도 핵심 차원 v1 진행 결정 (이전 2026-06-07 "Phase 2~11 보류" 박제 무효). v1 시퀀스 = Phase 6 → 7 → 8 → 9 → 12 → 13. belle 박제 — "오버레이, 체형 정규화, 힘 패턴은 필수적. 어떻게든 기필코 개발하려고 하는 게 지금." Phase 6 CONTEXT.md 박제 (좌표 변환 방향 B + confidence-tiered hybrid + 3 케이스 통합 schema). Key Decisions 3건 추가.*

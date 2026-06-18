@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 19 CONTEXT done. 내일 시작 = 비전 그라운딩 스파이크 (D-05, Pod 불필요/Gemini API만). Pod 01emvodj1pdooe 크레딧 소진 자동종료 — 실 GPU E2E 는 belle 충전+새 Pod 필요
-last_updated: "2026-06-17T15:21:32.298Z"
-last_activity: 2026-06-17
+last_updated: "2026-06-18T10:50:38.708Z"
+last_activity: 2026-06-18
 progress:
-  total_phases: 20
-  completed_phases: 11
-  total_plans: 85
-  completed_plans: 77
-  percent: 55
+  total_phases: 2
+  completed_phases: 0
+  total_plans: 4
+  completed_plans: 1
+  percent: 0
 ---
 
 # Project State
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 15 — mode-1-mode-3-testflight
+**Current focus:** Phase 19 — vision-hybrid
 
 ## Current Position
 
-Phase: 15 (mode-1-mode-3-testflight) — EXECUTING
-Plan: 4 of 5
+Phase: 19 (vision-hybrid) — EXECUTING
+Plan: 2 of 4
 Verification: 13-C — `assemble.assemble_dual_coach_sections` 섹션 조립 + cross-fill 폴백 7 케이스 PASS / phase13 88 passed (81+7, 회귀 0) / pipeline+geminib+dispatch 포함 131 passed / app tsc --noEmit clean / 자세히 모달 벤더명 렌더 텍스트 0 / gemini_b dual-track audit Firestore flat 검증 통과 / GEMINI_COACH_ENABLED=0 Cerebras-only path 보존. 3 atomic commit (8ec9dc5/4f7f7aa/340d0c9).
 Next: Phase 15 (실증) — 실 영상 → 실 dual-LLM 섹션 조립 E2E 라이브 검증 + "둘 중 하나 drop 여부" 결정 (13-C 빌드 ≠ drop 결정). Pod 기동 + 라이브 LLM 호출은 Phase 15 scope.
 Status: Ready to execute
@@ -64,7 +64,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-17
+Last activity: 2026-06-18
 
 ### Quick Tasks Completed
 
@@ -287,7 +287,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 25%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -524,6 +524,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 15 P01 | 35min | 3 tasks | 4 files |
 | Phase 15 P03 | 70min | 2 tasks | 1 files |
 | Phase 15 P04 | 75min | 3 tasks | 2 files |
+| Phase 19-vision-hybrid P01 | 18min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -584,6 +585,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 15-04: Mode 3 6 fail->success 페어 deltaFromPrevious 차원 점수(stability) 델타 — 6/6 previousAnalysisId==paired fault, MODE-02 충족
 - [Phase ?]: 15-04: SCORE-04 단독 — frozen 08.1 checksum(c94bb8)+fallback==0 12/12, SC3 41점-스타일 위양성 부재(최저 overall 55=실 결손). all-low success-severity gate=reference-motion invariant라 학생-연습 success 미전이 → Phase 18 defer(재calibrate 0)
 - [Phase ?]: 15-04: 듀얼 coach 12/12 doc dualTrack=True+nonCrossFilledGemini6(실 LLM)+빈 섹션 0(D-12). Mode 3 6-페어 status total12/done12/server_error0 → 15-05 SC4 입력
+- [Phase ?]: Phase 19 Wave 0: RED proven by standalone behavioral failure (not collection); within_tolerance_remains_high intentionally RED (dead-zone), clean_pose/synthetic above-cutoff pass today as guards
+- [Phase ?]: Mode1 reference_motion basis asserted on serialized build_mode1 comparison.scoringBasis (ITER-4 HIGH-1), kept out of Mode3 4-value gate (ITER-3 MEDIUM-1)
 
 ### Pending Todos
 
@@ -616,7 +619,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-17T15:21:32.279Z
+Last session: 2026-06-18T10:50:20.938Z
 
 Stopped at: Phase 19 CONTEXT done. 내일 시작 = 비전 그라운딩 스파이크 (D-05, Pod 불필요/Gemini API만). Pod 01emvodj1pdooe 크레딧 소진 자동종료 — 실 GPU E2E 는 belle 충전+새 Pod 필요
 
@@ -685,7 +688,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/19-vision-hybrid/19-NEXT-SESSION.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

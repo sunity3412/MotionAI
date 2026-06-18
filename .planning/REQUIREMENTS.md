@@ -36,13 +36,13 @@
 - [x] **SCORE-04**: 고수(정은지) 영상이 위양성 감점 없이 신뢰할 만한 점수로 산출되고, 다양한 영상에서 인체 추적·분석이 정확하다 (신뢰도 게이트 — 강사/운영자 신뢰의 핵심)
 - [ ] **SCORE-05**: 5트랙 채점 시스템 v1 — IPSF 4공식 트랙 중 (a) Compulsory Criteria + (c) Technical Deduction 두 트랙 + Page 9 "all components" 절대 공통 트랙이 작동한다. 동작 인식 성공/실패/비등재/자유 루틴 모든 케이스에서 Page 9 절대 트랙 단독으로도 자세 품질 채점이 가능하다 (mode3 reference 없는 채점의 IPSF 공식 근거). (b) Tech Bonus 연계 가산 + (d) Artistic 정성 평가는 v2. (출처: IPSF Pole Sports CoP 2021-2024 Page 9 / NotebookLM lookup 2026-06-02)
 
-- [ ] **SCORE-06**: 종합·차원 점수가 감점식(deduction)으로 집계되어 단일 major fault가 종합을 지배한다 — 이중 단순평균(`kismam.overall_score` 가중평균 + `dimensions.overall_from_dimensions` 단순평균) 폐기. 100에서 시작 → IPSF 트랙(요소 0점 + 누적 실행 감점) 비율 매핑으로 감점. D-05 6 앵커(모두 fault 영상)가 낮은 종합점수를, above-cutoff 케이스는 높은 점수를 받는다. 감점 임계는 IPSF 근거(19-IPSF-DEDUCTION-NOTES §A)에서만 — 보유 sweep 재calibrate 금지. (출처: Phase 15 실증 94점 위양성 + IPSF CoP 2021-2027 / [[calibration-source-hard-gate]] [[judging-baseline-ipsf-code-of-points]])
-- [ ] **SCORE-07**: "Fully Extended" 요소의 micro-bent 0점 트랙 — 신전 요구 관절(`profile.expects_extension` True)이 IPSF 임계(스플릿 160°=목표 180°−20° tol) 미달이면 해당 요소 무효(0점, 비례감점 아님). 의도적 굽힘(expects_extension False)은 미적용(위양성 차단). 임계는 IPSF 근거에서만. (출처: 19-IPSF-DEDUCTION-NOTES §A 트랙1)
-- [ ] **TRUST-01**: 결과 화면 표시 각도값(현재/기준)이 점수를 산출한 DTW-정렬 median 값과 정합한다 — `_angles_to_mean_dict`(whole-clip nanmean) → DTW-정렬 source 교체, user matched-window vs ref full-clip 비대칭 제거. (출처: 15/deferred-items.md §E)
-- [ ] **TRUST-02**: 어깨 차원 라벨이 'STATIC POSE ANGLE'을 'stability(떨림)'로 오인 표기하지 않으며(COACHING_FOCUS 어깨→'안정성' 정정), DIM_STABILITY(떨림)가 종합점수를 인플레하지 않는다(매끄러운 fault가 99점으로 평균 끌어올림 차단). (출처: 15/deferred-items.md §E, CRITICAL C)
-- [ ] **TRUST-03**: Mode3(MODE_SELF)에 미보유동작 유효성 게이트 + 점수근거 표시 — 동작분류(IPSF등재/정은지reference/미보유) 분기 후, 미보유 시 "기준 동작 없음 — 절대 자세 기준 평가" 근거를 헤드라인에 명시. not_pole 안전망을 reference-free 절대 트랙으로 적용. fail-closed/raise 금지. (출처: [[mode3-scoring-basis-unknown-move-gate]], D-03)
+- [x] **SCORE-06**: 종합·차원 점수가 감점식(deduction)으로 집계되어 단일 major fault가 종합을 지배한다 — 이중 단순평균(`kismam.overall_score` 가중평균 + `dimensions.overall_from_dimensions` 단순평균) 폐기. 100에서 시작 → IPSF 트랙(요소 0점 + 누적 실행 감점) 비율 매핑으로 감점. D-05 6 앵커(모두 fault 영상)가 낮은 종합점수를, above-cutoff 케이스는 높은 점수를 받는다. 감점 임계는 IPSF 근거(19-IPSF-DEDUCTION-NOTES §A)에서만 — 보유 sweep 재calibrate 금지. (출처: Phase 15 실증 94점 위양성 + IPSF CoP 2021-2027 / [[calibration-source-hard-gate]] [[judging-baseline-ipsf-code-of-points]])
+- [x] **SCORE-07**: "Fully Extended" 요소의 micro-bent 0점 트랙 — 신전 요구 관절(`profile.expects_extension` True)이 IPSF 임계(스플릿 160°=목표 180°−20° tol) 미달이면 해당 요소 무효(0점, 비례감점 아님). 의도적 굽힘(expects_extension False)은 미적용(위양성 차단). 임계는 IPSF 근거에서만. (출처: 19-IPSF-DEDUCTION-NOTES §A 트랙1)
+- [x] **TRUST-01**: 결과 화면 표시 각도값(현재/기준)이 점수를 산출한 DTW-정렬 median 값과 정합한다 — `_angles_to_mean_dict`(whole-clip nanmean) → DTW-정렬 source 교체, user matched-window vs ref full-clip 비대칭 제거. (출처: 15/deferred-items.md §E)
+- [x] **TRUST-02**: 어깨 차원 라벨이 'STATIC POSE ANGLE'을 'stability(떨림)'로 오인 표기하지 않으며(COACHING_FOCUS 어깨→'안정성' 정정), DIM_STABILITY(떨림)가 종합점수를 인플레하지 않는다(매끄러운 fault가 99점으로 평균 끌어올림 차단). (출처: 15/deferred-items.md §E, CRITICAL C)
+- [x] **TRUST-03**: Mode3(MODE_SELF)에 미보유동작 유효성 게이트 + 점수근거 표시 — 동작분류(IPSF등재/정은지reference/미보유) 분기 후, 미보유 시 "기준 동작 없음 — 절대 자세 기준 평가" 근거를 헤드라인에 명시. not_pole 안전망을 reference-free 절대 트랙으로 적용. fail-closed/raise 금지. (출처: [[mode3-scoring-basis-unknown-move-gate]], D-03)
 - [ ] **TRUST-04**: 3D 골격이 실기기에서 렌더된다 — joints3d RTMW 픽셀좌표를 골반중심 recenter + 몸통길이 정규화하여 viewer frustum 안에 들어온다. Firestore flat 저장·nested-array 금지 준수(읽는 쪽 reshape). (출처: 15/deferred-items.md §H)
-- [ ] **TRUST-05** (v2 hook, 비-차단): 감점식 schema가 v2 비전 거부권 투입 지점(adapter Protocol + audit 필드)을 막지 않는다 — score 산출 후 veto/cross-check hook 자리(v1 pass-through) + dimensionScores vision-flag 확장 여지. v2에서 채울 schema 슬롯만 남긴다. (출처: D-02 v2, D-04 v1/v2 분할)
+- [x] **TRUST-05** (v2 hook, 비-차단): 감점식 schema가 v2 비전 거부권 투입 지점(adapter Protocol + audit 필드)을 막지 않는다 — score 산출 후 veto/cross-check hook 자리(v1 pass-through) + dimensionScores vision-flag 확장 여지. v2에서 채울 schema 슬롯만 남긴다. (출처: D-02 v2, D-04 v1/v2 분할)
 
 ### 학원 용어 (Studio Terminology)
 
@@ -178,13 +178,13 @@
 | MODE-01 | Phase 15 | Complete |
 | MODE-02 | Phase 15 | Complete |
 | SCORE-04 | Phase 15 | Complete |
-| SCORE-06 | Phase 19 | Pending |
-| SCORE-07 | Phase 19 | Pending |
-| TRUST-01 | Phase 19 | Pending |
-| TRUST-02 | Phase 19 | Pending |
-| TRUST-03 | Phase 19 | Pending |
+| SCORE-06 | Phase 19 | Complete |
+| SCORE-07 | Phase 19 | Complete |
+| TRUST-01 | Phase 19 | Complete |
+| TRUST-02 | Phase 19 | Complete |
+| TRUST-03 | Phase 19 | Complete |
 | TRUST-04 | Phase 19 | Pending |
-| TRUST-05 | Phase 19 | Pending |
+| TRUST-05 | Phase 19 | Complete |
 | DELIV-01 | Phase 15 | Pending |
 | SCORE-05 | Phase 16 | Pending |
 | TERM-01 | Phase 16 | Pending |

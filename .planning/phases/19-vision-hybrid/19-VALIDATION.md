@@ -5,13 +5,13 @@ status: draft
 nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-18
-revised: 2026-06-18 (reviews — BLOCKER/HIGH/MEDIUM 반영)
+revised: 2026-06-18 (reviews iter-2 — BLOCKER-1/2, HIGH-1~4, MEDIUM-1/2/3 반영)
 ---
 
 # Phase 19 — Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
-> Derived from 19-RESEARCH.md "## Validation Architecture" + 19-REVIEWS.md 11 findings.
+> Derived from 19-RESEARCH.md "## Validation Architecture" + 19-REVIEWS.md (iter-1 11 findings + iter-2 9 findings).
 
 ---
 
@@ -23,9 +23,9 @@ revised: 2026-06-18 (reviews — BLOCKER/HIGH/MEDIUM 반영)
 | **Config file** | `backend/tests/conftest.py` (pytest.ini 없음 — conftest + sys.path 패턴) |
 | **Quick run command** | `cd backend && python -m pytest tests/test_kismam.py tests/test_dimensions.py -x` |
 | **Full suite command** | `cd backend && python -m pytest tests/ -q` |
-| **App static gate** | `cd app && npm run typecheck` (tsc --noEmit — 유일한 정적 게이트) |
-| **App 3D smoke** | `node app/scripts/_smoke_joints_normalize.mjs` (maxAbsCoord<=3 — JS 러너 부재 우회) |
-| **D-05 anchor gate** | `RUN_PHASE19_ANCHORS=1 pytest tests/test_anchor_known_answer.py -q` (env + S3/GPU 필요) |
+| **App static gate** | `cd app && npm run typecheck` (tsc --noEmit — 유일한 정적 게이트, simulatedResult.ts 포함) |
+| **App 3D smoke** | `node app/scripts/_smoke_joints_normalize.mjs` (production normalizeFrames import — maxAbsCoord<=3 + frame 수 보존) |
+| **D-05 anchor gate** | `RUN_PHASE19_ANCHORS=1 pytest tests/test_anchor_known_answer.py -q` (실영상 6 페어 per-test @requires_anchor_env; synthetic above-cutoff 는 env 무관 항상 실행) |
 | **Estimated runtime** | ~30–60 seconds (backend unit) |
 
 ---
@@ -52,26 +52,29 @@ revised: 2026-06-18 (reviews — BLOCKER/HIGH/MEDIUM 반영)
 | TRUST-01 | 표시 각도 = 점수 source(DTW path-정렬 양측 median), user/ref 동일 구간 | unit | `pytest tests/test_pipeline_mode3.py::test_display_matches_score_source -x` | ✅파일 ❌케이스 |
 | TRUST-02 | DIM_STABILITY 높아도 angle/line 낮으면 종합 낮음 (stability 인플레 X) | unit | `pytest tests/test_dimensions.py::test_stability_does_not_inflate -x` | ❌ W0 |
 | TRUST-02 | 어깨 COACHING_FOCUS 라벨 'STATIC POSE' 의미로 정정 | unit | `pytest tests/test_kismam.py::test_shoulder_focus_label -x` | ❌ W0 |
-| TRUST-02 | stability 비기여 = contributesToOverall=false / weightPercent=0 | unit | `pytest tests/test_dimensions.py::test_stability_does_not_inflate -x` (+ build_dimension_explanation 출력 단언) | ❌ W0 |
+| TRUST-02 | stability 비기여 = contributesToOverall=false(OPTIONAL) / weightPercent=0 + simulatedResult 정합 | unit + static(앱) | `pytest tests/test_dimensions.py::test_stability_does_not_inflate -x` (build_dimension_explanation 출력 단언) + `cd app && npm run typecheck` | ❌ W0 |
 | TRUST-03 | MODE_SELF 미보유 = is_reference_free_motion → scoringBasis="reference_free_absolute" + label + 절대트랙 (copyBranch 단독 분기 금지) | unit | `pytest tests/test_pipeline_mode3.py::test_unknown_move_gate -x` | ✅파일 ❌케이스 |
-| TRUST-03 | scoringBasisLabel 이 result 화면 + DimensionDetailModal 에 표시 (백엔드 only 아님) | static(앱) | `cd app && npm run typecheck` (JS 러너 부재 — 수동 육안 보조) | ⚠ 러너 없음 |
-| TRUST-04 | reshapePose3dData → COCO-17 indexOf recenter + torso/bbox normalize, raw passthrough 0 | smoke | `node app/scripts/_smoke_joints_normalize.mjs` (maxAbsCoord<=3) | ❌ W0/W1B |
-| TRUST-05 | v1 vision hook = pass-through (점수 불변, OFF 시 입력 그대로) | unit | `pytest tests/test_pipeline_mode3.py::test_vision_hook_passthrough -x` | ❌ W0 |
+| TRUST-03 | scoringBasis = 실제 채점 source (Mode3 reference_motion 금지, composite=previous_analysis_plus_reference_free_absolute) | unit | `pytest tests/test_pipeline_mode3.py::test_unknown_move_gate -x` (5 enum parametrize) | ✅파일 ❌케이스 |
+| TRUST-03 | build_mode3(is_first=True, basis 미전달) == {"mode":"mode3","isFirst":True} EXACT | unit | `pytest tests/test_pipeline_mode3.py::test_build_mode3_backward_compat -x` | ❌ W0 |
+| TRUST-03 | scoringBasisLabel 이 result 화면 + DimensionDetailModal 에 표시 + contributesToOverall=false 보조지표 카피 (백엔드 only 아님) | static(앱) | `cd app && npm run typecheck` (JS 러너 부재 — 수동 육안 보조) | ⚠ 러너 없음 |
+| TRUST-04 | reshapePose3dData → normalizeFrames(single source) COCO-17 indexOf recenter + torso/bbox, raw passthrough 0, frame 수 보존 | smoke | `node app/scripts/_smoke_joints_normalize.mjs` (production import, maxAbsCoord<=3, frame 수 == 입력) | ❌ W0/W1B |
+| TRUST-05 | v1 vision hook = SAME-object identity pass-through (out is score_result, mutation 0) | unit | `pytest tests/test_pipeline_mode3.py::test_vision_hook_passthrough -x` | ❌ W0 |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ 갱신/러너없음*
 
 ---
 
-## Known-Answer Anchor Validation (D-05 — RUN_PHASE19_ANCHORS env-gate)
+## Known-Answer Anchor Validation (D-05 — per-test @requires_anchor_env)
 
-| Anchor | Expected (방향, curve-fit 아님) | Test |
-|--------|-------------------------------|------|
-| climb (등 말림 line ~25°) | line 차원 지배 → 종합 낮음. fault < correct | `test_anchor_known_answer.py` parametrize (env-gate skip) |
-| kip-up (무릎 ~35° angle) | angle 차원 지배 → 종합 낮음 | 동일 parametrize |
-| 6/6 fault 페어 | 모두 종합 낮음 (94 같은 위양성 0건) | 6 페어 parametrize |
-| above-cutoff (미보유 고득점) | 정상 동작 high 유지 (sensitivity gate) | synthetic angles — env-gate 무관, 항상 실행 |
+| Anchor | Expected (방향, curve-fit 아님) | Test | Gate |
+|--------|-------------------------------|------|------|
+| climb (등 말림 line ~25°) | line 차원 지배 → 종합 낮음. fault < correct | `test_anchor_fault_lower_than_correct` parametrize | @requires_anchor_env (실영상/GPU) |
+| kip-up (무릎 ~35° angle) | angle 차원 지배 → 종합 낮음 | 동일 parametrize | @requires_anchor_env |
+| 6/6 fault 페어 | 모두 종합 낮음 (94 같은 위양성 0건) | 6 페어 parametrize | @requires_anchor_env |
+| above-cutoff (미보유 고득점) | 정상 동작 high 유지 (sensitivity gate) | `test_above_cutoff_synthetic_stays_high` | **마커 없음 — 항상 실행** (synthetic angles, GPU 불필요) |
 
-> 활성: `RUN_PHASE19_ANCHORS=1 pytest tests/test_anchor_known_answer.py -q` (+ S3/GPU). env 부재 시 전부 skip.
+> 실영상 6 페어 활성: `RUN_PHASE19_ANCHORS=1 pytest tests/test_anchor_known_answer.py -q` (+ S3/GPU). env 부재 시 실영상 6 페어만 skip.
+> **module-level `pytestmark` 금지** (ITER-2 HIGH-1) — synthetic above-cutoff 는 env 무관 항상 실행 (sensitivity gate 보존).
 > 앵커는 **방향 판정**(fault<정상 + major 차원 지배)이지 점수 수치 타깃 아님
 > ([[calibration-source-hard-gate]] [[scoring-redesign-must-generalize-no-overfit]]).
 > skip 본문에 real fixture key + 페어별 dominant-dimension 메타 상수 보존 (활성화 mechanical).
@@ -82,9 +85,9 @@ revised: 2026-06-18 (reviews — BLOCKER/HIGH/MEDIUM 반영)
 
 - [ ] `backend/tests/test_kismam.py` — 신규 SCORE-06(single_major_fault_dominates, clean_pose_high_score, within_tolerance_remains_high) + TRUST-02(shoulder_focus_label) + **갱신** test_score_monotonic_decreasing_with_deviation(0/30/60°)
 - [ ] `backend/tests/test_dimensions.py` — 신규 SCORE-07(micro_bent_zero_track, intentional_bend_not_penalized) + TRUST-02(stability_does_not_inflate) + **갱신** is_mean→uses_core_dimensions(40/99/0)
-- [ ] `backend/tests/test_pipeline_mode3.py` — TRUST-01(display_matches_score_source) + TRUST-03(unknown_move_gate parametrize 3-way) + TRUST-05(vision_hook_passthrough)
-- [ ] `backend/tests/test_anchor_known_answer.py` — D-05 6 앵커 방향검증 (RUN_PHASE19_ANCHORS env-gate + 활성 path 명시)
-- [ ] 신규 pipeline/core 케이스 단독 실행 시 **behavior RED** (collection 아님 — HIGH-5), 19-01-SUMMARY 에 실패 케이스명 기록
+- [ ] `backend/tests/test_pipeline_mode3.py` — TRUST-01(display_matches_score_source) + TRUST-03(unknown_move_gate 5-enum parametrize + build_mode3_backward_compat) + TRUST-05(vision_hook_passthrough = SAME-object identity)
+- [ ] `backend/tests/test_anchor_known_answer.py` — D-05 6 앵커 방향검증 (실영상 per-test @requires_anchor_env) + synthetic above-cutoff(마커 없음, 항상 실행) + 활성 path 명시
+- [ ] 신규 pipeline/core 케이스 단독 실행 시 **behavior RED** (collection 아님), 19-01-SUMMARY 에 실패 케이스명 기록
 
 ---
 
@@ -92,19 +95,23 @@ revised: 2026-06-18 (reviews — BLOCKER/HIGH/MEDIUM 반영)
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| 3D 골격 실기기 GL 렌더 (카메라 내 표시) | TRUST-04 | 앱 JS 러너 부재 — RN 디바이스 GL 렌더 자동화 불가 (smoke 는 수치만 검증) | 실기기/시뮬레이터 result 화면 3D 골격이 화면 안에 표시되는지 육안 (과거 doc + occlusion 케이스 포함) |
-| scoringBasisLabel 화면 표시 | TRUST-03 | 앱 JS 러너 부재 — 렌더 자동화 불가 (tsc 는 타입만) | result 헤더 + DimensionDetailModal 에 "기준 동작 없음 — 절대 자세 기준 평가" 노출 확인 |
+| 3D 골격 실기기 GL 렌더 (카메라 내 표시 + timeline scrub desync 0) | TRUST-04 | 앱 JS 러너 부재 — RN 디바이스 GL 렌더 자동화 불가 (smoke 는 수치+frame 수만 검증) | 실기기/시뮬레이터 result 화면 3D 골격이 화면 안에 표시 + timeline scrub 시 frame 누락/점프 없는지 육안 (과거 doc + occlusion 케이스 포함) |
+| scoringBasisLabel 화면 표시 + contributesToOverall=false 보조지표 카피 | TRUST-03 | 앱 JS 러너 부재 — 렌더 자동화 불가 (tsc 는 타입만) | result 헤더 + DimensionDetailModal 에 "기준 동작 없음 — 절대 자세 기준 평가" + stability detail "종합점수에는 직접 합산하지 않는 보조 지표입니다" 노출 확인 |
 | D-05 앵커 실영상 정량검증 | SCORE-06/07 | RTMW 3D pose = GPU 필요, Pod 크레딧 소진 자동종료 | belle 크레딧 충전 + 새 Pod → `RUN_PHASE19_ANCHORS=1` 6 페어 방향검증 |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] 신규 케이스 단독 실행 시 behavior RED (collection 아님 — HIGH-5)
-- [ ] 모순 케이스 2건(is_mean / 15° monotonic) 새 계약으로 갱신 (BLOCKER-3)
+- [ ] 신규 케이스 단독 실행 시 behavior RED (collection 아님)
+- [ ] 모순 케이스 2건(is_mean / 15° monotonic) 새 계약으로 갱신
 - [ ] All tasks have automated verify or Wave 0 dependencies
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] D-05 anchor env-gate (RUN_PHASE19_ANCHORS) + 활성 path 명시 (MEDIUM-3)
+- [ ] D-05 anchor: 실영상 per-test @requires_anchor_env + synthetic above-cutoff always-on (module-level pytestmark 0 — ITER-2 HIGH-1)
+- [ ] scoringBasis = 실제 채점 source (Mode3 reference_motion 0, composite enum 처리 — ITER-2 HIGH-2/HIGH-3)
+- [ ] build_mode3 backward-compat 테스트 (ITER-2 MEDIUM-2) + _apply_vision_veto SAME-object identity (ITER-2 MEDIUM-3)
+- [ ] contributesToOverall OPTIONAL + simulatedResult.ts 갱신 + typecheck WITH simulatedResult green (ITER-2 BLOCKER-1)
+- [ ] smoke = production normalizeFrames import (single source) + frame 수 보존 (ITER-2 BLOCKER-2/HIGH-4)
 - [ ] No watch-mode flags
 - [ ] Feedback latency < 60s
 - [ ] Pre-existing 실패(test_pole_detector / test_pipeline_geminid_wiring / test_spike_gemini_moment_smoke) isolation 제외 확인

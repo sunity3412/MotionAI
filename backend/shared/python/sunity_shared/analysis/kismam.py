@@ -112,8 +112,15 @@ def score_from_deviation(
     deviation_deg: float, tolerance_deg: float = _IPSF_TOLERANCE_DEG
 ) -> int:
     """편차(도) → 0~100 점수 (가우시안 감쇠 z=dev/tol). assess 와 동일 매핑.
-    차원 점수(dimensions.py)도 이 함수를 공유해 점수 스케일을 일관되게 유지한다."""
-    z = float(deviation_deg) / max(tolerance_deg, 1e-6)
+    차원 점수(dimensions.py)도 이 함수를 공유해 점수 스케일을 일관되게 유지한다.
+
+    WR-02: NaN/Inf 편차(관절이 유한 프레임 0개일 때 upstream per_joint_deviation /
+    extension_deviation 가 NaN 산출 가능)는 raise 하지 않고 0 으로 degrade
+    (최대 결함 취급). 유한 입력 점수 semantics 는 불변."""
+    d = float(deviation_deg)
+    if not np.isfinite(d):
+        return 0  # 측정 불가 = 최대 결함. raise 금지 (int(round(NaN)) ValueError 회피)
+    z = d / max(tolerance_deg, 1e-6)
     return max(0, min(100, int(round(100.0 * float(np.exp(-0.5 * z * z))))))
 
 
@@ -225,7 +232,13 @@ def overall_score(
     tol = {**DEFAULT_TOLERANCE_DEG, **(tolerance or {})}
     total_penalty = 0.0
     for a in assessments:
-        over = max(0.0, float(a.deviation_deg) - tol[a.key])
+        dev = float(a.deviation_deg)
+        # WR-02: 측정 불가(관절 유한 프레임 0개 → NaN/Inf) 편차는 건너뛴다.
+        # NaN 을 누적하면 total_penalty 가 NaN 으로 오염되어 int(round(NaN)) 가
+        # ValueError 를 던진다. 유한 편차의 감점 semantics 는 불변.
+        if not np.isfinite(dev):
+            continue
+        over = max(0.0, dev - tol[a.key])
         total_penalty += over * w[a.key] * _PENALTY_PER_DEG
     return max(0, min(100, int(round(100.0 - total_penalty))))
 

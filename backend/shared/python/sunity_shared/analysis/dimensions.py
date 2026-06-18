@@ -306,6 +306,12 @@ def _select_window(angles, profile: "TechniqueProfile | None" = None) -> tuple[n
         s, e = profile.hold_window
         s = max(0, min(int(s), t))
         e = max(s, min(int(e), t))
+        # WR-05: profile 윈도우가 clamp 후 빈 슬라이스(s == e)로 무너지면 자동
+        # hold_window 로 폴백. 빈 슬라이스를 그대로 두면 pipeline 의
+        # _hold_window_median_dict 가 {} 를 반환 → assess 가 모든 target_angle=None
+        # 으로 표시 target angle 을 조용히 전부 제거한다 (quiet quality 저하).
+        if s == e:
+            s, e = hold_window(a)
     else:
         s, e = hold_window(a)
     return a[s:e], (s, e)

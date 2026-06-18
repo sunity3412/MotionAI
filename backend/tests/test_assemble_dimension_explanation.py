@@ -45,36 +45,49 @@ def _pose(angle_map: dict[str, float], t: int = 20) -> np.ndarray:
     return np.tile(base, (t, 1))
 
 
-# ── 1. weightPercent 합 = 100 (Codex v3 HIGH-3) ───────────────────────────
+# ── 1. weightPercent = 기여 차원(angle/line) 한정 합 100 (Phase 19 D-01 HIGH-1) ──
+# Phase 19: stability 는 종합 비기여(overall_from_dimensions = min-of-core) →
+# weightPercent=0 + contributesToOverall=False. weightPercent largest-remainder 는
+# 기여 차원(angle/line)에만 분배 (거짓 기여 표시 차단).
 
 
-def test_weight_3_dims_sum_100():
+def test_weight_contributing_dims_sum_100():
+    # angle/line/stability 3차원 → 기여(angle/line)=[50,50], stability=0.
     a = _assess({"left_knee": 50})
     exp = assemble.build_dimension_explanation(
         a, {"angle": 70, "line": 65, "stability": 80}, {"mode": "mode1"}
     )
     pcts = [exp[d]["weightPercent"] for d in ("angle", "line", "stability")]
-    assert pcts == [34, 33, 33]
-    assert sum(pcts) == 100
+    assert pcts == [50, 50, 0]
+    # 기여 차원 합 = 100
+    assert exp["angle"]["weightPercent"] + exp["line"]["weightPercent"] == 100
+    assert exp["stability"]["weightPercent"] == 0
+    assert exp["angle"]["contributesToOverall"] is True
+    assert exp["line"]["contributesToOverall"] is True
+    assert exp["stability"]["contributesToOverall"] is False
 
 
-def test_weight_2_dims_sum_100():
+def test_weight_single_contributing_dim_plus_stability():
+    # line + stability → 기여(line)=100, stability=0.
     a = _assess({})
     exp = assemble.build_dimension_explanation(
         a, {"line": 70, "stability": 80}, {"mode": "mode3", "isFirst": True}
     )
-    pcts = [exp[d]["weightPercent"] for d in ("line", "stability")]
-    assert pcts == [50, 50]
-    assert sum(pcts) == 100
+    assert exp["line"]["weightPercent"] == 100
+    assert exp["line"]["contributesToOverall"] is True
+    assert exp["stability"]["weightPercent"] == 0
+    assert exp["stability"]["contributesToOverall"] is False
 
 
-def test_weight_1_dim_sum_100():
-    # mode3 first 가 line=None 시 stability 만 (1차원) → 100 (Codex v3 MED-2)
+def test_weight_no_contributing_dim_stability_zero():
+    # mode3 first 가 line=None 시 stability 만 → 기여 차원 없음 → weightPercent=0.
+    # (stability 는 절대 보조 지표 — 종합 비기여, Phase 19 D-01.)
     a = _assess({})
     exp = assemble.build_dimension_explanation(
         a, {"stability": 75}, {"mode": "mode3", "isFirst": True}
     )
-    assert exp["stability"]["weightPercent"] == 100
+    assert exp["stability"]["weightPercent"] == 0
+    assert exp["stability"]["contributesToOverall"] is False
 
 
 def test_weight_empty_dims_returns_empty_dict():

@@ -261,9 +261,13 @@ export interface Mode3Comparison {
 // 신 backend 는 빈 {} 라도 항상 emit. baseline 카피는 mode-aware (정은지 비교 mode1 vs
 // 절대 지표 기반 mode3). weightPercent 는 정수, 모든 차원 합 = 100 (Largest Remainder).
 export interface DimensionExplanation {
-  weightPercent: number; // 정수 0~100. 모든 차원의 weightPercent 합 = 100.
+  weightPercent: number; // 정수 0~100. 기여 차원(angle/line)의 weightPercent 합 = 100. stability=0.
   baseline: string; // mode-aware 기준 카피 (한국어)
   deficitSummary: string; // 산식과 동일 source 의 deficit 한 줄. 양호 시 수치 X.
+  // Phase 19 D-01 — 해당 차원이 종합점수에 기여하는지 (overall = min-of-core(angle/line)).
+  // 옵셔널: 미존재(legacy doc)→ true (옛 overall 은 stability 포함). 신 backend 항상 emit,
+  // 비기여(stability)=false. weightPercent 도 contributesToOverall=false 면 0.
+  contributesToOverall?: boolean;
 }
 
 // Phase 4 Wave 1 (Plan 04-01) — POSE-03 D-08 (R3 fix 3-way lockstep TS side).

@@ -16,6 +16,13 @@
 점수 스케일은 kismam.score_from_deviation(가우시안 z=편차/허용오차)을 공유한다.
 허용오차(tol)는 IPSF 기준(각도 허용오차 20°)에서 출발한 휴리스틱 — belle 시연
 데이터로 튜닝 예정.
+
+Phase 19 D-01 재설계:
+  - line_score 에 micro-bent 0점 트랙 추가: 신전 요구 관절이 160°(=180°−20°tol [CITED])
+    미만이면 요소 무효(0점) — 비례감점 아님 (19-IPSF §A 트랙1).
+  - overall_from_dimensions: 단순평균 → min-of-core(angle/line). stability(떨림)는 종합
+    입력에서 분리한다 — 매끄러운 fault(stability 높음)가 평균식에서 종합을 끌어올리는
+    인플레 위양성 차단. stability 는 dimension_scores 표시는 유지(보조 지표).
 """
 
 from __future__ import annotations
@@ -161,6 +168,13 @@ _STABILITY_TOL_DEG = 15.0  # Path T1 (2026-06-05): inter-frame diff median 기�
 
 _FULL_EXTENSION_DEG = 180.0
 
+# Phase 19 D-01 트랙1 (요소 무효 0점) — micro-bent 임계.
+# IPSF: "Fully Extended" 요건 요소를 미세하게 굽히면(micro-bent) 비례감점이 아니라
+# 득점 전체가 0점("not awarded"). 스플릿 180° 목표 ±20° 허용 → 160° 미만이면 요소 fail
+# [CITED: 19-IPSF-DEDUCTION-NOTES §A 트랙1]. _LINE_TOL_DEG(20°) 와 동일 IPSF 허용오차 근거.
+# 보유 sweep 재calibrate 금지 — IPSF 근거(180°−20°tol)에서만.
+_SPLIT_FAIL_THRESHOLD_DEG = 160.0
+
 
 def _as_tj(angles) -> np.ndarray:
     a = np.asarray(angles, dtype=float)
@@ -235,13 +249,21 @@ def line_score(angles, profile: TechniqueProfile) -> int | None:
     if sliced.shape[0] == 0:
         return None
     rep = np.nanmean(sliced, axis=0)
-    deficits = [
-        max(0.0, _FULL_EXTENSION_DEG - float(rep[JOINT_KEYS.index(k)]))
+    # 신전 요구 관절(profile.expects_extension)만 평가 — 의도적 굽힘(BENT_OK)은
+    # 0점 트랙도 비례감점도 미적용 (Pitfall 4 위양성 차단).
+    rep_angles = [
+        float(rep[JOINT_KEYS.index(k)])
         for k in JOINT_KEYS
         if profile.expects_extension(k) and not np.isnan(rep[JOINT_KEYS.index(k)])
     ]
-    if not deficits:
+    if not rep_angles:
         return None
+    # Phase 19 D-01 트랙1 (요소 무효): 신전 요구 관절 중 하나라도 160° 미만(micro-bent)
+    # 이면 요소 무효 → 0점 (비례감점 아님, 19-IPSF §A 트랙1).
+    if any(a < _SPLIT_FAIL_THRESHOLD_DEG for a in rep_angles):
+        return 0
+    # 미달 관절 없으면 기존 부족분 가우시안(트랙2) 경로 유지.
+    deficits = [max(0.0, _FULL_EXTENSION_DEG - a) for a in rep_angles]
     return kismam.score_from_deviation(float(np.mean(deficits)), _LINE_TOL_DEG)
 
 
@@ -345,7 +367,28 @@ def absolute_dimension_scores(angles, profile: TechniqueProfile) -> dict[str, in
     return out
 
 
+# Phase 19 D-01 — 종합 입력에 기여하는 core 차원 (stability 분리).
+# stability(떨림)는 절대 보조 지표로 표시는 유지하되 종합 입력에서 제외한다 — 매끄러운
+# fault(stability 높음 + angle/line 낮음)가 평균식에서 종합을 끌어올리는 인플레 위양성
+# 차단 (deferred-items 근본원인). 19-IPSF §B: 기술 감점 트랙은 요소 성공과 무관한 자세
+# 품질을 보지만, 종합 지배는 core 기하 차원(angle/line)이 맡는다.
+CORE_DIMENSIONS = (DIM_ANGLE, DIM_LINE)
+
+
 def overall_from_dimensions(dimension_scores: dict[str, int]) -> int:
-    """차원 점수 평균 = 종합 점수. 빈 dict 면 0."""
+    """종합 점수 = core 차원(angle/line) 의 min — 단일 major 차원이 종합을 지배한다.
+
+    Phase 19 D-01 — 단순평균 교체. 평균은 stability(높음)가 core(낮음)를 희석/인플레해
+    위양성을 만들었다. min-of-core 로 가장 낮은 기하 차원이 종합을 끌어내린다 (단일 major
+    fault 지배 정신 정합). stability 는 종합 입력에서 제외 (dimension_scores 표시는 유지).
+
+    - core 차원(angle/line)이 하나라도 있으면 → min(core).
+    - core 가 하나도 없으면 → 절대트랙(stability) 단독 사용 (mode3 first 등, 19-IPSF §B).
+    - 빈 dict → 0.
+    입력 dict 는 변형하지 않는다 (키/순서 보존, Pitfall 2).
+    """
+    core = [v for k, v in dimension_scores.items() if k in CORE_DIMENSIONS]
+    if core:
+        return int(round(min(core)))
     vals = list(dimension_scores.values())
-    return int(round(sum(vals) / len(vals))) if vals else 0
+    return int(round(min(vals))) if vals else 0

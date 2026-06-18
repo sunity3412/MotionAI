@@ -217,18 +217,28 @@ function buildExplanationForSim(
   );
   const n = keys.length;
   if (n === 0) return {};
-  // Largest Remainder Method — 합 100% 보장 (backend 와 동일 산식).
-  const base = Math.floor(100 / n);
-  const remainder = 100 - base * n;
+  // Phase 19 D-01 — stability 는 종합 비기여 (backend overall_from_dimensions = min-of-core).
+  // weightPercent largest-remainder 는 기여 차원(angle/line)에만 분배 (합 100), stability=0.
+  const contributing = keys.filter((k) => k === 'angle' || k === 'line');
+  const c = contributing.length;
+  // Largest Remainder Method — 기여 차원 한정 (backend build_dimension_explanation 와 동일 산식).
+  const base = c > 0 ? Math.floor(100 / c) : 0;
+  const remainder = c > 0 ? 100 - base * c : 0;
+  const pctByDim: Partial<Record<ScoreDimension, number>> = {};
+  contributing.forEach((key, i) => {
+    pctByDim[key] = i < remainder ? base + 1 : base;
+  });
   const baselines = mode === 'mode1' ? SIM_BASELINE_MODE1 : SIM_BASELINE_MODE3;
   const out: Partial<Record<ScoreDimension, DimensionExplanation>> = {};
-  keys.forEach((key, i) => {
+  keys.forEach((key) => {
     const score = dims[key] ?? 0;
     const good = score >= GOOD_SCORE_THRESHOLD;
+    const contributes = key === 'angle' || key === 'line';
     out[key] = {
-      weightPercent: i < remainder ? base + 1 : base,
+      weightPercent: pctByDim[key] ?? 0,
       baseline: baselines[key],
       deficitSummary: good ? SIM_GOOD_BY_DIM[key] : SIM_DEFICIT_BY_DIM[key],
+      contributesToOverall: contributes,
     };
   });
   return out;

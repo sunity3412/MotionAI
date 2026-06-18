@@ -233,7 +233,14 @@ def build_dimension_explanation(
 
     mode = comparison.get("mode") if isinstance(comparison, dict) else None
     baselines = _baselines_for_branch(branch_info, mode)
-    pcts = _largest_remainder_pct(len(dims))
+
+    # Phase 19 HIGH-1 — stability 가 종합 입력에서 제외되므로(overall_from_dimensions
+    # min-of-core) 균등 weightPercent 는 거짓 기여 표시(사용자 오도). 기여 차원
+    # (CORE_DIMENSIONS=angle/line)에만 largest-remainder 분배(합=100), 비기여(stability)
+    # 차원은 weightPercent=0 + contributesToOverall=false 로 표시.
+    contributing = [d for d in dims if d in dimensions.CORE_DIMENSIONS]
+    contrib_pcts = _largest_remainder_pct(len(contributing)) if contributing else []
+    pct_by_dim = {d: contrib_pcts[i] for i, d in enumerate(contributing)}
 
     # angle deficit source — kismam.top_issues 의 worst joint
     top = kismam.top_issues(assessments, n=1) if assessments else []
@@ -253,15 +260,20 @@ def build_dimension_explanation(
             stab_wobble = {}
 
     out: dict[str, dict] = {}
-    for i, dim in enumerate(dims):
+    for dim in dims:
         score = int(dimension_scores.get(dim, 0))
         deficit = _deficit_summary_for(
             dim, score, angle_worst, line_defs, stab_wobble
         )
+        contributes = dim in dimensions.CORE_DIMENSIONS
         out[dim] = {
-            "weightPercent": pcts[i],
+            # 비기여 차원(stability)은 weightPercent=0 — 거짓 기여 표시 차단 (HIGH-1).
+            "weightPercent": pct_by_dim.get(dim, 0),
             "baseline": baselines.get(dim, ""),
             "deficitSummary": deficit,
+            # Phase 19 — 종합 기여 여부 (core 차원만 True). UI 가 stability 를
+            # 보조 지표로 표시하도록. 옵셔널 계약 필드(legacy doc 미존재 → UI default true).
+            "contributesToOverall": contributes,
         }
     return out
 

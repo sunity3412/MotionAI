@@ -32,7 +32,15 @@ ABSOLUTE_DIMENSIONS = (DIM_LINE, DIM_STABILITY)
 #     stability ← stability_wobble_by_joint
 # - 옵셔널 — 이전 빌드 doc 호환 (app/src/types/analysis.ts:DimensionExplanation 정합).
 # - 신 backend 는 빈 {} 라도 항상 emit.
-DIMENSION_EXPLANATION_KEYS = ("weightPercent", "baseline", "deficitSummary")
+# - Phase 19 D-01: contributesToOverall 추가 (옵셔널). overall_from_dimensions 가
+#   stability 를 종합 입력에서 제외하므로 core 차원(angle/line)=True, stability=False +
+#   weightPercent=0. 옛 doc 미보유 → UI default true (옛 overall 은 stability 포함).
+DIMENSION_EXPLANATION_KEYS = (
+    "weightPercent",
+    "baseline",
+    "deficitSummary",
+    "contributesToOverall",
+)
 
 # ── Phase 13 (Plan 13-A, PERS-03): recommendedExercises 계약 명세 ───────
 # 분석 결과(실패 원인 후보 + 통증부위)에 맞춘 보완 운동 3~5개 개인화 subset.

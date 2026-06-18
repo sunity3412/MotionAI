@@ -180,8 +180,9 @@ referenceVideoUrl string?          mode1: 정은지 영상 (우)
 
 `DimensionExplanation` (Phase 12.5, 2026-06-07 추가)
 ```
-weightPercent  int    각 차원이 overall 에 기여하는 비중 (%). 모든 차원의 합 = 100.
-                      Largest Remainder Method: 3차원=[34,33,33], 2차원=[50,50], 1차원=[100].
+weightPercent  int    각 차원이 overall 에 기여하는 비중 (%). 기여 차원(angle/line)의
+                      합 = 100. Phase 19 D-01: stability 는 종합 비기여 → weightPercent=0.
+                      Largest Remainder Method (기여 차원 한정): 2차원=[50,50], 1차원=[100].
 baseline       string mode-aware 기준 카피. mode1 = 정은지 측정값 참조,
                       mode3 = 절대 지표 기반 (정은지 비교 X).
 deficitSummary string 점수 산출과 동일 source 의 deficit 한 줄 카피.
@@ -189,6 +190,10 @@ deficitSummary string 점수 산출과 동일 source 의 deficit 한 줄 카피.
                       line  ← dimensions.line_deficits_by_joint (EXTEND 관절만),
                       stability ← dimensions.stability_wobble_by_joint (inter-frame diff).
                       양호 점수 (≥ 80) 시 수치 X 카피 ("안정").
+contributesToOverall bool (optional, Phase 19 D-01) 해당 차원이 종합점수에 기여하는지.
+                      overall_from_dimensions = min-of-core(angle/line) 이므로 core 차원
+                      = true, stability = false (+ weightPercent 0). 옛 doc 미보유 →
+                      UI default true (옛 overall 은 stability 포함). 신 backend 항상 emit.
 ```
   - 결과 화면 "왜 이 점수인지" 가시화 용도. 점수 산식 source 와 동일 windowing 사용
     (`dimensions._select_window` 공유) — drift 0 보장.

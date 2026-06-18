@@ -11,6 +11,14 @@
 //
 // graceful 정책: 형식 불일치 / 누락 / 길이 mismatch 시 throw 대신 null 반환.
 // PoseViewer3D 가 joints null → return null 로 섹션 자체 graceful 생략.
+//
+// 정규화 (TRUST-04, Phase 19-03): reshape 직후 normalizePose3d.normalizeFrames
+// 로 origin-centered normalized 좌표로 변환한다. RAW RTMW 픽셀좌표(중심
+// ~(320,240))는 viewer frustum 밖이라 GL 이 빈 회색으로 clear → 골격 안 보임.
+// 정규화 수학은 normalizePose3d 모듈 단일 source (좌표 수학 복제 금지 — smoke 가
+// 동일 함수를 검증). backend·3중 계약 불변, 과거 doc 도 즉시 정규화.
+
+import { normalizeFrames } from './normalizePose3d';
 
 /**
  * Firestore doc 에서 3D joint sequence 를 (T, J, 3) 으로 reshape 한다.
@@ -53,5 +61,7 @@ export function reshapePose3dData(
     }
     out.push(frame);
   }
-  return out;
+  // 정규화 (single source) — origin-centered normalized 좌표. frame 수 보존,
+  // 전체 불가 시 null (graceful 정책 정합).
+  return normalizeFrames(out, jointKeys as string[]);
 }

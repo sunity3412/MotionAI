@@ -22,6 +22,9 @@ best_epoch.bin
 
 # Ad-hoc diagnostic scripts (Phase 17 development) — gitignored. 향후 재사용 시 정식 파일로 rename.
 app/scripts/_*.mjs
+# 예외: Phase 19-03 의 정식 검증 아티팩트 (normalizePose3d single-source smoke).
+# files_modified + acceptance grep gate 가 이 정확한 경로를 박제하므로 추적 필수.
+!app/scripts/_smoke_joints_normalize.mjs
 
 # GSD framework + tooling — 로컬 환경 박힘 박힘 박힘. 다른 머신에서 다시 install.
 .claude/

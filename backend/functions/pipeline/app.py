@@ -1650,6 +1650,9 @@ def _apply_vision_veto(
             return score_result
         # v2 거부권 본체 DEFERRED — 현재는 identity (점수 불변). v2 가 mutation 도입 시
         # 여기에 vision adapter 호출 + 차원 강등 로직이 들어간다 (계약 전환 시점).
+        # WR-01: production score_result 는 assemble.build_result 산출물이라 종합 점수
+        # 키가 'overallScore' (NOT 'overall') 이고 차원은 'dimensionScores'. v2 가
+        # 강등 로직을 붙일 때 반드시 score_result['overallScore'] 를 읽고/쓸 것.
         return score_result
     except Exception:  # noqa: BLE001 - 비전 hook 실패는 분석을 막지 않는다 (graceful)
         log.exception("vision veto hook 실패 — score_result 그대로 통과 (graceful)")

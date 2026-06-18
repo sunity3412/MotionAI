@@ -230,12 +230,19 @@ def test_vision_hook_passthrough():
     # identity (out is score_result) + score_result 필드 mutate 0. 현재 _apply_vision_veto 부재 → RED.
     veto = getattr(app, "_apply_vision_veto", None)
     assert veto is not None, "_apply_vision_veto 부재 — Wave 1 v1 pass-through hook 추가 (RED)"
+    # WR-01: production passes assemble.build_result dict whose key is
+    # 'overallScore' (not 'overall'). The fixture must mirror that contract so
+    # v2 (which will read/mutate score_result['overallScore']) is exercised on
+    # the real key shape, not a phantom 'overall'.
     score_result = {
-        "overall": 73,
+        "overallScore": 73,
         "dimensionScores": {"angle": 70, "line": 75, "stability": 80},
     }
-    snapshot = {"overall": score_result["overall"], "dimensionScores": dict(score_result["dimensionScores"])}
+    snapshot = {
+        "overallScore": score_result["overallScore"],
+        "dimensionScores": dict(score_result["dimensionScores"]),
+    }
     out = veto(score_result)
     assert out is score_result  # SAME object identity (v1 = pass-through)
-    assert score_result["overall"] == snapshot["overall"]
+    assert score_result["overallScore"] == snapshot["overallScore"]
     assert score_result["dimensionScores"] == snapshot["dimensionScores"]

@@ -316,14 +316,19 @@ def _deficit_summary_for(
             return f"{angle_worst.label_ko} {round(angle_worst.deviation_deg)}° 차이"
         return _GOOD_COPY_BY_DIM["angle"]
     if dim == "line":
-        if line_defs:
-            worst_key = max(line_defs, key=line_defs.get)
+        # WR-03: NaN 방어 — NaN 비교는 항상 False 라 max() 가 임의 키를 고를 수 있다.
+        # 산출 helper(line_deficits_by_joint)가 이미 np.isnan 필터하지만 로컬 가드로
+        # 두 모듈 떨어진 invariant 에 결합되지 않게 한다 (v != v == NaN).
+        finite_line = {k: v for k, v in line_defs.items() if v == v}
+        if finite_line:
+            worst_key = max(finite_line, key=finite_line.get)
             label = JOINT_LABEL_KO.get(worst_key, worst_key)
             return f"{label} 신전 부족"
         return _GOOD_COPY_BY_DIM["line"]
     if dim == "stability":
-        if stab_wobble:
-            worst_key = max(stab_wobble, key=stab_wobble.get)
+        finite_wobble = {k: v for k, v in stab_wobble.items() if v == v}
+        if finite_wobble:
+            worst_key = max(finite_wobble, key=finite_wobble.get)
             label = JOINT_LABEL_KO.get(worst_key, worst_key)
             return f"{label} hold 구간 떨림"
         return _GOOD_COPY_BY_DIM["stability"]

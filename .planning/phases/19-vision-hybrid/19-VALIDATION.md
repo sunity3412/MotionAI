@@ -99,6 +99,7 @@ revised: 2026-06-18 (reviews iter-4 — HIGH-1[Mode1 scoringBasis 직렬화 계�
 - [ ] `backend/tests/test_dimensions.py` — 신규 SCORE-07(micro_bent_zero_track, intentional_bend_not_penalized) + TRUST-02(stability_does_not_inflate) + **갱신** is_mean→uses_core_dimensions(40/99/0)
 - [ ] `backend/tests/test_pipeline_mode3.py` — TRUST-01(display_matches_score_source) + TRUST-03(**Mode1 분리: mode1_scoring_basis_reference_motion = build_mode1 직렬화 필드 단언** + unknown_move_gate Mode3 4-value parametrize + build_mode3_backward_compat[reference_motion ValueError 포함]) + TRUST-05(vision_hook_passthrough = SAME-object identity)
 - [ ] `backend/tests/test_anchor_known_answer.py` — D-05 6 앵커 방향검증 (실영상 per-test @requires_anchor_env) + synthetic above-cutoff(마커 없음, 항상 실행) + 활성 path 명시
+- [ ] `backend/tests/test_assemble.py` **갱신** (ITER-5) — build_mode1 always-emit 회귀: test_mode1_shape_and_clamp 기대 dict 에 scoringBasis/scoringBasisLabel 추가 (Plan 04 Task 2). test_mode1_segment_scores_included_only_when_given 영향 없음 확인
 - [ ] 신규 pipeline/core 케이스 단독 실행 시 **behavior RED** (collection 아님), 19-01-SUMMARY 에 실패 케이스명 기록
 
 ---

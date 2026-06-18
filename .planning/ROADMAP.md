@@ -609,11 +609,11 @@ Plans:
 - 임계값을 보유 sweep 으로 재calibrate 금지 ([[calibration-source-hard-gate]]). 검증은 미보유/above-cutoff 케이스 포함 ([[sensitivity-gate-not-just-elite-low]]).
 - 사람 점수 라벨 ground-truth 금지 ([[analysis-objectivity-no-human-scores]]). IPSF = 감점식 baseline ([[judging-baseline-ipsf-code-of-points]]).
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 - [x] 19-01-PLAN.md — Wave 0 RED 테스트 스텁 (SCORE-06/07 + TRUST-01/02/03/05 케이스 + D-05 6 앵커 GPU-skip)
-- [ ] 19-02-PLAN.md — 감점식 집계 코어 (kismam overall_score + dimensions line/overall + 어깨 라벨 + 3중 계약) — SCORE-06/07, TRUST-02
+- [x] 19-02-PLAN.md — **완료 2026-06-18**: 감점식 집계 코어 — kismam.overall_score 가중평균→IPSF 누적감점(_PENALTY_PER_DEG=1.2 [ASSUMED], 단일 major fault 지배) + dimensions.line_score micro-bent <160° 요소무효 0점 [CITED] + overall_from_dimensions min-of-core(stability 종합 분리) + 어깨 COACHING_FOCUS '안정성'→'자세각' + DimensionExplanation.contributesToOverall OPTIONAL 3중 계약. Wave 0 RED 6 케이스 GREEN, 가드 케이스 GREEN, tsc clean, 회귀 0. SCORE-06/07, TRUST-02. (b2d88d3/a856fba)
 - [ ] 19-03-PLAN.md — 3D 골격 좌표 정규화 (joints.ts reshapePose3dData recenter+normalize) — TRUST-04
 - [ ] 19-04-PLAN.md — 파이프라인 표시-점수 정합 + Mode3 미보유 게이트 + v2 hook 자리 — TRUST-01/03/05
 

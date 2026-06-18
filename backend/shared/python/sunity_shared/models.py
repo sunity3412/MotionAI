@@ -42,6 +42,30 @@ DIMENSION_EXPLANATION_KEYS = (
     "contributesToOverall",
 )
 
+# ── Phase 19 (TRUST-03): comparison.scoringBasis 명세 ──────────────────
+# 결과 화면에 "어떤 SOURCE 로 채점했는지" 를 정확히 노출 (거짓 confident 점수 차단).
+# 3중 계약: app/src/types/analysis.ts (Mode1Comparison/Mode3Comparison) +
+# assemble.build_mode1/build_mode3 + docs/contract.md 와 lockstep.
+#
+# Mode1 (MODE_EXPERT) = 정은지 reference 각도와 실제 비교 → scoringBasis 는 항상
+#   "reference_motion". build_mode1 이 신규 doc 에 always-emit (OPTIONAL — legacy 호환).
+#   reference_motion 은 Mode1 전용 — Mode3 comparison 에는 절대 존재하지 않는다.
+MODE1_SCORING_BASIS = "reference_motion"
+#
+# Mode3 (MODE_SELF) = reference motion 비교가 아님 → 허용 scoringBasis = 정확히 4 값
+#   (reference_motion 미포함). first 는 abs_dims + extension targets, progress 는
+#   이전 영상 각도 일관성 + 절대트랙. Mode3 허용값은 정확히 4개 (reference_motion 미포함).
+#     reference_free_absolute              : first + 미등록 → 절대트랙(line+stability)
+#     recognized_motion_absolute           : first + 등재 → 절대트랙 (reference 각도 미사용)
+#     previous_analysis_plus_absolute      : progress + 등재 → 이전 일관성 + 절대트랙
+#     previous_analysis_plus_reference_free_absolute : progress + 미등록 → composite
+MODE3_SCORING_BASES = (
+    "reference_free_absolute",
+    "recognized_motion_absolute",
+    "previous_analysis_plus_absolute",
+    "previous_analysis_plus_reference_free_absolute",
+)
+
 # ── Phase 13 (Plan 13-A, PERS-03): recommendedExercises 계약 명세 ───────
 # 분석 결과(실패 원인 후보 + 통증부위)에 맞춘 보완 운동 3~5개 개인화 subset.
 # - 생산자 = analysis/exercise_map.map_exercises(force_pattern_inference, pain_areas,

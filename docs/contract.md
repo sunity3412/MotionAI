@@ -245,8 +245,13 @@ issue?                                                    ← 사람 가독 폴�
 `Mode1Comparison` (전문가 비교)
 ```
 mode='mode1', referenceMotionId, referenceMotionName, athleteName, similarity(0~100)
-segmentScores?   베이스 공유 기술 분석 시에만
+segmentScores?         베이스 공유 기술 분석 시에만
+scoringBasis?          'reference_motion'   (Phase 19 — Mode1 전용, build_mode1 always-emit)
+scoringBasisLabel?     사용자 표시용 한국어 라벨
 ```
+  scoringBasis (Phase 19 ITER-4) = Mode1 은 정은지 reference 각도와 실제 비교하므로 항상
+  `reference_motion`. OPTIONAL (legacy doc 호환) — 신규 doc 은 항상 채움. **Mode1 전용 —
+  Mode3 comparison 에는 이 값이 없음** (first 는 reference motion 비교가 아님).
 `SegmentScores` = { base(0~100), extension(0~100), baseMotionId, baseMotionName }
   → 베이스 공유 reference 시퀀스를 baseUntilS 기준 베이스/확장으로 분리 후 각 KISMAM 점수.
   단일 모션은 segmentScores 없음.
@@ -254,10 +259,25 @@ segmentScores?   베이스 공유 기술 분석 시에만
 ```
 mode='mode3', isFirst(bool),
 previousAnalysisId?, deltaFromPrevious?{line?,stability,angle?}  (isFirst면 없음)
+scoringBasis?          실제 채점 SOURCE (Phase 19, Mode3 = 정확히 4 값)
+scoringBasisLabel?     사용자 표시용 한국어 라벨
 ```
   deltaFromPrevious = 발전(progress). '몇 % 일치'가 아니라 절대 차원(라인/안정성)의
   이전 분석 대비 증감(±). 절대 지표라 세션 간 같은 척도. 첫 분석이면 없음.
   키는 양쪽 분석 공통 차원만 (line 이 한쪽에 없으면 stability 만).
+
+  scoringBasis (Phase 19 TRUST-03) = 거짓 confident 점수 차단을 위해 실제 채점 source 를
+  화면에 노출. Mode3 허용값 = **정확히 4 값** (reference_motion 은 Mode1 전용이라 Mode3 에 없음):
+
+  | scoringBasis                                   | 의미 |
+  |------------------------------------------------|------|
+  | reference_free_absolute                        | first + 미보유 동작 → 절대트랙(line+stability) |
+  | recognized_motion_absolute                     | first + 등재 동작 → 절대트랙 (first 는 reference 각도 미사용) |
+  | previous_analysis_plus_absolute                | progress + 등재 → 이전 영상 각도 일관성 + 절대트랙 |
+  | previous_analysis_plus_reference_free_absolute | progress + 미보유 → composite (이전 일관성 + 절대트랙, lossy 금지) |
+
+  미보유 first = reference_free_absolute, progress 미보유 = composite. **Mode3 에 reference_motion
+  없음** (Mode1 전용). 거짓 "% 일치" / "정은지와 거의 같음" 프레이밍 금지.
 
 추출된 관절각은 done 문서 top-level 에 flat 저장 (백엔드 전용, mode3 가 '이전 영상'
 기준 DTW 비교에 사용). `angles`(number[]), `anglesJointKeys`(string[] 길이 J),

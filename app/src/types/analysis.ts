@@ -244,6 +244,11 @@ export interface Mode1Comparison {
   similarity: number; // 0~100
   // 베이스 구간을 공유하는 기술을 분석한 경우에만 채워짐. 단일 기술이면 없음.
   segmentScores?: SegmentScores;
+  // Phase 19 ITER-4 HIGH-1 — Mode1 의 scoringBasis 는 항상 reference_motion (정은지
+  // reference 각도와 실제 비교). OPTIONAL (legacy doc 호환) — 신규 doc 은 build_mode1 이
+  // 항상 채운다. Mode3Comparison 에는 이 값이 없음 (reference_motion 은 Mode1 전용).
+  scoringBasis?: 'reference_motion';
+  scoringBasisLabel?: string; // 사용자 표시용 한국어 라벨 (예: '정은지 측정 각도 기준 비교')
 }
 
 export interface Mode3Comparison {
@@ -253,6 +258,18 @@ export interface Mode3Comparison {
   // 발전(progress) = 절대 차원(라인/안정성)의 이전 대비 증감(±). isFirst면 없음.
   // '몇 % 일치'가 아니라 발전을 보여주는 게 mode3 의 핵심.
   deltaFromPrevious?: Partial<Record<ScoreDimension, number>>;
+  // Phase 19 TRUST-03 — 실제 채점 SOURCE 라벨 (Mode3 4-value enum). OPTIONAL (legacy 호환).
+  //   reference_free_absolute              : first + 미등록 동작 → 절대트랙(line+stability)
+  //   recognized_motion_absolute           : first + 등재 동작 → 절대트랙 (first 는 reference 각도 미사용)
+  //   previous_analysis_plus_absolute      : progress + 등재 → 이전 영상 각도 일관성 + 절대트랙
+  //   previous_analysis_plus_reference_free_absolute : progress + 미등록 → composite (HIGH-3 lossy 금지)
+  // reference_motion 은 Mode1 전용이라 이 union 에 없음 (first 는 reference motion 비교가 아님).
+  scoringBasis?:
+    | 'reference_free_absolute'
+    | 'recognized_motion_absolute'
+    | 'previous_analysis_plus_absolute'
+    | 'previous_analysis_plus_reference_free_absolute';
+  scoringBasisLabel?: string; // 사용자 표시용 한국어 라벨 (정확한 채점 source 노출)
 }
 
 // Phase 12.5 (2026-06-07): 차원별 explanation. 결과 화면 "왜 이 점수인지" 가시화.

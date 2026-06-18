@@ -676,6 +676,12 @@ export default function AnalysisResult() {
               ? `${cmp.athleteName} 선수 · ${cmp.referenceMotionName} 기준으로 분석했어요.`
               : `${name ? `${name} · ` : ''}분석이 완료됐어요. 점수를 확인해보세요.`}
           </Text>
+          {/* Phase 19 TRUST-03 — 채점 근거(scoringBasisLabel) 가시화. reference-free 일 때
+              "기준 동작 없음 — 절대 자세 기준 평가" 가 사용자에게 보인다 (거짓 confident 점수
+              차단). 백엔드가 채울 때만 1줄 표시 (graceful). 토큰만 (하드코딩 금지). */}
+          {cmp.scoringBasisLabel ? (
+            <Text style={styles.scoringBasis}>{cmp.scoringBasisLabel}</Text>
+          ) : null}
           {/* Phase 4 (04-02 D-08 / BLOCKER-3) — 정확도 제한 배지.
               canonical surface = result.aiSynthesisMeta.warnings (top-level
               result.warnings 아님). 합성 경고 없는 정상 분석에서는 visible=false
@@ -1065,6 +1071,8 @@ export default function AnalysisResult() {
         motionName={cmp.mode === 'mode1' ? cmp.referenceMotionName : undefined}
         userName={undefined /* TODO: Firebase displayName 박제 박제 박제 박제 */}
         lowReliabilityRatio={lowReliabilityRatioVal}
+        scoringBasis={cmp.scoringBasis}
+        scoringBasisLabel={cmp.scoringBasisLabel}
         onClose={() => setDetailDim(null)}
       />
       {/* Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달. tip=null 시 닫힘. */}
@@ -1111,6 +1119,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 8,
+  },
+  // Phase 19 TRUST-03 — 채점 근거 1줄. 보조 톤이라 textSecondary, 토큰만.
+  scoringBasis: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 6,
   },
   // Phase 11 (Plan 11-02, D-07) — AI = "강사 보조 도구" 포지셔닝 상단 1줄.
   // 토큰만 (하드코딩 금지). 가벼운 보조 톤이라 textSecondary.

@@ -12,6 +12,7 @@ Phase 12.5 (2026-06-07): dimensionExplanation 추가 — 사용자가 결과 화
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -844,9 +845,7 @@ def build_keypoint_report(
                 any_missing = True
                 continue
             # finite 검증 (Inf 제거).
-            import math as _math
-
-            if not _math.isfinite(x) or not _math.isfinite(y):
+            if not math.isfinite(x) or not math.isfinite(y):
                 data.extend((0.0, 0.0))
                 confidence.append(0.0)
                 any_missing = True
@@ -869,6 +868,13 @@ def build_keypoint_report(
     axis_data: list[float] = []
     axis_mask: list[bool] = []
 
+    # finite guard helper — loop 밖 1회 정의 (WR-06: frame 당 closure 재정의 제거).
+    def _safe(v: float) -> tuple[float, bool]:
+        fv = float(v)
+        if math.isfinite(fv):
+            return fv, True
+        return 0.0, False
+
     for af in axis_frames:
         if af is None:
             # 전 frame 누락 의미 — placeholder (0.0)*6 + mask all False.
@@ -884,14 +890,6 @@ def build_keypoint_report(
             kx, ky = af.knee_mid
             knee_ok = True
         # finite guard — non-finite → placeholder + mask false (R7 iter-2 — NaN 0회).
-        import math as _math
-
-        def _safe(v: float) -> tuple[float, bool]:
-            fv = float(v)
-            if _math.isfinite(fv):
-                return fv, True
-            return 0.0, False
-
         sx_v, sx_ok = _safe(sx)
         sy_v, sy_ok = _safe(sy)
         hx_v, hx_ok = _safe(hx)
@@ -907,12 +905,22 @@ def build_keypoint_report(
             )
         )
 
-    # 길이 invariants — KeypointReport.__post_init__ 가 강제 검증.
-    assert len(data) == T * J * 2
-    assert len(confidence) == T * J
-    assert len(reliability) == T
-    assert len(axis_data) == T * _AXIS_POLYLINE_POINTS * 2
-    assert len(axis_mask) == T * _AXIS_POLYLINE_POINTS
+    # 길이 invariants — KeypointReport.__post_init__ 도 검증하지만 여기서 명시 raise
+    # (WR-06: assert 는 python -O 에서 stripped → 유일 길이 가드가 사라짐).
+    if len(data) != T * J * 2:
+        raise ValueError(f"data 길이 {len(data)} != {T * J * 2}")
+    if len(confidence) != T * J:
+        raise ValueError(f"confidence 길이 {len(confidence)} != {T * J}")
+    if len(reliability) != T:
+        raise ValueError(f"reliability 길이 {len(reliability)} != {T}")
+    if len(axis_data) != T * _AXIS_POLYLINE_POINTS * 2:
+        raise ValueError(
+            f"axis_data 길이 {len(axis_data)} != {T * _AXIS_POLYLINE_POINTS * 2}"
+        )
+    if len(axis_mask) != T * _AXIS_POLYLINE_POINTS:
+        raise ValueError(
+            f"axis_mask 길이 {len(axis_mask)} != {T * _AXIS_POLYLINE_POINTS}"
+        )
 
     return KeypointReport(
         version="1.0",

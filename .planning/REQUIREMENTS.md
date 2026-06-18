@@ -36,6 +36,14 @@
 - [x] **SCORE-04**: 고수(정은지) 영상이 위양성 감점 없이 신뢰할 만한 점수로 산출되고, 다양한 영상에서 인체 추적·분석이 정확하다 (신뢰도 게이트 — 강사/운영자 신뢰의 핵심)
 - [ ] **SCORE-05**: 5트랙 채점 시스템 v1 — IPSF 4공식 트랙 중 (a) Compulsory Criteria + (c) Technical Deduction 두 트랙 + Page 9 "all components" 절대 공통 트랙이 작동한다. 동작 인식 성공/실패/비등재/자유 루틴 모든 케이스에서 Page 9 절대 트랙 단독으로도 자세 품질 채점이 가능하다 (mode3 reference 없는 채점의 IPSF 공식 근거). (b) Tech Bonus 연계 가산 + (d) Artistic 정성 평가는 v2. (출처: IPSF Pole Sports CoP 2021-2024 Page 9 / NotebookLM lookup 2026-06-02)
 
+- [ ] **SCORE-06**: 종합·차원 점수가 감점식(deduction)으로 집계되어 단일 major fault가 종합을 지배한다 — 이중 단순평균(`kismam.overall_score` 가중평균 + `dimensions.overall_from_dimensions` 단순평균) 폐기. 100에서 시작 → IPSF 트랙(요소 0점 + 누적 실행 감점) 비율 매핑으로 감점. D-05 6 앵커(모두 fault 영상)가 낮은 종합점수를, above-cutoff 케이스는 높은 점수를 받는다. 감점 임계는 IPSF 근거(19-IPSF-DEDUCTION-NOTES §A)에서만 — 보유 sweep 재calibrate 금지. (출처: Phase 15 실증 94점 위양성 + IPSF CoP 2021-2027 / [[calibration-source-hard-gate]] [[judging-baseline-ipsf-code-of-points]])
+- [ ] **SCORE-07**: "Fully Extended" 요소의 micro-bent 0점 트랙 — 신전 요구 관절(`profile.expects_extension` True)이 IPSF 임계(스플릿 160°=목표 180°−20° tol) 미달이면 해당 요소 무효(0점, 비례감점 아님). 의도적 굽힘(expects_extension False)은 미적용(위양성 차단). 임계는 IPSF 근거에서만. (출처: 19-IPSF-DEDUCTION-NOTES §A 트랙1)
+- [ ] **TRUST-01**: 결과 화면 표시 각도값(현재/기준)이 점수를 산출한 DTW-정렬 median 값과 정합한다 — `_angles_to_mean_dict`(whole-clip nanmean) → DTW-정렬 source 교체, user matched-window vs ref full-clip 비대칭 제거. (출처: 15/deferred-items.md §E)
+- [ ] **TRUST-02**: 어깨 차원 라벨이 'STATIC POSE ANGLE'을 'stability(떨림)'로 오인 표기하지 않으며(COACHING_FOCUS 어깨→'안정성' 정정), DIM_STABILITY(떨림)가 종합점수를 인플레하지 않는다(매끄러운 fault가 99점으로 평균 끌어올림 차단). (출처: 15/deferred-items.md §E, CRITICAL C)
+- [ ] **TRUST-03**: Mode3(MODE_SELF)에 미보유동작 유효성 게이트 + 점수근거 표시 — 동작분류(IPSF등재/정은지reference/미보유) 분기 후, 미보유 시 "기준 동작 없음 — 절대 자세 기준 평가" 근거를 헤드라인에 명시. not_pole 안전망을 reference-free 절대 트랙으로 적용. fail-closed/raise 금지. (출처: [[mode3-scoring-basis-unknown-move-gate]], D-03)
+- [ ] **TRUST-04**: 3D 골격이 실기기에서 렌더된다 — joints3d RTMW 픽셀좌표를 골반중심 recenter + 몸통길이 정규화하여 viewer frustum 안에 들어온다. Firestore flat 저장·nested-array 금지 준수(읽는 쪽 reshape). (출처: 15/deferred-items.md §H)
+- [ ] **TRUST-05** (v2 hook, 비-차단): 감점식 schema가 v2 비전 거부권 투입 지점(adapter Protocol + audit 필드)을 막지 않는다 — score 산출 후 veto/cross-check hook 자리(v1 pass-through) + dimensionScores vision-flag 확장 여지. v2에서 채울 schema 슬롯만 남긴다. (출처: D-02 v2, D-04 v1/v2 분할)
+
 ### 학원 용어 (Studio Terminology)
 
 - [ ] **TERM-01**: 학원 용어 3분기 시스템이 작동한다. 분기 1 — AKA 매핑 (IPSF 등재 + 한국 학원 통용 매핑된 동작) → IPSF Code + Criteria 정밀 채점. 분기 2 — 한국 학원 통용 (정은지 reference 보유 비등재 동작, 예: 폭스탑) → 정은지 측정값 기준 + Page 9 절대 트랙. 분기 3 — 미등재 + 자동 수집 → Page 9 단독 + UX 카피 노출 + 키워드/영상 익명 박제. (현장 니즈: 강사 5-1 "기본기 표준화" + 운영자 5-2 "기술 데이터 표준화" + 운영자 5-2 "폭스탑 3회 분석 예시")
@@ -170,6 +178,13 @@
 | MODE-01 | Phase 15 | Complete |
 | MODE-02 | Phase 15 | Complete |
 | SCORE-04 | Phase 15 | Complete |
+| SCORE-06 | Phase 19 | Pending |
+| SCORE-07 | Phase 19 | Pending |
+| TRUST-01 | Phase 19 | Pending |
+| TRUST-02 | Phase 19 | Pending |
+| TRUST-03 | Phase 19 | Pending |
+| TRUST-04 | Phase 19 | Pending |
+| TRUST-05 | Phase 19 | Pending |
 | DELIV-01 | Phase 15 | Pending |
 | SCORE-05 | Phase 16 | Pending |
 | TERM-01 | Phase 16 | Pending |
@@ -187,4 +202,5 @@
 *Updated 2026-05-31 — belle 결정: 상용/베타 = MediaPipe + Gemini, NLF/SMPL-X = R&D 비교군. POSE-01 신규 추가 (PoseEngine 추상화 + MediaPipe 마이그레이션 + NLF 격리), BODY-01 재정의 (MediaPipe segment 기반)*
 *Updated 2026-06-02 — belle 결정: 학원 용어 3분기 시스템 + 5트랙 채점 (IPSF 4공식 + Page 9 절대 공통). NotebookLM IPSF CoP 2024-2025 / 2025-2027 lookup 결과 박제 — Element Code Matching IPSF 룰 (page 138-139), Page 9 "all components" 절대 트랙 (CoP 2021-2024), Dynamic Combinations / Flow 트랙, AKA 13개 매핑 (한국 학원 ↔ IPSF Code). v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. Phase 16 신설. 현장 설문 강사 5-1 "기본기 표준화" + 운영자 5-2 "기술 데이터 표준화" + "폭스탑 3회 분석 예시" 직접 충족*
 *Updated 2026-06-07 — Phase 2 plan 01 RTMW pivot 정합 (BODY-01 MediaPipe → RTMW 갱신, v4/v5 박제).*
+*Updated 2026-06-18 — Phase 19 신설 (분석 점수 신뢰도 재설계). v1 신설 SCORE-06/07 (감점식 집계 + micro-bent 0점) + TRUST-01~05 (표시-점수 정합 / 어깨 라벨·stability 분리 / Mode3 미보유 게이트 / 3D 골격 정규화 / v2 vision hook 자리). 출처: Phase 15 실증 94점 위양성 근본원인 + IPSF CoP 감점식 baseline. v2 비전 거부권 본체는 deferred.*
 *Updated 2026-06-08 — Phase 2 plan 01 RTMW pivot 2차 정합: BODY-01 의 "SMPL-X β 비교군은 R&D 평가 스크립트에서만 갭 보고" 문구는 ROADMAP §4 (SMPL-X 비교) 폐기와 함께 R&D scope 에서도 last-resort 만 (paid commercial license — PS:License 1.0). 운영 path 는 RTMW-native 단일.*

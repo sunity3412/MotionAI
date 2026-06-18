@@ -600,7 +600,7 @@ Plans:
 > **신규 (belle 2026-06-17 결정).** Phase 15 실증 중 belle 실기기 검증에서 점수 신뢰도 붕괴 발견 — 정은지 '실패' 영상이 Mode1 94점/89% "거의 다 왔어요". 3-갈래 심층조사로 근본원인 확정. 상세 근거: `.planning/phases/15-mode-1-mode-3-testflight/deferred-items.md`.
 
 **Goal:** 점수가 실제 자세 품질을 반영하게 한다 — 어떤 영상이든(보유 정은지 셋에 국한 X) 정확. 구체: (1) 이중 단순평균 집계 → 감점식 IPSF 정합 집계(결함이 다수 정상 관절에 희석되지 않게), (2) 비전-추론 하이브리드 — RTMW 정량추출 + Gemini(3.1-pro now / Omni 추후) 영상+수치 추론으로 품질·결함·인과 판단을 채점 루프에 투입(기하학은 측정가능 IPSF 기준에만), (3) 표시 각도값을 점수 산출값과 정합(비정렬 nanmean / matched-window vs full-clip 비대칭 제거) + 어깨 '안정성' 라벨 수정 + 안정성을 종합점수 인플레에서 분리, (4) Mode3 미보유동작 유효성 게이트 + 점수근거 화면 표시(동작분류 분기 IPSF/정은지/미보유), (5) 3D 골격 실기기 미표시 버그(joints3d RTMW 픽셀좌표 → 골반중심·몸통길이 정규화), (6) 촬영 팁(전문가 시작점 정합) UX + 운동명칭 직관화.
-**Requirements**: TBD (plan 단계에서 신규 SCORE-*/TRUST-* 요건 확정)
+**Requirements**: SCORE-06, SCORE-07, TRUST-01, TRUST-02, TRUST-03, TRUST-04, TRUST-05 (신설 2026-06-18 — v1 감점식 + 확정 버그 3건 + Mode3 게이트 + v2 hook 자리. v2 비전 거부권 본체는 deferred)
 **Depends on:** Phase 15 (실증 발견의 출처), Phase 18 (deliberate-fault eval set = 일반화 검증 자산)
 
 **절대원칙 (박제):**
@@ -609,9 +609,13 @@ Plans:
 - 임계값을 보유 sweep 으로 재calibrate 금지 ([[calibration-source-hard-gate]]). 검증은 미보유/above-cutoff 케이스 포함 ([[sensitivity-gate-not-just-elite-low]]).
 - 사람 점수 라벨 ground-truth 금지 ([[analysis-objectivity-no-human-scores]]). IPSF = 감점식 baseline ([[judging-baseline-ipsf-code-of-points]]).
 
-Plans:
+**Plans:** 4 plans (1 wave-0 test infra + 2 wave-1 parallel + 1 wave-2 wiring)
 
-- [ ] TBD (run /gsd-plan-phase 19 to break down)
+Plans:
+- [ ] 19-01-PLAN.md — Wave 0 RED 테스트 스텁 (SCORE-06/07 + TRUST-01/02/03/05 케이스 + D-05 6 앵커 GPU-skip)
+- [ ] 19-02-PLAN.md — 감점식 집계 코어 (kismam overall_score + dimensions line/overall + 어깨 라벨 + 3중 계약) — SCORE-06/07, TRUST-02
+- [ ] 19-03-PLAN.md — 3D 골격 좌표 정규화 (joints.ts reshapePose3dData recenter+normalize) — TRUST-04
+- [ ] 19-04-PLAN.md — 파이프라인 표시-점수 정합 + Mode3 미보유 게이트 + v2 hook 자리 — TRUST-01/03/05
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

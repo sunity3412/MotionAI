@@ -5,8 +5,20 @@ ml_CLAUDE.md:
   2. 가중치: 관절별 weight (폴스포츠 중요도)
   3. Top-3: 점수 낮은(편차 큰) 관절 3개를 코칭 포인트로
 
-점수 매핑: score = 100·exp(-½·z²) — Z-score 가우시안 감쇠.
-  z=0→100, z=1(tol)→61, z=2→14, z=3→1. 단조·평활.
+관절별 점수 매핑(score_from_deviation): score = 100·exp(-½·z²) — Z-score 가우시안 감쇠.
+  z=0→100, z=1(tol)→61, z=2→14, z=3→1. 단조·평활. (관절 단위 / 차원 점수 공유)
+
+종합 점수(overall_score): Phase 19 D-01 — 평균식 → IPSF 감점식 교체.
+  IPSF Code of Points 는 평균을 내지 않는다. 결함마다 정해진 값을 빼는 누적 감점
+  (Singular Deductions) 구조다 (19-IPSF-DEDUCTION-NOTES §A 트랙2). 이전 가중평균은 단일
+  major fault 를 다수 정상 관절에 희석시켜 정은지 실패영상이 ~89점으로 나오는 위양성의
+  근본원인이었다 (한 기하 오차가 종합을 지배하지 못함 = IPSF 위반). 본 함수는 100 에서
+  시작해 관절별 허용오차 초과분(over = max(0, dev - tol))을 누적 감점한다 — 단일 큰 편차가
+  종합을 끌어내린다 (평균 희석 제거).
+
+  penalty_per_deg 는 [ASSUMED] v1 휴리스틱이다 — IPSF 트랙2 비율(회당 -0.1~-3.0)의 0..100
+  스케일 매핑은 가정이며 IPSF fact 가 아니다. 보유 13영상 sweep 으로 재calibrate 금지
+  (D-05 경계, [[scoring-redesign-must-generalize-no-overfit]]). tol(허용오차) 만 IPSF [CITED].
 모든 점수는 0~100 정수 (contract.md §0).
 """
 
@@ -45,6 +57,14 @@ _IPSF_TOLERANCE_DEG = 20.0
 DEFAULT_TOLERANCE_DEG: dict[str, float] = {k: _IPSF_TOLERANCE_DEG for k in JOINT_KEYS}
 DEFAULT_WEIGHT: dict[str, float] = {k: 1.0 for k in JOINT_KEYS}
 
+# Phase 19 D-01 — 감점식 종합 점수 계수.
+# [ASSUMED] v1 휴리스틱 — IPSF 트랙2 누적 감점(회당 -0.1~-3.0, 19-IPSF §A)을 0..100
+# 스케일의 "도당 감점" 으로 매핑한 가정값이다. IPSF fact 아님. 보유 sweep 재calibrate
+# 금지 (D-05 경계, [[scoring-redesign-must-generalize-no-overfit]]).
+# 의미: 허용오차(_IPSF_TOLERANCE_DEG)를 초과한 1도마다 종합에서 이만큼 감점, 관절 누적.
+# 단일 major fault(예: 한 관절 over 30°) 가 종합을 지배하도록 1.0 보다 크게 설정.
+_PENALTY_PER_DEG = 1.2
+
 # 교정 포인트 제목 시드 (관절 → 코칭 초점). assemble.build_tips 가
 # `f"{a.label_ko} {COACHING_FOCUS[a.key]}"` 박제 시 사용 — JOINT_LABEL_KO 에
 # 이미 부위 한글이 포함되므로 (예: "오른쪽 어깨") COACHING_FOCUS 값에서는
@@ -53,8 +73,12 @@ DEFAULT_WEIGHT: dict[str, float] = {k: 1.0 for k in JOINT_KEYS}
 COACHING_FOCUS: dict[str, str] = {
     "left_elbow": "정렬",
     "right_elbow": "정렬",
-    "left_shoulder": "안정성",
-    "right_shoulder": "안정성",
+    # Phase 19 TRUST-02: 어깨는 STATIC POSE ANGLE 차원(자세각)이지 stability(떨림)가
+    # 아니다. 기존 '안정성' 라벨은 stability 차원(떨림)과 오인되어 사용자에게 잘못된 교정
+    # 방향을 줬다. '자세각' 으로 정정 — JOINT_LABEL_KO 에 이미 "어깨" 부위가 있으므로
+    # FOCUS 값에 부위 키워드(어깨) 중복 금지 (50-52 주석 박제).
+    "left_shoulder": "자세각",
+    "right_shoulder": "자세각",
     "left_hip": "가동",
     "right_hip": "가동",
     "left_knee": "신전",
@@ -180,13 +204,30 @@ def part_scores(assessments: list[JointAssessment]) -> dict[str, int]:
 
 
 def overall_score(
-    assessments: list[JointAssessment], weight: dict | None = None
+    assessments: list[JointAssessment],
+    weight: dict | None = None,
+    tolerance: dict | None = None,
 ) -> int:
-    """가중 평균 종합 점수 0~100 (KISMAM)."""
+    """IPSF 감점식 종합 점수 0~100 (Phase 19 D-01 — 평균식 교체).
+
+    100 에서 시작해 관절별 허용오차(tol) 초과분을 누적 감점한다:
+      over = max(0, deviation_deg - tol)  # tol 안(dead-zone)이면 감점 0
+      total_penalty += over * weight * _PENALTY_PER_DEG
+      overall = clamp(0..100, round(100 - total_penalty))
+
+    평균을 내지 않으므로 단일 major fault 가 다수 정상 관절에 희석되지 않고 종합을 지배한다
+    (19-IPSF §A 트랙2 + "단일 major fault 지배"). 허용오차 안의 작은 편차는 감점 0
+    (dead-zone — IPSF 각도 허용오차 20° [CITED]). penalty_per_deg 는 [ASSUMED] v1 휴리스틱.
+
+    clamp 는 score_from_deviation 패턴(0~100 정수)을 박제한다.
+    """
     w = {**DEFAULT_WEIGHT, **(weight or {})}
-    num = sum(a.score * w[a.key] for a in assessments)
-    den = sum(w[a.key] for a in assessments)
-    return int(round(num / den)) if den else 0
+    tol = {**DEFAULT_TOLERANCE_DEG, **(tolerance or {})}
+    total_penalty = 0.0
+    for a in assessments:
+        over = max(0.0, float(a.deviation_deg) - tol[a.key])
+        total_penalty += over * w[a.key] * _PENALTY_PER_DEG
+    return max(0, min(100, int(round(100.0 - total_penalty))))
 
 
 def top_issues(

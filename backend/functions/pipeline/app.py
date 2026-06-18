@@ -1538,6 +1538,96 @@ def _angles_to_mean_dict(
     }
 
 
+def _angles_to_dtw_median_dicts(
+    user_seg: np.ndarray | None,
+    ref_angles: np.ndarray | None,
+    joint_keys: tuple[str, ...],
+) -> tuple[dict[str, float], dict[str, float]]:
+    """표시-점수 정합 helper (Phase 19 TRUST-01 / HIGH-2 iter-1).
+
+    표시 각도(현재/기준)를 점수 산출(per_joint_deviation)과 **동일한** DTW path-정렬
+    구간의 관절별 finite median 으로 산출한다. 기존 `_angles_to_mean_dict` 는
+    whole-clip np.nanmean — (a) jitter/occlusion 프레임에 민감하고 (b) user matched-
+    window vs ref full-clip 의 시간 비대칭(점수는 정렬 구간만, 표시는 전체) 이라 표시값
+    이 점수와 19° 까지 어긋났다. per_joint_deviation(motiondtw 103-130) 의 path 순회를
+    모방하되 abs-diff 가 아니라 **양측 각도값**을 관절별로 모아 median 2 dict 반환.
+
+    Args:
+        user_seg: 사용자 각도 시퀀스 (T_u, J). caller 가 정렬 구간을 이미 잘랐든
+            full clip 이든 무관 — 내부에서 DTW 로 ref 에 정렬한다.
+        ref_angles: 기준 각도 시퀀스 (T_r, J) — 정은지(mode1) 또는 이전 영상(mode3).
+        joint_keys: 관절 이름 (분석 JOINT_KEYS).
+
+    Returns:
+        (user_median_by_joint, ref_median_by_joint). path 가 비거나 입력이 비면
+        빈 dict 둘.
+    """
+    if user_seg is None or ref_angles is None:
+        return {}, {}
+    a_user = np.asarray(user_seg, dtype=float)
+    a_ref = np.asarray(ref_angles, dtype=float)
+    if a_user.ndim != 2 or a_ref.ndim != 2 or a_user.shape[0] == 0 or a_ref.shape[0] == 0:
+        return {}, {}
+    # 점수 경로(per_joint_deviation)와 동일한 DTW 정렬 사용 — 표시·점수 source 통일.
+    match = motion_dtw(feature_vector(a_user), feature_vector(a_ref))
+    seg = a_user[match.start : match.end]
+    path = match.path
+    if not path or seg.shape[0] == 0:
+        return {}, {}
+    J = min(a_ref.shape[1], seg.shape[1], len(joint_keys))
+    user_vals: list[list[float]] = [[] for _ in range(J)]
+    ref_vals: list[list[float]] = [[] for _ in range(J)]
+    for u, r in path:
+        if u >= seg.shape[0] or r >= a_ref.shape[0]:
+            continue
+        for j in range(J):
+            uv = seg[u, j]
+            rv = a_ref[r, j]
+            if np.isfinite(uv):
+                user_vals[j].append(float(uv))
+            if np.isfinite(rv):
+                ref_vals[j].append(float(rv))
+    user_median: dict[str, float] = {}
+    ref_median: dict[str, float] = {}
+    for j in range(J):
+        if user_vals[j]:
+            user_median[joint_keys[j]] = float(np.median(user_vals[j]))
+        if ref_vals[j]:
+            ref_median[joint_keys[j]] = float(np.median(ref_vals[j]))
+    return user_median, ref_median
+
+
+def _hold_window_median_dict(
+    angles: np.ndarray | None,
+    profile: technique.TechniqueProfile,
+    joint_keys: tuple[str, ...],
+) -> dict[str, float]:
+    """hold-window 관절별 finite median (Phase 19 TRUST-01 — mode3-first 표시 source).
+
+    extension_deviation / line_score / stability_score 와 **동일한** dimensions._select_window
+    구간만 본다 — 별도 window 계산 없이 drift 차단. 표시 각도가 점수 산출 frames 와 정합.
+    """
+    if angles is None:
+        return {}
+    arr = np.asarray(angles, dtype=float)
+    if arr.ndim != 2 or arr.shape[0] == 0:
+        return {}
+    sliced, _ = dimensions._select_window(arr, profile)
+    if sliced.shape[0] == 0:
+        return {}
+    import warnings as _warnings
+
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore", RuntimeWarning)
+        meds = np.nanmedian(sliced, axis=0)
+    J = min(sliced.shape[1], len(joint_keys))
+    return {
+        joint_keys[j]: float(meds[j])
+        for j in range(J)
+        if np.isfinite(meds[j])
+    }
+
+
 def _extension_target_dict(
     profile: technique.TechniqueProfile,
 ) -> dict[str, float]:
@@ -1585,7 +1675,6 @@ def _mode3_comparison(
       - overall: 절대 차원 평균(첫 분석/이후 동일 척도)."""
     abs_dims = dimensions.absolute_dimension_scores(angles, profile)
     prev_angles = (prev or {}).get("angles")
-    user_mean = _angles_to_mean_dict(angles, skeleton.JOINT_KEYS)
     if not prev or not prev_angles:
         # 첫 분석(또는 이전 angles 미저장) — 비교 대상 없음. 코칭은 신전 부족분(IPSF 라인) 기준.
         overall = dimensions.overall_from_dimensions(abs_dims)
@@ -1594,6 +1683,10 @@ def _mode3_comparison(
         # 그 외 joint 는 reference_angles 에 key 없음 → assess 가 target_source='unavailable'
         # 분기 박제 (kismam.assess body 의 else branch).
         ext_targets = _extension_target_dict(profile)
+        # Phase 19 TRUST-01 — mode3-first user 표시값은 extension_deviation 과 동일
+        # hold-window(_select_window) source 의 median (whole-clip nanmean 아님). 별도
+        # window 계산 금지(drift 방지) — dimensions._select_window 를 그대로 공유.
+        user_mean = _hold_window_median_dict(angles, profile, skeleton.JOINT_KEYS)
         assessments = kismam.assess(
             dimensions.extension_deviation(angles, profile),
             user_angles=user_mean,
@@ -1605,8 +1698,12 @@ def _mode3_comparison(
     deviation, _match, _user_seg, prev_seg = _deviation_against(
         angles, prev_angles, num_joints
     )
-    # Phase 12 Wave 0A R4 — mode3 progress: 이전 영상 measured mean = previous_analysis.
-    ref_mean = _angles_to_mean_dict(prev_seg, skeleton.JOINT_KEYS)
+    # Phase 19 TRUST-01 — mode3 progress: 표시 각도(현재/이전) = 점수 산출 DTW path-정렬
+    # median (whole-clip nanmean 비대칭 제거). prev_seg 는 _deviation_against 가 reshape 한
+    # 이전 영상 각도 시퀀스. _angles_to_dtw_median_dicts 가 per_joint_deviation 과 동일 source.
+    user_mean, ref_mean = _angles_to_dtw_median_dicts(
+        angles, prev_seg, skeleton.JOINT_KEYS
+    )
     assessments = kismam.assess(
         deviation,
         user_angles=user_mean,
@@ -1795,10 +1892,13 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             deviation, match, user_seg, a_ref = _deviation_against(
                 angles, ref["angles"], num_joints
             )
-            # Phase 12 Wave 0A R4 (Codex 직접 리뷰 2026-06-10) — mode1: 정은지 measured.
-            # user_seg = DTW 정렬된 사용자 구간, a_ref = reference (정은지) 각도 시퀀스.
-            user_mean_mode1 = _angles_to_mean_dict(user_seg, skeleton.JOINT_KEYS)
-            ref_mean_mode1 = _angles_to_mean_dict(a_ref, skeleton.JOINT_KEYS)
+            # Phase 19 TRUST-01 (HIGH-2 iter-1): 표시 각도 = 점수 산출 DTW path-정렬 median.
+            # 기존 whole-clip np.nanmean(user_seg) vs np.nanmean(a_ref) 는 시간 비대칭
+            # (user matched-window vs ref full-clip) + jitter 민감 → 표시·점수 불일치.
+            # _angles_to_dtw_median_dicts 가 per_joint_deviation 과 동일 path/median source 사용.
+            user_mean_mode1, ref_mean_mode1 = _angles_to_dtw_median_dicts(
+                angles, a_ref, skeleton.JOINT_KEYS
+            )
             assessments = kismam.assess(
                 deviation,
                 user_angles=user_mean_mode1,

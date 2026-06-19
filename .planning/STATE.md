@@ -73,6 +73,7 @@ Last activity: 2026-06-20 - Completed quick task 260620-0r0: Mode3 점수 역전
 | 260612-t9m | stability 점수 보정 + 사용자 안내 (TOL 15° → 25° + result.tsx 안내 캡션) | 2026-06-12 | 947570f | [260612-t9m-stability](./quick/260612-t9m-stability/) |
 | 260615-cxe | vision Gemini default model gemini-2.5-flash → gemini-2.5-pro (recognizer/moment-extractor) | 2026-06-15 | d204291 | [260615-cxe-vision-gemini-default-model](./quick/260615-cxe-vision-gemini-default-model-gemini-2-5-f/) |
 | 260620-0r0 | Mode3 점수 역전(#8) 수정 — second+ overall = abs_dims만 (angle=이전영상 유사도가 발전을 min()으로 역전시키던 것 제거) + 회귀 테스트 | 2026-06-20 | ba5fe4f | [260620-0r0-fix-mode3-score-inversion](./quick/260620-0r0-fix-mode3-score-inversion-bug-8-overall-/) |
+| 260620-18r | 점수 UX 일관성 — #4 세부점수 보조지표(안정성) 종합 비반영 안내 캡션 + #2 마커 강조 임계 10°→20°(IPSF 허용오차 정합, 고득점에 빨강 모순 제거). 표시 일관성만, 점수 로직 불변 | 2026-06-20 | 5b5fb81 | [260620-18r-score-ux-consistency](./quick/260620-18r-score-ux-consistency-marker-score-thresh/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

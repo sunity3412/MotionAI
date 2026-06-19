@@ -662,6 +662,20 @@ Plans:
 - [ ] 20-04-PLAN.md — [Wave 3, POD terminal] SEVERITY_CAP 도출(sensitivity 양방, 6페어 fit 금지) + serial sweep 게이트 (kip-up≤50 + 퇴행0 + 정타 95~100 + 결정론) (SCORE-09/08/TRUST-06)
 
 ---
+
+## Backlog — 15-05 데모 후속 발견 (belle 2026-06-20 TestFlight #21 실기기)
+
+> belle 실기기 실증에서 나온 10건 중, 이미 처리/로드맵된 것을 뺀 **신규 제품 발견**. 정식 phase 승격 전 backlog 보관 ([[demo-15-05-device-findings]] 메모리 = 전체 triage). 우선순위/phase 그룹핑은 belle 결정 대기.
+>
+> **이미 처리:** #8 Mode3 역전 = quick 260620-0r0 (수정 완료). #2 마커-점수 모순 + #4 보조지표 표시 = quick 260620-18r (수정 완료, 다음 EAS 빌드 반영). **이미 로드맵:** #1 Mode1 위양성 + #6 Mode3 위양성 = Phase 18(eval) + Phase 20(Gemini 시각 실점수 + Mode3 미보유 게이트). belle 방향: Gemini는 "wrong→<50" 무지성 스탬프 금지, 실분석 정확점수 ([[vision-score-must-analyze-not-stamp]]).
+
+- **B-15a (#7) Mode 3 즉석 2영상 직접 비교:** 현재 첫 분석은 1영상만 받고 세션간 델타 전제. 사용자가 이미 가진 과거 영상 + 오늘 영상을 그 자리에서 둘 다 선택해 비교하는 경로가 없음(belle 통찰). Mode 3 진입 UX + 파이프라인 2영상 입력 분기 필요.
+- **B-15b (#5) 고득점 유지형 코칭:** 100점에 coach_writer 가 "거의 동일"만 출력. 유지/관리 관점 맞춤 코칭(이 수준 유지하려면 무엇을 관리) 분기 부재. Phase 13 코칭 영역 후속.
+- **B-15c (#9) 코칭 상세에 프레임 이미지:** `CoachingTipDetail` 스키마에 이미지 필드 없음 — 상세(원인/처방)가 텍스트만이라 어느 순간/자세인지 알기 어려움. 해당 결함 프레임 캡처/오버레이 첨부.
+- **B-15d (#10) 보완 운동을 코칭 팁 상세로 통합:** 현재 `tips[]` 와 `recommendedExercises[]` 가 완전 분리. 각 코칭 팁 "자세히 보기" 안에 관련 보완 운동 + 연관성 설명을 넣어 맥락 강화. Phase 13 코칭 영역 후속.
+- **B-15e (#3) 3D 뷰어 저장 안정화 + 카메라앵글:** `joints3d` 미저장 doc 이면 빈 화면(Firestore index-entry 한도 이력 — 저장 안정화 = 버그성). + 정은지 실영상에서 회전 동작하는 단일-뷰 카메라앵글 합성은 미구현 신기술 트랙 ([[camera-angle-ai-single-view-synth]]).
+
+---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*
 *Roadmap updated: 2026-05-31 (belle 결정 — 상용/베타 = MediaPipe + Gemini, NLF/SMPL-X = R&D 비교군 격리. Phase 1·2 재정의)*

@@ -38,11 +38,11 @@
 
 - [x] **SCORE-06**: 종합·차원 점수가 감점식(deduction)으로 집계되어 단일 major fault가 종합을 지배한다 — 이중 단순평균(`kismam.overall_score` 가중평균 + `dimensions.overall_from_dimensions` 단순평균) 폐기. 100에서 시작 → IPSF 트랙(요소 0점 + 누적 실행 감점) 비율 매핑으로 감점. D-05 6 앵커(모두 fault 영상)가 낮은 종합점수를, above-cutoff 케이스는 높은 점수를 받는다. 감점 임계는 IPSF 근거(19-IPSF-DEDUCTION-NOTES §A)에서만 — 보유 sweep 재calibrate 금지. (출처: Phase 15 실증 94점 위양성 + IPSF CoP 2021-2027 / [[calibration-source-hard-gate]] [[judging-baseline-ipsf-code-of-points]])
 - [x] **SCORE-07**: "Fully Extended" 요소의 micro-bent 0점 트랙 — 신전 요구 관절(`profile.expects_extension` True)이 IPSF 임계(스플릿 160°=목표 180°−20° tol) 미달이면 해당 요소 무효(0점, 비례감점 아님). 의도적 굽힘(expects_extension False)은 미적용(위양성 차단). 임계는 IPSF 근거에서만. (출처: 19-IPSF-DEDUCTION-NOTES §A 트랙1)
-- [x] **TRUST-01**: 결과 화면 표시 각도값(현재/기준)이 점수를 산출한 DTW-정렬 median 값과 정합한다 — `_angles_to_mean_dict`(whole-clip nanmean) → DTW-정렬 source 교체, user matched-window vs ref full-clip 비대칭 제거. (출처: 15/deferred-items.md §E)
-- [x] **TRUST-02**: 어깨 차원 라벨이 'STATIC POSE ANGLE'을 'stability(떨림)'로 오인 표기하지 않으며(COACHING_FOCUS 어깨→'안정성' 정정), DIM_STABILITY(떨림)가 종합점수를 인플레하지 않는다(매끄러운 fault가 99점으로 평균 끌어올림 차단). (출처: 15/deferred-items.md §E, CRITICAL C)
-- [x] **TRUST-03**: Mode3(MODE_SELF)에 미보유동작 유효성 게이트 + 점수근거 표시 — 동작분류(IPSF등재/정은지reference/미보유) 분기 후, 미보유 시 "기준 동작 없음 — 절대 자세 기준 평가" 근거를 헤드라인에 명시. not_pole 안전망을 reference-free 절대 트랙으로 적용. fail-closed/raise 금지. (출처: [[mode3-scoring-basis-unknown-move-gate]], D-03)
-- [x] **TRUST-04**: 3D 골격이 실기기에서 렌더된다 — joints3d RTMW 픽셀좌표를 골반중심 recenter + 몸통길이 정규화하여 viewer frustum 안에 들어온다. Firestore flat 저장·nested-array 금지 준수(읽는 쪽 reshape). (출처: 15/deferred-items.md §H)
-- [x] **TRUST-05** (v2 hook, 비-차단): 감점식 schema가 v2 비전 거부권 투입 지점(adapter Protocol + audit 필드)을 막지 않는다 — score 산출 후 veto/cross-check hook 자리(v1 pass-through) + dimensionScores vision-flag 확장 여지. v2에서 채울 schema 슬롯만 남긴다. (출처: D-02 v2, D-04 v1/v2 분할)
+- [ ] **SCORE-08** (Phase 20 — v2 비전 거부권): Gemini 시각 거부권이 채점 path(`_apply_vision_veto`)에 통합되어 v1 감점식 종합점수(`overallScore`)를 **하향만** 조정한다 (절대 못 올림 — `min()` cap, 가중블렌드/하한 거부 금지). 단위 = worst-pose(지배 결함 pose, key_moments 재사용, IPSF phase 평균 거부), 범위 = Mode1 + Mode3 둘 다, 트리거 = 채점 path 에 항상 호출. kip-up 류 major fault → ≤50, fault-free 정타 → v1 그대로(95~100 유지). (출처: D-01/03/04/05, 20-CONTEXT.md / [[score-spec-95-100-elite-vision-fix]])
+- [ ] **SCORE-09** (Phase 20 — 일반화 hard gate): SCORE-08 의 severity→cap 수치가 6페어 curve-fit 이 아니라 generalization-tested eval(미보유 + above-cutoff sensitivity 셋 포함)로 도출된다. 6페어 = known-answer 회귀(검증), fit 타깃 아님. 위양성(fault 하락)↔위음성(above-cutoff 유지) 양방 게이트. (출처: D-02, 20-CONTEXT.md / [[scoring-redesign-must-generalize-no-overfit]] [[sensitivity-gate-not-just-elite-low]])
+- [ ] **TRUST-06** (Phase 20 — 결정론): Gemini 시각 거부권 + 인식기 호출이 결정론적이다 — temperature 0 + reference/video-hash 별 profile 캐싱(TechniqueCache 재사용) 으로 같은 입력=같은 하향 cap. temp 0 단독은 bit-deterministic 아님 — 캐시가 실 보장. (출처: D-06, 20-CONTEXT.md / 20-RESEARCH Pitfall 2)
+- [ ] **TRUST-07** (Phase 20 — Mode3 미보유 게이트): Mode3 미보유동작이 Gemini 인식기 3분기(IPSF등재 ipsfCode / 정은지보유 reference / 둘다미보유→억제)로 판정되어, 미보유(분기3) 시 confident 점수가 억제되고 "기준 없음" 근거가 산출된다. not_pole 안전망을 reference-free 절대트랙으로 확장(MODE_EXPERT 전용 아님). fail-closed/raise 금지. (출처: D-07/08, 20-CONTEXT.md / [[mode3-scoring-basis-unknown-move-gate]])
+- [ ] **TRUST-08** (Phase 20 — 거부권/게이트 가시화 + 무음실패 방지): SCORE-08 의 거부권 결과(severity, capApplied)가 `visionVeto` audit 필드로 직렬화되고(3-way 계약 lockstep), Mode3 미보유 시 결과 화면이 confident 점수를 억제 + scoringBasisLabel 을 표시한다. veto 가 adapter 실패로 silent no-op 되지 않게 WARNING 로그 + audit 필드로 관측 가능(Pitfall 5). 객관성: 비전 출력에 사람 점수 라벨/score 필드 0(임계값 수치 라벨링은 OK). (출처: D-08, 20-CONTEXT.md / 20-RESEARCH Pitfall 5 / [[analysis-objectivity-no-human-scores]])
 
 ### 학원 용어 (Studio Terminology)
 
@@ -109,6 +109,10 @@
 - **CAM-V2-01**: 카메라 앵글 합성(CameraCtrl II / UCPE)으로 시점 보정·코치뷰·데이터 증강
 - **OCCLUSION-V2-01**: 사선/뒤 시점 다중 시점 + 시점 자동 매핑
 
+### 상단 변별 (Upper-Band Discrimination — v2, Phase 20 Deferred)
+
+- **SCORE-V2-04**: within-20°=일률 100 인 정타 구간의 상단 변별(good vs perfect) — 비전이 점수를 **올려야** 하므로 Phase 20 의 하향-전용(D-01)과 충돌. v2 또는 하향-안전 변형(상한은 100 유지 + 미세 결함만 하향)으로 재검토. (출처: 20-CONTEXT.md Deferred, D-01 충돌)
+
 ### 학원/운영 (Studio Ops) — P2
 
 - **OPS-01**: 학원 운영자 대시보드 — 수강생 성장 DB 일괄 조회 + 강사용 리포트
@@ -148,6 +152,9 @@
 | AI 단독 코칭 (코치 마무리 없음) | research 0.5 — 고객·강사 모두 AI 단독 판단 불신. CoachCommentHook 필수 |
 | Gemini가 좌표·판단·점수 출력 | research 00 §3 — Gemini는 자연어 번역 엔진. 판단은 운동학 휴리스틱 + 코치 |
 | 자동 점수를 "대회 총점"으로 표기 | research 01 §2.1 — 예술 점수 미포함, "기술 점검"으로만 |
+| 비전이 점수를 **올리는** 경로 (가중블렌드/하한) | Phase 20 D-01 — 위양성 재발 위험. 하향-전용(min cap)만 |
+| 상단 변별(within-20°=100 good vs perfect) | Phase 20 Deferred (SCORE-V2-04) — 비전 상향 필요, D-01 충돌 |
+| climb not_pole 게이트 (ref-climb 품질) | Phase 20 scope 아님 — 별도 reference-fix 트랙(재등록/재촬영) |
 | NLF/SMPL-X를 상용/베타 제품 코드에 포함 | belle 결정 (2026-05-31) — 라이선스 확인 전까지 제품 사용 금지. R&D 비교군 전용 |
 | NLF/SMPL-X로 공개 베타·유료 파일럿·고객 영상 처리 | PS:License 1.0(비상업) 범위 위반. 상업 라이선스 클리어 후만 가능 |
 
@@ -185,6 +192,11 @@
 | TRUST-03 | Phase 19 | Complete |
 | TRUST-04 | Phase 19 | Complete |
 | TRUST-05 | Phase 19 | Complete |
+| SCORE-08 | Phase 20 | Pending |
+| SCORE-09 | Phase 20 | Pending |
+| TRUST-06 | Phase 20 | Pending |
+| TRUST-07 | Phase 20 | Pending |
+| TRUST-08 | Phase 20 | Pending |
 | DELIV-01 | Phase 15 | Pending |
 | SCORE-05 | Phase 16 | Pending |
 | TERM-01 | Phase 16 | Pending |
@@ -192,8 +204,8 @@
 | TERM-COPY-01 | Phase 16 | Pending |
 
 **Coverage:**
-- v1 requirements: 22 total (18 → 22, +4 신설 2026-06-02)
-- Mapped to phases: 22 ✓
+- v1 requirements: 27 total (22 + 5 신설 2026-06-19 Phase 20)
+- Mapped to phases: 27 ✓
 - Unmapped: 0
 
 ---
@@ -204,3 +216,4 @@
 *Updated 2026-06-07 — Phase 2 plan 01 RTMW pivot 정합 (BODY-01 MediaPipe → RTMW 갱신, v4/v5 박제).*
 *Updated 2026-06-18 — Phase 19 신설 (분석 점수 신뢰도 재설계). v1 신설 SCORE-06/07 (감점식 집계 + micro-bent 0점) + TRUST-01~05 (표시-점수 정합 / 어깨 라벨·stability 분리 / Mode3 미보유 게이트 / 3D 골격 정규화 / v2 vision hook 자리). 출처: Phase 15 실증 94점 위양성 근본원인 + IPSF CoP 감점식 baseline. v2 비전 거부권 본체는 deferred.*
 *Updated 2026-06-08 — Phase 2 plan 01 RTMW pivot 2차 정합: BODY-01 의 "SMPL-X β 비교군은 R&D 평가 스크립트에서만 갭 보고" 문구는 ROADMAP §4 (SMPL-X 비교) 폐기와 함께 R&D scope 에서도 last-resort 만 (paid commercial license — PS:License 1.0). 운영 path 는 RTMW-native 단일.*
+*Updated 2026-06-19 — Phase 20 신설 (v2 비전 점수 — Gemini 시각 거부권). v1 신설 SCORE-08 (비전 하향-전용 거부권 통합) + SCORE-09 (curve-fit 금지 일반화 게이트) + TRUST-06 (결정론 temp 0 + 캐시) + TRUST-07 (Mode3 미보유 3분기 게이트) + TRUST-08 (visionVeto audit + 억제 UX + 객관성 무음실패 방지). 출처: Phase 19 v1 이 남긴 비-각도형 위양성(kip-up 100/100) + belle 2026-06-12 스펙. v2 신설 SCORE-V2-04 (상단 변별 — D-01 충돌로 deferred).*

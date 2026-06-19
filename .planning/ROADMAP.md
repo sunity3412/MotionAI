@@ -630,7 +630,7 @@ Plans:
   2. **상단 변별 + 인식기 결정성** — within-20°=일률 100 이라 good vs perfect 구분 부재 → 비전이 상단 품질 차이를 변별. Gemini 인식기(line 차원 결정)는 LLM 이라 run 변동 가능 → temperature 0 + reference 별 profile 캐싱으로 결정성 박제.
   3. **Mode3 미보유동작 유효성 게이트 + 점수근거 표시** — not_pole 안전게이트가 MODE_EXPERT 블록에만 있어 reference-free Mode 3 는 미보유 동작도 무비판 97 출력([[mode3-scoring-basis-unknown-move-gate]]). 동작분류 분기(IPSF공식/정은지보유/둘다미보유→불확실 표시) + 점수근거 화면 노출.
 
-**Requirements**: TBD (plan 단계에서 신규 SCORE-*/TRUST-* 요건 확정 — Phase 19 가 v2 hook 자리만 남김)
+**Requirements**: SCORE-08 (비전 하향 거부권 통합), SCORE-09 (curve-fit 금지 일반화 게이트), TRUST-06 (결정론 temp 0 + 캐시), TRUST-07 (Mode3 미보유 3분기 게이트), TRUST-08 (visionVeto audit + 억제 UX + 객관성) — REQUIREMENTS.md 신설 2026-06-19
 **Depends on:** Phase 19 (v1 감점식 채점 루프 + vision-hybrid hook), Phase 18 (deliberate-fault EVAL baseline = known-answer gate)
 
 **게이트 (박제 — 변경 금지):**
@@ -653,8 +653,13 @@ Plans:
   4. Gemini 인식기 결정성(temp 0 + reference profile 캐싱)으로 run 간 line 차원 변동 0
   5. Mode 3 미보유동작 유효성 게이트 + 점수근거 화면 표시(동작분류 분기)
 
+**Plans:** 4 plans, 3 waves (Wave 1-2 pod-free, Wave 3 Pod terminal gate)
+
 Plans:
-- [ ] TBD (Pod 재개 후 run /gsd-discuss-phase 20 → /gsd-plan-phase 20)
+- [ ] 20-01-PLAN.md — [Wave 1, pod-free] 순수 vision_veto 코어 (apply_downward_cap 하향전용 + SEVERITY_CAP placeholder + worst_pose_timestamp) (SCORE-08)
+- [ ] 20-02-PLAN.md — [Wave 1, pod-free] Gemini 결함-심각도 어댑터 (no-score 스키마 + _SCORE_PATTERN 가드 + temp 0 + video-hash 캐시, mocked) (SCORE-08/TRUST-06/08)
+- [ ] 20-03-PLAN.md — [Wave 2, pod-free] _apply_vision_veto 본체 swap + visionVeto audit 3-way 계약 + Mode3 미보유 억제 + result.tsx UX (SCORE-08/TRUST-07/08)
+- [ ] 20-04-PLAN.md — [Wave 3, POD terminal] SEVERITY_CAP 도출(sensitivity 양방, 6페어 fit 금지) + serial sweep 게이트 (kip-up≤50 + 퇴행0 + 정타 95~100 + 결정론) (SCORE-09/08/TRUST-06)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

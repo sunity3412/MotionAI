@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: completed
-stopped_at: Phase 20 context gathered (discuss 4영역 결정 잠금, 구현 Pod 대기)
-last_updated: "2026-06-19T03:31:06.210Z"
+stopped_at: Phase 20 planned (4 plans/3 waves, plan-checker PASS_WITH_CONCERNS→C-1 fixed). pod-free Wave1-2 실행 가능, Wave3 eval=Pod terminal gate
+last_updated: "2026-06-19T04:13:59.281Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 4
+  total_plans: 8
   completed_plans: 4
   percent: 33
 ---
@@ -625,9 +625,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-19T03:31:06.194Z
+Last session: 2026-06-19T04:13:59.262Z
 
-Stopped at: Phase 20 context gathered (discuss 4영역 결정 잠금, 구현 Pod 대기)
+Stopped at: Phase 20 planned (4 plans/3 waves, plan-checker PASS_WITH_CONCERNS→C-1 fixed). pod-free Wave1-2 실행 가능, Wave3 eval=Pod terminal gate
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -694,7 +694,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/20-v2-gemini/20-CONTEXT.md
+Resume file: .planning/phases/20-v2-gemini/20-01-PLAN.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

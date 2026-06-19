@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "phase": "18",
+    "name": "expert-deliberate-fault-reference-eval-set",
+    "description": "정은지 6 fault→correct 페어 Mode 1(vs reference) 채점기 출력의 확정 serial baseline. 이 값들은 채점기 자신의 결정론적 출력 스냅샷(regression drift 감지용)이지 사람이 매긴 ground-truth 점수 라벨이 아니다. 사람 점수 라벨은 영구 금지(D-06 / analysis-objectivity-no-human-scores).",
+    "captured": "2026-06-18",
+    "scorer_version": "phase19_vision_hybrid_deduction (D-01 감점식)",
+    "mode": "mode1",
+    "run": "serial (동시 실행 금지 — pipeline-not-concurrency-safe-eval-serial)",
+    "determinism": "byte-identical on repeat (pdshape-correct 100×3, power-spin-fault 72×2 검증)",
+    "pod": "RTMW GPU 필요 — 재현은 Pod 재개 후 sweep_phase15.py --pair-sequential",
+    "objectivity": "fault 라벨=영상 파생(OK). 점수=채점기 출력 스냅샷(라벨 아님). 임계값 수치 라벨링 OK, 사람 점수 라벨 금지."
+  },
+  "results": [
+    { "motion_id": "power-spin",         "fault_overall": 72,  "success_overall": 100, "margin": 28,  "verdict": "discriminate" },
+    { "motion_id": "peter-pan",          "fault_overall": 79,  "success_overall": 100, "margin": 21,  "verdict": "discriminate" },
+    { "motion_id": "elbow-twist-sister", "fault_overall": 59,  "success_overall": 100, "margin": 41,  "verdict": "discriminate" },
+    { "motion_id": "pdshape",            "fault_overall": 58,  "success_overall": 100, "margin": 42,  "verdict": "discriminate" },
+    { "motion_id": "kip-up",             "fault_overall": 100, "success_overall": 100, "margin": 0,   "verdict": "known_false_positive" },
+    { "motion_id": "climb",              "fault_overall": null, "success_overall": null, "margin": null, "verdict": "known_gate_blocked", "note": "fault/success 둘 다 not_pole_motion (유사도 <25)" }
+  ],
+  "summary": {
+    "discriminating_pairs": 4,
+    "discriminating_of_scorable": "4/4 (climb 제외, kip-up 위양성 제외)",
+    "known_false_positives": ["kip-up"],
+    "known_gate_blocked": ["climb"],
+    "angle_channel_fault_range_deg": "28~42 (변별 4쌍의 fault 결손 검출 폭)",
+    "v2_gate_note": "이 표가 v2(Phase 20) known-answer gate. kip-up 위양성·climb 게이트·상단 변별이 v2 해소 대상. belle 스펙(같은 정은지 95~100 / 잘못된 동작 ≤50 / Gemini 시각 점수)과 병행."
+  }
+}

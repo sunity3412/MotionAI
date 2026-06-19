@@ -1,0 +1,119 @@
+# Phase 18 — Expert deliberate-fault reference eval set (정은지 6 fault→correct 페어).
+#
+# 무엇:
+#   정은지 선수가 같은 동작을 (a) 일부러 틀리게 / (b) 제대로 시연한 6 페어를
+#   영구 regression/eval fixture 로 박제. 각 fault 영상에 "어디를 틀렸나" 라벨을 단다.
+#
+# 데이터 출처(이미 repo 박제 — 재사용, 재업로드 0):
+#   · S3 영상 키 + motionId + referenceMotionId = backend/scripts/phase15_keys.json (15-01 산출).
+#   · fault 라벨(primary_fault / dominant_dimension / ~편차) = Phase 19 D-05 Gemini Vision
+#     grounding spike (.planning/phases/19-vision-hybrid/19-D05-VISION-GROUNDING-SPIKE.md).
+#   · 확정 serial baseline 점수 스냅샷 = baseline/eval18_serial_baseline.json.
+#
+# 객관성 하드가드 ([[analysis-objectivity-no-human-scores]] / D-06):
+#   · fault 라벨은 **영상-파생 입력 라벨**(어떤 결함을 시연하는지) — 객관성 OK.
+#   · primary_fault / dominant_dimension / approx_deviation_deg 는 fault 위치·종류·기하 추정만.
+#   · 사람이 매긴 "이 영상 N점" ground-truth 점수 라벨은 **영구 금지**. baseline 점수는
+#     라벨이 아니라 채점기 자신의 결정론적 출력 스냅샷(regression 용) — baseline 파일 참조.
+#   · approx_deviation_deg = Gemini 시각 추정(±상당). 앵커일 뿐 임계값 직접 대입 금지.
+#
+# 일반화 경계 ([[scoring-redesign-must-generalize-no-overfit]] / [[sensitivity-gate-not-just-elite-low]]):
+#   · 6 페어 전부 정은지 단일 선수 + fault(elite-low) → curve-fit 타깃 아님.
+#   · sensitivity(미보유 동작 + above-cutoff 고득점이어야 정상) 검증은 별도 셋 필요(Deferred).
+#
+# 동시성 ([[pipeline-not-concurrency-safe-eval-serial]]):
+#   · _process 동시성 비안전 — eval 은 **반드시 순차**(한 건 done 까지 대기 후 다음).
+#     동시 트리거 = 결과 cross-contamination(가짜 버그). sweep_phase15.py --pair-sequential 사용.
+
+meta:
+  phase: 18
+  name: expert-deliberate-fault-reference-eval-set
+  bucket: sunity-motion-pilot-videos
+  s3_key_pattern: fixtures/phase15/{motionId}/{correct|fault}.mp4
+  mode: mode1                     # fault 영상을 정은지 reference 와 비교(MODE_EXPERT)
+  athlete: jung_eunji
+  pair_count: 6                   # combo 제외(fault 영상 없음 — correct 만)
+  serial_only: true               # 동시 실행 금지(파이프라인 동시성 비안전)
+  harness: backend/scripts/sweep_phase15.py
+  fault_label_source: phase19_d05_vision_grounding_spike
+  score_label_policy: none        # 사람 점수 라벨 영구 금지 — baseline 은 채점기 출력 스냅샷
+
+pairs:
+  - motion_id: power-spin
+    reference_motion_id: ref-power-spin
+    fault_s3_key: fixtures/phase15/power-spin/fault.mp4
+    correct_s3_key: fixtures/phase15/power-spin/correct.mp4
+    fault_label:
+      primary_fault: "무릎 굽음 ×2 + 스플릿 각도 부족 (지배 결함 다중, major 3개)"
+      dominant_dimension: angle      # + line(스플릿)
+      approx_deviation_deg: [45, 30, 40]
+      confidence: high
+    expected: discriminate           # fault < success (angle 채널이 결함 검출)
+
+  - motion_id: peter-pan
+    reference_motion_id: ref-peter-pan
+    fault_s3_key: fixtures/phase15/peter-pan/fault.mp4
+    correct_s3_key: fixtures/phase15/peter-pan/correct.mp4
+    fault_label:
+      primary_fault: "뻗은 다리 무릎 굽음(신전 부족)"
+      dominant_dimension: angle
+      approx_deviation_deg: [25]
+      secondary: "발끝 포인 풀림(mod ~30°), 어깨 으쓱(minor ~15°)"
+      confidence: high
+    expected: discriminate
+
+  - motion_id: elbow-twist-sister
+    reference_motion_id: ref-elbow-twist-sister
+    fault_s3_key: fixtures/phase15/elbow-twist-sister/fault.mp4
+    correct_s3_key: fixtures/phase15/elbow-twist-sister/correct.mp4
+    fault_label:
+      primary_fault: "스플릿 각도 부족(라인 붕괴)"
+      dominant_dimension: line       # + angle(위다리 무릎 갭 ~35°)
+      approx_deviation_deg: [40]
+      secondary: "발끝(mod ~20°), 등 아치 부족(minor ~15°)"
+      confidence: high
+    expected: discriminate
+
+  - motion_id: pdshape
+    reference_motion_id: ref-pdshape
+    fault_s3_key: fixtures/phase15/pdshape/fault.mp4
+    correct_s3_key: fixtures/phase15/pdshape/correct.mp4
+    fault_label:
+      primary_fault: "자유 다리 무릎 굽음(신전 부족)"
+      dominant_dimension: angle
+      approx_deviation_deg: [35]
+      secondary: "발끝 풀림(mod ~20°), 스플릿 좁음(mod ~15°)"
+      confidence: high
+    expected: discriminate
+
+  - motion_id: kip-up
+    reference_motion_id: ref-kip-up
+    fault_s3_key: fixtures/phase15/kip-up/fault.mp4
+    correct_s3_key: fixtures/phase15/kip-up/correct.mp4
+    fault_label:
+      primary_fault: "공중 양 무릎 굽음(다리 라인 붕괴)"
+      dominant_dimension: angle
+      approx_deviation_deg: [35]
+      secondary: "발끝 포인 풀림(mod ~45°), 스트래들 좁음(mod ~30°)"
+      confidence: high
+    expected: known_false_positive    # ✗ angle 채널 맹점 — 비-각도형 실패를 DTW 가 흡수.
+    known_issue: >
+      fault 100 / success 100 — 변별 실패. 무릎 굽음은 각도형이나 fault 영상의
+      타이밍/완성도 결함이 DTW band 안에서 흡수돼 감점이 안 됨. v2 Gemini 시각
+      거부권(Phase 20)으로 해소 대상. silent 통과 금지 — eval 이 명시 추적.
+
+  - motion_id: climb
+    reference_motion_id: ref-climb
+    fault_s3_key: fixtures/phase15/climb/fault.mp4
+    correct_s3_key: fixtures/phase15/climb/correct.mp4
+    fault_label:
+      primary_fault: "굽은 등/척추 정렬 불량(라인 붕괴)"
+      dominant_dimension: line
+      approx_deviation_deg: [25]
+      secondary: "목 꺾임(mod ~30°), 골반 과밀착(mod ~15°), 팔꿈치 갭 ~20°"
+      confidence: high
+    expected: known_gate_blocked      # ✗ correct-climb 조차 not_pole 게이트.
+    known_issue: >
+      fault/success 둘 다 ref-climb 유사도 <25 → not_pole_motion 게이트로 분석 차단.
+      코드 결함 아니라 ref-climb reference 품질/촬영각 문제 추정. reference 재검토
+      필요(코드 fix 아님). climb 는 변별 게이트에서 제외하되 명시 추적.

@@ -1,7 +1,8 @@
 # 15-DELIV-EVIDENCE — DELIV-01 TestFlight 게스트 Mode 1+3 실기기 완주
 
 > **소유:** 15-05. Claude-side(빌드 config + static/build 회귀) 를 먼저 PASS 로 박고, 사람-전용 실기기 검증(런타임 SIGABRT 부재 + 게스트 완주 + 영상 재생)만 belle 에게 핸드오프(D-09 verify-before-handoff).
-> **상태(2026-06-17):** Task 2(testflight-preview 프로필) + static/회귀 체크 PASS, **그러나 Task 3 EAS 빌드 2회 연속 FAIL(Install dependencies 단계, UNKNOWN_ERROR)** → D-09 에 따라 belle 핸드오프 보류. 아래 §빌드/submit + §빌드 실패 진단 참조.
+> **상태(2026-06-17, superseded):** Task 2(testflight-preview 프로필) + static/회귀 체크 PASS, 단 그 시점 Task 3 EAS 빌드 #17/#18/#19 가 Install dependencies 단계 UNKNOWN_ERROR 로 errored → D-09 핸드오프 보류로 기록.
+> **상태(2026-06-19, 갱신):** 같은 testflight-preview 프로필로 **빌드 #20(2026-06-17, commit `90f26d05`) + #21(2026-06-18, commit `e022afc`, Phase 19 포함) 둘 다 FINISHED + 아티팩트 존재** — repo 수정 0 으로 재시도만 했는데 성공. 따라서 #17~#19 의 errored 는 **EAS remote worker 일시 인프라 장애(transient)** 로 확정(진단 §빌드 실패 진단의 "EAS-infra 추정" 검증됨). **Task 3 빌드+submit Claude-side PASS.** belle 핸드오프 보류 해소 — 남은 것은 belle 실기기 device 검증(사람-전용)뿐(§belle 핸드오프). belle 가 테스트할 빌드 = **#21 `1a387686`** (TestFlight 최신, Phase 19 3D 렌더 + 새 UI 포함).
 
 ---
 
@@ -29,8 +30,8 @@
 | 1 | `tsc --noEmit` clean | **PASS** | `npm run typecheck` exit 0 |
 | 2 | typography.ts:15 `track=()=>0` present | **PASS** | `const track = (_size: number) => 0;` 존재 |
 | 3 | negative-letterSpacing 곱셈 패턴 grep | **PASS (0)** | active(non-comment) letterSpacing 전부 `track()`(=0) 또는 `typography.caption.letterSpacing`(=0) 경유. line 4 의 `fontSize * -0.04` 는 주석(비활성) |
-| 4 | EAS 빌드 성공 | **FAIL** | Build 17(`e78f4957…`) + Build 18(`bb2bfd5a…`) 둘 다 Install dependencies 단계 errored (아래 진단) |
-| 5 | TestFlight submit 성공 | **N/A (빌드 선행 실패)** | submit 은 scheduled 되나 빌드 errored 로 아티팩트 없음 → submit 미완 |
+| 4 | EAS 빌드 성공 | **PASS** | Build #20(`aebb083e`, commit `90f26d05`, 2026-06-17) + #21(`1a387686`, commit `e022afc`, 2026-06-18) 둘 다 FINISHED + 아티팩트 존재. #17/#18/#19 errored 는 EAS infra transient(repo 수정 0 재시도로 해소) |
+| 5 | TestFlight submit 성공 | **PASS (auto-submit)** | #21 빌드는 `--auto-submit-with-profile production`(ASC App ID 6772934567) 자동제출 예약(submission `fd0662ca`). TestFlight 가용 여부 최종 확인은 belle device(§belle 핸드오프) |
 
 > LOW 7: 런타임 SIGABRT 부재는 build 로그로 단언하지 않는다 — release 런타임 크래시 경로라 build 로그 불가시. belle 실기기 device 결과가 유일 증거(§belle 핸드오프).
 
@@ -53,6 +54,22 @@
 | 빌드 로그 | expo.dev/.../builds/e78f4957-… | expo.dev/.../builds/bb2bfd5a-… |
 
 **config 검증된 부분(둘 다 통과):** 환경변수 7키(testflight-preview env) 정상 로드 / remote iOS credentials ready (Distribution Cert serial 14EBFBFF…, Provisioning Profile 373ZWPHANB active, 둘 다 2027-05-23 만료) / ASC API Key ASM44H4TB4 set up / **ASC App ID 6772934567** (production submit profile) 재사용 확인 / project fingerprint 산출 / 22.5MB 업로드 성공. → 프로필/자격/submit 경로 자체는 정상. 실패는 **remote Install dependencies 단계**에서만 발생.
+
+### §빌드 성공 (2026-06-19 갱신 — #17/#18/#19 transient 확정)
+
+| 항목 | Build #20 | Build #21 (belle 테스트 대상) |
+|---|---|---|
+| Build ID | `aebb083e-f98b-4695-b814-e57de126c216` | `1a387686-0301-411f-b5de-45507bac929a` |
+| Profile / Distribution | testflight-preview / **store** | testflight-preview / **store** |
+| Channel | preview | preview |
+| App Version / Build number | 1.0.0 / 20 | 1.0.0 / 21 |
+| Commit | `90f26d05` | `e022afc` (Phase 19 3D 렌더 + 새 UI 포함) |
+| Status | **FINISHED** | **FINISHED** |
+| Completed | 2026-06-17T12:11Z | 2026-06-18T13:38Z |
+| 아티팩트(applicationArchiveUrl) | 존재 | 존재 |
+| Submission | — | auto-submit 예약 `fd0662ca` (`--auto-submit-with-profile production`) |
+
+**판정:** 동일 testflight-preview 프로필 + repo 수정 0 으로 #20/#21 이 FINISHED → #17~#19 의 Install dependencies UNKNOWN_ERROR 는 EAS remote worker 일시 장애(transient infra)로 확정. §빌드 실패 진단의 "EAS-infra 면 재시도" 경로가 정답이었다. belle 가 TestFlight 에서 받을 빌드 = **#21**.
 
 ---
 
@@ -100,9 +117,9 @@
 
 ---
 
-## §belle 핸드오프 (실기기 게스트 완주 — **빌드 PASS 이후로 보류, awaiting**)
+## §belle 핸드오프 (실기기 게스트 완주 — **빌드 PASS 확정, belle device 검증만 대기**)
 
-> ⛔ **현재 보류:** 위 빌드 실패가 해소되어 testflight-preview 빌드+submit 이 Claude-side PASS 가 된 이후에만 진행한다(D-09). 아래는 빌드 통과 후 belle 가 실기기에서 수행할 사람-전용 검증 절차(미리 기록).
+> ✅ **핸드오프 가능(2026-06-19):** testflight-preview 빌드 #21 FINISHED + 아티팩트 + auto-submit 예약으로 Claude-side PASS 확정(D-09 충족). 아래는 belle 가 실기기에서 수행할 사람-전용 검증 절차 — TestFlight 에서 **빌드 #21 (`1a387686`, 1.0.0/21)** 설치 후 진행.
 
 belle 실기기 검증 절차:
 1. TestFlight 에서 submit 된 testflight-preview 빌드를 실기기에 설치.

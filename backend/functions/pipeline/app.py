@@ -1779,12 +1779,17 @@ def _mode3_comparison(
         target_source="previous_analysis",
     )
     dim_scores = {dimensions.DIM_ANGLE: kismam.overall_score(assessments), **abs_dims}
-    # 박제 (2026-06-06 belle): mode3 second+ overall = 모든 차원 평균.
-    # 이전 박제 = abs_dims 만 평균 (박제 메모 [[mode3-progress-not-similarity]] 정신).
-    # belle 의문: "각도 100, 안정성 93 인데 총점 93? 각도 점수 어디 가나" — 정합.
-    # overall 박제 변경 = (angle + line + stability) 평균. delta 박제는 abs_dims 만
-    # 유지 (절대 척도 안정 — 박제 메모 정신 유지).
-    overall = dimensions.overall_from_dimensions(dim_scores)
+    # mode3 second+ overall = 절대 차원(line/stability)만 — angle 제외 (#8 역전 수정).
+    # 이유: mode3 의 angle 은 "이전 영상 대비 유사도"라, 사용자가 발전(이전=틀림,
+    # 신규=올바름)하면 두 영상이 달라져 유사도(angle)가 떨어지고,
+    # overall_from_dimensions 의 min(CORE_DIMENSIONS) 가 종합을 끌어내려 발전을
+    # 역전시킨다 (belle 기기: 틀린 kip-up 98 → 올바른 영상 88, -10).
+    # 첫 분석 overall(abs_dims)과 동일 source 를 써 세션 간 같은 척도를 유지하고
+    # 유사도에 의한 역전을 제거한다 ([[mode3-progress-not-similarity]] /
+    # [[mode3-overall-exclude-angle-similarity]] 정합). dim_scores(angle 포함)는 표시/
+    # 일관성 지표로 반환에 그대로 유지하고, delta(build_mode3 의 cur_dimension_scores
+    # =abs_dims)는 이미 절대 차원만 사용 → 변경 없음.
+    overall = dimensions.overall_from_dimensions(abs_dims)
     prev_dims = (prev.get("result") or {}).get("dimensionScores")
     progress_basis = _mode3_scoring_basis(
         is_first=False, is_reference_free=is_reference_free

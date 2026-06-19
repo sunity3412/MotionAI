@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: milestone_complete
-stopped_at: Milestone complete (Phase 19 was final phase)
-last_updated: 2026-06-18T11:48:24.169Z
+status: completed
+stopped_at: Phase 20 context gathered (discuss 4영역 결정 잠금, 구현 Pod 대기)
+last_updated: "2026-06-19T03:31:06.210Z"
 last_activity: 2026-06-18
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 1
   total_plans: 4
-  completed_plans: 85
-  percent: 50
+  completed_plans: 4
+  percent: 33
 ---
 
 # Project State
@@ -533,6 +533,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 ### Roadmap Evolution
 
 - Phase 18 added: 전문가 일부러-실수 reference eval 세트 (가칭, Phase 15 이후, belle 2026-06-16)
+- Phase 20 added: v2 비전 점수 (Gemini 시각 거부권) — kip-up 위양성 + 상단변별 + Mode3 미보유게이트. roadmap+CONTEXT pod-free, 구현 Pod 의존
 
 ### Decisions
 
@@ -624,9 +625,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-18T11:12:01.925Z
+Last session: 2026-06-19T03:31:06.194Z
 
-Stopped at: Phase 19 CONTEXT done. 내일 시작 = 비전 그라운딩 스파이크 (D-05, Pod 불필요/Gemini API만). Pod 01emvodj1pdooe 크레딧 소진 자동종료 — 실 GPU E2E 는 belle 충전+새 Pod 필요
+Stopped at: Phase 20 context gathered (discuss 4영역 결정 잠금, 구현 Pod 대기)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -693,7 +694,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: None
+Resume file: .planning/phases/20-v2-gemini/20-CONTEXT.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

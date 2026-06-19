@@ -51,8 +51,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주
 - [x] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path. (completed 2026-06-02)
 - [x] **Phase 17: Gemini Vision Integration — 4 영역 통합** - Gemini Vision multimodal 을 영역 A(reference 자동 등록)/B(코칭 멘트)/C(finding 인식)/D(keypoint 보강) 4개에 도입 + Phoenix/Promptfoo eval + 객관성 guardrail. 7 plan 코드+배포+v5 e2e 검증. (completed 2026-06-12, roadmap reconciled 2026-06-17)
-- [ ] **Phase 18: Expert deliberate-fault reference eval set** - 정은지 '일부러-실수' reference 영상을 영구 regression/eval 세트로 (가칭/미상세, Phase 15 의존)
+- [~] **Phase 18: Expert deliberate-fault reference eval set** - 정은지 '일부러-실수' reference 영상을 영구 regression/eval 세트로. **2026-06-19 baseline 박제 완료(pod-free)**: `backend/evals/phase18/`(pairs.yaml 6 페어 + 비전-파생 fault 라벨 D-05 + 확정 serial baseline 스냅샷 + assert_baseline.py self-check PASS) + `.planning/phases/18-.../18-EVAL-SET.md`. EVAL baseline = power-spin 72/100·peter-pan 79/100·elbow-twist 59/100·pdshape 58/100 변별 4/4, kip-up 100/100 위양성(known)·climb not_pole(known). **남은 일(Pod 의존)**: live sweep ↔ baseline 정량 대조(drift 0 재확정) + sensitivity 셋(미보유+above-cutoff) Deferred. (Phase 15 의존)
 - [x] **Phase 19: 분석 점수 신뢰도 재설계 (vision-hybrid 채점)** - 실증에서 드러난 점수 위양성(정은지 실패영상 Mode1 94점/89%) 근본 수정 — 이중 단순평균 집계 → 감점식 IPSF 정합 + 비전-추론 하이브리드(영상+RTMW 수치 → 품질/결함 판단)를 채점 루프에 투입 + 표시값 정합·라벨·골격 좌표 버그 + Mode3 미보유동작 게이트. 절대원칙: 일반화(어떤 영상이든 정확), 보유셋 overfit 금지. (Phase 15 실증 발견 + Phase 18 eval = 검증 일부) (completed 2026-06-18)
+- [ ] **Phase 20: v2 비전 점수 (Gemini 시각 거부권)** - Phase 19 v1(감점식)이 남긴 점수 위양성을 Gemini 시각 점수로 해소. belle 스펙 게이트 = 같은 정은지 95~100 / 잘못된 동작 ≤50 / Gemini 시각 점수. Phase 18 EVAL baseline = known-answer gate. 대상 3: (1) kip-up 위양성 100/100 — 비-각도형 실패를 DTW가 흡수하는 angle 맹점에 Gemini 시각 거부권, (2) 상단 변별(within-20°=일률 100) + Gemini 인식기 결정성(temp 0 + reference profile 캐싱), (3) Mode3 미보유동작 유효성 게이트(reference-free라 not_pole 미적용) + 점수근거 화면 표시. climb not_pole = 별도 ref-quality 트랙(코드 아님). 구현/eval은 Pod 필요. (Phase 18·19 의존)
 
 ## Phase Details
 
@@ -578,6 +579,8 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 ### Phase 18: Expert deliberate-fault reference eval set (정은지 일부러-실수 영상 검증 테스트 세트) — 가칭
 
 > **가칭 / 미상세 (belle 2026-06-16 결정).** 정은지가 제공한 '일부러 실수한' reference 영상을 활용한다. Phase 15(Mode 1·3 end-to-end)가 동작한 뒤 진입. 상세 scope·요건은 discuss/plan 단계에서 확정.
+>
+> **2026-06-19 baseline 박제 완료(pod-free).** eval fixture = `backend/evals/phase18/` (`dataset/pairs.yaml` 6 페어 + 비전-파생 fault 라벨[Phase 19 D-05] + `baseline/eval18_serial_baseline.json` 확정 serial 스냅샷 + `assert_baseline.py` self-check **PASS** + README). 정의/게이트/객관성 = `.planning/phases/18-.../18-EVAL-SET.md`. 러너는 `backend/scripts/sweep_phase15.py`(15-01) 재사용. 데이터 재업로드/재처리 0. **남은 일 = Pod 재개 후 live sweep ↔ baseline 정량 대조 + sensitivity 셋(미보유+above-cutoff) Deferred.**
 
 **Goal:** 정은지가 제공한 '일부러 실수한' reference 영상을 영구 eval/검증 테스트 세트(regression fixture)로 만든다 — 각 실수 영상에 '어떤 fault를 시연하는지' 라벨(영상 입력이지 사람 점수 라벨 아님)을 달아, 분석기가 그 fault를 잡아내고 + 높은 점수를 주지 않는지(고수 위양성 역검증) 자동 assert 한다. 핵심 가치(점수 신뢰)와 Phase 15 '고수 위양성 없음' 게이트에 직결. 같은 자산은 나중에 in-app 대조 교육(정타↔실수)에도 재사용 가능.
 **Requirements**: TBD (plan 단계에서 신규 EVAL-* 요건 확정)
@@ -591,7 +594,8 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 18 to break down)
+- [~] baseline fixture 박제(pod-free, 2026-06-19) — `backend/evals/phase18/` + `18-EVAL-SET.md` + self-check PASS
+- [ ] Pod 재개 후 live sweep ↔ baseline 정량 대조 + 정식 plan (run /gsd-plan-phase 18)
 
 ---
 
@@ -616,6 +620,41 @@ Plans:
 - [x] 19-02-PLAN.md — **완료 2026-06-18**: 감점식 집계 코어 — kismam.overall_score 가중평균→IPSF 누적감점(_PENALTY_PER_DEG=1.2 [ASSUMED], 단일 major fault 지배) + dimensions.line_score micro-bent <160° 요소무효 0점 [CITED] + overall_from_dimensions min-of-core(stability 종합 분리) + 어깨 COACHING_FOCUS '안정성'→'자세각' + DimensionExplanation.contributesToOverall OPTIONAL 3중 계약. Wave 0 RED 6 케이스 GREEN, 가드 케이스 GREEN, tsc clean, 회귀 0. SCORE-06/07, TRUST-02. (b2d88d3/a856fba)
 - [x] 19-03-PLAN.md — 3D 골격 좌표 정규화 (joints.ts reshapePose3dData recenter+normalize) — TRUST-04
 - [x] 19-04-PLAN.md — 파이프라인 표시-점수 정합 + Mode3 미보유 게이트 + v2 hook 자리 — TRUST-01/03/05
+
+### Phase 20: v2 비전 점수 (Gemini 시각 거부권)
+
+> **신규 (belle 2026-06-19 결정 — 우선순위 15-05 → 18 → 20).** Phase 19 v1(D-01 감점식)이 angle 채널 결함은 잡았으나(EVAL 변별 4/4), **비-각도형 실패는 여전히 위양성**(kip-up 100/100). belle 가 2026-06-12 이미 정한 해결책 = **Gemini 시각 점수를 채점 path 에 직접 투입**([[score-spec-95-100-elite-vision-fix]]). 새 발명 아님 — v2 비전 거부권 본체. 상세 정의/스펙 = `.planning/phases/20-v2-gemini/20-CONTEXT.md`.
+
+**Goal:** 점수가 자세 품질을 정직하게 반영하게 한다 — Phase 19 v1 이 남긴 **비-각도형 실패 위양성**을 Gemini 시각 점수(per-pose 시각 거부권/교차검증)로 해소하되, **어떤 영상이든 정확**(보유셋 overfit 금지). 구체 3:
+  1. **kip-up 위양성 해소** — 타이밍/완성도 등 비-각도형 실패를 DTW band 가 흡수하는 angle 채널 맹점에 Gemini 시각 점수가 거부권을 행사(major fault 영상이 ≤50 으로 내려가야). v1 의 결정론적 수치와 비전 판단을 결합하되 기하학은 측정가능 IPSF 기준에만.
+  2. **상단 변별 + 인식기 결정성** — within-20°=일률 100 이라 good vs perfect 구분 부재 → 비전이 상단 품질 차이를 변별. Gemini 인식기(line 차원 결정)는 LLM 이라 run 변동 가능 → temperature 0 + reference 별 profile 캐싱으로 결정성 박제.
+  3. **Mode3 미보유동작 유효성 게이트 + 점수근거 표시** — not_pole 안전게이트가 MODE_EXPERT 블록에만 있어 reference-free Mode 3 는 미보유 동작도 무비판 97 출력([[mode3-scoring-basis-unknown-move-gate]]). 동작분류 분기(IPSF공식/정은지보유/둘다미보유→불확실 표시) + 점수근거 화면 노출.
+
+**Requirements**: TBD (plan 단계에서 신규 SCORE-*/TRUST-* 요건 확정 — Phase 19 가 v2 hook 자리만 남김)
+**Depends on:** Phase 19 (v1 감점식 채점 루프 + vision-hybrid hook), Phase 18 (deliberate-fault EVAL baseline = known-answer gate)
+
+**게이트 (박제 — 변경 금지):**
+
+- **belle 점수 스펙** ([[score-spec-95-100-elite-vision-fix]]): 같은 정은지(고수) **95~100** / 잘못된 동작 **≤50** / **Gemini Vision 을 점수 path 에 직접**. tol 완화·UX 우회 금지(KISMAM tol=20° 유지).
+- **EVAL baseline** (`backend/evals/phase18/`): kip-up 100→≤50 으로 내려가고 변별 4쌍(power-spin/peter-pan/elbow-twist/pdshape)은 변별 유지(퇴행 0). 결정론(같은 입력=같은 점수) 유지.
+- **일반화 hard gate** ([[scoring-redesign-must-generalize-no-overfit]] / [[sensitivity-gate-not-just-elite-low]]): 정은지 보유셋 curve-fit 금지. 미보유 + above-cutoff(고득점이어야 정상) sensitivity 케이스로 위양성↔위음성 양방 검증.
+- **객관성** ([[analysis-objectivity-no-human-scores]]): 사람 점수 라벨 ground truth 영구 금지. 비전 출력은 결함 위치/종류/기하 추정 — 임계값 수치 라벨링은 OK.
+
+**Scope 경계:**
+
+- **climb not_pole 게이트는 본 phase 코드 scope 아님** — correct-climb 조차 ref-climb 유사도 <25 는 ref-climb **reference 품질/촬영각** 문제. 별도 reference-fix 트랙(재등록/재촬영)으로 분리. 본 phase 는 채점 path(Gemini 시각 점수)에 집중.
+- **구현/eval = Pod 필요.** 현재 Pod 없음 → 본 항목(roadmap + CONTEXT spec)까지 pod-free, 실 구현·sweep·eval 은 Pod 재개 후.
+
+**Success Criteria** (plan 에서 정밀화):
+
+  1. Gemini 시각 점수가 채점 path 에 통합되어 kip-up fault 영상이 ≤50 (위양성 해소) + 정은지 정타 95~100 유지
+  2. EVAL baseline 변별 4쌍 퇴행 0 + 결정론 유지(같은 입력=같은 점수)
+  3. 미보유 동작 + above-cutoff sensitivity 케이스에서 위양성·위음성 양방 정확(일반화 — 보유셋 한정 X)
+  4. Gemini 인식기 결정성(temp 0 + reference profile 캐싱)으로 run 간 line 차원 변동 0
+  5. Mode 3 미보유동작 유효성 게이트 + 점수근거 화면 표시(동작분류 분기)
+
+Plans:
+- [ ] TBD (Pod 재개 후 run /gsd-discuss-phase 20 → /gsd-plan-phase 20)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

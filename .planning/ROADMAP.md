@@ -675,6 +675,33 @@ Plans:
 - **B-15d (#10) 보완 운동을 코칭 팁 상세로 통합:** 현재 `tips[]` 와 `recommendedExercises[]` 가 완전 분리. 각 코칭 팁 "자세히 보기" 안에 관련 보완 운동 + 연관성 설명을 넣어 맥락 강화. Phase 13 코칭 영역 후속.
 - **B-15e (#3) 3D 뷰어 저장 안정화 + 카메라앵글:** `joints3d` 미저장 doc 이면 빈 화면(Firestore index-entry 한도 이력 — 저장 안정화 = 버그성). + 정은지 실영상에서 회전 동작하는 단일-뷰 카메라앵글 합성은 미구현 신기술 트랙 ([[camera-angle-ai-single-view-synth]]).
 
+### Phase 21: 전문가 셀프서비스 reference 등록 (angles 자동계산 GPU 연결)
+
+> **신규 (belle 2026-06-20).** CLAUDE.md §2 파일럿 Step 2("정은지 촬영 → 백엔드 업로드 → 기준 모션 자동 등록") 직접 충족. 메모리 [[deferred-selfservice-reference-registration]]. Phase 17-05 에서 메타데이터 자동 등록(reference-auto-register Lambda + Gemini A)은 이미 배포돼 동작하나, **새 영상의 angles(포즈) 가 자동 계산되지 않아** 등록해도 Mode 1 비교가 불가 — 이 phase 가 그 GPU 갭을 메운다.
+
+**Goal:** 전문가(정은지/코치)가 새 reference 영상을 업로드하면 추가 수작업 없이 Mode 1 비교 가능한 기준 모션으로 자동 등록된다. 등록 흐름이 angles((T,J) 포즈) + downstream(meanAngles/techniqueProfile/bodyNormalizationProfile/forceDirectionPattern)을 자동 계산·저장 → 등록 즉시 Mode 1 비교 사용 가능. 잘못된 메타데이터가 baseline 을 오염시키지 않게 검수 게이트 유지.
+
+**이미 구축됨 (재사용):** `backend/functions/reference-auto-register/app.py` (POST /reference/auto-register, 배포됨 — belle 인증+BELLE_UID 화이트리스트 + Gemini A `extract_reference_metadata` 동작명/IPSF/checkpointJoints/routing branch + `set_reference_motion_with_gemini` idempotent upsert). 앱 GET /reference 컬렉션 전체 read + `referenceMotions.ts` onSnapshot → 새 reference 자동 목록 반영. downstream compute 엔진(`backfill_reference_downstream.py::compute_reference_downstream`)은 motion_id 범용.
+
+**핵심 갭 (이 phase 가 메우는 것):** auto-register 가 angles 를 계산·저장하지 않음. 현재 angles 는 Pod GPU 수동 스크립트(`extract_reference_angles.py` + downstream backfill)로만 생성 → 등록 흐름에 GPU angle+downstream 자동 계산 연결이 핵심.
+
+**Requirements**: plan 에서 신설 (REF-xx 계열 — angle 자동계산 연결 / 업로드 진입점 / clipRange·checkpoint 검수 게이트 / 11→N 일반화 / baseline 오염 방지)
+**Depends on:** Phase 17 (Gemini A 메타데이터 + auto-register Lambda), Phase 14 (downstream compute 엔진). 구현/검증 = Pod GPU 필요.
+
+**Scope 경계:** end-user(수강생) 아님 — 전문가/관리자(belle/정은지/코치) 셀프서비스. 채점 알고리즘 변경 아님(Phase 18/20 영역). reference 영상→기준 데이터 생성 자동화에 집중.
+
+**Success Criteria** (plan 에서 정밀화):
+  1. 새 영상 등록 흐름이 angles + downstream 을 자동 계산·저장 → 등록 즉시 Mode 1 비교 가능 (핵심 갭 해소, GPU 연결)
+  2. 업로드 진입점 마련 — belle 가 영상만 올리면 됨 (admin UI 또는 간편 endpoint/CLI; 현재는 S3 key 로 endpoint 직접 호출)
+  3. clipRange/checkpoint 자동 제안 + belle 검수 분기 (도메인 오류로 baseline 오염 방지 — Gemini 제안, belle 최종 확인, 미검수는 isActive=false)
+  4. 11→N 일반화 확인 (하드코딩 MOTION_IDS/게이트 제거 — 대부분 이미 컬렉션 쿼리, 확인 위주)
+  5. 객관성/품질 — 사람 점수 라벨 ground truth 금지 유지([[analysis-objectivity-no-human-scores]]), reference 메타데이터 오류 시 baseline 미반영(G3 guardrail)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 21 to break down)
+
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*

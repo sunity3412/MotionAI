@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: completed
 stopped_at: Phase 20 plan REVIEW-CONVERGED (8 외부 iter + self cross-review iter9 = EXECUTION-READY, HIGH/MEDIUM 0). Wave 1-2 pod-free 실행 가능, Wave 3=Pod terminal gate
-last_updated: "2026-06-19T14:28:28.413Z"
-last_activity: 2026-06-18
+last_updated: "2026-06-19T16:12:10.233Z"
+last_activity: "2026-06-20 - Completed quick task 260620-0r0: Mode3 점수 역전 버그(#8) 수정"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 1
   total_plans: 8
   completed_plans: 4
-  percent: 33
+  percent: 25
 ---
 
 # Project State
@@ -536,6 +536,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 
 - Phase 18 added: 전문가 일부러-실수 reference eval 세트 (가칭, Phase 15 이후, belle 2026-06-16)
 - Phase 20 added: v2 비전 점수 (Gemini 시각 거부권) — kip-up 위양성 + 상단변별 + Mode3 미보유게이트. roadmap+CONTEXT pod-free, 구현 Pod 의존
+- Phase 21 added: 전문가 셀프서비스 reference 등록 (angles 자동계산 GPU 연결) — belle 2026-06-20, CLAUDE.md 파일럿 Step 2
 
 ### Decisions
 

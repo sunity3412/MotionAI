@@ -28,8 +28,9 @@ import type { VideoPlayer } from 'expo-video';
 import { colors } from '../theme';
 import type { KeypointName, KeypointReport } from '../types/analysis';
 
-// D-12-C3 — Phase 9 IPSF tolerance 20° 와 분리. UX 시각 강조 임계 (Wave 2 가 소비).
-export const KEYPOINT_DELTA_HIGHLIGHT_DEG = 10.0;
+// D-12-C3 갱신 (#2) — IPSF 채점 허용오차(dimensions.py _LINE_TOL_DEG = 20°)와 동일 값으로 정합.
+// 감점에 기여한 관절에만 강조 → '100점인데 빨강' 신뢰 모순 제거. (구 10° = early attention rationale 폐기)
+export const KEYPOINT_DELTA_HIGHLIGHT_DEG = 20.0;
 
 // 12-deferred §12-D — confidence 미만이면 회색 stroke + dashed line.
 // 사용자 혼동 방지 (occluded keypoint 가 정상과 같은 표시였던 finding 박제).
@@ -79,7 +80,7 @@ export type KeypointOverlayProps = {
   frameIndex?: number;
   /** Wave 2 — delta 강조용. JointScore.{currentAngle,targetAngle} 변환. */
   jointAngles?: Record<string, { current: number | null; target: number | null }>;
-  /** default 10 (D-12-C3, KEYPOINT_DELTA_HIGHLIGHT_DEG). */
+  /** default 20 (IPSF 허용오차 정합, KEYPOINT_DELTA_HIGHLIGHT_DEG). */
   deltaThresholdDeg?: number;
   /** Wave 2 floating label 표시, default true. */
   showAngleLabels?: boolean;

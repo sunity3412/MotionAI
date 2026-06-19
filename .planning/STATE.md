@@ -64,7 +64,7 @@ Status: Milestone complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-18
+Last activity: 2026-06-20 - Completed quick task 260620-0r0: Mode3 점수 역전 버그(#8) 수정
 
 ### Quick Tasks Completed
 
@@ -72,6 +72,7 @@ Last activity: 2026-06-18
 |---|-------------|------|--------|-----------|
 | 260612-t9m | stability 점수 보정 + 사용자 안내 (TOL 15° → 25° + result.tsx 안내 캡션) | 2026-06-12 | 947570f | [260612-t9m-stability](./quick/260612-t9m-stability/) |
 | 260615-cxe | vision Gemini default model gemini-2.5-flash → gemini-2.5-pro (recognizer/moment-extractor) | 2026-06-15 | d204291 | [260615-cxe-vision-gemini-default-model](./quick/260615-cxe-vision-gemini-default-model-gemini-2-5-f/) |
+| 260620-0r0 | Mode3 점수 역전(#8) 수정 — second+ overall = abs_dims만 (angle=이전영상 유사도가 발전을 min()으로 역전시키던 것 제거) + 회귀 테스트 | 2026-06-20 | ba5fe4f | [260620-0r0-fix-mode3-score-inversion](./quick/260620-0r0-fix-mode3-score-inversion-bug-8-overall-/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

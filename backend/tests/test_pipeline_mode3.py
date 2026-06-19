@@ -79,6 +79,54 @@ def test_second_analysis_has_progress_delta_and_angle():
     assert set(comparison["deltaFromPrevious"]) == {"line", "stability"}
 
 
+def _well_extended(seed: int, t: int = 40) -> np.ndarray:
+    """잘 신전된(거의 180°) 자세 — 절대 라인 점수가 높게 나오는 "잘한" 영상.
+
+    _video()(120~175°)는 EXTEND joint 가 180°에 못 미쳐 line 이 0으로 바닥나므로,
+    "angle 유사도 < 절대 차원 최소값" 전제를 만들 수 없다. 이 회귀가 검증하려는
+    역전 조건(#8: 잘한 신규 영상이 다른 과거 영상 대비 유사도가 낮아도 종합이
+    안 떨어짐)을 만들려면 line/stability 가 높은 결정적 입력이 필요하다.
+    """
+    rng = np.random.default_rng(seed)
+    base = rng.uniform(176, 179, size=NUM_JOINTS)
+    return base + rng.normal(0, 1.0, size=(t, NUM_JOINTS))
+
+
+def _different_prev(seed: int, t: int = 40) -> np.ndarray:
+    """이전(과거) 영상 — 현재와 충분히 달라 angle(이전 대비 유사도)이 낮게 나온다."""
+    rng = np.random.default_rng(seed)
+    base = rng.uniform(140, 155, size=NUM_JOINTS)
+    return base + rng.normal(0, 3, size=(t, NUM_JOINTS))
+
+
+def test_low_similarity_does_not_invert_overall():
+    # #8 역전 버그 회귀 ([[mode3-progress-not-similarity]]).
+    # mode3 의 angle 은 "이전 영상 대비 유사도"라, 사용자가 발전(과거=다른/틀린 자세,
+    # 신규=잘 신전된 자세)하면 두 영상이 달라 angle 이 낮아진다. 과거 코드는 overall 을
+    # angle 포함 dict 의 min(CORE_DIMENSIONS) 로 산출해 이 낮은 유사도가 종합을 끌어내려
+    # "잘했는데 점수가 떨어지는" 역전(belle 기기: 98→88)을 냈다. 수정 후 overall 은 절대
+    # 차원(line/stability)만 사용해야 한다.
+    profile = _profile()
+    cur = _well_extended(2)
+    prev_angles = _different_prev(32)
+    # prev dim_scores 절대값은 overall 산출에 무관(현재 영상 abs_dims 사용) — delta 표시용.
+    prev = _as_prev(prev_angles, "prevWorse", {"line": 40, "stability": 40})
+
+    abs_dims = app.dimensions.absolute_dimension_scores(cur, profile)
+    _, dims, overall, _comparison = app._mode3_comparison(cur, prev, profile)
+
+    # 전제 가드: angle(유사도)이 절대 차원 최소값보다 낮은 "역전 조건" 이 실제로 성립.
+    # (성립하지 않으면 이 회귀가 의미 없으므로 결정적 seed 로 고정 — 위 builder 참조.)
+    assert dims["angle"] < min(abs_dims.values())
+
+    # 단언 1: overall 은 절대 차원만으로 산출된다.
+    assert overall == app.dimensions.overall_from_dimensions(abs_dims)
+    # 단언 2: angle 포함 dict 로 산출한 값보다 낮지 않다(낮은 유사도가 종합을 못 끌어내림).
+    assert overall >= app.dimensions.overall_from_dimensions(dims)
+    # 단언 3: dim_scores 에는 여전히 angle 이 포함된다(표시/일관성 지표 유지 — 회귀 방지).
+    assert "angle" in dims
+
+
 def test_same_video_is_consistent():
     # 같은 영상 = 이전과 각도 일관성 매우 높음 + 절대 차원 델타 0.
     v = _video(3)

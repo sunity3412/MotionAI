@@ -895,6 +895,12 @@ export default function AnalysisResult() {
             />
           ))}
         </View>
+        {/* #4 표시 정합 — 안정성은 보조 지표(종합 입력 제외, 표시 유지). 근거 Phase 19 D-01 / dimensions.py 헤더 */}
+        {dims.includes('stability') && (
+          <Text style={styles.auxCaption}>
+            동작 안정성은 자세 참고용 보조 지표예요. 종합 점수에는 직접 합산되지 않아요.
+          </Text>
+        )}
 
         {/* ── 영역 6: 각도 가이드 (코칭 팁) — Phase 12.5 + Wave 2 추정 표기 ─
             joint 평균 confidence < 0.5 또는 low reliability frame 비율 ≥ 30%
@@ -1279,6 +1285,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     alignSelf: 'flex-start',
     lineHeight: 18,
+  },
+  // #4 보조지표 안내 캡션 — segmentHintText 패턴 차용(typography.caption + textSecondary + lineHeight 18).
+  auxCaption: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
   partRow: { width: '100%', marginBottom: 14 },
   partHead: {

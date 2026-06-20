@@ -67,8 +67,18 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v4.0"  # v4.0 (2026-06-20): reference-anchored comparison (Mode1) — 기준(정타) vs 학생 비교 프롬프트
-SCHEMA_VERSION = "v4.0"  # v4.0: 비교 프롬프트 = 새 cache generation (pair 키 reference_hash 포함)
+PROMPT_VERSION = "v5.0"  # v5.0 (2026-06-20): comparison multi-sample(N) rank-median aggregation — verdict semantics 변경 → cache 무효화
+SCHEMA_VERSION = "v5.0"  # v5.0: 집계 verdict = 새 cache generation (단일 verdict 의미 변경)
+
+# ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
+#
+# belle 2026-06-20: Gemini 의 비교 판단은 결함을 일관되게 "본다"(5/5 같은 설명)지만
+# 단일 severity 라벨이 minor↔moderate 로 흔들린다 → 단일 샘플은 비결정적. 비교 모드만
+# N=VISION_VETO_SAMPLES 회 generateContent 후 rank-median severity 로 집계한다.
+# 업로드는 1회만(ref+student 핸들 재사용) — N 회는 generateContent 만 반복(시간 절약).
+# none=0/minor=1/moderate=2/major=3, 짝수 개수는 lower-middle(보수적). 0 파싱 → None.
+# 집계 verdict 만 캐시 (cache-miss 에서만 N 샘플; hit 는 deterministic 반환).
+VISION_VETO_SAMPLES = max(1, int(os.environ.get("GEMINI_VISION_VETO_SAMPLES", "3")))
 
 # Gemini 모델 — [[gemini-latest-model-versions]] suffix(-preview) 필수.
 DEFAULT_VISION_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
@@ -326,6 +336,8 @@ class VisionVetoCache:
         # 모듈 globals 참조 — 테스트 monkeypatch 가 키에 반영되도록 globals() 경유.
         prompt_v = globals()["PROMPT_VERSION"]
         schema_v = globals()["SCHEMA_VERSION"]
+        # N(samples) 변경 = 다른 집계 verdict → 키에 포함해 stale 무효화 (Phase 20).
+        samples = globals()["VISION_VETO_SAMPLES"]
         return ":".join(
             (
                 VisionVetoCache._VISION_VETO_NS,
@@ -336,6 +348,7 @@ class VisionVetoCache:
                 schema_v,
                 input_granularity,
                 bucket,
+                f"n{samples}",
             )
         )
 
@@ -518,10 +531,13 @@ def assess_fault_severity(
     vision veto 토글 env 는 읽지 않는다. 토글 게이트는 호출자(pipeline 20-03)
     책임. 본 어댑터는 키/client/캐시/local 파일/Gemini 응답 유효성만 게이트한다.
 
-    두 가지 모드 (v4.0):
+    두 가지 모드 (v5.0):
       · COMPARISON (reference_video_path 제공) — Mode1: 기준(정타) 영상 vs 학생 영상
-        둘 다 업로드 → 비교 프롬프트. severity = 기준 대비 학생 편차. 캐시 키 =
-        (student_hash, reference_hash) PAIR. belle 결정 (2026-06-20).
+        둘 다 1회 업로드 → 비교 프롬프트 N=VISION_VETO_SAMPLES 회 호출 → rank-median
+        severity 집계 (단일 라벨 흔들림 제거, Phase 20 robustify). 업로드 핸들 재사용
+        (영상당 1회). severity = 기준 대비 학생 편차. 캐시 키 = (student_hash,
+        reference_hash, N) PAIR. cache hit 은 집계 verdict 를 deterministic 반환
+        (재샘플링 0). belle 결정 (2026-06-20).
       · SINGLE (reference_video_path=None) — 단일 영상 진공 판정 (back-compat).
         Mode3 는 belle 보류로 이 어댑터를 호출하지 않지만 경로는 유지.
 
@@ -576,21 +592,28 @@ def assess_fault_severity(
         return cached
 
     # (4) miss → 영상 업로드 + generate_content (temp 0.0).
-    #     COMPARISON 이면 기준 영상 먼저 + 학생 영상 둘 다 업로드 → 비교 프롬프트.
+    #     COMPARISON 이면 기준+학생 둘 다 1회 업로드 후 N 회 비교 호출 → rank-median 집계.
+    #     SINGLE 이면 1회 업로드 + 1회 호출 (back-compat, 집계 없음).
     try:
         uploaded = _upload_video(client, local_video_path, at_seconds)
         if reference_video_path is not None:
             ref_uploaded = _upload_video(client, reference_video_path, at_seconds)
-            raw_text = _call_gemini_comparison(
+            verdict = _aggregate_comparison_verdict(
                 client, ref_uploaded, uploaded, at_seconds
             )
-        else:
-            raw_text = _call_gemini(client, uploaded, at_seconds)
+            if verdict is None:
+                log.warning(
+                    "비교 multi-sample 0 파싱 — verdict=None (graceful)"
+                )
+                return None
+            cache.store(key, verdict)
+            return verdict
+        raw_text = _call_gemini(client, uploaded, at_seconds)
     except Exception as exc:  # noqa: BLE001 - API/업로드 실패 graceful (Pitfall 5)
         log.warning("Gemini 호출 실패 — verdict=None (graceful): %s", exc)
         return None
 
-    # (5) 점수 누출 가드 (객관성 hard gate) — 누출 시 verdict 폐기.
+    # (5) 점수 누출 가드 (객관성 hard gate) — 누출 시 verdict 폐기. (단일 영상 경로)
     if _SCORE_PATTERN.search(raw_text or ""):
         log.warning("응답에 점수 누출 — 객관성 위반, verdict 폐기 (None)")
         return None
@@ -604,6 +627,73 @@ def assess_fault_severity(
     # (7) 캐시 저장 후 반환.
     cache.store(key, verdict)
     return verdict
+
+
+# ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
+
+_SEVERITY_RANK = {"none": 0, "minor": 1, "moderate": 2, "major": 3}
+_RANK_TO_SEVERITY = {v: k for k, v in _SEVERITY_RANK.items()}
+
+
+def _aggregate_comparison_verdict(
+    client, ref_uploaded, student_uploaded, at_seconds: float | None
+) -> VisionVerdict | None:
+    """업로드된 핸들 재사용으로 비교 호출 N 회 → rank-median severity 집계.
+
+    belle 2026-06-20: Gemini 는 결함을 일관되게 보지만 단일 severity 라벨이 흔들린다.
+    N=VISION_VETO_SAMPLES 회 generateContent 후 rank-median 으로 흔들림 제거.
+    none=0/minor=1/moderate=2/major=3, 짝수 개수는 lower-middle(보수적).
+
+    업로드는 호출자가 1회만 수행(핸들 재사용) — 여기서 재업로드 0 (시간 절약).
+    각 샘플은 점수 누출 가드 + _parse_verdict 통과해야 인정. 0 인정 → None.
+    primary_fault = severity == median 인 샘플 중 첫째, 없으면 최빈 description.
+    """
+    n = max(1, globals()["VISION_VETO_SAMPLES"])
+    parsed: list[VisionVerdict] = []
+    for _ in range(n):
+        raw_text = _call_gemini_comparison(
+            client, ref_uploaded, student_uploaded, at_seconds
+        )
+        # 점수 누출 가드 — 누출 샘플은 폐기(객관성), 집계에서 제외.
+        if _SCORE_PATTERN.search(raw_text or ""):
+            log.warning("비교 샘플 점수 누출 — 해당 샘플 폐기 (집계 제외)")
+            continue
+        v = _parse_verdict(raw_text)
+        if v is not None:
+            parsed.append(v)
+
+    if not parsed:
+        return None
+
+    ranks = sorted(_SEVERITY_RANK.get(v.severity, 0) for v in parsed)
+    # 짝수 개수 → lower-middle 인덱스로 보수적 선택 (median 의 아래쪽).
+    median_idx = (len(ranks) - 1) // 2
+    median_rank = ranks[median_idx]
+    median_severity = _RANK_TO_SEVERITY[median_rank]
+
+    # primary_fault: severity == median 인 첫 샘플, 없으면 최빈 description.
+    median_match = [v for v in parsed if v.severity == median_severity]
+    if median_match:
+        chosen = median_match[0]
+    else:
+        chosen = _most_frequent_by_fault(parsed)
+
+    return VisionVerdict(
+        primary_fault=chosen.primary_fault,
+        severity=median_severity,
+        differences=chosen.differences,
+    )
+
+
+def _most_frequent_by_fault(verdicts: list) -> VisionVerdict:
+    """primary_fault description 최빈 verdict (동률 시 첫 등장). 집계 폴백."""
+    counts: dict[str, int] = {}
+    first: dict[str, VisionVerdict] = {}
+    for v in verdicts:
+        counts[v.primary_fault] = counts.get(v.primary_fault, 0) + 1
+        first.setdefault(v.primary_fault, v)
+    best_fault = max(counts, key=lambda f: counts[f])
+    return first[best_fault]
 
 
 def _call_gemini(client, uploaded, at_seconds: float | None) -> str:

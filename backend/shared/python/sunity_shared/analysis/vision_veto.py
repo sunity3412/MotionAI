@@ -23,7 +23,10 @@ cap 활성화 모드 (provenance.method)
   - major = 50  — belle 스펙 "잘못된 동작 ≤50" (CLAUDE.md core value /
     [[score-spec-95-100-elite-vision-fix]]) 을 그대로 못 박는다.
   - moderate = 75 — IPSF moderate-fault 의 원칙적 상한 (severity 의미 기반).
-  - minor = None — 정타 무캡 (D-01 95~100 보존, 영구 None).
+  - minor = 90 — 미세하지만 실재하는 결함도 천장 100 에서 내려준다 (Phase 20
+    robustify, belle 2026-06-20: 고급 수강생은 미세 차이만 다르므로 mild fault 가
+    100 으로 남으면 안 된다). 정타(none)는 여전히 무캡 → 100 보존.
+  - none = None — 정타 무캡 (D-01 95~100 보존, 영구 None).
 
 이 수치들은 데이터에 curve-fit 한 것이 아니라 belle 스펙 + IPSF severity 의미에서
 나온다 (provenance.method == "spec_anchored", provenance.spec_basis 가 출처를
@@ -47,7 +50,8 @@ from __future__ import annotations
 #
 #   - major = 50      — belle 스펙 "잘못된 동작 ≤50" 그대로 못 박음.
 #   - moderate = 75   — IPSF moderate-fault 원칙적 상한 (severity 의미 기반).
-#   - minor = None    — 정타 무캡, 영구 None (D-01 95~100 보존).
+#   - minor = 90      — 미세하지만 실재하는 결함도 천장 100 해제 (Phase 20 robustify).
+#   - none = None     — 정타 무캡, 영구 None (D-01 95~100 보존).
 #
 # 6페어(정은지 단일 선수 + fault)에 curve-fit 하는 것은 절대 금지다 — 6페어는
 # 회귀 검증(known-answer gate) 전용이며 cap 도출 입력이 아니다
@@ -59,9 +63,10 @@ from __future__ import annotations
 # spec_basis 데이터가 출처를 박제한다.
 # ---------------------------------------------------------------------------
 SEVERITY_CAP: dict[str, int | None] = {
-    "minor": None,     # 정타 무캡 — 영구 None (D-01 95~100 보존)
+    "minor": 90,       # 미세 결함도 천장 100 해제 (Phase 20 robustify, spec_anchored)
     "moderate": 75,    # IPSF moderate-fault 원칙적 상한 (spec_anchored)
     "major": 50,       # belle 스펙 "잘못된 동작 ≤50" (spec_anchored)
+    "none": None,      # 정타 무캡 — 영구 None (D-01 95~100 보존)
 }
 
 # ---------------------------------------------------------------------------
@@ -87,7 +92,9 @@ SEVERITY_CAP_PROVENANCE: dict[str, object] = {
     "spec_basis": (
         'belle spec "잘못된 동작 ≤50" '
         "(CLAUDE.md core value / score-spec-95-100-elite-vision-fix); "
-        "moderate=75 from IPSF moderate-fault severity meaning"
+        "moderate=75 from IPSF moderate-fault severity meaning; "
+        "minor=90 — 미세 결함도 천장 100 해제, 정타(none)는 100 보존 "
+        "(Phase 20 robustify, belle 2026-06-20)"
     ),
     "sensitivity_manifest_sha256": None,
     "phase18_pairs_used_for_derivation": False,
@@ -98,7 +105,8 @@ def apply_downward_cap(overall: int, severity: str | None) -> int:
     """v1 overall 을 vision severity 로 **하향만** 한다 (D-01 코어 invariant).
 
     severity → SEVERITY_CAP lookup 후 cap 이 있으면 min(overall, cap), 없으면 불변.
-    None / 미지 키 / minor → 불변 (정타 95~100 보존).
+    None / 미지 키 / none → 불변 (정타 95~100 보존). minor 는 90 cap 적용 (Phase 20
+    robustify — 미세하지만 실재하는 결함은 천장 100 에서 내려간다).
 
     invariant: 반환값 ≤ overall 항상. 올림 경로(상향연산/하한/가중블렌드) 절대 금지 —
     비전이 점수를 올리면 위양성(kip-up 100/100)이 재발한다.

@@ -313,9 +313,34 @@ export function PoseViewer3D({
   currentFrame,
   onFrameChange,
 }: PoseViewer3DProps) {
-  // joints null = Phase 4 이전 분석 doc / joints3d 없는 분석 — 섹션 graceful
-  // 생략. (UI-SPEC §Surface 1 상태별 UI 박제).
-  if (!joints || joints.length === 0) return null;
+  // Phase 20 (UI A3) — joints null = Phase 4 이전 분석 doc / joints3d 미저장 분석.
+  // 구: return null 로 섹션 통째 생략. 그러나 caller 가 헤더를 먼저 그리면 헤더만
+  // 남고 본문이 빈 회색 박스로 노출되는 finding(belle 디바이스 #3: "3D 자세 뷰어"
+  // 헤더 아래 빈 회색 박스). 이제 데이터가 없으면 섹션 안에 친절한 빈 상태 문구를
+  // 직접 표시한다(빈 박스 금지, design.md §0 빈 상태 패턴 정합). 토큰만 사용.
+  if (!joints || joints.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.sectionTitle}>3D 자세 뷰어</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Ionicons
+            name="cube-outline"
+            size={32}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.emptyTitle}>
+            이 분석에는 3D 자세 데이터가 없어요.
+          </Text>
+          <Text style={styles.emptyHint}>
+            이전 버전에서 분석했거나 3D 좌표가 저장되지 않은 영상이에요. 다시
+            분석하면 3D 뷰어로 자세를 돌려볼 수 있어요.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   const totalFrames = joints.length;
   const safeFrameIdx = Math.max(0, Math.min(totalFrames - 1, currentFrame));
@@ -399,6 +424,27 @@ const styles = StyleSheet.create({
   canvas: {
     height: 280, // UI-SPEC 고정값
     backgroundColor: colors.viewer3dBg,
+  },
+  // Phase 20 (UI A3) — joints3d 부재 시 빈 회색 박스 대신 친절한 안내.
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.screenX,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  emptyTitle: {
+    ...typography.boxLabel,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  emptyHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 6,
   },
   fallback: {
     height: 280,

@@ -858,20 +858,23 @@ export default function AnalysisResult() {
         )}
 
         {/* ── Phase 4 (04-02 Task 4) — Stage 3 사용자 3D 자세 뷰어 ─────────
-            joints3d null = Phase 4 이전 doc / joints3d 없는 분석 → 섹션 자체
-            graceful 생략 (UI-SPEC §Surface 1 상태별 UI). reshapePose3dData 가
-            형식 불일치 / 누락 시 null 반환. R3 박제 — angles 절대 미사용,
+            joints3d null = Phase 4 이전 doc / joints3d 없는 분석. reshapePose3dData
+            가 형식 불일치 / 누락 시 null 반환. R3 박제 — angles 절대 미사용,
             joints3d 전용. HIGH-3 박제 — referenceJoints 는 Wave 2 에서 전달 X
             (PoseViewer3D props 에 예약만 두고 follow-up plan 에서 mode1 overlay
             활성화). R8 박제 — Canvas/GL 충돌은 PoseViewer3D 내부 ErrorBoundary
-            가 격리. */}
-        {joints3d && (
-          <PoseViewer3D
-            joints={joints3d}
-            currentFrame={currentFrame}
-            onFrameChange={setCurrentFrame}
-          />
-        )}
+            가 격리.
+
+            Phase 20 (UI A3): 구 `{joints3d && ...}` 게이트는 데이터가 없을 때
+            섹션을 통째 생략했지만, belle 디바이스 finding #3 에서 "3D 자세 뷰어"
+            헤더 아래 빈 회색 박스가 노출됐다. 이제 항상 렌더하고 PoseViewer3D 가
+            데이터 부재 시 섹션 안에서 친절한 빈 상태 문구를 직접 표시한다(빈 박스
+            금지). joints3d=null 도 그대로 넘겨 빈 상태 분기를 태운다. */}
+        <PoseViewer3D
+          joints={joints3d}
+          currentFrame={currentFrame}
+          onFrameChange={setCurrentFrame}
+        />
 
         {/* ── 영역 3: Phase 9 실패 원인 카드 Top-3 (D-12-B1 박제) ───────────
             findings.length=0 → fallback big × 1.

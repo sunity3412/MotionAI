@@ -139,3 +139,35 @@ belle 디바이스 발견(데모 #/TestFlight): Mode1 헤드라인이 "정은지
 `app npm run typecheck` clean.
 
 > cap 값/scoring math 불변. EAS build 미실행 (orchestrator 담당).
+
+---
+
+## Phase 20 UI follow-ups — belle 디바이스 데모 finding #2/#3 (+ A4) — 프론트 전용
+
+belle 가 새 EAS 빌드에서 보고한 UI 3건. 백엔드/contract 변경 0, 점수 math 불변,
+토큰만 사용(하드코딩 hex/spacing 0), Korean copy, 이모지 0. `npm run typecheck` clean.
+
+**A2 — KeypointOverlay 강조 마커 가독성** (`app/src/components/KeypointOverlay.tsx`, commit 49169fd)
+- finding: "내 영상" 위 빨간 각도 마커가 "뭐라고 써있는지 보이지도 않고" (belle #2).
+- floating 각도 pill 48×18 → 64×26, rx 9→13, 흰 외곽선(stroke) 추가.
+- 각도 글자 10pt → 14pt, weight 600 → 700, 텍스트 자체에 얇은 흰 stroke(대비).
+- 강조(brand) 관절 원: 반지름 10→14, 외곽선 1.5→2.4, **외곽선 색 brand→흰색**
+  (같은 brand 외곽선이 영상 위에서 윤곽 소실 → "안 보임" 원인이라 흰 테두리로 분리).
+- 비강조/저신뢰 원·강조 관절 선정(20° IPSF 허용오차) 로직 불변.
+
+**A3 — 3D 자세 뷰어 빈 회색 박스** (`PoseViewer3D.tsx` + `result.tsx`, commit d537ef3)
+- finding: "3D 자세 뷰어" 헤더 아래 빈 회색 박스 (joints3d 부재 doc, belle #3).
+- 구: PoseViewer3D `return null` + result.tsx `{joints3d && ...}` 게이트 → 헤더만
+  남거나 빈 박스. 이제 joints3d 부재 시 섹션 안에 빈 상태 문구 직접 표시:
+  "이 분석에는 3D 자세 데이터가 없어요." + 한 줄 사유. result.tsx 는 항상
+  PoseViewer3D 렌더(null 도 전달)해 빈 상태 분기 보장. design.md §0 빈 상태 패턴.
+
+**A4 (light) — 자동 정렬 신뢰 배지** (`VideoCompare.tsx`, commit 9b0ada4)
+- belle 호평: 시작점 다른 두 영상의 자동 시간 정렬 → "어떻게 신뢰를 전달하나".
+- 두 영상 모두 있을 때 정적 배지 "자동 구간 맞춤"(brandTint chip) + 한 줄:
+  "서로 다른 시작점을 핵심 구간 기준으로 자동 정렬했어요."
+- LIGHT: 신규 백엔드 데이터/수치 confidence 없음(가짜 수치 금지). 수치 alignment
+  confidence 는 `VideoCompare.tsx` 내 `TODO(deferred-backend)` 코드 주석으로 박제 —
+  백엔드가 DTW 매칭 품질 등 내려주면 배지에 수치 표시.
+
+> EAS build 미실행 (orchestrator 담당). 백엔드/Pod 변경 0.

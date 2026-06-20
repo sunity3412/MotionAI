@@ -111,7 +111,9 @@ class _FakeModels:
         self._parent = parent
 
     def generate_content(self, *, model, contents, config):
-        self._parent.calls.append({"model": model, "config": config})
+        self._parent.calls.append(
+            {"model": model, "config": config, "contents": contents}
+        )
         return _FakeResponse(self._parent.response_text)
 
 
@@ -346,3 +348,99 @@ def test_adapter_does_not_own_toggle(monkeypatch, fake_video):
     _patch_client(monkeypatch, client)
     verdict = assess_fault_severity(fake_video)
     assert verdict is not None, "토글 미참조 — 어댑터-local 전제조건만으로 동작"
+
+
+# ─────────────────── reference-anchored 비교 모드 (v4.0, Mode1) ───────────────────
+
+
+@pytest.fixture
+def fake_reference_video(tmp_path):
+    p = tmp_path / "reference.mp4"
+    p.write_bytes(b"\x00\x09\x08reference-video-bytes")
+    return str(p)
+
+
+def _patch_client_with_upload_spy(monkeypatch, client):
+    """_ensure_client → fake + _upload_video 가 업로드 path 를 기록 (비교 시 2회)."""
+    uploads: list[str] = []
+
+    def _spy_upload(c, path, hint):
+        uploads.append(path)
+        return MagicMock(name=f"uploaded-{len(uploads)}")
+
+    monkeypatch.setattr(gvs, "_ensure_client", lambda: client)
+    monkeypatch.setattr(gvs, "_upload_video", _spy_upload)
+    return uploads
+
+
+def test_comparison_mode_uploads_both_and_parses_severity(
+    monkeypatch, fake_video, fake_reference_video
+):
+    """reference_video_path 제공 → 두 영상 모두 업로드 + 비교 응답에서 severity 파싱.
+
+    belle 2026-06-20 — Mode1 reference-anchored 비교. 기준(정타) 영상 먼저, 학생 둘째.
+    """
+    _in_memory_cache(monkeypatch)
+    client = _FakeClient(_VALID_JSON)
+    uploads = _patch_client_with_upload_spy(monkeypatch, client)
+
+    verdict = assess_fault_severity(
+        fake_video, reference_video_path=fake_reference_video
+    )
+    assert verdict is not None
+    assert verdict.severity in {"none", "minor", "moderate", "major"}
+    # 두 영상 모두 업로드 (기준 먼저, 학생 둘째 — _call_gemini_comparison 순서).
+    assert len(uploads) == 2
+    assert fake_reference_video in uploads
+    assert fake_video in uploads
+    # generate_content 호출 contents 에 기준/학생 라벨 둘 다 포함 (비교 경로 증명).
+    config_call = client.calls[-1]
+    contents = config_call["contents"]
+    joined = " ".join(c for c in contents if isinstance(c, str))
+    assert "기준" in joined and "학생" in joined
+
+
+def test_comparison_cache_key_includes_reference_hash(
+    monkeypatch, fake_video, fake_reference_video, tmp_path
+):
+    """다른 기준 영상 → 다른 캐시 키 (pair keying). 같은 학생, reference 만 교체."""
+    store = _in_memory_cache(monkeypatch)
+    client = _FakeClient(_VALID_JSON)
+    _patch_client_with_upload_spy(monkeypatch, client)
+
+    # 기준 A 로 1회.
+    assess_fault_severity(fake_video, reference_video_path=fake_reference_video)
+    assert len(store) == 1
+    key_a = next(iter(store))
+
+    # 기준 B (다른 바이트) 로 1회 — 같은 학생이지만 reference_hash 가 달라 새 키.
+    ref_b = tmp_path / "reference_b.mp4"
+    ref_b.write_bytes(b"\x05\x05\x05different-reference-bytes")
+    assess_fault_severity(fake_video, reference_video_path=str(ref_b))
+    assert len(store) == 2, "다른 기준 영상 → 새 캐시 키 (pair keying, reference_hash 반영)"
+    key_b = [k for k in store if k != key_a][0]
+    assert key_a != key_b
+
+
+def test_comparison_key_differs_from_single_video_key(
+    monkeypatch, fake_video, fake_reference_video
+):
+    """비교(reference 포함) 키 ≠ 단일 영상(reference None 'noref') 키 — 경로 격리."""
+    store = _in_memory_cache(monkeypatch)
+    client = _FakeClient(_VALID_JSON)
+    _patch_client_with_upload_spy(monkeypatch, client)
+
+    assess_fault_severity(fake_video)  # 단일 영상 (noref)
+    assess_fault_severity(fake_video, reference_video_path=fake_reference_video)
+    assert len(store) == 2, "단일 영상 verdict 와 비교 verdict 는 키 충돌 0"
+
+
+def test_single_video_signature_back_compat(monkeypatch, fake_video):
+    """reference_video_path 기본 None — 기존 단일 영상 시그니처 호환 (Mode3 보류 경로 보존)."""
+    _in_memory_cache(monkeypatch)
+    client = _FakeClient(_VALID_JSON)
+    uploads = _patch_client_with_upload_spy(monkeypatch, client)
+
+    verdict = assess_fault_severity(fake_video)  # reference 미전달
+    assert verdict is not None
+    assert len(uploads) == 1, "단일 영상 경로는 1회 업로드만 (비교 아님)"

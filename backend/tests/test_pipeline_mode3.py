@@ -444,12 +444,14 @@ def test_vision_veto_called_both_modes(monkeypatch):
     seen = {}
     monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 40)
 
-    def _capture(local_video_path, at_seconds=None):
+    def _capture(local_video_path, at_seconds=None, reference_video_path=None):
         seen["at"] = at_seconds
         return _StubVerdict("major")
 
     monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _capture)
-    for overall in (100, 100):  # Mode1/Mode3 둘 다 같은 hook
+    # Phase 20 — mode=None(back-compat 단일 영상 경로)에서 단일 hook 통과 확인.
+    # Mode1/Mode3 실 분기는 아래 reference-anchor 전용 테스트가 단언한다.
+    for overall in (100, 100):
         out = app._apply_vision_veto(
             {"overallScore": overall, "dimensionScores": {"line": overall}},
             "/tmp/v.mp4",
@@ -457,9 +459,9 @@ def test_vision_veto_called_both_modes(monkeypatch):
             _profile(),
         )
         assert out["overallScore"] == 40
-    # 단일 호출부 + mode 분기 밖 — grep: _apply_vision_veto( 호출 1건.
+    # 단일 호출부 + mode 분기 밖 — grep: _apply_vision_veto( 호출 1건 (multi-line).
     app_src = inspect.getsource(app)
-    assert app_src.count("_apply_vision_veto(result") == 1
+    assert app_src.count("result = _apply_vision_veto(") == 1
 
 
 def test_keep_local_video_for_veto_only(monkeypatch):
@@ -479,7 +481,7 @@ def test_keep_local_video_for_veto_only(monkeypatch):
     received = {}
     monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
 
-    def _capture(local_video_path, at_seconds=None):
+    def _capture(local_video_path, at_seconds=None, reference_video_path=None):
         received["path"] = local_video_path
         return _StubVerdict("major")
 
@@ -491,6 +493,115 @@ def test_keep_local_video_for_veto_only(monkeypatch):
         _profile(),
     )
     assert received["path"] == "/tmp/keep.mp4"  # non-None 보존
+
+
+# ── Phase 20 — reference-anchored veto: Mode1 비교 앵커 + Mode3 보류 (belle 2026-06-20) ──
+
+
+def test_vision_veto_mode3_held(monkeypatch):
+    # belle 보류 — mode==MODE_SELF 면 caps 활성화 + major verdict 여도 veto 미실행.
+    # Mode3 는 고정 reference 가 없어 비교 앵커 불가 → mode3_held (점수 불변).
+    import sunity_shared.models as models
+
+    _enable_veto(monkeypatch)
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
+
+    def _boom(*a, **k):
+        raise AssertionError("Mode3 보류인데 adapter 호출됨 (veto 미실행이어야 함)")
+
+    monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _boom)
+    score_result = {"overallScore": 97, "dimensionScores": {"line": 96}}
+    out = app._apply_vision_veto(
+        score_result,
+        "/tmp/v.mp4",
+        None,
+        _profile(),
+        mode=models.MODE_SELF,
+        reference_video_path=None,
+    )
+    assert out["overallScore"] == 97  # 보류 — 점수 불변
+    assert out["visionVeto"]["status"] == "mode3_held"
+
+
+def test_vision_veto_mode1_missing_reference(monkeypatch):
+    # Mode1 인데 기준 영상 부재 → 진공 판정 안 함 (위양성/위음성 재발 차단).
+    import sunity_shared.models as models
+
+    _enable_veto(monkeypatch)
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
+
+    def _boom(*a, **k):
+        raise AssertionError("기준 영상 None 인데 adapter 호출됨 (진공 판정 금지)")
+
+    monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _boom)
+    score_result = {"overallScore": 88, "dimensionScores": {"line": 85}}
+    out = app._apply_vision_veto(
+        score_result,
+        "/tmp/v.mp4",
+        None,
+        _profile(),
+        mode=models.MODE_EXPERT,
+        reference_video_path=None,
+    )
+    assert out["overallScore"] == 88  # 진공 판정 안 함 — 점수 불변
+    assert out["visionVeto"]["status"] == "missing_reference"
+
+
+def test_vision_veto_mode1_with_reference_applies_cap(monkeypatch):
+    # Mode1 + 기준 영상 + major verdict → 비교 경로로 cap 적용 (하향).
+    # adapter 가 reference_video_path 를 수신함을 단언 (코치처럼 비교 전달).
+    import sunity_shared.models as models
+
+    _enable_veto(monkeypatch)
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
+    received = {}
+
+    def _capture(local_video_path, at_seconds=None, reference_video_path=None):
+        received["student"] = local_video_path
+        received["reference"] = reference_video_path
+        return _StubVerdict("major")
+
+    monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _capture)
+    score_result = {"overallScore": 100, "dimensionScores": {"line": 100}}
+    out = app._apply_vision_veto(
+        score_result,
+        "/tmp/student.mp4",
+        None,
+        _profile(),
+        mode=models.MODE_EXPERT,
+        reference_video_path="/tmp/reference.mp4",
+    )
+    assert out["overallScore"] == 50  # capped 하향
+    assert out["visionVeto"]["status"] == "applied"
+    assert out["visionVeto"]["severity"] == "major"
+    # 비교 앵커 — 기준 영상 path 가 어댑터에 전달됨.
+    assert received["student"] == "/tmp/student.mp4"
+    assert received["reference"] == "/tmp/reference.mp4"
+
+
+def test_vision_veto_mode1_with_reference_clean_no_cap(monkeypatch):
+    # Mode1 + 기준 영상 + none verdict (기준과 사실상 동일) → cap 미적용 (정타 보존).
+    # 정은지 정타가 50 으로 깎이던 위양성의 회귀 가드 (reference-anchored).
+    import sunity_shared.models as models
+
+    _enable_veto(monkeypatch)
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
+    monkeypatch.setattr(
+        gemini_vision_scorer,
+        "assess_fault_severity",
+        lambda *a, **k: _StubVerdict("none"),
+    )
+    score_result = {"overallScore": 98, "dimensionScores": {"line": 97}}
+    out = app._apply_vision_veto(
+        score_result,
+        "/tmp/student.mp4",
+        None,
+        _profile(),
+        mode=models.MODE_EXPERT,
+        reference_video_path="/tmp/reference.mp4",
+    )
+    assert out["overallScore"] == 98  # 정타 95~100 보존
+    assert out["visionVeto"]["status"] == "not_applicable"
 
 
 # ── Phase 20-03 Task 3 — Mode3 미보유/저신뢰 점수 억제 + resolver provenance ──

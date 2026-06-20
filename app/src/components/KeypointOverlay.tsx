@@ -5,7 +5,8 @@
 //   - player prop 전달 시 useEvent(player, 'timeUpdate') 로 frame index 자동 산출.
 //     player 미전달 시 props.frameIndex (default 0) 의 정적 렌더 (Wave 1 호환).
 //   - jointAngles prop 으로 current/target 받아 delta ≥ deltaThresholdDeg 강조 +
-//     floating angle label (highlighted joint 만, brand bg + WHITE 10pt, D-12-C3)
+//     floating angle label (highlighted joint 만, brand bg + WHITE bold, D-12-C3).
+//     Phase 20 (UI A2): pill/글자 확대 + 흰 외곽선으로 가독성 개선.
 //   - keypointReport 미가용 시 null return → caller 가 placeholder 표시 (D-12-U6)
 //
 // MVP 단순화 (R5 iter-2 정합): delta 강조 = 영상 전체 대표 편차. jointAngles =
@@ -183,10 +184,15 @@ export function KeypointOverlay({
   // viewBox 단위 산출 — early return 이전 보호 (videoSize=0 안전).
   const W = Math.max(1, videoSize.width);
   const H = Math.max(1, videoSize.height);
+  // Phase 20 (UI A2) — 강조 keypoint 가독성 ↑ (belle: "붉은색이 뭐라고 써있는지
+  // 보이지도 않고"). 강조 관절 원을 더 크게(14) + 외곽선 두껍게(2.4) 해서 분주한
+  // 영상 위에서도 눈에 띄게. 비강조 원은 기존 10 유지(번잡함 방지).
   const RADIUS = 10 / H;
+  const RADIUS_HI = 14 / H;
   const STROKE_BASE = 1.8 / H;
   const STROKE_HI = 3 / H;
   const STROKE_CIRCLE_OUTLINE = 1.5 / H;
+  const STROKE_CIRCLE_OUTLINE_HI = 2.4 / H;
 
   // Wave 2: player 전달 시 useEvent.currentTime → frameIndex 자동 산출.
   // player 없거나 frameIndex prop 명시 시 override.
@@ -328,28 +334,41 @@ export function KeypointOverlay({
             : isHi
               ? colors.brand
               : '#FFFFFF';
+          // Phase 20 (UI A2) — 강조(brand) 원의 외곽선을 brand→흰색으로 교체.
+          // 같은 brand 색 외곽선은 영상 위에서 윤곽이 사라져 "안 보임" finding 의
+          // 원인. 흰색 테두리가 brand 점을 분주한 배경에서 분리해 가독성 ↑.
           const stroke = isLowConf
             ? colors.estimateGray
             : isHi
-              ? colors.brand
+              ? '#FFFFFF'
               : 'rgba(0,0,0,0.6)';
+          // Phase 20 (UI A2) — 강조(brand) 관절은 더 큰 반지름 + 두꺼운 외곽선
+          // 으로 가독성 ↑. 정상/저신뢰 원은 기존 크기 유지.
           return (
             <Circle
               key={`kp-${joint}`}
               cx={p.x}
               cy={p.y}
-              r={RADIUS}
+              r={isHi && !isLowConf ? RADIUS_HI : RADIUS}
               fill={fill}
               fillOpacity={isLowConf ? 0.7 : 1.0}
               stroke={stroke}
-              strokeWidth={STROKE_CIRCLE_OUTLINE}
+              strokeWidth={
+                isHi && !isLowConf
+                  ? STROKE_CIRCLE_OUTLINE_HI
+                  : STROKE_CIRCLE_OUTLINE
+              }
             />
           );
         })}
 
         {/* Floating angle label (Wave 2 책임 — highlighted Set 비면 미렌더).
             jointAngles 미공급 시 highlightedJoints 빈 Set → 노출 X.
-            UI-SPEC §5: 48 × 18 brand bg pill + WHITE 10pt Math.round(°). */}
+
+            Phase 20 (UI A2) 가독성 개선 (belle: "붉은색이 뭐라고 써있는지 보이지도
+            않고"). 구 48×18 pill + WHITE 10pt 가 분주한 영상 위에서 판독 불가.
+            → 64×26 pill + 흰색 외곽선(테두리) + WHITE 14pt bold + 텍스트 자체에
+            얇은 흰 stroke 로 대비. brand pill + 흰 글씨 contract 유지(토큰만). */}
         {showAngleLabels &&
           Array.from(highlightedJoints).map((joint) => {
             const p = positions.get(joint);
@@ -358,10 +377,10 @@ export function KeypointOverlay({
             if (!p || !pair || pair.current == null) return null;
             // 12-deferred §12-D — 저신뢰 keypoint 의 각도는 불신뢰 → label 숨김.
             if (p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD) return null;
-            const labelW = 48 / W;
-            const labelH = 18 / H;
-            // keypoint 우측 +12pt offset.
-            const lx = p.x + 12 / W;
+            const labelW = 64 / W;
+            const labelH = 26 / H;
+            // keypoint 우측 +14pt offset (강조 원이 커졌으므로 겹침 회피).
+            const lx = p.x + 14 / W;
             const ly = p.y - labelH / 2;
             return (
               <G key={`label-${joint}`}>
@@ -370,16 +389,22 @@ export function KeypointOverlay({
                   y={ly}
                   width={labelW}
                   height={labelH}
-                  rx={9 / H}
-                  ry={9 / H}
+                  rx={13 / H}
+                  ry={13 / H}
                   fill={colors.brand}
+                  stroke="#FFFFFF"
+                  strokeWidth={1.4 / H}
                 />
                 <SvgText
                   x={lx + labelW / 2}
-                  y={ly + labelH * 0.7}
+                  y={ly + labelH * 0.68}
                   fill="#FFFFFF"
-                  fontSize={10 / H}
-                  fontWeight="600"
+                  // 텍스트 외곽에 얇은 흰 stroke — 영상 디테일 위에서도 글자
+                  // 가장자리가 또렷해 판독성 ↑ (brand pill 안 흰 글씨 대비 보강).
+                  stroke="#FFFFFF"
+                  strokeWidth={0.6 / H}
+                  fontSize={14 / H}
+                  fontWeight="700"
                   textAnchor="middle"
                 >
                   {`${Math.round(pair.current)}°`}

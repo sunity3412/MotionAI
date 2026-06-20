@@ -1652,8 +1652,9 @@ def _veto_passthrough(score_result: dict, status: str) -> dict:
     """비전 거부권 audit status 직렬화 헬퍼 (Phase 20-03 TRUST-08).
 
     점수 불변 + visionVeto.status 만 명시 박제. status enum ∈ {applied, not_applicable,
-    disabled, skipped_error, missing_local_video}. 부재 ≠ 실행 — status 가 veto 실행
-    여부를 명시 증명한다 (HIGH-1). 객관성: score/점수 라벨 필드 0.
+    disabled, skipped_error, missing_local_video, mode3_held (belle 보류), missing_reference
+    (Mode1 기준 영상 부재)}. 부재 ≠ 실행 — status 가 veto 실행 여부를 명시 증명한다
+    (HIGH-1). 객관성: score/점수 라벨 필드 0.
     """
     return {**score_result, "visionVeto": {"status": status}}
 
@@ -1663,35 +1664,59 @@ def _apply_vision_veto(
     local_video_path: str | None = None,
     angles: np.ndarray | None = None,
     profile: "technique.TechniqueProfile | None" = None,
+    mode: str | None = None,
+    reference_video_path: str | None = None,
 ) -> dict:
-    """v2 비전 거부권 — 하향-전용 mutation (Phase 20-03 SCORE-08 / D-01/03/04/05).
+    """v2 비전 거부권 — reference-anchored 하향-전용 mutation (Phase 20 SCORE-08).
+
+    belle 결정 (2026-06-20): **Mode1 비교 앵커 + Mode3 보류**.
+      · Mode1 (MODE_EXPERT) — 학생 영상을 정은지 reference 영상과 **비교**해 severity
+        산출 (코치처럼). 진공 단일 영상 판정은 mild fault 와 정타를 구별 못 해
+        위양성(정타→50)/위음성(잘못된 동작→100)을 냄 — 비교가 원칙적 fix.
+      · Mode3 (MODE_SELF) — **보류**. 고정 reference 가 없음 (본인 영상 비교). 절대
+        차원 + 이전 영상 델타가 그대로 성립 → veto 미실행 (mode3_held).
 
     capped < overallScore 일 때만 result['overallScore'] 를 **낮춘다** (절대 안 올림).
-    Mode1+Mode3 둘 다 (호출부가 mode 분기 밖). 평균 금지 — terminal min cap 만(Pitfall 1).
-    visionVeto.status 가 veto 실행을 증명(부재 ≠ 실행, HIGH-1). production SEVERITY_CAP 은
-    20-04 까지 placeholder None 이라 cap 적용은 not_applicable — mutation 경로는 테스트가
-    monkeypatch(SEVERITY_CAP['major']=50)로 증명한다. v1 identity 계약은 의도적 전환(20-03).
+    평균 금지 — terminal min cap 만(Pitfall 1). visionVeto.status 가 veto 실행을 증명
+    (부재 ≠ 실행, HIGH-1). SEVERITY_CAP 은 spec-anchored (major=50/moderate=75/
+    minor·none=no-cap) — 재튜닝 금지(D-02 curve-fit 금지).
 
     status enum (TRUST-08, 무음실패 방지 — Pitfall 5):
       · disabled            — _gemini_vision_veto_enabled() OFF (adapter 미호출)
+      · mode3_held          — mode==MODE_SELF (belle 보류 — reference 없음)
       · missing_local_video — local_video_path None (graceful, HIGH-1)
-      · skipped_error       — adapter None(키부재/실패) → v1 graceful + WARNING
-      · not_applicable      — cap 미적용 (minor/None/placeholder — 점수 불변)
+      · missing_reference   — Mode1 인데 reference 영상 부재 (진공 판정 안 함, graceful)
+      · skipped_error       — adapter None(키부재/실패) → graceful + WARNING
+      · not_applicable      — cap 미적용 (minor/none/placeholder — 점수 불변)
       · applied             — cap 적용 (overallScore 하향)
+
+    mode=None (back-compat) — 단일 영상 진공 판정 경로 유지 (기존 호출/테스트 보존).
 
     토글은 pipeline 단독 소유 (iter2 MEDIUM-1) — 어댑터는 토글 미참조.
     """
+    import sunity_shared.models as models  # lazy — mode 상수 비교
+
     try:
         if not _gemini_vision_veto_enabled():
             return _veto_passthrough(score_result, "disabled")
+        if mode == models.MODE_SELF:
+            # belle 보류 — Mode3 는 고정 reference 가 없어 비교 앵커 불가.
+            # 절대 차원 + 이전 영상 델타가 성립 → veto 미실행 (명시 신호).
+            return _veto_passthrough(score_result, "mode3_held")
         if local_video_path is None:
             # HIGH-1 — veto ON 인데 local 영상 부재. 무음 no-op 이 아니라 명시 신호.
             return _veto_passthrough(score_result, "missing_local_video")
+        if mode == models.MODE_EXPERT and reference_video_path is None:
+            # Mode1 비교 앵커인데 기준 영상 부재 → 진공 판정 안 함 (위양성/위음성
+            # 재발 차단). 명시 신호로 graceful 통과.
+            return _veto_passthrough(score_result, "missing_reference")
         from sunity_shared.analysis import vision_veto, gemini_vision_scorer
 
         at = vision_veto.worst_pose_timestamp(profile)
         verdict = gemini_vision_scorer.assess_fault_severity(
-            local_video_path, at_seconds=at
+            local_video_path,
+            at_seconds=at,
+            reference_video_path=reference_video_path,
         )
         if verdict is None:
             log.warning(
@@ -2058,6 +2083,12 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     my_video_url = _signed_get(bucket, key)
     reference_video_url = None
 
+    # Phase 20 — Mode1 reference-anchored vision veto (belle 2026-06-20).
+    # 정은지 reference 영상을 local 로 받아 _apply_vision_veto 에 전달 (코치처럼 비교).
+    # outer try **밖** 초기화 → 어떤 경로에서도 outer finally cleanup scope 보장
+    # (다운로드~veto 사이 예외 시에도 임시 파일 누수 0). Mode3 는 None 유지 → mode3_held.
+    reference_local_video_path: str | None = None
+
     # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
     target_torso = _extract_target_torso_px(pose_frames)
 
@@ -2183,6 +2214,26 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             comparison = assemble.build_mode1(ref, angle_dim, seg_scores)
             if ref.get("videoS3Key"):
                 reference_video_url = _signed_get(bucket, ref["videoS3Key"])
+                # Phase 20 — vision veto ON 일 때만 기준 영상을 local 로 다운로드
+                # (B4 — _apply_vision_veto 가 어댑터에 path 전달, 어댑터 재다운로드 0).
+                # delete=False 임시 파일 → veto 호출 후 finally 에서 _safe_unlink.
+                if _gemini_vision_veto_enabled():
+                    try:
+                        ref_ext = os.path.splitext(ref["videoS3Key"])[1] or ".mp4"
+                        ref_tmp = tempfile.NamedTemporaryFile(
+                            suffix=ref_ext, delete=False
+                        )
+                        ref_tmp.close()
+                        _s3.download_file(bucket, ref["videoS3Key"], ref_tmp.name)
+                        reference_local_video_path = ref_tmp.name
+                    except Exception:  # noqa: BLE001 - 기준 영상 다운로드 실패 graceful
+                        log.warning(
+                            "기준 영상 다운로드 실패 — veto missing_reference 로 graceful "
+                            "(분석 흐름 유지) uid=%s analysis_id=%s",
+                            uid, analysis_id,
+                        )
+                        _safe_unlink_local_video(reference_local_video_path)
+                        reference_local_video_path = None
         else:  # MODE_SELF — 자기 성장. 절대 차원 + (이전 분석 있으면) 발전 델타.
             # 박제 (2026-06-07 belle): mode=MODE_SELF 박제 — mode1 (정은지) 분석을
             # prev 로 잡는 함정 fix. 같은 mode 안에서만 prev 검색.
@@ -2388,10 +2439,24 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # Phase 13-B (HIGH-2): copyBranch 분기 카피 pass-through (coach 와 동일 lookup).
             branch_info=branch_info,
         )
-        # Phase 20-03 SCORE-08 — v2 비전 하향 거부권 (D-01/03/04/05). 이 줄은
-        # MODE_EXPERT/MODE_SELF 분기 **밖**이라 Mode1+Mode3 둘 다 자동 적용된다(D-03/04).
+        # Phase 20 SCORE-08 — v2 비전 하향 거부권 (reference-anchored, belle 2026-06-20).
+        # 호출부는 mode 분기 밖이지만 mode + 기준 영상 path 를 전달 → _apply_vision_veto
+        # 가 내부에서 분기: Mode1=비교 앵커 / Mode3=mode3_held 보류.
         # profile = recognize 직후 산출된 동일 객체 (worst_pose_timestamp source).
-        result = _apply_vision_veto(result, local_video_path, angles, profile)
+        # reference_local_video_path = Mode1 에서만 채워짐 (Mode3 는 None → 보류, 다운로드 0).
+        try:
+            result = _apply_vision_veto(
+                result,
+                local_video_path,
+                angles,
+                profile,
+                mode=mode,
+                reference_video_path=reference_local_video_path,
+            )
+        finally:
+            # 기준 영상 임시 파일 정리 — disk 누수 차단 (Mode3 는 None → no-op).
+            _safe_unlink_local_video(reference_local_video_path)
+            reference_local_video_path = None
         # Phase 20-03 TRUST-07 — Mode3 미보유/저신뢰 점수 억제 (branch-3, D-08).
         # MODE_SELF 전용 (Mode1 은 reference 비교라 미보유 개념 없음). resolver provenance +
         # reason-owns-copy scoringBasisLabel + A2 structured audit + producer-contract fail-loud.
@@ -2726,6 +2791,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # keep_local_video=True 가 될 수 있음 → _safe_unlink_local_video 박제
         # (PermissionError 등 unlink 실패 시 log.warning + 분석 흐름 차단 0).
         _safe_unlink_local_video(local_video_path)
+        # Phase 20 — Mode1 기준 영상 임시 파일 안전망 cleanup. 정상 경로는 veto 호출부
+        # 내부 finally 가 이미 unlink+None 처리 (idempotent — None 이면 no-op). 다운로드~
+        # veto 사이 예외 시에도 누수 0 (outer 초기화 → 항상 bound).
+        _safe_unlink_local_video(reference_local_video_path)
 
 
 def lambda_handler(event: dict, _context) -> dict:

@@ -14,41 +14,81 @@ overall 위에 합성된다, dimensions.py:384 정합).
 cap 수치 출처도 데이터로 박제한다 (SEVERITY_CAP_PROVENANCE). 6페어에 curve-fit 하는
 경로를 fail-closed 로 막기 위해, sensitivity manifest 의 실 sha256 가 없는 동안 cap 을
 채우면 단위테스트(test_cap_fill_requires_real_manifest_sha)가 거부한다.
+
+---
+cap 활성화 모드 (provenance.method)
+---
+20-04 는 cap 수치를 **spec-anchored** 로 박는다 (belle 결정 2026-06-20):
+
+  - major = 50  — belle 스펙 "잘못된 동작 ≤50" (CLAUDE.md core value /
+    [[score-spec-95-100-elite-vision-fix]]) 을 그대로 못 박는다.
+  - moderate = 75 — IPSF moderate-fault 의 원칙적 상한 (severity 의미 기반).
+  - minor = None — 정타 무캡 (D-01 95~100 보존, 영구 None).
+
+이 수치들은 데이터에 curve-fit 한 것이 아니라 belle 스펙 + IPSF severity 의미에서
+나온다 (provenance.method == "spec_anchored", provenance.spec_basis 가 출처를
+데이터로 박제). 6 deliberate-fault 페어는 회귀 검증(known-answer gate) 전용으로만
+유지되며 cap 도출 입력으로 절대 쓰이지 않는다
+(phase18_pairs_used_for_derivation == False, 영구 INVARIANT).
+
+DEFERRED (후속 단계): 미보유 sensitivity 셋(온라인 영상)에서 cap 을 도출하는
+generalization-tested eval — method == "sensitivity_derived" 경로. 그 경로에서는
+sensitivity_manifest_sha256 가 실 sha 여야 cap 을 채울 수 있다 (HIGH-3 fail-closed).
+현재는 미구현(derive_caps.py / sensitivity.yaml / eval_manifest 없음).
 """
 
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# SEVERITY_CAP — severity → overall 상한.
+# SEVERITY_CAP — severity → overall 상한 (20-04 spec-anchored 활성화).
 #
-# moderate/major 수치는 placeholder(None = cap 미적용) 이다. 실 수치는 20-04 의
-# generalization-tested eval(미보유 + above-cutoff sensitivity 셋)에서 도출한다.
-# 6페어(정은지 단일 선수 + fault)에 curve-fit 하는 것은 절대 금지다
+# 수치는 데이터 curve-fit 이 아니라 belle 스펙 + IPSF severity 의미에서 나온다
+# (provenance.method == "spec_anchored", provenance.spec_basis 가 데이터 출처):
+#
+#   - major = 50      — belle 스펙 "잘못된 동작 ≤50" 그대로 못 박음.
+#   - moderate = 75   — IPSF moderate-fault 원칙적 상한 (severity 의미 기반).
+#   - minor = None    — 정타 무캡, 영구 None (D-01 95~100 보존).
+#
+# 6페어(정은지 단일 선수 + fault)에 curve-fit 하는 것은 절대 금지다 — 6페어는
+# 회귀 검증(known-answer gate) 전용이며 cap 도출 입력이 아니다
 # (D-02 / [[scoring-redesign-must-generalize-no-overfit]] / [[sensitivity-gate-not-just-elite-low]]).
 #
-# minor 는 영구 None(정타 무캡) — D-01 스펙(같은 정은지 95~100 보존).
-# moderate/major 는 20-04 derive_caps 가 채울 자리다. 단, 채우려면 아래
-# SEVERITY_CAP_PROVENANCE['sensitivity_manifest_sha256'] 가 실 sha 여야 한다
-# (TODO/None 금지) — curve-fit fail-closed (HIGH-3).
+# DEFERRED: 미보유 sensitivity 셋 derive 경로(method=="sensitivity_derived")는
+# 후속 단계에서 보강한다. 그 경로에서만 sensitivity_manifest_sha256 가 실 sha 여야
+# cap 을 채울 수 있다 (HIGH-3 fail-closed). spec_anchored 모드는 sha 없이 cap 가능하되
+# spec_basis 데이터가 출처를 박제한다.
 # ---------------------------------------------------------------------------
 SEVERITY_CAP: dict[str, int | None] = {
     "minor": None,     # 정타 무캡 — 영구 None (D-01 95~100 보존)
-    "moderate": None,  # 20-04 eval 도출 자리 (현재 미도출)
-    "major": None,     # 20-04 eval 도출 자리 (현재 미도출)
+    "moderate": 75,    # IPSF moderate-fault 원칙적 상한 (spec_anchored)
+    "major": 50,       # belle 스펙 "잘못된 동작 ≤50" (spec_anchored)
 }
 
 # ---------------------------------------------------------------------------
 # SEVERITY_CAP_PROVENANCE — cap 도출 출처를 주석이 아닌 **데이터**로 박제 (HIGH-3).
 #
-# - source: 영구 'phase20_sensitivity' (cap 은 phase20 sensitivity eval 에서만 나온다).
-# - sensitivity_manifest_sha256: 20-04 derive_caps 가 sensitivity manifest 의 실
-#   sha256 으로 채운다. None = 아직 미도출. cap 을 채우려면 이 값이 실 sha 여야 한다
+# - method: cap 활성화 모드. "spec_anchored" = belle 스펙 + IPSF severity 의미로
+#   박은 값(현재). "sensitivity_derived" = 미보유 sensitivity 셋 eval 도출(후속,
+#   미구현). method 별로 fail-closed 가드가 다르다 (아래 spec_basis / sha 참조).
+# - source: cap 수치의 출처 라벨. spec_anchored 모드에서는 belle 스펙 + IPSF severity.
+# - spec_basis: cap 수치 근거를 **데이터**로 박제 (주석 아님). belle 스펙
+#   "잘못된 동작 ≤50" 을 명시 — test_provenance_is_data_not_comment 가 검사.
+# - sensitivity_manifest_sha256: sensitivity_derived 경로에서만 의미. derive 가
+#   sensitivity manifest 의 실 sha256 으로 채운다. spec_anchored 모드에서는 None
+#   (도출 입력 아님). cap 을 sensitivity_derived 로 채우려면 실 sha 여야 한다
 #   (TODO/None 금지) — test_cap_fill_requires_real_manifest_sha 가 강제 (fail-closed).
-# - phase18_pairs_used_for_derivation: 영구 False. 6페어는 회귀 검증(known-answer
-#   gate) 전용이며 derive 입력이 아니다 — derive_caps 가 이 값을 변경하면 안 된다.
+# - phase18_pairs_used_for_derivation: 영구 False (INVARIANT). 6페어는 회귀 검증
+#   (known-answer gate) 전용이며 derive 입력이 아니다 — 어떤 method 도 이 값을
+#   True 로 바꿀 수 없다 (6페어 curve-fit fail-closed).
 # ---------------------------------------------------------------------------
 SEVERITY_CAP_PROVENANCE: dict[str, object] = {
-    "source": "phase20_sensitivity",
+    "method": "spec_anchored",
+    "source": "belle_spec_ipsf_severity",
+    "spec_basis": (
+        'belle spec "잘못된 동작 ≤50" '
+        "(CLAUDE.md core value / score-spec-95-100-elite-vision-fix); "
+        "moderate=75 from IPSF moderate-fault severity meaning"
+    ),
     "sensitivity_manifest_sha256": None,
     "phase18_pairs_used_for_derivation": False,
 }

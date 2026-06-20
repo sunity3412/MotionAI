@@ -4,13 +4,13 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 20 plan REVIEW-CONVERGED (8 외부 iter + self cross-review iter9 = EXECUTION-READY, HIGH/MEDIUM 0). Wave 1-2 pod-free 실행 가능, Wave 3=Pod terminal gate
-last_updated: "2026-06-20T07:37:41.648Z"
+last_updated: "2026-06-20T07:58:30.455Z"
 last_activity: 2026-06-20
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 25
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 20 (v2-gemini) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Verification: 13-C — `assemble.assemble_dual_coach_sections` 섹션 조립 + cross-fill 폴백 7 케이스 PASS / phase13 88 passed (81+7, 회귀 0) / pipeline+geminib+dispatch 포함 131 passed / app tsc --noEmit clean / 자세히 모달 벤더명 렌더 텍스트 0 / gemini_b dual-track audit Firestore flat 검증 통과 / GEMINI_COACH_ENABLED=0 Cerebras-only path 보존. 3 atomic commit (8ec9dc5/4f7f7aa/340d0c9).
 Next: Phase 15 (실증) — 실 영상 → 실 dual-LLM 섹션 조립 E2E 라이브 검증 + "둘 중 하나 drop 여부" 결정 (13-C 빌드 ≠ drop 결정). Pod 기동 + 라이브 LLM 호출은 Phase 15 scope.
 Status: Ready to execute
@@ -289,7 +289,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [████████░░] 75%
+Progress: [█████████░] 88%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -531,6 +531,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 19 P02 | 14 | 2 tasks | 8 files |
 | Phase 20 P01 | 14 | 1 tasks | 2 files |
 | Phase 20 P02 | 18min | 1 tasks | 2 files |
+| Phase 20 P20-03 | 38min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -599,6 +600,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 19-02: overall_from_dimensions = min-of-core(angle/line), stability 종합 분리. line micro-bent <160deg = 요소 무효 0점 [CITED] IPSF
 - [Phase ?]: Phase 19-02: DimensionExplanation.contributesToOverall OPTIONAL 3중 계약 추가 + 비기여 weightPercent=0 (HIGH-1)
 - [Phase ?]: 20-02: Gemini 결함-심각도 어댑터 — VisionVerdict(no-score) + 객관성 introspection 가드 + prompt/schema-versioned VisionVetoCache 결정론 + 토글 미소유(pipeline 소유)
+- [Phase ?]: 20-03: 비전 거부권 통합 — _apply_vision_veto 하향-전용 mutation + visionVeto status enum audit + Mode3 점수카드 전체 억제(resolver provenance + reason-owns-copy + producer-contract fail-loud). pod-free, 실 정량 게이트는 20-04 Pod sweep
 
 ### Pending Todos
 
@@ -631,7 +633,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-20T07:37:21.463Z
+Last session: 2026-06-20T07:58:22.002Z
 
 Stopped at: Phase 20 plan REVIEW-CONVERGED (8 외부 iter + self cross-review iter9 = EXECUTION-READY, HIGH/MEDIUM 0). Wave 1-2 pod-free 실행 가능, Wave 3=Pod terminal gate
 

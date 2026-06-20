@@ -654,12 +654,12 @@ Plans:
   4. Gemini 인식기 결정성(temp 0 + reference profile 캐싱)으로 run 간 line 차원 변동 0
   5. Mode 3 미보유동작 유효성 게이트 + 점수근거 화면 표시(동작분류 분기)
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 20-01-PLAN.md — [Wave 1, pod-free] 순수 vision_veto 코어 (apply_downward_cap 하향전용 + SEVERITY_CAP placeholder + worst_pose_timestamp) (SCORE-08)
 - [x] 20-02-PLAN.md — [Wave 1, pod-free] Gemini 결함-심각도 어댑터 (no-score 스키마 + _SCORE_PATTERN 가드 + temp 0 + video-hash 캐시, mocked) (SCORE-08/TRUST-06/08)
-- [ ] 20-03-PLAN.md — [Wave 2, pod-free] _apply_vision_veto 본체 swap + visionVeto audit 3-way 계약 + Mode3 미보유 억제 + result.tsx UX (SCORE-08/TRUST-07/08)
+- [x] 20-03-PLAN.md — [Wave 2, pod-free] _apply_vision_veto 본체 swap + visionVeto audit 3-way 계약 + Mode3 미보유 억제 + result.tsx UX (SCORE-08/TRUST-07/08)
 - [ ] 20-04-PLAN.md — [Wave 3, POD terminal] SEVERITY_CAP 도출(sensitivity 양방, 6페어 fit 금지) + serial sweep 게이트 (kip-up≤50 + 퇴행0 + 정타 95~100 + 결정론) (SCORE-09/08/TRUST-06)
 
 ---

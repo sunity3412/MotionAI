@@ -209,3 +209,35 @@ orchestrator 가 Pod 6-pair eval 로 별도 수행 (PENDING).
 전부 PASS. TS 변경 0.
 
 > EAS build / Pod eval 미실행 (orchestrator 담당). 프롬프트 TEXT 불변 (sampling/집계/cap 만).
+
+---
+
+## 입력 화질 보존·감지·안내 (frontend, #20)
+
+**배경**: belle — 카톡 전송이 34MB→1.6MB 로 압축 → 미세 결함을 분석이 못 봄 → 점수가
+조용히 틀어짐. un-compress 불가 → (1) 앱이 추가 압축을 안 하게, (2) 저화질 입력을
+감지해 경고, (3) 양질 영상 가이드. 전부 `app/src/app/(tabs)/analyze.tsx` 단일 파일.
+
+**1. 추가 압축 차단** (picker 옵션)
+- `pickFromLibrary`: `preferredAssetRepresentationMode:
+  UIImagePickerPreferredAssetRepresentationMode.Current` 추가 — 기본 Automatic 의
+  호환-코덱 재인코딩(transcode)을 피해 원본 표현 그대로 사용 (iOS). SDK 54 enum
+  확인: node_modules/expo-image-picker .d.ts L198-211 (`Current = "current"`).
+- `pickFromCamera`: `videoQuality: UIImagePickerControllerQualityType.High` 추가 —
+  최고 해상도로 캡처 (iOS). enum 확인: L125-149 (`High = 0`). Android 에선 두
+  필드 모두 무시됨 (타이핑 OK, 옵셔널).
+
+**2. 저화질 감지** (`checkLowQuality` 휴리스틱, 비차단)
+- 짧은 변 < 720p **OR** 추정 비트레이트 < ~6Mbps (fileSize*8 / duration_s).
+  width/height(0 가능)·fileSize·duration(null 가능) 유효할 때만 판정 → 거짓 경고
+  방지. boolean + 짧은 사유 반환.
+- 감지 시 `handleResult` 가 라우팅을 보류하고 비차단 Modal(계속/취소)을 띄움.
+  [이대로 계속] → 정상 라우팅(maybePromptBeforeRoute), [다른 영상 선택]/백드롭 →
+  영상 버림. 하드 블록 아님 (더 나은 영상이 없을 수 있음) — 단 조용히 진행은 안 함.
+
+**3. 가이드 카피** (소스 선택 화면)
+- 카메라/앨범 버튼 아래 보조 캡션: "앱 직접 촬영 / 원본 화질 / 카톡은 '원본'으로 전송".
+
+**theme/규칙**: 토큰만(colors.brand 불변, textMid/warn 톤·radius.modal·ctaHeight),
+라이트, 이모지 0, Korean. letterSpacing 신규 0 → SIGABRT 가드 무손상. `npm run
+typecheck` clean. backend 변경 0, EAS build 미실행(orchestrator).

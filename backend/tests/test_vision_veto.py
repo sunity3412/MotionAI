@@ -29,14 +29,14 @@ if str(_SHARED) not in sys.path:
 
 from sunity_shared.analysis import vision_veto  # noqa: E402
 
-_SEVERITIES = (None, "minor", "moderate", "major", "unknown")
+_SEVERITIES = (None, "none", "minor", "moderate", "major", "unknown")
 
 
 def test_downward_only_property():
     """∀ (overall ∈ 0..100, severity) 에 대해 출력 ≤ 입력 (D-01 코어 invariant).
 
-    비전은 점수를 절대 올리지 않는다. minor/None/unknown 은 불변 (cap 미적용).
-    moderate/major 는 cap 이 채워져도 min-only 이므로 invariant(≤ 입력)는 절대
+    비전은 점수를 절대 올리지 않는다. None/none/unknown 은 불변 (cap 미적용, 정타 보존).
+    minor/moderate/major 는 cap 이 채워져도 min-only 이므로 invariant(≤ 입력)는 절대
     깨지지 않아야 한다 (하향 전용).
     """
     for overall in range(0, 101):
@@ -46,21 +46,40 @@ def test_downward_only_property():
                 f"apply_downward_cap({overall}, {severity!r}) = {out} > {overall} "
                 "— 비전이 점수를 올렸다 (D-01 위반)"
             )
-            if severity in (None, "minor", "unknown"):
+            # None/none/unknown(미지 키) 만 무캡 — 정타 보존. minor 는 Phase 20 부터
+            # 90 cap 이 붙으므로 무캡 목록에서 제외.
+            if severity in (None, "none", "unknown"):
                 assert out == overall, (
                     f"severity={severity!r} 는 점수를 깎으면 안 된다 (정타 보존)"
                 )
 
 
-def test_minor_no_cap():
-    """minor / None / 미지 severity → 입력 그대로 (정타 95~100 보존, D-01)."""
+def test_none_no_cap():
+    """none / None / 미지 severity → 입력 그대로 (정타 95~100 보존, D-01).
+
+    Phase 20: 무캡은 'none'(정타) 와 None/미지 키 뿐. minor 는 90 cap 으로 이동.
+    """
     for overall in (95, 96, 97, 98, 99, 100):
-        assert vision_veto.apply_downward_cap(overall, "minor") == overall
+        assert vision_veto.apply_downward_cap(overall, "none") == overall
         assert vision_veto.apply_downward_cap(overall, None) == overall
         assert vision_veto.apply_downward_cap(overall, "does_not_exist") == overall
-    # minor cap 은 미적용(None) 또는 무캡(>=100) 이어야 한다.
-    minor_cap = vision_veto.SEVERITY_CAP["minor"]
-    assert minor_cap is None or minor_cap >= 100
+    # none cap 은 미적용(None) — 정타 무캡 보존.
+    assert vision_veto.SEVERITY_CAP["none"] is None
+
+
+def test_minor_caps_at_90():
+    """minor → 90 cap (Phase 20 robustify — 미세하지만 실재하는 결함 천장 해제).
+
+    100 → 90 으로 내려가지만, 90 미만 입력은 더 내려가지 않는다 (min-only).
+    정타(none)는 무캡으로 100 보존 — minor 와 none 의 차이를 명시 박제.
+    """
+    assert vision_veto.SEVERITY_CAP["minor"] == 90
+    assert vision_veto.apply_downward_cap(100, "minor") == 90
+    assert vision_veto.apply_downward_cap(95, "minor") == 90
+    assert vision_veto.apply_downward_cap(90, "minor") == 90
+    assert vision_veto.apply_downward_cap(85, "minor") == 85  # cap 미만 불변 (min-only)
+    # 대조 — 정타(none)는 여전히 무캡 → 100 보존.
+    assert vision_veto.apply_downward_cap(100, "none") == 100
 
 
 def test_cap_lowers_for_major():

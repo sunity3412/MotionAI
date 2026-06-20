@@ -444,3 +444,192 @@ def test_single_video_signature_back_compat(monkeypatch, fake_video):
     verdict = assess_fault_severity(fake_video)  # reference 미전달
     assert verdict is not None
     assert len(uploads) == 1, "단일 영상 경로는 1회 업로드만 (비교 아님)"
+
+
+# ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
+
+
+def _sev_json(severity: str, fault: str = "다리 신전 부족") -> str:
+    """dominant_severity + primary_fault 만 있는 비교 응답 JSON."""
+    return (
+        '{"motion": "kip-up", "dominant_severity": "%s", '
+        '"primary_fault": "%s", "differences": []}' % (severity, fault)
+    )
+
+
+class _SeqModels:
+    """generate_content 가 호출마다 다음 응답을 순차 반환 (multi-sample 시뮬)."""
+
+    def __init__(self, parent):
+        self._parent = parent
+
+    def generate_content(self, *, model, contents, config):
+        self._parent.calls.append(
+            {"model": model, "config": config, "contents": contents}
+        )
+        idx = len(self._parent.calls) - 1
+        seq = self._parent.responses
+        text = seq[idx] if idx < len(seq) else seq[-1]
+        return _FakeResponse(text)
+
+
+class _SeqClient:
+    def __init__(self, responses: list[str]):
+        self.responses = responses
+        self.calls: list[dict] = []
+        self.models = _SeqModels(self)
+        self.files = _FakeFiles()
+
+
+def _patch_seq_client(monkeypatch, client):
+    """_SeqClient + 업로드 spy (비교 시 영상당 1회만 업로드 검증용)."""
+    uploads: list[str] = []
+
+    def _spy_upload(c, path, hint):
+        uploads.append(path)
+        return MagicMock(name=f"uploaded-{len(uploads)}")
+
+    monkeypatch.setattr(gvs, "_ensure_client", lambda: client)
+    monkeypatch.setattr(gvs, "_upload_video", _spy_upload)
+    return uploads
+
+
+def test_comparison_median_moderate(monkeypatch, fake_video, fake_reference_video):
+    """[moderate, moderate, moderate] 단순 다수 → median moderate. 업로드 1회/영상."""
+    _in_memory_cache(monkeypatch)
+    monkeypatch.setattr(gvs, "VISION_VETO_SAMPLES", 3)
+    client = _SeqClient(
+        [_sev_json("moderate"), _sev_json("moderate"), _sev_json("minor")]
+    )
+    uploads = _patch_seq_client(monkeypatch, client)
+
+    verdict = assess_fault_severity(
+        fake_video, reference_video_path=fake_reference_video
+    )
+    assert verdict is not None
+    # rank-median([moderate=2, moderate=2, minor=1] sorted=[1,2,2], idx=1) → moderate.
+    assert verdict.severity == "moderate"
+    # 업로드는 영상당 1회만 (핸들 재사용) — N 회 generateContent 만 반복.
+    assert len(uploads) == 2, "비교 = ref+student 각 1회 업로드 (재업로드 0)"
+    assert len(client.calls) == 3, "N=3 generateContent (샘플마다 1회)"
+
+
+def test_comparison_median_minor(monkeypatch, fake_video, fake_reference_video):
+    """[minor, minor, moderate] → rank-median minor (단일 라벨 흔들림 제거)."""
+    _in_memory_cache(monkeypatch)
+    monkeypatch.setattr(gvs, "VISION_VETO_SAMPLES", 3)
+    client = _SeqClient(
+        [_sev_json("minor"), _sev_json("minor"), _sev_json("moderate")]
+    )
+    _patch_seq_client(monkeypatch, client)
+
+    verdict = assess_fault_severity(
+        fake_video, reference_video_path=fake_reference_video
+    )
+    assert verdict is not None
+    # sorted ranks=[1,1,2], idx=1 → minor.
+    assert verdict.severity == "minor"
+    assert len(client.calls) == 3
+
+
+def test_comparison_skips_none_parse_sample(
+    monkeypatch, fake_video, fake_reference_video
+):
+    """파싱 실패(None) 샘플은 집계에서 제외 — 남은 [moderate, moderate] median moderate."""
+    _in_memory_cache(monkeypatch)
+    monkeypatch.setattr(gvs, "VISION_VETO_SAMPLES", 3)
+    client = _SeqClient(
+        ["this is not json at all", _sev_json("moderate"), _sev_json("moderate")]
+    )
+    _patch_seq_client(monkeypatch, client)
+
+    verdict = assess_fault_severity(
+        fake_video, reference_video_path=fake_reference_video
+    )
+    assert verdict is not None
+    # None-parse 1개 제외 → [moderate, moderate] sorted=[2,2], idx=0 → moderate.
+    assert verdict.severity == "moderate"
+    assert len(client.calls) == 3, "N=3 호출은 모두 시도 (파싱 실패도 호출은 발생)"
+
+
+def test_comparison_all_none_parse_returns_none(
+    monkeypatch, fake_video, fake_reference_video
+):
+    """모든 샘플 파싱 실패 → verdict None (graceful)."""
+    _in_memory_cache(monkeypatch)
+    monkeypatch.setattr(gvs, "VISION_VETO_SAMPLES", 3)
+    client = _SeqClient(["bad", "also bad", "still bad"])
+    _patch_seq_client(monkeypatch, client)
+
+    verdict = assess_fault_severity(
+        fake_video, reference_video_path=fake_reference_video
+    )
+    assert verdict is None
+
+
+def test_comparison_even_count_lower_middle(
+    monkeypatch, fake_video, fake_reference_video
+):
+    """짝수 개수 → lower-middle 인덱스(보수적). [minor, moderate] → minor."""
+    _in_memory_cache(monkeypatch)
+    monkeypatch.setattr(gvs, "VISION_VETO_SAMPLES", 2)
+    client = _SeqClient([_sev_json("minor"), _sev_json("moderate")])
+    _patch_seq_client(monkeypatch, client)
+
+    verdict = assess_fault_severity(
+        fake_video, reference_video_path=fake_reference_video
+    )
+    assert verdict is not None
+    # sorted=[1,2], (2-1)//2=0 → idx 0 → minor (lower-middle, 보수적).
+    assert verdict.severity == "minor"
+
+
+def test_comparison_aggregated_verdict_cached(
+    monkeypatch, fake_video, fake_reference_video
+):
+    """집계 verdict 가 캐시됨 — 2번째 호출은 cache hit (재샘플링 0)."""
+    store = _in_memory_cache(monkeypatch)
+    monkeypatch.setattr(gvs, "VISION_VETO_SAMPLES", 3)
+    client = _SeqClient(
+        [_sev_json("moderate"), _sev_json("moderate"), _sev_json("minor")]
+    )
+    _patch_seq_client(monkeypatch, client)
+
+    v1 = assess_fault_severity(fake_video, reference_video_path=fake_reference_video)
+    assert len(client.calls) == 3
+    assert len(store) == 1, "집계 verdict 1개만 캐시 (pair 당 1 entry)"
+
+    v2 = assess_fault_severity(fake_video, reference_video_path=fake_reference_video)
+    assert v1 == v2
+    assert len(client.calls) == 3, "cache hit — 재샘플링 0 (N 호출 추가 발생 0)"
+
+
+def test_samples_count_invalidates_cache(
+    monkeypatch, fake_video, fake_reference_video
+):
+    """VISION_VETO_SAMPLES 변경 시 같은 pair 라도 cache miss (키에 N 포함)."""
+    _in_memory_cache(monkeypatch)
+    monkeypatch.setattr(gvs, "VISION_VETO_SAMPLES", 3)
+    client = _SeqClient([_sev_json("moderate")] * 6)
+    _patch_seq_client(monkeypatch, client)
+
+    assess_fault_severity(fake_video, reference_video_path=fake_reference_video)
+    calls_after_first = len(client.calls)
+    assert calls_after_first == 3
+
+    monkeypatch.setattr(gvs, "VISION_VETO_SAMPLES", 1)
+    assess_fault_severity(fake_video, reference_video_path=fake_reference_video)
+    assert len(client.calls) == calls_after_first + 1, (
+        "N 변경 → stale 무효화 + 재샘플 (N=1 추가 호출)"
+    )
+
+
+def test_prompt_schema_version_v5():
+    """PROMPT_VERSION/SCHEMA_VERSION = v5.0 (집계 = 새 cache generation)."""
+    assert PROMPT_VERSION == "v5.0"
+    assert SCHEMA_VERSION == "v5.0"
+
+
+def test_default_samples_is_three():
+    """VISION_VETO_SAMPLES 기본 3 (env override 가능, min 1)."""
+    assert gvs.VISION_VETO_SAMPLES >= 1

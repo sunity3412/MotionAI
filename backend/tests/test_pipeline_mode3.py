@@ -367,10 +367,11 @@ def test_vision_veto_downward_only_with_cap(monkeypatch):
     assert out["overallScore"] <= 100  # property — 절대 안 올림
 
 
-def test_vision_veto_minor_no_mutation(monkeypatch):
-    # severity='minor' → cap 없음(SEVERITY_CAP['minor']=None) → 불변 + not_applicable.
+def test_vision_veto_minor_caps_at_90(monkeypatch):
+    # Phase 20 robustify — severity='minor' → 90 cap (미세하지만 실재하는 결함은
+    # 천장 100 에서 내려간다). 96 → 90, status='applied'. 정타(none)는 무캡 보존.
     _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "minor", 90)
     monkeypatch.setattr(
         gemini_vision_scorer,
         "assess_fault_severity",
@@ -378,7 +379,25 @@ def test_vision_veto_minor_no_mutation(monkeypatch):
     )
     score_result = {"overallScore": 96, "dimensionScores": {"line": 96}}
     out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
-    assert out["overallScore"] == 96
+    assert out["overallScore"] == 90  # 천장 해제 — mild fault off ceiling
+    assert out["overallScore"] <= 96  # property — 절대 안 올림
+    assert out["visionVeto"]["status"] == "applied"
+    assert out["visionVeto"]["severity"] == "minor"
+    assert out["visionVeto"]["capApplied"] == 90
+
+
+def test_vision_veto_minor_no_mutation_below_cap(monkeypatch):
+    # minor cap=90 미만 입력(85)은 더 내려가지 않는다 (min-only) → not_applicable.
+    _enable_veto(monkeypatch)
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "minor", 90)
+    monkeypatch.setattr(
+        gemini_vision_scorer,
+        "assess_fault_severity",
+        lambda *a, **k: _StubVerdict("minor"),
+    )
+    score_result = {"overallScore": 85, "dimensionScores": {"line": 85}}
+    out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
+    assert out["overallScore"] == 85
     assert out["visionVeto"]["status"] == "not_applicable"
 
 

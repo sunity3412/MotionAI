@@ -78,7 +78,9 @@ VISION_VETO_STATUSES = (
     "skipped_error",    # adapter None(키부재/실패) → v1 graceful + WARNING
     "missing_local_video",  # local_video_path None (graceful, HIGH-1)
 )
-VISION_VETO_KEYS = ("status", "severity", "capApplied")
+# primaryFault(UI B1): applied 시에만 동반하는 지배적 결함 DESCRIPTION(자연어). "왜 점수가
+# 내려갔는지" 앱 노출용. 점수/숫자 라벨 절대 금지(객관성). legacy doc 호환 위해 optional.
+VISION_VETO_KEYS = ("status", "severity", "capApplied", "primaryFault")
 
 # ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───
 # Mode3 미보유/저신뢰 동작의 점수카드 전체 억제 신호. scoringBasis 단독이 아닌 명시

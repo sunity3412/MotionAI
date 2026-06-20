@@ -178,12 +178,15 @@ scoreSuppressionAudit { recognizerCategory, branchReferenceFree, resolvedReason 
 status      'applied' | 'not_applicable' | 'disabled' | 'skipped_error' | 'missing_local_video'
 severity?   'minor' | 'moderate' | 'major'   (applied 시에만 동반)
 capApplied? number  하향된 종합점수            (applied 시에만 동반)
+primaryFault? string  지배적 결함 DESCRIPTION   (applied 시에만 동반, UI B1 — "왜 내려갔는지")
 ```
   - **status 가 veto 실행을 증명한다 (부재 ≠ 실행, HIGH-1).** terminal gate(20-04)가
     status='applied' 로 veto 실행을 검증한다. 부재가 'veto 가 돔'으로 읽히지 않는다.
   - applied → severity + capApplied 동반 강제 (analysis.ts VisionVeto discriminated union;
     status:'applied' without capApplied 는 tsc 에러). not_applicable/disabled/skipped_error/
     missing_local_video → severity/capApplied 없음.
+  - applied → primaryFault(결함 DESCRIPTION, 자연어) optional 동반 (UI B1 — "왜 점수가 내려갔는지"
+    노출용). 점수/숫자 라벨 금지(객관성). legacy doc 호환 위해 optional(없어도 렌더).
   - 객관성: visionVeto 에 사람/AI **점수 라벨 0** — status/severity enum + capApplied(임계
     산출 정수)만 ([[analysis-objectivity-no-human-scores]]).
   - production SEVERITY_CAP 은 20-04 까지 placeholder None 이라 현재 cap 적용은 항상

@@ -414,9 +414,11 @@ def test_vision_veto_status_enum(monkeypatch):
     assert veto["status"] == "applied"
     assert veto["severity"] == "major"
     assert veto["capApplied"] == 50
-    # 객관성 — 점수/score 라벨 필드 0.
+    # UI B1 — primaryFault(결함 DESCRIPTION, 자연어) 박제. "왜 점수가 내려갔는지" 노출용.
+    assert veto["primaryFault"] == "stub fault"
+    # 객관성 — 점수/score 라벨 필드 0 (primaryFault 는 숫자 아님).
     assert "score" not in veto
-    assert set(veto.keys()) <= {"status", "severity", "capApplied"}
+    assert set(veto.keys()) <= {"status", "severity", "capApplied", "primaryFault"}
 
 
 def test_vision_veto_graceful_observable(monkeypatch, caplog):
@@ -574,6 +576,8 @@ def test_vision_veto_mode1_with_reference_applies_cap(monkeypatch):
     assert out["overallScore"] == 50  # capped 하향
     assert out["visionVeto"]["status"] == "applied"
     assert out["visionVeto"]["severity"] == "major"
+    # UI B1 — applied 시 primaryFault(결함 DESCRIPTION) 동반.
+    assert out["visionVeto"]["primaryFault"] == "stub fault"
     # 비교 앵커 — 기준 영상 path 가 어댑터에 전달됨.
     assert received["student"] == "/tmp/student.mp4"
     assert received["reference"] == "/tmp/reference.mp4"

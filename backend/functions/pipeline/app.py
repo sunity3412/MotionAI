@@ -1728,6 +1728,9 @@ def _apply_vision_veto(
         capped = vision_veto.apply_downward_cap(overall, verdict.severity)
         if capped < overall:
             # 하향-전용 — apply_downward_cap 이 min 만(올림 0). audit 직렬화.
+            # Phase 20 (UI B1) — primaryFault 박제: "왜 점수가 내려갔는지"를 앱이
+            # 노출할 수 있게 verdict.primary_fault(결함 DESCRIPTION) 만 동반. 객관성:
+            # 점수/숫자 라벨 아님 — 자연어 결함 설명만 (analysis-objectivity 박제).
             return {
                 **score_result,
                 "overallScore": capped,
@@ -1735,6 +1738,7 @@ def _apply_vision_veto(
                     "status": "applied",
                     "severity": verdict.severity,
                     "capApplied": capped,
+                    "primaryFault": verdict.primary_fault,
                 },
             }
         # cap 미적용 (production placeholder None / minor / cap >= overall) — 점수 불변.

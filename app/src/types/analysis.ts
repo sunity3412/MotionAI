@@ -339,11 +339,13 @@ export interface AiSynthesisMeta {
 // status 가 veto 실행을 증명한다 (부재 ≠ 실행, HIGH-1). status='applied' 시 severity +
 // capApplied 컴파일-타임 강제 (iter2 non-blocking — applied without capApplied 차단).
 // 객관성: 사람/AI 점수 라벨 아님 — status/severity enum + capApplied(임계 산출 정수)만.
-// 3-way lockstep: models.py VISION_VETO_STATUSES + docs/contract.md §4.
+// primaryFault(UI B1) = Gemini 비전이 찾은 지배적 결함 DESCRIPTION(자연어) — "왜 점수가
+// 내려갔는지" 노출용. 점수/숫자 절대 금지(객관성). applied 시에만 동반, legacy doc 호환 위해
+// optional(string | undefined). 3-way lockstep: models.py VISION_VETO_STATUSES + docs/contract.md §4.
 export type VisionVeto =
-  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number }
-  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never }
-  | { status: 'disabled' | 'skipped_error' | 'missing_local_video'; severity?: never; capApplied?: never };
+  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number; primaryFault?: string }
+  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never; primaryFault?: never }
+  | { status: 'disabled' | 'skipped_error' | 'missing_local_video'; severity?: never; capApplied?: never; primaryFault?: never };
 
 // Phase 20 (TRUST-07) — Mode3 미보유/저신뢰 점수 억제 (discriminated suppression type).
 // iter4 MEDIUM-1: scoreSuppressed=true 면 scoreSuppressedReason REQUIRED, false/부재면

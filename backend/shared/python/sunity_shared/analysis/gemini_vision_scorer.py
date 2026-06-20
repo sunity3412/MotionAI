@@ -67,8 +67,8 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v3.0"  # v3.0 (2026-06-20): clean-form escape (dominant_severity none) — over-penalization fix
-SCHEMA_VERSION = "v3.0"  # v3.0: dominant_severity 필드 추가 + severity enum 에 none
+PROMPT_VERSION = "v4.0"  # v4.0 (2026-06-20): reference-anchored comparison (Mode1) — 기준(정타) vs 학생 비교 프롬프트
+SCHEMA_VERSION = "v4.0"  # v4.0: 비교 프롬프트 = 새 cache generation (pair 키 reference_hash 포함)
 
 # Gemini 모델 — [[gemini-latest-model-versions]] suffix(-preview) 필수.
 DEFAULT_VISION_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
@@ -223,6 +223,62 @@ def _build_prompt(at_seconds: float | None) -> str:
     return f"{_PROMPT}\n\n참고: 약 {at_seconds:.1f}초 부근의 지배 결함 pose 에 특히 주목하세요."
 
 
+# ─────────────────── 비교(reference-anchored) 프롬프트 (v4.0, Mode1) ───────────────────
+#
+# belle 결정 (2026-06-20): Mode1 = 기준(정은지 정타) 영상 대비 학생 영상 비교.
+# 진공 단일 영상 판정은 mild fault 와 정타를 구별하지 못해 위양성(정타→50) 또는
+# 위음성(잘못된 동작→100)을 낸다. 코치처럼 기준 영상과 비교하는 것이 원칙적 fix.
+#
+# curve-fit 금지 절대원칙 ([[scoring-redesign-must-generalize-no-overfit]]):
+#   이 프롬프트는 **완전 generic** 비교다. 특정 동작명(kip-up 등) 0, 기대 답/점수 0,
+#   특정 테스트 영상이 통과하도록 튜닝한 임계 0. severity 는 Gemini 의 비교 판단에서만
+#   나온다. 일반화 검증은 orchestrator 가 Pod 6-pair eval 로 별도 수행한다.
+_COMPARISON_PROMPT = """\
+당신은 IPSF(국제폴스포츠연맹) Code of Points 기준에 정통한 폴스포츠 동작 분석가입니다.
+
+두 개의 영상을 받습니다 — **같은 동작**을 수행한 두 영상입니다:
+  · 첫 번째 영상 = IPSF 기준에 부합하는 **기준(정타) 영상**.
+  · 두 번째 영상 = 평가 대상인 **학생 영상**.
+
+학생 영상이 기준 영상 대비 얼마나 정확하게 동작을 수행했는지 **공정하게 비교**하세요.
+목적은 결함을 억지로 찾는 것이 아니라, **기준 대비 명확하고 관찰 가능한 편차가 있으면
+그 심각도를, 없으면 "없음"을** 보고하는 것입니다.
+
+가장 중요한 규칙 (반드시 준수):
+1. **기준과 사실상 동일하거나 사소한 차이만 있으면 결함을 만들어내지 마세요.** 학생이
+   기준과 거의 같은 수준으로 수행했으면 dominant_severity='none' + differences=[] (빈
+   배열) + primary_fault='없음' 으로 응답하세요. 억지 결함 격상 금지.
+2. **촬영 각도/거리/배경/화질/조명/카메라 흔들림의 차이는 결함이 아닙니다.** 두 영상의
+   촬영 조건이 달라도 그 자체를 편차로 보고하지 마세요. 오직 학생의 **자세/관절 각도/
+   신전/라인** 이 기준 대비 어떻게 다른지만 평가하세요.
+3. dominant_severity 기준 (기준 영상 대비 학생의 지배적 편차 수준):
+   - none     : 기준과 사실상 동일 — 명확한 편차 없음. 점수를 깎을 이유 없음.
+   - minor    : 경미한 편차 — 다듬으면 좋지만 동작 성립에 지장 없음.
+   - moderate : 분명히 보이는 부분적 편차 (예: 기준 대비 다리 신전 부족, 라인 흐트러짐).
+   - major    : 동작의 본질/성공을 해치는 명확한 편차 (예: 핵심 그립/자세가 기준과 다름).
+   확실치 않으면 한 단계 낮게(보수적으로) 보고하세요.
+4. 점수를 매기지 마세요. "85점", "89%", "8/10", "100/100" 같은 숫자 점수/일치율 표현 금지.
+   대신 **기준 대비 관절 각도(도)**, **라인 정렬/굽음**, **뻗기 갭(도)** 같은 관찰적
+   비교 사실만 기술하세요.
+5. differences 에는 **실제로 기준 대비 관찰된 편차만** 담으세요 (없으면 빈 배열). 각 항목
+   severity 도 none/minor/moderate/major 로 보수적으로.
+6. primary_fault = 기준 대비 가장 지배적인 단일 편차 (편차 없으면 '없음').
+7. 한국어로 작성. 비교가 불확실하면 confidence 를 낮게 표기."""
+
+
+def _build_comparison_prompt(at_seconds: float | None) -> str:
+    """비교 프롬프트 + (있으면) worst-pose 시점 힌트. _build_prompt 미러.
+
+    프롬프트 문자열을 바꾸면 PROMPT_VERSION 도 bump 할 것 (캐시 무효화).
+    """
+    if at_seconds is None:
+        return _COMPARISON_PROMPT
+    return (
+        f"{_COMPARISON_PROMPT}\n\n참고: 약 {at_seconds:.1f}초 부근의 "
+        "지배 편차 pose 에 특히 주목하세요."
+    )
+
+
 # ─────────────────── VisionVetoCache (전용, MEDIUM-2 + iter2) ───────────────────
 
 
@@ -230,8 +286,11 @@ def _build_prompt(at_seconds: float | None) -> str:
 class VisionVetoCache:
     """severity verdict 전용 캐시 — recognizer TechniqueCache 키 재사용 금지.
 
-    키 = (video_hash, model_name, PROMPT_VERSION, SCHEMA_VERSION,
+    키 = (video_hash, reference_hash, model_name, PROMPT_VERSION, SCHEMA_VERSION,
           input_granularity, at_seconds_bucket).
+      · reference_hash 포함 (v4.0) → 비교(reference-anchored) verdict 는 (학생, 기준)
+        PAIR 에 keying. 기준 영상이 바뀌면 다른 키 (다른 비교 = 다른 verdict).
+        단일 영상(비교 아님) 경로는 reference_hash=None → 'noref' bucket.
       · PROMPT_VERSION/SCHEMA_VERSION 포함 → prompt/schema bump 시 자동 cache-miss
         (MEDIUM-2 stale 무효화).
       · input_granularity 포함 → whole-video verdict 와 future frame-input verdict
@@ -252,13 +311,18 @@ class VisionVetoCache:
         model_name: str,
         input_granularity: str = INPUT_GRANULARITY,
         at_seconds: float | None = None,
+        reference_hash: str | None = None,
     ) -> str:
         """캐시 키 직렬화 — PROMPT_VERSION/SCHEMA_VERSION 은 호출 시점 상수 반영.
 
         PROMPT_VERSION/SCHEMA_VERSION 을 모듈 globals 에서 읽으므로 monkeypatch
         (테스트) / 실 bump 모두 즉시 키에 반영된다(stale 무효화).
+
+        reference_hash (v4.0): 비교(reference-anchored) 경로면 기준 영상 hash 를 키에
+        포함 → (학생, 기준) PAIR keying. None(단일 영상 경로)이면 'noref'.
         """
         bucket = "whole" if at_seconds is None else f"t{int(round(at_seconds))}"
+        ref_bucket = "noref" if reference_hash is None else reference_hash
         # 모듈 globals 참조 — 테스트 monkeypatch 가 키에 반영되도록 globals() 경유.
         prompt_v = globals()["PROMPT_VERSION"]
         schema_v = globals()["SCHEMA_VERSION"]
@@ -266,6 +330,7 @@ class VisionVetoCache:
             (
                 VisionVetoCache._VISION_VETO_NS,
                 video_hash,
+                ref_bucket,
                 model_name,
                 prompt_v,
                 schema_v,
@@ -443,7 +508,9 @@ def _state_name(f) -> str:
 
 
 def assess_fault_severity(
-    local_video_path: str, at_seconds: float | None = None
+    local_video_path: str,
+    at_seconds: float | None = None,
+    reference_video_path: str | None = None,
 ) -> VisionVerdict | None:
     """영상 → 결함-심각도 VisionVerdict | None (객관성·결정론·adapter-boundary).
 
@@ -451,10 +518,19 @@ def assess_fault_severity(
     vision veto 토글 env 는 읽지 않는다. 토글 게이트는 호출자(pipeline 20-03)
     책임. 본 어댑터는 키/client/캐시/local 파일/Gemini 응답 유효성만 게이트한다.
 
+    두 가지 모드 (v4.0):
+      · COMPARISON (reference_video_path 제공) — Mode1: 기준(정타) 영상 vs 학생 영상
+        둘 다 업로드 → 비교 프롬프트. severity = 기준 대비 학생 편차. 캐시 키 =
+        (student_hash, reference_hash) PAIR. belle 결정 (2026-06-20).
+      · SINGLE (reference_video_path=None) — 단일 영상 진공 판정 (back-compat).
+        Mode3 는 belle 보류로 이 어댑터를 호출하지 않지만 경로는 유지.
+
     Args:
-      local_video_path: caller 가 이미 받은 local 영상 (B4 — 재다운로드 0).
+      local_video_path: caller 가 이미 받은 학생 local 영상 (B4 — 재다운로드 0).
       at_seconds: worst-pose 시점 힌트(20-01 worst_pose_timestamp). 지금은 프롬프트
         힌트 + 캐시 키 bucket 으로만 사용(Open Q1 = whole-video 업로드 default).
+      reference_video_path: 제공 시 COMPARISON 모드 — 기준(정타) local 영상.
+        caller 가 S3 에서 받아 전달 (B4 — 어댑터는 재다운로드 0).
 
     Returns:
       VisionVerdict(primary_fault, severity, differences) hit/성공. **score 필드 없음.**
@@ -467,11 +543,16 @@ def assess_fault_severity(
         log.warning("Gemini client 사용 불가 — verdict=None (graceful): %s", exc)
         return None
 
-    # (2) video_hash → 캐시 키. video_hash 만 PII 로 로그(경로/원본 미로그).
+    # (2) video_hash (+ 비교 시 reference_hash) → 캐시 키. hash 만 PII 로 로그.
     try:
         from .technique_cache import compute_video_hash
 
         video_hash = compute_video_hash(local_video_path)
+        reference_hash = (
+            compute_video_hash(reference_video_path)
+            if reference_video_path is not None
+            else None
+        )
     except FileNotFoundError:
         log.warning("local 영상 없음 — verdict=None (graceful)")
         return None
@@ -485,6 +566,7 @@ def assess_fault_severity(
         model_name=DEFAULT_VISION_MODEL,
         input_granularity=INPUT_GRANULARITY,
         at_seconds=at_seconds,
+        reference_hash=reference_hash,
     )
 
     # (3) cache hit → 저장 verdict 반환 (Gemini 호출 0, 결정론 D-06).
@@ -494,9 +576,16 @@ def assess_fault_severity(
         return cached
 
     # (4) miss → 영상 업로드 + generate_content (temp 0.0).
+    #     COMPARISON 이면 기준 영상 먼저 + 학생 영상 둘 다 업로드 → 비교 프롬프트.
     try:
         uploaded = _upload_video(client, local_video_path, at_seconds)
-        raw_text = _call_gemini(client, uploaded, at_seconds)
+        if reference_video_path is not None:
+            ref_uploaded = _upload_video(client, reference_video_path, at_seconds)
+            raw_text = _call_gemini_comparison(
+                client, ref_uploaded, uploaded, at_seconds
+            )
+        else:
+            raw_text = _call_gemini(client, uploaded, at_seconds)
     except Exception as exc:  # noqa: BLE001 - API/업로드 실패 graceful (Pitfall 5)
         log.warning("Gemini 호출 실패 — verdict=None (graceful): %s", exc)
         return None
@@ -535,6 +624,38 @@ def _call_gemini(client, uploaded, at_seconds: float | None) -> str:
     response = client.models.generate_content(
         model=DEFAULT_VISION_MODEL,
         contents=["분석 영상:", uploaded, _build_prompt(at_seconds)],
+        config=config,
+    )
+    return getattr(response, "text", "") or ""
+
+
+def _call_gemini_comparison(
+    client, ref_uploaded, student_uploaded, at_seconds: float | None
+) -> str:
+    """비교(reference-anchored) generate_content — 기준 영상 먼저 + 학생 영상 (temp 0.0).
+
+    contents 순서 = [기준 라벨, 기준 영상, 학생 라벨, 학생 영상, 비교 프롬프트].
+    response_schema/temperature/thinking 는 단일 경로와 동일 (객관성·결정론 동일 보장).
+    """
+    from google.genai import types as genai_types  # lazy
+
+    config = genai_types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=build_schema(),
+        temperature=0.0,
+        max_output_tokens=4096,
+        thinking_config=genai_types.ThinkingConfig(thinking_budget=-1),
+        http_options=genai_types.HttpOptions(timeout=180_000),
+    )
+    response = client.models.generate_content(
+        model=DEFAULT_VISION_MODEL,
+        contents=[
+            "기준(정타) 영상:",
+            ref_uploaded,
+            "평가 대상(학생) 영상:",
+            student_uploaded,
+            _build_comparison_prompt(at_seconds),
+        ],
         config=config,
     )
     return getattr(response, "text", "") or ""

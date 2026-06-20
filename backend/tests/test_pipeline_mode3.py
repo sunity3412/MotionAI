@@ -382,20 +382,20 @@ def test_vision_veto_minor_no_mutation(monkeypatch):
     assert out["visionVeto"]["status"] == "not_applicable"
 
 
-def test_vision_veto_placeholder_cap_no_mutation(monkeypatch):
-    # iter2 HIGH-1 보강 — production placeholder cap=None (monkeypatch 없음) +
-    # severity='major' → 불변 + status='not_applicable'. 20-04 전 cap 미적용이 정상
-    # (provenance fail-closed 정합).
+def test_vision_veto_clean_form_no_mutation(monkeypatch):
+    # over-penalization fix (2026-06-20) — caps 활성화(major=50) 상태에서도 정타
+    # (severity='none') 는 cap 미적용 + status='not_applicable'. 정은지 정타가 major 로
+    # 스탬프돼 50 으로 깎이던 버그의 회귀 가드. SEVERITY_CAP['none'] 부재 → 불변.
     _enable_veto(monkeypatch)
-    assert vision_veto.SEVERITY_CAP["major"] is None  # production placeholder 확인
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
     monkeypatch.setattr(
         gemini_vision_scorer,
         "assess_fault_severity",
-        lambda *a, **k: _StubVerdict("major"),
+        lambda *a, **k: _StubVerdict("none"),
     )
     score_result = {"overallScore": 100, "dimensionScores": {"line": 100}}
     out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
-    assert out["overallScore"] == 100
+    assert out["overallScore"] == 100  # 정타 95~100 보존
     assert out["visionVeto"]["status"] == "not_applicable"
 
 

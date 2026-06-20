@@ -67,8 +67,8 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v2.0"
-SCHEMA_VERSION = "v2.0"
+PROMPT_VERSION = "v3.0"  # v3.0 (2026-06-20): clean-form escape (dominant_severity none) — over-penalization fix
+SCHEMA_VERSION = "v3.0"  # v3.0: dominant_severity 필드 추가 + severity enum 에 none
 
 # Gemini 모델 — [[gemini-latest-model-versions]] suffix(-preview) 필수.
 DEFAULT_VISION_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
@@ -77,7 +77,8 @@ DEFAULT_VISION_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
 # 미래 frame-input 최적화 시 'frame' 등으로 분기 → 캐시 키 충돌 방지(iter2 non-blocking).
 INPUT_GRANULARITY = "whole"
 
-_SEVERITY_ENUM = ("minor", "moderate", "major")
+# 'none' = 명백한 결함 없음(정타) → cap 미적용. over-penalization fix (2026-06-20).
+_SEVERITY_ENUM = ("none", "minor", "moderate", "major")
 _ALLOWED_SEVERITY = set(_SEVERITY_ENUM)
 
 # 점수 라벨 누출 방어 — 응답 text 에 점수/일치율 숫자 패턴 검출 시 verdict 폐기.
@@ -127,9 +128,14 @@ def build_schema() -> dict:
         "type": "object",
         "properties": {
             "motion": {"type": "string"},
+            "dominant_severity": {
+                "type": "string",
+                "enum": list(_SEVERITY_ENUM),
+                "description": "영상 전체의 지배적 결함 수준. 정타(결함 없음)=none → cap 미적용. 점수 아님.",
+            },
             "primary_fault": {
                 "type": "string",
-                "description": "점수를 가장 크게 끌어내릴 지배적 단일 결함 (도메인 설명, 숫자 점수 금지)",
+                "description": "지배적 단일 결함 (결함 없으면 '없음'. 도메인 설명, 숫자 점수 금지)",
             },
             "differences": {
                 "type": "array",
@@ -176,7 +182,7 @@ def build_schema() -> dict:
                 "enum": ["low", "medium", "high"],
             },
         },
-        "required": ["motion", "primary_fault", "differences"],
+        "required": ["motion", "dominant_severity", "primary_fault", "differences"],
     }
 
 
@@ -185,15 +191,26 @@ def build_schema() -> dict:
 _PROMPT = """\
 당신은 IPSF(국제폴스포츠연맹) Code of Points 기준에 정통한 폴스포츠 동작 분석가입니다.
 
-이 영상의 폴스포츠 동작 수행에서 **무엇이·어디가 잘못됐는지**를 IPSF 기준으로 짚으세요.
+이 영상의 폴스포츠 동작 수행을 IPSF 기준으로 **공정하게 평가**하세요. 결함을 억지로
+찾아내는 것이 목적이 아닙니다 — **명백한 결함이 있으면 그 심각도를, 없으면 "없음"을** 보고합니다.
 
-규칙 (반드시 준수):
-1. 점수를 매기지 마세요. "85점", "89%", "8/10", "100/100" 같은 숫자 점수/일치율 표현 금지.
-2. 대신 **관절 각도(도)**, **신체 라인의 정렬/굽음**, **뻗기 갭(완전 신전 대비 부족분, 도)** 같은
-   기하학적/관찰적 사실만 기술하세요. 각도는 "약 X도" 수준의 추정으로 충분합니다.
-3. 심각도는 minor / moderate / major 세 단계 정성 라벨로만 표기.
-4. 가장 지배적인 단일 결함(primary_fault)을 하나 지목하세요 (점수를 크게 끌어내릴 결함).
-5. 한국어로 작성. 추측이 불확실하면 confidence 를 낮게 표기."""
+가장 중요한 규칙 (반드시 준수):
+1. **정타(올바른 수행)는 결함을 만들어내지 마세요.** 자세가 IPSF 기준에 부합하고 명백한
+   결함이 없으면 dominant_severity='none' + differences=[] (빈 배열) + primary_fault='없음'
+   으로 응답하세요. 전문 선수/숙련 수행은 대부분 'none' 또는 'minor' 입니다 — 사소한
+   촬영 각도·미세 흔들림을 결함으로 격상하지 마세요.
+2. dominant_severity 기준 (영상 전체의 지배적 결함 수준):
+   - none     : 명백한 결함 없음 (IPSF 기준 정타). 점수를 깎을 이유 없음.
+   - minor    : 경미 — 다듬으면 좋지만 동작 성립에 지장 없음.
+   - moderate : 분명히 보이는 부분적 결함 (예: 다리 신전 부족, 라인 약간 흐트러짐).
+   - major    : 동작의 본질/성공을 해치는 명백한 결함 (예: 핵심 그립 풀림, 핵심 자세 붕괴).
+   확실치 않으면 한 단계 낮게(보수적으로) 보고하세요.
+3. 점수를 매기지 마세요. "85점", "89%", "8/10", "100/100" 같은 숫자 점수/일치율 표현 금지.
+   대신 **관절 각도(도)**, **라인 정렬/굽음**, **뻗기 갭(도)** 같은 관찰적 사실만 기술.
+4. differences 에는 **실제로 관찰된 결함만** 담으세요 (없으면 빈 배열). 각 항목 severity 도
+   none/minor/moderate/major 로 보수적으로.
+5. primary_fault = 가장 지배적인 단일 결함 (결함 없으면 '없음').
+6. 한국어로 작성. 추측이 불확실하면 confidence 를 낮게 표기."""
 
 
 def _build_prompt(at_seconds: float | None) -> str:
@@ -542,10 +559,14 @@ def _parse_verdict(raw_text: str) -> VisionVerdict | None:
     if not isinstance(differences, list):
         differences = []
 
-    # severity = differences 중 가장 심각한 라벨 (없으면 None → graceful).
-    severity = _dominant_severity(differences)
-    if severity is None:
-        return None
+    # severity 우선순위: (1) Gemini 가 직접 보고한 dominant_severity(none 포함),
+    # (2) 없으면 differences 중 최악, (3) 둘 다 없으면 'none'(cap 미적용 — 모호하면
+    # 처벌 안 함). over-penalization fix: 정타에서 억지 cap 방지 (2026-06-20).
+    declared = str(payload.get("dominant_severity", "")).strip().lower()
+    if declared in _ALLOWED_SEVERITY:
+        severity = declared
+    else:
+        severity = _dominant_severity(differences) or "none"
 
     return VisionVerdict(
         primary_fault=primary_fault,
@@ -556,7 +577,7 @@ def _parse_verdict(raw_text: str) -> VisionVerdict | None:
 
 def _dominant_severity(differences: list) -> str | None:
     """differences 중 최악 severity enum. 유효 라벨 없으면 None."""
-    rank = {"minor": 1, "moderate": 2, "major": 3}
+    rank = {"none": 0, "minor": 1, "moderate": 2, "major": 3}
     worst = None
     worst_rank = 0
     for d in differences:

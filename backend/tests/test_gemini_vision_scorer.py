@@ -177,9 +177,35 @@ def test_assess_returns_severity_enum(monkeypatch, fake_video):
 
     verdict = assess_fault_severity(fake_video)
     assert verdict is not None
-    assert verdict.severity in {"minor", "moderate", "major"}
+    assert verdict.severity in {"none", "minor", "moderate", "major"}
     assert not hasattr(verdict, "score")
     assert getattr(verdict, "score", None) is None
+
+
+_CLEAN_JSON = (
+    '{"motion": "kip-up", "dominant_severity": "none", '
+    '"primary_fault": "없음", "differences": []}'
+)
+
+
+def test_clean_form_reports_none_no_cap(monkeypatch, fake_video):
+    """정타(dominant_severity none + 빈 differences) → severity 'none' → cap 미적용.
+
+    over-penalization fix (2026-06-20): 정은지 정타가 major 로 스탬프돼 50 으로 깎이던
+    버그의 회귀 가드. clean form 은 점수를 깎지 않는다.
+    """
+    from sunity_shared.analysis import vision_veto
+
+    _in_memory_cache(monkeypatch)
+    client = _FakeClient(_CLEAN_JSON)
+    _patch_client(monkeypatch, client)
+
+    verdict = assess_fault_severity(fake_video)
+    assert verdict is not None
+    assert verdict.severity == "none"
+    # apply_downward_cap 은 'none' 에서 점수 불변 (정타 95~100 보존, D-01).
+    assert vision_veto.apply_downward_cap(100, verdict.severity) == 100
+    assert vision_veto.apply_downward_cap(97, verdict.severity) == 97
 
 
 def test_determinism_cache_same_key(monkeypatch, fake_video):

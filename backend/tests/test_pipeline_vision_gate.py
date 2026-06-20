@@ -156,10 +156,16 @@ class TestKeepLocalVideoGate:
         assert (app._gemini_enabled() or app._gemini_vision_enabled()) is False
 
     def test_gate_line_present_in_source(self) -> None:
-        """grep 회귀 박제 — pipeline/app.py 의 _extract_video_analysis_inputs 호출이
-        `keep_local_video=_gemini_enabled() or _gemini_vision_enabled()` 박제로 갱신."""
+        """grep 회귀 박제 — keep_local_video 게이트가 3 토글 OR.
+
+        Phase 20-03 HIGH-1: veto 만 ON 인 경우에도 local_video_path 가 보존되도록
+        `_gemini_vision_veto_enabled()` 를 게이트에 추가 (multi-line). 세 토글 OR 가
+        모두 소스에 존재함을 단언 (포맷 무관 — 토큰 단위)."""
         source = (_PIPELINE / "app.py").read_text(encoding="utf-8")
-        assert "_gemini_enabled() or _gemini_vision_enabled()" in source
+        # 게이트 컴포넌트 토큰 (multi-line 포맷이라 정확 문자열 대신 토큰 단위).
+        assert "_gemini_enabled()" in source
+        assert "_gemini_vision_enabled()" in source
+        assert "_gemini_vision_veto_enabled()" in source  # HIGH-1 veto 토글 추가
 
     def test_gemini_vision_enabled_defined_in_source(self) -> None:
         source = (_PIPELINE / "app.py").read_text(encoding="utf-8")

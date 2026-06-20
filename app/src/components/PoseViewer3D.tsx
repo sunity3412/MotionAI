@@ -73,6 +73,64 @@ const COCO17_BONES: readonly [number, number][] = [
   [14, 16], // R knee→ankle
 ];
 
+// ── Axis spread / degenerate-depth 분석 (Phase 20 UI ③) ───────────────────
+// RTMW 3D 출력은 실측 깊이를 못 만들어 joints3d 의 y≈0 (수직 분산이 Z 축에 있음:
+// z spread ~235, x ~95, y=0). 정면 카메라([0,0,3])가 X-Y 평면을 보면 Y≈0 이라
+// 스켈레톤이 한 줄(flat)로 깔린다. → 분산이 큰 축을 화면 수직(Y)으로 매핑.
+//
+// 반환: 각 축(x/y/z)의 min-max spread + 깊이가 사실상 0 인지(isDegenerateDepth).
+interface AxisStats {
+  spread: [number, number, number]; // [x, y, z]
+  isDegenerateDepth: boolean;
+}
+
+function analyzeAxisSpread(joints: number[][][]): AxisStats {
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (const frame of joints) {
+    if (!Array.isArray(frame)) continue;
+    for (const p of frame) {
+      if (!Array.isArray(p) || p.length !== 3) continue;
+      for (let a = 0; a < 3; a += 1) {
+        const v = p[a];
+        if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+        if (v < min[a]) min[a] = v;
+        if (v > max[a]) max[a] = v;
+      }
+    }
+  }
+  const spread: [number, number, number] = [0, 0, 0];
+  for (let a = 0; a < 3; a += 1) {
+    spread[a] = Number.isFinite(max[a]) && Number.isFinite(min[a]) ? max[a] - min[a] : 0;
+  }
+  // 깊이 축(원근감을 만드는 가로/세로 외 나머지 축)이 다른 축 대비 사실상 0 이면
+  // 진짜 3D 가 아님. "가장 작은 축 spread < 가장 큰 축 spread × 0.1" 휴리스틱.
+  const maxSpread = Math.max(spread[0], spread[1], spread[2]);
+  const minSpread = Math.min(spread[0], spread[1], spread[2]);
+  const isDegenerateDepth = maxSpread > 0 && minSpread < maxSpread * 0.1;
+  return { spread, isDegenerateDepth };
+}
+
+// 분산이 가장 큰 축을 화면 수직(Y)으로, 두 번째로 큰 축을 화면 수평(X)으로 매핑한
+// frame 좌표를 반환 (깊이 fabricate 금지 — 단순 축 재배치). 정면 위주 2D 스켈레톤.
+// joints 가 정상 3D(비퇴화)면 항등 매핑(원좌표 그대로).
+function remapFrameForFrontView(
+  frame: number[][],
+  spread: [number, number, number],
+  degenerate: boolean,
+): number[][] {
+  if (!degenerate) return frame;
+  // 분산 큰 순서로 축 인덱스 정렬. vertical = 최대, horizontal = 차순.
+  const order = [0, 1, 2].sort((a, b) => spread[b] - spread[a]);
+  const vAxis = order[0]; // 화면 수직(Y)
+  const hAxis = order[1]; // 화면 수평(X)
+  return frame.map((p) => {
+    if (!Array.isArray(p) || p.length !== 3) return p;
+    // depth(Z)=0 으로 평탄화 — 가짜 깊이 생성 금지. X=수평축, Y=수직축.
+    return [p[hAxis], p[vAxis], 0];
+  });
+}
+
 // ── Canvas / GL ErrorBoundary (R8) ───────────────────────────────────────
 // expo-gl GL 컨텍스트 초기화 실패 / Three.js 마운트 충돌 / 구형 기기 호환성
 // 이슈로 throw 가 나도 result.tsx route 전체가 죽지 않도록 격리. fallback 은
@@ -344,9 +402,22 @@ export function PoseViewer3D({
 
   const totalFrames = joints.length;
   const safeFrameIdx = Math.max(0, Math.min(totalFrames - 1, currentFrame));
-  const frame = joints[safeFrameIdx];
+  const rawFrame = joints[safeFrameIdx];
   const isIpsfViolation =
     ipsfViolationFrames?.includes(safeFrameIdx) ?? false;
+
+  // Phase 20 (UI ③) — flat-line 근본 수정. RTMW 가 실측 깊이를 못 만들어 한 축
+  // (보통 y) 의 spread 가 ~0 이라 정면 카메라에서 스켈레톤이 한 줄로 깔린다.
+  // 분산이 큰 축을 화면 수직으로 재매핑해 정면 2D 스켈레톤이 똑바로 서게 한다.
+  // 깊이가 사실상 0 이면(isDegenerateDepth) 회전을 끄고 안내 문구를 보인다 —
+  // 가짜 깊이는 절대 만들지 않는다. (early-return 이후 = joints 항상 non-null,
+  // 기존 useState 패턴과 동일하게 hook 외부 계산.)
+  const axisStats = analyzeAxisSpread(joints);
+  const frame = remapFrameForFrontView(
+    rawFrame,
+    axisStats.spread,
+    axisStats.isDegenerateDepth,
+  );
 
   // CameraPresetBar active state — 본 wave 에서는 button tap 시 OrbitControls
   // 가 사용자 제스처로 다시 회전시키므로 단순 시각적 토글로 유지.
@@ -359,13 +430,20 @@ export function PoseViewer3D({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.sectionTitle}>3D 자세 뷰어</Text>
-        <Text style={styles.hint}>손가락으로 돌려보세요</Text>
+        {/* Phase 20 (UI ③) — 깊이 퇴화 시 회전 affordance 카피 약화. */}
+        <Text style={styles.hint}>
+          {axisStats.isDegenerateDepth ? '정면 위주 보기' : '손가락으로 돌려보세요'}
+        </Text>
       </View>
       <ErrorBoundary>
         <View
           style={styles.canvas}
           accessibilityRole="image"
-          accessibilityLabel="3D 자세 뷰어, 손가락으로 회전 가능"
+          accessibilityLabel={
+            axisStats.isDegenerateDepth
+              ? '자세 뷰어, 정면 위주 보기 (깊이 추정 제한)'
+              : '3D 자세 뷰어, 손가락으로 회전 가능'
+          }
         >
           <Canvas
             camera={{
@@ -382,12 +460,30 @@ export function PoseViewer3D({
             <SkeletonMesh frame={frame} isIpsfViolation={isIpsfViolation} />
             {/* drei OrbitControls /native 직접 사용 (resume-signal
                 "approved OrbitControls:true" 박제). UI-SPEC §인터랙션 — 회전 /
-                줌 / 더블탭 리셋. */}
-            <OrbitControls enableRotate enableZoom enablePan={false} />
+                줌 / 더블탭 리셋.
+                Phase 20 (UI ③): 깊이 퇴화(가짜 3D) 시 회전 비활성 — 한 면짜리
+                스켈레톤을 돌리면 선으로 보여 "3D 인 척" 오해. 줌만 유지. */}
+            <OrbitControls
+              enableRotate={!axisStats.isDegenerateDepth}
+              enableZoom
+              enablePan={false}
+            />
           </Canvas>
         </View>
       </ErrorBoundary>
-      <CameraPresetBar active={activePreset} onSelect={setActivePreset} />
+      {/* Phase 20 (UI ③) — 깊이 추정 제한 안내. 가짜 깊이 fabricate 대신 정직하게
+          정면 위주임을 알린다. 토큰만 (하드코딩 금지). */}
+      {axisStats.isDegenerateDepth && (
+        <Text style={styles.depthNote}>
+          깊이 추정이 제한적이라 정면 위주로 보여드려요.
+        </Text>
+      )}
+      {/* Phase 20 (UI ③) — 깊이 퇴화 시 시점 프리셋(측면/후면/위) 숨김. 평탄화된
+          2D 스켈레톤을 옆에서 보면 다시 선으로 보여 flat-line 오해 재발. 정면만
+          의미 있으므로 프리셋 바 자체를 비노출 (회전도 이미 비활성). */}
+      {!axisStats.isDegenerateDepth && (
+        <CameraPresetBar active={activePreset} onSelect={setActivePreset} />
+      )}
       <TimelineScrubber
         totalFrames={totalFrames}
         currentFrame={safeFrameIdx}
@@ -424,6 +520,15 @@ const styles = StyleSheet.create({
   canvas: {
     height: 280, // UI-SPEC 고정값
     backgroundColor: colors.viewer3dBg,
+  },
+  // Phase 20 (UI ③) — 깊이 추정 제한 안내 1줄. 보조 톤, 토큰만.
+  depthNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: spacing.screenX,
+    paddingBottom: 12,
   },
   // Phase 20 (UI A3) — joints3d 부재 시 빈 회색 박스 대신 친절한 안내.
   emptyState: {

@@ -427,6 +427,31 @@ export function VideoCompare({
         />
       </View>
 
+      {/* Phase 20 (UI A4) — "자동 구간 맞춤" 신뢰 배지.
+          belle 가 서로 다른 시작점의 두 영상을 자동 정렬한 점을 호평 → 이 정렬이
+          의도된 것임을 사용자에게 정직하게 알린다. 두 영상이 모두 있을 때만 노출
+          (단일 영상은 정렬 대상 없음).
+
+          LIGHT 버전(이번 plan): 정적 배지 + 한 줄 설명만. 신규 백엔드 데이터 /
+          수치 신뢰도(alignment confidence) 없음 — 가짜 수치 금지.
+          TODO(deferred-backend): 실 정렬 신뢰도(DTW 매칭 품질 등)를 백엔드가
+          내려주면 배지에 수치/강도를 표시. 현재는 contract 에 필드 없어 정적. */}
+      {hasLeft && hasRight && (
+        <View style={styles.alignBadgeRow}>
+          <View style={styles.alignBadge}>
+            <Ionicons
+              name="git-compare-outline"
+              size={12}
+              color={colors.brand}
+            />
+            <Text style={styles.alignBadgeText}>자동 구간 맞춤</Text>
+          </View>
+          <Text style={styles.alignBadgeHint}>
+            서로 다른 시작점을 핵심 구간 기준으로 자동 정렬했어요.
+          </Text>
+        </View>
+      )}
+
       {hasAny ? (
         <View style={styles.controls}>
           <Pressable
@@ -655,5 +680,29 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  // Phase 20 (UI A4) — 자동 정렬 신뢰 배지 + 한 줄 설명 (정적, 토큰만).
+  alignBadgeRow: {
+    gap: 4,
+  },
+  alignBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 9,
+    backgroundColor: colors.brandTint,
+  },
+  alignBadgeText: {
+    ...typography.captionSmall,
+    color: colors.brand,
+    fontWeight: '700',
+  },
+  alignBadgeHint: {
+    ...typography.captionSmall,
+    color: colors.textSecondary,
+    lineHeight: 15,
   },
 });

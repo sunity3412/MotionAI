@@ -4,7 +4,7 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 20 plan REVIEW-CONVERGED (8 외부 iter + self cross-review iter9 = EXECUTION-READY, HIGH/MEDIUM 0). Wave 1-2 pod-free 실행 가능, Wave 3=Pod terminal gate
-last_updated: "2026-06-20T07:58:30.455Z"
+last_updated: "2026-06-20T08:14:11.261Z"
 last_activity: 2026-06-20
 progress:
   total_phases: 4
@@ -601,6 +601,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 19-02: DimensionExplanation.contributesToOverall OPTIONAL 3중 계약 추가 + 비기여 weightPercent=0 (HIGH-1)
 - [Phase ?]: 20-02: Gemini 결함-심각도 어댑터 — VisionVerdict(no-score) + 객관성 introspection 가드 + prompt/schema-versioned VisionVetoCache 결정론 + 토글 미소유(pipeline 소유)
 - [Phase ?]: 20-03: 비전 거부권 통합 — _apply_vision_veto 하향-전용 mutation + visionVeto status enum audit + Mode3 점수카드 전체 억제(resolver provenance + reason-owns-copy + producer-contract fail-loud). pod-free, 실 정량 게이트는 20-04 Pod sweep
+- [Phase 20]: 20-04 (spec-anchored variant): vision veto SEVERITY_CAP activated — major=50 (belle spec ≤50), moderate=75 (IPSF severity), minor=None. method=spec_anchored; phase18 6 pairs regression-only (never derivation). Sensitivity-derived eval deferred to follow-up.
 
 ### Pending Todos
 

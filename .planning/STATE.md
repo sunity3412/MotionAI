@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: completed
+status: executing
 stopped_at: Phase 20 plan REVIEW-CONVERGED (8 외부 iter + self cross-review iter9 = EXECUTION-READY, HIGH/MEDIUM 0). Wave 1-2 pod-free 실행 가능, Wave 3=Pod terminal gate
-last_updated: "2026-06-19T16:12:10.233Z"
-last_activity: "2026-06-20 - Completed quick task 260620-0r0: Mode3 점수 역전 버그(#8) 수정"
+last_updated: "2026-06-20T07:30:03.653Z"
+last_activity: 2026-06-20
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
   percent: 25
 ---
 
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Milestone complete
+**Current focus:** Phase 20 — v2-gemini
 
 ## Current Position
 
-Phase: 19
-Plan: Not started
+Phase: 20 (v2-gemini) — EXECUTING
+Plan: 2 of 4
 Verification: 13-C — `assemble.assemble_dual_coach_sections` 섹션 조립 + cross-fill 폴백 7 케이스 PASS / phase13 88 passed (81+7, 회귀 0) / pipeline+geminib+dispatch 포함 131 passed / app tsc --noEmit clean / 자세히 모달 벤더명 렌더 텍스트 0 / gemini_b dual-track audit Firestore flat 검증 통과 / GEMINI_COACH_ENABLED=0 Cerebras-only path 보존. 3 atomic commit (8ec9dc5/4f7f7aa/340d0c9).
 Next: Phase 15 (실증) — 실 영상 → 실 dual-LLM 섹션 조립 E2E 라이브 검증 + "둘 중 하나 drop 여부" 결정 (13-C 빌드 ≠ drop 결정). Pod 기동 + 라이브 LLM 호출은 Phase 15 scope.
-Status: Milestone complete
+Status: Ready to execute
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -64,7 +64,7 @@ Status: Milestone complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-20 - Completed quick task 260620-0r0: Mode3 점수 역전 버그(#8) 수정
+Last activity: 2026-06-20
 
 ### Quick Tasks Completed
 
@@ -289,7 +289,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [██████████] 100%
+Progress: [██████░░░░] 63%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -529,6 +529,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 15 P04 | 75min | 3 tasks | 2 files |
 | Phase 19-vision-hybrid P01 | 18min | 2 tasks | 4 files |
 | Phase 19 P02 | 14 | 2 tasks | 8 files |
+| Phase 20 P01 | 14 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -628,7 +629,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-19T14:28:28.397Z
+Last session: 2026-06-20T07:30:03.643Z
 
 Stopped at: Phase 20 plan REVIEW-CONVERGED (8 외부 iter + self cross-review iter9 = EXECUTION-READY, HIGH/MEDIUM 0). Wave 1-2 pod-free 실행 가능, Wave 3=Pod terminal gate
 
@@ -697,7 +698,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/20-v2-gemini/20-01-PLAN.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

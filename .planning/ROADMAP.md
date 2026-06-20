@@ -51,7 +51,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 15: Mode 1·Mode 3 실영상 + 신뢰도 게이트 + TestFlight** - 두 모드 end-to-end + 고수 위양성 없음 + 실기기 게스트 완주
 - [x] **Phase 16: Studio Terminology Foundation (3-branch + 5-Track v1 평행)** - 학원 용어 3분기 시스템 + IPSF 5트랙 채점 v1 scope 데이터/스펙/카피 박제. v1 평행 진행 (Phase 1~15 의존성 없음). MVP 가볍게 + 실증 단계 검증 후 확장 path. (completed 2026-06-02)
 - [x] **Phase 17: Gemini Vision Integration — 4 영역 통합** - Gemini Vision multimodal 을 영역 A(reference 자동 등록)/B(코칭 멘트)/C(finding 인식)/D(keypoint 보강) 4개에 도입 + Phoenix/Promptfoo eval + 객관성 guardrail. 7 plan 코드+배포+v5 e2e 검증. (completed 2026-06-12, roadmap reconciled 2026-06-17)
-- [~] **Phase 18: Expert deliberate-fault reference eval set** - 정은지 '일부러-실수' reference 영상을 영구 regression/eval 세트로. **2026-06-19 baseline 박제 완료(pod-free)**: `backend/evals/phase18/`(pairs.yaml 6 페어 + 비전-파생 fault 라벨 D-05 + 확정 serial baseline 스냅샷 + assert_baseline.py self-check PASS) + `.planning/phases/18-.../18-EVAL-SET.md`. EVAL baseline = power-spin 72/100·peter-pan 79/100·elbow-twist 59/100·pdshape 58/100 변별 4/4, kip-up 100/100 위양성(known)·climb not_pole(known). **남은 일(Pod 의존)**: live sweep ↔ baseline 정량 대조(drift 0 재확정) + sensitivity 셋(미보유+above-cutoff) Deferred. (Phase 15 의존)
+- [x] **Phase 18: Expert deliberate-fault reference eval set** - 정은지 '일부러-실수' reference 영상을 영구 regression/eval 세트로. **(completed 2026-06-20, verdict-level closed)** **2026-06-19 baseline 박제 완료(pod-free)**: `backend/evals/phase18/`(pairs.yaml 6 페어 + 비전-파생 fault 라벨 D-05 + 확정 serial baseline 스냅샷 + assert_baseline.py self-check PASS) + `.planning/phases/18-.../18-EVAL-SET.md`. EVAL baseline = power-spin 72/100·peter-pan 79/100·elbow-twist 59/100·pdshape 58/100 변별 4/4, kip-up 100/100 위양성(known)·climb not_pole(known). **2026-06-20 live sweep ↔ baseline 대조 완료(Pod 2yz9zre7b4d2sp/5d67d94)**: Mode1 verdict 6/6 baseline 일치(변별 4 + kip-up 위양성 + climb 게이트), fault 점수 +0~2 drift(Gemini 비결정성=Phase 20 동기, 회귀 아님). evidence=`.planning/phases/18-.../18-LIVE-DRIFT-EVIDENCE.md`. verdict-level closed. **잔여 2건 → Phase 20 으로 이관(없어진 게 아님)**: (1) sensitivity 셋(미보유+above-cutoff) = Phase 20 20-04 SEVERITY_CAP 도출 입력(필수 선행), (2) exact-score drift 0 = Phase 20 결정성(temp 0 + 캐싱) 작업 후 재평가. (Phase 15 의존)
 - [x] **Phase 19: 분석 점수 신뢰도 재설계 (vision-hybrid 채점)** - 실증에서 드러난 점수 위양성(정은지 실패영상 Mode1 94점/89%) 근본 수정 — 이중 단순평균 집계 → 감점식 IPSF 정합 + 비전-추론 하이브리드(영상+RTMW 수치 → 품질/결함 판단)를 채점 루프에 투입 + 표시값 정합·라벨·골격 좌표 버그 + Mode3 미보유동작 게이트. 절대원칙: 일반화(어떤 영상이든 정확), 보유셋 overfit 금지. (Phase 15 실증 발견 + Phase 18 eval = 검증 일부) (completed 2026-06-18)
 - [ ] **Phase 20: v2 비전 점수 (Gemini 시각 거부권)** - Phase 19 v1(감점식)이 남긴 점수 위양성을 Gemini 시각 점수로 해소. belle 스펙 게이트 = 같은 정은지 95~100 / 잘못된 동작 ≤50 / Gemini 시각 점수. Phase 18 EVAL baseline = known-answer gate. 대상 3: (1) kip-up 위양성 100/100 — 비-각도형 실패를 DTW가 흡수하는 angle 맹점에 Gemini 시각 거부권, (2) 상단 변별(within-20°=일률 100) + Gemini 인식기 결정성(temp 0 + reference profile 캐싱), (3) Mode3 미보유동작 유효성 게이트(reference-free라 not_pole 미적용) + 점수근거 화면 표시. climb not_pole = 별도 ref-quality 트랙(코드 아님). 구현/eval은 Pod 필요. (Phase 18·19 의존)
 
@@ -594,8 +594,9 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 
 Plans:
 
-- [~] baseline fixture 박제(pod-free, 2026-06-19) — `backend/evals/phase18/` + `18-EVAL-SET.md` + self-check PASS
-- [ ] Pod 재개 후 live sweep ↔ baseline 정량 대조 + 정식 plan (run /gsd-plan-phase 18)
+- [x] baseline fixture 박제(pod-free, 2026-06-19) — `backend/evals/phase18/` + `18-EVAL-SET.md` + self-check PASS
+- [x] live sweep ↔ baseline 정량 대조 (2026-06-20, Pod 2yz9zre7b4d2sp/5d67d94) — Mode1 verdict 6/6 일치, evidence `18-LIVE-DRIFT-EVIDENCE.md`
+- [→] sensitivity 셋(미보유+above-cutoff) + exact-score 재평가 = Phase 20 으로 이관 (20-04 입력 / 결정성 후속)
 
 ---
 
@@ -653,10 +654,10 @@ Plans:
   4. Gemini 인식기 결정성(temp 0 + reference profile 캐싱)으로 run 간 line 차원 변동 0
   5. Mode 3 미보유동작 유효성 게이트 + 점수근거 화면 표시(동작분류 분기)
 
-**Plans:** 4 plans, 3 waves (Wave 1-2 pod-free, Wave 3 Pod terminal gate)
+**Plans:** 1/4 plans executed
 
 Plans:
-- [ ] 20-01-PLAN.md — [Wave 1, pod-free] 순수 vision_veto 코어 (apply_downward_cap 하향전용 + SEVERITY_CAP placeholder + worst_pose_timestamp) (SCORE-08)
+- [x] 20-01-PLAN.md — [Wave 1, pod-free] 순수 vision_veto 코어 (apply_downward_cap 하향전용 + SEVERITY_CAP placeholder + worst_pose_timestamp) (SCORE-08)
 - [ ] 20-02-PLAN.md — [Wave 1, pod-free] Gemini 결함-심각도 어댑터 (no-score 스키마 + _SCORE_PATTERN 가드 + temp 0 + video-hash 캐시, mocked) (SCORE-08/TRUST-06/08)
 - [ ] 20-03-PLAN.md — [Wave 2, pod-free] _apply_vision_veto 본체 swap + visionVeto audit 3-way 계약 + Mode3 미보유 억제 + result.tsx UX (SCORE-08/TRUST-07/08)
 - [ ] 20-04-PLAN.md — [Wave 3, POD terminal] SEVERITY_CAP 도출(sensitivity 양방, 6페어 fit 금지) + serial sweep 게이트 (kip-up≤50 + 퇴행0 + 정타 95~100 + 결정론) (SCORE-09/08/TRUST-06)

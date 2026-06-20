@@ -77,6 +77,8 @@ VISION_VETO_STATUSES = (
     "disabled",         # 토글 OFF (adapter 미호출)
     "skipped_error",    # adapter None(키부재/실패) → v1 graceful + WARNING
     "missing_local_video",  # local_video_path None (graceful, HIGH-1)
+    "mode3_held",       # Mode3 = veto 보류 (고정 reference 없음, belle 2026-06-20)
+    "missing_reference",  # Mode1 인데 reference 영상 부재 → 진공 판정 회피 (graceful)
 )
 # primaryFault(UI B1): applied 시에만 동반하는 지배적 결함 DESCRIPTION(자연어). "왜 점수가
 # 내려갔는지" 앱 노출용. 점수/숫자 라벨 절대 금지(객관성). legacy doc 호환 위해 optional.

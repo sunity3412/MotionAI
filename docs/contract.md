@@ -175,7 +175,7 @@ scoreSuppressionAudit { recognizerCategory, branchReferenceFree, resolvedReason 
 
 `visionVeto` (Phase 20 SCORE-08 / TRUST-08 — 비전 하향 거부권 audit)
 ```
-status      'applied' | 'not_applicable' | 'disabled' | 'skipped_error' | 'missing_local_video'
+status      'applied' | 'not_applicable' | 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'
 severity?   'minor' | 'moderate' | 'major'   (applied 시에만 동반)
 capApplied? number  하향된 종합점수            (applied 시에만 동반)
 primaryFault? string  지배적 결함 DESCRIPTION   (applied 시에만 동반, UI B1 — "왜 내려갔는지")

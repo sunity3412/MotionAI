@@ -25,11 +25,6 @@ import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { PoseViewer3D } from '../../components/PoseViewer3D';
 import { VideoCompare } from '../../components/VideoCompare';
-import {
-  LEVEL_EXPECTED_SCORE,
-  LEVEL_LABEL_KO,
-  levelStanding,
-} from '../../lib/levels';
 import { reshapePose3dData } from '../../lib/joints';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { getSimulatedResult } from '../../lib/simulatedResult';
@@ -66,8 +61,6 @@ const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
   intermediate: '중급',
   advanced: '고급',
 };
-
-const LEVEL_ORDER: SkillLevel[] = ['basic', 'intermediate', 'advanced'];
 
 // [R1] BodyProfile snapshot 요약 — 결과 화면은 분석-당시 SNAPSHOT(storedDoc.
 // bodyProfile)을 source-of-truth 로 표기(재현성, live useBodyProfile 아님).
@@ -274,41 +267,54 @@ const ANGLE_KEY_TO_KEYPOINT: Record<string, string> = {
 // 아직 없는 케이스에서만 발동. 실 분석 경로는 loading.tsx 가 status='uploading'
 // 부터 doc 를 쓰므로 폴백이 활성화될 일은 없다.
 
-function LevelBenchmark({ score }: { score: number }) {
-  // 입문 65 / 중급 78 / 고급 88 픽스처 대비 사용자 위치. KISMAM 자체가 절대 평가라
-  // 점수의 의미를 한눈에 보이게 하는 보조 표시 — 데이터 누적되면 실 평균치로 교체.
-  const standing = levelStanding(score);
+// Phase 20 (UI ④) — 가짜 입문/중급/고급 65/78/88 티어 표시 제거 (belle 결정).
+// 픽스처 평균치(구 lib/levels.ts)는 누적 데이터가 없어 의미가 없어 제거. 대신
+// 점수에 의미를 주는 맥락을 보여준다:
+//   Mode1: "정은지 기준 {score}점 — {교정 포인트} 보완하면 더 올라가요."
+//          교정 포인트 = 비전 결함(primaryFault) 우선, 없으면 top 코칭 포인트.
+//   self delta(지난 분석 대비 +N)는 데이터가 이미 손에 있을 때만(추가 fetch 0).
+function ScoreContext({
+  score,
+  mode,
+  athleteName,
+  correctionPoint,
+  selfDelta,
+}: {
+  score: number;
+  mode: 'mode1' | 'mode3';
+  athleteName: string | null;
+  correctionPoint: string | null;
+  selfDelta: number | null;
+}) {
+  // Mode1 1차 카피 — 정은지 기준 거리 + 교정 포인트. 교정 포인트 없으면 일반 격려.
+  const primary =
+    mode === 'mode1'
+      ? correctionPoint
+        ? `${athleteName ?? '정은지'} 기준 ${score}점 — ${correctionPoint} 보완하면 더 올라가요.`
+        : `${athleteName ?? '정은지'} 기준 ${score}점이에요.`
+      : correctionPoint
+        ? `이번 분석 ${score}점 — ${correctionPoint} 보완하면 더 올라가요.`
+        : `이번 분석 ${score}점이에요.`;
+  // self delta — 데이터가 손에 있을 때만 (지난 분석 doc 이미 구독 중). 없으면 생략.
+  const deltaLine =
+    selfDelta != null && selfDelta !== 0
+      ? selfDelta > 0
+        ? `지난 분석 대비 +${selfDelta}`
+        : `지난 분석 대비 ${selfDelta}`
+      : null;
   return (
     <View style={styles.bench}>
-      <View style={styles.benchChips}>
-        {LEVEL_ORDER.map((lv) => {
-          const active = standing.band === lv;
-          return (
-            <View
-              key={lv}
-              style={[styles.benchChip, active && styles.benchChipActive]}
-            >
-              <Text
-                style={[
-                  styles.benchChipLabel,
-                  active && styles.benchChipLabelActive,
-                ]}
-              >
-                {LEVEL_LABEL_KO[lv]}
-              </Text>
-              <Text
-                style={[
-                  styles.benchChipScore,
-                  active && styles.benchChipScoreActive,
-                ]}
-              >
-                {LEVEL_EXPECTED_SCORE[lv]}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-      <Text style={styles.benchSummary}>{standing.summary}</Text>
+      <Text style={styles.benchSummary}>{highlightNumbers(primary)}</Text>
+      {deltaLine && (
+        <Text
+          style={[
+            styles.scoreDelta,
+            { color: (selfDelta ?? 0) > 0 ? colors.brand : colors.textSecondary },
+          ]}
+        >
+          {deltaLine}
+        </Text>
+      )}
     </View>
   );
 }
@@ -529,6 +535,12 @@ export default function AnalysisResult() {
   // applied 시 결함 사유(자연어 DESCRIPTION). legacy doc 호환 — optional chaining.
   const vetoPrimaryFault =
     result.visionVeto?.status === 'applied' ? result.visionVeto.primaryFault : undefined;
+
+  // Phase 20 (UI ④) — 점수 맥락 카드의 "교정 포인트". 비전 결함(primaryFault)
+  // 우선, 없으면 top 코칭 팁 제목(가장 먼저 다듬을 관절). 둘 다 없으면 null →
+  // 일반 격려 카피. 추가 fetch 0 (이미 result 에 있는 데이터만 사용).
+  const correctionPoint =
+    vetoPrimaryFault ?? result.tips[0]?.title ?? null;
 
   const summary =
     cmp.mode === 'mode1'
@@ -808,7 +820,21 @@ export default function AnalysisResult() {
               <Text style={styles.gradeBadge}>{grade}</Text>
               <Text style={styles.summary}>{summary}</Text>
             </View>
-            <LevelBenchmark score={result.overallScore} />
+            {/* Phase 20 (UI ④) — 가짜 입문/중급/고급 티어 제거. 정은지 기준 거리 +
+                교정 포인트(+ 손에 있는 self delta)로 점수에 의미 부여. */}
+            <ScoreContext
+              score={result.overallScore}
+              mode={cmp.mode === 'mode1' ? 'mode1' : 'mode3'}
+              athleteName={cmp.mode === 'mode1' ? cmp.athleteName : null}
+              correctionPoint={correctionPoint}
+              selfDelta={
+                cmp.mode === 'mode3' &&
+                !cmp.isFirst &&
+                prevDoc?.result?.overallScore != null
+                  ? result.overallScore - prevDoc.result.overallScore
+                  : null
+              }
+            />
             {/* Phase 20 (UI B1) — 비전 거부권으로 점수가 내려갔을 때 "왜 내려갔는지"를
                 점수 근처에 1줄로 노출 (belle: "내가 판단할 길이 없네"). primaryFault =
                 Gemini 가 찾은 결함 DESCRIPTION(자연어, 숫자 아님). legacy doc 호환 —
@@ -1352,34 +1378,24 @@ const styles = StyleSheet.create({
     color: colors.warnAmber,
     fontWeight: '600',
   },
+  // Phase 20 (UI ④) — 점수 맥락 카드 (구 LevelBenchmark 대체). 가짜 티어 칩 제거.
   bench: {
     width: '100%',
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
-    gap: 8,
+    gap: 6,
   },
-  benchChips: { flexDirection: 'row', gap: 6 },
-  benchChip: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: radius.listItem,
-    borderWidth: layout.cardBorderWidth,
-    borderColor: colors.divider,
-    backgroundColor: colors.bg,
-    alignItems: 'center',
-    gap: 2,
-  },
-  benchChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  benchChipLabel: { ...typography.captionSmall, color: colors.textSecondary },
-  benchChipLabelActive: { color: colors.textWhite },
-  benchChipScore: { ...typography.boxLabel, color: colors.textPrimary },
-  benchChipScoreActive: { color: colors.textWhite },
   benchSummary: {
     ...typography.caption,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  // self delta(지난 분석 대비 +N) — 상승 brand, 하락 textSecondary.
+  scoreDelta: {
+    ...typography.boxLabel,
     textAlign: 'center',
   },
   refCard: {

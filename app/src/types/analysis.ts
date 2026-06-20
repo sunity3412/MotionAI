@@ -335,8 +335,44 @@ export interface AiSynthesisMeta {
   debugWarnings?: string[];
 }
 
-export interface AnalysisResult {
+// Phase 20 SCORE-08 (TRUST-08) — 비전 하향 거부권 audit (discriminated union).
+// status 가 veto 실행을 증명한다 (부재 ≠ 실행, HIGH-1). status='applied' 시 severity +
+// capApplied 컴파일-타임 강제 (iter2 non-blocking — applied without capApplied 차단).
+// 객관성: 사람/AI 점수 라벨 아님 — status/severity enum + capApplied(임계 산출 정수)만.
+// 3-way lockstep: models.py VISION_VETO_STATUSES + docs/contract.md §4.
+export type VisionVeto =
+  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number }
+  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never }
+  | { status: 'disabled' | 'skipped_error' | 'missing_local_video'; severity?: never; capApplied?: never };
+
+// Phase 20 (TRUST-07) — Mode3 미보유/저신뢰 점수 억제 (discriminated suppression type).
+// iter4 MEDIUM-1: scoreSuppressed=true 면 scoreSuppressedReason REQUIRED, false/부재면
+// reason never. UI 카피가 reason-specific 이므로 reason 은 더 이상 optional 아님.
+// 프런트 isScoreSuppressed 는 STRICTLY scoreSuppressed===true (scoringBasis 폴백 금지 —
+// iter3 HIGH-2). 'unheld'=미보유(is_reference_free branch metadata) → '기준 없음' 카피,
+// 'recognition_low_confidence'=recognizer 신뢰도 낮음(동작은 알 수 있어도 분류 불확실) →
+// '동작 인식 신뢰도가 낮아 기준을 확정할 수 없어요' 카피. iter5 HIGH-2: suppression reason
+// 이 scoringBasisLabel 까지 소유 — recognition_low_confidence 면 scoringBasisLabel 이
+// '기준 동작 없음' 미노출. 3-way lockstep: models.py SCORE_SUPPRESSED_REASONS + contract.md.
+export type ScoreSuppression =
+  | { scoreSuppressed: true; scoreSuppressedReason: 'unheld' | 'recognition_low_confidence' }
+  | { scoreSuppressed?: false; scoreSuppressedReason?: never };
+
+// Phase 20 iter5 MEDIUM-2 — A2 reconcile audit. recognizer category 와 branch
+// is_reference_free 출처가 달라 불일치 시 단일 structured 필드로 보고(log.warning 대안 폐기).
+// resolvedReason = resolver 의 최종 reason. 3-way lockstep: models.py SCORE_SUPPRESSION_AUDIT_KEYS.
+export interface ScoreSuppressionAudit {
+  recognizerCategory: string;
+  branchReferenceFree: boolean;
+  resolvedReason: 'unheld' | 'recognition_low_confidence';
+}
+
+export type AnalysisResult = ScoreSuppression & {
   overallScore: number; // 0~100 종합 = core 차원(angle/line)의 min (min-of-core). stability 제외(보조). core 부재 시 절대트랙 단독.
+  // Phase 20 SCORE-08 — 비전 하향 거부권 audit. OPTIONAL (legacy doc 호환).
+  visionVeto?: VisionVeto;
+  // Phase 20 iter5 MEDIUM-2 — A2 reconcile audit (reconcile 관측). OPTIONAL.
+  scoreSuppressionAudit?: ScoreSuppressionAudit;
   // IPSF 실행 차원 점수 (3차원: angle/line/stability).
   // mode1=3키 / mode3 first=2키 (line/stability — line 생략 가능 시 1키 stability)
   // / mode3 second+=3키 (+ angle 일관성). 표시는 DIMENSION_ORDER 순서로 존재 키만.

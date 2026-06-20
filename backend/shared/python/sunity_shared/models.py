@@ -66,6 +66,46 @@ MODE3_SCORING_BASES = (
     "previous_analysis_plus_reference_free_absolute",
 )
 
+# ── Phase 20 (SCORE-08, TRUST-08): visionVeto audit 명세 ───────────────
+# 비전 하향 거부권 결과 audit. status 가 veto 실행을 증명한다 (부재 ≠ 실행, HIGH-1).
+# applied 시에만 severity/capApplied 동반 (discriminated — analysis.ts VisionVeto union).
+# 객관성: 사람/AI 점수 라벨 아님 — status/severity enum + capApplied(임계 산출 정수)만.
+# 3-way lockstep: app/src/types/analysis.ts VisionVeto + docs/contract.md §4.
+VISION_VETO_STATUSES = (
+    "applied",          # cap 적용 (overallScore 하향)
+    "not_applicable",   # cap 미적용 (minor/None/placeholder — 점수 불변)
+    "disabled",         # 토글 OFF (adapter 미호출)
+    "skipped_error",    # adapter None(키부재/실패) → v1 graceful + WARNING
+    "missing_local_video",  # local_video_path None (graceful, HIGH-1)
+)
+VISION_VETO_KEYS = ("status", "severity", "capApplied")
+
+# ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───
+# Mode3 미보유/저신뢰 동작의 점수카드 전체 억제 신호. scoringBasis 단독이 아닌 명시
+# 플래그로 backend↔frontend drift 차단 (iter2 HIGH-3).
+# 불변식 (iter4 MEDIUM-1, producer-contract): scoreSuppressed=True 면 scoreSuppressedReason
+# 는 REQUIRED. scoreSuppressed=False/부재면 scoreSuppressedReason 없어야 함 (discriminated
+# suppression type). 누락은 producer-contract FAILURE (fail-loud, UI silent 추론/default
+# 카피 금지). 사유 분리 (iter3 MEDIUM-1):
+#   unheld                    = 미보유 (is_reference_free branch metadata) → '기준 없음' 카피
+#   recognition_low_confidence = recognizer 신뢰도 낮음 (동작은 알 수 있어도 분류 불확실) →
+#                                '동작 인식 신뢰도 낮음' 카피. 미보유 아님.
+# 3-way lockstep: app/src/types/analysis.ts ScoreSuppression + docs/contract.md §4.
+SCORE_SUPPRESSED_KEY = "scoreSuppressed"
+SCORE_SUPPRESSED_REASON_KEY = "scoreSuppressedReason"
+SCORE_SUPPRESSED_REASONS = ("unheld", "recognition_low_confidence")
+
+# ── Phase 20 iter5 MEDIUM-2: scoreSuppressionAudit 명세 ─────────────────
+# A2 reconcile 단일 structured sink — recognizer category 와 branch is_reference_free
+# 출처가 달라 불일치 시 정확히 이 필드로 보고한다 (log.warning '또는' 대안 폐기,
+# log 는 additive only never alternative). resolvedReason = resolver 최종 reason.
+# 3-way lockstep: app/src/types/analysis.ts ScoreSuppressionAudit + docs/contract.md §4.
+SCORE_SUPPRESSION_AUDIT_KEYS = (
+    "recognizerCategory",
+    "branchReferenceFree",
+    "resolvedReason",
+)
+
 # ── Phase 13 (Plan 13-A, PERS-03): recommendedExercises 계약 명세 ───────
 # 분석 결과(실패 원인 후보 + 통증부위)에 맞춘 보완 운동 3~5개 개인화 subset.
 # - 생산자 = analysis/exercise_map.map_exercises(force_pattern_inference, pain_areas,

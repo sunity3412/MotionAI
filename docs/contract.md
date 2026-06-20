@@ -168,7 +168,66 @@ tips           CoachingTip[]       상위 3개 (KISMAM Top-3 + Cerebras 문장)
 comparison     Mode1 | Mode3       아래
 myVideoUrl     string              내 영상 재생 서명 URL (좌)
 referenceVideoUrl string?          mode1: 정은지 영상 (우)
+visionVeto     { status, severity?, capApplied? } optional  ← Phase 20 SCORE-08
+scoreSuppressed bool? + scoreSuppressedReason? enum         ← Phase 20 TRUST-07
+scoreSuppressionAudit { recognizerCategory, branchReferenceFree, resolvedReason } optional ← Phase 20 iter5
 ```
+
+`visionVeto` (Phase 20 SCORE-08 / TRUST-08 — 비전 하향 거부권 audit)
+```
+status      'applied' | 'not_applicable' | 'disabled' | 'skipped_error' | 'missing_local_video'
+severity?   'minor' | 'moderate' | 'major'   (applied 시에만 동반)
+capApplied? number  하향된 종합점수            (applied 시에만 동반)
+```
+  - **status 가 veto 실행을 증명한다 (부재 ≠ 실행, HIGH-1).** terminal gate(20-04)가
+    status='applied' 로 veto 실행을 검증한다. 부재가 'veto 가 돔'으로 읽히지 않는다.
+  - applied → severity + capApplied 동반 강제 (analysis.ts VisionVeto discriminated union;
+    status:'applied' without capApplied 는 tsc 에러). not_applicable/disabled/skipped_error/
+    missing_local_video → severity/capApplied 없음.
+  - 객관성: visionVeto 에 사람/AI **점수 라벨 0** — status/severity enum + capApplied(임계
+    산출 정수)만 ([[analysis-objectivity-no-human-scores]]).
+  - production SEVERITY_CAP 은 20-04 까지 placeholder None 이라 현재 cap 적용은 항상
+    not_applicable (cap-mutation 경로는 테스트가 monkeypatch 로 증명).
+  - 3-way lockstep: `app/src/types/analysis.ts VisionVeto` ↔ `models.py VISION_VETO_STATUSES`
+    ↔ 본 §4. 세 곳 동시 갱신 필수.
+
+`scoreSuppressed` + `scoreSuppressedReason` (Phase 20 TRUST-07 — Mode3 미보유/저신뢰 억제)
+```
+scoreSuppressed       bool?   true 면 점수카드 전체('기준 없음' state)로 대체
+scoreSuppressedReason 'unheld' | 'recognition_low_confidence'
+```
+  - Mode3 미보유(branch-3) confident 점수 차단 (D-08 — confident 97 금지). 점수는 산출하되
+    화면이 점수카드 전체(octagon + grade + summary + benchmark + caption + 헤더 카피)를 억제.
+  - **불변식 (iter4 MEDIUM-1, producer-contract): scoreSuppressed=true → scoreSuppressedReason
+    REQUIRED.** producer 가 reference_free_absolute 인데 scoreSuppressed 누락 = producer-contract
+    FAILURE; scoreSuppressed=true 인데 reason 누락 = producer-contract FAILURE (fail-loud, UI
+    silent 추론 / default 카피 금지 — iter3 HIGH-2 / iter4 MEDIUM-1).
+  - **프런트 억제 판정은 이 플래그 단독** (scoringBasis 폴백 금지 — scoringBasis 는 source
+    라벨, suppression 은 display/trust 정책).
+  - 사유 분리 (iter3 MEDIUM-1):
+    - `unheld` = 미보유 (is_reference_free branch metadata) → '기준 없음' 카피.
+    - `recognition_low_confidence` = recognizer 신뢰도 낮음 (동작은 알 수 있어도 분류 불확실)
+      → '동작 인식 신뢰도가 낮아 기준을 확정할 수 없어요' 카피. 미보유 아님.
+  - **iter5 HIGH-2 (reason-owns-copy): suppression reason 이 모든 visible suppressed-state
+    카피(헤더 + scoringBasisLabel)를 소유한다. recognition_low_confidence 의 scoringBasisLabel
+    은 '기준 동작 없음'/'기준 없음' 미포함** (두 번째 UI 필드 reason leak 차단).
+  - 3-way lockstep: `app/src/types/analysis.ts ScoreSuppression` ↔ `models.py
+    SCORE_SUPPRESSED_REASONS` ↔ 본 §4.
+
+`scoreSuppressionAudit` (Phase 20 iter5 MEDIUM-2 — A2 reconcile 단일 structured sink)
+```
+recognizerCategory   string   recognizer category (provenance)
+branchReferenceFree  bool     is_reference_free_motion(branch_info) 결과
+resolvedReason       'unheld' | 'recognition_low_confidence'   resolver 최종 reason
+```
+  - recognizer category 와 branch is_reference_free 출처가 다름. resolver 가 category
+    provenance 로 단일 reason 결정하면서, 불일치 시 정확히 이 필드로 reconcile 관측
+    (log.warning '또는' 대안 폐기 — log 는 additive only never alternative).
+  - 3-way lockstep: `app/src/types/analysis.ts ScoreSuppressionAudit` ↔ `models.py
+    SCORE_SUPPRESSION_AUDIT_KEYS` ↔ 본 §4.
+  - Firestore flat 정합: visionVeto = scalar dict, scoreSuppressed = bool,
+    scoreSuppressedReason = str, scoreSuppressionAudit = scalar dict (nested-array 0,
+    [[firestore-nested-array-flat]] 보존).
 `dimensionScores` = IPSF 폴스포츠 실행 심사기준 (docs/research/폴스포츠-지식.md).
   신체 부위가 아니라 심판이 보는 실행 차원. **3차원** (2026-05-29 balance 차원 제거 —
   IPSF 근거 없음, 의도적 비대칭 동작 위양성 제거).

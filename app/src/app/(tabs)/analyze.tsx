@@ -31,6 +31,12 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 const MAX_BYTES = 100 * 1024 * 1024; // design.md: 100MB 초과 불가
 const ALLOWED = ['mp4', 'mov']; // design.md: mp4, mov만 지원
 
+// [#20 입력 화질] 저화질 입력은 미세 자세 차이를 못 잡아 점수가 조용히 틀어진다
+// (belle: 카톡 전송 34MB→1.6MB 압축 → 분석 실패). 하드 블록은 하지 않되(더 나은
+// 영상이 없을 수 있음), 픽 시점에 휴리스틱으로 감지해 사용자에게 솔직히 경고한다.
+const MIN_QUALITY_SHORT_SIDE = 720; // 720p 미만(짧은 변 기준) = 저화질 신호
+const MIN_QUALITY_BITRATE_BPS = 6 * 1000 * 1000; // ~6 Mbps 미만 = 과압축 신호
+
 type VideoFormat = 'mp4' | 'mov';
 type Picked = {
   name: string;
@@ -57,6 +63,9 @@ export default function Analyze() {
   const [error, setError] = useState<string | null>(null);
   const [permissionBlocked, setPermissionBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  // [#20 입력 화질] 저화질 감지 시 비차단 경고 — 계속/취소. picked 를 보류했다가
+  // [계속]이면 정상 라우팅(maybePromptBeforeRoute), [취소]면 영상을 버린다.
+  const [lowQualityPicked, setLowQualityPicked] = useState<Picked | null>(null);
 
   // [R2] 첫 분석 권유 게이트 상태머신. profile/promptDismissedAt 구독으로 게이트
   // 조건(미입력 AND 미dismiss)을 판별. pendingPicked 로 라우팅을 보류했다가
@@ -94,6 +103,28 @@ export default function Analyze() {
     if (asset.fileSize != null && asset.fileSize > MAX_BYTES)
       return '100MB 이하 영상만 분석할 수 있어요.';
     return null;
+  };
+
+  // [#20 입력 화질] 저화질 휴리스틱 — 짧은 변이 720p 미만이거나(해상도 부족),
+  // 추정 비트레이트가 ~6Mbps 미만(과압축)이면 저화질로 본다. width/height/fileSize/
+  // duration 은 시스템이 0/누락으로 줄 수 있으므로 값이 유효할 때만 판정한다(거짓 경고
+  // 방지). 막지 않고 경고만 — boolean + 짧은 사유 반환.
+  const checkLowQuality = (
+    asset: ImagePicker.ImagePickerAsset,
+  ): { low: boolean; reason: string } => {
+    const shortSide = Math.min(asset.width || 0, asset.height || 0);
+    if (shortSide > 0 && shortSide < MIN_QUALITY_SHORT_SIDE) {
+      return { low: true, reason: `해상도 ${shortSide}p` };
+    }
+    const durationSec =
+      asset.duration != null && asset.duration > 0 ? asset.duration / 1000 : 0;
+    if (asset.fileSize != null && asset.fileSize > 0 && durationSec > 0) {
+      const bitrate = (asset.fileSize * 8) / durationSec;
+      if (bitrate < MIN_QUALITY_BITRATE_BPS) {
+        return { low: true, reason: `비트레이트 약 ${Math.round(bitrate / 1e6 * 10) / 10}Mbps` };
+      }
+    }
+    return { low: false, reason: '' };
   };
 
   // 영상 확보 직후 다음 단계로 라우팅. 머무를 화면 없음(라우팅 끝나면 뒤로
@@ -202,12 +233,31 @@ export default function Analyze() {
     setError(null);
     const source = asset.fileName ?? asset.uri;
     const ext = (source.split('.').pop()?.toLowerCase() ?? 'mp4') as VideoFormat;
-    maybePromptBeforeRoute({
+    const picked: Picked = {
       name: asset.fileName ?? '선택한 영상',
       uri: asset.uri,
       size: asset.fileSize ?? 0,
       format: ext,
-    });
+    };
+    // [#20 입력 화질] 저화질이면 조용히 진행하지 않고 비차단 경고를 띄운다.
+    const quality = checkLowQuality(asset);
+    if (quality.low) {
+      setLowQualityPicked(picked);
+      return;
+    }
+    maybePromptBeforeRoute(picked);
+  };
+
+  // [#20 입력 화질] 저화질 경고에서 [이대로 계속] — 보류한 picked 로 정상 라우팅.
+  const continueLowQuality = () => {
+    const p = lowQualityPicked;
+    setLowQualityPicked(null);
+    if (p) maybePromptBeforeRoute(p);
+  };
+
+  // [#20 입력 화질] 저화질 경고에서 [다른 영상 선택] — 보류한 영상을 버린다.
+  const cancelLowQuality = () => {
+    setLowQualityPicked(null);
   };
 
   const pickFromCamera = async () => {
@@ -219,8 +269,14 @@ export default function Analyze() {
         setError('촬영하려면 카메라 권한이 필요해요.');
         return;
       }
+      // [#20 입력 화질] 즉석 촬영은 최고 화질로 캡처 — 카톡 압축본을 받기 전에
+      // 원본 디테일을 확보해야 미세 자세 차이를 분석할 수 있음 (iOS 전용 필드,
+      // Android 에선 무시됨).
       handleResult(
-        await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'] }),
+        await ImagePicker.launchCameraAsync({
+          mediaTypes: ['videos'],
+          videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
+        }),
       );
     } catch {
       setError('카메라를 여는 중 문제가 발생했어요. 다시 시도해주세요.');
@@ -238,8 +294,15 @@ export default function Analyze() {
         setError('앨범에서 가져오려면 사진 접근 권한이 필요해요.');
         return;
       }
+      // [#20 입력 화질] 앨범에서 가져올 때 transcoding 으로 인한 추가 화질 손실을
+      // 막음 — Current 는 가능하면 원본 표현을 그대로 사용해 재인코딩을 피한다
+      // (기본 Automatic 은 호환 코덱으로 재변환할 수 있음, iOS 전용).
       handleResult(
-        await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'] }),
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['videos'],
+          preferredAssetRepresentationMode:
+            ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+        }),
       );
     } catch {
       setError('앨범을 여는 중 문제가 발생했어요. 다시 시도해주세요.');
@@ -289,6 +352,13 @@ export default function Analyze() {
           />
         </View>
 
+        {/* [#20 입력 화질] 가장 정확한 분석을 위한 안내 — 카톡 압축본은 정확도가
+            낮아질 수 있음을 미리 고지. */}
+        <Text style={styles.guidance}>
+          가장 정확한 분석을 위해 앱에서 직접 촬영하거나 원본 화질 영상을 올려주세요.
+          카톡 등으로 받은 영상은 압축돼 정확도가 낮을 수 있어요 (카톡은 '원본'으로 전송).
+        </Text>
+
         {error && <Text style={styles.error}>{error}</Text>}
         {permissionBlocked && (
           <Pressable
@@ -298,6 +368,46 @@ export default function Analyze() {
             <Text style={styles.link}>설정에서 권한 허용하기</Text>
           </Pressable>
         )}
+
+        {/* [#20 입력 화질] 저화질 비차단 경고 — 계속/취소. native back(백드롭)은
+            취소와 동일하게 영상 버림. */}
+        <Modal
+          visible={lowQualityPicked != null}
+          transparent
+          animationType="fade"
+          onRequestClose={cancelLowQuality}
+        >
+          <View style={styles.lqBackdrop}>
+            <View style={styles.lqCard}>
+              <Text style={styles.lqTitle}>화질이 낮아요</Text>
+              <Text style={styles.lqBody}>
+                이 영상은 화질이 낮아 미세한 자세 차이 분석이 제한될 수 있어요. 더
+                정확하려면 원본 화질 영상을 올리거나 앱에서 직접 촬영하세요. 이대로
+                계속할까요?
+              </Text>
+              <Pressable
+                onPress={continueLowQuality}
+                accessibilityRole="button"
+                accessibilityLabel="이대로 계속 분석하기"
+                style={({ pressed }) => [
+                  styles.lqPrimaryBtn,
+                  pressed && styles.cardDimmed,
+                ]}
+              >
+                <Text style={styles.lqPrimaryLabel}>이대로 계속</Text>
+              </Pressable>
+              <Pressable
+                onPress={cancelLowQuality}
+                accessibilityRole="button"
+                accessibilityLabel="다른 영상 선택하기"
+                hitSlop={6}
+                style={({ pressed }) => pressed && styles.cardDimmed}
+              >
+                <Text style={styles.lqSecondaryLabel}>다른 영상 선택</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
 
         {/* [R2] 첫 분석 권유 게이트. 건너뛰기/백드롭/native back → skipPrompt
             (once-flag + 분석 계속). 입력하기 → 폼 진입. */}
@@ -449,6 +559,49 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.inputError, // 오류 = 틸 (§4)
     marginTop: 20,
+  },
+  // [#20 입력 화질] 소스 선택 안내 — 보조 캡션 톤, 비강압적.
+  guidance: {
+    ...typography.caption,
+    color: colors.textMid,
+    marginTop: 16,
+    lineHeight: 18,
+  },
+  // [#20 입력 화질] 저화질 경고 모달.
+  lqBackdrop: {
+    flex: 1,
+    backgroundColor: colors.brandOverlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.screenX,
+  },
+  lqCard: {
+    width: '100%',
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.modal,
+    padding: 24,
+    gap: 14,
+  },
+  lqTitle: { ...typography.sectionTitle, color: colors.textPrimary },
+  lqBody: {
+    ...typography.caption,
+    color: colors.textMid,
+    lineHeight: 19,
+  },
+  lqPrimaryBtn: {
+    height: layout.ctaHeight,
+    borderRadius: radius.button,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  lqPrimaryLabel: { ...typography.button, color: colors.textWhite },
+  lqSecondaryLabel: {
+    ...typography.buttonSecondary,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: 8,
   },
   link: {
     ...typography.caption,

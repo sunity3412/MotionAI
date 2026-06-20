@@ -96,3 +96,46 @@ unaffected and `npm run typecheck` not required.
 - `0157a28` feat(20): reference-anchored comparison in vision scorer (Mode1)
 - `3443696` feat(20): wire reference-anchored vision veto in pipeline (Mode1) + hold Mode3
 - `d72928f` test(20): reference-anchored veto — comparison adapter + Mode1/Mode3 pipeline
+
+## UI A1 + B1 — Mode1 headline/score reconciliation + veto reason surfacing
+
+belle 디바이스 발견(데모 #/TestFlight): Mode1 헤드라인이 "정은지 선수와 관절각 100%
+일치해요. 거의 다 왔어요!" 인데 octagon 점수는 75 (비전 거부권 하향) — 신뢰를 깨는
+모순. belle: "내가 판단할 길이 없네" → 점수가 왜 내려갔는지 노출 필요.
+
+**B1 — backend reason 박제 (점수 알고리즘 불변, display/reason 만):**
+
+- `_apply_vision_veto` (app.py ~1737) applied 브랜치에 `"primaryFault":
+  verdict.primary_fault` 추가. **applied 브랜치 전용** — 다른 status 불변.
+  객관성: primaryFault 는 결함 DESCRIPTION(자연어)이지 점수/숫자 아님.
+- 단일 호출부(`_process` line 2452) → runpod 도 `_process` 재사용이라 1 변경으로
+  Lambda/Pod 양쪽 커버 (분기 0).
+
+**3-way contract lockstep — applied variant 에 `primaryFault?: string` 추가:**
+
+- `app/src/types/analysis.ts` VisionVeto `applied` 멤버 + 다른 멤버는 `primaryFault?: never`.
+  legacy doc 호환 위해 optional.
+- `backend/shared/python/sunity_shared/models.py` VISION_VETO_KEYS 에 `"primaryFault"`.
+- `docs/contract.md` §4 visionVeto 표 + 규칙 문구.
+
+**A1 — result.tsx 헤드라인 모순 차단:**
+
+- `vetoApplied = result.visionVeto?.status === 'applied'`; 안전망 `mode1Contradiction =
+  vetoApplied || result.overallScore < cmp.similarity`. 모순이면 similarity 헤드라인
+  대신 `mode1VetoSummary` ("정은지 선수 기준으로 자세에서 교정할 점이 보여요.") 사용 —
+  similarity 수치/" 거의 다 왔어요" 미노출, octagon overallScore 와 정합.
+- veto 미적용(대다수 분석)은 기존 `mode1Summary` 그대로 (back-compat).
+
+**B1 — reason 본문 노출:**
+
+- 점수 카드(비억제 분기) octagon 아래 `vetoPrimaryFault` 있을 때만 1줄:
+  "AI 영상 분석에서 발견한 점: {primaryFault}". 기존 `styles.scoringBasis` 재사용 —
+  새 색/간격 하드코딩 0, 토큰만. legacy doc(primaryFault 부재)은 optional chaining 으로
+  graceful 미렌더.
+
+**테스트:** `test_pipeline_mode3.py` applied 브랜치 2건에 `primaryFault == "stub fault"`
+단언 추가 + key-set allow 에 `primaryFault` 포함. 객관성 가드(`"score" not in veto`) 유지.
+`test_pipeline_mode3.py` + `test_gemini_vision_scorer.py` + `test_vision_veto.py` ALL PASS,
+`app npm run typecheck` clean.
+
+> cap 값/scoring math 불변. EAS build 미실행 (orchestrator 담당).

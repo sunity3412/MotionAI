@@ -85,6 +85,12 @@ export type KeypointOverlayProps = {
   deltaThresholdDeg?: number;
   /** Wave 2 floating label 표시, default true. */
   showAngleLabels?: boolean;
+  /**
+   * Phase 20 (UI ②) — 비전 거부권 적용(실제 결함 존재)인데 임계(20°)를 넘는 관절이
+   * 0개일 때, 편차가 가장 큰 N개 관절을 강제로 강조한다 (belle: "표기가 하나도 없다").
+   * 0(기본) = 강제 강조 없음 = 정타 영상은 기존 >20° 규칙만 (오탐 0).
+   */
+  forceHighlightWorstCount?: number;
 };
 
 type Point = { x: number; y: number };
@@ -163,6 +169,7 @@ export function KeypointOverlay({
   jointAngles,
   deltaThresholdDeg = KEYPOINT_DELTA_HIGHLIGHT_DEG,
   showAngleLabels = true,
+  forceHighlightWorstCount = 0,
 }: KeypointOverlayProps) {
   // Hooks 순서 안정성 — early return 전에 모든 hook 호출 (React rules of hooks).
   //
@@ -237,6 +244,8 @@ export function KeypointOverlay({
   const highlightedJoints = useMemo(() => {
     const set = new Set<KeypointName>();
     if (!jointAngles || !keypointReport) return set;
+    // 임계(20°) 초과 관절 강조 + 편차 수집 (worst-N fallback 용).
+    const deviations: { kp: KeypointName; dev: number }[] = [];
     for (const kp of keypointReport.joints) {
       const angleKey = JOINT_KEY_TO_ANGLE_KEY[kp];
       if (!angleKey) continue;
@@ -246,12 +255,23 @@ export function KeypointOverlay({
       const tgt = pair.target;
       if (cur == null || tgt == null) continue;
       if (!Number.isFinite(cur) || !Number.isFinite(tgt)) continue;
-      if (Math.abs(cur - tgt) >= deltaThresholdDeg) {
+      const dev = Math.abs(cur - tgt);
+      deviations.push({ kp, dev });
+      if (dev >= deltaThresholdDeg) {
         set.add(kp);
       }
     }
+    // Phase 20 (UI ②) — 거부권 적용인데 임계 초과 관절이 0개면 편차 최대 N개를
+    // 강제 강조 (실제 결함이 있는데 마커가 0개인 모순 제거). 정타 영상은
+    // forceHighlightWorstCount=0 → 이 분기 미발동 → 오탐 마커 0.
+    if (set.size === 0 && forceHighlightWorstCount > 0 && deviations.length > 0) {
+      deviations
+        .sort((a, b) => b.dev - a.dev)
+        .slice(0, forceHighlightWorstCount)
+        .forEach(({ kp }) => set.add(kp));
+    }
     return set;
-  }, [jointAngles, keypointReport, deltaThresholdDeg]);
+  }, [jointAngles, keypointReport, deltaThresholdDeg, forceHighlightWorstCount]);
 
   // D-12-U6 fallback — caller 가 placeholder 표시.
   if (!visible || keypointReport == null) return null;

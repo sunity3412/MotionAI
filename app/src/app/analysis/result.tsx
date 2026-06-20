@@ -860,6 +860,10 @@ export default function AnalysisResult() {
                   videoSize={overlayVideoSize}
                   visible={overlayVisible}
                   jointAngles={userJointAngles}
+                  // Phase 20 (UI ②) — 비전 거부권 적용(실 결함 존재)인데 임계(20°)를
+                  // 넘는 관절이 없을 때 편차 최대 2개를 강제 강조해 "볼 곳"을 보여준다
+                  // (belle: 결함 영상인데 마커가 하나도 없음). 정타 영상은 0 → 오탐 0.
+                  forceHighlightWorstCount={vetoApplied ? 2 : 0}
                 />
               )}
               rightOverlay={(player) =>

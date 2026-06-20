@@ -184,6 +184,14 @@ function mode1Summary(athleteName: string, similarity: number): string {
   return `${head} 천천히 자세부터 잡아볼까요?`;
 }
 
+// Phase 20 (UI A1) — 비전 거부권으로 종합점수가 하향됐을 때의 Mode1 요약.
+// 모순 차단(belle 디바이스 발견): 관절각 100% 일치인데 octagon 75 → "100% 일치/거의
+// 다 왔어요" 가 점수와 충돌한다. veto applied 면 similarity 가 아니라 FINAL overallScore 를
+// 반영하고 "교정할 점이 보인다"로 전환한다. similarity 수치 헤드라인 미노출.
+function mode1VetoSummary(athleteName: string): string {
+  return `${athleteName} 선수 기준으로 자세에서 교정할 점이 보여요.`;
+}
+
 // mode3 두 번째+ 요약 — '몇 % 일치'가 아니라 발전(progress)을 강조 (belle 피드백).
 // 절대 차원 평균(overall)이 같은 척도라 지난 분석 대비 증감이 진짜 성장이다.
 function mode3Summary(current: number, previous: number | undefined): string {
@@ -505,9 +513,22 @@ export default function AnalysisResult() {
     };
   }, [prevDoc?.analysisId, prevDoc?.createdAt, prevDoc?.videoFormat]);
 
+  // Phase 20 (UI A1) — 비전 거부권으로 종합점수가 similarity 보다 낮아진 경우.
+  // visionVeto.status==='applied' 가 1차 신호. 안전망: overallScore < similarity 면(어떤
+  // 이유든) similarity 헤드라인이 octagon 과 모순되므로 절대 노출하지 않는다.
+  const vetoApplied = result.visionVeto?.status === 'applied';
+  const mode1Contradiction =
+    cmp.mode === 'mode1' &&
+    (vetoApplied || result.overallScore < cmp.similarity);
+  // applied 시 결함 사유(자연어 DESCRIPTION). legacy doc 호환 — optional chaining.
+  const vetoPrimaryFault =
+    result.visionVeto?.status === 'applied' ? result.visionVeto.primaryFault : undefined;
+
   const summary =
     cmp.mode === 'mode1'
-      ? mode1Summary(cmp.athleteName, cmp.similarity)
+      ? mode1Contradiction
+        ? mode1VetoSummary(cmp.athleteName)
+        : mode1Summary(cmp.athleteName, cmp.similarity)
       : cmp.isFirst
         ? '첫 분석이에요. 다음 분석부터 발전을 비교해드려요.'
         : mode3Summary(result.overallScore, prevDoc?.result?.overallScore);
@@ -769,6 +790,15 @@ export default function AnalysisResult() {
               <Text style={styles.summary}>{summary}</Text>
             </View>
             <LevelBenchmark score={result.overallScore} />
+            {/* Phase 20 (UI B1) — 비전 거부권으로 점수가 내려갔을 때 "왜 내려갔는지"를
+                점수 근처에 1줄로 노출 (belle: "내가 판단할 길이 없네"). primaryFault =
+                Gemini 가 찾은 결함 DESCRIPTION(자연어, 숫자 아님). legacy doc 호환 —
+                applied + primaryFault 있을 때만 렌더. 토큰만 (하드코딩 금지). */}
+            {vetoPrimaryFault ? (
+              <Text style={styles.scoringBasis}>
+                AI 영상 분석에서 발견한 점: {vetoPrimaryFault}
+              </Text>
+            ) : null}
             {/* 260612-t9m: 점수 안내 캡션 — stability tol 25° 보정과 함께 "90+ 정상" 사용자 인지 정합 */}
             <Text style={styles.scoreCaption}>
               촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요. 90점 이상이면 정상 자세에 가깝습니다.

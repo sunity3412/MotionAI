@@ -319,6 +319,7 @@ function DimensionScoreRow({
   delta,
   explanation,
   onDetailPress,
+  contextNote,
 }: {
   dim: ScoreDimension;
   score: number;
@@ -327,6 +328,8 @@ function DimensionScoreRow({
   explanation?: DimensionExplanation;
   // Phase 12.5 v2 (belle 피드백): "자세히 ›" 링크 → 모달 (DimensionDetailModal).
   onDetailPress?: (dim: ScoreDimension) => void;
+  // Phase 20 (UI ①): 비전 거부권 적용 시 점수 아래 1줄 맥락 (각도 100 오해 차단).
+  contextNote?: string;
 }) {
   return (
     <View style={styles.partRow}>
@@ -368,6 +371,9 @@ function DimensionScoreRow({
           {highlightNumbers(explanation.deficitSummary)}
         </Text>
       )}
+      {/* Phase 20 (UI ①) — 비전 거부권 맥락 1줄. 각도 100인데 종합 75 → "완벽" 오해
+          차단. textSecondary 보조 톤, 토큰만. */}
+      {contextNote && <Text style={styles.dimContextNote}>{contextNote}</Text>}
     </View>
   );
 }
@@ -696,6 +702,19 @@ export default function AnalysisResult() {
     );
   };
 
+  // Phase 20 (UI ①) — 비전 거부권 적용 시 "거의 동일/일치도 100/거의 다 왔어요"
+  // 류 모순 카피를 코칭 팁에서도 제거한다 (헤드라인은 mode1VetoSummary 로 이미
+  // 차단됨). backend tip 본문이 75 헤드라인과 충돌하지 않도록 방어. veto 미적용
+  // (정타) 영상은 원본 tips 그대로 — 정상 칭찬 카피 보존.
+  const displayTips = useMemo(() => {
+    if (!vetoApplied) return result.tips;
+    const CONTRADICTORY = ['거의 동일', '일치도 100', '거의 다 왔'];
+    return result.tips.filter((tip) => {
+      const text = `${tip.title} ${tip.detail}`;
+      return !CONTRADICTORY.some((phrase) => text.includes(phrase));
+    });
+  }, [result.tips, vetoApplied]);
+
   const deltaFor = (dim: ScoreDimension): number | undefined =>
     cmp.mode === 'mode3' && !cmp.isFirst
       ? cmp.deltaFromPrevious?.[dim]
@@ -955,6 +974,14 @@ export default function AnalysisResult() {
               delta={deltaFor(dim)}
               explanation={dimensionExplanation?.[dim]}
               onDetailPress={(d) => setDetailDim(d)}
+              // Phase 20 (UI ①) — 비전 거부권 적용 시 '각도 정확도' 행 아래 1줄 맥락.
+              // 각도 100인데 종합 75 → "각도=완벽" 오해 차단. 영상 분석이 각도로 안
+              // 드러나는 차이를 잡아 종합에 반영했음을 명시. angle 차원에만 노출.
+              contextNote={
+                vetoApplied && dim === 'angle'
+                  ? 'AI 영상 분석은 각도로 안 드러나는 자세 차이를 발견했어요 (종합 점수에 반영됨).'
+                  : undefined
+              }
             />
           ))}
         </View>
@@ -969,7 +996,27 @@ export default function AnalysisResult() {
             joint 평균 confidence < 0.5 또는 low reliability frame 비율 ≥ 30%
             → "추정 N°" + estimateGray + ⓘ tap → Alert (D-12-D1 박제). */}
         <Text style={styles.sectionTitle}>코칭 팁</Text>
-        {result.tips.map((tip, i) => {
+        {/* Phase 20 (UI ①) — 비전 거부권 적용 시 코칭의 LEAD = 비전 결함(교정 대상).
+            backend tip 이 "거의 동일/일치도 100" 으로 시작하면 75 헤드라인과 모순
+            (belle 디바이스 finding). 거부권 결함을 맨 앞 카드로 노출해 "무엇을
+            교정할지" 를 코칭 흐름의 머리로 둔다. primaryFault 있을 때만 (graceful).
+            토큰만 (하드코딩 금지). */}
+        {vetoApplied && vetoPrimaryFault ? (
+          <View style={[styles.card, styles.tipCard, styles.vetoLeadCard]}>
+            <View style={styles.tipHead}>
+              <Ionicons name="alert-circle" size={20} color={colors.brand} />
+              <Text style={styles.tipTitle}>먼저 교정할 점</Text>
+            </View>
+            <Text style={styles.tipDetail}>
+              {highlightNumbers(vetoPrimaryFault)}
+            </Text>
+            <Text style={styles.vetoLeadNote}>
+              관절 각도는 기준과 가깝지만, AI 영상 분석이 위 자세 차이를 발견해
+              종합 점수에 반영했어요. 이 점부터 다듬어 보세요.
+            </Text>
+          </View>
+        ) : null}
+        {displayTips.map((tip, i) => {
           const joint = tip.joint
             ? joints.find((j) => j.key === tip.joint)
             : undefined;
@@ -1406,6 +1453,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: 2,
   },
+  // Phase 20 (UI ①) — 비전 거부권 적용 시 차원 점수 아래 맥락 1줄. 보조 톤.
+  dimContextNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 4,
+  },
   track: {
     width: '100%',
     height: 10,
@@ -1466,6 +1520,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
     marginTop: 4,
+  },
+  // Phase 20 (UI ①) — 비전 거부권 LEAD 카드. brandTint 배경 + brand 테두리로
+  // "먼저 봐야 할 것" 임을 시각 강조 (refCard 패턴 차용, 토큰만).
+  vetoLeadCard: {
+    backgroundColor: colors.brandTint,
+    borderColor: colors.brand,
+  },
+  vetoLeadNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   tipHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tipAngleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },

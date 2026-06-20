@@ -40,7 +40,7 @@
 - [x] **SCORE-07**: "Fully Extended" 요소의 micro-bent 0점 트랙 — 신전 요구 관절(`profile.expects_extension` True)이 IPSF 임계(스플릿 160°=목표 180°−20° tol) 미달이면 해당 요소 무효(0점, 비례감점 아님). 의도적 굽힘(expects_extension False)은 미적용(위양성 차단). 임계는 IPSF 근거에서만. (출처: 19-IPSF-DEDUCTION-NOTES §A 트랙1)
 - [x] **SCORE-08** (Phase 20 — v2 비전 거부권): Gemini 시각 거부권이 채점 path(`_apply_vision_veto`)에 통합되어 v1 감점식 종합점수(`overallScore`)를 **하향만** 조정한다 (절대 못 올림 — `min()` cap, 가중블렌드/하한 거부 금지). 단위 = worst-pose(지배 결함 pose, key_moments 재사용, IPSF phase 평균 거부), 범위 = Mode1 + Mode3 둘 다, 트리거 = 채점 path 에 항상 호출. kip-up 류 major fault → ≤50, fault-free 정타 → v1 그대로(95~100 유지). (출처: D-01/03/04/05, 20-CONTEXT.md / [[score-spec-95-100-elite-vision-fix]])
 - [ ] **SCORE-09** (Phase 20 — 일반화 hard gate): SCORE-08 의 severity→cap 수치가 6페어 curve-fit 이 아니라 generalization-tested eval(미보유 + above-cutoff sensitivity 셋 포함)로 도출된다. 6페어 = known-answer 회귀(검증), fit 타깃 아님. 위양성(fault 하락)↔위음성(above-cutoff 유지) 양방 게이트. (출처: D-02, 20-CONTEXT.md / [[scoring-redesign-must-generalize-no-overfit]] [[sensitivity-gate-not-just-elite-low]])
-- [ ] **TRUST-06** (Phase 20 — 결정론): Gemini 시각 거부권 + 인식기 호출이 결정론적이다 — temperature 0 + reference/video-hash 별 profile 캐싱(TechniqueCache 재사용) 으로 같은 입력=같은 하향 cap. temp 0 단독은 bit-deterministic 아님 — 캐시가 실 보장. (출처: D-06, 20-CONTEXT.md / 20-RESEARCH Pitfall 2)
+- [x] **TRUST-06** (Phase 20 — 결정론): Gemini 시각 거부권 + 인식기 호출이 결정론적이다 — temperature 0 + reference/video-hash 별 profile 캐싱(TechniqueCache 재사용) 으로 같은 입력=같은 하향 cap. temp 0 단독은 bit-deterministic 아님 — 캐시가 실 보장. (출처: D-06, 20-CONTEXT.md / 20-RESEARCH Pitfall 2)
 - [ ] **TRUST-07** (Phase 20 — Mode3 미보유 게이트): Mode3 미보유동작이 Gemini 인식기 3분기(IPSF등재 ipsfCode / 정은지보유 reference / 둘다미보유→억제)로 판정되어, 미보유(분기3) 시 confident 점수가 억제되고 "기준 없음" 근거가 산출된다. not_pole 안전망을 reference-free 절대트랙으로 확장(MODE_EXPERT 전용 아님). fail-closed/raise 금지. (출처: D-07/08, 20-CONTEXT.md / [[mode3-scoring-basis-unknown-move-gate]])
 - [x] **TRUST-08** (Phase 20 — 거부권/게이트 가시화 + 무음실패 방지): SCORE-08 의 거부권 결과(severity, capApplied)가 `visionVeto` audit 필드로 직렬화되고(3-way 계약 lockstep), Mode3 미보유 시 결과 화면이 confident 점수를 억제 + scoringBasisLabel 을 표시한다. veto 가 adapter 실패로 silent no-op 되지 않게 WARNING 로그 + audit 필드로 관측 가능(Pitfall 5). 객관성: 비전 출력에 사람 점수 라벨/score 필드 0(임계값 수치 라벨링은 OK). (출처: D-08, 20-CONTEXT.md / 20-RESEARCH Pitfall 5 / [[analysis-objectivity-no-human-scores]])
 
@@ -194,7 +194,7 @@
 | TRUST-05 | Phase 19 | Complete |
 | SCORE-08 | Phase 20 | Complete |
 | SCORE-09 | Phase 20 | Pending |
-| TRUST-06 | Phase 20 | Pending |
+| TRUST-06 | Phase 20 | Complete |
 | TRUST-07 | Phase 20 | Pending |
 | TRUST-08 | Phase 20 | Complete |
 | DELIV-01 | Phase 15 | Pending |

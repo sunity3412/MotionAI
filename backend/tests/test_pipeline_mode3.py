@@ -273,24 +273,221 @@ def test_build_mode3_backward_compat():
         assemble.build_mode3(is_first=True, scoring_basis="reference_motion")
 
 
-def test_vision_hook_passthrough():
-    # TRUST-05 + ITER-2 MEDIUM-3. v1 vision hook(_apply_vision_veto) OFF 시 SAME object
-    # identity (out is score_result) + score_result 필드 mutate 0. 현재 _apply_vision_veto 부재 → RED.
-    veto = getattr(app, "_apply_vision_veto", None)
-    assert veto is not None, "_apply_vision_veto 부재 — Wave 1 v1 pass-through hook 추가 (RED)"
-    # WR-01: production passes assemble.build_result dict whose key is
-    # 'overallScore' (not 'overall'). The fixture must mirror that contract so
-    # v2 (which will read/mutate score_result['overallScore']) is exercised on
-    # the real key shape, not a phantom 'overall'.
-    score_result = {
-        "overallScore": 73,
-        "dimensionScores": {"angle": 70, "line": 75, "stability": 80},
-    }
-    snapshot = {
-        "overallScore": score_result["overallScore"],
-        "dimensionScores": dict(score_result["dimensionScores"]),
-    }
-    out = veto(score_result)
-    assert out is score_result  # SAME object identity (v1 = pass-through)
-    assert score_result["overallScore"] == snapshot["overallScore"]
-    assert score_result["dimensionScores"] == snapshot["dimensionScores"]
+# ── Phase 20-03 Task 1 — _apply_vision_veto v1 identity → 하향-전용 mutation 전환 ──
+# 전부 mocked adapter (실 Gemini/Pod 미호출). 기존 test_vision_hook_passthrough 의
+# `out is score_result` identity 단언은 v2 계약 전환에 직접 영향받는 케이스라 정당하게
+# 전환한다 (20-RESEARCH State of the Art: identity → downward property).
+
+from sunity_shared.analysis import vision_veto, gemini_vision_scorer  # noqa: E402
+
+
+class _StubVerdict:
+    """gemini_vision_scorer.VisionVerdict mock (severity 만 _apply_vision_veto 가 읽음)."""
+
+    def __init__(self, severity: str):
+        self.primary_fault = "stub fault"
+        self.severity = severity
+        self.differences = ()
+
+
+def _enable_veto(monkeypatch):
+    monkeypatch.setenv("GEMINI_VISION_VETO_ENABLED", "1")
+
+
+def _disable_phase17_vision(monkeypatch):
+    # Phase 17 4 영역 토글 전부 OFF (veto 단독 ON 경로 격리).
+    for env_var in (
+        "GEMINI_REFERENCE_ENABLED",
+        "GEMINI_COACH_ENABLED",
+        "GEMINI_FINDING_ENABLED",
+        "GEMINI_D_ENABLED",
+    ):
+        monkeypatch.setenv(env_var, "0")
+
+
+def test_toggle_owned_by_pipeline():
+    # iter2 MEDIUM-1 — 토글은 pipeline(app.py) 단독 소유. 어댑터(gemini_vision_scorer)
+    # 에는 정의 0. _apply_vision_veto 가 유일한 feature-toggle 게이트.
+    import inspect
+
+    app_src = inspect.getsource(app)
+    scorer_src = inspect.getsource(gemini_vision_scorer)
+    assert app_src.count("def _gemini_vision_veto_enabled") == 1, (
+        "_gemini_vision_veto_enabled 는 pipeline 에 정확히 1건 정의돼야 함 (iter2 MEDIUM-1)"
+    )
+    assert "def _gemini_vision_veto_enabled" not in scorer_src, (
+        "어댑터는 토글 미소유 — 정의 0건 (drift 방지, iter2 MEDIUM-1)"
+    )
+
+
+def test_vision_veto_off_passthrough(monkeypatch):
+    # _gemini_vision_veto_enabled() OFF → 불변 + adapter 미호출 + status='disabled'.
+    monkeypatch.setenv("GEMINI_VISION_VETO_ENABLED", "0")
+    called = {"n": 0}
+
+    def _boom(*a, **k):
+        called["n"] += 1
+        raise AssertionError("adapter 가 OFF 토글에서 호출됨")
+
+    monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _boom)
+    score_result = {"overallScore": 73, "dimensionScores": {"line": 75}}
+    out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
+    assert out["overallScore"] == 73
+    assert out["visionVeto"]["status"] == "disabled"
+    assert called["n"] == 0
+
+
+def test_vision_veto_missing_local_video(monkeypatch):
+    # HIGH-1 — local_video_path None → status='missing_local_video' (graceful 명시 신호).
+    _enable_veto(monkeypatch)
+
+    def _boom(*a, **k):
+        raise AssertionError("local_video_path None 인데 adapter 호출됨")
+
+    monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _boom)
+    score_result = {"overallScore": 90, "dimensionScores": {"line": 88}}
+    out = app._apply_vision_veto(score_result, None, None, _profile())
+    assert out["overallScore"] == 90
+    assert out["visionVeto"]["status"] == "missing_local_video"
+
+
+def test_vision_veto_downward_only_with_cap(monkeypatch):
+    # iter2 HIGH-1 — cap-mutation 증명. production cap 은 20-04 까지 placeholder None;
+    # 여기 50 은 mutation 경로 증명용 scoped fixture (D-02 무손상).
+    _enable_veto(monkeypatch)
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
+    monkeypatch.setattr(
+        gemini_vision_scorer,
+        "assess_fault_severity",
+        lambda *a, **k: _StubVerdict("major"),
+    )
+    score_result = {"overallScore": 100, "dimensionScores": {"line": 100}}
+    out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
+    assert out["overallScore"] == 50  # capped 하향 증명
+    assert out["overallScore"] <= 100  # property — 절대 안 올림
+
+
+def test_vision_veto_minor_no_mutation(monkeypatch):
+    # severity='minor' → cap 없음(SEVERITY_CAP['minor']=None) → 불변 + not_applicable.
+    _enable_veto(monkeypatch)
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
+    monkeypatch.setattr(
+        gemini_vision_scorer,
+        "assess_fault_severity",
+        lambda *a, **k: _StubVerdict("minor"),
+    )
+    score_result = {"overallScore": 96, "dimensionScores": {"line": 96}}
+    out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
+    assert out["overallScore"] == 96
+    assert out["visionVeto"]["status"] == "not_applicable"
+
+
+def test_vision_veto_placeholder_cap_no_mutation(monkeypatch):
+    # iter2 HIGH-1 보강 — production placeholder cap=None (monkeypatch 없음) +
+    # severity='major' → 불변 + status='not_applicable'. 20-04 전 cap 미적용이 정상
+    # (provenance fail-closed 정합).
+    _enable_veto(monkeypatch)
+    assert vision_veto.SEVERITY_CAP["major"] is None  # production placeholder 확인
+    monkeypatch.setattr(
+        gemini_vision_scorer,
+        "assess_fault_severity",
+        lambda *a, **k: _StubVerdict("major"),
+    )
+    score_result = {"overallScore": 100, "dimensionScores": {"line": 100}}
+    out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
+    assert out["overallScore"] == 100
+    assert out["visionVeto"]["status"] == "not_applicable"
+
+
+def test_vision_veto_status_enum(monkeypatch):
+    # HIGH-1 — status enum 이 veto 실행을 명시 증명 (부재 ≠ 실행).
+    _enable_veto(monkeypatch)
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
+    monkeypatch.setattr(
+        gemini_vision_scorer,
+        "assess_fault_severity",
+        lambda *a, **k: _StubVerdict("major"),
+    )
+    score_result = {"overallScore": 100, "dimensionScores": {"line": 100}}
+    out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
+    veto = out["visionVeto"]
+    assert veto["status"] == "applied"
+    assert veto["severity"] == "major"
+    assert veto["capApplied"] == 50
+    # 객관성 — 점수/score 라벨 필드 0.
+    assert "score" not in veto
+    assert set(veto.keys()) <= {"status", "severity", "capApplied"}
+
+
+def test_vision_veto_graceful_observable(monkeypatch, caplog):
+    # Pitfall 5 — adapter None(키부재/실패) → v1 graceful 통과 + WARNING + skipped_error.
+    import logging
+
+    _enable_veto(monkeypatch)
+    monkeypatch.setattr(
+        gemini_vision_scorer, "assess_fault_severity", lambda *a, **k: None
+    )
+    score_result = {"overallScore": 81, "dimensionScores": {"line": 80}}
+    with caplog.at_level(logging.WARNING):
+        out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
+    assert out["overallScore"] == 81  # graceful 불변
+    assert out["visionVeto"]["status"] == "skipped_error"
+    assert any("veto" in r.message.lower() for r in caplog.records)
+
+
+def test_vision_veto_called_both_modes(monkeypatch):
+    # D-03/04 — 호출부가 mode 분기 밖 (단일 호출). profile 인자 전달 확인.
+    # _apply_vision_veto 자체는 mode 무관 — Mode1/Mode3 result 둘 다 통과한다.
+    import inspect
+
+    _enable_veto(monkeypatch)
+    seen = {}
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 40)
+
+    def _capture(local_video_path, at_seconds=None):
+        seen["at"] = at_seconds
+        return _StubVerdict("major")
+
+    monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _capture)
+    for overall in (100, 100):  # Mode1/Mode3 둘 다 같은 hook
+        out = app._apply_vision_veto(
+            {"overallScore": overall, "dimensionScores": {"line": overall}},
+            "/tmp/v.mp4",
+            None,
+            _profile(),
+        )
+        assert out["overallScore"] == 40
+    # 단일 호출부 + mode 분기 밖 — grep: _apply_vision_veto( 호출 1건.
+    app_src = inspect.getsource(app)
+    assert app_src.count("_apply_vision_veto(result") == 1
+
+
+def test_keep_local_video_for_veto_only(monkeypatch):
+    # HIGH-1 — Phase17 vision OFF + veto ON → keep_local_video True 라 local 영상 보존,
+    # adapter 가 non-None local_video_path 수신 (veto 가 None 무음 no-op 0).
+    _disable_phase17_vision(monkeypatch)
+    _enable_veto(monkeypatch)
+    # keep_local_video 게이트가 veto 토글 포함 — Phase17 OFF 라도 True.
+    assert (
+        app._gemini_enabled()
+        or app._gemini_vision_enabled()
+        or app._gemini_vision_veto_enabled()
+    ) is True
+    assert app._gemini_vision_enabled() is False  # Phase17 OFF 확인
+    assert app._gemini_vision_veto_enabled() is True  # veto 단독 ON
+    # adapter 가 non-None path 를 수신함을 _apply_vision_veto 경유로 단언.
+    received = {}
+    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
+
+    def _capture(local_video_path, at_seconds=None):
+        received["path"] = local_video_path
+        return _StubVerdict("major")
+
+    monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _capture)
+    app._apply_vision_veto(
+        {"overallScore": 100, "dimensionScores": {"line": 100}},
+        "/tmp/keep.mp4",
+        None,
+        _profile(),
+    )
+    assert received["path"] == "/tmp/keep.mp4"  # non-None 보존

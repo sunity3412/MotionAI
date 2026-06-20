@@ -237,6 +237,26 @@ def _gemini_vision_enabled() -> bool:
     return False
 
 
+# Phase 20-03 (SCORE-08, iter2 MEDIUM-1) — Gemini 비전 거부권 토글.
+# 토글은 **pipeline(app.py) 단독 소유** — 20-02 어댑터(gemini_vision_scorer)는 토글을
+# 정의/복제하지 않는다(drift → no-op 버그 재발 차단). _apply_vision_veto 가 유일한
+# feature-toggle 게이트이며, keep_local_video 보존 게이트(HIGH-1)도 이 토글을 읽는다.
+# default OFF (env 미설정 = False) — belle 운영자 명시 opt-in (20-RESEARCH Runtime State).
+def _gemini_vision_veto_enabled() -> bool:
+    """GEMINI_VISION_VETO_ENABLED 토글 (Phase 20-03, pipeline 단독 소유).
+
+    박제 정신:
+      · iter2 MEDIUM-1 — 토글은 pipeline 에만 정의/사용. 어댑터 복제 금지(drift 방지).
+      · falsy 박제 = {"0", "false", ""} (case-insensitive). 그 외 truthy 면 ON.
+      · default OFF — env 미설정 = False (운영자 명시 opt-in).
+
+    Returns:
+        True = 비전 거부권 ON. False = OFF.
+    """
+    raw = os.environ.get("GEMINI_VISION_VETO_ENABLED", "")
+    return raw.strip().lower() not in _VISION_FALSY
+
+
 def _safe_unlink_local_video(local_video_path: str | None) -> None:
     """local_video_path 안전 unlink — 실패 시 log.warning + graceful return.
 
@@ -1628,35 +1648,77 @@ def _hold_window_median_dict(
     }
 
 
+def _veto_passthrough(score_result: dict, status: str) -> dict:
+    """비전 거부권 audit status 직렬화 헬퍼 (Phase 20-03 TRUST-08).
+
+    점수 불변 + visionVeto.status 만 명시 박제. status enum ∈ {applied, not_applicable,
+    disabled, skipped_error, missing_local_video}. 부재 ≠ 실행 — status 가 veto 실행
+    여부를 명시 증명한다 (HIGH-1). 객관성: score/점수 라벨 필드 0.
+    """
+    return {**score_result, "visionVeto": {"status": status}}
+
+
 def _apply_vision_veto(
     score_result: dict,
     local_video_path: str | None = None,
     angles: np.ndarray | None = None,
+    profile: "technique.TechniqueProfile | None" = None,
 ) -> dict:
-    """v1 비전 거부권 hook (Phase 19 TRUST-05 / ITER-2 MEDIUM-3) — pass-through 자리.
+    """v2 비전 거부권 — 하향-전용 mutation (Phase 20-03 SCORE-08 / D-01/03/04/05).
 
-    v1 은 **SAME-OBJECT identity**: 입력 score_result 를 그대로 반환하고 어떤 필드도
-    mutate 하지 않는다 (`out is score_result`, copy/deepcopy 금지). 점수 객관성
-    ([[analysis-objectivity-no-human-scores]]) 위반 차단 — v1 에서 비전이 점수를 바꾸지
-    않음을 테스트(`out is score_result` + mutation 0)가 단언한다.
+    capped < overallScore 일 때만 result['overallScore'] 를 **낮춘다** (절대 안 올림).
+    Mode1+Mode3 둘 다 (호출부가 mode 분기 밖). 평균 금지 — terminal min cap 만(Pitfall 1).
+    visionVeto.status 가 veto 실행을 증명(부재 ≠ 실행, HIGH-1). production SEVERITY_CAP 은
+    20-04 까지 placeholder None 이라 cap 적용은 not_applicable — mutation 경로는 테스트가
+    monkeypatch(SEVERITY_CAP['major']=50)로 증명한다. v1 identity 계약은 의도적 전환(20-03).
 
-    _gemini_vision_enabled() OFF(또는 v2 미구현) 시 항상 입력 객체 그대로 반환. v2 가
-    실제 거부권(특정 차원 강등 등)을 도입하는 시점에 이 계약을 의도적으로 전환한다
-    (adapter Protocol 경계 — v2 본체 DEFERRED). graceful boundary: 어떤 예외도 분석
-    흐름을 막지 않고 입력 객체로 폴백.
+    status enum (TRUST-08, 무음실패 방지 — Pitfall 5):
+      · disabled            — _gemini_vision_veto_enabled() OFF (adapter 미호출)
+      · missing_local_video — local_video_path None (graceful, HIGH-1)
+      · skipped_error       — adapter None(키부재/실패) → v1 graceful + WARNING
+      · not_applicable      — cap 미적용 (minor/None/placeholder — 점수 불변)
+      · applied             — cap 적용 (overallScore 하향)
+
+    토글은 pipeline 단독 소유 (iter2 MEDIUM-1) — 어댑터는 토글 미참조.
     """
     try:
-        if not _gemini_vision_enabled():
-            return score_result
-        # v2 거부권 본체 DEFERRED — 현재는 identity (점수 불변). v2 가 mutation 도입 시
-        # 여기에 vision adapter 호출 + 차원 강등 로직이 들어간다 (계약 전환 시점).
-        # WR-01: production score_result 는 assemble.build_result 산출물이라 종합 점수
-        # 키가 'overallScore' (NOT 'overall') 이고 차원은 'dimensionScores'. v2 가
-        # 강등 로직을 붙일 때 반드시 score_result['overallScore'] 를 읽고/쓸 것.
-        return score_result
+        if not _gemini_vision_veto_enabled():
+            return _veto_passthrough(score_result, "disabled")
+        if local_video_path is None:
+            # HIGH-1 — veto ON 인데 local 영상 부재. 무음 no-op 이 아니라 명시 신호.
+            return _veto_passthrough(score_result, "missing_local_video")
+        from sunity_shared.analysis import vision_veto, gemini_vision_scorer
+
+        at = vision_veto.worst_pose_timestamp(profile)
+        verdict = gemini_vision_scorer.assess_fault_severity(
+            local_video_path, at_seconds=at
+        )
+        if verdict is None:
+            log.warning(
+                "vision veto 미실행 — verdict None, v1 점수 통과 "
+                "(graceful, 무음실패 관측 — Pitfall 5)"
+            )
+            return _veto_passthrough(score_result, "skipped_error")
+        overall = score_result["overallScore"]
+        capped = vision_veto.apply_downward_cap(overall, verdict.severity)
+        if capped < overall:
+            # 하향-전용 — apply_downward_cap 이 min 만(올림 0). audit 직렬화.
+            return {
+                **score_result,
+                "overallScore": capped,
+                "visionVeto": {
+                    "status": "applied",
+                    "severity": verdict.severity,
+                    "capApplied": capped,
+                },
+            }
+        # cap 미적용 (production placeholder None / minor / cap >= overall) — 점수 불변.
+        return _veto_passthrough(score_result, "not_applicable")
     except Exception:  # noqa: BLE001 - 비전 hook 실패는 분석을 막지 않는다 (graceful)
-        log.exception("vision veto hook 실패 — score_result 그대로 통과 (graceful)")
-        return score_result
+        log.exception(
+            "vision veto hook 실패 — score_result 그대로 통과 (graceful, skipped_error)"
+        )
+        return _veto_passthrough(score_result, "skipped_error")
 
 
 def _extension_target_dict(
@@ -1833,9 +1895,16 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     )
     # Plan 17-01 Task 4 (R-B4 정합) — Phase 17 4 영역 토글 중 하나만 ON 이어도
     # local_video_path 보존. Phase 5 recognizer 기존 path 와 OR 박제.
+    # Phase 20-03 HIGH-1 — keep_local_video 게이트에 _gemini_vision_veto_enabled() 포함.
+    # veto 만 ON 이고 Phase17 vision 토글이 OFF 라도 local_video_path 가 보존돼야
+    # _apply_vision_veto 가 None 으로 무음 no-op 되지 않는다 (veto no-op 차단).
     inputs = _extract_video_analysis_inputs(
         bucket, key, default_pole,
-        keep_local_video=_gemini_enabled() or _gemini_vision_enabled(),
+        keep_local_video=(
+            _gemini_enabled()
+            or _gemini_vision_enabled()
+            or _gemini_vision_veto_enabled()
+        ),
     )
     angles = inputs.angles
     student_profile = inputs.student_profile  # R4 fix — non-null
@@ -2226,9 +2295,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # Phase 13-B (HIGH-2): copyBranch 분기 카피 pass-through (coach 와 동일 lookup).
             branch_info=branch_info,
         )
-        # Phase 19 TRUST-05 — v2 비전 거부권 슬롯 (v1 = SAME-object identity, 점수 불변).
-        # v2 가 mutation 도입 시 이 hook 이 차원 강등을 적용한다 (계약 의도적 전환 시점).
-        result = _apply_vision_veto(result, local_video_path, angles)
+        # Phase 20-03 SCORE-08 — v2 비전 하향 거부권 (D-01/03/04/05). 이 줄은
+        # MODE_EXPERT/MODE_SELF 분기 **밖**이라 Mode1+Mode3 둘 다 자동 적용된다(D-03/04).
+        # profile = recognize 직후 산출된 동일 객체 (worst_pose_timestamp source).
+        result = _apply_vision_veto(result, local_video_path, angles, profile)
         # 추출 angles 를 flat 저장 — 다음 mode3 분석이 '이전 영상' 기준으로 DTW 비교.
         # Phase 6 (Plan 06-02 Task 3) wiring — body_comparison_report (camelCase 변환) +
         # body_normalization_profile (mode3 progress prev fetch path).

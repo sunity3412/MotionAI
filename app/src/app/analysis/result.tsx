@@ -443,6 +443,23 @@ export default function AnalysisResult() {
   const grade = scoreGrade(result.overallScore);
   const cmp = result.comparison;
 
+  // Phase 20 TRUST-07 — Mode3 미보유/저신뢰 점수 억제 (점수카드 전체 대체).
+  // iter3 HIGH-2: STRICTLY result.scoreSuppressed === true 단독 신호 — scoringBasis
+  // 폴백 금지 (scoringBasis 는 source 라벨, suppression 은 display/trust 정책).
+  // backend producer-contract 가 reference_free_absolute↔scoreSuppressed 를 fail-loud 로
+  // 보장하므로 UI 는 이 플래그만 믿는다.
+  const isScoreSuppressed =
+    cmp.mode === 'mode3' && result.scoreSuppressed === true;
+  // iter3 MEDIUM-1 / iter4 MEDIUM-1 — 억제 헤더 카피는 reason 이 소유 (reason-owns-copy).
+  // reason 누락 시 default '기준 없음' 폴백 금지 — 중립 카피 (오라벨 방지).
+  const suppressedHeaderCopy = isScoreSuppressed
+    ? result.scoreSuppressedReason === 'recognition_low_confidence'
+      ? '동작 인식 신뢰도가 낮아 기준을 확정할 수 없어요.'
+      : result.scoreSuppressedReason === 'unheld'
+        ? '기준 데이터가 없어 정확한 점수를 드릴 수 없어요.'
+        : '이 분석은 기준을 확정할 수 없어요.'
+    : null;
+
   // mode1 메타 카드용 풀데이터. 시드 전이거나 로딩 중이면 motion=null →
   // 화면은 cmp.referenceMotionName / cmp.athleteName 으로 폴백 표시.
   const { motion: refMotion } = useReferenceMotion(
@@ -674,7 +691,9 @@ export default function AnalysisResult() {
           <Text style={styles.sub}>
             {cmp.mode === 'mode1'
               ? `${cmp.athleteName} 선수 · ${cmp.referenceMotionName} 기준으로 분석했어요.`
-              : `${name ? `${name} · ` : ''}분석이 완료됐어요. 점수를 확인해보세요.`}
+              : isScoreSuppressed
+                ? `${name ? `${name} · ` : ''}${suppressedHeaderCopy}`
+                : `${name ? `${name} · ` : ''}분석이 완료됐어요. 점수를 확인해보세요.`}
           </Text>
           {/* Phase 19 TRUST-03 — 채점 근거(scoringBasisLabel) 가시화. reference-free 일 때
               "기준 동작 없음 — 절대 자세 기준 평가" 가 사용자에게 보인다 (거짓 confident 점수
@@ -733,18 +752,29 @@ export default function AnalysisResult() {
         )}
 
         {/* ── Phase 12 Wave 1 (Plan 12-02 T4) — 영역 1: 점수 게이지 ─────── */}
-        <View style={styles.card}>
-          <OctagonScore score={result.overallScore} size={168} />
-          <View style={styles.gradeRow}>
-            <Text style={styles.gradeBadge}>{grade}</Text>
-            <Text style={styles.summary}>{summary}</Text>
+        {/* Phase 20 TRUST-07 (iter2 HIGH-2) — Mode3 미보유/저신뢰 시 점수카드 전체를
+            '기준 없음' state 로 대체. OctagonScore + gradeBadge + summary + LevelBenchmark +
+            scoreCaption 전부 비억제(!isScoreSuppressed) 분기 아래에만 둔다 — octagon 만 숨기면
+            grade/summary/caption 으로 confident 점수가 누출된다 (D-08 confident 97 차단). */}
+        {isScoreSuppressed ? (
+          <View style={styles.card}>
+            <Text style={styles.suppressedTitle}>기준 없음</Text>
+            <Text style={styles.suppressedBody}>{suppressedHeaderCopy}</Text>
           </View>
-          <LevelBenchmark score={result.overallScore} />
-          {/* 260612-t9m: 점수 안내 캡션 — stability tol 25° 보정과 함께 "90+ 정상" 사용자 인지 정합 */}
-          <Text style={styles.scoreCaption}>
-            촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요. 90점 이상이면 정상 자세에 가깝습니다.
-          </Text>
-        </View>
+        ) : (
+          <View style={styles.card}>
+            <OctagonScore score={result.overallScore} size={168} />
+            <View style={styles.gradeRow}>
+              <Text style={styles.gradeBadge}>{grade}</Text>
+              <Text style={styles.summary}>{summary}</Text>
+            </View>
+            <LevelBenchmark score={result.overallScore} />
+            {/* 260612-t9m: 점수 안내 캡션 — stability tol 25° 보정과 함께 "90+ 정상" 사용자 인지 정합 */}
+            <Text style={styles.scoreCaption}>
+              촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요. 90점 이상이면 정상 자세에 가깝습니다.
+            </Text>
+          </View>
+        )}
 
         {/* ── 영역 2: 영상 + 키포인트 오버레이 (D-12-A1 #2 / D-12-C1 mode 분기) ─
             mode1 = 사용자 + 정은지 split (둘 다 오버레이 박제).
@@ -1187,6 +1217,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 12,
+    lineHeight: 18,
+    paddingHorizontal: 4,
+  },
+  // Phase 20 TRUST-07 — 점수 억제 시 '기준 없음' state 카피. 토큰만 (하드코딩 금지).
+  suppressedTitle: {
+    ...typography.sectionTitle,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  suppressedBody: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
     lineHeight: 18,
     paddingHorizontal: 4,
   },

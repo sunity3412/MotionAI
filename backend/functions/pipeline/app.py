@@ -1770,6 +1770,99 @@ def _mode3_scoring_basis(is_first: bool, is_reference_free: bool) -> str:
     return assemble.MODE3_SCORING_BASIS_PREV_PLUS_ABSOLUTE
 
 
+# Phase 20-03 iter5 HIGH-2 — recognition_low_confidence 억제 결과의 scoringBasisLabel.
+# reference-free '기준 동작 없음' 라벨을 절대 포함하지 않는다 (reason-owns-copy).
+_SCORE_SUPPRESSION_LOW_CONF_LABEL = "동작 인식 신뢰도가 낮아 기준을 확정할 수 없어요"
+
+
+def _score_suppression_reason(
+    profile: "technique.TechniqueProfile | None",
+    branch_info: "assemble.MotionBranchInfo | None",
+) -> str | None:
+    """Mode3 점수 억제 사유를 recognizer category PROVENANCE 우선순위로 결정 (iter4 HIGH-1).
+
+    우선순위:
+      1. profile.category == 'low_confidence' → 'recognition_low_confidence'.
+         **motion_id=None 이 lookup_motion_branch(None)=_SAFE_DEFAULT_BRANCH(is_reference_free
+         True)를 유발해도 무조건 우선** — "모르니까 안전 기본" ≠ "확정 미보유".
+         _SAFE_DEFAULT_BRANCH(motion_id=None 유래)를 low_confidence 일 때 unheld 의 증거로
+         쓰지 않는다 (test_resolver_low_confidence_not_unheld 가 이 경로를 박제).
+      2. profile.category == 'unregistered' → 'unheld' (진짜 미등록).
+      3. is_reference_free_motion(branch_info) (concrete branch metadata 가 unavailable
+         basis) → 'unheld'.
+      4. 그 외(등재 동작) → None (억제 아님).
+
+    '둘 다 해당이면 unheld 우선' 류 collapse 로직 절대 사용 금지 (low_confidence 가
+    unheld 로 collapse 되는 원인 — iter4 HIGH-1).
+    """
+    category = getattr(profile, "category", None)
+    if category == "low_confidence":
+        return "recognition_low_confidence"
+    if category == "unregistered":
+        return "unheld"
+    if assemble.is_reference_free_motion(branch_info):
+        return "unheld"
+    return None
+
+
+def _apply_score_suppression(
+    result: dict,
+    profile: "technique.TechniqueProfile | None",
+    branch_info: "assemble.MotionBranchInfo | None",
+) -> dict:
+    """Mode3 미보유/저신뢰 동작 점수 억제 (Phase 20-03 TRUST-07, branch-3).
+
+    resolver(_score_suppression_reason) 가 결정한 reason 으로 result 에 scoreSuppressed +
+    scoreSuppressedReason emit. 점수는 산출하되 화면이 점수카드 전체를 억제 (D-08 confident
+    97 차단). fail-closed/raise 금지 ([[motion-routing-generalize-principle]]).
+
+    iter5 HIGH-2 (reason-owns-copy): recognition_low_confidence 면 comparison.scoringBasisLabel
+    을 reference-free '기준 동작 없음' 이 아닌 '신뢰도 낮음' 류 라벨로 override — scoringBasisLabel
+    이 reason 이 존재하면 scoringBasis 단독에서 파생되지 않는다 (두 번째 UI 필드 reason leak 차단).
+
+    iter5 MEDIUM-2 (A2 reconcile): recognizer category 와 branch is_reference_free 출처가
+    달라 불일치 시 정확히 하나의 structured 필드 scoreSuppressionAudit 로 보고 (log.warning
+    '또는' 대안 폐기, log 는 additive only).
+
+    producer-contract fail-loud:
+      · scoringBasis=='reference_free_absolute' 인데 scoreSuppressed 누락 (iter3 HIGH-2)
+      · scoreSuppressed==True 인데 scoreSuppressedReason 누락/무효 (iter4 MEDIUM-1)
+      → 둘 다 명시 assert (UI silent 추론 / default 카피 의존 차단).
+    """
+    comparison = result.get("comparison") or {}
+    is_reference_free = assemble.is_reference_free_motion(branch_info)
+    reason = _score_suppression_reason(profile, branch_info)
+
+    if reason is not None:
+        result["scoreSuppressed"] = True
+        result["scoreSuppressedReason"] = reason
+        # iter5 HIGH-2 — reason-owns-copy: recognition_low_confidence 는 reference-free
+        # '기준 동작 없음' 라벨 금지. unheld 는 기존 reference-free 라벨 유지.
+        if reason == "recognition_low_confidence" and isinstance(comparison, dict):
+            comparison["scoringBasisLabel"] = _SCORE_SUPPRESSION_LOW_CONF_LABEL
+        # iter5 MEDIUM-2 — A2 reconcile 단일 structured sink (불일치 관측).
+        result["scoreSuppressionAudit"] = {
+            "recognizerCategory": getattr(profile, "category", None) or "",
+            "branchReferenceFree": bool(is_reference_free),
+            "resolvedReason": reason,
+        }
+
+    # producer-contract fail-loud (iter3 HIGH-2 / iter4 MEDIUM-1).
+    scoring_basis = comparison.get("scoringBasis") if isinstance(comparison, dict) else None
+    if scoring_basis == assemble.MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE:
+        assert result.get("scoreSuppressed") is True, (
+            "producer-contract FAILURE — reference_free_absolute 는 scoreSuppressed 동반 "
+            "필수 (iter3 HIGH-2, UI silent 추론 금지)"
+        )
+    if result.get("scoreSuppressed") is True:
+        emitted = result.get("scoreSuppressedReason")
+        assert emitted in models.SCORE_SUPPRESSED_REASONS, (
+            "producer-contract FAILURE — scoreSuppressed=True 는 scoreSuppressedReason "
+            "(SCORE_SUPPRESSED_REASONS 내 값) 동반 필수 (iter4 MEDIUM-1, UI default 카피 금지)"
+        )
+    return result
+
+
 def _mode3_comparison(
     angles: np.ndarray,
     prev: dict | None,
@@ -2299,6 +2392,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # MODE_EXPERT/MODE_SELF 분기 **밖**이라 Mode1+Mode3 둘 다 자동 적용된다(D-03/04).
         # profile = recognize 직후 산출된 동일 객체 (worst_pose_timestamp source).
         result = _apply_vision_veto(result, local_video_path, angles, profile)
+        # Phase 20-03 TRUST-07 — Mode3 미보유/저신뢰 점수 억제 (branch-3, D-08).
+        # MODE_SELF 전용 (Mode1 은 reference 비교라 미보유 개념 없음). resolver provenance +
+        # reason-owns-copy scoringBasisLabel + A2 structured audit + producer-contract fail-loud.
+        if mode == models.MODE_SELF:
+            result = _apply_score_suppression(result, profile, branch_info)
         # 추출 angles 를 flat 저장 — 다음 mode3 분석이 '이전 영상' 기준으로 DTW 비교.
         # Phase 6 (Plan 06-02 Task 3) wiring — body_comparison_report (camelCase 변환) +
         # body_normalization_profile (mode3 progress prev fetch path).

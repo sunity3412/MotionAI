@@ -491,3 +491,189 @@ def test_keep_local_video_for_veto_only(monkeypatch):
         _profile(),
     )
     assert received["path"] == "/tmp/keep.mp4"  # non-None 보존
+
+
+# ── Phase 20-03 Task 3 — Mode3 미보유/저신뢰 점수 억제 + resolver provenance ──
+# 전부 pod-free. _score_suppression_reason 직접 단위 + _apply_score_suppression 경로.
+
+from sunity_shared.analysis import gemini_technique_recognizer as gtr  # noqa: E402
+
+
+def _cat_profile(category: str, motion_id: str | None = None):
+    """recognizer category 만 다른 TechniqueProfile (resolver 입력용)."""
+    return technique.TechniqueProfile(
+        name="t",
+        category=category,
+        joint_expectations={k: technique.JOINT_BENT_OK for k in JOINT_KEYS},
+        motion_id=motion_id,
+    )
+
+
+def test_resolver_low_confidence_not_unheld():
+    # iter4 HIGH-1 (핵심 REGRESSION) — category='low_confidence', motion_id=None,
+    # branch_info=_SAFE_DEFAULT_BRANCH(lookup_motion_branch(None), is_reference_free=True)
+    # → 반드시 'recognition_low_confidence' (절대 'unheld' 아님). _SAFE_DEFAULT_BRANCH 가
+    # is_reference_free True 여도 category provenance 가 우선.
+    safe_default = assemble.lookup_motion_branch(None)
+    assert assemble.is_reference_free_motion(safe_default) is True  # collapse 유발 조건
+    reason = app._score_suppression_reason(
+        _cat_profile("low_confidence", motion_id=None), safe_default
+    )
+    assert reason == "recognition_low_confidence", (
+        "low_confidence 가 _SAFE_DEFAULT_BRANCH 로 unheld 에 collapse 되면 안 됨 (iter4 HIGH-1)"
+    )
+
+
+def test_resolver_priority():
+    # iter4 HIGH-1 — resolver 우선순위 단위.
+    safe_default = assemble.lookup_motion_branch(None)
+    real_branch2 = assemble.lookup_motion_branch("ref-foxtop")  # 등재 (not reference-free)
+    # (1) low_confidence → recognition_low_confidence (safe-default 무관)
+    assert app._score_suppression_reason(
+        _cat_profile("low_confidence"), safe_default
+    ) == "recognition_low_confidence"
+    # (2) unregistered → unheld
+    assert app._score_suppression_reason(
+        _cat_profile("unregistered"), safe_default
+    ) == "unheld"
+    # (3) concrete unavailable branch (recognized + reference-free) → unheld
+    assert app._score_suppression_reason(
+        _cat_profile("recognized"), safe_default
+    ) == "unheld"
+    # 등재 동작 (recognized + not reference-free) → None (억제 아님)
+    assert app._score_suppression_reason(
+        _cat_profile("recognized", motion_id="ref-foxtop"), real_branch2
+    ) is None
+
+
+def _suppress_result(scoring_basis: str, label: str = "etc") -> dict:
+    """_apply_score_suppression 입력 result dict (comparison 포함)."""
+    return {
+        "overallScore": 97,
+        "dimensionScores": {"line": 97, "stability": 95},
+        "comparison": {
+            "mode": "mode3",
+            "isFirst": True,
+            "scoringBasis": scoring_basis,
+            "scoringBasisLabel": label,
+        },
+    }
+
+
+def test_branch3_score_suppressed():
+    # D-08 — 미보유(is_reference_free True, recognized) → scoreSuppressed True +
+    # reason 'unheld' (명시 플래그 — scoringBasis 단독 아님, iter2 HIGH-3).
+    safe_default = assemble.lookup_motion_branch(None)
+    result = _suppress_result(assemble.MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE,
+                              label="기준 동작 없음 — 절대 자세 기준 평가")
+    out = app._apply_score_suppression(result, _cat_profile("recognized"), safe_default)
+    assert out["scoreSuppressed"] is True
+    assert out["scoreSuppressedReason"] == "unheld"
+    assert out["comparison"]["scoringBasisLabel"] == "기준 동작 없음 — 절대 자세 기준 평가"
+
+
+def test_low_confidence_suppressed_reason():
+    # iter3 MEDIUM-1 — category='low_confidence' → scoreSuppressed True +
+    # reason 'recognition_low_confidence' ('기준 없음' 아님).
+    safe_default = assemble.lookup_motion_branch(None)
+    result = _suppress_result(assemble.MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE)
+    out = app._apply_score_suppression(result, _cat_profile("low_confidence"), safe_default)
+    assert out["scoreSuppressed"] is True
+    assert out["scoreSuppressedReason"] == "recognition_low_confidence"
+
+
+def test_low_confidence_scoring_basis_label_not_unheld():
+    # iter5 HIGH-2 (핵심) — recognition_low_confidence 억제의 scoringBasisLabel 이
+    # reference-free '기준 동작 없음'/'기준 없음' 미포함 (reason-owns-copy).
+    safe_default = assemble.lookup_motion_branch(None)
+    result = _suppress_result(
+        assemble.MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE,
+        label="기준 동작 없음 — 절대 자세 기준 평가",  # backend 가 override 해야 함
+    )
+    out = app._apply_score_suppression(result, _cat_profile("low_confidence"), safe_default)
+    label = out["comparison"]["scoringBasisLabel"]
+    assert "기준 동작 없음" not in label
+    assert "기준 없음" not in label
+    assert label  # 비어있지 않은 reason-specific 라벨
+
+
+def test_missing_suppression_flag_is_contract_failure():
+    # iter3 HIGH-2 — scoringBasis=reference_free_absolute 인데 scoreSuppressed 누락 →
+    # producer-contract FAILURE (resolver 가 None 반환하도록 등재 profile 강제 주입).
+    real_branch2 = assemble.lookup_motion_branch("ref-foxtop")  # not reference-free
+    result = _suppress_result(assemble.MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE)
+    # recognized + 등재 branch → resolver None → flag 미set → contract assert 발동.
+    with pytest.raises(AssertionError):
+        app._apply_score_suppression(
+            result, _cat_profile("recognized", motion_id="ref-foxtop"), real_branch2
+        )
+
+
+def test_missing_reason_is_contract_failure():
+    # iter4 MEDIUM-1 — scoreSuppressed True 인데 reason 무효면 producer-contract FAILURE.
+    safe_default = assemble.lookup_motion_branch(None)
+    result = _suppress_result(assemble.MODE3_SCORING_BASIS_RECOGNIZED_ABSOLUTE)
+    result["scoreSuppressed"] = True  # reason 없이 강제 set (오염 시뮬)
+    with pytest.raises(AssertionError):
+        app._apply_score_suppression(result, _cat_profile("recognized", motion_id="ref-foxtop"),
+                                     assemble.lookup_motion_branch("ref-foxtop"))
+
+
+def test_recognizer_ipsf_map_reconcile():
+    # A2 (iter5 MEDIUM-2) — 불일치(low_confidence 인데 branch is_reference_free)는
+    # 정확히 하나의 structured 필드 scoreSuppressionAudit 로 보고. raise 0.
+    safe_default = assemble.lookup_motion_branch(None)  # is_reference_free True
+    result = _suppress_result(assemble.MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE)
+    out = app._apply_score_suppression(result, _cat_profile("low_confidence"), safe_default)
+    assert out["scoreSuppressionAudit"] == {
+        "recognizerCategory": "low_confidence",
+        "branchReferenceFree": True,
+        "resolvedReason": "recognition_low_confidence",
+    }
+
+
+def test_branch3_no_raise():
+    # motion-routing-generalize — 미보유가 raise 0 + 점수+라벨+플래그+reason 반환.
+    safe_default = assemble.lookup_motion_branch(None)
+    result = _suppress_result(assemble.MODE3_SCORING_BASIS_REFERENCE_FREE_ABSOLUTE,
+                              label="기준 동작 없음 — 절대 자세 기준 평가")
+    out = app._apply_score_suppression(result, _cat_profile("recognized"), safe_default)
+    assert out["overallScore"] == 97  # 점수 산출 유지 (raise 0)
+    assert out["scoreSuppressed"] is True
+    assert out["scoreSuppressedReason"] == "unheld"
+    assert out["comparison"]["scoringBasisLabel"]
+
+
+def test_recognizer_line_dim_determinism():
+    # C-1 / D-06 / TRUST-06 — 같은 reference 2회 → cache hit (Gemini 호출 0) → 같은
+    # category → 같은 line 차원 분류. run 간 변동 0. mocked, pod-free.
+    cached_payload = {
+        "motion": "static-v",
+        "scope_status": "registered",
+        "moments": [
+            {"moment_key": "hold", "timestamp_seconds": 1.0, "confidence": 0.9,
+             "joints": {}},
+        ],
+        "raw_text": "static-v hold",
+    }
+
+    class _FakeCache:
+        def lookup(self, video_path):
+            return dict(cached_payload)
+
+        def store(self, video_path, gemini_result):  # pragma: no cover - cache hit 경로만
+            raise AssertionError("cache hit 이므로 store 호출되면 안 됨")
+
+    class _FakeExtractor:
+        calls = 0
+
+        def extract_key_moments(self, *a, **k):  # pragma: no cover
+            _FakeExtractor.calls += 1
+            raise AssertionError("cache hit 이면 extractor(Gemini) 호출 0")
+
+    rec = gtr.GeminiTechniqueRecognizer(cache=_FakeCache(), extractor=_FakeExtractor())
+    a = _video(3)
+    p1 = rec.recognize(a, frames="/tmp/ref.mp4")
+    p2 = rec.recognize(a, frames="/tmp/ref.mp4")
+    assert p1.category == p2.category  # 결정성 (같은 분류)
+    assert _FakeExtractor.calls == 0  # Gemini 호출 0 (캐시가 실 보장)

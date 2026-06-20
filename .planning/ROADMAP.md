@@ -54,6 +54,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 18: Expert deliberate-fault reference eval set** - 정은지 '일부러-실수' reference 영상을 영구 regression/eval 세트로. **(completed 2026-06-20, verdict-level closed)** **2026-06-19 baseline 박제 완료(pod-free)**: `backend/evals/phase18/`(pairs.yaml 6 페어 + 비전-파생 fault 라벨 D-05 + 확정 serial baseline 스냅샷 + assert_baseline.py self-check PASS) + `.planning/phases/18-.../18-EVAL-SET.md`. EVAL baseline = power-spin 72/100·peter-pan 79/100·elbow-twist 59/100·pdshape 58/100 변별 4/4, kip-up 100/100 위양성(known)·climb not_pole(known). **2026-06-20 live sweep ↔ baseline 대조 완료(Pod 2yz9zre7b4d2sp/5d67d94)**: Mode1 verdict 6/6 baseline 일치(변별 4 + kip-up 위양성 + climb 게이트), fault 점수 +0~2 drift(Gemini 비결정성=Phase 20 동기, 회귀 아님). evidence=`.planning/phases/18-.../18-LIVE-DRIFT-EVIDENCE.md`. verdict-level closed. **잔여 2건 → Phase 20 으로 이관(없어진 게 아님)**: (1) sensitivity 셋(미보유+above-cutoff) = Phase 20 20-04 SEVERITY_CAP 도출 입력(필수 선행), (2) exact-score drift 0 = Phase 20 결정성(temp 0 + 캐싱) 작업 후 재평가. (Phase 15 의존)
 - [x] **Phase 19: 분석 점수 신뢰도 재설계 (vision-hybrid 채점)** - 실증에서 드러난 점수 위양성(정은지 실패영상 Mode1 94점/89%) 근본 수정 — 이중 단순평균 집계 → 감점식 IPSF 정합 + 비전-추론 하이브리드(영상+RTMW 수치 → 품질/결함 판단)를 채점 루프에 투입 + 표시값 정합·라벨·골격 좌표 버그 + Mode3 미보유동작 게이트. 절대원칙: 일반화(어떤 영상이든 정확), 보유셋 overfit 금지. (Phase 15 실증 발견 + Phase 18 eval = 검증 일부) (completed 2026-06-18)
 - [ ] **Phase 20: v2 비전 점수 (Gemini 시각 거부권)** - Phase 19 v1(감점식)이 남긴 점수 위양성을 Gemini 시각 점수로 해소. belle 스펙 게이트 = 같은 정은지 95~100 / 잘못된 동작 ≤50 / Gemini 시각 점수. Phase 18 EVAL baseline = known-answer gate. 대상 3: (1) kip-up 위양성 100/100 — 비-각도형 실패를 DTW가 흡수하는 angle 맹점에 Gemini 시각 거부권, (2) 상단 변별(within-20°=일률 100) + Gemini 인식기 결정성(temp 0 + reference profile 캐싱), (3) Mode3 미보유동작 유효성 게이트(reference-free라 not_pole 미적용) + 점수근거 화면 표시. climb not_pole = 별도 ref-quality 트랙(코드 아님). 구현/eval은 Pod 필요. (Phase 18·19 의존)
+- [ ] **Phase 22: 자체 비전 모델 파인튜닝 (오픈 모델 전환)** - Gemini(닫힌 API라 가중치 파인튜닝 불가) 대신 오픈 비전 모델로 전환해 공개 폴 영상 라벨 데이터로 **실제 가중치 학습**. Phase 20/#4(b)(c)(d)에서 꾸준히 모은 라벨 데이터(정타/fault 버킷 · 미보유 동작 · reference 확장)가 학습셋이 됨. 모델 추상화(PoseEngine/recognizer 인터페이스, [[rtmw-free-stack-pivot]]) 위에서 "꾸준히 쌓다가 됐다 싶을 때 갈아끼기". (Phase 21 이후, belle 2026-06-20 결정)
 
 ## Phase Details
 
@@ -702,6 +703,32 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 21 to break down)
+
+---
+
+### Phase 22: 자체 비전 모델 파인튜닝 (오픈 모델 전환)
+
+> **신규 (belle 2026-06-20).** Phase 20 에서 드러난 한계 = Gemini 는 닫힌 API라 **가중치 파인튜닝 불가** — 프롬프트/few-shot/캐싱까지만 가능. belle 결정: Phase 21 까지 끝낸 뒤, 꾸준히 모아온 공개 폴 영상 라벨 데이터로 **오픈 비전 모델을 실제 fine-tune** 해서 Gemini 의존 영역(시각 결함 판정/인식기)을 갈아끼운다. "어차피 해야 할 일 — 모델을 함께 쓰든, 됐다 싶을 때 교체."
+
+**Goal:** Gemini 시각 판정(결함 severity / 동작 인식)을 도메인-특화 오픈 비전 모델로 대체/병행한다. 폴스포츠 공개 영상(대회=정타, 튜토리얼 "흔한 실수"=fault) + 정은지 gold 셋으로 라벨 학습셋을 구성해, 정타를 결함으로 스탬프하지 않고(위양성) 실제 결함을 적정 severity 로 잡는(일반화) 판정기를 확보한다.
+
+**선행으로 꾸준히 쌓을 것 (Phase 20~21 동안 데이터 적재):**
+- #4(b) sensitivity/일반화 eval 셋 (미보유 + above-cutoff) — 그대로 학습/검증셋 시드
+- #4(c) reference 라이브러리 확장 (대회 elite 영상)
+- #4(d) severity threshold 경험 데이터
+- 버킷 라벨(정타/fault)만 — 사람 숫자 점수 라벨 금지 ([[analysis-objectivity-no-human-scores]])
+
+**교체 가능성 (이미 깔린 기반):** PoseEngine/recognizer 인터페이스 추상화([[rtmw-free-stack-pivot]]) + Gemini 어댑터 경계(20-02 gemini_vision_scorer) → 판정기를 인터페이스 뒤에서 swap. 라이선스 게이트([[license-blocklist-pose.md]] / [[rtmw-clean-weight-release-gate]]) 준수 — 상업 출시용은 clean-data weight.
+
+**setup/prep belle 알림 대상 (진행하며 그때그때):** 학습 GPU(RunPod 등) / 오픈 모델 선택 / 라벨링 도구 / 데이터 저장. 본격 착수는 Phase 21 완료 후.
+
+**Requirements**: plan 에서 신설 (FT-xx — 모델선정 / 학습셋 / 라벨링 / 학습·평가 / swap 게이트 / 라이선스)
+**Depends on:** Phase 20 (Gemini 판정 한계 + few-shot 데이터), Phase 21, 누적 라벨 데이터. 학습/평가 = GPU 필요.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 22 to break down — Phase 21 완료 후)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

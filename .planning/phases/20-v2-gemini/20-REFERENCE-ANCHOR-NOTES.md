@@ -171,3 +171,41 @@ belle 가 새 EAS 빌드에서 보고한 UI 3건. 백엔드/contract 변경 0, �
   백엔드가 DTW 매칭 품질 등 내려주면 배지에 수치 표시.
 
 > EAS build 미실행 (orchestrator 담당). 백엔드/Pod 변경 0.
+
+---
+
+## Robustify (2026-06-20) — multi-sample comparison + minor cap
+
+belle finding: 고급 수강생은 미세 차이만 다르므로 미묘한 결함을 반드시 잡아야 한다.
+데이터 발견 — Gemini 의 reference 비교는 결함을 일관되게 **본다**(5/5 같은 설명)지만
+단일 severity **라벨**이 minor↔moderate 로 흔들리고, minor 는 무캡(None)이라 잘못된
+영상이 100 으로 남았다. 원칙적 fix 두 가지 (curve-fit 아님 — 일반 메커니즘):
+
+**1. 비교 multi-sample rank-median** (`gemini_vision_scorer.py`)
+- `VISION_VETO_SAMPLES = max(1, env GEMINI_VISION_VETO_SAMPLES, default 3)`.
+- 비교 모드: ref+student **1회씩만 업로드**(핸들 재사용) 후 generateContent **N 회**
+  → 각 응답 parse → rank-MEDIAN severity (none=0/minor=1/moderate=2/major=3,
+  짝수 개수는 lower-middle 보수적). 단일 라벨 흔들림 제거.
+- None-parse 샘플은 집계 제외, 0 parse → None (graceful). primary_fault = median
+  severity 샘플 중 첫째, 없으면 최빈 description.
+- 집계 verdict **1개만 캐시**(pair 당 1 entry). cache hit = deterministic 반환
+  (재샘플 0). N 은 cache-miss 에서만 실행. 키에 `n{N}` 포함 → N 변경 시 무효화.
+- 단일 영상(reference None) 경로 불변 (1 call). PROMPT/SCHEMA → **v5.0** (집계 =
+  새 verdict semantics → cache 무효화).
+
+**2. minor → 90 cap** (`vision_veto.py`)
+- `SEVERITY_CAP = {minor: 90, moderate: 75, major: 50, none: None}`.
+  미세하지만 실재하는 결함도 천장 100 에서 내려간다. 정타(none)는 무캡 → 100 보존.
+- provenance.spec_basis 에 minor=90 근거 추가 (method=spec_anchored 유지,
+  phase18_pairs_used_for_derivation=False 영구 INVARIANT).
+
+**anti-curve-fit**: 집계 + cap 모두 일반 메커니즘 — 동작명 0, per-video 튜닝 0.
+cap 은 spec-anchored (major≤50 belle 스펙, minor=90 원칙). 일반화 검증은
+orchestrator 가 Pod 6-pair eval 로 별도 수행 (PENDING).
+
+**tests**: test_gemini_vision_scorer.py (집계 median/skip/cache/N-invalidation 등 8
+신규) + test_vision_veto.py (minor→90, none 무캡) + test_pipeline_mode3.py
+(minor caps@90 applied / cap 미만 not_applicable). 3 suite + vision_gate suite
+전부 PASS. TS 변경 0.
+
+> EAS build / Pod eval 미실행 (orchestrator 담당). 프롬프트 TEXT 불변 (sampling/집계/cap 만).

@@ -241,3 +241,44 @@ orchestrator 가 Pod 6-pair eval 로 별도 수행 (PENDING).
 **theme/규칙**: 토큰만(colors.brand 불변, textMid/warn 톤·radius.modal·ctaHeight),
 라이트, 이모지 0, Korean. letterSpacing 신규 0 → SIGABRT 가드 무손상. `npm run
 typecheck` clean. backend 변경 0, EAS build 미실행(orchestrator).
+
+---
+
+## 결과 화면 거부권-정합 4건 (frontend only, 2026-06-20)
+
+belle 디바이스 발견: 비전 거부권이 종합점수를 75로 내렸는데 주변 UI 는 거부권
+이전(각도=100) 상태를 그대로 반영해 모순. 4건 모두 정합 수정 (commit 0ee64be /
+610fda8 / c49a075 / d7760f1).
+
+**① DETAIL + COACHING 거부권 정합** (`result.tsx`)
+- `각도 정확도 100` 행 아래 1줄 맥락(거부권 적용 시): "AI 영상 분석은 각도로 안
+  드러나는 자세 차이를 발견했어요 (종합 점수에 반영됨)." — 100 이 "완벽"으로 안 읽히게.
+- 코칭 LEAD = 비전 결함(`visionVeto.primaryFault`) brandTint 카드 ("먼저 교정할 점").
+- 거부권 적용 시 tip 본문의 "거의 동일/일치도 100/거의 다 왔" 모순 카피 필터
+  (`displayTips` useMemo). 헤드라인은 기존 `mode1VetoSummary` 로 이미 차단. 정타
+  영상은 원본 tips/칭찬 보존.
+
+**② 마커가 거부권 결함 반영** (`KeypointOverlay.tsx` + `result.tsx` 배선)
+- belle: 결함 영상인데 모든 관절 ≤20° → 마커 0개("표기가 하나도 없다").
+- `forceHighlightWorstCount` prop 신설: 임계(20°) 초과 0개 + 거부권 적용 시 편차
+  최대 N개 강제 강조. result.tsx 가 `vetoApplied ? 2 : 0` 전달. 정타 영상은 0 →
+  기존 >20° 규칙만(오탐 0). A2 가독성(흰 외곽선 pill) 무손상.
+
+**③ 3D 뷰어 flat-line 수정** (`PoseViewer3D.tsx`)
+- 근본 원인 확정: joints3d 의 y≈0 (RTMW 실측 깊이 없음), 수직 분산이 Z 축에 존재.
+  정규화(normalizePose3d)는 축 비율 보존이라 정면 카메라에서 한 줄로 깔림.
+- `analyzeAxisSpread`(축별 spread + 깊이 퇴화 감지) + `remapFrameForFrontView`
+  (분산 큰 축→화면 수직, 차순→수평, depth=0). 가짜 깊이 fabricate 금지(축 재배치만).
+- 퇴화 시: OrbitControls 회전 비활성 + 시점 프리셋(측면/후면/위) 숨김(옆에서 보면
+  다시 선) + "깊이 추정이 제한적이라 정면 위주로 보여드려요." 안내. 정상 3D 는 항등
+  매핑 + 회전/프리셋 유지. null 빈 상태(A3) 무손상.
+
+**④ 가짜 입문/중급/고급 65/78/88 제거** (`result.tsx` + `lib/levels.ts` 삭제)
+- LevelBenchmark 칩 제거 — 누적 데이터 없는 placeholder(levels.ts 자체 주석 인정).
+- `ScoreContext` 신설: Mode1 = "정은지 기준 {score}점 — {교정 포인트} 보완하면 더
+  올라가요." 교정 포인트 = primaryFault 우선 → top 코칭 팁 제목 → null 격려.
+  self delta(지난 분석 대비 +N) = 이미 구독 중인 prevDoc 데이터만(추가 fetch 0).
+- orphaned `lib/levels.ts` 삭제(import 0) + dead bench chip 스타일 정리.
+
+**검증**: `npm run typecheck` clean. 토큰만(브랜드 #FF4B33 불변), 라이트, 이모지 0,
+Korean. letterSpacing 신규 0 → SIGABRT 가드 무손상. backend 변경 0, EAS 미실행.

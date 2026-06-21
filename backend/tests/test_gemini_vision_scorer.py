@@ -624,9 +624,9 @@ def test_samples_count_invalidates_cache(
     )
 
 
-def test_prompt_schema_version_v5():
-    """PROMPT_VERSION/SCHEMA_VERSION = v5.0 (집계 = 새 cache generation)."""
-    assert PROMPT_VERSION == "v5.0"
+def test_prompt_schema_version():
+    """PROMPT_VERSION = v6.1 (multi-fault union, 2026-06-21). SCHEMA_VERSION = v5.0."""
+    assert PROMPT_VERSION == "v6.1"
     assert SCHEMA_VERSION == "v5.0"
 
 

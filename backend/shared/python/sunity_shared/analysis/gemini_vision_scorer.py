@@ -67,7 +67,7 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v6.0"  # v6.0 (2026-06-21): comparison 전신 빠짐없는 multi-fault 보고 지시(왼팔 등 부수결함 캐치, belle device). severity 캡은 dominant 분리 유지 → cache 무효화
+PROMPT_VERSION = "v6.1"  # v6.1 (2026-06-21): multi-fault — N샘플 differences union(median 1개 채택 폐기) + worst-pose 힌트 완화(전신 점검). severity 캡=median 유지 → cache 무효화
 SCHEMA_VERSION = "v5.0"  # v5.0: 집계 verdict = 새 cache generation (단일 verdict 의미 변경)
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
@@ -291,9 +291,11 @@ def _build_comparison_prompt(at_seconds: float | None) -> str:
     """
     if at_seconds is None:
         return _COMPARISON_PROMPT
+    # C1: 힌트가 시선을 지배 부위 하나로 좁히지 않게 — 전신 점검을 함께 명시.
     return (
-        f"{_COMPARISON_PROMPT}\n\n참고: 약 {at_seconds:.1f}초 부근의 "
-        "지배 편차 pose 에 특히 주목하세요."
+        f"{_COMPARISON_PROMPT}\n\n참고: 약 {at_seconds:.1f}초 부근이 지배 편차 pose 일 "
+        "수 있으나, **영상 전체에서 다른 부위(특히 팔·어깨·코어)의 편차도 함께** "
+        "빠짐없이 점검하세요."
     )
 
 
@@ -689,8 +691,47 @@ def _aggregate_comparison_verdict(
     return VisionVerdict(
         primary_fault=chosen.primary_fault,
         severity=median_severity,
-        differences=chosen.differences,
+        # C1 (belle 2026-06-21): 한 샘플의 differences 만 쓰면 다른 샘플이 본 결함
+        # (왼팔 등)이 누락된다 → N 샘플 differences 를 union 한다(모든 결함 캐치).
+        # severity(캡)는 median 유지(정타 100 보존). union 은 부위별 최고 severity/
+        # deviation 만 남겨 noise 억제.
+        differences=_union_differences(parsed),
     )
+
+
+_BODYPART_SEVERITY_FLOOR = {"none", ""}
+
+
+def _union_differences(verdicts: list) -> tuple:
+    """N 샘플의 differences 를 union — 부위(body_part)별 최고 severity/deviation 1개.
+
+    belle: "오류가 있으면 모두 잡아야". median 샘플 하나로는 다른 샘플이 본 부수
+    결함(왼팔 등)을 잃는다. 정규화 body_part 키로 dedup, severity 가 더 심하거나
+    deviation 이 더 큰 항목을 유지. severity='none'/빈 부위는 제외(노이즈). 순서는
+    severity 내림차순(지배 결함이 앞). tuple 반환(nested-array 회피).
+    """
+    best: dict[str, dict] = {}
+    for v in verdicts:
+        for d in v.differences or ():
+            part = str((d or {}).get("body_part", "")).strip()
+            if not part:
+                continue
+            sev = str((d or {}).get("severity", "")).strip().lower()
+            if sev in _BODYPART_SEVERITY_FLOOR:
+                continue
+            key = part.lower()
+            cur = best.get(key)
+            sev_rank = _SEVERITY_RANK.get(sev, 0)
+            try:
+                dev = float((d or {}).get("approx_angle_deviation_deg") or 0.0)
+            except (TypeError, ValueError):
+                dev = 0.0
+            if cur is None or sev_rank > cur["_rank"] or (
+                sev_rank == cur["_rank"] and dev > cur["_dev"]
+            ):
+                best[key] = {**d, "_rank": sev_rank, "_dev": dev}
+    ordered = sorted(best.values(), key=lambda x: (-x["_rank"], -x["_dev"]))
+    return tuple({k: v for k, v in d.items() if not k.startswith("_")} for d in ordered)
 
 
 def _most_frequent_by_fault(verdicts: list) -> VisionVerdict:

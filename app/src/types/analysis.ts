@@ -379,12 +379,14 @@ export interface ScoreSuppressionAudit {
 // deficitDeg 로 구성(이미지엔 숫자만). 여러 개면 carousel. Python lockstep: pipeline
 // _attach_fault_zoom_comparisons + fault_zoom.py. 깨진 3D 뷰어 대체.
 export interface FaultZoomComparison {
-  /** 결함 keypoint (left_knee 등) — 앱이 한글 라벨/캡션 구성. */
+  /** 결함/변화 keypoint (left_knee 등) — 앱이 한글 라벨/캡션 구성. */
   joint: KeypointName;
-  /** 기준 대비 부족 각도(도). 없으면 null (마커만). */
+  /** 기준 대비 부족 각도(도). 없으면 null (마커만, Mode3 등). */
   deficitDeg?: number | null;
-  /** [학생|기준] 합성 PNG presigned GET URL. */
+  /** [학생|기준(Mode1)] 또는 [현재|지난(Mode3)] 합성 PNG presigned GET URL. */
   imageUrl: string;
+  /** 캡션 종류 — Mode1='deficit'(기준보다 부족) / Mode3='improved'|'worsened'(지난 대비). */
+  kind?: 'deficit' | 'improved' | 'worsened';
 }
 
 export type AnalysisResult = ScoreSuppression & {

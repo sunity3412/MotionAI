@@ -119,6 +119,7 @@ def build_fault_zoom_comparisons(
     joint_deltas: dict[str, float] | None = None,
     frames_fps: float = 9.0,
     max_items: int = 4,
+    joint_kinds: dict[str, str] | None = None,
 ) -> list[dict]:
     """결함 관절별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -171,11 +172,13 @@ def build_fault_zoom_comparisons(
             png = _compose(u_crop, r_crop)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue
-        out.append(
-            {
-                "joint": joint,
-                "deficitDeg": (joint_deltas or {}).get(joint),
-                "png": png,
-            }
-        )
+        item = {
+            "joint": joint,
+            "deficitDeg": (joint_deltas or {}).get(joint),
+            "png": png,
+        }
+        kind = (joint_kinds or {}).get(joint)
+        if kind:
+            item["kind"] = kind
+        out.append(item)
     return out

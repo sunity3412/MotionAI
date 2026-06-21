@@ -33,6 +33,10 @@ const KEYPOINT_KO: Record<KeypointName, string> = {
 
 function caption(item: FaultZoomComparison): string {
   const label = KEYPOINT_KO[item.joint] ?? '문제 부위';
+  // Mode3 — 지난 분석 대비 개선/악화 방향.
+  if (item.kind === 'improved') return `${label} · 지난 분석보다 좋아졌어요`;
+  if (item.kind === 'worsened') return `${label} · 지난 분석보다 아쉬워졌어요`;
+  // Mode1 (deficit) — 기준 대비 부족 각도.
   if (typeof item.deficitDeg === 'number' && item.deficitDeg > 0) {
     return `${label} · 기준보다 ${Math.round(item.deficitDeg)}° 부족해요`;
   }

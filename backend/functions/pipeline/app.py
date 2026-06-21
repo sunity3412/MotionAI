@@ -1801,6 +1801,63 @@ def _keypoint_deltas(joints: list) -> dict[str, float]:
     return out
 
 
+def _render_fault_zoom(
+    result: dict,
+    user_video_path: str,
+    right_video_path: str,
+    user_report: dict,
+    right_report: dict,
+    fault_joints: list[str],
+    deficits: dict[str, float],
+    kinds: dict[str, str],
+    worst: float | None,
+    uid: str,
+    analysis_id: str,
+    bucket: str,
+) -> dict:
+    """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → result.
+
+    Mode1(right=정은지) / Mode3(right=지난 영상) 공용. 한글 캡션/라벨은 앱이 부여
+    (이미지엔 숫자만). graceful 은 호출측 try 가 담당.
+    """
+    from sunity_shared.analysis import fault_zoom
+    from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+
+    if not fault_joints:
+        return result
+    ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
+    user_frames = ext.extract(user_video_path)
+    right_frames = ext.extract(right_video_path)
+    comps = fault_zoom.build_fault_zoom_comparisons(
+        user_frames,
+        right_frames,
+        user_report,
+        right_report,
+        worst,
+        fault_joints,
+        deficits,
+        frames_fps=9.0,
+        joint_kinds=kinds,
+    )
+    out: list[dict] = []
+    for c in comps:
+        skey = f"results/{uid}/{analysis_id}/zoom_{c['joint']}.png"
+        _s3.put_object(
+            Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
+        )
+        item = {
+            "joint": c["joint"],
+            "deficitDeg": c.get("deficitDeg"),
+            "imageUrl": _signed_get(bucket, skey),
+        }
+        if c.get("kind"):
+            item["kind"] = c["kind"]
+        out.append(item)
+    if out:
+        result["faultZoomComparisons"] = out
+    return result
+
+
 def _attach_fault_zoom_comparisons(
     result: dict,
     user_video_path: str | None,
@@ -1812,17 +1869,14 @@ def _attach_fault_zoom_comparisons(
     analysis_id: str,
     bucket: str,
 ) -> dict:
-    """Mode1 결함 부위 확대 비교 이미지 생성 → S3 업로드 → result.faultZoomComparisons.
+    """Mode1 결함 부위 확대 비교 — 학생 vs 정은지. kind='deficit'(기준보다 부족).
 
-    belle 2026-06-21 ([[fault-zoom-compare-and-phase24-true3d]]) — 결함 관절 부위만
-    worst-pose 시점에서 학생 vs 정은지 나란히 crop+zoom, deficit 각도 숫자 표기.
-    한글 캡션/라벨은 앱이 부여(이미지엔 숫자만 — 폰트 회피). graceful: 어떤 실패도
-    분석 흐름을 막지 않는다 (부가 기능).
+    belle 2026-06-21 ([[fault-zoom-compare-and-phase24-true3d]]). 결함 관절 = veto
+    faultJoints 우선, 없으면 편차 top-2. deficit = Gemini 시각 추정 우선/kismam 폴백.
     """
     if not user_video_path or not ref_video_path or not user_report or not ref_report:
         return result
-    from sunity_shared.analysis import fault_zoom, vision_veto
-    from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+    from sunity_shared.analysis import vision_veto
 
     vv = result.get("visionVeto") or {}
     joint_deltas = _keypoint_deltas(result.get("joints") or [])
@@ -1838,37 +1892,87 @@ def _attach_fault_zoom_comparisons(
         ]
     if not fault_joints:
         return result
-
-    worst = vision_veto.worst_pose_timestamp(profile)
-    ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
-    user_frames = ext.extract(user_video_path)
-    ref_frames = ext.extract(ref_video_path)
-    comps = fault_zoom.build_fault_zoom_comparisons(
-        user_frames,
-        ref_frames,
-        user_report,
-        ref_report,
-        worst,
-        fault_joints,
-        deficits,
-        frames_fps=9.0,
+    kinds = {j: "deficit" for j in fault_joints}
+    return _render_fault_zoom(
+        result, user_video_path, ref_video_path, user_report, ref_report,
+        fault_joints, deficits, kinds,
+        vision_veto.worst_pose_timestamp(profile),
+        uid, analysis_id, bucket,
     )
-    out: list[dict] = []
-    for c in comps:
-        skey = f"results/{uid}/{analysis_id}/zoom_{c['joint']}.png"
-        _s3.put_object(
-            Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
+
+
+def _joint_scores(joints: list) -> dict[str, float]:
+    """result.joints(kismam key + score) → {keypoint 이름: score}. Mode3 개선판단용."""
+    out: dict[str, float] = {}
+    for j in joints or ():
+        kp = _KISMAM_TO_KEYPOINT.get(str((j or {}).get("key", "")))
+        sc = (j or {}).get("score")
+        if kp is None or sc is None:
+            continue
+        try:
+            out[kp] = float(sc)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _attach_mode3_fault_zoom(
+    result: dict,
+    user_video_path: str | None,
+    user_report: dict | None,
+    prev: dict | None,
+    profile,
+    uid: str,
+    analysis_id: str,
+    bucket: str,
+) -> dict:
+    """Mode3 변화 부위 확대 비교 — 현재 vs 지난 영상. kind=improved/worsened.
+
+    belle 2026-06-21 — 이전 영상 대비 어디가 좋아졌나/나빠졌나를 보여준다(mode3=
+    progress, [[mode3-progress-not-similarity]]). 변화 관절 = 현재↔지난 per-joint
+    score 차 최대 top-2. 방향 = score 증가→improved/감소→worsened(각도 수학 회피,
+    정직). 지난 영상은 prev.result.myVideoKey 로 S3 다운로드(임시, 종료 후 정리).
+    """
+    if not user_video_path or not user_report or not prev:
+        return result
+    prev_result = prev.get("result") or {}
+    prev_report = prev_result.get("keypointReport")
+    prev_video_key = prev_result.get("myVideoKey")
+    if not prev_report or not prev_video_key:
+        return result
+
+    curr_scores = _joint_scores(result.get("joints") or [])
+    prev_scores = _joint_scores(prev_result.get("joints") or [])
+    # 양쪽에 score 있는 관절만 — 변화량(|Δscore|) 최대 top-2.
+    common = [k for k in curr_scores if k in prev_scores]
+    if not common:
+        return result
+    common.sort(key=lambda k: -abs(curr_scores[k] - prev_scores[k]))
+    change_joints = [k for k in common if abs(curr_scores[k] - prev_scores[k]) >= 1.0][:2]
+    if not change_joints:
+        return result
+    kinds = {
+        k: ("improved" if curr_scores[k] >= prev_scores[k] else "worsened")
+        for k in change_joints
+    }
+
+    from sunity_shared.analysis import vision_veto
+
+    prev_video_path: str | None = None
+    try:
+        ext = os.path.splitext(prev_video_key)[1] or ".mp4"
+        tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+        tmp.close()
+        _s3.download_file(bucket, prev_video_key, tmp.name)
+        prev_video_path = tmp.name
+        return _render_fault_zoom(
+            result, user_video_path, prev_video_path, user_report, prev_report,
+            change_joints, {}, kinds,  # mode3 = 숫자 없음(방향만)
+            vision_veto.worst_pose_timestamp(profile),
+            uid, analysis_id, bucket,
         )
-        out.append(
-            {
-                "joint": c["joint"],
-                "deficitDeg": c.get("deficitDeg"),
-                "imageUrl": _signed_get(bucket, skey),
-            }
-        )
-    if out:
-        result["faultZoomComparisons"] = out
-    return result
+    finally:
+        _safe_unlink_local_video(prev_video_path)
 
 
 def _extension_target_dict(
@@ -2216,6 +2320,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # fault-zoom (belle 2026-06-21) — Mode1 결함 부위 확대 비교용 reference keypoint 좌표.
     # EXPERT 분기에서 ref doc 가 있을 때 채움. outer scope 초기화 (late ref scope 의존 회피).
     reference_keypoint_report_dict: dict | None = None
+    # fault-zoom Mode3 — 지난 분석 doc(현재 vs 지난 영상 변화 비교). SELF 분기에서 채움.
+    mode3_prev: dict | None = None
 
     # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
     target_torso = _extract_target_torso_px(pose_frames)
@@ -2370,6 +2476,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             prev = firestore_admin.get_previous_analysis(
                 uid, analysis_id, mode=models.MODE_SELF
             )
+            mode3_prev = prev  # fault-zoom Mode3 (현재 vs 지난 영상 변화 비교) source.
             assessments, dimension_scores, overall, comparison = _mode3_comparison(
                 angles, prev, profile, branch_info=branch_info
             )
@@ -2817,6 +2924,29 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
                 log.exception(
                     "fault-zoom 생성 실패 — graceful (분석 흐름 유지) "
+                    "uid=%s analysis_id=%s",
+                    uid, analysis_id,
+                )
+        elif (
+            mode == models.MODE_SELF
+            and mode3_prev is not None
+            and keypoint_report_dict is not None
+        ):
+            # Mode3 — 현재 vs 지난 영상 변화 부위 확대 비교 (mode3=progress).
+            try:
+                result = _attach_mode3_fault_zoom(
+                    result,
+                    local_video_path,
+                    keypoint_report_dict,
+                    mode3_prev,
+                    profile,
+                    uid,
+                    analysis_id,
+                    bucket,
+                )
+            except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
+                log.exception(
+                    "fault-zoom Mode3 생성 실패 — graceful (분석 흐름 유지) "
                     "uid=%s analysis_id=%s",
                     uid, analysis_id,
                 )

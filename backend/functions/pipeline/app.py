@@ -1760,6 +1760,106 @@ def _apply_vision_veto(
         return _veto_passthrough(score_result, "skipped_error")
 
 
+# kismam joint key(result.joints[].key) → 앱이 강조하는 keypoint 이름.
+# 손은 elbow 의 시각 proxy (KeypointOverlay JOINT_KEY_TO_ANGLE_KEY 역방향 정합).
+_KISMAM_TO_KEYPOINT = {
+    "left_elbow": "left_hand",
+    "right_elbow": "right_hand",
+    "left_shoulder": "left_shoulder",
+    "right_shoulder": "right_shoulder",
+    "left_hip": "left_hip",
+    "right_hip": "right_hip",
+    "left_knee": "left_knee",
+    "right_knee": "right_knee",
+}
+
+
+def _keypoint_deltas(joints: list) -> dict[str, float]:
+    """result.joints(kismam key + deltaDeg) → {keypoint 이름: abs deficit deg}.
+
+    fault-zoom 의 deficit 숫자 마커 + 편차 top 폴백 source. deltaDeg 없는 관절 skip.
+    """
+    out: dict[str, float] = {}
+    for j in joints or ():
+        kp = _KISMAM_TO_KEYPOINT.get(str((j or {}).get("key", "")))
+        if kp is None:
+            continue
+        dd = (j or {}).get("deltaDeg")
+        if dd is None:
+            continue
+        try:
+            out[kp] = abs(float(dd))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _attach_fault_zoom_comparisons(
+    result: dict,
+    user_video_path: str | None,
+    ref_video_path: str | None,
+    user_report: dict | None,
+    ref_report: dict | None,
+    profile,
+    uid: str,
+    analysis_id: str,
+    bucket: str,
+) -> dict:
+    """Mode1 결함 부위 확대 비교 이미지 생성 → S3 업로드 → result.faultZoomComparisons.
+
+    belle 2026-06-21 ([[fault-zoom-compare-and-phase24-true3d]]) — 결함 관절 부위만
+    worst-pose 시점에서 학생 vs 정은지 나란히 crop+zoom, deficit 각도 숫자 표기.
+    한글 캡션/라벨은 앱이 부여(이미지엔 숫자만 — 폰트 회피). graceful: 어떤 실패도
+    분석 흐름을 막지 않는다 (부가 기능).
+    """
+    if not user_video_path or not ref_video_path or not user_report or not ref_report:
+        return result
+    from sunity_shared.analysis import fault_zoom, vision_veto
+    from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+
+    vv = result.get("visionVeto") or {}
+    joint_deltas = _keypoint_deltas(result.get("joints") or [])
+    fault_joints = list(vv.get("faultJoints") or [])
+    if not fault_joints:
+        # veto 미적용(각도 차원이 결함을 잡은 경우) — 편차 최대 keypoint top-2 폴백.
+        fault_joints = [
+            k for k, _ in sorted(joint_deltas.items(), key=lambda kv: -kv[1])[:2]
+        ]
+    if not fault_joints:
+        return result
+
+    worst = vision_veto.worst_pose_timestamp(profile)
+    ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
+    user_frames = ext.extract(user_video_path)
+    ref_frames = ext.extract(ref_video_path)
+    comps = fault_zoom.build_fault_zoom_comparisons(
+        user_frames,
+        ref_frames,
+        user_report,
+        ref_report,
+        worst,
+        fault_joints,
+        joint_deltas,
+        frames_fps=9.0,
+    )
+    out: list[dict] = []
+    for c in comps:
+        skey = f"results/{uid}/{analysis_id}/zoom_{c['joint']}.png"
+        _s3.put_object(
+            Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
+        )
+        out.append(
+            {
+                "joint": c["joint"],
+                "deficitDeg": c.get("deficitDeg"),
+                "imageUrl": _signed_get(bucket, skey),
+            }
+        )
+    if out:
+        result["faultZoomComparisons"] = out
+    return result
+
+
 def _extension_target_dict(
     profile: technique.TechniqueProfile,
 ) -> dict[str, float]:
@@ -2102,6 +2202,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # outer try **밖** 초기화 → 어떤 경로에서도 outer finally cleanup scope 보장
     # (다운로드~veto 사이 예외 시에도 임시 파일 누수 0). Mode3 는 None 유지 → mode3_held.
     reference_local_video_path: str | None = None
+    # fault-zoom (belle 2026-06-21) — Mode1 결함 부위 확대 비교용 reference keypoint 좌표.
+    # EXPERT 분기에서 ref doc 가 있을 때 채움. outer scope 초기화 (late ref scope 의존 회피).
+    reference_keypoint_report_dict: dict | None = None
 
     # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
     target_torso = _extract_target_torso_px(pose_frames)
@@ -2226,6 +2329,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                     a_ref,
                 )
             comparison = assemble.build_mode1(ref, angle_dim, seg_scores)
+            # fault-zoom — 기준 영상 keypoint 좌표(reference doc 저장분) 캡처.
+            reference_keypoint_report_dict = ref.get("referenceKeypointReport")
             if ref.get("videoS3Key"):
                 reference_video_url = _signed_get(bucket, ref["videoS3Key"])
                 # Phase 20 — vision veto ON 일 때만 기준 영상을 local 로 다운로드
@@ -2458,19 +2563,17 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 가 내부에서 분기: Mode1=비교 앵커 / Mode3=mode3_held 보류.
         # profile = recognize 직후 산출된 동일 객체 (worst_pose_timestamp source).
         # reference_local_video_path = Mode1 에서만 채워짐 (Mode3 는 None → 보류, 다운로드 0).
-        try:
-            result = _apply_vision_veto(
-                result,
-                local_video_path,
-                angles,
-                profile,
-                mode=mode,
-                reference_video_path=reference_local_video_path,
-            )
-        finally:
-            # 기준 영상 임시 파일 정리 — disk 누수 차단 (Mode3 는 None → no-op).
-            _safe_unlink_local_video(reference_local_video_path)
-            reference_local_video_path = None
+        result = _apply_vision_veto(
+            result,
+            local_video_path,
+            angles,
+            profile,
+            mode=mode,
+            reference_video_path=reference_local_video_path,
+        )
+        # fault-zoom (belle 2026-06-21) — 기준 영상은 아래 확대 비교 생성까지 살려두고
+        # outer finally 가 정리한다(veto 직후 unlink 제거). keypoint_report_dict 빌드 후
+        # _attach_fault_zoom_comparisons 호출 (그 시점에 reference_local_video_path 유효).
         # Phase 20-03 TRUST-07 — Mode3 미보유/저신뢰 점수 억제 (branch-3, D-08).
         # MODE_SELF 전용 (Mode1 은 reference 비교라 미보유 개념 없음). resolver provenance +
         # reason-owns-copy scoringBasisLabel + A2 structured audit + producer-contract fail-loud.
@@ -2678,6 +2781,34 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             if keypoint_report_obj is not None
             else None
         )
+
+        # fault-zoom (belle 2026-06-21) — Mode1 결함 부위 확대 비교 이미지 생성.
+        # keypoint_report_dict(user) + reference_keypoint_report_dict(ref doc) + 아직
+        # 살아있는 reference_local_video_path 로 worst-pose crop 합성 → S3 → result.
+        # graceful: 어떤 실패도 분석 흐름 차단 0 (부가 기능). Mode3 는 reference 없음 → skip.
+        if (
+            mode == models.MODE_EXPERT
+            and reference_local_video_path is not None
+            and keypoint_report_dict is not None
+        ):
+            try:
+                result = _attach_fault_zoom_comparisons(
+                    result,
+                    local_video_path,
+                    reference_local_video_path,
+                    keypoint_report_dict,
+                    reference_keypoint_report_dict,
+                    profile,
+                    uid,
+                    analysis_id,
+                    bucket,
+                )
+            except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
+                log.exception(
+                    "fault-zoom 생성 실패 — graceful (분석 흐름 유지) "
+                    "uid=%s analysis_id=%s",
+                    uid, analysis_id,
+                )
 
         # ── Plan 04-01 Wave 1 (Phase 4) — Occlusion 합성 어댑터 호출 ──────────
         # R1 non-scoring 하드월: 본 분기는 KeypointReport / aiSynthesisMeta /

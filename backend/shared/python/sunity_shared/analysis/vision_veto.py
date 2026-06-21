@@ -118,6 +118,92 @@ def apply_downward_cap(overall: int, severity: str | None) -> int:
     return min(overall, cap)
 
 
+# ---------------------------------------------------------------------------
+# fault_joints_from_differences — Gemini verdict.differences[].body_part(자유 텍스트
+# 한국어) → 앱이 강조 가능한 정식 keypoint 이름으로 매핑 (Phase 20 #3, 2026-06-21).
+#
+# 왜 backend 매핑인가: 마커 강조는 backend 산출(KeypointOverlay "산출 출처=backend만"
+# 원칙). 앱은 NLP 0 — faultJoints 를 그대로 강조한다. 마커가 각도편차 최대 관절(어깨/
+# 팔꿈치)에 찍히던 버그의 진짜 fix — Gemini 가 본 실제 결함 위치를 강조한다.
+#
+# 출력 keypoint 집합은 KeypointOverlay 가 그리는 8개로 제한:
+#   left/right_shoulder, left/right_hip, left/right_knee, left/right_hand.
+# (손=elbow/wrist 시각 proxy. ankle/torso 등 미표시 keypoint 는 최근접으로 매핑.)
+# ---------------------------------------------------------------------------
+_HIGHLIGHT_KEYPOINTS = (
+    "left_shoulder", "right_shoulder",
+    "left_hip", "right_hip",
+    "left_knee", "right_knee",
+    "left_hand", "right_hand",
+)
+
+# base joint(좌우 없는) → 적용할 side-suffixed keypoint 생성용 base 이름.
+# 'leg' 류는 무릎+엉덩이 둘 다, 'trunk' 류는 양 어깨+양 엉덩이(전신 라인).
+_PART_KEYWORDS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    # (keyword 들, base joint 들) — 먼저 매칭되는 항목 우선 아님(전부 union).
+    (("스트래들", "straddle", "스플릿", "split", "가랑이", "벌려"), ("__legs_both__",)),
+    (("어깨", "shoulder"), ("shoulder",)),
+    (("팔꿈치", "elbow"), ("hand",)),
+    (("손목", "wrist", "손", "hand"), ("hand",)),
+    (("팔", "arm"), ("hand", "shoulder")),
+    (("무릎", "knee"), ("knee",)),
+    (("엉덩이", "골반", "hip", "pelvis", "둔부"), ("hip",)),
+    (("허벅지", "thigh", "종아리", "정강이", "shin", "calf"), ("knee", "hip")),
+    (("다리", "leg", "하체"), ("knee", "hip")),
+    (("발목", "ankle", "발", "foot"), ("knee",)),  # 미표시 keypoint → 최근접 무릎
+    (("코어", "core", "몸통", "torso", "허리", "등", "back",
+      "라인", "line", "정렬", "alignment", "상체", "trunk"), ("__trunk__",)),
+)
+
+
+def _sides_for(text: str) -> tuple[str, ...]:
+    """body_part 문자열에서 좌/우를 추정. 명시 없으면 ('left','right') 양쪽."""
+    has_left = ("왼" in text) or ("좌" in text) or ("left" in text)
+    has_right = ("오른" in text) or ("우측" in text) or ("right" in text)
+    if has_left and not has_right:
+        return ("left",)
+    if has_right and not has_left:
+        return ("right",)
+    return ("left", "right")
+
+
+def fault_joints_from_differences(differences) -> list[str]:
+    """Gemini differences → 강조할 keypoint 이름 list (순서 안정·중복 제거, 순수).
+
+    각 difference 의 body_part(한국어 자유텍스트)를 keyword 매핑 + 좌/우 추정으로
+    정식 keypoint 로 변환한다. 매핑 불가(라인·전신 등 모호)는 trunk(양 어깨+양 엉덩이),
+    스트래들/스플릿은 양 다리(무릎+엉덩이)로 확장. 결과 없으면 빈 list (호출측이
+    기존 편차-기반 폴백 사용).
+    """
+    out: list[str] = []
+
+    def _add(name: str) -> None:
+        if name in _HIGHLIGHT_KEYPOINTS and name not in out:
+            out.append(name)
+
+    for d in differences or ():
+        part = str((d or {}).get("body_part", "")).lower()
+        if not part.strip():
+            continue
+        sides = _sides_for(part)
+        for keywords, bases in _PART_KEYWORDS:
+            if not any(kw.lower() in part for kw in keywords):
+                continue
+            for base in bases:
+                if base == "__legs_both__":
+                    for s in ("left", "right"):
+                        _add(f"{s}_knee")
+                        _add(f"{s}_hip")
+                elif base == "__trunk__":
+                    for s in ("left", "right"):
+                        _add(f"{s}_shoulder")
+                        _add(f"{s}_hip")
+                else:
+                    for s in sides:
+                        _add(f"{s}_{base}")
+    return out
+
+
 def worst_pose_timestamp(profile) -> float | None:
     """지배 결함 pose 시점을 key_moments 재사용으로 고른다 (D-05).
 

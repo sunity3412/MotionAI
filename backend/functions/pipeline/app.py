@@ -1731,15 +1731,25 @@ def _apply_vision_veto(
             # Phase 20 (UI B1) — primaryFault 박제: "왜 점수가 내려갔는지"를 앱이
             # 노출할 수 있게 verdict.primary_fault(결함 DESCRIPTION) 만 동반. 객관성:
             # 점수/숫자 라벨 아님 — 자연어 결함 설명만 (analysis-objectivity 박제).
+            # Phase 20 #3 (2026-06-21) — faultJoints: Gemini 가 본 실제 결함 위치를
+            # 정식 keypoint 로 매핑해 동반 저장한다. 앱 마커가 각도편차 최대 관절
+            # (어깨/팔꿈치)이 아니라 진짜 결함 관절(다리/팔 등)을 강조하게 하는 fix.
+            # 매핑 불가 시 빈 list → 앱이 기존 편차-기반 폴백 사용 (graceful).
+            fault_joints = vision_veto.fault_joints_from_differences(
+                verdict.differences
+            )
+            vision_veto_audit = {
+                "status": "applied",
+                "severity": verdict.severity,
+                "capApplied": capped,
+                "primaryFault": verdict.primary_fault,
+            }
+            if fault_joints:
+                vision_veto_audit["faultJoints"] = fault_joints
             return {
                 **score_result,
                 "overallScore": capped,
-                "visionVeto": {
-                    "status": "applied",
-                    "severity": verdict.severity,
-                    "capApplied": capped,
-                    "primaryFault": verdict.primary_fault,
-                },
+                "visionVeto": vision_veto_audit,
             }
         # cap 미적용 (production placeholder None / minor / cap >= overall) — 점수 불변.
         return _veto_passthrough(score_result, "not_applicable")

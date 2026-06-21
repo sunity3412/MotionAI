@@ -254,3 +254,42 @@ def test_worst_pose_no_new_moment_call():
         )
     # 올림 경로 0 — max( 금지 (min 만 허용).
     assert "max(" not in src, "vision_veto.py 에 max( 가 있다 — 하향-전용 위반 (D-01)"
+
+
+# ─────────── #3 (2026-06-21) fault_joints_from_differences 매핑 ───────────
+
+
+def test_fault_joints_maps_korean_body_part_to_keypoints():
+    """body_part(한국어 자유텍스트) → 정식 keypoint. 좌/우 추정 + 다리/라인 확장."""
+    # 왼팔 → 같은 쪽 손(elbow proxy) + 어깨.
+    assert vision_veto.fault_joints_from_differences(
+        [{"body_part": "왼팔", "severity": "moderate"}]
+    ) == ["left_hand", "left_shoulder"]
+    # 오른쪽 무릎 → 우측 무릎만.
+    assert vision_veto.fault_joints_from_differences(
+        [{"body_part": "오른쪽 무릎"}]
+    ) == ["right_knee"]
+    # 스트래들 = 양 다리 벌림 → 양쪽 무릎+엉덩이 (side 무관 확장).
+    out = vision_veto.fault_joints_from_differences([{"body_part": "스트래들 부족"}])
+    assert set(out) == {"left_knee", "left_hip", "right_knee", "right_hip"}
+
+
+def test_fault_joints_empty_and_unmappable():
+    """결함 없음/빈 body_part/모호 → 빈 list (앱이 편차-기반 폴백)."""
+    assert vision_veto.fault_joints_from_differences([]) == []
+    assert vision_veto.fault_joints_from_differences([{"body_part": ""}]) == []
+    # keypoint 매핑 불가능한 순수 모호 표현(키워드 0) → 빈 list.
+    assert vision_veto.fault_joints_from_differences(
+        [{"body_part": "전반적인 느낌"}]
+    ) == []
+
+
+def test_fault_joints_output_subset_of_highlight_keypoints():
+    """출력은 앱이 강조 가능한 8 keypoint 부분집합 — 미표시 keypoint 누출 0."""
+    allowed = set(vision_veto._HIGHLIGHT_KEYPOINTS)
+    out = vision_veto.fault_joints_from_differences(
+        [{"body_part": "발목"}, {"body_part": "허리 라인"}, {"body_part": "left elbow"}]
+    )
+    assert out, "최소 1개는 매핑돼야"
+    assert set(out) <= allowed
+    assert len(out) == len(set(out)), "중복 0 (순서 안정 dedup)"

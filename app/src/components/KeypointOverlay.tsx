@@ -91,6 +91,14 @@ export type KeypointOverlayProps = {
    * 0(기본) = 강제 강조 없음 = 정타 영상은 기존 >20° 규칙만 (오탐 0).
    */
   forceHighlightWorstCount?: number;
+  /**
+   * Phase 20 (#3, 2026-06-21) — Gemini 가 식별한 실제 결함 keypoint(backend
+   * visionVeto.faultJoints). 제공·비공백이면 이 keypoint 들만 **권위 강조**하고
+   * 각도편차(>20°)·worstCount 폴백을 무시한다. 마커가 각도편차 최대 관절(어깨/
+   * 팔꿈치)이 아니라 진짜 결함 관절(다리/팔)에 찍히게 하는 fix. 이 영상 joints 에
+   * 하나도 없으면(이론상 드묾) 기존 편차/worstCount 폴백으로 진행.
+   */
+  highlightKeypoints?: readonly KeypointName[];
 };
 
 type Point = { x: number; y: number };
@@ -170,6 +178,7 @@ export function KeypointOverlay({
   deltaThresholdDeg = KEYPOINT_DELTA_HIGHLIGHT_DEG,
   showAngleLabels = true,
   forceHighlightWorstCount = 0,
+  highlightKeypoints,
 }: KeypointOverlayProps) {
   // Hooks 순서 안정성 — early return 전에 모든 hook 호출 (React rules of hooks).
   //
@@ -243,7 +252,17 @@ export function KeypointOverlay({
   // UI 단 각도/좌표 산출 0 — backend (kismam) 산출만 read.
   const highlightedJoints = useMemo(() => {
     const set = new Set<KeypointName>();
-    if (!jointAngles || !keypointReport) return set;
+    if (!keypointReport) return set;
+    // #3 (2026-06-21) — Gemini 가 식별한 결함 keypoint 가 있으면 그것만 권위 강조.
+    // 각도편차(>20°)·worstCount 폴백을 무시해 마커가 진짜 결함 관절에 찍히게 한다.
+    // 이 영상 joints 에 하나라도 있으면 그 set 확정; 하나도 없으면 폴백 진행.
+    if (highlightKeypoints && highlightKeypoints.length > 0) {
+      for (const kp of highlightKeypoints) {
+        if (keypointReport.joints.includes(kp)) set.add(kp);
+      }
+      if (set.size > 0) return set;
+    }
+    if (!jointAngles) return set;
     // 임계(20°) 초과 관절 강조 + 편차 수집 (worst-N fallback 용).
     const deviations: { kp: KeypointName; dev: number }[] = [];
     for (const kp of keypointReport.joints) {
@@ -271,7 +290,7 @@ export function KeypointOverlay({
         .forEach(({ kp }) => set.add(kp));
     }
     return set;
-  }, [jointAngles, keypointReport, deltaThresholdDeg, forceHighlightWorstCount]);
+  }, [jointAngles, keypointReport, deltaThresholdDeg, forceHighlightWorstCount, highlightKeypoints]);
 
   // D-12-U6 fallback — caller 가 placeholder 표시.
   if (!visible || keypointReport == null) return null;

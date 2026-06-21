@@ -342,10 +342,13 @@ export interface AiSynthesisMeta {
 // primaryFault(UI B1) = Gemini 비전이 찾은 지배적 결함 DESCRIPTION(자연어) — "왜 점수가
 // 내려갔는지" 노출용. 점수/숫자 절대 금지(객관성). applied 시에만 동반, legacy doc 호환 위해
 // optional(string | undefined). 3-way lockstep: models.py VISION_VETO_STATUSES + docs/contract.md §4.
+// faultJoints(#3, 2026-06-21) = Gemini differences[].body_part 를 정식 keypoint 로 매핑한
+// 결과(backend 산출). 앱 마커가 진짜 결함 관절을 강조하게 한다 — 각도편차 최대 관절 폴백 대체.
+// applied 시에만 동반 가능, 매핑 0 이면 부재(앱은 forceHighlightWorstCount 폴백).
 export type VisionVeto =
-  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number; primaryFault?: string }
-  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never; primaryFault?: never }
-  | { status: 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'; severity?: never; capApplied?: never; primaryFault?: never };
+  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number; primaryFault?: string; faultJoints?: KeypointName[] }
+  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never; primaryFault?: never; faultJoints?: never }
+  | { status: 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never };
 
 // Phase 20 (TRUST-07) — Mode3 미보유/저신뢰 점수 억제 (discriminated suppression type).
 // iter4 MEDIUM-1: scoreSuppressed=true 면 scoreSuppressedReason REQUIRED, false/부재면

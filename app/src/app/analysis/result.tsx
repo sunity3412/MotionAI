@@ -23,9 +23,7 @@ import { ForcePatternDetailModal } from '../../components/ForcePatternDetailModa
 import { KeypointOverlay } from '../../components/KeypointOverlay';
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
-import { PoseViewer3D } from '../../components/PoseViewer3D';
 import { VideoCompare } from '../../components/VideoCompare';
-import { reshapePose3dData } from '../../lib/joints';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { getSimulatedResult } from '../../lib/simulatedResult';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
@@ -326,6 +324,7 @@ function DimensionScoreRow({
   explanation,
   onDetailPress,
   contextNote,
+  reframeVeto,
 }: {
   dim: ScoreDimension;
   score: number;
@@ -334,14 +333,25 @@ function DimensionScoreRow({
   explanation?: DimensionExplanation;
   // Phase 12.5 v2 (belle 피드백): "자세히 ›" 링크 → 모달 (DimensionDetailModal).
   onDetailPress?: (dim: ScoreDimension) => void;
-  // Phase 20 (UI ①): 비전 거부권 적용 시 점수 아래 1줄 맥락 (각도 100 오해 차단).
+  // Phase 20 (UI ①): 비전 거부권 적용 시 점수 아래 맥락 (각도 100 오해 차단).
   contextNote?: string;
+  // #2 (2026-06-21): 비전 거부권으로 종합이 낮아졌는데 이 차원 측정값이 높아(예: 각도
+  // 100) "완벽" 으로 오인되는 경우. 숫자를 측정값 톤으로 낮추고 contextNote 를 강조
+  // 콜아웃으로 띄운다 (흐린 한 줄로는 belle 가 오인 — 진짜 reframe).
+  reframeVeto?: boolean;
 }) {
   return (
     <View style={styles.partRow}>
       <View style={styles.partHead}>
         <Text style={styles.partLabel}>{DIMENSION_LABEL_KO[dim]}</Text>
-        <Text style={styles.partScore}>{score}</Text>
+        {reframeVeto ? (
+          <View style={styles.partScoreReframeWrap}>
+            <Text style={styles.partScoreQualifier}>측정값</Text>
+            <Text style={styles.partScoreMuted}>{score}</Text>
+          </View>
+        ) : (
+          <Text style={styles.partScore}>{score}</Text>
+        )}
       </View>
       {/* Phase 12.5 v2: delta row 분리 (점수 아래 별도 줄, deficit 과 시각 분리) */}
       {delta != null && delta !== 0 && (
@@ -377,9 +387,17 @@ function DimensionScoreRow({
           {highlightNumbers(explanation.deficitSummary)}
         </Text>
       )}
-      {/* Phase 20 (UI ①) — 비전 거부권 맥락 1줄. 각도 100인데 종합 75 → "완벽" 오해
-          차단. textSecondary 보조 톤, 토큰만. */}
-      {contextNote && <Text style={styles.dimContextNote}>{contextNote}</Text>}
+      {/* Phase 20 (UI ①)/#2 — 비전 거부권 맥락. 각도 100인데 종합 75 → "완벽" 오해
+          차단. reframeVeto 면 강조 콜아웃(brandTint), 아니면 보조 톤 1줄. 토큰만. */}
+      {contextNote &&
+        (reframeVeto ? (
+          <View style={styles.dimReframeCallout}>
+            <Ionicons name="information-circle" size={15} color={colors.brand} />
+            <Text style={styles.dimReframeText}>{contextNote}</Text>
+          </View>
+        ) : (
+          <Text style={styles.dimContextNote}>{contextNote}</Text>
+        ))}
     </View>
   );
 }
@@ -535,6 +553,10 @@ export default function AnalysisResult() {
   // applied 시 결함 사유(자연어 DESCRIPTION). legacy doc 호환 — optional chaining.
   const vetoPrimaryFault =
     result.visionVeto?.status === 'applied' ? result.visionVeto.primaryFault : undefined;
+  // #3 (2026-06-21) — Gemini 가 식별한 실제 결함 keypoint(backend 매핑). 있으면
+  // 마커를 각도편차 최대 관절이 아니라 진짜 결함 관절에 찍는다 (legacy doc=undefined).
+  const vetoFaultJoints =
+    result.visionVeto?.status === 'applied' ? result.visionVeto.faultJoints : undefined;
 
   // Phase 20 (UI ④) — 점수 맥락 카드의 "교정 포인트". 비전 결함(primaryFault)
   // 우선, 없으면 top 코칭 팁 제목(가장 먼저 다듬을 관절). 둘 다 없으면 null →
@@ -681,20 +703,11 @@ export default function AnalysisResult() {
   const showOcclusionBadge = lowReliabilityRatioVal >= 0.2;
   const occlusionPercent = Math.round(lowReliabilityRatioVal * 100);
 
-  // Phase 4 (04-02 R3) — 3D 자세 뷰어 데이터 소스. doc.result.joints3d (04-01
-  // 신설 flat 필드) → (T, J, 3) reshape. angles 는 절대 전달 금지 — 관절각
-  // (T, J) 스칼라이므로 좌표 reshape 불가. reshapePose3dData 의 length guard
-  // 가 잡지만 source 단계에서 차단.
-  const joints3d = useMemo(
-    () =>
-      reshapePose3dData(
-        result.joints3d ?? null,
-        result.joints3dKeys ?? [],
-        result.joints3dFrames ?? 0,
-      ),
-    [result.joints3d, result.joints3dKeys, result.joints3dFrames],
-  );
-  const [currentFrame, setCurrentFrame] = useState(0);
+  // #4 (2026-06-21) — 3D 자세 뷰어 제거. RTMW joints3d 는 깊이 없음(y≈0)이라 진짜
+  // 회전 3D 가 원리적으로 불가 → 평면 뼈대를 "3D" 로 보여주던 오인 UI 였다. belle:
+  // "영상에서 돌릴 수 있어야"(camera-angle-AI). 리서치 결론: 충실한(자세 환각 없는)
+  // 카메라각 합성 API 는 현재 없음(생성형=환각, in-house 메시=라이선스 차단) →
+  // belle 방향 결정 대기. 그동안 깨진 뷰어는 즉시 제거(미루기 금지 원칙).
 
   // 코칭 팁 row 의 각도 표시 분기 = (joint 평균 confidence < 0.5) 또는
   // (low reliability frame 비율 ≥ 0.30). 추정 표기 + ⓘ tap → Alert.
@@ -886,9 +899,12 @@ export default function AnalysisResult() {
                   videoSize={overlayVideoSize}
                   visible={overlayVisible}
                   jointAngles={userJointAngles}
-                  // Phase 20 (UI ②) — 비전 거부권 적용(실 결함 존재)인데 임계(20°)를
-                  // 넘는 관절이 없을 때 편차 최대 2개를 강제 강조해 "볼 곳"을 보여준다
-                  // (belle: 결함 영상인데 마커가 하나도 없음). 정타 영상은 0 → 오탐 0.
+                  // #3 (2026-06-21) — Gemini 가 식별한 실제 결함 keypoint 를 권위 강조.
+                  // 있으면 각도편차 폴백 대신 진짜 결함 관절(다리/팔 등)에 마커가 찍힌다.
+                  highlightKeypoints={vetoFaultJoints}
+                  // Phase 20 (UI ②) — faultJoints 가 없을 때(매핑 0/legacy)만 폴백:
+                  // 임계(20°) 넘는 관절이 없으면 편차 최대 2개 강제 강조 (마커 0개 모순 제거).
+                  // 정타 영상은 0 → 오탐 0.
                   forceHighlightWorstCount={vetoApplied ? 2 : 0}
                 />
               )}
@@ -906,24 +922,10 @@ export default function AnalysisResult() {
           </>
         )}
 
-        {/* ── Phase 4 (04-02 Task 4) — Stage 3 사용자 3D 자세 뷰어 ─────────
-            joints3d null = Phase 4 이전 doc / joints3d 없는 분석. reshapePose3dData
-            가 형식 불일치 / 누락 시 null 반환. R3 박제 — angles 절대 미사용,
-            joints3d 전용. HIGH-3 박제 — referenceJoints 는 Wave 2 에서 전달 X
-            (PoseViewer3D props 에 예약만 두고 follow-up plan 에서 mode1 overlay
-            활성화). R8 박제 — Canvas/GL 충돌은 PoseViewer3D 내부 ErrorBoundary
-            가 격리.
-
-            Phase 20 (UI A3): 구 `{joints3d && ...}` 게이트는 데이터가 없을 때
-            섹션을 통째 생략했지만, belle 디바이스 finding #3 에서 "3D 자세 뷰어"
-            헤더 아래 빈 회색 박스가 노출됐다. 이제 항상 렌더하고 PoseViewer3D 가
-            데이터 부재 시 섹션 안에서 친절한 빈 상태 문구를 직접 표시한다(빈 박스
-            금지). joints3d=null 도 그대로 넘겨 빈 상태 분기를 태운다. */}
-        <PoseViewer3D
-          joints={joints3d}
-          currentFrame={currentFrame}
-          onFrameChange={setCurrentFrame}
-        />
+        {/* #4 (2026-06-21) — 3D 자세 뷰어 섹션 제거됨. RTMW joints3d 는 깊이가 없어
+            (y≈0) 진짜 회전 3D 가 불가 → "3D" 라벨의 평면 뼈대는 오인 UI. belle 가
+            원하는 "영상에서 돌리는" camera-angle-AI 는 충실한(자세 환각 없는) API 가
+            현재 없어 방향 결정 대기 (리서치 결론). 깨진 뷰어는 즉시 제거. */}
 
         {/* ── 영역 3: Phase 9 실패 원인 카드 Top-3 (D-12-B1 박제) ───────────
             findings.length=0 → fallback big × 1.
@@ -1004,12 +1006,26 @@ export default function AnalysisResult() {
               delta={deltaFor(dim)}
               explanation={dimensionExplanation?.[dim]}
               onDetailPress={(d) => setDetailDim(d)}
-              // Phase 20 (UI ①) — 비전 거부권 적용 시 '각도 정확도' 행 아래 1줄 맥락.
-              // 각도 100인데 종합 75 → "각도=완벽" 오해 차단. 영상 분석이 각도로 안
-              // 드러나는 차이를 잡아 종합에 반영했음을 명시. angle 차원에만 노출.
+              // Phase 20 (UI ①)/#2 — 비전 거부권 적용 시 '각도' 측정값이 높아(예: 100)
+              // "완벽" 으로 오인되는 문제. 측정값이 종합(capApplied)보다 높을 때만 reframe:
+              // 숫자를 '측정값' 톤으로 낮추고 강조 콜아웃으로 "각도로 안 드러나는 결함을
+              // 발견해 종합을 낮췄다" 를 명시. 각도가 이미 종합 이하면 오인 없음 → 평범 표기.
+              reframeVeto={
+                vetoApplied &&
+                dim === 'angle' &&
+                (dimensionScores[dim] as number) >
+                  (result.visionVeto?.status === 'applied'
+                    ? result.visionVeto.capApplied
+                    : 0)
+              }
               contextNote={
-                vetoApplied && dim === 'angle'
-                  ? 'AI 영상 분석은 각도로 안 드러나는 자세 차이를 발견했어요 (종합 점수에 반영됨).'
+                vetoApplied &&
+                dim === 'angle' &&
+                (dimensionScores[dim] as number) >
+                  (result.visionVeto?.status === 'applied'
+                    ? result.visionVeto.capApplied
+                    : 0)
+                  ? '각도 측정은 기준에 가깝지만, AI 영상 분석이 각도로 안 드러나는 자세 결함을 발견해 종합 점수를 낮췄어요.'
                   : undefined
               }
             />
@@ -1447,6 +1463,16 @@ const styles = StyleSheet.create({
   },
   partLabel: { ...typography.boxLabel, color: colors.textPrimary },
   partScore: { ...typography.listTitle, color: colors.brand },
+  // #2 (2026-06-21) — 비전 거부권 reframe: 측정값 톤다운(브랜드 트라이엄프 색 제거) +
+  // "측정값" qualifier. 100 이 "완벽" 으로 안 읽히게.
+  partScoreReframeWrap: { flexDirection: 'row', alignItems: 'flex-end' },
+  partScoreMuted: { ...typography.listTitle, color: colors.textSecondary },
+  partScoreQualifier: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginRight: 6,
+    marginBottom: 3,
+  },
   // Phase 12.5 v2: delta = 점수 아래 별도 row (deficit 과 시각 분리)
   partDelta: { ...typography.caption, textAlign: 'right', marginTop: 2 },
   // Phase 12.5 v2: track bar 아래 sub row (차원 부제 + 자세히 링크)
@@ -1479,6 +1505,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
     marginTop: 4,
+  },
+  // #2 (2026-06-21) — reframe 강조 콜아웃(brandTint 배경). 흐린 한 줄보다 강한 신호.
+  dimReframeCallout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: colors.brandTint,
+  },
+  dimReframeText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    lineHeight: 18,
+    flex: 1,
   },
   track: {
     width: '100%',

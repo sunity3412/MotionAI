@@ -22,6 +22,7 @@ import {
 import { ForcePatternDetailModal } from '../../components/ForcePatternDetailModal';
 import { KeypointOverlay } from '../../components/KeypointOverlay';
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
+import { FaultZoomCompare } from '../../components/FaultZoomCompare';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { VideoCompare } from '../../components/VideoCompare';
 import { useReferenceMotion } from '../../lib/referenceMotions';
@@ -922,10 +923,15 @@ export default function AnalysisResult() {
           </>
         )}
 
-        {/* #4 (2026-06-21) — 3D 자세 뷰어 섹션 제거됨. RTMW joints3d 는 깊이가 없어
-            (y≈0) 진짜 회전 3D 가 불가 → "3D" 라벨의 평면 뼈대는 오인 UI. belle 가
-            원하는 "영상에서 돌리는" camera-angle-AI 는 충실한(자세 환각 없는) API 가
-            현재 없어 방향 결정 대기 (리서치 결론). 깨진 뷰어는 즉시 제거. */}
+        {/* #4 (2026-06-21) — 깨진 3D 뷰어 대체 = "문제 부위 확대 비교". 결함 관절
+            부위만 worst-pose 시점에서 [내 영상 | 기준] crop+zoom + 부족 각도 표기
+            (backend 렌더, result.faultZoomComparisons). 여러 개면 carousel.
+            데이터 없으면(Mode3/결함 없음/legacy) 미렌더. 진짜 3D 회전은 Phase 24
+            (자체학습)에서 [[fault-zoom-compare-and-phase24-true3d]]. */}
+        <FaultZoomCompare
+          comparisons={result.faultZoomComparisons}
+          rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
+        />
 
         {/* ── 영역 3: Phase 9 실패 원인 카드 Top-3 (D-12-B1 박제) ───────────
             findings.length=0 → fallback big × 1.

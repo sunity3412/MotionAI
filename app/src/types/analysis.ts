@@ -372,10 +372,25 @@ export interface ScoreSuppressionAudit {
   resolvedReason: 'unheld' | 'recognition_low_confidence';
 }
 
+// 문제 부위 확대 비교 (belle 2026-06-21) — 결함 관절 부위만 worst-pose 시점에서 학생 vs
+// 기준(정은지) 나란히 crop+zoom 한 합성 이미지(backend 렌더, S3). 한글 캡션은 앱이 joint+
+// deficitDeg 로 구성(이미지엔 숫자만). 여러 개면 carousel. Python lockstep: pipeline
+// _attach_fault_zoom_comparisons + fault_zoom.py. 깨진 3D 뷰어 대체.
+export interface FaultZoomComparison {
+  /** 결함 keypoint (left_knee 등) — 앱이 한글 라벨/캡션 구성. */
+  joint: KeypointName;
+  /** 기준 대비 부족 각도(도). 없으면 null (마커만). */
+  deficitDeg?: number | null;
+  /** [학생|기준] 합성 PNG presigned GET URL. */
+  imageUrl: string;
+}
+
 export type AnalysisResult = ScoreSuppression & {
   overallScore: number; // 0~100 종합 = core 차원(angle/line)의 min (min-of-core). stability 제외(보조). core 부재 시 절대트랙 단독.
   // Phase 20 SCORE-08 — 비전 하향 거부권 audit. OPTIONAL (legacy doc 호환).
   visionVeto?: VisionVeto;
+  // 문제 부위 확대 비교 carousel (belle 2026-06-21). OPTIONAL (Mode1 + 결함 있을 때만).
+  faultZoomComparisons?: FaultZoomComparison[];
   // Phase 20 iter5 MEDIUM-2 — A2 reconcile audit (reconcile 관측). OPTIONAL.
   scoreSuppressionAudit?: ScoreSuppressionAudit;
   // IPSF 실행 차원 점수 (3차원: angle/line/stability).

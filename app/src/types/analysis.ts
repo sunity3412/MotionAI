@@ -345,10 +345,12 @@ export interface AiSynthesisMeta {
 // faultJoints(#3, 2026-06-21) = Gemini differences[].body_part 를 정식 keypoint 로 매핑한
 // 결과(backend 산출). 앱 마커가 진짜 결함 관절을 강조하게 한다 — 각도편차 최대 관절 폴백 대체.
 // applied 시에만 동반 가능, 매핑 0 이면 부재(앱은 forceHighlightWorstCount 폴백).
+// faultJointDeficits(2026-06-21) = {keypoint: Gemini 시각 추정 deviation deg} — fault-zoom
+// deficit 숫자 source(kismam delta 는 veto 결함을 못 잡아 과소). applied 시에만 동반 가능.
 export type VisionVeto =
-  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number; primaryFault?: string; faultJoints?: KeypointName[] }
-  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never; primaryFault?: never; faultJoints?: never }
-  | { status: 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never };
+  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number; primaryFault?: string; faultJoints?: KeypointName[]; faultJointDeficits?: Partial<Record<KeypointName, number>> }
+  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never }
+  | { status: 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never };
 
 // Phase 20 (TRUST-07) — Mode3 미보유/저신뢰 점수 억제 (discriminated suppression type).
 // iter4 MEDIUM-1: scoreSuppressed=true 면 scoreSuppressedReason REQUIRED, false/부재면

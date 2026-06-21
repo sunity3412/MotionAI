@@ -85,7 +85,12 @@ VISION_VETO_STATUSES = (
 # faultJoints(#3, 2026-06-21): applied 시에만 동반 가능한 정식 keypoint 이름 list — Gemini
 # differences[].body_part 를 vision_veto.fault_joints_from_differences 로 매핑한 결과. 앱
 # 마커가 진짜 결함 관절을 강조하게 한다(각도편차 최대 관절 폴백 대체). 매핑 0 이면 키 부재.
-VISION_VETO_KEYS = ("status", "severity", "capApplied", "primaryFault", "faultJoints")
+# faultJointDeficits(2026-06-21): {keypoint: Gemini 시각 추정 deviation deg} — fault-zoom
+# deficit 숫자 source. kismam delta 는 veto 결함을 못 잡아 과소 → Gemini 추정을 쓴다.
+VISION_VETO_KEYS = (
+    "status", "severity", "capApplied", "primaryFault", "faultJoints",
+    "faultJointDeficits",
+)
 
 # ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───
 # Mode3 미보유/저신뢰 동작의 점수카드 전체 억제 신호. scoringBasis 단독이 아닌 명시

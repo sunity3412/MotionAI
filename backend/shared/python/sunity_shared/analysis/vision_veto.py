@@ -167,13 +167,11 @@ def _sides_for(text: str) -> tuple[str, ...]:
     return ("left", "right")
 
 
-def fault_joints_from_differences(differences) -> list[str]:
-    """Gemini differences → 강조할 keypoint 이름 list (순서 안정·중복 제거, 순수).
+def _keypoints_for_part(body_part: str) -> list[str]:
+    """단일 body_part(한국어 자유텍스트) → 정식 keypoint list (순서 안정·중복 제거).
 
-    각 difference 의 body_part(한국어 자유텍스트)를 keyword 매핑 + 좌/우 추정으로
-    정식 keypoint 로 변환한다. 매핑 불가(라인·전신 등 모호)는 trunk(양 어깨+양 엉덩이),
-    스트래들/스플릿은 양 다리(무릎+엉덩이)로 확장. 결과 없으면 빈 list (호출측이
-    기존 편차-기반 폴백 사용).
+    keyword 매핑 + 좌/우 추정. 스트래들/스플릿=양 다리(무릎+엉덩이), 라인/전신/상체
+    =trunk(양 어깨+양 엉덩이). 매핑 불가면 빈 list.
     """
     out: list[str] = []
 
@@ -181,26 +179,62 @@ def fault_joints_from_differences(differences) -> list[str]:
         if name in _HIGHLIGHT_KEYPOINTS and name not in out:
             out.append(name)
 
-    for d in differences or ():
-        part = str((d or {}).get("body_part", "")).lower()
-        if not part.strip():
+    part = str(body_part or "").lower()
+    if not part.strip():
+        return out
+    sides = _sides_for(part)
+    for keywords, bases in _PART_KEYWORDS:
+        if not any(kw.lower() in part for kw in keywords):
             continue
-        sides = _sides_for(part)
-        for keywords, bases in _PART_KEYWORDS:
-            if not any(kw.lower() in part for kw in keywords):
-                continue
-            for base in bases:
-                if base == "__legs_both__":
-                    for s in ("left", "right"):
-                        _add(f"{s}_knee")
-                        _add(f"{s}_hip")
-                elif base == "__trunk__":
-                    for s in ("left", "right"):
-                        _add(f"{s}_shoulder")
-                        _add(f"{s}_hip")
-                else:
-                    for s in sides:
-                        _add(f"{s}_{base}")
+        for base in bases:
+            if base == "__legs_both__":
+                for s in ("left", "right"):
+                    _add(f"{s}_knee")
+                    _add(f"{s}_hip")
+            elif base == "__trunk__":
+                for s in ("left", "right"):
+                    _add(f"{s}_shoulder")
+                    _add(f"{s}_hip")
+            else:
+                for s in sides:
+                    _add(f"{s}_{base}")
+    return out
+
+
+def fault_joints_from_differences(differences) -> list[str]:
+    """Gemini differences → 강조할 keypoint 이름 list (순서 안정·중복 제거, 순수).
+
+    각 difference 의 body_part 를 _keypoints_for_part 로 변환 후 union. 결과 없으면
+    빈 list (호출측이 기존 편차-기반 폴백 사용).
+    """
+    out: list[str] = []
+    for d in differences or ():
+        for kp in _keypoints_for_part((d or {}).get("body_part", "")):
+            if kp not in out:
+                out.append(kp)
+    return out
+
+
+def fault_joint_deficits_from_differences(differences) -> dict[str, float]:
+    """Gemini differences → {keypoint: approx_angle_deviation_deg} (시각 추정 deficit).
+
+    fault-zoom 의 deficit 숫자 source. kismam 각도 delta 는 veto 가 발동한 결함을
+    구조적으로 못 잡으므로(그래서 veto 발동) 작게 나온다 → Gemini 의 visual 추정을
+    쓴다. 한 body_part 가 여러 keypoint 로 확장되면 같은 deviation 을 부여하고,
+    여러 difference 가 같은 keypoint 를 가리키면 **최대** deviation 을 남긴다. 0/미상은
+    제외(숫자 안 그림). 순수.
+    """
+    out: dict[str, float] = {}
+    for d in differences or ():
+        try:
+            dev = float((d or {}).get("approx_angle_deviation_deg") or 0.0)
+        except (TypeError, ValueError):
+            dev = 0.0
+        if dev <= 0:
+            continue
+        for kp in _keypoints_for_part((d or {}).get("body_part", "")):
+            if dev > out.get(kp, 0.0):
+                out[kp] = dev
     return out
 
 

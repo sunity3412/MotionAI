@@ -1738,6 +1738,11 @@ def _apply_vision_veto(
             fault_joints = vision_veto.fault_joints_from_differences(
                 verdict.differences
             )
+            # fault-zoom deficit 숫자 source — Gemini 시각 추정(approx deviation).
+            # kismam delta 는 veto 결함을 못 잡아 작게 나오므로 Gemini 추정을 쓴다.
+            fault_deficits = vision_veto.fault_joint_deficits_from_differences(
+                verdict.differences
+            )
             vision_veto_audit = {
                 "status": "applied",
                 "severity": verdict.severity,
@@ -1746,6 +1751,8 @@ def _apply_vision_veto(
             }
             if fault_joints:
                 vision_veto_audit["faultJoints"] = fault_joints
+            if fault_deficits:
+                vision_veto_audit["faultJointDeficits"] = fault_deficits
             return {
                 **score_result,
                 "overallScore": capped,
@@ -1820,6 +1827,10 @@ def _attach_fault_zoom_comparisons(
     vv = result.get("visionVeto") or {}
     joint_deltas = _keypoint_deltas(result.get("joints") or [])
     fault_joints = list(vv.get("faultJoints") or [])
+    # deficit 숫자: veto 결함은 Gemini 시각 추정(faultJointDeficits) 우선, 그 외는
+    # kismam delta. Gemini 추정이 veto 결함을 의미있게 반영(kismam 은 못 잡아 과소).
+    gemini_deficits = vv.get("faultJointDeficits") or {}
+    deficits = {**joint_deltas, **{k: float(v) for k, v in gemini_deficits.items()}}
     if not fault_joints:
         # veto 미적용(각도 차원이 결함을 잡은 경우) — 편차 최대 keypoint top-2 폴백.
         fault_joints = [
@@ -1839,7 +1850,7 @@ def _attach_fault_zoom_comparisons(
         ref_report,
         worst,
         fault_joints,
-        joint_deltas,
+        deficits,
         frames_fps=9.0,
     )
     out: list[dict] = []

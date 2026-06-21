@@ -67,7 +67,7 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v6.1"  # v6.1 (2026-06-21): multi-fault — N샘플 differences union(median 1개 채택 폐기) + worst-pose 힌트 완화(전신 점검). severity 캡=median 유지 → cache 무효화
+PROMPT_VERSION = "v6.2"  # v6.2 (2026-06-21): worst-pose 힌트 복원(v6.1 완화가 severity none 으로 튐 — 검증). multi-fault union 유지, 전신 점검은 rule5 담당 → cache 무효화
 SCHEMA_VERSION = "v5.0"  # v5.0: 집계 verdict = 새 cache generation (단일 verdict 의미 변경)
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
@@ -291,11 +291,11 @@ def _build_comparison_prompt(at_seconds: float | None) -> str:
     """
     if at_seconds is None:
         return _COMPARISON_PROMPT
-    # C1: 힌트가 시선을 지배 부위 하나로 좁히지 않게 — 전신 점검을 함께 명시.
+    # 지배 편차 pose 시점 힌트(severity 안정 — 완화 시 시선 분산으로 none 으로 튐,
+    # 2026-06-21 검증). 전신 점검은 _COMPARISON_PROMPT rule5 가 이미 담당(힌트 무관).
     return (
-        f"{_COMPARISON_PROMPT}\n\n참고: 약 {at_seconds:.1f}초 부근이 지배 편차 pose 일 "
-        "수 있으나, **영상 전체에서 다른 부위(특히 팔·어깨·코어)의 편차도 함께** "
-        "빠짐없이 점검하세요."
+        f"{_COMPARISON_PROMPT}\n\n참고: 약 {at_seconds:.1f}초 부근의 "
+        "지배 편차 pose 에 특히 주목하세요."
     )
 
 

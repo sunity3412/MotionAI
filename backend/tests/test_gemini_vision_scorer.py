@@ -625,8 +625,8 @@ def test_samples_count_invalidates_cache(
 
 
 def test_prompt_schema_version():
-    """PROMPT_VERSION = v6.1 (multi-fault union, 2026-06-21). SCHEMA_VERSION = v5.0."""
-    assert PROMPT_VERSION == "v6.2"
+    """PROMPT_VERSION = v7.0 (head-to-toe 강제 스캔 + 전 구간 힌트, 2026-06-22). SCHEMA_VERSION = v5.0."""
+    assert PROMPT_VERSION == "v7.0"
     assert SCHEMA_VERSION == "v5.0"
 
 

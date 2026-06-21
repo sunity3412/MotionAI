@@ -67,7 +67,7 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v5.0"  # v5.0 (2026-06-20): comparison multi-sample(N) rank-median aggregation — verdict semantics 변경 → cache 무효화
+PROMPT_VERSION = "v6.0"  # v6.0 (2026-06-21): comparison 전신 빠짐없는 multi-fault 보고 지시(왼팔 등 부수결함 캐치, belle device). severity 캡은 dominant 분리 유지 → cache 무효화
 SCHEMA_VERSION = "v5.0"  # v5.0: 집계 verdict = 새 cache generation (단일 verdict 의미 변경)
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
@@ -270,10 +270,18 @@ _COMPARISON_PROMPT = """\
 4. 점수를 매기지 마세요. "85점", "89%", "8/10", "100/100" 같은 숫자 점수/일치율 표현 금지.
    대신 **기준 대비 관절 각도(도)**, **라인 정렬/굽음**, **뻗기 갭(도)** 같은 관찰적
    비교 사실만 기술하세요.
-5. differences 에는 **실제로 기준 대비 관찰된 편차만** 담으세요 (없으면 빈 배열). 각 항목
-   severity 도 none/minor/moderate/major 로 보수적으로.
-6. primary_fault = 기준 대비 가장 지배적인 단일 편차 (편차 없으면 '없음').
-7. 한국어로 작성. 비교가 불확실하면 confidence 를 낮게 표기."""
+5. **전신을 빠짐없이 점검하세요 — 결함은 하나만 보고하지 마세요.** 다리/무릎/발끝,
+   양 팔/팔꿈치/손목, 어깨, 골반/힙, 코어/허리, 전체 라인, 그립을 **각각** 기준과
+   대조해, 명확하고 관찰 가능한 편차가 있는 부위를 **모두** differences 에 담으세요.
+   예: 다리 신전 부족 + 왼팔이 기준보다 안쪽으로 굽음 + 라인 흐트러짐 → 세 항목 모두.
+   (단, 1·2번 규칙은 그대로 — 정타/사소차/촬영조건은 결함이 아닙니다. 빠짐없이 보되
+   억지로 만들지는 마세요.)
+6. differences 각 항목 severity 는 none/minor/moderate/major 로 보수적으로. 각 항목에
+   기준 대비 관찰 사실(correct_state/fault_state/approx_angle_deviation_deg/ipsf_note)을
+   구체적으로 채우세요.
+7. primary_fault = 기준 대비 가장 지배적인 단일 편차 (편차 없으면 '없음'). dominant_severity
+   는 영상 전체의 **지배적** 편차 수준 1개 (개수가 아니라 가장 심한 정도 기준).
+8. 한국어로 작성. 비교가 불확실하면 confidence 를 낮게 표기."""
 
 
 def _build_comparison_prompt(at_seconds: float | None) -> str:

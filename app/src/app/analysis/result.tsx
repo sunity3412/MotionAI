@@ -603,18 +603,23 @@ export default function AnalysisResult() {
   const forcePatternFindings: ForcePatternFinding[] = useMemo(() => {
     const list = result.forcePatternInference?.findings ?? [];
     if (list.length > 0) return list.slice(0, 3);
+    // A1 (belle 2026-06-21 device) — veto 적용(종합 75)인데 "힘 흐름 이슈 안 보임"
+    // 은 "문제 없다" 로 오인되어 점수와 모순. veto 결함을 실패 원인으로 노출한다.
     const fallback: ForcePatternFinding = {
       pattern: 'unknown',
       phase: 'hold',
       sourceSignal: 'high_jitter',
       reason: '',
-      interpretation: _FALLBACK_BODY,
+      interpretation:
+        vetoApplied && vetoPrimaryFault
+          ? `AI 영상 분석이 점수를 낮춘 핵심 원인이에요 — ${vetoPrimaryFault}. 위 '문제 부위 확대 비교'에서 직접 확인하고, 강사와 함께 점검해 보세요.`
+          : _FALLBACK_BODY,
       confidence: 0,
       jointHint: null,
       warnings: [],
     };
     return [fallback];
-  }, [result.forcePatternInference]);
+  }, [result.forcePatternInference, vetoApplied, vetoPrimaryFault]);
 
   // Phase 11 (Plan 11-02, COACH-01 / D-06 / HIGH-2) — "강사에게 확인할 점" 섹션.
   // 두 리포트(forcePatternInference + bodyComparisonReport)의 coachCommentHook.

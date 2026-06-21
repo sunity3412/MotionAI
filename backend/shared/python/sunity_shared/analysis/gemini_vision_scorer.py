@@ -617,6 +617,8 @@ def assess_fault_severity(
     # (4) miss → 영상 업로드 + generate_content (temp 0.0).
     #     COMPARISON 이면 기준+학생 둘 다 1회 업로드 후 N 회 비교 호출 → rank-median 집계.
     #     SINGLE 이면 1회 업로드 + 1회 호출 (back-compat, 집계 없음).
+    uploaded = None
+    ref_uploaded = None
     try:
         uploaded = _upload_video(client, local_video_path, at_seconds)
         if reference_video_path is not None:
@@ -635,6 +637,19 @@ def assess_fault_severity(
     except Exception as exc:  # noqa: BLE001 - API/업로드 실패 graceful (Pitfall 5)
         log.warning("Gemini 호출 실패 — verdict=None (graceful): %s", exc)
         return None
+    finally:
+        # 업로드 영상 정리 — Gemini File API 20GB(file_storage_bytes) 저장소 누수
+        # 방지 (2026-06-22). 파일은 48h TTL 이지만 배치 sweep 은 그 전에 한도를
+        # 채워 429 RESOURCE_EXHAUSTED 를 낸다(reference 가 분석마다 재업로드됨).
+        # 캐시 hit 는 재업로드 0 이라 삭제해도 결정론 영향 없음. 삭제 실패 graceful.
+        for _handle in (uploaded, ref_uploaded):
+            _name = getattr(_handle, "name", None)
+            if not _name:
+                continue
+            try:
+                client.files.delete(name=_name)
+            except Exception:  # noqa: BLE001 - 정리 실패는 분석을 막지 않는다
+                log.warning("Gemini 업로드 파일 삭제 실패 (graceful): %s", _name)
 
     # (5) 점수 누출 가드 (객관성 hard gate) — 누출 시 verdict 폐기. (단일 영상 경로)
     if _SCORE_PATTERN.search(raw_text or ""):

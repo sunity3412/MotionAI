@@ -41,6 +41,27 @@ def _frame_index(seconds: float | None, fps: float, n_frames: int) -> int:
     return max(0, min(idx, n_frames - 1))
 
 
+def _matched_ref_frame(dtw_match, user_frame: int, ref_n: int) -> int | None:
+    """B1 — DTW match 로 학생 9fps 프레임 ↔ 기준 9fps 프레임(같은 pose). None=불가.
+
+    match.start = 사용자 구간 시작(angles 9fps), path = [(user_local, ref_idx)...]
+    (ref_idx = 기준 angles 9fps 절대). 학생 프레임을 구간-로컬로 변환 후 path 에서
+    같은 user_local 의 ref_idx 들의 median 을 고른다(DTW 1:N 대응 안정화).
+    """
+    if dtw_match is None:
+        return None
+    try:
+        start = int(getattr(dtw_match, "start", 0))
+        path = getattr(dtw_match, "path", None) or []
+    except Exception:  # noqa: BLE001 - match 형태 이상 시 graceful (proportional 폴백)
+        return None
+    local = user_frame - start
+    js = sorted(j for (i, j) in path if i == local)
+    if not js:
+        return None
+    return max(0, min(int(js[len(js) // 2]), ref_n - 1))
+
+
 def _kp_xy(report: dict, frame_idx: int, joint: str) -> tuple[float, float] | None:
     """keypointReport(flat data) 의 frame_idx, joint 정규화 좌표 (x,y) | None.
 
@@ -120,6 +141,7 @@ def build_fault_zoom_comparisons(
     frames_fps: float = 9.0,
     max_items: int = 4,
     joint_kinds: dict[str, str] | None = None,
+    dtw_match=None,
 ) -> list[dict]:
     """결함 관절별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -144,13 +166,22 @@ def build_fault_zoom_comparisons(
     r_n = int(ref_frames.shape[0])
     # 프레임 배열 인덱스 (frames_fps 기준).
     u_idx = _frame_index(worst_seconds, frames_fps, u_n)
-    ratio = (u_idx / max(1, u_n - 1)) if u_n > 1 else 0.0
-    r_idx = int(round(ratio * (r_n - 1))) if r_n > 1 else 0
-    # keypointReport 인덱스 (각 report 의 fps 기준 — 같은 절대/상대 시간).
     u_rep_frames = int(user_report.get("frames") or 0)
     r_rep_frames = int(ref_report.get("frames") or 0)
     u_kp_idx = _frame_index(worst_seconds, u_rep_fps, u_rep_frames)
-    r_kp_idx = int(round(ratio * (r_rep_frames - 1))) if r_rep_frames > 1 else 0
+    # B1: DTW match 로 같은-pose 기준 프레임. 불가 시 시간비례 근사 폴백.
+    r_matched = _matched_ref_frame(dtw_match, u_idx, r_n)
+    if r_matched is not None:
+        r_idx = r_matched
+        # 기준 9fps 프레임 → 기준 keypointReport fps 인덱스 변환.
+        r_kp_idx = max(0, min(
+            int(round(r_matched / max(1e-6, frames_fps) * r_rep_fps)),
+            max(0, r_rep_frames - 1),
+        ))
+    else:
+        ratio = (u_idx / max(1, u_n - 1)) if u_n > 1 else 0.0
+        r_idx = int(round(ratio * (r_n - 1))) if r_n > 1 else 0
+        r_kp_idx = int(round(ratio * (r_rep_frames - 1))) if r_rep_frames > 1 else 0
 
     seen: set[str] = set()
     for joint in fault_joints:

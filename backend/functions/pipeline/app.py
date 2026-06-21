@@ -1814,6 +1814,7 @@ def _render_fault_zoom(
     uid: str,
     analysis_id: str,
     bucket: str,
+    dtw_match=None,
 ) -> dict:
     """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → result.
 
@@ -1838,6 +1839,7 @@ def _render_fault_zoom(
         deficits,
         frames_fps=9.0,
         joint_kinds=kinds,
+        dtw_match=dtw_match,
     )
     out: list[dict] = []
     for c in comps:
@@ -1868,6 +1870,7 @@ def _attach_fault_zoom_comparisons(
     uid: str,
     analysis_id: str,
     bucket: str,
+    dtw_match=None,
 ) -> dict:
     """Mode1 결함 부위 확대 비교 — 학생 vs 정은지. kind='deficit'(기준보다 부족).
 
@@ -1898,6 +1901,7 @@ def _attach_fault_zoom_comparisons(
         fault_joints, deficits, kinds,
         vision_veto.worst_pose_timestamp(profile),
         uid, analysis_id, bucket,
+        dtw_match=dtw_match,
     )
 
 
@@ -2322,6 +2326,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     reference_keypoint_report_dict: dict | None = None
     # fault-zoom Mode3 — 지난 분석 doc(현재 vs 지난 영상 변화 비교). SELF 분기에서 채움.
     mode3_prev: dict | None = None
+    # fault-zoom B1 (belle 2026-06-21) — mode1 DTW match(user↔reference 프레임 정렬).
+    # 확대 비교에서 학생 worst 프레임 ↔ 기준의 같은 pose 프레임을 캡처해 납득성 ↑.
+    reference_dtw_match = None
 
     # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
     target_torso = _extract_target_torso_px(pose_frames)
@@ -2404,6 +2411,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             deviation, match, user_seg, a_ref = _deviation_against(
                 angles, ref["angles"], num_joints
             )
+            reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
             # Phase 19 TRUST-01 (HIGH-2 iter-1): 표시 각도 = 점수 산출 DTW path-정렬 median.
             # 기존 whole-clip np.nanmean(user_seg) vs np.nanmean(a_ref) 는 시간 비대칭
             # (user matched-window vs ref full-clip) + jitter 민감 → 표시·점수 불일치.
@@ -2920,6 +2928,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                     uid,
                     analysis_id,
                     bucket,
+                    dtw_match=reference_dtw_match,
                 )
             except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
                 log.exception(

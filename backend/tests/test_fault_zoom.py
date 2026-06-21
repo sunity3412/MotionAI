@@ -76,3 +76,34 @@ def test_none_frames_graceful():
     assert fz.build_fault_zoom_comparisons(
         None, None, {}, {}, 0.0, ["left_knee"], None
     ) == []
+
+
+# ─────────── B1 (2026-06-21) DTW 같은-pose 기준 프레임 ───────────
+
+from dataclasses import dataclass as _dc
+
+
+@_dc
+class _Match:
+    start: int
+    path: list
+
+
+def test_matched_ref_frame_maps_via_dtw():
+    m = _Match(start=5, path=[(0, 7), (1, 8), (2, 9), (3, 10), (3, 11), (4, 12)])
+    assert fz._matched_ref_frame(m, 5, ref_n=20) == 7   # local 0 → 7
+    assert fz._matched_ref_frame(m, 8, ref_n=20) == 11  # local 3 → median([10,11])
+    assert fz._matched_ref_frame(m, 8, ref_n=10) == 9   # clamp to ref_n-1
+    assert fz._matched_ref_frame(m, 99, ref_n=20) is None  # out of path → fallback
+    assert fz._matched_ref_frame(None, 8, 20) is None      # no match → fallback
+
+
+def test_build_uses_dtw_match_for_ref_frame():
+    """dtw_match 제공 시 기준 프레임이 시간비례가 아닌 match 매핑을 따른다(graceful)."""
+    m = _Match(start=0, path=[(i, i) for i in range(9)])
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(9), _frames(9), _report(9, 9.0), _report(9, 9.0),
+        worst_seconds=0.5, fault_joints=["left_knee"], joint_deltas=None,
+        frames_fps=9.0, dtw_match=m,
+    )
+    assert len(comps) == 1 and comps[0]["png"][:4] == b"\x89PNG"

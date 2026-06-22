@@ -763,10 +763,12 @@ Plans:
   4. 결함 출력에 기준선 정량화(각도 직접 / 거리 몸-상대 칸·층+화살표 / 기준선 동작별)가 표시된다.
   5. 코칭이 증상을 root cause(힘/폴밀착)에 묶어 "무엇을 고칠지" 제시(일반 답변·수치 나열 금지).
 
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 23 to break down)
+- [ ] 23-01-PLAN.md — still-frame 입력 swap + 부위별 key-frame union + DTW-confidence 게이팅(low_alignment_confidence status) (VETO-01/02/03)
+- [ ] 23-02-PLAN.md — 기준선 정량화 레이어(각도 직접 + 몸-상대 칸/층 텍스트) + 증상→root cause "~로 보임" 가설 코칭 (VETO-04/05)
+- [ ] 23-03-PLAN.md — [POD] still-frame veto eval — kip-up recall 재현 + 위양성 0 + 결정론 + 정렬-약 보류 (VETO-06)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

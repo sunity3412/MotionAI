@@ -736,7 +736,7 @@ Plans:
 
 > **신규 (belle 2026-06-22).** **실행 우선순위 = Phase 22(파인튜닝)보다 먼저** — 리서치의 단기 트랙(현 스택 즉시 구현). 근거 = 2026-06-22 deep-research(소스 23개, 18 confirmed) + B 스파이크. 핵심 발견: 현 Mode 1 veto 의 "영상 통째 Gemini 비교"가 상체 결함(팔-폴 갭/고개젖힘/팔꿈치)을 구조적으로 놓친다(whole-video VLM 한계). B 스파이크 실증: **단일 key-frame 입력 시 좌/우팔+고개 풀 recall, 깨끗 프레임 위양성 0** → 레버는 입력 granularity. [[spike-stillframe-recovers-upperbody-2026-06-22]]
 
-**Goal:** Mode 1 veto/비교의 입력을 "영상 통째 업로드"에서 "DTW worst-pose **단일 key-frame(들)** + 부위별 프롬프트 + 프레임×부위 union + N-sample"으로 교체해 상체 결함 recall 을 복구한다(위양성은 늘리지 않음 — 깨끗 프레임 none 유지). 동시에 결함 출력에 **기준선 정량화 레이어**(각도=직접 측정 / 거리=몸-상대 칸·층+화살표 / 기준선=동작별)와 **증상→root cause(힘/폴밀착) 묶음 코칭**을 더해 "무엇을 고쳐야 하는지"를 직관화한다. Mode 3 에도 동일 정렬·정량화 적용.
+**Goal:** Mode 1 veto/비교의 입력을 "영상 통째 업로드"에서 "DTW worst-pose **단일 key-frame(들)** + 부위별 프롬프트 + 프레임×부위 union + N-sample"으로 교체해 상체 결함 recall 을 복구한다(위양성은 늘리지 않음 — 깨끗 프레임 none 유지). 동시에 결함 출력에 **기준선 정량화 레이어**(각도=직접 측정 / 거리=몸-상대 칸·층+화살표 / 기준선=동작별)와 **증상→root cause(힘/폴밀착) 묶음 코칭**을 더해 "무엇을 고쳐야 하는지"를 직관화한다. **스코프(belle 2026-06-22 cross-AI 리뷰 후 정정): Mode 1 집중 — Mode 3 정량화/정렬은 공식 defer(Backlog B-15a 합류). 정량화·코칭은 백엔드 계산·저장·생성까지, 앱 표시(result.tsx/coach-report 렌더링)는 후속 UI phase. 칸·층은 keypoint/폴/바닥 baseline 에서 결정적 기하 계산(VLM 이 수치를 지어내지 않음, percent 표기 금지 — `_SCORE_PATTERN` 누수 회피). 시각 화살표/오버레이는 v1.1.**
 
 **핵심 설계 (스파이크로 입증):**
 
@@ -760,8 +760,9 @@ Plans:
   1. Mode 1 veto 입력이 whole-video → DTW worst-pose 단일 key-frame(들)로 교체되고, kip-up 상체 결함(좌/우팔+고개) recall 이 복구된다(스파이크 effect size 재현).
   2. 깨끗 프레임/정타에서 위양성 0 유지(특이도 보존) + 결정론(같은 입력=같은 verdict) 유지.
   3. DTW 정렬 신뢰도 게이팅 + 시작점/템포 상이 케이스에서 프레임선별이 거짓결함을 만들지 않음(검증 task).
-  4. 결함 출력에 기준선 정량화(각도 직접 / 거리 몸-상대 칸·층+화살표 / 기준선 동작별)가 표시된다.
-  5. 코칭이 증상을 root cause(힘/폴밀착)에 묶어 "무엇을 고칠지" 제시(일반 답변·수치 나열 금지).
+  4. 결함 출력에 기준선 정량화(각도 직접 / 거리 몸-상대 칸·층 — keypoint·폴·바닥 baseline 에서 결정적 계산, percent 표기 금지)가 **계산·저장**된다 (앱 표시는 후속 UI phase).
+  5. 코칭 출력이 증상을 root cause(힘/폴밀착)에 묶어 **생성**된다 (백엔드; 앱 표시 후속). 일반 답변·수치 나열 금지.
+  6. (cross-AI 리뷰) union 에 precision/support 게이트 — 단발 환각 결함이 살아남지 않음(위양성 비증가 강화). 23-03 eval 은 실제 production 경로(_apply_vision_veto·프레임선별·게이팅·캐시)로 측정 + 동일 모델 baseline 재실행 + cold/warm 결정론 분리 + cost/latency·machine-checkable 게이트.
 
 **Plans:** 3 plans
 

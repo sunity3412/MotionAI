@@ -21,7 +21,7 @@ Mode 1(정은지 기준 비교) veto/비교의 **입력 방식**을 "영상 통�
 학생 worst-pose frame + **DTW로 매칭된 정은지 same-pose frame**을 나란히(side-by-side) Gemini에 입력한다. Mode 1의 "정은지 기준 비교" 설계를 유지하고 상대 편차를 포착하며, 기존 v7.0 비교 프롬프트(`_COMPARISON_PROMPT`)와 정합. (대안: 학생 단일 frame만 IPSF 평가 — 스파이크 방식, recall은 되나 reference 기준점 의미 약화 → 채택 안 함.)
 
 ### D-02: 정량화 표현 + v1 범위 = 각도 수치 + 몸-상대 칸/층 텍스트 (시각 오버레이 바로 후속)
-v1 출력 = ① **관절각 직접 수치**("무릎 145° vs 정은지 178°, 33° 더 굽음, ↑펴라") + ② **거리는 몸-상대 칸/층 텍스트**("정은지 3칸, 너 2칸 ⅔"). 절대 cm/m 금지(단일 카메라 스케일 모호, 140/150 깨짐). **화살표 + 칸 시각 오버레이**는 기존 fault-zoom 확대비교 이미지 위에 **바로 후속(v1.1)** — v1은 텍스트+각도 먼저. "칸" 정의 = 정은지 도달치를 100%(N칸)로 두고 학생을 비율로 환산.
+v1 출력 = ① **관절각 직접 수치**("무릎 145° vs 정은지 178°, 33° 더 굽음, ↑펴라") + ② **거리는 몸-상대 칸/층 텍스트**("정은지 3칸, 너 2칸 ⅔"). 절대 cm/m 금지(단일 카메라 스케일 모호, 140/150 깨짐). **화살표 + 칸 시각 오버레이**는 기존 fault-zoom 확대비교 이미지 위에 **후속(v1.1)** — v1은 텍스트+각도 먼저, 백엔드 계산·저장까지(앱 표시는 후속 UI phase, D-07). "칸" = keypoint/폴/바닥 baseline 에서 **결정적 계산**한 정수 칸("정은지 3칸, 너 2칸 ⅔") — **percent 표기 금지**(`_SCORE_PATTERN` 누수, D-08). VLM 이 칸 수치를 지어내지 않음.
 
 ### D-03: DTW 정렬 신뢰도 폴백 = 다중프레임 union → 보류+표시
 정렬 신뢰도(`MotionMatch.distance`)가 낮으면(시작점/템포 상이) 단일 프레임 대신 **worst-pose ±윈도우 다중프레임 union**으로. 그래도 낮으면 **veto 보류 + "비교 신뢰도 낮음" 표시**(거짓결함 fabrication 금지 — 객관성·위양성 게이트). 전체영상 폴백은 채택 안 함(그게 상체를 놓치는 원인이라).
@@ -36,6 +36,19 @@ Gemini가 결함군(예: 팔꿈치 굽음 + 고개젖힘 동시)을 보고 가�
 - 사람 점수 라벨 ground truth 금지 — VisionVerdict에 score 필드 영구 부재 유지([[analysis-objectivity-no-human-scores]]).
 - known-answer에 맞춘 유도 프롬프트/curve-fit 금지 — 프롬프트는 generic, recall은 자체 라벨셋으로 측정([[scoring-redesign-must-generalize-no-overfit]]).
 - 깨끗 프레임/정타 = none 유지(스파이크 확인 — 특이도 보존). 결정론(같은 입력=같은 verdict) 유지.
+
+### D-07: 스코프 정정 (belle 2026-06-22, cross-AI 리뷰 후)
+- **Mode 1 집중. Mode 3 정량화/정렬은 공식 defer** → Backlog B-15a("Mode 3 즉석 2영상 비교")로 합류. 본 phase 는 Mode 1 still-frame veto + 정량화/코칭 백엔드.
+- **정량화·코칭 = 백엔드 계산·저장·생성까지.** 앱 표시(result.tsx 각도/칸 렌더, coach-report 원인섹션 렌더)는 **후속 UI phase** 로 분리. SC#4/#5 "표시"→"계산·저장/생성"으로 정정(ROADMAP 반영). (D-02 시각 오버레이 v1.1 방침과 일관.)
+
+### D-08: cross-AI 리뷰 hardening (Codex HIGH 반영)
+- **precision/support 게이트** — part×frame union 이 단발 환각 결함을 살리지 않도록, differences 는 최소 support(샘플/프레임 N 중 K 이상)일 때만 인정, 미만은 descriptive-only/폐기. 위양성 비증가(D-06) 강화.
+- **칸/층 = 결정적 기하 계산.** keypoint + 폴축(pole_geometry)/바닥/엉덩이-라인 baseline 에서 reach 를 계산 — **Gemini 가 수치를 지어내지 않음**. body_normalization 비율은 보조. **percent("100%") 표기 절대 금지** — `_SCORE_PATTERN` 누수 가드에 걸려 정상 verdict 가 폐기됨. "정은지 = 3칸" 식 정수 칸만.
+- **provenance 필드** — 측정값은 `source: "geometry" | "vision_hypothesis"` + confidence/가시성 표기(특히 root-cause 가설).
+- **DTW 신뢰도 = 글로벌+로컬.** `MotionMatch.distance`(글로벌) 만으로 부족 → 선택 프레임 주변 path 밀도/ref-frame 존재/keypoint 가시성·blur 로컬 신뢰도 추가. worst_pose_timestamp 가 상체 결함 프레임이 아닐 수 있음 — 부위별 worst 후보 고려.
+- **23-01 배선 명시** — `_apply_vision_veto` 시그니처/콜사이트가 `reference_dtw_match`/ref angles 를 받도록 변경 명시. still-pair API(이미지 경로·프레임 메타·part scope·selector version) 정의. 캐시 키에 selector version/frame indices/top-K/window 포함.
+- **23-03 eval = 실제 production 경로** — 어댑터 직접호출 아니라 `_apply_vision_veto` 전체 경로 통과. whole-video baseline 을 **동일 모델/버전으로 재실행**(apples-to-apples). 케이스 매트릭스 확장(elite clean/imperfect clean/occluded/tempo-shifted/spinning/known-fault). cold vs warm 캐시 결정론 분리. cost/latency 게이트 + machine-checkable pass/fail 필드.
+- **호출수 상한 강화** — `MAX_VETO_CALLS` 가 호출수뿐 아니라 upload count + wall-clock budget 도 bound. File API 핸들은 추적 list 에서 일괄 delete.
 
 ### Claude's Discretion
 - key-frame 선별 알고리즘 세부(worst-pose 선정 기준, ±윈도우 크기, top-K), 부위 분할 경계(skeleton.JOINT_TO_PART 확장: 머리/그립 추가), N-sample 수, 캐시 키에 input_granularity 반영 방식, 비용 상한(호출수 bound) — 구현 디테일은 planner/executor 재량(게이트 D-06 준수 하에).
@@ -110,6 +123,8 @@ Gemini가 결함군(예: 팔꿈치 굽음 + 고개젖힘 동시)을 보고 가�
 ## Deferred Ideas
 
 - 화살표 + 칸/층 **시각 오버레이** 풀 구현 — v1.1(확대비교 이미지 위, v1은 텍스트+각도 먼저).
+- **앱 표시(result.tsx 각도/칸 렌더 + coach-report 원인섹션 렌더)** — 후속 UI phase(D-07; 본 phase 는 백엔드 계산·저장·생성까지).
+- **Mode 3 still-frame 정량화/정렬** — Backlog B-15a 합류(D-07; 본 phase Mode 1 집중).
 - 자체 비전 모델 파인튜닝(오픈 모델) — Phase 22.
 - reference 셀프 등록 자동화 — Phase 21.
 - AQA-style part-aware contrastive 점수 모델 — 라벨 데이터셋 확보 후 중장기(리서치 중장기 트랙).

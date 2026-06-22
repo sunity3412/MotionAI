@@ -731,6 +731,44 @@ Plans:
 - [ ] TBD (run /gsd-plan-phase 22 to break down — Phase 21 완료 후)
 
 ---
+
+### Phase 23: Mode 1 결함 recall 복구 — still-frame veto (영상통째→DTW key-frame 부위별) + 기준선 정량화
+
+> **신규 (belle 2026-06-22).** **실행 우선순위 = Phase 22(파인튜닝)보다 먼저** — 리서치의 단기 트랙(현 스택 즉시 구현). 근거 = 2026-06-22 deep-research(소스 23개, 18 confirmed) + B 스파이크. 핵심 발견: 현 Mode 1 veto 의 "영상 통째 Gemini 비교"가 상체 결함(팔-폴 갭/고개젖힘/팔꿈치)을 구조적으로 놓친다(whole-video VLM 한계). B 스파이크 실증: **단일 key-frame 입력 시 좌/우팔+고개 풀 recall, 깨끗 프레임 위양성 0** → 레버는 입력 granularity. [[spike-stillframe-recovers-upperbody-2026-06-22]]
+
+**Goal:** Mode 1 veto/비교의 입력을 "영상 통째 업로드"에서 "DTW worst-pose **단일 key-frame(들)** + 부위별 프롬프트 + 프레임×부위 union + N-sample"으로 교체해 상체 결함 recall 을 복구한다(위양성은 늘리지 않음 — 깨끗 프레임 none 유지). 동시에 결함 출력에 **기준선 정량화 레이어**(각도=직접 측정 / 거리=몸-상대 칸·층+화살표 / 기준선=동작별)와 **증상→root cause(힘/폴밀착) 묶음 코칭**을 더해 "무엇을 고쳐야 하는지"를 직관화한다. Mode 3 에도 동일 정렬·정량화 적용.
+
+**핵심 설계 (스파이크로 입증):**
+
+- **입력 granularity = 레버.** whole-video=상체 0, 5프레임 배치=팔 1, 단일 프레임=풀 recall. → DTW worst-pose 단일 key-frame 으로 교체.
+- **recall 완전성** = key-frame × 부위(상체/하체/라인) union + N-sample(단일 호출 과소열거 보정, Phase 20 N=3 집계 근거).
+- **DTW 정렬 신뢰도가 성패** — Mode 1 은 사용자 시작점·템포가 reference 와 다른 게 정상. `motiondtw` 2단계(find_action_segment 시작점 + dtw 워핑)가 담당하나, 단일 프레임 의존이라 **정렬 신뢰도 게이팅(MotionMatch.distance) + worst-pose ±윈도우 + 시작점/템포 상이 케이스 프레임선별 검증** 필수(리서치 "DTW 오정렬→거짓결함" 경고).
+- **사이즈 통일은 기확보** — 점수는 관절각(스케일 무관) + BodyNormalizationProfile(상대 스케일). 신규 거리표기는 반드시 몸-상대(절대 cm 금지, 140/150 깨짐). [[output-needs-baselined-quantification-layer]]
+
+**Requirements**: plan 에서 신설 (VETO-xx — still-frame 입력 swap / 부위별·union / 정렬 신뢰도 게이팅 / 정량화 레이어 / 증상→원인 코칭).
+**Depends on:** Phase 20 (vision veto 어댑터 경계 `gemini_vision_scorer` + downward-cap), Phase 19 (vision-hybrid 채점 hook). 구현/eval = Pod GPU 필요.
+
+**게이트 (박제 — 변경 금지):**
+
+- **일반화 hard gate** ([[scoring-redesign-must-generalize-no-overfit]]): known-answer 에 맞춘 유도 프롬프트·curve-fit 금지. 프롬프트는 generic 유지, recall 은 자체 라벨셋으로 측정.
+- **객관성** ([[analysis-objectivity-no-human-scores]]): 사람 점수 라벨 ground truth 금지. 결함 위치/종류/기하 추정만. 고개젖힘 등은 belle 추정 + VLM 독립판정 수렴으로 다룸(하드 라벨 금지).
+- **위양성 비증가** — 깨끗 프레임/정타는 none 유지(스파이크 확인). 위양성 history 재발 금지.
+- **Mode 3 = 발전** ([[mode3-progress-not-similarity]]): 절대지표 델타. 코칭은 원인=Gemini/처방=Cerebras 섹션 분리 합류 [[section-dual-coach-report]].
+
+**Success Criteria** (plan 에서 정밀화):
+
+  1. Mode 1 veto 입력이 whole-video → DTW worst-pose 단일 key-frame(들)로 교체되고, kip-up 상체 결함(좌/우팔+고개) recall 이 복구된다(스파이크 effect size 재현).
+  2. 깨끗 프레임/정타에서 위양성 0 유지(특이도 보존) + 결정론(같은 입력=같은 verdict) 유지.
+  3. DTW 정렬 신뢰도 게이팅 + 시작점/템포 상이 케이스에서 프레임선별이 거짓결함을 만들지 않음(검증 task).
+  4. 결함 출력에 기준선 정량화(각도 직접 / 거리 몸-상대 칸·층+화살표 / 기준선 동작별)가 표시된다.
+  5. 코칭이 증상을 root cause(힘/폴밀착)에 묶어 "무엇을 고칠지" 제시(일반 답변·수치 나열 금지).
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 23 to break down)
+
+---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*
 *Roadmap updated: 2026-05-31 (belle 결정 — 상용/베타 = MediaPipe + Gemini, NLF/SMPL-X = R&D 비교군 격리. Phase 1·2 재정의)*

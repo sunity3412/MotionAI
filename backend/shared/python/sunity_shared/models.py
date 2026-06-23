@@ -79,6 +79,12 @@ VISION_VETO_STATUSES = (
     "missing_local_video",  # local_video_path None (graceful, HIGH-1)
     "mode3_held",       # Mode3 = veto 보류 (고정 reference 없음, belle 2026-06-20)
     "missing_reference",  # Mode1 인데 reference 영상 부재 → 진공 판정 회피 (graceful)
+    # ── Phase 23-01 신규 score-free status (3-way lockstep) ──
+    "low_alignment_confidence",  # D-03/H4 — 글로벌+로컬 DTW 정렬 신뢰도 낮음 → 거짓결함
+                                 # fabricate 안 하고 보류 (score 불변, cap 미적용)
+    "resource_limited",          # D-09 MED-1/D-13 HIGH-2 (Option A) — planned call 전부
+                                 # 완료 전 예산(호출/upload/wall-clock) 소진 → fail-closed
+                                 # 보류 (부분 샘플 verdict 비결정성 차단, score 불변)
 )
 # primaryFault(UI B1): applied 시에만 동반하는 지배적 결함 DESCRIPTION(자연어). "왜 점수가
 # 내려갔는지" 앱 노출용. 점수/숫자 라벨 절대 금지(객관성). legacy doc 호환 위해 optional.

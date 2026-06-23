@@ -175,11 +175,19 @@ scoreSuppressionAudit { recognizerCategory, branchReferenceFree, resolvedReason 
 
 `visionVeto` (Phase 20 SCORE-08 / TRUST-08 — 비전 하향 거부권 audit)
 ```
-status      'applied' | 'not_applicable' | 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'
+status      'applied' | 'not_applicable' | 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference' | 'low_alignment_confidence' | 'resource_limited'
 severity?   'minor' | 'moderate' | 'major'   (applied 시에만 동반)
 capApplied? number  하향된 종합점수            (applied 시에만 동반)
 primaryFault? string  지배적 결함 DESCRIPTION   (applied 시에만 동반, UI B1 — "왜 내려갔는지")
+telemetry?  { completedCalls?, plannedCalls?, samplingComplete? }  (resource_limited 시에만)
 ```
+  - Phase 23-01 신규 score-free status (3-way lockstep):
+    - `low_alignment_confidence` — 글로벌+로컬 DTW 정렬 신뢰도가 낮아 거짓결함을 fabricate
+      하지 않고 보류 (점수 불변, cap 미적용). severity/capApplied 없음 (D-03/H4).
+    - `resource_limited` — planned call 전부 완료 전 예산(호출/upload/wall-clock) 소진 →
+      fail-closed 보류 (부분 샘플 verdict 비결정성 차단, 점수 불변). severity/capApplied/
+      primaryFault 없음, telemetry(completedCalls/plannedCalls/samplingComplete) 만 동반
+      가능 (D-09 MED-1 / D-13 HIGH-2 Option A).
   - **status 가 veto 실행을 증명한다 (부재 ≠ 실행, HIGH-1).** terminal gate(20-04)가
     status='applied' 로 veto 실행을 검증한다. 부재가 'veto 가 돔'으로 읽히지 않는다.
   - applied → severity + capApplied 동반 강제 (analysis.ts VisionVeto discriminated union;

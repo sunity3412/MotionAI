@@ -375,3 +375,63 @@ def test_part_keywords_head_neck_grip_expansion():
     grip = vision_veto._keypoints_for_part("그립 풀림")
     assert grip, "그립은 최근접 keypoint(손)로 매핑"
     assert "left_hand" in grip or "right_hand" in grip
+
+
+# ─────────────── Task 3 — DTW-confidence 게이팅 + 부위별 worst selector (D-03, H4) ───────────────
+
+
+def _match(distance, path):
+    return SimpleNamespace(start=0, end=len(path), distance=distance, path=path)
+
+
+def test_alignment_confidence_both_good_single():
+    """글로벌 distance 양호 + 로컬 양호 → 'single' 채택 (H4)."""
+    # dense path around selected frame + ref-frame 존재 + 가시성 양호.
+    path = [(i, i) for i in range(20)]
+    out = vision_veto.assess_alignment_confidence(
+        match=_match(0.5, path), selected_user_frame=10,
+        keypoint_visibility=0.9,
+    )
+    assert out["adoption"] == "single"
+
+
+def test_alignment_global_good_local_weak_not_single():
+    """글로벌 양호 + 로컬 약함(path sparse/ref-frame 부재) → single 채택 안 함 (H4)."""
+    # 선택 프레임 주변 path 가 sparse — 대응 ref-frame 부재.
+    path = [(0, 0), (1, 1)]  # 선택 프레임 10 주변 대응 없음.
+    out = vision_veto.assess_alignment_confidence(
+        match=_match(0.5, path), selected_user_frame=10,
+        keypoint_visibility=0.9,
+    )
+    assert out["adoption"] != "single"
+    assert out["adoption"] in ("window_union", "low_alignment_confidence")
+
+
+def test_alignment_both_bad_low_confidence():
+    """글로벌·로컬 모두 실패 → low_alignment_confidence (보류, D-03)."""
+    out = vision_veto.assess_alignment_confidence(
+        match=_match(50.0, []), selected_user_frame=10,
+        keypoint_visibility=0.05,
+    )
+    assert out["adoption"] == "low_alignment_confidence"
+
+
+def test_partwise_worst_candidates_exposes_selector_version():
+    """부위별 worst 후보 selector + selector_version 노출 (H4/MEDIUM)."""
+    prof = SimpleNamespace(
+        key_moments=(_km("hold", 5.0), _km("peak", 3.0))
+    )
+    out = vision_veto.select_worst_frame_candidates(prof)
+    assert "selector_version" in out
+    assert isinstance(out["selector_version"], str) and out["selector_version"]
+    assert "candidates" in out
+    # 부위별(상체/하체/라인) 후보 list — 글로벌 worst 1개만이 아님.
+    assert isinstance(out["candidates"], (list, tuple))
+
+
+def test_new_statuses_in_models():
+    """low_alignment_confidence + resource_limited 가 VISION_VETO_STATUSES 에 추가 (lockstep)."""
+    import sunity_shared.models as models
+
+    assert "low_alignment_confidence" in models.VISION_VETO_STATUSES
+    assert "resource_limited" in models.VISION_VETO_STATUSES

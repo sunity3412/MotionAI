@@ -375,6 +375,117 @@ def fault_joint_deficits_from_differences(differences) -> dict[str, float]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# DTW 정렬 신뢰도 게이팅 (Task 3, D-03 + H4) — 글로벌 + 로컬 신호 결합.
+#
+# 글로벌(MotionMatch.distance)만으로는 시작점/템포가 다른 정상 Mode1 케이스에서 잘못된
+# 프레임을 비교에 넣을 수 있다(H4). 로컬 신호 3개를 함께 본다:
+#   ① 선택 프레임 주변 path 밀도/대응 분산, ② 매칭 ref-frame 존재 여부,
+#   ③ 선택 프레임 keypoint 가시성/confidence.
+# 채택 경로 enum: single | window_union | low_alignment_confidence.
+# 임계는 generic 상수 — 특정 영상 튜닝 금지(D-06). DTW median(per_joint_deviation)은
+# scoring 경로이므로 본 helper 와 섞지 않는다(D-10 HIGH-3). 하향-전용 모듈 규칙(상향 연산
+# 금지)에 따라 비교는 if/else 로만 표현한다(올림 연산자 미사용).
+# ---------------------------------------------------------------------------
+_ALIGN_GLOBAL_T1 = 8.0     # 글로벌 distance 1차 임계 (초과 시 window_union 고려)
+_ALIGN_GLOBAL_T2 = 25.0    # 글로벌 distance 2차 임계 (초과 시 low_alignment 후보)
+_ALIGN_LOCAL_PATH_MIN = 2  # 선택 프레임 주변 path 대응 최소 개수
+_ALIGN_VIS_MIN = 0.35      # keypoint 가시성/confidence 최소
+
+
+def assess_alignment_confidence(
+    *,
+    match,
+    selected_user_frame: int,
+    keypoint_visibility: float,
+    window: int = 2,
+) -> dict:
+    """글로벌+로컬 정렬 신뢰도 → 채택 경로 enum (순수, H4).
+
+    반환 dict: {adoption, global_ok, local_ok, localPathCount, refFramePresent,
+    visibility}. adoption ∈ {single, window_union, low_alignment_confidence}.
+    글로벌 양호 + 로컬 약함이면 single 을 채택하지 않는다(window_union 또는 보류).
+    """
+    distance = float(getattr(match, "distance", 0.0) or 0.0)
+    path = getattr(match, "path", None) or []
+    start = int(getattr(match, "start", 0) or 0)
+    local = selected_user_frame - start
+
+    # 로컬: 선택 프레임 ±window 안의 path 대응 개수 + ref-frame 존재.
+    near = [j for (i, j) in path if abs(i - local) <= window]
+    local_path_count = len(near)
+    ref_present = local_path_count > 0
+    visibility = float(keypoint_visibility or 0.0)
+
+    if distance > _ALIGN_GLOBAL_T2:
+        global_ok = False
+        global_weak = True
+    elif distance > _ALIGN_GLOBAL_T1:
+        global_ok = True
+        global_weak = True  # 1차 초과 → window_union 고려.
+    else:
+        global_ok = True
+        global_weak = False
+
+    local_ok = (
+        local_path_count >= _ALIGN_LOCAL_PATH_MIN
+        and ref_present
+        and visibility >= _ALIGN_VIS_MIN
+    )
+
+    if not global_ok and not local_ok:
+        adoption = "low_alignment_confidence"
+    elif not global_ok:
+        # 글로벌 2차 실패지만 로컬은 견고 → ±윈도우 union 으로 보강.
+        adoption = "window_union"
+    elif not local_ok:
+        # 글로벌 양호인데 로컬 약함 → single 채택 금지(H4). 가시성/path 둘 다 바닥이면 보류.
+        if visibility < _ALIGN_VIS_MIN and not ref_present:
+            adoption = "low_alignment_confidence"
+        else:
+            adoption = "window_union"
+    elif global_weak:
+        adoption = "window_union"
+    else:
+        adoption = "single"
+
+    return {
+        "adoption": adoption,
+        "global_ok": global_ok,
+        "local_ok": local_ok,
+        "localPathCount": local_path_count,
+        "refFramePresent": ref_present,
+        "visibility": visibility,
+        "distance": distance,
+    }
+
+
+# 부위별 worst 후보 selector 버전 — 캐시 키 입력. 변경 시 stale 무효화.
+WORST_SELECTOR_VERSION = "v1"
+
+
+def select_worst_frame_candidates(profile) -> dict:
+    """글로벌 worst timestamp + 부위별(상체/하체/라인) worst 후보 list (H4/MEDIUM).
+
+    상체 결함 프레임이 글로벌 worst 와 다를 수 있으므로 부위별 후보를 함께 낸다. 현재는
+    key_moments(hold/peak) 재사용으로 글로벌 worst 를 잡고 부위 스코프 토큰을 부착한다
+    (실제 부위별 프레임 정밀화는 Gemini fan-out 이 부위 프롬프트로 보강). selector_version
+    을 노출(캐시 키 입력).
+    """
+    global_ts = worst_pose_timestamp(profile)
+    candidates = []
+    for scope in ("upper_body", "lower_body", "line"):
+        candidates.append({
+            "part_scope": scope,
+            "worst_seconds": global_ts,
+        })
+    return {
+        "selector_version": WORST_SELECTOR_VERSION,
+        "global_worst_seconds": global_ts,
+        "candidates": candidates,
+    }
+
+
 def worst_pose_timestamp(profile) -> float | None:
     """지배 결함 pose 시점을 key_moments 재사용으로 고른다 (D-05).
 

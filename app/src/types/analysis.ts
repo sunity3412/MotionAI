@@ -347,9 +347,21 @@ export interface AiSynthesisMeta {
 // applied 시에만 동반 가능, 매핑 0 이면 부재(앱은 forceHighlightWorstCount 폴백).
 // faultJointDeficits(2026-06-21) = {keypoint: Gemini 시각 추정 deviation deg} — fault-zoom
 // deficit 숫자 source(kismam delta 는 veto 결함을 못 잡아 과소). applied 시에만 동반 가능.
+// VisionVetoTelemetry (Phase 23-01) — fan-out 샘플링 audit. resource_limited 분기에서만
+// 동반 (부분 샘플로 verdict 확정 금지 — D-13 HIGH-2 Option A 의 비결정성 차단을 audit 로 증명).
+export interface VisionVetoTelemetry {
+  completedCalls?: number;
+  plannedCalls?: number;
+  samplingComplete?: boolean;
+}
 export type VisionVeto =
   | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number; primaryFault?: string; faultJoints?: KeypointName[]; faultJointDeficits?: Partial<Record<KeypointName, number>> }
   | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never }
+  // Phase 23-01 D-03/H4 — 정렬 신뢰도 낮아 보류(거짓결함 fabricate 안 함). score-free.
+  | { status: 'low_alignment_confidence'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: never }
+  // Phase 23-01 D-09 MED-1 — 예산 소진 fail-closed. severity/capApplied/primaryFault/
+  // angleDeltas/bodyRelativeNotches/rootCauseHypotheses 부재, telemetry 만 허용.
+  | { status: 'resource_limited'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: VisionVetoTelemetry }
   | { status: 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never };
 
 // Phase 20 (TRUST-07) — Mode3 미보유/저신뢰 점수 억제 (discriminated suppression type).

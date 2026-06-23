@@ -1888,36 +1888,53 @@ def _build_vision_quantification_result(
     reference_measurements=None,
     body_profile=None,
     pole_geometry=None,
+    student_angles=None,
+    reference_angles=None,
+    baseline_kind: str = "hip_line",
+    floor_y=None,
+    pole_line=None,
 ):
-    """post-geometry 정량화 named production seam (D-13 HIGH-1).
+    """post-geometry 정량화 named production seam (D-13 HIGH-1, 23-02 Task1/2/4 산출).
 
     파이프라인 순서: overall_score → collect → coach → build_result →
-    _build_vision_quantification_result → apply. geometry/frame-pair 입력 결측 시 **None
-    반환 금지** — VisionQuantificationResult(quantificationStatus="unavailable") 반환. 실제
-    geometry 산출 로직은 23-02 Task1/2/4 가 채운다(본 함수는 seam + 결측 처리만).
+    _build_vision_quantification_result → apply. selected_frame_pair(그 프레임 keypoints +
+    user/ref_frame_idx)로 FramePairMeasurementContext 를 구성해 결정적 칸(Task 2) +
+    frame-specific 각도(Task 1)를 산출한다. **None 반환 금지** — 입력 결측/산출 실패 시
+    VisionQuantificationResult(quantificationStatus="unavailable") 반환(D-11 MED-1).
+
+    baseline_kind 기본 hip_line — 공중 동작 다수에서 엉덩이-라인 baseline 이 floor/pole_line
+    입력 없이 keypoint 만으로 결정적 산출 가능(D-08). floor/pole_vertical 은 floor_y/pole_line
+    입력이 있을 때 호출자가 지정.
     """
     from sunity_shared.analysis import vision_veto
 
-    if (
-        selected_frame_pair is None
-        or current_measurements is None
-        or reference_measurements is None
-    ):
+    if selected_frame_pair is None:
         return vision_veto.VisionQuantificationResult(
             quantificationStatus="unavailable",
-            angleDeltas=None,
-            bodyRelativeNotches=None,
-            windowMedianAngleDeltas=None,
-            warnings=["quantification_inputs_missing"],
+            warnings=["selected_frame_pair_missing"],
         )
-    # 23-02 가 실제 geometry 를 산출하기 전까지 unavailable (seam 자리 박제).
-    return vision_veto.VisionQuantificationResult(
-        quantificationStatus="unavailable",
-        angleDeltas=None,
-        bodyRelativeNotches=None,
-        windowMedianAngleDeltas=None,
-        warnings=["quantification_pending_23_02"],
-    )
+    try:
+        measurement = vision_veto.FramePairMeasurementContext(
+            user_frame_idx=int(getattr(selected_frame_pair, "user_frame_idx", 0)),
+            ref_frame_idx=int(getattr(selected_frame_pair, "ref_frame_idx", 0)),
+            student_keypoints=getattr(selected_frame_pair, "student_keypoints", None),
+            reference_keypoints=getattr(selected_frame_pair, "reference_keypoints", None),
+            baseline_kind=baseline_kind,
+            pole_line=pole_line,
+            floor_y=floor_y,
+            visibility=getattr(selected_frame_pair, "student_confidence", None),
+        )
+        return vision_veto.build_quantification_result(
+            measurement=measurement,
+            student_angles=student_angles,
+            reference_angles=reference_angles,
+        )
+    except Exception:  # noqa: BLE001 - 정량화 산출 실패 graceful (unavailable, crash 0, D-11 MED-1)
+        log.warning("정량화 산출 실패 — quantificationStatus=unavailable (graceful)")
+        return vision_veto.VisionQuantificationResult(
+            quantificationStatus="unavailable",
+            warnings=["quantification_build_failed"],
+        )
 
 
 def _apply_vision_veto(
@@ -2669,6 +2686,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # fault-zoom B1 (belle 2026-06-21) — mode1 DTW match(user↔reference 프레임 정렬).
     # 확대 비교에서 학생 worst 프레임 ↔ 기준의 같은 pose 프레임을 캡처해 납득성 ↑.
     reference_dtw_match = None
+    # 23-02 Task 5 — frame-specific 각도 정량화용 기준 영상 각도 (a_ref). Mode1 에서만 채움.
+    # Mode3 는 None → collect 가 mode3_held 로 보류, quantification 미산출.
+    reference_angles_for_veto = None
 
     # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
     target_torso = _extract_target_torso_px(pose_frames)
@@ -2752,6 +2772,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 angles, ref["angles"], num_joints
             )
             reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
+            reference_angles_for_veto = a_ref  # 23-02 Task 5 — frame-specific 각도 정량화 입력.
             # Phase 19 TRUST-01 (HIGH-2 iter-1): 표시 각도 = 점수 산출 DTW path-정렬 median.
             # 기존 whole-clip np.nanmean(user_seg) vs np.nanmean(a_ref) 는 시간 비대칭
             # (user matched-window vs ref full-clip) + jitter 민감 → 표시·점수 불일치.
@@ -2925,6 +2946,32 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # Phase 13-B (HIGH-2) + Phase 19: branch_info 는 recognize 직후 1회 lookup 한
         # 동일 객체를 재사용 (coach_context / build_result / MODE_SELF 게이트 공유, 중복
         # lookup 0). 미존재/None → branch2 안전 기본 (lookup_motion_branch 내부 처리).
+        # 23-02 Task 5 (D-10/D-11/D-12 HIGH-1) — collect-before-coach 배선.
+        # overall 계산(위 mode 분기) 직후·coach 작성 **이전에** verdict 를 수집한다.
+        # build_result 를 앞당기지 않는다 — collect 는 keyword pre-build primitive 만 받으므로
+        # numeric overall 만으로 호출 가능(D-12 MED-1). Gemini verdict 는 여기서 1회만 호출되고
+        # 같은 ctx 가 아래 _apply_vision_veto(vision_fault_context=) 에서 재사용된다(geminiCallCount=1).
+        # coach 주입 게이트: ctx.eligible_for_coach (=collection_status==candidate_verdict AND
+        # cap_would_apply, D-13 MED-2). valid-but-not-cap-lowering(minor/88) 은 무주입(D-11 HIGH-1).
+        vision_fault_context = _collect_vision_fault_context(
+            overall_score=overall,
+            dimension_scores=dimension_scores,
+            mode=mode,
+            local_video_path=local_video_path,
+            angles=angles,
+            profile=profile,
+            reference_dtw_match=reference_dtw_match,
+            reference_angles=reference_angles_for_veto,
+            reference_video_path=reference_local_video_path,
+            pose_frames=pose_frames,
+        )
+        # eligible 일 때만 support-gated root-cause 를 coach context 에 주입(graceful 무시 아님 —
+        # writer 가 to_coach_context() 의 visionFault 키를 실제 프롬프트 causes 에 렌더).
+        vision_coach_context = (
+            vision_fault_context.to_coach_context()
+            if vision_fault_context is not None and vision_fault_context.eligible_for_coach
+            else None
+        )
         coach_context = _build_coach_context(
             mode=mode,
             assessments=assessments,
@@ -2937,6 +2984,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # normalize_body_profile 로 unknown enum/범위 밖 → None graceful (SC#4).
             body_profile=models.normalize_body_profile(meta.get("bodyProfile")),
         )
+        # 23-02 Task 5 — vision-fault root-cause 를 coach context 에 주입(eligible 시에만).
+        if vision_coach_context is not None:
+            coach_context["visionFault"] = vision_coach_context
         # ── Phase 13-C: 섹션형 듀얼 coach — 둘 다 호출 + 섹션 조립 + 계층형 폴백 ──
         # belle 2026-06-16 [[section-dual-coach-report]]. GEMINI_COACH_ENABLED=1
         # (default) 시 양쪽 writer 를 둘 다 호출해 섹션별로 조립 (원인/강사확인=Gemini,
@@ -3025,18 +3075,47 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             branch_info=branch_info,
         )
         # Phase 20 SCORE-08 — v2 비전 하향 거부권 (reference-anchored, belle 2026-06-20).
-        # 호출부는 mode 분기 밖이지만 mode + 기준 영상 path 를 전달 → _apply_vision_veto
-        # 가 내부에서 분기: Mode1=비교 앵커 / Mode3=mode3_held 보류.
-        # profile = recognize 직후 산출된 동일 객체 (worst_pose_timestamp source).
-        # reference_local_video_path = Mode1 에서만 채워짐 (Mode3 는 None → 보류, 다운로드 0).
-        result = _apply_vision_veto(
-            result,
-            local_video_path,
-            angles,
-            profile,
-            mode=mode,
-            reference_video_path=reference_local_video_path,
-        )
+        # 23-02 Task 5 (D-12 HIGH-1 + D-13 HIGH-1) — collect→coach→build_result→
+        # _build_vision_quantification_result→apply 순서. collect 가 위에서 verdict 를 1회
+        # 수집(vision_fault_context)했으므로, 여기서는 build_result 이후 named seam 으로
+        # 정량화를 1회 산출하고 같은 ctx 를 apply 에 재사용한다(Gemini 재호출 0, geminiCallCount=1).
+        # apply 가 final cap 후 ctx.to_audit_dict(final_status=, cap_applied=, quantification=)
+        # 로 audit 직렬화. ctx None(레거시 경로) 이면 기존 Gemini 호출 경로로 graceful 폴백.
+        if vision_fault_context is not None:
+            # 정량화 입력 = collect 가 산출한 SelectedFramePair(그 프레임 keypoints) + 학생/기준
+            # 각도. baseline 은 keypoint 만으로 결정적인 hip_line 기본(floor/pole 입력 부재 시).
+            selected_pair = (
+                vision_fault_context.selected_frame_pairs[0]
+                if vision_fault_context.selected_frame_pairs
+                else None
+            )
+            quantification = _build_vision_quantification_result(
+                fault_context=vision_fault_context,
+                selected_frame_pair=selected_pair,
+                student_angles=angles,
+                reference_angles=reference_angles_for_veto,
+                baseline_kind="hip_line",
+            )
+            result = _apply_vision_veto(
+                result,
+                local_video_path,
+                angles,
+                profile,
+                mode=mode,
+                reference_video_path=reference_local_video_path,
+                vision_fault_context=vision_fault_context,
+                quantification=quantification,
+            )
+        else:
+            # 레거시 경로 (collect 미산출) — 기존 Gemini 호출 경로 graceful 폴백.
+            result = _apply_vision_veto(
+                result,
+                local_video_path,
+                angles,
+                profile,
+                mode=mode,
+                reference_video_path=reference_local_video_path,
+            )
         # fault-zoom (belle 2026-06-21) — 기준 영상은 아래 확대 비교 생성까지 살려두고
         # outer finally 가 정리한다(veto 직후 unlink 제거). keypoint_report_dict 빌드 후
         # _attach_fault_zoom_comparisons 호출 (그 시점에 reference_local_video_path 유효).

@@ -74,11 +74,32 @@ def _format_angle_fixture_lines(angle_fixture: dict | None) -> list[str]:
     return lines
 
 
+def _format_vision_fault_lines(vision_fault: dict | None) -> list[str]:
+    """23-02 Task 5 (D-10 HIGH-1): to_coach_context() 의 vision-fault → causes 프롬프트 라인.
+
+    coach gate(eligible_for_coach)는 pipeline 이 이미 판단 — 여기 도달한 vision_fault 는
+    주입 대상이다. rootCauseHypotheses(support-gated, "~로 보임" 가설형, D-13 MED-1)를
+    원인(causes) 섹션 힌트로 렌더한다. 빈/None → 빈 list (기존 동작 불변).
+    """
+    if not vision_fault:
+        return []
+    hyps = vision_fault.get("rootCauseHypotheses") or []
+    if not hyps:
+        return []
+    lines = ["", "비전 분석이 관찰한 가능한 원인 (causes 작성 시 참고 — '~로 보임' 가설):"]
+    for h in hyps:
+        text = str((h or {}).get("text", "")).strip()
+        if text:
+            lines.append(f"- {text}")
+    return lines if len(lines) > 2 else []
+
+
 def _build_prompt(
     joints: list[dict],
     motion_name: str | None = None,
     branch: str | None = None,
     angle_fixture: dict | None = None,
+    vision_fault: dict | None = None,
 ) -> str:
     """Phase 12.5 T9: 짧은 detail + 긴 detail2 (causes/injuryRisk/coachNote) 한 호출.
 
@@ -132,10 +153,15 @@ def _build_prompt(
 
     prefix = ("\n".join(context_lines) + "\n\n") if context_lines else ""
 
+    # 23-02 Task 5 — 비전 결함 root-cause 를 causes 섹션 힌트로 명시 주입 (graceful 무시 아님).
+    vision_lines = _format_vision_fault_lines(vision_fault)
+    vision_block = ("\n" + "\n".join(vision_lines) + "\n") if vision_lines else ""
+
     return (
         prefix
         + "다음 관절들의 교정 코칭을 생성해줘:\n"
         + "\n".join(lines)
+        + vision_block
         + "\n\n각 관절에 대해 'detail' (카드 본문 한 줄) 과 'detail2' (자세히 모달용 — "
         "causes 3~5개 + injuryRisk + coachNote) 둘 다 만들어줘.\n"
         f"\nJSON 형식: {schema_hint}"
@@ -192,6 +218,7 @@ class CerebrasCoachWriter:
                             motion_name=context.get("motionName"),
                             branch=context.get("branch"),
                             angle_fixture=context.get("angleFixture"),
+                            vision_fault=context.get("visionFault"),
                         ),
                     },
                 ],

@@ -158,7 +158,31 @@ _COACH_SYSTEM_INSTRUCTION: str = (
 )
 
 
-def _build_prompt(joints: list[dict], scene_flags: dict | None = None) -> str:
+def _format_vision_fault_lines(vision_fault: dict | None) -> list[str]:
+    """23-02 Task 5 (D-10 HIGH-1): to_coach_context() 의 vision-fault → causes 프롬프트 라인.
+
+    coach gate(eligible_for_coach)는 pipeline 이 이미 판단 — 여기 도달한 vision_fault 는
+    주입 대상이다. rootCauseHypotheses(support-gated, "~로 보임" 가설형, D-13 MED-1)를
+    causes 작성 참고 힌트로 렌더한다. 빈/None → 빈 list (기존 동작 불변).
+    """
+    if not vision_fault:
+        return []
+    hyps = vision_fault.get("rootCauseHypotheses") or []
+    if not hyps:
+        return []
+    lines = ["", "[비전 분석 원인 단서] (causes 작성 시 참고 — '~로 보임' 가설형):"]
+    for h in hyps:
+        text = str((h or {}).get("text", "")).strip()
+        if text:
+            lines.append(f"- {text}")
+    return lines if len(lines) > 2 else []
+
+
+def _build_prompt(
+    joints: list[dict],
+    scene_flags: dict | None = None,
+    vision_fault: dict | None = None,
+) -> str:
     """8 관절 deviation 수치 + scene_flags hint → user prompt 박제.
 
     Args:
@@ -166,6 +190,8 @@ def _build_prompt(joints: list[dict], scene_flags: dict | None = None) -> str:
         coach_writer.py L69~74 패턴 정합.
       scene_flags: context["sceneFlags"] — Plan 17-02 영역 C 출력 dict 또는 None.
         occlusion_severe / backbend_present 가 True 면 prompt 에 hint 한 줄 박는다.
+      vision_fault: context["visionFault"] — 23-02 to_coach_context() 의 vision-fault
+        (support-gated rootCauseHypotheses). causes 섹션 원인 단서로 렌더.
 
     Returns:
       Korean prompt string — Gemini Pro 호출 user 메시지.
@@ -185,6 +211,10 @@ def _build_prompt(joints: list[dict], scene_flags: dict | None = None) -> str:
             hint_parts.append("백벤드(등 젖힘) 동작이 관찰됩니다 — 흉추/요추 단서를 우선 살피세요.")
     hint = ("\n\n[장면 단서]\n" + "\n".join(hint_parts)) if hint_parts else ""
 
+    # 23-02 Task 5 — 비전 결함 root-cause 를 causes 섹션 힌트로 명시 주입 (graceful 무시 아님).
+    vision_lines = _format_vision_fault_lines(vision_fault)
+    vision_block = ("\n\n" + "\n".join(vision_lines)) if vision_lines else ""
+
     return (
         _COACH_SYSTEM_INSTRUCTION
         + "\n"
@@ -195,6 +225,7 @@ def _build_prompt(joints: list[dict], scene_flags: dict | None = None) -> str:
         "관절 deviation:\n"
         + "\n".join(lines)
         + hint
+        + vision_block
         + "\n\nJSON 으로만 응답하세요. 다른 텍스트 / 마크다운 / 주석 금지.\n"
     )
 
@@ -417,7 +448,8 @@ class GeminiCoachWriter:
             return {_FB_REASON_KEY: _FB_VIDEO_PATH_MISSING}
 
         scene_flags = context.get("sceneFlags") or None
-        prompt = _build_prompt(joints, scene_flags=scene_flags)
+        vision_fault = context.get("visionFault") or None
+        prompt = _build_prompt(joints, scene_flags=scene_flags, vision_fault=vision_fault)
 
         # ── (3) Gemini 호출 + 후처리 검증 retry 1회.
         last_exc: ValueError | None = None

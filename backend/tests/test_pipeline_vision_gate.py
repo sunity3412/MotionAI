@@ -526,3 +526,100 @@ class TestQuantificationAuditAttach:
                     "rootCauseHypotheses"):
             assert key in ts, f"{key} analysis.ts 누락"
             assert key in contract, f"{key} contract.md 누락"
+
+
+# ─────────────── Task 5 (23-02) — collect-before-coach 배선 + 정량화 seam 산출 ───────────────
+
+
+class TestCoachInjectionGate:
+    def _ctx(self, status, cap_would_apply, root_text="폴 밀착이 풀린 것으로 보임"):
+        from sunity_shared.analysis import gemini_vision_scorer, vision_veto
+
+        rcs = []
+        if root_text:
+            fk = vision_veto.FaultKey("upper_body", "left", "arm", "pole_gap_or_bent")
+            rcs = [vision_veto.RootCauseHypothesis(
+                text=root_text, fault_key=fk, source_difference_ids=(1,), support_count=2,
+            )]
+        verdict = gemini_vision_scorer.VisionVerdict("왼팔", "moderate", ()) if status == "candidate_verdict" else None
+        return vision_veto.VisionFaultContext(
+            collection_status=status, verdict=verdict, supported_differences=[],
+            root_cause_hypotheses=rcs, selected_frame_pairs=[], alignment={},
+            telemetry={}, cap_would_apply=cap_would_apply,
+        )
+
+    def test_eligible_candidate_with_cap_injects_root_cause(self):
+        """candidate_verdict + cap_would_apply → eligible → to_coach_context root-cause 주입 (D-11 HIGH-1 positive)."""
+        ctx = self._ctx("candidate_verdict", cap_would_apply=True)
+        assert ctx.eligible_for_coach is True
+        coach = ctx.to_coach_context()
+        assert coach["rootCauseHypotheses"][0]["text"] == "폴 밀착이 풀린 것으로 보임"
+
+    def test_candidate_without_cap_not_eligible(self):
+        """valid 하지만 cap 미적용(minor/88 → not_applicable)는 eligible False → coach 무주입 (D-11 HIGH-1 negative)."""
+        ctx = self._ctx("candidate_verdict", cap_would_apply=False)
+        assert ctx.eligible_for_coach is False
+
+    def test_score_free_status_not_eligible(self):
+        """score-free status(no_fault/low_alignment/...)는 eligible False (무주입)."""
+        from sunity_shared.analysis import vision_veto
+
+        for status in ("no_fault", "low_alignment_confidence", "resource_limited",
+                       "disabled", "mode3_held"):
+            ctx = self._ctx(status, cap_would_apply=False, root_text="")
+            assert ctx.eligible_for_coach is False, status
+
+
+class TestQuantificationSeamProduces:
+    def test_seam_available_from_frame_pair(self):
+        """seam 이 SelectedFramePair(keypoints) + 각도 → available 정량화 산출 (D-13 HIGH-1)."""
+        app = _import_pipeline()
+        import numpy as np
+        from sunity_shared.analysis import skeleton, vision_veto
+
+        kp = np.zeros((skeleton.NUM_KEYPOINTS, 2), dtype=float)
+        for name, (x, y) in {
+            "left_shoulder": (0.4, 0.3), "right_shoulder": (0.6, 0.3),
+            "left_hip": (0.42, 0.6), "right_hip": (0.58, 0.6),
+            "left_knee": (0.43, 0.8), "right_knee": (0.57, 0.8),
+            "left_wrist": (0.35, 0.2), "right_wrist": (0.65, 0.2),
+        }.items():
+            kp[skeleton.kp_index(name)] = (x, y)
+        pair = vision_veto.SelectedFramePair(
+            student_frame_path=None, reference_frame_path=None,
+            user_frame_idx=2, ref_frame_idx=2,
+            student_keypoints=kp, reference_keypoints=kp,
+        )
+        s_ang = np.full((4, skeleton.NUM_JOINTS), 150.0)
+        r_ang = np.full((4, skeleton.NUM_JOINTS), 178.0)
+        out = app._build_vision_quantification_result(
+            selected_frame_pair=pair, student_angles=s_ang, reference_angles=r_ang,
+            baseline_kind="hip_line",
+        )
+        assert out.quantificationStatus == "available"
+        assert out.angleDeltas and out.bodyRelativeNotches
+
+    def test_seam_unavailable_on_none_pair_not_none(self):
+        """seam 이 frame pair None 에 None 아닌 unavailable 반환 (D-13 HIGH-1)."""
+        app = _import_pipeline()
+        out = app._build_vision_quantification_result(selected_frame_pair=None)
+        assert out is not None
+        assert out.quantificationStatus == "unavailable"
+
+    def test_pipeline_wires_collect_before_apply_ordering(self):
+        """_process 소스에 collect→coach→build_result→quantification→apply 순서 박힘 (D-13 HIGH-1)."""
+        app = _import_pipeline()
+        src = _inspect.getsource(app._process)
+        # 실제 호출부 위치 (주석 언급이 아니라 assignment 라인 기준).
+        i_collect = src.find("vision_fault_context = _collect_vision_fault_context")
+        i_coach = src.find("coach_context = _build_coach_context")
+        i_build = src.find("result = assemble.build_result")
+        i_quant = src.find("quantification = _build_vision_quantification_result")
+        i_apply = src.find("result = _apply_vision_veto")
+        for label, idx in [("collect", i_collect), ("coach", i_coach),
+                           ("build_result", i_build), ("quantification", i_quant),
+                           ("apply", i_apply)]:
+            assert idx != -1, f"{label} 호출부 미발견"
+        assert i_collect < i_coach, "collect 가 coach 이전"
+        assert i_coach < i_build, "coach 가 build_result 이전"
+        assert i_build < i_quant < i_apply, "build_result → quantification → apply 순서"

@@ -460,6 +460,41 @@ class TestScenarioHint:
         assert "가시성" in stub.prompts[0]
         assert "백벤드" in stub.prompts[0] or "흉추" in stub.prompts[0]
 
+    def test_vision_fault_root_cause_reaches_prompt(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """23-02 Task 5 (MED-2): visionFault root-cause 가 실제 프롬프트 payload 에 도달 (graceful 무시 아님)."""
+        stub = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub)
+
+        ctx = _context(tmp_path)
+        ctx["visionFault"] = {
+            "rootCauseHypotheses": [
+                {"text": "코어 힘이 부족해 골반이 처진 것으로 보임",
+                 "faultKey": {"part_scope": "core", "side": "unknown",
+                              "keypoint_set": "hip", "fault_kind": "extension_or_alignment"},
+                 "supportCount": 2},
+            ],
+        }
+        writer = GeminiCoachWriter()
+        writer.write(ctx)
+
+        # 최종 tip 이 아니라 prompt 빌드 단계에서 root-cause 텍스트 도달 (false-pass 방지).
+        assert "코어 힘이 부족해 골반이 처진 것으로 보임" in stub.prompts[0]
+        assert "원인 단서" in stub.prompts[0]
+
+    def test_no_vision_fault_no_root_cause_in_prompt(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """visionFault 부재 시 원인 단서 섹션 미주입 (기존 동작 불변)."""
+        stub = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub)
+
+        ctx = _context(tmp_path)  # visionFault 키 없음.
+        writer = GeminiCoachWriter()
+        writer.write(ctx)
+        assert "비전 분석 원인 단서" not in stub.prompts[0]
+
 
 class TestFirestoreAdminGeminiBKwarg:
     """firestore_admin.complete_analysis(gemini_b=...) Firestore set payload 에 `geminiB` 박힘."""

@@ -1,0 +1,336 @@
+{
+  "_meta": {
+    "phase": "23",
+    "plan": "03",
+    "name": "still-frame-veto-eval-frozen-manifest",
+    "description": "Phase 23-03 still-frame veto eval 의 frozen 라벨 manifest (JSON — PyYAML 의존 0, D-16 HIGH-2). Pod 측정 전에 freeze 되며(freeze_stillframe_veto_manifest.py 가 lock.json 생성), post-result relabel 을 차단한다. expected_recall_keys 는 canonical FaultKey 객체(한글 표시라벨 아님, D-16 MED-1 + D-17 MED-3). 점수 라벨은 사람 ground-truth 가 아니라 cap 게이트 상/하한 임계(분석-objectivity 박제 — 임계 수치 라벨 OK, 사람 점수 라벨 금지).",
+    "objectivity_note": "recall 키/severity/cap 상한은 측정 게이트 임계이지 사람 점수 라벨이 아니다. 프롬프트는 generic — known-answer 임계/프롬프트 주입 0 (D-06).",
+    "scope_note": "still-frame regression subset 만 라벨링한다 (known_fault / clean / tempo_shift / occluded / spinning). SCORE-09 sensitivity 행(미보유/above-cutoff)은 부재 — 별도 pending (D-14 amended HIGH-1)."
+  },
+
+  "gate_policy": {
+    "clean_coverage_min": 4,
+    "clean_gate_case_classes": ["elite_clean", "imperfect_clean", "occluded", "spinning"],
+    "alignment_abstention_case_classes": ["tempo_shifted"],
+    "known_fault_case_classes": ["known_fault"],
+    "required_arms": ["production_still", "whole_video_baseline"]
+  },
+
+  "regression_pairs": [
+    { "pair_id": "eval18-power-spin",  "fault_row_id": "eval18-power-spin-fault",  "success_row_id": "eval18-power-spin-success",  "min_margin": 1 },
+    { "pair_id": "eval18-peter-pan",   "fault_row_id": "eval18-peter-pan-fault",   "success_row_id": "eval18-peter-pan-success",   "min_margin": 1 },
+    { "pair_id": "eval18-elbow-twist", "fault_row_id": "eval18-elbow-twist-fault", "success_row_id": "eval18-elbow-twist-success", "min_margin": 1 },
+    { "pair_id": "eval18-pdshape",     "fault_row_id": "eval18-pdshape-fault",     "success_row_id": "eval18-pdshape-success",     "min_margin": 1 }
+  ],
+
+  "rows": [
+    {
+      "row_id": "eval18-kip-up-fault",
+      "case_class": "known_fault",
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": ["applied"],
+      "expected_severity": "moderate",
+      "max_score": 75,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": ["direct_adapter_still"],
+      "expected_recall_keys": [
+        { "part_scope": "upper_body", "side": "left",    "keypoint_set": "arm",       "fault_kind": "pole_gap_or_bent" },
+        { "part_scope": "upper_body", "side": "right",   "keypoint_set": "arm",       "fault_kind": "pole_gap_or_bent" },
+        { "part_scope": "upper_body", "side": "unknown", "keypoint_set": "head_neck", "fault_kind": "extension_or_alignment" }
+      ],
+      "display_label_ko": ["왼팔", "오른팔", "고개·목"],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/킵업(잘못된예시).mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:kip-up-correct.mp4"
+      }
+    },
+
+    {
+      "row_id": "elite-clean-eunji",
+      "case_class": "elite_clean",
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": ["none", "not_applicable"],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": ["direct_adapter_still"],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:kip-up-correct.mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:kip-up-correct.mp4"
+      }
+    },
+
+    {
+      "row_id": "imperfect-clean-student",
+      "case_class": "imperfect_clean",
+      "expected_bucket": "evaluable_non_fault",
+      "allowed_veto_statuses": ["none", "not_applicable"],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 90,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:climb-correct.mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:climb-correct.mp4"
+      }
+    },
+
+    {
+      "row_id": "occluded-clean",
+      "case_class": "occluded",
+      "expected_bucket": "evaluable_non_fault",
+      "allowed_veto_statuses": ["none", "not_applicable"],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 88,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4"
+      }
+    },
+
+    {
+      "row_id": "spinning-clean",
+      "case_class": "spinning",
+      "expected_bucket": "evaluable_non_fault",
+      "allowed_veto_statuses": ["none", "not_applicable"],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 92,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4"
+      }
+    },
+
+    {
+      "row_id": "tempo-shifted-clean",
+      "case_class": "tempo_shifted",
+      "expected_bucket": "evaluable_non_fault",
+      "allowed_veto_statuses": ["none", "not_applicable", "low_alignment_confidence"],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": true,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 90,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4"
+      }
+    },
+
+    {
+      "row_id": "eval18-power-spin-fault",
+      "case_class": "known_fault",
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": ["applied", "not_applicable"],
+      "expected_severity": "moderate",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/파워스핀(잘못된예시).mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4"
+      }
+    },
+    {
+      "row_id": "eval18-power-spin-success",
+      "case_class": "elite_clean",
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": ["none", "not_applicable"],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4"
+      }
+    },
+
+    {
+      "row_id": "eval18-peter-pan-fault",
+      "case_class": "known_fault",
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": ["applied", "not_applicable"],
+      "expected_severity": "moderate",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/피터팬(잘못된예시).mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4"
+      }
+    },
+    {
+      "row_id": "eval18-peter-pan-success",
+      "case_class": "elite_clean",
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": ["none", "not_applicable"],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4"
+      }
+    },
+
+    {
+      "row_id": "eval18-elbow-twist-fault",
+      "case_class": "known_fault",
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": ["applied", "not_applicable"],
+      "expected_severity": "moderate",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/엘보우트위스트(잘못된예시).mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:elbow-twist-sister-correct.mp4"
+      }
+    },
+    {
+      "row_id": "eval18-elbow-twist-success",
+      "case_class": "elite_clean",
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": ["none", "not_applicable"],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:elbow-twist-sister-correct.mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:elbow-twist-sister-correct.mp4"
+      }
+    },
+
+    {
+      "row_id": "eval18-pdshape-fault",
+      "case_class": "known_fault",
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": ["applied", "not_applicable"],
+      "expected_severity": "moderate",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/피디셰입(잘못된예시).mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4"
+      }
+    },
+    {
+      "row_id": "eval18-pdshape-success",
+      "case_class": "elite_clean",
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": ["none", "not_applicable"],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": ["production_still", "whole_video_baseline"],
+      "optional_arms": [],
+      "expected_recall_keys": [],
+      "case": {
+        "mode": "mode1",
+        "overall_score": 100,
+        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4",
+        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4"
+      }
+    }
+  ]
+}

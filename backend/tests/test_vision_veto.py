@@ -577,3 +577,174 @@ def test_selected_frame_pair_fields():
     assert "student_keypoints" in fields
     assert "reference_keypoints" in fields
     assert "cleanup_paths" in fields
+
+
+# ─────────────── Task 2 (23-02) — 결정적 칸/층 기하 (FramePairMeasurementContext) ───────────────
+#
+# 칸은 keypoint + baseline 만으로 코드가 결정적으로 산출한다 (Gemini 미산출, H2). percent
+# 표기 0 (D-08 _SCORE_PATTERN 누수). same-frame 강제 (D-09/D-10 HIGH-3).
+
+import numpy as np  # noqa: E402
+
+from sunity_shared.analysis import skeleton  # noqa: E402
+
+
+def _coco_keypoints(overrides: dict | None = None) -> np.ndarray:
+    """기준 COCO-17 keypoints (x,y) — 어깨/엉덩이/손/무릎 배치. overrides 로 일부 교체."""
+    kp = np.zeros((skeleton.NUM_KEYPOINTS, 2), dtype=float)
+    base = {
+        "left_shoulder": (0.40, 0.30),
+        "right_shoulder": (0.60, 0.30),
+        "left_hip": (0.42, 0.60),
+        "right_hip": (0.58, 0.60),
+        "left_knee": (0.43, 0.80),
+        "right_knee": (0.57, 0.80),
+        "left_wrist": (0.35, 0.20),
+        "right_wrist": (0.65, 0.20),
+        "left_ankle": (0.44, 0.95),
+        "right_ankle": (0.56, 0.95),
+    }
+    if overrides:
+        base.update(overrides)
+    for name, (x, y) in base.items():
+        i = skeleton.kp_index(name)
+        kp[i] = (x, y)
+    return kp
+
+
+def test_notches_deterministic_floor_baseline():
+    """칸이 keypoint + 바닥 baseline 만으로 결정적 산출 — 같은 입력=같은 칸 (H2, Gemini 부재)."""
+    student = _coco_keypoints()
+    reference = _coco_keypoints()
+    ctx = vision_veto.FramePairMeasurementContext(
+        user_frame_idx=3, ref_frame_idx=5,
+        student_keypoints=student, reference_keypoints=reference,
+        baseline_kind="floor", floor_y=1.0,
+    )
+    notches1 = vision_veto.body_relative_notches(ctx)
+    notches2 = vision_veto.body_relative_notches(ctx)
+    assert notches1 is not None and len(notches1) > 0
+    # 결정적 — 같은 입력은 같은 칸.
+    assert notches1 == notches2
+    # 각 항목에 student/reference 칸 + delta + source=geometry.
+    for n in notches1:
+        assert "student_notches" in n and "reference_notches" in n
+        assert "delta_notches" in n
+        assert n["source"] == "geometry"
+
+
+def test_notches_no_percent_only_notches():
+    """칸 출력에 % / 100% / percent 문자 0 — 칸(정수/분수) 표기만 (D-08)."""
+    student = _coco_keypoints()
+    reference = _coco_keypoints({"left_wrist": (0.30, 0.10)})  # 손=손목 proxy
+    ctx = vision_veto.FramePairMeasurementContext(
+        user_frame_idx=0, ref_frame_idx=0,
+        student_keypoints=student, reference_keypoints=reference,
+        baseline_kind="floor", floor_y=1.0,
+    )
+    notches = vision_veto.body_relative_notches(ctx)
+    text = repr(notches)
+    for forbidden in ("%", "100%", "percent", "퍼센트"):
+        assert forbidden not in text, f"칸 출력에 {forbidden!r} 누출 (D-08 _SCORE_PATTERN)"
+
+
+def test_notches_baseline_branches_by_motion_context():
+    """baseline 이 동작 맥락에 따라 floor/pole_vertical/hip_line 으로 분기 (H2)."""
+    student = _coco_keypoints()
+    reference = _coco_keypoints()
+    # floor.
+    floor_ctx = vision_veto.FramePairMeasurementContext(
+        user_frame_idx=0, ref_frame_idx=0,
+        student_keypoints=student, reference_keypoints=reference,
+        baseline_kind="floor", floor_y=1.0,
+    )
+    assert vision_veto.body_relative_notches(floor_ctx) is not None
+    # hip_line (엉덩이중점 baseline — pole_line/floor 불요).
+    hip_ctx = vision_veto.FramePairMeasurementContext(
+        user_frame_idx=0, ref_frame_idx=0,
+        student_keypoints=student, reference_keypoints=reference,
+        baseline_kind="hip_line",
+    )
+    assert vision_veto.body_relative_notches(hip_ctx) is not None
+    # pole_vertical (image-2D PoleLine2D baseline).
+    from sunity_shared.analysis import pole_geometry
+
+    line = pole_geometry.PoleLine2D(
+        point_image=(0.5, 0.5), direction_image=(0.0, 1.0),
+        confidence=0.9, source="detected",
+    )
+    pole_ctx = vision_veto.FramePairMeasurementContext(
+        user_frame_idx=0, ref_frame_idx=0,
+        student_keypoints=student, reference_keypoints=reference,
+        baseline_kind="pole_vertical", pole_line=line,
+    )
+    assert vision_veto.body_relative_notches(pole_ctx) is not None
+
+
+def test_notches_mismatch_frame_changes_value():
+    """다른 ref keypoints(틀린 프레임)면 다른 칸 — same-frame 계약 (D-09/D-10 HIGH-3)."""
+    student = _coco_keypoints()
+    reference_same = _coco_keypoints()
+    reference_diff = _coco_keypoints({"right_knee": (0.57, 0.50)})  # 무릎이 위로 → 다른 reach
+    ctx_same = vision_veto.FramePairMeasurementContext(
+        user_frame_idx=0, ref_frame_idx=0,
+        student_keypoints=student, reference_keypoints=reference_same,
+        baseline_kind="floor", floor_y=1.0,
+    )
+    ctx_diff = vision_veto.FramePairMeasurementContext(
+        user_frame_idx=0, ref_frame_idx=0,
+        student_keypoints=student, reference_keypoints=reference_diff,
+        baseline_kind="floor", floor_y=1.0,
+    )
+    assert vision_veto.body_relative_notches(ctx_same) != vision_veto.body_relative_notches(ctx_diff)
+
+
+def test_quantification_result_unavailable_on_missing_inputs():
+    """결측 입력 시 crash·강등 없이 VisionQuantificationResult(unavailable) 반환 (D-11 MED-1 + D-12 HIGH-1)."""
+    # measurement 자체 None.
+    q0 = vision_veto.build_quantification_result(measurement=None)
+    assert q0.quantificationStatus == "unavailable"
+    assert q0.angleDeltas is None and q0.bodyRelativeNotches is None
+    # keypoint 결측 (baseline 있지만 keypoints None).
+    ctx = vision_veto.FramePairMeasurementContext(
+        user_frame_idx=0, ref_frame_idx=0,
+        student_keypoints=None, reference_keypoints=None,
+        baseline_kind="floor", floor_y=1.0,
+    )
+    q1 = vision_veto.build_quantification_result(measurement=ctx)
+    assert q1.quantificationStatus == "unavailable"
+    assert q1.warnings  # 사유 기록.
+
+
+def test_quantification_result_available_packs_geometry():
+    """available 시 angleDeltas + bodyRelativeNotches 가 VisionQuantificationResult 로 묶임 (D-12 HIGH-1)."""
+    student = _coco_keypoints()
+    reference = _coco_keypoints()
+    ctx = vision_veto.FramePairMeasurementContext(
+        user_frame_idx=1, ref_frame_idx=1,
+        student_keypoints=student, reference_keypoints=reference,
+        baseline_kind="floor", floor_y=1.0,
+    )
+    # 각도 행렬 (T, NUM_JOINTS) — frame-specific 각도 입력.
+    s_ang = np.full((3, skeleton.NUM_JOINTS), 150.0)
+    r_ang = np.full((3, skeleton.NUM_JOINTS), 178.0)
+    q = vision_veto.build_quantification_result(
+        measurement=ctx, student_angles=s_ang, reference_angles=r_ang,
+    )
+    assert q.quantificationStatus == "available"
+    assert q.angleDeltas is not None and len(q.angleDeltas) > 0
+    assert q.bodyRelativeNotches is not None and len(q.bodyRelativeNotches) > 0
+    # frame-specific 각도 (Task 1) 와 칸 (Task 2) 가 같은 user/ref_frame_idx 를 씀.
+    for a in q.angleDeltas:
+        assert a["source"] == "geometry"
+
+
+def test_notches_no_heavy_imports():
+    """body_relative_notches 본문에 boto3/google.genai/requests import 0 (순수)."""
+    import inspect
+
+    src = inspect.getsource(vision_veto.body_relative_notches)
+    src += inspect.getsource(vision_veto._reach_to_baseline)
+    src += inspect.getsource(vision_veto._baseline_unit_length)
+    for forbidden in ("import boto3", "google.genai", "import requests", "from google"):
+        assert forbidden not in src

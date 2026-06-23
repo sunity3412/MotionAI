@@ -356,6 +356,262 @@ class SelectedFramePair:
     cleanup_paths: tuple = ()
 
 
+# ---------------------------------------------------------------------------
+# FramePairMeasurementContext — 결정적 칸/각도 정량화 입력 계약 (23-02 Task 2, D-09/D-10 HIGH-3).
+#
+# 칸·각도는 verdict 를 낸 **그 still 프레임 쌍**의 keypoints 에서만 계산한다(same-frame
+# 강제). 이 객체가 그 계약을 못 박는다 — user_frame_idx/ref_frame_idx + 그 인덱스의
+# keypoints + baseline kind(동작별: 바닥/폴/엉덩이-라인) + 가시성/selector_version. static
+# bodyComparisonSourcePose / video-level 폴라인 / body-profile 요약으로 폴백하면
+# polished-but-wrong 수치가 나오므로(틀린 프레임), 그런 입력은 받지 않는다.
+#
+# keypoints 형상은 (NUM_KEYPOINTS, 2|3) — (x, y[, z]). COCO-17 순서(skeleton.KEYPOINT_NAMES).
+# baseline_kind ∈ {floor, pole_vertical, hip_line} — 동작 맥락 인자로 분기(kip-up 류=바닥,
+# 공중 동작=폴 수직/엉덩이-라인). pole_line = image-2D PoleLine2D(폴 baseline 일 때만 필요).
+# ---------------------------------------------------------------------------
+BASELINE_KINDS = ("floor", "pole_vertical", "hip_line")
+
+
+@dataclass(frozen=True)
+class FramePairMeasurementContext:
+    """결정적 칸/각도 정량화 입력 (verdict 프레임 쌍 same-frame 강제, D-09/D-10 HIGH-3).
+
+    user_frame_idx/ref_frame_idx = verdict 를 낸 그 프레임. student/reference_keypoints =
+    그 인덱스의 keypoints (COCO-17, (K,2|3)). baseline_kind = 동작 맥락(floor/pole_vertical/
+    hip_line). pole_line = 폴 baseline 일 때 image-2D PoleLine2D. visibility = 가시성 신호.
+    selector_version = worst-frame selector 버전(캐시 키 입력).
+    """
+
+    user_frame_idx: int
+    ref_frame_idx: int
+    student_keypoints: object  # (K,2|3) ndarray-like 또는 None
+    reference_keypoints: object
+    baseline_kind: str
+    pole_line: object = None  # pole_geometry.PoleLine2D | None
+    floor_y: float | None = None  # 바닥 baseline 의 y (image-2D, normalized 또는 px)
+    visibility: float | None = None
+    selector_version: str | None = None
+
+
+# 칸 reach 시각 proxy → COCO-17 실제 keypoint (손=손목 proxy, fault_joints 선례 정합).
+_NOTCH_KEYPOINT_ALIAS = {
+    "left_hand": "left_wrist",
+    "right_hand": "right_wrist",
+}
+
+
+def _kp_xy(keypoints, name: str):
+    """COCO-17 keypoints 에서 name 의 (x, y) 추출. 손=손목 proxy. 결측/NaN → None (순수)."""
+    import numpy as np
+
+    if keypoints is None:
+        return None
+    from . import skeleton
+
+    name = _NOTCH_KEYPOINT_ALIAS.get(name, name)
+    try:
+        arr = np.asarray(keypoints, dtype=float)
+    except (TypeError, ValueError):
+        return None
+    if arr.ndim != 2 or arr.shape[0] < skeleton.NUM_KEYPOINTS or arr.shape[1] < 2:
+        return None
+    try:
+        idx = skeleton.kp_index(name)
+    except KeyError:
+        return None
+    x, y = float(arr[idx, 0]), float(arr[idx, 1])
+    if not (np.isfinite(x) and np.isfinite(y)):
+        return None
+    return (x, y)
+
+
+def _baseline_unit_length(keypoints) -> float | None:
+    """body-normalization 보조 단위 — 어깨중점↔엉덩이중점 torso 길이를 1칸 단위로 환산.
+
+    체형(arm/leg/torso) 차이를 정규화하는 보조 단위(D-08: body_normalization 은 칸 환산
+    내부 단위, 출력 표기는 칸). torso 길이 = sqrt 거리. keypoint 결측 → None.
+    """
+    import numpy as np
+
+    ls = _kp_xy(keypoints, "left_shoulder")
+    rs = _kp_xy(keypoints, "right_shoulder")
+    lh = _kp_xy(keypoints, "left_hip")
+    rh = _kp_xy(keypoints, "right_hip")
+    if not (ls and rs and lh and rh):
+        return None
+    sh_mid = ((ls[0] + rs[0]) / 2.0, (ls[1] + rs[1]) / 2.0)
+    hip_mid = ((lh[0] + rh[0]) / 2.0, (lh[1] + rh[1]) / 2.0)
+    length = float(np.hypot(sh_mid[0] - hip_mid[0], sh_mid[1] - hip_mid[1]))
+    if not np.isfinite(length) or length <= 0:
+        return None
+    return length
+
+
+def _reach_to_baseline(point, ctx: "FramePairMeasurementContext", keypoints) -> float | None:
+    """point 의 baseline 까지 reach (image-2D 거리). baseline_kind 별 분기 (D-08 H2).
+
+    · floor         — point.y 에서 floor_y 까지 수직 거리.
+    · pole_vertical — point 에서 pole_line 까지 점-직선 거리.
+    · hip_line      — point.y 에서 엉덩이중점.y 까지 수직 거리(엉덩이-라인 baseline).
+    baseline 입력 결측 시 None (호출자가 unavailable 처리). Gemini 입력 없이 keypoint·
+    baseline 만으로 재현 가능 — 같은 입력=같은 reach(결정적).
+    """
+    if point is None:
+        return None
+    kind = ctx.baseline_kind
+    if kind == "floor":
+        if ctx.floor_y is None:
+            return None
+        return abs(float(point[1]) - float(ctx.floor_y))
+    if kind == "pole_vertical":
+        if ctx.pole_line is None:
+            return None
+        from . import pole_geometry
+
+        return float(
+            pole_geometry.point_to_pole_line_distance_2d(
+                (float(point[0]), float(point[1])), ctx.pole_line
+            )
+        )
+    if kind == "hip_line":
+        lh = _kp_xy(keypoints, "left_hip")
+        rh = _kp_xy(keypoints, "right_hip")
+        if not (lh and rh):
+            return None
+        hip_y = (lh[1] + rh[1]) / 2.0
+        return abs(float(point[1]) - hip_y)
+    return None
+
+
+def _quantize_notches(value: float) -> float:
+    """reach/unit 비율 → ⅓ 단위 칸 수치 (정수 또는 분수 칸). 음수는 0. percent 금지(D-08)."""
+    if value <= 0:
+        return 0.0
+    return round(value * 3.0) / 3.0
+
+
+# 칸 측정 대상 reach keypoint — 결함 위치 시각 proxy (8 highlight keypoint 부분집합).
+_NOTCH_REACH_KEYPOINTS = ("left_hand", "right_hand", "left_knee", "right_knee")
+
+
+def body_relative_notches(
+    measurement: "FramePairMeasurementContext",
+) -> list[dict] | None:
+    """결정적 칸/층 — keypoint + baseline 만으로 정수/분수 칸 산출 (H2, Gemini 미산출).
+
+    정은지 reach = N칸 을 기준으로 두고 학생을 같은 baseline·body-normalization 단위로
+    환산("정은지 3칸, 너 2칸 ⅔"). 칸 = reach / torso 보조 단위 를 ⅓ 단위로 양자화. **percent
+    표기 절대 금지**(D-08 — gemini_vision_scorer._SCORE_PATTERN 누수). 각 항목 source='geometry'.
+
+    same-frame(D-09/D-10 HIGH-3): measurement 의 그 프레임 keypoints 에서만 계산. 필수
+    per-frame 입력(keypoint/baseline) 결측 → None(호출자가 quantificationStatus="unavailable").
+    같은 입력=같은 칸(결정적, Gemini 인자 부재).
+    """
+    if measurement is None:
+        return None
+    if measurement.baseline_kind not in BASELINE_KINDS:
+        return None
+    s_kp = measurement.student_keypoints
+    r_kp = measurement.reference_keypoints
+    if s_kp is None or r_kp is None:
+        return None
+    s_unit = _baseline_unit_length(s_kp)
+    r_unit = _baseline_unit_length(r_kp)
+    if s_unit is None or r_unit is None:
+        return None
+
+    out: list[dict] = []
+    for name in _NOTCH_REACH_KEYPOINTS:
+        s_pt = _kp_xy(s_kp, name)
+        r_pt = _kp_xy(r_kp, name)
+        if s_pt is None or r_pt is None:
+            continue
+        s_reach = _reach_to_baseline(s_pt, measurement, s_kp)
+        r_reach = _reach_to_baseline(r_pt, measurement, r_kp)
+        if s_reach is None or r_reach is None:
+            # baseline 입력 결측 — 칸 계산 불가 (전체 unavailable).
+            return None
+        student_notches = _quantize_notches(s_reach / s_unit)
+        reference_notches = _quantize_notches(r_reach / r_unit)
+        out.append({
+            "keypoint": name,
+            "student_notches": student_notches,
+            "reference_notches": reference_notches,
+            "delta_notches": round(student_notches - reference_notches, 4),
+            "baseline_kind": measurement.baseline_kind,
+            "source": "geometry",
+        })
+    if not out:
+        return None
+    return out
+
+
+def build_quantification_result(
+    *,
+    measurement: "FramePairMeasurementContext | None",
+    student_angles=None,
+    reference_angles=None,
+    window: int = 2,
+) -> "VisionQuantificationResult":
+    """frame-specific 각도(Task 1) + 결정적 칸(Task 2) → VisionQuantificationResult (D-12 HIGH-1).
+
+    available 시 angleDeltas(features.frame_pair_angle_deltas, 같은 user/ref_frame_idx)/
+    bodyRelativeNotches(body_relative_notches)/windowMedianAngleDeltas 를 채운다. 필수
+    per-frame 입력(measurement/keypoint/baseline/angles) 결측 시 **crash·강등 없이**
+    quantificationStatus="unavailable" + warnings 반환(D-11 MED-1). pre-coach
+    VisionFaultContext 에는 geometry 가 들지 않는다 — apply 가 to_audit_dict(quantification=)
+    로 주입(D-12 HIGH-1).
+    """
+    warnings: list[str] = []
+    if measurement is None:
+        return VisionQuantificationResult(
+            quantificationStatus="unavailable",
+            warnings=("measurement_context_missing",),
+        )
+
+    angle_deltas = None
+    window_median = None
+    if student_angles is not None and reference_angles is not None:
+        try:
+            from . import features
+
+            angle_deltas = features.frame_pair_angle_deltas(
+                student_angles, reference_angles,
+                user_frame_idx=measurement.user_frame_idx,
+                ref_frame_idx=measurement.ref_frame_idx,
+            )
+            window_median = features.window_median_angle_deltas(
+                student_angles, reference_angles,
+                user_frame_idx=measurement.user_frame_idx,
+                ref_frame_idx=measurement.ref_frame_idx,
+                window=window,
+            )
+        except (ValueError, IndexError):
+            angle_deltas = None
+            window_median = None
+            warnings.append("angle_deltas_unavailable")
+    else:
+        warnings.append("angle_inputs_missing")
+
+    notches = body_relative_notches(measurement)
+    if notches is None:
+        warnings.append("notches_unavailable")
+
+    # available = 각도 또는 칸 중 최소 하나라도 산출됨.
+    if angle_deltas or notches:
+        return VisionQuantificationResult(
+            quantificationStatus="available",
+            angleDeltas=angle_deltas,
+            bodyRelativeNotches=notches,
+            windowMedianAngleDeltas=window_median,
+            warnings=tuple(warnings),
+        )
+    return VisionQuantificationResult(
+        quantificationStatus="unavailable",
+        warnings=tuple(warnings) or ("quantification_inputs_missing",),
+    )
+
+
 @dataclass(frozen=True)
 class VisionFaultContext:
     """pre-apply/pre-coach 비전 결함 컨텍스트 (D-12 HIGH-1 + D-13 MED-2).

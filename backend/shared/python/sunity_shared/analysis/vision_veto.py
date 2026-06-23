@@ -709,6 +709,23 @@ class VisionFaultContext:
                 pf = getattr(verdict, "primary_fault", None)
                 if pf:
                     audit["primaryFault"] = pf
+            # root-cause 가설 (support-gated, D-13 MED-1). applied 면 capApplied 와
+            # 함께 유지된다 — quantification unavailable 이어도 root-cause 는 살아남는다.
+            root_causes = [
+                {
+                    "text": rc.text,
+                    "faultKey": rc.fault_key.to_dict(),
+                    "supportCount": rc.support_count,
+                }
+                for rc in (self.root_cause_hypotheses or [])
+            ]
+            if root_causes:
+                audit["rootCauseHypotheses"] = root_causes
+            # 정량화 (23-02 Task1/2/4) — apply 의 final cap 후 주입(D-12 HIGH-1).
+            # quantificationStatus 는 applied audit 에 **필수**(D-11 MED-1). unavailable
+            # 이면 angleDeltas/bodyRelativeNotches 부재 + status='applied'+capApplied 유지
+            # (not_applicable 강등 금지). window median 은 still 정확 각도와 혼동 방지로
+            # 별도 키(windowMedianAngleDeltas, D-10 HIGH-3).
             if quantification is not None:
                 audit["quantificationStatus"] = quantification.quantificationStatus
                 if quantification.quantificationStatus == "available":
@@ -716,6 +733,8 @@ class VisionFaultContext:
                         audit["angleDeltas"] = quantification.angleDeltas
                     if quantification.bodyRelativeNotches is not None:
                         audit["bodyRelativeNotches"] = quantification.bodyRelativeNotches
+                    if quantification.windowMedianAngleDeltas is not None:
+                        audit["windowMedianAngleDeltas"] = quantification.windowMedianAngleDeltas
         return audit
 
 

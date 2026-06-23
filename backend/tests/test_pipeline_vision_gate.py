@@ -392,3 +392,137 @@ class TestCollectApplySeam:
             )
             assert out["overallScore"] == 97, "score 불변 passthrough"
             assert out["visionVeto"]["status"] == status
+
+
+# ─────────────── Task 4 (23-02) — 정량화 audit attach (to_audit_dict) + 3-way lockstep ───────────────
+
+
+class TestQuantificationAuditAttach:
+    def _ctx_with_root_cause(self):
+        from sunity_shared.analysis import gemini_vision_scorer, vision_veto
+
+        fk = vision_veto.FaultKey("upper_body", "left", "arm", "pole_gap_or_bent")
+        rc = vision_veto.RootCauseHypothesis(
+            text="폴 밀착이 풀린 것으로 보임", fault_key=fk,
+            source_difference_ids=(1,), support_count=2,
+        )
+        return vision_veto.VisionFaultContext(
+            collection_status="candidate_verdict",
+            verdict=gemini_vision_scorer.VisionVerdict("왼팔", "moderate", ()),
+            supported_differences=[], root_cause_hypotheses=[rc], selected_frame_pairs=[],
+            alignment={}, telemetry={}, cap_would_apply=True,
+        )
+
+    def test_applied_audit_serialized_via_to_audit_dict_with_available_quant(self):
+        """applied audit 가 to_audit_dict(quantification=available)로 angleDeltas/칸/root-cause 저장 (D-12 HIGH-1)."""
+        app = _import_pipeline()
+        from sunity_shared.analysis import vision_veto
+
+        ctx = self._ctx_with_root_cause()
+        quant = vision_veto.VisionQuantificationResult(
+            quantificationStatus="available",
+            angleDeltas=[{
+                "joint": "left_knee", "student_deg": 145.0, "reference_deg": 178.0,
+                "delta_deg": -33.0, "direction": "더 굽음", "source": "geometry",
+            }],
+            bodyRelativeNotches=[{
+                "keypoint": "left_hand", "student_notches": 2.0,
+                "reference_notches": 3.0, "delta_notches": -1.0,
+                "baseline_kind": "floor", "source": "geometry",
+            }],
+            windowMedianAngleDeltas={"deltas": [], "sourceFrameIndices": {"user": [], "reference": []}, "windowPolicy": "x"},
+            warnings=(),
+        )
+        out = app._apply_vision_veto(
+            {"overallScore": 92}, mode="mode1",
+            vision_fault_context=ctx, quantification=quant,
+        )
+        v = out["visionVeto"]
+        assert v["status"] == "applied"
+        assert v["quantificationStatus"] == "available"
+        # frame-specific 각도 + 칸 + root-cause 동반.
+        assert v["angleDeltas"][0]["source"] == "geometry"
+        assert v["bodyRelativeNotches"][0]["source"] == "geometry"
+        assert v["rootCauseHypotheses"][0]["text"] == "폴 밀착이 풀린 것으로 보임"
+        # window median 은 별도 키 (still 정확 각도와 혼동 0, D-10 HIGH-3).
+        assert "windowMedianAngleDeltas" in v
+        # 칸/각도는 geometry source — Gemini verdict 칸 신뢰 0.
+        assert all(n["source"] == "geometry" for n in v["bodyRelativeNotches"])
+
+    def test_applied_audit_no_score_or_percent_type(self):
+        """audit 정량화 필드에 normalized score/percent 0 — 각도(도)/칸 DESCRIPTIVE 만 (D-06/D-08)."""
+        app = _import_pipeline()
+        from sunity_shared.analysis import vision_veto
+
+        ctx = self._ctx_with_root_cause()
+        quant = vision_veto.VisionQuantificationResult(
+            quantificationStatus="available",
+            angleDeltas=[{"joint": "left_knee", "student_deg": 145.0,
+                          "reference_deg": 178.0, "delta_deg": -33.0,
+                          "direction": "더 굽음", "source": "geometry"}],
+            bodyRelativeNotches=None, windowMedianAngleDeltas=None, warnings=(),
+        )
+        out = app._apply_vision_veto(
+            {"overallScore": 92}, mode="mode1",
+            vision_fault_context=ctx, quantification=quant,
+        )
+        text = repr(out["visionVeto"])
+        for forbidden in ("%", "100%", "percent", "퍼센트"):
+            assert forbidden not in text, f"audit 에 {forbidden!r} 누출 (D-08)"
+
+    def test_root_cause_survives_unavailable_quant(self):
+        """quant unavailable 이어도 root-cause + capApplied 유지 (강등 금지, D-11 MED-1)."""
+        app = _import_pipeline()
+        from sunity_shared.analysis import vision_veto
+
+        ctx = self._ctx_with_root_cause()
+        quant = vision_veto.VisionQuantificationResult(
+            quantificationStatus="unavailable", warnings=("notches_unavailable",),
+        )
+        out = app._apply_vision_veto(
+            {"overallScore": 92}, mode="mode1",
+            vision_fault_context=ctx, quantification=quant,
+        )
+        v = out["visionVeto"]
+        assert v["status"] == "applied"
+        assert v["quantificationStatus"] == "unavailable"
+        assert "angleDeltas" not in v and "bodyRelativeNotches" not in v
+        # root-cause + capApplied 는 유지 (geometry 만 부재).
+        assert v["rootCauseHypotheses"][0]["text"] == "폴 밀착이 풀린 것으로 보임"
+        assert "capApplied" in v
+
+    def test_not_applicable_has_no_quantification_fields(self):
+        """not_applicable 분기엔 정량화 + quantificationStatus 부재 (discriminated)."""
+        app = _import_pipeline()
+        from sunity_shared.analysis import gemini_vision_scorer, vision_veto
+
+        # severity=minor / overall=88 → cap 88 ≮ 88 → not_applicable.
+        ctx = vision_veto.VisionFaultContext(
+            collection_status="candidate_verdict",
+            verdict=gemini_vision_scorer.VisionVerdict("x", "minor", ()),
+            supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
+            alignment={}, telemetry={}, cap_would_apply=False,
+        )
+        out = app._apply_vision_veto(
+            {"overallScore": 88}, mode="mode1", vision_fault_context=ctx,
+        )
+        v = out["visionVeto"]
+        assert v["status"] == "not_applicable"
+        assert "quantificationStatus" not in v
+        assert "angleDeltas" not in v and "bodyRelativeNotches" not in v
+
+    def test_three_way_lockstep_keys(self):
+        """신규 audit 필드가 models.py VISION_VETO_KEYS + analysis.ts + contract.md 3-way 정합."""
+        import sunity_shared.models as models
+
+        for key in ("quantificationStatus", "angleDeltas", "bodyRelativeNotches",
+                    "windowMedianAngleDeltas", "rootCauseHypotheses"):
+            assert key in models.VISION_VETO_KEYS, f"{key} models.py 누락"
+        # TS + contract 존재 확인 (파일 grep).
+        repo = Path(__file__).resolve().parents[2]
+        ts = (repo / "app" / "src" / "types" / "analysis.ts").read_text(encoding="utf-8")
+        contract = (repo / "docs" / "contract.md").read_text(encoding="utf-8")
+        for key in ("quantificationStatus", "angleDeltas", "bodyRelativeNotches",
+                    "rootCauseHypotheses"):
+            assert key in ts, f"{key} analysis.ts 누락"
+            assert key in contract, f"{key} contract.md 누락"

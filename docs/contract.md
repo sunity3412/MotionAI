@@ -180,7 +180,23 @@ severity?   'minor' | 'moderate' | 'major'   (applied 시에만 동반)
 capApplied? number  하향된 종합점수            (applied 시에만 동반)
 primaryFault? string  지배적 결함 DESCRIPTION   (applied 시에만 동반, UI B1 — "왜 내려갔는지")
 telemetry?  { completedCalls?, plannedCalls?, samplingComplete? }  (resource_limited 시에만)
+quantificationStatus? 'available' | 'unavailable'   (applied 시에만 동반 — 필수, Phase 23-02)
+angleDeltas? [{ joint, student_deg, reference_deg, delta_deg, direction, source:'geometry' }]  (applied+available 시)
+bodyRelativeNotches? [{ keypoint, student_notches, reference_notches, delta_notches, baseline_kind, source:'geometry' }]  (applied+available)
+windowMedianAngleDeltas? { deltas[], sourceFrameIndices, windowPolicy }  (still 정확 각도 아님 — 별도 키, D-10 HIGH-3)
+rootCauseHypotheses? [{ text, faultKey, supportCount }]  (applied + cap_would_apply 시, source=vision_hypothesis)
 ```
+  - Phase 23-02 정량화 DESCRIPTIVE 필드 (3-way lockstep, D-02/D-04/D-11 MED-1/D-12 HIGH-1):
+    - **applied 시에만** 동반 (discriminated — not_applicable/보류/disabled 분기엔 부재).
+    - `quantificationStatus` 는 applied audit 에 **필수**. same-frame 정량화 입력 결측 시
+      `'unavailable'` 로 신호하고 `angleDeltas`/`bodyRelativeNotches` 는 부재하되
+      `status='applied'`+`capApplied`+`rootCauseHypotheses` 는 **유지**한다(not_applicable
+      강등 금지, crash 금지). geometry 는 `VisionQuantificationResult`(post-geometry)가
+      소유하고 apply 의 final cap 후 `to_audit_dict(quantification=)` 로만 주입(D-12 HIGH-1).
+    - `angleDeltas` 는 verdict 프레임 쌍(user/ref_frame_idx)의 **frame-specific** 각도 —
+      DTW window median 아님. median 은 `windowMedianAngleDeltas` 로 별도 키(D-10 HIGH-3).
+    - 칸(`bodyRelativeNotches`)은 keypoint+baseline 결정적 기하 산출(Gemini 미산출, H2).
+    - **score/0-100/percent 타입 절대 0** — 각도(도)/칸/text + source enum DESCRIPTIVE(D-06/D-08).
   - Phase 23-01 신규 score-free status (3-way lockstep):
     - `low_alignment_confidence` — 글로벌+로컬 DTW 정렬 신뢰도가 낮아 거짓결함을 fabricate
       하지 않고 보류 (점수 불변, cap 미적용). severity/capApplied 없음 (D-03/H4).

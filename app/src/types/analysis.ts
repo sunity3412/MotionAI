@@ -354,15 +354,50 @@ export interface VisionVetoTelemetry {
   plannedCalls?: number;
   samplingComplete?: boolean;
 }
+// Phase 23-02 (D-02/D-04/D-12 HIGH-1) — 정량화 DESCRIPTIVE 타입. score/0-100/percent 금지
+// (객관성 hard gate). 각도(도)/칸/원인가설 텍스트 + source provenance 만.
+// frame-specific 각도 (verdict 프레임 쌍 user/ref_frame_idx 의 행 값 — DTW median 아님, D-10 HIGH-3).
+export interface VisionAngleDelta {
+  joint: string;
+  student_deg: number;
+  reference_deg: number;
+  delta_deg: number;
+  direction: string;
+  source: 'geometry';
+}
+// 결정적 칸/층 (keypoint+baseline → 정수/분수 칸, Gemini 미산출, source=geometry, D-08 H2).
+export interface VisionBodyRelativeNotch {
+  keypoint: string;
+  student_notches: number;
+  reference_notches: number;
+  delta_notches: number;
+  baseline_kind: 'floor' | 'pole_vertical' | 'hip_line';
+  source: 'geometry';
+}
+// robustness 용 window median (still 정확 각도 아님 — 별도 키 + sourceFrameIndices/windowPolicy, D-10 HIGH-3).
+export interface VisionWindowMedianAngleDeltas {
+  deltas: VisionAngleDelta[];
+  sourceFrameIndices: { user: number[]; reference: number[] };
+  windowPolicy: string;
+}
+// support-gated 원인 가설 (source=vision_hypothesis, "~로 보임" 가설형, D-13 MED-1). 점수 아님.
+export interface VisionRootCauseHypothesis {
+  text: string;
+  faultKey: { part_scope: string; side: string; keypoint_set: string; fault_kind: string };
+  supportCount: number;
+}
 export type VisionVeto =
-  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number; primaryFault?: string; faultJoints?: KeypointName[]; faultJointDeficits?: Partial<Record<KeypointName, number>> }
-  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never }
+  // Phase 23-02 — applied 시에만 정량화 동반 (discriminated). quantificationStatus 는 applied
+  // audit 에 필수 — 'unavailable' 이면 angleDeltas/bodyRelativeNotches 부재 + status='applied'
+  // +capApplied 유지(강등 금지). score 타입 0 — DESCRIPTIVE(deg/칸/text) + source enum.
+  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number; primaryFault?: string; faultJoints?: KeypointName[]; faultJointDeficits?: Partial<Record<KeypointName, number>>; quantificationStatus?: 'available' | 'unavailable'; angleDeltas?: VisionAngleDelta[]; bodyRelativeNotches?: VisionBodyRelativeNotch[]; windowMedianAngleDeltas?: VisionWindowMedianAngleDeltas; rootCauseHypotheses?: VisionRootCauseHypothesis[] }
+  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never }
   // Phase 23-01 D-03/H4 — 정렬 신뢰도 낮아 보류(거짓결함 fabricate 안 함). score-free.
-  | { status: 'low_alignment_confidence'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: never }
+  | { status: 'low_alignment_confidence'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: never; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never }
   // Phase 23-01 D-09 MED-1 — 예산 소진 fail-closed. severity/capApplied/primaryFault/
   // angleDeltas/bodyRelativeNotches/rootCauseHypotheses 부재, telemetry 만 허용.
-  | { status: 'resource_limited'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: VisionVetoTelemetry }
-  | { status: 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never };
+  | { status: 'resource_limited'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: VisionVetoTelemetry; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never }
+  | { status: 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never };
 
 // Phase 20 (TRUST-07) — Mode3 미보유/저신뢰 점수 억제 (discriminated suppression type).
 // iter4 MEDIUM-1: scoreSuppressed=true 면 scoreSuppressedReason REQUIRED, false/부재면

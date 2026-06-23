@@ -93,9 +93,26 @@ VISION_VETO_STATUSES = (
 # 마커가 진짜 결함 관절을 강조하게 한다(각도편차 최대 관절 폴백 대체). 매핑 0 이면 키 부재.
 # faultJointDeficits(2026-06-21): {keypoint: Gemini 시각 추정 deviation deg} — fault-zoom
 # deficit 숫자 source. kismam delta 는 veto 결함을 못 잡아 과소 → Gemini 추정을 쓴다.
+#
+# ── Phase 23-02 (D-02/D-04/D-11 MED-1/D-12 HIGH-1): 정량화 DESCRIPTIVE 필드 ──
+# applied 시에만 동반 (discriminated). 점수 아님 — 각도(도)/칸/원인가설 텍스트만.
+# quantificationStatus(available|unavailable): applied audit 에 **필수**. unavailable 이면
+#   angleDeltas/bodyRelativeNotches 부재 + status='applied'+capApplied 유지(강등 금지).
+# angleDeltas: frame-specific per-joint 각도 (verdict 프레임 쌍 user/ref_frame_idx 의 행
+#   값만 — DTW median 아님, D-10 HIGH-3). 각 항목 {joint,student_deg,reference_deg,delta_deg,
+#   direction,source='geometry'}. percent 0(D-08).
+# bodyRelativeNotches: 결정적 칸/층 (keypoint+baseline → 정수/분수 칸, source='geometry',
+#   Gemini 미산출, D-08 H2). percent 0.
+# windowMedianAngleDeltas: robustness 용 window median (still 정확 각도 아님 — 별도 키 +
+#   sourceFrameIndices/windowPolicy 동반, D-10 HIGH-3).
+# rootCauseHypotheses: support-gated 원인 가설 (source='vision_hypothesis', "~로 보임"
+#   가설형, D-13 MED-1). cap_would_apply=true(eligible_for_coach) 일 때만 생성.
 VISION_VETO_KEYS = (
     "status", "severity", "capApplied", "primaryFault", "faultJoints",
     "faultJointDeficits",
+    # Phase 23-02 정량화 (applied 시에만, score-free, percent-free).
+    "quantificationStatus", "angleDeltas", "bodyRelativeNotches",
+    "windowMedianAngleDeltas", "rootCauseHypotheses",
 )
 
 # ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───

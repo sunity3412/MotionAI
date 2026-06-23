@@ -345,6 +345,10 @@ class VisionVetoCache:
         input_granularity: str = INPUT_GRANULARITY,
         at_seconds: float | None = None,
         reference_hash: str | None = None,
+        selector_version: str | None = None,
+        frame_indices: list | None = None,
+        top_k: int | None = None,
+        window: str | None = None,
     ) -> str:
         """캐시 키 직렬화 — PROMPT_VERSION/SCHEMA_VERSION 은 호출 시점 상수 반영.
 
@@ -353,6 +357,10 @@ class VisionVetoCache:
 
         reference_hash (v4.0): 비교(reference-anchored) 경로면 기준 영상 hash 를 키에
         포함 → (학생, 기준) PAIR keying. None(단일 영상 경로)이면 'noref'.
+
+        still-frame 경로 (Task 2, H3/MEDIUM): selector_version / frame_indices /
+        top_k / window policy 를 키에 folding — whole-video 키와 충돌 0 + selector 버전
+        변경 시 stale 무효화. None 이면 'sv0'/'fi-'/'k-'/'w-' placeholder (whole 호환).
         """
         bucket = "whole" if at_seconds is None else f"t{int(round(at_seconds))}"
         ref_bucket = "noref" if reference_hash is None else reference_hash
@@ -361,6 +369,12 @@ class VisionVetoCache:
         schema_v = globals()["SCHEMA_VERSION"]
         # N(samples) 변경 = 다른 집계 verdict → 키에 포함해 stale 무효화 (Phase 20).
         samples = globals()["VISION_VETO_SAMPLES"]
+        sel = "sv0" if selector_version is None else f"sv{selector_version}"
+        fi = "fi-" if not frame_indices else "fi" + "_".join(
+            str(int(x)) for x in frame_indices
+        )
+        kk = "k-" if top_k is None else f"k{int(top_k)}"
+        win = "w-" if window is None else f"w{window}"
         return ":".join(
             (
                 VisionVetoCache._VISION_VETO_NS,
@@ -372,6 +386,10 @@ class VisionVetoCache:
                 input_granularity,
                 bucket,
                 f"n{samples}",
+                sel,
+                fi,
+                kk,
+                win,
             )
         )
 
@@ -477,6 +495,11 @@ def _ensure_client():
 
 def _mime(path: str) -> str:
     ext = os.path.splitext(path)[1].lower()
+    # 이미지 분기 (Task 1, D-01) — still-frame 비교 입력. 명시 분기로 video fall-through 와 분리.
+    if ext == ".png":
+        return "image/png"
+    if ext in (".jpg", ".jpeg"):
+        return "image/jpeg"
     if ext in (".mov", ".qt"):
         return "video/quicktime"
     if ext == ".webm":
@@ -533,6 +556,44 @@ def _upload_video(client, local_video_path: str, _hint: object = None):
     return uploaded
 
 
+def _upload_image(client, local_image_path: str):
+    """caller local still 이미지 → Gemini Files API ACTIVE 대기 (Task 1, D-01).
+
+    _upload_video 의 형제 — ACTIVE-wait/PROCESSING poll/TimeoutError/ascii-safe-path/
+    tmp unlink 디시플린 동일, mime 만 이미지 분기(_mime). still-frame 비교 입력 swap.
+
+    D-10 HIGH-2: 존재 가드 먼저 — 빈/없는 still 파일 업로드 방지 (path 검증 후 업로드).
+    """
+    import time
+
+    from google.genai import types as genai_types  # lazy — top-level import 금지(D-16)
+
+    # 존재 가드 (D-10 HIGH-2) — fake client/업로드 호출 전에 경로 검증.
+    if not os.path.isfile(local_image_path):
+        raise FileNotFoundError(f"still 이미지 없음: {local_image_path}")
+
+    upload_path, tmp_path = _ascii_safe_path(local_image_path)
+    uploaded = client.files.upload(
+        file=upload_path,
+        config=genai_types.UploadFileConfig(mime_type=_mime(local_image_path)),
+    )
+    start = time.monotonic()
+    while _state_name(uploaded) == "PROCESSING":
+        if time.monotonic() - start > _FILES_TIMEOUT_S:
+            raise TimeoutError(f"Files API processing > {_FILES_TIMEOUT_S}s")
+        time.sleep(_FILES_POLL_S)
+        uploaded = client.files.get(name=uploaded.name)
+    if tmp_path is not None:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+    state = _state_name(uploaded)
+    if state and state != "ACTIVE":
+        raise RuntimeError(f"Files API state={state} (ACTIVE 아님)")
+    return uploaded
+
+
 def _state_name(f) -> str:
     st = getattr(f, "state", None)
     if st is None:
@@ -547,6 +608,12 @@ def assess_fault_severity(
     local_video_path: str,
     at_seconds: float | None = None,
     reference_video_path: str | None = None,
+    *,
+    student_frame_path: str | None = None,
+    reference_frame_path: str | None = None,
+    part_scopes: list | None = None,
+    frame_indices: list | None = None,
+    selector_version: str | None = None,
 ) -> VisionVerdict | None:
     """영상 → 결함-심각도 VisionVerdict | None (객관성·결정론·adapter-boundary).
 

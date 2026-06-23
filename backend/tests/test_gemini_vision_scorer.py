@@ -633,3 +633,119 @@ def test_prompt_schema_version():
 def test_default_samples_is_three():
     """VISION_VETO_SAMPLES 기본 3 (env override 가능, min 1)."""
     assert gvs.VISION_VETO_SAMPLES >= 1
+
+
+# ─────────────────── Task 1 — still-image 업로드 swap (D-01, D-09 H3) ───────────────────
+
+
+def test_mime_image_branches():
+    """_mime png→image/png, jpg/jpeg→image/jpeg + video 분기 불변 (Task 1)."""
+    assert gvs._mime("frame.png") == "image/png"
+    assert gvs._mime("frame.PNG") == "image/png"
+    assert gvs._mime("frame.jpg") == "image/jpeg"
+    assert gvs._mime("frame.jpeg") == "image/jpeg"
+    assert gvs._mime("frame.JPEG") == "image/jpeg"
+    assert gvs._mime("clip.mov") == "video/quicktime"
+    assert gvs._mime("clip.qt") == "video/quicktime"
+    assert gvs._mime("clip.webm") == "video/webm"
+    assert gvs._mime("clip.mp4") == "video/mp4"
+    assert gvs._mime("clip.unknown") == "video/mp4"
+
+
+class _ActiveHandle:
+    """state.name == 'ACTIVE' 인 업로드 핸들 (MagicMock name kwarg 함정 회피)."""
+
+    def __init__(self, name="uploaded"):
+        self.name = name
+        self.state = type("S", (), {"name": "ACTIVE"})()
+
+
+class _FakeImageFiles:
+    def __init__(self):
+        self.upload_mimes: list[str] = []
+        self.deleted: list[str] = []
+
+    def upload(self, *, file, config):
+        self.upload_mimes.append(getattr(config, "mime_type", None))
+        return _ActiveHandle()
+
+    def get(self, *, name):
+        return _ActiveHandle()
+
+    def delete(self, *, name):
+        self.deleted.append(name)
+
+
+class _ImageClient:
+    def __init__(self):
+        self.files = _FakeImageFiles()
+        self.models = MagicMock()
+
+
+@pytest.fixture
+def fake_image(tmp_path):
+    p = tmp_path / "worst_frame.png"
+    p.write_bytes(b"\x89PNG\r\n\x1a\nfake-png")
+    return str(p)
+
+
+def test_upload_image_uses_image_mime_and_active_wait(fake_image):
+    """_upload_image 가 ACTIVE-wait 디시플린 + 이미지 mime 분기 (Task 1)."""
+    client = _ImageClient()
+    uploaded = gvs._upload_image(client, fake_image)
+    assert uploaded is not None
+    assert client.files.upload_mimes == ["image/png"]
+
+
+def test_upload_image_path_guard_before_upload():
+    """없는 경로 → 업로드 전 예외 (D-10 HIGH-2)."""
+    client = _ImageClient()
+    with pytest.raises((FileNotFoundError, OSError)):
+        gvs._upload_image(client, "/nonexistent/path/to/frame.png")
+    assert client.files.upload_mimes == []
+
+
+def test_no_toplevel_google_import():
+    """google.genai import 는 함수 내부에만 (lazy, D-16) — 모듈 top-level(들여쓰기 0) 0."""
+    source = Path(inspect.getfile(gvs)).read_text(encoding="utf-8")
+    for line in source.splitlines():
+        # 들여쓰기 0(모듈 레벨) 인 import 만 검사 — 함수 내부 lazy import 는 허용.
+        if line and not line[0].isspace():
+            if line.startswith("from google") or line.startswith("import google"):
+                pytest.fail(f"top-level google import: {line!r}")
+
+
+def test_assess_still_pair_signature():
+    """assess_fault_severity still 경로 명시 인자 (Task 1)."""
+    sig = inspect.signature(gvs.assess_fault_severity)
+    params = sig.parameters
+    assert "student_frame_path" in params
+    assert "reference_frame_path" in params
+    assert "part_scopes" in params
+    assert "frame_indices" in params
+    assert "selector_version" in params
+
+
+def test_comparison_contents_two_separate_handles(monkeypatch):
+    """"나란히" = 두 분리 image 핸들 (H3 — composite 아님)."""
+    captured: dict = {}
+
+    def _spy(client, ref_uploaded, student_uploaded, at_seconds, *args, **kwargs):
+        captured["ref"] = ref_uploaded
+        captured["student"] = student_uploaded
+        captured["distinct"] = ref_uploaded is not student_uploaded
+        return '{"motion":"x","dominant_severity":"minor","primary_fault":"라인","differences":[]}'
+
+    monkeypatch.setattr(gvs, "_call_gemini_comparison", _spy)
+
+    ref_handle = MagicMock(name="ref-handle")
+    student_handle = MagicMock(name="student-handle")
+    verdict = gvs._aggregate_comparison_verdict(
+        _ImageClient(), ref_handle, student_handle, None
+    )
+    assert verdict is not None
+    assert captured["distinct"] is True
+    assert captured["ref"] is ref_handle
+    assert captured["student"] is student_handle
+
+

@@ -764,11 +764,11 @@ Plans:
   5. 코칭 출력이 증상을 root cause(힘/폴밀착)에 묶어 **생성**된다 (백엔드; 앱 표시 후속). 일반 답변·수치 나열 금지.
   6. (cross-AI 리뷰) union 에 precision/support 게이트 — 단발 환각 결함이 살아남지 않음(위양성 비증가 강화). 23-03 eval 은 실제 production 경로(_apply_vision_veto·프레임선별·게이팅·캐시)로 측정 + 동일 모델 baseline 재실행 + cold/warm 결정론 분리 + cost/latency·machine-checkable 게이트.
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [x] 23-01-PLAN.md — still-frame 입력 swap + 부위별 key-frame union + DTW-confidence 게이팅(low_alignment_confidence status) (VETO-01/02/03)
-- [ ] 23-02-PLAN.md — 기준선 정량화 레이어(각도 직접 + 몸-상대 칸/층 텍스트) + 증상→root cause "~로 보임" 가설 코칭 (VETO-04/05)
+- [x] 23-02-PLAN.md — 기준선 정량화 레이어(각도 직접 + 몸-상대 칸/층 텍스트) + 증상→root cause "~로 보임" 가설 코칭 (VETO-04/05)
 - [ ] 23-03-PLAN.md — [POD] still-frame veto eval — kip-up recall 재현 + 위양성 0 + 결정론 + 정렬-약 보류 + non-zero assert 게이트(frozen manifest+lock) + **Phase 20-04 regression subset 흡수 게이트(정은지 95~100 / kip-up fault moderate≤75 / 결정론 cold+warm / EVAL18 변별 4쌍 퇴행0, D-14 amended + D-15 — regression subset 만 supersedes 20-04, SCORE-09 별도 pending)** (VETO-06/SCORE-08/TRUST-06)
 
 ---

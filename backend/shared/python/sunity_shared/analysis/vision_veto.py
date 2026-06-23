@@ -293,6 +293,176 @@ class RootCauseHypothesis:
     support_count: int
 
 
+# ---------------------------------------------------------------------------
+# VisionFaultContext / VisionQuantificationResult / SelectedFramePair (Task 4).
+#
+# 계약 경계 (D-12 HIGH-1 + D-11 MED-2): context/quant/audit 객체를 분리한다.
+#   · VisionFaultContext   = pre-apply/pre-coach 데이터만. final-audit status 도 geometry
+#                            payload 도 들지 않는다(final 은 apply 가 cap 재계산 후 확정,
+#                            geometry 는 23-02 가 이후 산출).
+#   · VisionQuantificationResult = post-geometry (23-02 Task1/2/4 산출, apply 가 audit 주입).
+#   · audit 직렬화 = ctx.to_audit_dict(final_status, cap_applied, quantification) — apply 의
+#                    final cap 계산 후에만 final-audit 필드 방출.
+# collection_status 는 pre-final enum 전용 — applied/not_applicable(final) 로 생성 불가
+# (D-13 MED-2). final status 와 vocabulary 가 겹치지 않는다.
+# ---------------------------------------------------------------------------
+VISION_FAULT_COLLECTION_STATUSES = (
+    "candidate_verdict",          # 정식 verdict 후보 (cap_would_apply 와 함께 coach 게이트)
+    "no_fault",                   # 정타/none — 결함 없음
+    "low_alignment_confidence",   # 정렬 신뢰도 낮음 (보류)
+    "resource_limited",           # 예산 소진 fail-closed (보류)
+    "disabled",                   # 토글 OFF
+    "mode3_held",                 # Mode3 보류
+    "missing_reference",          # Mode1 기준 영상 부재
+    "missing_current_video",      # 학생 local 영상 부재
+    "skipped_error",              # adapter None/예외 graceful
+)
+# final-audit status (collection_status 와 vocabulary 겹침 금지) — to_audit_dict 만 방출.
+_FINAL_AUDIT_STATUSES = ("applied", "not_applicable")
+
+
+@dataclass(frozen=True)
+class VisionQuantificationResult:
+    """post-geometry 정량화 결과 (D-12 HIGH-1). 23-02 Task1/2/4 가 산출, apply 가 주입.
+
+    pre-coach VisionFaultContext 는 이 payload 를 들지 않는다(pre-apply audit drift 차단).
+    """
+
+    quantificationStatus: str  # available | unavailable
+    angleDeltas: object = None
+    bodyRelativeNotches: object = None
+    windowMedianAngleDeltas: object = None
+    warnings: tuple | list = ()
+
+
+@dataclass(frozen=True)
+class SelectedFramePair:
+    """still 프레임 추출/정리 계약 (D-10 HIGH-2).
+
+    student/reference frame path + idx + 양 프레임 keypoints/confidence + cleanup handles.
+    cleanup_paths 는 생성된 로컬 이미지 파일 경로 — 호출자 finally 가 unlink(Gemini File
+    API delete 와 독립). ref frame 은 fault_zoom._matched_ref_frame(DTW match)로 선택
+    (DTW 재계산 금지).
+    """
+
+    student_frame_path: str | None
+    reference_frame_path: str | None
+    user_frame_idx: int
+    ref_frame_idx: int
+    student_keypoints: object = None
+    reference_keypoints: object = None
+    student_confidence: float | None = None
+    reference_confidence: float | None = None
+    cleanup_paths: tuple = ()
+
+
+@dataclass(frozen=True)
+class VisionFaultContext:
+    """pre-apply/pre-coach 비전 결함 컨텍스트 (D-12 HIGH-1 + D-13 MED-2).
+
+    collection_status 는 pre-final enum 전용 — final applied/not_applicable 로 생성 불가.
+    final-audit status / geometry payload 는 보유하지 않는다(to_audit_dict 가 인자로 받음).
+    """
+
+    collection_status: str
+    verdict: object  # VisionVerdict | None
+    supported_differences: list
+    root_cause_hypotheses: list
+    selected_frame_pairs: list
+    alignment: dict
+    telemetry: dict
+    cap_would_apply: bool
+
+    def __post_init__(self):
+        if self.collection_status in _FINAL_AUDIT_STATUSES:
+            raise ValueError(
+                f"collection_status 는 pre-final enum 전용 — final "
+                f"{self.collection_status!r} 로 생성 불가 (D-13 MED-2)"
+            )
+        if self.collection_status not in VISION_FAULT_COLLECTION_STATUSES:
+            raise ValueError(
+                f"unknown collection_status: {self.collection_status!r}"
+            )
+
+    @property
+    def eligible_for_coach(self) -> bool:
+        """coach root-cause 주입 게이트 = candidate_verdict AND cap_would_apply (D-13 MED-2)."""
+        return self.collection_status == "candidate_verdict" and self.cap_would_apply is True
+
+    # ── serializer 3종 ──
+
+    def to_coach_context(self) -> dict:
+        """pre-coach 직렬화 (ctx 단독) — root_cause/supported diffs/cap_would_apply."""
+        return {
+            "rootCauseHypotheses": [
+                {
+                    "text": rc.text,
+                    "faultKey": rc.fault_key.to_dict(),
+                    "supportCount": rc.support_count,
+                }
+                for rc in (self.root_cause_hypotheses or [])
+            ],
+            "supportedDifferences": [
+                {k: v for k, v in (d or {}).items() if not str(k).startswith("_")}
+                for d in (self.supported_differences or [])
+            ],
+            "capWouldApply": self.cap_would_apply,
+            "collectionStatus": self.collection_status,
+        }
+
+    def to_trace_dict(self) -> dict:
+        """eval trace 직렬화 (ctx 단독) — fault key 는 FaultKey.to_dict 어휘 (D-17 MED-3)."""
+        fault_keys = []
+        for d in (self.supported_differences or []):
+            fk = (d or {}).get("_faultKey")
+            if fk is not None:
+                fault_keys.append(fk.to_dict())
+        for rc in (self.root_cause_hypotheses or []):
+            fk_dict = rc.fault_key.to_dict()
+            if fk_dict not in fault_keys:
+                fault_keys.append(fk_dict)
+        return {
+            "collectionStatus": self.collection_status,
+            "selectorVersion": (self.alignment or {}).get("selector_version"),
+            "alignmentAdoption": (self.alignment or {}).get("adoption"),
+            "geminiCallCount": (self.telemetry or {}).get("completedCalls"),
+            "samplingComplete": (self.telemetry or {}).get("samplingComplete"),
+            "capWouldApply": self.cap_would_apply,
+            "faultKeys": fault_keys,
+        }
+
+    def to_audit_dict(
+        self, *, final_status: str, cap_applied: int | None = None,
+        quantification: "VisionQuantificationResult | None" = None,
+    ) -> dict:
+        """final-audit 직렬화 — apply 의 final cap 계산 후에만 (D-12 HIGH-1).
+
+        final_status 인자가 있어야 final-audit 필드(status/capApplied/quantificationStatus)
+        를 방출한다. 인자 없이 호출하면 TypeError(fail-fast) — pre-apply 후보가
+        applied-looking audit 를 emit 하지 못한다.
+        """
+        if final_status not in _FINAL_AUDIT_STATUSES:
+            raise ValueError(f"unknown final_status: {final_status!r}")
+        audit: dict = {"status": final_status}
+        if final_status == "applied":
+            if cap_applied is not None:
+                audit["capApplied"] = cap_applied
+            verdict = self.verdict
+            if verdict is not None:
+                audit["severity"] = getattr(verdict, "severity", None)
+                pf = getattr(verdict, "primary_fault", None)
+                if pf:
+                    audit["primaryFault"] = pf
+            if quantification is not None:
+                audit["quantificationStatus"] = quantification.quantificationStatus
+                if quantification.quantificationStatus == "available":
+                    if quantification.angleDeltas is not None:
+                        audit["angleDeltas"] = quantification.angleDeltas
+                    if quantification.bodyRelativeNotches is not None:
+                        audit["bodyRelativeNotches"] = quantification.bodyRelativeNotches
+        return audit
+
+
 def _sides_for(text: str) -> tuple[str, ...]:
     """body_part 문자열에서 좌/우를 추정. 명시 없으면 ('left','right') 양쪽."""
     has_left = ("왼" in text) or ("좌" in text) or ("left" in text)

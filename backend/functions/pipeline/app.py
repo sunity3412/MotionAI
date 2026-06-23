@@ -1659,6 +1659,267 @@ def _veto_passthrough(score_result: dict, status: str) -> dict:
     return {**score_result, "visionVeto": {"status": status}}
 
 
+def _build_selected_frame_pair(
+    *,
+    user_video_path: str | None,
+    reference_video_path: str | None,
+    reference_dtw_match,
+    user_frame_idx: int,
+    pose_frames=None,
+    reference_pose_frames=None,
+):
+    """still 프레임 추출/정리 helper (D-10 HIGH-2) → SelectedFramePair | None.
+
+    ref frame 은 fault_zoom._matched_ref_frame(DTW match)로 선택(DTW 재계산 금지). 추출
+    프레임은 기존 FfmpegFrameExtractor(9fps/640px) 재사용. cleanup_paths = 생성된 로컬
+    이미지 — 호출자 finally 가 unlink(Gemini File API delete 와 독립). graceful — 실패 시
+    None (분석 흐름 차단 0).
+    """
+    from sunity_shared.analysis import fault_zoom, vision_veto
+
+    if not user_video_path or not reference_video_path:
+        return None
+    cleanup: list[str] = []
+    try:
+        from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+        from PIL import Image
+
+        ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
+        user_frames = ext.extract(user_video_path)
+        ref_frames = ext.extract(reference_video_path)
+        u_n = int(user_frames.shape[0])
+        r_n = int(ref_frames.shape[0])
+        u_idx = max(0, min(int(user_frame_idx), u_n - 1)) if u_n else 0
+        # DTW match 로 같은-pose 기준 프레임 (재계산 0).
+        r_matched = fault_zoom._matched_ref_frame(reference_dtw_match, u_idx, r_n)
+        r_idx = r_matched if r_matched is not None else (
+            int(round(u_idx / max(1, u_n - 1) * (r_n - 1))) if (u_n > 1 and r_n > 1) else 0
+        )
+        # 선택 인덱스만 로컬 PNG 로 write.
+        student_path = tempfile.NamedTemporaryFile(
+            prefix="vveto_u_", suffix=".png", delete=False
+        ).name
+        ref_path = tempfile.NamedTemporaryFile(
+            prefix="vveto_r_", suffix=".png", delete=False
+        ).name
+        cleanup.extend([student_path, ref_path])
+        Image.fromarray(user_frames[u_idx]).convert("RGB").save(student_path)
+        Image.fromarray(ref_frames[r_idx]).convert("RGB").save(ref_path)
+        # keypoint 가시성/confidence — pose_frames 직접 추출(veto 전에 존재, fps 정합 단순).
+        student_kp = _pose_frame_keypoints(pose_frames, u_idx)
+        ref_kp = _pose_frame_keypoints(reference_pose_frames, r_idx)
+        return vision_veto.SelectedFramePair(
+            student_frame_path=student_path,
+            reference_frame_path=ref_path,
+            user_frame_idx=u_idx,
+            ref_frame_idx=r_idx,
+            student_keypoints=student_kp[0] if student_kp else None,
+            reference_keypoints=ref_kp[0] if ref_kp else None,
+            student_confidence=student_kp[1] if student_kp else None,
+            reference_confidence=ref_kp[1] if ref_kp else None,
+            cleanup_paths=tuple(cleanup),
+        )
+    except Exception:  # noqa: BLE001 - still 추출 실패 graceful (보류 status 로 swallow)
+        for p in cleanup:
+            _safe_unlink_local_video(p)
+        log.warning("SelectedFramePair 추출 실패 — None (graceful)")
+        return None
+
+
+def _pose_frame_keypoints(pose_frames, idx):
+    """pose_frames[idx] 의 keypoints + mean confidence (가시성 신호). 결측 → None."""
+    if not pose_frames:
+        return None
+    try:
+        if idx < 0 or idx >= len(pose_frames):
+            return None
+        pf = pose_frames[idx]
+        kps = getattr(pf, "keypoints", None)
+        if kps is None and isinstance(pf, dict):
+            kps = pf.get("keypoints")
+        confs = []
+        for kp in (kps or []):
+            c = getattr(kp, "confidence", None)
+            if c is None and isinstance(kp, dict):
+                c = kp.get("confidence")
+            if c is not None:
+                confs.append(float(c))
+        mean_conf = sum(confs) / len(confs) if confs else None
+        return (kps, mean_conf)
+    except Exception:  # noqa: BLE001 - 가시성 산출 실패 graceful
+        return None
+
+
+def _collect_vision_fault_context(
+    *,
+    overall_score: int,
+    dimension_scores: dict,
+    mode: str | None,
+    local_video_path: str | None = None,
+    angles: np.ndarray | None = None,
+    profile: "technique.TechniqueProfile | None" = None,
+    reference_dtw_match=None,
+    reference_angles=None,
+    reference_video_path: str | None = None,
+    keypoint_report=None,
+    pose_frames=None,
+    reference_pose_frames=None,
+) -> "vision_veto.VisionFaultContext":
+    """Gemini 호출 소유자 (coach 전 1회, D-10 HIGH-1). keyword pre-build primitive 시그니처.
+
+    result dict(score_result)를 받지 않는다 — numeric overall_score 가 build_result 이전
+    (app.py:2442)에 가용하므로 build_result 를 앞당길 유인을 제거한다(D-12 MED-1). collect
+    동작: (1) 부위별 worst 후보 selector + 글로벌+로컬 정렬 게이팅, (2) SelectedFramePair
+    still 추출, (3) assess_fault_severity still-pair 호출 + support 게이트, (4) cap_would_apply
+    계산(production 동일 apply_downward_cap), (5) VisionFaultContext(pre-apply/pre-coach)
+    반환 또는 score-free collection_status.
+
+    graceful — 어떤 실패도 분석 흐름 차단 0 (skipped_error/보류 status 로 swallow).
+    """
+    from sunity_shared.analysis import vision_veto, gemini_vision_scorer
+
+    def _ctx(status, *, verdict=None, supported=None, root_causes=None,
+             frame_pairs=None, alignment=None, telemetry=None, cap=False):
+        return vision_veto.VisionFaultContext(
+            collection_status=status,
+            verdict=verdict,
+            supported_differences=supported or [],
+            root_cause_hypotheses=root_causes or [],
+            selected_frame_pairs=frame_pairs or [],
+            alignment=alignment or {},
+            telemetry=telemetry or {},
+            cap_would_apply=cap,
+        )
+
+    try:
+        if not _gemini_vision_veto_enabled():
+            return _ctx("disabled")
+        if mode == models.MODE_SELF:
+            return _ctx("mode3_held")
+        if local_video_path is None:
+            return _ctx("missing_current_video")
+        if mode == models.MODE_EXPERT and reference_video_path is None:
+            return _ctx("missing_reference")
+
+        # (1) 부위별 worst 후보 + 정렬 게이팅.
+        selection = vision_veto.select_worst_frame_candidates(profile)
+        at = vision_veto.worst_pose_timestamp(profile)
+        user_frame_idx = int(round((at or 0.0) * 9.0))  # 9fps 정합.
+        pair = _build_selected_frame_pair(
+            user_video_path=local_video_path,
+            reference_video_path=reference_video_path,
+            reference_dtw_match=reference_dtw_match,
+            user_frame_idx=user_frame_idx,
+            pose_frames=pose_frames,
+            reference_pose_frames=reference_pose_frames,
+        )
+        visibility = 0.0
+        if pair is not None and pair.student_confidence is not None:
+            visibility = float(pair.student_confidence)
+        alignment = vision_veto.assess_alignment_confidence(
+            match=reference_dtw_match,
+            selected_user_frame=user_frame_idx,
+            keypoint_visibility=visibility,
+        ) if reference_dtw_match is not None else {"adoption": "single"}
+        alignment["selector_version"] = selection.get("selector_version")
+
+        # 정렬 보류 → score-free (거짓결함 fabricate 안 함, D-03).
+        if alignment.get("adoption") == "low_alignment_confidence":
+            if pair is not None:
+                for p in pair.cleanup_paths:
+                    _safe_unlink_local_video(p)
+            return _ctx("low_alignment_confidence", frame_pairs=[])
+
+        # (2/3) Gemini 호출 (still-pair or whole-video). production 은 still-pair.
+        try:
+            if pair is not None:
+                verdict = gemini_vision_scorer.assess_fault_severity(
+                    local_video_path,
+                    at_seconds=at,
+                    reference_video_path=reference_video_path,
+                    student_frame_path=pair.student_frame_path,
+                    reference_frame_path=pair.reference_frame_path,
+                    part_scopes=list(gemini_vision_scorer.VETO_PART_SCOPES),
+                    frame_indices=[pair.user_frame_idx],
+                    selector_version=selection.get("selector_version"),
+                )
+            else:
+                verdict = gemini_vision_scorer.assess_fault_severity(
+                    local_video_path,
+                    at_seconds=at,
+                    reference_video_path=reference_video_path,
+                )
+        finally:
+            # 로컬 still 이미지 unlink (Gemini File API delete 와 독립, D-10 HIGH-2).
+            if pair is not None:
+                for p in pair.cleanup_paths:
+                    _safe_unlink_local_video(p)
+
+        if verdict is None:
+            return _ctx("skipped_error", frame_pairs=[pair] if pair else [])
+        if getattr(verdict, "severity", "none") == "none":
+            return _ctx("no_fault", verdict=verdict,
+                        frame_pairs=[pair] if pair else [], alignment=alignment)
+
+        # (4) cap_would_apply — production 동일 cap 함수 (cap 로직 복제 0, D-11 HIGH-1).
+        capped = vision_veto.apply_downward_cap(overall_score, verdict.severity)
+        cap_would_apply = capped < overall_score
+
+        # support-gated root cause (verdict.differences 가 이미 support 통과분).
+        supported = list(verdict.differences or ())
+        return _ctx(
+            "candidate_verdict",
+            verdict=verdict,
+            supported=supported,
+            frame_pairs=[pair] if pair else [],
+            alignment=alignment,
+            cap=cap_would_apply,
+        )
+    except Exception:  # noqa: BLE001 - collect 실패는 분석 흐름 차단 0 (graceful)
+        log.exception("vision fault context 수집 실패 — skipped_error (graceful)")
+        return _ctx("skipped_error")
+
+
+def _build_vision_quantification_result(
+    *,
+    fault_context=None,
+    selected_frame_pair=None,
+    current_measurements=None,
+    reference_measurements=None,
+    body_profile=None,
+    pole_geometry=None,
+):
+    """post-geometry 정량화 named production seam (D-13 HIGH-1).
+
+    파이프라인 순서: overall_score → collect → coach → build_result →
+    _build_vision_quantification_result → apply. geometry/frame-pair 입력 결측 시 **None
+    반환 금지** — VisionQuantificationResult(quantificationStatus="unavailable") 반환. 실제
+    geometry 산출 로직은 23-02 Task1/2/4 가 채운다(본 함수는 seam + 결측 처리만).
+    """
+    from sunity_shared.analysis import vision_veto
+
+    if (
+        selected_frame_pair is None
+        or current_measurements is None
+        or reference_measurements is None
+    ):
+        return vision_veto.VisionQuantificationResult(
+            quantificationStatus="unavailable",
+            angleDeltas=None,
+            bodyRelativeNotches=None,
+            windowMedianAngleDeltas=None,
+            warnings=["quantification_inputs_missing"],
+        )
+    # 23-02 가 실제 geometry 를 산출하기 전까지 unavailable (seam 자리 박제).
+    return vision_veto.VisionQuantificationResult(
+        quantificationStatus="unavailable",
+        angleDeltas=None,
+        bodyRelativeNotches=None,
+        windowMedianAngleDeltas=None,
+        warnings=["quantification_pending_23_02"],
+    )
+
+
 def _apply_vision_veto(
     score_result: dict,
     local_video_path: str | None = None,
@@ -1666,6 +1927,9 @@ def _apply_vision_veto(
     profile: "technique.TechniqueProfile | None" = None,
     mode: str | None = None,
     reference_video_path: str | None = None,
+    *,
+    vision_fault_context=None,
+    quantification=None,
 ) -> dict:
     """v2 비전 거부권 — reference-anchored 하향-전용 mutation (Phase 20 SCORE-08).
 
@@ -1695,6 +1959,12 @@ def _apply_vision_veto(
     토글은 pipeline 단독 소유 (iter2 MEDIUM-1) — 어댑터는 토글 미참조.
     """
     import sunity_shared.models as models  # lazy — mode 상수 비교
+
+    # ── Task 4: context 제공 시 Gemini 미호출 — verdict 재사용 + final cap + audit (D-10 HIGH-1) ──
+    if vision_fault_context is not None:
+        return _apply_vision_veto_from_context(
+            score_result, vision_fault_context, quantification
+        )
 
     try:
         if not _gemini_vision_veto_enabled():
@@ -1764,6 +2034,76 @@ def _apply_vision_veto(
         log.exception(
             "vision veto hook 실패 — score_result 그대로 통과 (graceful, skipped_error)"
         )
+        return _veto_passthrough(score_result, "skipped_error")
+
+
+def _apply_vision_veto_from_context(score_result: dict, ctx, quantification) -> dict:
+    """context 제공 경로 — Gemini 미호출, verdict 재사용 + final cap + to_audit_dict (D-12 HIGH-1).
+
+    collect 가 산출한 VisionFaultContext 를 받아 final cap 을 production 동일
+    apply_downward_cap 으로 재계산하고, applied/not_applicable 을 확정한 뒤
+    ctx.to_audit_dict(final_status, cap_applied, quantification) 로 audit 직렬화한다. score-free
+    collection_status(low_alignment_confidence/resource_limited/mode3_held/...)는 score 불변
+    passthrough. geminiCallCount=1(collect 만 호출, apply 재호출 0).
+    """
+    from sunity_shared.analysis import vision_veto
+
+    try:
+        status = ctx.collection_status
+        # score-free 보류 status → passthrough (score 불변).
+        if status != "candidate_verdict":
+            passthrough_map = {
+                "no_fault": "not_applicable",
+                "low_alignment_confidence": "low_alignment_confidence",
+                "resource_limited": "resource_limited",
+                "disabled": "disabled",
+                "mode3_held": "mode3_held",
+                "missing_reference": "missing_reference",
+                "missing_current_video": "missing_local_video",
+                "skipped_error": "skipped_error",
+            }
+            final = passthrough_map.get(status, "skipped_error")
+            audit = {"status": final}
+            telem = ctx.telemetry or {}
+            if final == "resource_limited" and telem:
+                audit["telemetry"] = {
+                    k: telem.get(k)
+                    for k in ("completedCalls", "plannedCalls", "samplingComplete")
+                    if k in telem
+                }
+            return {**score_result, "visionVeto": audit}
+
+        # candidate_verdict — final cap 재계산 (production 동일 함수, verdict 재사용).
+        verdict = ctx.verdict
+        overall = score_result["overallScore"]
+        capped = vision_veto.apply_downward_cap(overall, getattr(verdict, "severity", None))
+        if capped < overall:
+            quant = quantification
+            if quant is None:
+                quant = vision_veto.VisionQuantificationResult(
+                    quantificationStatus="unavailable",
+                    angleDeltas=None, bodyRelativeNotches=None,
+                    windowMedianAngleDeltas=None, warnings=["quantification_absent"],
+                )
+            audit = ctx.to_audit_dict(
+                final_status="applied", cap_applied=capped, quantification=quant
+            )
+            # faultJoints/Deficits 부착 (verdict.differences 기반).
+            fault_joints = vision_veto.fault_joints_from_differences(
+                getattr(verdict, "differences", ()) or ()
+            )
+            fault_deficits = vision_veto.fault_joint_deficits_from_differences(
+                getattr(verdict, "differences", ()) or ()
+            )
+            if fault_joints:
+                audit["faultJoints"] = fault_joints
+            if fault_deficits:
+                audit["faultJointDeficits"] = fault_deficits
+            return {**score_result, "overallScore": capped, "visionVeto": audit}
+        # cap 이 점수를 안 내림 (valid-but-not-cap-lowering) → not_applicable.
+        return _veto_passthrough(score_result, "not_applicable")
+    except Exception:  # noqa: BLE001 - context apply 실패도 분석 차단 0 (graceful)
+        log.exception("vision veto context apply 실패 — passthrough (skipped_error)")
         return _veto_passthrough(score_result, "skipped_error")
 
 

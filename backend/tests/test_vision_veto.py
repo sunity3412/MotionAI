@@ -435,3 +435,145 @@ def test_new_statuses_in_models():
 
     assert "low_alignment_confidence" in models.VISION_VETO_STATUSES
     assert "resource_limited" in models.VISION_VETO_STATUSES
+
+
+# ─────────────── Task 4 — VisionFaultContext / VisionQuantificationResult 분리 ───────────────
+
+
+def _verdict(severity="moderate"):
+    from sunity_shared.analysis.gemini_vision_scorer import VisionVerdict
+
+    return VisionVerdict(primary_fault="다리 신전 부족", severity=severity, differences=())
+
+
+def test_vision_fault_context_pre_apply_only_fields():
+    """VisionFaultContext 가 pre-apply/pre-coach 필드만 — final-audit status·geometry 부재 (D-12 HIGH-1)."""
+    import dataclasses
+
+    fields = {f.name for f in dataclasses.fields(vision_veto.VisionFaultContext)}
+    # pre-apply/pre-coach 필드 존재.
+    assert "collection_status" in fields
+    assert "verdict" in fields
+    assert "supported_differences" in fields
+    assert "root_cause_hypotheses" in fields
+    assert "selected_frame_pairs" in fields
+    assert "alignment" in fields
+    assert "telemetry" in fields
+    assert "cap_would_apply" in fields
+    # final-audit status / geometry payload 부재.
+    assert "status" not in fields, "final-audit status 는 VisionFaultContext 에 없어야 (D-12)"
+    assert "angleDeltas" not in fields
+    assert "bodyRelativeNotches" not in fields
+    assert "windowMedianAngleDeltas" not in fields
+
+
+def test_collection_status_rejects_final_values():
+    """collection_status 는 pre-final enum 만 — applied/not_applicable 거부 (D-13 MED-2)."""
+    # candidate_verdict 는 허용.
+    ctx = vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict", verdict=_verdict(),
+        supported_differences=[], root_cause_hypotheses=[],
+        selected_frame_pairs=[], alignment={}, telemetry={}, cap_would_apply=True,
+    )
+    assert ctx.collection_status == "candidate_verdict"
+    # applied / not_applicable 로 생성 불가.
+    for bad in ("applied", "not_applicable"):
+        with pytest.raises((ValueError, TypeError)):
+            vision_veto.VisionFaultContext(
+                collection_status=bad, verdict=None, supported_differences=[],
+                root_cause_hypotheses=[], selected_frame_pairs=[], alignment={},
+                telemetry={}, cap_would_apply=False,
+            )
+
+
+def test_eligible_for_coach_property():
+    """eligible_for_coach = collection_status==candidate_verdict AND cap_would_apply (D-13 MED-2)."""
+    ctx_ok = vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict", verdict=_verdict(),
+        supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
+        alignment={}, telemetry={}, cap_would_apply=True,
+    )
+    assert ctx_ok.eligible_for_coach is True
+    ctx_no_cap = vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict", verdict=_verdict(),
+        supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
+        alignment={}, telemetry={}, cap_would_apply=False,
+    )
+    assert ctx_no_cap.eligible_for_coach is False
+    ctx_held = vision_veto.VisionFaultContext(
+        collection_status="mode3_held", verdict=None, supported_differences=[],
+        root_cause_hypotheses=[], selected_frame_pairs=[], alignment={},
+        telemetry={}, cap_would_apply=False,
+    )
+    assert ctx_held.eligible_for_coach is False
+
+
+def test_to_audit_dict_requires_final_args():
+    """to_audit_dict 는 final_status 인자 받아야 final-audit 필드 방출. 인자 없으면 미방출 (D-12 HIGH-1)."""
+    ctx = vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict", verdict=_verdict("major"),
+        supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
+        alignment={}, telemetry={}, cap_would_apply=True,
+    )
+    quant = vision_veto.VisionQuantificationResult(
+        quantificationStatus="unavailable", angleDeltas=None,
+        bodyRelativeNotches=None, windowMedianAngleDeltas=None, warnings=[],
+    )
+    audit = ctx.to_audit_dict(final_status="applied", cap_applied=50, quantification=quant)
+    assert audit["status"] == "applied"
+    assert audit["capApplied"] == 50
+    assert audit["quantificationStatus"] == "unavailable"
+    # 인자 없이 호출 → final-audit 필드 미방출 (fail-fast 또는 생략).
+    try:
+        bare = ctx.to_audit_dict()
+    except TypeError:
+        bare = None  # fail-fast 도 허용.
+    if bare is not None:
+        assert "status" not in bare or bare.get("status") is None
+
+
+def test_to_coach_context_and_trace_dict_standalone():
+    """to_coach_context/to_trace_dict 는 ctx 단독 (final 인자 불요, D-12)."""
+    fk = vision_veto.FaultKey("upper_body", "left", "arm", "pole_gap_or_bent")
+    rc = vision_veto.RootCauseHypothesis(
+        text="왼팔: 폴에서 떨어짐", fault_key=fk, source_difference_ids=(1,), support_count=2,
+    )
+    ctx = vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict", verdict=_verdict(),
+        supported_differences=[{"body_part": "왼팔", "severity": "moderate", "_faultKey": fk}],
+        root_cause_hypotheses=[rc], selected_frame_pairs=[], alignment={"adoption": "single"},
+        telemetry={"completedCalls": 3}, cap_would_apply=True,
+    )
+    coach = ctx.to_coach_context()
+    assert "rootCauseHypotheses" in coach
+    trace = ctx.to_trace_dict()
+    # to_trace_dict 가 FaultKey.to_dict 와 동일 어휘 방출 (D-17 MED-3).
+    keys = trace.get("faultKeys") or []
+    assert {"part_scope": "upper_body", "side": "left", "keypoint_set": "arm",
+            "fault_kind": "pole_gap_or_bent"} in keys
+
+
+def test_quantification_result_fields():
+    """VisionQuantificationResult 가 post-geometry 필드 소유 (D-12 HIGH-1)."""
+    import dataclasses
+
+    fields = {f.name for f in dataclasses.fields(vision_veto.VisionQuantificationResult)}
+    assert "quantificationStatus" in fields
+    assert "angleDeltas" in fields
+    assert "bodyRelativeNotches" in fields
+    assert "windowMedianAngleDeltas" in fields
+    assert "warnings" in fields
+
+
+def test_selected_frame_pair_fields():
+    """SelectedFramePair 가 student/reference frame path + idx + keypoints/conf + cleanup (D-10 HIGH-2)."""
+    import dataclasses
+
+    fields = {f.name for f in dataclasses.fields(vision_veto.SelectedFramePair)}
+    assert "student_frame_path" in fields
+    assert "reference_frame_path" in fields
+    assert "user_frame_idx" in fields
+    assert "ref_frame_idx" in fields
+    assert "student_keypoints" in fields
+    assert "reference_keypoints" in fields
+    assert "cleanup_paths" in fields

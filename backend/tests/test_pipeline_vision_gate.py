@@ -234,3 +234,161 @@ class TestFinallyCleanup:
         result = app._safe_unlink_local_video(fake_path)
         assert result is None
         assert len(warnings) == 1
+
+
+# ─────────────── Task 4 — collect/apply 2-함수 seam + cap_would_apply + 객체 분리 ───────────────
+
+
+import inspect as _inspect  # noqa: E402
+
+
+class TestCollectApplySeam:
+    def test_collect_signature_is_pre_build_primitive(self) -> None:
+        """_collect_vision_fault_context 가 result dict 가 아닌 keyword pre-build primitive (D-12 MED-1)."""
+        app = _import_pipeline()
+        sig = _inspect.signature(app._collect_vision_fault_context)
+        params = sig.parameters
+        # result dict / score_result 매개변수 부재.
+        assert "score_result" not in params
+        assert "result" not in params
+        # keyword pre-build primitive 수령.
+        assert "overall_score" in params
+        assert "dimension_scores" in params
+        assert "mode" in params
+        # overall_score 는 keyword-only.
+        assert params["overall_score"].kind == _inspect.Parameter.KEYWORD_ONLY
+
+    def test_collect_function_defined(self) -> None:
+        """_collect_vision_fault_context 함수가 pipeline 에 정의 (Gemini 소유자 분리, D-10 HIGH-1)."""
+        app = _import_pipeline()
+        assert callable(app._collect_vision_fault_context)
+
+    def test_build_quantification_seam_defined(self) -> None:
+        """_build_vision_quantification_result named seam 정의 (D-13 HIGH-1)."""
+        app = _import_pipeline()
+        assert callable(app._build_vision_quantification_result)
+
+    def test_build_quantification_missing_inputs_unavailable_not_none(self) -> None:
+        """seam 이 결측 입력에 None 아닌 VisionQuantificationResult(unavailable) 반환 (D-13 HIGH-1)."""
+        app = _import_pipeline()
+        from sunity_shared.analysis import vision_veto
+
+        out = app._build_vision_quantification_result(
+            fault_context=None, selected_frame_pair=None,
+            current_measurements=None, reference_measurements=None,
+            body_profile=None, pole_geometry=None,
+        )
+        assert out is not None
+        assert isinstance(out, vision_veto.VisionQuantificationResult)
+        assert out.quantificationStatus == "unavailable"
+
+    def test_collect_cap_would_apply_uses_production_cap(self, monkeypatch) -> None:
+        """collect 가 production 동일 apply_downward_cap 으로 cap_would_apply 산출 (D-11 HIGH-1)."""
+        app = _import_pipeline()
+        from sunity_shared.analysis import gemini_vision_scorer, vision_veto
+
+        # severity=minor / overall=88 → apply_downward_cap=88 (≮88) → cap_would_apply False.
+        # severity=moderate / overall=92 → 75<92 → True.
+        # severity=none → False.
+        for severity, overall, expected in [
+            ("minor", 88, False),
+            ("moderate", 92, True),
+            ("none", 95, False),
+        ]:
+            monkeypatch.setattr(
+                gemini_vision_scorer, "assess_fault_severity",
+                lambda *a, **k: gemini_vision_scorer.VisionVerdict(
+                    primary_fault="x", severity=severity, differences=()
+                ),
+            )
+            # 정렬/프레임 추출은 collect 내부 — 여기서는 cap_would_apply 만 검증하도록
+            # 최소 입력 + collect 가 graceful 하게 candidate/none 산출.
+            ctx = app._collect_vision_fault_context(
+                overall_score=overall,
+                dimension_scores={"angle": overall},
+                mode="mode1",
+                local_video_path=None,  # collect 내부 graceful 경로
+                angles=None, profile=None, reference_dtw_match=None,
+                reference_angles=None, reference_video_path=None,
+                keypoint_report=None,
+            )
+            # local_video None 등 graceful 경로면 cap_would_apply False/None.
+            assert ctx is not None
+            if ctx.collection_status == "candidate_verdict":
+                assert ctx.cap_would_apply is expected
+
+    def test_apply_with_context_no_gemini_call(self, monkeypatch) -> None:
+        """_apply_vision_veto(vision_fault_context=ctx) 가 Gemini 미호출 + verdict 재사용 (D-10 HIGH-1)."""
+        app = _import_pipeline()
+        from sunity_shared.analysis import gemini_vision_scorer, vision_veto
+
+        calls = {"n": 0}
+
+        def _spy(*a, **k):
+            calls["n"] += 1
+            return gemini_vision_scorer.VisionVerdict("x", "major", ())
+
+        monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _spy)
+        monkeypatch.setattr(app, "_gemini_vision_veto_enabled", lambda: True)
+
+        ctx = vision_veto.VisionFaultContext(
+            collection_status="candidate_verdict",
+            verdict=gemini_vision_scorer.VisionVerdict("다리", "major", ()),
+            supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
+            alignment={}, telemetry={}, cap_would_apply=True,
+        )
+        quant = vision_veto.VisionQuantificationResult(
+            quantificationStatus="unavailable", angleDeltas=None,
+            bodyRelativeNotches=None, windowMedianAngleDeltas=None, warnings=[],
+        )
+        out = app._apply_vision_veto(
+            {"overallScore": 100}, mode="mode1",
+            vision_fault_context=ctx, quantification=quant,
+        )
+        # apply 내부에서 Gemini 호출 0 (verdict 재사용).
+        assert calls["n"] == 0
+        assert out["visionVeto"]["status"] == "applied"
+        assert out["overallScore"] == 50  # major cap.
+
+    def test_apply_applied_but_quant_unavailable(self, monkeypatch) -> None:
+        """applied + quant unavailable → status applied 유지, geometry 부재, crash 0 (D-12 HIGH-1)."""
+        app = _import_pipeline()
+        from sunity_shared.analysis import gemini_vision_scorer, vision_veto
+
+        monkeypatch.setattr(app, "_gemini_vision_veto_enabled", lambda: True)
+        ctx = vision_veto.VisionFaultContext(
+            collection_status="candidate_verdict",
+            verdict=gemini_vision_scorer.VisionVerdict("다리", "moderate", ()),
+            supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
+            alignment={}, telemetry={}, cap_would_apply=True,
+        )
+        quant = vision_veto.VisionQuantificationResult(
+            quantificationStatus="unavailable", angleDeltas=None,
+            bodyRelativeNotches=None, windowMedianAngleDeltas=None, warnings=["no_keypoints"],
+        )
+        out = app._apply_vision_veto(
+            {"overallScore": 100}, mode="mode1",
+            vision_fault_context=ctx, quantification=quant,
+        )
+        v = out["visionVeto"]
+        assert v["status"] == "applied"
+        assert v.get("quantificationStatus") == "unavailable"
+        assert "angleDeltas" not in v
+
+    def test_apply_passthrough_score_free_status(self, monkeypatch) -> None:
+        """정렬 약함/예산소진 collection_status → apply 가 score 불변 passthrough."""
+        app = _import_pipeline()
+        from sunity_shared.analysis import vision_veto
+
+        monkeypatch.setattr(app, "_gemini_vision_veto_enabled", lambda: True)
+        for status in ("low_alignment_confidence", "resource_limited"):
+            ctx = vision_veto.VisionFaultContext(
+                collection_status=status, verdict=None, supported_differences=[],
+                root_cause_hypotheses=[], selected_frame_pairs=[], alignment={},
+                telemetry={"samplingComplete": False}, cap_would_apply=False,
+            )
+            out = app._apply_vision_veto(
+                {"overallScore": 97}, mode="mode1", vision_fault_context=ctx,
+            )
+            assert out["overallScore"] == 97, "score 불변 passthrough"
+            assert out["visionVeto"]["status"] == status

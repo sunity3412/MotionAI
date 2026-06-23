@@ -628,7 +628,7 @@ Plans:
 > **신규 (belle 2026-06-19 결정 — 우선순위 15-05 → 18 → 20).** Phase 19 v1(D-01 감점식)이 angle 채널 결함은 잡았으나(EVAL 변별 4/4), **비-각도형 실패는 여전히 위양성**(kip-up 100/100). belle 가 2026-06-12 이미 정한 해결책 = **Gemini 시각 점수를 채점 path 에 직접 투입**([[score-spec-95-100-elite-vision-fix]]). 새 발명 아님 — v2 비전 거부권 본체. 상세 정의/스펙 = `.planning/phases/20-v2-gemini/20-CONTEXT.md`.
 
 **Goal:** 점수가 자세 품질을 정직하게 반영하게 한다 — Phase 19 v1 이 남긴 **비-각도형 실패 위양성**을 Gemini 시각 점수(per-pose 시각 거부권/교차검증)로 해소하되, **어떤 영상이든 정확**(보유셋 overfit 금지). 구체 3:
-  1. **kip-up 위양성 해소** — 타이밍/완성도 등 비-각도형 실패를 DTW band 가 흡수하는 angle 채널 맹점에 Gemini 시각 점수가 거부권을 행사(major fault 영상이 ≤50 으로 내려가야). v1 의 결정론적 수치와 비전 판단을 결합하되 기하학은 측정가능 IPSF 기준에만.
+  1. **kip-up 위양성 해소** — 타이밍/완성도 등 비-각도형 실패를 DTW band 가 흡수하는 angle 채널 맹점에 Gemini 시각 점수가 거부권을 행사. v1 의 결정론적 수치와 비전 판단을 결합하되 기하학은 측정가능 IPSF 기준에만. **[정정 — belle 2026-06-23 D-14 amended ITERATION6: kip-up 잘못된예시 = moderate, 점수 ≤75 (20-04 evidence 75/moderate 일치, ≤50 억지 격상=curve-fit 금지). still-frame regression subset 은 23-03 이 OWN. 아래 '≤50' 스펙은 진짜 틀린/실패 동작용.]**
   2. **상단 변별 + 인식기 결정성** — within-20°=일률 100 이라 good vs perfect 구분 부재 → 비전이 상단 품질 차이를 변별. Gemini 인식기(line 차원 결정)는 LLM 이라 run 변동 가능 → temperature 0 + reference 별 profile 캐싱으로 결정성 박제.
   3. **Mode3 미보유동작 유효성 게이트 + 점수근거 표시** — not_pole 안전게이트가 MODE_EXPERT 블록에만 있어 reference-free Mode 3 는 미보유 동작도 무비판 97 출력([[mode3-scoring-basis-unknown-move-gate]]). 동작분류 분기(IPSF공식/정은지보유/둘다미보유→불확실 표시) + 점수근거 화면 노출.
 
@@ -638,7 +638,7 @@ Plans:
 **게이트 (박제 — 변경 금지):**
 
 - **belle 점수 스펙** ([[score-spec-95-100-elite-vision-fix]]): 같은 정은지(고수) **95~100** / 잘못된 동작 **≤50** / **Gemini Vision 을 점수 path 에 직접**. tol 완화·UX 우회 금지(KISMAM tol=20° 유지).
-- **EVAL baseline** (`backend/evals/phase18/`): kip-up 100→≤50 으로 내려가고 변별 4쌍(power-spin/peter-pan/elbow-twist/pdshape)은 변별 유지(퇴행 0). 결정론(같은 입력=같은 점수) 유지.
+- **EVAL baseline** (`backend/evals/phase18/`): kip-up fault 가 cap 적용돼 내려가고 변별 4쌍(power-spin/peter-pan/elbow-twist/pdshape)은 변별 유지(퇴행 0). 결정론(같은 입력=같은 점수) 유지. **[정정 — D-14 amended ITERATION6: kip-up = moderate ≤75 (≤50 아님). still-frame regression subset = 23-03 OWN (superseded-by-23-03); SCORE-09 일반화/sensitivity 는 별도 pending.]**
 - **일반화 hard gate** ([[scoring-redesign-must-generalize-no-overfit]] / [[sensitivity-gate-not-just-elite-low]]): 정은지 보유셋 curve-fit 금지. 미보유 + above-cutoff(고득점이어야 정상) sensitivity 케이스로 위양성↔위음성 양방 검증.
 - **객관성** ([[analysis-objectivity-no-human-scores]]): 사람 점수 라벨 ground truth 영구 금지. 비전 출력은 결함 위치/종류/기하 추정 — 임계값 수치 라벨링은 OK.
 
@@ -649,7 +649,7 @@ Plans:
 
 **Success Criteria** (plan 에서 정밀화):
 
-  1. Gemini 시각 점수가 채점 path 에 통합되어 kip-up fault 영상이 ≤50 (위양성 해소) + 정은지 정타 95~100 유지
+  1. Gemini 시각 점수가 채점 path 에 통합되어 kip-up fault 영상이 cap 적용(**moderate ≤75** — D-14 amended ITERATION6, ≤50 아님; 위양성 해소) + 정은지 정타 95~100 유지. (still-frame 은 23-03 OWN; superseded-by-23-03 regression subset.)
   2. EVAL baseline 변별 4쌍 퇴행 0 + 결정론 유지(같은 입력=같은 점수)
   3. 미보유 동작 + above-cutoff sensitivity 케이스에서 위양성·위음성 양방 정확(일반화 — 보유셋 한정 X)
   4. Gemini 인식기 결정성(temp 0 + reference profile 캐싱)으로 run 간 line 차원 변동 0

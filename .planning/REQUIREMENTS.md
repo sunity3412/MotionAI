@@ -38,9 +38,9 @@
 
 - [x] **SCORE-06**: 종합·차원 점수가 감점식(deduction)으로 집계되어 단일 major fault가 종합을 지배한다 — 이중 단순평균(`kismam.overall_score` 가중평균 + `dimensions.overall_from_dimensions` 단순평균) 폐기. 100에서 시작 → IPSF 트랙(요소 0점 + 누적 실행 감점) 비율 매핑으로 감점. D-05 6 앵커(모두 fault 영상)가 낮은 종합점수를, above-cutoff 케이스는 높은 점수를 받는다. 감점 임계는 IPSF 근거(19-IPSF-DEDUCTION-NOTES §A)에서만 — 보유 sweep 재calibrate 금지. (출처: Phase 15 실증 94점 위양성 + IPSF CoP 2021-2027 / [[calibration-source-hard-gate]] [[judging-baseline-ipsf-code-of-points]])
 - [x] **SCORE-07**: "Fully Extended" 요소의 micro-bent 0점 트랙 — 신전 요구 관절(`profile.expects_extension` True)이 IPSF 임계(스플릿 160°=목표 180°−20° tol) 미달이면 해당 요소 무효(0점, 비례감점 아님). 의도적 굽힘(expects_extension False)은 미적용(위양성 차단). 임계는 IPSF 근거에서만. (출처: 19-IPSF-DEDUCTION-NOTES §A 트랙1)
-- [x] **SCORE-08** (Phase 20 — v2 비전 거부권): Gemini 시각 거부권이 채점 path(`_apply_vision_veto`)에 통합되어 v1 감점식 종합점수(`overallScore`)를 **하향만** 조정한다 (절대 못 올림 — `min()` cap, 가중블렌드/하한 거부 금지). 단위 = worst-pose(지배 결함 pose, key_moments 재사용, IPSF phase 평균 거부), 범위 = Mode1 + Mode3 둘 다, 트리거 = 채점 path 에 항상 호출. kip-up 류 major fault → ≤50, fault-free 정타 → v1 그대로(95~100 유지). (출처: D-01/03/04/05, 20-CONTEXT.md / [[score-spec-95-100-elite-vision-fix]])
-- [ ] **SCORE-09** (Phase 20 — 일반화 hard gate): SCORE-08 의 severity→cap 수치가 6페어 curve-fit 이 아니라 generalization-tested eval(미보유 + above-cutoff sensitivity 셋 포함)로 도출된다. 6페어 = known-answer 회귀(검증), fit 타깃 아님. 위양성(fault 하락)↔위음성(above-cutoff 유지) 양방 게이트. (출처: D-02, 20-CONTEXT.md / [[scoring-redesign-must-generalize-no-overfit]] [[sensitivity-gate-not-just-elite-low]])
-- [x] **TRUST-06** (Phase 20 — 결정론): Gemini 시각 거부권 + 인식기 호출이 결정론적이다 — temperature 0 + reference/video-hash 별 profile 캐싱(TechniqueCache 재사용) 으로 같은 입력=같은 하향 cap. temp 0 단독은 bit-deterministic 아님 — 캐시가 실 보장. (출처: D-06, 20-CONTEXT.md / 20-RESEARCH Pitfall 2)
+- [x] **SCORE-08** (Phase 20 — v2 비전 거부권; still-frame regression subset = Phase 23-03): Gemini 시각 거부권이 채점 path(`_apply_vision_veto`)에 통합되어 v1 감점식 종합점수(`overallScore`)를 **하향만** 조정한다 (절대 못 올림 — `min()` cap, 가중블렌드/하한 거부 금지). 단위 = worst-pose(지배 결함 pose, key_moments 재사용, IPSF phase 평균 거부), 범위 = Mode1 + Mode3 둘 다, 트리거 = 채점 path 에 항상 호출. fault-free 정타 → v1 그대로(95~100 유지). **veto 입력이 whole-video → still-frame 으로 바뀌면서 cap(50/75/90 불변) regression 게이트의 still-frame 검증은 Phase 23-03 이 OWN (D-14): 정은지 95~100 / kip-up fault = moderate 점수 ≤75(20-04 evidence 75/moderate 와 일치) / EVAL18 변별 4쌍 퇴행0.** (출처: D-01/03/04/05, 20-CONTEXT.md / 23-CONTEXT.md D-14 / [[score-spec-95-100-elite-vision-fix]] / [[vision-score-must-analyze-not-stamp]])
+- [ ] **SCORE-09** (Phase 20 / follow-up — 일반화 hard gate, PENDING): SCORE-08 의 severity→cap 수치가 6페어 curve-fit 이 아니라 generalization-tested eval(미보유 + above-cutoff sensitivity 셋 포함)로 도출된다. 6페어 = known-answer 회귀(검증), fit 타깃 아님. 위양성(fault 하락)↔위음성(above-cutoff 유지) 양방 게이트. **소유권 (belle 2026-06-23, D-14 amended ITERATION6): SCORE-09 는 Phase 23-03 가 흡수하지 않는다 — 별도 pending 으로 Phase 20 / 후속에 잔류한다.** 23-03 가 흡수한 것은 still-frame SEVERITY_CAP *regression subset*(SCORE-08 cap + TRUST-06 결정론)뿐이며, SCORE-09 의 sensitivity/generalization(미보유+above-cutoff 양방검증, diversity floor)은 still 흡수되지 않았다. **SCORE-09 미처리로 Phase 23 을 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.** (출처: D-02, 20-CONTEXT.md / 23-CONTEXT.md D-14·D-15 / [[scoring-redesign-must-generalize-no-overfit]] [[sensitivity-gate-not-just-elite-low]])
+- [x] **TRUST-06** (Phase 20 — 결정론; still-frame regression subset = Phase 23-03): Gemini 시각 거부권 + 인식기 호출이 결정론적이다 — temperature 0 + reference/video-hash 별 profile 캐싱(TechniqueCache 재사용) 으로 같은 입력=같은 하향 cap. temp 0 단독은 bit-deterministic 아님 — 캐시가 실 보장. **still-frame veto 경로의 최종 점수 결정론(cold+warm 분리)은 Phase 23-03 이 OWN·검증 (D-14).** (출처: D-06, 20-CONTEXT.md / 23-CONTEXT.md D-14 / 20-RESEARCH Pitfall 2)
 - [x] **TRUST-07** (Phase 20 — Mode3 미보유 게이트): Mode3 미보유동작이 Gemini 인식기 3분기(IPSF등재 ipsfCode / 정은지보유 reference / 둘다미보유→억제)로 판정되어, 미보유(분기3) 시 confident 점수가 억제되고 "기준 없음" 근거가 산출된다. not_pole 안전망을 reference-free 절대트랙으로 확장(MODE_EXPERT 전용 아님). fail-closed/raise 금지. (출처: D-07/08, 20-CONTEXT.md / [[mode3-scoring-basis-unknown-move-gate]])
 - [x] **TRUST-08** (Phase 20 — 거부권/게이트 가시화 + 무음실패 방지): SCORE-08 의 거부권 결과(severity, capApplied)가 `visionVeto` audit 필드로 직렬화되고(3-way 계약 lockstep), Mode3 미보유 시 결과 화면이 confident 점수를 억제 + scoringBasisLabel 을 표시한다. veto 가 adapter 실패로 silent no-op 되지 않게 WARNING 로그 + audit 필드로 관측 가능(Pitfall 5). 객관성: 비전 출력에 사람 점수 라벨/score 필드 0(임계값 수치 라벨링은 OK). (출처: D-08, 20-CONTEXT.md / 20-RESEARCH Pitfall 5 / [[analysis-objectivity-no-human-scores]])
 
@@ -192,9 +192,9 @@
 | TRUST-03 | Phase 19 | Complete |
 | TRUST-04 | Phase 19 | Complete |
 | TRUST-05 | Phase 19 | Complete |
-| SCORE-08 | Phase 20 | Complete |
-| SCORE-09 | Phase 20 | Pending |
-| TRUST-06 | Phase 20 | Complete |
+| SCORE-08 | Phase 20 (still-frame regression subset: Phase 23) | Complete (Phase 20); 23-03 OWN still-frame |
+| SCORE-09 | Phase 20 / follow-up (NOT absorbed by 23 — D-14) | Pending |
+| TRUST-06 | Phase 20 (still-frame determinism: Phase 23) | Complete (Phase 20); 23-03 OWN still-frame |
 | TRUST-07 | Phase 20 | Complete |
 | TRUST-08 | Phase 20 | Complete |
 | DELIV-01 | Phase 15 | Pending |

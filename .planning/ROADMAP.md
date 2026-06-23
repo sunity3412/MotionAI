@@ -661,7 +661,7 @@ Plans:
 - [x] 20-01-PLAN.md — [Wave 1, pod-free] 순수 vision_veto 코어 (apply_downward_cap 하향전용 + SEVERITY_CAP placeholder + worst_pose_timestamp) (SCORE-08)
 - [x] 20-02-PLAN.md — [Wave 1, pod-free] Gemini 결함-심각도 어댑터 (no-score 스키마 + _SCORE_PATTERN 가드 + temp 0 + video-hash 캐시, mocked) (SCORE-08/TRUST-06/08)
 - [x] 20-03-PLAN.md — [Wave 2, pod-free] _apply_vision_veto 본체 swap + visionVeto audit 3-way 계약 + Mode3 미보유 억제 + result.tsx UX (SCORE-08/TRUST-07/08)
-- [~] 20-04-PLAN.md — [Wave 3, POD terminal] SEVERITY_CAP 도출(sensitivity 양방, 6페어 fit 금지) + serial sweep 게이트 (kip-up≤50 + 퇴행0 + 정타 95~100 + 결정론) (SCORE-09/08/TRUST-06) — **SUPERSEDED-BY 23-03 (belle 2026-06-23, D-14): cap(50/75/90) 게이트(정은지 95~100 / kip-up≤50 / 결정론 / EVAL18 변별 4쌍 퇴행0)를 23-03 eval 이 still-frame veto 에서 OWN·검증한다. 옛 whole-video 로 별도 sweep 하면 still-frame swap 후 23 이 다시 흔드므로 중복 회피.**
+- [~] 20-04-PLAN.md — [Wave 3, POD terminal] SEVERITY_CAP 도출(sensitivity 양방, 6페어 fit 금지) + serial sweep 게이트 (kip-up cap + 퇴행0 + 정타 95~100 + 결정론) (SCORE-08/TRUST-06; SCORE-09 별도 pending) — **REGRESSION SUBSET SUPERSEDED-BY 23-03 (belle 2026-06-23, D-14 amended ITERATION6): still-frame SEVERITY_CAP *regression subset* 만(SCORE-08 cap + TRUST-06 결정론) 23-03 eval 이 still-frame veto 에서 OWN·검증한다 — 정은지 95~100 / kip-up fault = moderate 점수 ≤75(belle ITERATION6 HIGH-3, 20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. 옛 whole-video 로 별도 sweep 하면 still-frame swap 후 23 이 다시 흔드므로 중복 회피. SCORE-09(일반화/sensitivity — 미보유+above-cutoff 양방검증)는 흡수하지 않고 별도 pending 유지(Phase 20/후속) — 23 이 조용히 SCORE-09 를 닫지 않는다.**
 
 ---
 
@@ -769,7 +769,7 @@ Plans:
 Plans:
 - [ ] 23-01-PLAN.md — still-frame 입력 swap + 부위별 key-frame union + DTW-confidence 게이팅(low_alignment_confidence status) (VETO-01/02/03)
 - [ ] 23-02-PLAN.md — 기준선 정량화 레이어(각도 직접 + 몸-상대 칸/층 텍스트) + 증상→root cause "~로 보임" 가설 코칭 (VETO-04/05)
-- [ ] 23-03-PLAN.md — [POD] still-frame veto eval — kip-up recall 재현 + 위양성 0 + 결정론 + 정렬-약 보류 + **Phase 20-04 흡수 게이트(정은지 95~100 / kip-up≤50 / 결정론 / EVAL18 변별 4쌍 퇴행0, D-14 supersedes 20-04)** (VETO-06)
+- [ ] 23-03-PLAN.md — [POD] still-frame veto eval — kip-up recall 재현 + 위양성 0 + 결정론 + 정렬-약 보류 + non-zero assert 게이트(frozen manifest+lock) + **Phase 20-04 regression subset 흡수 게이트(정은지 95~100 / kip-up fault moderate≤75 / 결정론 cold+warm / EVAL18 변별 4쌍 퇴행0, D-14 amended + D-15 — regression subset 만 supersedes 20-04, SCORE-09 별도 pending)** (VETO-06/SCORE-08/TRUST-06)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

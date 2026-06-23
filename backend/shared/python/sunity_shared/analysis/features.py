@@ -94,6 +94,137 @@ def fill_gaps(angles):
     return a
 
 
+# ---------------------------------------------------------------------------
+# 표시용 frame-specific per-joint 각도 (23-02 Task 1, D-02 각도 + D-10 HIGH-3).
+#
+# "무릎 145° vs 정은지 178°, 33° 더 굽음" 같은 결함 출력 표시 문장의 **단일 진실**.
+# 반드시 verdict 를 낸 그 still 프레임 쌍(user_frame_idx/ref_frame_idx)의 행 값에서만
+# 계산한다 — DTW window median(motiondtw.per_joint_deviation, scoring 경로)으로 계산하면
+# 안 된다(D-10 HIGH-3). median 을 still 프레임의 "정확 각도"로 표기하면 정확해 보이는데
+# 실은 윈도우 평균인 모호성이 생긴다. robustness 목적의 window median 이 필요하면 아래
+# window_median_angle_deltas 로 **별도 명명**해 sourceFrameIndices/windowPolicy 를 동반한다.
+#
+# 출력은 각도(도)만 — 절대 cm/px 거리 0(D-02: 단일 카메라 스케일 모호), percent/% 0
+# (D-08: gemini_vision_scorer._SCORE_PATTERN 누수로 정상 verdict 폐기 위험). 8개
+# skeleton.JOINT_ANGLES 관절만 다룬다 — 머리/그립은 vision-only(Gemini differences 담당).
+# 순수 numpy(어댑터/네트워크 무관).
+# ---------------------------------------------------------------------------
+
+# delta<0 = 학생 각이 작음 = 더 굽음(작은 각 = 굽음). delta>0 = 더 펴짐.
+_DIR_MORE_BENT = "더 굽음"
+_DIR_MORE_EXTENDED = "더 펴짐"
+
+
+def _row_at(angle_matrix, idx: int):
+    """(T, NUM_JOINTS) 각도 행렬에서 idx 행을 안전하게 꺼낸다 (범위 clamp 없음 — 정확 행)."""
+    m = np.asarray(angle_matrix, dtype=float)
+    if m.ndim != 2 or m.shape[1] != len(JOINT_KEYS):
+        raise ValueError(
+            f"angle_matrix 형상은 (T,{len(JOINT_KEYS)}) 이어야 합니다 — {m.shape}"
+        )
+    if idx < 0 or idx >= m.shape[0]:
+        raise IndexError(f"frame_idx {idx} 가 (T={m.shape[0]}) 범위 밖")
+    return m[idx]
+
+
+def _delta_entry(joint: str, student_deg: float, reference_deg: float) -> dict:
+    """관절 1개의 frame-specific delta dict (source='geometry')."""
+    delta = float(student_deg) - float(reference_deg)
+    direction = _DIR_MORE_BENT if delta < 0 else _DIR_MORE_EXTENDED
+    return {
+        "joint": joint,
+        "student_deg": float(student_deg),
+        "reference_deg": float(reference_deg),
+        "delta_deg": delta,
+        "direction": direction,
+        "source": "geometry",
+    }
+
+
+def frame_pair_angle_deltas(
+    student_angles,
+    reference_angles,
+    *,
+    user_frame_idx: int,
+    ref_frame_idx: int,
+):
+    """표시용 per-joint 각도 — verdict 프레임 쌍(user/ref_frame_idx)의 행 값에서만 (D-10 HIGH-3).
+
+    학생 각도 행렬 (T_u, J) + 정은지 각도 행렬 (T_r, J) + **단일** user_frame_idx +
+    **단일** ref_frame_idx 를 받아 관절별 {joint, student_deg, reference_deg, delta_deg,
+    direction, source='geometry'} 를 그 **두 행의 값에서만** 계산한다. 예: user_frame_idx
+    의 무릎 145 / ref_frame_idx 의 무릎 178 → delta -33, '더 굽음'.
+
+    윈도우 median 아님 — 그 프레임 행 값(D-10 HIGH-3: median 을 still 프레임 정확
+    각도로 표기 금지). NaN(선택 프레임 행 기준)인 관절은 결과에서 제외(np.isfinite).
+    출력은 각도(도)만 — cm/px/percent 0.
+    """
+    s_row = _row_at(student_angles, int(user_frame_idx))
+    r_row = _row_at(reference_angles, int(ref_frame_idx))
+    out: list[dict] = []
+    for j, joint in enumerate(JOINT_KEYS):
+        sd = s_row[j]
+        rd = r_row[j]
+        if not (np.isfinite(sd) and np.isfinite(rd)):
+            continue  # 선택 프레임 행에서 NaN/inf 인 관절 제외
+        out.append(_delta_entry(joint, sd, rd))
+    return out
+
+
+def window_median_angle_deltas(
+    student_angles,
+    reference_angles,
+    *,
+    user_frame_idx: int,
+    ref_frame_idx: int,
+    window: int = 2,
+):
+    """robustness 용 window median 각도 델타 — **별도 명명**(D-10 HIGH-3).
+
+    still 프레임의 "정확 각도"가 아니라 선택 프레임 ±window 의 robust median 임을
+    sourceFrameIndices/windowPolicy 메타로 명시한다. RTMW jitter 흡수용. 호출자는 이
+    값을 frame_pair_angle_deltas(표시 각도)와 **다른 키**(windowMedianAngleDeltas)에
+    담아 still 프레임 정확 각도와 혼동하지 않게 해야 한다.
+
+    반환: {deltas: [...], sourceFrameIndices: {...}, windowPolicy: str}. deltas 항목은
+    frame_pair_angle_deltas 와 같은 형상이되 각도는 윈도우 median(NaN 무시). NaN 만
+    있는 관절은 제외.
+    """
+    s = np.asarray(student_angles, dtype=float)
+    r = np.asarray(reference_angles, dtype=float)
+    if s.ndim != 2 or s.shape[1] != len(JOINT_KEYS):
+        raise ValueError(f"student_angles 형상은 (T,{len(JOINT_KEYS)}) 이어야 합니다.")
+    if r.ndim != 2 or r.shape[1] != len(JOINT_KEYS):
+        raise ValueError(f"reference_angles 형상은 (T,{len(JOINT_KEYS)}) 이어야 합니다.")
+
+    def _win_idx(matrix, center: int) -> list[int]:
+        lo = max(0, center - int(window))
+        hi = min(matrix.shape[0] - 1, center + int(window))
+        return list(range(lo, hi + 1))
+
+    s_idx = _win_idx(s, int(user_frame_idx))
+    r_idx = _win_idx(r, int(ref_frame_idx))
+
+    deltas: list[dict] = []
+    for j, joint in enumerate(JOINT_KEYS):
+        s_vals = s[s_idx, j]
+        r_vals = r[r_idx, j]
+        s_fin = s_vals[np.isfinite(s_vals)]
+        r_fin = r_vals[np.isfinite(r_vals)]
+        if s_fin.size == 0 or r_fin.size == 0:
+            continue
+        sd = float(np.median(s_fin))
+        rd = float(np.median(r_fin))
+        deltas.append(_delta_entry(joint, sd, rd))
+
+    return {
+        "deltas": deltas,
+        "sourceFrameIndices": {"user": s_idx, "reference": r_idx},
+        # worst-pose 중심 ±window 프레임의 robust median (still 정확 각도 아님).
+        "windowPolicy": f"worst_pose_center_pm_{int(window)}_median",
+    }
+
+
 def feature_vector(
     angles, alpha: float = DEFAULT_ALPHA, beta: float = DEFAULT_BETA
 ):

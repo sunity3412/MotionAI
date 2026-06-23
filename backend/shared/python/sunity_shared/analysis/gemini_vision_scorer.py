@@ -67,8 +67,8 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v7.0"  # v7.0 (2026-06-22, belle C1): rule5 를 head-to-toe ①→⑧ 순서 강제 스캔으로 재작성 + 힌트를 "한 순간 지배편차"→"전 구간·전신"으로 전환. 다리 편향 제거(kip-up 상체 3결함 누락 fix). multi-fault union 유지, severity 는 rule5 강제 스캔이 지배결함 보장해 none-flip 방지 → cache 무효화
-SCHEMA_VERSION = "v5.0"  # v5.0: 집계 verdict = 새 cache generation (단일 verdict 의미 변경)
+PROMPT_VERSION = "v8.0"  # v8.0 (Phase 23-01): still-frame 비교 + 부위별 프롬프트 fan-out(상체/하체/라인 part_scope 토큰). 입력 granularity 가 whole-video → DTW worst-pose still-pair 로 교체 → cache 무효화
+SCHEMA_VERSION = "v6.0"  # v6.0 (Phase 23-01): support-게이트 집계 verdict = 새 cache generation
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
 #
@@ -86,6 +86,22 @@ DEFAULT_VISION_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
 # 입력 단위 마커 — 현재 항상 'whole'(whole-video 업로드, spike 패턴 = 안전 default).
 # 미래 frame-input 최적화 시 'frame' 등으로 분기 → 캐시 키 충돌 방지(iter2 non-blocking).
 INPUT_GRANULARITY = "whole"
+# still-frame 비교 경로 granularity 마커 (Task 1, D-01) — whole 키와 충돌 0.
+INPUT_GRANULARITY_FRAME_PAIR = "frame_pair"
+
+# ─────────────────── 자원 bound + support 게이트 상수 (Task 2, H1/H6) ───────────────────
+#
+# 라이브 veto 경로 레이턴시 + 구독료 하한 비용을 동시에 bound 한다. 호출수(parts ×
+# samples × frame_top_k) + upload count + wall-clock budget 셋을 함께 막는다(D-09 MED-1).
+# 모두 generic 상수 — 특정 테스트 영상에 curve-fit 하지 않는다(D-06).
+MAX_VETO_CALLS = max(1, int(os.environ.get("GEMINI_MAX_VETO_CALLS", "9")))
+MAX_VETO_UPLOADS = max(1, int(os.environ.get("GEMINI_MAX_VETO_UPLOADS", "4")))
+MAX_VETO_WALL_S = float(os.environ.get("GEMINI_MAX_VETO_WALL_S", "120.0"))
+# precision/support 게이트 — canonical FaultKey 가 N 중 K 이상 support 일 때만 정식 인정.
+# 단발 환각(single-frame-only) 결함이 union 에 살아남지 못하게 한다(H1).
+VETO_SUPPORT_K = max(1, int(os.environ.get("GEMINI_VETO_SUPPORT_K", "2")))
+# 부위 스코프(상체/하체/라인) — 부위별 프롬프트 fan-out 토큰.
+VETO_PART_SCOPES = ("upper_body", "lower_body", "line")
 
 # 'none' = 명백한 결함 없음(정타) → cap 미적용. over-penalization fix (2026-06-20).
 _SEVERITY_ENUM = ("none", "minor", "moderate", "major")
@@ -829,6 +845,198 @@ def _union_differences(verdicts: list) -> tuple:
     return tuple({k: v for k, v in d.items() if not k.startswith("_")} for d in ordered)
 
 
+# ─────────────────── precision/support 게이트 (Task 2, H1 + D-09 HIGH-2) ───────────────────
+
+
+def _filter_supported_differences(
+    per_call_differences: list,
+    *,
+    part_scope_hint: str = "line",
+    min_support_k: int = VETO_SUPPORT_K,
+) -> list:
+    """per-call difference list 들을 canonical FaultKey 로 정규화 후 N 중 K support 만 인정.
+
+    raw body_part 문자열로 세면 "왼팔/left arm/왼쪽 팔꿈치" 가 분산돼 K 미달(recall 손실)
+    + 모호한 "팔"이 양쪽 부풀림. 따라서 카운트 전에 각 difference 를 단일 owner
+    `vision_veto.FaultKey` 로 정규화한다(D-09 HIGH-2 + D-17 MED-3). severity='none'/빈
+    difference 는 인정 결함이 아니다(정타 보존). 단발(support<K)은 drop/descriptive-only.
+
+    반환: support≥K 통과 difference list — 각 canonical 키별 대표 1개(최고 severity/dev),
+    `_supportCount`/`_faultKey`/`_sourceIds` 메타 부착(root cause 유도 입력).
+    """
+    from .vision_veto import fault_key_from_difference
+
+    groups: dict[tuple, dict] = {}
+    diff_id = 0
+    for call_diffs in per_call_differences or ():
+        for d in call_diffs or ():
+            diff_id += 1
+            part = str((d or {}).get("body_part", "")).strip()
+            if not part:
+                continue
+            sev = str((d or {}).get("severity", "")).strip().lower()
+            if sev in _BODYPART_SEVERITY_FLOOR:
+                continue  # none/빈 = 인정 결함 아님 (정타 보존).
+            fk = fault_key_from_difference(d, part_scope_hint=part_scope_hint)
+            key = tuple(sorted(fk.to_dict().items()))
+            try:
+                dev = float((d or {}).get("approx_angle_deviation_deg") or 0.0)
+            except (TypeError, ValueError):
+                dev = 0.0
+            sev_rank = _SEVERITY_RANK.get(sev, 0)
+            cur = groups.get(key)
+            if cur is None:
+                groups[key] = {
+                    "support": 1,
+                    "ids": [diff_id],
+                    "fault_key": fk,
+                    "best": {**d, "_rank": sev_rank, "_dev": dev},
+                }
+            else:
+                cur["support"] += 1
+                cur["ids"].append(diff_id)
+                if sev_rank > cur["best"]["_rank"] or (
+                    sev_rank == cur["best"]["_rank"] and dev > cur["best"]["_dev"]
+                ):
+                    cur["best"] = {**d, "_rank": sev_rank, "_dev": dev}
+
+    out: list = []
+    for g in groups.values():
+        if g["support"] < min_support_k:
+            continue  # 단발/미support → drop (H1 — 환각 차단).
+        rec = {k: v for k, v in g["best"].items() if not k.startswith("_")}
+        rec["_supportCount"] = g["support"]
+        rec["_faultKey"] = g["fault_key"]
+        rec["_sourceIds"] = tuple(g["ids"])
+        out.append(rec)
+    # severity 내림차순(지배 결함이 앞).
+    out.sort(key=lambda r: -_SEVERITY_RANK.get(
+        str(r.get("severity", "")).strip().lower(), 0
+    ))
+    return out
+
+
+def _derive_root_causes_from_supported_differences(supported: list) -> list:
+    """support 통과 difference 만으로 root cause 유도 + provenance 보존 (D-13 MED-1).
+
+    drop 된 환각 difference 의 root cause 는 절대 새지 않는다(supported 입력만). 모든
+    difference 가 drop 되면 root cause 0. 각 root cause 는 fault_key/source_difference_ids/
+    support_count 를 보존한다.
+    """
+    from .vision_veto import RootCauseHypothesis
+
+    causes: list = []
+    for rec in supported or ():
+        fk = rec.get("_faultKey")
+        if fk is None:
+            continue
+        part = str(rec.get("body_part", "")).strip()
+        fault_state = str(rec.get("fault_state", "")).strip()
+        text = part if not fault_state else f"{part}: {fault_state}"
+        causes.append(
+            RootCauseHypothesis(
+                text=text,
+                fault_key=fk,
+                source_difference_ids=tuple(rec.get("_sourceIds") or ()),
+                support_count=int(rec.get("_supportCount") or 0),
+            )
+        )
+    return causes
+
+
+def _run_part_frame_fanout(
+    client,
+    ref_uploaded,
+    student_uploaded,
+    *,
+    part_scopes: list,
+    at_seconds: float | None,
+    clock=None,
+    wall_budget_s: float = MAX_VETO_WALL_S,
+    max_calls: int = MAX_VETO_CALLS,
+) -> dict:
+    """부위별 프롬프트 fan-out — 호출/upload/wall-clock bound + fail-closed resource_limited.
+
+    main path 의 normal `candidate_verdict` 는 planned call 전부 완료(samplingComplete=true)
+    필수(D-13 HIGH-2, Option A). planned call 전부 완료 전 예산(호출/wall-clock) 소진은
+    quorum 완료 여부와 무관하게 score-free `resource_limited` + telemetry 를 반환한다 —
+    부분 샘플 verdict 는 wall-clock/cache 에 따라 흔들려 비결정적이라 위양성·결정론 게이트
+    약화이므로 금지. 모든 호출은 _call_gemini_comparison(part_scope 전달).
+
+    반환 dict: {status, verdict?, supported_differences, root_cause_hypotheses, telemetry}.
+    """
+    import time as _time
+
+    _now = clock or _time.monotonic
+    scopes = list(part_scopes) or list(VETO_PART_SCOPES)
+    planned = min(len(scopes), max_calls)
+    start = _now()
+    per_call: list = []  # part_scope 별 difference list (support 집계 입력).
+    parsed_verdicts: list = []
+    completed = 0
+    for idx in range(planned):
+        # wall-clock budget 가드 — 호출 전 elapsed 확인 (fail-closed).
+        if _now() - start > wall_budget_s:
+            break
+        raw_text = _call_gemini_comparison(
+            client, ref_uploaded, student_uploaded, at_seconds,
+            part_scope=scopes[idx],
+        )
+        completed += 1
+        if _SCORE_PATTERN.search(raw_text or ""):
+            continue  # 점수 누출 샘플 폐기(객관성).
+        v = _parse_verdict(raw_text)
+        if v is None:
+            continue
+        parsed_verdicts.append(v)
+        per_call.append(list(v.differences or ()))
+
+    duration_ms = int((_now() - start) * 1000)
+    telemetry = {
+        "completedCalls": completed,
+        "plannedCalls": planned,
+        "uploadCount": 2,
+        "durationMs": duration_ms,
+        "samplingComplete": completed >= planned,
+    }
+
+    # fail-closed (Option A) — planned call 전부 완료 전 예산 소진 → resource_limited.
+    if completed < planned:
+        return {
+            "status": "resource_limited",
+            "verdict": None,
+            "supported_differences": [],
+            "root_cause_hypotheses": [],
+            "telemetry": telemetry,
+        }
+
+    # support 게이트 — 부위 union 으로 part_scope_hint='line'(혼합) 집계.
+    supported = _filter_supported_differences(per_call, part_scope_hint="line")
+    root_causes = _derive_root_causes_from_supported_differences(supported)
+    # severity = 인정 결함의 median (정타 none 보존).
+    if parsed_verdicts:
+        ranks = sorted(_SEVERITY_RANK.get(v.severity, 0) for v in parsed_verdicts)
+        median_rank = ranks[(len(ranks) - 1) // 2]
+        median_severity = _RANK_TO_SEVERITY[median_rank]
+    else:
+        median_severity = "none"
+    primary = parsed_verdicts[0].primary_fault if parsed_verdicts else "없음"
+    verdict = VisionVerdict(
+        primary_fault=primary,
+        severity=median_severity,
+        differences=tuple(
+            {k: v for k, v in d.items() if not k.startswith("_")} for d in supported
+        ),
+    )
+    return {
+        "status": "candidate_verdict",
+        "verdict": verdict,
+        "supported_differences": supported,
+        "root_cause_hypotheses": root_causes,
+        "telemetry": telemetry,
+    }
+
+
 def _most_frequent_by_fault(verdicts: list) -> VisionVerdict:
     """primary_fault description 최빈 verdict (동률 시 첫 등장). 집계 폴백."""
     counts: dict[str, int] = {}
@@ -863,13 +1071,24 @@ def _call_gemini(client, uploaded, at_seconds: float | None) -> str:
     return getattr(response, "text", "") or ""
 
 
+_PART_SCOPE_LABEL = {
+    "upper_body": "상체(머리·목·어깨·양팔·팔꿈치·그립)",
+    "lower_body": "하체(코어·허리·골반·양다리·무릎·발목)",
+    "line": "전체 라인·정렬",
+}
+
+
 def _call_gemini_comparison(
-    client, ref_uploaded, student_uploaded, at_seconds: float | None
+    client, ref_uploaded, student_uploaded, at_seconds: float | None,
+    part_scope: str | None = None,
 ) -> str:
     """비교(reference-anchored) generate_content — 기준 영상 먼저 + 학생 영상 (temp 0.0).
 
     contents 순서 = [기준 라벨, 기준 영상, 학생 라벨, 학생 영상, 비교 프롬프트].
     response_schema/temperature/thinking 는 단일 경로와 동일 (객관성·결정론 동일 보장).
+
+    part_scope (Task 2, D-05): 제공 시 generic 부위-집중 프롬프트(특정 동작명/기대답
+    금지, D-06). 두 영상 핸들은 분리 유지("나란히"=composite 아님, H3).
     """
     from google.genai import types as genai_types  # lazy
 
@@ -881,6 +1100,13 @@ def _call_gemini_comparison(
         thinking_config=genai_types.ThinkingConfig(thinking_budget=-1),
         http_options=genai_types.HttpOptions(timeout=180_000),
     )
+    prompt = _build_comparison_prompt(at_seconds)
+    if part_scope:
+        label = _PART_SCOPE_LABEL.get(part_scope, part_scope)
+        prompt = (
+            f"{prompt}\n\n참고: 이번에는 특히 [{label}] 부위에 집중해 기준 영상과 "
+            "대조하세요. 단 1·2번 규칙(정타/사소차/촬영조건은 결함 아님)은 그대로입니다."
+        )
     response = client.models.generate_content(
         model=DEFAULT_VISION_MODEL,
         contents=[
@@ -888,7 +1114,7 @@ def _call_gemini_comparison(
             ref_uploaded,
             "평가 대상(학생) 영상:",
             student_uploaded,
-            _build_comparison_prompt(at_seconds),
+            prompt,
         ],
         config=config,
     )

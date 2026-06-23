@@ -293,3 +293,85 @@ def test_fault_joints_output_subset_of_highlight_keypoints():
     assert out, "최소 1개는 매핑돼야"
     assert set(out) <= allowed
     assert len(out) == len(set(out)), "중복 0 (순서 안정 dedup)"
+
+
+# ─────────────── Task 2 — FaultKey 단일 직렬화 owner (D-17 MED-3) ───────────────
+
+
+def test_faultkey_to_dict_from_dict_roundtrip():
+    """FaultKey.to_dict() ↔ from_dict() round-trip + 정규화 dict 형태 (D-17 MED-3)."""
+    fk = vision_veto.FaultKey(
+        part_scope="upper_body", side="left", keypoint_set="arm",
+        fault_kind="pole_gap_or_bent",
+    )
+    d = fk.to_dict()
+    assert d == {
+        "part_scope": "upper_body",
+        "side": "left",
+        "keypoint_set": "arm",
+        "fault_kind": "pole_gap_or_bent",
+    }
+    # round-trip 항등.
+    assert vision_veto.FaultKey.from_dict(d) == fk
+
+
+def test_faultkey_from_dict_rejects_unknown_enum():
+    """from_dict 가 locked enum 밖 값(unknown fault_kind 등)을 raise (D-17 MED-3)."""
+    with pytest.raises((ValueError, KeyError)):
+        vision_veto.FaultKey.from_dict({
+            "part_scope": "upper_body", "side": "left",
+            "keypoint_set": "arm", "fault_kind": "banana",
+        })
+    with pytest.raises((ValueError, KeyError)):
+        vision_veto.FaultKey.from_dict({
+            "part_scope": "nonsense", "side": "left",
+            "keypoint_set": "arm", "fault_kind": "extension_or_alignment",
+        })
+
+
+def test_faultkey_enum_vocabularies_locked():
+    """part_scope/side/keypoint_set/fault_kind 의 locked enum 존재 (D-17 MED-3)."""
+    assert "upper_body" in vision_veto.FAULT_PART_SCOPES
+    assert "core" in vision_veto.FAULT_PART_SCOPES
+    assert "lower_body" in vision_veto.FAULT_PART_SCOPES
+    assert "line" in vision_veto.FAULT_PART_SCOPES
+    assert set(vision_veto.FAULT_SIDES) >= {"left", "right", "unknown"}
+    assert "head_neck" in vision_veto.FAULT_KEYPOINT_SETS
+    assert "grip" in vision_veto.FAULT_KEYPOINT_SETS
+
+
+def test_faultkey_from_body_part_normalizes_aliases():
+    """좌/우팔 한·영 alias 가 같은 canonical FaultKey 로 정규화 (HIGH-2)."""
+    k1 = vision_veto.fault_key_from_difference(
+        {"body_part": "왼팔", "fault_state": "폴에서 떨어짐"}, part_scope_hint="upper_body"
+    )
+    k2 = vision_veto.fault_key_from_difference(
+        {"body_part": "left arm", "fault_state": "폴에서 떨어짐"}, part_scope_hint="upper_body"
+    )
+    k3 = vision_veto.fault_key_from_difference(
+        {"body_part": "왼쪽 팔꿈치", "fault_state": "폴에서 떨어짐"}, part_scope_hint="upper_body"
+    )
+    # 셋 다 같은 정규화 키 (side=left, keypoint_set=arm).
+    assert k1.to_dict() == k2.to_dict() == k3.to_dict()
+    assert k1.side == "left"
+    assert k1.keypoint_set == "arm"
+
+
+def test_faultkey_ambiguous_arm_is_unknown_side():
+    """모호한 '팔'은 side='unknown' — 양쪽 부풀림 방지 (HIGH-2)."""
+    k = vision_veto.fault_key_from_difference(
+        {"body_part": "팔", "fault_state": "굽음"}, part_scope_hint="upper_body"
+    )
+    assert k.side == "unknown"
+
+
+def test_part_keywords_head_neck_grip_expansion():
+    """머리/목→어깨, 그립→손 최근접 keypoint 매핑 (ankle→knee 선례)."""
+    head = vision_veto._keypoints_for_part("고개 젖힘")
+    assert head, "머리/목은 최근접 keypoint(어깨)로 매핑"
+    assert set(head) <= set(vision_veto._HIGHLIGHT_KEYPOINTS)
+    neck = vision_veto._keypoints_for_part("목 정렬")
+    assert neck
+    grip = vision_veto._keypoints_for_part("그립 풀림")
+    assert grip, "그립은 최근접 keypoint(손)로 매핑"
+    assert "left_hand" in grip or "right_hand" in grip

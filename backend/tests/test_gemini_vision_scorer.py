@@ -625,9 +625,9 @@ def test_samples_count_invalidates_cache(
 
 
 def test_prompt_schema_version():
-    """PROMPT_VERSION = v7.0 (head-to-toe 강제 스캔 + 전 구간 힌트, 2026-06-22). SCHEMA_VERSION = v5.0."""
-    assert PROMPT_VERSION == "v7.0"
-    assert SCHEMA_VERSION == "v5.0"
+    """PROMPT_VERSION = v8.0 (still-frame + 부위별 fan-out, Phase 23-01). SCHEMA_VERSION = v6.0."""
+    assert PROMPT_VERSION == "v8.0"
+    assert SCHEMA_VERSION == "v6.0"
 
 
 def test_default_samples_is_three():
@@ -747,5 +747,168 @@ def test_comparison_contents_two_separate_handles(monkeypatch):
     assert captured["distinct"] is True
     assert captured["ref"] is ref_handle
     assert captured["student"] is student_handle
+
+
+# ─────────────── Task 2 — precision/support 게이트 + 자원 bound (H1, H6, MED-1) ───────────────
+
+
+def _diff(body_part, severity="moderate", dev=10.0):
+    return {
+        "body_part": body_part, "severity": severity,
+        "approx_angle_deviation_deg": dev,
+        "correct_state": "신전", "fault_state": "굽음",
+    }
+
+
+def test_resource_bound_constants_defined():
+    """MAX_VETO_CALLS/MAX_VETO_UPLOADS/MAX_VETO_WALL_S 상수 존재 (H6)."""
+    assert isinstance(gvs.MAX_VETO_CALLS, int) and gvs.MAX_VETO_CALLS > 0
+    assert isinstance(gvs.MAX_VETO_UPLOADS, int) and gvs.MAX_VETO_UPLOADS > 0
+    assert gvs.MAX_VETO_WALL_S > 0
+    # support 게이트 상수 generic (특정 동작명 0).
+    assert isinstance(gvs.VETO_SUPPORT_K, int) and gvs.VETO_SUPPORT_K >= 1
+
+
+def test_single_frame_hallucination_does_not_survive_union():
+    """단발 환각 결함(support<K)은 union 에서 drop (H1 핵심)."""
+    # per-call differences: 무릎은 3회(support 충분), 환각 '왼팔'은 1회만.
+    per_call = [
+        [_diff("무릎", "major")],
+        [_diff("무릎", "major")],
+        [_diff("무릎", "major"), _diff("왼팔", "moderate")],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="lower_body", min_support_k=2,
+    )
+    parts = {str(d.get("body_part")) for d in supported}
+    assert any("무릎" in p for p in parts), "support≥K 무릎은 생존"
+    assert not any("왼팔" in p for p in parts), "단발 환각 왼팔은 drop"
+
+
+def test_supported_difference_survives_at_k():
+    """K 이상 support 인 부위별 결함은 union 에 보존 (H1)."""
+    per_call = [
+        [_diff("왼팔", "moderate")],
+        [_diff("left arm", "moderate")],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    # 한·영 alias 가 같은 canonical 키로 합쳐져 K=2 도달.
+    assert len(supported) >= 1
+    assert any("팔" in str(d.get("body_part")) or "arm" in str(d.get("body_part")).lower()
+               for d in supported)
+
+
+def test_root_cause_derived_only_from_supported():
+    """root cause 는 support 통과분에서만 + provenance 보존 (D-13 MED-1)."""
+    per_call = [
+        [_diff("무릎", "major")],
+        [_diff("무릎", "major")],
+        [_diff("왼팔", "moderate")],  # 단발 — drop.
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="lower_body", min_support_k=2,
+    )
+    causes = gvs._derive_root_causes_from_supported_differences(supported)
+    texts = " ".join(getattr(c, "text", "") for c in causes)
+    assert "왼팔" not in texts, "drop 된 환각의 root cause 누출 0"
+    for c in causes:
+        assert hasattr(c, "fault_key")
+        assert hasattr(c, "source_difference_ids")
+        assert hasattr(c, "support_count")
+
+
+def test_all_dropped_yields_zero_root_causes():
+    """모든 difference 가 support 게이트로 drop → root cause 0 (D-13 MED-1)."""
+    per_call = [[_diff("왼팔")], [_diff("오른팔")], [_diff("무릎")]]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=3,
+    )
+    assert supported == []
+    assert gvs._derive_root_causes_from_supported_differences(supported) == []
+
+
+def test_clean_input_severity_none_preserved():
+    """정타(모든 부위 none) → severity none 유지 (위양성 비증가)."""
+    per_call = [
+        [_diff("무릎", "none")],
+        [_diff("무릎", "none")],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="lower_body", min_support_k=1,
+    )
+    # none severity 는 인정 결함 아님 → supported 비어야.
+    assert supported == []
+
+
+class _FakeClock:
+    def __init__(self, ticks):
+        self._ticks = list(ticks)
+        self._i = 0
+
+    def __call__(self):
+        v = self._ticks[min(self._i, len(self._ticks) - 1)]
+        self._i += 1
+        return v
+
+
+def test_fanout_budget_exhaust_before_planned_returns_resource_limited(monkeypatch):
+    """planned call 전부 완료 전 예산(wall-clock) 소진 → resource_limited (D-13 HIGH-2, Option A)."""
+    calls = {"n": 0}
+
+    def _spy(client, ref_uploaded, student_uploaded, at_seconds, part_scope=None):
+        calls["n"] += 1
+        return '{"motion":"x","dominant_severity":"moderate","primary_fault":"다리","differences":[]}'
+
+    monkeypatch.setattr(gvs, "_call_gemini_comparison", _spy)
+    # wall-clock 이 두 번째 호출 후 budget 초과하도록 ticks 설정.
+    clock = _FakeClock([0.0, 0.0, 999.0, 999.0, 999.0, 999.0])
+    out = gvs._run_part_frame_fanout(
+        _ImageClient(), MagicMock(), MagicMock(),
+        part_scopes=["upper_body", "lower_body", "line"],
+        at_seconds=None,
+        clock=clock,
+        wall_budget_s=10.0,
+    )
+    assert out["status"] == "resource_limited", out
+    assert out["telemetry"]["samplingComplete"] is False
+    assert out["telemetry"]["completedCalls"] < out["telemetry"]["plannedCalls"]
+
+
+def test_fanout_complete_returns_verdict_sampling_complete(monkeypatch):
+    """planned call 전부 완료 → applied 후보 verdict + samplingComplete=true."""
+    def _spy(client, ref_uploaded, student_uploaded, at_seconds, part_scope=None):
+        return '{"motion":"x","dominant_severity":"moderate","primary_fault":"다리","differences":[{"body_part":"무릎","severity":"moderate","approx_angle_deviation_deg":12}]}'
+
+    monkeypatch.setattr(gvs, "_call_gemini_comparison", _spy)
+    clock = _FakeClock([0.0] * 20)
+    out = gvs._run_part_frame_fanout(
+        _ImageClient(), MagicMock(), MagicMock(),
+        part_scopes=["upper_body", "lower_body", "line"],
+        at_seconds=None,
+        clock=clock,
+        wall_budget_s=1000.0,
+    )
+    assert out["status"] == "candidate_verdict", out
+    assert out["telemetry"]["samplingComplete"] is True
+    assert out["telemetry"]["completedCalls"] == out["telemetry"]["plannedCalls"]
+
+
+def test_still_cache_key_includes_selector_version():
+    """still 경로 cache 키가 selector_version 다르면 다른 키 + whole 와 충돌 0 (H3)."""
+    k_whole = gvs.VisionVetoCache.build_key(
+        video_hash="abc", model_name="m", input_granularity="whole",
+    )
+    k_a = gvs.VisionVetoCache.build_key(
+        video_hash="abc", model_name="m", input_granularity="frame_pair",
+        selector_version="sel1", frame_indices=[10, 20], top_k=2, window="w3",
+    )
+    k_b = gvs.VisionVetoCache.build_key(
+        video_hash="abc", model_name="m", input_granularity="frame_pair",
+        selector_version="sel2", frame_indices=[10, 20], top_k=2, window="w3",
+    )
+    assert k_a != k_b, "selector_version 다르면 다른 키"
+    assert k_whole != k_a, "frame_pair 키는 whole 와 충돌 0"
 
 

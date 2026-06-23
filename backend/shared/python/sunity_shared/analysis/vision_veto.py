@@ -142,8 +142,12 @@ _HIGHLIGHT_KEYPOINTS = (
 _PART_KEYWORDS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
     # (keyword 들, base joint 들) — 먼저 매칭되는 항목 우선 아님(전부 union).
     (("스트래들", "straddle", "스플릿", "split", "가랑이", "벌려"), ("__legs_both__",)),
+    # 머리/목 (Task 2 D-09 H1) → 최근접 keypoint = 어깨 (미표시 keypoint 선례 ankle→knee).
+    (("머리", "고개", "목", "head", "neck"), ("shoulder",)),
     (("어깨", "shoulder"), ("shoulder",)),
     (("팔꿈치", "elbow"), ("hand",)),
+    # 그립/손바닥 (Task 2) → 손 (그립 풀림/손 떨어짐 결함 위치).
+    (("그립", "grip", "손바닥"), ("hand",)),
     (("손목", "wrist", "손", "hand"), ("hand",)),
     (("팔", "arm"), ("hand", "shoulder")),
     (("무릎", "knee"), ("knee",)),
@@ -154,6 +158,139 @@ _PART_KEYWORDS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
     (("코어", "core", "몸통", "torso", "허리", "등", "back",
       "라인", "line", "정렬", "alignment", "상체", "trunk"), ("__trunk__",)),
 )
+
+
+# ---------------------------------------------------------------------------
+# FaultKey — canonical 결함 키 단일 직렬화 owner (Task 2, D-17 MED-3 + D-09 HIGH-2).
+#
+# support/recall 집계가 raw body_part 문자열이 아니라 canonical FaultKey 로 센다 —
+# "왼팔/left arm/왼쪽 팔꿈치" alias 가 한 키로 합쳐지고(좌/우팔 recall 손실 방지),
+# 모호한 "팔"은 side="unknown"(양쪽 부풀림 방지). 23-03 manifest expected_recall_keys
+# 와 result recall_set 이 이 단일 어휘를 공유한다(VisionFaultContext.to_trace_dict 도
+# FaultKey.to_dict 어휘를 방출). from_dict 가 enum 밖 값을 거부(raise)해 Pod 결과를
+# 보기 전 unknown fault_kind 를 차단한다.
+#
+# 어휘는 generic — 동작명/curve-fit 금지(D-06). fault_kind 는 결함 종류의 거친 분류만.
+# ---------------------------------------------------------------------------
+FAULT_PART_SCOPES = ("upper_body", "core", "lower_body", "line")
+FAULT_SIDES = ("left", "right", "unknown")
+FAULT_KEYPOINT_SETS = (
+    "arm", "shoulder", "leg", "hip", "head_neck", "grip", "torso", "line",
+)
+FAULT_KINDS = (
+    "pole_gap_or_bent",        # 폴-갭/굽음 (팔/그립이 폴에서 떨어짐·굽음)
+    "extension_or_alignment",  # 신전 부족/정렬 흐트러짐
+)
+
+
+def _faultkey_validate(part_scope, side, keypoint_set, fault_kind):
+    """locked enum 검증 — 밖 값이면 ValueError (D-17 MED-3)."""
+    if part_scope not in FAULT_PART_SCOPES:
+        raise ValueError(f"unknown part_scope: {part_scope!r}")
+    if side not in FAULT_SIDES:
+        raise ValueError(f"unknown side: {side!r}")
+    if keypoint_set not in FAULT_KEYPOINT_SETS:
+        raise ValueError(f"unknown keypoint_set: {keypoint_set!r}")
+    if fault_kind not in FAULT_KINDS:
+        raise ValueError(f"unknown fault_kind: {fault_kind!r}")
+
+
+from dataclasses import dataclass  # noqa: E402 — FaultKey 정의 직전 local import
+
+
+@dataclass(frozen=True)
+class FaultKey:
+    """canonical 결함 키 (단일 직렬화 owner). part_scope/side/keypoint_set/fault_kind."""
+
+    part_scope: str
+    side: str
+    keypoint_set: str
+    fault_kind: str
+
+    def to_dict(self) -> dict:
+        """정규화 dict (enum 검증 후). to_trace_dict 어휘와 동일 (D-17 MED-3)."""
+        _faultkey_validate(
+            self.part_scope, self.side, self.keypoint_set, self.fault_kind
+        )
+        return {
+            "part_scope": self.part_scope,
+            "side": self.side,
+            "keypoint_set": self.keypoint_set,
+            "fault_kind": self.fault_kind,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FaultKey":
+        """dict → FaultKey. enum 밖 값(unknown fault_kind 등)은 raise (D-17 MED-3)."""
+        part_scope = str((d or {}).get("part_scope", ""))
+        side = str((d or {}).get("side", ""))
+        keypoint_set = str((d or {}).get("keypoint_set", ""))
+        fault_kind = str((d or {}).get("fault_kind", ""))
+        _faultkey_validate(part_scope, side, keypoint_set, fault_kind)
+        return cls(part_scope, side, keypoint_set, fault_kind)
+
+
+_KEYPOINT_SET_BY_KEYWORD: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("머리", "고개", "목", "head", "neck"), "head_neck"),
+    (("그립", "grip", "손바닥"), "grip"),
+    (("팔꿈치", "elbow", "손목", "wrist", "손", "hand", "팔", "arm"), "arm"),
+    (("어깨", "shoulder", "견갑"), "shoulder"),
+    (("무릎", "knee", "허벅지", "thigh", "종아리", "정강이", "다리", "leg",
+      "발목", "ankle", "발", "foot", "스플릿", "split", "스트래들", "straddle"), "leg"),
+    (("엉덩이", "골반", "hip", "pelvis", "둔부", "코어", "core", "허리"), "hip"),
+    (("라인", "line", "정렬", "alignment", "몸통", "torso", "trunk"), "line"),
+)
+
+
+def _keypoint_set_for(body_part: str) -> str:
+    """body_part → canonical keypoint_set (FaultKey 집계용). 미상은 'torso'."""
+    part = str(body_part or "").lower()
+    for keywords, kp_set in _KEYPOINT_SET_BY_KEYWORD:
+        if any(kw.lower() in part for kw in keywords):
+            return kp_set
+    return "torso"
+
+
+def _fault_kind_for(difference: dict) -> str:
+    """difference → canonical fault_kind. 폴-갭/떨어짐/풀림 → pole_gap_or_bent, 그 외 신전/정렬."""
+    text = " ".join(
+        str((difference or {}).get(k, ""))
+        for k in ("body_part", "fault_state", "ipsf_note", "correct_state")
+    ).lower()
+    gap_markers = ("떨어", "갭", "gap", "풀림", "풀려", "굽", "bent", "벌어")
+    if any(m in text for m in gap_markers):
+        return "pole_gap_or_bent"
+    return "extension_or_alignment"
+
+
+def fault_key_from_difference(difference: dict, *, part_scope_hint: str = "line") -> FaultKey:
+    """Gemini difference → canonical FaultKey (support/recall 집계 키, D-09 HIGH-2)."""
+    body_part = str((difference or {}).get("body_part", ""))
+    sides = _sides_for(body_part.lower())
+    side = sides[0] if len(sides) == 1 else "unknown"
+    keypoint_set = _keypoint_set_for(body_part)
+    part_scope = part_scope_hint if part_scope_hint in FAULT_PART_SCOPES else "line"
+    fault_kind = _fault_kind_for(difference)
+    return FaultKey(
+        part_scope=part_scope, side=side,
+        keypoint_set=keypoint_set, fault_kind=fault_kind,
+    )
+
+
+@dataclass(frozen=True)
+class RootCauseHypothesis:
+    """support 게이트 통과분에서만 유도된 원인 가설 (provenance 보존, D-13 MED-1).
+
+    text = 원인 설명(자연어, 숫자 점수 금지). fault_key = canonical FaultKey.
+    source_difference_ids = 이 가설을 뒷받침한 difference 식별자 tuple. support_count =
+    canonical 키 support 수. support 게이트가 drop 한 환각 difference 의 root cause 는
+    여기 도달하지 않는다(one-frame 설명 재발 방지).
+    """
+
+    text: str
+    fault_key: FaultKey
+    source_difference_ids: tuple
+    support_count: int
 
 
 def _sides_for(text: str) -> tuple[str, ...]:

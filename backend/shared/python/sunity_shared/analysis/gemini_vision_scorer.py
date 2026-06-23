@@ -67,8 +67,8 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v8.0"  # v8.0 (Phase 23-01): still-frame 비교 + 부위별 프롬프트 fan-out(상체/하체/라인 part_scope 토큰). 입력 granularity 가 whole-video → DTW worst-pose still-pair 로 교체 → cache 무효화
-SCHEMA_VERSION = "v6.0"  # v6.0 (Phase 23-01): support-게이트 집계 verdict = 새 cache generation
+PROMPT_VERSION = "v9.0"  # v9.0 (Phase 23-02): 비교 프롬프트에 원인 가설("~로 보임", source=vision_hypothesis) 지시 추가. 칸 수치는 코드 산출이라 Gemini 에 칸/percent 요청 0 (D-04/D-08). prompt bump → cache 무효화
+SCHEMA_VERSION = "v7.0"  # v7.0 (Phase 23-02): differences[] 에 root_cause_hypothesis + source(geometry|vision_hypothesis) DESCRIPTIVE 필드 추가 (score-free, percent-free, D-04/D-06/D-08)
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
 #
@@ -180,6 +180,27 @@ def build_schema() -> dict:
                             "enum": list(_SEVERITY_ENUM),
                         },
                         "ipsf_note": {"type": "string"},
+                        # 23-02 Task 3 (D-04) — DESCRIPTIVE 원인 가설 + provenance.
+                        # root_cause_hypothesis 는 "~로 보임" 가설형 자유텍스트 (단정·숫자
+                        # 점수 금지). 이 per-difference 필드는 raw 후보일 뿐 — coach/audit
+                        # 으로 흐르는 root cause 는 23-01 Task 2 의 support 게이트 통과분만
+                        # (_derive_root_causes_from_supported_differences, D-13 MED-1).
+                        # support 미달 difference 의 root_cause_hypothesis 는 폐기된다.
+                        "root_cause_hypothesis": {
+                            "type": "string",
+                            "description": (
+                                "가능한 원인 가설 ('힘 부족으로 보임' 류 '~로 보임' 가설형). "
+                                "단정 금지, 숫자 점수 금지, 사람-라벨 ground truth 금지."
+                            ),
+                        },
+                        # source provenance — geometry(코드 산출) vs vision_hypothesis
+                        # (Gemini 관찰/가설). 칸 수치는 코드가 계산하므로 Gemini 가 보고하는
+                        # 모든 difference 는 vision_hypothesis 가 기본 (D-08).
+                        "source": {
+                            "type": "string",
+                            "enum": ["geometry", "vision_hypothesis"],
+                            "description": "측정 프로비넌스. Gemini 관찰/가설=vision_hypothesis.",
+                        },
                     },
                     "required": [
                         "body_part",
@@ -306,7 +327,15 @@ _COMPARISON_PROMPT = """\
    구체적으로 채우세요.
 7. primary_fault = 기준 대비 가장 지배적인 단일 편차 (편차 없으면 '없음'). dominant_severity
    는 영상 전체의 **지배적** 편차 수준 1개 (개수가 아니라 가장 심한 정도 기준).
-8. 한국어로 작성. 비교가 불확실하면 confidence 를 낮게 표기."""
+8. **거리는 절대 cm/m 로 표기하지 마세요. 또한 "칸"·"몇 배"·percent("%"/"100%") 같은
+   정량 수치를 만들어내지 마세요** — 그런 수치는 코드가 keypoint 로 결정적으로 계산합니다.
+   당신은 차이의 **방향/관찰**(예: '기준보다 무릎이 더 굽음', '손이 폴에서 떨어짐')만 기술하세요.
+9. **각 difference 에 가능한 원인 가설(root_cause_hypothesis)을 "~로 보임" 가설형으로
+   적으세요** (예: '코어 힘이 부족해 골반이 처진 것으로 보임', '폴 밀착이 풀린 것으로 보임').
+   단정하지 말고(틀렸다/잘못됐다 금지), 사람 점수·등급 라벨을 ground truth 로 쓰지 마세요.
+   확실하지 않으면 원인을 생략하거나 confidence 를 낮게. 각 difference 의 source 는
+   'vision_hypothesis' 로 표기하세요(당신은 관찰·가설, 칸 수치는 코드가 계산).
+10. 한국어로 작성. 비교가 불확실하면 confidence 를 낮게 표기."""
 
 
 def _build_comparison_prompt(at_seconds: float | None) -> str:

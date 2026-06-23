@@ -625,9 +625,9 @@ def test_samples_count_invalidates_cache(
 
 
 def test_prompt_schema_version():
-    """PROMPT_VERSION = v8.0 (still-frame + 부위별 fan-out, Phase 23-01). SCHEMA_VERSION = v6.0."""
-    assert PROMPT_VERSION == "v8.0"
-    assert SCHEMA_VERSION == "v6.0"
+    """PROMPT_VERSION = v9.0 / SCHEMA_VERSION = v7.0 (Phase 23-02: 원인 가설 + source provenance)."""
+    assert PROMPT_VERSION == "v9.0"
+    assert SCHEMA_VERSION == "v7.0"
 
 
 def test_default_samples_is_three():
@@ -910,5 +910,76 @@ def test_still_cache_key_includes_selector_version():
     )
     assert k_a != k_b, "selector_version 다르면 다른 키"
     assert k_whole != k_a, "frame_pair 키는 whole 와 충돌 0"
+
+
+# ─────────────── Task 3 (23-02) — DESCRIPTIVE 원인 가설 + source provenance ───────────────
+
+
+def test_schema_has_root_cause_and_source_descriptive():
+    """build_schema 의 differences[] 에 root_cause_hypothesis + source DESCRIPTIVE 필드 (D-04)."""
+    keys = _walk_property_keys(build_schema())
+    assert "root_cause_hypothesis" in keys
+    assert "source" in keys
+
+
+def test_schema_no_score_field_after_root_cause_add():
+    """root_cause/source 추가 후에도 schema property 키에 score/overall/rating/percent/100 매칭 0 (MED-3 정밀화).
+
+    description 텍스트의 부정 가드("숫자 점수 금지" 류)는 검사 대상 아님 — property **키**만.
+    """
+    keys = _walk_property_keys(build_schema())
+    forbidden = ("score", "overall", "rating", "점수", "percent", "100")
+    for key in keys:
+        for f in forbidden:
+            assert f not in key.lower(), f"schema property 키 '{key}' 에 forbidden '{f}'"
+
+
+def test_verdict_dataclass_still_score_free():
+    """VisionVerdict 에 score 류 필드 부재 유지 (객관성 hard gate, D-06)."""
+    field_names = {f.name for f in dataclasses.fields(VisionVerdict)}
+    assert field_names == {"primary_fault", "severity", "differences"}
+
+
+def test_comparison_prompt_has_hypothesis_and_no_notch_or_percent_request():
+    """_COMPARISON_PROMPT 에 '~로 보임' 가설 + cm/m 금지 + 칸/percent 산출 요청 0 (D-04/D-08)."""
+    prompt = gvs._COMPARISON_PROMPT
+    # 원인 가설 "~로 보임" 가설형 지시 존재.
+    assert "보임" in prompt
+    assert "root_cause_hypothesis" in prompt
+    assert "vision_hypothesis" in prompt
+    # cm/m 절대거리 금지 명시.
+    assert "cm" in prompt  # "절대 cm/m 로 표기하지 마세요" 금지 지시.
+    # Gemini 에 칸/percent 산출 요청이 없어야 — "%"/"100%" 표기 유도 0.
+    # (prompt 가 percent 를 *금지*하는 문구는 허용 — 유도가 아님.)
+    assert "100%" not in prompt or "만들어내지" in prompt
+
+
+def test_comparison_prompt_generic_no_motion_name_hardcoded():
+    """_COMPARISON_PROMPT 에 특정 동작명(kip-up 등) 하드코딩 0 — generic (D-06)."""
+    prompt = gvs._COMPARISON_PROMPT.lower()
+    for motion in ("kip-up", "kip up", "pdshape", "power-spin", "peter-pan", "climb"):
+        assert motion not in prompt, f"curve-fit 위험 — 동작명 '{motion}' 하드코딩"
+
+
+def test_prompt_schema_version_bumped_for_task3():
+    """PROMPT_VERSION/SCHEMA_VERSION 이 23-01(v8.0/v6.0) 대비 추가 bump (캐시 무효화)."""
+    assert PROMPT_VERSION != "v8.0"
+    assert SCHEMA_VERSION != "v6.0"
+
+
+def test_root_cause_hypothesis_passes_through_parse():
+    """_parse_verdict 가 root_cause_hypothesis/source 를 DESCRIPTIVE 로 통과 (score 필드 추가 0)."""
+    raw = (
+        '{"motion":"x","dominant_severity":"moderate","primary_fault":"무릎 굽음",'
+        '"differences":[{"body_part":"오른 무릎","correct_state":"신전","fault_state":"굽음",'
+        '"severity":"moderate","root_cause_hypothesis":"코어 힘 부족으로 보임",'
+        '"source":"vision_hypothesis"}]}'
+    )
+    verdict = gvs._parse_verdict(raw)
+    assert verdict is not None
+    assert not hasattr(verdict, "score")
+    d0 = verdict.differences[0]
+    assert d0.get("root_cause_hypothesis") == "코어 힘 부족으로 보임"
+    assert d0.get("source") == "vision_hypothesis"
 
 

@@ -1,8 +1,8 @@
 ---
 phase: 24
 slug: transparent-deduction-scoring
-status: draft
-nyquist_compliant: false
+status: planned
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-24
 ---
@@ -41,7 +41,15 @@ created: 2026-06-24
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | TBD | SCORE-09.. | — | N/A (internal math) | unit | `python -m pytest tests/ -q` | ❌ W0 | ⬜ pending |
+| 24-01-T1 | 24-01 | 1 | SCORE-16, SCORE-12 | T-24-01 | contract lockstep; criteria config validated, no final ceiling | unit | `cd backend && python -m pytest tests/test_deduction_engine.py -k "contract or criteria or lockstep" -x -q` + `cd app && npx tsc --noEmit` | ❌ W0 | ⬜ pending |
+| 24-01-T2 | 24-01 | 1 | SCORE-10, SCORE-11, SCORE-12, SCORE-13, SCORE-14, SCORE-15 | T-24-01, T-24-02, T-24-03 | NaN-safe; severity not in arithmetic; coverage-gap not a band | unit | `cd backend && python -m pytest tests/test_deduction_engine.py -x -q` | ❌ W0 | ⬜ pending |
+| 24-01-T3 | 24-01 | 1 | SCORE-10..16 | T-24-01 | V5 input validation via deviation guards | unit | `cd backend && python -m pytest tests/test_deduction_engine.py -x -q && python -m pytest tests/ -q` | ❌ W0 | ⬜ pending |
+| 24-02-T1 | 24-02 | 2 | SCORE-10 | — | band code removed; helpers preserved | unit | `cd backend && python -c "from sunity_shared.analysis import vision_veto; assert not hasattr(vision_veto,'apply_downward_cap')"` | ❌ W0 | ⬜ pending |
+| 24-02-T2 | 24-02 | 2 | SCORE-10, SCORE-13, SCORE-15, SCORE-16 | T-24-04, T-24-05, T-24-06 | nested-array validator; no silent no-op (WARNING+audit) | unit/integration | `cd backend && python -m pytest tests/test_pipeline_deduction_seam.py -x -q` | ❌ W0 | ⬜ pending |
+| 24-02-T3 | 24-02 | 2 | SCORE-10, SCORE-16, SCORE-09 | T-24-05, T-24-06 | determinism; Mode3/toggle preserved | integration | `cd backend && python -m pytest tests/test_pipeline_deduction_seam.py -x -q && python -m pytest tests/ -q` | ❌ W0 | ⬜ pending |
+| 24-03-T1 | 24-03 | 3 | SCORE-16, SCORE-09 | T-24-07 | objectivity; sensitivity honestly deferred | gate | `cd backend && python evals/phase24/assert_gates.py` | ❌ W0 | ⬜ pending |
+| 24-03-T2 | 24-03 | 3 | SCORE-16 | T-24-07 | gates catch planted violations | unit | `cd backend && python -m pytest tests/test_phase24_gates.py -x -q` | ❌ W0 | ⬜ pending |
+| 24-03-T3 | 24-03 | 3 | SCORE-09 | T-24-08, T-24-09 | serial-only Pod sweep; fresh layer/Pod | manual (Pod-serial) | `python backend/scripts/sweep_phase15.py --pair-sequential` then `python backend/evals/phase24/assert_gates.py` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

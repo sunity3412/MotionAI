@@ -809,7 +809,12 @@ Plans:
   5. **일반화** — 정은지(또는 사용자 선택 코치) 정타는 감점합≈0 → 95~100(타깃 아닌 결과), 미보유·above-cutoff 도 정상 고득점. kip-up 등 결함은 측정→감점으로 잡힌다(밴드 없이).
   6. Gemini 가 짚은 결함이 기하 측정항으로 매핑되지 않는 "보이는데 0감점" 케이스가 출하 경로에 없다(coverage gap 로그로 검출).
 
-**Plans:** TBD (`/gsd-plan-phase 24`)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 24-01-PLAN.md — deduction_engine.tally (pure) + ipsf_criteria 6 criterion 그룹 + DEDUCTION_* 3-way 계약 lockstep + 단위 게이트 (Wave 1, SCORE-10/11/12/14/15/16)
+- [ ] 24-02-PLAN.md — vision_veto 밴드 제거(SEVERITY_CAP/apply_downward_cap) + _process veto seam → tally 교체 + deductionBreakdown 저장 + Mode3/토글/정량화 보존 (Wave 2, SCORE-10/13/15/16/09)
+- [ ] 24-03-PLAN.md — phase24/assert_gates.py 4 게이트(추적성/단조성/결정성/일반화) + phase18 밴드 assert 제거 + Pod-serial 일반화 sweep belle 검증 (Wave 3, SCORE-16/09)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

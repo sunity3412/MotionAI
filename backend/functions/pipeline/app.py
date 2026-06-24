@@ -1830,20 +1830,24 @@ def _collect_vision_fault_context(
                     _safe_unlink_local_video(p)
             return _ctx("low_alignment_confidence", frame_pairs=[])
 
-        # (2/3) Gemini 호출 (still-pair or whole-video). production 은 still-pair.
+        # (2/3) Gemini 호출. **production(still-pair) = part-wise fan-out** (23 GAP-FIX).
+        #   assess_fault_context 는 canonical FaultKey + support 게이트 + root cause 를
+        #   보존한 rich dict 를 반환한다 — to_trace_dict 가 faultKeys/geminiCallCount 를
+        #   채운다(Pod eval 의 recall_set=[]/call_count=0 회귀 차단). whole-video 폴백
+        #   (pair is None)은 back-compat 으로 assess_fault_severity 유지.
         try:
             if pair is not None:
-                verdict = gemini_vision_scorer.assess_fault_severity(
-                    local_video_path,
+                rich = gemini_vision_scorer.assess_fault_context(
+                    pair.student_frame_path,
+                    pair.reference_frame_path,
                     at_seconds=at,
-                    reference_video_path=reference_video_path,
-                    student_frame_path=pair.student_frame_path,
-                    reference_frame_path=pair.reference_frame_path,
                     part_scopes=list(gemini_vision_scorer.VETO_PART_SCOPES),
                     frame_indices=[pair.user_frame_idx],
+                    reference_frame_indices=[pair.ref_frame_idx],
                     selector_version=selection.get("selector_version"),
                 )
             else:
+                rich = None
                 verdict = gemini_vision_scorer.assess_fault_severity(
                     local_video_path,
                     at_seconds=at,
@@ -1855,23 +1859,50 @@ def _collect_vision_fault_context(
                 for p in pair.cleanup_paths:
                     _safe_unlink_local_video(p)
 
-        if verdict is None:
-            return _ctx("skipped_error", frame_pairs=[pair] if pair else [])
-        if getattr(verdict, "severity", "none") == "none":
-            return _ctx("no_fault", verdict=verdict,
-                        frame_pairs=[pair] if pair else [], alignment=alignment)
+        # ── still-pair (production) — rich dict 소비 ──
+        if pair is not None:
+            telemetry = dict(rich.get("telemetry") or {})
+            status = rich.get("status")
+            if status == "resource_limited":
+                # 예산 소진 fail-closed (Option A) — verdict 후보 금지.
+                return _ctx("resource_limited", frame_pairs=[pair],
+                            alignment=alignment, telemetry=telemetry)
+            verdict = rich.get("verdict")
+            if verdict is None or status != "candidate_verdict":
+                return _ctx("skipped_error", frame_pairs=[pair],
+                            alignment=alignment, telemetry=telemetry)
+            if getattr(verdict, "severity", "none") == "none":
+                return _ctx("no_fault", verdict=verdict, frame_pairs=[pair],
+                            alignment=alignment, telemetry=telemetry)
 
-        # (4) cap_would_apply — production 동일 cap 함수 (cap 로직 복제 0, D-11 HIGH-1).
+            # (4) cap_would_apply — production 동일 cap 함수 (복제 0, downward-only).
+            capped = vision_veto.apply_downward_cap(overall_score, verdict.severity)
+            cap_would_apply = capped < overall_score
+            return _ctx(
+                "candidate_verdict",
+                verdict=verdict,
+                supported=list(rich.get("supported_differences") or ()),
+                root_causes=list(rich.get("root_cause_hypotheses") or ()),
+                frame_pairs=[pair],
+                alignment=alignment,
+                telemetry=telemetry,
+                cap=cap_would_apply,
+            )
+
+        # ── whole-video 폴백 (pair is None) — back-compat (단일 verdict) ──
+        if verdict is None:
+            return _ctx("skipped_error", frame_pairs=[])
+        if getattr(verdict, "severity", "none") == "none":
+            return _ctx("no_fault", verdict=verdict, frame_pairs=[],
+                        alignment=alignment)
+
         capped = vision_veto.apply_downward_cap(overall_score, verdict.severity)
         cap_would_apply = capped < overall_score
-
-        # support-gated root cause (verdict.differences 가 이미 support 통과분).
-        supported = list(verdict.differences or ())
         return _ctx(
             "candidate_verdict",
             verdict=verdict,
-            supported=supported,
-            frame_pairs=[pair] if pair else [],
+            supported=list(verdict.differences or ()),
+            frame_pairs=[],
             alignment=alignment,
             cap=cap_would_apply,
         )

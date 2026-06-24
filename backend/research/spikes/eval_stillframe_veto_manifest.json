@@ -46,8 +46,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/킵업(잘못된예시).mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:kip-up-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/킵업(잘못된예시).mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:kip-up-correct.mp4"
       }
     },
 
@@ -68,8 +68,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:kip-up-correct.mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:kip-up-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/fixtures:kip-up-correct.mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:kip-up-correct.mp4"
       }
     },
 
@@ -90,8 +90,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 90,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:climb-correct.mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:climb-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/fixtures:climb-correct.mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:climb-correct.mp4"
       }
     },
 
@@ -112,8 +112,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 88,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/fixtures:pdshape-correct.mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:pdshape-correct.mp4"
       }
     },
 
@@ -134,8 +134,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 92,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/fixtures:power-spin-correct.mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:power-spin-correct.mp4"
       }
     },
 
@@ -156,8 +156,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 90,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/fixtures:peter-pan-correct.mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:peter-pan-correct.mp4"
       }
     },
 
@@ -178,8 +178,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/파워스핀(잘못된예시).mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/파워스핀(잘못된예시).mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:power-spin-correct.mp4"
       }
     },
     {
@@ -199,8 +199,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:power-spin-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/fixtures:power-spin-correct.mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:power-spin-correct.mp4"
       }
     },
 
@@ -221,8 +221,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/피터팬(잘못된예시).mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/피터팬(잘못된예시).mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:peter-pan-correct.mp4"
       }
     },
     {
@@ -242,8 +242,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:peter-pan-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/fixtures:peter-pan-correct.mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:peter-pan-correct.mp4"
       }
     },
 
@@ -264,8 +264,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/엘보우트위스트(잘못된예시).mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:elbow-twist-sister-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/엘보우트위스트(잘못된예시).mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:elbow-twist-sister-correct.mp4"
       }
     },
     {
@@ -285,8 +285,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:elbow-twist-sister-correct.mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:elbow-twist-sister-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/fixtures:elbow-twist-sister-correct.mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:elbow-twist-sister-correct.mp4"
       }
     },
 
@@ -307,8 +307,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/피디셰입(잘못된예시).mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/피디셰입(잘못된예시).mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:pdshape-correct.mp4"
       }
     },
     {
@@ -328,8 +328,8 @@
       "case": {
         "mode": "mode1",
         "overall_score": 100,
-        "student_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4",
-        "reference_video": "~/Downloads/정은지 선수 추가 영상/잘된 예시/fixtures:pdshape-correct.mp4"
+        "student_video": "/workspace/datasets/jeongeunji/fixtures:pdshape-correct.mp4",
+        "reference_video": "/workspace/datasets/jeongeunji/fixtures:pdshape-correct.mp4"
       }
     }
   ]

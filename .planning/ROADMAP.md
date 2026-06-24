@@ -331,6 +331,7 @@ Plans:
   - [x] 15-03-PLAN.md — MODE-01 + SCORE-04: 11-ref 필드 검증 + Mode 1 실 E2E + 정은지 위양성 assert (frozen 08.1 baseline, 재calibrate 0)
   - [x] 15-04-PLAN.md — MODE-02: 정은지 fail→success 페어 Mode 3 deltaFromPrevious + 듀얼 coach 실 LLM cross-fill 빈 섹션 0
   - [ ] 15-05-PLAN.md — DELIV-01: eas.json preview env fix → EAS preview 빌드+submit(Claude PASS) → belle 실기기 게스트 완주 핸드오프
+
 **UI hint**: yes
 
 ### Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만
@@ -619,6 +620,7 @@ Plans:
 **Plans:** 4/4 plans complete
 
 Plans:
+
 - [x] 19-01-PLAN.md — Wave 0 RED 테스트 스텁 (SCORE-06/07 + TRUST-01/02/03/05 케이스 + D-05 6 앵커 GPU-skip)
 - [x] 19-02-PLAN.md — **완료 2026-06-18**: 감점식 집계 코어 — kismam.overall_score 가중평균→IPSF 누적감점(_PENALTY_PER_DEG=1.2 [ASSUMED], 단일 major fault 지배) + dimensions.line_score micro-bent <160° 요소무효 0점 [CITED] + overall_from_dimensions min-of-core(stability 종합 분리) + 어깨 COACHING_FOCUS '안정성'→'자세각' + DimensionExplanation.contributesToOverall OPTIONAL 3중 계약. Wave 0 RED 6 케이스 GREEN, 가드 케이스 GREEN, tsc clean, 회귀 0. SCORE-06/07, TRUST-02. (b2d88d3/a856fba)
 - [x] 19-03-PLAN.md — 3D 골격 좌표 정규화 (joints.ts reshapePose3dData recenter+normalize) — TRUST-04
@@ -629,6 +631,7 @@ Plans:
 > **신규 (belle 2026-06-19 결정 — 우선순위 15-05 → 18 → 20).** Phase 19 v1(D-01 감점식)이 angle 채널 결함은 잡았으나(EVAL 변별 4/4), **비-각도형 실패는 여전히 위양성**(kip-up 100/100). belle 가 2026-06-12 이미 정한 해결책 = **Gemini 시각 점수를 채점 path 에 직접 투입**([[score-spec-95-100-elite-vision-fix]]). 새 발명 아님 — v2 비전 거부권 본체. 상세 정의/스펙 = `.planning/phases/20-v2-gemini/20-CONTEXT.md`.
 
 **Goal:** 점수가 자세 품질을 정직하게 반영하게 한다 — Phase 19 v1 이 남긴 **비-각도형 실패 위양성**을 Gemini 시각 점수(per-pose 시각 거부권/교차검증)로 해소하되, **어떤 영상이든 정확**(보유셋 overfit 금지). 구체 3:
+
   1. **kip-up 위양성 해소** — 타이밍/완성도 등 비-각도형 실패를 DTW band 가 흡수하는 angle 채널 맹점에 Gemini 시각 점수가 거부권을 행사. v1 의 결정론적 수치와 비전 판단을 결합하되 기하학은 측정가능 IPSF 기준에만. **[정정 — belle 2026-06-23 D-14 amended ITERATION6: kip-up 잘못된예시 = moderate, 점수 ≤75 (20-04 evidence 75/moderate 일치, ≤50 억지 격상=curve-fit 금지). still-frame regression subset 은 23-03 이 OWN. 아래 '≤50' 스펙은 진짜 틀린/실패 동작용.]**
   2. **상단 변별 + 인식기 결정성** — within-20°=일률 100 이라 good vs perfect 구분 부재 → 비전이 상단 품질 차이를 변별. Gemini 인식기(line 차원 결정)는 LLM 이라 run 변동 가능 → temperature 0 + reference 별 profile 캐싱으로 결정성 박제.
   3. **Mode3 미보유동작 유효성 게이트 + 점수근거 표시** — not_pole 안전게이트가 MODE_EXPERT 블록에만 있어 reference-free Mode 3 는 미보유 동작도 무비판 97 출력([[mode3-scoring-basis-unknown-move-gate]]). 동작분류 분기(IPSF공식/정은지보유/둘다미보유→불확실 표시) + 점수근거 화면 노출.
@@ -659,6 +662,7 @@ Plans:
 **Plans:** 3/4 plans executed
 
 Plans:
+
 - [x] 20-01-PLAN.md — [Wave 1, pod-free] 순수 vision_veto 코어 (apply_downward_cap 하향전용 + SEVERITY_CAP placeholder + worst_pose_timestamp) (SCORE-08)
 - [x] 20-02-PLAN.md — [Wave 1, pod-free] Gemini 결함-심각도 어댑터 (no-score 스키마 + _SCORE_PATTERN 가드 + temp 0 + video-hash 캐시, mocked) (SCORE-08/TRUST-06/08)
 - [x] 20-03-PLAN.md — [Wave 2, pod-free] _apply_vision_veto 본체 swap + visionVeto audit 3-way 계약 + Mode3 미보유 억제 + result.tsx UX (SCORE-08/TRUST-07/08)
@@ -694,6 +698,7 @@ Plans:
 **Scope 경계:** end-user(수강생) 아님 — 전문가/관리자(belle/정은지/코치) 셀프서비스. 채점 알고리즘 변경 아님(Phase 18/20 영역). reference 영상→기준 데이터 생성 자동화에 집중.
 
 **Success Criteria** (plan 에서 정밀화):
+
   1. 새 영상 등록 흐름이 angles + downstream 을 자동 계산·저장 → 등록 즉시 Mode 1 비교 가능 (핵심 갭 해소, GPU 연결)
   2. 업로드 진입점 마련 — belle 가 영상만 올리면 됨 (admin UI 또는 간편 endpoint/CLI; 현재는 S3 key 로 endpoint 직접 호출)
   3. clipRange/checkpoint 자동 제안 + belle 검수 분기 (도메인 오류로 baseline 오염 방지 — Gemini 제안, belle 최종 확인, 미검수는 isActive=false)
@@ -703,6 +708,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 21 to break down)
 
 ---
@@ -714,6 +720,7 @@ Plans:
 **Goal:** Gemini 시각 판정(결함 severity / 동작 인식)을 도메인-특화 오픈 비전 모델로 대체/병행한다. 폴스포츠 공개 영상(대회=정타, 튜토리얼 "흔한 실수"=fault) + 정은지 gold 셋으로 라벨 학습셋을 구성해, 정타를 결함으로 스탬프하지 않고(위양성) 실제 결함을 적정 severity 로 잡는(일반화) 판정기를 확보한다.
 
 **선행으로 꾸준히 쌓을 것 (Phase 20~21 동안 데이터 적재):**
+
 - #4(b) sensitivity/일반화 eval 셋 (미보유 + above-cutoff) — 그대로 학습/검증셋 시드
 - #4(c) reference 라이브러리 확장 (대회 elite 영상)
 - #4(d) severity threshold 경험 데이터
@@ -729,6 +736,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 22 to break down — Phase 21 완료 후)
 
 ---
@@ -768,6 +776,7 @@ Plans:
 **Plans:** 2/3 plans executed
 
 Plans:
+
 - [x] 23-01-PLAN.md — still-frame 입력 swap + 부위별 key-frame union + DTW-confidence 게이팅(low_alignment_confidence status) (VETO-01/02/03)
 - [x] 23-02-PLAN.md — 기준선 정량화 레이어(각도 직접 + 몸-상대 칸/층 텍스트) + 증상→root cause "~로 보임" 가설 코칭 (VETO-04/05)
 - [ ] 23-03-PLAN.md — [POD] still-frame veto eval — kip-up recall 재현 + 위양성 0 + 결정론 + 정렬-약 보류 + non-zero assert 게이트(frozen manifest+lock) + **Phase 20-04 regression subset 흡수 게이트(정은지 95~100 / kip-up fault moderate≤75 / 결정론 cold+warm / EVAL18 변별 4쌍 퇴행0, D-14 amended + D-15 — regression subset 만 supersedes 20-04, SCORE-09 별도 pending)** (VETO-06/SCORE-08/TRUST-06)
@@ -812,8 +821,16 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 24-01-PLAN.md — deduction_engine.tally (pure) + ipsf_criteria 6 criterion 그룹 + DEDUCTION_* 3-way 계약 lockstep + 단위 게이트 (Wave 1, SCORE-10/11/12/14/15/16)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 24-02-PLAN.md — vision_veto 밴드 제거(SEVERITY_CAP/apply_downward_cap) + _process veto seam → tally 교체 + deductionBreakdown 저장 + Mode3/토글/정량화 보존 (Wave 2, SCORE-10/13/15/16/09)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 24-03-PLAN.md — phase24/assert_gates.py 4 게이트(추적성/단조성/결정성/일반화) + phase18 밴드 assert 제거 + Pod-serial 일반화 sweep belle 검증 (Wave 3, SCORE-16/09)
 
 ---

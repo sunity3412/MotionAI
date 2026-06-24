@@ -4,6 +4,8 @@
 **Domain:** Scoring engine refactor (band-cap → transparent deduction-tally) anchored in IPSF Code of Points; pure-Python numpy algorithm core inside the shared Lambda/RunPod pipeline
 **Confidence:** HIGH on existing-code facts (read directly) and IPSF deduction structure (NotebookLM, authoritative). MEDIUM-LOW on the recommended penalty-curve FORM (it is a design recommendation that *diverges* from IPSF's actual fixed-deduction model — flagged below).
 
+> ⚠️ **SUPERSEDED on contract details (2026-06-24, post Codex review).** The PLAN docs (24-01/02/03) are the authoritative execution contract. Two things below are STALE and were corrected in the plans: (1) `DeductionBreakdown` is stored as a single **object** `{baseline, records, final, coverageGaps, fallback}` via `to_dict()`, **not** `to_records()` (a list) — see L119/L123. (2) `points` are **signed-negative**, so the formula is `final = max(0, round(100 + Σ records.points))` (≡ `100 − Σ(-points)`), **not** the `100 − Σ(records.points)` shown at L56/L119/L269/L395. Read the plans, not these lines, for storage shape + sign convention.
+
 ---
 
 <user_constraints>

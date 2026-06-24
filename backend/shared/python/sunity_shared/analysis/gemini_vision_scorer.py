@@ -479,6 +479,112 @@ class VisionVetoCache:
             differences=tuple(diffs),
         )
 
+    # ── rich still-pair round-trip (23 GAP-FIX) ──
+    #
+    # still-frame fan-out 의 산출은 단일 VisionVerdict 가 아니라 rich dict
+    # {status, verdict, supported_differences, root_cause_hypotheses, telemetry} 이다.
+    # cold/warm 결정론 게이트(eval)는 cache hit 가 supported_differences + telemetry 를
+    # byte-stable 재현해야 성립한다. _faultKey(FaultKey)/_sourceIds(tuple)/RootCauseHypothesis
+    # 는 직접 JSON 직렬화 불가이므로 to_dict/from_dict canonical 어휘로 평탄화 후 복원한다
+    # (FaultKey single-owner 어휘 유지, D-17 MED-3). Firestore nested-array 회피 — 리스트 of
+    # flat dict 만 저장.
+
+    def lookup_rich(self, key: str) -> dict | None:
+        """still-pair rich dict 캐시 조회. hit 시 supported/root_cause/telemetry 복원."""
+        if key in self._memory:
+            return self._rich_from_doc(self._memory[key])
+        try:
+            doc = self._backend_get(key)
+        except Exception as exc:  # noqa: BLE001 - Firestore 오류 graceful
+            log.warning("VisionVetoCache rich lookup 실패 (miss 처리): %s", exc)
+            return None
+        if not doc or "rich" not in doc:
+            return None
+        self._memory[key] = dict(doc)
+        return self._rich_from_doc(doc)
+
+    def store_rich(self, key: str, rich: dict) -> None:
+        """still-pair rich dict → flat doc → in-memory + Firestore (실패 graceful)."""
+        doc = self._rich_to_doc(rich)
+        self._memory[key] = dict(doc)
+        try:
+            self._backend_put(key, doc)
+        except Exception as exc:  # noqa: BLE001 - Firestore 오류 graceful
+            log.warning("VisionVetoCache rich store 실패 (in-memory 만 유효): %s", exc)
+
+    @staticmethod
+    def _rich_to_doc(rich: dict) -> dict:
+        verdict = rich.get("verdict")
+        verdict_doc = None
+        if verdict is not None:
+            verdict_doc = {
+                "primary_fault": verdict.primary_fault,
+                "severity": verdict.severity,
+                "differences": list(verdict.differences),
+            }
+        supported_doc = []
+        for d in rich.get("supported_differences") or ():
+            rec = {k: v for k, v in (d or {}).items()
+                   if not str(k).startswith("_")}
+            fk = (d or {}).get("_faultKey")
+            rec["_faultKeyDict"] = fk.to_dict() if fk is not None else None
+            rec["_supportCount"] = int((d or {}).get("_supportCount") or 0)
+            rec["_sourceIds"] = list((d or {}).get("_sourceIds") or ())
+            supported_doc.append(rec)
+        causes_doc = []
+        for rc in rich.get("root_cause_hypotheses") or ():
+            causes_doc.append({
+                "text": rc.text,
+                "faultKeyDict": rc.fault_key.to_dict(),
+                "sourceIds": list(rc.source_difference_ids or ()),
+                "supportCount": int(rc.support_count or 0),
+            })
+        return {
+            "rich": True,
+            "status": str(rich.get("status", "")),
+            "verdict": verdict_doc,
+            "supported_differences": supported_doc,
+            "root_cause_hypotheses": causes_doc,
+            "telemetry": dict(rich.get("telemetry") or {}),
+        }
+
+    @staticmethod
+    def _rich_from_doc(doc: dict) -> dict:
+        from .vision_veto import FaultKey, RootCauseHypothesis
+
+        verdict_doc = doc.get("verdict")
+        verdict = None
+        if verdict_doc:
+            verdict = VisionVerdict(
+                primary_fault=str(verdict_doc.get("primary_fault", "")),
+                severity=str(verdict_doc.get("severity", "")),
+                differences=tuple(verdict_doc.get("differences") or []),
+            )
+        supported = []
+        for rec in doc.get("supported_differences") or ():
+            d = {k: v for k, v in (rec or {}).items()
+                 if k not in ("_faultKeyDict", "_supportCount", "_sourceIds")}
+            fkd = (rec or {}).get("_faultKeyDict")
+            d["_faultKey"] = FaultKey.from_dict(fkd) if fkd else None
+            d["_supportCount"] = int((rec or {}).get("_supportCount") or 0)
+            d["_sourceIds"] = tuple((rec or {}).get("_sourceIds") or ())
+            supported.append(d)
+        causes = []
+        for rc in doc.get("root_cause_hypotheses") or ():
+            causes.append(RootCauseHypothesis(
+                text=str((rc or {}).get("text", "")),
+                fault_key=FaultKey.from_dict((rc or {}).get("faultKeyDict") or {}),
+                source_difference_ids=tuple((rc or {}).get("sourceIds") or ()),
+                support_count=int((rc or {}).get("supportCount") or 0),
+            ))
+        return {
+            "status": str(doc.get("status", "")),
+            "verdict": verdict,
+            "supported_differences": supported,
+            "root_cause_hypotheses": causes,
+            "telemetry": dict(doc.get("telemetry") or {}),
+        }
+
     # ── Firestore-backed I/O (lazy import — D-16). 테스트는 monkeypatch. ──
 
     def _backend_get(self, key: str) -> dict | None:
@@ -777,6 +883,129 @@ def assess_fault_severity(
     # (7) 캐시 저장 후 반환.
     cache.store(key, verdict)
     return verdict
+
+
+def assess_fault_context(
+    student_frame_path: str,
+    reference_frame_path: str,
+    *,
+    at_seconds: float | None = None,
+    part_scopes: list | None = None,
+    frame_indices: list | None = None,
+    reference_frame_indices: list | None = None,
+    selector_version: str | None = None,
+) -> dict:
+    """still-frame 쌍 → 부위별 fan-out rich dict (23 GAP-FIX — production wiring).
+
+    **이것이 23-01/02 part-wise fan-out 의 production 진입점이다.** assess_fault_severity
+    의 whole-video 경로(_aggregate_comparison_verdict)는 differences 에서 `_`-prefixed
+    메타(`_faultKey` 등)를 strip 하므로 recall(faultKeys)이 비어버린다. 이 함수는 두 still
+    IMAGE 를 업로드(_upload_image, NOT _upload_video)한 뒤 _run_part_frame_fanout 을 호출해
+    canonical FaultKey + support 게이트 + root cause 가 보존된 rich dict 를 그대로 반환한다.
+
+    반환 dict: {status, verdict, supported_differences, root_cause_hypotheses, telemetry}.
+      · supported_differences[]._faultKey = FaultKey (to_trace_dict 가 faultKeys 산출).
+      · telemetry.completedCalls = geminiCallCount (to_trace_dict).
+
+    결정론 (D-06, eval cold/warm 게이트): still-granularity cache 키로 rich dict 를
+    round-trip 한다 — cold miss → store_rich, warm hit → 동일 dict(재샘플링 0). cache 키는
+    INPUT_GRANULARITY_FRAME_PAIR 마커 + (student, reference) image hash PAIR + at_seconds +
+    selector_version + frame_indices 로 whole-video 키와 충돌 0.
+
+    객관성/정리 디시플린은 assess_fault_severity 와 동일 — Gemini File API DELETE finally,
+    _SCORE_PATTERN 점수 누출 가드(fan-out 내부 per-call 적용). 어떤 실패도 graceful:
+    status="skipped_error" + 빈 supported/root_cause 로 분석 흐름을 막지 않는다(Pitfall 5).
+    """
+    scopes = list(part_scopes) if part_scopes else list(VETO_PART_SCOPES)
+
+    def _skipped(telemetry: dict | None = None) -> dict:
+        return {
+            "status": "skipped_error",
+            "verdict": None,
+            "supported_differences": [],
+            "root_cause_hypotheses": [],
+            "telemetry": telemetry or {},
+        }
+
+    # (1) adapter-local 전제조건: client (키 부재/SDK 실패 → graceful skipped_error).
+    try:
+        client = _ensure_client()
+    except Exception as exc:  # noqa: BLE001 - Pitfall 5 graceful
+        log.warning("Gemini client 사용 불가 — still 비교 skipped (graceful): %s", exc)
+        return _skipped()
+
+    # (2) student/reference image hash → cache 키 (hash 만 PII 로 로그).
+    try:
+        from .technique_cache import compute_video_hash  # 파일 바이트 hash (이미지 호환).
+
+        student_hash = compute_video_hash(student_frame_path)
+        reference_hash = compute_video_hash(reference_frame_path)
+    except FileNotFoundError:
+        log.warning("still 이미지 없음 — still 비교 skipped (graceful)")
+        return _skipped()
+    except Exception as exc:  # noqa: BLE001 - hash 실패 graceful
+        log.warning("still hash 산출 실패 — skipped (graceful): %s", exc)
+        return _skipped()
+
+    cache = VisionVetoCache()
+    key = VisionVetoCache.build_key(
+        video_hash=student_hash,
+        model_name=DEFAULT_VISION_MODEL,
+        input_granularity=INPUT_GRANULARITY_FRAME_PAIR,
+        at_seconds=at_seconds,
+        reference_hash=reference_hash,
+        selector_version=selector_version,
+        frame_indices=frame_indices,
+    )
+
+    # (3) cache hit → rich dict 결정론 반환 (Gemini 호출 0, 재샘플링 0).
+    cached = cache.lookup_rich(key)
+    if cached is not None:
+        log.info("VisionVetoCache rich hit: %s", student_hash[:8])
+        tel = dict(cached.get("telemetry") or {})
+        tel["cacheKey"] = key
+        tel["cacheHit"] = True
+        cached["telemetry"] = tel
+        return cached
+
+    # (4) miss → 두 still IMAGE 업로드(영상 아님) + part-wise fan-out.
+    student_uploaded = None
+    ref_uploaded = None
+    try:
+        student_uploaded = _upload_image(client, student_frame_path)
+        ref_uploaded = _upload_image(client, reference_frame_path)
+        result = _run_part_frame_fanout(
+            client, ref_uploaded, student_uploaded,
+            part_scopes=scopes, at_seconds=at_seconds,
+        )
+    except Exception as exc:  # noqa: BLE001 - 업로드/fan-out 실패 graceful (Pitfall 5)
+        log.warning("still fan-out 실패 — skipped (graceful): %s", exc)
+        return _skipped()
+    finally:
+        # 업로드 still 이미지 정리 — Gemini File API 저장소 누수 방지(48h TTL 전 배치
+        # sweep 한도 소진 → 429). cache hit 는 재업로드 0 이라 삭제해도 결정론 영향 0.
+        for _handle in (student_uploaded, ref_uploaded):
+            _name = getattr(_handle, "name", None)
+            if not _name:
+                continue
+            try:
+                client.files.delete(name=_name)
+            except Exception:  # noqa: BLE001 - 정리 실패는 분석을 막지 않는다
+                log.warning("Gemini 업로드 파일 삭제 실패 (graceful): %s", _name)
+
+    # (5) telemetry 보강 — eval 하네스/trace 가 읽는 키 (cacheKey/Hit/frameIndices).
+    tel = dict(result.get("telemetry") or {})
+    tel["cacheKey"] = key
+    tel["cacheHit"] = False
+    if frame_indices is not None:
+        tel["studentFrameIndices"] = list(frame_indices)
+    if reference_frame_indices is not None:
+        tel["referenceFrameIndices"] = list(reference_frame_indices)
+    result["telemetry"] = tel
+
+    # (6) cache 저장 후 반환 (resource_limited 도 저장 — 동일 입력 결정론 재현).
+    cache.store_rich(key, result)
+    return result
 
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────

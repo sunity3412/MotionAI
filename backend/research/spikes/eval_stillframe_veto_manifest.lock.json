@@ -1,0 +1,358 @@
+{
+  "manifest_sha256": "700330edbac0f781231a2d59508559ac0e8a1940e2d61186cb7f224b66122217",
+  "lock_git_commit": "f857f6815859a02e3d3c919789e8f33a39e36082",
+  "dirty_worktree": false,
+  "created_at": "2026-06-24T01:30:00Z",
+  "row_ids": [
+    "eval18-kip-up-fault",
+    "elite-clean-eunji",
+    "imperfect-clean-student",
+    "occluded-clean",
+    "spinning-clean",
+    "tempo-shifted-clean",
+    "eval18-power-spin-fault",
+    "eval18-power-spin-success",
+    "eval18-peter-pan-fault",
+    "eval18-peter-pan-success",
+    "eval18-elbow-twist-fault",
+    "eval18-elbow-twist-success",
+    "eval18-pdshape-fault",
+    "eval18-pdshape-success"
+  ],
+  "expected_policy": {
+    "eval18-kip-up-fault": {
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": [
+        "applied"
+      ],
+      "expected_severity": "moderate",
+      "max_score": 75,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [
+        "direct_adapter_still"
+      ],
+      "expected_recall_keys": [
+        {
+          "part_scope": "upper_body",
+          "side": "left",
+          "keypoint_set": "arm",
+          "fault_kind": "pole_gap_or_bent"
+        },
+        {
+          "part_scope": "upper_body",
+          "side": "right",
+          "keypoint_set": "arm",
+          "fault_kind": "pole_gap_or_bent"
+        },
+        {
+          "part_scope": "upper_body",
+          "side": "unknown",
+          "keypoint_set": "head_neck",
+          "fault_kind": "extension_or_alignment"
+        }
+      ]
+    },
+    "elite-clean-eunji": {
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": [
+        "none",
+        "not_applicable"
+      ],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [
+        "direct_adapter_still"
+      ],
+      "expected_recall_keys": []
+    },
+    "imperfect-clean-student": {
+      "expected_bucket": "evaluable_non_fault",
+      "allowed_veto_statuses": [
+        "none",
+        "not_applicable"
+      ],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "occluded-clean": {
+      "expected_bucket": "evaluable_non_fault",
+      "allowed_veto_statuses": [
+        "none",
+        "not_applicable"
+      ],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "spinning-clean": {
+      "expected_bucket": "evaluable_non_fault",
+      "allowed_veto_statuses": [
+        "none",
+        "not_applicable"
+      ],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "tempo-shifted-clean": {
+      "expected_bucket": "evaluable_non_fault",
+      "allowed_veto_statuses": [
+        "none",
+        "not_applicable",
+        "low_alignment_confidence"
+      ],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": true,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "eval18-power-spin-fault": {
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": [
+        "applied",
+        "not_applicable"
+      ],
+      "expected_severity": "moderate",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "eval18-power-spin-success": {
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": [
+        "none",
+        "not_applicable"
+      ],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "eval18-peter-pan-fault": {
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": [
+        "applied",
+        "not_applicable"
+      ],
+      "expected_severity": "moderate",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "eval18-peter-pan-success": {
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": [
+        "none",
+        "not_applicable"
+      ],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "eval18-elbow-twist-fault": {
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": [
+        "applied",
+        "not_applicable"
+      ],
+      "expected_severity": "moderate",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "eval18-elbow-twist-success": {
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": [
+        "none",
+        "not_applicable"
+      ],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "eval18-pdshape-fault": {
+      "expected_bucket": "must_drop",
+      "allowed_veto_statuses": [
+        "applied",
+        "not_applicable"
+      ],
+      "expected_severity": "moderate",
+      "max_score": 100,
+      "min_score": 0,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    },
+    "eval18-pdshape-success": {
+      "expected_bucket": "must_stay_high",
+      "allowed_veto_statuses": [
+        "none",
+        "not_applicable"
+      ],
+      "expected_severity": "none",
+      "max_score": 100,
+      "min_score": 95,
+      "abstention_allowed": false,
+      "budget_stress": false,
+      "alignment_unverifiable": false,
+      "required_arms": [
+        "production_still",
+        "whole_video_baseline"
+      ],
+      "optional_arms": [],
+      "expected_recall_keys": []
+    }
+  },
+  "regression_pairs": [
+    {
+      "pair_id": "eval18-power-spin",
+      "fault_row_id": "eval18-power-spin-fault",
+      "success_row_id": "eval18-power-spin-success",
+      "min_margin": 1
+    },
+    {
+      "pair_id": "eval18-peter-pan",
+      "fault_row_id": "eval18-peter-pan-fault",
+      "success_row_id": "eval18-peter-pan-success",
+      "min_margin": 1
+    },
+    {
+      "pair_id": "eval18-elbow-twist",
+      "fault_row_id": "eval18-elbow-twist-fault",
+      "success_row_id": "eval18-elbow-twist-success",
+      "min_margin": 1
+    },
+    {
+      "pair_id": "eval18-pdshape",
+      "fault_row_id": "eval18-pdshape-fault",
+      "success_row_id": "eval18-pdshape-success",
+      "min_margin": 1
+    }
+  ],
+  "gate_policy": {
+    "clean_coverage_min": 4,
+    "clean_gate_case_classes": [
+      "elite_clean",
+      "imperfect_clean",
+      "occluded",
+      "spinning"
+    ],
+    "alignment_abstention_case_classes": [
+      "tempo_shifted"
+    ],
+    "known_fault_case_classes": [
+      "known_fault"
+    ],
+    "required_arms": [
+      "production_still",
+      "whole_video_baseline"
+    ]
+  }
+}

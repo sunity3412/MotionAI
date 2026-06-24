@@ -623,3 +623,124 @@ class TestQuantificationSeamProduces:
         assert i_collect < i_coach, "collect 가 coach 이전"
         assert i_coach < i_build, "coach 가 build_result 이전"
         assert i_build < i_quant < i_apply, "build_result → quantification → apply 순서"
+
+
+# ─────────────── 23 GAP-FIX — still-pair fan-out wiring (faultKeys 흐름 회귀) ───────────────
+
+
+class TestStillPairFanoutWiring:
+    """production still-pair 경로가 part-wise fan-out 의 rich dict 를 소비해 trace 에
+    faultKeys + geminiCallCount 를 채우는지 회귀 검증 (Pod eval recall_set=[]/call_count=0 차단).
+
+    Gemini 미호출(mock) — assess_fault_context 를 support 통과 difference(_faultKey 부착) +
+    root cause + telemetry 를 든 rich dict 로 대체한다. _build_selected_frame_pair 도 mock 해
+    still-pair 분기(pair is not None)를 강제한다.
+    """
+
+    def _stub_collect(self, monkeypatch, *, rich_status, supported, root_causes,
+                      telemetry):
+        app = _import_pipeline()
+        from sunity_shared.analysis import gemini_vision_scorer, vision_veto
+
+        monkeypatch.setattr(app, "_gemini_vision_veto_enabled", lambda: True)
+        # still-pair 강제 — _build_selected_frame_pair 가 frame path 든 pair 반환.
+        pair = vision_veto.SelectedFramePair(
+            student_frame_path="/tmp/student_worst.png",
+            reference_frame_path="/tmp/ref_match.png",
+            user_frame_idx=12,
+            ref_frame_idx=10,
+            student_confidence=0.9,
+            cleanup_paths=(),
+        )
+        monkeypatch.setattr(app, "_build_selected_frame_pair", lambda **k: pair)
+        # 정렬 게이팅은 single(reference_dtw_match=None) → adoption='single' 경로.
+
+        def _fake_fanout(student_frame_path, reference_frame_path, **k):
+            # production 인자 계약 확인 — still IMAGE path 가 전달돼야 한다.
+            assert student_frame_path == "/tmp/student_worst.png"
+            assert reference_frame_path == "/tmp/ref_match.png"
+            return {
+                "status": rich_status,
+                "verdict": gemini_vision_scorer.VisionVerdict(
+                    primary_fault="다리", severity="moderate",
+                    differences=tuple(
+                        {k2: v for k2, v in d.items() if not str(k2).startswith("_")}
+                        for d in supported
+                    ),
+                ),
+                "supported_differences": supported,
+                "root_cause_hypotheses": root_causes,
+                "telemetry": telemetry,
+            }
+
+        monkeypatch.setattr(
+            gemini_vision_scorer, "assess_fault_context", _fake_fanout
+        )
+        # whole-video 어댑터는 호출되면 안 된다(still-pair 경로). 호출 시 fail.
+        monkeypatch.setattr(
+            gemini_vision_scorer, "assess_fault_severity",
+            lambda *a, **k: pytest.fail("still-pair 경로가 whole-video 어댑터 호출"),
+        )
+        return app, vision_veto
+
+    def test_faultkeys_and_gemini_call_count_flow_through(self, monkeypatch):
+        """support 통과 difference 의 _faultKey 가 to_trace_dict().faultKeys 로 흐른다."""
+        from sunity_shared.analysis import vision_veto
+
+        fk = vision_veto.FaultKey(
+            part_scope="lower_body", side="unknown",
+            keypoint_set="leg", fault_kind="extension_or_alignment",
+        )
+        rc = vision_veto.RootCauseHypothesis(
+            text="무릎: 굽음", fault_key=fk,
+            source_difference_ids=(1, 2), support_count=2,
+        )
+        supported = [{
+            "body_part": "무릎", "severity": "moderate",
+            "approx_angle_deviation_deg": 12.0, "fault_state": "굽음",
+            "_faultKey": fk, "_supportCount": 2, "_sourceIds": (1, 2),
+        }]
+        telemetry = {
+            "completedCalls": 3, "plannedCalls": 3, "uploadCount": 2,
+            "samplingComplete": True,
+        }
+        app, _vv = self._stub_collect(
+            monkeypatch, rich_status="candidate_verdict",
+            supported=supported, root_causes=[rc], telemetry=telemetry,
+        )
+
+        ctx = app._collect_vision_fault_context(
+            overall_score=92,
+            dimension_scores={"angle": 92},
+            mode="mode1",
+            local_video_path="/tmp/student.mp4",
+            reference_video_path="/tmp/ref.mp4",
+            profile=None,
+        )
+        assert ctx.collection_status == "candidate_verdict", ctx.collection_status
+        trace = ctx.to_trace_dict()
+        # 회귀의 핵심 — faultKeys 비어있지 않다 + canonical 어휘.
+        assert trace["faultKeys"], "faultKeys 가 비어있으면 안 됨 (Pod eval 회귀)"
+        assert trace["faultKeys"][0] == fk.to_dict()
+        # geminiCallCount = telemetry.completedCalls.
+        assert trace["geminiCallCount"] == 3
+        assert ctx.cap_would_apply is True  # moderate/92 → 75<92.
+
+    def test_resource_limited_is_fail_closed(self, monkeypatch):
+        """fan-out 예산 소진(resource_limited) → candidate 후보 금지, status 보존 (Option A)."""
+        telemetry = {
+            "completedCalls": 1, "plannedCalls": 3, "uploadCount": 2,
+            "samplingComplete": False,
+        }
+        app, _vv = self._stub_collect(
+            monkeypatch, rich_status="resource_limited",
+            supported=[], root_causes=[], telemetry=telemetry,
+        )
+        ctx = app._collect_vision_fault_context(
+            overall_score=92, dimension_scores={"angle": 92}, mode="mode1",
+            local_video_path="/tmp/student.mp4",
+            reference_video_path="/tmp/ref.mp4", profile=None,
+        )
+        assert ctx.collection_status == "resource_limited"
+        assert ctx.cap_would_apply is False
+        assert ctx.to_trace_dict()["geminiCallCount"] == 1

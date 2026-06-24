@@ -912,6 +912,94 @@ def test_still_cache_key_includes_selector_version():
     assert k_whole != k_a, "frame_pair 키는 whole 와 충돌 0"
 
 
+# ─────────────── 23 GAP-FIX — assess_fault_context (production still-pair 진입점) ───────────────
+
+
+@pytest.fixture
+def fake_pair_frames(tmp_path):
+    s = tmp_path / "student_worst.png"
+    r = tmp_path / "ref_match.png"
+    s.write_bytes(b"\x89PNG\r\n\x1a\nstudent")
+    r.write_bytes(b"\x89PNG\r\n\x1a\nreference")
+    return str(s), str(r)
+
+
+def test_assess_fault_context_uploads_images_not_video(monkeypatch, fake_pair_frames):
+    """still-pair 경로는 _upload_image(IMAGE) 만 사용 — _upload_video 호출 0 (23 GAP-FIX)."""
+    _in_memory_cache(monkeypatch)
+    student, ref = fake_pair_frames
+    client = _ImageClient()
+    monkeypatch.setattr(gvs, "_ensure_client", lambda: client)
+    monkeypatch.setattr(
+        gvs, "_upload_video",
+        lambda *a, **k: pytest.fail("still-pair 가 _upload_video 호출 — IMAGE 여야 함"),
+    )
+    monkeypatch.setattr(
+        gvs, "_call_gemini_comparison",
+        lambda *a, **k: '{"motion":"x","dominant_severity":"moderate","primary_fault":"무릎","differences":[{"body_part":"무릎","severity":"moderate","approx_angle_deviation_deg":12}]}',
+    )
+    out = gvs.assess_fault_context(
+        student, ref, at_seconds=1.3,
+        part_scopes=["upper_body", "lower_body", "line"],
+        frame_indices=[12], reference_frame_indices=[10],
+        selector_version="v1",
+    )
+    assert out["status"] == "candidate_verdict", out
+    # 두 IMAGE 업로드 (student + reference).
+    assert client.files.upload_mimes == ["image/png", "image/png"]
+    # 업로드 핸들 정리(File API delete) 호출됨 (저장소 누수 방지).
+    assert len(client.files.deleted) == 2
+
+
+def test_assess_fault_context_cold_warm_determinism(monkeypatch, fake_pair_frames):
+    """cold miss → store, warm hit → 동일 rich dict + 재샘플링 0 (결정론 D-06)."""
+    _in_memory_cache(monkeypatch)
+    student, ref = fake_pair_frames
+    calls = {"n": 0}
+
+    def _spy(client, ref_uploaded, student_uploaded, at_seconds, part_scope=None):
+        calls["n"] += 1
+        return '{"motion":"x","dominant_severity":"moderate","primary_fault":"무릎","differences":[{"body_part":"무릎","severity":"moderate","approx_angle_deviation_deg":12}]}'
+
+    monkeypatch.setattr(gvs, "_ensure_client", lambda: _ImageClient())
+    monkeypatch.setattr(gvs, "_call_gemini_comparison", _spy)
+
+    kwargs = dict(
+        at_seconds=1.3, part_scopes=["upper_body", "lower_body", "line"],
+        frame_indices=[12], reference_frame_indices=[10], selector_version="v1",
+    )
+    cold = gvs.assess_fault_context(student, ref, **kwargs)
+    cold_calls = calls["n"]
+    assert cold["status"] == "candidate_verdict"
+    assert cold["telemetry"]["cacheHit"] is False
+    assert cold_calls > 0
+
+    warm = gvs.assess_fault_context(student, ref, **kwargs)
+    # warm 은 Gemini 재호출 0 (cache hit).
+    assert calls["n"] == cold_calls, "warm hit 가 fan-out 재실행하면 안 됨"
+    assert warm["telemetry"]["cacheHit"] is True
+
+    # supported_differences 의 _faultKey 가 byte-stable 복원 (canonical 어휘).
+    assert len(warm["supported_differences"]) == len(cold["supported_differences"])
+    cold_fk = cold["supported_differences"][0]["_faultKey"].to_dict()
+    warm_fk = warm["supported_differences"][0]["_faultKey"].to_dict()
+    assert cold_fk == warm_fk
+    # root cause provenance 보존.
+    assert len(warm["root_cause_hypotheses"]) == len(cold["root_cause_hypotheses"])
+
+
+def test_assess_fault_context_missing_frame_graceful(monkeypatch):
+    """still 이미지 결측 → skipped_error (graceful, 분석 흐름 차단 0)."""
+    _in_memory_cache(monkeypatch)
+    monkeypatch.setattr(gvs, "_ensure_client", lambda: _ImageClient())
+    out = gvs.assess_fault_context(
+        "/nonexistent/student.png", "/nonexistent/ref.png",
+        part_scopes=["line"],
+    )
+    assert out["status"] == "skipped_error"
+    assert out["supported_differences"] == []
+
+
 # ─────────────── Task 3 (23-02) — DESCRIPTIVE 원인 가설 + source provenance ───────────────
 
 

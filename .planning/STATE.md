@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 23 context gathered
-last_updated: "2026-06-23T02:30:48.039Z"
+stopped_at: Phase 24 context gathered (투명 감점-합산 채점 엔진 — 20 밴드 pivot)
+last_updated: "2026-06-24T06:30:02.059Z"
 last_activity: 2026-06-23 -- Phase 23 execution started
 progress:
-  total_phases: 6
-  completed_phases: 1
+  total_phases: 7
+  completed_phases: 2
   total_plans: 11
-  completed_plans: 7
-  percent: 17
+  completed_plans: 11
+  percent: 29
 ---
 
 # Project State
@@ -636,9 +636,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-22T03:25:48.701Z
+Last session: 2026-06-24T06:30:02.044Z
 
-Stopped at: Phase 23 context gathered
+Stopped at: Phase 24 context gathered (투명 감점-합산 채점 엔진 — 20 밴드 pivot)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -705,7 +705,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/23-mode-1-recall-still-frame-veto-dtw-key-frame/23-CONTEXT.md
+Resume file: .planning/phases/24-transparent-deduction-scoring/24-CONTEXT.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

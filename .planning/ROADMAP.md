@@ -55,6 +55,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 19: 분석 점수 신뢰도 재설계 (vision-hybrid 채점)** - 실증에서 드러난 점수 위양성(정은지 실패영상 Mode1 94점/89%) 근본 수정 — 이중 단순평균 집계 → 감점식 IPSF 정합 + 비전-추론 하이브리드(영상+RTMW 수치 → 품질/결함 판단)를 채점 루프에 투입 + 표시값 정합·라벨·골격 좌표 버그 + Mode3 미보유동작 게이트. 절대원칙: 일반화(어떤 영상이든 정확), 보유셋 overfit 금지. (Phase 15 실증 발견 + Phase 18 eval = 검증 일부) (completed 2026-06-18)
 - [ ] **Phase 20: v2 비전 점수 (Gemini 시각 거부권)** - Phase 19 v1(감점식)이 남긴 점수 위양성을 Gemini 시각 점수로 해소. belle 스펙 게이트 = 같은 정은지 95~100 / 잘못된 동작 ≤50 / Gemini 시각 점수. Phase 18 EVAL baseline = known-answer gate. 대상 3: (1) kip-up 위양성 100/100 — 비-각도형 실패를 DTW가 흡수하는 angle 맹점에 Gemini 시각 거부권, (2) 상단 변별(within-20°=일률 100) + Gemini 인식기 결정성(temp 0 + reference profile 캐싱), (3) Mode3 미보유동작 유효성 게이트(reference-free라 not_pole 미적용) + 점수근거 화면 표시. climb not_pole = 별도 ref-quality 트랙(코드 아님). 구현/eval은 Pod 필요. (Phase 18·19 의존)
 - [ ] **Phase 22: 자체 비전 모델 파인튜닝 (오픈 모델 전환)** - Gemini(닫힌 API라 가중치 파인튜닝 불가) 대신 오픈 비전 모델로 전환해 공개 폴 영상 라벨 데이터로 **실제 가중치 학습**. Phase 20/#4(b)(c)(d)에서 꾸준히 모은 라벨 데이터(정타/fault 버킷 · 미보유 동작 · reference 확장)가 학습셋이 됨. 모델 추상화(PoseEngine/recognizer 인터페이스, [[rtmw-free-stack-pivot]]) 위에서 "꾸준히 쌓다가 됐다 싶을 때 갈아끼기". (Phase 21 이후, belle 2026-06-20 결정)
+- [ ] **Phase 24: 투명 감점-합산 채점 엔진 (severity 밴드 → 측정편차×명시규칙 감점)** - Phase 20 의 `vision_veto.SEVERITY_CAP`+`apply_downward_cap`(severity→고정천장 밴드) 를 **점수 = baseline(100) − Σ(criterion별 측정편차×명시규칙 감점) 엔진**으로 교체. belle 2026-06-24 채점 철학 결정타([[scoring-must-be-transparent-deduction-tally]]): 영상마다 자의적 밴드(major=50)=사람 판단 주입=AI 존재이유 무효 → 동일 규칙 + 실측 편차 + 보고서가 "−X −Y −Z = 점수" 내역 노출. Gemini 강등 = 점수 X, 측정대상/결함 종류만 짚기. 감점 규칙 = `dimensions.py` 기하 tolerance 확장(전 영상 동일 slope), 구조 = criterion 묶음(상관 관절 1회) + criterion별 IPSF severity 상한(최종점수 밴드 아님)·합산. baseline = 사용자 선택 코치=100 / IPSF 공식동작이면 IPSF 기준(D-07 3분기 일반화). 토대 = Phase 23 정량화(각도편차·몸-상대 칸/층) + dimensions.py IPSF. 케이스별 기대점수 manifest(moderate≤75·major=50, 23-03 흡수분 포함) curve-fit 제거. Phase 20 working parts(`gemini_vision_scorer` 결함 짚기·Mode3 게이트·recall)는 보존·재사용. 신규 eval 게이트 = 추적성 + 단조성 + 결정성 + 일반화(미보유+above-cutoff). (Phase 19·20·23 의존, Pod 필요. Phase 22 파인튜닝보다 먼저. belle 2026-06-24 결정.)
 
 ## Phase Details
 
@@ -771,6 +772,45 @@ Plans:
 - [x] 23-02-PLAN.md — 기준선 정량화 레이어(각도 직접 + 몸-상대 칸/층 텍스트) + 증상→root cause "~로 보임" 가설 코칭 (VETO-04/05)
 - [ ] 23-03-PLAN.md — [POD] still-frame veto eval — kip-up recall 재현 + 위양성 0 + 결정론 + 정렬-약 보류 + non-zero assert 게이트(frozen manifest+lock) + **Phase 20-04 regression subset 흡수 게이트(정은지 95~100 / kip-up fault moderate≤75 / 결정론 cold+warm / EVAL18 변별 4쌍 퇴행0, D-14 amended + D-15 — regression subset 만 supersedes 20-04, SCORE-09 별도 pending)** (VETO-06/SCORE-08/TRUST-06)
 
+> ⚠️ **2026-06-24 belle 채점 철학 결정타 — 23-03 의 "kip-up fault moderate≤75" 같은 케이스별 기대점수 밴드는 curve-fit 으로 Phase 24 가 제거·교체.** 23-03 eval 은 recall/위양성0/결정론 게이트로 유지하되, 기대점수 밴드 assert 는 Phase 24 의 추적성·단조성 게이트로 대체된다.
+
+---
+
+### Phase 24: 투명 감점-합산 채점 엔진 (severity 밴드 → 측정편차×명시규칙 감점)
+
+> **신규 (belle 2026-06-24 — Phase 23 Pod eval 도중 채점 철학 결정타).** Phase 20 이 만든 `vision_veto.SEVERITY_CAP{minor:90,moderate:75,major:50}` + `apply_downward_cap=min(overall,cap)` 가 **금지 대상으로 확정**됐다. belle 원문: "육안 판단 불가/사람마다 다른 걸 객관적으로 재려고 AI 쓰는 건데, 내가/너가 '이건 50 넘기지마' 밴드 박으면 그냥 사람이 판단하지 AI가 왜 있냐." severity→고정천장은 영상마다 자의적 = 사람 판단 주입 = AI 존재이유 무효. [[scoring-must-be-transparent-deduction-tally]]
+
+**Goal:** 채점을 **점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점)** 으로 교체하고, 보고서가 **"여기 −X, 여기 −Y, 여기 −Z = 점수"** 감점 내역을 명명백백하게 노출한다. 결과 숫자(50이든 70이든)는 tally 출력일 뿐 범위가 아니다 — 동일 규칙 + 실측 편차 + 계산 노출 → "왜 이 점수?" 항상 추적가능. Phase 20 의 밴드 한 단(`SEVERITY_CAP`/`apply_downward_cap`)만 제거·교체하고, 20 의 working parts(`gemini_vision_scorer` 결함 짚기 = score 0/severity·measured target, Mode3 게이트, score suppression)와 Phase 23 정량화(각도편차·몸-상대 칸/층)·recall 은 보존·재사용한다.
+
+**핵심 설계 (discuss 2026-06-24 박제 — 24-CONTEXT.md ND-01~07):**
+
+- **ND-02 Gemini 강등:** Gemini 는 점수 X. **어디를 측정할지 / 무슨 결함인지**만 짚는다. 점수는 측정값 + 규칙. (`gemini_vision_scorer` severity enum → "측정대상 지목"으로 의미 재해석.)
+- **ND-03 감점 규칙 = 기하 tolerance 확장:** `dimensions.py` 의 tolerance + per-unit penalty(`_LINE_TOL_DEG`/`_PENALTY_PER_DEG` 기존)를 전 차원(각도·라인·거리 칸/층)으로 확장. 동일 형태 단일 규칙, 모든 영상 동일 slope (curve-fit 금지).
+- **ND-04 감점 구조 = criterion 묶음 + IPSF 상한:** 상관 관절은 IPSF criterion 으로 묶어 1회 측정(양다리=다리 신전 1 criterion → 30°+30° 가 −60 안 됨). 각 criterion 감점 = 편차→tolerance(안=0)→곡선, **상한 = 그 fault 의 IPSF severity 가중치(fault 종류별 규칙, 최종점수 밴드 아님)**. criterion 감점 **합산**(평균 금지 — 희석 방지). → 원 20-D05 "worst-pose 지배"를 합산 구조로 supersede.
+- **ND-05 baseline=100:** 사용자가 배우려는 코치(선수) 동작 = 그 사용자에겐 100점(지금 정은지, 흐름상 일반화). IPSF 공식 등재 동작 → IPSF 심사기준이 기준. 기존 20-D07 3분기((1)IPSF공식→IPSF / (2)미등재+코치보유→코치비교 / (3)둘다없음→게이트)와 정합, "reference"를 "사용자 선택 코치"로 일반화. 동작별 기준선([[output-needs-baselined-quantification-layer]]: kip-up=바닥/공중=폴·엉덩이라인)은 측정 토대.
+- **ND-06 측정불가 결함:** 설계 목표 = 매핑 강제 — Gemini 가 짚은 모든 결함은 기하 측정항(각도/거리 칸·층/라인 편차)으로 변환되어 감점된다. **"보이는데 0감점"은 출하 금지(coverage gap)**. 규칙 미작성 시 임시로만 감점 0 + coverage gap 로그(자의적 밴드 주입 절대 금지) → 그 결함의 측정규칙 추가.
+
+**Requirements**: plan 에서 신설 (SCORE-09 흡수 + 신규 — 감점 엔진 교체 / criterion 묶음·IPSF 상한 / Gemini 강등 / baseline 분기 / 측정불가 매핑 / 보고서 감점내역 노출(백엔드 계산·저장; 앱 표시는 후속 UI phase)).
+**Depends on:** Phase 20 (`gemini_vision_scorer` 어댑터 + Mode3 게이트 — 보존·재사용, `SEVERITY_CAP`/`apply_downward_cap` 제거), Phase 23 (정량화 레이어 = 감점 입력, recall), Phase 19 (감점식 집계 코어 `kismam`/`dimensions`). 구현/eval = Pod GPU 필요.
+
+**게이트 (박제 — 변경 금지):**
+
+- **밴드 금지** ([[scoring-must-be-transparent-deduction-tally]]): 최종점수에 고정 천장/하한 금지. fault 종류별 IPSF 상한만 허용(영상 무관 동일 규칙). 케이스별 기대점수 manifest(moderate≤75·major=50) curve-fit 제거.
+- **일반화 hard gate** ([[scoring-redesign-must-generalize-no-overfit]] / [[sensitivity-gate-not-just-elite-low]]): 6페어에 curve-fit 금지. 미보유 + above-cutoff sensitivity 셋으로 위양성↔위음성 양방 검증.
+- **객관성** ([[analysis-objectivity-no-human-scores]]): 사람 점수 라벨 ground truth 금지. 감점은 실측 편차 + 명시 규칙에서만.
+- **결정성** ([[pipeline-not-concurrency-safe-eval-serial]]): 같은 입력 = 같은 감점 내역. eval/sweep 순차만.
+
+**Success Criteria** (plan 에서 정밀화):
+
+  1. `vision_veto.SEVERITY_CAP` + `apply_downward_cap`(severity→고정천장)이 제거되고, 점수 = baseline(100) − Σ(criterion별 측정편차×명시규칙 감점) 엔진으로 교체된다.
+  2. **추적성** — 모든 −점이 명명된 측정 편차 + 명명된 규칙으로 100% 역산되고, 보고서가 "−X(부위) −Y(부위) = 점수" 내역을 백엔드에서 계산·저장한다(앱 표시는 후속 UI phase).
+  3. **단조성** — 측정 편차가 커지면 점수가 반드시 낮아진다(역전 0). 상관 결함이 criterion 묶음으로 1회만 감점되어 폭주하지 않는다.
+  4. **결정성** — 같은 입력 = 같은 감점 내역(temp 0 + 캐싱). Phase 18 exact-score drift 해소.
+  5. **일반화** — 정은지(또는 사용자 선택 코치) 정타는 감점합≈0 → 95~100(타깃 아닌 결과), 미보유·above-cutoff 도 정상 고득점. kip-up 등 결함은 측정→감점으로 잡힌다(밴드 없이).
+  6. Gemini 가 짚은 결함이 기하 측정항으로 매핑되지 않는 "보이는데 0감점" 케이스가 출하 경로에 없다(coverage gap 로그로 검출).
+
+**Plans:** TBD (`/gsd-plan-phase 24`)
+
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*
@@ -781,3 +821,4 @@ Plans:
 *Roadmap updated: 2026-06-02 (Phase 16 신설 — Studio Terminology Foundation. belle 결정: 학원 사용자 1차 진입 시 학원 용어 처리 path 가 v1 필수. 3분기 시스템 (AKA / 정은지 reference / 자동 수집) + IPSF 5트랙 채점 v1 scope (a+c+Page9). NotebookLM IPSF CoP 2024-2025 lookup 결과 박제. MVP 가볍게 + 실증 검증 게이트 통과 후 한 번에 확장 path. Phase 16 은 의존성 없음 → v1 평행 진행 가능. 현장 설문 강사 5-1 "기본기 표준화" + 운영자 5-2 "기술 데이터 표준화" + 운영자 5-2 "폭스탑 3회 분석" 예시 직접 충족.)*
 *Roadmap updated: 2026-06-02 (RTMW free-stack pivot — Phase 1 신규 plan 7개 추가 (01-19 ~ 01-25, gap_closure). 운영 백본 = MediaPipe + MotionBERT → RTMW 133 wholebody (Apache-2.0) 단일 백본 (D-17~D-25). 01-04/01-05/01-14 SUPERSEDED 마킹. 01-18 on hold 유지. Phase 2 BodyNormalizationProfile = RTMW segment 기반 재정의 (D-19, 추후 Phase 2 plan 에서 반영). 출처 = CONTEXT.md D-17~D-25 + /Users/kimtaesung/Downloads/Sunity_v1_개발지시_RTMW무료스택.md + memory rtmw-free-stack-pivot.)*
 *Roadmap updated: 2026-06-02 (Plan 01-20 belle license checkpoint 통과 — Production=rtmw-x-384x288 (commercial_ok, validation-pilot scope), Fallback=rtmw-l-384x288. weights_manifest production_eligible=1. Plan 21 진입 차단 해소. v1.5 에 "RTMW clean weight 경로(B) 출시 hard gate" 박제 — 상업 출시 전 mmpose 공식 commercial-friendly weight 또는 자체 clean-data fine-tune 으로 교체 필요 (belle 지시 별도 plan).)*
+*Roadmap updated: 2026-06-24 (Phase 24 신설 — 투명 감점-합산 채점 엔진. belle 채점 철학 결정타([[scoring-must-be-transparent-deduction-tally]]): Phase 20 의 severity→고정밴드(`SEVERITY_CAP`/`apply_downward_cap`)는 자의적=사람 판단 주입 → 점수=baseline(100)−Σ(측정편차×명시규칙 감점), 보고서가 감점 내역 노출 엔진으로 교체. Gemini 강등(점수X·측정대상만 짚기). Phase 20 은 재설계 아님 — working parts 보존, 밴드 한 단만 신규 phase 가 supersede. 23-03 의 케이스별 기대점수 밴드(moderate≤75) curve-fit → Phase 24 추적성·단조성 게이트로 대체. discuss 결정 = 24-CONTEXT.md ND-01~07. Phase 19·20·23 의존, Pod 필요, Phase 22 보다 먼저.)*

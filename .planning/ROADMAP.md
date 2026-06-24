@@ -812,7 +812,7 @@ Plans:
 **Success Criteria** (plan 에서 정밀화):
 
   1. `vision_veto.SEVERITY_CAP` + `apply_downward_cap`(severity→고정천장)이 제거되고, 점수 = baseline(100) − Σ(criterion별 측정편차×명시규칙 감점) 엔진으로 교체된다.
-  2. **추적성** — 모든 −점이 명명된 측정 편차 + 명명된 규칙으로 100% 역산되고, 보고서가 "−X(부위) −Y(부위) = 점수" 내역을 백엔드에서 계산·저장한다(앱 표시는 후속 UI phase).
+  2. **추적성 (Mode1 scope)** — 모든 −점이 명명된 측정 편차 + 명명된 규칙으로 100% 역산되고, 보고서가 "−X(부위) −Y(부위) = 점수" 내역을 **Mode1(MODE_EXPERT) 경로에서** 백엔드에서 계산·저장한다(앱 표시는 후속 UI phase). **Mode3(MODE_SELF) 는 mode3_held passthrough 로 deductionBreakdown 미산출** — Mode3 절대지표 IPSF/criterion 세션간 델타 감점 내역(ND-05 [[mode3-progress-not-similarity]])은 정직한 후속 phase 후보(이 phase 의 silent gap 아님).
   3. **단조성** — 측정 편차가 커지면 점수가 반드시 낮아진다(역전 0). 상관 결함이 criterion 묶음으로 1회만 감점되어 폭주하지 않는다.
   4. **결정성** — 같은 입력 = 같은 감점 내역(temp 0 + 캐싱). Phase 18 exact-score drift 해소.
   5. **일반화** — 정은지(또는 사용자 선택 코치) 정타는 감점합≈0 → 95~100(타깃 아닌 결과), 미보유·above-cutoff 도 정상 고득점. kip-up 등 결함은 측정→감점으로 잡힌다(밴드 없이).
@@ -823,15 +823,15 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 24-01-PLAN.md — deduction_engine.tally (pure) + ipsf_criteria 6 criterion 그룹 + DEDUCTION_* 3-way 계약 lockstep + 단위 게이트 (Wave 1, SCORE-10/11/12/14/15/16)
+- [ ] 24-01-PLAN.md — deduction_engine.tally (pure, 측정-substrate 입력 + unavailable→dimension fallback) + ipsf_criteria (측정가능 criterion subset + TRACKED deferred coverage gap + per-criterion deviation source) + criterion_for_fault_key (FaultKey vocab 전수) + DEDUCTION_* 3-way 계약 lockstep + 단위 게이트 (Wave 1, SCORE-10/11/12/14/15/16)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 24-02-PLAN.md — vision_veto 밴드 제거(SEVERITY_CAP/apply_downward_cap) + _process veto seam → tally 교체 + deductionBreakdown 저장 + Mode3/토글/정량화 보존 (Wave 2, SCORE-10/13/15/16/09)
+- [ ] 24-02-PLAN.md — vision_veto 밴드 제거(SEVERITY_CAP/apply_downward_cap, to_audit_dict band-free) + _process veto seam → tally 교체(측정 overallScore+deviation substrate 주입) + per-move baseline_kind 도출 + result[deductionBreakdown] 저장(visionVeto analog, complete_analysis 검증·kwarg 없음) + capApplied→tallyFinal 계약 이관 + Mode3/토글/정량화 보존 (Wave 2, SCORE-10/13/15/16/09)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 24-03-PLAN.md — phase24/assert_gates.py 4 게이트(추적성/단조성/결정성/일반화) + phase18 밴드 assert 제거 + Pod-serial 일반화 sweep belle 검증 (Wave 3, SCORE-16/09)
+- [ ] 24-03-PLAN.md — phase24/assert_gates.py 4 게이트(추적성/단조성[fixed-set]/결정성[math+criterion-selection]/일반화) + phase18 verdict·margin assert 제거(밴드 문자열 아님) + Pod-serial 일반화 sweep belle 검증(cold-rerun selection 동일) (Wave 3, SCORE-16/09)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

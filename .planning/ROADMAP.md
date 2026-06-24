@@ -823,11 +823,11 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 24-01-PLAN.md — deduction_engine.tally (pure, 측정-substrate 입력 + baseline_kind string arg + unavailable→dimension fallback) + ipsf_criteria (4 측정가능 criterion: leg_extension/arm_extension/split_angle/line + 5 TRACKED deferred coverage gap = FaultKey 8 set 완전 분할 + per-criterion deviation source) + criterion_for_fault_key (FaultKey vocab 전수+partition) + DEDUCTION_* 3-way 계약 lockstep + 단위 게이트 (Wave 1, SCORE-10/11/12/14/15/16)
+- [ ] 24-01-PLAN.md — deduction_engine.tally (pure, 측정-substrate 입력 + baseline_kind string arg + unavailable→dimension fallback) + ipsf_criteria (4 측정가능 criterion: leg_extension/arm_extension/split_angle/line[substrate profile-gated: 빈 joint_expectations→정직한 0, 밴드 아님 ND-06] + 5 TRACKED deferred coverage gap = FaultKey 8 set 완전 분할 + per-criterion deviation source) + criterion_for_fault_key (FaultKey vocab 전수+partition) + DEDUCTION_* 3-way 계약 lockstep + 단위 게이트 (Wave 1, SCORE-10/11/12/14/15/16)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 24-02-PLAN.md — vision_veto 밴드 제거(SEVERITY_CAP/apply_downward_cap, to_audit_dict band-free) + _process veto seam → tally 교체(측정 overallScore+deviation substrate 주입) + per-move baseline_kind 도출(name/motion_id 문자열 매칭, seam 1회 산출 후 string 으로 apply path 에 thread — engine 은 profile 미수신) + cap_would_apply 보존(severity!=none → eligible_for_coach/coach 주입 유지) + result[deductionBreakdown] 저장(visionVeto analog, complete_analysis 검증·kwarg 없음) + capApplied→tallyFinal 3-way 계약 이관(analysis.ts↔models.py↔contract.md §4) + 깨진 caller 테스트 2개(test_vision_veto/test_pipeline_vision_gate) band-free 이관 + Mode3/토글/정량화 보존 (Wave 2, SCORE-10/13/15/16/09)
+- [ ] 24-02-PLAN.md — vision_veto 밴드 제거(SEVERITY_CAP/apply_downward_cap, to_audit_dict band-free) + _process veto seam → tally 교체(측정 overallScore+deviation substrate 주입) + per-move baseline_kind 도출(name/motion_id 문자열 매칭, seam 1회 산출 후 string 으로 apply path 에 thread — engine 은 profile 미수신) + cap_would_apply 보존 STRICT PARITY(severity in (moderate,major) → 오늘의 coach-injection trigger 정확히 재현, minor/none 미발화 — eligible_for_coach/coach 주입 불변) + result[deductionBreakdown] 저장(visionVeto analog, complete_analysis 검증·kwarg 없음) + capApplied→tallyFinal 3-way 계약 이관(analysis.ts↔models.py↔contract.md §4) + 깨진 caller 테스트 2개(test_vision_veto/test_pipeline_vision_gate) band-free 이관 + Mode3/토글/정량화 보존 (Wave 2, SCORE-10/13/15/16/09)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

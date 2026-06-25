@@ -305,14 +305,14 @@ def test_reach_insufficient_direction():
 def test_deviation_source_per_criterion():
     b = _tally(_measured(leg=40.0), _ctx([_diff("무릎", "굽음")]))
     leg = [r for r in b.records if r.criterion == "leg_extension"][0]
-    assert leg.deviationSource == "ipsf_absolute"
+    assert leg.deviation_source == "ipsf_absolute"
     d = _diff("손", "거리 부족")
     reach = deduction_engine.tally(
         _notch_quant(3.0, 2.0), _ctx([d]), dimension_overall=80,
         measured_deviations={"body_relative_notches": _notch_quant(3.0, 2.0).bodyRelativeNotches},
         dimension_scores=None, baseline_kind="hip_line")
     rr = [r for r in reach.records if r.criterion == "body_relative_reach"][0]
-    assert rr.deviationSource == "reference_relative"
+    assert rr.deviation_source == "reference_relative"
 
 
 def test_body_relative_reach_uses_baseline():
@@ -336,7 +336,7 @@ def test_body_relative_reach_uses_baseline():
             measured_deviations={"body_relative_notches": q.bodyRelativeNotches},
             dimension_scores=None, baseline_kind=bk)
         rr = [r for r in b.records if r.criterion == "body_relative_reach"]
-        out[bk] = (rr[0].points if rr else 0.0, rr[0].baselineKind if rr else None)
+        out[bk] = (rr[0].points if rr else 0.0, rr[0].baseline_kind if rr else None)
     assert out["floor"][0] != out["hip_line"][0]
     assert out["floor"][1] == "floor"
     assert out["hip_line"][1] == "hip_line"
@@ -365,10 +365,10 @@ def test_unavailable_emits_traceable_record():
     fb = [r for r in b.records if r.criterion == "dimension_overall_fallback"]
     assert len(fb) == 1
     rec = fb[0]
-    assert rec.ruleId == "quantification_unavailable_dimension_overall"
+    assert rec.rule_id == "quantification_unavailable_dimension_overall"
     assert rec.unit == "score_delta"
-    assert rec.deviationSource == "dimension_overall"
-    assert rec.baselineValue == 100
+    assert rec.deviation_source == "dimension_overall"
+    assert rec.baseline_value == 100
     assert rec.points < 0
     assert 100 + sum(r.points for r in b.records) == b.final
 
@@ -396,7 +396,7 @@ def test_coverage_gap_no_band():
     # MEDIUM-3 provenance.
     assert gap.get("bodyPart") or gap.get("faultState")
     # never a points<0 ruleId=None record.
-    assert all(not (r.points < 0 and r.ruleId is None) for r in b.records)
+    assert all(not (r.points < 0 and r.rule_id is None) for r in b.records)
 
 
 def test_breakdown_serializes_flat():

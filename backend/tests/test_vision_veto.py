@@ -338,6 +338,32 @@ def test_eligible_for_coach_property():
     assert ctx_held.eligible_for_coach is False
 
 
+def test_low_alignment_collect_status_coach_ineligible_audit_provenance():
+    """24-04(Option A) — low_alignment_confidence 는 collect-side status 로 남고
+    eligible_for_coach 는 False(apply seam 이 measured-eligible 로 라우팅해도 코치 root-cause
+    주입 0). to_audit_dict('applied') 는 collectionStatus=low_alignment_confidence 를 보존해
+    리포트가 측정-only 감점임을 투명하게 보여준다."""
+    assert "low_alignment_confidence" in vision_veto.VISION_FAULT_COLLECTION_STATUSES
+    ctx = vision_veto.VisionFaultContext(
+        collection_status="low_alignment_confidence", verdict=None,
+        supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
+        alignment={}, telemetry={}, cap_would_apply=False,
+    )
+    # candidate_verdict-only 코치 게이트 — low_alignment 은 코치 root-cause 부재.
+    assert ctx.eligible_for_coach is False
+    quant = vision_veto.VisionQuantificationResult(
+        quantificationStatus="available", angleDeltas=None,
+        bodyRelativeNotches=None, windowMedianAngleDeltas=None, warnings=[],
+    )
+    audit = ctx.to_audit_dict(
+        final_status="applied", breakdown_final=62, quantification=quant
+    )
+    assert audit["status"] == "applied"
+    assert audit["collectionStatus"] == "low_alignment_confidence"
+    # verdict None → Gemini-located severity/primaryFault 부재(측정-only).
+    assert "primaryFault" not in audit
+
+
 def test_to_audit_dict_requires_final_args():
     """to_audit_dict 는 final_status 인자 받아야 final-audit 필드 방출. 인자 없으면 미방출 (D-12 HIGH-1)."""
     ctx = vision_veto.VisionFaultContext(

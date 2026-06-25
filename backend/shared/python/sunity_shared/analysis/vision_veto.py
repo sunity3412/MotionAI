@@ -605,6 +605,11 @@ class VisionFaultContext:
         if final_status not in _FINAL_AUDIT_STATUSES:
             raise ValueError(f"unknown final_status: {final_status!r}")
         audit: dict = {"status": final_status}
+        # collect-side provenance 보존 (24-04) — final status(applied/not_applicable) 는
+        # 채점 실행 여부지만, collectionStatus 는 그 채점이 어떤 수집 경로에서 왔는지를 남긴다.
+        # low_alignment_confidence 가 measured-only 감점으로 applied 됐을 때 리포트가
+        # "Gemini-located fault 없이 측정만으로 감점" 임을 투명하게 보여준다(must_have #3).
+        audit["collectionStatus"] = self.collection_status
         if final_status == "applied":
             if breakdown_final is not None:
                 audit["tallyFinal"] = breakdown_final

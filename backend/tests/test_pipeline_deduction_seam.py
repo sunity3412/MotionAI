@@ -302,6 +302,88 @@ def test_coach_gate_band_free_continuity(monkeypatch):
         assert ctx.eligible_for_coach is expect, f"severity={sev} eligible mismatch"
 
 
+# ── 24-04 — low_alignment_confidence measured-seed tally-eligibility ──────────
+
+
+def test_low_alignment_measured_deduction_applied(monkeypatch):
+    """24-04(Option A) — low_alignment_confidence + 측정 편차(BEYOND tol) → measured seed 가
+    감점한다. records 는 ALL measured(deviationSource ∈ {ipsf_absolute, reference_relative}),
+    Gemini-located criterion 0(supported_differences=[]). audit status=applied +
+    collectionStatus=low_alignment_confidence(측정-only provenance)."""
+    _enable(monkeypatch)
+    # collect 가 정렬 약한 still-pair 에 대해 반환하는 모양: low_alignment + verdict None +
+    # 빈 supported_differences + 빈 frame_pairs(Gemini 호출 전 bail). RTMW 측정 leg 편차는
+    # tol 초과 — 정렬-독립이므로 감점되어야 한다.
+    ctx = _ctx("low_alignment_confidence", verdict=None, supported=[], frame_pairs=[])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {"angle": 100}}, ctx,
+        _quant("available"),
+        measured_deviations={"leg_extension": 45.0}, baseline_kind="hip_line",
+    )
+    bd = out["deductionBreakdown"]
+    crits = {r["criterion"] for r in bd["records"]}
+    assert "leg_extension" in crits
+    assert out["overallScore"] == bd["final"]
+    assert out["overallScore"] < 100
+    assert out["visionVeto"]["status"] == "applied"
+    # 측정-only provenance 보존 — Gemini 정렬이 낮았음을 리포트가 투명하게 보여준다.
+    assert out["visionVeto"]["collectionStatus"] == "low_alignment_confidence"
+    # 객관성: 모든 record 가 measured seed criterion(ipsf_absolute/reference_relative).
+    # criteria_for_fault 만 만들 수 있는 Gemini-located record 는 0(supported_differences=[]).
+    sources = {r["deviationSource"] for r in bd["records"]}
+    assert sources <= {"ipsf_absolute", "reference_relative"}
+    assert "dimension_overall" not in sources  # available quant → fallback 아님
+    # low_alignment 은 코치 root-cause 를 주입하지 않는다 (candidate_verdict-only 유지).
+    assert ctx.eligible_for_coach is False
+    assert "faultJoints" not in out["visionVeto"]  # Gemini fault 부재 → 부착 0
+
+
+def test_low_alignment_clean_geometry_not_applicable(monkeypatch):
+    """low_alignment_confidence + 깨끗한 기하(측정 편차 {}) → not_applicable, breakdown 부착,
+    final 불변(측정 가능한 편차가 없으면 감점 0 — 위양성 fabricate 금지)."""
+    _enable(monkeypatch)
+    ctx = _ctx("low_alignment_confidence", verdict=None, supported=[], frame_pairs=[])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 96, "dimensionScores": {"angle": 96}}, ctx,
+        _quant("available"),
+        measured_deviations={}, baseline_kind="hip_line",
+    )
+    assert out["visionVeto"]["status"] == "not_applicable"
+    assert out["overallScore"] == 96  # final 불변
+    assert "deductionBreakdown" in out  # breakdown 부착 (점수 산식 투명)
+    assert out["deductionBreakdown"]["records"] == []
+
+
+def test_low_alignment_no_fabricated_gemini_faults(monkeypatch):
+    """객관성 hard line — supported_differences=[] 인 low_alignment ctx 는 criteria_for_fault
+    가 만들 수 있는 split_angle 같은 Gemini-located criterion 을 절대 만들지 않는다.
+    measured_deviations 에 split substrate 가 없으면 split_angle record 도 없다."""
+    _enable(monkeypatch)
+    ctx = _ctx("low_alignment_confidence", verdict=None, supported=[], frame_pairs=[])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {}}, ctx, _quant("available"),
+        measured_deviations={"leg_extension": 30.0}, baseline_kind="hip_line",
+    )
+    crits = {r["criterion"] for r in out["deductionBreakdown"]["records"]}
+    # leg 만 측정됐다 — split_angle(Gemini-pointed router 전용 substrate 부재)은 없다.
+    assert crits == {"leg_extension"}
+    assert "split_angle" not in crits
+
+
+def test_low_alignment_does_not_regress_sibling_passthrough(monkeypatch):
+    """24-04 — low_alignment 의 형제 비측정 status 는 여전히 score-free passthrough
+    (deductionBreakdown 부재). low_alignment 만 measured-eligible 로 이동."""
+    _enable(monkeypatch)
+    for status in ("resource_limited", "disabled", "missing_reference", "skipped_error"):
+        ctx = _ctx(status, verdict=None, supported=[], frame_pairs=[])
+        out = app._apply_vision_veto_from_context(
+            {"overallScore": 91, "dimensionScores": {}}, ctx, _quant("available"),
+            measured_deviations={"leg_extension": 50.0}, baseline_kind="hip_line",
+        )
+        assert out["overallScore"] == 91, f"{status} score 불변"
+        assert "deductionBreakdown" not in out, f"{status} tally 미실행"
+
+
 def test_legacy_path_unavailable_fallback(monkeypatch):
     """iter4 HIGH-2 — legacy(ctx None, Gemini 호출) → quantification=None → unavailable
     fallback(final=dimension_overall, ONE traceable record, NO band, NO router)."""

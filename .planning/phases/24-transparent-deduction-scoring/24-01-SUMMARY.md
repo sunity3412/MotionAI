@@ -125,6 +125,12 @@ None - no external service configuration required (pure in-process numpy math).
 - Plan 03 eval gates build on the engine's traceability (`final == max(0, round(100 + Σ points))`) and the structural generalization checks.
 - Open follow-up (not a blocker for this plan): run `cd app && npx tsc --noEmit` once `node_modules` is installed to close the TS static gate.
 
+## Self-Check: PASSED
+
+- Files: `deduction_engine.py`, `ipsf_criteria.py`, `test_deduction_engine.py`, `24-01-SUMMARY.md` all present.
+- Commits: `3feb3a0`, `f812689`, `5672691`, `24e7939`, `39065fb` all in history.
+- Tests: `test_deduction_engine.py` 24/24 pass; no new backend regressions vs base.
+
 ---
 *Phase: 24-transparent-deduction-scoring*
 *Completed: 2026-06-25*

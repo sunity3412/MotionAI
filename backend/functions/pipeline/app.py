@@ -1771,8 +1771,10 @@ def _collect_vision_fault_context(
     (app.py:2442)에 가용하므로 build_result 를 앞당길 유인을 제거한다(D-12 MED-1). collect
     동작: (1) 부위별 worst 후보 selector + 글로벌+로컬 정렬 게이팅, (2) SelectedFramePair
     still 추출, (3) assess_fault_severity still-pair 호출 + support 게이트, (4) cap_would_apply
-    계산(production 동일 apply_downward_cap), (5) VisionFaultContext(pre-apply/pre-coach)
-    반환 또는 score-free collection_status.
+    = Gemini 이 coach-worthy (moderate/major) fault 를 짚었는지 — band-free coach-root-cause
+    eligibility pointer; minor/none 미발화. (밴드 제거로 continuity 이며 과거 cap 산식과
+    byte-동일 아님, HIGH-6), (5) VisionFaultContext(pre-apply/pre-coach) 반환 또는
+    score-free collection_status.
 
     graceful — 어떤 실패도 분석 흐름 차단 0 (skipped_error/보류 status 로 swallow).
     """
@@ -1875,9 +1877,11 @@ def _collect_vision_fault_context(
                 return _ctx("no_fault", verdict=verdict, frame_pairs=[pair],
                             alignment=alignment, telemetry=telemetry)
 
-            # (4) cap_would_apply — production 동일 cap 함수 (복제 0, downward-only).
-            capped = vision_veto.apply_downward_cap(overall_score, verdict.severity)
-            cap_would_apply = capped < overall_score
+            # (4) cap_would_apply — Phase 24 band-free coach-root-cause eligibility pointer
+            # (HIGH-6): Gemini 이 coach-worthy(moderate/major) fault 를 짚었는지(severity-only,
+            # 밴드 산식 아님 — minor/none 미발화). 과거 score-below-cap 의존 cap 산식과
+            # byte-동일 아님(continuity).
+            cap_would_apply = getattr(verdict, "severity", "none") in ("moderate", "major")
             return _ctx(
                 "candidate_verdict",
                 verdict=verdict,
@@ -1896,8 +1900,8 @@ def _collect_vision_fault_context(
             return _ctx("no_fault", verdict=verdict, frame_pairs=[],
                         alignment=alignment)
 
-        capped = vision_veto.apply_downward_cap(overall_score, verdict.severity)
-        cap_would_apply = capped < overall_score
+        # Phase 24 band-free coach-root-cause eligibility pointer (HIGH-6, severity-only).
+        cap_would_apply = getattr(verdict, "severity", "none") in ("moderate", "major")
         return _ctx(
             "candidate_verdict",
             verdict=verdict,
@@ -1968,6 +1972,115 @@ def _build_vision_quantification_result(
         )
 
 
+# ---------------------------------------------------------------------------
+# Phase 24 (ND-01~07) — 투명 감점-합산 seam helpers.
+#
+# _baseline_kind_for_profile / _build_deduction_measured_deviations 는 _process 의
+# 단일 채점 seam(분기 0, 코드 1벌)에서만 호출된다. 엔진(deduction_engine.tally)은
+# technique profile 을 절대 받지 않으므로(BLOCKER B no-NameError), substrate 는 여기서
+# 명명된 dict 로 한 번 만들어져 apply 경로에 keyword 로 threaded 된다(iter4 HIGH-1).
+# ---------------------------------------------------------------------------
+
+# 동작명(name/motion_id)으로 per-move baseline 을 정한다 (BLOCKER B). profile.category
+# (flexibility/strength/spin/transition/unknown/unregistered)는 floor/aerial/horizontal 을
+# 인코딩하지 않으므로 NAME 을 substring-match 한다. kip-up 류 = 바닥(floor), 깃발/수평 =
+# 폴-수직(pole_vertical), 그 외/미상 = hip_line(정직한 기본 — keypoint 만으로 결정적, 공중/
+# 역위 동작에 옳고 truly-unknown 에 유일하게 안전한 기본). 보편 per-move 주장 없음.
+_FLOOR_MOVE_KEYWORDS = ("kip-up", "kip up", "kip_up", "킵업", "floor", "바닥", "ground")
+_HORIZONTAL_MOVE_KEYWORDS = ("flag", "plank", "horizontal", "수평", "깃발")
+
+
+def _baseline_kind_for_profile(profile) -> str:
+    """technique profile → vision_veto.BASELINE_KINDS 멤버 (per-move, name 매칭, BLOCKER B).
+
+    category 가 아닌 name/motion_id 를 case-insensitive substring 매칭한다(category 는
+    floor/aerial 을 인코딩하지 않음). 매칭 없음/미상 → 'hip_line'(정직한 기본). kip-up 처럼
+    NAMED 일 때만 floor 가 production 에서 발동 — 보편 per-move baseline 주장 아님(ND-05).
+    """
+    name = str(getattr(profile, "name", "") or "")
+    motion_id = str(getattr(profile, "motion_id", "") or "")
+    hay = f"{name} {motion_id}".lower()
+    if any(k.lower() in hay for k in _FLOOR_MOVE_KEYWORDS):
+        return "floor"
+    if any(k.lower() in hay for k in _HORIZONTAL_MOVE_KEYWORDS):
+        return "pole_vertical"
+    return "hip_line"
+
+
+def _build_deduction_measured_deviations(
+    *, angles, profile, assessments, dimension_scores, quantification
+):
+    """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
+
+    HIGH-3 score-not-deviation safety: 0-100 dimension SCORE 를 deviation(deg/notch) 자리에
+    절대 넣지 않는다. 각도 편차는 dimensions.extension_deviation(angles, profile)(관절별
+    180° 부족분, deg, profile.expects_extension gated)에서만 뽑는다 — line_score 와 동일
+    substrate(_select_window + extension deficit). reach 칸은 quantification.bodyRelativeNotches
+    (student/reference notches 동반)를 forward 해 엔진이 insufficient-reach shortfall 을
+    계산(HIGH-2)하게 한다.
+
+    NAMED substrate 의도(score-not-deviation 안전):
+      · extension_deficits_by_joint: 관절별 180° deg 부족분(extension_deviation, NOT 0-100 score).
+        leg_extension(무릎 max) / arm_extension(팔꿈치 max) 로 묶어 md 에 방출.
+      · line_deficit: 모든 EXTEND 관절 부족분 평균(line_score 와 동일 source, deg).
+      · body_relative_notches: quantification.bodyRelativeNotches(student/reference 칸 동반).
+    반환 키 (deduction_engine.tally md 계약 — criterion id 키):
+      · leg_extension / arm_extension / line: ipsf_absolute deg deficit(없으면 키 부재 → honest 0).
+      · split_angle: 측정 substrate 부재 시 미방출(Gemini-pointed 라우팅에 맡김).
+      · body_relative_notches: quantification.bodyRelativeNotches list(있을 때만).
+    """
+    from sunity_shared.analysis import dimensions
+    from sunity_shared.analysis.skeleton import JOINT_KEYS
+
+    md: dict = {}
+    # ── 각도 편차 (deg) — extension_deviation 만(0-100 SCORE 금지, HIGH-3) ──
+    if angles is not None and profile is not None:
+        try:
+            # 관절별 180° deg 부족분 벡터 (J,) — 0-100 dimension SCORE 아님(HIGH-3).
+            extension_deficits_by_joint = dimensions.extension_deviation(angles, profile)
+        except Exception:  # noqa: BLE001 — substrate 산출 실패는 honest 0(키 부재)
+            extension_deficits_by_joint = None
+        if extension_deficits_by_joint is not None:
+            dev_vec = extension_deficits_by_joint
+
+            def _max_dev(joint_names):
+                vals = []
+                for jk in joint_names:
+                    if jk in JOINT_KEYS:
+                        v = float(dev_vec[JOINT_KEYS.index(jk)])
+                        if v == v:  # not NaN
+                            vals.append(v)
+                return max(vals) if vals else None
+
+            leg = _max_dev(("left_knee", "right_knee"))
+            if leg is not None and leg > 0.0:
+                md["leg_extension"] = leg
+            arm = _max_dev(("left_elbow", "right_elbow"))
+            if arm is not None and arm > 0.0:
+                md["arm_extension"] = arm
+            # line_deficit = COLLECTIVE 180° deficit (line_score 와 동일 source) — 모든 EXTEND
+            # 관절 부족분의 평균(deg). leg/arm 과의 cross-exclusion 은 엔진 union 이후.
+            extend_devs = [
+                float(dev_vec[JOINT_KEYS.index(jk)])
+                for jk in JOINT_KEYS
+                if profile.expects_extension(jk)
+                and float(dev_vec[JOINT_KEYS.index(jk)]) == float(dev_vec[JOINT_KEYS.index(jk)])
+            ]
+            extend_devs = [d for d in extend_devs if d > 0.0]
+            if extend_devs:
+                line_deficit = sum(extend_devs) / len(extend_devs)
+                md["line"] = line_deficit
+
+    # ── reach 칸 — quantification.bodyRelativeNotches forward(student/reference 동반, HIGH-2) ──
+    # 각 칸 항목은 student_notches/reference_notches/delta_notches 를 들고 있어 엔진이
+    # insufficient-reach shortfall(max(0, reference−student−tol))을 직접 계산한다.
+    notches = getattr(quantification, "bodyRelativeNotches", None)
+    if notches:
+        md["body_relative_notches"] = list(notches)
+
+    return md
+
+
 def _apply_vision_veto(
     score_result: dict,
     local_video_path: str | None = None,
@@ -1978,20 +2091,23 @@ def _apply_vision_veto(
     *,
     vision_fault_context=None,
     quantification=None,
+    measured_deviations=None,
+    baseline_kind: str = "hip_line",
 ) -> dict:
-    """v2 비전 거부권 — reference-anchored 하향-전용 mutation (Phase 20 SCORE-08).
+    """v2 비전 채점 seam — reference-anchored 투명 감점-합산 (Phase 24 ND-01, 밴드 제거).
 
-    belle 결정 (2026-06-20): **Mode1 비교 앵커 + Mode3 보류**.
-      · Mode1 (MODE_EXPERT) — 학생 영상을 정은지 reference 영상과 **비교**해 severity
-        산출 (코치처럼). 진공 단일 영상 판정은 mild fault 와 정타를 구별 못 해
-        위양성(정타→50)/위음성(잘못된 동작→100)을 냄 — 비교가 원칙적 fix.
+    belle 결정: **Mode1 비교 앵커 + Mode3 보류**.
+      · Mode1 (MODE_EXPERT) — 학생 영상을 코치 reference 영상과 **비교**해 측정대상 짚기
+        (Gemini) + 측정 편차 감점(deduction_engine.tally). 진공 단일 영상 판정은 mild fault
+        와 정타를 구별 못 해 위양성/위음성을 냄 — 비교가 원칙적 fix.
       · Mode3 (MODE_SELF) — **보류**. 고정 reference 가 없음 (본인 영상 비교). 절대
         차원 + 이전 영상 델타가 그대로 성립 → veto 미실행 (mode3_held).
 
-    capped < overallScore 일 때만 result['overallScore'] 를 **낮춘다** (절대 안 올림).
-    평균 금지 — terminal min cap 만(Pitfall 1). visionVeto.status 가 veto 실행을 증명
-    (부재 ≠ 실행, HIGH-1). SEVERITY_CAP 은 spec-anchored (major=50/moderate=75/
-    minor·none=no-cap) — 재튜닝 금지(D-02 curve-fit 금지).
+    Phase 24: severity→고정천장 밴드 제거. overallScore = deduction_engine.tally(측정편차 →
+    명시규칙 감점 → 합산).final. seam-built measured substrate(measured_deviations) + per-move
+    baseline_kind 가 keyword 로 threaded(엔진은 profile 미수신, BLOCKER B). criterion 선택은
+    엔진의 criteria_for_fault 라우터(severity 미사용, ND-02). visionVeto.status 가 채점 실행을
+    증명(부재 ≠ 실행, HIGH-1).
 
     status enum (TRUST-08, 무음실패 방지 — Pitfall 5):
       · disabled            — _gemini_vision_veto_enabled() OFF (adapter 미호출)
@@ -1999,8 +2115,8 @@ def _apply_vision_veto(
       · missing_local_video — local_video_path None (graceful, HIGH-1)
       · missing_reference   — Mode1 인데 reference 영상 부재 (진공 판정 안 함, graceful)
       · skipped_error       — adapter None(키부재/실패) → graceful + WARNING
-      · not_applicable      — cap 미적용 (minor/none/placeholder — 점수 불변)
-      · applied             — cap 적용 (overallScore 하향)
+      · not_applicable      — tally 가 돌았으나 측정 감점/located criterion 0 (점수 불변)
+      · applied             — 측정 감점 적용 (overallScore = tally final)
 
     mode=None (back-compat) — 단일 영상 진공 판정 경로 유지 (기존 호출/테스트 보존).
 
@@ -2008,10 +2124,11 @@ def _apply_vision_veto(
     """
     import sunity_shared.models as models  # lazy — mode 상수 비교
 
-    # ── Task 4: context 제공 시 Gemini 미호출 — verdict 재사용 + final cap + audit (D-10 HIGH-1) ──
+    # ── context 제공 시 Gemini 미호출 — verdict 재사용 + deduction tally + audit (D-10 HIGH-1) ──
     if vision_fault_context is not None:
         return _apply_vision_veto_from_context(
-            score_result, vision_fault_context, quantification
+            score_result, vision_fault_context, quantification,
+            measured_deviations=measured_deviations, baseline_kind=baseline_kind,
         )
 
     try:
@@ -2029,6 +2146,7 @@ def _apply_vision_veto(
             # 재발 차단). 명시 신호로 graceful 통과.
             return _veto_passthrough(score_result, "missing_reference")
         from sunity_shared.analysis import vision_veto, gemini_vision_scorer
+        from sunity_shared.analysis import deduction_engine  # lazy — pure, no adapter
 
         at = vision_veto.worst_pose_timestamp(profile)
         verdict = gemini_vision_scorer.assess_fault_severity(
@@ -2042,29 +2160,30 @@ def _apply_vision_veto(
                 "(graceful, 무음실패 관측 — Pitfall 5)"
             )
             return _veto_passthrough(score_result, "skipped_error")
-        overall = score_result["overallScore"]
-        capped = vision_veto.apply_downward_cap(overall, verdict.severity)
-        if capped < overall:
-            # 하향-전용 — apply_downward_cap 이 min 만(올림 0). audit 직렬화.
-            # Phase 20 (UI B1) — primaryFault 박제: "왜 점수가 내려갔는지"를 앱이
-            # 노출할 수 있게 verdict.primary_fault(결함 DESCRIPTION) 만 동반. 객관성:
-            # 점수/숫자 라벨 아님 — 자연어 결함 설명만 (analysis-objectivity 박제).
-            # Phase 20 #3 (2026-06-21) — faultJoints: Gemini 가 본 실제 결함 위치를
-            # 정식 keypoint 로 매핑해 동반 저장한다. 앱 마커가 각도편차 최대 관절
-            # (어깨/팔꿈치)이 아니라 진짜 결함 관절(다리/팔 등)을 강조하게 하는 fix.
-            # 매핑 불가 시 빈 list → 앱이 기존 편차-기반 폴백 사용 (graceful).
+        # Phase 24 (iter4 HIGH-2) — LEGACY 단일-영상 Gemini 경로: quantification 도
+        # 명명 substrate 도 없다(plain VisionVerdict). deduction_engine.tally 에
+        # quantification=None → quantification-unavailable fallback(final=dimension_overall,
+        # ONE traceable record, NO band, NO criteria_for_fault). 명명 substrate 미빌드.
+        breakdown = deduction_engine.tally(
+            None, None,
+            dimension_overall=score_result["overallScore"],
+            measured_deviations=None,
+            dimension_scores=score_result.get("dimensionScores"),
+            baseline_kind=baseline_kind,
+        )
+        # 결함이 있는 verdict(none 아님)면 applied audit + tally final. 결함 없음(none)은
+        # not_applicable(점수 = dimension_overall fallback, 변동 없음).
+        if getattr(verdict, "severity", "none") != "none":
             fault_joints = vision_veto.fault_joints_from_differences(
                 verdict.differences
             )
-            # fault-zoom deficit 숫자 source — Gemini 시각 추정(approx deviation).
-            # kismam delta 는 veto 결함을 못 잡아 작게 나오므로 Gemini 추정을 쓴다.
             fault_deficits = vision_veto.fault_joint_deficits_from_differences(
                 verdict.differences
             )
             vision_veto_audit = {
                 "status": "applied",
                 "severity": verdict.severity,
-                "capApplied": capped,
+                "tallyFinal": breakdown.final,
                 "primaryFault": verdict.primary_fault,
             }
             if fault_joints:
@@ -2073,10 +2192,11 @@ def _apply_vision_veto(
                 vision_veto_audit["faultJointDeficits"] = fault_deficits
             return {
                 **score_result,
-                "overallScore": capped,
+                "overallScore": breakdown.final,
+                "deductionBreakdown": breakdown.to_dict(),
                 "visionVeto": vision_veto_audit,
             }
-        # cap 미적용 (production placeholder None / minor / cap >= overall) — 점수 불변.
+        # 결함 없음(none) — 점수 불변(fallback final == dimension_overall).
         return _veto_passthrough(score_result, "not_applicable")
     except Exception:  # noqa: BLE001 - 비전 hook 실패는 분석을 막지 않는다 (graceful)
         log.exception(
@@ -2085,23 +2205,32 @@ def _apply_vision_veto(
         return _veto_passthrough(score_result, "skipped_error")
 
 
-def _apply_vision_veto_from_context(score_result: dict, ctx, quantification) -> dict:
-    """context 제공 경로 — Gemini 미호출, verdict 재사용 + final cap + to_audit_dict (D-12 HIGH-1).
+def _apply_vision_veto_from_context(
+    score_result: dict, ctx, quantification,
+    *, measured_deviations=None, baseline_kind: str = "hip_line",
+) -> dict:
+    """context 제공 경로 — Gemini 미호출, verdict 재사용 + deduction tally + to_audit_dict (D-12 HIGH-1).
 
-    collect 가 산출한 VisionFaultContext 를 받아 final cap 을 production 동일
-    apply_downward_cap 으로 재계산하고, applied/not_applicable 을 확정한 뒤
-    ctx.to_audit_dict(final_status, cap_applied, quantification) 로 audit 직렬화한다. score-free
-    collection_status(low_alignment_confidence/resource_limited/mode3_held/...)는 score 불변
-    passthrough. geminiCallCount=1(collect 만 호출, apply 재호출 0).
+    Phase 24 (ND-01/ND-02, iter5 HIGH-1): severity→고정천장 밴드 제거 — collect 가
+    산출한 VisionFaultContext 를 deduction_engine.tally 로 채점한다(seam-built measured
+    substrate + baseline_kind keyword threaded, profile 미전달 BLOCKER B). criterion 선택은
+    엔진의 criteria_for_fault 라우터(body_part/fault_state)가 하고 severity 는 읽지 않는다.
+
+    TALLY-ELIGIBLE status = {candidate_verdict, no_fault}. no_fault(Gemini 정타, 정렬·정량화
+    가용)는 더 이상 passthrough 가 아니다 — supported_differences 가 비어 있어도 measured seed
+    (criteria_from_measured_deviations)가 측정 편차로 감점할 수 있다(Gemini-silent 방어). 기하가
+    깨끗하면 not_applicable(final 불변). 그 외 비측정 status 는 score-free passthrough 그대로.
+    geminiCallCount=1(collect 만 호출, apply 재호출 0).
     """
     from sunity_shared.analysis import vision_veto
+    from sunity_shared.analysis import deduction_engine  # lazy — pure, no adapter
 
     try:
         status = ctx.collection_status
-        # score-free 보류 status → passthrough (score 불변).
-        if status != "candidate_verdict":
+        # tally-eligible: candidate_verdict(Gemini 결함) 또는 no_fault(정타지만 measured
+        # seed 가 감점 가능 — iter5 HIGH-1). 그 외 status 는 측정 불가 → score-free passthrough.
+        if status not in ("candidate_verdict", "no_fault"):
             passthrough_map = {
-                "no_fault": "not_applicable",
                 "low_alignment_confidence": "low_alignment_confidence",
                 "resource_limited": "resource_limited",
                 "disabled": "disabled",
@@ -2121,22 +2250,35 @@ def _apply_vision_veto_from_context(score_result: dict, ctx, quantification) -> 
                 }
             return {**score_result, "visionVeto": audit}
 
-        # candidate_verdict — final cap 재계산 (production 동일 함수, verdict 재사용).
-        verdict = ctx.verdict
-        overall = score_result["overallScore"]
-        capped = vision_veto.apply_downward_cap(overall, getattr(verdict, "severity", None))
-        if capped < overall:
-            quant = quantification
-            if quant is None:
-                quant = vision_veto.VisionQuantificationResult(
-                    quantificationStatus="unavailable",
-                    angleDeltas=None, bodyRelativeNotches=None,
-                    windowMedianAngleDeltas=None, warnings=["quantification_absent"],
-                )
-            audit = ctx.to_audit_dict(
-                final_status="applied", cap_applied=capped, quantification=quant
+        # ── candidate_verdict / no_fault — deduction tally (seam-built substrate) ──
+        quant = quantification
+        if quant is None:
+            quant = vision_veto.VisionQuantificationResult(
+                quantificationStatus="unavailable",
+                angleDeltas=None, bodyRelativeNotches=None,
+                windowMedianAngleDeltas=None, warnings=["quantification_absent"],
             )
-            # faultJoints/Deficits 부착 (verdict.differences 기반).
+        # ctx 가 supported_differences + FaultKey 를 운반 → 엔진이 criteria_for_fault 로
+        # 라우팅(candidate_verdict). no_fault 는 supported_differences 가 비어 measured seed
+        # 만 활성화(Gemini-silent 방어). 엔진은 technique profile 을 받지 않는다(HIGH-2).
+        breakdown = deduction_engine.tally(
+            quant, ctx,
+            dimension_overall=score_result["overallScore"],
+            measured_deviations=measured_deviations,
+            dimension_scores=score_result.get("dimensionScores"),
+            baseline_kind=baseline_kind,
+        )
+        # 측정 감점 record 가 있으면 applied(final<dimension_overall 가능). 없으면 not_applicable
+        # (측정 감점 0 AND Gemini-located criterion 0 — 점수 불변). TRUST-08 무음실패 방지:
+        # fallback record 만 있는 경우(quantification unavailable)도 applied 로 추적된다.
+        has_deduction = bool(breakdown.records)
+        if has_deduction:
+            verdict = ctx.verdict
+            audit = ctx.to_audit_dict(
+                final_status="applied", breakdown_final=breakdown.final,
+                quantification=quant,
+            )
+            # faultJoints/Deficits 부착 (verdict.differences 기반; no_fault 면 비어 부재).
             fault_joints = vision_veto.fault_joints_from_differences(
                 getattr(verdict, "differences", ()) or ()
             )
@@ -2147,9 +2289,18 @@ def _apply_vision_veto_from_context(score_result: dict, ctx, quantification) -> 
                 audit["faultJoints"] = fault_joints
             if fault_deficits:
                 audit["faultJointDeficits"] = fault_deficits
-            return {**score_result, "overallScore": capped, "visionVeto": audit}
-        # cap 이 점수를 안 내림 (valid-but-not-cap-lowering) → not_applicable.
-        return _veto_passthrough(score_result, "not_applicable")
+            return {
+                **score_result,
+                "overallScore": breakdown.final,
+                "deductionBreakdown": breakdown.to_dict(),
+                "visionVeto": audit,
+            }
+        # tally 가 돌았으나 측정 감점/located criterion 0 → not_applicable(점수 불변).
+        return {
+            **score_result,
+            "deductionBreakdown": breakdown.to_dict(),
+            "visionVeto": {"status": "not_applicable"},
+        }
     except Exception:  # noqa: BLE001 - context apply 실패도 분석 차단 0 (graceful)
         log.exception("vision veto context apply 실패 — passthrough (skipped_error)")
         return _veto_passthrough(score_result, "skipped_error")
@@ -3105,16 +3256,19 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # Phase 13-B (HIGH-2): copyBranch 분기 카피 pass-through (coach 와 동일 lookup).
             branch_info=branch_info,
         )
-        # Phase 20 SCORE-08 — v2 비전 하향 거부권 (reference-anchored, belle 2026-06-20).
-        # 23-02 Task 5 (D-12 HIGH-1 + D-13 HIGH-1) — collect→coach→build_result→
-        # _build_vision_quantification_result→apply 순서. collect 가 위에서 verdict 를 1회
-        # 수집(vision_fault_context)했으므로, 여기서는 build_result 이후 named seam 으로
-        # 정량화를 1회 산출하고 같은 ctx 를 apply 에 재사용한다(Gemini 재호출 0, geminiCallCount=1).
-        # apply 가 final cap 후 ctx.to_audit_dict(final_status=, cap_applied=, quantification=)
-        # 로 audit 직렬화. ctx None(레거시 경로) 이면 기존 Gemini 호출 경로로 graceful 폴백.
+        # Phase 24 (ND-01~07) — 투명 감점-합산 채점 seam (밴드 제거). 23-02 Task 5
+        # (D-12 HIGH-1) collect→coach→build_result→_build_vision_quantification_result→apply
+        # 순서. collect 가 위에서 verdict 를 1회 수집(vision_fault_context)했으므로, 여기서는
+        # build_result 이후 named seam 으로 정량화를 1회 산출하고 같은 ctx 를 apply 에 재사용한다
+        # (Gemini 재호출 0, geminiCallCount=1). apply 가 deduction_engine.tally 로 채점한 뒤
+        # ctx.to_audit_dict(final_status=, breakdown_final=, quantification=) 로 audit 직렬화.
+        # baseline_kind 는 profile 만 있으면 되므로 분기 전 1회 도출(BLOCKER B). measured
+        # substrate 는 quantification 이 context 분기에만 존재하므로 분기 안에서 빌드(iter4 HIGH-1).
+        # ctx None(레거시 경로) 이면 quantification=None → tally unavailable fallback.
+        baseline_kind = _baseline_kind_for_profile(profile)
         if vision_fault_context is not None:
             # 정량화 입력 = collect 가 산출한 SelectedFramePair(그 프레임 keypoints) + 학생/기준
-            # 각도. baseline 은 keypoint 만으로 결정적인 hip_line 기본(floor/pole 입력 부재 시).
+            # 각도. baseline 은 per-move 도출값(kip-up=floor named, hip_line 기본).
             selected_pair = (
                 vision_fault_context.selected_frame_pairs[0]
                 if vision_fault_context.selected_frame_pairs
@@ -3125,7 +3279,18 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 selected_frame_pair=selected_pair,
                 student_angles=angles,
                 reference_angles=reference_angles_for_veto,
-                baseline_kind="hip_line",
+                baseline_kind=baseline_kind,
+            )
+            # HIGH-2/iter4 HIGH-1 — 명명 substrate 를 seam 에서 1회 빌드(angles/profile/
+            # assessments/dimension_scores/quantification 가 여기서만 동시 가용). apply 경로는
+            # 절대 빌드하지 않는다(profile/assessments 부재 → no NameError surface). 0-100
+            # dimension SCORE 를 deviation 으로 먹이지 않는다(HIGH-3).
+            measured_deviations = _build_deduction_measured_deviations(
+                angles=angles,
+                profile=profile,
+                assessments=assessments,
+                dimension_scores=dimension_scores,
+                quantification=quantification,
             )
             result = _apply_vision_veto(
                 result,
@@ -3136,9 +3301,12 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 reference_video_path=reference_local_video_path,
                 vision_fault_context=vision_fault_context,
                 quantification=quantification,
+                measured_deviations=measured_deviations,
+                baseline_kind=baseline_kind,
             )
         else:
             # 레거시 경로 (collect 미산출) — 기존 Gemini 호출 경로 graceful 폴백.
+            # quantification 도 명명 substrate 도 없다 → tally unavailable fallback(iter4 HIGH-2).
             result = _apply_vision_veto(
                 result,
                 local_video_path,
@@ -3146,6 +3314,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 profile,
                 mode=mode,
                 reference_video_path=reference_local_video_path,
+                measured_deviations=None,
+                baseline_kind=baseline_kind,
             )
         # fault-zoom (belle 2026-06-21) — 기준 영상은 아래 확대 비교 생성까지 살려두고
         # outer finally 가 정리한다(veto 직후 unlink 제거). keypoint_report_dict 빌드 후

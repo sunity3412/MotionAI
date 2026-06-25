@@ -282,14 +282,16 @@ class TestCollectApplySeam:
         assert isinstance(out, vision_veto.VisionQuantificationResult)
         assert out.quantificationStatus == "unavailable"
 
-    def test_collect_cap_would_apply_uses_production_cap(self, monkeypatch) -> None:
-        """collect 가 production 동일 apply_downward_cap 으로 cap_would_apply 산출 (D-11 HIGH-1)."""
+    def test_collect_cap_would_apply_is_band_free_severity_pointer(self, monkeypatch) -> None:
+        """collect 의 cap_would_apply = band-free severity-only pointer (HIGH-6, 밴드 제거).
+
+        Phase 24: cap_would_apply = (severity in moderate/major) — 과거 옛 밴드 산식을
+        대체하되 같은 세 boolean(minor→False, moderate→True, none→False)을
+        band-free severity-only pointer 로 재현한다.
+        """
         app = _import_pipeline()
         from sunity_shared.analysis import gemini_vision_scorer, vision_veto
 
-        # severity=minor / overall=88 → apply_downward_cap=88 (≮88) → cap_would_apply False.
-        # severity=moderate / overall=92 → 75<92 → True.
-        # severity=none → False.
         for severity, overall, expected in [
             ("minor", 88, False),
             ("moderate", 92, True),
@@ -337,18 +339,24 @@ class TestCollectApplySeam:
             supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
             alignment={}, telemetry={}, cap_would_apply=True,
         )
+        # quant available 이어야 measured seed 가 동작(unavailable 은 fallback 우선).
         quant = vision_veto.VisionQuantificationResult(
-            quantificationStatus="unavailable", angleDeltas=None,
+            quantificationStatus="available", angleDeltas=None,
             bodyRelativeNotches=None, windowMedianAngleDeltas=None, warnings=[],
         )
+        # Phase 24 (밴드 제거): measured leg deviation(40° > 20° tol) → tally 가 감점.
         out = app._apply_vision_veto(
             {"overallScore": 100}, mode="mode1",
             vision_fault_context=ctx, quantification=quant,
+            measured_deviations={"leg_extension": 40.0}, baseline_kind="hip_line",
         )
         # apply 내부에서 Gemini 호출 0 (verdict 재사용).
         assert calls["n"] == 0
         assert out["visionVeto"]["status"] == "applied"
-        assert out["overallScore"] == 50  # major cap.
+        # 측정 편차로 감점됨 — final < 100, deductionBreakdown OBJECT 동반.
+        assert out["overallScore"] < 100
+        assert out["overallScore"] == out["deductionBreakdown"]["final"]
+        assert out["visionVeto"]["tallyFinal"] == out["overallScore"]
 
     def test_apply_applied_but_quant_unavailable(self, monkeypatch) -> None:
         """applied + quant unavailable → status applied 유지, geometry 부재, crash 0 (D-12 HIGH-1)."""
@@ -433,9 +441,12 @@ class TestQuantificationAuditAttach:
             windowMedianAngleDeltas={"deltas": [], "sourceFrameIndices": {"user": [], "reference": []}, "windowPolicy": "x"},
             warnings=(),
         )
+        # Phase 24 (밴드 제거): measured leg deviation(35° > 20° tol) → tally applied.
+        # quant available 이므로 to_audit_dict 가 angleDeltas/칸/root-cause 를 동반 직렬화.
         out = app._apply_vision_veto(
             {"overallScore": 92}, mode="mode1",
             vision_fault_context=ctx, quantification=quant,
+            measured_deviations={"leg_extension": 35.0}, baseline_kind="floor",
         )
         v = out["visionVeto"]
         assert v["status"] == "applied"
@@ -471,7 +482,8 @@ class TestQuantificationAuditAttach:
             assert forbidden not in text, f"audit 에 {forbidden!r} 누출 (D-08)"
 
     def test_root_cause_survives_unavailable_quant(self):
-        """quant unavailable 이어도 root-cause + capApplied 유지 (강등 금지, D-11 MED-1)."""
+        """quant unavailable → tally unavailable fallback(final=dim_overall, traceable record)
+        이어도 root-cause + tallyFinal 유지 (강등 금지, D-11 MED-1 / Phase 24 MEDIUM-1)."""
         app = _import_pipeline()
         from sunity_shared.analysis import vision_veto
 
@@ -482,32 +494,55 @@ class TestQuantificationAuditAttach:
         out = app._apply_vision_veto(
             {"overallScore": 92}, mode="mode1",
             vision_fault_context=ctx, quantification=quant,
+            measured_deviations=None, baseline_kind="hip_line",
         )
         v = out["visionVeto"]
         assert v["status"] == "applied"
         assert v["quantificationStatus"] == "unavailable"
         assert "angleDeltas" not in v and "bodyRelativeNotches" not in v
-        # root-cause + capApplied 는 유지 (geometry 만 부재).
+        # root-cause + tallyFinal 는 유지 (geometry 만 부재). Phase 24: 밴드 제거 →
+        # final = dimension_overall(92), traceable fallback record 동반.
         assert v["rootCauseHypotheses"][0]["text"] == "폴 밀착이 풀린 것으로 보임"
-        assert "capApplied" in v
+        assert "tallyFinal" in v
+        assert v["tallyFinal"] == 92
+        assert out["overallScore"] == 92  # unavailable fallback = dimension_overall(리셋 0)
+        assert out["deductionBreakdown"]["fallback"] == "quantification_unavailable"
 
     def test_not_applicable_has_no_quantification_fields(self):
-        """not_applicable 분기엔 정량화 + quantificationStatus 부재 (discriminated)."""
+        """tally 가 돌았으나 측정 감점/located criterion 0 → not_applicable (점수 불변).
+
+        Phase 24: 깨끗한 기하(측정 편차 0 AND Gemini-located criterion 0) — quant available
+        이지만 reach 칸이 over-reach(감점 0) 이고 supported_differences 비어 measured seed 도
+        활성화 0 → not_applicable. quantificationStatus 부재(discriminated).
+        """
         app = _import_pipeline()
         from sunity_shared.analysis import gemini_vision_scorer, vision_veto
 
-        # severity=minor / overall=88 → cap 88 ≮ 88 → not_applicable.
+        # 깨끗한 기하 — over-reach(student > reference)면 insufficient-reach shortfall 0,
+        # supported_differences 비어 measured seed 활성화 0.
         ctx = vision_veto.VisionFaultContext(
             collection_status="candidate_verdict",
             verdict=gemini_vision_scorer.VisionVerdict("x", "minor", ()),
             supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
             alignment={}, telemetry={}, cap_would_apply=False,
         )
+        quant = vision_veto.VisionQuantificationResult(
+            quantificationStatus="available",
+            angleDeltas=None,
+            bodyRelativeNotches=[{
+                "keypoint": "left_hand", "student_notches": 3.0,
+                "reference_notches": 2.0, "delta_notches": 1.0,  # over-reach → 감점 0
+                "baseline_kind": "hip_line", "source": "geometry",
+            }],
+            windowMedianAngleDeltas=None, warnings=(),
+        )
         out = app._apply_vision_veto(
             {"overallScore": 88}, mode="mode1", vision_fault_context=ctx,
+            quantification=quant, measured_deviations={}, baseline_kind="hip_line",
         )
         v = out["visionVeto"]
         assert v["status"] == "not_applicable"
+        assert out["overallScore"] == 88  # 점수 불변
         assert "quantificationStatus" not in v
         assert "angleDeltas" not in v and "bodyRelativeNotches" not in v
 
@@ -556,7 +591,7 @@ class TestCoachInjectionGate:
         assert coach["rootCauseHypotheses"][0]["text"] == "폴 밀착이 풀린 것으로 보임"
 
     def test_candidate_without_cap_not_eligible(self):
-        """valid 하지만 cap 미적용(minor/88 → not_applicable)는 eligible False → coach 무주입 (D-11 HIGH-1 negative)."""
+        """valid 하지만 coach 부적격(minor severity)은 eligible False → coach 무주입 (D-11 HIGH-1 negative)."""
         ctx = self._ctx("candidate_verdict", cap_would_apply=False)
         assert ctx.eligible_for_coach is False
 

@@ -74,8 +74,8 @@ MODE3_SCORING_BASES = (
 # 객관성: 사람/AI 점수 라벨 아님 — status/severity enum + tallyFinal(측정규칙 산출 정수)만.
 # 3-way lockstep: app/src/types/analysis.ts VisionVeto + docs/contract.md §4.
 VISION_VETO_STATUSES = (
-    "applied",          # cap 적용 (overallScore 하향)
-    "not_applicable",   # cap 미적용 (minor/None/placeholder — 점수 불변)
+    "applied",          # 측정 감점 적용 (overallScore = tally final)
+    "not_applicable",   # 측정 감점/located criterion 0 — 점수 불변
     "disabled",         # 토글 OFF (adapter 미호출)
     "skipped_error",    # adapter None(키부재/실패) → v1 graceful + WARNING
     "missing_local_video",  # local_video_path None (graceful, HIGH-1)
@@ -83,7 +83,7 @@ VISION_VETO_STATUSES = (
     "missing_reference",  # Mode1 인데 reference 영상 부재 → 진공 판정 회피 (graceful)
     # ── Phase 23-01 신규 score-free status (3-way lockstep) ──
     "low_alignment_confidence",  # D-03/H4 — 글로벌+로컬 DTW 정렬 신뢰도 낮음 → 거짓결함
-                                 # fabricate 안 하고 보류 (score 불변, cap 미적용)
+                                 # fabricate 안 하고 보류 (score 불변, 채점 미적용)
     "resource_limited",          # D-09 MED-1/D-13 HIGH-2 (Option A) — planned call 전부
                                  # 완료 전 예산(호출/upload/wall-clock) 소진 → fail-closed
                                  # 보류 (부분 샘플 verdict 비결정성 차단, score 불변)
@@ -118,8 +118,8 @@ VISION_VETO_KEYS = (
 )
 
 # ── Phase 24 (SCORE-10~16, ND-01/ND-07): 투명 감점-합산 계약 ─────────────
-# 점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점). severity→고정밴드
-# (Phase 20 SEVERITY_CAP/apply_downward_cap) **제거·교체**. 결과 숫자(50이든 70이든)는
+# 점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점). Phase 20 의 severity→
+# 고정천장 밴드는 **제거·교체**됐다. 결과 숫자(50이든 70이든)는
 # tally 출력일 뿐 범위가 아님 — 보고서가 감점 내역("−X −Y −Z = 점수")을 노출하는 게 핵심
 # ([[scoring-must-be-transparent-deduction-tally]]).
 #

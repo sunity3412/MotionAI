@@ -1393,7 +1393,7 @@ const frameIdx = Math.floor(currentTime * report.fps);
 
 ## §10. DeductionBreakdown (Phase 24 신설 — ND-01/ND-07 투명 감점-합산)
 
-점수 = `baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점)`. Phase 20 의 severity→고정밴드(`SEVERITY_CAP` + `apply_downward_cap`)를 **제거·교체**한다. 결과 숫자(50이든 70이든)는 tally 출력일 뿐 **범위가 아니다** — 보고서가 감점 내역("−X −Y −Z = 점수")을 명명백백하게 노출하는 게 핵심 ([[scoring-must-be-transparent-deduction-tally]]). 3-way lockstep: `app/src/types/analysis.ts` `DeductionRecord`/`DeductionBreakdown` ↔ `models.py` `DEDUCTION_RECORD_KEYS`/`DEDUCTION_BREAKDOWN_KEYS` ↔ 본 §10.
+점수 = `baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점)`. Phase 20 의 severity→고정천장 밴드를 **제거·교체**한다. 결과 숫자(50이든 70이든)는 tally 출력일 뿐 **범위가 아니다** — 보고서가 감점 내역("−X −Y −Z = 점수")을 명명백백하게 노출하는 게 핵심 ([[scoring-must-be-transparent-deduction-tally]]). 3-way lockstep: `app/src/types/analysis.ts` `DeductionRecord`/`DeductionBreakdown` ↔ `models.py` `DEDUCTION_RECORD_KEYS`/`DEDUCTION_BREAKDOWN_KEYS` ↔ 본 §10.
 
 ### §10.1 OBJECT shape (HIGH-1)
 

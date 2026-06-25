@@ -209,7 +209,10 @@ class RootCauseHypothesis:
 VISION_FAULT_COLLECTION_STATUSES = (
     "candidate_verdict",          # 정식 verdict 후보 (cap_would_apply 와 함께 coach 게이트)
     "no_fault",                   # 정타/none — 결함 없음
-    "low_alignment_confidence",   # 정렬 신뢰도 낮음 (보류)
+    "low_alignment_confidence",   # 정렬 신뢰도 낮음 — collect 가 Gemini 호출 전 bail.
+                                  # 24-04(Option A): apply seam 에서는 measured-seed
+                                  # tally-eligible(RTMW 측정 편차는 정렬-독립). Gemini
+                                  # fault 는 부재(supported_differences=[]) — fabricate 금지.
     "resource_limited",           # 예산 소진 fail-closed (보류)
     "disabled",                   # 토글 OFF
     "mode3_held",                 # Mode3 보류

@@ -2216,10 +2216,17 @@ def _apply_vision_veto_from_context(
     substrate + baseline_kind keyword threaded, profile 미전달 BLOCKER B). criterion 선택은
     엔진의 criteria_for_fault 라우터(body_part/fault_state)가 하고 severity 는 읽지 않는다.
 
-    TALLY-ELIGIBLE status = {candidate_verdict, no_fault}. no_fault(Gemini 정타, 정렬·정량화
-    가용)는 더 이상 passthrough 가 아니다 — supported_differences 가 비어 있어도 measured seed
-    (criteria_from_measured_deviations)가 측정 편차로 감점할 수 있다(Gemini-silent 방어). 기하가
-    깨끗하면 not_applicable(final 불변). 그 외 비측정 status 는 score-free passthrough 그대로.
+    TALLY-ELIGIBLE status = {candidate_verdict, no_fault, low_alignment_confidence}.
+    no_fault(Gemini 정타, 정렬·정량화 가용)는 더 이상 passthrough 가 아니다 —
+    supported_differences 가 비어 있어도 measured seed(criteria_from_measured_deviations)가
+    측정 편차로 감점할 수 있다(Gemini-silent 방어). low_alignment_confidence(정렬 신뢰도
+    낮음 — collect 가 Gemini 호출 전 bail) 도 24-04(Option A, belle 2026-06-26)부터
+    tally-eligible 이다: RTMW 측정 편차(extension deficit + body-relative notch)는 student↔
+    reference DTW 정렬에 독립인 객관 측정값이므로, Gemini 정렬이 낮아도 측정 가능한 기하 편차는
+    감점해야 한다. ctx.supported_differences 가 비어 있어(collect-side bail) criteria_for_fault
+    는 아무 것도 더하지 않는다 — Gemini-located fault 는 부재(위양성 fabricate 금지,
+    objectivity [[analysis-objectivity-no-human-scores]]). 기하가 깨끗하면 not_applicable
+    (final 불변). 그 외 비측정 status 는 score-free passthrough 그대로.
     geminiCallCount=1(collect 만 호출, apply 재호출 0).
     """
     from sunity_shared.analysis import vision_veto
@@ -2227,11 +2234,11 @@ def _apply_vision_veto_from_context(
 
     try:
         status = ctx.collection_status
-        # tally-eligible: candidate_verdict(Gemini 결함) 또는 no_fault(정타지만 measured
-        # seed 가 감점 가능 — iter5 HIGH-1). 그 외 status 는 측정 불가 → score-free passthrough.
-        if status not in ("candidate_verdict", "no_fault"):
+        # tally-eligible: candidate_verdict(Gemini 결함) / no_fault(정타지만 measured seed 가
+        # 감점 가능 — iter5 HIGH-1) / low_alignment_confidence(정렬 낮음이지만 RTMW 측정 편차는
+        # 정렬-독립 — 24-04 Option A). 그 외 status 는 측정 불가 → score-free passthrough.
+        if status not in ("candidate_verdict", "no_fault", "low_alignment_confidence"):
             passthrough_map = {
-                "low_alignment_confidence": "low_alignment_confidence",
                 "resource_limited": "resource_limited",
                 "disabled": "disabled",
                 "mode3_held": "mode3_held",
@@ -2250,7 +2257,9 @@ def _apply_vision_veto_from_context(
                 }
             return {**score_result, "visionVeto": audit}
 
-        # ── candidate_verdict / no_fault — deduction tally (seam-built substrate) ──
+        # ── candidate_verdict / no_fault / low_alignment_confidence — deduction tally
+        # (seam-built substrate) ── low_alignment 은 measured seed 만 점화(supported_differences
+        # 비어 criteria_for_fault 부재) — Gemini fault fabricate 0(24-04 Option A).
         quant = quantification
         if quant is None:
             quant = vision_veto.VisionQuantificationResult(

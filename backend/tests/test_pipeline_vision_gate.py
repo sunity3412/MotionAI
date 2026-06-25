@@ -384,12 +384,17 @@ class TestCollectApplySeam:
         assert "angleDeltas" not in v
 
     def test_apply_passthrough_score_free_status(self, monkeypatch) -> None:
-        """정렬 약함/예산소진 collection_status → apply 가 score 불변 passthrough."""
+        """비측정 collection_status(resource_limited 등) → apply 가 score 불변 passthrough.
+
+        24-04(Option A): low_alignment_confidence 는 이제 measured-seed tally-eligible 이라
+        이 passthrough 셋에서 제외된다(아래 test_low_alignment_*).
+        """
         app = _import_pipeline()
         from sunity_shared.analysis import vision_veto
 
         monkeypatch.setattr(app, "_gemini_vision_veto_enabled", lambda: True)
-        for status in ("low_alignment_confidence", "resource_limited"):
+        for status in ("resource_limited", "disabled", "mode3_held",
+                       "missing_reference", "skipped_error"):
             ctx = vision_veto.VisionFaultContext(
                 collection_status=status, verdict=None, supported_differences=[],
                 root_cause_hypotheses=[], selected_frame_pairs=[], alignment={},
@@ -399,7 +404,9 @@ class TestCollectApplySeam:
                 {"overallScore": 97}, mode="mode1", vision_fault_context=ctx,
             )
             assert out["overallScore"] == 97, "score 불변 passthrough"
-            assert out["visionVeto"]["status"] == status
+            assert "deductionBreakdown" not in out, "비측정 status 는 tally 미실행"
+            # status 매핑은 passthrough_map(missing_current_video→missing_local_video) 적용.
+            assert out["visionVeto"]["status"] in (status, "missing_local_video")
 
 
 # ─────────────── Task 4 (23-02) — 정량화 audit attach (to_audit_dict) + 3-way lockstep ───────────────

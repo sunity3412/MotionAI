@@ -526,6 +526,40 @@ def _validate_recommended_exercises(
         _validate_dict_only_scalars(item, path=f"{path}[{i}]")
 
 
+def _validate_deduction_breakdown(
+    breakdown, *, path: str = "deductionBreakdown"
+) -> None:
+    """deductionBreakdown scoped validator (Phase 24, ND-01/HIGH-1).
+
+    result['deductionBreakdown'] 은 OBJECT {baseline, records, final, coverageGaps,
+    fallback} — records/coverageGaps 는 flat scalar dict 의 list(Firestore nested-array
+    금지). recommendedExercises/forcePatternInference 패턴 mirror — 각 record/gap 을
+    `_validate_dict_only_scalars` 로 라우팅(nested list/dict reject). None/부재 graceful
+    (legacy doc). 위반 시 ValueError + path(caller 가 catch → fail_analysis).
+    """
+    if breakdown is None:
+        return
+    if not isinstance(breakdown, dict):
+        raise ValueError(
+            f"_validate_deduction_breakdown: dict 입력만 허용. "
+            f"path={path!r} got {type(breakdown).__name__}"
+        )
+    for list_key in ("records", "coverageGaps"):
+        items = breakdown.get(list_key)
+        if items is None:
+            continue
+        if not isinstance(items, list):
+            raise ValueError(
+                f"{path}.{list_key} must be list, got {type(items).__name__}"
+            )
+        for i, item in enumerate(items):
+            if not isinstance(item, dict):
+                raise ValueError(
+                    f"{path}.{list_key}[{i}] must be dict, got {type(item).__name__}"
+                )
+            _validate_dict_only_scalars(item, path=f"{path}.{list_key}[{i}]")
+
+
 # ── Plan 12-01 (2026-06-10, Phase 12) — keypoint_report scoped validator ──
 #
 # D-12-E3 + RESEARCH Pattern 5. Phase 9 `_validate_force_pattern_inference` 1:1
@@ -847,6 +881,11 @@ def complete_analysis(
         `warnings` / `unstableBodyParts` list[str] 박제만 허용, 다른 list[scalar]
         박제 시 ValueError. 다른 path 박제 strict 유지.
     """
+    # Phase 24 (ND-01/HIGH-1) — deductionBreakdown 은 seam 에서 result 안에 OBJECT 로
+    # 들어온다(visionVeto persistence analog, NO 신규 kwarg). payload['result']=dict(result)
+    # 전에 scoped validator 로 records/coverageGaps flat 검증(firestore-nested-array-flat).
+    if result:
+        _validate_deduction_breakdown((result or {}).get("deductionBreakdown"))
     payload: dict = {
         "status": models.STATUS_DONE,
         "result": dict(result) if result else {},

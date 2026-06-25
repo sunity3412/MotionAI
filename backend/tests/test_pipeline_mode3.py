@@ -351,11 +351,11 @@ def test_vision_veto_missing_local_video(monkeypatch):
     assert out["visionVeto"]["status"] == "missing_local_video"
 
 
-def test_vision_veto_downward_only_with_cap(monkeypatch):
-    # iter2 HIGH-1 — cap-mutation 증명. production cap 은 20-04 까지 placeholder None;
-    # 여기 50 은 mutation 경로 증명용 scoped fixture (D-02 무손상).
+def test_vision_veto_legacy_fault_applies_tally(monkeypatch):
+    # Phase 24 (밴드 제거) — legacy 단일-영상 경로: major verdict + quantification 부재 →
+    # deduction tally unavailable fallback → overallScore = dimension_overall(리셋 0),
+    # status='applied', tallyFinal 동반(밴드 없음). 점수는 deductionBreakdown.final.
     _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
     monkeypatch.setattr(
         gemini_vision_scorer,
         "assess_fault_severity",
@@ -363,50 +363,19 @@ def test_vision_veto_downward_only_with_cap(monkeypatch):
     )
     score_result = {"overallScore": 100, "dimensionScores": {"line": 100}}
     out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
-    assert out["overallScore"] == 50  # capped 하향 증명
-    assert out["overallScore"] <= 100  # property — 절대 안 올림
-
-
-def test_vision_veto_minor_caps_at_90(monkeypatch):
-    # Phase 20 robustify — severity='minor' → 90 cap (미세하지만 실재하는 결함은
-    # 천장 100 에서 내려간다). 96 → 90, status='applied'. 정타(none)는 무캡 보존.
-    _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "minor", 90)
-    monkeypatch.setattr(
-        gemini_vision_scorer,
-        "assess_fault_severity",
-        lambda *a, **k: _StubVerdict("minor"),
-    )
-    score_result = {"overallScore": 96, "dimensionScores": {"line": 96}}
-    out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
-    assert out["overallScore"] == 90  # 천장 해제 — mild fault off ceiling
-    assert out["overallScore"] <= 96  # property — 절대 안 올림
     assert out["visionVeto"]["status"] == "applied"
-    assert out["visionVeto"]["severity"] == "minor"
-    assert out["visionVeto"]["capApplied"] == 90
-
-
-def test_vision_veto_minor_no_mutation_below_cap(monkeypatch):
-    # minor cap=90 미만 입력(85)은 더 내려가지 않는다 (min-only) → not_applicable.
-    _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "minor", 90)
-    monkeypatch.setattr(
-        gemini_vision_scorer,
-        "assess_fault_severity",
-        lambda *a, **k: _StubVerdict("minor"),
-    )
-    score_result = {"overallScore": 85, "dimensionScores": {"line": 85}}
-    out = app._apply_vision_veto(score_result, "/tmp/v.mp4", None, _profile())
-    assert out["overallScore"] == 85
-    assert out["visionVeto"]["status"] == "not_applicable"
+    # Mode1 tally-applied — overallScore == deductionBreakdown.final (밴드 천장 아님).
+    assert out["overallScore"] == out["deductionBreakdown"]["final"]
+    assert out["visionVeto"]["tallyFinal"] == out["overallScore"]
+    assert out["deductionBreakdown"]["fallback"] == "quantification_unavailable"
+    # 밴드 제거 증명 — 옛 고정 ceiling(50/90/75)으로 강제되지 않는다.
+    assert out["overallScore"] == 100  # dimension_overall (리셋 0)
 
 
 def test_vision_veto_clean_form_no_mutation(monkeypatch):
-    # over-penalization fix (2026-06-20) — caps 활성화(major=50) 상태에서도 정타
-    # (severity='none') 는 cap 미적용 + status='not_applicable'. 정은지 정타가 major 로
-    # 스탬프돼 50 으로 깎이던 버그의 회귀 가드. SEVERITY_CAP['none'] 부재 → 불변.
+    # over-penalization fix — 정타(severity='none') 는 채점 미적용 + not_applicable.
+    # 정은지 정타가 스탬프돼 깎이던 버그의 회귀 가드.
     _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
     monkeypatch.setattr(
         gemini_vision_scorer,
         "assess_fault_severity",
@@ -419,9 +388,8 @@ def test_vision_veto_clean_form_no_mutation(monkeypatch):
 
 
 def test_vision_veto_status_enum(monkeypatch):
-    # HIGH-1 — status enum 이 veto 실행을 명시 증명 (부재 ≠ 실행).
+    # HIGH-1 — status enum 이 채점 실행을 명시 증명 (부재 ≠ 실행). 밴드 제거 → tallyFinal.
     _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
     monkeypatch.setattr(
         gemini_vision_scorer,
         "assess_fault_severity",
@@ -432,12 +400,14 @@ def test_vision_veto_status_enum(monkeypatch):
     veto = out["visionVeto"]
     assert veto["status"] == "applied"
     assert veto["severity"] == "major"
-    assert veto["capApplied"] == 50
+    assert veto["tallyFinal"] == out["overallScore"]
+    _retired_band_key = "cap" + "Applied"  # 옛 밴드 필드 — 영구 부재(밴드 제거).
+    assert _retired_band_key not in veto
     # UI B1 — primaryFault(결함 DESCRIPTION, 자연어) 박제. "왜 점수가 내려갔는지" 노출용.
     assert veto["primaryFault"] == "stub fault"
     # 객관성 — 점수/score 라벨 필드 0 (primaryFault 는 숫자 아님).
     assert "score" not in veto
-    assert set(veto.keys()) <= {"status", "severity", "capApplied", "primaryFault"}
+    assert set(veto.keys()) <= {"status", "severity", "tallyFinal", "primaryFault"}
 
 
 def test_vision_veto_graceful_observable(monkeypatch, caplog):
@@ -463,15 +433,15 @@ def test_vision_veto_called_both_modes(monkeypatch):
 
     _enable_veto(monkeypatch)
     seen = {}
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 40)
 
     def _capture(local_video_path, at_seconds=None, reference_video_path=None):
         seen["at"] = at_seconds
         return _StubVerdict("major")
 
     monkeypatch.setattr(gemini_vision_scorer, "assess_fault_severity", _capture)
-    # Phase 20 — mode=None(back-compat 단일 영상 경로)에서 단일 hook 통과 확인.
-    # Mode1/Mode3 실 분기는 아래 reference-anchor 전용 테스트가 단언한다.
+    # Phase 24 — mode=None(back-compat 단일 영상 경로)에서 단일 hook 통과 확인.
+    # Mode1/Mode3 실 분기는 아래 reference-anchor 전용 테스트가 단언한다. 밴드 제거 →
+    # tally unavailable fallback(overallScore = dimension_overall = deductionBreakdown.final).
     for overall in (100, 100):
         out = app._apply_vision_veto(
             {"overallScore": overall, "dimensionScores": {"line": overall}},
@@ -479,10 +449,11 @@ def test_vision_veto_called_both_modes(monkeypatch):
             None,
             _profile(),
         )
-        assert out["overallScore"] == 40
-    # 단일 호출부 + mode 분기 밖 — grep: _apply_vision_veto( 호출 1건 (multi-line).
+        assert out["overallScore"] == out["deductionBreakdown"]["final"]
+        assert out["overallScore"] == overall  # dimension_overall (밴드 천장 아님)
+    # 호출부 grep: _process 의 context/legacy 분기로 result = _apply_vision_veto( 가 2건.
     app_src = inspect.getsource(app)
-    assert app_src.count("result = _apply_vision_veto(") == 1
+    assert app_src.count("result = _apply_vision_veto(") == 2
 
 
 def test_keep_local_video_for_veto_only(monkeypatch):
@@ -500,7 +471,6 @@ def test_keep_local_video_for_veto_only(monkeypatch):
     assert app._gemini_vision_veto_enabled() is True  # veto 단독 ON
     # adapter 가 non-None path 를 수신함을 _apply_vision_veto 경유로 단언.
     received = {}
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
 
     def _capture(local_video_path, at_seconds=None, reference_video_path=None):
         received["path"] = local_video_path
@@ -520,12 +490,11 @@ def test_keep_local_video_for_veto_only(monkeypatch):
 
 
 def test_vision_veto_mode3_held(monkeypatch):
-    # belle 보류 — mode==MODE_SELF 면 caps 활성화 + major verdict 여도 veto 미실행.
-    # Mode3 는 고정 reference 가 없어 비교 앵커 불가 → mode3_held (점수 불변).
+    # belle 보류 — mode==MODE_SELF 면 major verdict 여도 채점 미실행 (Mode3 reference 부재).
+    # Mode3 는 고정 reference 가 없어 비교 앵커 불가 → mode3_held (점수 불변, 감점 없음).
     import sunity_shared.models as models
 
     _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
 
     def _boom(*a, **k):
         raise AssertionError("Mode3 보류인데 adapter 호출됨 (veto 미실행이어야 함)")
@@ -542,6 +511,9 @@ def test_vision_veto_mode3_held(monkeypatch):
     )
     assert out["overallScore"] == 97  # 보류 — 점수 불변
     assert out["visionVeto"]["status"] == "mode3_held"
+    # HIGH-3 — Mode3 passthrough 엔 reference-anchored tally 부재(deductionBreakdown 없음).
+    assert "deductionBreakdown" not in out
+    assert "tallyFinal" not in out["visionVeto"]
 
 
 def test_vision_veto_mode1_missing_reference(monkeypatch):
@@ -549,7 +521,6 @@ def test_vision_veto_mode1_missing_reference(monkeypatch):
     import sunity_shared.models as models
 
     _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
 
     def _boom(*a, **k):
         raise AssertionError("기준 영상 None 인데 adapter 호출됨 (진공 판정 금지)")
@@ -568,13 +539,13 @@ def test_vision_veto_mode1_missing_reference(monkeypatch):
     assert out["visionVeto"]["status"] == "missing_reference"
 
 
-def test_vision_veto_mode1_with_reference_applies_cap(monkeypatch):
-    # Mode1 + 기준 영상 + major verdict → 비교 경로로 cap 적용 (하향).
-    # adapter 가 reference_video_path 를 수신함을 단언 (코치처럼 비교 전달).
+def test_vision_veto_mode1_with_reference_applies_tally(monkeypatch):
+    # Phase 24 — Mode1 + 기준 영상 + major verdict → 비교 경로로 deduction tally 적용.
+    # adapter 가 reference_video_path 를 수신함을 단언 (코치처럼 비교 전달). 밴드 제거 →
+    # quantification 부재(legacy) → unavailable fallback(final=dimension_overall).
     import sunity_shared.models as models
 
     _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
     received = {}
 
     def _capture(local_video_path, at_seconds=None, reference_video_path=None):
@@ -592,9 +563,12 @@ def test_vision_veto_mode1_with_reference_applies_cap(monkeypatch):
         mode=models.MODE_EXPERT,
         reference_video_path="/tmp/reference.mp4",
     )
-    assert out["overallScore"] == 50  # capped 하향
     assert out["visionVeto"]["status"] == "applied"
+    # Mode1 tally-applied — overallScore == deductionBreakdown.final (밴드 천장 아님).
+    assert out["overallScore"] == out["deductionBreakdown"]["final"]
+    assert out["visionVeto"]["tallyFinal"] == out["overallScore"]
     assert out["visionVeto"]["severity"] == "major"
+    assert ("cap" + "Applied") not in out["visionVeto"]  # 옛 밴드 필드 영구 부재
     # UI B1 — applied 시 primaryFault(결함 DESCRIPTION) 동반.
     assert out["visionVeto"]["primaryFault"] == "stub fault"
     # 비교 앵커 — 기준 영상 path 가 어댑터에 전달됨.
@@ -603,12 +577,11 @@ def test_vision_veto_mode1_with_reference_applies_cap(monkeypatch):
 
 
 def test_vision_veto_mode1_with_reference_clean_no_cap(monkeypatch):
-    # Mode1 + 기준 영상 + none verdict (기준과 사실상 동일) → cap 미적용 (정타 보존).
-    # 정은지 정타가 50 으로 깎이던 위양성의 회귀 가드 (reference-anchored).
+    # Mode1 + 기준 영상 + none verdict (기준과 사실상 동일) → 채점 미적용 (정타 보존).
+    # 정은지 정타가 깎이던 위양성의 회귀 가드 (reference-anchored).
     import sunity_shared.models as models
 
     _enable_veto(monkeypatch)
-    monkeypatch.setitem(vision_veto.SEVERITY_CAP, "major", 50)
     monkeypatch.setattr(
         gemini_vision_scorer,
         "assess_fault_severity",

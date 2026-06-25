@@ -1,0 +1,321 @@
+"""Phase 24 (24-02) — 투명 감점-합산 채점 seam 통합 테스트 (밴드 제거 end-to-end).
+
+박제 정신 (24-CONTEXT ND-01~07):
+  · severity→고정천장 밴드 제거 — overallScore = deduction_engine.tally(측정편차 →
+    명시규칙 감점 → 합산).final. visionVeto.status 가 채점 실행을 증명.
+  · seam 이 측정-기하 substrate(_build_deduction_measured_deviations)를 1회 빌드해 apply
+    경로에 threaded — 0-100 dimension SCORE 를 deviation 으로 먹이지 않는다(HIGH-3).
+  · criterion 선택은 엔진의 criteria_for_fault 라우터(body_part/fault_state, severity 미사용).
+  · per-move baseline_kind 는 name/motion_id string-match(kip-up=floor named, hip_line 기본).
+  · production Gemini-silent 방어: no_fault(정타) 가 tally-eligible — measured seed 가 감점.
+  · Mode3 보류 + 토글 보존; math-determinism + severity-independence.
+
+전부 mock-based — 실 Gemini / 실 Pod / 실 S3 / 실 Firestore 호출 0. PYTHONPATH=shared/python.
+# 보유 sweep 수치 타깃 아님 — 방향/구조 단언만 (curve-fit 금지).
+"""
+
+from __future__ import annotations
+
+import importlib
+import sys
+from pathlib import Path
+
+import pytest
+
+# pipeline/app.py + shared layer path 주입.
+_PIPELINE = Path(__file__).resolve().parents[1] / "functions" / "pipeline"
+_SHARED = Path(__file__).resolve().parents[1] / "shared" / "python"
+for _p in (_PIPELINE, _SHARED):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+import app  # noqa: E402
+from sunity_shared.analysis import technique, vision_veto  # noqa: E402
+from sunity_shared.analysis import gemini_vision_scorer  # noqa: E402
+from sunity_shared.analysis.skeleton import JOINT_KEYS  # noqa: E402
+
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+
+def _profile(name: str = "t", motion_id: str | None = None) -> technique.TechniqueProfile:
+    """팔꿈치/무릎 EXTEND 프로파일 (line/extension substrate 산출되게)."""
+    exp = {
+        k: technique.JOINT_EXTEND
+        if k.endswith("elbow") or k.endswith("knee")
+        else technique.JOINT_BENT_OK
+        for k in JOINT_KEYS
+    }
+    return technique.TechniqueProfile(
+        name=name, category="unknown", joint_expectations=exp, motion_id=motion_id
+    )
+
+
+def _verdict(severity: str = "moderate", differences=()):
+    return gemini_vision_scorer.VisionVerdict(
+        primary_fault="stub fault", severity=severity, differences=tuple(differences)
+    )
+
+
+def _ctx(status, *, verdict=None, supported=None, frame_pairs=None, cap=False):
+    return vision_veto.VisionFaultContext(
+        collection_status=status,
+        verdict=verdict,
+        supported_differences=list(supported or []),
+        root_cause_hypotheses=[],
+        selected_frame_pairs=list(frame_pairs or []),
+        alignment={},
+        telemetry={},
+        cap_would_apply=cap,
+    )
+
+
+def _quant(status="available", notches=None):
+    return vision_veto.VisionQuantificationResult(
+        quantificationStatus=status,
+        angleDeltas=None,
+        bodyRelativeNotches=notches,
+        windowMedianAngleDeltas=None,
+        warnings=(),
+    )
+
+
+def _enable(monkeypatch):
+    monkeypatch.setattr(app, "_gemini_vision_veto_enabled", lambda: True)
+
+
+# ── band removed end-to-end ──────────────────────────────────────────────────
+
+
+def test_fault_drives_overall_via_tally_no_fixed_ceiling(monkeypatch):
+    """결함 verdict → overallScore = breakdown.final, 옛 고정 천장(50/75/90) 아님."""
+    _enable(monkeypatch)
+    ctx = _ctx("candidate_verdict", verdict=_verdict("major"), cap=True)
+    out = app._apply_vision_veto(
+        {"overallScore": 100, "dimensionScores": {"angle": 100}},
+        mode="mode1", vision_fault_context=ctx, quantification=_quant("available"),
+        measured_deviations={"leg_extension": 50.0}, baseline_kind="hip_line",
+    )
+    assert out["visionVeto"]["status"] == "applied"
+    assert out["overallScore"] == out["deductionBreakdown"]["final"]
+    final = out["overallScore"]
+    # 측정 편차로 내려갔고, 옛 고정 ceiling(50/75/90)에 묶이지 않는다.
+    assert final < 100
+    assert final not in (50, 75, 90) or final == out["deductionBreakdown"]["final"]
+    # final == max(0, round(100 + Σ points)) — 추적성.
+    pts = sum(r["points"] for r in out["deductionBreakdown"]["records"])
+    assert final == max(0, round(100 + pts))
+
+
+def test_score_not_deviation_regression(monkeypatch):
+    """HIGH-3 — 0-100 dimension SCORE(72)를 72° deviation 으로 먹이지 않는다.
+
+    builder 는 extension_deviation(deg)/notch 에서만 substrate 를 뽑는다. dimension_scores
+    의 angle=72 가 measured_deviations 로 새지 않음을 builder 출력으로 단언.
+    """
+    import numpy as np
+
+    prof = _profile()
+    # 깨끗한 각도(거의 180°) — extension deficit ~0. dimension SCORE 72 는 무관해야 함.
+    angles = np.full((30, len(JOINT_KEYS)), 179.0, dtype=float)
+    md = app._build_deduction_measured_deviations(
+        angles=angles, profile=prof, assessments=[],
+        dimension_scores={"angle": 72, "line": 72}, quantification=_quant("available"),
+    )
+    # 72 가 어떤 criterion deviation 으로도 들어가면 안 된다 (deg deficit 은 ~1).
+    for cid in ("leg_extension", "arm_extension", "line"):
+        if cid in md:
+            assert md[cid] != 72, f"{cid} 에 dimension SCORE 72 가 deviation 으로 샜다 (HIGH-3)"
+            assert md[cid] < 20, f"{cid} deficit 이 깨끗한 각도(179°)에서 과대 ({md[cid]})"
+
+
+def test_criteria_for_fault_routing_at_seam(monkeypatch):
+    """HIGH-1 — split→split_angle (not leg), grip→coverageGaps. seam 이 router 를 탄다."""
+    _enable(monkeypatch)
+    # split fault — body_part="스플릿".
+    split_diff = {"body_part": "스플릿", "fault_state": "각도 부족"}
+    ctx_split = _ctx("candidate_verdict", verdict=_verdict("moderate"),
+                     supported=[split_diff], cap=True)
+    out = app._apply_vision_veto(
+        {"overallScore": 100, "dimensionScores": {}},
+        mode="mode1", vision_fault_context=ctx_split,
+        quantification=_quant("available"),
+        measured_deviations={"split_angle": 40.0}, baseline_kind="hip_line",
+    )
+    crits = {r["criterion"] for r in out["deductionBreakdown"]["records"]}
+    assert "split_angle" in crits
+    assert "leg_extension" not in crits  # split 은 leg 로 라우팅되지 않는다.
+
+    # grip fault → coverage gap (감점 0).
+    grip_diff = {"body_part": "그립", "fault_state": "풀림"}
+    ctx_grip = _ctx("candidate_verdict", verdict=_verdict("moderate"),
+                    supported=[grip_diff], cap=True)
+    out_g = app._apply_vision_veto(
+        {"overallScore": 100, "dimensionScores": {}},
+        mode="mode1", vision_fault_context=ctx_grip,
+        quantification=_quant("available"),
+        measured_deviations={}, baseline_kind="hip_line",
+    )
+    gaps = out_g["deductionBreakdown"]["coverageGaps"]
+    assert any(g["keypointSet"] == "grip" for g in gaps)
+
+
+def test_gemini_silent_no_fault_is_tally_eligible_production_shape(monkeypatch):
+    """iter5 HIGH-1 — production no_fault(정타, valid still-pair, 측정 편차 BEYOND tol) →
+    measured seed 가 감점. NOT 합성 candidate_verdict — 실 no_fault 경로(passthrough 버그)."""
+    _enable(monkeypatch)
+    pair = vision_veto.SelectedFramePair(
+        student_frame_path="/tmp/s.png", reference_frame_path="/tmp/r.png",
+        user_frame_idx=3, ref_frame_idx=3,
+    )
+    # collect 가 정타 still-pair 에 대해 실제로 반환하는 모양: no_fault + severity none +
+    # 빈 supported_differences + valid frame_pair. 측정 leg 편차는 tol 초과.
+    ctx = _ctx("no_fault", verdict=_verdict("none"), supported=[], frame_pairs=[pair])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {"angle": 100}}, ctx,
+        _quant("available"),
+        measured_deviations={"leg_extension": 45.0}, baseline_kind="hip_line",
+    )
+    crits = {r["criterion"] for r in out["deductionBreakdown"]["records"]}
+    assert "leg_extension" in crits
+    assert out["overallScore"] < 100
+    assert out["visionVeto"]["status"] == "applied"
+    # no_fault → cap_would_apply False → coach injection OFF (Gemini saw no fault).
+    assert ctx.cap_would_apply is False
+    assert ctx.eligible_for_coach is False
+
+
+def test_gemini_silent_clean_geometry_not_applicable(monkeypatch):
+    """no_fault + 깨끗한 기하(측정 편차 0) → not_applicable (final 불변)."""
+    _enable(monkeypatch)
+    pair = vision_veto.SelectedFramePair(
+        student_frame_path="/tmp/s.png", reference_frame_path="/tmp/r.png",
+        user_frame_idx=3, ref_frame_idx=3,
+    )
+    ctx = _ctx("no_fault", verdict=_verdict("none"), supported=[], frame_pairs=[pair])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 99, "dimensionScores": {"angle": 99}}, ctx,
+        _quant("available"),
+        measured_deviations={}, baseline_kind="hip_line",
+    )
+    assert out["visionVeto"]["status"] == "not_applicable"
+    assert out["overallScore"] == 99  # 점수 불변
+    assert ctx.cap_would_apply is False
+
+
+def test_baseline_kind_derived_by_name():
+    """BLOCKER B — kip-up/floor named → floor; 미상/inversion → hip_line."""
+    assert app._baseline_kind_for_profile(_profile(name="미등록: kip-up")) == "floor"
+    assert app._baseline_kind_for_profile(_profile(name="t", motion_id="kip_up")) == "floor"
+    assert app._baseline_kind_for_profile(_profile(name="미상")) == "hip_line"
+    assert app._baseline_kind_for_profile(_profile(name="inversion")) == "hip_line"
+    assert app._baseline_kind_for_profile(_profile(name="깃발 flag")) == "pole_vertical"
+
+
+def test_breakdown_object_set_on_result_and_flat(monkeypatch):
+    """deductionBreakdown OBJECT {baseline,records,final,coverageGaps,fallback} on result,
+    records 가 baselineValue/baselineKind 동반 flat — complete_analysis validator 가 수용,
+    nested array 심으면 거부 (HIGH-1)."""
+    _enable(monkeypatch)
+    ctx = _ctx("candidate_verdict", verdict=_verdict("moderate"), cap=True)
+    out = app._apply_vision_veto(
+        {"overallScore": 100, "dimensionScores": {}},
+        mode="mode1", vision_fault_context=ctx, quantification=_quant("available"),
+        measured_deviations={"leg_extension": 40.0}, baseline_kind="floor",
+    )
+    bd = out["deductionBreakdown"]
+    assert set(bd.keys()) == {"baseline", "records", "final", "coverageGaps", "fallback"}
+    assert bd["baseline"] == 100
+    for r in bd["records"]:
+        assert "baselineValue" in r and "baselineKind" in r
+    # complete_analysis 의 scoped validator 가 수용.
+    from sunity_shared import firestore_admin
+    firestore_admin._validate_deduction_breakdown(bd)  # 예외 0
+    # nested array 심으면 거부.
+    poisoned = dict(bd)
+    poisoned["records"] = [{"criterion": "x", "nested": [[1, 2]]}]
+    with pytest.raises((ValueError, TypeError)):
+        firestore_admin._validate_deduction_breakdown(poisoned)
+
+
+def test_mode3_held_passthrough_no_tally(monkeypatch):
+    """Mode3 (MODE_SELF) → mode3_held passthrough, deductionBreakdown 부재 (reference-anchor 없음)."""
+    import sunity_shared.models as models
+    _enable(monkeypatch)
+    out = app._apply_vision_veto(
+        {"overallScore": 90, "dimensionScores": {}}, "/tmp/v.mp4", None, _profile(),
+        mode=models.MODE_SELF, reference_video_path=None,
+    )
+    assert out["visionVeto"]["status"] == "mode3_held"
+    assert out["overallScore"] == 90
+    assert "deductionBreakdown" not in out
+
+
+def test_toggle_off_disabled_passthrough(monkeypatch):
+    """GEMINI_VISION_VETO_ENABLED off → disabled passthrough (점수 불변, tally 미실행)."""
+    monkeypatch.setattr(app, "_gemini_vision_veto_enabled", lambda: False)
+    out = app._apply_vision_veto(
+        {"overallScore": 88, "dimensionScores": {}}, "/tmp/v.mp4", None, _profile(),
+        mode="mode1", reference_video_path="/tmp/ref.mp4",
+    )
+    assert out["visionVeto"]["status"] == "disabled"
+    assert out["overallScore"] == 88
+    assert "deductionBreakdown" not in out
+
+
+def test_math_determinism_same_input_identical_breakdown(monkeypatch):
+    """같은 stored quantification + cached verdict 2회 → byte-identical deductionBreakdown."""
+    _enable(monkeypatch)
+
+    def _run():
+        ctx = _ctx("candidate_verdict", verdict=_verdict("moderate"), cap=True)
+        return app._apply_vision_veto(
+            {"overallScore": 100, "dimensionScores": {}},
+            mode="mode1", vision_fault_context=ctx, quantification=_quant("available"),
+            measured_deviations={"leg_extension": 37.0}, baseline_kind="hip_line",
+        )["deductionBreakdown"]
+
+    assert _run() == _run()
+
+
+def test_severity_independent_of_score(monkeypatch):
+    """ND-02 — severity minor↔major swap, 동일 quantification → 동일 overallScore."""
+    _enable(monkeypatch)
+
+    def _run(sev):
+        ctx = _ctx("candidate_verdict", verdict=_verdict(sev), cap=(sev in ("moderate", "major")))
+        return app._apply_vision_veto(
+            {"overallScore": 100, "dimensionScores": {}},
+            mode="mode1", vision_fault_context=ctx, quantification=_quant("available"),
+            measured_deviations={"leg_extension": 40.0}, baseline_kind="hip_line",
+        )["overallScore"]
+
+    assert _run("minor") == _run("major")
+
+
+def test_coach_gate_band_free_continuity(monkeypatch):
+    """HIGH-6 — eligible_for_coach: moderate/major True, minor/none False (continuity)."""
+    for sev, expect in (("moderate", True), ("major", True), ("minor", False), ("none", False)):
+        cap = sev in ("moderate", "major")
+        ctx = _ctx("candidate_verdict", verdict=_verdict(sev), cap=cap)
+        assert ctx.cap_would_apply is cap
+        assert ctx.eligible_for_coach is expect, f"severity={sev} eligible mismatch"
+
+
+def test_legacy_path_unavailable_fallback(monkeypatch):
+    """iter4 HIGH-2 — legacy(ctx None, Gemini 호출) → quantification=None → unavailable
+    fallback(final=dimension_overall, ONE traceable record, NO band, NO router)."""
+    _enable(monkeypatch)
+    monkeypatch.setattr(
+        gemini_vision_scorer, "assess_fault_severity",
+        lambda *a, **k: _verdict("major"),
+    )
+    out = app._apply_vision_veto(
+        {"overallScore": 84, "dimensionScores": {"angle": 84}}, "/tmp/v.mp4", None,
+        _profile(), mode="mode1", reference_video_path="/tmp/ref.mp4",
+    )
+    bd = out["deductionBreakdown"]
+    assert bd["fallback"] == "quantification_unavailable"
+    assert len(bd["records"]) == 1
+    assert bd["final"] == 84  # dimension_overall (리셋 0)
+    assert out["overallScore"] == 84

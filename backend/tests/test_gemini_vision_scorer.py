@@ -190,13 +190,15 @@ _CLEAN_JSON = (
 )
 
 
-def test_clean_form_reports_none_no_cap(monkeypatch, fake_video):
-    """정타(dominant_severity none + 빈 differences) → severity 'none' → cap 미적용.
+def test_clean_form_reports_none_score_free(monkeypatch, fake_video):
+    """정타(dominant_severity none + 빈 differences) → severity 'none' + 숫자 0 (ND-02).
 
-    over-penalization fix (2026-06-20): 정은지 정타가 major 로 스탬프돼 50 으로 깎이던
-    버그의 회귀 가드. clean form 은 점수를 깎지 않는다.
+    Phase 24 (밴드 제거): Gemini 은 점수를 절대 내지 않는다 — verdict 에 score 필드 부재,
+    severity 는 non-scoring 라벨. '없음' fault 는 짚을 측정대상 없음 → 엔진이 어떤 criterion
+    도 routing 하지 않는다(criteria_for_fault). over-penalization fix 의 의도(정타를 깎지
+    않음)는 이제 엔진(measured seed 활성화 0)이 보장한다.
     """
-    from sunity_shared.analysis import vision_veto
+    from sunity_shared.analysis import gemini_vision_scorer, deduction_engine, ipsf_criteria
 
     _in_memory_cache(monkeypatch)
     client = _FakeClient(_CLEAN_JSON)
@@ -205,9 +207,11 @@ def test_clean_form_reports_none_no_cap(monkeypatch, fake_video):
     verdict = assess_fault_severity(fake_video)
     assert verdict is not None
     assert verdict.severity == "none"
-    # apply_downward_cap 은 'none' 에서 점수 불변 (정타 95~100 보존, D-01).
-    assert vision_veto.apply_downward_cap(100, verdict.severity) == 100
-    assert vision_veto.apply_downward_cap(97, verdict.severity) == 97
+    # 객관성: verdict 는 숫자 점수 필드를 들지 않는다(_SCORE_PATTERN 누수 가드 동행).
+    assert not hasattr(verdict, "score")
+    assert "score" not in gemini_vision_scorer.build_schema()["properties"]
+    # 정타 차이 0 — 엔진이 어떤 measured criterion 도 seed 하지 않는다(깎임 0).
+    assert ipsf_criteria.criteria_from_measured_deviations({}) == frozenset()
 
 
 def test_determinism_cache_same_key(monkeypatch, fake_video):

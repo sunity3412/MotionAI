@@ -436,10 +436,57 @@ export interface FaultZoomComparison {
   kind?: 'deficit' | 'improved' | 'worsened';
 }
 
+// Phase 24 (SCORE-10~16, ND-01/ND-07) — 투명 감점-합산 채점.
+// 점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점). severity→고정밴드
+// (Phase 20 capApplied) 제거. 보고서가 감점 내역("−X −Y −Z = 점수")을 노출하는 게 핵심
+// ([[scoring-must-be-transparent-deduction-tally]]).
+// HIGH-3: baselineValue(수치 측정 기준 — 180/160/reference_notches, REQUIRED) +
+//   baselineKind(per-move floor/pole_vertical/hip_line — reach 만, present-but-nullable)
+//   가 분리됨. 단일 baseline 으로 DeductionBreakdown.baseline=100 과 충돌 금지.
+// HIGH-2: points 는 SIGNED NEGATIVE (UX −X). source='geometry' 하드 리터럴(ND-02 —
+//   Gemini 점수 아님). MEDIUM-2: record 내부 STRICT(baselineKind nullable, ipsfAnchor/
+//   baselineValue REQUIRED). 3-way lockstep: models.py DEDUCTION_RECORD_KEYS + contract.md §10.
+export interface DeductionRecord {
+  criterion: string;
+  measuredValue: number;
+  baselineValue: number;
+  baselineKind: 'floor' | 'pole_vertical' | 'hip_line' | null;
+  deviation: number;
+  ruleId: string;
+  points: number; // SIGNED NEGATIVE (감점). final = max(0, round(100 + Σ points)).
+  unit: 'deg' | 'notch' | 'score_delta';
+  ipsfAnchor: string;
+  source: 'geometry';
+  deviationSource: 'ipsf_absolute' | 'reference_relative' | 'dimension_overall';
+}
+// HIGH-1: OBJECT shape (bare list 아님). final = max(0, round(100 + Σ record.points)) —
+// 유일한 clamp 은 max(0,…)(상한 밴드 없음). MEDIUM-1: fallback='quantification_unavailable'
+// 면 records 에 dimension_overall_fallback record 1개로 추적성 유지. MEDIUM-3: coverageGaps
+// entry 는 flat-scalar provenance(bodyPart/faultState/keypointSet/ruleId) 동반.
+export interface DeductionBreakdown {
+  baseline: 100;
+  records: DeductionRecord[];
+  final: number;
+  coverageGaps?: {
+    faultType: string;
+    reason: string;
+    bodyPart?: string;
+    faultState?: string;
+    keypointSet?: string;
+    ruleId?: string;
+  }[];
+  fallback?: 'quantification_unavailable' | 'gemini_silent';
+}
+
 export type AnalysisResult = ScoreSuppression & {
-  overallScore: number; // 0~100 종합 = core 차원(angle/line)의 min (min-of-core). stability 제외(보조). core 부재 시 절대트랙 단독.
+  // Phase 24: overallScore = deductionBreakdown.final (측정-기하 substrate 위 tally 출력,
+  // min-of-core-possibly-capped 아님). legacy doc 은 deductionBreakdown 부재 가능.
+  overallScore: number; // 0~100 종합. Phase 24 = deductionBreakdown.final. (legacy: min-of-core).
   // Phase 20 SCORE-08 — 비전 하향 거부권 audit. OPTIONAL (legacy doc 호환).
   visionVeto?: VisionVeto;
+  // Phase 24 (ND-01/ND-07) — 투명 감점-합산 내역 OBJECT. OPTIONAL (legacy doc 호환,
+  // no migration). consumers read result.deductionBreakdown?.final.
+  deductionBreakdown?: DeductionBreakdown;
   // 문제 부위 확대 비교 carousel (belle 2026-06-21). OPTIONAL (Mode1 + 결함 있을 때만).
   faultZoomComparisons?: FaultZoomComparison[];
   // Phase 20 iter5 MEDIUM-2 — A2 reconcile audit (reconcile 관측). OPTIONAL.

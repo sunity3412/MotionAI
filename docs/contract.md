@@ -1391,6 +1391,57 @@ const frameIdx = Math.floor(currentTime * report.fps);
 
 ---
 
+## §10. DeductionBreakdown (Phase 24 신설 — ND-01/ND-07 투명 감점-합산)
+
+점수 = `baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점)`. Phase 20 의 severity→고정밴드(`SEVERITY_CAP` + `apply_downward_cap`)를 **제거·교체**한다. 결과 숫자(50이든 70이든)는 tally 출력일 뿐 **범위가 아니다** — 보고서가 감점 내역("−X −Y −Z = 점수")을 명명백백하게 노출하는 게 핵심 ([[scoring-must-be-transparent-deduction-tally]]). 3-way lockstep: `app/src/types/analysis.ts` `DeductionRecord`/`DeductionBreakdown` ↔ `models.py` `DEDUCTION_RECORD_KEYS`/`DEDUCTION_BREAKDOWN_KEYS` ↔ 본 §10.
+
+### §10.1 OBJECT shape (HIGH-1)
+
+`deductionBreakdown` 은 **객체** `{ baseline, records, final, coverageGaps?, fallback? }` 이다(bare list 아님). consumers 는 `result.deductionBreakdown?.final` 을 읽는다. `records`/`coverageGaps` 는 **flat dict 의 list** (Firestore nested-array 금지 — `angleDeltas`/`bodyRelativeNotches` 와 동일 형식).
+
+- `baseline: 100` — 점수 baseline(미감점 천장). **재-floor 금지** — final 의 상한 밴드가 아니다.
+- `final: number` — `max(0, round(100 + Σ record.points))`. **유일한 clamp 은 `max(0,…)`** (NO `min(100,…)`, NO severity ceiling — ND-01).
+- `records: DeductionRecord[]`
+- `coverageGaps?` / `fallback?` — breakdown-level 에서만 optional(legacy-compat).
+
+### §10.2 DeductionRecord (11 필드)
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `criterion` | string | criterion id (leg_extension / arm_extension / split_angle / line / body_relative_reach / dimension_overall_fallback) |
+| `measuredValue` | number | 학생 측정값 (각도 deg 또는 notch) |
+| `baselineValue` | number | **수치 측정 기준** (180/160/reference_notches/100). REQUIRED. HIGH-3 — breakdown-level `baseline=100` 과 다름. |
+| `baselineKind` | 'floor'\|'pole_vertical'\|'hip_line'\|null | per-move baseline(reach criterion 만; 그 외 null). **항상 방출**(present-but-nullable, MEDIUM-2). |
+| `deviation` | number | over/shortfall (tolerance 차감 후 감점 입력) |
+| `ruleId` | string | 명명 규칙 id (예: leg_extension_over_tol_linear) |
+| `points` | number | **SIGNED NEGATIVE** 감점 (UX −X, HIGH-2) |
+| `unit` | 'deg'\|'notch'\|'score_delta' | 측정 단위 (score_delta = fallback record) |
+| `ipsfAnchor` | string | IPSF CoP 인용 또는 engineering_interpretation. REQUIRED(추적성 게이트). |
+| `source` | 'geometry' | 하드 리터럴 — Gemini 점수 아님(ND-02) |
+| `deviationSource` | 'ipsf_absolute'\|'reference_relative'\|'dimension_overall' | per-criterion 편차 출처 |
+
+**deviationSource 의미:** 각도/라인 criterion(leg_extension/arm_extension/split_angle/line)은 학생-각도-vs-IPSF-절대-기준(180°/160°) → `ipsf_absolute`. `body_relative_reach` 는 `bodyRelativeNotches[].delta_notches`(학생−코치, baseline-relative) → `reference_relative`. fallback record → `dimension_overall`.
+
+### §10.3 line/leg profile-gated + no-double-count
+
+- **profile-gated (ND-06 honest 0):** `line`/`leg_extension` 의 편차는 `dimensions.line_score`/`extension_deviation` 에서 오며 이는 `profile.expects_extension` 에 게이트된다. `joint_expectations` 가 빈 profile(미등재/미상/저신뢰 동작)이면 `line_score` 가 None → 그 criterion 0 기여(진짜 0, 밴드도 거짓감점도 아님). 미등재 결함은 `dimension_overall` fallback + Gemini-located criteria 로 방어.
+- **no-double-count (HIGH-5):** `line` 은 keypoint_set=='line' 또는 line-dominant fault 에서만 활성화되고, 활성화된 `leg_extension`/`arm_extension` 이 이미 claim 한 joint substrate 는 제외한다. 단일 굽은 무릎은 leg_extension record OR line record 하나만 방출(둘 다 아님).
+
+### §10.4 insufficient-reach 방향 + baseline (HIGH-2 / ND-05)
+
+`body_relative_reach` 는 INSUFFICIENT-reach 만 감점한다: `shortfall = max(0, reference_notches − student_notches − tolerance)`. SHORT reach 만 감점, OVER-reach 는 0 (abs() 아님). per-move `baseline_kind`(floor/pole_vertical/hip_line)가 notch 환산을 바꾸므로 **측정 substrate** 이고 점수를 바꾼다(audit label 아님, ND-05). hand/knee reach(`_NOTCH_REACH_KEYPOINTS`) 만 활성화; grip/head/torso 는 coverage gap.
+
+### §10.5 fallback (MEDIUM-1 — traceable)
+
+`quantificationStatus=='unavailable'` → `final = dimension_overall`(**100 으로 리셋 금지** — Phase 20 위양성 방어 보존) + record 1개(`criterion='dimension_overall_fallback'`, `ruleId='quantification_unavailable_dimension_overall'`, `baselineValue=100`, `points=round(dimension_overall−100,1)` signed-negative, `unit='score_delta'`, `deviationSource='dimension_overall'`)로 `100 + Σ points == final` 유지. `fallback='gemini_silent'` 은 Gemini 무지목인데 measured 감점이 적용된 관측 마커(final 은 여전히 기하 반영, 100 아님).
+
+### §10.6 strictness + coverageGaps provenance
+
+- **MEDIUM-2:** record 내부는 STRICT — `baselineKind` present-but-nullable(optional 아님, Python 이 항상 키 방출), `ipsfAnchor`+`baselineValue` 는 모든 record 에 REQUIRED. legacy-compat 는 whole `deductionBreakdown?` 필드 + breakdown-level `coverageGaps?`/`fallback?` 에서만.
+- **MEDIUM-3:** `coverageGaps` entry 는 flat-scalar provenance(`bodyPart`/`faultState`/`keypointSet`/`ruleId`, optional scalar — Firestore nested-array 금지)를 supported_difference 에서 채운다 → 보이지만-0감점 gap 추적가능.
+
+---
+
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
 *Phase 1 §6 추가: 2026-05-31 — PoseFrame/PoleAxis 3-way lockstep (H-3/H-4/M-1/M-2/M-5 REVIEWS 박제).*
 *Plan 01-19 §7 추가: 2026-06-02 — BodyNormalizationProfile (D-19 segment 비율, D-21 nullable). RTMW pivot 박제.*

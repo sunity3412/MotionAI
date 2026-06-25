@@ -115,6 +115,41 @@ VISION_VETO_KEYS = (
     "windowMedianAngleDeltas", "rootCauseHypotheses",
 )
 
+# ── Phase 24 (SCORE-10~16, ND-01/ND-07): 투명 감점-합산 계약 ─────────────
+# 점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점). severity→고정밴드
+# (Phase 20 SEVERITY_CAP/apply_downward_cap) **제거·교체**. 결과 숫자(50이든 70이든)는
+# tally 출력일 뿐 범위가 아님 — 보고서가 감점 내역("−X −Y −Z = 점수")을 노출하는 게 핵심
+# ([[scoring-must-be-transparent-deduction-tally]]).
+#
+# OBJECT shape (HIGH-1): deductionBreakdown 은 {baseline, records, final, coverageGaps,
+#   fallback} 객체(bare list 아님). records/coverageGaps 는 flat dict 의 list (Firestore
+#   nested-array 금지 — angleDeltas/bodyRelativeNotches 와 동일 형식).
+# baseline 분리 (HIGH-3): breakdown-level `baseline` = 점수 baseline 100(미감점 천장,
+#   재-floor 금지). record-level `baselineValue` = 그 criterion 의 수치 측정 기준
+#   (180°/160°/reference_notches 등). record-level `baselineKind` = reach criterion 의
+#   per-move baseline(vision_veto.BASELINE_KINDS: floor|pole_vertical|hip_line),
+#   그 외 criterion 은 None — 키는 **항상** 방출(present-but-nullable, MEDIUM-2).
+# strictness (MEDIUM-2): record 내부는 STRICT — `baselineKind` present-but-nullable
+#   (optional 아님), `ipsfAnchor`+`baselineValue` 는 모든 record 에 REQUIRED(추적성 게이트).
+#   legacy-compat 는 whole `deductionBreakdown?` 필드 + breakdown-level coverageGaps?/
+#   fallback? 에서만.
+# points 부호 (HIGH-2): 각 record.points 는 SIGNED NEGATIVE (UX 가 −X 표시).
+#   final = max(0, round(100 + Σ record.points)) — 유일한 clamp 은 max(0,…)(상한 밴드 없음).
+# fallback 의미: quantificationStatus=='unavailable' → final = dimension_overall(100 으로
+#   리셋 금지) + ONE traceable fallback record(criterion='dimension_overall_fallback',
+#   unit='score_delta', deviationSource='dimension_overall')로 100+Σpoints==final 유지
+#   (MEDIUM-1). 'gemini_silent' = Gemini 무지목인데 measured 감점이 적용된 관측 마커.
+# coverageGaps provenance (MEDIUM-3): 각 entry 는 flat-scalar bodyPart/faultState/
+#   keypointSet/ruleId(supported_difference 에서 채움) 동반 → 보이지만-0감점 gap 추적가능.
+# 3-way lockstep: app/src/types/analysis.ts DeductionRecord/DeductionBreakdown +
+#   docs/contract.md §10.
+DEDUCTION_RECORD_KEYS = (
+    "criterion", "measuredValue", "baselineValue", "baselineKind",
+    "deviation", "ruleId", "points", "unit", "ipsfAnchor", "source",
+    "deviationSource",
+)
+DEDUCTION_BREAKDOWN_KEYS = ("baseline", "records", "final", "coverageGaps", "fallback")
+
 # ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───
 # Mode3 미보유/저신뢰 동작의 점수카드 전체 억제 신호. scoringBasis 단독이 아닌 명시
 # 플래그로 backend↔frontend drift 차단 (iter2 HIGH-3).

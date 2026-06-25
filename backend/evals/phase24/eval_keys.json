@@ -1,0 +1,18 @@
+{
+  "_comment": "Phase 24 generalization sweep keys — phase18 6 fault->correct pairs, BOTH members analyzed in Mode 1 (vs reference) so the deductionBreakdown shortfall can be compared per criterion (fault must show strictly larger same-criterion shortfall than its success pair). Source fixtures reused from fixtures/phase15 (no re-upload). Harness: backend/scripts/sweep_phase15.py --trigger direct-process --pair-sequential (serial — pipeline-not-concurrency-safe-eval-serial). climb=known not_pole gate, kip-up=known false-positive target for the new tally to address.",
+  "bucket": "sunity-motion-pilot-videos",
+  "items": [
+    {"sourceS3Key": "fixtures/phase15/power-spin/correct.mp4", "motionId": "power-spin", "mode": "mode1", "label": "success", "referenceMotionId": "ref-power-spin"},
+    {"sourceS3Key": "fixtures/phase15/power-spin/fault.mp4", "motionId": "power-spin", "mode": "mode1", "label": "fault", "referenceMotionId": "ref-power-spin"},
+    {"sourceS3Key": "fixtures/phase15/peter-pan/correct.mp4", "motionId": "peter-pan", "mode": "mode1", "label": "success", "referenceMotionId": "ref-peter-pan"},
+    {"sourceS3Key": "fixtures/phase15/peter-pan/fault.mp4", "motionId": "peter-pan", "mode": "mode1", "label": "fault", "referenceMotionId": "ref-peter-pan"},
+    {"sourceS3Key": "fixtures/phase15/elbow-twist-sister/correct.mp4", "motionId": "elbow-twist-sister", "mode": "mode1", "label": "success", "referenceMotionId": "ref-elbow-twist-sister"},
+    {"sourceS3Key": "fixtures/phase15/elbow-twist-sister/fault.mp4", "motionId": "elbow-twist-sister", "mode": "mode1", "label": "fault", "referenceMotionId": "ref-elbow-twist-sister"},
+    {"sourceS3Key": "fixtures/phase15/pdshape/correct.mp4", "motionId": "pdshape", "mode": "mode1", "label": "success", "referenceMotionId": "ref-pdshape"},
+    {"sourceS3Key": "fixtures/phase15/pdshape/fault.mp4", "motionId": "pdshape", "mode": "mode1", "label": "fault", "referenceMotionId": "ref-pdshape"},
+    {"sourceS3Key": "fixtures/phase15/kip-up/correct.mp4", "motionId": "kip-up", "mode": "mode1", "label": "success", "referenceMotionId": "ref-kip-up"},
+    {"sourceS3Key": "fixtures/phase15/kip-up/fault.mp4", "motionId": "kip-up", "mode": "mode1", "label": "fault", "referenceMotionId": "ref-kip-up"},
+    {"sourceS3Key": "fixtures/phase15/climb/correct.mp4", "motionId": "climb", "mode": "mode1", "label": "success", "referenceMotionId": "ref-climb"},
+    {"sourceS3Key": "fixtures/phase15/climb/fault.mp4", "motionId": "climb", "mode": "mode1", "label": "fault", "referenceMotionId": "ref-climb"}
+  ]
+}

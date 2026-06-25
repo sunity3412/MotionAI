@@ -46,7 +46,7 @@
 - [ ] **SCORE-13** (Phase 24 — Gemini 강등): Gemini 는 점수를 절대 내지 않는다 — `gemini_vision_scorer` severity enum 이 "cap 입력"에서 "측정대상 지목 + criterion 식별"로 의미 재해석(어댑터 코드/schema 변경 0, 소비측 해석만 변경). severity 값이 점수 산술에 절대 진입하지 않는다. (출처: 24-CONTEXT.md ND-02 / [[vision-score-must-analyze-not-stamp]])
 - [ ] **SCORE-14** (Phase 24 — baseline 분기 1급 입력): `baseline_kind`(floor / pole_vertical / hip_line, `vision_veto.BASELINE_KINDS` 재사용)가 측정 토대로 1급 입력된다. 사용자 선택 코치 동작 = 100, IPSF 공식 등재 동작 → IPSF 심사기준(20-D07 3분기 일반화). Mode3 = 절대지표 세션간 델타. (출처: 24-CONTEXT.md ND-05 / 24-RESEARCH IPSF §5 / [[output-needs-baselined-quantification-layer]] [[mode3-progress-not-similarity]])
 - [ ] **SCORE-15** (Phase 24 — 측정불가 결함 매핑 강제 + coverage-gap 로그): Gemini 가 짚은 모든 결함은 기하 측정항으로 변환되어 감점된다. 규칙 미작성 시 임시로만 감점 0 + `coverageGap` audit 로그(자의적 밴드 주입 절대 금지). 출하 경로에 "보이는데 0감점" 0(coverage gap 로그로 검출·계수). (출처: 24-CONTEXT.md ND-06)
-- [ ] **SCORE-16** (Phase 24 — 보고서 감점내역 계산·저장 + 신규 eval 게이트): 모든 −점이 명명된 측정편차 + 명명된 규칙으로 100% 역산되는 `deductionBreakdown`(criterion별 measured/baseline/deviation/ruleId/points/ipsfAnchor) 이 백엔드에서 계산·저장(Firestore flat list-of-dicts, 3-way 계약 lockstep; 앱 표시는 후속 UI phase). 케이스별 기대점수 manifest 제거 → 신규 게이트 = 추적성 + 단조성 + 결정성 + 일반화. (출처: 24-CONTEXT.md ND-07 / 23-03 흡수분 정정)
+- [x] **SCORE-16** (Phase 24 — 보고서 감점내역 계산·저장 + 신규 eval 게이트): 모든 −점이 명명된 측정편차 + 명명된 규칙으로 100% 역산되는 `deductionBreakdown`(criterion별 measured/baseline/deviation/ruleId/points/ipsfAnchor) 이 백엔드에서 계산·저장(Firestore flat list-of-dicts, 3-way 계약 lockstep; 앱 표시는 후속 UI phase). 케이스별 기대점수 manifest 제거 → 신규 게이트 = 추적성 + 단조성 + 결정성 + 일반화. (출처: 24-CONTEXT.md ND-07 / 23-03 흡수분 정정)
 - [x] **TRUST-06** (Phase 20 — 결정론; still-frame regression subset = Phase 23-03): Gemini 시각 거부권 + 인식기 호출이 결정론적이다 — temperature 0 + reference/video-hash 별 profile 캐싱(TechniqueCache 재사용) 으로 같은 입력=같은 하향 cap. temp 0 단독은 bit-deterministic 아님 — 캐시가 실 보장. **still-frame veto 경로의 최종 점수 결정론(cold+warm 분리)은 Phase 23-03 이 OWN·검증 (D-14).** (출처: D-06, 20-CONTEXT.md / 23-CONTEXT.md D-14 / 20-RESEARCH Pitfall 2)
 - [x] **TRUST-07** (Phase 20 — Mode3 미보유 게이트): Mode3 미보유동작이 Gemini 인식기 3분기(IPSF등재 ipsfCode / 정은지보유 reference / 둘다미보유→억제)로 판정되어, 미보유(분기3) 시 confident 점수가 억제되고 "기준 없음" 근거가 산출된다. not_pole 안전망을 reference-free 절대트랙으로 확장(MODE_EXPERT 전용 아님). fail-closed/raise 금지. (출처: D-07/08, 20-CONTEXT.md / [[mode3-scoring-basis-unknown-move-gate]])
 - [x] **TRUST-08** (Phase 20 — 거부권/게이트 가시화 + 무음실패 방지): SCORE-08 의 거부권 결과(severity, capApplied → Phase 24 에서 `tallyFinal` 로 이관)가 `visionVeto` audit 필드로 직렬화되고(3-way 계약 lockstep), Mode3 미보유 시 결과 화면이 confident 점수를 억제 + scoringBasisLabel 을 표시한다. veto 가 adapter 실패로 silent no-op 되지 않게 WARNING 로그 + audit 필드로 관측 가능(Pitfall 5). 객관성: 비전 출력에 사람 점수 라벨/score 필드 0(임계값 수치 라벨링은 OK). (출처: D-08, 20-CONTEXT.md / 20-RESEARCH Pitfall 5 / [[analysis-objectivity-no-human-scores]])
@@ -207,7 +207,7 @@
 | SCORE-13 | Phase 24 | Pending |
 | SCORE-14 | Phase 24 | Pending |
 | SCORE-15 | Phase 24 | Pending |
-| SCORE-16 | Phase 24 | Pending |
+| SCORE-16 | Phase 24 | Complete |
 | TRUST-06 | Phase 20 (still-frame determinism: Phase 23) | Complete (Phase 20); 23-03 OWN still-frame |
 | TRUST-07 | Phase 20 | Complete |
 | TRUST-08 | Phase 20 | Complete |

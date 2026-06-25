@@ -818,7 +818,7 @@ Plans:
   5. **일반화** — 정은지(또는 사용자 선택 코치) 정타는 감점합≈0 → 95~100(타깃 아닌 결과), 미보유·above-cutoff 도 정상 고득점. kip-up 등 결함은 측정→감점으로 잡힌다(밴드 없이).
   6. Gemini 가 짚은 결함이 기하 측정항으로 매핑되지 않는 "보이는데 0감점" 케이스가 출하 경로에 없다(coverage gap 로그로 검출).
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 **Wave 1**

@@ -1,0 +1,166 @@
+{
+  "_meta": {
+    "phase": "24",
+    "runId": "1782401187",
+    "uid": "phase24eval",
+    "captured_epoch": 1782403949,
+    "scorer": "phase24_transparent_deduction_tally",
+    "mode": "mode1",
+    "run": "serial in-process _process (pipeline-not-concurrency-safe-eval-serial)",
+    "objectivity": "fault 라벨=영상 파생. 점수=채점기 결정론 출력 스냅샷(라벨 아님)."
+  },
+  "results": [
+    {
+      "motion_id": "power-spin",
+      "label": "fault",
+      "analysisId": "powerspinFault1782401187",
+      "status": "done",
+      "overallScore": 73,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "power-spin",
+      "label": "success",
+      "analysisId": "powerspinCorrect1782401187",
+      "status": "pose_analysis",
+      "overallScore": null,
+      "errorCode": null,
+      "exception": "OSError: Could not load meta information\n=== stderr ===\n\nE0625 15:30:17.372763    8080 ev_epoll1_linux.cc:373] (event_engine) Epoll1Poller:0x51bdc40 encountered epoll_wait error: Bad file descriptor",
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "peter-pan",
+      "label": "fault",
+      "analysisId": "peterpanFault1782401187",
+      "status": "done",
+      "overallScore": 79,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "peter-pan",
+      "label": "success",
+      "analysisId": "peterpanCorrect1782401187",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "baseline": 100,
+        "final": 100,
+        "fallback": null,
+        "records": [],
+        "coverageGaps": []
+      },
+      "activatedCriteria": []
+    },
+    {
+      "motion_id": "elbow-twist-sister",
+      "label": "fault",
+      "analysisId": "elbowtwistsisterFault1782401187",
+      "status": "done",
+      "overallScore": 63,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "elbow-twist-sister",
+      "label": "success",
+      "analysisId": "elbowtwistsisterCorrect1782401187",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "pdshape",
+      "label": "fault",
+      "analysisId": "pdshapeFault1782401187",
+      "status": "done",
+      "overallScore": 60,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "pdshape",
+      "label": "success",
+      "analysisId": "pdshapeCorrect1782401187",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "kip-up",
+      "label": "fault",
+      "analysisId": "kipupFault1782401187",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "kip-up",
+      "label": "success",
+      "analysisId": "kipupCorrect1782401187",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "baseline": 100,
+        "final": 100,
+        "fallback": null,
+        "records": [],
+        "coverageGaps": []
+      },
+      "activatedCriteria": []
+    },
+    {
+      "motion_id": "climb",
+      "label": "fault",
+      "analysisId": "climbFault1782401187",
+      "status": "comparison",
+      "overallScore": null,
+      "errorCode": null,
+      "exception": "NotPoleMotionError: angle 0 < 25",
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "climb",
+      "label": "success",
+      "analysisId": "climbCorrect1782401187",
+      "status": "comparison",
+      "overallScore": null,
+      "errorCode": null,
+      "exception": "NotPoleMotionError: angle 10 < 25",
+      "deductionBreakdown": null,
+      "activatedCriteria": null
+    }
+  ],
+  "cold_rerun_check": {
+    "motion": "pdshape",
+    "warm_overall": 100,
+    "cold_overall": 100,
+    "warm_criteria": null,
+    "cold_criteria": null,
+    "selection_identical": true
+  }
+}

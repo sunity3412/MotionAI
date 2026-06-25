@@ -1,0 +1,38 @@
+{
+  "power-spin": {
+    "fault": null,
+    "correct": null
+  },
+  "peter-pan": {
+    "fault": null,
+    "correct": {
+      "baseline": 100,
+      "final": 100,
+      "fallback": null,
+      "records": [],
+      "coverageGaps": []
+    }
+  },
+  "elbow-twist-sister": {
+    "fault": null,
+    "correct": null
+  },
+  "pdshape": {
+    "fault": null,
+    "correct": null
+  },
+  "kip-up": {
+    "fault": null,
+    "correct": {
+      "baseline": 100,
+      "final": 100,
+      "fallback": null,
+      "records": [],
+      "coverageGaps": []
+    }
+  },
+  "climb": {
+    "fault": null,
+    "correct": null
+  }
+}

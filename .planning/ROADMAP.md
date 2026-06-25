@@ -818,7 +818,7 @@ Plans:
   5. **일반화** — 정은지(또는 사용자 선택 코치) 정타는 감점합≈0 → 95~100(타깃 아닌 결과), 미보유·above-cutoff 도 정상 고득점. kip-up 등 결함은 측정→감점으로 잡힌다(밴드 없이).
   6. Gemini 가 짚은 결함이 기하 측정항으로 매핑되지 않는 "보이는데 0감점" 케이스가 출하 경로에 없다(coverage gap 로그로 검출).
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 **Wave 1**
@@ -827,7 +827,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 24-02-PLAN.md — vision_veto 밴드 제거(SEVERITY_CAP/apply_downward_cap, to_audit_dict band-free) + gemini_vision_scorer severity docstring → criterion-pointer 재구성 + _process veto seam → tally 교체(측정 overallScore + _build_deduction_measured_deviations named substrate 주입 — 0-100 score 를 편차로 오입력 금지 HIGH-3) + per-move baseline_kind 도출(name/motion_id 문자열 매칭, seam 1회 산출 후 string 으로 apply path 에 thread — engine 은 profile 미수신) + cap_would_apply 보존 band-free 연속성(severity in (moderate,major) → 오늘의 coach-injection trigger 와 동일 발화, minor/none 미발화 — byte-동일 legacy 아님 HIGH-6) + result[deductionBreakdown] OBJECT 저장(to_dict, visionVeto analog, _validate_deduction_breakdown top-level dict 검증·kwarg 없음) + capApplied→tallyFinal 3-way 계약 이관(analysis.ts↔models.py↔contract.md §4) + 깨진 caller 테스트 4개(test_vision_veto/test_pipeline_vision_gate/test_pipeline_mode3/test_gemini_vision_scorer) band-free 이관(repo-wide grep 0) + Mode3/토글/정량화 보존 (Wave 2, SCORE-10/13/15/16/09)
+- [x] 24-02-PLAN.md — vision_veto 밴드 제거(SEVERITY_CAP/apply_downward_cap, to_audit_dict band-free) + gemini_vision_scorer severity docstring → criterion-pointer 재구성 + _process veto seam → tally 교체(측정 overallScore + _build_deduction_measured_deviations named substrate 주입 — 0-100 score 를 편차로 오입력 금지 HIGH-3) + per-move baseline_kind 도출(name/motion_id 문자열 매칭, seam 1회 산출 후 string 으로 apply path 에 thread — engine 은 profile 미수신) + cap_would_apply 보존 band-free 연속성(severity in (moderate,major) → 오늘의 coach-injection trigger 와 동일 발화, minor/none 미발화 — byte-동일 legacy 아님 HIGH-6) + result[deductionBreakdown] OBJECT 저장(to_dict, visionVeto analog, _validate_deduction_breakdown top-level dict 검증·kwarg 없음) + capApplied→tallyFinal 3-way 계약 이관(analysis.ts↔models.py↔contract.md §4) + 깨진 caller 테스트 4개(test_vision_veto/test_pipeline_vision_gate/test_pipeline_mode3/test_gemini_vision_scorer) band-free 이관(repo-wide grep 0) + Mode3/토글/정량화 보존 (Wave 2, SCORE-10/13/15/16/09)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

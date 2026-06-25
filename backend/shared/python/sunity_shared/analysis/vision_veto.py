@@ -1,122 +1,22 @@
-"""v2 비전 거부권의 순수 코어 (Phase 20-01, D-01/D-02/D-05 + HIGH-3).
+"""v2 비전 결함-짚기의 순수 코어 (Phase 20-01 + Phase 24 밴드 제거, ND-01/ND-02).
 
 이 모듈은 numpy 외 의존이 0 이다 — boto3/Gemini/네트워크/firestore import 절대 금지.
-Gemini 호출/파이프라인 wiring 은 후속 plan(20-02 adapter / 20-03 wiring)이 별도 모듈로
-맡는다. 여기서는 phase 의 가장 중요한 안전 성질만 코드로 못 박는다:
+Gemini 호출/파이프라인 wiring 은 후속 plan 이 별도 모듈로 맡는다. 여기서는 measurement/
+FaultKey/baseline/worst-pose helpers 와 정량화(칸/각도) substrate 만 못 박는다.
 
-  비전은 점수를 절대 올리지 않는다 (하향 전용, D-01).
+Phase 24 (ND-01/ND-02) — severity→고정천장 밴드 제거:
+  비전은 점수를 절대 내지 않는다 — **측정대상/criterion 만 짚는다**.
 
-왜 min() 으로 인코딩하나: kip-up 100/100 위양성(신뢰를 깬 사고)을 구조적으로 차단하기
-위해서다. 가중블렌드/하한/상향연산은 비전이 점수를 올릴 수 있어 위양성을 재발시킨다 — 그래서
-거부권은 오직 terminal min() 캡이다 (dimensions.overall_from_dimensions 의 min-of-core
-overall 위에 합성된다, dimensions.py:384 정합).
-
-cap 수치 출처도 데이터로 박제한다 (SEVERITY_CAP_PROVENANCE). 6페어에 curve-fit 하는
-경로를 fail-closed 로 막기 위해, sensitivity manifest 의 실 sha256 가 없는 동안 cap 을
-채우면 단위테스트(test_cap_fill_requires_real_manifest_sha)가 거부한다.
-
----
-cap 활성화 모드 (provenance.method)
----
-20-04 는 cap 수치를 **spec-anchored** 로 박는다 (belle 결정 2026-06-20):
-
-  - major = 50  — belle 스펙 "잘못된 동작 ≤50" (CLAUDE.md core value /
-    [[score-spec-95-100-elite-vision-fix]]) 을 그대로 못 박는다.
-  - moderate = 75 — IPSF moderate-fault 의 원칙적 상한 (severity 의미 기반).
-  - minor = 90 — 미세하지만 실재하는 결함도 천장 100 에서 내려준다 (Phase 20
-    robustify, belle 2026-06-20: 고급 수강생은 미세 차이만 다르므로 mild fault 가
-    100 으로 남으면 안 된다). 정타(none)는 여전히 무캡 → 100 보존.
-  - none = None — 정타 무캡 (D-01 95~100 보존, 영구 None).
-
-이 수치들은 데이터에 curve-fit 한 것이 아니라 belle 스펙 + IPSF severity 의미에서
-나온다 (provenance.method == "spec_anchored", provenance.spec_basis 가 출처를
-데이터로 박제). 6 deliberate-fault 페어는 회귀 검증(known-answer gate) 전용으로만
-유지되며 cap 도출 입력으로 절대 쓰이지 않는다
-(phase18_pairs_used_for_derivation == False, 영구 INVARIANT).
-
-DEFERRED (후속 단계): 미보유 sensitivity 셋(온라인 영상)에서 cap 을 도출하는
-generalization-tested eval — method == "sensitivity_derived" 경로. 그 경로에서는
-sensitivity_manifest_sha256 가 실 sha 여야 cap 을 채울 수 있다 (HIGH-3 fail-closed).
-현재는 미구현(derive_caps.py / sensitivity.yaml / eval_manifest 없음).
+과거(Phase 20)의 severity→고정천장 밴드(severity enum 을 고정 ceiling 으로 min() 하던
+경로)는 belle 가 철학적으로 거부(2026-06-24 [[scoring-must-be-transparent-deduction-tally]]):
+severity→고정밴드는 영상마다 자의적 = 사람 판단 주입 = AI 존재이유 무효. 채점은
+deduction_engine.tally(측정편차→명시규칙 감점→합산)로 교체됐고, severity 는 더 이상
+점수 입력이 아니다(coachRootCauseEligible continuity 용 non-scoring 라벨일 뿐).
+이 모듈의 helper(FaultKey/body_relative_notches/build_quantification_result/worst_pose/
+BASELINE_KINDS)는 그 엔진의 측정 substrate 로 보존·재사용된다.
 """
 
 from __future__ import annotations
-
-# ---------------------------------------------------------------------------
-# SEVERITY_CAP — severity → overall 상한 (20-04 spec-anchored 활성화).
-#
-# 수치는 데이터 curve-fit 이 아니라 belle 스펙 + IPSF severity 의미에서 나온다
-# (provenance.method == "spec_anchored", provenance.spec_basis 가 데이터 출처):
-#
-#   - major = 50      — belle 스펙 "잘못된 동작 ≤50" 그대로 못 박음.
-#   - moderate = 75   — IPSF moderate-fault 원칙적 상한 (severity 의미 기반).
-#   - minor = 90      — 미세하지만 실재하는 결함도 천장 100 해제 (Phase 20 robustify).
-#   - none = None     — 정타 무캡, 영구 None (D-01 95~100 보존).
-#
-# 6페어(정은지 단일 선수 + fault)에 curve-fit 하는 것은 절대 금지다 — 6페어는
-# 회귀 검증(known-answer gate) 전용이며 cap 도출 입력이 아니다
-# (D-02 / [[scoring-redesign-must-generalize-no-overfit]] / [[sensitivity-gate-not-just-elite-low]]).
-#
-# DEFERRED: 미보유 sensitivity 셋 derive 경로(method=="sensitivity_derived")는
-# 후속 단계에서 보강한다. 그 경로에서만 sensitivity_manifest_sha256 가 실 sha 여야
-# cap 을 채울 수 있다 (HIGH-3 fail-closed). spec_anchored 모드는 sha 없이 cap 가능하되
-# spec_basis 데이터가 출처를 박제한다.
-# ---------------------------------------------------------------------------
-SEVERITY_CAP: dict[str, int | None] = {
-    "minor": 90,       # 미세 결함도 천장 100 해제 (Phase 20 robustify, spec_anchored)
-    "moderate": 75,    # IPSF moderate-fault 원칙적 상한 (spec_anchored)
-    "major": 50,       # belle 스펙 "잘못된 동작 ≤50" (spec_anchored)
-    "none": None,      # 정타 무캡 — 영구 None (D-01 95~100 보존)
-}
-
-# ---------------------------------------------------------------------------
-# SEVERITY_CAP_PROVENANCE — cap 도출 출처를 주석이 아닌 **데이터**로 박제 (HIGH-3).
-#
-# - method: cap 활성화 모드. "spec_anchored" = belle 스펙 + IPSF severity 의미로
-#   박은 값(현재). "sensitivity_derived" = 미보유 sensitivity 셋 eval 도출(후속,
-#   미구현). method 별로 fail-closed 가드가 다르다 (아래 spec_basis / sha 참조).
-# - source: cap 수치의 출처 라벨. spec_anchored 모드에서는 belle 스펙 + IPSF severity.
-# - spec_basis: cap 수치 근거를 **데이터**로 박제 (주석 아님). belle 스펙
-#   "잘못된 동작 ≤50" 을 명시 — test_provenance_is_data_not_comment 가 검사.
-# - sensitivity_manifest_sha256: sensitivity_derived 경로에서만 의미. derive 가
-#   sensitivity manifest 의 실 sha256 으로 채운다. spec_anchored 모드에서는 None
-#   (도출 입력 아님). cap 을 sensitivity_derived 로 채우려면 실 sha 여야 한다
-#   (TODO/None 금지) — test_cap_fill_requires_real_manifest_sha 가 강제 (fail-closed).
-# - phase18_pairs_used_for_derivation: 영구 False (INVARIANT). 6페어는 회귀 검증
-#   (known-answer gate) 전용이며 derive 입력이 아니다 — 어떤 method 도 이 값을
-#   True 로 바꿀 수 없다 (6페어 curve-fit fail-closed).
-# ---------------------------------------------------------------------------
-SEVERITY_CAP_PROVENANCE: dict[str, object] = {
-    "method": "spec_anchored",
-    "source": "belle_spec_ipsf_severity",
-    "spec_basis": (
-        'belle spec "잘못된 동작 ≤50" '
-        "(CLAUDE.md core value / score-spec-95-100-elite-vision-fix); "
-        "moderate=75 from IPSF moderate-fault severity meaning; "
-        "minor=90 — 미세 결함도 천장 100 해제, 정타(none)는 100 보존 "
-        "(Phase 20 robustify, belle 2026-06-20)"
-    ),
-    "sensitivity_manifest_sha256": None,
-    "phase18_pairs_used_for_derivation": False,
-}
-
-
-def apply_downward_cap(overall: int, severity: str | None) -> int:
-    """v1 overall 을 vision severity 로 **하향만** 한다 (D-01 코어 invariant).
-
-    severity → SEVERITY_CAP lookup 후 cap 이 있으면 min(overall, cap), 없으면 불변.
-    None / 미지 키 / none → 불변 (정타 95~100 보존). minor 는 90 cap 적용 (Phase 20
-    robustify — 미세하지만 실재하는 결함은 천장 100 에서 내려간다).
-
-    invariant: 반환값 ≤ overall 항상. 올림 경로(상향연산/하한/가중블렌드) 절대 금지 —
-    비전이 점수를 올리면 위양성(kip-up 100/100)이 재발한다.
-    """
-    cap = SEVERITY_CAP.get(severity)  # 미지 severity → None (불변)
-    if cap is None:
-        return overall
-    # 하향 전용: 입력보다 cap 이 높아도 절대 올리지 않는다 (min only).
-    return min(overall, cap)
-
 
 # ---------------------------------------------------------------------------
 # fault_joints_from_differences — Gemini verdict.differences[].body_part(자유 텍스트
@@ -298,11 +198,11 @@ class RootCauseHypothesis:
 #
 # 계약 경계 (D-12 HIGH-1 + D-11 MED-2): context/quant/audit 객체를 분리한다.
 #   · VisionFaultContext   = pre-apply/pre-coach 데이터만. final-audit status 도 geometry
-#                            payload 도 들지 않는다(final 은 apply 가 cap 재계산 후 확정,
+#                            payload 도 들지 않는다(final 은 apply 가 deduction tally 후 확정,
 #                            geometry 는 23-02 가 이후 산출).
 #   · VisionQuantificationResult = post-geometry (23-02 Task1/2/4 산출, apply 가 audit 주입).
-#   · audit 직렬화 = ctx.to_audit_dict(final_status, cap_applied, quantification) — apply 의
-#                    final cap 계산 후에만 final-audit 필드 방출.
+#   · audit 직렬화 = ctx.to_audit_dict(final_status, breakdown_final, quantification) — apply 의
+#                    deduction tally 계산 후에만 final-audit 필드 방출(Phase 24, 밴드 제거).
 # collection_status 는 pre-final enum 전용 — applied/not_applicable(final) 로 생성 불가
 # (D-13 MED-2). final status 와 vocabulary 가 겹치지 않는다.
 # ---------------------------------------------------------------------------
@@ -688,28 +588,30 @@ class VisionFaultContext:
         }
 
     def to_audit_dict(
-        self, *, final_status: str, cap_applied: int | None = None,
+        self, *, final_status: str, breakdown_final: int | None = None,
         quantification: "VisionQuantificationResult | None" = None,
     ) -> dict:
-        """final-audit 직렬화 — apply 의 final cap 계산 후에만 (D-12 HIGH-1).
+        """final-audit 직렬화 — apply 의 deduction tally 계산 후에만 (D-12 HIGH-1).
 
-        final_status 인자가 있어야 final-audit 필드(status/capApplied/quantificationStatus)
-        를 방출한다. 인자 없이 호출하면 TypeError(fail-fast) — pre-apply 후보가
-        applied-looking audit 를 emit 하지 못한다.
+        Phase 24 (ND-01/ND-02): Gemini 은 점수를 절대 내지 않는다 — 측정대상/criterion
+        만 짚는다; 밴드(cap)는 제거됐고 tally final(deduction_engine.tally 출력)만 audit
+        에 방출한다. final_status 인자가 있어야 final-audit 필드(status/tallyFinal/
+        quantificationStatus)를 방출한다. 인자 없이 호출하면 TypeError(fail-fast) —
+        pre-apply 후보가 applied-looking audit 를 emit 하지 못한다.
         """
         if final_status not in _FINAL_AUDIT_STATUSES:
             raise ValueError(f"unknown final_status: {final_status!r}")
         audit: dict = {"status": final_status}
         if final_status == "applied":
-            if cap_applied is not None:
-                audit["capApplied"] = cap_applied
+            if breakdown_final is not None:
+                audit["tallyFinal"] = breakdown_final
             verdict = self.verdict
             if verdict is not None:
                 audit["severity"] = getattr(verdict, "severity", None)
                 pf = getattr(verdict, "primary_fault", None)
                 if pf:
                     audit["primaryFault"] = pf
-            # root-cause 가설 (support-gated, D-13 MED-1). applied 면 capApplied 와
+            # root-cause 가설 (support-gated, D-13 MED-1). applied 면 tallyFinal 와
             # 함께 유지된다 — quantification unavailable 이어도 root-cause 는 살아남는다.
             root_causes = [
                 {
@@ -721,9 +623,9 @@ class VisionFaultContext:
             ]
             if root_causes:
                 audit["rootCauseHypotheses"] = root_causes
-            # 정량화 (23-02 Task1/2/4) — apply 의 final cap 후 주입(D-12 HIGH-1).
+            # 정량화 (23-02 Task1/2/4) — apply 의 tally 계산 후 주입(D-12 HIGH-1).
             # quantificationStatus 는 applied audit 에 **필수**(D-11 MED-1). unavailable
-            # 이면 angleDeltas/bodyRelativeNotches 부재 + status='applied'+capApplied 유지
+            # 이면 angleDeltas/bodyRelativeNotches 부재 + status='applied'+tallyFinal 유지
             # (not_applicable 강등 금지). window median 은 still 정확 각도와 혼동 방지로
             # 별도 키(windowMedianAngleDeltas, D-10 HIGH-3).
             if quantification is not None:

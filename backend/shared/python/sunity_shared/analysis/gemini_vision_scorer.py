@@ -1,12 +1,15 @@
 """gemini_vision_scorer — Gemini 결함-심각도 어댑터 (Plan 20-02).
 
-목적 (20-CONTEXT D-01/D-02/D-06):
-  Gemini Vision 으로 영상의 **결함 종류/위치/심각도(severity enum)** 만 산출한다.
-  점수는 절대 내지 않는다 — severity 는 20-01 의 apply_downward_cap 에 먹여
-  하향 캡으로만 변환된다(비전이 점수를 올려 위양성을 재발시키는 경로 0).
+목적 (20-CONTEXT D-01/D-02/D-06 + Phase 24 ND-02):
+  Gemini Vision 으로 영상의 **결함 종류/위치** 만 산출한다 — 어디를 측정할지/무슨
+  결함인지만 짚는다. 점수는 절대 내지 않는다. verdict/differences 가 criterion
+  pointer 를 운반한다: supported_difference / fault 라벨이 어느 측정 criterion 이
+  걸렸는지를 짚고(Phase 24 deduction_engine, criteria_for_fault 가 body_part/
+  fault_state 로 라우팅), Gemini 는 숫자를 절대 만들지 않는다. severity 는 더 이상
+  scoring 입력이 아니다 — criterion 선택/채점에 읽히지 않고, coachRootCauseEligible
+  continuity 용 non-scoring 라벨로만 남는다(ND-02).
 
-  line 차원이 아니라 overall cap 용 severity 다. 20-01(순수 cap 코어)과
-  20-03(파이프라인 wiring) 사이의 adapter 경계.
+  20-01(순수 코어)과 20-03(파이프라인 wiring) 사이의 adapter 경계.
 
 객관성 hard gate (D-02 / [[analysis-objectivity-no-human-scores]] / MEDIUM-1):
   · build_schema() 의 response_schema 에 score/overall/rating/점수 필드 0.
@@ -103,7 +106,7 @@ VETO_SUPPORT_K = max(1, int(os.environ.get("GEMINI_VETO_SUPPORT_K", "2")))
 # 부위 스코프(상체/하체/라인) — 부위별 프롬프트 fan-out 토큰.
 VETO_PART_SCOPES = ("upper_body", "lower_body", "line")
 
-# 'none' = 명백한 결함 없음(정타) → cap 미적용. over-penalization fix (2026-06-20).
+# 'none' = 명백한 결함 없음(정타) → 짚을 측정대상 없음(scoring input 아님, ND-02).
 _SEVERITY_ENUM = ("none", "minor", "moderate", "major")
 _ALLOWED_SEVERITY = set(_SEVERITY_ENUM)
 
@@ -124,14 +127,17 @@ _CLIENT = None
 
 @dataclass(frozen=True)
 class VisionVerdict:
-    """Gemini 결함-심각도 verdict (객관성 — score 필드 영구 부재).
+    """Gemini 결함-짚기 verdict (객관성 — score 필드 영구 부재).
 
-    severity enum 만 20-01 의 apply_downward_cap 에 먹인다. 사람/AI 점수 라벨을
-    ground truth 로 두는 것은 영구 금지([[analysis-objectivity-no-human-scores]]).
+    verdict/differences 는 criterion pointer 를 운반한다 — supported_difference /
+    fault 라벨이 어느 측정 criterion 이 걸렸는지 짚는다(Phase 24 criteria_for_fault
+    가 body_part/fault_state 로 라우팅, 숫자 산출 0). 사람/AI 점수 라벨을 ground truth
+    로 두는 것은 영구 금지([[analysis-objectivity-no-human-scores]]).
 
     Fields:
       primary_fault: 지배적 단일 결함 (도메인 자연어 설명). 점수 아님.
-      severity: 'minor' | 'moderate' | 'major'. apply_downward_cap 입력.
+      severity: 'minor' | 'moderate' | 'major'. scoring 입력 아님 — criterion 선택/
+        채점에 읽히지 않는 non-scoring 라벨(coachRootCauseEligible continuity 용, ND-02).
       differences: 차이점 dict tuple (body_part/correct_state/fault_state/
         approx_angle_deviation_deg/severity/ipsf_note). nested-array 회피로 tuple.
     """
@@ -157,7 +163,7 @@ def build_schema() -> dict:
             "dominant_severity": {
                 "type": "string",
                 "enum": list(_SEVERITY_ENUM),
-                "description": "영상 전체의 지배적 결함 수준. 정타(결함 없음)=none → cap 미적용. 점수 아님.",
+                "description": "영상 전체의 지배적 결함 수준. 정타(결함 없음)=none; 점수 아님; scoring input 아님.",
             },
             "primary_fault": {
                 "type": "string",
@@ -1062,7 +1068,7 @@ def _aggregate_comparison_verdict(
         severity=median_severity,
         # C1 (belle 2026-06-21): 한 샘플의 differences 만 쓰면 다른 샘플이 본 결함
         # (왼팔 등)이 누락된다 → N 샘플 differences 를 union 한다(모든 결함 캐치).
-        # severity(캡)는 median 유지(정타 100 보존). union 은 부위별 최고 severity/
+        # severity 는 median 유지(non-scoring 라벨, ND-02). union 은 부위별 최고 severity/
         # deviation 만 남겨 noise 억제.
         differences=_union_differences(parsed),
     )
@@ -1399,8 +1405,8 @@ def _parse_verdict(raw_text: str) -> VisionVerdict | None:
         differences = []
 
     # severity 우선순위: (1) Gemini 가 직접 보고한 dominant_severity(none 포함),
-    # (2) 없으면 differences 중 최악, (3) 둘 다 없으면 'none'(cap 미적용 — 모호하면
-    # 처벌 안 함). over-penalization fix: 정타에서 억지 cap 방지 (2026-06-20).
+    # (2) 없으면 differences 중 최악, (3) 둘 다 없으면 'none'(짚을 측정대상 없음 —
+    # 모호하면 결함 지목 안 함). non-scoring 라벨일 뿐 채점 입력 아님(ND-02).
     declared = str(payload.get("dominant_severity", "")).strip().lower()
     if declared in _ALLOWED_SEVERITY:
         severity = declared

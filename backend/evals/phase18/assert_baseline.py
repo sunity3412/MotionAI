@@ -7,10 +7,19 @@
     이 baseline 을 비교 — 여기서는 박제된 스냅샷의 self-consistency 만 확정한다.
   · 객관성(D-06): baseline 점수는 채점기 출력 스냅샷(라벨 아님). 사람 점수 라벨 금지.
 
-게이트 의미론:
-  1. expected verdict ↔ baseline verdict 정합 (pairs.yaml ↔ baseline.json).
-  2. discriminate 페어는 fault < success (margin > 0).
-  3. known_false_positive / known_gate_blocked 는 명시 추적(silent 통과 금지).
+ND-07 RETIRE 노트:
+  verdict-consistency(expected↔verdict 정합) + discriminate-margin(fault<success / margin)
+  asserts 는 **`phase24/assert_gates.py` 로 이동**했다(ND-07). 그 case-by-case 밴드
+  매니페스트(moderate≤75 / major=50 류)는 curve-fit 유발이라 retire 한다. 대신 phase24
+  게이트가 합성 데이터 위 추적성/단조성/결정성 + 실 Pod artifact 위 STRUCTURAL 일반화를
+  증명한다. 이 파일은 fault-label/regression 소스(pairs.yaml + known_issue 추적)만 유지 —
+  pairs.yaml ↔ baseline.json 의 페어-셋 일치 + known_false_positive/known_gate_blocked 의
+  silent-통과 금지를 self-consistency 로 확정한다.
+
+게이트 의미론 (band asserts 제거 후):
+  1. pairs.yaml ↔ baseline.json 페어 셋 일치.
+  2. known_false_positive / known_gate_blocked 는 명시 추적(silent 통과 금지) +
+     known_issue 라벨 보유.
 
 exit 0 = PASS, non-zero = FAIL.
 """
@@ -45,61 +54,29 @@ def main() -> int:
             f"페어 셋 불일치: pairs={sorted(pairs)} baseline={sorted(results)}"
         )
 
-    discriminating = 0
+    # known_issue 추적 카운트(verdict/margin band assert 는 phase24 로 이동 — ND-07).
+    known_fp = 0
+    known_blocked = 0
     for motion_id, pair in pairs.items():
         res = results.get(motion_id)
         if res is None:
             failures.append(f"{motion_id}: baseline 스냅샷 누락")
             continue
 
-        expected = pair["expected"]
         verdict = res["verdict"]
 
-        # 1) expected ↔ verdict 정합
-        if expected != verdict:
-            failures.append(
-                f"{motion_id}: expected={expected} != baseline verdict={verdict}"
-            )
-
-        if verdict == "discriminate":
-            f, s, m = res["fault_overall"], res["success_overall"], res["margin"]
-            # 2) fault < success + margin 정합
-            if f is None or s is None:
-                failures.append(f"{motion_id}: discriminate 인데 점수 None")
-            elif not (f < s):
-                failures.append(f"{motion_id}: fault {f} >= success {s} (변별 실패)")
-            elif m != (s - f):
-                failures.append(f"{motion_id}: margin {m} != success-fault {s - f}")
-            else:
-                discriminating += 1
-
-        elif verdict == "known_false_positive":
-            # 3) 위양성 = 변별 안 됨(margin 0)이 명시돼야 함
-            if res.get("margin") not in (0, None):
-                failures.append(
-                    f"{motion_id}: known_false_positive 인데 margin={res.get('margin')} "
-                    "(변별로 바뀌었으면 fixture 갱신 — silent 금지)"
-                )
+        # known-issue 명시 추적(silent 통과 금지) — fault-label 소스로서 유지.
+        # 변별 자체(fault < success / margin)는 phase24/assert_gates.py 가 실 Pod artifact
+        # 위 STRUCTURAL 일반화로 증명한다. 여기서는 점수-밴드를 단언하지 않는다.
+        if verdict == "known_false_positive":
             if "known_issue" not in pair:
                 failures.append(f"{motion_id}: known_false_positive 인데 known_issue 라벨 없음")
+            known_fp += 1
 
         elif verdict == "known_gate_blocked":
-            if res.get("fault_overall") is not None or res.get("success_overall") is not None:
-                failures.append(
-                    f"{motion_id}: known_gate_blocked 인데 점수 존재 — 게이트 해소됐으면 fixture 갱신"
-                )
             if "known_issue" not in pair:
                 failures.append(f"{motion_id}: known_gate_blocked 인데 known_issue 라벨 없음")
-        else:
-            failures.append(f"{motion_id}: 알 수 없는 verdict={verdict}")
-
-    # summary 정합
-    summ = baseline.get("summary", {})
-    if summ.get("discriminating_pairs") != discriminating:
-        failures.append(
-            f"summary.discriminating_pairs={summ.get('discriminating_pairs')} "
-            f"!= 실측 {discriminating}"
-        )
+            known_blocked += 1
 
     if failures:
         print("Phase 18 baseline FAIL:")
@@ -108,9 +85,9 @@ def main() -> int:
         return 1
 
     print(
-        f"Phase 18 baseline PASS — {len(pairs)} 페어 "
-        f"(변별 {discriminating}, 위양성 {summ.get('known_false_positives')}, "
-        f"게이트차단 {summ.get('known_gate_blocked')})"
+        f"Phase 18 baseline PASS — {len(pairs)} 페어 fault-label/regression 소스 정합 "
+        f"(위양성 {known_fp}, 게이트차단 {known_blocked}). "
+        "verdict/margin 밴드 asserts → phase24/assert_gates.py (ND-07)."
     )
     return 0
 

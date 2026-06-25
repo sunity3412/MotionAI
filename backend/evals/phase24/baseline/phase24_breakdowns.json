@@ -1,33 +1,193 @@
 {
   "power-spin": {
-    "fault": null,
-    "correct": null
-  },
-  "peter-pan": {
-    "fault": null,
+    "fault": {
+      "baseline": 100,
+      "records": [
+        {
+          "source": "geometry",
+          "unit": "score_delta",
+          "measuredValue": 72.0,
+          "ruleId": "quantification_unavailable_dimension_overall",
+          "criterion": "dimension_overall_fallback",
+          "deviation": 28.0,
+          "ipsfAnchor": "engineering_interpretation",
+          "baselineKind": null,
+          "deviationSource": "dimension_overall",
+          "points": -28.0,
+          "baselineValue": 100
+        }
+      ],
+      "fallback": "quantification_unavailable",
+      "final": 72,
+      "coverageGaps": []
+    },
     "correct": {
       "baseline": 100,
+      "records": [
+        {
+          "source": "geometry",
+          "unit": "score_delta",
+          "measuredValue": 100.0,
+          "ruleId": "quantification_unavailable_dimension_overall",
+          "criterion": "dimension_overall_fallback",
+          "deviation": 0.0,
+          "ipsfAnchor": "engineering_interpretation",
+          "baselineKind": null,
+          "deviationSource": "dimension_overall",
+          "points": 0.0,
+          "baselineValue": 100
+        }
+      ],
+      "fallback": "quantification_unavailable",
       "final": 100,
-      "fallback": null,
+      "coverageGaps": []
+    }
+  },
+  "peter-pan": {
+    "fault": {
+      "baseline": 100,
+      "records": [
+        {
+          "source": "geometry",
+          "unit": "score_delta",
+          "measuredValue": 79.0,
+          "ruleId": "quantification_unavailable_dimension_overall",
+          "criterion": "dimension_overall_fallback",
+          "deviation": 21.0,
+          "ipsfAnchor": "engineering_interpretation",
+          "baselineKind": null,
+          "deviationSource": "dimension_overall",
+          "points": -21.0,
+          "baselineValue": 100
+        }
+      ],
+      "fallback": "quantification_unavailable",
+      "final": 79,
+      "coverageGaps": []
+    },
+    "correct": {
+      "baseline": 100,
       "records": [],
+      "fallback": null,
+      "final": 100,
       "coverageGaps": []
     }
   },
   "elbow-twist-sister": {
-    "fault": null,
-    "correct": null
-  },
-  "pdshape": {
-    "fault": null,
-    "correct": null
-  },
-  "kip-up": {
-    "fault": null,
+    "fault": {
+      "baseline": 100,
+      "records": [
+        {
+          "source": "geometry",
+          "unit": "score_delta",
+          "measuredValue": 59.0,
+          "ruleId": "quantification_unavailable_dimension_overall",
+          "criterion": "dimension_overall_fallback",
+          "deviation": 41.0,
+          "ipsfAnchor": "engineering_interpretation",
+          "baselineKind": null,
+          "deviationSource": "dimension_overall",
+          "points": -41.0,
+          "baselineValue": 100
+        }
+      ],
+      "fallback": "quantification_unavailable",
+      "final": 59,
+      "coverageGaps": []
+    },
     "correct": {
       "baseline": 100,
+      "records": [
+        {
+          "source": "geometry",
+          "unit": "score_delta",
+          "measuredValue": 100.0,
+          "ruleId": "quantification_unavailable_dimension_overall",
+          "criterion": "dimension_overall_fallback",
+          "deviation": 0.0,
+          "ipsfAnchor": "engineering_interpretation",
+          "baselineKind": null,
+          "deviationSource": "dimension_overall",
+          "points": 0.0,
+          "baselineValue": 100
+        }
+      ],
+      "fallback": "quantification_unavailable",
       "final": 100,
-      "fallback": null,
+      "coverageGaps": []
+    }
+  },
+  "pdshape": {
+    "fault": {
+      "baseline": 100,
+      "records": [
+        {
+          "source": "geometry",
+          "unit": "score_delta",
+          "measuredValue": 60.0,
+          "ruleId": "quantification_unavailable_dimension_overall",
+          "criterion": "dimension_overall_fallback",
+          "deviation": 40.0,
+          "ipsfAnchor": "engineering_interpretation",
+          "baselineKind": null,
+          "deviationSource": "dimension_overall",
+          "points": -40.0,
+          "baselineValue": 100
+        }
+      ],
+      "fallback": "quantification_unavailable",
+      "final": 60,
+      "coverageGaps": []
+    },
+    "correct": {
+      "baseline": 100,
+      "records": [
+        {
+          "source": "geometry",
+          "unit": "score_delta",
+          "measuredValue": 100.0,
+          "ruleId": "quantification_unavailable_dimension_overall",
+          "criterion": "dimension_overall_fallback",
+          "deviation": 0.0,
+          "ipsfAnchor": "engineering_interpretation",
+          "baselineKind": null,
+          "deviationSource": "dimension_overall",
+          "points": 0.0,
+          "baselineValue": 100
+        }
+      ],
+      "fallback": "quantification_unavailable",
+      "final": 100,
+      "coverageGaps": []
+    }
+  },
+  "kip-up": {
+    "fault": {
+      "baseline": 100,
+      "records": [
+        {
+          "source": "geometry",
+          "unit": "score_delta",
+          "measuredValue": 100.0,
+          "ruleId": "quantification_unavailable_dimension_overall",
+          "criterion": "dimension_overall_fallback",
+          "deviation": 0.0,
+          "ipsfAnchor": "engineering_interpretation",
+          "baselineKind": null,
+          "deviationSource": "dimension_overall",
+          "points": 0.0,
+          "baselineValue": 100
+        }
+      ],
+      "fallback": "quantification_unavailable",
+      "final": 100,
+      "coverageGaps": []
+    },
+    "correct": {
+      "baseline": 100,
       "records": [],
+      "fallback": null,
+      "final": 100,
       "coverageGaps": []
     }
   },

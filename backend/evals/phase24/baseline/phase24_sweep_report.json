@@ -1,9 +1,9 @@
 {
   "_meta": {
     "phase": "24",
-    "runId": "1782401187",
+    "runId": "1782407011",
     "uid": "phase24eval",
-    "captured_epoch": 1782403949,
+    "captured_epoch": 1782409779,
     "scorer": "phase24_transparent_deduction_tally",
     "mode": "mode1",
     "run": "serial in-process _process (pipeline-not-concurrency-safe-eval-serial)",
@@ -13,49 +13,115 @@
     {
       "motion_id": "power-spin",
       "label": "fault",
-      "analysisId": "powerspinFault1782401187",
+      "analysisId": "powerspinFault1782407011",
       "status": "done",
-      "overallScore": 73,
+      "overallScore": 72,
       "errorCode": null,
       "exception": null,
-      "deductionBreakdown": null,
-      "activatedCriteria": null
+      "deductionBreakdown": {
+        "baseline": 100,
+        "records": [
+          {
+            "source": "geometry",
+            "unit": "score_delta",
+            "measuredValue": 72.0,
+            "ruleId": "quantification_unavailable_dimension_overall",
+            "criterion": "dimension_overall_fallback",
+            "deviation": 28.0,
+            "ipsfAnchor": "engineering_interpretation",
+            "baselineKind": null,
+            "deviationSource": "dimension_overall",
+            "points": -28.0,
+            "baselineValue": 100
+          }
+        ],
+        "fallback": "quantification_unavailable",
+        "final": 72,
+        "coverageGaps": []
+      },
+      "activatedCriteria": [
+        "dimension_overall_fallback"
+      ]
     },
     {
       "motion_id": "power-spin",
       "label": "success",
-      "analysisId": "powerspinCorrect1782401187",
-      "status": "pose_analysis",
-      "overallScore": null,
-      "errorCode": null,
-      "exception": "OSError: Could not load meta information\n=== stderr ===\n\nE0625 15:30:17.372763    8080 ev_epoll1_linux.cc:373] (event_engine) Epoll1Poller:0x51bdc40 encountered epoll_wait error: Bad file descriptor",
-      "deductionBreakdown": null,
-      "activatedCriteria": null
-    },
-    {
-      "motion_id": "peter-pan",
-      "label": "fault",
-      "analysisId": "peterpanFault1782401187",
-      "status": "done",
-      "overallScore": 79,
-      "errorCode": null,
-      "exception": null,
-      "deductionBreakdown": null,
-      "activatedCriteria": null
-    },
-    {
-      "motion_id": "peter-pan",
-      "label": "success",
-      "analysisId": "peterpanCorrect1782401187",
+      "analysisId": "powerspinCorrect1782407011",
       "status": "done",
       "overallScore": 100,
       "errorCode": null,
       "exception": null,
       "deductionBreakdown": {
         "baseline": 100,
+        "records": [
+          {
+            "source": "geometry",
+            "unit": "score_delta",
+            "measuredValue": 100.0,
+            "ruleId": "quantification_unavailable_dimension_overall",
+            "criterion": "dimension_overall_fallback",
+            "deviation": 0.0,
+            "ipsfAnchor": "engineering_interpretation",
+            "baselineKind": null,
+            "deviationSource": "dimension_overall",
+            "points": 0.0,
+            "baselineValue": 100
+          }
+        ],
+        "fallback": "quantification_unavailable",
         "final": 100,
-        "fallback": null,
+        "coverageGaps": []
+      },
+      "activatedCriteria": [
+        "dimension_overall_fallback"
+      ]
+    },
+    {
+      "motion_id": "peter-pan",
+      "label": "fault",
+      "analysisId": "peterpanFault1782407011",
+      "status": "done",
+      "overallScore": 79,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "baseline": 100,
+        "records": [
+          {
+            "source": "geometry",
+            "unit": "score_delta",
+            "measuredValue": 79.0,
+            "ruleId": "quantification_unavailable_dimension_overall",
+            "criterion": "dimension_overall_fallback",
+            "deviation": 21.0,
+            "ipsfAnchor": "engineering_interpretation",
+            "baselineKind": null,
+            "deviationSource": "dimension_overall",
+            "points": -21.0,
+            "baselineValue": 100
+          }
+        ],
+        "fallback": "quantification_unavailable",
+        "final": 79,
+        "coverageGaps": []
+      },
+      "activatedCriteria": [
+        "dimension_overall_fallback"
+      ]
+    },
+    {
+      "motion_id": "peter-pan",
+      "label": "success",
+      "analysisId": "peterpanCorrect1782407011",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "baseline": 100,
         "records": [],
+        "fallback": null,
+        "final": 100,
         "coverageGaps": []
       },
       "activatedCriteria": []
@@ -63,71 +129,181 @@
     {
       "motion_id": "elbow-twist-sister",
       "label": "fault",
-      "analysisId": "elbowtwistsisterFault1782401187",
+      "analysisId": "elbowtwistsisterFault1782407011",
       "status": "done",
-      "overallScore": 63,
+      "overallScore": 59,
       "errorCode": null,
       "exception": null,
-      "deductionBreakdown": null,
-      "activatedCriteria": null
+      "deductionBreakdown": {
+        "baseline": 100,
+        "records": [
+          {
+            "source": "geometry",
+            "unit": "score_delta",
+            "measuredValue": 59.0,
+            "ruleId": "quantification_unavailable_dimension_overall",
+            "criterion": "dimension_overall_fallback",
+            "deviation": 41.0,
+            "ipsfAnchor": "engineering_interpretation",
+            "baselineKind": null,
+            "deviationSource": "dimension_overall",
+            "points": -41.0,
+            "baselineValue": 100
+          }
+        ],
+        "fallback": "quantification_unavailable",
+        "final": 59,
+        "coverageGaps": []
+      },
+      "activatedCriteria": [
+        "dimension_overall_fallback"
+      ]
     },
     {
       "motion_id": "elbow-twist-sister",
       "label": "success",
-      "analysisId": "elbowtwistsisterCorrect1782401187",
-      "status": "done",
-      "overallScore": 100,
-      "errorCode": null,
-      "exception": null,
-      "deductionBreakdown": null,
-      "activatedCriteria": null
-    },
-    {
-      "motion_id": "pdshape",
-      "label": "fault",
-      "analysisId": "pdshapeFault1782401187",
-      "status": "done",
-      "overallScore": 60,
-      "errorCode": null,
-      "exception": null,
-      "deductionBreakdown": null,
-      "activatedCriteria": null
-    },
-    {
-      "motion_id": "pdshape",
-      "label": "success",
-      "analysisId": "pdshapeCorrect1782401187",
-      "status": "done",
-      "overallScore": 100,
-      "errorCode": null,
-      "exception": null,
-      "deductionBreakdown": null,
-      "activatedCriteria": null
-    },
-    {
-      "motion_id": "kip-up",
-      "label": "fault",
-      "analysisId": "kipupFault1782401187",
-      "status": "done",
-      "overallScore": 100,
-      "errorCode": null,
-      "exception": null,
-      "deductionBreakdown": null,
-      "activatedCriteria": null
-    },
-    {
-      "motion_id": "kip-up",
-      "label": "success",
-      "analysisId": "kipupCorrect1782401187",
+      "analysisId": "elbowtwistsisterCorrect1782407011",
       "status": "done",
       "overallScore": 100,
       "errorCode": null,
       "exception": null,
       "deductionBreakdown": {
         "baseline": 100,
+        "records": [
+          {
+            "source": "geometry",
+            "unit": "score_delta",
+            "measuredValue": 100.0,
+            "ruleId": "quantification_unavailable_dimension_overall",
+            "criterion": "dimension_overall_fallback",
+            "deviation": 0.0,
+            "ipsfAnchor": "engineering_interpretation",
+            "baselineKind": null,
+            "deviationSource": "dimension_overall",
+            "points": 0.0,
+            "baselineValue": 100
+          }
+        ],
+        "fallback": "quantification_unavailable",
         "final": 100,
-        "fallback": null,
+        "coverageGaps": []
+      },
+      "activatedCriteria": [
+        "dimension_overall_fallback"
+      ]
+    },
+    {
+      "motion_id": "pdshape",
+      "label": "fault",
+      "analysisId": "pdshapeFault1782407011",
+      "status": "done",
+      "overallScore": 60,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "baseline": 100,
+        "records": [
+          {
+            "source": "geometry",
+            "unit": "score_delta",
+            "measuredValue": 60.0,
+            "ruleId": "quantification_unavailable_dimension_overall",
+            "criterion": "dimension_overall_fallback",
+            "deviation": 40.0,
+            "ipsfAnchor": "engineering_interpretation",
+            "baselineKind": null,
+            "deviationSource": "dimension_overall",
+            "points": -40.0,
+            "baselineValue": 100
+          }
+        ],
+        "fallback": "quantification_unavailable",
+        "final": 60,
+        "coverageGaps": []
+      },
+      "activatedCriteria": [
+        "dimension_overall_fallback"
+      ]
+    },
+    {
+      "motion_id": "pdshape",
+      "label": "success",
+      "analysisId": "pdshapeCorrect1782407011",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "baseline": 100,
+        "records": [
+          {
+            "source": "geometry",
+            "unit": "score_delta",
+            "measuredValue": 100.0,
+            "ruleId": "quantification_unavailable_dimension_overall",
+            "criterion": "dimension_overall_fallback",
+            "deviation": 0.0,
+            "ipsfAnchor": "engineering_interpretation",
+            "baselineKind": null,
+            "deviationSource": "dimension_overall",
+            "points": 0.0,
+            "baselineValue": 100
+          }
+        ],
+        "fallback": "quantification_unavailable",
+        "final": 100,
+        "coverageGaps": []
+      },
+      "activatedCriteria": [
+        "dimension_overall_fallback"
+      ]
+    },
+    {
+      "motion_id": "kip-up",
+      "label": "fault",
+      "analysisId": "kipupFault1782407011",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "baseline": 100,
+        "records": [
+          {
+            "source": "geometry",
+            "unit": "score_delta",
+            "measuredValue": 100.0,
+            "ruleId": "quantification_unavailable_dimension_overall",
+            "criterion": "dimension_overall_fallback",
+            "deviation": 0.0,
+            "ipsfAnchor": "engineering_interpretation",
+            "baselineKind": null,
+            "deviationSource": "dimension_overall",
+            "points": 0.0,
+            "baselineValue": 100
+          }
+        ],
+        "fallback": "quantification_unavailable",
+        "final": 100,
+        "coverageGaps": []
+      },
+      "activatedCriteria": [
+        "dimension_overall_fallback"
+      ]
+    },
+    {
+      "motion_id": "kip-up",
+      "label": "success",
+      "analysisId": "kipupCorrect1782407011",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "baseline": 100,
         "records": [],
+        "fallback": null,
+        "final": 100,
         "coverageGaps": []
       },
       "activatedCriteria": []
@@ -135,7 +311,7 @@
     {
       "motion_id": "climb",
       "label": "fault",
-      "analysisId": "climbFault1782401187",
+      "analysisId": "climbFault1782407011",
       "status": "comparison",
       "overallScore": null,
       "errorCode": null,
@@ -146,11 +322,11 @@
     {
       "motion_id": "climb",
       "label": "success",
-      "analysisId": "climbCorrect1782401187",
+      "analysisId": "climbCorrect1782407011",
       "status": "comparison",
       "overallScore": null,
       "errorCode": null,
-      "exception": "NotPoleMotionError: angle 10 < 25",
+      "exception": "NotPoleMotionError: angle 11 < 25",
       "deductionBreakdown": null,
       "activatedCriteria": null
     }
@@ -159,8 +335,12 @@
     "motion": "pdshape",
     "warm_overall": 100,
     "cold_overall": 100,
-    "warm_criteria": null,
-    "cold_criteria": null,
+    "warm_criteria": [
+      "dimension_overall_fallback"
+    ],
+    "cold_criteria": [
+      "dimension_overall_fallback"
+    ],
     "selection_identical": true
   }
 }

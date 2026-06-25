@@ -335,10 +335,12 @@ export interface AiSynthesisMeta {
   debugWarnings?: string[];
 }
 
-// Phase 20 SCORE-08 (TRUST-08) — 비전 하향 거부권 audit (discriminated union).
-// status 가 veto 실행을 증명한다 (부재 ≠ 실행, HIGH-1). status='applied' 시 severity +
-// capApplied 컴파일-타임 강제 (iter2 non-blocking — applied without capApplied 차단).
-// 객관성: 사람/AI 점수 라벨 아님 — status/severity enum + capApplied(임계 산출 정수)만.
+// Phase 20 SCORE-08 (TRUST-08) + Phase 24 (ND-01, 밴드 제거) — 비전 채점 audit (discriminated union).
+// status 가 채점 실행을 증명한다 (부재 ≠ 실행, HIGH-1). status='applied' 시 severity +
+// tallyFinal 컴파일-타임 강제 (applied without tallyFinal 차단). Phase 24: severity→고정천장
+// 밴드 제거 — applied audit 는 감점 합산 tally final(tallyFinal)을 동반한다.
+// 점수 자체는 §10 deductionBreakdown.final 이며 visionVeto.tallyFinal 는 그 audit mirror.
+// 객관성: 사람/AI 점수 라벨 아님 — status/severity enum + tallyFinal(측정규칙 산출 정수)만.
 // primaryFault(UI B1) = Gemini 비전이 찾은 지배적 결함 DESCRIPTION(자연어) — "왜 점수가
 // 내려갔는지" 노출용. 점수/숫자 절대 금지(객관성). applied 시에만 동반, legacy doc 호환 위해
 // optional(string | undefined). 3-way lockstep: models.py VISION_VETO_STATUSES + docs/contract.md §4.
@@ -389,15 +391,15 @@ export interface VisionRootCauseHypothesis {
 export type VisionVeto =
   // Phase 23-02 — applied 시에만 정량화 동반 (discriminated). quantificationStatus 는 applied
   // audit 에 필수 — 'unavailable' 이면 angleDeltas/bodyRelativeNotches 부재 + status='applied'
-  // +capApplied 유지(강등 금지). score 타입 0 — DESCRIPTIVE(deg/칸/text) + source enum.
-  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; capApplied: number; primaryFault?: string; faultJoints?: KeypointName[]; faultJointDeficits?: Partial<Record<KeypointName, number>>; quantificationStatus?: 'available' | 'unavailable'; angleDeltas?: VisionAngleDelta[]; bodyRelativeNotches?: VisionBodyRelativeNotch[]; windowMedianAngleDeltas?: VisionWindowMedianAngleDeltas; rootCauseHypotheses?: VisionRootCauseHypothesis[] }
-  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never }
+  // +tallyFinal 유지(강등 금지). score 타입 0 — DESCRIPTIVE(deg/칸/text) + source enum.
+  | { status: 'applied'; severity: 'minor' | 'moderate' | 'major'; tallyFinal: number; primaryFault?: string; faultJoints?: KeypointName[]; faultJointDeficits?: Partial<Record<KeypointName, number>>; quantificationStatus?: 'available' | 'unavailable'; angleDeltas?: VisionAngleDelta[]; bodyRelativeNotches?: VisionBodyRelativeNotch[]; windowMedianAngleDeltas?: VisionWindowMedianAngleDeltas; rootCauseHypotheses?: VisionRootCauseHypothesis[] }
+  | { status: 'not_applicable'; severity?: 'minor' | 'moderate' | 'major'; tallyFinal?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never }
   // Phase 23-01 D-03/H4 — 정렬 신뢰도 낮아 보류(거짓결함 fabricate 안 함). score-free.
-  | { status: 'low_alignment_confidence'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: never; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never }
-  // Phase 23-01 D-09 MED-1 — 예산 소진 fail-closed. severity/capApplied/primaryFault/
+  | { status: 'low_alignment_confidence'; severity?: never; tallyFinal?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: never; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never }
+  // Phase 23-01 D-09 MED-1 — 예산 소진 fail-closed. severity/tallyFinal/primaryFault/
   // angleDeltas/bodyRelativeNotches/rootCauseHypotheses 부재, telemetry 만 허용.
-  | { status: 'resource_limited'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: VisionVetoTelemetry; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never }
-  | { status: 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'; severity?: never; capApplied?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never };
+  | { status: 'resource_limited'; severity?: never; tallyFinal?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; telemetry?: VisionVetoTelemetry; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never }
+  | { status: 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference'; severity?: never; tallyFinal?: never; primaryFault?: never; faultJoints?: never; faultJointDeficits?: never; quantificationStatus?: never; angleDeltas?: never; bodyRelativeNotches?: never; windowMedianAngleDeltas?: never; rootCauseHypotheses?: never };
 
 // Phase 20 (TRUST-07) — Mode3 미보유/저신뢰 점수 억제 (discriminated suppression type).
 // iter4 MEDIUM-1: scoreSuppressed=true 면 scoreSuppressedReason REQUIRED, false/부재면
@@ -438,7 +440,7 @@ export interface FaultZoomComparison {
 
 // Phase 24 (SCORE-10~16, ND-01/ND-07) — 투명 감점-합산 채점.
 // 점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점). severity→고정밴드
-// (Phase 20 capApplied) 제거. 보고서가 감점 내역("−X −Y −Z = 점수")을 노출하는 게 핵심
+// (Phase 20 visionVeto 의 옛 cap 필드) 제거. 보고서가 감점 내역("−X −Y −Z = 점수")을 노출하는 게 핵심
 // ([[scoring-must-be-transparent-deduction-tally]]).
 // HIGH-3: baselineValue(수치 측정 기준 — 180/160/reference_notches, REQUIRED) +
 //   baselineKind(per-move floor/pole_vertical/hip_line — reach 만, present-but-nullable)

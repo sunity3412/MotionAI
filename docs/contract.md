@@ -168,16 +168,16 @@ tips           CoachingTip[]       상위 3개 (KISMAM Top-3 + Cerebras 문장)
 comparison     Mode1 | Mode3       아래
 myVideoUrl     string              내 영상 재생 서명 URL (좌)
 referenceVideoUrl string?          mode1: 정은지 영상 (우)
-visionVeto     { status, severity?, capApplied? } optional  ← Phase 20 SCORE-08
+visionVeto     { status, severity?, tallyFinal? } optional  ← Phase 20 SCORE-08 / Phase 24 (밴드 제거)
 scoreSuppressed bool? + scoreSuppressedReason? enum         ← Phase 20 TRUST-07
 scoreSuppressionAudit { recognizerCategory, branchReferenceFree, resolvedReason } optional ← Phase 20 iter5
 ```
 
-`visionVeto` (Phase 20 SCORE-08 / TRUST-08 — 비전 하향 거부권 audit)
+`visionVeto` (Phase 20 SCORE-08 / TRUST-08 + Phase 24 ND-01 — 비전 채점 audit, 밴드 제거)
 ```
 status      'applied' | 'not_applicable' | 'disabled' | 'skipped_error' | 'missing_local_video' | 'mode3_held' | 'missing_reference' | 'low_alignment_confidence' | 'resource_limited'
 severity?   'minor' | 'moderate' | 'major'   (applied 시에만 동반)
-capApplied? number  하향된 종합점수            (applied 시에만 동반)
+tallyFinal? number  적용된 감점 tally 최종 점수  (applied 시에만 동반 — 점수는 §10 deductionBreakdown.final, tallyFinal 은 그 audit mirror)
 primaryFault? string  지배적 결함 DESCRIPTION   (applied 시에만 동반, UI B1 — "왜 내려갔는지")
 telemetry?  { completedCalls?, plannedCalls?, samplingComplete? }  (resource_limited 시에만)
 quantificationStatus? 'available' | 'unavailable'   (applied 시에만 동반 — 필수, Phase 23-02)
@@ -190,31 +190,31 @@ rootCauseHypotheses? [{ text, faultKey, supportCount }]  (applied + cap_would_ap
     - **applied 시에만** 동반 (discriminated — not_applicable/보류/disabled 분기엔 부재).
     - `quantificationStatus` 는 applied audit 에 **필수**. same-frame 정량화 입력 결측 시
       `'unavailable'` 로 신호하고 `angleDeltas`/`bodyRelativeNotches` 는 부재하되
-      `status='applied'`+`capApplied`+`rootCauseHypotheses` 는 **유지**한다(not_applicable
+      `status='applied'`+`tallyFinal`+`rootCauseHypotheses` 는 **유지**한다(not_applicable
       강등 금지, crash 금지). geometry 는 `VisionQuantificationResult`(post-geometry)가
-      소유하고 apply 의 final cap 후 `to_audit_dict(quantification=)` 로만 주입(D-12 HIGH-1).
+      소유하고 apply 의 deduction tally 후 `to_audit_dict(quantification=)` 로만 주입(D-12 HIGH-1).
     - `angleDeltas` 는 verdict 프레임 쌍(user/ref_frame_idx)의 **frame-specific** 각도 —
       DTW window median 아님. median 은 `windowMedianAngleDeltas` 로 별도 키(D-10 HIGH-3).
     - 칸(`bodyRelativeNotches`)은 keypoint+baseline 결정적 기하 산출(Gemini 미산출, H2).
     - **score/0-100/percent 타입 절대 0** — 각도(도)/칸/text + source enum DESCRIPTIVE(D-06/D-08).
   - Phase 23-01 신규 score-free status (3-way lockstep):
     - `low_alignment_confidence` — 글로벌+로컬 DTW 정렬 신뢰도가 낮아 거짓결함을 fabricate
-      하지 않고 보류 (점수 불변, cap 미적용). severity/capApplied 없음 (D-03/H4).
+      하지 않고 보류 (점수 불변, 채점 미적용). severity/tallyFinal 없음 (D-03/H4).
     - `resource_limited` — planned call 전부 완료 전 예산(호출/upload/wall-clock) 소진 →
-      fail-closed 보류 (부분 샘플 verdict 비결정성 차단, 점수 불변). severity/capApplied/
+      fail-closed 보류 (부분 샘플 verdict 비결정성 차단, 점수 불변). severity/tallyFinal/
       primaryFault 없음, telemetry(completedCalls/plannedCalls/samplingComplete) 만 동반
       가능 (D-09 MED-1 / D-13 HIGH-2 Option A).
-  - **status 가 veto 실행을 증명한다 (부재 ≠ 실행, HIGH-1).** terminal gate(20-04)가
-    status='applied' 로 veto 실행을 검증한다. 부재가 'veto 가 돔'으로 읽히지 않는다.
-  - applied → severity + capApplied 동반 강제 (analysis.ts VisionVeto discriminated union;
-    status:'applied' without capApplied 는 tsc 에러). not_applicable/disabled/skipped_error/
-    missing_local_video → severity/capApplied 없음.
+  - **status 가 채점 실행을 증명한다 (부재 ≠ 실행, HIGH-1).** status='applied' 로 채점
+    실행을 검증한다. 부재가 '채점이 돔'으로 읽히지 않는다.
+  - 밴드 제거 — applied 시 tallyFinal(감점 합산 최종) 동반; severity 도 함께 강제
+    (analysis.ts VisionVeto discriminated union; status:'applied' without tallyFinal 는 tsc 에러).
+    not_applicable/disabled/skipped_error/missing_local_video → severity/tallyFinal 없음.
   - applied → primaryFault(결함 DESCRIPTION, 자연어) optional 동반 (UI B1 — "왜 점수가 내려갔는지"
     노출용). 점수/숫자 라벨 금지(객관성). legacy doc 호환 위해 optional(없어도 렌더).
-  - 객관성: visionVeto 에 사람/AI **점수 라벨 0** — status/severity enum + capApplied(임계
+  - 객관성: visionVeto 에 사람/AI **점수 라벨 0** — status/severity enum + tallyFinal(측정규칙
     산출 정수)만 ([[analysis-objectivity-no-human-scores]]).
-  - production SEVERITY_CAP 은 20-04 까지 placeholder None 이라 현재 cap 적용은 항상
-    not_applicable (cap-mutation 경로는 테스트가 monkeypatch 로 증명).
+  - Phase 24: 점수 자체는 §10 `deductionBreakdown.final`(투명 감점-합산). visionVeto.tallyFinal
+    은 그 audit mirror — severity→고정천장 밴드는 제거됐다.
   - 3-way lockstep: `app/src/types/analysis.ts VisionVeto` ↔ `models.py VISION_VETO_STATUSES`
     ↔ 본 §4. 세 곳 동시 갱신 필수.
 

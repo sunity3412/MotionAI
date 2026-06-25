@@ -66,10 +66,12 @@ MODE3_SCORING_BASES = (
     "previous_analysis_plus_reference_free_absolute",
 )
 
-# ── Phase 20 (SCORE-08, TRUST-08): visionVeto audit 명세 ───────────────
-# 비전 하향 거부권 결과 audit. status 가 veto 실행을 증명한다 (부재 ≠ 실행, HIGH-1).
-# applied 시에만 severity/capApplied 동반 (discriminated — analysis.ts VisionVeto union).
-# 객관성: 사람/AI 점수 라벨 아님 — status/severity enum + capApplied(임계 산출 정수)만.
+# ── Phase 20 (SCORE-08, TRUST-08) + Phase 24 (ND-01, 밴드 제거): visionVeto audit 명세 ──
+# 비전 채점 결과 audit. status 가 채점 실행을 증명한다 (부재 ≠ 실행, HIGH-1). Phase 24:
+# severity→고정천장 밴드 제거 — applied 시 tallyFinal(감점 합산 최종) 동반.
+# 점수 자체는 §10 deductionBreakdown.final 이며 tallyFinal 는 그 audit mirror.
+# applied 시에만 severity/tallyFinal 동반 (discriminated — analysis.ts VisionVeto union).
+# 객관성: 사람/AI 점수 라벨 아님 — status/severity enum + tallyFinal(측정규칙 산출 정수)만.
 # 3-way lockstep: app/src/types/analysis.ts VisionVeto + docs/contract.md §4.
 VISION_VETO_STATUSES = (
     "applied",          # cap 적용 (overallScore 하향)
@@ -97,7 +99,7 @@ VISION_VETO_STATUSES = (
 # ── Phase 23-02 (D-02/D-04/D-11 MED-1/D-12 HIGH-1): 정량화 DESCRIPTIVE 필드 ──
 # applied 시에만 동반 (discriminated). 점수 아님 — 각도(도)/칸/원인가설 텍스트만.
 # quantificationStatus(available|unavailable): applied audit 에 **필수**. unavailable 이면
-#   angleDeltas/bodyRelativeNotches 부재 + status='applied'+capApplied 유지(강등 금지).
+#   angleDeltas/bodyRelativeNotches 부재 + status='applied'+tallyFinal 유지(강등 금지).
 # angleDeltas: frame-specific per-joint 각도 (verdict 프레임 쌍 user/ref_frame_idx 의 행
 #   값만 — DTW median 아님, D-10 HIGH-3). 각 항목 {joint,student_deg,reference_deg,delta_deg,
 #   direction,source='geometry'}. percent 0(D-08).
@@ -108,7 +110,7 @@ VISION_VETO_STATUSES = (
 # rootCauseHypotheses: support-gated 원인 가설 (source='vision_hypothesis', "~로 보임"
 #   가설형, D-13 MED-1). cap_would_apply=true(eligible_for_coach) 일 때만 생성.
 VISION_VETO_KEYS = (
-    "status", "severity", "capApplied", "primaryFault", "faultJoints",
+    "status", "severity", "tallyFinal", "primaryFault", "faultJoints",
     "faultJointDeficits",
     # Phase 23-02 정량화 (applied 시에만, score-free, percent-free).
     "quantificationStatus", "angleDeltas", "bodyRelativeNotches",

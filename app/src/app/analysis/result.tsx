@@ -1017,25 +1017,29 @@ export default function AnalysisResult() {
               delta={deltaFor(dim)}
               explanation={dimensionExplanation?.[dim]}
               onDetailPress={(d) => setDetailDim(d)}
-              // Phase 20 (UI ①)/#2 — 비전 거부권 적용 시 '각도' 측정값이 높아(예: 100)
-              // "완벽" 으로 오인되는 문제. 측정값이 종합(capApplied)보다 높을 때만 reframe:
+              // Phase 20 (UI ①)/#2 + Phase 24 — 비전 채점 적용 시 '각도' 측정값이 높아(예: 100)
+              // "완벽" 으로 오인되는 문제. 측정값이 종합(감점 합산 final)보다 높을 때만 reframe:
               // 숫자를 '측정값' 톤으로 낮추고 강조 콜아웃으로 "각도로 안 드러나는 결함을
               // 발견해 종합을 낮췄다" 를 명시. 각도가 이미 종합 이하면 오인 없음 → 평범 표기.
+              // Phase 24: 권위 점수원 = §10 deductionBreakdown.final(밴드 제거). 폴백 =
+              // visionVeto.tallyFinal(applied audit mirror) → overallScore.
               reframeVeto={
                 vetoApplied &&
                 dim === 'angle' &&
                 (dimensionScores[dim] as number) >
-                  (result.visionVeto?.status === 'applied'
-                    ? result.visionVeto.capApplied
-                    : 0)
+                  (result.deductionBreakdown?.final ??
+                    (result.visionVeto?.status === 'applied'
+                      ? result.visionVeto.tallyFinal
+                      : result.overallScore ?? 0))
               }
               contextNote={
                 vetoApplied &&
                 dim === 'angle' &&
                 (dimensionScores[dim] as number) >
-                  (result.visionVeto?.status === 'applied'
-                    ? result.visionVeto.capApplied
-                    : 0)
+                  (result.deductionBreakdown?.final ??
+                    (result.visionVeto?.status === 'applied'
+                      ? result.visionVeto.tallyFinal
+                      : result.overallScore ?? 0))
                   ? '각도 측정은 기준에 가깝지만, AI 영상 분석이 각도로 안 드러나는 자세 결함을 발견해 종합 점수를 낮췄어요.'
                   : undefined
               }

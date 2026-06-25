@@ -818,12 +818,12 @@ Plans:
   5. **일반화** — 정은지(또는 사용자 선택 코치) 정타는 감점합≈0 → 95~100(타깃 아닌 결과), 미보유·above-cutoff 도 정상 고득점. kip-up 등 결함은 측정→감점으로 잡힌다(밴드 없이).
   6. Gemini 가 짚은 결함이 기하 측정항으로 매핑되지 않는 "보이는데 0감점" 케이스가 출하 경로에 없다(coverage gap 로그로 검출).
 
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 24-01-PLAN.md — deduction_engine.tally (pure, 측정-substrate 입력 + baseline_kind string arg + unavailable→dimension fallback + 추적성 fallback record) + ipsf_criteria (5 측정가능 criterion: leg_extension/arm_extension/split_angle/line[substrate profile-gated: 빈 joint_expectations→정직한 0, 밴드 아님 ND-06] + body_relative_reach[reference_relative, delta_notches 소비 — baseline_kind 가 점수에 영향 ND-05/1급입력] + 5 TRACKED deferred coverage gap = FaultKey 8 set 완전 분할 + per-criterion deviation source) + LINEAR slope(raw=over*slope, gaussian delegate 금지) + OBJECT 계약(records/coverageGaps/fallback) + criterion_for_fault_key (FaultKey vocab 전수+partition) + DEDUCTION_* 3-way 계약 lockstep + 단위 게이트 (Wave 1, SCORE-10/11/12/14/15/16)
+- [x] 24-01-PLAN.md — deduction_engine.tally (pure, 측정-substrate 입력 + baseline_kind string arg + unavailable→dimension fallback + 추적성 fallback record) + ipsf_criteria (5 측정가능 criterion: leg_extension/arm_extension/split_angle/line[substrate profile-gated: 빈 joint_expectations→정직한 0, 밴드 아님 ND-06] + body_relative_reach[reference_relative, delta_notches 소비 — baseline_kind 가 점수에 영향 ND-05/1급입력] + 5 TRACKED deferred coverage gap = FaultKey 8 set 완전 분할 + per-criterion deviation source) + LINEAR slope(raw=over*slope, gaussian delegate 금지) + OBJECT 계약(records/coverageGaps/fallback) + criterion_for_fault_key (FaultKey vocab 전수+partition) + DEDUCTION_* 3-way 계약 lockstep + 단위 게이트 (Wave 1, SCORE-10/11/12/14/15/16)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

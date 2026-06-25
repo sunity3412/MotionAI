@@ -34,10 +34,14 @@ _NOTCH_TOLERANCE = 0.5        # [ASSUMED] reach shortfall dead-zone(칸). 측정
 # IPSF 는 fixed-flat — per-unit slope 가 monotonicity 를 주는 유일한 엔지니어링 선택.
 # criterion 별 re-fit 금지(curve-fit 밴). raw = over * slope (LINEAR, gaussian 아님).
 _SLOPE = kismam._PENALTY_PER_DEG  # [ASSUMED]
-# [ASSUMED] per-criterion 상한 — IPSF global −25 cap 의 해석(per-fault IPSF fact 아님).
-# 최종 점수 밴드 아님(ND-04b) — fault 종류별 ceiling 으로 단일 criterion 폭주만 제한.
-_ANGLE_CAP = 25.0
-_REACH_CAP = 25.0
+# [ASSUMED] per-criterion 상한 — fault 종류별 ceiling(ND-04b). 최종 점수 밴드 아님:
+# 단일 criterion 의 LINEAR 누적이 병적 입력(500°)에서 무한 폭주하는 것만 막는다. 현실
+# 범위(0~90° 편차)에서는 saturate 하지 않아 단조성이 유지되도록 충분히 크게(90)
+# 잡았다 — 90° 편차(slope 1.2)=raw 84 < cap. 여러 criterion 이 동시 감점하면 합이
+# 100 을 넘어 final 이 0 에 도달할 수 있다(상한 밴드 없음). IPSF fact 아님(보유 sweep
+# 재calibrate 금지).
+_ANGLE_CAP = 90.0
+_REACH_CAP = 90.0
 
 
 # ── criterion 묶음 표 (5 criteria — substrate-honest, ND-06) ────────────────

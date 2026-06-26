@@ -123,6 +123,64 @@ class TestEnglishAlias:
         assert scope_status == "recognized"
 
 
+# ─────────── P1 step 4: 객관 무릎신전 5동작 한/영 alias (2026-06-27) ───────────
+
+
+class TestP1ObjectiveKneeMoveAlias:
+    """학원 통용 한/영 → canonical (객관 무릎신전 5동작)."""
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            # kip-up
+            ("킵업", "ref-kip-up"),
+            ("킵 업", "ref-kip-up"),
+            ("kip-up", "ref-kip-up"),
+            ("kip up", "ref-kip-up"),
+            ("KipUp", "ref-kip-up"),
+            # power-spin
+            ("파워스핀", "ref-power-spin"),
+            ("파워 스핀", "ref-power-spin"),
+            ("power spin", "ref-power-spin"),
+            ("Power-Spin", "ref-power-spin"),
+            # peter-pan
+            ("피터팬", "ref-peter-pan"),
+            ("피터 팬", "ref-peter-pan"),
+            ("Peter Pan", "ref-peter-pan"),
+            ("peter-pan", "ref-peter-pan"),
+            # elbow-twist-sister (긴 alias 우선 — "elbow twist" 도 동일 canonical)
+            ("엘보 트위스트 시스터", "ref-elbow-twist-sister"),
+            ("엘보트위스트", "ref-elbow-twist-sister"),
+            ("elbow twist sister", "ref-elbow-twist-sister"),
+            ("elbow twist", "ref-elbow-twist-sister"),
+            # pdshape
+            ("pdshape", "ref-pdshape"),
+            ("pd shape", "ref-pdshape"),
+            ("PD-Shape", "ref-pdshape"),
+            ("피디쉐입", "ref-pdshape"),
+        ],
+    )
+    def test_alias_recognized(self, raw: str, expected: str) -> None:
+        canonical, scope_status = classify_motion_name(raw)
+        assert canonical == expected
+        assert scope_status == "recognized"
+
+    @pytest.mark.parametrize(
+        "canonical_id",
+        [
+            "ref-kip-up",
+            "ref-power-spin",
+            "ref-peter-pan",
+            "ref-elbow-twist-sister",
+            "ref-pdshape",
+        ],
+    )
+    def test_canonical_id_recognized(self, canonical_id: str) -> None:
+        canonical, scope_status = classify_motion_name(canonical_id)
+        assert canonical == canonical_id
+        assert scope_status == "recognized"
+
+
 # ─────────────────── substring 매치 (긴 매치 우선) ───────────────────
 
 

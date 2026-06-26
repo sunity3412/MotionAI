@@ -180,6 +180,57 @@ criteria:
 """
 
 
+# ─────────────────── P1 step 4: 객관 무릎 신전 5동작 ───────────────────
+
+
+# P1 (2026-06-27, quick-260627-afq) — IPSF element 미등재 동작에 객관 180° 무릎 신전
+# (ipsf_absolute) criteria 등록. 곧아야 할 양 무릎을 EXTEND 로 박제(15-IPSF-SOURCING).
+P1_OBJECTIVE_KNEE_MOTIONS = (
+    "ref-kip-up",
+    "ref-power-spin",
+    "ref-peter-pan",
+    "ref-elbow-twist-sister",
+    "ref-pdshape",
+)
+
+
+class TestP1ObjectiveKneeExtension:
+    @pytest.mark.parametrize("motion", P1_OBJECTIVE_KNEE_MOTIONS)
+    def test_loads_and_validates(self, motion: str) -> None:
+        """5 신규 yaml 모두 load + 모든 entry validate PASS (객관성 가드 통과)."""
+        criteria = load_criteria(motion)
+        assert len(criteria) >= 1, f"{motion} criteria 비어있음"
+        for c in criteria:
+            c.validate()
+
+    @pytest.mark.parametrize("motion", P1_OBJECTIVE_KNEE_MOTIONS)
+    def test_hold_moment_has_extend_knees(self, motion: str) -> None:
+        """hold_moment 에 left_knee+right_knee EXTEND entry 존재 + angle_target 180°."""
+        grouped = load_grouped_criteria(motion)
+        hold = grouped["hold"]
+        extend_knees = {
+            c.joint_key
+            for c in hold
+            if c.extension_class == "EXTEND" and c.joint_key.endswith("_knee")
+        }
+        assert extend_knees == {"left_knee", "right_knee"}, (
+            f"{motion} EXTEND 무릎 누락: {extend_knees}"
+        )
+        for c in hold:
+            if c.joint_key.endswith("_knee"):
+                # 객관 IPSF 보편 신전기준 = 180° (정은지 측정값 아님).
+                assert c.angle_target == 180.0
+                # source_ref 가 IPSF 보편 신전기준 인용(element code 날조 아님).
+                assert "Fully extended leg" in c.source_ref
+
+    @pytest.mark.parametrize("motion", P1_OBJECTIVE_KNEE_MOTIONS)
+    def test_source_ref_non_empty_ipsf_cited(self, motion: str) -> None:
+        """모든 entry source_ref 비어있지 않고 IPSF 인용(사람 점수 라벨링 금지)."""
+        for c in load_criteria(motion):
+            assert c.source_ref.strip()
+            assert "IPSF" in c.source_ref
+
+
 class TestLoadBelleSimulatedFixture:
     def test_simulated_belle_data_loads_and_validates(self, tmp_path: Path) -> None:
         """belle 가 IPSF 기준으로 채운 가상 fixture → load + validate PASS."""

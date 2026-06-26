@@ -314,10 +314,12 @@ def test_low_alignment_measured_deduction_applied(monkeypatch):
     # collect 가 정렬 약한 still-pair 에 대해 반환하는 모양: low_alignment + verdict None +
     # 빈 supported_differences + 빈 frame_pairs(Gemini 호출 전 bail). RTMW 측정 leg 편차는
     # tol 초과 — 정렬-독립이므로 감점되어야 한다.
+    # production wiring(§2-4 false-green 교훈): low_alignment 는 frame_pairs=[] →
+    # quantification UNAVAILABLE 이다. 그래도 정렬-독립 RTMW 각도 seed 가 살아 granular 감점.
     ctx = _ctx("low_alignment_confidence", verdict=None, supported=[], frame_pairs=[])
     out = app._apply_vision_veto_from_context(
         {"overallScore": 100, "dimensionScores": {"angle": 100}}, ctx,
-        _quant("available"),
+        _quant("unavailable"),
         measured_deviations={"leg_extension": 45.0}, baseline_kind="hip_line",
     )
     bd = out["deductionBreakdown"]
@@ -332,36 +334,46 @@ def test_low_alignment_measured_deduction_applied(monkeypatch):
     # criteria_for_fault 만 만들 수 있는 Gemini-located record 는 0(supported_differences=[]).
     sources = {r["deviationSource"] for r in bd["records"]}
     assert sources <= {"ipsf_absolute", "reference_relative"}
-    assert "dimension_overall" not in sources  # available quant → fallback 아님
+    # 각도 seed 가 살아 dimension_overall 폴백을 안 탄다(quant unavailable 이어도 granular, 24-05).
+    assert "dimension_overall" not in sources
     # low_alignment 은 코치 root-cause 를 주입하지 않는다 (candidate_verdict-only 유지).
     assert ctx.eligible_for_coach is False
     assert "faultJoints" not in out["visionVeto"]  # Gemini fault 부재 → 부착 0
 
 
-def test_low_alignment_clean_geometry_not_applicable(monkeypatch):
-    """low_alignment_confidence + 깨끗한 기하(측정 편차 {}) → not_applicable, breakdown 부착,
-    final 불변(측정 가능한 편차가 없으면 감점 0 — 위양성 fabricate 금지)."""
+def test_low_alignment_empty_seed_unavailable_fallback(monkeypatch):
+    """production wiring(§2-4): low_alignment 는 frame_pairs=[] → quantification UNAVAILABLE.
+    측정 편차도 {} (양쪽 substrate 빔) → dimension_overall_fallback 1개 +
+    fallback=quantification_unavailable, final 불변. 측정 가능한 편차가 없으니 위양성 measured
+    criterion 을 fabricate 하지 않는다(honest 한계). fallback record 도 applied 로 추적(TRUST-08)."""
     _enable(monkeypatch)
     ctx = _ctx("low_alignment_confidence", verdict=None, supported=[], frame_pairs=[])
     out = app._apply_vision_veto_from_context(
         {"overallScore": 96, "dimensionScores": {"angle": 96}}, ctx,
-        _quant("available"),
+        _quant("unavailable"),
         measured_deviations={}, baseline_kind="hip_line",
     )
-    assert out["visionVeto"]["status"] == "not_applicable"
-    assert out["overallScore"] == 96  # final 불변
-    assert "deductionBreakdown" in out  # breakdown 부착 (점수 산식 투명)
-    assert out["deductionBreakdown"]["records"] == []
+    bd = out["deductionBreakdown"]
+    assert bd["fallback"] == "quantification_unavailable"
+    assert len(bd["records"]) == 1
+    assert bd["records"][0]["criterion"] == "dimension_overall_fallback"
+    assert bd["final"] == 96  # dimension_overall 불변
+    assert out["overallScore"] == 96
+    # fallback record 만 — fabricate 된 measured criterion 0 (위양성 fabricate 금지).
+    measured = [r for r in bd["records"] if r["deviationSource"] != "dimension_overall"]
+    assert measured == []
+    assert out["visionVeto"]["status"] == "applied"
 
 
 def test_low_alignment_no_fabricated_gemini_faults(monkeypatch):
     """객관성 hard line — supported_differences=[] 인 low_alignment ctx 는 criteria_for_fault
     가 만들 수 있는 split_angle 같은 Gemini-located criterion 을 절대 만들지 않는다.
-    measured_deviations 에 split substrate 가 없으면 split_angle record 도 없다."""
+    measured_deviations 에 split substrate 가 없으면 split_angle record 도 없다.
+    production wiring 일치 — quant UNAVAILABLE 에서도 각도 seed 만 granular 감점(§2-4)."""
     _enable(monkeypatch)
     ctx = _ctx("low_alignment_confidence", verdict=None, supported=[], frame_pairs=[])
     out = app._apply_vision_veto_from_context(
-        {"overallScore": 100, "dimensionScores": {}}, ctx, _quant("available"),
+        {"overallScore": 100, "dimensionScores": {}}, ctx, _quant("unavailable"),
         measured_deviations={"leg_extension": 30.0}, baseline_kind="hip_line",
     )
     crits = {r["criterion"] for r in out["deductionBreakdown"]["records"]}
@@ -377,11 +389,37 @@ def test_low_alignment_does_not_regress_sibling_passthrough(monkeypatch):
     for status in ("resource_limited", "disabled", "missing_reference", "skipped_error"):
         ctx = _ctx(status, verdict=None, supported=[], frame_pairs=[])
         out = app._apply_vision_veto_from_context(
-            {"overallScore": 91, "dimensionScores": {}}, ctx, _quant("available"),
+            {"overallScore": 91, "dimensionScores": {}}, ctx, _quant("unavailable"),
             measured_deviations={"leg_extension": 50.0}, baseline_kind="hip_line",
         )
         assert out["overallScore"] == 91, f"{status} score 불변"
         assert "deductionBreakdown" not in out, f"{status} tally 미실행"
+
+
+def test_low_alignment_unavailable_emits_reach_coverage_gap(monkeypatch):
+    """24-05(ND-06/07) — low_alignment + quant UNAVAILABLE + 각도 seed → reach 칸은 정렬 부재로
+    측정 못 했음을 coverageGaps(reach_substrate_unavailable_low_alignment)로 투명 노출하면서도
+    각도 granular 감점은 유지한다(honest 한계 + measured seed 소비 동시).
+
+    NOTE(§3-2 정합): reach coverage gap 은 quant 불가 AND 활성 criterion 존재(각도 seed) 경로에서만
+    방출된다 — 빈-seed 폴백 경로에 넣으면 legacy(None,None) 단일영상까지 low_alignment 로 오표기되므로
+    설계상 activated 경로로 한정. (§5-2 item 8 의 reach-only md={} 문구는 §3-2 와 충돌해 achievable
+    형태인 activated 경로로 구현.)"""
+    _enable(monkeypatch)
+    ctx = _ctx("low_alignment_confidence", verdict=None, supported=[], frame_pairs=[])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 100, "dimensionScores": {"angle": 100}}, ctx,
+        _quant("unavailable"),
+        measured_deviations={"leg_extension": 30.0}, baseline_kind="hip_line",
+    )
+    bd = out["deductionBreakdown"]
+    # 각도 granular 감점 유지(폴백 아님).
+    assert any(r["criterion"] == "leg_extension" for r in bd["records"])
+    assert bd["fallback"] != "quantification_unavailable"
+    # reach 칸 측정 불가가 coverage gap 으로 투명 노출.
+    rule_ids = {g["ruleId"] for g in bd["coverageGaps"]}
+    assert "reach_substrate_unavailable_low_alignment" in rule_ids
+    assert out["visionVeto"]["status"] == "applied"
 
 
 def test_legacy_path_unavailable_fallback(monkeypatch):

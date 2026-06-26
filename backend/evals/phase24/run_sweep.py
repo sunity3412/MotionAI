@@ -84,6 +84,9 @@ def _run_member(pipeline, fa, models, motion: str, label: str, analysis_id: str)
     r = d.get("result") or {}
     ec = d.get("errorCode")
     bd = r.get("deductionBreakdown")
+    # 24-06 §3 진단 — clip 별 visionVeto(collectionStatus + alignment.adoption)를 캡처해
+    # kip-up 의 정확한 low_alignment 발화 조건을 다음 pod-run 에서 확정한다(관찰 전용, score 무관).
+    vv = r.get("visionVeto")
     rec = {
         "motion_id": motion,
         "label": label,
@@ -93,14 +96,18 @@ def _run_member(pipeline, fa, models, motion: str, label: str, analysis_id: str)
         "errorCode": ec.get("code") if isinstance(ec, dict) else ec,
         "exception": err,
         "deductionBreakdown": bd,
+        "visionVeto": vv,
     }
     crit = None
     if isinstance(bd, dict):
         crit = sorted({rr.get("criterion") for rr in (bd.get("records") or [])})
     rec["activatedCriteria"] = crit
+    cs = vv.get("collectionStatus") if isinstance(vv, dict) else None
+    aa = (vv.get("alignment") or {}).get("adoption") if isinstance(vv, dict) else None
     print(
         f"  done {motion:20s} {label:7s} status={rec['status']} "
-        f"overall={rec['overallScore']} crit={crit} err={rec['errorCode'] or err or '-'}",
+        f"overall={rec['overallScore']} crit={crit} vv={cs}/{aa} "
+        f"err={rec['errorCode'] or err or '-'}",
         flush=True,
     )
     return rec

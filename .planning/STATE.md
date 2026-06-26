@@ -66,7 +66,7 @@ Status: 24-04 코드 게이트 GREEN — Pod 재-sweep + belle 검증 PENDING (o
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-27 - Completed quick task 260627-9dh: eval 게이트 강화(P1 토대) — clean-residual + above-cutoff sensitivity 2 게이트 추가. main() exit 1 = 기존 generalization 이 kip-up false-negative 잡는 정직한 red(P1 미해결). 다음=/gsd-debug recognizer IPSF 등록 근본.
+Last activity: 2026-06-27 - P1 분석정확도 부채: step1(eval게이트 9dh)+step2(/gsd-debug 근본=IPSF 데이터부재)+step3(NotebookLM: 6동작 IPSF element 미등재, belle 결정)+step4(afq: 5동작 등록+객관 무릎신전 EXTEND yaml, de-contamination pod-free 증명) 완료. 남음=step5 pod 재-sweep 검증(belle가 pod 켜야 함).
 
 ### Quick Tasks Completed
 
@@ -81,6 +81,7 @@ Last activity: 2026-06-27 - Completed quick task 260627-9dh: eval 게이트 강�
 | 260626-jti | Phase 24 결함 ② fix — `_pose_frame_keypoints`가 존재하지 않는 `pf.keypoints`를 읽어 visibility=0.0 전클립 → Gemini 광범위 차단이던 배선 버그. 실제 필드 `keypoints_3d: dict[str,Keypoint3D]`의 `.values().confidence` 평균을 읽도록 수정. pod 진단 확정. 38+18 passed, band grep 0, alignment 임계 불변. ①과 함께 pod 검증 PENDING | 2026-06-26 | 81e7f56 | [260626-jti-phase-24-fault-2-fix-visibility-0-0-wiri](./quick/260626-jti-phase-24-fault-2-fix-visibility-0-0-wiri/) |
 | 260626-f3u | Phase 24 (B) 진단 계측 — additive(채점 byte-unchanged). alignment 텔레메트리 보존(collect low_alignment bail이 버리던 alignment 복구)+to_audit_dict 방출(alignment_summary 순수 helper)+sweep visionVeto 캡처+kip-up Gemini probe(bail 우회 monkeypatch, assess_fault_context 직접 호출). 다음 pod-run에서 (A)실증과 같이 실행. 로컬 83 passed, band grep 0, vision_veto purity 보존. probe는 pod 전용(로컬 미실행) | 2026-06-26 | 2761d79 | [260626-f3u-phase-24-b-diagnostic-instrumentation-al](./quick/260626-f3u-phase-24-b-diagnostic-instrumentation-al/) |
 | 260627-9dh | eval 게이트 강화 (P1 검증 토대) — phase24 assert_gates 에 pod-free 게이트 2개 추가(이제 7). clean-residual: 정타 멤버 per-criterion `raw=abs(baseline-measured)`가 CRITERION_GROUPS tolerance 초과 시 FAIL(절대 잔차 — generalization 의 상대 fault>success 구멍 보완, 오염된 정타 14~18° 차단). sensitivity: 합성 above=2×tol→비자명 감점 강제 / deadzone=tol/2→감점0 강제(metric validity). 임계 전부 tolerance 파생(curve-fit 0). 21 passed. main() exit 1 = 기존 generalization kip-up false-negative red(pre-existing, regression 무도입) | 2026-06-27 | 7023be8 | [260627-9dh-eval-gate-hardening](./quick/260627-9dh-eval-gate-hardening-clean-residual-above/) |
+| 260627-afq | P1 step4 — recognizer 등록 + 객관 IPSF 무릎신전 wiring. 5동작(kip-up/power-spin/peter-pan/elbow-twist-sister/pdshape) REGISTERED_MOTIONS+한영 alias 등록 + 5 criteria yaml(무릎 EXTEND, angle_target 180°=IPSF 보편기준, source_ref=Glossary fully-extended-leg+의도된 폼, 정은지 측정값 아님). 엔진 코드 0변경(24-07 wiring이 데이터+등록만으로 활성). de-contamination pod-free 증명: 곧은 무릎(정은지와 달라도)=감점0, 굽은 무릎=leg_extension(ipsf_absolute) 감점+reference_relative cross-excluded. 80 passed. pdshape 비대칭=step5 gate 검증. 남음=step5 pod sweep | 2026-06-27 | 9678ab5 | [260627-afq-p1-step4](./quick/260627-afq-p1-step4-register-5-moves-objective-ipsf/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

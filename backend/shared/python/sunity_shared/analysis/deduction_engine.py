@@ -185,6 +185,19 @@ def tally(
     if activated & {"leg_extension", "arm_extension"} and "line" in activated:
         activated.discard("line")
 
+    # HIGH-5 확장 (24-07 §3-2): 활성 ipsf_absolute extension(leg/arm/split)이 claim 한 관절은
+    # reference_relative 동일관절(angle_vs_reference__{jk})을 discard — double-count 금지. 이들은
+    # explicit joint_keys 를 보유하므로 엔진이 profile 없이 구성관절을 안다(profile-독립, testable).
+    # line(collective, joint_keys=())은 엔진이 profile 부재로 구성관절을 모름 → seed-stage(builder,
+    # Task 2)가 expects_extension 으로 reference_relative md 자체를 차단(line/leg/arm/split 모두
+    # expects_extension 파생이므로 정확). 엔진-stage 는 leg/arm/split 만 추가 discard 보증.
+    claimed_joints: set[str] = set()
+    for cid in ("leg_extension", "arm_extension", "split_angle"):
+        if cid in activated:
+            claimed_joints.update(crit_by_id[cid]["joint_keys"])
+    for jk in claimed_joints:
+        activated.discard(f"angle_vs_reference__{jk}")
+
     # (1') UNAVAILABLE FALLBACK — quant 불가 AND 활성 criterion 0(양쪽 substrate 빔)일 때만
     # (MEDIUM-1 traceable). 100 으로 리셋 금지(BLOCKER A). 측정 각도 seed 가 살아있으면 건너뛴다.
     if quant_unavailable and not activated:
@@ -286,6 +299,18 @@ def _criterion_deduction(cid, crit, md, quantification, baseline_kind):
             return None
         total_shortfall, measured_sum, baseline_sum = sf
         return total_shortfall, measured_sum, baseline_sum, crit.get("unit", "notch"), "reach"
+
+    # reference_relative (over_target) — 24-07 §3-1. measured_deviations[cid] = 정은지(reference)
+    # 대비 per-joint median |Δ각도| 편차(deg, motiondtw.per_joint_deviation). 목표 = reference 대비
+    # 0° 편차 → baseline_value=0.0, measured_value=편차. over = max(0, dev − tol). None → honest 0.
+    # _IPSF_ABSOLUTE_BASELINE(180) 경로와 섞지 않는다(절대-신전 아님 = reference 상대).
+    if crit["deviation_source"] == "reference_relative" and crit["direction"] == "over_target":
+        d = _finite(md.get(cid))
+        if d is None:
+            return None
+        tol = crit["tolerance"]
+        over = max(0.0, d - tol)
+        return over, d, 0.0, "deg", "reference_relative"
 
     # ipsf_absolute — measured_deviations[cid] = student-angle-vs-target deficit(deg).
     dev = md.get(cid)

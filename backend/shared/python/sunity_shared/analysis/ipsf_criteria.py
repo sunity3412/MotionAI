@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from . import kismam
+from .skeleton import JOINT_KEYS  # 24-07: per-joint reference_relative criterion 생성용
 from .vision_veto import (  # 8 keypoint_set + baseline vocab + reach keypoints 단일 소스
     BASELINE_KINDS,  # noqa: F401 — 문서/계약 정합(직접 사용 X, 재방출 의도)
     FAULT_KEYPOINT_SETS,
@@ -58,7 +59,7 @@ _REACH_CAP = 90.0
 #     exclude 한다(HIGH-5 — 단일 굽은 무릎 double-count 금지). 제외 seam = 엔진 union 이후.
 #   · body_relative_reach 는 baseline-relative(delta_notches 소비), insufficient-reach
 #     only(HIGH-2) — per-move baseline_kind 가 notch 편차를 바꿔 점수를 바꾼다(ND-05).
-CRITERION_GROUPS: tuple[dict, ...] = (
+_CORE_CRITERION_GROUPS: tuple[dict, ...] = (
     {
         "id": "leg_extension",
         "joint_keys": ("left_knee", "right_knee"),  # ankle→hip line(양 무릎 1묶음)
@@ -130,9 +131,41 @@ CRITERION_GROUPS: tuple[dict, ...] = (
     },
 )
 
+# ── 24-07 ① fix: reference_relative per-joint 각도 criterion (JOINT_KEYS 순회 생성) ──
+# 미등록 동작(인식기가 reference 동작 미등재 → expects_extension 전부 False → ipsf_absolute
+# seed 빔 → dimension_overall_fallback)에서, 이미 측정 가능한 정은지(reference) 대비 per-joint
+# 각도 편차(motiondtw.per_joint_deviation)를 deduction 엔진 granular seed 로 배선한다.
+# 8개 criterion 을 손-작성하지 않고 JOINT_KEYS 순회로 프로그램 생성 — id 가 관절을 운반
+# (angle_vs_reference__{joint}) → belle "−X 왼무릎 −Y 오른팔꿈치" 항목별 wish 직격(24-07 §3-1).
+# calibration = kismam 재사용(tol _ANGLE_TOLERANCE_DEG=20° [CITED] + _SLOPE [ASSUMED] + cap
+# _ANGLE_CAP [ASSUMED]) — 새 임계/슬로프 picking 0([[calibration-source-hard-gate]]).
+# keypoint_set=None: router 대상 아님(_MEASURABLE_SEED_IDS seed 전용) → 153행 partition
+# assert(mapped {leg,arm,line} ∪ gap == 8) 불변 보장(새 keypoint_set 문자열 도입 금지).
+_REFERENCE_RELATIVE_CRITERIA: tuple[dict, ...] = tuple(
+    {
+        "id": f"angle_vs_reference__{jk}",
+        "joint_keys": (jk,),
+        "keypoint_set": None,
+        "tolerance": _ANGLE_TOLERANCE_DEG,   # [CITED] kismam 재사용 — 새 임계 금지
+        "slope": _SLOPE,                     # [ASSUMED] LINEAR (kismam._PENALTY_PER_DEG)
+        "ipsf_cap": _ANGLE_CAP,              # [ASSUMED] 기존 상수 재사용(re-fit 금지)
+        "rule_id": "angle_vs_reference_over_tol_linear",
+        "ipsf_anchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+        "deviation_source": "reference_relative",
+        "direction": "over_target",
+    }
+    for jk in JOINT_KEYS
+)
+
+# 5 core(ipsf_absolute leg/arm/split/line + reach) + 8 reference_relative per-joint.
+CRITERION_GROUPS: tuple[dict, ...] = _CORE_CRITERION_GROUPS + _REFERENCE_RELATIVE_CRITERIA
+
 _CRITERION_BY_ID = {c["id"]: c for c in CRITERION_GROUPS}
-# 측정-가능 ipsf_absolute criterion (measured-deviation seed 대상; reach 는 제외 — router-only).
-_MEASURABLE_SEED_IDS = ("leg_extension", "arm_extension", "split_angle", "line")
+# 측정-가능 seed criterion: ipsf_absolute 4개(reach 는 router-only 제외) + reference_relative 8개.
+# reference_relative 는 criteria_from_measured_deviations 가 md[angle_vs_reference__{jk}] 로 seed.
+_MEASURABLE_SEED_IDS = ("leg_extension", "arm_extension", "split_angle", "line") + tuple(
+    c["id"] for c in _REFERENCE_RELATIVE_CRITERIA
+)
 
 
 # ── 추적된 deferred coverage gaps (측정 substrate 부재 — silent 아님, ND-06) ──

@@ -59,8 +59,8 @@
     "officialName": "킵업 (정은지 reference)",
     "angleSource": "no_angle_criterion",
     "angleFixtureKey": null,
-    "criteriaYaml": null,
-    "sourceNote": "CROSS-CHECK.md L24-31 — 3 path 합치 IPSF 미등재(인버전 없는 dynamic spin entry). 명칭 모호(정은지 확인 후보). criteria yaml 부재 → no_angle_criterion(가짜 각도 미주입). belle DECISION 2 안전 기본 branch2."
+    "criteriaYaml": "ref-kip-up.yaml",
+    "sourceNote": "CROSS-CHECK.md L24-31 — 3 path 합치 IPSF 미등재(인버전 없는 dynamic spin entry). 명칭 모호(정은지 확인 후보). belle DECISION 2 안전 기본 branch2. | P1 2026-06-27: 객관 무릎 신전(IPSF 180° 보편기준) ref-kip-up.yaml 추가 — 곧은 다리 채점 + 사용자 노출 기준. 채점은 인식기→yaml 직접(map 미경유)이라 angleSource 는 coach-프롬프트 경로(직교)로 보수적 유지(no_angle_criterion)."
   },
   "ref-peter-pan": {
     "copyBranch": "branch2_eunji_reference",
@@ -68,8 +68,8 @@
     "officialName": "피터팬 (정은지 reference)",
     "angleSource": "no_angle_criterion",
     "angleFixtureKey": null,
-    "criteriaYaml": null,
-    "sourceNote": "CROSS-CHECK.md L42-49 — 3 path 합치 IPSF 미등재(스태그 셰이프 + 양손 grip spin, 학원 통용). criteria yaml 부재 → no_angle_criterion. branch2."
+    "criteriaYaml": "ref-peter-pan.yaml",
+    "sourceNote": "CROSS-CHECK.md L42-49 — 3 path 합치 IPSF 미등재(스태그 셰이프 + 양손 grip spin, 학원 통용). branch2. | P1 2026-06-27: 객관 무릎 신전(IPSF 180° 보편기준) ref-peter-pan.yaml 추가 — 곧은 다리 채점 + 사용자 노출 기준. 채점은 인식기→yaml 직접(map 미경유)이라 angleSource 는 coach-프롬프트 경로(직교)로 보수적 유지(no_angle_criterion)."
   },
   "ref-power-spin": {
     "copyBranch": "branch2_eunji_reference",
@@ -77,8 +77,8 @@
     "officialName": "파워스핀 (정은지 reference)",
     "angleSource": "no_angle_criterion",
     "angleFixtureKey": null,
-    "criteriaYaml": null,
-    "sourceNote": "CROSS-CHECK.md L51-58 — IPSF 미등재 + 후반 ≈ Vertical Split variation. criteria yaml 부재 → no_angle_criterion. branch2."
+    "criteriaYaml": "ref-power-spin.yaml",
+    "sourceNote": "CROSS-CHECK.md L51-58 — IPSF 미등재 + 후반 ≈ Vertical Split variation. branch2. | P1 2026-06-27: 객관 무릎 신전(IPSF 180° 보편기준) ref-power-spin.yaml 추가 — 곧은 다리 채점 + 사용자 노출 기준. 채점은 인식기→yaml 직접(map 미경유)이라 angleSource 는 coach-프롬프트 경로(직교)로 보수적 유지(no_angle_criterion)."
   },
   "ref-elbow-twist-sister": {
     "copyBranch": "branch2_eunji_reference",
@@ -86,8 +86,8 @@
     "officialName": "엘보 트위스트 시스터 (정은지 reference)",
     "angleSource": "no_angle_criterion",
     "angleFixtureKey": null,
-    "criteriaYaml": null,
-    "sourceNote": "CROSS-CHECK.md L60-67 — IPSF 미등재 + Scorpio(Inverted Inner Thigh Hook) + Elbow back grip variation. criteria yaml 부재 → no_angle_criterion. branch2."
+    "criteriaYaml": "ref-elbow-twist-sister.yaml",
+    "sourceNote": "CROSS-CHECK.md L60-67 — IPSF 미등재 + Scorpio(Inverted Inner Thigh Hook) + Elbow back grip variation. branch2. | P1 2026-06-27: 객관 무릎 신전(IPSF 180° 보편기준) ref-elbow-twist-sister.yaml 추가 — 곧은 다리 채점 + 사용자 노출 기준. 채점은 인식기→yaml 직접(map 미경유)이라 angleSource 는 coach-프롬프트 경로(직교)로 보수적 유지(no_angle_criterion)."
   },
   "ref-pdshape": {
     "copyBranch": "branch2_eunji_reference",
@@ -95,8 +95,8 @@
     "officialName": "pdshape (정은지 reference)",
     "angleSource": "no_angle_criterion",
     "angleFixtureKey": null,
-    "criteriaYaml": null,
-    "sourceNote": "CROSS-CHECK.md L69-76 — IPSF 미등재(정식 명칭 없는 연계 동작 학원 통용, Inverted Torso Hook/Butterfly + Scorpio variation). criteria yaml 부재 → no_angle_criterion. branch2."
+    "criteriaYaml": "ref-pdshape.yaml",
+    "sourceNote": "CROSS-CHECK.md L69-76 — IPSF 미등재(정식 명칭 없는 연계 동작 학원 통용, Inverted Torso Hook/Butterfly + Scorpio variation). branch2. | P1 2026-06-27: 객관 무릎 신전(IPSF 180° 보편기준) ref-pdshape.yaml 추가(비대칭 주의 — anchor 다리 위양성 시 step5 재조정) — 곧은 다리 채점 + 사용자 노출 기준. 채점은 인식기→yaml 직접(map 미경유)이라 angleSource 는 coach-프롬프트 경로(직교)로 보수적 유지(no_angle_criterion)."
   },
   "ref-combo": {
     "copyBranch": "branch2_eunji_reference",

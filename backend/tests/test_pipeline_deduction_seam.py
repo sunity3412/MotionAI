@@ -29,9 +29,12 @@ for _p in (_PIPELINE, _SHARED):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+import numpy as np  # noqa: E402
+
 import app  # noqa: E402
 from sunity_shared.analysis import technique, vision_veto  # noqa: E402
 from sunity_shared.analysis import gemini_vision_scorer  # noqa: E402
+from sunity_shared.analysis.motiondtw import MotionMatch  # noqa: E402
 from sunity_shared.analysis.skeleton import JOINT_KEYS  # noqa: E402
 
 
@@ -420,6 +423,115 @@ def test_low_alignment_unavailable_emits_reach_coverage_gap(monkeypatch):
     rule_ids = {g["ruleId"] for g in bd["coverageGaps"]}
     assert "reach_substrate_unavailable_low_alignment" in rule_ids
     assert out["visionVeto"]["status"] == "applied"
+
+
+# ── 24-07 ① fix — reference_relative per-joint granular seam 배선 ──────────────
+# 미등록 동작(expects_extension 전부 False)에서 정은지(reference) 대비 per-joint 각도 편차를
+# _build_deduction_measured_deviations 가 md[angle_vs_reference__{joint}] 로 방출한다(granular
+# seed). 등록 동작의 절대-신전 소유 관절은 seed-stage cross-exclusion 으로 제외(double-count 0).
+# 전부 mock-based — 실 Gemini/Pod/S3/Firestore 호출 0. (24-07 §3-2)
+
+_LEFT_KNEE = JOINT_KEYS.index("left_knee")
+_LEFT_SHOULDER = JOINT_KEYS.index("left_shoulder")
+
+
+def _unregistered_profile():
+    """미등록 동작 profile — expects_extension 전부 False (ipsf_absolute seed 빔)."""
+    return technique.TechniqueProfile(
+        name="미등록: ref-power-spin", category="unknown", joint_expectations={}
+    )
+
+
+def _identity_match(T):
+    """identity DTW match — path local 인덱스 (i,i), start=0 end=T (점수경로와 동일 인덱싱)."""
+    return MotionMatch(start=0, end=T, distance=0.0, path=[(i, i) for i in range(T)])
+
+
+def _ref_angles(T, deg=170.0):
+    return np.full((T, len(JOINT_KEYS)), deg, dtype=float)
+
+
+def test_reference_relative_unregistered_emits_per_joint_granular():
+    """미등록 profile + reference 무릎 편차>tol → angle_vs_reference__left_knee 방출.
+    ipsf_absolute(leg/arm/line) 키는 부재(profile-gated honest 0)."""
+    T = 10
+    ref = _ref_angles(T)
+    usr = _ref_angles(T)
+    usr[:, _LEFT_KNEE] = 130.0  # 정은지 대비 40° 편차
+    md = app._build_deduction_measured_deviations(
+        angles=usr, profile=_unregistered_profile(), assessments=[],
+        dimension_scores={}, quantification=_quant("available"),
+        reference_dtw_match=_identity_match(T), reference_angles=ref,
+    )
+    assert md.get("angle_vs_reference__left_knee") == pytest.approx(40.0)
+    assert "leg_extension" not in md  # 미등록 → profile-gated 부재
+    assert "line" not in md
+
+
+def test_reference_relative_registered_knee_excluded_shoulder_kept():
+    """등록 profile(무릎 expects_extension True) → 무릎 reference_relative 키 부재
+    (seed-stage cross-exclusion). 어깨(expects_extension False)는 편차 시 reference_relative 키 존재."""
+    T = 10
+    ref = _ref_angles(T)
+    usr = _ref_angles(T)
+    usr[:, _LEFT_KNEE] = 130.0     # 무릎 40° — 등록(EXTEND)이므로 ipsf_absolute 가 채점
+    usr[:, _LEFT_SHOULDER] = 130.0  # 어깨 40° — BENT_OK → reference_relative 보완
+    md = app._build_deduction_measured_deviations(
+        angles=usr, profile=_profile(), assessments=[],
+        dimension_scores={}, quantification=_quant("available"),
+        reference_dtw_match=_identity_match(T), reference_angles=ref,
+    )
+    assert "angle_vs_reference__left_knee" not in md  # 절대-신전 소유 관절 제외
+    assert md.get("angle_vs_reference__left_shoulder") == pytest.approx(40.0)
+
+
+def test_reference_relative_self_compare_no_keys():
+    """self-compare(identity path + usr==ref → per_joint_deviation=0) → angle_vs_reference__* 0개."""
+    T = 10
+    ref = _ref_angles(T)
+    md = app._build_deduction_measured_deviations(
+        angles=ref.copy(), profile=_unregistered_profile(), assessments=[],
+        dimension_scores={}, quantification=_quant("available"),
+        reference_dtw_match=_identity_match(T), reference_angles=ref,
+    )
+    assert not any(k.startswith("angle_vs_reference__") for k in md)
+
+
+def test_reference_relative_none_inputs_graceful():
+    """reference_dtw_match=None 또는 reference_angles=None → reference_relative 미방출
+    (mode3/legacy 무회귀)."""
+    T = 10
+    ref = _ref_angles(T)
+    usr = _ref_angles(T)
+    usr[:, _LEFT_KNEE] = 130.0
+    md_no_match = app._build_deduction_measured_deviations(
+        angles=usr, profile=_unregistered_profile(), assessments=[],
+        dimension_scores={}, quantification=_quant("available"),
+        reference_dtw_match=None, reference_angles=ref,
+    )
+    md_no_ref = app._build_deduction_measured_deviations(
+        angles=usr, profile=_unregistered_profile(), assessments=[],
+        dimension_scores={}, quantification=_quant("available"),
+        reference_dtw_match=_identity_match(T), reference_angles=None,
+    )
+    assert not any(k.startswith("angle_vs_reference__") for k in md_no_match)
+    assert not any(k.startswith("angle_vs_reference__") for k in md_no_ref)
+
+
+def test_reference_relative_deterministic():
+    """동일 입력 2회 → 동일 md (결정성)."""
+    T = 10
+    ref = _ref_angles(T)
+    usr = _ref_angles(T)
+    usr[:, _LEFT_KNEE] = 130.0
+    kwargs = dict(
+        profile=_unregistered_profile(), assessments=[], dimension_scores={},
+        quantification=_quant("available"),
+        reference_dtw_match=_identity_match(T), reference_angles=ref,
+    )
+    a = app._build_deduction_measured_deviations(angles=usr, **kwargs)
+    b = app._build_deduction_measured_deviations(angles=usr, **kwargs)
+    assert a == b
 
 
 def test_legacy_path_unavailable_fallback(monkeypatch):

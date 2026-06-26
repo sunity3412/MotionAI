@@ -80,8 +80,10 @@ def _valid_breakdown():
 
 
 def _fallback_breakdown():
-    # quantification_unavailable → single fallback record (MEDIUM-1).
-    return _tally({"leg_extension": 40.0}, _ctx([_diff("무릎", "굽음")]),
+    # quantification_unavailable AND 측정/지목 substrate 전무(빈 seed + Gemini 무지목) →
+    # single fallback record (MEDIUM-1). 24-05 후 비-빈 각도 seed 는 granular 경로로 가므로
+    # 폴백 경로는 빈-seed 로 정확히 검증한다(엔진 reconcile 과 동일 class).
+    return _tally({}, _ctx([]),
                   dimension_overall=62, quantification=_unavailable_quant())
 
 

@@ -21,6 +21,7 @@ import pytest
 from sunity_shared import models
 from sunity_shared.analysis import deduction_engine, ipsf_criteria, vision_veto
 from sunity_shared.analysis import technique
+from sunity_shared.analysis.skeleton import JOINT_KEYS
 
 
 # ── fixtures ────────────────────────────────────────────────────────────────
@@ -105,17 +106,29 @@ def test_contract_lockstep():
 # ── criterion table ────────────────────────────────────────────────────────
 
 
-def test_criterion_groups_five_criteria():
-    ids = {c["id"] for c in ipsf_criteria.CRITERION_GROUPS}
-    assert ids == {"leg_extension", "arm_extension", "split_angle", "line",
-                   "body_relative_reach"}
+def test_criterion_groups_core_plus_reference_relative():
+    # 24-07: 5 core criteria 보존 + JOINT_KEYS 별 reference_relative 각도 criterion 추가.
     by_id = {c["id"]: c for c in ipsf_criteria.CRITERION_GROUPS}
-    # deviation_source + direction tags present + correct.
+    ids = set(by_id)
+    assert {"leg_extension", "arm_extension", "split_angle", "line",
+            "body_relative_reach"} <= ids
+    # deviation_source + direction tags present + correct (core).
     for cid in ("leg_extension", "arm_extension", "split_angle", "line"):
         assert by_id[cid]["deviation_source"] == "ipsf_absolute"
         assert by_id[cid]["direction"] == "over_target"
     assert by_id["body_relative_reach"]["deviation_source"] == "reference_relative"
     assert by_id["body_relative_reach"]["direction"] == "insufficient_reach"
+    # 24-07 — per-joint reference_relative 각도 criterion(JOINT_KEYS 1개씩, granular wish).
+    ref_rel = [c for c in ipsf_criteria.CRITERION_GROUPS
+               if c["id"].startswith("angle_vs_reference__")]
+    assert len(ref_rel) == len(JOINT_KEYS)
+    assert {c["id"] for c in ref_rel} == {f"angle_vs_reference__{jk}" for jk in JOINT_KEYS}
+    for c in ref_rel:
+        assert c["deviation_source"] == "reference_relative"
+        assert c["direction"] == "over_target"
+        assert c["joint_keys"] and len(c["joint_keys"]) == 1
+        assert c["tolerance"] == ipsf_criteria._ANGLE_TOLERANCE_DEG  # kismam 재사용
+        assert c["ipsf_cap"] == ipsf_criteria._ANGLE_CAP
     # every criterion carries the named config keys.
     for c in ipsf_criteria.CRITERION_GROUPS:
         for k in ("id", "tolerance", "slope", "ipsf_cap", "rule_id",
@@ -464,6 +477,75 @@ def test_coverage_gap_no_band():
     assert gap.get("bodyPart") or gap.get("faultState")
     # never a points<0 ruleId=None record.
     assert all(not (r.points < 0 and r.rule_id is None) for r in b.records)
+
+
+# ── 24-07: reference_relative per-joint 각도 seed (미등록 동작 granular 실현) ──────
+# 미등록 동작(expects_extension 전부 False)에서 ipsf_absolute seed 가 빌 때, 정은지(reference)
+# 대비 per-joint 각도 편차를 granular DeductionRecord 로 방출한다(dimension_overall_fallback 아님).
+# calibration = kismam 재사용(tol 20° + _SLOPE), 새 임계 0. 방향/구조 단언만(curve-fit 금지).
+
+
+def _ref_rel(**joint_devs):
+    """reference_relative md (angle_vs_reference__{joint} → reference 대비 deg 편차)."""
+    return {f"angle_vs_reference__{jk}": float(v) for jk, v in joint_devs.items()}
+
+
+def test_reference_relative_seeds_granular_per_joint():
+    # 미등록 동작: 무릎 편차 35°(>tol 20°) → per-joint reference_relative record 1개 방출,
+    # dimension_overall_fallback 아님 (quant unavailable 이어도 각도 seed 살아 granular, 24-05).
+    b = _tally(_ref_rel(left_knee=35.0), _ctx([]), quantification=_unavailable_quant())
+    recs = [r for r in b.records if r.criterion == "angle_vs_reference__left_knee"]
+    assert len(recs) == 1
+    assert recs[0].deviation_source == "reference_relative"
+    assert recs[0].unit == "deg"
+    assert recs[0].points < 0
+    assert recs[0].baseline_value == 0.0  # 목표 = reference 대비 0° 편차
+    assert not any(r.criterion == "dimension_overall_fallback" for r in b.records)
+    assert b.final < 100
+
+
+def test_reference_relative_deadzone():
+    # 12° < tol 20° → seed 안 됨 → reference_relative record 0 (dead-zone).
+    b = _tally(_ref_rel(left_knee=12.0), _ctx([]), quantification=_available_quant())
+    assert not any(r.criterion == "angle_vs_reference__left_knee" for r in b.records)
+
+
+def test_reference_relative_self_compare_zero():
+    # self-compare: 모든 angle_vs_reference__* = 0 → record 0, final=100 (위양성 0).
+    md = {f"angle_vs_reference__{jk}": 0.0 for jk in JOINT_KEYS}
+    b = _tally(md, _ctx([]), dimension_overall=100, quantification=_available_quant())
+    assert all(not r.criterion.startswith("angle_vs_reference__") for r in b.records)
+    assert b.final == 100
+
+
+def test_reference_relative_double_count_blocked():
+    # leg_extension(무릎 ipsf_absolute) seed + 같은 무릎 reference_relative → leg_extension 만,
+    # 무릎 reference_relative 2개는 cross-exclusion 으로 discard (knee double-count 0).
+    md = {**_measured(leg=30.0), **_ref_rel(left_knee=35.0, right_knee=33.0)}
+    b = _tally(md, _ctx([]), quantification=_available_quant())
+    crits = {r.criterion for r in b.records}
+    assert "leg_extension" in crits
+    assert "angle_vs_reference__left_knee" not in crits
+    assert "angle_vs_reference__right_knee" not in crits
+
+
+def test_reference_relative_complement_preserved():
+    # leg_extension(무릎) + 어깨 reference_relative → 둘 다 방출 (어깨는 어떤 ipsf_absolute 도
+    # claim 안 함 = 순수 보완 seed).
+    md = {**_measured(leg=30.0), **_ref_rel(left_shoulder=40.0)}
+    b = _tally(md, _ctx([]), quantification=_available_quant())
+    crits = {r.criterion for r in b.records}
+    assert "leg_extension" in crits
+    assert "angle_vs_reference__left_shoulder" in crits
+
+
+def test_reference_relative_deterministic():
+    # 결정성: 동일 md 2회 호출 → records/final 동일 순서·값.
+    md = _ref_rel(left_knee=35.0, right_elbow=28.0)
+    q = _available_quant()
+    b1 = _tally(md, _ctx([]), quantification=q)
+    b2 = _tally(md, _ctx([]), quantification=q)
+    assert b1.to_dict() == b2.to_dict()
 
 
 def test_breakdown_serializes_flat():

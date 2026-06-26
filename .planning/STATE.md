@@ -66,7 +66,7 @@ Status: 24-04 코드 게이트 GREEN — Pod 재-sweep + belle 검증 PENDING (o
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-26 - Completed quick task 260626-jti: Phase 24 ② visibility wiring fix (pod-confirmed). ① granular reference-relative seed = design 24-07, next.
+Last activity: 2026-06-26 - Completed quick task 260626-jwu: Phase 24 ① granular reference-relative seed wired. ①②③ 코드 완료, 다음=pod 재검증(score-shift + Gemini 회복).
 
 ### Quick Tasks Completed
 
@@ -77,6 +77,7 @@ Last activity: 2026-06-26 - Completed quick task 260626-jti: Phase 24 ② visibi
 | 260620-0r0 | Mode3 점수 역전(#8) 수정 — second+ overall = abs_dims만 (angle=이전영상 유사도가 발전을 min()으로 역전시키던 것 제거) + 회귀 테스트 | 2026-06-20 | ba5fe4f | [260620-0r0-fix-mode3-score-inversion](./quick/260620-0r0-fix-mode3-score-inversion-bug-8-overall-/) |
 | 260620-18r | 점수 UX 일관성 — #4 세부점수 보조지표(안정성) 종합 비반영 안내 캡션 + #2 마커 강조 임계 10°→20°(IPSF 허용오차 정합, 고득점에 빨강 모순 제거). 표시 일관성만, 점수 로직 불변 | 2026-06-20 | 5b5fb81 | [260620-18r-score-ux-consistency](./quick/260620-18r-score-ux-consistency-marker-score-thresh/) |
 | 260626-e5k | Phase 24 (A) fix — deduction_engine.tally 폴백 게이트를 criterion 선택 뒤로 이동(quant_unavailable AND not activated일 때만 폴백). low_alignment 에서 정렬-독립 RTMW 각도 seed 가 granular 감점 산출. reach 칸 불가는 coverage_gap 노출. false-green seam/engine 테스트 4건 교정 + 회귀가드 6종. 로컬 게이트 GREEN(62 affected), band grep 0, 엔진 purity 보존. Pod 재-sweep 검증 PENDING | 2026-06-26 | 2253e77 | [260626-e5k-phase-24-plan-05-a-fix-deduction-engine-](./quick/260626-e5k-phase-24-plan-05-a-fix-deduction-engine-/) |
+| 260626-jwu | Phase 24 결함 ① fix — 미등록 동작에서 정은지 대비 per-joint 각도편차(per_joint_deviation)를 deduction 엔진 granular seed로 배선. N개 `angle_vs_reference__{joint}` reference_relative criterion(kismam 20°+slope 재사용, 새 임계 0) + 2-layer cross-exclusion(double-count 0) + self-compare 0. belle "−X 왼무릎 −Y 오른팔꿈치" wish 실현. 59+146 passed, band grep 0, contract 불변. score-shift pod 재검증 PENDING(①②함께) | 2026-06-26 | c958ff3 | [260626-jwu-phase-24-fault-1-fix-wire-reference-rela](./quick/260626-jwu-phase-24-fault-1-fix-wire-reference-rela/) |
 | 260626-jti | Phase 24 결함 ② fix — `_pose_frame_keypoints`가 존재하지 않는 `pf.keypoints`를 읽어 visibility=0.0 전클립 → Gemini 광범위 차단이던 배선 버그. 실제 필드 `keypoints_3d: dict[str,Keypoint3D]`의 `.values().confidence` 평균을 읽도록 수정. pod 진단 확정. 38+18 passed, band grep 0, alignment 임계 불변. ①과 함께 pod 검증 PENDING | 2026-06-26 | 81e7f56 | [260626-jti-phase-24-fault-2-fix-visibility-0-0-wiri](./quick/260626-jti-phase-24-fault-2-fix-visibility-0-0-wiri/) |
 | 260626-f3u | Phase 24 (B) 진단 계측 — additive(채점 byte-unchanged). alignment 텔레메트리 보존(collect low_alignment bail이 버리던 alignment 복구)+to_audit_dict 방출(alignment_summary 순수 helper)+sweep visionVeto 캡처+kip-up Gemini probe(bail 우회 monkeypatch, assess_fault_context 직접 호출). 다음 pod-run에서 (A)실증과 같이 실행. 로컬 83 passed, band grep 0, vision_veto purity 보존. probe는 pod 전용(로컬 미실행) | 2026-06-26 | 2761d79 | [260626-f3u-phase-24-b-diagnostic-instrumentation-al](./quick/260626-f3u-phase-24-b-diagnostic-instrumentation-al/) |
 

@@ -352,7 +352,9 @@ def test_gemini_silent_not_100():
 
 
 def test_unavailable_falls_back_not_100():
-    b = _tally(_measured(leg=40.0), _ctx([_diff("무릎", "굽음")]),
+    # 폴백 조건 = quant 불가 AND 측정/지목 substrate 전무(빈 seed + Gemini 무지목). 24-05 후
+    # 비-빈 각도 seed 는 granular 경로로 가므로 폴백 계약은 빈-seed 로 정확히 검증.
+    b = _tally(_measured(), _ctx([]),
                dimension_overall=62, quantification=_unavailable_quant())
     assert b.final == 62
     assert b.fallback == "quantification_unavailable"
@@ -360,7 +362,8 @@ def test_unavailable_falls_back_not_100():
 
 
 def test_unavailable_emits_traceable_record():
-    b = _tally(_measured(leg=40.0), _ctx([]),
+    # 빈 seed(_measured()) + Gemini 무지목(_ctx([])) → dimension_overall_fallback record(추적성).
+    b = _tally(_measured(), _ctx([]),
                dimension_overall=62, quantification=_unavailable_quant())
     fb = [r for r in b.records if r.criterion == "dimension_overall_fallback"]
     assert len(fb) == 1
@@ -371,6 +374,70 @@ def test_unavailable_emits_traceable_record():
     assert rec.baseline_value == 100
     assert rec.points < 0
     assert 100 + sum(r.points for r in b.records) == b.final
+
+
+# ── 24-05: measured-seed 가 quant unavailable 에서도 소비됨 (ND-01/05/06/07) ───
+# 24-04 가 apply seam 에서 low_alignment 를 tally-eligible 로 만들었으나, 엔진 폴백 게이트가
+# measured seed 를 문 앞에서 폐기했다. 폴백을 criterion 선택 뒤로 옮긴 fix 의 회귀 가드.
+
+
+def test_unavailable_with_angle_seed_emits_granular():
+    # CORE 회귀 가드(ND-01): quant 불가 + 측정 각도 seed(leg=30) → leg_extension granular record,
+    # dimension_overall_fallback 아님, final<100.
+    b = _tally(_measured(leg=30.0), _ctx([]),
+               dimension_overall=80, quantification=_unavailable_quant())
+    assert any(r.criterion == "leg_extension" for r in b.records)
+    assert b.fallback != "quantification_unavailable"
+    assert not any(r.criterion == "dimension_overall_fallback" for r in b.records)
+    assert b.final < 100
+
+
+def test_unavailable_empty_seed_preserves_fallback():
+    # 폴백 보존: quant 불가 + 측정 seed 전무(md={}) → dimension_overall_fallback 1개 유지.
+    b = _tally(_measured(), _ctx([]),
+               dimension_overall=70, quantification=_unavailable_quant())
+    fb = [r for r in b.records if r.criterion == "dimension_overall_fallback"]
+    assert len(fb) == 1
+    assert b.fallback == "quantification_unavailable"
+
+
+def test_legacy_none_quant_none_md_preserves_fallback():
+    # legacy 단일영상(quantification=None, measured_deviations=None) → 폴백 보존(회귀 0).
+    b = deduction_engine.tally(
+        None, _ctx([]), dimension_overall=75,
+        measured_deviations=None, dimension_scores=None, baseline_kind="hip_line")
+    fb = [r for r in b.records if r.criterion == "dimension_overall_fallback"]
+    assert len(fb) == 1
+    assert b.fallback == "quantification_unavailable"
+
+
+def test_unavailable_seed_monotonic_deduction():
+    # 단조성(ND-07): 측정 편차 클수록 총 감점(Σ|points|) 증가. 둘 다 unavailable quant.
+    small = _tally(_measured(leg=20.0), _ctx([]),
+                   dimension_overall=80, quantification=_unavailable_quant())
+    large = _tally(_measured(leg=40.0), _ctx([]),
+                   dimension_overall=80, quantification=_unavailable_quant())
+    ded_small = sum(abs(r.points) for r in small.records)
+    ded_large = sum(abs(r.points) for r in large.records)
+    assert ded_small < ded_large
+
+
+def test_unavailable_seed_emits_reach_coverage_gap():
+    # 추적성(ND-06/07): quant 불가 + 각도 seed → reach 칸 측정 불가가 coverage_gaps 에 노출.
+    b = _tally(_measured(leg=30.0), _ctx([]),
+               dimension_overall=80, quantification=_unavailable_quant())
+    rule_ids = {g.get("ruleId") for g in b.coverage_gaps}
+    assert "reach_substrate_unavailable_low_alignment" in rule_ids
+
+
+def test_unavailable_seed_deterministic():
+    # 결정성(ND-07): 동일 입력 2회 호출 → to_dict() 동일(records/coverageGaps/final 일치).
+    q = _unavailable_quant()
+    b1 = _tally(_measured(leg=30.0), _ctx([]),
+                dimension_overall=80, quantification=q)
+    b2 = _tally(_measured(leg=30.0), _ctx([]),
+                dimension_overall=80, quantification=q)
+    assert b1.to_dict() == b2.to_dict()
 
 
 def test_line_criterion_empty_expectations_zero():

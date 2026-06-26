@@ -2023,7 +2023,8 @@ def _baseline_kind_for_profile(profile) -> str:
 
 
 def _build_deduction_measured_deviations(
-    *, angles, profile, assessments, dimension_scores, quantification
+    *, angles, profile, assessments, dimension_scores, quantification,
+    reference_dtw_match=None, reference_angles=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2043,6 +2044,9 @@ def _build_deduction_measured_deviations(
       · leg_extension / arm_extension / line: ipsf_absolute deg deficit(없으면 키 부재 → honest 0).
       · split_angle: 측정 substrate 부재 시 미방출(Gemini-pointed 라우팅에 맡김).
       · body_relative_notches: quantification.bodyRelativeNotches list(있을 때만).
+      · angle_vs_reference__{joint}: 24-07 ① fix — 정은지(reference) 대비 per-joint 각도
+        편차(deg, reference_relative). reference_dtw_match+reference_angles 보유 시(mode1)만,
+        expects_extension 미소유 관절에 한해 방출(미등록 동작 granular seed, §3-2).
     """
     from sunity_shared.analysis import dimensions
     from sunity_shared.analysis.skeleton import JOINT_KEYS
@@ -2092,6 +2096,35 @@ def _build_deduction_measured_deviations(
     notches = getattr(quantification, "bodyRelativeNotches", None)
     if notches:
         md["body_relative_notches"] = list(notches)
+
+    # ── 24-07 ① fix: reference-relative per-joint 각도 편차 seed (미등록 동작 granular) ──
+    # ipsf_absolute(extension) seed 가 빈 미등록 동작(인식기 미등재 → expects_extension 전부
+    # False)에서, 정은지(reference) 대비 per-joint 각도 편차를 deduction 엔진 seed 로 주입한다.
+    # per_joint_deviation 은 DEG 편차(0-100 score 아님 — HIGH-3 score-not-deviation 정합).
+    # seed-stage cross-exclusion(§3-2): profile.expects_extension(jk) 관절은 ipsf_absolute
+    # (leg/arm/line)가 이미 채점하므로 reference_relative 미방출(double-count 금지). line(collective)
+    # 도 expects_extension 파생이므로 이 gate 가 정확히 차단 — 엔진-stage 는 leg/arm/split 만 보증.
+    if reference_dtw_match is not None and reference_angles is not None and angles is not None:
+        try:
+            path = getattr(reference_dtw_match, "path", None)
+            start = getattr(reference_dtw_match, "start", None)
+            end = getattr(reference_dtw_match, "end", None)
+            if path and start is not None and end is not None:
+                # 점수경로(_deviation_against)와 동일 인덱싱: user_seg = angles[start:end],
+                # path 는 그 segment local 인덱스. 재계산은 path 순회만(저비용).
+                user_seg = angles[start:end]
+                dev = per_joint_deviation(path, user_seg, reference_angles)
+                for i, jk in enumerate(JOINT_KEYS):
+                    v = float(dev[i])
+                    if v != v:  # NaN skip
+                        continue
+                    if v <= 0.0:  # 0/음수 미방출(md 슬림 — 엔진 tol gate 가 self-compare 0 도 거름)
+                        continue
+                    if profile is not None and profile.expects_extension(jk):
+                        continue  # seed-stage cross-exclusion(절대-신전 소유 관절)
+                    md[f"angle_vs_reference__{jk}"] = v
+        except Exception:  # noqa: BLE001 — 형상 mismatch/예외는 honest skip(reference_relative 미방출)
+            pass
 
     return md
 
@@ -3322,6 +3355,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 assessments=assessments,
                 dimension_scores=dimension_scores,
                 quantification=quantification,
+                # 24-07 ① — mode1 에서 set(2987/2988), mode3/legacy 는 None → graceful 미방출.
+                reference_dtw_match=reference_dtw_match,
+                reference_angles=reference_angles_for_veto,
             )
             result = _apply_vision_veto(
                 result,

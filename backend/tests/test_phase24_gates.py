@@ -264,3 +264,129 @@ def test_full_gate_run_exits_zero_when_artifact_absent():
     # 전체 main() — artifact 부재 시에도 합성 게이트 PASS → exit 0.
     if not gates._BREAKDOWN_ARTIFACT.exists():
         assert gates.main() == 0
+
+
+# ── clean-residual (ABSOLUTE, artifact-gated) ────────────────────────────────
+
+
+_TOL_BY_CRIT = {c["id"]: c["tolerance"] for c in ipsf_criteria.CRITERION_GROUPS}
+
+
+def _correct_only(records, *, motion_id="pdshape"):
+    """clean-residual artifact 멤버 형상 — correct 멤버만 채우고 fault 는 null."""
+    return {motion_id: {"correct": {"records": list(records)}, "fault": None}}
+
+
+def _angle_record(criterion, *, raw):
+    """raw = abs(baselineValue − measuredValue) 가 정확히 raw 가 되는 ipsf_absolute record."""
+    baseline = 180.0
+    return {
+        "criterion": criterion,
+        "measuredValue": baseline - raw,
+        "baselineValue": baseline,
+        "deviation": raw,
+        "ruleId": "leg_extension_over_tol_linear",
+        "points": -round(raw, 1),
+        "unit": "deg",
+        "ipsfAnchor": "19-IPSF",
+        "source": "geometry",
+        "deviationSource": "ipsf_absolute",
+    }
+
+
+def test_clean_residual_passes_clean_artifact():
+    tol = _TOL_BY_CRIT["leg_extension"]
+    # empty records → 잔차 없음.
+    res_empty = gates.check_clean_residual(breakdowns=_correct_only([]))
+    assert [r for r in res_empty if not r.startswith("SKIPPED")] == []
+    # within-tolerance 잔차(raw = tol/2 < tol) → 실패 아님.
+    res_within = gates.check_clean_residual(
+        breakdowns=_correct_only([_angle_record("leg_extension", raw=tol / 2.0)])
+    )
+    assert [r for r in res_within if not r.startswith("SKIPPED")] == []
+
+
+def test_clean_residual_catches_contaminated_correct():
+    # 정타 멤버가 tolerance 를 명백히 초과하는 measured-angle 잔차를 들면 FAIL.
+    tol = _TOL_BY_CRIT["leg_extension"]
+    contaminated = _correct_only(
+        [_angle_record("leg_extension", raw=tol + tol)]  # raw = 2×tol > tol (clear margin)
+    )
+    res = gates.check_clean_residual(breakdowns=contaminated)
+    real = [r for r in res if not r.startswith("SKIPPED")]
+    assert real, "expected a clean-residual failure for above-tolerance correct residual"
+    assert any("leg_extension" in f and "tolerance" in f for f in real)
+
+
+def test_clean_residual_catches_contaminated_reference_relative():
+    # reference_relative(baseline 0.0) 잔차도 동일 raw=abs(baseline−measured) anchor 로 잡힌다.
+    crit = "angle_vs_reference__left_knee"
+    tol = _TOL_BY_CRIT[crit]
+    rec = {
+        "criterion": crit,
+        "measuredValue": tol + tol,  # baseline 0.0 → raw = measuredValue = 2×tol > tol
+        "baselineValue": 0.0,
+        "deviation": tol + tol,
+        "ruleId": "angle_vs_reference_over_tol_linear",
+        "points": -round(tol, 1),
+        "unit": "deg",
+        "ipsfAnchor": "expert_reference_deviation",
+        "source": "geometry",
+        "deviationSource": "reference_relative",
+    }
+    res = gates.check_clean_residual(breakdowns=_correct_only([rec]))
+    real = [r for r in res if not r.startswith("SKIPPED")]
+    assert any(crit in f for f in real)
+
+
+def test_clean_residual_skipped_when_artifact_absent():
+    # 빈 breakdowns → SKIPPED marker(실패 아님).
+    assert gates.check_clean_residual(breakdowns={}) == [
+        "SKIPPED (phase24 breakdown fixture absent for clean-residual)"
+    ]
+    # breakdowns=None + artifact 부재 → SKIPPED(존재 시엔 실제 게이트가 돔).
+    if not gates._BREAKDOWN_ARTIFACT.exists():
+        assert gates.check_clean_residual(breakdowns=None) == [
+            "SKIPPED (phase24 breakdown fixture absent for clean-residual)"
+        ]
+
+
+def test_clean_residual_ignores_fallback_record():
+    # dimension_overall_fallback 은 CRITERION_GROUPS 에 없음 → anchor tolerance 부재 → 무시.
+    fallback_rec = {
+        "criterion": "dimension_overall_fallback",
+        "measuredValue": 40.0,
+        "baselineValue": 100,
+        "deviation": 60.0,
+        "ruleId": "quantification_unavailable_dimension_overall",
+        "points": -60.0,
+        "unit": "score_delta",
+        "ipsfAnchor": "engineering_interpretation",
+        "source": "geometry",
+        "deviationSource": "dimension_overall",
+    }
+    assert "dimension_overall_fallback" not in _TOL_BY_CRIT
+    res = gates.check_clean_residual(breakdowns=_correct_only([fallback_rec]))
+    assert [r for r in res if not r.startswith("SKIPPED")] == []
+
+
+# ── sensitivity (above-cutoff metric-validity, 합성) ──────────────────────────
+
+
+def test_sensitivity_passes_real_engine():
+    # 실 엔진: above-cutoff 는 감점, deadzone 은 무감점 → 양방 PASS.
+    assert gates.check_sensitivity() == []
+
+
+def test_sensitivity_catches_dead_engine(monkeypatch):
+    # above-tolerance 입력에도 감점을 안 내는(항상 final=100 empty) stub 엔진 → no-penalty 검출.
+    real_breakdown_cls = deduction_engine.DeductionBreakdown
+
+    def _dead_tally(quant, ctx, **kw):
+        return real_breakdown_cls(
+            baseline=100, records=(), final=100, coverage_gaps=(), fallback=None,
+        )
+
+    monkeypatch.setattr(gates.deduction_engine, "tally", _dead_tally)
+    fails = gates.check_sensitivity()
+    assert any(f.startswith("[sensitivity]") and "no penalty" in f for f in fails)

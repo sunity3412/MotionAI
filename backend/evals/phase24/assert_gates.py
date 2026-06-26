@@ -21,6 +21,17 @@
   5. check_generalization(pairs, breakdowns) — ARTIFACT-GATED(HIGH-4) + STRUCTURAL(MEDIUM-1).
                                               실 Pod-생성 phase24_breakdowns.json 이 있을 때만 실행,
                                               없으면 SKIPPED(실패 아님). 수치 ≥95 밴드 미적용.
+  6. check_clean_residual(breakdowns)        — ABSOLUTE 잔차(ARTIFACT-GATED, HIGH-4). 정타(correct)
+                                              멤버의 모든 measured-angle record 가 raw 편차
+                                              ≤ 그 criterion 의 IPSF tolerance 로 역산돼야 한다.
+                                              generalization 의 RELATIVE 속성(fault > success)이
+                                              못 잡는 오염 정타(tolerance 초과 잔차)를 ABSOLUTE 로
+                                              차단. artifact 없으면 SKIPPED(실패 아님).
+  7. check_sensitivity()                     — above-cutoff metric-validity(합성, 항상 실행). elite-low
+                                              만으로 metric validity 미증명 — 명백히 above-tolerance 인
+                                              편차는 감점을 내고, deadzone(tolerance 미만) 편차는 안
+                                              낸다(양방). 임계/margin 은 CRITERION_GROUPS tolerance
+                                              에서만 파생(curve-fit 금지), 점수 밴드 미단언.
 
 determinism scope 정직성:
   실제 Phase-18 drift 는 tally 수학이 아니라 Gemini 샘플링(다른 fault set → 다른 criterion
@@ -428,6 +439,122 @@ def check_generalization(pairs=None, breakdowns=None) -> list[str]:
     return failures
 
 
+# ── (6) clean-residual (ABSOLUTE, ARTIFACT-GATED) ─────────────────────────────
+
+# generalization 은 fault shortfall > success shortfall 의 RELATIVE 속성만 본다 — 오염된
+# 정타(correct)가 tolerance 초과 잔차를 들고도 상대적으로 PASS 할 수 있다. clean-residual 은
+# ABSOLUTE 속성을 단언: correct 멤버의 모든 measured-angle record 가 raw 편차 ≤ criterion
+# tolerance 로 역산돼야 한다. raw = abs(baselineValue − measuredValue) — deviation_source 무관
+# (ipsf_absolute 180−d / reference_relative 0−d / reach ref−stu 모두 동일 tolerance-anchored 량).
+
+
+def _finite_num(x):
+    """None/non-finite → None, else float. clean-residual finite-guard(traceability 가 별도로 잡음)."""
+    if x is None:
+        return None
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return None
+    return v if np.isfinite(v) else None
+
+
+def check_clean_residual(breakdowns=None) -> list[str]:
+    """정타(correct) 멤버 ABSOLUTE 잔차 게이트 — 실 Pod-생성 artifact 에만 돈다(HIGH-4).
+
+    artifact(phase24_breakdowns.json) ABSENT/empty → 단일 SKIPPED marker(실패 아님). PRESENT 면
+    각 motion 의 correct 멤버 record 를 _records_of 로 추출하고, criterion 이 tol_by_crit
+    (CRITERION_GROUPS tolerance)에 있을 때 raw = abs(baselineValue − measuredValue) 를 역산해
+    raw > tolerance 면 FAIL. tol_by_crit 에 없는 criterion(dimension_overall_fallback)은 anchor
+    tolerance 부재 → out-of-scope skip(실패 아님). baselineValue/measuredValue 가 non-finite 면
+    skip(traceability 게이트가 따로 잡음).
+
+    24-07 후 granular reference_relative pod artifact 가 오염 정타 잔차를 실으면 이 게이트는 FAIL
+    하도록 설계됐다 — 그 red 가 P1 objective-IPSF 채점이 green 으로 돌려야 할 신호다(EXPECTED red).
+    """
+    if breakdowns is None:
+        if not _BREAKDOWN_ARTIFACT.exists():
+            return ["SKIPPED (phase24 breakdown fixture absent for clean-residual)"]
+        breakdowns = json.loads(_BREAKDOWN_ARTIFACT.read_text(encoding="utf-8"))
+    if not breakdowns:
+        return ["SKIPPED (phase24 breakdown fixture absent for clean-residual)"]
+
+    failures: list[str] = []
+    by_id = breakdowns if isinstance(breakdowns, dict) else {
+        p.get("motion_id"): p for p in breakdowns
+    }
+    tol_by_crit = {c["id"]: c["tolerance"] for c in ipsf_criteria.CRITERION_GROUPS}
+
+    for motion_id, entry in by_id.items():
+        correct_recs = _records_of(entry.get("correct") if isinstance(entry, dict) else None)
+        if not correct_recs:
+            continue
+        for r in correct_recs:
+            crit = r.get("criterion")
+            tol = tol_by_crit.get(crit)
+            if tol is None:
+                continue  # anchor tolerance 부재(fallback/unknown) — out of scope, 실패 아님
+            bv = _finite_num(r.get("baselineValue"))
+            mv = _finite_num(r.get("measuredValue"))
+            if bv is None or mv is None:
+                continue  # finite-guard — traceability 게이트가 별도로 잡음
+            raw = abs(bv - mv)
+            if raw > tol:
+                failures.append(
+                    f"[clean-residual] {motion_id}: correct member residual above tolerance "
+                    f"— criterion={crit} raw={round(raw, 2)} > tolerance={tol}"
+                )
+    return failures
+
+
+# ── (7) sensitivity (above-cutoff metric-validity, 합성·항상 실행) ─────────────
+
+# elite-low(clean stays clean)만으로는 metric validity 미증명 — 명백히 above-tolerance 인 편차가
+# 실제 감점을 내는지, deadzone(tolerance 미만) 편차가 spurious 감점을 안 내는지 양방 증명. 모든
+# 임계/margin 은 CRITERION_GROUPS tolerance 에서만 파생(리터럴 magic number 금지, curve-fit 금지).
+# 점수 밴드 절대 미단언 — 방향성(final<baseline penalized / final==baseline+empty clean)만.
+
+
+def check_sensitivity() -> list[str]:
+    """above-cutoff/deadzone 양방 sensitivity 게이트 — 합성, 항상 실행(artifact 무관).
+
+    leg_extension / arm_extension 각각:
+      · above = 2×tolerance(명백히 above-cutoff) → tally.final 이 baseline 미만이고 record 중
+        points<0 가 있어야 한다(없으면 metric 이 tolerance 위에서 무감각 = FAIL).
+      · deadzone = tolerance/2(NONZERO, strictly below tolerance) → tally.final==baseline 이고
+        record 가 비어야 한다(positive 입력으로 over<=0 dead-zone branch 를 실제로 태운다 —
+        legitimate 소편차를 over-penalize 하는 엔진 = 위양성 = FAIL).
+    임계/margin 은 CRITERION_GROUPS tolerance 에서만 파생. 점수 밴드 미단언.
+    """
+    failures: list[str] = []
+    tol_by_crit = {c["id"]: c["tolerance"] for c in ipsf_criteria.CRITERION_GROUPS}
+    probes = {
+        "leg_extension": _diff("무릎", "굽음"),
+        "arm_extension": _diff("팔꿈치", "굽음"),
+    }
+    baseline = deduction_engine._BASELINE
+    for cid, diff in probes.items():
+        tol = tol_by_crit[cid]
+        above = 2.0 * tol         # 명백히 above-cutoff(load-bearing)
+        deadzone = tol / 2.0      # NONZERO, strictly below tolerance(dead-zone branch)
+        ctx = _ctx([diff])
+        # above-cutoff → 반드시 비-자명 감점.
+        b_above = _tally({cid: above}, ctx)
+        if b_above.final >= baseline or not any(r.points < 0 for r in b_above.records):
+            failures.append(
+                f"[sensitivity] {cid}: above-cutoff deviation (2×tol={above}) produced no "
+                f"penalty (final={b_above.final}) — metric insensitive above tolerance"
+            )
+        # deadzone(<tol) → 감점 0(spurious penalty 금지).
+        b_dead = _tally({cid: deadzone}, ctx)
+        if b_dead.final < baseline or b_dead.records:
+            failures.append(
+                f"[sensitivity] {cid}: within-tolerance deviation (tol/2={deadzone}) was "
+                f"spuriously penalized (final={b_dead.final}, records={len(b_dead.records)})"
+            )
+    return failures
+
+
 # ── compose ───────────────────────────────────────────────────────────────────
 
 
@@ -449,6 +576,8 @@ def main() -> int:
         ("determinism", check_determinism()),
         ("criterion_selection", check_criterion_selection_determinism()),
         ("generalization", check_generalization()),
+        ("clean_residual", check_clean_residual()),
+        ("sensitivity", check_sensitivity()),
     ):
         fails, skips = _split_skips(result)
         failures.extend(fails)

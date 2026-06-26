@@ -66,7 +66,7 @@ Status: 24-04 코드 게이트 GREEN — Pod 재-sweep + belle 검증 PENDING (o
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-26 - Completed quick task 260626-jwu: Phase 24 ① granular reference-relative seed wired. ①②③ 코드 완료, 다음=pod 재검증(score-shift + Gemini 회복).
+Last activity: 2026-06-27 - Completed quick task 260627-9dh: eval 게이트 강화(P1 토대) — clean-residual + above-cutoff sensitivity 2 게이트 추가. main() exit 1 = 기존 generalization 이 kip-up false-negative 잡는 정직한 red(P1 미해결). 다음=/gsd-debug recognizer IPSF 등록 근본.
 
 ### Quick Tasks Completed
 
@@ -80,6 +80,7 @@ Last activity: 2026-06-26 - Completed quick task 260626-jwu: Phase 24 ① granul
 | 260626-jwu | Phase 24 결함 ① fix — 미등록 동작에서 정은지 대비 per-joint 각도편차(per_joint_deviation)를 deduction 엔진 granular seed로 배선. N개 `angle_vs_reference__{joint}` reference_relative criterion(kismam 20°+slope 재사용, 새 임계 0) + 2-layer cross-exclusion(double-count 0) + self-compare 0. belle "−X 왼무릎 −Y 오른팔꿈치" wish 실현. 59+146 passed, band grep 0, contract 불변. score-shift pod 재검증 PENDING(①②함께) | 2026-06-26 | c958ff3 | [260626-jwu-phase-24-fault-1-fix-wire-reference-rela](./quick/260626-jwu-phase-24-fault-1-fix-wire-reference-rela/) |
 | 260626-jti | Phase 24 결함 ② fix — `_pose_frame_keypoints`가 존재하지 않는 `pf.keypoints`를 읽어 visibility=0.0 전클립 → Gemini 광범위 차단이던 배선 버그. 실제 필드 `keypoints_3d: dict[str,Keypoint3D]`의 `.values().confidence` 평균을 읽도록 수정. pod 진단 확정. 38+18 passed, band grep 0, alignment 임계 불변. ①과 함께 pod 검증 PENDING | 2026-06-26 | 81e7f56 | [260626-jti-phase-24-fault-2-fix-visibility-0-0-wiri](./quick/260626-jti-phase-24-fault-2-fix-visibility-0-0-wiri/) |
 | 260626-f3u | Phase 24 (B) 진단 계측 — additive(채점 byte-unchanged). alignment 텔레메트리 보존(collect low_alignment bail이 버리던 alignment 복구)+to_audit_dict 방출(alignment_summary 순수 helper)+sweep visionVeto 캡처+kip-up Gemini probe(bail 우회 monkeypatch, assess_fault_context 직접 호출). 다음 pod-run에서 (A)실증과 같이 실행. 로컬 83 passed, band grep 0, vision_veto purity 보존. probe는 pod 전용(로컬 미실행) | 2026-06-26 | 2761d79 | [260626-f3u-phase-24-b-diagnostic-instrumentation-al](./quick/260626-f3u-phase-24-b-diagnostic-instrumentation-al/) |
+| 260627-9dh | eval 게이트 강화 (P1 검증 토대) — phase24 assert_gates 에 pod-free 게이트 2개 추가(이제 7). clean-residual: 정타 멤버 per-criterion `raw=abs(baseline-measured)`가 CRITERION_GROUPS tolerance 초과 시 FAIL(절대 잔차 — generalization 의 상대 fault>success 구멍 보완, 오염된 정타 14~18° 차단). sensitivity: 합성 above=2×tol→비자명 감점 강제 / deadzone=tol/2→감점0 강제(metric validity). 임계 전부 tolerance 파생(curve-fit 0). 21 passed. main() exit 1 = 기존 generalization kip-up false-negative red(pre-existing, regression 무도입) | 2026-06-27 | 7023be8 | [260627-9dh-eval-gate-hardening](./quick/260627-9dh-eval-gate-hardening-clean-residual-above/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

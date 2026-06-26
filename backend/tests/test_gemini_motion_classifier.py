@@ -23,17 +23,25 @@ from sunity_shared.analysis.gemini_motion_classifier import (
 
 
 class TestRegisteredMotionsConstant:
-    def test_5_motions_exactly(self) -> None:
-        assert len(REGISTERED_MOTIONS) == 5
+    def test_10_motions_exactly(self) -> None:
+        # P1 step 4 (2026-06-27): 5→10 scope 확장 (객관 무릎신전 5동작 등록).
+        assert len(REGISTERED_MOTIONS) == 10
 
-    def test_motion_ids_match_d01(self) -> None:
+    def test_motion_ids_match_p1_scope(self) -> None:
         assert REGISTERED_MOTIONS == frozenset(
             {
+                # D-01 원 5영상.
                 "ref-climb",
                 "ref-foxtop",
                 "ref-foxtop-split",
                 "ref-invert",
                 "ref-sideway-spin",
+                # P1 step 4 객관 무릎신전 5동작.
+                "ref-kip-up",
+                "ref-power-spin",
+                "ref-peter-pan",
+                "ref-elbow-twist-sister",
+                "ref-pdshape",
             }
         )
 

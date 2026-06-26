@@ -87,18 +87,24 @@ class TestStubModeFixtures:
 
 
 class TestRegisteredMotions:
-    def test_registered_motions_set_matches_d01(self) -> None:
+    def test_registered_motions_set_matches_p1_scope(self) -> None:
+        # P1 step 4 (2026-06-27): 5→10 scope 확장 (객관 무릎신전 5동작 등록).
         expected = {
             "ref-climb",
             "ref-foxtop",
             "ref-foxtop-split",
             "ref-invert",
             "ref-sideway-spin",
+            "ref-kip-up",
+            "ref-power-spin",
+            "ref-peter-pan",
+            "ref-elbow-twist-sister",
+            "ref-pdshape",
         }
         assert REGISTERED_MOTIONS == expected
 
-    def test_registered_motions_count_5(self) -> None:
-        assert len(REGISTERED_MOTIONS) == 5
+    def test_registered_motions_count_10(self) -> None:
+        assert len(REGISTERED_MOTIONS) == 10
 
 
 # ─────────────────── reject patterns 가드 (D-08, 1차) ───────────────────

@@ -8,6 +8,10 @@ Plan 5-01 (2026-06-04, B2 fix revision). 박제 정신:
   · D-01 박제: v1 인식 스코프 = 5영상 (`ref-climb` / `ref-foxtop` / `ref-foxtop-split` /
     `ref-invert` / `ref-sideway-spin`). 그 외 = "unregistered" → Page 9 절대 트랙 단독 채점
     + TERM-DATA-01 분기 3 자동 수집 path (D-09 case 3).
+  · P1 (2026-06-27, quick-260627-afq step 4): 10 motion scope — 기존 5 +
+    `ref-kip-up` / `ref-power-spin` / `ref-peter-pan` / `ref-elbow-twist-sister` /
+    `ref-pdshape` 객관 무릎신전(IPSF 180° 보편기준) 등록. sanctioned 근거 =
+    15-IPSF-SOURCING-2026-06-27.md belle 결정 + 각 ref-{move}.yaml EXTEND 무릎 criteria.
 
 박제 정신:
   · [[studio-term-3branch-system.md]] 분기 1 (학원 통용 한국어) → canonical 매핑.
@@ -17,14 +21,22 @@ Plan 5-01 (2026-06-04, B2 fix revision). 박제 정신:
 from __future__ import annotations
 
 
-# 박제 5영상 scope (D-01). REGISTERED_MOTIONS 변경은 Phase 5 scope 정의 변경과 동치.
+# 박제 scope. REGISTERED_MOTIONS 변경은 Phase 5 scope 정의 변경과 동치 — P1
+# (2026-06-27, quick-260627-afq) 가 5→10 확장의 sanctioned 근거(객관 무릎신전 등록).
 REGISTERED_MOTIONS: frozenset[str] = frozenset(
     {
+        # D-01 원 5영상 scope.
         "ref-climb",
         "ref-foxtop",
         "ref-foxtop-split",
         "ref-invert",
         "ref-sideway-spin",
+        # P1 step 4 (2026-06-27): 객관 IPSF 무릎신전(180°) criteria yaml 보유 5동작.
+        "ref-kip-up",
+        "ref-power-spin",
+        "ref-peter-pan",
+        "ref-elbow-twist-sister",
+        "ref-pdshape",
     }
 )
 
@@ -71,6 +83,38 @@ _ALIAS_TABLE: dict[str, str] = {
     "side spin": "ref-sideway-spin",
     "climb": "ref-climb",
     "basic climb": "ref-climb",
+    # ── P1 step 4 (2026-06-27) 객관 무릎신전 5동작 한/영 alias ──────────────
+    # kip-up (학원 명칭 / 영어)
+    "킵업": "ref-kip-up",
+    "킵 업": "ref-kip-up",
+    "kip-up": "ref-kip-up",
+    "kip up": "ref-kip-up",
+    "kipup": "ref-kip-up",
+    # power-spin
+    "파워스핀": "ref-power-spin",
+    "파워 스핀": "ref-power-spin",
+    "power spin": "ref-power-spin",
+    "power-spin": "ref-power-spin",
+    "powerspin": "ref-power-spin",
+    # peter-pan
+    "피터팬": "ref-peter-pan",
+    "피터 팬": "ref-peter-pan",
+    "peter pan": "ref-peter-pan",
+    "peter-pan": "ref-peter-pan",
+    "peterpan": "ref-peter-pan",
+    # elbow-twist-sister (긴 alias 우선 — substring 매치가 "elbow twist" 를 흡수, 동일 canonical)
+    "엘보 트위스트 시스터": "ref-elbow-twist-sister",
+    "엘보트위스트": "ref-elbow-twist-sister",
+    "엘보 트위스트": "ref-elbow-twist-sister",
+    "elbow twist sister": "ref-elbow-twist-sister",
+    "elbow twist": "ref-elbow-twist-sister",
+    "elbow-twist": "ref-elbow-twist-sister",
+    # pdshape
+    "pdshape": "ref-pdshape",
+    "pd shape": "ref-pdshape",
+    "pd-shape": "ref-pdshape",
+    "피디쉐입": "ref-pdshape",
+    "피디 쉐입": "ref-pdshape",
 }
 
 

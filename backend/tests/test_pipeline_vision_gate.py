@@ -786,3 +786,48 @@ class TestStillPairFanoutWiring:
         assert ctx.collection_status == "resource_limited"
         assert ctx.cap_would_apply is False
         assert ctx.to_trace_dict()["geminiCallCount"] == 1
+
+
+class TestPoseFrameKeypoints:
+    """배선 버그(24-06) 회귀 가드 — _pose_frame_keypoints 가 keypoints_3d dict 의
+    confidence 를 읽어 mean 가시성을 산출. 과거엔 .keypoints (부재) 를 읽고 dict 를
+    list 처럼 순회해 mean_conf=None → visibility=0.0 (전 클립) 였다.
+    """
+
+    @staticmethod
+    def _pose_frame(confidences):
+        from sunity_shared.analysis.pose_frame import Keypoint3D, PoseFrame
+
+        kps = {
+            f"j{i}": Keypoint3D(
+                x=0.0, y=0.0, z=0.0, confidence=c, uncertainty_proxy=1.0 - c
+            )
+            for i, c in enumerate(confidences)
+        }
+        return PoseFrame(frame_index=0, timestamp_ms=0, keypoints_3d=kps)
+
+    def test_reads_keypoints_3d_confidence_mean(self):
+        app = _import_pipeline()
+        confs = [0.6, 0.7, 0.8, 0.9]
+        pf = self._pose_frame(confs)
+        out = app._pose_frame_keypoints([pf], 0)
+        assert out is not None
+        kps, mean_conf = out
+        assert mean_conf is not None
+        # 가시성이 더 이상 죽지(0.0) 않는다 — 실제 confidence 평균.
+        assert abs(mean_conf - (sum(confs) / len(confs))) < 1e-9
+        assert mean_conf > 0.0
+
+    def test_empty_keypoints_returns_none_conf(self):
+        app = _import_pipeline()
+        pf = self._pose_frame([])
+        out = app._pose_frame_keypoints([pf], 0)
+        assert out is not None
+        _kps, mean_conf = out
+        assert mean_conf is None
+
+    def test_out_of_range_idx_returns_none(self):
+        app = _import_pipeline()
+        pf = self._pose_frame([0.5])
+        assert app._pose_frame_keypoints([pf], 5) is None
+        assert app._pose_frame_keypoints([], 0) is None

@@ -1727,23 +1727,36 @@ def _build_selected_frame_pair(
 
 
 def _pose_frame_keypoints(pose_frames, idx):
-    """pose_frames[idx] 의 keypoints + mean confidence (가시성 신호). 결측 → None."""
+    """pose_frames[idx] 의 keypoints_3d + mean confidence (가시성 신호). 결측 → None.
+
+    배선 버그 수정(24-06): PoseFrame 의 실제 필드는 keypoints_3d:
+    dict[str, Keypoint3D] (key=COCO-17 관절명, value.confidence 0.0~1.0).
+    과거 코드는 존재하지 않는 .keypoints 를 읽고 dict 를 list 처럼 순회해
+    KEY(문자열)만 돌아 confidence 를 영영 못 읽었다 → mean_conf=None →
+    student_confidence=None → alignment visibility=0.0 (전 클립) → local_ok 항상
+    실패 → Gemini collect 가 low_alignment 로 bail. 이제 .values() 의
+    confidence 평균을 읽는다.
+    """
     if not pose_frames:
         return None
     try:
         if idx < 0 or idx >= len(pose_frames):
             return None
         pf = pose_frames[idx]
-        kps = getattr(pf, "keypoints", None)
+        kps = getattr(pf, "keypoints_3d", None)
         if kps is None and isinstance(pf, dict):
-            kps = pf.get("keypoints")
+            kps = pf.get("keypoints_3d")
+        # keypoints_3d 는 dict[str, Keypoint3D] — .values() 의 confidence 만 읽는다.
+        values = kps.values() if isinstance(kps, dict) else (kps or [])
         confs = []
-        for kp in (kps or []):
+        for kp in values:
             c = getattr(kp, "confidence", None)
             if c is None and isinstance(kp, dict):
                 c = kp.get("confidence")
             if c is not None:
-                confs.append(float(c))
+                fc = float(c)
+                if np.isfinite(fc):
+                    confs.append(fc)
         mean_conf = sum(confs) / len(confs) if confs else None
         return (kps, mean_conf)
     except Exception:  # noqa: BLE001 - 가시성 산출 실패 graceful

@@ -515,6 +515,25 @@ def build_quantification_result(
     )
 
 
+def alignment_summary(alignment: dict | None) -> dict | None:
+    """alignment 진단 dict 에서 관찰 키만 추린 요약 (24-06 §3 진단).
+
+    관찰 전용 — 채점/tally 무관(alignment 는 메타데이터일 뿐, score 입력 아님). assess_
+    alignment_confidence 반환 키(adoption/distance/visibility/localPathCount/refFramePresent)
+    와 정합. 빈 dict/None 이면 None 을 반환해 audit 에 'alignment' 키를 미방출한다. 새
+    import 없음 — 순수 dict-shaping 으로 analysis core 순수성(numpy 외 의존 0)을 보존한다.
+    """
+    if not alignment:
+        return None
+    return {
+        "adoption": alignment.get("adoption"),
+        "distance": alignment.get("distance"),
+        "visibility": alignment.get("visibility"),
+        "localPathCount": alignment.get("localPathCount"),
+        "refFramePresent": alignment.get("refFramePresent"),
+    }
+
+
 @dataclass(frozen=True)
 class VisionFaultContext:
     """pre-apply/pre-coach 비전 결함 컨텍스트 (D-12 HIGH-1 + D-13 MED-2).
@@ -610,6 +629,12 @@ class VisionFaultContext:
         # low_alignment_confidence 가 measured-only 감점으로 applied 됐을 때 리포트가
         # "Gemini-located fault 없이 측정만으로 감점" 임을 투명하게 보여준다(must_have #3).
         audit["collectionStatus"] = self.collection_status
+        # 24-06 §3 진단 — alignment 텔레메트리를 applied/not_applicable 양쪽에 방출한다
+        # (분기 밖에 두는 이유 = collectionStatus 처럼 양쪽 노출). 관찰 메타데이터일 뿐,
+        # tally/score 와 무관(밴드 제거 후 채점은 deduction_engine.tally 가 소유).
+        _align = alignment_summary(self.alignment)
+        if _align is not None:
+            audit["alignment"] = _align
         if final_status == "applied":
             if breakdown_final is not None:
                 audit["tallyFinal"] = breakdown_final

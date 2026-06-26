@@ -1830,7 +1830,9 @@ def _collect_vision_fault_context(
             if pair is not None:
                 for p in pair.cleanup_paths:
                     _safe_unlink_local_video(p)
-            return _ctx("low_alignment_confidence", frame_pairs=[])
+            # 24-06 §3 진단 — alignment 텔레메트리를 bail 에서도 보존(collect-side drop 금지).
+            # 다른 adoption return 은 이미 alignment 를 넘긴다; 이 bail 만 누락했었다. score 무관.
+            return _ctx("low_alignment_confidence", frame_pairs=[], alignment=alignment)
 
         # (2/3) Gemini 호출. **production(still-pair) = part-wise fan-out** (23 GAP-FIX).
         #   assess_fault_context 는 canonical FaultKey + support 게이트 + root cause 를
@@ -2305,10 +2307,17 @@ def _apply_vision_veto_from_context(
                 "visionVeto": audit,
             }
         # tally 가 돌았으나 측정 감점/located criterion 0 → not_applicable(점수 불변).
+        # 24-06 §3 진단 — to_audit_dict 를 거치지 않는 직접 dict 이므로 동일 alignment 요약을
+        # ctx.alignment 에서 직접 붙인다(관찰 메타데이터, score 무관). low_alignment bail 의
+        # 발화 조건(distance/visibility/localPathCount)을 not_applicable 경로에서도 캡처.
+        na_audit = {"status": "not_applicable"}
+        _align = vision_veto.alignment_summary(getattr(ctx, "alignment", None))
+        if _align is not None:
+            na_audit["alignment"] = _align
         return {
             **score_result,
             "deductionBreakdown": breakdown.to_dict(),
-            "visionVeto": {"status": "not_applicable"},
+            "visionVeto": na_audit,
         }
     except Exception:  # noqa: BLE001 - context apply 실패도 분석 차단 0 (graceful)
         log.exception("vision veto context apply 실패 — passthrough (skipped_error)")

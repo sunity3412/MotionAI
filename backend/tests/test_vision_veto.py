@@ -392,6 +392,75 @@ def test_to_audit_dict_requires_final_args():
         assert "status" not in bare or bare.get("status") is None
 
 
+def test_alignment_summary_observation_keys_only():
+    """24-06 §3 진단 — alignment_summary 는 빈 dict/None → None, 채워진 dict → 관찰 키만."""
+    assert vision_veto.alignment_summary(None) is None
+    assert vision_veto.alignment_summary({}) is None
+    full = {
+        "adoption": "low_alignment_confidence",
+        "global_ok": False, "local_ok": False,
+        "localPathCount": 0, "refFramePresent": False,
+        "visibility": 0.2, "distance": 42.0,
+        "selector_version": "v1",
+    }
+    out = vision_veto.alignment_summary(full)
+    assert out == {
+        "adoption": "low_alignment_confidence",
+        "distance": 42.0,
+        "visibility": 0.2,
+        "localPathCount": 0,
+        "refFramePresent": False,
+    }
+    # 비-관찰 키(global_ok/local_ok/selector_version)는 제외 — 관찰 전용 메타데이터.
+    assert "global_ok" not in out
+    assert "selector_version" not in out
+
+
+def test_to_audit_dict_emits_alignment_both_final_statuses():
+    """24-06 §3 진단 — ctx.alignment 존재 시 audit['alignment'] 가 applied/not_applicable
+    양쪽에서 방출(관찰 전용, score 불변). low_alignment bail 의 발화 조건을 캡처한다."""
+    alignment = {
+        "adoption": "low_alignment_confidence",
+        "distance": 42.0, "visibility": 0.2,
+        "localPathCount": 0, "refFramePresent": False,
+    }
+    ctx = vision_veto.VisionFaultContext(
+        collection_status="low_alignment_confidence", verdict=None,
+        supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
+        alignment=alignment, telemetry={}, cap_would_apply=False,
+    )
+    quant = vision_veto.VisionQuantificationResult(
+        quantificationStatus="unavailable", angleDeltas=None,
+        bodyRelativeNotches=None, windowMedianAngleDeltas=None, warnings=[],
+    )
+    applied = ctx.to_audit_dict(
+        final_status="applied", breakdown_final=62, quantification=quant
+    )
+    assert applied["alignment"]["adoption"] == "low_alignment_confidence"
+    assert applied["alignment"]["distance"] == 42.0
+    assert applied["alignment"]["visibility"] == 0.2
+    na = ctx.to_audit_dict(final_status="not_applicable")
+    assert na["alignment"]["adoption"] == "low_alignment_confidence"
+    assert na["alignment"]["distance"] == 42.0
+
+
+def test_to_audit_dict_omits_alignment_when_empty():
+    """ctx.alignment={} 면 audit 에 'alignment' 키 미방출 (기존 shape 무영향)."""
+    ctx = vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict", verdict=_verdict("major"),
+        supported_differences=[], root_cause_hypotheses=[], selected_frame_pairs=[],
+        alignment={}, telemetry={}, cap_would_apply=True,
+    )
+    quant = vision_veto.VisionQuantificationResult(
+        quantificationStatus="unavailable", angleDeltas=None,
+        bodyRelativeNotches=None, windowMedianAngleDeltas=None, warnings=[],
+    )
+    audit = ctx.to_audit_dict(
+        final_status="applied", breakdown_final=50, quantification=quant
+    )
+    assert "alignment" not in audit
+
+
 def test_to_coach_context_and_trace_dict_standalone():
     """to_coach_context/to_trace_dict 는 ctx 단독 (final 인자 불요, D-12)."""
     fk = vision_veto.FaultKey("upper_body", "left", "arm", "pole_gap_or_bent")

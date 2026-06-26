@@ -9,6 +9,11 @@ numpy 외 의존이 0 — boto3/Gemini/네트워크/firestore import 절대 금�
 24-CONTEXT ND-01(엔진 교체)/ND-02(Gemini 강등=측정대상 짚기)/ND-03(substrate=전 차원)/
 ND-04(criterion 묶음 no-runaway + cap + sum)/ND-05(baseline=점수 substrate)/ND-06(honest 0 +
 coverage gap)/ND-07(추적성·단조성·결정성·일반화 게이트).
+
+24-05: unavailable-fallback 게이트를 criterion 선택 *뒤로* 이동(ND-01). measured seed(정렬-독립
+RTMW 각도 편차)는 quantification 이 unavailable 이어도 살아 granular 감점을 내야 하며, 폴백은
+quant 불가 AND 활성 criterion 0(양쪽 substrate 빔)일 때만 발화한다. reach 칸 측정 불가는
+coverage gap(reach_substrate_unavailable_low_alignment)으로 투명 노출(ND-06).
 """
 
 from __future__ import annotations
@@ -158,9 +163,31 @@ def tally(
     crit_by_id = {c["id"]: c for c in criterion_groups}
     coverage_gaps: list[dict] = []
 
-    # (1) UNAVAILABLE FALLBACK — FIRST (MEDIUM-1 traceable). 100 으로 리셋 금지(BLOCKER A).
     status = getattr(quantification, "quantificationStatus", None)
-    if quantification is None or status == "unavailable":
+    quant_unavailable = quantification is None or status == "unavailable"
+
+    # (2) CRITERION SELECTION — FIRST (ND-01). measured seed(RTMW 각도 편차)는 정렬-독립이므로
+    # quantification 이 unavailable 이어도 먼저 평가한다. 폴백을 문 앞에 두면 측정-seed 가
+    # 폐기되던 결함을 닫는다(24-05: 폴백 결정을 criterion 선택 뒤로 이동).
+    seeded = ipsf_criteria.criteria_from_measured_deviations(md)  # measured seed (Gemini-silent)
+    pointed: set[str] = set()
+    differences = _supported_differences(fault_context)
+    for diff in differences:
+        res = ipsf_criteria.criteria_for_fault(_fault_key_for(diff), diff, md)
+        if isinstance(res, ipsf_criteria.CoverageGap):
+            coverage_gaps.append(_gap_to_dict(res))
+            continue
+        pointed.update(res)
+    activated = set(seeded) | pointed
+    gemini_silent = not differences  # Gemini 무지목 관측 마커(measured seed 가 여전히 감점)
+
+    # HIGH-5 cross-criterion exclusion: leg/arm extension 활성화 시 line 의 substrate 중복 제외.
+    if activated & {"leg_extension", "arm_extension"} and "line" in activated:
+        activated.discard("line")
+
+    # (1') UNAVAILABLE FALLBACK — quant 불가 AND 활성 criterion 0(양쪽 substrate 빔)일 때만
+    # (MEDIUM-1 traceable). 100 으로 리셋 금지(BLOCKER A). 측정 각도 seed 가 살아있으면 건너뛴다.
+    if quant_unavailable and not activated:
         dim = _finite(dimension_overall)
         dim = 0.0 if dim is None else dim
         fallback_record = DeductionRecord(
@@ -183,22 +210,18 @@ def tally(
             coverage_gaps=tuple(coverage_gaps), fallback="quantification_unavailable",
         )
 
-    # (2) CRITERION SELECTION — TWO unioned sources (HIGH-1).
-    seeded = ipsf_criteria.criteria_from_measured_deviations(md)  # measured seed (Gemini-silent)
-    pointed: set[str] = set()
-    differences = _supported_differences(fault_context)
-    for diff in differences:
-        res = ipsf_criteria.criteria_for_fault(_fault_key_for(diff), diff, md)
-        if isinstance(res, ipsf_criteria.CoverageGap):
-            coverage_gaps.append(_gap_to_dict(res))
-            continue
-        pointed.update(res)
-    activated = set(seeded) | pointed
-    gemini_silent = not differences  # Gemini 무지목 관측 마커(measured seed 가 여전히 감점)
-
-    # HIGH-5 cross-criterion exclusion: leg/arm extension 활성화 시 line 의 substrate 중복 제외.
-    if activated & {"leg_extension", "arm_extension"} and "line" in activated:
-        activated.discard("line")
+    # quant 불가 BUT 각도 seed 있음 → reach/notch substrate 측정 못 했음을 coverage gap 으로
+    # 투명 노출(honest, ND-06/07). reach criterion 은 _notch_shortfall 가 notches 부재로 None
+    # 반환 → 자연 honest-0(별도 처리 불필요).
+    if quant_unavailable:
+        coverage_gaps.append({
+            "faultType": "body_relative_reach",
+            "reason": "quantification_unavailable",
+            "bodyPart": "reach",
+            "faultState": None,
+            "keypointSet": "body_relative_reach",
+            "ruleId": "reach_substrate_unavailable_low_alignment",
+        })
 
     # (3)-(8) per-criterion 감점 누적.
     records: list[DeductionRecord] = []

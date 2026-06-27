@@ -82,15 +82,24 @@ _YAML_CRITERIA_DIR = (
     Path(__file__).resolve().parents[4] / "judging_data" / "criteria"
 )
 
-# Plan 5-00 박제 yaml 5개 (정은지 reference 측정값 source — 분기 2 path).
-# 추가/삭제 시 본 tuple 갱신 + 단위 테스트 정합 박제.
-_YAML_FILENAMES = (
+# Cache invalidation source = criteria 디렉터리의 모든 *.yaml (정렬, 결정론).
+# P1 step5 (2026-06-27) fix: 기존엔 원본 5개만 하드코딩 → 신규 동작 yaml(kip-up/power-spin/
+# peter-pan/elbow-twist-sister/pdshape) 변경이 yaml_version 에 반영 안 돼 cache 무효화 실패
+# (변경된 yaml 인데 stale profile hit). 이제 전 yaml 을 해시 source 로 → 어떤 yaml 변경이든
+# 자동 invalidation. 빈/누락 시 원본 5개 fallback(방어).
+_FALLBACK_YAML_FILENAMES = (
     "ref-climb.yaml",
     "ref-foxtop.yaml",
     "ref-foxtop-split.yaml",
     "ref-invert.yaml",
     "ref-sideway-spin.yaml",
 )
+if _YAML_CRITERIA_DIR.exists():
+    _YAML_FILENAMES = tuple(
+        sorted(p.name for p in _YAML_CRITERIA_DIR.glob("*.yaml"))
+    ) or _FALLBACK_YAML_FILENAMES
+else:
+    _YAML_FILENAMES = _FALLBACK_YAML_FILENAMES
 
 _YAML_MISSING_SENTINEL = "yaml-missing-cache-disabled"
 

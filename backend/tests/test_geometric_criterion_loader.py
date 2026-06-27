@@ -183,29 +183,45 @@ criteria:
 # ─────────────────── P1 step 4: 객관 무릎 신전 5동작 ───────────────────
 
 
-# P1 (2026-06-27, quick-260627-afq) — IPSF element 미등재 동작에 객관 180° 무릎 신전
+# P1 step4 (2026-06-27, quick-260627-afq) — IPSF element 미등재 동작에 객관 180° 무릎 신전
 # (ipsf_absolute) criteria 등록. 곧아야 할 양 무릎을 EXTEND 로 박제(15-IPSF-SOURCING).
-P1_OBJECTIVE_KNEE_MOTIONS = (
+# P1 step5 (2026-06-27, pod 재-sweep 검증) — peter-pan/elbow-twist-sister/pdshape 는 correct(정타)
+# form 이 무릎을 굽힘(실측, clean-residual 게이트 발화) → 무릎 신전이 결함 축 아님 → belle 결정으로
+# knee EXTEND 제거(객관 angle criteria 없음, reference_relative 가 처리). power-spin/kip-up 만 유지.
+# 상세 = 15-STEP5-POD-VERIFICATION-2026-06-27.md.
+P1_EXTEND_KNEE_MOTIONS = (
     "ref-kip-up",
     "ref-power-spin",
+)
+P1_NO_OBJECTIVE_MOTIONS = (
     "ref-peter-pan",
     "ref-elbow-twist-sister",
     "ref-pdshape",
 )
+P1_OBJECTIVE_KNEE_MOTIONS = P1_EXTEND_KNEE_MOTIONS + P1_NO_OBJECTIVE_MOTIONS
 
 
 class TestP1ObjectiveKneeExtension:
     @pytest.mark.parametrize("motion", P1_OBJECTIVE_KNEE_MOTIONS)
     def test_loads_and_validates(self, motion: str) -> None:
-        """5 신규 yaml 모두 load + 모든 entry validate PASS (객관성 가드 통과)."""
+        """5 신규 yaml 모두 load + 모든 entry validate PASS (객관성 가드 통과).
+
+        step5 후 peter-pan/elbow-twist/pdshape 는 criteria 비어있음(굽힘 form) — load 가
+        graceful 하게 [] 반환하는 것이 정상. EXTEND 동작만 entry 존재.
+        """
         criteria = load_criteria(motion)
-        assert len(criteria) >= 1, f"{motion} criteria 비어있음"
         for c in criteria:
             c.validate()
+        if motion in P1_EXTEND_KNEE_MOTIONS:
+            assert len(criteria) >= 1, f"{motion} EXTEND criteria 비어있음"
+        else:
+            assert len(criteria) == 0, (
+                f"{motion} 는 step5 에서 객관 criteria 제거됨 — 비어있어야 함: {criteria}"
+            )
 
-    @pytest.mark.parametrize("motion", P1_OBJECTIVE_KNEE_MOTIONS)
+    @pytest.mark.parametrize("motion", P1_EXTEND_KNEE_MOTIONS)
     def test_hold_moment_has_extend_knees(self, motion: str) -> None:
-        """hold_moment 에 left_knee+right_knee EXTEND entry 존재 + angle_target 180°."""
+        """EXTEND 동작(power-spin/kip-up) hold_moment 에 양 무릎 EXTEND + angle_target 180°."""
         grouped = load_grouped_criteria(motion)
         hold = grouped["hold"]
         extend_knees = {
@@ -223,9 +239,17 @@ class TestP1ObjectiveKneeExtension:
                 # source_ref 가 IPSF 보편 신전기준 인용(element code 날조 아님).
                 assert "Fully extended leg" in c.source_ref
 
-    @pytest.mark.parametrize("motion", P1_OBJECTIVE_KNEE_MOTIONS)
+    @pytest.mark.parametrize("motion", P1_NO_OBJECTIVE_MOTIONS)
+    def test_no_objective_criteria_after_step5(self, motion: str) -> None:
+        """step5 결정: 굽힘-form 동작은 객관 angle criteria 없음(EXTEND 0, 전 moment 빈 list)."""
+        grouped = load_grouped_criteria(motion)
+        assert all(len(grouped[k]) == 0 for k in grouped), (
+            f"{motion} 는 객관 criteria 가 없어야 함(굽힘 form): {grouped}"
+        )
+
+    @pytest.mark.parametrize("motion", P1_EXTEND_KNEE_MOTIONS)
     def test_source_ref_non_empty_ipsf_cited(self, motion: str) -> None:
-        """모든 entry source_ref 비어있지 않고 IPSF 인용(사람 점수 라벨링 금지)."""
+        """EXTEND 동작 entry source_ref 비어있지 않고 IPSF 인용(사람 점수 라벨링 금지)."""
         for c in load_criteria(motion):
             assert c.source_ref.strip()
             assert "IPSF" in c.source_ref

@@ -1,33 +1,15 @@
-# 객관 IPSF 무릎 신전 GeometricCriterion (P1 step 4, 2026-06-27)
-# 출처 = 15-IPSF-SOURCING-2026-06-27.md + belle 결정:
-#   범주형(micro-bend=0점) 제외 → 비례 감점 유지 / 객관 180° / Mode1 = 프로(정은지) 기준 노출.
-# angle_target=180 은 정은지 측정값이 아니라 IPSF 보편 신전기준(객관, ipsf_absolute 트랙).
-#   ref-invert 식 정은지-measured BENT_OK(분기 2, reference-relative)와 다른 트랙임에 주의.
-#
-# 비대칭 주의(belle 15-IPSF-SOURCING per-move 매핑): pdshape 는 비대칭 동작(자유 다리만
-#   곧음). 여기서는 양 무릎 EXTEND 로 박제하지만, anchor(지지) 다리가 의도적으로 굽는다면
-#   anchor 다리 위양성 위험이 있다. step5 pod sweep + clean-residual 게이트로 검증하고,
-#   정타(정은지) 잔차가 뜨면 자유 다리만 EXTEND 로 재조정한다. element code 날조 금지 —
-#   IPSF element 미등재(학원 통용). minimum_requirement=160° = IPSF micro-bent 경계(180-20).
-#   사람 점수 라벨링 금지.
+# ref-pdshape — 객관 무릎 신전 criteria 제거 (P1 step5 pod sweep, 2026-06-27)
+# step4에서 (비대칭 주의와 함께) 양 무릎 EXTEND(180°)를 걸었으나, pod 재-sweep 실측 결과 correct
+# (정타) form이 무릎을 깊게 굽힘(clean-residual 게이트 raw 83.8°>20° 발화) → 예측한 anchor 다리
+# 위양성 실현. 무릎 신전은 pdshape의 결함 축이 아님(비대칭 동작, 지지 다리 의도적 굽힘).
+# belle 결정(2026-06-27): knee EXTEND 제거. 굽힘 form에 신전기준 강요 금지(anti-curve-fit).
+# pdshape는 IPSF element 미등재(학원 명칭) + 곧아야 할 객관 관절 부재 → 객관 angle criteria 없음.
+# 결함(자유 다리 무릎 굽음)은 reference_relative(정은지 대비)가 처리. 8관절 모두 BENT_OK.
+# 사람 점수 라벨링 금지. 상세 = 15-STEP5-POD-VERIFICATION-2026-06-27.md.
 motion: ref-pdshape
-source: "객관 IPSF 무릎 신전(180° 보편기준, ipsf_absolute) — 15-IPSF-SOURCING-2026-06-27.md belle 결정. pdshape 는 IPSF element 미등재(학원 통용) → per-move element 요건 미존재. 곧아야 할 무릎을 IPSF Glossary 'Fully extended leg' 범주형 신전 기준 + 동작 의도된 폼으로 채점. 비대칭(자유 다리만 곧음) — 양 무릎 EXTEND 는 anchor 다리 위양성 위험, step5 pod sweep + clean-residual 게이트로 검증·재조정. angle_target=180 = 정은지 측정값 아님(객관)."
+source: "객관 angle criteria 없음 — pdshape correct form = 무릎 굽힘(pod sweep 2026-06-27 실측, 비대칭 anchor 다리), 무릎 신전이 결함 축 아님. IPSF element 미등재(학원 명칭). 채점은 reference_relative(정은지 대비 per-joint) + vision 경로가 담당."
 criteria:
   setup_moment: []
-  hold_moment:
-    - joint: left_knee
-      angle_target: 180.0
-      tolerance_full: 20.0
-      deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "IPSF Pole Sports Code of Points Glossary 'Fully extended leg' (범주형 신전 기준, p.130-131) + 동작 의도된 폼(자유 다리 완전 신전, belle 도메인). NotebookLM 확정: 본 동작은 IPSF element 미등재 — element code 날조 금지, 보편 신전기준 적용. 비대칭 주의: anchor 다리 위양성 시 자유 다리만으로 재조정(step5 게이트)."
-      extension_class: EXTEND
-    - joint: right_knee
-      angle_target: 180.0
-      tolerance_full: 20.0
-      deduction_per_step: 0.2
-      minimum_requirement: 160.0
-      source_ref: "IPSF Pole Sports Code of Points Glossary 'Fully extended leg' (범주형 신전 기준, p.130-131) + 동작 의도된 폼(자유 다리 완전 신전, belle 도메인). NotebookLM 확정: 본 동작은 IPSF element 미등재 — element code 날조 금지, 보편 신전기준 적용. 비대칭 주의: anchor 다리 위양성 시 자유 다리만으로 재조정(step5 게이트)."
-      extension_class: EXTEND
+  hold_moment: []
   peak_moment: []
   release_moment: []

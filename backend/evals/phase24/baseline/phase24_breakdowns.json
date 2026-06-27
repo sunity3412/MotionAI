@@ -1,194 +1,415 @@
 {
   "power-spin": {
     "fault": {
-      "baseline": 100,
       "records": [
         {
-          "source": "geometry",
-          "unit": "score_delta",
-          "measuredValue": 72.0,
-          "ruleId": "quantification_unavailable_dimension_overall",
-          "criterion": "dimension_overall_fallback",
-          "deviation": 28.0,
-          "ipsfAnchor": "engineering_interpretation",
           "baselineKind": null,
-          "deviationSource": "dimension_overall",
-          "points": -28.0,
-          "baselineValue": 100
+          "points": -22.7,
+          "unit": "deg",
+          "deviationSource": "ipsf_absolute",
+          "deviation": 18.91,
+          "ipsfAnchor": "19-IPSF §A 트랙2 (다리 신전 부족 누적 감점)",
+          "criterion": "leg_extension",
+          "measuredValue": 141.09,
+          "baselineValue": 180.0,
+          "ruleId": "leg_extension_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -12.6,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 10.49,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "measuredValue": 30.49,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -2.9,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 2.4,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__left_hip",
+          "measuredValue": 22.4,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -1.9,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 1.57,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__right_hip",
+          "measuredValue": 21.57,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
         }
       ],
-      "fallback": "quantification_unavailable",
-      "final": 72,
-      "coverageGaps": []
+      "fallback": null,
+      "coverageGaps": [
+        {
+          "bodyPart": "머리 및 목",
+          "faultType": "head_neck",
+          "faultState": "고개가 덜 젖혀지고 시선이 측면을 향함",
+          "reason": "no_head_neck_angle_substrate ([[spike-stillframe-recovers-upperbody]])",
+          "keypointSet": "head_neck",
+          "ruleId": null
+        }
+      ],
+      "baseline": 100,
+      "final": 60
     },
     "correct": {
-      "baseline": 100,
-      "records": [
+      "records": [],
+      "fallback": null,
+      "coverageGaps": [
         {
-          "source": "geometry",
-          "unit": "score_delta",
-          "measuredValue": 100.0,
-          "ruleId": "quantification_unavailable_dimension_overall",
-          "criterion": "dimension_overall_fallback",
-          "deviation": 0.0,
-          "ipsfAnchor": "engineering_interpretation",
-          "baselineKind": null,
-          "deviationSource": "dimension_overall",
-          "points": 0.0,
-          "baselineValue": 100
+          "bodyPart": "머리 및 상체 (아치)",
+          "faultType": "head_neck",
+          "faultState": "고개가 측면/정면을 향하고 있으며, 상체의 젖힘(아치)이 상대적으로 부족함",
+          "reason": "no_head_neck_angle_substrate ([[spike-stillframe-recovers-upperbody]])",
+          "keypointSet": "head_neck",
+          "ruleId": null
         }
       ],
-      "fallback": "quantification_unavailable",
-      "final": 100,
-      "coverageGaps": []
+      "baseline": 100,
+      "final": 100
     }
   },
   "peter-pan": {
     "fault": {
-      "baseline": 100,
       "records": [
         {
-          "source": "geometry",
-          "unit": "score_delta",
-          "measuredValue": 79.0,
-          "ruleId": "quantification_unavailable_dimension_overall",
-          "criterion": "dimension_overall_fallback",
-          "deviation": 21.0,
-          "ipsfAnchor": "engineering_interpretation",
           "baselineKind": null,
-          "deviationSource": "dimension_overall",
-          "points": -21.0,
-          "baselineValue": 100
+          "points": -46.1,
+          "unit": "deg",
+          "deviationSource": "ipsf_absolute",
+          "deviation": 38.4,
+          "ipsfAnchor": "19-IPSF §A 트랙2 (다리 신전 부족 누적 감점)",
+          "criterion": "leg_extension",
+          "measuredValue": 121.6,
+          "baselineValue": 180.0,
+          "ruleId": "leg_extension_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -2.9,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 2.43,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__right_elbow",
+          "measuredValue": 22.43,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -14.1,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 11.78,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "measuredValue": 31.78,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
         }
       ],
-      "fallback": "quantification_unavailable",
-      "final": 79,
-      "coverageGaps": []
+      "fallback": null,
+      "coverageGaps": [],
+      "baseline": 100,
+      "final": 37
     },
     "correct": {
-      "baseline": 100,
-      "records": [],
+      "records": [
+        {
+          "baselineKind": null,
+          "points": -53.0,
+          "unit": "deg",
+          "deviationSource": "ipsf_absolute",
+          "deviation": 44.18,
+          "ipsfAnchor": "19-IPSF §A 트랙2 (다리 신전 부족 누적 감점)",
+          "criterion": "leg_extension",
+          "measuredValue": 115.82,
+          "baselineValue": 180.0,
+          "ruleId": "leg_extension_over_tol_linear",
+          "source": "geometry"
+        }
+      ],
       "fallback": null,
-      "final": 100,
-      "coverageGaps": []
+      "coverageGaps": [
+        {
+          "bodyPart": "골반 및 코어",
+          "faultType": "hip",
+          "faultState": "폴 바깥쪽으로 과도하게 회전되어 몸통이 열려 있는 상태",
+          "reason": "hip_axis_substrate_deferred",
+          "keypointSet": "hip",
+          "ruleId": null
+        }
+      ],
+      "baseline": 100,
+      "final": 47
     }
   },
   "elbow-twist-sister": {
     "fault": {
-      "baseline": 100,
       "records": [
         {
-          "source": "geometry",
-          "unit": "score_delta",
-          "measuredValue": 59.0,
-          "ruleId": "quantification_unavailable_dimension_overall",
-          "criterion": "dimension_overall_fallback",
-          "deviation": 41.0,
-          "ipsfAnchor": "engineering_interpretation",
           "baselineKind": null,
-          "deviationSource": "dimension_overall",
-          "points": -41.0,
-          "baselineValue": 100
+          "points": -33.3,
+          "unit": "deg",
+          "deviationSource": "ipsf_absolute",
+          "deviation": 27.72,
+          "ipsfAnchor": "19-IPSF §A 트랙2 (다리 신전 부족 누적 감점)",
+          "criterion": "leg_extension",
+          "measuredValue": 132.28,
+          "baselineValue": 180.0,
+          "ruleId": "leg_extension_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -5.9,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 4.9,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__left_elbow",
+          "measuredValue": 24.9,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -14.0,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 11.68,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__right_elbow",
+          "measuredValue": 31.68,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -3.0,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 2.49,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "measuredValue": 22.49,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -3.7,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 3.06,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__right_shoulder",
+          "measuredValue": 23.06,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -2.4,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 2.01,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__left_hip",
+          "measuredValue": 22.01,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -1.3,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 1.11,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__right_hip",
+          "measuredValue": 21.11,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
         }
       ],
-      "fallback": "quantification_unavailable",
-      "final": 59,
-      "coverageGaps": []
+      "fallback": null,
+      "coverageGaps": [],
+      "baseline": 100,
+      "final": 36
     },
     "correct": {
-      "baseline": 100,
       "records": [
         {
-          "source": "geometry",
-          "unit": "score_delta",
-          "measuredValue": 100.0,
-          "ruleId": "quantification_unavailable_dimension_overall",
-          "criterion": "dimension_overall_fallback",
-          "deviation": 0.0,
-          "ipsfAnchor": "engineering_interpretation",
           "baselineKind": null,
-          "deviationSource": "dimension_overall",
-          "points": 0.0,
-          "baselineValue": 100
+          "points": -38.0,
+          "unit": "deg",
+          "deviationSource": "ipsf_absolute",
+          "deviation": 31.7,
+          "ipsfAnchor": "19-IPSF §A 트랙2 (다리 신전 부족 누적 감점)",
+          "criterion": "leg_extension",
+          "measuredValue": 128.3,
+          "baselineValue": 180.0,
+          "ruleId": "leg_extension_over_tol_linear",
+          "source": "geometry"
         }
       ],
-      "fallback": "quantification_unavailable",
-      "final": 100,
-      "coverageGaps": []
+      "fallback": null,
+      "coverageGaps": [],
+      "baseline": 100,
+      "final": 62
     }
   },
   "pdshape": {
     "fault": {
-      "baseline": 100,
       "records": [
         {
-          "source": "geometry",
-          "unit": "score_delta",
-          "measuredValue": 60.0,
-          "ruleId": "quantification_unavailable_dimension_overall",
-          "criterion": "dimension_overall_fallback",
-          "deviation": 40.0,
-          "ipsfAnchor": "engineering_interpretation",
           "baselineKind": null,
-          "deviationSource": "dimension_overall",
-          "points": -40.0,
-          "baselineValue": 100
+          "points": -90.0,
+          "unit": "deg",
+          "deviationSource": "ipsf_absolute",
+          "deviation": 75.39,
+          "ipsfAnchor": "19-IPSF §A 트랙2 (다리 신전 부족 누적 감점)",
+          "criterion": "leg_extension",
+          "measuredValue": 84.61,
+          "baselineValue": 180.0,
+          "ruleId": "leg_extension_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -4.9,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 4.1,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__left_elbow",
+          "measuredValue": 24.1,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -9.0,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 7.53,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__right_elbow",
+          "measuredValue": 27.53,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -5.7,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 4.78,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "measuredValue": 24.78,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -2.6,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 2.2,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__right_shoulder",
+          "measuredValue": 22.2,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
+        },
+        {
+          "baselineKind": null,
+          "points": -4.6,
+          "unit": "deg",
+          "deviationSource": "reference_relative",
+          "deviation": 3.8,
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "criterion": "angle_vs_reference__left_hip",
+          "measuredValue": 23.8,
+          "baselineValue": 0.0,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "source": "geometry"
         }
       ],
-      "fallback": "quantification_unavailable",
-      "final": 60,
-      "coverageGaps": []
+      "fallback": "gemini_silent",
+      "coverageGaps": [],
+      "baseline": 100,
+      "final": 0
     },
     "correct": {
-      "baseline": 100,
       "records": [
         {
-          "source": "geometry",
-          "unit": "score_delta",
-          "measuredValue": 100.0,
-          "ruleId": "quantification_unavailable_dimension_overall",
-          "criterion": "dimension_overall_fallback",
-          "deviation": 0.0,
-          "ipsfAnchor": "engineering_interpretation",
           "baselineKind": null,
-          "deviationSource": "dimension_overall",
-          "points": 0.0,
-          "baselineValue": 100
+          "points": -76.5,
+          "unit": "deg",
+          "deviationSource": "ipsf_absolute",
+          "deviation": 63.79,
+          "ipsfAnchor": "19-IPSF §A 트랙2 (다리 신전 부족 누적 감점)",
+          "criterion": "leg_extension",
+          "measuredValue": 96.21,
+          "baselineValue": 180.0,
+          "ruleId": "leg_extension_over_tol_linear",
+          "source": "geometry"
         }
       ],
-      "fallback": "quantification_unavailable",
-      "final": 100,
-      "coverageGaps": []
+      "fallback": "gemini_silent",
+      "coverageGaps": [],
+      "baseline": 100,
+      "final": 24
     }
   },
   "kip-up": {
     "fault": {
-      "baseline": 100,
-      "records": [
-        {
-          "source": "geometry",
-          "unit": "score_delta",
-          "measuredValue": 100.0,
-          "ruleId": "quantification_unavailable_dimension_overall",
-          "criterion": "dimension_overall_fallback",
-          "deviation": 0.0,
-          "ipsfAnchor": "engineering_interpretation",
-          "baselineKind": null,
-          "deviationSource": "dimension_overall",
-          "points": 0.0,
-          "baselineValue": 100
-        }
-      ],
-      "fallback": "quantification_unavailable",
-      "final": 100,
-      "coverageGaps": []
-    },
-    "correct": {
-      "baseline": 100,
       "records": [],
       "fallback": null,
-      "final": 100,
-      "coverageGaps": []
+      "coverageGaps": [],
+      "baseline": 100,
+      "final": 100
+    },
+    "correct": {
+      "records": [],
+      "fallback": null,
+      "coverageGaps": [],
+      "baseline": 100,
+      "final": 100
     }
   },
   "climb": {

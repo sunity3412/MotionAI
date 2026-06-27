@@ -63,8 +63,28 @@ belle 결정: peter-pan/elbow-twist/pdshape knee EXTEND 제거(굽힘 form) + �
 
 **부수 관찰**: Cerebras 코칭 JSON 파싱 실패(coach_writer.py:229) — 수치 폴백으로 graceful, 분석/점수 무영향(별 minor 항목). torso_px ratio extreme(촬영 거리 불일치) 경고는 peter-pan/kip-up reference 영상 framing 이슈(측정 안정성 후속).
 
+## ★ kip-up 정밀 진단 (2026-06-27, probe_kipup_recognizer.py) — 이전 가설 정정
+재부팅 pod에서 kip-up recognizer/각도 직접 probe. **이전 "recognizer 분류 실패" 가설은 틀림:**
+- kip-up은 **정상 분류됨**: profile.category=recognized, motion_id=ref-kip-up, joint_expectations에
+  양 무릎 'extend' 로드됨(step4 yaml 정상 작동). activatedCriteria=[]는 분류 실패가 아니라
+  **감점이 안 나서**(곧은 측정).
+- **무릎각 신호가 INVERTED**: fault min 무릎 161°/165° vs **correct min 149°/149°(정타가 더 굽음)**.
+  hold-window 평균은 양쪽 ~174~176°(곧은 순간 포착) → leg_extension 0 → 100/100.
+- 어떤 window(hold/worst-pose)로도 fault>correct 변별 불가 — **무릎각으로 kip-up 채점 불가 확정**.
+- 원인 후보: "공중 양 무릎 굽음" fault가 순간/공중이라 안정 윈도우서 씻겨남 + torso_px ratio
+  extreme(촬영거리 불일치) 측정 왜곡 + 실제 fault가 무릎각이 아닐 가능성.
+- **조치**: kip-up knee EXTEND 제거(다른 3동작과 동일 + inversion 증거). ref-kip-up.yaml empty.
+  45 tests pass. (committed breakdowns는 제거 전 sweep 기준이나 kip-up verdict=generalization red는
+  불변 — 재-sweep 불요.)
+
+**kip-up 실결함 검출 = 별 트랙, 2가지 미해결 필요**:
+1. **무엇이 kip-up의 진짜 fault인가** = belle 도메인 (무릎각이 아님이 데이터로 증명됨 — 타이밍/제어/
+   kip 완성도/높이? belle가 정의해야 객관 채점 설계 가능).
+2. **측정 신뢰** = reference 영상 framing(촬영거리 불일치) 정리 또는 vision/temporal 트랙(24-B).
+
 ## 다음
-1. ✅ P1 정타 오염 제거 = 완료. power-spin 객관 신전 + de-contamination 게이트 검증.
-2. **kip-up** = 별 트랙(recognizer 분류 + vision-veto alignment 24-B). 다음 세션.
-3. pod = 재-sweep 검증 완료 → belle 결정대로 Stop 가능(또는 kip-up 착수 시 유지).
-4. (minor) Cerebras coach JSON 파싱 견고화, reference 영상 framing.
+1. ✅ P1 정타 오염 제거 = 완료. power-spin이 유일하게 검증된 straight-knee 객관 채점 동작.
+2. ✅ kip-up 진단 완료 — 무릎각 채점 불가 확정(inversion). EXTEND 제거.
+3. **kip-up 실결함** = belle가 "진짜 fault" 정의 → vision/temporal(24-B) 트랙. EXTEND로 불가.
+4. ✅ P2 Mode3 근거공개 = 이미 구현됨(Phase19/20-03, 34 tests). audit P2 stale. [[p2-mode3-disclosure-already-done]]
+5. (minor) Cerebras coach JSON 파싱 견고화, reference 영상 framing.

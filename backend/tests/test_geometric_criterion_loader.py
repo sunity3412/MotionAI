@@ -189,11 +189,13 @@ criteria:
 # form 이 무릎을 굽힘(실측, clean-residual 게이트 발화) → 무릎 신전이 결함 축 아님 → belle 결정으로
 # knee EXTEND 제거(객관 angle criteria 없음, reference_relative 가 처리). power-spin/kip-up 만 유지.
 # 상세 = 15-STEP5-POD-VERIFICATION-2026-06-27.md.
+# P1 step5 진단(2026-06-27): kip-up도 knee EXTEND 제거 — 무릎각 신호 inverted(correct가 fault보다
+# 더 굽음) + non-angle-shaped. power-spin만 유효한 straight-knee 동작으로 남음.
 P1_EXTEND_KNEE_MOTIONS = (
-    "ref-kip-up",
     "ref-power-spin",
 )
 P1_NO_OBJECTIVE_MOTIONS = (
+    "ref-kip-up",
     "ref-peter-pan",
     "ref-elbow-twist-sister",
     "ref-pdshape",

@@ -37,8 +37,34 @@ sweep_report 진단:
 ## 게이트 최종 (step1↔step5 루프 종결)
 `assert_gates.py` EXIT=1, 정밀 localize: clean-residual 3건(peter-pan/elbow-twist/pdshape correct) + generalization 4건(+kip-up false-negative). power-spin·sensitivity·traceability 등은 통과. **게이트가 false-close 막고 남은 결함을 동작·관절 단위로 지목** = step1 설계 목적 달성.
 
-## 다음 (belle 결정 + 후속)
-1. **peter-pan/elbow-twist/pdshape knee EXTEND 제거** 여부 = belle 도메인 확인(굽힘 form 맞는지). 확인 시 yaml 수정 → 재-sweep → clean-residual GREEN 기대.
-2. **kip-up** = 별 트랙: recognizer 분류 보강(alias/Gemini) + vision-veto alignment 게이트(24-B). EXTEND와 독립.
-3. power-spin = 유지(검증 완료).
-4. pod 비용: 재-sweep 필요 → belle가 (1) 결정 후 pod 유지 시 즉시 재검증, 아니면 Stop.
+## ★ 최종 결과 (belle 결정 적용 + 재-sweep 검증, 2026-06-27)
+belle 결정: peter-pan/elbow-twist/pdshape knee EXTEND 제거(굽힘 form) + 지금 고치고 재-sweep.
+
+**적용**:
+1. 3개 yaml 객관 무릎 criteria 제거(empty hold). power-spin/kip-up EXTEND 유지. 테스트 갱신(85 passed).
+2. **cache invalidation 버그 발견·수정**: technique_cache `_YAML_FILENAMES`가 원본 5개만 하드코딩 → 신규 동작 yaml 변경이 yaml_version에 반영 안 돼 **stale profile cache hit**(1차 재-sweep에서 EXTEND 잔존). → 전 criteria yaml glob으로 변경(어떤 yaml 변경이든 자동 invalidation). 22 cache tests pass.
+
+**재-sweep verdict (cache fix 후)**:
+| pair | fault | correct | 판정 |
+|---|---|---|---|
+| power-spin | 47 | 91 | discriminate (margin 44), leg_extension 유지 |
+| peter-pan | 79 | **100 clean** | ✅ false fault 제거 |
+| elbow-twist-sister | 61 | **100 clean** | ✅ |
+| pdshape | 60 | **100 clean** | ✅ |
+| kip-up | 97 | 96 | ❌ INVERTED — 미해결(별 트랙) |
+| climb | None | None | not_pole 게이트(known) |
+
+**게이트 최종**: `assert_gates` 7 failures → **1 failure**. clean-residual 전부 GREEN(3 false fault 제거). generalization은 **kip-up만** RED(non-angle-shaped). 즉 **P1 핵심(정타 오염 제거) 완료·게이트 검증됨.** 4개 각도형 페어 전부 discriminate(margin 21~44).
+
+**남은 1건 = kip-up (별 트랙, P1 메커니즘 실패 아님)**:
+- recognizer가 ref-kip-up 분류 실패(activatedCriteria=[], 무릎 EXTEND 미로드) — Gemini alias/분류 보강 필요.
+- 굽은 무릎 fault가 hold-window에서 씻겨나감(non-angle-shaped) + vision-veto alignment 게이트 차단(24-B).
+- → recognizer 분류 + vision/alignment(24-B) 트랙. EXTEND 데이터로 불가.
+
+**부수 관찰**: Cerebras 코칭 JSON 파싱 실패(coach_writer.py:229) — 수치 폴백으로 graceful, 분석/점수 무영향(별 minor 항목). torso_px ratio extreme(촬영 거리 불일치) 경고는 peter-pan/kip-up reference 영상 framing 이슈(측정 안정성 후속).
+
+## 다음
+1. ✅ P1 정타 오염 제거 = 완료. power-spin 객관 신전 + de-contamination 게이트 검증.
+2. **kip-up** = 별 트랙(recognizer 분류 + vision-veto alignment 24-B). 다음 세션.
+3. pod = 재-sweep 검증 완료 → belle 결정대로 Stop 가능(또는 kip-up 착수 시 유지).
+4. (minor) Cerebras coach JSON 파싱 견고화, reference 영상 framing.

@@ -55,6 +55,61 @@ def compute_joint_angles(keypoints):
     return out
 
 
+def split_angle_series(keypoints):
+    """3D keypoints (T,17,3=xyz | T,17,4=xyz+불확실도) → 프레임별 inter-thigh split(도).
+
+    IPSF split 정의(Code of Points, NotebookLM 2026-06-27): split 은 "the lines the
+    inner thighs form in alignment with hips to knees" — 즉 두 허벅지 라인(각 다리
+    hip→knee) 사이각이다. 본 함수는 좌 허벅지 방향벡터(left_hip→left_knee)와 우
+    허벅지 방향벡터(right_hip→right_knee) 사이각을 잰다. 다리를 모으면(두 허벅지
+    평행) ≈0°, 직교(한 다리 수평·한 다리 수직)면 ≈90°, 다리가 완전한 일직선
+    (full split)이면 ≈180°. 더 벌릴수록 단조 증가한다.
+
+    주의: hip-center 를 vertex 로 좌우 무릎의 subtended 각을 재면 안 된다 — 골반
+    너비 때문에 다리가 평행해도(모음) 0°가 아닌 값이 나온다. 변별 대상은 두
+    허벅지 라인 자체의 사이각이므로 방향벡터 각으로 측정한다.
+
+    좌표는 :3 만 사용(4채널이면 불확실도 무시, compute_joint_angles 와 동일).
+    정의 keypoint(좌우 hip/knee) 중 하나라도 NaN 인 프레임은 split NaN
+    (_angle_deg 가 전파) — temporal/호출자가 폐색으로 처리한다.
+
+    엔진/AWS/네트워크 의존 0, 순수 numpy. 두 허벅지 방향벡터 사이각은 원점을
+    vertex 로 둔 _angle_deg 재사용으로 계산한다(중복 구현 금지).
+    """
+    kp = np.asarray(keypoints, dtype=float)
+    if kp.ndim != 3 or kp.shape[1] < 17 or kp.shape[2] < 3:
+        raise ValueError("keypoints 형상은 (T,17,3|4=xyz[,불확실도]) 이어야 합니다.")
+    xyz = kp[:, :, :3]
+    T = kp.shape[0]
+
+    il, ir = kp_index("left_hip"), kp_index("right_hip")
+    ilk, irk = kp_index("left_knee"), kp_index("right_knee")
+    zero = np.zeros(3, dtype=float)
+
+    out = np.full((T,), np.nan, dtype=float)
+    for t in range(T):
+        left_thigh = xyz[t, ilk] - xyz[t, il]
+        right_thigh = xyz[t, irk] - xyz[t, ir]
+        # vertex=원점에서 두 허벅지 방향벡터 사이각 = inter-thigh split.
+        out[t] = _angle_deg(left_thigh, zero, right_thigh)
+    return out
+
+
+def max_split(split_series):
+    """split 시계열 (T,) → (최대 split(도), 프레임 인덱스). 유한값 없으면 (nan, -1).
+
+    안정 hold-window 가 아니라 **peak** 를 고른다 — dynamic 동작(kip-up 등)의
+    변별 순간은 다리를 최대로 벌린 순간이다(belle 교훈: 안정 윈도우는 dynamic
+    peak 를 평균으로 씻어내 변별을 잃는다). NaN 프레임은 무시한다.
+    """
+    s = np.asarray(split_series, dtype=float).ravel()
+    finite = np.isfinite(s)
+    if not finite.any():
+        return (float("nan"), -1)
+    idx = int(np.argmax(np.where(finite, s, -np.inf)))
+    return (float(s[idx]), idx)
+
+
 def joint_uncertainty(keypoints):
     """3D keypoints (T,17,4=xyz+불확실도) → 관절각별 불확실도 (T,NUM_JOINTS).
 

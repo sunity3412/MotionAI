@@ -324,13 +324,12 @@ Plans:
   3. 자가입력 `poleExperienceLevel`과 동작 난이도 매핑으로 "레벨 대비 무리" 경고가 동작한다
   4. 결과 화면에 부상 위험 경고가 시각적으로 구분되고 "전문가 확인 권유" 카피가 함께 표시된다
 
-**Plans**: 5 plans (4 waves)
+**Plans**: 4 plans (4 waves)
 
-  - [x] 15-01-PLAN.md — Wave 0 도구 + dataset 업로드: 비-reference sweep 변종 + frozen-baseline 위양성 assert 스크립트 + 13 영상 정규화 S3 업로드
-  - [x] 15-02-PLAN.md — Pod bring-up + env 복원 + Lambda RUNPOD_ANALYZE_URL 동기화(sunity-motion) + 실 LLM 발화 확인 (실 E2E 전제)
-  - [x] 15-03-PLAN.md — MODE-01 + SCORE-04: 11-ref 필드 검증 + Mode 1 실 E2E + 정은지 위양성 assert (frozen 08.1 baseline, 재calibrate 0)
-  - [x] 15-04-PLAN.md — MODE-02: 정은지 fail→success 페어 Mode 3 deltaFromPrevious + 듀얼 coach 실 LLM cross-fill 빈 섹션 0
-  - [ ] 15-05-PLAN.md — DELIV-01: eas.json preview env fix → EAS preview 빌드+submit(Claude PASS) → belle 실기기 게스트 완주 핸드오프
+  - [ ] 10-01-PLAN.md — Wave 0: SafetyFlag 계약 3중 미러(analysis.ts↔models.py↔contract.md) + safety_flags.py 스캐폴드(frozen dataclass+enum guard+compute stub) + warnAmberBg 토큰 + phase10 RED 테스트/fixture (SAFE-01)
+  - [ ] 10-02-PLAN.md — Wave 1: Slice 1 — D-02 AND-게이트 + D-04 트렁크 과신전(reference-anchored) + _process 주입 + _validate_safety_flags + 앰버 InjuryRiskSection UI(4종 카피 맵, 비면 omit). 정은지 위양성 0 헤드라인 게이트 (SC2/SC4)
+  - [ ] 10-03-PLAN.md — Wave 2: Slice 2 — D-05 관절 과신전 외적 부호 방향 판별(무릎>5°/팔꿈치>10° [CITED], 시상면). belle Mode-3 우선. 자동 렌더 (SAFE-01)
+  - [ ] 10-04-PLAN.md — Wave 3: Slice 3+4 — D-03 비대칭(reference-anchored, kismam 재사용) + D-06 레벨 대비 무리(Mode 1 전용, spoof fail-safe). 4종 완성 (SC1/SC3)
 
 **UI hint**: yes
 

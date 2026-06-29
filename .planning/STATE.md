@@ -546,6 +546,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 
 ### Roadmap Evolution
 
+- Phase 15 DISSOLVED (belle 2026-06-29): 실작업(점수정확도/위양성)은 19/20/24 흡수, 실증/TestFlight=마일스톤 완료 이벤트(개발 phase 아님), "고수 위양성 없음"=마일스톤 통과 기준(20/24 책임). renumber/삭제 없이 ROADMAP tombstone — 후속 phase가 "Phase 15 실증 발견 출처"로 참조하므로 번호·artifacts 보존.
 - Phase 18 added: 전문가 일부러-실수 reference eval 세트 (가칭, Phase 15 이후, belle 2026-06-16)
 - Phase 20 added: v2 비전 점수 (Gemini 시각 거부권) — kip-up 위양성 + 상단변별 + Mode3 미보유게이트. roadmap+CONTEXT pod-free, 구현 Pod 의존
 - Phase 21 added: 전문가 셀프서비스 reference 등록 (angles 자동계산 GPU 연결) — belle 2026-06-20, CLAUDE.md 파일럿 Step 2

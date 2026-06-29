@@ -186,3 +186,22 @@ Concern #1 (AND-gate locality + temporal alignment) and #2 (D-05 conservatism + 
 **MEDIUM:** (a) phase-level temporal alignment may be too coarse — same-phase different-frame instability can still pair with a sub-windowed posture; compute control-loss on exact posture frames or state v1 is phase-level + add regression. (b) 10-01 xfail discipline inconsistent — no-flag negative cases (flexed knee, ambiguous geometry, equal asymmetry, no-reference, Mode-3 level) under `xfail(strict=True)` become XPASS failures; keep no-flag invariants GREEN, xfail only future positive behavior. (c) D-04 scope drift (reference-anchored vs original absolute both-mode) should be made explicit in context/acceptance, not implicit.
 
 **Overall: HIGH** until D-03/D-04 reference alignment and D-05 sign calibration are deterministic and tested against timing-shifted + real elite-keypoint cases. **Verdict: HIGH-severity concerns remain.**
+
+---
+
+# Iteration 3 — Codex Re-Review (after revision iter2) — CONVERGED
+
+**All prior HIGH concerns RESOLVED:**
+- AND-gate locality + temporal colocation → RESOLVED (joint/region-local + phase-matched `_control_loss_for_joint`)
+- D-05 cross-product fragility → RESOLVED (one deterministic body frame, flexion-sign calibration, 8 fail-conservative branches, multi-clip elite regression)
+- Mode-3 plumbing → RESOLVED (Mode1 a_ref / Mode3 mode3_prev, first-video no-op surfaced)
+- D-03/D-04 DTW-aligned reference windows → RESOLVED (`_dtw_aligned_joint_medians` reuses motion_dtw; timing-shift negative tests)
+- D-05 sign convention → RESOLVED (frontal axis fixed: hips for knees, shoulders for elbows; flexion sign from argmin(included_angle) + CLEAR_FLEXION_MAX; ambiguous → no-flag)
+
+**Remaining (non-blocking) — MEDIUM/LOW for execution precision:**
+- MEDIUM: D-05 must define how `phase=P` is derived for temporal colocation (`_select_window` needs angles/profile, which `compute_safety_flags` has) + isolated wrong-phase/wrong-joint no-flag tests.
+- MEDIUM: pin "short extreme hold vs matched reference hold" vs whole-match medians (avoid dilution); add a hold-window test.
+- MEDIUM: D-05 threshold provenance — name concrete sources for knee >5° / elbow >10°, not just `[CITED]` labels.
+- LOW: name real-elite fixture source paths/clip IDs in conftest; guard Mode-3 `anglesJointKeys` order vs `JOINT_KEYS`; reflect D-04 reference-anchored-only refinement in CONTEXT/decision record so future agents don't reintroduce an unsourced absolute trunk cutoff.
+
+**Overall Risk: MEDIUM. Verdict: No HIGH-severity concerns remain. CONVERGED (HIGH=0) after 2 revision rounds.**

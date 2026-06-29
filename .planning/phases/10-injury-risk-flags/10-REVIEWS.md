@@ -172,3 +172,17 @@ Only one independent external reviewer was available (Codex). Claude was skipped
 
 ### Recommendation
 Concern #1 (AND-gate locality + temporal alignment) and #2 (D-05 conservatism + real-keypoint regression) are the two that directly defend the project's core value and align with the plan-checker's W-1 (production no-FP needs real-data validation). Worth a targeted `/gsd-plan-phase 10 --reviews` pass before execution, or carry them as hardening constraints into execution + the verify-work pod eval.
+
+---
+
+# Iteration 2 — Codex Re-Review (after revision iter1)
+
+**Prior HIGH:** AND-gate locality+temporal → **RESOLVED**; Mode-3 plumbing → **RESOLVED**; D-05 fragility → **PARTIALLY RESOLVED**.
+
+**New/Remaining HIGH:**
+1. **DTW-aligned reference windows missing (D-03/D-04).** Plans pass raw `reference_angles`, not the DTW match/path or reference phase boundaries. Pipeline already uses DTW because user/reference timing differs. "compute reference's same angle" / "student_LR vs ref_LR" does not specify alignment. Risk: intentional elite asymmetry/extension in the reference fails to cancel if compared against wrong reference frames → the exact false-positive class this phase must prevent. Fix: pass DTW alignment artifacts (or recompute DTW inside safety_flags) and compare only path-aligned hold windows; add a negative test where the same intentional asymmetry exists in both videos at shifted timing.
+2. **D-05 sign convention still under-specified.** "derived from frontal axis, e.g. shoulder→hip or left↔right shoulder" + "known-flexion frame" leaves discretion in the most fragile part. Fix: one deterministic sagittal-frame algorithm, define exactly how the known-flexion frame is selected, no-flag if calibration cannot be proven; real-keypoint tests for mirrored orientation, spin around pole, left/right limbs, multiple elite clips.
+
+**MEDIUM:** (a) phase-level temporal alignment may be too coarse — same-phase different-frame instability can still pair with a sub-windowed posture; compute control-loss on exact posture frames or state v1 is phase-level + add regression. (b) 10-01 xfail discipline inconsistent — no-flag negative cases (flexed knee, ambiguous geometry, equal asymmetry, no-reference, Mode-3 level) under `xfail(strict=True)` become XPASS failures; keep no-flag invariants GREEN, xfail only future positive behavior. (c) D-04 scope drift (reference-anchored vs original absolute both-mode) should be made explicit in context/acceptance, not implicit.
+
+**Overall: HIGH** until D-03/D-04 reference alignment and D-05 sign calibration are deterministic and tested against timing-shifted + real elite-keypoint cases. **Verdict: HIGH-severity concerns remain.**

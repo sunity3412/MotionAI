@@ -66,7 +66,7 @@ Status: 24-04 코드 게이트 GREEN — Pod 재-sweep + belle 검증 PENDING (o
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-27 - P1 정타 오염 제거 완료·게이트 검증(push dc1e4bf). belle 결정(peter-pan/elbow-twist/pdshape knee EXTEND 제거)+재-sweep: 3개 success=100 clean, 게이트 7→1 failure. cache invalidation 버그도 수정(yaml glob). 잔여 1=kip-up(non-angle-shaped, 별 트랙: recognizer 분류+vision 24-B). pod 검증완료.
+Last activity: 2026-06-29 - 분석정확도 본작업 시작: belle 입력으로 kip-up 변별=다리벌림(split) 확정 → 코드상 객관 split 측정 부재(Gemini 의존) 발견 = audit P3 정합. 설계 박제 + split 기하 측정 primitive(split_angle_series/max_split, IPSF 허벅지 사이각) + 합성검증(0/90/180° 12 tests) 완료. 다음=측정 wiring(키포인트→md→split_angle criterion)+reference split 데이터+pod 재검증. (P1 정타오염=완료, P2 Mode3근거공개=이미됨)
 
 ### Quick Tasks Completed
 

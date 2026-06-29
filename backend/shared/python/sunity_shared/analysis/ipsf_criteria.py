@@ -30,6 +30,8 @@ from .vision_veto import (  # 8 keypoint_set + baseline vocab + reach keypoints 
 # ── provenance 상수 (dimensions.py:164-176 인용 스타일) ──────────────────────
 _ANGLE_TOLERANCE_DEG = 20.0   # [CITED: 19-IPSF §A 트랙1] 완전신전(180°) 대비 IPSF 허용오차.
 _SPLIT_FAIL_THRESHOLD_DEG = 160.0  # [CITED] micro-bent 요소 무효(0-fail) 임계.
+# 현재 split_angle 은 reference_relative(정은지 대비) 채점 — 위 absolute 임계는
+# per-move expects_split flag 도입 시(객관 180° 요구 동작) 재활성 예정의 deferred 상수.
 _NOTCH_TOLERANCE = 0.5        # [ASSUMED] reach shortfall dead-zone(칸). 측정가능 유일 선택.
 # 단일 LINEAR per-unit slope — kismam._PENALTY_PER_DEG=1.2 VERBATIM 재사용(MEDIUM-2).
 # IPSF 는 fixed-flat — per-unit slope 가 monotonicity 를 주는 유일한 엔지니어링 선택.
@@ -85,17 +87,23 @@ _CORE_CRITERION_GROUPS: tuple[dict, ...] = (
         "direction": "over_target",
     },
     {
+        # split — 객관 측정(features.split_angle_series, inter-thigh 사이각) 부족분을 소비.
+        # deviation_source = reference_relative (정은지 max-split 대비 학생 부족분, mode1).
+        # 설계 결정(15-SPLIT-MEASUREMENT-DESIGN §3): 객관 180°(ipsf_absolute) 강요 금지 —
+        # full split 을 요구하지 않는 동작의 correct form 을 위양성으로 깎는 over-EXTEND
+        # 실수 재발 위험. 정은지 자기 pair 는 correct≈reference→clean, fault<reference→감점.
+        # = angle_vs_reference 미러(baseline 0, over=max(0, deficit−tol)). 객관 180°
+        # (_SPLIT_FAIL_THRESHOLD_DEG 160° 0-fail)는 per-move expects_split flag 도입 시 후속.
         "id": "split_angle",
         "joint_keys": ("left_hip", "right_hip"),  # inner-thigh hip→knee, 양다리 1묶음
         "keypoint_set": "leg",
-        "tolerance": _ANGLE_TOLERANCE_DEG,   # [CITED]
+        "tolerance": _ANGLE_TOLERANCE_DEG,   # [CITED] kismam 재사용 — 새 임계 금지
         "slope": _SLOPE,                     # [ASSUMED] LINEAR
         "ipsf_cap": _ANGLE_CAP,              # [ASSUMED]
-        "rule_id": "split_angle_over_tol_linear",
-        "ipsf_anchor": "19-IPSF §A 트랙1 (스플릿 180° 목표, 160° 미만 요소 무효)",
-        "deviation_source": "ipsf_absolute",
+        "rule_id": "split_vs_reference_over_tol_linear",
+        "ipsf_anchor": "expert_reference_deviation (정은지 대비 split 부족분)",
+        "deviation_source": "reference_relative",
         "direction": "over_target",
-        "split_fail_threshold_deg": _SPLIT_FAIL_THRESHOLD_DEG,  # [CITED] 0-fail 불연속
     },
     {
         # clean_lines — COLLECTIVE 180°-신전-부족 criterion(dimensions.line_score 가 ALL
@@ -161,8 +169,9 @@ _REFERENCE_RELATIVE_CRITERIA: tuple[dict, ...] = tuple(
 CRITERION_GROUPS: tuple[dict, ...] = _CORE_CRITERION_GROUPS + _REFERENCE_RELATIVE_CRITERIA
 
 _CRITERION_BY_ID = {c["id"]: c for c in CRITERION_GROUPS}
-# 측정-가능 seed criterion: ipsf_absolute 4개(reach 는 router-only 제외) + reference_relative 8개.
-# reference_relative 는 criteria_from_measured_deviations 가 md[angle_vs_reference__{jk}] 로 seed.
+# 측정-가능 seed criterion: ipsf_absolute 3개(leg/arm/line) + split_angle(reference_relative,
+# 정은지 대비 split 부족분) + reference_relative per-joint 8개 (reach 는 router-only 제외).
+# reference_relative 는 criteria_from_measured_deviations 가 md[split_angle]/md[angle_vs_reference__{jk}] 로 seed.
 _MEASURABLE_SEED_IDS = ("leg_extension", "arm_extension", "split_angle", "line") + tuple(
     c["id"] for c in _REFERENCE_RELATIVE_CRITERIA
 )

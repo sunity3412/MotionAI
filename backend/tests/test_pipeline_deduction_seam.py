@@ -163,6 +163,24 @@ def test_criteria_for_fault_routing_at_seam(monkeypatch):
     assert any(g["keypointSet"] == "grip" for g in gaps)
 
 
+def test_builder_split_deficit_injection():
+    """split_deficit_deg → md[split_angle] (15-SPLIT-MEASUREMENT-DESIGN §3 wiring).
+
+    _process 가 산출한 split 부족분(deg, 양수)을 builder 가 md 로 방출하고, None/0/NaN 은
+    honest 0(미방출). 그 외 인자는 None 이어도 graceful(각 블록 가드)."""
+    md = app._build_deduction_measured_deviations(
+        angles=None, profile=None, assessments=None,
+        dimension_scores=None, quantification=None, split_deficit_deg=30.0,
+    )
+    assert md["split_angle"] == 30.0
+    for v in (None, 0.0, -5.0, float("nan")):
+        md_skip = app._build_deduction_measured_deviations(
+            angles=None, profile=None, assessments=None,
+            dimension_scores=None, quantification=None, split_deficit_deg=v,
+        )
+        assert "split_angle" not in md_skip
+
+
 def test_gemini_silent_no_fault_is_tally_eligible_production_shape(monkeypatch):
     """iter5 HIGH-1 — production no_fault(정타, valid still-pair, 측정 편차 BEYOND tol) →
     measured seed 가 감점. NOT 합성 candidate_verdict — 실 no_fault 경로(passthrough 버그)."""

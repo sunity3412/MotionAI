@@ -113,9 +113,13 @@ def test_criterion_groups_core_plus_reference_relative():
     assert {"leg_extension", "arm_extension", "split_angle", "line",
             "body_relative_reach"} <= ids
     # deviation_source + direction tags present + correct (core).
-    for cid in ("leg_extension", "arm_extension", "split_angle", "line"):
+    # leg/arm/line = ipsf_absolute(180° 신전). split_angle = reference_relative(정은지 대비
+    # split 부족분 — 객관 180° 강요 금지, 15-SPLIT-MEASUREMENT-DESIGN §3 / RESUME 2026-06-29).
+    for cid in ("leg_extension", "arm_extension", "line"):
         assert by_id[cid]["deviation_source"] == "ipsf_absolute"
         assert by_id[cid]["direction"] == "over_target"
+    assert by_id["split_angle"]["deviation_source"] == "reference_relative"
+    assert by_id["split_angle"]["direction"] == "over_target"
     assert by_id["body_relative_reach"]["deviation_source"] == "reference_relative"
     assert by_id["body_relative_reach"]["direction"] == "insufficient_reach"
     # 24-07 — per-joint reference_relative 각도 criterion(JOINT_KEYS 1개씩, granular wish).
@@ -546,6 +550,47 @@ def test_reference_relative_deterministic():
     b1 = _tally(md, _ctx([]), quantification=q)
     b2 = _tally(md, _ctx([]), quantification=q)
     assert b1.to_dict() == b2.to_dict()
+
+
+# ── split_angle reference_relative (15-SPLIT-MEASUREMENT-DESIGN §3) ──────────
+
+
+def test_split_reference_relative_scored_and_monotonic():
+    # split_angle = reference_relative: md[split_angle]=max(0, 정은지 max-split − 학생) deg.
+    # tol(20°) 초과 → record(baseline 0) 방출, 부족분↑ → 감점↑(단조). seed 만으로 활성(_ctx []).
+    over = _tally(_measured(split=40.0), _ctx([]))
+    rec = [r for r in over.records if r.criterion == "split_angle"]
+    assert len(rec) == 1
+    assert rec[0].deviation_source == "reference_relative"
+    assert rec[0].unit == "deg"
+    assert rec[0].baseline_value == 0.0  # 목표 = reference 대비 0° 부족
+    assert rec[0].points < 0
+    finals = [_tally(_measured(split=d), _ctx([])).final for d in (0.0, 30.0, 60.0, 90.0)]
+    assert finals[0] >= finals[1] > finals[2] > finals[3]
+
+
+def test_split_reference_relative_deadzone():
+    # 학생 split 이 정은지와 tol(20°) 이내(부족분 12°) → dead-zone, 감점 0 (correct 위양성 0).
+    b = _tally(_measured(split=12.0), _ctx([]))
+    assert not any(r.criterion == "split_angle" for r in b.records)
+
+
+def test_split_not_absolute_180_fail():
+    # 객관 180° 강요 금지 회귀 가드(belle over-EXTEND): 부족분 40° 가 절대-split 140°<160°
+    # 0-fail(cap 폭주)로 처리되면 안 됨 — reference_relative 선형(over=40−20=20)이어야 한다.
+    rec = [r for r in _tally(_measured(split=40.0), _ctx([])).records
+           if r.criterion == "split_angle"][0]
+    assert rec.deviation == 20.0  # max(0, 40−tol 20) — 절대-fail cap(84) 아님
+    assert rec.deviation_source == "reference_relative"
+
+
+def test_split_claims_hips_blocks_reference_relative_double_count():
+    # split_angle(양 hip claim) 활성 + 같은 hip reference_relative → split 만, hip ref_rel discard.
+    md = {**_measured(split=40.0), **_ref_rel(left_hip=35.0, right_hip=33.0)}
+    crits = {r.criterion for r in _tally(md, _ctx([])).records}
+    assert "split_angle" in crits
+    assert "angle_vs_reference__left_hip" not in crits
+    assert "angle_vs_reference__right_hip" not in crits
 
 
 def test_breakdown_serializes_flat():

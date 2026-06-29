@@ -73,6 +73,8 @@ from sunity_shared.analysis.features import (
     compute_joint_angles,
     feature_vector,
     joint_uncertainty,
+    max_split,
+    split_angle_series,
 )
 from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # 가벼움 — 예외만
 from sunity_shared.analysis.motiondtw import motion_dtw, per_joint_deviation
@@ -2024,7 +2026,7 @@ def _baseline_kind_for_profile(profile) -> str:
 
 def _build_deduction_measured_deviations(
     *, angles, profile, assessments, dimension_scores, quantification,
-    reference_dtw_match=None, reference_angles=None,
+    reference_dtw_match=None, reference_angles=None, split_deficit_deg=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2042,7 +2044,8 @@ def _build_deduction_measured_deviations(
       · body_relative_notches: quantification.bodyRelativeNotches(student/reference 칸 동반).
     반환 키 (deduction_engine.tally md 계약 — criterion id 키):
       · leg_extension / arm_extension / line: ipsf_absolute deg deficit(없으면 키 부재 → honest 0).
-      · split_angle: 측정 substrate 부재 시 미방출(Gemini-pointed 라우팅에 맡김).
+      · split_angle: reference_relative — max(0, 정은지 max-split − 학생 max-split) deg.
+        split_deficit_deg(mode1, peak inter-thigh 사이각) 보유 시만 방출, 없으면 honest 0.
       · body_relative_notches: quantification.bodyRelativeNotches list(있을 때만).
       · angle_vs_reference__{joint}: 24-07 ① fix — 정은지(reference) 대비 per-joint 각도
         편차(deg, reference_relative). reference_dtw_match+reference_angles 보유 시(mode1)만,
@@ -2096,6 +2099,16 @@ def _build_deduction_measured_deviations(
     notches = getattr(quantification, "bodyRelativeNotches", None)
     if notches:
         md["body_relative_notches"] = list(notches)
+
+    # ── split — 객관 inter-thigh 사이각 부족분 seed (reference_relative, mode1) ──
+    # split_deficit_deg = max(0, 정은지 max-split − 학생 max-split) (deg) — _process 에서
+    # features.split_angle_series + max_split(peak)으로 산출(keypoints_4ch). 객관 180°
+    # 강요 아님(belle over-EXTEND 위양성 회피, 15-SPLIT-MEASUREMENT-DESIGN §3). split_angle
+    # criterion(reference_relative)이 소비: over = max(0, deficit − tol). None/0 → 미방출(honest 0).
+    if split_deficit_deg is not None:
+        d_split = float(split_deficit_deg)
+        if d_split == d_split and d_split > 0.0:  # not NaN, 양수만
+            md["split_angle"] = d_split
 
     # ── 24-07 ① fix: reference-relative per-joint 각도 편차 seed (미등록 동작 granular) ──
     # ipsf_absolute(extension) seed 가 빈 미등록 동작(인식기 미등재 → expects_extension 전부
@@ -2935,6 +2948,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # 23-02 Task 5 — frame-specific 각도 정량화용 기준 영상 각도 (a_ref). Mode1 에서만 채움.
     # Mode3 는 None → collect 가 mode3_held 로 보류, quantification 미산출.
     reference_angles_for_veto = None
+    # split deficit (reference_relative, mode1 only) — max(0, 정은지 max-split − 학생 max-split).
+    # Mode3/legacy 는 None → split_angle 미방출(honest 0). 아래 Mode1 블록에서만 채움.
+    split_deficit_deg = None
 
     # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
     target_torso = _extract_target_torso_px(pose_frames)
@@ -2980,6 +2996,27 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             source_keypoints = (
                 ref_source_pose.to_keypoints_array() if ref_source_pose else None
             )
+            # ── split deficit (reference_relative) — 객관 inter-thigh 사이각 부족분 ──
+            # 학생 max-split(peak, keypoints_4ch) vs 정은지 max-split. reference 는 re-seed 한
+            # referenceSplitAngle(정은지 max-split) 우선; 미존재 시 bodyComparisonSourcePose
+            # 1프레임 split 임시 대체(대표 프레임 — peak 아닐 수 있음, 제한적, 15-DESIGN §데이터).
+            # 둘 중 하나라도 NaN/부재면 split_deficit_deg=None → split_angle 미방출(honest 0).
+            try:
+                student_split, _ = max_split(split_angle_series(inputs.keypoints_4ch))
+            except Exception:  # noqa: BLE001 — 측정 실패는 split 미채점(honest 0)
+                student_split = float("nan")
+            reference_split = ref.get("referenceSplitAngle")
+            if reference_split is None and source_keypoints is not None:
+                try:
+                    reference_split = float(split_angle_series(source_keypoints[None, :, :])[0])
+                except Exception:  # noqa: BLE001 — source-pose 형상/순서 불일치 → 미채점
+                    reference_split = None
+            if (
+                reference_split is not None
+                and float(reference_split) == float(reference_split)  # not NaN
+                and student_split == student_split  # not NaN
+            ):
+                split_deficit_deg = max(0.0, float(reference_split) - float(student_split))
             # R2 canary — bodyNormalizationProfile 있는데 source_pose 만 None 일 때 명시적 경고.
             extra_warnings: list[str] = []
             if ref_profile_dict and not ref_source_pose:
@@ -3358,6 +3395,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # 24-07 ① — mode1 에서 set(2987/2988), mode3/legacy 는 None → graceful 미방출.
                 reference_dtw_match=reference_dtw_match,
                 reference_angles=reference_angles_for_veto,
+                # split — mode1 에서만 산출(reference_relative), mode3/legacy 는 None → 미방출.
+                split_deficit_deg=split_deficit_deg,
             )
             result = _apply_vision_veto(
                 result,

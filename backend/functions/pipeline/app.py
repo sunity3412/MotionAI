@@ -2999,24 +2999,34 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # ── split deficit (reference_relative) — 객관 inter-thigh 사이각 부족분 ──
             # 학생 max-split(peak, keypoints_4ch) vs 정은지 max-split. reference 는 re-seed 한
             # referenceSplitAngle(정은지 max-split) 우선; 미존재 시 bodyComparisonSourcePose
-            # 1프레임 split 임시 대체(대표 프레임 — peak 아닐 수 있음, 제한적, 15-DESIGN §데이터).
-            # 둘 중 하나라도 NaN/부재면 split_deficit_deg=None → split_angle 미방출(honest 0).
-            try:
-                student_split, _ = max_split(split_angle_series(inputs.keypoints_4ch))
-            except Exception:  # noqa: BLE001 — 측정 실패는 split 미채점(honest 0)
-                student_split = float("nan")
-            reference_split = ref.get("referenceSplitAngle")
-            if reference_split is None and source_keypoints is not None:
+            # 1프레임 split 임시 대체. 둘 중 하나라도 NaN/부재면 None → split_angle 미방출.
+            #
+            # ⚠ 스코프 게이트(belle 2026-06-29 결정 "스코프 축소", [[split-measurement-doesnt
+            # -discriminate-kipup]]): split 은 profile.required_split_deg 가 set 된 **진짜
+            # split-요구 동작에만** 발화한다. pod 실측서 inter-thigh peak max-split 이 dynamic
+            # 동작(kip-up/elbow-twist/pdshape) fault/correct 를 변별 못 함이 반증됨(antiparallel
+            # thigh = 수직 라인도 180°라 saturate). kip-up 은 split 이 아니라 별 트랙(vision/
+            # temporal). 비-split 동작에서 reference 대표프레임 다리벌림이 위양성 내는 것 차단
+            # (belle #1 = 위양성 0). 현재 어떤 recognizer 도 required_split_deg 를 set 안 함 →
+            # split 전면 미발화(infra 보존, 진짜 split 동작 지정 시 활성). 채점 자체는
+            # reference_relative(값 아닌 presence 만 게이트로 사용 — 객관 180° 강요 아님).
+            if profile is not None and getattr(profile, "required_split_deg", None) is not None:
                 try:
-                    reference_split = float(split_angle_series(source_keypoints[None, :, :])[0])
-                except Exception:  # noqa: BLE001 — source-pose 형상/순서 불일치 → 미채점
-                    reference_split = None
-            if (
-                reference_split is not None
-                and float(reference_split) == float(reference_split)  # not NaN
-                and student_split == student_split  # not NaN
-            ):
-                split_deficit_deg = max(0.0, float(reference_split) - float(student_split))
+                    student_split, _ = max_split(split_angle_series(inputs.keypoints_4ch))
+                except Exception:  # noqa: BLE001 — 측정 실패는 split 미채점(honest 0)
+                    student_split = float("nan")
+                reference_split = ref.get("referenceSplitAngle")
+                if reference_split is None and source_keypoints is not None:
+                    try:
+                        reference_split = float(split_angle_series(source_keypoints[None, :, :])[0])
+                    except Exception:  # noqa: BLE001 — source-pose 형상/순서 불일치 → 미채점
+                        reference_split = None
+                if (
+                    reference_split is not None
+                    and float(reference_split) == float(reference_split)  # not NaN
+                    and student_split == student_split  # not NaN
+                ):
+                    split_deficit_deg = max(0.0, float(reference_split) - float(student_split))
             # R2 canary — bodyNormalizationProfile 있는데 source_pose 만 None 일 때 명시적 경고.
             extra_warnings: list[str] = []
             if ref_profile_dict and not ref_source_pose:

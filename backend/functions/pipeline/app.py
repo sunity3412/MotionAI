@@ -1861,82 +1861,56 @@ def _collect_vision_fault_context(
             # 24-06 §3 진단 — alignment 텔레메트리 보존(collect-side drop 금지).
             return _ctx("low_alignment_confidence", frame_pairs=[], alignment=alignment)
 
-        # (2/3) Gemini 호출. **production(still-pair) = part-wise fan-out** (23 GAP-FIX).
-        #   assess_fault_context 는 canonical FaultKey + support 게이트 + root cause 를
-        #   보존한 rich dict 를 반환한다 — to_trace_dict 가 faultKeys/geminiCallCount 를
-        #   채운다(Pod eval 의 recall_set=[]/call_count=0 회귀 차단). whole-video 폴백
-        #   (pair is None)은 back-compat 으로 assess_fault_severity 유지.
+        # (2/3) Gemini 호출 = **full-VIDEO reference-anchored part-wise fan-out** (Phase 24
+        # close-out A, belle 2026-06-29). 과거 production 은 still-frame 1쌍(pair)을 fan-out 에
+        # 넣었는데, dynamic/inverted 동작(kip-up)에서 단편 프레임이 결함 순간을 놓쳐 위양성을
+        # 냈다(2026-06-29 A/B sweep: kip-up fault 99/100, vision eligible인데도 미검출,
+        # [[kipup-fp-is-stillframe-vision-not-alignment-gate]]). full-video 입력은 Gemini 가
+        # 영상 안에서 결함 순간을 직접 찾게 한다(spike 6/6 변별). _call_gemini_comparison
+        # 프롬프트는 이미 "두 영상" 비교용이라 영상 입력이 더 정합. still-pair(pair)는 정량화/
+        # fault-zoom 용으로만 ctx 에 실어 보낸다(frame_pairs) — 채점 결함은 영상에서 나온다.
+        # canonical FaultKey + support 게이트 + root cause + telemetry(faultKeys/callCount) 보존.
         try:
-            if pair is not None:
-                rich = gemini_vision_scorer.assess_fault_context(
-                    pair.student_frame_path,
-                    pair.reference_frame_path,
-                    at_seconds=at,
-                    part_scopes=list(gemini_vision_scorer.VETO_PART_SCOPES),
-                    frame_indices=[pair.user_frame_idx],
-                    reference_frame_indices=[pair.ref_frame_idx],
-                    selector_version=selection.get("selector_version"),
-                )
-            else:
-                rich = None
-                verdict = gemini_vision_scorer.assess_fault_severity(
-                    local_video_path,
-                    at_seconds=at,
-                    reference_video_path=reference_video_path,
-                )
+            rich = gemini_vision_scorer.assess_fault_context_video(
+                local_video_path,
+                reference_video_path,
+                at_seconds=at,
+                part_scopes=list(gemini_vision_scorer.VETO_PART_SCOPES),
+            )
         finally:
-            # 로컬 still 이미지 unlink (Gemini File API delete 와 독립, D-10 HIGH-2).
+            # still 이미지(pair) unlink — vision 입력은 아니지만 quant/zoom 산출 후 outer 가
+            # 쓰는 reference 영상과 독립. pair 정리는 여기서(생성처와 짝, D-10 HIGH-2).
             if pair is not None:
                 for p in pair.cleanup_paths:
                     _safe_unlink_local_video(p)
 
-        # ── still-pair (production) — rich dict 소비 ──
-        if pair is not None:
-            telemetry = dict(rich.get("telemetry") or {})
-            status = rich.get("status")
-            if status == "resource_limited":
-                # 예산 소진 fail-closed (Option A) — verdict 후보 금지.
-                return _ctx("resource_limited", frame_pairs=[pair],
-                            alignment=alignment, telemetry=telemetry)
-            verdict = rich.get("verdict")
-            if verdict is None or status != "candidate_verdict":
-                return _ctx("skipped_error", frame_pairs=[pair],
-                            alignment=alignment, telemetry=telemetry)
-            if getattr(verdict, "severity", "none") == "none":
-                return _ctx("no_fault", verdict=verdict, frame_pairs=[pair],
-                            alignment=alignment, telemetry=telemetry)
-
-            # (4) cap_would_apply — Phase 24 band-free coach-root-cause eligibility pointer
-            # (HIGH-6): Gemini 이 coach-worthy(moderate/major) fault 를 짚었는지(severity-only,
-            # 밴드 산식 아님 — minor/none 미발화). 과거 score-below-cap 의존 cap 산식과
-            # byte-동일 아님(continuity).
-            cap_would_apply = getattr(verdict, "severity", "none") in ("moderate", "major")
-            return _ctx(
-                "candidate_verdict",
-                verdict=verdict,
-                supported=list(rich.get("supported_differences") or ()),
-                root_causes=list(rich.get("root_cause_hypotheses") or ()),
-                frame_pairs=[pair],
-                alignment=alignment,
-                telemetry=telemetry,
-                cap=cap_would_apply,
-            )
-
-        # ── whole-video 폴백 (pair is None) — back-compat (단일 verdict) ──
-        if verdict is None:
-            return _ctx("skipped_error", frame_pairs=[])
+        # still-pair 는 정량화/fault-zoom 용으로만 ctx 에 보존(vision 결함과 무관).
+        pairs_for_ctx = [pair] if pair is not None else []
+        telemetry = dict(rich.get("telemetry") or {})
+        status = rich.get("status")
+        if status == "resource_limited":
+            # 예산 소진 fail-closed (Option A) — verdict 후보 금지.
+            return _ctx("resource_limited", frame_pairs=pairs_for_ctx,
+                        alignment=alignment, telemetry=telemetry)
+        verdict = rich.get("verdict")
+        if verdict is None or status != "candidate_verdict":
+            return _ctx("skipped_error", frame_pairs=pairs_for_ctx,
+                        alignment=alignment, telemetry=telemetry)
         if getattr(verdict, "severity", "none") == "none":
-            return _ctx("no_fault", verdict=verdict, frame_pairs=[],
-                        alignment=alignment)
+            return _ctx("no_fault", verdict=verdict, frame_pairs=pairs_for_ctx,
+                        alignment=alignment, telemetry=telemetry)
 
-        # Phase 24 band-free coach-root-cause eligibility pointer (HIGH-6, severity-only).
+        # cap_would_apply — band-free coach-root-cause eligibility pointer (HIGH-6,
+        # severity-only): Gemini 이 coach-worthy(moderate/major) fault 를 짚었는지.
         cap_would_apply = getattr(verdict, "severity", "none") in ("moderate", "major")
         return _ctx(
             "candidate_verdict",
             verdict=verdict,
-            supported=list(verdict.differences or ()),
-            frame_pairs=[],
+            supported=list(rich.get("supported_differences") or ()),
+            root_causes=list(rich.get("root_cause_hypotheses") or ()),
+            frame_pairs=pairs_for_ctx,
             alignment=alignment,
+            telemetry=telemetry,
             cap=cap_would_apply,
         )
     except Exception:  # noqa: BLE001 - collect 실패는 분석 흐름 차단 0 (graceful)

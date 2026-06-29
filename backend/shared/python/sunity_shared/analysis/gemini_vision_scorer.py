@@ -1014,6 +1014,110 @@ def assess_fault_context(
     return result
 
 
+def assess_fault_context_video(
+    student_video_path: str,
+    reference_video_path: str,
+    *,
+    at_seconds: float | None = None,
+    part_scopes: list | None = None,
+) -> dict:
+    """full-VIDEO 쌍 → 부위별 fan-out rich dict (Phase 24 close-out A, belle 2026-06-29).
+
+    assess_fault_context 의 still-frame 변형 — 두 still IMAGE 대신 학생/기준 **영상 전체**를
+    업로드(_upload_video)해 동일 _run_part_frame_fanout 을 돌린다. 산출(supported_differences
+    +canonical FaultKey +support 게이트 +root cause)·감점 배선·정리 디시플린 전부 동일하고
+    **입력만 full-video** 다.
+
+    왜 (실측 근거): production still-frame 경로는 kip-up 같은 dynamic/inverted 동작에서 결함을
+    못 잡았다(2026-06-29 A/B sweep: kip-up fault 99/100 위양성, vision eligible인데도 단편
+    프레임이 결함 순간을 놓침, [[kipup-fp-is-stillframe-vision-not-alignment-gate]]). 반면
+    full-video reference-anchored 비교는 6/6 변별([[vision-track-validated-alignment-gate-blocks-it]]).
+    `_call_gemini_comparison` 프롬프트는 이미 "두 영상" 비교용이라 영상 입력이 더 정합이다
+    (still 을 영상이라 라벨링하던 mismatch 해소). frame 선택/alignment 의존 0 — Gemini 가
+    영상 안에서 결함 순간을 직접 찾는다.
+
+    캐시: INPUT_GRANULARITY('whole') + (student, reference) 영상 hash PAIR → frame_pair 키와
+    충돌 0. 결정론(eval cold/warm): rich dict round-trip 동일. 객관성/graceful 디시플린은
+    assess_fault_context 와 동일(어떤 실패도 status='skipped_error').
+    """
+    scopes = list(part_scopes) if part_scopes else list(VETO_PART_SCOPES)
+
+    def _skipped(telemetry: dict | None = None) -> dict:
+        return {
+            "status": "skipped_error",
+            "verdict": None,
+            "supported_differences": [],
+            "root_cause_hypotheses": [],
+            "telemetry": telemetry or {},
+        }
+
+    try:
+        client = _ensure_client()
+    except Exception as exc:  # noqa: BLE001 - Pitfall 5 graceful
+        log.warning("Gemini client 사용 불가 — video 비교 skipped (graceful): %s", exc)
+        return _skipped()
+
+    try:
+        from .technique_cache import compute_video_hash
+
+        student_hash = compute_video_hash(student_video_path)
+        reference_hash = compute_video_hash(reference_video_path)
+    except FileNotFoundError:
+        log.warning("영상 없음 — video 비교 skipped (graceful)")
+        return _skipped()
+    except Exception as exc:  # noqa: BLE001 - hash 실패 graceful
+        log.warning("video hash 산출 실패 — skipped (graceful): %s", exc)
+        return _skipped()
+
+    cache = VisionVetoCache()
+    key = VisionVetoCache.build_key(
+        video_hash=student_hash,
+        model_name=DEFAULT_VISION_MODEL,
+        input_granularity=INPUT_GRANULARITY,  # 'whole' — frame_pair 키와 충돌 0.
+        at_seconds=at_seconds,
+        reference_hash=reference_hash,
+    )
+
+    cached = cache.lookup_rich(key)
+    if cached is not None:
+        log.info("VisionVetoCache rich hit (video): %s", student_hash[:8])
+        tel = dict(cached.get("telemetry") or {})
+        tel["cacheKey"] = key
+        tel["cacheHit"] = True
+        cached["telemetry"] = tel
+        return cached
+
+    student_uploaded = None
+    ref_uploaded = None
+    try:
+        student_uploaded = _upload_video(client, student_video_path)
+        ref_uploaded = _upload_video(client, reference_video_path)
+        result = _run_part_frame_fanout(
+            client, ref_uploaded, student_uploaded,
+            part_scopes=scopes, at_seconds=at_seconds,
+        )
+    except Exception as exc:  # noqa: BLE001 - 업로드/fan-out 실패 graceful (Pitfall 5)
+        log.warning("video fan-out 실패 — skipped (graceful): %s", exc)
+        return _skipped()
+    finally:
+        for _handle in (student_uploaded, ref_uploaded):
+            _name = getattr(_handle, "name", None)
+            if not _name:
+                continue
+            try:
+                client.files.delete(name=_name)
+            except Exception:  # noqa: BLE001 - 정리 실패는 분석을 막지 않는다
+                log.warning("Gemini 업로드 파일 삭제 실패 (graceful): %s", _name)
+
+    tel = dict(result.get("telemetry") or {})
+    tel["cacheKey"] = key
+    tel["cacheHit"] = False
+    tel["inputGranularity"] = INPUT_GRANULARITY
+    result["telemetry"] = tel
+    cache.store_rich(key, result)
+    return result
+
+
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
 
 _SEVERITY_RANK = {"none": 0, "minor": 1, "moderate": 2, "major": 3}

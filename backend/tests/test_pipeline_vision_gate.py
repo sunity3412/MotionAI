@@ -674,9 +674,12 @@ class TestStillPairFanoutWiring:
     """production still-pair 경로가 part-wise fan-out 의 rich dict 를 소비해 trace 에
     faultKeys + geminiCallCount 를 채우는지 회귀 검증 (Pod eval recall_set=[]/call_count=0 차단).
 
-    Gemini 미호출(mock) — assess_fault_context 를 support 통과 difference(_faultKey 부착) +
-    root cause + telemetry 를 든 rich dict 로 대체한다. _build_selected_frame_pair 도 mock 해
-    still-pair 분기(pair is not None)를 강제한다.
+    Gemini 미호출(mock) — assess_fault_context_video 를 support 통과 difference(_faultKey
+    부착) + root cause + telemetry 를 든 rich dict 로 대체한다. Phase 24 close-out A(2026-06-29):
+    collect 의 vision 결함 검출이 full-VIDEO fan-out(assess_fault_context_video)을 타므로
+    mock 대상·인자 계약이 still-frame → 학생/기준 **영상 path** 로 바뀌었다. still-pair(pair)는
+    정량화/zoom 용으로만 ctx 에 실리므로 _build_selected_frame_pair 는 그대로 mock(frame_pairs
+    검증용).
     """
 
     def _stub_collect(self, monkeypatch, *, rich_status, supported, root_causes,
@@ -685,7 +688,7 @@ class TestStillPairFanoutWiring:
         from sunity_shared.analysis import gemini_vision_scorer, vision_veto
 
         monkeypatch.setattr(app, "_gemini_vision_veto_enabled", lambda: True)
-        # still-pair 강제 — _build_selected_frame_pair 가 frame path 든 pair 반환.
+        # still-pair 는 정량화/zoom 용으로만 ctx 에 실린다(vision 입력 아님).
         pair = vision_veto.SelectedFramePair(
             student_frame_path="/tmp/student_worst.png",
             reference_frame_path="/tmp/ref_match.png",
@@ -695,12 +698,11 @@ class TestStillPairFanoutWiring:
             cleanup_paths=(),
         )
         monkeypatch.setattr(app, "_build_selected_frame_pair", lambda **k: pair)
-        # 정렬 게이팅은 single(reference_dtw_match=None) → adoption='single' 경로.
 
-        def _fake_fanout(student_frame_path, reference_frame_path, **k):
-            # production 인자 계약 확인 — still IMAGE path 가 전달돼야 한다.
-            assert student_frame_path == "/tmp/student_worst.png"
-            assert reference_frame_path == "/tmp/ref_match.png"
+        def _fake_video_fanout(student_video_path, reference_video_path, **k):
+            # production 인자 계약 — full-VIDEO path 가 전달돼야 한다(still 아님).
+            assert student_video_path == "/tmp/student.mp4"
+            assert reference_video_path == "/tmp/ref.mp4"
             return {
                 "status": rich_status,
                 "verdict": gemini_vision_scorer.VisionVerdict(
@@ -716,12 +718,16 @@ class TestStillPairFanoutWiring:
             }
 
         monkeypatch.setattr(
-            gemini_vision_scorer, "assess_fault_context", _fake_fanout
+            gemini_vision_scorer, "assess_fault_context_video", _fake_video_fanout
         )
-        # whole-video 어댑터는 호출되면 안 된다(still-pair 경로). 호출 시 fail.
+        # 구 어댑터(still assess_fault_context / whole-video assess_fault_severity)는 호출 금지.
+        monkeypatch.setattr(
+            gemini_vision_scorer, "assess_fault_context",
+            lambda *a, **k: pytest.fail("video 경로가 still assess_fault_context 호출"),
+        )
         monkeypatch.setattr(
             gemini_vision_scorer, "assess_fault_severity",
-            lambda *a, **k: pytest.fail("still-pair 경로가 whole-video 어댑터 호출"),
+            lambda *a, **k: pytest.fail("video 경로가 whole-video 어댑터 호출"),
         )
         return app, vision_veto
 

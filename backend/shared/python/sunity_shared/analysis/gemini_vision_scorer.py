@@ -91,6 +91,12 @@ DEFAULT_VISION_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
 INPUT_GRANULARITY = "whole"
 # still-frame 비교 경로 granularity 마커 (Task 1, D-01) — whole 키와 충돌 0.
 INPUT_GRANULARITY_FRAME_PAIR = "frame_pair"
+# full-video fan-out(assess_fault_context_video) granularity 마커 (Phase 24 close-out A,
+# 2026-06-29). assess_fault_severity 의 'whole' verdict-only 캐시와 **반드시 분리** — 동일
+# 'whole' 키면 lookup_rich 가 verdict-only doc(status/supported 부재)을 읽어 status=""/
+# supported=[] no-fault 로 오인한다(kip-up FP 원인 확정: historical assess_fault_severity
+# 'whole' 엔트리를 video fan-out 이 stale-hit). rich round-trip 전용 키 공간.
+INPUT_GRANULARITY_WHOLE_FANOUT = "whole_fanout"
 
 # ─────────────────── 자원 bound + support 게이트 상수 (Task 2, H1/H6) ───────────────────
 #
@@ -1073,7 +1079,9 @@ def assess_fault_context_video(
     key = VisionVetoCache.build_key(
         video_hash=student_hash,
         model_name=DEFAULT_VISION_MODEL,
-        input_granularity=INPUT_GRANULARITY,  # 'whole' — frame_pair 키와 충돌 0.
+        # 'whole_fanout' — assess_fault_severity 의 'whole' verdict-only 캐시와 분리(필수,
+        # 위 상수 주석: lookup_rich stale-hit 차단). frame_pair 키와도 충돌 0.
+        input_granularity=INPUT_GRANULARITY_WHOLE_FANOUT,
         at_seconds=at_seconds,
         reference_hash=reference_hash,
     )
@@ -1112,7 +1120,7 @@ def assess_fault_context_video(
     tel = dict(result.get("telemetry") or {})
     tel["cacheKey"] = key
     tel["cacheHit"] = False
-    tel["inputGranularity"] = INPUT_GRANULARITY
+    tel["inputGranularity"] = INPUT_GRANULARITY_WHOLE_FANOUT
     result["telemetry"] = tel
     cache.store_rich(key, result)
     return result

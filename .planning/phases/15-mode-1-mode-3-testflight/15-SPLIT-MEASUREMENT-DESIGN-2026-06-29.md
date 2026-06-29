@@ -37,3 +37,34 @@
 - 합성 정답: 키포인트에 알려진 split 주입 → 측정값 일치 + 단조성(더 벌릴수록 split↑).
 - pod re-sweep: kip-up fault < correct (split 변별), 다른 동작 회귀 0.
 - belle 감사: split 감점이 육안과 일치하나.
+
+---
+
+## 2026-06-29 실측 결과 — peak 가정 반증 + belle 스코프 축소 결정
+
+pod(nd75jms89xq658, RTMW cuda) 측정-레벨 진단 결과, **설계의 핵심 가정("peak max-split이
+kip-up split을 변별")이 실측에서 반증됨**. 합성 측정 정확도(§검증 ①)는 통과했으나, 실영상
+변별(②)은 전 페어 실패.
+
+**eval 6페어 (fault_deficit / correct_deficit, reference_relative)**:
+- kip-up / elbow-twist-sister / pdshape: ref·fault·correct 전부 **peak=180° saturate** → 0/0.
+- climb: ref105 / fault**166** / correct127 → **역전**(fault가 더 벌어짐).
+- power-spin: ref179 / fault165 / correct180 → fault 13.8°(<tol 20°, sub-threshold).
+- peter-pan: ref58 / fault65 / correct64 → fault≈correct, split 무관.
+
+**kip-up percentile**(peak=transient 증명): max=180은 1프레임. p50 ref43.7/fault46.0/correct42.9,
+p75~59-62, p90 66-70 — **모든 통계서 fault≈correct**. hold-window 전환도 무효.
+
+**근본 원인**: inter-thigh 각도는 두 허벅지 antiparallel(반대 방향)이면 포즈 무관 180°.
+"옆 straddle"과 "수직 라인(한 다리 위/아래)"을 구분 못 함 → dynamic/inverted 동작 saturate.
+peak 프레임 육안(kip-up fault=컴팩트·수직 vs correct=확장·수평, 명백히 다른 포즈인데 둘 다
+180°): belle 육안 "correct가 split 넓다"는 전체 라인/확장 품질이지 inter-thigh 각도가 아님.
+
+**belle 결정 = 스코프 축소(A)**:
+- split 채점 인프라 유지(reference_relative wiring + referenceSplitAngle seed 경로, 회귀 0) —
+  진짜 split-요구 동작용. kip-up 은 split 아님 → 별 트랙(vision/temporal, session-handoff-2026-06-27).
+- 게이트: `profile.required_split_deg is not None` 인 동작에만 split 발화(commit 34ad161).
+  현재 어떤 recognizer 도 set 안 함 → 전면 미발화(위양성 0). 진짜 split 동작 지정 시 활성.
+- seed(referenceSplitAngle pod 재추출) / re-sweep 보류.
+
+박제: memory `split-measurement-doesnt-discriminate-kipup`.

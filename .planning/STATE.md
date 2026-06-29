@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: 24-04 코드 게이트 GREEN — Pod 재-sweep + belle 검증 PENDING (orchestrator-owned)
-stopped_at: Phase 24-A close-out 완료 2026-06-29 (kip-up FP 해결 99→88, 5/5 변별, 엔진 production 검증+캐시버그fix). Phase 20·24 CLOSED. 잔여 minor=calibration(pod 필요)
-last_updated: "2026-06-25T17:00:51.294Z"
-last_activity: 2026-06-25
+stopped_at: Phase 10 context gathered
+last_updated: "2026-06-29T12:24:13.685Z"
+last_activity: "2026-06-29 - 분석정확도 본작업 시작: belle 입력으로 kip-up 변별=다리벌림(split) 확정 → 코드상 객관 split 측정 부재(Gemini 의존) 발견 = audit P3 정합. 설계 박제 + split 기하 측정 primitive(split_angle_series/max_split, IPSF 허벅지 사이각) + 합성검증(0/90/180° 12 tests) 완료. 다음=측정 wiring(키포인트→md→split_angle criterion)+reference split 데이터+pod 재검증. (P1 정타오염=완료, P2 Mode3근거공개=이미됨)"
 progress:
   total_phases: 7
   completed_phases: 2
@@ -647,9 +647,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-25T17:00:41.535Z
+Last session: 2026-06-29T12:24:13.670Z
 
-Stopped at: Phase 24 context gathered (투명 감점-합산 채점 엔진 — 20 밴드 pivot)
+Stopped at: Phase 10 context gathered
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -716,7 +716,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: None
+Resume file: .planning/phases/10-injury-risk-flags/10-CONTEXT.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

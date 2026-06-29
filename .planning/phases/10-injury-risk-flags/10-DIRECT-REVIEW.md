@@ -104,3 +104,56 @@ I would not execute Phase 10 as-is because the D-05 channel semantics mismatch i
 **Codex verification verdict: No HIGH-severity concerns remaining. Overall Risk: LOW.** No new HIGH introduced. Only residual is intentional (D-05 fails conservative when no clear flexion calibration frame → possible false-negative, which protects the elite no-false-positive core value).
 
 Committed: 3d1b61d (plans), this resolution note follows.
+
+---
+
+## Direct Review Round 2 (2026-06-29)
+
+### HIGH — D-05 real-elite 3D fixture source is still unsafe
+
+`10-03-PLAN.md` now correctly says the D-05 real-elite regression MUST use actual 3D `(T,17,4)` keypoints and MUST NOT use angle-only `reference-angles.json`. That is the right requirement.
+
+However, the plan still names `backend/scripts/extract_reference_keypoint_reports.py` / `referenceKeypointReport` as the path that can produce real `(T,17,4)` fixtures. That is not what the current code produces:
+
+- `extract_reference_keypoint_reports.py` documents its output as `version`, `joints`, `frames`, `fps`, `data`, `confidence`, `reliability`, `axisData`, `axisMask`, `warnings`.
+- `_process_motion()` runs RTMW, then immediately calls `build_keypoint_report(pose_frames, fps=target_fps)`.
+- `build_keypoint_report()` consumes `frame.keypoints_2d`, writes 8 body keypoints, flattens `data` as x/y pairs, and validates `len(data) == T * J * 2` and `len(confidence) == T * J`.
+- The actual `(T,17,4)` 3D source is `pose_frame.to_coco17_array()`, which writes COCO-17 `(x, y, z, uncertainty_proxy)`.
+
+Impact:
+
+An executor can follow the plan, use `referenceKeypointReport`, and believe D-05 has real 3D elite coverage while the test is actually backed by 2D overlay data or a converted/partial substitute. That weakens the most important safety invariant for D-05: no false positive on real elite motions under inversion, spin, and extreme split geometry.
+
+What I would do:
+
+1. Amend `10-03-PLAN.md` to remove `referenceKeypointReport` as a valid D-05 3D fixture artifact.
+2. Add or require a dedicated extractor, e.g. `backend/scripts/extract_reference_coco17_4ch.py`, or an explicit `--out-coco17-4ch` mode.
+3. That extractor should reuse the existing reference-video download/frame extraction/RTMW estimate path, but persist `to_coco17_array(pose_frames)` directly.
+4. The checked-in fixture should record: source motion ID, fps, frame count, `skeleton.KEYPOINT_NAMES` order, coordinate space, extractor version/commit, extraction date, and the fact that channel 3 is `uncertainty_proxy`.
+5. The D-05 real-elite test should assert shape `(T,17,4)`, joint count 17, and key order equals `skeleton.KEYPOINT_NAMES`. It should reject `KeypointReport`-style artifacts with `joints` length 8 or `data` length `T*J*2`.
+6. Add an acceptance grep/fixture schema gate forbidding `referenceKeypointReport` / `reference-keypoint-reports` as satisfying D-05 3D coverage. The existing script can be cited only as a pattern for fetching/extracting reference frames, not as the output artifact.
+
+### Resolved From Round 1
+
+- D-05 channel semantics are now corrected: Phase 10 plans call channel 3 `uncertainty_proxy`, gate with `MAX_KP_UNCERTAINTY`, and require `test_d05_uncertainty_channel_not_inverted`.
+- `_phase_for_window(fsr.phase_boundaries, s, e)` is now pinned with max-overlap semantics and no widening when phase cannot be derived.
+- Validation text now reflects GREEN/strict-xfail discipline and includes the uncertainty-channel regression.
+
+## Round 2 Verdict
+
+I would still hold execution until the D-05 real-elite fixture-source language is corrected. The previous HIGH uncertainty-channel issue is resolved, but this remaining D-05 source issue is high-risk because it can create false confidence in the exact regression set meant to protect elite no-false-positive behavior.
+
+---
+
+## Resolution 2 — D-05 3D fixture source HIGH (round 4) + Codex verify (2026-06-29)
+
+**HIGH (D-05 real-elite 3D fixture cited a 2D-output script): RESOLVED.** Verified: `extract_reference_keypoint_reports.py:113` → `build_keypoint_report` → 2D KeypointReport (`data`=T*J*2, J=8 + axisData; assemble.py:781,924), NOT (T,17,4). The real 3D path is `to_coco17_array` (pose_frame.py:325) → (x,y,z,uncertainty_proxy), 17 keypoints in `skeleton.KEYPOINT_NAMES` order.
+
+Fix (10-03 + 10-01 + 10-VALIDATION):
+- `referenceKeypointReport` (2D) AND `reference-angles.json` (angle-only) BOTH explicitly forbidden as D-05 3D sources.
+- Required a dedicated 3D extractor (`extract_reference_coco17_4ch.py` / `--out-coco17-4ch` running `frames→engine.estimate→pose_frames→to_coco17_array`) OR a checked-in compact (T,17,4) fixture via `to_coco17_array` with conftest provenance. Pinned source IDs (ref-sideway-spin / ref-invert / ref-foxtop-split) preserved — only the extraction PATH corrected.
+- `test_d05_real_elite_fixture_schema` added: asserts shape (T,17,4), 17 joints, `skeleton.KEYPOINT_NAMES` order, ch3=uncertainty_proxy ∈ [0,1] (NaN→1.0). Plus provenance grep gate forbidding both 2D sources.
+
+**Codex verification verdict: No HIGH remaining. Overall Risk: LOW.** Prior fixes (uncertainty_proxy gate, _phase_for_window, xfail discipline) confirmed NOT regressed. Minor residual (compact-fixture provenance enforced by comment/acceptance rather than cryptographically tied to extractor output) — not HIGH; schema gate blocks the 2D/8-joint mistake.
+
+Committed plans: fix in this session (10-01/10-03/10-VALIDATION).

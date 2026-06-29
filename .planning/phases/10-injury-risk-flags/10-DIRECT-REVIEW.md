@@ -320,3 +320,51 @@ I would still hold execution. The previous structural issues are fixed, but the 
 **Hygiene nit (non-HIGH, fixed directly):** wrong-joint example value changed 'left_wrist' → 'left_elbow' (unstable_body_parts uses joint-angle keys; left_wrist is an endpoint keypoint, not a valid value) in 10-01/10-02/10-03.
 
 **Codex verification verdict: No HIGH remaining. Overall Risk: LOW.** All prior fixes confirmed not regressed. Caveat: plan-contract review only (safety_flags.py / backend/tests/phase10 not yet implemented — runtime unassessed, expected at planning stage).
+
+---
+
+## Direct Review Round 5 (2026-06-30)
+
+### Scope
+
+Re-reviewed the round-4 resolution across `10-01-PLAN.md`, `10-02-PLAN.md`, `10-03-PLAN.md`, `10-04-PLAN.md`, `10-VALIDATION.md`, and the relevant source contracts in `skeleton.py`, `force_signals.py`, `models.py`, `analysis.ts`, and `_process`.
+
+### MEDIUM — validation doc still names an invalid `unstable_body_parts` key
+
+`10-VALIDATION.md` keeps the D-05 wrong-joint fixture example as `left_wrist`. That was fixed in the phase plans, but the validation checklist is still stale.
+
+Evidence:
+- `10-VALIDATION.md:55` says `wrong_joint_same_phase_report` should use a different joint, for example `left_wrist`.
+- `backend/shared/python/sunity_shared/analysis/skeleton.py:39-50` defines joint-angle keys as elbows, shoulders, hips, and knees only.
+- `backend/shared/python/sunity_shared/analysis/force_signals.py:1189-1200` derives `unstable_body_parts` from joint-angle instability, so endpoint keypoints such as wrists are not valid emitted joint keys.
+
+Impact:
+- This is not a remaining algorithm HIGH, because `10-01-PLAN.md` and `10-03-PLAN.md` now correctly use `left_elbow` for the wrong-joint fixture.
+- It is still a real validation risk: an executor following `10-VALIDATION.md` literally could build a fixture that cannot be produced by the force-signal contract, then either hand-author an impossible report or weaken the test to make it pass.
+
+What I would do:
+1. Change `10-VALIDATION.md:55` from `left_wrist` to a valid non-knee joint key such as `left_elbow`.
+2. Add a fixture precondition assertion for D-05 control-loss reports: every `unstable_body_parts` value used by the fixture must be in `skeleton.JOINT_KEYS`.
+3. Add a small validation grep/check that forbids endpoint keypoints such as `left_wrist`, `right_wrist`, `left_ankle`, `right_ankle`, or face keypoints as `unstable_body_parts` values in Phase 10 fixtures.
+
+### LOW — trunk temporal-colocation fixture is acceptable but less explicit than D-05
+
+`10-02-PLAN.md` keeps `window_disjoint_report` for the trunk temporal-colocation test. That fixture still changes both phase overlap and joint locality at once, but round 4 added a separate `test_and_gate_wrong_phase_no_flag`, and D-05 explicitly forbids using this fixture. This is no longer a blocker.
+
+What I would do:
+- Leave execution unblocked.
+- If tightening further, mirror the D-05 fixture naming for trunk with separate `wrong_phase_hip_control_loss_report` and `wrong_joint_same_phase_report` fixtures. That would make the test intent easier to audit later.
+
+### Round 5 Verdict
+
+No HIGH findings remain. I would proceed after patching the stale validation example, because the remaining MEDIUM is documentation/fixture drift rather than a design flaw in the planned detector logic.
+
+---
+
+## Resolution 5 — final MEDIUM cleanup (2026-06-30) — CONVERGED, wrap-up
+
+**MEDIUM (10-VALIDATION.md:55 still had left_wrist + missing precondition): RESOLVED.** Changed the wrong-joint example to `left_elbow` in 10-VALIDATION.md, and added a fixture PRECONDITION to 10-01: every `unstable_body_parts` value MUST be ⊆ `skeleton.JOINT_KEYS` (= JOINT_ANGLES.keys(), skeleton.py:50; sourced via force_signals.py:1189) — asserted in fixtures (3)/(11)/(12), so an invalid endpoint-keypoint value (e.g. left_wrist) can never make a joint-gate test vacuous.
+
+**LOW (trunk window_disjoint_report less explicit): accepted, not blocking.** It is split off as trunk-only (D-05 forbidden from using it; 10-VALIDATION notes trunk-only). No execution-blocking risk.
+
+**Status: CONVERGED. HIGH=0, Overall Risk LOW.** Cross-AI loop (Codex iter1-3) + 4 external direct-review rounds resolved 6 verified contract/test-isolation defects + final cleanup. Phase 10 plans ready for `/gsd-execute-phase 10`. The only residual is intentional (D-05 fails-conservative on ambiguous geometry) and runtime verification deferred to the Wave-0 pytest gate at execution (by design).

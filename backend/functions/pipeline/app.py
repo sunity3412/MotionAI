@@ -1840,13 +1840,25 @@ def _collect_vision_fault_context(
         ) if reference_dtw_match is not None else {"adoption": "single"}
         alignment["selector_version"] = selection.get("selector_version")
 
-        # 정렬 보류 → score-free (거짓결함 fabricate 안 함, D-03).
-        if alignment.get("adoption") == "low_alignment_confidence":
-            if pair is not None:
-                for p in pair.cleanup_paths:
-                    _safe_unlink_local_video(p)
-            # 24-06 §3 진단 — alignment 텔레메트리를 bail 에서도 보존(collect-side drop 금지).
-            # 다른 adoption return 은 이미 alignment 를 넘긴다; 이 bail 만 누락했었다. score 무관.
+        # 정렬 게이트 분리 (Phase 24 plan 06 = Option B1, belle 2026-06-29).
+        # alignment 게이트는 frame "선택 품질"만 판단하게 하고, Gemini "실행 여부"와 분리한다.
+        # 과거: low_alignment 면 Gemini 호출 전 무조건 bail(D-03 fabrication 선제 방어) →
+        # 그런데 keypoint 신뢰도가 낮은 바로 그 동작(kip-up: 다리 keypoint 가 몸통으로 붕괴,
+        # [[split-measurement-doesnt-discriminate-kipup]])에서 Gemini(픽셀 비전)를 꺼버려,
+        # vision 이 가장 필요한 케이스에서 vision 이 차단되는 자기모순이었다. Gemini 는
+        # keypoint 가 아니라 이미지를 본다 — keypoint 저신뢰여도 픽셀로는 비교 가능하다
+        # (2026-06-29 검증: reference-anchored vision 6/6 fault<correct 변별, kip-up 포함).
+        #
+        # B1: frame-pair 를 골랐으면(pair 존재) low_alignment 여도 best-effort 로 Gemini 를
+        # 돌린다. fabrication 방어는 pre-bail 이 아니라 **출력단 support 게이트**로 이동 —
+        # assess_fault_context 가 canonical FaultKey + support count + 시각증거로 확증한
+        # difference 만 채택(어긋난 프레임의 환각 difference 는 support 게이트가 drop). 객관성
+        # 불변(사람 점수 라벨 0, [[analysis-objectivity-no-human-scores]]). alignment.adoption=
+        # low_alignment_confidence 는 아래 모든 _ctx 반환에 그대로 실려 apply/audit 가
+        # 저신뢰로 라벨한다(신규 필드 0). frame 조차 못 고르면(pair None) 비교 자체 불가 →
+        # bail 유지. (rollback = 이 블록을 무조건 bail 로 되돌리면 됨.)
+        if alignment.get("adoption") == "low_alignment_confidence" and pair is None:
+            # 24-06 §3 진단 — alignment 텔레메트리 보존(collect-side drop 금지).
             return _ctx("low_alignment_confidence", frame_pairs=[], alignment=alignment)
 
         # (2/3) Gemini 호출. **production(still-pair) = part-wise fan-out** (23 GAP-FIX).

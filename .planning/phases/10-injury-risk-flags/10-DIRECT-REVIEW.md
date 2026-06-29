@@ -157,3 +157,85 @@ Fix (10-03 + 10-01 + 10-VALIDATION):
 **Codex verification verdict: No HIGH remaining. Overall Risk: LOW.** Prior fixes (uncertainty_proxy gate, _phase_for_window, xfail discipline) confirmed NOT regressed. Minor residual (compact-fixture provenance enforced by comment/acceptance rather than cryptographically tied to extractor output) — not HIGH; schema gate blocks the 2D/8-joint mistake.
 
 Committed plans: fix in this session (10-01/10-03/10-VALIDATION).
+
+---
+
+## Direct Review Round 3 (2026-06-29)
+
+### HIGH — D-05 helper contract cannot derive the hold window it must phase-localize
+
+The previous HIGH items remain fixed: channel 3 is now `uncertainty_proxy`, and the real-elite 3D fixture source now points to `to_coco17_array` instead of the 2D `referenceKeypointReport` artifact.
+
+The remaining high-risk issue is an internal contract mismatch inside D-05:
+
+- `10-03-PLAN.md` says the D-05 firing function receives only `keypoints_4ch + fsr`.
+- The implementation action then specifies `_joint_hyperextension_flag(keypoints_4ch, fsr) -> SafetyFlag | None`.
+- The same paragraph requires the D-05 hold window `(s,e)` to come from `dimensions._select_window`.
+- Existing code shows `dimensions._select_window(angles, profile=None)` needs `angles` and optional `profile` to return `(s,e)`.
+- The locked public `compute_safety_flags(...)` signature already has `angles` and `profile`, so the data is available, but the D-05 private helper contract drops it.
+
+Impact:
+
+An executor following the plan literally has no valid way inside `_joint_hyperextension_flag(keypoints_4ch, fsr)` to call `dimensions._select_window(angles, profile)`. They will either hit an undefined variable, derive a different window from `keypoints_4ch`, use the whole clip, or skip phase mapping. Any of those reopens the D-02 false-positive path for D-05: reverse-bend posture can be paired with control-loss from the wrong phase/window, or a valid posture/control-loss pair can be silently no-oped. This is high-risk because D-05 is the phase's most safety-sensitive warning and its protection depends on joint-local + phase-co-located control-loss.
+
+What I would do:
+
+1. Change the D-05 helper contract to receive the same inputs it needs for windowing:
+
+   ```python
+   def _joint_hyperextension_flags(
+       *,
+       angles,
+       keypoints_4ch,
+       fsr,
+       profile,
+   ) -> list[SafetyFlag]:
+       ...
+   ```
+
+   If the plan wants a singular helper, at minimum use `_joint_hyperextension_flag(angles, keypoints_4ch, fsr, profile)`.
+
+2. Inside the helper, compute the phase exactly once via the pinned path:
+
+   ```python
+   _, (s, e) = dimensions._select_window(angles, profile)
+   if np.asarray(keypoints_4ch).shape[0] != np.asarray(angles).shape[0]:
+       return []  # fail-conservative; do not phase-map mismatched frames
+   phase = _phase_for_window(fsr.phase_boundaries, s, e)
+   if phase is None:
+       return []
+   ```
+
+3. `compute_safety_flags(...)` should call the helper with `angles=angles` and `profile=profile`, then extend the returned list alongside the trunk/asymmetry/level flags.
+
+4. Add explicit D-05 tests, not only grep gates:
+   - `test_d05_wrong_phase_control_loss_no_flag`
+   - `test_d05_missing_phase_boundaries_no_flag`
+   - `test_d05_keypoints_angles_frame_mismatch_no_flag`
+   - one positive test where reverse-bend and joint-local control-loss are in the same derived phase.
+
+5. Update the acceptance criteria to grep for the helper consuming `angles`/`profile`, not just for `_phase_for_window`.
+
+### MEDIUM — D-05 singular return type leaves multi-joint aggregation ambiguous
+
+D-05 covers left/right knees and elbows, while the plan currently names `_joint_hyperextension_flag(...) -> SafetyFlag | None` and says to aggregate across left/right. It does not define whether multiple simultaneous joint findings become multiple scalar `SafetyFlag`s, a single "worst joint" flag, or one coarse `무릎·팔꿈치` card.
+
+What I would do:
+
+- Prefer `_joint_hyperextension_flags(...) -> list[SafetyFlag]`, one scalar-only flag per affected joint or per affected region.
+- If product wants only one card, pin deterministic aggregation: choose highest severity, then stable tie-break order, and put the chosen side/joint in `posture_condition`.
+- Add a test with both knee and elbow candidates so the aggregation behavior cannot drift.
+
+## Round 3 Verdict
+
+I would hold execution until the D-05 helper signature is corrected. The plan is now much stronger than round 1/2, but this input-contract mismatch is still high-risk because it undermines the exact phase-colocation gate that prevents elite false positives.
+
+---
+
+## Resolution 3 — D-05 helper contract HIGH (round 5) + Codex verify (2026-06-29)
+
+**HIGH (D-05 helper dropped inputs needed for window/phase): RESOLVED.** Verified contradiction: helper was `_joint_hyperextension_flag(keypoints_4ch, fsr)` but had to call `dimensions._select_window(angles, profile)` (dimensions.py:292) → uncallable. Fixed: `_joint_hyperextension_flags(*, angles, keypoints_4ch, fsr, profile) -> list[SafetyFlag]`; window+phase computed ONCE; frame-mismatch (keypoints rows != angles rows) → []; phase None → []; `compute_safety_flags` threads angles/profile and `.extend()`s. Tests: wrong_phase / missing_phase_boundaries / frame_mismatch (no-flag, GREEN) + same_phase_positive + multi_joint_picks_worst_with_tiebreak. (10-02 trunk helper verified clean — already received angles/profile.)
+
+**MEDIUM (multi-joint aggregation): RESOLVED.** Up to 4 candidates (L/R knee+elbow) → ONE consolidated `joint_hyperextension` card by highest severity, fixed tie-break (left_knee, right_knee, left_elbow, right_elbow), worst joint named in posture_condition — matches single UI copy-map key.
+
+**Codex verification verdict: No HIGH remaining. Overall Risk: LOW.** Prior fixes (uncertainty_proxy, 3D fixture source = to_coco17_array only, _phase_for_window, xfail discipline) confirmed NOT regressed. Caveat: plan-contract review only — `safety_flags.py` / `backend/tests/phase10/` not yet implemented, so runtime not executed (expected — this is still planning).

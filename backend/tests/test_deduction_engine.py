@@ -593,6 +593,37 @@ def test_split_claims_hips_blocks_reference_relative_double_count():
     assert "angle_vs_reference__right_hip" not in crits
 
 
+def test_split_vision_measured_deviation_scores():
+    # geometric split md 없음 + vision 이 split 30° 짚음 → split_angle 이 vision 측정값으로
+    # 감점, source='vision' provenance (belle 2026-06-29 A — geometric 불가 결함의 vision 점수화).
+    diff = {"body_part": "스플릿", "fault_state": "벌어짐 부족", "severity": "moderate",
+            "approx_angle_deviation_deg": 30}
+    b = _tally({}, _ctx([diff]))  # md 비어있음(geometric split 측정 없음)
+    rec = [r for r in b.records if r.criterion == "split_angle"]
+    assert len(rec) == 1
+    assert rec[0].source == "vision"          # provenance 노출
+    assert rec[0].deviation_source == "reference_relative"
+    assert rec[0].deviation == 10.0           # over = max(0, 30 − tol 20)
+    assert rec[0].points < 0
+
+
+def test_split_geometric_md_precedence_over_vision():
+    # geometric md["split_angle"] 존재(진짜 split-요구 동작) → vision 편차로 덮어쓰지 않음.
+    diff = {"body_part": "스플릿", "fault_state": "벌어짐 부족", "severity": "moderate",
+            "approx_angle_deviation_deg": 99}
+    rec = [r for r in _tally(_measured(split=25.0), _ctx([diff])).records
+           if r.criterion == "split_angle"][0]
+    assert rec.source == "geometry"           # geometric 우선
+    assert rec.deviation == 5.0               # 25 − 20 (geometric), 99 아님
+
+
+def test_split_no_vision_deviation_no_score():
+    # vision 이 split 을 짚어도 측정 편차(approx_angle_deviation_deg) 부재면 감점 0(honest).
+    diff = {"body_part": "스플릿", "fault_state": "벌어짐 부족", "severity": "moderate"}
+    b = _tally({}, _ctx([diff]))
+    assert not any(r.criterion == "split_angle" for r in b.records)
+
+
 def test_breakdown_serializes_flat():
     b = _tally(_measured(leg=40.0), _ctx([_diff("무릎", "굽음")]))
     d = b.to_dict()

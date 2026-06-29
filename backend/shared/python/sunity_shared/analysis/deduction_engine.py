@@ -171,6 +171,7 @@ def tally(
     # 폐기되던 결함을 닫는다(24-05: 폴백 결정을 criterion 선택 뒤로 이동).
     seeded = ipsf_criteria.criteria_from_measured_deviations(md)  # measured seed (Gemini-silent)
     pointed: set[str] = set()
+    vision_measured: dict[str, float] = {}  # cid → vision-측정 편차(geometric 불가 결함)
     differences = _supported_differences(fault_context)
     for diff in differences:
         res = ipsf_criteria.criteria_for_fault(_fault_key_for(diff), diff, md)
@@ -178,6 +179,16 @@ def tally(
             coverage_gaps.append(_gap_to_dict(res))
             continue
         pointed.update(res)
+        # split 은 geometric 측정이 confounded(kip-up keypoint saturate)라 substrate 가 없다
+        # (gated). vision 이 split 을 짚으면(router→split_angle) vision 이 영상서 잰 reference-
+        # 상대 편차를 md["split_angle"]로 주입해 split_angle(reference_relative) 규칙이 감점하게
+        # 한다(belle 2026-06-29 결정 A: geometric 불가 결함은 vision-측정값으로 점수화).
+        # geometric md 가 이미 있으면(진짜 split-요구 동작) 그것을 우선 — 덮어쓰지 않는다.
+        if "split_angle" in res and "split_angle" not in md:
+            dev = _vision_measured_deviation(diff)
+            if dev is not None:
+                md["split_angle"] = dev
+                vision_measured["split_angle"] = dev
     activated = set(seeded) | pointed
     gemini_silent = not differences  # Gemini 무지목 관측 마커(measured seed 가 여전히 감점)
 
@@ -263,7 +274,10 @@ def tally(
             points=-round(capped, 1),                  # signed-negative
             unit=unit,
             ipsf_anchor=crit["ipsf_anchor"],
-            source="geometry",
+            # provenance: geometric 측정이 기본. vision-측정값으로 점수화한 결함(split,
+            # geometric 불가)은 source='vision' 으로 투명 표기(belle 2026-06-29 A — 보고서가
+            # "split N° 좁음(vision 측정) −X" 출처 노출). 점수 산식은 동일 규칙(tol×slope).
+            source="vision" if cid in vision_measured else "geometry",
             deviation_source=crit["deviation_source"],
         ))
 
@@ -339,6 +353,25 @@ def _supported_differences(fault_context):
     if isinstance(fault_context, dict):
         return list(fault_context.get("supported_differences") or [])
     return list(getattr(fault_context, "supported_differences", None) or [])
+
+
+def _vision_measured_deviation(diff):
+    """vision difference 의 측정 편차(approx_angle_deviation_deg) → float | None.
+
+    geometric 측정이 불가한 결함(split: kip-up keypoint saturate, [[split-measurement-
+    doesnt-discriminate-kipup]])을 vision-측정값으로 점수화하기 위한 추출(belle 2026-06-29
+    결정 A). Gemini 가 영상서 잰 reference-상대 각도 편차 — "Gemini 측정 + 규칙 점수"
+    원칙 정합([[scoring-must-be-transparent-deduction-tally]]). dict/obj 모두 처리, 비수치/
+    음수/비유한 → None(honest skip). 캐시 round-trip 이 문자열화한 값도 float 캐스팅."""
+    if isinstance(diff, dict):
+        v = diff.get("approx_angle_deviation_deg")
+    else:
+        v = getattr(diff, "approx_angle_deviation_deg", None)
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if np.isfinite(f) and f > 0.0 else None
 
 
 def _fault_key_for(diff):

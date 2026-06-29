@@ -1871,10 +1871,16 @@ def _collect_vision_fault_context(
         # fault-zoom 용으로만 ctx 에 실어 보낸다(frame_pairs) — 채점 결함은 영상에서 나온다.
         # canonical FaultKey + support 게이트 + root cause + telemetry(faultKeys/callCount) 보존.
         try:
+            # at_seconds=None (Phase 24 close-out A, 2026-06-29): full-video 호출엔 worst-pose
+            # 순간 hint 를 넘기지 않는다. 그 hint 는 still-FRAME 선택용(어느 프레임을 고를까)인데,
+            # full-video 는 Gemini 가 전 구간을 훑어 결함 순간을 직접 찾아야 한다 — 단일 순간
+            # hint 가 오히려 dynamic 결함(kip-up split)을 좁혀 놓친다. 실측 확정: pod 에서
+            # at=None 6/6 moderate 검출 vs sweep at=worst_pose 1회 no_fault(그게 캐시 박힘).
+            # 부수: at=None → 캐시 bucket='whole' → at-keyed poisoned 엔트리 우회.
             rich = gemini_vision_scorer.assess_fault_context_video(
                 local_video_path,
                 reference_video_path,
-                at_seconds=at,
+                at_seconds=None,
                 part_scopes=list(gemini_vision_scorer.VETO_PART_SCOPES),
             )
         finally:

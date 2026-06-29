@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: 24-04 코드 게이트 GREEN — Pod 재-sweep + belle 검증 PENDING (orchestrator-owned)
-stopped_at: Phase 24 context gathered (투명 감점-합산 채점 엔진 — 20 밴드 pivot)
+stopped_at: Phase 24-A close-out 완료 2026-06-29 (kip-up FP 해결 99→88, 5/5 변별, 엔진 production 검증+캐시버그fix). Phase 20·24 CLOSED. 잔여 minor=calibration(pod 필요)
 last_updated: "2026-06-25T17:00:51.294Z"
 last_activity: 2026-06-25
 progress:
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 24 — transparent-deduction-scoring
+**Current focus:** Phase 24·20 CLOSED 2026-06-29 (kip-up FP 해결). 다음 미정 — 잔여 minor(success calibration / kip-up 마진)은 pod 필요, 다음 세션
 
 > **20-04 / SCORE-09 ownership (belle 2026-06-23, D-14 amended + D-15, ITERATION6):** Phase 20-04 의 still-frame SEVERITY_CAP **regression subset** (SCORE-08 cap + TRUST-06 결정론) 은 Phase 23-03 eval 이 still-frame veto 경로에서 OWN·검증한다 (superseded-by-23-03) — 정은지 95~100 / kip-up fault = moderate 점수 ≤75 (20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. **SCORE-09 (일반화/sensitivity — 미보유+above-cutoff 양방검증) 는 흡수되지 않고 별도 PENDING 으로 Phase 20 / 후속에 잔류한다.** Phase 23 을 SCORE-09 미처리로 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.
 
@@ -546,6 +546,8 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 
 ### Roadmap Evolution
 
+- Phase 24 CLOSED (belle 2026-06-29, close-out A): 감점 엔진 production 검증 + kip-up 위양성 해결(99→88, vision-측정 split 감점) + 캐시 결정성 버그 fix. 5/5 페어 변별. 잔여 minor(calibration)=후속.
+- Phase 20 CLOSED (belle 2026-06-29): 대상3(kip-up 위양성=24-A 해결 / 상단변별·결정성=캐시fix / Mode3 게이트·근거=Phase19/20-03) 충족.
 - Phase 15 DISSOLVED (belle 2026-06-29): 실작업(점수정확도/위양성)은 19/20/24 흡수, 실증/TestFlight=마일스톤 완료 이벤트(개발 phase 아님), "고수 위양성 없음"=마일스톤 통과 기준(20/24 책임). renumber/삭제 없이 ROADMAP tombstone — 후속 phase가 "Phase 15 실증 발견 출처"로 참조하므로 번호·artifacts 보존.
 - Phase 18 added: 전문가 일부러-실수 reference eval 세트 (가칭, Phase 15 이후, belle 2026-06-16)
 - Phase 20 added: v2 비전 점수 (Gemini 시각 거부권) — kip-up 위양성 + 상단변별 + Mode3 미보유게이트. roadmap+CONTEXT pod-free, 구현 Pod 의존

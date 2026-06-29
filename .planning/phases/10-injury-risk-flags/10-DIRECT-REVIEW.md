@@ -239,3 +239,84 @@ I would hold execution until the D-05 helper signature is corrected. The plan is
 **MEDIUM (multi-joint aggregation): RESOLVED.** Up to 4 candidates (L/R knee+elbow) → ONE consolidated `joint_hyperextension` card by highest severity, fixed tie-break (left_knee, right_knee, left_elbow, right_elbow), worst joint named in posture_condition — matches single UI copy-map key.
 
 **Codex verification verdict: No HIGH remaining. Overall Risk: LOW.** Prior fixes (uncertainty_proxy, 3D fixture source = to_coco17_array only, _phase_for_window, xfail discipline) confirmed NOT regressed. Caveat: plan-contract review only — `safety_flags.py` / `backend/tests/phase10/` not yet implemented, so runtime not executed (expected — this is still planning).
+
+---
+
+## Direct Review Round 4 (2026-06-29)
+
+### HIGH — Wrong-phase fixture does not isolate the phase-colocation gate
+
+Round 3's helper-signature issue is resolved: D-05 now threads `angles` and `profile`, computes `_select_window(angles, profile)`, maps the window through `_phase_for_window`, and returns a list with a pinned single-card consolidation rule.
+
+The new high-risk issue is in the shared fixture/test design for temporal colocation:
+
+- `10-01-PLAN.md` defines `window_disjoint_report` as instability in a non-overlapping phase AND with `unstable_body_parts` **not containing the posture's joint**.
+- The same fixture is then reused for D-05 `test_d05_wrong_phase_no_flag`, which claims to test reverse-bend + knee control-loss in a non-overlapping phase.
+- `10-02-PLAN.md` and `10-03-PLAN.md` require joint-local + phase-co-located control-loss. That means locality and phase must be independently testable.
+
+Impact:
+
+A D-05 or trunk implementation that checks joint locality but ignores phase can still pass the current wrong-phase fixture if the fixture omits the relevant joint. The test would pass for the wrong reason: wrong-joint, not wrong-phase. That leaves the phase-colocation gate under-tested, which is exactly the gate that prevents posture in phase A from being paired with instability in phase B.
+
+What I would do:
+
+1. Split `window_disjoint_report` into two explicit fixtures:
+   - `wrong_phase_knee_control_loss_report`: `unstable_body_parts` includes `'left_knee'` or `'right_knee'`, severity medium/high, but `metric.phase != P` for the posture hold window.
+   - `wrong_joint_same_phase_report`: `metric.phase == P`, severity medium/high, but `unstable_body_parts` contains only an unrelated joint.
+2. Do the same for trunk/asymmetry where needed, e.g. `wrong_phase_hip_control_loss_report` and `wrong_joint_same_phase_report`.
+3. Update tests so each gate is isolated:
+   - `test_d05_wrong_phase_no_flag`: relevant knee key present, wrong phase only.
+   - `test_d05_wrong_joint_same_phase_no_flag`: same phase, unrelated joint only.
+   - `test_and_gate_wrong_phase_no_flag`: relevant hip key present, wrong phase only.
+   - `test_and_gate_unrelated_joint_same_phase_no_flag`: same phase, unrelated joint only.
+4. Add fixture assertions before calling `compute_safety_flags`, for example: assert the wrong-phase fixture contains the relevant joint and does not contain the derived phase `P`. That prevents future fixtures from accidentally becoming non-isolating again.
+
+### HIGH — Positive D-05 fixtures are not pinned to satisfy the calibration precondition
+
+D-05's sign rule now requires a clearly-flexed calibration frame:
+
+- The algorithm computes `cal_frame = argmin(included_angle)` over the whole clip.
+- It requires `min_angle < CLEAR_FLEXION_MAX`; otherwise that side yields no candidate.
+- But the positive fixtures are described only as "flexed vs reverse-bent" separate arrays. The plan does not explicitly say that `reverse_bent_knee_4ch`, `uncertain_reverse_bent_4ch`, and `multi_joint_reverse_bent_4ch` contain a clearly-flexed calibration frame somewhere in the same clip while the hold window contains the reverse-bend frames.
+
+Impact:
+
+An executor can build a reverse-bent fixture that is reverse-bent for the entire clip. Under the plan's own algorithm it must then no-op because there is no clear flexion calibration frame. To make the positive tests pass, the executor may be forced either to weaken/bypass the calibration guard or to hand-wave the fixture. Both options undermine the sign-inversion protection that the plan added to avoid false positives.
+
+What I would do:
+
+1. Define every positive D-05 synthetic clip as a two-segment clip:
+   - calibration segment: at least one clearly-flexed frame, e.g. included angle `< CLEAR_FLEXION_MAX`.
+   - hold segment: reverse-bend frames with `hyperextension_amount` above the cited floor.
+2. Set `profile.hold_window` to the reverse-bend segment so `_select_window(angles, profile)` selects the posture window, while calibration still sees the whole clip.
+3. Make `phase_boundaries` overlap that hold window, not the calibration segment.
+4. Keep `no_flexion_calibration_4ch` as the matched negative: same reverse-bend hold and same control-loss, but no clearly-flexed frame anywhere → no flag.
+5. Add tests that assert the fixture preconditions directly: positive fixture has `min(included_angle) < CLEAR_FLEXION_MAX`, the hold window frames are reverse-bent, and the no-calibration fixture has `min_angle >= CLEAR_FLEXION_MAX`.
+
+### MEDIUM — Global "NaN/inf anywhere" is broader than D-05 needs
+
+The plan says D-05 returns `[]` on NaN/inf anywhere. `to_coco17_array()` defaults missing keypoints to NaN coordinates with `uncertainty_proxy=1.0`. For D-05, unused face or unrelated limb keypoints should not suppress a knee/elbow candidate if the required hinge and frontal-axis keypoints are valid.
+
+What I would do:
+
+- Change the D-05 guard from global "NaN/inf anywhere" to "NaN/inf in required keypoints for this candidate and qualifying frames".
+- Keep global shape/frame-count checks.
+- Add a test where an unused keypoint is NaN but the knee candidate remains valid.
+
+## Round 4 Verdict
+
+I would still hold execution. The previous structural issues are fixed, but the current test plan can still miss a wrong-phase implementation and can make D-05 positive fixtures contradict the calibration rule. Fixing those fixture contracts is small and should happen before implementation.
+
+---
+
+## Resolution 4 — D-05 fixture isolation (round 6) + Codex verify (2026-06-30)
+
+**HIGH-1 (window_disjoint_report could not isolate the wrong-phase test): RESOLVED.** Split into `wrong_phase_knee_control_loss_report` (knee IN unstable_body_parts, only phase non-overlapping → isolates PHASE gate) and `wrong_joint_same_phase_report` (overlapping phase, different joint → isolates JOINT-LOCALITY gate); each test asserts its precondition first; added `test_d05_wrong_joint_no_flag`. `window_disjoint_report` retained only for the 10-02 trunk temporal-colocation test.
+
+**HIGH-2 (positive fixture vs calibration premise): RESOLVED.** Positive D-05 fixtures (reverse_bent_knee/elbow, uncertain_reverse_bent, multi_joint_reverse_bent) redefined as two-segment clips (calibration fold with included_angle < CLEAR_FLEXION_MAX, THEN reverse-bend hold); profile.hold_window pinned to the hold; positive tests assert the calibration frame.
+
+**MEDIUM (NaN-anywhere guard too broad): RESOLVED.** NaN/uncertainty guard scoped to the USED-keypoint set only (hinge triplet + frontal-axis pair + longitudinal centers); `test_d05_nan_unused_keypoint_still_flags` (face-keypoint NaN still flags) + companion used-keypoint-NaN → no flag; grep forbids blanket `isnan(...).any()`.
+
+**Hygiene nit (non-HIGH, fixed directly):** wrong-joint example value changed 'left_wrist' → 'left_elbow' (unstable_body_parts uses joint-angle keys; left_wrist is an endpoint keypoint, not a valid value) in 10-01/10-02/10-03.
+
+**Codex verification verdict: No HIGH remaining. Overall Risk: LOW.** All prior fixes confirmed not regressed. Caveat: plan-contract review only (safety_flags.py / backend/tests/phase10 not yet implemented — runtime unassessed, expected at planning stage).

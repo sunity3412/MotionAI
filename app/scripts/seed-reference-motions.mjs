@@ -498,6 +498,13 @@ async function main() {
       doc.anglesUpdatedAt = Date.now();
       doc.anglesFrames = a.numFrames;
       doc.anglesJointKeys = anglesPayload.jointKeys;
+      // referenceSplitAngle — 정은지 max-split(peak inter-thigh 사이각, deg). app.py
+      // _process(mode1) 가 학생 max-split 과 비교해 split deficit 채점(reference_relative,
+      // 15-SPLIT-MEASUREMENT-DESIGN). extract_reference_angles.py 가 산출. null 이면
+      // 미저장(백엔드가 bodyComparisonSourcePose 1프레임 임시 fallback). 0 도 유효값.
+      if (typeof a.referenceSplitAngle === 'number') {
+        doc.referenceSplitAngle = a.referenceSplitAngle;
+      }
     }
     if (
       keypointReportsPayload

@@ -50,6 +50,8 @@ from sunity_shared.analysis.body_normalization_measurer import (  # noqa: E402
 from sunity_shared.analysis.features import (  # noqa: E402
     compute_joint_angles,
     joint_uncertainty,
+    max_split,
+    split_angle_series,
 )
 from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor  # noqa: E402
 # Phase 17 Plan 07: RTMW engine swap (운영 pipeline 정합 — pipeline 의 private
@@ -143,6 +145,16 @@ def _extract_one(
         print(f"  ⚠ NaN/inf {nan_count} 잔여 → 0.0 치환 (보간 한계)")
         angles_rounded = np.nan_to_num(angles_rounded, nan=0.0, posinf=0.0, neginf=0.0)
 
+    # referenceSplitAngle — 정은지 reference 의 max-split(peak inter-thigh 사이각, deg).
+    # app.py _process(mode1) 가 학생 max-split 과 비교해 split deficit 을 채점한다
+    # (reference_relative, 15-SPLIT-MEASUREMENT-DESIGN §데이터 옵션 B). keypoints 폐색
+    # 프레임은 split NaN → max_split 이 무시(peak). 유한 split 없으면 None(미저장 → app.py
+    # 가 bodyComparisonSourcePose 1프레임 임시 fallback).
+    ref_split, ref_split_idx = max_split(split_angle_series(keypoints))
+    reference_split_angle = round(float(ref_split), 2) if np.isfinite(ref_split) else None
+    if reference_split_angle is not None:
+        print(f"  referenceSplitAngle={reference_split_angle}° (peak frame {ref_split_idx})")
+
     print(
         f"  frames={T}  추출 {time.time() - t0:.1f}s  "
         f"폐색 보간: {sum(occluded.values())} (관절별 합)"
@@ -151,6 +163,7 @@ def _extract_one(
         "numFrames": T,
         "occludedFrames": occluded,
         "angles": angles_rounded.tolist(),  # (T, 8) → JSON 직렬화
+        "referenceSplitAngle": reference_split_angle,  # peak max-split(deg) | None
     }
 
 

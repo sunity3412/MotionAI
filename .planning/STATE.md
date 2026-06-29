@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: 24-04 코드 게이트 GREEN — Pod 재-sweep + belle 검증 PENDING (orchestrator-owned)
-stopped_at: Phase 10 context gathered
-last_updated: "2026-06-29T12:24:13.685Z"
-last_activity: "2026-06-29 - 분석정확도 본작업 시작: belle 입력으로 kip-up 변별=다리벌림(split) 확정 → 코드상 객관 split 측정 부재(Gemini 의존) 발견 = audit P3 정합. 설계 박제 + split 기하 측정 primitive(split_angle_series/max_split, IPSF 허벅지 사이각) + 합성검증(0/90/180° 12 tests) 완료. 다음=측정 wiring(키포인트→md→split_angle criterion)+reference split 데이터+pod 재검증. (P1 정타오염=완료, P2 Mode3근거공개=이미됨)"
+status: executing
+stopped_at: Phase 10 UI-SPEC approved
+last_updated: "2026-06-29T13:07:59.438Z"
+last_activity: 2026-06-29 -- Phase 10 planning complete
 progress:
   total_phases: 7
   completed_phases: 2
@@ -31,7 +31,7 @@ Phase: 24 (transparent-deduction-scoring) — EXECUTING
 Plan: 24-04 of 24 (gap-closure) COMPLETE — 24-01/02/03/04 빌드 완료
 Verification: 24-04 — low_alignment_confidence 를 apply seam 에서 measured-seed tally-eligible 로 라우팅(passthrough_map 에서 제거). RTMW 측정 편차(extension deficit + body-relative notch, 정렬-독립)는 Gemini 정렬이 낮아도 감점; supported_differences=[] 라 criteria_for_fault 부재 → Gemini fault fabricate 0(objectivity 보존). collect-side bail / eligible_for_coach(candidate_verdict-only) / assess_alignment_confidence 임계값 UNCHANGED. to_audit_dict 가 collectionStatus 방출(측정-only provenance, Rule 2). targeted 196 passed(Phase24+20/23) / band grep 0 / production 변경 = app.py+vision_veto.py 만. 2 atomic commit (ce98310/94667e2).
 Next: Pod 레이어 재배포 후 24-eval Pod 재-sweep — phase24_breakdowns.json 재생성(fault 멤버가 non-null 측정 deductionBreakdown 보유, kip-up FP 재확인, 일반화 게이트가 실 breakdown 에 실행) → belle 검증. 이 재-sweep+검증은 orchestrator 소유(24-04 autonomous 코드 게이트 밖, plan acceptance 체크포인트).
-Status: 24-04 코드 게이트 GREEN — Pod 재-sweep + belle 검증 PENDING (orchestrator-owned)
+Status: Ready to execute
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -66,7 +66,7 @@ Status: 24-04 코드 게이트 GREEN — Pod 재-sweep + belle 검증 PENDING (o
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-29 - 분석정확도 본작업 시작: belle 입력으로 kip-up 변별=다리벌림(split) 확정 → 코드상 객관 split 측정 부재(Gemini 의존) 발견 = audit P3 정합. 설계 박제 + split 기하 측정 primitive(split_angle_series/max_split, IPSF 허벅지 사이각) + 합성검증(0/90/180° 12 tests) 완료. 다음=측정 wiring(키포인트→md→split_angle criterion)+reference split 데이터+pod 재검증. (P1 정타오염=완료, P2 Mode3근거공개=이미됨)
+Last activity: 2026-06-29 -- Phase 10 planning complete
 
 ### Quick Tasks Completed
 
@@ -647,9 +647,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-29T12:24:13.670Z
+Last session: 2026-06-29T12:30:09.864Z
 
-Stopped at: Phase 10 context gathered
+Stopped at: Phase 10 UI-SPEC approved
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -716,7 +716,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/10-injury-risk-flags/10-CONTEXT.md
+Resume file: .planning/phases/10-injury-risk-flags/10-UI-SPEC.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

@@ -101,14 +101,12 @@ def test_d05_frame_mismatch_no_flag(reverse_bent_knee_4ch, high_control_loss_rep
 # ── xfail-strict: positive (10-03 에서 flip) ────────────────────────────────
 
 
-@pytest.mark.xfail(strict=True, reason="D-05 joint hyperextension firing rule lands in 10-03")
 def test_reverse_bent_knee_with_control_loss_flags(reverse_bent_knee_4ch, high_control_loss_report, hold_profile) -> None:
     ang = compute_joint_angles(reverse_bent_knee_4ch)
     flags = _call(angles=ang, keypoints_4ch=reverse_bent_knee_4ch, report=high_control_loss_report, profile=hold_profile)
     assert any(f.flag_type == "joint_hyperextension" for f in flags)
 
 
-@pytest.mark.xfail(strict=True, reason="D-05 same-phase positive helper-contract lands in 10-03")
 def test_d05_same_phase_positive(reverse_bent_knee_4ch, high_control_loss_report, hold_profile) -> None:
     """reverse_bent_knee(two-segment) + SAME-phase knee control-loss → 정확히 1
     joint_hyperextension. calibration premise(10-03): clip 의 min included angle <
@@ -120,7 +118,6 @@ def test_d05_same_phase_positive(reverse_bent_knee_4ch, high_control_loss_report
     assert len(jh) == 1
 
 
-@pytest.mark.xfail(strict=True, reason="D-05 multi-joint consolidation lands in 10-03")
 def test_d05_multi_joint_picks_worst_with_tiebreak(multi_joint_reverse_bent_4ch, high_control_loss_report, hold_profile) -> None:
     """무릎 AND 팔꿈치 reverse-bend + same-phase 통제 상실 → 정확히 1 consolidated
     flag (worst severity, 고정 tie-break left_knee,right_knee,left_elbow,right_elbow)."""
@@ -131,7 +128,6 @@ def test_d05_multi_joint_picks_worst_with_tiebreak(multi_joint_reverse_bent_4ch,
     assert len(jh) == 1
 
 
-@pytest.mark.xfail(strict=True, reason="D-05 uncertainty channel-not-inverted gate lands in 10-03")
 def test_d05_uncertainty_channel_not_inverted(reverse_bent_knee_4ch, uncertain_reverse_bent_4ch, high_control_loss_report, hold_profile) -> None:
     """LOW uncertainty(ch3≈0.05) → SHOULD flag / HIGH uncertainty(ch3≈0.9) → MUST NOT.
     채널이 반전되지 않았음을 증명 (uncertainty_proxy, NOT confidence)."""
@@ -144,7 +140,6 @@ def test_d05_uncertainty_channel_not_inverted(reverse_bent_knee_4ch, uncertain_r
     assert low_fires and not high_fires
 
 
-@pytest.mark.xfail(strict=True, reason="D-05 scoped-NaN guard lands in 10-03")
 def test_d05_nan_unused_keypoint_still_flags(reverse_bent_knee_4ch, high_control_loss_report, hold_profile) -> None:
     """안 쓰는 keypoint(nose)에 NaN 주입해도 무릎 과신전 flag 는 여전히 발화 →
     NaN 가드가 쓰이는 keypoint 에만 스코프됨 (blanket NaN-anywhere reject 아님)."""

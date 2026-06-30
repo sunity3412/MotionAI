@@ -125,6 +125,35 @@ _CONTROL_LOSS_SEVERITIES = ("medium", "high")
 _PHASE_OVERLAP_MIN = 0.5
 
 
+# ── D-05 관절 과신전 상수 (D-07: 출처 태그 필수) ─────────────────────────────
+# 절대 검출 floor — 중립(180°) 넘어 역꺾인 정도. 외부 임상/생체역학 문헌 출처이며
+# 보유 13영상 sweep 으로 fit 한 값이 아니다 (D-07, [[calibration-source-hard-gate]]).
+_KNEE_HYPEREXT_FLOOR_DEG = 5.0   # [CITED: genu recurvatum — 무릎 중립 초과 >5° (물리치료/생체역학 문헌)]
+_ELBOW_HYPEREXT_FLOOR_DEG = 10.0  # [CITED: Beighton hypermobility — 팔꿈치 과신전 >10°]
+# severity 밴드 — 과신전 magnitude(중립 초과 도) 기준. knee 10°/20° (D-05 plan).
+_HYPEREXT_SEVERITY_HIGH_DEG = 20.0   # [CITED: 무릎 과신전 심도 밴드 상한 (genu recurvatum severity)]
+_HYPEREXT_SEVERITY_MEDIUM_DEG = 10.0  # [CITED: 무릎 과신전 심도 밴드 하한]
+
+# fail-conservative 게이트 상수 — 전부 no-flag 영역을 넓히는 보수 임계(검출 임계 아님,
+# fit 대상 아님). 각 상수 [ASSUMED conservative gate].
+_CLEAR_FLEXION_MAX = 90.0     # [ASSUMED conservative gate] calibration 프레임 included 상한 (이보다 작아야 명백한 굽힘)
+_MAX_KP_UNCERTAINTY = 0.5     # [ASSUMED conservative gate] uncertainty_proxy 상한 (app.py:452 ">0.5 = 저신뢰" 정합)
+_COLLINEAR_COS = 0.9          # [ASSUMED conservative gate] |dot(frontal,longitudinal)| 이 넘으면 방위 미해결(spin/inversion)
+_SEGMENT_RATIO_MAX = 2.5      # [ASSUMED conservative gate] hold 윈도우 내 세그먼트 길이 max/min 비 상한
+_HYPEREXT_EPS = 1e-6          # [ASSUMED conservative gate] 영벡터/공선 판정 수치 epsilon
+_HYPEREXT_MAJORITY = 0.5      # [ASSUMED conservative gate] hold 윈도우에서 reverse-bend 가 일치해야 하는 프레임 비율
+
+# D-05 후보 평가 순서 (consolidation tie-break 의 FIXED 순서이기도 함).
+_HINGE_ORDER = ("left_knee", "right_knee", "left_elbow", "right_elbow")
+_HINGE_LABEL_KO = {
+    "left_knee": "왼쪽 무릎",
+    "right_knee": "오른쪽 무릎",
+    "left_elbow": "왼쪽 팔꿈치",
+    "right_elbow": "오른쪽 팔꿈치",
+}
+_SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
 # ── 윈도우 → phase 매핑 (MEDIUM-1) ───────────────────────────────────────────
 def _phase_for_window(phase_boundaries, s: int, e: int):
     """frame window [s, e) 를 최대-overlap PhaseBoundary 의 phase 로 매핑.
@@ -334,6 +363,229 @@ def _trunk_hyperextension_flag(angles, reference_angles, fsr, profile) -> Safety
     )
 
 
+# ── D-05 관절 과신전 (cross-product 방향 판별 + 결정론 frontal-axis 좌표계) ───
+# RESEARCH Pattern 3: 내적(dot)은 0~180° 굽힘 크기만 줘 방향 미상. 무릎·팔꿈치는
+# 1자유도 시상면 힌지라 hinge cross product `n = u×w` 가 medial-lateral(frontal) 축과
+# 평행하고, `dot(n, frontal)` 의 부호가 정상 굴곡 vs 역꺾임(genu recurvatum / elbow
+# hyperextension)을 변별한다. frontal 좌표계와 per-side flexion 부호는 ONE 결정론 규칙
+# 으로 못박는다 (review HIGH-B — 'e.g.' 금지): frontal = unit(right_hip - left_hip)[무릎]
+# / unit(right_shoulder - left_shoulder)[팔꿈치]; flexion 부호 s_flex 는 clip 전체의
+# MIN included-angle(명백히 굽힌) calibration 프레임에서 sign(dot(n, frontal)).
+
+
+def _unit(v):
+    """단위벡터 — |v| < EPS 면 None (영벡터 방어)."""
+    n = float(np.linalg.norm(v))
+    if n < _HYPEREXT_EPS:
+        return None
+    return v / n
+
+
+def _hyperextension_candidate(kp, s: int, e: int, joint_key: str):
+    """단일 hinge side 의 과신전 후보 → (amount_deg, severity) | None.
+
+    fail-conservative: 어떤 ambiguity 브랜치라도 걸리면 None (never raise). 게이트는
+    그 side 가 실제로 쓰는 keypoint(hinge triplet + frontal-axis pair + longitudinal
+    centers)에만 스코프된다 — 안 쓰는(face/대측) keypoint 의 NaN/uncertainty 는 무시.
+    """
+    a_name, v_name, c_name = skeleton.JOINT_ANGLES[joint_key]
+    ia = skeleton.kp_index(a_name)
+    iv = skeleton.kp_index(v_name)
+    ic = skeleton.kp_index(c_name)
+    if "knee" in joint_key:
+        fl = skeleton.kp_index("left_hip")
+        fr = skeleton.kp_index("right_hip")
+        floor = _KNEE_HYPEREXT_FLOOR_DEG
+    else:
+        fl = skeleton.kp_index("left_shoulder")
+        fr = skeleton.kp_index("right_shoulder")
+        floor = _ELBOW_HYPEREXT_FLOOR_DEG
+    # longitudinal centers — frontal↔longitudinal 방위 게이트용.
+    lhc = skeleton.kp_index("left_hip")
+    rhc = skeleton.kp_index("right_hip")
+    lsc = skeleton.kp_index("left_shoulder")
+    rsc = skeleton.kp_index("right_shoulder")
+
+    # USED-KEYPOINT SET — NaN/inf + uncertainty 게이트가 검사하는 유일한 컬럼 집합.
+    used_idx = sorted({ia, iv, ic, fl, fr, lhc, rhc, lsc, rsc})
+
+    T = kp.shape[0]
+    s = max(0, int(s))
+    e = min(T, int(e))
+    if e - s <= 0:
+        return None
+
+    # GATE (h) NaN/inf — USED keypoint 만 (face/대측 NaN 은 무시). calibration 이
+    # clip 전체 argmin 을 쓰므로 전체 프레임 used 컬럼의 좌표·ch3 finite 를 요구한다.
+    used_coords = kp[:, used_idx, :3]
+    used_unc = kp[:, used_idx, 3]
+    if not np.all(np.isfinite(used_coords)):
+        return None
+    if not np.all(np.isfinite(used_unc)):
+        return None
+    # GATE (a) uncertainty_proxy — HIGH(>MAX) 면 신뢰 불가 → no candidate. ch3 는
+    # uncertainty_proxy(1.0=미감지/최악), confidence 가 아니다 (review HIGH).
+    if float(np.max(used_unc)) > _MAX_KP_UNCERTAINTY:
+        return None
+
+    # 프레임별 included angle / signed projection / 세그먼트 길이 (clip 전체).
+    included = np.full(T, np.nan, dtype=float)
+    signed = np.full(T, np.nan, dtype=float)
+    len_u = np.full(T, np.nan, dtype=float)
+    len_w = np.full(T, np.nan, dtype=float)
+    collinear = np.zeros(T, dtype=bool)
+    frontal_long_cos = np.full(T, np.nan, dtype=float)
+    frontal_degenerate = np.zeros(T, dtype=bool)
+    for t in range(T):
+        u = kp[t, ia, :3] - kp[t, iv, :3]
+        w = kp[t, ic, :3] - kp[t, iv, :3]
+        nu = float(np.linalg.norm(u))
+        nw = float(np.linalg.norm(w))
+        len_u[t] = nu
+        len_w[t] = nw
+        if nu < _HYPEREXT_EPS or nw < _HYPEREXT_EPS:
+            continue
+        cos = float(np.clip(np.dot(u, w) / (nu * nw), -1.0, 1.0))
+        included[t] = float(np.degrees(np.arccos(cos)))
+        n = np.cross(u, w)
+        # GATE (f) 공선 hinge 세그먼트 — |u×w| < EPS*|u||w| → 굽힘축 미정의.
+        collinear[t] = float(np.linalg.norm(n)) < _HYPEREXT_EPS * nu * nw
+        frontal_raw = kp[t, fr, :3] - kp[t, fl, :3]
+        frontal = _unit(frontal_raw)
+        # GATE (d) frontal 축 퇴화 — hip/shoulder 가 한 점.
+        frontal_degenerate[t] = frontal is None
+        if frontal is None:
+            continue
+        signed[t] = float(np.dot(n, frontal))
+        hip_center = 0.5 * (kp[t, lhc, :3] + kp[t, rhc, :3])
+        sh_center = 0.5 * (kp[t, lsc, :3] + kp[t, rsc, :3])
+        longitudinal = _unit(sh_center - hip_center)
+        if longitudinal is not None:
+            frontal_long_cos[t] = abs(float(np.dot(frontal, longitudinal)))
+
+    # GATE (g) calibration — clip 전체 MIN included 프레임이 명백한 굽힘이어야 함.
+    if not np.any(np.isfinite(included)):
+        return None
+    cal_frame = int(np.nanargmin(included))
+    min_angle = float(included[cal_frame])
+    if min_angle >= _CLEAR_FLEXION_MAX:
+        return None
+    s_flex_val = signed[cal_frame]
+    if not np.isfinite(s_flex_val) or s_flex_val == 0.0:
+        return None
+    s_flex = 1.0 if s_flex_val > 0 else -1.0
+
+    # ── 이하 게이트/판정은 hold 윈도우 [s:e] 프레임에서 ──
+    win = range(s, e)
+    valid = [t for t in win if np.isfinite(included[t]) and np.isfinite(signed[t])]
+    if not valid:
+        return None
+    # GATE (d) frontal 퇴화 — 윈도우 프레임에 하나라도 → no candidate.
+    if any(frontal_degenerate[t] for t in win):
+        return None
+    # GATE (e) 방위 미해결(spin/inversion) — frontal 이 longitudinal 과 거의 공선.
+    cos_vals = [frontal_long_cos[t] for t in valid if np.isfinite(frontal_long_cos[t])]
+    if cos_vals and float(np.median(cos_vals)) > _COLLINEAR_COS:
+        return None
+    # GATE (f) 공선 hinge — 윈도우 qualifying 프레임 다수가 공선.
+    if sum(1 for t in valid if collinear[t]) > _HYPEREXT_MAJORITY * len(valid):
+        return None
+    # GATE (b) 세그먼트 길이 비일관 — hold 윈도우 내 max/min 비 상한 초과.
+    lu = [len_u[t] for t in valid if np.isfinite(len_u[t]) and len_u[t] > _HYPEREXT_EPS]
+    lw = [len_w[t] for t in valid if np.isfinite(len_w[t]) and len_w[t] > _HYPEREXT_EPS]
+    for seg in (lu, lw):
+        if seg and (max(seg) / min(seg)) > _SEGMENT_RATIO_MAX:
+            return None
+
+    # 과신전 판정 — 부호가 calibration 과 반대 AND 중립 초과분 > floor.
+    amounts = []
+    for t in valid:
+        amount = max(0.0, 180.0 - included[t])
+        reversed_sign = (1.0 if signed[t] > 0 else -1.0) == -s_flex
+        if reversed_sign and amount > floor:
+            amounts.append(amount)
+    # GATE (c) 단일 프레임 노이즈 — 윈도우 다수가 일치해야 함 (한 스파이크 무시).
+    if len(amounts) <= _HYPEREXT_MAJORITY * len(valid):
+        return None
+
+    amount = float(np.median(amounts))
+    if amount >= _HYPEREXT_SEVERITY_HIGH_DEG:
+        severity = "high"
+    elif amount >= _HYPEREXT_SEVERITY_MEDIUM_DEG:
+        severity = "medium"
+    else:
+        severity = "low"
+    return amount, severity
+
+
+def _joint_hyperextension_flags(*, angles, keypoints_4ch, fsr, profile) -> list[SafetyFlag]:
+    """D-05 발화 — 최대 4 hinge 후보 → ONE consolidated joint_hyperextension 플래그.
+
+    keyword-only, plural 반환. angles+profile 은 공유 `dimensions._select_window` hold
+    선택기를 구동해 window (s,e) → phase P 를 ONCE 산출하기 위해 필수다 (keypoints 만
+    으론 window 불가 — review HIGH round-5). 각 후보는 cross-product 방향 검출 + per-
+    branch fail-conservative 게이트(used keypoint 스코프) + D-02 joint-local·phase-co-
+    located 통제 상실 AND-gate 를 통과해야 한다. multi-joint 는 worst severity + 고정
+    tie-break(left_knee,right_knee,left_elbow,right_elbow)로 ONE 플래그로 합친다.
+    """
+    if keypoints_4ch is None or angles is None:
+        return []
+    kp = np.asarray(keypoints_4ch, dtype=float)
+    ang = np.asarray(angles, dtype=float)
+    if kp.ndim != 3 or kp.shape[0] == 0 or ang.ndim != 2 or ang.shape[0] == 0:
+        return []
+    # FRAME-ALIGN GUARD — angles 에서 도출한 window 인덱스가 keypoints 를 유효하게
+    # 인덱싱하려면 두 배열의 row 수가 같아야 한다 (face-keypoint NaN 은 여기서 검사 X —
+    # scoped 게이트 (h) 담당).
+    if kp.shape[0] != ang.shape[0]:
+        return []
+
+    # WINDOW ONCE — 공유 selector (drift 금지, 10-02 trunk helper 와 동일 호출).
+    from . import dimensions  # lazy import.
+
+    try:
+        _sliced, (s, e) = dimensions._select_window(ang, profile)
+    except Exception:
+        return []
+    P = _phase_for_window(getattr(fsr, "phase_boundaries", None), s, e)
+    if P is None:
+        return []
+
+    candidates: list[tuple[str, float, str]] = []
+    for joint_key in _HINGE_ORDER:
+        try:
+            cand = _hyperextension_candidate(kp, s, e, joint_key)
+        except Exception:
+            cand = None
+        if cand is None:
+            continue
+        amount, severity = cand
+        if not _control_loss_for_joint(fsr, joint_key, phase=P):
+            continue
+        candidates.append((joint_key, amount, severity))
+    if not candidates:
+        return []
+
+    # MULTI-JOINT CONSOLIDATION — worst by (severity desc, then FIXED hinge order asc).
+    candidates.sort(key=lambda c: (-_SEVERITY_RANK[c[2]], _HINGE_ORDER.index(c[0])))
+    joint_key, amount, severity = candidates[0]
+    label = _HINGE_LABEL_KO[joint_key]
+    confidence = getattr(fsr, "overall_confidence", None) or "low"
+    return [
+        SafetyFlag(
+            flag_type="joint_hyperextension",
+            body_region="무릎·팔꿈치",
+            severity=severity,
+            posture_condition=(
+                f"{label} 역꺾임(과신전) 중립 대비 {amount:.0f}° 초과 (phase={P})"
+            ),
+            control_loss_signal=f"{P} 구간 {label} 통제 흔들림 (joint-local)",
+            confidence=confidence,
+            mode_scope="both",
+        )
+    ]
+
+
 def compute_safety_flags(
     *,
     angles,
@@ -365,4 +617,17 @@ def compute_safety_flags(
         trunk = _trunk_hyperextension_flag(angles, reference_angles, fsr, profile)
     except Exception:
         trunk = None
-    return [f for f in (trunk,) if f is not None]
+    flags = [f for f in (trunk,) if f is not None]
+    # D-05 관절 과신전 — list 반환이라 extend (trunk/asymmetry 는 singular append).
+    try:
+        flags.extend(
+            _joint_hyperextension_flags(
+                angles=angles,
+                keypoints_4ch=keypoints_4ch,
+                fsr=fsr,
+                profile=profile,
+            )
+        )
+    except Exception:
+        pass
+    return flags

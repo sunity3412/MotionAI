@@ -32,6 +32,8 @@ positive fixture 는 CALIBRATION 세그먼트(included_angle < CLEAR_FLEXION_MAX
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -54,7 +56,14 @@ HOLD_WINDOW = (_CALIB_END, _T)
 
 # ── (T,17,4) keypoint clip 빌더 ──────────────────────────────────────────────
 
-# 대략 곧게 선 figure 의 17 keypoint 기본 좌표 (sagittal-ish, z≈0).
+# 대략 곧게 선 figure 의 17 keypoint 기본 좌표.
+#
+# SAGITTAL-PLANE GEOMETRY (D-05 cross-product 정합, 10-03): 좌측 사지(hip-knee-ankle,
+# shoulder-elbow-wrist)는 x 가 일정하게 정렬돼 시상면(y-z 평면)에서만 굽혀진다. 그래야
+# 1자유도 힌지의 굴곡/신전이 **frontal(medial-lateral, hip-to-hip = x축)에 수직인 평면**
+# 에서 일어나, cross product `n = u×w` 가 frontal 축과 평행해지고 `dot(n, frontal)` 의
+# 부호가 굴곡 vs 역꺾임을 변별한다. (좌표를 x-y 평면에서 굽히면 n 이 z 를 향해 frontal(x)
+# 과 직교 → dot=0 으로 변별 불가 — 10-03 검증으로 확정.)
 _BASE_XYZ: dict[str, tuple[float, float, float]] = {
     "nose": (0.0, 1.70, 0.0),
     "left_eye": (0.03, 1.72, 0.0),
@@ -63,31 +72,31 @@ _BASE_XYZ: dict[str, tuple[float, float, float]] = {
     "right_ear": (-0.06, 1.70, 0.0),
     "left_shoulder": (0.18, 1.40, 0.0),
     "right_shoulder": (-0.18, 1.40, 0.0),
-    "left_elbow": (0.22, 1.10, 0.0),
-    "right_elbow": (-0.22, 1.10, 0.0),
-    "left_wrist": (0.25, 0.85, 0.0),
-    "right_wrist": (-0.25, 0.85, 0.0),
+    "left_elbow": (0.18, 1.10, 0.0),
+    "right_elbow": (-0.18, 1.10, 0.0),
+    "left_wrist": (0.18, 0.85, 0.0),
+    "right_wrist": (-0.18, 0.85, 0.0),
     "left_hip": (0.12, 0.90, 0.0),
     "right_hip": (-0.12, 0.90, 0.0),
-    "left_knee": (0.13, 0.50, 0.0),
-    "right_knee": (-0.13, 0.50, 0.0),
-    "left_ankle": (0.14, 0.10, 0.0),
-    "right_ankle": (-0.14, 0.10, 0.0),
+    "left_knee": (0.12, 0.50, 0.0),
+    "right_knee": (-0.12, 0.50, 0.0),
+    "left_ankle": (0.12, 0.10, 0.0),
+    "right_ankle": (-0.12, 0.10, 0.0),
 }
 
-# 세그먼트별 distal keypoint override.
-#   flexed   = 명백한 굽힘 (included < 90°) — calibration 세그먼트.
-#   straight = 곧은 신전 (~179°) — elite/non-flag.
-#   reverse  = 중립 넘어 과신전 (magnitude ~167°, cross-product 부호 반전) — hold.
+# 세그먼트별 distal keypoint override (시상면 y-z 굽힘 — x 는 사지 frontal 위치 유지).
+#   flexed   = 명백한 굽힘 (included < 90°) — calibration 세그먼트 (+z 전방 폴드).
+#   straight = 곧은 신전 (180°) — elite/non-flag.
+#   reverse  = 중립 넘어 과신전 (−z 후방, cross-product 부호 반전, magnitude ~157°) — hold.
 _LEFT_KNEE_ANKLE = {
-    "flexed": (0.70, 0.70, 0.0),
-    "straight": (0.14, 0.10, 0.0),
-    "reverse": (0.05, 0.10, 0.0),
+    "flexed": (0.12, 0.65, 0.40),
+    "straight": (0.12, 0.10, 0.0),
+    "reverse": (0.12, 0.15, -0.15),
 }
 _LEFT_ELBOW_WRIST = {
-    "flexed": (0.50, 1.35, 0.0),
-    "straight": (0.25, 0.85, 0.0),
-    "reverse": (0.20, 0.83, 0.0),
+    "flexed": (0.18, 1.30, 0.40),
+    "straight": (0.18, 0.85, 0.0),
+    "reverse": (0.18, 0.90, -0.15),
 }
 
 
@@ -379,3 +388,132 @@ def ambiguous_geometry_4ch() -> np.ndarray:
     """D-05 fail-conservative — hinge keypoint 에 HIGH ch3 uncertainty(≈0.9) →
     신뢰 불가 → no-flag. (reverse-bend 기하지만 hinge 불확실.)"""
     return _two_segment_clip(knee_reverse=True, hinge_unc=0.9)
+
+
+# ── per-branch fail-conservative ambiguity fixtures (10-03 Task 1/2) ──────────
+#
+# 각 fixture 는 D-05 게이트의 ONE 브랜치만 발동하도록 설계됐다 — reverse-bend 기하 +
+# (테스트에서) 통제 상실이 있어도 해당 브랜치가 fail-conservative 로 NO-FLAG 시킨다.
+
+
+def _single_segment_reverse_clip(hinge_unc: float = 0.05) -> np.ndarray:
+    """모든 프레임 reverse-bend knee (calibration fold 없음) — clear-flexion 프레임 부재.
+
+    included angle 이 내내 ~157° (>= CLEAR_FLEXION_MAX 90°) 라 argmin 이 90 미만으로
+    떨어지지 않아 flexion-sign 보정 불가 → GATE (g).
+    """
+    frames: list[np.ndarray] = []
+    for _t in range(_T):
+        ov = {"left_ankle": _LEFT_KNEE_ANKLE["reverse"]}
+        frame = _frame(unc=0.05, overrides=ov)
+        for name in ("left_knee", "left_ankle"):
+            frame[kp_index(name), 3] = hinge_unc
+        frames.append(frame)
+    return np.stack(frames, axis=0)
+
+
+@pytest.fixture
+def high_uncertainty_4ch() -> np.ndarray:
+    """GATE (a): used keypoint(hinge) ch3 > MAX_KP_UNCERTAINTY → fail-conservative no-flag."""
+    return _two_segment_clip(knee_reverse=True, hinge_unc=0.9)
+
+
+@pytest.fixture
+def inconsistent_segment_4ch() -> np.ndarray:
+    """GATE (b): hold 윈도우에서 lower-leg 길이가 프레임마다 급변(teleport) → no-flag."""
+    clip = _two_segment_clip(knee_reverse=True, hinge_unc=0.05)
+    knee = kp_index("left_knee")
+    ank = kp_index("left_ankle")
+    for t in range(_CALIB_END, _T):
+        scale = 1.0 + 3.0 * float((t - _CALIB_END) % 2)  # 짝/홀 프레임 1x vs 4x
+        vec = clip[t, ank, :3] - clip[t, knee, :3]
+        clip[t, ank, :3] = clip[t, knee, :3] + vec * scale
+    return clip
+
+
+@pytest.fixture
+def single_frame_reverse_4ch() -> np.ndarray:
+    """GATE (c): hold 의 단 한 프레임만 reverse, 나머지 straight → 다수결 미달 → no-flag."""
+    clip = _two_segment_clip(knee_reverse=False, hinge_unc=0.05)  # hold = straight
+    ank = kp_index("left_ankle")
+    clip[_CALIB_END, ank, :3] = np.array(_LEFT_KNEE_ANKLE["reverse"], dtype=np.float32)
+    return clip
+
+
+@pytest.fixture
+def degenerate_frontal_4ch() -> np.ndarray:
+    """GATE (d): 양 hip 을 한 점으로 붕괴 → frontal(hip-to-hip) 축 ~0 → no-flag."""
+    clip = _two_segment_clip(knee_reverse=True, hinge_unc=0.05)
+    lh = kp_index("left_hip")
+    rh = kp_index("right_hip")
+    mid = 0.5 * (clip[:, lh, :3] + clip[:, rh, :3])
+    clip[:, lh, :3] = mid
+    clip[:, rh, :3] = mid
+    return clip
+
+
+@pytest.fixture
+def spin_collinear_4ch() -> np.ndarray:
+    """GATE (e): frontal(hip-to-hip)을 longitudinal(수직)과 평행 배치 → 방위 미해결 → no-flag."""
+    clip = _two_segment_clip(knee_reverse=True, hinge_unc=0.05)
+    lh = kp_index("left_hip")
+    rh = kp_index("right_hip")
+    for t in range(_T):
+        clip[t, lh, :3] = np.array((0.0, 1.02, 0.0), dtype=np.float32)
+        clip[t, rh, :3] = np.array((0.0, 0.78, 0.0), dtype=np.float32)
+    return clip
+
+
+@pytest.fixture
+def collinear_segment_4ch() -> np.ndarray:
+    """GATE (f)+floor: hold 가 정확히 곧은 신전(180°, |u×w|≈0) → 굽힘축 미정의 → no-flag."""
+    return _two_segment_clip(knee_reverse=False, hinge_unc=0.05)
+
+
+@pytest.fixture
+def no_flexion_calibration_4ch() -> np.ndarray:
+    """GATE (g): clip 전체가 reverse-bend(included ~157°) — clear-flexion 프레임 부재 → no-flag."""
+    return _single_segment_reverse_clip(hinge_unc=0.05)
+
+
+# ── real-elite (T,17,4) 회귀 fixtures — POD-DEFERRED (10-03) ──────────────────
+#
+# 3D-SOURCE PROVENANCE (review HIGH, 박제): real-elite 회귀는 실제 정은지 3D keypoint
+# 를 쓴다. 유일 유효 `(T,17,4)` 3D source 는 `to_coco17_array(pose_frames)`
+# (pose_frame.py:325 → (x,y,z,uncertainty_proxy), skeleton.KEYPOINT_NAMES 17 순서) 뿐.
+# `referenceKeypointReport`(2D 8-keypoint overlay, data=T*J*2)와
+# `reference-angles.json`(angle-only, 8 joint)은 (T,17,4) 3D source 로 **금지** —
+# 둘 다 3D 좌표를 복원할 수 없어 D-05 cross-product 커버리지를 주장할 수 없다.
+#
+# PINNED SOURCE MOTION IDS (정은지 reference 라이브러리 — KNOWN-ANSWER 회귀, fit 대상
+# 아님, [[calibration-source-hard-gate]]):
+#   ref-sideway-spin  — spin-around-pole (회전 방위)
+#   ref-invert        — inverted / mirrored orientation
+#   ref-foxtop-split  — extreme split (좌·우 양 사지)
+#
+# EXTRACTION (POD, RTMW GPU 필요 — 이번 run 에선 미실행, deferred-items.md 참조):
+#   cd backend && source pod.env && export PYTHONPATH=$PWD:$PWD/shared/python
+#   python scripts/extract_reference_coco17_4ch.py \
+#       --motions ref-sideway-spin ref-invert ref-foxtop-split \
+#       --out tests/phase10/fixtures/real_elite_coco17_4ch.npz
+# 이 npz 가 생기면 아래 skipif 가 자동 해제되어 4 real-elite 테스트가 활성화된다.
+
+REAL_ELITE_PINNED_IDS = ("ref-sideway-spin", "ref-invert", "ref-foxtop-split")
+REAL_ELITE_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "real_elite_coco17_4ch.npz"
+
+
+def load_real_elite_clips() -> dict[str, np.ndarray]:
+    """pod 가 생성한 real_elite_coco17_4ch.npz → {motion_id: (T,17,4)}.
+
+    npz 부재 시 빈 dict (skipif 가 테스트를 건너뜀). to_coco17_array 산출물만 허용.
+    """
+    if not REAL_ELITE_FIXTURE_PATH.exists():
+        return {}
+    data = np.load(REAL_ELITE_FIXTURE_PATH)
+    return {k: np.asarray(data[k], dtype=np.float32) for k in data.files}
+
+
+@pytest.fixture
+def real_elite_clips() -> dict[str, np.ndarray]:
+    """pinned-source 정은지 (T,17,4) 클립 dict (pod-deferred — npz 부재 시 빈 dict)."""
+    return load_real_elite_clips()

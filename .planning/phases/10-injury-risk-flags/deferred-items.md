@@ -35,3 +35,46 @@ import issue.
 
 **Phase 10 scope (phase06/07/08/08_1/09/10 substrate suites) regression = 0** beyond
 these pre-existing items.
+
+---
+
+## POD-DEFERRED: D-05 real-elite (T,17,4) regression fixture (10-03)
+
+The D-05 joint-hyperextension detector (10-03) is fully implemented and GREEN against
+all synthetic + helper-contract + per-branch-gate tests. The ONLY part deferred to a
+later RunPod GPU run is the **real-elite 3D keypoint regression** — there is no checked-in
+`(T,17,4)` 3D source (the only valid source is `to_coco17_array(pose_frames)` which
+requires RTMW pose estimation on GPU; `reference-angles.json` is angle-only J=8 and
+`referenceKeypointReport` is a 2D 8-keypoint overlay — both FORBIDDEN as 3D sources).
+
+**Authorized deferral** (orchestrator directive 2026-06-30): build + unit-test GREEN
+locally first; the pod opens later for the real-elite fixture + final no-FP eval.
+
+### What is deferred
+- 4 tests in `backend/tests/phase10/test_safety_flags_hyperextension.py` are
+  `@pytest.mark.skipif(not REAL_ELITE_FIXTURE_PATH.exists(), ...)` gated and currently
+  SKIPPED (show as `s` in pytest):
+  - `test_real_elite_clips_no_hyperextension`
+  - `test_real_elite_mirrored_no_flag`
+  - `test_real_elite_spin_no_flag`
+  - `test_d05_real_elite_fixture_schema`
+- They AUTO-ACTIVATE the moment the fixture artifact lands at
+  `backend/tests/phase10/fixtures/real_elite_coco17_4ch.npz`.
+
+### Pinned source motion IDs (KNOWN-ANSWER regression, NOT a fit target — [[calibration-source-hard-gate]])
+- `ref-sideway-spin` — spin-around-pole (rotational orientation)
+- `ref-invert` — inverted / mirrored orientation
+- `ref-foxtop-split` — extreme split (both left and right limbs)
+
+### Exact extractor command (run on the pod)
+```bash
+cd backend && source pod.env && export PYTHONPATH=$PWD:$PWD/shared/python
+python scripts/extract_reference_coco17_4ch.py \
+    --motions ref-sideway-spin ref-invert ref-foxtop-split \
+    --out tests/phase10/fixtures/real_elite_coco17_4ch.npz
+```
+The extractor `backend/scripts/extract_reference_coco17_4ch.py` runs
+`frames -> RTMWPoseEngine.estimate -> pose_frames -> to_coco17_array(.npz)` and is the
+single valid `(T,17,4)` extraction path. After the npz is committed, run
+`cd backend && python3 -m pytest tests/phase10 -q` — the 4 tests flip from SKIPPED to
+GREEN (the schema gate forbids 2D / 8-keypoint / wrong-order data from satisfying them).

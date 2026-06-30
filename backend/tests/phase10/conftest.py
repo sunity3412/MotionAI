@@ -98,6 +98,18 @@ _LEFT_ELBOW_WRIST = {
     "straight": (0.18, 0.85, 0.0),
     "reverse": (0.18, 0.90, -0.15),
 }
+# 우측 mirror (x 부호만 반전 — u/w 는 차분이라 cross/frontal 부호 변별이 좌측과 동일,
+# mirror-flip 버그 검증용).
+_RIGHT_KNEE_ANKLE = {
+    "flexed": (-0.12, 0.65, 0.40),
+    "straight": (-0.12, 0.10, 0.0),
+    "reverse": (-0.12, 0.15, -0.15),
+}
+_RIGHT_ELBOW_WRIST = {
+    "flexed": (-0.18, 1.30, 0.40),
+    "straight": (-0.18, 0.85, 0.0),
+    "reverse": (-0.18, 0.90, -0.15),
+}
 
 
 def _frame(unc: float = 0.05, overrides: dict[str, tuple[float, float, float]] | None = None) -> np.ndarray:
@@ -117,30 +129,42 @@ def _two_segment_clip(
     *,
     knee_reverse: bool = False,
     elbow_reverse: bool = False,
+    right_knee_reverse: bool = False,
+    right_elbow_reverse: bool = False,
     hinge_unc: float = 0.05,
 ) -> np.ndarray:
     """calibration(굽힘) + reverse-bend hold 의 (40,17,4) clip.
 
-    calibration 세그먼트(0~9): 무릎/팔꿈치 모두 명백히 굽힘 (included < 90°) →
+    calibration 세그먼트(0~9): 해당 hinge 가 명백히 굽힘 (included < 90°) →
     argmin(included_angle) 이 여기 떨어져 10-03 flexion-sign 기준 제공.
-    hold 세그먼트(10~39): knee_reverse/elbow_reverse 면 과신전, 아니면 곧은 신전.
-    hinge_unc 는 hinge keypoint(무릎+발목 / 팔꿈치+손목)의 ch3 (uncertainty_proxy).
+    hold 세그먼트(10~39): *_reverse 면 과신전, 아니면 곧은 신전.
+    hinge_unc 는 활성 hinge keypoint 의 ch3 (uncertainty_proxy).
     """
     frames: list[np.ndarray] = []
+    active = []  # uncertainty 를 입힐 hinge keypoint
     for t in range(_T):
         calib = t < _CALIB_END
         ov: dict[str, tuple[float, float, float]] = {}
-        # 무릎 (좌측 hinge) — calibration=flexed, hold=reverse|straight
+        # 무릎 (좌측 hinge)
         ov["left_ankle"] = _LEFT_KNEE_ANKLE["flexed"] if calib else (
             _LEFT_KNEE_ANKLE["reverse"] if knee_reverse else _LEFT_KNEE_ANKLE["straight"]
         )
-        # 팔꿈치 (좌측 hinge) — calibration=flexed, hold=reverse|straight
+        # 팔꿈치 (좌측 hinge)
         ov["left_wrist"] = _LEFT_ELBOW_WRIST["flexed"] if calib else (
             _LEFT_ELBOW_WRIST["reverse"] if elbow_reverse else _LEFT_ELBOW_WRIST["straight"]
         )
+        # 우측 hinge (mirror) — reverse 요청 시에만 calibration fold 부여.
+        if right_knee_reverse:
+            ov["right_ankle"] = _RIGHT_KNEE_ANKLE["flexed"] if calib else _RIGHT_KNEE_ANKLE["reverse"]
+        if right_elbow_reverse:
+            ov["right_wrist"] = _RIGHT_ELBOW_WRIST["flexed"] if calib else _RIGHT_ELBOW_WRIST["reverse"]
         frame = _frame(unc=0.05, overrides=ov)
-        # hinge keypoint 만 hinge_unc 로 (frontal-axis hip/shoulder 는 양질 유지)
-        for name in ("left_knee", "left_ankle", "left_elbow", "left_wrist"):
+        active = ["left_knee", "left_ankle", "left_elbow", "left_wrist"]
+        if right_knee_reverse:
+            active += ["right_knee", "right_ankle"]
+        if right_elbow_reverse:
+            active += ["right_elbow", "right_wrist"]
+        for name in active:
             frame[kp_index(name), 3] = hinge_unc
         frames.append(frame)
     return np.stack(frames, axis=0)
@@ -364,6 +388,21 @@ def reverse_bent_knee_4ch() -> np.ndarray:
 def reverse_bent_elbow_4ch() -> np.ndarray:
     """TWO-SEGMENT: calibration fold + reverse-bend elbow hold. ch3 ≈0.05."""
     return _two_segment_clip(elbow_reverse=True, hinge_unc=0.05)
+
+
+@pytest.fixture
+def reverse_bent_right_knee_4ch() -> np.ndarray:
+    """우측 무릎 reverse-bend (mirror) — frontal 부호 변별이 좌우 일관함을 검증."""
+    return _two_segment_clip(right_knee_reverse=True, hinge_unc=0.05)
+
+
+@pytest.fixture
+def right_knee_control_loss_report() -> ForceSignalsReport:
+    """hold phase 에 right_knee 통제 상실 (medium/high)."""
+    return _report(
+        [_hold_boundary()],
+        [_stability("hold", "high", ["right_knee"])],
+    )
 
 
 @pytest.fixture

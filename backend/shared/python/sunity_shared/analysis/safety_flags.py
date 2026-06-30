@@ -544,7 +544,7 @@ def _joint_hyperextension_flags(*, angles, keypoints_4ch, fsr, profile) -> list[
     from . import dimensions  # lazy import.
 
     try:
-        _sliced, (s, e) = dimensions._select_window(ang, profile)
+        _sliced, (s, e) = dimensions._select_window(angles, profile)
     except Exception:
         return []
     P = _phase_for_window(getattr(fsr, "phase_boundaries", None), s, e)

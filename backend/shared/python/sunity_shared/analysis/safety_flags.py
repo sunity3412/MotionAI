@@ -153,6 +153,33 @@ _HINGE_LABEL_KO = {
 }
 _SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2}
 
+# ── D-03 좌우 비대칭 상수 (D-07: 출처 태그 필수) ─────────────────────────────
+# EXPLICIT L/R joint pairs — MAX aggregation 으로 단일 최악 pair 가 플래그를 구동한다.
+# 한 관절의 심한 비대칭이 actionable 위험 신호이며, pair 평균은 그 하나를 대칭 pair
+# 들 아래로 희석해 위험을 숨긴다 (MEDIUM).
+_ASYMMETRY_PAIRS = (
+    ("left_elbow", "right_elbow"),
+    ("left_shoulder", "right_shoulder"),
+    ("left_hip", "right_hip"),
+    ("left_knee", "right_knee"),
+)
+_ASYMMETRY_PAIR_LABEL = {
+    ("left_elbow", "right_elbow"): "좌우 팔꿈치",
+    ("left_shoulder", "right_shoulder"): "좌우 어깨",
+    ("left_hip", "right_hip"): "좌우 고관절",
+    ("left_knee", "right_knee"): "좌우 무릎",
+}
+# 비대칭 excess severity 상한 밴드 — KISMAM tol 배수 (reference-anchored, 13영상 fit
+# 아님; trunk margin 과 동일 provenance, D-07 / [[calibration-source-hard-gate]]).
+_ASYMMETRY_SEVERITY_HIGH_DEG = 3.0 * _KISMAM_TOL_DEG  # 60° 이상 excess → high
+
+# ── D-06 레벨 대비 무리 상수 ─────────────────────────────────────────────────
+# MODE_EXPERT mirror — models import 회피 (models → safety_flags 단방향 의존).
+_MODE_EXPERT = "mode1"
+# 경력/난이도 ladder — basic/beginner 동급(0), intermediate(1), advanced(2). 비-멤버
+# (None/위조)는 키 부재 → level flag omit (fail-safe enum guard, T-10-02).
+_LEVEL_LADDER = {"basic": 0, "beginner": 0, "intermediate": 1, "advanced": 2}
+
 
 # ── 윈도우 → phase 매핑 (MEDIUM-1) ───────────────────────────────────────────
 def _phase_for_window(phase_boundaries, s: int, e: int):
@@ -287,6 +314,23 @@ def _control_loss_phase_level(fsr) -> bool:
     return False
 
 
+def _max_control_loss_severity(fsr) -> str | None:
+    """통제 상실 metric 중 최대 severity('medium'/'high') — D-06 강도 스케일링용.
+
+    low(정상 변동)는 무시. qualifying metric 이 없으면 None. level_mismatch 의
+    severity 가 rank-gap 과 instability 강도 둘 다에 스케일하도록 후자를 제공한다.
+    """
+    metrics = getattr(fsr, "stability_metrics", None) or []
+    best: str | None = None
+    for m in metrics:
+        sev = getattr(m, "severity", None)
+        if sev not in _CONTROL_LOSS_SEVERITIES:
+            continue
+        if best is None or _SEVERITY_RANK[sev] > _SEVERITY_RANK[best]:
+            best = sev
+    return best
+
+
 def _maybe_flag(posture_met: bool, control_lost: bool, **flag_kwargs) -> SafetyFlag | None:
     """posture AND control-loss 둘 다 True 일 때만 SafetyFlag 반환 (Pitfall 2).
 
@@ -358,6 +402,83 @@ def _trunk_hyperextension_flag(angles, reference_angles, fsr, profile) -> Safety
             f"{best_excess:.0f}° 초과 (phase={phase})"
         ),
         control_loss_signal=f"{phase} 구간 고관절 통제 흔들림 (hip-local)",
+        confidence=confidence,
+        mode_scope="both",
+    )
+
+
+# ── D-03 좌우 비대칭 (DTW-aligned reference-anchored, explicit pairs, MAX agg) ─
+def _asymmetry_flag(angles, reference_angles, fsr, profile) -> SafetyFlag | None:
+    """D-03 좌우 비대칭 — DTW-path-aligned reference-anchored + pair-local·phase-co-located 통제 상실.
+
+    `excess = max(0, student_LR − ref_LR)` 를 `_dtw_aligned_joint_medians` 의 DTW-정렬
+    per-joint median 에서 계산한다 (raw same-index 아님 — HIGH-A). 정렬은 student 의 극단
+    프레임을 reference 의 대응 프레임과 짝지어, reference(또는 mode3 이전 영상)에 baked-in
+    된 의도적 비대칭이 SHIFTED timing 에서도 상쇄된다. EXPLICIT L/R pair set + MAX
+    aggregation — 단일 최악 pair 가 플래그를 구동하고 audit 문자열에 명시된다. 절대 L/R
+    비대칭은 v1 에서 절대 발화하지 않는다 (D-03). pair-local + phase-co-located 통제 상실
+    AND-gate (D-02): worst pair 두 관절의 통제 상실을 _control_loss_for_joint 로 검사한다.
+
+    reference_angles=None / 정렬 dict 빈 / phase 미확정 → None (graceful no-op — first
+    Mode-3 video 의 surfaced limitation 포함, T-10-11).
+    """
+    if reference_angles is None:
+        return None
+    student_med, ref_med = _dtw_aligned_joint_medians(
+        angles, reference_angles, skeleton.JOINT_KEYS
+    )
+    if not student_med or not ref_med:
+        return None
+    # EXPLICIT PAIRS + MAX AGGREGATION — 단일 최악 pair 가 플래그를 구동.
+    best_excess = 0.0
+    best_pair: tuple[str, str] | None = None
+    for left_key, right_key in _ASYMMETRY_PAIRS:
+        sl = student_med.get(left_key)
+        sr = student_med.get(right_key)
+        rl = ref_med.get(left_key)
+        rr = ref_med.get(right_key)
+        if sl is None or sr is None or rl is None or rr is None:
+            continue
+        student_lr = abs(float(sl) - float(sr))
+        ref_lr = abs(float(rl) - float(rr))
+        excess_pair = max(0.0, student_lr - ref_lr)
+        if excess_pair > best_excess:
+            best_excess = excess_pair
+            best_pair = (left_key, right_key)
+    if best_pair is None:
+        return None
+    # hold window (공유 selector — drift 금지) → phase 매핑.
+    from . import dimensions  # lazy import (모듈 로드 비용 절감).
+
+    try:
+        _sliced, (s, e) = dimensions._select_window(angles, profile)
+    except Exception:
+        return None
+    phase = _phase_for_window(getattr(fsr, "phase_boundaries", None), s, e)
+    if phase is None:
+        return None
+    left_key, right_key = best_pair
+    # posture_met = excess 가 허용 범위를 substantially 넘음 (1.5×tol ≈ score<33).
+    posture_met = (
+        score_from_deviation(best_excess, _KISMAM_TOL_DEG) < _TRUNK_POSTURE_SCORE_CUTOFF
+    )
+    left_lost = _control_loss_for_joint(fsr, left_key, phase=phase)
+    right_lost = _control_loss_for_joint(fsr, right_key, phase=phase)
+    control_lost = left_lost or right_lost
+    severity = "high" if best_excess >= _ASYMMETRY_SEVERITY_HIGH_DEG else "medium"
+    label = _ASYMMETRY_PAIR_LABEL[best_pair]
+    side_ko = "왼쪽" if left_lost else "오른쪽"
+    confidence = getattr(fsr, "overall_confidence", None) or "low"
+    return _maybe_flag(
+        posture_met,
+        control_lost,
+        flag_type="asymmetry",
+        body_region=label,
+        severity=severity,
+        posture_condition=(
+            f"{label} 비대칭이 기준 대비 {best_excess:.0f}° 초과 (phase={phase})"
+        ),
+        control_loss_signal=f"{phase} 구간 {side_ko} 통제 흔들림 (pair-local)",
         confidence=confidence,
         mode_scope="both",
     )
@@ -617,7 +738,11 @@ def compute_safety_flags(
         trunk = _trunk_hyperextension_flag(angles, reference_angles, fsr, profile)
     except Exception:
         trunk = None
-    flags = [f for f in (trunk,) if f is not None]
+    try:
+        asymmetry = _asymmetry_flag(angles, reference_angles, fsr, profile)
+    except Exception:
+        asymmetry = None
+    flags = [f for f in (trunk, asymmetry) if f is not None]
     # D-05 관절 과신전 — list 반환이라 extend (trunk/asymmetry 는 singular append).
     try:
         flags.extend(

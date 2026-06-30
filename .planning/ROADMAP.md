@@ -327,7 +327,7 @@ Plans:
 **Plans**: 4 plans (4 waves)
 
   - [x] 10-01-PLAN.md — Wave 0: SafetyFlag 계약 3중 미러(analysis.ts↔models.py↔contract.md) + safety_flags.py 스캐폴드(frozen dataclass+enum guard+compute stub) + warnAmberBg 토큰 + phase10 RED 테스트/fixture (SAFE-01)
-  - [ ] 10-02-PLAN.md — Wave 1: Slice 1 — D-02 AND-게이트 + D-04 트렁크 과신전(reference-anchored) + _process 주입 + _validate_safety_flags + 앰버 InjuryRiskSection UI(4종 카피 맵, 비면 omit). 정은지 위양성 0 헤드라인 게이트 (SC2/SC4)
+  - [x] 10-02-PLAN.md — Wave 1: Slice 1 — D-02 AND-게이트 + D-04 트렁크 과신전(reference-anchored) + _process 주입 + _validate_safety_flags + 앰버 InjuryRiskSection UI(4종 카피 맵, 비면 omit). 정은지 위양성 0 헤드라인 게이트 (SC2/SC4)
   - [ ] 10-03-PLAN.md — Wave 2: Slice 2 — D-05 관절 과신전 외적 부호 방향 판별(무릎>5°/팔꿈치>10° [CITED], 시상면). belle Mode-3 우선. 자동 렌더 (SAFE-01)
   - [ ] 10-04-PLAN.md — Wave 3: Slice 3+4 — D-03 비대칭(reference-anchored, kismam 재사용) + D-06 레벨 대비 무리(Mode 1 전용, spoof fail-safe). 4종 완성 (SC1/SC3)
 
@@ -571,7 +571,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 7. 차이 분류 | 0/TBD | Not started | - |
 | 8. 중심축·접촉점·jerk 분석 | 4/4 | Complete (axis-metric Phase 8.5 신설) | 2026-06-09 |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 2/2 | Complete   | 2026-06-10 |
-| 10. 부상 위험 신호 플래그 | 1/4 | In Progress|  |
+| 10. 부상 위험 신호 플래그 | 2/4 | In Progress|  |
 | 11. CoachCommentHook + Gemini 번역 | 3/3 | Complete    | 2026-06-16 |
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |

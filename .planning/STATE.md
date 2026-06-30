@@ -4,7 +4,7 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 10 UI-SPEC approved
-last_updated: "2026-06-30T01:15:06.126Z"
+last_updated: "2026-06-30T01:33:22.585Z"
 last_activity: 2026-06-30
 progress:
   total_phases: 7
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 10 (injury-risk-flags) — EXECUTING
-Plan: 2 of 4
-Verification: 24-04 — low_alignment_confidence 를 apply seam 에서 measured-seed tally-eligible 로 라우팅(passthrough_map 에서 제거). RTMW 측정 편차(extension deficit + body-relative notch, 정렬-독립)는 Gemini 정렬이 낮아도 감점; supported_differences=[] 라 criteria_for_fault 부재 → Gemini fault fabricate 0(objectivity 보존). collect-side bail / eligible_for_coach(candidate_verdict-only) / assess_alignment_confidence 임계값 UNCHANGED. to_audit_dict 가 collectionStatus 방출(측정-only provenance, Rule 2). targeted 196 passed(Phase24+20/23) / band grep 0 / production 변경 = app.py+vision_veto.py 만. 2 atomic commit (ce98310/94667e2).
-Next: Pod 레이어 재배포 후 24-eval Pod 재-sweep — phase24_breakdowns.json 재생성(fault 멤버가 non-null 측정 deductionBreakdown 보유, kip-up FP 재확인, 일반화 게이트가 실 breakdown 에 실행) → belle 검증. 이 재-sweep+검증은 orchestrator 소유(24-04 autonomous 코드 게이트 밖, plan acceptance 체크포인트).
+Plan: 3 of 4
+Verification: 10-02 COMPLETE — D-04 trunk-hyperextension flag end-to-end (reference-anchored DTW-path-aligned excess + hip-local phase-co-located control-loss AND-gate). _phase_for_window (window→phase ≥50% overlap, no-op on None) + _dtw_aligned_joint_medians (timing-shift cancellation, HIGH-A) + _control_loss_for_joint (LOCAL+TEMPORAL, HIGH-1) in safety_flags.py. _process injection (mode1 a_ref / mode3 reshaped prev) + single-path firestore_admin._validate_safety_flags. Amber InjuryRiskSection on result.tsx (all-4 copy map, omit-when-empty, no brand red). 정은지 elite posture alone / wrong-phase / timing-shifted-reference = ZERO flags (headline gate GREEN). phase10 = 29 passed, 7 xfailed (10-03/10-04 must-fire), 0 failed. App typecheck clean. No regressions (full-suite 54 pre-existing failures = app-module-name-collision + gemini/knee env, identical on HEAD). 3 commits (774e2ee/e6f1b3b/708464f).
+Next: 10-03 (D-05 absolute joint hyperextension — reference-free, sagittal-frame from keypoints_4ch; un-xfails hyperextension tests; auto-renders via joint_hyperextension copy map). Then 10-04 (asymmetry + level_mismatch).
 Status: Ready to execute
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
@@ -542,6 +542,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 20 P20-03 | 38min | 3 tasks | 8 files |
 | Phase 24 P04 | ~25min | 3 tasks | 5 files |
 | Phase 10 P01 | 38min | 3 tasks | 12 files |
+| Phase 10 P02 | 50min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -616,6 +617,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 20-03: 비전 거부권 통합 — _apply_vision_veto 하향-전용 mutation + visionVeto status enum audit + Mode3 점수카드 전체 억제(resolver provenance + reason-owns-copy + producer-contract fail-loud). pod-free, 실 정량 게이트는 20-04 Pod sweep
 - [Phase 20]: 20-04 (spec-anchored variant): vision veto SEVERITY_CAP activated — major=50 (belle spec ≤50), moderate=75 (IPSF severity), minor=None. method=spec_anchored; phase18 6 pairs regression-only (never derivation). Sensitivity-derived eval deferred to follow-up.
 - [Phase ?]: 24-04: low_alignment_confidence 를 apply seam 에서 measured-seed tally-eligible 로 라우팅(passthrough 제거). RTMW 측정 편차는 정렬-독립이라 Gemini 정렬 낮아도 감점, supported_differences=[] 라 Gemini fault fabricate 0. collect-side bail/coach-eligibility/임계값 UNCHANGED. to_audit_dict collectionStatus provenance 추가(Rule 2).
+- [Phase 10]: 10-02: D-04 trunk flag reference-anchored only (no absolute lumbar cutoff, A3); absolute trunk DEFERRED
+- [Phase 10]: 10-02: temporal co-location is phase-level (v1 limit); DTW alignment recomputed inside safety_flags, not kwarg-threaded
 
 ### Pending Todos
 
@@ -648,7 +651,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-30T01:14:04.350Z
+Last session: 2026-06-30T01:32:28.760Z
 
 Stopped at: Phase 10 UI-SPEC approved
 

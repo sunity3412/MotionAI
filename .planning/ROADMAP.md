@@ -42,7 +42,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: 중심축 이탈 + 접촉점 안정성 + jerk/jitter** - 힘 패턴 추론을 위한 기초 신호. **2026-06-09 close-out** — 4 plans (08-00/01/02/03) 완료. 4 commits Plan 03 (fc3b6b7/ced1d87/c71c75b/f627905). 358 PASS + 1 skipped. 단, 정은지 5/5 영상 axis severity='high' 도메인 정합성 문제 발견 → Phase 8.1 (axis-metric-redesign) 신설 (belle α 결정). tilt 데이터 (rotation-only) 는 유의미 → Phase 9 1차 사용 가능.
 - [x] **Phase 8.1: axis-metric-redesign** - 정은지 5/5 영상 axis severity high → low fix. Tilt metric 재설계 (rotation-only, distance 차원 제거) + `_normalize_angle_undirected` (modulo 180°) + `tilt_thresholds.yaml` schema_v2 lazy load + 정은지 5영상 P100+margin calibration + IPSF tolerance 20° / major fault 40°. **2026-06-09 close-out** — 3 plans (08.1-00/01/02) 완료. 413 PASS + 1 skipped. SC 5/5 PASS (정은지 5/5 axis severity 'low'). **Deferred (Codex C-MH1 정합)**: `AxisDeviationMetric` → `BodyLineTiltMetric` rename — 별도 plan.
 - [x] **Phase 9: ForceDirectionPattern + 실패 원인 후보 3개** - pull/push/brace/rotate/release + 실패 후보 3카드 (completed 2026-06-10)
-- [ ] **Phase 10: 부상 위험 신호 플래그** - 좌우 비대칭·요추 과신전·무리 동작 신호 (SAFE-01 v1)
+- [x] **Phase 10: 부상 위험 신호 플래그** - 좌우 비대칭·요추 과신전·무리 동작 신호 (SAFE-01 v1) (completed 2026-06-30)
 - [x] **Phase 11: CoachCommentHook 데이터 구조 + Gemini 자연어 번역만** - AI+코치 비즈니스 모델 + 설명 엔진 한정 (completed 2026-06-16)
 - [x] **Phase 12: 실측 각도 표시 + 키포인트 오버레이** - 6 build iteration (B/C/D fix + KeypointOverlay frame index Fix A + drift correction + 1080p 영상 압축) + 6 belle UAT (2026-06-10~12) close-out. **2026-06-12 PASS** — keypoint 사람 따라감 ✓ / 두 영상 동기화 ✓ / stall 해소 (4K → 1080p 압축 결정타) ✓. 잔여: 12-A 좌/우 mirror + ankle keypoint 추가 → Phase 13. Build 16 + OTA bundles ship.
 - [x] **Phase 12.5: UI Transparency — 차원별 카피 + 자세히 모달 + LLM-ready coaching** - `result.tsx` 차원별 카드 (각도 정확도 / 팔다리 펴기 / 동작 안정성) + 자세히 모달 (점수 산출 설명, 동작·사용자 동적 카피, "심사평" 자연어) + 코칭 팁 자세히 모달 (LLM 동적 다중 원인 + 부상 경고 + coachNote). backend `assemble.build_dimension_explanation` + `coach_writer` JSON 출력 + Cerebras 시스템 프롬프트 갱신. **2026-06-07 close-out** (commits 1c0d20a T1+T2 / 62fdeed T9 backend / e968074 T8+T9 frontend). belle UX 검증 PASS — 모달 스크롤 정상 동작 + 심사평 톤 (평가+이유+결정 3박자) 적용.
@@ -329,7 +329,7 @@ Plans:
   - [x] 10-01-PLAN.md — Wave 0: SafetyFlag 계약 3중 미러(analysis.ts↔models.py↔contract.md) + safety_flags.py 스캐폴드(frozen dataclass+enum guard+compute stub) + warnAmberBg 토큰 + phase10 RED 테스트/fixture (SAFE-01)
   - [x] 10-02-PLAN.md — Wave 1: Slice 1 — D-02 AND-게이트 + D-04 트렁크 과신전(reference-anchored) + _process 주입 + _validate_safety_flags + 앰버 InjuryRiskSection UI(4종 카피 맵, 비면 omit). 정은지 위양성 0 헤드라인 게이트 (SC2/SC4)
   - [x] 10-03-PLAN.md — Wave 2: Slice 2 — D-05 관절 과신전 외적 부호 방향 판별(무릎>5°/팔꿈치>10° [CITED], 시상면). belle Mode-3 우선. 자동 렌더 (SAFE-01)
-  - [ ] 10-04-PLAN.md — Wave 3: Slice 3+4 — D-03 비대칭(reference-anchored, kismam 재사용) + D-06 레벨 대비 무리(Mode 1 전용, spoof fail-safe). 4종 완성 (SC1/SC3)
+  - [x] 10-04-PLAN.md — Wave 3: Slice 3+4 — D-03 비대칭(reference-anchored, kismam 재사용) + D-06 레벨 대비 무리(Mode 1 전용, spoof fail-safe). 4종 완성 (SC1/SC3)
 
 **UI hint**: yes
 
@@ -571,7 +571,7 @@ v1 코드 phase 아님. 데이터 수집 작업은 v1 동시 평행 진행 (bell
 | 7. 차이 분류 | 0/TBD | Not started | - |
 | 8. 중심축·접촉점·jerk 분석 | 4/4 | Complete (axis-metric Phase 8.5 신설) | 2026-06-09 |
 | 9. ForceDirectionPattern + 실패 후보 3개 | 2/2 | Complete   | 2026-06-10 |
-| 10. 부상 위험 신호 플래그 | 3/4 | In Progress|  |
+| 10. 부상 위험 신호 플래그 | 4/4 | Complete   | 2026-06-30 |
 | 11. CoachCommentHook + Gemini 번역 | 3/3 | Complete    | 2026-06-16 |
 | 12. 실측 각도 + 키포인트 오버레이 | 0/TBD | Not started (v1 chain #5) | - |
 | 12.5. UI Transparency (차원별 카피 + 강사 보조) | 1/1 | Complete | 2026-06-07 |

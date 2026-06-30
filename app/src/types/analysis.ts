@@ -516,6 +516,10 @@ export type AnalysisResult = ScoreSuppression & {
   // Plan 08-00 §9.0 contract (CoordinateSpace / ContactPrimitiveKind /
   // PoleAxisMeasurement / median_torso_length) 위에 박제.
   forceSignalsReport?: ForceSignalsReport | null;
+  // Phase 10 (Plan 10-01) — 결정론 부상 위험 신호 (D-01 / SAFE-01). 기존 LLM
+  // 코칭 프로즈 레이어와 독립. 옵셔널/nullable — 이전 빌드 doc 호환 + graceful-omit.
+  // Wave 0 = schema only. 10-02/03/04 가 firing rule 산출 후 pipeline 이 채움.
+  safetyFlags?: SafetyFlag[] | null;
   // Phase 9 (Plan 09-01) — §9.11 ForcePatternInference (D-09-D1 / D-09-U1).
   // Wave 0 = schema only. Wave 1 (Plan 09-02) 가 본체 함수 + canned + pipeline
   // wiring 박제. 본 필드는 Wave 1 wiring 이후 backend pipeline 이 채움.
@@ -1023,6 +1027,32 @@ export interface ForceSignalsReport {
   axisMetrics: BodyLineTiltMetric[];
   stabilityMetrics: StabilityMetric[];
   contactMetrics: ContactStabilityMetric[];
+}
+
+// ── Phase 10 §N SafetyFlag (D-01 / SAFE-01) ─────────────────────────────
+//
+// Source contract: docs/contract.md §N + backend safety_flags.py (frozen dataclass).
+// 결정론(LLM 무관) 부상 위험 신호. CONTEXT D-01 — 기존 LLM 코칭 프로즈
+// (CoachingTipDetail 의 부상 위험 텍스트) 레이어와 독립 (대체/주입 X). 발화 =
+// (자세 조건) AND (통제 상실 지표) (D-02). 모든 필드 scalar — nested array 금지.
+// severity = SeverityLevel / confidence = MetricConfidence 재사용 (재정의 금지).
+//
+// 변경 시 backend safety_flags.py + docs/contract.md §N 동시 갱신 (CLAUDE.md
+// Cross-cutting 3-way lockstep).
+export type SafetyFlagType =
+  | 'asymmetry'
+  | 'trunk_hyperextension'
+  | 'joint_hyperextension'
+  | 'level_mismatch';
+
+export interface SafetyFlag {
+  flagType: SafetyFlagType;
+  bodyRegion: string;
+  severity: SeverityLevel;
+  confidence: MetricConfidence;
+  modeScope: 'both' | 'mode1_only';
+  postureCondition: string;
+  controlLossSignal: string;
 }
 
 // ── Phase 9 §9.11 ForcePatternInference (D-09-D1 / D-09-U1) ─────────────

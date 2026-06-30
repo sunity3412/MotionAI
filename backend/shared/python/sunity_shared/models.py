@@ -475,6 +475,26 @@ from .analysis.force_signals import (  # noqa: E402, F401 — 파일 하단 re-e
     StabilityMetric,
 )
 
+# Phase 10 (Plan 10-01) — SafetyFlag 신설 박제 (D-01 / SAFE-01).
+#   결정론 부상 위험 신호 — 기존 LLM injuryRisk 와 독립. severity 는 force_signals
+#   _SEVERITY_LEVELS 재사용 (low/medium/high). 본 re-export 가 import cycle 을
+#   만들지 않는다: safety_flags.py 는 models 를 import 하지 않는다 (models →
+#   safety_flags 단방향, force_signals 패턴 정합).
+#   TS 미러: app/src/types/analysis.ts SafetyFlag interface.
+#   docs 미러: docs/contract.md §N.
+# 변경 시 양쪽 + docs/contract.md §N 동시 갱신 (CLAUDE.md Cross-cutting 3-way lockstep).
+SAFETY_FLAG_TYPES = (
+    "asymmetry",
+    "trunk_hyperextension",
+    "joint_hyperextension",
+    "level_mismatch",
+)
+SAFETY_FLAG_MODE_SCOPES = ("both", "mode1_only")
+
+from .analysis.safety_flags import (  # noqa: E402, F401 — 파일 하단 re-export 패턴
+    SafetyFlag,
+)
+
 # Phase 12 Wave 0B (Plan 12-01, 2026-06-10) — KeypointReport 신설 박제.
 #   KeypointReport = 8 body keypoint flat + axisData polyline + axisMask.
 #   TS 미러: app/src/types/analysis.ts KeypointReport interface.

@@ -1391,6 +1391,32 @@ const frameIdx = Math.floor(currentTime * report.fps);
 
 ---
 
+### §9.13 SafetyFlag (Phase 10 신설 — D-01 / SAFE-01)
+
+본 섹션은 Phase 10 (injury-risk-flags) Wave 0 (Plan 10-01) 가 신설한 **결정론(LLM 무관) 부상 위험 신호** schema. CONTEXT D-01 — 기존 LLM `CoachingTipDetail.injuryRisk` 프로즈와 **독립**이다 (대체/입력 주입 X). 발화 규칙(D-02): 각 신호는 **(극단/과신전/비대칭 자세 조건) AND (통제 상실 지표)** 의 조합으로만 발화 — 자세 단독 플래그 금지 (정은지 위양성 방어). 3-way lockstep: `app/src/types/analysis.ts` `SafetyFlag`/`SafetyFlagType` ↔ `models.py` `SAFETY_FLAG_TYPES`/`SAFETY_FLAG_MODE_SCOPES` + `safety_flags.SafetyFlag` re-export ↔ 본 §9.13.
+
+#### §9.13.1 SafetyFlag (7 필드, scalar-only)
+
+| 필드 (camel) | 필드 (snake) | type | cardinality | 설명 |
+|---|---|---|---|---|
+| `flagType` | `flag_type` | `'asymmetry' \| 'trunk_hyperextension' \| 'joint_hyperextension' \| 'level_mismatch'` | required | 신호 종류 (SafetyFlagType) |
+| `bodyRegion` | `body_region` | `string` | required | 코칭 카피용 KO 부위 (예: '무릎·팔꿈치', '허리') |
+| `severity` | `severity` | `SeverityLevel ('low'\|'medium'\|'high')` | required | 측정값 크기 (force_signals SeverityLevel 재사용) |
+| `confidence` | `confidence` | `MetricConfidence ('low'\|'medium'\|'high')` | required | 측정 신뢰도 |
+| `modeScope` | `mode_scope` | `'both' \| 'mode1_only'` | required | 적용 모드 (D-06 level_mismatch = mode1_only) |
+| `postureCondition` | `posture_condition` | `string` | required | 충족된 기하 조건 audit 문자열 |
+| `controlLossSignal` | `control_loss_signal` | `string` | required | 발화한 통제 상실 audit 문자열 (D-02 partner) |
+
+모든 필드는 scalar — nested array 금지 (Firestore nested-array ban, Pitfall 1).
+
+#### §9.13.2 AnalysisResult.safetyFlags
+
+`AnalysisResult.safetyFlags?: SafetyFlag[] | null` — **옵셔널/nullable**. 이전 빌드 doc 호환 + graceful-omit (legacy 안전). Wave 0 = schema only. 10-02/03/04 가 firing rule 산출 후 pipeline `_process` 가 채운다. 빈/부재 시 result.tsx 는 경고 배너를 렌더하지 않는다.
+
+*Phase 10 Wave 0 추가: 2026-06-30 — SafetyFlag 신설 (Wave 0 = TS interface + Python frozen dataclass + models.py re-export + warnAmberBg 토큰 + docs §9.13 단일 atomic commit). D-01 (LLM injuryRisk 와 독립) / D-02 (자세 AND 통제 상실) / SAFE-01. Wave 1+ (Plan 10-02/03/04) 가 compute_safety_flags firing rule + pipeline wiring + result.tsx 경고 배너 박제.*
+
+---
+
 ## §10. DeductionBreakdown (Phase 24 신설 — ND-01/ND-07 투명 감점-합산)
 
 점수 = `baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점)`. Phase 20 의 severity→고정천장 밴드를 **제거·교체**한다. 결과 숫자(50이든 70이든)는 tally 출력일 뿐 **범위가 아니다** — 보고서가 감점 내역("−X −Y −Z = 점수")을 명명백백하게 노출하는 게 핵심 ([[scoring-must-be-transparent-deduction-tally]]). 3-way lockstep: `app/src/types/analysis.ts` `DeductionRecord`/`DeductionBreakdown` ↔ `models.py` `DEDUCTION_RECORD_KEYS`/`DEDUCTION_BREAKDOWN_KEYS` ↔ 본 §10.

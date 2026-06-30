@@ -60,6 +60,11 @@ export const colors = {
   viewer3dJointNormal: '#ACACAC', // 정상 관절 점 (textSecondary alias)
   accuracyLimitBg: '#F5F5F5', // 정확도 제한 배지 배경 (softBg alias)
   accuracyLimitText: '#E6A300', // 정확도 제한 배지 텍스트 (warnAmber alias)
+
+  // ── Phase 10 신설 토큰 (10-UI-SPEC §Color, 2026-06-30) ────────────────
+  // 부상 위험 SafetyFlag 경고 배너 amber tint 배경. 기존 warnAmber(#E6A300)
+  // 텍스트 톤과 짝. brand #FF4B33 변경 0 (CLAUDE.md §4). 라이트 배경 유지.
+  warnAmberBg: '#FFF6E5', // 부상 위험 경고 배너 배경 (D-08)
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

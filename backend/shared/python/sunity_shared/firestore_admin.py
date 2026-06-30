@@ -285,6 +285,26 @@ def _validate_force_signals_report(
         )
 
 
+def _validate_safety_flags(flags, *, path: str = "safetyFlags") -> None:
+    """SafetyFlag list[dict] 전용 scoped validator — Plan 10-02 (T-10-01 방어).
+
+    `result['safetyFlags']` 의 단일 persistence path 에서만 호출 (complete_analysis 에
+    신규 kwarg 추가 X — 플래그는 result 안으로 흐른다). force_signals 와 달리 SafetyFlag
+    의 모든 필드는 scalar (str/int/float/bool/None) — 화이트리스트 list 필드 없음
+    (stricter). 각 flag dict 를 `_validate_dict_only_scalars` 로 검증해 nested list/dict
+    (예: causes[]) 를 reject 한다. [[firestore-nested-array-flat]] 보존.
+    """
+    if flags is None:
+        return
+    if not isinstance(flags, list):
+        raise TypeError(
+            f"{path} must be list[dict] (firestore-nested-array-flat): "
+            f"got {type(flags).__name__}"
+        )
+    for i, flag in enumerate(flags):
+        _validate_dict_only_scalars(flag, path=f"{path}[{i}]")
+
+
 def _validate_metric_dict_with_scalar_lists(d: dict, *, path: str) -> None:
     """metric dict 안 검증 — scalar / list[str] (화이트리스트 한정) 박제 허용.
 
@@ -886,6 +906,11 @@ def complete_analysis(
     # 전에 scoped validator 로 records/coverageGaps flat 검증(firestore-nested-array-flat).
     if result:
         _validate_deduction_breakdown((result or {}).get("deductionBreakdown"))
+        # Plan 10-02 (T-10-01) — safetyFlags 단일 persistence path. result 안으로
+        # 흘러온 list[dict] 를 scalar-only scoped validator 로 검증 (신규 kwarg 없음).
+        _flags = (result or {}).get("safetyFlags")
+        if isinstance(_flags, list):
+            _validate_safety_flags(_flags)
     payload: dict = {
         "status": models.STATUS_DONE,
         "result": dict(result) if result else {},

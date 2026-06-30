@@ -32,14 +32,12 @@ def _scalar_flag_dict() -> dict:
     }
 
 
-@pytest.mark.xfail(strict=True, reason="_validate_safety_flags lands in 10-02")
 def test_validator_accepts_scalar_only_flag() -> None:
     validate = _load_validator()
     # scalar-only flag dict 는 통과해야 한다 (예외 없음).
     validate([_scalar_flag_dict()])
 
 
-@pytest.mark.xfail(strict=True, reason="_validate_safety_flags lands in 10-02")
 def test_validator_rejects_nested_list_flag() -> None:
     validate = _load_validator()
     bad = _scalar_flag_dict()

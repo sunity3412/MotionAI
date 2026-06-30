@@ -54,6 +54,7 @@ from sunity_shared.analysis import (
     body_normalizer,
     dimensions,
     kismam,
+    safety_flags as safety_flags_mod,  # Phase 10 (Plan 10-02) — 결정론 부상 위험 신호
     segments,
     skeleton,
     technique,
@@ -1558,6 +1559,29 @@ def _angles_to_mean_dict(
         for joint, mean in zip(joint_keys, means)
         if not np.isnan(mean)
     }
+
+
+def _reshape_prev_angles(prev: dict | None) -> np.ndarray | None:
+    """이전 분석 영상의 flat angles 를 (T, J) 로 reshape — Phase 10 (Plan 10-02).
+
+    Mode-3 safety_flags reference-anchor source. _mode3_comparison (app.py:2786-2788) 의
+    idiom 재사용: num_joints = len(prev['anglesJointKeys'] or []) or skeleton.NUM_JOINTS.
+    첫 Mode-3 영상(이전 baseline 없음) 또는 angles 부재 → None (reference-anchored 플래그
+    graceful no-op). 어떤 입력 오류도 raise 하지 않는다.
+    """
+    if not isinstance(prev, dict):
+        return None
+    flat = prev.get("angles")
+    if not flat:
+        return None
+    num_joints = len(prev.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
+    try:
+        arr = np.asarray(flat, dtype=float)
+        if arr.size == 0 or num_joints <= 0 or arr.size % num_joints != 0:
+            return None
+        return arr.reshape(-1, num_joints)
+    except Exception:
+        return None
 
 
 def _angles_to_dtw_median_dicts(
@@ -3466,6 +3490,50 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             technique_profile=profile if layer2_recognizer is not None else None,  # REVIEWS R6
         )
         force_signals_dict = _dataclass_to_camel_case_dict(force_signals_report)
+
+        # ── Phase 10 (Plan 10-02) — 결정론 부상 위험 신호 (SafetyFlag) ────────
+        # D-01: 이 레이어는 LLM injuryRisk 프로즈와 독립 (대체/주입 X). force_signals
+        # 직후 + complete_analysis 직전 1회 산출. reference plumbing (HIGH-3, source-proven):
+        #   Mode1 = reference_angles_for_veto (= a_ref, 정은지 reshaped 기준 각도 행렬, :3060).
+        #   Mode3 = _reshape_prev_angles(mode3_prev) (이전 영상 angles reshape).
+        # safety_flags 가 student↔reference DTW 정렬을 INTERNAL 로 재계산하므로 match/
+        # user_seg artifact 를 넘기지 않는다 (Mode3 match 는 어차피 scope 밖).
+        # KNOWN v1 LIMITATION (SURFACED, silent no-op 아님): 첫 Mode-3 영상(이전 baseline
+        # 부재)은 reference_angles=None → reference-anchored 플래그(D-04 trunk, D-03
+        # asymmetry)가 발화 불가. 단 belle 의 Mode-3 "내 자세가 이러면 위험" 약속은 절대
+        # D-05 관절 과신전 플래그(10-03, reference 불필요)가 Mode-3 에서도 발화해 충족한다.
+        if mode == models.MODE_EXPERT:
+            safety_reference_angles = reference_angles_for_veto  # a_ref (정은지)
+        else:  # MODE_SELF
+            safety_reference_angles = _reshape_prev_angles(mode3_prev)  # 이전 영상 (None=첫영상)
+        _experience = (
+            models.normalize_body_profile(meta.get("bodyProfile")) or {}
+        ).get("experience")
+        _reference_level = (
+            ref.get("level") if mode == models.MODE_EXPERT and ref else None
+        )
+        try:
+            _safety_flags = safety_flags_mod.compute_safety_flags(
+                angles=angles,
+                keypoints_4ch=inputs.keypoints_4ch,
+                force_signals_report=force_signals_report,
+                dimension_scores=dimension_scores,
+                reference_angles=safety_reference_angles,
+                experience=_experience,
+                reference_level=_reference_level,
+                mode=mode,
+                profile=profile,
+            )
+            result["safetyFlags"] = [
+                _dataclass_to_camel_case_dict(f) for f in _safety_flags
+            ]
+        except Exception:  # noqa: BLE001 - 부가 안전 레이어가 분석을 죽이면 안 됨 (graceful)
+            log.exception(
+                "safety_flags 산출 실패 — graceful skip (분석 흐름 유지) "
+                "uid=%s analysis_id=%s",
+                uid, analysis_id,
+            )
+        # ────────────────────────────────────────────────────────────────
 
         # ── Phase 9 (Plan 09-02) — ForcePatternInference 추론 layer ──────
         # D-09-D6: mode_context 산출 inline (별도 helper 신설 X — RESEARCH Open Q,

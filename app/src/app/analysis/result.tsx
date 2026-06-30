@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { AccuracyLimitBadge } from '../../components/AccuracyLimitBadge';
+import { InjuryRiskSection } from '../../components/InjuryRiskSection';
 import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
 import { RecommendedExerciseModal } from '../../components/RecommendedExerciseModal';
 import { CORRECTIVE_LIBRARY_HAS_ITEMS } from '../../data/correctiveExercises';
@@ -869,6 +870,12 @@ export default function AnalysisResult() {
             </Text>
           </View>
         )}
+
+        {/* ── Phase 10 (10-02 D-08) — 부상 위험 신호 amber 경고 섹션 ────────
+            점수 게이지 직후 + "동작 비교" 직전. 플래그 없으면 컴포넌트가 null 반환
+            (섹션 OMIT, 안심 카피 금지). flagType 4종 카피맵 보유 → 10-03/10-04
+            플래그 자동 렌더. result.safetyFlags 부재/구버전 doc → graceful no-render. */}
+        <InjuryRiskSection flags={result.safetyFlags} />
 
         {/* ── 영역 2: 영상 + 키포인트 오버레이 (D-12-A1 #2 / D-12-C1 mode 분기) ─
             mode1 = 사용자 + 정은지 split (둘 다 오버레이 박제).

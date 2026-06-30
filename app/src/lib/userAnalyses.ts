@@ -171,6 +171,17 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       recommendedExercises: result.recommendedExercises,
     };
   }
+  // Phase 10 (10-02 SAFE-01) safetyFlags null-guard.
+  // forcePatternInference / recommendedExercises 패턴 mirror — backend
+  // (_validate_safety_flags) 가 scalar-only list[dict] 강제하므로 여기선 list 여부만
+  // 확인. 부재/비-list 면 undefined 유지 (TS contract safetyFlags?: SafetyFlag[] | null
+  // 가 undefined 허용). 구버전 doc(Phase 10 wiring 전) 박제 없어도 crash X.
+  if (Array.isArray(result?.safetyFlags)) {
+    result = {
+      ...result,
+      safetyFlags: result.safetyFlags,
+    };
+  }
   // Phase 12 §9.12 keypointReport null-guard (D-12-E2 / Phase 9 D-09-U1 mirror).
   // Mirrors forcePatternInference pattern (lines 96-110). Wave 0B = schema only,
   // Wave 1 KeypointOverlay 가 본 필드 소비.

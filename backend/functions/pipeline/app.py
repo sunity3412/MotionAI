@@ -2389,8 +2389,13 @@ def _apply_vision_veto_from_context(
         _align = vision_veto.alignment_summary(getattr(ctx, "alignment", None))
         if _align is not None:
             na_audit["alignment"] = _align
+        # Phase 24 — not_applicable 도 breakdown.final 이 authoritative(측정 기하 clean →
+        # final=100). 레거시 min-of-core dimension passthrough 제거
+        # ([[scoring-must-be-transparent-deduction-tally]], [[score-spec-95-100-elite-vision-fix]]).
+        # quant-unavailable 은 applied 경로(fallback record)라 불변.
         return {
             **score_result,
+            "overallScore": breakdown.final,
             "deductionBreakdown": breakdown.to_dict(),
             "visionVeto": na_audit,
         }

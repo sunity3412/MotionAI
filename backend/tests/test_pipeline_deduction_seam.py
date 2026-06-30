@@ -207,7 +207,9 @@ def test_gemini_silent_no_fault_is_tally_eligible_production_shape(monkeypatch):
 
 
 def test_gemini_silent_clean_geometry_not_applicable(monkeypatch):
-    """no_fault + 깨끗한 기하(측정 편차 0) → not_applicable (final 불변)."""
+    """Phase 24 — no_fault + 깨끗한 기하(측정 편차 0, quant available) → not_applicable.
+    not_applicable 도 breakdown.final 이 점수다(레거시 min-of-core dimension passthrough 제거):
+    records 가 비어 final=100, overallScore 도 100 이 된다 — 레거시 dimension 99 가 새지 않는다."""
     _enable(monkeypatch)
     pair = vision_veto.SelectedFramePair(
         student_frame_path="/tmp/s.png", reference_frame_path="/tmp/r.png",
@@ -220,8 +222,33 @@ def test_gemini_silent_clean_geometry_not_applicable(monkeypatch):
         measured_deviations={}, baseline_kind="hip_line",
     )
     assert out["visionVeto"]["status"] == "not_applicable"
-    assert out["overallScore"] == 99  # 점수 불변
+    # transparent tally 가 authoritative — clean records → final=100, 레거시 99 passthrough 폐기.
+    assert out["overallScore"] == out["deductionBreakdown"]["final"]
+    assert out["overallScore"] == 100
     assert ctx.cap_would_apply is False
+
+
+def test_clean_not_applicable_uses_tally_final_not_legacy_dimension(monkeypatch):
+    """Phase 24 — power-spin success 회귀가드: CLEAN no_fault(quant available, 측정 편차 0)에서
+    레거시 score_result['overallScore']=91(min-of-core dimension, power-spin success 숫자)이
+    not_applicable 분기로 새던 버그를 고정. breakdown.final(=100)이 점수이고 91 은 누출되지 않는다
+    ([[scoring-must-be-transparent-deduction-tally]], [[score-spec-95-100-elite-vision-fix]])."""
+    _enable(monkeypatch)
+    pair = vision_veto.SelectedFramePair(
+        student_frame_path="/tmp/s.png", reference_frame_path="/tmp/r.png",
+        user_frame_idx=3, ref_frame_idx=3,
+    )
+    ctx = _ctx("no_fault", verdict=_verdict("none"), supported=[], frame_pairs=[pair])
+    out = app._apply_vision_veto_from_context(
+        {"overallScore": 91, "dimensionScores": {"angle": 91, "line": 91}}, ctx,
+        _quant("available"),
+        measured_deviations={}, baseline_kind="hip_line",
+    )
+    assert out["visionVeto"]["status"] == "not_applicable"
+    # 레거시 min-of-core 91 이 not_applicable 분기를 통해 새지 않는다.
+    assert out["overallScore"] != 91
+    assert out["overallScore"] == out["deductionBreakdown"]["final"]
+    assert out["overallScore"] == 100  # clean tally → empty records → final 100
 
 
 def test_baseline_kind_derived_by_name():

@@ -521,6 +521,8 @@ class TestQuantificationAuditAttach:
         Phase 24: 깨끗한 기하(측정 편차 0 AND Gemini-located criterion 0) — quant available
         이지만 reach 칸이 over-reach(감점 0) 이고 supported_differences 비어 measured seed 도
         활성화 0 → not_applicable. quantificationStatus 부재(discriminated).
+        not_applicable 도 breakdown.final 이 점수다(레거시 min-of-core dimension passthrough 제거):
+        clean records → final=100, 레거시 88 dimension 은 누출되지 않는다.
         """
         app = _import_pipeline()
         from sunity_shared.analysis import gemini_vision_scorer, vision_veto
@@ -549,7 +551,9 @@ class TestQuantificationAuditAttach:
         )
         v = out["visionVeto"]
         assert v["status"] == "not_applicable"
-        assert out["overallScore"] == 88  # 점수 불변
+        # transparent tally 가 authoritative — clean records → final=100, 레거시 88 passthrough 폐기.
+        assert out["overallScore"] == out["deductionBreakdown"]["final"]
+        assert out["overallScore"] == 100
         assert "quantificationStatus" not in v
         assert "angleDeltas" not in v and "bodyRelativeNotches" not in v
 

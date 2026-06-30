@@ -38,7 +38,19 @@ these pre-existing items.
 
 ---
 
-## POD-DEFERRED: D-05 real-elite (T,17,4) regression fixture (10-03)
+## RESOLVED (2026-06-30) — was POD-DEFERRED: D-05 real-elite (T,17,4) regression fixture (10-03)
+
+**RESOLVED on pod `cuwgz2h059d1rl` (2026-06-30):** ran the extractor below on the 3 pinned
+정은지 clips → `backend/tests/phase10/fixtures/real_elite_coco17_4ch.npz` (278K;
+ref-sideway-spin (298,17,4) / ref-invert (260,17,4) / ref-foxtop-split (485,17,4); ch3
+uncertainty_proxy ∈ [0.03, 0.92]). The 4 skipif tests AUTO-ACTIVATED and pass:
+`cd backend && python3 -m pytest tests/phase10 -q` = **58 passed, 0 skipped** — real elite
+keypoints yield ZERO joint_hyperextension flags (D-05 no-FP confirmed on real video, not
+just synthetic). Note: onnxruntime fell back to CPU EP (cuDNN9 missing on the fresh
+container) — RTMW is a deterministic ONNX graph so CPU output is valid (NaN-divergence is
+NLF-only); install cuDNN9 before the heavier final no-FP eval to restore GPU speed.
+
+(original deferral context below, kept for provenance)
 
 The D-05 joint-hyperextension detector (10-03) is fully implemented and GREEN against
 all synthetic + helper-contract + per-branch-gate tests. The ONLY part deferred to a

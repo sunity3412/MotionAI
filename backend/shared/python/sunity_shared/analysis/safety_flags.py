@@ -484,6 +484,50 @@ def _asymmetry_flag(angles, reference_angles, fsr, profile) -> SafetyFlag | None
     )
 
 
+# ── D-06 레벨 대비 무리 (Mode 1 전용, rank-gap×instability severity, enum-guarded) ─
+def _level_mismatch_flag(mode, experience, reference_level, fsr) -> SafetyFlag | None:
+    """D-06 레벨 대비 무리 — Mode 1 전용. reference.level 이 입력 경력을 상회 AND 통제 상실.
+
+    Mode 1(MODE_EXPERT)에서만 발화한다 — Mode 3 는 move 난이도 미상이라 D-02 control-loss
+    가 overreach 를 대신 잡는다. ENUM GUARD: upstream normalize_body_profile 이 비-enum 을
+    이미 drop 하지만 모듈 안에서 ladder 멤버십을 재검사한다 (upstream 맹신 금지, T-10-02) —
+    experience/reference_level 이 ladder 키가 아니면(None/위조) None 반환 (fail-safe).
+    SEVERITY = RANK-GAP × INSTABILITY: gap==1 + medium instability → 'low' (gap=1
+    over-warn 방지); gap>=2 + high → 'high'; 그 외 → 'medium'. control-loss partner 는
+    whole-body overreach 의 정당한 phase-level 케이스(_control_loss_phase_level) — D-06 은
+    10-02 가 phase-level 폴백을 허용한 유일한 플래그다.
+    """
+    if mode != _MODE_EXPERT:
+        return None
+    if experience not in _LEVEL_LADDER or reference_level not in _LEVEL_LADDER:
+        return None
+    gap = _LEVEL_LADDER[reference_level] - _LEVEL_LADDER[experience]
+    posture_met = gap >= 1
+    instability = _max_control_loss_severity(fsr)
+    control_lost = _control_loss_phase_level(fsr)
+    if gap >= 2 and instability == "high":
+        severity = "high"
+    elif gap == 1 and instability == "medium":
+        severity = "low"
+    else:
+        severity = "medium"
+    confidence = getattr(fsr, "overall_confidence", None) or "low"
+    return _maybe_flag(
+        posture_met,
+        control_lost,
+        flag_type="level_mismatch",
+        body_region="전신 (레벨 대비)",
+        severity=severity,
+        posture_condition=(
+            f"기준 동작 난이도({reference_level})가 입력 경력({experience}) 대비 "
+            f"{gap}단계 높음"
+        ),
+        control_loss_signal=f"반동·흔들림 통제 신호 ({instability or 'none'})",
+        confidence=confidence,
+        mode_scope="mode1_only",
+    )
+
+
 # ── D-05 관절 과신전 (cross-product 방향 판별 + 결정론 frontal-axis 좌표계) ───
 # RESEARCH Pattern 3: 내적(dot)은 0~180° 굽힘 크기만 줘 방향 미상. 무릎·팔꿈치는
 # 1자유도 시상면 힌지라 hinge cross product `n = u×w` 가 medial-lateral(frontal) 축과
@@ -755,4 +799,11 @@ def compute_safety_flags(
         )
     except Exception:
         pass
+    # D-06 레벨 대비 무리 — Mode 1 전용 (singular append).
+    try:
+        level = _level_mismatch_flag(mode, experience, reference_level, fsr)
+    except Exception:
+        level = None
+    if level is not None:
+        flags.append(level)
     return flags

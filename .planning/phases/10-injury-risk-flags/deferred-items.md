@@ -1,5 +1,18 @@
 # Phase 10 — Deferred / Out-of-Scope Items
 
+## RESOLVED (2026-06-30) — final no-FP eval on real 정은지 video
+
+Both pod-deferred items are now CLOSED (pod `cuwgz2h059d1rl`, 2026-06-30):
+1. **real-elite (T,17,4) fixture** — extracted, committed; 4 D-05 tests auto-activated
+   (phase10 = 58 passed, 0 skipped). See the (formerly POD-DEFERRED) section below.
+2. **final no-FP eval** — ran `scripts/eval_phase10_nofp.py` on the 7 정은지 success(mode1)
+   videos through full `_process` (GPU RTMW + Gemini recognizer). Result:
+   **FP videos: 0/7 (target 0), ERRORs: 0, clean: 7** — every flag type (D-02 AND-gate +
+   D-03/04/05/06) yields ZERO SafetyFlags on correctly-performed elite moves, incl. the
+   historically FP-prone kip-up. Log: `backend/evals/phase10/nofp_eval_2026-06-30.log`.
+
+SAFE-01 is now fully validated on real video, not just synthetic fixtures. Phase 10 done.
+
 ## Pre-existing test failures (NOT introduced by Phase 10, out of scope)
 
 Discovered during 10-01 execution while running the full `backend/tests` regression

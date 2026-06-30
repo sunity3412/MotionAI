@@ -1,0 +1,52 @@
+Phase 10 no-FP eval — 7 success(mode1) 정은지 영상
+[0;93m2026-06-30 04:38:25.094991676 [W:onnxruntime:, session_state.cc:1166 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.[m
+[0;93m2026-06-30 04:38:25.095109086 [W:onnxruntime:, session_state.cc:1168 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+load /workspace/yolox_weights/yolox_m.onnx with onnxruntime backend
+load /workspace/rtmw_weights/rtmw-x-384.onnx with onnxruntime backend
+
+[1/7] climb  _process fixtures/phase15/climb/correct.mp4
+Phase 17 telemetry extras 미설치: No module named 'phoenix' — bootstrap_tracing noop (분석 흐름 차단 0).
+/usr/local/lib/python3.11/dist-packages/google/cloud/firestore_v1/base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+  status=done  safetyFlags=0  []
+
+[2/7] combo  _process fixtures/phase15/combo/correct.mp4
+/usr/local/lib/python3.11/dist-packages/google/cloud/firestore_v1/base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+  status=done  safetyFlags=0  []
+
+[3/7] elbow-twist-sister  _process fixtures/phase15/elbow-twist-sister/correct.mp4
+/usr/local/lib/python3.11/dist-packages/google/cloud/firestore_v1/base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+  status=done  safetyFlags=0  []
+
+[4/7] kip-up  _process fixtures/phase15/kip-up/correct.mp4
+/usr/local/lib/python3.11/dist-packages/google/cloud/firestore_v1/base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+  status=done  safetyFlags=0  []
+
+[5/7] pdshape  _process fixtures/phase15/pdshape/correct.mp4
+/usr/local/lib/python3.11/dist-packages/google/cloud/firestore_v1/base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+  status=done  safetyFlags=0  []
+
+[6/7] peter-pan  _process fixtures/phase15/peter-pan/correct.mp4
+/usr/local/lib/python3.11/dist-packages/google/cloud/firestore_v1/base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+  status=done  safetyFlags=0  []
+
+[7/7] power-spin  _process fixtures/phase15/power-spin/correct.mp4
+/usr/local/lib/python3.11/dist-packages/google/cloud/firestore_v1/base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+  status=done  safetyFlags=0  []
+
+===== Phase 10 no-FP summary (success = 정은지 정타) =====
+  climb                    0 flag  clean
+  combo                    0 flag  clean
+  elbow-twist-sister       0 flag  clean
+  kip-up                   0 flag  clean
+  pdshape                  0 flag  clean
+  peter-pan                0 flag  clean
+  power-spin               0 flag  clean
+
+FP videos: 0/7 (target 0) | ERRORs: 0 | clean: 7

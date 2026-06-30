@@ -310,6 +310,15 @@ def high_control_loss_report() -> ForceSignalsReport:
 
 
 @pytest.fixture
+def medium_control_loss_report() -> ForceSignalsReport:
+    """hold phase 에 medium 통제 상실 — D-06 severity 스케일링(gap×instability) 검증용."""
+    return _report(
+        [_hold_boundary()],
+        [_stability("hold", "medium", ["left_hip"])],
+    )
+
+
+@pytest.fixture
 def window_disjoint_report() -> ForceSignalsReport:
     """HIGH-1 TRUNK temporal-colocation negative — 불안정이 hold 와 겹치지 않는
     entry phase 에만 있고, unstable_body_parts 도 posture 의 joint 미포함."""

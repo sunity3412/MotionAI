@@ -4,8 +4,8 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 10 UI-SPEC approved
-last_updated: "2026-06-29T13:07:59.438Z"
-last_activity: 2026-06-29 -- Phase 10 planning complete
+last_updated: "2026-06-30T01:15:06.126Z"
+last_activity: 2026-06-30
 progress:
   total_phases: 7
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 24·20 CLOSED 2026-06-29 (kip-up FP 해결). 다음 미정 — 잔여 minor(success calibration / kip-up 마진)은 pod 필요, 다음 세션
+**Current focus:** Phase 10 — injury-risk-flags
 
 > **20-04 / SCORE-09 ownership (belle 2026-06-23, D-14 amended + D-15, ITERATION6):** Phase 20-04 의 still-frame SEVERITY_CAP **regression subset** (SCORE-08 cap + TRUST-06 결정론) 은 Phase 23-03 eval 이 still-frame veto 경로에서 OWN·검증한다 (superseded-by-23-03) — 정은지 95~100 / kip-up fault = moderate 점수 ≤75 (20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. **SCORE-09 (일반화/sensitivity — 미보유+above-cutoff 양방검증) 는 흡수되지 않고 별도 PENDING 으로 Phase 20 / 후속에 잔류한다.** Phase 23 을 SCORE-09 미처리로 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.
 
 ## Current Position
 
-Phase: 24 (transparent-deduction-scoring) — EXECUTING
-Plan: 24-04 of 24 (gap-closure) COMPLETE — 24-01/02/03/04 빌드 완료
+Phase: 10 (injury-risk-flags) — EXECUTING
+Plan: 2 of 4
 Verification: 24-04 — low_alignment_confidence 를 apply seam 에서 measured-seed tally-eligible 로 라우팅(passthrough_map 에서 제거). RTMW 측정 편차(extension deficit + body-relative notch, 정렬-독립)는 Gemini 정렬이 낮아도 감점; supported_differences=[] 라 criteria_for_fault 부재 → Gemini fault fabricate 0(objectivity 보존). collect-side bail / eligible_for_coach(candidate_verdict-only) / assess_alignment_confidence 임계값 UNCHANGED. to_audit_dict 가 collectionStatus 방출(측정-only provenance, Rule 2). targeted 196 passed(Phase24+20/23) / band grep 0 / production 변경 = app.py+vision_veto.py 만. 2 atomic commit (ce98310/94667e2).
 Next: Pod 레이어 재배포 후 24-eval Pod 재-sweep — phase24_breakdowns.json 재생성(fault 멤버가 non-null 측정 deductionBreakdown 보유, kip-up FP 재확인, 일반화 게이트가 실 breakdown 에 실행) → belle 검증. 이 재-sweep+검증은 orchestrator 소유(24-04 autonomous 코드 게이트 밖, plan acceptance 체크포인트).
 Status: Ready to execute
@@ -66,7 +66,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-06-29 -- Phase 10 planning complete
+Last activity: 2026-06-30
 
 ### Quick Tasks Completed
 
@@ -541,6 +541,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 20 P02 | 18min | 1 tasks | 2 files |
 | Phase 20 P20-03 | 38min | 3 tasks | 8 files |
 | Phase 24 P04 | ~25min | 3 tasks | 5 files |
+| Phase 10 P01 | 38min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -647,7 +648,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-29T12:30:09.864Z
+Last session: 2026-06-30T01:14:04.350Z
 
 Stopped at: Phase 10 UI-SPEC approved
 
@@ -716,7 +717,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/10-injury-risk-flags/10-UI-SPEC.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

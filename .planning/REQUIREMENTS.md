@@ -68,7 +68,7 @@
 
 ### 안전 (Safety)
 
-- [ ] **SAFE-01**: 좌우 비대칭·요추 과신전·레벨 대비 무리한 동작 신호가 위험도 플래그로 결과 화면에 표시되고 "전문가 확인 권유" 카피가 함께 표시된다. "부상 확정" 단정 금지
+- [x] **SAFE-01**: 좌우 비대칭·요추 과신전·레벨 대비 무리한 동작 신호가 위험도 플래그로 결과 화면에 표시되고 "전문가 확인 권유" 카피가 함께 표시된다. "부상 확정" 단정 금지
 
 ### 피드백·코치 훅 (Feedback & Coach Hook)
 
@@ -182,7 +182,7 @@
 | PERS-01 | Phase 6, Phase 7 | Complete |
 | FORCE-01 | Phase 8, Phase 9 | Complete |
 | FEED-02 | Phase 9, Phase 11 | Complete |
-| SAFE-01 | Phase 10 | Pending |
+| SAFE-01 | Phase 10 | Complete |
 | COACH-01 | Phase 11 | Complete |
 | FEED-03 | Phase 11 | Complete |
 | FEED-01 | Phase 12 | Pending |

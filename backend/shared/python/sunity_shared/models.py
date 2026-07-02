@@ -137,6 +137,10 @@ VISION_VETO_KEYS = (
 #   fallback? 에서만.
 # points 부호 (HIGH-2): 각 record.points 는 SIGNED NEGATIVE (UX 가 −X 표시).
 #   final = max(0, round(100 + Σ record.points)) — 유일한 clamp 은 max(0,…)(상한 밴드 없음).
+# source 값 집합: {'geometry','vision'} — 'vision' = geometric 측정 불가 결함(split,
+#   kip-up keypoint saturate)의 vision-측정 편차로 점수화된 record (belle 2026-06-29
+#   결정 A, deduction_engine.tally 방출 정합). 점수 산식은 동일 명시 규칙(tol×slope) —
+#   Gemini 점수 아님(ND-02 유지).
 # fallback 의미: quantificationStatus=='unavailable' → final = dimension_overall(100 으로
 #   리셋 금지) + ONE traceable fallback record(criterion='dimension_overall_fallback',
 #   unit='score_delta', deviationSource='dimension_overall')로 100+Σpoints==final 유지

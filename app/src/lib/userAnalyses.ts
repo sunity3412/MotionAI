@@ -21,6 +21,8 @@ import type {
   AnalysisDoc,
   AnalysisStatus,
   CoachCommentHook,
+  DeductionBreakdown,
+  DeductionRecord,
 } from '../types/analysis';
 
 // Phase 11 (Plan 11-02, COACH-01) — CoachCommentHook null-guard normalize.
@@ -181,6 +183,34 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       ...result,
       safetyFlags: result.safetyFlags,
     };
+  }
+  // Phase 24 §10 deductionBreakdown null-guard (quick-260702-q8q, T-q8q-01).
+  // safetyFlags / recommendedExercises 패턴 mirror — backend validator
+  // (_validate_deduction_breakdown) 가 flat scalar 를 강제하므로 깊은 검증은 하지
+  // 않는다 (기존 관례). 객체 + records 배열이면 통과(records 각 항목은 객체만
+  // 필터), malformed(비객체/records 비배열)면 undefined 로 두어 optional 유지 —
+  // 구/malformed doc 에서 ScoreBreakdownSection 렌더 경로 크래시 0 (섹션 숨김).
+  if (result?.deductionBreakdown !== undefined) {
+    const bd: unknown = result.deductionBreakdown;
+    const isValidShape =
+      bd != null &&
+      typeof bd === 'object' &&
+      !Array.isArray(bd) &&
+      Array.isArray((bd as { records?: unknown }).records);
+    if (isValidShape) {
+      const raw = bd as DeductionBreakdown;
+      result = {
+        ...result,
+        deductionBreakdown: {
+          ...raw,
+          records: raw.records.filter(
+            (r): r is DeductionRecord => r != null && typeof r === 'object',
+          ),
+        },
+      };
+    } else {
+      result = { ...result, deductionBreakdown: undefined };
+    }
   }
   // Phase 12 §9.12 keypointReport null-guard (D-12-E2 / Phase 9 D-09-U1 mirror).
   // Mirrors forcePatternInference pattern (lines 96-110). Wave 0B = schema only,

@@ -445,8 +445,11 @@ export interface FaultZoomComparison {
 // HIGH-3: baselineValue(수치 측정 기준 — 180/160/reference_notches, REQUIRED) +
 //   baselineKind(per-move floor/pole_vertical/hip_line — reach 만, present-but-nullable)
 //   가 분리됨. 단일 baseline 으로 DeductionBreakdown.baseline=100 과 충돌 금지.
-// HIGH-2: points 는 SIGNED NEGATIVE (UX −X). source='geometry' 하드 리터럴(ND-02 —
-//   Gemini 점수 아님). MEDIUM-2: record 내부 STRICT(baselineKind nullable, ipsfAnchor/
+// HIGH-2: points 는 SIGNED NEGATIVE (UX −X). source ∈ {'geometry','vision'} — belle
+//   2026-06-29 결정 A: geometric 측정 불가 결함(split, kip-up keypoint saturate)은 Gemini
+//   vision-측정값으로 점수화하되 source='vision' 으로 provenance 투명 표기
+//   (deduction_engine.py tally() 방출 정합). 점수 산식은 동일 규칙(tol×slope) — Gemini
+//   점수 아님(ND-02 유지). MEDIUM-2: record 내부 STRICT(baselineKind nullable, ipsfAnchor/
 //   baselineValue REQUIRED). 3-way lockstep: models.py DEDUCTION_RECORD_KEYS + contract.md §10.
 export interface DeductionRecord {
   criterion: string;
@@ -458,7 +461,7 @@ export interface DeductionRecord {
   points: number; // SIGNED NEGATIVE (감점). final = max(0, round(100 + Σ points)).
   unit: 'deg' | 'notch' | 'score_delta';
   ipsfAnchor: string;
-  source: 'geometry';
+  source: 'geometry' | 'vision';
   deviationSource: 'ipsf_absolute' | 'reference_relative' | 'dimension_overall';
 }
 // HIGH-1: OBJECT shape (bare list 아님). final = max(0, round(100 + Σ record.points)) —

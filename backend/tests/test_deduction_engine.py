@@ -101,6 +101,39 @@ def test_contract_lockstep():
     assert "baselineKind" in models.DEDUCTION_RECORD_KEYS
     assert "fallback" in models.DEDUCTION_BREAKDOWN_KEYS
     assert "coverageGaps" in models.DEDUCTION_BREAKDOWN_KEYS
+    # source 값 집합 lockstep (quick-260702-q8q) — 엔진이 vision-측정 split 경로에서
+    # source='vision' 을 방출(belle 2026-06-29 결정 A)하므로 TS union 도 실방출 값
+    # 집합 {geometry, vision} 과 일치해야 한다 (계약 drift 재발 가드).
+    assert "'geometry' | 'vision'" in m.group(1)
+
+
+def test_vision_measured_split_emits_source_vision():
+    """vision-측정 split 경로 lockstep 가드 (quick-260702-q8q).
+
+    md 에 split_angle substrate 부재(geometric 측정 confounded) + Gemini split diff 가
+    approx_angle_deviation_deg(vision-측정 reference-상대 편차)를 보유 → 엔진이 md 에
+    주입하고 record.source == 'vision' 으로 provenance 를 투명 표기한다.
+    """
+    d = _diff("스플릿", "벌어짐 부족")
+    d["approx_angle_deviation_deg"] = 30.0
+    b = _tally(_measured(), _ctx([d]))
+    split_recs = [r for r in b.records if r.criterion == "split_angle"]
+    assert len(split_recs) == 1
+    rec = split_recs[0]
+    assert rec.source == "vision"
+    assert rec.deviation_source == "reference_relative"
+    # to_dict() 키가 계약 tuple 과 정확히 일치 + 전 record 값 집합 가드.
+    assert set(rec.to_dict()) == set(models.DEDUCTION_RECORD_KEYS)
+    assert all(r.source in {"geometry", "vision"} for r in b.records)
+
+
+def test_geometry_path_source_geometry():
+    """geometry 경로 회귀 0 — 측정 seed 기반 record 는 여전히 source='geometry'."""
+    b = _tally(_measured(leg=40.0), _ctx([_diff("무릎", "굽음")]))
+    recs = [r for r in b.records if r.criterion == "leg_extension"]
+    assert recs
+    assert all(r.source == "geometry" for r in recs)
+    assert set(recs[0].to_dict()) == set(models.DEDUCTION_RECORD_KEYS)
 
 
 # ── criterion table ────────────────────────────────────────────────────────

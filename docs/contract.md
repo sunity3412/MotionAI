@@ -1434,7 +1434,7 @@ const frameIdx = Math.floor(currentTime * report.fps);
 
 | 필드 | 타입 | 의미 |
 |------|------|------|
-| `criterion` | string | criterion id (leg_extension / arm_extension / split_angle / line / body_relative_reach / dimension_overall_fallback) |
+| `criterion` | string | criterion id (leg_extension / arm_extension / split_angle / line / body_relative_reach / dimension_overall_fallback / `angle_vs_reference__{joint}` — quick-260626-jwu 신설, JOINT_KEYS 별 reference_relative 각도 criterion) |
 | `measuredValue` | number | 학생 측정값 (각도 deg 또는 notch) |
 | `baselineValue` | number | **수치 측정 기준** (180/160/reference_notches/100). REQUIRED. HIGH-3 — breakdown-level `baseline=100` 과 다름. |
 | `baselineKind` | 'floor'\|'pole_vertical'\|'hip_line'\|null | per-move baseline(reach criterion 만; 그 외 null). **항상 방출**(present-but-nullable, MEDIUM-2). |
@@ -1443,10 +1443,10 @@ const frameIdx = Math.floor(currentTime * report.fps);
 | `points` | number | **SIGNED NEGATIVE** 감점 (UX −X, HIGH-2) |
 | `unit` | 'deg'\|'notch'\|'score_delta' | 측정 단위 (score_delta = fallback record) |
 | `ipsfAnchor` | string | IPSF CoP 인용 또는 engineering_interpretation. REQUIRED(추적성 게이트). |
-| `source` | 'geometry' | 하드 리터럴 — Gemini 점수 아님(ND-02) |
+| `source` | 'geometry'\|'vision' | 측정 provenance. 'vision' = geometric 측정 불가 결함(split — kip-up keypoint saturate)의 vision-측정 편차로 점수화된 record(belle 2026-06-29 결정 A). 점수 산식은 동일 명시 규칙(tol×slope) — Gemini 점수 아님(ND-02 유지) |
 | `deviationSource` | 'ipsf_absolute'\|'reference_relative'\|'dimension_overall' | per-criterion 편차 출처 |
 
-**deviationSource 의미:** 각도/라인 criterion(leg_extension/arm_extension/split_angle/line)은 학생-각도-vs-IPSF-절대-기준(180°/160°) → `ipsf_absolute`. `body_relative_reach` 는 `bodyRelativeNotches[].delta_notches`(학생−코치, baseline-relative) → `reference_relative`. fallback record → `dimension_overall`.
+**deviationSource 의미:** 각도/라인 criterion(leg_extension/arm_extension/line)은 학생-각도-vs-IPSF-절대-기준(180°/160°) → `ipsf_absolute`. `body_relative_reach` 는 `bodyRelativeNotches[].delta_notches`(학생−코치, baseline-relative) → `reference_relative`. `angle_vs_reference__{joint}` 는 정은지(reference) 대비 per-joint median |Δ각도| 편차(24-07 §3-1), `split_angle` 은 정은지 대비 split 부족분(geometric md 부재 시 vision-측정 편차 주입 → 그 record 는 `source='vision'`) — 둘 다 `reference_relative`. fallback record → `dimension_overall`.
 
 ### §10.3 line/leg profile-gated + no-double-count
 

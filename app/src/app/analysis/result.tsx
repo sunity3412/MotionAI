@@ -25,6 +25,7 @@ import { KeypointOverlay } from '../../components/KeypointOverlay';
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { FaultZoomCompare } from '../../components/FaultZoomCompare';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
+import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { getSimulatedResult } from '../../lib/simulatedResult';
@@ -560,6 +561,12 @@ export default function AnalysisResult() {
   const vetoFaultJoints =
     result.visionVeto?.status === 'applied' ? result.visionVeto.faultJoints : undefined;
 
+  // quick-260702-q8q — "점수 계산 내역" 섹션 렌더 가드. mode1 전용(mode3 는 veto
+  // 미실행 mode3_held) + deductionBreakdown 보유 doc 만 (legacy doc 은 필드 부재 →
+  // 섹션 자체 숨김, normalize 가 malformed 를 undefined 로 접음 — 크래시 0).
+  const showBreakdownSection =
+    cmp.mode === 'mode1' && result.deductionBreakdown != null;
+
   // Phase 20 (UI ④) — 점수 맥락 카드의 "교정 포인트". 비전 결함(primaryFault)
   // 우선, 없으면 top 코칭 팁 제목(가장 먼저 다듬을 관절). 둘 다 없으면 null →
   // 일반 격려 카피. 추가 fetch 0 (이미 result 에 있는 데이터만 사용).
@@ -1047,7 +1054,15 @@ export default function AnalysisResult() {
                     (result.visionVeto?.status === 'applied'
                       ? result.visionVeto.tallyFinal
                       : result.overallScore ?? 0))
-                  ? '각도 측정은 기준에 가깝지만, AI 영상 분석이 각도로 안 드러나는 자세 결함을 발견해 종합 점수를 낮췄어요.'
+                  ? // quick-260702-q8q 문구 사실 점검: "각도로 안 드러나는 자세 결함"
+                    // 은 vision-측정 split 케이스에 사실 정합(각도 차원은 DTW 유사도,
+                    // 감점은 vision 측정 — 거짓 아님) → 유지. 새 섹션 존재 시 감점
+                    // 근거로 연결하는 꼬리 문장 추가.
+                    `각도 측정은 기준에 가깝지만, AI 영상 분석이 각도로 안 드러나는 자세 결함을 발견해 종합 점수를 낮췄어요.${
+                      showBreakdownSection
+                        ? " 아래 '점수 계산 내역'에서 감점 근거를 확인할 수 있어요."
+                        : ''
+                    }`
                   : undefined
               }
             />
@@ -1058,6 +1073,18 @@ export default function AnalysisResult() {
           <Text style={styles.auxCaption}>
             동작 안정성은 자세 참고용 보조 지표예요. 종합 점수에는 직접 합산되지 않아요.
           </Text>
+        )}
+
+        {/* ── quick-260702-q8q: 점수 계산 내역 (투명 감점-합산 tally 노출) ────
+            belle 모순 인지("각도 100 인데 종합 88")가 세부 점수 직후 발생 — 그
+            자리에서 100 − 감점 − … = final 내역으로 해소. mode1 + breakdown 보유
+            doc 전용 (legacy/mode3 숨김, isScoreSuppressed 는 mode3 전용이라 자연
+            배타). 점수 원칙: [[scoring-must-be-transparent-deduction-tally]]. */}
+        {showBreakdownSection && result.deductionBreakdown != null && (
+          <>
+            <Text style={styles.sectionTitle}>점수 계산 내역</Text>
+            <ScoreBreakdownSection breakdown={result.deductionBreakdown} />
+          </>
         )}
 
         {/* ── 영역 6: 각도 가이드 (코칭 팁) — Phase 12.5 + Wave 2 추정 표기 ─

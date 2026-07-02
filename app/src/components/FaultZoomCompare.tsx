@@ -16,23 +16,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { JOINT_LABEL_KO } from '../lib/deductionLabels';
 import { colors, layout, radius, spacing } from '../theme';
 import { typography } from '../theme/typography';
-import type { FaultZoomComparison, KeypointName } from '../types/analysis';
+import type { FaultZoomComparison } from '../types/analysis';
 
-const KEYPOINT_KO: Record<KeypointName, string> = {
-  left_shoulder: '왼쪽 어깨',
-  right_shoulder: '오른쪽 어깨',
-  left_hip: '왼쪽 엉덩이',
-  right_hip: '오른쪽 엉덩이',
-  left_knee: '왼쪽 무릎',
-  right_knee: '오른쪽 무릎',
-  left_hand: '왼쪽 팔',
-  right_hand: '오른쪽 팔',
-};
-
+// 관절 KO 라벨은 deductionLabels.JOINT_LABEL_KO 단일 출처 (quick-260702-q8q —
+// 점수 계산 내역/편차표와 동일 맵 재사용, 중복 2벌 금지).
 function caption(item: FaultZoomComparison): string {
-  const label = KEYPOINT_KO[item.joint] ?? '문제 부위';
+  const label = JOINT_LABEL_KO[item.joint] ?? '문제 부위';
   // Mode3 — 지난 분석 대비 개선/악화 방향.
   if (item.kind === 'improved') return `${label} · 지난 분석보다 좋아졌어요`;
   if (item.kind === 'worsened') return `${label} · 지난 분석보다 아쉬워졌어요`;

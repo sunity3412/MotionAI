@@ -20,13 +20,24 @@ import {
   ForcePatternCard,
   _FALLBACK_BODY,
 } from '../../components/ForcePatternCard';
-import { ForcePatternDetailModal } from '../../components/ForcePatternDetailModal';
-import { KeypointOverlay } from '../../components/KeypointOverlay';
+import {
+  ForcePatternDetailModal,
+  type MeasuredEvidence,
+} from '../../components/ForcePatternDetailModal';
+import {
+  KeypointOverlay,
+  KEYPOINT_DELTA_HIGHLIGHT_DEG,
+} from '../../components/KeypointOverlay';
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { FaultZoomCompare } from '../../components/FaultZoomCompare';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
+import {
+  JOINT_LABEL_KO,
+  formatDeductionNumber,
+  formatDeductionRecord,
+} from '../../lib/deductionLabels';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { getSimulatedResult } from '../../lib/simulatedResult';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
@@ -611,6 +622,22 @@ export default function AnalysisResult() {
   const forcePatternFindings: ForcePatternFinding[] = useMemo(() => {
     const list = result.forcePatternInference?.findings ?? [];
     if (list.length > 0) return list.slice(0, 3);
+    // quick-260702-q8q — 신뢰도 라벨 정합 (모순 근원: confidence 0 하드코딩 →
+    // supportCount 4 인데 '신뢰도 낮음' 표기). 이 fallback finding 은 신호 추정이
+    // 아니라 vision 측정 + 판정 일치(rootCauseHypotheses.supportCount)가 뒷받침하는
+    // 결함이므로 supportCount 가 신뢰도의 정직한 소스 (fabricate 아님 — 저장된
+    // 판정 일치 횟수의 표시 변환). 3+ → 0.9(높음) / 2 → 0.6(보통) / 1 이하·부재 →
+    // 현행 0 유지. confidenceLabel 함수 자체는 무변경 (Phase 9 findings 회귀 0).
+    const hyps =
+      result.visionVeto?.status === 'applied'
+        ? (result.visionVeto.rootCauseHypotheses ?? [])
+        : [];
+    const maxSupport = hyps.reduce(
+      (m, h) =>
+        Math.max(m, typeof h.supportCount === 'number' ? h.supportCount : 0),
+      0,
+    );
+    const vetoConfidence = maxSupport >= 3 ? 0.9 : maxSupport === 2 ? 0.6 : 0;
     // A1 (belle 2026-06-21 device) — veto 적용(종합 75)인데 "힘 흐름 이슈 안 보임"
     // 은 "문제 없다" 로 오인되어 점수와 모순. veto 결함을 실패 원인으로 노출한다.
     const fallback: ForcePatternFinding = {
@@ -622,12 +649,66 @@ export default function AnalysisResult() {
         vetoApplied && vetoPrimaryFault
           ? `AI 영상 분석이 점수를 낮춘 핵심 원인이에요 — ${vetoPrimaryFault}. 위 '문제 부위 확대 비교'에서 직접 확인하고, 강사와 함께 점검해 보세요.`
           : _FALLBACK_BODY,
-      confidence: 0,
+      confidence: vetoApplied ? vetoConfidence : 0,
       jointHint: null,
       warnings: [],
     };
     return [fallback];
-  }, [result.forcePatternInference, vetoApplied, vetoPrimaryFault]);
+  }, [result.forcePatternInference, result.visionVeto, vetoApplied, vetoPrimaryFault]);
+
+  // quick-260702-q8q — 실패 원인 상세 시트 실측 근거 조립. veto fallback finding
+  // 전용: Phase 9 실 finding 이 있으면(리스트 비어있지 않음) 시트는 기존 템플릿
+  // 그대로 (무회귀). 소스는 전부 저장된 값 — visionVeto(rootCauseHypotheses 첫 항목
+  // supportCount + windowMedianAngleDeltas.deltas) + deductionBreakdown.records
+  // (dimension_overall_fallback 제외 첫 record 실측 한 줄). 재계산/추정 0.
+  const measuredEvidence = useMemo<MeasuredEvidence | undefined>(() => {
+    if (cmp.mode !== 'mode1') return undefined;
+    if (result.visionVeto?.status !== 'applied') return undefined;
+    if ((result.forcePatternInference?.findings ?? []).length > 0)
+      return undefined;
+    const veto = result.visionVeto;
+    const hyps = veto.rootCauseHypotheses ?? [];
+    const deltas = veto.windowMedianAngleDeltas?.deltas ?? [];
+    const records = (result.deductionBreakdown?.records ?? []).filter(
+      (r) => r.criterion !== 'dimension_overall_fallback',
+    );
+    // 근거 데이터가 하나도 없으면 기존 템플릿 유지 (fabricate 금지).
+    if (hyps.length === 0 && deltas.length === 0 && records.length === 0)
+      return undefined;
+
+    const round1 = (n: number) => Math.round(n * 10) / 10;
+    const jointDeltas = deltas
+      .filter(
+        (d) =>
+          Number.isFinite(d.student_deg) &&
+          Number.isFinite(d.reference_deg) &&
+          Number.isFinite(d.delta_deg),
+      )
+      .map((d) => ({
+        jointLabel: JOINT_LABEL_KO[d.joint] ?? d.joint,
+        studentDeg: round1(d.student_deg),
+        referenceDeg: round1(d.reference_deg),
+        deltaDeg: round1(d.delta_deg),
+        // 마커 강조 임계 20° 선례 재사용 (KEYPOINT_DELTA_HIGHLIGHT_DEG —
+        // dimensions.py _LINE_TOL_DEG / IPSF 허용오차 정합, 260620-18r).
+        overTolerance: Math.abs(d.delta_deg) > KEYPOINT_DELTA_HIGHLIGHT_DEG,
+      }));
+
+    let measurementText = `내 영상과 정은지 선수 기준 영상을 프레임 단위로 비교해 관절 각도 편차를 측정하고, 허용오차(${KEYPOINT_DELTA_HIGHLIGHT_DEG}°)를 초과한 만큼 명시된 규칙으로 감점했어요.`;
+    const firstRecord = records[0];
+    if (firstRecord) {
+      const row = formatDeductionRecord(firstRecord);
+      measurementText += ` 측정 결과: ${row.label} — ${row.detailText} → ${formatDeductionNumber(Math.abs(firstRecord.points))}점 감점.`;
+    }
+    const supportCount =
+      typeof hyps[0]?.supportCount === 'number' ? hyps[0].supportCount : null;
+    return { measurementText, supportCount, jointDeltas };
+  }, [
+    cmp.mode,
+    result.visionVeto,
+    result.forcePatternInference,
+    result.deductionBreakdown,
+  ]);
 
   // Phase 11 (Plan 11-02, COACH-01 / D-06 / HIGH-2) — "강사에게 확인할 점" 섹션.
   // 두 리포트(forcePatternInference + bodyComparisonReport)의 coachCommentHook.
@@ -1302,6 +1383,9 @@ export default function AnalysisResult() {
             ? forcePatternFindings.findIndex((f) => f === detailFinding)
             : undefined
         }
+        // quick-260702-q8q — 실측 근거 (veto fallback finding 일 때만 정의됨.
+        // Phase 9 일반 finding 탭은 undefined → 기존 템플릿, 무회귀).
+        measuredEvidence={measuredEvidence}
         onClose={() => setDetailFinding(null)}
       />
       {/* Phase 13 (Plan 13-A): "다른 운동 보기" 전체 보완 운동 라이브러리 모달. */}

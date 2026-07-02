@@ -46,10 +46,28 @@ function confidenceLabel(c: number): { text: string; color: string } {
   return { text: '신뢰도 낮음', color: colors.textLo };
 }
 
+// quick-260702-q8q — 실측 근거 (veto fallback finding 전용, result.tsx 가 조립).
+// 존재 시 아래 3개 템플릿 문구("추정한 가능성/확인 필요/거울 보며")를 실데이터로
+// 교체 렌더. 없으면 현행 템플릿 그대로 (Phase 9 일반 finding/legacy doc 무회귀).
+export type MeasuredEvidence = {
+  measurementText: string;
+  // 판정 일치 절대 횟수 — 분모(총 샘플 수)는 Firestore 에 없어 "N/M" 표기 불가
+  // (플랜 planner_findings 6). null 이면 표본 문구 생략.
+  supportCount: number | null;
+  jointDeltas: {
+    jointLabel: string;
+    studentDeg: number;
+    referenceDeg: number;
+    deltaDeg: number;
+    overTolerance: boolean; // |delta| > 20° (KEYPOINT_DELTA_HIGHLIGHT_DEG 정합)
+  }[];
+};
+
 export type ForcePatternDetailModalProps = {
   visible: boolean;
   finding: ForcePatternFinding | null;
   rank?: number;
+  measuredEvidence?: MeasuredEvidence;
   onClose: () => void;
 };
 
@@ -57,6 +75,7 @@ export function ForcePatternDetailModal({
   visible,
   finding,
   rank,
+  measuredEvidence,
   onClose,
 }: ForcePatternDetailModalProps) {
   const { height: winH } = useWindowDimensions();
@@ -151,23 +170,65 @@ export function ForcePatternDetailModal({
               강사가 함께 보면 더 구체적 피드백을 받을 수 있어요
             </Text>
 
+            {/* quick-260702-q8q — 실측 근거 존재 시 템플릿 문구를 실데이터로 교체.
+                evidence 없으면 현행 그대로 (Phase 9 일반 finding 무회귀). */}
             <View style={styles.measureCard}>
               <Text style={styles.measureTitle}>이 원인은 어떻게 측정됐나</Text>
-              <Text style={styles.measureBody}>{reasonKo}</Text>
+              <Text style={styles.measureBody}>
+                {measuredEvidence ? measuredEvidence.measurementText : reasonKo}
+              </Text>
+              {measuredEvidence != null &&
+              measuredEvidence.supportCount != null ? (
+                <Text style={styles.measureBody}>
+                  {`분석 표본 ${measuredEvidence.supportCount}회에서 같은 결함이 확인됐어요.`}
+                </Text>
+              ) : null}
             </View>
 
-            <View style={styles.dotRow}>
-              <View style={styles.dot} />
-              <Text style={styles.dotText}>
-                <Text style={styles.dotLabel}>관련 부위 — </Text>
-                {finding.jointHint ?? '확인 필요'}
-              </Text>
-            </View>
+            {measuredEvidence && measuredEvidence.jointDeltas.length > 0 ? (
+              <View style={styles.deltaTable}>
+                <Text style={styles.deltaTableTitle}>관련 부위 — 관절별 편차</Text>
+                {measuredEvidence.jointDeltas.map((d, i) => (
+                  <View
+                    key={`${d.jointLabel}-${i}`}
+                    style={styles.deltaRow}
+                    accessibilityLabel={`${d.jointLabel} 내 ${d.studentDeg}도, 기준 ${d.referenceDeg}도, 차이 ${d.deltaDeg}도${d.overTolerance ? ', 허용오차 초과' : ''}`}
+                  >
+                    <Text
+                      style={[
+                        styles.deltaJoint,
+                        d.overTolerance && styles.deltaOver,
+                      ]}
+                    >
+                      {d.jointLabel}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.deltaValues,
+                        d.overTolerance && styles.deltaOver,
+                      ]}
+                    >
+                      {`내 ${d.studentDeg}° / 기준 ${d.referenceDeg}° (차이 ${d.deltaDeg}°)`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.dotRow}>
+                <View style={styles.dot} />
+                <Text style={styles.dotText}>
+                  <Text style={styles.dotLabel}>관련 부위 — </Text>
+                  {finding.jointHint ?? '확인 필요'}
+                </Text>
+              </View>
+            )}
             <View style={styles.dotRow}>
               <View style={styles.dot} />
               <Text style={styles.dotText}>
                 <Text style={styles.dotLabel}>확인하기 — </Text>
-                거울 보며 동작 직접 재현
+                {measuredEvidence
+                  ? "위 '문제 부위 확대 비교'와 편차표의 강조 관절을 함께 확인"
+                  : '거울 보며 동작 직접 재현'}
               </Text>
             </View>
 
@@ -293,6 +354,42 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: colors.textMid,
     lineHeight: 18,
+  },
+
+  // quick-260702-q8q — 관절별 편차표 (라이브러리 추가 금지 — 단순 View 행 목록).
+  deltaTable: {
+    backgroundColor: colors.softBg,
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+  },
+  deltaTableTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textHi,
+  },
+  deltaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deltaJoint: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textMid,
+  },
+  deltaValues: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.textMid,
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  // 허용오차(20°) 초과 행 — brand 강조.
+  deltaOver: {
+    color: colors.brand,
+    fontWeight: '600',
   },
 
   dotRow: {

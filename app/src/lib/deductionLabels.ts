@@ -26,9 +26,8 @@ export const JOINT_LABEL_KO: Record<string, string> = {
   right_elbow: '오른쪽 팔꿈치',
 };
 
-// IPSF 각도 허용오차(도) — 마커 강조 임계 20° 선례(260620-18r) 정합. 편차표
-// overTolerance 강조 임계의 단일 선언 (result.tsx evidence 조립이 import).
-export const IPSF_TOLERANCE_DEG = 20;
+// IPSF 각도 허용오차 20° 는 KeypointOverlay.KEYPOINT_DELTA_HIGHLIGHT_DEG 가 단일
+// 선언 (dimensions.py _LINE_TOL_DEG 정합) — 여기 중복 선언 금지, 소비처가 import.
 
 // criterion id → 한국어 라벨 (contract.md §10.2 카탈로그 고정분).
 const CRITERION_LABEL_KO: Record<string, string> = {

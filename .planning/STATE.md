@@ -66,7 +66,7 @@ Status: Phase 10 complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-02 -- Completed quick task 260702-mat: iOS build #27 TestFlight 제출 (Android APK #1 = 동일 커밋 11899b5, 재빌드 불필요)
+Last activity: 2026-07-02 -- Completed quick task 260702-o0c: kip-up 상체 감점 seed 2단 정렬 (window median 우선 + DTW fallback, 로컬 GREEN, Pod sweep PENDING)
 
 ### Quick Tasks Completed
 
@@ -84,6 +84,7 @@ Last activity: 2026-07-02 -- Completed quick task 260702-mat: iOS build #27 Test
 | 260627-afq | P1 step4 — recognizer 등록 + 객관 IPSF 무릎신전 wiring. 5동작(kip-up/power-spin/peter-pan/elbow-twist-sister/pdshape) REGISTERED_MOTIONS+한영 alias 등록 + 5 criteria yaml(무릎 EXTEND, angle_target 180°=IPSF 보편기준, source_ref=Glossary fully-extended-leg+의도된 폼, 정은지 측정값 아님). 엔진 코드 0변경(24-07 wiring이 데이터+등록만으로 활성). de-contamination pod-free 증명: 곧은 무릎(정은지와 달라도)=감점0, 굽은 무릎=leg_extension(ipsf_absolute) 감점+reference_relative cross-excluded. 80 passed. pdshape 비대칭=step5 gate 검증. 남음=step5 pod sweep | 2026-06-27 | 9678ab5 | [260627-afq-p1-step4](./quick/260627-afq-p1-step4-register-5-moves-objective-ipsf/) |
 | 260630-l4e | power-spin success fallback calibration (91→100) + kip-up split 마진 도메인 검토. 근본원인=`_apply_vision_veto_from_context` 의 not_applicable 분기가 clean tally(empty records)에서 breakdown.final(=100) 대신 레거시 min-of-core dimension(min(angle,line)=91) passthrough. fix=not_applicable 도 overallScore=breakdown.final(1줄, 새 상수 0 — calibration-source-hard-gate 안전). quant-unavailable 은 applied(fallback record)라 불변. Pod 6쌍 sweep 검증 PASS: 전 success 100, kip-up fault 88 유지(100 미점프 — split_angle record→applied 경로), cold-rerun 결정적. kip-up split 마진 12=adequate(단일 결함 단일 감점, vision 측정 30°→10° over-tol×slope, no change). 141 passed | 2026-06-30 | d557d6d | [260630-l4e-power-spin-success-fallback-calibration-](./quick/260630-l4e-power-spin-success-fallback-calibration-/) |
 | 260702-mat | TestFlight 빌드 27 배포 (Pod 테스트 전 선행) — iOS 빌드 #27(production, 커밋 11899b5=HEAD, 07-02 11:45 기빌드)을 `eas submit --id` 무인 제출 → ASC 업로드 성공, Apple 처리 후 TestFlight 노출. Android: 직원 설치 APK 빌드 #1(preview-android)도 동일 커밋 11899b5 → 코드 변경 0건, 재빌드 불필요 판단. 코드 변경 없음(운영 작업만). appVersionSource=remote 라 app.json buildNumber/versionCode 는 무시됨 | 2026-07-02 | (docs only) | [260702-mat-testflight-27](./quick/260702-mat-testflight-27-app-json-buildnumber-pod/) |
+| 260702-o0c | kip-up 상체 감점 누락 fix — angle_vs_reference__{jk} seed 를 2단으로 정렬: (1순위) 표시용 windowMedianAngleDeltas(worst-window median, 표시=감점 동일 source — 국소 결함이 전체 DTW path median 에서 희석되던 집계 불일치 해소) + (fallback) 기존 per_joint_deviation DTW-median(24-05/e5k 무회귀). 양 경로 공통 방출 규칙 helper(JOINT_KEYS/NaN·0/expects_extension cross-exclusion) + seed source 관찰 로그. 신규 상수 0, motiondtw 불변, 스키마 변경 0. 로컬 31 passed + 전체 회귀 0(1830 passed, baseline FAILED/ERROR diff IDENTICAL), 밴드 재도입 0. Pod 6쌍 sweep 검증 PENDING (gate: kip-up fault<88 AND success 6/6==100) | 2026-07-02 | f513587 | [260702-o0c-kip-up-fix](./quick/260702-o0c-kip-up-fix-per-joint-reference-relative-/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

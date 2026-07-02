@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import io
+from dataclasses import dataclass
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -29,6 +30,90 @@ _CROP_FRAC = 0.42
 _OUT = 360
 # 마커 색 (브랜드 #FF4B33).
 _BRAND = (255, 75, 51)
+
+# crop 앵커 keypoint 최소 confidence (quick-260702-sic). 프론트
+# KeypointOverlay.KEYPOINT_LOW_CONFIDENCE_THRESHOLD = 0.5 선례 정합 — 저신뢰
+# keypoint(RTMW 몸통 붕괴 등)를 crop 중심으로 쓰면 엉뚱한 부위(뒤통수)가 확대됨.
+_KP_CONF_MIN = 0.5
+
+# 결함단위(region) grouping — 같은 결함(스플릿 등)에서 온 좌+우 동일 부위 관절들을
+# 카드 1장으로 묶는다 (quick-260702-sic). keypointReport 의 8-keypoint 이름공간
+# (left/right_hand = COCO wrist 매핑) + 향후 확장 이름(ankle/elbow/wrist)을 함께 커버.
+_REGION_JOINTS: dict[str, frozenset[str]] = {
+    "legs": frozenset({
+        "left_hip", "right_hip",
+        "left_knee", "right_knee",
+        "left_ankle", "right_ankle",
+    }),
+    "arms": frozenset({
+        "left_shoulder", "right_shoulder",
+        "left_elbow", "right_elbow",
+        "left_wrist", "right_wrist",
+        "left_hand", "right_hand",
+    }),
+}
+# grouped bbox crop 마진 — 멤버 관절 전체 + 주변 컨텍스트.
+_BBOX_MARGIN = 1.8
+
+
+@dataclass(frozen=True)
+class _CropUnit:
+    """fan-out crop 단위 — 단일 관절(region=None) 또는 결함단위 좌+우 묶음."""
+
+    joint: str  # 대표 keypoint (S3 key / TS 계약의 joint 필드)
+    members: tuple[str, ...]  # crop bbox 에 담을 keypoint 전부 (단일이면 (joint,))
+    region: str | None  # "legs" | "arms" | None
+
+
+def _group_fault_joints(
+    fault_joints: list[str], joint_kinds: dict[str, str] | None
+) -> list[_CropUnit]:
+    """fault_joints → crop unit 리스트 (순수, 순서 보존 + dedup).
+
+    grouping 조건 (전부 만족 시 region 1 unit):
+      · 같은 region(_REGION_JOINTS) 소속 fault joint 가 2개 이상
+      · 좌(left_*)+우(right_*) 양측에 걸침
+      · kind 가 전원 동일한 non-None 값 — mode3 improved/worsened 혼재 시 비활성.
+        kind 전원 부재(None)는 grouping 하지 않음: production 은 항상 kind 를
+        세팅(Mode1='deficit'/Mode3 방향)하므로 부재 = legacy 호출 — 기존 관절당
+        1장 동작 보존 (기존 테스트 6개 무수정 PASS 하위호환 게이트).
+    대표 joint = fault_joints 순서상 첫 멤버. 그 외는 관절당 1 unit (region=None).
+    """
+    kinds = joint_kinds or {}
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for j in fault_joints:
+        if j not in seen:
+            seen.add(j)
+            ordered.append(j)
+
+    grouped: dict[str, str] = {}  # member joint → region
+    reps: dict[str, str] = {}  # region → 대표 joint
+    for region, region_joints in _REGION_JOINTS.items():
+        members = [j for j in ordered if j in region_joints]
+        if len(members) < 2:
+            continue
+        has_left = any(m.startswith("left_") for m in members)
+        has_right = any(m.startswith("right_") for m in members)
+        if not (has_left and has_right):
+            continue
+        member_kinds = {kinds.get(m) for m in members}
+        if len(member_kinds) != 1 or next(iter(member_kinds)) is None:
+            continue
+        for m in members:
+            grouped[m] = region
+        reps[region] = members[0]
+
+    units: list[_CropUnit] = []
+    for j in ordered:
+        region = grouped.get(j)
+        if region is None:
+            units.append(_CropUnit(joint=j, members=(j,), region=None))
+        elif reps.get(region) == j:
+            members = tuple(m for m in ordered if grouped.get(m) == region)
+            units.append(_CropUnit(joint=j, members=members, region=region))
+        # grouped 비대표 멤버 → 개별 fan-out 에서 제거 (카드 1장).
+    return units
 
 
 def _frame_index(seconds: float | None, fps: float, n_frames: int) -> int:
@@ -85,13 +170,58 @@ def _kp_xy(report: dict, frame_idx: int, joint: str) -> tuple[float, float] | No
     return x, y
 
 
-def _crop_zoom(frame: np.ndarray, cx: float, cy: float) -> Image.Image:
+def _kp_conf(report: dict, frame_idx: int, joint: str) -> float | None:
+    """keypointReport 의 (frame, joint) confidence. 부재/legacy → None (통과 취급).
+
+    confidence 는 flat T*J (keypoint_frame.py KeypointReport). 길이가 frames*nj
+    미만이면 부재 취급 (legacy/합성 report 하위호환).
+    """
+    joints = report.get("joints") or []
+    if joint not in joints:
+        return None
+    j = joints.index(joint)
+    nj = len(joints)
+    conf = report.get("confidence") or []
+    frames = int(report.get("frames") or 0)
+    if frames <= 0 or len(conf) < frames * nj:
+        return None
+    fi = max(0, min(frame_idx, frames - 1))
+    try:
+        c = float(conf[fi * nj + j])
+    except (TypeError, ValueError):
+        return None
+    return c if np.isfinite(c) else None
+
+
+def _valid_kp_xy(
+    report: dict, frame_idx: int, joint: str
+) -> tuple[float, float] | None:
+    """confidence 게이트 통과한 정규화 좌표 (x,y) | None.
+
+    valid = 좌표 finite AND (confidence 부재 → 통과 | confidence >= _KP_CONF_MIN).
+    저신뢰 keypoint 를 crop 앵커로 쓰면 엉뚱한 부위가 확대됨 (quick-260702-sic).
+    """
+    xy = _kp_xy(report, frame_idx, joint)
+    if xy is None:
+        return None
+    c = _kp_conf(report, frame_idx, joint)
+    if c is not None and c < _KP_CONF_MIN:
+        return None
+    return xy
+
+
+def _crop_zoom(
+    frame: np.ndarray, cx: float, cy: float, side: int | None = None
+) -> Image.Image:
     """정규화 중심 (cx,cy) 주변을 정사각 crop 후 _OUT 으로 리사이즈.
 
-    crop 한 변 = min(H,W)*_CROP_FRAC. 경계를 넘으면 안쪽으로 shift (검은 패딩 회피).
+    crop 한 변 = side px (None 이면 min(H,W)*_CROP_FRAC — 기존 단일 관절 zoom).
+    경계를 넘으면 안쪽으로 shift (검은 패딩 회피).
     """
     h, w = frame.shape[0], frame.shape[1]
-    side = max(16, int(round(min(h, w) * _CROP_FRAC)))
+    if side is None:
+        side = max(16, int(round(min(h, w) * _CROP_FRAC)))
+    side = max(16, min(int(side), min(h, w)))
     px, py = cx * w, cy * h
     left = int(round(px - side / 2))
     top = int(round(py - side / 2))
@@ -104,12 +234,62 @@ def _crop_zoom(frame: np.ndarray, cx: float, cy: float) -> Image.Image:
     return img
 
 
-def _mark(img: Image.Image, deficit_deg: float | None) -> Image.Image:
-    """crop 중앙에 브랜드 원 + (deficit 있으면) 숫자 배지. 한글 없음(폰트 회피)."""
+def _full_frame_fit(frame: np.ndarray) -> Image.Image:
+    """full frame 을 비율 유지 contain-fit 으로 (_OUT,_OUT) 흰 캔버스에 배치.
+
+    crop 앵커 keypoint 가 전부 결측/저신뢰인 측의 전신 폴백 — 엉뚱한 부위 확대보다
+    전신이 낫다 (quick-260702-sic, belle 요구 3).
+    """
+    img = Image.fromarray(frame).convert("RGB")
+    w, h = img.size
+    scale = _OUT / max(1, max(w, h))
+    nw = max(1, int(round(w * scale)))
+    nh = max(1, int(round(h * scale)))
+    resized = img.resize((nw, nh), Image.BILINEAR)
+    canvas = Image.new("RGB", (_OUT, _OUT), (255, 255, 255))
+    canvas.paste(resized, ((_OUT - nw) // 2, (_OUT - nh) // 2))
+    return canvas
+
+
+def _side_crop(
+    frame: np.ndarray, pts: list[tuple[float, float]]
+) -> tuple[Image.Image, bool]:
+    """한 측(user/ref)의 unit crop → (이미지, 전신폴백 여부).
+
+    valid 0개 → 전신 폴백. 1개 → 기존 단일 관절 zoom. 2개 이상(grouped) → 멤버
+    bounding box 기반 crop (변 = max(bbox)*_BBOX_MARGIN, floor=_CROP_FRAC 줌 수준,
+    상한=프레임 내). 촬영거리 불일치는 bbox 가 측별 person 스케일을 따라가며 자연 해소.
+    """
+    if not pts:
+        return _full_frame_fit(frame), True
+    if len(pts) == 1:
+        return _crop_zoom(frame, pts[0][0], pts[0][1]), False
+    h, w = frame.shape[0], frame.shape[1]
+    xs = [p[0] * w for p in pts]
+    ys = [p[1] * h for p in pts]
+    cx = (min(xs) + max(xs)) / 2 / w
+    cy = (min(ys) + max(ys)) / 2 / h
+    bbox_side = max(max(xs) - min(xs), max(ys) - min(ys))
+    side = max(
+        int(round(min(h, w) * _CROP_FRAC)),
+        int(round(bbox_side * _BBOX_MARGIN)),
+    )
+    return _crop_zoom(frame, cx, cy, side=side), False
+
+
+def _mark(
+    img: Image.Image, deficit_deg: float | None, circle: bool = True
+) -> Image.Image:
+    """crop 중앙에 브랜드 원 + (deficit 있으면) 숫자 배지. 한글 없음(폰트 회피).
+
+    circle=False = 전신 폴백 측 (중앙이 결함 부위가 아니므로 원 생략 — 오인 방지).
+    deficit 배지는 유지.
+    """
     draw = ImageDraw.Draw(img)
-    c = _OUT // 2
-    r = int(_OUT * 0.16)
-    draw.ellipse([c - r, c - r, c + r, c + r], outline=_BRAND, width=4)
+    if circle:
+        c = _OUT // 2
+        r = int(_OUT * 0.16)
+        draw.ellipse([c - r, c - r, c + r, c + r], outline=_BRAND, width=4)
     if deficit_deg is not None and deficit_deg > 0:
         txt = f"{int(round(deficit_deg))}deg"
         # 배지 배경 (가독성) — 우상단.
@@ -142,20 +322,32 @@ def build_fault_zoom_comparisons(
     max_items: int = 4,
     joint_kinds: dict[str, str] | None = None,
     dtw_match=None,
+    *,
+    user_frame_idx: int | None = None,
+    ref_frame_idx: int | None = None,
 ) -> list[dict]:
-    """결함 관절별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
+    """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
     user_frames/ref_frames: frame_extractor.extract 결과 (T,H,W,3) uint8 @ frames_fps.
     worst_seconds: vision_veto.worst_pose_timestamp (None 이면 중앙 프레임).
     fault_joints: 강조할 keypoint 이름들 (visionVeto.faultJoints 또는 편차 top).
     joint_deltas: keypoint 이름 → deficit 각도(도). 없으면 마커만(숫자 X).
+    user_frame_idx/ref_frame_idx: **명시 프레임 override (quick-260702-sic)** — 둘 다
+      9fps frames 배열 인덱스 공간. 주어진 측은 worst_seconds/DTW 선택을 대체한다
+      (vision veto 가 측정한 그 프레임 = 표시 프레임 정합). 둘 다 None(default) 이면
+      기존 동작 100% 보존 (하위호환).
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (user 18 / reference 가변)로 **각자 시간 인덱싱** — upsample fps mismatch 회피.
     기준 프레임은 같은 정규화 시간 위치(ratio)로 근사(DTW 미threading MVP, held pose).
 
+    결함단위 grouping (quick-260702-sic): 같은 결함에서 온 좌+우 동일 부위 관절
+    (스플릿 → hips+knees)은 _group_fault_joints 로 카드 1장으로 묶이고, crop 은
+    멤버 keypoint bounding box 기반. 방출 dict 에 scalar "region" 추가 (grouped 만).
+    저신뢰/결측 keypoint 측은 전신 폴백 (양측 다 무효면 기존처럼 skip).
+
     각 항목 png 는 호출측이 S3 업로드 후 presigned URL 로 doc 에 박는다.
-    실패 항목은 조용히 skip (graceful). 좌표 부재 관절도 skip.
+    실패 항목은 조용히 skip (graceful).
     """
     out: list[dict] = []
     if user_frames is None or ref_frames is None:
@@ -164,52 +356,75 @@ def build_fault_zoom_comparisons(
     r_rep_fps = float(ref_report.get("fps") or frames_fps)
     u_n = int(user_frames.shape[0])
     r_n = int(ref_frames.shape[0])
-    # 프레임 배열 인덱스 (frames_fps 기준).
-    u_idx = _frame_index(worst_seconds, frames_fps, u_n)
     u_rep_frames = int(user_report.get("frames") or 0)
     r_rep_frames = int(ref_report.get("frames") or 0)
-    u_kp_idx = _frame_index(worst_seconds, u_rep_fps, u_rep_frames)
-    # B1: DTW match 로 같은-pose 기준 프레임. 불가 시 시간비례 근사 폴백.
-    r_matched = _matched_ref_frame(dtw_match, u_idx, r_n)
-    if r_matched is not None:
-        r_idx = r_matched
-        # 기준 9fps 프레임 → 기준 keypointReport fps 인덱스 변환.
-        r_kp_idx = max(0, min(
-            int(round(r_matched / max(1e-6, frames_fps) * r_rep_fps)),
-            max(0, r_rep_frames - 1),
-        ))
-    else:
-        ratio = (u_idx / max(1, u_n - 1)) if u_n > 1 else 0.0
-        r_idx = int(round(ratio * (r_n - 1))) if r_n > 1 else 0
-        r_kp_idx = int(round(ratio * (r_rep_frames - 1))) if r_rep_frames > 1 else 0
 
-    seen: set[str] = set()
-    for joint in fault_joints:
-        if joint in seen:
-            continue
-        seen.add(joint)
+    def _to_rep_idx(idx: int, rep_fps: float, rep_frames: int) -> int:
+        # 9fps frames 인덱스 → keypointReport fps 인덱스 (기존 B1 변환 공식 재사용).
+        return max(0, min(
+            int(round(idx / max(1e-6, frames_fps) * rep_fps)),
+            max(0, rep_frames - 1),
+        ))
+
+    # 프레임 배열 인덱스 (frames_fps 기준). override 는 worst_seconds/DTW 를 이긴다
+    # — vision 측정 프레임(sourceFrameIndices median)과 표시 프레임 일치.
+    if user_frame_idx is not None:
+        u_idx = max(0, min(int(user_frame_idx), max(0, u_n - 1)))
+        u_kp_idx = _to_rep_idx(u_idx, u_rep_fps, u_rep_frames)
+    else:
+        u_idx = _frame_index(worst_seconds, frames_fps, u_n)
+        u_kp_idx = _frame_index(worst_seconds, u_rep_fps, u_rep_frames)
+    if ref_frame_idx is not None:
+        r_idx = max(0, min(int(ref_frame_idx), max(0, r_n - 1)))
+        r_kp_idx = _to_rep_idx(r_idx, r_rep_fps, r_rep_frames)
+    else:
+        # B1: DTW match 로 같은-pose 기준 프레임. 불가 시 시간비례 근사 폴백.
+        r_matched = _matched_ref_frame(dtw_match, u_idx, r_n)
+        if r_matched is not None:
+            r_idx = r_matched
+            r_kp_idx = _to_rep_idx(r_matched, r_rep_fps, r_rep_frames)
+        else:
+            ratio = (u_idx / max(1, u_n - 1)) if u_n > 1 else 0.0
+            r_idx = int(round(ratio * (r_n - 1))) if r_n > 1 else 0
+            r_kp_idx = (
+                int(round(ratio * (r_rep_frames - 1))) if r_rep_frames > 1 else 0
+            )
+
+    deltas = joint_deltas or {}
+    for unit in _group_fault_joints(list(fault_joints), joint_kinds):
         if len(out) >= max_items:
             break
-        u_xy = _kp_xy(user_report, u_kp_idx, joint)
-        r_xy = _kp_xy(ref_report, r_kp_idx, joint)
-        if u_xy is None or r_xy is None:
+        u_pts = [
+            xy for m in unit.members
+            if (xy := _valid_kp_xy(user_report, u_kp_idx, m)) is not None
+        ]
+        r_pts = [
+            xy for m in unit.members
+            if (xy := _valid_kp_xy(ref_report, r_kp_idx, m)) is not None
+        ]
+        if not u_pts and not r_pts:
+            # 양측 다 무효 — 전신 vs 전신은 정보가 없으므로 기존처럼 skip.
             continue
+        member_deltas = [
+            float(deltas[m]) for m in unit.members if deltas.get(m) is not None
+        ]
+        deficit = max(member_deltas) if member_deltas else None
         try:
-            u_crop = _mark(
-                _crop_zoom(user_frames[u_idx], u_xy[0], u_xy[1]),
-                (joint_deltas or {}).get(joint),
-            )
-            r_crop = _crop_zoom(ref_frames[r_idx], r_xy[0], r_xy[1])
+            u_img, u_full = _side_crop(user_frames[u_idx], u_pts)
+            u_crop = _mark(u_img, deficit, circle=not u_full)
+            r_crop, _ = _side_crop(ref_frames[r_idx], r_pts)
             png = _compose(u_crop, r_crop)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue
         item = {
-            "joint": joint,
-            "deficitDeg": (joint_deltas or {}).get(joint),
+            "joint": unit.joint,
+            "deficitDeg": deficit,
             "png": png,
         }
-        kind = (joint_kinds or {}).get(joint)
+        kind = (joint_kinds or {}).get(unit.joint)
         if kind:
             item["kind"] = kind
+        if unit.region:
+            item["region"] = unit.region
         out.append(item)
     return out

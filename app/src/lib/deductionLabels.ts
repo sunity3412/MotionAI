@@ -26,6 +26,14 @@ export const JOINT_LABEL_KO: Record<string, string> = {
   right_elbow: '오른쪽 팔꿈치',
 };
 
+// 결함단위(region) 카드 한국어 라벨 (quick-260702-sic) — 좌+우 관절 묶음 카드
+// (FaultZoomComparison.region, 스플릿 → 'legs'). FaultZoomCompare 가 import —
+// JOINT_LABEL_KO 와 같은 단일 출처 파일 (중복 2벌 금지).
+export const REGION_LABEL_KO: Record<string, string> = {
+  legs: '양다리',
+  arms: '양팔',
+};
+
 // IPSF 각도 허용오차 20° 는 KeypointOverlay.KEYPOINT_DELTA_HIGHLIGHT_DEG 가 단일
 // 선언 (dimensions.py _LINE_TOL_DEG 정합) — 여기 중복 선언 금지, 소비처가 import.
 

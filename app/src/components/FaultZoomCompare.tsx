@@ -16,15 +16,20 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { JOINT_LABEL_KO } from '../lib/deductionLabels';
+import { JOINT_LABEL_KO, REGION_LABEL_KO } from '../lib/deductionLabels';
 import { colors, layout, radius, spacing } from '../theme';
 import { typography } from '../theme/typography';
 import type { FaultZoomComparison } from '../types/analysis';
 
 // 관절 KO 라벨은 deductionLabels.JOINT_LABEL_KO 단일 출처 (quick-260702-q8q —
 // 점수 계산 내역/편차표와 동일 맵 재사용, 중복 2벌 금지).
+// region 카드(좌+우 묶음, quick-260702-sic)는 region 라벨 우선 — 스플릿 결함이
+// "오른쪽 엉덩이"로 오인되지 않게 "양다리"로 표기.
 function caption(item: FaultZoomComparison): string {
-  const label = JOINT_LABEL_KO[item.joint] ?? '문제 부위';
+  const label =
+    (item.region && REGION_LABEL_KO[item.region]) ||
+    JOINT_LABEL_KO[item.joint] ||
+    '문제 부위';
   // Mode3 — 지난 분석 대비 개선/악화 방향.
   if (item.kind === 'improved') return `${label} · 지난 분석보다 좋아졌어요`;
   if (item.kind === 'worsened') return `${label} · 지난 분석보다 아쉬워졌어요`;

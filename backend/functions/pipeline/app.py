@@ -2452,11 +2452,15 @@ def _render_fault_zoom(
     analysis_id: str,
     bucket: str,
     dtw_match=None,
+    user_frame_idx: int | None = None,
+    ref_frame_idx: int | None = None,
 ) -> dict:
     """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → result.
 
     Mode1(right=정은지) / Mode3(right=지난 영상) 공용. 한글 캡션/라벨은 앱이 부여
     (이미지엔 숫자만). graceful 은 호출측 try 가 담당.
+    user_frame_idx/ref_frame_idx: 9fps frames 인덱스 override (quick-260702-sic) —
+    vision 측정 프레임(sourceFrameIndices median)과 crop 프레임 정합. None=기존 경로.
     """
     from sunity_shared.analysis import fault_zoom
     from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
@@ -2477,6 +2481,8 @@ def _render_fault_zoom(
         frames_fps=9.0,
         joint_kinds=kinds,
         dtw_match=dtw_match,
+        user_frame_idx=user_frame_idx,
+        ref_frame_idx=ref_frame_idx,
     )
     out: list[dict] = []
     for c in comps:
@@ -2491,6 +2497,11 @@ def _render_fault_zoom(
         }
         if c.get("kind"):
             item["kind"] = c["kind"]
+        # 결함단위 grouping 카드 (quick-260702-sic) — scalar str 이라
+        # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
+        # FaultZoomComparison.region ('legs'|'arms').
+        if c.get("region"):
+            item["region"] = c["region"]
         out.append(item)
     if out:
         result["faultZoomComparisons"] = out
@@ -2525,6 +2536,27 @@ def _attach_fault_zoom_comparisons(
     # kismam delta. Gemini 추정이 veto 결함을 의미있게 반영(kismam 은 못 잡아 과소).
     gemini_deficits = vv.get("faultJointDeficits") or {}
     deficits = {**joint_deltas, **{k: float(v) for k, v in gemini_deficits.items()}}
+    # crop 프레임 = vision 측정 프레임 (quick-260702-sic). 캡션의 deficit 는
+    # windowMedianAngleDeltas 가 측정한 프레임 window 에서 왔으므로 crop 도 그
+    # window 의 각-측 median 프레임을 쓴다 (측정 모먼트 = 표시 모먼트).
+    # 인덱스 공간 = 9fps frames 배열과 동일 — angles 행 = 9fps 추출 프레임
+    # (build_keypoint_report(pose_frames, fps=9.0) 동일 소스, _selected_frame_pair
+    # 의 u_idx/r_idx 가 frames 인덱스로 window_median 에 그대로 전달됨,
+    # vision_veto.py:486 정합). fault_joints 가 vv.faultJoints 에서 온 경우에만
+    # 적용 — 편차 top-2 폴백 경로는 vision 측정 프레임과 무관(기존 worst_seconds).
+    # 부재/legacy doc → None = 기존 동작 (하위호환).
+    user_frame_idx: int | None = None
+    ref_frame_idx: int | None = None
+    if fault_joints:
+        sfi = (vv.get("windowMedianAngleDeltas") or {}).get("sourceFrameIndices") or {}
+        u_list = sfi.get("user") or []
+        r_list = sfi.get("reference") or []
+        if u_list and r_list:
+            try:
+                user_frame_idx = int(sorted(u_list)[len(u_list) // 2])
+                ref_frame_idx = int(sorted(r_list)[len(r_list) // 2])
+            except (TypeError, ValueError):
+                user_frame_idx = ref_frame_idx = None
     if not fault_joints:
         # veto 미적용(각도 차원이 결함을 잡은 경우) — 편차 최대 keypoint top-2 폴백.
         fault_joints = [
@@ -2539,6 +2571,8 @@ def _attach_fault_zoom_comparisons(
         vision_veto.worst_pose_timestamp(profile),
         uid, analysis_id, bucket,
         dtw_match=dtw_match,
+        user_frame_idx=user_frame_idx,
+        ref_frame_idx=ref_frame_idx,
     )
 
 

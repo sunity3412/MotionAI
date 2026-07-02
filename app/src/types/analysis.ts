@@ -436,6 +436,14 @@ export interface FaultZoomComparison {
   imageUrl: string;
   /** 캡션 종류 — Mode1='deficit'(기준보다 부족) / Mode3='improved'|'worsened'(지난 대비). */
   kind?: 'deficit' | 'improved' | 'worsened';
+  /**
+   * 같은 결함에서 온 좌+우 관절 묶음 카드 (quick-260702-sic — 스플릿=양다리).
+   * joint 는 대표 keypoint 유지 (S3 key/캐러셀 key 계약 불변), 캡션은 region 우선
+   * (REGION_LABEL_KO). Python lockstep: fault_zoom.build_fault_zoom_comparisons +
+   * pipeline _render_fault_zoom. list 필드 금지(Firestore flat 제약,
+   * _validate_dict_only_scalars)라 scalar region 만. legacy doc 은 부재.
+   */
+  region?: 'legs' | 'arms' | null;
 }
 
 // Phase 24 (SCORE-10~16, ND-01/ND-07) — 투명 감점-합산 채점.

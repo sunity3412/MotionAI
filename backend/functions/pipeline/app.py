@@ -2063,9 +2063,13 @@ def _build_deduction_measured_deviations(
       · split_angle: reference_relative — max(0, 정은지 max-split − 학생 max-split) deg.
         split_deficit_deg(mode1, peak inter-thigh 사이각) 보유 시만 방출, 없으면 honest 0.
       · body_relative_notches: quantification.bodyRelativeNotches list(있을 때만).
-      · angle_vs_reference__{joint}: 24-07 ① fix — 정은지(reference) 대비 per-joint 각도
-        편차(deg, reference_relative). reference_dtw_match+reference_angles 보유 시(mode1)만,
-        expects_extension 미소유 관절에 한해 방출(미등록 동작 granular seed, §3-2).
+      · angle_vs_reference__{joint}: 24-07 ① — 정은지(reference) 대비 per-joint 각도 편차
+        (deg, reference_relative). (1순위) 표시용 windowMedianAngleDeltas(worst_pose_center
+        ±2 median)와 **동일 source**(features.window_median_angle_deltas) — 국소 결함이
+        전체 DTW path median 에서 희석되던 버그를 표시=감점 정렬로 해소(260702-o0c).
+        (fallback) quantification unavailable(low_alignment 등, 24-04/24-05 정렬-독립 seed
+        보장) 시 기존 per_joint_deviation DTW-median 유지. expects_extension 미소유 관절만
+        방출(§3-2 seed-stage cross-exclusion).
     """
     from sunity_shared.analysis import dimensions
     from sunity_shared.analysis.skeleton import JOINT_KEYS
@@ -2126,14 +2130,52 @@ def _build_deduction_measured_deviations(
         if d_split == d_split and d_split > 0.0:  # not NaN, 양수만
             md["split_angle"] = d_split
 
-    # ── 24-07 ① fix: reference-relative per-joint 각도 편차 seed (미등록 동작 granular) ──
-    # ipsf_absolute(extension) seed 가 빈 미등록 동작(인식기 미등재 → expects_extension 전부
-    # False)에서, 정은지(reference) 대비 per-joint 각도 편차를 deduction 엔진 seed 로 주입한다.
-    # per_joint_deviation 은 DEG 편차(0-100 score 아님 — HIGH-3 score-not-deviation 정합).
-    # seed-stage cross-exclusion(§3-2): profile.expects_extension(jk) 관절은 ipsf_absolute
-    # (leg/arm/line)가 이미 채점하므로 reference_relative 미방출(double-count 금지). line(collective)
-    # 도 expects_extension 파생이므로 이 gate 가 정확히 차단 — 엔진-stage 는 leg/arm/split 만 보증.
-    if reference_dtw_match is not None and reference_angles is not None and angles is not None:
+    # ── 24-07 ① + 260702-o0c: reference-relative per-joint 각도 편차 seed (2단) ──
+    # (1순위) 표시용 windowMedianAngleDeltas(worst_pose_center ±2 median)와 동일 source —
+    # kip-up fault 처럼 worst-pose 부근의 국소 결함(어깨 Δ40°)이 전체 DTW path median 에서
+    # tol 미만으로 희석돼 "표시는 40° 인데 감점 0" 이 되던 집계 불일치를 표시=감점 정렬로 해소.
+    # (fallback) quantification unavailable(low_alignment 는 frame_pairs=[] → quant 결측,
+    # 24-04 Option A) 시 기존 per_joint_deviation DTW-median seed 유지 — 24-05(260626-e5k)
+    # "정렬-독립 RTMW 각도 seed 가 granular 감점 산출" 보장 무회귀.
+    # 편차는 모두 DEG (0-100 score 아님 — HIGH-3 score-not-deviation 정합).
+
+    def _emit_reference_relative(jk, v) -> bool:
+        """양 경로 공통 방출 규칙 — seed-stage cross-exclusion(§3-2) 포함.
+
+        profile.expects_extension(jk) 관절은 ipsf_absolute(leg/arm/line)가 이미 채점하므로
+        reference_relative 미방출(double-count 금지). line(collective)도 expects_extension
+        파생이므로 이 gate 가 정확히 차단 — 엔진-stage 는 leg/arm/split 만 보증.
+        JOINT_KEYS 외 문자열은 skip(엔진 md 계약은 criterion id 키만 기대 — spurious 금지)."""
+        if jk not in JOINT_KEYS:
+            return False
+        if v != v or v <= 0.0:  # NaN/0/음수 미방출(md 슬림 — 엔진 tol gate 가 self-compare 0 도 거름)
+            return False
+        if profile is not None and profile.expects_extension(jk):
+            return False
+        md[f"angle_vs_reference__{jk}"] = v
+        return True
+
+    seed_source = None
+    seed_count = 0
+    wm = getattr(quantification, "windowMedianAngleDeltas", None)
+    wm_deltas = wm.get("deltas") if isinstance(wm, dict) else None
+    if wm_deltas:
+        # 1순위 — window 경로를 탔으면(deltas 존재) fallback 은 실행하지 않는다: 표시용 window
+        # 값이 감점의 authoritative source (전부 0 편차여도 fallback 재시도 없음 = honest 0).
+        seed_source = "window_median"
+        for entry in wm_deltas:
+            if not isinstance(entry, dict):
+                continue  # 형상불량 entry 는 honest skip
+            try:
+                jk = entry.get("joint")
+                # delta_deg 는 SIGNED(student − reference) — criterion 은 비음수 magnitude 기대.
+                v = abs(float(entry.get("delta_deg", 0.0)))
+            except (TypeError, ValueError):
+                continue
+            if _emit_reference_relative(jk, v):
+                seed_count += 1
+    elif reference_dtw_match is not None and reference_angles is not None and angles is not None:
+        seed_source = "dtw_median_fallback"
         try:
             path = getattr(reference_dtw_match, "path", None)
             start = getattr(reference_dtw_match, "start", None)
@@ -2144,16 +2186,13 @@ def _build_deduction_measured_deviations(
                 user_seg = angles[start:end]
                 dev = per_joint_deviation(path, user_seg, reference_angles)
                 for i, jk in enumerate(JOINT_KEYS):
-                    v = float(dev[i])
-                    if v != v:  # NaN skip
-                        continue
-                    if v <= 0.0:  # 0/음수 미방출(md 슬림 — 엔진 tol gate 가 self-compare 0 도 거름)
-                        continue
-                    if profile is not None and profile.expects_extension(jk):
-                        continue  # seed-stage cross-exclusion(절대-신전 소유 관절)
-                    md[f"angle_vs_reference__{jk}"] = v
+                    if _emit_reference_relative(jk, float(dev[i])):
+                        seed_count += 1
         except Exception:  # noqa: BLE001 — 형상 mismatch/예외는 honest skip(reference_relative 미방출)
             pass
+    if seed_count:
+        # 관찰 가능성 — 어느 경로가 감점 seed 를 만들었는지 로그만(contract/Firestore 스키마 불변).
+        log.info("angle_vs_reference seed source=%s joints=%d", seed_source, seed_count)
 
     return md
 

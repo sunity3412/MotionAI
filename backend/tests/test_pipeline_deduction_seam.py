@@ -73,30 +73,14 @@ def _ctx(status, *, verdict=None, supported=None, frame_pairs=None, cap=False):
     )
 
 
-def _quant(status="available", notches=None, window_median=None):
+def _quant(status="available", notches=None):
     return vision_veto.VisionQuantificationResult(
         quantificationStatus=status,
         angleDeltas=None,
         bodyRelativeNotches=notches,
-        windowMedianAngleDeltas=window_median,
+        windowMedianAngleDeltas=None,
         warnings=(),
     )
-
-
-def _window_median(*joint_deltas: tuple[str, float]):
-    """features.window_median_angle_deltas 반환과 동일 형상의 표시용 dict fixture.
-
-    (joint, delta_deg) 쌍으로 만든다 — 실제 산출과 어긋나지 않도록 features._delta_entry
-    로 entry 를 구성(student=170+delta, reference=170 은 delta 만 의미 있는 seed 계약상 무관).
-    """
-    from sunity_shared.analysis import features
-
-    deltas = [features._delta_entry(jk, 170.0 + d, 170.0) for jk, d in joint_deltas]
-    return {
-        "deltas": deltas,
-        "sourceFrameIndices": {"user": [1, 2, 3], "reference": [1, 2, 3]},
-        "windowPolicy": "worst_pose_center_pm_2_median",
-    }
 
 
 def _enable(monkeypatch):
@@ -486,13 +470,10 @@ def test_low_alignment_unavailable_emits_reach_coverage_gap(monkeypatch):
     assert out["visionVeto"]["status"] == "applied"
 
 
-# ── 24-07 ① + 260702-o0c — reference_relative per-joint granular seam 배선 ─────
-# angle_vs_reference__{joint} seed 는 2단 구조 (260702-o0c):
-#   (1순위) quantification.windowMedianAngleDeltas — 표시용 worst-window median 과 동일 source
-#           → 국소 결함(worst-pose 부근)이 전체 DTW path median 에서 희석되지 않는다.
-#   (fallback) quantification unavailable(windowMedianAngleDeltas=None 등) 시 기존
-#           per_joint_deviation DTW-median — 24-05(260626-e5k) low_alignment 정렬-독립 seed 보존.
-# 등록 동작의 절대-신전 소유 관절은 양 경로 공통 seed-stage cross-exclusion(double-count 0).
+# ── 24-07 ① fix — reference_relative per-joint granular seam 배선 ──────────────
+# 미등록 동작(expects_extension 전부 False)에서 정은지(reference) 대비 per-joint 각도 편차를
+# _build_deduction_measured_deviations 가 md[angle_vs_reference__{joint}] 로 방출한다(granular
+# seed). 등록 동작의 절대-신전 소유 관절은 seed-stage cross-exclusion 으로 제외(double-count 0).
 # 전부 mock-based — 실 Gemini/Pod/S3/Firestore 호출 0. (24-07 §3-2)
 
 _LEFT_KNEE = JOINT_KEYS.index("left_knee")
@@ -516,10 +497,8 @@ def _ref_angles(T, deg=170.0):
 
 
 def test_reference_relative_unregistered_emits_per_joint_granular():
-    """quant unavailable(windowMedianAngleDeltas=None) → DTW-median fallback (24-05/e5k 회귀
-    가드, 260702-o0c 2단 구조). 미등록 profile + reference 무릎 편차>tol →
-    angle_vs_reference__left_knee 방출. ipsf_absolute(leg/arm/line) 키는 부재(profile-gated
-    honest 0)."""
+    """미등록 profile + reference 무릎 편차>tol → angle_vs_reference__left_knee 방출.
+    ipsf_absolute(leg/arm/line) 키는 부재(profile-gated honest 0)."""
     T = 10
     ref = _ref_angles(T)
     usr = _ref_angles(T)
@@ -535,8 +514,7 @@ def test_reference_relative_unregistered_emits_per_joint_granular():
 
 
 def test_reference_relative_registered_knee_excluded_shoulder_kept():
-    """DTW-median fallback 경로의 cross-exclusion (24-05/e5k 회귀 가드, 260702-o0c 2단 구조).
-    등록 profile(무릎 expects_extension True) → 무릎 reference_relative 키 부재
+    """등록 profile(무릎 expects_extension True) → 무릎 reference_relative 키 부재
     (seed-stage cross-exclusion). 어깨(expects_extension False)는 편차 시 reference_relative 키 존재."""
     T = 10
     ref = _ref_angles(T)
@@ -553,8 +531,7 @@ def test_reference_relative_registered_knee_excluded_shoulder_kept():
 
 
 def test_reference_relative_self_compare_no_keys():
-    """DTW-median fallback 경로 self-compare (24-05/e5k 회귀 가드, 260702-o0c 2단 구조).
-    identity path + usr==ref → per_joint_deviation=0 → angle_vs_reference__* 0개."""
+    """self-compare(identity path + usr==ref → per_joint_deviation=0) → angle_vs_reference__* 0개."""
     T = 10
     ref = _ref_angles(T)
     md = app._build_deduction_measured_deviations(
@@ -566,9 +543,8 @@ def test_reference_relative_self_compare_no_keys():
 
 
 def test_reference_relative_none_inputs_graceful():
-    """window median 부재(windowMedianAngleDeltas=None) AND reference_dtw_match=None 또는
-    reference_angles=None → 양 경로 모두 불가 → reference_relative 미방출
-    (mode3/legacy 무회귀, 260702-o0c graceful)."""
+    """reference_dtw_match=None 또는 reference_angles=None → reference_relative 미방출
+    (mode3/legacy 무회귀)."""
     T = 10
     ref = _ref_angles(T)
     usr = _ref_angles(T)
@@ -588,8 +564,7 @@ def test_reference_relative_none_inputs_graceful():
 
 
 def test_reference_relative_deterministic():
-    """DTW-median fallback 경로 결정성 (24-05/e5k 회귀 가드, 260702-o0c 2단 구조).
-    동일 입력 2회 → 동일 md."""
+    """동일 입력 2회 → 동일 md (결정성)."""
     T = 10
     ref = _ref_angles(T)
     usr = _ref_angles(T)
@@ -602,100 +577,6 @@ def test_reference_relative_deterministic():
     a = app._build_deduction_measured_deviations(angles=usr, **kwargs)
     b = app._build_deduction_measured_deviations(angles=usr, **kwargs)
     assert a == b
-
-
-# ── 260702-o0c — window-median 우선 seed (표시=감점 정렬) ──────────────────────
-# kip-up fault 의 상체 국소 결함(어깨 Δ40°, worst-pose 부근)이 전체 DTW path median 에서
-# tol 미만으로 희석돼 감점 0 으로 새던 버그의 회귀 가드. 표시 레이어(windowMedianAngleDeltas)
-# 와 감점 seed 가 동일 source(features.window_median_angle_deltas)를 쓰는지 검증.
-
-
-def test_reference_relative_local_fault_from_window_median():
-    """window median 어깨 delta_deg=-40 (abs 40) → md == 40.0.
-
-    전체 DTW path median 이면 희석됐을 국소 결함이 worst-window median 에서 보존됨
-    (260702-o0c — 표시되는 편차 = 감점되는 편차). DTW 입력 없이도 window 경로만으로 방출.
-    spurious joint 문자열은 JOINT_KEYS 검증으로 skip(엔진 md 계약 오염 금지)."""
-    wm = _window_median(("left_shoulder", -40.0), ("not_a_joint", -50.0))
-    md = app._build_deduction_measured_deviations(
-        angles=None, profile=_unregistered_profile(), assessments=[],
-        dimension_scores={}, quantification=_quant("available", window_median=wm),
-    )
-    assert md.get("angle_vs_reference__left_shoulder") == pytest.approx(40.0)
-    assert "angle_vs_reference__not_a_joint" not in md
-
-
-def test_reference_relative_window_median_takes_precedence_over_dtw():
-    """window median(어깨 Δ40) + DTW 입력(어깨 편차 10°) 동시 제공 → 40.0 채택.
-
-    우선순위 증명 — window 경로를 탔으면 fallback(DTW 희석값)은 실행되지 않는다
-    (260702-o0c 2단 구조의 핵심: 표시용 window 값이 감점의 authoritative source)."""
-    T = 10
-    ref = _ref_angles(T)
-    usr = _ref_angles(T)
-    usr[:, _LEFT_SHOULDER] = 160.0  # DTW 전체 median 편차 = 10° (희석된 값)
-    wm = _window_median(("left_shoulder", -40.0))  # worst-window 국소 값 = 40°
-    md = app._build_deduction_measured_deviations(
-        angles=usr, profile=_unregistered_profile(), assessments=[],
-        dimension_scores={}, quantification=_quant("available", window_median=wm),
-        reference_dtw_match=_identity_match(T), reference_angles=ref,
-    )
-    assert md.get("angle_vs_reference__left_shoulder") == pytest.approx(40.0)
-
-
-def test_reference_relative_fallback_when_quant_unavailable():
-    """windowMedianAngleDeltas=None + match/ref 보유 + 어깨 40° 편차 → fallback 발동.
-
-    24-05(260626-e5k) 회귀 가드 — low_alignment 등 quant unavailable 케이스에서
-    정렬-독립 DTW-median seed 가 granular 감점을 계속 산출해야 한다 (2단 구조의 fallback)."""
-    T = 10
-    ref = _ref_angles(T)
-    usr = _ref_angles(T)
-    usr[:, _LEFT_SHOULDER] = 130.0
-    md = app._build_deduction_measured_deviations(
-        angles=usr, profile=_unregistered_profile(), assessments=[],
-        dimension_scores={}, quantification=_quant("unavailable", window_median=None),
-        reference_dtw_match=_identity_match(T), reference_angles=ref,
-    )
-    assert md.get("angle_vs_reference__left_shoulder") == pytest.approx(40.0)
-
-
-def test_reference_relative_window_median_exclusion_registered_knee():
-    """window 경로에도 seed-stage cross-exclusion — 등록 profile(무릎 EXTEND) + window 에
-    무릎/어깨 둘 다 Δ40 → __left_knee 부재(ipsf_absolute 가 이미 채점, double-count 0),
-    __left_shoulder == 40.0 (BENT_OK → reference_relative 보완)."""
-    wm = _window_median(("left_knee", -40.0), ("left_shoulder", -40.0))
-    md = app._build_deduction_measured_deviations(
-        angles=None, profile=_profile(), assessments=[],
-        dimension_scores={}, quantification=_quant("available", window_median=wm),
-    )
-    assert "angle_vs_reference__left_knee" not in md
-    assert md.get("angle_vs_reference__left_shoulder") == pytest.approx(40.0)
-
-
-def test_reference_relative_window_median_self_compare_no_keys():
-    """window median self-compare — delta_deg 전부 0 → angle_vs_reference__* 0개.
-    success/clean 영상 감점 0 보장(window 경로를 탔어도 0 편차는 미방출)."""
-    wm = _window_median(("left_shoulder", 0.0), ("left_knee", 0.0), ("left_hip", 0.0))
-    md = app._build_deduction_measured_deviations(
-        angles=None, profile=_unregistered_profile(), assessments=[],
-        dimension_scores={}, quantification=_quant("available", window_median=wm),
-    )
-    assert not any(k.startswith("angle_vs_reference__") for k in md)
-
-
-def test_reference_relative_window_median_deterministic():
-    """동일 window_median 2회 → md 동일 (결정성 — 표시=감점 재현 가능)."""
-    wm = _window_median(("left_shoulder", -31.0), ("right_hip", 22.7))
-    kwargs = dict(
-        angles=None, profile=_unregistered_profile(), assessments=[],
-        dimension_scores={}, quantification=_quant("available", window_median=wm),
-    )
-    a = app._build_deduction_measured_deviations(**kwargs)
-    b = app._build_deduction_measured_deviations(**kwargs)
-    assert a == b
-    assert a.get("angle_vs_reference__left_shoulder") == pytest.approx(31.0)
-    assert a.get("angle_vs_reference__right_hip") == pytest.approx(22.7)
 
 
 def test_legacy_path_unavailable_fallback(monkeypatch):

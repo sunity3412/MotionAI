@@ -148,6 +148,17 @@ const THUMB_DIAMETER = 14;
 // 상수화 (부족하면 상향).
 const FULLSCREEN_OVERLAY_SCALE = 2.0;
 
+// follow-up (belle 실기기 1차 — 시간 라벨 등 텍스트가 세로 카드 크기 그대로라 작음).
+// 전체화면 UI 텍스트 배율 = 오버레이 배율에서 파생. SVG 각도 라벨(2.0)만큼 키우면
+// 시간 라벨이 과대해져 0.75 계수로 완화 (captionSmall 10pt → 15pt).
+const FULLSCREEN_TEXT_SCALE = FULLSCREEN_OVERLAY_SCALE * 0.75;
+
+// 폴스포츠 = 세로 영상 위주 (design.md §10-4) — 세로 카드 slotFrame 의 9:16
+// 가정과 동일. 전체화면 슬롯 안 영상 박스를 같은 비율로 잡아 KeypointOverlay
+// (viewBox 0 0 1 1, preserveAspectRatio "none") 가 영상 표시 영역과 정확히 겹침
+// (박스가 임의 비율이면 오버레이 좌표가 letterbox 포함 영역으로 늘어나 어긋남).
+const VIDEO_ASPECT = 9 / 16;
+
 export function VideoCompare({
   leftLabel,
   rightLabel,
@@ -212,7 +223,12 @@ export function VideoCompare({
   // ref 분리 (portrait track 은 Modal 뒤에 mount 유지라 onLayout 재발화 없음).
   const fullscreenRef = useRef(false);
   const fsTrackWidthRef = useRef(0);
+  // useWindowDimensions = 반응형 hook 값 직접 사용 (Modal 마운트 시점 캐싱 없음).
+  // portrait 고정이라 width=short/height=long 이 정상이나, 순간 오보고에도 축
+  // 스왑이 깨지지 않도록 short/long 파생으로 사용 (follow-up: 레이아웃 fix).
   const { width: winW, height: winH } = useWindowDimensions();
+  const fsShort = Math.min(winW, winH);
+  const fsLong = Math.max(winW, winH);
   const openFullscreen = () => {
     fullscreenRef.current = true;
     setFullscreen(true);
@@ -565,6 +581,12 @@ export function VideoCompare({
   // quick-260702-t0v — 전체화면 슬롯. 새 useVideoPlayer 호출 금지 — 기존 player
   // 인스턴스에 두 번째 VideoView attach (expo-video 다중 VideoView 지원).
   // 오버레이는 sizeScale=FULLSCREEN_OVERLAY_SCALE 로 호출 (각도 라벨 확대).
+  //
+  // follow-up (belle 실기기 1차 — 영상이 중앙에 작게 뜨는 버그 fix):
+  //   슬롯 = 회전 컨테이너를 좌우 반씩 꽉 채움 (fsVideoRow absoluteFill).
+  //   영상 박스 = 높이 100%(= window 짧은 변 전체) × 9:16 고정 비율 + 중앙 정렬
+  //   → 세로 영상이 화면 세로축을 끝까지 채워 세로 카드(~275pt) 대비 최대화.
+  //   9:16 박스가 곧 영상 표시 영역이라 오버레이 좌표 정합도 세로 카드와 동일.
   const renderFullscreenSlot = (
     label: string,
     url: string | undefined,
@@ -572,7 +594,7 @@ export function VideoCompare({
     overlay?: OverlayRenderProp,
   ) => (
     <View style={styles.fsSlot}>
-      <View style={styles.fsSlotFrame}>
+      <View style={styles.fsVideoBox}>
         {url && player ? (
           <>
             <VideoView
@@ -598,7 +620,10 @@ export function VideoCompare({
           </View>
         )}
       </View>
-      <Text style={styles.fsSlotLabel}>{label}</Text>
+      {/* 라벨은 슬롯 상단 중앙 overlay (하단은 공유 컨트롤이 차지) */}
+      <Text style={styles.fsSlotLabel} pointerEvents="none">
+        {label}
+      </Text>
     </View>
   );
 
@@ -684,17 +709,30 @@ export function VideoCompare({
           {/* 모달 unmount 시 root _layout 의 StatusBar 로 자연 복귀 */}
           <StatusBar hidden />
           <View style={styles.fsRoot}>
+            {/* follow-up (belle 실기기 1차) — 회전 컨테이너는 short/long 파생 치수.
+                영상 row 가 컨테이너 전체를 채우고(absoluteFill), 상단 bar 와 하단
+                컨트롤은 영상 위 overlay — 스택 배치로 영상 높이를 깎지 않는다
+                (스택이면 유효 영상 높이 ~250pt = 세로 카드와 동급이 근본 원인). */}
             <View
               style={[
                 styles.fsRotated,
                 {
-                  width: winH,
-                  height: winW,
-                  left: (winW - winH) / 2,
-                  top: (winH - winW) / 2,
+                  width: fsLong,
+                  height: fsShort,
+                  left: (fsShort - fsLong) / 2,
+                  top: (fsLong - fsShort) / 2,
                 },
               ]}
             >
+              <View style={styles.fsVideoRow}>
+                {renderFullscreenSlot(leftLabel, leftUrl, leftPlayer, leftOverlay)}
+                {renderFullscreenSlot(
+                  rightLabel,
+                  rightUrl,
+                  rightPlayer,
+                  rightOverlay,
+                )}
+              </View>
               <View style={styles.fsTopBar}>
                 {fullscreenHeaderExtra}
                 <Pressable
@@ -707,16 +745,7 @@ export function VideoCompare({
                   <Ionicons name="close" size={22} color={colors.textWhite} />
                 </Pressable>
               </View>
-              <View style={styles.fsVideoRow}>
-                {renderFullscreenSlot(leftLabel, leftUrl, leftPlayer, leftOverlay)}
-                {renderFullscreenSlot(
-                  rightLabel,
-                  rightUrl,
-                  rightPlayer,
-                  rightOverlay,
-                )}
-              </View>
-              {renderControls(true)}
+              <View style={styles.fsControlsWrap}>{renderControls(true)}</View>
             </View>
           </View>
         </Modal>
@@ -901,19 +930,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.videoFullscreenBg,
   },
-  // 90° 회전 컨테이너 — width/height/left/top 은 render 에서 winW/winH 로 주입.
+  // 90° 회전 컨테이너 — width/height/left/top 은 render 에서 short/long 파생값
+  // 으로 주입. follow-up: padding/gap 제거 — 영상 row 가 edge-to-edge 로 채우고
+  // 상단 bar/컨트롤은 overlay (스택 배치가 영상 높이를 깎던 버그 fix).
   fsRotated: {
     position: 'absolute',
     transform: [{ rotate: '90deg' }],
-    paddingHorizontal: spacing.cardPadding,
-    paddingVertical: 10,
-    gap: 8,
   },
+  // 상단 bar overlay — 우측에 토글 + 닫기. 영상 위에 뜨지만 9:16 영상 박스는
+  // 각 반쪽 중앙 정렬이라 우측 끝과는 겹치지 않음.
   fsTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 16,
+    paddingHorizontal: spacing.cardPadding,
+    paddingTop: 10,
   },
   fsCloseBtn: {
     width: 36,
@@ -923,31 +959,50 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.videoBg,
   },
+  // 하단 컨트롤 overlay (영상 letterbox 영역 위 — 표준 비디오 플레이어 UX).
+  fsControlsWrap: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.cardPadding,
+    paddingBottom: 10,
+  },
+  // 영상 row = 회전 컨테이너 전체 (좌우 반씩).
   fsVideoRow: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
-    gap: 12,
   },
   fsSlot: {
     flex: 1,
-    gap: 4,
-  },
-  fsSlotFrame: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.videoFullscreenBg,
+  },
+  // 세로 영상 최대화 — 높이 100%(window 짧은 변) × 9:16. 오버레이 좌표 정합의
+  // 기준 박스 (세로 카드 slotFrame aspectRatio 와 동일 가정).
+  fsVideoBox: {
+    height: '100%',
+    maxWidth: '100%',
+    aspectRatio: VIDEO_ASPECT,
   },
   fsSlotLabel: {
     ...typography.captionSmall,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
     color: colors.textWhite,
     textAlign: 'center',
+    position: 'absolute',
+    top: 12,
+    alignSelf: 'center',
   },
   // 어두운 배경 위 컨트롤 색 분기 (dark variant) — 토큰만.
   stepBtnDark: {
     backgroundColor: colors.videoBg,
   },
+  // follow-up — 시간 라벨 가독 (FULLSCREEN_TEXT_SCALE 파생, 매직넘버 아님).
   timeTextDark: {
     color: colors.textWhite,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    lineHeight: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE * 1.3,
   },
 });

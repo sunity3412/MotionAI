@@ -18,11 +18,15 @@ wrapper 불변식 (리서치 함정 ③): **read-only tee — collect 인자 변
 at_seconds=None 불변). seed builder wrapper 는 seed_audit_out(관측 전용 kwarg, production
 미전달·부작용 0)만 주입한다 — measured substrate/채점 경로 무접촉.
 
-산출물:
-  · baseline/phase25_breakdowns.json       — {motion: {correct, fault}} (phase24 게이트 형상)
-  · baseline/phase25_sweep_report.json     — rich 리포트 (score/status/activated criteria/
-                                             collectObservation/seedObservation/짚기-FP 요약)
+산출물 (25-SWEEP-EVIDENCE 근본원인 4 — repo 밖 EVAL_OUT_DIR 로만 기록):
+  · $EVAL_OUT_DIR/phase25/phase25_breakdowns.json   — {motion: {correct, fault}} (phase24 게이트 형상)
+  · $EVAL_OUT_DIR/phase25/phase25_sweep_report.json — rich 리포트 (score/status/activated criteria/
+                                                      collectObservation/seedObservation/짚기-FP 요약)
   --tag warm 실행 시 *_warm.json 으로 기록 (cold/warm 결정론 게이트 입력).
+  기본 EVAL_OUT_DIR=/tmp/sunity_eval_out. repo 내 evals/phase25/baseline/ 은 git 커밋본
+  (비교 기준) 전용 read-only — sweep 이 절대 덮어쓰지 않는다 (2026-07-02 FAIL run 값이
+  pod network volume 의 baseline/ 을 오염시켜 게이트가 오염 기준으로 판정한 사고 재발 금지).
+  승격(게이트 PASS + belle 승인 후 명시적 copy+commit)은 README "Pod 운영 절차" 참조.
 
 객관성 ([[analysis-objectivity-no-human-scores]]): fault 라벨=영상 파생(OK). 점수=채점기
 결정론 출력 스냅샷(라벨 아님). 사람 점수 ground-truth 라벨 금지.
@@ -50,6 +54,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -58,6 +63,31 @@ HERE = Path(__file__).resolve().parent
 BACKEND = HERE.parent.parent  # backend/
 sys.path.insert(0, str(BACKEND / "shared" / "python"))
 sys.path.insert(0, str(BACKEND))
+
+# ── 산출물 경로 (25-SWEEP-EVIDENCE 근본원인 4 — pod repo 오염 방지) ───────────
+# 신규 산출물은 repo 밖 EVAL_OUT_DIR 로만 쓴다. repo 내 evals/*/baseline/ 은
+# git 커밋본(비교 기준) 전용 read-only.
+_EVAL_OUT_ENV = "EVAL_OUT_DIR"
+_EVAL_OUT_DEFAULT = "/tmp/sunity_eval_out"
+_PHASE_SUBDIR = "phase25"
+
+
+def _eval_out_dir() -> Path:
+    root = Path(os.environ.get(_EVAL_OUT_ENV) or _EVAL_OUT_DEFAULT)
+    return (root.expanduser() / _PHASE_SUBDIR).resolve()
+
+
+def _resolve_out_dir() -> Path:
+    """출력 디렉토리 확정 — repo 안이면 즉시 중단 (baseline 오염 차단)."""
+    out = _eval_out_dir()
+    repo_root = BACKEND.parent.resolve()
+    if out == repo_root or repo_root in out.parents:
+        raise SystemExit(
+            f"[eval-out] EVAL_OUT_DIR={out} 가 repo({repo_root}) 안을 가리킨다 — "
+            "sweep 산출물이 git 커밋 baseline 을 오염시킨다 (25-SWEEP-EVIDENCE "
+            f"근본원인 4). repo 밖 경로로 설정하라 (기본 {_EVAL_OUT_DEFAULT})."
+        )
+    return out
 
 BUCKET = "sunity-motion-pilot-videos"
 UID = "phase25eval"
@@ -281,7 +311,7 @@ def main() -> int:
 
     fp_summary = _pointing_fp_summary(report)
 
-    out_dir = HERE / "baseline"
+    out_dir = _resolve_out_dir()  # repo 밖 — 근본원인 4 (커밋 baseline 무접촉)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"phase25_breakdowns{suffix}.json").write_text(
         json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -311,8 +341,8 @@ def main() -> int:
         encoding="utf-8",
     )
     print(
-        f"\n[done] wrote baseline/phase25_breakdowns{suffix}.json ({len(artifact)} motions) "
-        f"+ baseline/phase25_sweep_report{suffix}.json",
+        f"\n[done] wrote {out_dir}/phase25_breakdowns{suffix}.json ({len(artifact)} motions) "
+        f"+ {out_dir}/phase25_sweep_report{suffix}.json (repo 밖 — 커밋 baseline 무접촉)",
         flush=True,
     )
 

@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import pathlib
 import sys
 
@@ -47,10 +48,21 @@ _LAYER = _HERE.parents[1] / "shared" / "python"
 if str(_LAYER) not in sys.path:
     sys.path.insert(0, str(_LAYER))
 
-# ── artifacts ────────────────────────────────────────────────────────────────
-_REPORT_ARTIFACT = _HERE / "baseline" / "phase25_sweep_report.json"
-_REPORT_WARM_ARTIFACT = _HERE / "baseline" / "phase25_sweep_report_warm.json"
-_BREAKDOWN_ARTIFACT = _HERE / "baseline" / "phase25_breakdowns.json"
+# ── artifacts (25-SWEEP-EVIDENCE 근본원인 4 — 신규 산출물/기준 물리 분리) ──────
+# 신규 산출물(이번 sweep 의 report/breakdowns)은 run_sweep.py 와 동일 해석의
+# repo 밖 EVAL_OUT_DIR 에서 읽는다 — sweep 이 repo 내 baseline/ 을 덮어써 pod
+# 소스트리가 오염되고 게이트가 오염 기준으로 판정한 사고(2026-07-02) 재발 금지.
+_EVAL_OUT_ENV = "EVAL_OUT_DIR"
+_EVAL_OUT_DEFAULT = "/tmp/sunity_eval_out"
+_OUT_DIR = (
+    pathlib.Path(os.environ.get(_EVAL_OUT_ENV) or _EVAL_OUT_DEFAULT).expanduser()
+    / "phase25"
+).resolve()
+_REPORT_ARTIFACT = _OUT_DIR / "phase25_sweep_report.json"
+_REPORT_WARM_ARTIFACT = _OUT_DIR / "phase25_sweep_report_warm.json"
+_BREAKDOWN_ARTIFACT = _OUT_DIR / "phase25_breakdowns.json"
+# 비교 기준(baseline)은 **항상 git 커밋본**(repo 내 read-only) — EVAL_OUT_DIR 로
+# 절대 리다이렉트하지 않는다. 방향 비교의 anchor 가 흔들리면 게이트가 무의미해진다.
 _P24_REPORT_ARTIFACT = (
     _HERE.parents[0] / "phase24" / "baseline" / "phase24_sweep_report.json"
 )

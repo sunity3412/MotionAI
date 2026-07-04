@@ -50,6 +50,34 @@ cd backend && PYTHONPATH=shared/python:. python3 evals/phase25/assert_gates.py
 cd backend && PYTHONPATH=shared/python:. python3 -m pytest tests/test_phase25_eval_gates.py -q
 ```
 
+### Pod 운영 절차 (repo 오염 방지 — 25-SWEEP-EVIDENCE 근본원인 4)
+
+2026-07-02 FAIL run 의 sweep 산출물이 pod network volume 의 `evals/phase24/baseline/*.json`
+을 덮어써(kip-up 50, peter-pan 0), 이후 게이트가 **오염된 기준**으로 판정했다. 재발 방지
+구조 + 절차:
+
+1. **신규 산출물 = repo 밖.** `run_sweep.py` 는 `$EVAL_OUT_DIR`(기본
+   `/tmp/sunity_eval_out`) 아래 `phase25/` 에만 쓴다. `EVAL_OUT_DIR` 이 repo 안을
+   가리키면 run_sweep 이 즉시 중단한다.
+2. **비교 기준 = git 커밋본.** `assert_gates.py` 는 신규 산출물(phase25 report/
+   breakdowns/warm)을 같은 `$EVAL_OUT_DIR` 에서 읽고, 방향-비교 기준(phase24 baseline)은
+   **항상 repo 내 `evals/phase24/baseline/phase24_sweep_report.json`(커밋본, read-only)**
+   에서 읽는다 — 신규 산출물과 기준의 물리적 분리.
+3. **sweep 전 repo clean 확인 (pod 필수).**
+
+   ```bash
+   cd /workspace/SunityMotion && git status --short backend/evals/
+   # modified 가 보이면 = 과거 run 오염 → 커밋본 복원:
+   git checkout -- backend/evals/
+   ```
+
+4. **승격(커밋 baseline 갱신)은 명시적으로만.** 게이트 PASS + belle 승인 후:
+
+   ```bash
+   cp $EVAL_OUT_DIR/phase25/phase25_*.json backend/evals/phase25/baseline/
+   # 이후 로컬에서 검토 + 커밋 (sweep 이 자동으로 커밋본을 건드리는 경로는 없음)
+   ```
+
 ### Pod sweep (RTMW GPU + Gemini env — phase24 헤더 승계, SERIAL 필수)
 
 ```bash
@@ -75,8 +103,9 @@ PYTHONPATH=shared/python:. python3 evals/phase25/assert_gates.py            # 3)
   `*_warm.json` 기록 → `check_cold_warm_determinism` 입력 (verdict/breakdown 동일성 =
   결정론 게이트).
 
-산출물은 `baseline/` 에 커밋 (phase24 패턴): `phase25_sweep_report.json` +
-`phase25_breakdowns.json` (+ `*_warm.json`).
+산출물은 `$EVAL_OUT_DIR/phase25/` 에 기록된다 (`phase25_sweep_report.json` +
+`phase25_breakdowns.json` + `*_warm.json`) — repo 내 `baseline/` 은 승격 절차(위
+"Pod 운영 절차" 4)로만 갱신·커밋한다.
 
 ## 객관성 (D-06 / [[analysis-objectivity-no-human-scores]])
 

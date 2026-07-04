@@ -57,6 +57,7 @@ exit 0 = PASS, non-zero = FAIL.
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import sys
 
@@ -73,8 +74,16 @@ from sunity_shared.analysis import deduction_engine, ipsf_criteria, vision_veto 
 # phase18 fault-label 페어(일반화 게이트 입력 — 재사용, silent 밴드 금지).
 _PHASE18 = _HERE.parents[0] / "phase18"
 _PAIRS = _PHASE18 / "dataset" / "pairs.yaml"
-# 실 Pod sweep 이 생성·커밋하는 일반화 artifact(HIGH-4 — 없으면 SKIPPED).
-_BREAKDOWN_ARTIFACT = _HERE / "baseline" / "phase24_breakdowns.json"
+# 실 Pod sweep 이 생성하는 일반화 artifact(HIGH-4 — 없으면 SKIPPED). run_sweep.py 와
+# 동일 해석의 repo 밖 EVAL_OUT_DIR 에서 읽는다 — repo 내 baseline/ 은 git 커밋본 전용
+# read-only (phase25 25-SWEEP-EVIDENCE 근본원인 4: sweep 의 repo 내 쓰기가 pod
+# 소스트리를 오염). 승격은 게이트 PASS + belle 승인 후 명시적 copy+commit 만.
+_EVAL_OUT_ENV = "EVAL_OUT_DIR"
+_EVAL_OUT_DEFAULT = "/tmp/sunity_eval_out"
+_BREAKDOWN_ARTIFACT = (
+    pathlib.Path(os.environ.get(_EVAL_OUT_ENV) or _EVAL_OUT_DEFAULT).expanduser()
+    / "phase24" / "phase24_breakdowns.json"
+).resolve()
 
 _TOLERANCE_DEG = ipsf_criteria._ANGLE_TOLERANCE_DEG
 _DEVIATION_SOURCES = {"ipsf_absolute", "reference_relative", "dimension_overall"}

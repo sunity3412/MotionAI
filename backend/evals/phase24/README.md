@@ -53,8 +53,12 @@ unavailable)도 이 식을 만족: `points = dimension_overall − 100`(signed-n
 
 ## generalization (ARTIFACT-GATED + STRUCTURAL)
 
-phase18 6-페어 일반화는 **실 Pod sweep 이 생성·커밋한** `baseline/phase24_breakdowns.json`
-에만 돈다(HIGH-4). 이 artifact 가 생기기 전엔 순수 게이트가 합성 입력을 **fabricate 하지
+phase18 6-페어 일반화는 **실 Pod sweep 이 생성한** `phase24_breakdowns.json` 에만
+돈다(HIGH-4). 이 artifact 는 repo 밖 `$EVAL_OUT_DIR/phase24/`(기본
+`/tmp/sunity_eval_out/phase24/`)에 기록·소비된다 — repo 내 `baseline/` 은 git 커밋본
+전용 read-only 이며 sweep 이 덮어쓰지 않는다 (phase25 25-SWEEP-EVIDENCE 근본원인 4:
+pod network volume 의 baseline 오염 사고. 절차는 `evals/phase25/README.md` "Pod 운영
+절차" 참조). 이 artifact 가 생기기 전엔 순수 게이트가 합성 입력을 **fabricate 하지
 않는다** — 옛 `eval18_serial_baseline.json` 의 overall 을 tally 결과로 읽지 않고, breakdown 을
 합성하지도 않는다. artifact 부재면:
 

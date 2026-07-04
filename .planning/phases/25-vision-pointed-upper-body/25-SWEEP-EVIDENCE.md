@@ -87,3 +87,23 @@
 
 - 로컬: 관련 스위트 GREEN (deduction/vision_veto/scorer/pipeline seam/phase24·25 gates 369 passed). baseline artifact diff 0 (evals/ 무접촉).
 - 다음 pod sweep: cold = 캐시 전량 miss(의도됨, ~36 pro call). 판정 게이트 = success 6/6==100 + 짚기-FP 0/5 유지, kip-up fault < 88 방향(상체 record 포함), peter-pan/elbow-twist 무퇴행.
+
+---
+
+## #4 라운드 코드 반영 (2026-07-04, v11.1/v8.1 — fault_category 고정 enum, pod 미실측)
+
+### 배경 — v11 실측이 확정한 어휘 드리프트 3연속
+
+split 라우팅이 프롬프트 버전마다 다른 이유로 깨짐: v9 body_part "양다리 (스플릿 각도)" → v10.1 스플릿이 fault_state 로 이동 → v11 "벌림"+fault_kind=extension_or_alignment 로 drift(kip-up supported: leg/line/unknown/extension_or_alignment "양다리 벌림 각도가 기준에 비해 현저히 좁음" moderate → leg_extension 으로 새서 감점 유실. 왼팔 pole_gap_or_bent major 짚기는 성공 — belle 육안 일치). 키워드 추가는 두더지잡기 — 구조화 출력에 고정 enum 강제 + 라우터 enum 1순위 소비로 종결.
+
+### 구현 (2 커밋: 54b20d4 스키마/프롬프트, e697364 라우터)
+
+- **SCHEMA v8.1**: differences[] 에 `fault_category` **필수** — `vision_veto.FAULT_CATEGORIES` 고정 enum (split_angle/limb_extension/pole_gap/alignment/grip/other, 기존 criterion/FaultKey 체계 1:1 — 새 분류 발명 금지, 단일 owner = vision_veto).
+- **PROMPT v11.1**: 단일/비교 프롬프트 공통 정의 rule 1줄씩 — 스플릿 = "벌림"/"스플릿"/"다리 사이 각도" 전부 split_angle (drift 봉인).
+- **라우터**(criteria_for_fault): ① enum split_angle → 무조건 split 분기 (1순위). ② split 키워드 폴백 유지 + **"벌림" 추가**(구 캐시 하위호환 + enum 오분류 방어 — 재발 축이 split 유실이라 split 어휘 방어를 비-split enum 위에 둠). ③ alignment→line / grip→gap 단독-결정 enum. ④ limb_extension/pole_gap/other/부재 → 기존 키워드 체인(하위호환, 결과 불변).
+- 캐시 bump: PROMPT/SCHEMA_VERSION 키 포함 = 자동 무효화. AGGREGATION agg4 불변(집계 로직 무접촉). 신규 튜닝 상수 0.
+
+### 게이트 상태
+
+- 로컬: 관련 스위트 GREEN (deduction/vision_veto/scorer/pipeline seam/phase24·25 gates/eval_out_dir **278 passed**, 신규 15 테스트 포함 — v11 실측 형상 enum 라우팅/enum 부재 폴백/오분류 방어/clean 방어 불변/rich 캐시 왕복). baseline artifact diff 0 (evals/ 무접촉). 전체 backend 스위트 실패 집합 = 변경 전과 byte-identical (회귀 0, worktree 대조 실측).
+- 다음 pod sweep 기대치: kip-up split 관측이 fault_category=split_angle 로 산출 → 라우팅 확정(어휘 무관). 판정 게이트는 #3 라운드와 동일.

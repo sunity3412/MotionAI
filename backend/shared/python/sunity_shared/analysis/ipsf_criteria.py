@@ -310,7 +310,15 @@ def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     combined = f"{body_part} {fault_state}"
 
     # 1) split/straddle → split_angle ONLY (keypoint_set='leg' 로 정규화되지만 leg 아님).
-    if _contains(body_part, _SPLIT_KEYWORDS):
+    #    combined(body_part+fault_state) 로 판정 (25-04 sweep FAIL #1 fix, 2026-07-04):
+    #    Gemini v10.1 출력은 split 어휘를 body_part 가 아니라 fault_state 에 둔다
+    #    (실캐시: body_part="양다리"/"오른쪽 다리", fault_state="...벌어짐(스플릿) 각도가
+    #    좁게 형성됨" — phase24 production 은 body_part="양다리 (스플릿 각도)" 였음).
+    #    body_part 단독 판정이면 split 결함이 rule 3/8 의 leg_extension 으로 새고,
+    #    kip-up 은 leg_extension md substrate 가 없어 honest-0 → belle 결정 A(vision
+    #    측정편차 주입) 경로가 통째로 유실된다. correct_state/ipsf_note 는 제외 —
+    #    무릎-굽음 멤버의 ipsf_note 보일러플레이트가 '스플릿'을 상습 언급(과잉 라우팅 방지).
+    if _contains(combined, _SPLIT_KEYWORDS):
         return ("split_angle",)
 
     # 2) hand OR knee + reach/distance/height shortfall → body_relative_reach.

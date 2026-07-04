@@ -1,0 +1,162 @@
+{
+ "video_hash": "vision_veto:8c206887023c6f70e6717e20fe0840aeddaaaca4d4934aa04c2cffceadc7e213:6d22e553fceb85de59d8c5365d14970e1e2e46e21be6690b66ca64ace51e3559:gemini-3.1-pro-preview:v10.1:v7.0:agg3:whole_fanout:whole:n3:sv0:fi-:k-:w-",
+ "supported_differences": [
+  {
+   "_sourceIds": [
+    1,
+    2,
+    3,
+    5,
+    6
+   ],
+   "_memberFaultKeyDicts": [
+    {
+     "fault_kind": "pole_gap_or_bent",
+     "side": "unknown",
+     "part_scope": "line",
+     "keypoint_set": "leg"
+    },
+    {
+     "fault_kind": "extension_or_alignment",
+     "side": "right",
+     "part_scope": "line",
+     "keypoint_set": "leg"
+    },
+    {
+     "fault_kind": "pole_gap_or_bent",
+     "side": "left",
+     "part_scope": "line",
+     "keypoint_set": "leg"
+    },
+    {
+     "fault_kind": "pole_gap_or_bent",
+     "side": "right",
+     "part_scope": "line",
+     "keypoint_set": "leg"
+    },
+    {
+     "fault_kind": "pole_gap_or_bent",
+     "side": "left",
+     "part_scope": "line",
+     "keypoint_set": "leg"
+    }
+   ],
+   "_faultKeyDict": {
+    "fault_kind": "pole_gap_or_bent",
+    "side": "unknown",
+    "part_scope": "line",
+    "keypoint_set": "leg"
+   },
+   "ipsf_note": "스트래들(V-스플릿) 계열 동작에서 다리의 완전한 신전과 충분한 스플릿 각도는 기술의 완성도와 라인을 평가하는 핵심 요소임.",
+   "correct_state": "양다리가 넓은 각도로 벌어지며 무릎이 완전히 펴진 완벽한 V-스플릿 라인 형성",
+   "fault_state": "기준 영상에 비해 두 다리 사이의 벌어짐(스플릿) 각도가 눈에 띄게 좁으며, 무릎이 미세하게 굽어 있어 전체적인 V라인이 좁게 형성됨",
+   "root_cause_hypothesis": "고관절의 유연성이 부족하거나, 원심력을 버티며 공중에서 다리를 넓게 뻗어 유지하는 하체 및 코어 근력이 부족한 것으로 보임.",
+   "approx_angle_deviation_deg": 20,
+   "body_part": "양다리",
+   "_memberFaults": [
+    {
+     "root_cause_hypothesis": "고관절의 유연성이 부족하거나, 원심력을 버티며 공중에서 다리를 넓게 뻗어 유지하는 하체 및 코어 근력이 부족한 것으로 보임.",
+     "ipsf_note": "스트래들(V-스플릿) 계열 동작에서 다리의 완전한 신전과 충분한 스플릿 각도는 기술의 완성도와 라인을 평가하는 핵심 요소임.",
+     "correct_state": "양다리가 넓은 각도로 벌어지며 무릎이 완전히 펴진 완벽한 V-스플릿 라인 형성",
+     "fault_state": "기준 영상에 비해 두 다리 사이의 벌어짐(스플릿) 각도가 눈에 띄게 좁으며, 무릎이 미세하게 굽어 있어 전체적인 V라인이 좁게 형성됨",
+     "approx_angle_deviation_deg": 20,
+     "body_part": "양다리",
+     "severity": "moderate",
+     "source": "vision_hypothesis"
+    },
+    {
+     "root_cause_hypothesis": "고관절 유연성 및 후면 근육의 힘이 부족하여 다리를 충분히 위로 끌어올리지 못한 것으로 보임",
+     "ipsf_note": "스플릿 각도 부족 (Lack of split angle)",
+     "correct_state": "골반 위쪽으로 높게 들어올려져 넓은 스플릿 각도를 형성함",
+     "fault_state": "기준 대비 다리가 낮게 위치하여 전체적인 스플릿 각도가 좁게 형성됨",
+     "approx_angle_deviation_deg": 20,
+     "body_part": "오른쪽 다리",
+     "severity": "moderate",
+     "source": "vision_hypothesis"
+    },
+    {
+     "root_cause_hypothesis": "다리를 끝까지 뻗어내는 하체 근력이 다소 부족하거나 동작 유지 중 긴장이 풀린 것으로 보임",
+     "ipsf_note": "무릎 신전 부족 (Bent knee)",
+     "correct_state": "무릎 관절이 완전히 펴져 곧은 직선 라인을 유지함",
+     "fault_state": "무릎이 미세하게 굽어 있어 완전한 신전 라인이 나오지 않음",
+     "approx_angle_deviation_deg": 10,
+     "body_part": "왼쪽 무릎",
+     "severity": "minor",
+     "source": "vision_hypothesis"
+    },
+    {
+     "root_cause_hypothesis": "스핀의 원심력을 버티는 하체 코어 힘이 부족하거나 햄스트링 유연성 부족으로 인해 무릎을 끝까지 펴지 못한 것으로 보임",
+     "ipsf_note": "다리 신전(Extension) 부족은 기술의 완성도 및 예술성 평가에서 주요 감점 요인임",
+     "correct_state": "무릎이 완전히 펴져 다리 전체가 직선을 유지함",
+     "fault_state": "무릎이 눈에 띄게 굽어 있어 다리 라인이 꺾임",
+     "approx_angle_deviation_deg": 20,
+     "body_part": "오른쪽 무릎",
+     "severity": "moderate",
+     "source": "vision_hypothesis"
+    },
+    {
+     "root_cause_hypothesis": "발끝까지 에너지를 전달하여 뻗어내는 힘(포인 및 신전)이 다소 부족한 것으로 보임",
+     "ipsf_note": "미세한 다리 신전 부족",
+     "correct_state": "무릎이 완전히 펴져 있음",
+     "fault_state": "오른쪽보다는 덜하지만 미세하게 굽어 있음",
+     "approx_angle_deviation_deg": 10,
+     "body_part": "왼쪽 무릎",
+     "severity": "minor",
+     "source": "vision_hypothesis"
+    }
+   ],
+   "_supportCount": 3,
+   "severity": "moderate",
+   "source": "vision_hypothesis"
+  }
+ ],
+ "status": "candidate_verdict",
+ "telemetry": {
+  "inputGranularity": "whole_fanout",
+  "samplingComplete": true,
+  "durationMs": 66391,
+  "cacheHit": false,
+  "plannedCalls": 3,
+  "uploadCount": 2,
+  "completedCalls": 3,
+  "cacheKey": "vision_veto:8c206887023c6f70e6717e20fe0840aeddaaaca4d4934aa04c2cffceadc7e213:6d22e553fceb85de59d8c5365d14970e1e2e46e21be6690b66ca64ace51e3559:gemini-3.1-pro-preview:v10.1:v7.0:agg3:whole_fanout:whole:n3:sv0:fi-:k-:w-"
+ },
+ "rich": true,
+ "updated_at": 1783150773285,
+ "verdict": {
+  "primary_fault": "기준 영상 대비 양다리의 스플릿 각도가 좁고 무릎이 완전히 펴지지 않음",
+  "severity": "moderate",
+  "differences": [
+   {
+    "root_cause_hypothesis": "고관절의 유연성이 부족하거나, 원심력을 버티며 공중에서 다리를 넓게 뻗어 유지하는 하체 및 코어 근력이 부족한 것으로 보임.",
+    "ipsf_note": "스트래들(V-스플릿) 계열 동작에서 다리의 완전한 신전과 충분한 스플릿 각도는 기술의 완성도와 라인을 평가하는 핵심 요소임.",
+    "correct_state": "양다리가 넓은 각도로 벌어지며 무릎이 완전히 펴진 완벽한 V-스플릿 라인 형성",
+    "fault_state": "기준 영상에 비해 두 다리 사이의 벌어짐(스플릿) 각도가 눈에 띄게 좁으며, 무릎이 미세하게 굽어 있어 전체적인 V라인이 좁게 형성됨",
+    "body_part": "양다리",
+    "approx_angle_deviation_deg": 20,
+    "severity": "moderate",
+    "source": "vision_hypothesis"
+   }
+  ]
+ },
+ "root_cause_hypotheses": [
+  {
+   "sourceIds": [
+    1,
+    2,
+    3,
+    5,
+    6
+   ],
+   "text": "양다리: 기준 영상에 비해 두 다리 사이의 벌어짐(스플릿) 각도가 눈에 띄게 좁으며, 무릎이 미세하게 굽어 있어 전체적인 V라인이 좁게 형성됨",
+   "faultKeyDict": {
+    "fault_kind": "pole_gap_or_bent",
+    "side": "unknown",
+    "part_scope": "line",
+    "keypoint_set": "leg"
+   },
+   "supportCount": 3
+  }
+ ],
+ "created_at": 1783150773285
+}

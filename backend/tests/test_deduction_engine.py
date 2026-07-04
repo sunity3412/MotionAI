@@ -12,6 +12,7 @@ flat OBJECT serialization(baselineValue/baselineKind).
 [[scoring-redesign-must-generalize-no-overfit]]).
 """
 
+import json
 import pathlib
 import re
 
@@ -787,6 +788,80 @@ def test_split_member_own_dev_takes_priority_over_parent():
     assert len(split_recs) == 1
     # 멤버 자신의 30 사용 — over-tol = 10 (부모 50 이면 30 이어야 함).
     assert split_recs[0].deviation == pytest.approx(10.0)
+
+
+# ── 25-04 sweep FAIL #1 회귀 — 실아티팩트 verbatim fixture ────────────────────
+#
+# fixture = phase25 Run 2 (HEAD 87978fe, cold 1783154115) kip-up fault 가 hit 한
+# Firestore gemini_cache doc 의 verbatim 복사본 (vision_veto:8c206887...:v10.1:v7.0:
+# agg3:whole_fanout, 2026-07-04 덤프 — 손 재구성 아님). v10.1 실출력은 split 어휘가
+# body_part 가 아니라 fault_state 에 있다(body_part="양다리"/"오른쪽 다리") — body_part
+# 단독 라우팅(구 rule 1)이면 split_angle 미발화 → vision 측정편차 미주입 → 99/100.
+
+
+_KIPUP_REAL_CACHE_DOC = (
+    pathlib.Path(__file__).parent / "fixtures" / "gemini_responses"
+    / "phase25_kipup_agg3_rich_cache_doc.json"
+)
+
+
+def _kipup_real_cache_ctx():
+    """실캐시 doc → 실경로 그대로 _rich_from_doc(캐시 hit 경로) → VisionFaultContext."""
+    from sunity_shared.analysis import gemini_vision_scorer as gvs
+
+    doc = json.loads(_KIPUP_REAL_CACHE_DOC.read_text(encoding="utf-8"))
+    rich = gvs.VisionVetoCache._rich_from_doc(doc)
+    return vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict",
+        verdict=rich["verdict"],
+        supported_differences=list(rich["supported_differences"]),
+        root_cause_hypotheses=list(rich["root_cause_hypotheses"]),
+        selected_frame_pairs=[], alignment={}, telemetry=rich["telemetry"],
+        cap_would_apply=True,
+    )
+
+
+def test_phase25_kipup_real_cache_doc_injects_split_deviation():
+    """sweep FAIL #1 회귀 (kip-up fault 99, split 주입 유실): 실캐시 doc 그대로
+    tally 하면 split 멤버(fault_state 에만 '스플릿')가 split_angle 로 라우팅되고
+    vision 측정편차(대표 멤버 20°)가 md 에 주입되어야 한다.
+
+    md seed 는 실아티팩트 cold record 재현(angle_vs_reference__left_shoulder 20.6 —
+    deductionBreakdown.records[0].measuredValue). 주입된 20° 는 tol 20° 와 동치라
+    over 0(dead-zone, record 미방출) — 이 캐시의 최종 99 유지는 측정값 소관
+    (Gemini 비결정 트랙, sweep 근본원인 #2)이지 라우팅 유실이 아니다."""
+    ctx = _kipup_real_cache_ctx()
+    md = {"angle_vs_reference__left_shoulder": 20.6}  # 실아티팩트 cold seed 재현
+    b = _tally(md, ctx)
+    # 회귀 본체: pre-fix 는 split 미라우팅 → md 미주입 (belle 결정 A 경로 유실).
+    assert md.get("split_angle") == pytest.approx(20.0), \
+        "split 멤버(fault_state 스플릿) 라우팅 미발화 → vision 측정편차 미주입 재발"
+    # 실아티팩트와 동일: dev 20 == tol 20 → dead-zone (split record 미방출, final 99).
+    assert not [r for r in b.records if r.criterion == "split_angle"]
+    assert [r.criterion for r in b.records] == ["angle_vs_reference__left_shoulder"]
+    assert b.final == 99
+    # split 결함이 coverage gap 으로 새지 않는다.
+    assert not [g for g in b.coverage_gaps if g["keypointSet"] == "leg"]
+
+
+def test_phase25_kipup_real_members_route_split_and_leg():
+    """실아티팩트 멤버 단위 라우팅: '스플릿' fault_state 멤버 2건(양다리/오른쪽 다리)
+    → split_angle, 무릎-굽음 멤버 3건 → leg_extension (라우터 불변 존중)."""
+    ctx = _kipup_real_cache_ctx()
+    diff = ctx.supported_differences[0]
+    members = deduction_engine._routing_members(diff)
+    assert len(members) == 5, "실캐시 _memberFaults 5건이 라우팅 대상"
+    routed = [
+        ipsf_criteria.criteria_for_fault(deduction_engine._fault_key_for(m), m, {})
+        for m in members
+    ]
+    split_members = [m for m, r in zip(members, routed) if r == ("split_angle",)]
+    leg_members = [m for m, r in zip(members, routed) if r == ("leg_extension",)]
+    assert len(split_members) == 2
+    assert all("스플릿" in str(m.get("fault_state")) for m in split_members)
+    assert all("스플릿" not in str(m.get("body_part")) for m in split_members), \
+        "v10.1 실출력: split 어휘는 body_part 에 없다 — combined 라우팅 필요 근거"
+    assert len(leg_members) == 3
 
 
 # ── 25-02 review WR-04 — 측정 substrate 실재 시 shoulder/hip gap 억제 ─────────

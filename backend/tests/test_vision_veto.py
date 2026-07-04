@@ -195,6 +195,43 @@ def test_faultkey_ambiguous_arm_is_unknown_side():
     assert k.side == "unknown"
 
 
+def test_keypoint_set_conservative_no_promotion_to_pointed_sets():
+    """WR-03: 허리/코어→torso, 손/손목→grip — hip/arm 승격 금지 (pointed 게이트 우회 차단).
+
+    keypoint_set=hip/arm 은 pointed 매퍼의 window-측정 eligible 로 이어진다. 의미상
+    몸통(torso)/그립 결함이 hip/elbow 각도 감점으로 둔갑하지 않게 보수 매핑을 유지한다.
+    """
+    waist = vision_veto.fault_key_from_difference(
+        {"body_part": "허리", "fault_state": "굽음"}, part_scope_hint="core"
+    )
+    assert waist.keypoint_set == "torso"
+    core = vision_veto.fault_key_from_difference(
+        {"body_part": "코어", "fault_state": "무너짐"}, part_scope_hint="core"
+    )
+    assert core.keypoint_set == "torso"
+    hand = vision_veto.fault_key_from_difference(
+        {"body_part": "손", "fault_state": "폴에서 떨어짐"}, part_scope_hint="upper_body"
+    )
+    assert hand.keypoint_set == "grip"
+    wrist = vision_veto.fault_key_from_difference(
+        {"body_part": "왼쪽 손목", "fault_state": "꺾임"}, part_scope_hint="upper_body"
+    )
+    assert wrist.keypoint_set == "grip"
+    # 진짜 hip/arm 언급은 유지 (승격 금지 ≠ 정당 매핑 축소).
+    pelvis = vision_veto.fault_key_from_difference(
+        {"body_part": "골반", "fault_state": "처짐"}, part_scope_hint="core"
+    )
+    assert pelvis.keypoint_set == "hip"
+    elbow = vision_veto.fault_key_from_difference(
+        {"body_part": "왼쪽 팔꿈치", "fault_state": "굽음"}, part_scope_hint="upper_body"
+    )
+    assert elbow.keypoint_set == "arm"
+    # pointed 매퍼가 torso/grip 을 window-eligible 로 방출하지 않는다 (우회 0).
+    supported = [{"_faultKey": waist}, {"_faultKey": core}, {"_faultKey": hand},
+                 {"_faultKey": wrist}]
+    assert vision_veto.pointed_joints_from_supported_differences(supported) == ()
+
+
 def test_part_keywords_head_neck_grip_expansion():
     """머리/목→어깨, 그립→손 최근접 keypoint 매핑 (ankle→knee 선례)."""
     head = vision_veto._keypoints_for_part("고개 젖힘")

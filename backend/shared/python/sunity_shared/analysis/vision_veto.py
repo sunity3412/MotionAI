@@ -130,14 +130,20 @@ class FaultKey:
         return cls(part_scope, side, keypoint_set, fault_kind)
 
 
+# 25-02 review WR-03 — 보수적 매핑: torso-성("허리"/"코어")·grip-성("손"/"손목") 언급을
+# hip/arm 으로 승격하지 않는다. keypoint_set=hip/arm 은 pointed 감점 게이트(window-측정
+# eligible)로 이어지므로, 의미상 몸통/그립 결함이 hip/elbow 각도 감점으로 둔갑하는 우회를
+# 차단한다. 허리/코어는 어느 행에도 없음 → default "torso" (CoverageGap 종착, 감점 0).
 _KEYPOINT_SET_BY_KEYWORD: tuple[tuple[tuple[str, ...], str], ...] = (
+    # grip 행이 head_neck 보다 먼저 — "손목" 이 "목" substring 으로 head_neck 에 오분류되는
+    # 것을 방지 (substring match 순서 의존).
+    (("그립", "grip", "손바닥", "손목", "wrist", "손", "hand"), "grip"),
     (("머리", "고개", "목", "head", "neck"), "head_neck"),
-    (("그립", "grip", "손바닥"), "grip"),
-    (("팔꿈치", "elbow", "손목", "wrist", "손", "hand", "팔", "arm"), "arm"),
+    (("팔꿈치", "elbow", "팔", "arm"), "arm"),
     (("어깨", "shoulder", "견갑"), "shoulder"),
     (("무릎", "knee", "허벅지", "thigh", "종아리", "정강이", "다리", "leg",
       "발목", "ankle", "발", "foot", "스플릿", "split", "스트래들", "straddle"), "leg"),
-    (("엉덩이", "골반", "hip", "pelvis", "둔부", "코어", "core", "허리"), "hip"),
+    (("엉덩이", "골반", "hip", "pelvis", "둔부"), "hip"),
     (("라인", "line", "정렬", "alignment", "몸통", "torso", "trunk"), "line"),
 )
 

@@ -1075,3 +1075,146 @@ def test_root_cause_hypothesis_passes_through_parse():
     assert d0.get("source") == "vision_hypothesis"
 
 
+# ─────────────── 25-02 Task 1 — keypoint_set fold 집계 + AGGREGATION_VERSION ───────────────
+#
+# 25-RESEARCH §1 차단 1 재현: 어깨 언급이 side("왼쪽 어깨"=left vs "어깨"=unknown) /
+# fault_kind("굽음"=pole_gap_or_bent vs "정렬 흐트러짐"=extension_or_alignment) fragment 로
+# 분산돼 support K=2 미달 drop 되던 것을 keypoint_set 단독 그룹 키 fold 가 살린다.
+
+
+def _sdiff(body_part, severity="moderate", dev=30.0, fault_state="정렬 흐트러짐"):
+    return {
+        "body_part": body_part, "severity": severity,
+        "approx_angle_deviation_deg": dev,
+        "correct_state": "정렬", "fault_state": fault_state,
+    }
+
+
+def test_shoulder_side_and_kind_fragments_fold_to_support_two():
+    """side/fault_kind fragment 어깨 2건이 keypoint_set fold 로 K=2 통과 (차단 1 해소)."""
+    per_call = [
+        [_sdiff("왼쪽 어깨", dev=40.0, fault_state="굽음")],       # left + pole_gap_or_bent
+        [_sdiff("어깨", dev=31.0, fault_state="정렬 흐트러짐")],   # unknown + extension_or_alignment
+        [],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert len(supported) == 1, "fragment 2건이 shoulder 그룹 하나로 fold — 대표 1개"
+    rec = supported[0]
+    assert rec["_supportCount"] == 2
+    assert rec["_faultKey"].keypoint_set == "shoulder"
+    # 대표 = 최고 severity rank → dev (동 rank 에서 dev 40 > 31).
+    assert float(rec["approx_angle_deviation_deg"]) == 40.0
+
+
+def test_fold_representative_side_unique_explicit_wins():
+    """그룹 내 명시(left/right) side 가 유일하면 대표 _faultKey.side = 그 side."""
+    per_call = [
+        [_sdiff("왼쪽 어깨", dev=40.0)],
+        [_sdiff("어깨", dev=31.0)],  # unknown — 명시 아님.
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert supported[0]["_faultKey"].side == "left"
+
+
+def test_fold_representative_side_mixed_or_absent_is_unknown():
+    """명시 side 혼재(left+right) 또는 전부 unknown → 대표 side = unknown."""
+    mixed = [
+        [_sdiff("왼쪽 어깨")],
+        [_sdiff("오른쪽 어깨")],
+    ]
+    supported = gvs._filter_supported_differences(
+        mixed, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert supported[0]["_faultKey"].side == "unknown"
+
+    all_unknown = [
+        [_sdiff("어깨")],
+        [_sdiff("shoulder")],
+    ]
+    supported2 = gvs._filter_supported_differences(
+        all_unknown, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert supported2[0]["_faultKey"].side == "unknown"
+
+
+def test_fold_representative_is_highest_severity_then_dev():
+    """대표 record = 그룹 내 최고 severity rank → 최고 dev (기존 규칙 불변)."""
+    per_call = [
+        [_sdiff("어깨", severity="minor", dev=50.0)],
+        [_sdiff("왼쪽 어깨", severity="major", dev=25.0)],
+        [_sdiff("오른쪽 어깨", severity="moderate", dev=45.0)],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert len(supported) == 1
+    rec = supported[0]
+    assert rec["severity"] == "major"
+    assert float(rec["approx_angle_deviation_deg"]) == 25.0
+    assert rec["_supportCount"] == 3
+    assert len(rec["_sourceIds"]) == 3
+
+
+def test_fold_does_not_merge_distinct_keypoint_sets():
+    """서로 다른 keypoint_set(shoulder vs leg)은 fold 되지 않는다 (그룹 분리 유지)."""
+    per_call = [
+        [_sdiff("왼쪽 어깨"), _sdiff("무릎", severity="major", dev=60.0)],
+        [_sdiff("어깨"), _sdiff("오른 무릎", severity="major", dev=55.0)],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    kp_sets = {r["_faultKey"].keypoint_set for r in supported}
+    assert kp_sets == {"shoulder", "leg"}
+    # severity 내림차순 정렬 불변 — major(leg) 가 앞.
+    assert supported[0]["_faultKey"].keypoint_set == "leg"
+
+
+def test_fold_no_union_inflation_same_call_counting_preserved():
+    """fold 로 union 부풀림 없음 — 같은 call 안 같은 keypoint_set 2건도 대표 1개.
+
+    support 는 기존 diff_id 순회(발생 건수) 의미 그대로 — call-교차 여부로 재정의하지
+    않는다 (기존 카운트 로직 보존).
+    """
+    per_call = [
+        [_sdiff("왼쪽 어깨", dev=40.0), _sdiff("오른쪽 어깨", dev=31.0)],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert len(supported) == 1, "출력은 그룹당 대표 1개 (union 부풀림 0)"
+    assert supported[0]["_supportCount"] == 2, "발생 건수 카운트 의미 보존"
+
+
+def test_fold_severity_none_still_filtered():
+    """severity='none' 은 fold 후에도 인정 결함 아님 (support 에 미기여)."""
+    per_call = [
+        [_sdiff("왼쪽 어깨", severity="none")],
+        [_sdiff("어깨", severity="none")],
+        [_sdiff("오른쪽 어깨", severity="moderate")],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert supported == [], "none 2건은 카운트 밖 — moderate 단발은 K=2 미달 drop"
+
+
+def test_aggregation_version_constant_and_in_cache_key(monkeypatch):
+    """AGGREGATION_VERSION 이 build_key 산출 키에 포함 + marker 변경 시 다른 키.
+
+    rich 캐시는 집계 **후** supported_differences 를 저장 — 집계 변경 시 marker bump
+    없이는 stale-hit (kip-up whole/whole_fanout FP 이력, 90d038f). 기존 키 공간 재사용 0.
+    """
+    assert isinstance(gvs.AGGREGATION_VERSION, str) and gvs.AGGREGATION_VERSION
+    key = VisionVetoCache.build_key(video_hash="vh-agg", model_name="m")
+    assert gvs.AGGREGATION_VERSION in key
+    monkeypatch.setattr(gvs, "AGGREGATION_VERSION", "agg-test-999")
+    key2 = VisionVetoCache.build_key(video_hash="vh-agg", model_name="m")
+    assert key2 != key, "marker 변경 = 다른 키 (기존 키 공간 재사용 0)"
+    assert "agg-test-999" in key2
+
+

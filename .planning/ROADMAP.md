@@ -835,6 +835,28 @@ Plans:
 - [ ] 24-03-PLAN.md — phase24/assert_gates.py 4 게이트(추적성/단조성[fixed-set]/결정성[math+criterion-selection]/일반화) + phase18 verdict·margin assert 제거(밴드 문자열 아님) + Pod-serial 일반화 sweep belle 검증(cold-rerun selection 동일) (Wave 3, SCORE-16/09)
 
 ---
+
+### Phase 25: 상체 감점 커버리지 — vision-pointed window 측정 (짚기=Gemini / 측정=worst-window / 감점=규칙)
+
+> **신규 (belle 2026-07-04 — TestFlight 실기기 실증에서 확정된 갭).** kip-up fault 영상에서 어깨 좌우 편차(40°/31°, tol 20° 초과)가 **측정은 되는데 감점 0** — 확대/마커/감점 전부 다리(스플릿)만. 원인 = 감점 seed 의 집계가 전체 DTW path median 이라 국소 결함이 희석됨. quick 260702-o0c 로 "표시용 worst-window median 을 seed 로" 실험 → **kip-up fault 50 으로 상체 감점 메커니즘은 실증**됐으나 **success 위양성 4건(74~92)** 으로 sweep GATE FAIL, revert ([[window-median-silent-seed-fp-reverted]]). 교훈 = worst-window 는 편향 표집이라 Gemini-silent 관절에 쓰면 RTMW jitter/촬영거리 노이즈를 감점으로 증폭 (2026-06-12 full-path median 전환 사유의 재확인). belle 도메인 판정: 88(상체 누락)도 50(과감점)도 아닌 그 사이가 정답 — 특정 점수 맞추기(짜맞추기) 금지, 측정 구조를 고쳐 점수가 자리를 찾게 한다.
+
+**Goal:** 역할 분리 아키텍처로 상체(및 임의 부위) 결함 감점 커버리지를 확보한다 — **짚기(detector) = Gemini vision 이 결함 관절/부위를 faultKey 로 지목, 측정(measurement) = 그 관절만 worst-window median 기하 측정, 감점(scoring) = 기존 명시규칙(tol 20°+slope)**. Gemini-silent 관절은 기존 보수적 full-path median seed 유지(위양성 방어). 전제 작업 = vision 결함 짚기 커버리지를 상체까지 확대(per-move 프롬프트/기준 — kip-up 은 현재 split 특정이라 상체는 primaryFault 텍스트로만 언급되고 faultKey 없음). 프롬프트 특정성이 레버라는 기존 결론([[flash-beats-pro-video-split-judgment]]) 재사용.
+
+**게이트 (Phase 24 게이트 승계 + 이번 실패 교훈):**
+
+- sweep 6페어: fault 변별 유지·개선 AND **success 6/6 == 100** (위양성 0 — 260702-o0c FAIL 재발 금지)
+- kip-up fault: 88 미만으로 하락하되 상체 감점이 vision-확인 관절에서만 발생 (50 과감점 재현 금지 — 단 특정 점수 assert 는 curve-fit 이므로 금지, "vision 짚은 관절만 감점" 구조 assert 로)
+- 밴드 금지 / 신규 튜닝 상수 금지(tol·slope·window 정책 기존 재사용) / 결정론 / 사람 점수 라벨 금지
+
+**Depends on:** Phase 24 (감점 엔진 + criterion 라우터 — 그대로 소비), Phase 23 (still-frame/moment 추출), quick 260702-o0c 실험 결과. 구현/eval = Pod GPU 필요. F(260704-fz4) advisory 티어가 UI 선행 — 측정 초과 관절이 이미 "참고(주황)"로 노출되므로, 이 phase 가 완성되면 vision-확인분이 참고→확정(빨강)으로 승격되는 구조.
+
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 25 to break down)
+
+---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*
 *Roadmap updated: 2026-05-31 (belle 결정 — 상용/베타 = MediaPipe + Gemini, NLF/SMPL-X = R&D 비교군 격리. Phase 1·2 재정의)*
@@ -845,3 +867,4 @@ Plans:
 *Roadmap updated: 2026-06-02 (RTMW free-stack pivot — Phase 1 신규 plan 7개 추가 (01-19 ~ 01-25, gap_closure). 운영 백본 = MediaPipe + MotionBERT → RTMW 133 wholebody (Apache-2.0) 단일 백본 (D-17~D-25). 01-04/01-05/01-14 SUPERSEDED 마킹. 01-18 on hold 유지. Phase 2 BodyNormalizationProfile = RTMW segment 기반 재정의 (D-19, 추후 Phase 2 plan 에서 반영). 출처 = CONTEXT.md D-17~D-25 + /Users/kimtaesung/Downloads/Sunity_v1_개발지시_RTMW무료스택.md + memory rtmw-free-stack-pivot.)*
 *Roadmap updated: 2026-06-02 (Plan 01-20 belle license checkpoint 통과 — Production=rtmw-x-384x288 (commercial_ok, validation-pilot scope), Fallback=rtmw-l-384x288. weights_manifest production_eligible=1. Plan 21 진입 차단 해소. v1.5 에 "RTMW clean weight 경로(B) 출시 hard gate" 박제 — 상업 출시 전 mmpose 공식 commercial-friendly weight 또는 자체 clean-data fine-tune 으로 교체 필요 (belle 지시 별도 plan).)*
 *Roadmap updated: 2026-06-24 (Phase 24 신설 — 투명 감점-합산 채점 엔진. belle 채점 철학 결정타([[scoring-must-be-transparent-deduction-tally]]): Phase 20 의 severity→고정밴드(`SEVERITY_CAP`/`apply_downward_cap`)는 자의적=사람 판단 주입 → 점수=baseline(100)−Σ(측정편차×명시규칙 감점), 보고서가 감점 내역 노출 엔진으로 교체. Gemini 강등(점수X·측정대상만 짚기). Phase 20 은 재설계 아님 — working parts 보존, 밴드 한 단만 신규 phase 가 supersede. 23-03 의 케이스별 기대점수 밴드(moderate≤75) curve-fit → Phase 24 추적성·단조성 게이트로 대체. discuss 결정 = 24-CONTEXT.md ND-01~07. Phase 19·20·23 의존, Pod 필요, Phase 22 보다 먼저.)*
+*Roadmap updated: 2026-07-04 (Phase 25 신설 — 상체 감점 커버리지 vision-pointed window 측정. TestFlight 실증에서 어깨 40° 측정-무감점 갭 확정, quick 260702-o0c worst-window 실험 = 메커니즘 실증 but success 위양성으로 revert([[window-median-silent-seed-fp-reverted]]). 아키텍처 = 짚기(Gemini faultKey)/측정(worst-window)/감점(규칙) 역할 분리 + Gemini-silent 는 full-path median 유지. belle 판정: 88도 50도 아닌 사이가 정답, 점수 짜맞추기 금지.)*

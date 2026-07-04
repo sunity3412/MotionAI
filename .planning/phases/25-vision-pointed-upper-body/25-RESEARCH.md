@@ -159,8 +159,10 @@ for jk in JOINT_KEYS:
 
 ## Open Questions
 
-1. **pointed 매퍼의 side 해소 규칙** — side=unknown 어깨 faultKey 는 양쪽 다 짚은 것으로 볼지(보수적=양쪽 window), 한쪽 최대만 볼지. 권장: 양쪽 — 측정이 tol gate 를 통과해야만 감점되므로 과감점 위험은 tol 이 흡수. Pod sweep 이 심판.
-2. **success-멤버 짚기-FP 관측** 을 production audit 에도 남길지(na_audit 확장) eval 전용으로 할지 — 스키마 접촉 최소화 관점에서 eval 전용 권장.
+1. **(RESOLVED — OD-1, orchestrator 2026-07-04)** pointed 매퍼의 side 해소 규칙 — side=unknown 이면 **양측 모두 window-측정 eligible** 로 확정 (판정은 측정+tol 게이트, fail-closed 버리기 금지). 단 broad 확장 방지를 위해 좁은 전용 매퍼 신설(line/전신 류 제외). → 25-01-PLAN Task 1 에 반영.
+   ▸ 원 질문: side=unknown 어깨 faultKey 는 양쪽 다 짚은 것으로 볼지(보수적=양쪽 window), 한쪽 최대만 볼지. 권장: 양쪽 — 측정이 tol gate 를 통과해야만 감점되므로 과감점 위험은 tol 이 흡수. Pod sweep 이 심판.
+2. **(RESOLVED — OD-2, orchestrator 2026-07-04)** success-멤버 짚기-FP 관측 — **eval 전용** 으로 확정 (production na_audit/스키마 무접촉). phase25 harness 가 read-only tee 로 캡처, 게이트는 감점 결과(success 6/6==100)가 지고 짚기-FP율은 관측 지표. → 25-04-PLAN Task 1 에 반영.
+   ▸ 원 질문: production audit 에도 남길지(na_audit 확장) eval 전용으로 할지 — 스키마 접촉 최소화 관점에서 eval 전용 권장.
 
 ## Sources
 

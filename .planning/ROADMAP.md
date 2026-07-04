@@ -852,11 +852,14 @@ Plans:
 
 **동반 스코프 (belle 2026-07-04 실기기 이관분):** 확대 카드 정밀도 — 정은지(reference) 쪽 저신뢰 전신 폴백이 카드마다 동일 전신 사진 반복("분석 안 한 것처럼 보임"). 부위 영역(bbox) 완화 crop + 카드별 차별화 + 동그라미 앵커 정밀화. vision 짚기가 프레임/부위를 확정하면 그 프레임·부위로 crop 하는 것이 자연 해법이라 이 phase 에 묶음.
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 25 to break down)
+- [ ] 25-01-PLAN.md — 좁은 pointed-joint 매퍼 + 관절 단위 seed merge 배선 (짚인 관절만 window, silent=full-path 유지) (Wave 1, pod-free)
+- [ ] 25-02-PLAN.md — 짚기 커버리지: support 집계 fragment fold + upper_body 프롬프트 구조화 강제 + AGGREGATION_VERSION/PROMPT_VERSION 캐시 bump (Wave 1, pod-free)
+- [ ] 25-03-PLAN.md — 확대 카드 정밀도: reference 저신뢰 완화(relaxed) crop + 카드별 차별화 + 앵커 관절-좌표 고정 (Wave 1, pod-free)
+- [ ] 25-04-PLAN.md — [POD] phase25 eval harness(짚기-FP 최초 관측 포함) + 6페어 serial sweep 게이트(success 6/6==100 + kip-up 구조 assert + 결정론) + belle 크레딧 checkpoint (Wave 2)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

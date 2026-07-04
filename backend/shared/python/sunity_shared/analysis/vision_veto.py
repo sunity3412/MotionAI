@@ -595,16 +595,29 @@ class VisionFaultContext:
         }
 
     def to_trace_dict(self) -> dict:
-        """eval trace 직렬화 (ctx 단독) — fault key 는 FaultKey.to_dict 어휘 (D-17 MED-3)."""
+        """eval trace 직렬화 (ctx 단독) — fault key 는 FaultKey.to_dict 어휘 (D-17 MED-3).
+
+        WR-02 (25-02 review): fold 대표 `_faultKey` 만 방출하면 좌+우 혼재 그룹이
+        side=unknown 단일 키로 붕괴돼 recall manifest 의 (left,arm)+(right,arm) 동시
+        기대가 구조적으로 미충족된다. recall trace 는 표시/감점과 분리된 관측 채널이므로
+        fold 전 멤버 원본 FaultKey(`_memberFaultKeys`)를 함께 방출한다 (대표 키도 유지
+        — superset, dedup. manifest 자체는 무접촉).
+        """
         fault_keys = []
-        for d in (self.supported_differences or []):
-            fk = (d or {}).get("_faultKey")
-            if fk is not None:
-                fault_keys.append(fk.to_dict())
-        for rc in (self.root_cause_hypotheses or []):
-            fk_dict = rc.fault_key.to_dict()
+
+        def _add(fk):
+            if fk is None:
+                return
+            fk_dict = fk.to_dict() if hasattr(fk, "to_dict") else dict(fk)
             if fk_dict not in fault_keys:
                 fault_keys.append(fk_dict)
+
+        for d in (self.supported_differences or []):
+            for mfk in (d or {}).get("_memberFaultKeys") or ():
+                _add(mfk)
+            _add((d or {}).get("_faultKey"))
+        for rc in (self.root_cause_hypotheses or []):
+            _add(rc.fault_key)
         return {
             "collectionStatus": self.collection_status,
             "selectorVersion": (self.alignment or {}).get("selector_version"),

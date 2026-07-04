@@ -519,6 +519,36 @@ def test_to_coach_context_and_trace_dict_standalone():
             "fault_kind": "pole_gap_or_bent"} in keys
 
 
+def test_trace_dict_emits_prefold_member_fault_keys():
+    """WR-02: fold 좌+우 혼재 그룹에서 to_trace_dict 가 멤버 원본 (left,arm)+(right,arm)
+    을 모두 방출 — recall manifest 어휘가 fold 로 구조적 FAIL 하지 않게 (manifest 무접촉)."""
+    from sunity_shared.analysis import gemini_vision_scorer as gvs
+
+    per_call = [
+        [{"body_part": "왼팔", "fault_state": "폴에서 떨어짐", "severity": "moderate",
+          "approx_angle_deviation_deg": 20.0}],
+        [{"body_part": "오른팔", "fault_state": "폴에서 떨어짐", "severity": "moderate",
+          "approx_angle_deviation_deg": 15.0}],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert len(supported) == 1
+    assert supported[0]["_faultKey"].side == "unknown", "대표 = 혼재 → unknown (fold 규칙)"
+    ctx = vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict", verdict=None,
+        supported_differences=supported, root_cause_hypotheses=[],
+        selected_frame_pairs=[], alignment={}, telemetry={}, cap_would_apply=True,
+    )
+    keys = ctx.to_trace_dict().get("faultKeys") or []
+    left = {"part_scope": "upper_body", "side": "left", "keypoint_set": "arm",
+            "fault_kind": "pole_gap_or_bent"}
+    right = {**left, "side": "right"}
+    assert left in keys and right in keys, "fold 전 멤버 원본 좌/우 키 동시 방출"
+    # 대표(unknown) 키도 유지 — superset (기존 소비자 하위호환).
+    assert {**left, "side": "unknown"} in keys
+
+
 def test_quantification_result_fields():
     """VisionQuantificationResult 가 post-geometry 필드 소유 (D-12 HIGH-1)."""
     import dataclasses

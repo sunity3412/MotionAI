@@ -53,10 +53,11 @@ metrics:
 | 1 | backend advisory tier 카드 (select_advisory_joints + _render_fault_zoom tier 방출 + _attach 배선) | eb70f3e |
 | 2 | app 2단 시각 언어 (tier 타입/토큰/의미사전/역매핑/마커/카드 배지) | 82fa249 |
 | 3 | 편차행 tier 색 + 의미 라벨 + 행 탭 인라인 확대 | b3be3c7 |
+| 후속 | 확대 카드 배지 라벨 "40deg" → "40°" (belle 실기기 피드백) | 0d11835 |
 
 ## 검증 결과
 
-- backend: `python3 -m pytest tests/test_fault_zoom.py -q` — **20 passed** (기존 15개 무수정 PASS + select_advisory_joints 신규 5건: 임계 strict >20°/확정 제외/내림차순+cap/음수 abs/비유한 skip).
+- backend: `python3 -m pytest tests/test_fault_zoom.py -q` — **21 passed** (기존 15개 무수정 PASS + select_advisory_joints 신규 5건: 임계 strict >20°/확정 제외/내림차순+cap/음수 abs/비유한 skip + 배지 라벨 "N°" 포맷 1건).
 - app: `npm run typecheck` — GREEN.
 - 채점 무접촉 증명: `git diff 2be3de0..HEAD --name-only` 에 dimensions.py/kismam.py/deduction_engine/vision_veto 없음 (fault_zoom + pipeline 카드 방출부 + 앱 표시 계층만).
 - 하위호환: tier/windowMedianAngleDeltas 부재 legacy → advisory 카드 0장, KeypointOverlay attentionKeypoints prop 미전달 시 렌더 diff 0, Mode3 `_attach_mode3_fault_zoom` 무수정 (tier='confirmed' scalar 만 추가 — 앱 캡션 로직 kind 우선 무변화), Phase 9 일반 finding 시트(measuredEvidence undefined) 렌더 diff 0.
@@ -68,6 +69,7 @@ metrics:
 - **advisory 카드 생성**: `_render_fault_zoom` 이 프레임 추출 1회 재사용 + `build_fault_zoom_comparisons` 2회 호출 (확정 배치 무수정 / advisory 배치 joint_kinds='deficit' 로 양어깨→arms 1장 grouping 활성). S3 키 `zoom_adv_{joint}.png` 분리. advisory 는 Mode1 + veto applied(windowMedianAngleDeltas 존재)에서만 생성.
 - **단일 소스 조립** (result.tsx): `confirmedKeypoints` = deductionBreakdown records 의 `angle_vs_reference__{jk}` 관절 ∪ vetoFaultJoints. `attentionKeypoints` = wmad 초과 − confirmed. 로컬 중복 맵 `ANGLE_KEY_TO_KEYPOINT` 제거 → `KEYPOINT_FROM_ANGLE_KEY`(deductionLabels) 단일 출처로 통합.
 - **의미 라벨 기하 검증**: skeleton.JOINT_ANGLES 확인 — elbow(어깨-팔꿈치-손목)=팔꿈치 굽힘, shoulder(팔꿈치-어깨-엉덩이)=겨드랑이 벌림, hip(어깨-엉덩이-무릎)=다리 벌림(몸통-허벅지 각, 스플릿 개방), knee(엉덩이-무릎-발목)=무릎 굽힘. 라벨 전부 기하 정합.
+- **배지 라벨 "N°"** (후속 0d11835): `_deficit_label` 헬퍼 — U+00B0 는 Pillow 12 기본 폰트 글리프 보유 확인(getmask 4x8 + 렌더 픽셀 검증, latin-1 범위라 "한글 글리프 부재" 제약 무관). `_mark` 단일 경로라 confirmed/advisory 동일 적용. 배지 폭 추정(글자당 8px)은 상한 유지 — ° 4px 로 여유폭. (정은지 쪽 전신 폴백 반복/crop 정밀도는 Phase 25 이관 — 본 후속은 라벨 포맷만.)
 
 ## Deviations from Plan
 

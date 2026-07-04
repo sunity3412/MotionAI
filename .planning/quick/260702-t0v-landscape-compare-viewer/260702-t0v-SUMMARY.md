@@ -43,6 +43,7 @@ metrics:
 |------|------|--------|-------|
 | 1 | KeypointOverlay sizeScale prop + render prop 시그니처 확장 + result.tsx 배선 | a0f0bb7 | KeypointOverlay.tsx, VideoCompare.tsx, result.tsx |
 | 2 | VideoCompare 가로 전체화면 뷰어 (Modal + 90도 rotate) + 진입 버튼 + 토글 유지 | 6d16f97 | VideoCompare.tsx, colors.ts, result.tsx |
+| F1 | (follow-up, belle 실기기 1차) 전체화면 영상 축소 버그 fix — 슬롯 edge-to-edge + 크롬 overlay | 5b5e4c9 | VideoCompare.tsx |
 
 ## What Was Built
 
@@ -67,6 +68,22 @@ metrics:
 ## Deviations from Plan
 
 None — plan executed as written. (검증 grep 리터럴 카운트 불일치는 위 Verification 에 기록 — 플랜 의도(호출 수 2)는 충족.)
+
+## Follow-up: belle 실기기 1차 피드백 fix (5b5e4c9)
+
+**증상:** 회전/컨트롤 배치는 정상이나 영상 두 개가 화면 중앙에 아주 작게 뜨고 대부분이 검은 여백. 시간 라벨 등 텍스트도 세로 카드 크기 그대로.
+
+**근본 원인 (레이아웃 기하):** 최초 구현이 회전 컨테이너 안을 스택(상단 bar / 영상 row / 컨트롤 + padding/gap)으로 배치 → 영상 유효 높이 = winW(393) − 크롬(~140) ≈ 250pt 로 세로 카드(~275pt)와 동급. 게다가 슬롯 프레임이 임의 비율(flex)이라 9:16 영상이 contain-fit 으로 가는 세로 띠(~140pt 폭)만 남아 "중앙에 작게 + 검은 여백" 증상. 부수 발견: 임의 비율 프레임에서는 KeypointOverlay(viewBox 0 0 1 1, preserveAspectRatio none)가 letterbox 포함 영역으로 늘어나 좌표가 어긋나는 잠재 버그도 있었음.
+
+**Fix (VideoCompare.tsx 단독):**
+1. `fsVideoRow` 를 회전 컨테이너 `absoluteFillObject` 로 — 슬롯이 (long/2)×short 를 꽉 채움. 상단 bar(토글+닫기)와 하단 컨트롤은 영상 위 absolute overlay 로 전환(영상 높이 무손실, 표준 비디오 플레이어 UX).
+2. 영상 박스 `fsVideoBox` = 높이 100%(window 짧은 변 전체) × `VIDEO_ASPECT`(9/16, 세로 카드 slotFrame 과 동일 가정) + 슬롯 중앙 정렬 → 세로 영상이 화면 세로축을 끝까지 채움. 세로 카드 대비 선형 1.43배(275→393pt)/면적 ~2배, 오버레이 라벨은 sizeScale 2.0 과 합산 체감 ~2.9배. 9:16 박스가 곧 영상 표시 영역이라 오버레이 좌표 정합도 세로 카드와 동일하게 복원.
+3. 전체화면 텍스트(시간 라벨/슬롯 라벨) fontSize = `typography.captionSmall.fontSize × FULLSCREEN_TEXT_SCALE`. `FULLSCREEN_TEXT_SCALE = FULLSCREEN_OVERLAY_SCALE × 0.75`(= 1.5, 10pt→15pt) — 오버레이 배율 파생, 신규 매직넘버 아님.
+4. 회전 치수를 `Math.min/max(winW, winH)` short/long 파생으로 — useWindowDimensions 반응형 값 직접 사용(마운트 시점 캐싱 없음), 순간 치수 오보고에도 축 스왑 안전.
+
+**게이트:** `npm run typecheck` GREEN. app.json/package.json diff 0 유지(OTA 안전). atomic commit 1개(5b5e4c9, VideoCompare.tsx 만).
+
+**한계(기하적 상한):** 9:16 세로 영상 2개를 나란히 보는 한 영상 높이 상한 = window 짧은 변(393pt). 현재 fix 가 그 상한을 정확히 채움 — 이보다 더 키우려면 영상 crop 또는 단일 영상 전환 UX 가 필요(스코프 외).
 
 ## belle 실기기 확인 체크리스트 (TestFlight)
 
@@ -93,3 +110,4 @@ None — 신규 네트워크 경로/입력 파싱/패키지 설치 0. T-t0v-01(�
 - app/src/app/analysis/result.tsx: FOUND (opts.sizeScale + fullscreenHeaderExtra)
 - Commit a0f0bb7: FOUND
 - Commit 6d16f97: FOUND
+- Commit 5b5e4c9 (follow-up): FOUND

@@ -1,0 +1,345 @@
+"""Phase 25 vision-pointed 상체 감점 sweep — serial, in-process _process, tee 관측 확장.
+
+phase24 harness(evals/phase24/run_sweep.py) 복제-확장 (25-04 Task 1). phase18 6 fault->
+correct 페어를 BOTH members Mode 1 (vs reference) 로 채점하고, phase24 산출물에 더해
+멤버별 관측 2종을 read-only tee 로 캡처한다:
+
+  · collectObservation — pipeline._collect_vision_fault_context 반환 ctx 의
+      collection_status + supported_differences 의 canonical _faultKey 목록 +
+      pointed_joints_from_supported_differences 결과. **success 멤버 포함 전 12 멤버**
+      (OD-2 짚기-FP 관측 — na_audit 가 버리던 collect 산출을 harness 가 채움. 관측만,
+      게이트 아님. 리서치 §3 관측 공백 + Open Q2 의 eval-전용 권장).
+  · seedObservation — pipeline._build_deduction_measured_deviations 에 seed_audit_out
+      dict 를 주입(25-01 관측 파라미터)해 {pointed, window_joints, fallback_joints} 캡처
+      (assert_gates.check_pointed_only_window / check_kipup_upper_structure 구조 게이트 입력).
+
+wrapper 불변식 (리서치 함정 ③): **read-only tee — collect 인자 변경 금지.** collect 는
+받은 kwargs 그대로 원본에 전달만 한다 (at_seconds 는 collect 내부 소관 — full-video 호출
+at_seconds=None 불변). seed builder wrapper 는 seed_audit_out(관측 전용 kwarg, production
+미전달·부작용 0)만 주입한다 — measured substrate/채점 경로 무접촉.
+
+산출물:
+  · baseline/phase25_breakdowns.json       — {motion: {correct, fault}} (phase24 게이트 형상)
+  · baseline/phase25_sweep_report.json     — rich 리포트 (score/status/activated criteria/
+                                             collectObservation/seedObservation/짚기-FP 요약)
+  --tag warm 실행 시 *_warm.json 으로 기록 (cold/warm 결정론 게이트 입력).
+
+객관성 ([[analysis-objectivity-no-human-scores]]): fault 라벨=영상 파생(OK). 점수=채점기
+결정론 출력 스냅샷(라벨 아님). 사람 점수 ground-truth 라벨 금지.
+
+동시성 ([[pipeline-not-concurrency-safe-eval-serial]]): _process 는 동시성 비안전 — SERIAL.
+한 멤버 _process 완료까지 대기 후 다음. 동시 트리거 = cross-contamination(가짜 결과).
+
+크레딧 (T-25-10): cold sweep = 캐시 전량 miss(PROMPT_VERSION v10.1 + AGGREGATION_VERSION
+agg3 bump) → 12 멤버 × 3 call = 36 Gemini pro call + 멤버당 영상 2 업로드. 429/
+resource_limited 발생 시 fail-closed 중단 후 belle 보고.
+
+실행 (Pod, RTMW GPU + Gemini env 필요 — phase24 헤더 승계):
+    source /workspace/aws_env.sh && \
+    export CEREBRAS_KEY_PARAM=/sunity/motion/cerebras-api-key GEMINI_COACH_ENABLED=1 \
+           RTMW_ONNX_PATH=/workspace/rtmw_weights/rtmw-x-384.onnx \
+           YOLOX_ONNX_PATH=/workspace/yolox_weights/yolox_m.onnx RTMW_DEVICE=cuda \
+           FIREBASE_SA_PATH=/workspace/firebase-sa.json RECOGNIZER_BACKEND=gemini && \
+    export GEMINI_API_KEY=$(python3 -c "import boto3;print(boto3.client('ssm',region_name='ap-northeast-2').get_parameter(Name='/sunity/motion/gemini-api-key',WithDecryption=True)['Parameter']['Value'])") && \
+    cd /workspace/SunityMotion/backend && \
+    PYTHONPATH=shared/python:. python3 evals/phase25/run_sweep.py            # cold
+    PYTHONPATH=shared/python:. python3 evals/phase25/run_sweep.py --tag warm # warm 재실행
+"""
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import json
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+BACKEND = HERE.parent.parent  # backend/
+sys.path.insert(0, str(BACKEND / "shared" / "python"))
+sys.path.insert(0, str(BACKEND))
+
+BUCKET = "sunity-motion-pilot-videos"
+UID = "phase25eval"
+RUNID = str(int(time.time()))
+# phase18 6 페어 (combo 제외 — fault 영상 없음). climb=known not_pole 게이트,
+# kip-up=상체 감점 실효 판정 대상 (SCORE-15 — phase24 baseline 88 대비 방향 개선).
+PAIRS = ["power-spin", "peter-pan", "elbow-twist-sister", "pdshape", "kip-up", "climb"]
+COLD_RERUN_MOTION = "pdshape"  # in-run 결정성/선택 재현 검증용 (phase24 승계)
+
+UPPER_BODY_JOINTS = ("left_shoulder", "right_shoulder", "left_elbow", "right_elbow")
+
+# 현재 _process 가 트리거한 멤버 키 — tee wrapper 가 캡처를 귀속시킨다 (probe 패턴).
+_CURRENT = {"key": None}
+_COLLECT_CAP: dict[str, dict] = {}
+_SEED_CAP: dict[str, dict] = {}
+
+
+def _load_pipeline():
+    spec = importlib.util.spec_from_file_location(
+        "sunity_pipeline_app", str(BACKEND / "functions" / "pipeline" / "app.py")
+    )
+    pipeline = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pipeline)
+    pipeline._ensure_adapters()
+    return pipeline
+
+
+def _fault_key_json(rec: dict) -> dict:
+    """supported difference 1건 → JSON-안전 관측 dict (_faultKey canonical 만 소비)."""
+    fk = rec.get("_faultKey")
+    if hasattr(fk, "to_dict"):
+        fk = fk.to_dict()
+    elif not isinstance(fk, dict):
+        fk = None
+    return {
+        "faultKey": fk,
+        "severity": rec.get("severity"),
+        "supportCount": rec.get("_supportCount"),
+    }
+
+
+def _install_tee(pipeline) -> None:
+    """read-only tee 2종 설치 — 인자 무변경(at_seconds 불변), 캡처만."""
+    from sunity_shared.analysis import vision_veto as vv
+
+    orig_collect = pipeline._collect_vision_fault_context
+
+    def _collect_tee(**kwargs):
+        # 인자 변경 금지 — kwargs 그대로 통과 (리서치 함정 ③: at_seconds=None 은
+        # collect 내부의 Gemini 호출 소관이며 이 tee 는 접촉하지 않는다).
+        ctx = orig_collect(**kwargs)
+        try:
+            supported = list(getattr(ctx, "supported_differences", None) or [])
+            pointed = vv.pointed_joints_from_supported_differences(supported)
+            _COLLECT_CAP[_CURRENT["key"]] = {
+                "collectionStatus": getattr(ctx, "collection_status", None),
+                "pointedJoints": list(pointed),
+                "supportedCount": len(supported),
+                "supportedFaultKeys": [
+                    _fault_key_json(r) for r in supported if isinstance(r, dict)
+                ],
+            }
+        except Exception as exc:  # noqa: BLE001 — 관측 실패는 분석 흐름 차단 0
+            _COLLECT_CAP[_CURRENT["key"]] = {
+                "captureError": f"{type(exc).__name__}: {exc}"
+            }
+        return ctx
+
+    pipeline._collect_vision_fault_context = _collect_tee
+
+    orig_build = pipeline._build_deduction_measured_deviations
+
+    def _build_tee(**kwargs):
+        audit = kwargs.get("seed_audit_out")
+        if not isinstance(audit, dict):
+            audit = {}
+            kwargs["seed_audit_out"] = audit  # 25-01 관측 kwarg — 채점 경로 무접촉
+        md = orig_build(**kwargs)
+        _SEED_CAP[_CURRENT["key"]] = dict(audit)
+        return md
+
+    pipeline._build_deduction_measured_deviations = _build_tee
+
+
+def _aid(motion: str, role: str) -> str:
+    # s3keys analysisId 는 영숫자만 — 하이픈 슬러그 금지 (phase24 HIGH 2 정합).
+    return motion.replace("-", "") + role + RUNID
+
+
+def _run_member(pipeline, fa, models, motion: str, label: str, analysis_id: str) -> dict:
+    """단일 멤버 _process 직접 호출 + Firestore 결과 readback. SERIAL (완료까지 블로킹)."""
+    fixture = "fault" if label == "fault" else "correct"
+    key = f"fixtures/phase15/{motion}/{fixture}.mp4"
+    _CURRENT["key"] = f"{motion}:{label}:{analysis_id}"
+    fa._doc(models.analysis_doc_path(UID, analysis_id)).set({
+        "mode": models.MODE_EXPERT,              # mode1 = 정은지 reference 비교
+        "referenceMotionId": f"ref-{motion}",
+        "status": "uploading",
+        "createdAt": int(time.time() * 1000),
+        "fileName": analysis_id + ".mp4",
+        "videoKey": key,
+        "sourceLabel": f"phase25_sweep:{motion}:{label}",
+    })
+    err = None
+    try:
+        pipeline._process(BUCKET, key, UID, analysis_id)
+    except Exception as exc:  # noqa: BLE001 — not_pole 등은 doc 에 failed 로 기록됨
+        err = f"{type(exc).__name__}: {exc}"
+
+    d = fa.get_analysis(UID, analysis_id) or {}
+    r = d.get("result") or {}
+    ec = d.get("errorCode")
+    bd = r.get("deductionBreakdown")
+    vv = r.get("visionVeto")
+    rec = {
+        "motion_id": motion,
+        "label": label,
+        "analysisId": analysis_id,
+        "status": d.get("status"),
+        "overallScore": r.get("overallScore"),
+        "errorCode": ec.get("code") if isinstance(ec, dict) else ec,
+        "exception": err,
+        "deductionBreakdown": bd,
+        "visionVeto": vv,
+        # tee 캡처 귀속 (없으면 None — not_pole 등 채점 전 중단 멤버).
+        "collectObservation": _COLLECT_CAP.pop(_CURRENT["key"], None),
+        "seedObservation": _SEED_CAP.pop(_CURRENT["key"], None),
+    }
+    crit = None
+    if isinstance(bd, dict):
+        crit = sorted({rr.get("criterion") for rr in (bd.get("records") or [])})
+    rec["activatedCriteria"] = crit
+    co = rec["collectObservation"] or {}
+    so = rec["seedObservation"] or {}
+    print(
+        f"  done {motion:20s} {label:7s} status={rec['status']} "
+        f"overall={rec['overallScore']} crit={crit} "
+        f"pointed={co.get('pointedJoints')} window={so.get('window_joints')} "
+        f"err={rec['errorCode'] or err or '-'}",
+        flush=True,
+    )
+    return rec
+
+
+def _pointing_fp_summary(report: list[dict]) -> dict:
+    """짚기-FP율 관측 요약 (OD-2 — 관측 지표, 게이트 아님)."""
+    success = [r for r in report if r["label"] == "success"]
+    observed = [r for r in success if isinstance(r.get("collectObservation"), dict)]
+    by_member = {}
+    pointed_any = pointed_upper = 0
+    for r in observed:
+        pj = list((r["collectObservation"] or {}).get("pointedJoints") or ())
+        upper = [j for j in pj if j in UPPER_BODY_JOINTS]
+        by_member[r["motion_id"]] = {"pointed": pj, "pointedUpper": upper}
+        pointed_any += 1 if pj else 0
+        pointed_upper += 1 if upper else 0
+    return {
+        "note": "짚기-FP율 = success 멤버 중 Gemini 가 관절을 짚은 빈도 — 관측 지표"
+                "(게이트 아님, OD-2). 감점 판정은 window 측정 + tol 20° 게이트 소관.",
+        "successObserved": len(observed),
+        "pointedAny": pointed_any,
+        "pointedUpper": pointed_upper,
+        "byMember": by_member,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Phase 25 sweep (serial, in-process)")
+    parser.add_argument(
+        "--tag", choices=("cold", "warm"), default="cold",
+        help="cold=캐시 전량 miss 1차 실행(기본) / warm=재실행(캐시 hit, *_warm.json 기록)",
+    )
+    args = parser.parse_args()
+    suffix = "" if args.tag == "cold" else "_warm"
+
+    from sunity_shared import firestore_admin as fa, models  # noqa: E402
+
+    print(
+        f"[setup] runId={RUNID} uid={UID} tag={args.tag} pairs={len(PAIRS)} "
+        "(serial, in-process, tee=collect+seed)",
+        flush=True,
+    )
+    pipeline = _load_pipeline()
+    _install_tee(pipeline)
+
+    report: list[dict] = []
+    artifact: dict[str, dict] = {}
+
+    for motion in PAIRS:
+        print(f"\n[pair] {motion}", flush=True)
+        fault_rec = _run_member(pipeline, fa, models, motion, "fault", _aid(motion, "Fault"))
+        correct_rec = _run_member(pipeline, fa, models, motion, "success", _aid(motion, "Correct"))
+        report.append(fault_rec)
+        report.append(correct_rec)
+        artifact[motion] = {
+            "fault": fault_rec["deductionBreakdown"],
+            "correct": correct_rec["deductionBreakdown"],
+        }
+
+    # ── in-run cold re-run (결정성 + criterion selection 재현 — phase24 승계) ──
+    print(f"\n[cold-rerun] {COLD_RERUN_MOTION} correct (2nd, distinct id)", flush=True)
+    cold = _run_member(
+        pipeline, fa, models, COLD_RERUN_MOTION, "success",
+        _aid(COLD_RERUN_MOTION, "ColdCorrect"),
+    )
+    warm = next(
+        (r for r in report if r["motion_id"] == COLD_RERUN_MOTION and r["label"] == "success"),
+        None,
+    )
+    cold_check = {
+        "motion": COLD_RERUN_MOTION,
+        "warm_overall": warm["overallScore"] if warm else None,
+        "cold_overall": cold["overallScore"],
+        "warm_criteria": warm["activatedCriteria"] if warm else None,
+        "cold_criteria": cold["activatedCriteria"],
+        "selection_identical": (
+            bool(warm) and warm["activatedCriteria"] == cold["activatedCriteria"]
+        ),
+    }
+    print(f"  cold-check: {json.dumps(cold_check, ensure_ascii=False)}", flush=True)
+
+    fp_summary = _pointing_fp_summary(report)
+
+    out_dir = HERE / "baseline"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"phase25_breakdowns{suffix}.json").write_text(
+        json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (out_dir / f"phase25_sweep_report{suffix}.json").write_text(
+        json.dumps(
+            {
+                "_meta": {
+                    "phase": "25",
+                    "runId": RUNID,
+                    "uid": UID,
+                    "tag": args.tag,
+                    "captured_epoch": int(time.time()),
+                    "scorer": "phase25_vision_pointed_window_merge",
+                    "mode": "mode1",
+                    "run": "serial in-process _process (pipeline-not-concurrency-safe-eval-serial)",
+                    "tee": "collectObservation + seedObservation (read-only, at_seconds 불변)",
+                    "objectivity": "fault 라벨=영상 파생. 점수=채점기 결정론 출력 스냅샷(라벨 아님).",
+                },
+                "results": report,
+                "cold_rerun_check": cold_check,
+                "pointingFpObservation": fp_summary,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    print(
+        f"\n[done] wrote baseline/phase25_breakdowns{suffix}.json ({len(artifact)} motions) "
+        f"+ baseline/phase25_sweep_report{suffix}.json",
+        flush=True,
+    )
+
+    # 관찰 요약 (belle 검증 — pass/fail 게이트 아님. 게이트는 assert_gates.py).
+    print("\n=== SWEEP OBSERVATION (belle review) ===", flush=True)
+    print(f"{'motion':22s} | {'fault.overall':13s} | {'correct.overall':15s} | verdict", flush=True)
+    for motion in PAIRS:
+        f = next((r for r in report if r["motion_id"] == motion and r["label"] == "fault"), {})
+        c = next((r for r in report if r["motion_id"] == motion and r["label"] == "success"), {})
+        fo, co = f.get("overallScore"), c.get("overallScore")
+        if fo is None or co is None:
+            verdict = f"gate/err (fault={f.get('errorCode') or f.get('status')}, correct={c.get('errorCode') or c.get('status')})"
+        elif fo < co:
+            verdict = f"discriminate (margin={co - fo})"
+        elif fo == co:
+            verdict = "TIE (no discrimination)"
+        else:
+            verdict = "INVERTED (fault>correct — investigate)"
+        print(f"{motion:22s} | {str(fo):13s} | {str(co):15s} | {verdict}", flush=True)
+    print(
+        f"pointing-FP: success {fp_summary['successObserved']} 관측 — any "
+        f"{fp_summary['pointedAny']} / upper {fp_summary['pointedUpper']} (관측만)",
+        flush=True,
+    )
+    print("ALLDONE", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

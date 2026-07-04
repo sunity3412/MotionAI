@@ -324,3 +324,90 @@ def test_no_fixed_score_target_in_gate_source():
     assert "< 88" not in src and "<88" not in src, (
         "fixed kip-up score target leaked into gate source (must be baseline-relative)"
     )
+
+
+# ── harness tee smoke (pod-free — fake pipeline 로 배선 검증) ─────────────────
+
+
+def _load_sweep():
+    path = (pathlib.Path(__file__).resolve().parents[1]
+            / "evals" / "phase25" / "run_sweep.py")
+    spec = importlib.util.spec_from_file_location("phase25_run_sweep", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class _FakeCtx:
+    def __init__(self, status, supported):
+        self.collection_status = status
+        self.supported_differences = supported
+
+
+class _FakePipeline:
+    """tee 설치 대상 최소 표면 — 원본 호출/인자 전달을 기록한다."""
+
+    def __init__(self):
+        self.collect_kwargs = None
+        self.build_kwargs = None
+
+        def _collect(**kwargs):
+            self.collect_kwargs = kwargs
+            return _FakeCtx("collected", [{
+                "_faultKey": {"part_scope": "upper_body", "side": "left",
+                              "keypoint_set": "shoulder",
+                              "fault_kind": "pole_gap_or_bent"},
+                "body_part": "왼쪽 어깨", "severity": "moderate",
+                "_supportCount": 2,
+            }])
+
+        def _build(**kwargs):
+            self.build_kwargs = kwargs
+            audit = kwargs.get("seed_audit_out")
+            if isinstance(audit, dict):
+                audit["pointed"] = ["left_shoulder"]
+                audit["window_joints"] = ["left_shoulder"]
+                audit["fallback_joints"] = ["left_knee"]
+            return {"angle_vs_reference__left_shoulder": 25.0}
+
+        self._collect_vision_fault_context = _collect
+        self._build_deduction_measured_deviations = _build
+
+
+def test_tee_collect_is_read_only_and_captures_pointed():
+    sweep = _load_sweep()
+    fake = _FakePipeline()
+    sweep._CURRENT["key"] = "kip-up:fault:smoke"
+    sweep._install_tee(fake)
+    ctx = fake._collect_vision_fault_context(
+        overall_score=80, dimension_scores={}, mode="expert",
+        local_video_path="/tmp/u.mp4", reference_video_path="/tmp/r.mp4",
+    )
+    # read-only: 원본이 받은 kwargs 가 호출 kwargs 그대로 (인자 변경 0 — at_seconds 불변).
+    assert fake.collect_kwargs == {
+        "overall_score": 80, "dimension_scores": {}, "mode": "expert",
+        "local_video_path": "/tmp/u.mp4", "reference_video_path": "/tmp/r.mp4",
+    }
+    assert ctx.collection_status == "collected"
+    cap = sweep._COLLECT_CAP.pop("kip-up:fault:smoke")
+    assert cap["collectionStatus"] == "collected"
+    assert cap["pointedJoints"] == ["left_shoulder"]
+    assert cap["supportedFaultKeys"][0]["faultKey"]["keypoint_set"] == "shoulder"
+    assert cap["supportedFaultKeys"][0]["supportCount"] == 2
+
+
+def test_tee_build_injects_seed_audit_and_captures():
+    sweep = _load_sweep()
+    fake = _FakePipeline()
+    sweep._CURRENT["key"] = "kip-up:fault:smoke2"
+    sweep._install_tee(fake)
+    md = fake._build_deduction_measured_deviations(angles=None, profile=None,
+                                                   assessments=None,
+                                                   dimension_scores=None,
+                                                   quantification=None)
+    # 반환값 무변경 + seed_audit_out 주입 확인.
+    assert md == {"angle_vs_reference__left_shoulder": 25.0}
+    assert isinstance(fake.build_kwargs.get("seed_audit_out"), dict)
+    cap = sweep._SEED_CAP.pop("kip-up:fault:smoke2")
+    assert cap == {"pointed": ["left_shoulder"], "window_joints": ["left_shoulder"],
+                   "fallback_joints": ["left_knee"]}

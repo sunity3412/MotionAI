@@ -170,3 +170,114 @@ def test_build_ref_low_conf_finite_is_crop_not_full():
     assert len(comps) == 1
     px = _png_pixel(comps[0]["png"], fz._OUT + 6 + 2, 2)
     assert px != (255, 255, 255), "relaxed = 부위 crop (전신 contain-fit 아님)"
+
+
+# ─────────── Task 2 — 앵커 정밀화 (circle=관절 좌표, relaxed/full 생략) ───────────
+
+
+def test_side_crop_anchor_maps_to_joint_pixel():
+    """valid grouped crop 의 anchor_px = 결함 관절의 crop-내 상대 좌표.
+
+    400px 프레임, pts x=100/300px → bbox 200 → 변 = 200*1.8=360, left/top=20.
+    anchor (0.25,0.5) → ((100-20)/360*360, (200-20)/360*360) = (80,180) ≠ 중앙.
+    """
+    frame = _grad_frames()[0]
+    _img, kind, anchor_px = fz._side_crop(
+        frame, [(0.25, 0.5), (0.75, 0.5)], [], anchor=(0.25, 0.5)
+    )
+    assert kind == "valid"
+    assert anchor_px == (80, 180)
+    assert anchor_px != (fz._OUT // 2, fz._OUT // 2), "crop 중심 고정이 아님"
+
+
+def test_side_crop_relaxed_and_full_have_no_anchor():
+    """relaxed/full 측은 anchor_px = None (좌표 불확실 — 확정 표식 금지)."""
+    frame = _grad_frames()[0]
+    assert fz._side_crop(frame, [], [(0.5, 0.5)], anchor=(0.5, 0.5))[2] is None
+    assert fz._side_crop(frame, [], [], anchor=(0.5, 0.5))[2] is None
+
+
+def test_mark_circle_drawn_at_anchor_not_center():
+    """_mark 의 circle 이 anchor_px 에 그려진다 (픽셀 검증)."""
+    img = Image.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
+    fz._mark(img, None, circle=True, anchor_px=(80, 180))
+    r = int(fz._OUT * 0.16)
+    assert img.getpixel((80 + r, 180)) == (255, 75, 51), "링이 anchor 를 둘러쌈"
+    assert img.getpixel((fz._OUT // 2 + r, fz._OUT // 2)) == (0, 0, 0), (
+        "구 crop-중앙 링 위치엔 없음"
+    )
+    # anchor_px 부재 → 기존 중앙 circle (하위호환, 기존 테스트와 동일 규칙).
+    img2 = Image.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
+    fz._mark(img2, None, circle=True)
+    c = fz._OUT // 2
+    assert img2.getpixel((c + r, c)) == (255, 75, 51)
+
+
+def _spy_mark(monkeypatch):
+    calls: list[tuple[bool, tuple[int, int] | None]] = []
+    orig = fz._mark
+
+    def spy(img, deficit, circle=True, anchor_px=None):
+        calls.append((circle, anchor_px))
+        return orig(img, deficit, circle=circle, anchor_px=anchor_px)
+
+    monkeypatch.setattr(fz, "_mark", spy)
+    return calls
+
+
+def test_build_grouped_circle_at_max_deficit_joint(monkeypatch):
+    """grouped(legs) 카드의 circle = deficit 최대 대표 관절 좌표 (호출 인자 검증).
+
+    400px 프레임, 4관절 px 120..280 → bbox 160 → 변 288, left/top=56.
+    right_knee(0.7,0.7)=280px, delta 최대 → anchor = ((280-56)/288*360)=(280,280).
+    """
+    calls = _spy_mark(monkeypatch)
+    legs = {
+        "left_hip": (0.3, 0.3), "right_hip": (0.7, 0.3),
+        "left_knee": (0.3, 0.7), "right_knee": (0.7, 0.7),
+    }
+    frames = _grad_frames(9)
+    rep = _report_pos(9, 9.0, legs, {j: 0.9 for j in legs})
+    comps = fz.build_fault_zoom_comparisons(
+        frames, frames, rep, rep,
+        worst_seconds=0.5, fault_joints=list(legs),
+        joint_deltas={
+            "left_hip": 10.0, "right_hip": 12.0,
+            "left_knee": 15.0, "right_knee": 35.0,
+        },
+        frames_fps=9.0, joint_kinds={j: "deficit" for j in legs},
+    )
+    assert len(comps) == 1 and comps[0]["region"] == "legs"
+    assert calls == [(True, (280, 280))], "circle=대표(deficit 최대) 관절 좌표"
+
+
+def test_build_relaxed_user_side_no_circle(monkeypatch):
+    """user 측 저신뢰-유한(relaxed) → circle=False (앵커 생략, deficit 배지 유지)."""
+    calls = _spy_mark(monkeypatch)
+    frames = _grad_frames(9)
+    user_rep = _report_pos(9, 9.0, {"left_knee": (0.5, 0.5)}, {"left_knee": 0.1})
+    ref_rep = _report_pos(9, 9.0, {"left_knee": (0.5, 0.5)}, {"left_knee": 0.9})
+    comps = fz.build_fault_zoom_comparisons(
+        frames, frames, user_rep, ref_rep,
+        worst_seconds=0.5, fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+    )
+    assert len(comps) == 1 and comps[0]["deficitDeg"] == 20.0
+    assert calls == [(False, None)], "relaxed 측 circle 생략"
+
+
+def test_build_full_user_side_no_circle(monkeypatch):
+    """user 측 좌표 결측(full 폴백) → circle=False (기존 규칙 유지)."""
+    calls = _spy_mark(monkeypatch)
+    frames = _grad_frames(9)
+    user_rep = _report_pos(
+        9, 9.0, {"left_knee": (float("nan"), float("nan"))}, {"left_knee": 0.9}
+    )
+    ref_rep = _report_pos(9, 9.0, {"left_knee": (0.5, 0.5)}, {"left_knee": 0.9})
+    comps = fz.build_fault_zoom_comparisons(
+        frames, frames, user_rep, ref_rep,
+        worst_seconds=0.5, fault_joints=["left_knee"],
+        joint_deltas=None, frames_fps=9.0,
+    )
+    assert len(comps) == 1
+    assert calls == [(False, None)], "전신 폴백 측 circle 생략 (기존 그대로)"

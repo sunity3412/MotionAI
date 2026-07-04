@@ -233,32 +233,15 @@ def _kp_conf(report: dict, frame_idx: int, joint: str) -> float | None:
     return c if np.isfinite(c) else None
 
 
-def _valid_kp_xy(
-    report: dict, frame_idx: int, joint: str
-) -> tuple[float, float] | None:
-    """confidence 게이트 통과한 정규화 좌표 (x,y) | None.
+def _crop_box(
+    h: int, w: int, cx: float, cy: float, side: int | None = None
+) -> tuple[int, int, int]:
+    """정규화 중심 (cx,cy) 의 정사각 crop 박스 (left, top, side_px) — 순수 기하.
 
-    valid = 좌표 finite AND (confidence 부재 → 통과 | confidence >= _KP_CONF_MIN).
-    저신뢰 keypoint 를 crop 앵커로 쓰면 엉뚱한 부위가 확대됨 (quick-260702-sic).
+    side None 이면 min(H,W)*_CROP_FRAC (기존 단일 관절 zoom). 경계를 넘으면
+    안쪽으로 shift (검은 패딩 회피) + 프레임 내 clamp (T-25-07 — NaN 은 상류
+    finite 검사에서 이미 차단, 범위밖 좌표는 여기서 clamp).
     """
-    xy = _kp_xy(report, frame_idx, joint)
-    if xy is None:
-        return None
-    c = _kp_conf(report, frame_idx, joint)
-    if c is not None and c < _KP_CONF_MIN:
-        return None
-    return xy
-
-
-def _crop_zoom(
-    frame: np.ndarray, cx: float, cy: float, side: int | None = None
-) -> Image.Image:
-    """정규화 중심 (cx,cy) 주변을 정사각 crop 후 _OUT 으로 리사이즈.
-
-    crop 한 변 = side px (None 이면 min(H,W)*_CROP_FRAC — 기존 단일 관절 zoom).
-    경계를 넘으면 안쪽으로 shift (검은 패딩 회피).
-    """
-    h, w = frame.shape[0], frame.shape[1]
     if side is None:
         side = max(16, int(round(min(h, w) * _CROP_FRAC)))
     side = max(16, min(int(side), min(h, w)))
@@ -267,11 +250,14 @@ def _crop_zoom(
     top = int(round(py - side / 2))
     left = max(0, min(left, w - side)) if w >= side else 0
     top = max(0, min(top, h - side)) if h >= side else 0
-    right = min(w, left + side)
-    bottom = min(h, top + side)
-    crop = frame[top:bottom, left:right]
-    img = Image.fromarray(crop).convert("RGB").resize((_OUT, _OUT), Image.BILINEAR)
-    return img
+    return left, top, side
+
+
+def _render_crop(frame: np.ndarray, left: int, top: int, side: int) -> Image.Image:
+    """crop 박스를 잘라 (_OUT,_OUT) 으로 리사이즈."""
+    h, w = frame.shape[0], frame.shape[1]
+    crop = frame[top:min(h, top + side), left:min(w, left + side)]
+    return Image.fromarray(crop).convert("RGB").resize((_OUT, _OUT), Image.BILINEAR)
 
 
 def _full_frame_fit(frame: np.ndarray) -> Image.Image:
@@ -293,14 +279,18 @@ def _full_frame_fit(frame: np.ndarray) -> Image.Image:
 
 def _member_pts(
     report: dict, frame_idx: int, members: tuple[str, ...]
-) -> tuple[list[tuple[float, float]], list[tuple[float, float]]]:
-    """unit 멤버 keypoint 를 (valid, relaxed) 좌표 리스트로 분류.
+) -> tuple[
+    list[tuple[str, tuple[float, float]]], list[tuple[float, float]]
+]:
+    """unit 멤버 keypoint 를 (valid, relaxed) 로 분류.
 
-    valid = 좌표 finite AND confidence 게이트 통과 (_valid_kp_xy 와 동일 규칙).
+    valid = 좌표 finite AND (confidence 부재 → 통과 | confidence >= _KP_CONF_MIN)
+    — (관절명, 좌표) 쌍 (앵커 대표 관절 선택에 관절명 필요, Phase 25-03 Task 2).
+    저신뢰 keypoint 를 crop 앵커로 쓰면 엉뚱한 부위가 확대됨 (quick-260702-sic).
     relaxed = 좌표 finite 이지만 confidence < _KP_CONF_MIN — 완화 crop 후보.
     좌표 자체 결측(NaN/부재)은 어느 쪽에도 안 들어감 (전신 폴백 대상).
     """
-    valid: list[tuple[float, float]] = []
+    valid: list[tuple[str, tuple[float, float]]] = []
     relaxed: list[tuple[float, float]] = []
     for m in members:
         xy = _kp_xy(report, frame_idx, m)
@@ -310,18 +300,44 @@ def _member_pts(
         if c is not None and c < _KP_CONF_MIN:
             relaxed.append(xy)
         else:
-            valid.append(xy)
+            valid.append((m, xy))
     return valid, relaxed
+
+
+def _anchor_xy(
+    valid: list[tuple[str, tuple[float, float]]],
+    deltas: dict[str, float] | None,
+) -> tuple[float, float]:
+    """앵커(대표) 관절의 정규화 좌표 — deficit(|delta|) 최대 valid 멤버.
+
+    delta 없는/비유한 멤버는 후보 제외, 전원 delta 부재면 첫 valid 멤버
+    (fault_joints 순서 보존). grouped(2관절+) 카드의 circle 1개 대상 선정.
+    """
+    best_xy = valid[0][1]
+    best_mag = -1.0
+    for name, xy in valid:
+        d = (deltas or {}).get(name)
+        try:
+            mag = abs(float(d))
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(mag) and mag > best_mag:
+            best_mag, best_xy = mag, xy
+    return best_xy
 
 
 def _side_crop(
     frame: np.ndarray,
     valid_pts: list[tuple[float, float]],
     relaxed_pts: list[tuple[float, float]],
-) -> tuple[Image.Image, str]:
-    """한 측(user/ref)의 unit crop 3단 강하 → (이미지, crop_kind).
+    anchor: tuple[float, float] | None = None,
+) -> tuple[Image.Image, str, tuple[int, int] | None]:
+    """한 측(user/ref)의 unit crop 3단 강하 → (이미지, crop_kind, anchor_px).
 
     crop_kind ∈ {"valid", "relaxed", "full"} — _mark 가 앵커 표시 여부 결정.
+    anchor_px = anchor(결함 관절 정규화 좌표)의 crop-내 출력 픽셀 좌표 — valid
+    crop 에서만 산출 (circle 을 crop 중심이 아닌 관절 좌표에 고정, Task 2).
+    relaxed/full 은 좌표 불확실이라 None (앵커 생략 = 오인 방지).
 
     (1) valid(신뢰 좌표) 있음 → 기존 로직 그대로: 1개=단일 관절 zoom, 2개 이상
         (grouped)=멤버 bounding box crop (변 = max(bbox)*_BBOX_MARGIN,
@@ -337,7 +353,7 @@ def _side_crop(
     """
     h, w = frame.shape[0], frame.shape[1]
 
-    def _crop_for(pts: list[tuple[float, float]], margin: float) -> Image.Image:
+    def _box_for(pts: list[tuple[float, float]], margin: float):
         xs = [p[0] * w for p in pts]
         ys = [p[1] * h for p in pts]
         cx = (min(xs) + max(xs)) / 2 / w
@@ -346,16 +362,24 @@ def _side_crop(
         if len(pts) > 1:
             bbox_side = max(max(xs) - min(xs), max(ys) - min(ys))
             side = max(side, int(round(bbox_side * _BBOX_MARGIN)))
-        # margin 확대 후에도 _crop_zoom 이 프레임 경계로 clamp (T-25-07).
-        return _crop_zoom(frame, cx, cy, side=int(round(side * margin)))
+        # margin 확대 후에도 _crop_box 가 프레임 경계로 clamp (T-25-07).
+        return _crop_box(h, w, cx, cy, int(round(side * margin)))
 
     if valid_pts:
-        if len(valid_pts) == 1:
-            return _crop_zoom(frame, valid_pts[0][0], valid_pts[0][1]), "valid"
-        return _crop_for(valid_pts, 1.0), "valid"
+        left, top, s = _box_for(valid_pts, 1.0)
+        anchor_px: tuple[int, int] | None = None
+        if anchor is not None:
+            ax = int(round((anchor[0] * w - left) / s * _OUT))
+            ay = int(round((anchor[1] * h - top) / s * _OUT))
+            anchor_px = (
+                max(0, min(_OUT - 1, ax)),
+                max(0, min(_OUT - 1, ay)),
+            )
+        return _render_crop(frame, left, top, s), "valid", anchor_px
     if relaxed_pts:
-        return _crop_for(relaxed_pts, _RELAXED_MARGIN), "relaxed"
-    return _full_frame_fit(frame), "full"
+        left, top, s = _box_for(relaxed_pts, _RELAXED_MARGIN)
+        return _render_crop(frame, left, top, s), "relaxed", None
+    return _full_frame_fit(frame), "full", None
 
 
 def _deficit_label(deficit_deg: float) -> str:
@@ -369,19 +393,25 @@ def _deficit_label(deficit_deg: float) -> str:
 
 
 def _mark(
-    img: Image.Image, deficit_deg: float | None, circle: bool = True
+    img: Image.Image,
+    deficit_deg: float | None,
+    circle: bool = True,
+    anchor_px: tuple[int, int] | None = None,
 ) -> Image.Image:
-    """crop 중앙에 브랜드 원 + (deficit 있으면) 숫자 배지. 한글 없음(폰트 회피).
+    """브랜드 원 + (deficit 있으면) 숫자 배지. 한글 없음(폰트 회피).
 
-    circle=False = 전신 폴백 측 (중앙이 결함 부위가 아니므로 원 생략 — 오인 방지).
-    deficit 배지는 유지. 라벨 포맷 = _deficit_label ("40°") — confirmed/advisory
-    양 배치가 본 함수를 공유하므로 동일 적용.
+    circle 중심 = anchor_px(결함 관절의 crop-내 좌표, Phase 25-03 Task 2 —
+    grouped bbox crop 에서 관절이 중심을 벗어나도 원이 관절을 가리킴). anchor_px
+    None 이면 기존 crop 중앙 (하위호환).
+    circle=False = relaxed/전신 폴백 측 (좌표 불확실/중앙 비결함 — 원 생략,
+    오인 방지). deficit 배지는 유지. 라벨 포맷 = _deficit_label ("40°") —
+    confirmed/advisory 양 배치가 본 함수를 공유하므로 동일 적용.
     """
     draw = ImageDraw.Draw(img)
     if circle:
-        c = _OUT // 2
+        cx, cy = anchor_px if anchor_px is not None else (_OUT // 2, _OUT // 2)
         r = int(_OUT * 0.16)
-        draw.ellipse([c - r, c - r, c + r, c + r], outline=_BRAND, width=4)
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=_BRAND, width=4)
     if deficit_deg is not None and deficit_deg > 0:
         txt = _deficit_label(deficit_deg)
         # 배지 배경 (가독성) — 우상단. 폭 추정 = 글자당 8px 상한 유지
@@ -502,9 +532,18 @@ def build_fault_zoom_comparisons(
         ]
         deficit = max(member_deltas) if member_deltas else None
         try:
-            u_img, u_kind = _side_crop(user_frames[u_idx], u_valid, u_relaxed)
-            u_crop = _mark(u_img, deficit, circle=u_kind == "valid")
-            r_crop, _r_kind = _side_crop(ref_frames[r_idx], r_valid, r_relaxed)
+            u_img, u_kind, u_anchor = _side_crop(
+                user_frames[u_idx],
+                [xy for _n, xy in u_valid],
+                u_relaxed,
+                anchor=_anchor_xy(u_valid, deltas) if u_valid else None,
+            )
+            u_crop = _mark(
+                u_img, deficit, circle=u_kind == "valid", anchor_px=u_anchor
+            )
+            r_crop, _r_kind, _r_anchor = _side_crop(
+                ref_frames[r_idx], [xy for _n, xy in r_valid], r_relaxed
+            )
             png = _compose(u_crop, r_crop)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue

@@ -496,6 +496,62 @@ class TestScenarioHint:
         assert "비전 분석 원인 단서" not in stub.prompts[0]
 
 
+class TestCausalChainDirective:
+    """quick-260704-fwb — 처방 구조 (원인 기전 사슬) 지시가 시스템/유저 프롬프트에 포함."""
+
+    def test_system_instruction_has_chain_rule_and_state_ban(self) -> None:
+        instr = coach_writer_v2._COACH_SYSTEM_INSTRUCTION
+        # (a) 기전 사슬 지시.
+        assert "무엇 때문에" in instr
+        assert "무너지" in instr
+        # (b) 상태-서술-금지.
+        assert "상태 서술만 있는 explanation" in instr
+        # low-deviation 가이드와 공존 (기존 라인 유지).
+        assert "low-deviation" in instr
+        # 객관성 가드 유지.
+        assert "절대 금지: 점수" in instr
+
+    def test_chain_rule_reaches_prompt(self, tmp_path, monkeypatch) -> None:
+        """_COACH_SYSTEM_INSTRUCTION prefix 경유 — 실제 Gemini 프롬프트에 지시 도달."""
+        stub = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub)
+
+        writer = GeminiCoachWriter()
+        writer.write(_context(tmp_path))
+
+        assert "무엇 때문에" in stub.prompts[0]
+        assert "상태 서술만 있는 explanation" in stub.prompts[0]
+
+    def test_vision_fault_hint_promoted_to_chain_start(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """visionFault 가설이 '원인 사슬 출발점' 지시로 승격 ('참고' 힌트 아님)."""
+        stub = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub)
+
+        ctx = _context(tmp_path)
+        ctx["visionFault"] = {
+            "rootCauseHypotheses": [{"text": "코어 힘이 부족해 골반이 처진 것으로 보임"}],
+        }
+        writer = GeminiCoachWriter()
+        writer.write(ctx)
+
+        assert "출발점" in stub.prompts[0]
+
+    def test_vision_fault_absent_prompt_unchanged(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """(c) visionFault 부재 — 원인 단서 섹션 미주입 + 크래시 0 (graceful 불변)."""
+        stub = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub)
+
+        writer = GeminiCoachWriter()
+        writer.write(_context(tmp_path))
+
+        assert "비전 분석 원인 단서" not in stub.prompts[0]
+        assert "출발점" not in stub.prompts[0]
+
+
 class TestFirestoreAdminGeminiBKwarg:
     """firestore_admin.complete_analysis(gemini_b=...) Firestore set payload 에 `geminiB` 박힘."""
 

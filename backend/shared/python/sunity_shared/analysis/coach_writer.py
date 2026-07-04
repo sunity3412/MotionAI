@@ -26,8 +26,19 @@ _SYSTEM = (
     "연습할지 알려준다. 부상 위험이 보이면 명시. 마지막은 코치와 영상 함께 "
     "확인하라는 권고로 마무리한다.\n"
     "\n"
+    "[처방 구조 규칙 — 반드시 지킨다]\n"
+    "각 cause 의 explanation 은 '무엇 때문에(원인) → 무엇이 무너지는지(결과 기전)' "
+    "사슬로 쓴다. 예: '왼팔 위치가 불안정해 상체 지지가 무너지고, 그로 인해 "
+    "균형이 흐트러질 수 있어요'.\n"
+    "상태 서술만 있는 문장 금지 — '상체가 흐트러졌어요' 처럼 원인 없이 상태만 "
+    "말하는 explanation 은 만들지 않는다.\n"
+    "각 cause 의 fix 는 그 원인일 경우 어떻게 연습/교정하는지 구체 행동 지시 "
+    "(자세 큐, 반복 방법) 로 쓴다.\n"
+    "detail(카드 한 줄) 은 관찰 서술이 아니라 바로 따라 할 수 있는 실행 지시형으로 쓴다.\n"
+    "\n"
     "정확한 기준 각도만 인용하고 임의 수치를 생성하지 않으며, 동작별 정의 각도를 "
-    "180° 로 일반화하지 않는다.\n"
+    "180° 로 일반화하지 않는다. 주입된 실측 데이터(관절 편차, 기준 각도, 비전 관찰)만 "
+    "근거로 쓰고, 측정되지 않은 수치나 부위를 측정된 것처럼 말하지 않는다.\n"
     "\n"
     "JSON 으로만 답한다. 다른 텍스트, 마크다운, 주석 금지."
 )
@@ -79,19 +90,50 @@ def _format_vision_fault_lines(vision_fault: dict | None) -> list[str]:
 
     coach gate(eligible_for_coach)는 pipeline 이 이미 판단 — 여기 도달한 vision_fault 는
     주입 대상이다. rootCauseHypotheses(support-gated, "~로 보임" 가설형, D-13 MED-1)를
-    원인(causes) 섹션 힌트로 렌더한다. 빈/None → 빈 list (기존 동작 불변).
+    causes 원인 사슬의 **출발점** 지시로 렌더한다 (quick-260704-fwb — 단순 '참고' 힌트에서
+    승격). supportedDifferences 가 있으면 서술 텍스트 필드만 골라 실측 근거 라인으로
+    추가 렌더 — 키 부재/형상 불일치 시 기존 동작 불변 (fabrication 0).
+    빈/None → 빈 list (기존 동작 불변).
     """
     if not vision_fault:
         return []
+    lines: list[str] = []
     hyps = vision_fault.get("rootCauseHypotheses") or []
-    if not hyps:
-        return []
-    lines = ["", "비전 분석이 관찰한 가능한 원인 (causes 작성 시 참고 — '~로 보임' 가설):"]
+    hyp_lines: list[str] = []
     for h in hyps:
         text = str((h or {}).get("text", "")).strip()
         if text:
-            lines.append(f"- {text}")
-    return lines if len(lines) > 2 else []
+            hyp_lines.append(f"- {text}")
+    if hyp_lines:
+        lines.extend([
+            "",
+            "비전 분석이 관찰한 가능한 원인 (이 가설을 causes 원인 사슬의 출발점으로 "
+            "사용 — '~로 보임' 가설 어투 유지):",
+        ])
+        lines.extend(hyp_lines)
+    # 실측 근거 (supportedDifferences) — 서술 텍스트 필드만, 방어적 (없으면 불변).
+    diffs = vision_fault.get("supportedDifferences")
+    if isinstance(diffs, list):
+        diff_lines: list[str] = []
+        for d in diffs:
+            if not isinstance(d, dict):
+                continue
+            body_part = str(d.get("body_part") or "").strip()
+            fault_state = str(d.get("fault_state") or "").strip()
+            correct_state = str(d.get("correct_state") or "").strip()
+            if not fault_state:
+                continue
+            line = "- " + (f"{body_part} — " if body_part else "") + fault_state
+            if correct_state:
+                line += f" (올바른 상태: {correct_state})"
+            diff_lines.append(line)
+        if diff_lines:
+            lines.extend([
+                "",
+                "비전 분석 실측 관찰 (측정된 것만 — 여기 없는 수치/부위 생성 금지):",
+            ])
+            lines.extend(diff_lines)
+    return lines
 
 
 def _build_prompt(

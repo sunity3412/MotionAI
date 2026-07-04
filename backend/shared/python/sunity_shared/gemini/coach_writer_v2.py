@@ -149,6 +149,13 @@ _COACH_SYSTEM_INSTRUCTION: str = (
     "2. 각 관절의 detail 또는 첫 번째 cause.fix 에 '강사 / 함께 / 확인' 3 단어 가\n"
     "   동시에 포함된 한 문장 박혀야 함 (예: '정확한 자세는 강사와 함께 영상 확인 권고').\n"
     "\n"
+    "[원인 기전 사슬 규칙]\n"
+    "각 cause.explanation 은 '무엇 때문에(원인) → 무엇이 무너지는지(결과 기전)' 사슬로\n"
+    "작성 (예: '왼팔 위치가 불안정해 상체 지지가 무너지고, 그로 인해 균형이 흐트러질 수 있어요').\n"
+    "상태 서술만 있는 explanation (예: '상체가 흐트러졌어요') 금지 — 원인과 무너지는 결과를\n"
+    "반드시 연결.\n"
+    "각 cause.fix 는 그 원인일 경우의 구체 연습/교정 방법 (자세 큐, 반복 방법) 으로 작성.\n"
+    "\n"
     "[low-deviation 케이스 가이드]\n"
     "deviation 수치가 작더라도 (1~5도) '양호함/완벽함/문제없음' 같은 평가 어휘 금지.\n"
     "그 자세에서 발생 가능한 잠재 원인 (예: 견갑 안정성, 회전근개 활성, 코어 긴장 등) 을\n"
@@ -163,14 +170,19 @@ def _format_vision_fault_lines(vision_fault: dict | None) -> list[str]:
 
     coach gate(eligible_for_coach)는 pipeline 이 이미 판단 — 여기 도달한 vision_fault 는
     주입 대상이다. rootCauseHypotheses(support-gated, "~로 보임" 가설형, D-13 MED-1)를
-    causes 작성 참고 힌트로 렌더한다. 빈/None → 빈 list (기존 동작 불변).
+    causes 원인 사슬의 **출발점** 지시로 렌더한다 (quick-260704-fwb — '참고' 힌트에서
+    승격). 빈/None → 빈 list (기존 동작 불변).
     """
     if not vision_fault:
         return []
     hyps = vision_fault.get("rootCauseHypotheses") or []
     if not hyps:
         return []
-    lines = ["", "[비전 분석 원인 단서] (causes 작성 시 참고 — '~로 보임' 가설형):"]
+    lines = [
+        "",
+        "[비전 분석 원인 단서] (이 가설을 causes 원인 사슬의 출발점으로 사용 — "
+        "'~로 보임' 가설형):",
+    ]
     for h in hyps:
         text = str((h or {}).get("text", "")).strip()
         if text:

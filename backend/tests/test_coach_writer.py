@@ -62,6 +62,80 @@ def test_format_vision_fault_lines_skips_blank_text():
     assert "- \n" not in joined and not joined.endswith("- ")
 
 
+# ── quick-260704-fwb — 처방 구조 (원인 기전 사슬 + 구체 처방) 프롬프트 가드 ──
+
+
+def test_system_prompt_enforces_causal_chain():
+    """(a) 기전 사슬 지시 라인이 시스템 프롬프트에 포함."""
+    assert "무엇 때문에" in coach_writer._SYSTEM
+    assert "무너지" in coach_writer._SYSTEM
+    # fix = 구체 행동 지시.
+    assert "구체 행동 지시" in coach_writer._SYSTEM
+
+
+def test_system_prompt_bans_state_only_narration():
+    """(b) 상태-서술-금지 라인 포함 (상태 서술 단독 explanation 차단)."""
+    assert "상태 서술만 있는 문장 금지" in coach_writer._SYSTEM
+    # 기존 fabrication 가드 유지 (측정 안 된 수치/부위 생성 금지).
+    assert "임의 수치" in coach_writer._SYSTEM
+    assert "측정되지 않은 수치나 부위" in coach_writer._SYSTEM
+
+
+def test_build_prompt_without_vision_fault_no_new_sections():
+    """(c) vision_fault 없는 입력 — 유저 프롬프트에 비전/실측 섹션 미주입 (graceful 불변)."""
+    prompt = coach_writer._build_prompt(_JOINTS)
+    assert "비전 분석" not in prompt
+    assert "실측 관찰" not in prompt
+    # 기존 구조 유지.
+    assert "left_knee" in prompt
+    assert "JSON 형식" in prompt
+
+
+def test_vision_hint_promoted_to_chain_start():
+    """rootCauseHypotheses 가 '원인 사슬 출발점' 지시로 승격 ('참고' 힌트 아님)."""
+    prompt = coach_writer._build_prompt(
+        _JOINTS,
+        vision_fault={"rootCauseHypotheses": [{"text": "코어 힘 부족으로 보임"}]},
+    )
+    assert "코어 힘 부족으로 보임" in prompt
+    assert "출발점" in prompt
+
+
+def test_build_prompt_renders_supported_differences_as_evidence():
+    """supportedDifferences 서술 텍스트가 실측 근거 라인으로 렌더."""
+    vision_fault = {
+        "rootCauseHypotheses": [{"text": "코어 힘 부족으로 보임"}],
+        "supportedDifferences": [
+            {"body_part": "왼쪽 다리", "fault_state": "스플릿 각도가 기준보다 좁음",
+             "correct_state": "양다리를 곧게 펴 벌림"},
+        ],
+    }
+    prompt = coach_writer._build_prompt(_JOINTS, vision_fault=vision_fault)
+    assert "스플릿 각도가 기준보다 좁음" in prompt
+    assert "실측 관찰" in prompt
+    assert "양다리를 곧게 펴 벌림" in prompt
+
+
+def test_build_prompt_supported_differences_absent_no_crash():
+    """(d) supportedDifferences 부재 시 크래시 0 + 실측 섹션 미주입 (기존 동작 불변)."""
+    vision_fault = {"rootCauseHypotheses": [{"text": "힘 부족으로 보임"}]}
+    prompt = coach_writer._build_prompt(_JOINTS, vision_fault=vision_fault)
+    assert "힘 부족으로 보임" in prompt
+    assert "실측 관찰" not in prompt
+
+
+def test_build_prompt_malformed_supported_differences_graceful():
+    """supportedDifferences 형상 불일치 (non-dict / 빈 필드) — 크래시 0, 유효분만 렌더."""
+    vision_fault = {
+        "rootCauseHypotheses": [{"text": "힘 부족으로 보임"}],
+        "supportedDifferences": ["not-a-dict", None, {"body_part": "팔"}, 42],
+    }
+    prompt = coach_writer._build_prompt(_JOINTS, vision_fault=vision_fault)
+    assert "힘 부족으로 보임" in prompt
+    # fault_state 없는 항목은 렌더 X → 실측 섹션 자체 미주입.
+    assert "실측 관찰" not in prompt
+
+
 def test_write_passes_vision_fault_to_prompt(monkeypatch):
     """CerebrasCoachWriter.write 가 context['visionFault'] 를 _build_prompt 에 전달 (실제 호출 경로)."""
     captured = {}

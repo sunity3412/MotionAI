@@ -76,9 +76,33 @@ metrics:
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+플랜 태스크 자체는 그대로 실행. 이후 2개 후속 wave 가 본 플랜 소유 영역에 추가됨:
 
-(참고: 다운스트림 무회귀 확인을 위해 baseline 981090a 를 임시 read-only worktree 로 체크아웃해 동일 필터 FAILED 집합을 diff — 검증 절차 추가일 뿐 코드 변경 아님. worktree 는 제거 완료.)
+### Review-fix wave (25-WAVE1-REVIEW: BLOCKER 1 + WARNING 5, orchestrator 지시 — 6 커밋)
+
+**1. [CR-01 BLOCKER] fold 대표-선정 복권으로 라우팅 소실 — 0f89cb8**
+- keypoint_set 단독 fold + 대표 1개 라우팅이 라우터의 "keypoint_set 단독 매핑 불가" 불변 위반 — "스플릿 부족"+"무릎 굽음" 이 leg 한 그룹으로 붕괴 시 split_angle vision-주입(belle 결정 A) 소실 → kip-up 88→~99 FP 경로.
+- Fix: 대표에 `_memberFaults`(멤버 원문, (body_part,fault_state) dedup)+`_memberFaultKeys`(fold 전 FaultKey) 부착, `deduction_engine._routing_members` 가 멤버 각각 라우팅. rich 캐시 round-trip 확장. **AGGREGATION_VERSION agg2→agg3**.
+
+**2. [WR-01] support 게이트 distinct-call 교차 확증 — 161c2cd** (단일 호출 좌+우 항목화의 K=2 자기충족 차단. K=2 값 불변)
+
+**3. [WR-03] keyword 매핑 보수화 — 05b44a3** (허리/코어→torso, 손/손목→grip — pointed 게이트 우회 차단. grip 행을 head_neck 앞으로: '손목'의 '목' substring 오분류 quirk 해소. vision_veto.py 접촉 — orchestrator 허용)
+
+**4. [WR-02] recall trace fold-전 어휘 보존 — 81f8e51** (to_trace_dict 가 멤버 원본 FaultKey 방출 — (left,arm)+(right,arm) 동시 기대 구조적 FAIL 해소. manifest 무접촉)
+
+**5. [WR-04] shoulder/hip 'deferred' gap 자기모순 억제 — be6635b** (md 에 angle_vs_reference__{side}_{ks} 실재 시 gap 대신 측정 criterion 반환. ipsf_criteria.py 접촉, 시그니처 변경 0)
+
+**6. [WR-05] 좌/우 = 수행자 신체 기준 + 불확실 시 생략 — ab1c534** (**PROMPT_VERSION v10.0→v10.1**. 생략=unknown→OD-1 양측 eligible 흡수)
+
+### Pod sweep FAIL fix (kip-up fault 100 — 87978fe)
+
+- **관측:** phase25 sweep kip-up fault: 짚기 생존(supportedFaultKeys leg/pole_gap_or_bent/unknown, supportCount 3, pointedJoints [left_knee,right_knee]) — 그런데 activatedCriteria=[], overallScore 100 (cold+warm 동일).
+- **원인:** CR-01 멤버 라우팅에서 split 멤버가 `approx_angle_deviation_deg` payload 를 안 들고 있으면 `_vision_measured_deviation(member)`=None → `md["split_angle"]` 미주입 → criterion 미발화 → 감점 0.
+- **Fix (라우팅 seam 전용):** 멤버 dev 부재 시 부모(fold 대표 = 그룹 최고 rank→dev record)의 vision 측정값 승계. 멤버 자신 값 우선. **집계/프롬프트/캐시 형상 무접촉 — agg3/v10.1 불변 (캐시 유효 유지, 재sweep 비용 절감).**
+- **회귀 테스트 (실제 형상):** fold → `_rich_to_doc`/`_rich_from_doc` 캐시 왕복 → ctx → tally 경유, 관측 JSON 동일 faultKey fixture. 승계 발화 + 멤버-우선 assert. no-fix 시 FAIL 재현 확인(false-green 가드).
+- **잔여 판정:** 실제 kip-up fault 점수 회복(88 계열)은 Pod 재sweep 이 최종 판정 — 캐시 유효라 warm 재실행 저비용.
+
+(참고: 무회귀 확인은 baseline 981090a 임시 read-only worktree 와 FAILED 집합 diff — 검증 절차일 뿐 코드 변경 아님. worktree 제거 완료.)
 
 ## Known Stubs
 
@@ -92,6 +116,8 @@ None — 본 플랜 산출물에 stub/placeholder 0. 상체 faultKey 의 실효 
 
 ## Self-Check: PASSED
 
-- FOUND: backend/shared/python/sunity_shared/analysis/gemini_vision_scorer.py (AGGREGATION_VERSION 포함)
-- FOUND: backend/tests/test_gemini_vision_scorer.py
-- FOUND commits: a61262f / 2a94b6d / 535b190 (git log 확인)
+- FOUND: backend/shared/python/sunity_shared/analysis/gemini_vision_scorer.py (AGGREGATION_VERSION="agg3", PROMPT_VERSION="v10.1")
+- FOUND: backend/shared/python/sunity_shared/analysis/{deduction_engine,vision_veto,ipsf_criteria}.py (review-fix wave 접촉분)
+- FOUND: backend/tests/{test_gemini_vision_scorer,test_deduction_engine,test_vision_veto}.py
+- FOUND commits: a61262f / 2a94b6d / 535b190 (플랜 본체) + 0f89cb8 / 161c2cd / 05b44a3 / 81f8e51 / be6635b / ab1c534 (review-fix) + 87978fe (sweep fix) — git log 확인
+- 최종 게이트: 관련 스위트 265 passed / 전체 suite 2139 passed·54 failed — baseline 981090a FAILED 집합과 byte-diff IDENTICAL (전부 pre-existing)

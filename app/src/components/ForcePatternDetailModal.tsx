@@ -15,8 +15,9 @@
 // 토큰만 사용 (CLAUDE.md §4 / D-12-U5). brand #FF4B33 변경 0. 이모지 0.
 
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -49,6 +50,12 @@ function confidenceLabel(c: number): { text: string; color: string } {
 // quick-260702-q8q — 실측 근거 (veto fallback finding 전용, result.tsx 가 조립).
 // 존재 시 아래 3개 템플릿 문구("추정한 가능성/확인 필요/거울 보며")를 실데이터로
 // 교체 렌더. 없으면 현행 템플릿 그대로 (Phase 9 일반 finding/legacy doc 무회귀).
+//
+// quick-260704-fz4 — 행 2단 tier + 의미 라벨 + 탭 인라인 확대:
+//   tier: 'confirmed'(감점 근거, brand 빨강) / 'advisory'(측정 초과·감점 아님,
+//     주황 + '감점 아님' 칩) / 'normal'(무강조). 구 overTolerance boolean 대체.
+//   meaningLabel: 관절각 의미 한 단어 (deductionLabels.ANGLE_MEANING_KO).
+//   zoomCard: 행 탭 시 시트 안 인라인으로 펼칠 부위 확대 카드 (매칭은 result.tsx).
 export type MeasuredEvidence = {
   measurementText: string;
   // 판정 일치 절대 횟수 — 분모(총 샘플 수)는 Firestore 에 없어 "N/M" 표기 불가
@@ -56,10 +63,16 @@ export type MeasuredEvidence = {
   supportCount: number | null;
   jointDeltas: {
     jointLabel: string;
+    meaningLabel: string;
     studentDeg: number;
     referenceDeg: number;
     deltaDeg: number;
-    overTolerance: boolean; // |delta| > 20° (KEYPOINT_DELTA_HIGHLIGHT_DEG 정합)
+    tier: 'confirmed' | 'advisory' | 'normal';
+    zoomCard?: {
+      imageUrl: string;
+      tier: 'confirmed' | 'advisory';
+      label: string;
+    };
   }[];
 };
 
@@ -82,6 +95,12 @@ export function ForcePatternDetailModal({
   // finding=null 시 visible=false 강제 — 깜빡임 방지 (조건부 렌더 X).
   const open = visible && finding != null;
   const sheetHeight = Math.round(winH * 0.85);
+  // quick-260704-fz4 — 편차행 탭 인라인 확대 state (한 번에 한 행, 재탭 닫기).
+  // 시트 닫힐 때 리셋 — 다음 오픈에서 접힌 상태로 시작.
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  useEffect(() => {
+    if (!open) setExpandedRow(null);
+  }, [open]);
 
   // null 이면 Modal 자체는 mount 유지 (visible=false) — RN 권장 패턴.
   if (!finding) {
@@ -188,30 +207,107 @@ export function ForcePatternDetailModal({
             {measuredEvidence && measuredEvidence.jointDeltas.length > 0 ? (
               <View style={styles.deltaTable}>
                 <Text style={styles.deltaTableTitle}>관련 부위 — 관절별 편차</Text>
-                {measuredEvidence.jointDeltas.map((d, i) => (
-                  <View
-                    key={`${d.jointLabel}-${i}`}
-                    style={styles.deltaRow}
-                    accessibilityLabel={`${d.jointLabel} 내 ${d.studentDeg}도, 기준 ${d.referenceDeg}도, 차이 ${d.deltaDeg}도${d.overTolerance ? ', 허용오차 초과' : ''}`}
-                  >
-                    <Text
-                      style={[
-                        styles.deltaJoint,
-                        d.overTolerance && styles.deltaOver,
-                      ]}
+                {/* quick-260704-fz4 — 2단 tier 색(빨강=확정 감점/주황=측정 초과·
+                    감점 아님/무강조) + 의미 라벨 + zoomCard 행 탭 인라인 확대.
+                    zoomCard 없는 행은 기존 정적 행 (빈 인터랙션 금지). */}
+                {measuredEvidence.jointDeltas.map((d, i) => {
+                  const tierStyle =
+                    d.tier === 'confirmed'
+                      ? styles.deltaOver
+                      : d.tier === 'advisory'
+                        ? styles.deltaAdvisory
+                        : undefined;
+                  const expanded = expandedRow === i;
+                  const tierA11y =
+                    d.tier === 'confirmed'
+                      ? ', 허용오차 초과, 감점 반영'
+                      : d.tier === 'advisory'
+                        ? ', 허용오차 초과, 감점 아님'
+                        : '';
+                  const rowMain = (
+                    <View style={styles.deltaRow}>
+                      <View style={styles.deltaJointCol}>
+                        <Text style={[styles.deltaJoint, tierStyle]}>
+                          {d.jointLabel}
+                        </Text>
+                        {d.meaningLabel ? (
+                          <Text style={styles.deltaMeaning}>
+                            {d.meaningLabel}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.deltaRightCol}>
+                        <Text style={[styles.deltaValues, tierStyle]}>
+                          {`내 ${d.studentDeg}° / 기준 ${d.referenceDeg}° (차이 ${d.deltaDeg}°)`}
+                        </Text>
+                        {d.tier === 'advisory' ? (
+                          // CONTEXT locked 필수 카피 — 주황을 감점으로 오해 방지.
+                          <View style={styles.advisoryChip}>
+                            <Text style={styles.advisoryChipText}>
+                              감점 아님
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      {d.zoomCard ? (
+                        <Ionicons
+                          name={expanded ? 'chevron-up' : 'chevron-down'}
+                          size={16}
+                          color={colors.textLo}
+                        />
+                      ) : null}
+                    </View>
+                  );
+                  const inlineZoom =
+                    expanded && d.zoomCard ? (
+                      <View style={styles.zoomInline}>
+                        <View style={styles.zoomImageWrap}>
+                          {/* 합성 [내|기준] 2:1 비율 (FaultZoomCompare 선례). */}
+                          <Image
+                            source={{ uri: d.zoomCard.imageUrl }}
+                            style={styles.zoomImage}
+                            resizeMode="contain"
+                            accessibilityLabel={`${d.zoomCard.label} 부위 확대 비교 이미지`}
+                          />
+                          <View
+                            style={[styles.zoomHalfLabel, styles.zoomHalfLeft]}
+                          >
+                            <Text style={styles.zoomHalfText}>내 영상</Text>
+                          </View>
+                          <View
+                            style={[styles.zoomHalfLabel, styles.zoomHalfRight]}
+                          >
+                            <Text style={styles.zoomHalfText}>기준</Text>
+                          </View>
+                        </View>
+                        {d.zoomCard.tier === 'advisory' ? (
+                          <Text style={styles.zoomAdvisoryCaption}>
+                            측정값 참고용이에요 — 감점에 반영되지 않았어요
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null;
+                  return d.zoomCard ? (
+                    <Pressable
+                      key={`${d.jointLabel}-${i}`}
+                      onPress={() => setExpandedRow(expanded ? null : i)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${d.jointLabel} 부위 확대 비교 보기`}
+                      accessibilityState={{ expanded }}
+                      hitSlop={4}
                     >
-                      {d.jointLabel}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.deltaValues,
-                        d.overTolerance && styles.deltaOver,
-                      ]}
+                      {rowMain}
+                      {inlineZoom}
+                    </Pressable>
+                  ) : (
+                    <View
+                      key={`${d.jointLabel}-${i}`}
+                      accessibilityLabel={`${d.jointLabel}${d.meaningLabel ? ` ${d.meaningLabel}` : ''} 내 ${d.studentDeg}도, 기준 ${d.referenceDeg}도, 차이 ${d.deltaDeg}도${tierA11y}`}
                     >
-                      {`내 ${d.studentDeg}° / 기준 ${d.referenceDeg}° (차이 ${d.deltaDeg}°)`}
-                    </Text>
-                  </View>
-                ))}
+                      {rowMain}
+                    </View>
+                  );
+                })}
               </View>
             ) : (
               <View style={styles.dotRow}>
@@ -227,7 +323,10 @@ export function ForcePatternDetailModal({
               <Text style={styles.dotText}>
                 <Text style={styles.dotLabel}>확인하기 — </Text>
                 {measuredEvidence
-                  ? "위 '문제 부위 확대 비교'와 편차표의 강조 관절을 함께 확인"
+                  ? // quick-260704-fz4 — 인라인 확대(zoomCard) 존재 여부로 분기.
+                    measuredEvidence.jointDeltas.some((d) => d.zoomCard != null)
+                    ? '강조된 행을 탭하면 그 부위 확대 사진을 볼 수 있어요'
+                    : "위 '문제 부위 확대 비교'와 편차표의 강조 관절을 함께 확인"
                   : '거울 보며 동작 직접 재현'}
               </Text>
             </View>
@@ -386,10 +485,76 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: 'right',
   },
-  // 허용오차(20°) 초과 행 — brand 강조.
+  // 허용오차(20°) 초과 + 감점 근거(confirmed) 행 — brand 강조.
   deltaOver: {
     color: colors.brand,
     fontWeight: '600',
+  },
+  // quick-260704-fz4 — advisory(측정 초과·감점 아님) 행 강조 + '감점 아님' 칩.
+  // 토큰만 (advisoryOrange/advisoryOrangeBg = warnAmber 계열 alias).
+  deltaAdvisory: {
+    color: colors.advisoryOrange,
+    fontWeight: '600',
+  },
+  deltaJointCol: {
+    flexShrink: 0,
+    gap: 1,
+  },
+  deltaRightCol: {
+    flex: 1,
+    alignItems: 'flex-end',
+    gap: 3,
+  },
+  // 각도 의미 한 단어 (ANGLE_MEANING_KO) — "무슨 각인지" 보조 설명.
+  deltaMeaning: {
+    fontSize: 10,
+    fontWeight: '400',
+    color: colors.textLo,
+  },
+  advisoryChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: colors.advisoryOrangeBg,
+  },
+  advisoryChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.advisoryOrange,
+  },
+  // 행 탭 인라인 부위 확대 (quick-260704-fz4) — [내|기준] 합성 2:1.
+  zoomInline: {
+    marginTop: 8,
+    gap: 6,
+  },
+  zoomImageWrap: {
+    width: '100%',
+    aspectRatio: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.divider,
+  },
+  zoomImage: { width: '100%', height: '100%' },
+  zoomHalfLabel: {
+    position: 'absolute',
+    top: 6,
+    backgroundColor: colors.brandOverlay,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  zoomHalfLeft: { left: 6 },
+  zoomHalfRight: { right: 6 },
+  zoomHalfText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textWhite,
+  },
+  zoomAdvisoryCaption: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: colors.textLo,
+    lineHeight: 16,
   },
 
   dotRow: {

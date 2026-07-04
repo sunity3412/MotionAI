@@ -716,6 +716,7 @@ export default function AnalysisResult() {
       return undefined;
 
     const round1 = (n: number) => Math.round(n * 10) / 10;
+    const zoomCards = result.faultZoomComparisons ?? [];
     const jointDeltas = deltas
       .filter(
         (d) =>
@@ -723,15 +724,51 @@ export default function AnalysisResult() {
           Number.isFinite(d.reference_deg) &&
           Number.isFinite(d.delta_deg),
       )
-      .map((d) => ({
-        jointLabel: JOINT_LABEL_KO[d.joint] ?? d.joint,
-        studentDeg: round1(d.student_deg),
-        referenceDeg: round1(d.reference_deg),
-        deltaDeg: round1(d.delta_deg),
-        // 마커 강조 임계 20° 선례 재사용 (KEYPOINT_DELTA_HIGHLIGHT_DEG —
-        // dimensions.py _LINE_TOL_DEG / IPSF 허용오차 정합, 260620-18r).
-        overTolerance: Math.abs(d.delta_deg) > KEYPOINT_DELTA_HIGHLIGHT_DEG,
-      }));
+      .map((d) => {
+        const kp = KEYPOINT_FROM_ANGLE_KEY[d.joint];
+        // 임계 20° 선례 재사용 (KEYPOINT_DELTA_HIGHLIGHT_DEG — dimensions.py
+        // _LINE_TOL_DEG / IPSF 허용오차 정합, 260620-18r). quick-260704-fz4:
+        // boolean overTolerance → 2단 tier (confirmed=감점 근거 빨강 /
+        // advisory=측정 초과·감점 아님 주황 / normal=무강조). Task 2 의
+        // confirmedKeypoints 단일 소스 재사용 — 표·마커·카드 동일 규칙.
+        const over = Math.abs(d.delta_deg) > KEYPOINT_DELTA_HIGHLIGHT_DEG;
+        const tier: 'confirmed' | 'advisory' | 'normal' =
+          kp && confirmedKeypoints.has(kp)
+            ? 'confirmed'
+            : over
+              ? 'advisory'
+              : 'normal';
+        // 행 탭 → 부위 확대 카드 매칭 (joint 일치 또는 region 멤버 포함). 첫
+        // 매치 사용. label 은 FaultZoomCompare caption 관례 재사용 (region 우선).
+        const card = kp
+          ? zoomCards.find(
+              (c) =>
+                c.joint === kp ||
+                (c.region != null &&
+                  REGION_MEMBER_KEYPOINTS[c.region].includes(kp)),
+            )
+          : undefined;
+        const zoomCard = card
+          ? {
+              imageUrl: card.imageUrl,
+              tier: (card.tier ?? 'confirmed') as 'confirmed' | 'advisory',
+              label:
+                (card.region && REGION_LABEL_KO[card.region]) ||
+                JOINT_LABEL_KO[card.joint] ||
+                '문제 부위',
+            }
+          : undefined;
+        return {
+          jointLabel: JOINT_LABEL_KO[d.joint] ?? d.joint,
+          // 각도 의미 한 단어 (quick-260704-fz4 — "168.9° 가 무슨 각인지" 해소).
+          meaningLabel: ANGLE_MEANING_KO[d.joint] ?? '',
+          studentDeg: round1(d.student_deg),
+          referenceDeg: round1(d.reference_deg),
+          deltaDeg: round1(d.delta_deg),
+          tier,
+          zoomCard,
+        };
+      });
 
     let measurementText = `내 영상과 정은지 선수 기준 영상을 프레임 단위로 비교해 관절 각도 편차를 측정하고, 허용오차(${KEYPOINT_DELTA_HIGHLIGHT_DEG}°)를 초과한 만큼 명시된 규칙으로 감점했어요.`;
     const firstRecord = records[0];
@@ -747,6 +784,8 @@ export default function AnalysisResult() {
     result.visionVeto,
     result.forcePatternInference,
     result.deductionBreakdown,
+    result.faultZoomComparisons,
+    confirmedKeypoints,
   ]);
 
   // Phase 11 (Plan 11-02, COACH-01 / D-06 / HIGH-2) — "강사에게 확인할 점" 섹션.

@@ -2043,6 +2043,7 @@ def _baseline_kind_for_profile(profile) -> str:
 def _build_deduction_measured_deviations(
     *, angles, profile, assessments, dimension_scores, quantification,
     reference_dtw_match=None, reference_angles=None, split_deficit_deg=None,
+    vision_pointed_joints=None, seed_audit_out=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2063,9 +2064,17 @@ def _build_deduction_measured_deviations(
       · split_angle: reference_relative — max(0, 정은지 max-split − 학생 max-split) deg.
         split_deficit_deg(mode1, peak inter-thigh 사이각) 보유 시만 방출, 없으면 honest 0.
       · body_relative_notches: quantification.bodyRelativeNotches list(있을 때만).
-      · angle_vs_reference__{joint}: 24-07 ① fix — 정은지(reference) 대비 per-joint 각도
-        편차(deg, reference_relative). reference_dtw_match+reference_angles 보유 시(mode1)만,
-        expects_extension 미소유 관절에 한해 방출(미등록 동작 granular seed, §3-2).
+      · angle_vs_reference__{joint}: 24-07 ① + 25-01 — 정은지(reference) 대비 per-joint
+        각도 편차(deg, reference_relative). reference_dtw_match+reference_angles 보유 시
+        (mode1)만, expects_extension 미소유 관절에 한해 방출(미등록 동작 granular seed,
+        §3-2). 25-01 관절 단위 2-source merge: vision_pointed_joints(Gemini 가 짚은 관절)
+        ∩ quantification.windowMedianAngleDeltas 관절만 worst-window median 값(abs) 방출,
+        Gemini-silent 관절은 기존 full-path DTW median 유지 — 260702-o0c(경로 either/or)
+        FAIL 원인(silent 관절까지 window 편향 표집 → success 위양성)의 정확한 해소.
+        pointed=None/빈(legacy/mode3) → 전 관절 DTW fallback (기존과 byte-동일, 무회귀).
+      · seed_audit_out: dict 전달 시 {pointed, window_joints, fallback_joints} 기록
+        (25-04 eval harness 구조 게이트 입력 — production 호출부는 미전달, 부작용 0.
+        스키마/Firestore 계약 변경 0 — window 집계 출처는 로그+eval audit 로만 관측).
     """
     from sunity_shared.analysis import dimensions
     from sunity_shared.analysis.skeleton import JOINT_KEYS
@@ -2126,13 +2135,53 @@ def _build_deduction_measured_deviations(
         if d_split == d_split and d_split > 0.0:  # not NaN, 양수만
             md["split_angle"] = d_split
 
-    # ── 24-07 ① fix: reference-relative per-joint 각도 편차 seed (미등록 동작 granular) ──
+    # ── 24-07 ① + 25-01: reference-relative per-joint 각도 편차 seed (관절 단위 merge) ──
     # ipsf_absolute(extension) seed 가 빈 미등록 동작(인식기 미등재 → expects_extension 전부
     # False)에서, 정은지(reference) 대비 per-joint 각도 편차를 deduction 엔진 seed 로 주입한다.
-    # per_joint_deviation 은 DEG 편차(0-100 score 아님 — HIGH-3 score-not-deviation 정합).
-    # seed-stage cross-exclusion(§3-2): profile.expects_extension(jk) 관절은 ipsf_absolute
-    # (leg/arm/line)가 이미 채점하므로 reference_relative 미방출(double-count 금지). line(collective)
-    # 도 expects_extension 파생이므로 이 gate 가 정확히 차단 — 엔진-stage 는 leg/arm/split 만 보증.
+    # 편차는 모두 DEG (0-100 score 아님 — HIGH-3 score-not-deviation 정합).
+    #
+    # 25-01 관절 단위 2-source merge (260702-o0c 경로 either/or 의 정확한 해소):
+    #   · jk ∈ vision_pointed_joints(Gemini 가 짚은 관절) AND jk ∈ wm_by_joint →
+    #     worst-window median 값(abs) 방출 — kip-up 어깨 Δ40° 처럼 국소 결함이 전체
+    #     DTW path median 에서 tol 미만으로 희석되던 "표시는 40° 인데 감점 0" 해소.
+    #   · 그 외(Gemini-silent / wm 결측 / pointed=None 빈) → 기존 full-path DTW median
+    #     (per_joint_deviation) 유지 — silent 관절까지 window 편향 표집하면 RTMW jitter/
+    #     촬영거리 노이즈가 감점으로 증폭돼 success 위양성(260702-o0c FAIL 실증).
+
+    def _emit_reference_relative(jk, v) -> bool:
+        """양 경로 공통 방출 규칙 — seed-stage cross-exclusion(§3-2) 포함.
+
+        profile.expects_extension(jk) 관절은 ipsf_absolute(leg/arm/line)가 이미 채점하므로
+        reference_relative 미방출(double-count 금지). line(collective)도 expects_extension
+        파생이므로 이 gate 가 정확히 차단 — 엔진-stage 는 leg/arm/split 만 보증.
+        JOINT_KEYS 외 문자열은 skip(엔진 md 계약은 criterion id 키만 기대 — spurious 금지)."""
+        if jk not in JOINT_KEYS:
+            return False
+        if v != v or v <= 0.0:  # NaN/0/음수 미방출(md 슬림 — 엔진 tol gate 가 self-compare 0 도 거름)
+            return False
+        if profile is not None and profile.expects_extension(jk):
+            return False
+        md[f"angle_vs_reference__{jk}"] = v
+        return True
+
+    # 1. window 측정치 파싱 — {joint: abs(delta_deg)} (SIGNED→magnitude, f513587 패턴).
+    #    NaN/0/형상불량 entry 는 wm_by_joint 미등재 → 그 관절은 DTW fallback 으로 강하.
+    wm_by_joint: dict = {}
+    wm = getattr(quantification, "windowMedianAngleDeltas", None)
+    wm_deltas = wm.get("deltas") if isinstance(wm, dict) else None
+    for entry in wm_deltas or ():
+        if not isinstance(entry, dict):
+            continue  # 형상불량 entry 는 honest skip
+        try:
+            _jk = entry.get("joint")
+            _v = abs(float(entry.get("delta_deg", 0.0)))
+        except (TypeError, ValueError):
+            continue
+        if _jk in JOINT_KEYS and _v == _v and _v > 0.0:
+            wm_by_joint[_jk] = _v
+
+    # 2. DTW fallback 편차 — 기존 per_joint_deviation 1회 계산 (honest skip 유지).
+    dtw_by_joint: dict = {}
     if reference_dtw_match is not None and reference_angles is not None and angles is not None:
         try:
             path = getattr(reference_dtw_match, "path", None)
@@ -2144,16 +2193,33 @@ def _build_deduction_measured_deviations(
                 user_seg = angles[start:end]
                 dev = per_joint_deviation(path, user_seg, reference_angles)
                 for i, jk in enumerate(JOINT_KEYS):
-                    v = float(dev[i])
-                    if v != v:  # NaN skip
-                        continue
-                    if v <= 0.0:  # 0/음수 미방출(md 슬림 — 엔진 tol gate 가 self-compare 0 도 거름)
-                        continue
-                    if profile is not None and profile.expects_extension(jk):
-                        continue  # seed-stage cross-exclusion(절대-신전 소유 관절)
-                    md[f"angle_vs_reference__{jk}"] = v
+                    dtw_by_joint[jk] = float(dev[i])
         except Exception:  # noqa: BLE001 — 형상 mismatch/예외는 honest skip(reference_relative 미방출)
-            pass
+            dtw_by_joint = {}
+
+    # 3. 관절 단위 선택 — pointed ∩ wm 만 window, 나머지 전부 DTW (pointed=None/빈 → 전 관절 DTW).
+    pointed = tuple(vision_pointed_joints or ())
+    window_joints: list = []
+    fallback_joints: list = []
+    for jk in JOINT_KEYS:
+        if jk in pointed and jk in wm_by_joint:
+            if _emit_reference_relative(jk, wm_by_joint[jk]):
+                window_joints.append(jk)
+        elif jk in dtw_by_joint:
+            if _emit_reference_relative(jk, dtw_by_joint[jk]):
+                fallback_joints.append(jk)
+
+    # 4. 관찰 가능성 — 어느 경로가 감점 seed 를 만들었는지 로그 + eval audit 만
+    #    (contract/Firestore 스키마 불변 — record source 는 기존 geometry 표기 유지).
+    if window_joints or fallback_joints:
+        log.info(
+            "angle_vs_reference seed pointed=%d window=%d fallback=%d",
+            len(pointed), len(window_joints), len(fallback_joints),
+        )
+    if isinstance(seed_audit_out, dict):
+        seed_audit_out["pointed"] = list(pointed)
+        seed_audit_out["window_joints"] = list(window_joints)
+        seed_audit_out["fallback_joints"] = list(fallback_joints)
 
     return md
 
@@ -3515,6 +3581,16 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # assessments/dimension_scores/quantification 가 여기서만 동시 가용). apply 경로는
             # 절대 빌드하지 않는다(profile/assessments 부재 → no NameError surface). 0-100
             # dimension SCORE 를 deviation 으로 먹이지 않는다(HIGH-3).
+            # 25-01 — Gemini 가 짚은(supported faultKey) 관절만 window-측정 eligible 로
+            # 도출(좁은 pointed 매퍼 — line/torso/head_neck/grip broad 확장 금지). silent
+            # 관절은 builder 안에서 기존 full-path DTW median 유지 (관절 단위 merge).
+            from sunity_shared.analysis.vision_veto import (
+                pointed_joints_from_supported_differences,
+            )
+
+            vision_pointed_joints = pointed_joints_from_supported_differences(
+                vision_fault_context.supported_differences
+            )
             measured_deviations = _build_deduction_measured_deviations(
                 angles=angles,
                 profile=profile,
@@ -3526,6 +3602,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 reference_angles=reference_angles_for_veto,
                 # split — mode1 에서만 산출(reference_relative), mode3/legacy 는 None → 미방출.
                 split_deficit_deg=split_deficit_deg,
+                vision_pointed_joints=vision_pointed_joints,
             )
             result = _apply_vision_veto(
                 result,

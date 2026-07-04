@@ -1,0 +1,1798 @@
+{
+  "_meta": {
+    "phase": "25",
+    "runId": "1783154115",
+    "uid": "phase25eval",
+    "tag": "cold",
+    "captured_epoch": 1783156034,
+    "scorer": "phase25_vision_pointed_window_merge",
+    "mode": "mode1",
+    "run": "serial in-process _process (pipeline-not-concurrency-safe-eval-serial)",
+    "tee": "collectObservation + seedObservation (read-only, at_seconds 불변)",
+    "objectivity": "fault 라벨=영상 파생. 점수=채점기 결정론 출력 스냅샷(라벨 아님)."
+  },
+  "results": [
+    {
+      "motion_id": "power-spin",
+      "label": "fault",
+      "analysisId": "powerspinFault1783154115",
+      "status": "done",
+      "overallScore": 52,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [],
+        "final": 52,
+        "fallback": null,
+        "records": [
+          {
+            "baselineValue": 180.0,
+            "deviationSource": "ipsf_absolute",
+            "baselineKind": null,
+            "ipsfAnchor": "19-IPSF §A 트랙2 (다리 신전 부족 누적 감점)",
+            "deviation": 19.01,
+            "measuredValue": 140.99,
+            "ruleId": "leg_extension_over_tol_linear",
+            "points": -22.8,
+            "criterion": "leg_extension",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 split 부족분)",
+            "deviation": 10.0,
+            "measuredValue": 30.0,
+            "ruleId": "split_vs_reference_over_tol_linear",
+            "points": -12.0,
+            "criterion": "split_angle",
+            "unit": "deg",
+            "source": "vision"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 10.72,
+            "measuredValue": 30.72,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -12.9,
+            "criterion": "angle_vs_reference__left_shoulder",
+            "unit": "deg",
+            "source": "geometry"
+          }
+        ],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "tallyFinal": 52,
+        "severity": "minor",
+        "quantificationStatus": "available",
+        "angleDeltas": [
+          {
+            "reference_deg": 147.06,
+            "joint": "left_elbow",
+            "student_deg": 168.00717002337856,
+            "delta_deg": 20.94717002337856,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 152.93,
+            "joint": "right_elbow",
+            "student_deg": 176.02355614375847,
+            "delta_deg": 23.093556143758462,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 53.62,
+            "joint": "left_shoulder",
+            "student_deg": 90.78522490223561,
+            "delta_deg": 37.165224902235614,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 46.89,
+            "joint": "right_shoulder",
+            "student_deg": 46.03107036250176,
+            "delta_deg": -0.8589296374982425,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 79.57,
+            "joint": "left_hip",
+            "student_deg": 75.422524624146,
+            "delta_deg": -4.147475375853986,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 25.72,
+            "joint": "right_hip",
+            "student_deg": 42.8854984907533,
+            "delta_deg": 17.1654984907533,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 92.72,
+            "joint": "left_knee",
+            "student_deg": 67.83340789981546,
+            "delta_deg": -24.886592100184544,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 36.59,
+            "joint": "right_knee",
+            "student_deg": 50.806172618255765,
+            "delta_deg": 14.216172618255762,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          }
+        ],
+        "windowMedianAngleDeltas": {
+          "deltas": [
+            {
+              "reference_deg": 147.06,
+              "direction": "더 펴짐",
+              "delta_deg": 9.042606236056628,
+              "student_deg": 156.10260623605663,
+              "joint": "left_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 152.93,
+              "direction": "더 펴짐",
+              "delta_deg": 21.427240018303053,
+              "student_deg": 174.35724001830306,
+              "joint": "right_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 53.62,
+              "direction": "더 펴짐",
+              "delta_deg": 32.826360045219,
+              "student_deg": 86.446360045219,
+              "joint": "left_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 46.89,
+              "direction": "더 펴짐",
+              "delta_deg": 2.377928130052517,
+              "student_deg": 49.26792813005252,
+              "joint": "right_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 79.57,
+              "direction": "더 굽음",
+              "delta_deg": -2.8808094059256177,
+              "student_deg": 76.68919059407438,
+              "joint": "left_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 25.72,
+              "direction": "더 펴짐",
+              "delta_deg": 18.872127597616974,
+              "student_deg": 44.59212759761697,
+              "joint": "right_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 92.72,
+              "direction": "더 굽음",
+              "delta_deg": -16.180443227483394,
+              "student_deg": 76.5395567725166,
+              "joint": "left_knee",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 36.59,
+              "direction": "더 펴짐",
+              "delta_deg": 16.31681785741528,
+              "student_deg": 52.906817857415284,
+              "joint": "right_knee",
+              "source": "geometry"
+            }
+          ],
+          "sourceFrameIndices": {
+            "reference": [
+              80,
+              81,
+              82,
+              83,
+              84
+            ],
+            "user": [
+              29,
+              30,
+              31,
+              32,
+              33
+            ]
+          },
+          "windowPolicy": "worst_pose_center_pm_2_median"
+        },
+        "faultJoints": [
+          "left_knee",
+          "left_hip",
+          "right_knee",
+          "right_hip"
+        ],
+        "primaryFault": "없음",
+        "rootCauseHypotheses": [
+          {
+            "faultKey": {
+              "side": "unknown",
+              "fault_kind": "extension_or_alignment",
+              "part_scope": "line",
+              "keypoint_set": "leg"
+            },
+            "supportCount": 2,
+            "text": "양다리 (스플릿 각도): 양다리 사이의 각도가 좁아져 기준 대비 스플릿 각도가 부족함"
+          }
+        ],
+        "collectionStatus": "candidate_verdict",
+        "faultJointDeficits": {
+          "right_knee": 30.0,
+          "right_hip": 30.0,
+          "left_hip": 30.0,
+          "left_knee": 30.0
+        },
+        "alignment": {
+          "visibility": 0.7086929451016819,
+          "localPathCount": 34,
+          "distance": 58.853650529398195,
+          "refFramePresent": true,
+          "adoption": "window_union"
+        },
+        "status": "applied"
+      },
+      "collectObservation": {
+        "collectionStatus": "candidate_verdict",
+        "pointedJoints": [
+          "left_knee",
+          "right_knee"
+        ],
+        "supportedCount": 1,
+        "supportedFaultKeys": [
+          {
+            "faultKey": {
+              "part_scope": "line",
+              "side": "unknown",
+              "keypoint_set": "leg",
+              "fault_kind": "extension_or_alignment"
+            },
+            "severity": "moderate",
+            "supportCount": 2
+          }
+        ]
+      },
+      "seedObservation": {
+        "pointed": [
+          "left_knee",
+          "right_knee"
+        ],
+        "window_joints": [],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip"
+        ]
+      },
+      "activatedCriteria": [
+        "angle_vs_reference__left_shoulder",
+        "leg_extension",
+        "split_angle"
+      ]
+    },
+    {
+      "motion_id": "power-spin",
+      "label": "success",
+      "analysisId": "powerspinCorrect1783154115",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [],
+        "final": 100,
+        "fallback": null,
+        "records": [],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "alignment": {
+          "visibility": 0.7846719236934886,
+          "localPathCount": 8,
+          "distance": 33.06039912383813,
+          "refFramePresent": true,
+          "adoption": "window_union"
+        },
+        "status": "not_applicable"
+      },
+      "collectObservation": {
+        "collectionStatus": "no_fault",
+        "pointedJoints": [],
+        "supportedCount": 0,
+        "supportedFaultKeys": []
+      },
+      "seedObservation": {
+        "pointed": [],
+        "window_joints": [],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip"
+        ]
+      },
+      "activatedCriteria": []
+    },
+    {
+      "motion_id": "peter-pan",
+      "label": "fault",
+      "analysisId": "peterpanFault1783154115",
+      "status": "done",
+      "overallScore": 83,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [
+          {
+            "keypointSet": "head_neck",
+            "bodyPart": "머리/목",
+            "reason": "no_head_neck_angle_substrate ([[spike-stillframe-recovers-upperbody]])",
+            "faultState": "고개가 숙여져 시선이 정면/아래를 향함",
+            "faultType": "head_neck",
+            "ruleId": null
+          },
+          {
+            "keypointSet": "head_neck",
+            "bodyPart": "왼쪽 발목 및 발끝",
+            "reason": "no_head_neck_angle_substrate ([[spike-stillframe-recovers-upperbody]])",
+            "faultState": "발목이 약간 꺾여 있고 발끝 포인이 풀려 있음",
+            "faultType": "head_neck",
+            "ruleId": null
+          },
+          {
+            "keypointSet": "head_neck",
+            "bodyPart": "왼쪽 발목",
+            "reason": "no_head_neck_angle_substrate ([[spike-stillframe-recovers-upperbody]])",
+            "faultState": "발끝 포인이 다소 풀려 있음",
+            "faultType": "head_neck",
+            "ruleId": null
+          }
+        ],
+        "final": 83,
+        "fallback": null,
+        "records": [
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 2.47,
+            "measuredValue": 22.47,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -3.0,
+            "criterion": "angle_vs_reference__right_elbow",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 11.74,
+            "measuredValue": 31.74,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -14.1,
+            "criterion": "angle_vs_reference__left_shoulder",
+            "unit": "deg",
+            "source": "geometry"
+          }
+        ],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "tallyFinal": 83,
+        "severity": "moderate",
+        "quantificationStatus": "available",
+        "angleDeltas": [
+          {
+            "reference_deg": 162.97,
+            "joint": "left_elbow",
+            "student_deg": 173.62126548922615,
+            "delta_deg": 10.651265489226148,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 108.64,
+            "joint": "right_elbow",
+            "student_deg": 155.00387398946953,
+            "delta_deg": 46.363873989469525,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 85.81,
+            "joint": "left_shoulder",
+            "student_deg": 161.98354141568834,
+            "delta_deg": 76.17354141568833,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 64.8,
+            "joint": "right_shoulder",
+            "student_deg": 20.306809420982496,
+            "delta_deg": -44.4931905790175,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 148.36,
+            "joint": "left_hip",
+            "student_deg": 171.2316279424108,
+            "delta_deg": 22.871627942410782,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 170.29,
+            "joint": "right_hip",
+            "student_deg": 161.85898671703808,
+            "delta_deg": -8.431013282961914,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 176.35,
+            "joint": "left_knee",
+            "student_deg": 178.00156552833954,
+            "delta_deg": 1.651565528339546,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 131.32,
+            "joint": "right_knee",
+            "student_deg": 142.95639932126758,
+            "delta_deg": 11.63639932126759,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          }
+        ],
+        "windowMedianAngleDeltas": {
+          "deltas": [
+            {
+              "reference_deg": 162.97,
+              "direction": "더 펴짐",
+              "delta_deg": 9.986702851741171,
+              "student_deg": 172.95670285174117,
+              "joint": "left_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 109.18,
+              "direction": "더 펴짐",
+              "delta_deg": 45.82387398946952,
+              "student_deg": 155.00387398946953,
+              "joint": "right_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 87.28,
+              "direction": "더 펴짐",
+              "delta_deg": 74.70354141568833,
+              "student_deg": 161.98354141568834,
+              "joint": "left_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 64.8,
+              "direction": "더 굽음",
+              "delta_deg": -44.4931905790175,
+              "student_deg": 20.306809420982496,
+              "joint": "right_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 148.36,
+              "direction": "더 펴짐",
+              "delta_deg": 22.871627942410782,
+              "student_deg": 171.2316279424108,
+              "joint": "left_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 170.29,
+              "direction": "더 굽음",
+              "delta_deg": -11.299601044273544,
+              "student_deg": 158.99039895572645,
+              "joint": "right_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 176.35,
+              "direction": "더 펴짐",
+              "delta_deg": 1.9145366304448714,
+              "student_deg": 178.26453663044487,
+              "joint": "left_knee",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 121.4,
+              "direction": "더 펴짐",
+              "delta_deg": 15.094078964438836,
+              "student_deg": 136.49407896443884,
+              "joint": "right_knee",
+              "source": "geometry"
+            }
+          ],
+          "sourceFrameIndices": {
+            "reference": [
+              58,
+              59,
+              60,
+              61,
+              62
+            ],
+            "user": [
+              24,
+              25,
+              26,
+              27,
+              28
+            ]
+          },
+          "windowPolicy": "worst_pose_center_pm_2_median"
+        },
+        "faultJoints": [
+          "left_shoulder",
+          "right_shoulder",
+          "left_knee"
+        ],
+        "primaryFault": "상체 아치(가슴 열림) 부족 및 왼팔 미신전",
+        "rootCauseHypotheses": [
+          {
+            "faultKey": {
+              "side": "left",
+              "fault_kind": "extension_or_alignment",
+              "part_scope": "line",
+              "keypoint_set": "head_neck"
+            },
+            "supportCount": 3,
+            "text": "머리/목: 고개가 숙여져 시선이 정면/아래를 향함"
+          },
+          {
+            "faultKey": {
+              "side": "unknown",
+              "fault_kind": "pole_gap_or_bent",
+              "part_scope": "line",
+              "keypoint_set": "leg"
+            },
+            "supportCount": 2,
+            "text": "왼쪽 무릎: 무릎이 약간 굽어 있음"
+          }
+        ],
+        "collectionStatus": "candidate_verdict",
+        "faultJointDeficits": {
+          "right_shoulder": 30.0,
+          "left_knee": 15.0,
+          "left_shoulder": 30.0
+        },
+        "alignment": {
+          "visibility": 0.8152390963890973,
+          "localPathCount": 13,
+          "distance": 51.49611148445366,
+          "refFramePresent": true,
+          "adoption": "window_union"
+        },
+        "status": "applied"
+      },
+      "collectObservation": {
+        "collectionStatus": "candidate_verdict",
+        "pointedJoints": [
+          "left_knee",
+          "right_knee"
+        ],
+        "supportedCount": 2,
+        "supportedFaultKeys": [
+          {
+            "faultKey": {
+              "part_scope": "line",
+              "side": "left",
+              "keypoint_set": "head_neck",
+              "fault_kind": "extension_or_alignment"
+            },
+            "severity": "moderate",
+            "supportCount": 3
+          },
+          {
+            "faultKey": {
+              "part_scope": "line",
+              "side": "unknown",
+              "keypoint_set": "leg",
+              "fault_kind": "pole_gap_or_bent"
+            },
+            "severity": "moderate",
+            "supportCount": 2
+          }
+        ]
+      },
+      "seedObservation": {
+        "pointed": [
+          "left_knee",
+          "right_knee"
+        ],
+        "window_joints": [
+          "left_knee",
+          "right_knee"
+        ],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip"
+        ]
+      },
+      "activatedCriteria": [
+        "angle_vs_reference__left_shoulder",
+        "angle_vs_reference__right_elbow"
+      ]
+    },
+    {
+      "motion_id": "peter-pan",
+      "label": "success",
+      "analysisId": "peterpanCorrect1783154115",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [],
+        "final": 100,
+        "fallback": null,
+        "records": [],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "alignment": {
+          "visibility": 0.7832246037090526,
+          "localPathCount": 8,
+          "distance": 21.99835876801074,
+          "refFramePresent": true,
+          "adoption": "window_union"
+        },
+        "status": "not_applicable"
+      },
+      "collectObservation": {
+        "collectionStatus": "no_fault",
+        "pointedJoints": [],
+        "supportedCount": 0,
+        "supportedFaultKeys": []
+      },
+      "seedObservation": {
+        "pointed": [],
+        "window_joints": [],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip",
+          "left_knee",
+          "right_knee"
+        ]
+      },
+      "activatedCriteria": []
+    },
+    {
+      "motion_id": "elbow-twist-sister",
+      "label": "fault",
+      "analysisId": "elbowtwistsisterFault1783154115",
+      "status": "done",
+      "overallScore": 69,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [],
+        "final": 69,
+        "fallback": null,
+        "records": [
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 split 부족분)",
+            "deviation": 5.0,
+            "measuredValue": 25.0,
+            "ruleId": "split_vs_reference_over_tol_linear",
+            "points": -6.0,
+            "criterion": "split_angle",
+            "unit": "deg",
+            "source": "vision"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 3.84,
+            "measuredValue": 23.84,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -4.6,
+            "criterion": "angle_vs_reference__left_elbow",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 11.0,
+            "measuredValue": 31.0,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -13.2,
+            "criterion": "angle_vs_reference__right_elbow",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 2.58,
+            "measuredValue": 22.58,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -3.1,
+            "criterion": "angle_vs_reference__left_shoulder",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 3.16,
+            "measuredValue": 23.16,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -3.8,
+            "criterion": "angle_vs_reference__right_shoulder",
+            "unit": "deg",
+            "source": "geometry"
+          }
+        ],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "tallyFinal": 69,
+        "severity": "moderate",
+        "quantificationStatus": "available",
+        "angleDeltas": [
+          {
+            "reference_deg": 104.83,
+            "joint": "left_elbow",
+            "student_deg": 82.5093373825211,
+            "delta_deg": -22.320662617478902,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 132.64,
+            "joint": "right_elbow",
+            "student_deg": 85.99155457758327,
+            "delta_deg": -46.648445422416714,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 140.96,
+            "joint": "left_shoulder",
+            "student_deg": 76.75832067037304,
+            "delta_deg": -64.20167932962697,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 89.05,
+            "joint": "right_shoulder",
+            "student_deg": 126.24516742643107,
+            "delta_deg": 37.19516742643107,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 70.15,
+            "joint": "left_hip",
+            "student_deg": 85.86399845616052,
+            "delta_deg": 15.71399845616051,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 107.79,
+            "joint": "right_hip",
+            "student_deg": 64.81001728803183,
+            "delta_deg": -42.97998271196818,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 169.99,
+            "joint": "left_knee",
+            "student_deg": 107.8006297385651,
+            "delta_deg": -62.1893702614349,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 171.06,
+            "joint": "right_knee",
+            "student_deg": 139.01533787234538,
+            "delta_deg": -32.04466212765462,
+            "direction": "더 굽음",
+            "source": "geometry"
+          }
+        ],
+        "windowMedianAngleDeltas": {
+          "deltas": [
+            {
+              "reference_deg": 104.83,
+              "direction": "더 굽음",
+              "delta_deg": -18.474453048448154,
+              "student_deg": 86.35554695155184,
+              "joint": "left_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 132.64,
+              "direction": "더 굽음",
+              "delta_deg": -42.09207952765425,
+              "student_deg": 90.54792047234574,
+              "joint": "right_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 145.87,
+              "direction": "더 굽음",
+              "delta_deg": -63.700651884949295,
+              "student_deg": 82.16934811505071,
+              "joint": "left_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 89.05,
+              "direction": "더 펴짐",
+              "delta_deg": 42.009896969133266,
+              "student_deg": 131.05989696913326,
+              "joint": "right_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 87.9,
+              "direction": "더 굽음",
+              "delta_deg": -2.0360015438394896,
+              "student_deg": 85.86399845616052,
+              "joint": "left_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 107.79,
+              "direction": "더 굽음",
+              "delta_deg": -42.97998271196818,
+              "student_deg": 64.81001728803183,
+              "joint": "right_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 169.99,
+              "direction": "더 굽음",
+              "delta_deg": -62.1893702614349,
+              "student_deg": 107.8006297385651,
+              "joint": "left_knee",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 172.41,
+              "direction": "더 굽음",
+              "delta_deg": -33.39466212765461,
+              "student_deg": 139.01533787234538,
+              "joint": "right_knee",
+              "source": "geometry"
+            }
+          ],
+          "sourceFrameIndices": {
+            "reference": [
+              217,
+              218,
+              219,
+              220,
+              221
+            ],
+            "user": [
+              104,
+              105,
+              106,
+              107,
+              108
+            ]
+          },
+          "windowPolicy": "worst_pose_center_pm_2_median"
+        },
+        "faultJoints": [
+          "left_knee",
+          "left_hip",
+          "right_knee",
+          "right_hip"
+        ],
+        "primaryFault": "없음",
+        "rootCauseHypotheses": [
+          {
+            "faultKey": {
+              "side": "unknown",
+              "fault_kind": "extension_or_alignment",
+              "part_scope": "line",
+              "keypoint_set": "leg"
+            },
+            "supportCount": 2,
+            "text": "골반 및 양다리(스플릿 각도): 기준 영상 대비 스플릿 각도가 좁게 형성됨"
+          }
+        ],
+        "collectionStatus": "candidate_verdict",
+        "faultJointDeficits": {
+          "right_knee": 25.0,
+          "right_hip": 25.0,
+          "left_hip": 25.0,
+          "left_knee": 25.0
+        },
+        "alignment": {
+          "visibility": 0.6867866989444283,
+          "localPathCount": 5,
+          "distance": 63.239964378686985,
+          "refFramePresent": true,
+          "adoption": "window_union"
+        },
+        "status": "applied"
+      },
+      "collectObservation": {
+        "collectionStatus": "candidate_verdict",
+        "pointedJoints": [
+          "left_knee",
+          "right_knee"
+        ],
+        "supportedCount": 1,
+        "supportedFaultKeys": [
+          {
+            "faultKey": {
+              "part_scope": "line",
+              "side": "unknown",
+              "keypoint_set": "leg",
+              "fault_kind": "extension_or_alignment"
+            },
+            "severity": "moderate",
+            "supportCount": 2
+          }
+        ]
+      },
+      "seedObservation": {
+        "pointed": [
+          "left_knee",
+          "right_knee"
+        ],
+        "window_joints": [
+          "left_knee",
+          "right_knee"
+        ],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip"
+        ]
+      },
+      "activatedCriteria": [
+        "angle_vs_reference__left_elbow",
+        "angle_vs_reference__left_shoulder",
+        "angle_vs_reference__right_elbow",
+        "angle_vs_reference__right_shoulder",
+        "split_angle"
+      ]
+    },
+    {
+      "motion_id": "elbow-twist-sister",
+      "label": "success",
+      "analysisId": "elbowtwistsisterCorrect1783154115",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [],
+        "final": 100,
+        "fallback": null,
+        "records": [],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "alignment": {
+          "visibility": 0.7400828144129585,
+          "localPathCount": 8,
+          "distance": 42.79656142259176,
+          "refFramePresent": true,
+          "adoption": "window_union"
+        },
+        "status": "not_applicable"
+      },
+      "collectObservation": {
+        "collectionStatus": "no_fault",
+        "pointedJoints": [],
+        "supportedCount": 0,
+        "supportedFaultKeys": []
+      },
+      "seedObservation": {
+        "pointed": [],
+        "window_joints": [],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip",
+          "left_knee",
+          "right_knee"
+        ]
+      },
+      "activatedCriteria": []
+    },
+    {
+      "motion_id": "pdshape",
+      "label": "fault",
+      "analysisId": "pdshapeFault1783154115",
+      "status": "done",
+      "overallScore": 58,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [],
+        "final": 58,
+        "fallback": "gemini_silent",
+        "records": [
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 4.18,
+            "measuredValue": 24.18,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -5.0,
+            "criterion": "angle_vs_reference__left_elbow",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 7.53,
+            "measuredValue": 27.53,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -9.0,
+            "criterion": "angle_vs_reference__right_elbow",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 5.1,
+            "measuredValue": 25.1,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -6.1,
+            "criterion": "angle_vs_reference__left_shoulder",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 1.36,
+            "measuredValue": 21.36,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -1.6,
+            "criterion": "angle_vs_reference__right_shoulder",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 3.4,
+            "measuredValue": 23.4,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -4.1,
+            "criterion": "angle_vs_reference__left_hip",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 12.31,
+            "measuredValue": 32.31,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -14.8,
+            "criterion": "angle_vs_reference__left_knee",
+            "unit": "deg",
+            "source": "geometry"
+          },
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 1.19,
+            "measuredValue": 21.19,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -1.4,
+            "criterion": "angle_vs_reference__right_knee",
+            "unit": "deg",
+            "source": "geometry"
+          }
+        ],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "tallyFinal": 58,
+        "severity": "none",
+        "quantificationStatus": "available",
+        "angleDeltas": [
+          {
+            "reference_deg": 89.91,
+            "joint": "left_elbow",
+            "student_deg": 139.96251002687035,
+            "delta_deg": 50.05251002687035,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 136.62,
+            "joint": "right_elbow",
+            "student_deg": 94.78989912070685,
+            "delta_deg": -41.830100879293155,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 118.65,
+            "joint": "left_shoulder",
+            "student_deg": 98.24203801675021,
+            "delta_deg": -20.40796198324979,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 106.24,
+            "joint": "right_shoulder",
+            "student_deg": 27.147493201176065,
+            "delta_deg": -79.09250679882393,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 67.44,
+            "joint": "left_hip",
+            "student_deg": 109.27433318559683,
+            "delta_deg": 41.83433318559683,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 43.56,
+            "joint": "right_hip",
+            "student_deg": 76.91922005563306,
+            "delta_deg": 33.35922005563306,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 128.51,
+            "joint": "left_knee",
+            "student_deg": 125.93695373108463,
+            "delta_deg": -2.5730462689153626,
+            "direction": "더 굽음",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 140.61,
+            "joint": "right_knee",
+            "student_deg": 138.13290562335848,
+            "delta_deg": -2.4770943766415314,
+            "direction": "더 굽음",
+            "source": "geometry"
+          }
+        ],
+        "windowMedianAngleDeltas": {
+          "deltas": [
+            {
+              "reference_deg": 89.91,
+              "direction": "더 펴짐",
+              "delta_deg": 39.10579544739039,
+              "student_deg": 129.0157954473904,
+              "joint": "left_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 134.67,
+              "direction": "더 굽음",
+              "delta_deg": -23.376810236121855,
+              "student_deg": 111.29318976387813,
+              "joint": "right_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 125.6,
+              "direction": "더 굽음",
+              "delta_deg": -18.919331159370017,
+              "student_deg": 106.68066884062998,
+              "joint": "left_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 106.24,
+              "direction": "더 굽음",
+              "delta_deg": -77.56616415370836,
+              "student_deg": 28.67383584629164,
+              "joint": "right_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 67.44,
+              "direction": "더 펴짐",
+              "delta_deg": 58.32966226853685,
+              "student_deg": 125.76966226853685,
+              "joint": "left_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 43.56,
+              "direction": "더 펴짐",
+              "delta_deg": 41.230532417269586,
+              "student_deg": 84.79053241726959,
+              "joint": "right_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 128.51,
+              "direction": "더 굽음",
+              "delta_deg": -15.653340018125135,
+              "student_deg": 112.85665998187486,
+              "joint": "left_knee",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 131.5,
+              "direction": "더 펴짐",
+              "delta_deg": 6.897936769768847,
+              "student_deg": 138.39793676976885,
+              "joint": "right_knee",
+              "source": "geometry"
+            }
+          ],
+          "sourceFrameIndices": {
+            "reference": [
+              29,
+              30,
+              31,
+              32,
+              33
+            ],
+            "user": [
+              27,
+              28,
+              29,
+              30,
+              31
+            ]
+          },
+          "windowPolicy": "worst_pose_center_pm_2_median"
+        },
+        "primaryFault": "없음",
+        "collectionStatus": "no_fault",
+        "alignment": {
+          "visibility": 0.4487681038239423,
+          "localPathCount": 10,
+          "distance": 63.22358735431968,
+          "refFramePresent": true,
+          "adoption": "window_union"
+        },
+        "status": "applied"
+      },
+      "collectObservation": {
+        "collectionStatus": "no_fault",
+        "pointedJoints": [],
+        "supportedCount": 0,
+        "supportedFaultKeys": []
+      },
+      "seedObservation": {
+        "pointed": [],
+        "window_joints": [],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip",
+          "left_knee",
+          "right_knee"
+        ]
+      },
+      "activatedCriteria": [
+        "angle_vs_reference__left_elbow",
+        "angle_vs_reference__left_hip",
+        "angle_vs_reference__left_knee",
+        "angle_vs_reference__left_shoulder",
+        "angle_vs_reference__right_elbow",
+        "angle_vs_reference__right_knee",
+        "angle_vs_reference__right_shoulder"
+      ]
+    },
+    {
+      "motion_id": "pdshape",
+      "label": "success",
+      "analysisId": "pdshapeCorrect1783154115",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [],
+        "final": 100,
+        "fallback": null,
+        "records": [],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "alignment": {
+          "visibility": 0.8163678190287422,
+          "localPathCount": 9,
+          "distance": 39.82700402797551,
+          "refFramePresent": true,
+          "adoption": "window_union"
+        },
+        "status": "not_applicable"
+      },
+      "collectObservation": {
+        "collectionStatus": "no_fault",
+        "pointedJoints": [],
+        "supportedCount": 0,
+        "supportedFaultKeys": []
+      },
+      "seedObservation": {
+        "pointed": [],
+        "window_joints": [],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip",
+          "left_knee",
+          "right_knee"
+        ]
+      },
+      "activatedCriteria": []
+    },
+    {
+      "motion_id": "kip-up",
+      "label": "fault",
+      "analysisId": "kipupFault1783154115",
+      "status": "done",
+      "overallScore": 99,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [],
+        "final": 99,
+        "fallback": null,
+        "records": [
+          {
+            "baselineValue": 0.0,
+            "deviationSource": "reference_relative",
+            "baselineKind": null,
+            "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "deviation": 0.6,
+            "measuredValue": 20.6,
+            "ruleId": "angle_vs_reference_over_tol_linear",
+            "points": -0.7,
+            "criterion": "angle_vs_reference__left_shoulder",
+            "unit": "deg",
+            "source": "geometry"
+          }
+        ],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "tallyFinal": 99,
+        "severity": "moderate",
+        "quantificationStatus": "available",
+        "angleDeltas": [
+          {
+            "reference_deg": 43.85,
+            "joint": "left_elbow",
+            "student_deg": 57.5328694396553,
+            "delta_deg": 13.682869439655299,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 164.49,
+            "joint": "right_elbow",
+            "student_deg": 169.53317044434976,
+            "delta_deg": 5.043170444349755,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 30.48,
+            "joint": "left_shoulder",
+            "student_deg": 70.76557102947747,
+            "delta_deg": 40.28557102947747,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 137.91,
+            "joint": "right_shoulder",
+            "student_deg": 167.3773244464285,
+            "delta_deg": 29.467324446428506,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 155.46,
+            "joint": "left_hip",
+            "student_deg": 164.36567659965644,
+            "delta_deg": 8.90567659965643,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 134.43,
+            "joint": "right_hip",
+            "student_deg": 157.10104643977564,
+            "delta_deg": 22.671046439775637,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 170.32,
+            "joint": "left_knee",
+            "student_deg": 172.60385349223023,
+            "delta_deg": 2.283853492230236,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          },
+          {
+            "reference_deg": 174.92,
+            "joint": "right_knee",
+            "student_deg": 176.86197044491126,
+            "delta_deg": 1.9419704449112771,
+            "direction": "더 펴짐",
+            "source": "geometry"
+          }
+        ],
+        "windowMedianAngleDeltas": {
+          "deltas": [
+            {
+              "reference_deg": 43.85,
+              "direction": "더 펴짐",
+              "delta_deg": 13.682869439655299,
+              "student_deg": 57.5328694396553,
+              "joint": "left_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 165.72,
+              "direction": "더 펴짐",
+              "delta_deg": 4.4654933297762796,
+              "student_deg": 170.18549332977628,
+              "joint": "right_elbow",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 30.4,
+              "direction": "더 펴짐",
+              "delta_deg": 40.36557102947747,
+              "student_deg": 70.76557102947747,
+              "joint": "left_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 137.91,
+              "direction": "더 펴짐",
+              "delta_deg": 30.994107270079695,
+              "student_deg": 168.9041072700797,
+              "joint": "right_shoulder",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 155.46,
+              "direction": "더 펴짐",
+              "delta_deg": 5.592149693659593,
+              "student_deg": 161.0521496936596,
+              "joint": "left_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 134.43,
+              "direction": "더 펴짐",
+              "delta_deg": 22.671046439775637,
+              "student_deg": 157.10104643977564,
+              "joint": "right_hip",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 170.32,
+              "direction": "더 펴짐",
+              "delta_deg": 2.283853492230236,
+              "student_deg": 172.60385349223023,
+              "joint": "left_knee",
+              "source": "geometry"
+            },
+            {
+              "reference_deg": 174.44,
+              "direction": "더 펴짐",
+              "delta_deg": 1.1052738005803633,
+              "student_deg": 175.54527380058036,
+              "joint": "right_knee",
+              "source": "geometry"
+            }
+          ],
+          "sourceFrameIndices": {
+            "reference": [
+              35,
+              36,
+              37,
+              38,
+              39
+            ],
+            "user": [
+              18,
+              19,
+              20,
+              21,
+              22
+            ]
+          },
+          "windowPolicy": "worst_pose_center_pm_2_median"
+        },
+        "faultJoints": [
+          "left_knee",
+          "right_knee",
+          "left_hip",
+          "right_hip"
+        ],
+        "primaryFault": "기준 영상 대비 양다리의 스플릿 각도가 좁고 무릎이 완전히 펴지지 않음",
+        "rootCauseHypotheses": [
+          {
+            "faultKey": {
+              "side": "unknown",
+              "fault_kind": "pole_gap_or_bent",
+              "part_scope": "line",
+              "keypoint_set": "leg"
+            },
+            "supportCount": 3,
+            "text": "양다리: 기준 영상에 비해 두 다리 사이의 벌어짐(스플릿) 각도가 눈에 띄게 좁으며, 무릎이 미세하게 굽어 있어 전체적인 V라인이 좁게 형성됨"
+          }
+        ],
+        "collectionStatus": "candidate_verdict",
+        "faultJointDeficits": {
+          "right_knee": 20.0,
+          "right_hip": 20.0,
+          "left_hip": 20.0,
+          "left_knee": 20.0
+        },
+        "alignment": {
+          "visibility": 0.8058074397199294,
+          "localPathCount": 6,
+          "distance": 26.88977627701408,
+          "refFramePresent": true,
+          "adoption": "window_union"
+        },
+        "status": "applied"
+      },
+      "collectObservation": {
+        "collectionStatus": "candidate_verdict",
+        "pointedJoints": [
+          "left_knee",
+          "right_knee"
+        ],
+        "supportedCount": 1,
+        "supportedFaultKeys": [
+          {
+            "faultKey": {
+              "part_scope": "line",
+              "side": "unknown",
+              "keypoint_set": "leg",
+              "fault_kind": "pole_gap_or_bent"
+            },
+            "severity": "moderate",
+            "supportCount": 3
+          }
+        ]
+      },
+      "seedObservation": {
+        "pointed": [
+          "left_knee",
+          "right_knee"
+        ],
+        "window_joints": [
+          "left_knee",
+          "right_knee"
+        ],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip"
+        ]
+      },
+      "activatedCriteria": [
+        "angle_vs_reference__left_shoulder"
+      ]
+    },
+    {
+      "motion_id": "kip-up",
+      "label": "success",
+      "analysisId": "kipupCorrect1783154115",
+      "status": "done",
+      "overallScore": 100,
+      "errorCode": null,
+      "exception": null,
+      "deductionBreakdown": {
+        "coverageGaps": [],
+        "final": 100,
+        "fallback": null,
+        "records": [],
+        "baseline": 100
+      },
+      "visionVeto": {
+        "alignment": {
+          "visibility": 0.7929172375622917,
+          "localPathCount": 7,
+          "distance": 6.494271053473019,
+          "refFramePresent": true,
+          "adoption": "single"
+        },
+        "status": "not_applicable"
+      },
+      "collectObservation": {
+        "collectionStatus": "no_fault",
+        "pointedJoints": [],
+        "supportedCount": 0,
+        "supportedFaultKeys": []
+      },
+      "seedObservation": {
+        "pointed": [],
+        "window_joints": [],
+        "fallback_joints": [
+          "left_elbow",
+          "right_elbow",
+          "left_shoulder",
+          "right_shoulder",
+          "left_hip",
+          "right_hip",
+          "left_knee",
+          "right_knee"
+        ]
+      },
+      "activatedCriteria": []
+    },
+    {
+      "motion_id": "climb",
+      "label": "fault",
+      "analysisId": "climbFault1783154115",
+      "status": "comparison",
+      "overallScore": null,
+      "errorCode": null,
+      "exception": "NotPoleMotionError: angle 0 < 25",
+      "deductionBreakdown": null,
+      "visionVeto": null,
+      "collectObservation": null,
+      "seedObservation": null,
+      "activatedCriteria": null
+    },
+    {
+      "motion_id": "climb",
+      "label": "success",
+      "analysisId": "climbCorrect1783154115",
+      "status": "comparison",
+      "overallScore": null,
+      "errorCode": null,
+      "exception": "NotPoleMotionError: angle 10 < 25",
+      "deductionBreakdown": null,
+      "visionVeto": null,
+      "collectObservation": null,
+      "seedObservation": null,
+      "activatedCriteria": null
+    }
+  ],
+  "cold_rerun_check": {
+    "motion": "pdshape",
+    "warm_overall": 100,
+    "cold_overall": 100,
+    "warm_criteria": [],
+    "cold_criteria": [],
+    "selection_identical": true
+  },
+  "pointingFpObservation": {
+    "note": "짚기-FP율 = success 멤버 중 Gemini 가 관절을 짚은 빈도 — 관측 지표(게이트 아님, OD-2). 감점 판정은 window 측정 + tol 20° 게이트 소관.",
+    "successObserved": 5,
+    "pointedAny": 0,
+    "pointedUpper": 0,
+    "byMember": {
+      "power-spin": {
+        "pointed": [],
+        "pointedUpper": []
+      },
+      "peter-pan": {
+        "pointed": [],
+        "pointedUpper": []
+      },
+      "elbow-twist-sister": {
+        "pointed": [],
+        "pointedUpper": []
+      },
+      "pdshape": {
+        "pointed": [],
+        "pointedUpper": []
+      },
+      "kip-up": {
+        "pointed": [],
+        "pointedUpper": []
+      }
+    }
+  }
+}

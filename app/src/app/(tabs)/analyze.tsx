@@ -43,6 +43,10 @@ type Picked = {
   uri: string;
   size: number;
   format: VideoFormat;
+  // quick-260704-fwb — 저화질 경고를 보고 [이대로 계속] 한 영상만 true. loading 이
+  // not_pole_motion 실패 시 화질 우선 안내로 분기하는 표시 전용 로컬 플래그
+  // (백엔드 미전송, 로직/점수 무영향).
+  lowQuality?: boolean;
 };
 
 export default function Analyze() {
@@ -131,6 +135,9 @@ export default function Analyze() {
   // 돌아왔을 때 모드 선택 단계가 자연스럽게 보임).
   const routeAfterPick = (picked: Picked) => {
     if (!mode) return; // 방어 — 이론상 도달 불가
+    // quick-260704-fwb — 저화질 승인 플래그를 라우터 param 으로 로컬 전달.
+    // undefined 면 param 자체 미포함 (기존 흐름 불변).
+    const lowQuality = picked.lowQuality ? '1' : undefined;
     if (mode === 'mode1') {
       if (referenceMotionId) {
         router.push({
@@ -143,6 +150,7 @@ export default function Analyze() {
             format: picked.format,
             referenceMotionId,
             referenceMotionName: preselectedMotion?.name ?? '',
+            lowQuality,
           },
         });
       } else {
@@ -153,6 +161,7 @@ export default function Analyze() {
             uri: picked.uri,
             size: String(picked.size),
             format: picked.format,
+            lowQuality,
           },
         });
       }
@@ -165,6 +174,7 @@ export default function Analyze() {
           uri: picked.uri,
           size: String(picked.size),
           format: picked.format,
+          lowQuality,
         },
       });
     }
@@ -249,10 +259,12 @@ export default function Analyze() {
   };
 
   // [#20 입력 화질] 저화질 경고에서 [이대로 계속] — 보류한 picked 로 정상 라우팅.
+  // quick-260704-fwb — "경고를 보고 진행한" 업로드만 lowQuality 플래그를 심는다
+  // (경고 없이 통과한 영상은 플래그 X). not_pole 실패 시 화질 우선 안내 분기용.
   const continueLowQuality = () => {
     const p = lowQualityPicked;
     setLowQualityPicked(null);
-    if (p) maybePromptBeforeRoute(p);
+    if (p) maybePromptBeforeRoute({ ...p, lowQuality: true });
   };
 
   // [#20 입력 화질] 저화질 경고에서 [다른 영상 선택] — 보류한 영상을 버린다.

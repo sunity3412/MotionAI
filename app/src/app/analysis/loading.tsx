@@ -262,6 +262,7 @@ export default function AnalysisLoading() {
     analysisId: presetAnalysisId,
     referenceMotionId,
     referenceMotionName,
+    lowQuality,
   } = useLocalSearchParams<{
     mode?: string;
     name?: string;
@@ -271,6 +272,9 @@ export default function AnalysisLoading() {
     analysisId?: string;
     referenceMotionId?: string;
     referenceMotionName?: string;
+    // quick-260704-fwb — 저화질 경고를 승인('이대로 계속')한 업로드만 '1'.
+    // not_pole_motion 실패 시 화질 우선 안내로 분기 (표시 전용, errorCode 무접촉).
+    lowQuality?: string;
   }>();
 
   // 분석 ID: samples 경로(이미 있음) 또는 업로드 후 발급. 발급 전엔 null.
@@ -352,11 +356,20 @@ export default function AnalysisLoading() {
     const code: AnalysisErrorCode = errorCode ?? 'server_error';
     const isNoHuman = code === 'no_human';
     const isNotPole = code === 'not_pole_motion';
+    // quick-260704-fwb — 저화질 경고를 승인하고 진행한 업로드가 not_pole 로 실패하면
+    // "기준 동작과 너무 달라요" 대신 화질 우선 안내 (카톡 압축본 실패를 동작 문제로
+    // 오해하는 것 방지). 플래그 없는 not_pole 은 기존 카피 그대로 (회귀 0).
+    const isLowQualityNotPole = isNotPole && lowQuality === '1';
     const errorTitle = isNoHuman
       ? '사람을 찾지 못했어요'
-      : isNotPole
-        ? '기준 동작과 너무 달라요'
-        : '분석 중 문제가 발생했어요';
+      : isLowQualityNotPole
+        ? '화질이 낮아 분석하지 못했을 수 있어요'
+        : isNotPole
+          ? '기준 동작과 너무 달라요'
+          : '분석 중 문제가 발생했어요';
+    const errorBody = isLowQualityNotPole
+      ? '영상 화질이 낮아 자세를 인식하지 못했을 수 있어요. 원본 화질 영상으로 다시 시도하거나 앱에서 직접 촬영해 주세요.'
+      : ERROR_MESSAGE[code];
     return (
       <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
         <StatusBar style="light" />
@@ -369,7 +382,7 @@ export default function AnalysisLoading() {
             <Ionicons name="close" size={36} color={ERROR_RED} />
           </View>
           <Text style={styles.title}>{errorTitle}</Text>
-          <Text style={styles.sub}>{ERROR_MESSAGE[code]}</Text>
+          <Text style={styles.sub}>{errorBody}</Text>
           {isNoHuman && (
             <View style={styles.tipCard}>
               <View style={styles.tipHeadRow}>
@@ -387,9 +400,23 @@ export default function AnalysisLoading() {
                 <Ionicons name="alert-circle" size={16} color={ERROR_RED} />
                 <Text style={styles.tipHead}>확인해보세요</Text>
               </View>
-              <Text style={styles.tipItem}>· 폴스포츠 연습 영상이 맞는지</Text>
-              <Text style={styles.tipItem}>· 선택한 기준 동작이 영상과 같은지</Text>
-              <Text style={styles.tipItem}>· 전신이 다 보이는지</Text>
+              {isLowQualityNotPole ? (
+                // 화질 우선 순서 — 원본 화질/직접 촬영 → 기준 동작 일치 → 전신.
+                <>
+                  <Text style={styles.tipItem}>
+                    · 원본 화질 영상으로 다시 올리기 (카톡은 '원본' 전송)
+                  </Text>
+                  <Text style={styles.tipItem}>· 앱에서 직접 촬영하면 가장 정확해요</Text>
+                  <Text style={styles.tipItem}>· 선택한 기준 동작이 영상과 같은지</Text>
+                  <Text style={styles.tipItem}>· 전신이 다 보이는지</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.tipItem}>· 폴스포츠 연습 영상이 맞는지</Text>
+                  <Text style={styles.tipItem}>· 선택한 기준 동작이 영상과 같은지</Text>
+                  <Text style={styles.tipItem}>· 전신이 다 보이는지</Text>
+                </>
+              )}
             </View>
           )}
         </View>

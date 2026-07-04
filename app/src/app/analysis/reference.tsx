@@ -26,13 +26,16 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function ReferenceSelect() {
   const router = useRouter();
-  const { name, uri, size, format, motionId: preselectId } = useLocalSearchParams<{
-    name?: string;
-    uri?: string;
-    size?: string;
-    format?: string;
-    motionId?: string;
-  }>();
+  const { name, uri, size, format, motionId: preselectId, lowQuality } =
+    useLocalSearchParams<{
+      name?: string;
+      uri?: string;
+      size?: string;
+      format?: string;
+      motionId?: string;
+      // quick-260704-fwb — 저화질 승인 플래그 passthrough (analyze → 여기 → loading).
+      lowQuality?: string;
+    }>();
   const { motions, loading, error } = useReferenceMotions();
 
   const [tab, setTab] = useState<Tab>('basic');
@@ -85,6 +88,8 @@ export default function ReferenceSelect() {
         // 결과 화면 표시용. 백엔드가 result 문서에 referenceMotionName 을 직접
         // 들고 오면 이 param 은 자연스럽게 폐기.
         referenceMotionName: selected?.name ?? '',
+        // quick-260704-fwb — 저화질 승인 플래그 passthrough.
+        lowQuality,
       },
     });
   };

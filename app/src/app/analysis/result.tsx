@@ -835,6 +835,34 @@ export default function AnalysisResult() {
     });
   }, [result.tips, vetoApplied]);
 
+  // quick-260704-fwb — '먼저 교정할 점' 카드 처방 구조. 상태(primaryFault) 아래
+  // 원인 기전(rootCauseHypotheses 상위 2건, supportCount 내림차순, '~로 보임' 가설
+  // 어투 그대로 — 측정 안 된 단정 금지) + 처방 연결(결함 관절 매칭 첫 팁 detail).
+  // 전부 저장된 값만 사용 — 부재 시 섹션 생략/폴백 한 줄 (legacy doc 크래시 0).
+  const vetoRootCauses = useMemo(() => {
+    if (result.visionVeto?.status !== 'applied') return [];
+    const hyps = result.visionVeto.rootCauseHypotheses ?? [];
+    return hyps
+      .filter((h) => typeof h.text === 'string' && h.text.length > 0)
+      .slice()
+      .sort(
+        (a, b) =>
+          (typeof b.supportCount === 'number' ? b.supportCount : 0) -
+          (typeof a.supportCount === 'number' ? a.supportCount : 0),
+      )
+      .slice(0, 2);
+  }, [result.visionVeto]);
+  const vetoFixTip = useMemo(() => {
+    if (!vetoApplied) return null;
+    const faultJoints = vetoFaultJoints ?? [];
+    if (faultJoints.length === 0) return null;
+    return (
+      displayTips.find(
+        (tip) => tip.joint != null && faultJoints.some((j) => j === tip.joint),
+      ) ?? null
+    );
+  }, [vetoApplied, vetoFaultJoints, displayTips]);
+
   const deltaFor = (dim: ScoreDimension): number | undefined =>
     cmp.mode === 'mode3' && !cmp.isFirst
       ? cmp.deltaFromPrevious?.[dim]
@@ -1200,9 +1228,32 @@ export default function AnalysisResult() {
             <Text style={styles.tipDetail}>
               {highlightNumbers(vetoPrimaryFault)}
             </Text>
+            {/* quick-260704-fwb — 원인 기전: '~로 보임' 가설 어투 그대로 (측정 안 된
+                단정 금지). rootCauseHypotheses 부재 doc 은 섹션 생략 (graceful). */}
+            {vetoRootCauses.length > 0 ? (
+              <View style={styles.vetoCauseBlock}>
+                <Text style={styles.vetoCauseLabel}>가능한 원인</Text>
+                {vetoRootCauses.map((h, i) => (
+                  <Text key={i} style={styles.vetoCauseItem}>
+                    {`· ${h.text}`}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+            {/* 처방 연결 — 결함 관절(faultJoints) 매칭 첫 팁의 실행 지시 한 줄.
+                매칭 팁 없으면 코칭 팁 안내 폴백 (fabricate 0). */}
+            {vetoFixTip ? (
+              <Text style={styles.vetoFixLine}>
+                <Text style={styles.vetoFixLabel}>이렇게 교정해 보세요: </Text>
+                {vetoFixTip.detail}
+              </Text>
+            ) : (
+              <Text style={styles.vetoFixLine}>
+                아래 코칭 팁에서 관절별 교정 방법을 확인하세요.
+              </Text>
+            )}
             <Text style={styles.vetoLeadNote}>
-              관절 각도는 기준과 가깝지만, AI 영상 분석이 위 자세 차이를 발견해
-              종합 점수에 반영했어요. 이 점부터 다듬어 보세요.
+              AI 영상 분석이 발견한 위 자세 차이가 종합 점수에 반영됐어요.
             </Text>
           </View>
         ) : null}
@@ -1742,6 +1793,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
   },
+  // quick-260704-fwb — '먼저 교정할 점' 원인 기전 + 처방 연결 (토큰만).
+  vetoCauseBlock: { gap: 4 },
+  vetoCauseLabel: { ...typography.boxLabel, color: colors.textPrimary },
+  vetoCauseItem: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  vetoFixLine: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
+  vetoFixLabel: { ...typography.boxLabel, color: colors.brand },
   tipHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tipAngleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   tipAngle: { ...typography.boxLabel, color: colors.brand },

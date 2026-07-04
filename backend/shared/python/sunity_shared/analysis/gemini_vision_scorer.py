@@ -78,8 +78,9 @@ SCHEMA_VERSION = "v7.0"  # v7.0 (Phase 23-02): differences[] 에 root_cause_hypo
 # 살아남는다 (kip-up whole/whole_fanout stale-hit FP 이력, 90d038f). 집계 변경 =
 # 반드시 이 marker 도 bump — 기존 키 공간 재사용 절대 금지.
 # agg2 (25-02): 그룹 키 FaultKey 4필드 전체 → keypoint_set 단독 (side/fault_kind fold).
-# agg3 (25-02 review CR-01): fold 대표에 그룹 멤버 원문(_memberFaults/_memberFaultKeys)
-#   보존 — 라우팅(split_angle 등)/recall 어휘가 대표-선정 복권으로 소실되지 않게.
+# agg3 (25-02 review CR-01/WR-01): fold 대표에 그룹 멤버 원문(_memberFaults/_memberFaultKeys)
+#   보존(라우팅/recall 어휘가 대표-선정 복권으로 소실되지 않게) + support 게이트를
+#   distinct-call 교차 확증으로(단일 호출의 좌+우 항목화가 K=2 자기충족하지 않게).
 AGGREGATION_VERSION = "agg3"
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
@@ -1268,6 +1269,12 @@ def _filter_supported_differences(
     `vision_veto.FaultKey` 로 정규화한다(D-09 HIGH-2 + D-17 MED-3). severity='none'/빈
     difference 는 인정 결함이 아니다(정타 보존). 단발(support<K)은 drop/descriptive-only.
 
+    support 게이트 = **distinct call 교차 확증** (25-02 review WR-01): fold 후에는
+    한 호출이 "왼쪽 어깨"+"오른쪽 어깨" 를 항목화하면 발생-건수 카운트로는 즉시 K=2
+    자기충족된다(v10 프롬프트의 좌/우 개별 항목화 강제가 이를 증폭). H1 의 "N 중 K
+    교차 확증" 의미를 보존하기 위해 게이트는 그 keypoint_set 을 언급한 **서로 다른
+    call 수**로 판정한다. `_supportCount` 도 distinct-call 확증 수(신뢰도 표시 정합).
+
     그룹 키 = **keypoint_set 단독** (25-02 Task 1, 25-RESEARCH §1 처방 (a)). FaultKey
     4필드 전체로 그룹하면 같은 부위 언급이 side("왼쪽 어깨"=left vs "어깨"=unknown) /
     fault_kind("굽음" vs "정렬 흐트러짐") fragment 로 분산돼 support K 미달 drop —
@@ -1294,7 +1301,7 @@ def _filter_supported_differences(
 
     groups: dict[str, dict] = {}
     diff_id = 0
-    for call_diffs in per_call_differences or ():
+    for call_idx, call_diffs in enumerate(per_call_differences or ()):
         for d in call_diffs or ():
             diff_id += 1
             part = str((d or {}).get("body_part", "")).strip()
@@ -1313,7 +1320,7 @@ def _filter_supported_differences(
             cur = groups.get(key)
             if cur is None:
                 cur = groups[key] = {
-                    "support": 1,
+                    "calls": {call_idx},
                     "ids": [diff_id],
                     "fault_key": fk,
                     "sides": {fk.side} if fk.side in ("left", "right") else set(),
@@ -1321,7 +1328,7 @@ def _filter_supported_differences(
                     "members": {},
                 }
             else:
-                cur["support"] += 1
+                cur["calls"].add(call_idx)
                 cur["ids"].append(diff_id)
                 if fk.side in ("left", "right"):
                     cur["sides"].add(fk.side)
@@ -1341,13 +1348,13 @@ def _filter_supported_differences(
 
     out: list = []
     for g in groups.values():
-        if g["support"] < min_support_k:
-            continue  # 단발/미support → drop (H1 — 환각 차단).
+        if len(g["calls"]) < min_support_k:
+            continue  # distinct-call 교차 확증 미달 → drop (H1 — 환각 차단, WR-01).
         # side 그룹-해소: 명시 side 가 유일하면 그 side, 혼재/부재면 unknown.
         sides = g["sides"]
         resolved_side = next(iter(sides)) if len(sides) == 1 else "unknown"
         rec = {k: v for k, v in g["best"].items() if not k.startswith("_")}
-        rec["_supportCount"] = g["support"]
+        rec["_supportCount"] = len(g["calls"])
         rec["_faultKey"] = dc_replace(g["fault_key"], side=resolved_side)
         rec["_sourceIds"] = tuple(g["ids"])
         members = list(g["members"].values())

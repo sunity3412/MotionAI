@@ -1175,20 +1175,30 @@ def test_fold_does_not_merge_distinct_keypoint_sets():
     assert supported[0]["_faultKey"].keypoint_set == "leg"
 
 
-def test_fold_no_union_inflation_same_call_counting_preserved():
-    """fold 로 union 부풀림 없음 — 같은 call 안 같은 keypoint_set 2건도 대표 1개.
+def test_single_call_left_right_itemization_does_not_self_satisfy_k():
+    """WR-01: 한 호출의 좌+우 항목화만으로 K=2 자기충족 금지 — distinct-call 교차 확증.
 
-    support 는 기존 diff_id 순회(발생 건수) 의미 그대로 — call-교차 여부로 재정의하지
-    않는다 (기존 카운트 로직 보존).
+    v10 프롬프트가 좌/우 개별 항목화를 강제하므로, 발생-건수 카운트면 환각 1회가
+    support 게이트를 즉시 연다(H1 공동화). 게이트는 서로 다른 call 수로 판정한다.
     """
-    per_call = [
+    single_call = [
         [_sdiff("왼쪽 어깨", dev=40.0), _sdiff("오른쪽 어깨", dev=31.0)],
     ]
     supported = gvs._filter_supported_differences(
-        per_call, part_scope_hint="upper_body", min_support_k=2,
+        single_call, part_scope_hint="upper_body", min_support_k=2,
     )
-    assert len(supported) == 1, "출력은 그룹당 대표 1개 (union 부풀림 0)"
-    assert supported[0]["_supportCount"] == 2, "발생 건수 카운트 의미 보존"
+    assert supported == [], "단일 호출 좌+우 2건 = distinct call 1 → K=2 미달 drop"
+
+    cross_call = [
+        [_sdiff("왼쪽 어깨", dev=40.0), _sdiff("오른쪽 어깨", dev=31.0)],
+        [_sdiff("어깨", dev=25.0)],
+    ]
+    supported2 = gvs._filter_supported_differences(
+        cross_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert len(supported2) == 1, "call-교차 확증(2 calls) → 통과, 출력은 대표 1개 (부풀림 0)"
+    assert supported2[0]["_supportCount"] == 2, "_supportCount = distinct-call 확증 수"
+    assert len(supported2[0]["_sourceIds"]) == 3, "_sourceIds 는 발생 건수 provenance 유지"
 
 
 def test_fold_severity_none_still_filtered():

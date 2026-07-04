@@ -62,6 +62,8 @@ import os
 import re
 from dataclasses import dataclass, replace as dc_replace
 
+from .vision_veto import FAULT_CATEGORIES  # 고정 결함 분류 enum 단일 owner (25-05)
+
 log = logging.getLogger(__name__)
 
 # ─────────────────── 버전 상수 (MEDIUM-2) ───────────────────
@@ -70,8 +72,8 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v11.0"  # v11.0 (25-04 #3): (a) 측정 rubric — 각도 편차는 학생/기준 각도를 각각 명시 추정(student_angle_deg/reference_angle_deg + measurement_basis 서술), 편차는 코드가 산술 계산("편차 한 방 추정" 앵커링 편향 축소 — run3 kip-up 측정 20° vs production 30° 변동 근거). (b) 관찰-전량 differences[] 방출 강제 — primary_fault 서사에만 남긴 결함은 무효(상체 faultKey 미산출 잔존 fix), 단 "편차 없으면 항목 없음" 정타 방어 유지·강화(짚기-FP 0/5 게이트). generic 유지(동작명/기대답 0, D-06). v10.1 (25-02 review WR-05): 좌/우 기준 명시 — 수행자(학생) 본인 신체 기준, 불확실하면 좌/우 생략 허용. v10.0 (25-02): part_scope 구조화 강제. v9.0 (Phase 23-02): 원인 가설("~로 보임") 지시 추가
-SCHEMA_VERSION = "v8.0"  # v8.0 (25-04 #3(a)): differences[] 에 student_angle_deg/reference_angle_deg(명시 각도쌍 — 편차는 코드 산술) + measurement_basis(무엇을 어떻게 쟀는지 DESCRIPTIVE) 추가 (score-free, D-02/D-06). v7.0 (Phase 23-02): root_cause_hypothesis + source 추가
+PROMPT_VERSION = "v11.1"  # v11.1 (25-05): fault_category 고정 분류 rule 추가 — 각 enum 값 정의 1줄(스플릿 = 양다리 벌림/찢기 각도 부족, "벌림"/"스플릿"/"다리 사이 각도" 전부 이것). 어휘 드리프트 3연속(v9 body_part→v10.1 fault_state→v11 "벌림"+extension 오분류) 근본 fix — 라우팅은 키워드가 아닌 enum 을 1순위 소비. v11.0 (25-04 #3): (a) 측정 rubric — 각도 편차는 학생/기준 각도를 각각 명시 추정(student_angle_deg/reference_angle_deg + measurement_basis 서술), 편차는 코드가 산술 계산("편차 한 방 추정" 앵커링 편향 축소 — run3 kip-up 측정 20° vs production 30° 변동 근거). (b) 관찰-전량 differences[] 방출 강제 — primary_fault 서사에만 남긴 결함은 무효(상체 faultKey 미산출 잔존 fix), 단 "편차 없으면 항목 없음" 정타 방어 유지·강화(짚기-FP 0/5 게이트). generic 유지(동작명/기대답 0, D-06). v10.1 (25-02 review WR-05): 좌/우 기준 명시 — 수행자(학생) 본인 신체 기준, 불확실하면 좌/우 생략 허용. v10.0 (25-02): part_scope 구조화 강제. v9.0 (Phase 23-02): 원인 가설("~로 보임") 지시 추가
+SCHEMA_VERSION = "v8.1"  # v8.1 (25-05): differences[] 에 fault_category 필수 — vision_veto.FAULT_CATEGORIES 고정 enum (split_angle/limb_extension/pole_gap/alignment/grip/other). 라우터(ipsf_criteria.criteria_for_fault)가 1순위 소비 — 자유-텍스트 키워드 파싱의 어휘 드리프트 봉인. v8.0 (25-04 #3(a)): differences[] 에 student_angle_deg/reference_angle_deg(명시 각도쌍 — 편차는 코드 산술) + measurement_basis(무엇을 어떻게 쟀는지 DESCRIPTIVE) 추가 (score-free, D-02/D-06). v7.0 (Phase 23-02): root_cause_hypothesis + source 추가
 # 집계 알고리즘 버전 marker (25-02 Task 1) — 튜닝 상수 아님. rich 캐시(store_rich)는
 # support-게이트 **통과 후** supported_differences 를 저장하므로, 프롬프트를 안 바꿔도
 # _filter_supported_differences 의 그룹핑/fold 를 바꾸면 옛 집계 결과가 stale-hit 로
@@ -196,6 +198,21 @@ def build_schema() -> dict:
                         "body_part": {"type": "string"},
                         "correct_state": {"type": "string"},
                         "fault_state": {"type": "string"},
+                        # 25-05 (SCHEMA v8.1) — 결함 고정 분류 enum. 자유-텍스트 키워드
+                        # 파싱의 어휘 드리프트 3연속(v9→v10.1→v11) 근본 fix: 라우터
+                        # (ipsf_criteria.criteria_for_fault)가 이 enum 을 1순위 소비한다.
+                        # enum 은 vision_veto.FAULT_CATEGORIES 단일 owner — 새 분류
+                        # 발명 금지(기존 criterion/FaultKey 체계와 1:1 대응).
+                        "fault_category": {
+                            "type": "string",
+                            "enum": list(FAULT_CATEGORIES),
+                            "description": (
+                                "결함 고정 분류. split_angle=양다리 벌림/찢기(스플릿) "
+                                "각도 부족, limb_extension=팔/다리 신전(뻗기) 부족, "
+                                "pole_gap=폴에서 떨어짐/밀착 풀림, alignment=전체 "
+                                "라인/정렬 흐트러짐, grip=그립 자체 결함, other=그 외."
+                            ),
+                        },
                         "approx_angle_deviation_deg": {
                             "type": "number",
                             "description": (
@@ -257,6 +274,9 @@ def build_schema() -> dict:
                         "correct_state",
                         "fault_state",
                         "severity",
+                        # 25-05 — 분류는 필수: 부재 응답을 허용하면 라우팅이 다시
+                        # 키워드 폴백에 의존하게 돼 enum 강제가 무력화된다.
+                        "fault_category",
                     ],
                 },
             },
@@ -285,6 +305,22 @@ def build_schema() -> dict:
 
 # ─────────────────── 프롬프트 ───────────────────
 
+# fault_category 고정 분류 rule (PROMPT v11.1 / SCHEMA v8.1, 25-05) — 두 프롬프트
+# (단일/비교) 공통 첨부. 각 enum 값의 정의 1줄씩. 어휘 드리프트 3연속 실측(v9 body_part
+# → v10.1 fault_state → v11 "벌림"+extension 오분류)의 봉인: 스플릿 정의가 "벌림"/
+# "스플릿"/"다리 사이 각도"를 전부 split_angle 로 수렴시킨다. 새 분류 발명 금지 —
+# enum(vision_veto.FAULT_CATEGORIES)과 값·정의가 1:1. 이 블록을 바꾸면 PROMPT_VERSION
+# bump 필수(캐시 무효화).
+_FAULT_CATEGORY_RULE = """
+
+각 difference 의 fault_category 는 아래 고정 분류에서 정확히 하나를 선택하세요 (새 분류 발명 금지):
+  · split_angle    : 양다리 벌림/찢기(스플릿) 각도 부족 — "벌림", "스플릿", "다리 사이 각도" 편차는 전부 이것.
+  · limb_extension : 팔/다리 신전(뻗기) 부족 — 무릎/팔꿈치 굽음 등 사지가 덜 펴진 결함.
+  · pole_gap       : 손/팔/몸이 폴에서 떨어짐·밀착 풀림 (폴과의 갭).
+  · alignment      : 전체 라인/정렬 흐트러짐 (몸통 축·자세 정렬).
+  · grip           : 그립 방법/손 위치 자체의 결함.
+  · other          : 위 어디에도 해당하지 않는 편차."""
+
 _PROMPT = """\
 당신은 IPSF(국제폴스포츠연맹) Code of Points 기준에 정통한 폴스포츠 동작 분석가입니다.
 
@@ -307,7 +343,7 @@ _PROMPT = """\
 4. differences 에는 **실제로 관찰된 결함만** 담으세요 (없으면 빈 배열). 각 항목 severity 도
    none/minor/moderate/major 로 보수적으로.
 5. primary_fault = 가장 지배적인 단일 결함 (결함 없으면 '없음').
-6. 한국어로 작성. 추측이 불확실하면 confidence 를 낮게 표기."""
+6. 한국어로 작성. 추측이 불확실하면 confidence 를 낮게 표기.""" + _FAULT_CATEGORY_RULE
 
 
 def _build_prompt(at_seconds: float | None) -> str:
@@ -392,7 +428,7 @@ _COMPARISON_PROMPT = """\
    단정하지 말고(틀렸다/잘못됐다 금지), 사람 점수·등급 라벨을 ground truth 로 쓰지 마세요.
    확실하지 않으면 원인을 생략하거나 confidence 를 낮게. 각 difference 의 source 는
    'vision_hypothesis' 로 표기하세요(당신은 관찰·가설, 칸 수치는 코드가 계산).
-10. 한국어로 작성. 비교가 불확실하면 confidence 를 낮게 표기."""
+10. 한국어로 작성. 비교가 불확실하면 confidence 를 낮게 표기.""" + _FAULT_CATEGORY_RULE
 
 
 def _build_comparison_prompt(at_seconds: float | None) -> str:

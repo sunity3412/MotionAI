@@ -629,13 +629,15 @@ def test_samples_count_invalidates_cache(
 
 
 def test_prompt_schema_version():
-    """PROMPT_VERSION = v11.0 (25-04 #3: 측정 rubric + 방출 강제) / SCHEMA_VERSION = v8.0."""
-    assert PROMPT_VERSION == "v11.0"
-    assert PROMPT_VERSION not in ("v9.0", "v10.0", "v10.1"), (
+    """PROMPT_VERSION = v11.1 (25-05: fault_category 고정 enum) / SCHEMA_VERSION = v8.1."""
+    assert PROMPT_VERSION == "v11.1"
+    assert PROMPT_VERSION not in ("v9.0", "v10.0", "v10.1", "v11.0"), (
         "프롬프트 변경 = bump 필수 (캐시 무효화)"
     )
-    assert SCHEMA_VERSION == "v8.0"
-    assert SCHEMA_VERSION != "v7.0", "스키마 변경(각도쌍 필드) = bump 필수 (캐시 무효화)"
+    assert SCHEMA_VERSION == "v8.1"
+    assert SCHEMA_VERSION not in ("v7.0", "v8.0"), (
+        "스키마 변경(fault_category 필수 enum) = bump 필수 (캐시 무효화)"
+    )
 
 
 def test_default_samples_is_three():
@@ -1412,6 +1414,111 @@ def test_part_scope_prompt_has_rubric_and_clean_defense():
         assert "빠짐없이" in prompt, f"{scope}: 전량 방출 강제 부재"
         assert "무효" in prompt, f"{scope}: 서사-only 무효 계약 부재"
         assert "항목을 만들지 말고" in prompt, f"{scope}: 정타 방어(빈 배열) 부재"
+
+
+# ─────────────── 25-05 — fault_category 고정 enum (SCHEMA v8.1 / PROMPT v11.1) ───────────────
+
+
+def test_schema_fault_category_fixed_enum_required():
+    """v8.1: differences[] 의 fault_category 는 필수 + vision_veto.FAULT_CATEGORIES 고정
+    enum (자유-텍스트 분류 발명 금지). 어휘 드리프트 3연속(v9→v10.1→v11) 근본 fix —
+    라우터가 키워드 대신 이 enum 을 1순위 소비한다."""
+    from sunity_shared.analysis.vision_veto import FAULT_CATEGORIES
+
+    schema = build_schema()
+    items = schema["properties"]["differences"]["items"]
+    props = items["properties"]
+    assert "fault_category" in props
+    assert props["fault_category"]["type"] == "string"
+    # 고정 enum — 단일 owner(vision_veto)와 값·순서 동일 (drift 차단).
+    assert props["fault_category"]["enum"] == list(FAULT_CATEGORIES)
+    # 기존 criterion/faultKey 체계와 1:1 대응 — 새 분류 발명 금지.
+    assert set(FAULT_CATEGORIES) == {
+        "split_angle", "limb_extension", "pole_gap", "alignment", "grip", "other",
+    }
+    # 필수 — 부재 응답 허용 시 라우팅이 다시 키워드 폴백 의존(enum 강제 무력화).
+    assert "fault_category" in items["required"]
+    # 객관성: 신규 필드에 forbidden 단어 0.
+    for forbidden in _FORBIDDEN_KEYS:
+        assert forbidden not in "fault_category"
+
+
+def test_prompts_define_each_fault_category():
+    """v11.1: 단일/비교 프롬프트 모두 각 fault_category 값 정의를 1줄씩 담는다 — 특히
+    스플릿 정의에 v11 실측 drift 어휘('벌림')가 명시돼 벌림/스플릿/다리 각도가 전부
+    split_angle 로 수렴한다."""
+    from sunity_shared.analysis.vision_veto import FAULT_CATEGORIES
+
+    for prompt in (gvs._PROMPT, gvs._COMPARISON_PROMPT):
+        for cat in FAULT_CATEGORIES:
+            assert cat in prompt, f"{cat}: 프롬프트 정의 부재"
+        assert "벌림" in prompt, "스플릿 정의에 v11 drift 어휘('벌림') 명시 필수"
+        assert "새 분류 발명 금지" in prompt
+    # scope 집중 suffix 경로에도 rule 이 살아있다 (base 프롬프트에 포함되므로).
+    for scope in gvs.VETO_PART_SCOPES:
+        assert "split_angle" in _comparison_prompt_for_scope(scope)
+
+
+def test_comparison_prompt_clean_defense_survives_category_rule():
+    """category rule 첨부가 정타 방어(빈 배열/만들어내지 않기) 문구를 밀어내지 않는다
+    (짚기-FP 0/5 게이트 불변)."""
+    prompt = gvs._COMPARISON_PROMPT
+    assert "만들어내지 마세요" in prompt
+    assert "differences=[]" in prompt  # 정타 = 빈 배열 (개행 걸친 '빈 배열' 문구 대신 계약 표기)
+    # category rule 은 방어 문구 뒤에 첨부 — 둘 다 공존.
+    assert "fault_category" in prompt
+
+
+def test_fault_category_does_not_weaken_none_filter():
+    """severity=none 항목은 fault_category 가 있어도 여전히 지지 집계에서 제외 —
+    clean 방어 불변 (정타가 category 만으로 결함이 되지 않는다)."""
+    per_call = [
+        [{
+            "body_part": "양다리",
+            "fault_state": "기준과 동일",
+            "severity": "none",
+            "fault_category": "split_angle",
+        }]
+        for _ in range(3)
+    ]
+    assert gvs._filter_supported_differences(per_call) == []
+
+
+def test_fault_category_survives_rich_cache_roundtrip():
+    """fault_category 는 평문 스키마 필드 — rich 캐시 to_doc/from_doc 왕복에서 대표/멤버
+    dict 에 그대로 보존된다 (구 캐시 엔트리는 필드 부재 = 라우터 키워드 폴백 대상)."""
+    from sunity_shared.analysis.vision_veto import FaultKey
+
+    fk = FaultKey(part_scope="line", side="unknown",
+                  keypoint_set="leg", fault_kind="extension_or_alignment")
+    rich = {
+        "status": "candidate_verdict",
+        "verdict": VisionVerdict("스플릿 부족", "moderate", ()),
+        "supported_differences": [{
+            "body_part": "양다리",
+            "fault_state": "양다리 벌림 각도가 기준에 비해 현저히 좁음",
+            "severity": "moderate",
+            "fault_category": "split_angle",
+            "_faultKey": fk,
+            "_supportCount": 1,
+            "_sourceIds": (1,),
+            "_measurementBacked": True,
+            "_memberFaults": ({
+                "body_part": "양다리",
+                "fault_state": "양다리 벌림 각도가 기준에 비해 현저히 좁음",
+                "severity": "moderate",
+                "fault_category": "split_angle",
+            },),
+            "_memberFaultKeys": (fk,),
+        }],
+        "root_cause_hypotheses": [],
+        "telemetry": {},
+    }
+    doc = VisionVetoCache._rich_to_doc(rich)
+    restored = VisionVetoCache._rich_from_doc(doc)
+    rec = restored["supported_differences"][0]
+    assert rec["fault_category"] == "split_angle"
+    assert rec["_memberFaults"][0]["fault_category"] == "split_angle"
 
 
 def test_parse_verdict_preserves_angle_pair_fields():

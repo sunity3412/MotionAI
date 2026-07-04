@@ -82,6 +82,32 @@ FAULT_KINDS = (
     "extension_or_alignment",  # 신전 부족/정렬 흐트러짐
 )
 
+# ---------------------------------------------------------------------------
+# FAULT_CATEGORIES — Gemini 구조화 출력의 결함 분류 고정 enum (25-05, 단일 owner).
+#
+# 어휘 드리프트 3연속 실측(v9 body_part "양다리 (스플릿 각도)" → v10.1 스플릿이
+# fault_state 로 이동 → v11 "벌림"+fault_kind=extension_or_alignment 오분류)의 근본
+# fix: 자유-텍스트 키워드 파싱은 프롬프트 버전마다 새는 두더지잡기 — 스키마
+# (gemini_vision_scorer.build_schema v8.1)가 응답을 이 enum 으로 강제하고, 라우터
+# (ipsf_criteria.criteria_for_fault)가 enum 을 1순위로 소비한다.
+#
+# 기존 criterion/FaultKey 체계와 1:1 대응 — 새 분류 발명 금지:
+#   split_angle    → criterion split_angle (양다리 벌림/찢기 각도 부족)
+#   limb_extension → leg_extension/arm_extension (leg vs arm 은 body_part 소관)
+#   pole_gap       → FaultKey fault_kind pole_gap_or_bent (폴 이탈/밀착 풀림)
+#   alignment      → criterion line (전체 라인/정렬)
+#   grip           → grip coverage gap (COVERAGE_GAP_KEYPOINT_SETS)
+#   other          → 분류 정보 0 — 라우터 키워드 폴백 체인
+# ---------------------------------------------------------------------------
+FAULT_CATEGORIES = (
+    "split_angle",
+    "limb_extension",
+    "pole_gap",
+    "alignment",
+    "grip",
+    "other",
+)
+
 
 def _faultkey_validate(part_scope, side, keypoint_set, fault_kind):
     """locked enum 검증 — 밖 값이면 ValueError (D-17 MED-3)."""

@@ -629,8 +629,9 @@ def test_samples_count_invalidates_cache(
 
 
 def test_prompt_schema_version():
-    """PROMPT_VERSION = v9.0 / SCHEMA_VERSION = v7.0 (Phase 23-02: 원인 가설 + source provenance)."""
-    assert PROMPT_VERSION == "v9.0"
+    """PROMPT_VERSION = v10.0 (25-02: part_scope 구조화 강제) / SCHEMA_VERSION = v7.0."""
+    assert PROMPT_VERSION == "v10.0"
+    assert PROMPT_VERSION != "v9.0", "25-02 프롬프트 변경 = bump 필수 (캐시 무효화)"
     assert SCHEMA_VERSION == "v7.0"
 
 
@@ -1216,5 +1217,53 @@ def test_aggregation_version_constant_and_in_cache_key(monkeypatch):
     key2 = VisionVetoCache.build_key(video_hash="vh-agg", model_name="m")
     assert key2 != key, "marker 변경 = 다른 키 (기존 키 공간 재사용 0)"
     assert "agg-test-999" in key2
+
+
+# ─────────────── 25-02 Task 2 — part_scope 구조화 강제 프롬프트 (v10.0) ───────────────
+
+
+def _comparison_prompt_for_scope(part_scope):
+    """_call_gemini_comparison 이 실제로 보내는 최종 프롬프트 캡처 (fake client)."""
+    client = _FakeClient(_VALID_JSON)
+    gvs._call_gemini_comparison(
+        client, MagicMock(name="ref"), MagicMock(name="student"), None,
+        part_scope=part_scope,
+    )
+    contents = client.calls[-1]["contents"]
+    return contents[-1]
+
+
+def test_part_scope_prompt_forces_differences_structuring():
+    """part_scope 제공 시 프롬프트에 differences[] 구조화 + 좌/우 명시 + 서사-only 금지 지시."""
+    for scope in gvs.VETO_PART_SCOPES:
+        prompt = _comparison_prompt_for_scope(scope)
+        assert "differences" in prompt, f"{scope}: differences[] 구조화 지시 부재"
+        assert "좌/우" in prompt, f"{scope}: 좌/우 명시 지시 부재"
+        assert "누락" in prompt and "금지" in prompt, (
+            f"{scope}: primary_fault 서사-only 금지 지시 부재"
+        )
+        # 기존 1·2번 규칙(정타/사소차/촬영조건 비결함) 유지 지시 보존.
+        assert "1·2번 규칙" in prompt
+
+
+def test_part_scope_prompt_generic_no_motion_names():
+    """scope 프롬프트 산출물에 등재 동작명 하드코딩 0 (D-06 curve-fit 밴)."""
+    motion_names = (
+        "kip-up", "kip up", "킵업", "power-spin", "power spin", "파워스핀",
+        "peter-pan", "peter pan", "피터팬", "elbow-twist", "elbow twist",
+        "엘보 트위스트", "pdshape", "climb", "클라임",
+    )
+    for scope in (*gvs.VETO_PART_SCOPES, None):
+        prompt = _comparison_prompt_for_scope(scope).lower()
+        for motion in motion_names:
+            assert motion not in prompt, (
+                f"scope={scope}: 동작명 '{motion}' 하드코딩 — curve-fit 위험"
+            )
+
+
+def test_part_scope_none_prompt_unchanged_no_structuring_suffix():
+    """part_scope 미제공(None) 경로는 suffix 없음 — 기존 비교 프롬프트 그대로."""
+    prompt = _comparison_prompt_for_scope(None)
+    assert prompt == gvs._COMPARISON_PROMPT
 
 

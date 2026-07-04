@@ -850,6 +850,8 @@ Plans:
 
 **Depends on:** Phase 24 (감점 엔진 + criterion 라우터 — 그대로 소비), Phase 23 (still-frame/moment 추출), quick 260702-o0c 실험 결과. 구현/eval = Pod GPU 필요. F(260704-fz4) advisory 티어가 UI 선행 — 측정 초과 관절이 이미 "참고(주황)"로 노출되므로, 이 phase 가 완성되면 vision-확인분이 참고→확정(빨강)으로 승격되는 구조.
 
+**동반 스코프 (belle 2026-07-04 실기기 이관분):** 확대 카드 정밀도 — 정은지(reference) 쪽 저신뢰 전신 폴백이 카드마다 동일 전신 사진 반복("분석 안 한 것처럼 보임"). 부위 영역(bbox) 완화 crop + 카드별 차별화 + 동그라미 앵커 정밀화. vision 짚기가 프레임/부위를 확정하면 그 프레임·부위로 crop 하는 것이 자연 해법이라 이 phase 에 묶음.
+
 **Plans:** 0 plans
 
 Plans:

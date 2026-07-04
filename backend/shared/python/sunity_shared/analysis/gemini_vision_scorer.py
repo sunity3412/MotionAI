@@ -60,7 +60,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as dc_replace
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +72,13 @@ log = logging.getLogger(__name__)
 # 잘못 살아남는다(비결정론·오 verdict).
 PROMPT_VERSION = "v9.0"  # v9.0 (Phase 23-02): 비교 프롬프트에 원인 가설("~로 보임", source=vision_hypothesis) 지시 추가. 칸 수치는 코드 산출이라 Gemini 에 칸/percent 요청 0 (D-04/D-08). prompt bump → cache 무효화
 SCHEMA_VERSION = "v7.0"  # v7.0 (Phase 23-02): differences[] 에 root_cause_hypothesis + source(geometry|vision_hypothesis) DESCRIPTIVE 필드 추가 (score-free, percent-free, D-04/D-06/D-08)
+# 집계 알고리즘 버전 marker (25-02 Task 1) — 튜닝 상수 아님. rich 캐시(store_rich)는
+# support-게이트 **통과 후** supported_differences 를 저장하므로, 프롬프트를 안 바꿔도
+# _filter_supported_differences 의 그룹핑/fold 를 바꾸면 옛 집계 결과가 stale-hit 로
+# 살아남는다 (kip-up whole/whole_fanout stale-hit FP 이력, 90d038f). 집계 변경 =
+# 반드시 이 marker 도 bump — 기존 키 공간 재사용 절대 금지.
+# agg2 (25-02): 그룹 키 FaultKey 4필드 전체 → keypoint_set 단독 (side/fault_kind fold).
+AGGREGATION_VERSION = "agg2"
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
 #
@@ -377,7 +384,7 @@ class VisionVetoCache:
     """severity verdict 전용 캐시 — recognizer TechniqueCache 키 재사용 금지.
 
     키 = (video_hash, reference_hash, model_name, PROMPT_VERSION, SCHEMA_VERSION,
-          input_granularity, at_seconds_bucket).
+          AGGREGATION_VERSION, input_granularity, at_seconds_bucket).
       · reference_hash 포함 (v4.0) → 비교(reference-anchored) verdict 는 (학생, 기준)
         PAIR 에 keying. 기준 영상이 바뀌면 다른 키 (다른 비교 = 다른 verdict).
         단일 영상(비교 아님) 경로는 reference_hash=None → 'noref' bucket.
@@ -418,12 +425,17 @@ class VisionVetoCache:
         still-frame 경로 (Task 2, H3/MEDIUM): selector_version / frame_indices /
         top_k / window policy 를 키에 folding — whole-video 키와 충돌 0 + selector 버전
         변경 시 stale 무효화. None 이면 'sv0'/'fi-'/'k-'/'w-' placeholder (whole 호환).
+
+        AGGREGATION_VERSION (25-02): rich 캐시는 집계 후 supported_differences 를
+        저장하므로 집계 변경 = marker bump 필수 (kip-up whole/whole_fanout stale-hit
+        FP 이력, 90d038f). 키 component 로 folding — 집계 변경 시 자동 cache-miss.
         """
         bucket = "whole" if at_seconds is None else f"t{int(round(at_seconds))}"
         ref_bucket = "noref" if reference_hash is None else reference_hash
         # 모듈 globals 참조 — 테스트 monkeypatch 가 키에 반영되도록 globals() 경유.
         prompt_v = globals()["PROMPT_VERSION"]
         schema_v = globals()["SCHEMA_VERSION"]
+        agg_v = globals()["AGGREGATION_VERSION"]
         # N(samples) 변경 = 다른 집계 verdict → 키에 포함해 stale 무효화 (Phase 20).
         samples = globals()["VISION_VETO_SAMPLES"]
         sel = "sv0" if selector_version is None else f"sv{selector_version}"
@@ -440,6 +452,7 @@ class VisionVetoCache:
                 model_name,
                 prompt_v,
                 schema_v,
+                agg_v,
                 input_granularity,
                 bucket,
                 f"n{samples}",
@@ -1237,12 +1250,22 @@ def _filter_supported_differences(
     `vision_veto.FaultKey` 로 정규화한다(D-09 HIGH-2 + D-17 MED-3). severity='none'/빈
     difference 는 인정 결함이 아니다(정타 보존). 단발(support<K)은 drop/descriptive-only.
 
+    그룹 키 = **keypoint_set 단독** (25-02 Task 1, 25-RESEARCH §1 처방 (a)). FaultKey
+    4필드 전체로 그룹하면 같은 부위 언급이 side("왼쪽 어깨"=left vs "어깨"=unknown) /
+    fault_kind("굽음" vs "정렬 흐트러짐") fragment 로 분산돼 support K 미달 drop —
+    kip-up fault 의 상체(어깨) 결함이 짚기에서 통째로 사라지던 원인. part_scope 는
+    hint 균일이라 원래 무변별. 대표 `_faultKey.side` 는 그룹 내 명시(left/right) side
+    가 유일하면 그 side, 혼재·부재면 "unknown"(25-01 pointed 매퍼가 unknown → 양측 해소).
+
+    ⚠ rich 캐시는 집계 후 supported_differences 를 저장하므로 이 함수의 그룹핑 변경 =
+    AGGREGATION_VERSION bump 필수 (kip-up whole/whole_fanout stale-hit FP 이력, 90d038f).
+
     반환: support≥K 통과 difference list — 각 canonical 키별 대표 1개(최고 severity/dev),
     `_supportCount`/`_faultKey`/`_sourceIds` 메타 부착(root cause 유도 입력).
     """
     from .vision_veto import fault_key_from_difference
 
-    groups: dict[tuple, dict] = {}
+    groups: dict[str, dict] = {}
     diff_id = 0
     for call_diffs in per_call_differences or ():
         for d in call_diffs or ():
@@ -1254,7 +1277,7 @@ def _filter_supported_differences(
             if sev in _BODYPART_SEVERITY_FLOOR:
                 continue  # none/빈 = 인정 결함 아님 (정타 보존).
             fk = fault_key_from_difference(d, part_scope_hint=part_scope_hint)
-            key = tuple(sorted(fk.to_dict().items()))
+            key = fk.keypoint_set  # side/fault_kind fold — fragment 접합 (25-02).
             try:
                 dev = float((d or {}).get("approx_angle_deviation_deg") or 0.0)
             except (TypeError, ValueError):
@@ -1266,23 +1289,30 @@ def _filter_supported_differences(
                     "support": 1,
                     "ids": [diff_id],
                     "fault_key": fk,
+                    "sides": {fk.side} if fk.side in ("left", "right") else set(),
                     "best": {**d, "_rank": sev_rank, "_dev": dev},
                 }
             else:
                 cur["support"] += 1
                 cur["ids"].append(diff_id)
+                if fk.side in ("left", "right"):
+                    cur["sides"].add(fk.side)
                 if sev_rank > cur["best"]["_rank"] or (
                     sev_rank == cur["best"]["_rank"] and dev > cur["best"]["_dev"]
                 ):
                     cur["best"] = {**d, "_rank": sev_rank, "_dev": dev}
+                    cur["fault_key"] = fk  # 대표 difference 의 FaultKey 추적.
 
     out: list = []
     for g in groups.values():
         if g["support"] < min_support_k:
             continue  # 단발/미support → drop (H1 — 환각 차단).
+        # side 그룹-해소: 명시 side 가 유일하면 그 side, 혼재/부재면 unknown.
+        sides = g["sides"]
+        resolved_side = next(iter(sides)) if len(sides) == 1 else "unknown"
         rec = {k: v for k, v in g["best"].items() if not k.startswith("_")}
         rec["_supportCount"] = g["support"]
-        rec["_faultKey"] = g["fault_key"]
+        rec["_faultKey"] = dc_replace(g["fault_key"], side=resolved_side)
         rec["_sourceIds"] = tuple(g["ids"])
         out.append(rec)
     # severity 내림차순(지배 결함이 앞).

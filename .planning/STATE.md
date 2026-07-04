@@ -66,7 +66,7 @@ Status: Phase 10 complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-04 -- 새 pod lsx9kedqsdk1e3 부트스트랩+Lambda 동기화. C 실측 검증 PASS(kip-up 재분석: 카드 4→1 '양다리'). D(가로 전체화면 뷰어, 260702-t0v) 완료. belle not_pole 실패 건=카톡 압축본(406x720/1.9Mbps) 확정, 게이트 정상동작. 남음: E(코칭 처방화+보완운동 매칭+저화질 에러문구 분기)
+Last activity: 2026-07-04 -- E(260704-fwb) 코드 완료: 코치 프롬프트 처방화(기전 사슬)+보완운동 vision faultKey 배선+저화질 not_pole 문구 분기. pod 재기동+재분석 검증 진행. 다음=F(260704-fz4, 결함 시각 2단화+행탭 확대+각도 라벨, belle 승인 CONTEXT 박제)
 
 ### Quick Tasks Completed
 
@@ -88,6 +88,7 @@ Last activity: 2026-07-04 -- 새 pod lsx9kedqsdk1e3 부트스트랩+Lambda 동�
 | 260702-q8q | 점수 근거 공개 UI (belle: "왜 이렇게 나왔는지 설명 부족" fix) — result.deductionBreakdown(이미 저장돼 있었음, 앱이 안 그리던 것)을 "점수 계산 내역" 섹션으로 노출(100 − records = final), 실패원인 상세 시트를 실측 근거(측정값·표본일치·관절별 편차표 20°초과 강조)로 교체, veto fallback confidence 0 하드코딩→supportCount 정합("신뢰도 높음"), 계약 drift(source 'vision') 3-way lockstep. 백엔드 점수로직 0변경. 45 passed + typecheck clean. OTA 발행(production+preview 채널, runtime 1.0.0) | 2026-07-02 | 1b7d1e4 | [260702-q8q-x](./quick/260702-q8q-x/) |
 | 260702-sic | 문제부위 확대비교 crop 정합 fix (belle: 정은지 쪽 crop 이 부위 이탈) — 원인 3중: 측정 프레임≠표시 프레임(veto sourceFrameIndices 미사용), keypoint confidence 게이트 부재(kip-up 다리 붕괴 좌표를 그대로 확대), 고정 crop 크기(촬영거리 10x 무방비). fix: sourceFrameIndices median 을 crop 프레임 override 로 배선 + 같은 결함 관절(스플릿 4관절)을 "양다리" 1카드 bbox grouping + confidence<0.5 는 전신 폴백. 계약 scalar region 1필드. 15 passed + typecheck clean. 검증=pod 재분석 필요(저장된 PNG 재생성 안 됨, pod OFF 대기) | 2026-07-02 | 026c0e5 | [260702-sic-crop-fix](./quick/260702-sic-crop-fix-reference-crop-crop/) |
 | 260702-t0v | 동작 비교 가로 전체화면 뷰어 (belle: 각도 라벨 안 읽힘) — 근본원인=라벨이 1280px 기준 정규화라 세로 슬롯서 유효폰트 ~3pt. fix: KeypointOverlay sizeScale prop(전체화면 2.0) + Modal 90도 회전 가로 뷰어(portrait 고정 유지, JS-only=OTA 가능) + 기존 player 인스턴스 재사용(동기/구간맞춤 로직 공유). typecheck GREEN, app.json/package.json diff 0. 실기기 6항목 체크리스트 SUMMARY | 2026-07-04 | 6d16f97 | [260702-t0v-landscape](./quick/260702-t0v-landscape-compare-viewer/) |
+| 260704-fwb | 코칭 처방화+보완운동 매칭+저화질 문구 (belle 피드백 E) — (1) Cerebras/Gemini 코치 프롬프트에 원인 기전 사슬+구체 처방 구조 강제(실측 주입 데이터만 사용, 거짓 구체성 금지), (2) 보완운동이 forcePatternInference 만 소비해 그립운동 미스매치이던 것에 vision faultKey keypoint_set→defect 매핑 배선(leg→고관절 유연성 1순위), (3) 저화질 경고 승인 후 not_pole 실패 시 화질 우선 안내 분기(앱 로컬, 계약 0). 126 passed+typecheck clean, 채점 무접촉 diff 0 | 2026-07-04 | eb8c294 | [260704-fwb-coach](./quick/260704-fwb-coach-prescriptive-exercise-match/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

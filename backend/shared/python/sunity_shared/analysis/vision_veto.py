@@ -732,6 +732,60 @@ def fault_joints_from_differences(differences) -> list[str]:
     return out
 
 
+# pointed(감점용) 매퍼 전용 — canonical keypoint_set → JOINT_KEYS base 이름.
+# 명시 4종만 등재: line/torso/head_neck/grip 은 의도적으로 부재 (broad 확장 금지).
+_POINTED_BASE_BY_KEYPOINT_SET = {
+    "shoulder": "shoulder",
+    "arm": "elbow",
+    "leg": "knee",
+    "hip": "hip",
+}
+
+
+def pointed_joints_from_supported_differences(supported) -> tuple[str, ...]:
+    """supported_differences → 감점 window-측정 eligible 관절 (좁은 pointed 매퍼, 순수).
+
+    감점용(pointed) 매퍼 — 표시용 fault_joints_from_differences 와 **분리**(25-RESEARCH
+    함정 ⑥): 표시용의 broad(trunk/양다리) 확장을 감점 게이트에 쓰면 line fault 하나가
+    양어깨+양엉덩이 4관절을 "짚은" 것으로 만들어 vision 게이트가 무력화된다. 여기서는
+    명시 keypoint_set 4종(shoulder/arm/leg/hip)만 매핑하고 line/torso/head_neck/grip
+    은 방출 0 (해당 관절은 기존 full-path DTW median seed 유지).
+
+    규칙 (25-01 Task 1, OD-1):
+      · record 의 canonical `_faultKey`(FaultKey) 만 소비 — body_part 자유텍스트
+        재파싱 금지 (T-25-01: canonical enum 이 단일 owner). dict 이면
+        FaultKey.from_dict 시도, enum 밖/형상불량은 graceful skip.
+      · side "left"/"right" → 해당 측만. "unknown" → 양측 eligible — 판정은
+        측정+tol 20° 게이트가 하며 clean 쪽은 편차<tol 이라 자연히 감점 0
+        (fail-closed 버리기 금지 = motion-routing-generalize 원칙).
+      · 출력 = JOINT_KEYS 순서 안정 tuple, 중복 제거, JOINT_KEYS 외 방출 0.
+      · 동작명/kip-up 특정 분기 0 (일반화 — locked).
+    """
+    from .skeleton import JOINT_KEYS
+
+    eligible: set[str] = set()
+    for rec in supported or ():
+        if not isinstance(rec, dict):
+            continue
+        fk = rec.get("_faultKey")
+        if isinstance(fk, dict):
+            try:
+                fk = FaultKey.from_dict(fk)
+            except (ValueError, TypeError):
+                continue  # enum 밖 값 — graceful skip (T-25-01)
+        if not isinstance(fk, FaultKey):
+            continue
+        base = _POINTED_BASE_BY_KEYPOINT_SET.get(fk.keypoint_set)
+        if base is None:
+            continue  # line/torso/head_neck/grip — broad 확장 금지 (함정 ⑥)
+        sides = (fk.side,) if fk.side in ("left", "right") else ("left", "right")
+        for s in sides:
+            jk = f"{s}_{base}"
+            if jk in JOINT_KEYS:  # spurious 키 방출 0
+                eligible.add(jk)
+    return tuple(jk for jk in JOINT_KEYS if jk in eligible)
+
+
 def fault_joint_deficits_from_differences(differences) -> dict[str, float]:
     """Gemini differences → {keypoint: approx_angle_deviation_deg} (시각 추정 deficit).
 

@@ -116,6 +116,40 @@ def _group_fault_joints(
     return units
 
 
+def select_advisory_joints(
+    kp_deltas: dict[str, float],
+    confirmed: set[str],
+    tol_deg: float,
+    max_items: int = 2,
+) -> list[str]:
+    """측정 초과 관절 선별 — advisory("참고·확인 권장") 확대 카드 대상 (quick-260704-fz4).
+
+    입력 kp_deltas 는 이미 **keypoint 이름공간**으로 매핑된 {keypoint: delta_deg(signed)}.
+    kismam angle key → keypoint 매핑은 호출측 pipeline(_KISMAM_TO_KEYPOINT) 책임 —
+    본 모듈은 이름공간 무지 유지. 반환 = |delta| > tol_deg AND confirmed(확정 결함)
+    제외인 keypoint 를 |delta| 내림차순으로 최대 max_items 개 (캐러셀 과밀 방지).
+    비유한(nan/inf)/변환 불가 delta 는 defensive skip.
+
+    위양성 교훈 ([[window-median-silent-seed-fp-reverted]], quick-260702-o0c revert):
+    window median 측정 초과를 감점 seed 로 쓰면 RTMW jitter/촬영거리 노이즈가 위양성
+    감점으로 증폭된다. advisory 는 "측정 초과 = 참고"일 뿐 결함 확정이 아니다 —
+    **표시 전용. 채점/veto/게이트 입력으로 절대 쓰지 말 것.**
+    """
+    scored: list[tuple[float, str]] = []
+    for kp, delta in (kp_deltas or {}).items():
+        if kp in confirmed:
+            continue
+        try:
+            mag = abs(float(delta))
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(mag) or mag <= float(tol_deg):
+            continue
+        scored.append((mag, kp))
+    scored.sort(key=lambda t: -t[0])
+    return [kp for _mag, kp in scored[: max(0, int(max_items))]]
+
+
 def _frame_index(seconds: float | None, fps: float, n_frames: int) -> int:
     """worst-pose 초 → 프레임 인덱스 (clamp). seconds None → 중앙 프레임."""
     if n_frames <= 0:

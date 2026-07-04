@@ -244,6 +244,51 @@ def test_confidence_present_and_high_passes_gate():
     assert len(comps) == 1 and comps[0]["png"][:4] == b"\x89PNG"
 
 
+# ─────────── quick-260704-fz4 — select_advisory_joints (advisory tier 선별) ───────────
+# advisory = 측정 초과("참고·확인 권장") — 표시 전용, 채점 입력 금지
+# ([[window-median-silent-seed-fp-reverted]]).
+
+
+def test_advisory_selects_only_over_tolerance():
+    """|delta| > tol 만 선별 — 21° 포함 / 19° 제외 / 경계값 20° 제외 (strict >)."""
+    kp = {"left_shoulder": 21.0, "right_shoulder": 19.0, "left_hip": 20.0}
+    assert fz.select_advisory_joints(kp, set(), 20.0) == ["left_shoulder"]
+
+
+def test_advisory_excludes_confirmed_joints():
+    """확정(fault_joints) 관절은 advisory 에서 제외 — 겹치면 확정이 이긴다."""
+    kp = {"left_shoulder": 30.0, "right_shoulder": 25.0}
+    assert fz.select_advisory_joints(kp, {"left_shoulder"}, 20.0) == [
+        "right_shoulder"
+    ]
+
+
+def test_advisory_sorted_desc_and_capped():
+    """|delta| 내림차순 + max_items cap (캐러셀 과밀 방지 기본 2장)."""
+    kp = {"left_knee": 21.0, "left_shoulder": 40.0, "right_shoulder": 30.0}
+    assert fz.select_advisory_joints(kp, set(), 20.0, max_items=2) == [
+        "left_shoulder", "right_shoulder",
+    ]
+    assert fz.select_advisory_joints(kp, set(), 20.0, max_items=1) == [
+        "left_shoulder",
+    ]
+
+
+def test_advisory_negative_delta_uses_abs():
+    """signed delta 도 |delta| 로 판정 (기준보다 큰/작은 방향 무관 측정 초과)."""
+    assert fz.select_advisory_joints({"left_hip": -35.0}, set(), 20.0) == [
+        "left_hip"
+    ]
+
+
+def test_advisory_nonfinite_and_invalid_skipped_gracefully():
+    """nan/None/문자열 delta 는 defensive skip — 빈 입력도 graceful."""
+    kp = {"a": float("nan"), "b": None, "c": "oops", "d": 25.0}
+    assert fz.select_advisory_joints(kp, set(), 20.0) == ["d"]
+    assert fz.select_advisory_joints({}, set(), 20.0) == []
+    assert fz.select_advisory_joints(None, set(), 20.0) == []
+
+
 def test_group_fault_joints_pure_helper():
     """_group_fault_joints 직접 단위테스트 — 대표 joint 안정성 + region 판정."""
     kinds = {j: "deficit" for j in _LEG_JOINTS}

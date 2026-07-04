@@ -2454,6 +2454,9 @@ def _render_fault_zoom(
     dtw_match=None,
     user_frame_idx: int | None = None,
     ref_frame_idx: int | None = None,
+    *,
+    advisory_joints: list[str] | None = None,
+    advisory_deltas: dict[str, float] | None = None,
 ) -> dict:
     """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → result.
 
@@ -2461,6 +2464,10 @@ def _render_fault_zoom(
     (이미지엔 숫자만). graceful 은 호출측 try 가 담당.
     user_frame_idx/ref_frame_idx: 9fps frames 인덱스 override (quick-260702-sic) —
     vision 측정 프레임(sourceFrameIndices median)과 crop 프레임 정합. None=기존 경로.
+    advisory_joints/advisory_deltas (quick-260704-fz4): 측정 초과("참고·확인 권장")
+    관절 — 별도 배치로 tier='advisory' 카드 생성. None/빈 리스트 = 기존 경로 100%
+    보존 (Mode3 _attach_mode3_fault_zoom 은 default None 무접촉). 채점 무접촉 —
+    카드 생성·방출만 ([[window-median-silent-seed-fp-reverted]]).
     """
     from sunity_shared.analysis import fault_zoom
     from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
@@ -2484,25 +2491,55 @@ def _render_fault_zoom(
         user_frame_idx=user_frame_idx,
         ref_frame_idx=ref_frame_idx,
     )
-    out: list[dict] = []
-    for c in comps:
-        skey = f"results/{uid}/{analysis_id}/zoom_{c['joint']}.png"
-        _s3.put_object(
-            Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
+    # advisory 배치 (quick-260704-fz4) — 프레임 추출은 위 1회 재사용. joint_kinds
+    # 'deficit' 은 좌+우 grouping(arms 1장) 활성용 내부 전달일 뿐, 방출 item 에는
+    # kind 를 싣지 않는다 (앱 캡션이 "부족해요" 확정 어조로 오인 방지 — tier 가
+    # 캡션을 소유). select_advisory_joints cap=2 로 캐러셀 과밀 방지.
+    adv_comps: list[dict] = []
+    if advisory_joints:
+        adv_comps = fault_zoom.build_fault_zoom_comparisons(
+            user_frames,
+            right_frames,
+            user_report,
+            right_report,
+            worst,
+            list(advisory_joints),
+            advisory_deltas or {},
+            frames_fps=9.0,
+            joint_kinds={j: "deficit" for j in advisory_joints},
+            dtw_match=dtw_match,
+            user_frame_idx=user_frame_idx,
+            ref_frame_idx=ref_frame_idx,
         )
-        item = {
-            "joint": c["joint"],
-            "deficitDeg": c.get("deficitDeg"),
-            "imageUrl": _signed_get(bucket, skey),
-        }
-        if c.get("kind"):
-            item["kind"] = c["kind"]
-        # 결함단위 grouping 카드 (quick-260702-sic) — scalar str 이라
-        # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
-        # FaultZoomComparison.region ('legs'|'arms').
-        if c.get("region"):
-            item["region"] = c["region"]
-        out.append(item)
+    out: list[dict] = []
+    for tier, batch, key_prefix in (
+        ("confirmed", comps, "zoom_"),
+        # advisory 는 S3 키 분리(zoom_adv_) — 확정 카드와 충돌 원천 차단.
+        ("advisory", adv_comps, "zoom_adv_"),
+    ):
+        for c in batch:
+            skey = f"results/{uid}/{analysis_id}/{key_prefix}{c['joint']}.png"
+            _s3.put_object(
+                Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
+            )
+            item = {
+                "joint": c["joint"],
+                "deficitDeg": c.get("deficitDeg"),
+                "imageUrl": _signed_get(bucket, skey),
+                # 2단 시각 언어 tier (quick-260704-fz4) — scalar str 이라
+                # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
+                # FaultZoomComparison.tier ('confirmed'|'advisory', 부재=legacy
+                # doc=confirmed 취급).
+                "tier": tier,
+            }
+            if tier == "confirmed" and c.get("kind"):
+                item["kind"] = c["kind"]
+            # 결함단위 grouping 카드 (quick-260702-sic) — scalar str 이라
+            # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
+            # FaultZoomComparison.region ('legs'|'arms').
+            if c.get("region"):
+                item["region"] = c["region"]
+            out.append(item)
     if out:
         result["faultZoomComparisons"] = out
     return result
@@ -2565,6 +2602,31 @@ def _attach_fault_zoom_comparisons(
     if not fault_joints:
         return result
     kinds = {j: "deficit" for j in fault_joints}
+    # advisory("측정 초과·확인 권장") 카드 배선 (quick-260704-fz4, CONTEXT locked).
+    # windowMedianAngleDeltas(veto applied 에서만 존재 — Mode1 전용) 의 kismam
+    # angle key 를 _KISMAM_TO_KEYPOINT 로 keypoint 매핑 후, 확정(fault_joints)
+    # 제외 + tol 초과만 선별. tol = dimensions._LINE_TOL_DEG(20°) 재사용 — 신규
+    # 튜닝 상수 0, IPSF 허용오차 단일 출처 (앱 KeypointOverlay.
+    # KEYPOINT_DELTA_HIGHLIGHT_DEG 와 정합). deltas 부재/legacy → advisory 빈
+    # 리스트 → 기존 산출과 동일 (하위호환). 채점/veto/게이트 무접촉 — 표시 전용
+    # ([[window-median-silent-seed-fp-reverted]]).
+    from sunity_shared.analysis import dimensions as _dims
+    from sunity_shared.analysis import fault_zoom as _fz
+
+    kp_wm_deltas: dict[str, float] = {}
+    for d in (vv.get("windowMedianAngleDeltas") or {}).get("deltas") or []:
+        kp = _KISMAM_TO_KEYPOINT.get(str((d or {}).get("joint", "")))
+        dd = (d or {}).get("delta_deg")
+        if kp is None or dd is None:
+            continue
+        try:
+            kp_wm_deltas[kp] = float(dd)
+        except (TypeError, ValueError):
+            continue
+    advisory = _fz.select_advisory_joints(
+        kp_wm_deltas, set(fault_joints), _dims._LINE_TOL_DEG
+    )
+    advisory_deltas = {kp: abs(kp_wm_deltas[kp]) for kp in advisory}
     return _render_fault_zoom(
         result, user_video_path, ref_video_path, user_report, ref_report,
         fault_joints, deficits, kinds,
@@ -2573,6 +2635,8 @@ def _attach_fault_zoom_comparisons(
         dtw_match=dtw_match,
         user_frame_idx=user_frame_idx,
         ref_frame_idx=ref_frame_idx,
+        advisory_joints=advisory,
+        advisory_deltas=advisory_deltas,
     )
 
 

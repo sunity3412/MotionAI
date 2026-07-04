@@ -72,6 +72,14 @@ export const colors = {
   // (loading.tsx) 및 videoBg(#2A2A2A, §5-1 다크 예외) 선례와 정합.
   // 라이트 테마 일반 화면에 사용 금지 — 영상 전체화면 뷰어 전용.
   videoFullscreenBg: '#000000',
+
+  // ── quick-260704-fz4 신설 토큰 (2단 시각 언어) ────────────────────────
+  // 빨강(brand)=확정 감점 결함 / 주황=측정 초과·확인 권장 — "감점 아님" 표시
+  // 전용 tier (CONTEXT locked). warnAmber(#E6A300)/warnAmberBg(#FFF6E5) alias —
+  // 기존 occlusion 배지·부상경고 amber 와 '주의' 의미론 일관 (노랑 대비 정합).
+  // brand #FF4B33 변경 0 (CLAUDE.md §4).
+  advisoryOrange: '#E6A300', // warnAmber alias — advisory 마커/텍스트/칩
+  advisoryOrangeBg: '#FFF6E5', // warnAmberBg alias — advisory 배지/칩 배경
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

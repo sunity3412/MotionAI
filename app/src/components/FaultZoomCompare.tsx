@@ -30,6 +30,14 @@ function caption(item: FaultZoomComparison): string {
     (item.region && REGION_LABEL_KO[item.region]) ||
     JOINT_LABEL_KO[item.joint] ||
     '문제 부위';
+  // quick-260704-fz4 — advisory tier: 측정 초과·확인 권장. "감점 아님" 문구는
+  // CONTEXT locked 필수 — 주황을 감점으로 오해하지 않게 (확정 어조 금지).
+  if (item.tier === 'advisory') {
+    if (typeof item.deficitDeg === 'number' && item.deficitDeg > 0) {
+      return `${label} · 기준과 ${Math.round(item.deficitDeg)}° 차이 — 감점은 아니지만 확인해 보세요`;
+    }
+    return `${label} · 기준과 차이가 커요 — 감점은 아니에요`;
+  }
   // Mode3 — 지난 분석 대비 개선/악화 방향.
   if (item.kind === 'improved') return `${label} · 지난 분석보다 좋아졌어요`;
   if (item.kind === 'worsened') return `${label} · 지난 분석보다 아쉬워졌어요`;
@@ -72,7 +80,12 @@ export function FaultZoomCompare({
           }}
         >
           {comparisons.map((item) => (
-            <View key={item.joint} style={{ width: cardInner }}>
+            // carousel key 에 tier 포함 (quick-260704-fz4) — 확정/advisory joint
+            // 는 서로 배타지만 방어 (tier 부재 legacy = confirmed 취급).
+            <View
+              key={`${item.tier ?? 'confirmed'}-${item.joint}`}
+              style={{ width: cardInner }}
+            >
               <View style={[styles.imageWrap, { height: imgH }]}>
                 <Image
                   source={{ uri: item.imageUrl }}
@@ -88,6 +101,13 @@ export function FaultZoomCompare({
                   <Text style={styles.halfLabelText}>{rightLabel}</Text>
                 </View>
               </View>
+              {/* quick-260704-fz4 — advisory 배지: "감점 아님" (CONTEXT locked
+                  필수 카피). 확정(tier 부재/confirmed) 카드는 렌더 diff 0. */}
+              {item.tier === 'advisory' ? (
+                <View style={styles.advisoryBadge}>
+                  <Text style={styles.advisoryBadgeText}>참고 · 감점 아님</Text>
+                </View>
+              ) : null}
               <Text style={styles.caption}>{caption(item)}</Text>
             </View>
           ))}
@@ -96,7 +116,7 @@ export function FaultZoomCompare({
           <View style={styles.dots}>
             {comparisons.map((c, i) => (
               <View
-                key={c.joint}
+                key={`${c.tier ?? 'confirmed'}-${c.joint}`}
                 style={[styles.dot, i === page && styles.dotActive]}
               />
             ))}
@@ -144,6 +164,21 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: 10,
     textAlign: 'center',
+  },
+  // quick-260704-fz4 — advisory("측정 초과·확인 권장") 배지 칩. 토큰만
+  // (advisoryOrange/advisoryOrangeBg = warnAmber 계열 alias).
+  advisoryBadge: {
+    alignSelf: 'center',
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 11,
+    backgroundColor: colors.advisoryOrangeBg,
+  },
+  advisoryBadgeText: {
+    ...typography.caption,
+    color: colors.advisoryOrange,
+    fontWeight: '700',
   },
   dots: {
     flexDirection: 'row',

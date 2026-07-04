@@ -8,7 +8,7 @@
 // (quick-260626-jwu 신설, 관절별 reference_relative) generic 파싱. 미등록 id 는 id
 // 그대로 노출 (숨기지 않음 — 투명성).
 
-import type { DeductionRecord } from '../types/analysis';
+import type { DeductionRecord, KeypointName } from '../types/analysis';
 
 // 관절 한국어 라벨 — keypoint 이름(left_hand 등, FaultZoomCompare 표기)과 kismam
 // angle key(left_elbow 등, angle_vs_reference__{jk}/windowMedianAngleDeltas.joint)
@@ -37,6 +37,49 @@ export const REGION_LABEL_KO: Record<string, string> = {
 // IPSF 각도 허용오차 20° 는 KeypointOverlay.KEYPOINT_DELTA_HIGHLIGHT_DEG 가 단일
 // 선언 (dimensions.py _LINE_TOL_DEG 정합) — 여기 중복 선언 금지, 소비처가 import.
 
+// kismam 관절각의 의미 한 단어 설명 (quick-260704-fz4, CONTEXT locked — 8관절
+// 고정 사전으로 충분). belle: "168.9° 가 무슨 각인지 이해 불가" 해소. 기하 근거
+// (backend skeleton.JOINT_ANGLES — vertex 에서 (a-vertex)·(c-vertex) 사이 각):
+//   elbow    = 어깨-팔꿈치-손목  → 팔꿈치 굽힘
+//   shoulder = 팔꿈치-어깨-엉덩이 → 겨드랑이 벌림 (팔-몸통 사이 각)
+//   hip      = 어깨-엉덩이-무릎  → 다리 벌림 (몸통-허벅지 사이 각, 스플릿 개방)
+//   knee     = 엉덩이-무릎-발목  → 무릎 굽힘
+export const ANGLE_MEANING_KO: Record<string, string> = {
+  left_elbow: '팔꿈치 굽힘',
+  right_elbow: '팔꿈치 굽힘',
+  left_shoulder: '겨드랑이 벌림',
+  right_shoulder: '겨드랑이 벌림',
+  left_hip: '다리 벌림',
+  right_hip: '다리 벌림',
+  left_knee: '무릎 굽힘',
+  right_knee: '무릎 굽힘',
+};
+
+// angle key(kismam) → keypoint 이름 역매핑 (quick-260704-fz4) — 단일 출처.
+// backend pipeline _KISMAM_TO_KEYPOINT / KeypointOverlay JOINT_KEY_TO_ANGLE_KEY
+// 의 역방향 정합: elbow 각은 손(left_hand=COCO wrist)이 시각 proxy, 나머지 1:1.
+export const KEYPOINT_FROM_ANGLE_KEY: Record<string, KeypointName> = {
+  left_elbow: 'left_hand',
+  right_elbow: 'right_hand',
+  left_shoulder: 'left_shoulder',
+  right_shoulder: 'right_shoulder',
+  left_hip: 'left_hip',
+  right_hip: 'right_hip',
+  left_knee: 'left_knee',
+  right_knee: 'right_knee',
+};
+
+// 결함단위(region) 카드의 멤버 keypoint (quick-260704-fz4) — backend
+// fault_zoom._REGION_JOINTS 의 8-keypoint(KeypointName) 부분집합 미러
+// (legs: hips+knees / arms: shoulders+hands). 편차행 ↔ region 카드 매칭용.
+export const REGION_MEMBER_KEYPOINTS: Record<
+  'legs' | 'arms',
+  readonly KeypointName[]
+> = {
+  legs: ['left_hip', 'right_hip', 'left_knee', 'right_knee'],
+  arms: ['left_shoulder', 'right_shoulder', 'left_hand', 'right_hand'],
+};
+
 // criterion id → 한국어 라벨 (contract.md §10.2 카탈로그 고정분).
 const CRITERION_LABEL_KO: Record<string, string> = {
   split_angle: '다리 스플릿 각도',
@@ -47,7 +90,9 @@ const CRITERION_LABEL_KO: Record<string, string> = {
   dimension_overall_fallback: '측정 기하 종합(정량화 불가 폴백)',
 };
 
-const ANGLE_VS_REFERENCE_PREFIX = 'angle_vs_reference__';
+// export (quick-260704-fz4) — result.tsx confirmedKeypoints 조립이 감점 record
+// criterion 에서 관절을 파싱할 때 재사용 (prefix 문자열 중복 2벌 금지).
+export const ANGLE_VS_REFERENCE_PREFIX = 'angle_vs_reference__';
 
 // criterion id → 한국어 라벨. angle_vs_reference__{jk} 는 generic 파싱 (A 작업으로
 // 관절별 record 증가 — 개별 등록 없이 자동 라벨). 미등록 id 는 그대로 노출.

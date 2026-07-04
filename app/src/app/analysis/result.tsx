@@ -34,7 +34,12 @@ import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
 import {
+  ANGLE_MEANING_KO,
+  ANGLE_VS_REFERENCE_PREFIX,
   JOINT_LABEL_KO,
+  KEYPOINT_FROM_ANGLE_KEY,
+  REGION_LABEL_KO,
+  REGION_MEMBER_KEYPOINTS,
   formatDeductionNumber,
   formatDeductionRecord,
 } from '../../lib/deductionLabels';
@@ -60,6 +65,7 @@ import type {
   ForcePatternFinding,
   JointDirection,
   JointScore,
+  KeypointName,
   KeypointReport,
   ScoreDimension,
   SegmentScores,
@@ -257,18 +263,8 @@ function hasSynthesisWarning(
   return (result?.aiSynthesisMeta?.warnings ?? []).includes(code);
 }
 
-// JointScore.key (kismam: left_elbow / left_knee 등) → keypoint name (left_hand 등).
-// 손 = elbow angle key 의 시각 keypoint. shoulder/hip/knee 는 1:1.
-const ANGLE_KEY_TO_KEYPOINT: Record<string, string> = {
-  left_shoulder: 'left_shoulder',
-  right_shoulder: 'right_shoulder',
-  left_hip: 'left_hip',
-  right_hip: 'right_hip',
-  left_knee: 'left_knee',
-  right_knee: 'right_knee',
-  left_elbow: 'left_hand',
-  right_elbow: 'right_hand',
-};
+// JointScore.key (kismam) → keypoint name 매핑은 deductionLabels.
+// KEYPOINT_FROM_ANGLE_KEY 단일 출처 (quick-260704-fz4 — 로컬 중복 맵 제거).
 
 // 분석 결과 화면 (plan.md #8, design.md §8, ia AC-RES-001).
 // 미설계 화면 → design.md §0 결정 트리로 자체 설계. 흰 배경(§5-1),
@@ -572,6 +568,49 @@ export default function AnalysisResult() {
   const vetoFaultJoints =
     result.visionVeto?.status === 'applied' ? result.visionVeto.faultJoints : undefined;
 
+  // quick-260704-fz4 — 2단 시각 언어 set 단일 조립 (표·마커·카드가 같은 소스 사용).
+  // 빨강 = 확정 결함(감점 근거): deductionBreakdown records 의
+  // angle_vs_reference__{jk} 관절 ∪ vetoFaultJoints (faultJoints 는 split_angle 등
+  // 관절명 없는 vision record 의 관절 투영, CONTEXT locked).
+  const confirmedKeypoints = useMemo(() => {
+    const set = new Set<KeypointName>();
+    for (const kp of vetoFaultJoints ?? []) set.add(kp);
+    for (const r of result.deductionBreakdown?.records ?? []) {
+      if (r.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) {
+        const jk = r.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
+        const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
+        if (kp) set.add(kp);
+      }
+    }
+    return set;
+  }, [vetoFaultJoints, result.deductionBreakdown]);
+
+  // 주황 = 측정 초과·확인 권장(감점 아님, 표시 전용): veto applied 의
+  // windowMedianAngleDeltas 중 |delta| > 20°(KEYPOINT_DELTA_HIGHLIGHT_DEG —
+  // dimensions._LINE_TOL_DEG 정합, 신규 상수 0) 인데 확정에 없는 관절.
+  // legacy/부재 → 빈 배열 (렌더 diff 0). 위양성 교훈 존중 — 감점 재해석 금지
+  // ([[window-median-silent-seed-fp-reverted]]).
+  const attentionKeypoints = useMemo<KeypointName[]>(() => {
+    if (result.visionVeto?.status !== 'applied') return [];
+    const deltas = result.visionVeto.windowMedianAngleDeltas?.deltas ?? [];
+    const out: KeypointName[] = [];
+    for (const d of deltas) {
+      if (!Number.isFinite(d.delta_deg)) continue;
+      if (Math.abs(d.delta_deg) <= KEYPOINT_DELTA_HIGHLIGHT_DEG) continue;
+      const kp = KEYPOINT_FROM_ANGLE_KEY[d.joint];
+      if (!kp || confirmedKeypoints.has(kp) || out.includes(kp)) continue;
+      out.push(kp);
+    }
+    return out;
+  }, [result.visionVeto, confirmedKeypoints]);
+
+  // 마커 prop 용 배열 형태 (KeypointOverlay.highlightKeypoints). 빈 배열이면
+  // 오버레이가 기존 각도편차(>20°)/worstCount 폴백으로 진행 (하위호환 동일).
+  const confirmedKeypointList = useMemo(
+    () => Array.from(confirmedKeypoints),
+    [confirmedKeypoints],
+  );
+
   // quick-260702-q8q — "점수 계산 내역" 섹션 렌더 가드. mode1 전용(mode3 는 veto
   // 미실행 mode3_held) + deductionBreakdown 보유 doc 만 (legacy doc 은 필드 부재 →
   // 섹션 자체 숨김, normalize 가 malformed 를 undefined 로 접음 — 크래시 0).
@@ -808,7 +847,7 @@ export default function AnalysisResult() {
   // (low reliability frame 비율 ≥ 0.30). 추정 표기 + ⓘ tap → Alert.
   const isAngleEstimated = (jointKey: string): boolean => {
     if (lowReliabilityRatioVal >= 0.3) return true;
-    const kpName = ANGLE_KEY_TO_KEYPOINT[jointKey];
+    const kpName = KEYPOINT_FROM_ANGLE_KEY[jointKey];
     if (!kpName) return false;
     const c = jointConfidenceFromReport(userKeypointReport, kpName);
     if (c == null) return false;
@@ -1028,9 +1067,15 @@ export default function AnalysisResult() {
                   videoSize={overlayVideoSize}
                   visible={overlayVisible}
                   jointAngles={userJointAngles}
-                  // #3 (2026-06-21) — Gemini 가 식별한 실제 결함 keypoint 를 권위 강조.
-                  // 있으면 각도편차 폴백 대신 진짜 결함 관절(다리/팔 등)에 마커가 찍힌다.
-                  highlightKeypoints={vetoFaultJoints}
+                  // #3 (2026-06-21) — 결함 keypoint 권위 강조. quick-260704-fz4:
+                  // 소스를 vetoFaultJoints 단독 → confirmedKeypoints(감점 근거
+                  // records ∪ vetoFaultJoints) 단일 조립으로 확장 — 표·마커·카드
+                  // 가 같은 "빨강=확정 감점" 소스를 쓴다. 비면 기존 각도편차
+                  // 폴백 (무회귀).
+                  highlightKeypoints={confirmedKeypointList}
+                  // quick-260704-fz4 — 측정 초과·확인 권장(주황, 감점 아님) 마커.
+                  // 표·확대 카드와 동일 단일 소스(attentionKeypoints memo).
+                  attentionKeypoints={attentionKeypoints}
                   // Phase 20 (UI ②) — faultJoints 가 없을 때(매핑 0/legacy)만 폴백:
                   // 임계(20°) 넘는 관절이 없으면 편차 최대 2개 강제 강조 (마커 0개 모순 제거).
                   // 정타 영상은 0 → 오탐 0.

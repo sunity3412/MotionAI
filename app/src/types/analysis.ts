@@ -444,6 +444,15 @@ export interface FaultZoomComparison {
    * _validate_dict_only_scalars)라 scalar region 만. legacy doc 은 부재.
    */
   region?: 'legs' | 'arms' | null;
+  /**
+   * 2단 시각 언어 tier (quick-260704-fz4, CONTEXT locked) —
+   * 'confirmed'=확정 결함(감점 근거, 빨강) / 'advisory'=측정 초과·확인 권장
+   * (감점 아님, 주황 + "참고 · 감점 아님" 배지, 표시 전용). 부재(legacy doc)=
+   * confirmed 취급 — advisory 카드 미생성 하위호환. Python lockstep: pipeline
+   * _render_fault_zoom tier 방출 (region 선례와 동일 — contract.md 섹션 없음,
+   * TS 주석 + Python 방출부 주석 lockstep).
+   */
+  tier?: 'confirmed' | 'advisory' | null;
 }
 
 // Phase 24 (SCORE-10~16, ND-01/ND-07) — 투명 감점-합산 채점.

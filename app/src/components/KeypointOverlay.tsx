@@ -100,6 +100,14 @@ export type KeypointOverlayProps = {
    */
   highlightKeypoints?: readonly KeypointName[];
   /**
+   * quick-260704-fz4 — 2단 시각 언어의 2단(주황): 측정 초과·확인 권장 keypoint
+   * (windowMedianAngleDeltas 중 |delta|>20° 인데 감점 없는 관절 — 감점 아님, 표시
+   * 전용). 마커 점만 advisoryOrange (bone 은 빨강='확정' 의미 보존을 위해 무변경).
+   * highlighted(빨강)와 겹치면 확정이 이긴다. 저신뢰(conf<0.5)는 estimateGray 가
+   * 우선 (advisory 승격 금지). prop 미전달 시 렌더 diff 0 (하위호환).
+   */
+  attentionKeypoints?: readonly KeypointName[];
+  /**
    * quick-260702-t0v — 마커/라벨 크기 배율 (default 1 = 기존 렌더와 수치 동일).
    * viewBox "0 0 1 1" 정규화 구조라 모든 크기 상수(라벨 64×26, fontSize 14,
    * 원 반지름 10/14 등)가 렌더 크기에 비례 축소됨 → 세로 카드(높이 ~290pt)에선
@@ -187,6 +195,7 @@ export function KeypointOverlay({
   showAngleLabels = true,
   forceHighlightWorstCount = 0,
   highlightKeypoints,
+  attentionKeypoints,
   sizeScale = 1,
 }: KeypointOverlayProps) {
   // Hooks 순서 안정성 — early return 전에 모든 hook 호출 (React rules of hooks).
@@ -305,6 +314,20 @@ export function KeypointOverlay({
     return set;
   }, [jointAngles, keypointReport, deltaThresholdDeg, forceHighlightWorstCount, highlightKeypoints]);
 
+  // quick-260704-fz4 — attention(주황) set: prop 중 이 report 에 존재하고
+  // highlighted(빨강)에 없는 것만 (겹치면 확정이 이긴다). highlighted 계산은
+  // 무수정 — prop 미전달 시 빈 Set = 렌더 diff 0.
+  const attentionJoints = useMemo(() => {
+    const set = new Set<KeypointName>();
+    if (!keypointReport || !attentionKeypoints) return set;
+    for (const kp of attentionKeypoints) {
+      if (keypointReport.joints.includes(kp) && !highlightedJoints.has(kp)) {
+        set.add(kp);
+      }
+    }
+    return set;
+  }, [attentionKeypoints, keypointReport, highlightedJoints]);
+
   // D-12-U6 fallback — caller 가 placeholder 표시.
   if (!visible || keypointReport == null) return null;
   if (!positions) return null;
@@ -379,36 +402,43 @@ export function KeypointOverlay({
           );
         })}
 
-        {/* 8 keypoint circles. 저신뢰 keypoint 는 estimateGray (12-deferred §12-D). */}
+        {/* 8 keypoint circles. 저신뢰 keypoint 는 estimateGray (12-deferred §12-D).
+            quick-260704-fz4 — attention(주황) 은 강조와 동일 스케일(RADIUS_HI +
+            흰 외곽선, Phase 20 A2 가독 선례)이되 fill=advisoryOrange. 저신뢰가
+            항상 우선 (advisory 승격 금지). */}
         {Array.from(positions.entries()).map(([joint, p]) => {
           const isLowConf = p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD;
           const isHi = highlightedJoints.has(joint);
+          const isAttn = !isHi && attentionJoints.has(joint);
           const fill = isLowConf
             ? colors.estimateGray
             : isHi
               ? colors.brand
-              : '#FFFFFF';
+              : isAttn
+                ? colors.advisoryOrange
+                : '#FFFFFF';
           // Phase 20 (UI A2) — 강조(brand) 원의 외곽선을 brand→흰색으로 교체.
           // 같은 brand 색 외곽선은 영상 위에서 윤곽이 사라져 "안 보임" finding 의
           // 원인. 흰색 테두리가 brand 점을 분주한 배경에서 분리해 가독성 ↑.
           const stroke = isLowConf
             ? colors.estimateGray
-            : isHi
+            : isHi || isAttn
               ? '#FFFFFF'
               : 'rgba(0,0,0,0.6)';
           // Phase 20 (UI A2) — 강조(brand) 관절은 더 큰 반지름 + 두꺼운 외곽선
           // 으로 가독성 ↑. 정상/저신뢰 원은 기존 크기 유지.
+          const emphasized = (isHi || isAttn) && !isLowConf;
           return (
             <Circle
               key={`kp-${joint}`}
               cx={p.x}
               cy={p.y}
-              r={isHi && !isLowConf ? RADIUS_HI : RADIUS}
+              r={emphasized ? RADIUS_HI : RADIUS}
               fill={fill}
               fillOpacity={isLowConf ? 0.7 : 1.0}
               stroke={stroke}
               strokeWidth={
-                isHi && !isLowConf
+                emphasized
                   ? STROKE_CIRCLE_OUTLINE_HI
                   : STROKE_CIRCLE_OUTLINE
               }
@@ -422,9 +452,12 @@ export function KeypointOverlay({
             Phase 20 (UI A2) 가독성 개선 (belle: "붉은색이 뭐라고 써있는지 보이지도
             않고"). 구 48×18 pill + WHITE 10pt 가 분주한 영상 위에서 판독 불가.
             → 64×26 pill + 흰색 외곽선(테두리) + WHITE 14pt bold + 텍스트 자체에
-            얇은 흰 stroke 로 대비. brand pill + 흰 글씨 contract 유지(토큰만). */}
+            얇은 흰 stroke 로 대비. brand pill + 흰 글씨 contract 유지(토큰만).
+
+            quick-260704-fz4 — attention(주황) 관절도 라벨 표시하되 pill 배경 =
+            advisoryOrange (2단 시각 언어 — 빨강 pill='확정 감점' 의미 보존). */}
         {showAngleLabels &&
-          Array.from(highlightedJoints).map((joint) => {
+          [...highlightedJoints, ...attentionJoints].map((joint) => {
             const p = positions.get(joint);
             const angleKey = JOINT_KEY_TO_ANGLE_KEY[joint];
             const pair = angleKey ? jointAngles?.[angleKey] : undefined;
@@ -445,7 +478,11 @@ export function KeypointOverlay({
                   height={labelH}
                   rx={(13 * S) / H}
                   ry={(13 * S) / H}
-                  fill={colors.brand}
+                  fill={
+                    highlightedJoints.has(joint)
+                      ? colors.brand
+                      : colors.advisoryOrange
+                  }
                   stroke="#FFFFFF"
                   strokeWidth={(1.4 * S) / H}
                 />

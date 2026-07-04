@@ -58,3 +58,32 @@
 
 ### 다음 라운드 (#3) 스코프
 프롬프트 v11 + 캐시 bump (cold ~36 pro call): (a) 상체 faultKey 산출 구조화 강제 보강, (b) split 측정 강건화 (N-sample 측정 median 또는 명시 측정 rubric), (c) WR-01 지지 기준과 짚기 커버리지 균형 재점검. 아티팩트 = runs/run3-5a48d31/.
+
+---
+
+## #3 라운드 코드 반영 (2026-07-04, v11.0/v8.0/agg4 — pod 미실측, 다음 sweep 대기)
+
+### 구현 (3 커밋)
+
+- **(a) 측정 강건화** — 편차 "한 방 추정" 구조 제거. SCHEMA v8.0 이 differences[] 에 `student_angle_deg`/`reference_angle_deg`(각도쌍) + `measurement_basis`(잰 방법 서술) 추가, PROMPT v11.0 이 학생/기준 각도를 **각각** 추정하게 지시 — 편차는 코드가 산술(`vision_veto.explicit_measured_deviation_deg`, |ref−student|). 엔진(`_vision_measured_deviation`)은 각도쌍 산술 우선/approx 폴백, split 주입은 first-wins → 멤버별 후보 **median(lower-middle)** 집계 (severity rank-median 짝수 규칙 재사용 — 새 튜닝 상수 0). 산술 편차 0 은 approx 로 뒤집지 않음(honest).
+- **(b) 상체 방출 강제** — v10.1 실측 갭(어깨 관측이 primary_fault 서사에만 잔존): PROMPT v11.0 rule 5 + scope suffix 에 "관찰-전량 differences[] 개별 항목 방출, 서사-only = 응답 무효" 계약 추가. 정타 방어는 유지·강화("편차 없으면 항목을 만들지 말고 빈 배열이 정답" — 짚기-FP 0/5 게이트 보존).
+- **(c) WR-01 지지 균형 (agg4)** — distinct-call K=2 는 불변. 단 **명시 각도쌍 측정(산술 편차>0)을 동반한 언급은 단일 call 도 지지 인정** (측정 동반 = 환각 아닌 관측 신호; scope-집중 fan-out 은 부위당 1 call 이라 정당한 단일-scope 관측이 구조적으로 K 미달이던 커버리지 손실 복원). approx 어림 단독은 예외 비대상. `_measurementBacked` marker 가 rich 캐시 왕복 보존(결정론).
+
+### (c) run3 vs phase24 baseline 대조 — "drop 된 faultKey" 확정
+
+**지지(post-gate) faultKey 수준에서는 drop 0 — R3 ⊇ P24 (전 멤버).** 점수 퇴행으로 보였던 것의 실체는 criteria 레벨:
+
+| fault | P24→R3 | P24 supported | R3 supported | 점수差 실원인 |
+|---|---|---|---|---|
+| power-spin | 60→49 | (gemini_silent) | leg/ext(2) | R3 개선 — split −12 신규 (vision 30°) |
+| peter-pan | 79→83 | leg/bent(2) | **+head_neck/ext(3)**, leg/bent(2) | vision drop 아님 — geometry drift (l_shoulder 33.9→31.75, r_elbow 23.25→22.59) + r_hip 20.47→tol 이내(미발화 −0.6) |
+| elbow-twist | 62→68 | leg/ext(3) | leg/ext(2) | vision drop 아님 — split −6.0 신규 활성(vision 25°)이 HIGH-5 로 knee ref-rel(−5.1/−2.1) claim + geometry drift |
+| pdshape | 58→54 | — | — | 동일 (geometry drift만) |
+| kip-up | 88→100 | leg/bent(4) | leg/bent(3) | **측정값 변동 (30°→20°=tol 경계)** = (a) 스코프 |
+
+**WR-01 이 실제로 무는 지점은 pre-gate**: kip-up R3 `_sourceIds` [1,2,3,**5**,6] — diff #4 가 단일-call 지지 미달로 drop (아티팩트에 잔재). 상체(어깨) 관측은 애초에 differences[] 미방출((b) 스코프)이라 게이트에 도달도 못 함 — (b)+(c) 가 한 쌍으로 필요했던 근거.
+
+### 게이트 상태
+
+- 로컬: 관련 스위트 GREEN (deduction/vision_veto/scorer/pipeline seam/phase24·25 gates 369 passed). baseline artifact diff 0 (evals/ 무접촉).
+- 다음 pod sweep: cold = 캐시 전량 miss(의도됨, ~36 pro call). 판정 게이트 = success 6/6==100 + 짚기-FP 0/5 유지, kip-up fault < 88 방향(상체 record 포함), peter-pan/elbow-twist 무퇴행.

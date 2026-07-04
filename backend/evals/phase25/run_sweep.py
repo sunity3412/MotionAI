@@ -34,9 +34,9 @@ at_seconds=None 불변). seed builder wrapper 는 seed_audit_out(관측 전용 k
 동시성 ([[pipeline-not-concurrency-safe-eval-serial]]): _process 는 동시성 비안전 — SERIAL.
 한 멤버 _process 완료까지 대기 후 다음. 동시 트리거 = cross-contamination(가짜 결과).
 
-크레딧 (T-25-10): cold sweep = 캐시 전량 miss(PROMPT_VERSION v10.1 + AGGREGATION_VERSION
-agg3 bump) → 12 멤버 × 3 call = 36 Gemini pro call + 멤버당 영상 2 업로드. 429/
-resource_limited 발생 시 fail-closed 중단 후 belle 보고.
+크레딧 (T-25-10): cold sweep = 캐시 전량 miss(25-04 #3: PROMPT_VERSION v11.0 + SCHEMA
+v8.0 + AGGREGATION_VERSION agg4 bump) → 12 멤버 × 3 call = 36 Gemini pro call + 멤버당
+영상 2 업로드. 429/resource_limited 발생 시 fail-closed 중단 후 belle 보고.
 
 실행 (Pod, RTMW GPU + Gemini env 필요 — phase24 헤더 승계):
     source /workspace/aws_env.sh && \

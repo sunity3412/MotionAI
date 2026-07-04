@@ -64,6 +64,16 @@ BACKEND = HERE.parent.parent  # backend/
 sys.path.insert(0, str(BACKEND / "shared" / "python"))
 sys.path.insert(0, str(BACKEND))
 
+# ── RTMW 결정론 (Phase 25 근본원인 #2) — eval 은 항상 결정론 모드 ─────────────
+# cold/warm 프로세스 간 2~5점 흔들림의 엔지니어링 해법: CUDA EP EXHAUSTIVE conv
+# algo 벤치마크의 run-to-run algo flip 이 tol 20° 경계 관절 criterion 활성을
+# flip 시킨다 → RTMWPoseEngine 이 RTMW_DETERMINISTIC=1 이면 세션 생성 시점에
+# 결정론 옵션을 주입 (sunity_shared/.../rtmw/ort_determinism.py — 근거/한계 명시).
+# setdefault: 운영자가 명시적으로 RTMW_DETERMINISTIC=0 을 export 하면 A/B 비교
+# 목적의 비결정 baseline 재현이 가능하다. pipeline 로드(_ensure_adapters) 전에
+# 설정돼야 하므로 module-level 에서 주입.
+os.environ.setdefault("RTMW_DETERMINISTIC", "1")
+
 # ── 산출물 경로 (25-SWEEP-EVIDENCE 근본원인 4 — pod repo 오염 방지) ───────────
 # 신규 산출물은 repo 밖 EVAL_OUT_DIR 로만 쓴다. repo 내 evals/*/baseline/ 은
 # git 커밋본(비교 기준) 전용 read-only.
@@ -267,6 +277,7 @@ def main() -> int:
 
     print(
         f"[setup] runId={RUNID} uid={UID} tag={args.tag} pairs={len(PAIRS)} "
+        f"rtmw_deterministic={os.environ.get('RTMW_DETERMINISTIC')} "
         "(serial, in-process, tee=collect+seed)",
         flush=True,
     )

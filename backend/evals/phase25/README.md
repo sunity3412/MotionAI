@@ -103,6 +103,19 @@ PYTHONPATH=shared/python:. python3 evals/phase25/assert_gates.py            # 3)
   `*_warm.json` 기록 → `check_cold_warm_determinism` 입력 (verdict/breakdown 동일성 =
   결정론 게이트).
 
+### RTMW 결정론 모드 (근본원인 #2 엔지니어링 해법)
+
+run_sweep 은 module-level 에서 `RTMW_DETERMINISTIC=1` 을 **스스로 setdefault** 한다 —
+eval 은 항상 결정론 모드 (pod 에서 별도 export 불필요). RTMWPoseEngine 이 이 env 를
+보고 onnxruntime CUDA EP 의 비결정 요소를 세션 생성 시점에 고정한다
+(`cudnn_conv_algo_search=DEFAULT` 로 EXHAUSTIVE 벤치마크의 run-to-run conv algo flip
+제거 + `CUBLAS_WORKSPACE_CONFIG=:4096:8` + intra/inter_op 스레드 1 —
+근거/한계는 `sunity_shared/analysis/pose_engines/rtmw/ort_determinism.py` docstring).
+프로덕션(env 미설정)은 patch 0 으로 기존과 byte-동일. 명시적으로
+`export RTMW_DETERMINISTIC=0` 하면 비결정 baseline A/B 재현 가능.
+**한계**: CUDA EP 는 완전 bitwise 결정론 미보장 — 잔여 변동은 cold/warm 실측
+(`check_cold_warm_determinism`)으로 판단한다.
+
 산출물은 `$EVAL_OUT_DIR/phase25/` 에 기록된다 (`phase25_sweep_report.json` +
 `phase25_breakdowns.json` + `*_warm.json`) — repo 내 `baseline/` 은 승격 절차(위
 "Pod 운영 절차" 4)로만 갱신·커밋한다.

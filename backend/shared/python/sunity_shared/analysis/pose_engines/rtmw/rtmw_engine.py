@@ -29,6 +29,7 @@ import numpy as np
 from ...interfaces import NoHumanError
 from ...pose_frame import PoseFrame, PoleAxis
 from ...adapters.rtmw_133_to_coco17 import convert_rtmw_keypoints_to_coco17_and_pole_ext
+from .ort_determinism import deterministic_inference_session
 
 # rtmlib/mmpose/mmcv 은 module-level import 금지 (H-2 박제).
 # RTMWPoseEngine 인스턴스화 시점(create_with_inferencer) 또는 estimate() 내부에서만 lazy import.
@@ -125,14 +126,25 @@ class RTMWPoseEngine:
         # 박제 함정 (2026-06-06): det=None 박제해도 rtmlib 가 default detector 강제 자동
         # 다운로드 (OpenMMLab CDN 만료로 fail). YOLOX_ONNX_PATH 절대 path 박제 → skip.
         yolox_onnx_path = os.environ.get(_YOLOX_DET_ENV)
-        self._inferencer = RTMWWholebody(
-            det=yolox_onnx_path,  # None 이면 rtmlib default (OpenMMLab CDN 의존 — 만료됨)
-            det_input_size=(640, 640),  # yolox_m 표준 input
-            pose=rtmw_onnx_path,
-            to_openpose=False,
-            backend="onnxruntime",
-            device=rtmw_device,
-        )
+        # Phase 25 근본원인 #2 (cold/warm 비결정): env RTMW_DETERMINISTIC=1 (eval
+        # 전용) 이면 onnxruntime CUDA EP 의 비결정 요소(EXHAUSTIVE conv algo
+        # 벤치마크 등)를 세션 생성 시점에 고정한다. rtmlib 0.0.15 BaseTool 은
+        # sess_options/provider options 주입구가 없어 이 구간에서만
+        # ort.InferenceSession 을 patch 한다 — Wholebody 가 det(YOLOX)+pose(RTMW)
+        # 세션을 둘 다 이 구간에서 생성하므로 두 세션 모두 커버. env 미설정 =
+        # patch 0 (프로덕션 byte-동일). 한계: CUDA EP 완전 bitwise 결정론은
+        # 미보장 — ort_determinism.py docstring 참조 (잔여 변동은 pod 실측 판단).
+        with deterministic_inference_session() as det_active:
+            self._inferencer = RTMWWholebody(
+                det=yolox_onnx_path,  # None 이면 rtmlib default (OpenMMLab CDN 의존 — 만료됨)
+                det_input_size=(640, 640),  # yolox_m 표준 input
+                pose=rtmw_onnx_path,
+                to_openpose=False,
+                backend="onnxruntime",
+                device=rtmw_device,
+            )
+        if det_active:
+            log.info("RTMWPoseEngine deterministic mode ON (RTMW_DETERMINISTIC=1, eval 전용)")
         self._selected_weight = selected_weight
         self._target_fps = target_fps
 

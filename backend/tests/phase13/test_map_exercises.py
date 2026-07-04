@@ -99,24 +99,51 @@ def _grip_trigger_inference() -> dict:
 
 def test_kipup_fault_sets_prioritize_defect_body_parts_over_grip() -> None:
     """kip-up 시나리오: leg+shoulder 결함 + grip 트리거 findings 동시 입력 →
-    결함 부위(다리/고관절/어깨) 운동이 앞순위, grip 운동이 결함 부위 운동보다 앞서지 않음."""
+    결함 부위(다리/고관절/어깨) 운동이 **목록 선두** (pod 검증 fix — defect 당 상위 2
+    선행 배치), grip 운동은 결함 부위 운동보다 앞서지 않음."""
     result = map_exercises(
         _grip_trigger_inference(),
         pain_areas=[],
         motion_id=None,
         fault_keypoint_sets=["leg", "shoulder"],
     )
-    assert len(result) >= 3
     names = [ex["name"] for ex in result]
-    # 앞순위 = 결함 부위 운동 (hip_hamstring_tight 가 leg 1순위 — 스플릿=고관절 유연성).
-    assert names[0] in _LEG_HIP_SHOULDER_EXERCISES
-    # grip 운동이 결함 부위 운동보다 앞서지 않는다.
+    # 정확한 선두 순서: hip_hamstring_tight[:2] → legs_not_extended[:2] →
+    # shoulder_unstable[:2] (cap 5). 스플릿 = 고관절 유연성이 1순위.
+    assert names == [
+        "Hamstring Stretch",
+        "Hip Flexor Stretch",
+        "Squats",
+        "Lunges",
+        "Push-ups",
+    ]
+    # grip 운동이 결함 부위 운동보다 앞서지 않는다 (여기선 cap 에 밀려 미포함).
     first_defect_idx = min(
         i for i, n in enumerate(names) if n in _LEG_HIP_SHOULDER_EXERCISES
     )
     grip_indices = [i for i, n in enumerate(names) if n in _GRIP_EXERCISES]
     for gi in grip_indices:
         assert gi > first_defect_idx, f"grip 운동 {names[gi]} 이 결함 부위 운동보다 앞섬"
+
+
+def test_pod_repro_pain_wrist_fault_leg_defect_leads_grip_rear() -> None:
+    """pod 재분석 재현 (2026-07-04): painArea wrist(Farmer's Walk/Hand Grippers) 안전
+    운동이 fault 유래 스트레칭보다 선두라 '결함과 무관한 운동이 대표' 로 보였음 →
+    fix 후 확정 결함(leg) 운동이 선두, grip 계열은 제거되지 않고 후순위 유지."""
+    result = map_exercises(
+        None,
+        pain_areas=["wrist"],
+        motion_id=None,
+        fault_keypoint_sets=["leg"],
+    )
+    names = [ex["name"] for ex in result]
+    assert names == [
+        "Hamstring Stretch",
+        "Hip Flexor Stretch",
+        "Squats",
+        "Lunges",
+        "Farmer's Walk",
+    ]
 
 
 def test_fault_keypoint_sets_none_is_byte_identical() -> None:
@@ -129,15 +156,24 @@ def test_fault_keypoint_sets_none_is_byte_identical() -> None:
     assert base == explicit
 
 
-def test_pain_area_still_first_with_fault_keypoint_sets() -> None:
-    """painArea 안전 운동은 fault 매핑보다 여전히 최우선."""
-    result = map_exercises(
+def test_pain_area_first_only_without_fault_keypoint_sets() -> None:
+    """painArea 최우선은 fault 부재(None 경로)에서만 유지 — fault 있으면 확정 결함
+    운동이 선두 (pod 검증 fix). painArea 운동은 제거되지 않고 후순위 잔존."""
+    base = map_exercises(
+        _grip_trigger_inference(), pain_areas=["wrist"], motion_id=None
+    )
+    assert base[0]["name"] in {"Farmer's Walk", "Hand Grippers"}
+
+    with_fault = map_exercises(
         _grip_trigger_inference(),
         pain_areas=["wrist"],
         motion_id=None,
         fault_keypoint_sets=["leg"],
     )
-    assert result[0]["name"] in {"Farmer's Walk", "Hand Grippers"}
+    names = [ex["name"] for ex in with_fault]
+    assert names[0] in {"Hamstring Stretch", "Hip Flexor Stretch"}
+    # painArea(grip 계열) 운동 잔존 — 후순위 (제거 아님).
+    assert any(n in {"Farmer's Walk", "Hand Grippers"} for n in names)
 
 
 def test_fault_keypoint_sets_dedup_and_cap() -> None:

@@ -68,6 +68,11 @@ _KEYPOINT_SET_TO_DEFECTS: dict[str, tuple[str, ...]] = {
 _MAX_EXERCISES = 5
 _MIN_EXERCISES = 3
 
+# quick-260704-fwb pod 검증 fix — fault 유래 defect 는 목록 선두에 defect 당 상위
+# N개만 먼저 배치하고 나머지는 후순위 백필. cap(5) 안에서 painArea/기존 매핑 운동이
+# 완전히 밀려나지 않게 하는 표시 다양성 값 (채점 무관 — 점수 경로 진입 0).
+_FAULT_LEAD_PER_DEFECT = 2
+
 
 def _load_corrective_exercises() -> dict:
     """corrective_exercises.json lazy load + 모듈 캐시."""
@@ -149,16 +154,19 @@ def map_exercises(
         motion_id: TechniqueProfile.motion_id 또는 None — v1 은 generic 결함
             운동만 산출 (move-specific gating 은 미래 확장 hook).
         fault_keypoint_sets: vision veto 결함 부위(faultKey.keypoint_set) 목록
-            또는 None (quick-260704-fwb). None = 기존 동작 그대로 (하위호환).
-            None 아니면 결함 부위 유래 defect 운동이 forcePatternInference 유래
-            defect 운동보다 앞선다 (painArea 안전 운동은 여전히 최우선).
+            또는 None (quick-260704-fwb). None = 기존 동작 byte-동등 (하위호환 —
+            painArea 최우선 유지). None 아니면 **확정 결함 유래 운동이 목록 선두**
+            (pod 검증 fix — belle: "결함과 무관한 운동이 대표로 보임"). painArea/
+            findings 유래 운동은 제거하지 않고 후순위로 유지.
 
     Returns:
         plain camelCase scalar dict list — {name, setsReps, purpose, sourceRef}.
-        painArea 안전 운동이 우선 정렬, name 기준 dedup, 3~5 cap. 입력이 비면
-        빈 list (graceful, 크래시 X).
+        name 기준 dedup, 3~5 cap. 입력이 비면 빈 list (graceful, 크래시 X).
     """
     library = _load_corrective_exercises()
+
+    def _defect_exercises(defect_key: str) -> list:
+        return library.get("defects", {}).get(defect_key, {}).get("exercises", [])
 
     findings: list = []
     if isinstance(force_pattern_inference, dict):
@@ -168,21 +176,26 @@ def map_exercises(
 
     valid_pain_areas = _valid_pain_area_keys(pain_areas)
     fault_defect_keys = _defect_keys_from_fault_keypoint_sets(fault_keypoint_sets)
-    finding_defect_keys = _defect_keys_from_findings(findings)
-    # 우선순위: fault 유래 defect (2순위, 신규) → findings 유래 defect (3순위, 기존).
-    # fault_keypoint_sets=None 이면 fault_defect_keys=[] → 기존 순서 그대로.
-    defect_keys = fault_defect_keys + [
-        k for k in finding_defect_keys if k not in fault_defect_keys
+    finding_defect_keys = [
+        k for k in _defect_keys_from_findings(findings) if k not in fault_defect_keys
     ]
 
-    # painArea 안전 운동 우선 (criteria: avoid 안전 라인 우선 정렬), 그 다음 defect.
     ordered: list[dict] = []
+    # (1) 확정 결함(vision faultKey) 유래 defect — 목록 선두 (pod 검증 fix).
+    #     defect 당 상위 _FAULT_LEAD_PER_DEFECT 개만 먼저 배치해 cap(5) 안에서
+    #     painArea/findings 운동이 완전히 밀려나지 않게 한다 (제거 아님 — 후순위).
+    for defect_key in fault_defect_keys:
+        ordered.extend(_defect_exercises(defect_key)[:_FAULT_LEAD_PER_DEFECT])
+    # (2) painArea 안전 운동 — fault 부재(=None 경로) 시 기존처럼 최우선.
     for area_key in valid_pain_areas:
         area = library.get("painAreas", {}).get(area_key, {})
         ordered.extend(area.get("exercises", []))
-    for defect_key in defect_keys:
-        defect = library.get("defects", {}).get(defect_key, {})
-        ordered.extend(defect.get("exercises", []))
+    # (3) findings(forcePatternInference) 유래 defect — 기존 매핑.
+    for defect_key in finding_defect_keys:
+        ordered.extend(_defect_exercises(defect_key))
+    # (4) fault 유래 defect 나머지 — 후순위 백필 (dedup 이 중복 제거).
+    for defect_key in fault_defect_keys:
+        ordered.extend(_defect_exercises(defect_key)[_FAULT_LEAD_PER_DEFECT:])
 
     # name 기준 dedup (순서 보존).
     seen: set[str] = set()

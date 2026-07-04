@@ -711,3 +711,44 @@ def test_routing_members_fallback_without_member_meta():
     assert deduction_engine._routing_members(diff) == [diff]
     b = _tally(_measured(leg=40.0), _ctx([diff]))
     assert any(r.criterion == "leg_extension" for r in b.records)
+
+
+# ── 25-02 review WR-04 — 측정 substrate 실재 시 shoulder/hip gap 억제 ─────────
+
+
+def test_shoulder_gap_suppressed_when_measured_substrate_exists():
+    """WR-04: 같은 관절의 angle_vs_reference 측정이 md 에 실재하면 'substrate deferred'
+    gap 대신 측정 criterion 반환 — '측정해 감점했는데 측정 못 했다' 자기모순 제거."""
+    diff = _diff("왼쪽 어깨", "정렬 흐트러짐")
+    md = {"angle_vs_reference__left_shoulder": 40.4}
+    out = ipsf_criteria.criteria_for_fault(None, diff, md)
+    assert not isinstance(out, ipsf_criteria.CoverageGap)
+    assert out == ("angle_vs_reference__left_shoulder",)
+
+    # 측정 부재면 기존 gap 유지 (deferred substrate 정직 노출 — 억제 아님).
+    out2 = ipsf_criteria.criteria_for_fault(None, diff, {})
+    assert isinstance(out2, ipsf_criteria.CoverageGap)
+    assert out2.keypoint_set == "shoulder"
+
+    # NaN substrate 는 실재 아님 → gap 유지.
+    out3 = ipsf_criteria.criteria_for_fault(
+        None, diff, {"angle_vs_reference__left_shoulder": float("nan")}
+    )
+    assert isinstance(out3, ipsf_criteria.CoverageGap)
+
+
+def test_hip_gap_suppressed_only_for_measured_side():
+    """hip gap 억제는 측정 실재 side 의 criterion 만 반환 (미측정 side 미활성)."""
+    md = {"angle_vs_reference__right_hip": 25.0}
+    out = ipsf_criteria.criteria_for_fault(None, _diff("골반", "처짐"), md)
+    assert out == ("angle_vs_reference__right_hip",)
+
+
+def test_tally_no_shoulder_gap_and_record_contradiction():
+    """end-to-end: 어깨 측정+짚임 → 감점 record 방출 AND shoulder gap 미방출 (보고 모순 0)."""
+    md = {"angle_vs_reference__left_shoulder": 40.4}
+    b = _tally(md, _ctx([_diff("왼쪽 어깨", "정렬 흐트러짐")]))
+    assert any(r.criterion == "angle_vs_reference__left_shoulder" for r in b.records)
+    assert not any(
+        g.get("keypointSet") == "shoulder" for g in b.coverage_gaps
+    ), "같은 결함에 감점 record + substrate-deferred gap 동시 방출 금지 (WR-04)"

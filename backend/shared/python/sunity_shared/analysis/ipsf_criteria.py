@@ -281,6 +281,17 @@ def _has_reach_substrate(measured_deviations) -> bool:
     return bool(notches)
 
 
+def _finite_positive(value) -> bool:
+    """측정 substrate 실재 판정 — finite float > 0 (None/비수치/NaN/Inf 거부, WR-04)."""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return False
+    if f != f or f in (float("inf"), float("-inf")):  # NaN/Inf guard
+        return False
+    return f > 0.0
+
+
 def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     """PUBLIC 라우터 (HIGH-1) — Gemini-pointed fault → 활성 criterion ids OR CoverageGap.
 
@@ -341,6 +352,21 @@ def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     elif _contains(body_part, ("몸통", "torso", "trunk", "허리")):
         ks = "torso"
     if ks in COVERAGE_GAP_KEYPOINT_SETS:
+        # WR-04 (25-02 review): shoulder/hip 은 25-01 window seed 가 md 에
+        # angle_vs_reference__{side}_{ks} 를 방출할 수 있다 — 측정 substrate 가 실재하면
+        # "substrate deferred" gap 은 거짓(같은 결함을 측정해 감점했다면서 측정 못 했다고
+        # 동시 보고하는 자기모순). gap 대신 측정된 criterion id 를 반환한다(억제).
+        # tol 이내면 dead-zone 으로 record 미방출 — 활성화 자체는 무해(honest).
+        if ks in ("shoulder", "hip"):
+            measured_cids = tuple(
+                cid for cid in (
+                    f"angle_vs_reference__left_{ks}",
+                    f"angle_vs_reference__right_{ks}",
+                )
+                if _finite_positive((measured_deviations or {}).get(cid))
+            )
+            if measured_cids:
+                return measured_cids
         return CoverageGap(
             keypoint_set=ks, reason=COVERAGE_GAP_KEYPOINT_SETS[ks],
             body_part=body_part, fault_state=fault_state,

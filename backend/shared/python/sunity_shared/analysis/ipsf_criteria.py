@@ -23,6 +23,7 @@ from . import kismam
 from .skeleton import JOINT_KEYS  # 24-07: per-joint reference_relative criterion 생성용
 from .vision_veto import (  # 8 keypoint_set + baseline vocab + reach keypoints 단일 소스
     BASELINE_KINDS,  # noqa: F401 — 문서/계약 정합(직접 사용 X, 재방출 의도)
+    FAULT_CATEGORIES,
     FAULT_KEYPOINT_SETS,
     _NOTCH_REACH_KEYPOINTS,
 )
@@ -213,8 +214,23 @@ class CoverageGap:
     rule_id: str | None = None
 
 
+# ── fault_category 고정 enum 라우팅 (25-05, SCHEMA v8.1) ──────────────────────
+# 어휘 드리프트 3연속 실측(v9 body_part "양다리 (스플릿 각도)" → v10.1 스플릿이
+# fault_state 로 이동 → v11 "벌림"+fault_kind=extension_or_alignment 오분류)의 근본
+# fix: Gemini 구조화 출력의 fault_category enum 을 라우터가 1순위로 소비한다.
+# 단독-결정 값만 즉시 분기 — split_angle(→split_angle)/alignment(→line)/grip(→gap).
+# limb_extension/pole_gap 은 부위(leg vs arm) 정보가 enum 에 없어 body_part 키워드
+# 체인으로 세분화(기존 결과 동일), other/부재(구 캐시 하위호환)는 정보 0 → 키워드 폴백.
+_CATEGORY_DECISIVE = frozenset({"split_angle", "alignment", "grip"})
+assert _CATEGORY_DECISIVE <= frozenset(FAULT_CATEGORIES), (
+    "fault_category enum drift — vision_veto.FAULT_CATEGORIES 단일 owner 와 불일치"
+)
+
 # ── 라우터 키워드 (vision_veto._KEYPOINT_SET_BY_KEYWORD 스타일, substring match) ──
-_SPLIT_KEYWORDS = ("스플릿", "split", "스트래들", "straddle")
+# "벌림" (25-05): v11 실측 kip-up drift 어휘("양다리 벌림 각도가 기준에 비해 현저히
+# 좁음")가 어느 마커에도 안 걸려 rule 8 폴백 → leg_extension 으로 새던 것의 폴백 방어.
+# enum 부재(구 캐시) 항목 전용 — v8.1 이후 응답은 fault_category 가 1순위로 라우팅한다.
+_SPLIT_KEYWORDS = ("스플릿", "split", "스트래들", "straddle", "벌림")
 _KNEE_LEG_KEYWORDS = ("무릎", "knee", "다리", "leg", "허벅지", "thigh")
 _ELBOW_ARM_KEYWORDS = ("팔꿈치", "elbow", "팔", "arm")
 _HAND_KEYWORDS = ("손", "hand", "손목", "wrist")
@@ -295,8 +311,9 @@ def _finite_positive(value) -> bool:
 def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     """PUBLIC 라우터 (HIGH-1) — Gemini-pointed fault → 활성 criterion ids OR CoverageGap.
 
-    body_part/fault_state(supported_difference 에서 읽음, gemini_vision_scorer schema)+
-    measured substrate 로 라우팅한다. keypoint_set 단독 매핑은 불가(split/straddle/knee-reach
+    1순위 = fault_category 고정 enum (25-05, SCHEMA v8.1 — vision_veto.FAULT_CATEGORIES).
+    enum 부재(구 캐시)/비단독-결정 값은 body_part/fault_state(supported_difference 에서
+    읽음, gemini_vision_scorer schema)+ measured substrate 키워드 체인으로 라우팅한다. keypoint_set 단독 매핑은 불가(split/straddle/knee-reach
     가 전부 keypoint_set='leg' 로 정규화됨 — vision_veto.py:238-239). NOTE(live-source trap):
     torso/line 둘 다 keypoint_set='line' 로 정규화되므로 gap/route 결정은 RAW body_part/
     fault_state 를 읽는다(정규화 keypoint_set 아님).
@@ -308,8 +325,16 @@ def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     body_part = str(diff.get("body_part", ""))
     fault_state = str(diff.get("fault_state", ""))
     combined = f"{body_part} {fault_state}"
+    # 25-05 (SCHEMA v8.1): 고정 분류 enum — v8.1 이후 응답은 필수 필드, 구 캐시는 부재("").
+    category = str(diff.get("fault_category", "")).strip().lower()
 
-    # 1) split/straddle → split_angle ONLY (keypoint_set='leg' 로 정규화되지만 leg 아님).
+    # 0) fault_category enum 1순위 (25-05) — split_angle 이면 어휘와 무관하게 무조건
+    #    split 분기. 키워드 파싱은 프롬프트 버전마다 어휘가 새는 두더지잡기(3연속 drift)
+    #    — 구조화 enum 이 라우팅의 단일 근거다.
+    if category == "split_angle":
+        return ("split_angle",)
+
+    # 1) split/straddle 키워드 폴백 — enum 부재(구 캐시 하위호환)/오분류 방어.
     #    combined(body_part+fault_state) 로 판정 (25-04 sweep FAIL #1 fix, 2026-07-04):
     #    Gemini v10.1 출력은 split 어휘를 body_part 가 아니라 fault_state 에 둔다
     #    (실캐시: body_part="양다리"/"오른쪽 다리", fault_state="...벌어짐(스플릿) 각도가
@@ -318,8 +343,21 @@ def criteria_for_fault(fault_key, supported_difference, measured_deviations):
     #    kip-up 은 leg_extension md substrate 가 없어 honest-0 → belle 결정 A(vision
     #    측정편차 주입) 경로가 통째로 유실된다. correct_state/ipsf_note 는 제외 —
     #    무릎-굽음 멤버의 ipsf_note 보일러플레이트가 '스플릿'을 상습 언급(과잉 라우팅 방지).
+    #    split 키워드가 비-split enum(alignment 등)보다 먼저인 이유: 반복 재발 축이
+    #    "split 감점 유실"이므로 split 어휘 방어를 enum 오분류 위에 둔다(split 만 예외).
     if _contains(combined, _SPLIT_KEYWORDS):
         return ("split_angle",)
+
+    # 0b) 나머지 단독-결정 enum (split 방어 뒤) — alignment→line, grip→coverage gap.
+    #     limb_extension/pole_gap/other/부재 는 여기서 분기하지 않고 기존 키워드 체인
+    #     으로 계속(leg vs arm 세분화는 body_part 소관, 하위호환).
+    if category == "alignment":
+        return ("line",)
+    if category == "grip":
+        return CoverageGap(
+            keypoint_set="grip", reason=COVERAGE_GAP_KEYPOINT_SETS["grip"],
+            body_part=body_part, fault_state=fault_state,
+        )
 
     # 2) hand OR knee + reach/distance/height shortfall → body_relative_reach.
     #    (substrate 있을 때만 의미있게 감점되지만 라우팅은 fault 의미로 결정.)

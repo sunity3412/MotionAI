@@ -244,6 +244,106 @@ def test_criteria_for_fault_severity_invariant():
             == ipsf_criteria.criteria_for_fault(fk_major, d_major, measured))
 
 
+# ── fault_category 고정 enum 라우팅 (25-05, SCHEMA v8.1) ─────────────────────
+
+
+def _v11_kipup_split_diff(**extra):
+    """v11 kip-up 실측 형상 — split 관측이 '벌림'+extension_or_alignment 로 drift 해
+    leg_extension 으로 새던 supported_difference (25-SWEEP-EVIDENCE 실측 재현)."""
+    d = _diff("양다리", "양다리 벌림 각도가 기준에 비해 현저히 좁음")
+    d.update(extra)
+    return d
+
+
+def test_criteria_for_fault_category_enum_first_split():
+    """v11 실측 형상이 fault_category=split_angle 로 오면 어휘/fault_kind 와 무관하게
+    무조건 split 분기 (enum 1순위 소비)."""
+    d = _v11_kipup_split_diff(fault_category="split_angle")
+    fk = vision_veto.fault_key_from_difference(d)
+    # v11 drift 형상 그대로 — fault_kind 는 extension 계열로 정규화되지만 라우팅은 enum.
+    assert fk.fault_kind == "extension_or_alignment"
+    out = ipsf_criteria.criteria_for_fault(fk, d, _measured(leg=40.0, split=40.0))
+    assert out == ("split_angle",)
+
+
+def test_criteria_for_fault_category_split_wins_without_split_vocab():
+    """enum split_angle 은 스플릿 어휘가 전혀 없어도 split — 키워드 파싱이 라우팅
+    근거에서 소멸했음을 증명 (두더지잡기 종결)."""
+    d = _diff("오른쪽 다리", "각도가 기준보다 부족함")
+    d["fault_category"] = "split_angle"
+    fk = vision_veto.fault_key_from_difference(d)
+    assert ipsf_criteria.criteria_for_fault(fk, d, _measured()) == ("split_angle",)
+
+
+def test_criteria_for_fault_category_absent_beollim_keyword_fallback():
+    """enum 부재(구 캐시 하위호환) — 같은 v11 형상이 신규 '벌림' 키워드 폴백으로 split
+    라우팅 (기존엔 어느 마커에도 안 걸려 rule 8 → leg_extension 으로 새며 감점 유실)."""
+    d = _v11_kipup_split_diff()  # fault_category 없음
+    fk = vision_veto.fault_key_from_difference(d)
+    assert ipsf_criteria.criteria_for_fault(fk, d, _measured(leg=40.0)) == ("split_angle",)
+
+
+def test_criteria_for_fault_category_alignment_and_grip_decisive():
+    """단독-결정 enum: alignment→line, grip→coverage gap — 키워드로는 도달 못 하는
+    body_part 어휘에서도 enum 이 라우팅을 결정한다."""
+    d_align = _diff("몸 전체", "자세 축이 흐트러짐")  # 키워드로는 torso gap 행
+    d_align["fault_category"] = "alignment"
+    fk_a = vision_veto.fault_key_from_difference(d_align)
+    assert ipsf_criteria.criteria_for_fault(fk_a, d_align, _measured(line=40.0)) == ("line",)
+
+    d_grip = _diff("오른손", "폴을 잡는 방식이 기준과 다름")
+    d_grip["fault_category"] = "grip"
+    fk_g = vision_veto.fault_key_from_difference(d_grip)
+    out = ipsf_criteria.criteria_for_fault(fk_g, d_grip, _measured())
+    assert isinstance(out, ipsf_criteria.CoverageGap)
+    assert out.keypoint_set == "grip"
+
+
+def test_criteria_for_fault_category_nondecisive_falls_through_keywords():
+    """limb_extension/pole_gap/other 는 부위(leg vs arm) 정보가 없어 기존 키워드 체인
+    유지 (하위호환) — 무릎 굽음→leg_extension, 팔꿈치 굽음→arm_extension 불변."""
+    for cat in ("limb_extension", "other"):
+        d_knee = _diff("무릎", "굽음")
+        d_knee["fault_category"] = cat
+        fk = vision_veto.fault_key_from_difference(d_knee)
+        assert ipsf_criteria.criteria_for_fault(fk, d_knee, _measured(leg=40.0)) == (
+            "leg_extension",
+        ), cat
+    d_elbow = _diff("팔꿈치", "굽음")
+    d_elbow["fault_category"] = "pole_gap"
+    fk_e = vision_veto.fault_key_from_difference(d_elbow)
+    assert ipsf_criteria.criteria_for_fault(fk_e, d_elbow, _measured(arm=40.0)) == (
+        "arm_extension",
+    )
+
+
+def test_criteria_for_fault_category_split_keyword_guards_enum_misclass():
+    """split 어휘 방어는 비-split enum 오분류보다 우선 — 반복 재발 축이 'split 감점
+    유실'이므로, category=alignment 로 잘못 와도 텍스트에 스플릿/벌림이 있으면 split."""
+    d = _v11_kipup_split_diff(fault_category="alignment")
+    fk = vision_veto.fault_key_from_difference(d)
+    assert ipsf_criteria.criteria_for_fault(fk, d, _measured()) == ("split_angle",)
+
+
+def test_criteria_for_fault_category_severity_invariant():
+    """ND-02 불변: enum 라우팅도 severity 를 읽지 않는다."""
+    d_minor = _v11_kipup_split_diff(fault_category="split_angle", severity="minor")
+    d_major = _v11_kipup_split_diff(fault_category="split_angle", severity="major")
+    fk_minor = vision_veto.fault_key_from_difference(d_minor)
+    fk_major = vision_veto.fault_key_from_difference(d_major)
+    assert (ipsf_criteria.criteria_for_fault(fk_minor, d_minor, _measured())
+            == ipsf_criteria.criteria_for_fault(fk_major, d_major, _measured()))
+
+
+def test_fault_categories_locked_vocab():
+    """FAULT_CATEGORIES = 기존 criterion/faultKey 체계와 1:1 대응 고정 어휘 —
+    새 분류 발명 금지. 라우터 단독-결정 집합은 enum 의 부분집합."""
+    assert vision_veto.FAULT_CATEGORIES == (
+        "split_angle", "limb_extension", "pole_gap", "alignment", "grip", "other",
+    )
+    assert ipsf_criteria._CATEGORY_DECISIVE <= frozenset(vision_veto.FAULT_CATEGORIES)
+
+
 def test_criterion_for_keypoint_set_total_over_vocab():
     mapped = set()
     gap = set()

@@ -3488,6 +3488,16 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 measured_deviations=None,
                 baseline_kind=baseline_kind,
             )
+        # quick-260704-fwb follow-up (pod 검증) — veto applied 인데 build_result 의
+        # angle>=95 "거의 동일" 일반 팁이 듀얼 코치 detail2 를 통째로 버린 모순 해소.
+        # build_result 는 veto apply 이전이라 최종 status 를 모름 → apply 이후 여기서
+        # 표시만 재조립 (채점 무접촉). 실패해도 분석 비치명 (기존 tips 유지).
+        try:
+            result = assemble.rebuild_tips_for_vision_fault(
+                result, assessments, coach_details
+            )
+        except Exception:  # noqa: BLE001 - 표시 재조립 실패는 분석 비치명
+            log.exception("vision-fault tips 재조립 실패 — 기존 tips 유지")
         # fault-zoom (belle 2026-06-21) — 기준 영상은 아래 확대 비교 생성까지 살려두고
         # outer finally 가 정리한다(veto 직후 unlink 제거). keypoint_report_dict 빌드 후
         # _attach_fault_zoom_comparisons 호출 (그 시점에 reference_local_video_path 유효).

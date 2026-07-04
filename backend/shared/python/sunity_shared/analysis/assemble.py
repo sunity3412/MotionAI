@@ -758,6 +758,62 @@ def build_result(
     return result
 
 
+def rebuild_tips_for_vision_fault(
+    result: dict,
+    assessments: list[JointAssessment],
+    coach_details: dict | None,
+) -> dict:
+    """visionVeto applied(실감점) 시 '거의 동일' 일반 팁을 per-joint 코칭 팁으로 재조립.
+
+    quick-260704-fwb follow-up (pod 검증): build_result 는 veto apply **이전**에
+    실행되므로 angle>=95 분기가 "거의 동일한 자세" 일반 팁 1개로 tips 를 대체하며
+    듀얼 코치 detail2(causes/fix/coachNote)를 통째로 버린다. kip-up 처럼 kismam
+    angle=100 인데 vision veto 가 감점한 케이스에선 (1) 카피가 88점·확정 결함과
+    모순 (2) 처방 코칭이 유저에게 안 보임.
+
+    apply 이후 pipeline 이 본 함수를 호출해 **표시만** 재조립한다 (채점 무접촉 —
+    점수/veto/breakdown 필드 일절 변경 없음):
+      - visionVeto.status == 'applied' 일 때만 (applied = 감점 record 존재;
+        clean tally 는 not_applicable — 260630-l4e). 그 외 status → 입력 그대로.
+      - 현재 tips 가 일반 팁(joint=None 단독 1개)일 때만 — per-joint tips 가 이미
+        있으면 그대로 (기존 동작 불변, 하위호환).
+      - 조립된 coach_details 에 user-visible 관절 entry 가 있을 때만 — 없으면
+        build_tips 수치 폴백이 "평균 0° 차이" 모순 카피를 만들므로 일반 팁 유지.
+      - veto faultJoints 관절을 top 목록 선두로 (안정 정렬 — 나머지 상대순서 보존).
+    """
+    veto = result.get("visionVeto") if isinstance(result, dict) else None
+    if not isinstance(veto, dict) or veto.get("status") != "applied":
+        return result
+    tips = result.get("tips")
+    is_generic_only = (
+        isinstance(tips, list)
+        and len(tips) == 1
+        and isinstance(tips[0], dict)
+        and tips[0].get("joint") is None
+    )
+    if not is_generic_only:
+        return result
+    visible_details = {
+        k: v for k, v in (coach_details or {}).items() if not str(k).startswith("_")
+    }
+    if not visible_details:
+        return result
+    top = kismam.top_issues(assessments, n=3)
+    # coach_details 가 커버하는 관절만 (조립된 코칭 텍스트가 있는 관절 — 수치 폴백
+    # "0° 차이" 모순 차단). veto fault 관절 우선, 나머지는 top 순서 보존.
+    fault_joints = veto.get("faultJoints") or []
+    covered = [a for a in top if a.key in visible_details]
+    if not covered:
+        return result
+    ordered = sorted(covered, key=lambda a: a.key not in fault_joints)
+    new_tips = build_tips(ordered, visible_details)
+    if not new_tips:
+        return result
+    out = dict(result)
+    out["tips"] = new_tips
+    return out
+
+
 # ── Phase 12 Wave 0B (Plan 12-01) — build_keypoint_report ─────────────────
 # KeypointOverlay (Wave 1+) 소비 source. compute_axis_frames (12-00 T4) 결과를
 # 받아 KeypointReport 의 axis_data + axis_mask 박제 (UI 자체 계산 차단, A7 해소).

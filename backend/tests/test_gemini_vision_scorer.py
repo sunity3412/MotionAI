@@ -1204,6 +1204,80 @@ def test_fold_severity_none_still_filtered():
     assert supported == [], "none 2건은 카운트 밖 — moderate 단발은 K=2 미달 drop"
 
 
+def test_fold_preserves_member_faults_and_original_fault_keys():
+    """fold 대표에 그룹 멤버 원문(_memberFaults) + fold 전 FaultKey(_memberFaultKeys) 보존 (CR-01).
+
+    fold 는 support 집계용 — 라우팅(split vs knee)/recall 어휘는 멤버 원문에서 소비된다.
+    IN-02: fold 의미를 고치는 사람이 이 파일에서 marker 를 만나도록 값 자체를 박제.
+    """
+    assert gvs.AGGREGATION_VERSION == "agg3"
+    per_call = [
+        [_sdiff("왼쪽 어깨", dev=40.0, fault_state="굽음")],
+        [_sdiff("어깨", dev=31.0, fault_state="정렬 흐트러짐")],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    rec = supported[0]
+    members = rec["_memberFaults"]
+    assert {m["body_part"] for m in members} == {"왼쪽 어깨", "어깨"}
+    fks = rec["_memberFaultKeys"]
+    assert {(fk.side, fk.fault_kind) for fk in fks} == {
+        ("left", "pole_gap_or_bent"), ("unknown", "extension_or_alignment"),
+    }, "fold 전 원본 side/fault_kind 어휘 보존 (recall trace 입력)"
+    assert all(fk.keypoint_set == "shoulder" for fk in fks)
+
+
+def test_fold_member_dedup_keeps_best_by_rank_then_dev():
+    """멤버 dedup = (body_part, fault_state) 키, 항목별 최선(rank→dev) 유지 — split 편차 보존."""
+    per_call = [
+        [_sdiff("스플릿", severity="minor", dev=25.0, fault_state="각도 부족")],
+        [_sdiff("스플릿", severity="moderate", dev=30.0, fault_state="각도 부족")],
+        [_sdiff("무릎", severity="major", dev=0.0, fault_state="굽음")],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="lower_body", min_support_k=2,
+    )
+    assert len(supported) == 1  # 전부 keypoint_set=leg → 한 그룹
+    members = {m["body_part"]: m for m in supported[0]["_memberFaults"]}
+    assert set(members) == {"스플릿", "무릎"}
+    assert float(members["스플릿"]["approx_angle_deviation_deg"]) == 30.0, (
+        "동일 (body_part, fault_state) 멤버는 최고 rank→dev 1개만"
+    )
+
+
+def test_rich_doc_round_trip_preserves_member_meta():
+    """_rich_to_doc/_rich_from_doc 가 _memberFaults/_memberFaultKeys 를 왕복 보존 (캐시 결정론)."""
+    per_call = [
+        [_sdiff("왼쪽 어깨", dev=40.0, fault_state="굽음")],
+        [_sdiff("어깨", dev=31.0, fault_state="정렬 흐트러짐")],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    rich = {
+        "status": "candidate_verdict",
+        "verdict": None,
+        "supported_differences": supported,
+        "root_cause_hypotheses": gvs._derive_root_causes_from_supported_differences(supported),
+        "telemetry": {},
+    }
+    doc = VisionVetoCache._rich_to_doc(rich)
+    restored = VisionVetoCache._rich_from_doc(doc)
+    r0 = restored["supported_differences"][0]
+    o0 = supported[0]
+    assert tuple(m["body_part"] for m in r0["_memberFaults"]) == tuple(
+        m["body_part"] for m in o0["_memberFaults"]
+    )
+    assert tuple(fk.to_dict() for fk in r0["_memberFaultKeys"]) == tuple(
+        fk.to_dict() for fk in o0["_memberFaultKeys"]
+    )
+    # doc(Firestore payload) 는 flat map 리스트 — FaultKey 객체 직렬화 누출 0.
+    doc_rec = doc["supported_differences"][0]
+    assert all(isinstance(m, dict) for m in doc_rec["_memberFaults"])
+    assert all(isinstance(x, dict) for x in doc_rec["_memberFaultKeyDicts"])
+
+
 def test_aggregation_version_constant_and_in_cache_key(monkeypatch):
     """AGGREGATION_VERSION 이 build_key 산출 키에 포함 + marker 변경 시 다른 키.
 

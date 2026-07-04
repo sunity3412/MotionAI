@@ -667,3 +667,47 @@ def test_breakdown_serializes_flat():
         for v in rec.values():
             assert not isinstance(v, (list, dict)), "nested array/dict 금지(Firestore-flat)"
     assert d["final"] == max(0, round(100.0 + sum(r["points"] for r in d["records"])))
+
+
+# ── 25-02 review CR-01 — fold 멤버 라우팅 보존 ────────────────────────────────
+
+
+def test_folded_leg_group_preserves_split_routing_via_members():
+    """'스플릿 부족'+'무릎 굽음' 동시 언급이 keypoint_set=leg 한 그룹으로 fold 돼도
+    split_angle 라우팅 + vision-측정 주입(belle 결정 A)이 보존된다 (CR-01 회귀).
+
+    fold 대표가 무릎(major)로 뽑혀도 라우팅은 _memberFaults 각각으로 수행 —
+    split 경로가 대표-선정 복권으로 소실되면 kip-up fault 88→~99 FP 재복귀 경로.
+    """
+    from sunity_shared.analysis import gemini_vision_scorer as gvs
+
+    def d(body_part, fault_state, severity, dev):
+        return {
+            "body_part": body_part, "correct_state": "",
+            "fault_state": fault_state, "severity": severity,
+            "approx_angle_deviation_deg": dev,
+        }
+
+    per_call = [
+        [d("스플릿", "각도 부족", "moderate", 30.0), d("무릎", "굽음", "major", 0)],
+        [d("스플릿", "각도 부족", "moderate", 30.0), d("무릎", "굽음", "major", 0)],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="lower_body", min_support_k=2,
+    )
+    assert len(supported) == 1, "스플릿+무릎 전부 keypoint_set=leg → 한 그룹 fold"
+    assert "무릎" in str(supported[0].get("body_part")), "대표 = major 무릎 (split 은 대표 아님)"
+
+    b = _tally(_measured(), _ctx(supported))
+    split_recs = [r for r in b.records if r.criterion == "split_angle"]
+    assert len(split_recs) == 1, "멤버 라우팅으로 split_angle 경로 보존 (CR-01)"
+    assert split_recs[0].source == "vision"
+    assert split_recs[0].deviation_source == "reference_relative"
+
+
+def test_routing_members_fallback_without_member_meta():
+    """_memberFaults 부재(구 캐시/직접 구성 diff) → diff 자신 1개로 라우팅 (하위호환)."""
+    diff = _diff("무릎", "굽음")
+    assert deduction_engine._routing_members(diff) == [diff]
+    b = _tally(_measured(leg=40.0), _ctx([diff]))
+    assert any(r.criterion == "leg_extension" for r in b.records)

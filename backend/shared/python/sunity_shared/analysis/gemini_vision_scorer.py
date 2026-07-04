@@ -78,7 +78,9 @@ SCHEMA_VERSION = "v7.0"  # v7.0 (Phase 23-02): differences[] 에 root_cause_hypo
 # 살아남는다 (kip-up whole/whole_fanout stale-hit FP 이력, 90d038f). 집계 변경 =
 # 반드시 이 marker 도 bump — 기존 키 공간 재사용 절대 금지.
 # agg2 (25-02): 그룹 키 FaultKey 4필드 전체 → keypoint_set 단독 (side/fault_kind fold).
-AGGREGATION_VERSION = "agg2"
+# agg3 (25-02 review CR-01): fold 대표에 그룹 멤버 원문(_memberFaults/_memberFaultKeys)
+#   보존 — 라우팅(split_angle 등)/recall 어휘가 대표-선정 복권으로 소실되지 않게.
+AGGREGATION_VERSION = "agg3"
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
 #
@@ -555,6 +557,14 @@ class VisionVetoCache:
             rec["_faultKeyDict"] = fk.to_dict() if fk is not None else None
             rec["_supportCount"] = int((d or {}).get("_supportCount") or 0)
             rec["_sourceIds"] = list((d or {}).get("_sourceIds") or ())
+            # CR-01 멤버 메타 — list of flat map (Firestore nested-array 회피 정합).
+            rec["_memberFaults"] = [
+                {k: v for k, v in (m or {}).items() if not str(k).startswith("_")}
+                for m in ((d or {}).get("_memberFaults") or ())
+            ]
+            rec["_memberFaultKeyDicts"] = [
+                mfk.to_dict() for mfk in ((d or {}).get("_memberFaultKeys") or ())
+            ]
             supported_doc.append(rec)
         causes_doc = []
         for rc in rich.get("root_cause_hypotheses") or ():
@@ -588,11 +598,19 @@ class VisionVetoCache:
         supported = []
         for rec in doc.get("supported_differences") or ():
             d = {k: v for k, v in (rec or {}).items()
-                 if k not in ("_faultKeyDict", "_supportCount", "_sourceIds")}
+                 if k not in ("_faultKeyDict", "_supportCount", "_sourceIds",
+                              "_memberFaults", "_memberFaultKeyDicts")}
             fkd = (rec or {}).get("_faultKeyDict")
             d["_faultKey"] = FaultKey.from_dict(fkd) if fkd else None
             d["_supportCount"] = int((rec or {}).get("_supportCount") or 0)
             d["_sourceIds"] = tuple((rec or {}).get("_sourceIds") or ())
+            d["_memberFaults"] = tuple(
+                dict(m or {}) for m in ((rec or {}).get("_memberFaults") or ())
+            )
+            d["_memberFaultKeys"] = tuple(
+                FaultKey.from_dict(x)
+                for x in ((rec or {}).get("_memberFaultKeyDicts") or ())
+            )
             supported.append(d)
         causes = []
         for rc in doc.get("root_cause_hypotheses") or ():
@@ -1260,8 +1278,17 @@ def _filter_supported_differences(
     ⚠ rich 캐시는 집계 후 supported_differences 를 저장하므로 이 함수의 그룹핑 변경 =
     AGGREGATION_VERSION bump 필수 (kip-up whole/whole_fanout stale-hit FP 이력, 90d038f).
 
+    멤버 보존 (25-02 review CR-01): fold 는 support 집계용일 뿐 — 라우터
+    (`ipsf_criteria.criteria_for_fault`)는 RAW body_part 로 split_angle vs leg_extension
+    을 가르므로("keypoint_set 단독 매핑 불가" 불변), 대표 1개만 남기면 같은 keypoint_set
+    의 서로 다른 결함(스플릿 부족 vs 무릎 굽음)이 대표-선정 복권으로 라우팅에서 소실된다
+    (kip-up split 감점 = vision-주입 유일 경로, belle 결정 A). 따라서 대표에
+    `_memberFaults`(그룹 멤버 원문 dict, (body_part, fault_state) dedup — 대표 rank/dev
+    규칙으로 최선 유지) + `_memberFaultKeys`(fold 전 원본 FaultKey — recall trace 어휘)
+    를 부착한다. 엔진(deduction_engine.tally)은 멤버 각각을 라우팅한다.
+
     반환: support≥K 통과 difference list — 각 canonical 키별 대표 1개(최고 severity/dev),
-    `_supportCount`/`_faultKey`/`_sourceIds` 메타 부착(root cause 유도 입력).
+    `_supportCount`/`_faultKey`/`_sourceIds`/`_memberFaults`/`_memberFaultKeys` 메타 부착.
     """
     from .vision_veto import fault_key_from_difference
 
@@ -1285,12 +1312,13 @@ def _filter_supported_differences(
             sev_rank = _SEVERITY_RANK.get(sev, 0)
             cur = groups.get(key)
             if cur is None:
-                groups[key] = {
+                cur = groups[key] = {
                     "support": 1,
                     "ids": [diff_id],
                     "fault_key": fk,
                     "sides": {fk.side} if fk.side in ("left", "right") else set(),
                     "best": {**d, "_rank": sev_rank, "_dev": dev},
+                    "members": {},
                 }
             else:
                 cur["support"] += 1
@@ -1302,6 +1330,14 @@ def _filter_supported_differences(
                 ):
                     cur["best"] = {**d, "_rank": sev_rank, "_dev": dev}
                     cur["fault_key"] = fk  # 대표 difference 의 FaultKey 추적.
+            # 멤버 원문 축적 (CR-01) — (body_part, fault_state) dedup, 대표 규칙과 동일한
+            # rank→dev 비교로 항목별 최선 유지 (split 편차 등 vision-측정값 보존).
+            mkey = (part, str((d or {}).get("fault_state", "")).strip())
+            m = cur["members"].get(mkey)
+            if m is None or sev_rank > m["_rank"] or (
+                sev_rank == m["_rank"] and dev > m["_dev"]
+            ):
+                cur["members"][mkey] = {"d": {**d}, "fk": fk, "_rank": sev_rank, "_dev": dev}
 
     out: list = []
     for g in groups.values():
@@ -1314,6 +1350,9 @@ def _filter_supported_differences(
         rec["_supportCount"] = g["support"]
         rec["_faultKey"] = dc_replace(g["fault_key"], side=resolved_side)
         rec["_sourceIds"] = tuple(g["ids"])
+        members = list(g["members"].values())
+        rec["_memberFaults"] = tuple({**m["d"]} for m in members)
+        rec["_memberFaultKeys"] = tuple(m["fk"] for m in members)
         out.append(rec)
     # severity 내림차순(지배 결함이 앞).
     out.sort(key=lambda r: -_SEVERITY_RANK.get(

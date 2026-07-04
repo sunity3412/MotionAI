@@ -174,21 +174,29 @@ def tally(
     vision_measured: dict[str, float] = {}  # cid → vision-측정 편차(geometric 불가 결함)
     differences = _supported_differences(fault_context)
     for diff in differences:
-        res = ipsf_criteria.criteria_for_fault(_fault_key_for(diff), diff, md)
-        if isinstance(res, ipsf_criteria.CoverageGap):
-            coverage_gaps.append(_gap_to_dict(res))
-            continue
-        pointed.update(res)
-        # split 은 geometric 측정이 confounded(kip-up keypoint saturate)라 substrate 가 없다
-        # (gated). vision 이 split 을 짚으면(router→split_angle) vision 이 영상서 잰 reference-
-        # 상대 편차를 md["split_angle"]로 주입해 split_angle(reference_relative) 규칙이 감점하게
-        # 한다(belle 2026-06-29 결정 A: geometric 불가 결함은 vision-측정값으로 점수화).
-        # geometric md 가 이미 있으면(진짜 split-요구 동작) 그것을 우선 — 덮어쓰지 않는다.
-        if "split_angle" in res and "split_angle" not in md:
-            dev = _vision_measured_deviation(diff)
-            if dev is not None:
-                md["split_angle"] = dev
-                vision_measured["split_angle"] = dev
+        # 25-02 CR-01: fold 대표는 support 집계 산물일 뿐 — 라우팅은 그룹 멤버 전체의
+        # RAW body_part/fault_state 로 수행한다. 같은 keypoint_set 의 서로 다른 결함
+        # (스플릿 부족 vs 무릎 굽음)이 대표-선정 복권으로 소실되지 않게(라우터의
+        # "keypoint_set 단독 매핑 불가" 불변 존중).
+        for member in _routing_members(diff):
+            res = ipsf_criteria.criteria_for_fault(_fault_key_for(member), member, md)
+            if isinstance(res, ipsf_criteria.CoverageGap):
+                gap = _gap_to_dict(res)
+                if gap not in coverage_gaps:  # 멤버 fan-out 중복 방지(내용 동일 gap 1회)
+                    coverage_gaps.append(gap)
+                continue
+            pointed.update(res)
+            # split 은 geometric 측정이 confounded(kip-up keypoint saturate)라 substrate 가
+            # 없다(gated). vision 이 split 을 짚으면(router→split_angle) vision 이 영상서 잰
+            # reference-상대 편차를 md["split_angle"]로 주입해 split_angle(reference_relative)
+            # 규칙이 감점하게 한다(belle 2026-06-29 결정 A: geometric 불가 결함은 vision-측정값
+            # 으로 점수화). geometric md 가 이미 있으면(진짜 split-요구 동작) 그것을 우선 —
+            # 덮어쓰지 않는다.
+            if "split_angle" in res and "split_angle" not in md:
+                dev = _vision_measured_deviation(member)
+                if dev is not None:
+                    md["split_angle"] = dev
+                    vision_measured["split_angle"] = dev
     activated = set(seeded) | pointed
     gemini_silent = not differences  # Gemini 무지목 관측 마커(measured seed 가 여전히 감점)
 
@@ -383,6 +391,19 @@ def _fault_key_for(diff):
         return None
 
 
+def _routing_members(diff):
+    """fold 대표 → 라우팅 대상 멤버 전체 (25-02 CR-01).
+
+    `_filter_supported_differences` 의 keypoint_set fold 는 support 집계용 — 라우팅은
+    그룹 멤버 원문(`_memberFaults`) 각각으로 수행해 split_angle 등 body_part-keyed 경로
+    소실을 막는다. 멤버 메타 부재(구 캐시/직접 구성 diff)면 diff 자신 1개로 폴백."""
+    if isinstance(diff, dict):
+        members = diff.get("_memberFaults")
+        if members:
+            return list(members)
+    return [diff]
+
+
 def _gap_to_dict(gap):
     """CoverageGap → flat coverageGaps entry(MEDIUM-3 provenance)."""
     return {
@@ -396,11 +417,14 @@ def _gap_to_dict(gap):
 
 
 def _collect_coverage_gaps(fault_context, md, crit_by_id, out):
-    """fallback 경로에서도 coverage gap 을 수집(추적성)."""
+    """fallback 경로에서도 coverage gap 을 수집(추적성) — 멤버 단위 (CR-01 정합)."""
     for diff in _supported_differences(fault_context):
-        res = ipsf_criteria.criteria_for_fault(_fault_key_for(diff), diff, md)
-        if isinstance(res, ipsf_criteria.CoverageGap):
-            out.append(_gap_to_dict(res))
+        for member in _routing_members(diff):
+            res = ipsf_criteria.criteria_for_fault(_fault_key_for(member), member, md)
+            if isinstance(res, ipsf_criteria.CoverageGap):
+                gap = _gap_to_dict(res)
+                if gap not in out:
+                    out.append(gap)
 
 
 def _ordered(activated, criterion_groups):

@@ -1024,6 +1024,15 @@ export default function AnalysisResult() {
                   />
                 ) : null
               }
+              // quick-260702-t0v — 전체화면 상단 bar 에 오버레이 토글 유지.
+              // state 단일 출처 = 본 화면 (토글 시 render prop 재실행으로 전체화면
+              // 오버레이 즉시 반영). mode3 second+ (left 오버레이만) 도 동일.
+              fullscreenHeaderExtra={
+                <KeypointOverlayToggle
+                  value={overlayVisible}
+                  onValueChange={handleToggleOverlay}
+                />
+              }
             />
           </>
         )}

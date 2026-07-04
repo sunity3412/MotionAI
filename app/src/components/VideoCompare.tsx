@@ -8,14 +8,17 @@
 // 짧은 쪽이 끝나면 일시정지(루프 X) — 비교 시 동기 어긋남 방지.
 
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type LayoutChangeEvent,
+  Modal,
   PanResponder,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { colors, layout, radius, spacing, typography } from '../theme';
@@ -109,6 +112,12 @@ export type VideoCompareProps = {
    */
   leftOverlay?: OverlayRenderProp;
   rightOverlay?: OverlayRenderProp;
+  /**
+   * quick-260702-t0v — 가로 전체화면 뷰어 상단 bar 우측 슬롯 (닫기 버튼 왼쪽).
+   * result.tsx 가 KeypointOverlayToggle 을 전달 → 전체화면에서도 오버레이 토글
+   * 유지 (state 단일 출처 = caller, 토글 시 render prop 재실행으로 즉시 반영).
+   */
+  fullscreenHeaderExtra?: React.ReactNode;
 };
 
 // UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).
@@ -132,6 +141,13 @@ const START_SYNC_THRESHOLD_S = 0.05;
 const STEP_SECONDS = 0.1;
 const THUMB_DIAMETER = 14;
 
+// quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 전체화면 오버레이 배율.
+// KeypointOverlay 는 viewBox 정규화 구조라 라벨 유효 크기 = 14 × 렌더높이/1280.
+// 세로 카드(높이 ~290pt) → 가로 전체화면(~393pt) 전환만으로는 ~1.35배뿐이라
+// 판독 불가 잔존 → sizeScale 2.0 병행. belle 실기기 확인 후 미세조정 가능하도록
+// 상수화 (부족하면 상향).
+const FULLSCREEN_OVERLAY_SCALE = 2.0;
+
 export function VideoCompare({
   leftLabel,
   rightLabel,
@@ -139,6 +155,7 @@ export function VideoCompare({
   rightUrl,
   leftOverlay,
   rightOverlay,
+  fullscreenHeaderExtra,
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
@@ -184,6 +201,26 @@ export function VideoCompare({
   const scrubbingRef = useRef(false);
   const wasPlayingBeforeScrubRef = useRef(false);
   const trackWidthRef = useRef(0);
+
+  // quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 가로 전체화면 뷰어.
+  // portrait 고정(app.json orientation) 유지 + Modal 안 뷰 90° 회전으로 가로
+  // 레이아웃 시뮬레이트 (expo-screen-orientation = native 모듈 추가라 금지, OTA 전제).
+  // 같은 leftPlayer/rightPlayer 인스턴스에 두 번째 VideoView 를 attach → 재생
+  // 위치/상태 연속, drift 보정 tick·togglePlay·seekBoth 가 양 레이아웃을 그대로 제어.
+  const [fullscreen, setFullscreen] = useState(false);
+  // 전체화면 타임라인 track 은 폭이 다름 — scrubAtX 가 활성 레이아웃의 폭을 읽도록
+  // ref 분리 (portrait track 은 Modal 뒤에 mount 유지라 onLayout 재발화 없음).
+  const fullscreenRef = useRef(false);
+  const fsTrackWidthRef = useRef(0);
+  const { width: winW, height: winH } = useWindowDimensions();
+  const openFullscreen = () => {
+    fullscreenRef.current = true;
+    setFullscreen(true);
+  };
+  const closeFullscreen = () => {
+    fullscreenRef.current = false;
+    setFullscreen(false);
+  };
 
   useEffect(() => {
     if (!hasAny) return;
@@ -371,9 +408,19 @@ export function VideoCompare({
     trackWidthRef.current = e.nativeEvent.layout.width;
   }, []);
 
+  // quick-260702-t0v — 전체화면 track 폭 분리 측정 (회전 컨테이너 안 폭이 다름).
+  const onFsTrackLayout = useCallback((e: LayoutChangeEvent) => {
+    fsTrackWidthRef.current = e.nativeEvent.layout.width;
+  }, []);
+
   const scrubAtX = useCallback(
     (x: number) => {
-      const w = trackWidthRef.current;
+      // quick-260702-t0v — 활성 레이아웃(세로/전체화면)의 track 폭 사용.
+      // PanResponder 의 locationX 는 RN 이 transform 반영 로컬 좌표로 매핑하므로
+      // 회전 뷰에서도 그대로 유효.
+      const w = fullscreenRef.current
+        ? fsTrackWidthRef.current
+        : trackWidthRef.current;
       if (w <= 0 || duration <= 0) return;
       const ratio = Math.max(0, Math.min(1, x / w));
       seekBoth(duration * ratio);
@@ -420,6 +467,141 @@ export function VideoCompare({
   const progressPct =
     duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
 
+  // quick-260702-t0v — 컨트롤 공유 (로직 중복 0). 세로 카드와 가로 전체화면이
+  // 같은 핸들러(togglePlay/stepBy/seekBoth/restart/panResponder)와 같은 JSX 를
+  // 공유. dark=true(전체화면)면 어두운 배경 위 색만 토큰 분기.
+  const renderControls = (dark: boolean) => (
+    <View style={styles.controls}>
+      <Pressable
+        onPress={togglePlay}
+        accessibilityRole="button"
+        accessibilityLabel={playing ? '일시정지' : '재생'}
+        hitSlop={8}
+        style={styles.playBtn}
+      >
+        <Ionicons
+          name={playing ? 'pause' : 'play'}
+          size={20}
+          color={colors.textWhite}
+        />
+      </Pressable>
+      {/* Phase 12 후속 B — 0.1s 앞/뒤 step.
+          자세 미세 비교 시 1-frame 수준 정렬용. belle 요구: "0.0초 단위". */}
+      <Pressable
+        onPress={() => stepBy(-STEP_SECONDS)}
+        accessibilityRole="button"
+        accessibilityLabel="0.1초 뒤로"
+        hitSlop={8}
+        style={[styles.stepBtn, dark && styles.stepBtnDark]}
+      >
+        <Ionicons
+          name="play-back"
+          size={16}
+          color={dark ? colors.textWhite : colors.textSecondary}
+        />
+      </Pressable>
+      <Pressable
+        onPress={() => stepBy(STEP_SECONDS)}
+        accessibilityRole="button"
+        accessibilityLabel="0.1초 앞으로"
+        hitSlop={8}
+        style={[styles.stepBtn, dark && styles.stepBtnDark]}
+      >
+        <Ionicons
+          name="play-forward"
+          size={16}
+          color={dark ? colors.textWhite : colors.textSecondary}
+        />
+      </Pressable>
+      <View style={styles.timeline}>
+        {/* Phase 12 후속 B — track 자체가 PanResponder. drag 시 양쪽 동시
+            seek + scrubbingRef 가 drift 보정 우회 (tick 가드). */}
+        <View
+          style={styles.timelineTrack}
+          onLayout={dark ? onFsTrackLayout : onTrackLayout}
+          {...panResponder.panHandlers}
+        >
+          <View style={styles.timelineRail} pointerEvents="none" />
+          <View
+            style={[styles.timelineFill, { width: `${progressPct}%` }]}
+            pointerEvents="none"
+          />
+          <View
+            style={[styles.timelineThumb, { left: `${progressPct}%` }]}
+            pointerEvents="none"
+          />
+        </View>
+        {/* 12-deferred §12-C — 두 영상 timeline 분리 표시.
+            progress bar 는 단일 (짧은 쪽 기준), 시간 라벨은 좌·우 분리.
+            Phase 12 후속 B — 0.1s 정밀 표시(소수 1자리). */}
+        <Text
+          style={[styles.timeText, dark && styles.timeTextDark]}
+          numberOfLines={1}
+        >
+          {hasLeft
+            ? `${leftLabel} ${fmtTimeDecimal(leftCurrent)} / ${fmtTime(leftDuration)}`
+            : ''}
+          {hasLeft && hasRight ? '  ·  ' : ''}
+          {hasRight
+            ? `${rightLabel} ${fmtTimeDecimal(rightCurrent)} / ${fmtTime(rightDuration)}`
+            : ''}
+        </Text>
+      </View>
+      <Pressable
+        onPress={restart}
+        accessibilityRole="button"
+        accessibilityLabel="처음으로"
+        hitSlop={8}
+      >
+        <Ionicons
+          name="refresh"
+          size={20}
+          color={dark ? colors.textWhite : colors.textSecondary}
+        />
+      </Pressable>
+    </View>
+  );
+
+  // quick-260702-t0v — 전체화면 슬롯. 새 useVideoPlayer 호출 금지 — 기존 player
+  // 인스턴스에 두 번째 VideoView attach (expo-video 다중 VideoView 지원).
+  // 오버레이는 sizeScale=FULLSCREEN_OVERLAY_SCALE 로 호출 (각도 라벨 확대).
+  const renderFullscreenSlot = (
+    label: string,
+    url: string | undefined,
+    player: VideoPlayer | null,
+    overlay?: OverlayRenderProp,
+  ) => (
+    <View style={styles.fsSlot}>
+      <View style={styles.fsSlotFrame}>
+        {url && player ? (
+          <>
+            <VideoView
+              player={player}
+              style={styles.video}
+              contentFit="contain"
+              nativeControls={false}
+              allowsFullscreen={false}
+              allowsPictureInPicture={false}
+            />
+            <View style={styles.overlayContainer} pointerEvents="none">
+              {overlay?.(player, { sizeScale: FULLSCREEN_OVERLAY_SCALE })}
+            </View>
+          </>
+        ) : (
+          <View style={styles.slotEmpty}>
+            <Ionicons
+              name="videocam-outline"
+              size={22}
+              color={colors.textDisabled}
+            />
+            <Text style={styles.slotEmptyText}>준비 중</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.fsSlotLabel}>{label}</Text>
+    </View>
+  );
+
   return (
     <View style={styles.card}>
       <View style={styles.row}>
@@ -462,101 +644,82 @@ export function VideoCompare({
         </View>
       )}
 
+      {/* quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 가로 전체화면
+          진입 버튼. 세로 나란히 2개 레이아웃에선 각도 라벨이 판독 불가 → 탭 시
+          두 영상을 좌우로 크게 보는 전체화면 뷰어. */}
+      {hasAny && (
+        <Pressable
+          onPress={openFullscreen}
+          accessibilityRole="button"
+          accessibilityLabel="가로 전체화면으로 크게 보기"
+          hitSlop={8}
+          style={styles.fullscreenBtn}
+        >
+          <Ionicons name="expand" size={16} color={colors.brand} />
+          <Text style={styles.fullscreenBtnText}>가로로 크게 보기</Text>
+        </Pressable>
+      )}
+
       {hasAny ? (
-        <View style={styles.controls}>
-          <Pressable
-            onPress={togglePlay}
-            accessibilityRole="button"
-            accessibilityLabel={playing ? '일시정지' : '재생'}
-            hitSlop={8}
-            style={styles.playBtn}
-          >
-            <Ionicons
-              name={playing ? 'pause' : 'play'}
-              size={20}
-              color={colors.textWhite}
-            />
-          </Pressable>
-          {/* Phase 12 후속 B — 0.1s 앞/뒤 step.
-              자세 미세 비교 시 1-frame 수준 정렬용. belle 요구: "0.0초 단위". */}
-          <Pressable
-            onPress={() => stepBy(-STEP_SECONDS)}
-            accessibilityRole="button"
-            accessibilityLabel="0.1초 뒤로"
-            hitSlop={8}
-            style={styles.stepBtn}
-          >
-            <Ionicons
-              name="play-back"
-              size={16}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-          <Pressable
-            onPress={() => stepBy(STEP_SECONDS)}
-            accessibilityRole="button"
-            accessibilityLabel="0.1초 앞으로"
-            hitSlop={8}
-            style={styles.stepBtn}
-          >
-            <Ionicons
-              name="play-forward"
-              size={16}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-          <View style={styles.timeline}>
-            {/* Phase 12 후속 B — track 자체가 PanResponder. drag 시 양쪽 동시
-                seek + scrubbingRef 가 drift 보정 우회 (tick 가드). */}
-            <View
-              style={styles.timelineTrack}
-              onLayout={onTrackLayout}
-              {...panResponder.panHandlers}
-            >
-              <View style={styles.timelineRail} pointerEvents="none" />
-              <View
-                style={[styles.timelineFill, { width: `${progressPct}%` }]}
-                pointerEvents="none"
-              />
-              <View
-                style={[
-                  styles.timelineThumb,
-                  { left: `${progressPct}%` },
-                ]}
-                pointerEvents="none"
-              />
-            </View>
-            {/* 12-deferred §12-C — 두 영상 timeline 분리 표시.
-                progress bar 는 단일 (짧은 쪽 기준), 시간 라벨은 좌·우 분리.
-                Phase 12 후속 B — 0.1s 정밀 표시(소수 1자리). */}
-            <Text style={styles.timeText} numberOfLines={1}>
-              {hasLeft
-                ? `${leftLabel} ${fmtTimeDecimal(leftCurrent)} / ${fmtTime(leftDuration)}`
-                : ''}
-              {hasLeft && hasRight ? '  ·  ' : ''}
-              {hasRight
-                ? `${rightLabel} ${fmtTimeDecimal(rightCurrent)} / ${fmtTime(rightDuration)}`
-                : ''}
-            </Text>
-          </View>
-          <Pressable
-            onPress={restart}
-            accessibilityRole="button"
-            accessibilityLabel="처음으로"
-            hitSlop={8}
-          >
-            <Ionicons
-              name="refresh"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-        </View>
+        renderControls(false)
       ) : (
         <Text style={styles.hint}>
           분석 서버가 연결되면 두 영상을 동시에 재생하며 관절 차이를 비교할 수
           있어요.
         </Text>
+      )}
+
+      {/* quick-260702-t0v — 가로 전체화면 뷰어. portrait 고정 유지 + 뷰 90° 회전
+          (검증된 가로 시뮬레이트 패턴). 조건부 렌더 — 닫힌 동안 native 리소스 0
+          (T-t0v-01). 같은 player 라 열고 닫아도 재생 위치·상태 자동 연속. */}
+      {fullscreen && (
+        <Modal
+          visible
+          transparent={false}
+          animationType="fade"
+          statusBarTranslucent
+          supportedOrientations={['portrait']}
+          onRequestClose={closeFullscreen}
+        >
+          {/* 모달 unmount 시 root _layout 의 StatusBar 로 자연 복귀 */}
+          <StatusBar hidden />
+          <View style={styles.fsRoot}>
+            <View
+              style={[
+                styles.fsRotated,
+                {
+                  width: winH,
+                  height: winW,
+                  left: (winW - winH) / 2,
+                  top: (winH - winW) / 2,
+                },
+              ]}
+            >
+              <View style={styles.fsTopBar}>
+                {fullscreenHeaderExtra}
+                <Pressable
+                  onPress={closeFullscreen}
+                  accessibilityRole="button"
+                  accessibilityLabel="전체화면 닫기"
+                  hitSlop={12}
+                  style={styles.fsCloseBtn}
+                >
+                  <Ionicons name="close" size={22} color={colors.textWhite} />
+                </Pressable>
+              </View>
+              <View style={styles.fsVideoRow}>
+                {renderFullscreenSlot(leftLabel, leftUrl, leftPlayer, leftOverlay)}
+                {renderFullscreenSlot(
+                  rightLabel,
+                  rightUrl,
+                  rightPlayer,
+                  rightOverlay,
+                )}
+              </View>
+              {renderControls(true)}
+            </View>
+          </View>
+        </Modal>
       )}
     </View>
   );
@@ -714,5 +877,77 @@ const styles = StyleSheet.create({
     ...typography.captionSmall,
     color: colors.textSecondary,
     lineHeight: 15,
+  },
+  // ── quick-260702-t0v — 가로 전체화면 뷰어 (belle TestFlight #27) ─────────
+  // 진입 버튼: 전체 너비 pill (brandTint 배경 + brand 텍스트, 토큰만).
+  fullscreenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    width: '100%',
+    paddingVertical: 10,
+    borderRadius: radius.button,
+    backgroundColor: colors.brandTint,
+  },
+  fullscreenBtnText: {
+    ...typography.caption,
+    color: colors.brand,
+    fontWeight: '700',
+  },
+  // 몰입형 영상 전체화면 배경 — videoFullscreenBg 토큰 (다크 배경 금지 원칙의
+  // 의도적 예외, colors.ts 주석 참조).
+  fsRoot: {
+    flex: 1,
+    backgroundColor: colors.videoFullscreenBg,
+  },
+  // 90° 회전 컨테이너 — width/height/left/top 은 render 에서 winW/winH 로 주입.
+  fsRotated: {
+    position: 'absolute',
+    transform: [{ rotate: '90deg' }],
+    paddingHorizontal: spacing.cardPadding,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  fsTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 16,
+  },
+  fsCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.videoBg,
+  },
+  fsVideoRow: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  fsSlot: {
+    flex: 1,
+    gap: 4,
+  },
+  fsSlotFrame: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.videoFullscreenBg,
+  },
+  fsSlotLabel: {
+    ...typography.captionSmall,
+    color: colors.textWhite,
+    textAlign: 'center',
+  },
+  // 어두운 배경 위 컨트롤 색 분기 (dark variant) — 토큰만.
+  stepBtnDark: {
+    backgroundColor: colors.videoBg,
+  },
+  timeTextDark: {
+    color: colors.textWhite,
   },
 });

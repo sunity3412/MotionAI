@@ -65,6 +65,13 @@ export const colors = {
   // 부상 위험 SafetyFlag 경고 배너 amber tint 배경. 기존 warnAmber(#E6A300)
   // 텍스트 톤과 짝. brand #FF4B33 변경 0 (CLAUDE.md §4). 라이트 배경 유지.
   warnAmberBg: '#FFF6E5', // 부상 위험 경고 배너 배경 (D-08)
+
+  // ── quick-260702-t0v 신설 토큰 ────────────────────────────────────────
+  // 가로 전체화면 영상 뷰어 배경. 몰입형 영상 전체화면 예외 — "다크 배경 금지"
+  // 원칙(CLAUDE.md §4 / design.md §10)의 의도적 예외로, 분석 로딩 navy 예외
+  // (loading.tsx) 및 videoBg(#2A2A2A, §5-1 다크 예외) 선례와 정합.
+  // 라이트 테마 일반 화면에 사용 금지 — 영상 전체화면 뷰어 전용.
+  videoFullscreenBg: '#000000',
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

@@ -1222,8 +1222,9 @@ def test_fold_preserves_member_faults_and_original_fault_keys():
 
     fold 는 support 집계용 — 라우팅(split vs knee)/recall 어휘는 멤버 원문에서 소비된다.
     IN-02: fold 의미를 고치는 사람이 이 파일에서 marker 를 만나도록 값 자체를 박제.
+    (agg4 = 25-04 #3(c) 측정-동반 단일-call 지지 — 게이트 변경 시 반드시 재-bump.)
     """
-    assert gvs.AGGREGATION_VERSION == "agg3"
+    assert gvs.AGGREGATION_VERSION == "agg4"
     per_call = [
         [_sdiff("왼쪽 어깨", dev=40.0, fault_state="굽음")],
         [_sdiff("어깨", dev=31.0, fault_state="정렬 흐트러짐")],
@@ -1431,5 +1432,145 @@ def test_parse_verdict_preserves_angle_pair_fields():
     # 산술 owner 로 편차 복원 가능 (엔진 소비 경로).
     from sunity_shared.analysis.vision_veto import explicit_measured_deviation_deg
     assert explicit_measured_deviation_deg(d0) == pytest.approx(40.1)
+
+
+# ─────────────── 25-04 #3(c) — WR-01 균형: 측정-동반 단일-call 지지 (agg4) ───────────────
+
+
+def _mdiff(body_part, student, reference, severity="moderate", fault_state="정렬 흐트러짐"):
+    """명시 각도쌍 측정을 동반한 difference (measurement rubric 형상, v11.0)."""
+    return {
+        "body_part": body_part, "correct_state": "정렬",
+        "fault_state": fault_state, "severity": severity,
+        "student_angle_deg": student, "reference_angle_deg": reference,
+        "measurement_basis": "몸통 축 대비 상완 각",
+        "source": "vision_hypothesis",
+    }
+
+
+def test_measurement_backed_single_call_supported():
+    """(c) 구조적 완화: 명시 각도쌍(산술 편차>0)을 동반한 언급은 단일 call 도 지지 인정.
+
+    근거 — 측정 동반 = 환각이 아닌 관측 신호. scope-집중 fan-out(부위당 1 call)에서
+    정당한 단일-scope 관측(상체 결함은 upper_body call 에서만 보임)이 distinct-call
+    K=2 에 drop 되던 커버리지 손실 복원. K 값 자체는 불변."""
+    per_call = [
+        [_mdiff("왼쪽 어깨", student=70.5, reference=30.4)],
+        [],
+        [],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert len(supported) == 1, "측정-동반 단일 call 관측은 지지 인정 (agg4)"
+    rec = supported[0]
+    assert rec["_faultKey"].keypoint_set == "shoulder"
+    assert rec["_supportCount"] == 1, "_supportCount 는 정직한 distinct-call 수 유지"
+    assert rec["_measurementBacked"] is True
+
+
+def test_approx_only_single_call_still_dropped():
+    """approx 어림 편차만 있는 단일-call 언급은 여전히 drop — 예외는 각도쌍 명시
+    측정에만 (어림 추정은 확증 대체 불가, H1 환각 차단 유지)."""
+    per_call = [
+        [_sdiff("왼쪽 어깨", dev=40.0)],  # approx only, 각도쌍 없음
+        [],
+        [],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert supported == []
+
+
+def test_zero_deviation_pair_single_call_dropped():
+    """각도쌍이 동일(산술 편차 0)이면 측정-동반 예외 비발동 — '차이 없음' 측정은
+    결함 지지가 아니다 (정타 방어)."""
+    per_call = [
+        [_mdiff("왼쪽 어깨", student=30.4, reference=30.4)],
+        [],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert supported == []
+
+
+def test_severity_none_with_pair_still_filtered():
+    """severity='none' 은 각도쌍이 있어도 인정 결함 아님 (기존 정타 필터 우선)."""
+    per_call = [
+        [_mdiff("왼쪽 어깨", student=70.0, reference=30.0, severity="none")],
+        [],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert supported == []
+
+
+def test_measurement_backed_flag_round_trips_cache():
+    """_measurementBacked 가 rich 캐시 왕복(_rich_to_doc/_rich_from_doc)에 보존 —
+    cold/warm 결정론 (cache hit 가 동일 지지 판정을 재현)."""
+    per_call = [[_mdiff("왼쪽 어깨", student=70.5, reference=30.4)], []]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    rich = {
+        "status": "candidate_verdict", "verdict": None,
+        "supported_differences": supported,
+        "root_cause_hypotheses": gvs._derive_root_causes_from_supported_differences(supported),
+        "telemetry": {},
+    }
+    doc = VisionVetoCache._rich_to_doc(rich)
+    restored = VisionVetoCache._rich_from_doc(doc)
+    r0 = restored["supported_differences"][0]
+    assert r0["_measurementBacked"] is True
+    # 각도쌍 필드도 왕복 보존 (엔진 산술 입력).
+    assert r0.get("student_angle_deg") == 70.5
+    assert r0.get("reference_angle_deg") == 30.4
+    # 구 캐시 doc(_measurementBacked 부재) → False 기본 (하위호환).
+    legacy = dict(doc)
+    legacy_recs = [dict(r) for r in legacy["supported_differences"]]
+    for r in legacy_recs:
+        r.pop("_measurementBacked", None)
+    legacy["supported_differences"] = legacy_recs
+    r0_legacy = VisionVetoCache._rich_from_doc(legacy)["supported_differences"][0]
+    assert r0_legacy["_measurementBacked"] is False
+
+
+def test_cross_call_support_unchanged_by_agg4():
+    """기존 distinct-call K=2 경로는 agg4 에서 형상 불변 (각도쌍 없어도 2 call 확증 통과)."""
+    per_call = [
+        [_sdiff("왼쪽 어깨", dev=40.0)],
+        [_sdiff("어깨", dev=31.0)],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert len(supported) == 1
+    assert supported[0]["_supportCount"] == 2
+    assert supported[0]["_measurementBacked"] is False
+
+
+def test_emission_to_support_end_to_end_upper_body():
+    """(b)+(c) 통합: v11 형상 raw 응답(어깨 관측 + 각도쌍) → _parse_verdict →
+    fold → shoulder faultKey 지지 산출 (kipup_upper 미산출 갭의 파서-측 회귀 가드)."""
+    raw = (
+        '{"motion":"x","dominant_severity":"moderate",'
+        '"primary_fault":"상체(어깨) 정렬 흐트러짐과 다리 스플릿 부족",'
+        '"differences":[{"body_part":"왼쪽 어깨","correct_state":"몸통과 정렬",'
+        '"fault_state":"어깨가 과도하게 열림","severity":"moderate",'
+        '"student_angle_deg":70.5,"reference_angle_deg":30.4,'
+        '"measurement_basis":"몸통 축 대비 상완 각","source":"vision_hypothesis"}]}'
+    )
+    verdict = gvs._parse_verdict(raw)
+    assert verdict is not None
+    supported = gvs._filter_supported_differences(
+        [list(verdict.differences), [], []],
+        part_scope_hint="upper_body", min_support_k=2,
+    )
+    assert len(supported) == 1
+    assert supported[0]["_faultKey"].keypoint_set == "shoulder"
+    assert supported[0]["_faultKey"].side == "left"
 
 

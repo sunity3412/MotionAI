@@ -81,7 +81,10 @@ SCHEMA_VERSION = "v8.0"  # v8.0 (25-04 #3(a)): differences[] 에 student_angle_d
 # agg3 (25-02 review CR-01/WR-01): fold 대표에 그룹 멤버 원문(_memberFaults/_memberFaultKeys)
 #   보존(라우팅/recall 어휘가 대표-선정 복권으로 소실되지 않게) + support 게이트를
 #   distinct-call 교차 확증으로(단일 호출의 좌+우 항목화가 K=2 자기충족하지 않게).
-AGGREGATION_VERSION = "agg3"
+# agg4 (25-04 #3(c) WR-01 균형): 명시 각도쌍 측정(student/reference_angle_deg, 산술 편차>0)
+#   을 동반한 언급은 distinct-call K 미달이어도 지지 인정 — 측정 동반 = 환각이 아닌 관측
+#   신호(구조적 완화, 자의적 숫자 0/K 불변). 대표 rank 의 dev 비교도 각도쌍 산술 우선.
+AGGREGATION_VERSION = "agg4"
 
 # ─────────────────── 비교 multi-sample 집계 (Phase 20 robustify) ───────────────────
 #
@@ -590,6 +593,8 @@ class VisionVetoCache:
             rec["_faultKeyDict"] = fk.to_dict() if fk is not None else None
             rec["_supportCount"] = int((d or {}).get("_supportCount") or 0)
             rec["_sourceIds"] = list((d or {}).get("_sourceIds") or ())
+            # agg4 (c) — 측정-동반 지지 marker (audit/eval 추적성, 결정론 왕복 보존).
+            rec["_measurementBacked"] = bool((d or {}).get("_measurementBacked") or False)
             # CR-01 멤버 메타 — list of flat map (Firestore nested-array 회피 정합).
             rec["_memberFaults"] = [
                 {k: v for k, v in (m or {}).items() if not str(k).startswith("_")}
@@ -632,11 +637,13 @@ class VisionVetoCache:
         for rec in doc.get("supported_differences") or ():
             d = {k: v for k, v in (rec or {}).items()
                  if k not in ("_faultKeyDict", "_supportCount", "_sourceIds",
+                              "_measurementBacked",
                               "_memberFaults", "_memberFaultKeyDicts")}
             fkd = (rec or {}).get("_faultKeyDict")
             d["_faultKey"] = FaultKey.from_dict(fkd) if fkd else None
             d["_supportCount"] = int((rec or {}).get("_supportCount") or 0)
             d["_sourceIds"] = tuple((rec or {}).get("_sourceIds") or ())
+            d["_measurementBacked"] = bool((rec or {}).get("_measurementBacked") or False)
             d["_memberFaults"] = tuple(
                 dict(m or {}) for m in ((rec or {}).get("_memberFaults") or ())
             )
@@ -1307,6 +1314,17 @@ def _filter_supported_differences(
     교차 확증" 의미를 보존하기 위해 게이트는 그 keypoint_set 을 언급한 **서로 다른
     call 수**로 판정한다. `_supportCount` 도 distinct-call 확증 수(신뢰도 표시 정합).
 
+    측정-동반 예외 (25-04 #3(c) WR-01 균형, agg4): distinct-call K 미달 그룹이라도
+    멤버 중 **명시 각도쌍 측정**(student_angle_deg + reference_angle_deg, 산술 편차>0
+    — vision_veto.explicit_measured_deviation_deg)을 동반한 관측이 있으면 지지 인정.
+    근거: 측정값을 동반한 언급은 단발 환각의 형상이 아니라 관측 신호다(환각 차단
+    H1 의 표적은 근거-무 언급) — distinct-call 강화가 scope-집중 fan-out(부위당 1 call)
+    에서 정당한 단일-scope 관측(예: 상체 결함은 upper_body call 에서만 보임)까지
+    drop 하던 커버리지 손실을 구조적으로 복원한다. 새 튜닝 상수 0 / K=2 불변 /
+    approx 추정(각도쌍 아님)은 예외 비대상(어림 편차는 확증 대체 불가). 정타 방어는
+    프롬프트("편차 없으면 빈 배열") + severity none 필터가 그대로 담당(짚기-FP 0/5).
+    대표/멤버 rank 의 dev 비교도 각도쌍 산술 편차 우선(폴백 approx).
+
     그룹 키 = **keypoint_set 단독** (25-02 Task 1, 25-RESEARCH §1 처방 (a)). FaultKey
     4필드 전체로 그룹하면 같은 부위 언급이 side("왼쪽 어깨"=left vs "어깨"=unknown) /
     fault_kind("굽음" vs "정렬 흐트러짐") fragment 로 분산돼 support K 미달 drop —
@@ -1329,7 +1347,7 @@ def _filter_supported_differences(
     반환: support≥K 통과 difference list — 각 canonical 키별 대표 1개(최고 severity/dev),
     `_supportCount`/`_faultKey`/`_sourceIds`/`_memberFaults`/`_memberFaultKeys` 메타 부착.
     """
-    from .vision_veto import fault_key_from_difference
+    from .vision_veto import explicit_measured_deviation_deg, fault_key_from_difference
 
     groups: dict[str, dict] = {}
     diff_id = 0
@@ -1344,10 +1362,16 @@ def _filter_supported_differences(
                 continue  # none/빈 = 인정 결함 아님 (정타 보존).
             fk = fault_key_from_difference(d, part_scope_hint=part_scope_hint)
             key = fk.keypoint_set  # side/fault_kind fold — fragment 접합 (25-02).
-            try:
-                dev = float((d or {}).get("approx_angle_deviation_deg") or 0.0)
-            except (TypeError, ValueError):
-                dev = 0.0
+            # (a)/(c) — 명시 각도쌍 산술 편차 우선 (rank 비교 + 측정-동반 판정 겸용).
+            explicit = explicit_measured_deviation_deg(d)
+            if explicit is not None:
+                dev = explicit
+            else:
+                try:
+                    dev = float((d or {}).get("approx_angle_deviation_deg") or 0.0)
+                except (TypeError, ValueError):
+                    dev = 0.0
+            measured_backed = explicit is not None and explicit > 0.0
             sev_rank = _SEVERITY_RANK.get(sev, 0)
             cur = groups.get(key)
             if cur is None:
@@ -1358,10 +1382,12 @@ def _filter_supported_differences(
                     "sides": {fk.side} if fk.side in ("left", "right") else set(),
                     "best": {**d, "_rank": sev_rank, "_dev": dev},
                     "members": {},
+                    "measured_backed": measured_backed,
                 }
             else:
                 cur["calls"].add(call_idx)
                 cur["ids"].append(diff_id)
+                cur["measured_backed"] = cur["measured_backed"] or measured_backed
                 if fk.side in ("left", "right"):
                     cur["sides"].add(fk.side)
                 if sev_rank > cur["best"]["_rank"] or (
@@ -1380,8 +1406,10 @@ def _filter_supported_differences(
 
     out: list = []
     for g in groups.values():
-        if len(g["calls"]) < min_support_k:
-            continue  # distinct-call 교차 확증 미달 → drop (H1 — 환각 차단, WR-01).
+        if len(g["calls"]) < min_support_k and not g["measured_backed"]:
+            # distinct-call 교차 확증 미달 + 명시 측정 비동반 → drop (H1 환각 차단,
+            # WR-01). 측정-동반(각도쌍 산술>0) 관측은 단일 call 도 지지 인정 (agg4 (c)).
+            continue
         # side 그룹-해소: 명시 side 가 유일하면 그 side, 혼재/부재면 unknown.
         sides = g["sides"]
         resolved_side = next(iter(sides)) if len(sides) == 1 else "unknown"
@@ -1389,6 +1417,7 @@ def _filter_supported_differences(
         rec["_supportCount"] = len(g["calls"])
         rec["_faultKey"] = dc_replace(g["fault_key"], side=resolved_side)
         rec["_sourceIds"] = tuple(g["ids"])
+        rec["_measurementBacked"] = bool(g["measured_backed"])
         members = list(g["members"].values())
         rec["_memberFaults"] = tuple({**m["d"]} for m in members)
         rec["_memberFaultKeys"] = tuple(m["fk"] for m in members)

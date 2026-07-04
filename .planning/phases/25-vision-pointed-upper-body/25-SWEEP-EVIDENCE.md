@@ -37,3 +37,24 @@
 - 프로덕션 서버: 구 코드(0d11835)로 계속 가동 — 사용자 영향 0. pod repo 를 0d11835 로 고정 (재시작해도 안전).
 - main 브랜치: Wave 1 + 리뷰 fix 유지 (revert 안 함 — success 100 유지 등 검증된 부분이 많고 프로덕션 미반영이므로).
 - 다음 세션 재진입: pod repo `git checkout main && git pull` 후 위 4건 순서대로.
+
+
+---
+
+## Run 3 (HEAD 5a48d31 — fix 3건 + rtmw_deterministic=1, cold 1783162451 + warm)
+
+### 게이트 결과: FAIL (잔여 = 측정/짚기 품질 한 갈래)
+
+**해결 확인 (3/4 근본원인):**
+- **#2 결정론 PASS**: cold/warm 불일치 0건 (직전 run 4건 → 0). ORT 결정론 모드 실증.
+- **#4 eval 격리 PASS**: baseline 이 git 커밋본(kip-up 88/peter-pan 79/elbow 62)으로 정확히 판정. 산출물 EVAL_OUT_DIR 분리 동작.
+- **#1 split 라우팅 회복**: power-spin fault(49)·elbow-twist fault(68) 에 split_angle record 재등장. 어휘 위치 fix(3399fd7) 실경로 검증.
+- **성공 6/6 == 100 (3회 연속) + 짚기-FP 0/5** — vision 이 clean 영상을 전혀 안 짚음 (아키텍처의 위양성 방어 완전 실증).
+
+**잔여 FAIL (전부 근본원인 #3 = vision 측정/짚기 품질):**
+- kip-up fault 100 (< 88 미달): 캐시된 vision split 측정 20° == tol 경계 → 감점 0 (규칙상 정당). production 시절 측정은 30°. **측정값 변동(20 vs 30)이 tol 경계를 넘나듦** = 측정 강건화 필요.
+- kipup_upper (c): 어깨 감점이 silent seed 출처 (vision 짚기 아님) — v10.1 로도 상체 faultKey 미산출.
+- peter-pan 83(>79)/elbow-twist 68(>62) 마일드 무퇴행 위반: distinct-call support 강화(WR-01)로 일부 vision 결함이 지지 미달 drop 된 영향으로 추정 — #3 라운드에서 짚기 커버리지와 함께 재검.
+
+### 다음 라운드 (#3) 스코프
+프롬프트 v11 + 캐시 bump (cold ~36 pro call): (a) 상체 faultKey 산출 구조화 강제 보강, (b) split 측정 강건화 (N-sample 측정 median 또는 명시 측정 rubric), (c) WR-01 지지 기준과 짚기 커버리지 균형 재점검. 아티팩트 = runs/run3-5a48d31/.

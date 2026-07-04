@@ -66,7 +66,7 @@ Status: Phase 10 complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-04 -- belle 피드백 전체 처리 완료: E(코칭 처방화) pod 실검증 PASS(기전사슬 3관절+운동 정렬+tips 재조립 e0401ae) / F(260704-fz4) 2단 시각 언어(confirmed/advisory)+행탭 인라인 확대+의미 라벨 완료(b3be3c7). 남은 대형 과제=상체 감점 vision-pointed 재설계 phase
+Last activity: 2026-07-04 심야 -- Phase 25 4차(v11) sweep: success 100+짚기FP 0 4연속, 결정론 PASS, elbow 62→32, kip-up 왼팔 최초 짚기 성공. 스플릿 어휘 드리프트 3연속 → fault_category enum 구조 fix 진행 중 마감. 재개=RESUME-phase25 메모리 (enum 확인→새 pod→최종 sweep→baseline 재캡처 검토→프로덕션 반영). pod belle 중단 예정, 프로덕션 코드 안전
 
 ### Quick Tasks Completed
 

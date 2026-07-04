@@ -713,6 +713,82 @@ def test_routing_members_fallback_without_member_meta():
     assert any(r.criterion == "leg_extension" for r in b.records)
 
 
+# ── 25-02 pod sweep FAIL 재현 — 실제 형상(fold→rich 캐시 왕복→ctx→tally) ──────
+
+
+def _kipup_like_supported_via_rich_roundtrip(split_dev, sibling_dev):
+    """kip-up sweep 관측 재현 fixture — 합성 지름길 금지: 실제 프로덕션 형상 경유.
+
+    fold(supportCount 3, 3 distinct call) → _rich_to_doc/_rich_from_doc(캐시 왕복) 를
+    거친 supported 를 반환. 산출 faultKey 는 관측 JSON 과 동일:
+    {keypoint_set: leg, part_scope: line, side: unknown, fault_kind: pole_gap_or_bent}.
+    """
+    from sunity_shared.analysis import gemini_vision_scorer as gvs
+
+    def d(body_part, fault_state, dev):
+        return {
+            "body_part": body_part, "correct_state": "",
+            "fault_state": fault_state, "severity": "moderate",
+            "approx_angle_deviation_deg": dev,
+        }
+
+    per_call = [
+        [d("양쪽 다리", "굽고 벌어짐 부족", sibling_dev)],   # 대표(최고 dev) 후보
+        [d("다리 스플릿", "벌어짐 부족", split_dev)],          # split 멤버
+        [d("다리", "굽음", 5.0)],
+    ]
+    supported = gvs._filter_supported_differences(
+        per_call, part_scope_hint="line", min_support_k=2,
+    )
+    assert len(supported) == 1
+    fk = supported[0]["_faultKey"]
+    assert fk.to_dict() == {
+        "part_scope": "line", "side": "unknown",
+        "keypoint_set": "leg", "fault_kind": "pole_gap_or_bent",
+    }, "관측 JSON 의 faultKey 형상과 일치해야 재현 fixture 성립"
+    assert supported[0]["_supportCount"] == 3
+    # 실제 프로덕션 rich 캐시 왕복 형상 경유 (cold store → warm hit 동일 경로).
+    rich = {
+        "status": "candidate_verdict", "verdict": None,
+        "supported_differences": supported,
+        "root_cause_hypotheses": [], "telemetry": {},
+    }
+    doc = gvs.VisionVetoCache._rich_to_doc(rich)
+    return gvs.VisionVetoCache._rich_from_doc(doc)["supported_differences"]
+
+
+def test_split_member_without_dev_inherits_parent_vision_deviation():
+    """pod sweep FAIL(kip-up fault 100) 회귀: split 멤버가 측정 편차 payload 를 안 들고
+    있어도 부모(fold 대표)의 vision 측정값을 승계해 split_angle 이 발화한다."""
+    supported = _kipup_like_supported_via_rich_roundtrip(split_dev=None, sibling_dev=28.0)
+    ctx = vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict", verdict=None,
+        supported_differences=list(supported), root_cause_hypotheses=[],
+        selected_frame_pairs=[], alignment={}, telemetry={}, cap_would_apply=True,
+    )
+    b = _tally({}, ctx)
+    split_recs = [r for r in b.records if r.criterion == "split_angle"]
+    assert len(split_recs) == 1, "승계 없으면 md 미주입 → 미발화 → 100 FP 재발"
+    assert split_recs[0].source == "vision"
+    # 부모 대표(dev 28)의 측정값이 쓰였는가 — over-tol = 28 − 20 = 8.
+    assert split_recs[0].deviation == pytest.approx(8.0)
+
+
+def test_split_member_own_dev_takes_priority_over_parent():
+    """split 멤버 자신의 측정값이 있으면 그것이 우선 (부모 승계는 부재 시 폴백만)."""
+    supported = _kipup_like_supported_via_rich_roundtrip(split_dev=30.0, sibling_dev=50.0)
+    ctx = vision_veto.VisionFaultContext(
+        collection_status="candidate_verdict", verdict=None,
+        supported_differences=list(supported), root_cause_hypotheses=[],
+        selected_frame_pairs=[], alignment={}, telemetry={}, cap_would_apply=True,
+    )
+    b = _tally({}, ctx)
+    split_recs = [r for r in b.records if r.criterion == "split_angle"]
+    assert len(split_recs) == 1
+    # 멤버 자신의 30 사용 — over-tol = 10 (부모 50 이면 30 이어야 함).
+    assert split_recs[0].deviation == pytest.approx(10.0)
+
+
 # ── 25-02 review WR-04 — 측정 substrate 실재 시 shoulder/hip gap 억제 ─────────
 
 

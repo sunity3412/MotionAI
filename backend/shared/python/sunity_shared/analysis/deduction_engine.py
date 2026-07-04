@@ -194,6 +194,14 @@ def tally(
             # 덮어쓰지 않는다.
             if "split_angle" in res and "split_angle" not in md:
                 dev = _vision_measured_deviation(member)
+                if dev is None and member is not diff:
+                    # 25-02 pod sweep FAIL fix (kip-up fault 100): 멤버가 vision 측정
+                    # 편차 payload(approx_angle_deviation_deg)를 안 들고 있으면 부모
+                    # (fold 대표) diff 의 것을 승계한다. 대표 = 그룹 내 최고 rank→dev
+                    # record 라 그룹의 vision-측정값 보유자. 승계 없으면 md["split_angle"]
+                    # 미주입 → criterion 미발화 → 측정-무감점 재발 (belle 결정 A 경로
+                    # 유실). 라우팅 seam 전용 수정 — 집계/캐시 형상 무접촉.
+                    dev = _vision_measured_deviation(diff)
                 if dev is not None:
                     md["split_angle"] = dev
                     vision_measured["split_angle"] = dev

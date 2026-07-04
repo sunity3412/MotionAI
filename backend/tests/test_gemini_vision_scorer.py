@@ -629,10 +629,13 @@ def test_samples_count_invalidates_cache(
 
 
 def test_prompt_schema_version():
-    """PROMPT_VERSION = v10.1 (25-02: 구조화 강제 + WR-05 좌/우 기준) / SCHEMA_VERSION = v7.0."""
-    assert PROMPT_VERSION == "v10.1"
-    assert PROMPT_VERSION not in ("v9.0", "v10.0"), "프롬프트 변경 = bump 필수 (캐시 무효화)"
-    assert SCHEMA_VERSION == "v7.0"
+    """PROMPT_VERSION = v11.0 (25-04 #3: 측정 rubric + 방출 강제) / SCHEMA_VERSION = v8.0."""
+    assert PROMPT_VERSION == "v11.0"
+    assert PROMPT_VERSION not in ("v9.0", "v10.0", "v10.1"), (
+        "프롬프트 변경 = bump 필수 (캐시 무효화)"
+    )
+    assert SCHEMA_VERSION == "v8.0"
+    assert SCHEMA_VERSION != "v7.0", "스키마 변경(각도쌍 필드) = bump 필수 (캐시 무효화)"
 
 
 def test_default_samples_is_three():
@@ -1352,5 +1355,81 @@ def test_part_scope_none_prompt_unchanged_no_structuring_suffix():
     """part_scope 미제공(None) 경로는 suffix 없음 — 기존 비교 프롬프트 그대로."""
     prompt = _comparison_prompt_for_scope(None)
     assert prompt == gvs._COMPARISON_PROMPT
+
+
+# ─────────────── 25-04 #3 — (a) 측정 rubric (v11.0/v8.0) + (b) 방출 강제 ───────────────
+
+
+def test_schema_has_measurement_rubric_fields():
+    """v8.0: differences[] 에 각도쌍(student/reference_angle_deg) + measurement_basis —
+    편차 한 방(approx) 대신 각각 명시 추정, 산술은 코드 소관 ((a) 측정 강건화)."""
+    schema = build_schema()
+    props = schema["properties"]["differences"]["items"]["properties"]
+    assert "student_angle_deg" in props
+    assert "reference_angle_deg" in props
+    assert "measurement_basis" in props
+    assert props["student_angle_deg"]["type"] == "number"
+    assert props["reference_angle_deg"]["type"] == "number"
+    # 각도쌍은 required 아님 — 각도로 측정 불가한 편차(위치/접촉) 생략 허용.
+    required = schema["properties"]["differences"]["items"]["required"]
+    assert "student_angle_deg" not in required
+    assert "reference_angle_deg" not in required
+    # 객관성: 신규 필드에 forbidden 단어 0 (기존 introspection 이 전체 재귀 커버).
+    for forbidden in _FORBIDDEN_KEYS:
+        for key in props:
+            assert forbidden not in key.lower()
+
+
+def test_comparison_prompt_has_measurement_rubric():
+    """v11.0 (a): 프롬프트가 학생/기준 각도 각각 추정 + 잰 방법 서술을 지시하고,
+    편차 계산은 코드 소관임을 명시한다 (앵커링 편향 축소)."""
+    prompt = gvs._COMPARISON_PROMPT
+    assert "student_angle_deg" in prompt
+    assert "reference_angle_deg" in prompt
+    assert "measurement_basis" in prompt
+    assert "각각" in prompt
+    assert "편차 계산은 코드가" in prompt
+
+
+def test_comparison_prompt_forces_full_emission_with_clean_defense():
+    """v11.0 (b): 관찰-전량 differences[] 방출 강제(서사-only 무효) — 단 정타 방어
+    ("결함이 없으면 만들어내지 않는다") 문구는 유지·강화 (짚기-FP 0/5 게이트)."""
+    prompt = gvs._COMPARISON_PROMPT
+    # 방출 강제: 서사(primary_fault)에만 남긴 결함 금지.
+    assert "빠져 있으면" in prompt and "무효" in prompt
+    # 정타 방어 유지 — 없으면 없다고 답하라 류 방어.
+    assert "만들어내지 마세요" in prompt
+    assert "none" in prompt
+
+
+def test_part_scope_prompt_has_rubric_and_clean_defense():
+    """scope 집중 suffix 에도 (a) 각도쌍 rubric + (b) 전량 방출 + 정타 방어(빈 배열)."""
+    for scope in gvs.VETO_PART_SCOPES:
+        prompt = _comparison_prompt_for_scope(scope)
+        assert "student_angle_deg" in prompt, f"{scope}: 각도쌍 rubric 부재"
+        assert "reference_angle_deg" in prompt
+        assert "빠짐없이" in prompt, f"{scope}: 전량 방출 강제 부재"
+        assert "무효" in prompt, f"{scope}: 서사-only 무효 계약 부재"
+        assert "항목을 만들지 말고" in prompt, f"{scope}: 정타 방어(빈 배열) 부재"
+
+
+def test_parse_verdict_preserves_angle_pair_fields():
+    """(b) 방출 파서: 각도쌍/measurement_basis 가 _parse_verdict 를 그대로 통과 —
+    엔진(deduction_engine)이 산술 편차를 계산할 수 있는 형상 보존."""
+    raw = (
+        '{"motion":"x","dominant_severity":"moderate","primary_fault":"어깨 정렬 흐트러짐",'
+        '"differences":[{"body_part":"왼쪽 어깨","correct_state":"정렬","fault_state":"흐트러짐",'
+        '"severity":"moderate","student_angle_deg":70.5,"reference_angle_deg":30.4,'
+        '"measurement_basis":"몸통 축 대비 상완 각","source":"vision_hypothesis"}]}'
+    )
+    verdict = gvs._parse_verdict(raw)
+    assert verdict is not None
+    d0 = verdict.differences[0]
+    assert d0.get("student_angle_deg") == 70.5
+    assert d0.get("reference_angle_deg") == 30.4
+    assert d0.get("measurement_basis") == "몸통 축 대비 상완 각"
+    # 산술 owner 로 편차 복원 가능 (엔진 소비 경로).
+    from sunity_shared.analysis.vision_veto import explicit_measured_deviation_deg
+    assert explicit_measured_deviation_deg(d0) == pytest.approx(40.1)
 
 

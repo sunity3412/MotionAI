@@ -70,8 +70,8 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v10.1"  # v10.1 (25-02 review WR-05): 좌/우 기준 명시 — 수행자(학생) 본인 신체 기준, 불확실하면 좌/우 생략 허용 (mirror/시점 반전에서 반대측 고정 → 결함측 under-detection 방지. 생략=side unknown → OD-1 양측 eligible 로 안전 흡수). v10.0 (25-02): part_scope 구조화 강제 — 관찰 편차를 primary_fault 서사에만 남기지 말고 differences[] 개별 항목(좌/우 명시)으로 방출. generic 유지(동작명/기대답 0, D-06). ⚠ 프롬프트 bump = 전 동작 회귀 표면 — 회귀 게이트는 25-04 의 6페어 full sweep (리서치 함정 ⑤). v9.0 (Phase 23-02): 원인 가설("~로 보임") 지시 추가
-SCHEMA_VERSION = "v7.0"  # v7.0 (Phase 23-02): differences[] 에 root_cause_hypothesis + source(geometry|vision_hypothesis) DESCRIPTIVE 필드 추가 (score-free, percent-free, D-04/D-06/D-08)
+PROMPT_VERSION = "v11.0"  # v11.0 (25-04 #3): (a) 측정 rubric — 각도 편차는 학생/기준 각도를 각각 명시 추정(student_angle_deg/reference_angle_deg + measurement_basis 서술), 편차는 코드가 산술 계산("편차 한 방 추정" 앵커링 편향 축소 — run3 kip-up 측정 20° vs production 30° 변동 근거). (b) 관찰-전량 differences[] 방출 강제 — primary_fault 서사에만 남긴 결함은 무효(상체 faultKey 미산출 잔존 fix), 단 "편차 없으면 항목 없음" 정타 방어 유지·강화(짚기-FP 0/5 게이트). generic 유지(동작명/기대답 0, D-06). v10.1 (25-02 review WR-05): 좌/우 기준 명시 — 수행자(학생) 본인 신체 기준, 불확실하면 좌/우 생략 허용. v10.0 (25-02): part_scope 구조화 강제. v9.0 (Phase 23-02): 원인 가설("~로 보임") 지시 추가
+SCHEMA_VERSION = "v8.0"  # v8.0 (25-04 #3(a)): differences[] 에 student_angle_deg/reference_angle_deg(명시 각도쌍 — 편차는 코드 산술) + measurement_basis(무엇을 어떻게 쟀는지 DESCRIPTIVE) 추가 (score-free, D-02/D-06). v7.0 (Phase 23-02): root_cause_hypothesis + source 추가
 # 집계 알고리즘 버전 marker (25-02 Task 1) — 튜닝 상수 아님. rich 캐시(store_rich)는
 # support-게이트 **통과 후** supported_differences 를 저장하므로, 프롬프트를 안 바꿔도
 # _filter_supported_differences 의 그룹핑/fold 를 바꾸면 옛 집계 결과가 stale-hit 로
@@ -195,7 +195,32 @@ def build_schema() -> dict:
                         "fault_state": {"type": "string"},
                         "approx_angle_deviation_deg": {
                             "type": "number",
-                            "description": "기준 대비 각도 편차 추정(도). 미상이면 0.",
+                            "description": (
+                                "기준 대비 각도 편차 추정(도). 가능하면 student_angle_deg/"
+                                "reference_angle_deg 각도쌍을 우선 채우고, 각도쌍 추정이 "
+                                "불가한 편차에만 사용. 미상이면 0."
+                            ),
+                        },
+                        # 25-04 #3(a) 측정 rubric — 편차 한 방 추정(앵커링) 대신 학생/기준
+                        # 각도를 각각 명시 추정. 편차 산술(|ref−student|)은 코드 소관
+                        # (vision_veto.explicit_measured_deviation_deg). score-free.
+                        "student_angle_deg": {
+                            "type": "number",
+                            "description": (
+                                "학생(평가 대상)의 해당 측정 각도 추정(도). "
+                                "각도로 측정 불가한 편차면 생략."
+                            ),
+                        },
+                        "reference_angle_deg": {
+                            "type": "number",
+                            "description": "기준(정타) 영상의 같은 측정 각도 추정(도).",
+                        },
+                        "measurement_basis": {
+                            "type": "string",
+                            "description": (
+                                "무엇을 어떻게 쟀는지 서술 (예: '골반 꼭짓점 기준 양다리 "
+                                "라인 사이 각'). 관찰 서술 — 점수 아님."
+                            ),
                         },
                         "severity": {
                             "type": "string",
@@ -342,11 +367,18 @@ _COMPARISON_PROMPT = """\
      ⑦ 발목·발끝 (포인/신전)
      ⑧ 전체 라인·정렬
    예: 다리 신전 부족 + 오른팔이 폴에서 떨어짐 + 고개 젖힘 → 세 항목 모두 담기.
+   **관찰한 모든 편차는 각각 differences 의 개별 항목으로 방출하세요 — primary_fault
+   서사에서 언급한 부위가 differences 에 항목으로 빠져 있으면 그 응답은 무효입니다.**
    (단, 1·2번 규칙은 그대로 — 정타/사소차/촬영조건은 결함이 아닙니다. 전신을 빠짐없이
-   보되 억지로 만들지는 마세요. 편차 없는 부위는 none 이 정답입니다.)
+   보되 억지로 만들지는 마세요. 편차 없는 부위는 none 이 정답입니다. 관찰하지 않은
+   결함을 채우기 위해 만들어내는 것도 금지입니다.)
 6. differences 각 항목 severity 는 none/minor/moderate/major 로 보수적으로. 각 항목에
-   기준 대비 관찰 사실(correct_state/fault_state/approx_angle_deviation_deg/ipsf_note)을
-   구체적으로 채우세요.
+   기준 대비 관찰 사실(correct_state/fault_state/ipsf_note)을 구체적으로 채우세요.
+   **각도 관련 편차는 학생의 각도(student_angle_deg)와 기준 영상의 각도
+   (reference_angle_deg)를 각각 추정**하고, 무엇을 어떻게 쟀는지 measurement_basis 에
+   서술하세요(예: '골반 꼭짓점 기준 양다리 라인 사이 각', '팔꿈치 관절의 상완-전완 사이
+   각'). 편차 하나만 어림해 적지 마세요 — 편차 계산은 코드가 합니다.
+   각도쌍 추정이 불가한 편차에만 approx_angle_deviation_deg 를 사용하세요.
 7. primary_fault = 기준 대비 가장 지배적인 단일 편차 (편차 없으면 '없음'). dominant_severity
    는 영상 전체의 **지배적** 편차 수준 1개 (개수가 아니라 가장 심한 정도 기준).
 8. **거리는 절대 cm/m 로 표기하지 마세요. 또한 "칸"·"몇 배"·percent("%"/"100%") 같은
@@ -1560,15 +1592,23 @@ def _call_gemini_comparison(
     prompt = _build_comparison_prompt(at_seconds)
     if part_scope:
         label = _PART_SCOPE_LABEL.get(part_scope, part_scope)
+        # v11.0 (25-04 #3(b)): 세부-부위 순차 점검 + 관찰-전량 방출 강제 보강 — v10.1
+        # 로도 상체(어깨) 관찰이 primary_fault 서사에만 남고 differences[] 미방출되던
+        # 갭(run2/run3 kipup_upper). + (a) 측정 rubric(각도쌍) scope 호출에도 주입.
+        # 정타 방어("편차 없으면 항목을 만들지 말 것")는 유지·강화(짚기-FP 0/5 게이트).
         prompt = (
             f"{prompt}\n\n참고: 이번에는 특히 [{label}] 부위에 집중해 기준 영상과 "
-            "대조하세요. 이 부위에서 관찰한 각 편차는 반드시 differences[] 배열의 "
-            "개별 항목으로 구조화하고, body_part 에는 좌/우를 명시하세요(예: '왼쪽 "
-            "어깨'). 좌/우는 화면(카메라) 기준이 아니라 **수행자(학생) 본인 신체 "
-            "기준**입니다. 어느 쪽인지 확실하지 않으면 좌/우 없이 부위 이름만 "
-            "적으세요(억지 지정 금지). primary_fault 서사에만 언급하고 differences "
-            "에서 누락하는 것은 금지입니다. 단 1·2번 규칙(정타/사소차/촬영조건은 "
-            "결함 아님)은 그대로입니다."
+            "대조하세요. 이 부위에 속한 세부 부위를 하나씩 순서대로 점검하고, 관찰한 "
+            "각 편차는 **하나도 빠짐없이** 반드시 differences[] 배열의 개별 항목으로 "
+            "구조화하세요 — primary_fault 서사에만 언급하고 differences 에서 누락하는 "
+            "것은 금지이며, 그런 응답은 무효입니다. body_part 에는 좌/우를 명시하세요"
+            "(예: '왼쪽 어깨'). 좌/우는 화면(카메라) 기준이 아니라 **수행자(학생) 본인 "
+            "신체 기준**입니다. 어느 쪽인지 확실하지 않으면 좌/우 없이 부위 이름만 "
+            "적으세요(억지 지정 금지). 각도 관련 편차는 student_angle_deg 와 "
+            "reference_angle_deg 로 학생/기준 각도를 각각 추정하고 measurement_basis "
+            "에 잰 방법을 서술하세요(편차 계산은 코드 소관). 단 1·2번 규칙(정타/사소차/"
+            "촬영조건은 결함 아님)은 그대로입니다 — 이 부위에 관찰 가능한 편차가 없으면 "
+            "항목을 만들지 말고 빈 배열이 정답입니다."
         )
     response = client.models.generate_content(
         model=DEFAULT_VISION_MODEL,

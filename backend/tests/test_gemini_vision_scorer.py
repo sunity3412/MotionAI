@@ -629,9 +629,9 @@ def test_samples_count_invalidates_cache(
 
 
 def test_prompt_schema_version():
-    """PROMPT_VERSION = v10.0 (25-02: part_scope 구조화 강제) / SCHEMA_VERSION = v7.0."""
-    assert PROMPT_VERSION == "v10.0"
-    assert PROMPT_VERSION != "v9.0", "25-02 프롬프트 변경 = bump 필수 (캐시 무효화)"
+    """PROMPT_VERSION = v10.1 (25-02: 구조화 강제 + WR-05 좌/우 기준) / SCHEMA_VERSION = v7.0."""
+    assert PROMPT_VERSION == "v10.1"
+    assert PROMPT_VERSION not in ("v9.0", "v10.0"), "프롬프트 변경 = bump 필수 (캐시 무효화)"
     assert SCHEMA_VERSION == "v7.0"
 
 
@@ -1326,6 +1326,9 @@ def test_part_scope_prompt_forces_differences_structuring():
         assert "누락" in prompt and "금지" in prompt, (
             f"{scope}: primary_fault 서사-only 금지 지시 부재"
         )
+        # WR-05: 좌/우 = 수행자 신체 기준 명시 + 불확실 시 생략 허용 (mirror 반대측 고정 방지).
+        assert "신체 기준" in prompt, f"{scope}: 좌/우 기준(수행자 신체) 명시 부재"
+        assert "확실하지 않으면" in prompt, f"{scope}: 불확실 시 좌/우 생략 허용 부재"
         # 기존 1·2번 규칙(정타/사소차/촬영조건 비결함) 유지 지시 보존.
         assert "1·2번 규칙" in prompt
 

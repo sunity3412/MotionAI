@@ -70,7 +70,7 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v10.0"  # v10.0 (25-02): part_scope 구조화 강제 — scope 집중 호출에서 관찰한 편차를 primary_fault 서사에만 남기지 말고 differences[] 개별 항목(좌/우 명시)으로 방출하도록 지시 (서사-only 상체 결함의 differences[] 방출). generic 유지(동작명/기대답 0, D-06). ⚠ 프롬프트 bump = 전 동작 회귀 표면 — 회귀 게이트는 25-04 의 6페어 full sweep (리서치 함정 ⑤). v9.0 (Phase 23-02): 원인 가설("~로 보임", source=vision_hypothesis) 지시 추가
+PROMPT_VERSION = "v10.1"  # v10.1 (25-02 review WR-05): 좌/우 기준 명시 — 수행자(학생) 본인 신체 기준, 불확실하면 좌/우 생략 허용 (mirror/시점 반전에서 반대측 고정 → 결함측 under-detection 방지. 생략=side unknown → OD-1 양측 eligible 로 안전 흡수). v10.0 (25-02): part_scope 구조화 강제 — 관찰 편차를 primary_fault 서사에만 남기지 말고 differences[] 개별 항목(좌/우 명시)으로 방출. generic 유지(동작명/기대답 0, D-06). ⚠ 프롬프트 bump = 전 동작 회귀 표면 — 회귀 게이트는 25-04 의 6페어 full sweep (리서치 함정 ⑤). v9.0 (Phase 23-02): 원인 가설("~로 보임") 지시 추가
 SCHEMA_VERSION = "v7.0"  # v7.0 (Phase 23-02): differences[] 에 root_cause_hypothesis + source(geometry|vision_hypothesis) DESCRIPTIVE 필드 추가 (score-free, percent-free, D-04/D-06/D-08)
 # 집계 알고리즘 버전 marker (25-02 Task 1) — 튜닝 상수 아님. rich 캐시(store_rich)는
 # support-게이트 **통과 후** supported_differences 를 저장하므로, 프롬프트를 안 바꿔도
@@ -1564,8 +1564,11 @@ def _call_gemini_comparison(
             f"{prompt}\n\n참고: 이번에는 특히 [{label}] 부위에 집중해 기준 영상과 "
             "대조하세요. 이 부위에서 관찰한 각 편차는 반드시 differences[] 배열의 "
             "개별 항목으로 구조화하고, body_part 에는 좌/우를 명시하세요(예: '왼쪽 "
-            "어깨'). primary_fault 서사에만 언급하고 differences 에서 누락하는 것은 "
-            "금지입니다. 단 1·2번 규칙(정타/사소차/촬영조건은 결함 아님)은 그대로입니다."
+            "어깨'). 좌/우는 화면(카메라) 기준이 아니라 **수행자(학생) 본인 신체 "
+            "기준**입니다. 어느 쪽인지 확실하지 않으면 좌/우 없이 부위 이름만 "
+            "적으세요(억지 지정 금지). primary_fault 서사에만 언급하고 differences "
+            "에서 누락하는 것은 금지입니다. 단 1·2번 규칙(정타/사소차/촬영조건은 "
+            "결함 아님)은 그대로입니다."
         )
     response = client.models.generate_content(
         model=DEFAULT_VISION_MODEL,

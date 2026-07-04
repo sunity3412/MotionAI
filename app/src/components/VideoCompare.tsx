@@ -30,9 +30,18 @@ type SlotProps = {
    * VideoCompare 가 player lifecycle 안에서 callback 호출 — caller (result.tsx)
    * 가 player state 별도 관리 X (R7 dual-state pattern 차단).
    * Wave 2 가 KeypointOverlay 내부 useEvent(player, 'timeUpdate') 박제 site.
+   *
+   * quick-260702-t0v — 2번째 인자 opts.sizeScale 확장. 세로 카드는 opts 생략
+   * (기존 렌더 무회귀), 가로 전체화면 뷰어가 { sizeScale: 2.0 } 전달.
    */
-  overlay?: (player: VideoPlayer | null) => React.ReactNode;
+  overlay?: OverlayRenderProp;
 };
+
+// quick-260702-t0v — overlay render prop 단일 타입 (VideoCompareProps + SlotProps 공유).
+type OverlayRenderProp = (
+  player: VideoPlayer | null,
+  opts?: { sizeScale?: number },
+) => React.ReactNode;
 
 function fmtTime(s: number): string {
   if (!isFinite(s) || s < 0) return '0:00';
@@ -92,13 +101,14 @@ export type VideoCompareProps = {
   rightUrl?: string;
   /**
    * Phase 12 신설 (Plan 12-02 T4) — 영상 위 absolute layer (KeypointOverlay 등).
-   * pointerEvents 'none'. R7 render prop — (player: VideoPlayer | null) =>
-   * React.ReactNode. result.tsx 가 player state 들지 않고 VideoCompare 가 자기
-   * player lifecycle 안에서 callback 호출. Wave 2 가 KeypointOverlay 내부
-   * useEvent(player, 'timeUpdate') 박제 site (B3 iter-4 정합).
+   * pointerEvents 'none'. R7 render prop — result.tsx 가 player state 들지 않고
+   * VideoCompare 가 자기 player lifecycle 안에서 callback 호출. Wave 2 가
+   * KeypointOverlay 내부 useEvent(player, 'timeUpdate') 박제 site (B3 iter-4 정합).
+   *
+   * quick-260702-t0v — 2번째 인자 opts.sizeScale 확장 (전체화면 뷰어가 2.0 전달).
    */
-  leftOverlay?: (player: VideoPlayer | null) => React.ReactNode;
-  rightOverlay?: (player: VideoPlayer | null) => React.ReactNode;
+  leftOverlay?: OverlayRenderProp;
+  rightOverlay?: OverlayRenderProp;
 };
 
 // UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).

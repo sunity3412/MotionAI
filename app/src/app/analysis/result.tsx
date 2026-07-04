@@ -993,7 +993,7 @@ export default function AnalysisResult() {
                   ? result.referenceVideoUrl || refMotion?.videoUrl || undefined
                   : freshPrevUrl || prevDoc?.result?.myVideoUrl || undefined
               }
-              leftOverlay={(player) => (
+              leftOverlay={(player, opts) => (
                 <KeypointOverlay
                   player={player}
                   keypointReport={userKeypointReport}
@@ -1007,15 +1007,20 @@ export default function AnalysisResult() {
                   // 임계(20°) 넘는 관절이 없으면 편차 최대 2개 강제 강조 (마커 0개 모순 제거).
                   // 정타 영상은 0 → 오탐 0.
                   forceHighlightWorstCount={vetoApplied ? 2 : 0}
+                  // quick-260702-t0v — 가로 전체화면 뷰어가 opts.sizeScale=2.0 전달
+                  // (각도 라벨 가독). 세로 카드는 opts 미전달 → 1 (무회귀).
+                  sizeScale={opts?.sizeScale ?? 1}
                 />
               )}
-              rightOverlay={(player) =>
+              rightOverlay={(player, opts) =>
                 cmp.mode === 'mode1' ? (
                   <KeypointOverlay
                     player={player}
                     keypointReport={referenceKeypointReport}
                     videoSize={overlayVideoSize}
                     visible={overlayVisible}
+                    // quick-260702-t0v — 전체화면 sizeScale 전달 (정은지 측 동일).
+                    sizeScale={opts?.sizeScale ?? 1}
                   />
                 ) : null
               }

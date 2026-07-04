@@ -99,6 +99,14 @@ export type KeypointOverlayProps = {
    * 하나도 없으면(이론상 드묾) 기존 편차/worstCount 폴백으로 진행.
    */
   highlightKeypoints?: readonly KeypointName[];
+  /**
+   * quick-260702-t0v — 마커/라벨 크기 배율 (default 1 = 기존 렌더와 수치 동일).
+   * viewBox "0 0 1 1" 정규화 구조라 모든 크기 상수(라벨 64×26, fontSize 14,
+   * 원 반지름 10/14 등)가 렌더 크기에 비례 축소됨 → 세로 카드(높이 ~290pt)에선
+   * 유효 폰트 ~3pt 급으로 판독 불가. 가로 전체화면 뷰어가 2.0 을 전달해 각도
+   * 라벨 가독을 확보한다. 좌표(positions/axis)는 스케일하지 않음 — 크기만.
+   */
+  sizeScale?: number;
 };
 
 type Point = { x: number; y: number };
@@ -179,6 +187,7 @@ export function KeypointOverlay({
   showAngleLabels = true,
   forceHighlightWorstCount = 0,
   highlightKeypoints,
+  sizeScale = 1,
 }: KeypointOverlayProps) {
   // Hooks 순서 안정성 — early return 전에 모든 hook 호출 (React rules of hooks).
   //
@@ -203,12 +212,16 @@ export function KeypointOverlay({
   // Phase 20 (UI A2) — 강조 keypoint 가독성 ↑ (belle: "붉은색이 뭐라고 써있는지
   // 보이지도 않고"). 강조 관절 원을 더 크게(14) + 외곽선 두껍게(2.4) 해서 분주한
   // 영상 위에서도 눈에 띄게. 비강조 원은 기존 10 유지(번잡함 방지).
-  const RADIUS = 10 / H;
-  const RADIUS_HI = 14 / H;
-  const STROKE_BASE = 1.8 / H;
-  const STROKE_HI = 3 / H;
-  const STROKE_CIRCLE_OUTLINE = 1.5 / H;
-  const STROKE_CIRCLE_OUTLINE_HI = 2.4 / H;
+  //
+  // quick-260702-t0v — sizeScale(default 1) 을 화면상 크기를 갖는 모든 정규화
+  // 상수에 곱한다. 1 이면 기존과 픽셀 동일(무회귀), 전체화면 뷰어는 2.0.
+  const S = sizeScale;
+  const RADIUS = (10 * S) / H;
+  const RADIUS_HI = (14 * S) / H;
+  const STROKE_BASE = (1.8 * S) / H;
+  const STROKE_HI = (3 * S) / H;
+  const STROKE_CIRCLE_OUTLINE = (1.5 * S) / H;
+  const STROKE_CIRCLE_OUTLINE_HI = (2.4 * S) / H;
 
   // Wave 2: player 전달 시 useEvent.currentTime → frameIndex 자동 산출.
   // player 없거나 frameIndex prop 명시 시 override.
@@ -347,7 +360,9 @@ export function KeypointOverlay({
               : '#FFFFFF';
           const strokeWidth = isHi && !isLowConf ? STROKE_HI : STROKE_BASE;
           // dasharray viewBox 1×1 normalize → 짧은 dash + gap.
-          const dashArray = isLowConf ? `${4 / W} ${4 / W}` : undefined;
+          const dashArray = isLowConf
+            ? `${(4 * S) / W} ${(4 * S) / W}`
+            : undefined;
           return (
             <Line
               key={`bone-${i}`}
@@ -416,10 +431,10 @@ export function KeypointOverlay({
             if (!p || !pair || pair.current == null) return null;
             // 12-deferred §12-D — 저신뢰 keypoint 의 각도는 불신뢰 → label 숨김.
             if (p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD) return null;
-            const labelW = 64 / W;
-            const labelH = 26 / H;
+            const labelW = (64 * S) / W;
+            const labelH = (26 * S) / H;
             // keypoint 우측 +14pt offset (강조 원이 커졌으므로 겹침 회피).
-            const lx = p.x + 14 / W;
+            const lx = p.x + (14 * S) / W;
             const ly = p.y - labelH / 2;
             return (
               <G key={`label-${joint}`}>
@@ -428,11 +443,11 @@ export function KeypointOverlay({
                   y={ly}
                   width={labelW}
                   height={labelH}
-                  rx={13 / H}
-                  ry={13 / H}
+                  rx={(13 * S) / H}
+                  ry={(13 * S) / H}
                   fill={colors.brand}
                   stroke="#FFFFFF"
-                  strokeWidth={1.4 / H}
+                  strokeWidth={(1.4 * S) / H}
                 />
                 <SvgText
                   x={lx + labelW / 2}
@@ -441,8 +456,8 @@ export function KeypointOverlay({
                   // 텍스트 외곽에 얇은 흰 stroke — 영상 디테일 위에서도 글자
                   // 가장자리가 또렷해 판독성 ↑ (brand pill 안 흰 글씨 대비 보강).
                   stroke="#FFFFFF"
-                  strokeWidth={0.6 / H}
-                  fontSize={14 / H}
+                  strokeWidth={(0.6 * S) / H}
+                  fontSize={(14 * S) / H}
                   fontWeight="700"
                   textAnchor="middle"
                 >

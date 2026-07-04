@@ -172,6 +172,7 @@ def tally(
     seeded = ipsf_criteria.criteria_from_measured_deviations(md)  # measured seed (Gemini-silent)
     pointed: set[str] = set()
     vision_measured: dict[str, float] = {}  # cid → vision-측정 편차(geometric 불가 결함)
+    split_vision_candidates: list[float] = []  # 25-04 #3(a) — 멤버별 추정치 median 집계
     differences = _supported_differences(fault_context)
     for diff in differences:
         # 25-02 CR-01: fold 대표는 support 집계 산물일 뿐 — 라우팅은 그룹 멤버 전체의
@@ -203,8 +204,16 @@ def tally(
                     # 유실). 라우팅 seam 전용 수정 — 집계/캐시 형상 무접촉.
                     dev = _vision_measured_deviation(diff)
                 if dev is not None:
-                    md["split_angle"] = dev
-                    vision_measured["split_angle"] = dev
+                    split_vision_candidates.append(dev)
+    # 25-04 #3(a) 측정 강건화: split-라우팅 멤버의 vision 측정 추정치가 여럿이면 단일
+    # first-wins 가 아니라 median(짝수 = lower-middle, gemini_vision_scorer 의 severity
+    # rank-median 짝수 규칙과 동일 컨벤션 — 새 튜닝 상수 0)으로 집계 주입한다. 추정
+    # 한 방이 tol 경계(20°)를 넘나드는 변동(run3 kip-up 20° vs production 30°)을 완화.
+    # geometric md 존재 시 위 guard 로 candidates 자체가 비어 기존 우선순위 불변.
+    if split_vision_candidates and "split_angle" not in md:
+        dev = _median_lower(split_vision_candidates)
+        md["split_angle"] = dev
+        vision_measured["split_angle"] = dev
     activated = set(seeded) | pointed
     gemini_silent = not differences  # Gemini 무지목 관측 마커(measured seed 가 여전히 감점)
 
@@ -371,14 +380,35 @@ def _supported_differences(fault_context):
     return list(getattr(fault_context, "supported_differences", None) or [])
 
 
+def _median_lower(values):
+    """lower-middle median — 짝수 개수는 아래쪽 중앙값(보수적: 감점을 부풀리지 않는
+    방향). gemini_vision_scorer 의 severity rank-median 짝수 규칙과 동일 컨벤션 재사용
+    — 새 튜닝 상수 0."""
+    s = sorted(values)
+    return s[(len(s) - 1) // 2]
+
+
 def _vision_measured_deviation(diff):
-    """vision difference 의 측정 편차(approx_angle_deviation_deg) → float | None.
+    """vision difference 의 측정 편차(deg) → float | None.
 
     geometric 측정이 불가한 결함(split: kip-up keypoint saturate, [[split-measurement-
     doesnt-discriminate-kipup]])을 vision-측정값으로 점수화하기 위한 추출(belle 2026-06-29
-    결정 A). Gemini 가 영상서 잰 reference-상대 각도 편차 — "Gemini 측정 + 규칙 점수"
-    원칙 정합([[scoring-must-be-transparent-deduction-tally]]). dict/obj 모두 처리, 비수치/
-    음수/비유한 → None(honest skip). 캐시 round-trip 이 문자열화한 값도 float 캐스팅."""
+    결정 A). "Gemini 측정 + 규칙 점수" 원칙 정합([[scoring-must-be-transparent-deduction-tally]]).
+
+    우선순위 (25-04 #3(a) 측정 강건화):
+      1. 명시 각도쌍 — student_angle_deg/reference_angle_deg 둘 다 있으면 편차는 코드가
+         산술 계산(vision_veto.explicit_measured_deviation_deg). "편차 한 방 추정"의
+         앵커링 편향 우회. 산술 편차 0 은 "재봤더니 차이 없음" — approx 폴백으로 모순
+         주입하지 않고 None(감점 0, honest).
+      2. 폴백 — approx_angle_deviation_deg (각도쌍 미방출 구 캐시/비각도 관측 호환).
+
+    dict/obj 모두 처리, 비수치/음수/비유한 → None(honest skip). 캐시 round-trip 이
+    문자열화한 값도 float 캐스팅."""
+    from .vision_veto import explicit_measured_deviation_deg
+
+    explicit = explicit_measured_deviation_deg(diff)
+    if explicit is not None:
+        return explicit if explicit > 0.0 else None
     if isinstance(diff, dict):
         v = diff.get("approx_angle_deviation_deg")
     else:

@@ -183,6 +183,37 @@ def fault_key_from_difference(difference: dict, *, part_scope_hint: str = "line"
     )
 
 
+def explicit_measured_deviation_deg(difference) -> float | None:
+    """명시 각도쌍(student_angle_deg, reference_angle_deg) → 산술 편차 |ref − student| (deg).
+
+    25-04 #3(a) 측정 강건화의 단일 owner: Gemini 는 학생/기준 각도를 **각각** 명시
+    추정하고(measurement rubric, gemini_vision_scorer PROMPT v11.0/SCHEMA v8.0), 편차는
+    코드가 산술로 계산한다 — "Gemini 는 측정대상을 짚고 각도를 읽되, 숫자 규칙은 코드
+    소관" 원칙([[scoring-must-be-transparent-deduction-tally]]) 정합. "편차 한 방 추정"
+    은 앵커링 편향으로 tol 경계(20°)를 넘나드는 변동을 냈다(run3 kip-up: v9 30° → v10.1
+    20°) — 산술화가 그 변동 축을 제거한다.
+
+    둘 중 하나라도 부재/비수치/NaN/Inf → None (honest skip — approx_angle_deviation_deg
+    폴백 여부는 소비자 소관). 편차 0.0 도 유효한 측정 결과로 반환한다(= "재봤더니 차이
+    없음"; 소비자는 >0 만 감점 주입). dict/obj 모두 처리, 캐시 round-trip 이 문자열화한
+    값도 float 캐스팅. 순수 함수 — 새 튜닝 상수 0.
+    """
+    def _get(key):
+        if isinstance(difference, dict):
+            return difference.get(key)
+        return getattr(difference, key, None)
+
+    try:
+        student = float(_get("student_angle_deg"))
+        reference = float(_get("reference_angle_deg"))
+    except (TypeError, ValueError):
+        return None
+    for v in (student, reference):
+        if v != v or v in (float("inf"), float("-inf")):  # NaN/Inf guard
+            return None
+    return abs(reference - student)
+
+
 @dataclass(frozen=True)
 class RootCauseHypothesis:
     """support 게이트 통과분에서만 유도된 원인 가설 (provenance 보존, D-13 MED-1).
@@ -813,13 +844,18 @@ def fault_joint_deficits_from_differences(differences) -> dict[str, float]:
     쓴다. 한 body_part 가 여러 keypoint 로 확장되면 같은 deviation 을 부여하고,
     여러 difference 가 같은 keypoint 를 가리키면 **최대** deviation 을 남긴다. 0/미상은
     제외(숫자 안 그림). 순수.
+
+    25-04 #3(a): 명시 각도쌍(student/reference)이 있으면 산술 편차를 우선한다 —
+    보고서 deficit 숫자와 감점 경로(deduction_engine)가 같은 측정을 읽게(출처 단일).
     """
     out: dict[str, float] = {}
     for d in differences or ():
-        try:
-            dev = float((d or {}).get("approx_angle_deviation_deg") or 0.0)
-        except (TypeError, ValueError):
-            dev = 0.0
+        dev = explicit_measured_deviation_deg(d)
+        if dev is None:
+            try:
+                dev = float((d or {}).get("approx_angle_deviation_deg") or 0.0)
+            except (TypeError, ValueError):
+                dev = 0.0
         if dev <= 0:
             continue
         for kp in _keypoints_for_part((d or {}).get("body_part", "")):

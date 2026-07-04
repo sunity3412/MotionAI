@@ -744,3 +744,56 @@ def test_notches_no_heavy_imports():
     src += inspect.getsource(vision_veto._baseline_unit_length)
     for forbidden in ("import boto3", "google.genai", "import requests", "from google"):
         assert forbidden not in src
+
+
+# ── 25-04 #3(a) — explicit_measured_deviation_deg (측정 rubric 산술 편차 owner) ──
+
+
+def test_explicit_measured_deviation_basic_and_symmetric():
+    """각도쌍 → |ref − student| 산술 편차 (방향 무관 절대값)."""
+    d = {"student_angle_deg": 150.0, "reference_angle_deg": 180.0}
+    assert vision_veto.explicit_measured_deviation_deg(d) == pytest.approx(30.0)
+    d2 = {"student_angle_deg": 180.0, "reference_angle_deg": 150.0}
+    assert vision_veto.explicit_measured_deviation_deg(d2) == pytest.approx(30.0)
+
+
+def test_explicit_measured_deviation_zero_is_valid_measurement():
+    """동일 각도쌍 = 편차 0.0 반환 (None 아님) — '재봤더니 차이 없음' 은 유효 측정."""
+    d = {"student_angle_deg": 175.0, "reference_angle_deg": 175.0}
+    assert vision_veto.explicit_measured_deviation_deg(d) == 0.0
+
+
+def test_explicit_measured_deviation_missing_or_partial_none():
+    """둘 중 하나라도 부재/비수치 → None (honest skip — approx 폴백은 소비자 소관)."""
+    assert vision_veto.explicit_measured_deviation_deg({}) is None
+    assert vision_veto.explicit_measured_deviation_deg(
+        {"student_angle_deg": 150.0}
+    ) is None
+    assert vision_veto.explicit_measured_deviation_deg(
+        {"student_angle_deg": "abc", "reference_angle_deg": 180.0}
+    ) is None
+    assert vision_veto.explicit_measured_deviation_deg(None) is None
+
+
+def test_explicit_measured_deviation_nan_inf_guard_and_string_cast():
+    """NaN/Inf → None; 캐시 round-trip 문자열화 값은 float 캐스팅."""
+    assert vision_veto.explicit_measured_deviation_deg(
+        {"student_angle_deg": float("nan"), "reference_angle_deg": 180.0}
+    ) is None
+    assert vision_veto.explicit_measured_deviation_deg(
+        {"student_angle_deg": 170.0, "reference_angle_deg": float("inf")}
+    ) is None
+    assert vision_veto.explicit_measured_deviation_deg(
+        {"student_angle_deg": "150", "reference_angle_deg": "180"}
+    ) == pytest.approx(30.0)
+
+
+def test_fault_joint_deficits_prefer_arithmetic_pair():
+    """fault-zoom deficit 숫자도 각도쌍 산술 우선 — 감점 경로와 출처 단일."""
+    diffs = [{
+        "body_part": "왼쪽 무릎", "fault_state": "굽음", "severity": "moderate",
+        "approx_angle_deviation_deg": 99.0,
+        "student_angle_deg": 150.0, "reference_angle_deg": 180.0,
+    }]
+    out = vision_veto.fault_joint_deficits_from_differences(diffs)
+    assert out.get("left_knee") == pytest.approx(30.0), "산술 30 — approx 99 아님"

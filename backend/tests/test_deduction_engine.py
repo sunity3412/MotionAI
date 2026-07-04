@@ -790,6 +790,76 @@ def test_split_member_own_dev_takes_priority_over_parent():
     assert split_recs[0].deviation == pytest.approx(10.0)
 
 
+# ── 25-04 #3(a) — 측정 rubric: 각도쌍 산술 편차 + 멤버 median 집계 ────────────
+
+
+def test_split_vision_arithmetic_pair_preferred_over_approx():
+    """명시 각도쌍(student/reference)이 있으면 산술 편차가 approx 추정을 대체한다.
+
+    (a) 측정 강건화: Gemini 의 "편차 한 방 추정"(approx 99)이 아니라 각도쌍의 산술
+    |180−150| = 30 이 감점 입력 — over = 30 − tol 20 = 10."""
+    diff = {"body_part": "스플릿", "fault_state": "벌어짐 부족", "severity": "moderate",
+            "approx_angle_deviation_deg": 99,
+            "student_angle_deg": 150.0, "reference_angle_deg": 180.0}
+    rec = [r for r in _tally({}, _ctx([diff])).records
+           if r.criterion == "split_angle"][0]
+    assert rec.source == "vision"
+    assert rec.deviation == pytest.approx(10.0), "산술 30 사용 — approx 99 아님"
+
+
+def test_split_vision_pair_zero_deviation_no_injection():
+    """각도쌍이 동일(산술 편차 0)이면 approx 로 폴백하지 않는다 — '재봤더니 차이 없음'
+    을 approx 추정으로 뒤집는 모순 주입 금지(honest, 위양성 방어)."""
+    diff = {"body_part": "스플릿", "fault_state": "벌어짐 부족", "severity": "moderate",
+            "approx_angle_deviation_deg": 30,
+            "student_angle_deg": 175.0, "reference_angle_deg": 175.0}
+    b = _tally({}, _ctx([diff]))
+    assert not any(r.criterion == "split_angle" for r in b.records)
+
+
+def test_split_vision_median_across_members():
+    """split-라우팅 멤버의 측정 추정치가 여럿이면 median(lower-middle) 집계 주입 —
+    first-wins 단일 추정이 tol 경계를 넘나드는 변동 완화 ((a) run3 20° vs prod 30°)."""
+    def m(part, dev):
+        return {"body_part": part, "fault_state": "스플릿 각도 부족",
+                "severity": "moderate", "approx_angle_deviation_deg": dev}
+
+    diff = {**m("양다리", 30.0),
+            "_memberFaults": [m("양다리", 30.0), m("오른쪽 다리 스플릿", 20.0),
+                              m("왼쪽 다리 스플릿", 26.0)]}
+    # 비어있지 않은 md 를 전달해야 엔진이 같은 객체를 mutate (`measured or {}` 폴백 회피).
+    md = {"angle_vs_reference__left_shoulder": 0.5}  # below-tol seed(dead-zone, 무감점)
+    b = _tally(md, _ctx([diff]))
+    assert md.get("split_angle") == pytest.approx(26.0), "median(20,26,30) = 26"
+    rec = [r for r in b.records if r.criterion == "split_angle"][0]
+    assert rec.deviation == pytest.approx(6.0)  # 26 − tol 20
+
+
+def test_split_vision_median_even_count_lower_middle():
+    """짝수 개수 추정치는 lower-middle(보수적 — 감점 비부풀림) 채택."""
+    def m(part, dev):
+        return {"body_part": part, "fault_state": "스플릿 부족",
+                "severity": "moderate", "approx_angle_deviation_deg": dev}
+
+    diff = {**m("양다리", 40.0), "_memberFaults": [m("양다리", 40.0), m("다리 스플릿", 28.0)]}
+    md = {"angle_vs_reference__left_shoulder": 0.5}  # 비어있지 않은 md (mutate 관찰용)
+    _tally(md, _ctx([diff]))
+    assert md.get("split_angle") == pytest.approx(28.0), "짝수 → lower-middle(28), 평균/40 아님"
+
+
+def test_split_vision_median_geometric_md_still_wins():
+    """geometric md["split_angle"] 실재 시 median 집계 경로 자체 비활성 (기존 우선순위 불변)."""
+    def m(part, dev):
+        return {"body_part": part, "fault_state": "스플릿 부족",
+                "severity": "moderate", "approx_angle_deviation_deg": dev}
+
+    diff = {**m("양다리", 90.0), "_memberFaults": [m("양다리", 90.0), m("다리 스플릿", 80.0)]}
+    rec = [r for r in _tally(_measured(split=25.0), _ctx([diff])).records
+           if r.criterion == "split_angle"][0]
+    assert rec.source == "geometry"
+    assert rec.deviation == pytest.approx(5.0)
+
+
 # ── 25-04 sweep FAIL #1 회귀 — 실아티팩트 verbatim fixture ────────────────────
 #
 # fixture = phase25 Run 2 (HEAD 87978fe, cold 1783154115) kip-up fault 가 hit 한

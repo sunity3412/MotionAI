@@ -51,9 +51,18 @@ Cerebras/Gemini 코치 프롬프트에 원인 기전 사슬('무엇 때문에 �
 | 2. 보완 운동 결함 매칭 | c03203e | _KEYPOINT_SET_TO_DEFECTS(8값 전부) + map_exercises fault_keypoint_sets kwarg(None=byte-동등) + pipeline applied 시 keypoint_set join(try/except None 폴백), 테스트 6건 |
 | 3. 앱 카피/카드 분기 | eb8c294 | lowQuality param 3-경로 전달(analyze→[reference→]loading), not_pole+저화질 → 화질 우선 title/본문/tipCard, '먼저 교정할 점' = 상태→원인 기전(상위 2 가설)→처방 연결(faultJoints 매칭 팁) |
 
+## Pod 검증 Follow-up (2026-07-04)
+
+| Fix | Commit | 내용 |
+|---|---|---|
+| 보완 운동 정렬 재수정 | 7bcd3e0 | pod 재분석에서 painArea wrist 안전 운동(Farmer's Walk/Hand Grippers)이 여전히 선두 (13-A painArea 최우선 설계가 원인 — forcePatternInference 아님, 2개 짝 = wrist painArea 시그니처) → fault_keypoint_sets 존재 시 확정 결함 유래 운동을 목록 선두로. defect 당 상위 2 선행 배치(_FAULT_LEAD_PER_DEFECT=2) + 나머지 후순위 백필, grip/painArea 운동은 제거 없이 후순위 유지, None 경로 byte-동등. pod 재현 케이스(pain wrist + fault leg) exact-order 테스트 추가. phase13 95 passed |
+| '거의 동일' 팁이 detail2 폐기 | e0401ae | kip-up fault 문서 tips 가 일반 팁 1개(detail2 0) — build_result 의 angle>=95 분기가 veto apply **이전**에 실행돼 조립된 듀얼 코치 detail2 를 통째로 버림 (88점·확정 결함과 카피 모순 + 처방 코칭 미노출). fix = `assemble.rebuild_tips_for_vision_fault` 신설(순수 함수): veto applied + 일반 팁 단독 + coach_details 존재 시에만 per-joint tips+detail2 재조립 (faultJoints 관절 선두, coach 커버 관절만 — 수치 폴백 '0° 차이' 모순 차단), pipeline 이 _apply_vision_veto 직후 호출 (최종 status 를 아는 유일 시점, try/except 비치명). clean(not_applicable)/veto 부재/기존 per-joint tips/coach_details 빈 경우 = byte-동등 (하위호환). build_result 본체·채점 무접촉. 테스트 6건, phase13+coach 133 passed |
+
+**듀얼 코치 실텍스트 저장 경로 (코드 확인):** `users/{uid}/analyses/{analysisId}` 문서의 `result.tips[]`. pipeline `_process` 가 `assemble_dual_coach_sections` (app.py:3358) 출력 coach_details 를 `assemble.build_result` → `build_tips` (assemble.py:384) 로 전달 → `result.tips[i] = {joint, title, detail(카드 한 줄), detail2: {causes: [{title, explanation, fix}], injuryRisk?, coachNote}}`. kismam top 3 관절만 detail2 보유. `geminiB` 는 audit 메타 전용 (sectionAudit = 섹션별 출처/crossFilled, 실텍스트 없음). TS mirror = app/src/types/analysis.ts CoachingTip/CoachingTipDetail(:175-206).
+
 ## Verification
 
-- backend: `pytest tests/test_coach_writer.py tests/gemini/test_coach_writer_v2.py tests/phase13/ -q` → **126 passed** (회귀 0)
+- backend: `pytest tests/test_coach_writer.py tests/gemini/test_coach_writer_v2.py tests/phase13/ -q` → **126 passed** (초기 3 task 시점) / follow-up 후 phase13 **95 passed** (회귀 0)
 - app: `npm run typecheck` → clean
 - 채점 무접촉 grep: dimensions.py / deduction_engine.py / kismam.py / vision_veto.py / models.py / types/analysis.ts diff **0** (확인 완료)
 - 스키마·validator 형상 불변: _normalize_entry / tone_validation / RecommendedExercise 계약 변경 0

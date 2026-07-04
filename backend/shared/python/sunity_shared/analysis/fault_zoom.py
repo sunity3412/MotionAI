@@ -55,6 +55,12 @@ _REGION_JOINTS: dict[str, frozenset[str]] = {
 # grouped bbox crop 마진 — 멤버 관절 전체 + 주변 컨텍스트.
 _BBOX_MARGIN = 1.8
 
+# 완화(relaxed) crop 확대 배율 — **display 전용, 채점 무접촉** (Phase 25-03).
+# 저신뢰-유한 좌표는 실제 부위에서 벗어나 있을 수 있어 valid 공식 대비 넓게
+# 잡아 부위가 crop 안에 남도록 한다. 채점/veto/게이트 경로에 진입하지 않는
+# 표시 전용 상수이므로 calibration-source-hard-gate 대상 아님.
+_RELAXED_MARGIN = 2.0
+
 
 @dataclass(frozen=True)
 class _CropUnit:
@@ -285,30 +291,71 @@ def _full_frame_fit(frame: np.ndarray) -> Image.Image:
     return canvas
 
 
-def _side_crop(
-    frame: np.ndarray, pts: list[tuple[float, float]]
-) -> tuple[Image.Image, bool]:
-    """한 측(user/ref)의 unit crop → (이미지, 전신폴백 여부).
+def _member_pts(
+    report: dict, frame_idx: int, members: tuple[str, ...]
+) -> tuple[list[tuple[float, float]], list[tuple[float, float]]]:
+    """unit 멤버 keypoint 를 (valid, relaxed) 좌표 리스트로 분류.
 
-    valid 0개 → 전신 폴백. 1개 → 기존 단일 관절 zoom. 2개 이상(grouped) → 멤버
-    bounding box 기반 crop (변 = max(bbox)*_BBOX_MARGIN, floor=_CROP_FRAC 줌 수준,
-    상한=프레임 내). 촬영거리 불일치는 bbox 가 측별 person 스케일을 따라가며 자연 해소.
+    valid = 좌표 finite AND confidence 게이트 통과 (_valid_kp_xy 와 동일 규칙).
+    relaxed = 좌표 finite 이지만 confidence < _KP_CONF_MIN — 완화 crop 후보.
+    좌표 자체 결측(NaN/부재)은 어느 쪽에도 안 들어감 (전신 폴백 대상).
     """
-    if not pts:
-        return _full_frame_fit(frame), True
-    if len(pts) == 1:
-        return _crop_zoom(frame, pts[0][0], pts[0][1]), False
+    valid: list[tuple[float, float]] = []
+    relaxed: list[tuple[float, float]] = []
+    for m in members:
+        xy = _kp_xy(report, frame_idx, m)
+        if xy is None:
+            continue
+        c = _kp_conf(report, frame_idx, m)
+        if c is not None and c < _KP_CONF_MIN:
+            relaxed.append(xy)
+        else:
+            valid.append(xy)
+    return valid, relaxed
+
+
+def _side_crop(
+    frame: np.ndarray,
+    valid_pts: list[tuple[float, float]],
+    relaxed_pts: list[tuple[float, float]],
+) -> tuple[Image.Image, str]:
+    """한 측(user/ref)의 unit crop 3단 강하 → (이미지, crop_kind).
+
+    crop_kind ∈ {"valid", "relaxed", "full"} — _mark 가 앵커 표시 여부 결정.
+
+    (1) valid(신뢰 좌표) 있음 → 기존 로직 그대로: 1개=단일 관절 zoom, 2개 이상
+        (grouped)=멤버 bounding box crop (변 = max(bbox)*_BBOX_MARGIN,
+        floor=_CROP_FRAC 줌 수준, 상한=프레임 내).
+    (2) valid 0개, 저신뢰-유한 좌표 있음 → 완화(relaxed) crop: 그 좌표 중심,
+        변 = 기존 공식 × _RELAXED_MARGIN (display 전용, 채점 무접촉).
+        reference 저신뢰 전신 폴백이 카드마다 동일 전신 반복 → 부위-중심 완화
+        crop 으로 카드별 차별화 (Phase 25 동반 스코프, belle 2026-07-04 실기기).
+        오인 방지는 앵커 생략으로 유지 (260702-sic 요구 3).
+    (3) 좌표 자체 결측 → 기존 _full_frame_fit 전신 폴백.
+
+    촬영거리 불일치는 bbox 가 측별 person 스케일을 따라가며 자연 해소.
+    """
     h, w = frame.shape[0], frame.shape[1]
-    xs = [p[0] * w for p in pts]
-    ys = [p[1] * h for p in pts]
-    cx = (min(xs) + max(xs)) / 2 / w
-    cy = (min(ys) + max(ys)) / 2 / h
-    bbox_side = max(max(xs) - min(xs), max(ys) - min(ys))
-    side = max(
-        int(round(min(h, w) * _CROP_FRAC)),
-        int(round(bbox_side * _BBOX_MARGIN)),
-    )
-    return _crop_zoom(frame, cx, cy, side=side), False
+
+    def _crop_for(pts: list[tuple[float, float]], margin: float) -> Image.Image:
+        xs = [p[0] * w for p in pts]
+        ys = [p[1] * h for p in pts]
+        cx = (min(xs) + max(xs)) / 2 / w
+        cy = (min(ys) + max(ys)) / 2 / h
+        side = int(round(min(h, w) * _CROP_FRAC))
+        if len(pts) > 1:
+            bbox_side = max(max(xs) - min(xs), max(ys) - min(ys))
+            side = max(side, int(round(bbox_side * _BBOX_MARGIN)))
+        # margin 확대 후에도 _crop_zoom 이 프레임 경계로 clamp (T-25-07).
+        return _crop_zoom(frame, cx, cy, side=int(round(side * margin)))
+
+    if valid_pts:
+        if len(valid_pts) == 1:
+            return _crop_zoom(frame, valid_pts[0][0], valid_pts[0][1]), "valid"
+        return _crop_for(valid_pts, 1.0), "valid"
+    if relaxed_pts:
+        return _crop_for(relaxed_pts, _RELAXED_MARGIN), "relaxed"
+    return _full_frame_fit(frame), "full"
 
 
 def _deficit_label(deficit_deg: float) -> str:
@@ -390,7 +437,9 @@ def build_fault_zoom_comparisons(
     결함단위 grouping (quick-260702-sic): 같은 결함에서 온 좌+우 동일 부위 관절
     (스플릿 → hips+knees)은 _group_fault_joints 로 카드 1장으로 묶이고, crop 은
     멤버 keypoint bounding box 기반. 방출 dict 에 scalar "region" 추가 (grouped 만).
-    저신뢰/결측 keypoint 측은 전신 폴백 (양측 다 무효면 기존처럼 skip).
+    측별 crop 은 3단 강하 (Phase 25-03): 신뢰 좌표=기존 crop → 저신뢰-유한
+    좌표=부위-중심 완화(relaxed) crop (카드별 차별화, 앵커 생략) → 좌표 결측=
+    전신 폴백. 양측 다 신뢰 좌표 0 이면 기존처럼 skip.
 
     각 항목 png 는 호출측이 S3 업로드 후 presigned URL 로 doc 에 박는다.
     실패 항목은 조용히 skip (graceful).
@@ -440,25 +489,22 @@ def build_fault_zoom_comparisons(
     for unit in _group_fault_joints(list(fault_joints), joint_kinds):
         if len(out) >= max_items:
             break
-        u_pts = [
-            xy for m in unit.members
-            if (xy := _valid_kp_xy(user_report, u_kp_idx, m)) is not None
-        ]
-        r_pts = [
-            xy for m in unit.members
-            if (xy := _valid_kp_xy(ref_report, r_kp_idx, m)) is not None
-        ]
-        if not u_pts and not r_pts:
-            # 양측 다 무효 — 전신 vs 전신은 정보가 없으므로 기존처럼 skip.
+        u_valid, u_relaxed = _member_pts(user_report, u_kp_idx, unit.members)
+        r_valid, r_relaxed = _member_pts(ref_report, r_kp_idx, unit.members)
+        if not u_valid and not r_valid:
+            # 양측 다 신뢰 좌표 0 — 최소 한 측 valid 일 때만 카드 (기존 skip
+            # 규칙 보존). relaxed 는 반대측이 valid 인 카드에서 전신 폴백을
+            # 대체하는 강하 단계이지, 단독으로 카드를 만들지 않는다 (양측
+            # 불확실 crop = 오인 위험, 260702-sic 요구 3 정신).
             continue
         member_deltas = [
             float(deltas[m]) for m in unit.members if deltas.get(m) is not None
         ]
         deficit = max(member_deltas) if member_deltas else None
         try:
-            u_img, u_full = _side_crop(user_frames[u_idx], u_pts)
-            u_crop = _mark(u_img, deficit, circle=not u_full)
-            r_crop, _ = _side_crop(ref_frames[r_idx], r_pts)
+            u_img, u_kind = _side_crop(user_frames[u_idx], u_valid, u_relaxed)
+            u_crop = _mark(u_img, deficit, circle=u_kind == "valid")
+            r_crop, _r_kind = _side_crop(ref_frames[r_idx], r_valid, r_relaxed)
             png = _compose(u_crop, r_crop)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue

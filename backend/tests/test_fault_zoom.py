@@ -244,6 +244,33 @@ def test_confidence_present_and_high_passes_gate():
     assert len(comps) == 1 and comps[0]["png"][:4] == b"\x89PNG"
 
 
+# ─────────── quick-260704-fz4 후속 — deficit 배지 라벨 "N°" 포맷 ───────────
+
+
+def test_deficit_label_uses_degree_symbol():
+    """배지 라벨 = 숫자 + 도 기호 (구 "40deg" 원어 표기 교체, belle 실기기).
+
+    round 반올림 + 도 기호(U+00B0)가 PIL 기본 폰트 글리프를 보유하는지까지
+    못 박는다 — confirmed/advisory 양 배치가 _mark 를 공유하므로 단일 검증으로
+    충분.
+    """
+    assert fz._deficit_label(40.0) == "40°"
+    assert fz._deficit_label(23.4) == "23°"
+    assert fz._deficit_label(23.5) == "24°"
+    assert "deg" not in fz._deficit_label(30.0)
+
+    from PIL import ImageFont
+
+    mask = ImageFont.load_default().getmask("°")
+    assert mask.size[0] > 0, "PIL 기본 폰트에 도 기호 글리프 존재"
+
+    # 실제 배지 렌더 smoke — 예외 없이 그려지고 배지 사각형에 브랜드 픽셀 존재.
+    img = fz._mark(
+        fz._full_frame_fit(np.zeros((64, 64, 3), dtype=np.uint8)), 40.0
+    )
+    assert img.getpixel((fz._OUT - 12, 10)) == (255, 75, 51), "배지 배경 렌더"
+
+
 # ─────────── quick-260704-fz4 — select_advisory_joints (advisory tier 선별) ───────────
 # advisory = 측정 초과("참고·확인 권장") — 표시 전용, 채점 입력 금지
 # ([[window-median-silent-seed-fp-reverted]]).

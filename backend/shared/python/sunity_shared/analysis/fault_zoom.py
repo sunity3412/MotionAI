@@ -311,13 +311,24 @@ def _side_crop(
     return _crop_zoom(frame, cx, cy, side=side), False
 
 
+def _deficit_label(deficit_deg: float) -> str:
+    """deficit 배지 라벨 포맷 (quick-260704-fz4 후속) — "40°" (숫자 + 도 기호).
+
+    구 "40deg" 원어 표기 교체 (belle 실기기 피드백). U+00B0 도 기호는 PIL 기본
+    폰트(Pillow 12 load_default) 글리프 보유 확인 완료 (getmask 4x8 + 렌더 픽셀
+    검증) — "한글 글리프 부재" 제약(모듈 docstring)과 무관, latin-1 범위라 안전.
+    """
+    return f"{int(round(deficit_deg))}°"
+
+
 def _mark(
     img: Image.Image, deficit_deg: float | None, circle: bool = True
 ) -> Image.Image:
     """crop 중앙에 브랜드 원 + (deficit 있으면) 숫자 배지. 한글 없음(폰트 회피).
 
     circle=False = 전신 폴백 측 (중앙이 결함 부위가 아니므로 원 생략 — 오인 방지).
-    deficit 배지는 유지.
+    deficit 배지는 유지. 라벨 포맷 = _deficit_label ("40°") — confirmed/advisory
+    양 배치가 본 함수를 공유하므로 동일 적용.
     """
     draw = ImageDraw.Draw(img)
     if circle:
@@ -325,8 +336,9 @@ def _mark(
         r = int(_OUT * 0.16)
         draw.ellipse([c - r, c - r, c + r, c + r], outline=_BRAND, width=4)
     if deficit_deg is not None and deficit_deg > 0:
-        txt = f"{int(round(deficit_deg))}deg"
-        # 배지 배경 (가독성) — 우상단.
+        txt = _deficit_label(deficit_deg)
+        # 배지 배경 (가독성) — 우상단. 폭 추정 = 글자당 8px 상한 유지
+        # (° 글리프는 4px 로 더 좁음 — 여유폭, 잘림 없음).
         tw = 8 * len(txt) + 10
         draw.rectangle([_OUT - tw - 8, 8, _OUT - 8, 34], fill=_BRAND)
         draw.text((_OUT - tw - 2, 13), txt, fill=(255, 255, 255))

@@ -3679,10 +3679,40 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         pain_areas = (
             models.normalize_body_profile(meta.get("bodyProfile")) or {}
         ).get("painAreas", []) or []
+        # quick-260704-fwb — vision veto applied 결함 부위(keypoint_set) 를 보완 운동
+        # 매칭에 배선. applied + vision_fault_context 존재 시에만 도출, 그 외/예외는
+        # None 폴백 = 기존 경로 불변 (도출 실패가 분석을 죽이지 않음).
+        fault_keypoint_sets: list[str] | None = None
+        try:
+            _vv = result.get("visionVeto") if isinstance(result, dict) else None
+            if (
+                isinstance(_vv, dict)
+                and _vv.get("status") == "applied"
+                and vision_fault_context is not None
+            ):
+                _kp_sets: list[str] = []
+                for _d in vision_fault_context.supported_differences or []:
+                    _fk = (_d or {}).get("_faultKey")
+                    _kp = getattr(_fk, "keypoint_set", None)
+                    if isinstance(_kp, str) and _kp and _kp not in _kp_sets:
+                        _kp_sets.append(_kp)
+                for _rc in vision_fault_context.root_cause_hypotheses or []:
+                    _fk = getattr(_rc, "fault_key", None)
+                    _kp = getattr(_fk, "keypoint_set", None)
+                    if isinstance(_kp, str) and _kp and _kp not in _kp_sets:
+                        _kp_sets.append(_kp)
+                if _kp_sets:
+                    fault_keypoint_sets = _kp_sets
+        except Exception:  # noqa: BLE001 - 보완운동 매칭 보강 실패는 분석 비치명
+            log.exception(
+                "vision fault keypoint_set 도출 실패 — 보완운동 기존 경로 폴백"
+            )
+            fault_keypoint_sets = None
         recommended_exercises = exercise_map.map_exercises(
             force_pattern_inference_dict,
             pain_areas=pain_areas,
             motion_id=getattr(profile, "motion_id", None),
+            fault_keypoint_sets=fault_keypoint_sets,
         )
         # ────────────────────────────────────────────────────────────────
 

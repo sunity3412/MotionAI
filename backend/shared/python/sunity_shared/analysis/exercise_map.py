@@ -49,6 +49,21 @@ _DEFECT_KEYS: frozenset[str] = frozenset(
 # painArea 키 = models.PAIN_AREAS 재사용 (단일 진실원).
 _PAIN_AREA_KEYS: frozenset[str] = frozenset(models.PAIN_AREAS)
 
+# quick-260704-fwb — vision veto 결함 부위(faultKey.keypoint_set) → defect 키 매핑.
+# vision_veto.FAULT_KEYPOINT_SETS 8값 전부 커버. vision_veto import 금지 (순수성
+# 유지 — 문자열 리터럴 lockstep, 값 추가 시 여기도 갱신). 스플릿 각도 부족 =
+# 고관절 유연성 → hip_hamstring_tight 를 leg 의 1순위로 (kip-up 케이스 정합).
+_KEYPOINT_SET_TO_DEFECTS: dict[str, tuple[str, ...]] = {
+    "leg": ("hip_hamstring_tight", "legs_not_extended"),
+    "hip": ("glute_hip_unstable", "hip_hamstring_tight"),
+    "shoulder": ("shoulder_unstable",),
+    "arm": ("shoulder_unstable",),
+    "head_neck": ("shoulder_unstable",),
+    "grip": ("grip_weak",),
+    "torso": ("core_weak",),
+    "line": ("core_weak",),
+}
+
 # 보완 운동 출력 cap (criteria 2 = 3~5).
 _MAX_EXERCISES = 5
 _MIN_EXERCISES = 3
@@ -94,6 +109,21 @@ def _defect_keys_from_findings(findings: list) -> list[str]:
     return matched
 
 
+def _defect_keys_from_fault_keypoint_sets(
+    fault_keypoint_sets: list[str] | None,
+) -> list[str]:
+    """vision veto 결함 keypoint_set 목록 → defect 키 (순서 보존, 중복 제거).
+
+    알 수 없는 keypoint_set 값은 조용히 skip (graceful — enum drift 시 크래시 0).
+    """
+    matched: list[str] = []
+    for kp_set in fault_keypoint_sets or []:
+        for defect_key in _KEYPOINT_SET_TO_DEFECTS.get(kp_set, ()):
+            if defect_key in _DEFECT_KEYS and defect_key not in matched:
+                matched.append(defect_key)
+    return matched
+
+
 def _valid_pain_area_keys(pain_areas: list[str]) -> list[str]:
     """painAreas[] 를 painArea 키로 join — PAIN_AREAS 멤버만, 순서/중복 보존 제거."""
     result: list[str] = []
@@ -107,6 +137,8 @@ def map_exercises(
     force_pattern_inference: dict | None,
     pain_areas: list[str],
     motion_id: str | None,
+    *,
+    fault_keypoint_sets: list[str] | None = None,
 ) -> list[dict]:
     """결함 + 통증부위 → 보완 운동 3~5개 (criteria 2,3).
 
@@ -116,6 +148,10 @@ def map_exercises(
         pain_areas: bodyProfile.painAreas snapshot (PAIN_AREAS 멤버).
         motion_id: TechniqueProfile.motion_id 또는 None — v1 은 generic 결함
             운동만 산출 (move-specific gating 은 미래 확장 hook).
+        fault_keypoint_sets: vision veto 결함 부위(faultKey.keypoint_set) 목록
+            또는 None (quick-260704-fwb). None = 기존 동작 그대로 (하위호환).
+            None 아니면 결함 부위 유래 defect 운동이 forcePatternInference 유래
+            defect 운동보다 앞선다 (painArea 안전 운동은 여전히 최우선).
 
     Returns:
         plain camelCase scalar dict list — {name, setsReps, purpose, sourceRef}.
@@ -131,7 +167,13 @@ def map_exercises(
             findings = raw
 
     valid_pain_areas = _valid_pain_area_keys(pain_areas)
-    defect_keys = _defect_keys_from_findings(findings)
+    fault_defect_keys = _defect_keys_from_fault_keypoint_sets(fault_keypoint_sets)
+    finding_defect_keys = _defect_keys_from_findings(findings)
+    # 우선순위: fault 유래 defect (2순위, 신규) → findings 유래 defect (3순위, 기존).
+    # fault_keypoint_sets=None 이면 fault_defect_keys=[] → 기존 순서 그대로.
+    defect_keys = fault_defect_keys + [
+        k for k in finding_defect_keys if k not in fault_defect_keys
+    ]
 
     # painArea 안전 운동 우선 (criteria: avoid 안전 라인 우선 정렬), 그 다음 defect.
     ordered: list[dict] = []

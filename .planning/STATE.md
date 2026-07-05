@@ -66,7 +66,7 @@ Status: Phase 10 complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-05 -- Phase 25 최종 sweep(run5, 새 pod svn31pzja7uay0, e229446) 완료: enum fix 로 kip-up split 라우팅 작동(76<88), success 100 5연속+짚기FP 0, cold/warm byte-동일. belle 승인으로 run5 → phase25/baseline 승격. 잔여 FAIL=phase24 결정론-이전 스냅샷 drift 3건(수용, run5=새 전방 기준)+kipup (c) 상체 짚기 비결정(별도 과제). veto env 함정은 quick 260705-d64 setdefault 봉인. 다음=프로덕션 서버 최신화+belle 실기기 재검증
+Last activity: 2026-07-05 심야 -- belle 실기기 피드백 3건 전부 해결·배포: (1) 가로 뷰어 명시 치수 fix OTA 발행(fx4), (2) 확대 카드 crop 정합 fix(ftn — 프로덕션 PNG 로 부위-페어 crop 검증), (3) 상체 감점 활성(fmg v11.2 배타 + g1d/h5z still-pair 하이브리드 — run6 sweep: kip-up 27, 어깨 −24/−13, success 100 6연속, 게이트 잔여=peter-pan 기지 drift 1건). run6 → baseline 승격, 프로덕션 서버 재시작+E2E 26점 검증(팔 카드 advisory→confirmed 승격). 남음=belle 실기기 확인(가로뷰어 6항목+재분석 카드)
 
 ### Quick Tasks Completed
 

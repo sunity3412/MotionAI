@@ -1073,3 +1073,75 @@ def test_tally_no_shoulder_gap_and_record_contradiction():
     assert not any(
         g.get("keypointSet") == "shoulder" for g in b.coverage_gaps
     ), "같은 결함에 감점 record + substrate-deferred gap 동시 방출 금지 (WR-04)"
+
+
+# ── per-record 감점 상한 -20 (quick-260705-k8h, belle 승인) ──────────────────
+# belle 실기기 관측: kip-up 잘못된 시연이 단일 대형 결함 record 폭주 감점으로 26점.
+# run6 실데이터 4-규칙 비교에서 체감가중/RSS 는 작은-결함-다수 동작을 역전시켜 탈락 —
+# 관절당 상한 -20 채택(IPSF 결함 유형별 감점 상한 구조 정합). 투명성
+# ([[scoring-must-be-transparent-deduction-tally]])은 rawPoints/capApplied 로 보존.
+# 실영상 점수 리터럴 타깃 금지 — 전 단언은 상수(PER_RECORD_DEDUCTION_CAP) 파생 값만.
+
+
+def test_per_record_cap_clamps_and_exposes_raw():
+    # leg=60 → over 40 × slope 1.2 = raw 48 > 상한 20 → points 는 -20 클램프,
+    # 원 감점(rawPoints)과 capApplied 마커로 투명 내역 유지.
+    b = _tally(_measured(leg=60.0), _ctx([]))
+    rec = [r for r in b.records if r.criterion == "leg_extension"][0]
+    assert rec.points == -deduction_engine.PER_RECORD_DEDUCTION_CAP == -20.0
+    d = rec.to_dict()
+    assert d["rawPoints"] == -48.0
+    assert d["capApplied"] is True
+    assert b.final == 80
+
+
+def test_per_record_cap_under_threshold_byte_compatible():
+    # leg=30 → raw 12 < 상한 → 기존 11키 정확 동등 (rawPoints/capApplied 키 자체 부재
+    # — 구 앱/legacy doc byte-호환 회귀 가드, 구현 전에도 GREEN 인 의도적 가드).
+    b = _tally(_measured(leg=30.0), _ctx([]))
+    rec = [r for r in b.records if r.criterion == "leg_extension"][0]
+    assert set(rec.to_dict()) == set(models.DEDUCTION_RECORD_KEYS)
+
+
+def test_per_record_cap_boundary_exact_cap_not_flagged(monkeypatch):
+    # 경계 == 클램프 아님. slope 1.2 로는 raw 정확히 20.0 을 만드는 깔끔한 dev 가 없어
+    # monkeypatch 가 결정적 경계 검증 수단 — 튜닝 상수 변경 아님, 메커니즘 검증.
+    monkeypatch.setattr(deduction_engine, "PER_RECORD_DEDUCTION_CAP", 12.0)
+    b = _tally(_measured(leg=30.0), _ctx([]))  # over 10 × slope 1.2 = raw 정확히 12.0
+    rec = [r for r in b.records if r.criterion == "leg_extension"][0]
+    assert rec.points == -12.0
+    assert set(rec.to_dict()) == set(models.DEDUCTION_RECORD_KEYS), \
+        "raw == cap 정확 경계는 상한 이하 취급 — rawPoints/capApplied 미방출"
+    # 대비쌍: cap 11.9 로 재패치 → 같은 입력이 클램프됨.
+    monkeypatch.setattr(deduction_engine, "PER_RECORD_DEDUCTION_CAP", 11.9)
+    b2 = _tally(_measured(leg=30.0), _ctx([]))
+    rec2 = [r for r in b2.records if r.criterion == "leg_extension"][0]
+    d2 = rec2.to_dict()
+    assert rec2.points == -11.9
+    assert d2["capApplied"] is True
+    assert d2["rawPoints"] == -12.0
+
+
+def test_per_record_cap_final_sum_consistency():
+    # 둘 다 capped → final 은 capped 값 Σ 기준: 100 - 20 - 20 = 60 (raw 합 -96 아님).
+    b = _tally(_measured(leg=60.0, arm=60.0), _ctx([]))
+    assert b.final == max(0, round(100 + sum(r.points for r in b.records))) == 60
+    assert b.to_dict()["final"] == 60
+
+
+def test_fallback_record_not_capped():
+    # fallback record(whole-score 폴백)는 클램프 비대상 — final == dimension_overall
+    # 불변식(contract.md §10.5) + 100+Σpoints==final 추적성 동시 보존.
+    b = _tally(_measured(), _ctx([]), dimension_overall=62,
+               quantification=_unavailable_quant())
+    fb = [r for r in b.records if r.criterion == "dimension_overall_fallback"][0]
+    assert fb.points == -38.0  # < -20 허용 (criterion 감점 record 전용 상한)
+    assert set(fb.to_dict()) == set(models.DEDUCTION_RECORD_KEYS)
+    assert b.final == 62
+
+
+def test_per_record_cap_deterministic():
+    # 결정성(ND-07): 동일 입력 2회 → to_dict() byte-identical (rawPoints/capApplied 포함).
+    b1 = _tally(_measured(leg=60.0), _ctx([]))
+    b2 = _tally(_measured(leg=60.0), _ctx([]))
+    assert b1.to_dict() == b2.to_dict()

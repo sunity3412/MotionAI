@@ -1697,45 +1697,26 @@ def test_part_scope_prompt_exclusive_scope_only():
         assert "무시" in prompt, f"{scope}: 타 부위 결함 무시 지시 부재"
 
 
-# ─────────────── quick 260705-g1d — 하이브리드 granularity (upper=still, lower/line=video) ───────────────
+# ─────────────── quick 260705-h5z — 하이브리드 still 페어 주입 (upper=still, lower/line=video) ───────────────
 #
 # 근거: 2026-06-22 스파이크(전체영상=상체 0/정지프레임=팔 복구 — 레버=granularity) +
-# 2026-07-05 pod 진단 2회(v11.1 상체 0·하체 누수 4 / v11.2 누수 0·상체 0/6 — 프롬프트
-# 레버 소진). 유닛 테스트는 배선 정확성만 증명 — 실효(상체 방출)는 pod 진단/sweep.
-
-
-def test_still_frame_index_pure():
-    """_still_frame_index: None → 중앙, 초과 시각 → 마지막 인덱스 clamp, 0/1프레임 경계."""
-    assert gvs._still_frame_index(None, 9.0, 10) == 5
-    assert gvs._still_frame_index(None, 0.0, 10) == 5  # fps 0 → 중앙 폴백
-    assert gvs._still_frame_index(100.0, 9.0, 10) == 9  # 초과 시각 clamp
-    assert gvs._still_frame_index(-5.0, 9.0, 10) == 0  # 음수 clamp
-    assert gvs._still_frame_index(1.0, 9.0, 0) == 0  # 0프레임 경계
-    assert gvs._still_frame_index(1.0, 9.0, 1) == 0  # 1프레임 경계
-    assert gvs._still_frame_index(2.0, 9.0, 100) == 18  # round(2.0*9.0)
-
-
-def test_ratio_ref_index_pure():
-    """_ratio_ref_index: 0 → 0, 끝 → ref 끝, 중간 비례 (fault_zoom 시간비례 공식 동일)."""
-    assert gvs._ratio_ref_index(0, 10, 7) == 0
-    assert gvs._ratio_ref_index(9, 10, 7) == 6  # 끝 → ref 끝
-    assert gvs._ratio_ref_index(5, 11, 21) == 10  # 중간 비례 (0.5 * 20)
-    assert gvs._ratio_ref_index(3, 1, 7) == 0  # 학생 1프레임 경계
-    assert gvs._ratio_ref_index(3, 10, 1) == 0  # 기준 1프레임 경계
+# 2026-07-05 pod 진단 3회(v11.2 프롬프트 레버 소진 + 스코어러-측 추출 페어 = 위상
+# 불일치 0/6 vs 파이프라인 window/DTW 인덱스 페어 = 6/6 발화). still 추출은 pipeline
+# (_build_selected_frame_pair) 책임 — scorer 는 경로/인덱스 kwargs 를 소비만 한다.
+# 유닛 테스트는 배선 정확성만 증명 — 실효(상체 방출)는 pod 진단/sweep.
 
 
 @pytest.fixture
 def fake_stills(tmp_path):
-    """가짜 정지 PNG 페어 + 고정 인덱스 — _extract_comparison_stills monkeypatch 반환값."""
+    """호출자(파이프라인) 주입 계약 kwargs — 실제 임시 PNG 2장 + 고정 인덱스 [20, 37]."""
     s = tmp_path / "hyb_student.png"
     r = tmp_path / "hyb_ref.png"
     s.write_bytes(b"\x89PNG\r\n\x1a\nhyb-student")
     r.write_bytes(b"\x89PNG\r\n\x1a\nhyb-ref")
     return {
-        "student_png": str(s),
-        "reference_png": str(r),
-        "student_idx": 12,
-        "ref_idx": 10,
+        "still_student_png": str(s),
+        "still_reference_png": str(r),
+        "still_frame_indices": [20, 37],
     }
 
 
@@ -1760,13 +1741,15 @@ def _hybrid_call_spy(monkeypatch, captured):
 def test_hybrid_upper_scope_gets_image_handles(
     monkeypatch, fake_video, fake_reference_video, fake_stills
 ):
-    """upper_body 호출만 이미지 핸들 + media_kind='image', lower/line 은 video 핸들 +
-    기본 media_kind. telemetry upperGranularity='still_frame', uploadCount=4."""
+    """still kwargs 제공 → upper_body 호출만 이미지 핸들 + media_kind='image', lower/line
+    은 video 핸들 + 기본 media_kind. telemetry upperGranularity='still_frame',
+    uploadCount=4. scorer 자체 추출 코드는 부재(파이프라인-측 추출로 이동)."""
     _in_memory_cache(monkeypatch)
     monkeypatch.setattr(gvs, "_ensure_client", lambda: _ImageClient())
-    monkeypatch.setattr(
-        gvs, "_extract_comparison_stills", lambda *a, **k: dict(fake_stills)
-    )
+    # 자체 추출 미수행 — 스코어러-측 추출 3함수는 제거됐다(위상 불일치 경로, h5z).
+    assert not hasattr(gvs, "_extract_comparison_stills")
+    assert not hasattr(gvs, "_still_frame_index")
+    assert not hasattr(gvs, "_ratio_ref_index")
     video_handles = {}
 
     def _fake_upload_video(client, path, *a, **k):
@@ -1789,15 +1772,15 @@ def test_hybrid_upper_scope_gets_image_handles(
     out = gvs.assess_fault_context_video(
         fake_video, fake_reference_video,
         part_scopes=["upper_body", "lower_body", "line"],
-        still_at_seconds=1.3,
+        **fake_stills,
     )
     assert out["status"] == "candidate_verdict", out
     by_scope = {c["part_scope"]: c for c in captured}
     # upper_body 만 이미지 핸들 (ref 이미지 먼저, 학생 이미지 둘째) + media_kind='image'.
     upper = by_scope["upper_body"]
     assert upper["media_kind"] == "image"
-    assert upper["ref"] is image_handles[fake_stills["reference_png"]]
-    assert upper["student"] is image_handles[fake_stills["student_png"]]
+    assert upper["ref"] is image_handles[fake_stills["still_reference_png"]]
+    assert upper["student"] is image_handles[fake_stills["still_student_png"]]
     # lower_body/line 은 full-video 핸들 + 기본 media_kind.
     for scope in ("lower_body", "line"):
         call = by_scope[scope]
@@ -1809,24 +1792,19 @@ def test_hybrid_upper_scope_gets_image_handles(
     assert tel["uploadCount"] == 4
 
 
-def test_hybrid_extraction_failure_falls_back_to_video(
+def test_hybrid_no_still_kwargs_is_video_only(
     monkeypatch, fake_video, fake_reference_video
 ):
-    """정지프레임 추출 raise → 3 scope 전부 video 핸들 + status 정상 산출(skipped_error
-    아님) + telemetry upperGranularity='video_fallback' + 캐시 키 'fi-' bucket."""
+    """still kwargs 미제공(파이프라인 DTW 매칭 실패/pair 부재 폴백) → 3 scope 전부
+    video 핸들 + status 정상 산출 + upperGranularity='video_fallback' + 'fi-' bucket."""
     _in_memory_cache(monkeypatch)
     monkeypatch.setattr(gvs, "_ensure_client", lambda: _ImageClient())
-
-    def _boom(*a, **k):
-        raise RuntimeError("프레임 수 산출 불가")
-
-    monkeypatch.setattr(gvs, "_extract_comparison_stills", _boom)
     monkeypatch.setattr(
         gvs, "_upload_video", lambda c, p, *a, **k: _ActiveHandle(name=f"v-{p}")
     )
     monkeypatch.setattr(
         gvs, "_upload_image",
-        lambda *a, **k: pytest.fail("추출 실패 시 이미지 업로드 호출 금지"),
+        lambda *a, **k: pytest.fail("still 미제공 시 이미지 업로드 호출 금지"),
     )
     captured: list[dict] = []
     _hybrid_call_spy(monkeypatch, captured)
@@ -1834,7 +1812,6 @@ def test_hybrid_extraction_failure_falls_back_to_video(
     out = gvs.assess_fault_context_video(
         fake_video, fake_reference_video,
         part_scopes=["upper_body", "lower_body", "line"],
-        still_at_seconds=1.3,
     )
     assert out["status"] == "candidate_verdict", out
     # 전 scope video 핸들 + 기본 media_kind (upper 포함).
@@ -1846,23 +1823,48 @@ def test_hybrid_extraction_failure_falls_back_to_video(
     assert ":fi-:" in tel["cacheKey"]
 
 
+def test_hybrid_partial_still_kwargs_treated_as_missing(
+    monkeypatch, fake_video, fake_reference_video, fake_stills
+):
+    """세 값 중 일부만 제공 → 미제공 취급(video-only, 'fi-' bucket) — 어중간한 상태
+    금지(결정적 계약)."""
+    _in_memory_cache(monkeypatch)
+    monkeypatch.setattr(gvs, "_ensure_client", lambda: _ImageClient())
+    monkeypatch.setattr(gvs, "_upload_video", lambda *a, **k: _ActiveHandle())
+    monkeypatch.setattr(
+        gvs, "_upload_image",
+        lambda *a, **k: pytest.fail("부분 제공 시 이미지 업로드 호출 금지"),
+    )
+    captured: list[dict] = []
+    _hybrid_call_spy(monkeypatch, captured)
+
+    out = gvs.assess_fault_context_video(
+        fake_video, fake_reference_video,
+        part_scopes=["upper_body", "lower_body", "line"],
+        still_student_png=fake_stills["still_student_png"],  # 경로 1개만 제공
+    )
+    assert out["status"] == "candidate_verdict", out
+    assert all(c["media_kind"] == "video" for c in captured)
+    tel = out["telemetry"]
+    assert tel["upperGranularity"] == "video_fallback"
+    assert ":fi-:" in tel["cacheKey"]
+
+
 def test_hybrid_cold_warm_determinism_and_key_space(
     monkeypatch, fake_video, fake_reference_video, fake_stills
 ):
-    """cold → warm 동일 rich dict + 2회째 Gemini 호출 0. 키에 whole_fanout_hybrid +
-    frame_indices 직렬화 포함 → 옛 'whole_fanout' 키와 불일치 (90d038f 재발 금지)."""
+    """cold → warm 동일 rich dict + 2회째 Gemini 호출 0. 키에 whole_fanout_hybrid2 +
+    제공 인덱스 직렬화 포함 → 옛 'whole_fanout'/'whole_fanout_hybrid1' 키와 불일치
+    (90d038f 재발 금지 — 프레임 provenance 변경 = 마커 bump)."""
     _in_memory_cache(monkeypatch)
     monkeypatch.setattr(gvs, "_ensure_client", lambda: _ImageClient())
-    monkeypatch.setattr(
-        gvs, "_extract_comparison_stills", lambda *a, **k: dict(fake_stills)
-    )
     monkeypatch.setattr(gvs, "_upload_video", lambda *a, **k: _ActiveHandle())
     monkeypatch.setattr(gvs, "_upload_image", lambda *a, **k: _ActiveHandle())
     captured: list[dict] = []
     _hybrid_call_spy(monkeypatch, captured)
 
     kwargs = dict(
-        part_scopes=["upper_body", "lower_body", "line"], still_at_seconds=1.3,
+        part_scopes=["upper_body", "lower_body", "line"], **fake_stills,
     )
     cold = gvs.assess_fault_context_video(fake_video, fake_reference_video, **kwargs)
     cold_calls = len(captured)
@@ -1870,8 +1872,7 @@ def test_hybrid_cold_warm_determinism_and_key_space(
     assert cold["telemetry"]["cacheHit"] is False
     assert cold_calls == 3
 
-    # 주의: fake_stills fixture 는 warm 호출에서 재추출돼도 동일 dict — 결정론 전제
-    # (고정 시각·고정 인덱스)와 정합.
+    # 주의: 동일 kwargs(고정 경로·고정 인덱스) 재호출 — 결정론 전제와 정합.
     warm = gvs.assess_fault_context_video(fake_video, fake_reference_video, **kwargs)
     assert len(captured) == cold_calls, "warm hit 가 Gemini 재호출하면 안 됨"
     assert warm["telemetry"]["cacheHit"] is True
@@ -1879,20 +1880,22 @@ def test_hybrid_cold_warm_determinism_and_key_space(
     assert warm["verdict"] == cold["verdict"]
 
     key = cold["telemetry"]["cacheKey"]
-    assert "whole_fanout_hybrid" in key
-    # still 성공 → frame_indices 직렬화 'fi{student}_{ref}' 포함.
-    assert ":fi12_10:" in key
-    # 옛 'whole_fanout' 키 공간과 절대 불일치 — 동일 인자로 옛 granularity 키 재구성 비교.
+    assert "whole_fanout_hybrid2" in key
+    # still 제공 → frame_indices 직렬화 'fi{student}_{ref}' 포함 (fixture [20, 37]).
+    assert ":fi20_37:" in key
+    # 구세대 granularity 키 공간과 절대 불일치 — 동일 인자로 구 키 재구성 비교.
     from sunity_shared.analysis.technique_cache import compute_video_hash
 
-    old_key = VisionVetoCache.build_key(
-        video_hash=compute_video_hash(fake_video),
-        model_name=gvs.DEFAULT_VISION_MODEL,
-        input_granularity="whole_fanout",
-        at_seconds=None,
-        reference_hash=compute_video_hash(fake_reference_video),
-    )
-    assert key != old_key, "옛 whole_fanout 엔트리 stale-hit 0 (구조적 분리)"
+    for old_granularity in ("whole_fanout", "whole_fanout_hybrid1"):
+        old_key = VisionVetoCache.build_key(
+            video_hash=compute_video_hash(fake_video),
+            model_name=gvs.DEFAULT_VISION_MODEL,
+            input_granularity=old_granularity,
+            at_seconds=None,
+            reference_hash=compute_video_hash(fake_reference_video),
+            frame_indices=fake_stills["still_frame_indices"],
+        )
+        assert key != old_key, f"{old_granularity} 엔트리 stale-hit 0 (구조적 분리)"
 
 
 def test_media_kind_image_labels_and_video_byte_identical():
@@ -1929,13 +1932,11 @@ def test_media_kind_image_labels_and_video_byte_identical():
 def test_hybrid_image_upload_failure_falls_back_and_rekeys(
     monkeypatch, fake_video, fake_reference_video, fake_stills
 ):
-    """추출 성공 후 이미지 업로드 실패 → upper scope video 폴백 + 키 재산출('fi-'
-    bucket) — 폴백 결과가 still-키 공간을 오염하지 않는다. 분석 흐름 중단 0."""
+    """still kwargs 제공 + 이미지 업로드 실패 → upper scope video 폴백 + 키 재산출
+    ('fi-' bucket) — 폴백 결과가 still-키 공간을 오염하지 않는다. 분석 흐름 중단 0.
+    제공 PNG 는 호출 후에도 존재 — unlink 는 호출자(pair.cleanup_paths) 소유."""
     _in_memory_cache(monkeypatch)
     monkeypatch.setattr(gvs, "_ensure_client", lambda: _ImageClient())
-    monkeypatch.setattr(
-        gvs, "_extract_comparison_stills", lambda *a, **k: dict(fake_stills)
-    )
     monkeypatch.setattr(gvs, "_upload_video", lambda *a, **k: _ActiveHandle())
 
     def _upload_boom(*a, **k):
@@ -1948,13 +1949,16 @@ def test_hybrid_image_upload_failure_falls_back_and_rekeys(
     out = gvs.assess_fault_context_video(
         fake_video, fake_reference_video,
         part_scopes=["upper_body", "lower_body", "line"],
-        still_at_seconds=1.3,
+        **fake_stills,
     )
     assert out["status"] == "candidate_verdict", out
     assert all(c["media_kind"] == "video" for c in captured)
     tel = out["telemetry"]
     assert tel["upperGranularity"] == "video_fallback"
     assert ":fi-:" in tel["cacheKey"], "업로드 실패 폴백은 'fi-' bucket 으로 재키"
-    assert ":fi12_10:" not in tel["cacheKey"]
+    assert ":fi20_37:" not in tel["cacheKey"]
+    # PNG 소유권 = 호출자 — scorer 는 제공 경로를 unlink 하지 않는다(D-10 HIGH-2).
+    assert Path(fake_stills["still_student_png"]).exists()
+    assert Path(fake_stills["still_reference_png"]).exists()
 
 

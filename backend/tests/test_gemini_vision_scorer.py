@@ -629,9 +629,9 @@ def test_samples_count_invalidates_cache(
 
 
 def test_prompt_schema_version():
-    """PROMPT_VERSION = v11.1 (25-05: fault_category 고정 enum) / SCHEMA_VERSION = v8.1."""
-    assert PROMPT_VERSION == "v11.1"
-    assert PROMPT_VERSION not in ("v9.0", "v10.0", "v10.1", "v11.0"), (
+    """PROMPT_VERSION = v11.2 (quick 260705-fmg: part_scope 배타 강제) / SCHEMA_VERSION = v8.1."""
+    assert PROMPT_VERSION == "v11.2"
+    assert PROMPT_VERSION not in ("v9.0", "v10.0", "v10.1", "v11.0", "v11.1"), (
         "프롬프트 변경 = bump 필수 (캐시 무효화)"
     )
     assert SCHEMA_VERSION == "v8.1"
@@ -1679,5 +1679,21 @@ def test_emission_to_support_end_to_end_upper_body():
     assert len(supported) == 1
     assert supported[0]["_faultKey"].keypoint_set == "shoulder"
     assert supported[0]["_faultKey"].side == "left"
+
+
+# ─────────────── quick 260705-fmg — part_scope 배타 강제 (PROMPT v11.2) ───────────────
+
+
+def test_part_scope_prompt_exclusive_scope_only():
+    """v11.2: scope 프롬프트가 부위-전용 배타 판정을 강제한다 — 2026-07-05 pod 진단
+    (fresh upper_body scope 6회 중 상체 방출 0/하체 중복 방출 4)의 fix. 타 부위 결함은
+    눈에 띄어도 방출 금지 (3-scope 중복 방출의 support 자기부풀림도 함께 차단)."""
+    for scope in gvs.VETO_PART_SCOPES:
+        prompt = _comparison_prompt_for_scope(scope)
+        assert "전용" in prompt, f"{scope}: 부위-전용 판정 문구 부재"
+        assert "다른 부위" in prompt and "방출 금지" in prompt, (
+            f"{scope}: 타 부위 방출 금지 문구 부재"
+        )
+        assert "무시" in prompt, f"{scope}: 타 부위 결함 무시 지시 부재"
 
 

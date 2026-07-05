@@ -735,6 +735,29 @@ def split_angle_degs_from_records(
     return None
 
 
+def has_split_angle_record(records) -> bool:
+    """records 에 스플릿 사이각 criterion 이 하나라도 있는지 (순수, boto3 무관).
+
+    수치 추출(split_angle_degs_from_records)과 존재 판정을 분리하는 이유 — kip-up
+    경로의 reference_relative split record 는 measuredValue 가 정은지-대비 편차라
+    벌림각 수치는 생략(None)하지만, "다리가 벌어졌다"는 사이각 자체는 의미가 있어
+    선+호는 그려야 한다 (2026-07-05 belle pod 전동작 검증). 그래서 존재 판정(이
+    함수)으로 legs 사이각 게이트를 열고, 수치는 별도로 붙인다:
+      · reference_relative split record → True (선+호, 수치 None)
+      · ipsf_absolute split record → True (선+호+수치)
+      · line-only / split 없음 / unit!='deg' → False
+      · None / 비리스트 / 빈 리스트 → False (graceful)
+    """
+    if not isinstance(records, list):
+        return False
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        if rec.get("criterion") == "split_angle" and rec.get("unit") == "deg":
+            return True
+    return False
+
+
 def _compose(user_crop: Image.Image, ref_crop: Image.Image) -> bytes:
     """[user | ref] 가로 합성 → PNG bytes. 가운데 흰 구분선."""
     gap = 6
@@ -762,6 +785,7 @@ def build_fault_zoom_comparisons(
     user_frame_idx: int | None = None,
     ref_frame_idx: int | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
+    split_angle_present: bool = False,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -776,6 +800,14 @@ def build_fault_zoom_comparisons(
     split_angle_degs (quick-260705-r6x): region=='legs' 카드의 (학생 각도, 기준
       각도) 수치 — 호 옆 표기용. None(default) 이면 legs 카드도 선+호만(수치 생략).
       non-legs/legacy 경로는 무접촉. 채점 무접촉 — display 렌더 전용.
+    split_angle_present (quick-260705-wbs): 사이각 두 게이트.
+      · 게이트 A — split_angle criterion 이 실제 records 에 있을 때만(True) legs
+        카드에 사이각을 그린다. legs 카드는 스플릿뿐 아니라 무릎(leg_extension)/
+        골반(hip) 결함으로도 뜨는데(2026-07-05 belle pod 전동작 검증), 사이각은
+        "다리 벌림"의 시각 언어라 스플릿 아닌 결함에 그리면 오독을 낳는다 →
+        False(default)면 스플릿 아닌 legs 카드는 r6x 이전 circle 렌더로 복귀.
+      · 게이트 B — split 카드라도 학생(user) 측만 그린다. 정은지(ref) 측은 kip-up
+        도립 pose 부정확으로 선이 폭주(pose 한계)해 선 없는 crop 을 유지한다.
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (user 18 / reference 가변)로 **각자 시간 인덱싱** — upsample fps mismatch 회피.
@@ -851,23 +883,32 @@ def build_fault_zoom_comparisons(
                 u_relaxed,
                 anchor=_anchor_xy(u_valid, deltas) if u_valid else None,
             )
-            r_img, r_kind, _r_anchor, r_box = _side_crop(
+            # 게이트 B 로 ref 측 사이각 미드로잉 → kind/box 미사용(선 없는 crop).
+            r_img, _r_kind, _r_anchor, _r_box = _side_crop(
                 r_frame, [xy for _n, xy in r_valid], r_relaxed
             )
-            # legs(스플릿) 카드: 앵커 동그라미 대신 다리 사이각(선 2 + 호 + 수치)
-            # — valid 측만, 측별 독립 (belle 2026-07-05 실기기). split_angle_degs
-            # = (학생 수치, 기준 수치), None 이면 해당 측 수치 생략(선+호만).
-            # non-legs unit 은 이 블록을 완전히 건너뛴다 (기존 circle+배지 불변).
+            # legs(스플릿) 카드: 앵커 동그라미 대신 다리 사이각(선 2 + 호 + 수치).
+            # 게이트 A(quick-260705-wbs) — split_angle criterion 이 실제 records 에
+            # 있는 legs 카드(split_angle_present=True)만 진입. legs 카드는 스플릿뿐
+            # 아니라 무릎(leg_extension)/골반(hip) 결함으로도 뜨는데 (2026-07-05
+            # belle pod 전동작 검증: power-spin=leg_extension+hip, elbow-twist=
+            # hip+knee), 사이각은 "다리 벌림"의 시각 언어라 스플릿 아닌 결함에
+            # 그리면 오독을 낳는다 → 스플릿 아닌 legs 카드는 이 블록 미진입, 아래
+            # 기존 circle 렌더로 복귀한다.
+            # 게이트 B(quick-260705-wbs) — 학생(user) 측만 그린다. 정은지(ref) 측은
+            # kip-up 도립 pose 부정확으로 선이 폭주(pose 한계)해 선 없는 crop 유지.
+            # TODO(Phase 22): 자체학습 pose 개선 후 정은지(ref) 측 사이각 재활성.
+            # split_angle_degs=(학생 수치, 기준 수치), None 이면 수치 생략(선+호만).
             u_deg = split_angle_degs[0] if split_angle_degs else None
-            r_deg = split_angle_degs[1] if split_angle_degs else None
             u_drew_legs = False
-            if unit.region == "legs" and u_kind == "valid" and u_box is not None:
+            if (
+                unit.region == "legs"
+                and split_angle_present
+                and u_kind == "valid"
+                and u_box is not None
+            ):
                 u_drew_legs = _draw_side_leg_angle(
                     u_img, u_frame, user_report, u_kp_idx, u_box, u_deg
-                )
-            if unit.region == "legs" and r_kind == "valid" and r_box is not None:
-                _draw_side_leg_angle(
-                    r_img, r_frame, ref_report, r_kp_idx, r_box, r_deg
                 )
             # user 측: 사이각을 그렸으면 원 생략(배지는 유지 — 배지=부족분/호=측정
             # 각도로 역할 분리), 아니면 기존 규칙 그대로.
@@ -877,7 +918,7 @@ def build_fault_zoom_comparisons(
                 u_crop = _mark(
                     u_img, deficit, circle=u_kind == "valid", anchor_px=u_anchor
                 )
-            # ref 측은 기존과 동일하게 _mark 없음(배지/원 미부여) — 선+호+수치만.
+            # ref 측은 _mark/사이각 모두 없음 — 선 없는 crop 그대로(게이트 B).
             png = _compose(u_crop, r_img)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue

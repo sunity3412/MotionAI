@@ -316,6 +316,63 @@ def test_advisory_nonfinite_and_invalid_skipped_gracefully():
     assert fz.select_advisory_joints(None, set(), 20.0) == []
 
 
+# ─────────── quick-260705-ftn — select_confident_frame (표시 프레임 선택) ───────────
+# window median 이 keypoint 붕괴 구간이면 relaxed/full 강하로 카드가 망가짐
+# (2026-07-05 pod 재현: ref-kip-up frame 37). 측정-표시 정합은 window 안에서
+# 유지하면서 신뢰 프레임을 고른다 — 표시 전용, 채점/veto/게이트 무접촉.
+
+
+def _report_conf_seq(n: int, fps: float, joint_conf_seq: dict[str, list]) -> dict:
+    """per-joint per-frame confidence 지정 합성 keypointReport (nan 허용)."""
+    joints = list(joint_conf_seq)
+    data: list[float] = []
+    conf: list[float] = []
+    for f in range(n):
+        for j in joints:
+            data += [0.5, 0.5]
+            conf.append(joint_conf_seq[j][f])
+    return {
+        "joints": joints, "frames": n, "fps": fps, "data": data,
+        "confidence": conf,
+    }
+
+
+def test_select_confident_frame_picks_max_conf_not_median():
+    """candidates [3,4,5] 중 median(4)=0.1 이 아니라 conf 최대(3)=0.9 를 고른다."""
+    conf = [0.5] * 9
+    conf[3], conf[4], conf[5] = 0.9, 0.1, 0.5
+    rep = _report_conf_seq(9, 9.0, {"left_knee": conf})
+    assert fz.select_confident_frame(rep, [3, 4, 5], ["left_knee"]) == 3
+
+    # 결정론 tie-break — 동점(3,5 모두 0.9)이면 sorted 오름차순 첫 인덱스.
+    conf2 = [0.5] * 9
+    conf2[3], conf2[4], conf2[5] = 0.9, 0.1, 0.9
+    rep2 = _report_conf_seq(9, 9.0, {"left_knee": conf2})
+    assert fz.select_confident_frame(rep2, [5, 3, 4], ["left_knee"]) == 3
+
+
+def test_select_confident_frame_legacy_median_fallback():
+    """confidence 부재 report → sorted(candidates) median (기존 pipeline 동작 보존)."""
+    rep = _report(9, 9.0)  # confidence 키 없음 = legacy
+    assert fz.select_confident_frame(rep, [5, 3, 4], ["left_knee"]) == 4
+
+
+def test_select_confident_frame_edges():
+    """빈 candidates → None / 전원 비정수 → None / 멤버 일부 conf None 은 나머지 평균."""
+    rep = _report(9, 9.0)
+    assert fz.select_confident_frame(rep, [], ["left_knee"]) is None
+    assert fz.select_confident_frame(rep, ["x", None], ["left_knee"]) is None
+
+    # left_hip conf 전 프레임 nan(None 취급) → left_knee conf 만으로 평균.
+    knee = [0.5] * 9
+    knee[2], knee[6] = 0.2, 0.8
+    hip = [float("nan")] * 9
+    rep2 = _report_conf_seq(9, 9.0, {"left_knee": knee, "left_hip": hip})
+    assert fz.select_confident_frame(
+        rep2, [2, 6], ["left_knee", "left_hip"]
+    ) == 6
+
+
 def test_group_fault_joints_pure_helper():
     """_group_fault_joints 직접 단위테스트 — 대표 joint 안정성 + region 판정."""
     kinds = {j: "deficit" for j in _LEG_JOINTS}

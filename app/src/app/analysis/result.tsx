@@ -17,14 +17,6 @@ import { RecommendedExerciseModal } from '../../components/RecommendedExerciseMo
 import { CORRECTIVE_LIBRARY_HAS_ITEMS } from '../../data/correctiveExercises';
 import { DimensionDetailModal } from '../../components/DimensionDetailModal';
 import {
-  ForcePatternCard,
-  _FALLBACK_BODY,
-} from '../../components/ForcePatternCard';
-import {
-  ForcePatternDetailModal,
-  type MeasuredEvidence,
-} from '../../components/ForcePatternDetailModal';
-import {
   KeypointOverlay,
   KEYPOINT_DELTA_HIGHLIGHT_DEG,
 } from '../../components/KeypointOverlay';
@@ -34,16 +26,12 @@ import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
 import {
-  ANGLE_MEANING_KO,
   ANGLE_VS_REFERENCE_PREFIX,
-  JOINT_LABEL_KO,
   KEYPOINT_FROM_ANGLE_KEY,
-  REGION_LABEL_KO,
-  REGION_MEMBER_KEYPOINTS,
-  composeActionLabelKo,
-  composeDeviationOnlyLabelKo,
-  formatDeductionNumber,
-  formatDeductionRecord,
+  buildDeductionMarkers,
+  composeScoringBasisKo,
+  composeShortActionLabelKo,
+  isCleanPass,
 } from '../../lib/deductionLabels';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { getSimulatedResult } from '../../lib/simulatedResult';
@@ -64,7 +52,6 @@ import type {
   BodyProfile,
   CoachingTip,
   DimensionExplanation,
-  ForcePatternFinding,
   JointDirection,
   JointScore,
   KeypointName,
@@ -190,7 +177,17 @@ function angleGuide(j: Pick<JointScore, 'currentAngle' | 'targetAngle' | 'deltaD
 // mode1 similarity 점수대별 요약 카피. 시연 시 점수 임팩트 강조용.
 // 박제 (2026-06-06 belle): similarity = 관절각 차원 박제 (overall 박제 X — 모든
 // 차원 평균). belle 의문 "94 vs 95% 갭" → label 박제 명확화 "관절각" 박제.
-function mode1Summary(athleteName: string, similarity: number): string {
+// quick-260705-o0s (belle 추가 피드백 #1): cleanPass(감점 0 = 100점 정타)면
+// "거의 다 왔어요!" 류 보완 카피 금지 → 축하·유지 카피. 순수 함수 유지
+// (cleanPass 를 파라미터로 받음 — isCleanPass 단일 신호 소비).
+function mode1Summary(
+  athleteName: string,
+  similarity: number,
+  cleanPass: boolean,
+): string {
+  if (cleanPass) {
+    return `${athleteName} 선수와 동일한 수준이에요. 이 자세를 유지하세요!`;
+  }
   const head = `${athleteName} 선수와 관절각 ${similarity}% 일치해요.`;
   if (similarity >= 75) return `${head} 거의 다 왔어요!`;
   if (similarity >= 50) return `${head} 핵심 구간을 다듬어 보세요.`;
@@ -289,19 +286,27 @@ function ScoreContext({
   athleteName,
   correctionPoint,
   selfDelta,
+  cleanPass,
 }: {
   score: number;
   mode: 'mode1' | 'mode3';
   athleteName: string | null;
   correctionPoint: string | null;
   selfDelta: number | null;
+  // quick-260705-o0s (belle 추가 피드백 #1) — 감점 0(isCleanPass)이면 "보완하면
+  // 더 올라가요" 조립 금지 (100점에 보완하라는 모순). correctionPoint 소스는
+  // 무변경 — 카피 조립 단계에서만 게이트 (belle: "텍스트는 분석마다 달라져야지").
+  cleanPass: boolean;
 }) {
   // Mode1 1차 카피 — 정은지 기준 거리 + 교정 포인트. 교정 포인트 없으면 일반 격려.
+  // cleanPass 면 correctionPoint 무시하고 통과 카피 (보완 카피는 감점 record 있을 때만).
   const primary =
     mode === 'mode1'
-      ? correctionPoint
-        ? `${athleteName ?? '정은지'} 기준 ${score}점 — ${correctionPoint} 보완하면 더 올라가요.`
-        : `${athleteName ?? '정은지'} 기준 ${score}점이에요.`
+      ? cleanPass
+        ? `${athleteName ?? '정은지'} 기준 ${score}점 — 감점 항목 없이 통과했어요.`
+        : correctionPoint
+          ? `${athleteName ?? '정은지'} 기준 ${score}점 — ${correctionPoint} 보완하면 더 올라가요.`
+          : `${athleteName ?? '정은지'} 기준 ${score}점이에요.`
       : correctionPoint
         ? `이번 분석 ${score}점 — ${correctionPoint} 보완하면 더 올라가요.`
         : `이번 분석 ${score}점이에요.`;
@@ -337,6 +342,7 @@ function DimensionScoreRow({
   onDetailPress,
   contextNote,
   reframeVeto,
+  labelSuffix,
 }: {
   dim: ScoreDimension;
   score: number;
@@ -351,11 +357,16 @@ function DimensionScoreRow({
   // 100) "완벽" 으로 오인되는 경우. 숫자를 측정값 톤으로 낮추고 contextNote 를 강조
   // 콜아웃으로 띄운다 (흐린 한 줄로는 belle 가 오인 — 진짜 reframe).
   reframeVeto?: boolean;
+  // quick-260705-o0s — ' (참고)' 접미 (angle/stability, 결과 화면 전용).
+  // DIMENSION_LABEL_KO 자체를 오염시키지 않기 위한 렌더 시 접미 (다른 화면 무접촉).
+  labelSuffix?: string;
 }) {
   return (
     <View style={styles.partRow}>
       <View style={styles.partHead}>
-        <Text style={styles.partLabel}>{DIMENSION_LABEL_KO[dim]}</Text>
+        <Text style={styles.partLabel}>
+          {`${DIMENSION_LABEL_KO[dim]}${labelSuffix ?? ''}`}
+        </Text>
         {reframeVeto ? (
           <View style={styles.partScoreReframeWrap}>
             <Text style={styles.partScoreQualifier}>측정값</Text>
@@ -613,57 +624,96 @@ export default function AnalysisResult() {
     [confirmedKeypoints],
   );
 
-  // quick-260705-k8y — 문제 관절 행동 지시 라벨 조립 (절대각 라벨 대체).
-  // 소스 우선순위 (이미 채운 keypoint 는 skip — 높은 소스가 이김):
-  //   1. windowMedianAngleDeltas (mode1 veto applied, signed delta — direction
-  //      의 원천이라 문자열 재파싱 금지, features.py 정합)
-  //   2. faultJointDeficits (Gemini 시각 추정 — 부호 없음 → 방향 생략 폴백,
-  //      방향 fabricate 금지, quick-260704-fwb. split_angle 투영 등 windowMedian
-  //      에 없는 확정 관절 커버)
-  //   3. JointScore.deltaDeg (kismam 평균, Mode3 커버 — veto 결함을 못 잡아
-  //      과소하므로 최하 순위)
-  // deltaDeg 부재 시 currentAngle/targetAngle 로 재계산하지 않는다 (UI 재계산
-  // 금지) — 라벨 없음 = 마커만 (안전 폴백, 크래시/거짓 라벨 0).
-  // 라벨 대상 필터(문제 관절 한정)는 KeypointOverlay 내부 게이트(highlighted
-  // ∪ attention ∩ actionLabels)가 담당 — 여기선 데이터 있는 전 관절 조립
-  // (오버레이 내부 폴백 강조 관절도 라벨을 받도록).
+  // quick-260705-o0s — 감점 0 게이트 단일 신호 (belle 추가 피드백 #2). 요약
+  // 카피·문제-계열 섹션 숨김·축하 섹션이 전부 이 값 하나를 소비한다 (분기 산개
+  // 금지). mode3/legacy doc(breakdown 부재)은 false → 기존 렌더 무회귀.
+  // 감점 0 이면 veto applied 일 수 없지만(감점 record 가 tally 의 실체) 각
+  // 소비처에 방어 게이트로 명시한다.
+  const cleanPass = isCleanPass(
+    cmp.mode === 'mode1' ? result.deductionBreakdown : null,
+  );
+
+  // quick-260705-o0s — 영상 점 번호 ↔ 내역 행 번호 단일 소스 (buildDeductionMarkers).
+  // 오버레이 markerNumbers 와 ScoreBreakdownSection recordNumbers 가 같은 결과물을
+  // 소비해 항상 일치. markers.keypointNumbers 키는 confirmedKeypoints 의 부분집합
+  // (동일 투영 규칙) — highlightKeypoints 는 기존 confirmedKeypointList 유지로 자동 정합.
+  const markers = useMemo(
+    () =>
+      buildDeductionMarkers(
+        result.deductionBreakdown?.records ?? [],
+        vetoFaultJoints,
+      ),
+    [result.deductionBreakdown, vetoFaultJoints],
+  );
+
+  // quick-260705-o0s — 점수 계산 내역 상단 채점 기준 1줄 (deviationSource 자동 조립).
+  const breakdownBasisLine = useMemo(
+    () => composeScoringBasisKo(result.deductionBreakdown?.records ?? []),
+    [result.deductionBreakdown],
+  );
+
+  // quick-260705-o0s — 문제 관절 행동 지시 라벨 조립 (라벨 5개 영상 뒤덮기 해소).
+  // 문구는 composeShortActionLabelKo (각도 숫자 없는 짧은 행동구 — 각도 수치는
+  // '점수 계산 내역' 담당). signed delta 소스 우선순위 기존 유지:
+  //   1. windowMedianAngleDeltas (mode1 veto applied — direction 의 원천)
+  //   2. JointScore.deltaDeg (kismam 평균, Mode3 커버)
+  // faultJointDeficits(부호 없음) 라벨 경로는 폐기 — 방향 fabricate 금지
+  // (quick-260704-fwb). 부호 없는 관절은 번호 점만 — 번호가 내역 행으로
+  // 안내하므로 정보 손실 아님.
+  //
+  // 라벨 후보 게이트:
+  //   - mode1 + breakdown 보유: markers.keypointNumbers 에 있는 관절만 (감점
+  //     record 관절 한정 — 영상 위 최소 표시 원칙).
+  //   - mode3/legacy(breakdown 없음): 기존 소스 순서 유지, 문구만 교체.
+  //   - attention(주황) 관절은 라벨 미부여 (감점 아님 — 점만).
+  //   - dedupe: 동일 문자열 라벨이 2개 관절에 붙으면(hip 좌우 "다리 더 모으기"
+  //     등) |delta| 큰 쪽만 라벨 유지, 나머지는 점만.
+  // cleanPass 시 records 빈 배열 → markers/라벨 자연히 빈 결과 (별도 분기 불요).
   const actionLabels = useMemo<Partial<Record<KeypointName, string>>>(() => {
-    const map: Partial<Record<KeypointName, string>> = {};
+    const hasBreakdown =
+      cmp.mode === 'mode1' && result.deductionBreakdown != null;
+    // 후보 수집 — kp 당 1건 (높은 소스가 이김), dedupe 용 |delta| 동반.
+    const candidates = new Map<KeypointName, { label: string; abs: number }>();
+    const addCandidate = (
+      angleKey: string,
+      kp: KeypointName | undefined,
+      signedDelta: number,
+    ) => {
+      if (!kp || candidates.has(kp)) return;
+      if (!Number.isFinite(signedDelta)) return;
+      // 감점 record 관절 한정 (breakdown 보유 시) — 번호 점 있는 관절만 라벨 후보.
+      if (hasBreakdown && markers.keypointNumbers[kp] == null) return;
+      // attention(주황) = 감점 아님 → 라벨 미부여 (점만).
+      if (attentionKeypoints.includes(kp)) return;
+      const label = composeShortActionLabelKo(angleKey, signedDelta);
+      if (label) candidates.set(kp, { label, abs: Math.abs(signedDelta) });
+    };
     if (result.visionVeto?.status === 'applied') {
-      const veto = result.visionVeto;
-      for (const d of veto.windowMedianAngleDeltas?.deltas ?? []) {
-        if (!Number.isFinite(d.delta_deg)) continue;
-        const kp = KEYPOINT_FROM_ANGLE_KEY[d.joint];
-        if (!kp || map[kp]) continue;
-        const label = composeActionLabelKo(d.joint, d.delta_deg);
-        if (label) map[kp] = label;
-      }
-      for (const [kpRaw, deficit] of Object.entries(
-        veto.faultJointDeficits ?? {},
-      )) {
-        const kp = kpRaw as KeypointName;
-        if (map[kp] || typeof deficit !== 'number') continue;
-        // keypoint → angle key 역변환 (KEYPOINT_FROM_ANGLE_KEY 값이 전부 유일
-        // 하므로 entries 탐색으로 충분 — 역맵 상수 중복 2벌 금지).
-        const angleKey = Object.entries(KEYPOINT_FROM_ANGLE_KEY).find(
-          ([, v]) => v === kp,
-        )?.[0];
-        if (!angleKey) continue;
-        const label = composeDeviationOnlyLabelKo(angleKey, deficit);
-        if (label) map[kp] = label;
+      for (const d of result.visionVeto.windowMedianAngleDeltas?.deltas ?? []) {
+        addCandidate(d.joint, KEYPOINT_FROM_ANGLE_KEY[d.joint], d.delta_deg);
       }
     }
     for (const j of joints) {
-      if (typeof j.deltaDeg !== 'number' || !Number.isFinite(j.deltaDeg)) {
-        continue;
-      }
-      const kp = KEYPOINT_FROM_ANGLE_KEY[j.key];
-      if (!kp || map[kp]) continue;
-      const label = composeActionLabelKo(j.key, j.deltaDeg);
-      if (label) map[kp] = label;
+      if (typeof j.deltaDeg !== 'number') continue;
+      addCandidate(j.key, KEYPOINT_FROM_ANGLE_KEY[j.key], j.deltaDeg);
     }
+    // dedupe — 같은 행동구는 |delta| 큰 관절 1개만 (좌우 구분은 마커 위치가 전달).
+    const bestByLabel = new Map<string, { kp: KeypointName; abs: number }>();
+    for (const [kp, { label, abs }] of candidates) {
+      const cur = bestByLabel.get(label);
+      if (!cur || abs > cur.abs) bestByLabel.set(label, { kp, abs });
+    }
+    const map: Partial<Record<KeypointName, string>> = {};
+    for (const [label, { kp }] of bestByLabel) map[kp] = label;
     return map;
-  }, [result.visionVeto, joints]);
+  }, [
+    cmp.mode,
+    result.deductionBreakdown,
+    result.visionVeto,
+    joints,
+    markers,
+    attentionKeypoints,
+  ]);
 
   // quick-260702-q8q — "점수 계산 내역" 섹션 렌더 가드. mode1 전용(mode3 는 veto
   // 미실행 mode3_held) + deductionBreakdown 보유 doc 만 (legacy doc 은 필드 부재 →
@@ -679,9 +729,11 @@ export default function AnalysisResult() {
 
   const summary =
     cmp.mode === 'mode1'
-      ? mode1Contradiction
-        ? mode1VetoSummary(cmp.athleteName)
-        : mode1Summary(cmp.athleteName, cmp.similarity)
+      ? cleanPass
+        ? mode1Summary(cmp.athleteName, cmp.similarity, true)
+        : mode1Contradiction
+          ? mode1VetoSummary(cmp.athleteName)
+          : mode1Summary(cmp.athleteName, cmp.similarity, false)
       : cmp.isFirst
         ? '첫 분석이에요. 다음 분석부터 발전을 비교해드려요.'
         : mode3Summary(result.overallScore, prevDoc?.result?.overallScore);
@@ -702,145 +754,14 @@ export default function AnalysisResult() {
   const [detailTip, setDetailTip] = useState<CoachingTip | null>(null);
   // Phase 13 (Plan 13-A): "다른 운동 보기" 전체 라이브러리 모달 state. false = 닫힘.
   const [exerciseModalOpen, setExerciseModalOpen] = useState(false);
-  // Phase 12 Wave 1 (Plan 12-02 T4) — ForcePatternCard tap → 자세히 모달 state.
-  // finding null = 닫힘. modeContext 별 mode 분기 코드 X (D-12-U3 — backend 자동).
-  const [detailFinding, setDetailFinding] = useState<ForcePatternFinding | null>(
-    null,
-  );
 
-  // Phase 12 Wave 1 (Plan 12-02 T4) — Phase 9 finding Top-3 + 0-finding fallback.
-  // findings.length ∈ {0, 1, 2, 3}: D-12-B1 박제 (0 → fallback big / 1 → big /
-  // 2 → big + small × 1 / 3 → big + small × 2). 본 useMemo 가 fallback finding
-  // 생성 (interpretation = _FALLBACK_BODY, pattern='unknown', confidence=0).
-  const forcePatternFindings: ForcePatternFinding[] = useMemo(() => {
-    const list = result.forcePatternInference?.findings ?? [];
-    if (list.length > 0) return list.slice(0, 3);
-    // quick-260702-q8q — 신뢰도 라벨 정합 (모순 근원: confidence 0 하드코딩 →
-    // supportCount 4 인데 '신뢰도 낮음' 표기). 이 fallback finding 은 신호 추정이
-    // 아니라 vision 측정 + 판정 일치(rootCauseHypotheses.supportCount)가 뒷받침하는
-    // 결함이므로 supportCount 가 신뢰도의 정직한 소스 (fabricate 아님 — 저장된
-    // 판정 일치 횟수의 표시 변환). 3+ → 0.9(높음) / 2 → 0.6(보통) / 1 이하·부재 →
-    // 현행 0 유지. confidenceLabel 함수 자체는 무변경 (Phase 9 findings 회귀 0).
-    const hyps =
-      result.visionVeto?.status === 'applied'
-        ? (result.visionVeto.rootCauseHypotheses ?? [])
-        : [];
-    const maxSupport = hyps.reduce(
-      (m, h) =>
-        Math.max(m, typeof h.supportCount === 'number' ? h.supportCount : 0),
-      0,
-    );
-    const vetoConfidence = maxSupport >= 3 ? 0.9 : maxSupport === 2 ? 0.6 : 0;
-    // A1 (belle 2026-06-21 device) — veto 적용(종합 75)인데 "힘 흐름 이슈 안 보임"
-    // 은 "문제 없다" 로 오인되어 점수와 모순. veto 결함을 실패 원인으로 노출한다.
-    const fallback: ForcePatternFinding = {
-      pattern: 'unknown',
-      phase: 'hold',
-      sourceSignal: 'high_jitter',
-      reason: '',
-      interpretation:
-        vetoApplied && vetoPrimaryFault
-          ? `AI 영상 분석이 점수를 낮춘 핵심 원인이에요 — ${vetoPrimaryFault}. 위 '문제 부위 확대 비교'에서 직접 확인하고, 강사와 함께 점검해 보세요.`
-          : _FALLBACK_BODY,
-      confidence: vetoApplied ? vetoConfidence : 0,
-      jointHint: null,
-      warnings: [],
-    };
-    return [fallback];
-  }, [result.forcePatternInference, result.visionVeto, vetoApplied, vetoPrimaryFault]);
-
-  // quick-260702-q8q — 실패 원인 상세 시트 실측 근거 조립. veto fallback finding
-  // 전용: Phase 9 실 finding 이 있으면(리스트 비어있지 않음) 시트는 기존 템플릿
-  // 그대로 (무회귀). 소스는 전부 저장된 값 — visionVeto(rootCauseHypotheses 첫 항목
-  // supportCount + windowMedianAngleDeltas.deltas) + deductionBreakdown.records
-  // (dimension_overall_fallback 제외 첫 record 실측 한 줄). 재계산/추정 0.
-  const measuredEvidence = useMemo<MeasuredEvidence | undefined>(() => {
-    if (cmp.mode !== 'mode1') return undefined;
-    if (result.visionVeto?.status !== 'applied') return undefined;
-    if ((result.forcePatternInference?.findings ?? []).length > 0)
-      return undefined;
-    const veto = result.visionVeto;
-    const hyps = veto.rootCauseHypotheses ?? [];
-    const deltas = veto.windowMedianAngleDeltas?.deltas ?? [];
-    const records = (result.deductionBreakdown?.records ?? []).filter(
-      (r) => r.criterion !== 'dimension_overall_fallback',
-    );
-    // 근거 데이터가 하나도 없으면 기존 템플릿 유지 (fabricate 금지).
-    if (hyps.length === 0 && deltas.length === 0 && records.length === 0)
-      return undefined;
-
-    const round1 = (n: number) => Math.round(n * 10) / 10;
-    const zoomCards = result.faultZoomComparisons ?? [];
-    const jointDeltas = deltas
-      .filter(
-        (d) =>
-          Number.isFinite(d.student_deg) &&
-          Number.isFinite(d.reference_deg) &&
-          Number.isFinite(d.delta_deg),
-      )
-      .map((d) => {
-        const kp = KEYPOINT_FROM_ANGLE_KEY[d.joint];
-        // 임계 20° 선례 재사용 (KEYPOINT_DELTA_HIGHLIGHT_DEG — dimensions.py
-        // _LINE_TOL_DEG / IPSF 허용오차 정합, 260620-18r). quick-260704-fz4:
-        // boolean overTolerance → 2단 tier (confirmed=감점 근거 빨강 /
-        // advisory=측정 초과·감점 아님 주황 / normal=무강조). Task 2 의
-        // confirmedKeypoints 단일 소스 재사용 — 표·마커·카드 동일 규칙.
-        const over = Math.abs(d.delta_deg) > KEYPOINT_DELTA_HIGHLIGHT_DEG;
-        const tier: 'confirmed' | 'advisory' | 'normal' =
-          kp && confirmedKeypoints.has(kp)
-            ? 'confirmed'
-            : over
-              ? 'advisory'
-              : 'normal';
-        // 행 탭 → 부위 확대 카드 매칭 (joint 일치 또는 region 멤버 포함). 첫
-        // 매치 사용. label 은 FaultZoomCompare caption 관례 재사용 (region 우선).
-        const card = kp
-          ? zoomCards.find(
-              (c) =>
-                c.joint === kp ||
-                (c.region != null &&
-                  REGION_MEMBER_KEYPOINTS[c.region].includes(kp)),
-            )
-          : undefined;
-        const zoomCard = card
-          ? {
-              imageUrl: card.imageUrl,
-              tier: (card.tier ?? 'confirmed') as 'confirmed' | 'advisory',
-              label:
-                (card.region && REGION_LABEL_KO[card.region]) ||
-                JOINT_LABEL_KO[card.joint] ||
-                '문제 부위',
-            }
-          : undefined;
-        return {
-          jointLabel: JOINT_LABEL_KO[d.joint] ?? d.joint,
-          // 각도 의미 한 단어 (quick-260704-fz4 — "168.9° 가 무슨 각인지" 해소).
-          meaningLabel: ANGLE_MEANING_KO[d.joint] ?? '',
-          studentDeg: round1(d.student_deg),
-          referenceDeg: round1(d.reference_deg),
-          deltaDeg: round1(d.delta_deg),
-          tier,
-          zoomCard,
-        };
-      });
-
-    let measurementText = `내 영상과 정은지 선수 기준 영상을 프레임 단위로 비교해 관절 각도 편차를 측정하고, 허용오차(${KEYPOINT_DELTA_HIGHLIGHT_DEG}°)를 초과한 만큼 명시된 규칙으로 감점했어요.`;
-    const firstRecord = records[0];
-    if (firstRecord) {
-      const row = formatDeductionRecord(firstRecord);
-      measurementText += ` 측정 결과: ${row.label} — ${row.detailText} → ${formatDeductionNumber(Math.abs(firstRecord.points))}점 감점.`;
-    }
-    const supportCount =
-      typeof hyps[0]?.supportCount === 'number' ? hyps[0].supportCount : null;
-    return { measurementText, supportCount, jointDeltas };
-  }, [
-    cmp.mode,
-    result.visionVeto,
-    result.forcePatternInference,
-    result.deductionBreakdown,
-    result.faultZoomComparisons,
-    confirmedKeypoints,
-  ]);
+  // quick-260705-o0s — Phase 9 힘-패턴 원인 카드 섹션 삭제 (belle 실기기 캡처
+  // 확인: 코칭 팁 '먼저 교정할 점'과 중복). ForcePatternCard/
+  // ForcePatternDetailModal + fallback finding/measuredEvidence 조립 연쇄 제거.
+  // 시트 고유 정보 흡수처: 측정 방법 문구 → 채점 기준 1줄 + 내역 detailText /
+  // 가능한 원인 → '먼저 교정할 점' vetoRootCauses / 관절별 현재→기준 각도 →
+  // 코칭 팁 angleGuide. openQuestionsForCoach 는 forcePatternInference.
+  // coachCommentHook 을 계속 소비 (다른 데이터 경로 — 유지).
 
   // Phase 11 (Plan 11-02, COACH-01 / D-06 / HIGH-2) — "강사에게 확인할 점" 섹션.
   // 두 리포트(forcePatternInference + bodyComparisonReport)의 coachCommentHook.
@@ -1095,6 +1016,7 @@ export default function AnalysisResult() {
               mode={cmp.mode === 'mode1' ? 'mode1' : 'mode3'}
               athleteName={cmp.mode === 'mode1' ? cmp.athleteName : null}
               correctionPoint={correctionPoint}
+              cleanPass={cleanPass}
               selfDelta={
                 cmp.mode === 'mode3' &&
                 !cmp.isFirst &&
@@ -1124,6 +1046,58 @@ export default function AnalysisResult() {
             (섹션 OMIT, 안심 카피 금지). flagType 4종 카피맵 보유 → 10-03/10-04
             플래그 자동 렌더. result.safetyFlags 부재/구버전 doc → graceful no-render. */}
         <InjuryRiskSection flags={result.safetyFlags} />
+
+        {/* ── quick-260705-o0s: 감점 0 성공 축하 섹션 (belle 추가 피드백 #2) ──
+            100점 정타(records 빈 배열)면 축하가 주인공 — 시나리오 문서의
+            '+α 성공 순간 축하' 최소 구현. refCard/vetoLeadCard 스타일 패턴 차용
+            (brandTint, 토큰만). isCleanPass 단일 신호 — mode3/legacy 는 false. */}
+        {cleanPass && (
+          <View style={[styles.card, styles.cleanPassCard]}>
+            <Text style={styles.cleanPassTitle}>감점 항목이 없어요</Text>
+            <Text style={styles.cleanPassBody}>
+              측정 기준을 모두 통과했어요. 이 자세를 그대로 유지하세요.
+            </Text>
+          </View>
+        )}
+
+        {/* ── quick-260705-o0s: 점수 계산 내역 — 종합 점수 직후로 승격 ─────
+            47점의 공식 설명(감점 내역)이 첫 화면 주인공 (belle 3차 피드백 승인
+            순서 ②). cleanPass 여도 렌더 유지 — "측정 감점 없음" 행이 100점의
+            공식 근거 (투명성 원칙). 렌더 가드는 기존 showBreakdownSection 그대로
+            (mode1 + breakdown 보유 doc 전용, legacy/mode3 숨김). 번호/기준문구는
+            buildDeductionMarkers/composeScoringBasisKo 단일 소스.
+            점수 원칙: [[scoring-must-be-transparent-deduction-tally]]. */}
+        {showBreakdownSection && result.deductionBreakdown != null && (
+          <>
+            <Text style={styles.sectionTitle}>점수 계산 내역</Text>
+            <ScoreBreakdownSection
+              breakdown={result.deductionBreakdown}
+              recordNumbers={markers.recordNumbers}
+              basisLine={breakdownBasisLine}
+            />
+          </>
+        )}
+
+        {/* ── 콤보 부분 점수 (mode1 콤보 모션 분석 시에만) — 점수 상세 계열이라
+            내역 직후 배치 (quick-260705-o0s 재배치 재량 판단). ─────────── */}
+        {cmp.mode === 'mode1' && cmp.segmentScores && (
+          <>
+            <Text style={styles.sectionTitle}>구간별 점수</Text>
+            <View style={styles.card}>
+              <SegmentRow
+                label={`${cmp.segmentScores.baseMotionName} 베이스`}
+                score={cmp.segmentScores.base}
+              />
+              <SegmentRow
+                label="콤보 확장 구간"
+                score={cmp.segmentScores.extension}
+              />
+              <Text style={styles.segmentHintText}>
+                {segmentHint(cmp.segmentScores)}
+              </Text>
+            </View>
+          </>
+        )}
 
         {/* ── 영역 2: 영상 + 키포인트 오버레이 (D-12-A1 #2 / D-12-C1 mode 분기) ─
             mode1 = 사용자 + 정은지 split (둘 다 오버레이 박제).
@@ -1171,7 +1145,11 @@ export default function AnalysisResult() {
                   attentionKeypoints={attentionKeypoints}
                   // quick-260705-k8y — 행동 지시 라벨 (절대각 대체). 항목 없는
                   // 관절은 마커만 (Mode3 데이터 부재 안전 폴백).
+                  // quick-260705-o0s: 각도 숫자 없는 짧은 행동구 + dedupe.
                   actionLabels={actionLabels}
+                  // quick-260705-o0s — 감점 record 관절 번호 점 ('점수 계산 내역'
+                  // 행 번호와 buildDeductionMarkers 단일 소스 — 항상 일치).
+                  markerNumbers={markers.keypointNumbers}
                   // Phase 20 (UI ②) — faultJoints 가 없을 때(매핑 0/legacy)만 폴백:
                   // 임계(20°) 넘는 관절이 없으면 편차 최대 2개 강제 강조 (마커 0개 모순 제거).
                   // 정타 영상은 0 → 오탐 0.
@@ -1210,145 +1188,14 @@ export default function AnalysisResult() {
             부위만 worst-pose 시점에서 [내 영상 | 기준] crop+zoom + 부족 각도 표기
             (backend 렌더, result.faultZoomComparisons). 여러 개면 carousel.
             데이터 없으면(Mode3/결함 없음/legacy) 미렌더. 진짜 3D 회전은 Phase 24
-            (자체학습)에서 [[fault-zoom-compare-and-phase24-true3d]]. */}
-        <FaultZoomCompare
-          comparisons={result.faultZoomComparisons}
-          rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
-        />
-
-        {/* ── 영역 3: Phase 9 실패 원인 카드 Top-3 (D-12-B1 박제) ───────────
-            findings.length=0 → fallback big × 1.
-            findings.length=1 → big × 1 (작은 카드 slot 비움).
-            findings.length=2 → big × 1 + small × 1 (왼쪽).
-            findings.length=3 → big × 1 + small × 2.
-            interpretation 본문 = backend canned KO (force_pattern_copy.py).
-            Phase 11 통합 시 동일 필드 LLM 풍부화 자동 교체 (D-12-B2). */}
-        <Text style={styles.sectionTitle}>실패 원인 후보</Text>
-        <ForcePatternCard
-          finding={forcePatternFindings[0]}
-          rank={0}
-          variant="big"
-          onTap={() => setDetailFinding(forcePatternFindings[0])}
-        />
-        {forcePatternFindings.length >= 2 && (
-          <View style={styles.findingSmallRow}>
-            <ForcePatternCard
-              finding={forcePatternFindings[1]}
-              rank={1}
-              variant="small"
-              onTap={() => setDetailFinding(forcePatternFindings[1])}
-            />
-            {forcePatternFindings.length >= 3 ? (
-              <ForcePatternCard
-                finding={forcePatternFindings[2]}
-                rank={2}
-                variant="small"
-                onTap={() => setDetailFinding(forcePatternFindings[2])}
-              />
-            ) : (
-              <View style={styles.findingSmallSpacer} />
-            )}
-          </View>
-        )}
-
-        {/* ── 영역 4: 콤보 부분 점수 (mode1 콤보 모션 분석 시에만) ───────── */}
-        {cmp.mode === 'mode1' && cmp.segmentScores && (
-          <>
-            <Text style={styles.sectionTitle}>구간별 점수</Text>
-            <View style={styles.card}>
-              <SegmentRow
-                label={`${cmp.segmentScores.baseMotionName} 베이스`}
-                score={cmp.segmentScores.base}
-              />
-              <SegmentRow
-                label="콤보 확장 구간"
-                score={cmp.segmentScores.extension}
-              />
-              <Text style={styles.segmentHintText}>
-                {segmentHint(cmp.segmentScores)}
-              </Text>
-            </View>
-          </>
-        )}
-
-        {/* ── 영역 5: 차원 점수 (Phase 12.5 + Wave 2 ⚠ amber occlusion badge) ─
-            영상 reliability=='low' frame 비율 ≥ 20% → 카드 상단 우측 ⚠ amber
-            badge 노출 (D-12-D2). 카드 tap 시 DimensionDetailModal 안 occlusion
-            한 줄 동행. */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>세부 점수</Text>
-          {showOcclusionBadge && (
-            <View style={styles.occlusionBadge}>
-              <Ionicons name="warning" size={12} color={colors.warnAmber} />
-              <Text style={styles.occlusionBadgeText}>
-                {`가림 ${occlusionPercent}%`}
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.card}>
-          {dims.map((dim) => (
-            <DimensionScoreRow
-              key={dim}
-              dim={dim}
-              score={dimensionScores[dim] as number}
-              delta={deltaFor(dim)}
-              explanation={dimensionExplanation?.[dim]}
-              onDetailPress={(d) => setDetailDim(d)}
-              // Phase 20 (UI ①)/#2 + Phase 24 — 비전 채점 적용 시 '각도' 측정값이 높아(예: 100)
-              // "완벽" 으로 오인되는 문제. 측정값이 종합(감점 합산 final)보다 높을 때만 reframe:
-              // 숫자를 '측정값' 톤으로 낮추고 강조 콜아웃으로 "각도로 안 드러나는 결함을
-              // 발견해 종합을 낮췄다" 를 명시. 각도가 이미 종합 이하면 오인 없음 → 평범 표기.
-              // Phase 24: 권위 점수원 = §10 deductionBreakdown.final(밴드 제거). 폴백 =
-              // visionVeto.tallyFinal(applied audit mirror) → overallScore.
-              reframeVeto={
-                vetoApplied &&
-                dim === 'angle' &&
-                (dimensionScores[dim] as number) >
-                  (result.deductionBreakdown?.final ??
-                    (result.visionVeto?.status === 'applied'
-                      ? result.visionVeto.tallyFinal
-                      : result.overallScore ?? 0))
-              }
-              contextNote={
-                vetoApplied &&
-                dim === 'angle' &&
-                (dimensionScores[dim] as number) >
-                  (result.deductionBreakdown?.final ??
-                    (result.visionVeto?.status === 'applied'
-                      ? result.visionVeto.tallyFinal
-                      : result.overallScore ?? 0))
-                  ? // quick-260702-q8q 문구 사실 점검: "각도로 안 드러나는 자세 결함"
-                    // 은 vision-측정 split 케이스에 사실 정합(각도 차원은 DTW 유사도,
-                    // 감점은 vision 측정 — 거짓 아님) → 유지. 새 섹션 존재 시 감점
-                    // 근거로 연결하는 꼬리 문장 추가.
-                    `각도 측정은 기준에 가깝지만, AI 영상 분석이 각도로 안 드러나는 자세 결함을 발견해 종합 점수를 낮췄어요.${
-                      showBreakdownSection
-                        ? " 아래 '점수 계산 내역'에서 감점 근거를 확인할 수 있어요."
-                        : ''
-                    }`
-                  : undefined
-              }
-            />
-          ))}
-        </View>
-        {/* #4 표시 정합 — 안정성은 보조 지표(종합 입력 제외, 표시 유지). 근거 Phase 19 D-01 / dimensions.py 헤더 */}
-        {dims.includes('stability') && (
-          <Text style={styles.auxCaption}>
-            동작 안정성은 자세 참고용 보조 지표예요. 종합 점수에는 직접 합산되지 않아요.
-          </Text>
-        )}
-
-        {/* ── quick-260702-q8q: 점수 계산 내역 (투명 감점-합산 tally 노출) ────
-            belle 모순 인지("각도 100 인데 종합 88")가 세부 점수 직후 발생 — 그
-            자리에서 100 − 감점 − … = final 내역으로 해소. mode1 + breakdown 보유
-            doc 전용 (legacy/mode3 숨김, isScoreSuppressed 는 mode3 전용이라 자연
-            배타). 점수 원칙: [[scoring-must-be-transparent-deduction-tally]]. */}
-        {showBreakdownSection && result.deductionBreakdown != null && (
-          <>
-            <Text style={styles.sectionTitle}>점수 계산 내역</Text>
-            <ScoreBreakdownSection breakdown={result.deductionBreakdown} />
-          </>
+            (자체학습)에서 [[fault-zoom-compare-and-phase24-true3d]].
+            quick-260705-o0s — 감점 0(cleanPass)이면 advisory(참고) 카드 포함 전체
+            숨김: 100점에 2° 노이즈 확대 카드 노출 모순 해소 (belle 추가 피드백 #2). */}
+        {!cleanPass && (
+          <FaultZoomCompare
+            comparisons={result.faultZoomComparisons}
+            rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
+          />
         )}
 
         {/* ── 영역 6: 각도 가이드 (코칭 팁) — Phase 12.5 + Wave 2 추정 표기 ─
@@ -1359,8 +1206,11 @@ export default function AnalysisResult() {
             backend tip 이 "거의 동일/일치도 100" 으로 시작하면 75 헤드라인과 모순
             (belle 디바이스 finding). 거부권 결함을 맨 앞 카드로 노출해 "무엇을
             교정할지" 를 코칭 흐름의 머리로 둔다. primaryFault 있을 때만 (graceful).
-            토큰만 (하드코딩 금지). */}
-        {vetoApplied && vetoPrimaryFault ? (
+            토큰만 (하드코딩 금지).
+            quick-260705-o0s — cleanPass 방어 게이트: 감점 0 이면 veto applied 일 수
+            없지만(감점 record 가 tally 실체) '먼저 교정할 점'은 문제-계열 섹션이라
+            명시적으로 숨긴다 (isCleanPass 단일 신호). */}
+        {!cleanPass && vetoApplied && vetoPrimaryFault ? (
           <View style={[styles.card, styles.tipCard, styles.vetoLeadCard]}>
             <View style={styles.tipHead}>
               <Ionicons name="alert-circle" size={20} color={colors.brand} />
@@ -1542,6 +1392,80 @@ export default function AnalysisResult() {
           </>
         )}
 
+        {/* ── quick-260705-o0s: 참고 지표 (구 '세부 점수', 맨 아래 강등) ──────
+            belle 3차 피드백 승인 순서 ⑦ — 각도 유사도(DTW)/안정성은 참고 지표이지
+            종합 점수 근거가 아님 (종합 = 감점 tally, Phase 24). angle/stability
+            라벨에만 ' (참고)' 접미 — 결과 화면 렌더 접미라 DIMENSION_LABEL_KO
+            원본/타 화면 무접촉. occlusion badge/자세히 모달/reframe 콜아웃 유지. */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>참고 지표</Text>
+          {showOcclusionBadge && (
+            <View style={styles.occlusionBadge}>
+              <Ionicons name="warning" size={12} color={colors.warnAmber} />
+              <Text style={styles.occlusionBadgeText}>
+                {`가림 ${occlusionPercent}%`}
+              </Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.card}>
+          {dims.map((dim) => (
+            <DimensionScoreRow
+              key={dim}
+              dim={dim}
+              score={dimensionScores[dim] as number}
+              delta={deltaFor(dim)}
+              explanation={dimensionExplanation?.[dim]}
+              onDetailPress={(d) => setDetailDim(d)}
+              // quick-260705-o0s — 각도 유사도/안정성에 ' (참고)' 접미 (결과 화면
+              // 전용 렌더 접미 — DIMENSION_LABEL_KO 소비하는 다른 화면 오염 0).
+              labelSuffix={
+                dim === 'angle' || dim === 'stability' ? ' (참고)' : undefined
+              }
+              // Phase 20 (UI ①)/#2 + Phase 24 — 비전 채점 적용 시 '각도' 측정값이 높아(예: 100)
+              // "완벽" 으로 오인되는 문제. 측정값이 종합(감점 합산 final)보다 높을 때만 reframe:
+              // 숫자를 '측정값' 톤으로 낮추고 강조 콜아웃으로 "각도로 안 드러나는 결함을
+              // 발견해 종합을 낮췄다" 를 명시. 각도가 이미 종합 이하면 오인 없음 → 평범 표기.
+              // Phase 24: 권위 점수원 = §10 deductionBreakdown.final(밴드 제거). 폴백 =
+              // visionVeto.tallyFinal(applied audit mirror) → overallScore.
+              reframeVeto={
+                vetoApplied &&
+                dim === 'angle' &&
+                (dimensionScores[dim] as number) >
+                  (result.deductionBreakdown?.final ??
+                    (result.visionVeto?.status === 'applied'
+                      ? result.visionVeto.tallyFinal
+                      : result.overallScore ?? 0))
+              }
+              contextNote={
+                vetoApplied &&
+                dim === 'angle' &&
+                (dimensionScores[dim] as number) >
+                  (result.deductionBreakdown?.final ??
+                    (result.visionVeto?.status === 'applied'
+                      ? result.visionVeto.tallyFinal
+                      : result.overallScore ?? 0))
+                  ? // quick-260702-q8q 문구 사실 점검: "각도로 안 드러나는 자세 결함"
+                    // 은 vision-측정 split 케이스에 사실 정합(각도 차원은 DTW 유사도,
+                    // 감점은 vision 측정 — 거짓 아님) → 유지. quick-260705-o0s 재배치로
+                    // 점수 계산 내역이 이 섹션보다 위 → 꼬리 문장 "아래"→"위" 수정.
+                    `각도 측정은 기준에 가깝지만, AI 영상 분석이 각도로 안 드러나는 자세 결함을 발견해 종합 점수를 낮췄어요.${
+                      showBreakdownSection
+                        ? " 위 '점수 계산 내역'에서 감점 근거를 확인할 수 있어요."
+                        : ''
+                    }`
+                  : undefined
+              }
+            />
+          ))}
+        </View>
+        {/* #4 표시 정합 — 안정성은 보조 지표(종합 입력 제외, 표시 유지). 근거 Phase 19 D-01 / dimensions.py 헤더 */}
+        {dims.includes('stability') && (
+          <Text style={styles.auxCaption}>
+            안정성은 자세 참고용 보조 지표예요. 종합 점수에는 직접 합산되지 않아요.
+          </Text>
+        )}
+
         <Pressable
           style={styles.cta}
           onPress={() => router.replace('/(tabs)')}
@@ -1578,21 +1502,6 @@ export default function AnalysisResult() {
         visible={detailTip != null}
         tip={detailTip}
         onClose={() => setDetailTip(null)}
-      />
-      {/* Phase 12 Wave 1 (Plan 12-02 T4): Phase 9 finding 자세히 모달.
-          ForcePatternCard tap → setDetailFinding(finding). null 시 닫힘. */}
-      <ForcePatternDetailModal
-        visible={detailFinding != null}
-        finding={detailFinding}
-        rank={
-          detailFinding != null
-            ? forcePatternFindings.findIndex((f) => f === detailFinding)
-            : undefined
-        }
-        // quick-260702-q8q — 실측 근거 (veto fallback finding 일 때만 정의됨.
-        // Phase 9 일반 finding 탭은 undefined → 기존 템플릿, 무회귀).
-        measuredEvidence={measuredEvidence}
-        onClose={() => setDetailFinding(null)}
       />
       {/* Phase 13 (Plan 13-A): "다른 운동 보기" 전체 보완 운동 라이브러리 모달. */}
       <RecommendedExerciseModal
@@ -1874,13 +1783,20 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: colors.brand,
   },
-  // Phase 12 Wave 1 (Plan 12-02 T4) — Phase 9 finding 작은 카드 row.
-  // 두 개 가로 정렬 (gap 8). 단일 small 카드인 경우 오른쪽 spacer 로 균형.
-  findingSmallRow: {
-    flexDirection: 'row',
-    gap: 8,
+  // quick-260705-o0s — 감점 0 성공 축하 카드 (refCard/vetoLeadCard 패턴 차용,
+  // brandTint 배경 + brand 테두리, 토큰만). 이모지 0.
+  cleanPassCard: {
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: colors.brandTint,
+    borderColor: colors.brand,
   },
-  findingSmallSpacer: { flex: 1 },
+  cleanPassTitle: { ...typography.listTitle, color: colors.brand },
+  cleanPassBody: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
   tipCard: { alignItems: 'flex-start', gap: 8 },
   // Phase 11 (Plan 11-02, D-06 / D-07) — "강사에게 확인할 점" 섹션.
   // 섹션 헤더 sub = 강사 보조 도구 톤 (D-07). 카드 = 질문 리스트.

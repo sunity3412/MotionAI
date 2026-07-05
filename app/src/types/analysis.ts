@@ -215,7 +215,7 @@ export interface CoachingCause {
   fix: string; // 이 case 인 경우 연습 방법 (1~2문장)
 }
 
-// Phase 13 (Plan 13-A, PERS-03): 보완 운동 1건. 분석 결과(실패 원인 후보 +
+// Phase 13 (Plan 13-A, PERS-03): 보완 운동 1건. 분석 결과(힘 패턴 findings +
 // 통증부위)에 맞춰 backend exercise_map.map_exercises 가 산출 → Firestore
 // result.recommendedExercises (3~5 subset). plain camelCase scalar — nested 금지
 // (firestore-nested-array-flat / _validate_recommended_exercises scoped validator).
@@ -1035,7 +1035,8 @@ export interface ContactStabilityMetric {
 /**
  * Phase 8 산출 umbrella — AnalysisResult.forceSignalsReport 로 저장.
  *
- * Phase 9 의 inferForceDirectionPattern + 실패 원인 후보 카드 의 입력 신호.
+ * Phase 9 의 inferForceDirectionPattern 의 입력 신호 (원인 카드 UI 는
+ * quick-260705-o0s 에서 코칭 팁 흡수로 삭제 — coachCommentHook 소비는 유지).
  * Plan 08-00 §9.0 contract 위에 박제 (CoordinateSpace / ContactPrimitiveKind /
  * PoleAxisMeasurement / median_torso_length).
  *

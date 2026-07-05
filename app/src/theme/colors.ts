@@ -36,7 +36,8 @@ export const colors = {
 
   // ── Phase 12 신설 토큰 (UI-SPEC §1) ──────────────────────────────────
   // 기존 brand #FF4B33 는 변경 0 (CLAUDE.md §4 / D-12-U5). 신규 키만 추가.
-  // Phase 9 카드 / KeypointOverlay / ForcePatternCard / 영상 카드 전용.
+  // Phase 9 카드 / KeypointOverlay / 영상 카드 전용 (ForcePatternCard 는
+  // quick-260705-o0s 에서 삭제 — 토큰은 다른 소비처가 계속 사용).
   brandSoft: '#FFD9D2', // Phase 9 작은 카드 chip 배경
   brandBg: '#FFE5E0', // 옥타곤 outer ring 톤
   softBg: '#F5F5F5', // jointHint chip 배경

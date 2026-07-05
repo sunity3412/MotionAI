@@ -25,9 +25,9 @@ export function circledNumberKo(n: number): string {
   return n >= 1 && n <= 9 ? CIRCLED_DIGITS_KO[n - 1] : `(${n})`;
 }
 
-// 관절 한국어 라벨 — keypoint 이름(left_hand 등, FaultZoomCompare 표기)과 kismam
+// 관절 한국어 라벨 — keypoint 이름(left_hand 등, 확대 비교 자산 표기)과 kismam
 // angle key(left_elbow 등, angle_vs_reference__{jk}/windowMedianAngleDeltas.joint)
-// 양쪽 키 공간을 한 맵으로 커버 (중복 2벌 금지 — FaultZoomCompare 가 import).
+// 양쪽 키 공간을 한 맵으로 커버 (중복 2벌 금지 — 드릴다운 시트가 import).
 export const JOINT_LABEL_KO: Record<string, string> = {
   left_shoulder: '왼쪽 어깨',
   right_shoulder: '오른쪽 어깨',
@@ -42,7 +42,7 @@ export const JOINT_LABEL_KO: Record<string, string> = {
 };
 
 // 결함단위(region) 카드 한국어 라벨 (quick-260702-sic) — 좌+우 관절 묶음 카드
-// (FaultZoomComparison.region, 스플릿 → 'legs'). FaultZoomCompare 가 import —
+// (FaultZoomComparison.region, 스플릿 → 'legs'). 드릴다운 시트/result 가 import —
 // JOINT_LABEL_KO 와 같은 단일 출처 파일 (중복 2벌 금지).
 export const REGION_LABEL_KO: Record<string, string> = {
   legs: '양다리',

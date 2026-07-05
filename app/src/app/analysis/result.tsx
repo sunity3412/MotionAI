@@ -21,15 +21,17 @@ import {
   KEYPOINT_DELTA_HIGHLIGHT_DEG,
 } from '../../components/KeypointOverlay';
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
-import { FaultZoomCompare } from '../../components/FaultZoomCompare';
+import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
 import {
   ANGLE_VS_REFERENCE_PREFIX,
   KEYPOINT_FROM_ANGLE_KEY,
+  REGION_MEMBER_KEYPOINTS,
   buildDeductionMarkers,
   buildDeductionTicks,
+  composeDimensionDiagnosisKo,
   composeScoringBasisKo,
   composeShortActionLabelKo,
   criterionLabelKo,
@@ -56,6 +58,7 @@ import type {
   CoachingTip,
   DeductionRecord,
   DimensionExplanation,
+  FaultZoomComparison,
   JointDirection,
   JointScore,
   KeypointName,
@@ -467,6 +470,43 @@ function DimensionScoreRow({
   );
 }
 
+// quick-260705-r6v — 참고 지표 진단 문장 미니 라벨 (결과 화면 전용, DIMENSION_LABEL_KO
+// 원본 무접촉). belle 예시 "동작 흐름 / 안정성".
+const DIAGNOSIS_LABEL_KO: Record<'angle' | 'stability', string> = {
+  angle: '동작 흐름',
+  stability: '안정성',
+};
+
+// quick-260705-r6v — 참고 지표 진단 문장 행 (숫자 카드 대체, mode1 한정).
+// "각도 유사도 99 인데 47점" 모순 카피 해소 — 숫자 대신 감점 유무 × 지표값 구간
+// 조건부 문장. 숫자는 '자세히' 모달로 이동. 토큰만 (하드코딩 금지).
+function DimensionDiagnosisRow({
+  dim,
+  sentence,
+  onDetailPress,
+}: {
+  dim: 'angle' | 'stability';
+  sentence: string;
+  onDetailPress: (dim: ScoreDimension) => void;
+}) {
+  return (
+    <View style={styles.partRow}>
+      <View style={styles.diagHead}>
+        <Text style={styles.partLabel}>{DIAGNOSIS_LABEL_KO[dim]}</Text>
+        <Pressable
+          onPress={() => onDetailPress(dim)}
+          accessibilityRole="button"
+          accessibilityLabel={`${DIAGNOSIS_LABEL_KO[dim]} 자세히 보기`}
+          hitSlop={8}
+        >
+          <Text style={styles.dimMore}>자세히 ›</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.diagSentence}>{sentence}</Text>
+    </View>
+  );
+}
+
 // 콤보 부분 점수 행 (베이스/확장). PartScoreRow 와 트랙 바를 공유하되 델타 없음.
 function SegmentRow({ label, score }: { label: string; score: number }) {
   return (
@@ -842,6 +882,44 @@ export default function AnalysisResult() {
   // Phase 13 (Plan 13-A): "다른 운동 보기" 전체 라이브러리 모달 state. false = 닫힘.
   const [exerciseModalOpen, setExerciseModalOpen] = useState(false);
 
+  // quick-260705-r6v — 감점 드릴다운 시트 state (record index). null = 닫힘.
+  // 진입점 3개(내역 행/여백 범례/세로 카드 번호 점)가 이 state 하나를 연다.
+  const [detailRecordIndex, setDetailRecordIndex] = useState<number | null>(null);
+  // 번호 → recordIndex 역매핑 (번호 unique). 범례·번호 점 탭이 번호로 연다.
+  const openRecordByNumber = (markerNumber: number) => {
+    const idx = markers.recordNumbers.indexOf(markerNumber);
+    if (idx >= 0) setDetailRecordIndex(idx);
+  };
+  const selectedRecord =
+    detailRecordIndex != null
+      ? result.deductionBreakdown?.records[detailRecordIndex] ?? null
+      : null;
+  const selectedRecordNumber =
+    detailRecordIndex != null
+      ? markers.recordNumbers[detailRecordIndex] ?? null
+      : null;
+  // zoom 매칭 — 선택 record 투영 keypoint ∩ faultZoomComparisons (joint 또는
+  // REGION_MEMBER_KEYPOINTS[region]). tier='confirmed'(또는 tier 부재 legacy)만 —
+  // advisory 는 감점 시트에 오매칭 금지 (planner_findings 7). 없으면 null (사진 없이
+  // 수치·문구만 — graceful).
+  const selectedZoom = useMemo<FaultZoomComparison | null>(() => {
+    if (!selectedRecord) return null;
+    const kps = new Set(recordProjectedKeypoints(selectedRecord, vetoFaultJoints));
+    if (kps.size === 0) return null;
+    for (const z of result.faultZoomComparisons ?? []) {
+      if (z.tier === 'advisory') continue;
+      const zoomKps: KeypointName[] = z.region
+        ? [...(REGION_MEMBER_KEYPOINTS[z.region] ?? [])]
+        : [z.joint];
+      if (zoomKps.some((k) => kps.has(k))) return z;
+    }
+    return null;
+  }, [selectedRecord, vetoFaultJoints, result.faultZoomComparisons]);
+  // actionPhrase — 범례와 동일 소스 (문구 이중화 금지).
+  const selectedActionPhrase = selectedRecord
+    ? actionPhraseForRecord(selectedRecord, vetoFaultJoints, actionLabels)
+    : null;
+
   // quick-260705-o0s — Phase 9 힘-패턴 원인 카드 섹션 삭제 (belle 실기기 캡처
   // 확인: 코칭 팁 '먼저 교정할 점'과 중복). ForcePatternCard/
   // ForcePatternDetailModal + fallback finding/measuredEvidence 조립 연쇄 제거.
@@ -1161,6 +1239,8 @@ export default function AnalysisResult() {
               breakdown={result.deductionBreakdown}
               recordNumbers={markers.recordNumbers}
               basisLine={breakdownBasisLine}
+              // quick-260705-r6v — 내역 행 탭 → 드릴다운 시트 (진입점 1).
+              onRecordPress={setDetailRecordIndex}
             />
           </>
         )}
@@ -1237,6 +1317,10 @@ export default function AnalysisResult() {
                   // quick-260705-o0s — 감점 record 관절 번호 점 ('점수 계산 내역'
                   // 행 번호와 buildDeductionMarkers 단일 소스 — 항상 일치).
                   markerNumbers={markers.keypointNumbers}
+                  // quick-260705-r6v — 번호 점 탭 → 드릴다운 시트 (진입점 3).
+                  // 전체화면(opts.sizeScale 존재)에선 시트가 중첩 Modal 이 되므로
+                  // 콜백 미전달 — 전체화면 점 탭은 여백 범례가 대체(iOS 함정 회피).
+                  onMarkerPress={opts?.sizeScale ? undefined : openRecordByNumber}
                   // Phase 20 (UI ②) — faultJoints 가 없을 때(매핑 0/legacy)만 폴백:
                   // 임계(20°) 넘는 관절이 없으면 편차 최대 2개 강제 강조 (마커 0개 모순 제거).
                   // 정타 영상은 0 → 오탐 0.
@@ -1273,23 +1357,17 @@ export default function AnalysisResult() {
               fullscreenLegend={fullscreenLegend}
               timelineTicks={timelineTicks}
               tickFrameCount={userKeypointReport?.frames ?? 0}
+              // quick-260705-r6v — 여백 범례 탭 → 드릴다운 시트 (진입점 2).
+              // VideoCompare 가 closeFullscreen 선행 후 콜백(iOS 중첩 Modal 회피).
+              onLegendPress={openRecordByNumber}
             />
           </>
         )}
 
-        {/* #4 (2026-06-21) — 깨진 3D 뷰어 대체 = "문제 부위 확대 비교". 결함 관절
-            부위만 worst-pose 시점에서 [내 영상 | 기준] crop+zoom + 부족 각도 표기
-            (backend 렌더, result.faultZoomComparisons). 여러 개면 carousel.
-            데이터 없으면(Mode3/결함 없음/legacy) 미렌더. 진짜 3D 회전은 Phase 24
-            (자체학습)에서 [[fault-zoom-compare-and-phase24-true3d]].
-            quick-260705-o0s — 감점 0(cleanPass)이면 advisory(참고) 카드 포함 전체
-            숨김: 100점에 2° 노이즈 확대 카드 노출 모순 해소 (belle 추가 피드백 #2). */}
-        {!cleanPass && (
-          <FaultZoomCompare
-            comparisons={result.faultZoomComparisons}
-            rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
-          />
-        )}
+        {/* quick-260705-r6v — 메인 '문제 부위 확대 비교' 섹션 제거 (구 확대 비교
+            컴포넌트 파일 삭제). 확대사진은 내역 행/여백 범례/(세로) 번호 점 탭 →
+            DeductionDetailSheet 드릴다운으로 이동한다 (재생 중엔 점만, 설명은
+            드릴다운으로). 진짜 3D 회전은 Phase 24(자체학습). */}
 
         {/* ── 영역 6: 각도 가이드 (코칭 팁) — Phase 12.5 + Wave 2 추정 표기 ─
             joint 평균 confidence < 0.5 또는 low reliability frame 비율 ≥ 30%
@@ -1502,19 +1580,44 @@ export default function AnalysisResult() {
           )}
         </View>
         <View style={styles.card}>
-          {dims.map((dim) => (
-            <DimensionScoreRow
-              key={dim}
-              dim={dim}
-              score={dimensionScores[dim] as number}
-              delta={deltaFor(dim)}
-              explanation={dimensionExplanation?.[dim]}
-              onDetailPress={(d) => setDetailDim(d)}
-              // quick-260705-o0s — 각도 유사도/안정성에 ' (참고)' 접미 (결과 화면
-              // 전용 렌더 접미 — DIMENSION_LABEL_KO 소비하는 다른 화면 오염 0).
-              labelSuffix={
-                dim === 'angle' || dim === 'stability' ? ' (참고)' : undefined
-              }
+          {dims.map((dim) => {
+            // quick-260705-r6v — mode1 + breakdown 보유 시 angle/stability 는 숫자
+            // 카드 대신 진단 문장 행(감점 유무 × 지표값 구간 조건부). 문장 null(비유한
+            // 값)이면 행 생략. line 차원 / mode3 경로 / mode1-legacy(breakdown 부재,
+            // cleanPass 판단 불가)는 기존 숫자 행(DimensionScoreRow) 유지.
+            const useDiagnosis =
+              cmp.mode === 'mode1' &&
+              result.deductionBreakdown != null &&
+              (dim === 'angle' || dim === 'stability');
+            if (useDiagnosis) {
+              const sentence = composeDimensionDiagnosisKo(
+                dim,
+                cleanPass,
+                dimensionScores[dim] as number,
+              );
+              if (sentence == null) return null;
+              return (
+                <DimensionDiagnosisRow
+                  key={dim}
+                  dim={dim}
+                  sentence={sentence}
+                  onDetailPress={(d) => setDetailDim(d)}
+                />
+              );
+            }
+            return (
+              <DimensionScoreRow
+                key={dim}
+                dim={dim}
+                score={dimensionScores[dim] as number}
+                delta={deltaFor(dim)}
+                explanation={dimensionExplanation?.[dim]}
+                onDetailPress={(d) => setDetailDim(d)}
+                // quick-260705-o0s — 각도 유사도/안정성에 ' (참고)' 접미 (결과 화면
+                // 전용 렌더 접미 — DIMENSION_LABEL_KO 소비하는 다른 화면 오염 0).
+                labelSuffix={
+                  dim === 'angle' || dim === 'stability' ? ' (참고)' : undefined
+                }
               // Phase 20 (UI ①)/#2 + Phase 24 — 비전 채점 적용 시 '각도' 측정값이 높아(예: 100)
               // "완벽" 으로 오인되는 문제. 측정값이 종합(감점 합산 final)보다 높을 때만 reframe:
               // 숫자를 '측정값' 톤으로 낮추고 강조 콜아웃으로 "각도로 안 드러나는 결함을
@@ -1549,8 +1652,9 @@ export default function AnalysisResult() {
                     }`
                   : undefined
               }
-            />
-          ))}
+              />
+            );
+          })}
         </View>
         {/* #4 표시 정합 — 안정성은 보조 지표(종합 입력 제외, 표시 유지). 근거 Phase 19 D-01 / dimensions.py 헤더 */}
         {dims.includes('stability') && (
@@ -1600,6 +1704,17 @@ export default function AnalysisResult() {
       <RecommendedExerciseModal
         visible={exerciseModalOpen}
         onClose={() => setExerciseModalOpen(false)}
+      />
+      {/* quick-260705-r6v — 감점 드릴다운 시트. 내역 행/여백 범례/(세로) 번호 점
+          탭 → [내|정은지] 확대사진 + 수치 + 행동구. zoom 미매칭 시 수치·문구만. */}
+      <DeductionDetailSheet
+        visible={detailRecordIndex != null}
+        onClose={() => setDetailRecordIndex(null)}
+        record={selectedRecord}
+        recordNumber={selectedRecordNumber}
+        actionPhrase={selectedActionPhrase}
+        zoom={selectedZoom}
+        rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
       />
     </View>
   );
@@ -1833,6 +1948,19 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.brand,
     fontWeight: '600',
+  },
+  // quick-260705-r6v — 진단 문장 행 헤더 (라벨 + '자세히 ›').
+  diagHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  // 진단 문장 (body 톤, 숫자 카드 대체).
+  diagSentence: {
+    ...typography.body,
+    color: colors.textPrimary,
+    lineHeight: 21,
+    marginTop: 6,
   },
   // 차원별 deficit summary (측정값/진단). 수치는 highlightNumbers 로 강조.
   dimDeficit: {

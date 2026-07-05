@@ -14,29 +14,37 @@
 // 어긋나도 UI 가 숫자를 조작하지 않는다 (있는 그대로 + final 우선).
 // 토큰만 사용 (CLAUDE.md §4). 이모지 0. 라이트 전용.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatDeductionRecord, formatDeductionNumber } from '../lib/deductionLabels';
+import {
+  circledNumberKo,
+  formatDeductionRecord,
+  formatDeductionNumber,
+} from '../lib/deductionLabels';
 import { colors, layout, radius, spacing, typography } from '../theme';
 import type { DeductionBreakdown } from '../types/analysis';
 
-// 1..9 원문자 (UI 원문자 텍스트 — 이모지 아님). 초과분은 `(n)` 폴백.
-const CIRCLED_DIGITS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'] as const;
-
-function circledNumber(n: number): string {
-  return n >= 1 && n <= 9 ? CIRCLED_DIGITS[n - 1] : `(${n})`;
-}
+// quick-260705-r6v — 원문자(①②③) 는 deductionLabels.circledNumberKo 단일 소스
+// (범례/시트/내역 행이 같은 규칙 — 중복 2벌 제거).
 
 export function ScoreBreakdownSection({
   breakdown,
   recordNumbers,
   basisLine,
+  onRecordPress,
 }: {
   breakdown: DeductionBreakdown;
   /** records 인덱스 정렬 번호 (null = 번호 없음). 영상 빨간 점과 동일 소스. */
   recordNumbers?: (number | null)[];
   /** 채점 기준 1줄 (composeScoringBasisKo). null/미전달 시 생략. */
   basisLine?: string | null;
+  /**
+   * quick-260705-r6v — record 행 탭 → 드릴다운 시트 오픈 (확대사진+수치+행동구).
+   * 전달 시 record 행을 Pressable 로 감싸고 우측에 chevron 미니 표기(행 밀도 유지).
+   * 미전달 시 렌더 diff 0 (다른 소비처/legacy 무회귀).
+   */
+  onRecordPress?: (recordIndex: number) => void;
 }) {
   const gapCount = breakdown.coverageGaps?.length ?? 0;
   // 번호 매핑은 설명 없이는 발견되지 않는 규칙 — 번호가 1개 이상일 때만 각주.
@@ -64,23 +72,19 @@ export function ScoreBreakdownSection({
         breakdown.records.map((rec, i) => {
           const row = formatDeductionRecord(rec);
           const num = recordNumbers?.[i] ?? null;
-          return (
-            <View
-              key={`${rec.criterion}-${i}`}
-              style={styles.row}
-              accessibilityLabel={
-                num != null
-                  ? `${num}번 ${row.label} 감점 ${formatDeductionNumber(Math.abs(rec.points))}점`
-                  : `${row.label} 감점 ${formatDeductionNumber(Math.abs(rec.points))}점`
-              }
-            >
+          const a11y =
+            num != null
+              ? `${num}번 ${row.label} 감점 ${formatDeductionNumber(Math.abs(rec.points))}점`
+              : `${row.label} 감점 ${formatDeductionNumber(Math.abs(rec.points))}점`;
+          const inner = (
+            <>
               <View style={styles.recordLeft}>
                 <Text style={styles.recordLabel}>
                   {/* 원문자 접두 — brand 색으로 "영상의 빨간 점과 같은 번호"
                       시각 연결 (quick-260705-o0s). null 이면 접두 없음. */}
                   {num != null ? (
                     <Text style={styles.recordNumber}>
-                      {`${circledNumber(num)} `}
+                      {`${circledNumberKo(num)} `}
                     </Text>
                   ) : null}
                   {row.label}
@@ -88,6 +92,32 @@ export function ScoreBreakdownSection({
                 <Text style={styles.recordDetail}>{row.detailText}</Text>
               </View>
               <Text style={styles.recordPoints}>{row.pointsText}</Text>
+              {/* quick-260705-r6v — 탭 진입점 chevron (onRecordPress 시만). */}
+              {onRecordPress ? (
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={colors.textSecondary}
+                  style={styles.recordChevron}
+                />
+              ) : null}
+            </>
+          );
+          // onRecordPress 전달 시 Pressable 로 감싸 시트 오픈 (미전달 시 렌더 diff 0).
+          return onRecordPress ? (
+            <Pressable
+              key={`${rec.criterion}-${i}`}
+              style={styles.row}
+              onPress={() => onRecordPress(i)}
+              accessibilityRole="button"
+              accessibilityLabel={`${row.label} 감점 상세 보기`}
+              hitSlop={4}
+            >
+              {inner}
+            </Pressable>
+          ) : (
+            <View key={`${rec.criterion}-${i}`} style={styles.row} accessibilityLabel={a11y}>
+              {inner}
             </View>
           );
         })
@@ -149,6 +179,8 @@ const styles = StyleSheet.create({
   },
   baselineLabel: { ...typography.boxLabel, color: colors.textPrimary },
   baselineValue: { ...typography.boxLabel, color: colors.textPrimary },
+  // quick-260705-r6v — 탭 진입점 chevron (행 우측, 밀도 유지 미니 표기).
+  recordChevron: { alignSelf: 'center', marginLeft: 2 },
   recordLeft: { flex: 1, gap: 2 },
   recordLabel: { ...typography.boxLabel, color: colors.textPrimary },
   // 원문자 번호 접두 — 영상 빨간 점(brand)과 같은 색으로 시각 연결.

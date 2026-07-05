@@ -1775,13 +1775,18 @@ def test_hybrid_upper_scope_gets_image_handles(
         **fake_stills,
     )
     assert out["status"] == "candidate_verdict", out
-    by_scope = {c["part_scope"]: c for c in captured}
-    # upper_body 만 이미지 핸들 (ref 이미지 먼저, 학생 이미지 둘째) + media_kind='image'.
-    upper = by_scope["upper_body"]
-    assert upper["media_kind"] == "image"
-    assert upper["ref"] is image_handles[fake_stills["still_reference_png"]]
-    assert upper["student"] is image_handles[fake_stills["still_student_png"]]
+    # upper 2-call (h5z RC-03): upper 이미지 2회 + lower/line video 1회씩 = 총 4 call.
+    upper_calls = [c for c in captured if c["part_scope"] == "upper_body"]
+    assert len(upper_calls) == 2, "still 존재 시 upper scope 는 2-call"
+    assert len(captured) == 4
+    # upper_body 는 이미지 핸들 (ref 이미지 먼저, 학생 이미지 둘째) + media_kind='image'
+    # — 두 call 모두 동일 핸들 재사용(업로드 증가 0).
+    for upper in upper_calls:
+        assert upper["media_kind"] == "image"
+        assert upper["ref"] is image_handles[fake_stills["still_reference_png"]]
+        assert upper["student"] is image_handles[fake_stills["still_student_png"]]
     # lower_body/line 은 full-video 핸들 + 기본 media_kind.
+    by_scope = {c["part_scope"]: c for c in captured}
     for scope in ("lower_body", "line"):
         call = by_scope[scope]
         assert call["media_kind"] == "video"
@@ -1790,6 +1795,8 @@ def test_hybrid_upper_scope_gets_image_handles(
     tel = out["telemetry"]
     assert tel["upperGranularity"] == "still_frame"
     assert tel["uploadCount"] == 4
+    assert tel["plannedCalls"] == 4
+    assert tel["samplingComplete"] is True
 
 
 def test_hybrid_no_still_kwargs_is_video_only(
@@ -1870,7 +1877,7 @@ def test_hybrid_cold_warm_determinism_and_key_space(
     cold_calls = len(captured)
     assert cold["status"] == "candidate_verdict"
     assert cold["telemetry"]["cacheHit"] is False
-    assert cold_calls == 3
+    assert cold_calls == 4  # upper 2-call (h5z) + lower/line 1회씩
 
     # 주의: 동일 kwargs(고정 경로·고정 인덱스) 재호출 — 결정론 전제와 정합.
     warm = gvs.assess_fault_context_video(fake_video, fake_reference_video, **kwargs)
@@ -1960,5 +1967,127 @@ def test_hybrid_image_upload_failure_falls_back_and_rekeys(
     # PNG 소유권 = 호출자 — scorer 는 제공 경로를 unlink 하지 않는다(D-10 HIGH-2).
     assert Path(fake_stills["still_student_png"]).exists()
     assert Path(fake_stills["still_reference_png"]).exists()
+
+
+# ─────────────── quick 260705-h5z — upper scope 2-call fanout (RC-03) ───────────────
+#
+# upper 1-call 에선 각도쌍 없는 비-각도 관측(그립/어깨)이 distinct-call K=2 미달로
+# support 게이트에서 drop → pointed set 진입 불가였다. still 존재 시 동일 이미지 핸들
+# 재사용 2-call 로 K=2 충족 가능하게 한다 — support 규칙 자체는 무변경(입력 변경).
+
+
+def test_fanout_upper_two_calls_when_still_handles(monkeypatch):
+    """upper_still_handles 존재 → upper 이미지 2회 + lower/line video 1회씩 =
+    planned 4, samplingComplete True, uploadCount=4 (업로드 증가 0 — 핸들 재사용)."""
+    seq: list[tuple] = []
+
+    def _spy(client, ref, student, at_seconds, part_scope=None, media_kind="video"):
+        seq.append((part_scope, media_kind))
+        return (
+            '{"motion":"x","dominant_severity":"moderate","primary_fault":"어깨",'
+            '"differences":[]}'
+        )
+
+    monkeypatch.setattr(gvs, "_call_gemini_comparison", _spy)
+    out = gvs._run_part_frame_fanout(
+        _ImageClient(), MagicMock(), MagicMock(),
+        part_scopes=["upper_body", "lower_body", "line"], at_seconds=None,
+        clock=_FakeClock([0.0] * 20), wall_budget_s=1000.0,
+        upper_still_handles=(_ActiveHandle(), _ActiveHandle()),
+    )
+    assert out["status"] == "candidate_verdict", out
+    assert seq.count(("upper_body", "image")) == 2
+    assert seq.count(("lower_body", "video")) == 1
+    assert seq.count(("line", "video")) == 1
+    tel = out["telemetry"]
+    assert tel["plannedCalls"] == 4
+    assert tel["completedCalls"] == 4
+    assert tel["samplingComplete"] is True
+    assert tel["uploadCount"] == 4
+    assert tel["upperGranularity"] == "still_frame"
+
+
+def test_fanout_video_fallback_keeps_planned_three(monkeypatch):
+    """upper_still_handles=None(video 폴백) → planned==3 유지 (기존 의미 회귀 0)."""
+    seq: list[tuple] = []
+
+    def _spy(client, ref, student, at_seconds, part_scope=None, media_kind="video"):
+        seq.append((part_scope, media_kind))
+        return (
+            '{"motion":"x","dominant_severity":"none","primary_fault":"없음",'
+            '"differences":[]}'
+        )
+
+    monkeypatch.setattr(gvs, "_call_gemini_comparison", _spy)
+    out = gvs._run_part_frame_fanout(
+        _ImageClient(), MagicMock(), MagicMock(),
+        part_scopes=["upper_body", "lower_body", "line"], at_seconds=None,
+        clock=_FakeClock([0.0] * 20), wall_budget_s=1000.0,
+        upper_still_handles=None,
+    )
+    assert out["status"] == "candidate_verdict", out
+    tel = out["telemetry"]
+    assert tel["plannedCalls"] == 3
+    assert tel["samplingComplete"] is True
+    assert seq.count(("upper_body", "video")) == 1
+    assert tel["upperGranularity"] == "video_fallback"
+
+
+def test_fanout_upper_nonangle_observation_survives_k2(monkeypatch):
+    """e2e: 각도쌍 없는 upper 관측(그립)이 두 upper call 에 등장 → distinct-call K=2
+    통과로 supported 에 생존 (_supportCount==2) — RC-03 의 핵심 효과."""
+
+    def _spy(client, ref, student, at_seconds, part_scope=None, media_kind="video"):
+        if part_scope == "upper_body":
+            return (
+                '{"motion":"x","dominant_severity":"moderate",'
+                '"primary_fault":"왼팔 그립 느슨",'
+                '"differences":[{"body_part":"왼팔 그립","severity":"moderate",'
+                '"correct_state":"폴 밀착","fault_state":"그립 느슨",'
+                '"fault_category":"grip"}]}'
+            )
+        return (
+            '{"motion":"x","dominant_severity":"none","primary_fault":"없음",'
+            '"differences":[]}'
+        )
+
+    monkeypatch.setattr(gvs, "_call_gemini_comparison", _spy)
+    out = gvs._run_part_frame_fanout(
+        _ImageClient(), MagicMock(), MagicMock(),
+        part_scopes=["upper_body", "lower_body", "line"], at_seconds=None,
+        clock=_FakeClock([0.0] * 20), wall_budget_s=1000.0,
+        upper_still_handles=(_ActiveHandle(), _ActiveHandle()),
+    )
+    assert out["status"] == "candidate_verdict", out
+    supported = out["supported_differences"]
+    grips = [d for d in supported if "그립" in str(d.get("body_part"))]
+    assert grips, "각도쌍 없는 그립 관측이 K=2 로 생존해야 함"
+    assert grips[0]["_supportCount"] == 2
+
+
+def test_fanout_wall_budget_stops_before_upper_second_call(monkeypatch):
+    """wall budget 소진으로 upper 2번째 call 미완 → resource_limited (Option A
+    fail-closed 의미 무변경 — 부분 샘플 verdict 금지)."""
+
+    def _spy(client, ref, student, at_seconds, part_scope=None, media_kind="video"):
+        return (
+            '{"motion":"x","dominant_severity":"moderate","primary_fault":"어깨",'
+            '"differences":[]}'
+        )
+
+    monkeypatch.setattr(gvs, "_call_gemini_comparison", _spy)
+    # 첫 call 후 elapsed 가 budget 초과 — 두 번째(upper 2번째) call 진입 전 break.
+    clock = _FakeClock([0.0, 0.0, 999.0, 999.0, 999.0, 999.0])
+    out = gvs._run_part_frame_fanout(
+        _ImageClient(), MagicMock(), MagicMock(),
+        part_scopes=["upper_body", "lower_body", "line"], at_seconds=None,
+        clock=clock, wall_budget_s=10.0,
+        upper_still_handles=(_ActiveHandle(), _ActiveHandle()),
+    )
+    assert out["status"] == "resource_limited", out
+    tel = out["telemetry"]
+    assert tel["plannedCalls"] == 4
+    assert tel["completedCalls"] == 1
+    assert tel["samplingComplete"] is False
 
 

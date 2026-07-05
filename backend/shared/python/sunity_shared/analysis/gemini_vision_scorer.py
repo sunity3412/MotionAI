@@ -1630,22 +1630,37 @@ def _run_part_frame_fanout(
     (2026-06-22 스파이크: 정지프레임이 상체 복구 / 2026-07-05 진단: 프롬프트 레버 소진).
     fail-closed/support 게이트/median severity 로직은 무변경(입력 granularity 만).
 
+    upper 2-call (quick 260705-h5z, RC-03): upper scope 는 fanout 에서 1 call 뿐이라
+    각도쌍 없는 비-각도 관측(왼팔 그립/왼쪽 어깨)이 distinct-call K=2 미달로 support
+    게이트에서 drop → pointed set 진입 불가 = window 감점 불가였다. still 존재 시
+    upper 를 동일 이미지 핸들 재사용 2-call 로 만든다(업로드 증가 0, uploadCount=4
+    불변) — still 내용이 거의 결정적(2026-07-05 pod 진단 6회 중 4회 완전 동일)이라
+    같은 이미지 2-sample 로 교차확증이 성립한다. 기존 distinct-call 의미론(WR-01)을
+    충족시키는 **입력 변경**이지 support 규칙 변경이 아니다 —
+    _filter_supported_differences/라우터/agg4 무변경.
+
     반환 dict: {status, verdict?, supported_differences, root_cause_hypotheses, telemetry}.
     """
     import time as _time
 
     _now = clock or _time.monotonic
     scopes = list(part_scopes) or list(VETO_PART_SCOPES)
-    planned = min(len(scopes), max_calls)
+    # (scope, repeat) 평탄화 — upper_body 는 still 존재 시 2 call, 그 외 1 call.
+    # 3 scopes 기준 still 성공 시 planned=4 (MAX_VETO_CALLS=9, wall budget 내).
+    call_plan: list = []
+    for _scope in scopes:
+        repeats = 2 if (_scope == "upper_body" and upper_still_handles is not None) else 1
+        call_plan.extend([_scope] * repeats)
+    planned = min(len(call_plan), max_calls)
     start = _now()
-    per_call: list = []  # part_scope 별 difference list (support 집계 입력).
+    per_call: list = []  # call 당 difference list 1 entry (distinct-call support 집계 입력).
     parsed_verdicts: list = []
     completed = 0
     for idx in range(planned):
         # wall-clock budget 가드 — 호출 전 elapsed 확인 (fail-closed).
         if _now() - start > wall_budget_s:
             break
-        scope = scopes[idx]
+        scope = call_plan[idx]
         if scope == "upper_body" and upper_still_handles is not None:
             # 하이브리드: upper_body 만 정지 이미지 페어 (media_kind='image' 로 라벨/
             # 정합 문구 분기). lower_body/line 은 아래 video 경로 그대로.

@@ -493,7 +493,12 @@ def test_leg_line_pts_pure():
 
 
 def test_legs_valid_side_draws_angle(monkeypatch):
-    """Test 2: legs valid 양측 → _draw_leg_angle 각 1회 + user _mark circle=False."""
+    """Test 2: 게이트 B — legs valid + split_angle_present → user 측만 사이각 1회.
+
+    2026-07-05 belle 승인: 정은지(ref) 측은 kip-up 도립 pose 부정확으로 선이
+    폭주(pose 한계)해 그리지 않는다. 학생 측만 _draw_leg_angle 1회 + user
+    _mark circle=False(원 생략, 배지 유지). ref 는 _mark 없음(선 없는 crop).
+    """
     leg_calls = _spy_leg_angle(monkeypatch)
     mark_calls = _spy_mark(monkeypatch)
     frames = _frames(9, h=400, w=400)
@@ -502,14 +507,15 @@ def test_legs_valid_side_draws_angle(monkeypatch):
         frames, frames, rep, rep, worst_seconds=0.5,
         fault_joints=list(_LEGS_XY), joint_deltas={j: 20.0 for j in _LEGS_XY},
         frames_fps=9.0, joint_kinds={j: "deficit" for j in _LEGS_XY},
+        split_angle_present=True,
     )
     assert len(comps) == 1 and comps[0]["region"] == "legs"
-    assert len(leg_calls) == 2, "user + ref 양측 사이각 드로잉"
+    assert len(leg_calls) == 1, "게이트 B: user 측만 사이각(ref 측 미드로잉)"
     assert mark_calls == [(False, None)], "user 원 생략(배지 유지), ref 는 _mark 없음"
 
 
 def test_legs_split_angle_numbers_passed(monkeypatch):
-    """Test 3a: split_angle_degs=(130,170) → user 130 / ref 170 순으로 전달."""
+    """Test 3a: split_angle_degs=(130,170) → user 측 130 만 전달 (게이트 B)."""
     leg_calls = _spy_leg_angle(monkeypatch)
     frames = _frames(9, h=400, w=400)
     rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
@@ -517,13 +523,17 @@ def test_legs_split_angle_numbers_passed(monkeypatch):
         frames, frames, rep, rep, worst_seconds=0.5,
         fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
         joint_kinds={j: "deficit" for j in _LEGS_XY},
-        split_angle_degs=(130.0, 170.0),
+        split_angle_degs=(130.0, 170.0), split_angle_present=True,
     )
-    assert [c[3] for c in leg_calls] == [130.0, 170.0]
+    assert [c[3] for c in leg_calls] == [130.0], "user 측 학생 벌림각만(ref 미드로잉)"
 
 
 def test_legs_split_angle_none_omits_numbers(monkeypatch):
-    """Test 3b: split_angle_degs=None → 양측 angle_deg=None (수치 생략)."""
+    """Test 3b: split_angle_degs=None → user 측 angle_deg=None (수치 생략, 선+호만).
+
+    kip-up reference_relative 경로: 수치는 없지만 사이각 자체는 의미 있어 학생
+    측에 선+호만 그린다 (2026-07-05 belle pod 전동작 검증).
+    """
     leg_calls = _spy_leg_angle(monkeypatch)
     frames = _frames(9, h=400, w=400)
     rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
@@ -531,13 +541,13 @@ def test_legs_split_angle_none_omits_numbers(monkeypatch):
         frames, frames, rep, rep, worst_seconds=0.5,
         fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
         joint_kinds={j: "deficit" for j in _LEGS_XY},
-        split_angle_degs=None,
+        split_angle_degs=None, split_angle_present=True,
     )
-    assert [c[3] for c in leg_calls] == [None, None]
+    assert [c[3] for c in leg_calls] == [None], "user 측만 선+호(수치 None)"
 
 
 def test_legs_low_conf_ref_side_no_angle(monkeypatch):
-    """Test 4: ref 측 저신뢰(relaxed) → ref 사이각 미호출, user 측만."""
+    """Test 4: 게이트 B — ref 측은 신뢰와 무관하게 무조건 미드로잉, user 측만."""
     leg_calls = _spy_leg_angle(monkeypatch)
     frames = _frames(9, h=400, w=400)
     user_rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
@@ -546,18 +556,19 @@ def test_legs_low_conf_ref_side_no_angle(monkeypatch):
         frames, frames, user_rep, ref_rep, worst_seconds=0.5,
         fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
         joint_kinds={j: "deficit" for j in _LEGS_XY},
+        split_angle_present=True,
     )
     assert len(comps) == 1
-    assert len(leg_calls) == 1, "저신뢰 ref 는 기존 relaxed 렌더 폴백(사이각 생략)"
+    assert len(leg_calls) == 1, "게이트 B: ref 측 무조건 미드로잉(user 측만)"
 
 
 def test_legs_conf_absent_ref_side_no_angle(monkeypatch):
-    """Test 4b: ref confidence 부재(legacy report) → ref 사이각 미호출 (pod fix).
+    """Test 4b: 게이트 B — ref confidence 부재(legacy report)도 무조건 미드로잉.
 
     2026-07-05 belle pod PNG 검증: confidence 없는 reference report 는 crop
     게이트(부재=통과)로 kind='valid' 가 되지만, 좌표 신뢰가 증명되지 않아 선이
-    몸과 무관한 방향으로 폭주했다. 사이각 드로잉은 conf >= _KP_CONF_MIN 증명
-    좌표만 — legacy 측은 기존 렌더 그대로(카드 유지, 드로잉만 생략).
+    몸과 무관한 방향으로 폭주했다. 게이트 B 로 ref 측은 조건과 무관하게 항상
+    생략 — legacy 측은 기존 렌더 그대로(카드 유지, 드로잉만 생략).
     """
     leg_calls = _spy_leg_angle(monkeypatch)
     frames = _frames(9, h=400, w=400)
@@ -567,9 +578,60 @@ def test_legs_conf_absent_ref_side_no_angle(monkeypatch):
         frames, frames, user_rep, ref_rep, worst_seconds=0.5,
         fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
         joint_kinds={j: "deficit" for j in _LEGS_XY},
+        split_angle_present=True,
     )
     assert len(comps) == 1
-    assert len(leg_calls) == 1, "conf 부재 ref 는 드로잉 생략 (crop 은 기존 그대로)"
+    assert len(leg_calls) == 1, "게이트 B: ref 측 무조건 미드로잉(user 측만)"
+
+
+def test_legs_no_split_record_keeps_circle(monkeypatch):
+    """Test 4-A: 게이트 A — split_angle_present 기본 False → legs 카드도 사이각 미진입.
+
+    스플릿 아닌 legs 결함(무릎 leg_extension / 골반 hip)은 사이각을 그리지 않고
+    r6x 이전 circle 렌더로 복귀한다 (2026-07-05 belle pod 전동작 검증:
+    power-spin=leg_extension+hip, elbow-twist=hip+knee 오적용 회귀 방지 가드).
+    """
+    leg_calls = _spy_leg_angle(monkeypatch)
+    mark_calls = _spy_mark(monkeypatch)
+    frames = _frames(9, h=400, w=400)
+    rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
+    comps = fz.build_fault_zoom_comparisons(
+        frames, frames, rep, rep, worst_seconds=0.5,
+        fault_joints=list(_LEGS_XY), joint_deltas={j: 20.0 for j in _LEGS_XY},
+        frames_fps=9.0, joint_kinds={j: "deficit" for j in _LEGS_XY},
+    )  # split_angle_present 미지정(기본 False)
+    assert len(comps) == 1 and comps[0]["region"] == "legs"
+    assert leg_calls == [], "게이트 A: split record 없는 legs = 사이각 미드로잉"
+    assert mark_calls and mark_calls[0][0] is True, "스플릿 아닌 legs = 기존 circle 복귀"
+
+
+def test_has_split_angle_record_pure():
+    """Test 4-B: has_split_angle_record — 존재 판정(수치 유무와 분리).
+
+    2026-07-05 belle pod 전동작 검증: kip-up reference_relative 경로는 수치가
+    None(편차라 벌림각 아님)이지만 사이각 자체는 의미 있어 True. 수치 추출
+    (split_angle_degs_from_records)과 존재 판정을 분리한다.
+    """
+    # reference_relative split(수치 None 경로)도 존재 판정 True.
+    assert fz.has_split_angle_record(
+        [{"criterion": "split_angle", "unit": "deg", "measuredValue": 50.0,
+          "deviationSource": "reference_relative"}]
+    ) is True
+    # ipsf_absolute split → True.
+    assert fz.has_split_angle_record(
+        [{"criterion": "split_angle", "unit": "deg", "measuredValue": 132.0,
+          "deviationSource": "ipsf_absolute"}]
+    ) is True
+    # line-only record → False.
+    assert fz.has_split_angle_record([{"criterion": "line", "unit": "deg"}]) is False
+    # unit != 'deg' → False.
+    assert fz.has_split_angle_record(
+        [{"criterion": "split_angle", "unit": "ratio", "measuredValue": 1.0}]
+    ) is False
+    # None / 비리스트 / 빈 리스트 → graceful False.
+    assert fz.has_split_angle_record(None) is False
+    assert fz.has_split_angle_record("nope") is False
+    assert fz.has_split_angle_record([]) is False
 
 
 def test_pt_in_crop_pure():

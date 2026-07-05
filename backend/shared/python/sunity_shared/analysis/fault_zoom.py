@@ -59,6 +59,9 @@ _BBOX_MARGIN = 1.8
 # 저신뢰-유한 좌표는 실제 부위에서 벗어나 있을 수 있어 valid 공식 대비 넓게
 # 잡아 부위가 crop 안에 남도록 한다. 채점/veto/게이트 경로에 진입하지 않는
 # 표시 전용 상수이므로 calibration-source-hard-gate 대상 아님.
+# 적용 범위 = bbox 파생분에만 (quick-260705-ftn): 2026-07-05 pod 재현 —
+# floor(_CROP_FRAC 기본 줌)에도 margin 을 곱하면 side 가 프레임 전폭(360)에
+# 클램프돼 모든 relaxed crop 이 전신처럼 보임 (belle 실기기, kip-up fault 76점).
 _RELAXED_MARGIN = 2.0
 
 
@@ -343,7 +346,8 @@ def _side_crop(
         (grouped)=멤버 bounding box crop (변 = max(bbox)*_BBOX_MARGIN,
         floor=_CROP_FRAC 줌 수준, 상한=프레임 내).
     (2) valid 0개, 저신뢰-유한 좌표 있음 → 완화(relaxed) crop: 그 좌표 중심,
-        변 = 기존 공식 × _RELAXED_MARGIN (display 전용, 채점 무접촉).
+        변 = max(floor, bbox*_BBOX_MARGIN*_RELAXED_MARGIN) — margin 은 bbox
+        파생분에만, floor(기본 줌)는 그대로 (display 전용, 채점 무접촉).
         reference 저신뢰 전신 폴백이 카드마다 동일 전신 반복 → 부위-중심 완화
         crop 으로 카드별 차별화 (Phase 25 동반 스코프, belle 2026-07-04 실기기).
         오인 방지는 앵커 생략으로 유지 (260702-sic 요구 3).
@@ -358,12 +362,16 @@ def _side_crop(
         ys = [p[1] * h for p in pts]
         cx = (min(xs) + max(xs)) / 2 / w
         cy = (min(ys) + max(ys)) / 2 / h
-        side = int(round(min(h, w) * _CROP_FRAC))
+        # margin 은 bbox 파생분에만 곱한다 (quick-260705-ftn) — floor 에도 곱하면
+        # 밀집/단일 relaxed 좌표의 side 가 프레임 전폭에 클램프돼 전신처럼 보임
+        # (2026-07-05 pod 재현). valid 경로는 margin=1.0 이라 산출 무변경.
+        floor_side = int(round(min(h, w) * _CROP_FRAC))
+        side = floor_side
         if len(pts) > 1:
             bbox_side = max(max(xs) - min(xs), max(ys) - min(ys))
-            side = max(side, int(round(bbox_side * _BBOX_MARGIN)))
-        # margin 확대 후에도 _crop_box 가 프레임 경계로 clamp (T-25-07).
-        return _crop_box(h, w, cx, cy, int(round(side * margin)))
+            side = max(floor_side, int(round(bbox_side * _BBOX_MARGIN * margin)))
+        # 확대 후에도 _crop_box 가 프레임 경계로 clamp (T-25-07).
+        return _crop_box(h, w, cx, cy, side)
 
     if valid_pts:
         left, top, s = _box_for(valid_pts, 1.0)

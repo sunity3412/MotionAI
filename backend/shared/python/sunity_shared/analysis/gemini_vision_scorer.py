@@ -111,7 +111,15 @@ INPUT_GRANULARITY_FRAME_PAIR = "frame_pair"
 # 'whole' 키면 lookup_rich 가 verdict-only doc(status/supported 부재)을 읽어 status=""/
 # supported=[] no-fault 로 오인한다(kip-up FP 원인 확정: historical assess_fault_severity
 # 'whole' 엔트리를 video fan-out 이 stale-hit). rich round-trip 전용 키 공간.
-INPUT_GRANULARITY_WHOLE_FANOUT = "whole_fanout"
+#
+# 'whole_fanout_hybrid1' (quick 260705-g1d): 하이브리드 granularity 전환 — upper_body
+# scope 호출만 worst-pose 정지 이미지 페어를 입력으로 받는다. 하이브리드는 upper scope
+# 산출 분포를 바꾸므로 옛 'whole_fanout' 키 공간을 재사용하면 옛 full-video 분포의 결과가
+# stale-hit 로 살아남는다(90d038f kip-up FP 이력과 동형) → 값 자체를 bump 해 구조적 분리.
+# PROMPT_VERSION/SCHEMA_VERSION/AGGREGATION_VERSION 은 bump 하지 않는다 — 공용 프롬프트
+# 텍스트·스키마·집계는 무변경이고, 이미지-모드 라벨/정합 문구는 이 새 granularity 키
+# 공간에서만 발생하므로 기존 키(frame_pair/whole 포함)의 결과와 절대 섞이지 않는다.
+INPUT_GRANULARITY_WHOLE_FANOUT = "whole_fanout_hybrid1"
 
 # ─────────────────── 자원 bound + support 게이트 상수 (Task 2, H1/H6) ───────────────────
 #
@@ -1127,12 +1135,133 @@ def assess_fault_context(
     return result
 
 
+# ─────────────────── 하이브리드 granularity — 정지프레임 helper (quick 260705-g1d) ───────────────────
+#
+# 왜 (근거 2건): (1) 2026-06-22 스파이크([[spike-stillframe-recovers-upperbody]]) —
+# 전체영상 비교 = 다리만(상체 0) / 정지프레임 비교 = 팔 복구. 레버 = granularity,
+# NOT 프롬프트. (2) 2026-07-05 pod 진단 2회 — v11.1(집중 문구)은 upper scope 6회 중
+# 상체 방출 0·하체 누수 4, v11.2(배타 강제)는 누수 0 이 됐지만 상체 방출도 0/6 →
+# 프롬프트 레버 소진. 반면 still-frame 단독은 동적 다리 결함(kip-up split 순간)을
+# 놓쳐 위양성 이력(2026-06-29) → scope 별 하이브리드: upper_body 만 정지 이미지,
+# lower_body/line 은 full-video 유지.
+
+
+def _still_frame_index(at_seconds: float | None, fps: float, n_frames: int) -> int:
+    """worst-pose 초 → 학생 프레임 인덱스 (clamp). at_seconds None → 중앙 프레임.
+
+    fault_zoom._frame_index 와 같은 계약이지만, 표시 모듈(fault_zoom)에 역의존하지
+    않도록 어댑터 자체 helper 로 둔다 — analysis adapter 는 import-light 유지.
+    고정 시각 → 고정 인덱스 = 결정적(D-06).
+    """
+    if n_frames <= 0:
+        return 0
+    if at_seconds is None or fps <= 0:
+        return n_frames // 2
+    idx = int(round(at_seconds * fps))
+    return max(0, min(idx, n_frames - 1))
+
+
+def _ratio_ref_index(student_idx: int, student_n: int, ref_n: int) -> int:
+    """학생 인덱스 → 시간비례 근사 기준 인덱스 (fault_zoom line ~512 와 동일 공식).
+
+    ratio = student_idx / max(1, student_n - 1); round(ratio * (ref_n - 1)) — DTW 는
+    이 레이어에 없으므로 동일한 시간비례 근사를 쓴다(구조 변경 최소화). 경계 clamp.
+    """
+    if ref_n <= 1 or student_n <= 1:
+        return 0
+    ratio = student_idx / max(1, student_n - 1)
+    return max(0, min(int(round(ratio * (ref_n - 1))), ref_n - 1))
+
+
+def _extract_comparison_stills(
+    student_video_path: str,
+    reference_video_path: str,
+    at_seconds: float | None,
+) -> dict:
+    """두 영상에서 각 1프레임 → 임시 PNG 2장 (upper_body scope 정지 이미지 입력).
+
+    학생 인덱스 = _still_frame_index(at_seconds, 학생 fps, 학생 n_frames), 기준 인덱스 =
+    _ratio_ref_index(시간비례 근사). 프레임 수는 reader.count_frames() 우선, 실패/inf 시
+    메타데이터(duration*fps) 폴백, 그것도 불가하면 예외 raise — 실패는 예외로 전파하며
+    swallow 하지 않는다(폴백 판단은 호출자 소관, Pitfall 5 는 호출자가 처리).
+    고정 시각·고정 인덱스 = 결정적(D-06).
+
+    반환: {"student_png", "reference_png", "student_idx", "ref_idx"}.
+    """
+    import math
+    import tempfile
+
+    import imageio  # lazy — 기존 의존성(frame_extractor 와 동일), top-level import 금지(D-16)
+
+    def _read_frame(path: str, pick_idx) -> tuple:
+        reader = imageio.get_reader(path)
+        try:
+            meta = reader.get_meta_data() or {}
+            fps = float(meta.get("fps") or 0.0)
+            n = None
+            try:
+                cnt = reader.count_frames()
+                if isinstance(cnt, (int, float)) and math.isfinite(cnt) and cnt > 0:
+                    n = int(cnt)
+            except Exception:  # noqa: BLE001 - count_frames 미지원/실패 → 메타 폴백
+                n = None
+            if n is None:
+                # 메타데이터 폴백 — nframes 가 inf 인 컨테이너는 duration*fps 근사.
+                nf = meta.get("nframes")
+                if isinstance(nf, (int, float)) and math.isfinite(nf) and nf > 0:
+                    n = int(nf)
+                else:
+                    dur = meta.get("duration")
+                    if dur is not None and fps > 0 and math.isfinite(float(dur)):
+                        n = max(1, int(round(float(dur) * fps)))
+            if n is None or n <= 0:
+                raise RuntimeError(f"프레임 수 산출 불가: {path}")
+            idx = pick_idx(fps, n)
+            frame = reader.get_data(idx)
+            return frame, idx, n
+        finally:
+            reader.close()
+
+    s_frame, s_idx, s_n = _read_frame(
+        student_video_path, lambda fps, n: _still_frame_index(at_seconds, fps, n)
+    )
+    r_frame, r_idx, _r_n = _read_frame(
+        reference_video_path, lambda _fps, n: _ratio_ref_index(s_idx, s_n, n)
+    )
+
+    tmp_paths: list[str] = []
+    try:
+        s_tmp = tempfile.NamedTemporaryFile(prefix="vhyb_u_", suffix=".png", delete=False)
+        s_tmp.close()
+        tmp_paths.append(s_tmp.name)
+        r_tmp = tempfile.NamedTemporaryFile(prefix="vhyb_r_", suffix=".png", delete=False)
+        r_tmp.close()
+        tmp_paths.append(r_tmp.name)
+        imageio.imwrite(s_tmp.name, s_frame)
+        imageio.imwrite(r_tmp.name, r_frame)
+    except Exception:
+        # 부분 생성분 정리 후 재-raise — 임시 PNG 누수 방지(호출자가 폴백 판단).
+        for p in tmp_paths:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+        raise
+    return {
+        "student_png": s_tmp.name,
+        "reference_png": r_tmp.name,
+        "student_idx": int(s_idx),
+        "ref_idx": int(r_idx),
+    }
+
+
 def assess_fault_context_video(
     student_video_path: str,
     reference_video_path: str,
     *,
     at_seconds: float | None = None,
     part_scopes: list | None = None,
+    still_at_seconds: float | None = None,
 ) -> dict:
     """full-VIDEO 쌍 → 부위별 fan-out rich dict (Phase 24 close-out A, belle 2026-06-29).
 
@@ -1149,9 +1278,16 @@ def assess_fault_context_video(
     (still 을 영상이라 라벨링하던 mismatch 해소). frame 선택/alignment 의존 0 — Gemini 가
     영상 안에서 결함 순간을 직접 찾는다.
 
-    캐시: INPUT_GRANULARITY('whole') + (student, reference) 영상 hash PAIR → frame_pair 키와
-    충돌 0. 결정론(eval cold/warm): rich dict round-trip 동일. 객관성/graceful 디시플린은
+    캐시: INPUT_GRANULARITY_WHOLE_FANOUT + (student, reference) 영상 hash PAIR → frame_pair
+    키와 충돌 0. 결정론(eval cold/warm): rich dict round-trip 동일. 객관성/graceful 디시플린은
     assess_fault_context 와 동일(어떤 실패도 status='skipped_error').
+
+    하이브리드 granularity (quick 260705-g1d): still_at_seconds(worst-pose hint, None →
+    영상 중앙)로 학생/기준 정지 이미지 페어를 추출해 **upper_body scope 호출에만** 입력한다
+    — lower_body/line 은 full-video 유지. 근거는 위 helper 블록 주석(2026-06-22 스파이크 +
+    2026-07-05 pod 진단 2회). 추출/이미지 업로드 실패 시 upper scope 만 full-video 로
+    폴백하고 분석 흐름은 중단되지 않는다(Pitfall 5). at_seconds 의 의미는 불변 — full-video
+    호출용 hint(Phase 24 close-out A: production 은 None 유지).
     """
     scopes = list(part_scopes) if part_scopes else list(VETO_PART_SCOPES)
 
@@ -1182,20 +1318,54 @@ def assess_fault_context_video(
         log.warning("video hash 산출 실패 — skipped (graceful): %s", exc)
         return _skipped()
 
-    cache = VisionVetoCache()
-    key = VisionVetoCache.build_key(
-        video_hash=student_hash,
-        model_name=DEFAULT_VISION_MODEL,
-        # 'whole_fanout' — assess_fault_severity 의 'whole' verdict-only 캐시와 분리(필수,
-        # 위 상수 주석: lookup_rich stale-hit 차단). frame_pair 키와도 충돌 0.
-        input_granularity=INPUT_GRANULARITY_WHOLE_FANOUT,
-        at_seconds=at_seconds,
-        reference_hash=reference_hash,
+    # 하이브리드 정지프레임 추출 (quick 260705-g1d) — 실패 시 stills=None + 전-scope
+    # video 폴백 (graceful, 분석 중단 금지 — Pitfall 5).
+    stills = None
+    try:
+        stills = _extract_comparison_stills(
+            student_video_path, reference_video_path, still_at_seconds
+        )
+    except Exception as exc:  # noqa: BLE001 - 추출 실패 → upper scope video 폴백
+        log.warning("정지프레임 추출 실패 — upper scope video 폴백 (graceful): %s", exc)
+        stills = None
+
+    def _build_fanout_key(fi: list | None) -> str:
+        return VisionVetoCache.build_key(
+            video_hash=student_hash,
+            model_name=DEFAULT_VISION_MODEL,
+            # 'whole_fanout_hybrid1' — assess_fault_severity 의 'whole' verdict-only 캐시와
+            # 분리(필수, 위 상수 주석: lookup_rich stale-hit 차단). frame_pair 키와도 충돌 0.
+            input_granularity=INPUT_GRANULARITY_WHOLE_FANOUT,
+            at_seconds=at_seconds,
+            reference_hash=reference_hash,
+            # frame_indices folding — still 성공 시 [student_idx, ref_idx]. 추출/업로드
+            # 실패 시 None → 'fi-' bucket: 폴백(전-scope video) 결과가 still-키 공간을
+            # 오염하지 않게 키가 구조적으로 분리된다(90d038f stale-hit 재발 금지).
+            frame_indices=fi,
+        )
+
+    key = _build_fanout_key(
+        [stills["student_idx"], stills["ref_idx"]] if stills else None
     )
+
+    cache = VisionVetoCache()
+
+    def _cleanup_stills() -> None:
+        # 임시 PNG unlink — 실패 graceful (정리 실패는 분석을 막지 않는다).
+        if stills is None:
+            return
+        for _p in (stills.get("student_png"), stills.get("reference_png")):
+            if not _p:
+                continue
+            try:
+                os.unlink(_p)
+            except OSError:
+                pass
 
     cached = cache.lookup_rich(key)
     if cached is not None:
         log.info("VisionVetoCache rich hit (video): %s", student_hash[:8])
+        _cleanup_stills()
         tel = dict(cached.get("telemetry") or {})
         tel["cacheKey"] = key
         tel["cacheHit"] = True
@@ -1204,18 +1374,49 @@ def assess_fault_context_video(
 
     student_uploaded = None
     ref_uploaded = None
+    image_handles: list = []
     try:
         student_uploaded = _upload_video(client, student_video_path)
         ref_uploaded = _upload_video(client, reference_video_path)
+        # 이미지 업로드는 별도 try — 실패 시 stills 폐기(=upper scope video 폴백)만 하고
+        # 전체 skipped_error 로 떨어뜨리지 않는다(요구: 해당 scope 만 폴백).
+        # MAX_VETO_UPLOADS=4 상한과 정합(2 video + 2 image = 4).
+        upper_still_handles = None
+        if stills is not None:
+            try:
+                _ref_img = _upload_image(client, stills["reference_png"])
+                image_handles.append(_ref_img)
+                _stu_img = _upload_image(client, stills["student_png"])
+                image_handles.append(_stu_img)
+                upper_still_handles = (_ref_img, _stu_img)
+            except Exception as exc:  # noqa: BLE001 - 이미지 업로드 실패 → video 폴백
+                log.warning(
+                    "정지 이미지 업로드 실패 — upper scope video 폴백 (graceful): %s", exc
+                )
+                upper_still_handles = None
+                # 키 재산출 (frame_indices=None) — 폴백 결과를 still-키 공간에 저장하면
+                # 다음 성공 run 의 still 결과와 섞인다(오염). 'fi-' bucket 으로 이동.
+                key = _build_fanout_key(None)
+                fallback_cached = cache.lookup_rich(key)
+                if fallback_cached is not None:
+                    log.info(
+                        "VisionVetoCache rich hit (video fallback): %s", student_hash[:8]
+                    )
+                    tel = dict(fallback_cached.get("telemetry") or {})
+                    tel["cacheKey"] = key
+                    tel["cacheHit"] = True
+                    fallback_cached["telemetry"] = tel
+                    return fallback_cached
         result = _run_part_frame_fanout(
             client, ref_uploaded, student_uploaded,
             part_scopes=scopes, at_seconds=at_seconds,
+            upper_still_handles=upper_still_handles,
         )
     except Exception as exc:  # noqa: BLE001 - 업로드/fan-out 실패 graceful (Pitfall 5)
         log.warning("video fan-out 실패 — skipped (graceful): %s", exc)
         return _skipped()
     finally:
-        for _handle in (student_uploaded, ref_uploaded):
+        for _handle in (student_uploaded, ref_uploaded, *image_handles):
             _name = getattr(_handle, "name", None)
             if not _name:
                 continue
@@ -1223,6 +1424,7 @@ def assess_fault_context_video(
                 client.files.delete(name=_name)
             except Exception:  # noqa: BLE001 - 정리 실패는 분석을 막지 않는다
                 log.warning("Gemini 업로드 파일 삭제 실패 (graceful): %s", _name)
+        _cleanup_stills()
 
     tel = dict(result.get("telemetry") or {})
     tel["cacheKey"] = key
@@ -1503,6 +1705,7 @@ def _run_part_frame_fanout(
     clock=None,
     wall_budget_s: float = MAX_VETO_WALL_S,
     max_calls: int = MAX_VETO_CALLS,
+    upper_still_handles: tuple | None = None,
 ) -> dict:
     """부위별 프롬프트 fan-out — 호출/upload/wall-clock bound + fail-closed resource_limited.
 
@@ -1511,6 +1714,12 @@ def _run_part_frame_fanout(
     quorum 완료 여부와 무관하게 score-free `resource_limited` + telemetry 를 반환한다 —
     부분 샘플 verdict 는 wall-clock/cache 에 따라 흔들려 비결정적이라 위양성·결정론 게이트
     약화이므로 금지. 모든 호출은 _call_gemini_comparison(part_scope 전달).
+
+    upper_still_handles (quick 260705-g1d 하이브리드): (ref_img, student_img) 이미지
+    핸들 페어. 존재 시 upper_body scope 호출만 이 핸들 + media_kind='image' 로 보내고,
+    그 외 scope 는 기존 full-video 핸들 유지 — 근거는 상단 하이브리드 helper 블록 주석
+    (2026-06-22 스파이크: 정지프레임이 상체 복구 / 2026-07-05 진단: 프롬프트 레버 소진).
+    fail-closed/support 게이트/median severity 로직은 무변경(입력 granularity 만).
 
     반환 dict: {status, verdict?, supported_differences, root_cause_hypotheses, telemetry}.
     """
@@ -1527,10 +1736,19 @@ def _run_part_frame_fanout(
         # wall-clock budget 가드 — 호출 전 elapsed 확인 (fail-closed).
         if _now() - start > wall_budget_s:
             break
-        raw_text = _call_gemini_comparison(
-            client, ref_uploaded, student_uploaded, at_seconds,
-            part_scope=scopes[idx],
-        )
+        scope = scopes[idx]
+        if scope == "upper_body" and upper_still_handles is not None:
+            # 하이브리드: upper_body 만 정지 이미지 페어 (media_kind='image' 로 라벨/
+            # 정합 문구 분기). lower_body/line 은 아래 video 경로 그대로.
+            raw_text = _call_gemini_comparison(
+                client, upper_still_handles[0], upper_still_handles[1], at_seconds,
+                part_scope=scope, media_kind="image",
+            )
+        else:
+            raw_text = _call_gemini_comparison(
+                client, ref_uploaded, student_uploaded, at_seconds,
+                part_scope=scope,
+            )
         completed += 1
         if _SCORE_PATTERN.search(raw_text or ""):
             continue  # 점수 누출 샘플 폐기(객관성).
@@ -1544,10 +1762,16 @@ def _run_part_frame_fanout(
     telemetry = {
         "completedCalls": completed,
         "plannedCalls": planned,
-        "uploadCount": 2,
+        "uploadCount": 4 if upper_still_handles is not None else 2,
         "durationMs": duration_ms,
         "samplingComplete": completed >= planned,
     }
+    # upperGranularity — eval 이 upper scope 입력 형태를 관측하는 telemetry 마커.
+    # upper_body 가 scopes 에 포함될 때만 기록 (미포함이면 의미 없는 라벨이라 미기록).
+    if "upper_body" in scopes:
+        telemetry["upperGranularity"] = (
+            "still_frame" if upper_still_handles is not None else "video_fallback"
+        )
 
     # fail-closed (Option A) — planned call 전부 완료 전 예산 소진 → resource_limited.
     if completed < planned:
@@ -1630,6 +1854,7 @@ _PART_SCOPE_LABEL = {
 def _call_gemini_comparison(
     client, ref_uploaded, student_uploaded, at_seconds: float | None,
     part_scope: str | None = None,
+    media_kind: str = "video",
 ) -> str:
     """비교(reference-anchored) generate_content — 기준 영상 먼저 + 학생 영상 (temp 0.0).
 
@@ -1643,6 +1868,14 @@ def _call_gemini_comparison(
     편차가 primary_fault 서사에만 남고 differences[] 미방출되면 support 집계가 아예
     못 본다(상체 결함 짚기 실패의 한 축). 레버 = per-move 특정성이 아닌 scope-집중
     특정성(flash-beats-pro 교훈) — 전 scope(upper/lower/line) 공통, 동작명 주입 0.
+
+    media_kind (quick 260705-g1d 하이브리드): 'image' 일 때만 contents 라벨을 "정지
+    이미지" 로 분기하고 프롬프트 끝에 이미지-모드 정합 문구 1개를 덧붙인다 — 하이브리드
+    fanout 의 upper_body scope 전용. default 'video' 경로는 프롬프트/라벨 byte-동일
+    유지(기존 whole/frame_pair 캐시 무효화 0). 기존 frame_pair 경로(assess_fault_context)
+    가 이미지 핸들에 "영상" 라벨을 붙이는 기존 mismatch 는 이번 스코프 밖 — 캐시 무효화
+    0 을 위해 무접촉. PROMPT_VERSION 미 bump 근거: 이미지-모드 문구는 새 granularity
+    ('whole_fanout_hybrid1') 키 공간에서만 발생, 기존 키 결과와 절대 안 섞임.
     """
     from google.genai import types as genai_types  # lazy
 
@@ -1684,12 +1917,31 @@ def _call_gemini_comparison(
             "촬영조건은 결함 아님)은 그대로입니다 — 이 부위에 관찰 가능한 편차가 없으면 "
             "항목을 만들지 말고 빈 배열이 정답입니다."
         )
+    # 이미지-모드 분기 (quick 260705-g1d) — 하이브리드 fanout 의 upper_body scope 전용.
+    # default 'video' 경로는 라벨/프롬프트 byte-동일 유지(기존 캐시 무효화 0).
+    if media_kind == "image":
+        ref_label = "기준(정타) 정지 이미지:"
+        student_label = "평가 대상(학생) 정지 이미지:"
+        # 이미지-모드 정합 문구 — _build_comparison_prompt 본문의 "두 개의 영상"/"동작
+        # 시작부터 끝까지 전 구간" 등 영상 전제 지시와 충돌하는 지점을 커버한다.
+        prompt = (
+            f"{prompt}\n\n입력 정정: 이번 호출의 두 입력은 영상이 아니라, 각 영상에서 "
+            "결함이 의심되는 핵심 순간을 하나씩 골라낸 **정지 이미지 페어**입니다 "
+            "(첫째 = 기준 정지 이미지, 둘째 = 학생 정지 이미지). 위 지시 중 '동작 "
+            "시작부터 끝까지 전 구간을 보라'는 등 영상 구간 탐색 지시는 이 호출에는 "
+            "적용되지 않으니 무시하고, 두 정지 이미지에 보이는 이 자세끼리 기준 대비 "
+            "편차를 비교 판정하세요. 나머지 규칙(정타/사소차/촬영조건은 결함 아님, "
+            "각도쌍 추정, differences[] 구조화)은 그대로 적용됩니다."
+        )
+    else:
+        ref_label = "기준(정타) 영상:"
+        student_label = "평가 대상(학생) 영상:"
     response = client.models.generate_content(
         model=DEFAULT_VISION_MODEL,
         contents=[
-            "기준(정타) 영상:",
+            ref_label,
             ref_uploaded,
-            "평가 대상(학생) 영상:",
+            student_label,
             student_uploaded,
             prompt,
         ],

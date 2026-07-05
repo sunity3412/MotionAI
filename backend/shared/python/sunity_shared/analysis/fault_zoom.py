@@ -309,17 +309,19 @@ def _kp_conf(report: dict, frame_idx: int, joint: str) -> float | None:
 def _gated_kp(
     report: dict, frame_idx: int, joint: str
 ) -> tuple[float, float] | None:
-    """좌표 finite AND confidence 게이트를 통과한 keypoint (quick-260705-r6x).
+    """좌표 finite AND 명시적 고신뢰(conf >= _KP_CONF_MIN)만 통과 (quick-260705-r6x).
 
-    confidence 부재(legacy) = 통과(_kp_conf None). conf < _KP_CONF_MIN → None —
-    저신뢰 좌표를 다리 선 끝점으로 쓰면 엉뚱한 방향이 그려져 오인. 사이각 드로잉
-    전용 게이트(표시 전용, 채점 무접촉).
+    사이각 드로잉 전용 게이트 — crop 게이트(_member_pts, conf 부재=통과)보다
+    엄격하다. confidence 부재(legacy report)도 불허: 2026-07-05 pod 실측(belle
+    PNG 육안)에서 confidence 없는 reference report 가 통과해 몸과 무관한 방향으로
+    선이 폭주했다 — 선/호는 확정적 시각 언어라 신뢰가 증명된 좌표에서만 그린다.
+    저신뢰/미증명 → None (호출측 기존 렌더 폴백). 표시 전용, 채점 무접촉.
     """
     xy = _kp_xy(report, frame_idx, joint)
     if xy is None:
         return None
     c = _kp_conf(report, frame_idx, joint)
-    if c is not None and c < _KP_CONF_MIN:
+    if c is None or c < _KP_CONF_MIN:
         return None
     return xy
 
@@ -654,11 +656,21 @@ def split_angle_degs_from_records(
 ) -> tuple[float | None, float | None] | None:
     """deductionBreakdown.records 에서 스플릿 사이각 수치 추출 (순수, boto3 무관).
 
-    criterion=='split_angle' AND unit=='deg' 첫 record 의
-    (measuredValue=추정 학생각, baselineValue=IPSF 180 기준) → (학생, 기준).
     수치 출처 = 점수가 쓴 그 record — 측정-표시 정합
-    ([[scoring-must-be-transparent-deduction-tally]]). float 변환 실패/비유한은
-    해당 측 None, 둘 다 None 이면 전체 None. records None/비리스트 graceful.
+    ([[scoring-must-be-transparent-deduction-tally]]). 단 벌림각(사이각) semantics
+    를 가진 record 만 표기한다 (2026-07-05 belle pod PNG 검증 fix):
+
+      · deviationSource=='ipsf_absolute' 만 수용 — measuredValue = 추정 학생
+        벌림각(180 − deficit)이라 호 옆 각도로 정직. 기준 측은 baselineValue(180)
+        가 IPSF 목표치이지 정은지 실측 벌림각이 아니므로 **항상 생략(None)** —
+        미측정 수치를 정은지 몸 옆에 붙이면 오인.
+      · deviationSource=='reference_relative'(현행 split_vs_reference 규칙,
+        vision-주입 kip-up 경로 포함)는 measuredValue = 정은지-대비 편차(예: 50)
+        라 벌림각이 아님 — 표기하면 "벌림각 50°"로 오독(실측 재현된 결함).
+        전체 None (선+호만, 수치 생략).
+
+    반환 = (학생 벌림각, None) 또는 None. float 변환 실패/비유한 → None.
+    records None/비리스트 graceful.
     """
     if not isinstance(records, list):
         return None
@@ -675,11 +687,13 @@ def split_angle_degs_from_records(
             continue
         if rec.get("criterion") != "split_angle" or rec.get("unit") != "deg":
             continue
-        student = _finite(rec.get("measuredValue"))
-        baseline = _finite(rec.get("baselineValue"))
-        if student is None and baseline is None:
+        if rec.get("deviationSource") != "ipsf_absolute":
+            # reference_relative(편차 semantics)/미상 출처 — 벌림각 아님, 수치 생략.
             return None
-        return student, baseline
+        student = _finite(rec.get("measuredValue"))
+        if student is None:
+            return None
+        return student, None
     return None
 
 

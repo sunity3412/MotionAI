@@ -458,12 +458,15 @@ def _spy_leg_angle(monkeypatch):
 
 
 def test_leg_line_pts_pure():
-    """Test 1: hips 중점 + ankle 우선/knee 폴백 + hip 결측/저신뢰 → None."""
+    """Test 1: hips 중점 + ankle 우선/knee 폴백 + hip 결측/저신뢰/conf부재 → None."""
     xy = {
         **_LEGS_XY,
         "left_ankle": (0.35, 0.95), "right_ankle": (0.65, 0.95),
     }
-    pelvis, left_end, right_end = fz._leg_line_pts(_report_pos_conf(1, 9.0, xy), 0)
+    # 명시적 고신뢰(전원 0.9) — 사이각 드로잉 게이트는 conf 증명 필수.
+    pelvis, left_end, right_end = fz._leg_line_pts(
+        _report_pos_conf(1, 9.0, xy, {}), 0
+    )
     assert pelvis == (0.5, 0.4), "골반 = hips 중점"
     assert left_end == (0.35, 0.95) and right_end == (0.65, 0.95), "ankle 우선"
 
@@ -478,9 +481,15 @@ def test_leg_line_pts_pure():
     ) is None
     # hip 결측 → None.
     assert fz._leg_line_pts(
-        _report_pos_conf(1, 9.0, {"left_knee": (0.3, 0.7), "right_knee": (0.7, 0.7)}),
+        _report_pos_conf(
+            1, 9.0, {"left_knee": (0.3, 0.7), "right_knee": (0.7, 0.7)}, {}
+        ),
         0,
     ) is None
+    # confidence 부재(legacy report) → None — crop 게이트(부재=통과)와 달리
+    # 사이각 드로잉은 신뢰 증명 필수 (2026-07-05 pod PNG: confidence 없는
+    # reference report 가 통과해 몸과 무관한 방향으로 선 폭주 — 재발 방지 가드).
+    assert fz._leg_line_pts(_report_pos_conf(1, 9.0, xy), 0) is None
 
 
 def test_legs_valid_side_draws_angle(monkeypatch):
@@ -488,7 +497,7 @@ def test_legs_valid_side_draws_angle(monkeypatch):
     leg_calls = _spy_leg_angle(monkeypatch)
     mark_calls = _spy_mark(monkeypatch)
     frames = _frames(9, h=400, w=400)
-    rep = _report_pos_conf(9, 9.0, _LEGS_XY)
+    rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
     comps = fz.build_fault_zoom_comparisons(
         frames, frames, rep, rep, worst_seconds=0.5,
         fault_joints=list(_LEGS_XY), joint_deltas={j: 20.0 for j in _LEGS_XY},
@@ -503,7 +512,7 @@ def test_legs_split_angle_numbers_passed(monkeypatch):
     """Test 3a: split_angle_degs=(130,170) → user 130 / ref 170 순으로 전달."""
     leg_calls = _spy_leg_angle(monkeypatch)
     frames = _frames(9, h=400, w=400)
-    rep = _report_pos_conf(9, 9.0, _LEGS_XY)
+    rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
     fz.build_fault_zoom_comparisons(
         frames, frames, rep, rep, worst_seconds=0.5,
         fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
@@ -517,7 +526,7 @@ def test_legs_split_angle_none_omits_numbers(monkeypatch):
     """Test 3b: split_angle_degs=None → 양측 angle_deg=None (수치 생략)."""
     leg_calls = _spy_leg_angle(monkeypatch)
     frames = _frames(9, h=400, w=400)
-    rep = _report_pos_conf(9, 9.0, _LEGS_XY)
+    rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
     fz.build_fault_zoom_comparisons(
         frames, frames, rep, rep, worst_seconds=0.5,
         fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
@@ -531,7 +540,7 @@ def test_legs_low_conf_ref_side_no_angle(monkeypatch):
     """Test 4: ref 측 저신뢰(relaxed) → ref 사이각 미호출, user 측만."""
     leg_calls = _spy_leg_angle(monkeypatch)
     frames = _frames(9, h=400, w=400)
-    user_rep = _report_pos_conf(9, 9.0, _LEGS_XY)  # conf 부재 → valid
+    user_rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
     ref_rep = _report_pos_conf(9, 9.0, _LEGS_XY, {j: 0.1 for j in _LEGS_XY})
     comps = fz.build_fault_zoom_comparisons(
         frames, frames, user_rep, ref_rep, worst_seconds=0.5,
@@ -540,6 +549,27 @@ def test_legs_low_conf_ref_side_no_angle(monkeypatch):
     )
     assert len(comps) == 1
     assert len(leg_calls) == 1, "저신뢰 ref 는 기존 relaxed 렌더 폴백(사이각 생략)"
+
+
+def test_legs_conf_absent_ref_side_no_angle(monkeypatch):
+    """Test 4b: ref confidence 부재(legacy report) → ref 사이각 미호출 (pod fix).
+
+    2026-07-05 belle pod PNG 검증: confidence 없는 reference report 는 crop
+    게이트(부재=통과)로 kind='valid' 가 되지만, 좌표 신뢰가 증명되지 않아 선이
+    몸과 무관한 방향으로 폭주했다. 사이각 드로잉은 conf >= _KP_CONF_MIN 증명
+    좌표만 — legacy 측은 기존 렌더 그대로(카드 유지, 드로잉만 생략).
+    """
+    leg_calls = _spy_leg_angle(monkeypatch)
+    frames = _frames(9, h=400, w=400)
+    user_rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
+    ref_rep = _report_pos_conf(9, 9.0, _LEGS_XY)  # confidence 키 자체 부재
+    comps = fz.build_fault_zoom_comparisons(
+        frames, frames, user_rep, ref_rep, worst_seconds=0.5,
+        fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
+        joint_kinds={j: "deficit" for j in _LEGS_XY},
+    )
+    assert len(comps) == 1
+    assert len(leg_calls) == 1, "conf 부재 ref 는 드로잉 생략 (crop 은 기존 그대로)"
 
 
 def test_non_legs_cards_no_leg_angle(monkeypatch):
@@ -563,14 +593,35 @@ def test_non_legs_cards_no_leg_angle(monkeypatch):
 
 
 def test_split_angle_degs_from_records_pure():
-    """Test 6: criterion/unit 필터 + 측별 defensive None + graceful."""
+    """Test 6: 벌림각 semantics(ipsf_absolute)만 수치화 + 기준 측 항상 생략.
+
+    2026-07-05 belle pod PNG 검증 fix: 현행 split_vs_reference record 는
+    reference_relative(measuredValue=정은지-대비 편차 50, baselineValue=0) —
+    그대로 표기하면 학생 라벨이 deficit(50°)로, 기준 라벨이 0°로 오표기됐다.
+    벌림각 semantics 인 ipsf_absolute record 의 measuredValue(=180−deficit,
+    추정 학생 벌림각)만 학생 측에 표기하고, 기준 측은 baselineValue(180)가
+    IPSF 목표치지 정은지 실측각이 아니므로 항상 생략한다.
+    """
     recs = [
         {"criterion": "line", "unit": "deg", "measuredValue": 5.0,
-         "baselineValue": 0.0},
+         "baselineValue": 0.0, "deviationSource": "ipsf_absolute"},
         {"criterion": "split_angle", "unit": "deg", "measuredValue": 132.0,
-         "baselineValue": 180.0},
+         "baselineValue": 180.0, "deviationSource": "ipsf_absolute"},
     ]
-    assert fz.split_angle_degs_from_records(recs) == (132.0, 180.0)
+    assert fz.split_angle_degs_from_records(recs) == (132.0, None), (
+        "학생=measuredValue(벌림각), 기준=생략(180 은 실측각 아님)"
+    )
+    # reference_relative(현행 vision-주입 kip-up 경로) — measured=편차 50 은
+    # 벌림각이 아님 → 전체 None (수치 생략, 선+호만). pod 재현 record 형상.
+    assert fz.split_angle_degs_from_records(
+        [{"criterion": "split_angle", "unit": "deg", "measuredValue": 50.0,
+          "baselineValue": 0.0, "deviationSource": "reference_relative"}]
+    ) is None
+    # deviationSource 부재(미상 출처) → 수치 생략 (defensive).
+    assert fz.split_angle_degs_from_records(
+        [{"criterion": "split_angle", "unit": "deg", "measuredValue": 132.0,
+          "baselineValue": 180.0}]
+    ) is None
     # criterion 불일치만 → None.
     assert fz.split_angle_degs_from_records(
         [{"criterion": "line", "unit": "deg"}]
@@ -578,16 +629,13 @@ def test_split_angle_degs_from_records_pure():
     # unit 불일치 → skip → None.
     assert fz.split_angle_degs_from_records(
         [{"criterion": "split_angle", "unit": "ratio", "measuredValue": 1.0,
-          "baselineValue": 1.0}]
+          "baselineValue": 1.0, "deviationSource": "ipsf_absolute"}]
     ) is None
-    # 비유한 measuredValue → 해당 측 None, baseline 유효.
+    # 비유한 measuredValue → None (표기할 벌림각 없음).
     assert fz.split_angle_degs_from_records(
         [{"criterion": "split_angle", "unit": "deg",
-          "measuredValue": float("nan"), "baselineValue": 180.0}]
-    ) == (None, 180.0)
-    # 둘 다 부재/비유한 → 전체 None.
-    assert fz.split_angle_degs_from_records(
-        [{"criterion": "split_angle", "unit": "deg"}]
+          "measuredValue": float("nan"), "baselineValue": 180.0,
+          "deviationSource": "ipsf_absolute"}]
     ) is None
     # records None/비리스트/빈 → graceful.
     assert fz.split_angle_degs_from_records(None) is None

@@ -2727,9 +2727,12 @@ def _attach_fault_zoom_comparisons(
         kp_wm_deltas, set(fault_joints), _dims._LINE_TOL_DEG
     )
     advisory_deltas = {kp: abs(kp_wm_deltas[kp]) for kp in advisory}
-    # 스플릿(legs) 사이각 수치 = 점수가 쓴 split_angle record (measuredValue=추정
-    # 학생각, baselineValue=IPSF 180 기준) — 측정-표시 정합, record 부재 시 선+호만
-    # (belle 2026-07-05). 채점 무접촉 — display 렌더에만 전달.
+    # 스플릿(legs) 사이각 수치 = 점수가 쓴 split_angle record 중 벌림각 semantics
+    # 인 ipsf_absolute(measuredValue=추정 학생 벌림각)만 — 학생 측 표기, 기준 측은
+    # 항상 생략(baselineValue 180 은 IPSF 목표치지 정은지 실측각이 아님). 현행
+    # split_vs_reference(reference_relative, vision-주입 kip-up 포함)는 measured
+    # 가 편차라 표기하면 오독 → 수치 생략, 선+호만 (belle pod PNG 검증 2026-07-05
+    # fix: 학생 라벨=deficit 50°/기준 라벨=0° 오표기). 채점 무접촉 — display 전용.
     split_degs = _fz.split_angle_degs_from_records(
         (result.get("deductionBreakdown") or {}).get("records")
     )

@@ -1,346 +1,321 @@
 {
   "power-spin": {
     "fault": {
-      "coverageGaps": [],
-      "final": 52,
-      "fallback": null,
+      "final": 37,
       "records": [
         {
           "baselineValue": 180.0,
+          "source": "geometry",
           "deviationSource": "ipsf_absolute",
-          "baselineKind": null,
+          "unit": "deg",
           "ipsfAnchor": "19-IPSF §A 트랙2 (다리 신전 부족 누적 감점)",
-          "deviation": 19.01,
-          "measuredValue": 140.99,
+          "deviation": 19.1,
           "ruleId": "leg_extension_over_tol_linear",
-          "points": -22.8,
           "criterion": "leg_extension",
-          "unit": "deg",
-          "source": "geometry"
+          "measuredValue": 140.9,
+          "points": -22.9,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "vision",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
+          "unit": "deg",
           "ipsfAnchor": "expert_reference_deviation (정은지 대비 split 부족분)",
-          "deviation": 10.0,
-          "measuredValue": 30.0,
+          "deviation": 20.0,
           "ruleId": "split_vs_reference_over_tol_linear",
-          "points": -12.0,
           "criterion": "split_angle",
-          "unit": "deg",
-          "source": "vision"
+          "measuredValue": 40.0,
+          "points": -24.0,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
-          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 10.72,
-          "measuredValue": 30.72,
-          "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -12.9,
-          "criterion": "angle_vs_reference__left_shoulder",
           "unit": "deg",
-          "source": "geometry"
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "deviation": 13.16,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "measuredValue": 33.16,
+          "points": -15.8,
+          "baselineKind": null
         }
       ],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": null
     },
     "correct": {
-      "coverageGaps": [],
       "final": 100,
-      "fallback": null,
       "records": [],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": null
     }
   },
   "peter-pan": {
     "fault": {
-      "coverageGaps": [
-        {
-          "keypointSet": "head_neck",
-          "bodyPart": "머리/목",
-          "reason": "no_head_neck_angle_substrate ([[spike-stillframe-recovers-upperbody]])",
-          "faultState": "고개가 숙여져 시선이 정면/아래를 향함",
-          "faultType": "head_neck",
-          "ruleId": null
-        },
-        {
-          "keypointSet": "head_neck",
-          "bodyPart": "왼쪽 발목 및 발끝",
-          "reason": "no_head_neck_angle_substrate ([[spike-stillframe-recovers-upperbody]])",
-          "faultState": "발목이 약간 꺾여 있고 발끝 포인이 풀려 있음",
-          "faultType": "head_neck",
-          "ruleId": null
-        },
-        {
-          "keypointSet": "head_neck",
-          "bodyPart": "왼쪽 발목",
-          "reason": "no_head_neck_angle_substrate ([[spike-stillframe-recovers-upperbody]])",
-          "faultState": "발끝 포인이 다소 풀려 있음",
-          "faultType": "head_neck",
-          "ruleId": null
-        }
-      ],
       "final": 83,
-      "fallback": null,
       "records": [
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
-          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 2.47,
-          "measuredValue": 22.47,
-          "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -3.0,
-          "criterion": "angle_vs_reference__right_elbow",
           "unit": "deg",
-          "source": "geometry"
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "deviation": 2.59,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "criterion": "angle_vs_reference__right_elbow",
+          "measuredValue": 22.59,
+          "points": -3.1,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
-          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 11.74,
-          "measuredValue": 31.74,
-          "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -14.1,
-          "criterion": "angle_vs_reference__left_shoulder",
           "unit": "deg",
-          "source": "geometry"
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "deviation": 11.75,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "measuredValue": 31.75,
+          "points": -14.1,
+          "baselineKind": null
+        },
+        {
+          "baselineValue": 0.0,
+          "source": "geometry",
+          "deviationSource": "reference_relative",
+          "unit": "deg",
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "deviation": 0.04,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "criterion": "angle_vs_reference__right_knee",
+          "measuredValue": 20.04,
+          "points": -0.0,
+          "baselineKind": null
         }
       ],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": "gemini_silent"
     },
     "correct": {
-      "coverageGaps": [],
       "final": 100,
-      "fallback": null,
       "records": [],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": null
     }
   },
   "elbow-twist-sister": {
     "fault": {
-      "coverageGaps": [],
-      "final": 69,
-      "fallback": null,
+      "final": 68,
       "records": [
         {
           "baselineValue": 0.0,
+          "source": "vision",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
+          "unit": "deg",
           "ipsfAnchor": "expert_reference_deviation (정은지 대비 split 부족분)",
           "deviation": 5.0,
-          "measuredValue": 25.0,
           "ruleId": "split_vs_reference_over_tol_linear",
-          "points": -6.0,
           "criterion": "split_angle",
-          "unit": "deg",
-          "source": "vision"
+          "measuredValue": 25.0,
+          "points": -6.0,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
+          "unit": "deg",
           "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 3.84,
-          "measuredValue": 23.84,
+          "deviation": 4.12,
           "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -4.6,
           "criterion": "angle_vs_reference__left_elbow",
-          "unit": "deg",
-          "source": "geometry"
+          "measuredValue": 24.12,
+          "points": -4.9,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
+          "unit": "deg",
           "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 11.0,
-          "measuredValue": 31.0,
+          "deviation": 6.71,
           "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -13.2,
           "criterion": "angle_vs_reference__right_elbow",
-          "unit": "deg",
-          "source": "geometry"
+          "measuredValue": 26.71,
+          "points": -8.1,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
+          "unit": "deg",
           "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 2.58,
-          "measuredValue": 22.58,
+          "deviation": 3.87,
           "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -3.1,
           "criterion": "angle_vs_reference__left_shoulder",
-          "unit": "deg",
-          "source": "geometry"
+          "measuredValue": 23.87,
+          "points": -4.6,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
-          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 3.16,
-          "measuredValue": 23.16,
-          "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -3.8,
-          "criterion": "angle_vs_reference__right_shoulder",
           "unit": "deg",
-          "source": "geometry"
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "deviation": 6.94,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "criterion": "angle_vs_reference__right_shoulder",
+          "measuredValue": 26.94,
+          "points": -8.3,
+          "baselineKind": null
         }
       ],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": null
     },
     "correct": {
-      "coverageGaps": [],
       "final": 100,
-      "fallback": null,
       "records": [],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": null
     }
   },
   "pdshape": {
     "fault": {
-      "coverageGaps": [],
-      "final": 58,
-      "fallback": "gemini_silent",
+      "final": 63,
       "records": [
         {
           "baselineValue": 0.0,
+          "source": "vision",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
+          "unit": "deg",
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 split 부족분)",
+          "deviation": 10.0,
+          "ruleId": "split_vs_reference_over_tol_linear",
+          "criterion": "split_angle",
+          "measuredValue": 30.0,
+          "points": -12.0,
+          "baselineKind": null
+        },
+        {
+          "baselineValue": 0.0,
+          "source": "geometry",
+          "deviationSource": "reference_relative",
+          "unit": "deg",
           "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 4.18,
-          "measuredValue": 24.18,
+          "deviation": 5.87,
           "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -5.0,
           "criterion": "angle_vs_reference__left_elbow",
-          "unit": "deg",
-          "source": "geometry"
+          "measuredValue": 25.87,
+          "points": -7.0,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
+          "unit": "deg",
           "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 7.53,
-          "measuredValue": 27.53,
+          "deviation": 6.82,
           "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -9.0,
           "criterion": "angle_vs_reference__right_elbow",
-          "unit": "deg",
-          "source": "geometry"
+          "measuredValue": 26.82,
+          "points": -8.2,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
+          "unit": "deg",
           "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 5.1,
-          "measuredValue": 25.1,
+          "deviation": 7.27,
           "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -6.1,
           "criterion": "angle_vs_reference__left_shoulder",
-          "unit": "deg",
-          "source": "geometry"
+          "measuredValue": 27.27,
+          "points": -8.7,
+          "baselineKind": null
         },
         {
           "baselineValue": 0.0,
+          "source": "geometry",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
+          "unit": "deg",
           "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 1.36,
-          "measuredValue": 21.36,
+          "deviation": 1.14,
           "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -1.6,
           "criterion": "angle_vs_reference__right_shoulder",
-          "unit": "deg",
-          "source": "geometry"
-        },
-        {
-          "baselineValue": 0.0,
-          "deviationSource": "reference_relative",
-          "baselineKind": null,
-          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 3.4,
-          "measuredValue": 23.4,
-          "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -4.1,
-          "criterion": "angle_vs_reference__left_hip",
-          "unit": "deg",
-          "source": "geometry"
-        },
-        {
-          "baselineValue": 0.0,
-          "deviationSource": "reference_relative",
-          "baselineKind": null,
-          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 12.31,
-          "measuredValue": 32.31,
-          "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -14.8,
-          "criterion": "angle_vs_reference__left_knee",
-          "unit": "deg",
-          "source": "geometry"
-        },
-        {
-          "baselineValue": 0.0,
-          "deviationSource": "reference_relative",
-          "baselineKind": null,
-          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 1.19,
-          "measuredValue": 21.19,
-          "ruleId": "angle_vs_reference_over_tol_linear",
+          "measuredValue": 21.14,
           "points": -1.4,
-          "criterion": "angle_vs_reference__right_knee",
-          "unit": "deg",
-          "source": "geometry"
+          "baselineKind": null
         }
       ],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": null
     },
     "correct": {
-      "coverageGaps": [],
       "final": 100,
-      "fallback": null,
       "records": [],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": null
     }
   },
   "kip-up": {
     "fault": {
-      "coverageGaps": [],
-      "final": 99,
-      "fallback": null,
+      "final": 76,
       "records": [
         {
           "baselineValue": 0.0,
+          "source": "vision",
           "deviationSource": "reference_relative",
-          "baselineKind": null,
-          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
-          "deviation": 0.6,
-          "measuredValue": 20.6,
-          "ruleId": "angle_vs_reference_over_tol_linear",
-          "points": -0.7,
-          "criterion": "angle_vs_reference__left_shoulder",
           "unit": "deg",
-          "source": "geometry"
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 split 부족분)",
+          "deviation": 20.0,
+          "ruleId": "split_vs_reference_over_tol_linear",
+          "criterion": "split_angle",
+          "measuredValue": 40.0,
+          "points": -24.0,
+          "baselineKind": null
+        },
+        {
+          "baselineValue": 0.0,
+          "source": "geometry",
+          "deviationSource": "reference_relative",
+          "unit": "deg",
+          "ipsfAnchor": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+          "deviation": 0.09,
+          "ruleId": "angle_vs_reference_over_tol_linear",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "measuredValue": 20.09,
+          "points": -0.1,
+          "baselineKind": null
         }
       ],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": null
     },
     "correct": {
-      "coverageGaps": [],
       "final": 100,
-      "fallback": null,
       "records": [],
-      "baseline": 100
+      "baseline": 100,
+      "coverageGaps": [],
+      "fallback": null
     }
   },
   "climb": {

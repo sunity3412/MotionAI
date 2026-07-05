@@ -2544,6 +2544,7 @@ def _render_fault_zoom(
     *,
     advisory_joints: list[str] | None = None,
     advisory_deltas: dict[str, float] | None = None,
+    split_angle_degs: tuple[float | None, float | None] | None = None,
 ) -> dict:
     """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → result.
 
@@ -2555,6 +2556,9 @@ def _render_fault_zoom(
     관절 — 별도 배치로 tier='advisory' 카드 생성. None/빈 리스트 = 기존 경로 100%
     보존 (Mode3 _attach_mode3_fault_zoom 은 default None 무접촉). 채점 무접촉 —
     카드 생성·방출만 ([[window-median-silent-seed-fp-reverted]]).
+    split_angle_degs (quick-260705-r6x): legs(스플릿) 카드의 (학생 각도, 기준 각도)
+    수치 — confirmed/advisory 두 배치에 동일 전달(배치 간 시각 언어 분기 없음).
+    None=수치 생략(선+호만). Mode3 는 default None(스플릿 record 미방출, honest 생략).
     """
     from sunity_shared.analysis import fault_zoom
     from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
@@ -2577,6 +2581,7 @@ def _render_fault_zoom(
         dtw_match=dtw_match,
         user_frame_idx=user_frame_idx,
         ref_frame_idx=ref_frame_idx,
+        split_angle_degs=split_angle_degs,
     )
     # advisory 배치 (quick-260704-fz4) — 프레임 추출은 위 1회 재사용. joint_kinds
     # 'deficit' 은 좌+우 grouping(arms 1장) 활성용 내부 전달일 뿐, 방출 item 에는
@@ -2597,6 +2602,7 @@ def _render_fault_zoom(
             dtw_match=dtw_match,
             user_frame_idx=user_frame_idx,
             ref_frame_idx=ref_frame_idx,
+            split_angle_degs=split_angle_degs,
         )
     out: list[dict] = []
     for tier, batch, key_prefix in (
@@ -2721,6 +2727,12 @@ def _attach_fault_zoom_comparisons(
         kp_wm_deltas, set(fault_joints), _dims._LINE_TOL_DEG
     )
     advisory_deltas = {kp: abs(kp_wm_deltas[kp]) for kp in advisory}
+    # 스플릿(legs) 사이각 수치 = 점수가 쓴 split_angle record (measuredValue=추정
+    # 학생각, baselineValue=IPSF 180 기준) — 측정-표시 정합, record 부재 시 선+호만
+    # (belle 2026-07-05). 채점 무접촉 — display 렌더에만 전달.
+    split_degs = _fz.split_angle_degs_from_records(
+        (result.get("deductionBreakdown") or {}).get("records")
+    )
     return _render_fault_zoom(
         result, user_video_path, ref_video_path, user_report, ref_report,
         fault_joints, deficits, kinds,
@@ -2731,6 +2743,7 @@ def _attach_fault_zoom_comparisons(
         ref_frame_idx=ref_frame_idx,
         advisory_joints=advisory,
         advisory_deltas=advisory_deltas,
+        split_angle_degs=split_degs,
     )
 
 

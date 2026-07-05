@@ -38,6 +38,14 @@ _BRAND = (255, 75, 51)
 # 않는 표시 전용 상수이므로 calibration-source-hard-gate 대상 아님.
 _MIN_LEG_VEC_PX = 8
 
+# 사이각 선 keypoint 의 crop-포함 허용 마진(px) — **display 전용, 채점 무접촉**.
+# 드로잉에 쓰는 hip 중점+다리 끝의 crop-내 raw 픽셀(clamp 전)이 crop 박스를
+# 벗어나면 _to_crop_px clamp 가 좌표를 경계로 당겨 선이 몸과 무관하게 폭주한다
+# (2026-07-05 belle pod PNG: 정은지 crop 이 정강이만 잘라 hip 이 crop 위로 벗어남 —
+# conf 게이트는 통과했으나 자세가 스플릿이 아니고 crop 도 다리 하단만 포함).
+# 경계 근처 rounding 은 허용하되 명백히 벗어난 점은 배제 = 그 측 사이각 생략.
+_CROP_INCLUSION_MARGIN_PX = int(_OUT * 0.10)
+
 # crop 앵커 keypoint 최소 confidence (quick-260702-sic). 프론트
 # KeypointOverlay.KEYPOINT_LOW_CONFIDENCE_THRESHOLD = 0.5 선례 정합 — 저신뢰
 # keypoint(RTMW 몸통 붕괴 등)를 crop 중심으로 쓰면 엉뚱한 부위(뒤통수)가 확대됨.
@@ -469,6 +477,29 @@ def _to_crop_px(
     return max(0, min(_OUT - 1, ax)), max(0, min(_OUT - 1, ay))
 
 
+def _pt_in_crop(
+    xy: tuple[float, float],
+    left: int,
+    top: int,
+    side: int,
+    w: int,
+    h: int,
+    margin: float = _CROP_INCLUSION_MARGIN_PX,
+) -> bool:
+    """xy(정규화)의 crop-내 raw 픽셀(clamp 전)이 [−margin, _OUT+margin] 안인가.
+
+    _to_crop_px 는 [0,_OUT-1] 로 clamp 하므로 crop 밖 점도 경계로 접힌다 — 포함
+    판정은 반드시 clamp 전 좌표로(quick-260705-r6x pod fix). 사이각 선 시작/끝점이
+    crop 밖이면 선이 경계로 폭주하므로 그 측 드로잉을 생략하는 데 쓴다.
+    """
+    s = max(1, int(side))
+    ax = (xy[0] * w - left) / s * _OUT
+    ay = (xy[1] * h - top) / s * _OUT
+    lo = -float(margin)
+    hi = _OUT + float(margin)
+    return lo <= ax <= hi and lo <= ay <= hi
+
+
 def _side_crop(
     frame: np.ndarray,
     valid_pts: list[tuple[float, float]],
@@ -639,12 +670,19 @@ def _draw_side_leg_angle(
     _leg_line_pts 3점(정규화) → _to_crop_px 로 crop-내 픽셀 → _draw_leg_angle.
     pts 해석 불가/degenerate → False (호출측 기존 렌더 폴백). box = _side_crop 이
     반환한 (left, top, side) — crop 이 쓴 그 프레임 좌표계.
+
+    crop-포함 게이트(quick-260705-r6x pod fix): 3점 중 하나라도 crop 박스 밖이면
+    (_to_crop_px clamp 로 선이 경계로 폭주 — 2026-07-05 정은지 ref 측 실측) 드로잉
+    생략하고 기존 crop 폴백. conf 게이트(_gated_kp)와 AND — 신뢰 좌표라도 그 측
+    crop 이 관절을 안 담으면 그리지 않는다.
     """
     pts = _leg_line_pts(report, kp_idx)
     if pts is None:
         return False
     h, w = frame.shape[0], frame.shape[1]
     left, top, side = box
+    if not all(_pt_in_crop(p, left, top, side, w, h) for p in pts):
+        return False
     pelvis_px = _to_crop_px(pts[0], left, top, side, w, h)
     left_px = _to_crop_px(pts[1], left, top, side, w, h)
     right_px = _to_crop_px(pts[2], left, top, side, w, h)

@@ -572,6 +572,45 @@ def test_legs_conf_absent_ref_side_no_angle(monkeypatch):
     assert len(leg_calls) == 1, "conf 부재 ref 는 드로잉 생략 (crop 은 기존 그대로)"
 
 
+def test_pt_in_crop_pure():
+    """Test 4c-i: crop-포함 판정은 clamp 전 raw 픽셀로 (경계 밖 = False)."""
+    # frame 400x400, crop box (left56, top76, side288) — 표준 legs crop.
+    assert fz._pt_in_crop((0.5, 0.55), 56, 76, 288, 400, 400) is True
+    # hip 이 crop 위로(y0.0)이고 crop 은 하단만(top280,side100) → raw ay ≪ 0 → 밖.
+    assert fz._pt_in_crop((0.5, 0.0), 150, 280, 100, 400, 400) is False
+    # 경계 살짝 밖(마진 내, x0.9 → raw ax≈380 ≤ 396)은 허용 — rounding 관용.
+    assert fz._pt_in_crop((0.9, 0.5), 56, 76, 288, 400, 400) is True
+    # 명백히 밖(x1.0 → raw ax≈430 > 396) → False.
+    assert fz._pt_in_crop((1.0, 0.5), 56, 76, 288, 400, 400) is False
+
+
+def test_draw_side_leg_angle_skips_when_hip_outside_crop(monkeypatch):
+    """Test 4c-ii: 드로잉 keypoint 가 crop 밖(hip 이 crop 위) → 그 측 사이각 생략.
+
+    2026-07-05 belle pod 좌표 특정: 정은지 ref-kip-up 프레임에서 legs conf 는
+    0.55~0.80 으로 게이트 통과했으나 crop 이 정강이 하단만 잘라 hip(선 시작점)이
+    crop 밖 → clamp 로 선이 몸과 무관하게 폭주. crop-포함 게이트로 그 측 생략.
+    """
+    leg_calls = _spy_leg_angle(monkeypatch)
+    from PIL import Image as _I
+
+    img = _I.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
+    frame = _frames(1, h=400, w=400)[0]
+    # hips 상단(y0.1, conf 0.7 통과), 다리 끝 하단(y0.9). 자세=다리 모음(스플릿 아님).
+    xy = {
+        "left_hip": (0.45, 0.1), "right_hip": (0.55, 0.1),
+        "left_knee": (0.4, 0.9), "right_knee": (0.6, 0.9),
+    }
+    rep = _report_pos_conf(1, 9.0, xy, {j: 0.7 for j in xy})
+    # crop box = 하단만(top280,side100) → hip(y0.1=40px) 이 crop 위로 벗어남.
+    assert fz._draw_side_leg_angle(img, frame, rep, 0, (150, 280, 100), None) is False
+    assert leg_calls == [], "crop 밖 hip → 사이각 드로잉 생략(폴백)"
+
+    # 대조(regression): hip 을 포함하는 큰 crop → 정상 드로잉 (게이트 통과).
+    assert fz._draw_side_leg_angle(img, frame, rep, 0, (0, 0, 400), None) is True
+    assert len(leg_calls) == 1, "crop 이 3점 전부 포함하면 그린다"
+
+
 def test_non_legs_cards_no_leg_angle(monkeypatch):
     """Test 5: non-legs(arms grouped) → 사이각 0회, _mark 기존 circle=True 규칙."""
     leg_calls = _spy_leg_angle(monkeypatch)

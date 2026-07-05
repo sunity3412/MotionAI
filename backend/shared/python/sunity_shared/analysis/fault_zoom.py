@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import io
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -30,6 +31,12 @@ _CROP_FRAC = 0.42
 _OUT = 360
 # 마커 색 (브랜드 #FF4B33).
 _BRAND = (255, 75, 51)
+
+# 다리 사이각 선 최소 벡터 길이(px) — **display 전용, 채점 무접촉** (quick-260705-r6x).
+# 골반 중점↔다리 끝 벡터가 이보다 짧으면(겹친 좌표) 선/호를 그려도 방향이 무의미해
+# 오히려 오인 → 드로잉 생략하고 기존 렌더로 폴백. 채점/veto/게이트 경로에 진입하지
+# 않는 표시 전용 상수이므로 calibration-source-hard-gate 대상 아님.
+_MIN_LEG_VEC_PX = 8
 
 # crop 앵커 keypoint 최소 confidence (quick-260702-sic). 프론트
 # KeypointOverlay.KEYPOINT_LOW_CONFIDENCE_THRESHOLD = 0.5 선례 정합 — 저신뢰
@@ -299,6 +306,55 @@ def _kp_conf(report: dict, frame_idx: int, joint: str) -> float | None:
     return c if np.isfinite(c) else None
 
 
+def _gated_kp(
+    report: dict, frame_idx: int, joint: str
+) -> tuple[float, float] | None:
+    """좌표 finite AND confidence 게이트를 통과한 keypoint (quick-260705-r6x).
+
+    confidence 부재(legacy) = 통과(_kp_conf None). conf < _KP_CONF_MIN → None —
+    저신뢰 좌표를 다리 선 끝점으로 쓰면 엉뚱한 방향이 그려져 오인. 사이각 드로잉
+    전용 게이트(표시 전용, 채점 무접촉).
+    """
+    xy = _kp_xy(report, frame_idx, joint)
+    if xy is None:
+        return None
+    c = _kp_conf(report, frame_idx, joint)
+    if c is not None and c < _KP_CONF_MIN:
+        return None
+    return xy
+
+
+def _leg_line_pts(
+    report: dict, frame_idx: int
+) -> tuple[
+    tuple[float, float], tuple[float, float], tuple[float, float]
+] | None:
+    """스플릿 사이각 드로잉용 3점(정규화): (골반 중점, 왼 다리 끝, 오른 다리 끝).
+
+    belle 2026-07-05 실기기: "다리에 동그라미가 아니라 다리와 다리 사이각을 표시".
+      · 골반 중점 = left_hip/right_hip 중점 — 양쪽 모두 게이트 통과 필수.
+      · 다리 끝 = ankle 우선, 저신뢰/결측 시 knee 폴백 (측별 독립).
+      · 셋 중 하나라도 해석 불가 → None (호출측 기존 렌더 폴백).
+    fault_joints(결함 관절 목록)와 무관하게 report 에서 직접 조회한다 — 드로잉
+    좌표는 결함 목록이 아니라 실제 관절 위치를 따른다 (fault_joints 에 knee 만
+    있어도 hips 가 report 에 valid 하면 그린다).
+    """
+    lh = _gated_kp(report, frame_idx, "left_hip")
+    rh = _gated_kp(report, frame_idx, "right_hip")
+    if lh is None or rh is None:
+        return None
+    pelvis = ((lh[0] + rh[0]) / 2.0, (lh[1] + rh[1]) / 2.0)
+    left_end = _gated_kp(report, frame_idx, "left_ankle") or _gated_kp(
+        report, frame_idx, "left_knee"
+    )
+    right_end = _gated_kp(report, frame_idx, "right_ankle") or _gated_kp(
+        report, frame_idx, "right_knee"
+    )
+    if left_end is None or right_end is None:
+        return None
+    return pelvis, left_end, right_end
+
+
 def _crop_box(
     h: int, w: int, cx: float, cy: float, side: int | None = None
 ) -> tuple[int, int, int]:
@@ -392,18 +448,42 @@ def _anchor_xy(
     return best_xy
 
 
+def _to_crop_px(
+    xy: tuple[float, float],
+    left: int,
+    top: int,
+    side: int,
+    w: int,
+    h: int,
+) -> tuple[int, int]:
+    """정규화 좌표 → crop 박스(left,top,side) 내 출력 픽셀 변환 단일 출처 (quick-260705-r6x).
+
+    _side_crop 의 anchor_px 산출과 _draw_leg_angle 의 선/호 좌표가 같은 공식을
+    공유한다 (중복 금지). [0,_OUT-1] clamp — 캔버스 밖 좌표 방어.
+    """
+    s = max(1, int(side))
+    ax = int(round((xy[0] * w - left) / s * _OUT))
+    ay = int(round((xy[1] * h - top) / s * _OUT))
+    return max(0, min(_OUT - 1, ax)), max(0, min(_OUT - 1, ay))
+
+
 def _side_crop(
     frame: np.ndarray,
     valid_pts: list[tuple[float, float]],
     relaxed_pts: list[tuple[float, float]],
     anchor: tuple[float, float] | None = None,
-) -> tuple[Image.Image, str, tuple[int, int] | None]:
-    """한 측(user/ref)의 unit crop 3단 강하 → (이미지, crop_kind, anchor_px).
+) -> tuple[
+    Image.Image, str, tuple[int, int] | None, tuple[int, int, int] | None
+]:
+    """한 측(user/ref)의 unit crop 3단 강하 → (이미지, crop_kind, anchor_px, box).
 
     crop_kind ∈ {"valid", "relaxed", "full"} — _mark 가 앵커 표시 여부 결정.
     anchor_px = anchor(결함 관절 정규화 좌표)의 crop-내 출력 픽셀 좌표 — valid
     crop 에서만 산출 (circle 을 crop 중심이 아닌 관절 좌표에 고정, Task 2).
     relaxed/full 은 좌표 불확실이라 None (앵커 생략 = 오인 방지).
+    box = 이 crop 이 쓴 프레임 좌표계 (left, top, side) — 사이각 선/호 좌표 변환용
+    (quick-260705-r6x). full 폴백은 crop 박스가 없어 None. 기존 호출측은 [0]/[:2]/
+    [2] 인덱싱이라 4번째 원소 추가는 하위호환.
 
     (1) valid(신뢰 좌표) 있음 → 기존 로직 그대로: 1개=단일 관절 zoom, 2개 이상
         (grouped)=멤버 bounding box crop (변 = max(bbox)*_BBOX_MARGIN,
@@ -440,17 +520,16 @@ def _side_crop(
         left, top, s = _box_for(valid_pts, 1.0)
         anchor_px: tuple[int, int] | None = None
         if anchor is not None:
-            ax = int(round((anchor[0] * w - left) / s * _OUT))
-            ay = int(round((anchor[1] * h - top) / s * _OUT))
-            anchor_px = (
-                max(0, min(_OUT - 1, ax)),
-                max(0, min(_OUT - 1, ay)),
-            )
-        return _render_crop(frame, left, top, s), "valid", anchor_px
+            anchor_px = _to_crop_px(anchor, left, top, s, w, h)
+        return _render_crop(frame, left, top, s), "valid", anchor_px, (
+            left, top, s,
+        )
     if relaxed_pts:
         left, top, s = _box_for(relaxed_pts, _RELAXED_MARGIN)
-        return _render_crop(frame, left, top, s), "relaxed", None
-    return _full_frame_fit(frame), "full", None
+        return _render_crop(frame, left, top, s), "relaxed", None, (
+            left, top, s,
+        )
+    return _full_frame_fit(frame), "full", None, None
 
 
 def _deficit_label(deficit_deg: float) -> str:
@@ -493,6 +572,117 @@ def _mark(
     return img
 
 
+def _draw_leg_angle(
+    img: Image.Image,
+    pelvis_px: tuple[int, int],
+    left_px: tuple[int, int],
+    right_px: tuple[int, int],
+    angle_deg: float | None,
+) -> bool:
+    """골반 중점→양 다리 선 2개 + 사이각 호(arc) + (있으면) 각도 수치 (in-place).
+
+    belle 2026-07-05 실기기: 스플릿 결함의 본질 = 두 다리 벌림 각도. 앵커 동그라미
+    대신 사이각을 직접 그려 호 크기 차이가 곧 결함으로 보이게 한다. 성공 여부를
+    반환 — display 전용, 채점 무접촉. 한글 없음(선/호/숫자만, 모듈 docstring 정합).
+    """
+    px, py = pelvis_px
+    lx, ly = left_px
+    rx, ry = right_px
+    # 겹친 좌표(벡터 길이 < _MIN_LEG_VEC_PX)는 그리면 오히려 오인 → 드로잉 생략.
+    if (
+        math.hypot(lx - px, ly - py) < _MIN_LEG_VEC_PX
+        or math.hypot(rx - px, ry - py) < _MIN_LEG_VEC_PX
+    ):
+        return False
+    draw = ImageDraw.Draw(img)
+    draw.line([pelvis_px, left_px], fill=_BRAND, width=4)
+    draw.line([pelvis_px, right_px], fill=_BRAND, width=4)
+    r = int(_OUT * 0.14)
+    # 이미지 좌표(y down)의 atan2 와 PIL arc(3시 기준 시계방향)가 정합.
+    a_left = math.degrees(math.atan2(ly - py, lx - px))
+    a_right = math.degrees(math.atan2(ry - py, rx - px))
+    a1, a2 = a_left, a_right
+    if (a2 - a1) % 360 > 180:  # 두 선 사이 minor arc 만 그린다.
+        a1, a2 = a2, a1
+    draw.arc(
+        [px - r, py - r, px + r, py + r], start=a1, end=a2, fill=_BRAND, width=3
+    )
+    if angle_deg is not None and np.isfinite(angle_deg):
+        txt = _deficit_label(float(angle_deg))
+        # 호 이등분 방향 반지름 r+12 지점에 배지 (기존 _mark 배지 스타일 재사용,
+        # 폭 추정 8px/글자 동일).
+        mid = math.radians(a1 + ((a2 - a1) % 360) / 2.0)
+        label_r = r + 12
+        mx = px + label_r * math.cos(mid)
+        my = py + label_r * math.sin(mid)
+        tw = 8 * len(txt) + 10
+        th = 22
+        x0 = int(round(mx - tw / 2.0))
+        y0 = int(round(my - th / 2.0))
+        draw.rectangle([x0, y0, x0 + tw, y0 + th], fill=_BRAND)
+        draw.text((x0 + 5, y0 + 5), txt, fill=(255, 255, 255))
+    return True
+
+
+def _draw_side_leg_angle(
+    img: Image.Image,
+    frame: np.ndarray,
+    report: dict,
+    kp_idx: int,
+    box: tuple[int, int, int],
+    angle_deg: float | None,
+) -> bool:
+    """한 측 crop 에 다리 사이각을 그린다 (quick-260705-r6x) — 성공 여부 반환.
+
+    _leg_line_pts 3점(정규화) → _to_crop_px 로 crop-내 픽셀 → _draw_leg_angle.
+    pts 해석 불가/degenerate → False (호출측 기존 렌더 폴백). box = _side_crop 이
+    반환한 (left, top, side) — crop 이 쓴 그 프레임 좌표계.
+    """
+    pts = _leg_line_pts(report, kp_idx)
+    if pts is None:
+        return False
+    h, w = frame.shape[0], frame.shape[1]
+    left, top, side = box
+    pelvis_px = _to_crop_px(pts[0], left, top, side, w, h)
+    left_px = _to_crop_px(pts[1], left, top, side, w, h)
+    right_px = _to_crop_px(pts[2], left, top, side, w, h)
+    return _draw_leg_angle(img, pelvis_px, left_px, right_px, angle_deg)
+
+
+def split_angle_degs_from_records(
+    records,
+) -> tuple[float | None, float | None] | None:
+    """deductionBreakdown.records 에서 스플릿 사이각 수치 추출 (순수, boto3 무관).
+
+    criterion=='split_angle' AND unit=='deg' 첫 record 의
+    (measuredValue=추정 학생각, baselineValue=IPSF 180 기준) → (학생, 기준).
+    수치 출처 = 점수가 쓴 그 record — 측정-표시 정합
+    ([[scoring-must-be-transparent-deduction-tally]]). float 변환 실패/비유한은
+    해당 측 None, 둘 다 None 이면 전체 None. records None/비리스트 graceful.
+    """
+    if not isinstance(records, list):
+        return None
+
+    def _finite(v):
+        try:
+            x = float(v)
+        except (TypeError, ValueError):
+            return None
+        return x if np.isfinite(x) else None
+
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        if rec.get("criterion") != "split_angle" or rec.get("unit") != "deg":
+            continue
+        student = _finite(rec.get("measuredValue"))
+        baseline = _finite(rec.get("baselineValue"))
+        if student is None and baseline is None:
+            return None
+        return student, baseline
+    return None
+
+
 def _compose(user_crop: Image.Image, ref_crop: Image.Image) -> bytes:
     """[user | ref] 가로 합성 → PNG bytes. 가운데 흰 구분선."""
     gap = 6
@@ -519,6 +709,7 @@ def build_fault_zoom_comparisons(
     *,
     user_frame_idx: int | None = None,
     ref_frame_idx: int | None = None,
+    split_angle_degs: tuple[float | None, float | None] | None = None,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -530,6 +721,9 @@ def build_fault_zoom_comparisons(
       9fps frames 배열 인덱스 공간. 주어진 측은 worst_seconds/DTW 선택을 대체한다
       (vision veto 가 측정한 그 프레임 = 표시 프레임 정합). 둘 다 None(default) 이면
       기존 동작 100% 보존 (하위호환).
+    split_angle_degs (quick-260705-r6x): region=='legs' 카드의 (학생 각도, 기준
+      각도) 수치 — 호 옆 표기용. None(default) 이면 legs 카드도 선+호만(수치 생략).
+      non-legs/legacy 경로는 무접촉. 채점 무접촉 — display 렌더 전용.
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (user 18 / reference 가변)로 **각자 시간 인덱싱** — upsample fps mismatch 회피.
@@ -597,19 +791,42 @@ def build_fault_zoom_comparisons(
         ]
         deficit = max(member_deltas) if member_deltas else None
         try:
-            u_img, u_kind, u_anchor = _side_crop(
-                user_frames[u_idx],
+            u_frame = user_frames[u_idx]
+            r_frame = ref_frames[r_idx]
+            u_img, u_kind, u_anchor, u_box = _side_crop(
+                u_frame,
                 [xy for _n, xy in u_valid],
                 u_relaxed,
                 anchor=_anchor_xy(u_valid, deltas) if u_valid else None,
             )
-            u_crop = _mark(
-                u_img, deficit, circle=u_kind == "valid", anchor_px=u_anchor
+            r_img, r_kind, _r_anchor, r_box = _side_crop(
+                r_frame, [xy for _n, xy in r_valid], r_relaxed
             )
-            r_crop, _r_kind, _r_anchor = _side_crop(
-                ref_frames[r_idx], [xy for _n, xy in r_valid], r_relaxed
-            )
-            png = _compose(u_crop, r_crop)
+            # legs(스플릿) 카드: 앵커 동그라미 대신 다리 사이각(선 2 + 호 + 수치)
+            # — valid 측만, 측별 독립 (belle 2026-07-05 실기기). split_angle_degs
+            # = (학생 수치, 기준 수치), None 이면 해당 측 수치 생략(선+호만).
+            # non-legs unit 은 이 블록을 완전히 건너뛴다 (기존 circle+배지 불변).
+            u_deg = split_angle_degs[0] if split_angle_degs else None
+            r_deg = split_angle_degs[1] if split_angle_degs else None
+            u_drew_legs = False
+            if unit.region == "legs" and u_kind == "valid" and u_box is not None:
+                u_drew_legs = _draw_side_leg_angle(
+                    u_img, u_frame, user_report, u_kp_idx, u_box, u_deg
+                )
+            if unit.region == "legs" and r_kind == "valid" and r_box is not None:
+                _draw_side_leg_angle(
+                    r_img, r_frame, ref_report, r_kp_idx, r_box, r_deg
+                )
+            # user 측: 사이각을 그렸으면 원 생략(배지는 유지 — 배지=부족분/호=측정
+            # 각도로 역할 분리), 아니면 기존 규칙 그대로.
+            if u_drew_legs:
+                u_crop = _mark(u_img, deficit, circle=False, anchor_px=None)
+            else:
+                u_crop = _mark(
+                    u_img, deficit, circle=u_kind == "valid", anchor_px=u_anchor
+                )
+            # ref 측은 기존과 동일하게 _mark 없음(배지/원 미부여) — 선+호+수치만.
+            png = _compose(u_crop, r_img)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue
         item = {

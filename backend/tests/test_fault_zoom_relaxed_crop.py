@@ -206,7 +206,8 @@ def test_side_crop_anchor_maps_to_joint_pixel():
     anchor (0.25,0.5) → ((100-20)/360*360, (200-20)/360*360) = (80,180) ≠ 중앙.
     """
     frame = _grad_frames()[0]
-    _img, kind, anchor_px = fz._side_crop(
+    # quick-260705-r6x: _side_crop 이 4-tuple (..., box) 반환 — box 는 여기선 미사용.
+    _img, kind, anchor_px, _box = fz._side_crop(
         frame, [(0.25, 0.5), (0.75, 0.5)], [], anchor=(0.25, 0.5)
     )
     assert kind == "valid"
@@ -250,28 +251,30 @@ def _spy_mark(monkeypatch):
 
 
 def test_build_grouped_circle_at_max_deficit_joint(monkeypatch):
-    """grouped(legs) 카드의 circle = deficit 최대 대표 관절 좌표 (호출 인자 검증).
+    """grouped(arms) 카드의 circle = deficit 최대 대표 관절 좌표 (호출 인자 검증).
 
+    legs 는 quick-260705-r6x 사이각 드로잉으로 이전 — arms 로 계약 보존 (grouped
+    카드 circle=deficit 최대 관절 규칙은 non-legs grouped 에 여전히 유효).
     400px 프레임, 4관절 px 120..280 → bbox 160 → 변 288, left/top=56.
-    right_knee(0.7,0.7)=280px, delta 최대 → anchor = ((280-56)/288*360)=(280,280).
+    right_elbow(0.7,0.7)=280px, delta 최대 → anchor = ((280-56)/288*360)=(280,280).
     """
     calls = _spy_mark(monkeypatch)
-    legs = {
-        "left_hip": (0.3, 0.3), "right_hip": (0.7, 0.3),
-        "left_knee": (0.3, 0.7), "right_knee": (0.7, 0.7),
+    arms = {
+        "left_shoulder": (0.3, 0.3), "right_shoulder": (0.7, 0.3),
+        "left_elbow": (0.3, 0.7), "right_elbow": (0.7, 0.7),
     }
     frames = _grad_frames(9)
-    rep = _report_pos(9, 9.0, legs, {j: 0.9 for j in legs})
+    rep = _report_pos(9, 9.0, arms, {j: 0.9 for j in arms})
     comps = fz.build_fault_zoom_comparisons(
         frames, frames, rep, rep,
-        worst_seconds=0.5, fault_joints=list(legs),
+        worst_seconds=0.5, fault_joints=list(arms),
         joint_deltas={
-            "left_hip": 10.0, "right_hip": 12.0,
-            "left_knee": 15.0, "right_knee": 35.0,
+            "left_shoulder": 10.0, "right_shoulder": 12.0,
+            "left_elbow": 15.0, "right_elbow": 35.0,
         },
-        frames_fps=9.0, joint_kinds={j: "deficit" for j in legs},
+        frames_fps=9.0, joint_kinds={j: "deficit" for j in arms},
     )
-    assert len(comps) == 1 and comps[0]["region"] == "legs"
+    assert len(comps) == 1 and comps[0]["region"] == "arms"
     assert calls == [(True, (280, 280))], "circle=대표(deficit 최대) 관절 좌표"
 
 

@@ -400,3 +400,214 @@ def test_group_fault_joints_pure_helper():
         ("left_shoulder", None), ("left_hip", "legs"),
     ]
     assert units[1].members == ("left_hip", "right_knee")
+
+
+# ─────────── quick-260705-r6x — legs 사이각 드로잉 (선 2 + 호 + 수치) ───────────
+# belle 2026-07-05 실기기: "다리에 동그라미가 아니라 다리와 다리 사이각을 표시".
+# 스플릿(legs) valid 측에 골반 중점→양 다리 선 + 사이각 호. 채점 무접촉(display).
+
+_LEGS_XY = {
+    "left_hip": (0.4, 0.4), "right_hip": (0.6, 0.4),
+    "left_knee": (0.3, 0.7), "right_knee": (0.7, 0.7),
+}
+
+
+def _report_pos_conf(
+    n: int,
+    fps: float,
+    joint_xy: dict[str, tuple[float, float]],
+    joint_conf: dict[str, float] | None = None,
+) -> dict:
+    """per-joint 위치/confidence 지정 합성 keypointReport (사이각 드로잉 테스트)."""
+    joints = list(joint_xy)
+    data: list[float] = []
+    for _f in range(n):
+        for j in joints:
+            data += list(joint_xy[j])
+    rep = {"joints": joints, "frames": n, "fps": fps, "data": data}
+    if joint_conf is not None:
+        conf: list[float] = []
+        for _f in range(n):
+            for j in joints:
+                conf.append(joint_conf.get(j, 0.9))
+        rep["confidence"] = conf
+    return rep
+
+
+def _spy_mark(monkeypatch):
+    calls: list[tuple[bool, tuple[int, int] | None]] = []
+    orig = fz._mark
+
+    def spy(img, deficit, circle=True, anchor_px=None):
+        calls.append((circle, anchor_px))
+        return orig(img, deficit, circle=circle, anchor_px=anchor_px)
+
+    monkeypatch.setattr(fz, "_mark", spy)
+    return calls
+
+
+def _spy_leg_angle(monkeypatch):
+    calls: list[tuple] = []
+
+    def spy(img, pelvis_px, left_px, right_px, angle_deg):
+        calls.append((pelvis_px, left_px, right_px, angle_deg))
+        return True  # 그렸다고 가정 (드로잉 분기 검증 — 실 픽셀은 Test 7)
+
+    monkeypatch.setattr(fz, "_draw_leg_angle", spy)
+    return calls
+
+
+def test_leg_line_pts_pure():
+    """Test 1: hips 중점 + ankle 우선/knee 폴백 + hip 결측/저신뢰 → None."""
+    xy = {
+        **_LEGS_XY,
+        "left_ankle": (0.35, 0.95), "right_ankle": (0.65, 0.95),
+    }
+    pelvis, left_end, right_end = fz._leg_line_pts(_report_pos_conf(1, 9.0, xy), 0)
+    assert pelvis == (0.5, 0.4), "골반 = hips 중점"
+    assert left_end == (0.35, 0.95) and right_end == (0.65, 0.95), "ankle 우선"
+
+    # ankle 저신뢰 → knee 폴백.
+    rep2 = _report_pos_conf(1, 9.0, xy, {"left_ankle": 0.1, "right_ankle": 0.1})
+    _p, le, re = fz._leg_line_pts(rep2, 0)
+    assert le == (0.3, 0.7) and re == (0.7, 0.7), "저신뢰 ankle → knee 폴백"
+
+    # hip 한쪽 저신뢰 → None.
+    assert fz._leg_line_pts(
+        _report_pos_conf(1, 9.0, xy, {"left_hip": 0.1}), 0
+    ) is None
+    # hip 결측 → None.
+    assert fz._leg_line_pts(
+        _report_pos_conf(1, 9.0, {"left_knee": (0.3, 0.7), "right_knee": (0.7, 0.7)}),
+        0,
+    ) is None
+
+
+def test_legs_valid_side_draws_angle(monkeypatch):
+    """Test 2: legs valid 양측 → _draw_leg_angle 각 1회 + user _mark circle=False."""
+    leg_calls = _spy_leg_angle(monkeypatch)
+    mark_calls = _spy_mark(monkeypatch)
+    frames = _frames(9, h=400, w=400)
+    rep = _report_pos_conf(9, 9.0, _LEGS_XY)
+    comps = fz.build_fault_zoom_comparisons(
+        frames, frames, rep, rep, worst_seconds=0.5,
+        fault_joints=list(_LEGS_XY), joint_deltas={j: 20.0 for j in _LEGS_XY},
+        frames_fps=9.0, joint_kinds={j: "deficit" for j in _LEGS_XY},
+    )
+    assert len(comps) == 1 and comps[0]["region"] == "legs"
+    assert len(leg_calls) == 2, "user + ref 양측 사이각 드로잉"
+    assert mark_calls == [(False, None)], "user 원 생략(배지 유지), ref 는 _mark 없음"
+
+
+def test_legs_split_angle_numbers_passed(monkeypatch):
+    """Test 3a: split_angle_degs=(130,170) → user 130 / ref 170 순으로 전달."""
+    leg_calls = _spy_leg_angle(monkeypatch)
+    frames = _frames(9, h=400, w=400)
+    rep = _report_pos_conf(9, 9.0, _LEGS_XY)
+    fz.build_fault_zoom_comparisons(
+        frames, frames, rep, rep, worst_seconds=0.5,
+        fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
+        joint_kinds={j: "deficit" for j in _LEGS_XY},
+        split_angle_degs=(130.0, 170.0),
+    )
+    assert [c[3] for c in leg_calls] == [130.0, 170.0]
+
+
+def test_legs_split_angle_none_omits_numbers(monkeypatch):
+    """Test 3b: split_angle_degs=None → 양측 angle_deg=None (수치 생략)."""
+    leg_calls = _spy_leg_angle(monkeypatch)
+    frames = _frames(9, h=400, w=400)
+    rep = _report_pos_conf(9, 9.0, _LEGS_XY)
+    fz.build_fault_zoom_comparisons(
+        frames, frames, rep, rep, worst_seconds=0.5,
+        fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
+        joint_kinds={j: "deficit" for j in _LEGS_XY},
+        split_angle_degs=None,
+    )
+    assert [c[3] for c in leg_calls] == [None, None]
+
+
+def test_legs_low_conf_ref_side_no_angle(monkeypatch):
+    """Test 4: ref 측 저신뢰(relaxed) → ref 사이각 미호출, user 측만."""
+    leg_calls = _spy_leg_angle(monkeypatch)
+    frames = _frames(9, h=400, w=400)
+    user_rep = _report_pos_conf(9, 9.0, _LEGS_XY)  # conf 부재 → valid
+    ref_rep = _report_pos_conf(9, 9.0, _LEGS_XY, {j: 0.1 for j in _LEGS_XY})
+    comps = fz.build_fault_zoom_comparisons(
+        frames, frames, user_rep, ref_rep, worst_seconds=0.5,
+        fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
+        joint_kinds={j: "deficit" for j in _LEGS_XY},
+    )
+    assert len(comps) == 1
+    assert len(leg_calls) == 1, "저신뢰 ref 는 기존 relaxed 렌더 폴백(사이각 생략)"
+
+
+def test_non_legs_cards_no_leg_angle(monkeypatch):
+    """Test 5: non-legs(arms grouped) → 사이각 0회, _mark 기존 circle=True 규칙."""
+    leg_calls = _spy_leg_angle(monkeypatch)
+    mark_calls = _spy_mark(monkeypatch)
+    arms = {
+        "left_shoulder": (0.3, 0.3), "right_shoulder": (0.7, 0.3),
+        "left_elbow": (0.3, 0.7), "right_elbow": (0.7, 0.7),
+    }
+    frames = _frames(9, h=400, w=400)
+    rep = _report_pos_conf(9, 9.0, arms)
+    comps = fz.build_fault_zoom_comparisons(
+        frames, frames, rep, rep, worst_seconds=0.5,
+        fault_joints=list(arms), joint_deltas={j: 20.0 for j in arms},
+        frames_fps=9.0, joint_kinds={j: "deficit" for j in arms},
+    )
+    assert len(comps) == 1 and comps[0]["region"] == "arms"
+    assert leg_calls == [], "non-legs 카드는 사이각 드로잉 미호출"
+    assert mark_calls and mark_calls[0][0] is True, "non-legs = 기존 circle 규칙"
+
+
+def test_split_angle_degs_from_records_pure():
+    """Test 6: criterion/unit 필터 + 측별 defensive None + graceful."""
+    recs = [
+        {"criterion": "line", "unit": "deg", "measuredValue": 5.0,
+         "baselineValue": 0.0},
+        {"criterion": "split_angle", "unit": "deg", "measuredValue": 132.0,
+         "baselineValue": 180.0},
+    ]
+    assert fz.split_angle_degs_from_records(recs) == (132.0, 180.0)
+    # criterion 불일치만 → None.
+    assert fz.split_angle_degs_from_records(
+        [{"criterion": "line", "unit": "deg"}]
+    ) is None
+    # unit 불일치 → skip → None.
+    assert fz.split_angle_degs_from_records(
+        [{"criterion": "split_angle", "unit": "ratio", "measuredValue": 1.0,
+          "baselineValue": 1.0}]
+    ) is None
+    # 비유한 measuredValue → 해당 측 None, baseline 유효.
+    assert fz.split_angle_degs_from_records(
+        [{"criterion": "split_angle", "unit": "deg",
+          "measuredValue": float("nan"), "baselineValue": 180.0}]
+    ) == (None, 180.0)
+    # 둘 다 부재/비유한 → 전체 None.
+    assert fz.split_angle_degs_from_records(
+        [{"criterion": "split_angle", "unit": "deg"}]
+    ) is None
+    # records None/비리스트/빈 → graceful.
+    assert fz.split_angle_degs_from_records(None) is None
+    assert fz.split_angle_degs_from_records("nope") is None
+    assert fz.split_angle_degs_from_records([]) is None
+
+
+def test_draw_leg_angle_pixels_and_degenerate():
+    """Test 7: 실 픽셀 smoke — 두 선 위 브랜드색 + degenerate 폴백(False)."""
+    from PIL import Image as _I
+
+    img = _I.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
+    assert fz._draw_leg_angle(img, (180, 80), (80, 300), (280, 300), 130.0) is True
+    # 두 선(골반→왼/오른) 중점 픽셀 = 브랜드색.
+    assert img.getpixel((130, 190)) == fz._BRAND, "골반→왼 다리 선"
+    assert img.getpixel((230, 190)) == fz._BRAND, "골반→오른 다리 선"
+
+    # degenerate — 벡터 길이 < _MIN_LEG_VEC_PX → 드로잉 없이 원본 반환.
+    img2 = _I.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
+    assert fz._draw_leg_angle(
+        img2, (100, 100), (103, 100), (280, 300), 130.0
+    ) is False
+    assert img2.getpixel((100, 100)) == (0, 0, 0), "degenerate = 원본 유지"

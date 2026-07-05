@@ -66,7 +66,7 @@ Status: Phase 10 complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-05 심야 -- belle 실기기 피드백 3건 전부 해결·배포: (1) 가로 뷰어 명시 치수 fix OTA 발행(fx4), (2) 확대 카드 crop 정합 fix(ftn — 프로덕션 PNG 로 부위-페어 crop 검증), (3) 상체 감점 활성(fmg v11.2 배타 + g1d/h5z still-pair 하이브리드 — run6 sweep: kip-up 27, 어깨 −24/−13, success 100 6연속, 게이트 잔여=peter-pan 기지 drift 1건). run6 → baseline 승격, 프로덕션 서버 재시작+E2E 26점 검증(팔 카드 advisory→confirmed 승격). 남음=belle 실기기 확인(가로뷰어 6항목+재분석 카드)
+Last activity: 2026-07-05 새벽 -- 실기기 라운드 2 완결: 감점 상한 −20(k8h, run7 sweep 검증: kip-up 47/power-spin 57/나머지 불변/success 100, baseline 승격 f6536ea) + 행동지시 라벨·전체화면 줌 1.35(k8y, OTA 발행). belle 여정 시나리오 v1.0 검증·박제(.planning/SCENARIO.md — 리서치+gap감사+실측 교정: 실패 56%=카톡 압축, 온보딩=Figma 튜토리얼 사용). 다음=SCENARIO 파일럿 gap 순서(부상 대응법 노출→온보딩/프라이버시→카톡 감지→Mode3 내역/줌) + UI 순서 재배치 제안 포함. 강사 큐잉 리서치 완료(라벨 문구 v2 후보)
 
 ### Quick Tasks Completed
 

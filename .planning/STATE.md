@@ -66,7 +66,7 @@ Status: Phase 10 complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-04 심야 -- Phase 25 4차(v11) sweep: success 100+짚기FP 0 4연속, 결정론 PASS, elbow 62→32, kip-up 왼팔 최초 짚기 성공. 스플릿 어휘 드리프트 3연속 → fault_category enum 구조 fix 진행 중 마감. 재개=RESUME-phase25 메모리 (enum 확인→새 pod→최종 sweep→baseline 재캡처 검토→프로덕션 반영). pod belle 중단 예정, 프로덕션 코드 안전
+Last activity: 2026-07-05 -- 새 pod svn31pzja7uay0 부트스트랩+서버 가동+Lambda URL 동기화. enum fix(v11.1/v8.1) 로컬 검증 GREEN 확인. Phase 25 최종 sweep 1차 시도가 veto env 누락으로 무효(visionVeto disabled→레거시 점수) → veto ON 재실행 진행 중 + quick 260705-d64 로 run_sweep setdefault 영구 fix
 
 ### Quick Tasks Completed
 
@@ -90,6 +90,7 @@ Last activity: 2026-07-04 심야 -- Phase 25 4차(v11) sweep: success 100+짚기
 | 260702-t0v | 동작 비교 가로 전체화면 뷰어 (belle: 각도 라벨 안 읽힘) — 근본원인=라벨이 1280px 기준 정규화라 세로 슬롯서 유효폰트 ~3pt. fix: KeypointOverlay sizeScale prop(전체화면 2.0) + Modal 90도 회전 가로 뷰어(portrait 고정 유지, JS-only=OTA 가능) + 기존 player 인스턴스 재사용(동기/구간맞춤 로직 공유). typecheck GREEN, app.json/package.json diff 0. 실기기 6항목 체크리스트 SUMMARY | 2026-07-04 | 6d16f97 | [260702-t0v-landscape](./quick/260702-t0v-landscape-compare-viewer/) |
 | 260704-fwb | 코칭 처방화+보완운동 매칭+저화질 문구 (belle 피드백 E) — (1) Cerebras/Gemini 코치 프롬프트에 원인 기전 사슬+구체 처방 구조 강제(실측 주입 데이터만 사용, 거짓 구체성 금지), (2) 보완운동이 forcePatternInference 만 소비해 그립운동 미스매치이던 것에 vision faultKey keypoint_set→defect 매핑 배선(leg→고관절 유연성 1순위), (3) 저화질 경고 승인 후 not_pole 실패 시 화질 우선 안내 분기(앱 로컬, 계약 0). 126 passed+typecheck clean, 채점 무접촉 diff 0 | 2026-07-04 | e0401ae | [260704-fwb-coach](./quick/260704-fwb-coach-prescriptive-exercise-match/) |
 | 260704-fz4 | 결함 시각 언어 2단화 (belle 승인 기획) — 확대 카드 tier(confirmed/advisory, 측정초과 관절 참고 카드 zoom_adv S3 분리), 앱 3면(편차표·스켈레톤 마커·확대 카드) 단일 조립로 빨강=확정(감점)/주황=측정 초과('감점 아님' 카피 3곳), 편차행 탭→시트 내 인라인 부위 확대, 8관절 각도 의미 사전(팔꿈치 굽힘 등). tol=기존 20° 상수 재사용·신규 상수 0·채점 무접촉 diff 증명. 20 passed+typecheck GREEN | 2026-07-04 | b3be3c7 | [260704-fz4-visual-2tier](./quick/260704-fz4-fault-visual-2tier-tap-zoom/) |
+| 260705-d64 | phase25 run_sweep vision veto env setdefault 박제 — 2026-07-05 새 pod 최종 sweep 1차 시도가 GEMINI_VISION_VETO_ENABLED 미설정으로 조용히 무효(visionVeto disabled→breakdown 없음+레거시 min-of-core 점수, 문서화된 sweep env 블록에 누락이 구조 원인). RTMW_DETERMINISTIC 선례와 동일하게 module-level setdefault(VETO=1, WALL_S=300, production start_server.sh 박제 mirror, 명시 export 는 override 가능) + docstring/README Pod sweep 블록 명기. 게이트 25 passed, override/주입 semantics 검증 | 2026-07-05 | 39df2f6 | [260705-d64](./quick/260705-d64-phase25-run-sweep-veto-env-setdefault-sw/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

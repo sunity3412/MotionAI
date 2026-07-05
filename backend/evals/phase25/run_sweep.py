@@ -48,6 +48,10 @@ v8.0 + AGGREGATION_VERSION agg4 bump) → 12 멤버 × 3 call = 36 Gemini pro ca
     cd /workspace/SunityMotion/backend && \
     PYTHONPATH=shared/python:. python3 evals/phase25/run_sweep.py            # cold
     PYTHONPATH=shared/python:. python3 evals/phase25/run_sweep.py --tag warm # warm 재실행
+
+    veto env 2종(GEMINI_VISION_VETO_ENABLED=1 / GEMINI_MAX_VETO_WALL_S=300)은
+    run_sweep 이 스스로 setdefault 하므로 별도 export 불필요 (production
+    start_server.sh mirror; 명시 export 시 그 값 우선).
 """
 from __future__ import annotations
 
@@ -73,6 +77,20 @@ sys.path.insert(0, str(BACKEND))
 # 목적의 비결정 baseline 재현이 가능하다. pipeline 로드(_ensure_adapters) 전에
 # 설정돼야 하므로 module-level 에서 주입.
 os.environ.setdefault("RTMW_DETERMINISTIC", "1")
+
+# ── Gemini vision veto env (2026-07-05 신규 pod sweep 무효화 사고 재발 방지) ──
+# 실행 셸에 이 env 가 없으면 veto 경로 전체가 조용히 OFF 된다 — visionVeto:
+# disabled → deductionBreakdown 없음 + 레거시 min-of-core 점수 → sweep 전체 무효
+# (2026-07-05 새 pod svn31pzja7uay0 에서 실제 발생, 1차 sweep 통째로 폐기).
+# eval 은 production 구성을 mirror 해야 한다: /workspace/start_server.sh 영구
+# 박제 구성(GEMINI_VISION_VETO_ENABLED=1 + GEMINI_MAX_VETO_WALL_S=300,
+# 2026-07-02 FP 재발 사고 fix)과 동일 값. setdefault 이므로 운영자가 명시적으로
+# export 하면 그 값이 우선한다 (예: GEMINI_VISION_VETO_ENABLED=0 으로 veto-off
+# baseline A/B 재현). pipeline 로드(_load_pipeline → functions/pipeline/app.py
+# 가 env 소비) 전에 설정돼야 하므로 module-level 주입 — RTMW_DETERMINISTIC 과
+# 동일 패턴.
+os.environ.setdefault("GEMINI_VISION_VETO_ENABLED", "1")
+os.environ.setdefault("GEMINI_MAX_VETO_WALL_S", "300")
 
 # ── 산출물 경로 (25-SWEEP-EVIDENCE 근본원인 4 — pod repo 오염 방지) ───────────
 # 신규 산출물은 repo 밖 EVAL_OUT_DIR 로만 쓴다. repo 내 evals/*/baseline/ 은

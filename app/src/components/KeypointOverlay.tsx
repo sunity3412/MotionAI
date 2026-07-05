@@ -117,6 +117,15 @@ export type KeypointOverlayProps = {
    */
   actionLabels?: Partial<Record<KeypointName, string>>;
   /**
+   * quick-260705-o0s — 감점 record 관절의 번호 점 (buildDeductionMarkers.
+   * keypointNumbers — 점수 계산 내역 행 번호와 단일 소스). 값이 있는 관절은
+   * 빨간 원 중앙에 흰 bold 숫자를 그린다. 키는 caller 가 highlightKeypoints
+   * 에도 포함해 전달 (기존 emphasized 분기로 RADIUS_HI 충족 — 오버레이 내부
+   * set 재구성 금지, 이중 소스 금지). prop 미전달 시 렌더 diff 0 (하위호환 —
+   * Mode3/legacy doc 은 기존 highlightKeypoints/편차 폴백 그대로).
+   */
+  markerNumbers?: Partial<Record<KeypointName, number>>;
+  /**
    * quick-260702-t0v — 마커/라벨 크기 배율 (default 1 = 기존 렌더와 수치 동일).
    * viewBox "0 0 1 1" 정규화 구조라 모든 크기 상수(라벨 64×26, fontSize 14,
    * 원 반지름 10/14 등)가 렌더 크기에 비례 축소됨 → 세로 카드(높이 ~290pt)에선
@@ -217,6 +226,7 @@ export function KeypointOverlay({
   highlightKeypoints,
   attentionKeypoints,
   actionLabels,
+  markerNumbers,
   sizeScale = 1,
 }: KeypointOverlayProps) {
   // Hooks 순서 안정성 — early return 전에 모든 hook 호출 (React rules of hooks).
@@ -449,21 +459,43 @@ export function KeypointOverlay({
           // Phase 20 (UI A2) — 강조(brand) 관절은 더 큰 반지름 + 두꺼운 외곽선
           // 으로 가독성 ↑. 정상/저신뢰 원은 기존 크기 유지.
           const emphasized = (isHi || isAttn) && !isLowConf;
+          // quick-260705-o0s — 감점 record 번호 점: highlighted(빨강) 원 중앙에
+          // 흰 bold 숫자. 원 자체가 ①의 원 역할 (작은 원 안 가독을 위해 원문자
+          // 유니코드 대신 SVG 숫자 렌더). fontSize 13*S — sizeScale 곱으로 세로
+          // 카드/가로 전체화면 동일 규칙 자동 (quick-260702-t0v 메커니즘 재사용).
+          // 저신뢰(회색) 원에는 숫자 미표기 — 측정 불신뢰 위 확정 번호 금지.
+          const num = isHi && !isLowConf ? markerNumbers?.[joint] : undefined;
+          const numFontSize = (13 * S) / H;
           return (
-            <Circle
-              key={`kp-${joint}`}
-              cx={p.x}
-              cy={p.y}
-              r={emphasized ? RADIUS_HI : RADIUS}
-              fill={fill}
-              fillOpacity={isLowConf ? 0.7 : 1.0}
-              stroke={stroke}
-              strokeWidth={
-                emphasized
-                  ? STROKE_CIRCLE_OUTLINE_HI
-                  : STROKE_CIRCLE_OUTLINE
-              }
-            />
+            <G key={`kp-${joint}`}>
+              <Circle
+                cx={p.x}
+                cy={p.y}
+                r={emphasized ? RADIUS_HI : RADIUS}
+                fill={fill}
+                fillOpacity={isLowConf ? 0.7 : 1.0}
+                stroke={stroke}
+                strokeWidth={
+                  emphasized
+                    ? STROKE_CIRCLE_OUTLINE_HI
+                    : STROKE_CIRCLE_OUTLINE
+                }
+              />
+              {num != null && (
+                <SvgText
+                  x={p.x}
+                  // 세로 중앙 보정 — fontSize*0.35 근사 (기존 pill 텍스트 0.68
+                  // 배치 관례 참고, cap-height 중심 정렬).
+                  y={p.y + numFontSize * 0.35}
+                  fill="#FFFFFF"
+                  fontSize={numFontSize}
+                  fontWeight="700"
+                  textAnchor="middle"
+                >
+                  {String(num)}
+                </SvgText>
+              )}
+            </G>
           );
         })}
 

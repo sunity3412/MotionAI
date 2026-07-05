@@ -650,6 +650,8 @@ None yet.
 
 ### Blockers/Concerns
 
+> 감시 (2026-07-05): fault-zoom 생성 1회 일시 실패 (belle 분석 1597ac92, 기준 영상 임시파일 imageio meta 로드 불가 — graceful, 점수 정상). 같은 서버가 직전 분석에선 정상 생성 → 일회성 추정. 재발 시 즉시 조사 (h5z pair-builder 와 fault-zoom 의 ref 임시파일 수명 상호작용 후보).
+
 [Issues that affect future work]
 
 - [Phase 1 — 마이그레이션 HIGH]: 현 제품 코드는 NLF 기반 (`backend/shared/python/sunity_shared/analysis/pose_estimator.py`, RunPod GPU pod). Phase 1에서 MediaPipe 어댑터로 전환 + NLF 모듈을 R&D 비교군으로 격리 필요. RunPod GPU pod 비용 절감 + 라이선스 리스크 0 효과.

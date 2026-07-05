@@ -687,26 +687,31 @@ class TestStillPairFanoutWiring:
     """
 
     def _stub_collect(self, monkeypatch, *, rich_status, supported, root_causes,
-                      telemetry):
+                      telemetry, ref_match_source="dtw", pair_none=False):
         app = _import_pipeline()
         from sunity_shared.analysis import gemini_vision_scorer, vision_veto
 
         monkeypatch.setattr(app, "_gemini_vision_veto_enabled", lambda: True)
-        # still-pair 는 정량화/zoom 용으로만 ctx 에 실린다(vision 입력 아님).
-        pair = vision_veto.SelectedFramePair(
+        # still-pair — h5z: ref_match_source="dtw" 페어만 하이브리드 still 입력으로
+        # scorer 에 전달된다(시간비례 ratio 폴백은 위상 불일치라 미전달).
+        pair = None if pair_none else vision_veto.SelectedFramePair(
             student_frame_path="/tmp/student_worst.png",
             reference_frame_path="/tmp/ref_match.png",
             user_frame_idx=12,
             ref_frame_idx=10,
             student_confidence=0.9,
             cleanup_paths=(),
+            ref_match_source=ref_match_source,
         )
         monkeypatch.setattr(app, "_build_selected_frame_pair", lambda **k: pair)
+        # fanout kwargs 캡처 — 신규 still 배선(still_student_png 등) assert 용.
+        self._fanout_calls: list[dict] = []
 
         def _fake_video_fanout(student_video_path, reference_video_path, **k):
             # production 인자 계약 — full-VIDEO path 가 전달돼야 한다(still 아님).
             assert student_video_path == "/tmp/student.mp4"
             assert reference_video_path == "/tmp/ref.mp4"
+            self._fanout_calls.append(dict(k))
             return {
                 "status": rich_status,
                 "verdict": gemini_vision_scorer.VisionVerdict(
@@ -796,6 +801,51 @@ class TestStillPairFanoutWiring:
         assert ctx.collection_status == "resource_limited"
         assert ctx.cap_would_apply is False
         assert ctx.to_trace_dict()["geminiCallCount"] == 1
+
+    # ─── quick 260705-h5z — pair still 경로/인덱스 배선 (RC-01/RC-04) ───
+
+    _COLLECT_ARGS = dict(
+        overall_score=92, dimension_scores={"angle": 92}, mode="mode1",
+        local_video_path="/tmp/student.mp4",
+        reference_video_path="/tmp/ref.mp4", profile=None,
+    )
+
+    def test_dtw_matched_pair_passes_still_kwargs(self, monkeypatch):
+        """pair.ref_match_source='dtw' → fanout 이 pair 의 PNG 경로 + [u_idx, r_idx]
+        인덱스를 still kwargs 로 수신 (파이프라인-측 추출 배선, RC-01)."""
+        app, _vv = self._stub_collect(
+            monkeypatch, rich_status="candidate_verdict",
+            supported=[], root_causes=[],
+            telemetry={"completedCalls": 4, "plannedCalls": 4, "uploadCount": 4,
+                       "samplingComplete": True},
+            ref_match_source="dtw",
+        )
+        ctx = app._collect_vision_fault_context(**self._COLLECT_ARGS)
+        assert ctx.collection_status == "candidate_verdict"
+        assert len(self._fanout_calls) == 1
+        call = self._fanout_calls[0]
+        assert call["still_student_png"] == "/tmp/student_worst.png"
+        assert call["still_reference_png"] == "/tmp/ref_match.png"
+        assert call["still_frame_indices"] == [12, 10]
+
+    @pytest.mark.parametrize("variant", ["ratio", "pair_none"])
+    def test_ratio_or_missing_pair_is_video_only(self, monkeypatch, variant):
+        """DTW 매칭 실패(시간비례 ratio 폴백) 또는 pair 부재 → still kwargs 미전달 =
+        upper scope video-only (위상 불일치 페어 차단, RC-04)."""
+        app, _vv = self._stub_collect(
+            monkeypatch, rich_status="candidate_verdict",
+            supported=[], root_causes=[],
+            telemetry={"completedCalls": 3, "plannedCalls": 3, "uploadCount": 2,
+                       "samplingComplete": True},
+            ref_match_source="ratio", pair_none=(variant == "pair_none"),
+        )
+        ctx = app._collect_vision_fault_context(**self._COLLECT_ARGS)
+        assert ctx.collection_status == "candidate_verdict"
+        assert len(self._fanout_calls) == 1
+        call = self._fanout_calls[0]
+        assert "still_student_png" not in call
+        assert "still_reference_png" not in call
+        assert "still_frame_indices" not in call
 
 
 class TestPoseFrameKeypoints:

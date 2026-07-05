@@ -309,6 +309,13 @@ class SelectedFramePair:
     cleanup_paths 는 생성된 로컬 이미지 파일 경로 — 호출자 finally 가 unlink(Gemini File
     API delete 와 독립). ref frame 은 fault_zoom._matched_ref_frame(DTW match)로 선택
     (DTW 재계산 금지).
+
+    ref_match_source (quick 260705-h5z): 기준 프레임 인덱스의 provenance 판별 —
+    "dtw" = fault_zoom._matched_ref_frame 성공(같은-pose 정합) / "ratio" = 시간비례
+    근사 폴백. 시간비례 근사 still 은 측정 window 와 다른 동작 국면이라(위상 불일치,
+    2026-07-05 pod 진단 0/6) 하이브리드 vision 입력으로 부적격 — 소비자(pipeline
+    _collect_vision_fault_context)는 "dtw" 일 때만 still 을 scorer 에 전달한다.
+    defaulted 뒤쪽 필드라 기존 생성부 비파괴.
     """
 
     student_frame_path: str | None
@@ -320,6 +327,7 @@ class SelectedFramePair:
     student_confidence: float | None = None
     reference_confidence: float | None = None
     cleanup_paths: tuple = ()
+    ref_match_source: str = "ratio"
 
 
 # ---------------------------------------------------------------------------

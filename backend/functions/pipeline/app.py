@@ -1744,6 +1744,9 @@ def _build_selected_frame_pair(
             student_confidence=student_kp[1] if student_kp else None,
             reference_confidence=ref_kp[1] if ref_kp else None,
             cleanup_paths=tuple(cleanup),
+            # provenance 판별 (quick 260705-h5z): DTW 매칭 성공 여부 — 소비자가
+            # "dtw" 일 때만 이 pair 를 하이브리드 vision still 입력으로 쓴다.
+            ref_match_source="dtw" if r_matched is not None else "ratio",
         )
     except Exception:  # noqa: BLE001 - still 추출 실패 graceful (보류 status 로 swallow)
         for p in cleanup:
@@ -1902,16 +1905,28 @@ def _collect_vision_fault_context(
             # at=None 6/6 moderate 검출 vs sweep at=worst_pose 1회 no_fault(그게 캐시 박힘).
             # 부수: at=None → 캐시 bucket='whole' → at-keyed poisoned 엔트리 우회.
             #
-            # still_at_seconds=at (quick 260705-g1d 하이브리드): worst-pose hint 는 full-video
-            # 호출이 아니라 upper_body 정지프레임 **추출 시각**으로만 쓰인다 — 2026-06-22
-            # 스파이크([[spike-stillframe-recovers-upperbody]]: 전체영상=상체 0/정지프레임=팔
-            # 복구, 레버=granularity) 근거. None 이면 scorer 가 영상 중앙 프레임으로 폴백.
+            # still 페어 = pair 재사용 (quick 260705-h5z, g1d 스코어러-측 추출 대체):
+            # pair 는 자기 9fps 프레임 배열의 worst window median 인덱스(user_frame_idx)
+            # + fault_zoom._matched_ref_frame DTW-매칭 인덱스(ref_frame_idx)로 만든
+            # PNG 2장 — 시간비례 근사 still 은 측정 window 와 다른 동작 국면이라 위상
+            # 불일치 페어를 만들고, Gemini 는 그걸 정당하게 "편차 없음" 판정한다
+            # (2026-07-05 pod 진단 3회: 위상 불일치 0/6 vs window/DTW 인덱스 페어 6/6
+            # 발화). 그래서 DTW-매칭("dtw") 페어만 still 로 보내고, 매칭 실패(ratio
+            # 폴백) 또는 pair 부재 시 still 미전달 = upper scope video-only. PNG unlink
+            # 는 아래 기존 finally 유지(assess 호출 후 정리 — 순서 불변).
+            still_kwargs = {}
+            if pair is not None and pair.ref_match_source == "dtw":
+                still_kwargs = {
+                    "still_student_png": pair.student_frame_path,
+                    "still_reference_png": pair.reference_frame_path,
+                    "still_frame_indices": [pair.user_frame_idx, pair.ref_frame_idx],
+                }
             rich = gemini_vision_scorer.assess_fault_context_video(
                 local_video_path,
                 reference_video_path,
                 at_seconds=None,
                 part_scopes=list(gemini_vision_scorer.VETO_PART_SCOPES),
-                still_at_seconds=at,
+                **still_kwargs,
             )
         finally:
             # still 이미지(pair) unlink — vision 입력은 아니지만 quant/zoom 산출 후 outer 가

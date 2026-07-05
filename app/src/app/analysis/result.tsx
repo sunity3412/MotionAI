@@ -40,6 +40,8 @@ import {
   KEYPOINT_FROM_ANGLE_KEY,
   REGION_LABEL_KO,
   REGION_MEMBER_KEYPOINTS,
+  composeActionLabelKo,
+  composeDeviationOnlyLabelKo,
   formatDeductionNumber,
   formatDeductionRecord,
 } from '../../lib/deductionLabels';
@@ -611,6 +613,58 @@ export default function AnalysisResult() {
     [confirmedKeypoints],
   );
 
+  // quick-260705-k8y — 문제 관절 행동 지시 라벨 조립 (절대각 라벨 대체).
+  // 소스 우선순위 (이미 채운 keypoint 는 skip — 높은 소스가 이김):
+  //   1. windowMedianAngleDeltas (mode1 veto applied, signed delta — direction
+  //      의 원천이라 문자열 재파싱 금지, features.py 정합)
+  //   2. faultJointDeficits (Gemini 시각 추정 — 부호 없음 → 방향 생략 폴백,
+  //      방향 fabricate 금지, quick-260704-fwb. split_angle 투영 등 windowMedian
+  //      에 없는 확정 관절 커버)
+  //   3. JointScore.deltaDeg (kismam 평균, Mode3 커버 — veto 결함을 못 잡아
+  //      과소하므로 최하 순위)
+  // deltaDeg 부재 시 currentAngle/targetAngle 로 재계산하지 않는다 (UI 재계산
+  // 금지) — 라벨 없음 = 마커만 (안전 폴백, 크래시/거짓 라벨 0).
+  // 라벨 대상 필터(문제 관절 한정)는 KeypointOverlay 내부 게이트(highlighted
+  // ∪ attention ∩ actionLabels)가 담당 — 여기선 데이터 있는 전 관절 조립
+  // (오버레이 내부 폴백 강조 관절도 라벨을 받도록).
+  const actionLabels = useMemo<Partial<Record<KeypointName, string>>>(() => {
+    const map: Partial<Record<KeypointName, string>> = {};
+    if (result.visionVeto?.status === 'applied') {
+      const veto = result.visionVeto;
+      for (const d of veto.windowMedianAngleDeltas?.deltas ?? []) {
+        if (!Number.isFinite(d.delta_deg)) continue;
+        const kp = KEYPOINT_FROM_ANGLE_KEY[d.joint];
+        if (!kp || map[kp]) continue;
+        const label = composeActionLabelKo(d.joint, d.delta_deg);
+        if (label) map[kp] = label;
+      }
+      for (const [kpRaw, deficit] of Object.entries(
+        veto.faultJointDeficits ?? {},
+      )) {
+        const kp = kpRaw as KeypointName;
+        if (map[kp] || typeof deficit !== 'number') continue;
+        // keypoint → angle key 역변환 (KEYPOINT_FROM_ANGLE_KEY 값이 전부 유일
+        // 하므로 entries 탐색으로 충분 — 역맵 상수 중복 2벌 금지).
+        const angleKey = Object.entries(KEYPOINT_FROM_ANGLE_KEY).find(
+          ([, v]) => v === kp,
+        )?.[0];
+        if (!angleKey) continue;
+        const label = composeDeviationOnlyLabelKo(angleKey, deficit);
+        if (label) map[kp] = label;
+      }
+    }
+    for (const j of joints) {
+      if (typeof j.deltaDeg !== 'number' || !Number.isFinite(j.deltaDeg)) {
+        continue;
+      }
+      const kp = KEYPOINT_FROM_ANGLE_KEY[j.key];
+      if (!kp || map[kp]) continue;
+      const label = composeActionLabelKo(j.key, j.deltaDeg);
+      if (label) map[kp] = label;
+    }
+    return map;
+  }, [result.visionVeto, joints]);
+
   // quick-260702-q8q — "점수 계산 내역" 섹션 렌더 가드. mode1 전용(mode3 는 veto
   // 미실행 mode3_held) + deductionBreakdown 보유 doc 만 (legacy doc 은 필드 부재 →
   // 섹션 자체 숨김, normalize 가 malformed 를 undefined 로 접음 — 크래시 0).
@@ -1115,6 +1169,9 @@ export default function AnalysisResult() {
                   // quick-260704-fz4 — 측정 초과·확인 권장(주황, 감점 아님) 마커.
                   // 표·확대 카드와 동일 단일 소스(attentionKeypoints memo).
                   attentionKeypoints={attentionKeypoints}
+                  // quick-260705-k8y — 행동 지시 라벨 (절대각 대체). 항목 없는
+                  // 관절은 마커만 (Mode3 데이터 부재 안전 폴백).
+                  actionLabels={actionLabels}
                   // Phase 20 (UI ②) — faultJoints 가 없을 때(매핑 0/legacy)만 폴백:
                   // 임계(20°) 넘는 관절이 없으면 편차 최대 2개 강제 강조 (마커 0개 모순 제거).
                   // 정타 영상은 0 → 오탐 0.

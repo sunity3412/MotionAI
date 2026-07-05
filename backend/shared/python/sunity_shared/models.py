@@ -134,9 +134,12 @@ VISION_VETO_KEYS = (
 # strictness (MEDIUM-2): record 내부는 STRICT — `baselineKind` present-but-nullable
 #   (optional 아님), `ipsfAnchor`+`baselineValue` 는 모든 record 에 REQUIRED(추적성 게이트).
 #   legacy-compat 는 whole `deductionBreakdown?` 필드 + breakdown-level coverageGaps?/
-#   fallback? 에서만.
+#   fallback? 에서만. (예외: record-level `rawPoints?`/`capApplied?` — 아래
+#   DEDUCTION_RECORD_OPTIONAL_KEYS, 상한 적용 record 에만 방출되는 additive optional.)
 # points 부호 (HIGH-2): 각 record.points 는 SIGNED NEGATIVE (UX 가 −X 표시).
-#   final = max(0, round(100 + Σ record.points)) — 유일한 clamp 은 max(0,…)(상한 밴드 없음).
+#   final = max(0, round(100 + Σ record.points)) — final 단위 clamp 은 max(0,…) 뿐
+#   (final 밴드 없음). record 단위로는 관절당 감점 상한 -20(PER_RECORD_DEDUCTION_CAP,
+#   quick-260705-k8h)이 points 에 이미 적용돼 있다 — rawPoints/capApplied 로 투명 노출.
 # source 값 집합: {'geometry','vision'} — 'vision' = geometric 측정 불가 결함(split,
 #   kip-up keypoint saturate)의 vision-측정 편차로 점수화된 record (belle 2026-06-29
 #   결정 A, deduction_engine.tally 방출 정합). 점수 산식은 동일 명시 규칙(tol×slope) —
@@ -154,6 +157,15 @@ DEDUCTION_RECORD_KEYS = (
     "deviation", "ruleId", "points", "unit", "ipsfAnchor", "source",
     "deviationSource",
 )
+# per-record 감점 상한 -20 optional 키 (quick-260705-k8h, belle 승인 2026-07-05).
+# 상한이 적용된 record 에만 방출되는 additive optional — 구 doc/앱 byte-호환:
+#   rawPoints  = 상한(PER_RECORD_DEDUCTION_CAP) 적용 전 원 감점(SIGNED NEGATIVE)
+#   capApplied = True 마커. 둘은 반드시 쌍으로 방출(투명 내역 유지).
+# 상한 미적용 record 는 키 자체 생략(기존 11키 형상 그대로). record-level STRICT
+# (MEDIUM-2) 의 유일한 optional 예외. fallback record(dimension_overall_fallback)는
+# 클램프 비대상. 3-way lockstep: app/src/types/analysis.ts DeductionRecord +
+# docs/contract.md §10.2.
+DEDUCTION_RECORD_OPTIONAL_KEYS = ("rawPoints", "capApplied")
 DEDUCTION_BREAKDOWN_KEYS = ("baseline", "records", "final", "coverageGaps", "fallback")
 
 # ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───

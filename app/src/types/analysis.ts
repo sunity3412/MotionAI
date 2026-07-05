@@ -480,9 +480,17 @@ export interface DeductionRecord {
   ipsfAnchor: string;
   source: 'geometry' | 'vision';
   deviationSource: 'ipsf_absolute' | 'reference_relative' | 'dimension_overall';
+  // per-record 감점 상한 -20 (quick-260705-k8h, belle 승인 2026-07-05). 상한이 적용된
+  // record 에만 쌍으로 방출 — 미적용 record 는 키 생략(기존 11필드 byte-호환, legacy
+  // doc 부재 안전). Python lockstep = models.DEDUCTION_RECORD_OPTIONAL_KEYS +
+  // contract.md §10.2. fallback record(dimension_overall_fallback)는 클램프 비대상.
+  rawPoints?: number; // SIGNED NEGATIVE — 관절당 상한(-20) 적용 전 원 감점. capApplied 시에만.
+  capApplied?: true; // 이 record 의 감점이 관절당 상한 -20 으로 클램프됨 (투명 내역 유지).
 }
 // HIGH-1: OBJECT shape (bare list 아님). final = max(0, round(100 + Σ record.points)) —
-// 유일한 clamp 은 max(0,…)(상한 밴드 없음). MEDIUM-1: fallback='quantification_unavailable'
+// final 단위 clamp 은 max(0,…) 뿐(final 밴드 없음). record 단위로는 관절당 감점 상한 -20
+// (quick-260705-k8h)이 points 에 이미 적용돼 있다 — rawPoints/capApplied 참조.
+// MEDIUM-1: fallback='quantification_unavailable'
 // 면 records 에 dimension_overall_fallback record 1개로 추적성 유지. MEDIUM-3: coverageGaps
 // entry 는 flat-scalar provenance(bodyPart/faultState/keypointSet/ruleId) 동반.
 export interface DeductionBreakdown {

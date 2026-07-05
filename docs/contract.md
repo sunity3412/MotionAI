@@ -1426,11 +1426,11 @@ const frameIdx = Math.floor(currentTime * report.fps);
 `deductionBreakdown` 은 **객체** `{ baseline, records, final, coverageGaps?, fallback? }` 이다(bare list 아님). consumers 는 `result.deductionBreakdown?.final` 을 읽는다. `records`/`coverageGaps` 는 **flat dict 의 list** (Firestore nested-array 금지 — `angleDeltas`/`bodyRelativeNotches` 와 동일 형식).
 
 - `baseline: 100` — 점수 baseline(미감점 천장). **재-floor 금지** — final 의 상한 밴드가 아니다.
-- `final: number` — `max(0, round(100 + Σ record.points))`. **유일한 clamp 은 `max(0,…)`** (NO `min(100,…)`, NO severity ceiling — ND-01).
+- `final: number` — `max(0, round(100 + Σ record.points))`. **final 단위 유일 clamp 은 `max(0,…)`** (NO `min(100,…)`, NO severity ceiling — ND-01). record 단위로는 관절당 감점 상한 −20(`PER_RECORD_DEDUCTION_CAP`, quick-260705-k8h, belle 승인 2026-07-05)이 `points` 에 이미 적용돼 있다 — 클램프된 record 는 §10.2 `rawPoints`/`capApplied` 로 원 감점을 투명 노출(밴드 아님 — record 단위 명시 규칙 클램프, final 밴드 없음 그대로).
 - `records: DeductionRecord[]`
 - `coverageGaps?` / `fallback?` — breakdown-level 에서만 optional(legacy-compat).
 
-### §10.2 DeductionRecord (11 필드)
+### §10.2 DeductionRecord (필수 11 필드 + optional 2)
 
 | 필드 | 타입 | 의미 |
 |------|------|------|
@@ -1445,6 +1445,8 @@ const frameIdx = Math.floor(currentTime * report.fps);
 | `ipsfAnchor` | string | IPSF CoP 인용 또는 engineering_interpretation. REQUIRED(추적성 게이트). |
 | `source` | 'geometry'\|'vision' | 측정 provenance. 'vision' = geometric 측정 불가 결함(split — kip-up keypoint saturate)의 vision-측정 편차로 점수화된 record(belle 2026-06-29 결정 A). 점수 산식은 동일 명시 규칙(tol×slope) — Gemini 점수 아님(ND-02 유지) |
 | `deviationSource` | 'ipsf_absolute'\|'reference_relative'\|'dimension_overall' | per-criterion 편차 출처 |
+| `rawPoints?` | number | **optional** — 관절당 상한(−20, `PER_RECORD_DEDUCTION_CAP`) 적용 전 원 감점(SIGNED NEGATIVE). **상한이 적용된 record 에만 방출** — 미적용 record 는 키 자체 생략(기존 11필드 byte-호환). 투명 감점-합산 내역 보존. |
+| `capApplied?` | true | **optional** — 이 record 의 감점이 관절당 상한 −20 으로 클램프됨(quick-260705-k8h, belle 승인 2026-07-05). `rawPoints` 와 반드시 쌍으로 방출. fallback record(`dimension_overall_fallback`)는 클램프 비대상(§10.5 `final == dimension_overall` 불변식 보존). |
 
 **deviationSource 의미:** 각도/라인 criterion(leg_extension/arm_extension/line)은 학생-각도-vs-IPSF-절대-기준(180°/160°) → `ipsf_absolute`. `body_relative_reach` 는 `bodyRelativeNotches[].delta_notches`(학생−코치, baseline-relative) → `reference_relative`. `angle_vs_reference__{joint}` 는 정은지(reference) 대비 per-joint median |Δ각도| 편차(24-07 §3-1), `split_angle` 은 정은지 대비 split 부족분(geometric md 부재 시 vision-측정 편차 주입 → 그 record 는 `source='vision'`) — 둘 다 `reference_relative`. fallback record → `dimension_overall`.
 
@@ -1463,7 +1465,7 @@ const frameIdx = Math.floor(currentTime * report.fps);
 
 ### §10.6 strictness + coverageGaps provenance
 
-- **MEDIUM-2:** record 내부는 STRICT — `baselineKind` present-but-nullable(optional 아님, Python 이 항상 키 방출), `ipsfAnchor`+`baselineValue` 는 모든 record 에 REQUIRED. legacy-compat 는 whole `deductionBreakdown?` 필드 + breakdown-level `coverageGaps?`/`fallback?` 에서만.
+- **MEDIUM-2:** record 내부는 STRICT — `baselineKind` present-but-nullable(optional 아님, Python 이 항상 키 방출), `ipsfAnchor`+`baselineValue` 는 모든 record 에 REQUIRED. legacy-compat 는 whole `deductionBreakdown?` 필드 + breakdown-level `coverageGaps?`/`fallback?` 에서만. (예외: record-level `rawPoints?`/`capApplied?` — §10.2, 상한 적용 record 에만 방출되는 additive optional, quick-260705-k8h.)
 - **MEDIUM-3:** `coverageGaps` entry 는 flat-scalar provenance(`bodyPart`/`faultState`/`keypointSet`/`ruleId`, optional scalar — Firestore nested-array 금지)를 supported_difference 에서 채운다 → 보이지만-0감점 gap 추적가능.
 
 ---
@@ -1477,3 +1479,4 @@ const frameIdx = Math.floor(currentTime * report.fps);
 *Plan 08-01 §9 추가: 2026-06-09 — ForceSignalsReport (PhaseBoundary + BodyLineTiltMetric + StabilityMetric + ContactStabilityMetric + 20 warning code enum). REVIEWS Cycle 1 R1/R2/R3/R4/R5 + Cycle 2 §3 MEDIUM (preflight_gate_pending) 박제.*
 *Plan 08.1-00 §9.3 변경: 2026-06-09 — BodyLineTiltMetric distance 차원 hard break. 5 필드 (pelvisDistanceFromPoleAxis / chestDistanceFromPoleAxis / scaleDenominator / coordinateSpace / deviationDirection) 제거 + tilt-only. Wave 0 = transitional stub. IPSF Code of Points NotebookLM citation 9 (Page 87 Glossary — 'Tilt' / 'Lean' / 'Off-axis' 용어 부재) 정합. RESEARCH §4 α-4 + CONTEXT D-01.*
 *Plan 09-01 §9.11 추가: 2026-06-10 — ForcePatternInference + ForcePatternFinding 신설 (Wave 0 = TS interface + Python frozen dataclass + Firestore scoped validator + frontend null-guard 단일 atomic commit). D-09-D1 / D-09-U1 (3-way atomic lockstep) / D-09-U3 / D-09-U4 / D-09-U5. Wave 1 (Plan 09-02) 가 본체 함수 + 18 canned + pipeline wiring 박제.*
+*quick-260705-k8h §10 갱신: 2026-07-05 — 관절(criterion record)당 감점 상한 −20 (belle 승인). §10.2 optional 2필드(`rawPoints`/`capApplied`) 신설 — 상한 적용 record 에만 방출, 미적용 record byte-호환. final 밴드/severity 밴드 없음 유지 (record 단위 명시 규칙 클램프).*

@@ -3,7 +3,9 @@
 점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점). 측정-기하 레이어(dimension/
 kismam 편차 + Phase 23 정량화 substrate)를 소비해 criterion-grouped → rule → cap → sum 하고
 DeductionBreakdown OBJECT 를 방출한다. severity→고정밴드(Phase 20)를 제거·교체 —
-final = max(0, round(100 + Σ signed-negative points)), 유일한 clamp 은 max(0,…)(상한 밴드 없음).
+final = max(0, round(100 + Σ signed-negative points)), final 단위 clamp 은 max(0,…) 뿐
+(final 밴드/severity 밴드 없음). record 단위로는 관절당 감점 상한
+PER_RECORD_DEDUCTION_CAP(-20)이 적용된다(quick-260705-k8h — rawPoints/capApplied 로 투명).
 
 numpy 외 의존이 0 — boto3/Gemini/네트워크/firestore import 절대 금지(순수, 결정적).
 24-CONTEXT ND-01(엔진 교체)/ND-02(Gemini 강등=측정대상 짚기)/ND-03(substrate=전 차원)/
@@ -26,6 +28,20 @@ from . import ipsf_criteria
 
 _BASELINE = 100.0
 
+# 관절(criterion record)당 감점 상한 (quick-260705-k8h, belle 승인 2026-07-05).
+# why: belle 실기기 관측 — kip-up 잘못된 시연이 단일 대형 결함 record 의 폭주 감점으로
+# 26점(split -36 + 왼어깨 -24.4 + 오른어깨 -13.2). run6 실데이터 4-누적규칙 비교에서
+# 체감가중/RSS 는 작은-결함-다수 동작(elbow/pdshape)을 82~85로 역전시켜 변별 붕괴 — 탈락.
+# 관절당 -20 상한 채택: kip-up 47, 작은-결함-다수 동작 무영향. 도메인 근거: IPSF 도
+# 결함 유형별 감점 상한 구조. severity 밴드 재도입 아님 — record 단위 명시 규칙
+# 클램프이지 final 밴드가 아니다(final 밴드 없음 그대로). 임계값 수치 라벨 = belle OK.
+# 투명성: 클램프된 record 는 rawPoints(원 감점)/capApplied 를 방출해 감점-합산 내역 보존
+# ([[scoring-must-be-transparent-deduction-tally]]).
+# fallback record(dimension_overall_fallback, tally 상단 조기 return 경로)는 클램프
+# 비대상 — whole-score 폴백이라 클램프하면 final == dimension_overall 불변식
+# (contract.md §10.5)과 100+Σpoints==final 추적성이 동시에 깨진다.
+PER_RECORD_DEDUCTION_CAP = 20.0
+
 
 @dataclass(frozen=True)
 class DeductionRecord:
@@ -46,10 +62,16 @@ class DeductionRecord:
     ipsf_anchor: str
     source: str            # 'geometry'
     deviation_source: str  # ipsf_absolute | reference_relative | dimension_overall
+    # per-record 상한(-20) 메타 (quick-260705-k8h). default 필드라 기존 생성부(fallback
+    # record 포함)는 무수정 호환. cap_applied=False 면 to_dict() 가 키 자체를 생략 —
+    # 상한 미적용 record 는 기존 11키 형상 byte-동일(구 앱/legacy doc 무영향).
+    raw_points: float | None = None  # 상한 전 원 감점(signed-negative) — cap_applied 시에만 방출
+    cap_applied: bool = False
 
     def to_dict(self) -> dict:
-        """flat camelCase dict (models.DEDUCTION_RECORD_KEYS, Firestore-flat scalar only)."""
-        return {
+        """flat camelCase dict (models.DEDUCTION_RECORD_KEYS [+OPTIONAL_KEYS],
+        Firestore-flat scalar only)."""
+        d = {
             "criterion": self.criterion,
             "measuredValue": self.measured_value,
             "baselineValue": self.baseline_value,
@@ -62,11 +84,18 @@ class DeductionRecord:
             "source": self.source,
             "deviationSource": self.deviation_source,
         }
+        if self.cap_applied:
+            # 투명 내역 유지: 클램프된 record 만 원 감점 + 마커를 additive 방출.
+            d["rawPoints"] = self.raw_points
+            d["capApplied"] = True
+        return d
 
 
 @dataclass(frozen=True)
 class DeductionBreakdown:
-    """감점-합산 결과 OBJECT (HIGH-1). final = max(0, round(100 + Σ record.points))."""
+    """감점-합산 결과 OBJECT (HIGH-1). final = max(0, round(100 + Σ record.points)) —
+    points 는 per-record 상한(-20, PER_RECORD_DEDUCTION_CAP) 적용 후 값(quick-260705-k8h).
+    final 단위 밴드는 여전히 없음(max(0,…) 뿐)."""
 
     baseline: int
     records: tuple
@@ -288,6 +317,13 @@ def tally(
             continue  # dead-zone — 감점 0(record 미방출)
         raw = over * crit["slope"]                     # LINEAR (MEDIUM-2 — gaussian 아님)
         capped = min(raw, crit["ipsf_cap"])            # per-criterion cap BEFORE sum (ND-04b)
+        # 관절당 감점 상한 -20 클램프 (quick-260705-k8h — PER_RECORD_DEDUCTION_CAP 주석
+        # 참조). 반올림(0.1 단위) 후 비교 — float epsilon 이 rawPoints == points 인 가짜
+        # capApplied 잡음 record 를 만들지 않게 한다. 경계(정확히 == 상한)는 상한 이하
+        # 취급(필드 생략).
+        capped_r = round(capped, 1)
+        cap_hit = capped_r > PER_RECORD_DEDUCTION_CAP
+        points_val = PER_RECORD_DEDUCTION_CAP if cap_hit else capped_r
         rec_baseline_kind = baseline_kind if cid == "body_relative_reach" else None
         records.append(DeductionRecord(
             criterion=cid,
@@ -296,7 +332,7 @@ def tally(
             baseline_kind=rec_baseline_kind,
             deviation=round(over, 2),
             rule_id=crit["rule_id"],
-            points=-round(capped, 1),                  # signed-negative
+            points=-points_val,                        # signed-negative (capped)
             unit=unit,
             ipsf_anchor=crit["ipsf_anchor"],
             # provenance: geometric 측정이 기본. vision-측정값으로 점수화한 결함(split,
@@ -304,9 +340,12 @@ def tally(
             # "split N° 좁음(vision 측정) −X" 출처 노출). 점수 산식은 동일 규칙(tol×slope).
             source="vision" if cid in vision_measured else "geometry",
             deviation_source=crit["deviation_source"],
+            raw_points=(-capped_r if cap_hit else None),
+            cap_applied=cap_hit,
         ))
 
-    # (10) final = max(0, round(100 + Σ points)) — 유일한 clamp.
+    # (10) final = max(0, round(100 + Σ points)) — final 단위 clamp 은 max(0,…) 뿐
+    # (points 는 이미 per-record 상한 적용값).
     final = max(0, round(_BASELINE + sum(r.points for r in records)))
     fallback = "gemini_silent" if (gemini_silent and records) else None
     return DeductionBreakdown(

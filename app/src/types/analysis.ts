@@ -119,11 +119,15 @@ export type AnalysisErrorCode =
 export type ScoreDimension = 'angle' | 'line' | 'stability';
 
 // 차원 메인 라벨 — 사용자 친화 (Phase 12.5 belle 피드백: "라인·확장 / 안정성·홀딩"
-// 묶음 라벨이 사용자에게 불명확. "팔다리 펴기" / "동작 안정성" 풀어 표현).
+// 묶음 라벨이 사용자에게 불명확. "팔다리 펴기" 풀어 표현).
+// quick-260705-o0s 개명: angle '각도 정확도' → '각도 유사도' (측정 실체 = DTW
+// 유사도 — 진실한 개명), stability '동작 안정성' → '안정성'. 표시 문자열만 변경,
+// 계약 키(ScoreDimension) 무접촉 — contract.md 미러 대상 아님. " (참고)" 접미는
+// 결과 화면 렌더에서만 붙인다 (다른 소비처 오염 금지).
 export const DIMENSION_LABEL_KO: Record<ScoreDimension, string> = {
-  angle: '각도 정확도',
+  angle: '각도 유사도',
   line: '팔다리 펴기',
-  stability: '동작 안정성',
+  stability: '안정성',
 };
 
 // 차원 부제 — track bar 아래 secondary text (Phase 12.5).

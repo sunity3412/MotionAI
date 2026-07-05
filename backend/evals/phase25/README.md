@@ -93,6 +93,14 @@ PYTHONPATH=shared/python:. python3 evals/phase25/run_sweep.py --tag warm && # 2)
 PYTHONPATH=shared/python:. python3 evals/phase25/assert_gates.py            # 3) 게이트
 ```
 
+vision veto env 2종(`GEMINI_VISION_VETO_ENABLED=1`, `GEMINI_MAX_VETO_WALL_S=300`)은
+run_sweep 이 module-level setdefault 로 자동 주입하므로 별도 export 불필요 —
+production `/workspace/start_server.sh` 박제 구성(2026-07-02 FP 재발 사고 fix) mirror.
+함정: 2026-07-05 신규 pod(svn31pzja7uay0)에서 이 env 누락으로 veto 경로가 조용히 OFF
+되어 sweep 1차가 통째로 무효(visionVeto disabled + deductionBreakdown 없음 + 레거시
+min-of-core 점수)가 됐다 — setdefault 가 그 재발을 구조적으로 차단한다. 명시 export
+시 그 값이 우선한다 (아래 "RTMW 결정론 모드" 섹션의 setdefault 패턴과 동일).
+
 ### cold / warm 구분 + 크레딧 요건 (T-25-10)
 
 - **cold** (기본): PROMPT_VERSION v10.1 + AGGREGATION_VERSION agg3 bump 로 rich 캐시

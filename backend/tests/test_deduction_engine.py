@@ -87,6 +87,20 @@ def _ctx(differences):
     return {"supported_differences": list(differences)}
 
 
+def _assert_record_keys(rec_dict):
+    """record to_dict() 키 형상 가드 (quick-260705-k8h cap-인지 공용 helper).
+
+    필수 키(DEDUCTION_RECORD_KEYS) 전부 존재 + 초과 키는 OPTIONAL 만 허용 +
+    rawPoints/capApplied 는 반드시 쌍(둘 다 있거나 둘 다 없음 — 투명 내역 불변식)."""
+    keys = set(rec_dict)
+    required = set(models.DEDUCTION_RECORD_KEYS)
+    optional = set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)
+    assert required <= keys, f"필수 키 누락 {required - keys}"
+    assert keys - required <= optional, f"미계약 초과 키 {keys - required - optional}"
+    assert ("rawPoints" in keys) == ("capApplied" in keys), \
+        "rawPoints/capApplied 는 쌍으로만 존재해야 함"
+
+
 # ── contract lockstep ─────────────────────────────────────────────────────
 
 
@@ -97,7 +111,11 @@ def test_contract_lockstep():
     m = re.search(r"export interface DeductionRecord \{(.*?)\}", ts, re.S)
     assert m, "DeductionRecord interface 부재"
     ts_fields = set(re.findall(r"(\w+)\??:", m.group(1)))
-    assert set(models.DEDUCTION_RECORD_KEYS) == ts_fields
+    # quick-260705-k8h: TS regex 는 optional 필드(rawPoints?/capApplied?)도 잡으므로
+    # 필수 ∪ optional == TS 필드 set 으로 lockstep 단언 + 두 집합 disjoint 가드.
+    assert (set(models.DEDUCTION_RECORD_KEYS)
+            | set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)) == ts_fields
+    assert not set(models.DEDUCTION_RECORD_KEYS) & set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)
     assert "baselineValue" in models.DEDUCTION_RECORD_KEYS
     assert "baselineKind" in models.DEDUCTION_RECORD_KEYS
     assert "fallback" in models.DEDUCTION_BREAKDOWN_KEYS
@@ -134,7 +152,9 @@ def test_geometry_path_source_geometry():
     recs = [r for r in b.records if r.criterion == "leg_extension"]
     assert recs
     assert all(r.source == "geometry" for r in recs)
-    assert set(recs[0].to_dict()) == set(models.DEDUCTION_RECORD_KEYS)
+    # leg=40 → raw 24 > 상한 20 → cap 적용 record (quick-260705-k8h) — 키 형상은
+    # 필수 ⊆ 키 ⊆ 필수 ∪ optional 로 단언 (helper 재사용).
+    _assert_record_keys(recs[0].to_dict())
 
 
 # ── criterion table ────────────────────────────────────────────────────────
@@ -377,10 +397,14 @@ def _tally(measured, ctx, *, dimension_overall=80, baseline_kind="hip_line",
 
 
 def test_no_final_band():
-    # huge deviation → final == 0 (no floor at 50/75/90).
+    # 밴드-부재 의미 유지 (quick-260705-k8h 후): 50/75/90 floor 없음 — huge deviation
+    # 3건이 각각 per-record 상한 -20 으로 클램프돼 final == 100 - round(3 × cap) == 40
+    # (< 50, 상수 파생 구조 단언 — sweep 수치 타깃 아님). record 단위 cap 은 밴드가
+    # 아니다(명시 규칙 클램프) — final 단위 floor/ceiling 은 여전히 없음.
     b = _tally(_measured(leg=500.0, arm=500.0, split=500.0),
                _ctx([_diff("무릎", "굽음")]))
-    assert b.final == 0
+    assert b.final == 100 - round(3 * deduction_engine.PER_RECORD_DEDUCTION_CAP) == 40
+    assert b.final < 50  # 50-floor 밴드 부재 증거
     # source guard — no min-band near the return.
     src = (pathlib.Path(deduction_engine.__file__).read_text(encoding="utf-8"))
     assert "min(100" not in src
@@ -392,7 +416,9 @@ def test_deadzone_and_slope():
     assert all(r.points == 0 for r in in_tol.records if r.criterion == "leg_extension") \
         or all(r.criterion != "leg_extension" for r in in_tol.records)
     finals = []
-    for dev in (0.0, 30.0, 60.0, 90.0):
+    # sub-cap 영역 devs (over 5/10/15 → raw 6/12/18 < 상한 20) — strict 단조 단언 보존.
+    # cap 초과 영역의 포화(동점)는 per-record cap 전용 테스트에서 단언 (quick-260705-k8h).
+    for dev in (0.0, 25.0, 30.0, 35.0):
         b = _tally(_measured(leg=dev), _ctx([_diff("무릎", "굽음")]))
         finals.append(b.final)
     # 보유 sweep 수치 타깃 아님 — 방향(단조 감소)만 단언.
@@ -564,9 +590,12 @@ def test_legacy_none_quant_none_md_preserves_fallback():
 
 def test_unavailable_seed_monotonic_deduction():
     # 단조성(ND-07): 측정 편차 클수록 총 감점(Σ|points|) 증가. 둘 다 unavailable quant.
-    small = _tally(_measured(leg=20.0), _ctx([]),
+    # quick-260705-k8h: 구 fixture(leg 20 vs 40)는 fallback -20 vs cap-포화 -20 동점이
+    # 되므로 sub-cap granular 영역(over 5/15 → raw 6/18 < 상한 20)으로 교체 —
+    # strict 단조 단언 보존. cap 초과 포화(동점)는 cap 전용 테스트 소관.
+    small = _tally(_measured(leg=25.0), _ctx([]),
                    dimension_overall=80, quantification=_unavailable_quant())
-    large = _tally(_measured(leg=40.0), _ctx([]),
+    large = _tally(_measured(leg=35.0), _ctx([]),
                    dimension_overall=80, quantification=_unavailable_quant())
     ded_small = sum(abs(r.points) for r in small.records)
     ded_large = sum(abs(r.points) for r in large.records)
@@ -699,7 +728,9 @@ def test_split_reference_relative_scored_and_monotonic():
     assert rec[0].unit == "deg"
     assert rec[0].baseline_value == 0.0  # 목표 = reference 대비 0° 부족
     assert rec[0].points < 0
-    finals = [_tally(_measured(split=d), _ctx([])).final for d in (0.0, 30.0, 60.0, 90.0)]
+    # sub-cap devs (over 5/10/15 → raw < 상한 20) — strict 단조 보존, cap 포화(동점)는
+    # per-record cap 전용 테스트 소관 (quick-260705-k8h).
+    finals = [_tally(_measured(split=d), _ctx([])).final for d in (0.0, 25.0, 30.0, 35.0)]
     assert finals[0] >= finals[1] > finals[2] > finals[3]
 
 
@@ -764,7 +795,9 @@ def test_breakdown_serializes_flat():
     assert set(d.keys()) == set(models.DEDUCTION_BREAKDOWN_KEYS)
     assert isinstance(d["records"], list)
     for rec in d["records"]:
-        assert set(rec.keys()) == set(models.DEDUCTION_RECORD_KEYS)
+        # leg=40 → capped record 포함 (quick-260705-k8h) — cap-인지 키 형상 helper.
+        # rawPoints(float)/capApplied(bool)는 scalar 라 flat 루프 자동 통과.
+        _assert_record_keys(rec)
         for v in rec.values():
             assert not isinstance(v, (list, dict)), "nested array/dict 금지(Firestore-flat)"
     assert d["final"] == max(0, round(100.0 + sum(r["points"] for r in d["records"])))

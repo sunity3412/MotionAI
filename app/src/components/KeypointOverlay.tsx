@@ -6,9 +6,12 @@
 //     player 미전달 시 props.frameIndex (default 0) 의 정적 렌더 (Wave 1 호환).
 //   - jointAngles prop 으로 current/target 받아 delta ≥ deltaThresholdDeg 강조.
 //     Phase 20 (UI A2): pill/글자 확대 + 흰 외곽선으로 가독성 개선.
-//     quick-260705-k8y: floating 라벨은 절대각 숫자 → actionLabels prop 의 행동
-//     지시 문구("왼쪽 무릎 23° 더 펴야")로 전면 대체. jointAngles 는 강조 산출
-//     전용으로 유지.
+//     quick-260705-r6v: 영상 위 텍스트 pill(행동 지시 라벨) 전면 제거 — Tempo 공식
+//     문서("폼 피드백 상시 노출은 demoralizing") 계열 UX. 재생 중엔 번호 점만 두고
+//     행동 문구는 위 검은 여백 고정 범례/드릴다운 시트로 옮긴다(result.tsx 소비).
+//     jointAngles 는 강조 산출 전용으로 유지.
+//   - groupMarkers: 관절명 없는 vision record(스플릿 → 다리 4관절)를 멤버 centroid
+//     1점으로 표시("번호 다 1" 해소). onMarkerPress: 번호 점 탭 → 드릴다운 시트.
 //   - keypointReport 미가용 시 null return → caller 가 placeholder 표시 (D-12-U6)
 //
 // MVP 단순화 (R5 iter-2 정합): delta 강조 = 영상 전체 대표 편차. jointAngles =
@@ -24,8 +27,8 @@
 // 토큰만 사용 (CLAUDE.md §4 / D-12-U5). brand #FF4B33 변경 0.
 
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, G, Line, Rect, Text as SvgText } from 'react-native-svg';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
 import { useEvent } from 'expo';
 import type { VideoPlayer } from 'expo-video';
 import { colors } from '../theme';
@@ -85,8 +88,6 @@ export type KeypointOverlayProps = {
   jointAngles?: Record<string, { current: number | null; target: number | null }>;
   /** default 20 (IPSF 허용오차 정합, KEYPOINT_DELTA_HIGHLIGHT_DEG). */
   deltaThresholdDeg?: number;
-  /** 행동 지시 라벨 전체 on/off 게이트 (quick-260705-k8y 로 의미 갱신), default true. */
-  showAngleLabels?: boolean;
   /**
    * Phase 20 (UI ②) — 비전 거부권 적용(실제 결함 존재)인데 임계(20°)를 넘는 관절이
    * 0개일 때, 편차가 가장 큰 N개 관절을 강제로 강조한다 (belle: "표기가 하나도 없다").
@@ -110,12 +111,20 @@ export type KeypointOverlayProps = {
    */
   attentionKeypoints?: readonly KeypointName[];
   /**
-   * quick-260705-k8y — 문제 관절의 행동 지시 문구 (result.tsx 가 실측 데이터로
-   * 조립). 라벨은 highlighted(빨강)∪attention(주황) 관절 중 이 맵에 항목이 있는
-   * 것만 렌더 — 없으면 마커만 (안전 폴백, Mode3 데이터 부재 대응). 절대각 숫자
-   * 라벨은 본 prop 도입으로 전면 제거 (belle: "각도로는 무슨 말인지 못 알아듣는다").
+   * quick-260705-r6v — 관절명 없는 vision record(스플릿 → 다리 4관절)의 그룹 마커
+   * (buildDeductionMarkers.groupMarkers). 각 entry 를 멤버 keypoint 들의 현재 frame
+   * 위치 산술 평균(centroid) 1점에 강조 원 + 흰 bold 숫자로 렌더한다 → 다리 4관절
+   * 4점에 같은 번호를 찍던 "번호 다 1" 혼란 해소. centroid 는 표시 배치용 평균이지
+   * 좌표/각도 산출이 아님(D-12 §12 안티패턴 아님 — 백엔드 좌표의 시각 배치).
+   * prop 미전달/빈 배열이면 렌더 diff 0.
    */
-  actionLabels?: Partial<Record<KeypointName, string>>;
+  groupMarkers?: { number: number; keypoints: KeypointName[] }[];
+  /**
+   * quick-260705-r6v — 번호 점 탭 콜백 (드릴다운 시트 오픈). 전달 시 SVG 위에 형제
+   * 히트 레이어(box-none)를 두고 번호 있는 마커(keypointNumbers 관절 + groupMarkers
+   * centroid) 위치에 고정 44pt Pressable 을 배치한다. 미전달 시 렌더 diff 0.
+   */
+  onMarkerPress?: (markerNumber: number) => void;
   /**
    * quick-260705-o0s — 감점 record 관절의 번호 점 (buildDeductionMarkers.
    * keypointNumbers — 점수 계산 내역 행 번호와 단일 소스). 값이 있는 관절은
@@ -137,17 +146,6 @@ export type KeypointOverlayProps = {
 
 type Point = { x: number; y: number };
 type KeypointPoint = Point & { confidence: number };
-
-// 라벨 pill 동적 폭 추정 (quick-260705-k8y) — RN SVG 는 텍스트 measure API 가
-// 없어 문자 폭 근사: 한글 14 / 그 외(숫자·°·공백) 8 + 좌우 패딩 16. fontSize 14
-// bold 기준 근사 — 다소 넉넉해도 pill 형태라 무해. 순수 함수.
-function labelTextWidth(text: string): number {
-  let w = 16;
-  for (const ch of text) {
-    w += /[가-힣]/.test(ch) ? 14 : 8;
-  }
-  return w;
-}
 
 // frame=0 (또는 prop frameIndex) 의 8 keypoint 좌표 + confidence reshape.
 // flat array 전체 reshape 회피 — 한 frame 만 slice (T × J × 2 → J point).
@@ -221,11 +219,11 @@ export function KeypointOverlay({
   frameIndex: frameIndexProp,
   jointAngles,
   deltaThresholdDeg = KEYPOINT_DELTA_HIGHLIGHT_DEG,
-  showAngleLabels = true,
   forceHighlightWorstCount = 0,
   highlightKeypoints,
   attentionKeypoints,
-  actionLabels,
+  groupMarkers,
+  onMarkerPress,
   markerNumbers,
   sizeScale = 1,
 }: KeypointOverlayProps) {
@@ -262,6 +260,9 @@ export function KeypointOverlay({
   const STROKE_HI = (3 * S) / H;
   const STROKE_CIRCLE_OUTLINE = (1.5 * S) / H;
   const STROKE_CIRCLE_OUTLINE_HI = (2.4 * S) / H;
+  // quick-260705-o0s/r6v — 번호 점(keypointNumbers) + 그룹 중점(groupMarkers) 공용
+  // 폰트 크기. sizeScale 곱으로 세로 카드/가로 전체화면 동일 규칙 자동.
+  const NUM_FONT_SIZE = (13 * S) / H;
 
   // Wave 2: player 전달 시 useEvent.currentTime → frameIndex 자동 산출.
   // player 없거나 frameIndex prop 명시 시 override.
@@ -363,10 +364,47 @@ export function KeypointOverlay({
   if (!visible || keypointReport == null) return null;
   if (!positions) return null;
 
+  // quick-260705-r6v — 그룹(중점) 마커 centroid. 멤버 keypoint 현재 frame 위치의
+  // 산술 평균(표시 배치용 — 좌표/각도 산출 아님). 저신뢰(conf<0.5) 멤버는 centroid
+  // 계산에서 제외하되 나머지로 진행, 유효 멤버 0이면 미렌더.
+  const groupCentroids: { number: number; x: number; y: number }[] = [];
+  for (const g of groupMarkers ?? []) {
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (const kp of g.keypoints) {
+      const p = positions.get(kp);
+      if (!p) continue;
+      if (p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD) continue;
+      sx += p.x;
+      sy += p.y;
+      n += 1;
+    }
+    if (n > 0) groupCentroids.push({ number: g.number, x: sx / n, y: sy / n });
+  }
+
+  // quick-260705-r6v — 번호 점 탭 타깃 (keypointNumbers 관절 + 그룹 centroid).
+  // 번호 렌더 규칙(highlighted + 고신뢰)과 정합. onMarkerPress 없으면 빈 배열.
+  const tapTargets: { number: number; x: number; y: number }[] = [];
+  if (onMarkerPress) {
+    for (const [joint, p] of positions.entries()) {
+      if (p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD) continue;
+      if (!highlightedJoints.has(joint)) continue;
+      const num = markerNumbers?.[joint];
+      if (num != null) tapTargets.push({ number: num, x: p.x, y: p.y });
+    }
+    for (const g of groupCentroids) {
+      tapTargets.push({ number: g.number, x: g.x, y: g.y });
+    }
+  }
+
   return (
     <View
       style={StyleSheet.absoluteFillObject}
-      pointerEvents="none"
+      // quick-260705-r6v — onMarkerPress 전달 시 box-none 으로 전환해 번호 점
+      // Pressable 히트 레이어가 탭을 받게 한다 (영상 본체엔 제스처 없어 무해,
+      // planner_findings 2). 미전달 시 기존 'none' (렌더/터치 diff 0).
+      pointerEvents={onMarkerPress ? 'box-none' : 'none'}
       accessibilityElementsHidden={!visible}
     >
       <Svg
@@ -374,6 +412,8 @@ export function KeypointOverlay({
         height="100%"
         viewBox="0 0 1 1"
         preserveAspectRatio="none"
+        // SVG 는 터치 비대상 — 번호 점 탭은 아래 형제 Pressable 레이어가 받는다.
+        pointerEvents="none"
       >
         {/* axisData polyline — UI-SPEC §5: 2-point (mask=false) or 3-point */}
         {axis &&
@@ -465,7 +505,6 @@ export function KeypointOverlay({
           // 카드/가로 전체화면 동일 규칙 자동 (quick-260702-t0v 메커니즘 재사용).
           // 저신뢰(회색) 원에는 숫자 미표기 — 측정 불신뢰 위 확정 번호 금지.
           const num = isHi && !isLowConf ? markerNumbers?.[joint] : undefined;
-          const numFontSize = (13 * S) / H;
           return (
             <G key={`kp-${joint}`}>
               <Circle
@@ -486,9 +525,9 @@ export function KeypointOverlay({
                   x={p.x}
                   // 세로 중앙 보정 — fontSize*0.35 근사 (기존 pill 텍스트 0.68
                   // 배치 관례 참고, cap-height 중심 정렬).
-                  y={p.y + numFontSize * 0.35}
+                  y={p.y + NUM_FONT_SIZE * 0.35}
                   fill="#FFFFFF"
-                  fontSize={numFontSize}
+                  fontSize={NUM_FONT_SIZE}
                   fontWeight="700"
                   textAnchor="middle"
                 >
@@ -499,70 +538,59 @@ export function KeypointOverlay({
           );
         })}
 
-        {/* 행동 지시 라벨 (quick-260705-k8y — 절대각 숫자 라벨 전면 대체).
-            belle: "158° 절대각은 무슨 말인지 못 알아듣는다" → 문제 관절(빨강 확정
-            ∪ 주황 측정초과)에만 "왼쪽 무릎 23° 더 펴야" 형태 행동 문구. 문구는
-            caller(result.tsx)가 실측 주입 데이터로만 조립 — actionLabels 에 항목
-            없는 관절은 마커만 (안전 폴백, Mode3 데이터 부재 대응).
-
-            Phase 20 (UI A2) 가독 메커니즘 유지: pill + 흰 외곽선 + WHITE 14pt
-            bold + 얇은 흰 텍스트 stroke. 문구 길이가 가변이라 pill 폭은
-            labelTextWidth 로 동적 산출.
-
-            quick-260704-fz4 — attention(주황) 관절 pill 배경 = advisoryOrange
-            (2단 시각 언어 — 빨강 pill='확정 감점' 의미 보존). */}
-        {showAngleLabels &&
-          [...highlightedJoints, ...attentionJoints].map((joint) => {
-            const p = positions.get(joint);
-            const text = actionLabels?.[joint];
-            if (!p || !text) return null;
-            // 12-deferred §12-D — 저신뢰 keypoint 의 측정은 불신뢰 → label 숨김.
-            if (p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD) return null;
-            const labelW = (labelTextWidth(text) * S) / W;
-            const labelH = (26 * S) / H;
-            // keypoint 우측 +14pt offset (강조 원이 커졌으므로 겹침 회피).
-            let lx = p.x + (14 * S) / W;
-            // 우측 overflow 클램프 — 긴 문구가 화면(viewBox 1×1) 밖으로 나가면
-            // keypoint 왼쪽에 배치 (줌 클리핑과 중첩되는 전체화면에서 특히 중요).
-            if (lx + labelW > 1) {
-              lx = p.x - (14 * S) / W - labelW;
-            }
-            const ly = p.y - labelH / 2;
-            return (
-              <G key={`label-${joint}`}>
-                <Rect
-                  x={lx}
-                  y={ly}
-                  width={labelW}
-                  height={labelH}
-                  rx={(13 * S) / H}
-                  ry={(13 * S) / H}
-                  fill={
-                    highlightedJoints.has(joint)
-                      ? colors.brand
-                      : colors.advisoryOrange
-                  }
-                  stroke="#FFFFFF"
-                  strokeWidth={(1.4 * S) / H}
-                />
-                <SvgText
-                  x={lx + labelW / 2}
-                  y={ly + labelH * 0.68}
-                  fill="#FFFFFF"
-                  // 텍스트 외곽에 얇은 흰 stroke — 영상 디테일 위에서도 글자
-                  // 가장자리가 또렷해 판독성 ↑ (brand pill 안 흰 글씨 대비 보강).
-                  stroke="#FFFFFF"
-                  strokeWidth={(0.6 * S) / H}
-                  fontSize={(14 * S) / H}
-                  fontWeight="700"
-                  textAnchor="middle"
-                >
-                  {text}
-                </SvgText>
-              </G>
-            );
-          })}
+        {/* quick-260705-r6v — 그룹(중점) 마커. 관절명 없는 vision record(스플릿 →
+            다리 4관절)를 멤버 centroid 1점에 강조 원 + 흰 bold 숫자로 렌더한다.
+            멤버 관절 자체는 highlightKeypoints 로 계속 빨강 강조(bone 포함)되지만
+            개별 숫자는 없음 — 숫자는 이 중점 1점만("번호 다 1" 해소). 시각 규칙은
+            번호 점 원(RADIUS_HI + 흰 외곽선 + brand fill)과 동일(sizeScale 곱). */}
+        {groupCentroids.map((g) => (
+          <G key={`group-${g.number}`}>
+            <Circle
+              cx={g.x}
+              cy={g.y}
+              r={RADIUS_HI}
+              fill={colors.brand}
+              stroke="#FFFFFF"
+              strokeWidth={STROKE_CIRCLE_OUTLINE_HI}
+            />
+            <SvgText
+              x={g.x}
+              y={g.y + NUM_FONT_SIZE * 0.35}
+              fill="#FFFFFF"
+              fontSize={NUM_FONT_SIZE}
+              fontWeight="700"
+              textAnchor="middle"
+            >
+              {String(g.number)}
+            </SvgText>
+          </G>
+        ))}
       </Svg>
+      {/* quick-260705-r6v — 번호 점 탭 히트 레이어 (SVG 위 형제, box-none).
+          번호 있는 마커 위치에 고정 44pt Pressable 을 정규화 좌표(x100 퍼센트)로
+          배치. onMarkerPress 미전달 시 이 블록 자체가 없어 렌더 diff 0. */}
+      {onMarkerPress && tapTargets.length > 0 && (
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+          {tapTargets.map((t, i) => (
+            <Pressable
+              key={`tap-${t.number}-${i}`}
+              onPress={() => onMarkerPress(t.number)}
+              accessibilityRole="button"
+              accessibilityLabel={`${t.number}번 감점 상세 보기`}
+              hitSlop={8}
+              style={{
+                position: 'absolute',
+                left: `${t.x * 100}%`,
+                top: `${t.y * 100}%`,
+                width: 44,
+                height: 44,
+                marginLeft: -22,
+                marginTop: -22,
+              }}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 }

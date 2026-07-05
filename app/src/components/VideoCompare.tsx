@@ -21,6 +21,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { circledNumberKo } from '../lib/deductionLabels';
 import { colors, layout, radius, spacing, typography } from '../theme';
 
 type SlotProps = {
@@ -76,7 +77,7 @@ function VideoSlot({ label, url, player, overlay }: SlotProps) {
               allowsPictureInPicture={false}
             />
             {overlay && (
-              <View style={styles.overlayContainer} pointerEvents="none">
+              <View style={styles.overlayContainer} pointerEvents="box-none">
                 {overlay(player)}
               </View>
             )}
@@ -118,6 +119,27 @@ export type VideoCompareProps = {
    * 유지 (state 단일 출처 = caller, 토글 시 render prop 재실행으로 즉시 반영).
    */
   fullscreenHeaderExtra?: React.ReactNode;
+  /**
+   * quick-260705-r6v — 가로 전체화면 위쪽 검은 여백(fsTopBar 좌측)에 고정 범례.
+   * 재생 중 영상 위 텍스트 pill 을 없앤 대신, "① 행동구 −감점" 을 여백에 나열한다
+   * (Tempo "폼 피드백 상시 노출 demoralizing" 계열 — 설명은 여백으로). 각 entry =
+   * brand 원문자 번호 + 흰 텍스트. 미전달/빈 배열이면 미렌더.
+   */
+  fullscreenLegend?: { number: number; text: string }[];
+  /**
+   * quick-260705-r6v — 범례 entry 탭 콜백. iOS 중첩 Modal 함정 회피를 위해
+   * closeFullscreen() 을 먼저 실행한 뒤 콜백을 호출한다 (전체화면 Modal 위에
+   * sibling 시트를 띄우면 iOS 에서 표시 실패 — planner_findings 3).
+   */
+  onLegendPress?: (markerNumber: number) => void;
+  /**
+   * quick-260705-r6v — 재생바 결함 측정 시점 틱 (buildDeductionTicks, frame 도메인).
+   * 탭 시 양쪽 영상을 그 시점으로 동기 seek. tickFrameCount = 사용자
+   * keypointReport.frames (초 환산용 실효 fps 기준). 세로 카드/전체화면 공용
+   * (renderControls 공유). 데이터 없으면 틱 생략.
+   */
+  timelineTicks?: { numbers: number[]; frameIndex: number }[];
+  tickFrameCount?: number;
 };
 
 // UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).
@@ -174,6 +196,10 @@ export function VideoCompare({
   leftOverlay,
   rightOverlay,
   fullscreenHeaderExtra,
+  fullscreenLegend,
+  onLegendPress,
+  timelineTicks,
+  tickFrameCount,
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
@@ -543,6 +569,38 @@ export function VideoCompare({
         />
       </Pressable>
       <View style={styles.timeline}>
+        {/* quick-260705-r6v — 결함 측정 시점 틱 (track 위 별도 줄, panResponder 와
+            겹치지 않게 분리). sec = frameIndex * duration / tickFrameCount (Fix-A
+            실효 fps 규칙). 탭 = 양쪽 동기 seek(seekBoth). 세로/전체화면 공용. */}
+        {timelineTicks &&
+          timelineTicks.length > 0 &&
+          tickFrameCount != null &&
+          tickFrameCount > 0 &&
+          duration > 0 && (
+            <View style={styles.tickRow} pointerEvents="box-none">
+              {timelineTicks.map((tick) => {
+                const sec = (tick.frameIndex * duration) / tickFrameCount;
+                if (!isFinite(sec) || sec < 0) return null;
+                const leftPct = Math.max(0, Math.min(100, (sec / duration) * 100));
+                const label = tick.numbers.map((n) => circledNumberKo(n)).join('');
+                return (
+                  <Pressable
+                    key={`tick-${tick.frameIndex}`}
+                    onPress={() => seekBoth(sec)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${tick.numbers.join(', ')}번 감점 시점으로 이동`}
+                    hitSlop={8}
+                    style={[styles.tick, { left: `${leftPct}%` }]}
+                  >
+                    <Text style={styles.tickLabel} numberOfLines={1}>
+                      {label}
+                    </Text>
+                    <View style={styles.tickMark} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         {/* Phase 12 후속 B — track 자체가 PanResponder. drag 시 양쪽 동시
             seek + scrubbingRef 가 drift 보정 우회 (tick 가드). */}
         <View
@@ -634,7 +692,7 @@ export function VideoCompare({
               allowsFullscreen={false}
               allowsPictureInPicture={false}
             />
-            <View style={styles.overlayContainer} pointerEvents="none">
+            <View style={styles.overlayContainer} pointerEvents="box-none">
               {overlay?.(player, { sizeScale: FULLSCREEN_OVERLAY_SCALE })}
             </View>
           </View>
@@ -769,6 +827,32 @@ export function VideoCompare({
                   )}
               </View>
               <View style={styles.fsTopBar}>
+                {/* quick-260705-r6v — 검은 여백 좌측 고정 범례 (flex:1). 재생 중
+                    영상 위 텍스트 pill 을 없앤 대신 "① 행동구 −감점" 을 여백에
+                    가로 나열(여백 좁으면 flexWrap). 탭 = closeFullscreen 선행 후
+                    드릴다운(iOS 중첩 Modal 함정 회피). */}
+                <View style={styles.fsLegend} pointerEvents="box-none">
+                  {(fullscreenLegend ?? []).map((item) => (
+                    <Pressable
+                      key={`legend-${item.number}`}
+                      onPress={() => {
+                        closeFullscreen();
+                        onLegendPress?.(item.number);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.number}번 감점 상세 보기`}
+                      hitSlop={6}
+                      style={styles.fsLegendItem}
+                    >
+                      <Text style={styles.fsLegendNumber}>
+                        {circledNumberKo(item.number)}
+                      </Text>
+                      <Text style={styles.fsLegendText} numberOfLines={1}>
+                        {item.text}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
                 {fullscreenHeaderExtra}
                 <Pressable
                   onPress={closeFullscreen}
@@ -822,8 +906,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  // Phase 12 신설 (Plan 12-02 T4) — KeypointOverlay 박제 site. pointerEvents
-  // 'none' 박제 — overlay 가 영상 tap/pinch 막지 않음.
+  // Phase 12 신설 (Plan 12-02 T4) — KeypointOverlay 박제 site.
+  // quick-260705-r6v — 래퍼 pointerEvents 를 box-none 으로 전환(렌더 site 인라인):
+  // 번호 점 Pressable 히트 레이어가 탭을 받되, 빈 영역은 아래로 통과. 영상 본체엔
+  // 제스처 핸들러가 없어 무해(planner_findings 2).
   overlayContainer: {
     position: 'absolute',
     top: 0,
@@ -993,6 +1079,60 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.videoBg,
+  },
+  // quick-260705-r6v — 전체화면 여백 고정 범례 ("① 행동구 −감점" 나열).
+  // flex:1 로 좌측 여백을 채우고, 여백이 좁으면 flexWrap 으로 줄바꿈(승인 사항).
+  // 우측 헤더 토글/닫기 버튼과 겹치지 않게 paddingRight.
+  fsLegend: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 12,
+  },
+  fsLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  fsLegendNumber: {
+    ...typography.captionSmall,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    color: colors.brand,
+    fontWeight: '700',
+  },
+  fsLegendText: {
+    ...typography.captionSmall,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    color: colors.textWhite,
+  },
+  // quick-260705-r6v — 재생바 결함 틱 (track 위 별도 줄). tick = 시간 위치 앵커
+  // (left%) 에 중앙 정렬된 44pt 터치 박스 (번호 미니 라벨 + 세로 마크).
+  tickRow: {
+    width: '100%',
+    height: 20,
+    position: 'relative',
+    justifyContent: 'flex-end',
+  },
+  tick: {
+    position: 'absolute',
+    bottom: 0,
+    width: 44,
+    marginLeft: -22,
+    alignItems: 'center',
+  },
+  tickLabel: {
+    ...typography.captionSmall,
+    color: colors.brand,
+    fontWeight: '700',
+  },
+  tickMark: {
+    width: 2,
+    height: 6,
+    borderRadius: 1,
+    marginTop: 1,
+    backgroundColor: colors.brand,
   },
   // 하단 컨트롤 overlay (영상 letterbox 영역 위 — 표준 비디오 플레이어 UX).
   fsControlsWrap: {

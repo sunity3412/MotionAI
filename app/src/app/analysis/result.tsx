@@ -29,8 +29,11 @@ import {
   ANGLE_VS_REFERENCE_PREFIX,
   KEYPOINT_FROM_ANGLE_KEY,
   buildDeductionMarkers,
+  buildDeductionTicks,
   composeScoringBasisKo,
   composeShortActionLabelKo,
+  criterionLabelKo,
+  formatDeductionNumber,
   isCleanPass,
 } from '../../lib/deductionLabels';
 import { useReferenceMotion } from '../../lib/referenceMotions';
@@ -51,6 +54,7 @@ import type {
   AnalysisResult,
   BodyProfile,
   CoachingTip,
+  DeductionRecord,
   DimensionExplanation,
   JointDirection,
   JointScore,
@@ -264,6 +268,44 @@ function hasSynthesisWarning(
 
 // JointScore.key (kismam) → keypoint name 매핑은 deductionLabels.
 // KEYPOINT_FROM_ANGLE_KEY 단일 출처 (quick-260704-fz4 — 로컬 중복 맵 제거).
+
+// quick-260705-r6v — record 투영 keypoint (buildDeductionMarkers 와 동일 규칙).
+// 범례/시트 행동구·zoom 매칭이 record 를 관절로 되짚을 때 재사용 (규칙 1벌).
+//   angle_vs_reference__{jk} → 단일 keypoint / source='vision' → faultJoints 전체 /
+//   dimension_overall_fallback·score_delta → 투영 없음.
+function recordProjectedKeypoints(
+  rec: DeductionRecord,
+  faultJoints: readonly KeypointName[] | undefined,
+): KeypointName[] {
+  if (
+    rec.criterion === 'dimension_overall_fallback' ||
+    rec.unit === 'score_delta'
+  ) {
+    return [];
+  }
+  if (rec.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) {
+    const jk = rec.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
+    const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
+    return kp ? [kp] : [];
+  }
+  if (rec.source === 'vision') return [...(faultJoints ?? [])];
+  return [];
+}
+
+// quick-260705-r6v — record 행동구 resolver (범례·드릴다운 시트 공용 소스).
+// 투영 keypoint(단일이면 그 관절, 그룹이면 멤버) 중 actionLabels 를 가진 첫 관절의
+// 문구. 없으면 null (호출부가 criterionLabelKo 폴백 — fabricate 0).
+function actionPhraseForRecord(
+  rec: DeductionRecord,
+  faultJoints: readonly KeypointName[] | undefined,
+  actionLabels: Partial<Record<KeypointName, string>>,
+): string | null {
+  for (const kp of recordProjectedKeypoints(rec, faultJoints)) {
+    const label = actionLabels[kp];
+    if (label) return label;
+  }
+  return null;
+}
 
 // 분석 결과 화면 (plan.md #8, design.md §8, ia AC-RES-001).
 // 미설계 화면 → design.md §0 결정 트리로 자체 설계. 흰 배경(§5-1),
@@ -652,9 +694,10 @@ export default function AnalysisResult() {
     [result.deductionBreakdown],
   );
 
-  // quick-260705-o0s — 문제 관절 행동 지시 라벨 조립 (라벨 5개 영상 뒤덮기 해소).
-  // 문구는 composeShortActionLabelKo (각도 숫자 없는 짧은 행동구 — 각도 수치는
-  // '점수 계산 내역' 담당). signed delta 소스 우선순위 기존 유지:
+  // quick-260705-o0s/r6v — 문제 관절 행동 지시 문구 조립. quick-260705-r6v 부터
+  // 소비처가 "영상 위 pill"(제거됨) → "전체화면 여백 범례 + 드릴다운 시트 행동구"
+  // 로 이동한다. 문구는 composeShortActionLabelKo (각도 숫자 없는 짧은 행동구 —
+  // 각도 수치는 '점수 계산 내역' 담당). signed delta 소스 우선순위 기존 유지:
   //   1. windowMedianAngleDeltas (mode1 veto applied — direction 의 원천)
   //   2. JointScore.deltaDeg (kismam 평균, Mode3 커버)
   // faultJointDeficits(부호 없음) 라벨 경로는 폐기 — 방향 fabricate 금지
@@ -672,6 +715,13 @@ export default function AnalysisResult() {
   const actionLabels = useMemo<Partial<Record<KeypointName, string>>>(() => {
     const hasBreakdown =
       cmp.mode === 'mode1' && result.deductionBreakdown != null;
+    // quick-260705-r6v — 그룹 마커(스플릿 → 다리 4관절) 멤버 집합. 스플릿 멤버는
+    // keypointNumbers 가 아니라 groupMarkers 로 이동했으므로, 게이트가 keypointNumbers
+    // 만 보면 스플릿 행동구가 소멸한다(planner_findings 4). 멤버까지 라벨 후보로 허용.
+    const groupMemberSet = new Set<KeypointName>();
+    for (const g of markers.groupMarkers) {
+      for (const kp of g.keypoints) groupMemberSet.add(kp);
+    }
     // 후보 수집 — kp 당 1건 (높은 소스가 이김), dedupe 용 |delta| 동반.
     const candidates = new Map<KeypointName, { label: string; abs: number }>();
     const addCandidate = (
@@ -681,8 +731,14 @@ export default function AnalysisResult() {
     ) => {
       if (!kp || candidates.has(kp)) return;
       if (!Number.isFinite(signedDelta)) return;
-      // 감점 record 관절 한정 (breakdown 보유 시) — 번호 점 있는 관절만 라벨 후보.
-      if (hasBreakdown && markers.keypointNumbers[kp] == null) return;
+      // 감점 record 관절 한정 (breakdown 보유 시) — 번호 점(keypointNumbers) 또는
+      // 그룹 마커 멤버(스플릿)인 관절만 라벨 후보.
+      if (
+        hasBreakdown &&
+        markers.keypointNumbers[kp] == null &&
+        !groupMemberSet.has(kp)
+      )
+        return;
       // attention(주황) = 감점 아님 → 라벨 미부여 (점만).
       if (attentionKeypoints.includes(kp)) return;
       const label = composeShortActionLabelKo(angleKey, signedDelta);
@@ -714,6 +770,37 @@ export default function AnalysisResult() {
     markers,
     attentionKeypoints,
   ]);
+
+  // quick-260705-r6v — 전체화면 여백 고정 범례 조립. 번호 있는 record 순서대로
+  // "① 행동구 −감점". 행동구는 actionPhraseForRecord(범례·시트 동일 소스), 없으면
+  // criterionLabelKo 폴백(fabricate 0). cleanPass/legacy 면 자연히 빈 배열.
+  const fullscreenLegend = useMemo(() => {
+    const recs = result.deductionBreakdown?.records ?? [];
+    const out: { number: number; text: string }[] = [];
+    recs.forEach((rec, i) => {
+      const num = markers.recordNumbers[i];
+      if (num == null) return;
+      const phrase = actionPhraseForRecord(rec, vetoFaultJoints, actionLabels);
+      const label = phrase ?? criterionLabelKo(rec.criterion);
+      out.push({
+        number: num,
+        text: `${label} −${formatDeductionNumber(Math.abs(rec.points))}`,
+      });
+    });
+    return out;
+  }, [result.deductionBreakdown, markers, vetoFaultJoints, actionLabels]);
+
+  // quick-260705-r6v — 재생바 결함 시점 틱 (buildDeductionTicks — window median
+  // 시점 1개에 번호 병합). veto 미적용/legacy/mode3 면 빈 배열 (틱 생략).
+  const timelineTicks = useMemo(
+    () =>
+      buildDeductionTicks(
+        result.deductionBreakdown?.records ?? [],
+        markers.recordNumbers,
+        result.visionVeto,
+      ),
+    [result.deductionBreakdown, markers.recordNumbers, result.visionVeto],
+  );
 
   // quick-260702-q8q — "점수 계산 내역" 섹션 렌더 가드. mode1 전용(mode3 는 veto
   // 미실행 mode3_held) + deductionBreakdown 보유 doc 만 (legacy doc 은 필드 부재 →
@@ -1143,10 +1230,10 @@ export default function AnalysisResult() {
                   // quick-260704-fz4 — 측정 초과·확인 권장(주황, 감점 아님) 마커.
                   // 표·확대 카드와 동일 단일 소스(attentionKeypoints memo).
                   attentionKeypoints={attentionKeypoints}
-                  // quick-260705-k8y — 행동 지시 라벨 (절대각 대체). 항목 없는
-                  // 관절은 마커만 (Mode3 데이터 부재 안전 폴백).
-                  // quick-260705-o0s: 각도 숫자 없는 짧은 행동구 + dedupe.
-                  actionLabels={actionLabels}
+                  // quick-260705-r6v — 스플릿(다리 4관절) 그룹 마커: 멤버 centroid
+                  // 1점 + 번호. 영상 위 텍스트 pill 은 전면 제거(여백 범례/시트로
+                  // 이동). 사용자 측만 전달 (정은지 측 무변경).
+                  groupMarkers={markers.groupMarkers}
                   // quick-260705-o0s — 감점 record 관절 번호 점 ('점수 계산 내역'
                   // 행 번호와 buildDeductionMarkers 단일 소스 — 항상 일치).
                   markerNumbers={markers.keypointNumbers}
@@ -1180,6 +1267,12 @@ export default function AnalysisResult() {
                   onValueChange={handleToggleOverlay}
                 />
               }
+              // quick-260705-r6v — 전체화면 여백 고정 범례 + 재생바 결함 틱.
+              // cleanPass/legacy/mode3 면 자연히 빈 배열 (별도 분기 불요).
+              // tickFrameCount = 사용자 keypointReport.frames (초 환산 실효 fps 기준).
+              fullscreenLegend={fullscreenLegend}
+              timelineTicks={timelineTicks}
+              tickFrameCount={userKeypointReport?.frames ?? 0}
             />
           </>
         )}

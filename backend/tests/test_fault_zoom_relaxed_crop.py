@@ -92,19 +92,43 @@ def test_relaxed_crop_centers_follow_low_conf_coords():
 
 
 def test_relaxed_margin_widens_crop_vs_valid():
-    """같은 중심의 relaxed crop 은 valid crop 보다 넓다 (_RELAXED_MARGIN=2.0).
+    """흩어진 좌표의 relaxed crop 은 같은 좌표의 valid crop 보다 넓다.
 
-    display 전용 상수 — 채점 경로 무접촉이라 calibration gate 대상 아님.
+    _RELAXED_MARGIN 은 bbox 파생분에만 적용 (floor 미적용 — 크기 폭주 방지,
+    2026-07-05 pod 재현). display 전용 상수 — 채점 경로 무접촉이라 calibration
+    gate 대상 아님. 구 테스트는 단일점 relaxed 변=336(floor*margin 폭주 크기)을
+    assert 하고 있었음 — 새 계약(흩어진 2점, bbox 파생 확대)으로 재작성.
     """
     assert fz._RELAXED_MARGIN == 2.0
     frame = _grad_frames()[0]
-    valid_img = fz._side_crop(frame, [(0.5, 0.5)], [])[0]
-    relaxed_img = fz._side_crop(frame, [], [(0.5, 0.5)])[0]
+    pts = [(0.4, 0.5), (0.6, 0.5)]  # bbox 80px — 흩어진 좌표
+    valid_img = fz._side_crop(frame, pts, [])[0]
+    relaxed_img = fz._side_crop(frame, [], pts)[0]
     c = fz._OUT // 2
     r_valid_edge = valid_img.getpixel((0, c))[0]
     r_relaxed_edge = relaxed_img.getpixel((0, c))[0]
-    # 400px 프레임: valid 변=168(left=116, red≈74) / relaxed 변=336(left=32, red≈20)
+    # 400px 프레임: valid 변 = max(168, 80*1.8=144)=168 (left=116, red≈74) /
+    # relaxed 변 = max(168, 80*1.8*2.0=288)=288 (left=56, red≈36).
     assert r_relaxed_edge < r_valid_edge - 20, "relaxed 가 더 넓은 컨텍스트를 담는다"
+
+
+def test_relaxed_dense_pts_stay_at_floor_size_not_full_width():
+    """밀집 relaxed 좌표는 floor(_CROP_FRAC 줌 수준) 크기 부위 crop — 전폭 미도달.
+
+    2026-07-05 pod 재현 (ref-kip-up frame 37, belle 실기기): floor 에도
+    _RELAXED_MARGIN 을 곱하면 side 가 프레임 전폭에 클램프돼 모든 relaxed crop
+    이 전신처럼 보임 — "부위-중심 완화 crop 차별화"(Phase 25-03) 무력화.
+    밀집 2점(bbox 8px*1.8*2.0=29 < floor 168)의 relaxed crop 이 같은 중심 단일
+    valid 점 crop 과 픽셀 동일해야 함 = side == floor 증명 (구 코드는
+    floor*2.0=336 폭주).
+    """
+    frame = _grad_frames()[0]
+    relaxed_img = fz._side_crop(frame, [], [(0.49, 0.5), (0.51, 0.5)])[0]
+    valid_img = fz._side_crop(frame, [(0.5, 0.5)], [])[0]
+    c = fz._OUT // 2
+    assert relaxed_img.getpixel((0, c)) == valid_img.getpixel((0, c)), (
+        "밀집 relaxed 변 == floor (valid 단일점과 동일 crop 영역)"
+    )
 
 
 def test_build_ref_low_conf_cards_differ_by_joint():

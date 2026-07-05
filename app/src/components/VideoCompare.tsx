@@ -159,6 +159,13 @@ const FULLSCREEN_TEXT_SCALE = FULLSCREEN_OVERLAY_SCALE * 0.75;
 // (박스가 임의 비율이면 오버레이 좌표가 letterbox 포함 영역으로 늘어나 어긋남).
 const VIDEO_ASPECT = 9 / 16;
 
+// quick-260705-k8y — 전체화면 고정 줌. belle 실기기 3차 2026-07-05 승인 —
+// 세로영상 위아래 여백(천장 등)을 잘라내고 인물을 키운다. 클리핑 래퍼가 기존
+// 박스 자리를 유지하므로 두 박스 row 레이아웃/컨트롤 배치 불변. 9:16 영상이
+// 9:16 박스에 contain(레터박스 없음)이라 1.35배 확대 시 상하/좌우 각 ~17.5%
+// 크롭 — 인물은 통상 중앙이라 안전. 크롭 정도 조정은 이 상수만 상향/하향.
+const FULLSCREEN_ZOOM = 1.35;
+
 export function VideoCompare({
   leftLabel,
   rightLabel,
@@ -594,43 +601,61 @@ export function VideoCompare({
   //   render 에서 인라인 주입. 박스 치수가 정확하면 overlayContainer(absoluteFill)
   //   위 KeypointOverlay(viewBox 0 0 1 1) 정합이 자동 회복된다.
   //   라벨은 박스 내부 상단 absolute — 각 영상 상단 중앙에 부착.
+  //
+  // quick-260705-k8y — 2겹 구조: 클리핑 래퍼(fsBoxW×fsBoxH, overflow hidden)
+  // + 내부 FULLSCREEN_ZOOM 배 확대 박스(중앙 정렬). VideoView·overlayContainer
+  // 를 내부 확대 박스로 이동 — overlayContainer 가 absoluteFill 이라 오버레이가
+  // 영상과 함께 확대·클리핑돼 마커 정합 자동 유지 (정합 기준 박스 = 내부 박스).
+  // 확대/오프셋 수치는 전부 fsBoxW/fsBoxH 파생 (하드코딩 픽셀 0).
   const renderFullscreenSlot = (
     label: string,
     url: string | undefined,
     player: VideoPlayer | null,
     overlay?: OverlayRenderProp,
-  ) => (
-    <View style={[styles.fsVideoBox, { width: fsBoxW, height: fsBoxH }]}>
-      {url && player ? (
-        <>
-          <VideoView
-            player={player}
-            style={styles.video}
-            contentFit="contain"
-            nativeControls={false}
-            allowsFullscreen={false}
-            allowsPictureInPicture={false}
-          />
-          <View style={styles.overlayContainer} pointerEvents="none">
-            {overlay?.(player, { sizeScale: FULLSCREEN_OVERLAY_SCALE })}
+  ) => {
+    const zoomW = Math.round(fsBoxW * FULLSCREEN_ZOOM);
+    const zoomH = Math.round(fsBoxH * FULLSCREEN_ZOOM);
+    const zoomLeft = -Math.round((zoomW - fsBoxW) / 2);
+    const zoomTop = -Math.round((zoomH - fsBoxH) / 2);
+    return (
+      <View style={[styles.fsVideoBox, { width: fsBoxW, height: fsBoxH }]}>
+        {url && player ? (
+          <View
+            style={[
+              styles.fsZoomBox,
+              { width: zoomW, height: zoomH, left: zoomLeft, top: zoomTop },
+            ]}
+          >
+            <VideoView
+              player={player}
+              style={styles.video}
+              contentFit="contain"
+              nativeControls={false}
+              allowsFullscreen={false}
+              allowsPictureInPicture={false}
+            />
+            <View style={styles.overlayContainer} pointerEvents="none">
+              {overlay?.(player, { sizeScale: FULLSCREEN_OVERLAY_SCALE })}
+            </View>
           </View>
-        </>
-      ) : (
-        <View style={styles.slotEmpty}>
-          <Ionicons
-            name="videocam-outline"
-            size={22}
-            color={colors.textDisabled}
-          />
-          <Text style={styles.slotEmptyText}>준비 중</Text>
-        </View>
-      )}
-      {/* 라벨 = 박스 기준 absolute 상단 중앙 (하단은 공유 컨트롤이 차지) */}
-      <Text style={styles.fsSlotLabel} pointerEvents="none">
-        {label}
-      </Text>
-    </View>
-  );
+        ) : (
+          <View style={styles.slotEmpty}>
+            <Ionicons
+              name="videocam-outline"
+              size={22}
+              color={colors.textDisabled}
+            />
+            <Text style={styles.slotEmptyText}>준비 중</Text>
+          </View>
+        )}
+        {/* 라벨 = 클리핑 래퍼 직속 absolute 상단 중앙 — 확대 박스 밖이라 잘리지
+            않는다 (하단은 공유 컨트롤이 차지) */}
+        <Text style={styles.fsSlotLabel} pointerEvents="none">
+          {label}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.card}>
@@ -990,9 +1015,17 @@ const styles = StyleSheet.create({
   },
   // 세로 영상 최대화 — width/height 는 render 에서 fsBoxW/fsBoxH 숫자 주입
   // (belle 실기기 2차 2026-07-05 — 퍼센트+aspectRatio 가 회전 absolute 컨테이너
-  // 안에서 ~68% 축소 렌더). 오버레이 좌표 정합의 기준 박스.
+  // 안에서 ~68% 축소 렌더).
+  // quick-260705-k8y — 클리핑 래퍼로 전환: overflow hidden 이 내부 확대 박스의
+  // 위아래(및 좌우) 튀어나온 부분을 잘라낸다.
   fsVideoBox: {
     backgroundColor: colors.videoFullscreenBg,
+    overflow: 'hidden',
+  },
+  // quick-260705-k8y — 내부 확대 박스 (FULLSCREEN_ZOOM 배, 중앙 정렬 오프셋은
+  // render 에서 fsBox 파생 숫자 주입). 오버레이 좌표 정합의 기준 박스.
+  fsZoomBox: {
+    position: 'absolute',
   },
   // belle 실기기 2차 2026-07-05 — 라벨을 박스 내부 absolute 로 이동 (박스 기준
   // 상단 중앙). left/right 0 + textAlign center 로 박스 폭 전체에 중앙 정렬.

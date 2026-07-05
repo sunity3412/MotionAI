@@ -12,7 +12,18 @@ import type {
   DeductionBreakdown,
   DeductionRecord,
   KeypointName,
+  VisionVeto,
 } from '../types/analysis';
+
+// 1..9 원문자 (UI 원문자 텍스트 — 이모지 아님). 초과분은 `(n)` 폴백.
+// quick-260705-r6v — ScoreBreakdownSection 이 소유하던 CIRCLED_DIGITS 로직을 여기로
+// 승격한다. 점수 계산 내역 행(①②③)·전체화면 여백 범례·시트 헤더가 전부 이 한
+// 함수를 import 해 원문자 규칙이 1벌만 존재한다 (중복 2벌 금지).
+const CIRCLED_DIGITS_KO = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'] as const;
+
+export function circledNumberKo(n: number): string {
+  return n >= 1 && n <= 9 ? CIRCLED_DIGITS_KO[n - 1] : `(${n})`;
+}
 
 // 관절 한국어 라벨 — keypoint 이름(left_hand 등, FaultZoomCompare 표기)과 kismam
 // angle key(left_elbow 등, angle_vs_reference__{jk}/windowMedianAngleDeltas.joint)
@@ -163,18 +174,33 @@ export function composeScoringBasisKo(
 //     (내역 행에 번호 없이 표기 — 정직, fabricate 0).
 //   - 같은 record 가 여러 keypoint 로 투영되면(스플릿 → 양쪽 hip 등) 전부 같은
 //     번호 (같은 감점의 시각 분산 — 거짓 아님).
+//
+// quick-260705-r6v — groupMarkers 확장 (additive, 하위호환). 관절명 없는 vision
+// record 가 2개 이상 keypoint 로 투영되면("번호 다 1" 근본원인 — 스플릿이 다리
+// 4관절에 같은 번호 4점) 멤버 각각에 keypointNumbers 를 찍지 않고 groupMarkers 에
+// 1 entry(번호 1개 + 멤버 배열)로 방출한다 → 뷰어가 멤버 centroid 1점만 번호로
+// 표시. 멤버는 점유(first-wins)해 뒤 record 가 재번호 못 붙인다. recordNumbers 의
+// 번호 부여 순서/규칙은 불변 — 그룹 record 도 번호를 받는다(내역 행 ①과 중점 점
+// ①이 일치). 기존 소비처는 groupMarkers 를 무시해도 컴파일된다.
 export function buildDeductionMarkers(
   records: DeductionRecord[],
   faultJoints: readonly KeypointName[] | undefined,
 ): {
   recordNumbers: (number | null)[];
   keypointNumbers: Partial<Record<KeypointName, number>>;
+  groupMarkers: { number: number; keypoints: KeypointName[] }[];
 } {
   const keypointNumbers: Partial<Record<KeypointName, number>> = {};
+  const groupMarkers: { number: number; keypoints: KeypointName[] }[] = [];
   const recordNumbers: (number | null)[] = [];
+  // 점유 집합 — keypointNumbers 또는 groupMarkers 멤버로 이미 잡힌 keypoint.
+  // first-wins 판정을 두 마커 종류에 걸쳐 단일화한다 (점 하나에 숫자 하나).
+  const occupied = new Set<KeypointName>();
   let next = 1;
   for (const rec of records) {
     let projected: KeypointName[] = [];
+    // 관절명 없는 vision record 가 2관절 이상 투영 = 그룹(중점) 마커 후보.
+    let isVisionGroup = false;
     if (
       rec.criterion === 'dimension_overall_fallback' ||
       rec.unit === 'score_delta'
@@ -186,8 +212,9 @@ export function buildDeductionMarkers(
       projected = kp ? [kp] : [];
     } else if (rec.source === 'vision') {
       projected = [...(faultJoints ?? [])];
+      isVisionGroup = projected.length >= 2;
     }
-    const fresh = projected.filter((kp) => keypointNumbers[kp] == null);
+    const fresh = projected.filter((kp) => !occupied.has(kp));
     if (fresh.length === 0) {
       recordNumbers.push(null);
       continue;
@@ -195,9 +222,87 @@ export function buildDeductionMarkers(
     const num = next;
     next += 1;
     recordNumbers.push(num);
-    for (const kp of fresh) keypointNumbers[kp] = num;
+    if (isVisionGroup) {
+      // 중점 1점 그룹 마커 — 멤버 각각엔 keypointNumbers 미기록 (개별 번호 없음).
+      groupMarkers.push({ number: num, keypoints: fresh });
+      for (const kp of fresh) occupied.add(kp);
+    } else {
+      for (const kp of fresh) {
+        keypointNumbers[kp] = num;
+        occupied.add(kp);
+      }
+    }
   }
-  return { recordNumbers, keypointNumbers };
+  return { recordNumbers, keypointNumbers, groupMarkers };
+}
+
+// quick-260705-r6v — 재생바 결함 틱 데이터 (해외 사례: Frame.io 챕터 점프 계열).
+// 재생 중 영상 위엔 점만 두고, "언제 그 결함이 나왔는지"는 재생바 틱으로 전달한다
+// (탭 = 양쪽 영상 동기 seek). 전부 저장값 read-only — 초 환산은 VideoCompare 가
+// duration 으로 수행(frame 도메인만 방출).
+//
+// 규칙:
+//   - visionVeto.status==='applied' 이고 windowMedianAngleDeltas.sourceFrameIndices
+//     .user 가 비어있지 않을 때만 틱 방출. 그 외(veto 미적용/legacy/mode3)는 빈
+//     배열 — 틱 생략 (fabricate 0).
+//   - 현 계약상 window 는 레코드별이 아닌 공유 단일 시점 → user 배열의 median
+//     (정렬 후 중앙값, 짝수면 낮은 쪽 = 결정적) 1개 frame 에, 번호가 부여된
+//     (recordNumbers[i]!=null) record 전부의 번호를 오름차순 병합해 틱 1개로 방출.
+//   - 반환 구조를 배열로 잡는 이유: 백엔드가 record별 측정 시점을 내려주게 되면
+//     틱을 record별로 분리 확장(같은 시점은 번호 병합)하기 위함.
+export function buildDeductionTicks(
+  records: DeductionRecord[],
+  recordNumbers: (number | null)[],
+  visionVeto: VisionVeto | null | undefined,
+): { numbers: number[]; frameIndex: number }[] {
+  if (!visionVeto || visionVeto.status !== 'applied') return [];
+  const user = visionVeto.windowMedianAngleDeltas?.sourceFrameIndices?.user ?? [];
+  const frames = user.filter((f) => Number.isFinite(f));
+  if (frames.length === 0) return [];
+  // median (정렬 후 중앙값, 짝수면 낮은 쪽 index → 결정적).
+  const sorted = [...frames].sort((a, b) => a - b);
+  const mid = Math.floor((sorted.length - 1) / 2);
+  const frameIndex = sorted[mid];
+  // 번호가 부여된 record 전부의 번호를 오름차순 병합.
+  const numbers = recordNumbers
+    .filter((n): n is number => n != null)
+    .sort((a, b) => a - b);
+  if (numbers.length === 0) return [];
+  return [{ numbers, frameIndex }];
+}
+
+// quick-260705-r6v — 참고 지표 진단 문장 (belle 승인 카피 그대로, 임의 수정 금지).
+// belle: "각도 유사도 99 인데 47점" 모순 해소 — 숫자 카드 대신 감점 유무 × 지표값
+// 구간 조건부 문장. "유사도 <90 이면 위 문장이 거짓" → 값 구간 분기 필수.
+// 순수 함수 (저장된 dimension 점수 read-only). value 비유한이면 null (행 생략).
+export const DIMENSION_DIAGNOSIS_HIGH_THRESHOLD = 90;
+
+export function composeDimensionDiagnosisKo(
+  dim: 'angle' | 'stability',
+  cleanPass: boolean,
+  value: number,
+): string | null {
+  if (!Number.isFinite(value)) return null;
+  const high = value >= DIMENSION_DIAGNOSIS_HIGH_THRESHOLD;
+  if (dim === 'angle') {
+    if (!high) {
+      // 낮은 값에 "기준대로 타고 있어요" 거짓 문장 차단.
+      return '동작 흐름 자체가 기준과 차이가 있어요. 전체 동작을 기준 영상과 비교하며 따라가 보세요.';
+    }
+    if (!cleanPass) {
+      return '동작 전체 흐름은 기준대로 타고 있어요 — 감점은 특정 순간의 자세에서 나왔어요. 위 항목만 교정하면 됩니다.';
+    }
+    return '동작 흐름과 순간 자세 모두 기준과 일치해요.';
+  }
+  // stability (안정성)
+  if (!high) {
+    return '버티는 구간에서 흔들림이 있어요. 자세 교정과 함께 버티는 힘을 길러 보세요.';
+  }
+  if (!cleanPass) {
+    // 틀린 자세로 안정 = 자산 재프레임 (belle 승인).
+    return '떨림 없이 버티는 힘은 좋아요 — 자세를 교정하면 그대로 안정된 자세로 정착할 수 있어요.';
+  }
+  return '버티는 구간도 흔들림 없이 유지했어요.';
 }
 
 // 감점 0 게이트의 단일 신호 (quick-260705-o0s, belle 추가 피드백 #2 — "100점인데

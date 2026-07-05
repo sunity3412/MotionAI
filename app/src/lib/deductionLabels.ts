@@ -80,6 +80,67 @@ export const REGION_MEMBER_KEYPOINTS: Record<
   arms: ['left_shoulder', 'right_shoulder', 'left_hand', 'right_hand'],
 };
 
+// 행동 지시 라벨 조립 (quick-260705-k8y) — belle: "절대각 숫자(158°)는 수강생이
+// 못 알아듣는다". 오버레이 문제 관절에 "왼쪽 무릎 23° 더 펴야" 형태(편차+방향)만
+// 표시. 순수 함수 — 입력은 backend signed delta 그대로 (UI 재계산 금지), 문구
+// 사전은 여기 한 곳에 격리 (후속 리서치로 문구만 교체 가능하게).
+//
+// 방향 의미 근거 (backend features.py _DIR_MORE_BENT/_EXTENDED + kismam
+// JOINT_DIRECTION_PAIRS 미러 — 관절 기하 사전이지 동작명 하드코딩 아님):
+//   signed delta = student − reference.
+//   delta < 0 = 기준보다 각이 작음(더 굽음/닫힘) → 펴야/벌려야
+//   delta > 0 = 기준보다 각이 큼(더 펴짐/열림)   → 굽혀야/모아야
+//   kismam 페어: elbow/knee=(extend,flex), hip=(open,close), shoulder=(raise,lower)
+export function composeActionLabelKo(
+  angleKey: string,
+  signedDeltaDeg: number,
+): string | null {
+  if (!Number.isFinite(signedDeltaDeg)) return null;
+  const n = Math.round(Math.abs(signedDeltaDeg));
+  // 라운딩 후 1° 미만 = 실질 편차 없음 → 라벨 생략 (마커만).
+  if (n < 1) return null;
+  const part = JOINT_LABEL_KO[angleKey];
+  if (!part) return null;
+  // delta === 0 인데 n >= 1 은 라운딩상 불가 — 방어적으로 delta <= 0 을 "굽음"
+  // 쪽으로 폴백 처리 (방향 미상 시 별도 composeDeviationOnlyLabelKo 사용).
+  const moreBent = signedDeltaDeg <= 0;
+  switch (angleKey) {
+    // 굽힘 관절 (팔꿈치 굽힘/무릎 굽힘) — 각 작음 = 더 굽음 → 펴야.
+    case 'left_elbow':
+    case 'right_elbow':
+    case 'left_knee':
+    case 'right_knee':
+      return moreBent ? `${part} ${n}° 더 펴야` : `${part} ${n}° 더 굽혀야`;
+    // 다리 벌림 (몸통-허벅지 개방각, ANGLE_MEANING_KO 정합) — 좌우 구분은 마커
+    // 위치가 전달하므로 부위어는 '다리' (belle 예시 "다리 더 올려야" 와 동의,
+    // 사전 단어 '벌림' 과 정합 우선).
+    case 'left_hip':
+    case 'right_hip':
+      return moreBent ? `다리 ${n}° 더 벌려야` : `다리 ${n}° 더 모아야`;
+    // 겨드랑이 벌림 (팔-몸통 사이 각) — 각 작음 = 팔이 몸에 붙음 → 벌려야.
+    case 'left_shoulder':
+    case 'right_shoulder':
+      return moreBent ? `팔 ${n}° 더 벌려야` : `팔 ${n}° 더 모아야`;
+    default:
+      return null;
+  }
+}
+
+// 방향 생략 폴백 (quick-260705-k8y) — faultJointDeficits 는 Gemini 시각 추정
+// 편차 "크기"만 있고 부호가 없다. 방향을 지어내지 않는다 (거짓 구체성 금지,
+// quick-260704-fwb) — 편차 크기만 정직하게 표기.
+export function composeDeviationOnlyLabelKo(
+  angleKey: string,
+  deviationDeg: number,
+): string | null {
+  if (!Number.isFinite(deviationDeg)) return null;
+  const n = Math.round(Math.abs(deviationDeg));
+  if (n < 1) return null;
+  const part = JOINT_LABEL_KO[angleKey];
+  if (!part) return null;
+  return `${part} 기준과 ${n}° 차이`;
+}
+
 // criterion id → 한국어 라벨 (contract.md §10.2 카탈로그 고정분).
 const CRITERION_LABEL_KO: Record<string, string> = {
   split_angle: '다리 스플릿 각도',

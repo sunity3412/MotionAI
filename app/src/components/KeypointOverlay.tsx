@@ -4,9 +4,11 @@
 //   - 8 body keypoint (좌우 어깨/엉덩이/무릎/손) + axisData polyline 렌더
 //   - player prop 전달 시 useEvent(player, 'timeUpdate') 로 frame index 자동 산출.
 //     player 미전달 시 props.frameIndex (default 0) 의 정적 렌더 (Wave 1 호환).
-//   - jointAngles prop 으로 current/target 받아 delta ≥ deltaThresholdDeg 강조 +
-//     floating angle label (highlighted joint 만, brand bg + WHITE bold, D-12-C3).
+//   - jointAngles prop 으로 current/target 받아 delta ≥ deltaThresholdDeg 강조.
 //     Phase 20 (UI A2): pill/글자 확대 + 흰 외곽선으로 가독성 개선.
+//     quick-260705-k8y: floating 라벨은 절대각 숫자 → actionLabels prop 의 행동
+//     지시 문구("왼쪽 무릎 23° 더 펴야")로 전면 대체. jointAngles 는 강조 산출
+//     전용으로 유지.
 //   - keypointReport 미가용 시 null return → caller 가 placeholder 표시 (D-12-U6)
 //
 // MVP 단순화 (R5 iter-2 정합): delta 강조 = 영상 전체 대표 편차. jointAngles =
@@ -83,7 +85,7 @@ export type KeypointOverlayProps = {
   jointAngles?: Record<string, { current: number | null; target: number | null }>;
   /** default 20 (IPSF 허용오차 정합, KEYPOINT_DELTA_HIGHLIGHT_DEG). */
   deltaThresholdDeg?: number;
-  /** Wave 2 floating label 표시, default true. */
+  /** 행동 지시 라벨 전체 on/off 게이트 (quick-260705-k8y 로 의미 갱신), default true. */
   showAngleLabels?: boolean;
   /**
    * Phase 20 (UI ②) — 비전 거부권 적용(실제 결함 존재)인데 임계(20°)를 넘는 관절이
@@ -108,6 +110,13 @@ export type KeypointOverlayProps = {
    */
   attentionKeypoints?: readonly KeypointName[];
   /**
+   * quick-260705-k8y — 문제 관절의 행동 지시 문구 (result.tsx 가 실측 데이터로
+   * 조립). 라벨은 highlighted(빨강)∪attention(주황) 관절 중 이 맵에 항목이 있는
+   * 것만 렌더 — 없으면 마커만 (안전 폴백, Mode3 데이터 부재 대응). 절대각 숫자
+   * 라벨은 본 prop 도입으로 전면 제거 (belle: "각도로는 무슨 말인지 못 알아듣는다").
+   */
+  actionLabels?: Partial<Record<KeypointName, string>>;
+  /**
    * quick-260702-t0v — 마커/라벨 크기 배율 (default 1 = 기존 렌더와 수치 동일).
    * viewBox "0 0 1 1" 정규화 구조라 모든 크기 상수(라벨 64×26, fontSize 14,
    * 원 반지름 10/14 등)가 렌더 크기에 비례 축소됨 → 세로 카드(높이 ~290pt)에선
@@ -119,6 +128,17 @@ export type KeypointOverlayProps = {
 
 type Point = { x: number; y: number };
 type KeypointPoint = Point & { confidence: number };
+
+// 라벨 pill 동적 폭 추정 (quick-260705-k8y) — RN SVG 는 텍스트 measure API 가
+// 없어 문자 폭 근사: 한글 14 / 그 외(숫자·°·공백) 8 + 좌우 패딩 16. fontSize 14
+// bold 기준 근사 — 다소 넉넉해도 pill 형태라 무해. 순수 함수.
+function labelTextWidth(text: string): number {
+  let w = 16;
+  for (const ch of text) {
+    w += /[가-힣]/.test(ch) ? 14 : 8;
+  }
+  return w;
+}
 
 // frame=0 (또는 prop frameIndex) 의 8 keypoint 좌표 + confidence reshape.
 // flat array 전체 reshape 회피 — 한 frame 만 slice (T × J × 2 → J point).
@@ -196,6 +216,7 @@ export function KeypointOverlay({
   forceHighlightWorstCount = 0,
   highlightKeypoints,
   attentionKeypoints,
+  actionLabels,
   sizeScale = 1,
 }: KeypointOverlayProps) {
   // Hooks 순서 안정성 — early return 전에 모든 hook 호출 (React rules of hooks).
@@ -446,28 +467,34 @@ export function KeypointOverlay({
           );
         })}
 
-        {/* Floating angle label (Wave 2 책임 — highlighted Set 비면 미렌더).
-            jointAngles 미공급 시 highlightedJoints 빈 Set → 노출 X.
+        {/* 행동 지시 라벨 (quick-260705-k8y — 절대각 숫자 라벨 전면 대체).
+            belle: "158° 절대각은 무슨 말인지 못 알아듣는다" → 문제 관절(빨강 확정
+            ∪ 주황 측정초과)에만 "왼쪽 무릎 23° 더 펴야" 형태 행동 문구. 문구는
+            caller(result.tsx)가 실측 주입 데이터로만 조립 — actionLabels 에 항목
+            없는 관절은 마커만 (안전 폴백, Mode3 데이터 부재 대응).
 
-            Phase 20 (UI A2) 가독성 개선 (belle: "붉은색이 뭐라고 써있는지 보이지도
-            않고"). 구 48×18 pill + WHITE 10pt 가 분주한 영상 위에서 판독 불가.
-            → 64×26 pill + 흰색 외곽선(테두리) + WHITE 14pt bold + 텍스트 자체에
-            얇은 흰 stroke 로 대비. brand pill + 흰 글씨 contract 유지(토큰만).
+            Phase 20 (UI A2) 가독 메커니즘 유지: pill + 흰 외곽선 + WHITE 14pt
+            bold + 얇은 흰 텍스트 stroke. 문구 길이가 가변이라 pill 폭은
+            labelTextWidth 로 동적 산출.
 
-            quick-260704-fz4 — attention(주황) 관절도 라벨 표시하되 pill 배경 =
-            advisoryOrange (2단 시각 언어 — 빨강 pill='확정 감점' 의미 보존). */}
+            quick-260704-fz4 — attention(주황) 관절 pill 배경 = advisoryOrange
+            (2단 시각 언어 — 빨강 pill='확정 감점' 의미 보존). */}
         {showAngleLabels &&
           [...highlightedJoints, ...attentionJoints].map((joint) => {
             const p = positions.get(joint);
-            const angleKey = JOINT_KEY_TO_ANGLE_KEY[joint];
-            const pair = angleKey ? jointAngles?.[angleKey] : undefined;
-            if (!p || !pair || pair.current == null) return null;
-            // 12-deferred §12-D — 저신뢰 keypoint 의 각도는 불신뢰 → label 숨김.
+            const text = actionLabels?.[joint];
+            if (!p || !text) return null;
+            // 12-deferred §12-D — 저신뢰 keypoint 의 측정은 불신뢰 → label 숨김.
             if (p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD) return null;
-            const labelW = (64 * S) / W;
+            const labelW = (labelTextWidth(text) * S) / W;
             const labelH = (26 * S) / H;
             // keypoint 우측 +14pt offset (강조 원이 커졌으므로 겹침 회피).
-            const lx = p.x + (14 * S) / W;
+            let lx = p.x + (14 * S) / W;
+            // 우측 overflow 클램프 — 긴 문구가 화면(viewBox 1×1) 밖으로 나가면
+            // keypoint 왼쪽에 배치 (줌 클리핑과 중첩되는 전체화면에서 특히 중요).
+            if (lx + labelW > 1) {
+              lx = p.x - (14 * S) / W - labelW;
+            }
             const ly = p.y - labelH / 2;
             return (
               <G key={`label-${joint}`}>
@@ -498,7 +525,7 @@ export function KeypointOverlay({
                   fontWeight="700"
                   textAnchor="middle"
                 >
-                  {`${Math.round(pair.current)}°`}
+                  {text}
                 </SvgText>
               </G>
             );

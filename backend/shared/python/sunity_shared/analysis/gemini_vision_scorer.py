@@ -72,7 +72,7 @@ log = logging.getLogger(__name__)
 # bump 해야 한다 — VisionVetoCache 키에 들어가 stale verdict 를 무효화한다.
 # bump 하지 않으면 옛 프롬프트/스키마로 산출된 verdict 가 새 프롬프트/스키마 결과로
 # 잘못 살아남는다(비결정론·오 verdict).
-PROMPT_VERSION = "v11.1"  # v11.1 (25-05): fault_category 고정 분류 rule 추가 — 각 enum 값 정의 1줄(스플릿 = 양다리 벌림/찢기 각도 부족, "벌림"/"스플릿"/"다리 사이 각도" 전부 이것). 어휘 드리프트 3연속(v9 body_part→v10.1 fault_state→v11 "벌림"+extension 오분류) 근본 fix — 라우팅은 키워드가 아닌 enum 을 1순위 소비. v11.0 (25-04 #3): (a) 측정 rubric — 각도 편차는 학생/기준 각도를 각각 명시 추정(student_angle_deg/reference_angle_deg + measurement_basis 서술), 편차는 코드가 산술 계산("편차 한 방 추정" 앵커링 편향 축소 — run3 kip-up 측정 20° vs production 30° 변동 근거). (b) 관찰-전량 differences[] 방출 강제 — primary_fault 서사에만 남긴 결함은 무효(상체 faultKey 미산출 잔존 fix), 단 "편차 없으면 항목 없음" 정타 방어 유지·강화(짚기-FP 0/5 게이트). generic 유지(동작명/기대답 0, D-06). v10.1 (25-02 review WR-05): 좌/우 기준 명시 — 수행자(학생) 본인 신체 기준, 불확실하면 좌/우 생략 허용. v10.0 (25-02): part_scope 구조화 강제. v9.0 (Phase 23-02): 원인 가설("~로 보임") 지시 추가
+PROMPT_VERSION = "v11.2"  # v11.2 (quick 260705-fmg): part_scope 배타 강제 — 2026-07-05 pod 진단(fresh upper_body scope 6회: 상체 방출 0, 하체 중복 방출 4, 빈 배열 2)에서 '집중' 참고 문구를 Gemini 가 무시하고 가장 눈에 띄는 결함(다리)만 반복 보고 → 부위-전용 판정으로 교체(타 부위 방출 금지) + 3-scope 하체 중복 방출의 support 자기부풀림(supportCount 3) 차단. v11.1 (25-05): fault_category 고정 분류 rule 추가 — 각 enum 값 정의 1줄(스플릿 = 양다리 벌림/찢기 각도 부족, "벌림"/"스플릿"/"다리 사이 각도" 전부 이것). 어휘 드리프트 3연속(v9 body_part→v10.1 fault_state→v11 "벌림"+extension 오분류) 근본 fix — 라우팅은 키워드가 아닌 enum 을 1순위 소비. v11.0 (25-04 #3): (a) 측정 rubric — 각도 편차는 학생/기준 각도를 각각 명시 추정(student_angle_deg/reference_angle_deg + measurement_basis 서술), 편차는 코드가 산술 계산("편차 한 방 추정" 앵커링 편향 축소 — run3 kip-up 측정 20° vs production 30° 변동 근거). (b) 관찰-전량 differences[] 방출 강제 — primary_fault 서사에만 남긴 결함은 무효(상체 faultKey 미산출 잔존 fix), 단 "편차 없으면 항목 없음" 정타 방어 유지·강화(짚기-FP 0/5 게이트). generic 유지(동작명/기대답 0, D-06). v10.1 (25-02 review WR-05): 좌/우 기준 명시 — 수행자(학생) 본인 신체 기준, 불확실하면 좌/우 생략 허용. v10.0 (25-02): part_scope 구조화 강제. v9.0 (Phase 23-02): 원인 가설("~로 보임") 지시 추가
 SCHEMA_VERSION = "v8.1"  # v8.1 (25-05): differences[] 에 fault_category 필수 — vision_veto.FAULT_CATEGORIES 고정 enum (split_angle/limb_extension/pole_gap/alignment/grip/other). 라우터(ipsf_criteria.criteria_for_fault)가 1순위 소비 — 자유-텍스트 키워드 파싱의 어휘 드리프트 봉인. v8.0 (25-04 #3(a)): differences[] 에 student_angle_deg/reference_angle_deg(명시 각도쌍 — 편차는 코드 산술) + measurement_basis(무엇을 어떻게 쟀는지 DESCRIPTIVE) 추가 (score-free, D-02/D-06). v7.0 (Phase 23-02): root_cause_hypothesis + source 추가
 # 집계 알고리즘 버전 marker (25-02 Task 1) — 튜닝 상수 아님. rich 캐시(store_rich)는
 # support-게이트 **통과 후** supported_differences 를 저장하므로, 프롬프트를 안 바꿔도
@@ -1661,10 +1661,19 @@ def _call_gemini_comparison(
         # 로도 상체(어깨) 관찰이 primary_fault 서사에만 남고 differences[] 미방출되던
         # 갭(run2/run3 kipup_upper). + (a) 측정 rubric(각도쌍) scope 호출에도 주입.
         # 정타 방어("편차 없으면 항목을 만들지 말 것")는 유지·강화(짚기-FP 0/5 게이트).
+        # v11.2 (quick 260705-fmg): '집중' 참고 문구 → 부위-전용 배타 판정 지시로 교체.
+        # 2026-07-05 pod 진단(fresh upper_body scope 6회)에서 상체 방출 0/하체 중복 방출
+        # 4/빈 배열 2 — 부드러운 '집중' 문구를 Gemini 가 무시하고 가장 눈에 띄는 결함
+        # (다리)만 반복 보고. 타 부위 방출 금지는 3-scope 가 같은 다리 결함을 중복 방출해
+        # supportCount 를 자기부풀림(3)하는 것도 함께 차단한다.
         prompt = (
-            f"{prompt}\n\n참고: 이번에는 특히 [{label}] 부위에 집중해 기준 영상과 "
-            "대조하세요. 이 부위에 속한 세부 부위를 하나씩 순서대로 점검하고, 관찰한 "
-            "각 편차는 **하나도 빠짐없이** 반드시 differences[] 배열의 개별 항목으로 "
+            f"{prompt}\n\n중요: 이번 호출은 [{label}] 부위 **전용** 판정입니다. "
+            f"differences[] 배열에는 [{label}] 에 속한 세부 부위 항목**만** 담으세요. "
+            "다른 부위는 별도 호출이 담당하므로 여기서는 방출 금지입니다 — 예를 들어 "
+            "이 부위가 상체라면 다리/스플릿 편차는 아무리 눈에 띄어도 이 호출에서는 "
+            f"무시하고 [{label}] 만 판정하세요. 라벨 괄호 안에 열거된 세부 부위를 "
+            "하나씩 순서대로 기준 영상과 대조 점검하고, 이 부위에서 관찰한 각 편차는 "
+            "**하나도 빠짐없이** 반드시 differences[] 배열의 개별 항목으로 "
             "구조화하세요 — primary_fault 서사에만 언급하고 differences 에서 누락하는 "
             "것은 금지이며, 그런 응답은 무효입니다. body_part 에는 좌/우를 명시하세요"
             "(예: '왼쪽 어깨'). 좌/우는 화면(카메라) 기준이 아니라 **수행자(학생) 본인 "

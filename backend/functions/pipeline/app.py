@@ -2639,9 +2639,13 @@ def _attach_fault_zoom_comparisons(
     # kismam delta. Gemini 추정이 veto 결함을 의미있게 반영(kismam 은 못 잡아 과소).
     gemini_deficits = vv.get("faultJointDeficits") or {}
     deficits = {**joint_deltas, **{k: float(v) for k, v in gemini_deficits.items()}}
-    # crop 프레임 = vision 측정 프레임 (quick-260702-sic). 캡션의 deficit 는
+    from sunity_shared.analysis import fault_zoom as _fz
+
+    # crop 프레임 = vision 측정 window (quick-260702-sic). 캡션의 deficit 는
     # windowMedianAngleDeltas 가 측정한 프레임 window 에서 왔으므로 crop 도 그
-    # window 의 각-측 median 프레임을 쓴다 (측정 모먼트 = 표시 모먼트).
+    # window 내 멤버 관절 평균 confidence 최대 프레임 (부재 시 median 폴백,
+    # quick-260705-ftn — 측정-표시 정합은 window 안에서 유지하면서 keypoint
+    # 붕괴 프레임 회피, user/ref 각각 독립 선택).
     # 인덱스 공간 = 9fps frames 배열과 동일 — angles 행 = 9fps 추출 프레임
     # (build_keypoint_report(pose_frames, fps=9.0) 동일 소스, _selected_frame_pair
     # 의 u_idx/r_idx 가 frames 인덱스로 window_median 에 그대로 전달됨,
@@ -2656,8 +2660,12 @@ def _attach_fault_zoom_comparisons(
         r_list = sfi.get("reference") or []
         if u_list and r_list:
             try:
-                user_frame_idx = int(sorted(u_list)[len(u_list) // 2])
-                ref_frame_idx = int(sorted(r_list)[len(r_list) // 2])
+                user_frame_idx = _fz.select_confident_frame(
+                    user_report, u_list, fault_joints
+                )
+                ref_frame_idx = _fz.select_confident_frame(
+                    ref_report, r_list, fault_joints
+                )
             except (TypeError, ValueError):
                 user_frame_idx = ref_frame_idx = None
     if not fault_joints:
@@ -2677,7 +2685,6 @@ def _attach_fault_zoom_comparisons(
     # 리스트 → 기존 산출과 동일 (하위호환). 채점/veto/게이트 무접촉 — 표시 전용
     # ([[window-median-silent-seed-fp-reverted]]).
     from sunity_shared.analysis import dimensions as _dims
-    from sunity_shared.analysis import fault_zoom as _fz
 
     kp_wm_deltas: dict[str, float] = {}
     for d in (vv.get("windowMedianAngleDeltas") or {}).get("deltas") or []:

@@ -159,6 +159,69 @@ def select_advisory_joints(
     return [kp for _mag, kp in scored[: max(0, int(max_items))]]
 
 
+def _to_rep_idx(
+    idx: int, frames_fps: float, rep_fps: float, rep_frames: int
+) -> int:
+    """9fps frames 인덱스 → keypointReport fps 인덱스 (B1 변환 공식 단일 출처).
+
+    build_fault_zoom_comparisons 와 select_confident_frame 이 같은 공식을
+    공유한다 — 중복 공식 금지 (quick-260705-ftn)."""
+    return max(0, min(
+        int(round(idx / max(1e-6, frames_fps) * rep_fps)),
+        max(0, rep_frames - 1),
+    ))
+
+
+def select_confident_frame(
+    report: dict,
+    candidates: list,
+    members: list[str] | tuple[str, ...],
+    frames_fps: float = 9.0,
+) -> int | None:
+    """window candidates 중 멤버 관절 평균 confidence 최대 프레임 선택 (순수).
+
+    window median 프레임이 keypoint 붕괴 구간이면 relaxed/full 강하로 카드가
+    망가짐 (2026-07-05 pod 재현: ref-kip-up frame 37 전 keypoint <0.5, 동일
+    영상 30/59/80 에선 legs 4점 valid) — 측정-표시 정합은 window 안에서
+    유지하면서 신뢰 프레임을 고른다. 표시 전용, 채점/veto/게이트 무접촉.
+
+    candidates = 9fps frames 인덱스 (sourceFrameIndices 의 user/reference 리스트).
+    빈 리스트/전원 비정수 → None (호출측 폴백 = override 없음). 전 candidate
+    전 멤버 conf None(legacy/confidence 부재 report) → sorted median 폴백
+    (기존 pipeline 동작 보존 — 하위호환 diff 0). 동점은 sorted 오름차순 첫
+    인덱스 (결정론 tie-break). 반환 = 9fps frames 인덱스.
+    """
+    rep = report or {}
+    ints: list[int] = []
+    for c in candidates or []:
+        try:
+            ints.append(int(c))
+        except (TypeError, ValueError):
+            continue
+    if not ints:
+        return None
+    ordered = sorted(ints)
+    rep_fps = float(rep.get("fps") or frames_fps)
+    rep_frames = int(rep.get("frames") or 0)
+    best_idx: int | None = None
+    best_score = -1.0
+    for idx in ordered:
+        rep_idx = _to_rep_idx(idx, frames_fps, rep_fps, rep_frames)
+        confs = [
+            c for m in members
+            if (c := _kp_conf(rep, rep_idx, m)) is not None
+        ]
+        if not confs:
+            continue
+        score = sum(confs) / len(confs)
+        if score > best_score:
+            best_score, best_idx = score, idx
+    if best_idx is None:
+        # legacy 폴백 — 기존 pipeline 의 sorted median 과 동일 산출.
+        return ordered[len(ordered) // 2]
+    return best_idx
+
+
 def _frame_index(seconds: float | None, fps: float, n_frames: int) -> int:
     """worst-pose 초 → 프레임 인덱스 (clamp). seconds None → 중앙 프레임."""
     if n_frames <= 0:
@@ -492,30 +555,24 @@ def build_fault_zoom_comparisons(
     u_rep_frames = int(user_report.get("frames") or 0)
     r_rep_frames = int(ref_report.get("frames") or 0)
 
-    def _to_rep_idx(idx: int, rep_fps: float, rep_frames: int) -> int:
-        # 9fps frames 인덱스 → keypointReport fps 인덱스 (기존 B1 변환 공식 재사용).
-        return max(0, min(
-            int(round(idx / max(1e-6, frames_fps) * rep_fps)),
-            max(0, rep_frames - 1),
-        ))
-
     # 프레임 배열 인덱스 (frames_fps 기준). override 는 worst_seconds/DTW 를 이긴다
-    # — vision 측정 프레임(sourceFrameIndices median)과 표시 프레임 일치.
+    # — vision 측정 window 내 표시 프레임과 일치. 변환 공식은 모듈 레벨
+    # _to_rep_idx (select_confident_frame 과 공유, quick-260705-ftn).
     if user_frame_idx is not None:
         u_idx = max(0, min(int(user_frame_idx), max(0, u_n - 1)))
-        u_kp_idx = _to_rep_idx(u_idx, u_rep_fps, u_rep_frames)
+        u_kp_idx = _to_rep_idx(u_idx, frames_fps, u_rep_fps, u_rep_frames)
     else:
         u_idx = _frame_index(worst_seconds, frames_fps, u_n)
         u_kp_idx = _frame_index(worst_seconds, u_rep_fps, u_rep_frames)
     if ref_frame_idx is not None:
         r_idx = max(0, min(int(ref_frame_idx), max(0, r_n - 1)))
-        r_kp_idx = _to_rep_idx(r_idx, r_rep_fps, r_rep_frames)
+        r_kp_idx = _to_rep_idx(r_idx, frames_fps, r_rep_fps, r_rep_frames)
     else:
         # B1: DTW match 로 같은-pose 기준 프레임. 불가 시 시간비례 근사 폴백.
         r_matched = _matched_ref_frame(dtw_match, u_idx, r_n)
         if r_matched is not None:
             r_idx = r_matched
-            r_kp_idx = _to_rep_idx(r_matched, r_rep_fps, r_rep_frames)
+            r_kp_idx = _to_rep_idx(r_matched, frames_fps, r_rep_fps, r_rep_frames)
         else:
             ratio = (u_idx / max(1, u_n - 1)) if u_n > 1 else 0.0
             r_idx = int(round(ratio * (r_n - 1))) if r_n > 1 else 0

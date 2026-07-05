@@ -1901,11 +1901,17 @@ def _collect_vision_fault_context(
             # hint 가 오히려 dynamic 결함(kip-up split)을 좁혀 놓친다. 실측 확정: pod 에서
             # at=None 6/6 moderate 검출 vs sweep at=worst_pose 1회 no_fault(그게 캐시 박힘).
             # 부수: at=None → 캐시 bucket='whole' → at-keyed poisoned 엔트리 우회.
+            #
+            # still_at_seconds=at (quick 260705-g1d 하이브리드): worst-pose hint 는 full-video
+            # 호출이 아니라 upper_body 정지프레임 **추출 시각**으로만 쓰인다 — 2026-06-22
+            # 스파이크([[spike-stillframe-recovers-upperbody]]: 전체영상=상체 0/정지프레임=팔
+            # 복구, 레버=granularity) 근거. None 이면 scorer 가 영상 중앙 프레임으로 폴백.
             rich = gemini_vision_scorer.assess_fault_context_video(
                 local_video_path,
                 reference_video_path,
                 at_seconds=None,
                 part_scopes=list(gemini_vision_scorer.VETO_PART_SCOPES),
+                still_at_seconds=at,
             )
         finally:
             # still 이미지(pair) unlink — vision 입력은 아니지만 quant/zoom 산출 후 outer 가

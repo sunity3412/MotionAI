@@ -229,6 +229,12 @@ export function VideoCompare({
   const { width: winW, height: winH } = useWindowDimensions();
   const fsShort = Math.min(winW, winH);
   const fsLong = Math.max(winW, winH);
+  // belle 실기기 2차 2026-07-05 — 퍼센트(height '100%')+aspectRatio 박스가 90°
+  // 회전 absolute 컨테이너 + flex 반쪽 슬롯 안에서 ~68% 축소 렌더 (실기기 확인).
+  // 퍼센트/aspectRatio 를 버리고 window 파생 숫자 치수로 전환 — 세로영상이 화면
+  // 짧은 변을 100% 채우는 9:16 박스. window 파생값이라 하드코딩 아님.
+  const fsBoxH = fsShort;
+  const fsBoxW = Math.round(fsShort * VIDEO_ASPECT);
   const openFullscreen = () => {
     fullscreenRef.current = true;
     setFullscreen(true);
@@ -582,45 +588,44 @@ export function VideoCompare({
   // 인스턴스에 두 번째 VideoView attach (expo-video 다중 VideoView 지원).
   // 오버레이는 sizeScale=FULLSCREEN_OVERLAY_SCALE 로 호출 (각도 라벨 확대).
   //
-  // follow-up (belle 실기기 1차 — 영상이 중앙에 작게 뜨는 버그 fix):
-  //   슬롯 = 회전 컨테이너를 좌우 반씩 꽉 채움 (fsVideoRow absoluteFill).
-  //   영상 박스 = 높이 100%(= window 짧은 변 전체) × 9:16 고정 비율 + 중앙 정렬
-  //   → 세로 영상이 화면 세로축을 끝까지 채워 세로 카드(~275pt) 대비 최대화.
-  //   9:16 박스가 곧 영상 표시 영역이라 오버레이 좌표 정합도 세로 카드와 동일.
+  // belle 실기기 2차 2026-07-05 — 슬롯 = 박스 자체 (fsSlot flex 반쪽 래퍼 폐기).
+  //   이전 퍼센트 기반(높이 100% + aspectRatio)이 실기기에서 ~68% 축소 + 박스
+  //   사이 ~200pt 간격 + 오버레이 유령 마커로 붕괴 → fsBoxW/fsBoxH 숫자 치수를
+  //   render 에서 인라인 주입. 박스 치수가 정확하면 overlayContainer(absoluteFill)
+  //   위 KeypointOverlay(viewBox 0 0 1 1) 정합이 자동 회복된다.
+  //   라벨은 박스 내부 상단 absolute — 각 영상 상단 중앙에 부착.
   const renderFullscreenSlot = (
     label: string,
     url: string | undefined,
     player: VideoPlayer | null,
     overlay?: OverlayRenderProp,
   ) => (
-    <View style={styles.fsSlot}>
-      <View style={styles.fsVideoBox}>
-        {url && player ? (
-          <>
-            <VideoView
-              player={player}
-              style={styles.video}
-              contentFit="contain"
-              nativeControls={false}
-              allowsFullscreen={false}
-              allowsPictureInPicture={false}
-            />
-            <View style={styles.overlayContainer} pointerEvents="none">
-              {overlay?.(player, { sizeScale: FULLSCREEN_OVERLAY_SCALE })}
-            </View>
-          </>
-        ) : (
-          <View style={styles.slotEmpty}>
-            <Ionicons
-              name="videocam-outline"
-              size={22}
-              color={colors.textDisabled}
-            />
-            <Text style={styles.slotEmptyText}>준비 중</Text>
+    <View style={[styles.fsVideoBox, { width: fsBoxW, height: fsBoxH }]}>
+      {url && player ? (
+        <>
+          <VideoView
+            player={player}
+            style={styles.video}
+            contentFit="contain"
+            nativeControls={false}
+            allowsFullscreen={false}
+            allowsPictureInPicture={false}
+          />
+          <View style={styles.overlayContainer} pointerEvents="none">
+            {overlay?.(player, { sizeScale: FULLSCREEN_OVERLAY_SCALE })}
           </View>
-        )}
-      </View>
-      {/* 라벨은 슬롯 상단 중앙 overlay (하단은 공유 컨트롤이 차지) */}
+        </>
+      ) : (
+        <View style={styles.slotEmpty}>
+          <Ionicons
+            name="videocam-outline"
+            size={22}
+            color={colors.textDisabled}
+          />
+          <Text style={styles.slotEmptyText}>준비 중</Text>
+        </View>
+      )}
+      {/* 라벨 = 박스 기준 absolute 상단 중앙 (하단은 공유 컨트롤이 차지) */}
       <Text style={styles.fsSlotLabel} pointerEvents="none">
         {label}
       </Text>
@@ -724,14 +729,19 @@ export function VideoCompare({
                 },
               ]}
             >
+              {/* belle 실기기 2차 2026-07-05 — url 있는 슬롯만 렌더. 단일 영상
+                  (hasLeft xor hasRight)이면 justifyContent center 가 1박스를
+                  자동 중앙 배치. 진입 버튼이 hasAny 가드라 0박스 케이스 없음. */}
               <View style={styles.fsVideoRow}>
-                {renderFullscreenSlot(leftLabel, leftUrl, leftPlayer, leftOverlay)}
-                {renderFullscreenSlot(
-                  rightLabel,
-                  rightUrl,
-                  rightPlayer,
-                  rightOverlay,
-                )}
+                {hasLeft &&
+                  renderFullscreenSlot(leftLabel, leftUrl, leftPlayer, leftOverlay)}
+                {hasRight &&
+                  renderFullscreenSlot(
+                    rightLabel,
+                    rightUrl,
+                    rightPlayer,
+                    rightOverlay,
+                  )}
               </View>
               <View style={styles.fsTopBar}>
                 {fullscreenHeaderExtra}
@@ -937,8 +947,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     transform: [{ rotate: '90deg' }],
   },
-  // 상단 bar overlay — 우측에 토글 + 닫기. 영상 위에 뜨지만 9:16 영상 박스는
-  // 각 반쪽 중앙 정렬이라 우측 끝과는 겹치지 않음.
+  // 상단 bar overlay — 우측에 토글 + 닫기. 두 9:16 박스가 중앙 인접 배치라
+  // (393 기기 기준 박스 우측 끝 x 는 약 639) 우측 끝 버튼 영역과 겹치지 않음.
   fsTopBar: {
     position: 'absolute',
     top: 0,
@@ -968,24 +978,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.cardPadding,
     paddingBottom: 10,
   },
-  // 영상 row = 회전 컨테이너 전체 (좌우 반씩).
+  // 영상 row = 회전 컨테이너 전체. belle 실기기 2차 2026-07-05 — flex 반쪽
+  // 슬롯(fsSlot) 폐기, 두 박스를 중앙 인접 배치 (gap 8 = 세로 카드 row 와 동일).
+  // 기하 (iPhone 393×852): 박스 221×393 두 개 + gap 8 = 450pt ≤ fsLong 852.
   fsVideoRow: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
-  },
-  fsSlot: {
-    flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  // 세로 영상 최대화 — width/height 는 render 에서 fsBoxW/fsBoxH 숫자 주입
+  // (belle 실기기 2차 2026-07-05 — 퍼센트+aspectRatio 가 회전 absolute 컨테이너
+  // 안에서 ~68% 축소 렌더). 오버레이 좌표 정합의 기준 박스.
+  fsVideoBox: {
     backgroundColor: colors.videoFullscreenBg,
   },
-  // 세로 영상 최대화 — 높이 100%(window 짧은 변) × 9:16. 오버레이 좌표 정합의
-  // 기준 박스 (세로 카드 slotFrame aspectRatio 와 동일 가정).
-  fsVideoBox: {
-    height: '100%',
-    maxWidth: '100%',
-    aspectRatio: VIDEO_ASPECT,
-  },
+  // belle 실기기 2차 2026-07-05 — 라벨을 박스 내부 absolute 로 이동 (박스 기준
+  // 상단 중앙). left/right 0 + textAlign center 로 박스 폭 전체에 중앙 정렬.
   fsSlotLabel: {
     ...typography.captionSmall,
     fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
@@ -993,7 +1003,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     position: 'absolute',
     top: 12,
-    alignSelf: 'center',
+    left: 0,
+    right: 0,
   },
   // 어두운 배경 위 컨트롤 색 분기 (dark variant) — 토큰만.
   stepBtnDark: {

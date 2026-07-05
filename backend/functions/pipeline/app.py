@@ -2545,6 +2545,7 @@ def _render_fault_zoom(
     advisory_joints: list[str] | None = None,
     advisory_deltas: dict[str, float] | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
+    split_angle_present: bool = False,
 ) -> dict:
     """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → result.
 
@@ -2557,8 +2558,10 @@ def _render_fault_zoom(
     보존 (Mode3 _attach_mode3_fault_zoom 은 default None 무접촉). 채점 무접촉 —
     카드 생성·방출만 ([[window-median-silent-seed-fp-reverted]]).
     split_angle_degs (quick-260705-r6x): legs(스플릿) 카드의 (학생 각도, 기준 각도)
-    수치 — confirmed/advisory 두 배치에 동일 전달(배치 간 시각 언어 분기 없음).
-    None=수치 생략(선+호만). Mode3 는 default None(스플릿 record 미방출, honest 생략).
+    수치 — 호 옆 표기용. None=수치 생략(선+호만). Mode3 는 default None.
+    split_angle_present (quick-260705-wbs): 게이트 A — split_angle criterion 이 실제
+    있는 confirmed 배치에만 True. advisory("측정 초과·확인 권장")는 확정 스플릿
+    결함이 아니므로 항상 False(사이각 미드로잉). Mode3 도 default False(honest 생략).
     """
     from sunity_shared.analysis import fault_zoom
     from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
@@ -2582,6 +2585,7 @@ def _render_fault_zoom(
         user_frame_idx=user_frame_idx,
         ref_frame_idx=ref_frame_idx,
         split_angle_degs=split_angle_degs,
+        split_angle_present=split_angle_present,
     )
     # advisory 배치 (quick-260704-fz4) — 프레임 추출은 위 1회 재사용. joint_kinds
     # 'deficit' 은 좌+우 grouping(arms 1장) 활성용 내부 전달일 뿐, 방출 item 에는
@@ -2603,6 +2607,9 @@ def _render_fault_zoom(
             user_frame_idx=user_frame_idx,
             ref_frame_idx=ref_frame_idx,
             split_angle_degs=split_angle_degs,
+            # advisory("측정 초과·확인 권장")는 확정 스플릿 결함이 아니므로 사이각을
+            # 그리지 않는다(게이트 A) — 확정 어조 오인 방지. tier 가 캡션 소유.
+            split_angle_present=False,
         )
     out: list[dict] = []
     for tier, batch, key_prefix in (
@@ -2733,9 +2740,13 @@ def _attach_fault_zoom_comparisons(
     # split_vs_reference(reference_relative, vision-주입 kip-up 포함)는 measured
     # 가 편차라 표기하면 오독 → 수치 생략, 선+호만 (belle pod PNG 검증 2026-07-05
     # fix: 학생 라벨=deficit 50°/기준 라벨=0° 오표기). 채점 무접촉 — display 전용.
-    split_degs = _fz.split_angle_degs_from_records(
-        (result.get("deductionBreakdown") or {}).get("records")
-    )
+    _records = (result.get("deductionBreakdown") or {}).get("records")
+    split_degs = _fz.split_angle_degs_from_records(_records)
+    # 게이트 A(quick-260705-wbs): split_angle criterion 이 records 에 있을 때만 legs
+    # 사이각을 그린다. 존재 판정(split_present)과 수치(split_degs)를 분리 — kip-up
+    # reference_relative 는 measuredValue 가 편차라 수치는 None 이지만 사이각 자체는
+    # 의미 있어 선+호를 그려야 하므로 has_split_angle_record 로 게이트만 연다.
+    split_present = _fz.has_split_angle_record(_records)
     return _render_fault_zoom(
         result, user_video_path, ref_video_path, user_report, ref_report,
         fault_joints, deficits, kinds,
@@ -2747,6 +2758,7 @@ def _attach_fault_zoom_comparisons(
         advisory_joints=advisory,
         advisory_deltas=advisory_deltas,
         split_angle_degs=split_degs,
+        split_angle_present=split_present,
     )
 
 
@@ -2814,6 +2826,8 @@ def _attach_mode3_fault_zoom(
         tmp.close()
         _s3.download_file(bucket, prev_video_key, tmp.name)
         prev_video_path = tmp.name
+        # Mode3 는 split_angle_present 기본 False(게이트 A) — 기준이 사용자 지난
+        # 영상이라 도립 pose 대칭 문제로 사이각을 안전 생략(quick-260705-wbs).
         return _render_fault_zoom(
             result, user_video_path, prev_video_path, user_report, prev_report,
             change_joints, {}, kinds,  # mode3 = 숫자 없음(방향만)

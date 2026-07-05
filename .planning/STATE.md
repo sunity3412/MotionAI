@@ -66,7 +66,7 @@ Status: Phase 10 complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-05 새벽 -- 실기기 라운드 2 완결: 감점 상한 −20(k8h, run7 sweep 검증: kip-up 47/power-spin 57/나머지 불변/success 100, baseline 승격 f6536ea) + 행동지시 라벨·전체화면 줌 1.35(k8y, OTA 발행). belle 여정 시나리오 v1.0 검증·박제(.planning/SCENARIO.md — 리서치+gap감사+실측 교정: 실패 56%=카톡 압축, 온보딩=Figma 튜토리얼 사용). 다음=SCENARIO 파일럿 gap 순서(부상 대응법 노출→온보딩/프라이버시→카톡 감지→Mode3 내역/줌) + UI 순서 재배치 제안 포함. 강사 큐잉 리서치 완료(라벨 문구 v2 후보)
+Last activity: 2026-07-05 -- 실기기 라운드 3 완결(결과화면·오버레이·사이각): 결과 재배치+번호 오버레이+감점0 게이트(o0s) / 뷰어 v3 번호점+드릴다운+진단문장(r6v, OTA) / 스플릿 사이각(r6x→wbs). **전 6동작 재검증(genpod3, vision 정상)이 belle "kip-up 편중" 원칙 덕에 사이각 오적용 버그 발견**: 사이각이 스플릿 아닌 다리결함(power-spin 무릎/elbow 골반)에도 그려지던 것 → wbs 게이트(split_angle 있을 때만 + 학생측만, 정은지측 도립 pose 폭주는 Phase 22 대기). PNG 실측 확인 완료. power-spin 0점=Gemini 20GB 초과(오늘 과다검증)→로컬 365파일 정리→62 정상화. 다음=내일 Fable 부활 후 시나리오 정식 플랜 + Phase 21→22(자체 pose 파인튜닝, 후보=RTMW fine-tune/ViTPose++·VLM=Qwen2.5-VL-7B). 개발=opus/플랜=fable
 
 ### Quick Tasks Completed
 

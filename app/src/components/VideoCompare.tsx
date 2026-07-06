@@ -552,7 +552,7 @@ export function VideoCompare({
         <Ionicons
           name="play-back"
           size={16}
-          color={dark ? colors.textWhite : colors.textSecondary}
+          color={dark ? colors.textWhite : colors.brand}
         />
       </Pressable>
       <Pressable
@@ -565,7 +565,7 @@ export function VideoCompare({
         <Ionicons
           name="play-forward"
           size={16}
-          color={dark ? colors.textWhite : colors.textSecondary}
+          color={dark ? colors.textWhite : colors.brand}
         />
       </Pressable>
       <View style={styles.timeline}>
@@ -947,11 +947,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   // Phase 12 후속 B — 0.1s 앞/뒤 step 버튼.
+  // quick-260706-sis (D3): divider(회색) 배경 + textSecondary 아이콘이라 비활성
+  // 처럼 보여 "누를 수 있는지 모르겠다"는 실증 피드백. 연한 브랜드 틴트 배경 +
+  // 브랜드 아이콘으로 '탭 가능' 신호. 꽉 찬 브랜드 원인 playBtn 과는 톤 차등(보조).
   stepBtn: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.divider,
+    backgroundColor: colors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },

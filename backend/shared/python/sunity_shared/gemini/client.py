@@ -218,14 +218,28 @@ class GeminiVisionCall(Generic[T]):
         except genai_errors.APIError as exc:
             return self._handle_api_error_first(exc, label="files.upload")
 
-        # ── Step 3: ACTIVE 폴링 (PROCESSING → ACTIVE / FAILED / timeout).
-        active_file = self._wait_for_active(client, uploaded)
-        if active_file is None:
-            return None
+        # ── Step 3~4: ACTIVE 폴링 → generate_content. 완료(성공/실패/예외) 후
+        #    Gemini File API 업로드본을 반드시 삭제한다 — 안 지우면 프로젝트 저장소
+        #    (file_storage_bytes ~20GB)에 분석 영상이 쌓여, 한도 초과 시 이후
+        #    files.upload 가 RESOURCE_EXHAUSTED 로 실패한다(실증 2026-07-06 20GB 적체
+        #    → 분석 간헐 실패). 파일은 48h TTL 이지만 실증 부하는 그 전에 한도를 채운다.
+        #    gemini_vision_scorer 의 finally DELETE 규율과 동일. 삭제 실패는 best-effort.
+        try:
+            # ── Step 3: ACTIVE 폴링 (PROCESSING → ACTIVE / FAILED / timeout).
+            active_file = self._wait_for_active(client, uploaded)
+            if active_file is None:
+                return None
 
-        # ── Step 4: generate_content + retry.
-        config = self._build_config()
-        return self._generate_with_retry(client, active_file, config)
+            # ── Step 4: generate_content + retry.
+            config = self._build_config()
+            return self._generate_with_retry(client, active_file, config)
+        finally:
+            _name = getattr(uploaded, "name", None)
+            if _name:
+                try:
+                    client.files.delete(name=_name)
+                except Exception:  # noqa: BLE001 - 정리 실패는 분석을 막지 않는다
+                    log.warning("Gemini 업로드 파일 삭제 실패 (graceful): %s", _name)
 
     # ─────────────────── 내부 helpers ───────────────────
 

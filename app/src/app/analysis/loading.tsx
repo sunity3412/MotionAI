@@ -409,7 +409,15 @@ export default function AnalysisLoading() {
       <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
         <StatusBar style="light" />
         <WaveBackground tint="#E8657F" />
-        <Pressable style={styles.inquiry} accessibilityRole="link" hitSlop={8}>
+        <Pressable
+          style={styles.inquiry}
+          accessibilityRole="button"
+          accessibilityLabel="문의하기"
+          hitSlop={8}
+          onPress={() =>
+            router.push({ pathname: '/inquiry', params: { category: 'error' } })
+          }
+        >
           <Text style={styles.inquiryText}>문의하기</Text>
         </Pressable>
         <View style={styles.center}>

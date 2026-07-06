@@ -54,7 +54,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 18: Expert deliberate-fault reference eval set** - 정은지 '일부러-실수' reference 영상을 영구 regression/eval 세트로. **(completed 2026-06-20, verdict-level closed)** **2026-06-19 baseline 박제 완료(pod-free)**: `backend/evals/phase18/`(pairs.yaml 6 페어 + 비전-파생 fault 라벨 D-05 + 확정 serial baseline 스냅샷 + assert_baseline.py self-check PASS) + `.planning/phases/18-.../18-EVAL-SET.md`. EVAL baseline = power-spin 72/100·peter-pan 79/100·elbow-twist 59/100·pdshape 58/100 변별 4/4, kip-up 100/100 위양성(known)·climb not_pole(known). **2026-06-20 live sweep ↔ baseline 대조 완료(Pod 2yz9zre7b4d2sp/5d67d94)**: Mode1 verdict 6/6 baseline 일치(변별 4 + kip-up 위양성 + climb 게이트), fault 점수 +0~2 drift(Gemini 비결정성=Phase 20 동기, 회귀 아님). evidence=`.planning/phases/18-.../18-LIVE-DRIFT-EVIDENCE.md`. verdict-level closed. **잔여 2건 → Phase 20 으로 이관(없어진 게 아님)**: (1) sensitivity 셋(미보유+above-cutoff) = Phase 20 20-04 SEVERITY_CAP 도출 입력(필수 선행), (2) exact-score drift 0 = Phase 20 결정성(temp 0 + 캐싱) 작업 후 재평가. (Phase 15 의존)
 - [x] **Phase 19: 분석 점수 신뢰도 재설계 (vision-hybrid 채점)** - 실증에서 드러난 점수 위양성(정은지 실패영상 Mode1 94점/89%) 근본 수정 — 이중 단순평균 집계 → 감점식 IPSF 정합 + 비전-추론 하이브리드(영상+RTMW 수치 → 품질/결함 판단)를 채점 루프에 투입 + 표시값 정합·라벨·골격 좌표 버그 + Mode3 미보유동작 게이트. 절대원칙: 일반화(어떤 영상이든 정확), 보유셋 overfit 금지. (Phase 15 실증 발견 + Phase 18 eval = 검증 일부) (completed 2026-06-18)
 - [x] **Phase 20: v2 비전 점수 (Gemini 시각 거부권)** — **CLOSED 2026-06-29 (대상 3 충족)**: (1) kip-up 위양성 = Phase 24-A 에서 해결(99→88, vision-측정 split 감점). (2) 상단 변별/결정성 = 캐시키 충돌 결정성 버그 fix(90d038f); Gemini 비결정 잔존은 [[phase18-live-drift-verdict-stable]] 수용범위. (3) Mode3 미보유 게이트+점수근거 = [[p2-mode3-disclosure-already-done]](Phase19/20-03). 잔여 minor=Phase 24 와 공유(calibration). 원본 scope ▸ Phase 19 v1(감점식)이 남긴 점수 위양성을 Gemini 시각 점수로 해소. belle 스펙 게이트 = 같은 정은지 95~100 / 잘못된 동작 ≤50 / Gemini 시각 점수. Phase 18 EVAL baseline = known-answer gate. 대상 3: (1) kip-up 위양성 100/100 — 비-각도형 실패를 DTW가 흡수하는 angle 맹점에 Gemini 시각 거부권, (2) 상단 변별(within-20°=일률 100) + Gemini 인식기 결정성(temp 0 + reference profile 캐싱), (3) Mode3 미보유동작 유효성 게이트(reference-free라 not_pole 미적용) + 점수근거 화면 표시. climb not_pole = 별도 ref-quality 트랙(코드 아님). 구현/eval은 Pod 필요. (Phase 18·19 의존)
-- [ ] **Phase 22: 자체 비전 모델 파인튜닝 (오픈 모델 전환)** - Gemini(닫힌 API라 가중치 파인튜닝 불가) 대신 오픈 비전 모델로 전환해 공개 폴 영상 라벨 데이터로 **실제 가중치 학습**. Phase 20/#4(b)(c)(d)에서 꾸준히 모은 라벨 데이터(정타/fault 버킷 · 미보유 동작 · reference 확장)가 학습셋이 됨. 모델 추상화(PoseEngine/recognizer 인터페이스, [[rtmw-free-stack-pivot]]) 위에서 "꾸준히 쌓다가 됐다 싶을 때 갈아끼기". (Phase 21 이후, belle 2026-06-20 결정)
+- [ ] **Phase 22: 자체 비전 모델 파인튜닝 (오픈 모델 전환)** - Gemini(닫힌 API라 가중치 파인튜닝 불가) 대신 오픈 비전 모델로 전환해 공개 폴 영상 라벨 데이터로 **실제 가중치 학습**. Phase 20/#4(b)(c)(d)에서 꾸준히 모은 라벨 데이터(정타/fault 버킷 · 미보유 동작 · reference 확장)가 학습셋이 됨. 모델 추상화(PoseEngine/recognizer 인터페이스, [[rtmw-free-stack-pivot]]) 위에서 "꾸준히 쌓다가 됐다 싶을 때 갈아끼기". (~~Phase 21 이후~~ → 2026-07-06 belle 디커플: 22 먼저. discuss 완료 — 스코프 확정본 = 22-CONTEXT.md, 근거 = belle NotebookLM 노트북)
 - [x] **Phase 24: 투명 감점-합산 채점 엔진 (severity 밴드 → 측정편차×명시규칙 감점)** — **CLOSED 2026-06-29 (close-out A)**: 감점 엔진 production 첫 검증(각도형 4페어 robust 변별) + **kip-up 위양성 해결**(99→88, split_angle −12 source=vision, 5/5 페어 변별) + 캐시키 충돌(결정성) 버그 fix. 3-단 체인: full-video vision 전환(044ee5e)+at_seconds=None(eb7d4ad)+캐시키 분리(90d038f)+vision-측정 split 편차 주입(f74011f, belle 결정 A). 잔여 minor(후속, pod 필요): power-spin success=91 fallback calibration(95~100 스펙) / kip-up 마진(88, 단일 criterion) 도메인 검토. 박제: memory `kipup-fp-RESOLVED-phase24A`. ▸ 원본 scope: Phase 20 의 `vision_veto.SEVERITY_CAP`+`apply_downward_cap`(severity→고정천장 밴드) 를 **점수 = baseline(100) − Σ(criterion별 측정편차×명시규칙 감점) 엔진**으로 교체. belle 2026-06-24 채점 철학 결정타([[scoring-must-be-transparent-deduction-tally]]): 영상마다 자의적 밴드(major=50)=사람 판단 주입=AI 존재이유 무효 → 동일 규칙 + 실측 편차 + 보고서가 "−X −Y −Z = 점수" 내역 노출. Gemini 강등 = 점수 X, 측정대상/결함 종류만 짚기. 감점 규칙 = `dimensions.py` 기하 tolerance 확장(전 영상 동일 slope), 구조 = criterion 묶음(상관 관절 1회) + criterion별 IPSF severity 상한(최종점수 밴드 아님)·합산. baseline = 사용자 선택 코치=100 / IPSF 공식동작이면 IPSF 기준(D-07 3분기 일반화). 토대 = Phase 23 정량화(각도편차·몸-상대 칸/층) + dimensions.py IPSF. 케이스별 기대점수 manifest(moderate≤75·major=50, 23-03 흡수분 포함) curve-fit 제거. Phase 20 working parts(`gemini_vision_scorer` 결함 짚기·Mode3 게이트·recall)는 보존·재사용. 신규 eval 게이트 = 추적성 + 단조성 + 결정성 + 일반화(미보유+above-cutoff). (Phase 19·20·23 의존, Pod 필요. Phase 22 파인튜닝보다 먼저. belle 2026-06-24 결정.)
 
 ## Phase Details
@@ -717,6 +717,8 @@ Plans:
 ### Phase 22: 자체 비전 모델 파인튜닝 (오픈 모델 전환)
 
 > **신규 (belle 2026-06-20).** Phase 20 에서 드러난 한계 = Gemini 는 닫힌 API라 **가중치 파인튜닝 불가** — 프롬프트/few-shot/캐싱까지만 가능. belle 결정: Phase 21 까지 끝낸 뒤, 꾸준히 모아온 공개 폴 영상 라벨 데이터로 **오픈 비전 모델을 실제 fine-tune** 해서 Gemini 의존 영역(시각 결함 판정/인식기)을 갈아끼운다. "어차피 해야 할 일 — 모델을 함께 쓰든, 됐다 싶을 때 교체."
+>
+> **스코프 확정 (belle 2026-07-06, discuss 완료 — `.planning/phases/22-custom-vlm-finetune/22-CONTEXT.md` D-01~16이 결정본).** Phase 21 디커플 — **22 먼저 진행**. v1 태스크 = 영상+RTMW 좌표 JSON → **통합 구조화 리포트**(CoT 보정 좌표 + 결함 짚기[전 동작 균등] + 시간 앵커/구간 분할 + SVG 시각 스펙 + 코칭[shadow→swap]). 점수는 Phase 24 감점 엔진 불변. 백본 = Qwen 3.6 vs InternVL 3.5 8B급 bake-off(둘 다 상용 라이선스 클린 확정). ms-swift QLoRA, SFT 먼저 → Cascade RL(MPO→GSPO) 후속. Wave 0 데이터 엔진(유튜브 수집 + 합성 교란 자가라벨 + Gemini shadow 로깅) → 1 bake-off → 2 SFT+게이트 → 3 shadow 배포·순차 swap(veto→recognizer→coach) → 4 RL. 고객 데이터 플라이휠 = 가명처리(얼굴 블러) 구조, 옵트인 강제 없음. **근거 자료 = belle NotebookLM "LLM, Finetunig Guide"(2026 최신, belle 노트 25개 = 실질 설계서) — 24년 자료 사용 금지.** 2026-07-06 실증 케이스(A2 피터팬 위양성·A3 power-spin) = 학습/검증 케이스. 사업 프레임 = "스포츠 모션 분석의 힉스필드"(교정 시각물 외부 API는 Phase 31로 분기, 그 산출물이 v2 생성 헤드 학습 페어).
 
 **Goal:** Gemini 시각 판정(결함 severity / 동작 인식)을 도메인-특화 오픈 비전 모델로 대체/병행한다. 폴스포츠 공개 영상(대회=정타, 튜토리얼 "흔한 실수"=fault) + 정은지 gold 셋으로 라벨 학습셋을 구성해, 정타를 결함으로 스탬프하지 않고(위양성) 실제 결함을 적정 severity 로 잡는(일반화) 판정기를 확보한다.
 
@@ -732,13 +734,13 @@ Plans:
 **setup/prep belle 알림 대상 (진행하며 그때그때):** 학습 GPU(RunPod 등) / 오픈 모델 선택 / 라벨링 도구 / 데이터 저장. 본격 착수는 Phase 21 완료 후.
 
 **Requirements**: plan 에서 신설 (FT-xx — 모델선정 / 학습셋 / 라벨링 / 학습·평가 / swap 게이트 / 라이선스)
-**Depends on:** Phase 20 (Gemini 판정 한계 + few-shot 데이터), Phase 21, 누적 라벨 데이터. 학습/평가 = GPU 필요.
+**Depends on:** Phase 20 (Gemini 판정 한계 + few-shot 데이터), 누적 라벨 데이터. 학습/평가 = GPU 필요. ~~Phase 21~~ (2026-07-06 belle 디커플 — 22 먼저, 21은 후행)
 
 **Plans:** 0 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 22 to break down — Phase 21 완료 후)
+- [ ] TBD (run /gsd-plan-phase 22 to break down — discuss 완료 2026-07-06, 22-CONTEXT.md 확정. Wave 0 데이터 엔진부터)
 
 ---
 
@@ -860,6 +862,66 @@ Plans:
 - [ ] 25-02-PLAN.md — 짚기 커버리지: support 집계 fragment fold + upper_body 프롬프트 구조화 강제 + AGGREGATION_VERSION/PROMPT_VERSION 캐시 bump (Wave 1, pod-free)
 - [ ] 25-03-PLAN.md — 확대 카드 정밀도: reference 저신뢰 완화(relaxed) crop + 카드별 차별화 + 앵커 관절-좌표 고정 (Wave 1, pod-free)
 - [ ] 25-04-PLAN.md — [POD] phase25 eval harness(짚기-FP 최초 관측 포함) + 6페어 serial sweep 게이트(success 6/6==100 + kip-up 구조 assert + 결정론) + belle 크레딧 checkpoint (Wave 2)
+
+### Phase 26: 온보딩·기대설정 + 원본 업로드 가이드 (onboarding-upload-guide)
+
+**Goal:** 분석 이전 구간(시나리오 0/0.5/1/1.5)의 파일럿 gap 해소 — (a) 기대설정 온보딩: Figma 튜토리얼 디자인(belle 승인, fileKey jrdI7kp245HkPfLB0nclsz) + `analysis/samples.tsx` 여정 편입 + 샘플→이용방법/FAQ 교체(F2), (b) 프라이버시 1줄(업로드 직전) + 학습 활용 고지(Phase 22 D-12 플라이휠 연동), (c) 원본 업로드 가이드: 카톡 압축본(`_talkv_`) 파일명 감지·경고(실측 실패의 56%) + 촬영 거리 안내로 not_pole 오반려(A1) 예방 — 게이트 임계 완화 병행 여부는 discuss에서 결정, (d) 잡 UI: F3 기타 자유입력·F4 공지 간격. UI 화면 순서 재배치 제안 포함(belle 요청). 앱만, 낮음.
+**Requirements**: TBD
+**Depends on:** 없음 (여정 트랙 — 채점 트랙과 병렬)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 26 to break down)
+
+### Phase 27: 분석 속도 1분 — Gemini 라운드트립·후처리 축소 (analysis-speed-1min)
+
+**Goal:** mode1 분석 시간을 belle 기준선 1분 내로 (시나리오 2 — 대기 경험). 실측 분해(power-spin 3분17초, 2026-07-06): 포즈 ~51s + Gemini 비전 2단 ~52s(File API 업로드+폴링 15~20s×2회+) + 후처리 ~49s(fault_zoom 렌더+Firestore) — 단일 300초 범인 없음. 레버: (a) 최대 = Gemini File API 라운드트립 축소(inline 전송/핸들 재사용/병렬화), (b) veto 결과-후 비동기 분리 검토, (c) 후처리 병렬화/축소. 게이트: 실측 1분 내 + 점수·verdict 무회귀(EVAL18 serial 대조). Phase 22 shadow 전환 시 Gemini 라운드트립 자체가 소멸하므로 22와 중복 투자 금지 — 저비용 레버 우선.
+**Requirements**: TBD
+**Depends on:** 없음 (백엔드 — 병렬 가능)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 27 to break down)
+
+### Phase 28: 동작 기반 비교 정렬 — DTW 워핑으로 크롭·싱크 해결 (motion-based-alignment)
+
+**Goal:** 두 영상(학생 vs 정은지)의 동작 기반 시간정렬 부재를 한 기능으로 해소 (시나리오 2+6). 2026-07-06 Pod 실측으로 D2(정은지 fault_zoom 크롭이 비교부위 아닌 곳 확대 — `_matched_ref_frame` 실패 시 시간비례 근사 fallback)와 power-spin "자동구간맞춤 싱크 안 맞음"(VideoCompare가 절대 시계로만 동기화, drift 보정 라인 283–322)이 **같은 뿌리**임을 규명. 해법 = 백엔드에 이미 있는 dtw_match로 정은지 재생을 학생 타임라인에 워핑/트리밍 — 재생 싱크 + fault_zoom 프레임 정합 동시 해결. 백엔드(정렬 데이터 방출) + 앱(VideoCompare 소비). 메모리 [[d2-crop-and-sync-one-root-motion-alignment]]. Phase 22 v1의 시간 앵커 출력이 상위 호환이므로 계약 필드를 공유하도록 설계.
+**Requirements**: TBD
+**Depends on:** 없음 (기존 DTW 재사용 — 병렬 가능)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 28 to break down)
+
+### Phase 29: 결과·비교 화면 완성 — Mode3 내역·줌, 비교영상, 가로 방향, 부상 대응법 (result-screen-completion)
+
+**Goal:** 결과 화면의 남은 파일럿 gap 일괄 해소 (시나리오 3/6/9). (a) ⑨ 부상 대응법 노출: `SafetyFlag.recommendation` 데이터가 있는데 `InjuryRiskSection`이 안 그리던 것 — 즉시 가능, 첫 plan. (b) ③ Mode3 점수 내역: 백엔드 Mode3 deductionBreakdown 방출 + 앱 게이트 확장 (gap #4). (c) ⑥ Mode3 확대비교 배선(`_attach_fault_zoom_comparisons` Mode3 확장, 타입 준비됨) + D1 비교영상(Mode1 회귀 확인 + Mode3에도 비교영상). (d) D4 진짜 가로 방향: expo-screen-orientation 전환(90도 회전 핵 폐기) — **새 EAS 빌드 필요, F1 expo-mail-composer와 같은 빌드에 동승**.
+**Requirements**: TBD
+**Depends on:** Phase 28 (비교영상·줌이 동작 정렬 결과물 소비)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 29 to break down)
+
+### Phase 30: 성장 추적 개선 — 평균 기반·동작별 막대 (growth-tracking)
+
+**Goal:** 성장 그래프를 실증 피드백대로 재설계 (시나리오 5). E1: raw 점수 나열 → 평균값 기반. E2: 동작별 상승/하락률 막대(주식창식) 형태 검토 — `mode3-progress-not-similarity`(발전≠일치, %일치 헤드라인 금지) 원칙 정합 확인 필수. 지적 단위 세션간 개선 추적(fault_category 매칭+신뢰구간)은 이후 단계로 유지.
+**Requirements**: TBD
+**Depends on:** 없음 (앱 — 병렬 가능)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 30 to break down)
+
+### Phase 31: 교정 시각물 — 기하 오버레이 + 외부 생성 API 실루엣 (visual-correction)
+
+**Goal:** "교정된 모습을 보여주는" 시각 출력을 지금 MVP(Gemini 트랙)에 추가 — 힉스필드 방식(외부 API 먼저, 자체화는 데이터 쌓인 뒤). (1단) 기하 오버레이 렌더: 이상 궤적 선·목표 각도 화살표·힘 방향 벡터를 원본 영상 위에 — 이미 가진 데이터(reference 각도, windowMedian 편차, DTW 매칭)와 KeypointOverlay 렌더 체계로 즉시 가능. (2단) 외부 이미지 생성/편집 API로 교정 실루엣 프리미엄 프로토타입 — 품질 게이트(얼굴/배경 왜곡) + **통과 품질분을 `[틀린 폼→고쳐진 폼]` 페어로 적재 = Phase 22 v2 자체 생성 헤드의 학습 데이터 제조**. Phase 22 discuss(22-CONTEXT.md D-03)에서 분기된 phase. 오버레이 원칙([[ux-propose-user-centric-screens-first]]) 준수 — 최악 케이스 목업 선제시.
+**Requirements**: TBD
+**Depends on:** 없음 (Phase 22와 병렬, 앱+외부 API 트랙)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 31 to break down)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

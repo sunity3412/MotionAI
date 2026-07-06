@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: completed
 stopped_at: Phase 22 context gathered
-last_updated: "2026-07-06T14:03:06.863Z"
+last_updated: "2026-07-06T14:09:29.749Z"
 last_activity: "2026-07-05 -- 실기기 라운드 3 완결(결과화면·오버레이·사이각): 결과 재배치+번호 오버레이+감점0 게이트(o0s) / 뷰어 v3 번호점+드릴다운+진단문장(r6v, OTA) / 스플릿 사이각(r6x→wbs). **전 6동작 재검증(genpod3, vision 정상)이 belle "kip-up 편중" 원칙 덕에 사이각 오적용 버그 발견**: 사이각이 스플릿 아닌 다리결함(power-spin 무릎/elbow 골반)에도 그려지던 것 → wbs 게이트(split_angle 있을 때만 + 학생측만, 정은지측 도립 pose 폭주는 Phase 22 대기). PNG 실측 확인 완료. power-spin 0점=Gemini 20GB 초과(오늘 과다검증)→로컬 365파일 정리→62 정상화. 다음=내일 Fable 부활 후 시나리오 정식 플랜 + Phase 21→22(자체 pose 파인튜닝, 후보=RTMW fine-tune/ViTPose++·VLM=Qwen2.5-VL-7B). 개발=opus/플랜=fable"
 progress:
-  total_phases: 8
+  total_phases: 14
   completed_phases: 2
   total_plans: 19
   completed_plans: 17
-  percent: 25
+  percent: 14
 ---
 
 # Project State
@@ -573,6 +573,13 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 - Phase 18 added: 전문가 일부러-실수 reference eval 세트 (가칭, Phase 15 이후, belle 2026-06-16)
 - Phase 20 added: v2 비전 점수 (Gemini 시각 거부권) — kip-up 위양성 + 상단변별 + Mode3 미보유게이트. roadmap+CONTEXT pod-free, 구현 Pod 의존
 - Phase 21 added: 전문가 셀프서비스 reference 등록 (angles 자동계산 GPU 연결) — belle 2026-06-20, CLAUDE.md 파일럿 Step 2
+- Phase 26 added: 여정 트랙 등재 (belle 승인 2026-07-06)
+- Phase 27 added: 여정 트랙 등재 (belle 승인 2026-07-06)
+- Phase 28 added: 여정 트랙 등재 (belle 승인 2026-07-06)
+- Phase 29 added: 여정 트랙 등재 (belle 승인 2026-07-06)
+- Phase 30 added: 여정 트랙 등재 (belle 승인 2026-07-06)
+- Phase 31 added: 여정 트랙 등재 (belle 승인 2026-07-06)
+- Phase 22 edited: 스코프 확정(22-CONTEXT.md D-01~16) + Phase 21 디커플 — 22 먼저
 
 ### Decisions
 

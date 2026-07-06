@@ -69,6 +69,22 @@ const PROGRESS_PCT: Record<AnalysisStatus, number> = {
   failed: 0,
 };
 
+// 각 단계 진행률 상한 — 표시값이 base 에서 이 값까지 천천히 기어오른다(멈춤 인상 방지).
+// mode1 은 comparison(Gemini 인식/veto/코치) 구간이 2~3분씩 걸려 85% 에 얼어붙은
+// 것처럼 보였다(실증 2026-07-06). 실제 완료(done) 전엔 100% 에 닿지 않게 comparison
+// 상한을 98 로 둔다 — 완료를 가짜로 만들지 않으면서 "흐르고 있다"는 신호만 준다.
+const PROGRESS_CEIL: Record<AnalysisStatus, number> = {
+  uploading: 18,
+  queued: 36,
+  frame_extraction: 60,
+  pose_analysis: 82,
+  comparison: 98,
+  done: 100,
+  failed: 0,
+};
+// 표시값이 상한을 향해 +1 씩 오르는 간격(ms).
+const PROGRESS_CREEP_MS = 2500;
+
 interface UploadInput {
   mode: AnalysisMode;
   fileName: string;
@@ -352,6 +368,25 @@ export default function AnalysisLoading() {
     return () => clearInterval(t);
   }, []);
 
+  // 표시 진행률 — 단계 base 로 점프한 뒤 상한까지 +1 씩 기어오른다(멈춤 인상 방지,
+  // 실증 2026-07-06 "85% 에서 멈춘 줄 알고 앱 종료"). 단조 증가(Math.max)로 역행 없음.
+  // done 은 100, failed/오류는 링이 안 보이므로 값 무의미. 실제 완료 전 100% 도달 금지.
+  const [displayPct, setDisplayPct] = useState(0);
+  useEffect(() => {
+    if (failed) return;
+    if (done) {
+      setDisplayPct(100);
+      return;
+    }
+    const base = PROGRESS_PCT[status] ?? 0;
+    const ceil = PROGRESS_CEIL[status] ?? base;
+    setDisplayPct((p) => Math.max(p, base));
+    const t = setInterval(() => {
+      setDisplayPct((p) => (p < ceil ? p + 1 : p));
+    }, PROGRESS_CREEP_MS);
+    return () => clearInterval(t);
+  }, [status, done, failed]);
+
   if (failed) {
     const code: AnalysisErrorCode = errorCode ?? 'server_error';
     const isNoHuman = code === 'no_human';
@@ -461,14 +496,12 @@ export default function AnalysisLoading() {
     ? `전문가와 ${greetName}의\n포즈를 분석하고 있어요`
     : `${greetName}의 동작을\n분석하고 있어요`;
 
-  const progressPct = PROGRESS_PCT[status] ?? 0;
-
   return (
     <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.center}>
         <BlobRing>
-          <Text style={styles.ringPct}>{progressPct}%</Text>
+          <Text style={styles.ringPct}>{displayPct}%</Text>
           <Text style={styles.ringSub}>{REASSURANCE_COPIES[copyIdx]}</Text>
         </BlobRing>
         <Text style={styles.titleBelowRing}>{titleLine}</Text>

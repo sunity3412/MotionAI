@@ -84,8 +84,18 @@ export default function Inquiry() {
     const contactLine = contact.trim() ? `\n회신 연락처: ${contact.trim()}` : '';
     const body = `${message.trim()}${contactLine}${meta}`;
 
+    // 메일 작성기 가용성 — 네이티브 모듈(expo-mail-composer)이 없는 빌드(예: 모듈
+    // 추가 전 빌드에 OTA로 이 화면만 내려간 경우)에선 isAvailableAsync 가 throw 할 수
+    // 있다 → false 로 간주하고 아래 mailto(Linking) 폴백을 탄다. Linking 은 코어라
+    // 어느 빌드에서나 동작하므로 문의가 실제로 전송된다.
+    let available = false;
     try {
-      const available = await MailComposer.isAvailableAsync();
+      available = await MailComposer.isAvailableAsync();
+    } catch {
+      available = false;
+    }
+
+    try {
       if (available) {
         const res = await MailComposer.composeAsync({
           recipients: [SUPPORT_EMAIL],

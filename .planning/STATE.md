@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: completed
-stopped_at: Completed 10-03-PLAN.md (D-05 joint hyperextension)
-last_updated: "2026-06-30T06:02:07.556Z"
-last_activity: 2026-06-30 -- Phase 10 marked complete
+stopped_at: Phase 22 context gathered
+last_updated: "2026-07-06T14:03:06.863Z"
+last_activity: "2026-07-05 -- 실기기 라운드 3 완결(결과화면·오버레이·사이각): 결과 재배치+번호 오버레이+감점0 게이트(o0s) / 뷰어 v3 번호점+드릴다운+진단문장(r6v, OTA) / 스플릿 사이각(r6x→wbs). **전 6동작 재검증(genpod3, vision 정상)이 belle "kip-up 편중" 원칙 덕에 사이각 오적용 버그 발견**: 사이각이 스플릿 아닌 다리결함(power-spin 무릎/elbow 골반)에도 그려지던 것 → wbs 게이트(split_angle 있을 때만 + 학생측만, 정은지측 도립 pose 폭주는 Phase 22 대기). PNG 실측 확인 완료. power-spin 0점=Gemini 20GB 초과(오늘 과다검증)→로컬 365파일 정리→62 정상화. 다음=내일 Fable 부활 후 시나리오 정식 플랜 + Phase 21→22(자체 pose 파인튜닝, 후보=RTMW fine-tune/ViTPose++·VLM=Qwen2.5-VL-7B). 개발=opus/플랜=fable"
 progress:
-  total_phases: 26
-  completed_phases: 15
-  total_plans: 110
-  completed_plans: 100
-  percent: 58
+  total_phases: 8
+  completed_phases: 2
+  total_plans: 19
+  completed_plans: 17
+  percent: 25
 ---
 
 # Project State
@@ -675,9 +675,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-30T02:07:41.192Z
+Last session: 2026-07-06T14:03:06.850Z
 
-Stopped at: Completed 10-03-PLAN.md (D-05 joint hyperextension)
+Stopped at: Phase 22 context gathered
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -744,7 +744,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: None
+Resume file: .planning/phases/22-custom-vlm-finetune/22-CONTEXT.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

@@ -94,6 +94,15 @@ None - no external service configuration required. JS-only 변경 (native 모듈
 
 None — 신규 네트워크/인증/스키마 surface 없음. AsyncStorage 로컬 플래그는 threat register T-26-01(accept)/T-26-02(mitigate 충족) 범위 내.
 
+## Self-Check: PASSED
+
+- FOUND: app/src/lib/onboarding.ts
+- FOUND: app/src/app/tutorial.tsx
+- FOUND: .planning/phases/26-onboarding-upload-guide/26-01-SUMMARY.md
+- FOUND commit: 51ac1ce (Task 1)
+- FOUND commit: 7a44ae2 (Task 2)
+- typecheck (tsc --noEmit) EXIT 0, backend/ diff 0, package.json diff 0
+
 ---
 *Phase: 26-onboarding-upload-guide*
 *Completed: 2026-07-07*

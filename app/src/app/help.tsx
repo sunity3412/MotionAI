@@ -11,7 +11,7 @@ import {
 import { colors, layout, radius, spacing, typography } from '../theme';
 
 // 이용 방법 / FAQ 화면 (F2/D-05, 26-UI-SPEC §S2).
-// 파일럿 피드백 F2 — 샘플 결과 미리보기(analysis/samples.tsx)를 상시 기대설정
+// 파일럿 피드백 F2 — 기존 샘플 결과 미리보기 화면을 상시 기대설정
 // 레이어로 교체한다. 온보딩(튜토리얼) 1회 노출 이후의 재접근 지점이자, D-03 의
 // 튜토리얼 재진입점을 겸한다. Figma 에 이용방법/FAQ 프레임이 없어(Figma Contract =
 // 튜토리얼 + 다이얼로그만 확정) samples 골격을 재사용한다 (UI-SPEC S2).

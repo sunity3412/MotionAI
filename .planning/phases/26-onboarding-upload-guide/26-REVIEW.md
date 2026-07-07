@@ -24,7 +24,18 @@ findings:
   warning: 2
   info: 4
   total: 6
-status: issues_found
+status: warnings_resolved
+fixed:
+  - id: WR-01
+    commit: 054ef71
+  - id: WR-02
+    commit: 7ec3ebe
+  - id: IN-03
+    commit: 9519687
+remaining_info:
+  - IN-01
+  - IN-02
+  - IN-04
 ---
 
 # Phase 26: Code Review Report
@@ -32,7 +43,7 @@ status: issues_found
 **Reviewed:** 2026-07-07T15:33:51Z
 **Depth:** standard
 **Files Reviewed:** 15
-**Status:** issues_found
+**Status:** warnings_resolved (WR-01/WR-02/IN-03 fixed; IN-01/IN-02/IN-04 deferred)
 
 ## Summary
 
@@ -48,7 +59,7 @@ Phase 26 (onboarding-upload-guide) 변경분 15개 파일을 diff base 9cebb82 �
 
 ## Warnings
 
-### WR-01: talkv/lowQuality [이대로 계속] 직후 BodyProfilePromptModal 즉시 present — 코드 자신이 문서화한 iOS Modal presentation 충돌 클래스 미방어
+### WR-01: talkv/lowQuality [이대로 계속] 직후 BodyProfilePromptModal 즉시 present — 코드 자신이 문서화한 iOS Modal presentation 충돌 클래스 미방어 — [FIXED 054ef71]
 
 **File:** `app/src/app/(tabs)/analyze.tsx:347-351` (continueTalkv), `:332-336` (continueLowQuality), `:613-620` (BodyProfilePromptModal)
 **Issue:** `continueTalkv` 는 `setTalkvPicked(null)` (talkv Modal fade-out 시작)과 동기적으로 `maybePromptBeforeRoute` 를 호출하고, 첫-pick 게이트 조건(프로필 미입력 AND 미dismiss AND 세션 첫 권유)이 참이면 같은 커밋에서 `setPromptVisible(true)` 로 두 번째 RN Modal(BodyProfilePromptModal, Modal 컴포넌트 확인함)을 present 한다. 이 파일 스스로 "iOS 는 Modal fade-out 중에 VC 를 띄우면 presentation 충돌" (analyze.tsx:54-57) 이라며 picker 재오픈에는 `TALKV_REPICK_DELAY_MS=450` 을 두었는데, 동일 충돌 클래스인 경고모달→권유모달 체인에는 지연이 없다. 충돌 시 증상이 나쁘다: `pendingPicked` 는 세팅됐지만 모달이 화면에 뜨지 않아 사용자는 소스 선택 화면에서 아무 일도 안 일어난 것처럼 보이고 선택한 영상이 사실상 유실된다. "첫 사용자 + 카톡 영상" 조합은 파일럿에서 가장 흔한 시나리오라 발생 확률이 낮지 않다.
@@ -65,7 +76,7 @@ if (notEntered && notDismissed) {
 ```
 (또는 `InteractionManager.runAfterInteractions` / Modal `onDismiss` 콜백 후 open. 26-06 실기기 확인이 이 정확한 경로 — 프로필 미입력 상태에서 talkv [이대로 계속] — 를 커버했는지도 검증 필요.)
 
-### WR-02: cancelTalkv 의 450ms 지연 picker 재오픈 — 타이머 미정리 + busy 미가드로 동시 presentation 레이스
+### WR-02: cancelTalkv 의 450ms 지연 picker 재오픈 — 타이머 미정리 + busy 미가드로 동시 presentation 레이스 — [FIXED 7ec3ebe]
 
 **File:** `app/src/app/(tabs)/analyze.tsx:358-363`
 **Issue:** `cancelTalkv` 는 `setTimeout(() => void pickFromLibrary(), 450)` 을 걸지만 (1) 타이머 핸들을 보관/정리하지 않아 450ms 안에 사용자가 뒤로가기(backToModeSelect)·탭 전환·다른 화면 이동을 해도 앨범 picker 가 뜬금없이 열리고, (2) `busy` 가드를 안 타므로 450ms 안에 [즉석 촬영] 을 탭하면 카메라 present 중에 `pickFromLibrary` 가 두 번째 picker VC 를 동시 present 시도한다 — 이 파일이 회피하려는 바로 그 iOS presentation 충돌. 또한 talkv 모달의 native back(`onRequestClose={cancelTalkv}`)도 앨범을 재오픈하는데, 같은 화면의 lq 모달 native back 은 조용히 버리기만 해서(cancelLowQuality) 동작이 비대칭이다.
@@ -97,7 +108,7 @@ const cancelTalkv = () => {
 **Issue:** result.tsx wrapper 는 이번 phase 리팩터 후 `name`/`analysisId` 만 읽는다 (result.tsx:546-549, "referenceMotionId/Name·mode 파라미터는 … 소멸" 주석). 그러나 loading.tsx 의 done-라우팅과 홈 최근분석 카드는 여전히 mode/referenceMotionId/referenceMotionName 을 전달한다 — 무해하지만 죽은 배선이라 다음 독자가 소비된다고 오인하기 쉽다.
 **Fix:** 두 호출부에서 미소비 param 제거 (history 탭 등 다른 호출부도 동일 정리 대상인지 확인).
 
-### IN-03: AnalysisDoc.learningOptIn 이 TS 계약 타입에 선언됐지만 userAnalyses.normalize() 읽기 경로에서 항상 탈락
+### IN-03: AnalysisDoc.learningOptIn 이 TS 계약 타입에 선언됐지만 userAnalyses.normalize() 읽기 경로에서 항상 탈락 — [FIXED 9519687]
 
 **File:** `app/src/types/analysis.ts:619`, `app/src/lib/userAnalyses.ts:322-348`
 **Issue:** `normalize()` 는 화이트리스트 방식으로 필드를 조립하는데 `learningOptIn` 을 매핑하지 않는다. 따라서 Firestore 에 true/false 가 기록돼 있어도 앱이 읽는 `AnalysisDoc` 에서는 항상 `undefined` 다. 현재 앱 내 소비처가 없고 Phase 22 게이트는 Firestore 를 직접 읽으므로 당장 버그는 아니지만, `angles` 류와 달리 "normalize 제외" 가 명시돼 있지 않아 향후 동의 상태 표시 UI 를 붙일 때 조용히 틀어진다.

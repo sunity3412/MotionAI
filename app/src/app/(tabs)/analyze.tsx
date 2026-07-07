@@ -2,7 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { useMyAnalyses } from '../../lib/userAnalyses';
@@ -410,76 +418,84 @@ export default function Analyze() {
         >
           <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.heading}>어떻게 영상을{'\n'}가져올까요?</Text>
-        <Text style={styles.sub}>{modeContext}</Text>
-
-        <View style={styles.cards}>
-          <SourceCard
-            icon="videocam-outline"
-            title="즉석 촬영"
-            subtitle="지금 바로 카메라로 촬영"
-            onPress={pickFromCamera}
-            disabled={busy}
-          />
-          <SourceCard
-            icon="images-outline"
-            title="앨범에서 선택"
-            subtitle="저장된 영상에서 불러오기"
-            onPress={pickFromLibrary}
-            disabled={busy}
-          />
-        </View>
-
-        {/* [#20 입력 화질] 가장 정확한 분석을 위한 안내 — 카톡 압축본은 정확도가
-            낮아질 수 있음을 미리 고지. */}
-        <Text style={styles.guidance}>
-          가장 정확한 분석을 위해 앱에서 직접 촬영하거나 원본 화질 영상을 올려주세요.
-          카톡 등으로 받은 영상은 압축돼 정확도가 낮을 수 있어요 (카톡은 '원본'으로 전송).
-        </Text>
-
-        {/* [Phase 26 D-01-i / A1 예방] 촬영 거리 안내 — not_pole 오반려(torso ratio
-            이탈)의 예방 레이어. 게이트 자체는 불변(D-01), 안내만. pick 직전 노출. */}
-        <Text style={styles.guidance}>
-          몸 전체가 화면에 잘 들어오는 거리(약 2~3m)에서 촬영해 주세요. 너무 가깝거나
-          멀면 분석에 실패할 수 있어요.
-        </Text>
-
-        {/* [Phase 26 D-08] 프라이버시 1줄 고지 — 동의 버튼 아님, 포괄 동의 아님. */}
-        <Text style={styles.privacyNote}>
-          영상은 분석에만 사용하고 안전하게 보관해요. 언제든 삭제를 요청할 수 있어요.
-        </Text>
-
-        {/* [Phase 26 D-08/D-09] 학습활용 opt-in 체크 행 — 기본 off, 미체크가 업로드를
-            지연/차단하지 않음(선택). checked = 브랜드 채움, unchecked = inputBorder 테두리. */}
-        <Pressable
-          onPress={() => setLearningOptIn((v) => !v)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: learningOptIn }}
-          accessibilityLabel="분석 영상을 AI 개선(학습)에 활용하는 데 동의 (선택)"
-          hitSlop={8}
-          style={styles.optInRow}
+        {/* [Phase 26-06 재배치안 A — belle 확정] 소스 선택 본문을 ScrollView 로 감싼다.
+            최악 데이터 케이스(긴 모션명 + error + 권한 안내 동시 노출)에서 소형 기기의
+            하단 opt-in/error 접근을 보장 — 레이아웃만 변경, 게이트/동의 로직 무접촉. */}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <View
-            style={[styles.checkbox, learningOptIn && styles.checkboxChecked]}
-          >
-            {learningOptIn && (
-              <Ionicons name="checkmark" size={14} color={colors.textWhite} />
-            )}
-          </View>
-          <Text style={styles.optInLabel}>
-            분석 영상을 AI 개선(학습)에 활용하는 데 동의해요 (선택)
-          </Text>
-        </Pressable>
+          <Text style={styles.heading}>어떻게 영상을{'\n'}가져올까요?</Text>
+          <Text style={styles.sub}>{modeContext}</Text>
 
-        {error && <Text style={styles.error}>{error}</Text>}
-        {permissionBlocked && (
+          <View style={styles.cards}>
+            <SourceCard
+              icon="videocam-outline"
+              title="즉석 촬영"
+              subtitle="지금 바로 카메라로 촬영"
+              onPress={pickFromCamera}
+              disabled={busy}
+            />
+            <SourceCard
+              icon="images-outline"
+              title="앨범에서 선택"
+              subtitle="저장된 영상에서 불러오기"
+              onPress={pickFromLibrary}
+              disabled={busy}
+            />
+          </View>
+
+          {/* [Phase 26-06 재배치안 A — belle 확정] 촬영 안내 통합 캡션. 기존 캡션 2개
+              (#20 입력 화질: 원본 화질/카톡 압축 + Phase 26 D-01-i: 촬영 거리 약 2~3m)를
+              문구 병합만으로 1블록화 — 신규 주장 0, 카피 원문 유지. not_pole 오반려(A1)
+              예방 레이어이며 게이트 자체는 불변(D-01). pick 직전 노출 유지. */}
+          <Text style={styles.guidance}>
+            가장 정확한 분석을 위해 앱에서 직접 촬영하거나 원본 화질 영상을 올려주세요.
+            카톡 등으로 받은 영상은 압축돼 정확도가 낮을 수 있어요 (카톡은 '원본'으로 전송).
+            몸 전체가 화면에 잘 들어오는 거리(약 2~3m)에서 촬영해 주세요. 너무 가깝거나
+            멀면 분석에 실패할 수 있어요.
+          </Text>
+
+          {/* [Phase 26 D-08] 프라이버시 1줄 고지 — 동의 버튼 아님, 포괄 동의 아님.
+              pick 직전 위치 고정 (26-06 재배치안 A — 이동 금지). */}
+          <Text style={styles.privacyNote}>
+            영상은 분석에만 사용하고 안전하게 보관해요. 언제든 삭제를 요청할 수 있어요.
+          </Text>
+
+          {/* [Phase 26 D-08/D-09] 학습활용 opt-in 체크 행 — 기본 off, 미체크가 업로드를
+              지연/차단하지 않음(선택). checked = 브랜드 채움, unchecked = inputBorder 테두리.
+              pick 직전 위치 고정 (26-06 재배치안 A — 이동 금지). */}
           <Pressable
-            onPress={() => Linking.openSettings()}
-            accessibilityRole="button"
+            onPress={() => setLearningOptIn((v) => !v)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: learningOptIn }}
+            accessibilityLabel="분석 영상을 AI 개선(학습)에 활용하는 데 동의 (선택)"
+            hitSlop={8}
+            style={styles.optInRow}
           >
-            <Text style={styles.link}>설정에서 권한 허용하기</Text>
+            <View
+              style={[styles.checkbox, learningOptIn && styles.checkboxChecked]}
+            >
+              {learningOptIn && (
+                <Ionicons name="checkmark" size={14} color={colors.textWhite} />
+              )}
+            </View>
+            <Text style={styles.optInLabel}>
+              분석 영상을 AI 개선(학습)에 활용하는 데 동의해요 (선택)
+            </Text>
           </Pressable>
-        )}
+
+          {error && <Text style={styles.error}>{error}</Text>}
+          {permissionBlocked && (
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.link}>설정에서 권한 허용하기</Text>
+            </Pressable>
+          )}
+        </ScrollView>
 
         {/* [Phase 26 D-06/D-07] 카톡 압축본 경고 다이얼로그 — Figma Dialog Pattern
             (26-UI-SPEC §Figma Dialog Pattern): 연한 브랜드 틴트 라운드 카드 + 중앙
@@ -698,6 +714,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backBtnPressed: { opacity: 0.5 },
+  // [Phase 26-06 재배치안 A] 소스 선택 본문 스크롤 — 최악 케이스(긴 모션명 + error +
+  //   권한 안내 동시 노출)에서 소형 기기 하단 요소 접근 보장. 레이아웃만, 로직 무접촉.
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 24 },
   heading: { ...typography.heading, color: colors.textPrimary, marginTop: 12 },
   sub: {
     ...typography.caption,

@@ -113,7 +113,7 @@ export default function Home() {
               <Text style={styles.newsBadgeText}>NEW</Text>
             </View>
             <Text style={styles.newsText} numberOfLines={1}>
-              {newest.name} 기준모션이 추가되었어요.
+              {newest.name} 기준모션 추가
             </Text>
           </View>
         )}
@@ -312,7 +312,11 @@ function GrowthLockedCard() {
   );
 }
 
-const TOP_AREA_HEIGHT = 240; // Figma 1:719 — 프로필 + 종목 + 부텍스트 + NEW 배너 다 들어가는 높이
+// Figma 1:719 — 프로필 + 종목 + 부텍스트 + NEW 배너 다 들어가는 높이.
+// F4(26-05): NEW 배너 아래쪽이 -16 겹침(cardArea marginTop)으로 카드 상단과 밀착돼
+// 있어 높이를 240→260 으로 +20 보정 — 배너 하단과 카드 상단 사이 간격을 12 이상
+// 확보한다 (배너 위쪽 간격 marginTop 16 은 유지). 배너 비주얼 자체는 불변.
+const TOP_AREA_HEIGHT = 260;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },

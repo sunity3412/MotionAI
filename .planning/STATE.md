@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: executing
-stopped_at: Phase 26 완료(6/6, 잔여 확인=26-HUMAN-UAT 배치 UAT 이월) — 다음 착수 27→28
-last_updated: "2026-07-07T15:25:41.385Z"
+status: ready_to_plan
+stopped_at: Phase 26 complete (6/6) — ready to discuss Phase 27
+last_updated: 2026-07-07T15:37:40.998Z
 last_activity: 2026-07-07
 progress:
   total_phases: 14
   completed_phases: 3
   total_plans: 52
-  completed_plans: 23
+  completed_plans: 109
   percent: 21
 ---
 
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 26 — onboarding-upload-guide
+**Current focus:** Phase 27 — 1 gemini analysis speed 1min
 
 > **20-04 / SCORE-09 ownership (belle 2026-06-23, D-14 amended + D-15, ITERATION6):** Phase 20-04 의 still-frame SEVERITY_CAP **regression subset** (SCORE-08 cap + TRUST-06 결정론) 은 Phase 23-03 eval 이 still-frame veto 경로에서 OWN·검증한다 (superseded-by-23-03) — 정은지 95~100 / kip-up fault = moderate 점수 ≤75 (20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. **SCORE-09 (일반화/sensitivity — 미보유+above-cutoff 양방검증) 는 흡수되지 않고 별도 PENDING 으로 Phase 20 / 후속에 잔류한다.** Phase 23 을 SCORE-09 미처리로 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.
 
 ## Current Position
 
-Phase: 26 (onboarding-upload-guide) — COMPLETE (6/6 plans, 2026-07-08). 잔여 실기기 확인+Firestore 동의 증거 = 26-HUMAN-UAT.md (belle 배치 UAT 정책 — phase 22·26~31 완료 후 직원 합동 세션에서 일괄). 다음 착수 = phase 27 (belle 순서 26→27→28)
-Plan: 6 of 6 (complete)
+Phase: 27
+Plan: Not started
 Verification: 10-02 COMPLETE — D-04 trunk-hyperextension flag end-to-end (reference-anchored DTW-path-aligned excess + hip-local phase-co-located control-loss AND-gate). _phase_for_window (window→phase ≥50% overlap, no-op on None) + _dtw_aligned_joint_medians (timing-shift cancellation, HIGH-A) + _control_loss_for_joint (LOCAL+TEMPORAL, HIGH-1) in safety_flags.py. _process injection (mode1 a_ref / mode3 reshaped prev) + single-path firestore_admin._validate_safety_flags. Amber InjuryRiskSection on result.tsx (all-4 copy map, omit-when-empty, no brand red). 정은지 elite posture alone / wrong-phase / timing-shifted-reference = ZERO flags (headline gate GREEN). phase10 = 29 passed, 7 xfailed (10-03/10-04 must-fire), 0 failed. App typecheck clean. No regressions (full-suite 54 pre-existing failures = app-module-name-collision + gemini/knee env, identical on HEAD). 3 commits (774e2ee/e6f1b3b/708464f).
 Next: 10-03 (D-05 absolute joint hyperextension — reference-free, sagittal-frame from keypoints_4ch; un-xfails hyperextension tests; auto-renders via joint_hyperextension copy map). Then 10-04 (asymmetry + level_mismatch).
-Status: Ready to execute
+Status: Ready to plan
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -515,7 +515,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 
 **Velocity:**
 
-- Total plans completed: 22 (01-01, 01-02, 01-03, 01-06, 01-07, 01-08)
+- Total plans completed: 28 (01-01, 01-02, 01-03, 01-06, 01-07, 01-08)
 - Average duration: ~30 min/plan (executor) + belle Pod 실행 별도
 
 ## Performance Metrics
@@ -535,6 +535,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | 14 | 3 | - | - |
 | 11 | 3 | - | - |
 | 19 | 4 | - | - |
+| 26 | 6 | - | - |
 
 **Recent Trend:**
 

@@ -3,7 +3,7 @@
   "model_overrides": {
     "gsd-planner": "fable",
     "gsd-roadmapper": "fable",
-    "gsd-executor": "fable",
+    "gsd-executor": "opus",
     "gsd-phase-researcher": "fable",
     "gsd-project-researcher": "fable",
     "gsd-research-synthesizer": "fable",
@@ -22,7 +22,7 @@
     "gsd-advisor-researcher": "fable",
     "gsd-ai-researcher": "fable",
     "gsd-assumptions-analyzer": "fable",
-    "gsd-code-fixer": "fable",
+    "gsd-code-fixer": "opus",
     "gsd-code-reviewer": "fable",
     "gsd-debug-session-manager": "fable",
     "gsd-doc-classifier": "fable",

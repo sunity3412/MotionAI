@@ -345,6 +345,13 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
           ),
         }
       : {}),
+    // [IN-03] Phase 26 (D-08/D-09) — 업로드 시점 학습활용 동의값. boolean 일 때만
+    // 매핑(방어) — 필드 부재/타입 불일치면 키 생략해 undefined 유지 (angles 류처럼
+    // 조용히 탈락시키지 않고 명시적으로 통과시킨다). 향후 동의 상태 표시 UI 가
+    // AnalysisDoc.learningOptIn 을 읽을 때 정합. 계약 필드와 동일 명칭 (analysis.ts:619).
+    ...(typeof raw.learningOptIn === 'boolean'
+      ? { learningOptIn: raw.learningOptIn }
+      : {}),
   };
 }
 

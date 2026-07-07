@@ -106,13 +106,21 @@ export function normalizeBodyProfile(
 // all-empty → null 로 접고 measurement 필드만 반환하므로, once-flag 는 raw 에서
 // 별도로 읽어 노출한다 (게이트가 "미입력 AND 미dismiss" 를 정확히 판별 — 미입력
 // 상태에서 dismiss 해도 normalize 가 null 이 되어 flag 가 유실되는 것을 방지, R2).
+//
+// painAreaNote: 통증부위 '기타' 자유입력 (F3 / 26-UI-SPEC S7). promptDismissedAt 과
+// 동일하게 bodyProfile map 안에 살지만 BodyProfile 계약 타입/normalizeBodyProfile
+// 밖의 앱-로컬 필드 — raw 에서 별도로 읽어 노출한다. normalizeBodyProfile 이 이
+// 키를 읽지 않으므로 분석 snapshot(getBodyProfileOnce)·백엔드 exercise_map 소비
+// 경로에 자동 배제된다 (3-way lockstep 무접촉).
 export function useBodyProfile(): {
   profile: BodyProfile | null;
   promptDismissedAt: number | null;
+  painAreaNote: string | null;
   loading: boolean;
 } {
   const [profile, setProfile] = useState<BodyProfile | null>(null);
   const [promptDismissedAt, setPromptDismissedAt] = useState<number | null>(null);
+  const [painAreaNote, setPainAreaNote] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(!!auth.currentUser);
   const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
 
@@ -126,6 +134,7 @@ export function useBodyProfile(): {
     if (!uid) {
       setProfile(null);
       setPromptDismissedAt(null);
+      setPainAreaNote(null);
       setLoading(false);
       return;
     }
@@ -140,19 +149,25 @@ export function useBodyProfile(): {
         setProfile(normalizeBodyProfile(raw));
         const dismissed = raw?.promptDismissedAt;
         setPromptDismissedAt(typeof dismissed === 'number' ? dismissed : null);
+        // painAreaNote — 문자열이며 공백 제거 후 비지 않을 때만 값 (F3, R2 선례).
+        const note = raw?.painAreaNote;
+        setPainAreaNote(
+          typeof note === 'string' && note.trim() !== '' ? note : null,
+        );
         setLoading(false);
       },
       (err: FirestoreError) => {
         if (__DEV__) console.warn('[useBodyProfile] error', err);
         setProfile(null);
         setPromptDismissedAt(null);
+        setPainAreaNote(null);
         setLoading(false);
       },
     );
     return unsub;
   }, [uid]);
 
-  return { profile, promptDismissedAt, loading };
+  return { profile, promptDismissedAt, painAreaNote, loading };
 }
 
 // [R5] one-shot 읽기 — loading.tsx 의 snapshot 전용 (raw getDoc spread 금지 강제).
@@ -205,6 +220,24 @@ export async function dismissBodyProfilePrompt(): Promise<void> {
   await setDoc(
     doc(db, 'users', uid),
     { bodyProfile: { promptDismissedAt: Date.now() } },
+    { merge: true },
+  );
+}
+
+// 통증부위 '기타' 자유입력 저장 (F3 / 26-UI-SPEC S7). dismissBodyProfilePrompt 와
+// 동일한 merge-write 선례 — bodyProfile map 안의 앱-로컬 필드(painAreaNote)만 갱신,
+// 다른 프로필 필드 보존. BodyProfile 계약 타입/normalizeBodyProfile/PainArea enum
+// 은 무접촉이므로 3-way lockstep(analysis.ts / models.py / contract.md)·백엔드
+// exercise_map 소비 경로가 1바이트도 변하지 않는다.
+//
+// [WR-01] Firestore merge:true 는 명시한 키만 덮어쓴다 — 비울 때는 null 을 명시
+// 기록해야 지워진다 (키 생략은 "건드리지 않음"). 그래서 clear 는 note=null 로 호출.
+export async function savePainAreaNote(note: string | null): Promise<void> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('로그인이 필요합니다.');
+  await setDoc(
+    doc(db, 'users', uid),
+    { bodyProfile: { painAreaNote: note } },
     { merge: true },
   );
 }

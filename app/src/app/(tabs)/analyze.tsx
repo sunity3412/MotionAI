@@ -140,6 +140,15 @@ export default function Analyze() {
   // 첫-pick 마다 모달이 다시 뜨는 것을 방지 — 한 번 권유를 처리한 세션 안에서는
   // 영속 결과와 무관하게 모달을 다시 띄우지 않는다 (재권유 0, D-06 graceful).
   const promptedThisSession = useRef(false);
+  // [WR-01] 경고 Modal(talkv/lowQuality) 경유 재개 시 권유 Modal present 지연 타이머.
+  // 언마운트 시 정리해 사라진 화면에 Modal 을 띄우려는 잔여 타이머를 막는다.
+  const promptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (promptTimer.current) clearTimeout(promptTimer.current);
+    },
+    [],
+  );
 
   // belle UAT 2026-06-12 F1 — 홈 챌린지 카드에서 진입 시 모드 선택 화면이 떴음.
   // useState initial 만으로는 mount 후 referenceMotionId 가 늦게 들어오거나
@@ -250,7 +259,13 @@ export default function Analyze() {
   // 이라 기존 프로필·이미 dismiss 한 사용자에게도 권유가 잘못 뜰 수 있다(콜드스타트/
   // 느린 네트워크 레이스). loading 중에는 권유를 보류하고 즉시 라우팅 — 게스트 우선
   // 원칙상 모달 미출현이 오출현보다 안전.
-  const maybePromptBeforeRoute = (picked: Picked) => {
+  // [WR-01] afterWarningModal = 경고 Modal([이대로 계속]) 을 닫으며 이 함수를 호출한
+  // 경로. 그 경우 권유 Modal present 를 경고 Modal 의 fade-out 이후로 지연한다 — iOS 는
+  // Modal fade-out 중에 다른 Modal 을 present 하면 presentation 충돌이 나서 pendingPicked
+  // 만 세팅되고 화면엔 아무 Modal 도 안 떠 영상이 유실된 것처럼 보인다 (analyze.tsx:54-57
+  // picker 재오픈 TALKV_REPICK_DELAY_MS 와 동일 근거). 직접(handleResult) 경로는 앞선
+  // Modal 이 없어 지연 불필요. 라우팅(routeAfterPick)은 Modal present 가 아니라 지연 무관.
+  const maybePromptBeforeRoute = (picked: Picked, afterWarningModal = false) => {
     if (profileLoading) {
       routeAfterPick(picked);
       return;
@@ -264,7 +279,14 @@ export default function Analyze() {
     const notDismissed = promptDismissedAt == null;
     if (notEntered && notDismissed) {
       setPendingPicked(picked);
-      setPromptVisible(true);
+      if (afterWarningModal) {
+        promptTimer.current = setTimeout(
+          () => setPromptVisible(true),
+          TALKV_REPICK_DELAY_MS,
+        );
+      } else {
+        setPromptVisible(true);
+      }
       return;
     }
     routeAfterPick(picked);
@@ -332,7 +354,8 @@ export default function Analyze() {
   const continueLowQuality = () => {
     const p = lowQualityPicked;
     setLowQualityPicked(null);
-    if (p) maybePromptBeforeRoute({ ...p, lowQuality: true });
+    // [WR-01] 경고 Modal(fade) 경유 재개 — 권유 Modal present 를 지연.
+    if (p) maybePromptBeforeRoute({ ...p, lowQuality: true }, true);
   };
 
   // [#20 입력 화질] 저화질 경고에서 [다른 영상 선택] — 보류한 영상을 버린다.
@@ -347,7 +370,8 @@ export default function Analyze() {
   const continueTalkv = () => {
     const p = talkvPicked;
     setTalkvPicked(null);
-    if (p) maybePromptBeforeRoute({ ...p, lowQuality: true });
+    // [WR-01] 경고 Modal(fade) 경유 재개 — 권유 Modal present 를 지연.
+    if (p) maybePromptBeforeRoute({ ...p, lowQuality: true }, true);
   };
 
   // Phase 26 (D-06) + belle 실기기 확인 수정 2 (26-06, 2026-07-08) — 카톡 경고에서

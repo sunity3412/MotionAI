@@ -877,7 +877,7 @@ Plans:
 **Goal:** 분석 이전 구간(시나리오 0/0.5/1/1.5)의 파일럿 gap 해소 — (a) 기대설정 온보딩: Figma 튜토리얼 디자인(belle 승인, fileKey jrdI7kp245HkPfLB0nclsz) + `analysis/samples.tsx` 여정 편입 + 샘플→이용방법/FAQ 교체(F2), (b) 프라이버시 1줄(업로드 직전) + 학습 활용 고지(Phase 22 D-12 플라이휠 연동), (c) 원본 업로드 가이드: 카톡 압축본(`_talkv_`) 파일명 감지·경고(실측 실패의 56%) + 촬영 거리 안내로 not_pole 오반려(A1) 예방 — 게이트 임계 완화 병행 여부는 discuss에서 결정, (d) 잡 UI: F3 기타 자유입력·F4 공지 간격. UI 화면 순서 재배치 제안 포함(belle 요청). 앱만, 낮음.
 **Requirements**: ONBD-01, ONBD-02, ONBD-03, ONBD-04 (phase-goal 파생 — ROADMAP TBD 를 플래너가 mint: 01=기대설정 온보딩+FAQ, 02=프라이버시·학습활용 동의, 03=원본 업로드 가이드(카톡 감지·거리·not_pole 안내), 04=잡 UI F3/F4)
 **Depends on:** 없음 (여정 트랙 — 채점 트랙과 병렬)
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 **Wave 1**
@@ -889,7 +889,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 26-04-PLAN.md — 카톡 압축본 경고 다이얼로그 + not_pole 구도 안내 (wave 2)
+- [x] 26-04-PLAN.md — 카톡 압축본 경고 다이얼로그 + not_pole 구도 안내 (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

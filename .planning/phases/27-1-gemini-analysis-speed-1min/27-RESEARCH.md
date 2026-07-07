@@ -445,12 +445,12 @@ with open(pair.student_frame_path, "rb") as f:
 | A5 | Pod RAM이 프레임 배열 캐시(~190MB×2)를 수용 | Pattern 7 | OOM 위험 시 학생 영상만 캐시로 축소 |
 | A6 | 핸들 공유/still inline이 Gemini 응답 분포를 바꾸지 않음 (픽셀 동일) | Pattern 1/3 | EVAL18 무회귀 게이트가 최종 판정 (D-01이 방어) |
 
-## Open Questions
+## Open Questions (RESOLVED — deferred to Wave 0/2 measurement)
 
-1. **미계상 ~45s의 정체** — coach B 업로드+generate / Cerebras / hook / Firestore write 중 배분 불명. Wave 0 계측이 답. 계측 결과에 따라 coach 병렬화의 기대 수확이 달라짐.
-2. **Pod 현행 env 스냅샷** — RECOGNIZER_BACKEND=gemini 활성 여부, GEMINI_VISION_VETO_ENABLED, GEMINI_MODEL override 유무 (start_server.sh는 git 밖). 실행 전 Pod SSH로 확인 필요 — 인벤토리 표의 "업로드 4회"는 전 토글 ON 가정.
-3. **업로드 1회당 실제 소요** (전송 vs PROCESSING 폴링 배분) — 영상 크기 의존. 계측으로 확정 후 inline 임계(A3)와 prefetch 수확 재평가.
-4. **EVAL18 cold 재실행 비용** — Gemini 크레딧 잔액 확인 ([[gemini-credits-depleted]] 이력) + 6페어 × cold 2회(before/after) 순차 실행 시간 확보.
+1. **미계상 ~45s의 정체** — coach B 업로드+generate / Cerebras / hook / Firestore write 중 배분 불명. Wave 0 계측이 답. 계측 결과에 따라 coach 병렬화의 기대 수확이 달라짐. **RESOLVED-BY-PLAN: 27-01 (stage-timing 계측) + 27-02 (cold baseline 실측).**
+2. **Pod 현행 env 스냅샷** — RECOGNIZER_BACKEND=gemini 활성 여부, GEMINI_VISION_VETO_ENABLED, GEMINI_MODEL override 유무 (start_server.sh는 git 밖). 실행 전 Pod SSH로 확인 필요 — 인벤토리 표의 "업로드 4회"는 전 토글 ON 가정. **RESOLVED-BY-PLAN: 27-02 Task 2 step 2 (env 스냅샷 기록).**
+3. **업로드 1회당 실제 소요** (전송 vs PROCESSING 폴링 배분) — 영상 크기 의존. 계측으로 확정 후 inline 임계(A3)와 prefetch 수확 재평가. **RESOLVED-BY-PLAN: 27-01 계측 + 27-02 baseline (수확 재평가는 27-04/27-05 착수 시 참조).**
+4. **EVAL18 cold 재실행 비용** — Gemini 크레딧 잔액 확인 ([[gemini-credits-depleted]] 이력) + 6페어 × cold 2회(before/after) 순차 실행 시간 확보. **RESOLVED-BY-PLAN: 27-02/27-08/27-09 blocking checkpoint의 크레딧 확인 선행 항목.**
 
 ## Sources
 

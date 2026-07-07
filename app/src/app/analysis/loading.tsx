@@ -412,6 +412,11 @@ export default function AnalysisLoading() {
     // "기준 동작과 너무 달라요" 대신 화질 우선 안내 (카톡 압축본 실패를 동작 문제로
     // 오해하는 것 방지). 플래그 없는 not_pole 은 기존 카피 그대로 (회귀 0).
     const isLowQualityNotPole = isNotPole && lowQuality === '1';
+    // Phase 26 (D-01-ii) — 플래그 없는 not_pole 은 촬영 구도/거리 불일치가 흔한
+    //   원인(A1: torso ratio 17~36배 오반려 실측). 화질 우선 분기(isLowQualityNotPole)
+    //   와 배타 — 화질 승인 영상은 화질 안내가 먼저(D-07). 게이트/임계는 서버측이며
+    //   불변(D-01), 여기선 안내 카피만 (백엔드 무접촉).
+    const isPlainNotPole = isNotPole && !isLowQualityNotPole;
     const errorTitle = isNoHuman
       ? '사람을 찾지 못했어요'
       : isLowQualityNotPole
@@ -421,7 +426,9 @@ export default function AnalysisLoading() {
           : '분석 중 문제가 발생했어요';
     const errorBody = isLowQualityNotPole
       ? '영상 화질이 낮아 자세를 인식하지 못했을 수 있어요. 원본 화질 영상으로 다시 시도하거나 앱에서 직접 촬영해 주세요.'
-      : ERROR_MESSAGE[code];
+      : isPlainNotPole
+        ? '촬영 구도나 거리가 기준 영상과 많이 다르면 이렇게 나올 수 있어요. 몸 전체가 화면에 들어오는 거리에서 정면 기준으로 다시 촬영해 보세요.'
+        : ERROR_MESSAGE[code];
     return (
       <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
         <StatusBar style="light" />
@@ -471,8 +478,13 @@ export default function AnalysisLoading() {
                   <Text style={styles.tipItem}>· 전신이 다 보이는지</Text>
                 </>
               ) : (
+                // Phase 26 (D-01-ii / A1) — 구도·거리 항목 보강. 게이트 불변(D-01),
+                // 카피만.
                 <>
                   <Text style={styles.tipItem}>· 폴스포츠 연습 영상이 맞는지</Text>
+                  <Text style={styles.tipItem}>
+                    · 몸 전체가 화면에 들어오는 거리(약 2~3m)에서 정면으로 촬영했는지
+                  </Text>
                   <Text style={styles.tipItem}>· 선택한 기준 동작이 영상과 같은지</Text>
                   <Text style={styles.tipItem}>· 전신이 다 보이는지</Text>
                 </>

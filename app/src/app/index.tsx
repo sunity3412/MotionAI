@@ -4,6 +4,7 @@ import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { auth } from '../lib/firebase';
+import { hasSeenTutorial } from '../lib/onboarding';
 import { colors, gradients, layout, radius, spacing, typography } from '../theme';
 
 // 인트로 — 파일럿 최소 게스트 진입 (plan.md #3, design.md §1·§5-1·§6·§10).
@@ -16,10 +17,15 @@ export default function Intro() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
 
   useEffect(() => {
-    // 인증 상태가 생기면(신규 게스트 로그인 or 복원) 홈으로. 내비게이션을 한 곳에 집중.
+    // 인증 상태가 생기면(신규 게스트 로그인 or 복원) 라우팅. 내비게이션을 한 곳에 집중.
+    // D-03/26-UI-SPEC S1: 첫 실행 게스트는 홈 진입 전에 기대설정 튜토리얼을 1회 본다.
+    // hasSeenTutorial() 이 비동기라 bootstrapping state 로 CTA/라우팅을 보류해
+    // 플래그 로드 전 깜빡임을 막는다 (기존 인트로 스플래시 패턴 재사용).
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        router.replace('/(tabs)');
+        hasSeenTutorial().then((seen) => {
+          router.replace(seen ? '/(tabs)' : '/tutorial');
+        });
       } else {
         setBootstrapping(false);
       }

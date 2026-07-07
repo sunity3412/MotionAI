@@ -875,12 +875,25 @@ Plans:
 ### Phase 26: 온보딩·기대설정 + 원본 업로드 가이드 (onboarding-upload-guide)
 
 **Goal:** 분석 이전 구간(시나리오 0/0.5/1/1.5)의 파일럿 gap 해소 — (a) 기대설정 온보딩: Figma 튜토리얼 디자인(belle 승인, fileKey jrdI7kp245HkPfLB0nclsz) + `analysis/samples.tsx` 여정 편입 + 샘플→이용방법/FAQ 교체(F2), (b) 프라이버시 1줄(업로드 직전) + 학습 활용 고지(Phase 22 D-12 플라이휠 연동), (c) 원본 업로드 가이드: 카톡 압축본(`_talkv_`) 파일명 감지·경고(실측 실패의 56%) + 촬영 거리 안내로 not_pole 오반려(A1) 예방 — 게이트 임계 완화 병행 여부는 discuss에서 결정, (d) 잡 UI: F3 기타 자유입력·F4 공지 간격. UI 화면 순서 재배치 제안 포함(belle 요청). 앱만, 낮음.
-**Requirements**: TBD
+**Requirements**: ONBD-01, ONBD-02, ONBD-03, ONBD-04 (phase-goal 파생 — ROADMAP TBD 를 플래너가 mint: 01=기대설정 온보딩+FAQ, 02=프라이버시·학습활용 동의, 03=원본 업로드 가이드(카톡 감지·거리·not_pole 안내), 04=잡 UI F3/F4)
 **Depends on:** 없음 (여정 트랙 — 채점 트랙과 병렬)
-**Plans:** 0 plans
+**Plans:** 6 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 26 to break down)
+**Wave 1**
+
+- [ ] 26-01-PLAN.md — 튜토리얼(Figma) + 첫 실행 라우팅 (wave 1)
+- [ ] 26-02-PLAN.md — 샘플 미리보기 → 이용방법/FAQ 교체 (wave 1)
+- [ ] 26-03-PLAN.md — 프라이버시 1줄 + 학습활용 opt-in(learningOptIn 계약) + 촬영 거리 안내 (wave 1)
+- [ ] 26-05-PLAN.md — F3 통증부위 기타 자유입력 + F4 공지 간격 (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 26-04-PLAN.md — 카톡 압축본 경고 다이얼로그 + not_pole 구도 안내 (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 26-06-PLAN.md — UI 순서 재배치 목업 checkpoint + belle 실기기 확인 (wave 3, checkpoint)
 
 ### Phase 27: 분석 속도 1분 — Gemini 라운드트립·후처리 축소 (analysis-speed-1min)
 
@@ -890,6 +903,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 27 to break down)
 
 ### Phase 28: 동작 기반 비교 정렬 — DTW 워핑으로 크롭·싱크 해결 (motion-based-alignment)
@@ -900,6 +914,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 28 to break down)
 
 ### Phase 29: 결과·비교 화면 완성 — Mode3 내역·줌, 비교영상, 가로 방향, 부상 대응법 (result-screen-completion)
@@ -910,6 +925,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 29 to break down)
 
 ### Phase 30: 성장 추적 개선 — 평균 기반·동작별 막대 (growth-tracking)
@@ -920,6 +936,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 30 to break down)
 
 ### Phase 31: 교정 시각물 — 기하 오버레이 + 외부 생성 API 실루엣 (visual-correction)
@@ -930,6 +947,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-plan-phase 31 to break down)
 
 ---

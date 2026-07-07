@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
-status: completed
+status: executing
 stopped_at: Phase 26 UI-SPEC approved
-last_updated: "2026-07-07T06:18:28.006Z"
-last_activity: "2026-07-07 -- Phase 22 플랜 리뷰 사이클 종결: DR-01~07 반영(je3) → belle 2차 리뷰 "Pass with fixups" → fixup 4건 반영(k07, 22-VALIDATION 싱크 must-fix 포함). **Phase 22 실행 게이팅 준비 완료**(제품결정 D1~D3만 미결). GSD 모델 상시 분배 전환: 플랜·검증=fable/실행(executor·code-fixer)=opus, 고위험 실행(22-03/04/08 Pod·데이터 경계)만 fable 명시. 다음=시나리오 phase just-in-time(27-1 속도·26 온보딩 순) + Phase 22 실행 병렬 트랙. (이전 2026-07-05: 실기기 라운드 3 완결(결과화면·오버레이·사이각): 결과 재배치+번호 오버레이+감점0 게이트(o0s) / 뷰어 v3 번호점+드릴다운+진단문장(r6v, OTA) / 스플릿 사이각(r6x→wbs). **전 6동작 재검증(genpod3, vision 정상)이 belle "kip-up 편중" 원칙 덕에 사이각 오적용 버그 발견**: 사이각이 스플릿 아닌 다리결함(power-spin 무릎/elbow 골반)에도 그려지던 것 → wbs 게이트(split_angle 있을 때만 + 학생측만, 정은지측 도립 pose 폭주는 Phase 22 대기). PNG 실측 확인 완료. power-spin 0점=Gemini 20GB 초과(오늘 과다검증)→로컬 365파일 정리→62 정상화. 다음=내일 Fable 부활 후 시나리오 정식 플랜 + Phase 21→22(자체 pose 파인튜닝, 후보=RTMW fine-tune/ViTPose++·VLM=Qwen2.5-VL-7B). 개발=opus/플랜=fable"
+last_updated: "2026-07-07T06:55:48.575Z"
+last_activity: 2026-07-07 -- Phase 26 planning complete
 progress:
   total_phases: 14
   completed_phases: 2
-  total_plans: 29
+  total_plans: 35
   completed_plans: 17
   percent: 14
 ---
@@ -31,7 +31,7 @@ Phase: 10 — COMPLETE
 Plan: 4 of 4
 Verification: 10-02 COMPLETE — D-04 trunk-hyperextension flag end-to-end (reference-anchored DTW-path-aligned excess + hip-local phase-co-located control-loss AND-gate). _phase_for_window (window→phase ≥50% overlap, no-op on None) + _dtw_aligned_joint_medians (timing-shift cancellation, HIGH-A) + _control_loss_for_joint (LOCAL+TEMPORAL, HIGH-1) in safety_flags.py. _process injection (mode1 a_ref / mode3 reshaped prev) + single-path firestore_admin._validate_safety_flags. Amber InjuryRiskSection on result.tsx (all-4 copy map, omit-when-empty, no brand red). 정은지 elite posture alone / wrong-phase / timing-shifted-reference = ZERO flags (headline gate GREEN). phase10 = 29 passed, 7 xfailed (10-03/10-04 must-fire), 0 failed. App typecheck clean. No regressions (full-suite 54 pre-existing failures = app-module-name-collision + gemini/knee env, identical on HEAD). 3 commits (774e2ee/e6f1b3b/708464f).
 Next: 10-03 (D-05 absolute joint hyperextension — reference-free, sagittal-frame from keypoints_4ch; un-xfails hyperextension tests; auto-renders via joint_hyperextension copy map). Then 10-04 (asymmetry + level_mismatch).
-Status: Phase 10 complete
+Status: Ready to execute
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -66,7 +66,7 @@ Status: Phase 10 complete
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-07 -- Phase 22 플랜 리뷰 사이클 종결: DR-01~07 반영(je3) → belle 2차 리뷰 "Pass with fixups" → fixup 4건 반영(k07, 22-VALIDATION 싱크 must-fix 포함). **Phase 22 실행 게이팅 준비 완료**(제품결정 D1~D3만 미결). GSD 모델 상시 분배 전환: 플랜·검증=fable/실행(executor·code-fixer)=opus, 고위험 실행(22-03/04/08 Pod·데이터 경계)만 fable 명시. 다음=시나리오 phase just-in-time(27-1 속도·26 온보딩 순) + Phase 22 실행 병렬 트랙. (이전 2026-07-05: 실기기 라운드 3 완결(결과화면·오버레이·사이각): 결과 재배치+번호 오버레이+감점0 게이트(o0s) / 뷰어 v3 번호점+드릴다운+진단문장(r6v, OTA) / 스플릿 사이각(r6x→wbs). **전 6동작 재검증(genpod3, vision 정상)이 belle "kip-up 편중" 원칙 덕에 사이각 오적용 버그 발견**: 사이각이 스플릿 아닌 다리결함(power-spin 무릎/elbow 골반)에도 그려지던 것 → wbs 게이트(split_angle 있을 때만 + 학생측만, 정은지측 도립 pose 폭주는 Phase 22 대기). PNG 실측 확인 완료. power-spin 0점=Gemini 20GB 초과(오늘 과다검증)→로컬 365파일 정리→62 정상화. 다음=내일 Fable 부활 후 시나리오 정식 플랜 + Phase 21→22(자체 pose 파인튜닝, 후보=RTMW fine-tune/ViTPose++·VLM=Qwen2.5-VL-7B). 개발=opus/플랜=fable
+Last activity: 2026-07-07 -- Phase 26 planning complete
 
 ### Quick Tasks Completed
 

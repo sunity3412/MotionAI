@@ -126,6 +126,10 @@ None - plan executed exactly as written.
 - 앱 런타임 변경은 OTA-safe (OTA 배포 가능). backend 는 models.py 주석-only 계약 미러라 Lambda 재배포 불필요 (리뷰 LOW-2).
 - `/help` 링크는 26-02 가 신설하는 라우트에 의존 (동일 wave). 링크 타깃은 문자열 라우트(typedRoutes 미사용)라 typecheck 무관.
 
+## Self-Check: PASSED
+
+All 6 modified files + SUMMARY.md exist on disk. All 3 commits (25533ad, 1402ead, 2e94e5c) present in git log. Typecheck GREEN on both tasks; models.py ast parse OK; trainingOptIn grep 0; backend functions/analysis diff 0.
+
 ---
 *Phase: 26-onboarding-upload-guide*
 *Completed: 2026-07-07*

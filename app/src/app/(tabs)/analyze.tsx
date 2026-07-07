@@ -51,6 +51,11 @@ const MIN_QUALITY_BITRATE_BPS = 6 * 1000 * 1000; // ~6 Mbps 미만 = 과압축 �
 // 한다 (하드 차단 아님 — D-06, 파일명은 사용자 제어 advisory 신호).
 const KAKAO_COMPRESSED_MARKER = '_talkv_';
 
+// Phase 26-06 (belle 실기기 확인 수정 2) — 카톡 경고 [다른 영상 선택] 후 앨범 재오픈
+// 지연. RN Modal(fade) 닫힘 애니메이션이 끝난 뒤 picker VC 를 띄워야 iOS presentation
+// 충돌이 없다 (Android 는 지연 무해).
+const TALKV_REPICK_DELAY_MS = 450;
+
 type VideoFormat = 'mp4' | 'mov';
 type Picked = {
   name: string;
@@ -345,9 +350,16 @@ export default function Analyze() {
     if (p) maybePromptBeforeRoute({ ...p, lowQuality: true });
   };
 
-  // Phase 26 (D-06) — 카톡 경고에서 [다른 영상 선택]. 보류한 영상을 버린다.
+  // Phase 26 (D-06) + belle 실기기 확인 수정 2 (26-06, 2026-07-08) — 카톡 경고에서
+  // [다른 영상 선택]: 보류한 영상을 버리고 앨범 picker 를 즉시 다시 연다 (belle:
+  // "다른 영상 선택 누를 때는 앨범 다시 켜져야 해"). _talkv_ 파일명은 갤러리 저장
+  // 카톡 영상에서만 나오므로 재오픈 대상 = 앨범 고정. iOS 는 Modal fade-out 중에
+  // picker VC 를 띄우면 presentation 충돌이 날 수 있어 닫힘 애니메이션 이후로 지연.
   const cancelTalkv = () => {
     setTalkvPicked(null);
+    setTimeout(() => {
+      void pickFromLibrary();
+    }, TALKV_REPICK_DELAY_MS);
   };
 
   const pickFromCamera = async () => {

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 26 UI-SPEC approved
-last_updated: "2026-07-07T06:55:48.575Z"
+stopped_at: Phase 26 플랜 완료(외부 리뷰 반영) — 실행 대기. 다음=27-1 플랜
+last_updated: "2026-07-07T07:25:45.195Z"
 last_activity: 2026-07-07 -- Phase 26 planning complete
 progress:
   total_phases: 14
@@ -684,9 +684,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-07T06:18:27.990Z
+Last session: 2026-07-07T07:25:45.179Z
 
-Stopped at: Phase 26 UI-SPEC approved
+Stopped at: Phase 26 플랜 완료(외부 리뷰 반영) — 실행 대기. 다음=27-1 플랜
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -753,7 +753,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/26-onboarding-upload-guide/26-UI-SPEC.md
+Resume file: .planning/phases/26-onboarding-upload-guide/26-01-PLAN.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

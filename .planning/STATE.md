@@ -4,12 +4,12 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 28 context gathered
-last_updated: "2026-07-07T12:24:31.892Z"
-last_activity: 2026-07-07 -- Phase 27 planning complete
+last_updated: "2026-07-07T13:35:55.036Z"
+last_activity: 2026-07-07 -- Phase 28 planning complete
 progress:
   total_phases: 14
   completed_phases: 2
-  total_plans: 44
+  total_plans: 52
   completed_plans: 17
   percent: 14
 ---
@@ -66,7 +66,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-07 -- Phase 27 planning complete
+Last activity: 2026-07-07 -- Phase 28 planning complete
 
 ### Quick Tasks Completed
 

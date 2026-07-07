@@ -367,19 +367,19 @@ if (Math.abs(cR - targetR) > DRIFT_CORRECT_THRESHOLD_S) {
 | A3 | 학생 9fps 추출 인덱스/9.0 ≈ 원본 영상 초 (ffmpeg 솎음 근사) [ASSUMED — frame_extractor step 방식상 ±1프레임 오차] | Pattern 1 | 오차 ≤ 0.11s < DRIFT threshold 0.2s — 실질 무해 |
 | A4 | power-spin 등 기존 fixture 로 tier 관찰 검증 가능 (Pod 접근 전제) [ASSUMED] | Validation | Pod 불가 시 unit + 실기기만으로 검증 — tier 임계의 실측 근거 약화 (임계 자체는 재사용 상수라 차단 아님) |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **mode3 second+ 에도 정렬 방출?**
+1. **mode3 second+ 에도 정렬 방출?** — **RESOLVED: 포함** (28-04 Task 2 — 양측 9fps 저비용 + Phase 29 D1 의존)
    - What we know: CONTEXT 경계는 "학생 vs 정은지"(mode1). 그러나 mode3 도 VideoCompare 로 prev 영상과 비교하고(result.tsx:1291-1295), `_deviation_against` 로 match 를 이미 계산하며(양쪽 9fps — 변환 단순), Phase 29 가 "Mode3 에도 비교영상"(D1) 을 이 phase 산출물에 의존.
    - What's unclear: 이번 scope 포함 여부 (belle 의도는 mode1 우선).
    - Recommendation: 계약/함수는 모드 무관으로 설계(fps 인자화)하되, 방출 배선은 mode1 필수 + mode3 는 저비용이면 동승 — planner 가 plan 분리로 판단. 점수 무접촉이라 리스크 낮음.
 
-2. **`_matched_ref_frame` fps 변환 fix 의 적용 범위**
+2. **`_matched_ref_frame` fps 변환 fix 의 적용 범위** — **RESOLVED: 표시 경로 전용, veto still 경로 제외** (28-05 + 28-VALIDATION 불변 제약, belle 통지 완료 2026-07-07)
    - What we know: 표시(fault_zoom) 경로와 채점 인접(veto still pair, app.py:1720) 경로가 같은 함수를 공유. fps fix 를 본체에 넣으면 veto still 입력이 바뀌어 점수 이동 가능 (Phase 28 은 "점수·verdict 절대 불변").
    - What's unclear: veto still 의 wrong-moment ref 프레임을 알고도 두는 것의 정당성 (별도 정합성 이슈).
    - Recommendation: 이번 phase 는 표시 경로 전용으로 fps 정합 적용(별도 helper 또는 인자). veto 경로 fix 는 발견사항으로 박제하고 belle 에게 별도 트랙(quick/후속) 제안 — silent 점수 변경 금지.
 
-3. **앵커 간격/스무딩 파라미터 (0.5s 권장)**
+3. **앵커 간격/스무딩 파라미터 (0.5s 권장)** — **RESOLVED: ANCHOR_STEP_S=0.5 상수 확정** (28-02 — 실기기 조정 루프는 28-08 manual 항목)
    - What we know: 간격이 좁을수록 충실, 넓을수록 rate 변경 빈도 감소 + 크기 절감. 0.5s 면 20s 영상 ~80 float.
    - Recommendation: 0.5s 로 시작, 상수화 + 근거 주석. 실기기에서 부자연스러우면 조정 (belle 승인 루프).
 

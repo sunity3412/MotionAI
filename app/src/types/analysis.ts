@@ -513,6 +513,11 @@ export interface DeductionBreakdown {
 }
 
 export type AnalysisResult = ScoreSuppression & {
+  // Phase 27 SPD-01 — 단계별 소요(ms). backend/audit 전용, 사용자 비노출(UI 소비 금지).
+  // Python lockstep: pipeline app.py `_stage` + contract.md timingsMs 절. flat
+  // Record<string, number> (nested 금지 — [[firestore-nested-array-flat]]). 키는 자유
+  // (status enum 아님) — 단계 추가는 비파괴. OPTIONAL — legacy doc 호환(부재 = 계측 이전 doc).
+  timingsMs?: Record<string, number>;
   // Phase 24: overallScore = deductionBreakdown.final (측정-기하 substrate 위 tally 출력,
   // min-of-core-possibly-capped 아님). legacy doc 은 deductionBreakdown 부재 가능.
   overallScore: number; // 0~100 종합. Phase 24 = deductionBreakdown.final. (legacy: min-of-core).

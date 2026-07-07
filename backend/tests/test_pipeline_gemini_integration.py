@@ -163,7 +163,15 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
     from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
     from sunity_shared.analysis.pole_geometry import build_pole_axis_measurement
 
-    def _impl(bucket, key, default_pole, *, keep_local_video=False):
+    def _impl(
+        bucket,
+        key,
+        default_pole,
+        *,
+        keep_local_video=False,
+        timings_ms=None,  # Phase 27 SPD-01 — stage-timing 계측 kwargs (stub 은 무시)
+        analysis_id="",
+    ):
         local_path = _P(tmp_video_path) if keep_local_video else None
         if keep_local_video:
             _P(tmp_video_path).write_bytes(b"fake video bytes")

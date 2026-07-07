@@ -33,17 +33,19 @@ Phase 6 (2026-06-08, Plan 06-02) — body_normalizer 통합 wiring:
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import json
 import logging
 import os
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.request
 from enum import Enum
 from pathlib import Path
-from typing import NamedTuple
+from typing import Iterator, NamedTuple
 
 import boto3  # Lambda 런타임 제공
 import numpy as np
@@ -101,6 +103,37 @@ from sunity_shared.s3keys import parse_upload_key
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
+
+
+# ── Phase 27 SPD-01 — stage-timing 계측 (27-RESEARCH Pattern 6) ──────────────
+# D-01 before/after 표의 데이터 소스 + D-02 진행률 재배분 실측 기반. 계측 없이는
+# 레버 효과(152s vs 197s 의 ~45s 미계상)를 증명할 수 없다 — 모든 최적화 wave 의 전제.
+# 계약 = analysis.ts `AnalysisResult.timingsMs?` + contract.md timingsMs 절
+# (backend/audit 전용, 사용자 비노출). Python 정본은 본 helper 주석 (자유 키 dict —
+# status enum 아님, models.py 상수 불필요).
+#
+# 순수 helper (boto3/네트워크 무의존 — unit test 가능). timings 는 flat dict[str, int]
+# 만 누적 ([[firestore-nested-array-flat]] 정합). 로그는 %-lazy 구조 로그 —
+# analysis_id/stage/elapsed_ms 만 (시크릿/영상 바이트/URL 금지, [[never-log-secrets]]).
+@contextlib.contextmanager
+def _stage(timings: dict[str, int], analysis_id: str, name: str) -> Iterator[None]:
+    """단계 경계 elapsed(ms) 를 timings[name] 에 누적 + stage_timing 로그 방출.
+
+    try/finally — stage 블록 안 예외가 나도 elapsed 를 기록한 뒤 예외를 전파한다
+    (계측 실패/예외가 분석 흐름을 깨지 않게 하되, 부분 소요는 남긴다). 기존 분석
+    로직은 이동 0 — 감싸기만 한다.
+    """
+    t0 = time.monotonic()
+    try:
+        yield
+    finally:
+        timings[name] = int((time.monotonic() - t0) * 1000)
+        log.info(
+            "stage_timing analysis_id=%s stage=%s elapsed_ms=%d",
+            analysis_id,
+            name,
+            timings[name],
+        )
 
 _s3 = boto3.client("s3")
 # 결과 화면 영상 재생 서명 URL 만료(초). 7일 = sigv4 + 영구 IAM 키의 최대값.
@@ -1284,6 +1317,8 @@ def _extract_video_analysis_inputs(
     default_pole: PoleAxis,
     *,
     keep_local_video: bool = False,
+    timings_ms: dict[str, int] | None = None,
+    analysis_id: str = "",
 ) -> _VideoAnalysisInputs:
     """R3 fix (2026-06-08 round-2, Plan 06-02 reviews).
 
@@ -1295,23 +1330,34 @@ def _extract_video_analysis_inputs(
     measure_body_profile 의 fallback 보장으로 non-null (R4 fix).
     """
     _ensure_adapters()
+    # Phase 27 SPD-01 — s3_download / frame_extract / rtmw 단계 계측 (27-RESEARCH
+    # Pattern 6). 기존 로직 이동 0 — 각 호출을 `_stage` 로 감싸기만. caller 가 dict 를
+    # 넘기지 않으면(레거시/테스트) throwaway dict 로 무해 계측.
+    if timings_ms is None:
+        timings_ms = {}
     tmp_path: str | None = None
     if keep_local_video:
         tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
         tmp_path = tmp.name
         tmp.close()
         try:
-            _s3.download_file(bucket, key, tmp_path)
-            frames = _FRAME_EXTRACTOR.extract(tmp_path)
-            pose_frames = _RTMW_ENGINE.estimate(frames, default_pole)
+            with _stage(timings_ms, analysis_id, "s3_download"):
+                _s3.download_file(bucket, key, tmp_path)
+            with _stage(timings_ms, analysis_id, "frame_extract"):
+                frames = _FRAME_EXTRACTOR.extract(tmp_path)
+            with _stage(timings_ms, analysis_id, "rtmw"):
+                pose_frames = _RTMW_ENGINE.estimate(frames, default_pole)
         except Exception:
             Path(tmp_path).unlink(missing_ok=True)
             raise
     else:
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
-            _s3.download_file(bucket, key, tmp.name)
-            frames = _FRAME_EXTRACTOR.extract(tmp.name)
-            pose_frames = _RTMW_ENGINE.estimate(frames, default_pole)
+            with _stage(timings_ms, analysis_id, "s3_download"):
+                _s3.download_file(bucket, key, tmp.name)
+            with _stage(timings_ms, analysis_id, "frame_extract"):
+                frames = _FRAME_EXTRACTOR.extract(tmp.name)
+            with _stage(timings_ms, analysis_id, "rtmw"):
+                pose_frames = _RTMW_ENGINE.estimate(frames, default_pole)
 
     # R4 fix — measure_body_profile 의 _fallback_profile 정합 (non-null 보장).
     student_profile = measure_body_profile(pose_frames)
@@ -3078,6 +3124,10 @@ def _mode3_comparison(
 
 def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     _ensure_adapters()
+    # Phase 27 SPD-01 — stage-timing 계측 (27-RESEARCH Pattern 6). D-01 before/after
+    # 표의 데이터 소스. 계약 = analysis.ts timingsMs? + contract.md (backend/audit 전용).
+    # flat dict[str, int] 만 누적 → complete_analysis 직전 result["timingsMs"] 부착.
+    timings_ms: dict[str, int] = {}
     firestore_admin.update_analysis_status(uid, analysis_id, models.STATUS_QUEUED)
 
     meta = firestore_admin.get_analysis(uid, analysis_id)
@@ -3115,6 +3165,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             or _gemini_vision_enabled()
             or _gemini_vision_veto_enabled()
         ),
+        timings_ms=timings_ms,  # Phase 27 SPD-01 — s3_download/frame_extract/rtmw 계측
+        analysis_id=analysis_id,
     )
     angles = inputs.angles
     student_profile = inputs.student_profile  # R4 fix — non-null
@@ -3129,10 +3181,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # graceful — find_scene_flags 예외 / GEMINI_FINDING_ENABLED OFF / local path 없음
     # 시 None 반환 후 분석 흐름 계속.
     is_reference_local = _resolve_is_reference(key, meta)
-    scene_result = _call_wave1_scene_finder(
-        local_video_path=local_video_path,
-        is_reference=is_reference_local,
-    )
+    with _stage(timings_ms, analysis_id, "scene_finder"):  # Phase 27 SPD-01
+        scene_result = _call_wave1_scene_finder(
+            local_video_path=local_video_path,
+            is_reference=is_reference_local,
+        )
 
     # Path A production 정합 (2026-06-05): mode=expert = motion known case
     # (사용자가 referenceMotionId 선택). recognizer.motion_query_hint 박제 →
@@ -3203,7 +3256,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # Plan 5-03 박제 — recognize(angles, frames=local_video_path) 호출. Gemini
         # 어댑터는 frames 인자 (video path) 를 File API 입력으로 사용. Fallback 은
         # frames 인자 ignore (Protocol 정합 — TestProtocolCompat 박제 검증).
-        profile = recognizer.recognize(angles, frames=local_video_path)
+        with _stage(timings_ms, analysis_id, "recognizer"):  # Phase 27 SPD-01
+            profile = recognizer.recognize(angles, frames=local_video_path)
         abs_dims = dimensions.absolute_dimension_scores(angles, profile)
 
         # Phase 19 TRUST-03 (BLOCKER-1 iter-1 + ITER-4) — branch_info lookup 을 recognize
@@ -3219,7 +3273,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         body_comparison_report = None
 
         if mode == models.MODE_EXPERT:
-            ref = firestore_admin.get_reference_motion(meta.get("referenceMotionId"))
+            with _stage(timings_ms, analysis_id, "ref_fetch_download"):  # Phase 27 SPD-01
+                ref = firestore_admin.get_reference_motion(meta.get("referenceMotionId"))
             if ref is None or "angles" not in ref:
                 raise RuntimeError("기준 모션 또는 keyframe 데이터 없음")
             # R2 wiring — reference 의 bodyNormalizationProfile + bodyComparisonSourcePose 둘 다 fetch.
@@ -3304,26 +3359,28 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             )
             # seed 는 Firestore 의 nested-array 금지 회피로 angles 를 flat 저장.
             num_joints = len(ref.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
-            deviation, match, user_seg, a_ref = _deviation_against(
-                angles, ref["angles"], num_joints
-            )
-            reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
-            reference_angles_for_veto = a_ref  # 23-02 Task 5 — frame-specific 각도 정량화 입력.
-            # Phase 19 TRUST-01 (HIGH-2 iter-1): 표시 각도 = 점수 산출 DTW path-정렬 median.
-            # 기존 whole-clip np.nanmean(user_seg) vs np.nanmean(a_ref) 는 시간 비대칭
-            # (user matched-window vs ref full-clip) + jitter 민감 → 표시·점수 불일치.
-            # _angles_to_dtw_median_dicts 가 per_joint_deviation 과 동일 path/median source 사용.
-            user_mean_mode1, ref_mean_mode1 = _angles_to_dtw_median_dicts(
-                angles, a_ref, skeleton.JOINT_KEYS
-            )
-            assessments = kismam.assess(
-                deviation,
-                user_angles=user_mean_mode1,
-                reference_angles=ref_mean_mode1,
-                target_source="reference_motion",
-            )
-            # 각도 정확도 차원 = 정은지 대비 관절각 일치도. 모드1 게이지/일치도이기도 함.
-            angle_dim = kismam.overall_score(assessments)
+            # Phase 27 SPD-01 — dtw_scoring 단계 계측 (DTW 정렬 + KISMAM 평가 + 각도 차원).
+            with _stage(timings_ms, analysis_id, "dtw_scoring"):
+                deviation, match, user_seg, a_ref = _deviation_against(
+                    angles, ref["angles"], num_joints
+                )
+                reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
+                reference_angles_for_veto = a_ref  # 23-02 Task 5 — frame-specific 각도 정량화 입력.
+                # Phase 19 TRUST-01 (HIGH-2 iter-1): 표시 각도 = 점수 산출 DTW path-정렬 median.
+                # 기존 whole-clip np.nanmean(user_seg) vs np.nanmean(a_ref) 는 시간 비대칭
+                # (user matched-window vs ref full-clip) + jitter 민감 → 표시·점수 불일치.
+                # _angles_to_dtw_median_dicts 가 per_joint_deviation 과 동일 path/median source 사용.
+                user_mean_mode1, ref_mean_mode1 = _angles_to_dtw_median_dicts(
+                    angles, a_ref, skeleton.JOINT_KEYS
+                )
+                assessments = kismam.assess(
+                    deviation,
+                    user_angles=user_mean_mode1,
+                    reference_angles=ref_mean_mode1,
+                    target_source="reference_motion",
+                )
+                # 각도 정확도 차원 = 정은지 대비 관절각 일치도. 모드1 게이지/일치도이기도 함.
+                angle_dim = kismam.overall_score(assessments)
             # 비폴 영상 차단 안전망(belle P1 #8). 기준 동작과 너무 동떨어진 자세는
             # 폴 영상이 아닐 가능성이 높아 의미 없는 점수를 결과 화면에 노출하지 않는다.
             if angle_dim < models.NOT_POLE_SIMILARITY_THRESHOLD:
@@ -3489,18 +3546,19 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 같은 ctx 가 아래 _apply_vision_veto(vision_fault_context=) 에서 재사용된다(geminiCallCount=1).
         # coach 주입 게이트: ctx.eligible_for_coach (=collection_status==candidate_verdict AND
         # cap_would_apply, D-13 MED-2). valid-but-not-cap-lowering(minor/88) 은 무주입(D-11 HIGH-1).
-        vision_fault_context = _collect_vision_fault_context(
-            overall_score=overall,
-            dimension_scores=dimension_scores,
-            mode=mode,
-            local_video_path=local_video_path,
-            angles=angles,
-            profile=profile,
-            reference_dtw_match=reference_dtw_match,
-            reference_angles=reference_angles_for_veto,
-            reference_video_path=reference_local_video_path,
-            pose_frames=pose_frames,
-        )
+        with _stage(timings_ms, analysis_id, "veto_collect"):  # Phase 27 SPD-01
+            vision_fault_context = _collect_vision_fault_context(
+                overall_score=overall,
+                dimension_scores=dimension_scores,
+                mode=mode,
+                local_video_path=local_video_path,
+                angles=angles,
+                profile=profile,
+                reference_dtw_match=reference_dtw_match,
+                reference_angles=reference_angles_for_veto,
+                reference_video_path=reference_local_video_path,
+                pose_frames=pose_frames,
+            )
         # eligible 일 때만 support-gated root-cause 를 coach context 에 주입(graceful 무시 아님 —
         # writer 가 to_coach_context() 의 visionFault 키를 실제 프롬프트 causes 에 렌더).
         vision_coach_context = (
@@ -3531,12 +3589,15 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         gemini_b_audit: dict | None = None
         if _coach_enabled():
             # (1) 양쪽 writer 동시 호출 + 시도당 재시도 1회 (단일 coach_context 공유, B3).
-            gemini_result = _call_coach_writer_with_retry(
-                "gemini", _ensure_gemini_coach_writer().write, coach_context
-            )
-            cerebras_result = _call_coach_writer_with_retry(
-                "cerebras", _COACH_WRITER.write, coach_context
-            )
+            # Phase 27 SPD-01 — coach_dual 단계 계측 (Gemini+Cerebras writer 라운드트립,
+            # mode1 지배 비용 구간). 조립/cross-fill 은 CPU-cheap 이라 계측 밖.
+            with _stage(timings_ms, analysis_id, "coach_dual"):
+                gemini_result = _call_coach_writer_with_retry(
+                    "gemini", _ensure_gemini_coach_writer().write, coach_context
+                )
+                cerebras_result = _call_coach_writer_with_retry(
+                    "cerebras", _COACH_WRITER.write, coach_context
+                )
             gemini_ok = bool(_coach_user_visible_keys(gemini_result))
             cerebras_ok = bool(_coach_user_visible_keys(cerebras_result))
 
@@ -3593,23 +3654,24 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # GEMINI_COACH_ENABLED OFF — Cerebras only (기존 path 그대로). audit 박제 X.
             coach_details = _COACH_WRITER.write(coach_context)
             gemini_b_audit = None
-        result = assemble.build_result(
-            assessments,
-            dimension_scores,
-            overall,
-            comparison,
-            my_video_url,
-            reference_video_url=reference_video_url,
-            coach_details=coach_details,
-            my_video_key=key,  # 박제 (2026-06-06): GET /playback-url 재발급용
-            # Phase 12.5 (2026-06-07): dimensionExplanation source 박제 박제
-            # — line/stability deficit 가 점수 산식 (line_score/stability_score) 과 동일
-            # _select_window + dimensions helpers 사용 (Codex v3 HIGH-2 정합).
-            joint_angles=angles,
-            profile=profile,
-            # Phase 13-B (HIGH-2): copyBranch 분기 카피 pass-through (coach 와 동일 lookup).
-            branch_info=branch_info,
-        )
+        with _stage(timings_ms, analysis_id, "assemble_misc"):  # Phase 27 SPD-01
+            result = assemble.build_result(
+                assessments,
+                dimension_scores,
+                overall,
+                comparison,
+                my_video_url,
+                reference_video_url=reference_video_url,
+                coach_details=coach_details,
+                my_video_key=key,  # 박제 (2026-06-06): GET /playback-url 재발급용
+                # Phase 12.5 (2026-06-07): dimensionExplanation source 박제 박제
+                # — line/stability deficit 가 점수 산식 (line_score/stability_score) 과 동일
+                # _select_window + dimensions helpers 사용 (Codex v3 HIGH-2 정합).
+                joint_angles=angles,
+                profile=profile,
+                # Phase 13-B (HIGH-2): copyBranch 분기 카피 pass-through (coach 와 동일 lookup).
+                branch_info=branch_info,
+            )
         # Phase 24 (ND-01~07) — 투명 감점-합산 채점 seam (밴드 제거). 23-02 Task 5
         # (D-12 HIGH-1) collect→coach→build_result→_build_vision_quantification_result→apply
         # 순서. collect 가 위에서 verdict 를 1회 수집(vision_fault_context)했으므로, 여기서는
@@ -3986,53 +4048,55 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # keypoint_report_dict(user) + reference_keypoint_report_dict(ref doc) + 아직
         # 살아있는 reference_local_video_path 로 worst-pose crop 합성 → S3 → result.
         # graceful: 어떤 실패도 분석 흐름 차단 0 (부가 기능). Mode3 는 reference 없음 → skip.
-        if (
-            mode == models.MODE_EXPERT
-            and reference_local_video_path is not None
-            and keypoint_report_dict is not None
-        ):
-            try:
-                result = _attach_fault_zoom_comparisons(
-                    result,
-                    local_video_path,
-                    reference_local_video_path,
-                    keypoint_report_dict,
-                    reference_keypoint_report_dict,
-                    profile,
-                    uid,
-                    analysis_id,
-                    bucket,
-                    dtw_match=reference_dtw_match,
-                )
-            except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
-                log.exception(
-                    "fault-zoom 생성 실패 — graceful (분석 흐름 유지) "
-                    "uid=%s analysis_id=%s",
-                    uid, analysis_id,
-                )
-        elif (
-            mode == models.MODE_SELF
-            and mode3_prev is not None
-            and keypoint_report_dict is not None
-        ):
-            # Mode3 — 현재 vs 지난 영상 변화 부위 확대 비교 (mode3=progress).
-            try:
-                result = _attach_mode3_fault_zoom(
-                    result,
-                    local_video_path,
-                    keypoint_report_dict,
-                    mode3_prev,
-                    profile,
-                    uid,
-                    analysis_id,
-                    bucket,
-                )
-            except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
-                log.exception(
-                    "fault-zoom Mode3 생성 실패 — graceful (분석 흐름 유지) "
-                    "uid=%s analysis_id=%s",
-                    uid, analysis_id,
-                )
+        # Phase 27 SPD-01 — fault_zoom 단계 계측 (Mode1/Mode3 확대 비교 합성 + S3 업로드).
+        with _stage(timings_ms, analysis_id, "fault_zoom"):
+            if (
+                mode == models.MODE_EXPERT
+                and reference_local_video_path is not None
+                and keypoint_report_dict is not None
+            ):
+                try:
+                    result = _attach_fault_zoom_comparisons(
+                        result,
+                        local_video_path,
+                        reference_local_video_path,
+                        keypoint_report_dict,
+                        reference_keypoint_report_dict,
+                        profile,
+                        uid,
+                        analysis_id,
+                        bucket,
+                        dtw_match=reference_dtw_match,
+                    )
+                except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
+                    log.exception(
+                        "fault-zoom 생성 실패 — graceful (분석 흐름 유지) "
+                        "uid=%s analysis_id=%s",
+                        uid, analysis_id,
+                    )
+            elif (
+                mode == models.MODE_SELF
+                and mode3_prev is not None
+                and keypoint_report_dict is not None
+            ):
+                # Mode3 — 현재 vs 지난 영상 변화 부위 확대 비교 (mode3=progress).
+                try:
+                    result = _attach_mode3_fault_zoom(
+                        result,
+                        local_video_path,
+                        keypoint_report_dict,
+                        mode3_prev,
+                        profile,
+                        uid,
+                        analysis_id,
+                        bucket,
+                    )
+                except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
+                    log.exception(
+                        "fault-zoom Mode3 생성 실패 — graceful (분석 흐름 유지) "
+                        "uid=%s analysis_id=%s",
+                        uid, analysis_id,
+                    )
 
         # ── Plan 04-01 Wave 1 (Phase 4) — Occlusion 합성 어댑터 호출 ──────────
         # R1 non-scoring 하드월: 본 분기는 KeypointReport / aiSynthesisMeta /
@@ -4128,29 +4192,37 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             )
             joints3d_flat = None
 
-        firestore_admin.complete_analysis(
-            uid,
-            analysis_id,
-            result,
-            angles=np.asarray(angles, dtype=float).reshape(-1).tolist(),
-            angles_joint_keys=list(skeleton.JOINT_KEYS),
-            angles_frames=int(np.asarray(angles).shape[0]),
-            body_comparison_report=body_comparison_report_dict,
-            body_normalization_profile=body_normalization_profile_dict,
-            force_signals_report=force_signals_dict,
-            force_pattern_inference=force_pattern_inference_dict,  # Phase 9 (Plan 09-02)
-            recommended_exercises=recommended_exercises,  # Phase 13 (Plan 13-A, PERS-03)
-            keypoint_report=keypoint_report_dict,  # Phase 12 Wave 0B (Plan 12-01)
-            gemini_b=gemini_b_audit,  # Plan 17-04 Wave 3 (영역 B Coach audit)
-            gemini_c=scene_result,  # Plan 17-02 Wave 1 (영역 C Finding flag)
-            gemini_d=gemini_d_result,  # Plan 17-03 Wave 2 (영역 D Keypoint 보강)
-            ai_synthesis_meta=ai_synthesis_meta_dict,  # Plan 04-01 Wave 1 (R3 fix)
-            joints3d=joints3d_flat,  # Plan 04-01 Wave 1 (R3 fix flat)
-            joints3d_keys=joints3d_keys_list,
-            joints3d_frames=joints3d_frames_int,
-            coord_dim=coord_dim_int,
-            space=space_str,
-        )
+        # Phase 27 SPD-01 — timingsMs 부착 (complete_analysis 직전). flat dict[str, int]
+        # (nested-array 금지 정합 — [[firestore-nested-array-flat]]). backend/audit 전용,
+        # 사용자 비노출 (contract.md timingsMs 절 + analysis.ts AnalysisResult.timingsMs?).
+        # firestore_complete 단계는 complete_analysis **호출 자체** 를 감싸므로 timings_ms
+        # 에 그 키가 들어가는 시점(with finally)이 complete_analysis 직렬화보다 뒤 →
+        # 저장 dict 에는 미포함(로그 라인으로만 방출). 의도적 — 저장 재귀 방지.
+        result["timingsMs"] = timings_ms
+        with _stage(timings_ms, analysis_id, "firestore_complete"):  # Phase 27 SPD-01
+            firestore_admin.complete_analysis(
+                uid,
+                analysis_id,
+                result,
+                angles=np.asarray(angles, dtype=float).reshape(-1).tolist(),
+                angles_joint_keys=list(skeleton.JOINT_KEYS),
+                angles_frames=int(np.asarray(angles).shape[0]),
+                body_comparison_report=body_comparison_report_dict,
+                body_normalization_profile=body_normalization_profile_dict,
+                force_signals_report=force_signals_dict,
+                force_pattern_inference=force_pattern_inference_dict,  # Phase 9 (Plan 09-02)
+                recommended_exercises=recommended_exercises,  # Phase 13 (Plan 13-A, PERS-03)
+                keypoint_report=keypoint_report_dict,  # Phase 12 Wave 0B (Plan 12-01)
+                gemini_b=gemini_b_audit,  # Plan 17-04 Wave 3 (영역 B Coach audit)
+                gemini_c=scene_result,  # Plan 17-02 Wave 1 (영역 C Finding flag)
+                gemini_d=gemini_d_result,  # Plan 17-03 Wave 2 (영역 D Keypoint 보강)
+                ai_synthesis_meta=ai_synthesis_meta_dict,  # Plan 04-01 Wave 1 (R3 fix)
+                joints3d=joints3d_flat,  # Plan 04-01 Wave 1 (R3 fix flat)
+                joints3d_keys=joints3d_keys_list,
+                joints3d_frames=joints3d_frames_int,
+                coord_dim=coord_dim_int,
+                space=space_str,
+            )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
     finally:
         # Plan 5-03 박제 — Gemini 어댑터 path 에서 신설한 임시 파일 정리.

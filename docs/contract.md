@@ -271,6 +271,25 @@ resolvedReason       'unheld' | 'recognition_low_confidence'   resolver 최종 r
   - Firestore flat 정합: visionVeto = scalar dict, scoreSuppressed = bool,
     scoreSuppressedReason = str, scoreSuppressionAudit = scalar dict (nested-array 0,
     [[firestore-nested-array-flat]] 보존).
+
+`timingsMs` (Phase 27 SPD-01 — 단계별 소요 계측, D-01 before/after 근거)
+```
+timingsMs   { [stage: string]: number }   optional  ← 단계별 소요(ms), flat dict[str,int]
+```
+  - **backend/audit 전용 · 사용자 비노출** — UI 는 이 필드를 절대 소비하지 않는다(점수/코칭
+    surface 0). D-01 정확도 무회귀 게이트의 before/after stage-timing 표 + D-02 진행률
+    재배분의 실측 기반으로만 사용.
+  - flat `dict[str, int]` (nested list/dict 금지 — [[firestore-nested-array-flat]] 보존).
+    값은 정수 ms.
+  - 단계 키는 **예시**(비고정 — 키 추가는 비파괴): `s3_download`, `frame_extract`, `rtmw`,
+    `scene_finder`, `recognizer`, `ref_fetch_download`, `dtw_scoring`, `veto_collect`,
+    `coach_dual`, `assemble_misc`, `fault_zoom`. `firestore_complete` 는 저장 dict 에는
+    미포함(complete_analysis 호출 자체를 감싸 직렬화 이후 기록 — 로그 라인으로만 방출).
+  - **부재 = 계측 이전(legacy) doc** — optional, migration 없음.
+  - Python 정본: pipeline `app.py` `_stage` contextmanager 주석 (자유 키 dict — status
+    enum 아님, models.py 상수 불필요). lockstep: `app/src/types/analysis.ts
+    AnalysisResult.timingsMs?` ↔ pipeline `_stage`/`result["timingsMs"]` ↔ 본 §4.
+
 `dimensionScores` = IPSF 폴스포츠 실행 심사기준 (docs/research/폴스포츠-지식.md).
   신체 부위가 아니라 심판이 보는 실행 차원. **3차원** (2026-05-29 balance 차원 제거 —
   IPSF 근거 없음, 의도적 비대칭 동작 위양성 제거).

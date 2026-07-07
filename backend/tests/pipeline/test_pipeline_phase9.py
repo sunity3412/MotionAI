@@ -82,7 +82,10 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str = "/tmp/__phase9.mp4"
     from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
     from sunity_shared.analysis.pole_geometry import build_pole_axis_measurement
 
-    def _impl(bucket, key, default_pole, *, keep_local_video=False):
+    def _impl(
+        bucket, key, default_pole, *, keep_local_video=False,
+        timings_ms=None, analysis_id="",  # Phase 27 SPD-01 — stage-timing kwargs (stub 무시)
+    ):
         local_path = Path(tmp_video_path) if keep_local_video else None
         fallback_profile = BodyNormalizationProfile(
             estimated_height_scale=1.0,

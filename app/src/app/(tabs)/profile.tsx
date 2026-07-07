@@ -39,27 +39,37 @@ function shortenUid(uid: string): string {
 
 // 채워진 필드만 "·" 로 묶어 요약 (부분 입력 graceful, D-06). 전부 비면 null.
 // 라벨은 analysis.ts 단일 출처(WR-03) — *_LABEL_KO 사용.
-function summarizeBodyProfile(profile: BodyProfile | null): string | null {
-  if (!profile) return null;
+// painAreaNote(F3): 앱-로컬 '기타' 자유입력 — 계약 필드가 전부 비어도(profile=null)
+// 메모만 있으면 요약에 노출. 통증부위 라벨 뒤에 "기타: <메모>" 로 붙인다.
+function summarizeBodyProfile(
+  profile: BodyProfile | null,
+  painAreaNote?: string | null,
+): string | null {
   const parts: string[] = [];
-  if (profile.heightCm != null) parts.push(`${profile.heightCm}cm`);
-  if (profile.experience) parts.push(EXPERIENCE_LABEL_KO[profile.experience]);
-  if (profile.dominantHand) parts.push(DOMINANT_HAND_LABEL_KO[profile.dominantHand]);
-  if (profile.painAreas.length > 0) {
-    parts.push(profile.painAreas.map((a) => PAIN_AREA_LABEL_KO[a]).join('·'));
+  if (profile) {
+    if (profile.heightCm != null) parts.push(`${profile.heightCm}cm`);
+    if (profile.experience) parts.push(EXPERIENCE_LABEL_KO[profile.experience]);
+    if (profile.dominantHand) parts.push(DOMINANT_HAND_LABEL_KO[profile.dominantHand]);
+    if (profile.painAreas.length > 0) {
+      parts.push(profile.painAreas.map((a) => PAIN_AREA_LABEL_KO[a]).join('·'));
+    }
   }
+  if (painAreaNote) parts.push(`기타: ${painAreaNote}`);
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 export default function Profile() {
   const { analyses } = useMyAnalyses({ doneOnly: true });
-  const { profile } = useBodyProfile();
+  const { profile, painAreaNote } = useBodyProfile();
   const uid = auth.currentUser?.uid ?? null;
   const avg = useMemo(() => averageScore(analyses), [analyses]);
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
   const [editing, setEditing] = useState(false);
-  const summary = useMemo(() => summarizeBodyProfile(profile), [profile]);
+  const summary = useMemo(
+    () => summarizeBodyProfile(profile, painAreaNote),
+    [profile, painAreaNote],
+  );
 
   return (
     <View style={styles.container}>
@@ -152,6 +162,7 @@ export default function Profile() {
         <SafeAreaView style={styles.modalSafe} edges={['top']}>
           <BodyProfileForm
             initial={profile}
+            initialPainAreaNote={painAreaNote}
             onClose={() => setEditing(false)}
             onSaved={() => setEditing(false)}
           />

@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { saveBodyProfile } from '../lib/bodyProfile';
+import { saveBodyProfile, savePainAreaNote } from '../lib/bodyProfile';
 import type {
   BodyProfile,
   DominantHand,
@@ -63,6 +63,9 @@ const PAIN_AREA_OPTIONS: ReadonlyArray<{ value: PainArea; label: string }> = (
 
 type Props = {
   initial?: BodyProfile | null;
+  // 통증부위 '기타' 자유입력 prefill (F3). 앱-로컬 painAreaNote — 옵셔널이라
+  // analyze 등 prefill 없는 첫-입력 호출부는 무변경 (계약/호출부 무접촉).
+  initialPainAreaNote?: string | null;
   onSaved?: () => void;
   onClose?: () => void;
 };
@@ -85,7 +88,12 @@ function validateNumber(
   return { value: n, error: null };
 }
 
-export default function BodyProfileForm({ initial, onSaved, onClose }: Props) {
+export default function BodyProfileForm({
+  initial,
+  initialPainAreaNote,
+  onSaved,
+  onClose,
+}: Props) {
   const insets = useSafeAreaInsets();
 
   // 숫자는 string state 로 보관 (빈 문자열 = 미입력). prefill = 기존값(수정 진입).
@@ -103,6 +111,14 @@ export default function BodyProfileForm({ initial, onSaved, onClose }: Props) {
     initial?.dominantHand ?? null,
   );
   const [painAreas, setPainAreas] = useState<PainArea[]>(initial?.painAreas ?? []);
+
+  // 통증부위 '기타' + 자유입력 (F3). etcSelected 초기값 = prefill 메모 존재 여부.
+  // noteStr = 자유입력 텍스트. noteFocused = 포커스 시 브랜드 보더 (UI-SPEC S7).
+  const [etcSelected, setEtcSelected] = useState<boolean>(
+    !!(initialPainAreaNote && initialPainAreaNote.trim() !== ''),
+  );
+  const [noteStr, setNoteStr] = useState<string>(initialPainAreaNote ?? '');
+  const [noteFocused, setNoteFocused] = useState<boolean>(false);
 
   const [heightError, setHeightError] = useState<string | null>(null);
   const [weightError, setWeightError] = useState<string | null>(null);
@@ -146,6 +162,16 @@ export default function BodyProfileForm({ initial, onSaved, onClose }: Props) {
         painAreas,
         dominantHand,
       });
+
+      // F3 dirty-guard: prefill 없는 호출부(analyze 등)에서 기존 메모를 빈 값으로
+      // 덮어쓰지 않도록 initialPainAreaNote 와 다를 때만 기록. 기타 해제 시 '' 취급
+      // (해제 = 메모 삭제 의도 → null 명시 기록, WR-01).
+      const trimmedNote = etcSelected ? noteStr.trim() : '';
+      const baseNote = (initialPainAreaNote ?? '').trim();
+      if (trimmedNote !== baseNote) {
+        await savePainAreaNote(trimmedNote === '' ? null : trimmedNote);
+      }
+
       onSaved?.();
     } catch {
       setSaveError('저장 중 문제가 발생했어요. 다시 시도해주세요.');
@@ -253,7 +279,35 @@ export default function BodyProfileForm({ initial, onSaved, onClose }: Props) {
                   </Pressable>
                 );
               })}
+              {/* '기타' chip — 닫힌 8개 enum 밖의 자유입력 진입점 (F3). 선택 상태는
+                  로컬 boolean(etcSelected), enum 배열(painAreas)엔 넣지 않는다. */}
+              <Pressable
+                key="etc"
+                onPress={() => setEtcSelected((v) => !v)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: etcSelected }}
+                accessibilityLabel={`통증부위 기타${etcSelected ? ', 선택됨' : ''}`}
+                hitSlop={6}
+                style={[styles.chip, etcSelected && styles.chipSelected]}
+              >
+                <Text style={[styles.chipText, etcSelected && styles.chipTextSelected]}>
+                  기타
+                </Text>
+              </Pressable>
             </View>
+            {/* 기타 자유입력 — placeholder textDisabled, 포커스 시 brand 보더 (UI-SPEC S7). */}
+            {etcSelected ? (
+              <TextInput
+                value={noteStr}
+                onChangeText={setNoteStr}
+                onFocus={() => setNoteFocused(true)}
+                onBlur={() => setNoteFocused(false)}
+                placeholder="직접 입력해 주세요"
+                placeholderTextColor={colors.textDisabled}
+                accessibilityLabel="기타 통증부위 직접 입력"
+                style={[styles.noteInput, noteFocused && styles.noteInputFocused]}
+              />
+            ) : null}
           </View>
 
           {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
@@ -421,6 +475,18 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: colors.brandTint, borderColor: colors.brand },
   chipText: { ...typography.buttonSecondary, color: colors.textPrimary },
   chipTextSelected: { color: colors.brand },
+  // 기타 자유입력 (F3 / UI-SPEC S7) — inputHeight 단일행, 포커스 시 brand 보더.
+  noteInput: {
+    height: layout.inputHeight,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    borderRadius: radius.button,
+    backgroundColor: colors.bg,
+    paddingHorizontal: spacing.cardPadding,
+    ...typography.buttonSecondary,
+    color: colors.textPrimary,
+  },
+  noteInputFocused: { borderColor: colors.brand },
   error: { ...typography.caption, color: colors.inputError },
   cta: {
     height: layout.ctaHeight,

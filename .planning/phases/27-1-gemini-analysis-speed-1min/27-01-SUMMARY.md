@@ -120,3 +120,9 @@ None - 외부 서비스 설정 불필요 (신규 패키지 0, OTA 무관 — 타
 ---
 *Phase: 27-1-gemini-analysis-speed-1min*
 *Completed: 2026-07-08*
+
+## Self-Check: PASSED
+
+- 생성 파일 6개 전부 존재 (test_stage_timing.py / fake_genai.py / app.py / analysis.ts / contract.md / SUMMARY.md).
+- 커밋 4개 전부 존재 (f063cea test-RED / b25a038 feat / 58270c6 fake genai / 4ca2f7b docs).
+- 검증: `tests/test_stage_timing.py tests/gemini/` 120 passed, `_stage(timings_ms` 15개 (≥10), timingsMs 계약 3곳(app.py 6 / analysis.ts 2 / contract.md 3), app typecheck exit 0.

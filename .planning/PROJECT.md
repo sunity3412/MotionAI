@@ -24,6 +24,7 @@
 - ✓ TestFlight 빌드/제출 파이프라인 (EAS Build + ASC API Key 무인 submit) — existing
 - ✓ 자가입력 BodyProfile (키·몸무게·경력·통증부위·우세손) — 마이페이지 상시 편집 + 첫분석 1회 권유, BodyProfile 3-way 계약(TS↔Python↔contract.md) + 분석 doc snapshot → coach context 전달 (BODY-02). Validated in Phase 3: bodyprofileinput (2개 실기기 UAT 항목 잔여)
 - ✓ CoachCommentHook 데이터 구조 + text-only Gemini 자연어 번역 (number-free, 객관) — 두 리포트(ForcePatternInference/BodyComparisonReport)에 hook 부착, 결과 화면 "강사에게 확인할 점" 병합 노출 + "강사 보조 도구" 포지셔닝. Validated in Phase 11: coachcommenthook-gemini (COACH-01, FEED-03; hook은 best-effort — 분석 절대 실패 안 함 D-08). 실 LLM E2E는 Phase 15 실증
+- ✓ 분석 이전 여정(시나리오 0/0.5/1/1.5) 온보딩·업로드 가이드 — 첫 실행 튜토리얼(스와이프 3슬라이드+이미지) + 이용방법/FAQ(/help, 샘플 미리보기 대체) + 프라이버시 1줄·학습활용 opt-out(`learningOptIn` 계약 3-way, 기본 동의·해제 가능 — belle 결정 2026-07-08) + 카톡 압축본 `_talkv_` 감지 경고·앨범 재선택 + not_pole 구도/거리 안내 + F3 통증 기타 자유입력·F4 배너 정리. Validated in Phase 26: onboarding-upload-guide (ONBD-01~04; 실기기 6항목은 26-HUMAN-UAT 배치 이월, 22-04 manifest gate의 learningOptIn 필터는 Phase 22 반영 예정)
 
 ### Active
 
@@ -127,6 +128,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-18 — Phase 19 (vision-hybrid: IPSF 감점식 채점 재설계 + 확정 버그 3건 + Mode3 미보유 게이트 + v2 vision hook 자리, SCORE-06/07·TRUST-01~05) 완료 반영. TRUST-04 실기기 3D 렌더 육안은 다음 native build 시점 deferred(19-HUMAN-UAT)*
+*Last updated: 2026-07-08 — Phase 26 (onboarding-upload-guide: 튜토리얼/FAQ/learningOptIn opt-out/카톡 감지/not_pole 안내/F3·F4, ONBD-01~04) 완료 반영. 실기기 확인은 배치 UAT 정책(phase 22·26~31 완료 후 직원 합동)으로 26-HUMAN-UAT 이월*
 *Updated 2026-06-02: Phase 16 신설 — 학원 용어 3분기 + 5트랙 채점 v1 scope. NotebookLM IPSF CoP 2024-2025 lookup 박제. v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제. Active 그룹 (점수 신뢰도 / 기준 모션) 항목 추가, Out of Scope v2 보강, Key Decisions 3건 추가.*
 *Updated 2026-06-08: 분석 정확도 핵심 차원 v1 진행 결정 (이전 2026-06-07 "Phase 2~11 보류" 박제 무효). v1 시퀀스 = Phase 6 → 7 → 8 → 9 → 12 → 13. belle 박제 — "오버레이, 체형 정규화, 힘 패턴은 필수적. 어떻게든 기필코 개발하려고 하는 게 지금." Phase 6 CONTEXT.md 박제 (좌표 변환 방향 B + confidence-tiered hybrid + 3 케이스 통합 schema). Key Decisions 3건 추가.*

@@ -110,6 +110,13 @@ export default function Analyze() {
   const [error, setError] = useState<string | null>(null);
   const [permissionBlocked, setPermissionBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  // [WR-02] busy 최신값 미러 — 지연 재오픈 타이머 콜백이 stale closure 로 옛 busy 를
+  // 읽지 않도록 ref 로 참조한다 (타이머 예약 후 [즉석 촬영] 으로 카메라 present 중이면
+  // 앨범 재오픈을 스킵해 동시 presentation 충돌 방지).
+  const busyRef = useRef(false);
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
   // Phase 26 (D-08/D-09) + belle 실기기 확인 수정 1 (26-06, 2026-07-08) — 학습활용
   // 동의는 opt-out 으로 전환: 기본 동의(체크 ON)로 시작하고, 해제하면 학습에 쓰지
   // 않는다 (belle 제품 결정: "자동 동의 → 해제하면 노학습"). 세션 간 영속 없음
@@ -143,9 +150,14 @@ export default function Analyze() {
   // [WR-01] 경고 Modal(talkv/lowQuality) 경유 재개 시 권유 Modal present 지연 타이머.
   // 언마운트 시 정리해 사라진 화면에 Modal 을 띄우려는 잔여 타이머를 막는다.
   const promptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // [WR-02] 카톡 경고 [다른 영상 선택] 후 앨범 재오픈 지연 타이머. 핸들을 보관해
+  // 언마운트/화면 이동 시 정리한다 — 정리 안 하면 450ms 안에 뒤로가기·탭 전환을 해도
+  // 앨범 picker 가 엉뚱한 화면에서 뜬다.
+  const repickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
       if (promptTimer.current) clearTimeout(promptTimer.current);
+      if (repickTimer.current) clearTimeout(repickTimer.current);
     },
     [],
   );
@@ -381,9 +393,19 @@ export default function Analyze() {
   // picker VC 를 띄우면 presentation 충돌이 날 수 있어 닫힘 애니메이션 이후로 지연.
   const cancelTalkv = () => {
     setTalkvPicked(null);
-    setTimeout(() => {
-      void pickFromLibrary();
+    // [WR-02] 타이머 핸들 보관 → 언마운트/이동 시 정리(cleanup effect). busy(다른
+    // picker 진행) 중이면 재오픈 스킵 — 카메라 present 중 앨범 picker 동시 present 로
+    // 인한 iOS presentation 충돌 방지 (busyRef 로 최신값 참조).
+    repickTimer.current = setTimeout(() => {
+      if (!busyRef.current) void pickFromLibrary();
     }, TALKV_REPICK_DELAY_MS);
+  };
+
+  // Phase 26 + [WR-02] — 카톡 경고의 네이티브 back(하드웨어/제스처): 보류 영상을 버리고
+  // 닫기만 한다(앨범 재오픈 없음). 앨범 재오픈은 명시적 [다른 영상 선택](cancelTalkv)
+  // 에서만 — lq 모달 네이티브 back(cancelLowQuality)이 조용히 버리기만 하는 것과 대칭.
+  const dismissTalkv = () => {
+    setTalkvPicked(null);
   };
 
   const pickFromCamera = async () => {
@@ -542,13 +564,14 @@ export default function Analyze() {
             (26-UI-SPEC §Figma Dialog Pattern): 연한 브랜드 틴트 라운드 카드 + 중앙
             상단 빨간 원형 느낌표 + 굵은 검정 타이틀 + 회색 본문 + 가로 2버튼. 비차단
             (D-06): 좌 보조 [이대로 계속] → lowQuality 플래그 심고 진행(D-07), 우 주액션
-            [다른 영상 선택] → 영상 버림. native back = 취소(기존 lq 모달과 동일 안전
-            동작). 인라인 hex 0 — 전부 토큰. */}
+            [다른 영상 선택] → 영상 버리고 앨범 재오픈(cancelTalkv). native back →
+            영상 버리고 닫기만(dismissTalkv, 재오픈 없음 — lq 모달과 대칭, WR-02).
+            인라인 hex 0 — 전부 토큰. */}
         <Modal
           visible={talkvPicked != null}
           transparent
           animationType="fade"
-          onRequestClose={cancelTalkv}
+          onRequestClose={dismissTalkv}
         >
           <View style={styles.talkvBackdrop}>
             <View style={styles.talkvCard}>

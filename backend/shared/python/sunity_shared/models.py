@@ -239,8 +239,9 @@ PAIN_AREAS = (
 # (analysis.ts / models.py / contract.md)이 바뀌면 동시 갱신 필수 (3-way lockstep).
 #
 # 의미: 앱(app/src/app/analysis/loading.tsx)이 분석 문서 생성 시 기록하는 업로드
-#   시점 학습활용 opt-in 동의값(boolean). 기본 off — 사용자가 analyze.tsx 에서
-#   명시적으로 체크했을 때만 true. 필드 부재(Phase 26 이전 문서) = 미동의.
+#   시점 학습활용 동의값(boolean). opt-out (belle 결정 2026-07-08, 26-06 실기기
+#   확인): 앱 UI 기본값 = 동의(체크 ON), 사용자가 해제하면 False 기록. 필드 부재
+#   (Phase 26 이전 문서)/param 유실 = 미동의 — fail-safe 방향은 미동의로 불변.
 # 백엔드 파이프라인/게이트는 이 필드를 읽지도 쓰지도 않는다 (로직 무접촉 —
 #   not_pole 게이트/채점 불변, D-01). 순수 계약 미러이므로 여기엔 검증 함수/
 #   normalizer 를 두지 않는다 (주석만).

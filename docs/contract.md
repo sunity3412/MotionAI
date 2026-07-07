@@ -94,9 +94,12 @@ createdAt   number (epoch ms)
 updatedAt   number (epoch ms)
 error?      { code, message }      status='failed' 일 때
 result?     AnalysisResult         status='done' 일 때
-learningOptIn? boolean             학습활용 opt-in 동의값 (Phase 26, D-08/D-09).
+learningOptIn? boolean             학습활용 동의값 (Phase 26, D-08/D-09).
                                    기록 주체 = 앱 loading.tsx (문서 생성 시 항상 boolean).
-                                   기본 false — 부재(Phase 26 이전 문서)=미동의.
+                                   opt-out (belle 결정 2026-07-08, 26-06): 앱 UI 기본값 =
+                                   동의(체크 ON), 사용자가 해제하면 false 기록.
+                                   부재(Phase 26 이전 문서)/param 유실 = 미동의(false)
+                                   해석 — fail-safe 방향은 미동의로 불변.
                                    라우트 param 도 동일 명칭 learningOptIn ('1' | 미포함,
                                    analyze→reference→loading), 계약 필드와 단일 네이밍 (리뷰 LOW-1).
                                    소비 예정: Phase 22 manifest 게이트가 learningOptIn===true

@@ -607,9 +607,10 @@ export interface AnalysisDoc {
   // getBodyProfileOnce() (client normalize) 로 기록. painAreas 는 top-level
   // scalar array 라 AnalysisDoc 안에서도 nested-array 위반 없음 (Pitfall 7).
   bodyProfile?: BodyProfile | null;
-  // 업로드 시점 학습활용 opt-in 동의값 (Phase 26, D-08/D-09). 기본 off —
-  // 사용자가 analyze.tsx 에서 명시적으로 체크한 경우에만 true. 필드 부재
-  // (Phase 26 이전 문서) = 동의 없음으로 해석해야 한다. Phase 22 D-12 학습
+  // 업로드 시점 학습활용 동의값 (Phase 26, D-08/D-09). belle 결정(2026-07-08,
+  // 26-06 실기기 확인)으로 opt-out: 앱 UI 기본값 = 동의(체크 ON), 사용자가
+  // 해제하면 false 로 기록된다. 필드 부재(Phase 26 이전 문서) 또는 라우트 param
+  // 유실 = 동의 없음(false)으로 해석해야 한다 (fail-safe = 미동의). Phase 22 D-12 학습
   // 플라이휠의 동의 근거 — Phase 22 manifest 게이트는 learningOptIn === true 인
   // 분석의 영상만 학습 후보로 삼아야 한다 (의무 계약 — 현 22-04 게이트는
   // anonymized/등록 여부만 필터하고 learningOptIn 은 아직 읽지 않으므로, 이

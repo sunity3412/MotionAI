@@ -105,10 +105,14 @@ export default function Analyze() {
   const [error, setError] = useState<string | null>(null);
   const [permissionBlocked, setPermissionBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Phase 26 (D-08/D-09) — 학습활용 opt-in. 기본 off 고정, 세션 간 영속 없음
-  // (매 방문 off — 동의는 매 업로드 명시적). 미체크가 업로드를 지연/차단하지 않음
-  // (validate/에러 경로에 등장 금지). 계약 필드와 동일 명칭 learningOptIn (리뷰 LOW-1).
-  const [learningOptIn, setLearningOptIn] = useState(false);
+  // Phase 26 (D-08/D-09) + belle 실기기 확인 수정 1 (26-06, 2026-07-08) — 학습활용
+  // 동의는 opt-out 으로 전환: 기본 동의(체크 ON)로 시작하고, 해제하면 학습에 쓰지
+  // 않는다 (belle 제품 결정: "자동 동의 → 해제하면 노학습"). 세션 간 영속 없음
+  // (매 방문 기본 ON). 해제가 업로드를 지연/차단하지 않음 (validate/에러 경로에
+  // 등장 금지). 기록 경로(buildOptInRouteParams → loading.tsx → Firestore boolean)
+  // 불변 — 초기값만 반전. param 유실 시 여전히 false(미동의) fail-safe (loading.tsx
+  // === '1' 엄격 비교). 계약 필드와 동일 명칭 learningOptIn (리뷰 LOW-1).
+  const [learningOptIn, setLearningOptIn] = useState(true);
   // [#20 입력 화질] 저화질 감지 시 비차단 경고 — 계속/취소. picked 를 보류했다가
   // [계속]이면 정상 라우팅(maybePromptBeforeRoute), [취소]면 영상을 버린다.
   const [lowQualityPicked, setLowQualityPicked] = useState<Picked | null>(null);
@@ -463,14 +467,15 @@ export default function Analyze() {
             영상은 분석에만 사용하고 안전하게 보관해요. 언제든 삭제를 요청할 수 있어요.
           </Text>
 
-          {/* [Phase 26 D-08/D-09] 학습활용 opt-in 체크 행 — 기본 off, 미체크가 업로드를
-              지연/차단하지 않음(선택). checked = 브랜드 채움, unchecked = inputBorder 테두리.
-              pick 직전 위치 고정 (26-06 재배치안 A — 이동 금지). */}
+          {/* [Phase 26 D-08/D-09 + 26-06 수정 1] 학습활용 동의 행 — opt-out: 기본
+              체크 ON(자동 동의), 해제하면 학습 미활용(learningOptIn=false 기록).
+              해제가 업로드를 지연/차단하지 않음. checked = 브랜드 채움, unchecked =
+              inputBorder 테두리. pick 직전 위치 고정 (26-06 재배치안 A — 이동 금지). */}
           <Pressable
             onPress={() => setLearningOptIn((v) => !v)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: learningOptIn }}
-            accessibilityLabel="분석 영상을 AI 개선(학습)에 활용하는 데 동의 (선택)"
+            accessibilityLabel="분석 영상을 AI 개선(학습)에 활용, 원치 않으면 해제"
             hitSlop={8}
             style={styles.optInRow}
           >
@@ -482,7 +487,7 @@ export default function Analyze() {
               )}
             </View>
             <Text style={styles.optInLabel}>
-              분석 영상을 AI 개선(학습)에 활용하는 데 동의해요 (선택)
+              분석 영상을 AI 개선(학습)에 활용해요. 원치 않으면 체크를 해제해 주세요.
             </Text>
           </Pressable>
 

@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Image,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -24,26 +24,34 @@ import { colors, layout, radius, spacing, typography } from '../theme';
 // 26-UI-SPEC Registry Safety). 배경 = colors.bg 라이트 전용 (다크 배경 금지).
 
 type Slide = {
-  icon: keyof typeof Ionicons.glyphMap;
+  // 정적 asset require() — expo-updates OTA 는 require 된 asset 을 번들과 함께
+  // 배포하므로 OTA 호환 (26-06, belle 승인 생성 이미지).
+  image: number;
+  imageAlt: string;
   title: string;
   body: string;
 };
 
 // 기대설정 중심 3슬라이드 (26-UI-SPEC §Copywriting, "~해요" 체, 이모지 금지).
 // (1) 무엇을 측정하는지 (2) 무엇은 못 하는지 (3) 정확한 분석을 위한 촬영 안내.
+// 이미지 3장 = 브랜드 레드 톤 폴스포츠 생성 이미지 (26-06, belle 승인 — Figma
+// 시안의 이미지 카드 영역이 아이콘 플레이스홀더 상태라 생성분으로 채움).
 const SLIDES: readonly Slide[] = [
   {
-    icon: 'body-outline',
+    image: require('../../assets/tutorial/slide-1.jpg'),
+    imageAlt: '폴 위에서 우아하게 확장한 폴스포츠 포즈',
     title: '자세를 숫자로 정확히 봐드려요',
     body: '관절 각도를 재고 기준 모션과 비교해서, 어디가 얼마나 다른지 투명한 감점 내역으로 보여드려요. 막연한 칭찬이 아니라 근거가 있는 분석이에요.',
   },
   {
-    icon: 'school-outline',
+    image: require('../../assets/tutorial/slide-2.jpg'),
+    imageAlt: '삼각대에 세운 폰이 폴스포츠 연습을 촬영하는 장면',
     title: '강사님을 대신하진 않아요',
     body: 'AI는 자세를 객관적으로 재주는 보조 도구예요. 측정 밖의 표현이나 흐름 같은 부분은 강사님과 함께 확인하면 더 좋아요.',
   },
   {
-    icon: 'videocam-outline',
+    image: require('../../assets/tutorial/slide-3.jpg'),
+    imageAlt: '폴 상단에서 당당하게 취한 성취의 포즈',
     title: '정확한 분석엔 원본 영상이 필요해요',
     body: '몸 전체가 화면에 잘 들어오는 거리에서 앱으로 직접 촬영하거나 원본 화질 영상을 올려주세요. 카톡으로 받은 영상은 압축돼 분석에 실패할 수 있어요.',
   },
@@ -96,7 +104,13 @@ export default function Tutorial() {
         {SLIDES.map((slide) => (
           <View key={slide.title} style={[styles.slide, { width }]}>
             <View style={styles.visual}>
-              <Ionicons name={slide.icon} size={72} color={colors.brand} />
+              <Image
+                source={slide.image}
+                resizeMode="cover"
+                accessible
+                accessibilityLabel={slide.imageAlt}
+                style={styles.visualImage}
+              />
             </View>
             <Text style={styles.title}>{slide.title}</Text>
             <Text style={styles.body}>{slide.body}</Text>
@@ -157,15 +171,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.screenX,
   },
+  // 이미지 카드 (26-06) — 생성 이미지(808x1080, 3:4 세로)를 라운드 카드에 cover 로
+  // 채움. radius.card 토큰 유지, 로딩 전 자리색 = brandTint (기존 플레이스홀더 톤).
+  // maxWidth 로 소형 기기에서 title/body/CTA 가 밀리지 않게 상한.
   visual: {
-    width: 140,
-    height: 140,
-    borderRadius: 999,
+    width: '72%',
+    maxWidth: 280,
+    aspectRatio: 3 / 4,
+    borderRadius: radius.card,
     backgroundColor: colors.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 28,
+    overflow: 'hidden',
+    marginBottom: 24,
   },
+  visualImage: { width: '100%', height: '100%' },
   title: {
     ...typography.sectionTitle,
     color: colors.textPrimary,

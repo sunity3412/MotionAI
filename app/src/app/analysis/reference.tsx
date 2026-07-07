@@ -26,16 +26,26 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function ReferenceSelect() {
   const router = useRouter();
-  const { name, uri, size, format, motionId: preselectId, lowQuality } =
-    useLocalSearchParams<{
-      name?: string;
-      uri?: string;
-      size?: string;
-      format?: string;
-      motionId?: string;
-      // quick-260704-fwb — 저화질 승인 플래그 passthrough (analyze → 여기 → loading).
-      lowQuality?: string;
-    }>();
+  const {
+    name,
+    uri,
+    size,
+    format,
+    motionId: preselectId,
+    lowQuality,
+    learningOptIn,
+  } = useLocalSearchParams<{
+    name?: string;
+    uri?: string;
+    size?: string;
+    format?: string;
+    motionId?: string;
+    // quick-260704-fwb — 저화질 승인 플래그 passthrough (analyze → 여기 → loading).
+    lowQuality?: string;
+    // Phase 26 (D-09) — 학습활용 opt-in 동의값 passthrough. mode1 미선택 경로에서
+    // 유실되지 않도록 그대로 loading 까지 전달 (계약 필드와 단일 네이밍, 리뷰 LOW-1).
+    learningOptIn?: string;
+  }>();
   const { motions, loading, error } = useReferenceMotions();
 
   const [tab, setTab] = useState<Tab>('basic');
@@ -90,6 +100,8 @@ export default function ReferenceSelect() {
         referenceMotionName: selected?.name ?? '',
         // quick-260704-fwb — 저화질 승인 플래그 passthrough.
         lowQuality,
+        // Phase 26 (D-09) — 학습활용 opt-in 동의값 passthrough (유실 방지).
+        learningOptIn,
       },
     });
   };

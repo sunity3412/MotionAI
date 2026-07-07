@@ -49,6 +49,21 @@ type Picked = {
   lowQuality?: boolean;
 };
 
+// Phase 26 (D-09, 리뷰 MEDIUM-2) — 라우트 param 조립 단일점. true 인 키만 '1'
+// 로 포함하고 false/undefined 키는 반환 객체에서 제외한다 (lowQuality 선례 — 미포함
+// 이면 param 자체 미포함, 기존 흐름 불변). React/expo import 없는 순수 함수라 추후
+// 테스트 하니스 도입 시 단위테스트 대상. learningOptIn 은 계약 필드와 단일 네이밍
+// (리뷰 LOW-1).
+export function buildOptInRouteParams(opts: {
+  learningOptIn: boolean;
+  lowQuality?: boolean;
+}): { learningOptIn?: '1'; lowQuality?: '1' } {
+  const params: { learningOptIn?: '1'; lowQuality?: '1' } = {};
+  if (opts.learningOptIn) params.learningOptIn = '1';
+  if (opts.lowQuality) params.lowQuality = '1';
+  return params;
+}
+
 export default function Analyze() {
   const router = useRouter();
   // 홈 챌린지 카드 우회 진입 — referenceMotionId 가 있으면 모드 선택 단계를
@@ -67,6 +82,10 @@ export default function Analyze() {
   const [error, setError] = useState<string | null>(null);
   const [permissionBlocked, setPermissionBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Phase 26 (D-08/D-09) — 학습활용 opt-in. 기본 off 고정, 세션 간 영속 없음
+  // (매 방문 off — 동의는 매 업로드 명시적). 미체크가 업로드를 지연/차단하지 않음
+  // (validate/에러 경로에 등장 금지). 계약 필드와 동일 명칭 learningOptIn (리뷰 LOW-1).
+  const [learningOptIn, setLearningOptIn] = useState(false);
   // [#20 입력 화질] 저화질 감지 시 비차단 경고 — 계속/취소. picked 를 보류했다가
   // [계속]이면 정상 라우팅(maybePromptBeforeRoute), [취소]면 영상을 버린다.
   const [lowQualityPicked, setLowQualityPicked] = useState<Picked | null>(null);
@@ -135,9 +154,14 @@ export default function Analyze() {
   // 돌아왔을 때 모드 선택 단계가 자연스럽게 보임).
   const routeAfterPick = (picked: Picked) => {
     if (!mode) return; // 방어 — 이론상 도달 불가
-    // quick-260704-fwb — 저화질 승인 플래그를 라우터 param 으로 로컬 전달.
-    // undefined 면 param 자체 미포함 (기존 흐름 불변).
-    const lowQuality = picked.lowQuality ? '1' : undefined;
+    // Phase 26 (리뷰 MEDIUM-2) — param 조립을 순수 헬퍼 단일점으로 통일.
+    //   quick-260704-fwb 저화질 승인 플래그(lowQuality) + Phase 26 학습활용
+    //   동의(learningOptIn) 를 모두 여기서 조립한다. true 인 키만 '1', 나머지는
+    //   미포함 (기존 흐름 불변). mode1/mode3 양쪽이 이 산출을 spread.
+    const optInParams = buildOptInRouteParams({
+      learningOptIn,
+      lowQuality: picked.lowQuality,
+    });
     if (mode === 'mode1') {
       if (referenceMotionId) {
         router.push({
@@ -150,7 +174,7 @@ export default function Analyze() {
             format: picked.format,
             referenceMotionId,
             referenceMotionName: preselectedMotion?.name ?? '',
-            lowQuality,
+            ...optInParams,
           },
         });
       } else {
@@ -161,7 +185,7 @@ export default function Analyze() {
             uri: picked.uri,
             size: String(picked.size),
             format: picked.format,
-            lowQuality,
+            ...optInParams,
           },
         });
       }
@@ -174,7 +198,7 @@ export default function Analyze() {
           uri: picked.uri,
           size: String(picked.size),
           format: picked.format,
-          lowQuality,
+          ...optInParams,
         },
       });
     }
@@ -371,6 +395,40 @@ export default function Analyze() {
           카톡 등으로 받은 영상은 압축돼 정확도가 낮을 수 있어요 (카톡은 '원본'으로 전송).
         </Text>
 
+        {/* [Phase 26 D-01-i / A1 예방] 촬영 거리 안내 — not_pole 오반려(torso ratio
+            이탈)의 예방 레이어. 게이트 자체는 불변(D-01), 안내만. pick 직전 노출. */}
+        <Text style={styles.guidance}>
+          몸 전체가 화면에 잘 들어오는 거리(약 2~3m)에서 촬영해 주세요. 너무 가깝거나
+          멀면 분석에 실패할 수 있어요.
+        </Text>
+
+        {/* [Phase 26 D-08] 프라이버시 1줄 고지 — 동의 버튼 아님, 포괄 동의 아님. */}
+        <Text style={styles.privacyNote}>
+          영상은 분석에만 사용하고 안전하게 보관해요. 언제든 삭제를 요청할 수 있어요.
+        </Text>
+
+        {/* [Phase 26 D-08/D-09] 학습활용 opt-in 체크 행 — 기본 off, 미체크가 업로드를
+            지연/차단하지 않음(선택). checked = 브랜드 채움, unchecked = inputBorder 테두리. */}
+        <Pressable
+          onPress={() => setLearningOptIn((v) => !v)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: learningOptIn }}
+          accessibilityLabel="분석 영상을 AI 개선(학습)에 활용하는 데 동의 (선택)"
+          hitSlop={8}
+          style={styles.optInRow}
+        >
+          <View
+            style={[styles.checkbox, learningOptIn && styles.checkboxChecked]}
+          >
+            {learningOptIn && (
+              <Ionicons name="checkmark" size={14} color={colors.textWhite} />
+            )}
+          </View>
+          <Text style={styles.optInLabel}>
+            분석 영상을 AI 개선(학습)에 활용하는 데 동의해요 (선택)
+          </Text>
+        </Pressable>
+
         {error && <Text style={styles.error}>{error}</Text>}
         {permissionBlocked && (
           <Pressable
@@ -479,13 +537,15 @@ export default function Analyze() {
       </View>
 
       <View style={styles.spacer} />
-      {/* 시연·검토용 진입점 — 실 분석 파이프라인(#7-follow) 켜지면 같이 제거. */}
+      {/* [Phase 26 F2/D-05] 이용 방법·FAQ 진입점 — 26-02 가 /help 를 신설하고
+          samples 를 삭제(라우트 이관: /help canonical, shim 없음). 기존 '샘플 결과
+          미리보기' 자리를 이용방법/FAQ 로 교체. */}
       <Pressable
-        onPress={() => router.push('/analysis/samples')}
+        onPress={() => router.push('/help')}
         accessibilityRole="button"
         hitSlop={6}
       >
-        <Text style={styles.sampleLink}>샘플 결과 미리보기</Text>
+        <Text style={styles.sampleLink}>이용 방법 · FAQ</Text>
       </Pressable>
     </View>
   );
@@ -577,6 +637,41 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMid,
     marginTop: 16,
+    lineHeight: 18,
+  },
+  // [Phase 26 D-08] 프라이버시 1줄 고지 — guidance 와 동일 톤 (§S3).
+  privacyNote: {
+    ...typography.caption,
+    color: colors.textMid,
+    marginTop: 16,
+    lineHeight: 18,
+  },
+  // [Phase 26 D-08/D-09] opt-in 체크 행 — 행 전체 터치, 라벨 포함 44pt 이상.
+  optInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    minHeight: 44,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: radius.listItem, // 8.58 (§5-4)
+    borderWidth: layout.cardBorderWidth,
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  optInLabel: {
+    ...typography.caption,
+    color: colors.textMid,
+    flex: 1,
     lineHeight: 18,
   },
   // [#20 입력 화질] 저화질 경고 모달.

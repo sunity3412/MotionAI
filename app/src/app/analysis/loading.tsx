@@ -92,6 +92,10 @@ interface UploadInput {
   size: number;
   format: VideoFormat;
   referenceMotionId?: string;
+  // Phase 26 (D-09) — 업로드 시점 학습활용 opt-in 동의값. 호출자가 라우트 param
+  // learningOptIn === '1' 엄격 비교로 boolean 을 넘긴다 (param 유실/오염 시 false
+  // 로 안전 강하 = 미동의 방향 fail-safe). 항상 boolean.
+  learningOptIn: boolean;
 }
 
 // 영상 업로드 + Firestore 문서 생성. 성공 시 analysisId 리턴.
@@ -134,6 +138,13 @@ async function startAnalysisUpload(input: UploadInput): Promise<string> {
       ? { referenceMotionId: input.referenceMotionId }
       : {}),
     ...(bodyProfile ? { bodyProfile } : {}),
+    // Phase 26 (D-09) — 학습활용 opt-in 동의값을 항상 boolean 으로 기록한다
+    //   (조건부 spread 아님: 부재≠false 를 없애 동의 증거를 명시적으로 남긴다).
+    //   Phase 22 D-12 학습 플라이휠의 동의 근거 — Phase 22 manifest 게이트가
+    //   learningOptIn===true 인 분석의 영상만 학습 후보로 삼아야 함 (게이트측
+    //   필터는 Phase 22 후속 반영 필요, 현재 미집행). 3-way lockstep:
+    //   types/analysis.ts + models.py + docs/contract.md §3.
+    learningOptIn: input.learningOptIn,
   });
 
   // 3) S3 PUT — 끝나면 S3 ObjectCreated 가 SQS → Lambda → RunPod 위임을 트리거.
@@ -279,6 +290,7 @@ export default function AnalysisLoading() {
     referenceMotionId,
     referenceMotionName,
     lowQuality,
+    learningOptIn,
   } = useLocalSearchParams<{
     mode?: string;
     name?: string;
@@ -291,6 +303,9 @@ export default function AnalysisLoading() {
     // quick-260704-fwb — 저화질 경고를 승인('이대로 계속')한 업로드만 '1'.
     // not_pole_motion 실패 시 화질 우선 안내로 분기 (표시 전용, errorCode 무접촉).
     lowQuality?: string;
+    // Phase 26 (D-09) — 학습활용 opt-in 동의값 ('1' | 미포함). 계약 필드와 단일
+    // 네이밍 (리뷰 LOW-1). '1' 만 동의, 그 외/부재 = 미동의로 안전 강하.
+    learningOptIn?: string;
   }>();
 
   // 분석 ID: samples 경로(이미 있음) 또는 업로드 후 발급. 발급 전엔 null.
@@ -318,13 +333,15 @@ export default function AnalysisLoading() {
       size: sizeBytes,
       format: fmt,
       referenceMotionId,
+      // Phase 26 (D-09) — '1' 엄격 비교로 param 유실/오염 시 false(미동의) 로 안전 강하.
+      learningOptIn: learningOptIn === '1',
     })
       .then((id) => setAnalysisId(id))
       .catch((e) => {
         if (__DEV__) console.warn('[loading] upload failed', e);
         setLocalError('server_error');
       });
-  }, [analysisId, uri, size, format, mode, name, referenceMotionId]);
+  }, [analysisId, uri, size, format, mode, name, referenceMotionId, learningOptIn]);
 
   // Firestore 분석 문서 실시간 구독 (백엔드가 상태 갱신).
   const { doc: storedDoc } = useAnalysisDoc(analysisId ?? undefined);

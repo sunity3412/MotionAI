@@ -233,6 +233,22 @@ PAIN_AREAS = (
     "elbow",
 )
 
+# ── Phase 26 (Plan 26-03, ONBD-02/03) — learningOptIn 계약 미러 (주석 ONLY) ──
+# 사람용 명세: docs/contract.md §3 AnalysisDoc "learningOptIn". TS 미러:
+# app/src/types/analysis.ts (AnalysisDoc.learningOptIn?: boolean). 이 셋
+# (analysis.ts / models.py / contract.md)이 바뀌면 동시 갱신 필수 (3-way lockstep).
+#
+# 의미: 앱(app/src/app/analysis/loading.tsx)이 분석 문서 생성 시 기록하는 업로드
+#   시점 학습활용 opt-in 동의값(boolean). 기본 off — 사용자가 analyze.tsx 에서
+#   명시적으로 체크했을 때만 true. 필드 부재(Phase 26 이전 문서) = 미동의.
+# 백엔드 파이프라인/게이트는 이 필드를 읽지도 쓰지도 않는다 (로직 무접촉 —
+#   not_pole 게이트/채점 불변, D-01). 순수 계약 미러이므로 여기엔 검증 함수/
+#   normalizer 를 두지 않는다 (주석만).
+# 소비 예정: Phase 22 D-12 학습 플라이휠의 manifest 게이트가 learningOptIn === true
+#   인 분석의 영상만 학습 후보로 삼아야 한다 (의무 계약). 현 22-04 게이트는
+#   anonymized/등록 여부만 필터하고 learningOptIn 은 아직 읽지 않으므로, 이 필터는
+#   Phase 22 후속에서 반영해야 한다 (미집행 상태).
+
 # height/weight 합리적 범위 (범위 밖 → None, 위조/오타 graceful 차단).
 _BODY_HEIGHT_CM_MIN = 90
 _BODY_HEIGHT_CM_MAX = 250

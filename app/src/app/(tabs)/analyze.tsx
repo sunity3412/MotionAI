@@ -37,6 +37,12 @@ const ALLOWED = ['mp4', 'mov']; // design.md: mp4, mov만 지원
 const MIN_QUALITY_SHORT_SIDE = 720; // 720p 미만(짧은 변 기준) = 저화질 신호
 const MIN_QUALITY_BITRATE_BPS = 6 * 1000 * 1000; // ~6 Mbps 미만 = 과압축 신호
 
+// Phase 26 (D-06) — 카톡 전달본 감지 마커. 카톡으로 전달된 영상은 파일명에
+// '_talkv_' 가 붙는다(예: 'video_talkv_1720000000.mp4'). 실측 371건 중 실패 27건의
+// 56%(15건)가 카톡 압축본 — 파일럿 실패의 최대 단일 원인. pick 시점에 경고로 예방
+// 한다 (하드 차단 아님 — D-06, 파일명은 사용자 제어 advisory 신호).
+const KAKAO_COMPRESSED_MARKER = '_talkv_';
+
 type VideoFormat = 'mp4' | 'mov';
 type Picked = {
   name: string;
@@ -64,6 +70,15 @@ export function buildOptInRouteParams(opts: {
   return params;
 }
 
+// Phase 26 (D-06, 리뷰 MEDIUM-2) — 카톡 압축본 감지 단일점. handleResult 는 인라인
+// includes 로 중복 검사하지 않고 이 순수 헬퍼만 경유한다 (감지 로직 단일점). 대소문자
+// 무시 = best-effort 파일명 감지. React/expo import 없는 순수 함수라 추후 테스트 하니스
+// 도입 시 단위테스트 대상 (현재 앱 정적 게이트는 typecheck 뿐 — 행위 증거는 26-06
+// 실기기 기록이 담당).
+export function isKakaoCompressedVideoName(source: string): boolean {
+  return source.toLowerCase().includes(KAKAO_COMPRESSED_MARKER);
+}
+
 export default function Analyze() {
   const router = useRouter();
   // 홈 챌린지 카드 우회 진입 — referenceMotionId 가 있으면 모드 선택 단계를
@@ -89,6 +104,11 @@ export default function Analyze() {
   // [#20 입력 화질] 저화질 감지 시 비차단 경고 — 계속/취소. picked 를 보류했다가
   // [계속]이면 정상 라우팅(maybePromptBeforeRoute), [취소]면 영상을 버린다.
   const [lowQualityPicked, setLowQualityPicked] = useState<Picked | null>(null);
+  // Phase 26 (D-06) — 카톡 압축본 감지 시 비차단 경고. picked 를 보류했다가
+  // [이대로 계속]이면 lowQuality:true 를 심어 라우팅(D-07 화질 우선 분기 연동),
+  // [다른 영상 선택]이면 버린다. talkv → lowQuality → bodyProfile 직렬 체인의 첫
+  // 게이트 — 카톡 경고가 화질 경고를 포함·상회하므로 같은 영상에 두 모달 금지.
+  const [talkvPicked, setTalkvPicked] = useState<Picked | null>(null);
 
   // [R2] 첫 분석 권유 게이트 상태머신. profile/promptDismissedAt 구독으로 게이트
   // 조건(미입력 AND 미dismiss)을 판별. pendingPicked 로 라우팅을 보류했다가
@@ -273,6 +293,13 @@ export default function Analyze() {
       size: asset.fileSize ?? 0,
       format: ext,
     };
+    // Phase 26 (D-06) — 게이트 직렬 체인 1: 카톡 압축본이면 경고 후 보류하고
+    //   화질 검사를 건너뛴다. 카톡 경고가 화질 경고를 포함·상회하는 메시지라 같은
+    //   영상에 두 모달을 띄우지 않는다 (이중 경고 금지). 감지는 순수 헬퍼 단일점.
+    if (isKakaoCompressedVideoName(source)) {
+      setTalkvPicked(picked);
+      return;
+    }
     // [#20 입력 화질] 저화질이면 조용히 진행하지 않고 비차단 경고를 띄운다.
     const quality = checkLowQuality(asset);
     if (quality.low) {
@@ -294,6 +321,21 @@ export default function Analyze() {
   // [#20 입력 화질] 저화질 경고에서 [다른 영상 선택] — 보류한 영상을 버린다.
   const cancelLowQuality = () => {
     setLowQualityPicked(null);
+  };
+
+  // Phase 26 (D-06/D-07) — 카톡 경고에서 [이대로 계속]. 기존 lowQuality 승인 플래그를
+  // 그대로 심어(신규 분기 0) maybePromptBeforeRoute 를 재개한다 — quick-260704-fwb 의
+  // not_pole 화질 우선 분기가 추가 코드 없이 연동된다(D-07). param 방출은 26-03 의
+  // buildOptInRouteParams 헬퍼가 담당하므로 플래그만 심으면 배선 불변.
+  const continueTalkv = () => {
+    const p = talkvPicked;
+    setTalkvPicked(null);
+    if (p) maybePromptBeforeRoute({ ...p, lowQuality: true });
+  };
+
+  // Phase 26 (D-06) — 카톡 경고에서 [다른 영상 선택]. 보류한 영상을 버린다.
+  const cancelTalkv = () => {
+    setTalkvPicked(null);
   };
 
   const pickFromCamera = async () => {
@@ -438,6 +480,60 @@ export default function Analyze() {
             <Text style={styles.link}>설정에서 권한 허용하기</Text>
           </Pressable>
         )}
+
+        {/* [Phase 26 D-06/D-07] 카톡 압축본 경고 다이얼로그 — Figma Dialog Pattern
+            (26-UI-SPEC §Figma Dialog Pattern): 연한 브랜드 틴트 라운드 카드 + 중앙
+            상단 빨간 원형 느낌표 + 굵은 검정 타이틀 + 회색 본문 + 가로 2버튼. 비차단
+            (D-06): 좌 보조 [이대로 계속] → lowQuality 플래그 심고 진행(D-07), 우 주액션
+            [다른 영상 선택] → 영상 버림. native back = 취소(기존 lq 모달과 동일 안전
+            동작). 인라인 hex 0 — 전부 토큰. */}
+        <Modal
+          visible={talkvPicked != null}
+          transparent
+          animationType="fade"
+          onRequestClose={cancelTalkv}
+        >
+          <View style={styles.talkvBackdrop}>
+            <View style={styles.talkvCard}>
+              <Ionicons
+                name="alert-circle"
+                size={44}
+                color={colors.brand}
+                style={styles.talkvIcon}
+              />
+              <Text style={styles.talkvTitle}>카톡으로 받은 영상 같아요</Text>
+              <Text style={styles.talkvBody}>
+                카톡으로 전달된 영상은 압축돼 화질이 낮아져 분석에 실패할 확률이
+                높아요. 원본 영상을 올리거나 앱에서 직접 촬영하면 더 정확하게 분석할
+                수 있어요.
+              </Text>
+              <View style={styles.talkvButtonRow}>
+                <Pressable
+                  onPress={continueTalkv}
+                  accessibilityRole="button"
+                  accessibilityLabel="이대로 계속 분석하기"
+                  style={({ pressed }) => [
+                    styles.talkvSecondaryBtn,
+                    pressed && styles.cardDimmed,
+                  ]}
+                >
+                  <Text style={styles.talkvSecondaryLabel}>이대로 계속</Text>
+                </Pressable>
+                <Pressable
+                  onPress={cancelTalkv}
+                  accessibilityRole="button"
+                  accessibilityLabel="다른 영상 선택하기"
+                  style={({ pressed }) => [
+                    styles.talkvPrimaryBtn,
+                    pressed && styles.cardDimmed,
+                  ]}
+                >
+                  <Text style={styles.talkvPrimaryLabel}>다른 영상 선택</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* [#20 입력 화질] 저화질 비차단 경고 — 계속/취소. native back(백드롭)은
             취소와 동일하게 영상 버림. */}
@@ -674,6 +770,66 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
+  // [Phase 26 D-06] 카톡 압축본 경고 다이얼로그 — Figma Dialog Pattern (26-UI-SPEC).
+  //   연한 브랜드 틴트 카드(brandBg 연분홍) + 중앙 빨간 느낌표(brand) + 가로 2버튼.
+  //   기존 lqCard(흰 카드·세로 버튼)와 별개 시각 언어 — 회귀 위험 감안해 lqCard 는
+  //   미정렬 유지(SUMMARY 사유 보고). 전 값 토큰 — 인라인 hex 0.
+  talkvBackdrop: {
+    flex: 1,
+    backgroundColor: colors.brandOverlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.screenX,
+  },
+  talkvCard: {
+    width: '100%',
+    backgroundColor: colors.brandBg, // 연한 브랜드 틴트(연분홍) — §Figma Dialog Pattern
+    borderRadius: radius.modal,
+    padding: 24,
+    gap: 12,
+    alignItems: 'center',
+  },
+  talkvIcon: { marginBottom: 4 },
+  talkvTitle: {
+    ...typography.sectionTitle,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  talkvBody: {
+    ...typography.caption,
+    color: colors.textMid,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  talkvButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignSelf: 'stretch',
+    marginTop: 8,
+  },
+  talkvSecondaryBtn: {
+    flex: 1,
+    height: layout.ctaHeight,
+    borderRadius: radius.button,
+    backgroundColor: colors.cardBg,
+    borderWidth: layout.cardBorderWidth,
+    borderColor: colors.inputBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  talkvSecondaryLabel: {
+    ...typography.buttonSecondary,
+    color: colors.textSecondary,
+  },
+  talkvPrimaryBtn: {
+    flex: 1,
+    height: layout.ctaHeight,
+    borderRadius: radius.button,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  talkvPrimaryLabel: { ...typography.button, color: colors.textWhite },
   // [#20 입력 화질] 저화질 경고 모달.
   lqBackdrop: {
     flex: 1,

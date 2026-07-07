@@ -11,10 +11,11 @@
 //
 // 토큰만 사용 (하드코딩 색/spacing/fontSize 금지 — app/CLAUDE.md / design.md §5-3·§5-3-1).
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -44,6 +45,10 @@ const HEIGHT_CM_MIN = 90;
 const HEIGHT_CM_MAX = 250;
 const WEIGHT_KG_MIN = 25;
 const WEIGHT_KG_MAX = 200;
+
+// [26-06 수정 3] 기타 빈 입력 확인 다이얼로그에서 [적을게요] 선택 시 입력창 포커스
+// 지연 — RN Modal(fade) 닫힘 애니메이션이 끝난 뒤 포커스해야 키보드가 안정적으로 뜬다.
+const ETC_NOTE_FOCUS_DELAY_MS = 450;
 
 // [WR-03] 표시 순서만 여기서 정하고 라벨은 analysis.ts 단일 출처(*_LABEL_KO)에서
 // 끌어 쓴다 — union 멤버 추가 시 라벨 누락이 빌드에서 막힌다. value 배열은
@@ -119,6 +124,12 @@ export default function BodyProfileForm({
   );
   const [noteStr, setNoteStr] = useState<string>(initialPainAreaNote ?? '');
   const [noteFocused, setNoteFocused] = useState<boolean>(false);
+  // [26-06 수정 3, belle 실기기 확인] 기타 chip 선택 + 자유입력 빈 채로 저장 시도 →
+  // "기타 통증 부위가 있는지" 확인 다이얼로그. [없어요] = 기타 해제 후 저장 진행,
+  // [적을게요] = 다이얼로그 닫고 입력창 포커스. 저장 차단은 이 확인 1회뿐 — 부분
+  // 입력 graceful(D-06) 원칙은 유지된다.
+  const [etcConfirmVisible, setEtcConfirmVisible] = useState<boolean>(false);
+  const noteInputRef = useRef<TextInput>(null);
 
   const [heightError, setHeightError] = useState<string | null>(null);
   const [weightError, setWeightError] = useState<string | null>(null);
@@ -143,14 +154,12 @@ export default function BodyProfileForm({
     );
   };
 
-  const onSave = async () => {
-    Keyboard.dismiss();
+  // 실제 저장 실행. etcActive 를 인자로 받아 확인 다이얼로그의 [없어요] 경로가
+  // setEtcSelected(false) 의 state 반영을 기다리지 않고 즉시 "기타 제외" 저장을
+  // 할 수 있게 한다 (stale state 방지). 숫자값은 onSave 게이트에서 이미 검증됨.
+  const performSave = async (etcActive: boolean) => {
     const h = validateNumber(heightStr, HEIGHT_CM_MIN, HEIGHT_CM_MAX, 'cm');
     const w = validateNumber(weightStr, WEIGHT_KG_MIN, WEIGHT_KG_MAX, 'kg');
-    setHeightError(h.error);
-    setWeightError(w.error);
-    if (h.error || w.error) return;
-
     setSaving(true);
     setSaveError(null);
     try {
@@ -166,7 +175,7 @@ export default function BodyProfileForm({
       // F3 dirty-guard: prefill 없는 호출부(analyze 등)에서 기존 메모를 빈 값으로
       // 덮어쓰지 않도록 initialPainAreaNote 와 다를 때만 기록. 기타 해제 시 '' 취급
       // (해제 = 메모 삭제 의도 → null 명시 기록, WR-01).
-      const trimmedNote = etcSelected ? noteStr.trim() : '';
+      const trimmedNote = etcActive ? noteStr.trim() : '';
       const baseNote = (initialPainAreaNote ?? '').trim();
       if (trimmedNote !== baseNote) {
         await savePainAreaNote(trimmedNote === '' ? null : trimmedNote);
@@ -178,6 +187,39 @@ export default function BodyProfileForm({
     } finally {
       setSaving(false);
     }
+  };
+
+  const onSave = async () => {
+    Keyboard.dismiss();
+    const h = validateNumber(heightStr, HEIGHT_CM_MIN, HEIGHT_CM_MAX, 'cm');
+    const w = validateNumber(weightStr, WEIGHT_KG_MIN, WEIGHT_KG_MAX, 'kg');
+    setHeightError(h.error);
+    setWeightError(w.error);
+    if (h.error || w.error) return;
+
+    // [26-06 수정 3, belle 실기기 확인] 기타 chip 선택 + 자유입력이 빈 채로 저장하려
+    // 하면 1회 확인 — "기타 통증이 없는지 묻고, 있으면 적어달라" (belle 원문 요지).
+    if (etcSelected && noteStr.trim() === '') {
+      setEtcConfirmVisible(true);
+      return;
+    }
+    await performSave(etcSelected);
+  };
+
+  // [26-06 수정 3] 확인 다이얼로그 [없어요] — 기타 chip 해제 후 그대로 저장 진행.
+  const confirmEtcNone = () => {
+    setEtcConfirmVisible(false);
+    setEtcSelected(false);
+    void performSave(false);
+  };
+
+  // [26-06 수정 3] 확인 다이얼로그 [적을게요] — 닫고 입력창 포커스 (Modal fade-out
+  // 이후 포커스해야 키보드가 안정적으로 뜬다).
+  const confirmEtcWrite = () => {
+    setEtcConfirmVisible(false);
+    setTimeout(() => {
+      noteInputRef.current?.focus();
+    }, ETC_NOTE_FOCUS_DELAY_MS);
   };
 
   return (
@@ -298,6 +340,7 @@ export default function BodyProfileForm({
             {/* 기타 자유입력 — placeholder textDisabled, 포커스 시 brand 보더 (UI-SPEC S7). */}
             {etcSelected ? (
               <TextInput
+                ref={noteInputRef}
                 value={noteStr}
                 onChangeText={setNoteStr}
                 onFocus={() => setNoteFocused(true)}
@@ -325,6 +368,50 @@ export default function BodyProfileForm({
           </Pressable>
         </ScrollView>
       </Pressable>
+
+      {/* [26-06 수정 3] 기타 빈 입력 확인 다이얼로그 — 가로 2버튼 확인 패턴
+          (analyze.tsx talkv 다이얼로그 배치 선례, 경고 아이콘 없는 중립 확인이라
+          흰 카드 사용). native back = [적을게요] 와 동일(닫고 계속 입력). */}
+      <Modal
+        visible={etcConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={confirmEtcWrite}
+      >
+        <View style={styles.etcBackdrop}>
+          <View style={styles.etcCard}>
+            <Text style={styles.etcTitle}>기타 통증 부위가 있나요?</Text>
+            <Text style={styles.etcBody}>
+              기타를 선택하셨는데 아직 내용이 비어 있어요. 통증 부위가 있으면
+              적어주시고, 없으면 기타를 빼고 저장할게요.
+            </Text>
+            <View style={styles.etcButtonRow}>
+              <Pressable
+                onPress={confirmEtcNone}
+                accessibilityRole="button"
+                accessibilityLabel="기타 통증 없음, 그대로 저장하기"
+                style={({ pressed }) => [
+                  styles.etcSecondaryBtn,
+                  pressed && styles.etcBtnPressed,
+                ]}
+              >
+                <Text style={styles.etcSecondaryLabel}>없어요, 저장하기</Text>
+              </Pressable>
+              <Pressable
+                onPress={confirmEtcWrite}
+                accessibilityRole="button"
+                accessibilityLabel="기타 통증 부위 적기"
+                style={({ pressed }) => [
+                  styles.etcPrimaryBtn,
+                  pressed && styles.etcBtnPressed,
+                ]}
+              >
+                <Text style={styles.etcPrimaryLabel}>적을게요</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -498,4 +585,56 @@ const styles = StyleSheet.create({
   },
   ctaDisabled: { backgroundColor: colors.brandButtonDisabled },
   ctaText: { ...typography.button, color: colors.textWhite },
+  // [26-06 수정 3] 기타 빈 입력 확인 다이얼로그 — 흰 카드 + 가로 2버튼 (좌 보조
+  //   흰+보더 / 우 주액션 brand filled — analyze.tsx talkv 버튼 배치 선례). 토큰만.
+  etcBackdrop: {
+    flex: 1,
+    backgroundColor: colors.brandOverlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.screenX,
+  },
+  etcCard: {
+    width: '100%',
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.modal,
+    padding: 24,
+    gap: 12,
+  },
+  etcTitle: { ...typography.sectionTitle, color: colors.textPrimary },
+  etcBody: {
+    ...typography.caption,
+    color: colors.textMid,
+    lineHeight: 19,
+  },
+  etcButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignSelf: 'stretch',
+    marginTop: 8,
+  },
+  etcSecondaryBtn: {
+    flex: 1,
+    height: layout.ctaHeight,
+    borderRadius: radius.button,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  etcSecondaryLabel: {
+    ...typography.buttonSecondary,
+    color: colors.textSecondary,
+  },
+  etcPrimaryBtn: {
+    flex: 1,
+    height: layout.ctaHeight,
+    borderRadius: radius.button,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  etcPrimaryLabel: { ...typography.button, color: colors.textWhite },
+  etcBtnPressed: { opacity: 0.4 },
 });

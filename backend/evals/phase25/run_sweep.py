@@ -58,6 +58,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import logging
 import os
 import sys
 import time
@@ -170,6 +171,9 @@ def _install_tee(pipeline) -> None:
         try:
             supported = list(getattr(ctx, "supported_differences", None) or [])
             pointed = vv.pointed_joints_from_supported_differences(supported)
+            # 27-02 — cold 증빙 read-only tee: ctx.telemetry 의 cacheHit/호출수만
+            # 캡처 (VisionVetoCache miss=false 가 cold run 증거. Pitfall 1 정합).
+            telem = dict(getattr(ctx, "telemetry", None) or {})
             _COLLECT_CAP[_CURRENT["key"]] = {
                 "collectionStatus": getattr(ctx, "collection_status", None),
                 "pointedJoints": list(pointed),
@@ -177,6 +181,13 @@ def _install_tee(pipeline) -> None:
                 "supportedFaultKeys": [
                     _fault_key_json(r) for r in supported if isinstance(r, dict)
                 ],
+                "vetoTelemetry": {
+                    "cacheHit": telem.get("cacheHit"),
+                    "cacheKey": telem.get("cacheKey"),
+                    "completedCalls": telem.get("completedCalls"),
+                    "plannedCalls": telem.get("plannedCalls"),
+                    "durationMs": telem.get("durationMs"),
+                },
             }
         except Exception as exc:  # noqa: BLE001 — 관측 실패는 분석 흐름 차단 0
             _COLLECT_CAP[_CURRENT["key"]] = {
@@ -220,10 +231,12 @@ def _run_member(pipeline, fa, models, motion: str, label: str, analysis_id: str)
         "sourceLabel": f"phase25_sweep:{motion}:{label}",
     })
     err = None
+    _wall_t0 = time.monotonic()  # 27-02 — 멤버당 벽시계 (stage 합산 대비 미계상 구간 산출)
     try:
         pipeline._process(BUCKET, key, UID, analysis_id)
     except Exception as exc:  # noqa: BLE001 — not_pole 등은 doc 에 failed 로 기록됨
         err = f"{type(exc).__name__}: {exc}"
+    wall_ms = int((time.monotonic() - _wall_t0) * 1000)
 
     d = fa.get_analysis(UID, analysis_id) or {}
     r = d.get("result") or {}
@@ -240,6 +253,9 @@ def _run_member(pipeline, fa, models, motion: str, label: str, analysis_id: str)
         "exception": err,
         "deductionBreakdown": bd,
         "visionVeto": vv,
+        # 27-02 — stage-timing 실측 (result.timingsMs flat dict, 27-01 계측) + 벽시계.
+        "timingsMs": r.get("timingsMs"),
+        "wallMs": wall_ms,
         # tee 캡처 귀속 (없으면 None — not_pole 등 채점 전 중단 멤버).
         "collectObservation": _COLLECT_CAP.pop(_CURRENT["key"], None),
         "seedObservation": _SEED_CAP.pop(_CURRENT["key"], None),
@@ -250,10 +266,12 @@ def _run_member(pipeline, fa, models, motion: str, label: str, analysis_id: str)
     rec["activatedCriteria"] = crit
     co = rec["collectObservation"] or {}
     so = rec["seedObservation"] or {}
+    _vt = co.get("vetoTelemetry") or {}
     print(
         f"  done {motion:20s} {label:7s} status={rec['status']} "
         f"overall={rec['overallScore']} crit={crit} "
         f"pointed={co.get('pointedJoints')} window={so.get('window_joints')} "
+        f"wall={wall_ms}ms cacheHit={_vt.get('cacheHit')} "
         f"err={rec['errorCode'] or err or '-'}",
         flush=True,
     )
@@ -290,6 +308,12 @@ def main() -> int:
     )
     args = parser.parse_args()
     suffix = "" if args.tag == "cold" else "_warm"
+
+    # 27-02 — stage_timing INFO 로그 방출 (27-01 계측 log.info 는 핸들러 미구성 시
+    # lastResort(WARNING) 에 걸러진다). eval 로그 파일에 단계별 라인 박제용.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
+    )
 
     from sunity_shared import firestore_admin as fa, models  # noqa: E402
 

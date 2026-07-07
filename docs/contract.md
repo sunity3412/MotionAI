@@ -94,7 +94,20 @@ createdAt   number (epoch ms)
 updatedAt   number (epoch ms)
 error?      { code, message }      status='failed' 일 때
 result?     AnalysisResult         status='done' 일 때
+learningOptIn? boolean             학습활용 opt-in 동의값 (Phase 26, D-08/D-09).
+                                   기록 주체 = 앱 loading.tsx (문서 생성 시 항상 boolean).
+                                   기본 false — 부재(Phase 26 이전 문서)=미동의.
+                                   라우트 param 도 동일 명칭 learningOptIn ('1' | 미포함,
+                                   analyze→reference→loading), 계약 필드와 단일 네이밍 (리뷰 LOW-1).
+                                   소비 예정: Phase 22 manifest 게이트가 learningOptIn===true
+                                   인 분석의 영상만 학습 후보로 삼아야 함 — 게이트측 필터는
+                                   Phase 22 후속 반영 필요 (현 22-04 는 아직 미집행).
 ```
+
+> Phase 26 (Plan 26-03) — learningOptIn 신설. app 이 기록만 하고 backend 파이프라인/
+> 게이트는 무접촉 (models.py 는 주석-only 계약 미러). 3-way lockstep:
+> 본 §3 + app/src/types/analysis.ts AnalysisDoc.learningOptIn +
+> backend/shared/python/sunity_shared/models.py 주석 미러. 세 곳 동시 갱신 필수.
 
 쓰기 권한
 ```

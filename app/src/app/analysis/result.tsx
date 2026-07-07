@@ -39,7 +39,6 @@ import {
   isCleanPass,
 } from '../../lib/deductionLabels';
 import { useReferenceMotion } from '../../lib/referenceMotions';
-import { getSimulatedResult } from '../../lib/simulatedResult';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
 import { requestPlaybackUrl } from '../../lib/api';
@@ -52,7 +51,6 @@ import {
   PAIN_AREA_LABEL_KO,
 } from '../../types/analysis';
 import type {
-  AnalysisMode,
   AnalysisResult,
   BodyProfile,
   CoachingTip,
@@ -312,12 +310,14 @@ function actionPhraseForRecord(
 
 // 분석 결과 화면 (plan.md #8, design.md §8, ia AC-RES-001).
 // 미설계 화면 → design.md §0 결정 트리로 자체 설계. 흰 배경(§5-1),
-// 브랜드 포인트(#FF4B33), 스피너/이모지 없음, 토큰만 사용.
+// 브랜드 포인트(colors.brand), 스피너/이모지 없음, 토큰만 사용.
 //
-// 데이터: Firestore users/{uid}/analyses/{analysisId} doc (백엔드 갱신) 우선.
-// getSimulatedResult 폴백은 dev 안전망 — 샘플 시드 누락·딥링크·새로고침 등 doc 가
-// 아직 없는 케이스에서만 발동. 실 분석 경로는 loading.tsx 가 status='uploading'
-// 부터 doc 를 쓰므로 폴백이 활성화될 일은 없다.
+// 데이터: Firestore users/{uid}/analyses/{analysisId} doc 단일 소스. 시뮬 폴백은
+// Phase 26(F2/D-05)에서 샘플 미리보기 경로(샘플 화면 + 시뮬레이션 lib 2종)와
+// 함께 제거됐다. doc.result 부재 시 wrapper(AnalysisResult)가 로딩/미보유 안내를
+// 렌더하고, 자식(AnalysisResultContent)은 non-null result 로만 마운트해 렌더 간
+// 훅 순서를 보장한다 (wrapper/Content 분리, 리뷰 HIGH-1). 실 분석 경로는
+// loading.tsx 가 status='uploading' 부터 doc 를 쓴다.
 
 // Phase 20 (UI ④) — 가짜 입문/중급/고급 65/78/88 티어 표시 제거 (belle 결정).
 // 픽스처 평균치(구 lib/levels.ts)는 누적 데이터가 없어 의미가 없어 제거. 대신
@@ -538,18 +538,18 @@ function segmentHint(seg: SegmentScores): string {
   return '베이스와 확장 구간이 고르게 나왔어요. 전체 흐름을 이어서 다듬어보세요.';
 }
 
+// Wrapper (default export) — 담당은 4가지: 파라미터 읽기, doc 구독, body profile
+// 폴백 상태, 로딩/미보유 UI. doc.result 가 non-null 일 때만 자식을 마운트하므로
+// 자식(AnalysisResultContent)의 훅 순서가 렌더 간 안정하다 (리뷰 HIGH-1).
 export default function AnalysisResult() {
   const router = useRouter();
-  const { mode, name, analysisId, referenceMotionId, referenceMotionName } =
-    useLocalSearchParams<{
-      mode?: AnalysisMode;
-      name?: string;
-      analysisId?: string;
-      referenceMotionId?: string;
-      referenceMotionName?: string;
-    }>();
-  // Firestore doc 가 권위 있는 소스. 없을 때만 시뮬 폴백(dev 안전망).
-  const { doc: storedDoc } = useAnalysisDoc(analysisId);
+  const { name, analysisId } = useLocalSearchParams<{
+    name?: string;
+    analysisId?: string;
+  }>();
+  // Firestore doc 단일 소스. 시뮬 폴백(dev 안전망)은 Phase 26(F2/D-05)에서
+  // 샘플 경로와 함께 제거됐다 — doc.result 부재 시 시뮬 데이터를 렌더하지 않는다.
+  const { doc: storedDoc, loading } = useAnalysisDoc(analysisId);
   // [R1] 결과 화면 BodyProfile 표기 = 분석-당시 SNAPSHOT (storedDoc.bodyProfile).
   // live useBodyProfile 을 기본 소스로 쓰지 않는다 (분석 이후 프로필을 바꿔도
   // 과거 결과 표기는 분석 당시 값으로 재현되어야 함). snapshot 이 없는 구 doc
@@ -567,22 +567,64 @@ export default function AnalysisResult() {
     () => summarizeBodyProfile(bodyProfileSnapshot),
     [bodyProfileSnapshot],
   );
-  const analysisMode: AnalysisMode = mode === 'mode1' ? 'mode1' : 'mode3';
-  const result: AnalysisResult = useMemo(() => {
-    if (storedDoc?.result) return storedDoc.result;
-    const r = getSimulatedResult(analysisMode);
-    // 폴백 시 사용자가 #9 에서 고른 기준 모션 정보로 덮어씀.
-    if (r.comparison.mode === 'mode1' && referenceMotionId) {
-      r.comparison = {
-        ...r.comparison,
-        referenceMotionId,
-        referenceMotionName:
-          referenceMotionName || r.comparison.referenceMotionName,
-      };
-    }
-    return r;
-  }, [storedDoc, analysisMode, referenceMotionId, referenceMotionName]);
 
+  // doc.result 가 있어야만 자식(실 데이터 렌더)을 마운트한다. 없는 동안:
+  //  - loading: 구독 진행 중 → 로딩 안내
+  //  - !loading: 최종 부재(문서 없음/실패) → 한국어 안내 + 홈 이동
+  // 기존 에러 표시 계층 컨벤션 재사용. 시뮬 데이터는 렌더하지 않는다.
+  if (!storedDoc?.result) {
+    return (
+      <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>분석 결과</Text>
+            <Text style={styles.sub}>
+              {loading
+                ? '분석 결과를 불러오고 있어요.'
+                : '분석 결과를 불러올 수 없어요. 다시 시도해 주세요.'}
+            </Text>
+          </View>
+          {!loading && (
+            <Pressable
+              style={styles.cta}
+              onPress={() => router.replace('/(tabs)')}
+              accessibilityRole="button"
+            >
+              <Text style={styles.ctaText}>홈으로</Text>
+            </Pressable>
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <AnalysisResultContent
+      result={storedDoc.result}
+      name={name}
+      bodyProfileSummary={bodyProfileSummary}
+    />
+  );
+}
+
+// 결과 본문 — 항상 non-null result 로 마운트되므로 내부 훅 순서가 렌더 간 안정하다
+// (로딩/미보유 상태는 wrapper 소관, 리뷰 HIGH-1). result 는 계약 타입 AnalysisResult
+// non-nullable — 옵셔널/`| null` 금지 (타입으로 강제). referenceMotionId/Name·mode
+// 파라미터는 시뮬 폴백 전용이었으므로 폴백 제거와 함께 소멸 (실 데이터의
+// comparison 필드를 백엔드가 채움).
+function AnalysisResultContent({
+  result,
+  name,
+  bodyProfileSummary,
+}: {
+  result: AnalysisResult;
+  name?: string;
+  bodyProfileSummary: string | null;
+}) {
+  const router = useRouter();
   const grade = scoreGrade(result.overallScore);
   const cmp = result.comparison;
 

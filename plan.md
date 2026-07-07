@@ -1136,3 +1136,30 @@
       - sunity-api 노출 키 (AKIA...64A) deactivate
       - RUNPOD_AUTH_TOKEN 새 토큰 발급
       - 그 후 SAM 재배포 필요 (RunpodAuthToken 신규).
+
+---
+
+*2026-07-08 — Phase 26 (온보딩·기대설정 + 원본 업로드 가이드) 완료 + 보안 감사 통과:
+
+ ① 6 plans / 3 waves 실행 완료 (GSD execute-phase, worktree 병렬):
+    - 26-01 첫 실행 튜토리얼(스와이프 3슬라이드 + Magnific 생성 이미지 3장, belle 승인)
+    - 26-02 /help 이용방법·FAQ (샘플 미리보기 3파일 삭제, result.tsx wrapper/Content 분리)
+    - 26-03 learningOptIn 계약 3-way lockstep + 프라이버시 고지 + 촬영 거리 안내
+    - 26-04 카톡 압축본 _talkv_ 감지 경고 + not_pole 구도/거리 안내
+    - 26-05 F3 통증부위 기타 자유입력 + F4 홈 배너 정리
+    - 26-06 재배치안 Ⓐ(소스선택 ScrollView+캡션 통합, belle 확정) + belle 1차 실기기 확인
+ ② belle 제품 결정: 학습활용 동의 = opt-out (기본 체크 ON, 해제 시 노학습).
+    param 유실 시 false(미동의) fail-safe 유지 검증됨.
+ ③ 코드리뷰 W2/I4 → WR-01(모달 충돌)/WR-02(타이머 레이스)/IN-03(normalize 매핑) 즉시 수정.
+    IN-01/02(데드코드 정리)/IN-04(챌린지카드 복귀 불가, 기존) 이월.
+ ④ 보안 감사 17/17 CLOSED (26-SECURITY.md). 검증 28/29 (26-VERIFICATION.md).
+ ⑤ OTA 3회 발행 (production+preview, runtime 1.0.0 = TestFlight #27 호환). origin/main = 7c732ba.
+ ⑥ belle 프로세스 결정 (박제): 실기기 UAT는 phase별 HUMAN-UAT.md 적립 →
+    phase 22·26~31 전부 끝난 뒤 직원 합동 배치 세션에서 /gsd-audit-uat 로 한 번에.
+    첫 적립 = 26-HUMAN-UAT.md 6항목 (opt-out 동작/앨범 재오픈/기타 검증/튜토리얼
+    이미지/Firestore learningOptIn 증거 2건 — 조회는 Claude 대행).
+ ⑦ Phase 22 반영 필수 (SECURITY.md 박제): 22-04 manifest gate 에 learningOptIn===true
+    필터 추가 — opt-out 전환으로 후보 풀 커져 우선순위 상승.
+ ⑧ 다음: /gsd-execute-phase 27 (분석 속도 1분, CONTEXT+플랜 5개 준비됨)
+    또는 /gsd-execute-phase 22 (VLM 파인튜닝, belle blocking checkpoint 3개).
+    진행 현황 소스 오브 트루스 = .planning/STATE.md + ROADMAP.md.

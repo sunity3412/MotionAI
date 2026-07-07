@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 28 플랜 완료(외부 리뷰+체커 3회차 PASS) — 26/27/28 실행 대기, 착수 순서 26→27→28
-last_updated: "2026-07-07T14:14:04.415Z"
-last_activity: 2026-07-07 -- Phase 26 execution started
+stopped_at: Phase 26 완료(6/6, 잔여 확인=26-HUMAN-UAT 배치 UAT 이월) — 다음 착수 27→28
+last_updated: "2026-07-07T15:25:41.385Z"
+last_activity: 2026-07-07
 progress:
   total_phases: 14
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 52
-  completed_plans: 17
-  percent: 14
+  completed_plans: 23
+  percent: 21
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 26 (onboarding-upload-guide) — EXECUTING
-Plan: 1 of 6
+Phase: 26 (onboarding-upload-guide) — COMPLETE (6/6 plans, 2026-07-08). 잔여 실기기 확인+Firestore 동의 증거 = 26-HUMAN-UAT.md (belle 배치 UAT 정책 — phase 22·26~31 완료 후 직원 합동 세션에서 일괄). 다음 착수 = phase 27 (belle 순서 26→27→28)
+Plan: 6 of 6 (complete)
 Verification: 10-02 COMPLETE — D-04 trunk-hyperextension flag end-to-end (reference-anchored DTW-path-aligned excess + hip-local phase-co-located control-loss AND-gate). _phase_for_window (window→phase ≥50% overlap, no-op on None) + _dtw_aligned_joint_medians (timing-shift cancellation, HIGH-A) + _control_loss_for_joint (LOCAL+TEMPORAL, HIGH-1) in safety_flags.py. _process injection (mode1 a_ref / mode3 reshaped prev) + single-path firestore_admin._validate_safety_flags. Amber InjuryRiskSection on result.tsx (all-4 copy map, omit-when-empty, no brand red). 정은지 elite posture alone / wrong-phase / timing-shifted-reference = ZERO flags (headline gate GREEN). phase10 = 29 passed, 7 xfailed (10-03/10-04 must-fire), 0 failed. App typecheck clean. No regressions (full-suite 54 pre-existing failures = app-module-name-collision + gemini/knee env, identical on HEAD). 3 commits (774e2ee/e6f1b3b/708464f).
 Next: 10-03 (D-05 absolute joint hyperextension — reference-free, sagittal-frame from keypoints_4ch; un-xfails hyperextension tests; auto-renders via joint_hyperextension copy map). Then 10-04 (asymmetry + level_mismatch).
-Status: Executing Phase 26
+Status: Ready to execute
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -66,7 +66,7 @@ Status: Executing Phase 26
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-07 -- Phase 26 execution started
+Last activity: 2026-07-07
 
 ### Quick Tasks Completed
 
@@ -316,7 +316,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [█████████░] 93%
+Progress: [████░░░░░░] 44%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -564,6 +564,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 10 P02 | 50min | 3 tasks | 8 files |
 | Phase 10 P03 | 55min | 2 tasks | 5 files |
 | Phase 10 P04 | 45min | 2 tasks | 4 files |
+| Phase 26 P06 | ~55min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -650,6 +651,9 @@ Recent decisions affecting current work:
 - [Phase 10]: D-05 cross-product hyperextension detector: deterministic frontal-axis sign + min-angle calibration + uncertainty_proxy-correct scoped gate; real-elite (T,17,4) regression pod-deferred (skipif-gated, extractor written)
 - [Phase ?]: Phase 10-04: D-03 asymmetry is DTW-path-aligned reference-anchored (explicit L/R pairs + MAX aggregation, pair-local + phase-co-located control-loss); intentional asymmetry cancels even at shifted timing; absolute L/R never flagged.
 - [Phase ?]: Phase 10-04: D-06 level-mismatch is Mode-1 only with enum-guarded ladder; severity scales with rank-gap x instability so gap=1 does not over-warn. All four SafetyFlag types complete -> SAFE-01 satisfied.
+- [Phase ?]: 26-06: 재배치안 A 확정(belle) — 소스 선택 ScrollView+캡션 통합, 홈 무접촉. B 홈 링크는 향후 잡 UI 후보
+- [Phase 26]: 26-06: 학습활용 동의 opt-out 전환(belle 제품 결정 2026-07-08) — 기본 체크 ON, 해제=노학습. 기록 경로/fail-safe 불변
+- [Phase 26]: 26-06: 배치 UAT 정책(belle) — 잔여 실기기 확인+Firestore 증거는 26-HUMAN-UAT.md 이월, phase 22·26~31 완료 후 직원 합동 세션
 
 ### Pending Todos
 
@@ -684,7 +688,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-07T14:03:55.145Z
+Last session: 2026-07-07T15:24:31.539Z
 
 Stopped at: Phase 28 플랜 완료(외부 리뷰+체커 3회차 PASS) — 26/27/28 실행 대기, 착수 순서 26→27→28
 
@@ -753,7 +757,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/28-dtw-motion-based-alignment/28-01-PLAN.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

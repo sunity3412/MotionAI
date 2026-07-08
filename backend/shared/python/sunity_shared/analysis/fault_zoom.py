@@ -248,11 +248,18 @@ def _frame_index(seconds: float | None, fps: float, n_frames: int) -> int:
 
 
 def _matched_ref_frame(dtw_match, user_frame: int, ref_n: int) -> int | None:
-    """B1 — DTW match 로 학생 9fps 프레임 ↔ 기준 9fps 프레임(같은 pose). None=불가.
+    """B1 — DTW match 로 학생 프레임 ↔ 기준 프레임(같은 pose). None=불가.
 
-    match.start = 사용자 구간 시작(angles 9fps), path = [(user_local, ref_idx)...]
-    (ref_idx = 기준 angles 9fps 절대). 학생 프레임을 구간-로컬로 변환 후 path 에서
-    같은 user_local 의 ref_idx 들의 median 을 고른다(DTW 1:N 대응 안정화).
+    match.start = 사용자 구간 시작(angles 9fps), path = [(user_local, ref_idx)...].
+    ref_idx = 기준 angles 인덱스 — **ref doc 의 keypointReport.fps 공간**(phase4_v1
+    재처리 18fps, 28-01 실측). 반환도 이 angles(rep) 인덱스 공간이다. 호출측이
+    clamp 상한(ref_n)과 9fps frames 배열로의 변환을 도메인에 맞게 책임진다
+    (28-RESEARCH Pitfall 1, D2 fix — angles 인덱스를 9fps frames 에 그대로 넣으면
+    시간 2배 오독). 학생 프레임을 구간-로컬로 변환 후 path 에서 같은 user_local 의
+    ref_idx 들의 median 을 고른다(DTW 1:N 대응 안정화).
+
+    **본체 수정 금지** — veto still 경로(app.py `_build_selected_frame_pair`)가 이
+    함수를 공유하며 그쪽 입력이 바뀌면 점수가 움직인다 (28-RESEARCH Open Q2).
     """
     if dtw_match is None:
         return None
@@ -847,10 +854,18 @@ def build_fault_zoom_comparisons(
         r_kp_idx = _to_rep_idx(r_idx, frames_fps, r_rep_fps, r_rep_frames)
     else:
         # B1: DTW match 로 같은-pose 기준 프레임. 불가 시 시간비례 근사 폴백.
-        r_matched = _matched_ref_frame(dtw_match, u_idx, r_n)
+        # clamp 도메인 = ref angles(keypointReport) 프레임 수 r_rep_frames —
+        # _matched_ref_frame 반환은 ref angles(rep) 인덱스 공간(phase4_v1=18fps,
+        # 28-01 실측)이라 9fps frames 수 r_n 으로 클램프하면 안 됨 (D2 fix).
+        if r_rep_frames <= 0:
+            r_matched = None
+        else:
+            r_matched = _matched_ref_frame(dtw_match, u_idx, r_rep_frames)
         if r_matched is not None:
-            r_idx = r_matched
-            r_kp_idx = _to_rep_idx(r_matched, frames_fps, r_rep_fps, r_rep_frames)
+            r_kp_idx = r_matched  # 이미 rep(angles) 공간 — 추가 변환 불필요
+            # rep→frames 역변환 (28-RESEARCH Pitfall 1, D2 fix) — 같은 _to_rep_idx
+            # 공식에 fps 인자 순서만 반대(중복 공식 금지, quick-260705-ftn 관례).
+            r_idx = _to_rep_idx(r_matched, r_rep_fps, frames_fps, r_n)
         else:
             ratio = (u_idx / max(1, u_n - 1)) if u_n > 1 else 0.0
             r_idx = int(round(ratio * (r_n - 1))) if r_n > 1 else 0

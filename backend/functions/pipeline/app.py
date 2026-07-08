@@ -153,6 +153,19 @@ def _runpod_enabled() -> bool:
     return bool(_RUNPOD_URL and _RUNPOD_TOKEN)
 
 
+def _student_frame_cache_enabled() -> bool:
+    """학생 프레임 배열 재사용 캐시 게이트 (Phase 27 SPD-04 Task 3, 27-RESEARCH Pattern 7).
+
+    RunPod Pod(대용량 RAM)에서는 ON — 9fps/640px 프레임(~190MB/영상)을 분석-로컬로 보존해
+    still-pair/ fault_zoom 재추출을 소멸시킨다(디코딩 3회→1회). Lambda 폴백 경로
+    (256MB~1GB, CPU NaN flow-only)에서는 `STUDENT_FRAME_CACHE=0` 로 비활성해 메모리 부담
+    회피 — 기존 재추출 경로 유지(A5 OOM 방어). default ON(=1). Pod start_server.sh /
+    Lambda template env 반영은 27-09(27-05 의 env 이중 박제 패턴 정합). 메모리 env 게이트라
+    RunPod 자동 감지에 의존하지 않는다.
+    """
+    return os.environ.get("STUDENT_FRAME_CACHE", "1") != "0"
+
+
 def _delegate_to_runpod(bucket: str, key: str) -> None:
     """RunPod /analyze 로 위임. 202/200 외 응답은 예외 → Lambda 가 fail_analysis 매핑.
     urllib 표준 라이브러리만 사용(requests 의존성 X — Layer 추가 부담 없음).
@@ -1331,6 +1344,13 @@ class _VideoAnalysisInputs(NamedTuple):
     local_video_path: Path | None
     pole_axis_measurement: PoleAxisMeasurement
     keypoints_4ch: np.ndarray
+    # Phase 27 SPD-04 (Task 3, 27-RESEARCH Pattern 7) — 학생 영상 9fps/640px 프레임
+    # 배열 (T, H, W, 3) uint8. FfmpegFrameExtractor(9.0, 640) 산출을 분석-로컬 캐시로
+    # 보존해 still-pair/ fault_zoom 재추출을 소멸시킨다(ffmpeg 디코딩 3회→1회). 동일
+    # 파라미터 전제 — 파라미터가 다른 extract 호출이 생기면 이 캐시를 쓰지 말 것.
+    # default None — 실경로(_extract_video_analysis_inputs_from_local)는 항상 채우고,
+    # 기존 테스트 stub 은 미지정 시 None(캐시 비활성=재추출)으로 하위호환.
+    frames: "np.ndarray | None" = None
 
 
 def _download_analysis_video(
@@ -1437,6 +1457,7 @@ def _extract_video_analysis_inputs_from_local(
         local_video_path=local_video_path_out,
         pole_axis_measurement=pole_axis_measurement,
         keypoints_4ch=keypoints_4ch,
+        frames=frames,  # Phase 27 Task 3 — 학생 프레임 캐시 (재추출 소멸)
     )
 
 
@@ -1809,6 +1830,7 @@ def _build_selected_frame_pair(
     user_frame_idx: int,
     pose_frames=None,
     reference_pose_frames=None,
+    cached_user_frames=None,
 ):
     """still 프레임 추출/정리 helper (D-10 HIGH-2) → SelectedFramePair | None.
 
@@ -1827,7 +1849,13 @@ def _build_selected_frame_pair(
         from PIL import Image
 
         ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
-        user_frames = ext.extract(user_video_path)
+        # Phase 27 Task 3 — 학생 프레임 캐시 재사용(재추출 소멸). 동일 9fps/640px 파라미터
+        # 전제라 byte-동일. 캐시 부재(Lambda 폴백/legacy) 시 기존 추출 경로 폴백. 기준
+        # 영상은 캐시 타협(A5 메모리) — zoom 시점 추출 1회 유지.
+        user_frames = (
+            cached_user_frames if cached_user_frames is not None
+            else ext.extract(user_video_path)
+        )
         ref_frames = ext.extract(reference_video_path)
         u_n = int(user_frames.shape[0])
         r_n = int(ref_frames.shape[0])
@@ -1924,6 +1952,7 @@ def _collect_vision_fault_context(
     reference_pose_frames=None,
     preuploaded_student_handle=None,
     preuploaded_reference_handle=None,
+    cached_user_frames=None,
 ) -> "vision_veto.VisionFaultContext":
     """Gemini 호출 소유자 (coach 전 1회, D-10 HIGH-1). keyword pre-build primitive 시그니처.
 
@@ -1974,6 +2003,7 @@ def _collect_vision_fault_context(
             user_frame_idx=user_frame_idx,
             pose_frames=pose_frames,
             reference_pose_frames=reference_pose_frames,
+            cached_user_frames=cached_user_frames,
         )
         visibility = 0.0
         if pair is not None and pair.student_confidence is not None:
@@ -2666,6 +2696,7 @@ def _render_fault_zoom(
     advisory_deltas: dict[str, float] | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
     split_angle_present: bool = False,
+    cached_user_frames=None,
 ) -> list[dict]:
     """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → comparisons 리스트.
 
@@ -2693,7 +2724,13 @@ def _render_fault_zoom(
     if not fault_joints:
         return []
     ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
-    user_frames = ext.extract(user_video_path)
+    # Phase 27 Task 3 — 학생(user) 프레임 캐시 재사용(재추출 소멸). 동일 9fps/640px
+    # 파라미터라 byte-동일. 캐시 부재(Lambda 폴백/legacy) 시 추출 폴백. 기준/지난
+    # 영상(right)은 캐시 타협 — zoom 시점 추출 1회 유지(A5 메모리).
+    user_frames = (
+        cached_user_frames if cached_user_frames is not None
+        else ext.extract(user_video_path)
+    )
     right_frames = ext.extract(right_video_path)
     comps = fault_zoom.build_fault_zoom_comparisons(
         user_frames,
@@ -2779,6 +2816,7 @@ def _build_fault_zoom_comparisons(
     analysis_id: str,
     bucket: str,
     dtw_match=None,
+    cached_user_frames=None,
 ) -> list[dict]:
     """Mode1 결함 부위 확대 비교 — 학생 vs 정은지. kind='deficit'(기준보다 부족).
 
@@ -2787,6 +2825,8 @@ def _build_fault_zoom_comparisons(
 
     Phase 27 SPD-04 (D-06) — comparisons list[dict] 반환(사후 update 경로). `result` 는
     결함/편차 read 전용(사후 mutation 금지). 대상 부재/무결함 → 빈 리스트.
+    cached_user_frames (Task 3): 학생 프레임 캐시 재사용(재추출 소멸) — _render_fault_zoom
+    로 pass-through.
     """
     if not user_video_path or not ref_video_path or not user_report or not ref_report:
         return []
@@ -2885,6 +2925,7 @@ def _build_fault_zoom_comparisons(
         advisory_deltas=advisory_deltas,
         split_angle_degs=split_degs,
         split_angle_present=split_present,
+        cached_user_frames=cached_user_frames,  # Phase 27 Task 3 — 학생 재추출 소멸
     )
 
 
@@ -2912,6 +2953,7 @@ def _build_mode3_fault_zoom_comparisons(
     uid: str,
     analysis_id: str,
     bucket: str,
+    cached_user_frames=None,
 ) -> list[dict]:
     """Mode3 변화 부위 확대 비교 — 현재 vs 지난 영상. kind=improved/worsened.
 
@@ -2962,6 +3004,7 @@ def _build_mode3_fault_zoom_comparisons(
             change_joints, {}, kinds,  # mode3 = 숫자 없음(방향만)
             vision_veto.worst_pose_timestamp(profile),
             uid, analysis_id, bucket,
+            cached_user_frames=cached_user_frames,  # Phase 27 Task 3 — 학생 재추출 소멸
         )
     finally:
         _safe_unlink_local_video(prev_video_path)
@@ -3388,6 +3431,12 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         pose_frames = inputs.pose_frames
         local_video_path_obj = inputs.local_video_path
         local_video_path = str(local_video_path_obj) if local_video_path_obj else None
+        # Phase 27 SPD-04 (Task 3, Pattern 7) — 학생 9fps/640px 프레임 캐시. 게이트 ON
+        # (RunPod)일 때만 보존해 still-pair/ fault_zoom 재추출을 소멸(디코딩 3회→1회).
+        # Lambda 폴백(STUDENT_FRAME_CACHE=0)은 None → 기존 재추출 경로 유지(A5 메모리).
+        cached_user_frames = (
+            inputs.frames if _student_frame_cache_enabled() else None
+        )
 
         # Phase 27 D-02 — 포즈 추출(frame_extract + RTMW) 완료 후 POSE_ANALYSIS write
         # (실제 단계 경계). 과거엔 작업 전 FRAME_EXTRACTION 와 연속 write 됐다.
@@ -3803,6 +3852,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 pose_frames=pose_frames,
                 preuploaded_student_handle=student_video_handle,
                 preuploaded_reference_handle=reference_video_handle,
+                cached_user_frames=cached_user_frames,  # Phase 27 Task 3 — 재추출 소멸
             )
         # eligible 일 때만 support-gated root-cause 를 coach context 에 주입(graceful 무시 아님 —
         # writer 가 to_coach_context() 의 visionFault 키를 실제 프롬프트 causes 에 렌더).
@@ -4481,6 +4531,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                         analysis_id,
                         bucket,
                         dtw_match=reference_dtw_match,
+                        cached_user_frames=cached_user_frames,  # Task 3 — 재추출 소멸
                     )
                 else:  # mode3 — 현재 vs 지난 영상 변화 부위 확대 비교 (mode3=progress)
                     _zoom_render = lambda: _build_mode3_fault_zoom_comparisons(
@@ -4492,10 +4543,14 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                         uid,
                         analysis_id,
                         bucket,
+                        cached_user_frames=cached_user_frames,  # Task 3 — 재추출 소멸
                     )
                 _run_deferred_fault_zoom(
                     render=_zoom_render, uid=uid, analysis_id=analysis_id
                 )
+            # Phase 27 Task 3 — zoom 렌더 완료 후 프레임 캐시 명시 해제(메모리 반환).
+            # (inputs.frames 참조도 함수 종료 시 GC — cached 로컬만 즉시 끊는다.)
+            cached_user_frames = None
     finally:
         # Phase 27 D-04 — 세션 File API 핸들 일괄 delete = 분석당 1회 (unlink 보다 앞).
         # NoHuman/NotPole 조기 raise 경로 포함 도달 보장 (Pitfall 2) — 20GB 적체 재발 방지.

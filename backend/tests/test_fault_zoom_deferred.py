@@ -230,3 +230,116 @@ def test_deferred_failed_write_exception_swallowed(pipeline_app, monkeypatch) ->
     )
     # done 시도 없음(render 실패) → failed 1회만 시도됨.
     assert [c[3] for c in spy.calls] == ["failed"]
+
+
+# ─────────────────── Task 3: 프레임 배열 재사용 (디코딩 3회→1회) ───────────────────
+
+
+class _CountingExtractor:
+    """extract() 호출을 path 별로 카운트하는 fake FfmpegFrameExtractor (재디코딩 증명용)."""
+
+    calls: list[str] = []
+
+    def __init__(self, target_fps: float = 9.0, max_side: int = 640) -> None:
+        # 파라미터 검증 — 캐시 전제(9fps/640px) 유지 확인.
+        assert (target_fps, max_side) == (9.0, 640)
+
+    def extract(self, path, *a, **k):
+        import numpy as np
+
+        _CountingExtractor.calls.append(path)
+        return np.zeros((3, 8, 8, 3), dtype=np.uint8)
+
+
+class _FakeS3:
+    def __init__(self) -> None:
+        self.puts: list[str] = []
+
+    def put_object(self, **kwargs) -> None:
+        self.puts.append(kwargs.get("Key"))
+
+
+@pytest.fixture
+def _render_env(pipeline_app, monkeypatch):
+    """_render_fault_zoom 디코딩 카운트 하니스 — 카운팅 extractor + S3/서명 mock.
+
+    frame_extractor 모듈은 imageio 를 top-level import 하므로(dev 머신 미설치), 실제
+    import 대신 fake 모듈을 sys.modules 에 주입해 `from ...frame_extractor import
+    FfmpegFrameExtractor` 를 카운팅 fake 로 해결한다(monkeypatch string path 는 실 import
+    유발 → 회피).
+    """
+    import types
+
+    import numpy as np
+    from sunity_shared.analysis import fault_zoom
+
+    _CountingExtractor.calls = []
+    fake_mod = types.ModuleType("sunity_shared.analysis.frame_extractor")
+    fake_mod.FfmpegFrameExtractor = _CountingExtractor
+    monkeypatch.setitem(
+        sys.modules, "sunity_shared.analysis.frame_extractor", fake_mod
+    )
+    # 실제 crop 합성 회피 — 프레임만 소비하고 최소 comp 반환 (png 필수 키).
+    monkeypatch.setattr(
+        fault_zoom, "build_fault_zoom_comparisons",
+        lambda *a, **k: [{"joint": "left_knee", "png": b"x", "deficitDeg": 10.0}],
+    )
+    monkeypatch.setattr(pipeline_app, "_s3", _FakeS3())
+    monkeypatch.setattr(pipeline_app, "_signed_get", lambda b, k: "https://signed/url")
+    return np
+
+
+def _call_render(pipeline_app, np, *, cached):
+    return pipeline_app._render_fault_zoom(
+        {},  # result — read 전용
+        "student.mp4",
+        "reference.mp4",
+        {"kp": 1},
+        {"kp": 2},
+        ["left_knee"],
+        {"left_knee": 10.0},
+        {"left_knee": "deficit"},
+        None,  # worst
+        "u1",
+        "a1",
+        "bucket",
+        cached_user_frames=(np.zeros((3, 8, 8, 3), dtype=np.uint8) if cached else None),
+    )
+
+
+def test_extract_calls_reuse_cached_user_frames_runpod_path(
+    pipeline_app, _render_env
+) -> None:
+    """RunPod 경로 — 캐시 제공 시 학생(student.mp4) 재디코딩 0회 (기준만 1회)."""
+    np = _render_env
+    comps = _call_render(pipeline_app, np, cached=True)
+    assert comps  # 정상 산출
+    # 학생 영상은 캐시 재사용 → extract 호출 0. 기준 영상만 1회 추출(타협 유지).
+    assert _CountingExtractor.calls.count("student.mp4") == 0
+    assert _CountingExtractor.calls.count("reference.mp4") == 1
+
+
+def test_extract_calls_reextract_without_cache_lambda_path(
+    pipeline_app, _render_env
+) -> None:
+    """Lambda 폴백(게이트 off, cached=None) — 학생 재추출 경로 유지(디코딩 > 0)."""
+    np = _render_env
+    comps = _call_render(pipeline_app, np, cached=None)
+    assert comps
+    # 캐시 없음 → 학생 영상 재추출 1회 (기존 경로 보존).
+    assert _CountingExtractor.calls.count("student.mp4") == 1
+
+
+def test_student_frame_cache_gate_reads_env(pipeline_app, monkeypatch) -> None:
+    """게이트 — STUDENT_FRAME_CACHE default ON, '0' 이면 OFF(Lambda 폴백)."""
+    monkeypatch.delenv("STUDENT_FRAME_CACHE", raising=False)
+    assert pipeline_app._student_frame_cache_enabled() is True
+    monkeypatch.setenv("STUDENT_FRAME_CACHE", "0")
+    assert pipeline_app._student_frame_cache_enabled() is False
+    monkeypatch.setenv("STUDENT_FRAME_CACHE", "1")
+    assert pipeline_app._student_frame_cache_enabled() is True
+
+
+def test_video_analysis_inputs_carries_frames_field(pipeline_app) -> None:
+    """_VideoAnalysisInputs 에 frames 필드 존재 (분석-로컬 캐시 원천)."""
+    assert "frames" in pipeline_app._VideoAnalysisInputs._fields

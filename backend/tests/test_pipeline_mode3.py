@@ -52,7 +52,7 @@ def _as_prev(angles: np.ndarray, analysis_id: str, dim_scores: dict) -> dict:
 
 
 def test_first_analysis_absolute_only_no_delta():
-    assessments, dims, overall, comparison = app._mode3_comparison(
+    assessments, dims, overall, comparison, _prev_match = app._mode3_comparison(
         _video(1), None, _profile()
     )
     # Phase 19 — _mode3_comparison 은 이제 scoringBasis(실제 채점 source 라벨)를 항상
@@ -70,7 +70,7 @@ def test_second_analysis_has_progress_delta_and_angle():
     cur = _video(2)
     prev_angles = _video(7)
     prev = _as_prev(prev_angles, "prevA", {"line": 60, "stability": 65})
-    _, dims, overall, comparison = app._mode3_comparison(cur, prev, _profile())
+    _, dims, overall, comparison, _prev_match = app._mode3_comparison(cur, prev, _profile())
     # 두 번째+ = angle(이전영상 일관성) 표시 + 절대 차원.
     assert set(dims) == {"angle", "line", "stability"}
     assert comparison["mode"] == "mode3" and comparison["isFirst"] is False
@@ -113,7 +113,7 @@ def test_low_similarity_does_not_invert_overall():
     prev = _as_prev(prev_angles, "prevWorse", {"line": 40, "stability": 40})
 
     abs_dims = app.dimensions.absolute_dimension_scores(cur, profile)
-    _, dims, overall, _comparison = app._mode3_comparison(cur, prev, profile)
+    _, dims, overall, _comparison, _prev_match = app._mode3_comparison(cur, prev, profile)
 
     # 전제 가드: angle(유사도)이 절대 차원 최소값보다 낮은 "역전 조건" 이 실제로 성립.
     # (성립하지 않으면 이 회귀가 의미 없으므로 결정적 seed 로 고정 — 위 builder 참조.)
@@ -133,7 +133,7 @@ def test_same_video_is_consistent():
     profile = _profile()
     prev_abs = app.dimensions.absolute_dimension_scores(v, profile)
     prev = _as_prev(v, "selfprev", prev_abs)
-    _, dims, _, comparison = app._mode3_comparison(v, prev, profile)
+    _, dims, _, comparison, _prev_match = app._mode3_comparison(v, prev, profile)
     assert dims["angle"] >= 95  # 자기 자신과 정렬 → 편차 ~0
     assert comparison["deltaFromPrevious"] == {"line": 0, "stability": 0}
 
@@ -235,12 +235,12 @@ def test_unknown_move_gate(scoring_basis):
     # first reference-free vs first recognized 를 구분해 정확한 scoringBasis 를 emit 한다
     # (동일 angles/profile 만으로는 구분 불가 — branch_info 가 motion 인식 정보의 single source).
     if is_first:
-        _, _, _, comparison = app._mode3_comparison(
+        _, _, _, comparison, _prev_match = app._mode3_comparison(
             _video(1), None, profile, branch_info=branch
         )
     else:
         prev = _as_prev(_video(7), "prevA", {"line": 60, "stability": 65})
-        _, _, _, comparison = app._mode3_comparison(
+        _, _, _, comparison, _prev_match = app._mode3_comparison(
             _video(2), prev, profile, branch_info=branch
         )
 

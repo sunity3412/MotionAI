@@ -1526,6 +1526,49 @@ const frameIdx = Math.floor(currentTime * report.fps);
 
 ---
 
+## §11. MotionAlignment (Phase 28 신설 — ALGN-01 동작 기반 비교 정렬)
+
+`result.motionAlignment` 은 학생(left)=master 로 시계 불변, 정은지(right)만 `warp(tStudent)→tRef` 로 따라가게 하는 **동작 기반 정렬 맵**이다. VideoCompare 가 소비하며(앱 순수 함수 `alignmentWarp.ts` `warpTime`/`segmentRate`), 두 영상의 절대시계 동기화가 만드는 스크럽 drift(28-RESEARCH Pitfall 7)를 없앤다. 3-way lockstep: `app/src/types/analysis.ts` `MotionAlignment` ↔ `models.py` `MOTION_ALIGNMENT_KEYS`/`MOTION_ALIGNMENT_TIERS`/`MOTION_ALIGNMENT_SOURCES` ↔ 본 §11.
+
+### §11.1 필드
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `version` | string | 정렬 계약/알고리즘 버전 (예: `ma-v1`) |
+| `source` | 'dtw'\|'vlm' | 정렬 출처. `dtw`=Phase 28 MotionDTW / `vlm`=Phase 22 v1 time_anchors 상위 호환 축(22-01 REPORT_KEYS time_anchors 동형) |
+| `tier` | 'warped'\|'trim_only'\|'disabled' | 정렬 사다리 3단(D-02, §11.2) |
+| `reason?` | string | disabled/degenerate 사유(예: `empty_path`/`invalid_fps`/`insufficient_anchors`/`rate_clamp_exceeded`). optional |
+| `anchors` | number[] | **flat** `[u0,r0, u1,r1, ...]` 학생초(u)/기준초(r) 쌍. 초 단위(§11.3). u 단조 증가·r 비감소. `[[firestore-nested-array-flat]]` — nested list 금지, flat scalar 만. 상한 512(§11.4) |
+| `anchorCount` | number | `len(anchors)//2` (reshape 메타 — anglesFrames 선례) |
+| `distance` | number | DTW 총 정렬 거리(품질 지표) |
+
+### §11.2 tier 사다리 3단 (D-02)
+
+- `warped` = 구간 가변속도 (구간 기울기 clamp `[RATE_MIN=0.5, RATE_MAX=2.0]` — belle 고정값 28-CONTEXT D-01, `alignmentWarp.ts` `clampRate` + W4 lockstep 테스트).
+- `trim_only` = 트림+오프셋만 (가변속도 끔 — 첫 앵커 기준 평행이동 `warp(t)=t-u0+r0`).
+- `disabled` = 현행 절대시계 (워핑 없음, identity). degenerate 방출(정렬 불가/무의미)도 여기로 방출해 legacy **필드 부재**와 구별한다(과약속 배너 루프 차단, 28-01 W3).
+
+### §11.3 초 단위 근거 (fps 도메인)
+
+학생 영상은 9fps, reference 는 18fps 로 프레임률이 다르다(28-01 실측: 활성 reference 11 doc 전부 `keypointReport.fps=18.0`). 프레임 인덱스로 정렬하면 도메인 불일치가 생기므로(28-RESEARCH Pitfall 1), anchors 는 **초 단위**로 방출하고 fps 는 doc 메타(`keypointReport.fps`)에서 읽는다(18.0 하드코딩 금지 — 재처리 방어).
+
+### §11.4 anchors flat 규칙 + 상한 + 역불변식 (MEDIUM-3)
+
+- **flat 짝수 길이**: `[u0,r0, u1,r1, ...]` — 홀수 길이 무효. `anchorCount == len(anchors)//2`.
+- **상한 512** (`MOTION_ALIGNMENT_MAX_ANCHOR_FLOATS`): Firestore 40k index-entry 방어(`[[firestore-index-entry-limit]]`, T-28-05). `motion_alignment.MAX_ANCHOR_FLOATS` 와 lockstep.
+- **역불변식 (MEDIUM-3)**: `anchors==[]` 는 **tier 'disabled' 에서만** 유효(degenerate 방출 형상). `'warped'`/`'trim_only'` 는 **최소 2쌍(4 float) AND `anchorCount>=2`**. "warped 인데 anchors 빈" 모순 데이터를 저장 전에 거부한다(`firestore_admin._validate_motion_alignment`) — 앱 normalizer(`alignmentWarp.normalizeMotionAlignment`, 같은 규칙으로 null 폴백)와 대칭 유지 + malformed Firestore 상태 진단 가능.
+
+### §11.5 legacy 하위호환 + Phase 22 상위 호환
+
+- **부재(legacy doc) = 현행 절대시계 동작** (optional, no migration — `faultZoomStatus?`/`tier?` 서술 모범 준수). 앱은 필드 부재 시 워핑 없이 절대시계로 재생.
+- **Phase 22 상위 호환**: `source:'vlm'` 축은 Phase 22 v1 이 방출할 time_anchors(22-01 REPORT_KEYS time_anchors 동형)를 같은 계약으로 소비하기 위한 자리 — Phase 28 은 `dtw` 만 방출, `vlm` 은 상위 호환 예약.
+
+### §11.6 FaultZoomComparison.refMatch (D-04)
+
+`FaultZoomComparison` 에 `refMatch?: 'dtw' | 'failed'` scalar 를 추가한다 — 기준(정은지) 측 프레임 대응 provenance. `'failed'`=DTW 대응 실패로 전신 폴백(앱이 "동작 대응 실패 — 전신 비교" 캡션 렌더), **부재(legacy)**=캡션 없음(하위호환). 동작 기반 정렬로 부위-정합 crop 을 시도했으나 실패한 케이스를 사용자에게 조용히 숨기지 않고 명시(analysis.ts `FaultZoomComparison` 주석 + Python 방출부 주석 lockstep — region/tier 선례와 동일).
+
+---
+
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
 *Phase 1 §6 추가: 2026-05-31 — PoseFrame/PoleAxis 3-way lockstep (H-3/H-4/M-1/M-2/M-5 REVIEWS 박제).*
 *Plan 01-19 §7 추가: 2026-06-02 — BodyNormalizationProfile (D-19 segment 비율, D-21 nullable). RTMW pivot 박제.*
@@ -1536,3 +1579,4 @@ const frameIdx = Math.floor(currentTime * report.fps);
 *Plan 08.1-00 §9.3 변경: 2026-06-09 — BodyLineTiltMetric distance 차원 hard break. 5 필드 (pelvisDistanceFromPoleAxis / chestDistanceFromPoleAxis / scaleDenominator / coordinateSpace / deviationDirection) 제거 + tilt-only. Wave 0 = transitional stub. IPSF Code of Points NotebookLM citation 9 (Page 87 Glossary — 'Tilt' / 'Lean' / 'Off-axis' 용어 부재) 정합. RESEARCH §4 α-4 + CONTEXT D-01.*
 *Plan 09-01 §9.11 추가: 2026-06-10 — ForcePatternInference + ForcePatternFinding 신설 (Wave 0 = TS interface + Python frozen dataclass + Firestore scoped validator + frontend null-guard 단일 atomic commit). D-09-D1 / D-09-U1 (3-way atomic lockstep) / D-09-U3 / D-09-U4 / D-09-U5. Wave 1 (Plan 09-02) 가 본체 함수 + 18 canned + pipeline wiring 박제.*
 *quick-260705-k8h §10 갱신: 2026-07-05 — 관절(criterion record)당 감점 상한 −20 (belle 승인). §10.2 optional 2필드(`rawPoints`/`capApplied`) 신설 — 상한 적용 record 에만 방출, 미적용 record byte-호환. final 밴드/severity 밴드 없음 유지 (record 단위 명시 규칙 클램프).*
+*Plan 28-03 §11 추가: 2026-07-08 — MotionAlignment (ALGN-01 동작 기반 비교 정렬) 3-way lockstep (TS interface + Python MOTION_ALIGNMENT_KEYS + 본 §11). tier 3단(warped/trim_only/disabled, D-02) + 초 단위 fps 도메인(9fps vs 18fps) + anchors flat 상한 512 + tier↔anchors 역불변식(MEDIUM-3, disabled 만 빈 anchors) + legacy 하위호환 + Phase 22 source:'vlm' 상위 호환 + FaultZoomComparison.refMatch(D-04) 신설.*

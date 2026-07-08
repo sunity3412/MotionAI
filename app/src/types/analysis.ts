@@ -457,6 +457,35 @@ export interface FaultZoomComparison {
    * TS 주석 + Python 방출부 주석 lockstep).
    */
   tier?: 'confirmed' | 'advisory' | null;
+  /**
+   * D-04 — 기준(정은지) 측 프레임 대응 provenance. 'failed'=DTW 대응 실패로
+   * 전신 폴백(앱은 "동작 대응 실패 — 전신 비교" 캡션 렌더), 부재(legacy)=캡션 없음.
+   * Phase 28 (ALGN-03) 신설 — 동작 기반 정렬로 부위-정합 crop 을 시도했으나 실패한
+   * 케이스를 사용자에게 조용히 숨기지 않고 명시. Python lockstep: pipeline
+   * fault_zoom refMatch 방출 (region/tier 선례와 동일 — contract.md FaultZoomComparison 절).
+   */
+  refMatch?: 'dtw' | 'failed';
+}
+
+// Phase 28 (ALGN-01 동작 기반 비교 정렬) — 학생(left)=master 시계 불변, 정은지(right)만
+// warp(tStudent)→tRef 로 따라가는 정렬 맵. `result.motionAlignment` 로 방출되며
+// VideoCompare 가 소비(alignmentWarp.ts 순수 함수).
+// (a) anchors = flat [u0,r0, u1,r1, ...] — 학생초(u)/기준초(r) 쌍, u 단조 증가·r 비감소
+//     ([[firestore-nested-array-flat]] — nested list 금지, flat scalar 만).
+// (b) 부재(legacy doc) = 현행 절대시계 동작 (하위호환, tier? 선례와 동일 규칙 — no migration).
+// (c) source 'vlm' = Phase 22 v1 time_anchors 상위 호환 축 (22-01 REPORT_KEYS time_anchors 동형).
+// (d) Python lockstep: models.py MOTION_ALIGNMENT_KEYS + docs/contract.md §11.
+// (e) 역불변식 (리뷰 MEDIUM-3): 빈 anchors 는 tier 'disabled'(degenerate 방출 형상)만 유효 —
+//     'warped'/'trim_only' 는 최소 2쌍(4 float). firestore_admin._validate_motion_alignment
+//     가 저장 전 강제 (앱 normalizeMotionAlignment 와 대칭 — alignmentWarp.ts).
+export interface MotionAlignment {
+  version: string;
+  source: 'dtw' | 'vlm';
+  tier: 'warped' | 'trim_only' | 'disabled';
+  reason?: string;
+  anchors: number[]; // flat [u0,r0, u1,r1, ...] 초 단위 float 쌍 (u 단조 증가, r 비감소)
+  anchorCount: number; // len(anchors)/2 (reshape 메타 — anglesFrames 선례)
+  distance: number;
 }
 
 // Phase 24 (SCORE-10~16, ND-01/ND-07) — 투명 감점-합산 채점.
@@ -536,6 +565,11 @@ export type AnalysisResult = ScoreSuppression & {
   // models.py FAULT_ZOOM_STATUSES + firestore_admin.update_analysis_fault_zoom +
   // contract.md faultZoomStatus 절.
   faultZoomStatus?: 'pending' | 'done' | 'failed';
+  // Phase 28 (ALGN-01) — 동작 기반 비교 정렬 맵. OPTIONAL (부재=현행 절대시계, legacy
+  // 하위호환, no migration). VideoCompare 가 소비(alignmentWarp.ts warpTime/segmentRate).
+  // Python lockstep: models.py MOTION_ALIGNMENT_KEYS + firestore_admin._validate_motion_alignment
+  // + contract.md §11. source:'vlm'=Phase 22 v1 time_anchors 상위 호환 축.
+  motionAlignment?: MotionAlignment;
   // Phase 20 iter5 MEDIUM-2 — A2 reconcile audit (reconcile 관측). OPTIONAL.
   scoreSuppressionAudit?: ScoreSuppressionAudit;
   // IPSF 실행 차원 점수 (3차원: angle/line/stability).

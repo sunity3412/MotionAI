@@ -168,6 +168,24 @@ DEDUCTION_RECORD_KEYS = (
 DEDUCTION_RECORD_OPTIONAL_KEYS = ("rawPoints", "capApplied")
 DEDUCTION_BREAKDOWN_KEYS = ("baseline", "records", "final", "coverageGaps", "fallback")
 
+# ── Phase 28 (ALGN-01): MotionAlignment 계약 상수 ─────────────────────
+# 동작 기반 비교 정렬 맵 — 학생(left)=master 시계 불변, 정은지(right)만 warp(tStudent)→tRef.
+# anchors = flat [u0,r0, u1,r1, ...] 학생초(u)/기준초(r) 쌍 (u 단조 증가, r 비감소).
+# tier: 'warped'=구간 가변속도 / 'trim_only'=트림+오프셋 / 'disabled'=현행 절대시계(degenerate).
+# source: 'dtw'=Phase 28 정렬 / 'vlm'=Phase 22 v1 time_anchors 상위 호환 축.
+# 역불변식 (리뷰 MEDIUM-3): 빈 anchors 는 tier=='disabled'(degenerate 방출)만 허용 —
+#   'warped'/'trim_only' 는 최소 2쌍(4 float, anchorCount>=2). firestore_admin.
+#   _validate_motion_alignment 가 저장 전 강제 (앱 alignmentWarp.normalizeMotionAlignment 대칭).
+# 상한(MAX_ANCHOR_FLOATS)은 motion_alignment.MAX_ANCHOR_FLOATS 와 lockstep — Firestore
+#   40k index-entry 방어 ([[firestore-index-entry-limit]], T-28-05).
+# 3-way lockstep: app/src/types/analysis.ts MotionAlignment + docs/contract.md §11.
+MOTION_ALIGNMENT_KEYS = (
+    "version", "source", "tier", "reason", "anchors", "anchorCount", "distance",
+)
+MOTION_ALIGNMENT_TIERS = ("warped", "trim_only", "disabled")
+MOTION_ALIGNMENT_SOURCES = ("dtw", "vlm")
+MOTION_ALIGNMENT_MAX_ANCHOR_FLOATS = 512
+
 # ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───
 # Mode3 미보유/저신뢰 동작의 점수카드 전체 억제 신호. scoringBasis 단독이 아닌 명시
 # 플래그로 backend↔frontend drift 차단 (iter2 HIGH-3).

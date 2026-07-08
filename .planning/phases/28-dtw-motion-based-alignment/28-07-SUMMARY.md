@@ -96,3 +96,9 @@ None — 신규 네트워크 엔드포인트/인증/스키마 경계 0. 표시 �
 
 - `242b6f7` feat(28-07): alignment prop + refMatch 캡션
 - `cc9273a` feat(28-07): D-05 legacy 재분석 유도 배너
+
+## Self-Check: PASSED
+
+- 수정 파일 2 + SUMMARY 존재 확인 (result.tsx / DeductionDetailSheet.tsx / 28-07-SUMMARY.md).
+- 커밋 2개(242b6f7 / cc9273a) + SUMMARY 커밋(8afb9ca) 존재 확인.
+- working tree clean (node_modules 심링크 제거, 미커밋 산출물 0).

@@ -82,13 +82,22 @@ def _make_pose_frames(n: int = 60) -> list:
     return frames
 
 
+def _stub_download_video(tmp_video_path: str = "/tmp/__phase8.mp4"):
+    """27-05 seam — `_download_analysis_video` mock. 경로 문자열 반환 (실 S3 접근 0)."""
+    def _dl(bucket, key, *, timings_ms=None, analysis_id=""):
+        return tmp_video_path
+
+    return _dl
+
+
 def _stub_extract_inputs(pipeline_mod, tmp_video_path: str = "/tmp/__phase8.mp4"):
-    """_extract_video_analysis_inputs mock factory — Plan 08-03 pole_axis_measurement 박제 포함."""
+    """27-05 seam — `_extract_video_analysis_inputs_from_local` mock factory (Plan 08-03
+    pole_axis_measurement 박제 포함). from_local stub — local_video_path/default_pole 기반."""
     from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
     from sunity_shared.analysis.pole_geometry import build_pole_axis_measurement
 
     def _impl(
-        bucket, key, default_pole, *, keep_local_video=False,
+        local_video_path, default_pole, *, keep_local_video=False,
         timings_ms=None, analysis_id="",  # Phase 27 SPD-01 — stage-timing kwargs (stub 무시)
     ):
         local_path = Path(tmp_video_path) if keep_local_video else None
@@ -115,6 +124,18 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str = "/tmp/__phase8.mp4"
         )
 
     return _impl
+
+
+def _patch_extract_inputs(monkeypatch, pipeline_mod, tmp_video_path: str = "/tmp/__phase8.mp4"):
+    """27-05 seam 마이그레이션 — wrapper 단일 patch → 2-함수 patch 재배선 (stub 재배선만)."""
+    monkeypatch.setattr(
+        pipeline_mod, "_download_analysis_video", _stub_download_video(tmp_video_path)
+    )
+    monkeypatch.setattr(
+        pipeline_mod,
+        "_extract_video_analysis_inputs_from_local",
+        _stub_extract_inputs(pipeline_mod, tmp_video_path),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -176,9 +197,7 @@ def test_pipeline_phase8_layer2_off_when_force_signals_flag_unset(
     pipeline, complete_mock = base_mocks
     monkeypatch.setenv("RECOGNIZER_BACKEND", "gemini")
     monkeypatch.delenv("FORCE_SIGNALS_LAYER2_ENABLED", raising=False)
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
     # complete_analysis 박제 호출 박제 + force_signals_report 박제 검사.
     fs_report = complete_mock.call_args.kwargs.get("force_signals_report")
@@ -199,9 +218,7 @@ def test_pipeline_phase8_layer2_on_when_both_flags_set(
     # preflight=True 박제 — ceiling 박제 'medium' 박제 → Layer 2 agreement 'high'/'medium'
     # 박제 박제 effective != 'low' 박제 강제 (source='gemini_assisted' 박제 propagate).
     monkeypatch.setenv("PREFLIGHT_LABEL_GATE_PASSED", "1")
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
 
     # mock recognizer — recognize() 가 TechniqueProfile(key_moments=...) 박제 반환.
     from sunity_shared.analysis.technique import TechniqueProfile
@@ -271,9 +288,7 @@ def test_pipeline_phase8_layer2_off_when_recognizer_backend_unset(
     monkeypatch.delenv("RECOGNIZER_BACKEND", raising=False)
     monkeypatch.delenv("GEMINI_RECOGNIZER_ENABLED", raising=False)
     monkeypatch.setenv("FORCE_SIGNALS_LAYER2_ENABLED", "1")
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
     fs_report = complete_mock.call_args.kwargs.get("force_signals_report")
     assert fs_report is not None
@@ -287,9 +302,7 @@ def test_pipeline_phase8_default_off_safe(base_mocks, monkeypatch):
     """모든 env unset → Layer 1 단독 + force_signals_report 정상 산출 (분석 죽지 않음)."""
     pipeline, complete_mock = base_mocks
     # 모든 env unset (autouse fixture 박제).
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
     fs_report = complete_mock.call_args.kwargs.get("force_signals_report")
     assert fs_report is not None
@@ -326,9 +339,7 @@ def test_pipeline_phase8_mode1_force_signals_emitted(base_mocks, monkeypatch):
             "videoS3Key": None,
         },
     )
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
     fs_report = complete_mock.call_args.kwargs.get("force_signals_report")
     assert fs_report is not None
@@ -337,9 +348,7 @@ def test_pipeline_phase8_mode1_force_signals_emitted(base_mocks, monkeypatch):
 def test_pipeline_phase8_mode3_force_signals_emitted(base_mocks, monkeypatch):
     """mode='mode3' + mock → force_signals_report kwarg 전달."""
     pipeline, complete_mock = base_mocks
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
     fs_report = complete_mock.call_args.kwargs.get("force_signals_report")
     assert fs_report is not None
@@ -353,9 +362,7 @@ def test_pipeline_phase8_complete_analysis_force_signals_kwarg(
 ):
     """complete_analysis 박제 call_args 박제 force_signals_report 박제 dict + 필수 키 박제."""
     pipeline, complete_mock = base_mocks
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
     kwargs = complete_mock.call_args.kwargs
     fs = kwargs.get("force_signals_report")
@@ -382,12 +389,11 @@ def test_pipeline_phase8_pole_axis_measurement_present(monkeypatch):
     pipeline = _import_pipeline()
     monkeypatch.setattr(pipeline, "_ensure_adapters", lambda: None)
 
-    # 직접 _stub_extract_inputs 박제 호출 박제 검증.
+    # 직접 from_local stub 호출 검증 (27-05 seam 시그니처: local_video_path, default_pole).
     stub = _stub_extract_inputs(pipeline)
     from sunity_shared.analysis.pose_frame import PoleAxis
     result = stub(
-        "bucket",
-        "key",
+        "/tmp/__phase8.mp4",
         PoleAxis(
             axis_vector=(0.0, 1.0, 0.0),
             confidence_level="low",
@@ -414,9 +420,7 @@ def test_pipeline_phase8_preflight_gate_env_truthy_passes_true(
     """
     pipeline, complete_mock = base_mocks
     monkeypatch.setenv("PREFLIGHT_LABEL_GATE_PASSED", "1")
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     # _preflight_label_gate_passed 박제 helper 박제 검증.
     assert pipeline._preflight_label_gate_passed() is True
 
@@ -437,9 +441,7 @@ def test_pipeline_phase8_preflight_gate_env_falsy_passes_false(
     """
     pipeline, complete_mock = base_mocks
     monkeypatch.setenv("PREFLIGHT_LABEL_GATE_PASSED", "0")
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     assert pipeline._preflight_label_gate_passed() is False
 
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
@@ -458,9 +460,7 @@ def test_pipeline_phase8_preflight_gate_env_unset_passes_none(
     """
     pipeline, complete_mock = base_mocks
     monkeypatch.delenv("PREFLIGHT_LABEL_GATE_PASSED", raising=False)
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     assert pipeline._preflight_label_gate_passed() is None
 
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")

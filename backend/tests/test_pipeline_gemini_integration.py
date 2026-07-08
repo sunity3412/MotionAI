@@ -154,12 +154,26 @@ def _stub_angles_only(bucket, key):
     return _angles_8j()
 
 
-def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
-    """Phase 6 R3 fix (Plan 06-02) — `_extract_video_analysis_inputs` mock factory.
+def _stub_download_video(tmp_video_path: str):
+    """27-05 seam — `_download_analysis_video` mock. 실 S3 다운로드 대체: fake bytes 를
+    tmp_video_path 에 write 하고 경로 문자열을 반환한다 (다운로드는 keep 여부와 무관하게
+    항상 발생 — from_local stub 이 keep 여부로 unlink/None 결정)."""
+    from pathlib import Path as _P
 
-    기존 `_angles_and_video_path_from_video` 가 폐기되고 단일 helper
-    `_extract_video_analysis_inputs(bucket, key, default_pole, *, keep_local_video)`
-    로 통합 (RTMW 1회 실행 보장). Gemini path 시 keep_local_video=True.
+    def _dl(bucket, key, *, timings_ms=None, analysis_id=""):
+        _P(tmp_video_path).write_bytes(b"fake video bytes")
+        return tmp_video_path
+
+    return _dl
+
+
+def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
+    """27-05 seam — `_extract_video_analysis_inputs_from_local` mock factory (RTMW 1회).
+
+    2-함수 seam(27-05 Task 1) 마이그레이션: 기존 wrapper `_extract_video_analysis_inputs`
+    단일 patch 를 다운로드 stub(`_stub_download_video`) + from_local stub 2개로 분리했다.
+    이 factory 는 from_local 반환 stub — local_video_path/default_pole 기반. keep_local_video
+    =True 시 local_video_path 유지, False 시 unlink + None (기존 delete=True 의미론).
     """
     from pathlib import Path as _P
 
@@ -167,17 +181,18 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
     from sunity_shared.analysis.pole_geometry import build_pole_axis_measurement
 
     def _impl(
-        bucket,
-        key,
+        local_video_path,
         default_pole,
         *,
         keep_local_video=False,
         timings_ms=None,  # Phase 27 SPD-01 — stage-timing 계측 kwargs (stub 은 무시)
         analysis_id="",
     ):
-        local_path = _P(tmp_video_path) if keep_local_video else None
         if keep_local_video:
-            _P(tmp_video_path).write_bytes(b"fake video bytes")
+            local_path = _P(local_video_path)
+        else:
+            _P(local_video_path).unlink(missing_ok=True)
+            local_path = None
         fallback_profile = BodyNormalizationProfile(
             estimated_height_scale=1.0,
             arm_scale=1.0,
@@ -205,9 +220,17 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
     return _impl
 
 
-def _stub_extract_inputs_no_path(pipeline_mod):
-    """env OFF path — keep_local_video=False, local_video_path=None."""
-    return _stub_extract_inputs(pipeline_mod, "/tmp/__unused_phase06.mp4")
+def _patch_extract_inputs(monkeypatch, pipeline_mod, tmp_video_path: str):
+    """27-05 seam 마이그레이션 — wrapper 단일 patch → 2-함수 patch 재배선 (stub 재배선만,
+    assert·검증 로직 무변경). _process 가 2단 호출로 전환된 뒤에도 실 S3 접근 0."""
+    monkeypatch.setattr(
+        pipeline_mod, "_download_analysis_video", _stub_download_video(tmp_video_path)
+    )
+    monkeypatch.setattr(
+        pipeline_mod,
+        "_extract_video_analysis_inputs_from_local",
+        _stub_extract_inputs(pipeline_mod, tmp_video_path),
+    )
 
 
 # ─────────────────── Test 1: env ON → Gemini path ───────────────────
@@ -247,13 +270,9 @@ def test_process_with_gemini_recognizer_uses_gemini(
     pipeline._COACH_WRITER = coach_mock
     monkeypatch.setattr(pipeline, "_ensure_adapters", lambda: None)
 
-    # Mock R3 fix unified helper (Phase 6, Plan 06-02)
+    # Mock 27-05 2-함수 seam (다운로드 + from_local) — 실 S3 접근 0.
     fake_video = tmp_path / "fake.mp4"
-    monkeypatch.setattr(
-        pipeline,
-        "_extract_video_analysis_inputs",
-        _stub_extract_inputs(pipeline, str(fake_video)),
-    )
+    _patch_extract_inputs(monkeypatch, pipeline, str(fake_video))
 
     # Inject mock extractor into recognizer (recognizer is lazy — force creation)
     stub_ext = _StubExtractor(
@@ -283,12 +302,8 @@ def test_process_without_env_uses_fallback(base_mocks, monkeypatch):
     """env 미설정 → FallbackRecognizer + Gemini SDK 호출 0 박제 (회귀 0)."""
     pipeline = base_mocks
 
-    # R3 fix — Fallback path 도 같은 helper 사용 (keep_local_video=False).
-    monkeypatch.setattr(
-        pipeline,
-        "_extract_video_analysis_inputs",
-        _stub_extract_inputs_no_path(pipeline),
-    )
+    # Fallback path 도 같은 2-함수 seam patch (keep_local_video=False → local_video_path None).
+    _patch_extract_inputs(monkeypatch, pipeline, "/tmp/__unused_phase06.mp4")
 
     # Gemini SDK 호출이 들어오면 fail (회귀 검증 박제)
     sentinel_called = {"gemini_sdk_imported": False}
@@ -362,11 +377,7 @@ def test_gemini_api_failure_falls_back_to_fallback(
     monkeypatch.setattr(pipeline, "_ensure_adapters", lambda: None)
 
     fake_video = tmp_path / "fake.mp4"
-    monkeypatch.setattr(
-        pipeline,
-        "_extract_video_analysis_inputs",
-        _stub_extract_inputs(pipeline, str(fake_video)),
-    )
+    _patch_extract_inputs(monkeypatch, pipeline, str(fake_video))
 
     # 실패하는 extractor 박제
     stub_ext = _StubExtractor(
@@ -434,13 +445,9 @@ def test_tempfile_cleanup(base_mocks, monkeypatch, tmp_path):
     pipeline._COACH_WRITER = coach_mock
     monkeypatch.setattr(pipeline, "_ensure_adapters", lambda: None)
 
-    # 임시 파일 박제 — _angles_and_video_path_from_video 가 실제로 파일 생성
+    # 임시 파일 박제 — 다운로드 stub 이 실제로 파일 생성 (keep_local_video=True 유지)
     fake_video = tmp_path / "cleanup-test.mp4"
-    monkeypatch.setattr(
-        pipeline,
-        "_extract_video_analysis_inputs",
-        _stub_extract_inputs(pipeline, str(fake_video)),
-    )
+    _patch_extract_inputs(monkeypatch, pipeline, str(fake_video))
 
     # 정상 Gemini 박제 (api_failure path 회피)
     stub_ext = _StubExtractor(

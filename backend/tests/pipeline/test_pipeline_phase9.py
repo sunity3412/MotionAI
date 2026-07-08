@@ -77,13 +77,22 @@ def _make_pose_frames(n: int = 60) -> list:
     return frames
 
 
+def _stub_download_video(tmp_video_path: str = "/tmp/__phase9.mp4"):
+    """27-05 seam — `_download_analysis_video` mock. 경로 문자열 반환 (실 S3 접근 0)."""
+    def _dl(bucket, key, *, timings_ms=None, analysis_id=""):
+        return tmp_video_path
+
+    return _dl
+
+
 def _stub_extract_inputs(pipeline_mod, tmp_video_path: str = "/tmp/__phase9.mp4"):
-    """_extract_video_analysis_inputs mock factory — Phase 8 test pattern 정합."""
+    """27-05 seam — `_extract_video_analysis_inputs_from_local` mock factory (Phase 8 pattern
+    정합). from_local stub — local_video_path/default_pole 기반."""
     from sunity_shared.analysis.body_normalization import BodyNormalizationProfile
     from sunity_shared.analysis.pole_geometry import build_pole_axis_measurement
 
     def _impl(
-        bucket, key, default_pole, *, keep_local_video=False,
+        local_video_path, default_pole, *, keep_local_video=False,
         timings_ms=None, analysis_id="",  # Phase 27 SPD-01 — stage-timing kwargs (stub 무시)
     ):
         local_path = Path(tmp_video_path) if keep_local_video else None
@@ -110,6 +119,18 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str = "/tmp/__phase9.mp4"
         )
 
     return _impl
+
+
+def _patch_extract_inputs(monkeypatch, pipeline_mod, tmp_video_path: str = "/tmp/__phase9.mp4"):
+    """27-05 seam 마이그레이션 — wrapper 단일 patch → 2-함수 patch 재배선 (stub 재배선만)."""
+    monkeypatch.setattr(
+        pipeline_mod, "_download_analysis_video", _stub_download_video(tmp_video_path)
+    )
+    monkeypatch.setattr(
+        pipeline_mod,
+        "_extract_video_analysis_inputs_from_local",
+        _stub_extract_inputs(pipeline_mod, tmp_video_path),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -201,9 +222,7 @@ def test_mode1_path_emits_mode1_context(monkeypatch):
     coach_mock.write.return_value = {"summary": "mock coach"}
     pipeline._COACH_WRITER = coach_mock
     monkeypatch.setattr(pipeline, "_ensure_adapters", lambda: None)
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
 
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
 
@@ -223,9 +242,7 @@ def test_mode3_first_path_emits_mode3_first_context(base_mocks_mode3_first):
     # monkeypatch fixture 내부 정합 — _extract_video_analysis_inputs stub.
     import pytest as _pytest
     monkeypatch = _pytest.MonkeyPatch()
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     try:
         pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
     finally:
@@ -279,9 +296,7 @@ def test_mode3_progress_path_emits_mode3_progress_context(monkeypatch):
     coach_mock.write.return_value = {"summary": "mock coach"}
     pipeline._COACH_WRITER = coach_mock
     monkeypatch.setattr(pipeline, "_ensure_adapters", lambda: None)
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
 
     pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
 
@@ -303,9 +318,7 @@ def test_complete_analysis_kwarg_camelcase(base_mocks_mode3_first):
     pipeline, complete_mock = base_mocks_mode3_first
     import pytest as _pytest
     monkeypatch = _pytest.MonkeyPatch()
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     try:
         pipeline._process("bucket", "uploads/u/a.mp4", "u", "a")
     finally:
@@ -340,9 +353,7 @@ def test_complete_analysis_kwarg_camelcase(base_mocks_mode3_first):
 def test_force_signals_none_path_passes_none(base_mocks_mode3_first, monkeypatch):
     """compute_force_signals 가 None 반환 시 force_pattern_inference=None 전달 (no-op)."""
     pipeline, complete_mock = base_mocks_mode3_first
-    monkeypatch.setattr(
-        pipeline, "_extract_video_analysis_inputs", _stub_extract_inputs(pipeline)
-    )
+    _patch_extract_inputs(monkeypatch, pipeline)
     # compute_force_signals mock → None 반환.
     monkeypatch.setattr(pipeline.fs, "compute_force_signals", lambda *a, **k: None)
 

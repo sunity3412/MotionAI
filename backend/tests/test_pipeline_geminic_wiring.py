@@ -166,11 +166,17 @@ def _patch_minimal_process_deps(monkeypatch) -> dict[str, Any]:
     )
     monkeypatch.setattr(pipeline_app, "_ensure_recognizer", lambda: dummy_recognizer)
 
-    # 8) _extract_video_analysis_inputs — stub. 기본 = local_video_path 박힘.
+    # 8) 27-05 2-함수 seam stub — 다운로드(경로) + from_local(_VideoAnalysisInputs).
+    #    기본 = local_video_path "/tmp/x.mp4" 박힘 (_stub_inputs default 정합).
     capture["inputs_stub"] = _stub_inputs()
     monkeypatch.setattr(
         pipeline_app,
-        "_extract_video_analysis_inputs",
+        "_download_analysis_video",
+        lambda *a, **k: "/tmp/x.mp4",
+    )
+    monkeypatch.setattr(
+        pipeline_app,
+        "_extract_video_analysis_inputs_from_local",
         lambda *a, **k: capture["inputs_stub"],
     )
 

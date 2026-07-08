@@ -1316,6 +1316,113 @@ class _VideoAnalysisInputs(NamedTuple):
     keypoints_4ch: np.ndarray
 
 
+def _download_analysis_video(
+    bucket: str,
+    key: str,
+    *,
+    timings_ms: dict[str, int] | None = None,
+    analysis_id: str = "",
+) -> str:
+    """S3 에서 분석 영상을 로컬 임시 파일로 내려받고 경로 문자열을 반환한다.
+
+    27-PLAN-REVIEW HIGH-1 — prefetch seam. 이 함수 반환 시점 = "다운로드 완료,
+    포즈 미시작". 이 라인 뒤·`_extract_video_analysis_inputs_from_local`(프레임 추출/
+    RTMW) 호출 앞이 Gemini prefetch 시작점(27-05 Task 2 — 겹치기 수확). delete=False
+    NamedTemporaryFile — caller(또는 keep_local_video=False 분기) 가 unlink 책임.
+    다운로드 예외 시 임시 파일 정리 후 raise (현행 계약 정합).
+    """
+    if timings_ms is None:
+        timings_ms = {}
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    try:
+        with _stage(timings_ms, analysis_id, "s3_download"):
+            _s3.download_file(bucket, key, tmp_path)
+    except Exception:
+        Path(tmp_path).unlink(missing_ok=True)
+        raise
+    return tmp_path
+
+
+def _extract_video_analysis_inputs_from_local(
+    local_video_path: str,
+    default_pole: PoleAxis,
+    *,
+    keep_local_video: bool = False,
+    timings_ms: dict[str, int] | None = None,
+    analysis_id: str = "",
+) -> _VideoAnalysisInputs:
+    """이미 로컬에 확보된 영상에서 frame_extract + RTMW estimate + 후처리를 수행한다.
+
+    R3/R4 fix (Plan 06-02) — frame_extract + RTMW estimate 단 1회 실행 (T-06-02-06 —
+    double RTMW 금지). `_download_analysis_video` 로 seam 분리됐지만 실행 순서·횟수
+    불변 (다운로드 1 / 추출 1 / RTMW 1). student_profile 은 measure_body_profile 의
+    fallback 보장으로 non-null (R4 fix). keep_local_video=True 시 local_video_path
+    반환(caller 가 unlink 책임), False 시 추출 완료 후 unlink + local_video_path=None
+    (기존 delete=True 의미론 보존). 추출/후처리 예외 시 임시 파일 unlink 후 raise.
+    """
+    _ensure_adapters()
+    # Phase 27 SPD-01 — frame_extract / rtmw 단계 계측 (27-RESEARCH Pattern 6).
+    # 기존 로직 이동 0 — 각 호출을 `_stage` 로 감싸기만.
+    if timings_ms is None:
+        timings_ms = {}
+    try:
+        with _stage(timings_ms, analysis_id, "frame_extract"):
+            frames = _FRAME_EXTRACTOR.extract(local_video_path)
+        with _stage(timings_ms, analysis_id, "rtmw"):
+            pose_frames = _RTMW_ENGINE.estimate(frames, default_pole)
+
+        # R4 fix — measure_body_profile 의 _fallback_profile 정합 (non-null 보장).
+        student_profile = measure_body_profile(pose_frames)
+
+        # angles 산출 — R6 정합 (to_coco17_array 4채널 보존).
+        keypoints_4ch = to_coco17_array(pose_frames)
+        angles = compute_joint_angles(keypoints_4ch)
+        angles_filled = temporal_fill(angles, joint_uncertainty(keypoints_4ch))
+
+        # Plan 08-04 (B fix, 2026-06-09) — HoughPoleDetector.detect_with_line() 활성
+        # 박제. 검출된 vertical line midpoint x median 으로 PoleLine2D 산출 → Phase 8
+        # axisMetrics 실효성. 검출 실패 시 line=None → coordinate_space='unavailable'
+        # graceful fallback (08-03 박제 정합).
+        frame_arr = frames.frames if hasattr(frames, "frames") else np.asarray(frames)
+        if _POLE_DETECTOR is None:
+            detected_pole = default_pole
+            detected_line = None
+        else:
+            try:
+                detected_pole, detected_line = _POLE_DETECTOR.detect_with_line(frame_arr)
+            except Exception:  # noqa: BLE001 - detector 실패 시 vertical_fallback (graceful)
+                log.exception("HoughPoleDetector 실패 — vertical_fallback 박제")
+                detected_pole = default_pole
+                detected_line = None
+        pole_axis_measurement = build_pole_axis_measurement(
+            axis_3d=detected_pole,
+            line=detected_line,
+            frame_index=None,
+        )
+    except Exception:
+        # 추출/후처리 실패 — 임시 파일 누수 0 (현행 계약: keep 여부와 무관하게 정리).
+        Path(local_video_path).unlink(missing_ok=True)
+        raise
+
+    if keep_local_video:
+        local_video_path_out: Path | None = Path(local_video_path)
+    else:
+        # 기존 delete=True 의미론 보존 — 추출 후 즉시 정리 (frames 는 메모리 보유).
+        Path(local_video_path).unlink(missing_ok=True)
+        local_video_path_out = None
+
+    return _VideoAnalysisInputs(
+        angles=angles_filled,
+        student_profile=student_profile,
+        pose_frames=pose_frames,
+        local_video_path=local_video_path_out,
+        pole_axis_measurement=pole_axis_measurement,
+        keypoints_4ch=keypoints_4ch,
+    )
+
+
 def _extract_video_analysis_inputs(
     bucket: str,
     key: str,
@@ -1325,82 +1432,23 @@ def _extract_video_analysis_inputs(
     timings_ms: dict[str, int] | None = None,
     analysis_id: str = "",
 ) -> _VideoAnalysisInputs:
-    """R3 fix (2026-06-08 round-2, Plan 06-02 reviews).
+    """얇은 합성 wrapper (시그니처·반환 불변) — `_download_analysis_video` +
+    `_extract_video_analysis_inputs_from_local` 순차 호출.
 
-    Phase 6 + Gemini path 의 video extraction 을 단일 helper 로 통합. S3 download +
-    frame_extract + RTMW estimate 단 1회 실행 — 기존 `_angles_and_video_path_from_video`
-    와 신설 예정이었던 `_angles_profile_and_frames_from_video` 가 동시 호출되면
-    double RTMW 실행 (T-06-02-06). keep_local_video=True 시 local_video_path 반환
-    (caller 가 unlink 책임). keep_local_video=False 시 cleanup. student_profile 은
-    measure_body_profile 의 fallback 보장으로 non-null (R4 fix).
+    27-05 부터 `_process` 는 이 wrapper 대신 2단 호출로 전환됐다(prefetch seam 확보).
+    이 wrapper 는 외부 호출부(RunPod/기타) 호환 전용 — 기존 테스트 통과를 보장하지
+    않는다(테스트는 2-함수 patch 로 마이그레이션됨). S3 download 1 / frame_extract 1 /
+    RTMW estimate 1 — 분리 전후 호출 횟수 동일(T-06-02-06 불변).
     """
-    _ensure_adapters()
-    # Phase 27 SPD-01 — s3_download / frame_extract / rtmw 단계 계측 (27-RESEARCH
-    # Pattern 6). 기존 로직 이동 0 — 각 호출을 `_stage` 로 감싸기만. caller 가 dict 를
-    # 넘기지 않으면(레거시/테스트) throwaway dict 로 무해 계측.
-    if timings_ms is None:
-        timings_ms = {}
-    tmp_path: str | None = None
-    if keep_local_video:
-        tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-        tmp_path = tmp.name
-        tmp.close()
-        try:
-            with _stage(timings_ms, analysis_id, "s3_download"):
-                _s3.download_file(bucket, key, tmp_path)
-            with _stage(timings_ms, analysis_id, "frame_extract"):
-                frames = _FRAME_EXTRACTOR.extract(tmp_path)
-            with _stage(timings_ms, analysis_id, "rtmw"):
-                pose_frames = _RTMW_ENGINE.estimate(frames, default_pole)
-        except Exception:
-            Path(tmp_path).unlink(missing_ok=True)
-            raise
-    else:
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
-            with _stage(timings_ms, analysis_id, "s3_download"):
-                _s3.download_file(bucket, key, tmp.name)
-            with _stage(timings_ms, analysis_id, "frame_extract"):
-                frames = _FRAME_EXTRACTOR.extract(tmp.name)
-            with _stage(timings_ms, analysis_id, "rtmw"):
-                pose_frames = _RTMW_ENGINE.estimate(frames, default_pole)
-
-    # R4 fix — measure_body_profile 의 _fallback_profile 정합 (non-null 보장).
-    student_profile = measure_body_profile(pose_frames)
-
-    # angles 산출 — R6 정합 (to_coco17_array 4채널 보존).
-    keypoints_4ch = to_coco17_array(pose_frames)
-    angles = compute_joint_angles(keypoints_4ch)
-    angles_filled = temporal_fill(angles, joint_uncertainty(keypoints_4ch))
-
-    local_video_path = Path(tmp_path) if tmp_path else None
-
-    # Plan 08-04 (B fix, 2026-06-09) — HoughPoleDetector.detect_with_line() 활성
-    # 박제. 검출된 vertical line midpoint x median 으로 PoleLine2D 산출 → Phase 8
-    # axisMetrics 실효성. 검출 실패 시 line=None → coordinate_space='unavailable'
-    # graceful fallback (08-03 박제 정합).
-    frame_arr = frames.frames if hasattr(frames, "frames") else np.asarray(frames)
-    if _POLE_DETECTOR is None:
-        detected_pole = default_pole
-        detected_line = None
-    else:
-        try:
-            detected_pole, detected_line = _POLE_DETECTOR.detect_with_line(frame_arr)
-        except Exception:  # noqa: BLE001 - detector 실패 시 vertical_fallback (graceful)
-            log.exception("HoughPoleDetector 실패 — vertical_fallback 박제")
-            detected_pole = default_pole
-            detected_line = None
-    pole_axis_measurement = build_pole_axis_measurement(
-        axis_3d=detected_pole,
-        line=detected_line,
-        frame_index=None,
+    local_video_path = _download_analysis_video(
+        bucket, key, timings_ms=timings_ms, analysis_id=analysis_id
     )
-    return _VideoAnalysisInputs(
-        angles=angles_filled,
-        student_profile=student_profile,
-        pose_frames=pose_frames,
-        local_video_path=local_video_path,
-        pole_axis_measurement=pole_axis_measurement,
-        keypoints_4ch=keypoints_4ch,
+    return _extract_video_analysis_inputs_from_local(
+        local_video_path,
+        default_pole,
+        keep_local_video=keep_local_video,
+        timings_ms=timings_ms,
+        analysis_id=analysis_id,
     )
 
 
@@ -3167,14 +3215,22 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # Phase 20-03 HIGH-1 — keep_local_video 게이트에 _gemini_vision_veto_enabled() 포함.
     # veto 만 ON 이고 Phase17 vision 토글이 OFF 라도 local_video_path 가 보존돼야
     # _apply_vision_veto 가 None 으로 무음 no-op 되지 않는다 (veto no-op 차단).
-    inputs = _extract_video_analysis_inputs(
-        bucket, key, default_pole,
-        keep_local_video=(
-            _gemini_enabled()
-            or _gemini_vision_enabled()
-            or _gemini_vision_veto_enabled()
-        ),
-        timings_ms=timings_ms,  # Phase 27 SPD-01 — s3_download/frame_extract/rtmw 계측
+    keep_local_video = (
+        _gemini_enabled()
+        or _gemini_vision_enabled()
+        or _gemini_vision_veto_enabled()
+    )
+    # ── 27-05 Task 1 seam (HIGH-1) — 다운로드와 포즈 추출 분리 ──
+    # `_download_analysis_video` 반환 시점 = "다운로드 완료·포즈 미시작" = caller-visible
+    # prefetch seam (Task 2 가 이 라인 뒤·frame_extract/RTMW 앞에 prefetch submit 삽입).
+    # 2단 호출이라도 다운로드 1 / frame_extract 1 / RTMW estimate 1 불변 (T-06-02-06).
+    local_video_path_dl = _download_analysis_video(
+        bucket, key, timings_ms=timings_ms, analysis_id=analysis_id
+    )
+    inputs = _extract_video_analysis_inputs_from_local(
+        local_video_path_dl, default_pole,
+        keep_local_video=keep_local_video,
+        timings_ms=timings_ms,  # Phase 27 SPD-01 — frame_extract/rtmw 계측
         analysis_id=analysis_id,
     )
     angles = inputs.angles

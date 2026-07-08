@@ -140,6 +140,14 @@ class GeminiFileSession:
         UploadFileConfig TypeError stub 폴백 + 한글 파일명 ascii-safe 복사 포함.
         폴링 상수는 client.py 의 정본(_FILES_PROCESSING_TIMEOUT_S/_FILES_POLL_INTERVAL_S)
         을 재사용 — 신규 상수 발명 금지.
+
+        CR-01 fix (27-REVIEW): APIError 뿐 아니라 **모든** 예외를 graceful None 으로
+        흡수한다 — httpx 전송 오류(google-genai 는 HTTP status 오류만 APIError 로 감쌈),
+        _ascii_safe_path 의 OSError, TypeError 폴백 재-upload 실패, 폴링 중 transport
+        오류 전부 포함. 여기서 raise 가 새면 _process 의 무가드 소비 3곳(prefetch join/
+        동기 폴백/기준 영상)이 분석 전체를 server_error 로 죽인다 — docstring 계약
+        ("graceful — 분석 비차단")과 구현 일치. 업로드 성공 후 폴링에서 raise 한 경우는
+        orphan best-effort delete (T-27-06 누수 0).
         """
         from google.genai import errors as genai_errors  # lazy
         from google.genai import types as genai_types  # lazy
@@ -152,8 +160,10 @@ class GeminiFileSession:
         except Exception as exc:  # noqa: BLE001 - client 생성 실패 → graceful skip
             log.warning("GeminiFileSession client 생성 실패 — graceful skip: %s", exc)
             return None
-        upload_path, tmp_path = _ascii_safe_path(video_path)
+        tmp_path: str | None = None
+        uploaded: Any = None
         try:
+            upload_path, tmp_path = _ascii_safe_path(video_path)
             try:
                 uploaded = client.files.upload(
                     file=upload_path,
@@ -169,6 +179,21 @@ class GeminiFileSession:
                 )
                 return None
             return self._wait_for_active(client, uploaded)
+        except Exception as exc:  # noqa: BLE001 - 업로드/폴링 실패는 graceful None (CR-01)
+            log.warning("GeminiFileSession upload 실패 — graceful skip: %s", exc)
+            # 업로드는 성공한 뒤 폴링에서 raise 한 경우 — orphan 즉시 정리 (T-27-06).
+            name = getattr(uploaded, "name", None) if uploaded is not None else None
+            if name:
+                try:
+                    client.files.delete(name=name)
+                    log.warning(
+                        "GeminiFileSession orphan 업로드 정리 (graceful): %s", name
+                    )
+                except Exception:  # noqa: BLE001 - 정리 실패는 분석을 막지 않는다
+                    log.warning(
+                        "GeminiFileSession orphan 정리 실패 (graceful): %s", name
+                    )
+            return None
         finally:
             if tmp_path is not None:
                 try:

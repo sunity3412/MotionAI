@@ -150,6 +150,61 @@ class TestOrphanCleanupOnPollFailure:
         assert files.delete_calls == 1
 
 
+# ─────────── Test 4c: 비-APIError 업로드 예외도 graceful None (27-REVIEW CR-01) ───────────
+
+
+class _TransportErrorFiles(FakeFiles):
+    """upload 이 transport 계열 예외(비-APIError)를 던지는 FakeFiles.
+
+    google-genai 는 HTTP status 오류만 APIError 로 감싼다 — httpx.ConnectError 등
+    전송 오류는 그대로 전파된다. 세션이 이를 raise 로 새게 하면 _process 의 무가드
+    join 3곳이 분석 전체를 server_error 로 죽인다 (graceful degrade 불변 위반).
+    """
+
+    def upload(self, *, file, config=None):
+        self.upload_calls += 1
+        raise ConnectionError("simulated transport failure")
+
+
+class _PollTransportErrorFiles(FakeFiles):
+    """upload 성공(PROCESSING) 후 files.get 이 비-APIError 를 던지는 FakeFiles —
+    폴링 중 transport 오류. 업로드 성공분 orphan 정리(T-27-06)까지 검증."""
+
+    def __init__(self) -> None:
+        super().__init__(upload_state="PROCESSING")
+
+    def get(self, *, name: str) -> FakeFile:
+        self.get_calls += 1
+        raise ConnectionError("simulated poll transport failure")
+
+
+class TestNonApiErrorGraceful:
+    def test_upload_transport_error_returns_none_not_raise(self) -> None:
+        files = _TransportErrorFiles()
+        session = GeminiFileSession(client_factory=_factory(files))
+
+        handle = session.get_or_upload("/tmp/student.mp4")
+
+        assert handle is None  # graceful — 소비처 자체-업로드 폴백 (분석 비차단)
+        assert files.upload_calls == 1
+        assert files.delete_calls == 0  # 업로드 미성공 → delete 대상 없음
+
+        # None 은 캐시 금지(재시도 여지) + in-flight 마커 해제 확인.
+        assert session.get_or_upload("/tmp/student.mp4") is None
+        assert files.upload_calls == 2
+
+    def test_poll_transport_error_returns_none_and_deletes_orphan(self) -> None:
+        files = _PollTransportErrorFiles()
+        session = GeminiFileSession(client_factory=_factory(files))
+
+        handle = session.get_or_upload("/tmp/student.mp4")
+
+        assert handle is None
+        # 업로드는 성공했으므로 orphan 즉시 best-effort delete (T-27-06 누수 0).
+        assert files.delete_calls == 1
+        assert files.deleted_names == files.uploaded_names
+
+
 # ─────────────────── Test 5: delete 예외 best-effort (raise 안 함) ───────────────────
 
 

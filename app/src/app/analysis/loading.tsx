@@ -55,30 +55,58 @@ const REASSURANCE_COPIES: readonly string[] = [
 ] as const;
 const COPY_ROTATE_MS = 4000;
 
-// 단계별 가짜 진행률 (belle P2 #9). 백엔드 status 머신 인덱스 기반. 균등하게
-// 분포해서 사용자가 "안 멈췄다" 는 인상 받게 한다. comparison(85%) 후에 done(100%)
-// 으로 한 번에 튀는 게 자연스러움 — 실 분석 시간의 대부분은 pose_analysis 와
-// comparison 에 있다.
+// Phase 27 D-07 (v1) — 대기 중 폴스포츠 팁/동작 소개 로테이션. 피드백의 본질은
+// "오래 걸리는데 아무 변화가 없다"는 체감(D-02)이라, 링 안 안심카피(REASSURANCE_COPIES)
+// 와 별개로 화면 하단에서 읽을거리를 흘려 대기를 채운다. 규칙: 한국어, 이모지 금지,
+// 부상·근력 단정 카피 금지(SAFE 규율 정합 — "이 동작이 근력을 키운다"류 의학/효능
+// 단정 배제), 동작 소개는 학원 통용 명칭 사용. 문구는 D-07 명시 재량.
+const POLE_TIPS: readonly string[] = [
+  '폴 위에서는 시선을 먼저 보내면 몸이 자연스럽게 따라옵니다.',
+  '천천히 내려오는 연습은 동작을 한결 안정적으로 만들어 줍니다.',
+  '인버트는 거꾸로 매달리는 기본 동작으로, 여러 기술의 출발점이 됩니다.',
+  '폭스탑은 폴 위에서 균형을 잡는 대표적인 자세예요.',
+  '스핀 계열 동작은 회전 속도보다 라인의 완성도가 더 중요해요.',
+  '호흡을 멈추지 않고 이어가면 동작이 부드럽게 연결됩니다.',
+  '그립을 바꾸는 타이밍이 동작 전체의 흐름을 결정합니다.',
+  '거울보다 영상으로 확인하면 내 자세를 더 정확히 볼 수 있어요.',
+  '작은 각도 차이가 완성도의 차이를 만듭니다. 조금만 더 펴볼까요?',
+  '오늘의 기록이 다음 분석에서 성장을 비교하는 기준이 됩니다.',
+  '폴스포츠는 유연성과 리듬이 함께 어우러지는 종목이에요.',
+  '분석이 끝나면 어느 부분을 더 다듬으면 좋을지 함께 짚어드릴게요.',
+] as const;
+// 안심카피(4000ms)와 어긋난 6000ms — 두 로테이터가 동시에 점프해 산만해 보이는
+// 것을 막는다(주기를 서로소에 가깝게 두어 겹침 최소화).
+const TIP_ROTATE_MS = 6000;
+
+// 단계별 가짜 진행률 (belle P2 #9). 백엔드 status 머신 인덱스 기반.
+// Phase 27 D-02 — 실측(27-TIMING-BEFORE) 기반 재배분. 과거 균등 분포는 실 소요와
+// 어긋나 comparison(전체 시간의 대부분)에서 85%에 얼어붙어 보였다(실증 2026-07-06,
+// "85%에서 멈춘 줄 알고 앱 종료"). 실측 median wall 229.6s 구성: 포즈(s3+extract+rtmw)
+// ~9% / Gemini 비전(scene+recognizer+veto) ~60% / coach_dual ~20% / 미계상(hook) ~6%
+// — comparison status 가 비전+coach+hook 대부분을 덮어 압도적으로 길다. 따라서 앞
+// 단계는 좁게, comparison 은 base 를 낮추고 상한까지 넓게 두어 긴 대기 내내 눈에 보이게
+// 기어오르도록 한다. wave 3~6(포즈∥비전 겹침·업로드 dedup)로 비전 구간이 포즈 그늘에
+// 숨어 comparison 체감이 단축되는 분포에도 정합 — 값만 재배분, 단조 로직/creep 무변경.
 const PROGRESS_PCT: Record<AnalysisStatus, number> = {
-  uploading: 8,
-  queued: 22,
-  frame_extraction: 40,
-  pose_analysis: 65,
-  comparison: 85,
+  uploading: 6, // 27-TIMING-BEFORE 실측: 앱측 S3 PUT(백엔드 timing 밖) — 짧게.
+  queued: 15, // SQS→파이프라인 대기 — 짧음.
+  frame_extraction: 26, // 실측: s3_download 4.6s + frame_extract 10.4s (~6.5%).
+  pose_analysis: 34, // 실측: rtmw 2.2s (~1%) — 매우 짧아 좁은 구간.
+  comparison: 40, // 실측: scene+recognizer+veto+coach+hook ≈ 전체의 ~80% — 가장 긴 구간.
   done: 100,
   failed: 0,
 };
 
 // 각 단계 진행률 상한 — 표시값이 base 에서 이 값까지 천천히 기어오른다(멈춤 인상 방지).
-// mode1 은 comparison(Gemini 인식/veto/코치) 구간이 2~3분씩 걸려 85% 에 얼어붙은
-// 것처럼 보였다(실증 2026-07-06). 실제 완료(done) 전엔 100% 에 닿지 않게 comparison
-// 상한을 98 로 둔다 — 완료를 가짜로 만들지 않으면서 "흐르고 있다"는 신호만 준다.
+// Phase 27 D-02 — comparison 은 base 40 → 상한 97 로 폭넓게(57pt). +1/2.5s creep 로
+// 약 140s 동안 계속 전진해 실측 비전/코치 대기(2~3분)를 눈에 보이게 채운다. 실제
+// 완료(done) 전엔 100%에 닿지 않게 상한을 97 로 둔다(완료를 가짜로 만들지 않음).
 const PROGRESS_CEIL: Record<AnalysisStatus, number> = {
-  uploading: 18,
-  queued: 36,
-  frame_extraction: 60,
-  pose_analysis: 82,
-  comparison: 98,
+  uploading: 14,
+  queued: 25,
+  frame_extraction: 33,
+  pose_analysis: 39,
+  comparison: 97,
   done: 100,
   failed: 0,
 };
@@ -385,6 +413,17 @@ export default function AnalysisLoading() {
     return () => clearInterval(t);
   }, []);
 
+  // Phase 27 D-07 — 폴스포츠 팁 회전 (6초마다 인덱스 +1). 안심카피와 동일하게 모든
+  // early return 이전에 호출해 Hook 순서를 유지한다. 분석 중 화면에서만 렌더된다.
+  const [tipIdx, setTipIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(
+      () => setTipIdx((i) => (i + 1) % POLE_TIPS.length),
+      TIP_ROTATE_MS,
+    );
+    return () => clearInterval(t);
+  }, []);
+
   // 표시 진행률 — 단계 base 로 점프한 뒤 상한까지 +1 씩 기어오른다(멈춤 인상 방지,
   // 실증 2026-07-06 "85% 에서 멈춘 줄 알고 앱 종료"). 단조 증가(Math.max)로 역행 없음.
   // done 은 100, failed/오류는 링이 안 보이므로 값 무의미. 실제 완료 전 100% 도달 금지.
@@ -543,6 +582,9 @@ export default function AnalysisLoading() {
         </BlobRing>
         <Text style={styles.titleBelowRing}>{titleLine}</Text>
         <Text style={styles.stepLine}>{STATUS_MESSAGE[status]}</Text>
+        {/* Phase 27 D-07 — 대기를 채우는 폴스포츠 팁 로테이션 (navy 예외 화면 위
+            가독 색상, 음수 letterSpacing 금지). */}
+        <Text style={styles.tipLine}>{POLE_TIPS[tipIdx]}</Text>
       </View>
     </LinearGradient>
   );
@@ -603,6 +645,16 @@ const styles = StyleSheet.create({
     color: TEXT_DIM,
     marginTop: 12,
     textAlign: 'center',
+  },
+  // Phase 27 D-07 — 팁 로테이션 한 줄. stepLine 보다 살짝 밝게(읽을거리 강조),
+  // navy 위 가독. 음수 letterSpacing 금지(iOS SIGABRT 이력).
+  tipLine: {
+    ...typography.caption,
+    color: 'rgba(255,255,255,0.72)',
+    marginTop: 20,
+    textAlign: 'center',
+    lineHeight: 19,
+    paddingHorizontal: 12,
   },
   // 오류/완료 공통
   title: {

@@ -127,3 +127,125 @@ class TestMomentExtractorHandleInjection:
             ext._call_gemini("/tmp/fake.mp4", "power-spin")
 
         assert fake.files.delete_calls == 0  # 파일 미생성 → delete 대상 없음
+
+
+# ─────────────────── Task 2 — vision_scorer veto 핸들 + still inline ───────────────────
+
+
+_VALID_VERDICT_JSON = (
+    '{"primary_fault": "없음", "dominant_severity": "none", "differences": []}'
+)
+
+
+def _make_video(tmp_path, name: str) -> str:
+    p = tmp_path / name
+    p.write_bytes(b"\x00\x01\x02" + name.encode())
+    return str(p)
+
+
+def _make_png(tmp_path, name: str) -> str:
+    p = tmp_path / name
+    # 최소 PNG signature + 더미 바이트 (inline 은 바이트만 읽으므로 유효 디코드 불필요).
+    p.write_bytes(b"\x89PNG\r\n\x1a\n" + name.encode())
+    return str(p)
+
+
+def _patch_vision(monkeypatch):
+    """gvs._ensure_client → FakeClient + VisionVetoCache in-memory + time.sleep noop."""
+    from sunity_shared.analysis import gemini_vision_scorer as gvs
+
+    files = FakeFiles()
+    models = FakeModels([SimpleNamespace(text=_VALID_VERDICT_JSON)] * 12)
+    fake = FakeClient(files, models)
+    monkeypatch.setattr(gvs, "_ensure_client", lambda: fake)
+
+    store: dict = {}
+    monkeypatch.setattr(
+        gvs.VisionVetoCache, "_backend_get", lambda self, k: store.get(k), raising=False
+    )
+    monkeypatch.setattr(
+        gvs.VisionVetoCache,
+        "_backend_put",
+        lambda self, k, v: store.__setitem__(k, v),
+        raising=False,
+    )
+    return gvs, fake
+
+
+class TestVisionScorerVetoHandles:
+    """assess_fault_context_video 세션 핸들 kwargs + still PNG inline 전환."""
+
+    def test_both_handles_skip_upload_and_not_deleted(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Test 1: student+reference 핸들 둘 다 제공 → 영상 업로드 0, 주입 핸들 미삭제."""
+        gvs, fake = _patch_vision(monkeypatch)
+        student = _make_video(tmp_path, "student.mp4")
+        reference = _make_video(tmp_path, "reference.mp4")
+        h_s = SimpleNamespace(name="files/session-student")
+        h_r = SimpleNamespace(name="files/session-reference")
+
+        gvs.assess_fault_context_video(
+            student,
+            reference,
+            part_scopes=["upper_body"],
+            preuploaded_student_handle=h_s,
+            preuploaded_reference_handle=h_r,
+        )
+
+        assert fake.files.upload_calls == 0  # 세션 핸들 재사용 — 영상 업로드 0
+        assert fake.files.delete_calls == 0  # 주입 핸들은 세션 소유 — 여기서 미삭제
+        assert "files/session-student" not in fake.files.deleted_names
+        assert "files/session-reference" not in fake.files.deleted_names
+
+    def test_only_one_handle_treated_as_not_provided(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Test 2: 하나만 제공 → 미제공 취급 (기존 자체 업로드 2회 + finally delete 2회)."""
+        gvs, fake = _patch_vision(monkeypatch)
+        student = _make_video(tmp_path, "student.mp4")
+        reference = _make_video(tmp_path, "reference.mp4")
+
+        gvs.assess_fault_context_video(
+            student,
+            reference,
+            part_scopes=["upper_body"],
+            preuploaded_student_handle=SimpleNamespace(name="files/session-student"),
+            # reference 미제공 → 미제공 취급 (계약 스타일 = 둘 다일 때만 활성).
+        )
+
+        assert fake.files.upload_calls == 2  # 자체 업로드 2 (video)
+        assert fake.files.delete_calls == 2  # 자체 업로드분 finally delete
+        assert fake.files.deleted_names == fake.files.uploaded_names
+
+    def test_still_png_inline_no_image_upload(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Test 3: still PNG 이 inline Part 로 들어가고 _upload_image 미호출 (image 업로드 0)."""
+        from google.genai import types as genai_types
+
+        gvs, fake = _patch_vision(monkeypatch)
+
+        def _fail_upload_image(*a, **k):  # noqa: ARG001
+            raise AssertionError("inline 전환 — _upload_image 는 호출되면 안 됨")
+
+        monkeypatch.setattr(gvs, "_upload_image", _fail_upload_image)
+
+        student = _make_video(tmp_path, "student.mp4")
+        reference = _make_video(tmp_path, "reference.mp4")
+        stu_png = _make_png(tmp_path, "stu.png")
+        ref_png = _make_png(tmp_path, "ref.png")
+
+        gvs.assess_fault_context_video(
+            student,
+            reference,
+            part_scopes=["upper_body"],
+            still_student_png=stu_png,
+            still_reference_png=ref_png,
+            still_frame_indices=[3, 5],
+        )
+
+        assert fake.files.upload_calls == 2  # video 2 만 (image 업로드 0)
+        # inline Part 가 generate contents 에 존재.
+        all_contents = [c for call in fake.models.calls for c in call.get("contents", [])]
+        assert any(isinstance(c, genai_types.Part) for c in all_contents)

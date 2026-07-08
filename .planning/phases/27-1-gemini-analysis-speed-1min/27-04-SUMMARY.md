@@ -138,3 +138,10 @@ None — 신규 패키지 0, OTA 무관(백엔드). 실 효과(업로드 4~5회 
 ---
 *Phase: 27-1-gemini-analysis-speed-1min*
 *Completed: 2026-07-08*
+
+## Self-Check: PASSED
+- 생성 파일 존재: test_session_wiring.py, 27-04-SUMMARY.md.
+- 커밋 6개 전부 존재: 96feecf(test) / 7f04fa2(feat) / 8931bc2(test) / c2bd1e1(feat) / 11d175f(feat) / f0129e2(docs).
+- 스코프 게이트: `tests/gemini/ tests/test_stage_timing.py` 138 passed. 전체 `tests/` 실패 집합 = base 와 IDENTICAL (신규 실패 0).
+- grep 가드 전량 통과: scene_finder preuploaded_handle=3 / coach=4 / moment=7·files.delete=1 / vision Part.from_bytes=2·preuploaded_student_handle=4 / app.py session.close()=2·get_or_upload=3.
+- working tree clean (tracked 무변경).

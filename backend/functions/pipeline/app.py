@@ -82,6 +82,7 @@ from sunity_shared.analysis.features import (
 )
 from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # 가벼움 — 예외만
 from sunity_shared.analysis.motiondtw import motion_dtw, per_joint_deviation
+from sunity_shared.analysis.motion_alignment import build_motion_alignment  # Phase 28 (ALGN-01)
 from sunity_shared.analysis.pole_geometry import (
     PoleAxisMeasurement,
     build_pole_axis_measurement,
@@ -3303,6 +3304,55 @@ def _mode3_comparison(
     return assessments, dim_scores, overall, comparison
 
 
+def _pipeline_frame_fps() -> float:
+    """학생 angles fps 단일 출처 — frame_extractor 기본 target_fps (I1, 리터럴 9.0 금지).
+
+    _FRAME_EXTRACTOR(_ensure_adapters 초기화분)의 target_fps 를 정본으로 참조 —
+    _process 는 진입 즉시 _ensure_adapters() 를 호출하므로 방출 시점엔 항상 초기화됨.
+    미초기화 폴백은 FfmpegFrameExtractor 생성자 기본값을 introspect (값 재복제 아님 —
+    frame_extractor.py 의 target_fps 기본값이 단일 정본).
+    """
+    ext = _FRAME_EXTRACTOR
+    fps = getattr(ext, "target_fps", None) if ext is not None else None
+    if fps:
+        return float(fps)
+    import inspect
+    from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+
+    return float(
+        inspect.signature(FfmpegFrameExtractor.__init__).parameters["target_fps"].default
+    )
+
+
+def _attach_motion_alignment(
+    result: dict,
+    match,
+    *,
+    user_fps: float,
+    ref_fps: float,
+    uid: str,
+    analysis_id: str,
+) -> None:
+    """DTW match → result["motionAlignment"] 방출 (표현/재생 전용 — 채점 무접촉, 28-CONTEXT).
+
+    complete_analysis 호출 **전에만** 호출한다 (27-06 게이트: complete 후 result.* write
+    금지 — 사후 업데이트 경로 신설 금지). 유일한 부작용 = motionAlignment 키 1개 추가
+    (그 외 result 무변경). match=None(정렬 컨텍스트 부재)이면 아무것도 안 함(미방출 =
+    legacy). degenerate 입력(ref fps 결측 등)은 build_motion_alignment 가 tier 'disabled'
+    dict 로 방출하므로(28-02 W3) helper 에 별도 분기 없음 — 신규 분석은 필드가 실려
+    legacy(필드 부재)와 구분된다. 방출 실패는 graceful skip — 분석 흐름을 차단하지 않는다.
+    """
+    try:
+        alignment = build_motion_alignment(match, user_fps=user_fps, ref_fps=ref_fps)
+        if alignment is not None:
+            result["motionAlignment"] = alignment
+    except Exception:  # noqa: BLE001 - 방출 실패는 분석 비차단 (graceful)
+        log.exception(
+            "motion alignment 방출 실패 — graceful skip uid=%s analysis_id=%s",
+            uid, analysis_id,
+        )
+
+
 def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     _ensure_adapters()
     # Phase 27 SPD-01 — stage-timing 계측 (27-RESEARCH Pattern 6). D-01 before/after
@@ -3540,6 +3590,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # fault-zoom B1 (belle 2026-06-21) — mode1 DTW match(user↔reference 프레임 정렬).
     # 확대 비교에서 학생 worst 프레임 ↔ 기준의 같은 pose 프레임을 캡처해 납득성 ↑.
     reference_dtw_match = None
+    # Phase 28-04 (ALGN-01) — motionAlignment 방출용 reference angles fps. ref doc 의
+    # keypointReport.fps(phase4_v1=18.0, 28-01 live doc 실측)에서 읽는다 — 18.0 하드코딩
+    # 금지(재처리 시 방어, I1). EXPERT 분기에서 대입, <=0 이면 build 가 degenerate
+    # 'disabled' 방출(28-02 W3). reference_dtw_match 와 동일 수명 관리.
+    reference_kp_fps = 0.0
     # 23-02 Task 5 — frame-specific 각도 정량화용 기준 영상 각도 (a_ref). Mode1 에서만 채움.
     # Mode3 는 None → collect 가 mode3_held 로 보류, quantification 미산출.
     reference_angles_for_veto = None
@@ -3668,6 +3723,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                     angles, ref["angles"], num_joints
                 )
                 reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
+                # 28-04 — ref angles fps 를 doc 메타에서 확보(하드코딩 금지, I1). phase4_v1
+                # reference 11 doc 전부 keypointReport.fps==18.0 (28-01 실측 봉인).
+                reference_kp_fps = float(
+                    (((ref or {}).get("keypointReport")) or {}).get("fps") or 0.0
+                )
                 reference_angles_for_veto = a_ref  # 23-02 Task 5 — frame-specific 각도 정량화 입력.
                 # Phase 19 TRUST-01 (HIGH-2 iter-1): 표시 각도 = 점수 산출 DTW path-정렬 median.
                 # 기존 whole-clip np.nanmean(user_seg) vs np.nanmean(a_ref) 는 시간 비대칭
@@ -4502,6 +4562,20 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # firestore_complete 단계는 complete_analysis **호출 자체** 를 감싸므로 timings_ms
         # 에 그 키가 들어가는 시점(with finally)이 complete_analysis 직렬화보다 뒤 →
         # 저장 dict 에는 미포함(로그 라인으로만 방출). 의도적 — 저장 재귀 방지.
+        # Phase 28-04 (ALGN-01) — motionAlignment 방출 (complete_analysis 직전 — 27-06
+        # 게이트: complete 후 result.* write 금지). 표현/재생 전용, 채점 무접촉 (28-CONTEXT).
+        # user fps = frame_extractor 기본 target_fps 단일 출처(I1, 리터럴 9.0 금지).
+        # mode1 = reference_dtw_match + ref doc keypointReport.fps(18fps phase4_v1, 28-01
+        # 실측). mode3 방출은 28-04 Task 2 에서 배선.
+        if mode == models.MODE_EXPERT:
+            _attach_motion_alignment(
+                result,
+                reference_dtw_match,
+                user_fps=_pipeline_frame_fps(),
+                ref_fps=reference_kp_fps,
+                uid=uid,
+                analysis_id=analysis_id,
+            )
         result["timingsMs"] = timings_ms
         with _stage(timings_ms, analysis_id, "firestore_complete"):  # Phase 27 SPD-01
             firestore_admin.complete_analysis(

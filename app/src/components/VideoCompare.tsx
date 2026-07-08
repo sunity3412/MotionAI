@@ -21,7 +21,11 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { normalizeMotionAlignment, warpTime } from '../lib/alignmentWarp';
+import {
+  normalizeMotionAlignment,
+  segmentRate,
+  warpTime,
+} from '../lib/alignmentWarp';
 import { circledNumberKo } from '../lib/deductionLabels';
 import { colors, layout, radius, spacing, typography } from '../theme';
 import type { MotionAlignment } from '../types/analysis';
@@ -299,6 +303,9 @@ export function VideoCompare({
   // 회피(선행 tick/scrub ref 패턴 동일).
   const alignmentRef = useRef(alignment);
   alignmentRef.current = alignment;
+  // rate feedforward 직전 설정값 기억 — 구간 경계에서만 실변경(매 tick 재설정 =
+  // 플랫폼 재버퍼 위험, 28-RESEARCH Anti-Patterns).
+  const lastRateRef = useRef(1.0);
 
   // right 목표시각 = 정렬 활성 시 warp(tStudent), 아니면 identity. 순수 계산.
   const targetRefTime = (tStudent: number): number => {
@@ -380,6 +387,19 @@ export function VideoCompare({
         }
       }
 
+      // 28-06 (Task 2) rate feedforward — 구간 기울기를 정은지(right) playbackRate
+      //   로 선반영. **직전 설정값과 다를 때만 실변경** (구간 경계에서만, 초당 최대
+      //   2회) — 매 tick 재설정은 플랫폼 재버퍼 위험(28-RESEARCH Anti-Patterns).
+      //   비활성/pause 시 1.0 복원. preservesPitch 는 muted=true 라 무접촉.
+      if (rightPlayer) {
+        const desiredRate =
+          activeTick && aTick && bothPlaying ? segmentRate(aTick, cL) : 1.0;
+        if (desiredRate !== lastRateRef.current) {
+          rightPlayer.playbackRate = desiredRate;
+          lastRateRef.current = desiredRate;
+        }
+      }
+
       // UAT 4차 Finding 2 — 짧은 쪽 끝났는데 다른 쪽이 계속 가는 상황 방지.
       //   이전 (Build 14): OR (`cL >= shorter || cR >= shorter`) — 빠른 쪽이
       //   먼저 도달하면 양쪽 pause → 느린 쪽은 실 native duration 못 채운 채
@@ -410,6 +430,10 @@ export function VideoCompare({
     return () => {
       if (tickRef.current) clearInterval(tickRef.current);
       tickRef.current = null;
+      // 28-06 (Task 2) — unmount/재설치 시 정은지 rate 1.0 복원 (feedforward 잔존
+      // 배속이 다음 마운트로 새지 않게).
+      if (rightPlayer) rightPlayer.playbackRate = 1.0;
+      lastRateRef.current = 1.0;
     };
   }, [hasAny, hasLeft, hasRight, leftPlayer, rightPlayer]);
 
@@ -791,6 +815,21 @@ export function VideoCompare({
     );
   };
 
+  // 28-06 (Task 2) — tier 별 정직한 배지 카피. alignment 부재(legacy doc) = null →
+  //   기존 정적 배지 유지(D-05 배너는 28-07 result.tsx 책임, 배지/배너 분리). 수치
+  //   표기 안 함 — DTW distance 원값은 사용자 의미 없음(Phase 20 A4, 가짜/무의미 수치
+  //   금지). tier 사다리 3단(D-02, belle 지정 톤).
+  const alignBadgeCopy: { title: string; hint: string } | null = !alignment
+    ? null
+    : alignment.tier === 'warped'
+      ? { title: '자동 구간 맞춤', hint: '동작 기준으로 자동 구간을 맞췄어요' }
+      : alignment.tier === 'trim_only'
+        ? {
+            title: '자동 구간 맞춤',
+            hint: '동작 차이가 있어 시작점만 맞췄어요 (배속 조정은 꺼짐)',
+          }
+        : { title: '자동 정렬 꺼짐', hint: '기준 동작과 차이가 커 자동 정렬을 껐어요' };
+
   return (
     <View style={styles.card}>
       <View style={styles.row}>
@@ -813,10 +852,10 @@ export function VideoCompare({
           의도된 것임을 사용자에게 정직하게 알린다. 두 영상이 모두 있을 때만 노출
           (단일 영상은 정렬 대상 없음).
 
-          LIGHT 버전(이번 plan): 정적 배지 + 한 줄 설명만. 신규 백엔드 데이터 /
-          수치 신뢰도(alignment confidence) 없음 — 가짜 수치 금지.
-          TODO(deferred-backend): 실 정렬 신뢰도(DTW 매칭 품질 등)를 백엔드가
-          내려주면 배지에 수치/강도를 표시. 현재는 contract 에 필드 없어 정적. */}
+          Phase 28 해소 — tier 실데이터 기반: alignment prop 이 있으면 tier 사다리
+          3단(warped/trim_only/disabled)을 정직하게 고지(alignBadgeCopy). 부재(legacy
+          doc)면 기존 정적 카피 유지. 수치(DTW distance)는 표기 안 함 — 사용자 의미
+          없는 원값(가짜/무의미 수치 금지, Phase 20 A4). */}
       {hasLeft && hasRight && (
         <View style={styles.alignBadgeRow}>
           <View style={styles.alignBadge}>
@@ -825,10 +864,14 @@ export function VideoCompare({
               size={12}
               color={colors.brand}
             />
-            <Text style={styles.alignBadgeText}>자동 구간 맞춤</Text>
+            <Text style={styles.alignBadgeText}>
+              {alignBadgeCopy ? alignBadgeCopy.title : '자동 구간 맞춤'}
+            </Text>
           </View>
           <Text style={styles.alignBadgeHint}>
-            서로 다른 시작점을 핵심 구간 기준으로 자동 정렬했어요.
+            {alignBadgeCopy
+              ? alignBadgeCopy.hint
+              : '서로 다른 시작점을 핵심 구간 기준으로 자동 정렬했어요.'}
           </Text>
         </View>
       )}

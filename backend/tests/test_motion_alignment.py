@@ -243,3 +243,92 @@ def test_anchor_count_upper_bound():
     assert len(r["anchors"]) <= 512
     us = [u for u, _ in _pairs(r)]
     assert all(us[k] < us[k + 1] for k in range(len(us) - 1))
+
+
+# ── 9. 임계 lockstep (28-02 Task 2, D-03 calibration-source-hard-gate) ─────────
+
+
+def test_distance_thresholds_lockstep_with_vision_veto():
+    """DISTANCE_T1/T2 == vision_veto._ALIGN_GLOBAL_T1/T2.
+
+    값 복제 drift 차단 — 프로덕션 임계 단일 출처는 vision_veto (D-03). 재사용을
+    깨면(자기 sweep 재보정) 이 lockstep 이 실패한다. vision_veto import 는 테스트에서만.
+    """
+    from sunity_shared.analysis import vision_veto
+
+    assert motion_alignment.DISTANCE_T1 == vision_veto._ALIGN_GLOBAL_T1
+    assert motion_alignment.DISTANCE_T2 == vision_veto._ALIGN_GLOBAL_T2
+
+
+# ── 10. 순수성 AST 가드 (채점 무접촉 경계의 구조 가드, T-28-04) ─────────────────
+
+
+def test_module_import_purity_ast_guard():
+    """motion_alignment.py 의 import 는 numpy/stdlib 화이트리스트 밖 0.
+
+    채점/네트워크/모델 의존(sunity_shared.*, boto3, google, vision_veto 등) 유입을
+    영구 차단 — ast.parse 로 import 노드를 검사한다 (채점 무접촉 구조 가드).
+    """
+    import ast
+
+    with open(motion_alignment.__file__, encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    allowed = {"numpy", "math", "typing", "dataclasses", "__future__"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                assert alias.name.split(".")[0] in allowed, alias.name
+        elif isinstance(node, ast.ImportFrom):
+            root = (node.module or "").split(".")[0]
+            assert root in allowed, node.module
+
+
+# ── 11. 경계 사다리 재확인 (상수 참조형 — 하드코딩 drift 차단) ──────────────────
+
+
+def test_t2_boundary_is_trim_only_by_constant_reference():
+    """distance == DISTANCE_T2 정확값 → trim_only (경계 포함 규칙 고정).
+
+    28-01 의 test_tier_distance_boundaries 와 값 중복이어도 상수 참조형으로 재작성해
+    하드코딩 drift 를 차단한다 (25.0 리터럴이 아닌 모듈 상수로 경계를 고정)."""
+    path = [(i, i) for i in range(18)]  # 기울기 1.0 (클램프 내)
+    r = motion_alignment.build_motion_alignment(
+        _match(path, distance=motion_alignment.DISTANCE_T2), user_fps=9.0, ref_fps=9.0
+    )
+    assert r["tier"] == "trim_only"
+
+
+# ── 12. degenerate 방출 계약 (W3 — legacy 구분) ───────────────────────────────
+
+
+def test_degenerate_emits_disabled_shape_and_none_only_for_none_match():
+    """degenerate(앵커<2쌍 / fps=0) → tier 'disabled' + 빈 anchors + reason 존재.
+
+    None 은 match=None 일 때만 (legacy 필드 부재와 구분되는 계약 고정, W3). 28-01
+    degenerate 테스트와 값 중복이어도 형상 참조형으로 재확인한다."""
+    # 앵커 < 2쌍 (단일-시각 path).
+    r_insuff = motion_alignment.build_motion_alignment(
+        _match([(0, 3)], distance=2.0), user_fps=9.0, ref_fps=18.0
+    )
+    assert r_insuff is not None
+    assert r_insuff["tier"] == "disabled"
+    assert r_insuff["anchors"] == []
+    assert r_insuff["anchorCount"] == 0
+    assert r_insuff.get("reason")
+
+    # ref_fps=0 → 동일 형상.
+    path = [(i, i) for i in range(10)]
+    r_fps = motion_alignment.build_motion_alignment(
+        _match(path, distance=2.0), user_fps=9.0, ref_fps=0.0
+    )
+    assert r_fps is not None
+    assert r_fps["tier"] == "disabled"
+    assert r_fps["anchors"] == []
+    assert r_fps["anchorCount"] == 0
+    assert r_fps.get("reason")
+
+    # None 은 오직 match=None 일 때만 (degenerate 는 방출된다).
+    assert (
+        motion_alignment.build_motion_alignment(None, user_fps=9.0, ref_fps=18.0)
+        is None
+    )

@@ -3209,11 +3209,14 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         raise RuntimeError(f"분석 문서 없음 users/{uid}/analyses/{analysis_id}")
     mode = meta.get("mode")
 
+    # Phase 27 D-02 — status 갱신을 실제 단계 경계로 교정 (연속 write 해체). 과거엔
+    # FRAME_EXTRACTION + POSE_ANALYSIS 를 여기서 **작업 전에 연달아** write 해 앱 진행률이
+    # 즉시 다음 단계로 점프(85% 정지 오인, 27-RESEARCH D-02)했다. FRAME_EXTRACTION 은 영상
+    # 다운로드+프레임 추출 시작 전에만 write; POSE_ANALYSIS 는 포즈 추출(from_local) 완료
+    # 후 write (아래 prefetch try 안). enum/PIPELINE_SEQUENCE 추가 0 — 호출 위치만 이동.
+    # PROGRESS_PCT 재배분은 27-07 (loading.tsx Math.max 단조 → 시점 이동만으로 역행 0).
     firestore_admin.update_analysis_status(
         uid, analysis_id, models.STATUS_FRAME_EXTRACTION
-    )
-    firestore_admin.update_analysis_status(
-        uid, analysis_id, models.STATUS_POSE_ANALYSIS
     )
 
     # R3 fix (Phase 6, Plan 06-02) — 단일 helper _extract_video_analysis_inputs.
@@ -3331,6 +3334,12 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         pose_frames = inputs.pose_frames
         local_video_path_obj = inputs.local_video_path
         local_video_path = str(local_video_path_obj) if local_video_path_obj else None
+
+        # Phase 27 D-02 — 포즈 추출(frame_extract + RTMW) 완료 후 POSE_ANALYSIS write
+        # (실제 단계 경계). 과거엔 작업 전 FRAME_EXTRACTION 와 연속 write 됐다.
+        firestore_admin.update_analysis_status(
+            uid, analysis_id, models.STATUS_POSE_ANALYSIS
+        )
 
         # 학생 핸들 join (prefetch) 또는 동기 폴백. 업로드 실패(None)는 각 모듈이 자체
         # 업로드로 graceful 폴백 (분석 비차단 — moment extractor 폴백도 27-04 fix 로 누수 0).
@@ -3777,13 +3786,25 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # (1) 양쪽 writer 동시 호출 + 시도당 재시도 1회 (단일 coach_context 공유, B3).
             # Phase 27 SPD-01 — coach_dual 단계 계측 (Gemini+Cerebras writer 라운드트립,
             # mode1 지배 비용 구간). 조립/cross-fill 은 CPU-cheap 이라 계측 밖.
+            # Phase 27 Task 4 (SPD-05) — coach B(Gemini) ∥ Cerebras 동시 실행. 두 writer 는
+            # 같은 immutable coach_context dict 를 읽기만 하므로 안전(B3 정합, 27-RESEARCH
+            # Pattern 4). Gemini 는 스레드, Cerebras 는 메인 스레드에서 실행 후 join —
+            # 벽시계 = max(B, Cerebras) 로 단축(순차 합 → 병렬 최댓값). 예외/재시도는
+            # _call_coach_writer_with_retry 내부 graceful 규율 그대로(사후 점수 변경 0, D-03).
+            # writer/write 바운드 메서드는 메인 스레드에서 미리 확보(스레드 내 lazy-init 경쟁 0).
             with _stage(timings_ms, analysis_id, "coach_dual"):
-                gemini_result = _call_coach_writer_with_retry(
-                    "gemini", _ensure_gemini_coach_writer().write, coach_context
-                )
-                cerebras_result = _call_coach_writer_with_retry(
-                    "cerebras", _COACH_WRITER.write, coach_context
-                )
+                _gemini_write = _ensure_gemini_coach_writer().write
+                with ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix="coach_gemini"
+                ) as _coach_pool:
+                    gemini_future = _coach_pool.submit(
+                        _call_coach_writer_with_retry,
+                        "gemini", _gemini_write, coach_context,
+                    )
+                    cerebras_result = _call_coach_writer_with_retry(
+                        "cerebras", _COACH_WRITER.write, coach_context
+                    )
+                    gemini_result = gemini_future.result()
             gemini_ok = bool(_coach_user_visible_keys(gemini_result))
             cerebras_ok = bool(_coach_user_visible_keys(cerebras_result))
 

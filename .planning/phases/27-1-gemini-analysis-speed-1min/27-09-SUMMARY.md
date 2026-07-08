@@ -134,3 +134,11 @@ None — 문서/판정 산출물만.
 ---
 *Phase: 27-1-gemini-analysis-speed-1min*
 *Completed: 2026-07-08*
+
+## Self-Check: PASSED
+
+- 파일 3개 존재 (27-TIMING-AFTER.md 235줄 / 27-09-SUMMARY.md / deferred-items.md).
+- 커밋 6개 존재 (87a9326 · af56fb2 · 3894bc8 · 0c4aa92 · 4711b61 · c9d8bed). 삭제 파일 0.
+- acceptance grep (27-TIMING-AFTER.md): cacheHit=1 (≥1) / completedCalls=1 (≥1) / gemini_upload_prefetch_submit=2 (≥1) / PASS|FAIL=9 (≥1) / GEMINI_UPLOAD_PREFETCH|GEMINI_FANOUT_WORKERS=9 (≥2) / timingsMs|elapsed_ms=2 (key_link 패턴).
+- PASS 판정 → rollback 불발동, Pod /health 200 유지 확인.
+- STATE.md / ROADMAP.md 무접촉 (orchestrator 소관 준수).

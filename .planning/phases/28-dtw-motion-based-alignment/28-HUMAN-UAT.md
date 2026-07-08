@@ -46,12 +46,17 @@ result: [pending]
 expected: 확대비교 카드에서 정은지 측이 학생과 같은 동작 순간을 보여준다(D2 크롭 이탈 종결). 실패(전신 붕괴) 카드는 "전신 화면" 캡션.
 result: [pending]
 
+### 6. mode3 second+ 확대카드 시각 정합 (CR-01 fix 확인)
+
+expected: mode3 두 번째 이상 분석의 확대비교 카드에서 이전 영상 측이 학생과 같은 동작 순간을 보여준다 (리뷰 CR-01: prev 9fps angles vs 18fps 업샘플 keypointReport 도메인 fix — f814b23). 결과 화면 진입→이탈 반복 시 크래시 없음(WR-05 released-player 가드).
+result: [pending]
+
 ## Summary
 
-total: 5
+total: 6
 passed: 0
 issues: 0
-pending: 5
+pending: 6
 skipped: 0
 blocked: 0
 

@@ -119,4 +119,117 @@ export GEMINI_MOMENT_MODEL=gemini-3.5-flash  # 27-08 D-05 채택분 — extracto
 
 ---
 
-*(이하 §2 게이트 판정, §3 before/after 표는 sweep 완료 후 추가)*
+## §2. D-01 Hard Gate 판정 (Task 3 — 2026-07-08 06:38~07:41 UTC)
+
+### 실행 기록
+
+| run | runId | 시각 (UTC) | 조건 |
+|-----|-------|-----------|------|
+| after **cold** | `1783492735` | 06:38~07:08 | §1 cold 격리 후 (fixture 캐시 잔존 0), EVAL18 6페어 SERIAL in-process |
+| after **warm** | `1783494855` | 07:14~07:35 | cold 직후 같은 페어 재실행 (cold 가 재적재한 캐시에 hit) |
+
+원자료: `/workspace/eval_out/phase27/after_sweep{,_warm}.log`, `/workspace/eval_out_after27/phase25/phase25_sweep_report{,_warm}.json` (EVAL_OUT_DIR 분리 — wave 2 리포트 무접촉).
+
+### cold 증빙 + fan-out 완주 (Pitfall 7)
+
+채점 10멤버 전원 `telemetry.cacheHit=false` + veto `completedCalls/plannedCalls = 4/4` (리포트 JSON 기계 확인). warm 은 전원 `cacheHit=true` + 4/4. climb 2멤버 = not_pole 게이트 차단 (baseline 동일). **HTTP 429 실검출 0** — cold/warm 로그 grep hit 각 1건은 `elapsed_ms=1429`/타임스탬프 `,429` 오탐. `GEMINI_FANOUT_WORKERS=4 최종 채택` (축소 폴백 불발동).
+
+### (a) 무회귀 — before(wave 2 cold run 1783469050) 대조: **PASS**
+
+12멤버 record 레벨 기계 대조 (status/overallScore/errorCode/activatedCriteria/faults):
+
+| motion | before F/S | after F/S | verdict (after) | 대조 |
+|--------|-----------|-----------|-----------------|------|
+| power-spin | 57 / 80 | **52** / 80 | discriminate (margin 28↑) | fault 만 drift — vision 이 이번 run 에 split 을 짚음 (pointed=[left_knee,right_knee], −12) |
+| peter-pan | 83 / 100 | 83 / 100 | discriminate (17) | 동일 |
+| elbow-twist-sister | 61 / 100 | 61 / 100 | discriminate (39) | 동일 |
+| pdshape | 54 / 100 | 54 / 100 | discriminate (46) | 동일 |
+| kip-up | 100 / 100 | **80** / 100 | **discriminate (20)** — known FP(TIE) 가 이번 run 해소 | fault 만 drift — vision split 짚음 (−20) |
+| climb | not_pole | not_pole | known_gate_blocked | 동일 |
+
+- **success 멤버 5/5 완전 동일** (점수·criteria·faults record 레벨) — 위양성 방향 회귀 0.
+- fault 멤버 drift 2건은 모두 **감점 증가(결함 검출) 방향**이고 출처는 Gemini vision 짚기의 run 간 변동 (27-02 §관측 계보 — before run 에서 kip-up fault=100 이 관측된 그 변동의 역방향). margin 은 전 페어 유지·확대 (kip-up TIE→discriminate 20, power-spin 23→28).
+- **정본 `evals/phase18/assert_baseline.py` PASS** (6페어 fault-label/regression 소스 정합, 위양성 1·게이트차단 1 명시 추적).
+
+### (b) cold/warm 결정론: **병렬화 귀속 위반 0 — PASS** (pre-existing 예외 1계보 발견·박제)
+
+10/12 멤버 **점수+faults record(measuredValue 포함) byte-동일**. in-run 재실행 체크(pdshape success)도 cold/warm 100/100 identical. 예외 = power-spin 2멤버, 전부 `leg_extension` 한 criterion 에 국한:
+
+| member | cold | warm | 표면 |
+|--------|------|------|------|
+| power-spin fault | 52 (leg_ext measured **78.27°**, raw −90) | 52 (measured **140.9°**, raw −22.9) | 관절당 상한 −20 이 가려 **점수 동일** |
+| power-spin success | **80** (leg_ext measured 135.84°, raw −29→cap −20) | **100** (leg_ext 미발화) | 측정이 tol 안쪽으로 이동 → 점수 divergence |
+
+**근본 원인 (코드 고고학으로 확정):** `gemini_technique_recognizer.py:383-392` `_profile_from_cache` 가 TechniqueCache hit 시 `hold_window` 를 복원하지 않는다 (fresh 경로는 `:329` 에서 moments×fps 로 설정). → `dimensions._select_window` 가 자동(분산 최소) window 로 폴백 → extension 측정 대표 프레임이 이동. RTMW/DTW 는 결정론 확인됨 (alignment distance `32.70473519421446` cold/warm byte-동일).
+
+**pre-existing 증빙:** 해당 함수 마지막 실질 수정 = `fc3b6b7` (phase 8 Plan 08-03). phase 27 커밋 중 이 파일 접촉은 `11d175f` (핸들 파라미터 스레딩)뿐 — 캐시 재구성/채점 무접촉. 이번 phase 의 병렬화(fan-out/prefetch/Flash)가 도입한 비결정론이 아니라, **27-09 가 최초의 full cold/warm 대조 sweep 이라서 처음 관측**된 것. env rollback 레버로는 재현/해소 모두 불가한 캐시 경계 버그 → rollback 부적용, **gap-closure 회부** (`deferred-items.md` 기록). 프로덕션 노출면: 같은 영상 재분석(캐시 hit) 시 extension 계열 측정 창이 바뀜 — 수정은 채점 표면 변경이라 자체 EVAL 게이트 동반 필수.
+
+### (c) 프로덕션 로그 검증 (SPD-02 / HIGH-1)
+
+| 항목 | cold | warm | 판정 |
+|------|------|------|------|
+| 학생 영상 `files.upload` (분석당 1회) | 초기 upload POST 24 = 13분석 상당(12멤버+재실행 1)의 학생+기준 페어 — 중복 0 | 24 | PASS |
+| 세션 delete (누수 0) | DELETE 24 — **업로드/삭제 24/24 균형** | 24/24 | PASS |
+| **prefetch 순서 (HIGH-1)** | `stage=gemini_upload_prefetch_submit` 13/13 이 해당 분석 `stage=rtmw` 완료보다 **전원 앞** (예: 06:39:08.638 submit → 06:39:21.067 rtmw) | 13/13 앞 | PASS — 겹치기 발동 상태의 표만 §3 채택 |
+| ERROR/Traceback | Cerebras 코치 1차 JSON 파손 3건 → 기존 재시도/수치 폴백 규율로 진행 (27-02/27-08 과 동일 양성 경로, 점수 무관) | 5건 동일 | 양성 |
+
+### 종합 판정: **PASS**
+
+무회귀(hard) PASS + fan-out 완주 PASS + 업로드/delete 균형 PASS + prefetch 순서 PASS + 결정론(병렬화 귀속) PASS. **rollback 불발동** — Pod 프로덕션 구성 유지 (배포 커밋 `3894bc8`, env 6종 박제 그대로, `/health` 200 재확인 07:41 이후). pre-existing hold_window 캐시 버그 1건만 gap-closure 회부.
+
+---
+
+## §3. Before/After 단계 실측 대조 (동일 페어·동일 단계 키, 단위 ms)
+
+before = wave 2 cold (runId 1783469050, 27-TIMING-BEFORE.md `timingsMs`) · after = §2 cold (runId 1783492735). 둘 다 `result.timingsMs` + `stage_timing` 로그.
+
+### 페어별 단계 표 — after cold
+
+| stage | ps-F | ps-S | pp-F | pp-S | ets-F | ets-S | pd-F | pd-S | ku-F | ku-S |
+|-------|------|------|------|------|-------|-------|------|------|------|------|
+| s3_download | 4011 | 64556† | 3321 | 135759† | 4566 | 5213 | 3648 | 118502† | 3163 | 3254 |
+| frame_extract | 10393 | 11418 | 7508 | 10101 | 19271 | 25022 | 19931 | 16994 | 7316 | 8572 |
+| rtmw | 2035 | 2177 | 1398 | 1991 | 3320 | 4320 | 3997 | 2818 | 1397 | 1545 |
+| scene_finder | 2077 | 2134 | 1762 | 2239 | 2247 | 2274 | 2599 | 2364 | 1954 | 1801 |
+| recognizer | 5938 | 6088 | 7317 | 6692 | 5318 | 4905 | 6025 | 5549 | 5604 | 5465 |
+| ref_fetch_download | 1375 | 1364 | 1023 | 1375 | 1451 | 1722 | 1570 | 1037 | 1162 | 969 |
+| dtw_scoring | 33 | 32 | 21 | 22 | 136 | 133 | 61 | 70 | 19 | 18 |
+| veto_collect | 36803 | 12511 | 19376 | 20883 | 27248 | 33371 | 26109 | 22104 | 21593 | 19836 |
+| coach_dual | 31949 | 31234 | 30093 | 26106 | 12670 | 29914 | 32275 | 38233 | 29725 | 37778 |
+| firestore_complete | 1361 | 1429 | 1225 | 1129 | 2276 | 2847 | 2575 | 2033 | 1106 | 1075 |
+| fault_zoom (**사후** — complete 뒤) | 8621 | 7851 | 6643 | 3035 | 10362 | 10176 | 9367 | 7521 | 6042 | 5941 |
+
+† s3_download 이상치 4건(성공 멤버) — 하단 "역행 단계" 참조.
+
+climb (not_pole 게이트, 로그 전용): fault 총 25.2s (before 55.5s), success 96.0s (그중 s3 68.3s†; before 60.4s).
+
+### 두-지표 분리 총계 (외부 리뷰 MEDIUM-3) — 단위 s
+
+before 는 fault_zoom 이 complete **앞**에 실행됐으므로 time-to-first-result = wall (단일 지표). after 는 27-06 재배열로 두 지표가 분리된다.
+
+| 지표 | ps-F | ps-S | pp-F | pp-S | ets-F | ets-S | pd-F | pd-S | ku-F | ku-S | median |
+|------|------|------|------|------|-------|-------|------|------|------|------|--------|
+| before wall (=TTFR=총시간) | 224.8 | 234.5 | 217.3 | 218.1 | 329.4 | 368.4 | 343.0 | 282.9 | 198.9 | 207.6 | 229.6 |
+| **after time-to-first-result** (complete 도착) | 122.4 | 163.3 | 93.2 | 227.2 | 106.2 | 130.5 | 127.0 | 240.0 | 92.2 | 100.5 | **124.7** |
+| after server task 총 시간 (zoom 포함) | 131.0 | 171.2 | 99.8 | 230.2 | 116.5 | 140.6 | 136.4 | 247.5 | 98.3 | 106.5 | 133.7 |
+| zoom 추가 도착 시간 (first-result 후) | 8.6 | 7.9 | 6.6 | 3.0 | 10.4 | 10.2 | 9.4 | 7.5 | 6.0 | 5.9 | 7.7 |
+| TTFR 델타 | −46% | −30% | −57% | **+4%**† | −68% | −65% | −63% | −15%† | −54% | −52% | **−46%** |
+
+### 단계별 median 델타 (채점 10멤버)
+
+| stage | before median | after median | 델타 | 레버 |
+|-------|--------------|-------------|------|------|
+| scene_finder | 22.2s | 2.2s | **−90%** | 27-04 prefetch 겹치기 (포즈 그늘에서 실행 — 잔여는 join 대기만) |
+| recognizer | 35.5s | 5.8s | **−84%** | 27-03 세션 핸들(업로드 재사용) + 27-08/09 Flash 전용 키 |
+| veto_collect | 87.2s | 21.9s | **−75%** | 27-05 fan-out 4-worker + 핸들 재사용 + still inline |
+| coach_dual | 45.0s | 30.7s | −32% | 27-05 coach B∥Cerebras 동시화 |
+| Gemini vision 그룹 (scene+recog+veto) | 138.5s | 29.9s | **−78%** | (wall 대비 60%→24%) |
+| fault_zoom | 15.9s | 7.7s | −52% + **first-result 밖으로 이동** | 27-06 사후 분리 + 프레임 재사용 |
+| frame_extract / rtmw / dtw | 10.4 / 2.2 / 0.03s | 10.9 / 2.1 / 0.03s | ±0 | 무접촉 (예상대로) |
+
+**총계: 채점 10멤버 time-to-first-result median 229.6s → 124.7s (−46%), 합계 wall 2,624.9s → 1,478.0s (−43.7%).** 파일럿 피드백 "mode1 2.5~5.7분" → **1.5~4분(TTFR, s3 이상치 포함), s3 정규화 시 92~138s (median 104s = 1분 44초)**. 1분 목표(지향점) 대비: Gemini 레버는 계획 수확을 냈고 잔여 최대 항목은 coach_dual 30.7s > veto_collect 21.9s — D-01 스펙대로 시간은 보고 항목, hard 게이트 아님.
+
+### 역행 단계 원인 (표 병기 의무)
+
+- **s3_download 이상치 4건 (전부 success 멤버, 64.6~135.8s; before 3.4~16.7s):** 코드 원인 아님 — 근거: (1) 같은 파일이 warm run 에선 3.3~13초, before run 에서도 정상, (2) 같은 run 의 fault 멤버 6건은 전부 3.2~5.2s, (3) 해당 구간 로그는 재시도/오류 0 의 무음 대기 (boto3 GET 단독). Pod 아웃바운드 네트워크 일시 변동으로 판단. pp-S TTFR +4% 역행은 전액 s3 +128s 귀속 (s3 제외 시 ~99s = −55%). 관측 항목으로 deferred-items 에 기록 (레버 후보: S3 Transfer Acceleration/재시도 튜닝 — 이 phase 범위 밖).
+- 그 외 역행 단계 0 — frame_extract/rtmw 는 오차 범위 내 동일.

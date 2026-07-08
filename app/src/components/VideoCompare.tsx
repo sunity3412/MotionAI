@@ -463,8 +463,12 @@ export function VideoCompare({
 
   // progress bar / restart 등 단일 기준 값 — 짧은 쪽 기준 (기존 로직 보존).
   const current = hasLeft ? leftCurrent : rightCurrent;
-  const duration =
-    hasLeft && hasRight
+  // 28-06 (WR-02) — 정렬 활성 시 재생 정의역 = left(master) 도메인. cR=warp(cL)라
+  //   min(dL,dR) 혼합은 무의미(progress bar 조기 100% 고정 / seek 상한 오절단). 활성
+  //   경로는 leftDuration 단일 기준, 비활성은 기존 로직(짧은 쪽) 그대로 보존.
+  const duration = alignmentActive
+    ? leftDuration
+    : hasLeft && hasRight
       ? leftDuration > 0 && rightDuration > 0
         ? Math.min(leftDuration, rightDuration)
         : Math.max(leftDuration, rightDuration)
@@ -489,8 +493,14 @@ export function VideoCompare({
       //     2) reset 시 explicit seek=0 + REPLAY_SEEK_DELAY_MS 후 play() — seek
       //        완료 보장 (60ms 는 한 frame 보다 살짝 길게).
       //     3) drift 보정 상태 reset (`correctingDriftRef`).
+      // 28-06 (WR-02) — 정렬 활성 시 종료 판정도 either-own-end(tick 과 동일 도메인).
+      //   max(cL,cR) >= min(dL,dR) 혼합은 cR=warp(cL) 가 짧은 정은지 duration 을 조기
+      //   초과하면 중간 일시정지 후 재개가 0초 재시작이 되는 버그. 비활성은 기존 유지.
       const maxCurrent = Math.max(leftCurrent, rightCurrent);
-      const isAtEnd = duration > 0 && maxCurrent >= duration - 0.05;
+      const isAtEnd = alignmentActive
+        ? (leftDuration > 0 && leftCurrent >= leftDuration - 0.05) ||
+          (rightDuration > 0 && rightCurrent >= rightDuration - 0.05)
+        : duration > 0 && maxCurrent >= duration - 0.05;
       // Build 16 iter-2: 시작/재시작 강제 sync — play() 호출 전 둘이 currentTime
       // 다르면 작은 값으로 맞춤. 초기 drift 0 보장.
       const drift = Math.abs(leftCurrent - rightCurrent);
@@ -546,8 +556,15 @@ export function VideoCompare({
     (target: number) => {
       const dL = leftPlayer?.duration ?? 0;
       const dR = rightPlayer?.duration ?? 0;
-      const maxAllowed =
-        hasLeft && hasRight && dL > 0 && dR > 0
+      // 28-06 (WR-02) — 정렬 활성 시 seek 상한 = dL(master). target 은 학생초라
+      //   min(dL,dR) 로 자르면 warp(X)<dR 인 비교가능 구간까지 스크럽이 막힌다. right
+      //   는 setRightToStudentTime 이 warp+[0,dR] 클램프 담당. alignmentRef 로 활성
+      //   판정(선행 ref 패턴 — 콜백 churn 회피). 비활성은 기존 로직.
+      const aSeek = alignmentRef.current;
+      const activeSeek = !!aSeek && aSeek.tier !== 'disabled';
+      const maxAllowed = activeSeek
+        ? dL
+        : hasLeft && hasRight && dL > 0 && dR > 0
           ? Math.min(dL, dR)
           : hasLeft
             ? dL

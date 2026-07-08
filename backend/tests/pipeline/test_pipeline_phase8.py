@@ -99,6 +99,7 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str = "/tmp/__phase8.mp4"
     def _impl(
         local_video_path, default_pole, *, keep_local_video=False,
         timings_ms=None, analysis_id="",  # Phase 27 SPD-01 — stage-timing kwargs (stub 무시)
+        unlink_on_error=True,  # WR-02 fix (27-REVIEW) — 시그니처 정합 (stub 무시)
     ):
         local_path = Path(tmp_video_path) if keep_local_video else None
         fallback_profile = BodyNormalizationProfile(

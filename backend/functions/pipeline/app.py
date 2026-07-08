@@ -1389,6 +1389,7 @@ def _extract_video_analysis_inputs_from_local(
     keep_local_video: bool = False,
     timings_ms: dict[str, int] | None = None,
     analysis_id: str = "",
+    unlink_on_error: bool = True,
 ) -> _VideoAnalysisInputs:
     """이미 로컬에 확보된 영상에서 frame_extract + RTMW estimate + 후처리를 수행한다.
 
@@ -1398,6 +1399,12 @@ def _extract_video_analysis_inputs_from_local(
     fallback 보장으로 non-null (R4 fix). keep_local_video=True 시 local_video_path
     반환(caller 가 unlink 책임), False 시 추출 완료 후 unlink + local_video_path=None
     (기존 delete=True 의미론 보존). 추출/후처리 예외 시 임시 파일 unlink 후 raise.
+
+    unlink_on_error (WR-02 fix, 27-REVIEW): 추출/후처리 **실패** 시 즉시-unlink 여부.
+    prefetch 활성 caller(_process, 27-05)는 False 로 넘긴다 — 업로드 스레드가 같은
+    파일을 읽는 중일 수 있어(선언 불변: future 생존 중 unlink 0) caller 가 future
+    join(shutdown wait=True) **후** unlink 책임을 진다. 기본 True = 기존 계약 보존
+    (prefetch 없는 caller 는 누수 0 즉시 정리).
     """
     _ensure_adapters()
     # Phase 27 SPD-01 — frame_extract / rtmw 단계 계측 (27-RESEARCH Pattern 6).
@@ -1440,7 +1447,10 @@ def _extract_video_analysis_inputs_from_local(
         )
     except Exception:
         # 추출/후처리 실패 — 임시 파일 누수 0 (현행 계약: keep 여부와 무관하게 정리).
-        Path(local_video_path).unlink(missing_ok=True)
+        # WR-02 fix: prefetch caller 는 unlink_on_error=False 로 여기 즉시-unlink 를
+        # 봉인하고 future join 후 스스로 unlink (업로드 스레드 read 중 unlink 레이스 0).
+        if unlink_on_error:
+            Path(local_video_path).unlink(missing_ok=True)
         raise
 
     if keep_local_video:
@@ -3425,6 +3435,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             keep_local_video=keep_local_video,
             timings_ms=timings_ms,  # Phase 27 SPD-01 — frame_extract/rtmw 계측
             analysis_id=analysis_id,
+            # WR-02 fix (27-REVIEW): prefetch 활성이면 추출-실패 즉시-unlink 봉인 —
+            # 업로드 future 생존 중 unlink 레이스 0. 정리는 아래 except 가 join 후 수행.
+            unlink_on_error=(executor is None),
         )
         angles = inputs.angles
         student_profile = inputs.student_profile  # R4 fix — non-null
@@ -3470,6 +3483,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # (veto/coach 미도달 → outer finally session.close() 미실행이라 여기서 leak 0).
         if executor is not None:
             executor.shutdown(wait=True)
+        # WR-02 fix (27-REVIEW): 학생 temp unlink 는 future join **후** 여기서 수행 —
+        # 추출-실패 즉시-unlink(unlink_on_error=False 로 봉인)의 이관분. missing_ok:
+        # 추출 성공 후 keep_local_video=False 경로가 이미 지웠어도 안전 (이중 unlink 0).
+        Path(local_video_path_dl).unlink(missing_ok=True)
         try:
             session.close()
         except Exception:  # noqa: BLE001 - 조기 실패 세션 정리 실패는 분석 흐름 무관
@@ -3479,7 +3496,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         raise
     finally:
         # Pitfall 3 — 모든 prefetch future join(shutdown wait=True) 후 진행. executor 는
-        # 분석-로컬이라 여기서 폐기 (temp unlink 는 outer finally — future 생존 중 unlink 0).
+        # 분석-로컬이라 여기서 폐기. temp unlink 는 outer finally 또는 위 except(join 후)
+        # — future 생존 중 unlink 0 (WR-02 fix 로 추출-실패 즉시-unlink 도 봉인됨).
         # 성공 경로에서는 위 .result() 로 이미 join 됨 (shutdown 은 no-op). 실패 경로는 위
         # except 가 join 후 raise (여기 shutdown 은 idempotent no-op).
         if executor is not None:

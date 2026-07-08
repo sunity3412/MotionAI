@@ -172,6 +172,7 @@ def test_prefetch_submit_logged_before_rtmw(monkeypatch, caplog, tmp_path):
     def _fake_from_local(
         local_video_path, default_pole, *, keep_local_video=False,
         timings_ms=None, analysis_id="",
+        unlink_on_error=True,  # WR-02 fix (27-REVIEW) — 시그니처 정합 (stub 무시)
     ):
         # 실제 from_local 처럼 rtmw stage 로그를 방출 (submit 마커보다 뒤여야 함).
         from sunity_shared.analysis.body_normalization import BodyNormalizationProfile

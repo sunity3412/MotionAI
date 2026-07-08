@@ -187,6 +187,7 @@ def _stub_extract_inputs(pipeline_mod, tmp_video_path: str):
         keep_local_video=False,
         timings_ms=None,  # Phase 27 SPD-01 — stage-timing 계측 kwargs (stub 은 무시)
         analysis_id="",
+        unlink_on_error=True,  # WR-02 fix (27-REVIEW) — 시그니처 정합 (stub 무시)
     ):
         if keep_local_video:
             local_path = _P(local_video_path)

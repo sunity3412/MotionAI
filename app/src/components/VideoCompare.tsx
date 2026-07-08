@@ -432,7 +432,14 @@ export function VideoCompare({
       tickRef.current = null;
       // 28-06 (Task 2) — unmount/재설치 시 정은지 rate 1.0 복원 (feedforward 잔존
       // 배속이 다음 마운트로 새지 않게).
-      if (rightPlayer) rightPlayer.playbackRate = 1.0;
+      // WR-05 — unmount 시 useVideoPlayer(상단 선언) 내부 cleanup 이 먼저 player 를
+      // release 하면 released shared object 속성 쓰기가 예외를 던질 수 있다 (결과
+      // 화면 이탈 = 매 unmount). try/catch 로 무해화 (deps 재설치 경로는 안전).
+      try {
+        if (rightPlayer) rightPlayer.playbackRate = 1.0;
+      } catch {
+        /* released object — 무해 */
+      }
       lastRateRef.current = 1.0;
     };
   }, [hasAny, hasLeft, hasRight, leftPlayer, rightPlayer]);

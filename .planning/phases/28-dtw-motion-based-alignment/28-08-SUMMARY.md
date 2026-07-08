@@ -179,6 +179,17 @@ None - no external service configuration required. (실기기 확인은 배치 U
 - FOUND commit: `741a54b` (28-HUMAN-UAT 적립)
 - FOUND production OTA group `aa3b0ec9-5344-4dda-9b8f-f2145ecf0b94` (eas update:list --branch production)
 
+## Addendum — 코드 리뷰 fix 재발행 (2026-07-08, phase 마감 직전)
+
+phase 28 코드 리뷰(28-REVIEW.md)에서 Critical 2건(CR-01 mode3 fps 도메인, CR-02 stepBy 시간축 혼합) + Warning 4건 fix 후 belle 승인으로 재배포:
+
+- fix HEAD: `349aceb` (fix 커밋 f814b23/9178b7f/f3048b2/f8814b0/da8848e/7b0eec7), origin push 완료
+- Pod `s7gyvvlc6u7ktz` pull 349aceb + start_server.sh 재시작, /health ok·pipeline_loaded true
+- preview OTA 재발행: group `6a1df648-b697-4b7d-a83c-b6cc5211dbaa`
+- production OTA 재발행: group `1581bdf3-245c-4d57-954a-dc9c8f85b094` (위 aa3b0ec9를 대체)
+- JS-only 재확인: b6a14a8..349aceb app diff = VideoCompare.tsx 1개, native touch 0
+- WR-04(veto still fps 오독)는 채점 무접촉 게이트로 deferred — 28-REVIEW.md에 기록
+
 ---
 *Phase: 28-dtw-motion-based-alignment*
 *Completed: 2026-07-08*

@@ -1461,6 +1461,27 @@ function AnalysisResultContent({
               // VideoCompare 가 closeFullscreen 선행 후 콜백(iOS 중첩 Modal 회피).
               onLegendPress={openRecordByNumber}
             />
+            {/* 28-CONTEXT D-05 — 정렬 데이터는 새 분석부터, legacy 는 재분석 유도.
+                조건 = motionAlignment 필드 부재(undefined)만. normalize null(데이터
+                있으나 malformed)은 배너 아님 — 필드 자체 부재만 순수 legacy.
+                W3: 신규 분석은 degenerate 라도 tier 'disabled'로 필드가 항상 실리므로
+                (28-02) undefined 판정 = 순수 legacy — "재분석하면 적용" 과약속 루프 없음.
+                tier 판정 금지 — disabled 안내는 VideoCompare 배지(28-06) 책임
+                (배지=VideoCompare / 배너=화면 레벨 책임 분리, 28-RESEARCH Pattern 6). */}
+            {result.motionAlignment === undefined ? (
+              <View style={styles.alignUpsellBanner}>
+                <Text style={styles.alignUpsellText}>
+                  다시 분석하면 자동 구간 맞춤이 적용돼요
+                </Text>
+                <Pressable
+                  onPress={() => router.replace('/(tabs)/analyze')}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                >
+                  <Text style={styles.alignUpsellCta}>다시 분석하기</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </>
         )}
 
@@ -2234,6 +2255,30 @@ const styles = StyleSheet.create({
     color: colors.brand,
     textAlign: 'center',
     marginTop: 14,
+    textDecorationLine: 'underline',
+  },
+  // 28-CONTEXT D-05 — legacy 재분석 유도 배너 (dimReframeCallout/brandTint 선례,
+  // 토큰만, 라이트 전용, 이모지 0). 안내 1줄 + 인라인 재분석 CTA.
+  alignUpsellBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.cardPadding,
+    borderRadius: radius.card,
+    backgroundColor: colors.brandTint,
+  },
+  alignUpsellText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    lineHeight: 18,
+    flex: 1,
+  },
+  alignUpsellCta: {
+    ...typography.buttonSecondary,
+    color: colors.brand,
     textDecorationLine: 'underline',
   },
 });

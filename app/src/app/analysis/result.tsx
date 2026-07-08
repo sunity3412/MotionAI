@@ -25,6 +25,7 @@ import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
+import { normalizeMotionAlignment } from '../../lib/alignmentWarp';
 import {
   ANGLE_VS_REFERENCE_PREFIX,
   KEYPOINT_FROM_ANGLE_KEY,
@@ -1005,6 +1006,16 @@ function AnalysisResultContent({
   const zoomPending =
     result.faultZoomStatus === 'pending' && !zoomPendingTimedOut;
 
+  // 28-CONTEXT D-01 — malformed/legacy → null = 현행 절대시계 (ASVS V5 방어 소비).
+  // result.motionAlignment 를 소비측 normalizeMotionAlignment 로 재검증 후 VideoCompare
+  // alignment prop 으로 전달한다. 필드 부재(legacy)·모순(malformed) → null → VideoCompare
+  // 가 기존 절대시계 재생 100% 보존(28-06 계약). 순수 함수라 재계산 비용은 미미하나
+  // 관례상 useMemo(result 의존)로 감싼다.
+  const videoAlignment = useMemo(
+    () => normalizeMotionAlignment(result.motionAlignment ?? null),
+    [result],
+  );
+
   // quick-260705-o0s — Phase 9 힘-패턴 원인 카드 섹션 삭제 (belle 실기기 캡처
   // 확인: 코칭 팁 '먼저 교정할 점'과 중복). ForcePatternCard/
   // ForcePatternDetailModal + fallback finding/measuredEvidence 조립 연쇄 제거.
@@ -1370,6 +1381,10 @@ function AnalysisResultContent({
             </View>
             <VideoCompare
               leftLabel="내 영상"
+              // 28-CONTEXT D-01 — 정은지(right) 재생을 학생(left) 마스터 시계에 동작
+              // 기준으로 워핑(28-06 소비). videoAlignment=null(legacy/malformed)이면
+              // VideoCompare 가 현행 절대시계로 100% 폴백 — 신규 doc 만 정렬이 흐른다.
+              alignment={videoAlignment}
               rightLabel={
                 cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'
               }
@@ -1446,6 +1461,27 @@ function AnalysisResultContent({
               // VideoCompare 가 closeFullscreen 선행 후 콜백(iOS 중첩 Modal 회피).
               onLegendPress={openRecordByNumber}
             />
+            {/* 28-CONTEXT D-05 — 정렬 데이터는 새 분석부터, legacy 는 재분석 유도.
+                조건 = motionAlignment 필드 부재(undefined)만. normalize null(데이터
+                있으나 malformed)은 배너 아님 — 필드 자체 부재만 순수 legacy.
+                W3: 신규 분석은 degenerate 라도 tier 'disabled'로 필드가 항상 실리므로
+                (28-02) undefined 판정 = 순수 legacy — "재분석하면 적용" 과약속 루프 없음.
+                tier 판정 금지 — disabled 안내는 VideoCompare 배지(28-06) 책임
+                (배지=VideoCompare / 배너=화면 레벨 책임 분리, 28-RESEARCH Pattern 6). */}
+            {result.motionAlignment === undefined ? (
+              <View style={styles.alignUpsellBanner}>
+                <Text style={styles.alignUpsellText}>
+                  다시 분석하면 자동 구간 맞춤이 적용돼요
+                </Text>
+                <Pressable
+                  onPress={() => router.replace('/(tabs)/analyze')}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                >
+                  <Text style={styles.alignUpsellCta}>다시 분석하기</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </>
         )}
 
@@ -1800,6 +1836,9 @@ function AnalysisResultContent({
         actionPhrase={selectedActionPhrase}
         zoom={selectedZoom}
         zoomPending={zoomPending}
+        // D-04 앱측 (28-05 공급) — DTW 대응 실패 시 ref 는 전신 폴백 이미지라
+        // "같은 동작 순간을 못 찾았다"고 정직 고지. 부재(legacy)/'dtw'면 false → 캡션 없음.
+        refMatchFailed={selectedZoom?.refMatch === 'failed'}
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
       />
     </View>
@@ -2216,6 +2255,30 @@ const styles = StyleSheet.create({
     color: colors.brand,
     textAlign: 'center',
     marginTop: 14,
+    textDecorationLine: 'underline',
+  },
+  // 28-CONTEXT D-05 — legacy 재분석 유도 배너 (dimReframeCallout/brandTint 선례,
+  // 토큰만, 라이트 전용, 이모지 0). 안내 1줄 + 인라인 재분석 CTA.
+  alignUpsellBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.cardPadding,
+    borderRadius: radius.card,
+    backgroundColor: colors.brandTint,
+  },
+  alignUpsellText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    lineHeight: 18,
+    flex: 1,
+  },
+  alignUpsellCta: {
+    ...typography.buttonSecondary,
+    color: colors.brand,
     textDecorationLine: 'underline',
   },
 });

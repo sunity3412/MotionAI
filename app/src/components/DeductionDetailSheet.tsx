@@ -43,6 +43,10 @@ interface Props {
   // 아직 시간 상한 이내면 true. 확대사진 자리에 로딩 placeholder 를 렌더한다.
   // zoom 이 실제 도착하면 result.tsx 가 zoom(!=null)+zoomPending(false)로 전환.
   zoomPending?: boolean;
+  // Phase 28 D-04 — DTW 기준 프레임 대응 실패(refMatch='failed', 28-05 공급). true 면
+  // 확대 이미지 아래에 "전신 화면으로 보여드려요" 정직 캡션을 렌더한다. 'dtw'/legacy
+  // (부재)=false → 캡션 없음. 판정은 호출측(result.tsx)이 zoom.refMatch 로 계산.
+  refMatchFailed?: boolean;
   // 우측 비교 대상 라벨 — Mode1='정은지 선수', Mode3='지난 분석'.
   rightLabel: string;
 }
@@ -55,6 +59,7 @@ export function DeductionDetailSheet({
   actionPhrase,
   zoom,
   zoomPending = false,
+  refMatchFailed = false,
   rightLabel,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
@@ -106,20 +111,29 @@ export function DeductionDetailSheet({
             {/* 확대 이미지 (구 확대 비교 컴포넌트 자산 이식) — zoom 있을 때만.
                 합성 PNG 1장 + 좌 '내 영상'/우 rightLabel halfLabel 오버레이. */}
             {zoom ? (
-              <View style={[styles.imageWrap, { height: imgH }]}>
-                <Image
-                  source={{ uri: zoom.imageUrl }}
-                  style={styles.image}
-                  resizeMode="contain"
-                  accessibilityLabel={`${criterionLabelKo(record.criterion)} 확대 비교 이미지`}
-                />
-                <View style={[styles.halfLabel, styles.halfLabelLeft]}>
-                  <Text style={styles.halfLabelText}>내 영상</Text>
+              <>
+                <View style={[styles.imageWrap, { height: imgH }]}>
+                  <Image
+                    source={{ uri: zoom.imageUrl }}
+                    style={styles.image}
+                    resizeMode="contain"
+                    accessibilityLabel={`${criterionLabelKo(record.criterion)} 확대 비교 이미지`}
+                  />
+                  <View style={[styles.halfLabel, styles.halfLabelLeft]}>
+                    <Text style={styles.halfLabelText}>내 영상</Text>
+                  </View>
+                  <View style={[styles.halfLabel, styles.halfLabelRight]}>
+                    <Text style={styles.halfLabelText}>{rightLabel}</Text>
+                  </View>
                 </View>
-                <View style={[styles.halfLabel, styles.halfLabelRight]}>
-                  <Text style={styles.halfLabelText}>{rightLabel}</Text>
-                </View>
-              </View>
+                {/* Phase 28 D-04 — DTW 대응 실패 시 ref 는 전신 폴백(28-05)이라 어느
+                    순간인지 단정하지 않고 정직 고지. 'dtw'/legacy 면 캡션 없음. */}
+                {refMatchFailed ? (
+                  <Text style={styles.refMatchNote}>
+                    같은 동작 순간을 찾지 못해 전신 화면으로 보여드려요
+                  </Text>
+                ) : null}
+              </>
             ) : zoomPending ? (
               // Phase 27 D-06 — zoom 사후 도착 대기. 점수/내역은 이미 도착했고
               // 확대 이미지만 렌더 중이라 카드 자리에 로딩 placeholder 를 둔다.
@@ -222,6 +236,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  // Phase 28 D-04 — refMatch='failed' 전신 폴백 정직 캡션 (pendingText 패턴 차용, 토큰만).
+  refMatchNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   halfLabel: {
     position: 'absolute',

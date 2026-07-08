@@ -11,13 +11,18 @@
 
 from __future__ import annotations
 
+import json
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
+from pydantic import BaseModel, Field
 
+from sunity_shared.gemini import client as client_mod
+from sunity_shared.gemini.client import GeminiVisionCall
 from sunity_shared.gemini.file_session import GeminiFileSession
-from tests.gemini.fake_genai import FakeClient, FakeFiles, FakeModels
+from tests.gemini.fake_genai import FakeClient, FakeFile, FakeFiles, FakeModels, patch_genai
 
 
 def _factory(files: FakeFiles, models: FakeModels | None = None):
@@ -176,3 +181,65 @@ class TestConcurrentSamePathDedupe:
         assert files.upload_calls == 1
         assert results["a"] is not None
         assert results["a"].name == results["b"].name
+
+
+# ─────────────────── Task 2: GeminiVisionCall.call() 핸들 주입 ───────────────────
+
+
+class _StubSchema(BaseModel):
+    label: str = Field(min_length=1)
+    score: float = Field(ge=0.0, le=1.0)
+
+
+def _make_call(**kw) -> GeminiVisionCall:
+    defaults = dict(
+        schema=_StubSchema,
+        model="gemini-3.1-pro-preview",
+        prompt="동작 분류",
+        api_key_loader=lambda: "AQ.test-key",
+    )
+    defaults.update(kw)
+    return GeminiVisionCall(**defaults)
+
+
+def _ok_response(payload: dict):
+    return SimpleNamespace(parsed=_StubSchema.model_validate(payload), text=json.dumps(payload))
+
+
+class TestPreuploadedHandleInjection:
+    def test_injected_handle_skips_upload_and_delete(self, tmp_path, monkeypatch) -> None:
+        # Test 7: preuploaded_handle 주입 → upload/폴링/delete skip, generate 는 주입 핸들로.
+        files = FakeFiles()
+        models = FakeModels([_ok_response({"label": "invert", "score": 0.9})])
+        patch_genai(monkeypatch, client_mod, files=files, models=models)
+
+        handle = FakeFile(name="files/session-shared", state="ACTIVE")
+        video = tmp_path / "student.mp4"
+        video.write_bytes(b"fake")
+
+        call = _make_call()
+        result = call.call(str(video), preuploaded_handle=handle)
+
+        assert isinstance(result, _StubSchema)
+        assert result.label == "invert"
+        # 세션 소유 핸들 — 업로드/삭제는 세션 책임, call() 은 건드리지 않는다.
+        assert files.upload_calls == 0
+        assert files.delete_calls == 0
+        # generate 는 주입 핸들을 그대로 contents 로 사용.
+        assert models.calls[0]["contents"][0] is handle
+
+    def test_no_handle_preserves_upload_and_delete(self, tmp_path, monkeypatch) -> None:
+        # Test 8: 핸들 미주입 → 기존과 동일하게 upload 1회 + finally delete 1회 (회귀 가드).
+        files = FakeFiles(upload_state="ACTIVE")
+        models = FakeModels([_ok_response({"label": "fox", "score": 0.7})])
+        patch_genai(monkeypatch, client_mod, files=files, models=models)
+
+        video = tmp_path / "student.mp4"
+        video.write_bytes(b"fake")
+
+        call = _make_call()
+        result = call.call(str(video))
+
+        assert isinstance(result, _StubSchema)
+        assert files.upload_calls == 1
+        assert files.delete_calls == 1

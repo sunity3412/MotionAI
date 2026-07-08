@@ -120,3 +120,152 @@ def test_dtw_ref_clamp_domain_is_angles_not_frames():
     )
     assert len(comps) == 1
     assert _ref_red(comps[0]["png"]) == 80, "angles 15 → frames 8 (r_rep_frames 클램프)"
+
+
+# ─────────── Task 2 — ratio 근사 제거 + 전신 폴백 + refMatch 방출 (D-04) ───────────
+
+
+def test_no_dtw_forces_ref_fullbody_and_failed_flag():
+    """dtw_match=None(대응 실패) → ref 전신 폴백 + refMatch='failed', 학생 카드 유지.
+
+    시간비례 근사(어느 pose 인지 모르는 채 시간만 맞춘 프레임 확대)를 제거하고 —
+    ref 는 정직한 전신(오도 0), 앱은 refMatch 로 캡션. 세로 프레임(400x200)의 전신
+    contain-fit 은 좌우 흰 패딩이 생겨 crop(프레임 내용)과 구별된다.
+    """
+    frames = _frames(9, h=400, w=200)
+    comps = fz.build_fault_zoom_comparisons(
+        frames, frames, _report(9, 9.0), _report(9, 9.0),
+        worst_seconds=0.5, fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0, dtw_match=None,
+    )
+    assert len(comps) == 1, "학생 카드는 유지 (D-04)"
+    assert comps[0]["refMatch"] == "failed"
+    assert isinstance(comps[0]["refMatch"], str), "scalar str (flat 제약)"
+    # ref 전신 contain-fit → 좌상단 흰 패딩 (crop 이면 프레임 내용).
+    from io import BytesIO
+
+    from PIL import Image
+
+    px = Image.open(BytesIO(comps[0]["png"])).convert("RGB").getpixel(
+        (fz._OUT + 6 + 2, 2)
+    )
+    assert px == (255, 255, 255), "ref 전신 폴백 (부위 crop 아님)"
+
+
+def test_dtw_success_emits_dtw_flag():
+    """DTW 대응 성공 → refMatch=='dtw'."""
+    n = 10
+    m = _Match(start=0, path=[(i, i) for i in range(n)])
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(n), _frames(n), _report(n, 9.0), _report(n, 9.0),
+        worst_seconds=0.5, fault_joints=["left_knee"], joint_deltas=None,
+        frames_fps=9.0, dtw_match=m, user_frame_idx=6,
+    )
+    assert len(comps) == 1
+    assert comps[0]["refMatch"] == "dtw"
+
+
+def test_ref_frame_override_treated_as_dtw():
+    """ref_frame_idx override 경로 = vision 측정 프레임 정합 → refMatch=='dtw'."""
+    m = _Match(start=0, path=[(i, 0) for i in range(9)])
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(9), _frames(9), _report(9, 9.0), _report(9, 9.0),
+        worst_seconds=0.5, fault_joints=["left_knee"], joint_deltas=None,
+        frames_fps=9.0, dtw_match=m, ref_frame_idx=5,
+    )
+    assert len(comps) == 1
+    assert comps[0]["refMatch"] == "dtw"
+
+
+def test_ratio_approximation_removed_from_source():
+    """시간비례(ratio) 근사 코드가 소스에서 소멸 (주석 제외)."""
+    src = Path(fz.__file__).read_text(encoding="utf-8")
+    code = "\n".join(
+        ln for ln in src.splitlines() if not ln.lstrip().startswith("#")
+    )
+    assert "ratio * (r_n - 1)" not in code
+    assert "ratio * (r_rep_frames - 1)" not in code
+
+
+# ─────────── Task 2 (HIGH-1) — refMatch 가 app.py mapper 를 통과해 생존 ───────────
+
+
+def _load_pipeline_app():
+    _PIPELINE = Path(__file__).resolve().parents[1] / "functions" / "pipeline"
+    if str(_PIPELINE) not in sys.path:
+        sys.path.insert(0, str(_PIPELINE))
+    import app  # noqa: WPS433
+
+    return app
+
+
+def _patch_render_deps(app, monkeypatch, cards):
+    """_render_fault_zoom 의 추출기/S3/build 를 스텁 — mapper 로직만 노출.
+
+    frame_extractor 실모듈은 imageio(테스트 환경 미설치) 를 top-import 하므로 가짜
+    모듈을 sys.modules 에 주입한다 — _render_fault_zoom 내부의 lazy
+    `from ...frame_extractor import FfmpegFrameExtractor` 가 이 스텁을 집는다.
+    """
+    import types
+
+    from sunity_shared.analysis import fault_zoom as fzmod
+
+    class _FakeExt:
+        def __init__(self, *a, **k) -> None:
+            pass
+
+        def extract(self, _path):
+            return np.zeros((3, 8, 8, 3), dtype=np.uint8)
+
+    fake_fe = types.ModuleType("sunity_shared.analysis.frame_extractor")
+    fake_fe.FfmpegFrameExtractor = _FakeExt
+    monkeypatch.setitem(
+        sys.modules, "sunity_shared.analysis.frame_extractor", fake_fe
+    )
+    monkeypatch.setattr(fzmod, "build_fault_zoom_comparisons", lambda *a, **k: cards)
+
+    class _FakeS3:
+        def put_object(self, **k):
+            return None
+
+    monkeypatch.setattr(app, "_s3", _FakeS3())
+    monkeypatch.setattr(app, "_signed_get", lambda b, k: "https://signed")
+
+
+def _run_render(app):
+    return app._render_fault_zoom(
+        {}, "u.mp4", "r.mp4", {"joints": []}, {"joints": []},
+        ["left_knee"], {"left_knee": 20.0}, {}, 0.5, "u1", "a1", "bucket",
+    )
+
+
+def test_mapper_preserves_refmatch_failed(monkeypatch):
+    """build 가 refMatch='failed' 카드 반환 → 최종 comparisons[0].refMatch 생존 (HIGH-1)."""
+    app = _load_pipeline_app()
+    _patch_render_deps(app, monkeypatch, [
+        {"joint": "left_knee", "deficitDeg": 20.0, "png": b"\x89PNG",
+         "refMatch": "failed"},
+    ])
+    out = _run_render(app)
+    assert out[0]["refMatch"] == "failed"
+
+
+def test_mapper_preserves_refmatch_dtw(monkeypatch):
+    """build 가 refMatch='dtw' 카드 반환 → 최종 comparisons[0].refMatch 생존."""
+    app = _load_pipeline_app()
+    _patch_render_deps(app, monkeypatch, [
+        {"joint": "left_knee", "deficitDeg": 20.0, "png": b"\x89PNG",
+         "refMatch": "dtw"},
+    ])
+    out = _run_render(app)
+    assert out[0]["refMatch"] == "dtw"
+
+
+def test_mapper_omits_refmatch_for_legacy_card(monkeypatch):
+    """refMatch 없는 legacy 형상 카드 → 최종 item 에도 키 부재 (region 선례와 동일 조건부)."""
+    app = _load_pipeline_app()
+    _patch_render_deps(app, monkeypatch, [
+        {"joint": "left_knee", "deficitDeg": 20.0, "png": b"\x89PNG"},
+    ])
+    out = _run_render(app)
+    assert "refMatch" not in out[0]

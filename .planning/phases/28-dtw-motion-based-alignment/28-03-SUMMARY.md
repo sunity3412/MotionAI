@@ -96,3 +96,10 @@ None — 2 태스크 계획대로 실행. (환경 처리 2건, 계획 무변경:
 - `a2d2802` feat(28-03): motionAlignment + refMatch 계약 3-way lockstep
 - `b8ce7d8` test(28-03): _validate_motion_alignment 계약 + 역불변식 RED
 - `15b8da7` feat(28-03): _validate_motion_alignment scoped validator + complete_analysis 훅
+- `ade7a68` docs(28-03): complete motionAlignment 계약 lockstep + validator plan
+
+## Self-Check: PASSED
+
+- 계약/코드 5 파일 + 신규 테스트 1 + SUMMARY 존재 확인 (analysis.ts / models.py / contract.md / firestore_admin.py / test_motion_alignment_contract.py / 28-03-SUMMARY.md).
+- 커밋 4개 존재 확인 (a2d2802 / b8ce7d8 / 15b8da7 / ade7a68).
+- working tree clean (미커밋 산출물 0).

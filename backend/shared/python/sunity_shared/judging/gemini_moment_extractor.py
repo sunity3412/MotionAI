@@ -55,7 +55,13 @@ GEMINI_API_KEY_PARAM_NAME = "/sunity/motion/gemini-api-key"
 #   따라서 이 경로에 한해 2.5-pro (stable, suffix 없음) 가 올바른 중간 모델.
 #   ListModels 2026-06-15 박제: gemini-2.5-pro = generateContent + multimodal 지원.
 #   3.x video-capable 모델 출시 시 env GEMINI_MODEL=gemini-3.x-pro 로 즉시 전환 가능.
-DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-pro")
+# Phase 27-09 (27-FLASH-DECISION §반영 제약) — 전용 키 GEMINI_MOMENT_MODEL 우선.
+#   GEMINI_MODEL 은 veto scorer(gemini_vision_scorer.py DEFAULT_VISION_MODEL)와 공유라
+#   전역 export 시 veto 까지 flip 된다(D-05 veto 기본 보류 위반). moment extractor 만
+#   Flash 로 스코핑하려면 GEMINI_MOMENT_MODEL 을 쓴다 — 미설정 시 기존 체인 fallback.
+DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MOMENT_MODEL") or os.environ.get(
+    "GEMINI_MODEL", "gemini-2.5-pro"
+)
 
 # Gemini 응답이 좌표·점수·판단을 출력하지 못하도록 거부할 패턴.
 # memory: analysis-objectivity-no-human-scores — 출력은 시점/분류만, 점수·좌표 금지.

@@ -53,6 +53,32 @@ def test_gemini_moment_extractor_env_override(monkeypatch):
     assert mod.DEFAULT_GEMINI_MODEL == "gemini-3.1-pro-preview"
 
 
+def test_gemini_moment_model_dedicated_key_scopes_extractor_only(monkeypatch):
+    """Phase 27-09 (27-FLASH-DECISION §반영 제약) — GEMINI_MOMENT_MODEL 전용 키.
+
+    GEMINI_MODEL 은 veto scorer 와 공유 env 라 전역 export 시 veto 까지 flip 된다.
+    전용 키는 extractor default 만 바꾸고 veto(DEFAULT_VISION_MODEL)는 무접촉.
+    """
+    monkeypatch.setenv("GEMINI_MOMENT_MODEL", "gemini-3.5-flash")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
+    mod = _reload_extractor_module()
+    # 전용 키가 공유 키보다 우선.
+    assert mod.DEFAULT_GEMINI_MODEL == "gemini-3.5-flash"
+
+    # veto scorer 는 GEMINI_MOMENT_MODEL 무접촉 — GEMINI_MODEL 체인 유지.
+    import sunity_shared.analysis.gemini_vision_scorer as scorer_mod
+    scorer_mod = importlib.reload(scorer_mod)
+    assert scorer_mod.DEFAULT_VISION_MODEL == "gemini-3.1-pro-preview"
+
+
+def test_gemini_moment_model_unset_falls_back_to_shared_chain(monkeypatch):
+    """GEMINI_MOMENT_MODEL 미설정 시 기존 GEMINI_MODEL fallback 체인 그대로."""
+    monkeypatch.delenv("GEMINI_MOMENT_MODEL", raising=False)
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
+    mod = _reload_extractor_module()
+    assert mod.DEFAULT_GEMINI_MODEL == "gemini-3.1-pro-preview"
+
+
 def test_gemini_technique_recognizer_env_override(monkeypatch):
     """recognizer 가 인스턴스화한 GeminiMomentExtractor 도 env 박제 model reuse.
 

@@ -43,6 +43,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor  # Phase 27 D-03 — 분석-로컬 prefetch
 from enum import Enum
 from pathlib import Path
 from typing import Iterator, NamedTuple
@@ -290,6 +291,22 @@ def _gemini_vision_veto_enabled() -> bool:
         True = 비전 거부권 ON. False = OFF.
     """
     raw = os.environ.get("GEMINI_VISION_VETO_ENABLED", "")
+    return raw.strip().lower() not in _VISION_FALSY
+
+
+def _gemini_upload_prefetch_enabled() -> bool:
+    """GEMINI_UPLOAD_PREFETCH 토글 (Phase 27 D-03/SPD-03, pipeline 단독 소유).
+
+    박제 정신:
+      · 단일 분석 내부 prefetch 겹치기(포즈 ∥ Gemini 업로드/scene_finder) on/off 레버.
+      · default ON ("1") — "0"/"false"/"" 면 27-04 동기 경로 그대로 (canary/rollback,
+        27-09 sweep 이 이 레버로 before/after 대조). 분석 간 SERIAL 불변 (executor 는
+        분석-로컬, 모듈 전역 금지).
+
+    Returns:
+        True = prefetch 겹치기 ON. False = 동기 경로.
+    """
+    raw = os.environ.get("GEMINI_UPLOAD_PREFETCH", "1")
     return raw.strip().lower() not in _VISION_FALSY
 
 
@@ -3227,45 +3244,14 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     local_video_path_dl = _download_analysis_video(
         bucket, key, timings_ms=timings_ms, analysis_id=analysis_id
     )
-    inputs = _extract_video_analysis_inputs_from_local(
-        local_video_path_dl, default_pole,
-        keep_local_video=keep_local_video,
-        timings_ms=timings_ms,  # Phase 27 SPD-01 — frame_extract/rtmw 계측
-        analysis_id=analysis_id,
-    )
-    angles = inputs.angles
-    student_profile = inputs.student_profile  # R4 fix — non-null
-    pose_frames = inputs.pose_frames
-    local_video_path_obj = inputs.local_video_path
-    local_video_path = str(local_video_path_obj) if local_video_path_obj else None
-
     # ── Phase 27 SPD-02 / D-04 — GeminiFileSession (분석-로컬) ──
     # 학생 영상 File API 업로드를 분석당 1회로 축약하고 핸들을 scene_finder/recognizer/veto/
     # coach B 가 공유한다 (중복 4~5회 → 1회, 27-RESEARCH 호출 인벤토리). 세션은 분석-로컬 —
     # 모듈 전역 캐시 금지(분석 간 상태 오염 0). 종료 delete 는 outer finally 의 session.close()
     # 일괄 1회 (NoHuman/NotPole 조기 raise 경로 포함, 20GB 적체 재발 방지 / TTL 최후 안전망).
+    # 27-05 D-03: 세션은 포즈 추출 전에 생성 — 학생 업로드를 prefetch 스레드로 시작하기 위함.
     from sunity_shared.gemini.file_session import GeminiFileSession  # lazy (Lambda 250MB)
     session = GeminiFileSession()
-    # 첫 소비자가 업로드, 이후 재사용 (get_or_upload 경로-캐시). 업로드 실패(None)는 각
-    # 모듈이 자체 업로드로 graceful 폴백 (분석 비차단 — moment extractor 폴백도 27-04 fix 로
-    # 누수 0). 동기 호출 — prefetch 겹치기는 27-05.
-    student_video_handle = (
-        session.get_or_upload(local_video_path) if local_video_path else None
-    )
-
-    # ── Plan 17-02 Wave 1 — 영역 C Finding 호출 (RTMW estimate 직후 / KISMAM 직전) ──
-    # is_reference 박제: S3 key prefix 1차 + Firestore mode 2차 (R-W3 정합 — `_process`
-    # 시그너처 인자 추가 X). find_scene_flags 안에서 G4 정은지 영상 가드 발동.
-    # B4 hard gate — local_video_path 만 사용 (S3 재다운로드 / RTMW 재실행 0).
-    # graceful — find_scene_flags 예외 / GEMINI_FINDING_ENABLED OFF / local path 없음
-    # 시 None 반환 후 분석 흐름 계속.
-    is_reference_local = _resolve_is_reference(key, meta)
-    with _stage(timings_ms, analysis_id, "scene_finder"):  # Phase 27 SPD-01
-        scene_result = _call_wave1_scene_finder(
-            local_video_path=local_video_path,
-            is_reference=is_reference_local,
-            preuploaded_handle=student_video_handle,  # Phase 27 D-04 세션 핸들 공유
-        )
 
     # Path A production 정합 (2026-06-05): mode=expert = motion known case
     # (사용자가 referenceMotionId 선택). recognizer.motion_query_hint 박제 →
@@ -3276,6 +3262,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # 메시지 / BackgroundTask 간 공유됨. 이전 분석이 set 한 hint 가 다음 분석에
     # leak 하면 Gemini 가 잘못된 motion 으로 biased. **항상** rebind (None 또는
     # 새 motion_id) — set/unset 분기 X.
+    # 27-05 D-03 순서 제약: rebind 를 prefetch submit **이전**으로 이동 (module-global
+    # hint leak 방지 — 27-RESEARCH 공유 상태 표). 입력(recognizer/meta/mode)은 포즈 이전
+    # 가용 — 포즈 산출물 무관.
     ref_motion_id = meta.get("referenceMotionId")
     if hasattr(recognizer, "motion_query_hint"):
         recognizer.motion_query_hint = (
@@ -3283,6 +3272,106 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             if mode == models.MODE_EXPERT and ref_motion_id
             else None
         )
+    # is_reference 박제: S3 key prefix 1차 + Firestore mode 2차 (R-W3 정합).
+    is_reference_local = _resolve_is_reference(key, meta)
+
+    # ── Phase 27 D-03 (SPD-03) — 업로드 prefetch 겹치기 (다운로드 직후·포즈 전) ──
+    # env 게이트 하에, 학생 영상 File API 업로드 + scene_finder 를 백그라운드 스레드로
+    # 시작해 frame_extract/RTMW(포즈) 그늘에 숨긴다 (27-RESEARCH Pattern 2). executor 는
+    # 분석-로컬(분석 간 SERIAL 불변 — 모듈 전역 금지, 27-PATTERNS No Analog: 이 파일이
+    # 향후 analog). 포즈 산출물 미의존 태스크만 prefetch (업로드 / scene_finder). recognizer
+    # moment extractor·기준 영상 prefetch 는 27-05 범위 밖(SUMMARY 근거): recognize 는
+    # angles 의존이고 moment 주입은 recognizer 모듈 수정 필요(채점 코어·선언 파일 밖).
+    prefetch_active = keep_local_video and _gemini_upload_prefetch_enabled()
+    executor = (
+        ThreadPoolExecutor(max_workers=4, thread_name_prefix="gemini")
+        if prefetch_active
+        else None
+    )
+    student_handle_future = None
+    scene_future = None
+    try:
+        if executor is not None:
+            # keep_local_video=True 이므로 다운로드 파일이 아직 존재 (from_local 미실행).
+            student_handle_future = executor.submit(
+                session.get_or_upload, local_video_path_dl
+            )
+
+            def _scene_prefetch(
+                _path: str = local_video_path_dl,
+                _is_ref: bool = is_reference_local,
+                _hf=student_handle_future,
+            ) -> dict | None:
+                # 핸들 준비되면 재사용(업로드 dedupe), 없으면 scene_finder 자체 업로드 폴백.
+                handle = _hf.result() if _hf is not None else None
+                return _call_wave1_scene_finder(
+                    local_video_path=_path,
+                    is_reference=_is_ref,
+                    preuploaded_handle=handle,
+                )
+
+            scene_future = executor.submit(_scene_prefetch)
+            # submit 시점 마커 — submit-before-rtmw 로그 순서 검증(HIGH-1). dict 미기록,
+            # 마커 전용 (27-01 stage_timing 포맷 정합). 이 라인이 아래 frame_extract/RTMW
+            # 보다 앞이라 로그 순서상 prefetch_submit < rtmw 가 보장된다.
+            log.info(
+                "stage_timing analysis_id=%s stage=gemini_upload_prefetch_submit elapsed_ms=%d",
+                analysis_id, 0,
+            )
+
+        # 포즈 추출 (frame_extract + RTMW) — prefetch 스레드와 겹쳐 실행.
+        inputs = _extract_video_analysis_inputs_from_local(
+            local_video_path_dl, default_pole,
+            keep_local_video=keep_local_video,
+            timings_ms=timings_ms,  # Phase 27 SPD-01 — frame_extract/rtmw 계측
+            analysis_id=analysis_id,
+        )
+        angles = inputs.angles
+        student_profile = inputs.student_profile  # R4 fix — non-null
+        pose_frames = inputs.pose_frames
+        local_video_path_obj = inputs.local_video_path
+        local_video_path = str(local_video_path_obj) if local_video_path_obj else None
+
+        # 학생 핸들 join (prefetch) 또는 동기 폴백. 업로드 실패(None)는 각 모듈이 자체
+        # 업로드로 graceful 폴백 (분석 비차단 — moment extractor 폴백도 27-04 fix 로 누수 0).
+        if student_handle_future is not None:
+            student_video_handle = student_handle_future.result()
+        else:
+            student_video_handle = (
+                session.get_or_upload(local_video_path) if local_video_path else None
+            )
+
+        # ── Plan 17-02 Wave 1 — 영역 C Finding join/호출 (RTMW estimate 직후 / KISMAM 직전) ──
+        # B4 hard gate — local_video_path 만 사용 (S3 재다운로드 / RTMW 재실행 0). graceful —
+        # find_scene_flags 예외 / GEMINI_FINDING_ENABLED OFF / local path 없음 시 None 반환.
+        with _stage(timings_ms, analysis_id, "scene_finder"):  # Phase 27 SPD-01
+            if scene_future is not None:
+                scene_result = scene_future.result()  # prefetch join
+            else:
+                scene_result = _call_wave1_scene_finder(
+                    local_video_path=local_video_path,
+                    is_reference=is_reference_local,
+                    preuploaded_handle=student_video_handle,  # Phase 27 D-04 세션 핸들 공유
+                )
+    except Exception:
+        # 조기 실패 (outer try 밖) — future join 먼저(Pitfall 3), 그 다음 세션 즉시 정리
+        # (veto/coach 미도달 → outer finally session.close() 미실행이라 여기서 leak 0).
+        if executor is not None:
+            executor.shutdown(wait=True)
+        try:
+            session.close()
+        except Exception:  # noqa: BLE001 - 조기 실패 세션 정리 실패는 분석 흐름 무관
+            log.warning(
+                "prefetch 조기 실패 세션 정리 실패 (graceful) analysis_id=%s", analysis_id
+            )
+        raise
+    finally:
+        # Pitfall 3 — 모든 prefetch future join(shutdown wait=True) 후 진행. executor 는
+        # 분석-로컬이라 여기서 폐기 (temp unlink 는 outer finally — future 생존 중 unlink 0).
+        # 성공 경로에서는 위 .result() 로 이미 join 됨 (shutdown 은 no-op). 실패 경로는 위
+        # except 가 join 후 raise (여기 shutdown 은 idempotent no-op).
+        if executor is not None:
+            executor.shutdown(wait=True)
 
     # WR-03 (2026-06-08 review) — unregistered_hook 의 uid 를 실제 caller uid 로 교체.
     # _ensure_recognizer 의 hook 은 cache 생성 시점에 uid 미상이라 "anonymous-pipeline"

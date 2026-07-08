@@ -93,6 +93,14 @@ os.environ.setdefault("RTMW_DETERMINISTIC", "1")
 os.environ.setdefault("GEMINI_VISION_VETO_ENABLED", "1")
 os.environ.setdefault("GEMINI_MAX_VETO_WALL_S", "300")
 
+# ── Phase 27 D-03 (SPD-03) — 단일 분석 내부 prefetch 겹치기 env ───────────────
+# GEMINI_UPLOAD_PREFETCH: 학생 업로드 ∥ scene_finder 를 포즈 추출 그늘에 숨기는
+# 레버 (분석 간 SERIAL 불변, 분석 내부만 병렬). 코드 default 는 "1"(ON)이지만
+# eval 하니스도 명시 박제 — 27-09 sweep 이 이 레버로 before/after 를 대조한다.
+# setdefault 이므로 운영자가 GEMINI_UPLOAD_PREFETCH=0 을 export 하면 동기 baseline
+# (27-04 경로) A/B 재현 가능. pipeline 로드 전 module-level 주입 (위 패턴 동일).
+os.environ.setdefault("GEMINI_UPLOAD_PREFETCH", "1")
+
 # ── 산출물 경로 (25-SWEEP-EVIDENCE 근본원인 4 — pod repo 오염 방지) ───────────
 # 신규 산출물은 repo 밖 EVAL_OUT_DIR 로만 쓴다. repo 내 evals/*/baseline/ 은
 # git 커밋본(비교 기준) 전용 read-only.

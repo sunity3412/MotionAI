@@ -391,22 +391,23 @@ eas build --profile preview-android --platform android --non-interactive  # APK
 | A4 | D1 의 원인이 presigned 7일 TTL 일 가능성이 최유력 (코드 흐름 실측 기반 추론 — 파일럿 기기 재현 전) | Pitfall 4 | 진단 태스크가 어차피 재현부터 시작 (D-09 구조가 방어) |
 | A5 | `slopcheck` 의 npm 판정 [OK] 외에 expo-screen-orientation 의 공급망 이상 없음 (expo 모노레포 공식 패키지 — postinstall 스크립트 미확인) | Package Audit | 위험 극소 (Expo 공식) — 설치 시 lockfile diff 확인으로 충분 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **mode3 tally 시 visionVeto.status / breakdown 방출 신호 설계**
+> 플래너 확정 (2026-07-09, phase 29 plan set 리비전): 4문항 전부 플랜에 채택-반영 완료.
+
+1. **mode3 tally 시 visionVeto.status / breakdown 방출 신호 설계** — **RESOLVED → 29-02 (옵션 a 채택)**
    - What we know: status 'applied' 재사용은 의미 오염, 'mode3_held' 유지 + breakdown additive 가 최소 변경 (Pattern 1 옵션 a).
    - What's unclear: 앱이 "measured-only tally" 를 구분 표시할 필요가 있는지 (D-05 고지가 사실상 그 역할).
-   - Recommendation: 옵션 (a) + contract §10 서술 갱신. 플래너가 확정.
-2. **fallback-only breakdown 의 방출 여부 (D-03 경계)**
+   - Resolution: 옵션 (a) 확정 — visionVeto.status 'mode3_held' 유지 + deductionBreakdown additive 방출 (29-02 Task 2), contract §10 서술 갱신 동봉. "measured-only" 별도 신호는 두지 않고 D-05 한계 고지(29-04)가 그 역할을 담당.
+2. **fallback-only breakdown 의 방출 여부 (D-03 경계)** — **RESOLVED → 29-02 (미방출 확정)**
    - What we know: md 빈 dict → 엔진 fallback record 1행. 방출하면 무의미 내역 + D-03 "tally 미실행" 문언 충돌.
-   - Recommendation: md 비면 mode3 breakdown 미방출 (Pattern 1 권고) — 무회귀 산술 보장까지 겸함.
-3. **D1 fix 의 형태 (진단 결과 의존)**
+   - Resolution: md 빈 dict → mode3 breakdown 미방출 + overallScore byte-불변 (29-02 Task 2 명세 3항, 테스트 케이스 3 으로 고정) — 무회귀 산술 보장 겸함.
+3. **D1 fix 의 형태 (진단 결과 의존)** — **RESOLVED → 29-06 (조건부 fix 구조)**
    - What we know: TTL 이면 백엔드 재서명 경로 신설(playback-url 확장) 또는 앱 실시간 재서명이 필요 — 둘 다 이 phase 범위로 감당 가능한 크기.
-   - Recommendation: 진단 태스크 산출물에 fix 방향 결정을 포함 (D-09 문언 그대로 재현→규명→fix).
-4. **mode3 zoom 의 감점-부위 선택과 4/5 동작 빈 record 의 교차**
+   - Resolution: 29-06 Task 1 진단(재현→규명)이 원인을 확정하고, Task 2 는 조건부 fix — TTL 확정 시 /playback-url referenceMotionId 재서명 확장 + 앱 mode1 재발급 훅, 다른 원인 확정 시 그 fix 로 대체(deviation 기록), 범위 초과면 blocker 보고. D-09 문언 그대로.
+4. **mode3 zoom 의 감점-부위 선택과 4/5 동작 빈 record 의 교차** — **RESOLVED → 29-03 + 29-08**
    - What we know: D-08 = 감점 부위만인데 4동작은 감점 record 가 없다 → zoom 카드도 자연히 없음.
-   - What's unclear: belle 기대(“Mode3 확대비교”)와 실 노출 빈도의 간극.
-   - Recommendation: 플랜에 "record 없으면 zoom 카드 없음 = 의도된 동작" 을 명시하고 D-05 고지로 설명. belle 커뮤니케이션 항목.
+   - Resolution: "record 없으면 zoom 카드 없음 = 의도된 동작" 을 29-03 에 명시 (must_haves truth + 조기 return 주석). belle 기대("Mode3 확대비교")와 실 노출 빈도의 간극 커뮤니케이션은 29-08 담당 (D-05 고지 문맥 + HUMAN-UAT 적립 항목).
 
 ## Environment Availability
 

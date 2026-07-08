@@ -945,7 +945,7 @@ Plans:
 **Goal:** 두 영상(학생 vs 정은지)의 동작 기반 시간정렬 부재를 한 기능으로 해소 (시나리오 2+6). 2026-07-06 Pod 실측으로 D2(정은지 fault_zoom 크롭이 비교부위 아닌 곳 확대 — `_matched_ref_frame` 실패 시 시간비례 근사 fallback)와 power-spin "자동구간맞춤 싱크 안 맞음"(VideoCompare가 절대 시계로만 동기화, drift 보정 라인 283–322)이 **같은 뿌리**임을 규명. 해법 = 백엔드에 이미 있는 dtw_match로 정은지 재생을 학생 타임라인에 워핑/트리밍 — 재생 싱크 + fault_zoom 프레임 정합 동시 해결. 백엔드(정렬 데이터 방출) + 앱(VideoCompare 소비). 메모리 [[d2-crop-and-sync-one-root-motion-alignment]]. Phase 22 v1의 시간 앵커 출력이 상위 호환이므로 계약 필드를 공유하도록 설계.
 **Requirements**: ALGN-01, ALGN-02, ALGN-03, ALGN-04, ALGN-05, ALGN-06 (phase-goal 파생 — ROADMAP TBD 를 플래너가 mint 2026-07-07: 01=motionAlignment 계약+방출(초 단위 앵커 flat+tier+distance, ma-v1, complete_analysis 동승, Phase 22 source:'vlm' 상위 호환, mode1+mode3 second+), 02=신뢰도 사다리 tier 판정(D-02/D-03 — vision_veto _ALIGN_GLOBAL_T1/T2 재사용, 클램프 0.5~2.0=belle 고정, calibration-source-hard-gate), 03=fault_zoom D-04(시간비례 근사 제거+fps 도메인 정합 표시 전용+전신 폴백+refMatch 캡션 — veto still 경로 무접촉), 04=앱 재생 워핑(D-01 — warpTime/segmentRate 단일 경유, rate feedforward+seek feedback 이중 제어, tier 배지), 05=legacy 재분석 유도 배너(D-05), 06=채점 무접촉 게이트(overallScore/deductionBreakdown diff 0 — hard))
 **Depends on:** 없음 (기존 DTW 재사용 — 병렬 가능). 단 **파일 겹침 선행 전제**: 28-03/28-04 는 Phase 27 백엔드(27-06) 실행 후, 28-07 은 26-02+27-07 실행 후 착수 (심볼 기준 선행 확인 스텝 내장 — 28-RESEARCH 겹침 매트릭스)
-**Plans:** 1/8 plans executed
+**Plans:** 3/8 plans executed
 
 Plans:
 
@@ -955,8 +955,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 28-02-PLAN.md — motion_alignment.py 순수 모듈(앵커+tier 사다리) — Wave 0 테스트 GREEN + 임계 lockstep (wave 2)
-- [ ] 28-03-PLAN.md — motionAlignment+refMatch 계약 3-way lockstep + firestore scoped validator (wave 2, 27-06 후)
+- [x] 28-02-PLAN.md — motion_alignment.py 순수 모듈(앵커+tier 사다리) — Wave 0 테스트 GREEN + 임계 lockstep (wave 2)
+- [x] 28-03-PLAN.md — motionAlignment+refMatch 계약 3-way lockstep + firestore scoped validator (wave 2, 27-06 후)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

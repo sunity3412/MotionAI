@@ -1332,9 +1332,14 @@ def assess_fault_context_video(
             student_uploaded = preuploaded_student_handle
             ref_uploaded = preuploaded_reference_handle
         else:
+            # CR-02 fix (27-REVIEW): 업로드 성공 즉시 **개별** append — 두 번째 업로드가
+            # raise(TimeoutError/RuntimeError/APIError)해도 첫 핸들이 finally delete 대상에
+            # 남는다 (부분-업로드 누수 0, T-27-06). extend 를 두 업로드 뒤에 몰면 부분
+            # 실패 시 학생 핸들이 File API orphan (20GB 적체 계보, 2026-07-06 실증).
             student_uploaded = _upload_video(client, student_video_path)
+            self_uploaded.append(student_uploaded)
             ref_uploaded = _upload_video(client, reference_video_path)
-            self_uploaded.extend([student_uploaded, ref_uploaded])
+            self_uploaded.append(ref_uploaded)
         # still PNG 는 inline Part 로 전송 (27-04 Pattern 3) — 업로드/폴링/delete 0.
         # 바이트 읽기 실패(파일 없음 등) 시 stills 폐기(=upper scope video 폴백)만 하고
         # 전체 skipped_error 로 떨어뜨리지 않는다(요구: 해당 scope 만 폴백).

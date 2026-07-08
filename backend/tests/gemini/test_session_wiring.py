@@ -218,6 +218,37 @@ class TestVisionScorerVetoHandles:
         assert fake.files.delete_calls == 2  # 자체 업로드분 finally delete
         assert fake.files.deleted_names == fake.files.uploaded_names
 
+    def test_second_upload_failure_deletes_first_handle(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """CR-02 (27-REVIEW): self-upload 폴백에서 기준 영상(두 번째) 업로드 실패 →
+        학생(첫 번째) 핸들이 orphan 없이 finally delete 된다 (부분-업로드 누수 0,
+        T-27-06). 회귀 배경: extend 를 두 업로드 뒤에 몰아 두 번째 raise 시
+        self_uploaded 가 빈 리스트 → 학생 핸들 File API orphan."""
+        gvs, fake = _patch_vision(monkeypatch)
+        student = _make_video(tmp_path, "student.mp4")
+        reference = _make_video(tmp_path, "reference.mp4")
+
+        real_upload = fake.files.upload
+        calls = {"n": 0}
+
+        def _second_upload_boom(*, file, config=None):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise RuntimeError("reference upload boom")
+            return real_upload(file=file, config=config)
+
+        monkeypatch.setattr(fake.files, "upload", _second_upload_boom)
+
+        out = gvs.assess_fault_context_video(
+            student, reference, part_scopes=["upper_body"]
+        )
+
+        assert out["status"] == "skipped_error"  # graceful — 분석 비차단
+        # 성공한 학생 핸들 1개가 정확히 delete 됨 (orphan 0).
+        assert fake.files.delete_calls == 1
+        assert fake.files.deleted_names == fake.files.uploaded_names
+
     def test_still_png_inline_no_image_upload(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path
     ) -> None:

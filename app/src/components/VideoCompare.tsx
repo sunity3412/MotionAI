@@ -21,8 +21,10 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { normalizeMotionAlignment, warpTime } from '../lib/alignmentWarp';
 import { circledNumberKo } from '../lib/deductionLabels';
 import { colors, layout, radius, spacing, typography } from '../theme';
+import type { MotionAlignment } from '../types/analysis';
 
 type SlotProps = {
   label: string;
@@ -140,6 +142,13 @@ export type VideoCompareProps = {
    */
   timelineTicks?: { numbers: number[]; frameIndex: number }[];
   tickFrameCount?: number;
+  /**
+   * 28-06 (D-01/D-02) — 동작 기준 정렬 맵. 부재/null = 현행 절대시계 100% 보존
+   * (faultZoomStatus/tier legacy 폴백 선례 — no migration). 학생(left)=master 로
+   * 시계 불변, 정은지(right)만 warp(tStudent)→tRef 로 따라간다. malformed 는
+   * normalizeMotionAlignment 로 소비측에서 재검증(T-28-02) — 통과분만 재생 제어.
+   */
+  alignment?: MotionAlignment | null;
 };
 
 // UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).
@@ -200,6 +209,7 @@ export function VideoCompare({
   onLegendPress,
   timelineTicks,
   tickFrameCount,
+  alignment: alignmentInput,
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
@@ -277,6 +287,37 @@ export function VideoCompare({
     setFullscreen(false);
   };
 
+  // ── 28-06 (D-01/D-02) 동작 기준 워핑 소비 ──────────────────────────────────
+  // 학생(left)=master 시계 불변, 정은지(right)만 warp(tStudent)→tRef. alignment
+  // 부재/null/disabled = 현행 절대시계 100% 보존. 소비측에서 normalizeMotionAlignment
+  // 재검증(T-28-02) — malformed/모순 alignment 가 재생 제어(rate/seek) 오작동시키는
+  // 것 순수 함수로 격리 차단.
+  const alignment = normalizeMotionAlignment(alignmentInput ?? null);
+  const alignmentActive = !!alignment && alignment.tier !== 'disabled';
+  // 최신 alignment 를 tick(setInterval 클로저)이 읽도록 ref 미러 — alignment 는 매
+  // 렌더 새 객체라 effect deps 에 넣으면 interval 재설치 churn. ref 로 stale 클로저
+  // 회피(선행 tick/scrub ref 패턴 동일).
+  const alignmentRef = useRef(alignment);
+  alignmentRef.current = alignment;
+
+  // right 목표시각 = 정렬 활성 시 warp(tStudent), 아니면 identity. 순수 계산.
+  const targetRefTime = (tStudent: number): number => {
+    const a = alignmentRef.current;
+    return a && a.tier !== 'disabled' ? warpTime(a, tStudent) : tStudent;
+  };
+  // right 쓰기의 유일한 warp 경유 지점 (MEDIUM-1 코드 형태 규율) — 정렬 활성 경로의
+  // rightPlayer.currentTime 대입은 전부 여기로 격리, 비활성 시 identity 라 legacy 동일.
+  const setRightToStudentTime = (tStudent: number) => {
+    if (rightPlayer) rightPlayer.currentTime = targetRefTime(tStudent);
+  };
+  // legacy 절대 동기 전용 (부재/disabled 경로) — 호출은 반드시 `!alignmentActive`
+  // 가드 분기 안에서만. 리뷰 MEDIUM-1: 절대시간 대입이 정렬 활성 경로에 새는 것
+  // 구조적 차단.
+  const setBothAbsoluteTime = (t: number) => {
+    if (leftPlayer) leftPlayer.currentTime = t;
+    if (rightPlayer) rightPlayer.currentTime = t;
+  };
+
   useEffect(() => {
     if (!hasAny) return;
     const tick = () => {
@@ -300,6 +341,8 @@ export function VideoCompare({
       //   조건: 둘 다 재생 중 + 둘 다 native duration 산정됨 + 끝부분 진입 전.
       //   Phase 12 후속 B — scrub 중에는 보정 skip (PanResponder 가 동시 seek 한
       //   상태에서 또 보정 들어가면 stutter).
+      const aTick = alignmentRef.current;
+      const activeTick = !!aTick && aTick.tier !== 'disabled';
       if (
         hasLeft &&
         hasRight &&
@@ -307,19 +350,32 @@ export function VideoCompare({
         !scrubbingRef.current &&
         dL > 0 &&
         dR > 0 &&
-        shorter > 0 &&
-        Math.max(cL, cR) < shorter - 0.1 &&
         leftPlayer &&
         rightPlayer
       ) {
-        const drift = Math.abs(cL - cR);
-        if (drift > DRIFT_CORRECT_THRESHOLD_S) {
-          // 느린 쪽 시각을 authoritative time 으로 사용 (빠른 쪽 back-seek).
-          const slowerTime = Math.min(cL, cR);
-          if (cL > cR) {
-            leftPlayer.currentTime = slowerTime;
-          } else {
-            rightPlayer.currentTime = slowerTime;
+        if (activeTick) {
+          // 28-06 D-01 — 워핑 활성: left=master 로 back-seek 없음, 목표값만
+          //   cR ≈ cL 에서 cR ≈ warpTime(cL) 로 교체. rate=feedforward(아래),
+          //   이 tick seek=feedback 안전망 (A2 — expo-video rate 지연 미문서화,
+          //   0.2s 내 동기 보장). 끝부분 진입 전에만 보정(left 기준).
+          if (cL < dL - 0.1) {
+            const drift = Math.abs(cR - targetRefTime(cL));
+            if (drift > DRIFT_CORRECT_THRESHOLD_S) {
+              setRightToStudentTime(cL);
+            }
+          }
+        } else if (shorter > 0 && Math.max(cL, cR) < shorter - 0.1) {
+          // legacy(부재/null/disabled) — 기존 상호 back-seek 그대로. 직접 대입은
+          // helper 경유로만 치환(right 는 setRightToStudentTime, 비활성=identity).
+          const drift = Math.abs(cL - cR);
+          if (drift > DRIFT_CORRECT_THRESHOLD_S) {
+            // 느린 쪽 시각을 authoritative time 으로 사용 (빠른 쪽 back-seek).
+            const slowerTime = Math.min(cL, cR);
+            if (cL > cR) {
+              leftPlayer.currentTime = slowerTime;
+            } else {
+              setRightToStudentTime(slowerTime);
+            }
           }
         }
       }
@@ -336,7 +392,15 @@ export function VideoCompare({
       const rightReachedOwnEnd = dR > 0 && cR >= dR - 0.05;
       const bothReachedOwnEnd =
         (!hasLeft || leftReachedOwnEnd) && (!hasRight || rightReachedOwnEnd);
-      if (minReachedShortEnd || bothReachedOwnEnd) {
+      // 28-06 D-01 — 워핑 활성 시 비교 재생 정의역 = min(dL, uN)(uN=마지막 앵커
+      //   학생초). warp(uN) 이후는 기울기 1.0 연장이라 어느 한 쪽이 자기 native end
+      //   도달 시 pause. cR 이 warp(ref-time)이라 min(cL,cR) 혼합이 무의미 → 활성
+      //   경로는 either-own-end 로 종료 판정(비활성은 기존 로직 그대로 보존).
+      const eitherReachedOwnEnd = leftReachedOwnEnd || rightReachedOwnEnd;
+      const shouldPauseAtEnd = activeTick
+        ? eitherReachedOwnEnd
+        : minReachedShortEnd || bothReachedOwnEnd;
+      if (shouldPauseAtEnd) {
         leftPlayer?.pause();
         rightPlayer?.pause();
       }
@@ -386,7 +450,8 @@ export function VideoCompare({
         hasLeft && hasRight && drift > START_SYNC_THRESHOLD_S;
       if (isAtEnd) {
         if (leftPlayer) leftPlayer.currentTime = 0;
-        if (rightPlayer) rightPlayer.currentTime = 0;
+        // 28-06 — right 는 warp 경유(활성 시 r0 오프셋 반영이 옳음, 비활성=0).
+        setRightToStudentTime(0);
         // Build 16: seek 적용 시간 확보 후 play (60→200ms — 정은지 S3 buffer reset).
         setTimeout(() => {
           leftPlayer?.play();
@@ -394,10 +459,17 @@ export function VideoCompare({
           setPlaying(true);
         }, REPLAY_SEEK_DELAY_MS);
       } else if (needsStartSync && leftPlayer && rightPlayer) {
-        // 중간 정지 후 다시 재생 시 두 player drift 가 있으면 동기화 먼저.
-        const slowerTime = Math.min(leftCurrent, rightCurrent);
-        leftPlayer.currentTime = slowerTime;
-        rightPlayer.currentTime = slowerTime;
+        // 중간 정지 후 다시 재생 시 두 player 시각 동기화 먼저.
+        if (alignmentActive) {
+          // 28-06 D-01 (MEDIUM-1) — 워핑 활성: left(master) 유지 + right 만
+          //   warp(leftCurrent). slowerTime min 절대시간 대입은 워핑 하 무의미
+          //   (right 타임라인이 다름) — 활성 경로에 절대 대입 잔존 차단.
+          setRightToStudentTime(leftCurrent);
+        } else {
+          // legacy — 절대 동기(작은 값). setBothAbsoluteTime 은 !alignmentActive 전용.
+          const slowerTime = Math.min(leftCurrent, rightCurrent);
+          setBothAbsoluteTime(slowerTime);
+        }
         setTimeout(() => {
           leftPlayer.play();
           rightPlayer.play();
@@ -414,9 +486,10 @@ export function VideoCompare({
   const restart = () => {
     if (!hasAny) return;
     if (leftPlayer) leftPlayer.currentTime = 0;
-    if (rightPlayer) rightPlayer.currentTime = 0;
+    // 28-06 — right 는 warp 경유(활성 시 r0 오프셋 반영, 비활성=0).
+    setRightToStudentTime(0);
     setLeftCurrent(0);
-    setRightCurrent(0);
+    setRightCurrent(targetRefTime(0));
   };
 
   // Phase 12 후속 B — 양쪽 동시 seek (drift 0 보장). target 은 짧은 쪽 duration
@@ -433,11 +506,14 @@ export function VideoCompare({
             : dR;
       const safe = Math.max(0, Math.min(maxAllowed > 0 ? maxAllowed : target, target));
       if (leftPlayer) leftPlayer.currentTime = safe;
-      if (rightPlayer) rightPlayer.currentTime = safe;
-      // 폴링은 다음 tick 까지 0~100ms 지연 — 즉시 라벨 갱신.
+      // 28-06 — right 는 warp 경유(비활성=identity 라 legacy 동일 동작, 분기 불필요).
+      setRightToStudentTime(safe);
+      // 폴링은 다음 tick 까지 0~100ms 지연 — 즉시 라벨 갱신(right 는 warp 목표시각).
       if (hasLeft) setLeftCurrent(safe);
-      if (hasRight) setRightCurrent(safe);
+      if (hasRight) setRightCurrent(targetRefTime(safe));
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setRightToStudentTime/
+    // targetRefTime 은 alignmentRef 를 읽어 stale 클로저 무해(선행 tick ref 패턴 동일).
     [hasLeft, hasRight, leftPlayer, rightPlayer],
   );
 

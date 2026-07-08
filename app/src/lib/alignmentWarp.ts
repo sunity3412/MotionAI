@@ -8,19 +8,12 @@
 //   tier='trim_only'= 트림+오프셋만 (가변속도 끔 — 첫 앵커 기준 평행이동).
 //   tier='disabled' = 현행 절대시계 (워핑 없음, identity).
 //
-// MotionAlignment 는 **임시 로컬 정의** — 28-03 이 analysis.ts 로 계약 이관 후
-// 28-06 에서 `import type { MotionAlignment } from '../types/analysis'` 로 전환한다
-// (임시가 아니라 이관 예정 — 계약 단일 출처는 analysis.ts).
+// MotionAlignment 계약의 단일 출처는 analysis.ts (28-03 이 이관 완료). 28-06 에서
+// 로컬 정의를 제거하고 계약을 import + 재수출한다 — 기존 소비처(normalize/warp)
+// 호환 유지 + 3-way lockstep(analysis.ts ↔ models.py ↔ contract.md §11) 단일 출처.
+import type { MotionAlignment } from '../types/analysis';
 
-export type MotionAlignment = {
-  version: string;
-  source: 'dtw' | 'vlm';
-  tier: 'warped' | 'trim_only' | 'disabled';
-  reason?: string;
-  anchors: number[]; // flat [u0,r0, u1,r1, ...] 초 단위 float 쌍 (단조 증가)
-  anchorCount: number; // len(anchors)/2 (reshape 메타 — anglesFrames 선례)
-  distance: number;
-};
+export type { MotionAlignment };
 
 // belle 고정값 (28-CONTEXT specifics) — 배속 클램프 0.5~2배. VideoCompare
 // FULLSCREEN_ZOOM 승인값 주석 관례와 동일: 감으로 변경 금지, 출처 박제.

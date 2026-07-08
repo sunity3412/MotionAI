@@ -60,6 +60,8 @@ from __future__ import annotations
 import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor  # Phase 27 Task 3 — fan-out 병렬화
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, replace as dc_replace
 
 from .vision_veto import FAULT_CATEGORIES  # 고정 결함 분류 enum 단일 owner (25-05)
@@ -1705,31 +1707,58 @@ def _run_part_frame_fanout(
     per_call: list = []  # call 당 difference list 1 entry (distinct-call support 집계 입력).
     parsed_verdicts: list = []
     completed = 0
-    for idx in range(planned):
-        # wall-clock budget 가드 — 호출 전 elapsed 확인 (fail-closed).
-        if _now() - start > wall_budget_s:
-            break
-        scope = call_plan[idx]
+
+    # ── Phase 27 Task 3 (SPD-03/05) — fan-out 병렬화 (27-RESEARCH Pattern 4·Pitfall 4) ──
+    # 상호독립 generate 콜을 ThreadPoolExecutor 로 동시 발사하되, future 를 call_plan
+    # 인덱스 순으로 join(완료-순서 수확 금지)해 집계 입력 순서를 순차와 byte-동일 보존한다
+    # (결정론 게이트 정합, T-27-12). 실행만 병렬, per_call 순서는 불변.
+    # GEMINI_FANOUT_WORKERS: 기본 4, 429 표면화 시 2→1 축소 운영 폴백(T-27-15, 27-09 canary).
+    #   1 이면 사실상 순차. executor 는 함수-로컬 생성/폐기.
+    # Client 스레드 안전성 (27-RESEARCH A1 [ASSUMED]): 모듈 싱글톤 _CLIENT 유지 — File API
+    #   핸들은 name 문자열(서버측 리소스)이라 Client 공유 무관. google-genai thread-safety
+    #   미문서 — 병렬 콜 산발 오류 시 스레드별 Client 생성으로 회피(실측 검증 27-09).
+    # 캐시(VisionVetoCache) 키는 입력 형태만으로 완전 결정 — 실행 토폴로지 변경뿐이라
+    #   granularity/PROMPT_VERSION bump 불필요·금지(90d038f stale-hit 사고와 구분).
+    try:
+        _workers = int(os.environ.get("GEMINI_FANOUT_WORKERS", "4") or "4")
+    except ValueError:
+        _workers = 4
+    _workers = max(1, _workers)
+
+    def _one_call(scope: str) -> str:
         if scope == "upper_body" and upper_still_handles is not None:
             # 하이브리드: upper_body 만 정지 이미지 페어 (media_kind='image' 로 라벨/
-            # 정합 문구 분기). lower_body/line 은 아래 video 경로 그대로.
-            raw_text = _call_gemini_comparison(
+            # 정합 문구 분기). lower_body/line 은 video 경로 그대로.
+            return _call_gemini_comparison(
                 client, upper_still_handles[0], upper_still_handles[1], at_seconds,
                 part_scope=scope, media_kind="image",
             )
-        else:
-            raw_text = _call_gemini_comparison(
-                client, ref_uploaded, student_uploaded, at_seconds,
-                part_scope=scope,
-            )
-        completed += 1
-        if _SCORE_PATTERN.search(raw_text or ""):
-            continue  # 점수 누출 샘플 폐기(객관성).
-        v = _parse_verdict(raw_text)
-        if v is None:
-            continue
-        parsed_verdicts.append(v)
-        per_call.append(list(v.differences or ()))
+        return _call_gemini_comparison(
+            client, ref_uploaded, student_uploaded, at_seconds,
+            part_scope=scope,
+        )
+
+    with ThreadPoolExecutor(
+        max_workers=_workers, thread_name_prefix="veto_fanout"
+    ) as pool:
+        futures = [pool.submit(_one_call, call_plan[i]) for i in range(planned)]
+        for idx, fut in enumerate(futures):  # 인덱스 순 join — 완료-순서 수확 금지
+            # wall-clock budget 가드 (fail-closed). remaining 계산에 주입 clock 사용.
+            remaining = wall_budget_s - (_now() - start)
+            if remaining <= 0:
+                break  # 예산 소진 — 이후 콜 미완료 처리 (completed < planned).
+            try:
+                raw_text = fut.result(timeout=remaining)
+            except FuturesTimeoutError:
+                break  # 콜 미완료 — fail-closed (부분 verdict 금지).
+            completed += 1
+            if _SCORE_PATTERN.search(raw_text or ""):
+                continue  # 점수 누출 샘플 폐기(객관성).
+            v = _parse_verdict(raw_text)
+            if v is None:
+                continue
+            parsed_verdicts.append(v)
+            per_call.append(list(v.differences or ()))
 
     duration_ms = int((_now() - start) * 1000)
     telemetry = {

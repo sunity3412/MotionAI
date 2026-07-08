@@ -87,21 +87,46 @@ def test_dtw_ref_frame_converts_18fps_angles_to_9fps_frames():
     assert _ref_red(comps[0]["png"]) == 60, "ref frames 인덱스 = 6 (18fps→9fps 변환)"
 
 
-def test_dtw_ref_frame_identity_when_both_9fps():
-    """9fps/9fps(mode3 도메인) path=[(i,i)] → ref frames 인덱스 == i (변환 identity).
+def test_dtw_ref_frame_mode3_shape_report18fps_dtw9fps():
+    """실제 mode3 형상 (CR-01): ref keypointReport 18fps + dtw 인덱스 9fps(prev angles).
 
-    mode1 전용(18fps) 규칙 하드코딩이 아님을 증명 (Pitfall 6) — fps 는 인자.
+    prev 사용자 doc 은 angles=9fps 저장 / keypointReport=18fps upsample 이라
+    prev_dtw_match.path 인덱스는 9fps 공간이다. dtw_ref_fps=9.0 을 명시해야 ref
+    frames 인덱스가 같은 시각(0.667s)을 가리킨다. path=[(i,i)] 9fps, u_idx=6 →
+    ref frames 인덱스 6 (red 60). dtw_ref_fps 미지정(구 코드=r_rep_fps 18 가정)이면
+    _to_rep_idx(6,18,9)=3 으로 절반 시각(red 30) — 파일럿 D2 재현. 이 fixture 는
+    구 회귀 가드(양측 9fps report)가 놓치던 실 프로덕션 형상을 못 박는다.
     """
     n = 10
     m = _Match(start=0, path=[(i, i) for i in range(n)])
     comps = fz.build_fault_zoom_comparisons(
         _frames(n), _frames(n),
-        _report(n, 9.0), _report(n, 9.0),  # 양측 9fps
+        _report(n, 9.0), _report(2 * n, 18.0),  # user 9fps / ref keypointReport 18fps
+        worst_seconds=0.5, fault_joints=["left_knee"], joint_deltas=None,
+        frames_fps=9.0, dtw_match=m, user_frame_idx=6,
+        dtw_ref_fps=9.0,  # prev angles 9fps (mode3 방출측이 명시)
+    )
+    assert len(comps) == 1
+    assert _ref_red(comps[0]["png"]) == 60, "mode3: 9fps dtw → ref frames 6 (같은 시각)"
+
+
+def test_dtw_ref_frame_mode3_without_fps_hint_misreads_half_time():
+    """가드 근거: dtw_ref_fps 미지정(구 가정)이면 mode3 형상에서 절반 시각을 확대한다.
+
+    같은 mode3 형상(ref report 18fps + dtw 9fps)에서 dtw_ref_fps 를 생략하면
+    r_rep_fps(18)을 dtw 공간으로 오인해 ref frames 인덱스 = round(6/18*9)=3
+    (red 30) — CR-01 이 지적한 D2 재현. fps 힌트가 이 오독을 잡는다는 대비 증거.
+    """
+    n = 10
+    m = _Match(start=0, path=[(i, i) for i in range(n)])
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(n), _frames(n),
+        _report(n, 9.0), _report(2 * n, 18.0),
         worst_seconds=0.5, fault_joints=["left_knee"], joint_deltas=None,
         frames_fps=9.0, dtw_match=m, user_frame_idx=6,
     )
     assert len(comps) == 1
-    assert _ref_red(comps[0]["png"]) == 60, "9fps identity — ref frames 인덱스 == 6"
+    assert _ref_red(comps[0]["png"]) == 30, "미지정 = 절반 시각(D2) — fps 힌트 필요 증거"
 
 
 def test_dtw_ref_clamp_domain_is_angles_not_frames():

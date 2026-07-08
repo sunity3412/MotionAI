@@ -789,6 +789,7 @@ def build_fault_zoom_comparisons(
     joint_kinds: dict[str, str] | None = None,
     dtw_match=None,
     *,
+    dtw_ref_fps: float | None = None,
     user_frame_idx: int | None = None,
     ref_frame_idx: int | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
@@ -807,6 +808,11 @@ def build_fault_zoom_comparisons(
     split_angle_degs (quick-260705-r6x): region=='legs' 카드의 (학생 각도, 기준
       각도) 수치 — 호 옆 표기용. None(default) 이면 legs 카드도 선+호만(수치 생략).
       non-legs/legacy 경로는 무접촉. 채점 무접촉 — display 렌더 전용.
+    dtw_ref_fps (CR-01): dtw_match.path 의 ref 인덱스가 사는 fps 공간. None(default)=
+      r_rep_fps (mode1 = 정은지 reference doc, angles==keypointReport.fps 18fps —
+      byte-identical 하위호환). mode3(지난 사용자 doc)는 prev angles 가 9fps 저장분
+      인데 keypointReport 만 18fps upsample 이라 방출측이 9.0 을 명시해야 ref 프레임/
+      좌표가 같은 시각을 가리킨다 (미지정 시 절반 시각 오독 = 파일럿 D2 재현).
     split_angle_present (quick-260705-wbs): 사이각 두 게이트.
       · 게이트 A — split_angle criterion 이 실제 records 에 있을 때만(True) legs
         카드에 사이각을 그린다. legs 카드는 스플릿뿐 아니라 무릎(leg_extension)/
@@ -863,18 +869,35 @@ def build_fault_zoom_comparisons(
         r_kp_idx = _to_rep_idx(r_idx, frames_fps, r_rep_fps, r_rep_frames)
     else:
         # B1: DTW match 로 같은-pose 기준 프레임.
-        # clamp 도메인 = ref angles(keypointReport) 프레임 수 r_rep_frames —
-        # _matched_ref_frame 반환은 ref angles(rep) 인덱스 공간(phase4_v1=18fps,
-        # 28-01 실측)이라 9fps frames 수 r_n 으로 클램프하면 안 됨 (D2 fix).
+        # dtw_ref_fps = DTW path 의 ref 인덱스가 사는 fps 공간 (CR-01 fix). mode1
+        # (정은지 reference doc)은 ref angles == keypointReport.fps(phase4_v1=18fps,
+        # 28-01 실측)라 r_rep_fps 와 같지만, mode3(지난 사용자 doc)는 prev angles=
+        # 9fps(파이프라인 저장분)인데 keypointReport 만 18fps 로 upsample 저장돼
+        # r_rep_fps(18) != dtw 공간(9) 이다. None(default)=r_rep_fps 로 mode1
+        # 하위호환(byte-identical) — 방출측이 mode3 에서만 9.0 을 명시한다.
+        _dtw_ref_fps = (
+            float(dtw_ref_fps)
+            if dtw_ref_fps is not None and float(dtw_ref_fps) > 0
+            else r_rep_fps
+        )
+        # clamp 도메인 = dtw fps 공간의 프레임 수 (r_rep_frames 를 fps 비율로 환산).
+        # mode1: 18/18 → r_rep_frames. mode3: 18→9 → prev anglesFrames 수. angles
+        # 인덱스를 잘못된 도메인으로 클램프하면 끝프레임 밀림(구 D2 오독).
+        _dtw_ref_frames = max(
+            1, int(round(r_rep_frames / max(1e-6, r_rep_fps) * _dtw_ref_fps))
+        )
         if r_rep_frames <= 0:
             r_matched = None
         else:
-            r_matched = _matched_ref_frame(dtw_match, u_idx, r_rep_frames)
+            r_matched = _matched_ref_frame(dtw_match, u_idx, _dtw_ref_frames)
         if r_matched is not None:
-            r_kp_idx = r_matched  # 이미 rep(angles) 공간 — 추가 변환 불필요
-            # rep→frames 역변환 (28-RESEARCH Pitfall 1, D2 fix) — 같은 _to_rep_idx
-            # 공식에 fps 인자 순서만 반대(중복 공식 금지, quick-260705-ftn 관례).
-            r_idx = _to_rep_idx(r_matched, r_rep_fps, frames_fps, r_n)
+            # dtw 공간 인덱스 → keypointReport(rep) / 9fps frames 각각 변환 (D2 fix).
+            # 같은 _to_rep_idx 공식에 fps 인자만 다름(중복 공식 금지, quick-260705-ftn).
+            # mode1(dtw_ref_fps=r_rep_fps): r_kp_idx=r_matched (identity), r_idx 는
+            # 종전과 동일 — byte-identical. mode3(dtw_ref_fps=9): 9fps→18fps
+            # keypointReport, 9fps→9fps frames 로 같은 시각 정합.
+            r_kp_idx = _to_rep_idx(r_matched, _dtw_ref_fps, r_rep_fps, r_rep_frames)
+            r_idx = _to_rep_idx(r_matched, _dtw_ref_fps, frames_fps, r_n)
         else:
             # 대응 실패 → ref 전신 폴백 (D-04, ratio 근사 제거). 프레임은 중앙
             # (전신이므로 어느 순간이든 오도 0), 좌표는 아래 루프에서 강제 skip.

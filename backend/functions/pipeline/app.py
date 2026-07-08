@@ -2703,6 +2703,7 @@ def _render_fault_zoom(
     user_frame_idx: int | None = None,
     ref_frame_idx: int | None = None,
     *,
+    dtw_ref_fps: float | None = None,
     advisory_joints: list[str] | None = None,
     advisory_deltas: dict[str, float] | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
@@ -2719,6 +2720,9 @@ def _render_fault_zoom(
     (이미지엔 숫자만). graceful 은 호출측 try 가 담당.
     user_frame_idx/ref_frame_idx: 9fps frames 인덱스 override (quick-260702-sic) —
     vision 측정 프레임(sourceFrameIndices median)과 crop 프레임 정합. None=기존 경로.
+    dtw_ref_fps (CR-01): dtw_match.path 의 ref 인덱스가 사는 fps 공간. None=r_rep_fps
+    (mode1 = 정은지 ref doc, byte-identical). Mode3 는 prev angles fps(=9fps)를 명시
+    (_build_mode3_fault_zoom_comparisons) — prev keypointReport 18fps 오독 방지.
     advisory_joints/advisory_deltas (quick-260704-fz4): 측정 초과("참고·확인 권장")
     관절 — 별도 배치로 tier='advisory' 카드 생성. None/빈 리스트 = 기존 경로 100%
     보존 (Mode3 _build_mode3_fault_zoom_comparisons 은 default None 무접촉). 채점 무접촉 —
@@ -2754,6 +2758,7 @@ def _render_fault_zoom(
         frames_fps=9.0,
         joint_kinds=kinds,
         dtw_match=dtw_match,
+        dtw_ref_fps=dtw_ref_fps,
         user_frame_idx=user_frame_idx,
         ref_frame_idx=ref_frame_idx,
         split_angle_degs=split_angle_degs,
@@ -2776,6 +2781,7 @@ def _render_fault_zoom(
             frames_fps=9.0,
             joint_kinds={j: "deficit" for j in advisory_joints},
             dtw_match=dtw_match,
+            dtw_ref_fps=dtw_ref_fps,
             user_frame_idx=user_frame_idx,
             ref_frame_idx=ref_frame_idx,
             split_angle_degs=split_angle_degs,
@@ -3025,6 +3031,12 @@ def _build_mode3_fault_zoom_comparisons(
             # 28-05 가 시간비례 근사를 제거(D-04) — mode3 도 DTW 대응으로 같은-pose
             # 프레임 (전신 폴백 회귀 방지). prev 부재/first = None → 기존 경로 무접촉.
             dtw_match=dtw_match,
+            # CR-01 — mode3 prev_dtw_match path 의 ref 인덱스는 prev 사용자 doc 의
+            # angles 공간(파이프라인 저장 fps)이다. prev keypointReport 는 18fps 로
+            # upsample 저장되므로 dtw_ref_fps 를 명시하지 않으면 ref angles(9fps)를
+            # 18fps report 공간으로 오독해 절반 시각 프레임/좌표를 확대한다(D2 재현).
+            # _pipeline_frame_fps() = frame_extractor target_fps 단일 출처(리터럴 금지).
+            dtw_ref_fps=_pipeline_frame_fps(),
             cached_user_frames=cached_user_frames,  # Phase 27 Task 3 — 학생 재추출 소멸
         )
     finally:

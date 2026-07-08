@@ -28,6 +28,12 @@ findings:
   info: 3
   total: 10
 status: issues_found
+fix_status: fixes_applied
+fix_summary:
+  fixed: 6        # CR-01, CR-02, WR-01, WR-02, WR-03, WR-05
+  deferred: 1     # WR-04 (채점 무접촉 hard gate)
+  skipped: 3      # IN-01, IN-02, IN-03 (out of scope — info)
+fix_report: 28-dtw-motion-based-alignment/28-REVIEW-FIX.md
 ---
 
 # Phase 28: Code Review Report
@@ -52,6 +58,7 @@ Phase 28 (DTW 동작 기반 시간 정렬)의 백본 — `build_motion_alignment
 
 ### CR-01: Mode3 fault-zoom — DTW ref 인덱스(9fps prev angles)를 18fps keypointReport 공간으로 오독 (프레임/좌표가 절반 시각으로 밀림)
 
+**Status:** FIXED (commit f814b23) — `build_fault_zoom_comparisons` 에 `dtw_ref_fps` 인자 추가(default None=r_rep_fps → mode1 byte-identical), `_render_fault_zoom` 관통, mode3 방출측이 `_pipeline_frame_fps()`(9fps) 명시. 회귀 테스트를 실 mode3 형상(ref report 18fps + dtw 9fps)으로 재작성 + 미지정 시 절반 시각 오독 대비 테스트 추가. 표시 경로 전용 — 채점 무접촉. Pod eval 로 실 mode3 카드 육안 확인 권장(HUMAN-UAT).
 **File:** `backend/shared/python/sunity_shared/analysis/fault_zoom.py:865-883`, `backend/functions/pipeline/app.py:3020-3028`, `backend/functions/pipeline/app.py:4670-4674`
 **Issue:** 28-05 의 D2 fix 는 `_matched_ref_frame` 반환을 "ref angles(rep) 공간 = keypointReport fps 공간"으로 취급한다:
 
@@ -82,6 +89,7 @@ mode1 호출은 `dtw_ref_fps=r_rep_fps`(현행과 동일 결과), mode3 호출(`
 
 ### CR-02: VideoCompare stepBy — 정렬 활성 시 warped rightCurrent 를 절대 타임라인 base 로 사용 → 0.1s 스텝 버튼이 학생 영상을 수 초 점프시킴
 
+**Status:** FIXED (commit 9178b7f) — `stepBy` base 를 `alignmentActive ? leftCurrent : min(...)` 로 교체 + `alignmentActive` 를 deps 에 추가. legacy 경로 byte-identical. typecheck PASS.
 **File:** `app/src/components/VideoCompare.tsx:544-557`
 **Issue:** 새 정렬이 활성이면 `rightCurrent`(=warp 된 정은지 시각)와 `leftCurrent`(학생 master 시각)는 서로 다른 타임라인이다. 그런데 스텝 컨트롤은 여전히 두 값을 섞는다:
 
@@ -110,12 +118,14 @@ const base = alignmentActive
 
 ### WR-01: warp 목표시각을 [0, dR] 로 클램프하지 않음 — 학생 준비 구간 동안 100ms 마다 음수 seek 폭풍
 
+**Status:** FIXED (commit f3048b2) — `clampRefTarget(tStudent, dR)`(활성 경로 전용 [0,dR] 클램프) 신설, `setRightToStudentTime` 과 tick drift 보정이 사용. drift 를 클램프된 target 기준으로 판정해 임계 이하 시 seek 생략. legacy=identity 무클램프 유지. typecheck PASS.
 **File:** `app/src/components/VideoCompare.tsx:311-319, 363-373`, `app/src/lib/alignmentWarp.ts:59-63`
 **Issue:** `warpTime` 은 범위 밖을 기울기 1.0 으로 연장하므로 `u0 > r0`(일반 케이스: 학생 준비 구간 > 정은지 트림 시작)에서 `warp(cL) < 0` 인 구간이 존재한다 (`warp(0) = r0 − u0`). tick 의 feedback 보정은 `drift = |cR − targetRefTime(cL)|` 인데, 플레이어가 음수 시각을 0 으로 클램프하는 동안 target 이 음수인 한 drift 는 계속 임계(0.2s)를 넘어 **매 tick(100ms)마다** `rightPlayer.currentTime = 음수` seek 를 발사한다. `cL ≥ u0 − r0 − 0.2` 가 될 때까지 정은지 영상이 seek 폭풍으로 프레임 0 에서 버벅인다 — 코드 자신이 rate 재설정에 대해 경고한 "매 tick 재설정 = 재버퍼" 안티패턴과 동일. 영상 끝쪽에서도 `warp(cL) > dR` seek 가 1회 이상 발생할 수 있다.
 **Fix:** `setRightToStudentTime`/drift 계산에서 target 을 `Math.max(0, Math.min(target, dR > 0 ? dR : target))` 로 클램프하고, 클램프된 target 과 cR 의 차이가 임계 이하면 seek 를 생략한다 (정은지는 시작 프레임에서 자연 대기).
 
 ### WR-02: 정렬 활성 시 togglePlay 종료 판정·seek 범위·progress bar 가 warped cR 과 min(dL,dR) 도메인을 혼합
 
+**Status:** FIXED (commit f8814b0) — 활성 시 `duration=leftDuration`(master), `isAtEnd`=either-own-end(tick 과 동일 도메인), `seekBoth` maxAllowed=dL. progressPct/scrubAtX 는 duration 파생이라 자동 정합. 비활성 경로 byte-identical. typecheck PASS.
 **File:** `app/src/components/VideoCompare.tsx:440-449, 468-475, 521-542, 579-584, 622-623`
 **Issue:** tick 의 종료 판정은 either-own-end 로 정렬 대응이 됐지만 나머지는 미정합:
 - `togglePlay`: `isAtEnd = max(leftCurrent, rightCurrent) >= min(dL,dR) − 0.05`. 워핑으로 `cR = warp(cL)` 가 min-duration 을 조기에 넘으면(정은지 영상이 짧거나 오프셋이 크면) **중간 일시정지 후 재생이 재개가 아니라 0 초 재시작**이 된다.
@@ -125,6 +135,7 @@ const base = alignmentActive
 
 ### WR-03: build_motion_alignment 이 non-finite `match.distance` 를 통과시킴 — validator 가 complete_analysis 에서 raise 하면 표시 전용 필드가 분석 전체를 실패시킴
 
+**Status:** FIXED (commit da8848e) — 방출 시점에서 `try float() + math.isfinite` 로 NaN/inf/비수치 → 0.0 정규화. `test_nonfinite_distance_sanitized_to_finite`(NaN/inf/-inf) 추가 — 유한 distance + `_validate_motion_alignment` raise 없음 확인. 39 passed.
 **File:** `backend/shared/python/sunity_shared/analysis/motion_alignment.py:75`, `backend/shared/python/sunity_shared/firestore_admin.py:352-355`, `backend/functions/pipeline/app.py:3340-3369`
 **Issue:** `distance = float(getattr(match, "distance", 0.0) or 0.0)` — `float('nan') or 0.0` 은 NaN 이 truthy 라 NaN 이 그대로 남는다 (inf 도 동일). NaN 은 tier 비교(`NaN <= 8.0` → False)를 전부 통과해 tier='disabled' 로 **방출되고**, `_validate_motion_alignment` 의 `distance finite` 검사에서 ValueError 가 난다. 이 검증은 `_attach_motion_alignment` 의 graceful try/except **바깥**(complete_analysis 내부)에서 실행되므로, 채점이 전부 끝난 분석이 표시 전용 필드 때문에 `fail_analysis(server_error)` 로 통째로 실패한다 — helper docstring 의 "방출 실패는 분석 비차단" 약속과 모순. 현재 파이프라인은 `temporal_fill` 이 NaN 각도를 0 으로 채워 발생 확률이 낮지만, DTW 입력 경로가 바뀌면(예: reference 재처리, fill 정책 변경) 조용히 전량 실패 모드가 된다.
 **Fix:** 방출 지점에서 1줄 방어:
@@ -138,12 +149,14 @@ distance = float(raw) if isinstance(raw, (int, float)) and math.isfinite(float(r
 
 ### WR-04: veto still 경로는 여전히 `_matched_ref_frame` 반환(18fps angles 공간)을 9fps frames 인덱스로 오독 — 문서화만 되고 미해결/미추적
 
+**Status:** DEFERRED (코드 변경 없음) — 채점 무접촉 hard gate. `_build_selected_frame_pair` 의 still pair 는 Gemini 비전 채점 입력이라 도메인 수정이 점수를 움직인다(Open Q2). 이 fix pass 는 채점 경로 무접촉 제약이라 손대지 않는다. 후속 phase 백로그: fault_zoom 과 동일한 `_to_rep_idx` 역변환 적용 + 채점 회귀(전 fixture 6동작) 게이트로 검증. `.planning/deferred-items.md` 부재 → REVIEW.md/REVIEW-FIX.md 에 기록으로 추적. (mode1 veto still 만 영향 — mode3 veto still 은 별개.)
 **File:** `backend/functions/pipeline/app.py:1875-1888`, `backend/shared/python/sunity_shared/analysis/fault_zoom.py:250-275`
 **Issue:** 28-05 가 `_matched_ref_frame` docstring 을 "반환은 ref angles(rep) 공간 — 호출측이 변환 책임"으로 갱신했지만, 공유 호출자 `_build_selected_frame_pair` 는 여전히 `_matched_ref_frame(reference_dtw_match, u_idx, r_n)` 로 18fps angles 인덱스를 **9fps frames 개수(r_n)로 클램프해 9fps ref_frames 에 그대로 인덱싱**한다 → veto still 의 기준 프레임이 의도 시각의 2배(대개 끝프레임 클램프)다. 이 still pair 는 Gemini 비전 채점 입력이라 **점수에 영향**하는 known-wrong 상태다. "본체 수정 금지 — 그쪽 입력이 바뀌면 점수가 움직인다"(Open Q2)는 phase 범위 결정으로 존중하되, 클램프가 도메인 오류를 조용히 삼키는 현 상태는 (a) 후속 phase 백로그로 명시 추적되고 (b) `ref_match_source="dtw"` provenance 가 사실상 "2x-shifted dtw" 임이 소비자 쪽에 문서화되어야 한다.
 **Fix:** 즉시 코드 수정 대신: 후속 phase 항목 등록 + `_build_selected_frame_pair` 주석에 도메인 결함 명시. 수정 시에는 fault_zoom 과 동일한 `_to_rep_idx` 역변환을 적용하고 채점 회귀(전 fixture 6동작) 게이트로 검증.
 
 ### WR-05: tick effect cleanup 에서 released 가능성이 있는 rightPlayer 에 playbackRate 대입 — unmount 시 예외 위험
 
+**Status:** FIXED (commit 7b0eec7) — cleanup 의 `rightPlayer.playbackRate = 1.0` 을 try/catch 로 감쌈(released object 예외 무해화). deps 재설치 경로는 안전, unmount 경로 크래시 방어. 결과 화면 진입→이탈 에러 로그 실기기 확인 권장(HUMAN-UAT). typecheck PASS.
 **File:** `app/src/components/VideoCompare.tsx:430-437`
 **Issue:** cleanup 이 `rightPlayer.playbackRate = 1.0` 을 실행한다. React 는 unmount 시 effect cleanup 을 선언 순서로 실행하고, `useVideoPlayer`(컴포넌트 상단에서 먼저 선언)의 내부 cleanup 이 player 를 release 한 뒤 이 cleanup 이 돌 수 있다. expo-video 의 released shared object 에 속성을 쓰면 "released object" 예외가 발생할 수 있어(결과 화면 이탈 = 매번 unmount) 크래시/에러 리포트 위험이 있다. deps 변경(재설치) 경로는 안전하지만 unmount 경로는 검증되지 않았다.
 **Fix:** try/catch 로 감싸거나, unmount 인지 deps 변경인지 구분 없이 안전하게:
@@ -158,18 +171,21 @@ try { if (rightPlayer) rightPlayer.playbackRate = 1.0; } catch { /* released —
 
 ### IN-01: `_validate_motion_alignment` 가 `reason` 타입을 검증하지 않음
 
+**Status:** SKIPPED (out of scope) — fix pass 범위는 Critical+Warning. 앱 normalizer 가 non-string reason 을 버려 소비는 안전(방어 완결). 후속 하드닝 후보.
 **File:** `backend/shared/python/sunity_shared/firestore_admin.py:308-405`
 **Issue:** `reason` 은 키 화이트리스트에만 있고 타입 검사가 없다 — dict/list 가 들어와도 validator 를 통과해 Firestore 에 저장된다 (앱 normalizer 는 non-string 을 버리므로 소비는 안전). 다른 scalar 필드는 전부 타입 강제되는데 reason 만 예외.
 **Fix:** `if payload.get("reason") is not None and not isinstance(payload["reason"], str): raise ValueError(...)` 1줄 추가.
 
 ### IN-02: normalizeMotionAlignment 이 warped tier 의 구간 기울기 클램프 위반을 검증하지 않음
 
+**Status:** SKIPPED (out of scope) — fix pass 범위는 Critical+Warning. `segmentRate` 클램프 + `warpTime` 이 크래시는 없음(재생 이상만). defense-in-depth 후보.
 **File:** `app/src/lib/alignmentWarp.ts:100-166`
 **Issue:** 백엔드는 slopes_ok 일 때만 warped 를 방출하지만, 앱 normalizer 는 단조성만 검사한다. 조작/손상된 doc 이 tier='warped' + 기울기 100 앵커를 실으면 `segmentRate` 는 2.0 으로 클램프되는데 `warpTime` 은 클램프가 없어 seek 목표가 크게 튄다 (크래시는 없음 — 재생 이상만). 방어적 소비(V5) 완결성 차원의 defense-in-depth.
 **Fix:** warped tier 검증 시 구간 기울기 [RATE_MIN, RATE_MAX] 검사 추가, 위반 → null (legacy 폴백).
 
 ### IN-03: 테스트 fixture 의 deductionBreakdown 이 §10 OBJECT 계약과 다른 bare list 형상
 
+**Status:** SKIPPED (out of scope) — fix pass 범위는 Critical+Warning. deepcopy diff 판정 목적엔 무해. fixture 형상 정정 후보.
 **File:** `backend/tests/test_pipeline_motion_alignment.py:45-55`
 **Issue:** `_scored_result()` 가 `deductionBreakdown` 을 `[{joint, deduction, reason}]` bare list 로 모델링한다. Phase 24 계약(HIGH-1)은 `{baseline, records, final}` OBJECT 다. deepcopy diff 판정 목적에는 무해하지만, "채점 확정 result fixture" 라는 이름의 fixture 가 계약 밖 형상을 박제하면 후속 독자가 오독할 수 있다.
 **Fix:** fixture 를 `{"baseline": 100, "records": [...], "final": 87}` 형상으로 교체 (assert 로직 무변경).

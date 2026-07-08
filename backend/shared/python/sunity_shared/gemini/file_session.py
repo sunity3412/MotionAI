@@ -144,7 +144,14 @@ class GeminiFileSession:
         from google.genai import errors as genai_errors  # lazy
         from google.genai import types as genai_types  # lazy
 
-        client = self._get_client()
+        # client 생성 실패(API 키 부재/SSM fetch 실패 등)는 graceful None — 소비처가 자체
+        # 업로드 폴백으로 분석을 비차단(27-04 must_have). 여기서 raise 하면 _process 가 세션
+        # 생성 시점(try 진입 전)에 깨져 keyless 환경(Lambda CPU 폴백·단위 테스트)이 전면 실패.
+        try:
+            client = self._get_client()
+        except Exception as exc:  # noqa: BLE001 - client 생성 실패 → graceful skip
+            log.warning("GeminiFileSession client 생성 실패 — graceful skip: %s", exc)
+            return None
         upload_path, tmp_path = _ascii_safe_path(video_path)
         try:
             try:

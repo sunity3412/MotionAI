@@ -70,7 +70,10 @@ class _StubExtractor:
         self._raise = raise_on_call
         self.call_count = 0
 
-    def extract_key_moments(self, video_uri: str, motion: str) -> list:
+    def extract_key_moments(
+        self, video_uri: str, motion: str, *, preuploaded_handle=None
+    ) -> list:
+        # 27-04: recognizer 가 preuploaded_handle 을 전달하므로 stub 도 수용 (무시).
         self.call_count += 1
         if self._raise is not None:
             raise self._raise

@@ -377,6 +377,7 @@ def _finding_enabled() -> bool:
 def _call_wave1_scene_finder(
     local_video_path: str | None,
     is_reference: bool,
+    preuploaded_handle: object | None = None,
 ) -> dict | None:
     """Wave 1 영역 C Finding 호출 진입점 — graceful 폴백 + skip 조건 박제.
 
@@ -398,7 +399,11 @@ def _call_wave1_scene_finder(
         # Lazy import — Lambda 250MB 정합 (top-level import 시 google-genai 박힘).
         from sunity_shared.gemini.scene_finder import find_scene_flags
 
-        return find_scene_flags(local_video_path, is_reference=is_reference)
+        return find_scene_flags(
+            local_video_path,
+            is_reference=is_reference,
+            preuploaded_handle=preuploaded_handle,
+        )
     except Exception as exc:  # noqa: BLE001 - 분석 흐름 차단 0 박제
         log.warning(
             "find_scene_flags raise — graceful skip (is_reference=%s): %s",
@@ -1852,6 +1857,8 @@ def _collect_vision_fault_context(
     keypoint_report=None,
     pose_frames=None,
     reference_pose_frames=None,
+    preuploaded_student_handle=None,
+    preuploaded_reference_handle=None,
 ) -> "vision_veto.VisionFaultContext":
     """Gemini 호출 소유자 (coach 전 1회, D-10 HIGH-1). keyword pre-build primitive 시그니처.
 
@@ -1972,6 +1979,8 @@ def _collect_vision_fault_context(
                 reference_video_path,
                 at_seconds=None,
                 part_scopes=list(gemini_vision_scorer.VETO_PART_SCOPES),
+                preuploaded_student_handle=preuploaded_student_handle,
+                preuploaded_reference_handle=preuploaded_reference_handle,
                 **still_kwargs,
             )
         finally:
@@ -3174,6 +3183,20 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     local_video_path_obj = inputs.local_video_path
     local_video_path = str(local_video_path_obj) if local_video_path_obj else None
 
+    # ── Phase 27 SPD-02 / D-04 — GeminiFileSession (분석-로컬) ──
+    # 학생 영상 File API 업로드를 분석당 1회로 축약하고 핸들을 scene_finder/recognizer/veto/
+    # coach B 가 공유한다 (중복 4~5회 → 1회, 27-RESEARCH 호출 인벤토리). 세션은 분석-로컬 —
+    # 모듈 전역 캐시 금지(분석 간 상태 오염 0). 종료 delete 는 outer finally 의 session.close()
+    # 일괄 1회 (NoHuman/NotPole 조기 raise 경로 포함, 20GB 적체 재발 방지 / TTL 최후 안전망).
+    from sunity_shared.gemini.file_session import GeminiFileSession  # lazy (Lambda 250MB)
+    session = GeminiFileSession()
+    # 첫 소비자가 업로드, 이후 재사용 (get_or_upload 경로-캐시). 업로드 실패(None)는 각
+    # 모듈이 자체 업로드로 graceful 폴백 (분석 비차단 — moment extractor 폴백도 27-04 fix 로
+    # 누수 0). 동기 호출 — prefetch 겹치기는 27-05.
+    student_video_handle = (
+        session.get_or_upload(local_video_path) if local_video_path else None
+    )
+
     # ── Plan 17-02 Wave 1 — 영역 C Finding 호출 (RTMW estimate 직후 / KISMAM 직전) ──
     # is_reference 박제: S3 key prefix 1차 + Firestore mode 2차 (R-W3 정합 — `_process`
     # 시그너처 인자 추가 X). find_scene_flags 안에서 G4 정은지 영상 가드 발동.
@@ -3185,6 +3208,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         scene_result = _call_wave1_scene_finder(
             local_video_path=local_video_path,
             is_reference=is_reference_local,
+            preuploaded_handle=student_video_handle,  # Phase 27 D-04 세션 핸들 공유
         )
 
     # Path A production 정합 (2026-06-05): mode=expert = motion known case
@@ -3257,7 +3281,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 어댑터는 frames 인자 (video path) 를 File API 입력으로 사용. Fallback 은
         # frames 인자 ignore (Protocol 정합 — TestProtocolCompat 박제 검증).
         with _stage(timings_ms, analysis_id, "recognizer"):  # Phase 27 SPD-01
-            profile = recognizer.recognize(angles, frames=local_video_path)
+            profile = recognizer.recognize(
+                angles,
+                frames=local_video_path,
+                preuploaded_handle=student_video_handle,  # Phase 27 D-04 세션 핸들 공유
+            )
         abs_dims = dimensions.absolute_dimension_scores(angles, profile)
 
         # Phase 19 TRUST-03 (BLOCKER-1 iter-1 + ITER-4) — branch_info lookup 을 recognize
@@ -3546,6 +3574,13 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 같은 ctx 가 아래 _apply_vision_veto(vision_fault_context=) 에서 재사용된다(geminiCallCount=1).
         # coach 주입 게이트: ctx.eligible_for_coach (=collection_status==candidate_verdict AND
         # cap_would_apply, D-13 MED-2). valid-but-not-cap-lowering(minor/88) 은 무주입(D-11 HIGH-1).
+        # Phase 27 D-04 — 기준 영상도 세션 1회 업로드 후 핸들 공유 (veto 학생+기준 = 세션 핸들).
+        # None(업로드 실패/Mode3 미다운로드) 시 assess_fault_context_video 가 자체 업로드 폴백.
+        reference_video_handle = (
+            session.get_or_upload(reference_local_video_path)
+            if reference_local_video_path
+            else None
+        )
         with _stage(timings_ms, analysis_id, "veto_collect"):  # Phase 27 SPD-01
             vision_fault_context = _collect_vision_fault_context(
                 overall_score=overall,
@@ -3558,6 +3593,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 reference_angles=reference_angles_for_veto,
                 reference_video_path=reference_local_video_path,
                 pose_frames=pose_frames,
+                preuploaded_student_handle=student_video_handle,
+                preuploaded_reference_handle=reference_video_handle,
             )
         # eligible 일 때만 support-gated root-cause 를 coach context 에 주입(graceful 무시 아님 —
         # writer 가 to_coach_context() 의 visionFault 키를 실제 프롬프트 causes 에 렌더).
@@ -3581,6 +3618,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 23-02 Task 5 — vision-fault root-cause 를 coach context 에 주입(eligible 시에만).
         if vision_coach_context is not None:
             coach_context["visionFault"] = vision_coach_context
+        # Phase 27 D-04 — 세션 핸들을 context 로 전달 (coach B retry 재업로드 0). Cerebras 는
+        # 이 키를 무시(text-only). None 이면 GeminiCoachWriter 가 자체 업로드 폴백.
+        if student_video_handle is not None:
+            coach_context["preuploadedHandle"] = student_video_handle
         # ── Phase 13-C: 섹션형 듀얼 coach — 둘 다 호출 + 섹션 조립 + 계층형 폴백 ──
         # belle 2026-06-16 [[section-dual-coach-report]]. GEMINI_COACH_ENABLED=1
         # (default) 시 양쪽 writer 를 둘 다 호출해 섹션별로 조립 (원인/강사확인=Gemini,
@@ -4225,6 +4266,13 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
     finally:
+        # Phase 27 D-04 — 세션 File API 핸들 일괄 delete = 분석당 1회 (unlink 보다 앞).
+        # NoHuman/NotPole 조기 raise 경로 포함 도달 보장 (Pitfall 2) — 20GB 적체 재발 방지.
+        # best-effort (delete 예외는 나머지 정리/분석을 막지 않음, close() 내부 규율).
+        try:
+            session.close()
+        except Exception:  # noqa: BLE001 - 세션 정리 실패는 분석 흐름 차단 0
+            log.warning("GeminiFileSession close 실패 (graceful) analysis_id=%s", analysis_id)
         # Plan 5-03 박제 — Gemini 어댑터 path 에서 신설한 임시 파일 정리.
         # delete=False NamedTemporaryFile 박제 정신 정합 — caller 책임 (B8 fix).
         # T-05-03-02 (DoS — 디스크 누수) 박제 — try/finally + missing_ok=True.

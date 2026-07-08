@@ -112,13 +112,18 @@ class GeminiTechniqueRecognizer:
         if self.fallback is None:
             self.fallback = FallbackRecognizer()
 
-    def recognize(self, angles: Any, frames: Any = None) -> TechniqueProfile:
+    def recognize(
+        self, angles: Any, frames: Any = None, *, preuploaded_handle: Any = None
+    ) -> TechniqueProfile:
         """3-case fallback + reject patterns 2차 가드 + joint_expectations 빌드.
 
         Args:
           angles: 관절각 행렬 (T, J=8). FallbackRecognizer 위임 시 사용.
           frames: video_uri (str) — Gemini File API 입력 path. None 시 Gemini 호출 skip
                    + FallbackRecognizer 위임 (api_failure path).
+          preuploaded_handle: GeminiFileSession File API 핸들(keyword-only, 27-04). 주입 시
+                   moment extractor 가 업로드/폴링/delete 를 skip 하고 핸들 재사용 — 소유권=세션.
+                   None 이면 기존 self-upload (byte-동일). Fallback 위임 경로엔 영향 0.
 
         Returns:
           TechniqueProfile — category ∈ {"recognized", "api_failure", "low_confidence",
@@ -148,7 +153,9 @@ class GeminiTechniqueRecognizer:
 
         # Step 4: Gemini 호출 (D-09 case 1 fallback).
         try:
-            response_text, moments, raw_motion_name = self._call_extractor(frames)
+            response_text, moments, raw_motion_name = self._call_extractor(
+                frames, preuploaded_handle=preuploaded_handle
+            )
         except (RuntimeError, ValueError) as exc:
             log.warning("Gemini API 실패 — FallbackRecognizer 위임: %s", exc)
             profile = self.fallback.recognize(angles, frames=frames)
@@ -227,17 +234,20 @@ class GeminiTechniqueRecognizer:
 
     # ───────────────────────── 내부 helper ─────────────────────────
 
-    def _call_extractor(self, frames: Any) -> tuple[str, list, str]:
+    def _call_extractor(
+        self, frames: Any, *, preuploaded_handle: Any = None
+    ) -> tuple[str, list, str]:
         """extractor 호출 + 응답 raw text + KeyMoment list + raw motion name 반환.
 
         extractor 는 _last_raw_response / _last_motion_name attribute 박제 (B5/W3 fix).
         spike 결과에서 Gemini 가 motion_name 응답 X 인 path 박제 시 motion_query_hint
-        로 대체.
+        로 대체. preuploaded_handle(27-04) 은 extract_key_moments 로 전달 — 세션 핸들 재사용.
         """
         motion_query = self.motion_query_hint or "auto"
         moments = self.extractor.extract_key_moments(
             video_uri=frames,
             motion=motion_query,
+            preuploaded_handle=preuploaded_handle,
         )
         raw_text = getattr(self.extractor, "_last_raw_response", "") or ""
         raw_motion_name = (

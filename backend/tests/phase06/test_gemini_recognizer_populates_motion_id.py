@@ -37,7 +37,8 @@ class _MockExtractor:
         self._last_raw_response = raw_text
         self._last_motion_name = motion_name
 
-    def extract_key_moments(self, *, video_uri, motion):
+    def extract_key_moments(self, *, video_uri, motion, preuploaded_handle=None):
+        # 27-04: recognizer 가 preuploaded_handle 전달 → stub 수용 (무시).
         return self._moments
 
 

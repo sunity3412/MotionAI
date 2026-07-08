@@ -249,3 +249,49 @@ class TestVisionScorerVetoHandles:
         # inline Part 가 generate contents 에 존재.
         all_contents = [c for call in fake.models.calls for c in call.get("contents", [])]
         assert any(isinstance(c, genai_types.Part) for c in all_contents)
+
+
+# ─────────────────── Task 3 — _process 세션 통합 (업로드 1회 + 종료 delete) ───────────────────
+
+
+class TestSessionProcessIntegration:
+    """GeminiFileSession 이 여러 소비처의 get_or_upload 를 1회 업로드로 dedupe 하고
+    close() 가 세션 업로드분을 정확히 delete 하는지 (파이프라인 _process 배선 계약)."""
+
+    def test_student_upload_once_and_close_deletes(self) -> None:
+        from sunity_shared.gemini.file_session import GeminiFileSession
+
+        fake = FakeClient(FakeFiles(), FakeModels())
+        session = GeminiFileSession(client_factory=lambda: fake)
+
+        # scene → recognizer → veto → coach B 순으로 같은 학생 영상 경로 get_or_upload.
+        h_scene = session.get_or_upload("/tmp/student.mp4")
+        h_recog = session.get_or_upload("/tmp/student.mp4")
+        h_veto = session.get_or_upload("/tmp/student.mp4")
+        h_coach = session.get_or_upload("/tmp/student.mp4")
+
+        # 4 소비처가 동일 핸들 공유 + 업로드 정확히 1회.
+        assert h_scene is h_recog is h_veto is h_coach
+        assert fake.files.upload_calls == 1
+        assert fake.files.delete_calls == 0  # close 전에는 delete 0
+
+        session.close()
+        # 종료 일괄 delete = 업로드 수.
+        assert fake.files.delete_calls == fake.files.upload_calls == 1
+        assert fake.files.deleted_names == fake.files.uploaded_names
+
+    def test_student_and_reference_two_uploads_one_delete_each(self) -> None:
+        """학생 ∥ 기준 = 경로별 1회 업로드, close 시 각 1회 delete (veto 학생+기준 공유)."""
+        from sunity_shared.gemini.file_session import GeminiFileSession
+
+        fake = FakeClient(FakeFiles(), FakeModels())
+        session = GeminiFileSession(client_factory=lambda: fake)
+
+        session.get_or_upload("/tmp/student.mp4")
+        session.get_or_upload("/tmp/reference.mp4")
+        session.get_or_upload("/tmp/student.mp4")  # 재사용
+
+        assert fake.files.upload_calls == 2  # 학생 1 + 기준 1
+        session.close()
+        assert fake.files.delete_calls == 2
+        assert sorted(fake.files.deleted_names) == sorted(fake.files.uploaded_names)

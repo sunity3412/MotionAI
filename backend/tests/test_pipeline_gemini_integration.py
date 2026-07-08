@@ -75,7 +75,10 @@ class _StubExtractor:
         self._raise = raise_on_call
         self.call_count = 0
 
-    def extract_key_moments(self, video_uri: str, motion: str) -> list:
+    def extract_key_moments(
+        self, video_uri: str, motion: str, *, preuploaded_handle=None
+    ) -> list:
+        # 27-04: recognizer 가 preuploaded_handle 전달 → stub 수용 (무시).
         self.call_count += 1
         if self._raise is not None:
             raise self._raise
@@ -298,7 +301,7 @@ def test_process_without_env_uses_fallback(base_mocks, monkeypatch):
     monkeypatch.setattr(
         pipeline.technique.FallbackRecognizer,
         "recognize",
-        lambda self, angles, frames=None: pipeline.technique.TechniqueProfile(
+        lambda self, angles, frames=None, *, preuploaded_handle=None: pipeline.technique.TechniqueProfile(
             name="미상",
             category="unknown",
             joint_expectations={k: "bent_ok" for k in pipeline.skeleton.JOINT_KEYS},

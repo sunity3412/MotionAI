@@ -77,7 +77,9 @@ class TechniqueProfile:
 class TechniqueRecognizer(Protocol):
     """영상/관절각 → TechniqueProfile. 구현체는 swappable (Fallback/Gemini/Pole-arina)."""
 
-    def recognize(self, angles, frames=None) -> TechniqueProfile: ...
+    def recognize(
+        self, angles, frames=None, *, preuploaded_handle=None
+    ) -> TechniqueProfile: ...
 
 
 class FallbackRecognizer:
@@ -89,7 +91,10 @@ class FallbackRecognizer:
     Pole-arina 어댑터가 들어오면 채워진다.
     """
 
-    def recognize(self, angles, frames=None) -> TechniqueProfile:
+    def recognize(
+        self, angles, frames=None, *, preuploaded_handle=None
+    ) -> TechniqueProfile:
+        # 27-04: preuploaded_handle 는 Gemini 어댑터 전용 — Fallback 은 영상 미사용이라 무시.
         a = np.asarray(angles, dtype=float)
         if a.ndim == 2 and a.shape[0] > 0:
             rep = np.mean(a, axis=0)

@@ -2965,6 +2965,7 @@ def _build_mode3_fault_zoom_comparisons(
     analysis_id: str,
     bucket: str,
     cached_user_frames=None,
+    dtw_match=None,
 ) -> list[dict]:
     """Mode3 변화 부위 확대 비교 — 현재 vs 지난 영상. kind=improved/worsened.
 
@@ -3015,6 +3016,9 @@ def _build_mode3_fault_zoom_comparisons(
             change_joints, {}, kinds,  # mode3 = 숫자 없음(방향만)
             vision_veto.worst_pose_timestamp(profile),
             uid, analysis_id, bucket,
+            # 28-05 가 시간비례 근사를 제거(D-04) — mode3 도 DTW 대응으로 같은-pose
+            # 프레임 (전신 폴백 회귀 방지). prev 부재/first = None → 기존 경로 무접촉.
+            dtw_match=dtw_match,
             cached_user_frames=cached_user_frames,  # Phase 27 Task 3 — 학생 재추출 소멸
         )
     finally:
@@ -3220,11 +3224,13 @@ def _mode3_comparison(
     ([[mode3-progress-not-similarity]]). 각도 차원은 기준이 필요하므로 이전 분석이
     있을 때만(이전 영상 대비 일관성) 표시하고 overall/delta 에선 제외(척도 안정).
 
-    반환: (assessments, dimension_scores, overall, comparison).
+    반환: (assessments, dimension_scores, overall, comparison, prev_dtw_match).
       - assessments: 관절각 기반(코칭 tips 용). 첫 분석은 신전 부족분(IPSF 라인),
         이후는 이전 영상 대비.
       - dimension_scores: 첫 분석=절대 차원, 이후=절대 + angle(일관성).
-      - overall: 절대 차원 평균(첫 분석/이후 동일 척도)."""
+      - overall: 절대 차원 평균(첫 분석/이후 동일 척도).
+      - prev_dtw_match: 이전 영상 대비 DTW MotionMatch (28-04 motionAlignment 방출 +
+        mode3 fault_zoom 같은-pose 프레임 정렬용). 첫 분석/prev 부재 = None."""
     abs_dims = dimensions.absolute_dimension_scores(angles, profile)
     # Phase 19 TRUST-03 — branch_info 미전달 시 profile.motion_id 로 lookup (게이트 wiring
     # 이 없는 단위 테스트/호출 경로 호환). is_reference_free_motion 으로 미보유 판정
@@ -3261,9 +3267,10 @@ def _mode3_comparison(
             abs_dims,
             overall,
             assemble.build_mode3(is_first=True, scoring_basis=first_basis),
+            None,  # prev_dtw_match — 첫 분석은 정렬 컨텍스트 부재 (28-04 미방출 = legacy)
         )
     num_joints = len(prev.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
-    deviation, _match, _user_seg, prev_seg = _deviation_against(
+    deviation, prev_dtw_match, _user_seg, prev_seg = _deviation_against(
         angles, prev_angles, num_joints
     )
     # Phase 19 TRUST-01 — mode3 progress: 표시 각도(현재/이전) = 점수 산출 DTW path-정렬
@@ -3301,7 +3308,7 @@ def _mode3_comparison(
         cur_dimension_scores=abs_dims,  # 발전 델타는 절대 3차원만(같은 척도)
         scoring_basis=progress_basis,
     )
-    return assessments, dim_scores, overall, comparison
+    return assessments, dim_scores, overall, comparison, prev_dtw_match
 
 
 def _pipeline_frame_fps() -> float:
@@ -3587,6 +3594,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     reference_keypoint_report_dict: dict | None = None
     # fault-zoom Mode3 — 지난 분석 doc(현재 vs 지난 영상 변화 비교). SELF 분기에서 채움.
     mode3_prev: dict | None = None
+    # Phase 28-04 — mode3 second+ DTW MotionMatch(현재↔지난 영상). SELF 분기의
+    # _mode3_comparison 이 채움(첫 분석/prev 부재 = None). motionAlignment 방출 +
+    # mode3 fault_zoom 같은-pose 프레임 정렬용. reference_dtw_match 와 동일 수명 관리.
+    prev_dtw_match = None
     # fault-zoom B1 (belle 2026-06-21) — mode1 DTW match(user↔reference 프레임 정렬).
     # 확대 비교에서 학생 worst 프레임 ↔ 기준의 같은 pose 프레임을 캡처해 납득성 ↑.
     reference_dtw_match = None
@@ -3807,7 +3818,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 uid, analysis_id, mode=models.MODE_SELF
             )
             mode3_prev = prev  # fault-zoom Mode3 (현재 vs 지난 영상 변화 비교) source.
-            assessments, dimension_scores, overall, comparison = _mode3_comparison(
+            assessments, dimension_scores, overall, comparison, prev_dtw_match = _mode3_comparison(
                 angles, prev, profile, branch_info=branch_info
             )
 
@@ -4566,13 +4577,25 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 게이트: complete 후 result.* write 금지). 표현/재생 전용, 채점 무접촉 (28-CONTEXT).
         # user fps = frame_extractor 기본 target_fps 단일 출처(I1, 리터럴 9.0 금지).
         # mode1 = reference_dtw_match + ref doc keypointReport.fps(18fps phase4_v1, 28-01
-        # 실측). mode3 방출은 28-04 Task 2 에서 배선.
+        # 실측). mode3 = prev_dtw_match + 양측 파이프라인 9fps(prev angles 는 자기 분석의
+        # 9fps 저장분 — Pitfall 6: mode1 의 18fps 변환을 여기 적용 금지, fps 는 인자).
+        # mode1/mode3 는 상호 배타 분기이므로 주입 지점을 단일화하고 mode 별 fps 만 선택.
+        _ma_frame_fps = _pipeline_frame_fps()
         if mode == models.MODE_EXPERT:
             _attach_motion_alignment(
                 result,
                 reference_dtw_match,
-                user_fps=_pipeline_frame_fps(),
+                user_fps=_ma_frame_fps,
                 ref_fps=reference_kp_fps,
+                uid=uid,
+                analysis_id=analysis_id,
+            )
+        else:  # MODE_SELF — mode3 second+ (prev 부재/first = prev_dtw_match None → 미방출)
+            _attach_motion_alignment(
+                result,
+                prev_dtw_match,
+                user_fps=_ma_frame_fps,
+                ref_fps=_ma_frame_fps,  # Pitfall 6 — 양측 9fps (ref 도 자기 9fps 저장분)
                 uid=uid,
                 analysis_id=analysis_id,
             )
@@ -4641,6 +4664,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                         analysis_id,
                         bucket,
                         cached_user_frames=cached_user_frames,  # Task 3 — 재추출 소멸
+                        dtw_match=prev_dtw_match,  # 28-04 — mode3 DTW 대응 프레임 정렬
                     )
                 _run_deferred_fault_zoom(
                     render=_zoom_render, uid=uid, analysis_id=analysis_id

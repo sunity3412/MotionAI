@@ -1743,9 +1743,17 @@ def _run_part_frame_fanout(
             part_scope=scope,
         )
 
-    with ThreadPoolExecutor(
-        max_workers=_workers, thread_name_prefix="veto_fanout"
-    ) as pool:
+    # WR-01 fix (27-REVIEW): with-block(shutdown wait=True) 은 budget break 경로에서도
+    # 큐의 **미시작** future 실행·완료를 전부 기다려 wall budget 이 soft bound 로 무력화
+    # 됐다 (call 당 HTTP timeout 180s — MAX_VETO_WALL_S 를 수 분 초과 가능, SERIAL 분석
+    # 특성상 뒤 분석 전체 지연 + 폐기될 콜의 쿼터/비용 소모, D-09 MED-1 bound 의도 약화).
+    # 명시적 shutdown: budget 소진/예외 이탈 시 cancel_futures=True + wait=False 로
+    # 미시작 콜 실행과 반환 지연을 제거한다 (in-flight 콜은 어차피 취소 불가). 정상 완주
+    # 경로는 전 future 를 이미 인덱스 순으로 join 한 뒤라 wait 값 무관 — 집계 입력 순서/
+    # fail-closed resource_limited 의미론 무변경 (T-27-12/13).
+    pool = ThreadPoolExecutor(max_workers=_workers, thread_name_prefix="veto_fanout")
+    joined_all = False
+    try:
         futures = [pool.submit(_one_call, call_plan[i]) for i in range(planned)]
         for idx, fut in enumerate(futures):  # 인덱스 순 join — 완료-순서 수확 금지
             # wall-clock budget 가드 (fail-closed). remaining 계산에 주입 clock 사용.
@@ -1764,6 +1772,11 @@ def _run_part_frame_fanout(
                 continue
             parsed_verdicts.append(v)
             per_call.append(list(v.differences or ()))
+        else:
+            joined_all = True  # break 없이 완주 — 전 future join 완료.
+    finally:
+        # 완주면 no-op(전부 done), break/예외면 미시작 취소 + 비대기 반환 (WR-01).
+        pool.shutdown(wait=joined_all, cancel_futures=not joined_all)
 
     duration_ms = int((_now() - start) * 1000)
     telemetry = {

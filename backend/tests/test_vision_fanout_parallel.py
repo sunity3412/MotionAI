@@ -132,6 +132,51 @@ def test_fanout_fail_closed_on_budget_exhaustion(monkeypatch):
     assert tel["samplingComplete"] is False
 
 
+def test_fanout_budget_exhaustion_returns_without_waiting_inflight(monkeypatch):
+    """WR-01 (27-REVIEW): 예산 소진 break 시 blocked in-flight/미시작 콜 완료를
+    기다리지 않고 즉시 resource_limited 반환 — wall budget hard bound.
+
+    구 with-block(shutdown wait=True)이면 release 가 set 될 때까지(최대 10s) 반환이
+    지연돼 elapsed 가드가 RED. 집계 의미론(fail-closed)은 기존 테스트가 방어."""
+    release = threading.Event()
+
+    def _fake_compare(client, ref, student, at_seconds, part_scope=None, media_kind="video"):
+        if part_scope != "upper_body":
+            release.wait(timeout=10)  # in-flight 블록 — 반환이 이걸 기다리면 회귀
+        return _verdict_json(part_scope)
+
+    monkeypatch.setattr(gvs, "_call_gemini_comparison", _fake_compare)
+
+    # clock: start=0 → iter0 remaining=99(join OK) → iter1=999(예산 초과) → break.
+    seq = [0.0, 1.0, 999.0]
+    idx = {"i": 0}
+
+    def _clock():
+        v = seq[idx["i"]] if idx["i"] < len(seq) else seq[-1]
+        idx["i"] += 1
+        return v
+
+    t0 = time.monotonic()
+    try:
+        result = gvs._run_part_frame_fanout(
+            client=None,
+            ref_uploaded="ref",
+            student_uploaded="stu",
+            part_scopes=["upper_body", "lower_body", "line"],
+            at_seconds=None,
+            clock=_clock,
+            wall_budget_s=100.0,
+        )
+        elapsed = time.monotonic() - t0
+    finally:
+        release.set()  # 블록된 스레드 해제 (teardown)
+
+    assert result["status"] == "resource_limited"  # fail-closed 의미론 불변
+    assert result["telemetry"]["completedCalls"] < result["telemetry"]["plannedCalls"]
+    # hard bound: blocked 콜(10s) 완료를 기다리지 않았다.
+    assert elapsed < 5.0, f"budget break 후 in-flight 대기 감지 (elapsed={elapsed:.1f}s)"
+
+
 def test_fanout_workers_one_is_sequential_equivalent(monkeypatch):
     """GEMINI_FANOUT_WORKERS=1 → 동시성 1(순차 등가) + 결과 동일."""
     monkeypatch.setenv("GEMINI_FANOUT_WORKERS", "1")

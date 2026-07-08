@@ -29,6 +29,22 @@ from sunity_shared.analysis import fault_zoom as fz  # noqa: E402
 # ─────────── 합성 fixture ───────────
 
 
+from dataclasses import dataclass  # noqa: E402
+
+
+@dataclass
+class _Match:
+    start: int
+    path: list
+
+
+# 28-05 D-04: dtw_match 부재 = 기준 프레임 대응 실패 → ref 전신 폴백(refMatch='failed').
+# 아래 crop-tier(relaxed/full/부위 차별화) 테스트들은 '대응이 서는' 전제에서 ref 측
+# crop 계층을 검증하므로 identity DTW 를 넘겨 대응을 세운다 (기존 ratio 근사가 우연히
+# 유효 ref 프레임을 준 것을 대체 — Rule 3 필연 연쇄).
+_IDENTITY9 = _Match(start=0, path=[(i, i) for i in range(9)])
+
+
 def _grad_frames(n: int = 1, h: int = 400, w: int = 400) -> np.ndarray:
     """위치-인코딩 gradient 프레임 — red=x 비례, green=y 비례.
 
@@ -152,7 +168,7 @@ def test_build_ref_low_conf_cards_differ_by_joint():
     comps = fz.build_fault_zoom_comparisons(
         frames, frames, user_rep, ref_rep,
         worst_seconds=0.5, fault_joints=["left_knee", "left_shoulder"],
-        joint_deltas=None, frames_fps=9.0,
+        joint_deltas=None, frames_fps=9.0, dtw_match=_IDENTITY9,
     )
     assert len(comps) == 2
     cx = fz._OUT + 6 + fz._OUT // 2  # ref 반쪽 중앙
@@ -174,7 +190,7 @@ def test_build_missing_coords_still_full_fallback():
     comps = fz.build_fault_zoom_comparisons(
         frames, frames, user_rep, ref_rep,
         worst_seconds=0.5, fault_joints=["left_knee"],
-        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0, dtw_match=_IDENTITY9,
     )
     assert len(comps) == 1
     # 전신 contain-fit → ref 반쪽 좌상단 = 흰 패딩. relaxed/crop 이면 프레임 내용.
@@ -189,7 +205,7 @@ def test_build_ref_low_conf_finite_is_crop_not_full():
     comps = fz.build_fault_zoom_comparisons(
         frames, frames, user_rep, ref_rep,
         worst_seconds=0.5, fault_joints=["left_knee"],
-        joint_deltas=None, frames_fps=9.0,
+        joint_deltas=None, frames_fps=9.0, dtw_match=_IDENTITY9,
     )
     assert len(comps) == 1
     px = _png_pixel(comps[0]["png"], fz._OUT + 6 + 2, 2)
@@ -287,7 +303,7 @@ def test_build_relaxed_user_side_no_circle(monkeypatch):
     comps = fz.build_fault_zoom_comparisons(
         frames, frames, user_rep, ref_rep,
         worst_seconds=0.5, fault_joints=["left_knee"],
-        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0, dtw_match=_IDENTITY9,
     )
     assert len(comps) == 1 and comps[0]["deficitDeg"] == 20.0
     assert calls == [(False, None)], "relaxed 측 circle 생략"
@@ -304,7 +320,7 @@ def test_build_full_user_side_no_circle(monkeypatch):
     comps = fz.build_fault_zoom_comparisons(
         frames, frames, user_rep, ref_rep,
         worst_seconds=0.5, fault_joints=["left_knee"],
-        joint_deltas=None, frames_fps=9.0,
+        joint_deltas=None, frames_fps=9.0, dtw_match=_IDENTITY9,
     )
     assert len(comps) == 1
     assert calls == [(False, None)], "전신 폴백 측 circle 생략 (기존 그대로)"

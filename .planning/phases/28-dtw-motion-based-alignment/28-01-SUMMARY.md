@@ -96,3 +96,8 @@ None — 3 태스크 계획대로 실행. (환경 처리 2건은 계획 무변�
 - `8a6b106` feat(28-01): reference fps 실측 스크립트 — A1 가정 해소
 - `6e5cf19` test(28-01): build_motion_alignment 계약 고정 (RED, 최종 계약)
 - `bb2f639` feat(28-01): alignmentWarp.ts — 워핑 수학 순수 모듈 (typecheck 진입)
+
+## Self-Check: PASSED
+
+- 신규 파일 3 + SUMMARY 존재 확인 (measure_reference_fps.py / test_motion_alignment.py / alignmentWarp.ts / 28-01-SUMMARY.md).
+- 커밋 4개 존재 확인 (8a6b106 / 6e5cf19 / bb2f639 / 39727ca).

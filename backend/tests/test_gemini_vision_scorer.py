@@ -1741,9 +1741,12 @@ def _hybrid_call_spy(monkeypatch, captured):
 def test_hybrid_upper_scope_gets_image_handles(
     monkeypatch, fake_video, fake_reference_video, fake_stills
 ):
-    """still kwargs 제공 → upper_body 호출만 이미지 핸들 + media_kind='image', lower/line
-    은 video 핸들 + 기본 media_kind. telemetry upperGranularity='still_frame',
-    uploadCount=4. scorer 자체 추출 코드는 부재(파이프라인-측 추출로 이동)."""
+    """still kwargs 제공 → upper_body 호출만 inline Part(media_kind='image'), lower/line
+    은 video 핸들 + 기본 media_kind. telemetry upperGranularity='still_frame'.
+    27-04: still 은 File API 업로드(_upload_image) 대신 inline Part 전송 → uploadCount=2
+    (video 2 만, image 업로드 0). scorer 자체 추출 코드는 부재(파이프라인-측 추출로 이동)."""
+    from google.genai import types as genai_types
+
     _in_memory_cache(monkeypatch)
     monkeypatch.setattr(gvs, "_ensure_client", lambda: _ImageClient())
     # 자체 추출 미수행 — 스코어러-측 추출 3함수는 제거됐다(위상 불일치 경로, h5z).
@@ -1757,15 +1760,12 @@ def test_hybrid_upper_scope_gets_image_handles(
         video_handles[path] = h
         return h
 
-    image_handles = {}
-
-    def _fake_upload_image(client, path, *a, **k):
-        h = _ActiveHandle(name=f"image-{len(image_handles)}")
-        image_handles[path] = h
-        return h
-
     monkeypatch.setattr(gvs, "_upload_video", _fake_upload_video)
-    monkeypatch.setattr(gvs, "_upload_image", _fake_upload_image)
+    # 27-04: still 은 inline — _upload_image 는 호출되면 안 된다.
+    monkeypatch.setattr(
+        gvs, "_upload_image",
+        lambda *a, **k: pytest.fail("still inline 전환 — _upload_image 호출 금지"),
+    )
     captured: list[dict] = []
     _hybrid_call_spy(monkeypatch, captured)
 
@@ -1775,16 +1775,20 @@ def test_hybrid_upper_scope_gets_image_handles(
         **fake_stills,
     )
     assert out["status"] == "candidate_verdict", out
-    # upper 2-call (h5z RC-03): upper 이미지 2회 + lower/line video 1회씩 = 총 4 call.
+    # upper 2-call (h5z RC-03): upper inline 이미지 2회 + lower/line video 1회씩 = 총 4 call.
     upper_calls = [c for c in captured if c["part_scope"] == "upper_body"]
     assert len(upper_calls) == 2, "still 존재 시 upper scope 는 2-call"
     assert len(captured) == 4
-    # upper_body 는 이미지 핸들 (ref 이미지 먼저, 학생 이미지 둘째) + media_kind='image'
-    # — 두 call 모두 동일 핸들 재사용(업로드 증가 0).
+    # upper_body 는 inline Part (ref 먼저, 학생 둘째) + media_kind='image' — 두 call 모두
+    # 동일 inline Part 재사용(업로드 증가 0). 픽셀은 File API 업로드와 동일(전송 방식만 변경).
+    ref_part = upper_calls[0]["ref"]
+    student_part = upper_calls[0]["student"]
+    assert isinstance(ref_part, genai_types.Part)
+    assert isinstance(student_part, genai_types.Part)
     for upper in upper_calls:
         assert upper["media_kind"] == "image"
-        assert upper["ref"] is image_handles[fake_stills["still_reference_png"]]
-        assert upper["student"] is image_handles[fake_stills["still_student_png"]]
+        assert upper["ref"] is ref_part
+        assert upper["student"] is student_part
     # lower_body/line 은 full-video 핸들 + 기본 media_kind.
     by_scope = {c["part_scope"]: c for c in captured}
     for scope in ("lower_body", "line"):
@@ -1794,7 +1798,7 @@ def test_hybrid_upper_scope_gets_image_handles(
         assert call["student"] is video_handles[fake_video]
     tel = out["telemetry"]
     assert tel["upperGranularity"] == "still_frame"
-    assert tel["uploadCount"] == 4
+    assert tel["uploadCount"] == 2  # 27-04: video 2 만 (still inline → image 업로드 0)
     assert tel["plannedCalls"] == 4
     assert tel["samplingComplete"] is True
 
@@ -1939,17 +1943,18 @@ def test_media_kind_image_labels_and_video_byte_identical():
 def test_hybrid_image_upload_failure_falls_back_and_rekeys(
     monkeypatch, fake_video, fake_reference_video, fake_stills
 ):
-    """still kwargs 제공 + 이미지 업로드 실패 → upper scope video 폴백 + 키 재산출
+    """still kwargs 제공 + inline 바이트 로드 실패 → upper scope video 폴백 + 키 재산출
     ('fi-' bucket) — 폴백 결과가 still-키 공간을 오염하지 않는다. 분석 흐름 중단 0.
     제공 PNG 는 호출 후에도 존재 — unlink 는 호출자(pair.cleanup_paths) 소유."""
     _in_memory_cache(monkeypatch)
     monkeypatch.setattr(gvs, "_ensure_client", lambda: _ImageClient())
     monkeypatch.setattr(gvs, "_upload_video", lambda *a, **k: _ActiveHandle())
 
-    def _upload_boom(*a, **k):
-        raise RuntimeError("Files API 업로드 실패")
+    def _inline_boom(*a, **k):
+        raise RuntimeError("inline 바이트 로드 실패")
 
-    monkeypatch.setattr(gvs, "_upload_image", _upload_boom)
+    # 27-04: still 은 inline — 폴백 trigger 는 _inline_image_part 실패 (업로드 아님).
+    monkeypatch.setattr(gvs, "_inline_image_part", _inline_boom)
     captured: list[dict] = []
     _hybrid_call_spy(monkeypatch, captured)
 

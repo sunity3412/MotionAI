@@ -881,6 +881,25 @@ def _upload_image(client, local_image_path: str):
     return uploaded
 
 
+def _inline_image_part(local_image_path: str):
+    """caller local still PNG → genai_types.Part (inline bytes) — 업로드/폴링/delete 0.
+
+    27-04 (27-RESEARCH Pattern 3): still 페어를 File API 로 업로드(_upload_image)하는 대신
+    바이트를 generate contents 에 직접 inline 한다. 업로드 2회+폴링+delete 가 소멸한다.
+    픽셀 동일(전송 방식만 변경) — 캐시 granularity bump 불필요, A6 무회귀는 27-09 EVAL18 이
+    최종 방어(D-01). inline 바이트는 로그에 남기지 않는다(V8 never-log 규율).
+
+    D-10 HIGH-2: 존재 가드 먼저 — 없는 still 파일이면 FileNotFoundError (caller 가 video 폴백).
+    """
+    from google.genai import types as genai_types  # lazy — top-level import 금지(D-16)
+
+    if not os.path.isfile(local_image_path):
+        raise FileNotFoundError(f"still 이미지 없음: {local_image_path}")
+    with open(local_image_path, "rb") as fh:
+        png_bytes = fh.read()
+    return genai_types.Part.from_bytes(data=png_bytes, mime_type="image/png")
+
+
 def _state_name(f) -> str:
     st = getattr(f, "state", None)
     if st is None:
@@ -1173,6 +1192,8 @@ def assess_fault_context_video(
     still_student_png: str | None = None,
     still_reference_png: str | None = None,
     still_frame_indices: list | None = None,
+    preuploaded_student_handle: object | None = None,
+    preuploaded_reference_handle: object | None = None,
 ) -> dict:
     """full-VIDEO 쌍 → 부위별 fan-out rich dict (Phase 24 close-out A, belle 2026-06-29).
 
@@ -1192,6 +1213,19 @@ def assess_fault_context_video(
     캐시: INPUT_GRANULARITY_WHOLE_FANOUT + (student, reference) 영상 hash PAIR → frame_pair
     키와 충돌 0. 결정론(eval cold/warm): rich dict round-trip 동일. 객관성/graceful 디시플린은
     assess_fault_context 와 동일(어떤 실패도 status='skipped_error').
+
+    세션 핸들 (27-04, D-04 레버): preuploaded_student_handle/preuploaded_reference_handle
+    이 **둘 다** 제공되면(still_* 와 동일 계약 스타일) 학생/기준 영상 자체 업로드(_upload_video)
+    를 skip 하고 그 핸들을 fan-out 에 재사용한다 — GeminiFileSession 이 분석당 1회만 업로드한
+    핸들 공유. finally 일괄 delete 는 **자체 업로드분만** 대상으로 하고 세션 소유 핸들은 제외한다
+    (여기서 지우면 같은 분석의 후속 호출이 404, T-27-08 — 세션 close() 가 일괄 delete). 일부만
+    제공되면 미제공 취급(둘 다 자체 업로드). 미주입 시 기존 동작 byte-동일.
+
+    still PNG inline (27-04, 27-RESEARCH Pattern 3): still 페어는 File API 업로드
+    (_upload_image)+폴링+delete 대신 genai_types.Part.from_bytes 로 generate contents 에 직접
+    inline 한다 — 업로드 2회+폴링+delete 가 0 으로 소멸. 픽셀 동일(전송 방식만 변경)이라 캐시
+    granularity bump 불필요 (90d038f stale-hit 사고와 구분: 입력 형태가 아닌 전송 방식만 변경).
+    A6 무회귀는 27-09 EVAL18 이 최종 방어 (D-01).
 
     하이브리드 granularity (quick 260705-h5z, g1d 계승): still_student_png/
     still_reference_png/still_frame_indices([user_idx, ref_idx]) 세 값이 **모두** 제공될
@@ -1280,26 +1314,37 @@ def assess_fault_context_video(
         cached["telemetry"] = tel
         return cached
 
+    # 세션 핸들 활성 = 둘 다 제공될 때만 (still_* 계약 스타일, 어중간한 상태 금지).
+    session_handles_active = (
+        preuploaded_student_handle is not None
+        and preuploaded_reference_handle is not None
+    )
     student_uploaded = None
     ref_uploaded = None
-    image_handles: list = []
+    # 자체 업로드분만 finally delete 대상 — 세션 소유 핸들은 세션 close() 가 지운다
+    # (여기서 지우면 후속 호출 404, T-27-08). inline still Part 는 File API 핸들이 아니라
+    # delete 대상 자체가 아니다.
+    self_uploaded: list = []
     try:
-        student_uploaded = _upload_video(client, student_video_path)
-        ref_uploaded = _upload_video(client, reference_video_path)
-        # 이미지 업로드는 별도 try — 실패 시 stills 폐기(=upper scope video 폴백)만 하고
+        if session_handles_active:
+            student_uploaded = preuploaded_student_handle
+            ref_uploaded = preuploaded_reference_handle
+        else:
+            student_uploaded = _upload_video(client, student_video_path)
+            ref_uploaded = _upload_video(client, reference_video_path)
+            self_uploaded.extend([student_uploaded, ref_uploaded])
+        # still PNG 는 inline Part 로 전송 (27-04 Pattern 3) — 업로드/폴링/delete 0.
+        # 바이트 읽기 실패(파일 없음 등) 시 stills 폐기(=upper scope video 폴백)만 하고
         # 전체 skipped_error 로 떨어뜨리지 않는다(요구: 해당 scope 만 폴백).
-        # MAX_VETO_UPLOADS=4 상한과 정합(2 video + 2 image = 4).
         upper_still_handles = None
         if stills is not None:
             try:
-                _ref_img = _upload_image(client, stills["reference_png"])
-                image_handles.append(_ref_img)
-                _stu_img = _upload_image(client, stills["student_png"])
-                image_handles.append(_stu_img)
+                _ref_img = _inline_image_part(stills["reference_png"])
+                _stu_img = _inline_image_part(stills["student_png"])
                 upper_still_handles = (_ref_img, _stu_img)
-            except Exception as exc:  # noqa: BLE001 - 이미지 업로드 실패 → video 폴백
+            except Exception as exc:  # noqa: BLE001 - inline 바이트 로드 실패 → video 폴백
                 log.warning(
-                    "정지 이미지 업로드 실패 — upper scope video 폴백 (graceful): %s", exc
+                    "정지 이미지 inline 로드 실패 — upper scope video 폴백 (graceful): %s", exc
                 )
                 upper_still_handles = None
                 # 키 재산출 (frame_indices=None) — 폴백 결과를 still-키 공간에 저장하면
@@ -1324,7 +1369,8 @@ def assess_fault_context_video(
         log.warning("video fan-out 실패 — skipped (graceful): %s", exc)
         return _skipped()
     finally:
-        for _handle in (student_uploaded, ref_uploaded, *image_handles):
+        # 자체 업로드분만 delete (세션 소유 핸들 제외 — T-27-08). still 은 inline 이라 대상 0.
+        for _handle in self_uploaded:
             _name = getattr(_handle, "name", None)
             if not _name:
                 continue
@@ -1333,12 +1379,15 @@ def assess_fault_context_video(
             except Exception:  # noqa: BLE001 - 정리 실패는 분석을 막지 않는다
                 log.warning("Gemini 업로드 파일 삭제 실패 (graceful): %s", _name)
         # 제공 still PNG 는 unlink 하지 않는다 — 소유권은 호출자(pipeline pair.cleanup_paths
-        # finally, D-10 HIGH-2 "정리는 생성처와 짝"). File API 핸들 delete 만 이 함수 책임.
+        # finally, D-10 HIGH-2 "정리는 생성처와 짝"). inline 전송이라 File API delete 없음.
 
     tel = dict(result.get("telemetry") or {})
     tel["cacheKey"] = key
     tel["cacheHit"] = False
     tel["inputGranularity"] = INPUT_GRANULARITY_WHOLE_FANOUT
+    # uploadCount = 실제 File API 업로드 수 (27-04): still 은 inline(0), 영상은 세션 핸들
+    # 재사용 시 0, 아니면 2. _run_part_frame_fanout 의 still-기반 추정치(4/2)를 실측으로 교정.
+    tel["uploadCount"] = 0 if session_handles_active else len(self_uploaded)
     result["telemetry"] = tel
     cache.store_rich(key, result)
     return result

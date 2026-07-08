@@ -975,13 +975,31 @@ Plans:
 ### Phase 29: 결과·비교 화면 완성 — Mode3 내역·줌, 비교영상, 가로 방향, 부상 대응법 (result-screen-completion)
 
 **Goal:** 결과 화면의 남은 파일럿 gap 일괄 해소 (시나리오 3/6/9). (a) ⑨ 부상 대응법 노출: `SafetyFlag.recommendation` 데이터가 있는데 `InjuryRiskSection`이 안 그리던 것 — 즉시 가능, 첫 plan. (b) ③ Mode3 점수 내역: 백엔드 Mode3 deductionBreakdown 방출 + 앱 게이트 확장 (gap #4). (c) ⑥ Mode3 확대비교 배선(`_attach_fault_zoom_comparisons` Mode3 확장, 타입 준비됨) + D1 비교영상(Mode1 회귀 확인 + Mode3에도 비교영상). (d) D4 진짜 가로 방향: expo-screen-orientation 전환(90도 회전 핵 폐기) — **새 EAS 빌드 필요, F1 expo-mail-composer와 같은 빌드에 동승**.
-**Requirements**: TBD
+**Requirements**: 신규 REQ ID 없음 — 커버리지 = 29-CONTEXT.md 결정 D-01~D-14
 **Depends on:** Phase 28 (비교영상·줌이 동작 정렬 결과물 소비)
-**Plans:** 0 plans
+**Plans:** 8 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 29 to break down)
+**Wave 1**
+
+- [ ] 29-01-PLAN.md — D-14 부상 대응법: InjuryRiskSection FLAG_COPY recommendation 행 (앱 전용, OTA-safe — recommendation 필드는 백엔드에 없음, 카피맵이 실체)
+- [ ] 29-02-PLAN.md — D-01/02/03 백엔드 mode3 tally seam: mode3_held tally-eligible + breakdown 방출 + overallScore=final (Wave 0 테스트 선행, Pod 미배포)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 29-03-PLAN.md — D-08 mode3 zoom 관절 소스 교체: |Δscore| top-2 → 감점 record 관절, improved 억제
+- [ ] 29-04-PLAN.md — 앱 mode3 결과 화면: 게이트 3곳 mode 무관화 + D-03 행동유도 + D-04 배너 통합 + D-05 한계 고지 + D-06/07 라벨·첫분석 안내 + D-10 워핑 검증
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 29-05-PLAN.md — D-02 검증 게이트: evals/phase29 (phase25 복제-확장) + Pod SERIAL sweep cold/warm → PASS 시 서버 재기동 (전환 조건)
+- [ ] 29-06-PLAN.md — D-09 D1 진단→fix: 재현(TTL 가설)→규명→/playback-url reference 재서명 확장 (화이트리스트 경유)
+- [ ] 29-07-PLAN.md — D-11/12 진짜 가로: expo-screen-orientation ~9.0.9 + 런타임 감지 분기 + 90° 핵 폴백 (정적 import 금지)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 29-08-PLAN.md — D-13 마감: phase gate + OTA 발행 + EAS 빌드 2종·iOS 무인 제출 (F1 동승) + 29-HUMAN-UAT.md 적립
 
 ### Phase 30: 성장 추적 개선 — 평균 기반·동작별 막대 (growth-tracking)
 

@@ -2666,8 +2666,12 @@ def _render_fault_zoom(
     advisory_deltas: dict[str, float] | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
     split_angle_present: bool = False,
-) -> dict:
-    """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → result.
+) -> list[dict]:
+    """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → comparisons 리스트.
+
+    Phase 27 SPD-04 (D-06) — 사후 분리로 전환하며 반환을 result 부착 대신 comparisons
+    list[dict] 반환으로 변경(호출측이 update_analysis_fault_zoom 로 사후 부착). `result`
+    인자는 결함/편차 read 용으로만 유지(사후 mutation 금지 — D-03 경계).
 
     Mode1(right=정은지) / Mode3(right=지난 영상) 공용. 한글 캡션/라벨은 앱이 부여
     (이미지엔 숫자만). graceful 은 호출측 try 가 담당.
@@ -2675,7 +2679,7 @@ def _render_fault_zoom(
     vision 측정 프레임(sourceFrameIndices median)과 crop 프레임 정합. None=기존 경로.
     advisory_joints/advisory_deltas (quick-260704-fz4): 측정 초과("참고·확인 권장")
     관절 — 별도 배치로 tier='advisory' 카드 생성. None/빈 리스트 = 기존 경로 100%
-    보존 (Mode3 _attach_mode3_fault_zoom 은 default None 무접촉). 채점 무접촉 —
+    보존 (Mode3 _build_mode3_fault_zoom_comparisons 은 default None 무접촉). 채점 무접촉 —
     카드 생성·방출만 ([[window-median-silent-seed-fp-reverted]]).
     split_angle_degs (quick-260705-r6x): legs(스플릿) 카드의 (학생 각도, 기준 각도)
     수치 — 호 옆 표기용. None=수치 생략(선+호만). Mode3 는 default None.
@@ -2687,7 +2691,7 @@ def _render_fault_zoom(
     from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
 
     if not fault_joints:
-        return result
+        return []
     ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
     user_frames = ext.extract(user_video_path)
     right_frames = ext.extract(right_video_path)
@@ -2760,12 +2764,11 @@ def _render_fault_zoom(
             if c.get("region"):
                 item["region"] = c["region"]
             out.append(item)
-    if out:
-        result["faultZoomComparisons"] = out
-    return result
+    # Phase 27 SPD-04 (D-06) — result 부착 대신 comparisons 반환 (사후 update 경로).
+    return out
 
 
-def _attach_fault_zoom_comparisons(
+def _build_fault_zoom_comparisons(
     result: dict,
     user_video_path: str | None,
     ref_video_path: str | None,
@@ -2776,14 +2779,17 @@ def _attach_fault_zoom_comparisons(
     analysis_id: str,
     bucket: str,
     dtw_match=None,
-) -> dict:
+) -> list[dict]:
     """Mode1 결함 부위 확대 비교 — 학생 vs 정은지. kind='deficit'(기준보다 부족).
 
     belle 2026-06-21 ([[fault-zoom-compare-and-phase24-true3d]]). 결함 관절 = veto
     faultJoints 우선, 없으면 편차 top-2. deficit = Gemini 시각 추정 우선/kismam 폴백.
+
+    Phase 27 SPD-04 (D-06) — comparisons list[dict] 반환(사후 update 경로). `result` 는
+    결함/편차 read 전용(사후 mutation 금지). 대상 부재/무결함 → 빈 리스트.
     """
     if not user_video_path or not ref_video_path or not user_report or not ref_report:
-        return result
+        return []
     from sunity_shared.analysis import vision_veto
 
     vv = result.get("visionVeto") or {}
@@ -2828,7 +2834,7 @@ def _attach_fault_zoom_comparisons(
             k for k, _ in sorted(joint_deltas.items(), key=lambda kv: -kv[1])[:2]
         ]
     if not fault_joints:
-        return result
+        return []
     kinds = {j: "deficit" for j in fault_joints}
     # advisory("측정 초과·확인 권장") 카드 배선 (quick-260704-fz4, CONTEXT locked).
     # windowMedianAngleDeltas(veto applied 에서만 존재 — Mode1 전용) 의 kismam
@@ -2897,7 +2903,7 @@ def _joint_scores(joints: list) -> dict[str, float]:
     return out
 
 
-def _attach_mode3_fault_zoom(
+def _build_mode3_fault_zoom_comparisons(
     result: dict,
     user_video_path: str | None,
     user_report: dict | None,
@@ -2906,32 +2912,35 @@ def _attach_mode3_fault_zoom(
     uid: str,
     analysis_id: str,
     bucket: str,
-) -> dict:
+) -> list[dict]:
     """Mode3 변화 부위 확대 비교 — 현재 vs 지난 영상. kind=improved/worsened.
 
     belle 2026-06-21 — 이전 영상 대비 어디가 좋아졌나/나빠졌나를 보여준다(mode3=
     progress, [[mode3-progress-not-similarity]]). 변화 관절 = 현재↔지난 per-joint
     score 차 최대 top-2. 방향 = score 증가→improved/감소→worsened(각도 수학 회피,
     정직). 지난 영상은 prev.result.myVideoKey 로 S3 다운로드(임시, 종료 후 정리).
+
+    Phase 27 SPD-04 (D-06) — comparisons list[dict] 반환(사후 update 경로). `result` 는
+    per-joint score read 전용(사후 mutation 금지). 대상 부재/무변화 → 빈 리스트.
     """
     if not user_video_path or not user_report or not prev:
-        return result
+        return []
     prev_result = prev.get("result") or {}
     prev_report = prev_result.get("keypointReport")
     prev_video_key = prev_result.get("myVideoKey")
     if not prev_report or not prev_video_key:
-        return result
+        return []
 
     curr_scores = _joint_scores(result.get("joints") or [])
     prev_scores = _joint_scores(prev_result.get("joints") or [])
     # 양쪽에 score 있는 관절만 — 변화량(|Δscore|) 최대 top-2.
     common = [k for k in curr_scores if k in prev_scores]
     if not common:
-        return result
+        return []
     common.sort(key=lambda k: -abs(curr_scores[k] - prev_scores[k]))
     change_joints = [k for k in common if abs(curr_scores[k] - prev_scores[k]) >= 1.0][:2]
     if not change_joints:
-        return result
+        return []
     kinds = {
         k: ("improved" if curr_scores[k] >= prev_scores[k] else "worsened")
         for k in change_joints
@@ -2956,6 +2965,51 @@ def _attach_mode3_fault_zoom(
         )
     finally:
         _safe_unlink_local_video(prev_video_path)
+
+
+def _run_deferred_fault_zoom(
+    *,
+    render,
+    uid: str,
+    analysis_id: str,
+) -> None:
+    """complete_analysis 이후 zoom 렌더 → update_analysis_fault_zoom 부분 업데이트.
+
+    Phase 27 SPD-04 (D-06) — 점수/verdict/감점 내역은 이미 complete(status='done')됐고,
+    zoom PNG 는 표현물이라 여기서 렌더해 사후 도착시킨다(time-to-first-result 단축).
+    분석은 이미 complete 이므로 어떤 경로도 재raise 하지 않는다(부가 기능 비차단 규율):
+
+      · render() 성공 → done + comparisons(빈 리스트 허용 — 무결함 = 카드 없음, 고아 아님).
+      · render() 예외 → failed(빈 리스트) + log.warning (앱은 카드 자리 숨김).
+      · failed write 자체 실패 → log.exception 만 — 앱은 pending 고아 상태가 될 수 있으나
+        27-07 의 시간 상한 폴백이 방어한다(T-27-17, 주석 박제).
+
+    Args:
+      render: () -> list[dict] — _build_fault_zoom_comparisons /
+        _build_mode3_fault_zoom_comparisons 를 감싼 thunk (인자 바인딩은 caller).
+    """
+    try:
+        comparisons = render()
+        firestore_admin.update_analysis_fault_zoom(
+            uid, analysis_id, comparisons or [],
+            status=models.FAULT_ZOOM_STATUS_DONE,
+        )
+    except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석 비차단 (graceful)
+        log.warning(
+            "fault-zoom 사후 렌더 실패 — failed 마킹 시도 (분석은 이미 complete) "
+            "uid=%s analysis_id=%s", uid, analysis_id,
+        )
+        try:
+            firestore_admin.update_analysis_fault_zoom(
+                uid, analysis_id, [], status=models.FAULT_ZOOM_STATUS_FAILED,
+            )
+        except Exception:  # noqa: BLE001 - failed write 실패 = pending 고아 가능
+            # 앱 27-07 시간 상한 폴백이 방어 (분석은 이미 complete 이므로 재raise 0).
+            log.exception(
+                "fault-zoom failed 마킹 write 실패 — pending 고아 가능 "
+                "(앱 27-07 시간 상한 폴백 방어) uid=%s analysis_id=%s",
+                uid, analysis_id,
+            )
 
 
 def _extension_target_dict(
@@ -3968,7 +4022,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             log.exception("vision-fault tips 재조립 실패 — 기존 tips 유지")
         # fault-zoom (belle 2026-06-21) — 기준 영상은 아래 확대 비교 생성까지 살려두고
         # outer finally 가 정리한다(veto 직후 unlink 제거). keypoint_report_dict 빌드 후
-        # _attach_fault_zoom_comparisons 호출 (그 시점에 reference_local_video_path 유효).
+        # _build_fault_zoom_comparisons 는 complete 이후 사후 렌더 (Phase 27 SPD-04 D-06 —
+        # reference_local_video_path 는 outer finally unlink 前이라 그 시점에도 유효).
         # Phase 20-03 TRUST-07 — Mode3 미보유/저신뢰 점수 억제 (branch-3, D-08).
         # MODE_SELF 전용 (Mode1 은 reference 비교라 미보유 개념 없음). resolver provenance +
         # reason-owns-copy scoringBasisLabel + A2 structured audit + producer-contract fail-loud.
@@ -4251,59 +4306,28 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             else None
         )
 
-        # fault-zoom (belle 2026-06-21) — Mode1 결함 부위 확대 비교 이미지 생성.
-        # keypoint_report_dict(user) + reference_keypoint_report_dict(ref doc) + 아직
-        # 살아있는 reference_local_video_path 로 worst-pose crop 합성 → S3 → result.
-        # graceful: 어떤 실패도 분석 흐름 차단 0 (부가 기능). Mode3 는 reference 없음 → skip.
-        # Phase 27 SPD-01 — fault_zoom 단계 계측 (Mode1/Mode3 확대 비교 합성 + S3 업로드).
-        with _stage(timings_ms, analysis_id, "fault_zoom"):
-            if (
-                mode == models.MODE_EXPERT
-                and reference_local_video_path is not None
-                and keypoint_report_dict is not None
-            ):
-                try:
-                    result = _attach_fault_zoom_comparisons(
-                        result,
-                        local_video_path,
-                        reference_local_video_path,
-                        keypoint_report_dict,
-                        reference_keypoint_report_dict,
-                        profile,
-                        uid,
-                        analysis_id,
-                        bucket,
-                        dtw_match=reference_dtw_match,
-                    )
-                except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
-                    log.exception(
-                        "fault-zoom 생성 실패 — graceful (분석 흐름 유지) "
-                        "uid=%s analysis_id=%s",
-                        uid, analysis_id,
-                    )
-            elif (
-                mode == models.MODE_SELF
-                and mode3_prev is not None
-                and keypoint_report_dict is not None
-            ):
-                # Mode3 — 현재 vs 지난 영상 변화 부위 확대 비교 (mode3=progress).
-                try:
-                    result = _attach_mode3_fault_zoom(
-                        result,
-                        local_video_path,
-                        keypoint_report_dict,
-                        mode3_prev,
-                        profile,
-                        uid,
-                        analysis_id,
-                        bucket,
-                    )
-                except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석을 막지 않음
-                    log.exception(
-                        "fault-zoom Mode3 생성 실패 — graceful (분석 흐름 유지) "
-                        "uid=%s analysis_id=%s",
-                        uid, analysis_id,
-                    )
+        # fault-zoom (belle 2026-06-21) — Phase 27 SPD-04 (D-06) 사후 분리.
+        # 렌더(ffmpeg 재디코딩 + crop 합성 + S3 업로드 = 후처리 주요분)는 complete_analysis
+        # **이후**로 이동한다(아래 firestore_complete 블록 뒤). 여기서는 zoom 대상 존재
+        # 여부만 판정해 pending 마커를 남긴다 — 점수를 먼저 앱에 도착시켜 체감 완료 시점을
+        # 앞당긴다(time-to-first-result). 대상 없으면 faultZoomStatus 필드 자체 생략
+        # (하위호환 판정 규칙 정합 — 부재=comparisons 유무로 판정). scalar 라 기존 complete
+        # 검증 통과. 조건은 기존 Mode1/Mode3 호출부 게이트 그대로 재사용.
+        fault_zoom_kind: str | None = None
+        if (
+            mode == models.MODE_EXPERT
+            and reference_local_video_path is not None
+            and keypoint_report_dict is not None
+        ):
+            fault_zoom_kind = "mode1"
+        elif (
+            mode == models.MODE_SELF
+            and mode3_prev is not None
+            and keypoint_report_dict is not None
+        ):
+            fault_zoom_kind = "mode3"
+        if fault_zoom_kind is not None:
+            result["faultZoomStatus"] = models.FAULT_ZOOM_STATUS_PENDING
 
         # ── Plan 04-01 Wave 1 (Phase 4) — Occlusion 합성 어댑터 호출 ──────────
         # R1 non-scoring 하드월: 본 분기는 KeypointReport / aiSynthesisMeta /
@@ -4431,6 +4455,47 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 space=space_str,
             )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
+
+        # Phase 27 SPD-04 (D-06) — fault_zoom 사후 렌더. complete_analysis 로 점수/verdict/
+        # 감점 내역이 확정된 뒤(status='done'), zoom PNG 를 여기서 렌더해
+        # update_analysis_fault_zoom(done/failed) 부분 업데이트로 도착시킨다. **분석 간
+        # SERIAL 불변** — 다음 분석은 이 BackgroundTask 종료(finally) 후에만 시작하므로
+        # 별도 태스크 불필요(27-RESEARCH Pattern 5). local_video_path/
+        # reference_local_video_path 는 아래 outer finally unlink **前**이라 여기서 유효
+        # (조기 raise 경로는 complete 미도달 → 이 블록/ pending 마커 모두 미실행 →
+        # zoom 이 살아있는 temp 파일을 참조하지 못하는 경우 없음, Pitfall 3). fault_zoom
+        # stage 로그는 계속 방출하되 timings_ms 는 이미 저장됨 → 사후 zoom 소요는 로그
+        # 라인으로만(= MEDIUM-3 두-지표 분리의 데이터 소스: complete 까지 timingsMs 합 =
+        # time-to-first-result, + 사후 fault_zoom 로그 = server task 총 시간).
+        if fault_zoom_kind is not None:
+            with _stage(timings_ms, analysis_id, "fault_zoom"):
+                if fault_zoom_kind == "mode1":
+                    _zoom_render = lambda: _build_fault_zoom_comparisons(
+                        result,
+                        local_video_path,
+                        reference_local_video_path,
+                        keypoint_report_dict,
+                        reference_keypoint_report_dict,
+                        profile,
+                        uid,
+                        analysis_id,
+                        bucket,
+                        dtw_match=reference_dtw_match,
+                    )
+                else:  # mode3 — 현재 vs 지난 영상 변화 부위 확대 비교 (mode3=progress)
+                    _zoom_render = lambda: _build_mode3_fault_zoom_comparisons(
+                        result,
+                        local_video_path,
+                        keypoint_report_dict,
+                        mode3_prev,
+                        profile,
+                        uid,
+                        analysis_id,
+                        bucket,
+                    )
+                _run_deferred_fault_zoom(
+                    render=_zoom_render, uid=uid, analysis_id=analysis_id
+                )
     finally:
         # Phase 27 D-04 — 세션 File API 핸들 일괄 delete = 분석당 1회 (unlink 보다 앞).
         # NoHuman/NotPole 조기 raise 경로 포함 도달 보장 (Pitfall 2) — 20GB 적체 재발 방지.

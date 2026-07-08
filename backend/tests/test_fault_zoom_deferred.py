@@ -13,9 +13,18 @@ test_firestore_admin_gemini_cache.py mock 관례 따름 (+ `.update()` 지원).
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
+
+# pipeline/app.py + shared layer path 주입 (Task 2/3 오케스트레이션 테스트용).
+_PIPELINE = Path(__file__).resolve().parents[1] / "functions" / "pipeline"
+_SHARED = Path(__file__).resolve().parents[1] / "shared" / "python"
+for _p in (_PIPELINE, _SHARED):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 
 # ─────────────────── mock Firestore 인프라 (.update() 지원) ───────────────────
@@ -141,3 +150,83 @@ def test_fault_zoom_status_not_in_pipeline_sequence() -> None:
         if s == "done":
             continue  # STATUS_DONE 과 문자열만 우연히 같음 — 별개 상수.
         assert s not in models.PIPELINE_SEQUENCE
+
+
+# ─────────────────── Task 2: _run_deferred_fault_zoom 오케스트레이션 ───────────────────
+
+
+class _UpdateSpy:
+    """firestore_admin.update_analysis_fault_zoom mock — 호출 인자 캡처.
+
+    fail_on_status: 이 status 로 호출되면 예외 발생 (failed write 실패 시나리오).
+    """
+
+    def __init__(self, fail_on_status: str | None = None) -> None:
+        self.calls: list[tuple[str, str, list, str]] = []
+        self.fail_on_status = fail_on_status
+
+    def __call__(self, uid, analysis_id, comparisons, status) -> None:
+        self.calls.append((uid, analysis_id, list(comparisons), status))
+        if self.fail_on_status is not None and status == self.fail_on_status:
+            raise RuntimeError("firestore update failed (mock)")
+
+
+@pytest.fixture
+def pipeline_app(monkeypatch):
+    import app  # noqa: E402 — path 주입 후 지연 import (모듈 전역 부작용 격리)
+
+    return app
+
+
+def test_deferred_success_writes_done_once(pipeline_app, monkeypatch) -> None:
+    """렌더 성공 → update(done) 정확히 1회 + comparisons 전달."""
+    spy = _UpdateSpy()
+    monkeypatch.setattr(
+        pipeline_app.firestore_admin, "update_analysis_fault_zoom", spy
+    )
+    comps = [{"joint": "left_knee", "imageUrl": "x"}]
+    pipeline_app._run_deferred_fault_zoom(
+        render=lambda: comps, uid="u1", analysis_id="a1"
+    )
+    assert len(spy.calls) == 1
+    uid, aid, sent, status = spy.calls[0]
+    assert (uid, aid, status) == ("u1", "a1", "done")
+    assert sent == comps
+
+
+def test_deferred_render_exception_writes_failed(pipeline_app, monkeypatch) -> None:
+    """렌더 예외 → update(failed) 호출 (빈 리스트) + 재raise 없음 (비차단)."""
+    spy = _UpdateSpy()
+    monkeypatch.setattr(
+        pipeline_app.firestore_admin, "update_analysis_fault_zoom", spy
+    )
+
+    def _boom():
+        raise RuntimeError("render boom")
+
+    # 재raise 되지 않아야 한다 (분석은 이미 complete).
+    pipeline_app._run_deferred_fault_zoom(
+        render=_boom, uid="u1", analysis_id="a1"
+    )
+    assert len(spy.calls) == 1
+    _, _, sent, status = spy.calls[0]
+    assert status == "failed"
+    assert sent == []
+
+
+def test_deferred_failed_write_exception_swallowed(pipeline_app, monkeypatch) -> None:
+    """렌더 예외 + failed write 자체 실패 → 예외 삼킴 (pending 고아 허용, 27-07 방어)."""
+    spy = _UpdateSpy(fail_on_status="failed")
+    monkeypatch.setattr(
+        pipeline_app.firestore_admin, "update_analysis_fault_zoom", spy
+    )
+
+    def _boom():
+        raise RuntimeError("render boom")
+
+    # failed write 가 예외를 던져도 _run_deferred_fault_zoom 은 재raise 하지 않는다.
+    pipeline_app._run_deferred_fault_zoom(
+        render=_boom, uid="u1", analysis_id="a1"
+    )
+    # done 시도 없음(render 실패) → failed 1회만 시도됨.
+    assert [c[3] for c in spy.calls] == ["failed"]

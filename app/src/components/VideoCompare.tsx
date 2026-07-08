@@ -312,10 +312,23 @@ export function VideoCompare({
     const a = alignmentRef.current;
     return a && a.tier !== 'disabled' ? warpTime(a, tStudent) : tStudent;
   };
+  // WR-01 — 정렬 활성 경로에서만 warp 목표시각을 [0, dR] 로 클램프. warpTime 은 범위
+  // 밖을 기울기 1.0 으로 연장하므로 u0>r0(학생 준비 구간 > 정은지 트림 시작)이면
+  // warp(cL)<0 구간이 생겨, 플레이어가 음수를 0 으로 무는 동안 drift 가 임계를 계속
+  // 넘어 매 tick(100ms) 음수 seek 를 발사(정은지 프레임0 버벅). 끝쪽 warp>dR 초과
+  // seek 도 차단. 비활성(legacy) = identity 무클램프 → 절대시계 byte-동일 보존.
+  const clampRefTarget = (tStudent: number, dR: number): number => {
+    const a = alignmentRef.current;
+    const raw = a && a.tier !== 'disabled' ? warpTime(a, tStudent) : tStudent;
+    if (!a || a.tier === 'disabled') return raw; // legacy identity — 무클램프
+    return dR > 0 ? Math.max(0, Math.min(raw, dR)) : Math.max(0, raw);
+  };
   // right 쓰기의 유일한 warp 경유 지점 (MEDIUM-1 코드 형태 규율) — 정렬 활성 경로의
   // rightPlayer.currentTime 대입은 전부 여기로 격리, 비활성 시 identity 라 legacy 동일.
   const setRightToStudentTime = (tStudent: number) => {
-    if (rightPlayer) rightPlayer.currentTime = targetRefTime(tStudent);
+    if (rightPlayer) {
+      rightPlayer.currentTime = clampRefTarget(tStudent, rightPlayer.duration ?? 0);
+    }
   };
   // legacy 절대 동기 전용 (부재/disabled 경로) — 호출은 반드시 `!alignmentActive`
   // 가드 분기 안에서만. 리뷰 MEDIUM-1: 절대시간 대입이 정렬 활성 경로에 새는 것
@@ -366,9 +379,13 @@ export function VideoCompare({
           //   이 tick seek=feedback 안전망 (A2 — expo-video rate 지연 미문서화,
           //   0.2s 내 동기 보장). 끝부분 진입 전에만 보정(left 기준).
           if (cL < dL - 0.1) {
-            const drift = Math.abs(cR - targetRefTime(cL));
+            // WR-01 — 클램프된 목표와 cR 의 차이로 drift 판정. 클램프 없이 음수
+            // target 이면 플레이어가 cR 을 0 으로 물어 drift 가 영구히 임계 초과 →
+            // seek 폭풍. 클램프 후 임계 이하면 seek 생략(정은지 시작 프레임 자연 대기).
+            const target = clampRefTarget(cL, dR);
+            const drift = Math.abs(cR - target);
             if (drift > DRIFT_CORRECT_THRESHOLD_S) {
-              setRightToStudentTime(cL);
+              rightPlayer.currentTime = target;
             }
           }
         } else if (shorter > 0 && Math.max(cL, cR) < shorter - 0.1) {

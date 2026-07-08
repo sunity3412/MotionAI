@@ -218,6 +218,7 @@
 | TERM-COPY-01 | Phase 16 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 27 total (22 + 5 신설 2026-06-19 Phase 20)
 - Mapped to phases: 27 ✓
 - Unmapped: 0

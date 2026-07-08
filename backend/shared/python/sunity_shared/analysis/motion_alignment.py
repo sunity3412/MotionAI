@@ -23,6 +23,8 @@ distance 임계 출처 (calibration-source-hard-gate):
 
 from __future__ import annotations
 
+import math
+
 # 프로덕션 distance 임계 — vision_veto._ALIGN_GLOBAL_T1/T2 값 재사용 (cross-import 대신
 # 값 복제 + Task 2 lockstep 테스트로 drift 차단; D-03 calibration-source-hard-gate).
 DISTANCE_T1 = 8.0   # == vision_veto._ALIGN_GLOBAL_T1 (글로벌 1차 임계)
@@ -71,8 +73,19 @@ def build_motion_alignment(match, *, user_fps: float, ref_fps: float) -> dict | 
     if match is None:
         return None
 
-    # 방어적 접근 (vision_veto getattr 패턴).
-    distance = float(getattr(match, "distance", 0.0) or 0.0)
+    # 방어적 접근 (vision_veto getattr 패턴). non-finite(NaN/inf) → 0.0 정규화 (WR-03):
+    # `float('nan') or 0.0` 은 NaN 이 truthy 라 그대로 남아 tier 비교(NaN<=8.0=False)를
+    # 전부 통과해 'disabled' 로 방출되고, firestore_admin._validate_motion_alignment 의
+    # distance-finite 검사가 complete_analysis 에서 raise → 채점이 끝난 분석이 표시 전용
+    # 필드 때문에 통째로 fail_analysis 된다 (helper 의 '방출 실패 비차단' 약속과 모순).
+    # 방출 시점 1줄 방어로 차단. inf/NaN/None/비수치 모두 0.0.
+    _raw_distance = getattr(match, "distance", 0.0)
+    try:
+        distance = float(_raw_distance)
+        if not math.isfinite(distance):
+            distance = 0.0
+    except (TypeError, ValueError):
+        distance = 0.0
 
     if user_fps is None or ref_fps is None or user_fps <= 0 or ref_fps <= 0:
         return _disabled(distance, "invalid_fps")

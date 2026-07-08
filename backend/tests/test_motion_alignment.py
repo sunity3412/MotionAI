@@ -14,6 +14,8 @@ vs ref 18fps) 회귀 가드. 채점 무접촉 — 순수 함수 계약만 검증
 
 from __future__ import annotations
 
+import math
+
 from sunity_shared.analysis import motion_alignment  # RED: 28-02 구현 전 collection error
 from sunity_shared.analysis.motiondtw import MotionMatch
 
@@ -87,6 +89,28 @@ def test_insufficient_anchors_emits_disabled():
     assert r["tier"] == "disabled"
     assert r["reason"] == "insufficient_anchors"
     assert r["anchors"] == []
+
+
+def test_nonfinite_distance_sanitized_to_finite():
+    """non-finite match.distance(NaN/inf) → 방출 distance 는 유한(0.0) (WR-03).
+
+    `float('nan') or 0.0` 은 NaN 이 truthy 라 그대로 남아 validator 의 distance-finite
+    검사가 complete_analysis 에서 raise → 표시 전용 필드가 분석 전체를 fail 시킨다.
+    방출 시점에서 정규화됨을 못 박고, 방출 dict 가 firestore validator 를 raise 없이
+    통과함을 확인한다 (표시 필드 때문에 분석이 죽지 않음).
+    """
+    from sunity_shared import firestore_admin
+
+    path = [(i, i) for i in range(10)]
+    for bad in (float("nan"), float("inf"), float("-inf")):
+        r = motion_alignment.build_motion_alignment(
+            _match(path, distance=bad), user_fps=9.0, ref_fps=9.0
+        )
+        assert r is not None
+        assert math.isfinite(r["distance"]), f"distance {bad} 미정규화"
+        assert r["distance"] == 0.0
+        # validator 가 raise 하지 않아야 한다 (표시 필드가 분석 비차단).
+        firestore_admin._validate_motion_alignment(r)
 
 
 # ── 2. 초 단위 + fps 변환 (Pitfall 1 회귀 가드) ───────────────────────────────

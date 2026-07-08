@@ -92,9 +92,14 @@ class TestUploadFailedGraceful:
         bad_handle = session.get_or_upload("/tmp/broken.mp4")
         assert bad_handle is None
 
-        # 실패 핸들은 캐시에 없음 → close() 는 delete 0 (성공분만 정리).
+        # 27-09 fix: 업로드는 성공했으므로 orphan 을 즉시 best-effort delete
+        # (T-27-06 누수 0 — 폴링 실패 시 caller 는 None 만 받아 아무도 지우지 않음).
+        assert bad_files.delete_calls == 1
+        assert bad_files.deleted_names == bad_files.uploaded_names
+
+        # 실패 핸들은 캐시에 없음 → close() 는 추가 delete 0 (성공분만 정리).
         session.close()
-        assert bad_files.delete_calls == 0
+        assert bad_files.delete_calls == 1
 
         # 재조회 시 다시 업로드 시도 여지(None 은 캐시 금지).
         session.get_or_upload("/tmp/broken.mp4")
@@ -107,6 +112,42 @@ class TestUploadFailedGraceful:
         session.get_or_upload("/tmp/b.mp4")
         session.close()
         assert files.delete_calls == 2
+
+
+# ─────────── Test 4b: 폴링 실패 orphan 정리 (27-09 스모크 503 실증, T-27-06) ───────────
+
+
+class _Get503Files(FakeFiles):
+    """files.get 이 503 APIError 를 던지는 FakeFiles — 27-09 스모크 실증 경로 재현.
+
+    업로드는 성공(PROCESSING) → 첫 폴링 files.get 503 → graceful None. 이때 파일은
+    이미 File API 에 존재 — orphan 즉시 delete 가 없으면 적체 (2026-07-08 실증 2.25MB).
+    """
+
+    def __init__(self) -> None:
+        super().__init__(upload_state="PROCESSING")
+
+    def get(self, *, name: str) -> FakeFile:
+        from google.genai import errors as genai_errors
+
+        self.get_calls += 1
+        raise genai_errors.APIError(503, {"error": {"message": "unavailable"}})
+
+
+class TestOrphanCleanupOnPollFailure:
+    def test_get_503_deletes_orphan_upload(self) -> None:
+        files = _Get503Files()
+        session = GeminiFileSession(client_factory=_factory(files))
+
+        handle = session.get_or_upload("/tmp/student.mp4")
+        assert handle is None  # graceful — 분석 비차단
+        # 업로드된 파일이 orphan 으로 남지 않는다 (즉시 best-effort delete).
+        assert files.delete_calls == 1
+        assert files.deleted_names == files.uploaded_names
+
+        # close() 는 성공분만 정리 — 추가 delete 0.
+        session.close()
+        assert files.delete_calls == 1
 
 
 # ─────────────────── Test 5: delete 예외 best-effort (raise 안 함) ───────────────────

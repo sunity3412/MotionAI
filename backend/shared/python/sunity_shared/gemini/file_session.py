@@ -177,6 +177,29 @@ class GeminiFileSession:
                     pass
 
     def _wait_for_active(self, client: Any, uploaded: Any) -> Any | None:
+        """ACTIVE 폴링 + 실패 시 orphan 정리 (27-09 스모크 실증 — T-27-06 누수 0).
+
+        업로드 자체는 성공한 뒤 폴링이 실패(503 APIError/timeout/FAILED)하면 None 을
+        반환하는데, 이때 파일은 이미 File API 에 존재하고 caller 는 None 만 받아
+        아무도 delete 하지 않는다 — orphan 적체 (20GB 사고 계보, 2026-07-08 스모크에서
+        files.get 503 → 2.25MB orphan 실증). None 반환 전 best-effort delete.
+        """
+        result = self._poll_active(client, uploaded)
+        if result is None:
+            name = getattr(uploaded, "name", None)
+            if name:
+                try:
+                    client.files.delete(name=name)
+                    log.warning(
+                        "GeminiFileSession orphan 업로드 정리 (graceful): %s", name
+                    )
+                except Exception:  # noqa: BLE001 - 정리 실패는 분석을 막지 않는다
+                    log.warning(
+                        "GeminiFileSession orphan 정리 실패 (graceful): %s", name
+                    )
+        return result
+
+    def _poll_active(self, client: Any, uploaded: Any) -> Any | None:
         """Files API state machine — ACTIVE 면 객체, FAILED/timeout 면 None (graceful)."""
         import time
 

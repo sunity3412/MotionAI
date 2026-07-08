@@ -164,7 +164,7 @@ class GeminiVisionCall(Generic[T]):
     allow_coords: bool = False
     api_key_loader: Callable[[], str] | None = None
 
-    def call(self, video_path: str) -> T | None:
+    def call(self, video_path: str, *, preuploaded_handle: Any = None) -> T | None:
         """video_path → schema 인스턴스 또는 None (graceful 폴백).
 
         graceful 폴백 trigger (return None):
@@ -180,6 +180,11 @@ class GeminiVisionCall(Generic[T]):
 
         Args:
           video_path: 로컬 영상 path (Lambda /tmp 또는 Pod tmpfs).
+          preuploaded_handle: GeminiFileSession 이 이미 업로드+ACTIVE 대기까지 끝낸
+            File API 핸들(keyword-only, default None). 주입 시 Step 2(업로드)~Step 3(폴링)
+            을 skip 하고 generate 만 수행하며, **finally delete 도 skip** 한다 — 핸들
+            소유권은 세션(27-03). 미주입 시 기존 동작이 byte-동일 (기본값 무변경 —
+            RunPod server.py/기존 호출부 무수정 원칙, 27-RESEARCH Pattern 1).
 
         Returns:
           schema 인스턴스 또는 None.
@@ -204,8 +209,16 @@ class GeminiVisionCall(Generic[T]):
             )
             return None
 
-        # ── Step 2: Client 생성 + Files API upload.
         client = genai.Client(api_key=api_key)
+
+        # ── 핸들 주입 경로(27-03): 업로드/폴링/finally delete 전부 skip.
+        #    핸들 소유권 = GeminiFileSession — 세션 close() 가 일괄 delete. 여기서 지우면
+        #    같은 분석의 후속 호출이 404 (T-27-08). 세션이 ACTIVE 까지 보장하므로 generate 직행.
+        if preuploaded_handle is not None:
+            config = self._build_config()
+            return self._generate_with_retry(client, preuploaded_handle, config)
+
+        # ── Step 2: Files API upload (핸들 미주입 — 기존 경로 byte-동일).
         mime_type = _mime_type_for(video_path)
         try:
             uploaded = client.files.upload(

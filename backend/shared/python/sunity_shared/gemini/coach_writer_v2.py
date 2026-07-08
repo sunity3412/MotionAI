@@ -431,6 +431,14 @@ class GeminiCoachWriter:
     def write(self, context: dict) -> dict:
         """**B3 hard gate 시그니처** — `CerebrasCoachWriter.write(context: dict) -> dict` 와 100% 동일.
 
+        preuploaded_handle (27-04): GeminiFileSession 핸들은 **context dict 의
+        `preuploadedHandle` 키**로 전달한다 (write() 시그니처는 B3 hard gate 상 self/context
+        고정 — videoPath/sceneFlags/visionFault 와 동일한 context-확장 패턴). 주입 시 retry
+        각 attempt 가 재업로드 없이 generate 만 반복한다 (Pitfall 8 해소 — 과거엔 attempt
+        마다 1회용 GeminiVisionCall 이 업로드+finally delete 를 반복). 소유권 = 세션(client.py
+        가 주입 시 finally delete skip). 미주입(None)이면 기존 attempt-당 업로드+delete 폴백
+        (client.py 경로라 누수 0). Cerebras write 는 이 키를 무시(text-only, graceful).
+
         context dict keys:
           기존 (Cerebras 와 공유):
             mode: str
@@ -461,6 +469,10 @@ class GeminiCoachWriter:
 
         scene_flags = context.get("sceneFlags") or None
         vision_fault = context.get("visionFault") or None
+        # 27-04: 세션 핸들 (없으면 None → 기존 attempt-당 업로드 폴백). retry 는 이 핸들을
+        # 재사용해 generate 만 반복 — 재업로드 0 (Pitfall 8). client.py 가 소유권=세션이면
+        # finally delete skip.
+        preuploaded_handle = context.get("preuploadedHandle")
         prompt = _build_prompt(joints, scene_flags=scene_flags, vision_fault=vision_fault)
 
         # ── (3) Gemini 호출 + 후처리 검증 retry 1회.
@@ -471,7 +483,9 @@ class GeminiCoachWriter:
 
             start = time.monotonic()
             try:
-                parsed: CoachPayload | None = call.call(video_path)
+                parsed: CoachPayload | None = call.call(
+                    video_path, preuploaded_handle=preuploaded_handle
+                )
             except Exception as exc:  # noqa: BLE001 - graceful skip
                 log.warning(
                     "GeminiCoachWriter call raise (attempt=%d): %s", attempt, exc

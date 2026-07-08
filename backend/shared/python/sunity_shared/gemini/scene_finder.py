@@ -137,6 +137,8 @@ def _empty_flag_dict(model: str, error: str | None = None) -> dict[str, Any]:
 def find_scene_flags(
     video_path: str,
     is_reference: bool = False,
+    *,
+    preuploaded_handle: Any = None,
 ) -> dict[str, Any] | None:
     """영상 path → Finding 4 flag + 메타 dict 박제 (graceful 폴백).
 
@@ -152,6 +154,10 @@ def find_scene_flags(
         (bool), notes_ko (str ≤ 200자), model / tokens_used / latency_ms (meta),
         guardrail_triggered (None 또는 'G4_reference_occlusion_fp'),
         error (None 또는 'api_or_schema_fail').
+
+      preuploaded_handle: GeminiFileSession 이 업로드+ACTIVE 대기까지 끝낸 File API 핸들
+        (keyword-only, default None). 주입 시 GeminiVisionCall 이 업로드/폴링/delete 를
+        skip 한다 — 소유권은 세션(27-04). 미주입 시 기존 자체 업로드 동작 byte-동일.
 
     Raises:
       ValueError: resolve_model 가 ALLOWED_MODELS 박제 외 model 거부 (graceful X).
@@ -170,7 +176,9 @@ def find_scene_flags(
 
     start = time.monotonic()
     try:
-        parsed: FindingFlags | None = call.call(video_path)
+        parsed: FindingFlags | None = call.call(
+            video_path, preuploaded_handle=preuploaded_handle
+        )
     finally:
         latency_ms = int((time.monotonic() - start) * 1000)
 

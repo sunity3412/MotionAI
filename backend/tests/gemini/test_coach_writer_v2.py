@@ -58,8 +58,11 @@ class _StubCall:
         self.model = kwargs.get("model", "")
         return self
 
-    def call(self, video_path: str) -> Any:
+    def call(self, video_path: str, *, preuploaded_handle: Any = None) -> Any:
+        # 27-04: 실 GeminiVisionCall.call 이 preuploaded_handle keyword 를 수용하므로 stub 도 정합.
         self.call_paths.append(video_path)
+        self.preuploaded_handles = getattr(self, "preuploaded_handles", [])
+        self.preuploaded_handles.append(preuploaded_handle)
         self.prompts.append(getattr(self, "prompt", ""))
         idx = min(self._idx, len(self._results) - 1)
         result = self._results[idx]

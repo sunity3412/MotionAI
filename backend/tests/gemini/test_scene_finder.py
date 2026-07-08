@@ -39,8 +39,11 @@ class _StubCall:
         self.init_kwargs = dict(kwargs)
         return self
 
-    def call(self, video_path: str) -> Any:  # noqa: D401
+    def call(self, video_path: str, *, preuploaded_handle: Any = None) -> Any:  # noqa: D401
+        # 27-04: 실 GeminiVisionCall.call 이 preuploaded_handle keyword 를 수용하므로 stub 도 정합.
         self.call_paths.append(video_path)
+        self.preuploaded_handles = getattr(self, "preuploaded_handles", [])
+        self.preuploaded_handles.append(preuploaded_handle)
         return self.result
 
 

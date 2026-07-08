@@ -375,7 +375,10 @@ class _StubExtractor(GeminiMomentExtractor):
         self._stub_response = stub_response
         self.call_count = 0
 
-    def _call_gemini(self, video_uri: str, motion: str) -> str:
+    def _call_gemini(
+        self, video_uri: str, motion: str, *, preuploaded_handle=None
+    ) -> str:
+        # 27-04: base 가 preuploaded_handle kwarg 를 전달하므로 stub 도 수용 (무시).
         self.call_count += 1
         return self._stub_response
 

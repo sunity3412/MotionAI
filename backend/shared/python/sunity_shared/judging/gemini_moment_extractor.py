@@ -286,12 +286,20 @@ class GeminiMomentExtractor:
         self,
         video_uri: str,
         motion: str,
+        *,
+        preuploaded_handle: Any = None,
     ) -> list[KeyMoment]:
         """video_uri (로컬 path 또는 file:// URI) 에서 motion 의 key moment list 추출.
 
         반환 list 는 frame_index 미정 (추출 시점에는 timestamp 만). caller (spike)
         가 영상 fps + frame 수로 frame_index 채워서 `validate()` 수행 — 본 메서드는
         timestamp 만 보장하는 1차 추출.
+
+        Args:
+          preuploaded_handle: GeminiFileSession 이 업로드+ACTIVE 대기까지 끝낸 File API
+            핸들(keyword-only, default None). 주입 시 File API 업로드/폴링/delete 를 skip
+            한다 — 핸들 소유권은 세션(27-03/27-04). 미주입 시 기존 self-upload 동작 유지
+            (byte-동일). 어댑터는 세션 존재를 모른다 — **핸들만** 받아 결합 최소화.
 
         Raises:
           ValueError: Gemini 응답이 좌표/점수/판단 포함, 스키마 위반, moment_key invalid.
@@ -306,7 +314,9 @@ class GeminiMomentExtractor:
             log.debug("KeyMoment 캐시 hit: %s", cache_key)
             return list(self._cache[cache_key])
 
-        raw_response = self._call_gemini(video_uri, motion)
+        raw_response = self._call_gemini(
+            video_uri, motion, preuploaded_handle=preuploaded_handle
+        )
         # _last_raw_response 는 _call_gemini 가 박제 (실패 path 도 박제 보존).
         moments = _parse_gemini_response(motion, raw_response)
         # frame_index 는 호출자가 후처리 — 본 메서드는 timestamp만 신뢰.
@@ -314,10 +324,25 @@ class GeminiMomentExtractor:
         self._cache[cache_key] = list(moments)
         return moments
 
-    def _call_gemini(self, video_uri: str, motion: str) -> str:
+    def _call_gemini(
+        self, video_uri: str, motion: str, *, preuploaded_handle: Any = None
+    ) -> str:
         """Gemini 실 호출. SDK 는 lazy import — 단위 테스트는 본 메서드 override.
 
         반환은 raw 응답 텍스트 (JSON). 파싱은 `_parse_gemini_response` 가 담당.
+
+        preuploaded_handle (27-04): GeminiFileSession 이 업로드+ACTIVE 대기까지 끝낸 File
+        API 핸들. 주입 시 업로드(files.upload)/ACTIVE 폴링(files.get)/**delete 전부 skip**
+        하고 generate 만 수행한다 — 핸들 소유권 = 세션(client.py Task 2 동일 규율: 여기서
+        지우면 같은 분석의 후속 호출이 404, T-27-08. 세션 close() 가 일괄 delete).
+
+        핸들 미주입 시 기존 self-upload 경로 유지. **HIGH-2 fix (외부 리뷰 blocker)**:
+        과거 self-upload 폴백은 delete 가 없어 세션이 소유하지 않은 핸들이 File API 에
+        누수됐다(20GB 적체 재발 표면, session.close() 도 못 지움). 이제 upload 성공분을
+        try/finally 로 감싸 generate 예외·빈 응답 raise 경로 포함 정확히 1회 delete 한다.
+        upload 바인딩은 try **밖** — upload 자체가 raise 하면 파일 미생성이라 delete 대상이
+        없고, try 안에 넣으면 finally 의 `uploaded` 미바인딩 NameError 가 원 예외를 가린다
+        (재검증 체커 Warning 1).
 
         2026-06-01: legacy `google-generativeai` (0.8.x) 는 새 AI Studio 키 포맷
         (`AQ.` prefix, 2025-말 갱신) 인식 못 함 — discovery endpoint 가
@@ -337,6 +362,10 @@ class GeminiMomentExtractor:
         api_key = self.api_key_loader()
         client = genai.Client(api_key=api_key)
 
+        # ── 핸들 주입 경로 (27-04): 업로드/폴링/delete 전부 skip. 소유권 = 세션.
+        if preuploaded_handle is not None:
+            return self._generate_moments(client, preuploaded_handle, motion, video_uri)
+
         # 영상 업로드 — Gemini File API.
         # video_uri 가 로컬 path 면 upload, http(s) 면 fetch (Pod 측 boto3 presigned 가 일반적).
         if video_uri.startswith("http://") or video_uri.startswith("https://"):
@@ -347,26 +376,49 @@ class GeminiMomentExtractor:
                 "(spike_rtmpose 의 `_resolve_video` 패턴 그대로)."
             )
 
+        # HIGH-2: upload 바인딩은 try **밖** — upload 자체 raise 시 파일 미생성 = delete
+        # 대상 없음, 원 예외 보존 (Warning 1). try 는 업로드 성공 후 폴링~generate 를 감싸고
+        # finally 가 self-upload 핸들을 정확히 1회 delete 한다 (누수 0, T-27-22).
         uploaded = client.files.upload(file=video_uri)
-        # Gemini File API 는 영상 업로드 후 PROCESSING → ACTIVE 비동기 전환.
-        # generate_content 호출 전 ACTIVE 대기 필수 (그렇지 않으면 FAILED_PRECONDITION).
-        # ref-invert 7s 영상 기준 통상 5~15초.
-        import time as _time
-        _start = _time.monotonic()
-        _max_wait_s = 120.0
-        while getattr(uploaded.state, "name", str(uploaded.state)) == "PROCESSING":
-            if _time.monotonic() - _start > _max_wait_s:
+        try:
+            # Gemini File API 는 영상 업로드 후 PROCESSING → ACTIVE 비동기 전환.
+            # generate_content 호출 전 ACTIVE 대기 필수 (그렇지 않으면 FAILED_PRECONDITION).
+            # ref-invert 7s 영상 기준 통상 5~15초.
+            import time as _time
+            _start = _time.monotonic()
+            _max_wait_s = 120.0
+            while getattr(uploaded.state, "name", str(uploaded.state)) == "PROCESSING":
+                if _time.monotonic() - _start > _max_wait_s:
+                    raise RuntimeError(
+                        "Gemini File API processing 가 %ds 초과 — file=%s motion=%s. "
+                        "영상이 너무 길거나 Gemini 측 일시 장애." % (int(_max_wait_s), uploaded.name, motion)
+                    )
+                _time.sleep(2.0)
+                uploaded = client.files.get(name=uploaded.name)
+            if getattr(uploaded.state, "name", str(uploaded.state)) == "FAILED":
                 raise RuntimeError(
-                    "Gemini File API processing 가 %ds 초과 — file=%s motion=%s. "
-                    "영상이 너무 길거나 Gemini 측 일시 장애." % (int(_max_wait_s), uploaded.name, motion)
+                    "Gemini File API processing 실패 — file=%s motion=%s." % (uploaded.name, motion)
                 )
-            _time.sleep(2.0)
-            uploaded = client.files.get(name=uploaded.name)
-        if getattr(uploaded.state, "name", str(uploaded.state)) == "FAILED":
-            raise RuntimeError(
-                "Gemini File API processing 실패 — file=%s motion=%s." % (uploaded.name, motion)
-            )
 
+            return self._generate_moments(client, uploaded, motion, video_uri)
+        finally:
+            # self-upload 핸들만 delete (소유권 = 이 메서드). generate 예외·빈 응답 raise
+            # 경로 포함 정확히 1회 실행. parse 예외는 extract_key_moments 에서 _call_gemini
+            # **반환 후** 발생하므로 이 시점에 파일은 이미 delete 됨 (누수 0).
+            _name = getattr(uploaded, "name", None)
+            if _name:
+                try:
+                    client.files.delete(name=_name)
+                except Exception:  # noqa: BLE001 - 정리 실패는 분석을 막지 않는다 (기존 규율)
+                    log.warning("Gemini 업로드 파일 삭제 실패 (graceful): %s", _name)
+
+    def _generate_moments(
+        self, client: Any, uploaded: Any, motion: str, video_uri: str
+    ) -> str:
+        """generate_content 호출 + raw text 반환 (핸들 주입/self-upload 공용).
+
+        업로드/폴링/delete 는 caller 책임 — 본 helper 는 generate 만 (재업로드 0).
+        """
         prompt = _GEMINI_PROMPT_TEMPLATE.format(motion=motion)
         response = client.models.generate_content(
             model=self.model_name,

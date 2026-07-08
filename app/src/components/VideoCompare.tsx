@@ -586,15 +586,21 @@ export function VideoCompare({
   const stepBy = useCallback(
     (deltaS: number) => {
       if (!hasAny) return;
-      const base =
-        hasLeft && hasRight
+      // CR-02 — 정렬 활성 시 base 는 master(left)만. rightCurrent=warp(cL) 은 다른
+      //   타임라인이라 min(cL,cR) 혼합이 학생 영상을 수 초 점프시킨다 (u0>r0 이면
+      //   base=cL-오프셋 → "0.1초 앞으로"가 학생을 오프셋만큼 뒤로 점프). right 는
+      //   seekBoth → setRightToStudentTime 이 warp 로 따라간다. 비활성은 기존 유지
+      //   (느린 쪽 = 진짜 sync 위치).
+      const base = alignmentActive
+        ? leftCurrent
+        : hasLeft && hasRight
           ? Math.min(leftCurrent, rightCurrent)
           : hasLeft
             ? leftCurrent
             : rightCurrent;
       seekBoth(base + deltaS);
     },
-    [hasAny, hasLeft, hasRight, leftCurrent, rightCurrent, seekBoth],
+    [hasAny, hasLeft, hasRight, leftCurrent, rightCurrent, seekBoth, alignmentActive],
   );
 
   // PanResponder — timeline track drag = scrub. locationX 가 track element 내부

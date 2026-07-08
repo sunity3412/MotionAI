@@ -356,6 +356,27 @@ PIPELINE_SEQUENCE = (
     STATUS_DONE,
 )
 
+# ── fault_zoom 사후 분리 상태 (Phase 27 SPD-04, D-06) ──────────────────────
+#   zoom PNG 는 점수가 아닌 **표현물** — complete_analysis(status='done') 이후 부분
+#   업데이트로 도착한다(D-03 경계와 충돌 없음). pending=렌더 중(앱 카드 자리 placeholder)
+#   / done=도착(result.faultZoomComparisons 유효) / failed=실패(카드 숨김, pending 고아
+#   방지). 부재(legacy doc)=faultZoomComparisons 유무로 판정 (사후 분리 이전 doc 하위호환).
+#
+#   **PIPELINE_SEQUENCE / status enum 에는 절대 추가 금지** — status 머신에 넣으면 3-way
+#   lockstep(analysis.ts AnalysisStatus + models.py + contract.md §3) 비용이 발생한다
+#   (27-RESEARCH Alternatives). zoom 상태는 status 진행과 독립된 result 내부 scalar 필드
+#   (result.faultZoomStatus)로 유지한다. 3-way lockstep 은 analysis.ts
+#   AnalysisResult.faultZoomStatus? + firestore_admin.update_analysis_fault_zoom +
+#   contract.md faultZoomStatus 절.
+FAULT_ZOOM_STATUS_PENDING = "pending"
+FAULT_ZOOM_STATUS_DONE = "done"
+FAULT_ZOOM_STATUS_FAILED = "failed"
+FAULT_ZOOM_STATUSES = (
+    FAULT_ZOOM_STATUS_PENDING,
+    FAULT_ZOOM_STATUS_DONE,
+    FAULT_ZOOM_STATUS_FAILED,
+)
+
 # ── 분석 오류 코드 (contract.md §5 / ml_CLAUDE.md) ────────────────────
 ERR_NO_HUMAN = "no_human"
 ERR_SIZE_EXCEEDED = "size_exceeded"

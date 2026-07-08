@@ -1023,6 +1023,58 @@ def complete_analysis(
     _doc(models.analysis_doc_path(uid, analysis_id)).set(payload, merge=True)
 
 
+def update_analysis_fault_zoom(
+    uid: str,
+    analysis_id: str,
+    comparisons: list[dict],
+    status: str,
+) -> None:
+    """fault_zoom 사후 부분 업데이트 (Phase 27 SPD-04 / D-06 — 27-RESEARCH Pattern 5).
+
+    complete_analysis(status='done') **이후** 같은 BackgroundTask 에서 호출한다.
+    점수/verdict/감점 내역은 이미 확정됐고(D-03 경계), zoom PNG 는 표현물이라 사후 도착이
+    허용된다(contract.md faultZoomStatus 절 + D-06). result.faultZoom* **두 필드만**
+    field-path 로 부분 갱신한다 — zoom 외 어떤 result.* 필드도 사후 변경 금지
+    (T-27-18 / D-03). status='pending' 마커는 complete_analysis 시 result 안에 실려
+    이미 저장되므로, 본 함수는 done/failed 전이만 쓴다.
+
+    검증: 각 comparisons item 을 `_validate_dict_only_scalars` 로 라우팅해 nested
+    list/dict 를 거부한다(complete_analysis 의 `_validate_safety_flags` 선례와 동형 —
+    validator 본체 무수정, [[firestore-nested-array-flat]] 보존). status 는
+    models.FAULT_ZOOM_STATUSES 로 강제한다.
+
+    firebase-admin 표준 `.update()` field-path 사용 — 본 모듈은 `set(merge=True)` 가
+    정본이지만 merge 는 dict 병합이라 **배열 교체 의미가 모호**하다(부분 병합 위험).
+    zoom 은 매번 통째 교체이므로 명시적 field-path `.update()` 채택 (27-PATTERNS
+    부분-무선례 메모).
+
+    Args:
+      comparisons: FaultZoomComparison camelCase dict 리스트(flat scalar). status='failed'
+        시 빈 리스트 허용.
+      status: models.FAULT_ZOOM_STATUSES 중 하나 (pending/done/failed).
+
+    Raises:
+      ValueError: status 가 FAULT_ZOOM_STATUSES 밖.
+      TypeError: comparisons item 에 nested list/dict (scoped validator).
+    """
+    if status not in models.FAULT_ZOOM_STATUSES:
+        raise ValueError(
+            f"faultZoomStatus must be one of {list(models.FAULT_ZOOM_STATUSES)}, "
+            f"got {status!r}"
+        )
+    _comparisons = list(comparisons or [])
+    for i, c in enumerate(_comparisons):
+        # nested list/dict 거부 — validator 본체 무수정 재사용 (safetyFlags 선례).
+        _validate_dict_only_scalars(c, path=f"faultZoomComparisons[{i}]")
+    _doc(models.analysis_doc_path(uid, analysis_id)).update(
+        {
+            "result.faultZoomComparisons": _comparisons,
+            "result.faultZoomStatus": status,
+            "updatedAt": int(time.time() * 1000),
+        }
+    )
+
+
 # ─────────────────── Plan 06-03 (2026-06-08, R2 fix round-2) ─────────────
 #
 # Phase 6 (2026-06-08, Plan 06-03) — D-06-B2 + R2 fix (round-2). mode1 silently

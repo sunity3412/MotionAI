@@ -290,6 +290,27 @@ timingsMs   { [stage: string]: number }   optional  ← 단계별 소요(ms), fl
     enum 아님, models.py 상수 불필요). lockstep: `app/src/types/analysis.ts
     AnalysisResult.timingsMs?` ↔ pipeline `_stage`/`result["timingsMs"]` ↔ 본 §4.
 
+`faultZoomStatus` (Phase 27 SPD-04 — fault_zoom 사후 분리, D-06)
+```
+faultZoomStatus   'pending' | 'done' | 'failed'   optional  ← zoom 렌더 진행 상태
+```
+  - fault_zoom 확대비교 PNG 는 **점수가 아니라 표현물**이다. 점수/verdict/감점 내역은
+    `status='done'`(complete) 시점에 확정되고(D-03 "사후 변경 금지" 경계), zoom PNG 는
+    렌더가 오래 걸려(후처리 주요분) **complete 이후 부분 업데이트로 도착**한다 →
+    사용자 체감 완료 시점을 앞당긴다.
+  - 의미: `pending`=렌더 중(앱은 확대카드 자리에 로딩 placeholder) / `done`=도착
+    (`result.faultZoomComparisons` 유효, 앱 rerender) / `failed`=렌더 실패(카드 숨김 —
+    무한 pending 고아 방지).
+  - **부재 = 사후 분리 이전(legacy) doc** — optional, migration 없음. 앱은 필드 부재 시
+    `faultZoomComparisons` 유무로 판정(하위호환).
+  - **사후 변경 경계(D-03/D-06):** complete 이후 write 는 `result.faultZoomComparisons`
+    + `result.faultZoomStatus` **두 필드뿐**이다. zoom 외 어떤 `result.*` 필드도 사후
+    변경 금지 (`firestore_admin.update_analysis_fault_zoom` 단일 경로 + field-path 게이트).
+  - **status 머신과 독립:** `faultZoomStatus` 는 §3 `AnalysisStatus`(PIPELINE_SEQUENCE)에
+    넣지 않는다 — status enum 확장 3-way 비용 회피. result 내부 scalar 필드로만 존재.
+  - Python 정본: `models.py FAULT_ZOOM_STATUSES` + `firestore_admin.update_analysis_fault_zoom`.
+    lockstep: `app/src/types/analysis.ts AnalysisResult.faultZoomStatus?` ↔ models.py ↔ 본 §4.
+
 `dimensionScores` = IPSF 폴스포츠 실행 심사기준 (docs/research/폴스포츠-지식.md).
   신체 부위가 아니라 심판이 보는 실행 차원. **3차원** (2026-05-29 balance 차원 제거 —
   IPSF 근거 없음, 의도적 비대칭 동작 위양성 제거).

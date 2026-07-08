@@ -528,6 +528,14 @@ export type AnalysisResult = ScoreSuppression & {
   deductionBreakdown?: DeductionBreakdown;
   // 문제 부위 확대 비교 carousel (belle 2026-06-21). OPTIONAL (Mode1 + 결함 있을 때만).
   faultZoomComparisons?: FaultZoomComparison[];
+  // Phase 27 SPD-04 (D-06) — zoom 사후 분리 로딩 상태. 점수/verdict/감점 내역은
+  // status='done' 시점에 확정되고, zoom PNG 는 그 이후 부분 업데이트로 도착한다.
+  // 'pending'=렌더 중(카드 자리 placeholder) / 'done'=도착(faultZoomComparisons 유효)
+  // / 'failed'=실패(카드 숨김 — pending 고아 방지). 부재(legacy doc)=faultZoomComparisons
+  // 유무로 판정 — 사후 분리 이전 doc 하위호환 (tier? 서술 모범 준수). Python lockstep:
+  // models.py FAULT_ZOOM_STATUSES + firestore_admin.update_analysis_fault_zoom +
+  // contract.md faultZoomStatus 절.
+  faultZoomStatus?: 'pending' | 'done' | 'failed';
   // Phase 20 iter5 MEDIUM-2 — A2 reconcile audit (reconcile 관측). OPTIONAL.
   scoreSuppressionAudit?: ScoreSuppressionAudit;
   // IPSF 실행 차원 점수 (3차원: angle/line/stability).

@@ -25,6 +25,7 @@ import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
+import { normalizeMotionAlignment } from '../../lib/alignmentWarp';
 import {
   ANGLE_VS_REFERENCE_PREFIX,
   KEYPOINT_FROM_ANGLE_KEY,
@@ -1005,6 +1006,16 @@ function AnalysisResultContent({
   const zoomPending =
     result.faultZoomStatus === 'pending' && !zoomPendingTimedOut;
 
+  // 28-CONTEXT D-01 — malformed/legacy → null = 현행 절대시계 (ASVS V5 방어 소비).
+  // result.motionAlignment 를 소비측 normalizeMotionAlignment 로 재검증 후 VideoCompare
+  // alignment prop 으로 전달한다. 필드 부재(legacy)·모순(malformed) → null → VideoCompare
+  // 가 기존 절대시계 재생 100% 보존(28-06 계약). 순수 함수라 재계산 비용은 미미하나
+  // 관례상 useMemo(result 의존)로 감싼다.
+  const videoAlignment = useMemo(
+    () => normalizeMotionAlignment(result.motionAlignment ?? null),
+    [result],
+  );
+
   // quick-260705-o0s — Phase 9 힘-패턴 원인 카드 섹션 삭제 (belle 실기기 캡처
   // 확인: 코칭 팁 '먼저 교정할 점'과 중복). ForcePatternCard/
   // ForcePatternDetailModal + fallback finding/measuredEvidence 조립 연쇄 제거.
@@ -1370,6 +1381,10 @@ function AnalysisResultContent({
             </View>
             <VideoCompare
               leftLabel="내 영상"
+              // 28-CONTEXT D-01 — 정은지(right) 재생을 학생(left) 마스터 시계에 동작
+              // 기준으로 워핑(28-06 소비). videoAlignment=null(legacy/malformed)이면
+              // VideoCompare 가 현행 절대시계로 100% 폴백 — 신규 doc 만 정렬이 흐른다.
+              alignment={videoAlignment}
               rightLabel={
                 cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'
               }
@@ -1800,6 +1815,9 @@ function AnalysisResultContent({
         actionPhrase={selectedActionPhrase}
         zoom={selectedZoom}
         zoomPending={zoomPending}
+        // D-04 앱측 (28-05 공급) — DTW 대응 실패 시 ref 는 전신 폴백 이미지라
+        // "같은 동작 순간을 못 찾았다"고 정직 고지. 부재(legacy)/'dtw'면 false → 캡션 없음.
+        refMatchFailed={selectedZoom?.refMatch === 'failed'}
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
       />
     </View>

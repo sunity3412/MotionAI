@@ -256,7 +256,10 @@ def _run_member(pipeline, fa, models, motion: str, label: str, analysis_id: str)
 
     d = fa.get_analysis(UID, analysis_id) or {}
     r = d.get("result") or {}
-    ec = d.get("errorCode")
+    # WR-04 fix (27-REVIEW): fail_analysis 는 doc 에 error:{code,message} 로 저장
+    # (firestore_admin) — errorCode 키는 존재하지 않아 항상 None 이었다. 아래
+    # isinstance(dict) 분기가 error.code 를 추출한다 (게이트 판정 근거 복원).
+    ec = d.get("error")
     bd = r.get("deductionBreakdown")
     vv = r.get("visionVeto")
     rec = {

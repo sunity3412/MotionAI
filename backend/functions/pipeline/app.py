@@ -2811,6 +2811,12 @@ def _render_fault_zoom(
             # FaultZoomComparison.region ('legs'|'arms').
             if c.get("region"):
                 item["region"] = c["region"]
+            # HIGH-1 (28-05) — refMatch provenance pass-through (D-04). scalar str 이라
+            # _validate_dict_only_scalars flat 제약 통과. region 선례와 동일 조건부
+            # 복사 — 부재(legacy 형상)면 최종 item 에도 키 부재. TS lockstep:
+            # FaultZoomComparison.refMatch ('dtw'|'failed', 부재=legacy=캡션 없음).
+            if c.get("refMatch") in ("dtw", "failed"):
+                item["refMatch"] = c["refMatch"]
             out.append(item)
     # Phase 27 SPD-04 (D-06) — result 부착 대신 comparisons 반환 (사후 update 경로).
     return out

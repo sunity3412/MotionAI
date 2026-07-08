@@ -248,11 +248,18 @@ def _frame_index(seconds: float | None, fps: float, n_frames: int) -> int:
 
 
 def _matched_ref_frame(dtw_match, user_frame: int, ref_n: int) -> int | None:
-    """B1 — DTW match 로 학생 9fps 프레임 ↔ 기준 9fps 프레임(같은 pose). None=불가.
+    """B1 — DTW match 로 학생 프레임 ↔ 기준 프레임(같은 pose). None=불가.
 
-    match.start = 사용자 구간 시작(angles 9fps), path = [(user_local, ref_idx)...]
-    (ref_idx = 기준 angles 9fps 절대). 학생 프레임을 구간-로컬로 변환 후 path 에서
-    같은 user_local 의 ref_idx 들의 median 을 고른다(DTW 1:N 대응 안정화).
+    match.start = 사용자 구간 시작(angles 9fps), path = [(user_local, ref_idx)...].
+    ref_idx = 기준 angles 인덱스 — **ref doc 의 keypointReport.fps 공간**(phase4_v1
+    재처리 18fps, 28-01 실측). 반환도 이 angles(rep) 인덱스 공간이다. 호출측이
+    clamp 상한(ref_n)과 9fps frames 배열로의 변환을 도메인에 맞게 책임진다
+    (28-RESEARCH Pitfall 1, D2 fix — angles 인덱스를 9fps frames 에 그대로 넣으면
+    시간 2배 오독). 학생 프레임을 구간-로컬로 변환 후 path 에서 같은 user_local 의
+    ref_idx 들의 median 을 고른다(DTW 1:N 대응 안정화).
+
+    **본체 수정 금지** — veto still 경로(app.py `_build_selected_frame_pair`)가 이
+    함수를 공유하며 그쪽 입력이 바뀌면 점수가 움직인다 (28-RESEARCH Open Q2).
     """
     if dtw_match is None:
         return None
@@ -810,8 +817,11 @@ def build_fault_zoom_comparisons(
         도립 pose 부정확으로 선이 폭주(pose 한계)해 선 없는 crop 을 유지한다.
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
-    (user 18 / reference 가변)로 **각자 시간 인덱싱** — upsample fps mismatch 회피.
-    기준 프레임은 같은 정규화 시간 위치(ratio)로 근사(DTW 미threading MVP, held pose).
+    (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
+    mismatch 회피. 기준 프레임은 DTW match 로 같은-pose 를 잡되, 반환 인덱스는 ref
+    angles(rep) 공간이라 _to_rep_idx 역변환으로 9fps frames 로 내린다 (D2 fix).
+    대응 실패 시 = ref 전신 폴백 + refMatch='failed' (D-04, 260702-sic confidence<0.5
+    전신 폴백과 일관 — 시간비례 근사로 엉뚱한 pose 를 확대하는 오도를 제거, 정보 보존).
 
     결함단위 grouping (quick-260702-sic): 같은 결함에서 온 좌+우 동일 부위 관절
     (스플릿 → hips+knees)은 _group_fault_joints 로 카드 1장으로 묶이고, crop 은
@@ -842,28 +852,48 @@ def build_fault_zoom_comparisons(
     else:
         u_idx = _frame_index(worst_seconds, frames_fps, u_n)
         u_kp_idx = _frame_index(worst_seconds, u_rep_fps, u_rep_frames)
+    # ref_match_failed = 기준 프레임 대응을 세울 수 없음 → ref 전신 폴백 + 앱 캡션
+    # (refMatch='failed'). D-04: 어느 pose 인지 모르는 채 시간비례로 근사한 프레임을
+    # 확대하면 "비교 부위 아닌 곳" 을 보여줘 오도한다 (파일럿 D2) — 260702-sic 의
+    # confidence<0.5 전신 폴백과 일관된 정직 전략(오도 0, 정보 보존).
+    ref_match_failed = False
     if ref_frame_idx is not None:
+        # override 경로 = vision 측정 프레임 정합 (dtw 취급 — 프레임 대응 보장됨).
         r_idx = max(0, min(int(ref_frame_idx), max(0, r_n - 1)))
         r_kp_idx = _to_rep_idx(r_idx, frames_fps, r_rep_fps, r_rep_frames)
     else:
-        # B1: DTW match 로 같은-pose 기준 프레임. 불가 시 시간비례 근사 폴백.
-        r_matched = _matched_ref_frame(dtw_match, u_idx, r_n)
-        if r_matched is not None:
-            r_idx = r_matched
-            r_kp_idx = _to_rep_idx(r_matched, frames_fps, r_rep_fps, r_rep_frames)
+        # B1: DTW match 로 같은-pose 기준 프레임.
+        # clamp 도메인 = ref angles(keypointReport) 프레임 수 r_rep_frames —
+        # _matched_ref_frame 반환은 ref angles(rep) 인덱스 공간(phase4_v1=18fps,
+        # 28-01 실측)이라 9fps frames 수 r_n 으로 클램프하면 안 됨 (D2 fix).
+        if r_rep_frames <= 0:
+            r_matched = None
         else:
-            ratio = (u_idx / max(1, u_n - 1)) if u_n > 1 else 0.0
-            r_idx = int(round(ratio * (r_n - 1))) if r_n > 1 else 0
-            r_kp_idx = (
-                int(round(ratio * (r_rep_frames - 1))) if r_rep_frames > 1 else 0
-            )
+            r_matched = _matched_ref_frame(dtw_match, u_idx, r_rep_frames)
+        if r_matched is not None:
+            r_kp_idx = r_matched  # 이미 rep(angles) 공간 — 추가 변환 불필요
+            # rep→frames 역변환 (28-RESEARCH Pitfall 1, D2 fix) — 같은 _to_rep_idx
+            # 공식에 fps 인자 순서만 반대(중복 공식 금지, quick-260705-ftn 관례).
+            r_idx = _to_rep_idx(r_matched, r_rep_fps, frames_fps, r_n)
+        else:
+            # 대응 실패 → ref 전신 폴백 (D-04, ratio 근사 제거). 프레임은 중앙
+            # (전신이므로 어느 순간이든 오도 0), 좌표는 아래 루프에서 강제 skip.
+            ref_match_failed = True
+            r_idx = r_n // 2
+            r_kp_idx = r_rep_frames // 2 if r_rep_frames > 0 else 0
 
     deltas = joint_deltas or {}
     for unit in _group_fault_joints(list(fault_joints), joint_kinds):
         if len(out) >= max_items:
             break
         u_valid, u_relaxed = _member_pts(user_report, u_kp_idx, unit.members)
-        r_valid, r_relaxed = _member_pts(ref_report, r_kp_idx, unit.members)
+        if ref_match_failed:
+            # 대응 실패 = ref 측 전신 폴백 강제 (D-04). 좌표 계산을 건너뛰고 빈
+            # 리스트를 넘겨 _side_crop 3단 강하의 전신 폴백 단계로 직행 (새 렌더
+            # 금지 — 기존 좌표-결측 전신 폴백 분기 재사용). 학생 카드는 유지.
+            r_valid, r_relaxed = [], []
+        else:
+            r_valid, r_relaxed = _member_pts(ref_report, r_kp_idx, unit.members)
         if not u_valid and not r_valid:
             # 양측 다 신뢰 좌표 0 — 최소 한 측 valid 일 때만 카드 (기존 skip
             # 규칙 보존). relaxed 는 반대측이 valid 인 카드에서 전신 폴백을
@@ -932,5 +962,10 @@ def build_fault_zoom_comparisons(
             item["kind"] = kind
         if unit.region:
             item["region"] = unit.region
+        # D-04 provenance scalar (region 선례 형식) — 기준 프레임 대응 성공='dtw',
+        # 실패='failed'(전신 폴백). override(ref_frame_idx)는 vision 측정 프레임
+        # 정합이 보장되므로 'dtw' 취급. scalar str 이라 _validate_dict_only_scalars
+        # flat 제약 통과. app.py _render_fault_zoom mapper 가 최종 doc 까지 pass-through.
+        item["refMatch"] = "failed" if ref_match_failed else "dtw"
         out.append(item)
     return out

@@ -128,6 +128,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-08 — Phase 26 (onboarding-upload-guide: 튜토리얼/FAQ/learningOptIn opt-out/카톡 감지/not_pole 안내/F3·F4, ONBD-01~04) 완료 반영. 실기기 확인은 배치 UAT 정책(phase 22·26~31 완료 후 직원 합동)으로 26-HUMAN-UAT 이월*
+*Last updated: 2026-07-08 — Phase 28 (dtw-motion-based-alignment: motionAlignment 계약+방출/tier 사다리/fault_zoom fps 정합+refMatch/VideoCompare 워핑/legacy 배너/채점 무접촉 게이트, ALGN-01~06) 완료 반영. D2 크롭·power-spin 싱크 한 뿌리 해소, production OTA 349aceb 라이브. 코드 리뷰 Critical 2+Warning 4 fix 반영(WR-04는 채점 무접촉으로 deferred). 실기기 6항목은 28-HUMAN-UAT 배치 이월(phase 31 후 합동). 직전: Phase 27 (분석 속도 229.6s→124.7s −46%) 완료.*
 *Updated 2026-06-02: Phase 16 신설 — 학원 용어 3분기 + 5트랙 채점 v1 scope. NotebookLM IPSF CoP 2024-2025 lookup 박제. v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01. v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제. Active 그룹 (점수 신뢰도 / 기준 모션) 항목 추가, Out of Scope v2 보강, Key Decisions 3건 추가.*
 *Updated 2026-06-08: 분석 정확도 핵심 차원 v1 진행 결정 (이전 2026-06-07 "Phase 2~11 보류" 박제 무효). v1 시퀀스 = Phase 6 → 7 → 8 → 9 → 12 → 13. belle 박제 — "오버레이, 체형 정규화, 힘 패턴은 필수적. 어떻게든 기필코 개발하려고 하는 게 지금." Phase 6 CONTEXT.md 박제 (좌표 변환 방향 B + confidence-tiered hybrid + 3 케이스 통합 schema). Key Decisions 3건 추가.*

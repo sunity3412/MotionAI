@@ -305,6 +305,107 @@ def _validate_safety_flags(flags, *, path: str = "safetyFlags") -> None:
         _validate_dict_only_scalars(flag, path=f"{path}[{i}]")
 
 
+def _validate_motion_alignment(
+    payload, *, path: str = "motionAlignment"
+) -> None:
+    """motionAlignment scoped validator — Phase 28 (ALGN-01, T-28-05 + MEDIUM-3).
+
+    `result['motionAlignment']` 단일 persistence path 전용 — complete_analysis 에 신규
+    kwarg 없음 (safetyFlags 선례, "result 안으로 흐른다"). None/부재 graceful(legacy doc).
+    검증:
+      · dict 강제, 키는 `models.MOTION_ALIGNMENT_KEYS` 화이트리스트(reason optional).
+      · `anchors` = flat list[숫자 scalar] — nested list/dict → TypeError
+        ([[firestore-nested-array-flat]]). 짝수 길이 + 전수 finite(NaN/inf 금지) +
+        `len <= models.MOTION_ALIGNMENT_MAX_ANCHOR_FLOATS` (40k index-entry 방어, T-28-05,
+        [[firestore-index-entry-limit]]).
+      · u strictly increasing, r non-decreasing (단조성).
+      · `tier` ∈ MOTION_ALIGNMENT_TIERS, `source` ∈ MOTION_ALIGNMENT_SOURCES.
+      · `anchorCount` == len(anchors)//2.
+    tier↔anchors 역불변식 (리뷰 MEDIUM-3): `tier=='disabled'` 일 때만 `anchors==[]` 허용
+    (degenerate 방출 형상, 28-02 W3). `tier in ('warped','trim_only')` → `len(anchors)>=4`
+    AND `anchorCount>=2` 강제 — "warped 인데 anchors 빈" 모순 상태를 저장 전에 거부해 앱
+    normalizer(`alignmentWarp.normalizeMotionAlignment`, 같은 규칙으로 null 폴백)와 대칭
+    유지 + malformed Firestore 상태 진단 가능. 위반 시 TypeError/ValueError + path
+    (caller 가 catch → fail_analysis). generic `_validate_dict_only_scalars` 본체 무변경.
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"{path} must be dict (motionAlignment): got {type(payload).__name__}"
+        )
+    # 키 화이트리스트 (reason optional — MOTION_ALIGNMENT_KEYS 에 포함).
+    extra = set(payload) - set(models.MOTION_ALIGNMENT_KEYS)
+    if extra:
+        raise ValueError(f"{path}: 화이트리스트 밖 키 {sorted(extra)}")
+
+    # tier / source / version / distance scalar 검증.
+    tier = payload.get("tier")
+    if tier not in models.MOTION_ALIGNMENT_TIERS:
+        raise ValueError(f"{path}.tier 미등재값: {tier!r}")
+    source = payload.get("source")
+    if source not in models.MOTION_ALIGNMENT_SOURCES:
+        raise ValueError(f"{path}.source 미등재값: {source!r}")
+    if not isinstance(payload.get("version"), str):
+        raise ValueError(f"{path}.version 은 str 필수")
+    distance = payload.get("distance")
+    if isinstance(distance, bool) or not isinstance(distance, (int, float)):
+        raise ValueError(f"{path}.distance 는 숫자 scalar 필수: {distance!r}")
+    if not _math_kr.isfinite(distance):
+        raise ValueError(f"{path}.distance 는 finite 여야 함")
+
+    # anchors — flat list[숫자 scalar], nested → TypeError (firestore-nested-array-flat).
+    anchors = payload.get("anchors")
+    if not isinstance(anchors, list):
+        raise TypeError(
+            f"{path}.anchors must be flat list: got {type(anchors).__name__}"
+        )
+    for i, x in enumerate(anchors):
+        if isinstance(x, (list, dict)):
+            raise TypeError(
+                f"{path}.anchors[{i}] nested (firestore-nested-array-flat): "
+                f"{type(x).__name__}"
+            )
+        if isinstance(x, bool) or not isinstance(x, (int, float)):
+            raise ValueError(f"{path}.anchors[{i}] 는 숫자 scalar 필수: {x!r}")
+        if not _math_kr.isfinite(x):
+            raise ValueError(f"{path}.anchors[{i}] 는 finite 여야 함 (NaN/inf 금지)")
+    if len(anchors) > models.MOTION_ALIGNMENT_MAX_ANCHOR_FLOATS:
+        raise ValueError(
+            f"{path}.anchors 길이 {len(anchors)} > 상한 "
+            f"{models.MOTION_ALIGNMENT_MAX_ANCHOR_FLOATS} (40k index-entry 방어)"
+        )
+    if len(anchors) % 2 != 0:
+        raise ValueError(f"{path}.anchors 홀수 길이 {len(anchors)} — 쌍 미형성")
+
+    anchor_count = payload.get("anchorCount")
+    if anchor_count != len(anchors) // 2:
+        raise ValueError(
+            f"{path}.anchorCount {anchor_count!r} != len(anchors)//2 "
+            f"{len(anchors) // 2}"
+        )
+
+    # tier↔anchors 역불변식 (MEDIUM-3) — disabled 만 빈/부족 anchors 허용.
+    if tier != "disabled" and (len(anchors) < 4 or (anchor_count or 0) < 2):
+        raise ValueError(
+            f"{path}.tier={tier!r} 는 최소 2쌍(4 float) 필수 — "
+            f"빈/부족 anchors 모순 데이터 (MEDIUM-3)"
+        )
+
+    # 단조성 — u strictly increasing, r non-decreasing.
+    us = anchors[0::2]
+    rs = anchors[1::2]
+    for k in range(len(us) - 1):
+        if not (us[k] < us[k + 1]):
+            raise ValueError(
+                f"{path}.anchors u 비단조(strictly increasing 위반) @pair{k}"
+            )
+        if not (rs[k] <= rs[k + 1]):
+            raise ValueError(
+                f"{path}.anchors r 비단조(non-decreasing 위반) @pair{k}"
+            )
+
+
 def _validate_metric_dict_with_scalar_lists(d: dict, *, path: str) -> None:
     """metric dict 안 검증 — scalar / list[str] (화이트리스트 한정) 박제 허용.
 
@@ -900,6 +1001,13 @@ def complete_analysis(
         [[firestore-nested-array-flat]] 보존). force_signals 안 metric dict 의
         `warnings` / `unstableBodyParts` list[str] 박제만 허용, 다른 list[scalar]
         박제 시 ValueError. 다른 path 박제 strict 유지.
+
+    Phase 28 (2026-07-08, Plan 28-03 — ALGN-01 동작 기반 비교 정렬):
+      - motion_alignment = result 내부 (AnalysisResult.motionAlignment 정합, 신규 kwarg
+        없음 — safetyFlags 선례). **`_validate_motion_alignment` 전용 scoped validator**
+        호출 — anchors flat/finite/짝수 + 상한 512(40k index-entry 방어, T-28-05) + 단조성
+        + tier↔anchors 역불변식(MEDIUM-3: disabled 만 빈 anchors). generic
+        `_validate_dict_only_scalars` 본체 변경 영구 0 유지.
     """
     # Phase 24 (ND-01/HIGH-1) — deductionBreakdown 은 seam 에서 result 안에 OBJECT 로
     # 들어온다(visionVeto persistence analog, NO 신규 kwarg). payload['result']=dict(result)
@@ -911,6 +1019,10 @@ def complete_analysis(
         _flags = (result or {}).get("safetyFlags")
         if isinstance(_flags, list):
             _validate_safety_flags(_flags)
+        # Phase 28 (ALGN-01) — motionAlignment 단일 persistence path. result 안으로
+        # 흘러온 dict 를 scoped validator 로 검증 (상한/flat/단조 + tier↔anchors 역불변식,
+        # 신규 kwarg 없음 — safetyFlags 선례).
+        _validate_motion_alignment((result or {}).get("motionAlignment"))
     payload: dict = {
         "status": models.STATUS_DONE,
         "result": dict(result) if result else {},

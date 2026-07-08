@@ -8,10 +8,10 @@
   3. RATE 클램프 lockstep(W4): app/src/lib/alignmentWarp.ts 의
      RATE_MIN=0.5 / RATE_MAX=2.0 (belle 고정값, 28-CONTEXT D-01).
 
-B1 (병렬 wave 격리): 이 파일은 `sunity_shared.analysis.motion_alignment`(28-02 산출물)를
-import 하지 않는다. `motion_alignment.MAX_ANCHOR_FLOATS ==
-models.MOTION_ALIGNMENT_MAX_ANCHOR_FLOATS` 단언은 28-04 의
-test_pipeline_motion_alignment.py(wave 3)로 이동됨. 여기서는 models/TS 텍스트 쪽 단독 검증.
+B1 (병렬 wave 격리): 이 파일은 28-02 산출 알고리즘 모듈(sunity_shared.analysis 아래)을
+불러오지 않는다. 상한 lockstep(모듈 MAX 상수 == models.MOTION_ALIGNMENT_MAX_ANCHOR_FLOATS)
+단언은 28-04 의 test_pipeline_motion_alignment.py(wave 3)로 이동됨. 여기서는 models/TS
+텍스트 쪽 단독 검증만 수행한다(병렬 실행 시 collection error 회피).
 """
 
 from __future__ import annotations

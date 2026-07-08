@@ -3719,6 +3719,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # (B4 — _apply_vision_veto 가 어댑터에 path 전달, 어댑터 재다운로드 0).
                 # delete=False 임시 파일 → veto 호출 후 finally 에서 _safe_unlink.
                 if _gemini_vision_veto_enabled():
+                    ref_tmp = None
                     try:
                         ref_ext = os.path.splitext(ref["videoS3Key"])[1] or ".mp4"
                         ref_tmp = tempfile.NamedTemporaryFile(
@@ -3733,7 +3734,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                             "(분석 흐름 유지) uid=%s analysis_id=%s",
                             uid, analysis_id,
                         )
-                        _safe_unlink_local_video(reference_local_video_path)
+                        # WR-03 fix (27-REVIEW): 생성된 temp 자체(ref_tmp.name)를 지운다.
+                        # reference_local_video_path 는 성공 시에만 대입돼 이 시점엔 항상
+                        # None(no-op) — 빈/부분 파일이 /tmp 에 적체되던 결함 (장수명 Pod).
+                        if ref_tmp is not None:
+                            _safe_unlink_local_video(ref_tmp.name)
                         reference_local_video_path = None
         else:  # MODE_SELF — 자기 성장. 절대 차원 + (이전 분석 있으면) 발전 델타.
             # 박제 (2026-06-07 belle): mode=MODE_SELF 박제 — mode1 (정은지) 분석을

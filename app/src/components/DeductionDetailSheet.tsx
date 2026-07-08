@@ -13,6 +13,7 @@
 
 import React from 'react';
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -38,6 +39,10 @@ interface Props {
   recordNumber: number | null;
   actionPhrase: string | null;
   zoom: FaultZoomComparison | null;
+  // Phase 27 D-06 — zoom 사후 도착 대기 중(result.faultZoomStatus='pending')이고
+  // 아직 시간 상한 이내면 true. 확대사진 자리에 로딩 placeholder 를 렌더한다.
+  // zoom 이 실제 도착하면 result.tsx 가 zoom(!=null)+zoomPending(false)로 전환.
+  zoomPending?: boolean;
   // 우측 비교 대상 라벨 — Mode1='정은지 선수', Mode3='지난 분석'.
   rightLabel: string;
 }
@@ -49,6 +54,7 @@ export function DeductionDetailSheet({
   recordNumber,
   actionPhrase,
   zoom,
+  zoomPending = false,
   rightLabel,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
@@ -113,6 +119,19 @@ export function DeductionDetailSheet({
                 <View style={[styles.halfLabel, styles.halfLabelRight]}>
                   <Text style={styles.halfLabelText}>{rightLabel}</Text>
                 </View>
+              </View>
+            ) : zoomPending ? (
+              // Phase 27 D-06 — zoom 사후 도착 대기. 점수/내역은 이미 도착했고
+              // 확대 이미지만 렌더 중이라 카드 자리에 로딩 placeholder 를 둔다.
+              // 도착(onSnapshot) 시 자동으로 위 이미지 분기로 전환된다. 이미지 카드와
+              // 동일 컨테이너 스타일 재사용 + ActivityIndicator + 안내 카피(토큰만).
+              <View
+                style={[styles.imageWrap, styles.imagePending, { height: imgH }]}
+                accessibilityRole="progressbar"
+                accessibilityLabel="확대 비교 이미지를 준비하고 있어요"
+              >
+                <ActivityIndicator color={colors.brand} />
+                <Text style={styles.pendingText}>확대 비교 이미지를 준비하고 있어요</Text>
               </View>
             ) : null}
 
@@ -193,6 +212,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.divider,
   },
   image: { width: '100%', height: '100%' },
+  // Phase 27 D-06 — zoom 사후 도착 대기 placeholder (이미지 카드와 동일 컨테이너).
+  imagePending: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  pendingText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   halfLabel: {
     position: 'absolute',
     top: 8,

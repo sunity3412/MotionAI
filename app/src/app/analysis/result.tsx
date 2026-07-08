@@ -68,6 +68,16 @@ import type {
 } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
+// Phase 27 D-06 (T-27-21 mitigation) — zoom 사후 도착의 pending 고아 방어 상한.
+// 27-06 이 점수 complete 이후 faultZoomStatus='pending' → done/failed 로 부분
+// 업데이트한다. done/failed 가 끝내 도착하지 않으면(렌더 크래시·write 유실) 앱이
+// 무한 로딩에 빠질 수 있다 — doc.updatedAt(=complete 시점) 기준 경과가 이 상한을
+// 넘으면 placeholder 대신 기존 숨김으로 폴백한다(무한 로딩 0). contract.md
+// faultZoomStatus 절. 값 근거: 27-TIMING-BEFORE 실측 fault_zoom 렌더 = 13~33s
+// (최장 elbow-twist-sister 32.6s). 상한은 그 최장값을 크게 상회하는 보수값(180s)
+// — 정상 pending 을 조기 숨김하지 않음.
+const FAULT_ZOOM_PENDING_TIMEOUT_MS = 180_000;
+
 const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
   basic: '기본기',
   intermediate: '중급',
@@ -606,6 +616,7 @@ export default function AnalysisResult() {
       result={storedDoc.result}
       name={name}
       bodyProfileSummary={bodyProfileSummary}
+      updatedAt={storedDoc.updatedAt}
     />
   );
 }
@@ -619,10 +630,13 @@ function AnalysisResultContent({
   result,
   name,
   bodyProfileSummary,
+  updatedAt,
 }: {
   result: AnalysisResult;
   name?: string;
   bodyProfileSummary: string | null;
+  // Phase 27 D-06 — pending 고아 시간 상한 폴백 기준(doc.updatedAt = complete 시점).
+  updatedAt?: number;
 }) {
   const router = useRouter();
   const grade = scoreGrade(result.overallScore);
@@ -961,6 +975,35 @@ function AnalysisResultContent({
   const selectedActionPhrase = selectedRecord
     ? actionPhraseForRecord(selectedRecord, vetoFaultJoints, actionLabels)
     : null;
+
+  // Phase 27 D-06 — zoom 사후 도착. contract.md faultZoomStatus 절.
+  // 27-06 이 점수/verdict/감점 내역을 status='done' 시점에 먼저 도착시키고, zoom PNG
+  // 는 result.faultZoomStatus 'pending'→'done'/'failed' 부분 업데이트로 뒤따르게 했다.
+  // 앱은 useAnalysisDoc onSnapshot 구독으로 자동 rerender — 추가 폴링 0(안티패턴).
+  //   'pending' = 렌더 중 → 확대카드 자리에 로딩 placeholder (아래 zoomPending).
+  //   'done'    = 도착 → faultZoomComparisons 유효 → selectedZoom 카드 자동 표시.
+  //   'failed'/'done'-무매칭/필드 부재(legacy) = selectedZoom null → 기존 graceful 숨김.
+  // T-27-21: pending 이 끝내 done/failed 로 전이되지 못하면(고아) placeholder 가
+  //   무한 표시될 수 있다 — updatedAt(complete 시점) 기준 상한 경과 시 숨김으로 폴백.
+  //   updatedAt 변경(zoom 부분 업데이트가 updatedAt 을 갱신)마다 타이머 재무장.
+  const [zoomPendingTimedOut, setZoomPendingTimedOut] = useState(false);
+  useEffect(() => {
+    setZoomPendingTimedOut(false);
+    if (result.faultZoomStatus !== 'pending') return;
+    const elapsed = Date.now() - (updatedAt ?? 0);
+    const remaining = FAULT_ZOOM_PENDING_TIMEOUT_MS - elapsed;
+    if (remaining <= 0) {
+      // 이미 상한 초과(예: 앱을 오래 뒤에 다시 열었을 때) — 즉시 숨김 폴백.
+      setZoomPendingTimedOut(true);
+      return;
+    }
+    const t = setTimeout(() => setZoomPendingTimedOut(true), remaining);
+    return () => clearTimeout(t);
+  }, [result.faultZoomStatus, updatedAt]);
+  // pending 이고 아직 상한 이내면 placeholder 표시(도착 대기). zoom 이 실제 도착하면
+  // faultZoomStatus='done' 으로 전이돼 이 값은 자연히 false 가 된다.
+  const zoomPending =
+    result.faultZoomStatus === 'pending' && !zoomPendingTimedOut;
 
   // quick-260705-o0s — Phase 9 힘-패턴 원인 카드 섹션 삭제 (belle 실기기 캡처
   // 확인: 코칭 팁 '먼저 교정할 점'과 중복). ForcePatternCard/
@@ -1756,6 +1799,7 @@ function AnalysisResultContent({
         recordNumber={selectedRecordNumber}
         actionPhrase={selectedActionPhrase}
         zoom={selectedZoom}
+        zoomPending={zoomPending}
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
       />
     </View>

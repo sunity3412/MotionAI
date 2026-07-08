@@ -900,7 +900,7 @@ Plans:
 **Goal:** mode1 분석 시간을 belle 기준선 1분 내로 (시나리오 2 — 대기 경험). 실측 분해(power-spin 3분17초, 2026-07-06): 포즈 ~51s + Gemini 비전 2단 ~52s(File API 업로드+폴링 15~20s×2회+) + 후처리 ~49s(fault_zoom 렌더+Firestore) — 단일 300초 범인 없음. 레버: (a) 최대 = Gemini File API 라운드트립 축소(inline 전송/핸들 재사용/병렬화), (b) veto 결과-후 비동기 분리 검토, (c) 후처리 병렬화/축소. 게이트: 실측 1분 내 + 점수·verdict 무회귀(EVAL18 serial 대조). Phase 22 shadow 전환 시 Gemini 라운드트립 자체가 소멸하므로 22와 중복 투자 금지 — 저비용 레버 우선.
 **Requirements**: SPD-01, SPD-02, SPD-03, SPD-04, SPD-05, SPD-06, SPD-07 (phase-goal 파생 — ROADMAP TBD 를 플래너가 mint 2026-07-07: 01=단계별 stage-timing 계측+timingsMs+cold baseline, 02=Gemini File API 라운드트립 축소(핸들 세션 업로드 1회+still PNG inline+일괄 delete 누수 0, D-04), 03=단일 분석 내부 병렬화(prefetch 겹치기+veto fan-out+coach 동시화 — 분석 간 SERIAL·fail-closed·집계 순서 결정론 불변, D-03), 04=fault_zoom 사후 분리(faultZoomStatus pending→done/failed 3-way lockstep+앱 placeholder, D-06), 05=대기 경험(status 시점 교정+진행률 재배분+폴스포츠 팁 로테이션, D-02/D-07), 06=정확도 무회귀 게이트(EVAL18 SERIAL cold 대조+cold/warm 결정론+before/after 표, D-01 hard), 07=Pro→Flash 조건부 전환(EVAL18 동일 시만 채택, D-05))
 **Depends on:** 없음 (백엔드 — 병렬 가능. 단 27-07 앱 태스크는 Phase 26 실행 완료 후 착수 — loading.tsx 26-03/26-04, result.tsx 26-02 파일 겹침)
-**Plans:** 6/9 plans executed
+**Plans:** 7/9 plans executed
 
 Plans:
 

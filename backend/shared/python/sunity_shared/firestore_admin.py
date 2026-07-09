@@ -1656,3 +1656,145 @@ def record_unregistered_keyword(keyword: str, *, uid: str, video_hash: str) -> N
         },
         merge=True,
     )
+
+
+# ─────────────────── Plan 22-03 (Phase 22) — Gemini shadow 로깅 helper ──────────
+#
+# D-10c — 프로덕션 판정 로그가 그대로 증류 라벨로 적재됨 (shadow 로깅 즉시 시작).
+# D-13 — 같은 입력을 Gemini/자체 모델 양쪽에 태워 역할별(veto/recognizer/coach)
+#        verdict 비교 로그를 축적, 게이트 통과 시 swap.
+# D-12 — shadow 로그에 사용자 식별자 금지. analysis 참조는 video_hash 로만
+#        (T-22-07 mitigation). 아래 PII 키 거부 목록이 이를 강제한다.
+# [[firestore-nested-array-flat]] — nested array 저장 전 차단(기존 W5 validator 재사용).
+#   대형 (T,J) 배열은 반드시 flat list 로 넣어야 하며, index-entry 40k 한도에 걸리는
+#   경우 index 면제가 필요하다 ([[firestore-index-entry-limit]]).
+
+_VLM_SHADOW_COLLECTION = "vlm_shadow"  # top-level, gemini_cache 형제 (uid 비의존)
+_VLM_SHADOW_ROLES: frozenset[str] = frozenset({"veto", "recognizer", "coach"})
+
+# D-12 — shadow 로그에서 거부하는 PII/식별자 키 (normalize 후 정확 매칭).
+# normalize = lowercase + 영숫자만 → "userId"/"user_id" 등 표기 변형 흡수.
+# 정확 매칭이라 도메인 키(motionName→"motionname", jointName→"jointname")는
+# 오탐 없이 통과한다. 화이트리스트로 전 측정 스칼라를 열거하는 것은 비현실적이므로
+# (open-ended domain scalars), 실제 불변식("사용자 식별자 금지")을 거부 목록으로 강제.
+_VLM_SHADOW_PII_KEYS: frozenset[str] = frozenset(
+    {
+        "uid",
+        "userid",
+        "username",
+        "email",
+        "mail",
+        "name",
+        "displayname",
+        "fullname",
+        "firstname",
+        "lastname",
+        "nickname",
+        "phone",
+        "phonenumber",
+        "mobile",
+        "address",
+        "ip",
+        "ipaddress",
+        "deviceid",
+        "sessionid",
+        "authtoken",
+        "accesstoken",
+        "idtoken",
+        "analysisid",
+        "birthdate",
+        "dob",
+        "ssn",
+    }
+)
+
+
+def _normalize_pii_key(key: str) -> str:
+    """PII 키 매칭용 정규화 — 소문자 + 영숫자만 (표기 변형 흡수)."""
+    return "".join(ch for ch in key.lower() if ch.isalnum())
+
+
+def _reject_pii_keys(payload, *, path: str) -> None:
+    """D-12 — shadow payload 안 PII/식별자 키를 재귀 거부 (T-22-07 mitigation).
+
+    dict 는 각 key 를 normalize 해 `_VLM_SHADOW_PII_KEYS` 와 정확 매칭, 매치 시
+    ValueError. 값이 dict/list 면 재귀 순회해 중첩 식별자도 잡는다. analysis 참조는
+    video_hash 로만 해야 하므로 uid/email/analysisId 등은 저장 전에 차단된다.
+
+    Raises:
+      ValueError: PII/식별자 키 발견 시 (path 정보 포함).
+    """
+    if isinstance(payload, dict):
+        for k, v in payload.items():
+            if isinstance(k, str) and _normalize_pii_key(k) in _VLM_SHADOW_PII_KEYS:
+                raise ValueError(
+                    f"{path}.{k} 는 PII/식별자 키 — shadow 로그 저장 금지 "
+                    f"(D-12; analysis 참조는 video_hash 로만)"
+                )
+            sub = f"{path}.{k}" if isinstance(k, str) else f"{path}.<key>"
+            _reject_pii_keys(v, path=sub)
+    elif isinstance(payload, list):
+        for i, item in enumerate(payload):
+            _reject_pii_keys(item, path=f"{path}[{i}]")
+
+
+def store_vlm_shadow(video_hash: str, role: str, payload: dict) -> None:
+    """vlm_shadow/{video_hash} 에 역할별 Gemini 판정을 복제 저장 (D-10c / D-13).
+
+    Plan 22-03 Task 1. pipeline 이 veto verdict / recognizer 프로파일 / coach 출력을
+    소비하는 지점에서 재호출 0 으로 복제 저장한다(Task 2 배선). 본 helper 는 Firestore
+    규율(flat / ms epoch / merge / PII 금지)을 강제하는 단일 진입점이다.
+
+    문서 구조:
+      { video_hash, created_at, updated_at, roles: { veto: {...}, recognizer: {...},
+        coach: {...} } }
+    set(merge=True) 의 nested-map deep merge 로 role 별 누적 — 다른 role 데이터 미파괴.
+    created_at 은 첫 기록만 남기고(선행 doc.get() 으로 보존, set_reference_motion_with_gemini
+    선례), updated_at 은 매 호출 ms epoch 로 갱신.
+
+    검증 순서(저장 전):
+      1. video_hash 빈 값 / role 미등재 → ValueError.
+      2. D-12 PII 키 재귀 거부 → ValueError (T-22-07).
+      3. [[firestore-nested-array-flat]] nested array 사전 차단 → TypeError
+         (기존 `_validate_flat_dict_no_nested_array` 재사용). 대형 (T,J) 배열은
+         flat list 로 전달해야 하며 index 면제 필요 시 [[firestore-index-entry-limit]].
+
+    Raises:
+      ValueError: video_hash 빈 / role 미등재 / PII 키 포함.
+      TypeError:  payload dict 아님 / nested array 포함.
+    """
+    if not video_hash:
+        raise ValueError("video_hash required")
+    if role not in _VLM_SHADOW_ROLES:
+        raise ValueError(
+            f"role must be one of {sorted(_VLM_SHADOW_ROLES)}: got {role!r}"
+        )
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, dict):
+        raise TypeError(f"payload must be dict: got {type(payload).__name__}")
+
+    # D-12 — PII/식별자 키 거부 (저장 전, T-22-07 mitigation).
+    _reject_pii_keys(payload, path=f"roles.{role}")
+    # [[firestore-nested-array-flat]] — nested array 사전 차단 (기존 W5 validator 재사용).
+    _validate_flat_dict_no_nested_array(payload, path=f"roles.{role}")
+
+    now_ms = int(time.time() * 1000)
+    ref = _doc(f"{_VLM_SHADOW_COLLECTION}/{video_hash}")
+
+    # created_at 첫 기록 보존 — 선행 read 로 기존 시각 유지 (재호출에도 불변).
+    snap = ref.get()
+    created_at = now_ms
+    if snap is not None and getattr(snap, "exists", False):
+        existing = snap.to_dict() or {}
+        created_at = existing.get("created_at", now_ms)
+
+    ref.set(
+        {
+            "video_hash": video_hash,
+            "created_at": created_at,
+            "updated_at": now_ms,
+            "roles": {role: payload},
+        },
+        merge=True,
+    )

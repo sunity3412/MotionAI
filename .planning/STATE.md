@@ -4,7 +4,7 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 30 context gathered
-last_updated: "2026-07-09T02:05:38.681Z"
+last_updated: "2026-07-09T13:03:03Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 33
@@ -30,8 +30,10 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 Phase: 22 (custom-vlm-finetune) — EXECUTING
 Plan: 2 of 10 (22-02 IN-PROGRESS — Tasks 1-2 done, Task 3 belle-gated deferred)
 Verification: 22-02 Tasks 1-2 COMPLETE (LOCAL ONLY, 다운로드·과금 0). collect_phase22_youtube.py = 3모드 채널 harvester(--dry-run 무-네트워크 순수검증 exit 0 / --curate·--collect 는 PHASE22_BELLE_GREENLIGHT=1 env 게이트로 차단). phase22_sources.yaml = 티어별 채널 레지스트리(미성년·IG ToS enabled=false 격리). curate_vision.py = Gemini Vision 다운로드-전 선별 게이트(순수 decide()/normalize + I/O 어댑터 lazy graceful, verdict score/severity 영구 부재, 캐시). anonymize.py = 얼굴 가명처리(순수 numpy separable-box blur + I/O 껍데기, D-12, 상단 1/3 폴백). manifest.json = provenance 원장(시드 17 정타11+fault6 / hard-negative 2 A2·A3 holdout 격리 / 371 customer_track 구조 참조, uid 0). tests 4종 GREEN(phase22 전체 36 pass/2 skip). 2 commits (988993e/cda85b1). ▸ 22-01 은 앞서 COMPLETE(schema.py/perturb.py, 5 commits).
-Next: 22-02 Task 3 = belle greenlight 대기(Gemini 실선별 과금 + 카피라이트 prod S3 적재 비가역). belle 에 규모 제시 → 승인 후 yt-dlp 설치 + PHASE22_BELLE_GREENLIGHT=1 --curate→--collect + collect_phase22_instagram.py + LICENSE-AUDIT.md + _meta.collection_complete=true(균등 게이트 활성). 후속(22-04 JSONL/22-05 bake-off) 은 manifest 계약 import.
+Next: 22-02 Task 3 = belle greenlight 대기(Gemini 실선별 과금 + 카피라이트 prod S3 적재 비가역). belle 에 규모 제시 → 승인 후 yt-dlp 설치 + PHASE22_BELLE_GREENLIGHT=1 --curate→--collect + collect_phase22_instagram.py + LICENSE-AUDIT.md + _meta.collection_complete=true(균등 게이트 활성). 후속(22-04 JSONL/22-06 bake-off 실행) 은 manifest 계약 import.
 Status: 22-02 IN-PROGRESS (Task 3 belle 게이트 대기)
+
+> ✓ 22-05 COMPLETE (2026-07-09, LOCAL ONLY, GPU/Pod/모델가중치 0). bake-off(Qwen 3.6-VL-8B vs InternVL 3.5-8B) 하네스+평가 미니셋을 pod-free 로 박제 — 실행은 22-06. 산출: backend/evals/phase22/run_bakeoff.py(4축 순수 계측 score_grounding/temporal/json/coaching + run_sweep 규율 EVAL_OUT_DIR repo-밖·SERIAL·_meta·temp0·ALLDONE·Pod env 헤더, 모델/judge lazy) + fixtures/manifest.yaml(4타입 37항목: real 균등 14동작 kip-up 최다 아님 / hard_negative A2·A3 / synthetic_grounding=grounding L2 유일 트랙 / trap 역재생·셔플) + tests/phase22/test_bakeoff_harness.py(19 pod-free, phase22 전체 55 pass/2 skip). 3 commits(0e6b5fb/62fc02c/f6c9308). grounding=합성 전용 한계 명시(Open Question 1). main() 추론 루프는 22-06 스코프(의도적 미구현, dry-run+테스트로 검증). 다음=22-06 Pod 실행(후보 백본 순차 serve + 추론 루프 + 4축 판정), 모델 ID(RESEARCH A6)·hard_negative A2/A3 relocate 선행.
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu

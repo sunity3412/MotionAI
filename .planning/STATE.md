@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 22 (custom-vlm-finetune) — EXECUTING
-Plan: 2 of 10
-Verification: 22-01 COMPLETE (Wave 0 데이터 엔진 코어, LOCAL ONLY — Pod/GPU 미사용). backend/training/datagen 신설: schema.py = D-11 4철칙(Null 고정·알파벳 정렬·관절 사전 필터·000~999 3자리 정수 이산화) + D-01 통합 리포트 v1(REPORT_KEYS 5출력, score/severity 영구 부재) 단일 owner. faults[] ⊇ DEDUCTION_CONSUMED_KEYS lockstep(gemini_vision_scorer v8.1 differences 미러, severity 제외 — 감점 엔진 무수정 소비). measure_error_profile.py → rtmw_error_profile.json 실측 히스토그램 3종(source_doc_count=247, A3 해소, T-22-01 식별자 미포함). perturb.py = 합성 교란 순수 모듈(정답=원좌표 자가 라벨, stage 1/2/3 커리큘럼, 파라미터는 분포 샘플, numpy 단독). phase22 = 16 tests GREEN. 회귀 0(base 커밋 대비 FAILED diff IDENTICAL, python3.14/numpy2.x/genai 환경 pre-existing). 5 commits (bfd9a89/b7b62ee/612afdc/a0d2898/c1feb2a).
-Next: 22-02 (플랜 순서대로). 후속(22-04 JSONL 조립 / 22-05 bake-off / 22-08 서빙 파서)이 schema.py 단일 규격 소스 import. Wave 1+ bake-off/SFT/Pod 작업은 학습 Pod 임대 후(belle 알림).
-Status: Ready to execute
+Plan: 2 of 10 (22-02 IN-PROGRESS — Tasks 1-2 done, Task 3 belle-gated deferred)
+Verification: 22-02 Tasks 1-2 COMPLETE (LOCAL ONLY, 다운로드·과금 0). collect_phase22_youtube.py = 3모드 채널 harvester(--dry-run 무-네트워크 순수검증 exit 0 / --curate·--collect 는 PHASE22_BELLE_GREENLIGHT=1 env 게이트로 차단). phase22_sources.yaml = 티어별 채널 레지스트리(미성년·IG ToS enabled=false 격리). curate_vision.py = Gemini Vision 다운로드-전 선별 게이트(순수 decide()/normalize + I/O 어댑터 lazy graceful, verdict score/severity 영구 부재, 캐시). anonymize.py = 얼굴 가명처리(순수 numpy separable-box blur + I/O 껍데기, D-12, 상단 1/3 폴백). manifest.json = provenance 원장(시드 17 정타11+fault6 / hard-negative 2 A2·A3 holdout 격리 / 371 customer_track 구조 참조, uid 0). tests 4종 GREEN(phase22 전체 36 pass/2 skip). 2 commits (988993e/cda85b1). ▸ 22-01 은 앞서 COMPLETE(schema.py/perturb.py, 5 commits).
+Next: 22-02 Task 3 = belle greenlight 대기(Gemini 실선별 과금 + 카피라이트 prod S3 적재 비가역). belle 에 규모 제시 → 승인 후 yt-dlp 설치 + PHASE22_BELLE_GREENLIGHT=1 --curate→--collect + collect_phase22_instagram.py + LICENSE-AUDIT.md + _meta.collection_complete=true(균등 게이트 활성). 후속(22-04 JSONL/22-05 bake-off) 은 manifest 계약 import.
+Status: 22-02 IN-PROGRESS (Task 3 belle 게이트 대기)
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
 > code(Task1+2: daf6803/969a2c6, local pytest 41 pass/3 skip) → RunPod GPU 재처리 5/5 (RTMW onnxruntime-gpu
@@ -603,6 +603,7 @@ Recent decisions affecting current work:
 - [Phase 14]: 기준 모션 등록 = 다각도 캡처 프로토콜 + 두 엔진 출력 포함 (Mode 1 신뢰도의 기준)
 - [Phase 15]: Mode 3 = 발전(progress) 표시, %일치 헤드라인 금지 (세션 간 델타)
 - [2026-06-02 학원 용어 + 5트랙]: Phase 16 신설 — Studio Terminology Foundation. 학원 용어 3분기 시스템 (AKA 매핑 13개 / 정은지 reference 비등재 동작 / 자동 수집 + UX 카피) + IPSF 5트랙 채점 v1 scope (a) Compulsory Criteria + (c) Technical Deduction + Page 9 "all components" 절대 트랙. **MVP 가볍게 — 코드 통합 후속, 박제만 v1**. **실증 검증 게이트** = 파일럿 후 사용자 키워드 분기 1/2/3 비율 + 자동 수집 누적 패턴 → 한 번에 확장. NotebookLM IPSF CoP 2024-2025 lookup 박제 (Element Code Matching p.138-139, Page 9 "all components" CoP 2021-2024, AKA 13개 매핑). v1 신설 SCORE-05/TERM-01/TERM-DATA-01/TERM-COPY-01 + v2 신설 SCORE-V2-02/03 + TERM-V2-01/02. memory studio-term-3branch-system + ipsf-5-track-scoring 박제.
+- [2026-07-09 Plan 22-02 Tasks 1-2]: 채널 harvester(collect_phase22_youtube.py 3모드)+Gemini Vision 다운로드-전 선별 게이트(curate_vision.py, verdict score/severity 영구 부재)+얼굴 가명처리(anonymize.py, 순수 numpy blur, D-12)+provenance 원장(manifest.json 시드17+hard-negative2+371 customer_track). belle 게이트 툴 인포스먼트 = --curate/--collect 는 PHASE22_BELLE_GREENLIGHT=1 없으면 SystemExit(2). yt-dlp/boto3/genai/ultralytics 는 belle-gated 경로에서만 lazy-import → Task 1-2 산출물·전 테스트는 순수 로컬(네트워크 0, phase22 36 pass). **Task 3(Vision 실선별+카피라이트 prod S3 적재+LICENSE-AUDIT.md)은 belle greenlight 전 미실행 — 22-02 IN-PROGRESS 유지, ROADMAP complete 미표기.**
 - [2026-06-08 Plan 06-01 C1]: normalize_pose_by_segments 시그너처 = (source_keypoints, source_profile, target_profile, target_torso_px). L_ref = target(student) 의 segment ratio × target_torso_px (segment-aware, uniform scale degeneration 회피)
 - [2026-06-08 Plan 06-01 C14]: deficit code bad_angle → pose_reliability_low rename. IPSF Page 21 judge-observation 'bad_angle' 과 의미 분리, docs/contract.md §8.1 divergence note 박제
 - [2026-06-08 Plan 06-01 R2]: BodyComparisonSourcePose 신설 — Firestore reference 컬렉션의 reference 측 대표 hold frame keypoints 영속. flat values (4 × J = 68) + to_keypoints_array reshape. Plan 06-03 백필 contract source
@@ -696,7 +697,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 Last session: 2026-07-09T02:04:45.766Z
 
-Stopped at: Phase 30 context gathered
+Stopped at: 22-02 Tasks 1-2 done (수집 엔진 + Vision 선별 + 가명처리 + provenance 원장), Task 3 belle-gated (deferred)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

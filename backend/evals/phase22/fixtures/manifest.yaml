@@ -1,0 +1,402 @@
+# Phase 22 bake-off 평가 미니셋 (22-05 Task 1 — D-04 bake-off).
+#
+# 무엇:
+#   Qwen 3.6-VL-8B vs InternVL 3.5-8B 를 동일 조건에서 4축(grounding L2 / 시계열 /
+#   JSON 준수 / 코칭 judge)으로 재는 bake-off 의 평가 미니셋을 박제한다. 실행(Pod
+#   추론)은 22-06 — 이 파일은 어떤 클립/함정/합성 트랙으로 재는지의 계약만 고정한다.
+#
+# 항목 타입 4종:
+#   · real               — 학습 매니페스트(22-02)에서 동작별 균등 추출한 실영상.
+#                          등록 5동작(kip-up/power-spin/peter-pan/elbow-twist-sister/
+#                          pdshape) + climb + 미보유(unregistered) ≥ 2종. 정타/fault 균형.
+#                          bake-off 는 zero-shot 이라 학습 JSONL 과 겹쳐도 오염 아님
+#                          (모델은 이 미니셋을 학습에 못 봄 — 프롬프트-시점 추론만).
+#   · hard_negative      — 2026-07-06 실증 위양성(A2 피터팬·A3 power-spin). 성공으로
+#                          오판하면 안 되는 함정(22-02 holdout 행 인용).
+#   · synthetic_grounding — perturb.py 교란 시퀀스. 정답 = 교란 전 원좌표. grounding
+#                          L2 의 **유일한** 계측 트랙 — 실영상엔 진짜 정답 좌표가 없다
+#                          (Open Question 1, [[analysis-objectivity-no-human-scores]]).
+#   · trap               — make_temporal_trap 역재생/순서 셔플. 모델이 영상을 안 보고
+#                          시간 순서를 언어 프라이어로 추측하는 shortcut 검출(Pitfall 6).
+#                          함정 정답률이 정상과 동일하게 높으면 shortcut 경고.
+#
+# 객관성 하드가드 ([[analysis-objectivity-no-human-scores]]):
+#   · real/hard_negative label = 영상-파생 입력 라벨(정타/fault) — 객관성 OK.
+#   · 사람이 매긴 "이 영상 N점" ground-truth 점수 라벨은 영구 금지.
+#   · grounding 정답은 합성 원좌표(자가 라벨), 코칭은 judge 가 블라인드로 잰다.
+#
+# 동시성 ([[pipeline-not-concurrency-safe-eval-serial]]):
+#   · bake-off 는 SERIAL — 한 모델·한 항목 순차. 동시 트리거 = cross-contamination.
+
+_meta:
+  phase: "22"
+  plan: "22-05"
+  purpose: "D-04 bake-off (Qwen 3.6-VL-8B vs InternVL 3.5-8B) 평가 미니셋"
+  schema_version: ft-v1.0            # schema.py SCHEMA_VERSION 정합.
+  prompt_version: ft-v1.0            # schema.py PROMPT_VERSION 정합.
+  generator: backend/evals/phase22/run_bakeoff.py
+  generator_version: bakeoff-v1.0
+  serial_only: true                  # 동시 실행 금지(파이프라인 동시성 비안전).
+  objectivity: "라벨=영상 파생. 점수 라벨 부재 — grounding=합성 원좌표, 코칭=judge 블라인드."
+  grounding_scope: >-
+    grounding L2 는 synthetic_grounding 트랙에서만 계측한다 — 실영상엔 진짜 정답 좌표가
+    없다(Open Question 1). 실영상 좌표 정확도는 shadow 일치율로 대리(22-08 서빙 검증).
+  scale_note: >-
+    시드 규모 미니셋(총 37). NLM Q7 목표치 100~500 은 채널 harvest(22-02 Task 3 belle
+    greenlight) 완료 후 확장 대상 — 현 시드에서는 전 동작 커버를 규모보다 우선한다.
+  total_items: 37
+  type_counts:
+    real: 21
+    hard_negative: 2
+    synthetic_grounding: 8
+    trap: 6
+  # real 트랙 동작별 카운트 — kip-up 이 최다 아님(등록 6동작 균등 2, 미보유는 각 1).
+  motion_counts:
+    kip-up: 2
+    power-spin: 2
+    peter-pan: 2
+    elbow-twist-sister: 2
+    pdshape: 2
+    climb: 2
+    combo: 1
+    foxtop: 1
+    invert: 1
+    sideway-spin: 1
+    Iron-X: 1
+    Cocoon: 1
+    Jade-Split: 1
+    various: 2
+  balance:
+    registered_moves: [kip-up, power-spin, peter-pan, elbow-twist-sister, pdshape]
+    holdout_gate_move: [climb]        # known not_pole 게이트(정타/fault 둘 다).
+    unregistered_moves: [combo, foxtop, invert, sideway-spin, Iron-X, Cocoon, Jade-Split, various]
+    note: >-
+      등록 5 + climb + 미보유 8 = 14 동작. 등록/게이트 동작은 정타·fault 페어(각 2),
+      미보유는 정타 위주(각 1) — kip-up 최다 아님(6동작 공동 최다 2).
+
+items:
+  # ── real: 등록 5동작 (정타/fault 페어) ──────────────────────────────────────
+  - id: real-kipup-correct
+    type: real
+    motion: kip-up
+    registered: true
+    s3_key: fixtures/phase15/kip-up/correct.mp4
+    label: 정타
+    eval_only: false
+    corner_case: normal
+    expected: {track: real, note: "zero-shot — 학습 겹침 무관(오염 아님)"}
+  - id: real-kipup-fault
+    type: real
+    motion: kip-up
+    registered: true
+    s3_key: fixtures/phase15/kip-up/fault.mp4
+    label: fault
+    eval_only: false
+    corner_case: subtle_fault
+    expected: {track: real, note: "일부러실수 — 결함 짚기 대상"}
+  - id: real-powerspin-correct
+    type: real
+    motion: power-spin
+    registered: true
+    s3_key: fixtures/phase15/power-spin/correct.mp4
+    label: 정타
+    eval_only: false
+    corner_case: normal
+    expected: {track: real}
+  - id: real-powerspin-fault
+    type: real
+    motion: power-spin
+    registered: true
+    s3_key: fixtures/phase15/power-spin/fault.mp4
+    label: fault
+    eval_only: false
+    corner_case: subtle_fault
+    expected: {track: real}
+  - id: real-peterpan-correct
+    type: real
+    motion: peter-pan
+    registered: true
+    s3_key: fixtures/phase15/peter-pan/correct.mp4
+    label: 정타
+    eval_only: false
+    corner_case: normal
+    expected: {track: real}
+  - id: real-peterpan-fault
+    type: real
+    motion: peter-pan
+    registered: true
+    s3_key: fixtures/phase15/peter-pan/fault.mp4
+    label: fault
+    eval_only: false
+    corner_case: subtle_fault
+    expected: {track: real}
+  - id: real-elbowtwist-correct
+    type: real
+    motion: elbow-twist-sister
+    registered: true
+    s3_key: fixtures/phase15/elbow-twist-sister/correct.mp4
+    label: 정타
+    eval_only: false
+    corner_case: normal
+    expected: {track: real}
+  - id: real-elbowtwist-fault
+    type: real
+    motion: elbow-twist-sister
+    registered: true
+    s3_key: fixtures/phase15/elbow-twist-sister/fault.mp4
+    label: fault
+    eval_only: false
+    corner_case: subtle_fault
+    expected: {track: real}
+  - id: real-pdshape-correct
+    type: real
+    motion: pdshape
+    registered: true
+    s3_key: fixtures/phase15/pdshape/correct.mp4
+    label: 정타
+    eval_only: false
+    corner_case: normal
+    expected: {track: real}
+  - id: real-pdshape-fault
+    type: real
+    motion: pdshape
+    registered: true
+    s3_key: fixtures/phase15/pdshape/fault.mp4
+    label: fault
+    eval_only: false
+    corner_case: subtle_fault
+    expected: {track: real}
+  # ── real: climb (known not_pole 게이트 동작) ───────────────────────────────
+  - id: real-climb-correct
+    type: real
+    motion: climb
+    registered: false
+    s3_key: fixtures/phase15/climb/correct.mp4
+    label: 정타
+    eval_only: false
+    corner_case: not_pole_gate
+    expected: {track: real, note: "climb = not_pole 안전게이트 known 대상"}
+  - id: real-climb-fault
+    type: real
+    motion: climb
+    registered: false
+    s3_key: fixtures/phase15/climb/fault.mp4
+    label: fault
+    eval_only: false
+    corner_case: not_pole_gate
+    expected: {track: real}
+  # ── real: 미보유(unregistered) 동작 — reference 라이브러리 정타 ─────────────
+  - id: real-combo-correct
+    type: real
+    motion: combo
+    registered: false
+    s3_key: reference/ref-combo.mp4
+    label: 정타
+    eval_only: false
+    corner_case: unregistered
+    expected: {track: real, note: "미보유 — 채점 근거 부재 게이트 확인용"}
+  - id: real-foxtop
+    type: real
+    motion: foxtop
+    registered: false
+    s3_key: reference/ref-foxtop.mp4
+    label: 정타
+    eval_only: false
+    corner_case: unregistered
+    expected: {track: real}
+  - id: real-invert
+    type: real
+    motion: invert
+    registered: false
+    s3_key: reference/ref-invert.mp4
+    label: 정타
+    eval_only: false
+    corner_case: unregistered
+    expected: {track: real}
+  - id: real-sideway-spin
+    type: real
+    motion: sideway-spin
+    registered: false
+    s3_key: reference/ref-sideway-spin.mp4
+    label: 정타
+    eval_only: false
+    corner_case: unregistered
+    expected: {track: real}
+  # ── real: 미보유 — youtube tier-1 정타(코너케이스: 앵글·편집점) ────────────
+  - id: real-ironx
+    type: real
+    motion: Iron-X
+    registered: false
+    s3_key: fixtures/phase22/Iron-X/JMVPNcKuTWg.mp4
+    label: 정타
+    eval_only: true
+    corner_case: unregistered
+    expected: {track: real, note: "youtube tier-1 official (22-02 harvest)"}
+  - id: real-cocoon
+    type: real
+    motion: Cocoon
+    registered: false
+    s3_key: fixtures/phase22/Cocoon/ER9IvK-Gz64.mp4
+    label: 정타
+    eval_only: true
+    corner_case: unregistered
+    expected: {track: real}
+  - id: real-jadesplit
+    type: real
+    motion: Jade-Split
+    registered: false
+    s3_key: fixtures/phase22/Jade-Split/k68R5OczgtA.mp4
+    label: 정타
+    eval_only: true
+    corner_case: unregistered
+    expected: {track: real}
+  - id: real-angle-corner
+    type: real
+    motion: various
+    registered: false
+    s3_key: fixtures/phase22/kpsf_official/m8gs9fZIeeY.mp4
+    label: 정타
+    eval_only: true
+    corner_case: camera_angle_switch
+    expected: {track: real, note: "카메라 앵글 전환 코너케이스(vision_verdict 기록)"}
+  - id: real-various-poleorg
+    type: real
+    motion: various
+    registered: false
+    s3_key: fixtures/phase22/various/3D5SOjsew5Q.mp4
+    label: 정타
+    eval_only: true
+    corner_case: edit_cut
+    expected: {track: real, note: "편집점(컷 전환) 코너케이스"}
+
+  # ── hard_negative: 2026-07-06 실증 위양성 (성공 오판 금지) ──────────────────
+  - id: hardneg-peterpan-A2
+    type: hard_negative
+    motion: peter-pan
+    registered: true
+    s3_key: null                       # relocate pending → fixtures/phase22/hard_negative/
+    source_ref: "internal:pilot-2026-07-06:A2"
+    label: fault
+    eval_only: true
+    expected:
+      track: hard_negative
+      must_not: false_positive         # 잘못된 피터팬을 성공으로 오판하면 FAIL.
+      note: "22-02 holdout(hard_negative_eval) 인용 — 위양성 함정"
+  - id: hardneg-powerspin-A3
+    type: hard_negative
+    motion: power-spin
+    registered: true
+    s3_key: null                       # relocate pending.
+    source_ref: "internal:pilot-2026-07-06:A3"
+    label: fault
+    eval_only: true
+    expected:
+      track: hard_negative
+      must_not: false_positive
+      note: "power-spin DTW 싱크 불일치 함정 — 22-02 holdout 인용"
+
+  # ── synthetic_grounding: perturb.py 교란(정답=원좌표, grounding L2 유일 트랙) ─
+  # generator = datagen.perturb.perturb_sequence(coords, profile, stage, rng(seed)).
+  # 정답(truth) = PerturbResult.original — 실행 시(22-06) 씨앗으로 재생성해 L2 계측.
+  - id: synth-ground-stage1-s11
+    type: synthetic_grounding
+    motion: synthetic
+    generator: perturb.perturb_sequence
+    seed: 11
+    stage: 1
+    expected: {track: grounding, truth: original_coords, note: "비핵심 관절 단프레임 지터+가려짐"}
+  - id: synth-ground-stage1-s12
+    type: synthetic_grounding
+    motion: synthetic
+    generator: perturb.perturb_sequence
+    seed: 12
+    stage: 1
+    expected: {track: grounding, truth: original_coords}
+  - id: synth-ground-stage2-s21
+    type: synthetic_grounding
+    motion: synthetic
+    generator: perturb.perturb_sequence
+    seed: 21
+    stage: 2
+    expected: {track: grounding, truth: original_coords, note: "핵심 관절 연속 다프레임 Null"}
+  - id: synth-ground-stage2-s22
+    type: synthetic_grounding
+    motion: synthetic
+    generator: perturb.perturb_sequence
+    seed: 22
+    stage: 2
+    expected: {track: grounding, truth: original_coords}
+  - id: synth-ground-stage3-s31
+    type: synthetic_grounding
+    motion: synthetic
+    generator: perturb.perturb_sequence
+    seed: 31
+    stage: 3
+    expected: {track: grounding, truth: original_coords, note: "L/R 스왑 + 복합 가려짐/지터"}
+  - id: synth-ground-stage3-s32
+    type: synthetic_grounding
+    motion: synthetic
+    generator: perturb.perturb_sequence
+    seed: 32
+    stage: 3
+    expected: {track: grounding, truth: original_coords}
+  - id: synth-ground-stage1-s13
+    type: synthetic_grounding
+    motion: synthetic
+    generator: perturb.perturb_sequence
+    seed: 13
+    stage: 1
+    expected: {track: grounding, truth: original_coords}
+  - id: synth-ground-stage2-s23
+    type: synthetic_grounding
+    motion: synthetic
+    generator: perturb.perturb_sequence
+    seed: 23
+    stage: 2
+    expected: {track: grounding, truth: original_coords}
+
+  # ── trap: make_temporal_trap 역재생/셔플 (언어 프라이어 shortcut 검출) ───────
+  # generator = datagen.perturb.make_temporal_trap(coords, rng(seed)). 정답 = "함정
+  # 시퀀스"(정방향 답 제출 시 0점). CircularEval 전 조합 일치 시만 1점.
+  - id: trap-reverse-s101
+    type: trap
+    motion: synthetic
+    generator: perturb.make_temporal_trap
+    seed: 101
+    trap_kind: reverse_or_shuffle
+    expected: {track: temporal, truth: is_trap, note: "역재생/셔플 — 정방향 답=0점"}
+  - id: trap-reverse-s102
+    type: trap
+    motion: synthetic
+    generator: perturb.make_temporal_trap
+    seed: 102
+    trap_kind: reverse_or_shuffle
+    expected: {track: temporal, truth: is_trap}
+  - id: trap-shuffle-s103
+    type: trap
+    motion: synthetic
+    generator: perturb.make_temporal_trap
+    seed: 103
+    trap_kind: reverse_or_shuffle
+    expected: {track: temporal, truth: is_trap}
+  - id: trap-shuffle-s104
+    type: trap
+    motion: synthetic
+    generator: perturb.make_temporal_trap
+    seed: 104
+    trap_kind: reverse_or_shuffle
+    expected: {track: temporal, truth: is_trap}
+  - id: trap-reverse-s105
+    type: trap
+    motion: synthetic
+    generator: perturb.make_temporal_trap
+    seed: 105
+    trap_kind: reverse_or_shuffle
+    expected: {track: temporal, truth: is_trap}
+  - id: trap-shuffle-s106
+    type: trap
+    motion: synthetic
+    generator: perturb.make_temporal_trap
+    seed: 106
+    trap_kind: reverse_or_shuffle
+    expected: {track: temporal, truth: is_trap}

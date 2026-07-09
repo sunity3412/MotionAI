@@ -317,9 +317,13 @@ def _enumerate_channel(channel_url: str, limit: int | None) -> list[dict]:
     }
     if limit:
         opts["playlistend"] = int(limit)
+    # 채널의 /videos 탭으로 정규화 — 맨 @handle 은 채널 홈(소수·duration 결측) 반환.
+    url = channel_url.rstrip("/")
+    if "youtube.com" in url and not url.endswith(("/videos", "/shorts", "/streams")):
+        url = url + "/videos"
     out: list[dict] = []
     with YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(channel_url, download=False)
+        info = ydl.extract_info(url, download=False)
     for e in ((info or {}).get("entries") or []):
         if not e:
             continue

@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -89,10 +90,12 @@ def _parse_json_lenient(text: str) -> dict:
     try:
         return json.loads(s)
     except json.JSONDecodeError:
-        lo, hi = s.find("{"), s.rfind("}")
-        if lo != -1 and hi != -1 and hi > lo:
-            return json.loads(s[lo:hi + 1])
-        raise
+        # "Extra data"(다중 객체)·앞뒤 잡텍스트 → 첫 { 부터 raw_decode 로 첫 객체만.
+        idx = s.find("{")
+        if idx == -1:
+            raise
+        obj, _ = json.JSONDecoder().raw_decode(s[idx:])
+        return obj
 
 
 def normalize_verdict(raw: dict | None) -> dict:
@@ -230,6 +233,17 @@ class VisionGate:
             ]
         else:
             uploaded = self._client.files.upload(file=url_or_path)
+            # 업로드 직후 파일은 PROCESSING — ACTIVE 될 때까지 폴링(File API 계약).
+            for _ in range(40):
+                state = getattr(uploaded.state, "name", str(uploaded.state))
+                if state == "ACTIVE":
+                    break
+                if state == "FAILED":
+                    raise RuntimeError("File API 처리 실패(FAILED)")
+                time.sleep(1)
+                uploaded = self._client.files.get(name=uploaded.name)
+            else:
+                raise RuntimeError("File API ACTIVE 타임아웃")
             contents = [uploaded, _GATE_PROMPT]
         resp = self._client.models.generate_content(
             model=GEMINI_MODEL,

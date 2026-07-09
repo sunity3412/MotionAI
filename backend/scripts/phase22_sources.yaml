@@ -149,3 +149,35 @@ channels:
     bucket: fault
     enabled: false
     notes: '호서예전 폴스포츠학과. IG ToS 회색 — Task 3.'
+
+  - name: yurim_pole
+    channel_url: https://www.instagram.com/yurim_pole/
+    platform: instagram
+    tier: 2_studio
+    bucket: fault
+    enabled: false
+    notes: 'belle 추가 2026-07-09. 릴스 ~101s. IG ToS 회색.'
+
+  - name: polerspoledance
+    channel_url: https://www.instagram.com/polerspoledance/
+    platform: instagram
+    tier: 2_studio
+    bucket: fault
+    enabled: false
+    notes: '스튜디오 릴스. IG ToS 회색.'
+
+  - name: turniroh.pole
+    channel_url: https://www.instagram.com/turniroh.pole/
+    platform: instagram
+    tier: 2_studio
+    bucket: fault
+    enabled: false
+    notes: '스튜디오/선수. IG ToS 회색.'
+
+  - name: albertamores_polesport
+    channel_url: https://www.instagram.com/albertamores_polesport/
+    platform: instagram
+    tier: 2_studio
+    bucket: fault
+    enabled: false
+    notes: 'belle 추가 2026-07-09. IG ToS 회색.'

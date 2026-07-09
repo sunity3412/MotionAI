@@ -453,7 +453,7 @@ def _run_collect(registry: dict, args) -> int:
     s3 = boto3.client("s3")
     per_cap = args.limit_per_channel or defaults.get("per_channel_cap", 40)
 
-    downloaded = skipped = failed = 0
+    downloaded = skipped = failed = unavailable = 0
     for ch in active:
         if args.max_candidates and downloaded >= args.max_candidates:
             break
@@ -477,7 +477,9 @@ def _run_collect(registry: dict, args) -> int:
             try:
                 with tempfile.TemporaryDirectory() as td:
                     opts = {
-                        "format": "b[height<=720][ext=mp4]/b[height<=720]/b",
+                        # bv+ba → ffmpeg mp4 병합(webm 복구), 없으면 progressive 폴백.
+                        "format": "bv*[height<=720]+ba/b[height<=720]/b",
+                        "merge_output_format": "mp4",
                         "outtmpl": str(Path(td) / "%(id)s.%(ext)s"),
                         "writeinfojson": True,
                         "quiet": True, "no_warnings": True, "ignoreerrors": True,
@@ -486,10 +488,13 @@ def _run_collect(registry: dict, args) -> int:
                         ydl.download([url])
                     files = list(Path(td).iterdir())
                     mp4 = next((f for f in files if f.suffix == ".mp4"), None)
+                    if not mp4:  # merge 실패 시 any 비디오 파일 폴백.
+                        mp4 = next((f for f in files
+                                    if f.suffix.lower() in (".webm", ".mkv", ".m4v")), None)
                     info = next((f for f in files if f.name.endswith(".info.json")), None)
                     if not mp4:
-                        failed += 1
-                        print(f"  [SKIP] {vid} mp4 없음", flush=True)
+                        unavailable += 1  # 삭제·지역차단 등 = fail 아님(skip).
+                        print(f"  [UNAVAIL] {vid} 비디오 파일 없음(삭제/차단 추정)", flush=True)
                         continue
                     s3.upload_file(str(mp4), BUCKET, s3_key,
                                    ExtraArgs={"ContentType": CONTENT_TYPE})
@@ -512,11 +517,11 @@ def _run_collect(registry: dict, args) -> int:
                 failed += 1
                 print(f"  [FAIL] {vid}: {exc}", file=sys.stderr, flush=True)
 
-    print(f"\n[collect] 다운로드 {downloaded} | skip(기존) {skipped} | fail {failed} "
-          f"| manifest rows {len(manifest.get('rows', []))}. "
+    print(f"\n[collect] 다운로드 {downloaded} | skip(기존) {skipped} | unavailable {unavailable} "
+          f"| fail {failed} | manifest rows {len(manifest.get('rows', []))}. "
           f"_meta.collection_complete 미설정(부분 배치 — 균등게이트는 22-04 진입 assert).",
           flush=True)
-    return 0 if failed == 0 else 1
+    return 0 if failed == 0 else 1  # unavailable(삭제/차단)은 정상, 실 예외만 exit 1.
 
 
 def _ytdlp_version() -> str:

@@ -410,11 +410,121 @@ def _run_curate(registry: dict, args) -> int:
     return 0
 
 
+def _motion_slug(verdict: dict, channel_name: str) -> str:
+    """S3 키의 {motion} 세그먼트 — 영문 동작명은 슬러그, 한글/미상은 채널명 폴백."""
+    slug = _ascii_safe((verdict.get("move_guess") or "").strip())
+    if not slug or slug == "unknown":
+        return _ascii_safe(channel_name)
+    return slug[:40]
+
+
+def _load_manifest() -> dict:
+    import json as _json
+
+    try:
+        return _json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return {"rows": [], "_meta": {}}
+
+
 def _run_collect(registry: dict, args) -> int:
-    """통과분 다운로드 + S3 적재. Task 3 belle greenlight 후에만."""
-    print("[collect] Task 3 경로 — yt-dlp 다운로드 + boto3 PUT + manifest 갱신. (greenlight 확인됨)", flush=True)
-    print("[collect] 실 다운로드/적재 실행은 Task 3 belle 스코프에서 배선한다.", flush=True)
-    return 0
+    """통과분(캐시 keep verdict) 다운로드 + S3 적재 + manifest 갱신. belle greenlight 후.
+
+    멱등: manifest 에 이미 있는 s3_key 는 skip. verdict 캐시에 keep 인 후보만 받는다
+    (재-curate 없이 curate 결과 재사용, 재과금 0). ffmpeg 불필요한 단일파일 포맷.
+    """
+    import json as _json
+    import tempfile
+
+    import boto3
+    from yt_dlp import YoutubeDL
+
+    sys.path.insert(0, str(BACKEND / "training"))
+    from datagen import curate_vision
+
+    defaults = registry["defaults"]
+    active = [c for c in _active_channels(registry) if c.get("platform") == "youtube"]
+    if args.only:
+        active = [c for c in active if args.only.lower() in c["name"].lower()]
+
+    gate = curate_vision.VisionGate()  # 캐시 로드용(네트워크 0, keep 조회만).
+    manifest = _load_manifest()
+    existing = {r.get("s3_key") for r in manifest.get("rows", [])}
+    s3 = boto3.client("s3")
+    per_cap = args.limit_per_channel or defaults.get("per_channel_cap", 40)
+
+    downloaded = skipped = failed = 0
+    for ch in active:
+        if args.max_candidates and downloaded >= args.max_candidates:
+            break
+        enum = _enumerate_channel(ch, per_cap * 4)
+        passed = [e for e in enum if e.get("id") and passes_filters(e, ch, defaults)][:per_cap]
+        for e in passed:
+            if args.max_candidates and downloaded >= args.max_candidates:
+                break
+            vid = e["id"]
+            verdict = gate._cache.get(vid)  # curate 캐시 조회(재호출 0).
+            dec = curate_vision.decide(verdict)
+            if dec.status != "keep":
+                continue
+            motion = _motion_slug(verdict, ch["name"])
+            s3_key = build_s3_key(motion, vid)
+            if s3_key in existing:
+                skipped += 1
+                continue
+            assert_non_notified(s3_key)
+            url = f"https://www.youtube.com/watch?v={vid}"
+            try:
+                with tempfile.TemporaryDirectory() as td:
+                    opts = {
+                        "format": "b[height<=720][ext=mp4]/b[height<=720]/b",
+                        "outtmpl": str(Path(td) / "%(id)s.%(ext)s"),
+                        "writeinfojson": True,
+                        "quiet": True, "no_warnings": True, "ignoreerrors": True,
+                    }
+                    with YoutubeDL(opts) as ydl:
+                        ydl.download([url])
+                    files = list(Path(td).iterdir())
+                    mp4 = next((f for f in files if f.suffix == ".mp4"), None)
+                    info = next((f for f in files if f.name.endswith(".info.json")), None)
+                    if not mp4:
+                        failed += 1
+                        print(f"  [SKIP] {vid} mp4 없음", flush=True)
+                        continue
+                    s3.upload_file(str(mp4), BUCKET, s3_key,
+                                   ExtraArgs={"ContentType": CONTENT_TYPE})
+                    if info:
+                        s3.upload_file(str(info), BUCKET, build_info_key(motion, vid),
+                                       ExtraArgs={"ContentType": "application/json"})
+                row = build_manifest_row(
+                    motion=motion, video_id=vid, label_bucket=dec.bucket,
+                    source_url=url, channel=ch["name"], tier=ch.get("tier", "?"),
+                    yt_dlp_version=_ytdlp_version(), vision_verdict=verdict,
+                    collected_at_ms=int(time.time() * 1000),
+                )
+                manifest.setdefault("rows", []).append(row)
+                existing.add(s3_key)
+                MANIFEST_PATH.write_text(
+                    _json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                downloaded += 1
+                print(f"  [OK] {ch['name']:<24} {vid} → {s3_key} ({dec.bucket}/{motion})", flush=True)
+            except Exception as exc:  # noqa: BLE001
+                failed += 1
+                print(f"  [FAIL] {vid}: {exc}", file=sys.stderr, flush=True)
+
+    print(f"\n[collect] 다운로드 {downloaded} | skip(기존) {skipped} | fail {failed} "
+          f"| manifest rows {len(manifest.get('rows', []))}. "
+          f"_meta.collection_complete 미설정(부분 배치 — 균등게이트는 22-04 진입 assert).",
+          flush=True)
+    return 0 if failed == 0 else 1
+
+
+def _ytdlp_version() -> str:
+    try:
+        import yt_dlp
+        return getattr(yt_dlp.version, "__version__", "unknown")
+    except Exception:  # noqa: BLE001
+        return "unknown"
 
 
 if __name__ == "__main__":

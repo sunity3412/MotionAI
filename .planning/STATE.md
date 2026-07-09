@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 30 context gathered
-last_updated: "2026-07-09T00:39:20.603Z"
-last_activity: 2026-07-09 -- Phase 30 planning complete
+last_updated: "2026-07-09T02:05:38.681Z"
+last_activity: 2026-07-09
 progress:
-  total_phases: 14
-  completed_phases: 5
-  total_plans: 64
-  completed_plans: 40
-  percent: 36
+  total_phases: 33
+  completed_phases: 15
+  total_plans: 165
+  completed_plans: 127
+  percent: 45
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 28 — dtw-motion-based-alignment
+**Current focus:** Phase 22 — custom-vlm-finetune
 
 > **20-04 / SCORE-09 ownership (belle 2026-06-23, D-14 amended + D-15, ITERATION6):** Phase 20-04 의 still-frame SEVERITY_CAP **regression subset** (SCORE-08 cap + TRUST-06 결정론) 은 Phase 23-03 eval 이 still-frame veto 경로에서 OWN·검증한다 (superseded-by-23-03) — 정은지 95~100 / kip-up fault = moderate 점수 ≤75 (20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. **SCORE-09 (일반화/sensitivity — 미보유+above-cutoff 양방검증) 는 흡수되지 않고 별도 PENDING 으로 Phase 20 / 후속에 잔류한다.** Phase 23 을 SCORE-09 미처리로 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.
 
 ## Current Position
 
-Phase: 29
-Plan: Not started
-Verification: 10-02 COMPLETE — D-04 trunk-hyperextension flag end-to-end (reference-anchored DTW-path-aligned excess + hip-local phase-co-located control-loss AND-gate). _phase_for_window (window→phase ≥50% overlap, no-op on None) + _dtw_aligned_joint_medians (timing-shift cancellation, HIGH-A) + _control_loss_for_joint (LOCAL+TEMPORAL, HIGH-1) in safety_flags.py. _process injection (mode1 a_ref / mode3 reshaped prev) + single-path firestore_admin._validate_safety_flags. Amber InjuryRiskSection on result.tsx (all-4 copy map, omit-when-empty, no brand red). 정은지 elite posture alone / wrong-phase / timing-shifted-reference = ZERO flags (headline gate GREEN). phase10 = 29 passed, 7 xfailed (10-03/10-04 must-fire), 0 failed. App typecheck clean. No regressions (full-suite 54 pre-existing failures = app-module-name-collision + gemini/knee env, identical on HEAD). 3 commits (774e2ee/e6f1b3b/708464f).
-Next: 10-03 (D-05 absolute joint hyperextension — reference-free, sagittal-frame from keypoints_4ch; un-xfails hyperextension tests; auto-renders via joint_hyperextension copy map). Then 10-04 (asymmetry + level_mismatch).
+Phase: 22 (custom-vlm-finetune) — EXECUTING
+Plan: 2 of 10
+Verification: 22-01 COMPLETE (Wave 0 데이터 엔진 코어, LOCAL ONLY — Pod/GPU 미사용). backend/training/datagen 신설: schema.py = D-11 4철칙(Null 고정·알파벳 정렬·관절 사전 필터·000~999 3자리 정수 이산화) + D-01 통합 리포트 v1(REPORT_KEYS 5출력, score/severity 영구 부재) 단일 owner. faults[] ⊇ DEDUCTION_CONSUMED_KEYS lockstep(gemini_vision_scorer v8.1 differences 미러, severity 제외 — 감점 엔진 무수정 소비). measure_error_profile.py → rtmw_error_profile.json 실측 히스토그램 3종(source_doc_count=247, A3 해소, T-22-01 식별자 미포함). perturb.py = 합성 교란 순수 모듈(정답=원좌표 자가 라벨, stage 1/2/3 커리큘럼, 파라미터는 분포 샘플, numpy 단독). phase22 = 16 tests GREEN. 회귀 0(base 커밋 대비 FAILED diff IDENTICAL, python3.14/numpy2.x/genai 환경 pre-existing). 5 commits (bfd9a89/b7b62ee/612afdc/a0d2898/c1feb2a).
+Next: 22-02 (플랜 순서대로). 후속(22-04 JSONL 조립 / 22-05 bake-off / 22-08 서빙 파서)이 schema.py 단일 규격 소스 import. Wave 1+ bake-off/SFT/Pod 작업은 학습 Pod 임대 후(belle 알림).
 Status: Ready to execute
 
 > ✓ Wave 5 (04-05) COMPLETE (2026-06-14, RunPod d9xxudi1i6xlpz RTX PRO 4500 Blackwell sm_120):
@@ -66,7 +66,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-09 -- Phase 30 planning complete
+Last activity: 2026-07-09
 
 ### Quick Tasks Completed
 
@@ -568,6 +568,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 10 P03 | 55min | 2 tasks | 5 files |
 | Phase 10 P04 | 45min | 2 tasks | 4 files |
 | Phase 26 P06 | ~55min | 3 tasks | 11 files |
+| Phase 22 P22-01 | 18min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -657,6 +658,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 26-06: 재배치안 A 확정(belle) — 소스 선택 ScrollView+캡션 통합, 홈 무접촉. B 홈 링크는 향후 잡 UI 후보
 - [Phase 26]: 26-06: 학습활용 동의 opt-out 전환(belle 제품 결정 2026-07-08) — 기본 체크 ON, 해제=노학습. 기록 경로/fail-safe 불변
 - [Phase 26]: 26-06: 배치 UAT 정책(belle) — 잔여 실기기 확인+Firestore 증거는 26-HUMAN-UAT.md 이월, phase 22·26~31 완료 후 직원 합동 세션
+- [Phase 22]: 22-01: schema.py 단일 owner — D-11 4철칙 + D-01 리포트 v1(REPORT_KEYS, score/severity 영구 부재). faults[] ⊇ DEDUCTION_CONSUMED_KEYS lockstep(gemini v8.1 differences 미러, severity 제외).
+- [Phase 22]: 22-01: rtmw_error_profile.json(source_doc_count=247) 실측 분포로 A3 해소 — perturb 파라미터는 히스토그램 샘플, 교란 수치 하드코딩 0(측정 임계 0.3은 관측 정의). T-22-01 식별자 미포함.
 
 ### Pending Todos
 
@@ -691,7 +694,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-08T17:57:36.651Z
+Last session: 2026-07-09T02:04:45.766Z
 
 Stopped at: Phase 30 context gathered
 
@@ -760,7 +763,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/30-growth-tracking/30-CONTEXT.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "phase": "22",
+    "plan": "22-02",
+    "schema_version": "ft-v1.0",
+    "prompt_version": "ft-v1.0",
+    "generated_by": "collect_phase22_youtube.py + 22-02 seed 등재",
+    "usage_policy": "training-only-no-redistribution",
+    "collection_complete": false,
+    "balance_ratio": null,
+    "notes": "collection_complete=false — 채널 harvest 수집분(youtube/instagram)은 Task 3 belle greenlight 후 append. 균등 게이트는 그때 활성화(DR-06 fail-closed 는 22-04 진입 assert). 시드/hard-negative 는 Task 2 등재분."
+  },
+  "rows": []
+}

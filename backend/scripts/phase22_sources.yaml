@@ -1,0 +1,147 @@
+# Phase 22 학습셋 소스 레지스트리 (belle 큐레이션, 2026-07-09)
+#
+# 근거 = .planning/phases/22-custom-vlm-finetune/22-DATA-SOURCES.md +
+# 메모리 phase22-data-sourcing-policy-2026-07-09. collect_phase22_youtube.py 가
+# 이 파일을 단일 채널/계정 레지스트리로 읽는다.
+#
+# 정책 (belle 확정):
+#   · 수집 = 학습 전용. S3 fixtures/phase22/ (비-notified prefix), usage=
+#     training-only-no-redistribution. 앱 미노출·재배포 없음. Mode1 reference 와 별개.
+#   · 정타 버킷 = 공식 대회 채널(선수는 정타). 후프/에어리얼후프 종목 제외(폴 아님).
+#   · fault/기술 버킷 = 단일강사/스튜디오 튜토리얼(강사 정면·전신·고정캠).
+#   · 채널이 아니라 시리즈/영상 단위로 판단. 수집 = 균등 샘플(dump-all 아님;
+#     동작별 max <= 2*min, 미보유 동작 >= 2종). per_channel_cap 로 harvest 단계 강제.
+#   · 실제 다운로드/S3 적재 = belle greenlight (Task 3). 본 파일 = 열거/필터 규율만.
+
+defaults:
+  # 종목 필터 — 제목이 include 에 매칭되고 exclude 에 매칭되지 않아야 후보.
+  discipline_include: '(?i)(폴|pole)'
+  discipline_exclude: '(?i)(후프|hoop|에어리얼|aerial|silk|실크|트라피즈|trapeze)'
+  # 단일 루틴 길이 창(초) — 타이틀카드(6/16s)·다인 블록(1000s+) 배제.
+  duration_window: [120, 400]
+  # 채널·동작별 harvest 상한 (kip-up 편중 방지, dump-all 금지).
+  per_channel_cap: 40
+  usage: training-only-no-redistribution
+
+# ── Tier-1 정타 — 공식 대회 채널 (YouTube) ──────────────────────────────────
+channels:
+  - name: KoreaPole
+    channel_url: https://www.youtube.com/@KoreaPole
+    platform: youtube
+    tier: 1_official
+    bucket: 정타
+    notes: 'KPSA 한국협회. 2020~25 한국선수권, 단일선수 4~5분. 폴 계열 166/282.'
+
+  - name: kpsf_official
+    channel_url: https://www.youtube.com/@kpsf_official
+    platform: youtube
+    tier: 1_official
+    bucket: 정타
+    notes: 'KPSF 한국연맹. POLE ART/POLE SPORTS, AMATEUR~PRO 등급 스펙트럼. 204/276.'
+
+  - name: InternationalPoleSportsFed
+    channel_url: https://www.youtube.com/@InternationalPoleSportsFed
+    platform: youtube
+    tier: 1_official
+    bucket: 정타
+    notes: 'IPSF 국제. WPAC 세계대회. 후프 다수 — discipline_exclude 필수.'
+
+  - name: PoleSportOrg
+    channel_url: https://www.youtube.com/@PoleSportOrg
+    platform: youtube
+    tier: 1_official
+    bucket: 정타
+    duration_window: [120, 400]
+    notes: 'PSO 미국. 체형·연령·스타일 다양성 최고. 길이 필터 필수(1000s+ 다인블록·6/16s 타이틀카드 제외).'
+
+  - name: CzechPoleDance
+    channel_url: https://www.youtube.com/@CzechPoleDance
+    platform: youtube
+    tier: 1_official
+    bucket: 정타
+    notes: 'Mistrovstvi CR (체코). 선수명 구조화.'
+
+  - name: PoleSportContest
+    channel_url: https://www.youtube.com/@PoleSportContest
+    platform: youtube
+    tier: 1_official
+    bucket: 정타
+    duration_window: [120, 240]
+    notes: '유럽. 선수명+부문, ~185s 단일루틴.'
+
+  - name: uspolesportsfederation4210
+    channel_url: https://www.youtube.com/@uspolesportsfederation4210
+    platform: youtube
+    tier: 1_official
+    bucket: 정타
+    notes: 'USPSF 미국. 대회/세미파이널.'
+
+  # A9 미성년 프라이버시 플래그 — 기본 비활성. Task 3 belle+법률검토 전 harvest 금지.
+  - name: polesportkids
+    channel_url: https://www.youtube.com/@polesportkids
+    platform: youtube
+    tier: 1_official
+    bucket: 정타
+    enabled: false
+    minor_privacy_flag: true
+    notes: '키즈 대회. 미성년 — A9 법률검토 별도 플래그(프라이버시·동의 민감). 기본 비활성.'
+
+  # ── Tier-2 fault/기술 — 강사·스튜디오 (YouTube) ──────────────────────────
+  - name: BerryTV_FallInPole
+    channel_url: https://www.youtube.com/@BerryTV
+    platform: youtube
+    tier: 2_studio
+    bucket: fault
+    series_include: '(?i)(폴인폴|fall\s*in\s*pole|EP\s*\d)'
+    duration_window: [60, 600]
+    notes: '"폴인폴"(Fall In Pole) 시리즈만. 동작명 라벨 내장(윈드밀·펜슬·엘보우스탠드·스콜피온 = D-15 미보유동작). 한/영 dedup 필요. 예능클립(비키니폴·치어리더·뷰티폴) 제외.'
+
+  - name: PoleDanceLessonsPoleDream
+    channel_url: https://www.youtube.com/@PoleDanceLessonsPoleDream
+    platform: youtube
+    tier: 2_studio
+    bucket: fault
+    duration_window: [20, 300]
+    notes: '콤보 강의(짧음 ~36s). duration 하한 완화.'
+
+  - name: PoleFreaks
+    channel_url: https://www.youtube.com/@PoleFreaks
+    platform: youtube
+    tier: 2_studio
+    bucket: fault
+    duration_window: [60, 900]
+    notes: '교육/다큐형(길이 김).'
+
+  - name: becciedunnfitness
+    channel_url: https://www.youtube.com/@becciedunnfitness
+    platform: youtube
+    tier: 2_studio
+    bucket: fault
+    duration_window: [30, 400]
+    notes: '초급 스핀폴 레슨(fault 풍부).'
+
+  - name: poleplace
+    channel_url: https://www.youtube.com/@poleplace
+    platform: youtube
+    tier: 2_studio
+    bucket: fault
+    duration_window: [30, 400]
+    notes: '초급 스트렝스/강의.'
+
+  # ── Tier-2 Instagram (수집 까다로움 — 로그인월·rate-limit·ToS 회색, 쿠키 인증) ──
+  # IG 어댑터(collect_phase22_instagram.py) = Task 3. enabled=false 로 기본 격리.
+  - name: eunji.poledancer
+    channel_url: https://www.instagram.com/eunji.poledancer/
+    platform: instagram
+    tier: 2_studio
+    bucket: fault
+    enabled: false
+    notes: '정은지 본인, gold reference, 동의 깨끗, 고가치. IG ToS 회색 — Task 3.'
+
+  - name: hoseoart_polesports
+    channel_url: https://www.instagram.com/hoseoart_polesports/
+    platform: instagram
+    tier: 2_studio
+    bucket: fault
+    enabled: false
+    notes: '호서예전 폴스포츠학과. IG ToS 회색 — Task 3.'

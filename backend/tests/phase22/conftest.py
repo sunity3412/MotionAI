@@ -13,6 +13,7 @@ from pathlib import Path
 _BACKEND = Path(__file__).resolve().parents[2]
 _LAYER = _BACKEND / "shared" / "python"
 _TRAINING = _BACKEND / "training"
-for _p in (_LAYER, _TRAINING):
+_SCRIPTS = _BACKEND / "scripts"  # collect_phase22_youtube 순수 필터 import (22-02).
+for _p in (_LAYER, _TRAINING, _SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))

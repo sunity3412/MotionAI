@@ -1,0 +1,1864 @@
+{
+  "JNEPOHrUQ0o": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inverted split",
+    "reason": "단일 인물의 고난도 폴스포츠 기술 수행을 정면에서 선명하게 촬영한 고품질 영상",
+    "single_person_pole": true
+  },
+  "NyD5Espgpzs": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "아이샤, 제이드, 스플릿",
+    "reason": "공식 대회 수준의 단일 인물 폴스포츠 수행 영상으로, 화질이 우수하고 전신이 잘 노출되어 학습셋으로 적합함.",
+    "single_person_pole": true
+  },
+  "JMVPNcKuTWg": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "아이언 엑스 (Iron X)",
+    "reason": "KPSA 공식 대회 경기 영상으로 단일 인물의 클린한 폴스포츠 수행이 담겨 있어 보존 가치가 높음.",
+    "single_person_pole": true
+  },
+  "ZYC53z_Gm80": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴스포츠 루틴",
+    "reason": "공식 대회 주니어 여성 부문의 고품질 폴스포츠 루틴 영상으로 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "KpTqIDPpoCY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": null,
+    "reason": "공식 대회 수준의 고품질 단일 폴스포츠 수행 영상으로, 동작이 깨끗하고 전신이 잘 기록되어 학습 데이터로 적합합니다.",
+    "single_person_pole": true
+  },
+  "ptqzGbaFdYk": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "allegra",
+    "reason": "단일 수행자가 폴에서 깔끔하고 완성도 높은 기술들을 연이어 선보이며, 카메라가 전신을 가림 없이 명확하게 포착함.",
+    "single_person_pole": true
+  },
+  "1tzGMAD5b-Q": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴 스포츠 루틴",
+    "reason": "공식 대회에서 단일 선수가 수행한 완성도 높은 폴스포츠 경기 루틴입니다.",
+    "single_person_pole": true
+  },
+  "Abw4LPk54cw": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": null,
+    "reason": "공식 대회 수준의 깔끔한 단일 인물 폴스포츠 루틴으로 데이터셋 가치가 높음",
+    "single_person_pole": true
+  },
+  "QKXuBq_zix0": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴스포츠 루틴",
+    "reason": "단일 수행자의 전체 루틴이 가려짐이나 오버레이 없이 깔끔하게 녹화되어 있어 데이터셋 가치가 높습니다.",
+    "single_person_pole": true
+  },
+  "2h3py2IRFWA": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴스포츠",
+    "reason": "단일 수행자의 예술성 높고 깔끔한 폴스포츠 공연 영상",
+    "single_person_pole": true
+  },
+  "AHIMKgfnt4I": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "제이드 스플릿",
+    "reason": "단일 인물의 고화질 폴 스포츠 공연 영상으로, 다양한 기술이 명확하게 드러나 학습용 데이터로 적합함",
+    "single_person_pole": true
+  },
+  "iJZ1yjnhJgk": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Allegra",
+    "reason": "공식 대회 수준의 고품질 단일 폴스포츠 공연 영상으로 학습 데이터셋으로 가치가 높음.",
+    "single_person_pole": true
+  },
+  "8VnA8hQMBRY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴스포츠 루틴",
+    "reason": "공식 대회에서 촬영된 단일 인물의 깔끔한 폴스포츠 루틴으로 데이터 가치가 높음.",
+    "single_person_pole": true
+  },
+  "HphiBPPV66g": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Iron X",
+    "reason": "공식 대회 영상으로, 전신이 잘리지 않고 고난도의 기술들을 안정적으로 보여주는 고품질 학습 데이터.",
+    "single_person_pole": true
+  },
+  "ZFlPZIUIaGc": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "독무 폴 댄스이나, 저조도 실루엣 연출 및 바닥 안무와 소품 사용 비중이 높아 폴스포츠 동작 학습용 데이터로 부적합함",
+    "single_person_pole": true
+  },
+  "qoyyjTcYKKg": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "split",
+    "reason": "공식 주니어 대회 영상으로, 단일 인물이 폴스포츠 동작을 수행하며 화질과 연기가 깔끔함.",
+    "single_person_pole": true
+  },
+  "ATA5B6a-F1E": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "invert",
+    "reason": "싱글 폴스포츠 주니어 대회 영상으로, 깔끔한 인버트 동작을 보여줌",
+    "single_person_pole": true
+  },
+  "XE9eQQ6ex6M": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inverted split",
+    "reason": "깔끔하고 장애물 없는 앵글의 주니어 폴스포츠 경기 영상",
+    "single_person_pole": true
+  },
+  "QE9hWyGCJf0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "교차 편집과 자막 오버레이가 있고, 단일 동작이 아닌 전체 안무가 포함된 긴 공연 영상이라 학습용으로 부적합합니다.",
+    "single_person_pole": true
+  },
+  "hLHTKQwbv2Q": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "편집점, 다중 분할 화면, 인트로 및 아웃트로 단체 사진이 포함되어 있어 단일 인물의 정제된 폴 스포츠 학습용 클립으로 부적합함",
+    "single_person_pole": true
+  },
+  "TkkcrYk0peQ": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Jade Split",
+    "reason": "공식 대회 수준의 깔끔한 단일 인물 폴스포츠 공연이며 영상 화질이 우수하여 저장 가치가 높음",
+    "single_person_pole": true
+  },
+  "2hP1Vrl9waA": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "하이라이트 몽타주, 화면 분할, 자막 오버레이 및 엔딩 단체 사진 등 편집이 과다하여 학습용 클립으로 부적합함",
+    "single_person_pole": true
+  },
+  "t82OGEj4MHM": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Allegra",
+    "reason": "공식 대회에서의 고품질 단일인 폴스포츠 수행 영상으로, 동작이 명확하게 포착됩니다.",
+    "single_person_pole": true
+  },
+  "E9bw_1vMIxg": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "잦은 카메라 컷 편집과 앵글 전환이 포함되어 있어 단일 동작 학습용 연속 클립으로 부적합합니다.",
+    "single_person_pole": true
+  },
+  "6z6Xwtz5oxU": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": null,
+    "reason": "공식 대회 수준의 고품질 솔로 폴스포츠 연기이며 동작이 명확하고 정밀함",
+    "single_person_pole": true
+  },
+  "m8gs9fZIeeY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "제이드 스플릿",
+    "reason": "카메라 앵글 전환이 존재하나, 고화질의 단일 인물 공식 대회 폴스포츠 수행으로 학습 가치가 높음",
+    "single_person_pole": true
+  },
+  "k68R5OczgtA": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Jade Split",
+    "reason": "공식 대회에서 촬영된 고품질의 1인 솔로 루틴으로, 다양한 고급 기술을 정밀하게 보여주어 저장가치 높음",
+    "single_person_pole": true
+  },
+  "gyawFaCc1bw": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "인트로 편집 및 시상식 등 여러 명의 인물이 등장하고 다수의 편집점이 존재하여 단일 동작 학습용으로 부적합함",
+    "single_person_pole": false
+  },
+  "a6AishaYR2g": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "잦은 화면 전환, 화면 분할 및 편집으로 인해 단일 동작의 깨끗한 연속 촬영본이 아님",
+    "single_person_pole": true
+  },
+  "nJN2i1gXCr0": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inverted Split",
+    "reason": "공식 대회 수준의 단일 인물 폴 스포츠 완곡 수행 영상으로 학습 가치가 높음",
+    "single_person_pole": true
+  },
+  "rO4AIz_8k0I": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "인트로, 아웃트로 및 잦은 편집 전환과 오버레이가 포함되어 있어 단일 동작의 깨끗한 학습용 클립으로 부적합합니다.",
+    "single_person_pole": true
+  },
+  "3D5SOjsew5Q": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "various",
+    "reason": "단일 인물의 고화질 폴스포츠 대회 수행 영상으로, 편집점(컷 전환)이 존재하나 동작이 정밀하여 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "ER9IvK-Gz64": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Cocoon",
+    "reason": "단일 인물의 고난도 폴스포츠 대회 실전 퍼포먼스를 명확히 포착하여 학습셋으로 적합함",
+    "single_person_pole": true
+  },
+  "yMh5O6OjzjY": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "This is a doubles performance featuring two athletes, not a single person.",
+    "single_person_pole": false
+  },
+  "LkLDKfLDs44": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 선수가 함께 수행하는 더블즈 경기이므로 단일 인물 데이터셋에 적합하지 않습니다.",
+    "single_person_pole": false
+  },
+  "w93cLlf5h6w": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "더블스(2인) 경기 영상이므로 단일 인물 폴스포츠 학습셋 기준에 맞지 않아 제외합니다.",
+    "single_person_pole": false
+  },
+  "v46sS0LdYdA": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "복수 인원(더블스)의 폴 스포츠 수행 영상이므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "rTsb0XNjcYY": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 선수가 함께 수행하는 더블즈 경기이므로 단일 인물 조건 미충족으로 폐기",
+    "single_person_pole": false
+  },
+  "qbDGVd1SiXE": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명이 함께 수행하는 더블즈 경기 영상이므로 데이터셋 수집 조건인 단일 인물 수행 기준에 부합하지 않습니다.",
+    "single_person_pole": false
+  },
+  "jyqXhSLMbao": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 선수가 함께 수행하는 더블 경기 영상이므로 단일 인물 조건에 부합하지 않아 폐기합니다.",
+    "single_person_pole": false
+  },
+  "c85Ye7OTgOY": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "영상의 후반부에 여러 명의 수행자가 함께 무대에 등장하고 공연을 진행하므로 단일 인물 폴스포츠 학습용으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "Z3xxvEh3rhM": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inside Leg Hang",
+    "reason": "단일 여성 선수가 수행하는 고품질 예술적 폴댄스 경기 영상으로, 스콜피오 등 정석적인 기술 동작이 잘 나타남",
+    "single_person_pole": true
+  },
+  "RUlpSkh7pgE": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole split",
+    "reason": "공식 대회 수준의 깔끔한 1인 폴스포츠 연기입니다.",
+    "single_person_pole": true
+  },
+  "JrwhTx3KUN8": {
+    "bucket": "정타",
+    "keep": false,
+    "move_guess": "pole dance",
+    "reason": "보조 연기자가 무대에 함께 등장하고 상호작용하여 단일 인물 폴스포츠 학습셋으로 부적합함",
+    "single_person_pole": false
+  },
+  "J-q4SO_qZXk": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "더블스(2인) 경기 영상으로 단일 인물 폴스포츠 동작 학습용으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "IluUAbeTvPQ": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "2인 이상이 함께 수행하는 더블즈 경기 및 다수의 배경 인물이 등장하여 단일 인물 폴스포츠 학습에 부적합합니다.",
+    "single_person_pole": false
+  },
+  "BxzPSgeW6uw": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 선수가 함께 수행하는 더블즈 경기이므로 단일 인물 조건에 부합하지 않습니다.",
+    "single_person_pole": false
+  },
+  "AFj_kC2Vl9c": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 선수가 동시에 수행하는 더블즈 경기 영상이므로 싱글 폴 스포츠 학습 데이터셋에서 제외합니다.",
+    "single_person_pole": false
+  },
+  "Ol7ZeDuBumU": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "다인조 경기 및 현장 스케치가 혼합된 대회 요약 영상으로 단일인 클립이 없음",
+    "single_person_pole": false
+  },
+  "1wybubDytgM": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inverted split",
+    "reason": "공식 폴스포츠 대회 엘리트 부문 싱글 여성의 고난도 기술 연속 수행 클립으로 학습 가치가 높음",
+    "single_person_pole": true
+  },
+  "WjuFlHFg9bI": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": null,
+    "reason": "공식 대회 엘리트 부문의 1인 폴스포츠 완무 영상으로 화질이 우수하고 교과서적인 정타 동작들을 포함하고 있어 학습 가치가 높음",
+    "single_person_pole": true
+  },
+  "hxHjvcgiJHg": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole sport",
+    "reason": "공식 대회에서 단일 선수가 수행한 고품질의 폴 스포츠 연기 영상입니다.",
+    "single_person_pole": true
+  },
+  "RsprF7c-CS0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "단일 동작의 깨끗한 클립이 아닌 자막과 로고가 포함된 전체 대회 영상이므로 학습용 데이터로 부적합합니다.",
+    "single_person_pole": true
+  },
+  "zv0bjsFpQdw": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": null,
+    "reason": "단일 참가자가 공식 대회에서 우수한 기량으로 전체 폴스포츠 루틴을 깨끗하게 연기하는 영상으로 보존 가치가 높음",
+    "single_person_pole": true
+  },
+  "fkbbnlAdGK8": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "자막 및 로고 오버레이가 상시 노출되는 전체 경기 영상으로, 단일 동작의 깨끗한 훈련 클립이 아님",
+    "single_person_pole": true
+  },
+  "LxX06PmmlA4": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": null,
+    "reason": "공식 대회 수준의 단일 피험자 폴스포츠 완곡 동작이 선명하고 깨끗하게 기록되어 있어 보존 가치가 높음",
+    "single_person_pole": true
+  },
+  "rmT548XwefA": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole routine",
+    "reason": "체코 폴스포츠 선수권 대회의 엘리트 여성 싱글 루틴 영상으로 기술적 완성도가 높고 카메라 구도가 안정적임",
+    "single_person_pole": true
+  },
+  "RbZJ61kMT8o": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole sport",
+    "reason": "공식 체코 폴스포츠 대회 결승전으로 단일 선수의 수준 높은 기술과 연기가 잘 촬영됨",
+    "single_person_pole": true
+  },
+  "PfF4BitVB2I": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole sport routine",
+    "reason": "체코 폴스포츠 선수권 대회 결선 영상으로, 단일 여성 선수의 고난도 기술과 안정적인 제어가 돋보이는 고품질 데이터셋입니다.",
+    "single_person_pole": true
+  },
+  "iSD1r6KX4YE": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole split",
+    "reason": "체코 폴스포츠 선수권 대회의 고품질 싱글 폴스포츠 경기 전체 영상으로, 정교한 기술들이 다수 포함되어 있어 가치가 높음",
+    "single_person_pole": true
+  },
+  "uR9obdMsUAU": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Jade split",
+    "reason": "공식 대회 수준의 고품질 폴스포츠 수행 영상으로 기술적인 가치가 높음",
+    "single_person_pole": true
+  },
+  "Qx8nyXw_xUc": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Routine",
+    "reason": "마스터즈 50+ 부문의 공식 대회 폴스포츠 완무 영상으로 동작 학습용으로 가치가 높음.",
+    "single_person_pole": true
+  },
+  "2674K9ctseI": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Invert",
+    "reason": "공식 대회에서 촬영된 1인 폴스포츠 연기로, 다양한 동작이 포함되어 학습 데이터로 적합함",
+    "single_person_pole": true
+  },
+  "ToOX_dFCwFQ": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inverted Split",
+    "reason": "공식 대회에서 단일 참가자가 수행한 높은 수준의 폴스포츠 기술을 포함하고 있습니다.",
+    "single_person_pole": true
+  },
+  "QJnMb_lANkQ": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole sport routine",
+    "reason": "단일 인물의 깨끗한 폴스포츠 대회 수행 영상으로 데이터셋 가치가 높음",
+    "single_person_pole": true
+  },
+  "s0GTiNzrlKY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Gemini, Butterfly, Split",
+    "reason": "단독 선수의 깨끗하고 선명한 폴스포츠 대회 경기 영상으로 학술적 가치가 높음",
+    "single_person_pole": true
+  },
+  "AtliQcwSpM4": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "routine",
+    "reason": "단일 인물의 공식 폴스포츠 대회 전체 루틴 영상으로 전신이 잘 보이고 화질이 양호함",
+    "single_person_pole": true
+  },
+  "6hu7arErouk": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "split",
+    "reason": "단일 수행자의 정상적인 폴스포츠 대회 경기 영상",
+    "single_person_pole": true
+  },
+  "ZkdQCcil1NQ": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": null,
+    "reason": "단일 인물의 깔끔한 주니어 폴스포츠 대회 완벽한 연기 영상으로 학습 가치가 높음",
+    "single_person_pole": true
+  },
+  "sH1WwB6915g": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Jade split",
+    "reason": "공식 대회 영상으로, 깔끔한 싱글 폴 동작과 우수한 기술적 완성도를 보여줌",
+    "single_person_pole": true
+  },
+  "7MykTLeJRVw": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "오버레이 자막이 포함되어 있고, 단일 동작이 아닌 전체 대회 루틴이 포함된 긴 영상이므로 제외합니다.",
+    "single_person_pole": true
+  },
+  "YbB2QRsRbKY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Pole dance",
+    "reason": "공식 대회 무대에서 1인이 수행하는 다양한 폴스포츠 기술을 잘 담고 있어 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "fPagmIMbRTA": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "인버티드 스플릿",
+    "reason": "공식 대회에서 수행된 단일 인물의 깔끔한 폴 스포츠 연기 영상으로 저장 가치가 높음.",
+    "single_person_pole": true
+  },
+  "C7r0Yon5KpA": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "제이드 스플릿",
+    "reason": "공식 대회에서 단일 참가자가 수행하는 정돈된 폴스포츠 동작이 포함되어 있어 저장 가치가 높음.",
+    "single_person_pole": true
+  },
+  "kO-NWvBbkEE": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴댄스 루틴",
+    "reason": "단일 인물이 깨끗하게 수행하는 공식 대회 수준의 폴스포츠 루틴 영상입니다.",
+    "single_person_pole": true
+  },
+  "xbQVh_DOBRM": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Jade split",
+    "reason": "공식 대회에서 단일 선수가 정교하고 깨끗한 다양한 폴스포츠 기술을 연이어 수행하는 고품질 영상",
+    "single_person_pole": true
+  },
+  "RMIemMehprY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Pole sports routine",
+    "reason": "공식 대회에서의 단일 인물 폴스포츠 루틴으로 동작의 정확도가 높고 시야가 깨끗하여 소장 가치가 높음.",
+    "single_person_pole": true
+  },
+  "yZe8WUcwpt4": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Gemini",
+    "reason": "단일 인물의 정밀하고 깔끔한 공식 대회 폴스포츠 수행 영상으로 학습 데이터로 가치가 높음.",
+    "single_person_pole": true
+  },
+  "B7nR4ivPdfI": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "알레그라",
+    "reason": "단일 선수의 공식 대회 폴스포츠 루틴으로 기술 수행이 정밀하고 화질이 깨끗하여 학습 데이터로 적합함.",
+    "single_person_pole": true
+  },
+  "W72dyFAzFTY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "inverted split",
+    "reason": "공식 대회에서 촬영된 단일 선수의 선명한 폴스포츠 동작 수행 영상으로 학습에 적합함.",
+    "single_person_pole": true
+  },
+  "VEO46Ndcfsk": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴 스포츠",
+    "reason": "공식 대회 무대에서 단일 연기자가 수행하는 완성도 높은 폴 스포츠 공연입니다.",
+    "single_person_pole": true
+  },
+  "Pjy000V0Rds": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "brass monkey",
+    "reason": "미국 폴스포츠 연맹 공식 대회 영상으로 깔끔하고 교과서적인 1인 폴 동작들을 포함하고 있어 가치가 높음",
+    "single_person_pole": true
+  },
+  "tiBRGmvJUbA": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inverted Split",
+    "reason": "공식 대회에서의 단일 인물 폴스포츠 수행 클립으로 동작이 명확하여 학습용으로 적합함.",
+    "single_person_pole": true
+  },
+  "l7oCnpSZkEs": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴 스포츠 루틴",
+    "reason": "공식 대회에서의 단일 선수 폴 스포츠 루틴으로 동작이 선명하게 촬영되어 교육용 데이터로 적합함",
+    "single_person_pole": true
+  },
+  "nFfFupZV7h4": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "핸드스탠드",
+    "reason": "미국 폴스포츠 연맹 공식 대회 영상으로, 한 명의 선수가 고난도의 다양한 기술을 깔끔하게 수행함",
+    "single_person_pole": true
+  },
+  "5AtTBlSV93k": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "layback",
+    "reason": "공식 대회에서 촬영된 고화질 영상으로, 폴 스포츠 기술들이 명확하게 표현되어 학습 코퍼스로 적합함.",
+    "single_person_pole": true
+  },
+  "gTIB3CGZBIg": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "ayesha",
+    "reason": "공식 대회에서 촬영된 고화질 싱글 폴 스포츠 경기 영상으로, 동작이 선명하고 기술 수준이 우수하여 보존 가치가 높습니다.",
+    "single_person_pole": true
+  },
+  "U6laYmK5wsY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole dance",
+    "reason": "공식 대회 스타일의 단일 인물 폴 스포츠 수행 영상으로 상태가 양호함",
+    "single_person_pole": true
+  },
+  "KTcEjKJvh-4": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inverted split",
+    "reason": "공식 대회 환경에서 단일 인물이 수행하는 완성도 높은 폴 스포츠 영상으로 학습 데이터로 적합함.",
+    "single_person_pole": true
+  },
+  "vuvY6WT-ww8": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole dance routine",
+    "reason": "미국 폴스포츠 연맹 대회에서 단일 선수가 정밀하고 다양한 폴 기술을 결함 없이 수행하는 깨끗한 경기 루틴 영상입니다.",
+    "single_person_pole": true
+  },
+  "O4-TDp1WRQY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "FlyBy Straddle-Cartwheel",
+    "reason": "단일 인물이 폴에서 고급 콤보 동작을 깔끔하고 명확하게 시연함",
+    "single_person_pole": true
+  },
+  "ZK1oxP4K-GU": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴스포츠 동작이 포함되지 않은 일반 설명 및 광고 영상입니다.",
+    "single_person_pole": false
+  },
+  "iE-pVvyBHYA": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole transition",
+    "reason": "단일 수행자가 폴 댄스 전환 및 스핀 동작을 정확하고 명확하게 시연하여 교재로 적합함.",
+    "single_person_pole": true
+  },
+  "RftnKpQd8Cg": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴 컨디셔닝 운동",
+    "reason": "단일 인물이 다양한 폴 스포츠 컨디셔닝 및 근력 운동 동작을 명확하고 깨끗하게 시연하고 있어 학습 데이터로 적합함.",
+    "single_person_pole": true
+  },
+  "F-cylVhG0I8": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "The video is a promotional compilation with excessive split-screen grid overlays and text.",
+    "single_person_pole": false
+  },
+  "JnpjZb2f1M8": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "chair spin",
+    "reason": "단일 인물의 깔끔한 체어 스핀 연습 동작이며 전신이 잘 나오므로 학습용으로 적합합니다.",
+    "single_person_pole": true
+  },
+  "8IjHNzBXhSo": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "영상이 폴 스포츠 수행이나 동작을 포함하고 있지 않음",
+    "single_person_pole": false
+  },
+  "VrBlGx8dUic": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Angel",
+    "reason": "지상에서 시작하는 엔젤 동작을 양방향, 슬로우 모션, 변형 및 흔한 실수까지 포함하여 명확하게 교수하는 양질의 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "QTgnNhjsMyQ": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Beginner Pole Combos",
+    "reason": "초급자를 위한 다양한 폴댄스 콤보 동작을 명확한 자막과 함께 깔끔하게 시연하고 있어 교육용 데이터로 가치가 높음",
+    "single_person_pole": true
+  },
+  "ZvqxV8V0sfM": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "The video is an promotional/informational advertisement with a presenter talking, and does not show pole sports performances.",
+    "single_person_pole": false
+  },
+  "__2WrxmIePc": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "분할 화면, 자막 오버레이 및 다중 클립이 포함된 홍보용 영상이므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "VhLl9nkZt8o": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 스포츠 수행 장면이 메인이 아닌, 온라인 강좌 진행 방식을 설명하는 홍보용 영상입니다.",
+    "single_person_pole": false
+  },
+  "nvcQWtFVjj4": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Reverse with cup grip",
+    "reason": "자막 및 스마트폰 화면 등 오버레이가 과다하고 강사의 설명 비중이 높음",
+    "single_person_pole": true
+  },
+  "PJqSMURCxgc": {
+    "bucket": "정타",
+    "keep": false,
+    "move_guess": "split from ballerina",
+    "reason": "설명 및 인트로/아웃트로 구간이 길고 자막 오버레이가 많아 무대 동작 학습용으로 부적합합니다.",
+    "single_person_pole": true
+  },
+  "grbg6b-fIQ4": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "아이샤",
+    "reason": "자막, 그래픽 오버레이, 편집 및 설명 장면이 많아 단일 폴스포츠 동작 학습용 클립으로 부적합함",
+    "single_person_pole": true
+  },
+  "yZ0SfCMzv70": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "설명과 분할 화면 편집이 많은 튜토리얼 영상으로 단일 폴 스포츠 동작의 깨끗한 클립이 아님",
+    "single_person_pole": true
+  },
+  "dn51Emr50ZE": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "자막 오버레이와 설명이 포함된 튜토리얼 편집 영상으로 개별 동작의 깨끗한 클립이 아님",
+    "single_person_pole": true
+  },
+  "6GdC66EmFgE": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Outside Step",
+    "reason": "자막 및 다수의 화면 분할(클로즈업 인셋), 컷 편집이 포함된 튜토리얼 영상으로 단일 무브의 깨끗한 클립이 아님",
+    "single_person_pole": true
+  },
+  "P3_uscI2bkU": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "floorwork",
+    "reason": "단일 인물이 수행하는 폴 댄스 및 플로어워크 루틴으로 동작이 잘 보이고 교육적 가치가 있습니다.",
+    "single_person_pole": true
+  },
+  "r3CPTq1C4iA": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "다양한 폴댄스 동작을 자막 오버레이 및 편집과 함께 진행하는 제품 리뷰 영상으로 학습 데이터용 단일 클립으로 부적합함",
+    "single_person_pole": true
+  },
+  "I4RPBzj4vjA": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "fireman spin",
+    "reason": "초보자용 폴 댄스 콤보(피루엣, 파이어맨 스핀)를 설명하는 깨끗한 튜토리얼 영상으로 보존 가치가 높음",
+    "single_person_pole": true
+  },
+  "Gn8dT-DJByw": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "알레그라",
+    "reason": "자막 오버레이와 튜토리얼 설명 및 여러 동작의 편집이 포함되어 있어 단일 동작 학습용으로 부적합합니다.",
+    "single_person_pole": true
+  },
+  "zZ21vRFLSKU": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 동작이 아닌 폴을 활용한 전신 스트레칭 및 쿨다운 영상이므로 폐기",
+    "single_person_pole": false
+  },
+  "qDJPzjD7NSY": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "The video shows a floor warm-up routine and does not contain any pole-based exercises or performances.",
+    "single_person_pole": false
+  },
+  "YDyJDBBDXm4": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Allegra",
+    "reason": "단일 인물의 명확한 알레그라(Allegra) 동작 튜토리얼 및 시연 영상으로 학습 가치가 높음",
+    "single_person_pole": true
+  },
+  "RRJXOtWuFpk": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Handspring",
+    "reason": "설명과 자막이 포함되고 동작 시연이 파편화되어 있는 튜토리얼 편집 영상",
+    "single_person_pole": true
+  },
+  "sKJR4Z32ZWI": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 동작을 모아놓은 편집형 튜토리얼 영상이며, 텍스트 오버레이가 포함되어 있어 단일 클립 학습용으로 부적합합니다.",
+    "single_person_pole": true
+  },
+  "9A9mDWyhOgs": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "aisha",
+    "reason": "Tutorial video with multiple short demonstrations, spoken instructions, and text overlays rather than a single clean performance clip.",
+    "single_person_pole": true
+  },
+  "RsPBWJqWhC0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "chair spin",
+    "reason": "The video is an instructional tutorial featuring talking, text overlays, and demonstrations of both incorrect and correct techniques, making it unsuitable as a clean execution clip.",
+    "single_person_pole": true
+  },
+  "i0bGANPyKls": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "fan kick",
+    "reason": "강사가 팬 킥과 체어 스핀 동작을 명확하고 올바른 자세로 시연함",
+    "single_person_pole": true
+  },
+  "3v1xfyF7-bI": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "muscle up",
+    "reason": "강습 상황으로 두 명의 인물이 등장하며 자막 오버레이가 많아 학습용 데이터로 적합하지 않음",
+    "single_person_pole": false
+  },
+  "xOFX9D1P6jY": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "deadlift",
+    "reason": "폴에서 데드리프트 변형 동작을 성공적으로 시연하며 동작이 선명하고 강습 목적에 적합함",
+    "single_person_pole": true
+  },
+  "i2BRgazTmr0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "invert prep",
+    "reason": "대형 텍스트 오버레이와 자막이 화면 중앙을 가려 학습용 데이터로 부적합함",
+    "single_person_pole": true
+  },
+  "PBxYLChwhhM": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "pole conditioning",
+    "reason": "자막 오버레이가 많고 여러 동작의 교육용 편집 영상이므로 코퍼스용으로 부적합함",
+    "single_person_pole": true
+  },
+  "BMI0TdB1j0o": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "영상이 인터뷰 형식이며 실제 폴 스포츠 수행 장면이 포함되어 있지 않음.",
+    "single_person_pole": false
+  },
+  "ROLybwZ0R30": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "The video is a split-screen interview discussion about training and nutrition, not showing any actual pole dancing performance.",
+    "single_person_pole": false
+  },
+  "BTj7xUO-x5Q": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "The video is a podcast interview and does not contain any actual pole sports performance.",
+    "single_person_pole": false
+  },
+  "AcdgTfCcIk4": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "reverse grab",
+    "reason": "자막 오버레이가 많고 설명 중심의 영상이라 동작 분석용 데이터셋 저장에 부적합합니다.",
+    "single_person_pole": true
+  },
+  "uG-mqiPKbnM": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "The video is a split-screen interview and does not contain any pole sports performance.",
+    "single_person_pole": false
+  },
+  "WmrX7eroyyU": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Kettlebell windmill",
+    "reason": "폴을 사용하지 않고 케틀벨 윈드밀 운동을 수행하므로 학습셋에서 제외함.",
+    "single_person_pole": false
+  },
+  "8Rls_H3RW-0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "영상이 두 명의 여성의 화상 대화(인터뷰)만 보여주고 실제 폴댄스 동작 수행 장면이 없어 학습셋으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "JLbgRLecKM4": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "chair spin",
+    "reason": "동작에 대한 설명과 튜토리얼 위주의 영상으로, 순수한 동작 수행 클립이 아니기 때문에 제외합니다.",
+    "single_person_pole": true
+  },
+  "WkSwxA74YjM": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "강사가 말을 하고 여러 사람의 짧은 연습 장면이 교차 편집된 홍보용 영상으로 단일 인물의 온전한 폴 동작 클립이 아닙니다.",
+    "single_person_pole": false
+  },
+  "6xcwjABNEYk": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명이 등장하는 장비 설명 영상으로 실제 폴 스포츠 동작 시연이 포함되어 있지 않음",
+    "single_person_pole": false
+  },
+  "DxzvIMxey7s": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 장면이 편집된 홍보용 영상으로, 자막과 대화 장면이 포함되어 있어 단일 인물의 깔끔한 폴 동작 학습셋으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "O3qddw3cYEU": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명의 인물이 등장하고 텍스트 오버레이와 빠른 컷 편집이 포함된 홍보용 영상으로, 단일 폴스포츠 동작 학습에 적합하지 않음",
+    "single_person_pole": false
+  },
+  "53fTaGU3AB4": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 폴스포츠 동작이 편집된 컴필레이션 영상으로, 단일 동작의 완전한 학습 데이터로 사용하기에 적합하지 않습니다.",
+    "single_person_pole": true
+  },
+  "ZyMlDNgalWI": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 운동과 설명이 섞인 강의식 영상으로, 단일 폴스포츠 동작의 깨끗한 훈련 영상이 아닙니다.",
+    "single_person_pole": false
+  },
+  "aCZq9EpfXhA": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "강의형 튜토리얼 영상으로 텍스트 오버레이, 편집, 설명 장면이 많아 단일 동작 학습용으로 부적합합니다.",
+    "single_person_pole": true
+  },
+  "pNALflQe2cs": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "Heavily edited talking-head Q&A video with text overlays, not a continuous performance of a single pole dance move.",
+    "single_person_pole": false
+  },
+  "V31XSQ2W7PQ": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "자막 오버레이가 많고 여러 편집 및 튜토리얼 요소가 포함되어 있어 데이터셋에 부적합함",
+    "single_person_pole": true
+  },
+  "gwYRJLJlG-Q": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "설명 및 인터뷰가 대부분을 차지하며 실제 폴 동작 시연 장면이 매우 짧게 분산되어 있어 학습 데이터셋으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "F8qEv9_YMq0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "The video is an informational tutorial with extensive editing, text overlays, and minimal continuous clean pole footage.",
+    "single_person_pole": true
+  },
+  "MFmuSoq8xCU": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "광고 자막, 다수의 컷 편집, 인터뷰 및 설명 중심의 구성으로 단일 인물의 클린한 폴 스포츠 동작 학습용 클립으로 부적합함.",
+    "single_person_pole": false
+  },
+  "-w6mPCmUK34": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "과도한 오프닝 및 엔딩 그래픽 오버레이와 전체 루틴 형식의 영상으로 단일 동작 학습에 부적합함",
+    "single_person_pole": true
+  },
+  "utMz_JqLq4U": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Cocoon",
+    "reason": "단일 남성 폴댄서가 전신이 보이도록 고난도 폴 동작들을 안정적으로 수행하여 학습 데이터로서의 가치가 높음.",
+    "single_person_pole": true
+  },
+  "jsGJT_CydcE": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Cocoon",
+    "reason": "챔피언십 레벨의 고난도 기술들이 포함된 고화질 싱글 폴 루틴",
+    "single_person_pole": true
+  },
+  "HMVpsbdbP-U": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 없이 바닥에서 수행하는 플로어워크 안무 영상으로, 폴스포츠 학습 데이터셋 구축 목적에 부합하지 않음.",
+    "single_person_pole": false
+  },
+  "0q5BJI-ifTs": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명의 참가자 편집 영상 및 자막/애니메이션 삽입으로 인해 단일 인물 전용 학습셋으로 부적합함",
+    "single_person_pole": false
+  },
+  "oty3rrbhss0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "배경에 다른 사용자가 동시에 폴 동작을 수행하고 있어 단일 인물 데이터셋으로 부적합함",
+    "single_person_pole": false
+  },
+  "V8Hb3ISvCrA": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "layback",
+    "reason": "단일 참가자의 폴스포츠 쇼케이스로, 다양한 기술이 깔끔하게 수행되어 학습 데이터로 적합함.",
+    "single_person_pole": true
+  },
+  "CakT0P_yIrg": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 참가자의 연기 및 안내 자막이 혼합된 대회 영상으로, 단일 인물의 깨끗한 폴 동작 클립이 아니기 때문에 폐기함",
+    "single_person_pole": false
+  },
+  "6q1cMuictl4": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "배경에 대기 중인 다른 인물들이 노출되고 전반적인 안무 중심의 영상으로 단일 폴댄스 동작 학습에 부적합합니다.",
+    "single_person_pole": true
+  },
+  "nIv2_HWlas8": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "이 영상은 폴 스포츠 동작 수행 장면을 담지 않고 순위 채점 방식(Ordinal Scoring)에 대한 프레젠테이션만 포함하고 있어 학습 코퍼스로 저장할 가치가 없습니다.",
+    "single_person_pole": false
+  },
+  "CPSbRoqqAgU": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inverted split",
+    "reason": "공식 대회 영상으로 화질이 선명하며, 단일 수행자의 깔끔한 폴 기술이 돋보임.",
+    "single_person_pole": true
+  },
+  "uJ89eOB1tEc": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "제이드 스플릿",
+    "reason": "초반에 소품 조력자가 잠시 등장하지만, 이후 단독으로 전막 공연을 훌륭하게 수행하며 다양한 고난도 폴 동작을 정교하게 보여줌",
+    "single_person_pole": true
+  },
+  "tdQM3CdiZSI": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "무대 위에 다수의 조연 배우가 있고 소품 및 연극적 연출이 포함되어 있어 순수한 폴 스포츠 동작 학습용 클립으로 부적합함",
+    "single_person_pole": true
+  },
+  "CHH6pqlv_5E": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Brass Monkey",
+    "reason": "싱글 폴 스포츠 부문의 고품질 대회 영상으로, 기술 실행이 정확하고 전신이 잘 보입니다.",
+    "single_person_pole": true
+  },
+  "6hqk5YxNe4o": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "split",
+    "reason": "공식 대회 수준의 깔끔하고 완성도 높은 단일 남성 폴스포츠 공연",
+    "single_person_pole": true
+  },
+  "0fdlIuQ8gsk": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Windmill",
+    "reason": "강사와 학생 두 명이 동시에 출연하고 화면에 자막 오버레이가 많아 학습용으로 부적합함",
+    "single_person_pole": false
+  },
+  "dmyKUV7mH1Y": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Windmill",
+    "reason": "두 명의 인물이 동시에 등장하고 대화 및 튜토리얼 형식의 편집이 있어 학습용 단일 인물 폴 동작 클립으로 부적합함",
+    "single_person_pole": false
+  },
+  "SbsALxOVeK0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Skater",
+    "reason": "강사와 학생이 동시에 등장하고 자막 및 대화가 많아 단일 인물 동작 데이터로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "VDpsXIhzAnk": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Back spin",
+    "reason": "다인 등장, 자막 오버레이 및 잦은 편집으로 인해 학습 데이터셋으로 부적합",
+    "single_person_pole": false
+  },
+  "lnCGbl_LVBY": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Pencil",
+    "reason": "강사와 학생이 동시에 출연하고 자막 및 오버레이가 많아 단일 인물의 깨끗한 동작 분석에 부적합함",
+    "single_person_pole": false
+  },
+  "j6piSRoyti0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 인물이 등장하고 폴 스포츠 기술이 아닌 지상 복근 워밍업 운동을 수행하므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "TJxj8P5FpsY": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "오프닝 인터뷰가 포함되어 있으며 폴댄스 영상 부분에 편집과 잦은 화면 전환이 있어 학습용 단일 클립으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "JR-vFLUpH8E": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Triangle balance",
+    "reason": "두 명이 함께 수행하는 파트너 폴 동작이며 예능형 편집과 자막이 많아 학습용 데이터로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "AfQ2wX_0PN8": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Climb up - One foot",
+    "reason": "두 명의 인물이 등장하여 교습을 진행하고 서로 도와주며 대화하는 장면이 대부분이므로 단일 인물 폴 스포츠 학습용 클립으로 적합하지 않습니다.",
+    "single_person_pole": false
+  },
+  "UzQKm-TeLiY": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명이서 바닥 매트 스트레칭만 하고 실제로 폴을 타는 동작이 없어 학습셋으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "GertoZK9JMA": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "잦은 화면 전환과 편집 효과, 여러 구도가 섞여 있어 단일 동작 학습용으로 부적합",
+    "single_person_pole": false
+  },
+  "qQnuwqe1hMU": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Layback",
+    "reason": "두 명의 인물이 동시에 등장하며 자막 및 설명 오버레이가 많아 단독 폴스포츠 학습 데이터로 부적합함",
+    "single_person_pole": false
+  },
+  "W8MdpBPwEAk": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Scorpion",
+    "reason": "영상의 전반부에 강사의 깔끔한 스콜피온(Scorpion) 단독 동작 시연이 포함되어 있어 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "deiKAboZhGY": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Ballerina",
+    "reason": "강사와 학생 두 명이 동시에 등장하고 자막 및 설명이 많아 단일 인물의 동작 학습용으로 부적합함",
+    "single_person_pole": false
+  },
+  "n3rbkB-_5w0": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "화면 분할(그리드 뷰) 및 다양한 텍스트/그래픽 오버레이가 포함되어 있어 단일 인물의 정제된 폴 동작 분석에 부적합함",
+    "single_person_pole": false
+  },
+  "fA03Q1sqsAA": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 편집 컷과 텍스트 오버레이가 포함된 홍보용 인트로 영상으로, 단일 인물의 명확한 폴 스포츠 동작 분석에 적합하지 않습니다.",
+    "single_person_pole": false
+  },
+  "eR1RHQzG0bk": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "홍보 및 소개 영상으로 자막, 오버레이, 다수의 인물 등장 및 대화가 주를 이루어 단일 인물의 깨끗한 폴댄스 클립이 아닙니다.",
+    "single_person_pole": false
+  },
+  "3920052708568395005": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3920762321819264184": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "제이드 스플릿",
+    "reason": "단일 수행자의 인버티드 동작 및 스플릿 기술이 왜곡 없이 고화질로 표현되어 학습에 매우 적합합니다.",
+    "single_person_pole": true
+  },
+  "3935858943473431614": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "인버티드 스플릿",
+    "reason": "단일 수행자의 우아한 인버티드 스플릿과 다양한 폴 스포츠 기술이 선명하게 노출됨",
+    "single_person_pole": true
+  },
+  "3884398816208862462": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴 스포츠 콤보",
+    "reason": "단일 인물의 고난도 폴 스포츠 콤보가 선명하고 깔끔하게 촬영되어 학습에 적합함",
+    "single_person_pole": true
+  },
+  "3874873674860427861": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3876445562157999558": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3881501636934317611": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "브라스 몽키",
+    "reason": "초반의 일시적 흐림 외에는 전신이 선명하게 노출되며 제어력 높은 고난도 인버티드 동작을 깨끗하게 수행함.",
+    "single_person_pole": true
+  },
+  "3882326613162058146": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "화면에 여러 인물이 등장하고 텍스트 오버레이와 예능적인 연출이 포함되어 있어 학술용 폴스포츠 클립으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "3885847706992744498": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3886722091068666975": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "인버티드 스플릿",
+    "reason": "깔끔한 스튜디오 배경에서 다양한 인버트 및 스플릿 동작을 부드럽게 소화하는 고품질 영상",
+    "single_person_pole": true
+  },
+  "3891637080346180886": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Inverted Split",
+    "reason": "단일 인물이 안정적이고 유연한 폴스포츠 기술 및 인버티드 스플릿 동작을 선명하게 보여주는 고화질 영상입니다.",
+    "single_person_pole": true
+  },
+  "3896712039657464409": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "제이드 스플릿",
+    "reason": "단일 인물이 밝고 깨끗한 스튜디오에서 제이드 스플릿 등 고난도 기술을 포함한 폴 플로우를 끊김 없이 부드럽게 보여주어 학습 데이터로서 가치가 높음.",
+    "single_person_pole": true
+  },
+  "3906879703734302128": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "인버티드 스플릿",
+    "reason": "깔끔한 구도에서 단일 인물이 우수한 제어력으로 폴스플릿과 인버트 동작을 유려하게 수행함",
+    "single_person_pole": true
+  },
+  "3909801675615163025": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴댄스 스플릿",
+    "reason": "한 명의 사용자가 다양한 스플릿 및 인버트 동작을 부드럽고 정확하게 수행하여 학습 데이터로 가치가 높음.",
+    "single_person_pole": true
+  },
+  "3885123501636518611": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명이 등장하는 예능 및 스킷 형식의 영상으로, 학습에 적합한 단일 폴스포츠 동작 클립이 아님",
+    "single_person_pole": false
+  },
+  "2608070616205246713": {
+    "bucket": "정타",
+    "keep": false,
+    "move_guess": null,
+    "reason": "타이머, 방송 로고, 하단 인터뷰 자막 등 화면 내 그래픽 오버레이가 과다하고 컷 편집이 많아 부적합함",
+    "single_person_pole": true
+  },
+  "2608071842443639356": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "인터뷰 자막, 타이머, 로고 등의 오버레이가 과다하고 편집이 잦아 깨끗한 단일 클립 확보가 어려움",
+    "single_person_pole": true
+  },
+  "2608094392599044158": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "인터뷰 자막, 카운트다운 타이머 등 오버레이가 과다하고 편집 컷이 많아 정제된 데이터셋으로 사용하기 부적합합니다.",
+    "single_person_pole": true
+  },
+  "2728190561495583218": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "다수의 인물이 프레임 내에 존재하고 다큐멘터리식 자막 및 잦은 화면 전환으로 인해 분석에 적합하지 않습니다.",
+    "single_person_pole": false
+  },
+  "2728276061787030464": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "다수의 인원이 등장하고 스포팅 및 컷편집이 있어 단일 인물의 깨끗한 폴 스포츠 수행 영상을 담고 있지 않습니다.",
+    "single_person_pole": false
+  },
+  "2728496471136980115": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "인터뷰 및 소개 자막 오버레이가 많고, 깨끗한 폴스포츠 동작 위주가 아닌 다큐멘터리 형식이라 학습에 부적합합니다.",
+    "single_person_pole": true
+  },
+  "2946780073262825108": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴 스플릿",
+    "reason": "공식 대회 수준의 깔끔한 1인 폴스포츠 수행 영상으로 동작 학습에 적합함",
+    "single_person_pole": true
+  },
+  "2946781802565910524": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "vertical split",
+    "reason": "국제 폴댄스 대회에서 단일 수행자가 고난도 연기를 펼치는 고화질 영상으로 정타 판정함.",
+    "single_person_pole": true
+  },
+  "2946787188932942024": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole dance performance",
+    "reason": "단일 인물의 고난도 폴스포츠 대회 수행 영상으로, 동작이 명확하게 담겨 있어 학습 데이터로 가치가 높습니다.",
+    "single_person_pole": true
+  },
+  "2955780107530979879": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명의 인물이 교차 편집되어 등장하고 컷 전환이 빨라 단일 인물의 학습용 데이터로 사용하기에 부적합함",
+    "single_person_pole": false
+  },
+  "2955783901539099839": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명의 무용수가 교차 편집되어 등장하며, 대부분이 폴 스포츠 기술보다 바닥 안무 위주로 구성되어 있어 학습 세트에서 제외합니다.",
+    "single_person_pole": false
+  },
+  "2955788919235262362": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명의 인물이 등장하는 교차 편집 영상 및 자막 오버레이가 포함되어 있어 학습 데이터셋으로 부적합함",
+    "single_person_pole": false
+  },
+  "3048095441658775769": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴스포츠 동작이 포함되어 있지 않고 단순한 학과 소개 및 인사만 담고 있어 학습 데이터로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "3048097207443964855": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴스포츠 동작이 없는 일반 소개 영상이므로 학습 데이터셋에서 제외합니다.",
+    "single_person_pole": false
+  },
+  "3048097797700053258": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 스포츠 동작이 없고 강사의 인사 및 소개만 담겨 있는 영상입니다.",
+    "single_person_pole": false
+  },
+  "3927628795205352509": {
+    "bucket": "fault",
+    "keep": false,
+    "move_guess": "폴 핸드스탠드 스플릿",
+    "reason": "강사가 화면에 등장하여 동작을 직접 보조하고 지도하므로 단독 수행 영상으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "3929275525361430375": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "프리지아",
+    "reason": "단일 인물의 폴스포츠 수행 영상으로, 프리지아 및 리버스 프리지아 기술을 명확하게 보여줍니다.",
+    "single_person_pole": true
+  },
+  "3929285332340482501": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "더블 엘보 팅커벨",
+    "reason": "단일 수픙자의 더블 엘보 팅커벨 및 연계 동작이 안정적이고 매끄럽게 수픙되어 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "3930528319900981928": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "geumgangmakgi",
+    "reason": "화면 전환이 있으나 전체적으로 1인의 폴스포츠 동작이 깔끔하고 자막에 언급된 특정 포즈(금강막기 동작과 유사한 형태)를 안정적으로 수행함",
+    "single_person_pole": true
+  },
+  "3931976330879283038": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "side mermaid variation",
+    "reason": "사이드 머메이드 변형 동작을 우아하고 유연하게 시연하며 동작을 명확히 보여주는 영상입니다.",
+    "single_person_pole": true
+  },
+  "3931984990145673981": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "Nirvana",
+    "reason": "자막 오버레이가 포함되어 있고 중간에 화면 전환 편집(컷)이 있어 단일한 고화질 원본 클립으로 부적합함",
+    "single_person_pole": true
+  },
+  "3932711480156003393": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3932757806168306530": {
+    "bucket": "fault",
+    "keep": true,
+    "move_guess": "flag",
+    "reason": "플래그 동작 수행 중 골반을 들어올리지 못하고 내려오는 오류 동작을 포함하고 있어 교정 학습용으로 적합함",
+    "single_person_pole": true
+  },
+  "3932764323420317416": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "메메이드스핀, 이지네바나, 리버스헤라",
+    "reason": "화면 전환 시 페이드 이펙트와 이중 노출 오버레이가 발생하고 상단 자막이 존재하여 부적합합니다.",
+    "single_person_pole": true
+  },
+  "3933464266833635958": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "reverse ribbon hera",
+    "reason": "단일 수행자의 역리본 헤라(reverse ribbon hera) 동작이 유연하고 안정적으로 표현되어 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "3933478044501415094": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "half layback bridge",
+    "reason": "단일 인물이 수행하는 half layback bridge 동작이 선명하고 안정적으로 촬영됨",
+    "single_person_pole": true
+  },
+  "3935609974395209862": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3935623005032163686": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "베이비 스카이라인",
+    "reason": "적절한 앵글에서 베이비 스카이라인 동작을 안정적인 자세로 보여줌.",
+    "single_person_pole": true
+  },
+  "3937047169303597511": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "turntable elbow split",
+    "reason": "동작 수행 중 다른 인물(보조자)이 개입하여 단독 수행 조건을 충족하지 않습니다.",
+    "single_person_pole": false
+  },
+  "3937056420193484265": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "turntable triangle",
+    "reason": "단일 인물의 폴 스포츠 동작이 명확하고 깨끗하게 촬영되어 학습에 적합함",
+    "single_person_pole": true
+  },
+  "3885321452815581554": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "핸드스프링",
+    "reason": "단일 인물이 스튜디오에서 핸드스프링과 인버트 동작을 안정적으로 수행함",
+    "single_person_pole": true
+  },
+  "3925206328054001257": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴스핀 및 핸드스탠드",
+    "reason": "단일 인물이 다양한 폴 스포츠 기술과 핸드스탠드를 깔끔하고 역동적으로 수행하는 고화질 영상입니다.",
+    "single_person_pole": true
+  },
+  "3919927263814403742": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "cartwheel variation",
+    "reason": "폴을 사용하지 않는 바닥 동작을 수행 중이며 배경에 다른 인물이 나타나 학습용으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "3922284468874221711": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "영상이 90도 회전되어 촬영되었으며, 폴스포츠 기술보다는 플로어 댄스 위주의 연출입니다.",
+    "single_person_pole": true
+  },
+  "3887262819380777200": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3896701397668109568": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "인버티드 스플릿",
+    "reason": "단일 인물의 전신이 노출되는 깨끗한 폴스포츠 영상으로, 정교하고 유연한 고급 인버티드 동작들을 보여줍니다.",
+    "single_person_pole": true
+  },
+  "3923075166447976382": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": "one leg hang drop and wine glass flip",
+    "reason": "폴 스포츠가 아닌 에어리얼 후프 동작을 수행하고 있으므로 학습 코퍼스에서 제외합니다.",
+    "single_person_pole": false
+  },
+  "3929482737895360695": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴실크 스플릿",
+    "reason": "폴 실크를 활용하여 우아하고 유연한 스플릿 및 공중 매달리기 동작을 안정적으로 수행하는 깨끗한 클립입니다.",
+    "single_person_pole": true
+  },
+  "3890987215478740753": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "제이드 스플릿",
+    "reason": "단일 수행자의 전신이 온전히 노출되며 매우 부드럽고 완성도 높은 고급 폴댄스 콤보를 수행하여 정타 데이터로 가치가 큽니다.",
+    "single_person_pole": true
+  },
+  "3933642834477629026": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "aerial split",
+    "reason": "한 명의 사용자가 폴 위에서 다양한 회전 및 유연성 동작을 부드럽게 수행하고 있어 학습에 적합함.",
+    "single_person_pole": true
+  },
+  "2933793812436596573": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명의 수행자가 등장하는 편집본이며 영상 마지막에 폴스포츠와 무관한 폼롤러 스트레칭 장면이 포함되어 있어 학습용으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "2940775349832948507": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴 스핀 및 클라임",
+    "reason": "채광이 좋은 스튜디오에서 단일 인물이 수행하는 전신이 잘 보이는 깔끔한 폴 스핀 및 클라임 동작 영상",
+    "single_person_pole": true
+  },
+  "3922370681986893399": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명이 등장하고 소셜 미디어 텍스트 오버레이가 포함되어 있어 단일 인물의 클린한 폴스포츠 학습용으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "3908970581190054921": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "floorwork",
+    "reason": "단일 인물이 수행하는 완성도 높은 폴 댄스 및 플로어 워크 영상으로, 학습 데이터로서 가치가 있습니다.",
+    "single_person_pole": true
+  },
+  "3927906403318240156": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴 스플릿",
+    "reason": "단일 인물의 깔끔한 폴 댄스 안무 및 스핀 동작이 포함된 전신 구도의 고화질 영상입니다.",
+    "single_person_pole": true
+  },
+  "3921331948325140932": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명의 인물이 폴 주변에서 포즈를 취하고 있을 뿐, 실제 폴스포츠 동작을 수행하지 않음",
+    "single_person_pole": false
+  },
+  "3290181309372698695": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴스포츠가 아닌 에어리얼 큐브를 사용하는 영상이므로 학습셋에서 제외합니다.",
+    "single_person_pole": false
+  },
+  "3430943479235868630": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "Allegra",
+    "reason": "단일 인물의 깔끔한 폴댄스 스핀 및 스플릿 동작 영상으로 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "3476611291301598044": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "이글",
+    "reason": "고난도의 이글 동작을 뛰어난 유연성과 흔들림 없는 안정적인 제어력으로 깔끔하게 성공함",
+    "single_person_pole": true
+  },
+  "3901987019846744597": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3905470477004950547": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "인버티드 스플릿",
+    "reason": "단일 인물의 부드럽고 역동적인 폴 스포츠 동작이 전신 뷰로 선명하게 포착되어 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "3905976496353127170": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴스포츠 영상이 아니며 트램펄린 점프 및 주차 차단기 아래에서 림보를 하는 모습만 나타납니다.",
+    "single_person_pole": false
+  },
+  "3907566172079706071": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 인물이 등장하며, 폴스포츠 기술을 수행하지 않고 폴 주변에서 장난치는 동작을 보임",
+    "single_person_pole": false
+  },
+  "3915752924681000819": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "인버티드 스플릿",
+    "reason": "단일 인물이 전신이 노출된 상태에서 안정적이고 완성도 높은 인버트 및 스플릿 동작을 수행함.",
+    "single_person_pole": true
+  },
+  "3917958255101629653": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴을 사용하지 않고 바닥에서 수행하는 2인 파트너 아크로요가 및 스트레칭 동작이므로 제외합니다.",
+    "single_person_pole": false
+  },
+  "3920708581684700722": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole spin",
+    "reason": "깔끔한 배경에서 한 명의 사용자가 다양한 스핀과 플로어 연계를 명확하게 보여주어 가치가 높음",
+    "single_person_pole": true
+  },
+  "3920856275476629130": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴에 매달리거나 폴을 적극적으로 활용하는 기술 대신 바닥 스트레칭과 브릿지 위주의 동작이어서 학습 데이터로서의 가치가 낮음",
+    "single_person_pole": true
+  },
+  "3924434526866497999": {
+    "bucket": "fault",
+    "keep": false,
+    "move_guess": "제이드 스플릿",
+    "reason": "영상 후반부에 의상 문제로 인해 동작이 중단되는 돌발 상황이 포함되어 있어 학습용으로 부적합합니다.",
+    "single_person_pole": true
+  },
+  "3927379655885532308": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "폴 스플릿",
+    "reason": "우수한 유연성과 제어력을 보여주는 깔끔한 인버트 및 스플릿 동작의 1인 영상",
+    "single_person_pole": true
+  },
+  "3928837176768852213": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3899445950471587771": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3903117530795895717": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "플라잉 폴 콤비네이션",
+    "reason": "플라잉 폴을 활용해 다양한 고난도 아크로바틱 기술을 안정적으로 선보임",
+    "single_person_pole": true
+  },
+  "3904965817301033723": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "pole split",
+    "reason": "한 명의 수행자가 중국식 폴에서 정밀하고 유연한 동작을 깔끔하게 보여줍니다.",
+    "single_person_pole": true
+  },
+  "3906537679848072420": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "플라잉 폴 루틴",
+    "reason": "플라잉 폴에서 뛰어난 기술과 신체 제어력을 보여주는 고품질 영상으로 학습 가치가 높습니다.",
+    "single_person_pole": true
+  },
+  "3909424954718144757": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3912136061517952675": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "플라잉 폴 아크로바틱",
+    "reason": "플라잉 폴에서 고난도 아크로바틱 동작을 깨끗하게 수행하는 전신 영상",
+    "single_person_pole": true
+  },
+  "3915361095055976109": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "이 영상은 폴스포츠가 아닌 에어리얼 스트랩(aerial strap)을 사용하는 영상이므로 제외합니다.",
+    "single_person_pole": false
+  },
+  "3916895188562258992": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "에어리얼 폴 아크로바틱",
+    "reason": "공중 폴에서의 숙련된 고난도 아크로바틱 연기가 전신 촬영으로 깨끗하게 드러남",
+    "single_person_pole": true
+  },
+  "3918925376310794004": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "flying pole combo",
+    "reason": "공중 폴(flying pole)에서 한 명의 연기자가 전신이 모두 보이는 상태로 깔끔하고 숙련된 기술들을 수행하고 있습니다.",
+    "single_person_pole": true
+  },
+  "3921770746556612738": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "aerial pole inversion",
+    "reason": "단일 수행자의 우수한 공중 폴 퍼포먼스로, 동작과 신체 전반이 선명하게 노출되어 학습에 적합함.",
+    "single_person_pole": true
+  },
+  "3926807041624372924": {
+    "bucket": "정타",
+    "keep": true,
+    "move_guess": "플라잉 폴 아크로바틱",
+    "reason": "단일 수행자의 고난도 플라잉 폴 동작이 선명하고 안정적인 구도로 기록되어 있어 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "3927429473513985564": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 클립이 짜깁기되어 있고 설명 인터뷰, 다인 공중 폴 등이 혼재되어 있어 학습용으로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "3920100120921729252": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 파트너가 함께 수행하는 듀오 폴 아크로바틱 영상이므로 단일 인물 학습셋에서 제외합니다.",
+    "single_person_pole": false
+  },
+  "3931807022516819323": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 수행자가 동시에 폴을 사용해 연기하고 있으므로 단일 인물 규칙에 위배됩니다.",
+    "single_person_pole": false
+  },
+  "3927008778188573036": {
+    "bucket": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "대형 로고 및 텍스트 오버레이가 화면에 크게 노출되어 학습 데이터셋으로 부적합합니다.",
+    "single_person_pole": true
+  }
+}

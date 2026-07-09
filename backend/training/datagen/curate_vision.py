@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -75,6 +76,25 @@ class KeepDecision:
 # ---------------------------------------------------------------------------
 # 순수 판정 로직 (Gemini 무관 — 테스트 대상).
 # ---------------------------------------------------------------------------
+def _parse_json_lenient(text: str) -> dict:
+    """Gemini 응답을 관대하게 JSON 파싱. 마크다운 펜스/여분 텍스트 방어.
+
+    response_mime_type=application/json 이 대개 순수 JSON 을 주지만 가끔 ```json
+    펜스나 앞뒤 설명이 붙는다. 첫 { ~ 마지막 } 구간만 추출해 파싱. 순수(네트워크 무관).
+    """
+    s = (text or "").strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```[a-zA-Z]*\n?", "", s)
+        s = re.sub(r"\n?```$", "", s).strip()
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        lo, hi = s.find("{"), s.rfind("}")
+        if lo != -1 and hi != -1 and hi > lo:
+            return json.loads(s[lo:hi + 1])
+        raise
+
+
 def normalize_verdict(raw: dict | None) -> dict:
     """모델 raw 출력 → VERDICT_KEYS 화이트리스트 정규화.
 
@@ -216,4 +236,4 @@ class VisionGate:
             contents=contents,
             config={"response_mime_type": "application/json"},
         )
-        return json.loads(resp.text)
+        return _parse_json_lenient(resp.text)

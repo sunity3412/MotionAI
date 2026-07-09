@@ -304,8 +304,12 @@ def main(argv=None) -> int:
     return 0
 
 
-def _enumerate_channel(channel_url: str, limit: int | None) -> list[dict]:
-    """yt-dlp flat-playlist 열거 → [{id,title,duration}]. 다운로드 0."""
+def _enumerate_channel(channel_cfg: dict, limit: int | None) -> list[dict]:
+    """yt-dlp flat-playlist 열거 → [{id,title,duration}]. 다운로드 0.
+
+    search_query 있으면 채널 내 검색 URL 열거(시리즈가 채널 전반에 흩어진 경우 —
+    예 BerryTV 폴인폴), 없으면 /videos 탭.
+    """
     from yt_dlp import YoutubeDL
 
     opts = {
@@ -317,10 +321,15 @@ def _enumerate_channel(channel_url: str, limit: int | None) -> list[dict]:
     }
     if limit:
         opts["playlistend"] = int(limit)
-    # 채널의 /videos 탭으로 정규화 — 맨 @handle 은 채널 홈(소수·duration 결측) 반환.
-    url = channel_url.rstrip("/")
-    if "youtube.com" in url and not url.endswith(("/videos", "/shorts", "/streams")):
-        url = url + "/videos"
+    base = channel_cfg["channel_url"].rstrip("/")
+    search_q = channel_cfg.get("search_query")
+    if search_q:
+        from urllib.parse import quote
+        url = f"{base}/search?query={quote(str(search_q))}"
+    elif "youtube.com" in base and not base.endswith(("/videos", "/shorts", "/streams")):
+        url = base + "/videos"
+    else:
+        url = base
     out: list[dict] = []
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -369,7 +378,7 @@ def _run_curate(registry: dict, args) -> int:
     for ch in active:
         if args.max_candidates and total_gated >= args.max_candidates:
             break
-        enum = _enumerate_channel(ch["channel_url"], per_cap * 4)  # 필터 전 여유 열거.
+        enum = _enumerate_channel(ch, per_cap * 4)  # 필터 전 여유 열거.
         passed = [e for e in enum if e.get("id") and passes_filters(e, ch, defaults)][:per_cap]
         kept = rejected = unknown = 0
         moves: dict[str, int] = {}

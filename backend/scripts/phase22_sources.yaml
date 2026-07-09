@@ -51,8 +51,10 @@ channels:
     platform: youtube
     tier: 1_official
     bucket: 정타
+    # 제목이 "2026 PSO Taurus 117" 식이라 "pole" 미포함 — 채널 로컬 include 오버라이드.
+    discipline_include: '(?i)(pso|pole|taurus)'
     duration_window: [120, 400]
-    notes: 'PSO 미국. 체형·연령·스타일 다양성 최고. 길이 필터 필수(1000s+ 다인블록·6/16s 타이틀카드 제외).'
+    notes: 'PSO 미국. 체형·연령·스타일 다양성 최고. 길이 필터로 1000s+ 다인블록·6/16s 타이틀카드 제외. 제목에 pole 없어 include 오버라이드.'
 
   - name: CzechPoleDance
     channel_url: https://www.youtube.com/@CzechPoleDance
@@ -92,6 +94,8 @@ channels:
     platform: youtube
     tier: 2_studio
     bucket: fault
+    # 폴인폴 시리즈는 채널 전반에 흩어져 최근 /videos 로 안 잡힘 → 채널 내 검색으로 열거.
+    search_query: 폴인폴
     series_include: '(?i)(폴인폴|fall\s*in\s*pole|EP\s*\d)'
     duration_window: [60, 600]
     notes: '"폴인폴"(Fall In Pole) 시리즈만. 동작명 라벨 내장(윈드밀·펜슬·엘보우스탠드·스콜피온 = D-15 미보유동작). 한/영 dedup 필요. 예능클립(비키니폴·치어리더·뷰티폴) 제외.'

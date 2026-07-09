@@ -250,6 +250,11 @@ def main(argv=None) -> int:
     mode.add_argument("--dry-run", action="store_true", help="열거+필터 self-check만 (기본, 안전)")
     mode.add_argument("--curate", action="store_true", help="Vision 선별 (Task 3, belle 게이트)")
     mode.add_argument("--collect", action="store_true", help="다운로드+S3 적재 (Task 3, belle 게이트)")
+    parser.add_argument("--only", default=None, help="채널명 부분일치 필터 (파일럿용)")
+    parser.add_argument("--limit-per-channel", type=int, default=None, dest="limit_per_channel",
+                        help="채널당 후보 상한 (미지정 시 per_channel_cap)")
+    parser.add_argument("--max-candidates", type=int, default=None, dest="max_candidates",
+                        help="전체 gate 호출 상한 (과금 안전장치, 파일럿용)")
     args = parser.parse_args(argv)
 
     registry = load_registry(Path(args.sources))
@@ -299,13 +304,96 @@ def main(argv=None) -> int:
     return 0
 
 
-def _run_curate(registry: dict, args) -> int:
-    """Vision 선별(다운로드 0, Gemini 과금). Task 3 belle greenlight 후에만."""
-    # 실제 열거는 yt-dlp lazy-import 경로. Task 3 에서 구현/실행.
-    from datagen import curate_vision  # noqa: F401 — 게이트 배선 확인용.
+def _enumerate_channel(channel_url: str, limit: int | None) -> list[dict]:
+    """yt-dlp flat-playlist 열거 → [{id,title,duration}]. 다운로드 0."""
+    from yt_dlp import YoutubeDL
 
-    print("[curate] Task 3 경로 — yt-dlp 열거 + curate_vision.gate 선별. (greenlight 확인됨)", flush=True)
-    print("[curate] 실 열거/선별 실행은 Task 3 belle 스코프에서 배선한다.", flush=True)
+    opts = {
+        "extract_flat": True,
+        "quiet": True,
+        "skip_download": True,
+        "ignoreerrors": True,
+        "no_warnings": True,
+    }
+    if limit:
+        opts["playlistend"] = int(limit)
+    out: list[dict] = []
+    with YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(channel_url, download=False)
+    for e in ((info or {}).get("entries") or []):
+        if not e:
+            continue
+        out.append({
+            "id": e.get("id"),
+            "title": e.get("title", ""),
+            "duration": e.get("duration"),
+        })
+    return out
+
+
+def _run_curate(registry: dict, args) -> int:
+    """Vision 선별(다운로드 0, Gemini 과금). Task 3 belle greenlight 후에만.
+
+    각 활성 유튜브 채널: yt-dlp 열거 → passes_filters → per-channel cap →
+    curate_vision.gate → keep/reject/unknown 집계. verdict 는 캐시(재호출 0).
+    다운로드·S3 적재는 하지 않는다(그건 --collect).
+    """
+    sys.path.insert(0, str(BACKEND / "training"))
+    from datagen import curate_vision
+
+    defaults = registry["defaults"]
+    active = [c for c in _active_channels(registry) if c.get("platform") == "youtube"]
+    if args.only:
+        active = [c for c in active if args.only.lower() in c["name"].lower()]
+    if not active:
+        print("[curate] 대상 채널 0 (--only 필터 확인).", file=sys.stderr, flush=True)
+        return 1
+
+    gate = curate_vision.VisionGate()
+    if not gate.ready:
+        print(
+            "[curate] Gemini 클라이언트 미초기화 (키 미설정/크레딧/SDK) — verdict 전부 unknown. "
+            f"GEMINI_KEY_PARAM/{curate_vision.GEMINI_KEY_ENV} 및 AWS_PROFILE 확인 후 재실행.",
+            file=sys.stderr, flush=True,
+        )
+        return 2
+
+    per_cap = args.limit_per_channel or defaults.get("per_channel_cap", 40)
+    total_gated = 0
+    print(f"[curate] 활성 유튜브 채널 {len(active)} | per_channel_cap={per_cap} "
+          f"| max_candidates={args.max_candidates or '무제한'} | 다운로드 0", flush=True)
+    for ch in active:
+        if args.max_candidates and total_gated >= args.max_candidates:
+            break
+        enum = _enumerate_channel(ch["channel_url"], per_cap * 4)  # 필터 전 여유 열거.
+        passed = [e for e in enum if e.get("id") and passes_filters(e, ch, defaults)][:per_cap]
+        kept = rejected = unknown = 0
+        moves: dict[str, int] = {}
+        for e in passed:
+            if args.max_candidates and total_gated >= args.max_candidates:
+                break
+            url = f"https://www.youtube.com/watch?v={e['id']}"
+            verdict = gate.gate(e["id"], url)
+            dec = curate_vision.decide(verdict)
+            total_gated += 1
+            if dec.status == "keep":
+                kept += 1
+                moves[dec.move_guess or "?"] = moves.get(dec.move_guess or "?", 0) + 1
+            elif dec.status == "reject":
+                rejected += 1
+            else:
+                unknown += 1
+        print(
+            f"  {ch['name']:<30} [{ch.get('bucket','?'):<4}] 열거 {len(enum):>4} 필터통과 {len(passed):>3} "
+            f"| gated {kept+rejected+unknown:>3} keep {kept:>3} reject {rejected:>3} unknown {unknown:>3}"
+            + (f" moves={moves}" if moves else ""),
+            flush=True,
+        )
+    print(
+        f"\n[curate] gated {total_gated} (verdict 캐시 = "
+        f"{curate_vision.VERDICT_CACHE_PATH}). 다운로드 0. belle 확인 후 --collect.",
+        flush=True,
+    )
     return 0
 
 

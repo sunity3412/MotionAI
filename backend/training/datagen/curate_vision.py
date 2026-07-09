@@ -159,6 +159,11 @@ class VisionGate:
             log.exception("Gemini 클라이언트 초기화 실패 — 선별 보류")
             self._client = None
 
+    @property
+    def ready(self) -> bool:
+        """Gemini 클라이언트 초기화 여부(키 설정 + SDK 로드). False 면 gate 는 unknown."""
+        return self._client is not None
+
     def _load_cache(self) -> dict:
         try:
             return json.loads(self._cache_path.read_text(encoding="utf-8"))

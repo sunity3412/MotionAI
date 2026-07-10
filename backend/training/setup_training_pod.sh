@@ -30,8 +30,10 @@
 # -HF 는 transformers 포맷 변형; ms-swift/vLLM 둘 다 본 ID 지원).
 # Cosmos 는 nvidia/Cosmos-Reason2-8B (NVIDIA Open Model License = 상업/파생/출력 OK,
 # base=Qwen/Qwen3-VL-8B-Instruct, arch=qwen3_vl → vLLM 서빙 동일 경로.
-# 주의: HF gated:auto — HF 토큰 + 모델 페이지 약관 동의 필요. ms-swift SFT 시
-# 미등재 모델이므로 --model_type qwen3_vl 오버라이드 필요 예상).
+# 주의: HF 토큰 인증 다운로드 필요 — public repo 이나 익명 대용량 다운로드는 제한됨
+# (익명 API 표기는 gated:auto, 2026-07-10 관측 — 토큰 주입 시 별도 동의 절차 없이
+# 받아짐). 토큰 = SSM /sunity/motion/hf-token (belle 저장 2026-07-10, 자동 주입).
+# ms-swift SFT 시 미등재 모델이므로 --model_type qwen3_vl 오버라이드 필요 예상.
 #
 # 공급망 (T-22-17): 모델은 공식 org(Qwen/OpenGVLab/nvidia) HF 경로만, 아래 상수로 박제.
 # 다운로드 실패 시 유사 이름 대체 금지 — 사람 확인 후 재시도.
@@ -176,8 +178,9 @@ else
   echo "  [오류] venv 에 hf/huggingface-cli 없음 — [2/5] 설치 확인 필요"; exit 1
 fi
 
-# HF 토큰 (gated 모델 Cosmos 용). 우선순위: env HF_TOKEN → 토큰 파일 → SSM
-# /sunity/motion/hf-token (belle 가 저장해 두면 자동 주입). 값은 절대 echo 금지 (T-22-18).
+# HF 토큰 (Cosmos 인증 다운로드 + rate-limit 완화). 우선순위: env HF_TOKEN → 토큰
+# 파일 → SSM /sunity/motion/hf-token (belle 저장, 자동 주입). 값은 절대 echo 금지
+# (T-22-18) — 로그에는 존재 여부/길이만 남긴다.
 HF_TOKEN_PRESENT=0
 if [ -n "${HF_TOKEN:-}" ] || [ -s "$HF_HOME/token" ] || [ -s "$HOME/.cache/huggingface/token" ]; then
   HF_TOKEN_PRESENT=1
@@ -195,9 +198,13 @@ PYEOF
   if [ -n "$SSM_HF_TOKEN" ]; then
     export HF_TOKEN="$SSM_HF_TOKEN"
     HF_TOKEN_PRESENT=1
-    echo "  HF 토큰: SSM /sunity/motion/hf-token 에서 주입됨"
+    echo "  HF 토큰: SSM /sunity/motion/hf-token 주입됨 (길이 ${#HF_TOKEN})"
   fi
   unset SSM_HF_TOKEN
+fi
+# 구버전 huggingface_hub 호환 별칭 (값 동일 — echo 금지 유지).
+if [ "$HF_TOKEN_PRESENT" = "1" ] && [ -n "${HF_TOKEN:-}" ]; then
+  export HUGGING_FACE_HUB_TOKEN="$HF_TOKEN"
 fi
 
 STATUS_A="PENDING"; STATUS_B="PENDING"; STATUS_C="PENDING"
@@ -220,18 +227,13 @@ download_model() {
 download_model "$BAKEOFF_MODEL_A" && STATUS_A="OK" || STATUS_A="FAILED"
 download_model "$BAKEOFF_MODEL_B" && STATUS_B="OK" || STATUS_B="FAILED"
 
-if [ "$HF_TOKEN_PRESENT" = "1" ]; then
-  download_model "$BAKEOFF_MODEL_C" && STATUS_C="OK" || STATUS_C="FAILED"
-else
-  STATUS_C="PENDING(HF token)"
-  echo "  ── $BAKEOFF_MODEL_C"
-  echo "     [보류] gated 모델 — HF 토큰 없음. belle 조치 절차:"
-  echo "       1. HF 계정 로그인 후 https://huggingface.co/$BAKEOFF_MODEL_C 라이선스 동의(gated:auto=즉시 승인)"
-  echo "       2. https://huggingface.co/settings/tokens 에서 read 토큰 발급"
-  echo "       3. 토큰을 SSM 에 저장(권장): aws ssm put-parameter --name /sunity/motion/hf-token \\"
-  echo "            --type SecureString --value <토큰> --region ap-northeast-2"
-  echo "          (또는 export HF_TOKEN=<토큰>) 후 본 스크립트 재실행 — 멱등, A/B 는 skip 됨"
+# Cosmos: 토큰 없이도 시도는 하되(public repo), 실패 시 토큰 안내 (헤더 주의 참조).
+if [ "$HF_TOKEN_PRESENT" = "0" ]; then
+  echo "  [경고] HF 토큰 없음 — $BAKEOFF_MODEL_C 는 익명 다운로드 제한에 걸릴 수 있음."
+  echo "         belle 조치: read 토큰 발급 후 SSM 저장 —"
+  echo "         aws ssm put-parameter --name /sunity/motion/hf-token --type SecureString --value <토큰> --region ap-northeast-2"
 fi
+download_model "$BAKEOFF_MODEL_C" && STATUS_C="OK" || STATUS_C="FAILED"
 rm -f "$HF_HOME/.dl_err_$$" 2>/dev/null || true
 
 # ─────────────────────────────────────────────────────────────────────────────

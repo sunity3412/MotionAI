@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: 22-04 Tasks 1-2 done (gemini_teacher 교사 증류 배치 + build_jsonl 3트랙 조립기, LOCAL ONLY), Task 3 = 증류 비용 blocking checkpoint (belle 승인 대기, DR-05)
+stopped_at: 22-04 Tasks 1-2 done + run_trial_batch 스캐폴드(5f2164c). Task 3 시험 배치 = 권한 게이트 차단 — 코디네이터 릴레이는 사용자 동의 아님, belle 본인/권한 승인 필요. 최초 foreground 시도가 ~수 call 소진(결과 미포착) 후 2분 wall 로 kill→고아 File API 업로드 35개 정리(잔량 0). 다음=belle 권한 승인 후 재실행
 last_updated: "2026-07-10T06:30:32.013Z"
 last_activity: 2026-07-10 -- Phase 22 execution started
 progress:

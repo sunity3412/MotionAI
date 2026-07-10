@@ -253,6 +253,37 @@ def test_teacher_prompt_requires_contract_fields():
     assert "left_knee" in prompt
 
 
+def test_teacher_prompt_lists_fault_category_enum_values():
+    """2026-07-10 fix — enum 유효값을 프롬프트에 제공(3/3 rejected_contract 재발 방지).
+
+    값은 schema 단일 owner(vision_veto.FAULT_CATEGORIES)에서 주입 — 하드코딩 아님을
+    schema 경유로 검증한다.
+    """
+    from datagen import schema
+    from sunity_shared.analysis.vision_veto import FAULT_CATEGORIES
+
+    prompt = gt.build_teacher_system_prompt(["left_knee"])
+    assert tuple(schema._safe_valid_categories()) == tuple(FAULT_CATEGORIES)
+    for cat in FAULT_CATEGORIES:
+        assert cat in prompt, f"enum 값 {cat} 가 프롬프트에 없음"
+
+
+def test_teacher_prompt_instructs_empty_faults_for_clean_video():
+    """정타 영상 억지 결함 방지 — faults 빈 배열([]) 지시 문장 존재."""
+    prompt = gt.build_teacher_system_prompt(["left_knee"])
+    assert "빈 배열" in prompt and "[]" in prompt
+
+
+def test_teacher_prompt_graceful_without_categories(monkeypatch):
+    """shared layer 미로드(빈 튜플) 시 enum 나열 문장 생략 — 프롬프트는 여전히 유효."""
+    from datagen import schema
+
+    monkeypatch.setattr(schema, "_safe_valid_categories", lambda: ())
+    prompt = gt.build_teacher_system_prompt(["left_knee"])
+    assert "유효값" not in prompt
+    assert "fault_category" in prompt  # 계약 필드 요구는 유지.
+
+
 def test_parse_teacher_report_splits_thought():
     raw = '<thought>가려짐 보정</thought>\n{"coaching": "다리를 펴세요", "faults": []}'
     out = gt.parse_teacher_report(raw)
@@ -272,3 +303,54 @@ def test_probe_quota_flags_exhaustion():
     result = gt.probe_quota(client)
     assert result["ok"] is False
     assert result["error"] == "quota_exhausted"
+
+
+# ---------------------------------------------------------------------------
+# 원문 보존 — 폐기 행 진단 갭 fix (2026-07-10).
+# ---------------------------------------------------------------------------
+def test_distill_video_preserves_raw_text_on_success():
+    raw = '<thought>t</thought>{"coaching": "다리를 펴세요", "faults": []}'
+    client = _FakeClient(text=raw)
+    out = gt.distill_video(client, "/tmp/x.mp4", [{"frame": 0}], ["left_knee"])
+    assert out["raw_text"] == raw
+    assert out["report"]["coaching"] == "다리를 펴세요"
+
+
+def test_distill_video_preserves_raw_text_on_parse_failure():
+    """파싱 불가 원문도 보존 — report=None 이지만 raw_text 로 진단 가능."""
+    raw = "JSON 이 아닌 자유 서술 응답"
+    client = _FakeClient(text=raw)
+    out = gt.distill_video(client, "/tmp/x.mp4", [{"frame": 0}], ["left_knee"])
+    assert out["report"] is None
+    assert out["raw_text"] == raw
+    # evaluate_filters 는 여전히 rejected_parse 로 폐기한다(필터 계약 무변경).
+    accepted, reason = gt.evaluate_filters(out, judge_score=10)
+    assert accepted is False and reason == "rejected_parse"
+
+
+def test_run_trial_batch_saves_trial_reports(tmp_path, monkeypatch):
+    """행별 (a) raw text (b) parsed (c) 사유가 scratch_dir/trial_reports/ 에 저장된다."""
+    import json as _json
+
+    raw = '<thought>진단</thought>{"coaching": "다리를 펴세요", "faults": []}'
+    client = _FakeClient(text=raw)
+
+    def _fake_download(bucket, key, dest):
+        with open(dest, "wb") as fp:
+            fp.write(b"fake video bytes")
+
+    monkeypatch.setattr(gt, "_download_s3", _fake_download)
+    manifest = {"rows": [{"s3_key": "fixtures/phase15/climb/fault.mp4",
+                          "motion": "climb", "source": "internal", "holdout": None}]}
+    result = gt.run_trial_batch(manifest, str(tmp_path), max_rows=1, client=client)
+
+    reports_dir = result["trial_reports_dir"]
+    assert reports_dir == str(tmp_path / "trial_reports")
+    saved = _json.loads(
+        (tmp_path / "trial_reports" / "fixtures__phase15__climb__fault.mp4.json")
+        .read_text(encoding="utf-8")
+    )
+    assert saved["raw_text"] == raw
+    assert saved["parsed"]["report"]["coaching"] == "다리를 펴세요"
+    assert saved["result"] in {"accepted", "rejected_judge"}  # judge fake 는 임계 미충족 가능.
+    assert saved["result"] == result["per_row"][0]["result"]

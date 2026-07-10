@@ -157,10 +157,23 @@ def build_teacher_system_prompt(joint_keys) -> str:
     요구한다 — student_angle_deg/reference_angle_deg/measurement_basis/fault_category 가
     빠지면 새 REPORT_KEYS 조립 시 채점 불가(schema.faults ⊇ DEDUCTION_CONSUMED_KEYS).
     모델은 점수를 절대 내지 않는다(짚기·측정·앵커까지만; ND-02).
+
+    시험 배치 진단 fix (2026-07-10, belle 승인): fault_category 를 "고정 enum"이라고만
+    하고 유효값을 제공하지 않아 교사가 enum 밖 값 산출 → _normalize_fault_item 이 None
+    강등 → 3/3 rejected_contract 추정. 유효값은 schema 단일 owner(_safe_valid_categories
+    — shared layer 미로드 시 빈 튜플 graceful)에서 주입한다. 하드코딩 금지(새 분류 발명
+    금지 [[scoring-dimensions-ipsf]] 정신). 정타 영상 억지 결함 방지 문장도 함께 명시.
     """
     key_line = schema.bind_key_prompt(joint_keys)
     report_keys = ", ".join(schema.REPORT_KEYS)
     fault_keys = ", ".join(schema.DEDUCTION_CONSUMED_KEYS)
+    categories = schema._safe_valid_categories()
+    category_line = (
+        f"fault_category 유효값(반드시 이 목록의 값만 사용, 목록 밖 값 금지): "
+        f"[{', '.join(categories)}].\n"
+        if categories
+        else ""  # shared layer 미로드 graceful — enum 나열 문장 생략.
+    )
     return (
         "당신은 폴스포츠 모션 분석 전문가입니다. 선수의 운동 영상과 RTMW 비전 모델이 "
         "추출한 시계열 관절 좌표(JSON)를 입력받습니다. 가려짐이나 모션 블러로 잘못 추출된 "
@@ -171,6 +184,9 @@ def build_teacher_system_prompt(joint_keys) -> str:
         "faults[] 각 항목은 감점 엔진 계약 필드를 반드시 포함합니다: "
         f"[{fault_keys}]. student_angle_deg/reference_angle_deg 는 각도쌍(도), "
         "measurement_basis 는 무엇을 어떻게 쟀는지 서술, fault_category 는 고정 enum 입니다.\n"
+        f"{category_line}"
+        "짚을 결함이 없으면 faults 는 빈 배열([])로 출력합니다 — 정타 영상에 억지 결함을 "
+        "만들지 않습니다.\n"
         "점수(score/severity/overall/points 계열)는 절대 출력하지 않습니다 — 짚기·측정·"
         "앵커까지만 하고 감점은 별도 규칙 엔진이 담당합니다."
     )
@@ -215,7 +231,9 @@ def distill_video(
 
     업로드/생성 중 예외가 나도 finally 가 반드시 files.delete 를 호출한다 — File API
     20GB 적체 누수 방지(DR-07, test_gemini_teacher 로 증명). 반환 = normalize_report 를
-    통과한 정규 리포트(화이트리스트/Null 고정/enum 강제) 또는 파싱 실패 시 None.
+    통과한 정규 리포트(화이트리스트/Null 고정/enum 강제) + raw_text(교사 원문 — 폐기 행
+    진단용 보존, 2026-07-10 fix). 파싱 실패 시에도 raw_text 는 보존해 반환한다
+    ({"thought": None, "report": None, "raw_text": ...}).
     """
     uploaded = None
     try:
@@ -227,7 +245,12 @@ def distill_video(
         )
     finally:
         _delete_uploaded(client, uploaded)
-    return parse_teacher_report(raw_text)
+    parsed = parse_teacher_report(raw_text)
+    if parsed is None:
+        # 파싱 실패여도 원문은 보존 — 진단 없이 폐기 사유를 은폐하지 않는다.
+        return {"thought": None, "report": None, "raw_text": raw_text}
+    parsed["raw_text"] = raw_text
+    return parsed
 
 
 def parse_teacher_report(raw_text):
@@ -556,6 +579,30 @@ def _download_s3(bucket: str, key: str, dest_path: str) -> None:
     s3.download_file(bucket, key, dest_path)
 
 
+def _trial_report_path(reports_dir: str, s3_key: str) -> str:
+    """행별 진단 파일 경로 — s3_key slug(prefix 충돌 방지, pod_coords 캐시 키와 동일 규칙)."""
+    slug = str(s3_key or "unknown").replace("/", "__")
+    return os.path.join(reports_dir, f"{slug}.json")
+
+
+def _save_trial_report(reports_dir: str, s3_key: str, payload: dict) -> str | None:
+    """행별 (a) 교사 raw text (b) normalize 후 parsed (c) 수락/폐기 사유를 저장.
+
+    폐기 행 진단이 목적 — 수락/폐기/오류 전부 저장한다(2026-07-10 fix: 시험 배치
+    3/3 rejected_contract 인데 원문 미보존으로 확정 진단 불가였던 갭). 저장 실패는
+    배치를 막지 않는다(graceful). 반환 = 저장 경로 또는 None.
+    """
+    try:
+        os.makedirs(reports_dir, exist_ok=True)
+        path = _trial_report_path(reports_dir, s3_key)
+        with open(path, "w", encoding="utf-8") as fp:
+            json.dump(payload, fp, ensure_ascii=False, indent=2, sort_keys=True)
+        return path
+    except Exception:  # noqa: BLE001 - 진단 저장 실패는 배치를 막지 않는다.
+        log.warning("trial report 저장 실패 (graceful): %s", s3_key)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # 배치 러너 — max_rows 상한 + 429 즉시 중단 + File API 잔여물 검사 (belle-gated).
 # ---------------------------------------------------------------------------
@@ -578,11 +625,16 @@ def run_trial_batch(
     RTMW 좌표는 coords_provider(row) 로 주입 — 미주입 시 빈 서브샘플([])로 video-only
     호출(로컬 트라이얼은 Pod RTMW 추출 없음). 반환에 명시.
 
+    행별 진단 보존(2026-07-10 fix): 교사 raw text + normalize 후 parsed + 수락/폐기
+    사유를 scratch_dir/trial_reports/<s3_key slug>.json 에 저장한다 — 수락/폐기 모두.
+
     반환 dict: {stats, per_row, aborted, residue_before, residue_after, elapsed_s,
-    n_processed, coords_injected, accepted_samples}. S3 업로드/최종 산출은 하지 않는다.
+    n_processed, coords_injected, accepted_samples, trial_reports_dir}. S3 업로드/최종
+    산출은 하지 않는다.
     """
     client = client or _ensure_client()
     os.makedirs(scratch_dir, exist_ok=True)
+    reports_dir = os.path.join(scratch_dir, "trial_reports")
     rows = selectable_rows(manifest)[: max(0, int(max_rows))]
     stats = FilterStats()
     per_row: list[dict] = []
@@ -596,6 +648,7 @@ def run_trial_batch(
         s3_key = row["s3_key"]
         local = os.path.join(scratch_dir, os.path.basename(s3_key))
         vh = None
+        parsed = None
         try:
             _download_s3(bucket, s3_key, local)
             try:
@@ -614,9 +667,17 @@ def run_trial_batch(
             if _is_quota_error(exc):
                 aborted = f"quota_exhausted at {s3_key}: {str(exc)[:160]}"
                 per_row.append({"s3_key": s3_key, "result": "ABORT_429"})
+                _save_trial_report(reports_dir, s3_key, {
+                    "s3_key": s3_key, "result": "ABORT_429", "error": str(exc)[:200],
+                    "raw_text": (parsed or {}).get("raw_text"),
+                })
                 break
             stats.rejected_parse += 1
             per_row.append({"s3_key": s3_key, "result": "error", "error": str(exc)[:160]})
+            _save_trial_report(reports_dir, s3_key, {
+                "s3_key": s3_key, "result": "error", "error": str(exc)[:200],
+                "raw_text": (parsed or {}).get("raw_text"),
+            })
             continue
         finally:
             try:
@@ -628,6 +689,19 @@ def run_trial_batch(
         per_row.append(
             {"s3_key": s3_key, "motion": row.get("motion"), "judge": judge_score, "result": reason}
         )
+        # (a) 교사 raw (b) normalize 후 parsed (c) 사유 — 수락/폐기 모두 보존(진단 갭 fix).
+        _save_trial_report(reports_dir, s3_key, {
+            "s3_key": s3_key,
+            "motion": row.get("motion"),
+            "video_hash": vh,
+            "raw_text": (parsed or {}).get("raw_text"),
+            "parsed": {
+                "thought": (parsed or {}).get("thought"),
+                "report": (parsed or {}).get("report"),
+            },
+            "judge": judge_score,
+            "result": reason,
+        })
         if accepted and parsed:
             accepted_samples.append(
                 {"video_hash": vh, "s3_key": s3_key, "motion": row.get("motion"),
@@ -646,6 +720,7 @@ def run_trial_batch(
         "n_processed": len([p for p in per_row if p.get("result") != "ABORT_429"]),
         "coords_injected": coords_injected,
         "accepted_samples": accepted_samples,
+        "trial_reports_dir": reports_dir,
     }
 
 

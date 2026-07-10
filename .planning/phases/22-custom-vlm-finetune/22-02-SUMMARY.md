@@ -159,3 +159,5 @@ None — Task 1·2 는 외부 서비스 구성 불필요. Task 3(belle greenligh
 - 10/10 created files present on disk.
 - Both task commits (988993e, cda85b1) present in git history.
 - `--dry-run` exit 0 (0 downloads, 0 Gemini); phase22 pytest 36 passed, 2 skipped.
+
+> **잔여 해소 (2026-07-10):** Task 3 잔여였던 `backend/training/LICENSE-AUDIT.md` 는 수집 마감(`_meta.collection_complete=true`, 131행 = 시드 19 + YouTube 68 + IG 44) 후 manifest 실측 원장 기반으로 확정 작성 완료(소스별 원장·리스크 플래그·belle 결정 이력·A9 체크리스트). 미성년 행 실측 0. 22-02 잔여 산출물 없음(내부 371 fault track 은 balance_waiver 로 다음 라운드 이월).

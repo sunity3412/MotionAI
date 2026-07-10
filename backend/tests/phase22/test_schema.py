@@ -198,8 +198,54 @@ def test_normalize_list_fields_nested_types():
     assert schema.normalize_report({"segments": {"label": "준비"}})["segments"] is None
 
 
-def test_normalize_coaching_must_be_string():
-    """coaching — str 만 통과, 구조체는 None (코칭 문장 계약)."""
+def test_normalize_coaching_deterministic_coercions():
+    """coaching — str 통과 + 결정적 무손실 변환(문장 리스트 join / 단일 str 값 dict).
+
+    full batch 109행 실측: coaching 이 list 47행·dict 7행 — 블라인드 None 은 핵심
+    라벨(D-02) 대량 유실이라, 휴리스틱 0 인 변환만 허용하고 나머지는 None."""
     assert schema.normalize_report({"coaching": "무릎을 펴세요"})["coaching"] == "무릎을 펴세요"
-    assert schema.normalize_report({"coaching": {"text": "x"}})["coaching"] is None
-    assert schema.normalize_report({"coaching": ["a", "b"]})["coaching"] is None
+    # 문장 리스트(전부 str) → 개행 join (실측 47행 케이스).
+    assert schema.normalize_report(
+        {"coaching": ["그립 유지.", "골반을 폴에."]}
+    )["coaching"] == "그립 유지.\n골반을 폴에."
+    # 단일 str 값 dict → 그 값 (실측 {"feedback": ...} 케이스).
+    assert schema.normalize_report({"coaching": {"feedback": "x"}})["coaching"] == "x"
+    # 비결정적 형태 → None: 다중 키 dict / 값이 리스트인 dict / str 아닌 원소 혼합.
+    assert schema.normalize_report({"coaching": {"a": "x", "b": "y"}})["coaching"] is None
+    assert schema.normalize_report({"coaching": {"exercises": ["a"]}})["coaching"] is None
+    assert schema.normalize_report({"coaching": ["a", 1]})["coaching"] is None
+
+
+def test_normalize_corrected_coords_frame_keyed_dict():
+    """corrected_coords 프레임 키 dict → [{"frame": N, **joints}] (실측 51행 케이스)."""
+    raw = {"corrected_coords": {"108": {"left_knee": [660, 361]},
+                                "9": {"left_knee": [480, 566]}}}
+    out = schema.normalize_report(raw)["corrected_coords"]
+    # 프레임 오름차순 + frame 키 주입 + 관절 보존.
+    assert out == [{"frame": 9, "left_knee": [480, 566]},
+                   {"frame": 108, "left_knee": [660, 361]}]
+    # int 캐스팅 불가 키 / dict 아닌 값 → None (결정적 변환 불가).
+    assert schema.normalize_report(
+        {"corrected_coords": {"first": {"left_knee": [1, 2]}}}
+    )["corrected_coords"] is None
+    assert schema.normalize_report(
+        {"corrected_coords": {"0": [1, 2]}}
+    )["corrected_coords"] is None
+
+
+def test_normalize_segments_span_dict_coercion():
+    """segments {label: [start, end]} → SEGMENT_KEYS 항목 리스트 (실측 케이스)."""
+    raw = {"segments": {"execution": [120, 160], "preparation": [0, 30]}}
+    out = schema.normalize_report(raw)["segments"]
+    assert out == [
+        {"end_frame": 30, "label": "preparation", "start_frame": 0},
+        {"end_frame": 160, "label": "execution", "start_frame": 120},
+    ]
+    # 값이 span 이 아니면(시간문자열 서술 등) → None (휴리스틱 파싱 금지).
+    assert schema.normalize_report(
+        {"segments": {"00:00 - 00:01": "스핀 진입"}}
+    )["segments"] is None
+    # time_anchors phase-map dict 은 스키마 환원 불가 → None (라벨 의미 소실 방지).
+    assert schema.normalize_report(
+        {"time_anchors": {"end": 117, "peak": 84, "start": 75}}
+    )["time_anchors"] is None

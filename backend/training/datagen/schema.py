@@ -241,7 +241,13 @@ def normalize_report(raw: dict) -> dict:
       · svg_spec → SVG_SPEC_KEYS dict, time_anchors/segments → 항목 dict 리스트,
         corrected_coords → 리스트, coaching → str.
       · str 로 온 구조 필드는 json.loads 1회 복구 시도 — 성공+타입 일치면 채택,
-        아니면 해당 필드만 None (행 폐기 아님 — 다른 라벨은 유효, graceful)."""
+        아니면 해당 필드만 None (행 폐기 아님 — 다른 라벨은 유효, graceful).
+      · 결정적(휴리스틱 0) 무손실 변환만 추가 허용(full batch 109행 실측 형태):
+        coaching 문장 리스트 → 개행 join / 단일 str 값 dict → 그 값,
+        corrected_coords 프레임 키 dict {"108": {...}} → [{"frame": 108, ...}],
+        segments {label: [start, end]} → SEGMENT_KEYS 항목 리스트.
+        스키마로 환원 불가한 형태(svg 원시도형 리스트/SVG 마크업, 시간앵커
+        phase-map 등)는 None — 스키마 불일치 라벨을 학습에 남기지 않는다(D-11)."""
     raw = raw if isinstance(raw, dict) else {}
     valid_categories = _safe_valid_categories()
     out: dict = {}
@@ -254,11 +260,11 @@ def normalize_report(raw: dict) -> dict:
         elif key == "time_anchors":
             val = _normalize_item_list(val, TIME_ANCHOR_KEYS)
         elif key == "segments":
-            val = _normalize_item_list(val, SEGMENT_KEYS)
+            val = _normalize_item_list(_coerce_segments_dict(val), SEGMENT_KEYS)
         elif key == "corrected_coords":
-            val = _normalize_untyped_list(val)
+            val = _normalize_corrected_coords(val)
         elif key == "coaching":
-            val = val if isinstance(val, str) or val is None else None
+            val = _normalize_coaching(val)
         out[key] = _sort_keys(val)
     # 이미 REPORT_KEYS 순서로 넣었지만, 방어적으로 알파벳 재정렬(중첩 값은 _sort_keys 처리).
     return {k: out[k] for k in sorted(out)}
@@ -301,12 +307,62 @@ def _normalize_item_list(value, item_keys):
     return out
 
 
-def _normalize_untyped_list(value):
-    """자유 스키마 리스트(corrected_coords — 관절 키가 동적) → 리스트 타입만 강제."""
+def _normalize_corrected_coords(value):
+    """corrected_coords → 리스트 강제 (관절 키가 동적 — 항목 화이트리스트 없음).
+
+    결정적 변환: 프레임 키 dict {"108": {joint: [x, y]}, ...} (full batch 51행 실측)
+    → [{"frame": 108, **joints}, ...] 프레임 오름차순. 그 외 dict/스칼라 → None."""
     if value is None:
         return None
     value = _coerce_structured(value)
-    return value if isinstance(value, list) else None
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict) and value:
+        try:
+            keyed = {int(k): v for k, v in value.items()}
+        except (TypeError, ValueError):
+            return None
+        if not all(isinstance(v, dict) for v in keyed.values()):
+            return None
+        return [{**v, "frame": f} for f, v in sorted(keyed.items())]
+    return None
+
+
+def _coerce_segments_dict(value):
+    """segments {label: [start, end]} dict (full batch 실측) → SEGMENT_KEYS 항목 리스트.
+
+    모든 값이 [숫자 2개] 시퀀스일 때만 결정적 변환(휴리스틱 0) — 아니면 원값 그대로
+    반환해 _normalize_item_list 의 타입 강제(리스트 아님 → None)에 맡긴다."""
+    value = _coerce_structured(value)
+    if not isinstance(value, dict) or not value:
+        return value
+
+    def _is_span(v):
+        return (
+            isinstance(v, (list, tuple)) and len(v) == 2
+            and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in v)
+        )
+
+    if not all(_is_span(v) for v in value.values()):
+        return value
+    return [
+        {"end_frame": span[1], "label": str(label), "start_frame": span[0]}
+        for label, span in sorted(value.items(), key=lambda kv: kv[1][0])
+    ]
+
+
+def _normalize_coaching(value):
+    """coaching → str 강제. 결정적 무손실 변환(full batch 실측 형태)만 허용:
+    문장 리스트(전부 str) → 개행 join, 단일 str 값 dict → 그 값. 그 외 → None."""
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, list) and value and all(isinstance(v, str) for v in value):
+        return "\n".join(value)
+    if isinstance(value, dict) and len(value) == 1:
+        only = next(iter(value.values()))
+        if isinstance(only, str):
+            return only
+    return None
 
 
 def _normalize_faults(value, valid_categories):

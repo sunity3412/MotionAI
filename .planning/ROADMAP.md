@@ -736,13 +736,13 @@ Plans:
 **Requirements**: FT-01 (모델선정 bake-off) / FT-02 (학습셋 데이터 엔진) / FT-03 (라벨링 3경로) / FT-04 (SFT 학습·평가 게이트) / FT-05 (shadow→순차 swap 게이트) / FT-06 (라이선스·provenance) — 2026-07-07 plan에서 mint
 **Depends on:** Phase 20 (Gemini 판정 한계 + few-shot 데이터), 누적 라벨 데이터. 학습/평가 = GPU 필요. ~~Phase 21~~ (2026-07-06 belle 디커플 — 22 먼저, 21은 후행)
 
-**Plans:** 3/10 plans executed
+**Plans:** 4/10 plans executed
 
 Plans:
 
 - [x] 22-01-PLAN.md — D-11 스키마 단일 owner + 실 RTMW 오류분포 측정 + 합성 교란 순수 모듈 (Wave 1, FT-03)
 - [x] 22-02-PLAN.md — 유튜브 수집(D-09) + 시드 자산(D-08) + 가명처리(D-12) + provenance/LICENSE-AUDIT (Wave 1, FT-02/FT-06)
-- [ ] 22-03-PLAN.md — Gemini shadow 로깅 즉시 가동(D-10c) + Pod VRAM 실측 (Wave 1, FT-03/FT-05)
+- [x] 22-03-PLAN.md — Gemini shadow 로깅 즉시 가동(D-10c) + Pod VRAM 실측 (Wave 1, FT-03/FT-05)
 - [ ] 22-04-PLAN.md — Gemini 교사 증류(judge 필터) + 학습 JSONL 3트랙 조립 (Wave 2, FT-03/FT-02)
 - [x] 22-05-PLAN.md — bake-off 4축 하네스 + 균등/함정 eval 미니셋 (Wave 2, FT-01)
 - [ ] 22-06-PLAN.md — 학습 Pod 임대(belle 승인) + bake-off 실행 + 백본 확정 checkpoint (Wave 3, FT-01)

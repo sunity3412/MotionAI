@@ -152,3 +152,54 @@ def test_normalize_report_fault_item_null_fixation():
         assert key in item
     assert item["student_angle_deg"] is None
     assert list(item.keys()) == sorted(item.keys())
+
+
+# ---------------------------------------------------------------------------
+# 중첩 타입 강제 (2026-07-11, 22-04 full batch fix — str svg_spec assemble 크래시).
+# 정책: str 구조 필드는 json.loads 1회 복구 → 타입 일치면 채택, 아니면 필드만 None
+# (행 폐기 아님 — graceful). 강제 지점은 normalize_report 단일 owner(산탄 가드 금지).
+# ---------------------------------------------------------------------------
+def test_normalize_svg_spec_nested_types():
+    """svg_spec — JSON-str 복구 / 평문 str → None / dict 화이트리스트+Null 고정."""
+    # 교사가 JSON-문자열로 낸 케이스(full batch 실증) → 파싱 채택 + 화이트리스트.
+    out = schema.normalize_report(
+        {"svg_spec": '{"force_vector": [0.0, -1.0], "extra": 1}'}
+    )
+    assert out["svg_spec"] == {
+        "force_vector": [0.0, -1.0], "ideal_trajectory": None, "target_angle_deg": None,
+    }
+    # 평문 str → 필드만 None (행 유지 — 다른 라벨은 유효).
+    assert schema.normalize_report({"svg_spec": "화살표를 위로 그리세요"})["svg_spec"] is None
+    # dict → SVG_SPEC_KEYS 화이트리스트 + 결측 Null 고정.
+    out2 = schema.normalize_report({"svg_spec": {"target_angle_deg": 178.0, "bogus": 1}})
+    assert out2["svg_spec"]["target_angle_deg"] == 178.0
+    assert "bogus" not in out2["svg_spec"]
+    assert out2["svg_spec"]["force_vector"] is None
+    # None 은 그대로 None (철칙 1).
+    assert schema.normalize_report({})["svg_spec"] is None
+
+
+def test_normalize_list_fields_nested_types():
+    """time_anchors/segments/corrected_coords/faults — 리스트 타입 강제 + str 복구."""
+    out = schema.normalize_report({
+        "time_anchors": '[{"frame": 3, "fault_category": "grip", "x": 1}]',
+        "segments": "구간1: 준비 구간",           # 평문 str → None.
+        "faults": "결함 없음",                    # str faults → None (문자 iteration 금지).
+        "corrected_coords": '[{"frame": 0, "left_knee": [500, 500, 0.9]}]',
+    })
+    # str-JSON 복구 + 항목 TIME_ANCHOR_KEYS Null 고정(밖 키 x 제거).
+    assert out["time_anchors"] == [{"fault_category": "grip", "frame": 3, "timestamp": None}]
+    assert out["segments"] is None
+    assert out["faults"] is None
+    # corrected_coords 는 관절 키가 동적 — 리스트 타입만 강제, 항목은 보존.
+    assert out["corrected_coords"] == [{"frame": 0, "left_knee": [500, 500, 0.9]}]
+    assert schema.normalize_report({"corrected_coords": "좌표 서술"})["corrected_coords"] is None
+    # dict 로 온 리스트 필드 → None (타입 불일치 명시).
+    assert schema.normalize_report({"segments": {"label": "준비"}})["segments"] is None
+
+
+def test_normalize_coaching_must_be_string():
+    """coaching — str 만 통과, 구조체는 None (코칭 문장 계약)."""
+    assert schema.normalize_report({"coaching": "무릎을 펴세요"})["coaching"] == "무릎을 펴세요"
+    assert schema.normalize_report({"coaching": {"text": "x"}})["coaching"] is None
+    assert schema.normalize_report({"coaching": ["a", "b"]})["coaching"] is None

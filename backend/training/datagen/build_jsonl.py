@@ -291,7 +291,10 @@ def _build_distill_samples(manifest, distill_loader, reference_loader) -> list[d
         row = by_hash.get(vh)
         if row is None or not _eligible_media_row(row):
             continue
-        rec_report = rec.get("report") or {}
+        # 입구 정규화(2026-07-11 fix): 디스크 적재분(accepted/)은 구 normalize 산출일 수
+        # 있어 중첩 타입(svg_spec str 등) 미강제 — schema 단일 지점에서 재정규화한다.
+        # str svg 등 타입 불일치는 필드만 None 강등, 행은 유지(graceful).
+        rec_report = schema.normalize_report(rec.get("report") or {})
         if not _faults_satisfy_contract(rec_report):
             continue  # 감점 계약 미충족 샘플 폐기(F1).
         ref = reference_loader(row.get("motion")) if reference_loader else None

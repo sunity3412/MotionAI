@@ -289,3 +289,50 @@ def test_terminal_results_match_filter_reasons():
     """터미널 집합이 evaluate_filters 사유와 정합 — 필터 사유 추가 시 여기서 잡힌다."""
     stats_keys = set(gt.FilterStats().as_dict().keys())
     assert fb.TERMINAL_RESULTS == stats_keys
+
+
+def test_assemble_jsonl_survives_str_svg_spec_rows(tmp_path):
+    """2026-07-11 fix — svg 계열이 str 인 수락 리포트가 있어도 assemble 이 완주하고
+    해당 행이 학습셋에 포함된다(필드만 graceful drop, 행 폐기 아님)."""
+    accepted_dir = tmp_path / "out" / "accepted"
+    accepted_dir.mkdir(parents=True)
+
+    def _rec(vh, s3_key, svg, anchors=None):
+        return {
+            "video_hash": vh, "s3_key": s3_key, "motion": "climb",
+            "thought": "보정", "joint_keys": ["left_knee"],
+            "coords_by_frame": [{"frame": 0, "left_knee": [500, 500, 0.9]}],
+            "report": {"coaching": "골반을 폴에 붙이세요", "faults": [],
+                       "svg_spec": svg, "time_anchors": anchors},
+        }
+
+    # (a) JSON-문자열 svg (full batch 실증 케이스) — 파싱 채택.
+    (accepted_dir / "a.json").write_text(json.dumps(_rec(
+        "vh-a", "fixtures/phase22/climb/v0.mp4",
+        '{"force_vector": [0.0, -1.0], "ideal_trajectory": null}',
+    ), ensure_ascii=False), encoding="utf-8")
+    # (b) 평문 svg + 평문 time_anchors — 필드 None 강등, 행 유지.
+    (accepted_dir / "b.json").write_text(json.dumps(_rec(
+        "vh-b", "fixtures/phase22/climb/v1.mp4",
+        "화살표를 위로 그리세요", anchors="첫 프레임에서 결함",
+    ), ensure_ascii=False), encoding="utf-8")
+
+    out = fb.assemble_jsonl(_manifest(), accepted_dir, tmp_path / "jsonl")  # 크래시 0.
+    assert out["meta"]["track_counts"]["distill"] == 2  # 두 행 다 포함(폐기 0).
+
+    from datagen import build_jsonl
+    lines = []
+    for kind in ("train", "val"):  # video_hash split 로 val 에 갈 수 있다 — 양쪽 스캔.
+        path = out["paths"].get(kind)
+        if path and Path(path).exists():
+            lines += [json.loads(l) for l in
+                      Path(path).read_text(encoding="utf-8").splitlines()]
+    by_hash = {s.get("_video_hash"): s for s in lines if s.get("_track") == "distill"}
+    rep_a = build_jsonl.assistant_report(by_hash["vh-a"])
+    rep_b = build_jsonl.assistant_report(by_hash["vh-b"])
+    # (a) str-JSON svg 는 파싱되어 dict 스키마 유효.
+    assert rep_a["svg_spec"]["force_vector"] == [0.0, -1.0]
+    # (b) 평문 svg/anchors 는 필드 None — 코칭 라벨은 보존.
+    assert rep_b["svg_spec"]["force_vector"] is None
+    assert rep_b["time_anchors"] is None
+    assert rep_b["coaching"] == "골반을 폴에 붙이세요"

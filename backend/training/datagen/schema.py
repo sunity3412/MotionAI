@@ -25,6 +25,7 @@ vision_veto.FAULT_CATEGORIES 단일 owner 를 재사용한다 (새 분류 발명
 
 from __future__ import annotations
 
+import json
 import math
 import sys
 from pathlib import Path
@@ -231,17 +232,94 @@ def normalize_report(raw: dict) -> dict:
     순수 — raw 미변형(새 dict 반환).
 
     방어(2026-07-10, 22-04 시험 배치 fix): raw 가 dict 아니면(최상위 배열 등) {} 취급 —
-    전 REPORT_KEYS Null 리포트로 graceful degrade (list.get AttributeError 사망 금지)."""
+    전 REPORT_KEYS Null 리포트로 graceful degrade (list.get AttributeError 사망 금지).
+
+    중첩 타입 강제(2026-07-11, 22-04 full batch fix — 구조 불변이라 SCHEMA_VERSION
+    유지): 교사가 svg_spec 등 중첩 구조를 JSON-문자열/평문으로 내는 케이스 실증
+    (assemble 크래시). 최상위 화이트리스트만으론 부족 — 중첩 필드도 여기 단일 지점
+    에서 타입 강제한다(산탄 가드 금지):
+      · svg_spec → SVG_SPEC_KEYS dict, time_anchors/segments → 항목 dict 리스트,
+        corrected_coords → 리스트, coaching → str.
+      · str 로 온 구조 필드는 json.loads 1회 복구 시도 — 성공+타입 일치면 채택,
+        아니면 해당 필드만 None (행 폐기 아님 — 다른 라벨은 유효, graceful)."""
     raw = raw if isinstance(raw, dict) else {}
     valid_categories = _safe_valid_categories()
     out: dict = {}
     for key in REPORT_KEYS:
         val = raw.get(key)
-        if key == "faults" and val is not None:
-            val = [_normalize_fault_item(item, valid_categories) for item in val]
+        if key == "faults":
+            val = _normalize_faults(val, valid_categories)
+        elif key == "svg_spec":
+            val = _normalize_keyed_dict(val, SVG_SPEC_KEYS)
+        elif key == "time_anchors":
+            val = _normalize_item_list(val, TIME_ANCHOR_KEYS)
+        elif key == "segments":
+            val = _normalize_item_list(val, SEGMENT_KEYS)
+        elif key == "corrected_coords":
+            val = _normalize_untyped_list(val)
+        elif key == "coaching":
+            val = val if isinstance(val, str) or val is None else None
         out[key] = _sort_keys(val)
     # 이미 REPORT_KEYS 순서로 넣었지만, 방어적으로 알파벳 재정렬(중첩 값은 _sort_keys 처리).
     return {k: out[k] for k in sorted(out)}
+
+
+def _coerce_structured(value):
+    """str 로 온 중첩 구조를 json.loads 로 1회 복구 시도 — 실패(평문)면 그대로 반환.
+
+    호출자가 isinstance 타입 검사로 최종 None 처리한다 (필드 단위 graceful drop)."""
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, ValueError):
+            return value
+    return value
+
+
+def _normalize_keyed_dict(value, keys):
+    """중첩 dict 필드 → keys 화이트리스트 + Null 고정. dict 아니면(복구 후에도) None."""
+    if value is None:
+        return None
+    value = _coerce_structured(value)
+    if not isinstance(value, dict):
+        return None
+    return {k: value.get(k) for k in sorted(keys)}
+
+
+def _normalize_item_list(value, item_keys):
+    """중첩 리스트 필드 → 항목별 item_keys Null 고정. 리스트 아니면(복구 후에도) None."""
+    if value is None:
+        return None
+    value = _coerce_structured(value)
+    if not isinstance(value, list):
+        return None
+    out = []
+    for item in value:
+        item = _coerce_structured(item)
+        item = item if isinstance(item, dict) else {}
+        out.append({k: item.get(k) for k in sorted(item_keys)})
+    return out
+
+
+def _normalize_untyped_list(value):
+    """자유 스키마 리스트(corrected_coords — 관절 키가 동적) → 리스트 타입만 강제."""
+    if value is None:
+        return None
+    value = _coerce_structured(value)
+    return value if isinstance(value, list) else None
+
+
+def _normalize_faults(value, valid_categories):
+    """faults → 항목 정규화 리스트. 리스트 아니면(복구 후에도) None.
+
+    구 동작(str 이면 문자 단위 iteration 으로 전-Null 항목 양산)은 폐기 — 타입 불일치는
+    필드 None 으로 명시한다(진단 가능, 쓰레기 항목 0)."""
+    if value is None:
+        return None
+    value = _coerce_structured(value)
+    if not isinstance(value, list):
+        return None
+    return [_normalize_fault_item(item, valid_categories) for item in value]
 
 
 def _normalize_fault_item(item, valid_categories) -> dict:

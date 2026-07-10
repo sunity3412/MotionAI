@@ -284,6 +284,55 @@ def test_teacher_prompt_graceful_without_categories(monkeypatch):
     assert "fault_category" in prompt  # 계약 필드 요구는 유지.
 
 
+# ---------------------------------------------------------------------------
+# 동작명 주입 (2026-07-10 2차 — 무맥락 180° 위양성 방지).
+# ---------------------------------------------------------------------------
+def test_teacher_prompt_injects_motion_and_technique_principle():
+    """motion 주입 시 동작명 + 기술조건부 판정 일반 원칙 문장이 포함된다."""
+    prompt = gt.build_teacher_system_prompt(["left_knee"], motion="climb")
+    assert "분석 대상 동작: climb" in prompt
+    assert "기술상 의도된" in prompt  # 일반 원칙(동작별 지식 나열 아님).
+    assert "180°" in prompt  # 무맥락 신전 기준 금지 문장.
+    # 동작별 하드코딩 지식 미나열 — climb 무릎 등 구체 문장 부재.
+    assert "climb 의 무릎" not in prompt
+
+
+def test_teacher_prompt_graceful_without_motion():
+    """motion None/빈값이면 동작 문장 생략 — 기존 프롬프트와 동일 + 기존 지시 회귀 없음."""
+    base = gt.build_teacher_system_prompt(["left_knee"])
+    assert base == gt.build_teacher_system_prompt(["left_knee"], motion=None)
+    assert base == gt.build_teacher_system_prompt(["left_knee"], motion="")
+    assert "분석 대상 동작" not in base
+    # enum 나열·빈 배열 지시는 motion 유무 양쪽에서 유지.
+    withm = gt.build_teacher_system_prompt(["left_knee"], motion="climb")
+    for p in (base, withm):
+        assert "유효값" in p and "빈 배열" in p and "[]" in p
+
+
+def test_distill_video_passes_motion_to_system_instruction():
+    """distill_video(motion=...) → generate config.system_instruction 에 동작명 포함."""
+    client = _FakeClient(text="{}")
+    gt.distill_video(client, "/tmp/x.mp4", [{"frame": 0}], ["left_knee"], motion="power-spin")
+    si = client.models.calls[0]["config"]["system_instruction"]
+    assert "분석 대상 동작: power-spin" in si
+
+
+def test_run_trial_batch_passes_row_motion(tmp_path, monkeypatch):
+    """run_trial_batch 가 manifest row.motion 을 교사 프롬프트에 주입한다."""
+    client = _FakeClient(text='{"coaching": "good", "faults": []}')
+
+    def _fake_download(bucket, key, dest):
+        with open(dest, "wb") as fp:
+            fp.write(b"fake video bytes")
+
+    monkeypatch.setattr(gt, "_download_s3", _fake_download)
+    manifest = {"rows": [{"s3_key": "fixtures/phase15/climb/fault.mp4",
+                          "motion": "climb", "source": "internal", "holdout": None}]}
+    gt.run_trial_batch(manifest, str(tmp_path), max_rows=1, client=client)
+    teacher_call = client.models.calls[0]  # 첫 generate = 교사 호출(이후 judge).
+    assert "분석 대상 동작: climb" in teacher_call["config"]["system_instruction"]
+
+
 def test_parse_teacher_report_splits_thought():
     raw = '<thought>가려짐 보정</thought>\n{"coaching": "다리를 펴세요", "faults": []}'
     out = gt.parse_teacher_report(raw)

@@ -150,7 +150,7 @@ def list_file_residue(client) -> int:
 # ---------------------------------------------------------------------------
 # 교사 프롬프트 — schema.bind_key_prompt + D-01 리포트 + 감점 계약 필드 요구.
 # ---------------------------------------------------------------------------
-def build_teacher_system_prompt(joint_keys) -> str:
+def build_teacher_system_prompt(joint_keys, motion=None) -> str:
     """교사 시스템 프롬프트 — D-11 키 사전 바인딩 + D-01 통합 리포트 v1 산출 지시.
 
     faults[] 각 항목이 감점 엔진 계약(DEDUCTION_CONSUMED_KEYS) 필드를 그대로 산출하도록
@@ -163,6 +163,13 @@ def build_teacher_system_prompt(joint_keys) -> str:
     강등 → 3/3 rejected_contract 추정. 유효값은 schema 단일 owner(_safe_valid_categories
     — shared layer 미로드 시 빈 튜플 graceful)에서 주입한다. 하드코딩 금지(새 분류 발명
     금지 [[scoring-dimensions-ipsf]] 정신). 정타 영상 억지 결함 방지 문장도 함께 명시.
+
+    동작명 주입 fix (2026-07-10 2차, belle 승인): 동작명 미주입 시 교사가 무맥락
+    "모든 관절 180°" 기준으로 위양성 결함을 짚었다(ref-climb 무릎 97° 실증 — climb 은
+    무릎 굽힘이 기술의 일부). motion 이 있으면 동작명 + 기술조건부 판정 일반 원칙
+    (technique.py 존재 이유와 동일 정신, [[scoring-dimensions-ipsf]] 기술조건부)을
+    명시한다. 동작별 지식 하드코딩 나열 금지 — 모델 자체 지식 + 향후 technique
+    profile 주입이 담당. motion None/빈값이면 기존 프롬프트와 동일(graceful).
     """
     key_line = schema.bind_key_prompt(joint_keys)
     report_keys = ", ".join(schema.REPORT_KEYS)
@@ -174,11 +181,20 @@ def build_teacher_system_prompt(joint_keys) -> str:
         if categories
         else ""  # shared layer 미로드 graceful — enum 나열 문장 생략.
     )
+    motion_line = (
+        f"분석 대상 동작: {motion}. 결함 판정은 이 동작의 정상 수행 형태를 기준으로만 "
+        "합니다 — 이 동작에서 기술상 의도된 관절 굽힘·그립·자세는 결함으로 짚지 않습니다. "
+        "모든 관절이 180° 신전이어야 한다는 무맥락 기준을 적용하지 마세요. 해당 동작의 "
+        "기술 요건상 실제로 벗어난 부분만 결함입니다.\n"
+        if motion
+        else ""  # motion 미상 graceful — 동작 문장 생략(기존 프롬프트 동일).
+    )
     return (
         "당신은 폴스포츠 모션 분석 전문가입니다. 선수의 운동 영상과 RTMW 비전 모델이 "
         "추출한 시계열 관절 좌표(JSON)를 입력받습니다. 가려짐이나 모션 블러로 잘못 추출된 "
         "좌표를 보정하고, 교정된 자세를 바탕으로 정밀한 짚기·측정·코칭을 제공하세요. "
         "반드시 <thought> 태그로 분석 과정을 먼저 서술한 뒤 JSON 리포트를 출력합니다.\n"
+        f"{motion_line}"
         f"{key_line}\n"
         f"리포트 최상위 키(알파벳 정렬, 결측은 Null): [{report_keys}].\n"
         "faults[] 각 항목은 감점 엔진 계약 필드를 반드시 포함합니다: "
@@ -226,6 +242,7 @@ def distill_video(
     joint_keys,
     *,
     teacher_model: str = TEACHER_MODEL,
+    motion=None,
 ):
     """단일 영상 증류 — 업로드 → 교사 호출 → 즉시 삭제(finally). D-01 리포트 반환.
 
@@ -234,11 +251,14 @@ def distill_video(
     통과한 정규 리포트(화이트리스트/Null 고정/enum 강제) + raw_text(교사 원문 — 폐기 행
     진단용 보존, 2026-07-10 fix). 파싱 실패 시에도 raw_text 는 보존해 반환한다
     ({"thought": None, "report": None, "raw_text": ...}).
+
+    motion = manifest row 의 동작명 — 프롬프트에 주입해 기술조건부 판정 유도(위양성
+    결함 방지, 2026-07-10 2차 fix). None 이면 기존 프롬프트와 동일(graceful).
     """
     uploaded = None
     try:
         uploaded = _upload_and_wait(client, local_video_path)
-        system_prompt = build_teacher_system_prompt(joint_keys)
+        system_prompt = build_teacher_system_prompt(joint_keys, motion=motion)
         rtmw_text = build_rtmw_text(coords_by_frame)
         raw_text = _generate_teacher(
             client, teacher_model, uploaded, system_prompt, rtmw_text
@@ -683,7 +703,10 @@ def run_trial_batch(
             except Exception:  # noqa: BLE001 - hash 실패는 배치를 막지 않는다.
                 vh = None
             coords_by_frame = coords_provider(row) if coords_provider else []
-            parsed = distill_video(client, local, coords_by_frame, joint_keys)
+            # motion 주입 — 기술조건부 판정 유도(무맥락 180° 위양성 방지, 2026-07-10 2차).
+            parsed = distill_video(
+                client, local, coords_by_frame, joint_keys, motion=row.get("motion")
+            )
             judge_score = 0
             if parsed and parsed.get("report"):
                 judge_score = judge_report(client, parsed["report"])

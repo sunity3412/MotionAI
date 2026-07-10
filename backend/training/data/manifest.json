@@ -6,7 +6,24 @@
     "prompt_version": "ft-v1.0",
     "generated_by": "collect_phase22_youtube.py + 22-02 seed 등재(D-08)",
     "usage_policy": "training-only-no-redistribution",
-    "collection_complete": false,
+    "collection_complete": true,
+    "collection_closed": {
+      "closed_at": "2026-07-10",
+      "approved_by": "belle",
+      "scope": "131행(시드19 + YouTube 68 + IG 44) 기준 마감 — selectable 129행이 22-04 full batch 대상",
+      "deferred": "내부 371 fault track(customer_track)은 anonymize.py 가명처리 후 다음 라운드 등재(이월)"
+    },
+    "balance_waiver": {
+      "approved_by": "belle",
+      "approved_at": "2026-07-10",
+      "reason": "유튜브·IG 수집분은 정타 편중(fault 7/129) — 동작별 fault>=1 및 max<=2*min 은 현 수집분으로 충족 불가. fault 표본은 내부 371 fault track(다음 라운드)으로 충당. 학습 JSONL 단계 균등은 build_jsonl._balance_media(max<=2*min)가 소유해 kip-up 편중을 차단한다.",
+      "deferred_track": "customer_track 내부 371 fault (anonymize 후 등재)",
+      "unmet": [
+        "per_motion_jeongta_min1",
+        "per_motion_fault_min1",
+        "max_le_2min"
+      ]
+    },
     "balance_ratio": null,
     "seed_count": 17,
     "hard_negative_count": 2,
@@ -17,7 +34,7 @@
       "consumed_by": "22-04 build_jsonl (anonymized/internal only)",
       "pending": "가명처리 파이프라인(anonymize.py) 적용 후 등재 — 적재 전 강제(D-12, 소급 불가)"
     },
-    "notes": "seed(reference 11 정타 + 일부러실수 6 fault) + hard-negative 2(A2 피터팬·A3 power-spin, eval 격리). 채널 harvest 수집분은 Task 3 belle greenlight 후 append. 균등 게이트는 collection_complete=true 시 활성(DR-06 fail-closed 는 22-04 진입 assert)."
+    "notes": "seed(reference 11 정타 + 일부러실수 6 fault) + hard-negative 2(A2 피터팬·A3 power-spin, eval 격리) + 채널 harvest 수집분(YT 68 + IG 44). 2026-07-10 belle 승인으로 수집 마감(collection_complete=true) — 매니페스트 균등 게이트는 balance_waiver 로 문서화된 예외(내부 371 fault track 이월), JSONL 균등은 build_jsonl._balance_media 가 강제. DR-06 fail-closed 는 22-04 build_jsonl 진입 assert."
   },
   "rows": [
     {

@@ -5,6 +5,10 @@
   (b) 균등 게이트 — 동작별 max <= 2*min, 각 동작 정타·fault >= 1. _meta.
       collection_complete 플래그로만 활성화(silent 통과 금지 — 비활성 시 명시 gated
       상태를 assert). fail-closed 최종 강제는 22-04 진입 assert (DR-06).
+      2026-07-10 수집 마감(belle 승인): 현 수집분은 정타 편중(fault=내부 371 이월)이라
+      게이트 미충족 — silent 우회 대신 _meta.balance_waiver 로 위반 항목을 명시 문서화
+      하고, 테스트는 waiver 가 실제 위반을 정확히 기술하는지 검증한다(은폐 불가).
+      JSONL 단계 균등은 build_jsonl._balance_media 가 소유.
   (c) holdout=hard_negative_eval 행은 학습 카운트에서 제외 (실증 케이스 오염 금지).
   (d) --check-s3 셋 일치 — 네트워크 검사는 skip 마커.
 """
@@ -87,14 +91,32 @@ def test_balance_gate_active_only_when_collection_complete():
     for r in training:
         per_motion_bucket[r["motion"]][r["label_bucket"]] += 1
     counts = []
+    violations: set[str] = set()
     for motion, buckets in per_motion_bucket.items():
-        assert buckets.get("정타", 0) >= 1, f"{motion} 정타 부재"
-        assert buckets.get("fault", 0) >= 1, f"{motion} fault 부재"
+        if buckets.get("정타", 0) < 1:
+            violations.add("per_motion_jeongta_min1")
+        if buckets.get("fault", 0) < 1:
+            violations.add("per_motion_fault_min1")
         counts.append(sum(buckets.values()))
-    if counts:
-        assert max(counts) <= 2 * min(counts), (
-            f"균등 게이트 위반: max={max(counts)} > 2*min={2 * min(counts)}"
-        )
+    if counts and max(counts) > 2 * min(counts):
+        violations.add("max_le_2min")
+
+    if not violations:
+        return  # 게이트 완전 충족 — waiver 불요.
+
+    # 위반이 있으면 반드시 문서화된 waiver 가 있어야 하고(silent 우회 금지),
+    # waiver.unmet 이 실제 위반을 정확히 커버해야 한다(현실 은폐 불가).
+    waiver = meta.get("balance_waiver")
+    assert waiver, (
+        f"균등 게이트 위반 {sorted(violations)} — _meta.balance_waiver 부재. "
+        "silent 우회 금지: 승인·사유·이월 트랙을 문서화하거나 수집을 보강할 것."
+    )
+    for key in ("approved_by", "approved_at", "reason", "deferred_track", "unmet"):
+        assert waiver.get(key), f"balance_waiver.{key} 부재 — waiver 문서화 불충분"
+    assert violations <= set(waiver["unmet"]), (
+        f"waiver.unmet={sorted(waiver['unmet'])} 이 실제 위반 {sorted(violations)} 을 "
+        "커버하지 못함 — waiver 가 현실을 정확히 기술해야 한다"
+    )
 
 
 @pytest.mark.skip(reason="네트워크 검사 — --check-s3 실행 시에만 (fixtures/phase22 적재 후)")

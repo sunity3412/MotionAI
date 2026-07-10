@@ -45,6 +45,20 @@
 # (평가=lmms-eval+자체 run_bakeoff 이 RESEARCH 확정, 단일 Pod=ray 불필요).
 # evalscope 트리는 Package Legitimacy Audit 미감사 — base 설치가 감사 범위
 # 준수(T-22-17)에도 정답. [all] 재도입 금지 — 필요 extra 만 개별 추가할 것.
+#
+# ── deviation 2 (2026-07-10, Rule 3): torch/vllm = cu129 변형 (드라이버 정합) ──
+# vllm 0.24.0 PyPI 기본 휠은 torch 2.11.0+cu130(CUDA 13 — 드라이버 r580+ 필요)을
+# 끌어오는데 Pod 드라이버는 550.127.05(CUDA 12.4 max) → torch.cuda NOT AVAILABLE 실측.
+# 해법 = vllm 공식 GitHub 릴리스의 +cu129 변형 휠 + pytorch.org cu129 인덱스
+# (CUDA 12.9 런타임은 12.x minor-version compatibility 로 드라이버 525.60+ 에서 동작).
+# 드라이버가 CUDA 13+ 지원이면 PyPI 기본 휠 자동 사용 (아래 분기). 공급망: 릴리스
+# 자산도 vllm-project 공식 repo — PyPI 와 동일 발행 주체 (T-22-SC 범위 내).
+#
+# ── 학습 Pod Network Volume quota (2026-07-10 dd 프로브 실측) ─────────────────
+# Volume a5z753defc quota ≈ 36.5GB (사용 33G 시점 +3.5G 쓰기에서 EDQUOT, run2 모델
+# 다운로드 실패의 근본 원인). venv(~22G)+후보 3종(~51G)+22-07 SFT 산출물은 quota
+# 초과 — 모델 다운로드 전 Volume 확장 필요 (belle 승인/실행, RunPod 콘솔 — 확장만
+# 가능/축소 불가, 150GB 권장). 확장 후 본 스크립트 재실행이면 충분 (멱등).
 
 set -euo pipefail
 
@@ -55,7 +69,11 @@ BACKEND="$(cd "$HERE/.." && pwd)"
 MS_SWIFT_PIN="4.4.0"
 VLLM_PIN="0.24.0"
 LMMS_EVAL_PIN="0.7.2"
-STACK_SENTINEL_TAG="ms-swift==${MS_SWIFT_PIN} vllm==${VLLM_PIN} lmms-eval==${LMMS_EVAL_PIN} v2-no-all-extra"
+TORCH_PIN="2.11.0"          # vllm 0.24.0 하드 핀 (torch==2.11.0/torchvision==0.26.0/torchaudio==2.11.0)
+TORCHVISION_PIN="0.26.0"
+TORCH_CU129_INDEX="https://download.pytorch.org/whl/cu129"
+VLLM_CU129_WHEEL="https://github.com/vllm-project/vllm/releases/download/v${VLLM_PIN}/vllm-${VLLM_PIN}+cu129-cp38-abi3-manylinux_2_28_x86_64.whl"
+STACK_SENTINEL_TAG="ms-swift==${MS_SWIFT_PIN} vllm==${VLLM_PIN} lmms-eval==${LMMS_EVAL_PIN} v3-cuda-branch"
 
 # ── 경로 상수 ────────────────────────────────────────────────────────────────
 TRAIN_VENV="${TRAIN_VENV:-/workspace/train_venv}"
@@ -74,9 +92,17 @@ echo "  venv=$TRAIN_VENV  HF_HOME=$HF_HOME  fixtures=$FIXTURES_DIR"
 
 # ─────────────────────────────────────────────────────────────────────────────
 echo "[1/5] 전용 venv (${TRAIN_VENV})"
-if [ -x "$TRAIN_VENV/bin/python" ]; then
-  echo "  이미 존재: $TRAIN_VENV ($("$TRAIN_VENV/bin/python" --version 2>&1))"
+STACK_SENTINEL="$TRAIN_VENV/.stack_installed"
+if [ -x "$TRAIN_VENV/bin/python" ] && [ -f "$STACK_SENTINEL" ] \
+   && [ "$(cat "$STACK_SENTINEL")" = "$STACK_SENTINEL_TAG" ]; then
+  echo "  이미 존재 (sentinel 일치): $TRAIN_VENV ($("$TRAIN_VENV/bin/python" --version 2>&1))"
 else
+  # sentinel 불일치/부재 = 이전 스택이 다르거나 설치 중단 — 잔여 cu13x nvidia 라이브러리
+  # (~13GB) 가 quota 를 잠식하므로 통째로 재생성이 가장 안전 (venv 는 이 스크립트 소유물).
+  if [ -d "$TRAIN_VENV" ]; then
+    echo "  스택 버전 변경/불완전 설치 감지 — venv 재생성"
+    rm -rf "$TRAIN_VENV"
+  fi
   python3 -m venv "$TRAIN_VENV"
   echo "  생성 완료: $TRAIN_VENV"
 fi
@@ -85,22 +111,37 @@ PY="$TRAIN_VENV/bin/python"
 
 # ─────────────────────────────────────────────────────────────────────────────
 echo "[2/5] 학습 스택 설치 (ms-swift ${MS_SWIFT_PIN} / vllm ${VLLM_PIN} / lmms-eval ${LMMS_EVAL_PIN})"
-STACK_SENTINEL="$TRAIN_VENV/.stack_installed"
 if [ -f "$STACK_SENTINEL" ] && [ "$(cat "$STACK_SENTINEL")" = "$STACK_SENTINEL_TAG" ]; then
   echo "  이미 설치됨 (sentinel 일치) — skip"
 else
   "$PIP" install -q --upgrade pip
-  # A100(sm_80): vllm 이 CUDA 프리빌트 torch 를 의존성으로 끌어옴 — 소스 빌드 없음.
+
+  # 드라이버 CUDA major 감지 — cu130 휠은 드라이버 r580+ 필요 (헤더 deviation 2).
+  DRIVER_CUDA_MAJOR="$(nvidia-smi 2>/dev/null | grep -oE 'CUDA Version: [0-9]+' | grep -oE '[0-9]+' || echo 0)"
+  echo "  드라이버 CUDA major: ${DRIVER_CUDA_MAJOR}"
+
+  if [ "$DRIVER_CUDA_MAJOR" -ge 13 ]; then
+    # CUDA 13 드라이버 — PyPI 기본 휠 (torch cu130 동반).
+    "$PIP" install -q "vllm==${VLLM_PIN}"
+  else
+    # CUDA 12.x 드라이버 — torch cu129 선설치 후 vllm +cu129 공식 릴리스 휠.
+    # (+cu129 로컬버전은 vllm 의 torch==2.11.0 핀을 그대로 만족 — 재설치 안 일어남)
+    "$PIP" install -q \
+      "torch==${TORCH_PIN}" "torchvision==${TORCHVISION_PIN}" "torchaudio==${TORCH_PIN}" \
+      --index-url "$TORCH_CU129_INDEX"
+    "$PIP" install -q "$VLLM_CU129_WHEEL" --extra-index-url "$TORCH_CU129_INDEX"
+  fi
+
+  # A100(sm_80): 전부 프리빌트 휠 — 소스 빌드 없음.
   # boto3/pyyaml = 미니셋 prefetch + run_bakeoff 실행용 (프로젝트 표준 의존).
-  # huggingface_hub[cli] = hf/huggingface-cli 다운로드 커맨드 보장.
-  # ms-swift 는 base (헤더 deviation 참조 — [all]=evalscope dotenv 함정+미감사 트리).
+  # huggingface_hub = hf CLI 포함 (1.x 부터 기본 동봉).
+  # ms-swift 는 base (헤더 deviation 1 — [all]=evalscope dotenv 함정+미감사 트리).
   "$PIP" install -q \
     "ms-swift==${MS_SWIFT_PIN}" \
-    "vllm==${VLLM_PIN}" \
     "lmms-eval==${LMMS_EVAL_PIN}" \
     "boto3>=1.34,<2.0" \
     "pyyaml>=6" \
-    "huggingface_hub[cli]"
+    "huggingface_hub"
   echo "$STACK_SENTINEL_TAG" > "$STACK_SENTINEL"
   echo "  설치 완료"
 fi
@@ -118,6 +159,14 @@ PYEOF
 echo "[3/5] 후보 모델 3종 다운로드 (HF_HOME=$HF_HOME, 순차)"
 mkdir -p "$HF_HOME"
 
+# xet 비활성 — 일반 HTTP 다운로드가 재개(.incomplete) 단순 + quota 여유가 빠듯한
+# Volume 에서 청크 재구성 트랜션트를 줄인다 (run2 EDQUOT 실측 후 조치).
+export HF_HUB_DISABLE_XET=1
+
+# AWS 자격 선주입 (SSM HF 토큰 fetch + [4/5] prefetch 공용). 값 echo 금지 (T-22-18).
+# shellcheck disable=SC1091
+[ -f /workspace/aws_env.sh ] && source /workspace/aws_env.sh
+
 # hf CLI 탐지 (huggingface_hub 신버전=hf, 구버전=huggingface-cli)
 if [ -x "$TRAIN_VENV/bin/hf" ]; then
   HF_CLI="$TRAIN_VENV/bin/hf"
@@ -127,10 +176,28 @@ else
   echo "  [오류] venv 에 hf/huggingface-cli 없음 — [2/5] 설치 확인 필요"; exit 1
 fi
 
-# HF 토큰 존재 여부 (gated 모델 Cosmos 용). 값은 절대 echo 하지 않는다 (T-22-18).
+# HF 토큰 (gated 모델 Cosmos 용). 우선순위: env HF_TOKEN → 토큰 파일 → SSM
+# /sunity/motion/hf-token (belle 가 저장해 두면 자동 주입). 값은 절대 echo 금지 (T-22-18).
 HF_TOKEN_PRESENT=0
 if [ -n "${HF_TOKEN:-}" ] || [ -s "$HF_HOME/token" ] || [ -s "$HOME/.cache/huggingface/token" ]; then
   HF_TOKEN_PRESENT=1
+elif [ -n "${AWS_ACCESS_KEY_ID:-}" ]; then
+  SSM_HF_TOKEN="$("$PY" - <<'PYEOF' 2>/dev/null || true
+import boto3
+try:
+    v = boto3.client("ssm", region_name="ap-northeast-2").get_parameter(
+        Name="/sunity/motion/hf-token", WithDecryption=True)["Parameter"]["Value"]
+    print(v.strip())
+except Exception:
+    pass
+PYEOF
+)"
+  if [ -n "$SSM_HF_TOKEN" ]; then
+    export HF_TOKEN="$SSM_HF_TOKEN"
+    HF_TOKEN_PRESENT=1
+    echo "  HF 토큰: SSM /sunity/motion/hf-token 에서 주입됨"
+  fi
+  unset SSM_HF_TOKEN
 fi
 
 STATUS_A="PENDING"; STATUS_B="PENDING"; STATUS_C="PENDING"
@@ -158,10 +225,12 @@ if [ "$HF_TOKEN_PRESENT" = "1" ]; then
 else
   STATUS_C="PENDING(HF token)"
   echo "  ── $BAKEOFF_MODEL_C"
-  echo "     [보류] gated 모델 — HF 토큰 없음. 절차:"
-  echo "       1. https://huggingface.co/$BAKEOFF_MODEL_C 에서 로그인 후 라이선스 동의(gated:auto=즉시 승인)"
+  echo "     [보류] gated 모델 — HF 토큰 없음. belle 조치 절차:"
+  echo "       1. HF 계정 로그인 후 https://huggingface.co/$BAKEOFF_MODEL_C 라이선스 동의(gated:auto=즉시 승인)"
   echo "       2. https://huggingface.co/settings/tokens 에서 read 토큰 발급"
-  echo "       3. export HF_TOKEN=<토큰> 후 본 스크립트 재실행 (멱등 — A/B 는 skip 됨)"
+  echo "       3. 토큰을 SSM 에 저장(권장): aws ssm put-parameter --name /sunity/motion/hf-token \\"
+  echo "            --type SecureString --value <토큰> --region ap-northeast-2"
+  echo "          (또는 export HF_TOKEN=<토큰>) 후 본 스크립트 재실행 — 멱등, A/B 는 skip 됨"
 fi
 rm -f "$HF_HOME/.dl_err_$$" 2>/dev/null || true
 

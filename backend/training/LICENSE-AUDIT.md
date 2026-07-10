@@ -15,7 +15,7 @@
 - 시드 19 = seed 17행(정은지 reference 11 정타 + 일부러-실수 6 fault) + hard_negative 2행(eval 전용, 학습 제외). selectable 129 = 131 − hard_negative 2.
 - 이 문서의 수치는 전부 manifest 실측 집계(2026-07-10 마감본 파싱)이며 추정치가 아니다.
 
-## 2. 모델 라이선스 확정표 (belle 2026-07-06, 재조사 금지)
+## 2. 모델 라이선스 확정표 (belle 2026-07-06 확정 + 2026-07-10 Cosmos 추가, 재조사 금지)
 
 | 컴포넌트 | 역할 | 라이선스 | 상업 이용 |
 |----------|------|----------|-----------|
@@ -23,9 +23,11 @@
 | **Qwen 3.6-VL** (<35B) | 분석/추론 엔진 후보 | **Apache 2.0** | 무제한 |
 | **InternVL 3.5** (1B~38B) | 분석/추론 엔진 후보 | 코드 **MIT** + LLM/Vision 백본 **Apache 2.0** | 무제한 (MAU·로열티 없음) |
 | InternVL 3.5 241B-A28B (MoE) | (대형, 미사용) | Qwen License | 100M MAU 한도 조건 |
+| **Cosmos-Reason2-8B** (HF `nvidia/Cosmos-Reason2-8B`, Qwen3-VL-8B 계열 post-train) | 분석/추론 엔진 후보 (bake-off 3번째, belle 2026-07-10 추가) | **NVIDIA Open Model License** (+Apache-2.0 병기) — 상업 사용·파생모델·출력물 소유 전부 명시 허용 | 무제한 |
 
-- 분석 엔진은 **Qwen 3.6 ↔ InternVL 3.5 중 bake-off로 하나 선택**(D-04). 둘 다 라이선스 클린이므로 **성능만으로 선정**.
-- 참고(NLM): InternVL 3.5는 내부 LLM 백본으로 Qwen3를 채택 — 두 후보 모두 Qwen 계열 언어지능.
+- 분석 엔진 bake-off: 2026-07-06 원안 = **Qwen 3.6 ↔ InternVL 3.5 중 하나 선택**(D-04) → **belle 2026-07-10 확대 = Qwen 3.6 ↔ InternVL 3.5 ↔ Cosmos-Reason2 3파전**. 셋 다 라이선스 클린이므로 **성능만으로 선정** 원칙 불변.
+- 참고(NLM): InternVL 3.5는 내부 LLM 백본으로 Qwen3를 채택, Cosmos-Reason2 도 Qwen3-VL 계열 post-train — 세 후보 모두 Qwen 계열 언어지능.
+- **Cosmos 경로 주의**: build.nvidia.com **호스팅 API 는 Trial ToS 상 생성물의 프로덕션 사용 금지** → 우리는 **HF 가중치 셀프호스트 경로만 사용**(교사 라벨 생성에 호스팅 API 사용 금지).
 
 ## 3. 금지 목록 (상업 출시 fence)
 
@@ -104,6 +106,7 @@
 | 2026-07-09 | 소싱 정책·티어 확정 | 22-DATA-SOURCES.md — 정타=공식대회 / fault=강사·스튜디오(A안) / 시리즈 단위 판단 / @polesportkids·개인 추정 IG 격리 |
 | 2026-07-09 | 수집 greenlight | PHASE22_BELLE_GREENLIGHT=1 로 `--curate`(Vision 선별)→`--collect`(다운로드·S3 적재) 실행 승인. IG 계정 yurim_pole·albertamores_polesport 추가 승인 |
 | 2026-07-10 | 수집 마감 | `_meta.collection_complete=true`, 131행 확정. balance_waiver 승인(fault 7/129, 내부 371 이월) |
+| 2026-07-10 | bake-off 3파전 확대 | 분석 엔진 후보에 **Cosmos-Reason2-8B** 추가(§2 표 갱신). HF 셀프호스트 경로만 — 호스팅 API(Trial ToS) 사용 금지 |
 
 ## 9. A9 게이트 체크리스트 (출시 전 법률검토 1회 — counsel 확인 항목)
 
@@ -117,6 +120,7 @@
 6. **정은지 파트너 동의 문서화** — reference 11 + 일부러-실수 6 + IG 9행. 구두/포괄 동의의 서면화 여부.
 7. **파일럿 참가 동의서 원본 보관 확인** — hard_negative 2행 + customer_track 371 의 D-12 1겹 근거 실물.
 8. **usage 준수 실사** — training-only-no-redistribution: 수집물 재배포 0·앱 노출 0·Mode1 reference 분리 유지 확인. LLaVA/InternVL-U 금지 fence(테스트) 유지 확인.
+9. **Cosmos-Reason2 경로 준수 확인** — bake-off·교사 라벨·서빙 전 구간에서 HF `nvidia/Cosmos-Reason2-8B` 셀프호스트 가중치만 사용했는지 실사. build.nvidia.com 호스팅 API(Trial ToS, 생성물 프로덕션 사용 금지) 경유 산출물 0 확인. NVIDIA Open Model License 조건(상업·파생·출력물 소유 허용) 최종 검토.
 
 ---
 

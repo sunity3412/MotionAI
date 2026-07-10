@@ -1,0 +1,576 @@
+"""3트랙 학습 JSONL 조립기 — 교란/증류/shadow + T3/텍스트 혼합 (22-04 Task 2).
+
+belle 노트 §8 원형(messages 3롤: system / user video+RTMW_Data / assistant thought+
+통합리포트)으로 SFT 학습셋을 조립한다. 세 라벨 경로가 합류한다:
+  · perturb — 22-01 perturb_sequence 좌표보정 자가 라벨(정답=원좌표, 교사 무관, D-10a).
+  · distill — 22-04 Task 1 Gemini 교사 증류(짚기/측정/코칭, judge 통과분).
+  · shadow  — 22-03 Firestore vlm_shadow 적재분(veto/coach). manifest video_hash join
+              강제 — 미등록/미가명은 text-only 강등, media 참조 0 (DR-01).
+추가로 T3 순수 텍스트 시간추론 + 순수 텍스트 instruction 을 혼합비(기본 0.15)만큼
+섞어 시각 없는 시간축 각성 + 언어능력 감퇴 방지(D-11).
+
+규율:
+  · 프레임 재추출 0 — schema.select_frame_indices 인덱스 서브샘플만(Pattern 1, 영상
+    디코더 의존 없음, 파이프라인 9fps 배열 인덱스만 사용).
+  · assistant JSON 은 schema.normalize_report 통과 강제 — score 계열 키 0(D-01).
+  · train/val split 소유자는 이 모듈 단독(video_hash 단위, leakage 0). 항상 _meta.
+    validation_owner 방출(explicit_val_jsonl → val.jsonl 발행 / phase22_eval_gate → 미발행).
+  · collection_complete fail-closed 진입(DR-06) — --partial 없이는 실패, --partial 은
+    canonical prefix 업로드 금지.
+
+Firestore/S3 는 주입 loader 로 분리 — 조립 로직은 네트워크 0 으로 테스트된다.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+from pathlib import Path
+
+import numpy as np
+
+from datagen import perturb, schema
+
+log = logging.getLogger("build_jsonl")
+if not log.handlers:
+    log.setLevel(logging.INFO)
+
+# ── S3 canonical prefix (S3 ObjectCreated 미-notified — 학습 산출 전용) ──
+CANONICAL_PREFIX = "training/phase22/jsonl/"
+PARTIAL_PREFIX = "training/phase22/jsonl_partial/"
+_VIDEO_BUCKET = "sunity-motion-pilot-videos"
+
+# ── 텍스트 혼합비 config (기본 text 계열 합 0.15 — 수치는 ablation 축, Open Q4) ──
+# 시각 없는 시간추론(t3_temporal)과 순수 언어 instruction 을 이 비율로 섞는다.
+DEFAULT_MIX_RATIOS: dict[str, float] = {
+    "t3_temporal": 0.075,
+    "instruction": 0.075,
+}
+
+_VALID_VALIDATION_OWNERS = ("explicit_val_jsonl", "phase22_eval_gate")
+
+# perturb 파라미터 분포 (22-01 산출) — 프레임 재추출 아님, 좌표 노이즈 주입만.
+_PROFILE_PATH = Path(__file__).resolve().parent / "rtmw_error_profile.json"
+
+
+# ---------------------------------------------------------------------------
+# 진입 게이트 — collection_complete fail-closed + upload prefix (DR-06).
+# ---------------------------------------------------------------------------
+def assert_collection_complete(manifest: dict, partial: bool) -> None:
+    """manifest _meta.collection_complete is true 를 강제 — 아니면 실패(DR-06).
+
+    --partial 이면 미완 수집으로도 진행하되(부분 실행), 호출자가 canonical prefix
+    업로드를 금지해야 한다(resolve_upload_prefix).
+    """
+    if partial:
+        return
+    complete = bool((manifest or {}).get("_meta", {}).get("collection_complete"))
+    if not complete:
+        raise ValueError(
+            "manifest _meta.collection_complete != true — 학습셋 조립 차단(DR-06). "
+            "부분 실행은 명시적 --partial 필요(canonical prefix 업로드 금지)."
+        )
+
+
+def resolve_upload_prefix(partial: bool) -> str:
+    """업로드 prefix — partial 은 canonical(training/phase22/jsonl/)을 절대 쓰지 않는다."""
+    return PARTIAL_PREFIX if partial else CANONICAL_PREFIX
+
+
+# ---------------------------------------------------------------------------
+# 샘플 접근 헬퍼.
+# ---------------------------------------------------------------------------
+def sample_has_video(sample: dict) -> bool:
+    """user content 에 type=video 항목이 있으면 True (media 참조 여부)."""
+    try:
+        user = sample["messages"][1]["content"]
+    except (KeyError, IndexError, TypeError):
+        return False
+    if not isinstance(user, list):
+        return False
+    return any(isinstance(c, dict) and c.get("type") == "video" for c in user)
+
+
+def assistant_report(sample: dict):
+    """assistant content 문자열에서 JSON 리포트를 파싱 — 실패 시 None(text-only 라벨)."""
+    try:
+        content = sample["messages"][2]["content"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    if not isinstance(content, str):
+        return None
+    idx = content.find("</thought>")
+    body = content[idx + len("</thought>"):] if idx != -1 else content
+    body = body.strip()
+    try:
+        return json.loads(body)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+# ---------------------------------------------------------------------------
+# 메시지 조립 primitive (belle 노트 §8 3롤 구조).
+# ---------------------------------------------------------------------------
+def _system_msg(joint_keys) -> dict:
+    return {"role": "system", "content": schema.bind_key_prompt(joint_keys)}
+
+
+def _s3_uri(s3_key: str) -> str:
+    return f"s3://{_VIDEO_BUCKET}/{s3_key}"
+
+
+def _rtmw_text(frames) -> str:
+    """서브샘플 프레임 행 → RTMW_Data 텍스트 (원 영상 재추출 0, 인덱스만)."""
+    return "RTMW_Data: " + json.dumps(frames or [], ensure_ascii=False, sort_keys=True)
+
+
+def _user_media_msg(s3_key: str, frames) -> dict:
+    return {
+        "role": "user",
+        "content": [
+            {"type": "video", "video": _s3_uri(s3_key)},
+            {"type": "text", "text": _rtmw_text(frames)},
+        ],
+    }
+
+
+def _user_text_msg(text: str) -> dict:
+    return {"role": "user", "content": [{"type": "text", "text": text}]}
+
+
+def _assistant_report_msg(thought, report: dict) -> dict:
+    """thought + REPORT_KEYS 알파벳 정렬 JSON (normalize_report 통과 강제)."""
+    normalized = schema.normalize_report(report)
+    body = json.dumps(normalized, ensure_ascii=False, sort_keys=True)
+    thought_block = f"<thought>\n{thought}\n</thought>\n" if thought else ""
+    return {"role": "assistant", "content": thought_block + body}
+
+
+def _assistant_text_msg(text: str) -> dict:
+    return {"role": "assistant", "content": text}
+
+
+def _svg_spec(target_angle_deg=None, force_vector=None, ideal_trajectory=None) -> dict:
+    """SVG_SPEC_KEYS 3키 고정(결측 Null) — target 은 결정적(자가 라벨), 나머지 교사분(F2)."""
+    return {
+        "force_vector": force_vector,
+        "ideal_trajectory": ideal_trajectory,
+        "target_angle_deg": target_angle_deg,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 좌표 → 서브샘플 프레임 행 (discretize, Null 바인딩).
+# ---------------------------------------------------------------------------
+def _coords_to_frames(coords, joint_keys, frame_indices, width, height) -> list[dict]:
+    frames: list[dict] = []
+    c = coords.shape[2]
+    for f in frame_indices:
+        row: dict = {"frame": int(f)}
+        for j, name in enumerate(joint_keys):
+            x = coords[f, j, 0]
+            y = coords[f, j, 1]
+            conf = float(coords[f, j, 2]) if c > 2 else 1.0
+            if not (np.isfinite(x) and np.isfinite(y)):
+                row[name] = None  # 가려짐 = Null 바인딩(D-11 철칙 1, 키 삭제 금지).
+            else:
+                dx, dy = schema.discretize((x, y), width, height)
+                row[name] = [dx, dy, round(conf, 2)]
+        frames.append(row)
+    return frames
+
+
+# ---------------------------------------------------------------------------
+# 행 선택 — holdout 격리 + 고객 anonymized 게이트 (gemini_teacher 계약 재사용).
+# ---------------------------------------------------------------------------
+def _is_customer_source(source) -> bool:
+    s = str(source or "").lower()
+    return any(m in s for m in ("customer", "pilot", "user"))
+
+
+def _eligible_media_row(row: dict) -> bool:
+    if row.get("holdout"):
+        return False
+    if not row.get("s3_key"):
+        return False
+    if _is_customer_source(row.get("source")) and row.get("anonymized") is not True:
+        return False
+    return True
+
+
+def _faults_satisfy_contract(report: dict) -> bool:
+    """faults[] 가 감점 엔진 소비 계약(각도쌍/폴백 + fault_category + body_part) 상위집합(F1)."""
+    faults = (report or {}).get("faults")
+    if not faults:
+        return True
+    for item in faults:
+        if not isinstance(item, dict):
+            return False
+        has_pair = (
+            item.get("student_angle_deg") is not None
+            and item.get("reference_angle_deg") is not None
+        )
+        has_fallback = item.get("approx_angle_deviation_deg") is not None
+        if not (has_pair or has_fallback):
+            return False
+        if not item.get("fault_category") or not item.get("body_part"):
+            return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# 트랙 조립.
+# ---------------------------------------------------------------------------
+def _load_profile():
+    try:
+        return perturb.load_profile(_PROFILE_PATH)
+    except Exception:  # noqa: BLE001 - profile 부재 시 교란 없이 원좌표 passthrough.
+        return None
+
+
+def _build_perturb_samples(manifest, perturb_loader, reference_loader, rng) -> list[dict]:
+    """정답=원좌표 좌표보정 트랙 (D-10a). 교란 서브샘플→user, 원좌표→corrected_coords."""
+    if perturb_loader is None:
+        return []
+    profile = _load_profile()
+    out: list[dict] = []
+    for i, row in enumerate(manifest.get("rows", [])):
+        if not _eligible_media_row(row):
+            continue
+        loaded = perturb_loader(row)
+        if not loaded:
+            continue
+        coords = np.asarray(loaded["coords"], dtype=float)
+        joint_keys = loaded.get("joint_keys") or []
+        width = float(loaded.get("width", 1.0))
+        height = float(loaded.get("height", 1.0))
+        idxs = schema.select_frame_indices(coords.shape[0])
+        stage = (i % 3) + 1
+        perturbed = coords
+        if profile is not None:
+            try:
+                perturbed = perturb.perturb_sequence(coords, profile, stage, rng, joint_keys).perturbed
+            except Exception:  # noqa: BLE001 - 교란 실패 시 원좌표(구조 유지).
+                perturbed = coords
+        user_frames = _coords_to_frames(perturbed, joint_keys, idxs, width, height)
+        orig_frames = _coords_to_frames(coords, joint_keys, idxs, width, height)
+        ref = reference_loader(row.get("motion")) if reference_loader else None
+        target = (ref or {}).get("target_angle_deg")
+        report = {
+            "coaching": None,
+            "corrected_coords": orig_frames,
+            "faults": [],
+            "segments": None,
+            "svg_spec": _svg_spec(target_angle_deg=target),
+            "time_anchors": None,
+        }
+        out.append({
+            "messages": [
+                _system_msg(joint_keys),
+                _user_media_msg(row["s3_key"], user_frames),
+                _assistant_report_msg(
+                    "교란된 좌표를 전후 프레임 궤적으로 보정합니다.", report
+                ),
+            ],
+            "_track": "perturb",
+            "_video_hash": row.get("video_hash"),
+            "_motion": row.get("motion"),
+        })
+    return out
+
+
+def _build_distill_samples(manifest, distill_loader, reference_loader) -> list[dict]:
+    """Gemini 교사 증류 트랙 — video_hash 로 manifest join, 감점 계약 미충족 폐기(F1)."""
+    if distill_loader is None:
+        return []
+    by_hash = {r.get("video_hash"): r for r in manifest.get("rows", []) if r.get("video_hash")}
+    out: list[dict] = []
+    for rec in distill_loader() or []:
+        vh = rec.get("video_hash")
+        row = by_hash.get(vh)
+        if row is None or not _eligible_media_row(row):
+            continue
+        rec_report = rec.get("report") or {}
+        if not _faults_satisfy_contract(rec_report):
+            continue  # 감점 계약 미충족 샘플 폐기(F1).
+        ref = reference_loader(row.get("motion")) if reference_loader else None
+        target = (ref or {}).get("target_angle_deg")
+        src_svg = rec_report.get("svg_spec") or {}
+        report = {
+            "coaching": rec_report.get("coaching"),
+            "corrected_coords": rec_report.get("corrected_coords"),
+            "faults": rec_report.get("faults") or [],
+            "segments": rec_report.get("segments"),
+            "svg_spec": _svg_spec(
+                target_angle_deg=target,
+                force_vector=src_svg.get("force_vector"),
+                ideal_trajectory=src_svg.get("ideal_trajectory"),
+            ),
+            "time_anchors": rec_report.get("time_anchors"),
+        }
+        joint_keys = rec.get("joint_keys") or []
+        frames = rec.get("coords_by_frame") or []
+        out.append({
+            "messages": [
+                _system_msg(joint_keys),
+                _user_media_msg(row["s3_key"], frames),
+                _assistant_report_msg(rec.get("thought"), report),
+            ],
+            "_track": "distill",
+            "_video_hash": vh,
+            "_motion": row.get("motion"),
+        })
+    return out
+
+
+def _build_shadow_samples(manifest, shadow_loader) -> tuple[list[dict], int, int]:
+    """22-03 vlm_shadow 트랙 (DR-01) — 등록+가명만 media, 나머지 text-only 강등.
+
+    반환 (samples, unregistered_dropped, text_only_count). 미등록/미가명은 media 참조
+    0 으로 강등하고 드롭 카운터를 방출한다(드롭률 은폐 불가).
+    """
+    if shadow_loader is None:
+        return [], 0, 0
+    by_hash = {r.get("video_hash"): r for r in manifest.get("rows", []) if r.get("video_hash")}
+    out: list[dict] = []
+    unregistered_dropped = 0
+    text_only_count = 0
+    for rec in shadow_loader() or []:
+        vh = rec.get("video_hash")
+        roles = rec.get("roles") or {}
+        coach = (roles.get("coach") or {}).get("text")
+        verdict = (roles.get("veto") or {}).get("verdict")
+        row = by_hash.get(vh)
+        registered = row is not None and row.get("anonymized") is True and row.get("s3_key")
+        if registered:
+            report = {
+                "coaching": coach,
+                "corrected_coords": None,
+                "faults": [],
+                "segments": None,
+                "svg_spec": None,
+                "time_anchors": None,
+            }
+            out.append({
+                "messages": [
+                    _system_msg([]),
+                    _user_media_msg(row["s3_key"], []),
+                    _assistant_report_msg(None, report),
+                ],
+                "_track": "shadow",
+                "_video_hash": vh,
+                "_motion": (row or {}).get("motion"),
+            })
+            continue
+        # 미등록/미가명 → media 참조 0, text-only 강등(DR-01).
+        unregistered_dropped += 1
+        verdict_text = coach or (f"판정: {verdict}" if verdict else None)
+        if not verdict_text:
+            continue
+        text_only_count += 1
+        out.append({
+            "messages": [
+                _system_msg([]),
+                _user_text_msg("이 동작에 대한 코칭/판정을 서술하세요."),
+                _assistant_text_msg(verdict_text),
+            ],
+            "_track": "shadow",
+            "_video_hash": vh,
+            "_text_only": True,
+        })
+    return out, unregistered_dropped, text_only_count
+
+
+def _build_text_samples(n_media: int, mix_ratios: dict) -> list[dict]:
+    """T3 순수 텍스트 시간추론 + 순수 텍스트 instruction 혼합(D-11, 언어 감퇴 방지)."""
+    out: list[dict] = []
+    n_t3 = max(1, round(mix_ratios.get("t3_temporal", 0.0) * n_media))
+    n_inst = max(1, round(mix_ratios.get("instruction", 0.0) * n_media))
+    for k in range(n_t3):
+        out.append({
+            "messages": [
+                {"role": "system", "content": "시각 정보 없이 프레임 순서/속도를 시간 추론으로 답하세요."},
+                _user_text_msg(
+                    f"프레임 {k}→{k+1}→{k+2} 순으로 무릎 각도가 커진다면 동작은 신전인가 굴곡인가?"
+                ),
+                _assistant_text_msg("각도가 커지므로 신전(펴짐)입니다."),
+            ],
+            "_track": "text",
+            "_text_kind": "t3_temporal",
+            "_text_only": True,
+        })
+    for k in range(n_inst):
+        out.append({
+            "messages": [
+                {"role": "system", "content": "당신은 폴스포츠 코칭 어시스턴트입니다."},
+                _user_text_msg("폴스포츠에서 '라인'이 무엇을 뜻하는지 한 문장으로 설명하세요."),
+                _assistant_text_msg("라인은 몸 전체의 정렬·연장선이 만드는 심미적 곧은 선을 뜻합니다."),
+            ],
+            "_track": "text",
+            "_text_kind": "instruction",
+            "_text_only": True,
+        })
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 균등 게이트 + video_hash split.
+# ---------------------------------------------------------------------------
+def _motion_counts(media_samples) -> dict:
+    counts: dict = {}
+    for s in media_samples:
+        m = s.get("_motion")
+        if m is None:
+            continue
+        counts[m] = counts.get(m, 0) + 1
+    return counts
+
+
+def _balance_media(media_samples) -> list[dict]:
+    """동작별 media 샘플을 max <= 2*min 로 트림(결정적, 안정 순서). 균등 게이트."""
+    counts = _motion_counts(media_samples)
+    valid = [v for v in counts.values() if v > 0]
+    if not valid:
+        return media_samples
+    cap = 2 * min(valid)
+    kept: list[dict] = []
+    per: dict = {}
+    for s in media_samples:
+        m = s.get("_motion")
+        if m is None:
+            kept.append(s)
+            continue
+        per[m] = per.get(m, 0) + 1
+        if per[m] <= cap:
+            kept.append(s)
+    return kept
+
+
+def _split_val_hashes(hashes, validation_owner, val_frac):
+    """video_hash 단위 val 집합 — explicit_val_jsonl 만 val 생성(leakage 0)."""
+    if validation_owner != "explicit_val_jsonl":
+        return set()
+    ordered = sorted(h for h in hashes if h)
+    n = len(ordered)
+    if n < 2:
+        return set()
+    n_val = max(1, round(n * val_frac))
+    return set(ordered[:n_val])
+
+
+# ---------------------------------------------------------------------------
+# 조립 진입점.
+# ---------------------------------------------------------------------------
+def build_dataset(
+    *,
+    manifest: dict,
+    perturb_loader=None,
+    distill_loader=None,
+    shadow_loader=None,
+    reference_loader=None,
+    mix_ratios: dict | None = None,
+    validation_owner: str = "explicit_val_jsonl",
+    val_frac: float = 0.02,
+    partial: bool = False,
+    seed: int = 0,
+) -> dict:
+    """3트랙 + 텍스트 혼합 학습셋 조립 → {"train", "val"|None, "_meta"}.
+
+    validation_owner = explicit_val_jsonl(val.jsonl 발행, video_hash split) 또는
+    phase22_eval_gate(val 미발행, held-out eval gate 가 소유). 값과 발행물이 정합한다(DR-04).
+    """
+    if validation_owner not in _VALID_VALIDATION_OWNERS:
+        raise ValueError(
+            f"validation_owner must be one of {_VALID_VALIDATION_OWNERS}: {validation_owner!r}"
+        )
+    assert_collection_complete(manifest, partial)
+    mix_ratios = mix_ratios or DEFAULT_MIX_RATIOS
+    rng = np.random.default_rng(seed)
+
+    perturb_samples = _build_perturb_samples(manifest, perturb_loader, reference_loader, rng)
+    distill_samples = _build_distill_samples(manifest, distill_loader, reference_loader)
+    shadow_samples, shadow_dropped, shadow_text_only = _build_shadow_samples(
+        manifest, shadow_loader
+    )
+
+    media = _balance_media(perturb_samples + distill_samples
+                           + [s for s in shadow_samples if sample_has_video(s)])
+    shadow_text = [s for s in shadow_samples if not sample_has_video(s)]
+    text_samples = _build_text_samples(len(media), mix_ratios)
+
+    all_samples = media + shadow_text + text_samples
+
+    # video_hash 단위 split (leakage 0) — 소유자는 이 모듈 단독.
+    media_hashes = {s.get("_video_hash") for s in media if s.get("_video_hash")}
+    val_hashes = _split_val_hashes(media_hashes, validation_owner, val_frac)
+
+    train: list[dict] = []
+    val: list[dict] = []
+    for s in all_samples:
+        vh = s.get("_video_hash")
+        if vh and vh in val_hashes:
+            val.append(s)
+        else:
+            train.append(s)
+
+    track_counts: dict = {"perturb": 0, "distill": 0, "shadow": 0, "text": 0}
+    for s in all_samples:
+        t = s.get("_track")
+        if t in track_counts:
+            track_counts[t] += 1
+
+    meta = {
+        "schema_version": schema.SCHEMA_VERSION,
+        "prompt_version": schema.PROMPT_VERSION,
+        "manifest_version": (manifest or {}).get("_meta", {}).get("schema_version"),
+        "validation_owner": validation_owner,
+        "track_counts": track_counts,
+        "motion_counts": _motion_counts(media),
+        "shadow_unregistered_dropped": shadow_dropped,
+        "shadow_text_only_count": shadow_text_only,
+        "mix_ratios": dict(mix_ratios),
+        "partial": bool(partial),
+        "upload_prefix": resolve_upload_prefix(partial),
+    }
+
+    return {
+        "train": train,
+        "val": val if validation_owner == "explicit_val_jsonl" else None,
+        "_meta": meta,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 로컬 기록 (S3 업로드는 Task 4 에서 uploader 주입 배선).
+# ---------------------------------------------------------------------------
+def write_jsonl(samples, path: Path) -> None:
+    with Path(path).open("w", encoding="utf-8") as fp:
+        for s in samples:
+            fp.write(json.dumps(s, ensure_ascii=False) + "\n")
+
+
+def write_dataset(data: dict, out_dir: Path) -> dict:
+    """train.jsonl / (explicit 시) val.jsonl / _meta.json 로컬 기록. 경로 dict 반환."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths = {"train": out_dir / "train.jsonl", "meta": out_dir / "_meta.json"}
+    write_jsonl(data["train"], paths["train"])
+    if data.get("val") is not None:
+        paths["val"] = out_dir / "val.jsonl"
+        write_jsonl(data["val"], paths["val"])
+    (out_dir / "_meta.json").write_text(
+        json.dumps(data["_meta"], ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return {k: str(v) for k, v in paths.items()}
+
+
+if __name__ == "__main__":  # pragma: no cover - 실 배선(loader/업로드)은 Task 4.
+    ap = argparse.ArgumentParser(description="Phase 22 학습 JSONL 조립기")
+    ap.add_argument("--partial", action="store_true", help="collection_complete 미완 부분 실행(canonical 업로드 금지)")
+    ap.add_argument("--validation-owner", default="explicit_val_jsonl", choices=_VALID_VALIDATION_OWNERS)
+    ap.parse_args()
+    raise SystemExit(
+        "실 loader(Firestore vlm_shadow / S3 coords) + 업로드 배선은 22-04 Task 4"
+        "(라이브 Pod + belle 승인)에서 실행한다."
+    )

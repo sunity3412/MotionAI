@@ -35,6 +35,16 @@
 #
 # 공급망 (T-22-17): 모델은 공식 org(Qwen/OpenGVLab/nvidia) HF 경로만, 아래 상수로 박제.
 # 다운로드 실패 시 유사 이름 대체 금지 — 사람 확인 후 재시도.
+#
+# ── deviation (2026-07-10, Rule 3): ms-swift 는 [all] 아닌 base 설치 ──────────
+# RESEARCH 설치 라인은 `pip install "ms-swift[all]"` 이었으나 Pod 실측에서
+# [all] → evalscope>=1.0.0 → literal `dotenv` (2013년 sdist, 죽은 `distribute`
+# 빌드 의존)로 pip metadata-generation-failed. ms-swift 4.4.0 base 가 이미
+# 학습 스택 전체(accelerate/peft/trl/transformers/datasets)를 포함하고, [all]
+# 추가분은 evalscope(+opencompass/vlmeval)/swanlab/ray 뿐 — 셋 다 불필요
+# (평가=lmms-eval+자체 run_bakeoff 이 RESEARCH 확정, 단일 Pod=ray 불필요).
+# evalscope 트리는 Package Legitimacy Audit 미감사 — base 설치가 감사 범위
+# 준수(T-22-17)에도 정답. [all] 재도입 금지 — 필요 extra 만 개별 추가할 것.
 
 set -euo pipefail
 
@@ -45,7 +55,7 @@ BACKEND="$(cd "$HERE/.." && pwd)"
 MS_SWIFT_PIN="4.4.0"
 VLLM_PIN="0.24.0"
 LMMS_EVAL_PIN="0.7.2"
-STACK_SENTINEL_TAG="ms-swift==${MS_SWIFT_PIN} vllm==${VLLM_PIN} lmms-eval==${LMMS_EVAL_PIN} v1"
+STACK_SENTINEL_TAG="ms-swift==${MS_SWIFT_PIN} vllm==${VLLM_PIN} lmms-eval==${LMMS_EVAL_PIN} v2-no-all-extra"
 
 # ── 경로 상수 ────────────────────────────────────────────────────────────────
 TRAIN_VENV="${TRAIN_VENV:-/workspace/train_venv}"
@@ -83,8 +93,9 @@ else
   # A100(sm_80): vllm 이 CUDA 프리빌트 torch 를 의존성으로 끌어옴 — 소스 빌드 없음.
   # boto3/pyyaml = 미니셋 prefetch + run_bakeoff 실행용 (프로젝트 표준 의존).
   # huggingface_hub[cli] = hf/huggingface-cli 다운로드 커맨드 보장.
+  # ms-swift 는 base (헤더 deviation 참조 — [all]=evalscope dotenv 함정+미감사 트리).
   "$PIP" install -q \
-    "ms-swift[all]==${MS_SWIFT_PIN}" \
+    "ms-swift==${MS_SWIFT_PIN}" \
     "vllm==${VLLM_PIN}" \
     "lmms-eval==${LMMS_EVAL_PIN}" \
     "boto3>=1.34,<2.0" \

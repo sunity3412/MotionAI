@@ -42,10 +42,25 @@ EVAL_OUT_DIR repo-밖 강제 / SERIAL / _meta provenance / cold re-run / ALLDONE
 
 정확한 HF/ms-swift 모델 ID 는 22-06(RESEARCH A6)에서 확정 — 여기서는 --model 인자로
 파라미터화하고 추측 ID 를 사실로 하드코딩하지 않는다.
+
+── 실행부 (22-06 채움, 2026-07-11) ──
+  · real/hard_negative = 프레임(9fps 추출→64 서브샘플→448 JPEG) + RTMW 좌표 캐시
+    (BAKEOFF_COORDS_CACHE, extract_eval_coords.py 로 사전 추출) → 리포트 JSON.
+    zero-shot + few-shot(고정 소형 예시 1개 — 모델 공통, 공정) 두 모드.
+  · synthetic_grounding = 베이스 좌표(BASE_SYNTH_ITEM, kip-up correct 캐시)에
+    perturb.perturb_sequence(seed 고정) → 모델 corrected_coords vs 원좌표 L2.
+  · trap = make_temporal_trap(seed 고정) 좌표 시퀀스 — frame 번호는 제시 순서로
+    재부여(원 번호 유지 시 함정 정답 누출). 2지선다 × 선택지 순서 전 조합
+    (CircularEval). trap 은 zero-shot 고정(리포트 포맷 무관 트랙).
+  · 결정성 = 레코드별 raw sha256 저장 — cold re-run 리포트 간 해시 비교(러너).
+  · judge 429/RESOURCE_EXHAUSTED → 부분 리포트 저장 후 exit 4 (즉시 중단 원칙).
+  · 추가 env: BAKEOFF_FIXTURES_DIR(기본 /workspace/bakeoff_fixtures),
+    BAKEOFF_COORDS_CACHE(기본 /workspace/phase22_coords_cache).
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -64,6 +79,10 @@ for _p in (BACKEND / "shared" / "python", BACKEND, BACKEND / "training"):
 # schema = 학습 JSONL·bake-off·서빙이 공유하는 유일한 규격 소스(22-01). 순수 모듈이라
 # import-time 로드 안전(vision_veto enum 은 lazy). GPU/네트워크 의존 0.
 from datagen import schema  # noqa: E402
+from datagen import perturb  # noqa: E402 — 합성/함정 트랙 생성 (순수, numpy 단독).
+from datagen.build_jsonl import _coords_to_frames  # noqa: E402 — 좌표 표현 단일 owner.
+from distill import pod_coords  # noqa: E402 — 좌표 캐시 키/로드 단일 owner 재사용.
+from distill.gemini_teacher import DEFAULT_TASK_JOINTS, build_rtmw_text  # noqa: E402
 
 MANIFEST_PATH = HERE / "fixtures" / "manifest.yaml"
 
@@ -316,20 +335,26 @@ def _make_vllm_caller(base_url: str, model_id: str):
     """vLLM OpenAI 호환 endpoint 호출 callable 생성(lazy openai import).
 
     한 번에 한 모델(--model)만 기동된 endpoint 를 가리킨다. temp 0 + greedy 로
-    결정성 확보(cold re-run 재현 대상). 반환 callable(messages, frames) -> str."""
+    결정성 확보(cold re-run 재현 대상). 반환 callable(messages, response_format=None)
+    -> str — 기본 guided REPORT_KEYS 스키마, trap 트랙은 2지선다 enum 스키마 주입."""
     from openai import OpenAI  # lazy — Pod 에만 설치.
 
-    client = OpenAI(base_url=base_url, api_key=os.environ.get("BAKEOFF_VLLM_KEY", "EMPTY"))
+    client = OpenAI(
+        base_url=base_url,
+        api_key=os.environ.get("BAKEOFF_VLLM_KEY", "EMPTY"),
+        timeout=900.0,
+        max_retries=1,
+    )
     guided = build_guided_json_schema()
 
-    def _call(messages) -> str:
+    def _call(messages, response_format=None) -> str:
         resp = client.chat.completions.create(
             model=model_id,
             messages=messages,
             temperature=0.0,   # 결정성(cold re-run 2회 비교).
             top_p=1.0,
             max_tokens=2048,
-            response_format=guided,
+            response_format=response_format or guided,
         )
         return resp.choices[0].message.content or ""
 
@@ -337,16 +362,358 @@ def _make_vllm_caller(base_url: str, model_id: str):
 
 
 def _make_gemini_judge():
-    """gemini 블라인드 judge callable(lazy). prompt(str) -> 응답(str)."""
-    import google.generativeai as genai  # lazy — Pod/키 필요.
+    """gemini 블라인드 judge callable(lazy). prompt(str) -> 응답(str).
 
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    model = genai.GenerativeModel(JUDGE_MODEL)
+    SDK = google-genai(신형, gemini_teacher._ensure_client 와 동일 계열) — 구
+    google.generativeai 는 deprecated 라 학습 Pod venv 에 설치하지 않는다
+    (2026-07-11, 22-06 실행부). temperature 0 = judge 결정성."""
+    from google import genai  # lazy — Pod/키 필요.
+
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
     def _judge(prompt: str) -> str:
-        return (model.generate_content(prompt).text or "").strip()
+        resp = client.models.generate_content(
+            model=JUDGE_MODEL, contents=prompt, config={"temperature": 0.0}
+        )
+        return (getattr(resp, "text", None) or "").strip()
 
     return _judge
+
+
+class QuotaAbort(RuntimeError):
+    """Gemini judge 429/RESOURCE_EXHAUSTED — 즉시 중단 신호(배치 원칙과 동일)."""
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    msg = str(exc)
+    return "429" in msg or "RESOURCE_EXHAUSTED" in msg.upper()
+
+
+# ===========================================================================
+# 실행부 헬퍼 (22-06 채움) — 프레임/좌표/메시지 준비 + 트랙별 러너.
+# ===========================================================================
+_FIXTURES_DIR_ENV = "BAKEOFF_FIXTURES_DIR"
+_COORDS_CACHE_ENV = "BAKEOFF_COORDS_CACHE"
+_FIXTURES_DIR_DEFAULT = "/workspace/bakeoff_fixtures"
+_COORDS_CACHE_DEFAULT = "/workspace/phase22_coords_cache"
+
+# 합성/함정 트랙 공통 베이스 좌표 = kip-up correct RTMW 캐시 (결정적 — 전 모델 동일).
+BASE_SYNTH_S3_KEY = "fixtures/phase15/kip-up/correct.mp4"
+PROFILE_PATH = BACKEND / "training" / "datagen" / "rtmw_error_profile.json"
+
+_EXTRACTOR = None  # FfmpegFrameExtractor 싱글톤 (영상당 1회 추출).
+
+
+def _fixtures_dir() -> Path:
+    return Path(os.environ.get(_FIXTURES_DIR_ENV) or _FIXTURES_DIR_DEFAULT)
+
+
+def _coords_cache_dir() -> Path:
+    return Path(os.environ.get(_COORDS_CACHE_ENV) or _COORDS_CACHE_DEFAULT)
+
+
+def _load_coords_rows(s3_key: str):
+    """RTMW 좌표 캐시 로드 (pod_coords 단일 owner 키 규칙). miss → None (fail-loud
+    는 호출자 — 사전 추출은 extract_eval_coords.py 담당, venv 에서 재추출 금지)."""
+    key = pod_coords.coords_cache_key({"s3_key": s3_key})
+    return pod_coords.load_cached_coords(str(_coords_cache_dir()), key)
+
+
+def rows_to_array(rows, joint_keys=DEFAULT_TASK_JOINTS):
+    """좌표 행([{'frame', '<joint>': [dx,dy,conf]|None}]) → ((T,J,3) [0,1] 정규화,
+    frame 번호 리스트). 이산화 역변환 = /999 (schema Pattern 2 역방향). None → NaN."""
+    keys = list(joint_keys)
+    arr = np.full((len(rows), len(keys), 3), np.nan, dtype=float)
+    frame_numbers: list[int] = []
+    for i, row in enumerate(rows):
+        frame_numbers.append(int(row.get("frame", i)))
+        for j, name in enumerate(keys):
+            v = row.get(name)
+            if isinstance(v, (list, tuple)) and len(v) >= 2 and v[0] is not None and v[1] is not None:
+                arr[i, j, 0] = float(v[0]) / 999.0
+                arr[i, j, 1] = float(v[1]) / 999.0
+                arr[i, j, 2] = float(v[2]) if len(v) > 2 and v[2] is not None else 1.0
+    return arr, frame_numbers
+
+
+def array_to_rows(arr, frame_numbers, joint_keys=DEFAULT_TASK_JOINTS):
+    """(T,J,C) [0,1] 배열 → 좌표 행 (build_jsonl._coords_to_frames 단일 owner 재사용).
+    frame 필드는 호출자가 준 번호로 재부여 — trap 트랙은 제시 순서 번호를 넘겨
+    원 frame 번호 누출을 막는다."""
+    rows = _coords_to_frames(np.asarray(arr, dtype=float), list(joint_keys), list(range(len(arr))), 1.0, 1.0)
+    for row, fn in zip(rows, frame_numbers):
+        row["frame"] = int(fn)
+    return rows
+
+
+def parse_corrected_coords(report: dict, frame_numbers, joint_keys=DEFAULT_TASK_JOINTS):
+    """정규화 리포트의 corrected_coords → (T,J,2) [0,1] 배열 (grounding 계측 입력).
+
+    행 매칭은 frame 필드 우선, 부재 시 순서. 결측/파싱 불가 관절 = NaN (score_grounding
+    이 계측 제외). corrected_coords 자체가 None/비리스트 → 전-NaN (grounding nan)."""
+    keys = list(joint_keys)
+    t = len(frame_numbers)
+    out = np.full((t, len(keys), 2), np.nan, dtype=float)
+    rows = (report or {}).get("corrected_coords")
+    if not isinstance(rows, list):
+        return out
+    by_frame = {}
+    for i, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        f = row.get("frame")
+        by_frame[int(f) if isinstance(f, (int, float)) else i] = row
+    for i, fn in enumerate(frame_numbers):
+        row = by_frame.get(int(fn)) or (rows[i] if i < len(rows) and isinstance(rows[i], dict) else None)
+        if not row:
+            continue
+        for j, name in enumerate(keys):
+            v = row.get(name)
+            if isinstance(v, (list, tuple)) and len(v) >= 2 and v[0] is not None and v[1] is not None:
+                try:
+                    out[i, j, 0] = float(v[0]) / 999.0
+                    out[i, j, 1] = float(v[1]) / 999.0
+                except (TypeError, ValueError):
+                    pass
+    return out
+
+
+def prepare_frame_images(local_video_path: str, budget: int = FRAME_BUDGET, size: int = FRAME_RESIZE):
+    """영상 → base64 JPEG 리스트. 파이프라인 9fps 추출(FfmpegFrameExtractor) 후
+    select_frame_indices 서브샘플 + 448×448 리사이즈 (원 영상 재추출 금지 규율 —
+    9fps 배열 인덱스만 선택)."""
+    global _EXTRACTOR
+    import base64
+    import io
+
+    from PIL import Image
+    from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+
+    if _EXTRACTOR is None:
+        _EXTRACTOR = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
+    frames = _EXTRACTOR.extract(str(local_video_path))
+    idxs = schema.select_frame_indices(len(frames), budget)
+    out: list[str] = []
+    for i in idxs:
+        img = Image.fromarray(np.asarray(frames[i])).resize((size, size), Image.BILINEAR)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        out.append(base64.b64encode(buf.getvalue()).decode("ascii"))
+    return out
+
+
+# ── 메시지 조립 (전 모델 동일 — 공정성) ────────────────────────────────────
+_REPORT_TASK_TEXT = (
+    "위 영상 프레임(시간 순)과 RTMW 관절 좌표를 분석해 D-01 통합 리포트 JSON 만 "
+    "출력하라. 가려짐/튄 좌표는 corrected_coords 로 보정하고, 결함은 faults[] 로 "
+    "짚고 측정한다. 점수(score/severity/overall/points)는 절대 출력하지 않는다."
+)
+_SYNTH_TASK_TEXT = (
+    "아래 RTMW 관절 좌표 시퀀스에는 가려짐(Null)과 튄 좌표가 섞여 있다 (영상 없음 — "
+    "좌표만으로 추론). 뼈길이 일관성·시간 연속성을 근거로 전 프레임·전 관절의 보정 "
+    "좌표를 corrected_coords 에 [{\"frame\": N, \"<관절>\": [dx, dy], ...}] 형식"
+    "(000~999 정수 그리드)으로 출력하라. 나머지 리포트 키는 Null 허용."
+)
+
+
+def _fewshot_pair():
+    """few-shot 고정 예시 1개 — 소형 입력 + 이상적 리포트 (모델 공통, 결정적).
+
+    합성 소형 좌표라 특정 동작/실영상 정답 누출 없음. 포맷 시연이 목적."""
+    ex_rows = [
+        {"frame": 0, "left_knee": [500, 500, 0.9], "right_knee": [520, 510, 0.9]},
+        {"frame": 9, "left_knee": None, "right_knee": [530, 505, 0.9]},
+    ]
+    ex_report = {
+        "coaching": "왼 무릎이 프레임 9에서 가려짐 — 직전 궤적 기준으로 보정했다. 무릎 신전을 유지하라.",
+        "corrected_coords": [
+            {"frame": 0, "left_knee": [500, 500], "right_knee": [520, 510]},
+            {"frame": 9, "left_knee": [510, 502], "right_knee": [530, 505]},
+        ],
+        "faults": [],
+        "segments": [{"end_frame": 9, "label": "hold", "start_frame": 0}],
+        "svg_spec": None,
+        "time_anchors": [],
+    }
+    user_text = (
+        "[예시 입력]\n동작: 예시 홀드.\n"
+        + build_rtmw_text(ex_rows)
+        + "\n" + _REPORT_TASK_TEXT
+    )
+    return [
+        {"role": "user", "content": [{"type": "text", "text": user_text}]},
+        {"role": "assistant", "content": json.dumps(ex_report, ensure_ascii=False, sort_keys=True)},
+    ]
+
+
+def build_report_messages(coords_rows, frames_b64, motion, shots: str):
+    """리포트 태스크 메시지 — 동일 시스템 프롬프트 + (few-shot 시 예시 1) + 사용자
+    턴(동작명 + 좌표 텍스트 + 프레임 이미지)."""
+    system = build_system_prompt(DEFAULT_TASK_JOINTS)
+    msgs: list = [{"role": "system", "content": system}]
+    if shots == "few":
+        msgs.extend(_fewshot_pair())
+    motion_line = f"분석 대상 동작: {motion}.\n" if motion else ""
+    task = _REPORT_TASK_TEXT if frames_b64 else _SYNTH_TASK_TEXT
+    content: list = [{"type": "text", "text": motion_line + build_rtmw_text(coords_rows) + "\n" + task}]
+    for b64 in frames_b64 or []:
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
+    msgs.append({"role": "user", "content": content})
+    return msgs
+
+
+_TRAP_OPTION_FORWARD = "자연스러운 시간 진행 (정상 순서)"
+_TRAP_OPTION_TRAP = "시간 순서가 깨져 있음 (역재생 또는 셔플)"
+
+
+def build_trap_schema() -> dict:
+    """trap 2지선다 guided 스키마 — {'answer': '1'|'2'}."""
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "trap_choice_v1",
+            "schema": {
+                "type": "object",
+                "properties": {"answer": {"type": "string", "enum": ["1", "2"]}},
+                "required": ["answer"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def build_trap_messages(coords_rows, option_order: tuple):
+    """trap 판정 메시지 — 좌표 시퀀스 + 2지선다 (option_order 로 순서 순열,
+    CircularEval). frame 번호는 호출자가 제시 순서로 재부여했음을 전제."""
+    options = {"forward": _TRAP_OPTION_FORWARD, "trap": _TRAP_OPTION_TRAP}
+    lines = [f"{i + 1}. {options[key]}" for i, key in enumerate(option_order)]
+    text = (
+        "아래 RTMW 관절 좌표 시퀀스(frame 은 제시 순서)를 보고 물리적 운동 연속성 "
+        "관점에서 판정하라 (영상 없음 — 좌표만으로 추론).\n"
+        + build_rtmw_text(coords_rows)
+        + "\n다음 중 하나를 고르라:\n" + "\n".join(lines)
+        + '\nJSON {"answer": "1" 또는 "2"} 만 출력.'
+    )
+    system = "너는 폴스포츠 모션 시계열 분석기다. 좌표의 물리적 연속성만 근거로 판정한다."
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": [{"type": "text", "text": text}]},
+    ]
+
+
+# ── 트랙별 러너 — record dict 반환 (오류는 호출자에서 집계) ─────────────────
+def _sha(text: str) -> str:
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()[:16]
+
+
+def _judge_or_abort(judge, coaching_text: str):
+    """judge 호출 — 429/RESOURCE_EXHAUSTED 는 QuotaAbort 로 승격(즉시 중단 원칙)."""
+    if judge is None or not coaching_text:
+        return None
+    try:
+        return score_coaching(coaching_text, judge)
+    except Exception as exc:  # noqa: BLE001 - quota 만 승격, 그 외 nan 기록.
+        if _is_quota_error(exc):
+            raise QuotaAbort(str(exc)[:200]) from exc
+        return float("nan")
+
+
+def run_report_item(item: dict, caller, judge, shots: str) -> dict:
+    """real/hard_negative 리포트 태스크 실행 + C/D축(+F2 관측) 계측."""
+    rec: dict = {"id": item.get("id"), "type": item.get("type"), "mode": shots}
+    s3_key = item.get("s3_key")
+    if not s3_key:
+        rec.update(skipped=True, note="s3_key null (relocate pending) — 계측 제외")
+        return rec
+    local = _fixtures_dir() / s3_key
+    if not local.exists():
+        rec.update(skipped=True, note=f"영상 없음: {local} — setup prefetch 확인")
+        return rec
+    coords_rows = _load_coords_rows(s3_key)
+    if not coords_rows:
+        rec.update(skipped=True, note="RTMW 좌표 캐시 miss — extract_eval_coords.py 선행 필요")
+        return rec
+    frames_b64 = prepare_frame_images(str(local))
+    msgs = build_report_messages(coords_rows, frames_b64, item.get("motion"), shots)
+    raw = caller(msgs)
+    rec["raw_sha"] = _sha(raw)
+    rec["raw"] = raw
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        parsed = raw
+    rec["json"] = score_json(parsed if isinstance(parsed, dict) else str(parsed))
+    if isinstance(parsed, dict):
+        report = schema.normalize_report(parsed)
+        rec["svg_wellformed"] = score_svg_wellformed(report.get("svg_spec"))
+        if item.get("type") == "hard_negative":
+            rec["hardneg_flagged_fault"] = bool(report.get("faults"))
+        coaching = report.get("coaching")
+        rec["coaching"] = _judge_or_abort(judge, coaching if isinstance(coaching, str) else "")
+    return rec
+
+
+def _base_sequence():
+    """합성/함정 트랙 베이스 좌표 — (arr(T,J,3) 정규화, frame 번호). 캐시 필수."""
+    rows = _load_coords_rows(BASE_SYNTH_S3_KEY)
+    if not rows:
+        raise SystemExit(
+            f"[base] {BASE_SYNTH_S3_KEY} 좌표 캐시 miss — extract_eval_coords.py 를 먼저 실행하라."
+        )
+    return rows_to_array(rows)
+
+
+def run_synth_item(item: dict, caller, base_arr, base_frames, profile, shots: str) -> dict:
+    """synthetic_grounding — perturb(seed) → corrected_coords vs 원좌표 L2 (A축)."""
+    rec: dict = {"id": item.get("id"), "type": "synthetic_grounding", "mode": shots,
+                 "seed": item.get("seed"), "stage": item.get("stage")}
+    rng = np.random.default_rng(int(item["seed"]))
+    res = perturb.perturb_sequence(
+        base_arr.copy(), profile, int(item.get("stage") or 1), rng, joint_keys=DEFAULT_TASK_JOINTS
+    )
+    in_rows = array_to_rows(res.perturbed, base_frames)
+    msgs = build_report_messages(in_rows, [], "synthetic (좌표 보정 태스크)", shots)
+    raw = caller(msgs)
+    rec["raw_sha"] = _sha(raw)
+    rec["raw"] = raw
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        parsed = raw
+    rec["json"] = score_json(parsed if isinstance(parsed, dict) else str(parsed))
+    if isinstance(parsed, dict):
+        report = schema.normalize_report(parsed)
+        pred = parse_corrected_coords(report, base_frames)
+        rec["grounding"] = score_grounding(pred, res.original[..., :2])
+    else:
+        rec["grounding"] = float("nan")
+    return rec
+
+
+def run_trap_item(item: dict, caller, base_arr, base_frames) -> dict:
+    """trap — make_temporal_trap(seed) 좌표, 2지선다 전 순열(CircularEval) → B축."""
+    rec: dict = {"id": item.get("id"), "type": "trap", "mode": "zero", "seed": item.get("seed")}
+    rng = np.random.default_rng(int(item["seed"]))
+    trap_seq = perturb.make_temporal_trap(base_arr.copy(), rng)
+    # frame 번호 = 제시 순서(0..T-1) — 원 번호 유지 시 순열이 그대로 정답을 누출한다.
+    rows = array_to_rows(trap_seq, list(range(len(trap_seq))))
+    trap_schema = build_trap_schema()
+    preds: list[str] = []
+    raws: list[str] = []
+    for order in (("forward", "trap"), ("trap", "forward")):
+        raw = caller(build_trap_messages(rows, order), response_format=trap_schema)
+        raws.append(raw)
+        try:
+            ans = str(json.loads(raw).get("answer") or "")
+        except (json.JSONDecodeError, ValueError, AttributeError):
+            ans = ""
+        chosen = order[0] if ans == "1" else order[1] if ans == "2" else "invalid"
+        preds.append("is_trap" if chosen == "trap" else "forward" if chosen == "forward" else "invalid")
+    rec["raw_sha"] = _sha("||".join(raws))
+    rec["raw"] = raws
+    rec["predictions"] = preds
+    rec["temporal"] = score_temporal(preds, "is_trap")
+    return rec
 
 
 # ===========================================================================
@@ -377,6 +744,12 @@ def main(argv=None) -> int:
         help="후보 백본 모델 ID(한 번에 하나). 정확한 HF/ms-swift ID 는 22-06 확정.",
     )
     parser.add_argument("--vllm-url", default=os.environ.get("BAKEOFF_VLLM_URL", "http://127.0.0.1:8000/v1"))
+    parser.add_argument("--shots", choices=("zero", "few", "both"), default="both",
+                        help="프롬프트 모드 — zero-shot/few-shot/둘 다(기본).")
+    parser.add_argument("--skip-judge", action="store_true",
+                        help="코칭 judge 생략 (cold re-run 결정성 비교 전용 — 과금 0).")
+    parser.add_argument("--run-tag", default=os.environ.get("BAKEOFF_RUN_TAG"),
+                        help="리포트 파일명 runId (cold re-run 구분 — 예: run1/run2/run3).")
     parser.add_argument("--dry-run", action="store_true", help="계측 함수 로드 + 미니셋 파싱만(무-추론).")
     args = parser.parse_args(argv)
 
@@ -403,17 +776,52 @@ def main(argv=None) -> int:
 
     # 실 추론 경로(Pod). 로컬(22-05)에서는 여기 도달 전에 dry-run/테스트로 검증한다.
     caller = _make_vllm_caller(args.vllm_url, args.model)
-    judge = _make_gemini_judge()
-    runid = str(int(time.time()))
+    judge = None if args.skip_judge else _make_gemini_judge()
+    runid = args.run_tag or str(int(time.time()))
+    shots_modes = ["zero", "few"] if args.shots == "both" else [args.shots]
     records: list = []
+    errors = 0
+    quota_abort_note = None
 
-    # NOTE: 항목별 프레임 준비(S3 다운로드 + select_frame_indices + 448 리사이즈) →
-    # 프롬프트 조립 → caller 호출 → 4축 계측은 Pod 실행(22-06)에서 채운다. 이 골격은
-    # 규율(SERIAL/EVAL_OUT/_meta/ALLDONE)과 계측 함수 배선만 확정한다.
-    for row in manifest.get("items") or []:
-        # 실제 추론/계측은 22-06. 여기서는 계약만 — 미구현 실행부는 Pod 에서 채움.
-        pass
+    base_arr, base_frames = _base_sequence()
+    profile = perturb.load_profile(PROFILE_PATH)
 
+    items = manifest.get("items") or []
+    try:
+        for row in items:  # SERIAL — 한 항목씩 (pipeline-not-concurrency-safe).
+            typ = row.get("type")
+            t0 = time.monotonic()
+            try:
+                if typ in ("real", "hard_negative"):
+                    for mode in shots_modes:
+                        rec = run_report_item(row, caller, judge, mode)
+                        rec["elapsed_s"] = round(time.monotonic() - t0, 2)
+                        records.append(rec)
+                elif typ == "synthetic_grounding":
+                    for mode in shots_modes:
+                        rec = run_synth_item(row, caller, base_arr, base_frames, profile, mode)
+                        rec["elapsed_s"] = round(time.monotonic() - t0, 2)
+                        records.append(rec)
+                elif typ == "trap":
+                    rec = run_trap_item(row, caller, base_arr, base_frames)
+                    rec["elapsed_s"] = round(time.monotonic() - t0, 2)
+                    records.append(rec)
+            except QuotaAbort:
+                raise
+            except Exception as exc:  # noqa: BLE001 - 항목 오류는 기록 후 계속(원인 보존).
+                errors += 1
+                records.append({"id": row.get("id"), "type": typ, "error": str(exc)[:300]})
+                print(f"[error] {row.get('id')}: {str(exc)[:160]}", flush=True)
+            print(f"[item] {row.get('id')} done ({typ})", flush=True)
+    except QuotaAbort as exc:
+        quota_abort_note = f"Gemini judge quota — 중단: {exc}"
+        print(f"[ABORT] {quota_abort_note}", flush=True)
+
+    def _by_mode(mode):
+        return [r for r in records if r.get("mode") == mode]
+
+    trap_recs = [r for r in records if r.get("type") == "trap"]
+    hardneg_recs = [r for r in records if r.get("type") == "hard_negative" and not r.get("skipped")]
     axes = _summarize_axes(records)
     report = {
         "_meta": {
@@ -422,22 +830,44 @@ def main(argv=None) -> int:
             "model_id": args.model,           # 화이트리스트(T-22-15 — 시크릿/PII 부재).
             "schema_version": schema.SCHEMA_VERSION,
             "prompt_version": schema.PROMPT_VERSION,
-            "judge_model": JUDGE_MODEL,
+            "judge_model": JUDGE_MODEL if judge is not None else None,
+            "shots_modes": shots_modes,
+            "base_synth_item": BASE_SYNTH_S3_KEY,
+            "frame_budget": FRAME_BUDGET,
+            "frame_resize": FRAME_RESIZE,
             "run": "serial bake-off (pipeline-not-concurrency-safe-eval-serial)",
-            "determinism": "temperature=0, greedy, cold re-run 2회 비교",
+            "determinism": "temperature=0, greedy — raw_sha 를 cold re-run 리포트 간 비교",
             "objectivity": "사람 점수 라벨 아님 — 합성 grounding L2 / 함정 정오 / 포맷 계측.",
             "grounding_scope": "synthetic_grounding 트랙만(실영상 정답 좌표 부재, Open Question 1).",
+            "errors": errors,
+            "quota_abort": quota_abort_note,
             "captured_epoch": int(time.time()),
         },
         "axes": axes,
+        "axes_by_mode": {m: _summarize_axes(_by_mode(m)) for m in shots_modes},
+        # 함정(trap) 트랙 별도 표기 — 정상 트랙과의 변별 확인용 (shortcut 경고 판단).
+        "trap_track": {
+            "n": len(trap_recs),
+            "acc": _summarize_axes(trap_recs).get("temporal_acc"),
+            "per_item": {r.get("id"): r.get("temporal") for r in trap_recs},
+        },
+        "hard_negative_track": {
+            "n": len(hardneg_recs),
+            "flagged_fault": {r.get("id"): r.get("hardneg_flagged_fault") for r in hardneg_recs},
+        },
         "records": records,
     }
-    (out_dir / f"bakeoff_{args.model.replace('/', '_')}_{runid}.json").write_text(
-        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    print(f"[done] wrote {out_dir} (repo 밖 — 커밋 baseline 무접촉)", flush=True)
+    out_path = out_dir / f"bakeoff_{args.model.replace('/', '_')}_{runid}.json"
+    out_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[done] wrote {out_path} (repo 밖 — 커밋 baseline 무접촉)", flush=True)
     print(f"=== BAKE-OFF AXES ({args.model}) ===", flush=True)
     print(json.dumps(axes, ensure_ascii=False, indent=2), flush=True)
+    if quota_abort_note:
+        print("PARTIAL (quota abort)", flush=True)
+        return 4
+    if errors > len(items) // 2:
+        print("TOO MANY ERRORS", flush=True)
+        return 5
     print("ALLDONE", flush=True)
     return 0
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: 22-04 Tasks 1-2 done + run_trial_batch 스캐폴드(5f2164c). Task 3 시험 배치 = 권한 게이트 차단 — 코디네이터 릴레이는 사용자 동의 아님, belle 본인/권한 승인 필요. 최초 foreground 시도가 ~수 call 소진(결과 미포착) 후 2분 wall 로 kill→고아 File API 업로드 35개 정리(잔량 0). 다음=belle 권한 승인 후 재실행
-last_updated: "2026-07-10T06:30:32.013Z"
+stopped_at: 22-04 COMPLETE — full batch 129/129(수락 109) + JSONL S3 완성(train 99/val 2) + SUMMARY 작성. 다음=22-06 bake-off 계속, 22-07 진입 전 val 얇음·3트랙 완전체 belle 결정
+last_updated: "2026-07-10T17:39:41.531Z"
 last_activity: 2026-07-10 -- Phase 22 execution started
 progress:
   total_phases: 14
   completed_phases: 5
   total_plans: 64
-  completed_plans: 44
+  completed_plans: 45
   percent: 36
 ---
 
@@ -28,14 +28,14 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 22 (custom-vlm-finetune) — EXECUTING
-Plan: 1 of 10
-Verification: 22-02 Tasks 1-2 COMPLETE (LOCAL ONLY, 다운로드·과금 0). collect_phase22_youtube.py = 3모드 채널 harvester(--dry-run 무-네트워크 순수검증 exit 0 / --curate·--collect 는 PHASE22_BELLE_GREENLIGHT=1 env 게이트로 차단). phase22_sources.yaml = 티어별 채널 레지스트리(미성년·IG ToS enabled=false 격리). curate_vision.py = Gemini Vision 다운로드-전 선별 게이트(순수 decide()/normalize + I/O 어댑터 lazy graceful, verdict score/severity 영구 부재, 캐시). anonymize.py = 얼굴 가명처리(순수 numpy separable-box blur + I/O 껍데기, D-12, 상단 1/3 폴백). manifest.json = provenance 원장(시드 17 정타11+fault6 / hard-negative 2 A2·A3 holdout 격리 / 371 customer_track 구조 참조, uid 0). tests 4종 GREEN(phase22 전체 36 pass/2 skip). 2 commits (988993e/cda85b1). ▸ 22-01 은 앞서 COMPLETE(schema.py/perturb.py, 5 commits).
-Next: 22-02 Task 3 = belle greenlight 대기(Gemini 실선별 과금 + 카피라이트 prod S3 적재 비가역). belle 에 규모 제시 → 승인 후 yt-dlp 설치 + PHASE22_BELLE_GREENLIGHT=1 --curate→--collect + collect_phase22_instagram.py + LICENSE-AUDIT.md + _meta.collection_complete=true(균등 게이트 활성). 후속(22-04 JSONL/22-06 bake-off 실행) 은 manifest 계약 import.
+Plan: 5 of 10 (SUMMARY: 22-01/02/03(부분)/04/05)
+Verification: 22-04 COMPLETE (2026-07-11). 교사 증류 full batch 129/129 터미널(수락 109 / rejected_judge 12 / parse 6 / contract 2, 소스별 IG 91%·internal 88%·YT 79%, File API 잔여물 0) → SFT 학습셋 S3 완성 `training/phase22/jsonl/` (train.jsonl 99행 = distill 87 + text 14 / val.jsonl 2행, video_hash split, 균등 트림 109→87). 수집 마감 f66f25f(collection_complete=true + balance_waiver, 내부 371 fault track 이월). 시험 배치 3라운드가 129행 과금 전 결함 4건 fix(enum 59ac1a1/동작명 c5b14ef/judge 루브릭 eb69692/배열 파싱 ce992e0). 조립 중첩 타입 강제 = normalize_report 단일 owner(25e6752+1930099, coaching 80/87 보존). phase22 테스트 156 pass/1 skip. Known limitations: val 2행 얇음·svg_spec 감독 0/87·perturb/shadow 트랙 미합류(2트랙) — 22-04-SUMMARY.md 참조.
+Next: 22-06 bake-off 계속(A100 Pod ns8smhcydnduq9, 728cf5f 진행 중). 22-07 진입 전 belle 결정 2건 — val 얇음 대응(val_frac 확대 or phase22_eval_gate 전환) + 3트랙 완전체(perturb raw 좌표 영속화 + shadow 적재) 여부. 22-03 잔여 Tasks 2-4(Pod 배선)는 belle-gated 이월 유지.
 Status: Executing Phase 22
 
 > ◐ 22-03 IN-PROGRESS — Task 1(helper)만 실행 (2026-07-09, LOCAL ONLY, Firestore/네트워크/Pod 0). `firestore_admin.store_vlm_shadow(video_hash, role, payload)` shadow 로깅 helper 추가: vlm_shadow/{video_hash} top-level 컬렉션(gemini_cache 형제)에 `{video_hash, created_at, updated_at, roles:{veto/recognizer/coach}}` set(merge=True) deep-merge 누적, created_at 첫 기록 보존, D-12 PII 키 재귀 거부(_reject_pii_keys, 정규화 denylist — T-22-07), nested-array 사전 차단(_validate_flat_dict_no_nested_array 재사용). firestore.rules catch-all default-deny로 클라이언트 접근 차단(T-22-08). TDD 2 commits(test f1f2d5b/feat f295d1e), phase22 전체 67 pass/2 skip. **Task 2(pipeline app.py VLM_SHADOW_LOG 배선 — production 판정경로 변형), Task 3(Pod 변형 blocking checkpoint), Task 4(Pod 배포+shadow 스모크+피크 VRAM 실측)는 belle-gated + 라이브 GPU Pod 필요로 후속 세션 이월.** 22-03-BASELINE-FAILED.txt/22-POD-VRAM.md 미생성(Pod 필요). ROADMAP 22-03 미완료 유지. 다음=belle greenlight+Pod 준비 후 Task 2~4 재개.
 
-> ◐ 22-04 IN-PROGRESS — Tasks 1-2 done (2026-07-10, LOCAL ONLY, Gemini/S3/Firestore/네트워크/Pod 0). **Task 1** `backend/training/distill/gemini_teacher.py` = 교사 증류 배치: File API 업로드 ACTIVE 폴링 + delete-in-finally(20GB 누수 방지, DR-07 fake client로 증명), 교사=gemini-3.1-pro-preview/judge=gemini-3.5-flash(2.5 계열 0), 4중 필터(judge<7 폐기 + 반복 루프 + 물리 불가 궤적(속도) + 뼈길이 + faults⊇DEDUCTION_CONSUMED_KEYS), 행 선택(holdout 격리 + 고객 소스 anonymized=true 게이트 D-12), 크레딧 probe(429 즉시 중단) + greenlight env(DR-05), judge 점수는 필터 임계로만(라벨 미저장, 객관성). test 19. **Task 2** `backend/training/datagen/build_jsonl.py` = 3트랙 조립기(TDD): belle §8 3롤 구조, perturb(자가 라벨)/distill(교사)/shadow(vlm_shadow) 합류, shadow DR-01(video_hash join, 미등록/미가명=text-only 강등 media 0 + 드롭 카운터), svg_spec F2(target 결정적/force·ideal 교사분 or Null), faults F1 계약 미충족 폐기, T3+instruction 혼합비 0.15, train/val split 단독 소유(video_hash 단위 leakage 0) + validation_owner 계약(DR-04), collection_complete fail-closed(DR-06) + partial prefix 격리, 프레임 재추출 0. test 15(RED 955eeb3→GREEN d1028f1). phase22 전체 101 pass/2 skip. 3 commits(9d5e3ff/955eeb3/d1028f1). **Task 3(증류 비용 blocking checkpoint, DR-05)에서 정지** — 증류 대상 129행(youtube 68+internal 17+instagram 44, holdout 2 제외), teacher/judge 각 129 call(첫 run cap 10). belle 승인 + `_meta.collection_complete=true`(현재 false, 22-02 Task 3 미완) + 라이브 Pod/Gemini 필요로 Task 4(배치 실행) 이월. 다음=belle 승인 후 첫 batch 10 rows 필터 통계 확인→approved→Task 4.
+> ✓ 22-04 COMPLETE (2026-07-11) — 교사 증류 + SFT 학습셋 완성. Tasks 1-2(gemini_teacher 4중 필터 + build_jsonl 3트랙 조립기, TDD) → Task 3 시험 배치 3라운드(10행 cap)가 129행 과금 전 결함 4건 fix(enum 59ac1a1/동작명 c5b14ef/judge 루브릭 eb69692/배열 파싱 ce992e0) → belle approved → Task 4 full batch 129/129(수락 109, 소스별 IG 91%·internal 88%·YT 79%, judge 분포 건강 9점 69+10점 39, File API 잔여물 0, A100 Pod ns8smhcydnduq9 밤샘 — full_batch.py 재개성 실증) → 수집 마감 f66f25f(collection_complete=true + balance_waiver) → 조립 중첩 타입 fix(normalize_report 단일 owner, 25e6752+1930099) → `--assemble --upload` S3 완성 `training/phase22/jsonl/`(train 99 = distill 87+text 14 / val 2 / _meta, 2026-07-11 02:31 KST). phase22 156 pass/1 skip. **Known limitations(22-04-SUMMARY.md): val 2행 얇음(22-07 게이트 검증력 제약), svg_spec 감독 0/87(교사 SVG 전부 비스키마 — 후속 라운드 프롬프트 강제), 이번 JSONL 은 distill+text 2트랙(perturb=raw 좌표 영속화 부재, shadow=적재 0 — 3트랙 완전체는 22-07 전 소규모 후속).**
 >
 > ✓ 22-05 COMPLETE (2026-07-09, LOCAL ONLY, GPU/Pod/모델가중치 0). bake-off(Qwen 3.6-VL-8B vs InternVL 3.5-8B) 하네스+평가 미니셋을 pod-free 로 박제 — 실행은 22-06. 산출: backend/evals/phase22/run_bakeoff.py(4축 순수 계측 score_grounding/temporal/json/coaching + run_sweep 규율 EVAL_OUT_DIR repo-밖·SERIAL·_meta·temp0·ALLDONE·Pod env 헤더, 모델/judge lazy) + fixtures/manifest.yaml(4타입 37항목: real 균등 14동작 kip-up 최다 아님 / hard_negative A2·A3 / synthetic_grounding=grounding L2 유일 트랙 / trap 역재생·셔플) + tests/phase22/test_bakeoff_harness.py(19 pod-free, phase22 전체 55 pass/2 skip). 3 commits(0e6b5fb/62fc02c/f6c9308). grounding=합성 전용 한계 명시(Open Question 1). main() 추론 루프는 22-06 스코프(의도적 미구현, dry-run+테스트로 검증). 다음=22-06 Pod 실행(후보 백본 순차 serve + 추론 루프 + 4축 판정), 모델 ID(RESEARCH A6)·hard_negative A2/A3 relocate 선행.
 
@@ -322,7 +322,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [████░░░░░░] 44%
+Progress: [███████░░░] 70%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -575,6 +575,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 10 P04 | 45min | 2 tasks | 4 files |
 | Phase 26 P06 | ~55min | 3 tasks | 11 files |
 | Phase 22 P22-01 | 18min | 3 tasks | 8 files |
+| Phase 22 P04 | multi-session (07-09~07-11) | 4 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -667,6 +668,8 @@ Recent decisions affecting current work:
 - [Phase 26]: 26-06: 배치 UAT 정책(belle) — 잔여 실기기 확인+Firestore 증거는 26-HUMAN-UAT.md 이월, phase 22·26~31 완료 후 직원 합동 세션
 - [Phase 22]: 22-01: schema.py 단일 owner — D-11 4철칙 + D-01 리포트 v1(REPORT_KEYS, score/severity 영구 부재). faults[] ⊇ DEDUCTION_CONSUMED_KEYS lockstep(gemini v8.1 differences 미러, severity 제외).
 - [Phase 22]: 22-01: rtmw_error_profile.json(source_doc_count=247) 실측 분포로 A3 해소 — perturb 파라미터는 히스토그램 샘플, 교란 수치 하드코딩 0(측정 임계 0.3은 관측 정의). T-22-01 식별자 미포함.
+- [Phase 22]: 22-04 균등 게이트 미충족 마감 = _meta.balance_waiver 명시 문서화 (silent 우회 금지, 테스트가 waiver 정확성 검증) — fault 표본(내부 371 track)은 다음 라운드 이월 — belle 승인 2026-07-10, JSONL 균등은 _balance_media 소유
+- [Phase 22]: 22-04 교사 출력 중첩 타입 혼돈은 normalize_report 단일 지점에서 결정적 무손실 변환만 허용, 스키마 환원 불가는 필드 None(행 폐기 금지) — coaching list 47행 등 라벨 대량 유실 방지 + D-11 스키마 순수성 양립
 
 ### Pending Todos
 
@@ -701,9 +704,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-09T02:04:45.766Z
+Last session: 2026-07-10T17:37:52.966Z
 
-Stopped at: 22-02 Tasks 1-2 done (수집 엔진 + Vision 선별 + 가명처리 + provenance 원장), Task 3 belle-gated (deferred)
+Stopped at: 22-04 COMPLETE — full batch 129/129(수락 109) + JSONL S3 완성(train 99/val 2) + SUMMARY 작성. 다음=22-06 bake-off 계속, 22-07 진입 전 val 얇음·3트랙 완전체 belle 결정
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 

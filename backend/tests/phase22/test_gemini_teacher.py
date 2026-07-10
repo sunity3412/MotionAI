@@ -354,3 +354,79 @@ def test_run_trial_batch_saves_trial_reports(tmp_path, monkeypatch):
     assert saved["parsed"]["report"]["coaching"] == "다리를 펴세요"
     assert saved["result"] in {"accepted", "rejected_judge"}  # judge fake 는 임계 미충족 가능.
     assert saved["result"] == result["per_row"][0]["result"]
+
+
+# ---------------------------------------------------------------------------
+# 최상위 배열 파싱 fix (2026-07-10 — 시험 배치 정타 2/5 사망 케이스).
+# ---------------------------------------------------------------------------
+def test_parse_unwraps_single_dict_array():
+    """최상위가 [단일 dict] 배열이면 unwrap 하여 정상 경로 (실증 케이스)."""
+    raw = '<thought>t</thought>[{"coaching": "다리를 펴세요", "faults": []}]'
+    out = gt.parse_teacher_report(raw)
+    assert out is not None
+    assert out["report"]["coaching"] == "다리를 펴세요"
+
+
+def test_parse_rejects_multi_or_nondict_array():
+    """다원소/비 dict 배열·스칼라 → None (rejected_parse graceful, 예외 0)."""
+    assert gt.parse_teacher_report('[{"a": 1}, {"b": 2}]') is None
+    assert gt.parse_teacher_report("[1, 2, 3]") is None
+    assert gt.parse_teacher_report('"자유 문자열"') is None
+    assert gt.parse_teacher_report("5") is None
+
+
+def test_distill_video_no_raise_and_raw_preserved_on_list_output(monkeypatch):
+    """교사가 배열 JSON 을 내도 distill_video 는 raise 하지 않고 raw 를 보존한다.
+
+    기존 버그: normalize_report(list) AttributeError 가 밖으로 튀어 run_trial_batch
+    except 에 잡히며 raw_text=null — 진단 불능. 이제 rejected_parse + raw 보존.
+    """
+    raw = '[{"a": 1}, {"b": 2}]'
+    client = _FakeClient(text=raw)
+    out = gt.distill_video(client, "/tmp/x.mp4", [{"frame": 0}], ["left_knee"])
+    assert out["report"] is None
+    assert out["raw_text"] == raw
+    accepted, reason = gt.evaluate_filters(out, judge_score=10)
+    assert accepted is False and reason == "rejected_parse"
+    # 파싱 단계 임의 예외에도 raise 금지 + raw 보존 (방어 일반화).
+    def _boom(_raw):
+        raise AttributeError("'list' object has no attribute 'get'")
+
+    monkeypatch.setattr(gt, "parse_teacher_report", _boom)
+    out2 = gt.distill_video(client, "/tmp/x.mp4", [{"frame": 0}], ["left_knee"])
+    assert out2["report"] is None and out2["raw_text"] == raw
+
+
+def test_normalize_report_survives_list_input():
+    """normalize_report 에 list/스칼라 입력 → 전 키 Null 리포트 (사망 금지)."""
+    from datagen import schema
+
+    for bad in ([{"coaching": "x"}], [1, 2], "str", 5):
+        out = schema.normalize_report(bad)
+        assert set(out) == set(schema.REPORT_KEYS)
+        assert all(v is None for v in out.values())
+
+
+def test_run_trial_batch_quota_abort_preserved(tmp_path, monkeypatch):
+    """429 중단 경로 회귀 없음 — 생성 예외(quota)는 여전히 raise → abort."""
+    class _QuotaModels:
+        def generate_content(self, *a, **k):
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+
+    client = _FakeClient()
+    client.models = _QuotaModels()
+
+    def _fake_download(bucket, key, dest):
+        with open(dest, "wb") as fp:
+            fp.write(b"fake video bytes")
+
+    monkeypatch.setattr(gt, "_download_s3", _fake_download)
+    manifest = {"rows": [
+        {"s3_key": "a.mp4", "source": "internal", "holdout": None},
+        {"s3_key": "b.mp4", "source": "internal", "holdout": None},
+    ]}
+    result = gt.run_trial_batch(manifest, str(tmp_path), max_rows=2, client=client)
+    assert result["aborted"] is not None and "quota_exhausted" in result["aborted"]
+    # 첫 행에서 즉시 중단 — 두 번째 행 미처리.
+    assert result["per_row"][0]["result"] == "ABORT_429"
+    assert len(result["per_row"]) == 1

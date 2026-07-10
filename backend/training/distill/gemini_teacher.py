@@ -245,7 +245,14 @@ def distill_video(
         )
     finally:
         _delete_uploaded(client, uploaded)
-    parsed = parse_teacher_report(raw_text)
+    # 파싱 단계는 어떤 예외에도 raise 하지 않는다(2026-07-10 fix) — 진단 목적상 raw 는
+    # 모든 실패에서 남아야 한다. 업로드/생성 예외(quota 429 포함)는 위에서 그대로
+    # raise 되어 run_trial_batch 의 _is_quota_error 중단 로직이 보존된다.
+    try:
+        parsed = parse_teacher_report(raw_text)
+    except Exception:  # noqa: BLE001 - 파싱 예외 → rejected_parse graceful, raw 보존.
+        log.warning("교사 응답 파싱 예외 (graceful — raw 보존): %s", local_video_path)
+        parsed = None
     if parsed is None:
         # 파싱 실패여도 원문은 보존 — 진단 없이 폐기 사유를 은폐하지 않는다.
         return {"thought": None, "report": None, "raw_text": raw_text}
@@ -280,8 +287,26 @@ def _split_thought(text: str) -> tuple[str | None, str]:
     return None, text
 
 
+def _coerce_report_dict(obj):
+    """파싱 산출 → 리포트 dict 강제 (2026-07-10 fix: 최상위 배열 케이스).
+
+    교사가 JSON 을 최상위 배열로 출력하는 케이스(시험 배치 5행 중 2행 실증)에서
+    normalize_report(list) 가 AttributeError 로 죽고 raw 보존까지 실패했다. 규칙:
+      · dict → 그대로.
+      · 단일 원소 배열 + 원소가 dict → unwrap 하여 정상 경로.
+      · 그 외(다원소/비 dict 배열, 스칼라) → None (rejected_parse graceful).
+    """
+    if isinstance(obj, dict):
+        return obj
+    if isinstance(obj, list) and len(obj) == 1 and isinstance(obj[0], dict):
+        return obj[0]
+    return None
+
+
 def _extract_json_object(text: str):
-    """text 에서 첫 최상위 JSON object 를 추출(코드펜스/서두 텍스트 관용). 실패 None."""
+    """text 에서 첫 최상위 JSON object 를 추출(코드펜스/서두 텍스트/배열 wrap 관용).
+
+    반환은 항상 dict 또는 None — _coerce_report_dict 로 강제(비 dict 산출 차단)."""
     if not text:
         return None
     s = text.strip()
@@ -290,7 +315,7 @@ def _extract_json_object(text: str):
         if s.lower().startswith("json"):
             s = s[4:]
     try:
-        return json.loads(s)
+        return _coerce_report_dict(json.loads(s))
     except (json.JSONDecodeError, ValueError):
         pass
     # 중괄호 균형으로 첫 object 스캔.
@@ -305,7 +330,7 @@ def _extract_json_object(text: str):
             depth -= 1
             if depth == 0 and begin != -1:
                 try:
-                    return json.loads(s[begin:i + 1])
+                    return _coerce_report_dict(json.loads(s[begin:i + 1]))
                 except (json.JSONDecodeError, ValueError):
                     return None
     return None

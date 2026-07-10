@@ -228,8 +228,11 @@ def normalize_report(raw: dict) -> dict:
     · faults[] 항목은 FAULT_ITEM_KEYS Null 고정 + fault_category 를 FAULT_CATEGORIES
       단일 owner 로 검증(밖 값 → None; 새 분류 발명 금지).
     · 전 dict 키를 알파벳 정렬로 재방출 (철칙 2, 재귀).
-    순수 — raw 미변형(새 dict 반환)."""
-    raw = raw or {}
+    순수 — raw 미변형(새 dict 반환).
+
+    방어(2026-07-10, 22-04 시험 배치 fix): raw 가 dict 아니면(최상위 배열 등) {} 취급 —
+    전 REPORT_KEYS Null 리포트로 graceful degrade (list.get AttributeError 사망 금지)."""
+    raw = raw if isinstance(raw, dict) else {}
     valid_categories = _safe_valid_categories()
     out: dict = {}
     for key in REPORT_KEYS:

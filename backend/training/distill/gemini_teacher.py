@@ -535,6 +535,120 @@ def _greenlight_ready() -> bool:
     return os.environ.get(_GREENLIGHT_ENV) == "1"
 
 
+# ── 기본 대상 관절 (RTMW 133 중 몸통/사지 12 — bind_key_prompt 키 사전 바인딩) ──
+DEFAULT_TASK_JOINTS: tuple[str, ...] = (
+    "left_ankle", "left_elbow", "left_hip", "left_knee", "left_shoulder", "left_wrist",
+    "right_ankle", "right_elbow", "right_hip", "right_knee", "right_shoulder", "right_wrist",
+)
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    """429 / RESOURCE_EXHAUSTED 판정 — 발생 시 배치 즉시 중단 신호."""
+    msg = str(exc)
+    return "429" in msg or "RESOURCE_EXHAUSTED" in msg.upper()
+
+
+def _download_s3(bucket: str, key: str, dest_path: str) -> None:
+    """S3 객체 → 로컬 다운로드 (boto3, ap-northeast-2). Pod 는 aws CLI 없음 → boto3."""
+    import boto3  # lazy
+
+    s3 = boto3.client("s3", region_name="ap-northeast-2")
+    s3.download_file(bucket, key, dest_path)
+
+
+# ---------------------------------------------------------------------------
+# 배치 러너 — max_rows 상한 + 429 즉시 중단 + File API 잔여물 검사 (belle-gated).
+# ---------------------------------------------------------------------------
+def run_trial_batch(
+    manifest: dict,
+    scratch_dir: str,
+    *,
+    max_rows: int = 10,
+    bucket: str = "sunity-motion-pilot-videos",
+    joint_keys=DEFAULT_TASK_JOINTS,
+    coords_provider=None,
+    client=None,
+) -> dict:
+    """증류 시험 배치 — 최대 max_rows 행만 처리(teacher ≤ max_rows, judge ≤ max_rows).
+
+    행당 흐름: S3 다운로드 → distill_video(업로드→교사→즉시 삭제 finally) → judge →
+    evaluate_filters → 수락/폐기 집계. 429/RESOURCE_EXHAUSTED 발생 시 즉시 중단하고
+    aborted 사유를 반환한다(belle 승인 범위: 시험 배치 1회, DR-05).
+
+    RTMW 좌표는 coords_provider(row) 로 주입 — 미주입 시 빈 서브샘플([])로 video-only
+    호출(로컬 트라이얼은 Pod RTMW 추출 없음). 반환에 명시.
+
+    반환 dict: {stats, per_row, aborted, residue_before, residue_after, elapsed_s,
+    n_processed, coords_injected, accepted_samples}. S3 업로드/최종 산출은 하지 않는다.
+    """
+    client = client or _ensure_client()
+    os.makedirs(scratch_dir, exist_ok=True)
+    rows = selectable_rows(manifest)[: max(0, int(max_rows))]
+    stats = FilterStats()
+    per_row: list[dict] = []
+    accepted_samples: list[dict] = []
+    aborted = None
+    residue_before = list_file_residue(client)
+    coords_injected = coords_provider is not None
+    start = time.monotonic()
+
+    for row in rows:
+        s3_key = row["s3_key"]
+        local = os.path.join(scratch_dir, os.path.basename(s3_key))
+        vh = None
+        try:
+            _download_s3(bucket, s3_key, local)
+            try:
+                from sunity_shared.analysis.technique_cache import compute_video_hash
+
+                vh = compute_video_hash(local)
+            except Exception:  # noqa: BLE001 - hash 실패는 배치를 막지 않는다.
+                vh = None
+            coords_by_frame = coords_provider(row) if coords_provider else []
+            parsed = distill_video(client, local, coords_by_frame, joint_keys)
+            judge_score = 0
+            if parsed and parsed.get("report"):
+                judge_score = judge_report(client, parsed["report"])
+            accepted, reason = evaluate_filters(parsed, judge_score)
+        except Exception as exc:  # noqa: BLE001 - 429 중단 / 기타 오류 폐기 집계.
+            if _is_quota_error(exc):
+                aborted = f"quota_exhausted at {s3_key}: {str(exc)[:160]}"
+                per_row.append({"s3_key": s3_key, "result": "ABORT_429"})
+                break
+            stats.rejected_parse += 1
+            per_row.append({"s3_key": s3_key, "result": "error", "error": str(exc)[:160]})
+            continue
+        finally:
+            try:
+                os.remove(local)
+            except OSError:
+                pass
+
+        setattr(stats, reason, getattr(stats, reason) + 1)
+        per_row.append(
+            {"s3_key": s3_key, "motion": row.get("motion"), "judge": judge_score, "result": reason}
+        )
+        if accepted and parsed:
+            accepted_samples.append(
+                {"video_hash": vh, "s3_key": s3_key, "motion": row.get("motion"),
+                 "thought": parsed.get("thought"), "report": parsed.get("report")}
+            )
+
+    elapsed = time.monotonic() - start
+    residue_after = list_file_residue(client)
+    return {
+        "stats": stats.as_dict(),
+        "per_row": per_row,
+        "aborted": aborted,
+        "residue_before": residue_before,
+        "residue_after": residue_after,
+        "elapsed_s": round(elapsed, 2),
+        "n_processed": len([p for p in per_row if p.get("result") != "ABORT_429"]),
+        "coords_injected": coords_injected,
+        "accepted_samples": accepted_samples,
+    }
+
+
 if __name__ == "__main__":  # pragma: no cover - 실행은 Task 4(belle-gated Pod 세션).
     if not _greenlight_ready():
         raise SystemExit(

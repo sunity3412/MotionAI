@@ -60,7 +60,7 @@ class _FakeModels:
         self._text = text
 
     def generate_content(self, model, contents, config=None):
-        self.calls.append({"model": model, "config": config})
+        self.calls.append({"model": model, "contents": contents, "config": config})
         if self._raises:
             raise RuntimeError("generate boom")
 
@@ -135,6 +135,91 @@ def test_parse_judge_score_extracts_int():
     assert gt._parse_judge_score("점수: 9점") == 9
     assert gt._parse_judge_score("설명 없음") == 0
     assert gt._parse_judge_score("") == 0
+
+
+# ---------------------------------------------------------------------------
+# judge 루브릭 분기 (2026-07-10 3차 — 정타 3점 부당폐기 / 위양성 전부 10점 fix).
+# ---------------------------------------------------------------------------
+def _judge_prompt(client) -> str:
+    """judge fake 호출에서 프롬프트 텍스트 추출 (contents[0])."""
+    return client.models.calls[-1]["contents"][0]
+
+
+def test_judge_prompt_branch_with_faults():
+    """faults 있으면 — 결함 판정 타당성 + 억지 결함 감점 + 개수 고득점 금지 문장."""
+    client = _FakeClient(text="8")
+    report = {"faults": [{"body_part": "왼무릎", "fault_category": "limb_extension"}],
+              "coaching": "무릎을 펴세요"}
+    gt.judge_report(client, report)
+    prompt = _judge_prompt(client)
+    assert "결함 판정의 타당성" in prompt
+    assert "억지 결함" in prompt
+    assert "고득점을 주지 마세요" in prompt
+    # 빈 배열 분기 문장은 부재.
+    assert "감점하지 마세요" not in prompt
+
+
+def test_judge_prompt_branch_with_empty_faults():
+    """faults 빈 배열이면 — 결함 부재 감점 금지 + 코칭 구체성 기준 문장."""
+    client = _FakeClient(text="9")
+    report = {"faults": [], "coaching": "그립을 유지한 채 골반을 폴에 붙이세요"}
+    gt.judge_report(client, report)
+    prompt = _judge_prompt(client)
+    assert "감점하지 마세요" in prompt
+    assert "코칭 문장의 구체성" in prompt
+    # 결함 분기 문장은 부재.
+    assert "억지 결함" not in prompt
+
+
+def test_judge_prompt_scale_anchors_both_branches():
+    """스케일 앵커(8~10 / 4~7 / 0~3)가 양쪽 분기에 존재 — 전부 10/전부 3 붕괴 방지."""
+    for report in ({"faults": []},
+                   {"faults": [{"body_part": "왼무릎", "fault_category": "limb_extension"}]}):
+        client = _FakeClient(text="7")
+        gt.judge_report(client, report)
+        prompt = _judge_prompt(client)
+        for anchor in ("8~10", "4~7", "0~3"):
+            assert anchor in prompt, f"앵커 {anchor} 부재 (faults={report['faults']})"
+        assert "숫자 하나만 출력" in prompt
+
+
+def test_judge_prompt_motion_injection_and_graceful():
+    """motion 주입 시 동작명 + 기술 요건 문장 포함, None/빈값이면 생략(graceful)."""
+    report = {"faults": [{"body_part": "왼무릎", "fault_category": "limb_extension"}]}
+    client = _FakeClient(text="8")
+    gt.judge_report(client, report, motion="climb")
+    prompt = _judge_prompt(client)
+    assert "분석 대상 동작: climb" in prompt
+    assert "기술 요건" in prompt
+    for absent_motion in (None, ""):
+        client2 = _FakeClient(text="8")
+        gt.judge_report(client2, report, motion=absent_motion)
+        assert "분석 대상 동작" not in _judge_prompt(client2)
+
+
+def test_judge_uses_judge_model():
+    """judge 호출 모델 string = gemini-3.5-flash (회귀 없음)."""
+    client = _FakeClient(text="8")
+    gt.judge_report(client, {"faults": []})
+    assert client.models.calls[0]["model"] == "gemini-3.5-flash"
+
+
+def test_run_trial_batch_passes_row_motion_to_judge(tmp_path, monkeypatch):
+    """run_trial_batch 가 row.motion 을 judge 프롬프트에도 주입한다."""
+    client = _FakeClient(text='{"coaching": "골반을 폴에 붙이세요", "faults": []}')
+
+    def _fake_download(bucket, key, dest):
+        with open(dest, "wb") as fp:
+            fp.write(b"fake video bytes")
+
+    monkeypatch.setattr(gt, "_download_s3", _fake_download)
+    manifest = {"rows": [{"s3_key": "fixtures/phase15/climb/ok.mp4",
+                          "motion": "climb", "source": "internal", "holdout": None}]}
+    gt.run_trial_batch(manifest, str(tmp_path), max_rows=1, client=client)
+    # calls[0]=교사, calls[1]=judge.
+    judge_call = client.models.calls[1]
+    assert judge_call["model"] == "gemini-3.5-flash"
+    assert "분석 대상 동작: climb" in judge_call["contents"][0]
 
 
 # ---------------------------------------------------------------------------

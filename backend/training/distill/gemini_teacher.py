@@ -356,15 +356,49 @@ def _extract_json_object(text: str):
     return None
 
 
-def judge_report(client, report: dict, *, judge_model: str = JUDGE_MODEL) -> int:
+def judge_report(client, report: dict, *, judge_model: str = JUDGE_MODEL, motion=None) -> int:
     """LLM judge — 리포트를 0~10 블라인드 채점(gemini-3.5-flash). 파싱 실패 시 0.
 
     judge 점수는 필터 임계로만 쓰고 라벨에 저장하지 않는다(객관성 hard gate). 점수만
     숫자로 요구해 파싱 단순화.
+
+    루브릭 분기 fix (2026-07-10 3차): 시험 배치에서 두 방향 오채점 실증 —
+      · 정타 리포트(faults=[] + 구체 코칭 3문장, ref-climb)가 3점 → 부당 폐기.
+        구 루브릭이 "짚기·측정의 구체성"만 봐서 faults 빈 배열은 구조적 저점.
+      · 이전 배치는 위양성 결함 포함 전부 10점 — 결함/숫자가 많으면 고득점하는
+        휴리스틱으로 동작.
+    fix = (a) faults 유무로 채점 기준을 명시 분기 (b) motion 주입으로 결함 판정
+    타당성의 맥락 제공(교사 프롬프트 c5b14ef 와 동일 정신, None graceful)
+    (c) 스케일 앵커 문장으로 전부 10점/전부 3점 붕괴 방지.
     """
+    faults = (report or {}).get("faults")
+    motion_line = (
+        f"분석 대상 동작: {motion}. 결함 판정의 타당성은 이 동작의 기술 요건에 "
+        "비추어 평가하세요 — 이 동작에서 기술상 의도된 자세를 결함으로 짚었다면 "
+        "판정 오류로 감점 대상입니다.\n"
+        if motion
+        else ""  # motion 미상 graceful — 동작 문장 생략.
+    )
+    if faults:
+        rubric_line = (
+            "이 리포트는 결함(faults)을 짚었습니다. 채점 기준: 짚기·측정의 구체성·"
+            "일관성·물리적 타당성 + 해당 동작의 기술 요건에 비춘 결함 판정의 타당성. "
+            "억지 결함(동작상 정상 자세를 결함으로 짚음)이면 감점하세요. 결함 개수나 "
+            "숫자가 많다는 이유만으로 고득점을 주지 마세요.\n"
+        )
+    else:
+        rubric_line = (
+            "이 리포트는 결함(faults)이 빈 배열입니다 — 정타 판정. 결함이 없다는 것 "
+            "자체를 감점하지 마세요. 채점 기준: 코칭 문장의 구체성·기술 정합성·실행 "
+            "가능성.\n"
+        )
     prompt = (
-        "다음 폴스포츠 모션 분석 리포트의 품질을 0~10 정수로만 채점하세요. 짚기·측정의 "
-        "구체성·일관성·물리적 타당성을 봅니다. 숫자 하나만 출력:\n"
+        "다음 폴스포츠 모션 분석 리포트의 품질을 0~10 정수로만 채점하세요.\n"
+        f"{motion_line}"
+        f"{rubric_line}"
+        "채점 앵커: 구체적이고 타당하면 8~10, 모호하거나 일반론이면 4~7, 부정확하거나 "
+        "물리적으로 불가능한 서술이면 0~3.\n"
+        "숫자 하나만 출력:\n"
         + json.dumps(report, ensure_ascii=False, sort_keys=True)
     )
     resp = client.models.generate_content(
@@ -709,7 +743,10 @@ def run_trial_batch(
             )
             judge_score = 0
             if parsed and parsed.get("report"):
-                judge_score = judge_report(client, parsed["report"])
+                # motion 주입 — judge 도 결함 판정 타당성의 동작 맥락 확보(3차 fix).
+                judge_score = judge_report(
+                    client, parsed["report"], motion=row.get("motion")
+                )
             accepted, reason = evaluate_filters(parsed, judge_score)
         except Exception as exc:  # noqa: BLE001 - 429 중단 / 기타 오류 폐기 집계.
             if _is_quota_error(exc):

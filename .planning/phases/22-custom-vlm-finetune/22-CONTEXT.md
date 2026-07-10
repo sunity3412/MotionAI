@@ -113,5 +113,16 @@ Gemini 의존 시각 판정(결함 짚기·동작 인식·veto)을 **우리가 �
 
 ---
 
+## Addendum — 2026-07-10 belle: v2 생성 헤드 후보 확대 (D-03 관련, 원문 무변경)
+
+- belle 이 build.nvidia.com 에서 Cosmos3 세대(Nano/Super) 발견 → 검토 결과 **v1 분석엔진 bake-off 부적합**(`cosmos3_omni` 신규 아키텍처 = ms-swift 미지원, 디퓨전 타워 동반) → **v2 생성 엔진 후보로 등재** 확정 (사용 아님, 등재만).
+- 실측 사실:
+  - `nvidia/Cosmos3-Nano`: safetensors 34.9GB, cosmos3_omni(텍스트·이미지·비디오·오디오·액션 생성 옴니), gated 아님, license:other(NVIDIA), **A100 80GB 단일 탑재 가능** → v2 실전 배포형 후보.
+  - `nvidia/Cosmos3-Super`: safetensors 132.6GB → **A100 80GB 단일 로드 불가(멀티 GPU 필수)**. 품질 상한 참조용 / 양자화·프리미엄 배치 생성 검토 대상.
+- **결정 원칙**: v2 승부는 v2 설계 시점에 **InternVL-U(아키텍처 차용) vs Cosmos3-Nano (+Super 참조)** 병렬 후보로 장당 생성 원가·지연 실측 비교. 지금 확정 아님 — D-03 의 "InternVL-U 아키텍처 차용" 원문은 유지하되 후보군이 확대된 것.
+- 라이선스: NVIDIA Open Model License 계열 추정 — **v2 착수 시 재확인 필요** (LICENSE-AUDIT §2-1 플래그 참조).
+
+---
+
 *Phase: 22-자체 비전 모델 파인튜닝 (오픈 모델 전환)*
-*Context gathered: 2026-07-06*
+*Context gathered: 2026-07-06 (addendum 2026-07-10)*

@@ -29,6 +29,15 @@
 - 참고(NLM): InternVL 3.5는 내부 LLM 백본으로 Qwen3를 채택, Cosmos-Reason2 도 Qwen3-VL 계열 post-train — 세 후보 모두 Qwen 계열 언어지능.
 - **Cosmos 경로 주의**: build.nvidia.com **호스팅 API 는 Trial ToS 상 생성물의 프로덕션 사용 금지** → 우리는 **HF 가중치 셀프호스트 경로만 사용**(교사 라벨 생성에 호스팅 API 사용 금지).
 
+### 2-1. v2 후보 (미사용, 등재만 — belle 2026-07-10, 22-CONTEXT addendum)
+
+| 컴포넌트 | 역할 | 라이선스 | 비고 |
+|----------|------|----------|------|
+| Cosmos3-Nano (HF `nvidia/Cosmos3-Nano`, cosmos3_omni) | v2 생성 엔진 후보 (InternVL-U 와 병렬) | NVIDIA Open Model License 계열 추정 — **v2 착수 시 재확인 필요** | safetensors 34.9GB, gated 아님, A100 80GB 단일 탑재 가능 → 실전 배포형 후보 |
+| Cosmos3-Super (HF `nvidia/Cosmos3-Super`, cosmos3_omni) | v2 품질 상한 참조 / 양자화·프리미엄 배치 생성 검토 | 상동 — **v2 착수 시 재확인 필요** | safetensors 132.6GB → A100 80GB 단일 로드 불가(멀티 GPU 필수) |
+
+- **v1 분석엔진 bake-off 부적합**(cosmos3_omni 신규 아키텍처 = ms-swift 미지원, 디퓨전 타워 동반)이라 §2 본표(v1)와 분리 등재. 현재 미사용이므로 확정 라이선스 조사는 수행하지 않음 — v2 설계 시점에 InternVL-U vs Cosmos3-Nano(+Super 참조) 장당 생성 원가·지연 실측 비교와 함께 라이선스 확정.
+
 ## 3. 금지 목록 (상업 출시 fence)
 
 - **LLaVA 계열** — 상업 이용 불가. 사용 금지.

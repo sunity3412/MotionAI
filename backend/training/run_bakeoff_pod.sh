@@ -20,6 +20,9 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 BACKEND="$(cd "$HERE/.." && pwd)"
 
 VENV="${TRAIN_VENV:-/workspace/train_venv}"
+# vLLM EngineCore 는 ninja 등 빌드 도구를 subprocess PATH 로 찾는다 — venv 미활성
+# 직접 호출이므로 PATH 선주입 필수 (2026-07-11 ninja FileNotFoundError 2회 실증).
+export PATH="$VENV/bin:$PATH"
 LOGDIR="${BAKEOFF_LOGDIR:-/workspace/bakeoff_logs}"
 PORT=8000
 

@@ -94,9 +94,25 @@ wait_gpu_free() {
   done
 }
 
+# HF 토큰 주입 — Cosmos-Reason2 는 gated repo 라 vLLM 의 허브 파일 조회가 무인증이면
+# 401 GatedRepoError 로 즉사한다 (2026-07-11 실증). 값 echo 금지 (T-22-18).
+HF_TOKEN="$(python3 - <<'PYEOF'
+import boto3
+print(boto3.client("ssm", region_name="ap-northeast-2").get_parameter(
+    Name="/sunity/motion/hf-token", WithDecryption=True)["Parameter"]["Value"])
+PYEOF
+)"
+export HF_TOKEN HUGGING_FACE_HUB_TOKEN="$HF_TOKEN"
+echo "HF_TOKEN len: ${#HF_TOKEN}"
+
 echo "[3/3] bake-off SERIAL (모델당 run1+judge → run2/run3 cold re-run)"
 for MODEL in "${MODELS[@]}"; do
   SLUG="${MODEL//\//_}"
+  # 재개(resume): run3 리포트가 이미 있으면 완주한 모델 — 재계측·재과금 금지.
+  if [ -f "$EVAL_OUT_DIR/phase22/bakeoff_${MODEL//\//_}_run3.json" ]; then
+    echo "── $MODEL skip(완주 리포트 존재)"
+    continue
+  fi
   echo "── $MODEL"
   EXTRA_ARGS=()
   case "$MODEL" in

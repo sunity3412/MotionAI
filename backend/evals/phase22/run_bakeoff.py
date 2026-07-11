@@ -692,6 +692,11 @@ def run_synth_item(item: dict, caller, base_arr, base_frames, profile, shots: st
         rec["grounding"] = score_grounding(pred, res.original[..., :2])
     else:
         rec["grounding"] = float("nan")
+    # 무보정 기준선 = 교란좌표 vs 원좌표 L2. 22-07 check_synthetic_holdout 이
+    # "보정이 무보정 대비 개선" 상대 게이트를 이 필드로 계산한다(절대 임계 밴드 금지).
+    rec["grounding_uncorrected"] = score_grounding(
+        res.perturbed[..., :2], res.original[..., :2]
+    )
     return rec
 
 

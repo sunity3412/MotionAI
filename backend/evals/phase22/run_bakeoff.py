@@ -344,18 +344,21 @@ def _make_vllm_caller(base_url: str, model_id: str):
     client = OpenAI(
         base_url=base_url,
         api_key=os.environ.get("BAKEOFF_VLLM_KEY", "EMPTY"),
-        timeout=900.0,
+        timeout=1800.0,  # 상한 제거 후 최장 생성(잔여 컨텍스트 전부) 대비.
         max_retries=1,
     )
     guided = build_guided_json_schema()
 
     def _call(messages, response_format=None) -> str:
+        # max_tokens 미지정 — vLLM 이 (max_model_len - prompt) 로 자동 상한. 고정
+        # 2048 은 전 프레임 corrected_coords JSON 을 중간 절단해 grounding/json/
+        # coaching 3축을 하네스가 죽이는 계측 결함이었다 (2026-07-11 run5 실증:
+        # unparsed 전 레코드가 좌표 배열 한복판 ~3.6K자에서 절단).
         resp = client.chat.completions.create(
             model=model_id,
             messages=messages,
             temperature=0.0,   # 결정성(cold re-run 2회 비교).
             top_p=1.0,
-            max_tokens=2048,
             response_format=response_format or guided,
         )
         return resp.choices[0].message.content or ""

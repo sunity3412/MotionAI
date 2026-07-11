@@ -16,6 +16,11 @@
 #   bake-off 실측: 64프레임x448 입력만 ~28~33K tok — assistant 타겟(리포트 JSON)까지
 #   합치면 max_length 32768 초과. 32프레임이면 비주얼 ~8K tok 로 여유 확보.
 #
+# packing=false (RESEARCH 초기값에서 이탈, 2026-07-12 실측 근거): ms-swift 4.4 packing 은
+#   flash-attn 필수인데 학습 Pod 에 미설치(T-22-SC 신규 pip 0 원칙). 샘플이 개당
+#   ~20~30K tok 로 max_length 근접이라 32K 창에 1개만 들어가 packing 이득이 사실상 0 —
+#   설치 비용/리스크 대비 실익 없음.
+#
 # Pod 실행 (nohup 무인):
 #   cd /workspace/SunityMotion/backend
 #   nohup bash training/sft/run_sft.sh > /workspace/sft_run1.log 2>&1 &
@@ -101,7 +106,7 @@ echo "[2/3] swift sft (QLoRA rank64 4-bit, all-linear, packing, 32K)"
   --target_modules all-linear \
   --quant_method bnb --quant_bits 4 --torch_dtype bfloat16 \
   --gradient_checkpointing true --optim paged_adamw_8bit \
-  --packing true --max_length 32768 \
+  --packing false --max_length 32768 \
   --per_device_train_batch_size 1 --gradient_accumulation_steps 16 \
   --learning_rate 1e-5 --vit_lr 2e-6 --aligner_lr 1e-5 \
   --freeze_aligner false \

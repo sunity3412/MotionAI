@@ -29,7 +29,9 @@ EVAL_OUT_DIR repo-밖 강제 / SERIAL / _meta provenance / cold re-run / ALLDONE
     # 후보 모델을 한 번에 하나 serve (예: Qwen):
     #   python3 -m vllm.entrypoints.openai.api_server \
     #       --model $CANDIDATE_MODEL --port 8000 --dtype bfloat16 \
-    #       --limit-mm-per-prompt image=64
+    #       --limit-mm-per-prompt '{"image": 64}'
+    # (vllm 0.24 실측: --limit-mm-per-prompt 는 JSON dict 형식 — 구식 key=value
+    #  는 제거됨. video 키 불필요 — 요청은 image 파트만 사용.)
     source /workspace/aws_env.sh && \
     export EVAL_OUT_DIR=/workspace/sunity_eval_out \
            BAKEOFF_VLLM_URL=http://127.0.0.1:8000/v1 \

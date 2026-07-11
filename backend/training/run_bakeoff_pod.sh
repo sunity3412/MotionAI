@@ -102,7 +102,7 @@ for MODEL in "${MODELS[@]}"; do
 
   nohup "$VENV/bin/python" -m vllm.entrypoints.openai.api_server \
     --model "$MODEL" --host 127.0.0.1 --port "$PORT" \
-    --dtype bfloat16 --limit-mm-per-prompt image=64 \
+    --dtype bfloat16 --limit-mm-per-prompt '{"image": 64}' \
     --max-model-len 32768 --gpu-memory-utilization 0.90 \
     "${EXTRA_ARGS[@]}" > "$LOGDIR/vllm_${SLUG}.log" 2>&1 &
   VLLM_PID=$!

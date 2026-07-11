@@ -38,6 +38,9 @@ OUT=/workspace/phase22_sft_out
 S3_JSONL=s3://sunity-motion-pilot-videos/training/phase22/jsonl
 
 export HF_HOME="${HF_HOME:-/workspace/hf_cache}"
+# ms-swift 기본 허브 = ModelScope — HF 캐시(bake-off 가 받아둔 가중치)를 재사용하려면
+# USE_HF=1 필수 (미설정 시 같은 모델 17GB 를 ModelScope 에서 재다운로드, 2026-07-12 실증).
+export USE_HF=1
 export FPS_MAX_FRAMES="${FPS_MAX_FRAMES:-32}"
 export VIDEO_MAX_PIXELS="${VIDEO_MAX_PIXELS:-200704}"
 

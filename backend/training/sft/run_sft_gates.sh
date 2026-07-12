@@ -32,10 +32,18 @@ export BAKEOFF_VLLM_URL="http://127.0.0.1:${PORT}/v1"
 # shellcheck disable=SC1091
 [ -f /workspace/aws_env.sh ] && source /workspace/aws_env.sh
 
-echo "[1/3] vLLM serve (AWQ)"
+# 양자화 플래그 자동 판별 — config.json 에 quantization_config 가 있으면 AWQ 서빙,
+# 없으면(병합 bf16) 무플래그. autoawq 가 qwen3_vl 미지원이라 게이트는 bf16 병합본으로도
+# 돈다 (2026-07-12 — AWQ 는 llm-compressor 경로로 별도 재시도).
+QUANT_ARGS=(--dtype bfloat16)
+if grep -q '"quantization_config"' "$AWQ/config.json" 2>/dev/null; then
+  QUANT_ARGS=(--quantization awq --dtype float16)
+fi
+
+echo "[1/3] vLLM serve (${QUANT_ARGS[*]})"
 nohup "$VENV/bin/python" -m vllm.entrypoints.openai.api_server \
   --model "$AWQ" --host 127.0.0.1 --port "$PORT" \
-  --quantization awq --dtype float16 \
+  "${QUANT_ARGS[@]}" \
   --max-model-len 32768 --gpu-memory-utilization 0.90 \
   --limit-mm-per-prompt '{"image": 64}' > /workspace/sft_gates_vllm.log 2>&1 &
 VLLM_PID=$!

@@ -266,3 +266,15 @@ def test_make_perturb_loader_contract(tmp_path):
     assert loaded["coords"].shape[1] == len(DEFAULT_TASK_JOINTS)
     assert loaded["width"] == 1.0 and loaded["height"] == 1.0
     assert loader({"s3_key": "fixtures/phase22/miss.mp4"}) is None
+
+
+def test_make_perturb_loader_slug_fallback(tmp_path):
+    """video_hash 주입 후에도 슬러그 키 캐시를 폴백으로 hit (조립 18행 사건 방지)."""
+    from distill.full_batch import make_perturb_loader
+
+    rows = pc.frames_to_coords_rows(_dense_task(8), DEFAULT_TASK_JOINTS)
+    row_no_hash = {"s3_key": "fixtures/phase22/c/d.mp4"}
+    pc.save_coords(str(tmp_path), pc.coords_cache_key(row_no_hash), rows)
+    loader = make_perturb_loader(str(tmp_path))
+    row_with_hash = {"s3_key": "fixtures/phase22/c/d.mp4", "video_hash": "deadbeef"}
+    assert loader(row_with_hash) is not None

@@ -330,6 +330,12 @@ def make_perturb_loader(cache_dir):
     def loader(row):
         rows = pod_coords.load_cached_coords(cache_dir, pod_coords.coords_cache_key(row))
         if not rows:
+            # 캐시는 배치 시점(video_hash 부재)의 s3 슬러그 키로 적재됐다 —
+            # manifest_with_hashes 가 hash 를 주입한 뒤에는 슬러그로 폴백해야 hit.
+            rows = pod_coords.load_cached_coords(
+                cache_dir, pod_coords.coords_cache_key({"s3_key": (row or {}).get("s3_key")})
+            )
+        if not rows:
             return None
         arr = pod_coords.rows_to_task_array(rows)
         if arr.shape[0] == 0:

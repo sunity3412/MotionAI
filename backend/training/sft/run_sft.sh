@@ -98,25 +98,48 @@ def normalize(src: Path, key: str) -> Path:
     return dst
 
 def localize(name: str) -> None:
+    """s3 URI 로컬라이즈 + ms-swift 표준 형식 변환.
+
+    원본 JSONL 은 content 타입이 행/롤마다 다르다(system=str, user=list[dict],
+    assistant=dict) — HF datasets(Arrow) 라운드트립이 스키마를 뒤틀어 swift
+    template.encode 가 TypeError 로 죽는다(2026-07-12 실증, step 0 사망 2회).
+    변환 규칙 (homogeneous 스키마 = 전 content 문자열):
+      · video part → "<video>" 태그 + top-level videos 리스트 (swift 표준)
+      · assistant dict(리포트 객체) → json.dumps sort_keys (철칙 2 키 정렬 —
+        모델이 배워야 할 출력 = 직렬화된 리포트 텍스트)
+      · _track 등 사이드카 키 제거 (Arrow 스키마 최소화)
+    """
     rows, n_media = [], 0
     for line in (data_dir / name).read_text(encoding="utf-8").splitlines():
         row = json.loads(line)
+        msgs, videos = [], []
         for msg in row.get("messages") or []:
             content = msg.get("content")
-            if not isinstance(content, list):
-                continue
-            for part in content:
-                uri = part.get("video") if isinstance(part, dict) else None
-                if not (isinstance(uri, str) and uri.startswith(uri_prefix)):
-                    continue
-                key = uri[len(uri_prefix):]
-                local = vid_root / key
-                if not local.exists():
-                    local.parent.mkdir(parents=True, exist_ok=True)
-                    s3.download_file(bucket, key, str(local))
-                part["video"] = str(normalize(local, key))
-                n_media += 1
-        rows.append(row)
+            if isinstance(content, list):
+                texts = []
+                for part in content:
+                    if not isinstance(part, dict):
+                        continue
+                    uri = part.get("video")
+                    if isinstance(uri, str) and uri.startswith(uri_prefix):
+                        key = uri[len(uri_prefix):]
+                        local = vid_root / key
+                        if not local.exists():
+                            local.parent.mkdir(parents=True, exist_ok=True)
+                            s3.download_file(bucket, key, str(local))
+                        videos.append(str(normalize(local, key)))
+                        texts.append("<video>")
+                        n_media += 1
+                    elif part.get("type") == "text":
+                        texts.append(str(part.get("text") or ""))
+                content = "\n".join(texts)
+            elif isinstance(content, dict):
+                content = json.dumps(content, ensure_ascii=False, sort_keys=True)
+            msgs.append({"role": msg.get("role"), "content": content})
+        out_row = {"messages": msgs}
+        if videos:
+            out_row["videos"] = videos
+        rows.append(out_row)
     out = data_dir / name.replace(".jsonl", "_local.jsonl")
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
     print(f"  localize {name}: rows={len(rows)} media_refs={n_media} -> {out.name}")

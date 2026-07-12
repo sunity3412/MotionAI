@@ -43,6 +43,10 @@ export HF_HOME="${HF_HOME:-/workspace/hf_cache}"
 export USE_HF=1
 export FPS_MAX_FRAMES="${FPS_MAX_FRAMES:-32}"
 export VIDEO_MAX_PIXELS="${VIDEO_MAX_PIXELS:-200704}"
+# 영상 디코드 백엔드 = decord 강제 (2026-07-12 실증: 신형 torchvision 은 read_video
+# API 제거 → qwen_vl_utils 기본 백엔드가 전 영상 행 인코딩 실패). decord 도 일부
+# 코덱에서 EAGAIN 으로 죽어 로컬라이즈가 전 영상을 h264 로 균일 재인코딩한다(아래).
+export FORCE_QWENVL_VIDEO_READER=decord
 
 # AWS 자격 (S3 다운로드). 값 echo 금지.
 # shellcheck disable=SC1091
@@ -51,10 +55,12 @@ export VIDEO_MAX_PIXELS="${VIDEO_MAX_PIXELS:-200704}"
 mkdir -p "$DATA" "$DATA/videos" "$OUT"
 
 echo "[1/3] 학습셋 동기화 + 로컬라이즈 (원본 불변, *_local.jsonl 생성)"
-python3 - "$DATA" <<'PYEOF'
-import json, sys
+# train_venv python 사용 — imageio_ffmpeg(ffmpeg 바이너리 공급)가 이 venv 에 있음.
+"$VENV/bin/python3" - "$DATA" <<'PYEOF'
+import json, subprocess, sys
 from pathlib import Path
 import boto3
+import imageio_ffmpeg
 
 data_dir = Path(sys.argv[1])
 bucket = "sunity-motion-pilot-videos"
@@ -69,7 +75,27 @@ meta = json.loads((data_dir / "_meta.json").read_text())
 assert meta["validation_owner"] == "explicit_val_jsonl", meta["validation_owner"]
 
 vid_root = data_dir / "videos"
+norm_root = data_dir / "videos_norm"
 uri_prefix = f"s3://{bucket}/"
+ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+
+def normalize(src: Path, key: str) -> Path:
+    """전 영상 h264/yuv420p 균일 재인코딩 (멱등 — 결과물 존재 시 skip).
+
+    decord 가 일부 수집 영상 코덱에서 EAGAIN 으로 죽는다(2026-07-12 진단: 85행 중
+    21행). 백엔드별 예외를 쫓는 대신 입력을 균일화한다. 오디오 제거(-an) —
+    학습 입력은 프레임뿐."""
+    dst = (norm_root / key).with_suffix(".mp4")
+    if dst.exists():
+        return dst
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [ffmpeg, "-y", "-loglevel", "error", "-i", str(src),
+         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+         "-an", str(dst)],
+        check=True,
+    )
+    return dst
 
 def localize(name: str) -> None:
     rows, n_media = [], 0
@@ -88,7 +114,7 @@ def localize(name: str) -> None:
                 if not local.exists():
                     local.parent.mkdir(parents=True, exist_ok=True)
                     s3.download_file(bucket, key, str(local))
-                part["video"] = str(local)
+                part["video"] = str(normalize(local, key))
                 n_media += 1
         rows.append(row)
     out = data_dir / name.replace(".jsonl", "_local.jsonl")

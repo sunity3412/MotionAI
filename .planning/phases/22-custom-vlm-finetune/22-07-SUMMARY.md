@@ -1,4 +1,27 @@
-# 22-07 SUMMARY — SFT v1 학습 + D-15 게이트 판정
+# 22-07 SUMMARY — SFT v1/v2 학습 + D-15 게이트 판정
+
+## v2 재학습 (처방 A — belle 승인 2026-07-12, perturb 주입)
+
+- 학습셋 v2 = perturb 95 + distill 87 + text 28 = 210행 (S3 canonical 갱신, v1 은
+  jsonl_v1_distill_only/ 백업). 배선 커밋: 7b34038(loader)+cee2f0e(슬러그 폴백)+
+  dc18cfa(**균등 게이트 트랙별 독립** — 합산 균형이 distill 85→38 잠식 실증 fix).
+- 학습: 52 steps 3h22m, **train 0.3338 / val 0.1754** (v1 0.9423/0.3778 대비 대폭 개선).
+  best = v5-20260712-075922/checkpoint-52 (+-merged bf16).
+- **v2 게이트 = 여전히 FAIL** (base/require-pass exit 1):
+  · eval18 짚기 / svg = FAIL 유지 — 예상대로 (처방 B·교사 프롬프트 보강 없이는 불가).
+  · few-shot 결함 스팸 76항목 → 4항목으로 급감 (형식 규율 개선).
+  · synthetic_holdout FAIL 유지 (0.0422 vs 0.0407, n=10). stage 분해:
+    stage1 0.0005/0.0003, stage2 0.0041/0.0000, stage3 0.1347/0.1354(동률).
+- **게이트 설계 결함 발견 (v1.1 fix 대상)**: holdout 비교가 비대칭 마스크 —
+  무보정 기준선은 가림(NaN) 관절을 계측 제외하는데 보정본은 모델 복원값 포함.
+  공통 가시 마스크 비교 + 가림 복원 L2 별도 관측치로 분리해야 공정. 단, stage3
+  동률이라 fix 후에도 판정이 뒤집히진 않음 — 변위 보정 능력 자체가 아직 약함.
+- v2 처방 후보: perturb 트랙 강도 분포 재조정(변위 위주 stage 비중↑) + 학습
+  좌표-전용 샘플(영상 없는 synth 형식 — 게이트 입력과 양식 일치) 추가.
+
+---
+
+# (v1 기록 — 아래 원문 보존)
 
 > **판정: 게이트 FAIL (기본 exit 1 / --require-pass exit 1) — Wave 5(22-08 서빙) 진입 불가 (DR-03).**
 > FAIL 근본원인 = 하이퍼파라미터가 아니라 **학습 데이터 공백 3종** (아래) — 전부 22-04

@@ -35,6 +35,7 @@ S3_DST="s3://sunity-motion-pilot-videos/training/phase22/checkpoints/$RUN_ID/awq
 PORT=8001
 
 export HF_HOME="${HF_HOME:-/workspace/hf_cache}"
+export USE_HF=1  # 병합 시 베이스 모델을 HF 캐시에서 — ModelScope 재다운로드 금지 (run_sft 실증).
 # shellcheck disable=SC1091
 [ -f /workspace/aws_env.sh ] && source /workspace/aws_env.sh
 

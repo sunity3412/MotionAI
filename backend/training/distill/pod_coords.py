@@ -99,6 +99,25 @@ def frames_to_coords_rows(
     return _coords_to_frames(arr, list(joint_keys), idxs, _NORM_W, _NORM_H)
 
 
+def rows_to_task_array(rows, joint_keys=DEFAULT_TASK_JOINTS) -> np.ndarray:
+    """캐시 좌표 행(이산화 000~999) → (T, J, 3) 정규화 [0,1] 배열 (역변환).
+
+    frames_to_coords_rows 의 역방향 — 캐시 표현의 단일 owner 로서 여기 둔다. 이산화
+    그리드 오차 ~0.1% 는 perturb 노이즈 스케일 대비 무시 가능(22-07 처방 A 실측 전제).
+    결측 관절(None) → NaN 유지 (D-11 철칙 1)."""
+    keys = list(joint_keys)
+    rows = list(rows or [])
+    arr = np.full((len(rows), len(keys), 3), np.nan, dtype=float)
+    for i, r in enumerate(rows):
+        for j, name in enumerate(keys):
+            v = (r or {}).get(name)
+            if isinstance(v, (list, tuple)) and len(v) >= 2 and v[0] is not None and v[1] is not None:
+                arr[i, j, 0] = float(v[0]) / 999.0
+                arr[i, j, 1] = float(v[1]) / 999.0
+                arr[i, j, 2] = float(v[2]) if len(v) > 2 and v[2] is not None else 1.0
+    return arr
+
+
 def coords_health(rows, joint_keys=DEFAULT_TASK_JOINTS) -> dict:
     """좌표 행 집합의 관절 채움/Null 비율 — Task 3 검증 보고 (b) 항목.
 

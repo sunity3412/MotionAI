@@ -234,3 +234,35 @@ def test_provider_uses_cache(tmp_path):
 def test_provider_cache_miss_no_scratch_returns_empty(tmp_path):
     provider = pc.make_coords_provider(str(tmp_path))
     assert provider({"s3_key": "reference/never.mp4"}) == []
+
+
+def test_rows_to_task_array_inverts_discretize(tmp_path):
+    """frames_to_coords_rows → rows_to_task_array 왕복 — 그리드 오차 ≤ 1/999."""
+    import numpy as np
+
+    task = _dense_task(6)
+    rows = pc.frames_to_coords_rows(task, DEFAULT_TASK_JOINTS)
+    arr = pc.rows_to_task_array(rows, DEFAULT_TASK_JOINTS)
+    assert arr.shape == (len(rows), len(DEFAULT_TASK_JOINTS), 3)
+    # 서브샘플된 원좌표와 비교 — x/y 는 그리드 오차 내, NaN 마스크 보존.
+    from datagen import schema
+
+    idxs = schema.select_frame_indices(task.shape[0], pc.DEFAULT_FRAME_BUDGET)
+    sub = np.asarray(task, dtype=float)[idxs]
+    both = ~(np.isnan(sub[..., 0]) | np.isnan(arr[..., 0]))
+    assert np.all(np.abs(sub[..., :2][both] - arr[..., :2][both]) <= (1.0 / 999.0) + 1e-9)
+
+
+def test_make_perturb_loader_contract(tmp_path):
+    """full_batch.make_perturb_loader — 캐시 hit → build_jsonl 계약 dict, miss → None."""
+    from distill.full_batch import make_perturb_loader
+
+    rows = pc.frames_to_coords_rows(_dense_task(8), DEFAULT_TASK_JOINTS)
+    row = {"s3_key": "fixtures/phase22/a/b.mp4"}
+    pc.save_coords(str(tmp_path), pc.coords_cache_key(row), rows)
+    loader = make_perturb_loader(str(tmp_path))
+    loaded = loader(row)
+    assert loaded is not None
+    assert loaded["coords"].shape[1] == len(DEFAULT_TASK_JOINTS)
+    assert loaded["width"] == 1.0 and loaded["height"] == 1.0
+    assert loader({"s3_key": "fixtures/phase22/miss.mp4"}) is None

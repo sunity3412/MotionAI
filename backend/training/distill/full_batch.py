@@ -319,6 +319,31 @@ def manifest_with_hashes(manifest: dict, accepted_dir) -> dict:
     return m
 
 
+def make_perturb_loader(cache_dir):
+    """RTMW 좌표 캐시 → build_jsonl perturb_loader 계약 (D-10a, GPU·과금 0).
+
+    22-07 게이트 FAIL 처방 A(belle 2026-07-12): v1 학습셋은 perturb 트랙 0행이라
+    좌표 보정 감독이 없었다 — 캐시 좌표(pod_coords, 22-04 배치가 적재)를 역변환해
+    perturb 트랙을 주입한다. 캐시 miss 행은 None(트랙에서 자연 제외)."""
+    from distill import pod_coords  # lazy — numpy 외 의존 없음(캐시 파일 I/O).
+
+    def loader(row):
+        rows = pod_coords.load_cached_coords(cache_dir, pod_coords.coords_cache_key(row))
+        if not rows:
+            return None
+        arr = pod_coords.rows_to_task_array(rows)
+        if arr.shape[0] == 0:
+            return None
+        return {
+            "coords": arr,
+            "joint_keys": list(pod_coords.DEFAULT_TASK_JOINTS),
+            "width": 1.0,   # 캐시 좌표는 정규화 [0,1] — discretize 계약 (pod_coords).
+            "height": 1.0,
+        }
+
+    return loader
+
+
 def make_s3_uploader(bucket: str = _DEFAULT_BUCKET):
     """S3 업로더 factory — assemble_jsonl(uploader=...) 주입용. 기본 경로는 미사용(gated)."""
     import boto3  # lazy
@@ -390,6 +415,8 @@ if __name__ == "__main__":  # pragma: no cover - 실 실행은 메인 세션(Pod
     ap.add_argument("--max-rows", type=int, default=None)
     ap.add_argument("--assemble", action="store_true",
                     help="배치 대신 accepted → train/val JSONL 조립(과금 0)")
+    ap.add_argument("--with-perturb", action="store_true",
+                    help="--assemble 시 perturb 트랙 주입(좌표 캐시 필요 — 22-07 처방 A)")
     ap.add_argument("--upload", action="store_true",
                     help="--assemble 시 S3 업로드(gated — greenlight 필수)")
     ap.add_argument("--validation-owner", default="explicit_val_jsonl",
@@ -410,6 +437,7 @@ if __name__ == "__main__":  # pragma: no cover - 실 실행은 메인 세션(Pod
             os.path.join(args.out_dir, "jsonl"),
             validation_owner=args.validation_owner,
             partial=args.partial,
+            perturb_loader=make_perturb_loader(args.cache_dir) if args.with_perturb else None,
             uploader=make_s3_uploader(args.bucket) if args.upload else None,
         )
         print(json.dumps(

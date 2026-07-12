@@ -28,7 +28,9 @@ CKPT="${1:?adapter checkpoint dir 필수}"
 RUN_ID="${2:?run_id 필수 (예: sft-run1)}"
 VENV="${TRAIN_VENV:-/workspace/train_venv}"
 EXPORT_ROOT=/workspace/phase22_export/"$RUN_ID"
-MERGED="$EXPORT_ROOT/merged_bf16"
+# swift export --merge_lora 는 --output_dir 를 무시하고 <ckpt>-merged 에 저장한다
+# (2026-07-12 실증) — swift 규약 경로를 그대로 소비한다.
+MERGED="${CKPT%/}-merged"
 AWQ_OUT="$EXPORT_ROOT/awq"
 CALIB_JSONL="${CALIB_JSONL:-/workspace/phase22_sft/train_local.jsonl}"
 S3_DST="s3://sunity-motion-pilot-videos/training/phase22/checkpoints/$RUN_ID/awq/"
@@ -42,10 +44,12 @@ export USE_HF=1  # 병합 시 베이스 모델을 HF 캐시에서 — ModelScope
 mkdir -p "$EXPORT_ROOT"
 
 echo "[1/4] 16-bit 병합 (merge_lora true — 4-bit 직접 병합 경로 없음)"
-"$VENV/bin/swift" export \
-  --adapters "$CKPT" \
-  --merge_lora true \
-  --output_dir "$MERGED"
+if [ -d "$MERGED" ]; then
+  echo "  skip — 병합본 존재: $MERGED (멱등 재개)"
+else
+  "$VENV/bin/swift" export --adapters "$CKPT" --merge_lora true
+fi
+[ -d "$MERGED" ] || { echo "[중단] 병합본 없음: $MERGED" >&2; exit 19; }
 
 echo "[2/4] AWQ 4-bit 재양자화 (폴백: awq→gptq→llm-compressor 수동)"
 quant() {

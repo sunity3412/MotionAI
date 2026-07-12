@@ -497,8 +497,14 @@ def build_dataset(
         manifest, shadow_loader
     )
 
-    media = _balance_media(perturb_samples + distill_samples
-                           + [s for s in shadow_samples if sample_has_video(s)])
+    # 균등 게이트는 **트랙별 독립** 적용 — 합산 적용 시 트랙 간 자리 경쟁이 생겨
+    # 앞 트랙이 뒤 트랙을 잠식한다 (22-07A 실증: perturb 주입이 distill 85→38).
+    # 각 트랙은 자체적으로 동작 균등(max<=2*min)을 만족하고, 트랙 혼합비는 별개 축.
+    media = (
+        _balance_media(perturb_samples)
+        + _balance_media(distill_samples)
+        + _balance_media([s for s in shadow_samples if sample_has_video(s)])
+    )
     shadow_text = [s for s in shadow_samples if not sample_has_video(s)]
     text_samples = _build_text_samples(len(media), mix_ratios)
 

@@ -99,6 +99,63 @@ def blur_bbox_regions(
     return out
 
 
+# RTMW-133 (COCO-WholeBody) 머리 키포인트 인덱스 — 몸통 머리(코·눈·귀 0~4) + 얼굴
+# 68 랜드마크(23~90). 폴 영상은 얼굴이 화면 어디든(역자세 시 하단) 오므로 일반 얼굴
+# 검출기는 프레임의 ~40%만 잡는다(2026-07-13 실측). RTMW 는 사람만 검출되면(yolox,
+# 큰 폴 선수 = 사실상 100%) 얼굴 랜드마크를 전부 회귀하므로 recall 이 훨씬 높다.
+_WHOLEBODY_HEAD_IDX: tuple[int, ...] = (0, 1, 2, 3, 4) + tuple(range(23, 91))
+
+# 머리 bbox 신뢰 임계 + 패딩 비율(머리 크기 대비). 머리카락/이마 커버를 위해 상단은
+# 추가 패딩. 얼굴 식별 불가가 목표이므로 관대하게 — 단, 몸통 포즈 학습 신호는 보존.
+_HEAD_KP_CONF = 0.3
+_HEAD_PAD_RATIO = 0.6
+# 머리 크기 하한(프레임 높이 대비) — 코·눈만 잡혀 bbox 가 작아도 최소 커버 보장.
+_HEAD_MIN_SPAN_FRAC = 0.06
+
+
+def head_bbox_from_wholebody(
+    kps: np.ndarray,
+    scores: np.ndarray,
+    width: int,
+    height: int,
+    *,
+    conf: float = _HEAD_KP_CONF,
+    pad_ratio: float = _HEAD_PAD_RATIO,
+) -> tuple[int, int, int, int] | None:
+    """RTMW-133 키포인트 → 머리 blur bbox (x0,y0,x1,y1) 또는 None. 순수(numpy만).
+
+    머리 키포인트(_WHOLEBODY_HEAD_IDX) 중 score>=conf 인 점들의 최소 포함 사각형에
+    관대한 패딩(상단은 머리카락/이마 커버 위해 추가)을 적용해 클립한다. 유효점 2개
+    미만이면 None(호출자가 폴백). 몸통/사지는 블러하지 않아 포즈 학습 신호를 보존한다.
+    """
+    n = min(len(kps), len(scores))
+    xs: list[float] = []
+    ys: list[float] = []
+    for i in _WHOLEBODY_HEAD_IDX:
+        if i >= n or float(scores[i]) < conf:
+            continue
+        xs.append(float(kps[i][0]))
+        ys.append(float(kps[i][1]))
+    if len(xs) < 2:
+        return None
+    x0, x1 = min(xs), max(xs)
+    y0, y1 = min(ys), max(ys)
+    # 머리 크기 = span 최대값(작은 bbox 방어를 위해 프레임 대비 하한 적용).
+    span = max(x1 - x0, y1 - y0, _HEAD_MIN_SPAN_FRAC * float(height))
+    pad = span * pad_ratio
+    bx0 = int(round(x0 - pad))
+    bx1 = int(round(x1 + pad))
+    by0 = int(round(y0 - pad - span * 0.5))  # 상단 추가 패딩(머리카락/이마).
+    by1 = int(round(y1 + pad))
+    bx0 = max(0, min(bx0, width))
+    bx1 = max(0, min(bx1, width))
+    by0 = max(0, min(by0, height))
+    by1 = max(0, min(by1, height))
+    if bx1 <= bx0 or by1 <= by0:
+        return None
+    return (bx0, by0, bx1, by1)
+
+
 # ---------------------------------------------------------------------------
 # I/O 껍데기 (Task 3/22-04 실행 경로 — lazy-import, 테스트 무영향).
 # ---------------------------------------------------------------------------
@@ -116,40 +173,98 @@ def _load_face_detector(weights: str | None = None):
     return YOLO(path)
 
 
-def detect_face_bboxes(detector, frame: np.ndarray) -> list[tuple[int, int, int, int]]:
-    """단일 프레임 → 얼굴 bbox 리스트. 검출 0 → 상단 1/3 폴백 1개."""
+def _detect_faces_no_fallback(detector, frame: np.ndarray) -> list[tuple[int, int, int, int]]:
+    """단일 프레임 → 얼굴 bbox 리스트(폴백 없음). 검출 0 이면 빈 리스트."""
     try:
         results = detector(frame, verbose=False)
-        bboxes: list[tuple[int, int, int, int]] = []
-        for r in results:
-            boxes = getattr(r, "boxes", None)
-            if boxes is None:
-                continue
-            for xyxy in boxes.xyxy.tolist():
-                x0, y0, x1, y1 = (int(round(v)) for v in xyxy[:4])
-                bboxes.append((x0, y0, x1, y1))
-        if bboxes:
-            return bboxes
-    except Exception:  # noqa: BLE001 — 검출 실패는 보수적 폴백으로.
-        log.exception("얼굴 검출 실패 — 상단 1/3 폴백")
+    except Exception:  # noqa: BLE001 — 검출 실패는 빈 리스트(호출자가 폴백 결정).
+        log.exception("얼굴 검출 실패")
+        return []
+    bboxes: list[tuple[int, int, int, int]] = []
+    for r in results:
+        boxes = getattr(r, "boxes", None)
+        if boxes is None:
+            continue
+        for xyxy in boxes.xyxy.tolist():
+            x0, y0, x1, y1 = (int(round(v)) for v in xyxy[:4])
+            bboxes.append((x0, y0, x1, y1))
+    return bboxes
+
+
+def detect_face_bboxes(detector, frame: np.ndarray) -> list[tuple[int, int, int, int]]:
+    """단일 프레임 → 얼굴 bbox 리스트. 검출 0 → 상단 1/3 폴백 1개(하위호환)."""
+    bboxes = _detect_faces_no_fallback(detector, frame)
+    if bboxes:
+        return bboxes
     h, w = frame.shape[:2]
     return [top_third_fallback_bbox(w, h)]
 
 
-def anonymize_video(in_path: str, out_path: str, weights: str | None = None) -> str:
-    """고객 영상 → 얼굴 블러 재인코딩(D-12 적재 전 강제). Task 3/22-04 실행 경로.
+def _load_pose_detector():
+    """rtmlib Wholebody 로드 — RTMW-133 키포인트(얼굴 랜드마크 포함) 추출용.
 
-    프레임 추출 → detect_face_bboxes → blur_bbox_regions → ffmpeg 재인코딩.
-    imageio/ffmpeg/ultralytics lazy-import. 반환 = out_path.
+    RTMWPoseEngine 와 동일한 env 계약(RTMW_ONNX_PATH/YOLOX_ONNX_PATH/RTMW_DEVICE).
+    rtmlib/onnxruntime 는 여기서만 lazy-import — Pod 전용(로컬 테스트 무영향).
+    반환 detector 는 detector(frame) → ((N,133,2/3),(N,133)).
+    """
+    import os
+
+    from rtmlib import Wholebody
+
+    pose = os.environ.get("RTMW_ONNX_PATH")
+    if not pose:
+        raise RuntimeError("RTMW_ONNX_PATH 미설정 — 포즈기반 머리 블러 불가(D-12).")
+    det = os.environ.get("YOLOX_ONNX_PATH")
+    device = os.environ.get("RTMW_DEVICE", "cpu")
+    return Wholebody(
+        det=det, det_input_size=(640, 640), pose=pose,
+        to_openpose=False, backend="onnxruntime", device=device,
+    )
+
+
+def head_bboxes_from_pose(pose_detector, frame: np.ndarray) -> list[tuple[int, int, int, int]]:
+    """단일 프레임 → 사람별 머리 bbox 리스트(포즈기반). 검출 0 이면 빈 리스트.
+
+    RTMW 는 사람만 검출되면 얼굴 랜드마크를 회귀하므로 폴 동작(역자세·회전)에서도
+    머리를 안정적으로 잡는다 — 일반 얼굴 검출기의 저 recall(프레임 40%)을 대체한다.
+    """
+    try:
+        kps_batch, scores_batch = pose_detector(frame)
+    except Exception:  # noqa: BLE001 — 추론 실패는 빈 리스트(호출자가 폴백 결정).
+        log.exception("포즈 추론 실패 — 머리 bbox 0")
+        return []
+    if kps_batch is None or len(kps_batch) == 0:
+        return []
+    h, w = frame.shape[:2]
+    out: list[tuple[int, int, int, int]] = []
+    for kps, scores in zip(kps_batch, scores_batch):
+        bb = head_bbox_from_wholebody(np.asarray(kps), np.asarray(scores), w, h)
+        if bb is not None:
+            out.append(bb)
+    return out
+
+
+def anonymize_video(in_path: str, out_path: str, weights: str | None = None) -> str:
+    """고객 영상 → 머리 블러 재인코딩(D-12 적재 전 강제). Task 3/22-04 실행 경로.
+
+    프레임별: 포즈기반 머리 bbox(RTMW, 주검출) ∪ 얼굴검출 bbox(보조) 를 블러. 둘 다
+    0 이면 상단 1/3 폴백. 포즈기반이 폴 동작에서 얼굴 노출(일반 검출기 recall 40%)을
+    해소한다(2026-07-13 belle 결정). 몸통/사지는 보존(포즈 학습 신호). imageio/ffmpeg/
+    ultralytics/rtmlib lazy-import. 반환 = out_path.
     """
     import imageio.v3 as iio  # lazy — 코어/테스트 무영향.
 
-    detector = _load_face_detector(weights)
+    pose_detector = _load_pose_detector()
+    face_detector = _load_face_detector(weights)
     frames = iio.imread(in_path, index=None)  # (T, H, W, C)
     blurred = []
     for frame in frames:
         arr = np.asarray(frame)
-        bboxes = detect_face_bboxes(detector, arr)
+        bboxes = head_bboxes_from_pose(pose_detector, arr)
+        bboxes += _detect_faces_no_fallback(face_detector, arr)  # 보조 union.
+        if not bboxes:
+            h, w = arr.shape[:2]
+            bboxes = [top_third_fallback_bbox(w, h)]  # 둘 다 0 — 보수적 폴백.
         blurred.append(blur_bbox_regions(arr, bboxes))
     out = np.stack(blurred, axis=0)
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)

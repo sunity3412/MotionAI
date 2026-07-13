@@ -174,3 +174,87 @@ def test_out_path_inside_repo_rejected(tmp_path):
     repo_internal = ei._REPO_ROOT / "backend" / "training" / "candidates.json"
     assert ei.out_path_inside_repo(str(repo_internal)) is True
     assert ei.out_path_inside_repo(str(tmp_path / "candidates.json")) is False
+
+
+# ---------------------------------------------------------------------------
+# iter_candidate_docs — __name__ 커서 페이지네이션 (라이브 타임아웃 방지 회귀).
+# 무페이지 stream 이 872 문서에서 Firestore 503(query timed out)을 낸 사건의 fix.
+# 네트워크 0 — fake collection_group 이 select/order_by/limit/start_after/stream 체인
+# 을 흉내내 페이지 경계·전수 yield·경로 필터만 검증(실 Firestore 무접촉).
+# ---------------------------------------------------------------------------
+class _FakeSnap:
+    def __init__(self, path, data):
+        self.reference = type("R", (), {"path": path})()
+        self._data = data
+
+    def to_dict(self):
+        return dict(self._data)
+
+
+class _FakeQuery:
+    """select→order_by→limit→(start_after)→stream 체인 흉내. 커서 이후 page_size 만큼 반환."""
+
+    def __init__(self, snaps, page_size=None, after=None):
+        self._snaps = snaps
+        self._page_size = page_size
+        self._after = after
+
+    def select(self, fields):
+        return self
+
+    def order_by(self, field):
+        return self
+
+    def limit(self, n):
+        return _FakeQuery(self._snaps, page_size=n, after=self._after)
+
+    def start_after(self, snap):
+        return _FakeQuery(self._snaps, page_size=self._page_size, after=snap)
+
+    def stream(self):
+        start = 0
+        if self._after is not None:
+            start = self._snaps.index(self._after) + 1
+        end = start + (self._page_size or len(self._snaps))
+        return iter(self._snaps[start:end])
+
+
+class _FakeDB:
+    def __init__(self, snaps):
+        self._snaps = snaps
+
+    def collection_group(self, name):
+        return _FakeQuery(self._snaps)
+
+
+def test_iter_candidate_docs_paginates_all_docs():
+    """페이지 크기보다 많은 문서를 커서로 전수 yield(무페이지 stream 타임아웃 fix)."""
+    snaps = [
+        _FakeSnap(f"users/uid{i}/analyses/an{i}", {"status": "done"})
+        for i in range(5)
+    ]
+    db = _FakeDB(snaps)
+    got = list(ei.iter_candidate_docs(db, page_size=2))
+    assert [uid for uid, _, _ in got] == [f"uid{i}" for i in range(5)]
+    assert len(got) == 5
+
+
+def test_iter_candidate_docs_skips_non_analyses_paths():
+    """users/{uid}/analyses/{id} 형식 밖 경로(다른 collection_group 충돌)는 skip."""
+    snaps = [
+        _FakeSnap("users/uidA/analyses/an1", {"status": "done"}),
+        _FakeSnap("orgs/o1/analyses/x", {"status": "done"}),  # 형식 밖.
+        _FakeSnap("users/uidB/analyses/an2", {"status": "done"}),
+    ]
+    got = list(ei.iter_candidate_docs(_FakeDB(snaps), page_size=10))
+    assert [uid for uid, _, _ in got] == ["uidA", "uidB"]
+
+
+def test_iter_candidate_docs_respects_limit():
+    """limit 도달 시 조기 종료(스트림 중단)."""
+    snaps = [
+        _FakeSnap(f"users/uid{i}/analyses/an{i}", {"status": "done"})
+        for i in range(10)
+    ]
+    got = list(ei.iter_candidate_docs(_FakeDB(snaps), limit=3, page_size=2))
+    assert len(got) == 3

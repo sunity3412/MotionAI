@@ -195,22 +195,55 @@ def out_path_inside_repo(path: str) -> bool:
 # ---------------------------------------------------------------------------
 # I/O 껍데기 — Firestore/S3 (lazy import, Pod 실행 전용).
 # ---------------------------------------------------------------------------
-def iter_candidate_docs(db, *, limit: int = 0):
+# 열거에 필요한 필드만 projection — 큰 angles/anglesJointKeys 배열(문서당 수천 원소)을
+# 끌지 않아 페이로드·타임아웃을 방지한다. result.overall 은 nested path.
+_SELECT_FIELDS = (
+    "status", "learningOptIn", "createdAt",
+    "videoFormat", "fileName", "referenceMotionId", "result.overall",
+)
+
+# collection_group 스트림 페이지 크기 — 무페이지 stream 은 872 문서에서 Firestore
+# 쿼리 타임아웃(503 "limiting the entities scanned")을 낸다. __name__ 커서로 분할한다.
+_PAGE_SIZE = 200
+
+
+def iter_candidate_docs(db, *, limit: int = 0, page_size: int = _PAGE_SIZE):
     """collection_group('analyses') 읽기 전용 스트림 → (uid, analysis_id, doc) yield.
 
     measure_error_profile._iter_analyses 와 달리 uid 가 s3 키 도출에 필요하므로
     reference.path(users/{uid}/analyses/{id})에서 파싱해 튜플로 넘긴다 — uid 는 s3 키
     도출용 중간값이며 최종 manifest 에 기록되지 않는다(T-22-01 정신).
+
+    __name__ 커서 페이지네이션 + 필드 projection(_SELECT_FIELDS): 무페이지 stream 은
+    문서 수백 개에서 Firestore 쿼리 타임아웃을 내고, 전체 문서(angles 배열 포함)를
+    끌면 페이로드가 과다하다. 배치별 start_after(마지막 snapshot)로 분할하고 열거에
+    쓰는 필드만 조회한다. select 는 인덱스 불필요, __name__ order_by 는 기본 인덱스.
     """
-    q = db.collection_group("analyses")
-    if limit:
-        q = q.limit(limit)
-    for snap in q.stream():
-        parts = str(snap.reference.path).split("/")
-        # users/{uid}/analyses/{id} — 형식 밖 경로(다른 collection_group 충돌)는 skip.
-        if len(parts) != 4 or parts[0] != "users" or parts[2] != "analyses":
-            continue
-        yield parts[1], parts[3], (snap.to_dict() or {})
+    base = (
+        db.collection_group("analyses")
+        .select(list(_SELECT_FIELDS))
+        .order_by("__name__")
+        .limit(page_size)
+    )
+    yielded = 0
+    last = None
+    while True:
+        q = base.start_after(last) if last is not None else base
+        snaps = list(q.stream())
+        if not snaps:
+            break
+        for snap in snaps:
+            last = snap
+            parts = str(snap.reference.path).split("/")
+            # users/{uid}/analyses/{id} — 형식 밖 경로(다른 collection_group 충돌)는 skip.
+            if len(parts) != 4 or parts[0] != "users" or parts[2] != "analyses":
+                continue
+            yield parts[1], parts[3], (snap.to_dict() or {})
+            yielded += 1
+            if limit and yielded >= limit:
+                return
+        if len(snaps) < page_size:
+            break
 
 
 def fetch_etag(s3, bucket: str, key: str) -> str | None:

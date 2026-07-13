@@ -1,8 +1,8 @@
 # 22-BAKEOFF-RESULT — 분석 엔진 백본 3파전 판정
 
-> **판정: PROVISIONAL — 우승 Qwen/Qwen3-VL-8B-Instruct** (belle 확정 도장 전).
+> **판정: CONFIRMED — 우승 Qwen/Qwen3-VL-8B-Instruct** (belle 공식 확정 2026-07-13).
 > 선정 규칙 = belle 사전 위임(2026-07-11): 4축 종합 우승자, 성능만, 동률 시 시계열 축 우선.
-> belle 구두 확인 2026-07-12 아침("응 이해됬어" — 축별 분업 질의 응답 후). 공식 도장은 이 문서 승인으로 갈음.
+> belle 구두 확인 2026-07-12 아침("응 이해됬어" — 축별 분업 질의 응답 후). belle 공식 확정 2026-07-13 — 잠정 판정 해제.
 
 ## 계측 이력
 
@@ -68,4 +68,4 @@ Cosmos-Reason2-8B: B 공동 1위 외 전 축 최하위권. reasoning post-train�
 - 22-07 SFT: `Qwen/Qwen3-VL-8B-Instruct` + QLoRA(rank 64, 4-bit, all-linear), 학습셋
   s3://sunity-motion-pilot-videos/training/phase22/jsonl/ (train 101 / val 2,
   validation_owner=explicit_val_jsonl). 비용 알림 = 2026-07-11 채팅 갈음(belle 사전 승인).
-- 뒤집기 비용 = SFT 재실행(GPU 시간)만. 백본 교체 시 이 문서 갱신 + PROVISIONAL 해제 필수.
+- 뒤집기 비용 = SFT 재실행(GPU 시간)만. 백본 교체 시 이 문서의 CONFIRMED 판정을 갱신하고 belle 재확정 필수.

@@ -53,6 +53,36 @@ def test_grounding_shape_mismatch_raises():
         rb.score_grounding(np.zeros((3, 2)), np.zeros((4, 2)))
 
 
+# ── 22-07 게이트 비대칭 마스크 fix — 공통 가시 마스크 + 가림 복원 분리 ──────────
+def test_grounding_visible_from_common_mask():
+    """visible_from 지정 시 교란입력의 가시 관절만 계측(보정/무보정 공정 비교)."""
+    truth = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    # 교란입력: 관절2 가려짐(NaN). 관절0/1 은 가시.
+    perturbed = np.array([[3.0, 4.0], [13.0, 14.0], [np.nan, np.nan]])
+    # 모델 보정본: 관절2 를 복원(값 채움, 큰 오차).
+    pred = np.array([[0.0, 0.0], [10.0, 10.0], [90.0, 90.0]])
+    # 공통 가시 마스크(관절0/1)에서만 계측 → 관절2 복원 오차 미포함, 보정 L2 = 0.
+    assert rb.score_grounding(pred, truth, visible_from=perturbed) == pytest.approx(0.0)
+    # 무보정도 같은 마스크 → 관절0/1 의 교란 L2 = 5.0.
+    assert rb.score_grounding(perturbed, truth, visible_from=perturbed) == pytest.approx(5.0)
+
+
+def test_grounding_occluded_restored_isolated():
+    """가림 복원 L2 는 교란입력에서 가려진 관절만 별도 계측."""
+    truth = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    perturbed = np.array([[3.0, 4.0], [13.0, 14.0], [np.nan, np.nan]])
+    pred = np.array([[0.0, 0.0], [10.0, 10.0], [23.0, 24.0]])  # 관절2 복원 오차 5.
+    assert rb.score_grounding_occluded(pred, truth, perturbed) == pytest.approx(5.0)
+
+
+def test_grounding_occluded_none_returns_nan():
+    """가림 관절이 없으면 복원 L2 계측 대상 없음 → NaN."""
+    truth = np.array([[0.0, 0.0], [10.0, 10.0]])
+    perturbed = np.array([[3.0, 4.0], [13.0, 14.0]])  # 가림 0.
+    pred = np.array([[0.0, 0.0], [10.0, 10.0]])
+    assert np.isnan(rb.score_grounding_occluded(pred, truth, perturbed))
+
+
 # ── Test 2: score_json — 파싱/EM/정렬·누락·여분 감지 ─────────────────────────
 def _valid_report():
     # REPORT_KEYS 순서(알파벳): coaching, corrected_coords, faults, segments,

@@ -127,12 +127,17 @@ def _resolve_out_dir() -> Path:
 # ===========================================================================
 # 4축 계측 함수 — 순수(모델 호출 없음, GPU/네트워크 무관). test_bakeoff_harness 검증.
 # ===========================================================================
-def score_grounding(pred, truth) -> float:
+def score_grounding(pred, truth, visible_from=None) -> float:
     """A. grounding L2 — 예측 좌표 vs 정답 좌표의 관절별 유클리드 거리 평균.
 
     synthetic_grounding 트랙 전용(정답=perturb 원좌표). pred/truth 는 동일 shape 의
     (..., C>=2) 배열 — 마지막 축의 앞 2채널(x,y)만 사용. NaN(가려짐) 좌표는 계측 제외.
     동일 좌표 → 0.0, (dx,dy) 균일 오프셋 → sqrt(dx^2+dy^2). shape 불일치 → ValueError.
+
+    visible_from(선택): 지정 시 이 배열의 (x,y)가 유한한 관절만 계측한다(공통 가시
+    마스크). 22-07 게이트 비대칭 결함 fix — 무보정(교란=NaN 자동 제외)과 보정(모델이
+    가림 관절 복원값 포함)을 같은 관절 집합에서 비교하려면 둘 다 교란입력의 가시
+    관절로 마스크를 통일해야 한다. 가림 복원 성능은 score_grounding_occluded 로 분리.
     """
     p = np.asarray(pred, dtype=float)
     t = np.asarray(truth, dtype=float)
@@ -143,8 +148,36 @@ def score_grounding(pred, truth) -> float:
     diff = p[..., :2] - t[..., :2]
     dist = np.sqrt((diff * diff).sum(axis=-1))  # 관절(·프레임)별 L2.
     mask = ~np.isnan(dist)
+    if visible_from is not None:
+        v = np.asarray(visible_from, dtype=float)
+        if v.shape != t.shape:
+            raise ValueError(f"visible_from shape 불일치: {v.shape} vs {t.shape}")
+        mask &= np.isfinite(v[..., :2]).all(axis=-1)
     if not mask.any():
-        return float("nan")  # 전부 가려짐 → 계측 불가.
+        return float("nan")  # 계측 대상 관절 없음.
+    return float(dist[mask].mean())
+
+
+def score_grounding_occluded(pred, truth, occluded_from) -> float:
+    """가림 복원 L2 — 교란입력에서 가려진(NaN) 관절만 골라 pred vs 정답 L2 평균.
+
+    22-07 게이트 fix: 가림 복원은 가시 관절 보정보다 본질적으로 어려운 별개 태스크라
+    holdout 개선 게이트(공통 가시 마스크)에서 분리해 별도 관측치로만 기록한다. 가림
+    관절이 없으면 NaN(계측 대상 없음).
+    """
+    p = np.asarray(pred, dtype=float)
+    t = np.asarray(truth, dtype=float)
+    o = np.asarray(occluded_from, dtype=float)
+    if not (p.shape == t.shape == o.shape):
+        raise ValueError(f"shape 불일치: pred{p.shape} truth{t.shape} occ{o.shape}")
+    if p.shape[-1] < 2:
+        raise ValueError(f"좌표 채널 C>=2 필요 — got {p.shape}")
+    diff = p[..., :2] - t[..., :2]
+    dist = np.sqrt((diff * diff).sum(axis=-1))
+    occluded = ~np.isfinite(o[..., :2]).all(axis=-1)  # 교란입력에서 가려진 관절.
+    mask = occluded & ~np.isnan(dist)  # 복원값·정답이 유한한 가림 관절.
+    if not mask.any():
+        return float("nan")
     return float(dist[mask].mean())
 
 
@@ -686,17 +719,23 @@ def run_synth_item(item: dict, caller, base_arr, base_frames, profile, shots: st
     except (json.JSONDecodeError, ValueError):
         parsed = raw
     rec["json"] = score_json(parsed if isinstance(parsed, dict) else str(parsed))
+    # 공통 가시 마스크 = 교란입력(res.perturbed)에서 가려지지 않은 관절. 보정/무보정
+    # 을 같은 관절 집합에서 비교해야 게이트가 공정하다(22-07 비대칭 마스크 fix).
+    vis = res.perturbed[..., :2]
     if isinstance(parsed, dict):
         report = schema.normalize_report(parsed)
         pred = parse_corrected_coords(report, base_frames)
-        rec["grounding"] = score_grounding(pred, res.original[..., :2])
+        rec["grounding"] = score_grounding(pred, res.original[..., :2], visible_from=vis)
+        # 가림 복원 L2 = 별도 관측치(게이트 비대상, 관찰만).
+        rec["grounding_occluded_restored"] = score_grounding_occluded(
+            pred, res.original[..., :2], vis
+        )
     else:
         rec["grounding"] = float("nan")
-    # 무보정 기준선 = 교란좌표 vs 원좌표 L2. 22-07 check_synthetic_holdout 이
-    # "보정이 무보정 대비 개선" 상대 게이트를 이 필드로 계산한다(절대 임계 밴드 금지).
-    rec["grounding_uncorrected"] = score_grounding(
-        res.perturbed[..., :2], res.original[..., :2]
-    )
+        rec["grounding_occluded_restored"] = float("nan")
+    # 무보정 기준선 = 교란좌표 vs 원좌표 L2 (공통 가시 마스크). 22-07
+    # check_synthetic_holdout 이 "보정<무보정" 상대 게이트를 이 필드로 계산한다.
+    rec["grounding_uncorrected"] = score_grounding(vis, res.original[..., :2], visible_from=vis)
     return rec
 
 

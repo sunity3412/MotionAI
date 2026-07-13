@@ -310,3 +310,40 @@ def test_validation_owner_eval_gate_omits_val():
 def test_validation_owner_must_be_valid():
     with pytest.raises(ValueError):
         _build(validation_owner="bogus")
+
+
+# ---------------------------------------------------------------------------
+# Test 13 — v4 자유생성 붕괴 fix (2026-07-14): 태스크 지시문 + distill 항등 echo 제거.
+# ---------------------------------------------------------------------------
+def test_user_media_msg_contains_task_instruction():
+    """user 텍스트 = RTMW_Data 접두 유지 + 출력 계약 지시문 포함 (v3 무지시 입력이
+    자유생성을 베이스 프라이어로 이탈시킨 결함의 fix)."""
+    data = _build()
+    media = [s for s in data["train"] if build_jsonl.sample_has_video(s)]
+    for s in media:
+        text = [c["text"] for c in s["messages"][1]["content"] if c.get("type") == "text"][0]
+        assert text.startswith("RTMW_Data:")  # 기존 계약 불변.
+        assert "JSON 리포트" in text and "faults" in text  # 지시문 존재.
+
+
+def test_distill_track_corrected_coords_always_none():
+    """distill 행 corrected_coords=None — 교사 echo 항등 학습(v3 holdout 0.0444≈0.0417)
+    차단. 좌표 보정 감독은 perturb 트랙 단독 소유."""
+    data = _build()
+    for s in data["train"] + (data["val"] or []):
+        if s.get("_track") != "distill":
+            continue
+        report = build_jsonl.assistant_report(s)
+        assert report is not None
+        assert report.get("corrected_coords") is None
+
+
+def test_perturb_track_keeps_corrected_coords():
+    """perturb 행은 원좌표 corrected_coords 유지 — 실보정 신호 보존."""
+    data = _build()
+    perturb = [s for s in data["train"] + (data["val"] or []) if s.get("_track") == "perturb"]
+    assert perturb, "perturb 샘플 부재"
+    for s in perturb:
+        report = build_jsonl.assistant_report(s)
+        assert report is not None
+        assert report.get("corrected_coords")  # truthy 좌표 리스트.

@@ -125,12 +125,24 @@ def _rtmw_text(frames) -> str:
     return "RTMW_Data: " + json.dumps(frames or [], ensure_ascii=False, sort_keys=True)
 
 
+# 태스크 지시문 (v4, 2026-07-14 자유생성 붕괴 fix): v3까지 user = video+좌표뿐이라
+# 모델이 태스크를 좌표 통계로만 추정해야 했고, 자유생성이 베이스 프라이어로 이탈했다
+# (swift infer val 4행 전부 스키마 밖 — 병합 무관, 어댑터도 동일). 고정 지시문으로
+# 출력 계약을 입력에 명시한다. RTMW_Data 접두는 유지(테스트/파서 계약 불변).
+_TASK_INSTRUCTION = (
+    "\n\n위 영상과 RTMW 좌표를 분석해 다음 키를 갖는 JSON 리포트만 출력하라: "
+    "coaching, corrected_coords, faults, segments, svg_spec, time_anchors. "
+    "faults 항목은 body_part/fault_category 라우팅 키를 반드시 포함한다. "
+    "결함이 없으면 faults 는 빈 배열이다."
+)
+
+
 def _user_media_msg(s3_key: str, frames) -> dict:
     return {
         "role": "user",
         "content": [
             {"type": "video", "video": _s3_uri(s3_key)},
-            {"type": "text", "text": _rtmw_text(frames)},
+            {"type": "text", "text": _rtmw_text(frames) + _TASK_INSTRUCTION},
         ],
     }
 
@@ -302,7 +314,12 @@ def _build_distill_samples(manifest, distill_loader, reference_loader) -> list[d
         src_svg = rec_report.get("svg_spec") or {}
         report = {
             "coaching": rec_report.get("coaching"),
-            "corrected_coords": rec_report.get("corrected_coords"),
+            # v4 (2026-07-14): distill 행 corrected_coords 는 항상 None. 교사가 무교란
+            # 실영상 좌표를 그대로 echo 한 값이라 (a) 타겟 토큰의 ~90%가 좌표 복사가 되어
+            # 의미 필드(faults/coaching) 손실이 익사하고 (b) "corrected=입력 항등" 106행이
+            # perturb 95행의 실보정 신호를 압도했다(v3 holdout 0.0444≈무보정 0.0417 = 항등
+            # 학습 실증). 좌표 보정 감독은 perturb 트랙 단독 소유.
+            "corrected_coords": None,
             "faults": rec_report.get("faults") or [],
             "segments": rec_report.get("segments"),
             "svg_spec": _svg_spec(

@@ -130,20 +130,20 @@ def test_scale_guard_bounds(n, ok):
 
 
 # ---------------------------------------------------------------------------
-# provisional_label_bucket — result.overall 임계 라벨 (잠정 — 교사 라벨이 최종).
+# provisional_label_bucket — result.overallScore 임계 라벨 (잠정 — 교사 라벨이 최종).
 # ---------------------------------------------------------------------------
 def test_provisional_bucket_three_way():
-    assert ei.provisional_label_bucket({"result": {"overall": 85}}) == "정타"
-    assert ei.provisional_label_bucket({"result": {"overall": 80}}) == "정타"
-    assert ei.provisional_label_bucket({"result": {"overall": 79}}) == "fault"
+    assert ei.provisional_label_bucket({"result": {"overallScore": 85}}) == "정타"
+    assert ei.provisional_label_bucket({"result": {"overallScore": 80}}) == "정타"
+    assert ei.provisional_label_bucket({"result": {"overallScore": 79}}) == "fault"
     assert ei.provisional_label_bucket({"result": {}}) is None
     assert ei.provisional_label_bucket({}) is None
 
 
 def test_provisional_bucket_rejects_non_numeric():
     """overall 이 숫자가 아니면 None (bool 은 int subclass 라 명시 거부)."""
-    assert ei.provisional_label_bucket({"result": {"overall": "85"}}) is None
-    assert ei.provisional_label_bucket({"result": {"overall": True}}) is None
+    assert ei.provisional_label_bucket({"result": {"overallScore": "85"}}) is None
+    assert ei.provisional_label_bucket({"result": {"overallScore": True}}) is None
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +155,7 @@ def test_build_candidate_has_no_uid_key():
         "createdAt": BEFORE_CUTOFF,
         "videoFormat": "mp4",
         "referenceMotionId": "kip-up",
-        "result": {"overall": 55},
+        "result": {"overallScore": 55},
     }
     cand = ei.build_candidate("uidX", "an9", doc, etag="e9")
     assert "uid" not in cand

@@ -57,7 +57,7 @@ BELLE_BULK_APPROVAL_CUTOFF_MS = 1_783_900_800_000
 SCALE_GUARD_LO = 100
 SCALE_GUARD_HI = 500
 
-# 잠정 버킷 임계 — result.overall 이 이 값 이상이면 "정타", 미만이면 "fault".
+# 잠정 버킷 임계 — result.overallScore 가 이 값 이상이면 "정타", 미만이면 "fault".
 PROVISIONAL_BUCKET_THRESHOLD = 80
 
 _DEFAULT_BUCKET = "sunity-motion-pilot-videos"
@@ -128,13 +128,13 @@ def derive_upload_key(uid: str, analysis_id: str, doc: dict) -> str | None:
 
 
 def provisional_label_bucket(doc: dict) -> str | None:
-    """result.overall → 잠정 버킷 — 교사 라벨이 최종, ground truth 아님.
+    """result.overallScore → 잠정 버킷 — 교사 라벨이 최종, ground truth 아님.
 
     [[analysis-objectivity-no-human-scores]] 저촉 없음: 파이프라인 산출값의 임계 라벨
-    (사람 점수 라벨링이 아니라 자동 산출 overall 의 임계 분기)이다. overall >= 80 →
+    (사람 점수 라벨링이 아니라 자동 산출 overallScore 의 임계 분기)이다. overall >= 80 →
     "정타", 미만 → "fault", 부재/비숫자 → None (Task 2 에서 병합 전 skip).
     """
-    overall = ((doc or {}).get("result") or {}).get("overall")
+    overall = ((doc or {}).get("result") or {}).get("overallScore")
     if isinstance(overall, bool) or not isinstance(overall, (int, float)):
         return None
     return "정타" if overall >= PROVISIONAL_BUCKET_THRESHOLD else "fault"
@@ -196,10 +196,10 @@ def out_path_inside_repo(path: str) -> bool:
 # I/O 껍데기 — Firestore/S3 (lazy import, Pod 실행 전용).
 # ---------------------------------------------------------------------------
 # 열거에 필요한 필드만 projection — 큰 angles/anglesJointKeys 배열(문서당 수천 원소)을
-# 끌지 않아 페이로드·타임아웃을 방지한다. result.overall 은 nested path.
+# 끌지 않아 페이로드·타임아웃을 방지한다. result.overallScore 는 nested path.
 _SELECT_FIELDS = (
     "status", "learningOptIn", "createdAt",
-    "videoFormat", "fileName", "referenceMotionId", "result.overall",
+    "videoFormat", "fileName", "referenceMotionId", "result.overallScore",
 )
 
 # collection_group 스트림 페이지 크기 — 무페이지 stream 은 872 문서에서 Firestore

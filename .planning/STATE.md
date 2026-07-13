@@ -72,7 +72,7 @@ Status: Executing Phase 22
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-10 -- Phase 22 execution started
+Last activity: 2026-07-13 -- Completed quick task 260713-jjq: 백본 확정 도장 (Qwen3-VL-8B CONFIRMED)
 
 ### Quick Tasks Completed
 
@@ -107,6 +107,7 @@ Last activity: 2026-07-10 -- Phase 22 execution started
 | 260705-o0s | 결과 화면 재배치 + 번호 오버레이 + 감점0 게이트 (belle 실기기 3차 4건+2건) — buildDeductionMarkers 단일 소스로 영상 빨간 번호 점 ↔ 점수 내역 ①②③ 매핑(라벨은 각도 없는 짧은 행동구, 좌우 dedupe, 감점 관절만), 내역을 점수 직후 승격+채점 기준 1줄(정은지 대비+IPSF), 실패원인후보 섹션·ForcePattern 컴포넌트 2개 삭제(코칭 팁 중복), 세부점수→'참고 지표' 개명·강등, isCleanPass 게이트(감점 0 = 문제 섹션 전부 숨김+축하 카드, "보완하면 더 올라가요" 100점 미출현 — 2° 노이즈 카드 사례 해소). typecheck+grep 게이트 GREEN, OTA 발행 | 2026-07-05 | e02fba9 | [260705-o0s](./quick/260705-o0s-result-screen-reorder-numbered-markers/) |
 | 260707-je3 | Phase 22 플랜 수정 — 22-DIRECT-REVIEW DR-01~07 + P2 3건 반영 (플랜 문서 7개만, wave/DAG/플랜 번호 불변). P0: shadow 학습 유입=manifest video_hash join 강제(미등록/미가명=text-only 강등+_meta drop 카운터), production Pod mutation(22-03/08)=blocking checkpoint+canary-first+rollback 선기록(autonomous:false), 22-07 `test $? -le 1` fail-open 제거+post-Pod `--require-pass`+Wave5 진입=PASS or belle 결정. P1: train/val split 단일 소유(build_jsonl), 증류 비용 blocking checkpoint(첫 run 10 rows), collection_complete fail-closed 진입 assert, collect-only/정적/prefix verify→실제 outcome assert. P2: 22-01 doc_count>=30 assert, 22-10 "역할당 env 1개" 문구, LICENSE-AUDIT release-clean 비함의. 다음=belle 외부 리뷰 재실행 | 2026-07-07 | 981ee6f | [260707-je3](./quick/260707-je3-phase-22-22-direct-review-dr-01-dr-07/) |
 | 260707-k07 | Phase 22 2차 직접리뷰(22-DIRECT-REVIEW-ITERATION2, verdict=Pass with fixups) 후속 4건 — must-fix=22-VALIDATION.md를 DR 반영 태스크 그래프에 싱크(pre-DR 번호 참조 0건 전수확인, checkpoint manual 행 3개+자동검증 행 4개 추가, fail-open 잔재 제거), P1=22-03 `pytest|tail -3` exit-code 삼킴을 FAILED/ERROR node-ID baseline diff로 교체, P2=val.jsonl 계약을 `validation_owner=explicit_val_jsonl|phase22_eval_gate` 단일 필드로 통일(22-04/07), 22-POD-VRAM `peak_vram_gb:` 수치 필드 강제. 문서 4개만, wave/DAG 불변. **Phase 22 = 실행 게이팅 준비 완료** | 2026-07-07 | c318419 | [260707-k07](./quick/260707-k07-phase-22-2-iteration2-fixup-4-22-validat/) |
+| 260713-jjq | 백본 확정 도장 — 22-BAKEOFF-RESULT.md Qwen3-VL-8B PROVISIONAL→CONFIRMED (belle 공식 확정 2026-07-13, bake-off 4축 종합·결정성 64/64). 문서 3곳 갱신, 판정 근거·계측 이력 불변 | 2026-07-13 | 2cdc76e | [260713-jjq](./quick/260713-jjq-22-bakeoff-result-md-qwen3-vl-8b-provisi/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

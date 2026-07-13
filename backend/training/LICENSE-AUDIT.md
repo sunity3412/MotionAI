@@ -95,7 +95,7 @@
 | R1 | YouTube 표준 라이선스 하 학습 이용 | YT 68행 | 시청용 공개 영상의 ML 학습 이용 = fair-use/TDM 회색지대. 완화: 학습전용·비재배포·앱 미노출, info.json provenance 보관 | 중 | **법률검토 필요(A9-1)** |
 | R2 | Instagram ToS | IG 44행 | 공개 릴스 gallery-dl 수집 — IG ToS는 자동화 수집 제약(로그인월·rate-limit 회색). 유튜브보다 법적 노출 큼. 완화: 공식기관·스튜디오·선수 본인 계정 위주, 개인 추정 계정 보류, 정은지 9행은 파트너 동의 | 중상 | **법률검토 필요(A9-2)** |
 | R3 | 미성년 | **실수집분 0행** | @polesportkids 는 레지스트리 enabled=false 격리 — manifest 131행 전수 확인 결과 **미성년 전용 채널 행 없음**. 잔여 리스크: 일반 대회 채널에 주니어 부문 혼입 가능성(Vision 선별 게이트는 연령 판정을 하지 않음) | 낮음(현재) | A9-3에 취급 정책 상정 유지, counsel 확인 전 미성년 전용 소스 harvest 금지 |
-| R4 | 초상권·가명처리 | 공개 수집 112행 | 전 행 anonymized=false — **공개 영상 트랙은 D-12 가명처리 범위 밖(provenance만)**이며 얼굴 블러 미적용 상태로 학습 입력됨(VLM은 픽셀 입력). anonymize.py(얼굴 검출+blur, 상단 1/3 폴백)는 **고객 트랙 전용, 적재 전 강제·소급 불가** | 중 | 공개영상 초상권은 **법률검토 필요(A9-4)**. 고객 371은 가명처리 전 등재 금지(툴 인포스먼트) |
+| R4 | 초상권·가명처리 | 공개 수집 112행 | 전 행 anonymized=false — **공개 영상 트랙은 D-12 가명처리 범위 밖(provenance만)**이며 얼굴 블러 미적용 상태로 학습 입력됨(VLM은 픽셀 입력). anonymize.py(얼굴 검출+blur, 상단 1/3 폴백)는 **고객 트랙 전용, 적재 전 강제·소급 불가**. 2026-07-13 belle 일괄승인으로 고객 트랙 등재 착수 — anonymize 강제 경로(enumerate_internal → anonymize_batch)로만 진입, 우회 불가 | 중 | 공개영상 초상권은 **법률검토 필요(A9-4)**. 고객 트랙은 가명처리 전 등재 금지(툴 인포스먼트) |
 | R5 | balance_waiver | selectable 129행 | 수집분 정타 편중(fault 7/129) — 균등 게이트 3항목(per_motion_jeongta_min1·per_motion_fault_min1·max_le_2min) 미충족을 belle 승인 waiver(2026-07-10)로 문서화. fault 표본은 내부 371 fault track 이월로 충당, JSONL 단계 균등은 build_jsonl._balance_media 소유 | 낮음(법적 아님·품질) | 다음 라운드 371 등재 시 해소 |
 | R6 | hard-negative 미디어 미이관 | 2행 | A2·A3 실증 영상 s3_key=null·collected=false(정직 등재). eval-only, 학습 카운트 제외 | 낮음 | fixtures/phase22/hard_negative/ relocate 이월 |
 | R7 | Vision 선별 시 제3자 콘텐츠 외부 전송 | IG 44행 | 선별 게이트가 IG 후보 영상을 Gemini File API에 업로드(YT는 URL 네이티브 판정) — 제3자 콘텐츠의 Google 처리 경유 사실 기록 | 낮음 | 사실 기록(A9 부속 참고) |
@@ -107,6 +107,17 @@
 3. **출시 전 법률 검토 1회 문서화** (DD 대비). 고지 문구 구현 = 온보딩 phase(SCENARIO 0.5).
 - 매니페스트에 uid·사용자 식별자 필드 금지(테스트 fence로 강제, 실측 uid 필드 0).
 
+## 7-1. 내부 fault 트랙 일괄승인 (belle 2026-07-13)
+
+처방 B(22-07 게이트 FAIL 근본원인 1번 = fault 트랙 0행)의 데이터 처방으로, 내부 실사용 분석 영상을 학습 코퍼스에 등재하기 위한 belle 결정.
+
+- **(a) 결정 내용** — 파일럿 이전 내부 데이터(직원 실증·내부 테스트 영상)의 학습사용을 일괄 승인(구두). Firestore 실측(2026-07-13 read-only 전수): `users/{uid}/analyses` 872 docs, status=done 707, video 보유 662. `learningOptIn` 필드 부재 871건 = 전부 Phase 26 동의 UI 도입 이전 업로드(파일럿 이전 내부 데이터).
+- **(b) 명시 거부 제외** — `learningOptIn=false` 1건은 어떤 플래그 조합에서도 무조건 제외. 코드 fence: `enumerate_internal.consent_allows`(false 무조건 False 반환, 단위 테스트 고정).
+- **(c) anonymize 강제 불변** — 얼굴 블러(anonymize.py)는 적재 전 강제, 소급 불가(D-12). 등재는 `enumerate_internal → anonymize_batch` 경로로만 진입하며, 업로드 키는 `fixtures/phase22/internal/{video_hash}.mp4` 로 하드 고정(uploads/ 생성 경로 부재 → S3 ObjectCreated→SQS 발화 차단).
+- **(d) 이후 신규 데이터** — 파일럿 이후(승인 컷오프 2026-07-13 이후) 문서는 `learningOptIn=true` 엄격 필터. 부재=미동의 fail-safe 복원(`consent_allows` 기본 strict + 컷오프 이중 방어).
+- **(e) 권장 후속(서면화)** — 직원 구두동의의 서면화(파일럿 참가 동의서 부속 또는 간단 확인서) 권장. A9-7(파일럿 참가 동의서 원본 보관) 실사 항목과 연결.
+- **(f) 등재 행 규약** — 신규 행은 `source="internal_pilot_user"`(customer 게이트 발화)·`anonymized=true`·`consent_evidence`(본 일괄승인 근거)·`source_url="internal://firestore-analyses/{video_hash}"`(provenance sentinel — uid/analysisId 비파생, video_hash 기반만) 필드를 갖는다. uid/식별자 필드는 어떤 행에도 금지(build_manifest_row + assert_no_identifier_keys 이중 fence).
+
 ## 8. belle 결정 이력 (일자순)
 
 | 일자 | 결정 | 내용 |
@@ -116,6 +127,8 @@
 | 2026-07-09 | 수집 greenlight | PHASE22_BELLE_GREENLIGHT=1 로 `--curate`(Vision 선별)→`--collect`(다운로드·S3 적재) 실행 승인. IG 계정 yurim_pole·albertamores_polesport 추가 승인 |
 | 2026-07-10 | 수집 마감 | `_meta.collection_complete=true`, 131행 확정. balance_waiver 승인(fault 7/129, 내부 371 이월) |
 | 2026-07-10 | bake-off 3파전 확대 | 분석 엔진 후보에 **Cosmos-Reason2-8B** 추가(§2 표 갱신). HF 셀프호스트 경로만 — 호스팅 API(Trial ToS) 사용 금지 |
+| 2026-07-13 | 백본 확정 | bake-off PROVISIONAL 우승 **Qwen3-VL-8B** 공식 확정(CONFIRMED). 22-BAKEOFF-RESULT.md 판정 갱신 |
+| 2026-07-13 | 내부 fault 트랙 일괄승인 | §7-1 — 파일럿 이전 내부 데이터(직원 실증·내부 테스트) 학습사용 일괄 승인(구두). learningOptIn=false 1건 제외, anonymize 강제, 이후 신규는 optIn=true 엄격. 처방 B 착수 근거 |
 
 ## 9. A9 게이트 체크리스트 (출시 전 법률검토 1회 — counsel 확인 항목)
 

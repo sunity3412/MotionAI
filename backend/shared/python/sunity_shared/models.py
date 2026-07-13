@@ -263,10 +263,12 @@ PAIN_AREAS = (
 # 백엔드 파이프라인/게이트는 이 필드를 읽지도 쓰지도 않는다 (로직 무접촉 —
 #   not_pole 게이트/채점 불변, D-01). 순수 계약 미러이므로 여기엔 검증 함수/
 #   normalizer 를 두지 않는다 (주석만).
-# 소비 예정: Phase 22 D-12 학습 플라이휠의 manifest 게이트가 learningOptIn === true
-#   인 분석의 영상만 학습 후보로 삼아야 한다 (의무 계약). 현 22-04 게이트는
-#   anonymized/등록 여부만 필터하고 learningOptIn 은 아직 읽지 않으므로, 이 필터는
-#   Phase 22 후속에서 반영해야 한다 (미집행 상태).
+# 소비: Phase 22 D-12 학습 플라이휠의 manifest 게이트가 learningOptIn === true 인
+#   분석의 영상만 학습 후보로 삼아야 한다 (의무 계약). 집행 시작(2026-07-13):
+#   backend/training/datagen/enumerate_internal.consent_allows 가 학습 후보 진입점에서
+#   이 계약을 집행한다 — false 무조건 제외 / 부재 fail-safe 제외(기본 strict). 단
+#   belle 2026-07-13 일괄승인(--bulk-approval + 컷오프 2026-07-13)으로 파일럿 이전
+#   문서만 예외 통과(LICENSE-AUDIT §7-1). 필드 계약 자체는 불변 — 3-way lockstep 유지.
 
 # height/weight 합리적 범위 (범위 밖 → None, 위조/오타 graceful 차단).
 _BODY_HEIGHT_CM_MIN = 90

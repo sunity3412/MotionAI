@@ -28,11 +28,14 @@
     "seed_count": 17,
     "hard_negative_count": 2,
     "customer_track": {
-      "description": "실사용 371건(수강생 실제 실수) — D-08 fault 금광. 개별 행 미등재(구조만 참조). Firestore users/{uid}/analyses 경로 파생, uid 미기재. anonymized=false 상태로는 학습 JSONL 제외 — 22-04 build_jsonl 은 anonymize.py 가명처리(anonymized=true) 또는 internal=true 행만 소비(D-12).",
+      "description": "실사용 내부 분석 영상(수강생·직원 실증) — D-08 fault 금광. 개별 행 미등재(구조만 참조). Firestore users/{uid}/analyses 경로 파생, uid 미기재. count 371 은 구 추정치 — 실측 후보 수는 enumerate_internal 산출로 대체(2026-07-13 Firestore 실측: 872 docs / done 707 / video 662). anonymized=false 상태로는 학습 JSONL 제외 — anonymize.py 가명처리(anonymized=true) 행만 소비(D-12).",
       "count": 371,
       "anonymized": false,
       "consumed_by": "22-04 build_jsonl (anonymized/internal only)",
-      "pending": "가명처리 파이프라인(anonymize.py) 적용 후 등재 — 적재 전 강제(D-12, 소급 불가)"
+      "approved_at": "2026-07-13",
+      "approved_by": "belle",
+      "approval_scope": "파일럿 이전 내부 데이터 학습사용 일괄 승인(구두) — learningOptIn=false 1건 제외, anonymize 강제, 이후 신규는 optIn=true 엄격 (LICENSE-AUDIT §7-1)",
+      "pending": "enumerate_internal → anonymize_batch 경로로 등재 진행 중(행 추가는 Pod 배치 후). 적재 전 anonymize 강제(D-12, 소급 불가)"
     },
     "notes": "seed(reference 11 정타 + 일부러실수 6 fault) + hard-negative 2(A2 피터팬·A3 power-spin, eval 격리) + 채널 harvest 수집분(YT 68 + IG 44). 2026-07-10 belle 승인으로 수집 마감(collection_complete=true) — 매니페스트 균등 게이트는 balance_waiver 로 문서화된 예외(내부 371 fault track 이월), JSONL 균등은 build_jsonl._balance_media 가 강제. DR-06 fail-closed 는 22-04 build_jsonl 진입 assert."
   },

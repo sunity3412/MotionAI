@@ -89,11 +89,17 @@ channels:
     notes: '키즈 대회. 미성년 — A9 법률검토 별도 플래그(프라이버시·동의 민감). 기본 비활성.'
 
   # ── Tier-2 fault/기술 — 강사·스튜디오 (YouTube) ──────────────────────────
+  # curation_profile: fault_demo (quick-260714-js2, belle 승인 2026-07-14) —
+  # 22-02 실측에서 이 채널들 fault=0 이었던 근본원인 = default 프로필이 편집/자막/
+  # 오버레이 영상을 자동 reject 해 튜토리얼(편집·자막이 표준 형식)이 통째로 걸러짐.
+  # fault_demo 프로필은 편집/자막을 수용하고 "잘못된 예시" 시연 여부만 짚는다(점수 금지
+  # 불변). 프로필 스코프 캐시 키라 22-02 당시 default reject 박제와 충돌 없음.
   - name: BerryTV_FallInPole
     channel_url: https://www.youtube.com/@BerryTV
     platform: youtube
     tier: 2_studio
     bucket: fault
+    curation_profile: fault_demo
     # 폴인폴 시리즈는 채널 전반에 흩어져 최근 /videos 로 안 잡힘 → 채널 내 검색으로 열거.
     search_query: 폴인폴
     series_include: '(?i)(폴인폴|fall\s*in\s*pole|EP\s*\d)'
@@ -105,6 +111,7 @@ channels:
     platform: youtube
     tier: 2_studio
     bucket: fault
+    curation_profile: fault_demo
     duration_window: [20, 300]
     notes: '콤보 강의(짧음 ~36s). duration 하한 완화.'
 
@@ -113,6 +120,7 @@ channels:
     platform: youtube
     tier: 2_studio
     bucket: fault
+    curation_profile: fault_demo
     duration_window: [60, 900]
     notes: '교육/다큐형(길이 김).'
 
@@ -121,6 +129,7 @@ channels:
     platform: youtube
     tier: 2_studio
     bucket: fault
+    curation_profile: fault_demo
     duration_window: [30, 400]
     notes: '초급 스핀폴 레슨(fault 풍부).'
 
@@ -129,8 +138,59 @@ channels:
     platform: youtube
     tier: 2_studio
     bucket: fault
+    curation_profile: fault_demo
     duration_window: [30, 400]
     notes: '초급 스트렝스/강의.'
+
+  # ── fault 타겟 검색쿼리 후보 (quick-260714-js2, belle 승인 2026-07-14) ──────
+  # channel_url 없음 + search 필드 → build_enumeration_url 이 ytsearch{N}: 스킴으로
+  # 열거. 선정 근거 = "잘못된 예시" 시연 확률이 높은 교정형 튜토리얼 표적 검색어.
+  # 실체 검증 절차 (실행 단계 몫 — 이 등재는 후보+절차만):
+  #   1) --dry-run 열거 → 2) 제목 육안 스팟체크 → 3) belle 확인 후 --curate.
+  - name: yt_search_kr_common_mistakes
+    platform: youtube
+    search: 폴댄스 흔한 실수
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: '한국어 교정형 튜토리얼 표적 — "흔한 실수" 포맷은 잘못된 예시 시연 확률 최고.'
+
+  - name: yt_search_kr_posture_correction
+    platform: youtube
+    search: 폴댄스 자세 교정 잘못된
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: '한국어 자세 교정 표적 — "잘못된" 키워드로 fault 시연 포함 영상 우선.'
+
+  - name: yt_search_en_common_mistakes
+    platform: youtube
+    search: pole dance common mistakes tutorial
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: '영어 교정형 튜토리얼 표적 — common mistakes 포맷.'
+
+  - name: yt_search_en_beginner_mistakes
+    platform: youtube
+    search: pole dance beginner mistakes
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: '영어 초급자 실수 표적 — 초급 fault(그립·무릎 굽힘 등) 시연 빈도 높음.'
+
+  - name: yt_search_en_invert_mistakes
+    platform: youtube
+    search: pole invert mistakes tutorial
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: '인버트 계열 실수 표적 — kip-up/인버트 fault 학습신호 직결 검색어.'
 
   # ── Tier-2 Instagram (수집 까다로움 — 로그인월·rate-limit·ToS 회색, 쿠키 인증) ──
   # IG 어댑터(collect_phase22_instagram.py) = Task 3. enabled=false 로 기본 격리.
@@ -140,7 +200,11 @@ channels:
     tier: 2_studio
     bucket: fault
     enabled: false
-    notes: '정은지 본인, gold reference, 동의 깨끗, 고가치. IG ToS 회색 — Task 3.'
+    # fault 라운드 cap 상향 (quick-260714-js2): IG CLI 기본 20 → 60. 본인 동의 확보라
+    # IG 중 최저 리스크 — 수집량 확대의 법적 부담 최소. curation_profile 미부여 =
+    # default 유지(정타 위주 본인 릴스 — fault 프로필 강제 아님, cap 상향만).
+    cap_per_account: 60
+    notes: '정은지 본인, gold reference, 본인 동의 확보 2026-07-14 (belle), fault 라운드 cap 상향 20→60. IG 중 최저 리스크.'
 
   - name: hoseoart_polesports
     channel_url: https://www.instagram.com/hoseoart_polesports/

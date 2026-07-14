@@ -49,6 +49,15 @@ def _reels_url(channel_url: str) -> str:
     return base if base.endswith("/reels") else base + "/reels/"
 
 
+def account_cap(account_cfg: dict, default_cap: int) -> int:
+    """계정별 수집 cap 해석 (순수, quick-260714-js2).
+
+    레지스트리 cap_per_account 가 있으면 CLI 기본값을 오버라이드 — eunji.poledancer
+    상향(20→60, 본인 동의 확보 2026-07-14)처럼 계정 단위 정책을 코드 수정 없이 반영.
+    """
+    return int(account_cfg.get("cap_per_account", default_cap))
+
+
 def _download_reels(account_url: str, cap: int, dest: Path) -> list[Path]:
     """gallery-dl 로 릴스 임시 다운로드 → mp4 경로 목록. 실패는 빈 목록."""
     cmd = [_gallery_dl_bin(), "-d", str(dest), "--range", f"1-{cap}", _reels_url(account_url)]
@@ -132,14 +141,17 @@ def main(argv=None) -> int:
     for c in accounts:
         if args.max_candidates and downloaded >= args.max_candidates:
             break
+        # 계정별 cap 오버라이드 + 큐레이션 프로필 (quick-260714-js2, YT 와 동일 계약).
+        cap = account_cap(c, args.cap)
+        profile = c.get("curation_profile", "default")
         with tempfile.TemporaryDirectory() as td:
-            mp4s = _download_reels(c["channel_url"], args.cap, Path(td))
+            mp4s = _download_reels(c["channel_url"], cap, Path(td))
             for mp4 in mp4s:
                 if args.max_candidates and downloaded >= args.max_candidates:
                     break
                 vid = yt._ascii_safe(mp4.stem)
-                verdict = gate.gate(vid, str(mp4))  # File API 선별(캐시).
-                dec = curate_vision.decide(verdict)
+                verdict = gate.gate(vid, str(mp4), profile=profile)  # File API 선별(캐시).
+                dec = curate_vision.decide(verdict, profile=profile)
                 if dec.status != "keep":
                     rejected += 1
                     continue

@@ -304,11 +304,33 @@ def main(argv=None) -> int:
     return 0
 
 
+def build_enumeration_url(channel_cfg: dict, limit: int | None) -> str:
+    """열거 URL 순수 빌더 (yt-dlp 미호출 — 테스트 대상, quick-260714-js2).
+
+    3분기:
+      · channel_url 부재 + search 존재 → ytsearch{limit}:{search} 스킴
+        (fault 타겟 검색쿼리 엔트리 — 채널이 아닌 검색어 단위 열거).
+      · search_query 존재 → 채널 내 검색 URL (시리즈가 채널 전반에 흩어진 경우).
+      · 그 외 → /videos 탭 (기존 계약 무변경).
+    """
+    search = channel_cfg.get("search")
+    if not channel_cfg.get("channel_url") and search:
+        n = int(limit) if limit else 40
+        return f"ytsearch{n}:{search}"
+    base = channel_cfg["channel_url"].rstrip("/")
+    search_q = channel_cfg.get("search_query")
+    if search_q:
+        from urllib.parse import quote
+        return f"{base}/search?query={quote(str(search_q))}"
+    if "youtube.com" in base and not base.endswith(("/videos", "/shorts", "/streams")):
+        return base + "/videos"
+    return base
+
+
 def _enumerate_channel(channel_cfg: dict, limit: int | None) -> list[dict]:
     """yt-dlp flat-playlist 열거 → [{id,title,duration}]. 다운로드 0.
 
-    search_query 있으면 채널 내 검색 URL 열거(시리즈가 채널 전반에 흩어진 경우 —
-    예 BerryTV 폴인폴), 없으면 /videos 탭.
+    URL 은 build_enumeration_url(순수) — 채널 /videos, 채널 내 검색, ytsearch 스킴.
     """
     from yt_dlp import YoutubeDL
 
@@ -321,15 +343,7 @@ def _enumerate_channel(channel_cfg: dict, limit: int | None) -> list[dict]:
     }
     if limit:
         opts["playlistend"] = int(limit)
-    base = channel_cfg["channel_url"].rstrip("/")
-    search_q = channel_cfg.get("search_query")
-    if search_q:
-        from urllib.parse import quote
-        url = f"{base}/search?query={quote(str(search_q))}"
-    elif "youtube.com" in base and not base.endswith(("/videos", "/shorts", "/streams")):
-        url = base + "/videos"
-    else:
-        url = base
+    url = build_enumeration_url(channel_cfg, limit)
     out: list[dict] = []
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -378,6 +392,9 @@ def _run_curate(registry: dict, args) -> int:
     for ch in active:
         if args.max_candidates and total_gated >= args.max_candidates:
             break
+        # 채널별 큐레이션 프로필 (quick-260714-js2) — fault_demo 는 편집/자막 수용
+        # + 프로필 스코프 캐시 키(22-02 default reject 박제와 분리). 미지정 = default.
+        profile = ch.get("curation_profile", "default")
         enum = _enumerate_channel(ch, per_cap * 4)  # 필터 전 여유 열거.
         passed = [e for e in enum if e.get("id") and passes_filters(e, ch, defaults)][:per_cap]
         kept = rejected = unknown = 0
@@ -386,8 +403,8 @@ def _run_curate(registry: dict, args) -> int:
             if args.max_candidates and total_gated >= args.max_candidates:
                 break
             url = f"https://www.youtube.com/watch?v={e['id']}"
-            verdict = gate.gate(e["id"], url)
-            dec = curate_vision.decide(verdict)
+            verdict = gate.gate(e["id"], url, profile=profile)
+            dec = curate_vision.decide(verdict, profile=profile)
             total_gated += 1
             if dec.status == "keep":
                 kept += 1
@@ -457,14 +474,17 @@ def _run_collect(registry: dict, args) -> int:
     for ch in active:
         if args.max_candidates and downloaded >= args.max_candidates:
             break
+        profile = ch.get("curation_profile", "default")
         enum = _enumerate_channel(ch, per_cap * 4)
         passed = [e for e in enum if e.get("id") and passes_filters(e, ch, defaults)][:per_cap]
         for e in passed:
             if args.max_candidates and downloaded >= args.max_candidates:
                 break
             vid = e["id"]
-            verdict = gate._cache.get(vid)  # curate 캐시 조회(재호출 0).
-            dec = curate_vision.decide(verdict)
+            # curate 캐시 조회(재호출 0) — 프로필 스코프 키는 cache_key 헬퍼 경유
+            # (계약 1벌, 직접 f-string 재작성 금지 — T-js2-02).
+            verdict = gate._cache.get(curate_vision.cache_key(vid, profile))
+            dec = curate_vision.decide(verdict, profile=profile)
             if dec.status != "keep":
                 continue
             motion = _motion_slug(verdict, ch["name"])

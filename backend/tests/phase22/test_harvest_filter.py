@@ -163,7 +163,11 @@ def test_dry_run_exit_zero_with_recollection_entries(capsys):
     out = capsys.readouterr().out
     # 신규 검색쿼리 엔트리(fault 재수집 라운드)가 레지스트리에 등재돼 순회에 나타난다.
     assert "yt_search" in out
-    assert "uploads/" not in out
+    # 샘플 키 스킴 전부 fixtures/phase22/ — uploads/ prefix 키 0 (HIGH 1).
+    sample_keys = [ln.split("sample_key=", 1)[1] for ln in out.splitlines() if "sample_key=" in ln]
+    assert sample_keys, "dry-run 샘플 키 출력이 비어 있다"
+    assert all(k.startswith("fixtures/phase22/") for k in sample_keys)
+    assert not any(k.startswith("uploads/") for k in sample_keys)
     # IG dry-run 도 exit 0 (계정 목록만, 다운로드 0).
     import collect_phase22_instagram as ig
 

@@ -195,6 +195,68 @@ def test_grounding_routing_only_synthetic_track():
     assert all(r not in g for r in non_synth)
 
 
+# ── aligned 프롬프트 모드 (quick-260714-hv4) — 계측-학습 양식 정렬 ─────────────
+def test_aligned_user_text_matches_training_format():
+    """Test 1 — aligned user 텍스트 = build_jsonl._rtmw_text + _TASK_INSTRUCTION
+    문자 단위 동일 (import 재사용 — 복사 검출)."""
+    from datagen import build_jsonl
+
+    rows = [
+        {"frame": 0, "left_knee": [500, 500, 0.9]},
+        {"frame": 9, "left_knee": None},
+    ]
+    msgs = rb.build_aligned_report_messages(rows, [])
+    texts = [c["text"] for c in msgs[-1]["content"] if c.get("type") == "text"]
+    assert len(texts) == 1
+    expected = build_jsonl._rtmw_text(rows) + build_jsonl._TASK_INSTRUCTION
+    assert texts[0] == expected
+    # 문자열 복사본이 아니라 build_jsonl 모듈 객체 재사용 (단일 진실).
+    assert rb._TASK_INSTRUCTION is build_jsonl._TASK_INSTRUCTION
+    assert rb._rtmw_text is build_jsonl._rtmw_text
+
+
+def test_aligned_no_system_no_motion_line_media_first():
+    """Test 2 — system 롤 0건, 동작명 라인 없음, content = media 먼저 → text 마지막."""
+    rows = [{"frame": 0, "left_knee": [1, 2, 0.9]}]
+    media = [{"type": "video_url", "video_url": {"url": "file:///tmp/x.mp4"}}]
+    msgs = rb.build_aligned_report_messages(rows, media)
+    assert all(m.get("role") != "system" for m in msgs)
+    assert len(msgs) == 1 and msgs[0]["role"] == "user"
+    content = msgs[0]["content"]
+    assert content[0]["type"] == "video_url"  # media 먼저.
+    assert content[-1]["type"] == "text"      # text 마지막.
+    assert "분석 대상 동작" not in content[-1]["text"]
+    # media 없으면 text 단독 (합성 트랙 좌표 단독 정상 폴백).
+    only_text = rb.build_aligned_report_messages(rows, [])
+    assert [c["type"] for c in only_text[0]["content"]] == ["text"]
+
+
+def test_legacy_report_messages_unchanged():
+    """Test 3 — 기본(legacy) 메시지 조립 불변: system 존재 + _REPORT_TASK_TEXT +
+    동작명 라인 + text 먼저 (opt-in 이 기존 동작을 못 건드림)."""
+    rows = [{"frame": 0, "left_knee": [1, 2, 0.9]}]
+    msgs = rb.build_report_messages(rows, ["aGVsbG8="], "kip-up", "zero")
+    assert msgs[0]["role"] == "system"
+    user_text = msgs[-1]["content"][0]["text"]
+    assert msgs[-1]["content"][0]["type"] == "text"  # legacy 는 text 먼저.
+    assert "분석 대상 동작: kip-up." in user_text
+    assert rb._REPORT_TASK_TEXT in user_text
+
+
+def test_argparse_defaults_prompt_mode_legacy_rp1(monkeypatch):
+    """Test 4 — --prompt-mode 기본 legacy(env 폴백) / --repetition-penalty 기본 1.0."""
+    monkeypatch.delenv("BAKEOFF_PROMPT_MODE", raising=False)
+    args = rb._build_parser().parse_args([])
+    assert args.prompt_mode == "legacy"
+    assert args.repetition_penalty == 1.0
+    assert args.media == "auto"
+    # env BAKEOFF_PROMPT_MODE 폴백.
+    monkeypatch.setenv("BAKEOFF_PROMPT_MODE", "aligned")
+    assert rb._build_parser().parse_args([]).prompt_mode == "aligned"
+    # 명시 플래그가 env 를 이긴다.
+    assert rb._build_parser().parse_args(["--prompt-mode", "legacy"]).prompt_mode == "legacy"
+
+
 def test_svg_wellformed_observation():
     # F2 관측치 — 유효 svg_spec = 1.0, target_angle_deg 비수치/구조 위반 = 0.0.
     good = {"force_vector": [1, 0], "ideal_trajectory": [[0, 0]], "target_angle_deg": 175}

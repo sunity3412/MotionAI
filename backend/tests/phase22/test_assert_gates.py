@@ -243,6 +243,29 @@ def test_svg_spec_no_faulted_reports_skipped():
     assert res and res[0].startswith("SKIPPED")
 
 
+# ── _parsed_report 방어 파서 (quick-260714-hv4 — 판정 기준 무변경) ──────────
+def test_parsed_report_thought_preamble_extracted():
+    """<thought> 프리앰블 + 유효 리포트 JSON raw → normalize_report dict 로 파싱.
+
+    v4 자유생성 출력(학습 타겟 양식)이 게이트에서 파싱 실패 처리되던 계측 결함 fix —
+    파서만 schema.extract_report_json 공유, 4 게이트 임계·비교식은 불변."""
+    rep = _report(faults=[_fault()])
+    raw = "<thought>\n무릎 각도 분석.\n</thought>\n" + json.dumps(rep, ensure_ascii=False)
+    parsed = ag._parsed_report(_rec("real-a-fault", raw=raw))
+    assert isinstance(parsed, dict)
+    assert len(parsed["faults"]) == 1
+    # normalize_report 통과 — REPORT_KEYS Null 고정 구조.
+    assert "svg_spec" in parsed
+
+
+def test_parsed_report_prose_still_none():
+    """JSON 없는 산문 raw → 여전히 None (실패 집계 유지 — 관대화 금지)."""
+    assert ag._parsed_report(_rec("real-b-fault", raw="결함이 없습니다.")) is None
+    # 순수 JSON(legacy guided 출력) 하위호환 — 동일 결과.
+    pure = ag._parsed_report(_rec("real-c-fault", report=_report(faults=[_fault()])))
+    assert isinstance(pure, dict) and len(pure["faults"]) == 1
+
+
 # ── 추적성 + 단조성 번안 ────────────────────────────────────────────────────
 def test_traceability_nonfinite_angle_fails():
     doc = _doc([_rec("real-a-fault", report=_report(faults=[_fault(student=float("nan"))]))])

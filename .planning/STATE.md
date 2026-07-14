@@ -72,7 +72,7 @@ Status: Executing Phase 22
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-13 -- Completed quick task 260713-jxr: 처방 B 배선 (내부 fault 트랙 enumerate+anonymize+manifest)
+Last activity: 2026-07-14 -- Completed quick task 260714-hv4: 22-07 v4 게이트 계측-학습 양식 정렬 (aligned 프롬프트 모드 + 방어 파서, Pod 재계측=POD-RECHECK.md)
 
 ### Quick Tasks Completed
 
@@ -109,6 +109,7 @@ Last activity: 2026-07-13 -- Completed quick task 260713-jxr: 처방 B 배선 (�
 | 260707-k07 | Phase 22 2차 직접리뷰(22-DIRECT-REVIEW-ITERATION2, verdict=Pass with fixups) 후속 4건 — must-fix=22-VALIDATION.md를 DR 반영 태스크 그래프에 싱크(pre-DR 번호 참조 0건 전수확인, checkpoint manual 행 3개+자동검증 행 4개 추가, fail-open 잔재 제거), P1=22-03 `pytest|tail -3` exit-code 삼킴을 FAILED/ERROR node-ID baseline diff로 교체, P2=val.jsonl 계약을 `validation_owner=explicit_val_jsonl|phase22_eval_gate` 단일 필드로 통일(22-04/07), 22-POD-VRAM `peak_vram_gb:` 수치 필드 강제. 문서 4개만, wave/DAG 불변. **Phase 22 = 실행 게이팅 준비 완료** | 2026-07-07 | c318419 | [260707-k07](./quick/260707-k07-phase-22-2-iteration2-fixup-4-22-validat/) |
 | 260713-jjq | 백본 확정 도장 — 22-BAKEOFF-RESULT.md Qwen3-VL-8B PROVISIONAL→CONFIRMED (belle 공식 확정 2026-07-13, bake-off 4축 종합·결정성 64/64). 문서 3곳 갱신, 판정 근거·계측 이력 불변 | 2026-07-13 | 2cdc76e | [260713-jjq](./quick/260713-jjq-22-bakeoff-result-md-qwen3-vl-8b-provisi/) |
 | 260713-jxr | 처방 B 배선 — 내부 fault 트랙(구 371) enumerate_internal(consent 게이트 3분기+ETag dedup+스케일가드) + anonymize_batch(재개 가능+fixtures/phase22/internal/ prefix 강제+manifest 행 생성/병합) + LICENSE-AUDIT §7-1 belle 일괄승인(2026-07-13) 박제. Firestore 실측 872/707/662, optIn=false 1건 제외·anonymize 강제. 신규 행이 eligible_for_distill+test_provenance fence 무수정 통과. phase22 222 passed. 로컬 코드+문서만(Pod 실행=runbook). fable 크레딧 소진→Opus 인계 완주 | 2026-07-13 | 386398e | [260713-jxr](./quick/260713-jxr-b-fault-anonymize-manifest-belle-2026-07/) |
+| 260714-hv4 | 22-07 v4 게이트 계측-학습 양식 정렬 — run_bakeoff aligned 프롬프트 모드(opt-in, 기본 legacy 바이트 불변): 지시문=_TASK_INSTRUCTION import 재사용·system 롤 0·media 먼저·guided 해제(자유생성)+video_url auto→frames 폴백. 방어 파서 schema.extract_report_json(thought 스트립+raw_decode balanced JSON) 단일 진실을 run_bakeoff/assert_gates 공유 — 4 게이트 임계·비교식 불완화, 파싱 실패=실패 집계. run_sft_gates.sh PROMPT_MODE/REPETITION_PENALTY 배선(rp 본판정 1.0 고정). phase22 248 passed(+11). Pod 재계측=POD-RECHECK.md(legacy 아티팩트 mv 백업 선행, 오케스트레이터 SSH) | 2026-07-14 | 4f12979 | [260714-hv4](./quick/260714-hv4-2207-v4-gate-align/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

@@ -88,6 +88,17 @@
 - 수집 실행 시각(실측): 2026-07-09 08:36~12:22 UTC. yt-dlp 2026.07.04.
 - **customer_track(내부 371, fault 금광)**: 개별 행 미등재 — `_meta.customer_track` 구조 참조만(count 371, uid 미기재, anonymized=false). anonymize.py 가명처리 후 다음 라운드 등재(마감 시 이월 명시).
 
+### 5-3. 재수집 라운드 증분 (2026-07-14, §7-2 실측)
+
+위 5-1/5-2 는 131행 마감본(2026-07-10) 스냅샷으로 보존한다. 이후 증분:
+
+| 증분 | 행 | 정타/fault | 근거 절 |
+|------|---:|-----------|---------|
+| 내부 fault 트랙 등재 (2026-07-13) | +23 | 13/10 | §7-1 |
+| YT 튜토리얼 fault_demo 재수집 (2026-07-14) | +61 | 0/61 | §7-2 트랙 1 — fair-use 회색(R1/A9-1 동급), info.json 보관 |
+| eunji.poledancer cap 60 상향 (2026-07-14) | +24 | 24/0 | §7-2 트랙 2 — 본인 동의, §5-2 eunji 등급 승계 |
+| **누계 (manifest 실측)** | **239** | **정타 159 / fault 80** | |
+
 ## 6. 리스크 플래그 테이블
 
 | # | 플래그 | 대상 | 사실 관계 (실측) | 등급 | 처리 |
@@ -130,7 +141,11 @@ v4 aligned 게이트에서 eval18 fault 짚기 실패의 근본원인 = fault �
   - 정은지 IG 추가분 = **본인 동의로 IG 중 최저 리스크** (기존 §5-2 eunji 행 등급 승계).
 - **(c) 게이트 유지** — 미성년 제외(연령 스크리닝 절차 A9-3, @polesportkids enabled=false 불변)·후프/에어리얼/실크/폴 없는 스트렝스/비폴 reject·점수 라벨 영구 금지(verdict score/severity 부재 불변식)·uploads/ prefix 금지(HIGH 1) 전부 현행 유지. **fault_demo 프로필은 편집/자막 reject 만 완화한다.** verdict 캐시는 프로필 스코프 키(`{video_id}::fault_demo`)로 분리 — 22-02 default reject 박제와 충돌 없음.
 - **(d) train-on-test fence** — 정은지 성공/실패 페어 6쌍(eval18 시험지와 동일 자산)은 **학습 투입 영구 금지**. 이번 라운드 수집분(외부 튜토리얼 + eunji IG 릴스)과 무관하다 — 페어 6쌍은 이번 라운드의 수집 대상·경로에 포함되지 않는다.
-- **(e) 수집 실측 수치** — **라운드 개시 시점 — 행 수 미정.** 실행(오케스트레이터, RUN-SHEET 경유) 후 keep/reject 집계·manifest 행 수를 본 절과 §5 원장에 실측 기입하고 `_meta.recollection_rounds[].status` 를 갱신한다.
+- **(e) 수집 실측 수치 (2026-07-14 실행 완료)** — manifest 154 → 239행 (+85 = fault 61 + 정타 24). 버킷 합계: 정타 159 / fault 80.
+  - **트랙 1 (YT 튜토리얼, fault_demo)**: 큐레이션 keep 90 → 적재 61행(전 행 fault). 채널별: yt_search_en_common_mistakes 22 / BerryTV_FallInPole 9 / PoleFreaks 8 / yt_search_en_invert_mistakes 8 / yt_search_en_beginner_mistakes 6 / yt_search_kr_common_mistakes 4 / poleplace 3 / PoleDanceLessonsPoleDream 1 / becciedunnfitness 0. 미회수 2건(becciedunnfitness) = 영상 자체 삭제·차단("This video is not available") — 회수 불가 확정.
+  - **트랙 2 (eunji IG cap 60)**: 적재 24 / reject(품질) 27 / skip(기존) 9 — cap 60 전량 소진. 전 행 정타, §5-2 eunji 등급 승계.
+  - **운영 노트**: Pod(데이터센터 IP) 실행분은 YT 봇체크·IG 로그인월로 다운로드 0 — 다운로드 스테이지는 로컬(주거 IP)에서 실행해야 한다. 큐레이션 캐시 소비 구조라 재실행 재과금 0.
+  - `_meta.recollection_rounds[0].status` = `"collected"` (2026-07-14). §5 원장 증분은 §5-3.
 
 ## 8. belle 결정 이력 (일자순)
 

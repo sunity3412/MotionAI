@@ -1860,5 +1860,2057 @@
     "move_guess": null,
     "reason": "대형 로고 및 텍스트 오버레이가 화면에 크게 노출되어 학습 데이터셋으로 부적합합니다.",
     "single_person_pole": true
+  },
+  "0fdlIuQ8gsk::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "윈드밀 회전 시 무릎을 굽히거나 발목을 꺾는(플렉스) 자세",
+    "keep": true,
+    "move_guess": "Windmill",
+    "reason": "윈드밀 동작 중 무릎이 굽혀지고 발목이 플렉스되는 잘못된 자세 예시를 명확히 시연하고 올바른 발끝 포인 자세를 대조하여 설명함",
+    "single_person_pole": true
+  },
+  "dmyKUV7mH1Y::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "다리를 들어 올려 원을 그릴 때 무릎이 구부러지거나 발끝을 포인하지 않고 플렉스하는 자세",
+    "keep": true,
+    "move_guess": "Windmill",
+    "reason": "윈드밀 동작을 할 때 다리를 쭉 펴지 못하고 무릎이 굽혀지거나 발끝 포인이 풀리는 잘못된 자세를 직접 시연하고 교정법을 설명함.",
+    "single_person_pole": true
+  },
+  "SbsALxOVeK0::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Skater",
+    "reason": "스케이터(Skater) 동작의 결합 조건과 올바른 자세를 설명하고 강사와 학생이 시연하는 유용한 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "itbO0YWY09c::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴과 몸 사이의 적정 간격을 유지하지 못하고 몸이 폴에 너무 가깝게 밀착됨",
+    "keep": true,
+    "move_guess": "Pencil",
+    "reason": "펜슬 동작 중 폴과 몸의 간격을 띄우지 못하고 과도하게 밀착하는 흔한 초보자의 실수를 보여주고 교정하는 과정이 담겨 있어 유용함",
+    "single_person_pole": true
+  },
+  "VDpsXIhzAnk::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Back Spin",
+    "reason": "두 명의 인물이 동시에 프레임에 잡히고 동작을 수행하여 단일 시연자 요건을 충족하지 않으며, 잘못된 자세에 대한 전용 시연 구간이 없어 폐기합니다.",
+    "single_person_pole": false
+  },
+  "lnCGbl_LVBY::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴과 몸의 간격을 확보하지 못하고 밀착한 채 매달려 다리 제어가 되지 않는 자세",
+    "keep": true,
+    "move_guess": "Pencil",
+    "reason": "펜슬 동작의 정확한 시연과 함께 몸을 폴에 지나치게 밀착시키는 잘못된 자세 및 교정 피드백 과정을 상세히 담고 있어 유용함",
+    "single_person_pole": true
+  },
+  "j6piSRoyti0::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "동시에 두 명의 시연자가 바닥 복근 웜업 운동을 수행하여 단일 시연자 요건을 충족하지 않으며, 특정 폴 기술의 잘못된 자세 시연이 없습니다.",
+    "single_person_pole": false
+  },
+  "UzQKm-TeLiY::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 동작 시연 없이 두 명의 시연자가 매트 위에서 워밍업 스트레칭만 수행하므로 학습 데이터로 적합하지 않습니다.",
+    "single_person_pole": false
+  },
+  "qQnuwqe1hMU::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Layback",
+    "reason": "레이백과 쉬쉬 스핀 동작의 올바른 정렬 및 조작을 단계별로 자세히 설명하고 성공적으로 시연하는 튜토리얼 영상이다.",
+    "single_person_pole": true
+  },
+  "GertoZK9JMA::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "교육적 설명이나 튜토리얼 없이 예능형 대화와 교차 편집된 예술적 폴 댄스 공연만 포함되어 있어 학습 데이터로 적합하지 않습니다.",
+    "single_person_pole": true
+  },
+  "TJxj8P5FpsY::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "특정 동작의 튜토리얼이나 잘못된 자세 시연이 아닌, 전체적인 폴댄스 루틴 연출 및 퍼포먼스 쇼케이스 영상입니다.",
+    "single_person_pole": true
+  },
+  "AfQ2wX_0PN8::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Climb up - One foot",
+    "reason": "한 발 클라임 업 동작의 올바른 수행법을 단계별로 설명하고 시연하는 양질의 튜토리얼이므로 저장함",
+    "single_person_pole": true
+  },
+  "QwWoTJPsBko::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Triangle balance",
+    "reason": "두 명이 함께 수행하는 트라이앵글 발란스(Triangle balance) 듀오 동작으로, 단일 시연자 규정을 충족하지 않아 폐기합니다.",
+    "single_person_pole": false
+  },
+  "JR-vFLUpH8E::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Triangle Balance",
+    "reason": "파트너와 함께 수행하는 복인(두 명) 동작으로 단일 시연자 요건을 충족하지 않아 폐기합니다.",
+    "single_person_pole": false
+  },
+  "W8MdpBPwEAk::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "제미니에서 스콜피온으로 전환할 때 다리 전환 경로를 혼동하여 다리가 꼬이는 현상",
+    "keep": true,
+    "move_guess": "Scorpion",
+    "reason": "스콜피온 동작 전환 과정에서 다리가 꼬이는 흔한 실수와 올바른 다리 회전 경로를 비교 시연하여 교정용 튜토리얼로 적합함",
+    "single_person_pole": true
+  },
+  "zcmS-Z1EGug::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": null,
+    "reason": "영상 후반부에 숙련자의 전신 폴 스포츠 루틴 시연이 고화질로 담겨 있어 정타 학습 데이터로 저장할 가치가 있습니다.",
+    "single_person_pole": true
+  },
+  "deiKAboZhGY::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴을 잡을 때 상체를 충분히 숙이지 않고 세운 채로 손을 뻗어 폴을 찾지 못하고 허우적거리는 자세",
+    "keep": true,
+    "move_guess": "Ballerina",
+    "reason": "발레리나 동작 진입 시 상체를 충분히 숙이지 않아 손이 폴에 닿지 않는 잘못된 예시를 강사가 직접 시연하고 시선 처리와 상체 각도 교정법을 상세히 설명함",
+    "single_person_pole": true
+  },
+  "vwpyduwXhS0::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 시연자가 한 화면에서 동시에 각각 다른 폴을 사용하여 시연하므로 단일 시연자 요건에 부합하지 않습니다.",
+    "single_person_pole": false
+  },
+  "WsKWFInxFG0::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "동작 교육이나 잘못된 자세를 교정하는 튜토리얼이 아닌, 토크 및 폴 댄스 시연(공연) 영상이므로 저장하지 않습니다.",
+    "single_person_pole": true
+  },
+  "LlmigxF8DSc::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "제이드 스플릿",
+    "reason": "잘못된 자세 시연은 없으나, 고난도의 폴스포츠 기술들이 올바른 자세로 연속 시연되는 고화질 영상으로 정타 코퍼스 저장에 적합함",
+    "single_person_pole": true
+  },
+  "NnhW0B36Yeo::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Bridge",
+    "reason": "폴을 직접 사용하지 않는 바닥 스트레칭 웜업 동작이며, 두 명의 인물이 화면에 동시에 등장하여 시연하므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "s19X1XPY3YU::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "무릎으로 폴을 제대로 밀착하여 잡지 못하고 무릎 사이가 벌어지는 자세",
+    "keep": false,
+    "move_guess": "Juliet spin",
+    "reason": "화면에 강사와 학생 두 명의 인물이 동시에 등장하여 단일 시연자 요건을 충족하지 않으므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "g9Wgeb6aHzQ::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Elbowstand",
+    "reason": "엘보우스탠스 동작의 올바른 자세 및 수행 방법을 시연과 자막으로 상세히 설명하는 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "o9h-cig4d9Y::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "복부 힘을 주지 않아 상체가 흔들리는 잘못된 자세 시연",
+    "keep": false,
+    "move_guess": "폴 킥",
+    "reason": "두 명의 시연자가 화면에 동시에 등장하여 단일 시연자 요건을 충족하지 않음",
+    "single_person_pole": false
+  },
+  "X6J5vPGyzNo::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "더블폴",
+    "reason": "두 명의 시연자가 동시에 하나의 폴을 사용하는 더블폴 콘텐츠로, 단일 시연자 요건을 충족하지 않아 폐기합니다.",
+    "single_person_pole": false
+  },
+  "6b6WhDv9388::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "골반과 복부를 폴에 밀착시키지 못하고 엉덩이를 뒤로 빼는 자세",
+    "keep": true,
+    "move_guess": "Embrace",
+    "reason": "임브레이스 동작 중 엉덩이를 뒤로 빼는 흔한 실수에 대한 시연 및 교정 설명을 포함하고 있어 학습 코퍼스로 저장 가치가 높음",
+    "single_person_pole": true
+  },
+  "HBIcSAGBycM::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Figurehead",
+    "reason": "의도적인 잘못된 자세 시연(fault demo)이 아니라 초보자의 동작 수행 실패 및 고통 호소를 보여주는 영상으로, 교정용 학습 코퍼스로서 가치가 낮음",
+    "single_person_pole": true
+  },
+  "0cmvagXSy-o::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "동작에 대한 교육적 설명이나 잘못된 자세 시연 없이, 교차 편집과 슬로우 모션이 적용된 공연 위주의 영상이므로 학습셋에서 배제합니다.",
+    "single_person_pole": true
+  },
+  "PqkWKa1wBXQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "복부에 힘을 주지 않아 킥 동작 시 상체가 중심을 잡지 못하고 흔들리는 자세",
+    "keep": false,
+    "move_guess": "pole kick",
+    "reason": "화면에 두 명의 인물이 동시에 등장하여 시연 및 연습을 진행하므로 단일 시연자 요건을 충족하지 않습니다.",
+    "single_person_pole": false
+  },
+  "zkebHklET1I::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "이 영상은 폴 댄스 루틴 시연과 오프닝 대화로만 구성되어 있으며, 잘못된 자세 시연(fault)이나 교정형 튜토리얼 내용을 포함하고 있지 않습니다.",
+    "single_person_pole": true
+  },
+  "QJgZ51xQ-EQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "회전할 때 왼팔로 폴을 밀어내지 못해 폴과의 일정한 간격을 유지하지 못하고 매달리거나 미끄러짐",
+    "keep": true,
+    "move_guess": "sliding spin",
+    "reason": "슬라이딩 스핀 동작에서 초보자가 흔히 범하는 왼팔 지지 부족 및 거리 유지 실패 등의 잘못된 자세와 교정 과정을 명확히 보여줌",
+    "single_person_pole": true
+  },
+  "A5aKBshitiQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴을 잡을 때 정강이와 발목이 아닌 발등을 걸어 지지함",
+    "keep": true,
+    "move_guess": "Sideway",
+    "reason": "사이드웨이 동작 진입 시 발등으로 폴을 거는 잘못된 지지 방식을 시연하고 정강이와 발목을 사용하도록 교정하는 튜토리얼을 포함함",
+    "single_person_pole": true
+  },
+  "M0ApjROPwhQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "정강이와 발목 대신 발등을 사용해 폴을 잡음",
+    "keep": false,
+    "move_guess": "Sideway",
+    "reason": "화면에 두 개의 폴이 있고 두 명의 시연자가 동시에 폴에 오르는 구간이 다수 존재하여 단일 시연자 요건을 충족하지 않습니다.",
+    "single_person_pole": false
+  },
+  "Fsd_8W4Uu7U::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "One Foot Climb",
+    "reason": "한 발 클라임 동작의 올바른 자세를 체계적으로 설명하고 직접 시연하는 양질의 폴스포츠 튜토리얼 영상이다.",
+    "single_person_pole": true
+  },
+  "naJR1NUCX8A::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "스핀 시 엉덩이가 폴에 달라붙고 다리가 들어갈 때 아래쪽 손을 제때 떼지 못함",
+    "keep": true,
+    "move_guess": "Pretzel spin",
+    "reason": "프레젤 스핀 동작 중 하체가 들어가는 공간 확보 실패 및 손 놓기 타이밍 불일치 실수를 상세히 교정하는 튜토리얼임",
+    "single_person_pole": true
+  },
+  "IJMv8rgUmjA::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "잘못된 자세(fault) 시연이나 설명이 포함되지 않은 단순 폴댄스 퍼포먼스 및 루틴 시연 영상이므로 교정형 튜토리얼로 저장하지 않음",
+    "single_person_pole": true
+  },
+  "ozu2sqDBdF0::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Vortex",
+    "reason": "볼텍스 동작에 대한 상세한 설명과 우아한 시연을 담고 있어 정타 데이터셋으로 저장할 가치가 높음.",
+    "single_person_pole": true
+  },
+  "cBpwkJYBmYU::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Double Pole",
+    "reason": "두 명이 동시에 시연하는 더블 폴 동작으로 단일 시연자 조건(single_person_pole)에 부합하지 않으며, 잘못된 자세(fault) 시연이 포함되어 있지 않습니다.",
+    "single_person_pole": false
+  },
+  "v4Y2P9Sy_9k::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "골반과 엉덩이를 뒤로 빼면서 복부가 폴에서 떨어지는 자세",
+    "keep": true,
+    "move_guess": "Embrace",
+    "reason": "엉덩이를 뒤로 빼서 복부가 폴에서 떨어지는 대표적인 실수를 강사의 피드백과 학생의 시연을 통해 직관적으로 보여줌",
+    "single_person_pole": true
+  },
+  "OesQ36p-3is::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": null,
+    "reason": "잘못된 자세 시연은 없으나 싱글 폴댄서의 고화질 루틴 수행 장면을 포함하고 있어 정타 샘플로 저장 가치가 있음",
+    "single_person_pole": true
+  },
+  "O4-TDp1WRQY::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "FlyBy Straddle-Cartwheel",
+    "reason": "FlyBy Straddle-Cartwheel 동작의 성공적인 연결과 제어된 시연을 명확히 보여주고 있어 학습 코퍼스로 저장 가치가 높음.",
+    "single_person_pole": true
+  },
+  "ZK1oxP4K-GU::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 댄스 시연이 전혀 없고 블랙 프라이데이 이벤트 및 강의 강좌 홍보만 포함된 영상입니다.",
+    "single_person_pole": false
+  },
+  "iE-pVvyBHYA::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "폴댄스 트랜지션 및 스핀",
+    "reason": "폴댄스 트랜지션 연결 동작을 단계별 설명과 함께 명확히 시연하는 올바른 자세의 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "RftnKpQd8Cg::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "pole conditioning",
+    "reason": "폴을 활용한 다양한 근력 및 컨디셔닝 운동법을 올바른 자세로 단계별 시연하는 영상으로 학습 데이터로서 유용함",
+    "single_person_pole": true
+  },
+  "F-cylVhG0I8::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "영상 전체가 다중 분할 화면(grid)으로 동시에 여러 동작을 보여주는 홍보용 컴필레이션이라 학습용 데이터로 부적합함",
+    "single_person_pole": false
+  },
+  "JnpjZb2f1M8::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "chair spin",
+    "reason": "체어 스핀을 활용한 체중 이동 연습 과정을 단일 시연자가 명확히 보여주고 있어 정타 학습 데이터로 저장 가치가 높습니다.",
+    "single_person_pole": true
+  },
+  "8IjHNzBXhSo::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 기구와 실제 시연 동작이 전혀 등장하지 않고 말하는 모습과 비하인드(NG) 장면으로만 구성되어 있어 학습용 데이터로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "VrBlGx8dUic::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "골반과 폴의 밀착이 부족하여 엉덩이가 뒤로 빠지거나, 다리의 고정력이 약해 아래로 미끄러지는 자세",
+    "keep": true,
+    "move_guess": "Angel",
+    "reason": "정확한 엔젤 동작 시연과 함께 발생하기 쉬운 잘못된 자세 예시(엉덩이 빠짐, 고정 불안정)를 명확한 오버레이 자막과 함께 시연하는 교정형 튜토리얼이므로 소장 가치가 높음.",
+    "single_person_pole": true
+  },
+  "QTgnNhjsMyQ::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Flamingo Pose, Boomerang, Fan Kick",
+    "reason": "잘못된 자세 시연은 포함되어 있지 않으나, 플라밍고 포즈와 부메랑 등 초급 콤보 동작들을 올바르고 명확한 자세로 시연하여 정타 동작 학습에 유용함",
+    "single_person_pole": true
+  },
+  "ZvqxV8V0sfM::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 스포츠 동작 시연이 없는 마케팅 및 광고 영상이므로 제외합니다.",
+    "single_person_pole": false
+  },
+  "n3rbkB-_5w0::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 개의 화면이 동시에 재생되는 그리드 분할 방식의 온라인 강좌 홍보 영상이며, 특정 동작에 대한 분석이나 잘못된 자세의 교정 시연이 포함되어 있지 않습니다.",
+    "single_person_pole": false
+  },
+  "__2WrxmIePc::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명의 시연자가 분할 화면 및 콜라주 형태로 노출되는 브랜드 홍보용 영상으로, 특정 기술에 대한 단일 시연이나 잘못된 자세의 상세 교정 과정이 없습니다.",
+    "single_person_pole": false
+  },
+  "VhLl9nkZt8o::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 동작에 대한 직접적인 시연이나 교정 튜토리얼이 아닌, 온라인 스쿨의 학습 진행 방식을 설명하는 안내 및 홍보 영상이므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "nvcQWtFVjj4::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Reverse with cup grip",
+    "reason": "컵 그립을 사용한 리버스 동작의 그립 잡는 법, 예비 연습법 및 올바른 시연 과정을 상세한 자막과 함께 명확히 설명함",
+    "single_person_pole": true
+  },
+  "PJqSMURCxgc::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Split from Ballerina",
+    "reason": "발레리나 스플릿 동작의 올바른 단계별 시연과 두 가지 변형 자세를 명확하게 보여주는 우수한 교육용 영상입니다.",
+    "single_person_pole": true
+  },
+  "CAgmhYyKhmo::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴에 너무 가깝게 착지하거나 무릎을 펴고 착지하는 잘못된 자세",
+    "keep": true,
+    "move_guess": "split jump",
+    "reason": "스플릿 점프 동작의 단계별 튜토리얼과 함께, 부상 위험이 있는 잘못된 착지 위치 및 자세를 흑백 화면으로 명확하게 시연함",
+    "single_person_pole": true
+  },
+  "3IpZOF6K1WQ::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "이 영상은 예술적 폴댄스 공연 영상으로, 특정 동작에 대한 교정형 설명이나 잘못된 자세(fault) 시연을 포함하지 않습니다.",
+    "single_person_pole": true
+  },
+  "A-SZg4tJH5c::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Split with forearm support",
+    "reason": "잘못된 자세 시연은 포함되어 있지 않으나, 포암 서포트 스플릿 동작의 정확한 단계별 수행법과 탈출 옵션을 명확히 시연하는 고품질 튜토리얼 영상임.",
+    "single_person_pole": true
+  },
+  "lwpcyxIgq4U::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Kim",
+    "reason": "고급 폴스포츠 동작인 'Kim'의 올바른 수행 방법을 상세한 설명과 함께 시연하고 있어 정타 데이터셋으로 소장 가치가 높음.",
+    "single_person_pole": true
+  },
+  "hjCY0Xq2TrY::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "실제 폴 스포츠 동작의 시연이 전혀 없이 말로만 안전 수칙을 설명하는 영상이므로 학습셋에서 배제합니다.",
+    "single_person_pole": false
+  },
+  "50LQ6KNnK-s::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Developpe",
+    "reason": "폴 에그조틱의 다양한 레그 스트레칭 및 데블로페 운동법을 올바른 자세로 시연하여 교재로 활용하기 좋음.",
+    "single_person_pole": true
+  },
+  "h2uN3IsTIZQ::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole Wave",
+    "reason": "올바른 폴 웨이브(전방 및 후방) 동작을 위한 단계별 준비 및 정석 자세를 명확한 자막과 함께 보여주는 고품질 튜토리얼 영상임",
+    "single_person_pole": true
+  },
+  "bW7OEUEuQIg::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "eJPIv_5X14c::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Titanic variation",
+    "reason": "타이타닉 변형 동작을 군더더기 없이 깔끔하게 시연하고 반복해 보여주어 학습 데이터로서 가치가 큼",
+    "single_person_pole": true
+  },
+  "_k07_TNjqb8::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Exotic pole conditioning",
+    "reason": "잘못된 자세 시연은 포함되어 있지 않으나, 폴을 활용한 발목 강화 및 엑조틱 폴용 컨디셔닝 동작을 자막과 함께 정확히 보여주는 유용한 튜토리얼 영상이다.",
+    "single_person_pole": true
+  },
+  "MMOFTNCPEaE::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Open seat, Frog, Pike drop",
+    "reason": "초급 수준의 올바른 폴 스포츠 콤보 동작들을 명확하게 시연하는 영상으로 학습 코퍼스에 적합하나, 잘못된 자세(fault) 예시는 포함되어 있지 않습니다.",
+    "single_person_pole": true
+  },
+  "253lpX0FWEk::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴을 사용하지 않는 맨몸 목 스트레칭 및 웜업 영상으로, 폴 스포츠 기술 시연이나 폴 기반 훈련에 해당하지 않아 폐기합니다.",
+    "single_person_pole": false
+  },
+  "P3HSHsccRAo::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "pole exotic warm up",
+    "reason": "올바른 자세의 웜업 및 기초 동작들만 순서대로 시연할 뿐, 잘못된 자세(fault)의 시연이나 피드백 과정이 포함되어 있지 않음.",
+    "single_person_pole": true
+  },
+  "b6XR-0BcLuA::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴을 직접 사용하지 않는 오프폴 스트렝스 및 컨디셔닝 훈련 영상으로, 폴 스포츠 기술 시연이 포함되어 있지 않습니다.",
+    "single_person_pole": false
+  },
+  "7Wj6cBrLaf8::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 스포츠 동작 시연이 전혀 없는 구두 리뷰/인터뷰 영상이므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "SbT6RFqE6QQ::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 동작을 단순히 연달아 시연하는 카탈로그 형식의 영상으로, 구체적인 설명이나 잘못된 자세(fault)의 분석 및 시연이 포함되어 있지 않습니다.",
+    "single_person_pole": true
+  },
+  "xdLd4pSAHkw::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Snowflake, Birdie, Figure 4, Side sit",
+    "reason": "초보자용 다양한 폴댄스 동작들의 올바른 시연을 깔끔하게 담고 있어 정타 학습 데이터로 활용 가능함",
+    "single_person_pole": true
+  },
+  "g3wgv1kV9RM::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "특정 폴 스포츠 동작에 대한 교육이나 잘못된 자세 시연이 없는 온라인 폴댄스 스쿨 홍보 및 소개 영상입니다.",
+    "single_person_pole": true
+  },
+  "ihxz5xoFIoY::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "이그조틱 폴 안무",
+    "reason": "올바른 자세의 이그조틱 폴 안무 시연을 명확히 담고 있어 학습 가치가 높음",
+    "single_person_pole": true
+  },
+  "lpzwZXwm2Qo::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Intermediate Pole Combo",
+    "reason": "잘못된 자세(fault) 시연은 없으나, 중간 난이도 폴 콤보의 정자세를 일반 속도와 슬로우 모션으로 명확히 보여주어 정타 동작 학습용으로 소장 가치가 높음.",
+    "single_person_pole": true
+  },
+  "qxEgLFVMZFA::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "pole slide down to floor",
+    "reason": "폴을 잡고 바닥으로 내려오는 세 가지 슬라이드 다운 트랜지션 기법을 깔끔한 전신 앵글로 명확하게 시연하여 교재로서 가치가 높음",
+    "single_person_pole": true
+  },
+  "f5N4dCoWbEA::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole handstand and floorwork sequence",
+    "reason": "동작 단계별 편집 및 번호 오버레이가 포함되어 있어, 폴 핸드스탠드 및 플로어워크 시퀀스 학습용 튜토리얼로 보존 가치가 높음",
+    "single_person_pole": true
+  },
+  "LCIKZlgQzFc::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Pole split",
+    "reason": "잘못된 자세(fault)를 시연하고 교정하는 내용이 없는 단순 동작 변형 및 기술 시연 영상이므로 교정형 튜토리얼 코퍼스 저장 대상에서 제외합니다.",
+    "single_person_pole": true
+  },
+  "KJcDd2Qa0cE::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Intermediate Pole Combo",
+    "reason": "올바른 폴 동작 시연만 포함되어 있으며, 잘못된 자세(fault)에 대한 교정이나 설명이 없는 일반 시연 영상이므로 폐기합니다.",
+    "single_person_pole": true
+  },
+  "jMF_0qe0cTQ::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "학습용 튜토리얼이 아닌 온라인 스쿨 학생들의 수행 시연 및 홍보 목적의 편집 영상이므로 폐기합니다.",
+    "single_person_pole": true
+  },
+  "grbg6b-fIQ4::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Ayesha",
+    "reason": "잘못된 자세(fault) 시연 없이 목표 동작(Ayesha)을 달성하기 위한 트레이닝 계획 수립 방법을 설명하는 일반 튜토리얼 영상이므로 폐기합니다.",
+    "single_person_pole": true
+  },
+  "yZ0SfCMzv70::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "아웃사이드 레그 행 동작 시 상단 다리의 오금 고정이 약해 몸이 아래로 미끄러지는 현상",
+    "keep": true,
+    "move_guess": "outside leg hang",
+    "reason": "아웃사이드 레그 행에서 오금 밀착 부족으로 인해 아래로 흘러내리는 잘못된 자세를 직접 명확하게 시연하고 있어 학습 코퍼스에 저장할 가치가 있음",
+    "single_person_pole": true
+  },
+  "dn51Emr50ZE::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "워킹 시 무릎을 과하게 높이 올리거나, 풀업 하듯 팔을 굽혀 매달리고, 손목이 폴에 닿을 정도로 그립을 너무 세게 잡는 동작 시연",
+    "keep": true,
+    "move_guess": "pole walk",
+    "reason": "폴 워킹 및 기본 스핀 시 초보자들이 자주 저지르는 잘못된 그립 방식과 신체 정렬 오류를 직접 시연하고 교정법을 상세히 제공함",
+    "single_person_pole": true
+  },
+  "6GdC66EmFgE::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Outside Step, Pirouette, Chair, Front Hook, Chair Pose",
+    "reason": "초보자용 5가지 기본 폴 동작의 정확한 수행 자세와 연결 방법을 단계별로 상세히 보여주어 정타 자세 학습에 매우 유용함.",
+    "single_person_pole": true
+  },
+  "P3_uscI2bkU::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "r3CPTq1C4iA::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "특정 폴스포츠 기술의 잘못된 자세와 올바른 자세를 비교 교정하는 튜토리얼이 아니라, 그립 수트의 기능성을 여러 동작으로 테스트하는 제품 리뷰 영상이므로 제외합니다.",
+    "single_person_pole": true
+  },
+  "I4RPBzj4vjA::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "피루엣 시 몸의 정렬이 폴과 일직선이 되지 않고 흔들리는 자세 및 소방관 스핀 시 바깥쪽 다리를 폴에 빠르게 밀착시키지 못하는 동작",
+    "keep": true,
+    "move_guess": "outside step to pirouette to fireman spin",
+    "reason": "초보자 콤보 동작의 올바른 시연과 함께 피루엣 정렬 불량 및 소방관 스핀 다리 접촉 지연 등의 잘못된 자세를 명확히 시연하고 올바른 방법을 교정해 줍니다.",
+    "single_person_pole": true
+  },
+  "Gn8dT-DJByw::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Allegra Exits",
+    "reason": "알레그라 포즈에서 연결되는 다양한 엑시트(Superman, Ayesha 등) 동작들의 올바른 수행 방법을 단계별 자막과 함께 명확히 시연함.",
+    "single_person_pole": true
+  },
+  "zZ21vRFLSKU::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 스포츠 기술 시연이 아닌 일반적인 전신 쿨다운 스트레칭 루틴이므로 폐기",
+    "single_person_pole": true
+  },
+  "qDJPzjD7NSY::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴을 사용한 기술 시연이 없는 일반적인 매트 웜업 루틴으로, 비폴 콘텐츠에 해당하여 폐기합니다.",
+    "single_person_pole": false
+  },
+  "YDyJDBBDXm4::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Allegra",
+    "reason": "알레그라(Allegra) 동작의 올바른 수행 방법을 단계별 설명과 함께 시연하는 고품질 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "RRJXOtWuFpk::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "핸드스프링 진입 시 가슴을 너무 일찍 폴 방향으로 회전시켜 상체 정렬을 망가뜨림",
+    "keep": true,
+    "move_guess": "handspring",
+    "reason": "핸드스프링 기술에서 가슴을 성급하게 돌려 진입을 어렵게 만드는 잘못된 자세 예시를 직접 시연함",
+    "single_person_pole": true
+  },
+  "sKJR4Z32ZWI::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Cartwheel transitions",
+    "reason": "카트휠에서 시트, 지니, 클라임 등 다양한 폴스포츠 동작으로 연결되는 정확한 전환 방법을 시연하는 고품질 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "9A9mDWyhOgs::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "골반을 폴에서 충분히 밀어내지 않고 가깝게 두는 자세와 다리를 너무 급하게 떼는 실수를 직접 시연함",
+    "keep": true,
+    "move_guess": "Ayesha",
+    "reason": "아이샤 동작 수행 시 흔히 발생하는 대표적인 오자세(골반 밀착 및 급격한 다리 이탈)를 직접 시연하고 교정법을 설명하는 고품질 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "RsPBWJqWhC0::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "스핀 시 다리를 크게 휘두르지 않아 폴에 너무 밀착되는 현상, 바깥손으로 밀지 않아 엉덩이가 붙는 자세, 손목을 너무 세게 쥐어 꺾이는 자세를 시연함",
+    "keep": true,
+    "move_guess": "chair spin",
+    "reason": "체어 스핀에서 흔히 발생하는 세 가지 잘못된 자세(몸이 폴에 너무 가까워짐, 손목 과도한 밀착)를 직접 시연하고 직관적인 교정 팁을 제공하는 우수한 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "6L5MOt8oWsE::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "스핀을 돌 때 엉덩이가 폴에 너무 밀착되거나 두 다리가 동시에 폴에 닿으며 부딪히는 자세",
+    "keep": true,
+    "move_guess": "Fireman spin",
+    "reason": "파이어맨 스핀 수행 시 흔히 발생하는 잘못된 골반 위치와 다리 착지 순서 오류를 명확히 시연하고 설명하는 유용한 교정형 튜토리얼",
+    "single_person_pole": true
+  },
+  "4EpF93tNttk::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Ayesha",
+    "reason": "잘못된 자세(fault)에 대한 물리적 시연 없이 올바른 콤보 수행만 시연하는 영상이므로 교정용 학습 코퍼스 대상에서 제외합니다.",
+    "single_person_pole": true
+  },
+  "-AC_20oeFVw::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": true,
+    "fault_desc": "골반을 말아쥐지 않아 조절력을 잃고 바닥으로 빠르게 떨어지는 시연",
+    "keep": true,
+    "move_guess": "Pole Handstand",
+    "reason": "폴 헤드스탠드와 핸드스탠드를 위한 조절 및 하강 컨디셔닝 동작들을 정확한 시연과 풍부한 자막 설명으로 제공하여 소장 가치가 높음",
+    "single_person_pole": true
+  },
+  "-lg_wmeONnM::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 가지 폴댄스 포즈의 시연 및 변형을 단순히 나열할 뿐, 잘못된 자세(fault)를 직접 시연하거나 교정하는 튜토리얼이 아님",
+    "single_person_pole": true
+  },
+  "bsSJcDaY7K4::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Max Split, Love Hug, Bottle Rocket, Bunny Split, Mercury, Pterodactyl, Liberty, Organ Keeper, Twisted Sister",
+    "reason": "다양한 고급 폴 홀드 동작들의 정석적인 자세와 진입법을 단계별로 명확하게 시연하고 있어 학습 코퍼스로 저장할 가치가 높음.",
+    "single_person_pole": true
+  },
+  "74R4BdCO8rw::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "특정 폴스포츠 기술의 올바른 자세와 잘못된 자세를 깊이 있게 비교 분석하는 교정 튜토리얼이 아니라, 여러 팁을 빠르게 나열하는 정보 전달성 클립이므로 폐기함.",
+    "single_person_pole": true
+  },
+  "OBPQKoBYEak::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": null,
+    "reason": "여러 가지 폴 스핀 동작을 올바른 자세로 명확하게 시연하고 유용한 팁을 제공하는 고품질 튜토리얼 영상임",
+    "single_person_pole": true
+  },
+  "t-Ewm90N2DA::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "영상이 올바른 동작 시연과 스타일 옵션만 제공하며, 명확한 잘못된 자세(fault) 시연이나 교정 정보가 포함되어 있지 않습니다.",
+    "single_person_pole": true
+  },
+  "dGTxoqj137I::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴을 사용하지 않는 바닥 컨디셔닝 및 코어 운동 영상으로, 실제 폴스포츠 기술 시연이 없으므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "hAo4_jaI5CM::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Flatline Scorpio",
+    "reason": "올바른 자세의 플랫라인 스콜피오 연계 콤보들을 단계별 자막 및 음성 설명과 함께 시연하는 우수한 정타 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "hB1a9wcJ1A4::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Butterfly",
+    "reason": "다양한 버터플라이 연계 콤보의 올바른 수행 방법을 자막과 함께 상세히 설명하는 고품질 튜토리얼 영상임.",
+    "single_person_pole": true
+  },
+  "0IKP1KmWVeQ::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Apprentice",
+    "reason": "어프렌티스 진입을 포함한 다양한 폴댄스 동작들의 정확한 표준 자세를 자막과 함께 명확히 시연함.",
+    "single_person_pole": true
+  },
+  "_WF1gTl6w9I::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "골반과 어깨의 수직 정렬이 맞지 않고 엉덩이가 뒤로 빠진 상태에서 리프트를 시도함",
+    "keep": true,
+    "move_guess": "pole handstand",
+    "reason": "엉덩이가 어깨 위로 수직 정렬되지 않은 잘못된 리프트 준비 자세를 명확히 시연함",
+    "single_person_pole": true
+  },
+  "ioYFsGzJtD8::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Pole Seat",
+    "reason": "올바른 기술 시연과 콤보 설명만 제공할 뿐, 잘못된 자세(fault) 예시를 시연하는 구간이 없음",
+    "single_person_pole": true
+  },
+  "P_R7Q5ifkEA::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "basic invert",
+    "reason": "다양한 인버트 준비 및 훈련 동작을 단일 시연자가 올바른 자세로 시연하며 유용한 팁을 제공하는 고품질 튜토리얼 영상임",
+    "single_person_pole": true
+  },
+  "A_EEhBsswk4::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "다양한 폴댄스 기술을 사전식(A-to-Z)으로 단순 시연하는 컴필레이션 영상으로, 특정 동작에 대한 교정 정보나 잘못된 자세 분석이 포함되어 있지 않음",
+    "single_person_pole": true
+  },
+  "e-kp5LDwCk0::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Low Flow Pole Routine",
+    "reason": "다양한 로우 플로우 동작을 단계별로 명확하게 시연하고 설명하는 유용한 튜토리얼 영상이다.",
+    "single_person_pole": true
+  },
+  "MeF3B79sO7Y::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Front Hook Transitions",
+    "reason": "다양한 기술의 올바른 시연만 포함되어 있으며, 잘못된 자세(fault) 시연이나 교정 설명이 없습니다.",
+    "single_person_pole": true
+  },
+  "d1acL7k81s8::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "잘못된 자세(fault) 시연이 없는 일반 기술 사전식 영상이므로 교정 학습셋에서 제외함.",
+    "single_person_pole": true
+  },
+  "uClqmix7V3g::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "잘못된 자세(fault) 시연이나 교정 정보 없이 올바른 동작 예시들만 나열하는 초급 데모 영상이므로 학습 코퍼스에서 제외합니다.",
+    "single_person_pole": true
+  },
+  "MoIInayBdVY::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Ayesha",
+    "reason": "다양한 아이샤 엑시트 동작들의 올바른 자세를 자막과 함께 명확히 시연하는 유용한 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "JK0LP8Nm3yg::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "교육용 튜토리얼이 아닌 이모지 폴댄스 챌린지 오락성 영상으로, 정형화된 교정 학습 데이터로 사용하기에 부적합합니다.",
+    "single_person_pole": true
+  },
+  "03M09V8bXe8::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "버터플라이",
+    "reason": "다양한 버터플라이 진입 기술을 깨끗하게 시연하고 명확한 자막으로 구분해주어 학습에 매우 유용한 튜토리얼 자료임.",
+    "single_person_pole": true
+  },
+  "wjj7D_6uEvI::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "교정형 튜토리얼이 아닌 공룡 코스튬을 입고 폴 동작을 시도하는 예능형 챌린지 콘텐츠이므로 코퍼스 저장에서 제외합니다.",
+    "single_person_pole": true
+  },
+  "Wqz8pbU4Vuc::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Outside Step",
+    "reason": "아웃사이드 스텝에서 전환되는 다양한 기술의 올바른 시연과 명칭을 명확하게 보여주는 유용한 자료임",
+    "single_person_pole": true
+  },
+  "i0bGANPyKls::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "그립할 때 팔꿈치를 안으로 밀착하지 않고 바깥으로 벌려 버리는 자세",
+    "keep": true,
+    "move_guess": "Fan Kick",
+    "reason": "팬 킥 동작 시 팔꿈치가 바깥으로 벌어지는 잘못된 그립 자세를 직접 시연하여 올바른 교정법을 효과적으로 설명함",
+    "single_person_pole": true
+  },
+  "3v1xfyF7-bI::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "머슬업",
+    "reason": "트위스티드 그립 및 트루 그립을 사용한 머슬업 진입 동작의 정확한 자세와 보조(스포팅) 방법을 상세히 시연하는 튜토리얼이다.",
+    "single_person_pole": true
+  },
+  "xOFX9D1P6jY::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "데드리프트 변형",
+    "reason": "데드리프트 변형 동작을 부상 없이 수행하기 위한 어깨 정렬과 힘점 준비 과정을 상세히 설명하는 튜토리얼이다.",
+    "single_person_pole": true
+  },
+  "i2BRgazTmr0::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Invert Prep",
+    "reason": "바닥에서 인버트 동작을 안전하게 연습할 수 있는 준비(Prep) 동작의 올바른 정렬과 테크닉을 상세히 설명하고 시연함.",
+    "single_person_pole": true
+  },
+  "PBxYLChwhhM::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "BMI0TdB1j0o::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "실제 폴 스포츠 시연이 포함되지 않은 단순 팟캐스트 토크 영상이므로 제외합니다.",
+    "single_person_pole": false
+  },
+  "ROLybwZ0R30::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "실제 폴 스포츠 동작 시연 없이 두 인물의 인터뷰 및 대화로만 이루어진 영상이므로 학습 데이터셋에 부적합합니다.",
+    "single_person_pole": false
+  },
+  "BTj7xUO-x5Q::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "AcdgTfCcIk4::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "다리를 앞으로 들어 올려 차는 동작으로 인해 회전 반경이 확보되지 않고 폴에 몸이 부딪힘",
+    "keep": true,
+    "move_guess": "reverse grab",
+    "reason": "역그랩 동작 시 올바른 회전 휩 동작과 잘못된 킥 동작의 차이를 명확히 시연하고 설명하는 유용한 튜토리얼이다.",
+    "single_person_pole": true
+  },
+  "uG-mqiPKbnM::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 스포츠 동작 시연이 없으며 두 사람의 화상 대화(인터뷰)만 포함되어 있어 학습 자료로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "WmrX7eroyyU::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "케틀벨 윈드밀",
+    "reason": "폴을 사용하지 않는 케틀벨 스트렝스 및 모빌리티 훈련 영상이므로 코퍼스 저장 대상에서 제외합니다.",
+    "single_person_pole": false
+  },
+  "8Rls_H3RW-0::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 스포츠 시연이 없는 대화 및 팟캐스트 형식의 영상이므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "JLbgRLecKM4::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Floor to pole flow",
+    "reason": "바닥에서 시작하여 폴로 연결되는 플로우 동작을 올바른 자세로 시연하며 단계별로 상세히 설명하는 튜토리얼 영상으로 보존 가치가 높음.",
+    "single_person_pole": true
+  },
+  "WkSwxA74YjM::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명의 댄서가 교차 편집되어 등장하는 코스 홍보용 트레일러 영상으로, 특정 폴 동작에 대한 분석이나 잘못된 자세의 시연 및 교정 정보가 없음.",
+    "single_person_pole": false
+  },
+  "6xcwjABNEYk::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 스포츠 기술 시연이나 자세 교정 튜토리얼이 아닌 홈트레이닝 장비 및 용품 소개 영상이므로 학습 코퍼스에서 제외합니다.",
+    "single_person_pole": false
+  },
+  "DxzvIMxey7s::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "이 영상은 폴플레이스 브랜드 및 강사 소개 프로모션 비디오로, 구체적인 기술 교육이나 잘못된 자세(fault) 시연을 포함하지 않아 학습 코퍼스로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "O3qddw3cYEU::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "특정 폴스포츠 동작에 대한 단일인물 시연이나 학습용 튜토리얼이 아닌, 강좌 홍보 및 소개용 인트로 영상이므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "fA03Q1sqsAA::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴댄스 강좌의 홍보 및 소개용 영상으로, 특정 동작에 대한 분석이나 교정 시연을 포함하지 않습니다.",
+    "single_person_pole": false
+  },
+  "53fTaGU3AB4::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Various Pole Moves",
+    "reason": "다양한 폴댄스 동작의 올바른 시연(A to Z)만 나열되어 있으며, 잘못된 자세(fault) 시연 및 교정 설명이 포함되어 있지 않음.",
+    "single_person_pole": true
+  },
+  "ZyMlDNgalWI::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴을 사용하지 않는 악력 및 손목 강화 웨이트 트레이닝 중심의 콘텐츠이므로 코퍼스 수집 대상에서 제외합니다.",
+    "single_person_pole": false
+  },
+  "aCZq9EpfXhA::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "동작 중 발끝을 포인하지 않고 플렉스하거나, 몸의 긴장을 풀고 수행하며, 얼굴을 과도하게 찡그리는 등의 잘못된 자세를 시연함",
+    "keep": true,
+    "move_guess": "inside leg hang",
+    "reason": "폴댄스 심미성을 높이기 위한 5가지 팁을 제시하며 발끝 플렉스, 전신 긴장 풀림, 찡그린 표정 등 흔한 잘못된 예시와 올바른 예시를 직관적으로 비교 설명함",
+    "single_person_pole": true
+  },
+  "pNALflQe2cs::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 동작에 대한 구체적인 시연이나 기술적인 튜토리얼 없이 질의응답 중심의 정보성 토크 비디오이므로 학습 데이터로 저장하지 않습니다.",
+    "single_person_pole": false
+  },
+  "V31XSQ2W7PQ::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "잘못된 자세 예시(fault) 시연 없이 올바른 초보자 동작들의 표준 시연만 포함하고 있어 제외합니다.",
+    "single_person_pole": true
+  },
+  "gwYRJLJlG-Q::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "Attempting advanced moves like inverts or climbs prematurely without mastering foundational techniques.",
+    "keep": true,
+    "move_guess": "pole climb",
+    "reason": "The tutorial discusses common beginner mistakes in pole dancing, showing clips of improper/unprepared moves versus focused technique.",
+    "single_person_pole": true
+  },
+  "F8qEv9_YMq0::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "잘못된 자세(fault)에 대한 시연 없이, 난이도별 대체 동작(레그레션)만을 올바른 자세로 소개하는 일반 팁 영상이므로 폐기함",
+    "single_person_pole": true
+  },
+  "eR1RHQzG0bk::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "이 영상은 온라인 폴댄스 스튜디오 홍보용 소개 영상으로, 특정 기술에 대한 단계별 설명이나 잘못된 자세(fault)를 시연하는 튜토리얼이 아닙니다.",
+    "single_person_pole": false
+  },
+  "MFmuSoq8xCU::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "그립력 및 팔과 코어 근력 부족으로 폴에서 오래 버티지 못하고 자세를 유지하지 못함",
+    "keep": true,
+    "move_guess": "swing mount",
+    "reason": "스윙 마운트 동작의 미숙한 자세(3주 전 상태)와 개선된 올바른 자세를 직접 대조하여 보여주는 영상으로, 자세 분석 코퍼스로 가치가 높음",
+    "single_person_pole": true
+  },
+  "i-StESDGJ-4::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "어깨가 올라가고 처짐, 그립 위치가 낮음, 손목 꺾임, 시선이 바닥을 향함, 발끝이 포인되지 않음",
+    "keep": true,
+    "move_guess": "basic climb",
+    "reason": "폴댄스 초보자가 자주 하는 5가지 대표적인 잘못된 자세 예시를 구체적으로 시연하고 교정 방법을 안내하는 우수한 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "tGCmekRgx_I::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "스플릿 그립 진입 시 도약(점프)하여 올라가거나 상단 어깨 관절에 무리하게 체중을 실어 어깨가 으쓱 올라간 상태로 매달리는 자세",
+    "keep": true,
+    "move_guess": "Split Grip",
+    "reason": "스플릿 그립 기술의 올바른 조건화 운동과 흔히 발생하는 두 가지 잘못된 자세(점프 진입 및 어깨 처짐)의 물리적 시연을 포함하는 우수한 교정형 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "9ld96XZ3NvE::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴 클라임 시 발바닥을 폴에 밀착시키거나 팔꿈치를 너무 일찍 굽혀 체중이 아래로 처지는 잘못된 자세를 시연함",
+    "keep": true,
+    "move_guess": "Pole Climb",
+    "reason": "폴 클라임 동작의 올바른 자세뿐만 아니라 입문자가 흔히 범하는 무릎 및 발의 위치 오류, 상체 당기기 타이밍 실수 등의 다양한 잘못된 자세를 직접 시연하고 설명하여 교정형 학습 데이터로 보존 가치가 높음",
+    "single_person_pole": true
+  },
+  "2h9WzRd6SFA::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 시 엉덩이를 낮게 가져가거나, 다리를 걸기 전에 미리 굽히고, 내릴 때 다리를 아래로 곧게 뻗어 내리는 자세",
+    "keep": true,
+    "move_guess": "inside leg hang",
+    "reason": "폴 인버트 및 레그 행에서 발생하는 세 가지 대표적인 잘못된 자세와 올바른 교정 방법을 자막과 함께 상세히 시연함",
+    "single_person_pole": true
+  },
+  "BSp7WnBaCFM::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "동작 전환 및 스핀 아웃 시 피벗팅을 하지 않고 불필요하게 발을 많이 떼어 걸으며 흐름을 깨뜨림",
+    "keep": true,
+    "move_guess": "floorwork transitions",
+    "reason": "바닥 전환 시의 발 사용 오류(불필요한 스텝, 피벗 부재)와 올바른 시연을 명확히 대조하여 보여주는 우수한 교정형 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "gO4CJsEyF70::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "Untidy transitions during trick entrance and exit, characterized by unpointed toes, loose leg muscles, and lack of posture control.",
+    "keep": true,
+    "move_guess": "Inverted transitions",
+    "reason": "Useful instructional video demonstrating the common mistake of ignoring technique during pole trick entrances and exits.",
+    "single_person_pole": true
+  },
+  "PEytetUCoa8::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Ayesha",
+    "reason": "실제 인물의 폴 동작 시연 없이 바닥 근력 운동(지상 훈련) 및 3D 스켈레톤 그래픽 위주로 구성되어 폐기합니다.",
+    "single_person_pole": false
+  },
+  "vwHYEBBosjE::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "어깨가 들려 목이 묻히는 자세, 무리하게 트릭으로 뛰어드는 버릇, 무릎을 머리 방향으로 당기지 않는 인버트 및 폴 시트에서의 골반 기울이기 미흡",
+    "keep": true,
+    "move_guess": "Basics (Climb, Invert, Pole Seat)",
+    "reason": "폴 기초 동작들(클라임, 인버트, 폴 시트, 그립 등)의 흔한 잘못된 자세와 올바른 교정 자세를 명확하게 1대1로 대조하여 보여주는 우수한 교육용 영상",
+    "single_person_pole": true
+  },
+  "o6ifGcRrFiQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "핸드스프링 진입 시 추진력을 얻으려고 다리를 앞뒤로 여러 번 흔드는 잘못된 준비 동작 시연",
+    "keep": true,
+    "move_guess": "handspring",
+    "reason": "핸드스프링 진입 시 다리를 흔드는 잘못된 킥 동작을 직접 시연하고 올바른 팁을 단계별로 제공하므로 학습용으로 적합",
+    "single_person_pole": true
+  },
+  "2mmeB8olNZQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴 워크 시 폴에서 멀어짐, 폴 시트 시 등 굽힘, 클라임 시 발끝 플렉스 등 7가지 잘못된 초보자 자세 시연",
+    "keep": true,
+    "move_guess": "Pole Walk, Pole Sit, Knee Hook Spin, Pole Climb",
+    "reason": "폴스포츠 초보자가 흔히 범하는 7가지 잘못된 자세(워크, 시트, 클라임 등)와 올바른 교정법을 명확히 비교 시연하는 고품질 튜토리얼 영상임",
+    "single_person_pole": true
+  },
+  "njnK14xP7zE::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "골반을 너무 높게 잡거나 닫고, 지지하는 발로 폴을 수직으로 미는 등의 잘못된 정렬과 급한 동작을 시연함",
+    "keep": true,
+    "move_guess": "Cupid",
+    "reason": "큐피드 동작의 다양한 진입법과 함께 골반 높이 오류, 잘못된 발 지지 등 네 가지 주요 실수 사례를 자막과 함께 상세히 시연하여 교정용 학습자료로 적합함",
+    "single_person_pole": true
+  },
+  "ZIlfRQABWI4::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "어깨를 활성화하지 않은 채 매달리거나 상단 팔만 구부려 몸을 수직으로만 끌어올리는 잘못된 클라임 자세",
+    "keep": true,
+    "move_guess": "pole climb",
+    "reason": "폴 클라임 시 어깨 미참여 및 부적절한 팔 당기기 등 대표적인 잘못된 자세와 올바른 자세를 비교 설명하는 유용한 교정 튜토리얼임.",
+    "single_person_pole": true
+  },
+  "qu8E8SHoMvA::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "탑 암 이두근 미개입, 바텀 숄더 밀어내지 못함, 코어 및 다리 텐션 부족, 시선 처리 오류 등 아이샤 동작의 여러 오류 자세를 시연함",
+    "keep": true,
+    "move_guess": "Aicha",
+    "reason": "아이샤(Aicha) 수행 시 발생하기 쉬운 5가지 주요 실수(오류) 자세를 직접 안전하게 시연하고 설명하는 유용한 교정형 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "dQ7dNKRs5mg::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴 동작 수행 중 시선을 바닥으로 향하는 잘못된 시선 처리",
+    "keep": true,
+    "move_guess": "General pole movements",
+    "reason": "폴 동작 중 고개를 숙여 바닥을 바라보는 잘못된 시선 처리를 시연하고, 비디오 촬영 및 거울을 활용한 교정 훈련법을 효과적으로 보여주는 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "iJbEmzOXh20::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole Sit",
+    "reason": "폴 싯의 초급 및 고급 진입 동작을 단계별로 정확하게 시연하고 설명하는 유용한 튜토리얼 영상임.",
+    "single_person_pole": true
+  },
+  "hCPKAekFnjY::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "안쪽 다리 걸기 각도가 너무 넓어지거나 하단 팔을 겨드랑이까지 완전히 밀착하지 못해 다리를 잡기 어려워지는 자세",
+    "keep": true,
+    "move_guess": "Allegra",
+    "reason": "알레그라 동작의 단계별 올바른 자세와 잘못된 자세를 명확한 비교 시연과 자막으로 설명하는 우수한 교정형 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "WuZQm6OZZvo::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": true,
+    "fault_desc": "아웃사이드 레그 훅 아래에 양손이 끼여 그립을 잃는 잘못된 그립 자세 시연",
+    "keep": true,
+    "move_guess": "Outside Leg Hang",
+    "reason": "아웃사이드 레그 행의 성공적인 수행을 위한 세 가지 팁을 제시하며, 손이 다리 아래에 끼이는 흔한 실수(fault)를 시연하고 교정법을 알려주는 유용한 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "meQnc6mjDe4::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "스핀 진입 시 바깥쪽 다리를 뒤에서부터 크게 휘두르지 않고 옆이나 앞으로 바로 들어 올림",
+    "keep": true,
+    "move_guess": "Chair spin",
+    "reason": "폴 스핀 시 스윙 궤적 오류(옆/앞에서 다리 들기)의 잘못된 예시와 올바른 교정 방법을 명확히 시연하는 유용한 튜토리얼임",
+    "single_person_pole": true
+  },
+  "fGvmGJg7Z3E::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 댄스 동작 시연이나 연습 과정이 없고 말로만 설명하는 영상이므로 학습 코퍼스로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "MV7cq9mOG5I::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "jhYSQwYkSaw::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pirouette",
+    "reason": "폴 피루엣(Pirouette) 동작의 올바른 손 위치, 시선 처리 및 발 디딤을 단계별로 명확하게 시연하고 설명하는 유용한 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "OKL4ffhRoFE::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "안쪽 팔을 위에 두거나 팔을 너무 높게 잡고, 엉덩이를 폴 뒤에 둔 채 코어를 쓰지 않고 반동으로 올라가는 자세",
+    "keep": true,
+    "move_guess": "invert",
+    "reason": "인버트 동작의 대표적인 오류 자세 5가지를 명확히 구분하여 시연하고 단계별 교정 훈련법을 제시함",
+    "single_person_pole": true
+  },
+  "PMv3oAjeZJo::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "안쪽 팔을 너무 높게 잡고 아래쪽 다리를 엉덩이가 아닌 허벅지 중간 부분에 대어 지지하는 잘못된 자세",
+    "keep": true,
+    "move_guess": "Jasmine",
+    "reason": "재스민 동작의 올바른 자세 시연 후, 안쪽 팔의 높이와 아래쪽 다리 밀착 위치에 관한 흔한 오류를 명확하게 시연하고 교정법을 설명하는 고품질 튜토리얼",
+    "single_person_pole": true
+  },
+  "ux5T4PwNqHA::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Cradle to Jamilla",
+    "reason": "크래들과 자밀라 동작의 올바른 단계별 수행법과 스피닝 폴 응용법을 명확히 설명하는 고품질 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "yRFTZQ6G_GE::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole Climb, Pole Sit, Jasmine, Genie, Mast Head",
+    "reason": "초보자를 위한 폴클라임, 폴싯, 재스민, 지니, 마스트헤드의 올바른 동작 시연을 명확하게 보여주는 고품질 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "Ju_vvJR5TUc::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "골반을 들어 올릴 때 등을 과도하게 구부리고 둥글게 마는 자세",
+    "keep": true,
+    "move_guess": "invert",
+    "reason": "인버트 준비 시 흔히 범하는 등 구부림 실수를 명확히 시연하고 근육 활성화 방식을 교정하는 고품질 튜토리얼임",
+    "single_person_pole": true
+  },
+  "urm-SuThC7A::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": true,
+    "fault_desc": "스핀을 돌 때 발목 대신 오금(knee pit)으로 폴을 걸어 잡는 잘못된 밀착 자세",
+    "keep": true,
+    "move_guess": "Attitude Spin",
+    "reason": "Attitude Spin의 올바른 정석 자세와 흔히 하기 쉬운 오금 걸기 실수를 구분하여 상세히 설명하고 시연함",
+    "single_person_pole": true
+  },
+  "OPYEG7Do3ss::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 동작 시 코어 근육을 쓰지 않고 점프 반동을 이용해 올라가며, 클라임 동작 시 발끝을 포인하지 않고 안쪽으로 꺾음(sickle)",
+    "keep": true,
+    "move_guess": "Invert",
+    "reason": "인버트와 클라임 등 초보자가 흔히 저지르는 잘못된 자세(반동 사용, 발 정렬 불량)를 시연 오버레이를 통해 올바른 자세와 명확히 비교해 주는 우수한 교육용 튜토리얼임",
+    "single_person_pole": true
+  },
+  "vZGPVUb1liA::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 기술에 대한 실제 물리적인 시연 없이 말로만 설명하는 비디오이므로 학습 코퍼스로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "VuJn_E6BeaQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴을 잡을 때 과도하게 힘을 주어 꽉 쥐는 잘못된 그립(death grip) 시연",
+    "keep": true,
+    "move_guess": "grip",
+    "reason": "초보자가 흔히 범하는 과도하게 꽉 쥐는 그립 실수를 시연하고 힘을 빼는 방법을 명확히 설명함",
+    "single_person_pole": true
+  },
+  "DJHi_Xjw8sI::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "실제 강사의 동작 시연 없이 대화와 밈(meme) 영상 위주로 구성되어 있어 학습용 데이터셋으로 부적합함",
+    "single_person_pole": false
+  },
+  "9I9Mxlyd25Y::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "동작 시연이 전혀 포함되어 있지 않고 구두 설명으로만 구성된 토크 영상이므로 폐기함",
+    "single_person_pole": false
+  },
+  "KYGHkTu4rsQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 진입 시 골반을 위로 무리하게 들어올리는 동작 및 착지 시 다리 통제를 잃고 급격하게 떨어지는 동작 시연",
+    "keep": true,
+    "move_guess": "Invert",
+    "reason": "인버트 진입 시 잘못된 힘의 방향과 거친 하강 자세를 직접 시연하고 올바른 측면 진입 방법을 비교 설명하는 우수한 교정형 튜토리얼",
+    "single_person_pole": true
+  },
+  "edF_JDG6iFU::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "특정 폴 동작에 대한 단계별 튜토리얼이나 교정 시연이 아닌, 초보자를 위한 조언 및 여러 동작의 편집 클립이 포함된 브이로그 형식이므로 폐기합니다.",
+    "single_person_pole": true
+  },
+  "C2ANwgeFaaM::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "트릭 도중 통증이나 공포로 인해 폴의 모든 그립을 갑자기 풀고 힘을 빼며 추락하는 자세",
+    "keep": true,
+    "move_guess": "Inverted crucifix",
+    "reason": "폴 트릭 중 통증으로 인해 그립을 완전히 놓고 추락하는 위험한 실수를 시연하고, 안전하게 하강하는 법과 해결책을 설명하는 고품질 튜토리얼임",
+    "single_person_pole": true
+  },
+  "bJjtX7ATy3Y::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "팔 근육에 힘을 주지 않아 몸을 위로 끌어올리지 못하고 다이아몬드 다리 모양이 찌그러짐",
+    "keep": true,
+    "move_guess": "Diamond Spin",
+    "reason": "다이아몬드 스핀 동작 중 팔 근육 결합이 부족하여 자세가 무너지는 잘못된 예시를 명확히 시연하고 설명함",
+    "single_person_pole": true
+  },
+  "Zd1_j4C9UPQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "발끝을 포인하지 않고 무릎을 구부린 채 매달리는 자세",
+    "keep": true,
+    "move_guess": "climb",
+    "reason": "클라임 및 다양한 폴 동작에서 발끝 포인 미흡 및 무릎 굽힘 등의 흔한 잘못된 자세를 직접 시연하고 교정법을 알려주는 유용한 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "dmcn-1PsG1g::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "실제 폴 댄스 시연 장면이 전혀 없고 팟캐스트 로고 이미지만 계속 표시되는 영상이므로 학습 코퍼스로 부적합합니다.",
+    "single_person_pole": false
+  },
+  "atKq3t-Ra1w::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "잘못된 자세로 하강하기, 불완전한 스핀 스윙, 고통으로 인한 강하 포기, 그리고 구부러진 관절로 훅 걸기 등 초보자의 흔한 실수 시연.",
+    "keep": true,
+    "move_guess": null,
+    "reason": "여러 가지 초보자용 폴 댄스 실수의 잘못된 예시를 명확한 자막과 함께 직접 시연하는 유용한 튜토리얼 영상이다.",
+    "single_person_pole": true
+  },
+  "YSg86LEnWk4::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴에 밀착하기 전에 팔이나 다리를 미리 구부려 접촉 면적과 마찰력을 떨어뜨림",
+    "keep": true,
+    "move_guess": "knee or elbow grip",
+    "reason": "팔꿈치와 무릎 그립 시 미리 구부린 상태로 폴에 대는 흔한 실수를 보여주고 올바른 밀착 순서를 설명하는 고품질 교정 튜토리얼임",
+    "single_person_pole": true
+  },
+  "cHv872Z4Oo4::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "폴을 너무 세게 쥐는 오버그립, 폴에 뛰어들며 정강이를 부딪치는 점프, 잘못된 손 높이 및 발끝을 포인하지 않고 플렉스하는 동작",
+    "keep": true,
+    "move_guess": "fireman spin",
+    "reason": "초보자들이 흔히 저지르는 5가지 실수(오버그립, 폴에 뛰어들기, 손 위치 오류, 발끝 플렉스 등)의 잘못된 시연과 올바른 자세 교정을 명확히 보여주는 튜토리얼 영상이므로 보존 가치가 높음",
+    "single_person_pole": true
+  },
+  "XI12Q8uaLlk::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "손목과 손이 폴에 과도하게 감겨서 비틀어짐(wrapping the wrist/hand around the pole).",
+    "keep": true,
+    "move_guess": "Chair spin",
+    "reason": "체어 스핀 동작에서 손목을 과도하게 꺾어 폴을 감싸 쥐는 잘못된 자세(fault)와 올바른 자세를 비교 설명하는 고품질 튜토리얼이다.",
+    "single_person_pole": true
+  },
+  "4sMFRzs8fDU::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴스포츠 동작의 시연이 전혀 포함되어 있지 않고 대화형 설명만 제공되는 영상입니다.",
+    "single_person_pole": false
+  },
+  "liXokIGKBA4::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 시 힘이 부족하여 등이 둥글게 말리고 가슴과 골반이 아래로 처지는 자세",
+    "keep": true,
+    "move_guess": "invert",
+    "reason": "인버트 동작의 정확한 3단계 메커니즘과 흔한 실수인 상체 말림 및 부적절한 다리 정렬의 시연 및 교정법을 체계적으로 설명함",
+    "single_person_pole": true
+  },
+  "eeS_XSjb0DU::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "골반을 마는 대신 허리를 아치형으로 만들고 손을 높게 잡은 상태로 턱(tuck)을 시도하는 잘못된 자세",
+    "keep": true,
+    "move_guess": "tuck",
+    "reason": "잘못된 그립 높이와 허리 정렬로 인해 다리가 올라가지 않는 턱(tuck) 동작의 오류 예시와 올바른 교정 방법을 명확히 시연하고 설명함",
+    "single_person_pole": true
+  },
+  "7zAmGYqCkpQ::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "backward aerial invert",
+    "reason": "백워드 에어리얼 인버트 동작의 단계별 연습법(바닥, 클라임, 싯)과 회전 제어 요령을 시연과 함께 상세히 설명하는 유용한 튜토리얼 영상임.",
+    "single_person_pole": true
+  },
+  "SW6h2LngP3E::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "골반이 처지거나 척추가 과도하게 굽고 날개뼈가 지지되지 않는 인버트 자세",
+    "keep": false,
+    "move_guess": "invert",
+    "reason": "실제 사람의 폴 동작 시연이 없고 3D 스켈레톤 그래픽으로만 동작 및 잘못된 자세를 시연하므로 컴퓨터 비전 학습용으로 부적합함",
+    "single_person_pole": false
+  },
+  "UArHdf65XAw::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "초퍼 진입 시 코어 근력을 쓰지 않고 반동으로 점프하여 자세가 무너짐",
+    "keep": true,
+    "move_guess": "chopper",
+    "reason": "초퍼 진입 시 점프 반동을 사용하는 대표적인 잘못된 예시를 시연하고 단계별 근력 강화 과정을 상세히 설명함",
+    "single_person_pole": true
+  },
+  "PuSbBol5Z-s::fault_demo": {
+    "bucket": null,
+    "fault_demo": true,
+    "fault_desc": "골반을 옆으로 기울이지 않고 정면으로 몸을 힘겹게 들어 올리려고 함",
+    "keep": true,
+    "move_guess": "chopper",
+    "reason": "초퍼 인버트 동작 시 측면으로 몸을 기울여 골반을 낮추는 대신, 정면에서 힘으로만 밀고 올라가는 잘못된 시연을 포함함",
+    "single_person_pole": true
+  },
+  "f97QbVVuJlw::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 시 등과 어깨가 앞으로 둥글게 말려 척추가 굽어지는 자세",
+    "keep": true,
+    "move_guess": "pole invert",
+    "reason": "폴 인버트 시 등 근육 미개입으로 인해 어깨가 굽고 척추가 굴곡되는 대표적인 잘못된 자세를 명확하게 시연하고 설명함",
+    "single_person_pole": true
+  },
+  "D1VwSVm5jGA::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "상체 근력 및 고관절 굴곡근 부족으로 인해 인버트 동작 시 버티지 못하고 떨어지거나 다리를 얼굴 쪽으로 당기지 못하는 잘못된 자세",
+    "keep": true,
+    "move_guess": "straddle invert",
+    "reason": "인버트 동작을 수행할 때 흔히 발생하는 근력 부족에 따른 잘못된 예시 자세를 명확히 시연하고 있으므로 교정용 데이터로 적합함",
+    "single_person_pole": true
+  },
+  "fCYGw-js8hI::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 준비 단계에서 손을 너무 높게 잡는 자세 및 턱 동작 시 무릎을 충분히 올리지 못해 골반이 낮게 처지는 자세 시연",
+    "keep": true,
+    "move_guess": "Invert to Straddle",
+    "reason": "인버트 및 초퍼 동작 학습 시 흔히 발생하는 잘못된 손 위치와 무릎 높이의 실수를 시연하고 올바른 정렬 방법을 상세히 설명하고 있어 수집 가치가 높음",
+    "single_person_pole": true
+  },
+  "7npKF9yz8Nw::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Invert",
+    "reason": "인버트(Invert)의 올바른 그립법과 준비 동작 및 수행법을 단계별로 명확히 보여주는 튜토리얼 영상으로 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "nOT1Ztiy308::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "basic invert",
+    "reason": "기본 인버트 동작의 올바른 자세와 단계를 명확하고 안정적으로 시연하여 학습용 데이터로 적합함.",
+    "single_person_pole": true
+  },
+  "CrPP5_jtYkg::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 팁백 동작 시 상체와 등을 곧게 펴지 못하고 둥글게 굽히는 자세",
+    "keep": true,
+    "move_guess": "invert",
+    "reason": "인버트 동작의 올바른 신체 정렬과 흔히 발생하는 등 굽음 오류 동작을 시연 및 비교 분석하며 유익한 교정 정보를 제공함",
+    "single_person_pole": true
+  },
+  "rgwOGFpS1Sc::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "발가락 대신 무릎으로 리드하여 몸이 안으로 움츠러들고 골반이 올라가지 않는 자세",
+    "keep": true,
+    "move_guess": "Invert",
+    "reason": "인버트 준비 과정에서 무릎을 먼저 올려 몸이 웅크려지는 잘못된 자세와 발가락으로 리드하는 올바른 자세를 비교 설명함",
+    "single_person_pole": true
+  },
+  "Tw1Z4HAn-qw::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Inverted T Climb Over",
+    "reason": "인버티드 T 클라임 오버(크루시픽스 클라임 오버) 동작의 올바른 자세와 진입 단계를 명확히 설명하는 고품질 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "1-u2imalOb8::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Invert",
+    "reason": "다양한 인버트 동작의 올바른 수행법을 단계별로 정타 시연하는 고품질 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "67dOWto66eE::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "안쪽 다리의 오금을 깊게 걸지 않고 발목 부위를 폴에 밀착시켜 매달리는 자세",
+    "keep": true,
+    "move_guess": "Inside Leg Hang",
+    "reason": "인사이드 레그 행 동작 시 무릎 뒤 오금을 제대로 걸지 않고 발목을 대는 잘못된 자세와 올바른 수행 팁을 명확히 시연함.",
+    "single_person_pole": true
+  },
+  "lOcEgaEmJZ8::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "invert",
+    "reason": "올바른 인버트(invert) 자세와 단계를 친절하게 설명하는 표준 튜토리얼 영상으로 학습 가치가 높음.",
+    "single_person_pole": true
+  },
+  "NVL-h7EMt1M::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "스핀 폴 인버트 시 골반을 폴에 밀착하지 않고 수직으로 올라가려 하거나, 인버트 유지 중 팔을 쭉 펴고 등을 둥글게 마는 자세",
+    "keep": true,
+    "move_guess": "Spin Pole Invert",
+    "reason": "스핀 폴 인버트 동작 시 발생하기 쉬운 두 가지 대표적인 잘못된 자세(골반 미밀착, 팔 편 상태로 등 구부림)를 명확히 시연하는 우수한 교정용 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "Wp4LDo4Im98::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Seahorse",
+    "reason": "시호스(Seahorse) 동작의 올바른 수행 방법과 진입 단계 및 팁을 명확하게 설명하는 유용한 튜토리얼 영상입니다.",
+    "single_person_pole": true
+  },
+  "o5UBqSuQoyw::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 진입 시 복부 근력 대신 바닥을 차고 오르는 반동을 사용하여 어깨 관절에 충격을 주는 자세",
+    "keep": true,
+    "move_guess": "basic invert",
+    "reason": "올바른 인버트 준비 동작(크런치)과 잘못된 반동식 진입 방식을 비교 시연하며 명확한 자막 설명을 제공하여 교정 학습용으로 적합함",
+    "single_person_pole": true
+  },
+  "W-cv-FSV8Xs::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "레그 훅 진입 시 손으로 다리를 잡아당기거나 폴에 다리를 쓸며 올리는 동작",
+    "keep": true,
+    "move_guess": "Chopper to Outside Leg Hook",
+    "reason": "초퍼에서 레그 훅 전환 시 발생하는 잘못된 진입 방식(손으로 잡기, 다리 쓸기)을 직접 시연하며 올바른 견갑골 사용법을 설명하는 고품질 교정 튜토리얼입니다.",
+    "single_person_pole": true
+  },
+  "FdJdEDbkmjE::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "The Crane and The Mantis",
+    "reason": "영상이 '크레인'과 '맨티스' 동작의 올바른 시연과 정석적인 방법을 단계별로 잘 보여주고 있어 학습 데이터로 가치가 있으나, 잘못된 자세 예시는 포함되어 있지 않습니다.",
+    "single_person_pole": true
+  },
+  "A3IM-MAqnMQ::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Inverted Crucifix",
+    "reason": "인버트 및 인버티드 크루시픽스 동작의 올바른 자세와 안전한 진입 단계를 명확히 보여주는 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "ugwwNxLtsJM::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 수행 시 손목이 과도하게 안으로 말리거나, 바닥에서 점프하여 반동을 주거나, 착지 시 뒤꿈치로 강하게 떨어지는 자세를 시연함",
+    "keep": true,
+    "move_guess": "인버트",
+    "reason": "인버트의 올바른 4단계 과정뿐만 아니라 자막을 통해 손목 말림, 점프, 부적절한 착지 등의 흔한 부상 유발 요인을 퀴즈 형식으로 명확히 시연함",
+    "single_person_pole": true
+  },
+  "kzDZxWDYNic::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "back invert",
+    "reason": "백훅 및 백인버트 동작의 올바른 단계별 수행 방법을 명확하게 시연하는 고품질 튜토리얼 영상이므로 저장 가치가 높음",
+    "single_person_pole": true
+  },
+  "kbkX0VdWeTY::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "SCtbsD-Qq9s::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "전문적인 교정 튜토리얼이나 의도적인 잘못된 자세 시연이 아닌, 개인의 폴댄스 연습 실패 과정 및 부상 기록을 담은 브이로그 영상이므로 학습 코퍼스로 저장하기에 적합하지 않음.",
+    "single_person_pole": true
+  },
+  "NNCbzxsIb4o::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": false,
+    "fault_desc": "폴 동작 중 힘이 빠져 바닥으로 추락함",
+    "keep": false,
+    "move_guess": "climb",
+    "reason": "의도적인 잘못된 자세 시연이 아닌 실제 추락 사고 과정을 담은 개인 기록용 영상이므로 학술 데이터셋으로 부적합함.",
+    "single_person_pole": true
+  },
+  "T-8Bo4K_HIQ::fault_demo": {
+    "bucket": null,
+    "fault_demo": true,
+    "fault_desc": "폴댄스 동작 중 손 모양 오류(닭손), 발 교차 실패, 그립 상실 등 다양한 잘못된 자세 시연",
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 명이 등장하는 편집형 예능/실수 모음집 영상으로 단일 시연 중심의 튜토리얼 데이터로 활용하기 어려워 폐기",
+    "single_person_pole": false
+  },
+  "r5zPuByXhUc::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "두 무릎을 동시에 굽혀 자전거 타는 듯한 모양이 되거나 무릎 사이를 벌려 걷는 자세",
+    "keep": true,
+    "move_guess": "에어워크",
+    "reason": "에어워크 동작 시 양 무릎 동시 굽힘, 벌어진 무릎, 빠른 템포 등의 잘못된 예시를 시연하며 유용한 교정 팁을 제공합니다.",
+    "single_person_pole": true
+  },
+  "BwtwdJna9hU::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "영상이 폴스포츠 동작 시연을 포함하지 않으며, 강의실에서 강사가 설명만 진행하는 내용이므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "2_YID8Vfxng::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "폴댄스 스핀 및 인버트 시퀀스",
+    "reason": "올바른 자세와 부드러운 연결의 다양한 스핀 및 인버트 동작을 보여주는 고품질 시연이므로 정타 레퍼런스로 저장할 가치가 있습니다.",
+    "single_person_pole": true
+  },
+  "yrSBg3lC3a0::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "하강 시 코어 조절 부족으로 방향 감각을 잃고 정렬이 무너져 한쪽으로 치우치며 내려옴",
+    "keep": true,
+    "move_guess": "폴 V-Up",
+    "reason": "폴 V-Up 하강 시 코어 통제 실패로 중심을 잃고 매트 옆으로 비스듬히 떨어지는 잘못된 예시를 코믹하고 확실하게 시연함",
+    "single_person_pole": true
+  },
+  "IaLLwv2tA60::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "폴 스포츠 동작의 시연이나 교정 튜토리얼이 아닌 폴 댄스 학원 인테리어 및 개업 준비 과정을 보여주는 브이로그 영상입니다.",
+    "single_person_pole": false
+  },
+  "jXWMjdN7gi0::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Cupid",
+    "reason": "의도적인 잘못된 자세(fault) 시연이 포함되지 않은 일반적인 연습 및 성공 기록 영상이므로 폐기합니다.",
+    "single_person_pole": true
+  },
+  "uWHTPH3e548::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Pole Climb",
+    "reason": "초보자의 주차별 성장 과정을 담은 일지 형태의 비교 영상으로, 교정을 목적으로 특정 잘못된 자세(fault)를 의도적으로 시연하는 교육용 튜토리얼이 아닙니다.",
+    "single_person_pole": true
+  },
+  "ln-3pw9GlM8::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "특정 동작의 올바른 자세나 잘못된 자세를 비교 분석하는 교정형 튜토리얼이 아닌, 여러 인물의 폴댄스 시연 및 훈련 과정을 짜깁기한 컴필레이션 영상이므로 폐기합니다.",
+    "single_person_pole": false
+  },
+  "6reMDYGQj6o::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "인버트 동작 시 구스넥 그립을 사용하거나 골반 대신 늑골을 폴에 밀착하고 몸을 너무 일찍 뒤로 눕히는 잘못된 자세",
+    "keep": true,
+    "move_guess": "Invert",
+    "reason": "인버트 동작의 올바른 그립법과 부상 방지를 위한 골반 밀착 위치를 설명하며 구스넥 그립 사용 및 늑골 접촉 등의 잘못된 시연을 포함함",
+    "single_person_pole": true
   }
 }

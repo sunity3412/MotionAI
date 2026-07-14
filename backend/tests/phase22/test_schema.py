@@ -233,6 +233,60 @@ def test_normalize_corrected_coords_frame_keyed_dict():
     )["corrected_coords"] is None
 
 
+# ---------------------------------------------------------------------------
+# extract_report_json — thought 프리앰블 스트립 + balanced JSON 추출 (quick-260714-hv4).
+# 22-07 v4 게이트 정렬: 자유생성(guided 해제) raw 에서 유효 리포트를 방어적으로 추출하는
+# 단일 진실 함수. run_bakeoff aligned 경로와 assert_gates._parsed_report 가 공유한다.
+# 추출 실패 = None (관대화 금지 — 파싱 실패는 기존과 동일하게 실패로 집계).
+# ---------------------------------------------------------------------------
+def test_extract_report_json_thought_preamble():
+    """Test 1 — <thought> 프리앰블 뒤 JSON dict 추출 + 키 순서 보존 (v4 자유생성)."""
+    raw = '<thought>\n무릎 각도를 본다.\n</thought>\n{"faults": [], "coaching": "무릎을 펴세요"}'
+    out = schema.extract_report_json(raw)
+    assert out == {"faults": [], "coaching": "무릎을 펴세요"}
+    # 키 순서 보존 — 정규화(normalize_report)는 별개 관심사, 호출자가 조합.
+    assert list(out.keys()) == ["faults", "coaching"]
+    # 프리앰블 다중(</thought> 2회) — rfind 로 마지막 등장 이후만 본문.
+    raw2 = '<thought>a</thought>\n<thought>b { }</thought>\n{"coaching": "x"}'
+    assert schema.extract_report_json(raw2) == {"coaching": "x"}
+
+
+def test_extract_report_json_pure_json_backcompat():
+    """Test 2 — 프리앰블 없는 순수 JSON(legacy guided 출력) 하위호환 — 그대로 dict."""
+    raw = '{"coaching": null, "faults": []}'
+    assert schema.extract_report_json(raw) == {"coaching": None, "faults": []}
+
+
+def test_extract_report_json_prose_wrapped():
+    """Test 3 — 앞뒤 산문 사이 첫 balanced JSON 추출 (뒤 잔여 텍스트/미완 중괄호 무시)."""
+    raw = (
+        "분석 결과는 다음과 같다.\n"
+        '{"faults": [{"body_part": "무릎"}]}\n'
+        "이상입니다. 추가 텍스트 {"
+    )
+    assert schema.extract_report_json(raw) == {"faults": [{"body_part": "무릎"}]}
+
+
+def test_extract_report_json_invalid_inputs_none():
+    """Test 4 — JSON 없음/unbalanced/빈 문자열/None → None (관대화 금지)."""
+    assert schema.extract_report_json("결함이 없습니다.") is None
+    assert schema.extract_report_json('{"faults": [') is None
+    assert schema.extract_report_json("") is None
+    assert schema.extract_report_json(None) is None
+
+
+def test_extract_report_json_braces_inside_string_values():
+    """Test 5 — 문자열 값 안 중괄호에도 올바른 경계 추출 (naive 카운팅 깨지는 케이스 —
+    raw_decode 가 필요한 이유. 22-02 File API raw_decode 전례)."""
+    raw = (
+        "산문에 { 이 섞여도.\n"
+        "<thought>스캔 {테스트}</thought>\n"
+        '{"coaching": "중괄호 } 주의 { 예시", "faults": []} 잔여'
+    )
+    out = schema.extract_report_json(raw)
+    assert out == {"coaching": "중괄호 } 주의 { 예시", "faults": []}
+
+
 def test_normalize_segments_span_dict_coercion():
     """segments {label: [start, end]} → SEGMENT_KEYS 항목 리스트 (실측 케이스)."""
     raw = {"segments": {"execution": [120, 160], "preparation": [0, 30]}}

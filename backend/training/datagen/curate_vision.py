@@ -31,6 +31,8 @@ log = logging.getLogger(__name__)
 # ── verdict schema (알파벳 정렬, score/severity 부재 — 모델은 점수를 내지 않는다) ──
 VERDICT_KEYS: tuple[str, ...] = (
     "bucket",              # "정타" | "fault" | None (숫자 점수 아님 — 이진 버킷만).
+    "fault_demo",          # bool — "잘못된 예시" 시연 구간 포함 여부 (quick-260714-js2).
+    "fault_desc",          # str | None — 시연된 fault 서술(점수·severity 아님, 서술만).
     "keep",                # bool — 저장 가치.
     "move_guess",          # str | None — 동작 추정.
     "reason",              # str — 저장/폐기 사유(서술).
@@ -60,6 +62,29 @@ _GATE_PROMPT = (
     "규칙: 단일 인물이 폴에서 수행하는 깨끗한 클립만 keep=true. 다인·후프·오버레이 "
     "과다·전신 잘림·비폴은 keep=false. bucket 은 정타(공식대회 수준)/fault(교정 대상) "
     "이진 판정만 — 점수·severity·숫자 등급은 절대 내지 않는다(짚기까지만)."
+)
+
+# fault_demo 프로필 프롬프트 (quick-260714-js2, belle 승인 2026-07-14).
+# default 와의 차이(왜): 튜토리얼은 편집·자막이 표준 형식이라 default 의 "오버레이 과다
+# reject" 가 22-02 에서 교정형 튜토리얼을 통째로 걸렀다(fault=0 근본원인). 이 프로필은
+# 편집/자막을 수용하고 "잘못된 예시" 시연 여부(fault_demo)를 짚게 한다. 점수 금지 불변.
+_GATE_PROMPT_FAULT_DEMO = (
+    "너는 폴스포츠 학습셋 큐레이터다. 이 영상이 '잘못된 자세 예시(fault) 시연'을 담은 "
+    "교정형 튜토리얼로서 학습 코퍼스에 저장할 가치가 있는지 판정한다. 다음만 JSON 으로 "
+    "답한다(다른 텍스트·마크다운·주석 금지):\n"
+    '{"single_person_pole": bool, "keep": bool, "move_guess": "동작명 또는 null", '
+    '"bucket": "정타" 또는 "fault" 또는 null, "fault_demo": bool, '
+    '"fault_desc": "시연된 fault 서술 한 줄 또는 null", "reason": "저장/폐기 사유 한 줄"}\n'
+    "규칙:\n"
+    "· 편집/자막/오버레이/화면분할이 있어도 keep=true 가능 — 튜토리얼은 편집·자막이 "
+    "표준 형식이다. 시연 구간이 명확하면 수용한다.\n"
+    "· '잘못된 예시' 시연 구간이 존재하면 fault_demo=true 로 하고 fault_desc 에 어느 "
+    "관절/동작이 어떻게 잘못됐는지 한 줄 서술한다(예: 무릎 굽힘, 등 과신전). 시연 없이 "
+    "말로만 설명하는 영상은 fault_demo=false.\n"
+    "· reject 유지: 후프/에어리얼/실크, 폴 없는 스트렝스 훈련, 비폴 콘텐츠, 시연자 "
+    "전신이 한 번도 안 보이는 클립. 시연 구간의 단일 시연자 요건은 유지한다"
+    "(single_person_pole).\n"
+    "· 점수·severity·숫자 등급은 절대 내지 않는다(짚기까지만 — 서술만)."
 )
 
 
@@ -109,21 +134,35 @@ def normalize_verdict(raw: dict | None) -> dict:
     out: dict = {}
     for key in VERDICT_KEYS:
         val = raw.get(key)
-        if key in ("keep", "single_person_pole"):
-            out[key] = bool(val)
+        if key in ("fault_demo", "keep", "single_person_pole"):
+            out[key] = bool(val)  # 결측 → False (구 캐시 verdict 재정규화 안전).
         elif key == "bucket":
             out[key] = val if val in VALID_BUCKETS else None
-        elif key == "move_guess":
+        elif key in ("fault_desc", "move_guess"):
             out[key] = str(val) if val not in (None, "") else None
         else:  # reason
             out[key] = str(val) if val is not None else ""
     return {k: out[k] for k in sorted(out)}
 
 
-def decide(verdict: dict | None) -> KeepDecision:
+def cache_key(video_id: str, profile: str = "default") -> str:
+    """verdict 캐시 키 순수 빌더 — 프로필 스코프 분리 (quick-260714-js2).
+
+    default = video_id 그대로(22-02 기존 캐시 히트 유지). 비-default 프로필은
+    suffix 를 붙여 22-02 당시 박제된 default reject 가 fault 재큐레이션을 차단하지
+    않게 한다. collector 의 캐시 직조회도 이 헬퍼를 경유한다(계약 1벌, T-js2-02).
+    """
+    if profile == "default":
+        return str(video_id)
+    return f"{video_id}::{profile}"
+
+
+def decide(verdict: dict | None, profile: str = "default") -> KeepDecision:
     """정규화된 verdict → KeepDecision. 순수 — Gemini 미호출.
 
-    keep=true 이고 단일인물 폴이며 bucket 이 유효할 때만 저장(status=keep).
+    default: keep=true 이고 단일인물 폴이며 bucket 이 유효할 때만 저장(status=keep).
+    fault_demo 프로필: 추가로 bucket=="fault" && fault_demo==true 를 강제 —
+    fault 시연 없는 일반 튜토리얼 유입 차단 (quick-260714-js2).
     verdict 가 None/빈값(키 미설정 graceful) → status=unknown(다운로드 보류).
     """
     if not verdict:
@@ -133,6 +172,20 @@ def decide(verdict: dict | None) -> KeepDecision:
             status="unknown",
         )
     v = normalize_verdict(verdict)
+    if profile == "fault_demo":
+        if (
+            v["keep"] and v["single_person_pole"]
+            and v["bucket"] == "fault" and v["fault_demo"]
+        ):
+            return KeepDecision(
+                keep=True, bucket=v["bucket"], move_guess=v["move_guess"],
+                reason=v["reason"] or "fault 시연 튜토리얼 저장 가치 확인", status="keep",
+            )
+        return KeepDecision(
+            keep=False, bucket=v["bucket"], move_guess=v["move_guess"],
+            reason=v["reason"] or "fault 시연 없음/단일인물 폴 아님 — 폐기", status="reject",
+        )
+    # default 경로 — 기존 판정 문자 그대로 (정타 트랙 기준 보존, belle 제약).
     if v["keep"] and v["single_person_pole"] and v["bucket"] in VALID_BUCKETS:
         return KeepDecision(
             keep=True, bucket=v["bucket"], move_guess=v["move_guess"],
@@ -200,35 +253,42 @@ class VisionGate:
             encoding="utf-8",
         )
 
-    def gate(self, video_id: str, url_or_path: str) -> dict:
+    def gate(self, video_id: str, url_or_path: str, profile: str = "default") -> dict:
         """후보 → verdict(정규화). 캐시 히트 시 재호출 0(과금 방어 T-22-07).
 
-        키 미설정/클라이언트 없음 → unknown verdict(다운로드 보류, 크래시 금지).
+        키 미설정/클라이언트 없음 → unknown verdict(다운로드 보류, 크래시 금지) —
+        프로필 무관 동일. 캐시 키는 cache_key(video_id, profile) 로 프로필 스코프 분리
+        (22-02 default reject 박제가 fault 재큐레이션을 차단하지 않도록, quick-260714-js2).
         유튜브 URL 은 Gemini 네이티브 인제스트, 로컬/IG 경로는 File API (Task 3 배선).
         """
-        if video_id in self._cache:
-            return self._cache[video_id]
+        key = cache_key(video_id, profile)
+        if key in self._cache:
+            return self._cache[key]
         if self._client is None:
             return normalize_verdict(None)  # graceful unknown (keep=False).
         try:
-            raw = self._call_gemini(url_or_path)
+            raw = self._call_gemini(url_or_path, profile=profile)
             verdict = normalize_verdict(raw)
         except Exception:  # noqa: BLE001
             log.exception("Gemini 선별 실패 — unknown 보류")
             verdict = normalize_verdict(None)
-        self._cache[video_id] = verdict
+        self._cache[key] = verdict
         self._save_cache()
         return verdict
 
-    def _call_gemini(self, url_or_path: str) -> dict:
-        """실 Gemini 호출 (Task 3 belle greenlight 후에만 도달). URL vs 파일 분기."""
+    def _call_gemini(self, url_or_path: str, profile: str = "default") -> dict:
+        """실 Gemini 호출 (Task 3 belle greenlight 후에만 도달). URL vs 파일 분기.
+
+        프로필별 프롬프트 선택 — fault_demo 는 편집/자막 수용 프롬프트(점수 금지 불변).
+        """
         from google.genai import types
 
+        prompt = _GATE_PROMPT_FAULT_DEMO if profile == "fault_demo" else _GATE_PROMPT
         if url_or_path.startswith("http"):
             contents = [
                 types.Content(parts=[
                     types.Part(file_data=types.FileData(file_uri=url_or_path)),
-                    types.Part(text=_GATE_PROMPT),
+                    types.Part(text=prompt),
                 ])
             ]
         else:
@@ -244,7 +304,7 @@ class VisionGate:
                 uploaded = self._client.files.get(name=uploaded.name)
             else:
                 raise RuntimeError("File API ACTIVE 타임아웃")
-            contents = [uploaded, _GATE_PROMPT]
+            contents = [uploaded, prompt]
         resp = self._client.models.generate_content(
             model=GEMINI_MODEL,
             contents=contents,

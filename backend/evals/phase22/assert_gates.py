@@ -100,15 +100,17 @@ def _finite(x):
 
 
 def _parsed_report(rec):
-    """레코드 raw → normalize_report dict. 파싱 불가/skip → None."""
+    """레코드 raw → normalize_report dict. 파싱 불가/skip → None.
+
+    파서 = schema.extract_report_json 단일 진실(quick-260714-hv4) — 자유생성
+    <thought> 프리앰블/산문 래핑 raw 에서도 유효 리포트를 추출한다. legacy guided
+    출력(순수 JSON)은 하위호환 동일 결과. 추출 실패 = None (기존 실패 의미 동일 —
+    4 게이트의 임계·비교식·SKIPPED 규칙은 무변경)."""
     raw = rec.get("raw")
     if not isinstance(raw, str) or rec.get("skipped"):
         return None
-    try:
-        parsed = json.loads(raw)
-    except (json.JSONDecodeError, ValueError):
-        return None
-    if not isinstance(parsed, dict):
+    parsed = schema.extract_report_json(raw)
+    if parsed is None:
         return None
     return schema.normalize_report(parsed)
 

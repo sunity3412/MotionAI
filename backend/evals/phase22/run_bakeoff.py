@@ -82,7 +82,11 @@ for _p in (BACKEND / "shared" / "python", BACKEND, BACKEND / "training"):
 # import-time 로드 안전(vision_veto enum 은 lazy). GPU/네트워크 의존 0.
 from datagen import schema  # noqa: E402
 from datagen import perturb  # noqa: E402 — 합성/함정 트랙 생성 (순수, numpy 단독).
-from datagen.build_jsonl import _coords_to_frames  # noqa: E402 — 좌표 표현 단일 owner.
+from datagen.build_jsonl import (  # noqa: E402 — 좌표 표현/학습 user 양식 단일 owner.
+    _TASK_INSTRUCTION,
+    _coords_to_frames,
+    _rtmw_text,
+)
 from distill import pod_coords  # noqa: E402 — 좌표 캐시 키/로드 단일 owner 재사용.
 from distill.gemini_teacher import DEFAULT_TASK_JOINTS, build_rtmw_text  # noqa: E402
 
@@ -366,12 +370,14 @@ def build_guided_json_schema() -> dict:
 # ===========================================================================
 # 모델 백엔드 (lazy — import-time GPU/네트워크 의존 0).
 # ===========================================================================
-def _make_vllm_caller(base_url: str, model_id: str):
+def _make_vllm_caller(base_url: str, model_id: str, repetition_penalty: float = 1.0):
     """vLLM OpenAI 호환 endpoint 호출 callable 생성(lazy openai import).
 
     한 번에 한 모델(--model)만 기동된 endpoint 를 가리킨다. temp 0 + greedy 로
-    결정성 확보(cold re-run 재현 대상). 반환 callable(messages, response_format=None)
-    -> str — 기본 guided REPORT_KEYS 스키마, trap 트랙은 2지선다 enum 스키마 주입."""
+    결정성 확보(cold re-run 재현 대상). 반환 callable(messages, response_format=None,
+    guided_default=True) -> str — 기본 guided REPORT_KEYS 스키마, trap 트랙은 2지선다
+    enum 스키마 주입, aligned 리포트 태스크는 guided_default=False 로 guided 해제
+    (자유생성 — 학습 타겟이 <thought> 프리앰블 허용, quick-260714-hv4 디코딩 정렬)."""
     from openai import OpenAI  # lazy — Pod 에만 설치.
 
     client = OpenAI(
@@ -382,17 +388,25 @@ def _make_vllm_caller(base_url: str, model_id: str):
     )
     guided = build_guided_json_schema()
 
-    def _call(messages, response_format=None) -> str:
+    def _call(messages, response_format=None, guided_default=True) -> str:
         # max_tokens 미지정 — vLLM 이 (max_model_len - prompt) 로 자동 상한. 고정
         # 2048 은 전 프레임 corrected_coords JSON 을 중간 절단해 grounding/json/
         # coaching 3축을 하네스가 죽이는 계측 결함이었다 (2026-07-11 run5 실증:
         # unparsed 전 레코드가 좌표 배열 한복판 ~3.6K자에서 절단).
+        kwargs: dict = {}
+        rf = response_format if response_format is not None else (guided if guided_default else None)
+        if rf is not None:
+            kwargs["response_format"] = rf
+        # rp=1.0 이면 요청 바디 불변(legacy 요청과 바이트 동일) — A/B 관찰 전용 노출,
+        # 본판정은 1.0 고정(POD-RECHECK.md).
+        if repetition_penalty != 1.0:
+            kwargs["extra_body"] = {"repetition_penalty": repetition_penalty}
         resp = client.chat.completions.create(
             model=model_id,
             messages=messages,
             temperature=0.0,   # 결정성(cold re-run 2회 비교).
             top_p=1.0,
-            response_format=response_format or guided,
+            **kwargs,
         )
         return resp.choices[0].message.content or ""
 
@@ -600,6 +614,78 @@ def build_report_messages(coords_rows, frames_b64, motion, shots: str):
     return msgs
 
 
+# ── aligned 프롬프트 모드 (quick-260714-hv4) — 계측-학습 분포 정렬 ──────────────
+def build_aligned_report_messages(coords_rows, media_parts) -> list:
+    """aligned 리포트 메시지 — 학습 JSONL user 양식과 문자 단위 동일 (opt-in).
+
+    22-07 v4 확정 진단(2026-07-14)의 지시문/시스템 프롬프트 2겹을 정렬한다:
+      · system 롤 없음 — swift 학습 실주입에 system 이 없다.
+      · user 텍스트 = build_jsonl._rtmw_text + _TASK_INSTRUCTION import 재사용
+        (복사 금지 — 학습 양식과 문자 단위 동일을 테스트가 고정).
+      · 동작명 라인·few-shot 없음 — 학습 분포에 해당 요소가 없다.
+      · content 순서 = media 파트 먼저(학습 [video, text] 순서 미러) → text 마지막.
+    """
+    content: list = list(media_parts or [])
+    content.append({"type": "text", "text": _rtmw_text(coords_rows) + _TASK_INSTRUCTION})
+    return [{"role": "user", "content": content}]
+
+
+def _is_badrequest_4xx(exc: Exception) -> bool:
+    """openai BadRequest/4xx 판별 — auto 모드 video_url → frames 폴백 트리거."""
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        return 400 <= status < 500
+    msg = str(exc)
+    return "BadRequest" in msg or "Error code: 4" in msg
+
+
+def _frames_media_parts(local_path) -> list:
+    """영상 → image_url 파트 리스트 (기존 prepare_frame_images 재사용 — frames 폴백)."""
+    return [
+        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+        for b64 in prepare_frame_images(str(local_path))
+    ]
+
+
+def _aligned_call(caller, coords_rows, local_path, media_state, rec) -> str:
+    """aligned 경로 호출 — 모달리티 결정 + auto 폴백. rec['modality'] 기록.
+
+    · media auto|video: vLLM OpenAI video_url(file:// — 서빙 측
+      --allowed-local-media-path 전제) 시도. auto 에서 video_url 요청이
+      BadRequest/4xx 면 그 항목부터 frames(image_url 64장) 폴백으로 전환하고
+      이후 항목도 frames 유지(media_state 공유). video 강제 모드의 실패는 전파.
+    · local_path=None(합성 트랙 베이스 영상 부재 등) = 좌표 단독 modality='none'
+      — 실패 아닌 정상 폴백 (지시문/시스템/디코딩 3겹만 정렬해도 판별 가치 있음).
+    · guided 해제(guided_default=False) — 학습 타겟이 <thought> 프리앰블 허용
+      자유생성이라 첫 토큰 '{' 강제가 분포 밖이다.
+    """
+    if local_path is None:
+        rec["modality"] = "none"
+        return caller(build_aligned_report_messages(coords_rows, []), guided_default=False)
+    mode = media_state.get("mode", "auto")
+    if mode in ("auto", "video"):
+        video_part = {"type": "video_url", "video_url": {"url": f"file://{local_path}"}}
+        try:
+            raw = caller(
+                build_aligned_report_messages(coords_rows, [video_part]), guided_default=False
+            )
+            rec["modality"] = "video"
+            return raw
+        except Exception as exc:  # noqa: BLE001 - auto 만 폴백, video 강제/기타 오류는 전파.
+            if mode != "auto" or not _is_badrequest_4xx(exc):
+                raise
+            media_state["mode"] = "frames"
+            print(
+                f"[media] video_url 거부({str(exc)[:120]}) — frames 폴백 전환(이후 항목 유지)",
+                flush=True,
+            )
+    rec["modality"] = "frames"
+    return caller(
+        build_aligned_report_messages(coords_rows, _frames_media_parts(local_path)),
+        guided_default=False,
+    )
+
+
 _TRAP_OPTION_FORWARD = "자연스러운 시간 진행 (정상 순서)"
 _TRAP_OPTION_TRAP = "시간 순서가 깨져 있음 (역재생 또는 셔플)"
 
@@ -656,9 +742,16 @@ def _judge_or_abort(judge, coaching_text: str):
         return float("nan")
 
 
-def run_report_item(item: dict, caller, judge, shots: str) -> dict:
-    """real/hard_negative 리포트 태스크 실행 + C/D축(+F2 관측) 계측."""
+def run_report_item(
+    item: dict, caller, judge, shots: str, prompt_mode: str = "legacy", media_state=None
+) -> dict:
+    """real/hard_negative 리포트 태스크 실행 + C/D축(+F2 관측) 계측.
+
+    prompt_mode='aligned'(opt-in) 는 학습 양식 메시지 + guided 해제 + 방어 파서
+    (schema.extract_report_json). 기본 legacy 경로는 조립·guided·파싱 전부 불변."""
     rec: dict = {"id": item.get("id"), "type": item.get("type"), "mode": shots}
+    if prompt_mode != "legacy":
+        rec["prompt_mode"] = prompt_mode
     s3_key = item.get("s3_key")
     if not s3_key:
         rec.update(skipped=True, note="s3_key null (relocate pending) — 계측 제외")
@@ -671,15 +764,25 @@ def run_report_item(item: dict, caller, judge, shots: str) -> dict:
     if not coords_rows:
         rec.update(skipped=True, note="RTMW 좌표 캐시 miss — extract_eval_coords.py 선행 필요")
         return rec
-    frames_b64 = prepare_frame_images(str(local))
-    msgs = build_report_messages(coords_rows, frames_b64, item.get("motion"), shots)
-    raw = caller(msgs)
+    if prompt_mode == "aligned":
+        raw = _aligned_call(
+            caller, coords_rows, local,
+            media_state if media_state is not None else {"mode": "auto"}, rec,
+        )
+        # 방어 파서 단일 진실 — 추출 실패는 비-dict 그대로(parse 0.0 실패 집계, 관대화 금지).
+        parsed = schema.extract_report_json(raw)
+        if parsed is None:
+            parsed = raw
+    else:
+        frames_b64 = prepare_frame_images(str(local))
+        msgs = build_report_messages(coords_rows, frames_b64, item.get("motion"), shots)
+        raw = caller(msgs)
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            parsed = raw
     rec["raw_sha"] = _sha(raw)
     rec["raw"] = raw
-    try:
-        parsed = json.loads(raw)
-    except (json.JSONDecodeError, ValueError):
-        parsed = raw
     rec["json"] = score_json(parsed if isinstance(parsed, dict) else str(parsed))
     if isinstance(parsed, dict):
         report = schema.normalize_report(parsed)
@@ -701,23 +804,42 @@ def _base_sequence():
     return rows_to_array(rows)
 
 
-def run_synth_item(item: dict, caller, base_arr, base_frames, profile, shots: str) -> dict:
-    """synthetic_grounding — perturb(seed) → corrected_coords vs 원좌표 L2 (A축)."""
+def run_synth_item(
+    item: dict, caller, base_arr, base_frames, profile, shots: str,
+    prompt_mode: str = "legacy", media_state=None,
+) -> dict:
+    """synthetic_grounding — perturb(seed) → corrected_coords vs 원좌표 L2 (A축).
+
+    aligned 는 학습 perturb 트랙 구조([실영상 + 교란좌표 → 원좌표])를 미러 —
+    BASE_SYNTH_S3_KEY 로컬 영상이 있으면 같은 modality 규칙으로 media 첨부, 없으면
+    좌표 단독(modality='none', 실패 아닌 정상 폴백)."""
     rec: dict = {"id": item.get("id"), "type": "synthetic_grounding", "mode": shots,
                  "seed": item.get("seed"), "stage": item.get("stage")}
+    if prompt_mode != "legacy":
+        rec["prompt_mode"] = prompt_mode
     rng = np.random.default_rng(int(item["seed"]))
     res = perturb.perturb_sequence(
         base_arr.copy(), profile, int(item.get("stage") or 1), rng, joint_keys=DEFAULT_TASK_JOINTS
     )
     in_rows = array_to_rows(res.perturbed, base_frames)
-    msgs = build_report_messages(in_rows, [], "synthetic (좌표 보정 태스크)", shots)
-    raw = caller(msgs)
+    if prompt_mode == "aligned":
+        base_local = _fixtures_dir() / BASE_SYNTH_S3_KEY
+        raw = _aligned_call(
+            caller, in_rows, base_local if base_local.exists() else None,
+            media_state if media_state is not None else {"mode": "auto"}, rec,
+        )
+        parsed = schema.extract_report_json(raw)
+        if parsed is None:
+            parsed = raw
+    else:
+        msgs = build_report_messages(in_rows, [], "synthetic (좌표 보정 태스크)", shots)
+        raw = caller(msgs)
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            parsed = raw
     rec["raw_sha"] = _sha(raw)
     rec["raw"] = raw
-    try:
-        parsed = json.loads(raw)
-    except (json.JSONDecodeError, ValueError):
-        parsed = raw
     rec["json"] = score_json(parsed if isinstance(parsed, dict) else str(parsed))
     # 공통 가시 마스크 = 교란입력(res.perturbed)에서 가려지지 않은 관절. 보정/무보정
     # 을 같은 관절 집합에서 비교해야 게이트가 공정하다(22-07 비대칭 마스크 fix).
@@ -785,7 +907,8 @@ def _summarize_axes(records: list) -> dict:
     }
 
 
-def main(argv=None) -> int:
+def _build_parser() -> argparse.ArgumentParser:
+    """CLI 파서 — main/테스트 공용 (기본값이 legacy 동작 불변임을 테스트가 고정)."""
     parser = argparse.ArgumentParser(description="Phase 22 bake-off 하네스 (SERIAL, Pod 실행)")
     parser.add_argument(
         "--model",
@@ -794,13 +917,27 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--vllm-url", default=os.environ.get("BAKEOFF_VLLM_URL", "http://127.0.0.1:8000/v1"))
     parser.add_argument("--shots", choices=("zero", "few", "both"), default="both",
-                        help="프롬프트 모드 — zero-shot/few-shot/둘 다(기본).")
+                        help="프롬프트 모드 — zero-shot/few-shot/둘 다(기본). aligned 는 zero 강제.")
     parser.add_argument("--skip-judge", action="store_true",
                         help="코칭 judge 생략 (cold re-run 결정성 비교 전용 — 과금 0).")
     parser.add_argument("--run-tag", default=os.environ.get("BAKEOFF_RUN_TAG"),
                         help="리포트 파일명 runId (cold re-run 구분 — 예: run1/run2/run3).")
     parser.add_argument("--dry-run", action="store_true", help="계측 함수 로드 + 미니셋 파싱만(무-추론).")
-    args = parser.parse_args(argv)
+    # ── aligned 프롬프트 모드 (quick-260714-hv4, opt-in — 기본 legacy 불변) ──
+    parser.add_argument("--prompt-mode", choices=("legacy", "aligned"),
+                        default=os.environ.get("BAKEOFF_PROMPT_MODE") or "legacy",
+                        help="aligned = 학습 JSONL user 양식 정렬(지시문/시스템/디코딩) — "
+                             "기본 legacy(기존 동작 바이트 불변). env BAKEOFF_PROMPT_MODE 폴백.")
+    parser.add_argument("--media", choices=("auto", "video", "frames"), default="auto",
+                        help="aligned 전용 모달리티 — auto 는 video_url 시도 후 "
+                             "BadRequest/4xx 시 frames(image_url 64장) 폴백.")
+    parser.add_argument("--repetition-penalty", type=float, default=1.0,
+                        help="rp A/B 관찰 전용 — 본판정은 1.0 고정(요청 바디 불변, POD-RECHECK).")
+    return parser
+
+
+def main(argv=None) -> int:
+    args = _build_parser().parse_args(argv)
 
     manifest = load_manifest()
     by_type = items_by_type(manifest)
@@ -812,7 +949,8 @@ def main(argv=None) -> int:
 
     if args.dry_run:
         # pod-free 스모크 — 계측 함수 로드 + 라우팅만 확인(추론 없음).
-        print(f"[dry-run] grounding_items={len(grounding_items(manifest))} "
+        print(f"[dry-run] prompt_mode={args.prompt_mode} "
+              f"grounding_items={len(grounding_items(manifest))} "
               f"axes={list(_summarize_axes([]).keys())}", flush=True)
         print("ALLDONE", flush=True)
         return 0
@@ -824,10 +962,19 @@ def main(argv=None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # 실 추론 경로(Pod). 로컬(22-05)에서는 여기 도달 전에 dry-run/테스트로 검증한다.
-    caller = _make_vllm_caller(args.vllm_url, args.model)
+    caller = _make_vllm_caller(args.vllm_url, args.model, args.repetition_penalty)
     judge = None if args.skip_judge else _make_gemini_judge()
     runid = args.run_tag or str(int(time.time()))
-    shots_modes = ["zero", "few"] if args.shots == "both" else [args.shots]
+    if args.prompt_mode == "aligned":
+        # few-shot 예시는 legacy 양식(system+동작명 포함)이라 aligned 분포에 없다 —
+        # --shots 값과 무관하게 zero 강제, 로그로 명시.
+        if args.shots != "zero":
+            print(f"[aligned] shots={args.shots} 요청 무시 — zero-shot 강제"
+                  "(few-shot 예시는 legacy 양식, 학습 분포에 부재)", flush=True)
+        shots_modes = ["zero"]
+    else:
+        shots_modes = ["zero", "few"] if args.shots == "both" else [args.shots]
+    media_state = {"mode": args.media}  # auto 폴백 상태 공유(항목 간 유지).
     records: list = []
     errors = 0
     quota_abort_note = None
@@ -843,12 +990,18 @@ def main(argv=None) -> int:
             try:
                 if typ in ("real", "hard_negative"):
                     for mode in shots_modes:
-                        rec = run_report_item(row, caller, judge, mode)
+                        rec = run_report_item(
+                            row, caller, judge, mode,
+                            prompt_mode=args.prompt_mode, media_state=media_state,
+                        )
                         rec["elapsed_s"] = round(time.monotonic() - t0, 2)
                         records.append(rec)
                 elif typ == "synthetic_grounding":
                     for mode in shots_modes:
-                        rec = run_synth_item(row, caller, base_arr, base_frames, profile, mode)
+                        rec = run_synth_item(
+                            row, caller, base_arr, base_frames, profile, mode,
+                            prompt_mode=args.prompt_mode, media_state=media_state,
+                        )
                         rec["elapsed_s"] = round(time.monotonic() - t0, 2)
                         records.append(rec)
                 elif typ == "trap":
@@ -881,6 +1034,10 @@ def main(argv=None) -> int:
             "prompt_version": schema.PROMPT_VERSION,
             "judge_model": JUDGE_MODEL if judge is not None else None,
             "shots_modes": shots_modes,
+            # aligned 계측-학습 정렬 (quick-260714-hv4) — 아티팩트 구분 가능.
+            "prompt_mode": args.prompt_mode,
+            "media": args.media,           # 요청값 — 실 modality 는 레코드별 기록.
+            "repetition_penalty": args.repetition_penalty,
             "base_synth_item": BASE_SYNTH_S3_KEY,
             "frame_budget": FRAME_BUDGET,
             "frame_resize": FRAME_RESIZE,

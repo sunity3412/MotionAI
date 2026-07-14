@@ -219,6 +219,46 @@ def bind_key_prompt(keys) -> str:
 
 
 # ---------------------------------------------------------------------------
+# extract_report_json — thought 스트립 + balanced JSON 추출 단일 진실
+# (quick-260714-hv4, 22-07 v4 게이트 정렬 fix).
+# ---------------------------------------------------------------------------
+def extract_report_json(text) -> dict | None:
+    """자유생성 raw 에서 <thought> 프리앰블을 스트립하고 첫 balanced JSON dict 를 추출.
+
+    왜: 22-07 v4 게이트가 학습 분포(자유생성 — <thought> 프리앰블 허용)와 계측기
+    (guided JSON 첫 토큰 강제)의 디코딩 불일치로 유효 리포트를 파싱 실패 처리했다
+    (2026-07-14 확정 진단). run_bakeoff aligned 경로와 assert_gates._parsed_report 가
+    이 함수 하나를 공유한다 — 방어 파서 복제 금지.
+
+    규칙:
+      · </thought> 마지막 등장(rfind — 프리앰블 다중 대비) 이후로 본문 절단.
+      · 본문의 각 '{' 위치에서 json.JSONDecoder().raw_decode 시도 — 문자열 리터럴 내
+        중괄호에 안전한 유일한 stdlib 경로(22-02 File API 전례, naive brace counting
+        금지). 실패 시 다음 '{' 로 전진.
+      · dict 아닌 최상위 디코드는 계속 스캔. 끝까지 없으면 None (관대화 금지 —
+        파싱 실패는 호출자가 기존과 동일하게 실패로 집계).
+      · normalize_report 는 호출하지 않는다 — 추출과 정규화는 별개 관심사, 호출자 조합.
+    순수 함수 (네트워크/numpy 0). 키 순서는 원문 그대로 보존한다.
+    """
+    if not isinstance(text, str) or not text:
+        return None
+    idx = text.rfind("</thought>")
+    body = text[idx + len("</thought>"):] if idx != -1 else text
+    decoder = json.JSONDecoder()
+    pos = body.find("{")
+    while pos != -1:
+        try:
+            obj, _end = decoder.raw_decode(body, pos)
+        except (json.JSONDecodeError, ValueError):
+            pos = body.find("{", pos + 1)
+            continue
+        if isinstance(obj, dict):
+            return obj
+        pos = body.find("{", pos + 1)
+    return None
+
+
+# ---------------------------------------------------------------------------
 # normalize_report — D-11 철칙 1·2 단일 owner + 화이트리스트 + enum 강제.
 # ---------------------------------------------------------------------------
 def normalize_report(raw: dict) -> dict:

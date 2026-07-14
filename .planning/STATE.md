@@ -72,7 +72,7 @@ Status: Executing Phase 22
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-14 -- Completed quick task 260714-hv4: 22-07 v4 게이트 계측-학습 양식 정렬 (aligned 프롬프트 모드 + 방어 파서, Pod 재계측=POD-RECHECK.md)
+Last activity: 2026-07-14 - quick 260714-hv4/js2 완료 (v4 게이트 정렬 재계측 + fault 재수집 준비)
 
 ### Quick Tasks Completed
 
@@ -110,6 +110,8 @@ Last activity: 2026-07-14 -- Completed quick task 260714-hv4: 22-07 v4 게이트
 | 260713-jjq | 백본 확정 도장 — 22-BAKEOFF-RESULT.md Qwen3-VL-8B PROVISIONAL→CONFIRMED (belle 공식 확정 2026-07-13, bake-off 4축 종합·결정성 64/64). 문서 3곳 갱신, 판정 근거·계측 이력 불변 | 2026-07-13 | 2cdc76e | [260713-jjq](./quick/260713-jjq-22-bakeoff-result-md-qwen3-vl-8b-provisi/) |
 | 260713-jxr | 처방 B 배선 — 내부 fault 트랙(구 371) enumerate_internal(consent 게이트 3분기+ETag dedup+스케일가드) + anonymize_batch(재개 가능+fixtures/phase22/internal/ prefix 강제+manifest 행 생성/병합) + LICENSE-AUDIT §7-1 belle 일괄승인(2026-07-13) 박제. Firestore 실측 872/707/662, optIn=false 1건 제외·anonymize 강제. 신규 행이 eligible_for_distill+test_provenance fence 무수정 통과. phase22 222 passed. 로컬 코드+문서만(Pod 실행=runbook). fable 크레딧 소진→Opus 인계 완주 | 2026-07-13 | 386398e | [260713-jxr](./quick/260713-jxr-b-fault-anonymize-manifest-belle-2026-07/) |
 | 260714-hv4 | 22-07 v4 게이트 계측-학습 양식 정렬 — run_bakeoff aligned 프롬프트 모드(opt-in, 기본 legacy 바이트 불변): 지시문=_TASK_INSTRUCTION import 재사용·system 롤 0·media 먼저·guided 해제(자유생성)+video_url auto→frames 폴백. 방어 파서 schema.extract_report_json(thought 스트립+raw_decode balanced JSON) 단일 진실을 run_bakeoff/assert_gates 공유 — 4 게이트 임계·비교식 불완화, 파싱 실패=실패 집계. run_sft_gates.sh PROMPT_MODE/REPETITION_PENALTY 배선(rp 본판정 1.0 고정). phase22 248 passed(+11). Pod 재계측=POD-RECHECK.md(legacy 아티팩트 mv 백업 선행, 오케스트레이터 SSH) | 2026-07-14 | 4f12979 | [260714-hv4](./quick/260714-hv4-2207-v4-gate-align/) |
+| 260714-hv4 | 22-07 v4 게이트 계측-학습 양식 정렬 — aligned 프롬프트 모드 + 공용 방어 파서 + Pod 재계측 배선 | 2026-07-14 | 7661a29 | [260714-hv4-2207-v4-gate-align](./quick/260714-hv4-2207-v4-gate-align/) |
+| 260714-js2 | phase22 fault 타겟 재수집 라운드 — fault_demo 큐레이션 프로필 + 레지스트리 확장 + 재개 문서화 | 2026-07-14 | 21fa47c | [260714-js2-phase22-fault-yt-ig-cap](./quick/260714-js2-phase22-fault-yt-ig-cap/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

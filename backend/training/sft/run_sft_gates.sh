@@ -8,13 +8,18 @@
 #   3. assert_gates 기본 모드 판정 → 이어서 --require-pass 판정 (둘 다 로그 기록)
 #
 # 스코프 정직성: 하네스 직접 추론(오프라인) — 파이프라인 swap 아님(Wave 3 전).
-# 학습은 <video> 태그(비디오 토큰), 이 eval 은 프레임 image_url 64장 — bake-off 와
-# 동일 계측기라 백본 비교와 정합하지만 학습 입력 양식과는 다름(SUMMARY caveat).
+# 프롬프트 양식 (quick-260714-hv4 — 구 SUMMARY caveat "학습 입력 양식과는 다름" 해소):
+#   · PROMPT_MODE=legacy (기본): 기존 하네스 양식(system+guided+프레임 image_url) —
+#     기존 호출 동작 불변.
+#   · PROMPT_MODE=aligned: 학습 JSONL user 양식과 문자 동일(지시문/시스템/디코딩 정렬)
+#     + vLLM video_url 서빙(--allowed-local-media-path). v4 게이트 재계측은 aligned.
+#   · REPETITION_PENALTY (기본 1.0): rp A/B 관찰 전용 — 본판정은 1.0 고정.
+#     run1/run2 둘 다 동일 적용(determinism 비교는 동일 조건 cold 2회여야 유효).
 #
 # 사용 (Pod):
 #   cd /workspace/SunityMotion/backend
-#   nohup bash training/sft/run_sft_gates.sh /workspace/phase22_export/sft-run1/awq \
-#     > /workspace/sft_gates.log 2>&1 &
+#   PROMPT_MODE=aligned nohup bash training/sft/run_sft_gates.sh \
+#     /workspace/phase22_export/sft-run1/awq > /workspace/sft_gates.log 2>&1 &
 
 set -euo pipefail
 
@@ -29,6 +34,10 @@ export BAKEOFF_FIXTURES_DIR="${BAKEOFF_FIXTURES_DIR:-/workspace/bakeoff_fixtures
 export BAKEOFF_COORDS_CACHE="${BAKEOFF_COORDS_CACHE:-/workspace/phase22_coords_cache}"
 export BAKEOFF_VLLM_URL="http://127.0.0.1:${PORT}/v1"
 
+# 프롬프트 양식/디코딩 배선 (quick-260714-hv4) — 기본 legacy = 기존 호출 불변.
+PROMPT_MODE="${PROMPT_MODE:-legacy}"
+REPETITION_PENALTY="${REPETITION_PENALTY:-1.0}"
+
 # shellcheck disable=SC1091
 [ -f /workspace/aws_env.sh ] && source /workspace/aws_env.sh
 
@@ -40,12 +49,21 @@ if grep -q '"quantization_config"' "$AWQ/config.json" 2>/dev/null; then
   QUANT_ARGS=(--quantization awq --dtype float16)
 fi
 
-echo "[1/3] vLLM serve (${QUANT_ARGS[*]})"
+# aligned 는 video_url(file://) 수용 서빙 — 허용 경로는 BAKEOFF_FIXTURES_DIR 단일
+# 디렉토리 한정(T-hv4-02) + 127.0.0.1 바인딩 유지. vLLM 버전이 video_url 미지원이면
+# 하네스 auto 폴백이 frames 로 처리하므로 안전. legacy 서빙 인자는 불변.
+MM_ARGS=(--limit-mm-per-prompt '{"image": 64}')
+if [ "$PROMPT_MODE" = "aligned" ]; then
+  MM_ARGS=(--limit-mm-per-prompt '{"image": 64, "video": 1}'
+           --allowed-local-media-path "$BAKEOFF_FIXTURES_DIR")
+fi
+
+echo "[1/3] vLLM serve (${QUANT_ARGS[*]}, prompt_mode=${PROMPT_MODE})"
 nohup "$VENV/bin/python" -m vllm.entrypoints.openai.api_server \
   --model "$AWQ" --host 127.0.0.1 --port "$PORT" \
   "${QUANT_ARGS[@]}" \
   --max-model-len 32768 --gpu-memory-utilization 0.90 \
-  --limit-mm-per-prompt '{"image": 64}' > /workspace/sft_gates_vllm.log 2>&1 &
+  "${MM_ARGS[@]}" > /workspace/sft_gates_vllm.log 2>&1 &
 VLLM_PID=$!
 trap 'kill $VLLM_PID 2>/dev/null || true' EXIT
 deadline=$((SECONDS + 1200))
@@ -56,12 +74,13 @@ until curl -sf "http://127.0.0.1:${PORT}/v1/models" >/dev/null 2>&1; do
 done
 echo "  serve UP"
 
-echo "[2/3] 게이트 artifact — run_bakeoff run1/run2 (judge 생략, SERIAL)"
+echo "[2/3] 게이트 artifact — run_bakeoff run1/run2 (judge 생략, SERIAL, prompt_mode=${PROMPT_MODE})"
 run_bakeoff() {
   (cd "$(dirname "$0")/../.." && \
     BAKEOFF_MODEL="$AWQ" \
     "$VENV/bin/python" evals/phase22/run_bakeoff.py \
-      --model "$AWQ" --run-tag "$1" --skip-judge)
+      --model "$AWQ" --run-tag "$1" --skip-judge \
+      --prompt-mode "$PROMPT_MODE" --repetition-penalty "$REPETITION_PENALTY")
 }
 run_bakeoff run1
 run_bakeoff run2

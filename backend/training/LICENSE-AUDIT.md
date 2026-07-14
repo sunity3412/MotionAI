@@ -118,6 +118,20 @@
 - **(e) 권장 후속(서면화)** — 직원 구두동의의 서면화(파일럿 참가 동의서 부속 또는 간단 확인서) 권장. A9-7(파일럿 참가 동의서 원본 보관) 실사 항목과 연결.
 - **(f) 등재 행 규약** — 신규 행은 `source="internal_pilot_user"`(customer 게이트 발화)·`anonymized=true`·`consent_evidence`(본 일괄승인 근거)·`source_url="internal://firestore-analyses/{video_hash}"`(provenance sentinel — uid/analysisId 비파생, video_hash 기반만) 필드를 갖는다. uid/식별자 필드는 어떤 행에도 금지(build_manifest_row + assert_no_identifier_keys 이중 fence).
 
+## 7-2. fault 타겟 재수집 라운드 (belle 승인 2026-07-14)
+
+v4 aligned 게이트에서 eval18 fault 짚기 실패의 근본원인 = fault 학습신호 부족(실결함 라벨 10개)에 대한 데이터 처방. 22-02 수집에서 YT/IG fault=0 이었던 이유는 큐레이션 게이트(default 프로필)가 편집/자막/오버레이 영상을 자동 reject 해 튜토리얼(편집·자막이 표준 형식)이 통째로 걸러졌기 때문.
+
+- **(a) 결정 내용** — 다음 2트랙 재수집을 승인(belle, 2026-07-14).
+  1. **튜토리얼 타겟 외부 재수집** — fault_demo 큐레이션 프로필 신설(편집/자막 수용, "잘못된 예시" 시연 여부 짚기). 대상 = 기존 Tier-2 fault 채널 5개 재큐레이션 + fault 표적 검색쿼리 5개(`phase22_sources.yaml` 등재, 실체 검증 = 실행 단계 dry 열거→제목 스팟체크→belle 확인 후 --curate).
+  2. **정은지 IG cap 상향** — eunji.poledancer `cap_per_account` 20→60. **본인 동의 확보(belle, 2026-07-14).**
+- **(b) 라이선스 등급** —
+  - 튜토리얼 YT 수집분 = **fair-use 회색** (기존 R1/A9-1 등급과 동일 취급). 완화 요건 동일 적용: 학습전용·비재배포·앱 미노출·info.json provenance 보관.
+  - 정은지 IG 추가분 = **본인 동의로 IG 중 최저 리스크** (기존 §5-2 eunji 행 등급 승계).
+- **(c) 게이트 유지** — 미성년 제외(연령 스크리닝 절차 A9-3, @polesportkids enabled=false 불변)·후프/에어리얼/실크/폴 없는 스트렝스/비폴 reject·점수 라벨 영구 금지(verdict score/severity 부재 불변식)·uploads/ prefix 금지(HIGH 1) 전부 현행 유지. **fault_demo 프로필은 편집/자막 reject 만 완화한다.** verdict 캐시는 프로필 스코프 키(`{video_id}::fault_demo`)로 분리 — 22-02 default reject 박제와 충돌 없음.
+- **(d) train-on-test fence** — 정은지 성공/실패 페어 6쌍(eval18 시험지와 동일 자산)은 **학습 투입 영구 금지**. 이번 라운드 수집분(외부 튜토리얼 + eunji IG 릴스)과 무관하다 — 페어 6쌍은 이번 라운드의 수집 대상·경로에 포함되지 않는다.
+- **(e) 수집 실측 수치** — **라운드 개시 시점 — 행 수 미정.** 실행(오케스트레이터, RUN-SHEET 경유) 후 keep/reject 집계·manifest 행 수를 본 절과 §5 원장에 실측 기입하고 `_meta.recollection_rounds[].status` 를 갱신한다.
+
 ## 8. belle 결정 이력 (일자순)
 
 | 일자 | 결정 | 내용 |
@@ -129,6 +143,7 @@
 | 2026-07-10 | bake-off 3파전 확대 | 분석 엔진 후보에 **Cosmos-Reason2-8B** 추가(§2 표 갱신). HF 셀프호스트 경로만 — 호스팅 API(Trial ToS) 사용 금지 |
 | 2026-07-13 | 백본 확정 | bake-off PROVISIONAL 우승 **Qwen3-VL-8B** 공식 확정(CONFIRMED). 22-BAKEOFF-RESULT.md 판정 갱신 |
 | 2026-07-13 | 내부 fault 트랙 일괄승인 | §7-1 — 파일럿 이전 내부 데이터(직원 실증·내부 테스트) 학습사용 일괄 승인(구두). learningOptIn=false 1건 제외, anonymize 강제, 이후 신규는 optIn=true 엄격. 처방 B 착수 근거 |
+| 2026-07-14 | fault 타겟 재수집 라운드 승인 | §7-2 — 튜토리얼 타겟 외부 재수집(fault_demo 큐레이션 프로필, 편집/자막 reject 만 완화) + 정은지 IG cap 상향 20→60(본인 동의 확보). 점수 금지·미성년 제외·uploads/ 금지 게이트 불변 |
 
 ## 9. A9 게이트 체크리스트 (출시 전 법률검토 1회 — counsel 확인 항목)
 

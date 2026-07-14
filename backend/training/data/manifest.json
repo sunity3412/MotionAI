@@ -37,7 +37,17 @@
       "approval_scope": "파일럿 이전 내부 데이터 학습사용 일괄 승인(구두) — learningOptIn=false 1건 제외, anonymize 강제, 이후 신규는 optIn=true 엄격",
       "pending": "enumerate_internal → anonymize_batch 경로로 등재 진행 중(행 추가는 Pod 배치 후). 적재 전 anonymize 강제(D-12, 소급 불가)"
     },
-    "notes": "seed(reference 11 정타 + 일부러실수 6 fault) + hard-negative 2(A2 피터팬·A3 power-spin, eval 격리) + 채널 harvest 수집분(YT 68 + IG 44). 2026-07-10 belle 승인으로 수집 마감(collection_complete=true) — 매니페스트 균등 게이트는 balance_waiver 로 문서화된 예외(내부 371 fault track 이월), JSONL 균등은 build_jsonl._balance_media 가 강제. DR-06 fail-closed 는 22-04 build_jsonl 진입 assert."
+    "notes": "seed(reference 11 정타 + 일부러실수 6 fault) + hard-negative 2(A2 피터팬·A3 power-spin, eval 격리) + 채널 harvest 수집분(YT 68 + IG 44). 2026-07-10 belle 승인으로 수집 마감(collection_complete=true) — 매니페스트 균등 게이트는 balance_waiver 로 문서화된 예외(내부 371 fault track 이월), JSONL 균등은 build_jsonl._balance_media 가 강제. DR-06 fail-closed 는 22-04 build_jsonl 진입 assert.",
+    "recollection_rounds": [
+      {
+        "round": "fault-yt-ig-260714",
+        "approved_by": "belle",
+        "approved_at": "2026-07-14",
+        "scope": "튜토리얼 fault_demo 재큐레이션 + eunji.poledancer cap 60",
+        "status": "open",
+        "license_audit": "LICENSE-AUDIT.md §7-2"
+      }
+    ]
   },
   "rows": [
     {

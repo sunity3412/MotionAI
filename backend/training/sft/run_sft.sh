@@ -56,11 +56,18 @@ mkdir -p "$DATA" "$DATA/videos" "$OUT"
 
 echo "[1/3] 학습셋 동기화 + 로컬라이즈 (원본 불변, *_local.jsonl 생성)"
 # train_venv python 사용 — imageio_ffmpeg(ffmpeg 바이너리 공급)가 이 venv 에 있음.
-"$VENV/bin/python3" - "$DATA" <<'PYEOF'
+"$VENV/bin/python3" -u - "$DATA" <<'PYEOF'
 import json, subprocess, sys
 from pathlib import Path
 import boto3
+from boto3.s3.transfer import TransferConfig
 import imageio_ffmpeg
+
+# MooseFS(Network Volume)에서 boto3 기본 멀티스레드 다운로드가 futex 데드락으로
+# 무한 hang 한다(2026-07-15 실측: localize 가 한 영상에서 52분 정지, ffmpeg 자식
+# 없이 python futex_wait). 단일 스레드 전송으로 회피 — 학습 전처리라 처리량보다
+# 안정성 우선. -u(unbuffered)로 진행 로그도 실시간 flush.
+_DL_CONFIG = TransferConfig(use_threads=False)
 
 data_dir = Path(sys.argv[1])
 bucket = "sunity-motion-pilot-videos"
@@ -68,7 +75,7 @@ s3 = boto3.client("s3")
 prefix = "training/phase22/jsonl/"
 for name in ("train.jsonl", "val.jsonl", "_meta.json"):
     dst = data_dir / name
-    s3.download_file(bucket, prefix + name, str(dst))
+    s3.download_file(bucket, prefix + name, str(dst), Config=_DL_CONFIG)
     print(f"  sync {name} {dst.stat().st_size}B")
 
 meta = json.loads((data_dir / "_meta.json").read_text())
@@ -126,7 +133,8 @@ def localize(name: str) -> None:
                         local = vid_root / key
                         if not local.exists():
                             local.parent.mkdir(parents=True, exist_ok=True)
-                            s3.download_file(bucket, key, str(local))
+                            s3.download_file(bucket, key, str(local), Config=_DL_CONFIG)
+                            print(f"  dl {key}", flush=True)
                         videos.append(str(normalize(local, key)))
                         texts.append("<video>")
                         n_media += 1

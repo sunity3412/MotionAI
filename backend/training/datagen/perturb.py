@@ -4,9 +4,11 @@
 함께 반환한다 (자가 라벨, 교사 무관 — 사람 점수 라벨 아님). 모델은 이 페어로
 "영상+튄 좌표 → 보정 좌표"를 학습한다.
 
-교란 4종 구조 (NLM Q3 차용, 수치는 차용 금지):
+교란 5종 구조 (NLM Q3 차용, 수치는 차용 금지):
   · 가려짐 Null run — 연속 프레임 좌표를 Null(NaN) + confidence 저값으로 덮어씀.
   · 가우시안 지터 — RTMW 프레임별 떨림 모방.
+  · 지속 변위 drift — run 동안 상수 오프셋(가시 오류, confidence 불변) — RTMW
+    지속 오추적 모방 (quick-260715-fjw D1, 변위 보정 감독 강화).
   · L/R 스왑 — 좌/우 관절 교환(생체역학 불가 상태).
   · 프레임 드롭 — 저fps 시뮬 (make_temporal_trap 의 셔플과 별개).
 
@@ -96,6 +98,16 @@ def _sample_run_length(profile: dict, rng: np.random.Generator) -> int:
     """confidence_drop_run_length 분포에서 연속 Null run 길이 샘플 (>=1)."""
     hist = profile["confidence_drop_run_length"]
     return max(1, int(round(_sample_histogram(hist, rng))))
+
+
+def _drift_run_length(profile: dict, rng: np.random.Generator) -> int:
+    """drift(지속 변위) run 길이 샘플 — 최소 2 프레임 (quick-260715-fjw D1).
+
+    confidence_drop_run_length 는 지속 오류 지속시간의 실측 대리 분포(proxy 임을
+    명시) — profile 이 보유한 유일한 시간 길이 분포라 지속 변위 run 길이에도
+    재사용한다 (신규 하드코딩 분포 금지, A3). 최소 2 프레임은 '지속' 변위 구조
+    정의(단프레임 지터와의 구분)."""
+    return max(2, _sample_run_length(profile, rng))
 
 
 # ---------------------------------------------------------------------------
@@ -190,6 +202,15 @@ def perturb_sequence(
     perturbed_joints: set[int] = set()
     perturbed_frames: set[int] = set()
 
+    def _drift_run(ji: int) -> None:
+        """관절 ji 에 지속 변위 run 1건 주입 + 교란 등재 (D1 배선 공통)."""
+        run = _drift_run_length(profile, rng)
+        start = int(rng.integers(0, max(1, t - run)))
+        end = min(t, start + run)
+        _apply_drift(out, ji, start, end, jump_hist, rng)
+        perturbed_joints.add(ji)
+        perturbed_frames.update(range(start, end))
+
     if stage <= 1:
         targets = _pick(noncore or core, rng, k=min(2, len(noncore or core)))
         for ji in targets:
@@ -197,6 +218,12 @@ def perturb_sequence(
             _apply_jitter(out, ji, f, jump_hist, rng)
             perturbed_joints.add(ji)
             perturbed_frames.add(f)
+        # 지속 변위 drift run 1~2관절 (비핵심 — stage1 관절 범주 계약 유지,
+        # quick-260715-fjw D2: 변위 우선 stage).
+        pool = noncore or core
+        n_drift = int(rng.integers(1, 3))  # 1~2건 (구조 상수 — 교란 수치 아님).
+        for ji in _pick(pool, rng, k=min(n_drift, len(pool))):
+            _drift_run(ji)
         # 단발 가려짐 1건 (Null 바인딩 규격 확립).
         if targets:
             ji = int(_pick(targets, rng, k=1)[0])
@@ -214,6 +241,15 @@ def perturb_sequence(
             _apply_occlusion(out, ji, start, end, t)
             perturbed_joints.add(ji)
             perturbed_frames.update(range(start, end))
+        # 핵심 관절 drift run 1건 (quick-260715-fjw D2): stage2 가 순수 가려짐이라
+        # 변위 감독이 0 이던 것 해소 — 가려짐 셀은 게이트 가시 마스크에서 제외되므로
+        # stage2 는 지금까지 게이트 대상 변위 신호를 전혀 못 만들었다. 가려진 관절과
+        # 겹치면 drift 가 NaN 에 묻히므로 미가려진 핵심 관절을 우선 선택한다.
+        pool = core or noncore
+        drift_pool = [ji for ji in pool if ji not in set(targets)] or pool
+        picked = _pick(drift_pool, rng, k=1)
+        if picked:
+            _drift_run(int(picked[0]))
     else:  # stage 3 — 복합.
         out, pairs = swap_lr_joints(out, joint_keys or [])
         if pairs:
@@ -223,14 +259,24 @@ def perturb_sequence(
                 perturbed_joints.add(index[rname])
             perturbed_frames.update(range(t))
         # 복합 가려짐 + 지터 (핵심 관절).
+        occluded: set[int] = set()
         for ji in _pick(core or noncore, rng, k=min(2, len(core or noncore))):
             run = max(2, _sample_run_length(profile, rng))
             start = int(rng.integers(0, max(1, t - run)))
             end = min(t, start + run)
             _apply_occlusion(out, ji, start, end, t)
-            _apply_jitter(out, ji, int(rng.integers(0, t)), jump_hist, rng)
+            jf = int(rng.integers(0, t))
+            _apply_jitter(out, ji, jf, jump_hist, rng)
             perturbed_joints.add(ji)
             perturbed_frames.update(range(start, end))
+            perturbed_frames.add(jf)  # 지터 프레임도 등재 (가시 변위 셀 등재 계약).
+            occluded.add(ji)
+        # drift 1건 추가 (quick-260715-fjw D2) — 가려진 관절 회피(가시성 보장).
+        pool = core + noncore
+        drift_pool = [ji for ji in pool if ji not in occluded] or pool
+        picked = _pick(drift_pool, rng, k=1)
+        if picked:
+            _drift_run(int(picked[0]))
 
     return PerturbResult(
         perturbed=out,
@@ -273,6 +319,37 @@ def _apply_jitter(
     for ch in (0, 1):
         if ch < out.shape[2]:
             out[f, ji, ch] = out[f, ji, ch] + float(rng.normal(0.0, max(1e-6, std)))
+
+
+def _apply_drift(
+    out: np.ndarray,
+    ji: int,
+    start: int,
+    end: int,
+    jump_hist: dict,
+    rng: np.random.Generator,
+) -> None:
+    """[start,end) run 동안 관절 ji 좌표에 **일정한**(프레임 간 동일) 오프셋 벡터를
+    더함 — RTMW 지속 오추적 모방 (quick-260715-fjw D1).
+
+    프레임별 독립 노이즈인 _apply_jitter 와 구분되는 지속 변위 primitive.
+      · 크기 = per_joint_jump_deg 집계 히스토그램 샘플(도) / 90.0 — 기존 jitter 와
+        동일 환산(도 → 정규화 좌표 스케일), 신규 매직 상수 0.
+      · 방향 = rng 단위벡터(x,y), run 내 고정.
+      · confidence 채널 불변 — 가시 오류로 남겨 모델이 영상/궤적으로 잡아내게 한다.
+    """
+    t = out.shape[0]
+    s = max(0, start)
+    e = min(t, end)
+    if e <= s:
+        return
+    # 1e-6 하한은 _apply_jitter 와 동일한 0-크기 방지 가드 (신규 상수 아님).
+    mag = max(1e-6, _sample_histogram(jump_hist, rng) / 90.0)
+    theta = float(rng.uniform(0.0, 2.0 * np.pi))
+    offset = (mag * float(np.cos(theta)), mag * float(np.sin(theta)))
+    for ch in (0, 1):
+        if ch < out.shape[2]:
+            out[s:e, ji, ch] = out[s:e, ji, ch] + offset[ch]
 
 
 def _pick(indices, rng: np.random.Generator, k: int) -> list[int]:

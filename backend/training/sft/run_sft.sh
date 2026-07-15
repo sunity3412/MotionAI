@@ -61,6 +61,7 @@ import json, subprocess, sys
 from pathlib import Path
 import boto3
 from boto3.s3.transfer import TransferConfig
+from botocore.config import Config as _BotoConfig
 import imageio_ffmpeg
 
 # MooseFS(Network Volume)에서 boto3 기본 멀티스레드 다운로드가 futex 데드락으로
@@ -69,9 +70,17 @@ import imageio_ffmpeg
 # 안정성 우선. -u(unbuffered)로 진행 로그도 실시간 flush.
 _DL_CONFIG = TransferConfig(use_threads=False)
 
+# 단일 스레드로도 S3 연결이 stall 하면 boto3 기본값(타임아웃 없음)이 do_poll 로
+# 무한 대기한다(2026-07-15 실측: 한 영상에서 8.5분+ 정지). read/connect 타임아웃 +
+# 재시도로 stall 을 끊고 자동 회복한다.
+_S3_CFG = _BotoConfig(
+    connect_timeout=15, read_timeout=60,
+    retries={"max_attempts": 5, "mode": "standard"},
+)
+
 data_dir = Path(sys.argv[1])
 bucket = "sunity-motion-pilot-videos"
-s3 = boto3.client("s3")
+s3 = boto3.client("s3", config=_S3_CFG)
 prefix = "training/phase22/jsonl/"
 for name in ("train.jsonl", "val.jsonl", "_meta.json"):
     dst = data_dir / name

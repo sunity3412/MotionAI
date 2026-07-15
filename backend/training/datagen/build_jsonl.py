@@ -53,6 +53,14 @@ _VALID_VALIDATION_OWNERS = ("explicit_val_jsonl", "phase22_eval_gate")
 # perturb 파라미터 분포 (22-01 산출) — 프레임 재추출 아님, 좌표 노이즈 주입만.
 _PROFILE_PATH = Path(__file__).resolve().parent / "rtmw_error_profile.json"
 
+# perturb stage 배분 cycle (quick-260715-fjw D3). eligible perturb 행 순번 k 에
+# stage = _STAGE_CYCLE[k % len(_STAGE_CYCLE)] 을 적용한다. 게이트 synthetic_holdout
+# 은 가시 셀 변위 보정 L2 만 판정하고(가려짐 복원은 비게이트 관찰치
+# grounding_occluded_restored), 변위-순수 stage1 이 그 신호를 가장 직접 만든다 —
+# 그래서 stage1 을 2배 가중한다. (1,1,2,3) 은 ablation 축(수치 자체가 근거가 아니라
+# 변위-우선이라는 방향이 근거).
+_STAGE_CYCLE = (1, 1, 2, 3)
+
 
 # ---------------------------------------------------------------------------
 # 진입 게이트 — collection_complete fail-closed + upload prefix (DR-06).
@@ -175,11 +183,21 @@ def _svg_spec(target_angle_deg=None, force_vector=None, ideal_trajectory=None) -
 # ---------------------------------------------------------------------------
 # 좌표 → 서브샘플 프레임 행 (discretize, Null 바인딩).
 # ---------------------------------------------------------------------------
-def _coords_to_frames(coords, joint_keys, frame_indices, width, height) -> list[dict]:
+def _coords_to_frames(
+    coords, joint_keys, frame_indices, width, height, frame_labels=None
+) -> list[dict]:
+    """coords 를 프레임 행 리스트로 이산화한다.
+
+    frame_indices 는 coords 배열의 행 인덱스(무엇을 읽을지), frame_labels 는 그 행에
+    붙일 frame 라벨(원본 영상 프레임 번호)이다. subsample-first 교란(D4)에서 배열은
+    (N,J,C) 서브샘플이라 인덱스가 0..N-1 로 재정렬되지만 라벨은 원본 idxs 를 유지해야
+    user 행과 corrected_coords 행의 frame 라벨이 일치한다. frame_labels=None 이면
+    인덱스가 곧 라벨(기존 동작)."""
     frames: list[dict] = []
     c = coords.shape[2]
-    for f in frame_indices:
-        row: dict = {"frame": int(f)}
+    for pos, f in enumerate(frame_indices):
+        label = int(frame_labels[pos]) if frame_labels is not None else int(f)
+        row: dict = {"frame": label}
         for j, name in enumerate(joint_keys):
             x = coords[f, j, 0]
             y = coords[f, j, 1]
@@ -242,12 +260,20 @@ def _load_profile():
 
 
 def _build_perturb_samples(manifest, perturb_loader, reference_loader, rng) -> list[dict]:
-    """정답=원좌표 좌표보정 트랙 (D-10a). 교란 서브샘플→user, 원좌표→corrected_coords."""
+    """정답=원좌표 좌표보정 트랙 (D-10a). 교란 서브샘플→user, 원좌표→corrected_coords.
+
+    quick-260715-fjw 재설계: (D3) stage 배분을 _STAGE_CYCLE 로 변위-가중,
+    (D4) subsample-first 교란, (D5) 1/3 좌표전용 샘플 혼합, (D6) corrected_coords
+    전체 프레임 유지. 자세한 근거는 각 지점 주석.
+    """
     if perturb_loader is None:
         return []
     profile = _load_profile()
     out: list[dict] = []
-    for i, row in enumerate(manifest.get("rows", [])):
+    # k = eligible+loaded 통과 순번(원본 row 인덱스 아님) — stage cycle/좌표전용 결정
+    # 기준. 중간에 미가명 고객/holdout 행이 걸러져도 cycle 이 어긋나지 않게 한다.
+    k = 0
+    for row in manifest.get("rows", []):
         if not _eligible_media_row(row):
             continue
         loaded = perturb_loader(row)
@@ -258,15 +284,38 @@ def _build_perturb_samples(manifest, perturb_loader, reference_loader, rng) -> l
         width = float(loaded.get("width", 1.0))
         height = float(loaded.get("height", 1.0))
         idxs = schema.select_frame_indices(coords.shape[0])
-        stage = (i % 3) + 1
-        perturbed = coords
+        # D4 subsample-first: 표시 프레임으로 먼저 서브샘플한 뒤 교란한다. 과거엔
+        # 전체 T 를 교란하고 ≤64 를 서브샘플해, 교란 프레임 대다수가 표시 밖으로
+        # 빠져 user 는 무교란 좌표를 보는데 corrected=원좌표 = 순수 항등 echo 샘플이
+        # 양산됐다(v2 "무보정 동률"의 기계적 원인). 서브샘플 먼저 → 모든 교란이
+        # 표시 프레임에 반드시 반영된다.
+        sub = coords[idxs]
+        # D3 stage 배분 — 변위-우선 결정적 cycle (균등 (i%3)+1 교체).
+        stage = _STAGE_CYCLE[k % len(_STAGE_CYCLE)]
+        perturbed_sub = sub
         if profile is not None:
             try:
-                perturbed = perturb.perturb_sequence(coords, profile, stage, rng, joint_keys).perturbed
+                perturbed_sub = perturb.perturb_sequence(
+                    sub, profile, stage, rng, joint_keys
+                ).perturbed
             except Exception:  # noqa: BLE001 - 교란 실패 시 원좌표(구조 유지).
-                perturbed = coords
-        user_frames = _coords_to_frames(perturbed, joint_keys, idxs, width, height)
-        orig_frames = _coords_to_frames(coords, joint_keys, idxs, width, height)
+                perturbed_sub = sub
+        # 배열 인덱스(0..N-1)로 읽되 frame 라벨은 원본 영상 프레임 번호(idxs)로 기입.
+        user_frames = _coords_to_frames(
+            perturbed_sub, joint_keys, range(len(idxs)), width, height, frame_labels=idxs
+        )
+        # D6 corrected_coords = 표시 프레임 전체 행 echo (변경 프레임만 방출 채택 안 함).
+        #   · 게이트 공정성: parse_corrected_coords 는 미방출 프레임=NaN 제외 — 부분
+        #     방출을 학습시키면 모델이 쉬운(무교란) 프레임만 골라 방출해 상대 게이트
+        #     (보정<무보정)를 뒷문으로 무력화(cherry-picking = 게이트 완화)할 수 있다.
+        #     전체 방출은 계측 마스크 ≈ 무보정 기준선 마스크로 비교가 공정하다.
+        #   · 무교란 셀의 "입력 그대로 출력"은 보정 함수의 올바른 항등 구간이지 v3
+        #     distill 의 독(무의미 echo 가 의미 필드를 익사)과 다르다 — distill cc=None
+        #     으로 익사 원인은 이미 제거됐고, perturb 내부 항등 비중은 D3/D4 + drift 의
+        #     변위 밀도 확대로 실질 신호 비율을 올려 해소한다.
+        orig_frames = _coords_to_frames(
+            sub, joint_keys, range(len(idxs)), width, height, frame_labels=idxs
+        )
         ref = reference_loader(row.get("motion")) if reference_loader else None
         target = (ref or {}).get("target_angle_deg")
         report = {
@@ -277,10 +326,22 @@ def _build_perturb_samples(manifest, perturb_loader, reference_loader, rng) -> l
             "svg_spec": _svg_spec(target_angle_deg=target),
             "time_anchors": None,
         }
+        # D5 좌표전용 혼합 — eligible perturb 행의 1/3(k % 3 == 2)은 video 파트 없이
+        # 좌표전용으로 방출한다. 게이트 synth=좌표전용 / 프로덕션 추론=video+coords —
+        # 다수(2/3)는 video 유지로 시각 grounding 을 보존하고, 1/3 로 좌표전용 분포
+        # (synthetic_holdout)를 커버해 "corrected_coords=[] 전량 방출" gap 을 해소한다.
+        # user 텍스트는 _rtmw_text + _TASK_INSTRUCTION 모듈 상수 재사용 — 게이트
+        # build_aligned_report_messages(rows, []) 좌표전용 경로와 문자 단위 동일(단일
+        # 진실, 신규 지시문 작성 금지). 비율 1/3 은 ablation 축.
+        coords_only = (k % 3 == 2)
+        if coords_only:
+            user_msg = _user_text_msg(_rtmw_text(user_frames) + _TASK_INSTRUCTION)
+        else:
+            user_msg = _user_media_msg(row["s3_key"], user_frames)
         out.append({
             "messages": [
                 _system_msg(joint_keys),
-                _user_media_msg(row["s3_key"], user_frames),
+                user_msg,
                 _assistant_report_msg(
                     "교란된 좌표를 전후 프레임 궤적으로 보정합니다.", report
                 ),
@@ -288,7 +349,9 @@ def _build_perturb_samples(manifest, perturb_loader, reference_loader, rng) -> l
             "_track": "perturb",
             "_video_hash": row.get("video_hash"),
             "_motion": row.get("motion"),
+            "_coords_only": coords_only,
         })
+        k += 1
     return out
 
 
@@ -546,12 +609,18 @@ def build_dataset(
         if t in track_counts:
             track_counts[t] += 1
 
+    # 좌표전용 perturb 샘플 수(D5) — 균등 게이트 트림 후 최종 기준. 드롭률/혼합 실측 노출.
+    perturb_coords_only_count = sum(
+        1 for s in media if s.get("_track") == "perturb" and s.get("_coords_only")
+    )
+
     meta = {
         "schema_version": schema.SCHEMA_VERSION,
         "prompt_version": schema.PROMPT_VERSION,
         "manifest_version": (manifest or {}).get("_meta", {}).get("schema_version"),
         "validation_owner": validation_owner,
         "track_counts": track_counts,
+        "perturb_coords_only_count": perturb_coords_only_count,
         "motion_counts": _motion_counts(media),
         "shadow_unregistered_dropped": shadow_dropped,
         "shadow_text_only_count": shadow_text_only,

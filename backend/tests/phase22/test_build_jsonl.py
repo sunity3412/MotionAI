@@ -347,3 +347,131 @@ def test_perturb_track_keeps_corrected_coords():
         report = build_jsonl.assistant_report(s)
         assert report is not None
         assert report.get("corrected_coords")  # truthy 좌표 리스트.
+
+
+# ---------------------------------------------------------------------------
+# quick-260715-fjw — perturb 트랙 재설계 (D3/D4/D5/D6).
+# ---------------------------------------------------------------------------
+def _perturb_loader_long(row):
+    """t=130 > select_frame_indices budget(64) — 서브샘플이 실제로 프레임을 떨군다."""
+    if not row.get("s3_key"):
+        return None
+    rng = np.random.default_rng(1)
+    return {
+        "coords": rng.random((130, len(_JOINT_KEYS), 3)).astype(float),
+        "joint_keys": _JOINT_KEYS,
+        "width": 640.0,
+        "height": 480.0,
+    }
+
+
+def _all_perturb(data):
+    return [
+        s for s in data["train"] + (data["val"] or []) if s.get("_track") == "perturb"
+    ]
+
+
+def _user_text(sample) -> str:
+    return [
+        c["text"] for c in sample["messages"][1]["content"] if c.get("type") == "text"
+    ][0]
+
+
+def _parse_user_frames(text: str) -> list:
+    """user 텍스트에서 프레임 행 파싱 — _rtmw_text(frames)+_TASK_INSTRUCTION 역변환."""
+    assert text.endswith(build_jsonl._TASK_INSTRUCTION)
+    body = text[: -len(build_jsonl._TASK_INSTRUCTION)]
+    assert body.startswith("RTMW_Data: ")
+    return json.loads(body[len("RTMW_Data: "):])
+
+
+def test_coords_only_sample_matches_gate_aligned_format():
+    """Test D — 좌표전용 perturb 샘플: text 단일 파트, 게이트 aligned 좌표전용
+    (build_aligned_report_messages(rows, [])) 경로와 문자 단위 동일 양식."""
+    data = _build()
+    coords_only = [
+        s for s in _all_perturb(data) if not build_jsonl.sample_has_video(s)
+    ]
+    assert coords_only, "좌표전용 perturb 샘플 부재"
+    for s in coords_only:
+        assert s.get("_coords_only") is True
+        content = s["messages"][1]["content"]
+        assert isinstance(content, list) and len(content) == 1
+        assert content[0].get("type") == "text"
+        text = content[0]["text"]
+        frames = _parse_user_frames(text)
+        # 모듈 상수 재사용으로 조립돼 재조립 결과와 문자 단위 동일 (단일 진실).
+        assert text == build_jsonl._rtmw_text(frames) + build_jsonl._TASK_INSTRUCTION
+
+
+def test_coords_only_deterministic_third_ratio_and_counter():
+    """Test E — 좌표전용 비율 = 결정적 cycle(1/3), video 양식 다수 유지 + 카운터 방출."""
+    data = _build()
+    samples = _all_perturb(data)
+    n = len(samples)
+    coords_only = [s for s in samples if not build_jsonl.sample_has_video(s)]
+    expected = sum(1 for k in range(n) if k % 3 == 2)
+    assert len(coords_only) == expected
+    assert 0 < len(coords_only) < n  # video 양식이 다수(2/3) 유지.
+    assert data["_meta"]["perturb_coords_only_count"] == len(coords_only)
+
+
+def test_subsample_first_perturbation_visible_in_user_frames():
+    """Test F — 모든 perturb 샘플에서 user 표시 frames 와 원좌표 frames 가 최소 1개
+    셀에서 상이 (표시 프레임 내 교란 보장 — 순수 항등 echo 샘플 0). frame 라벨은
+    원본 영상 프레임 번호이며 user 행과 corrected_coords 행이 일치한다."""
+    data = _build(perturb_loader=_perturb_loader_long)
+    samples = _all_perturb(data)
+    assert samples, "perturb 샘플 부재"
+    for s in samples:
+        report = build_jsonl.assistant_report(s)
+        orig_frames = report["corrected_coords"]
+        user_frames = _parse_user_frames(_user_text(s))
+        user_labels = [r["frame"] for r in user_frames]
+        orig_labels = [r["frame"] for r in orig_frames]
+        assert user_labels == orig_labels  # frame 라벨 집합 일치 계약.
+        assert max(user_labels) > 63  # 라벨 = 원본 영상 프레임 번호 (배열 인덱스 아님).
+        assert user_frames != orig_frames, "표시 프레임 내 교란 0 (순수 항등 echo)"
+
+
+def test_stage_cycle_weighted_displacement(monkeypatch):
+    """Test G — stage 배분이 _STAGE_CYCLE=(1,1,2,3) 결정적 cycle 을 따른다."""
+    seen: list[int] = []
+    real = build_jsonl.perturb.perturb_sequence
+
+    def spy(coords, profile, stage, rng, joint_keys=None):
+        seen.append(stage)
+        return real(coords, profile, stage, rng, joint_keys)
+
+    monkeypatch.setattr(build_jsonl.perturb, "perturb_sequence", spy)
+    _build()
+    assert tuple(build_jsonl._STAGE_CYCLE) == (1, 1, 2, 3)
+    assert len(seen) >= 4  # fixture eligible 4행 — cycle 전체 관측.
+    cycle = build_jsonl._STAGE_CYCLE
+    assert seen == [cycle[k % len(cycle)] for k in range(len(seen))]
+
+
+def test_perturb_corrected_coords_full_frame_rows():
+    """Test H — perturb corrected_coords = 표시 프레임 전체 행 (D6: 부분 방출 채택
+    안 함 — cherry-picking 뒷문 차단). distill cc=None 계약은 기존 테스트가 고정."""
+    data = _build(perturb_loader=_perturb_loader_long)
+    n_expected = len(schema.select_frame_indices(130))
+    for s in _all_perturb(data):
+        report = build_jsonl.assistant_report(s)
+        cc = report["corrected_coords"]
+        assert cc
+        assert len(cc) == n_expected  # 행 수 == len(idxs) — 전체 프레임 echo.
+
+
+def test_hash_split_form_agnostic():
+    """Test I — video_hash split 이 양식(좌표전용/video) 무관하게 동작 (leakage 0)."""
+    data = _build(val_frac=0.75)  # val hash 다수 확보 — 좌표전용 hash 를 val 에 배치.
+    by_hash: dict = {}
+    for name, samples in (("train", data["train"]), ("val", data["val"] or [])):
+        for s in samples:
+            vh = s.get("_video_hash")
+            if vh:
+                by_hash.setdefault(vh, set()).add(name)
+    assert all(len(v) == 1 for v in by_hash.values()), by_hash
+    # 좌표전용 샘플이 val 에 존재 — 양식 무관 split 실증.
+    assert any(s.get("_coords_only") for s in data["val"] or [])

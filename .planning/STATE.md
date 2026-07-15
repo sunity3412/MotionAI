@@ -72,7 +72,7 @@ Status: Executing Phase 22
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-14 - quick 260714-hv4/js2 완료 (v4 게이트 정렬 재계측 + fault 재수집 준비)
+Last activity: 2026-07-15 - Completed quick task 260715-fjw: phase22 perturb 트랙 재설계 (v5 준비 — subsample-first + 좌표전용 1/3 + drift stage 가중, phase22 267 passed)
 
 ### Quick Tasks Completed
 
@@ -112,6 +112,7 @@ Last activity: 2026-07-14 - quick 260714-hv4/js2 완료 (v4 게이트 정렬 재
 | 260714-hv4 | 22-07 v4 게이트 계측-학습 양식 정렬 — run_bakeoff aligned 프롬프트 모드(opt-in, 기본 legacy 바이트 불변): 지시문=_TASK_INSTRUCTION import 재사용·system 롤 0·media 먼저·guided 해제(자유생성)+video_url auto→frames 폴백. 방어 파서 schema.extract_report_json(thought 스트립+raw_decode balanced JSON) 단일 진실을 run_bakeoff/assert_gates 공유 — 4 게이트 임계·비교식 불완화, 파싱 실패=실패 집계. run_sft_gates.sh PROMPT_MODE/REPETITION_PENALTY 배선(rp 본판정 1.0 고정). phase22 248 passed(+11). Pod 재계측=POD-RECHECK.md(legacy 아티팩트 mv 백업 선행, 오케스트레이터 SSH) | 2026-07-14 | 4f12979 | [260714-hv4](./quick/260714-hv4-2207-v4-gate-align/) |
 | 260714-hv4 | 22-07 v4 게이트 계측-학습 양식 정렬 — aligned 프롬프트 모드 + 공용 방어 파서 + Pod 재계측 배선 | 2026-07-14 | 7661a29 | [260714-hv4-2207-v4-gate-align](./quick/260714-hv4-2207-v4-gate-align/) |
 | 260714-js2 | phase22 fault 타겟 재수집 라운드 — fault_demo 큐레이션 프로필 + 레지스트리 확장 + 재개 문서화 | 2026-07-14 | 21fa47c | [260714-js2-phase22-fault-yt-ig-cap](./quick/260714-js2-phase22-fault-yt-ig-cap/) |
+| 260715-fjw | phase22 perturb 트랙 재설계 (v5 준비, 로컬) — v4 aligned 게이트 synthetic_holdout gap 처방 3건: D1/D2 drift primitive+stage 변위 강화(stage2 순수 가려짐→가시 변위 신호 생성), D3 `_STAGE_CYCLE=(1,1,2,3)` 변위-우선 배분, D4 subsample-first(표시 프레임 내 교란 보장 — 순수 항등 echo 제거, v2 "무보정 동률" 기계적 원인 해소), D5 1/3 좌표전용 샘플(게이트 aligned 좌표전용 경로와 문자 단위 동일, `_TASK_INSTRUCTION` 단일 진실 재사용) + `_meta.perturb_coords_only_count`, D6 corrected_coords 전체 프레임 echo 유지 근거 박제(부분 방출=cherry-picking 게이트 완화 차단). `_coords_to_frames` frame_labels 로 배열 인덱스/프레임 라벨 분리. phase22 267 passed. 게이트 하네스·채점 diff 0. **v5 절대 수치는 v4 직접 비교 불가**(교란 분포 자체 변경, 상대 게이트 semantics 불변). 다음=Pod `--assemble --with-perturb --upload` v5 조립→SFT v5→aligned 게이트 | 2026-07-15 | 8c71497 | [260715-fjw-phase22-perturb-stage-corrected-coords](./quick/260715-fjw-phase22-perturb-stage-corrected-coords/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

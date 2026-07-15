@@ -156,3 +156,67 @@ def test_shape_contract_valueerror():
     rng = np.random.default_rng(9)
     with pytest.raises(ValueError):
         perturb.perturb_sequence(np.zeros((5, 8)), _profile(), 1, rng, joint_keys=_JOINTS)
+
+
+# ---------------------------------------------------------------------------
+# quick-260715-fjw — 변위(displacement) 위주 stage 재설계 (D1/D2).
+# ---------------------------------------------------------------------------
+def test_apply_drift_constant_offset_finite_confidence_unchanged():
+    """Test A — _apply_drift: run 구간 상수 오프셋, 전부 finite, confidence 불변.
+
+    지속 변위 = 프레임별 독립 노이즈(_apply_jitter)와 달리 run 내 프레임 간 동일한
+    오프셋 벡터 — RTMW 지속 오추적 모방. 가려짐(NaN)이 아닌 가시 오류."""
+    coords = _coords()
+    out = coords.copy()
+    rng = np.random.default_rng(11)
+    jump_hist = perturb._aggregate_jump_hist(_profile())
+    ji = 2
+    start, end = 4, 9  # run 길이 5 (>= 2).
+    perturb._apply_drift(out, ji, start, end, jump_hist, rng)
+    seg = out[start:end, ji, :2]
+    orig = coords[start:end, ji, :2]
+    # 가시 변위: 값이 변하고 전부 finite (NaN 0).
+    assert np.all(np.isfinite(seg))
+    assert not np.array_equal(seg, orig)
+    # 오프셋은 run 내 프레임 간 동일한 상수 벡터.
+    offsets = seg - orig
+    assert np.allclose(offsets, offsets[0])
+    assert np.linalg.norm(offsets[0]) > 0.0
+    # confidence 채널 불변 (가시 오류 — 모델이 영상/궤적으로 잡아내야 함).
+    assert np.array_equal(out[:, :, 2], coords[:, :, 2])
+    # run 밖 프레임 불변.
+    mask = np.ones(coords.shape[0], dtype=bool)
+    mask[start:end] = False
+    assert np.array_equal(out[mask], coords[mask])
+
+
+def test_stage_visible_displacement_coverage():
+    """Test B — stage 1/2/3 전부 가시 변위 셀(finite + original 과 상이) >= 1.
+
+    특히 stage2 — 종전 순수 가려짐이라 게이트(가시 마스크) 대상 변위 신호가 0 이던
+    것을 고정. 가시 변위 셀은 perturbed_joints/perturbed_frames 에 등재돼야 한다."""
+    coords = _coords()
+    for stage in (1, 2, 3):
+        res = perturb.perturb_sequence(
+            coords, _profile(), stage, np.random.default_rng(13), joint_keys=_JOINTS
+        )
+        xy = res.perturbed[:, :, :2]
+        visible = np.isfinite(xy).all(axis=2) & (xy != res.original[:, :, :2]).any(axis=2)
+        assert visible.any(), f"stage{stage} 가시 변위 셀 0"
+        # 가시 변위 셀은 교란 등재 계약을 따른다.
+        frames, joints = np.nonzero(visible)
+        for f, j in zip(frames.tolist(), joints.tolist()):
+            assert j in res.perturbed_joints
+            assert f in res.perturbed_frames
+
+
+def test_stage2_displacement_run_at_least_two_frames():
+    """Test B' — stage2 drift 는 연속 >= 2 프레임 가시 변위 (지속 변위 구조)."""
+    coords = _coords()
+    res = perturb.perturb_sequence(
+        coords, _profile(), 2, np.random.default_rng(13), joint_keys=_JOINTS
+    )
+    xy = res.perturbed[:, :, :2]
+    visible = np.isfinite(xy).all(axis=2) & (xy != res.original[:, :, :2]).any(axis=2)
+    per_joint = visible.sum(axis=0)
+    assert per_joint.max() >= 2, "stage2 가시 변위 run < 2 프레임"

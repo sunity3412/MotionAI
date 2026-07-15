@@ -359,6 +359,25 @@ def test_teacher_prompt_instructs_empty_faults_for_clean_video():
     assert "빈 배열" in prompt and "[]" in prompt
 
 
+def test_teacher_prompt_instructs_enumerate_all_faults():
+    """A 밀도 강화 (260715-wq9) — 결함 영상에서 관찰되는 모든 결함을 빠짐없이 짚기.
+
+    진단: 교사 fault 중앙값 1개/영상(가장 뚜렷한 하나만 짚는 관성) → 학생이 결함
+    미방출을 학습. 결함 다중 열거 지시를 추가하되 정타 빈 배열 금지 문장과 인접
+    배치해 위양성으로 번지지 않게 한다(결함 영상=모두 짚기 / 정타=빈 배열).
+    """
+    prompt = gt.build_teacher_system_prompt(["left_knee"])
+    assert "모든 결함을 빠짐없이" in prompt
+    assert "하나만" in prompt
+    # 다중 열거와 정타 빈 배열 지시가 함께 존재(위양성 대비 보존).
+    assert "빈 배열" in prompt and "억지 결함" in prompt
+    # 다중 열거 지시가 빈 배열 지시보다 앞서 인접 배치(결함 → 정타 대비 순서).
+    assert prompt.index("모든 결함을 빠짐없이") < prompt.index("빈 배열")
+    # motion 주입 양쪽에서 유지(graceful 계약 불변).
+    withm = gt.build_teacher_system_prompt(["left_knee"], motion="climb")
+    assert "모든 결함을 빠짐없이" in withm
+
+
 def test_teacher_prompt_graceful_without_categories(monkeypatch):
     """shared layer 미로드(빈 튜플) 시 enum 나열 문장 생략 — 프롬프트는 여전히 유효."""
     from datagen import schema

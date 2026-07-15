@@ -201,6 +201,13 @@ def build_teacher_system_prompt(joint_keys, motion=None) -> str:
         f"[{fault_keys}]. student_angle_deg/reference_angle_deg 는 각도쌍(도), "
         "measurement_basis 는 무엇을 어떻게 쟀는지 서술, fault_category 는 고정 enum 입니다.\n"
         f"{category_line}"
+        # 밀도 강화 (260715-wq9, belle 승인): 교사가 가장 뚜렷한 결함 하나만 짚는 관성
+        # (진단상 fault 중앙값 1개/영상)이 학생에게 결함 미방출을 학습시켰다. 결함
+        # 영상에서는 관찰되는 모든 결함을 각각 별도 항목으로 산출하도록 명시한다.
+        # 바로 아래 정타 빈 배열 지시와 인접 배치해 다중 열거가 정타 위양성으로 번지지
+        # 않게 한다(결함 영상=모두 짚기 / 정타 영상=빈 배열). 동작별 지식 하드코딩 없음.
+        "결함 영상에서는 관찰되는 모든 결함을 빠짐없이 각각 별도 faults[] 항목으로 "
+        "산출합니다 — 가장 뚜렷한 하나만 짚고 나머지를 생략하지 마세요.\n"
         "짚을 결함이 없으면 faults 는 빈 배열([])로 출력합니다 — 정타 영상에 억지 결함을 "
         "만들지 않습니다.\n"
         "점수(score/severity/overall/points 계열)는 절대 출력하지 않습니다 — 짚기·측정·"

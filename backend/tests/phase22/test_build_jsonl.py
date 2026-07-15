@@ -340,7 +340,7 @@ def test_distill_track_corrected_coords_always_none():
 
 def test_perturb_track_keeps_corrected_coords():
     """perturb 행은 원좌표 corrected_coords 유지 — 실보정 신호 보존."""
-    data = _build()
+    data = _build(include_perturb=True, distill_loader=None, shadow_loader=None)
     perturb = [s for s in data["train"] + (data["val"] or []) if s.get("_track") == "perturb"]
     assert perturb, "perturb 샘플 부재"
     for s in perturb:
@@ -350,7 +350,88 @@ def test_perturb_track_keeps_corrected_coords():
 
 
 # ---------------------------------------------------------------------------
+# quick-260715-wq9 — C1 perturb descope(가역) + B fault-ratio 재균형.
+# ---------------------------------------------------------------------------
+def _distill_loader_imbalanced():
+    """fault-bearing 1 + fault-free 3 — B 캡 트림 검증(정타가 결함 신호 익사).
+
+    manifest row motion: hashA/hashB=kip-up, hashC/hashD=split — 트랙 내 균등 게이트
+    (max<=2*min) 통과. hashA 만 결함 보유(각도쌍), 나머지는 정타(faults=[])."""
+    recs = [_distill_record("hashA", "kip-up")]  # 결함 보유.
+    for vh in ("hashC", "hashB", "hashD"):
+        rec = _distill_record(vh, "kip-up")
+        rec["report"]["faults"] = []  # 정타(fault-free).
+        recs.append(rec)
+    return recs
+
+
+def _distill_loader_all_clean():
+    """전부 정타(fault_bearing==0) — 캡 skip guard 검증."""
+    recs = []
+    for vh, m in (("hashA", "kip-up"), ("hashC", "split")):
+        rec = _distill_record(vh, m)
+        rec["report"]["faults"] = []
+        recs.append(rec)
+    return recs
+
+
+def test_perturb_excluded_by_default():
+    """C1 (belle 2026-07-15) — include_perturb 기본 False → perturb 트랙 부재.
+
+    근거: 모델 5/5 corrected_coords 빈배열 거부 + perturb 95행(faults=[])이 결함
+    신호를 익사시키는 최대 주범 → 좌표보정 학습 보류(삭제 아님, 가역 descope)."""
+    data = _build()
+    perturb = [s for s in data["train"] + (data["val"] or [])
+               if s.get("_track") == "perturb"]
+    assert perturb == []
+    assert data["_meta"]["perturb_coords_only_count"] == 0
+    assert data["_meta"]["track_counts"]["perturb"] == 0
+
+
+def test_perturb_revived_with_include_flag():
+    """가역 descope — include_perturb=True 로 도먼트 perturb 트랙 부활(코드 보존)."""
+    data = _build(include_perturb=True)
+    perturb = [s for s in data["train"] + (data["val"] or [])
+               if s.get("_track") == "perturb"]
+    assert perturb  # 부활.
+
+
+def test_fault_free_capped_by_ratio():
+    """B — fault-free 미디어가 fault-bearing 대비 캡 비율 초과 시 결정적 트림."""
+    data = _build(distill_loader=_distill_loader_imbalanced,
+                  perturb_loader=None, shadow_loader=None)
+    meta = data["_meta"]
+    assert meta["fault_free_cap_ratio"] == build_jsonl.FAULT_FREE_CAP_RATIO
+    assert meta["fault_bearing_count"] == 1
+    # nb=1, ratio=1.5 → cap=1. fault_free 3 → 1.
+    assert meta["fault_free_count"] == 1
+    assert meta["fault_free_count"] > 0  # 정타 신호 완전 소거 금지(invariant).
+    media = [s for s in data["train"] + (data["val"] or [])
+             if build_jsonl.sample_has_video(s)]
+    assert len(media) == 2  # fault-bearing 1 + 캡된 fault-free 1.
+
+
+def test_fault_free_cap_skipped_when_no_fault_bearing():
+    """B guard — fault_bearing==0 이면 캡 skip(전량 트림 방지)."""
+    data = _build(distill_loader=_distill_loader_all_clean,
+                  perturb_loader=None, shadow_loader=None)
+    meta = data["_meta"]
+    assert meta["fault_bearing_count"] == 0
+    assert meta["fault_free_count"] == 2  # 트림 없음(guard).
+
+
+def test_fault_ratio_meta_emitted():
+    """B — _meta 에 fault_bearing/fault_free 관측치 방출(드롭률 은폐 불가)."""
+    data = _build()
+    for k in ("fault_bearing_count", "fault_free_count", "fault_free_cap_ratio"):
+        assert k in data["_meta"]
+
+
+# ---------------------------------------------------------------------------
 # quick-260715-fjw — perturb 트랙 재설계 (D3/D4/D5/D6).
+#   C1(260715-wq9) 이후 perturb 는 기본 off — 이 도먼트 경로는 include_perturb=True
+#   명시 호출로 커버 유지(가역 descope 보존). distill/shadow 는 None 으로 격리해
+#   B fault-free 캡이 perturb 계측을 간섭하지 않게 한다.
 # ---------------------------------------------------------------------------
 def _perturb_loader_long(row):
     """t=130 > select_frame_indices budget(64) — 서브샘플이 실제로 프레임을 떨군다."""
@@ -388,7 +469,7 @@ def _parse_user_frames(text: str) -> list:
 def test_coords_only_sample_matches_gate_aligned_format():
     """Test D — 좌표전용 perturb 샘플: text 단일 파트, 게이트 aligned 좌표전용
     (build_aligned_report_messages(rows, [])) 경로와 문자 단위 동일 양식."""
-    data = _build()
+    data = _build(include_perturb=True, distill_loader=None, shadow_loader=None)
     coords_only = [
         s for s in _all_perturb(data) if not build_jsonl.sample_has_video(s)
     ]
@@ -406,7 +487,7 @@ def test_coords_only_sample_matches_gate_aligned_format():
 
 def test_coords_only_deterministic_third_ratio_and_counter():
     """Test E — 좌표전용 비율 = 결정적 cycle(1/3), video 양식 다수 유지 + 카운터 방출."""
-    data = _build()
+    data = _build(include_perturb=True, distill_loader=None, shadow_loader=None)
     samples = _all_perturb(data)
     n = len(samples)
     coords_only = [s for s in samples if not build_jsonl.sample_has_video(s)]
@@ -420,7 +501,8 @@ def test_subsample_first_perturbation_visible_in_user_frames():
     """Test F — 모든 perturb 샘플에서 user 표시 frames 와 원좌표 frames 가 최소 1개
     셀에서 상이 (표시 프레임 내 교란 보장 — 순수 항등 echo 샘플 0). frame 라벨은
     원본 영상 프레임 번호이며 user 행과 corrected_coords 행이 일치한다."""
-    data = _build(perturb_loader=_perturb_loader_long)
+    data = _build(perturb_loader=_perturb_loader_long,
+                  include_perturb=True, distill_loader=None, shadow_loader=None)
     samples = _all_perturb(data)
     assert samples, "perturb 샘플 부재"
     for s in samples:
@@ -444,7 +526,7 @@ def test_stage_cycle_weighted_displacement(monkeypatch):
         return real(coords, profile, stage, rng, joint_keys)
 
     monkeypatch.setattr(build_jsonl.perturb, "perturb_sequence", spy)
-    _build()
+    _build(include_perturb=True, distill_loader=None, shadow_loader=None)
     assert tuple(build_jsonl._STAGE_CYCLE) == (1, 1, 2, 3)
     assert len(seen) >= 4  # fixture eligible 4행 — cycle 전체 관측.
     cycle = build_jsonl._STAGE_CYCLE
@@ -454,7 +536,8 @@ def test_stage_cycle_weighted_displacement(monkeypatch):
 def test_perturb_corrected_coords_full_frame_rows():
     """Test H — perturb corrected_coords = 표시 프레임 전체 행 (D6: 부분 방출 채택
     안 함 — cherry-picking 뒷문 차단). distill cc=None 계약은 기존 테스트가 고정."""
-    data = _build(perturb_loader=_perturb_loader_long)
+    data = _build(perturb_loader=_perturb_loader_long,
+                  include_perturb=True, distill_loader=None, shadow_loader=None)
     n_expected = len(schema.select_frame_indices(130))
     for s in _all_perturb(data):
         report = build_jsonl.assistant_report(s)
@@ -465,7 +548,8 @@ def test_perturb_corrected_coords_full_frame_rows():
 
 def test_hash_split_form_agnostic():
     """Test I — video_hash split 이 양식(좌표전용/video) 무관하게 동작 (leakage 0)."""
-    data = _build(val_frac=0.75)  # val hash 다수 확보 — 좌표전용 hash 를 val 에 배치.
+    data = _build(val_frac=0.75, include_perturb=True,
+                  distill_loader=None, shadow_loader=None)  # 좌표전용 hash 를 val 에 배치.
     by_hash: dict = {}
     for name, samples in (("train", data["train"]), ("val", data["val"] or [])):
         for s in samples:

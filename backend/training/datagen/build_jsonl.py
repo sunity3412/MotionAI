@@ -53,6 +53,15 @@ _VALID_VALIDATION_OWNERS = ("explicit_val_jsonl", "phase22_eval_gate")
 # perturb 파라미터 분포 (22-01 산출) — 프레임 재추출 아님, 좌표 노이즈 주입만.
 _PROFILE_PATH = Path(__file__).resolve().parent / "rtmw_error_profile.json"
 
+# ── fault-free 캡 비율 (quick-260715-wq9 B 재균형) ──
+# 진단: 학습셋 363행 중 fault 보유 80행(22%)뿐, faults=[] 다수가 결함 영상 학습을
+# 익사시켜 학생이 "faults:[] 가 정상"을 학습(결함 미방출). fault-free 미디어를
+# fault-bearing 의 이 비율 배 이하로 트림해 결함 신호를 살린다. 수치 자체가 아니라
+# "정타 다수 익사 차단" 방향이 근거 — DEFAULT_MIX_RATIOS/_STAGE_CYCLE 과 동일한
+# ablation 축. 트림은 fault-free 만(오버샘플/fault-bearing 부풀리기 금지 —
+# curve-fit·overfit 방지 [[scoring-redesign-must-generalize-no-overfit]]).
+FAULT_FREE_CAP_RATIO = 1.5
+
 # perturb stage 배분 cycle (quick-260715-fjw D3). eligible perturb 행 순번 k 에
 # stage = _STAGE_CYCLE[k % len(_STAGE_CYCLE)] 을 적용한다. 게이트 synthetic_holdout
 # 은 가시 셀 변위 보정 L2 만 판정하고(가려짐 복원은 비게이트 관찰치
@@ -350,6 +359,7 @@ def _build_perturb_samples(manifest, perturb_loader, reference_loader, rng) -> l
             "_video_hash": row.get("video_hash"),
             "_motion": row.get("motion"),
             "_coords_only": coords_only,
+            "_has_faults": False,  # perturb 리포트 faults=[] 고정(항상 fault-free).
         })
         k += 1
     return out
@@ -403,6 +413,8 @@ def _build_distill_samples(manifest, distill_loader, reference_loader) -> list[d
             "_track": "distill",
             "_video_hash": vh,
             "_motion": row.get("motion"),
+            # B 재균형 태깅 — 결함 보유 여부(정타 리포트=False). 교사 증류만 True 가능.
+            "_has_faults": bool(report["faults"]),
         })
     return out
 
@@ -444,6 +456,7 @@ def _build_shadow_samples(manifest, shadow_loader) -> tuple[list[dict], int, int
                 "_track": "shadow",
                 "_video_hash": vh,
                 "_motion": (row or {}).get("motion"),
+                "_has_faults": False,  # shadow 리포트 faults=[] 고정(fault-free).
             })
             continue
         # 미등록/미가명 → media 참조 0, text-only 강등(DR-01).
@@ -530,6 +543,32 @@ def _balance_media(media_samples) -> list[dict]:
     return kept
 
 
+def _cap_fault_free(media, cap_ratio):
+    """fault-free(faults=[]) 미디어를 fault-bearing(faults>0) 대비 캡 비율로 트림(B).
+
+    반환 (trimmed_media, fault_bearing_count, fault_free_count) — 최종(트림 후) 관측치.
+    결정적: 원 media 순서를 보존하며 fault-free 를 cap = int(cap_ratio*nb) 개까지만
+    유지(안정 입력 순서, 랜덤/오버샘플 0). fault_bearing==0 이면 캡 skip(전량 트림
+    방지 guard — 정타 신호 완전 소거는 역방향 위양성 실패, invariant
+    [[analysis-objectivity-no-human-scores]]). fault-bearing 은 절대 트림하지 않는다."""
+    nb = sum(1 for s in media if s.get("_has_faults"))
+    nf = sum(1 for s in media if not s.get("_has_faults"))
+    if nb == 0:
+        return media, nb, nf  # guard: fault 신호 없으면 캡 미적용.
+    cap = int(cap_ratio * nb)
+    if nf <= cap:
+        return media, nb, nf
+    kept: list[dict] = []
+    free_kept = 0
+    for s in media:
+        if s.get("_has_faults"):
+            kept.append(s)
+        elif free_kept < cap:
+            kept.append(s)
+            free_kept += 1
+    return kept, nb, free_kept
+
+
 def _split_val_hashes(hashes, validation_owner, val_frac):
     """video_hash 단위 val 집합 — explicit_val_jsonl 만 val 생성(leakage 0)."""
     if validation_owner != "explicit_val_jsonl":
@@ -556,12 +595,19 @@ def build_dataset(
     validation_owner: str = "explicit_val_jsonl",
     val_frac: float = 0.02,
     partial: bool = False,
+    include_perturb: bool = False,
     seed: int = 0,
 ) -> dict:
     """3트랙 + 텍스트 혼합 학습셋 조립 → {"train", "val"|None, "_meta"}.
 
     validation_owner = explicit_val_jsonl(val.jsonl 발행, video_hash split) 또는
     phase22_eval_gate(val 미발행, held-out eval gate 가 소유). 값과 발행물이 정합한다(DR-04).
+
+    include_perturb (belle C1 결정 2026-07-15, quick-260715-wq9): 기본 False —
+    corrected_coords 전체 프레임 배열 방출 학습을 기본 학습셋에서 제외한다. 모델이
+    5/5 빈배열로 거부 + perturb 95행(전부 faults=[])이 결함 신호를 익사시키는 최대
+    주범이라 좌표보정 학습을 보류한다(삭제 아님 — 플래그 True 로 언제든 부활,
+    D-10a 구현·NotebookLM 좌표 CoT 비전 보존, 가역 descope).
     """
     if validation_owner not in _VALID_VALIDATION_OWNERS:
         raise ValueError(
@@ -571,7 +617,12 @@ def build_dataset(
     mix_ratios = mix_ratios or DEFAULT_MIX_RATIOS
     rng = np.random.default_rng(seed)
 
-    perturb_samples = _build_perturb_samples(manifest, perturb_loader, reference_loader, rng)
+    # C1 (belle 2026-07-15): perturb 트랙은 기본 off — include_perturb=True 로만 부활.
+    perturb_samples = (
+        _build_perturb_samples(manifest, perturb_loader, reference_loader, rng)
+        if include_perturb
+        else []
+    )
     distill_samples = _build_distill_samples(manifest, distill_loader, reference_loader)
     shadow_samples, shadow_dropped, shadow_text_only = _build_shadow_samples(
         manifest, shadow_loader
@@ -585,6 +636,9 @@ def build_dataset(
         + _balance_media(distill_samples)
         + _balance_media([s for s in shadow_samples if sample_has_video(s)])
     )
+    # B 재균형 — fault-free 미디어를 fault-bearing 대비 캡(결함 신호 익사 방지).
+    # 트랙별 균등 게이트 이후, 트림된 media 기준으로 text 혼합이 자동 축소된다.
+    media, fault_bearing_count, fault_free_count = _cap_fault_free(media, FAULT_FREE_CAP_RATIO)
     shadow_text = [s for s in shadow_samples if not sample_has_video(s)]
     text_samples = _build_text_samples(len(media), mix_ratios)
 
@@ -621,6 +675,10 @@ def build_dataset(
         "validation_owner": validation_owner,
         "track_counts": track_counts,
         "perturb_coords_only_count": perturb_coords_only_count,
+        # B 재균형 관측치 — 드롭률/혼합 실측 노출(은폐 불가). 최종(트림 후) 카운트.
+        "fault_bearing_count": fault_bearing_count,
+        "fault_free_count": fault_free_count,
+        "fault_free_cap_ratio": FAULT_FREE_CAP_RATIO,
         "motion_counts": _motion_counts(media),
         "shadow_unregistered_dropped": shadow_dropped,
         "shadow_text_only_count": shadow_text_only,

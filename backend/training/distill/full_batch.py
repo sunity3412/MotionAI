@@ -388,6 +388,10 @@ def assemble_jsonl(
     data = build_jsonl.build_dataset(
         manifest=m,
         perturb_loader=perturb_loader,
+        # C1 (belle 2026-07-15): build_dataset 기본 include_perturb=False. 이 orchestrator
+        # 층의 계약은 loader 주입=의도(--with-perturb) 이므로 loader 유무로 include 를
+        # 유도한다 — 미주입 시 distill 트랙만(기존 동작 불변), 주입 시 perturb 부활(가역).
+        include_perturb=perturb_loader is not None,
         distill_loader=make_distill_loader(accepted_dir),
         shadow_loader=shadow_loader,
         reference_loader=reference_loader,

@@ -43,7 +43,7 @@ import {
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
-import { requestPlaybackUrl } from '../../lib/api';
+import { requestPlaybackUrl, requestReferencePlaybackUrl } from '../../lib/api';
 import {
   DIMENSION_LABEL_KO,
   DIMENSION_ORDER,
@@ -609,6 +609,7 @@ export default function AnalysisResult() {
       name={name}
       bodyProfileSummary={bodyProfileSummary}
       updatedAt={storedDoc.updatedAt}
+      createdAt={storedDoc.createdAt}
     />
   );
 }
@@ -623,12 +624,15 @@ function AnalysisResultContent({
   name,
   bodyProfileSummary,
   updatedAt,
+  createdAt,
 }: {
   result: AnalysisResult;
   name?: string;
   bodyProfileSummary: string | null;
   // Phase 27 D-06 — pending 고아 시간 상한 폴백 기준(doc.updatedAt = complete 시점).
   updatedAt?: number;
+  // 29-CONTEXT D-09 — mode1 referenceVideoUrl TTL 재발급 판단 기준(doc 생성 시각).
+  createdAt?: number;
 }) {
   const router = useRouter();
   const grade = scoreGrade(result.overallScore);
@@ -698,6 +702,36 @@ function AnalysisResultContent({
       cancelled = true;
     };
   }, [prevDoc?.analysisId, prevDoc?.createdAt, prevDoc?.videoFormat]);
+
+  // 29-CONTEXT D-09 — D1 fix (진단: presigned 7일 TTL 만료 확정 — 신선/구 mode1
+  // doc 의 referenceVideoUrl 모두 AccessDenied "Request has expired" 실측).
+  // mode1 우측(정은지) 영상 재발급 훅 — mode3 prev 훅(위) 미러. 분석 시점 서명
+  // referenceVideoUrl 이 6일+ 경과면 referenceMotionId 로 재발급 (폴백
+  // refMotion.videoUrl 은 시드 시점 서명이라 사실상 항상 만료 — 재발급이 정답).
+  // 실패 시 기존 폴백 체인 유지 (__DEV__ warn 만).
+  const referenceMotionIdForRefresh =
+    cmp.mode === 'mode1' ? cmp.referenceMotionId : undefined;
+  const [freshRefUrl, setFreshRefUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!referenceMotionIdForRefresh) return;
+    const SAFE_TTL_MS = 6 * 24 * 60 * 60 * 1000; // 6일 margin (7일 TTL 안전)
+    const age = Date.now() - (createdAt || 0);
+    if (age < SAFE_TTL_MS) {
+      setFreshRefUrl(null); // 만료 X — doc 의 referenceVideoUrl 사용
+      return;
+    }
+    let cancelled = false;
+    requestReferencePlaybackUrl(referenceMotionIdForRefresh)
+      .then((resp) => {
+        if (!cancelled) setFreshRefUrl(resp.playbackUrl);
+      })
+      .catch((err) => {
+        if (__DEV__) console.warn('[playback-url] reference 재발급 실패', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [referenceMotionIdForRefresh, createdAt]);
 
   // Phase 20 (UI A1) — 비전 거부권으로 종합점수가 similarity 보다 낮아진 경우.
   // visionVeto.status==='applied' 가 1차 신호. 안전망: overallScore < similarity 면(어떤
@@ -1410,7 +1444,13 @@ function AnalysisResultContent({
               leftUrl={result.myVideoUrl || undefined}
               rightUrl={
                 cmp.mode === 'mode1'
-                  ? result.referenceVideoUrl || refMotion?.videoUrl || undefined
+                  ? // 29-CONTEXT D-09 — 재발급 URL 최우선 (referenceVideoUrl 은
+                    // 분석 시점 서명 7일 TTL, refMotion.videoUrl 은 시드 시점
+                    // 서명이라 사실상 항상 만료 — 최후 폴백만).
+                    freshRefUrl ||
+                    result.referenceVideoUrl ||
+                    refMotion?.videoUrl ||
+                    undefined
                   : freshPrevUrl || prevDoc?.result?.myVideoUrl || undefined
               }
               leftOverlay={(player, opts) => (

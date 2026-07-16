@@ -736,7 +736,7 @@ Plans:
 **Requirements**: FT-01 (모델선정 bake-off) / FT-02 (학습셋 데이터 엔진) / FT-03 (라벨링 3경로) / FT-04 (SFT 학습·평가 게이트) / FT-05 (shadow→순차 swap 게이트) / FT-06 (라이선스·provenance) — 2026-07-07 plan에서 mint
 **Depends on:** Phase 20 (Gemini 판정 한계 + few-shot 데이터), 누적 라벨 데이터. 학습/평가 = GPU 필요. ~~Phase 21~~ (2026-07-06 belle 디커플 — 22 먼저, 21은 후행)
 
-**Plans:** 7/12 plans executed
+**Plans:** 8/12 plans executed
 Plans:
 **Wave 1**
 
@@ -775,7 +775,7 @@ Plans:
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 22-12-PLAN.md — 주기 재학습 배치 루프(신규만 라벨→병합 조립→SFT→D-15 게이트→래칫 승격) + 런북 §2 flashinfer env 박제 (Wave 9, FT-03/FT-04)
+- [x] 22-12-PLAN.md — 주기 재학습 배치 루프(신규만 라벨→병합 조립→SFT→D-15 게이트→래칫 승격) + 런북 §2 flashinfer env 박제 (Wave 9, FT-03/FT-04)
 
 **Cross-cutting constraints:**
 

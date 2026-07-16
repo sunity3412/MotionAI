@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: 22-04 COMPLETE — full batch 129/129(수락 109) + JSONL S3 완성(train 99/val 2) + SUMMARY 작성. 다음=22-06 bake-off 계속, 22-07 진입 전 val 얇음·3트랙 완전체 belle 결정
-last_updated: "2026-07-16T12:53:18.720Z"
+stopped_at: 22-12 COMPLETE — 데이터 플라이휠 "공부하기" 배치 루프 상설화. run_retrain_cycle.sh 1커맨드 사이클 러너(preflight/label/assemble/train/gates/promote 순차) + promotion.py 단방향 승격 래칫(게이트 PASS 만 current 전진) + FLYWHEEL-RUNBOOK §2. phase22 302 pass/1 skip, 프로덕션 무접촉. 실 Pod 사이클은 v7 종료 후 런북 절차(belle 트리거)
+last_updated: "2026-07-16T13:07:32.936Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 14
   completed_phases: 5
   total_plans: 66
-  completed_plans: 47
+  completed_plans: 48
   percent: 36
 ---
 
@@ -28,10 +28,11 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 22 (custom-vlm-finetune) — EXECUTING
-Plan: 2 of 12 (machine counter; 실 완료 SUMMARY: 22-01/02/03(부분)/04/05/11)
+Plan: 3 of 12 (machine counter; 실 완료 SUMMARY: 22-01/02/03(부분)/04/05/11/12)
+Verification: 22-12 COMPLETE (2026-07-16) — 데이터 플라이휠 "공부하기" 배치 루프 상설화. run_retrain_cycle.sh 1커맨드 사이클 러너(preflight[serial lock+greenlight 과금 게이트+디스크 30GB+git pull] → label[신규분만 과금] → assemble[jsonl_backup_ s3 백업 선행 후 canonical 교체] → train → gates[bf16 병합+compute_cap>=12 조건부 flashinfer env] → promote[promotion 래칫]) + promotion.py 순수 래칫(parse_gate_verdict/make_ledger_entry/apply_ratchet/make_cycle_report — 게이트 PASS[--require-pass exit 0]만 current 전진, FAIL 은 attempt 기록만, 사람/judge 점수 저장 0) + promotion_ledger.json(current=null 초기) + FLYWHEEL-RUNBOOK §2(belle 주1회 트리거·flashinfer 박제·래칫 해석·비용 관측치). TDD 9 테스트, phase22 302 pass/1 skip, 기존 러너·게이트(run_sft/run_sft_gates/assert_gates/build_jsonl/merge_and_quant) 무접촉. 실 Pod 사이클(라벨 과금/SFT/게이트)은 v7 종료 후 런북 절차(belle 트리거). // 이전:
 Verification: 22-11 COMPLETE (2026-07-16) — 데이터 플라이휠 "쌓기" 상설화. phase22_watch.py belle 1커맨드(PHASE22_BELLE_GREENLIGHT=1 --run) watch 러너 + _meta.collection_batches[] 배치 증분 등재 규약(마감 무결성 정합, build_jsonl 무접촉) + watch:false 옵트아웃 + FLYWHEEL-RUNBOOK §1. 순수 헬퍼+불변식 TDD, phase22 293 pass/1 skip, 프로덕션 무접촉 리허설 통과. 실 수집(과금)은 런북 절차 이월. // 이전:
 Verification: 22-04 COMPLETE (2026-07-11). 교사 증류 full batch 129/129 터미널(수락 109 / rejected_judge 12 / parse 6 / contract 2, 소스별 IG 91%·internal 88%·YT 79%, File API 잔여물 0) → SFT 학습셋 S3 완성 `training/phase22/jsonl/` (train.jsonl 99행 = distill 87 + text 14 / val.jsonl 2행, video_hash split, 균등 트림 109→87). 수집 마감 f66f25f(collection_complete=true + balance_waiver, 내부 371 fault track 이월). 시험 배치 3라운드가 129행 과금 전 결함 4건 fix(enum 59ac1a1/동작명 c5b14ef/judge 루브릭 eb69692/배열 파싱 ce992e0). 조립 중첩 타입 강제 = normalize_report 단일 owner(25e6752+1930099, coaching 80/87 보존). phase22 테스트 156 pass/1 skip. Known limitations: val 2행 얇음·svg_spec 감독 0/87·perturb/shadow 트랙 미합류(2트랙) — 22-04-SUMMARY.md 참조.
-Next: 22-06 bake-off 계속(A100 Pod ns8smhcydnduq9, 728cf5f 진행 중). 22-07 진입 전 belle 결정 2건 — val 얇음 대응(val_frac 확대 or phase22_eval_gate 전환) + 3트랙 완전체(perturb raw 좌표 영속화 + shadow 적재) 여부. 22-03 잔여 Tasks 2-4(Pod 배선)는 belle-gated 이월 유지.
+Next: 데이터 플라이휠 운영 상설화 완료(쌓기 §1 + 공부 §2). 실 사이클은 belle 트리거(런북 §2, v7 종료 후 Pod). 잔여 플랜: 22-08~10 서빙 swap(게이트 PASS 시 promotion_ledger current 진입 조건) + 22-03 Tasks 2-4(Pod 배선) belle-gated 이월. bake-off 백본 = Qwen3-VL-8B CONFIRMED(260713-jjq).
 Status: Ready to execute
 
 > ◐ 22-03 IN-PROGRESS — Task 1(helper)만 실행 (2026-07-09, LOCAL ONLY, Firestore/네트워크/Pod 0). `firestore_admin.store_vlm_shadow(video_hash, role, payload)` shadow 로깅 helper 추가: vlm_shadow/{video_hash} top-level 컬렉션(gemini_cache 형제)에 `{video_hash, created_at, updated_at, roles:{veto/recognizer/coach}}` set(merge=True) deep-merge 누적, created_at 첫 기록 보존, D-12 PII 키 재귀 거부(_reject_pii_keys, 정규화 denylist — T-22-07), nested-array 사전 차단(_validate_flat_dict_no_nested_array 재사용). firestore.rules catch-all default-deny로 클라이언트 접근 차단(T-22-08). TDD 2 commits(test f1f2d5b/feat f295d1e), phase22 전체 67 pass/2 skip. **Task 2(pipeline app.py VLM_SHADOW_LOG 배선 — production 판정경로 변형), Task 3(Pod 변형 blocking checkpoint), Task 4(Pod 배포+shadow 스모크+피크 VRAM 실측)는 belle-gated + 라이브 GPU Pod 필요로 후속 세션 이월.** 22-03-BASELINE-FAILED.txt/22-POD-VRAM.md 미생성(Pod 필요). ROADMAP 22-03 미완료 유지. 다음=belle greenlight+Pod 준비 후 Task 2~4 재개.
@@ -330,7 +331,7 @@ Last activity: 2026-06-12
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [███████░░░] 71%
+Progress: [███████░░░] 73%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -585,6 +586,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 22 P22-01 | 18min | 3 tasks | 8 files |
 | Phase 22 P04 | multi-session (07-09~07-11) | 4 tasks | 12 files |
 | Phase 22 P11 | 22min | 3 tasks | 5 files |
+| Phase 22 P12 | 18min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -679,6 +681,8 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-01: rtmw_error_profile.json(source_doc_count=247) 실측 분포로 A3 해소 — perturb 파라미터는 히스토그램 샘플, 교란 수치 하드코딩 0(측정 임계 0.3은 관측 정의). T-22-01 식별자 미포함.
 - [Phase 22]: 22-04 균등 게이트 미충족 마감 = _meta.balance_waiver 명시 문서화 (silent 우회 금지, 테스트가 waiver 정확성 검증) — fault 표본(내부 371 track)은 다음 라운드 이월 — belle 승인 2026-07-10, JSONL 균등은 _balance_media 소유
 - [Phase 22]: 22-04 교사 출력 중첩 타입 혼돈은 normalize_report 단일 지점에서 결정적 무손실 변환만 허용, 스키마 환원 불가는 필드 None(행 폐기 금지) — coaching list 47행 등 라벨 대량 유실 방지 + D-11 스키마 순수성 양립
+- [Phase ?]: 22-12: 승격 원장은 게이트 verdict(PASS/FAIL)+비용 관측치만 저장 — 사람/judge 점수 금지(객관성 hard gate)
+- [Phase ?]: 22-12: 게이트 PASS(--require-pass exit 0)만 current 전진(단방향 래칫), FAIL 은 attempt 기록만 + 러너 exit 0
 
 ### Pending Todos
 
@@ -713,7 +717,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-16T12:52:55.390Z
+Last session: 2026-07-16T13:07:02.497Z
 
 Stopped at: 22-04 COMPLETE — full batch 129/129(수락 109) + JSONL S3 완성(train 99/val 2) + SUMMARY 작성. 다음=22-06 bake-off 계속, 22-07 진입 전 val 얇음·3트랙 완전체 belle 결정
 

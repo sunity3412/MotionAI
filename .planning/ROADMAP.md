@@ -1007,14 +1007,14 @@ Plans:
 **Goal:** 결과 화면의 남은 파일럿 gap 일괄 해소 (시나리오 3/6/9). (a) ⑨ 부상 대응법 노출: `SafetyFlag.recommendation` 데이터가 있는데 `InjuryRiskSection`이 안 그리던 것 — 즉시 가능, 첫 plan. (b) ③ Mode3 점수 내역: 백엔드 Mode3 deductionBreakdown 방출 + 앱 게이트 확장 (gap #4). (c) ⑥ Mode3 확대비교 배선(`_attach_fault_zoom_comparisons` Mode3 확장, 타입 준비됨) + D1 비교영상(Mode1 회귀 확인 + Mode3에도 비교영상). (d) D4 진짜 가로 방향: expo-screen-orientation 전환(90도 회전 핵 폐기) — **새 EAS 빌드 필요, F1 expo-mail-composer와 같은 빌드에 동승**.
 **Requirements**: 신규 REQ ID 없음 — 커버리지 = 29-CONTEXT.md 결정 D-01~D-14
 **Depends on:** Phase 28 (비교영상·줌이 동작 정렬 결과물 소비)
-**Plans:** 8 plans
+**Plans:** 2/8 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 29-01-PLAN.md — D-14 부상 대응법: InjuryRiskSection FLAG_COPY recommendation 행 (앱 전용, OTA-safe — recommendation 필드는 백엔드에 없음, 카피맵이 실체)
-- [ ] 29-02-PLAN.md — D-01/02/03 백엔드 mode3 tally seam: mode3_held tally-eligible + breakdown 방출 + overallScore=final (Wave 0 테스트 선행, Pod 미배포)
+- [x] 29-01-PLAN.md — D-14 부상 대응법: InjuryRiskSection FLAG_COPY recommendation 행 (앱 전용, OTA-safe — recommendation 필드는 백엔드에 없음, 카피맵이 실체)
+- [x] 29-02-PLAN.md — D-01/02/03 백엔드 mode3 tally seam: mode3_held tally-eligible + breakdown 방출 + overallScore=final (Wave 0 테스트 선행, Pod 미배포)
 
 **Wave 2** *(blocked on Wave 1)*
 

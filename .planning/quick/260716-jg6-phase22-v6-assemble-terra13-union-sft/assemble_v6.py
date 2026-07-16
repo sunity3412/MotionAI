@@ -371,10 +371,24 @@ def _gates_pass(gates: dict, terra_table: dict) -> tuple[bool, list[str]]:
     present = [v for v in terra_table.values() if v.get("before") is not None]
     if len(present) != 13:
         fails.append(f"terra present {len(present)} != 13")
-    if not gates["terra_delta_all_positive"]:
-        fails.append("terra delta 비양수 존재")
-    if gates["terra_recoveries"] != 8:
-        fails.append(f"terra recoveries {gates['terra_recoveries']} != 8")
+    # delta==0 은 offered terra 가 전량 정당 드롭(dedup/계약위반)된 경우만 허용 —
+    # 조립 버그로 인한 무음 손실을 차단한다. General-pole-movements 처럼 유일한 terra
+    # fault 가 계약 부적합(각도·편차 전무)이면 delta==0 이 정상(belle 2026-07-16 수용).
+    for vh, v in terra_table.items():
+        if v.get("before") is None:
+            continue
+        if (v.get("delta") or 0) > 0:
+            continue
+        offered = v.get("terra_offered") or 0
+        dropped = v.get("terra_dropped") or 0
+        if offered != dropped:
+            fails.append(
+                f"terra delta==0 미설명 vh={vh} (offered={offered} dropped={dropped})"
+            )
+    # recoveries(gemini=0→>0 승격) 상한은 데이터·계약에 종속 — 계약상 상한 7 을 하한으로
+    # 단언(belle 수용 상태 고정, 회귀 시 <7 이면 차단). "8" 은 계약필터 미계산 추정치였음.
+    if gates["terra_recoveries"] < 7:
+        fails.append(f"terra recoveries {gates['terra_recoveries']} < 7")
     return (len(fails) == 0, fails)
 
 

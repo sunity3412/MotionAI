@@ -2553,6 +2553,11 @@ def _apply_vision_veto_from_context(
     objectivity [[analysis-objectivity-no-human-scores]]). 기하가 깨끗하면 not_applicable
     (final 불변). 그 외 비측정 status 는 score-free passthrough 그대로.
     geminiCallCount=1(collect 만 호출, apply 재호출 0).
+
+    29-02 (D-01/D-02/D-03): mode3_held 도 md(ipsf_absolute measured seed) 보유 시
+    tally 를 실행해 deductionBreakdown 을 방출한다 — 단 status 는 'mode3_held' 를
+    유지한다(vision 비교는 여전히 보류라는 진실 신호). md 빈 dict 는 기존 passthrough
+    (미방출 + 점수 byte-불변). production 노출은 29-05 sweep 게이트 후.
     """
     from sunity_shared.analysis import vision_veto
     from sunity_shared.analysis import deduction_engine  # lazy — pure, no adapter
@@ -2563,6 +2568,54 @@ def _apply_vision_veto_from_context(
         # 감점 가능 — iter5 HIGH-1) / low_alignment_confidence(정렬 낮음이지만 RTMW 측정 편차는
         # 정렬-독립 — 24-04 Option A). 그 외 status 는 측정 불가 → score-free passthrough.
         if status not in ("candidate_verdict", "no_fault", "low_alignment_confidence"):
+            # 29-CONTEXT D-01/D-02 — mode3_held tally-eligible (24-04 Option A 이식).
+            # mode3 는 고정 reference 가 없어 vision 비교는 계속 보류 — status 는
+            # 'mode3_held' 유지('applied' 재사용 금지: result.tsx vetoApplied 파생 의미
+            # 오염 방지, RESEARCH Pattern 1 옵션 a). 그러나 md(ipsf_absolute measured
+            # seed — RTMW 절대 각도, 등록 동작 profile-gated)는 reference 무관 측정이므로
+            # md 가 비어있지 않으면 deduction_engine.tally 로 투명 감점-합산을 방출한다
+            # (Gemini 추가 호출 0). md 빈 dict(미등록 + 빈 criteria 4동작)는 아래
+            # passthrough 그대로 — 기준 없는 감점 0=100 위양성 차단(D-03). production
+            # 노출은 29-05 sweep 게이트 통과 후 Pod 재기동 시점(D-02 전환 조건).
+            if status == "mode3_held" and measured_deviations:
+                try:
+                    # vision frame-pair 정량화(quantification)는 mode3 에 존재하지
+                    # 않는다. 그러나 tally 의 quantification-unavailable 폴백(contract
+                    # §10.5)은 "양쪽 substrate 빔"(측정 자체 불가) 전용 — mode3 는 md
+                    # substrate 가 실재하므로 폴백이 아니라 measured-seed 산술을 태운다.
+                    # in-process 전용 status sentinel 로 폴백 게이트를 우회(이 객체는
+                    # 저장/방출 경로에 실리지 않음). 이로써 clean md(전 편차 tolerance
+                    # 이내)도 mode1 no_fault clean 선례(260630-l4e)와 동일하게
+                    # records 0 → final 100 이 방출된다.
+                    mode3_quant = vision_veto.VisionQuantificationResult(
+                        quantificationStatus="mode3_measured_seed",
+                        angleDeltas=None, bodyRelativeNotches=None,
+                        windowMedianAngleDeltas=None, warnings=(),
+                    )
+                    breakdown = deduction_engine.tally(
+                        mode3_quant, None,
+                        dimension_overall=score_result["overallScore"],
+                        measured_deviations=measured_deviations,
+                        dimension_scores=score_result.get("dimensionScores"),
+                        baseline_kind=baseline_kind,
+                    )
+                    # fallback-only(측정 불가) 방어 — sentinel 로 도달 불가하지만
+                    # 명시 불변식으로 유지(D-03 자연 방어 + D-02 무회귀 산술 보장).
+                    if breakdown.fallback != "quantification_unavailable":
+                        log.info(
+                            "mode3 tally 방출 records=%d final=%s baseline_kind=%s",
+                            len(breakdown.records), breakdown.final, baseline_kind,
+                        )
+                        return {
+                            **score_result,
+                            "overallScore": breakdown.final,
+                            "deductionBreakdown": breakdown.to_dict(),
+                            "visionVeto": {"status": "mode3_held"},
+                        }
+                except Exception:  # noqa: BLE001 - mode3 tally hook 실패는 분석 차단 0
+                    log.exception(
+                        "mode3 tally 실패 — mode3_held passthrough (graceful)"
+                    )
             passthrough_map = {
                 "resource_limited": "resource_limited",
                 "disabled": "disabled",

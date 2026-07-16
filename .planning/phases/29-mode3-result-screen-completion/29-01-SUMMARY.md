@@ -69,3 +69,10 @@ None — 모든 flagType 4종에 실 카피가 채워졌고 렌더 경로가 `co
 ## Follow-ups
 
 - 실기기 시각 확인은 29-08 HUMAN-UAT.md 적립 항목 (batch UAT 원칙 — 즉시 belle 호출 금지).
+
+## Self-Check: PASSED
+
+- FOUND: app/src/components/InjuryRiskSection.tsx
+- FOUND: .planning/phases/10-injury-risk-flags/10-UI-SPEC.md
+- FOUND: .planning/phases/29-mode3-result-screen-completion/29-01-SUMMARY.md
+- FOUND commit 64b7fc3 (Task 1) / 6153c81 (Task 2) / eef10fb (SUMMARY)

@@ -635,12 +635,15 @@ function AnalysisResultContent({
     cmp.mode === 'mode3' && result.scoreSuppressed === true;
   // iter3 MEDIUM-1 / iter4 MEDIUM-1 — 억제 헤더 카피는 reason 이 소유 (reason-owns-copy).
   // reason 누락 시 default '기준 없음' 폴백 금지 — 중립 카피 (오라벨 방지).
+  // 29-CONTEXT D-03 — "제공 불가" 단독 통보가 아니라 행동 유도(코치님 비교 /
+  // 같은 동작 새 영상으로 이전 연습 비교)로 전진시킨다. belle 원문: "더 연습하고
+  // 새로운 영상으로 같은 자세를 비교하면 본격 분석이 시작된다". D-05 금지어 배제.
   const suppressedHeaderCopy = isScoreSuppressed
     ? result.scoreSuppressedReason === 'recognition_low_confidence'
-      ? '동작 인식 신뢰도가 낮아 기준을 확정할 수 없어요.'
+      ? '동작 인식 신뢰도가 낮아 기준을 확정하지 못했어요. 같은 동작을 더 또렷하게 담아 새 영상으로 다시 올려보세요.'
       : result.scoreSuppressedReason === 'unheld'
-        ? '기준 데이터가 없어 정확한 점수를 드릴 수 없어요.'
-        : '이 분석은 기준을 확정할 수 없어요.'
+        ? '아직 이 동작의 기준 데이터가 없어요. 코치님(정은지) 영상과 비교하거나, 같은 동작을 새 영상으로 올려 이전 연습과 비교해보세요.'
+        : '아직 이 동작의 기준을 확정하지 못했어요. 코치님 영상과 비교하거나, 같은 동작을 새 영상으로 올려 이전 연습과 비교해보세요.'
     : null;
 
   // mode1 메타 카드용 풀데이터. 시드 전이거나 로딩 중이면 motion=null →
@@ -746,14 +749,14 @@ function AnalysisResultContent({
     [confirmedKeypoints],
   );
 
-  // quick-260705-o0s — 감점 0 게이트 단일 신호 (belle 추가 피드백 #2). 요약
-  // 카피·문제-계열 섹션 숨김·축하 섹션이 전부 이 값 하나를 소비한다 (분기 산개
-  // 금지). mode3/legacy doc(breakdown 부재)은 false → 기존 렌더 무회귀.
-  // 감점 0 이면 veto applied 일 수 없지만(감점 record 가 tally 의 실체) 각
-  // 소비처에 방어 게이트로 명시한다.
-  const cleanPass = isCleanPass(
-    cmp.mode === 'mode1' ? result.deductionBreakdown : null,
-  );
+  // quick-260705-o0s → 29-CONTEXT D-01 — 감점 0 게이트 단일 신호 (belle 추가
+  // 피드백 #2). 요약 카피·문제-계열 섹션 숨김·축하 섹션이 전부 이 값 하나를
+  // 소비한다 (분기 산개 금지). 29-04: mode 무관화 — 29-02 가 mode3 등록 동작에
+  // breakdown(records 0 + final 100)을 방출하므로 mode3 clean 도 축하 대상이다
+  // (mode1 한정 제거). legacy/미등록/빈 criteria doc(breakdown 부재)은 여전히
+  // false → 기존 렌더 무회귀. 감점 0 이면 veto applied 일 수 없지만(감점 record
+  // 가 tally 의 실체) 각 소비처에 방어 게이트로 명시한다.
+  const cleanPass = isCleanPass(result.deductionBreakdown);
 
   // quick-260705-o0s — 영상 점 번호 ↔ 내역 행 번호 단일 소스 (buildDeductionMarkers).
   // 오버레이 markerNumbers 와 ScoreBreakdownSection recordNumbers 가 같은 결과물을
@@ -793,8 +796,10 @@ function AnalysisResultContent({
   //     등) |delta| 큰 쪽만 라벨 유지, 나머지는 점만.
   // cleanPass 시 records 빈 배열 → markers/라벨 자연히 빈 결과 (별도 분기 불요).
   const actionLabels = useMemo<Partial<Record<KeypointName, string>>>(() => {
-    const hasBreakdown =
-      cmp.mode === 'mode1' && result.deductionBreakdown != null;
+    // 29-CONTEXT D-01 — mode 무관화. breakdown 보유(mode1 또는 mode3 방출)면 감점
+    // record 관절 한정. mode3 는 windowMedianAngleDeltas 없음(veto 미실행) — 2순위
+    // JointScore.deltaDeg 경로가 커버하므로 소스 우선순위 로직 무변경.
+    const hasBreakdown = result.deductionBreakdown != null;
     // quick-260705-r6v — 그룹 마커(스플릿 → 다리 4관절) 멤버 집합. 스플릿 멤버는
     // keypointNumbers 가 아니라 groupMarkers 로 이동했으므로, 게이트가 keypointNumbers
     // 만 보면 스플릿 행동구가 소멸한다(planner_findings 4). 멤버까지 라벨 후보로 허용.
@@ -882,11 +887,12 @@ function AnalysisResultContent({
     [result.deductionBreakdown, markers.recordNumbers, result.visionVeto],
   );
 
-  // quick-260702-q8q — "점수 계산 내역" 섹션 렌더 가드. mode1 전용(mode3 는 veto
-  // 미실행 mode3_held) + deductionBreakdown 보유 doc 만 (legacy doc 은 필드 부재 →
-  // 섹션 자체 숨김, normalize 가 malformed 를 undefined 로 접음 — 크래시 0).
-  const showBreakdownSection =
-    cmp.mode === 'mode1' && result.deductionBreakdown != null;
+  // quick-260702-q8q → 29-CONTEXT D-01 — "점수 계산 내역" 섹션 렌더 가드.
+  // 29-04: mode 무관화 — deductionBreakdown 보유 doc 만 (29-02 가 mode3 등록 동작
+  // md 보유 시에만 방출하므로 미등록/legacy/빈 criteria 동작은 필드 부재 → 섹션
+  // 자연 숨김, normalize 가 malformed 를 undefined 로 접음 — 크래시 0). mode1 전용
+  // 조건 제거 근거 = 29-CONTEXT D-01 (mode3 투명 감점-합산 소비).
+  const showBreakdownSection = result.deductionBreakdown != null;
 
   // Phase 20 (UI ④) — 점수 맥락 카드의 "교정 포인트". 비전 결함(primaryFault)
   // 우선, 없으면 top 코칭 팁 제목(가장 먼저 다듬을 관절). 둘 다 없으면 null →
@@ -1293,15 +1299,19 @@ function AnalysisResultContent({
             플래그 자동 렌더. result.safetyFlags 부재/구버전 doc → graceful no-render. */}
         <InjuryRiskSection flags={result.safetyFlags} />
 
-        {/* ── quick-260705-o0s: 감점 0 성공 축하 섹션 (belle 추가 피드백 #2) ──
-            100점 정타(records 빈 배열)면 축하가 주인공 — 시나리오 문서의
-            '+α 성공 순간 축하' 최소 구현. refCard/vetoLeadCard 스타일 패턴 차용
-            (brandTint, 토큰만). isCleanPass 단일 신호 — mode3/legacy 는 false. */}
+        {/* ── quick-260705-o0s → 29-CONTEXT D-01: 감점 0 성공 축하 섹션 (belle
+            추가 피드백 #2) — 100점 정타(records 빈 배열)면 축하가 주인공.
+            refCard/vetoLeadCard 스타일 패턴 차용 (brandTint, 토큰만). 29-04:
+            mode 무관 (mode3 등록 동작 clean 도 축하). 단 mode3 축하 카피는 mode1
+            문구(정은지 유사 계열) 재사용 금지 — 발전/자세 형태 중심 별도 문구,
+            29-CONTEXT D-05 금지어 배제. legacy/미등록은 여전히 false. */}
         {cleanPass && (
           <View style={[styles.card, styles.cleanPassCard]}>
             <Text style={styles.cleanPassTitle}>감점 항목이 없어요</Text>
             <Text style={styles.cleanPassBody}>
-              측정 기준을 모두 통과했어요. 이 자세를 그대로 유지하세요.
+              {cmp.mode === 'mode3'
+                ? '측정한 자세 형태 기준을 모두 통과했어요. 이 자세를 유지하고 다음 영상과 비교해 발전을 확인해보세요.'
+                : '측정 기준을 모두 통과했어요. 이 자세를 그대로 유지하세요.'}
             </Text>
           </View>
         )}

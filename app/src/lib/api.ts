@@ -67,6 +67,19 @@ export function requestPlaybackUrl(
   });
 }
 
+// 29-CONTEXT D-09 — D1 fix (진단: presigned 7일 TTL 만료).
+// mode1 우측(정은지) 비교영상 재발급 — referenceMotionId 변형 (contract.md §2).
+// 백엔드가 Firestore reference/{id} doc 의 videoS3Key 화이트리스트 경유로만
+// 서명 (임의 S3 키 서명 불가, inactive/prefix 밖 키는 404).
+export function requestReferencePlaybackUrl(
+  referenceMotionId: string,
+): Promise<PlaybackUrlResponse> {
+  return authedJson<PlaybackUrlResponse>('/playback-url', {
+    method: 'POST',
+    body: { referenceMotionId },
+  });
+}
+
 // S3 presigned PUT 으로 영상 업로드. Content-Type 은 서명에 묶지 않지만
 // (upload-url Lambda 가 Params 에서 제외) PUT 헤더로 보내면 S3 가 그 값을 객체
 // 메타데이터로 저장한다. 이걸 안 박으면 binary/octet-stream 으로 저장돼서

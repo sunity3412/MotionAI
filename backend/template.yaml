@@ -155,6 +155,9 @@ Resources:
   # ── POST /playback-url : 영상 재생용 GET signed URL 재발급 ───────────
   # 박제 (2026-06-06 belle): myVideoUrl 7일 TTL 만료 → mode3 second+ 영상 안 뜸.
   # 신설 endpoint — uid + analysisId + ext 박제 → fresh signed GET URL 반환.
+  # 29-CONTEXT D-09 — D1 fix: referenceMotionId 재서명 확장. presigned URL 은
+  # 서명 role 의 권한으로 GET 되므로 reference/* GetObject 가 없으면 재발급
+  # URL 이 403 — uploads/* 와 함께 reference/* 허용 (그 외 prefix 는 불허 유지).
   PlaybackUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -166,7 +169,9 @@ Resources:
         - Statement:
             - Effect: Allow
               Action: s3:GetObject
-              Resource: !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
+              Resource:
+                - !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
+                - !Sub arn:aws:s3:::${VideoBucketName}/reference/*
         - Statement:
             - Effect: Allow
               Action: ssm:GetParameter

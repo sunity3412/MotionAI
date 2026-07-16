@@ -70,6 +70,37 @@ expiresInSec  number   URL 만료(초)
 ### GET /reference
 기준 모션(정은지) 목록. 응답: `ReferenceMotion[]`. (앱: 기준 모션 선택 화면 #9)
 
+### POST /playback-url
+영상 재생용 S3 presigned GET URL 재발급. (인증: Firebase Auth UID, 익명 포함)
+서명 URL 은 7일 TTL — 만료 시 앱이 이 endpoint 로 재발급 (TTL 연장 금지, 재발급이 정답).
+
+요청 — 두 변형 상호 배타 (동시 제공 시 400):
+```
+(1) 본인 업로드 영상 (mode3 prev 등)
+analysisId  string            uid-scoped: uploads/{uid}/{analysisId}.{ext} 만 서명
+ext         'mp4' | 'mov'     기본 'mp4'
+
+(2) 기준 모션 영상 (mode1 우측 — 29-CONTEXT D-09, D1 fix)
+referenceMotionId  string     영숫자·하이픈만. Firestore reference/{id} doc 의
+                              videoS3Key 화이트리스트 경유로만 서명.
+```
+
+referenceMotionId 변형 경계 가드 4종 — 하나라도 실패 시 동일 `404 not_found`
+(inactive/부재/무영상 케이스가 응답으로 구분되지 않음 — 숨김 doc 존재 leak 0,
+29-PLAN-REVIEW HIGH-2):
+1. doc 존재
+2. `isActive`가 false 아님 (미승인/reject 자동등록 doc 재서명 거부)
+3. `videoS3Key` 존재
+4. `videoS3Key`가 `reference/` prefix (allowlist — 그 외 키는 doc 에 있어도 거부)
+
+클라이언트가 임의 S3 키를 서명시킬 수 없다 — body 의 s3Key 류 파라미터는 무시.
+
+응답 `PlaybackUrlResponse` (두 변형 동일 — 스키마 불변)
+```
+playbackUrl   string   S3 presigned GET URL
+expiresInSec  number   URL 만료(초) = 604800 (7일)
+```
+
 > 참고: backend/CLAUDE.md 의 `POST /analyze`, `GET /history/{userId}` 는
 > 본 계약에선 각각 "S3 트리거 자동 실행", "Firestore 직접 쿼리"로 대체한다
 > (앱은 분석 트리거 API를 직접 호출하지 않고, 기록은 users/{uid}/analyses 쿼리).

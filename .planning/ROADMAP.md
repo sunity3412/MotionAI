@@ -1007,7 +1007,7 @@ Plans:
 **Goal:** 결과 화면의 남은 파일럿 gap 일괄 해소 (시나리오 3/6/9). (a) ⑨ 부상 대응법 노출: `SafetyFlag.recommendation` 데이터가 있는데 `InjuryRiskSection`이 안 그리던 것 — 즉시 가능, 첫 plan. (b) ③ Mode3 점수 내역: 백엔드 Mode3 deductionBreakdown 방출 + 앱 게이트 확장 (gap #4). (c) ⑥ Mode3 확대비교 배선(`_attach_fault_zoom_comparisons` Mode3 확장, 타입 준비됨) + D1 비교영상(Mode1 회귀 확인 + Mode3에도 비교영상). (d) D4 진짜 가로 방향: expo-screen-orientation 전환(90도 회전 핵 폐기) — **새 EAS 빌드 필요, F1 expo-mail-composer와 같은 빌드에 동승**.
 **Requirements**: 신규 REQ ID 없음 — 커버리지 = 29-CONTEXT.md 결정 D-01~D-14
 **Depends on:** Phase 28 (비교영상·줌이 동작 정렬 결과물 소비)
-**Plans:** 2/8 plans executed
+**Plans:** 4/8 plans executed
 
 Plans:
 
@@ -1018,8 +1018,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 29-03-PLAN.md — D-08 mode3 zoom 관절 소스 교체: |Δscore| top-2 → 감점 record 관절, improved 억제
-- [ ] 29-04-PLAN.md — 앱 mode3 결과 화면: 게이트 3곳 mode 무관화 + D-03 행동유도 + D-04 배너 통합 + D-05 한계 고지 + D-06/07 라벨·첫분석 안내 + D-10 워핑 검증
+- [x] 29-03-PLAN.md — D-08 mode3 zoom 관절 소스 교체: |Δscore| top-2 → 감점 record 관절, improved 억제
+- [x] 29-04-PLAN.md — 앱 mode3 결과 화면: 게이트 3곳 mode 무관화 + D-03 행동유도 + D-04 배너 통합 + D-05 한계 고지 + D-06/07 라벨·첫분석 안내 + D-10 워핑 검증
 
 **Wave 3** *(blocked on Wave 2)*
 

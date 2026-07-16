@@ -13,7 +13,7 @@ dependency_graph:
     - "D-02 sweep 게이트 PASS 증거 (정은지 페어셋 12키, cold==warm 결정성 포함)"
     - "score-switch 키별 old/new 대조표 (29-PLAN-REVIEW MEDIUM-1)"
   affects:
-    - "production 전환 (Pod 재기동 + Lambda RUNPOD_ANALYZE_URL) — 정지 조건 발동으로 보류, belle 결정 대기"
+    - "production 전환 완료 — Pod olnrvtj0f80pl4 신코드(129d529) 서빙 + Lambda RUNPOD_ANALYZE_URL 동기화 (belle 결정 A 후)"
 tech_stack:
   added: []
   patterns:
@@ -30,17 +30,18 @@ key_files:
 decisions:
   - "mode3 '기존 baseline' = run_sweep pre-seam tee 캡처 (커밋 baseline artifact 부재 — 자기 sweep 재보정 아님: 비교 기준은 seam 이전 단계 = 구코드 동일 경로 값)"
   - "climb 은 하드 게이트 제외 (not_pole 은 mode3 미적용, plan 명시) — gate 1(success)·4(결정론)에만 자연 포함"
-  - "정지 조건 발동 → Pod 재기동 보류 + checkpoint:decision (무음 ship 금지, MEDIUM-1)"
+  - "정지 조건 발동 → Pod 재기동 보류 + checkpoint:decision (무음 ship 금지, MEDIUM-1) → belle 결정 A 로 해소"
+  - "belle 결정 A (2026-07-17, 수용+전환): power-spin success 100 / fault 80 최종 수용 — '감점이 논리적으로 적용돼 80점이 되는 것이 정도. 잘못된 동작 무조건 50점 미만 같은 일괄 상한/스탬프식 설계 반대, 무조건 객관적이어야 한다.' 산식 재논의·후속 조정 플랜 불필요 — 이 결정으로 종결"
 metrics:
-  duration_min: 75
+  duration_min: 135
   tasks_completed: 2
   files_created: 4
-  completed_date: 2026-07-16
+  completed_date: 2026-07-17
 ---
 
 # Phase 29 Plan 05: D-02 검증 게이트 — 정은지 페어셋 mode3 Pod sweep Summary
 
-**한 줄:** evals/phase29 하네스(phase25 복제-확장, mode3 단독 분석 + pre-seam tee)로 정은지 페어셋 12키를 Pod 에서 SERIAL cold/warm 실측 — **게이트 5종+보조 전부 PASS** (power-spin fault 만 leg_extension 변별, 4동작+climb fallback byte-항등, cold==warm 완전 결정성) — 그러나 score-switch 정지 조건 발동(power-spin success 91→100 clean 단일-criterion 승격)으로 **Pod 재기동을 보류하고 belle 결정 체크포인트로 반환** (무음 ship 0).
+**한 줄:** evals/phase29 하네스(phase25 복제-확장, mode3 단독 분석 + pre-seam tee)로 정은지 페어셋 12키를 Pod 에서 SERIAL cold/warm 실측 — **게이트 5종+보조 전부 PASS** (power-spin fault 만 leg_extension 변별, 4동작+climb fallback byte-항등, cold==warm 완전 결정성) → score-switch 정지 조건 발동(power-spin success 91→100)에 checkpoint:decision 으로 belle 즉시 결정(A 수용) 경유 → **Pod 신코드 재기동 + Lambda 동기화 + production 체인 E2E 실측까지 완료, D-02 전환 종결** (무음 ship 0).
 
 ## 게이트 판정: PASS (exit 0)
 
@@ -79,23 +80,23 @@ GATE_EXIT=0
 | climb/fault | 86 | 86 | 미방출 | - | md 빈 dict | mode3_held | O |
 | climb/success | 95 | 95 | 미방출 | - | md 빈 dict | mode3_held | O |
 
-## 정지 조건 판정: **발동** — Pod 재기동 보류, belle 결정 대기
+## 정지 조건 판정: 발동 → belle 결정 A (수용+전환) 로 해소
 
-**발동 키: power-spin/success 91 → 100.** clean(무감점) doc 의 final 이 단일 협소 criterion(leg_extension — 이번 phase 유일한 유효 criteria) 통과 근거만으로 100 으로 승격 — 게이트로는 정당(">= 기존" 허용)하나 "criterion-clean = 100 수용" 여부는 제품 결정 (29-PLAN-REVIEW MEDIUM-1). plan 지시대로 Pod 재기동(production 전환) 전 checkpoint:decision 으로 belle 에 즉시 제시.
+**발동 키: power-spin/success 91 → 100.** clean(무감점) doc 의 final 이 단일 협소 criterion(leg_extension — 이번 phase 유일한 유효 criteria) 통과 근거만으로 100 으로 승격 — 게이트로는 정당(">= 기존" 허용)하나 "criterion-clean = 100 수용" 여부는 제품 결정 (29-PLAN-REVIEW MEDIUM-1). plan 지시대로 Pod 재기동 전 **checkpoint:decision 으로 belle 에 즉시 제시** (2026-07-16). 함께 보고: power-spin/fault **0 → 80** (관절당 감점 상한 −20 산술, 25-A belle 승인값의 귀결) + Lambda 가 죽은 구 4090 pod(hibluobp71cuy8)를 가리켜 production 이 이미 분석 불능이던 현황.
 
-**함께 보고 (결정 맥락):** power-spin/fault **0 → 80**. 정지 조건 문언(clean doc)에는 미해당하나 최대 score-switch — 기존 mode3 절대차원 점수 0 이 투명 tally(관절당 감점 상한 −20, 25-A belle 승인)로 80 이 된다. 결함 영상이 80점으로 보이는 것의 수용 여부도 같은 결정의 일부.
+**belle 결정 (2026-07-17): 옵션 A — 수용 + 전환.** 승인 취지: "저렇게 의미가 논리적으로 적용해서 80점 되는 게 좋다. 잘못된 동작이 무조건 50점 미만인 게 어딨나 — 무조건 객관적이어야 한다. 일괄 상한/스탬프식 설계 반대." power-spin success 100 / fault 80 둘 다 최종 수용, 산식 재논의·후속 조정 플랜 불필요 — 이 결정으로 종결. 승인 후에만 아래 4~5단계 진행 (무음 ship 0).
 
-**추가 결정 맥락 (production 현황):** Lambda `RUNPOD_ANALYZE_URL` 은 현재 **죽은 구 4090 pod**(hibluobp71cuy8)를 가리킴 — production 실분석은 이미 불능 상태다. 현 Pod(olnrvtj0f80pl4) 서버는 미기동(도착 시점부터 down, 게이트-전-재기동-금지 불변식 유지). 즉 "구코드 유지" 선택지는 실질적으로 "분석 불능 유지"이며, 복구하려면 이 Pod 재기동(신코드 129d529) + Lambda env 동기화가 필요하다.
+## E2E addendum 결과 (belle 명시 요청 — 전 단계 완료)
 
-## E2E addendum 진행 상황 (belle 명시 요청)
-
-| 단계 | 상태 |
+| 단계 | 결과 |
 |---|---|
 | 1. Pod 준비 (pull → 129d529) | 완료 — bootstrap_full.sh 재실행 포함 (pod 재생성으로 pip 소실, PEP 668 은 PIP_BREAK_SYSTEM_PACKAGES=1) |
-| 2. 환경 함정 재점검 | VETO env 2종 start_server.sh 박제 확인. X-RunPod-Token 스모크(401/422)는 서버 기동 후에만 가능 → 재기동 시점으로 이월 |
+| 2. 환경 함정 재점검 | VETO env 2종 start_server.sh 박제 확인 (grep 2건). 재기동 후 `/health` 200 `{status:ok, auth_configured:true, pipeline_loaded:true}` + X-RunPod-Token 스모크: 무인증 401 / 정상토큰 key-only body 422 |
 | 3. Sweep 게이트 | **PASS** (본 문서) |
-| 4. Lambda RUNPOD_ANALYZE_URL 동기화 | **보류** — 정지 조건 발동 (belle 승인 후, live 설정 재확인하며 boto3 in-process 패치) |
-| 5. E2E 실측 1건 (S3→SQS→Lambda→Pod→Firestore) | **보류** — 4번과 동일 조건, 29-06 의 sam deploy 와의 충돌 회피 위해 맨 마지막 수행 원칙 유지 |
+| 4. Lambda RUNPOD_ANALYZE_URL 동기화 | **완료** — live 재확인(구 pod hibluobp71cuy8 확인) 후 boto3 in-process get→patch→update (디스크 미경유, ResourceConflict 재시도 루프). E2E 후 최종 재검증에서도 `https://olnrvtj0f80pl4-8000.proxy.runpod.net/analyze` 유지 (29-06 sam deploy 덮어쓰기 0) |
+| 5. E2E 실측 1건 | **PASS (95초)** — power-spin fault 영상을 `uploads/phase29e2e/e2epowerspin1784218122.mp4` 로 S3 copy → ObjectCreated → SQS → pipeline Lambda → Pod /analyze → Firestore `done`. 결과: overallScore **80** == breakdown.final **80**, records `[{leg_extension, -20.0}]`, visionVeto `mode3_held` — **sweep 과 완전 일치, mode3 deductionBreakdown production 실방출 확인 (D-02 전환 종결)** |
+
+재기동은 `bash /workspace/start_server.sh` (VETO 함정 영구 fix 경로, 임의 uvicorn 직기동 0) 사용. 서빙 커밋 = 129d529 == origin/main HEAD, Pod repo clean.
 
 ## 수행 내역
 
@@ -106,14 +107,14 @@ GATE_EXIT=0
 - `eval_keys.json`: phase24 6페어의 mode3 변형 12키. `README.md`: SERIAL 실행 블록 + 정지 조건 절차.
 - 합성 fixture 로 게이트 6종 PASS/FAIL 양방향 로직 검증 완료 (실행 증거는 세션 로그).
 
-### Task 2 — Pod sweep 실행 (게이트 PASS, 재기동 보류)
+### Task 2 — Pod sweep 실행 → 게이트 PASS → belle 결정 A → production 전환
 
 1. push: 워크트리 에이전트 제약(main 은 오케스트레이터 merge 소유)으로 **에이전트 브랜치를 origin 에 push** 하고 Pod 에서 `git checkout FETCH_HEAD -- backend/evals/phase29/` 로 하네스만 구체화 (서버 코드는 origin/main 129d529 pull). 실행 후 Pod repo 원상복구 (unstage + 파일 제거 — 하네스는 wave merge 후 main 으로 도착).
 2. Gemini 크레딧 스모크: generateContent 200 OK. 실제 sweep 은 TechniqueCache Firestore hit 로 recognizer 호출 0 (mode3 는 애초에 recognizer 1회뿐).
 3. ORT CUDA 스모크: Blackwell sm_120 JIT 28s 후 CUDAExecutionProvider 확정 (무음 CPU 폴백 배제).
 4. cold(12/12 done, 멤버당 56~119s) → warm(12/12 done) → assert exit 0. 전 과정 SERIAL.
 5. baseline 오염 0: `git status/diff backend/evals/` 빈 출력. 산출물은 /tmp/sunity_eval_out/phase29 + **영속 볼륨 /workspace/phase29_eval_out_20260716** (report/breakdowns cold·warm 4종 + cold/warm 로그) 에 보존.
-6. 재기동: **미실행** (정지 조건 발동 — 위 절).
+6. 정지 조건 발동 → checkpoint:decision → belle 결정 A 승인 후 재기동: `/health` 200 + 토큰 스모크 401/422 + Lambda 동기화 + E2E PASS (위 "E2E addendum 결과" 표).
 
 ## D-08 zoom 관찰 (게이트 외, plan step 8)
 
@@ -139,7 +140,8 @@ GATE_EXIT=0
 
 ## 참고 사항
 
-- **Pod 서버는 도착 시점부터 미기동** (belle Start 는 Pod 컨테이너만) — 게이트 전 어떤 코드도 서빙된 적 없음 (T-29-05-04 불변식 자연 충족).
+- **Pod 서버는 도착 시점부터 미기동** (belle Start 는 Pod 컨테이너만) — 게이트 전 어떤 코드도 서빙된 적 없음 (T-29-05-04 불변식 자연 충족). 재기동은 게이트 PASS + belle 결정 A 이후에만 수행.
+- **E2E 부산물**: `users/phase29e2e/analyses/e2epowerspin1784218122` (Firestore) + `uploads/phase29e2e/e2epowerspin1784218122.mp4` (S3) — 실측 증거로 보존 (테스트 uid, 실사용자 무접촉).
 - backend full suite 는 wave merge 시 실행 (29-VALIDATION sampling rate) — 이 plan 은 backend 소스 무접촉 (evals/ 신설만).
 - 시크릿 로그 0 (T-29-05-01): 로그/SUMMARY 에 키 값 미출력, Lambda env 는 boto3 in-process 로만 읽음.
 
@@ -149,18 +151,20 @@ GATE_EXIT=0
 
 ## Threat Flags
 
-없음 — 신규 표면 0 (evals 하네스는 기존 in-process 경로 재사용). T-29-05-02(baseline 오염)=EVAL_OUT_DIR 가드+diff 0 실증, T-29-05-03(동시 실행)=단일 nohup 순차 실증, T-29-05-04(미검증 코드 노출)=서버 미기동 유지+재기동 보류로 mitigate. 패키지 설치는 Pod 런타임 bootstrap(기존 스크립트 고정 목록)뿐 — repo 의존성 추가 0.
+없음 — 신규 표면 0 (evals 하네스는 기존 in-process 경로 재사용). T-29-05-02(baseline 오염)=EVAL_OUT_DIR 가드+diff 0 실증, T-29-05-03(동시 실행)=단일 nohup 순차 실증, T-29-05-04(미검증 코드 노출)=게이트 PASS + belle 승인 후에만 재기동으로 mitigate. 패키지 설치는 Pod 런타임 bootstrap(기존 스크립트 고정 목록)뿐 — repo 의존성 추가 0.
 
 ## Commits
 
 | Task | Commit | 내용 |
 |------|--------|------|
 | 1 | 11fdaae | feat(29-05): evals/phase29 D-02 mode3 sweep 하네스 |
-| 2 | (본 SUMMARY commit) | Pod sweep PASS 증거 + score-switch 대조표 + 정지 조건 발동 기록 |
+| 2 | 76bc7a0 | docs(29-05): sweep PASS 증거 + score-switch 대조표 + 정지 조건 발동 기록 |
+| 2 (전환) | (본 갱신 commit) | belle 결정 A + 재기동/Lambda 동기화/E2E PASS 증거 |
 
 ## Self-Check: PASSED
 
 - backend/evals/phase29/{run_sweep.py,assert_gates.py,eval_keys.json,README.md} 존재 확인
-- 커밋 11fdaae 존재 확인
+- 커밋 11fdaae / 76bc7a0 존재 확인
 - Pod assert_gates exit 0 로그 + /workspace/phase29_eval_out_20260716 아티팩트 보존 확인
-- Pod repo clean (evals staged 원복 + baseline diff 0)
+- Pod repo clean (evals staged 원복 + baseline diff 0), 서빙 HEAD 129d529 == origin/main
+- `/health` 200 + Lambda RUNPOD_ANALYZE_URL 최종 재검증 SYNC_OK + E2E doc `done`/breakdown 방출 확인

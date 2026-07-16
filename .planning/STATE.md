@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: 22-04 COMPLETE — full batch 129/129(수락 109) + JSONL S3 완성(train 99/val 2) + SUMMARY 작성. 다음=22-06 bake-off 계속, 22-07 진입 전 val 얇음·3트랙 완전체 belle 결정
-last_updated: "2026-07-10T17:39:41.531Z"
-last_activity: 2026-07-10 -- Phase 22 execution started
+last_updated: "2026-07-16T09:55:32.659Z"
+last_activity: 2026-07-16 -- Phase 22 planning complete
 progress:
-  total_phases: 14
-  completed_phases: 5
-  total_plans: 64
-  completed_plans: 45
-  percent: 36
+  total_phases: 33
+  completed_phases: 15
+  total_plans: 167
+  completed_plans: 132
+  percent: 45
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Phase: 22 (custom-vlm-finetune) — EXECUTING
 Plan: 5 of 10 (SUMMARY: 22-01/02/03(부분)/04/05)
 Verification: 22-04 COMPLETE (2026-07-11). 교사 증류 full batch 129/129 터미널(수락 109 / rejected_judge 12 / parse 6 / contract 2, 소스별 IG 91%·internal 88%·YT 79%, File API 잔여물 0) → SFT 학습셋 S3 완성 `training/phase22/jsonl/` (train.jsonl 99행 = distill 87 + text 14 / val.jsonl 2행, video_hash split, 균등 트림 109→87). 수집 마감 f66f25f(collection_complete=true + balance_waiver, 내부 371 fault track 이월). 시험 배치 3라운드가 129행 과금 전 결함 4건 fix(enum 59ac1a1/동작명 c5b14ef/judge 루브릭 eb69692/배열 파싱 ce992e0). 조립 중첩 타입 강제 = normalize_report 단일 owner(25e6752+1930099, coaching 80/87 보존). phase22 테스트 156 pass/1 skip. Known limitations: val 2행 얇음·svg_spec 감독 0/87·perturb/shadow 트랙 미합류(2트랙) — 22-04-SUMMARY.md 참조.
 Next: 22-06 bake-off 계속(A100 Pod ns8smhcydnduq9, 728cf5f 진행 중). 22-07 진입 전 belle 결정 2건 — val 얇음 대응(val_frac 확대 or phase22_eval_gate 전환) + 3트랙 완전체(perturb raw 좌표 영속화 + shadow 적재) 여부. 22-03 잔여 Tasks 2-4(Pod 배선)는 belle-gated 이월 유지.
-Status: Executing Phase 22
+Status: Ready to execute
 
 > ◐ 22-03 IN-PROGRESS — Task 1(helper)만 실행 (2026-07-09, LOCAL ONLY, Firestore/네트워크/Pod 0). `firestore_admin.store_vlm_shadow(video_hash, role, payload)` shadow 로깅 helper 추가: vlm_shadow/{video_hash} top-level 컬렉션(gemini_cache 형제)에 `{video_hash, created_at, updated_at, roles:{veto/recognizer/coach}}` set(merge=True) deep-merge 누적, created_at 첫 기록 보존, D-12 PII 키 재귀 거부(_reject_pii_keys, 정규화 denylist — T-22-07), nested-array 사전 차단(_validate_flat_dict_no_nested_array 재사용). firestore.rules catch-all default-deny로 클라이언트 접근 차단(T-22-08). TDD 2 commits(test f1f2d5b/feat f295d1e), phase22 전체 67 pass/2 skip. **Task 2(pipeline app.py VLM_SHADOW_LOG 배선 — production 판정경로 변형), Task 3(Pod 변형 blocking checkpoint), Task 4(Pod 배포+shadow 스모크+피크 VRAM 실측)는 belle-gated + 라이브 GPU Pod 필요로 후속 세션 이월.** 22-03-BASELINE-FAILED.txt/22-POD-VRAM.md 미생성(Pod 필요). ROADMAP 22-03 미완료 유지. 다음=belle greenlight+Pod 준비 후 Task 2~4 재개.
 
@@ -72,7 +72,7 @@ Status: Executing Phase 22
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-16 - Completed quick task 260716-jg6: phase22 v6 assemble + terra13 union → S3 canonical 교체 완료(perturb 0=C1, fault_bearing 88=B, 7 recoveries). 다음=belle Pod 기동→SFT v6
+Last activity: 2026-07-16 -- Phase 22 planning complete
 
 ### Quick Tasks Completed
 

@@ -737,21 +737,49 @@ Plans:
 **Depends on:** Phase 20 (Gemini 판정 한계 + few-shot 데이터), 누적 라벨 데이터. 학습/평가 = GPU 필요. ~~Phase 21~~ (2026-07-06 belle 디커플 — 22 먼저, 21은 후행)
 
 **Plans:** 5/12 plans executed
-
 Plans:
+**Wave 1**
 
 - [x] 22-01-PLAN.md — D-11 스키마 단일 owner + 실 RTMW 오류분포 측정 + 합성 교란 순수 모듈 (Wave 1, FT-03)
 - [x] 22-02-PLAN.md — 유튜브 수집(D-09) + 시드 자산(D-08) + 가명처리(D-12) + provenance/LICENSE-AUDIT (Wave 1, FT-02/FT-06)
 - [x] 22-03-PLAN.md — Gemini shadow 로깅 즉시 가동(D-10c) + Pod VRAM 실측 (Wave 1, FT-03/FT-05)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [x] 22-04-PLAN.md — Gemini 교사 증류(judge 필터) + 학습 JSONL 3트랙 조립 (Wave 2, FT-03/FT-02)
 - [x] 22-05-PLAN.md — bake-off 4축 하네스 + 균등/함정 eval 미니셋 (Wave 2, FT-01)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 22-06-PLAN.md — 학습 Pod 임대(belle 승인) + bake-off 실행 + 백본 확정 checkpoint (Wave 3, FT-01)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 22-07-PLAN.md — QLoRA SFT + 16-bit 병합→AWQ + D-15 assert_gates 판정 (Wave 4, FT-04)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 22-08-PLAN.md — VlmJudge Protocol/어댑터 + vLLM 동거 서빙(D-14) + 동거 판정 (Wave 5, FT-05)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 22-09-PLAN.md — shadow 병행 배선(D-13) + verdict diff 누적 + Gemini-이상 리포트 (Wave 6, FT-05)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 22-10-PLAN.md — 역할별 순차 swap(veto→recognizer→coach D-02 게이트) + Wave 4 RL 후속 경계 (Wave 7, FT-05/FT-04)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
 - [ ] 22-11-PLAN.md — 연속 수집 watch 러너(D-09 재사용) + collection_batches 배치 원장(마감 무결성 공존) + FLYWHEEL-RUNBOOK §1 (Wave 8, FT-02)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
 - [ ] 22-12-PLAN.md — 주기 재학습 배치 루프(신규만 라벨→병합 조립→SFT→D-15 게이트→래칫 승격) + 런북 §2 flashinfer env 박제 (Wave 9, FT-03/FT-04)
+
+**Cross-cutting constraints:**
+
+- production Pod 변형은 blocking checkpoint 승인 뒤에만 실행되고 rollback 블록이 변형 전에 기록된다 (DR-02)
 
 ---
 

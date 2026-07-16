@@ -32,6 +32,7 @@ export function ScoreBreakdownSection({
   breakdown,
   recordNumbers,
   basisLine,
+  limitNotice,
   onRecordPress,
 }: {
   breakdown: DeductionBreakdown;
@@ -39,6 +40,12 @@ export function ScoreBreakdownSection({
   recordNumbers?: (number | null)[];
   /** 채점 기준 1줄 (composeScoringBasisKo). null/미전달 시 생략. */
   basisLine?: string | null;
+  /**
+   * 29-CONTEXT D-05 — mode3 한계 고지 1줄 (측정 범위 + 다음 행동 유도). 카드
+   * 최하단 footnote 슬롯에 기존 footnote 토큰으로 렌더. 미전달 시 렌더 diff 0
+   * (mode1 호출부 무변경 — legacy/다른 소비처 무회귀).
+   */
+  limitNotice?: string;
   /**
    * quick-260705-r6v — record 행 탭 → 드릴다운 시트 오픈 (확대사진+수치+행동구).
    * 전달 시 record 행을 Pressable 로 감싸고 우측에 chevron 미니 표기(행 밀도 유지).
@@ -150,6 +157,9 @@ export function ScoreBreakdownSection({
           정밀 정량화가 불가해 측정 기하 종합으로 환산했어요.
         </Text>
       )}
+      {/* 29-CONTEXT D-05 — mode3 한계 고지 (측정 범위 + 다음 행동 유도). caller 가
+          mode3 일 때만 전달 → mode1 렌더 diff 0. */}
+      {limitNotice ? <Text style={styles.footnote}>{limitNotice}</Text> : null}
     </View>
   );
 }

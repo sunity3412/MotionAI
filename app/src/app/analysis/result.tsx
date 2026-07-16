@@ -38,6 +38,7 @@ import {
   criterionLabelKo,
   formatDeductionNumber,
   isCleanPass,
+  projectDeductionRecordKeypoints,
 } from '../../lib/deductionLabels';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
@@ -78,6 +79,14 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 // (최장 elbow-twist-sister 32.6s). 상한은 그 최장값을 크게 상회하는 보수값(180s)
 // — 정상 pending 을 조기 숨김하지 않음.
 const FAULT_ZOOM_PENDING_TIMEOUT_MS = 180_000;
+
+// 29-CONTEXT D-05 — mode3 한계 고지 (belle 승인 뼈대, 세부만 재량). 측정 범위
+// (카메라로 잰 자세 형태 기준) + 다음 행동 유도(새 영상 발전 비교 / 코치님 비교)를
+// 결합한 1줄. mode3 결과에는 breakdown 유/무 무관 항상 1곳에 도달한다. belle 이
+// 지적한 D-05 금지어(사용자 미이해 + mode3 angle 차원 용어 충돌 + 강사 철학 충돌)를
+// 배제 — "자세 형태" 로 대체. mode1 은 이 상수를 소비하지 않는다 (렌더 diff 0).
+const MODE3_LIMIT_NOTICE =
+  '카메라로 잰 자세 형태 기준이에요. 같은 동작을 새 영상으로 다시 올리면 이전 영상과 비교한 발전 분석이 본격 시작돼요. 그립·디테일 점검은 코치님 비교 분석을 이용해보세요.';
 
 const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
   basic: '기본기',
@@ -281,28 +290,10 @@ function hasSynthesisWarning(
 // JointScore.key (kismam) → keypoint name 매핑은 deductionLabels.
 // KEYPOINT_FROM_ANGLE_KEY 단일 출처 (quick-260704-fz4 — 로컬 중복 맵 제거).
 
-// quick-260705-r6v — record 투영 keypoint (buildDeductionMarkers 와 동일 규칙).
-// 범례/시트 행동구·zoom 매칭이 record 를 관절로 되짚을 때 재사용 (규칙 1벌).
-//   angle_vs_reference__{jk} → 단일 keypoint / source='vision' → faultJoints 전체 /
-//   dimension_overall_fallback·score_delta → 투영 없음.
-function recordProjectedKeypoints(
-  rec: DeductionRecord,
-  faultJoints: readonly KeypointName[] | undefined,
-): KeypointName[] {
-  if (
-    rec.criterion === 'dimension_overall_fallback' ||
-    rec.unit === 'score_delta'
-  ) {
-    return [];
-  }
-  if (rec.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) {
-    const jk = rec.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
-    const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
-    return kp ? [kp] : [];
-  }
-  if (rec.source === 'vision') return [...(faultJoints ?? [])];
-  return [];
-}
+// quick-260705-r6v → 29-PLAN-REVIEW HIGH-1 — record 투영 keypoint 규칙은
+// deductionLabels.projectDeductionRecordKeypoints 공용 helper 1벌로 이관됨(로컬
+// 사본 제거). 범례/시트 행동구·zoom 매칭이 record 를 관절로 되짚을 때 그 helper 를
+// 그대로 소비한다 (규칙 1벌 — buildDeductionMarkers 와 동일 소스).
 
 // quick-260705-r6v — record 행동구 resolver (범례·드릴다운 시트 공용 소스).
 // 투영 keypoint(단일이면 그 관절, 그룹이면 멤버) 중 actionLabels 를 가진 첫 관절의
@@ -312,7 +303,7 @@ function actionPhraseForRecord(
   faultJoints: readonly KeypointName[] | undefined,
   actionLabels: Partial<Record<KeypointName, string>>,
 ): string | null {
-  for (const kp of recordProjectedKeypoints(rec, faultJoints)) {
+  for (const kp of projectDeductionRecordKeypoints(rec, faultJoints)) {
     const label = actionLabels[kp];
     if (label) return label;
   }
@@ -652,12 +643,15 @@ function AnalysisResultContent({
     cmp.mode === 'mode3' && result.scoreSuppressed === true;
   // iter3 MEDIUM-1 / iter4 MEDIUM-1 — 억제 헤더 카피는 reason 이 소유 (reason-owns-copy).
   // reason 누락 시 default '기준 없음' 폴백 금지 — 중립 카피 (오라벨 방지).
+  // 29-CONTEXT D-03 — "제공 불가" 단독 통보가 아니라 행동 유도(코치님 비교 /
+  // 같은 동작 새 영상으로 이전 연습 비교)로 전진시킨다. belle 원문: "더 연습하고
+  // 새로운 영상으로 같은 자세를 비교하면 본격 분석이 시작된다". D-05 금지어 배제.
   const suppressedHeaderCopy = isScoreSuppressed
     ? result.scoreSuppressedReason === 'recognition_low_confidence'
-      ? '동작 인식 신뢰도가 낮아 기준을 확정할 수 없어요.'
+      ? '동작 인식 신뢰도가 낮아 기준을 확정하지 못했어요. 같은 동작을 더 또렷하게 담아 새 영상으로 다시 올려보세요.'
       : result.scoreSuppressedReason === 'unheld'
-        ? '기준 데이터가 없어 정확한 점수를 드릴 수 없어요.'
-        : '이 분석은 기준을 확정할 수 없어요.'
+        ? '아직 이 동작의 기준 데이터가 없어요. 코치님(정은지) 영상과 비교하거나, 같은 동작을 새 영상으로 올려 이전 연습과 비교해보세요.'
+        : '아직 이 동작의 기준을 확정하지 못했어요. 코치님 영상과 비교하거나, 같은 동작을 새 영상으로 올려 이전 연습과 비교해보세요.'
     : null;
 
   // mode1 메타 카드용 풀데이터. 시드 전이거나 로딩 중이면 motion=null →
@@ -763,14 +757,14 @@ function AnalysisResultContent({
     [confirmedKeypoints],
   );
 
-  // quick-260705-o0s — 감점 0 게이트 단일 신호 (belle 추가 피드백 #2). 요약
-  // 카피·문제-계열 섹션 숨김·축하 섹션이 전부 이 값 하나를 소비한다 (분기 산개
-  // 금지). mode3/legacy doc(breakdown 부재)은 false → 기존 렌더 무회귀.
-  // 감점 0 이면 veto applied 일 수 없지만(감점 record 가 tally 의 실체) 각
-  // 소비처에 방어 게이트로 명시한다.
-  const cleanPass = isCleanPass(
-    cmp.mode === 'mode1' ? result.deductionBreakdown : null,
-  );
+  // quick-260705-o0s → 29-CONTEXT D-01 — 감점 0 게이트 단일 신호 (belle 추가
+  // 피드백 #2). 요약 카피·문제-계열 섹션 숨김·축하 섹션이 전부 이 값 하나를
+  // 소비한다 (분기 산개 금지). 29-04: mode 무관화 — 29-02 가 mode3 등록 동작에
+  // breakdown(records 0 + final 100)을 방출하므로 mode3 clean 도 축하 대상이다
+  // (mode1 한정 제거). legacy/미등록/빈 criteria doc(breakdown 부재)은 여전히
+  // false → 기존 렌더 무회귀. 감점 0 이면 veto applied 일 수 없지만(감점 record
+  // 가 tally 의 실체) 각 소비처에 방어 게이트로 명시한다.
+  const cleanPass = isCleanPass(result.deductionBreakdown);
 
   // quick-260705-o0s — 영상 점 번호 ↔ 내역 행 번호 단일 소스 (buildDeductionMarkers).
   // 오버레이 markerNumbers 와 ScoreBreakdownSection recordNumbers 가 같은 결과물을
@@ -810,8 +804,10 @@ function AnalysisResultContent({
   //     등) |delta| 큰 쪽만 라벨 유지, 나머지는 점만.
   // cleanPass 시 records 빈 배열 → markers/라벨 자연히 빈 결과 (별도 분기 불요).
   const actionLabels = useMemo<Partial<Record<KeypointName, string>>>(() => {
-    const hasBreakdown =
-      cmp.mode === 'mode1' && result.deductionBreakdown != null;
+    // 29-CONTEXT D-01 — mode 무관화. breakdown 보유(mode1 또는 mode3 방출)면 감점
+    // record 관절 한정. mode3 는 windowMedianAngleDeltas 없음(veto 미실행) — 2순위
+    // JointScore.deltaDeg 경로가 커버하므로 소스 우선순위 로직 무변경.
+    const hasBreakdown = result.deductionBreakdown != null;
     // quick-260705-r6v — 그룹 마커(스플릿 → 다리 4관절) 멤버 집합. 스플릿 멤버는
     // keypointNumbers 가 아니라 groupMarkers 로 이동했으므로, 게이트가 keypointNumbers
     // 만 보면 스플릿 행동구가 소멸한다(planner_findings 4). 멤버까지 라벨 후보로 허용.
@@ -899,11 +895,12 @@ function AnalysisResultContent({
     [result.deductionBreakdown, markers.recordNumbers, result.visionVeto],
   );
 
-  // quick-260702-q8q — "점수 계산 내역" 섹션 렌더 가드. mode1 전용(mode3 는 veto
-  // 미실행 mode3_held) + deductionBreakdown 보유 doc 만 (legacy doc 은 필드 부재 →
-  // 섹션 자체 숨김, normalize 가 malformed 를 undefined 로 접음 — 크래시 0).
-  const showBreakdownSection =
-    cmp.mode === 'mode1' && result.deductionBreakdown != null;
+  // quick-260702-q8q → 29-CONTEXT D-01 — "점수 계산 내역" 섹션 렌더 가드.
+  // 29-04: mode 무관화 — deductionBreakdown 보유 doc 만 (29-02 가 mode3 등록 동작
+  // md 보유 시에만 방출하므로 미등록/legacy/빈 criteria 동작은 필드 부재 → 섹션
+  // 자연 숨김, normalize 가 malformed 를 undefined 로 접음 — 크래시 0). mode1 전용
+  // 조건 제거 근거 = 29-CONTEXT D-01 (mode3 투명 감점-합산 소비).
+  const showBreakdownSection = result.deductionBreakdown != null;
 
   // Phase 20 (UI ④) — 점수 맥락 카드의 "교정 포인트". 비전 결함(primaryFault)
   // 우선, 없으면 top 코칭 팁 제목(가장 먼저 다듬을 관절). 둘 다 없으면 null →
@@ -961,7 +958,9 @@ function AnalysisResultContent({
   // 수치·문구만 — graceful).
   const selectedZoom = useMemo<FaultZoomComparison | null>(() => {
     if (!selectedRecord) return null;
-    const kps = new Set(recordProjectedKeypoints(selectedRecord, vetoFaultJoints));
+    const kps = new Set(
+      projectDeductionRecordKeypoints(selectedRecord, vetoFaultJoints),
+    );
     if (kps.size === 0) return null;
     for (const z of result.faultZoomComparisons ?? []) {
       if (z.tier === 'advisory') continue;
@@ -1302,21 +1301,33 @@ function AnalysisResultContent({
           </View>
         )}
 
+        {/* 29-CONTEXT D-05 — mode3 한계 고지 (breakdown 부재 경로: 미등록/legacy/
+            빈 criteria/suppressed). breakdown 표시 중이면 ScoreBreakdownSection
+            footnote 로 렌더되므로 여기선 미표시 — !showBreakdownSection 게이트로
+            mode3 결과에 한계 고지가 정확히 1곳 존재하도록 보장. mode1 무회귀. */}
+        {cmp.mode === 'mode3' && !showBreakdownSection ? (
+          <Text style={styles.mode3LimitNotice}>{MODE3_LIMIT_NOTICE}</Text>
+        ) : null}
+
         {/* ── Phase 10 (10-02 D-08) — 부상 위험 신호 amber 경고 섹션 ────────
             점수 게이지 직후 + "동작 비교" 직전. 플래그 없으면 컴포넌트가 null 반환
             (섹션 OMIT, 안심 카피 금지). flagType 4종 카피맵 보유 → 10-03/10-04
             플래그 자동 렌더. result.safetyFlags 부재/구버전 doc → graceful no-render. */}
         <InjuryRiskSection flags={result.safetyFlags} />
 
-        {/* ── quick-260705-o0s: 감점 0 성공 축하 섹션 (belle 추가 피드백 #2) ──
-            100점 정타(records 빈 배열)면 축하가 주인공 — 시나리오 문서의
-            '+α 성공 순간 축하' 최소 구현. refCard/vetoLeadCard 스타일 패턴 차용
-            (brandTint, 토큰만). isCleanPass 단일 신호 — mode3/legacy 는 false. */}
+        {/* ── quick-260705-o0s → 29-CONTEXT D-01: 감점 0 성공 축하 섹션 (belle
+            추가 피드백 #2) — 100점 정타(records 빈 배열)면 축하가 주인공.
+            refCard/vetoLeadCard 스타일 패턴 차용 (brandTint, 토큰만). 29-04:
+            mode 무관 (mode3 등록 동작 clean 도 축하). 단 mode3 축하 카피는 mode1
+            문구(정은지 유사 계열) 재사용 금지 — 발전/자세 형태 중심 별도 문구,
+            29-CONTEXT D-05 금지어 배제. legacy/미등록은 여전히 false. */}
         {cleanPass && (
           <View style={[styles.card, styles.cleanPassCard]}>
             <Text style={styles.cleanPassTitle}>감점 항목이 없어요</Text>
             <Text style={styles.cleanPassBody}>
-              측정 기준을 모두 통과했어요. 이 자세를 그대로 유지하세요.
+              {cmp.mode === 'mode3'
+                ? '측정한 자세 형태 기준을 모두 통과했어요. 이 자세를 유지하고 다음 영상과 비교해 발전을 확인해보세요.'
+                : '측정 기준을 모두 통과했어요. 이 자세를 그대로 유지하세요.'}
             </Text>
           </View>
         )}
@@ -1335,6 +1346,8 @@ function AnalysisResultContent({
               breakdown={result.deductionBreakdown}
               recordNumbers={markers.recordNumbers}
               basisLine={breakdownBasisLine}
+              // 29-CONTEXT D-05 — mode3 한계 고지는 내역 카드 footnote 로 (mode1 미전달).
+              limitNotice={cmp.mode === 'mode3' ? MODE3_LIMIT_NOTICE : undefined}
               // quick-260705-r6v — 내역 행 탭 → 드릴다운 시트 (진입점 1).
               onRecordPress={setDetailRecordIndex}
             />
@@ -1380,13 +1393,19 @@ function AnalysisResultContent({
               />
             </View>
             <VideoCompare
-              leftLabel="내 영상"
+              // 29-CONTEXT D-06 — mode3 비교 = 본인 이전 영상 vs 이번 영상.
+              // 좌/우 라벨을 지난/이번 쌍으로 명확히 (정은지 언급 없음). mode1 은
+              // 좌 '내 영상' 유지.
+              leftLabel={cmp.mode === 'mode3' ? '이번 영상' : '내 영상'}
               // 28-CONTEXT D-01 — 정은지(right) 재생을 학생(left) 마스터 시계에 동작
               // 기준으로 워핑(28-06 소비). videoAlignment=null(legacy/malformed)이면
               // VideoCompare 가 현행 절대시계로 100% 폴백 — 신규 doc 만 정렬이 흐른다.
+              // 29-CONTEXT D-10 — mode3 워핑은 28-04 방출(mode1+mode3) + 이 mode
+              // 무관 전달로 기흐름 (신규 워핑 구현 0). 신뢰도 사다리·배속 클램프는
+              // 28 D-02 를 mode 무관하게 동일 적용 — 여기 mode 조건 추가 금지.
               alignment={videoAlignment}
               rightLabel={
-                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'
+                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
               }
               leftUrl={result.myVideoUrl || undefined}
               rightUrl={
@@ -1468,10 +1487,17 @@ function AnalysisResultContent({
                 (28-02) undefined 판정 = 순수 legacy — "재분석하면 적용" 과약속 루프 없음.
                 tier 판정 금지 — disabled 안내는 VideoCompare 배지(28-06) 책임
                 (배지=VideoCompare / 배너=화면 레벨 책임 분리, 28-RESEARCH Pattern 6). */}
+            {/* 29-CONTEXT D-04 — 28 배너 통합 (재량). legacy mode3 doc(내역 없음)
+                전용 배너를 신설하지 않고 이 Phase 28 배너에 통합한다. "breakdown
+                부재 = legacy" 판정은 빈 criteria 4동작의 신선한 doc 에서도 참이 되어
+                "재분석하면 내역이 나와요" 가 거짓 약속(Pitfall 1)이 되므로, 특정
+                기능 약속 없이 "최신 분석 적용" 으로 일반화한다 (구간 맞춤 + 내역은
+                등록 동작 한정으로 함께 따라옴). 판정 규칙(motionAlignment
+                === undefined = 순수 legacy)은 아래 원 주석 승계. */}
             {result.motionAlignment === undefined ? (
               <View style={styles.alignUpsellBanner}>
                 <Text style={styles.alignUpsellText}>
-                  다시 분석하면 자동 구간 맞춤이 적용돼요
+                  다시 분석하면 자동 구간 맞춤 등 최신 분석이 적용돼요
                 </Text>
                 <Pressable
                   onPress={() => router.replace('/(tabs)/analyze')}
@@ -1484,6 +1510,16 @@ function AnalysisResultContent({
             ) : null}
           </>
         )}
+
+        {/* 29-CONTEXT D-07 — mode3 첫 분석(이전 영상 없음)은 비교 섹션 전체 숨김
+            (위 게이트) + 그 자리에 안내 1줄. 정은지 폴백 금지(mode1 혼동 + 미보유
+            동작 reference 부재 — D-07 기각 사유). D-05 고지와 톤 통일("~해요" 체,
+            전진형). mode1/mode3 second+ 무회귀. */}
+        {cmp.mode === 'mode3' && cmp.isFirst ? (
+          <Text style={styles.mode3LimitNotice}>
+            다음 분석부터 이전 영상과 비교해 발전을 확인해 드려요.
+          </Text>
+        ) : null}
 
         {/* quick-260705-r6v — 메인 '문제 부위 확대 비교' 섹션 제거 (구 확대 비교
             컴포넌트 파일 삭제). 확대사진은 내역 행/여백 범례/(세로) 번호 점 탭 →
@@ -1839,7 +1875,8 @@ function AnalysisResultContent({
         // D-04 앱측 (28-05 공급) — DTW 대응 실패 시 ref 는 전신 폴백 이미지라
         // "같은 동작 순간을 못 찾았다"고 정직 고지. 부재(legacy)/'dtw'면 false → 캡션 없음.
         refMatchFailed={selectedZoom?.refMatch === 'failed'}
-        rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
+        // 29-CONTEXT D-06 — mode3 드릴다운 비교 라벨도 지난/이번 계열 (정은지 미언급).
+        rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'}
       />
     </View>
   );
@@ -1924,6 +1961,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 12,
+    lineHeight: 18,
+    paddingHorizontal: 4,
+  },
+  // 29-CONTEXT D-05 — mode3 한계 고지 독립 1줄 (breakdown 부재 경로). caption 톤,
+  // 토큰만 (하드코딩 금지). breakdown 경로는 ScoreBreakdownSection footnote 사용.
+  mode3LimitNotice: {
+    ...typography.caption,
+    color: colors.textSecondary,
     lineHeight: 18,
     paddingHorizontal: 4,
   },

@@ -1,0 +1,18 @@
+{
+  "_comment": "Phase 29 D-02 sweep keys — phase24 6페어(fixtures/phase15)를 mode='mode3' 단독 분석으로 재사용 (29-05, RESEARCH Pattern 5). prev 없는 첫 분석 = 절대 기준(ipsf_absolute measured seed) 채점이 D-02 본체. referenceMotionId 없음(mode3 는 reference 비교 아님). not_pole 게이트는 mode3 미적용 — climb 도 mode3 로 채점되며 mode1 not_pole 게이트는 포함하지 않는다. SERIAL 실행 필수 (pipeline-not-concurrency-safe-eval-serial). 기대치: power-spin 만 criteria 보유(leg_extension) — 나머지 4동작+climb 은 빈 criteria yaml → md 빈 dict → fallback 항등이 정상 (RESEARCH Pitfall 1: 이를 '감점 엔진 고장'으로 오판·임계 조정 금지).",
+  "bucket": "sunity-motion-pilot-videos",
+  "items": [
+    {"sourceS3Key": "fixtures/phase15/power-spin/fault.mp4", "motionId": "power-spin", "mode": "mode3", "label": "fault"},
+    {"sourceS3Key": "fixtures/phase15/power-spin/correct.mp4", "motionId": "power-spin", "mode": "mode3", "label": "success"},
+    {"sourceS3Key": "fixtures/phase15/peter-pan/fault.mp4", "motionId": "peter-pan", "mode": "mode3", "label": "fault"},
+    {"sourceS3Key": "fixtures/phase15/peter-pan/correct.mp4", "motionId": "peter-pan", "mode": "mode3", "label": "success"},
+    {"sourceS3Key": "fixtures/phase15/elbow-twist-sister/fault.mp4", "motionId": "elbow-twist-sister", "mode": "mode3", "label": "fault"},
+    {"sourceS3Key": "fixtures/phase15/elbow-twist-sister/correct.mp4", "motionId": "elbow-twist-sister", "mode": "mode3", "label": "success"},
+    {"sourceS3Key": "fixtures/phase15/pdshape/fault.mp4", "motionId": "pdshape", "mode": "mode3", "label": "fault"},
+    {"sourceS3Key": "fixtures/phase15/pdshape/correct.mp4", "motionId": "pdshape", "mode": "mode3", "label": "success"},
+    {"sourceS3Key": "fixtures/phase15/kip-up/fault.mp4", "motionId": "kip-up", "mode": "mode3", "label": "fault"},
+    {"sourceS3Key": "fixtures/phase15/kip-up/correct.mp4", "motionId": "kip-up", "mode": "mode3", "label": "success"},
+    {"sourceS3Key": "fixtures/phase15/climb/fault.mp4", "motionId": "climb", "mode": "mode3", "label": "fault"},
+    {"sourceS3Key": "fixtures/phase15/climb/correct.mp4", "motionId": "climb", "mode": "mode3", "label": "success"}
+  ]
+}

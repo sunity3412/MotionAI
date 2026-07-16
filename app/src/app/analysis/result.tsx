@@ -80,6 +80,14 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 // — 정상 pending 을 조기 숨김하지 않음.
 const FAULT_ZOOM_PENDING_TIMEOUT_MS = 180_000;
 
+// 29-CONTEXT D-05 — mode3 한계 고지 (belle 승인 뼈대, 세부만 재량). 측정 범위
+// (카메라로 잰 자세 형태 기준) + 다음 행동 유도(새 영상 발전 비교 / 코치님 비교)를
+// 결합한 1줄. mode3 결과에는 breakdown 유/무 무관 항상 1곳에 도달한다. belle 이
+// 지적한 D-05 금지어(사용자 미이해 + mode3 angle 차원 용어 충돌 + 강사 철학 충돌)를
+// 배제 — "자세 형태" 로 대체. mode1 은 이 상수를 소비하지 않는다 (렌더 diff 0).
+const MODE3_LIMIT_NOTICE =
+  '카메라로 잰 자세 형태 기준이에요. 같은 동작을 새 영상으로 다시 올리면 이전 영상과 비교한 발전 분석이 본격 시작돼요. 그립·디테일 점검은 코치님 비교 분석을 이용해보세요.';
+
 const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
   basic: '기본기',
   intermediate: '중급',
@@ -1293,6 +1301,14 @@ function AnalysisResultContent({
           </View>
         )}
 
+        {/* 29-CONTEXT D-05 — mode3 한계 고지 (breakdown 부재 경로: 미등록/legacy/
+            빈 criteria/suppressed). breakdown 표시 중이면 ScoreBreakdownSection
+            footnote 로 렌더되므로 여기선 미표시 — !showBreakdownSection 게이트로
+            mode3 결과에 한계 고지가 정확히 1곳 존재하도록 보장. mode1 무회귀. */}
+        {cmp.mode === 'mode3' && !showBreakdownSection ? (
+          <Text style={styles.mode3LimitNotice}>{MODE3_LIMIT_NOTICE}</Text>
+        ) : null}
+
         {/* ── Phase 10 (10-02 D-08) — 부상 위험 신호 amber 경고 섹션 ────────
             점수 게이지 직후 + "동작 비교" 직전. 플래그 없으면 컴포넌트가 null 반환
             (섹션 OMIT, 안심 카피 금지). flagType 4종 카피맵 보유 → 10-03/10-04
@@ -1330,6 +1346,8 @@ function AnalysisResultContent({
               breakdown={result.deductionBreakdown}
               recordNumbers={markers.recordNumbers}
               basisLine={breakdownBasisLine}
+              // 29-CONTEXT D-05 — mode3 한계 고지는 내역 카드 footnote 로 (mode1 미전달).
+              limitNotice={cmp.mode === 'mode3' ? MODE3_LIMIT_NOTICE : undefined}
               // quick-260705-r6v — 내역 행 탭 → 드릴다운 시트 (진입점 1).
               onRecordPress={setDetailRecordIndex}
             />
@@ -1463,10 +1481,17 @@ function AnalysisResultContent({
                 (28-02) undefined 판정 = 순수 legacy — "재분석하면 적용" 과약속 루프 없음.
                 tier 판정 금지 — disabled 안내는 VideoCompare 배지(28-06) 책임
                 (배지=VideoCompare / 배너=화면 레벨 책임 분리, 28-RESEARCH Pattern 6). */}
+            {/* 29-CONTEXT D-04 — 28 배너 통합 (재량). legacy mode3 doc(내역 없음)
+                전용 배너를 신설하지 않고 이 Phase 28 배너에 통합한다. "breakdown
+                부재 = legacy" 판정은 빈 criteria 4동작의 신선한 doc 에서도 참이 되어
+                "재분석하면 내역이 나와요" 가 거짓 약속(Pitfall 1)이 되므로, 특정
+                기능 약속 없이 "최신 분석 적용" 으로 일반화한다 (구간 맞춤 + 내역은
+                등록 동작 한정으로 함께 따라옴). 판정 규칙(motionAlignment
+                === undefined = 순수 legacy)은 아래 원 주석 승계. */}
             {result.motionAlignment === undefined ? (
               <View style={styles.alignUpsellBanner}>
                 <Text style={styles.alignUpsellText}>
-                  다시 분석하면 자동 구간 맞춤이 적용돼요
+                  다시 분석하면 자동 구간 맞춤 등 최신 분석이 적용돼요
                 </Text>
                 <Pressable
                   onPress={() => router.replace('/(tabs)/analyze')}
@@ -1919,6 +1944,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 12,
+    lineHeight: 18,
+    paddingHorizontal: 4,
+  },
+  // 29-CONTEXT D-05 — mode3 한계 고지 독립 1줄 (breakdown 부재 경로). caption 톤,
+  // 토큰만 (하드코딩 금지). breakdown 경로는 ScoreBreakdownSection footnote 사용.
+  mode3LimitNotice: {
+    ...typography.caption,
+    color: colors.textSecondary,
     lineHeight: 18,
     paddingHorizontal: 4,
   },

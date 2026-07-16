@@ -1,2 +1,12 @@
-# playback-url Lambda. sunity_shared (auth/responses/s3keys) 는 Layer 박제.
-# boto3 는 Lambda 런타임 제공. 추가 deps 없음.
+# playback-url Lambda. sunity_shared (auth/responses/s3keys/firestore_admin) 는 Layer 박제.
+# boto3 는 Lambda 런타임 제공.
+
+# Firebase Auth ID token 검증 + Firestore Admin (29-06 referenceMotionId 재서명이
+# get_reference_motion 을 위해 firestore_admin 사용).
+firebase-admin>=6,<7
+
+# PyYAML — sunity_shared.firestore_admin 의 transitive import
+# (sunity_shared.analysis.force_signals.py module-level yaml import).
+# 2026-07-17 deploy fix: 29-06 배포 직후 500 Runtime.ImportModuleError 직격 원인
+# (upload-url/reference-api 의 2026-06-12 deploy fix 와 동일 패턴).
+pyyaml>=6.0,<7.0

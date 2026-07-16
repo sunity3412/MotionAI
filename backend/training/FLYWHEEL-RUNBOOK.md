@@ -124,7 +124,115 @@ cron 예시(매주 월 09:00, belle 이 env 를 명시 승인해 넣은 경우�
 
 ---
 
-## §2. 공부 (라벨링 배치 루프)
+## §2. 공부 (주기 재학습 배치 루프)
 
-> 22-12 가 추가한다(RTMW 추출 + 교사 증류 + JSONL 조립). §1 이 생산한
-> `collection_batch` 신규분을 입력 배치로 소비. (헤더 예약 — 본문은 22-12.)
+§1 이 쌓은 `collection_batch` 신규분을 belle 주 1회 트리거로 몰아서 학습으로 전환한다:
+라벨(신규분만 과금) → 병합 조립(perturb 포함) → SFT → D-15 게이트 → **통과 시만 승격
+(단방향 래칫)**. 전부 기존 자산 orchestration — 신규 코드는 러너 셸
+(`training/sft/run_retrain_cycle.sh`) + 승격 래칫(`training/sft/promotion.py`) 뿐이다.
+
+게이트 FAIL 이 기본 상태여도(v4~v6 이력) 데이터는 계속 쌓이고, 통과하는 라운드에서만
+모델이 전진한다 — "쌓기(§1)"와 "공부(§2)"의 분리를 운영으로 완성한다.
+
+### 2.1 전제 조건 체크리스트 (실행 전 확인)
+
+- [ ] **진행 중 학습 없음.** v7 등 SFT/서빙이 돌고 있지 않은지 belle 이 먼저 확인한다
+      (러너 preflight 의 `pgrep` serial lock 이 이중 방어하지만 — 파이프라인 동시성
+      비안전이라 중첩은 오염이다).
+- [ ] **Pod 기동.** belle 이 콘솔에서 Pod 를 start 한다(생명주기 = belle, 실행 = Claude
+      SSH). 접속은 프록시 `ssh.runpod.io` (-tt + stdin 파이프). **Pod 재생성 시 SSH
+      엔드포인트/포트가 바뀌므로** 재생성했다면 새 접속 정보를 확인한다.
+- [ ] **신규 배치 존재.** §1 watch 수집이 1배치 이상 쌓였는지 `manifest.json` 의
+      `_meta.collection_batches[]` 로 확인한다(신규 없으면 label stage 는 전부 skip = 과금 0,
+      학습만 재실행되어 낭비 — 신규분이 있을 때만 사이클을 돈다).
+- [ ] **Gemini 크레딧 확인.** 예상 과금 = 신규 행 수 × 2콜(교사 1 + judge 1). 신규 행 수는
+      `collection_batches[].new_rows` 합으로 어림한다. 크레딧 부족 시 label 이 중간에
+      429 로 중단된다(재개는 안전 — 아래 2.3).
+
+### 2.2 belle 트리거 (1커맨드, 박제)
+
+`cd /workspace/SunityMotion/backend` 에서:
+
+```bash
+PHASE22_BELLE_GREENLIGHT=1 nohup bash training/sft/run_retrain_cycle.sh all \
+  > /workspace/cycle_$(date -u +%y%m%d).log 2>&1 &
+```
+
+`PHASE22_BELLE_GREENLIGHT=1` 이 없으면 preflight 가 SystemExit(2)로 차단한다(라벨 stage
+Gemini 과금 = belle 승인). 러너는 preflight → label → assemble → train → gates → promote 를
+**전부 순차** 실행한다(병렬 없음 — 동시성 비안전).
+
+### 2.3 stage 재시작 (중단 시)
+
+개별 stage 를 지정해 이어서 돌린다:
+
+```bash
+bash training/sft/run_retrain_cycle.sh [preflight|label|assemble|train|gates|promote]
+```
+
+- **label 은 재실행 안전** — full_batch 가 행별 결과 파일로 영속화하므로 이미 라벨링한
+  행은 skip 되어 **재과금 0** (429 로 끊겼어도 그대로 이어서 신규분만 처리).
+- assemble 이후는 각 stage 를 순서대로 개별 실행할 수 있다(예: 학습만 다시:
+  `... train` → `... gates` → `... promote`).
+
+### 2.4 flashinfer env 박제 (Blackwell 게이트 오탐 우회)
+
+Blackwell(sm_120, compute cap >= 12) Pod 의 게이트 vLLM 이 flashinfer 샘플러 오탐으로
+죽는다(2026-07-16 실증). 러너의 gates stage 가 `nvidia-smi` 로 compute cap 을 판별해
+compute cap >= 12 에서만 자동 적용한다:
+
+```bash
+export VLLM_USE_FLASHINFER_SAMPLER=0
+export TORCH_CUDA_ARCH_LIST=12.0
+```
+
+**주의: `TORCH_CUDA_ARCH_LIST=12.0` 은 sm_120 전용이다.** A100(sm_80) 등 비-Blackwell Pod
+에서는 러너가 자동으로 설정하지 않는다(강제하면 학습/서빙이 깨진다 — 수동 export 금지).
+
+### 2.5 래칫 해석 (게이트 판정 → 승격)
+
+- **게이트 FAIL = 실패 아님.** 데이터는 쌓였고 모델만 미승격이다. 러너는 FAIL 에서도
+  exit 0 로 정상 종료하며 마지막 줄에 `NOT PROMOTED — 기존 모델 유지` 를 명시한다.
+- **current 의 진실은 `training/sft/promotion_ledger.json` 이다.** 게이트 PASS
+  (`assert_gates --require-pass` exit 0)만 `current` 포인터를 전진시킨다(단방향 래칫).
+  FAIL 로그는 다음 처방(데이터 믹스·교사 밀도·용량)의 근거일 뿐, current 를 오염시키지
+  않는다. FAIL entry 는 원장에 attempt 로만 기록된다.
+- **PASS 시** current 가 전진하고, 이것이 Wave 3(22-08 서빙 swap) 진입 조건이 된다.
+
+### 2.6 종료 절차
+
+1. cycle report 확인: `/workspace/cycle_reports/cycle_<ts>.json` (2.7).
+2. 원장·매니페스트 변경 커밋: `promotion_ledger.json` (승격 시 current 갱신) +
+   manifest(라벨 결과) 를 **git commit + push** (Pod 작업 = push 한 단위).
+3. belle 콘솔에서 Pod **stop** — 과금 차단(Claude 는 API 키 없어 stop 불가, belle 몫).
+
+### 2.7 비용 관측치 읽는 법
+
+promote stage 가 `/workspace/cycle_reports/cycle_<ts>.json` 을 방출한다(은폐 금지):
+
+| 필드 | 의미 |
+|------|------|
+| `new_labeled` | 이번 사이클 신규 라벨링 행 수(기존 행 skip 제외) |
+| `accepted` | 4중 필터 수락 수 |
+| `rejected_judge` / `rejected_parse` / `rejected_contract` | reject 분해 |
+| `est_gemini_calls` | 추정 Gemini 호출 = `new_labeled × 2` (교사 + judge) |
+| `sft_wall_seconds` | SFT 학습 wall time(초) |
+| `gates` | 게이트 판정(PASS/FAIL — 사람/judge 점수 수치는 저장 안 함, 객관성 gate) |
+| `promoted` | current 전진 여부(true = PASS 승격) |
+
+가이드: **`est_gemini_calls` 가 예상 밖으로 크면** label stage 를 중단하고(Ctrl-C 또는
+Pod 콘솔) belle 이 신규 배치 규모·크레딧을 확인한 뒤 재개한다. new_labeled=0 인데 사이클을
+돌렸다면 신규 수집이 없었다는 뜻(§1 을 먼저 돌려 배치를 쌓아야 함).
+
+### 2.8 최종 리허설 (플랜 종료 상태 확인)
+
+로컬(과금·Pod 0)에서 플랜 산출이 살아있는지 일괄 확인:
+
+```bash
+cd backend
+python3 -m pytest tests/phase22 -q                       # 전 스위트 무회귀
+bash -n training/sft/run_retrain_cycle.sh                # 러너 문법
+python3 -m pytest tests/phase22/test_promotion.py -q     # 래칫 로직
+python3 -c "import json; l=json.load(open('training/sft/promotion_ledger.json')); \
+  assert l['current'] is None and l['entries']==[]; print('ledger init OK')"
+```

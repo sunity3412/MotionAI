@@ -95,6 +95,24 @@ export const REGION_MEMBER_KEYPOINTS: Record<
   arms: ['left_shoulder', 'right_shoulder', 'left_hand', 'right_hand'],
 };
 
+// 29-PLAN-REVIEW HIGH-1 / 29-CONTEXT D-01·D-08 — ipsf_absolute criterion id →
+// 결함단위(region) keypoint 매핑. mode3 감점 record 는 관절 필드를 나르지 않고
+// criterion id(leg_extension/arm_extension/split_angle/line, ipsf_criteria.
+// _MEASURABLE_SEED_IDS)만 가지므로, 마커·행동구·zoom 매칭이 성립하려면 id 를
+// 부위로 투영해야 한다. 값은 REGION_MEMBER_KEYPOINTS 재사용(중복 선언 0).
+//   leg_extension → legs / arm_extension → arms / split_angle → legs
+//   (split 은 양다리 부위 — 기존 vision-split legs 투영과 동일 부위).
+//   line → 매핑 없음 (의도된 결정): collective 전신 라인 criterion(joint_keys
+//     빈 튜플)이라 특정 관절 마커가 오도하고 zoom region 도 없다 — 29-03 backend
+//     무방출 결정과 정합. 테이블 미등록 id 도 자동 [] (fabricate 0).
+// **cross-side 계약:** 이 표는 29-03 backend zoom region 파생 표
+//   (_build_mode3_fault_zoom_comparisons)와 항목 동일해야 한다 (측당 1벌).
+export const CRITERION_REGION_KEYPOINTS: Record<string, readonly KeypointName[]> = {
+  leg_extension: REGION_MEMBER_KEYPOINTS.legs,
+  arm_extension: REGION_MEMBER_KEYPOINTS.arms,
+  split_angle: REGION_MEMBER_KEYPOINTS.legs,
+};
+
 // 각도 숫자 없는 짧은 행동구 (quick-260705-o0s) — belle: "각도를 여기서 하기보단
 // '다리를 더 모으세요' 등으로만. 각도는 세부 점수에서 어차피 나옴". 재생 중
 // 오버레이 라벨은 행동만 전달하고, 각도 수치는 '점수 계산 내역'이 담당한다.
@@ -164,10 +182,10 @@ export function composeScoringBasisKo(
 //
 // 규칙 (전부 저장값 read-only — 재계산/재해석 0):
 //   - record 순회는 저장 순서 그대로 (엔진이 결정적 정렬, 재정렬 금지).
-//   - 관절 투영: (a) angle_vs_reference__{jk} → KEYPOINT_FROM_ANGLE_KEY 단일
-//     keypoint / (b) 관절명 없는 vision record(split_angle 등, source='vision')
-//     → faultJoints 전체 (fz4 confirmedKeypoints 와 동일 규칙, CONTEXT locked) /
-//     (c) dimension_overall_fallback 또는 unit='score_delta' → 투영 없음.
+//   - 관절 투영은 projectDeductionRecordKeypoints 공용 helper 1벌 (규칙 사본 0):
+//     angle_vs_reference__{jk} → 단일 keypoint / source='vision' → faultJoints 전체 /
+//     ipsf_absolute geometry criterion(mode3 leg/arm/split) → 부위 keypoint /
+//     dimension_overall_fallback·score_delta·line → 투영 없음.
 //   - 번호는 "새 keypoint 를 최소 1개 확보한 record" 에만 1부터 순차 부여.
 //     이미 앞 record 가 번호를 붙인 keypoint 는 첫 번호가 이긴다 (first-wins —
 //     점 하나에 숫자 하나). 투영 실패/전부 선점된 record 는 recordNumbers[i]=null
@@ -175,13 +193,48 @@ export function composeScoringBasisKo(
 //   - 같은 record 가 여러 keypoint 로 투영되면(스플릿 → 양쪽 hip 등) 전부 같은
 //     번호 (같은 감점의 시각 분산 — 거짓 아님).
 //
-// quick-260705-r6v — groupMarkers 확장 (additive, 하위호환). 관절명 없는 vision
-// record 가 2개 이상 keypoint 로 투영되면("번호 다 1" 근본원인 — 스플릿이 다리
-// 4관절에 같은 번호 4점) 멤버 각각에 keypointNumbers 를 찍지 않고 groupMarkers 에
+// quick-260705-r6v → 29-PLAN-REVIEW HIGH-1 — groupMarkers 확장 (additive, 하위호환).
+// record 가 2개 이상 keypoint 로 투영되면(스플릿=다리 4관절 / mode3 leg_extension=
+// legs 4관절 — "번호 다 1" 근본원인) 멤버 각각에 keypointNumbers 를 찍지 않고 groupMarkers 에
 // 1 entry(번호 1개 + 멤버 배열)로 방출한다 → 뷰어가 멤버 centroid 1점만 번호로
 // 표시. 멤버는 점유(first-wins)해 뒤 record 가 재번호 못 붙인다. recordNumbers 의
 // 번호 부여 순서/규칙은 불변 — 그룹 record 도 번호를 받는다(내역 행 ①과 중점 점
 // ①이 일치). 기존 소비처는 groupMarkers 를 무시해도 컴파일된다.
+// 29-PLAN-REVIEW HIGH-1 / 29-CONTEXT D-01·D-08 — record → keypoint 투영 규칙의
+// 공용 helper 1벌. 종전 두 사본(buildDeductionMarkers 내부 · result.tsx
+// recordProjectedKeypoints)의 규칙을 여기로 이관해 "동일 규칙" 페어링을 실현한다
+// (규칙 1벌). 전부 저장값 read-only — 재계산/재해석 0.
+//
+// **평가 순서 고정 (mode1 무회귀):** 기존 3규칙에 전부 비매치인 record 에만
+// ipsf_absolute criterion 테이블을 적용 — 분기 순서상 마지막. mode1 의
+// vision-sourced split_angle record 는 종전대로 (3) vision 분기에서 faultJoints
+// (vision 확정 부분집합)로 투영되고, 테이블의 legs 고정 4관절로 절대 바뀌지 않는다
+// (테이블을 vision 앞에 두면 mode1 그룹 마커 멤버·centroid 가 조용히 드리프트 — 금지).
+//   (1) dimension_overall_fallback · unit='score_delta' → []
+//   (2) angle_vs_reference__{jk} → KEYPOINT_FROM_ANGLE_KEY 단일 keypoint
+//   (3) source==='vision' → faultJoints 전체
+//   (4) ipsf_absolute geometry criterion → CRITERION_REGION_KEYPOINTS(부위) / line·미등록 → []
+export function projectDeductionRecordKeypoints(
+  record: DeductionRecord,
+  faultJoints: readonly KeypointName[] | undefined,
+): KeypointName[] {
+  if (
+    record.criterion === 'dimension_overall_fallback' ||
+    record.unit === 'score_delta'
+  ) {
+    return [];
+  }
+  if (record.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) {
+    const jk = record.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
+    const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
+    return kp ? [kp] : [];
+  }
+  if (record.source === 'vision') return [...(faultJoints ?? [])];
+  // 위 3규칙 전부 비매치 — ipsf_absolute geometry criterion(mode3 seed).
+  const region = CRITERION_REGION_KEYPOINTS[record.criterion];
+  return region ? [...region] : [];
+}
+
 export function buildDeductionMarkers(
   records: DeductionRecord[],
   faultJoints: readonly KeypointName[] | undefined,
@@ -198,22 +251,12 @@ export function buildDeductionMarkers(
   const occupied = new Set<KeypointName>();
   let next = 1;
   for (const rec of records) {
-    let projected: KeypointName[] = [];
-    // 관절명 없는 vision record 가 2관절 이상 투영 = 그룹(중점) 마커 후보.
-    let isVisionGroup = false;
-    if (
-      rec.criterion === 'dimension_overall_fallback' ||
-      rec.unit === 'score_delta'
-    ) {
-      projected = [];
-    } else if (rec.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) {
-      const jk = rec.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
-      const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
-      projected = kp ? [kp] : [];
-    } else if (rec.source === 'vision') {
-      projected = [...(faultJoints ?? [])];
-      isVisionGroup = projected.length >= 2;
-    }
+    const projected = projectDeductionRecordKeypoints(rec, faultJoints);
+    // quick-260705-r6v → 29-PLAN-REVIEW HIGH-1: 2관절 이상 투영 = 그룹(중점) 마커.
+    // source==='vision'(스플릿) 한정에서 projected.length>=2 로 일반화 — mode3
+    // leg_extension 의 legs 4관절도 개별 4점(전부 같은 번호)이 아닌 centroid 그룹
+    // 1점으로 표시된다 (quick-260705-r6v "번호 다 1" 근본원인의 일반화).
+    const isGroup = projected.length >= 2;
     const fresh = projected.filter((kp) => !occupied.has(kp));
     if (fresh.length === 0) {
       recordNumbers.push(null);
@@ -222,7 +265,7 @@ export function buildDeductionMarkers(
     const num = next;
     next += 1;
     recordNumbers.push(num);
-    if (isVisionGroup) {
+    if (isGroup) {
       // 중점 1점 그룹 마커 — 멤버 각각엔 keypointNumbers 미기록 (개별 번호 없음).
       groupMarkers.push({ number: num, keypoints: fresh });
       for (const kp of fresh) occupied.add(kp);

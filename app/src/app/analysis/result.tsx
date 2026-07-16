@@ -38,6 +38,7 @@ import {
   criterionLabelKo,
   formatDeductionNumber,
   isCleanPass,
+  projectDeductionRecordKeypoints,
 } from '../../lib/deductionLabels';
 import { useReferenceMotion } from '../../lib/referenceMotions';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
@@ -281,28 +282,10 @@ function hasSynthesisWarning(
 // JointScore.key (kismam) → keypoint name 매핑은 deductionLabels.
 // KEYPOINT_FROM_ANGLE_KEY 단일 출처 (quick-260704-fz4 — 로컬 중복 맵 제거).
 
-// quick-260705-r6v — record 투영 keypoint (buildDeductionMarkers 와 동일 규칙).
-// 범례/시트 행동구·zoom 매칭이 record 를 관절로 되짚을 때 재사용 (규칙 1벌).
-//   angle_vs_reference__{jk} → 단일 keypoint / source='vision' → faultJoints 전체 /
-//   dimension_overall_fallback·score_delta → 투영 없음.
-function recordProjectedKeypoints(
-  rec: DeductionRecord,
-  faultJoints: readonly KeypointName[] | undefined,
-): KeypointName[] {
-  if (
-    rec.criterion === 'dimension_overall_fallback' ||
-    rec.unit === 'score_delta'
-  ) {
-    return [];
-  }
-  if (rec.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) {
-    const jk = rec.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
-    const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
-    return kp ? [kp] : [];
-  }
-  if (rec.source === 'vision') return [...(faultJoints ?? [])];
-  return [];
-}
+// quick-260705-r6v → 29-PLAN-REVIEW HIGH-1 — record 투영 keypoint 규칙은
+// deductionLabels.projectDeductionRecordKeypoints 공용 helper 1벌로 이관됨(로컬
+// 사본 제거). 범례/시트 행동구·zoom 매칭이 record 를 관절로 되짚을 때 그 helper 를
+// 그대로 소비한다 (규칙 1벌 — buildDeductionMarkers 와 동일 소스).
 
 // quick-260705-r6v — record 행동구 resolver (범례·드릴다운 시트 공용 소스).
 // 투영 keypoint(단일이면 그 관절, 그룹이면 멤버) 중 actionLabels 를 가진 첫 관절의
@@ -312,7 +295,7 @@ function actionPhraseForRecord(
   faultJoints: readonly KeypointName[] | undefined,
   actionLabels: Partial<Record<KeypointName, string>>,
 ): string | null {
-  for (const kp of recordProjectedKeypoints(rec, faultJoints)) {
+  for (const kp of projectDeductionRecordKeypoints(rec, faultJoints)) {
     const label = actionLabels[kp];
     if (label) return label;
   }
@@ -961,7 +944,9 @@ function AnalysisResultContent({
   // 수치·문구만 — graceful).
   const selectedZoom = useMemo<FaultZoomComparison | null>(() => {
     if (!selectedRecord) return null;
-    const kps = new Set(recordProjectedKeypoints(selectedRecord, vetoFaultJoints));
+    const kps = new Set(
+      projectDeductionRecordKeypoints(selectedRecord, vetoFaultJoints),
+    );
     if (kps.size === 0) return null;
     for (const z of result.faultZoomComparisons ?? []) {
       if (z.tier === 'advisory') continue;

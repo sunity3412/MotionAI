@@ -1393,13 +1393,19 @@ function AnalysisResultContent({
               />
             </View>
             <VideoCompare
-              leftLabel="내 영상"
+              // 29-CONTEXT D-06 — mode3 비교 = 본인 이전 영상 vs 이번 영상.
+              // 좌/우 라벨을 지난/이번 쌍으로 명확히 (정은지 언급 없음). mode1 은
+              // 좌 '내 영상' 유지.
+              leftLabel={cmp.mode === 'mode3' ? '이번 영상' : '내 영상'}
               // 28-CONTEXT D-01 — 정은지(right) 재생을 학생(left) 마스터 시계에 동작
               // 기준으로 워핑(28-06 소비). videoAlignment=null(legacy/malformed)이면
               // VideoCompare 가 현행 절대시계로 100% 폴백 — 신규 doc 만 정렬이 흐른다.
+              // 29-CONTEXT D-10 — mode3 워핑은 28-04 방출(mode1+mode3) + 이 mode
+              // 무관 전달로 기흐름 (신규 워핑 구현 0). 신뢰도 사다리·배속 클램프는
+              // 28 D-02 를 mode 무관하게 동일 적용 — 여기 mode 조건 추가 금지.
               alignment={videoAlignment}
               rightLabel={
-                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'
+                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
               }
               leftUrl={result.myVideoUrl || undefined}
               rightUrl={
@@ -1504,6 +1510,16 @@ function AnalysisResultContent({
             ) : null}
           </>
         )}
+
+        {/* 29-CONTEXT D-07 — mode3 첫 분석(이전 영상 없음)은 비교 섹션 전체 숨김
+            (위 게이트) + 그 자리에 안내 1줄. 정은지 폴백 금지(mode1 혼동 + 미보유
+            동작 reference 부재 — D-07 기각 사유). D-05 고지와 톤 통일("~해요" 체,
+            전진형). mode1/mode3 second+ 무회귀. */}
+        {cmp.mode === 'mode3' && cmp.isFirst ? (
+          <Text style={styles.mode3LimitNotice}>
+            다음 분석부터 이전 영상과 비교해 발전을 확인해 드려요.
+          </Text>
+        ) : null}
 
         {/* quick-260705-r6v — 메인 '문제 부위 확대 비교' 섹션 제거 (구 확대 비교
             컴포넌트 파일 삭제). 확대사진은 내역 행/여백 범례/(세로) 번호 점 탭 →
@@ -1859,7 +1875,8 @@ function AnalysisResultContent({
         // D-04 앱측 (28-05 공급) — DTW 대응 실패 시 ref 는 전신 폴백 이미지라
         // "같은 동작 순간을 못 찾았다"고 정직 고지. 부재(legacy)/'dtw'면 false → 캡션 없음.
         refMatchFailed={selectedZoom?.refMatch === 'failed'}
-        rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 분석'}
+        // 29-CONTEXT D-06 — mode3 드릴다운 비교 라벨도 지난/이번 계열 (정은지 미언급).
+        rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'}
       />
     </View>
   );

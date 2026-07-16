@@ -205,3 +205,93 @@ def test_real_manifest_passes_build_jsonl_gate():
 
     m = _load_real_manifest()
     assert_collection_complete(m, partial=False)  # 예외 없어야.
+
+
+# ── Task 2: watch 대상 선별 ──────────────────────────────────────────────────
+def _synthetic_registry() -> dict:
+    return {
+        "defaults": {},
+        "channels": [
+            {"name": "ytA", "platform": "youtube", "bucket": "정타", "enabled": True},
+            {"name": "ytOff", "platform": "youtube", "bucket": "정타", "enabled": True,
+             "watch": False},
+            {"name": "ytDisabled", "platform": "youtube", "bucket": "정타", "enabled": False},
+            {"name": "igA", "platform": "instagram", "bucket": "fault", "enabled": False},
+            {"name": "igOff", "platform": "instagram", "bucket": "fault", "enabled": False,
+             "watch": False},
+        ],
+    }
+
+
+def test_watch_targets_excludes_watch_false():
+    reg = _synthetic_registry()
+    t = watch.watch_targets(reg)
+    yt_names = {c["name"] for c in t["youtube"]}
+    ig_names = {c["name"] for c in t["instagram"]}
+    # watch:false 제외.
+    assert "ytOff" not in yt_names
+    assert "igOff" not in ig_names
+    # YT 는 enabled 만(disabled 제외), IG 는 enabled 무관(트랙 전체).
+    assert "ytDisabled" not in yt_names
+    assert yt_names == {"ytA"}
+    assert ig_names == {"igA"}
+
+
+def test_real_registry_eunji_is_watch_target():
+    """정은지(eunji.poledancer)는 watch:false 부재 = watch 대상 + cap 60 유지."""
+    reg = watch.yt.load_registry(watch.SOURCES_YAML)
+    t = watch.watch_targets(reg)
+    ig_names = {c["name"] for c in t["instagram"]}
+    assert "eunji.poledancer" in ig_names
+    eunji = next(c for c in t["instagram"] if c["name"] == "eunji.poledancer")
+    assert eunji.get("cap_per_account") == 60
+
+
+# ── Task 2: summarize_run + 카운트 파싱 ──────────────────────────────────────
+def test_summarize_run_counts():
+    before = _synthetic_manifest()
+    after = copy.deepcopy(before)
+    after["rows"].append(
+        {"s3_key": "fixtures/phase22/x/N1.mp4", "motion": "x", "label_bucket": "fault",
+         "source": "youtube", "usage": "x", "holdout": None, "collection_batch": "watch-260716"})
+    after["rows"].append(
+        {"s3_key": "fixtures/phase22/x/N2.mp4", "motion": "x", "label_bucket": "정타",
+         "source": "instagram", "usage": "x", "holdout": None, "collection_batch": "watch-260716"})
+    entry = watch.make_batch_entry("watch-260716", "t")
+    entry["curated_reject"] = 3
+    entry["skipped_existing"] = 5
+    s = watch.summarize_run(before, after, entry)
+    assert s["new_rows"] == 2
+    assert s["new_by_source"] == {"youtube": 1, "instagram": 1}
+    assert s["new_by_bucket"] == {"정타": 1, "fault": 1}
+    assert s["curated_reject"] == 3
+    assert s["skipped_existing"] == 5
+    # 누적 = before(2) + new(2).
+    assert s["cumulative_rows_after"] == 4
+
+
+def test_parse_collect_counts():
+    text = (
+        "  KoreaPole [정타] 열거 40 필터통과 12 | gated 12 keep 8 reject 3 unknown 1\n"
+        "  BerryTV  [fault] 열거 20 필터통과  5 | gated  5 keep 2 reject 2 unknown 1\n"
+        "[collect] 다운로드 6 | skip(기존) 4 | unavailable 0 | fail 0 | manifest rows 245\n"
+        "[collect-ig] 적재 2 | reject(품질) 1 | skip(기존) 3 | fail 0 | manifest rows 248.\n"
+    )
+    c = watch._parse_collect_counts(text)
+    assert c["curated_reject"] == 5   # 3 + 2
+    assert c["skipped_existing"] == 7  # 4 + 3
+
+
+# ── Task 2: --run 게이트 ─────────────────────────────────────────────────────
+def test_run_gate_blocks_without_greenlight(monkeypatch):
+    monkeypatch.delenv("PHASE22_BELLE_GREENLIGHT", raising=False)
+    with pytest.raises(SystemExit) as ei:
+        watch.main(["--run"])
+    assert ei.value.code == 2
+
+
+def test_run_gate_blocks_with_empty_greenlight(monkeypatch):
+    monkeypatch.setenv("PHASE22_BELLE_GREENLIGHT", "")
+    with pytest.raises(SystemExit) as ei:
+        watch.main(["--run"])
+    assert ei.value.code == 2

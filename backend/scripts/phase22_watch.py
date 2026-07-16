@@ -179,5 +179,291 @@ def save_manifest(manifest: dict) -> None:
     )
 
 
+# ===========================================================================
+# watch 대상 선별 + 리포트 조립 (순수).
+# ===========================================================================
+def watch_targets(registry: dict) -> dict:
+    """watch 대상 = watch:false 옵트아웃 제외. 순수.
+
+    YouTube 는 enabled 채널만(_active_channels 관례 — 미성년 등 격리 유지),
+    Instagram 은 트랙 전체(IG 어댑터가 enabled 무관 처리 — collect_phase22_instagram
+    설계). watch 필드 부재 = 대상(기본 opt-in).
+    """
+    yt_ch = [
+        c for c in yt._active_channels(registry)
+        if c.get("platform") == "youtube" and c.get("watch", True)
+    ]
+    ig_ch = [
+        c for c in registry.get("channels", [])
+        if c.get("platform") == "instagram" and c.get("watch", True)
+    ]
+    return {"youtube": yt_ch, "instagram": ig_ch}
+
+
+def _parse_collect_counts(captured_text: str) -> dict:
+    """하위 수집기 stdout 에서 reject/skip 카운트 추출(순수, 은폐 금지 보조).
+
+    curate 라인 "... reject {n} ..." + collect 라인 "skip(기존) {n}" 을 합산한다.
+    실 수집을 재실행하지 않고 방출 리포트를 조립하기 위한 파싱(테스트 대상).
+    """
+    import re
+
+    rejects = sum(int(x) for x in re.findall(r"reject\s+(\d+)", captured_text))
+    skips = sum(int(x) for x in re.findall(r"skip\(기존\)\s+(\d+)", captured_text))
+    return {"curated_reject": rejects, "skipped_existing": skips}
+
+
+def summarize_run(before: dict, after: dict, batch_entry: dict) -> dict:
+    """실행 요약 리포트 조립 — 신규 행/소스분해/버킷분해/누적(순수).
+
+    curated_reject/skipped_existing 은 batch_entry 에서(오케스트레이터가 채움),
+    new_rows/소스/버킷은 before/after 행 diff 에서 계산한다.
+    """
+    before_rows = before.get("rows", [])
+    after_rows = after.get("rows", [])
+    new_rows = after_rows[len(before_rows):]
+    by_source = {"youtube": 0, "instagram": 0}
+    by_bucket = {"정타": 0, "fault": 0}
+    for r in new_rows:
+        src = r.get("source")
+        if src in by_source:
+            by_source[src] += 1
+        b = r.get("label_bucket")
+        if b in by_bucket:
+            by_bucket[b] += 1
+    return {
+        "batch_id": batch_entry.get("batch_id"),
+        "trigger": batch_entry.get("trigger"),
+        "opened_at": batch_entry.get("opened_at"),
+        "new_rows": len(new_rows),
+        "new_by_source": by_source,
+        "new_by_bucket": by_bucket,
+        "curated_reject": int(batch_entry.get("curated_reject") or 0),
+        "skipped_existing": int(batch_entry.get("skipped_existing") or 0),
+        "cumulative_rows_after": len(after_rows),
+    }
+
+
+def write_report(batch_id: str, summary: dict) -> Path:
+    """watch_reports/{batch_id}.json 이중 기록(T-22-11-05 은폐 방지). I/O 껍데기."""
+    WATCH_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    path = WATCH_REPORTS_DIR / f"{batch_id}.json"
+    path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+class _Tee:
+    """stdout 을 실시간 표시 + 버퍼 캡처(하위 수집기 카운트 파싱용)."""
+
+    def __init__(self, *streams):
+        self._streams = streams
+
+    def write(self, s):
+        for st in self._streams:
+            st.write(s)
+        return len(s)
+
+    def flush(self):
+        for st in self._streams:
+            st.flush()
+
+
+# ===========================================================================
+# 오케스트레이션.
+# ===========================================================================
+def _yt_passthrough(mode_flag: str, args) -> list[str]:
+    argv = [mode_flag, "--sources", args.sources]
+    if args.only:
+        argv += ["--only", args.only]
+    if args.limit_per_channel:
+        argv += ["--limit-per-channel", str(args.limit_per_channel)]
+    if args.max_candidates:
+        argv += ["--max-candidates", str(args.max_candidates)]
+    return argv
+
+
+def _ig_passthrough(args) -> list[str]:
+    argv = ["--collect", "--sources", args.sources]
+    if args.only:
+        argv += ["--only", args.only]
+    if args.cap_per_account:
+        argv += ["--cap-per-account", str(args.cap_per_account)]
+    if args.max_candidates:
+        argv += ["--max-candidates", str(args.max_candidates)]
+    return argv
+
+
+def _dry_run(registry: dict, args) -> int:
+    """레지스트리 + watch 대상 + 원장 불변식 self-check + 하위 dry-run 위임. network 0."""
+    targets = watch_targets(registry)
+    n_yt, n_ig = len(targets["youtube"]), len(targets["instagram"])
+    print(
+        f"[watch dry-run] 레지스트리 {args.sources} | watch 대상 채널 {n_yt + n_ig} "
+        f"(youtube {n_yt} + instagram {n_ig}) | network 0 · 과금 0",
+        flush=True,
+    )
+    for c in targets["youtube"]:
+        print(f"  [YT] {c['name']:<34} bucket={c.get('bucket','?'):<6} tier={c.get('tier','?')}", flush=True)
+    for c in targets["instagram"]:
+        cap = c.get("cap_per_account", "기본")
+        print(f"  [IG] {c['name']:<34} bucket={c.get('bucket','?'):<6} cap={cap}", flush=True)
+
+    # 배치 원장 불변식 self-check — 합성 manifest 왕복(silent 통과 금지, 실 파일 무접촉).
+    synth = {
+        "_meta": {
+            "collection_complete": True,
+            "collection_closed": {"closed_at": "x"},
+            "balance_waiver": {"unmet": ["max_le_2min"]},
+            "collection_batches": [],
+        },
+        "rows": [{"s3_key": "fixtures/phase22/x/A.mp4", "motion": "x",
+                  "label_bucket": "정타", "source": "youtube", "usage": "x", "holdout": None}],
+    }
+    before = copy.deepcopy(synth)
+    after = copy.deepcopy(synth)
+    bid = compute_batch_id(after, "000000")
+    register_batch(after, make_batch_entry(bid, "dry-run-selfcheck"))
+    after["rows"].append(make_watch_row(
+        {"s3_key": "fixtures/phase22/x/B.mp4", "motion": "x", "label_bucket": "fault",
+         "source": "instagram", "usage": "x", "holdout": None}, bid))
+    try:
+        assert_ledger_invariants(before, after)
+    except AssertionError as exc:
+        print(f"  [LEDGER-FAIL] {exc}", file=sys.stderr, flush=True)
+        return 1
+    print("  [ledger self-check] OK — append-only + 마감 무결성 왕복 통과", flush=True)
+
+    # 하위 수집기 dry-run 위임(네트워크 0).
+    print("\n[watch dry-run] 하위 수집기 dry-run 위임:", flush=True)
+    import collect_phase22_instagram as ig
+
+    rc_yt = yt.main(["--dry-run", "--sources", args.sources])
+    rc_ig = ig.main(["--dry-run", "--sources", args.sources])
+    if rc_yt != 0 or rc_ig != 0:
+        print(f"  [SUB-FAIL] yt={rc_yt} ig={rc_ig}", file=sys.stderr, flush=True)
+        return 1
+    print(
+        "\n[watch dry-run] exit 0 — watch 대상 확인 + 원장 불변식 + 하위 dry-run 전부 통과. "
+        "다운로드·Gemini·boto3 호출 0. 실 수집은 --run(belle greenlight).",
+        flush=True,
+    )
+    return 0
+
+
+def _run(registry: dict, args) -> int:
+    """belle 1커맨드 실 수집 — 배치 등재 + 멱등 수집 + 리포트 + 게이트 재검증."""
+    import os
+
+    if os.environ.get(BELLE_GREENLIGHT_ENV) != "1":
+        print(
+            f"[BLOCKED] --run 은 belle 과금 게이트 — Gemini 과금 + 카피라이트 S3 적재(비가역).\n"
+            f"승인 후에만: {BELLE_GREENLIGHT_ENV}=1 AWS_PROFILE=sunity-motion 로 재실행.",
+            file=sys.stderr, flush=True,
+        )
+        raise SystemExit(2)
+
+    import io
+    import contextlib
+    import subprocess
+
+    import collect_phase22_instagram as ig
+
+    # (1) 스냅샷(before) + 진입 fail-closed(collection_complete 마감 확인).
+    before = copy.deepcopy(load_manifest())
+    if before.get("_meta", {}).get("collection_complete") is not True:
+        print("[watch --run] 진입 차단 — _meta.collection_complete != true(마감 미완).",
+              file=sys.stderr, flush=True)
+        return 1
+
+    today = datetime.now(timezone.utc).strftime("%y%m%d")
+    batch_id = compute_batch_id(before, today)
+    entry = make_batch_entry(batch_id, "belle-manual --run")
+
+    # (1b) open 배치를 디스크에 먼저 등재(수집 중 크래시 시에도 이력 존치).
+    working = copy.deepcopy(before)
+    register_batch(working, entry)
+    save_manifest(working)
+    print(f"[watch --run] 배치 {batch_id} open 등재. before rows={len(before['rows'])}", flush=True)
+
+    # (2)(3) 하위 수집기 위임 — verdict 캐시 + s3_key 멱등이 재과금 차단. stdout 캡처.
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(_Tee(sys.stdout, buf)):
+        yt.main(_yt_passthrough("--curate", args))
+        yt.main(_yt_passthrough("--collect", args))
+        ig.main(_ig_passthrough(args))
+    captured = buf.getvalue()
+    counts = _parse_collect_counts(captured)
+
+    # (4) 재로드 → 신규 행 collection_batch 태깅 + 배치 entry 갱신.
+    after = load_manifest()
+    before_len = len(before["rows"])
+    tagged_new = [make_watch_row(r, batch_id) for r in after["rows"][before_len:]]
+    after["rows"] = after["rows"][:before_len] + tagged_new
+    new_by_source = {"youtube": 0, "instagram": 0}
+    for r in tagged_new:
+        if r.get("source") in new_by_source:
+            new_by_source[r["source"]] += 1
+    update_batch_entry(
+        after, batch_id,
+        sources=new_by_source,
+        new_rows=len(tagged_new),
+        curated_reject=counts["curated_reject"],
+        skipped_existing=counts["skipped_existing"],
+        status="collected",
+        cumulative_rows_after=len(after["rows"]),
+    )
+
+    # (5) 불변식 통과 후에만 저장.
+    assert_ledger_invariants(before, after)
+    save_manifest(after)
+
+    # 리포트(은폐 금지) — stdout 요약 + watch_reports/{batch_id}.json.
+    entry_after = next(b for b in after["_meta"]["collection_batches"] if b["batch_id"] == batch_id)
+    summary = summarize_run(before, after, entry_after)
+    report_path = write_report(batch_id, summary)
+    print(
+        f"\n[watch --run] 배치 {batch_id} collected — 신규 {summary['new_rows']} "
+        f"(yt {summary['new_by_source']['youtube']} / ig {summary['new_by_source']['instagram']}) "
+        f"| reject {summary['curated_reject']} | skip(기존) {summary['skipped_existing']} "
+        f"| 버킷 정타 {summary['new_by_bucket']['정타']} / fault {summary['new_by_bucket']['fault']} "
+        f"| 누적 training 행 {summary['cumulative_rows_after']}\n"
+        f"  리포트: {report_path}",
+        flush=True,
+    )
+
+    # (6) 수집 후 게이트 자동 재검증(FAIL 은 exit 비0으로 표면화 — 은폐 금지).
+    gate = subprocess.run(
+        [sys.executable, "-m", "pytest",
+         "tests/phase22/test_manifest_consistency.py",
+         "tests/phase22/test_provenance.py", "-q"],
+        cwd=str(BACKEND),
+    )
+    if gate.returncode != 0:
+        print(f"[watch --run] 수집 후 게이트 FAIL (exit {gate.returncode}) — 원장 표면화.",
+              file=sys.stderr, flush=True)
+        return gate.returncode
+    return 0
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Phase 22 데이터 플라이휠 쌓기 러너 — --dry-run 안전, --run belle 게이트"
+    )
+    parser.add_argument("--sources", default=str(SOURCES_YAML))
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", help="watch 대상 + 원장 self-check + 하위 dry-run (기본)")
+    mode.add_argument("--run", action="store_true", help="실 수집 (belle greenlight 필수)")
+    parser.add_argument("--only", default=None, help="채널/계정명 부분일치 (파일럿 스코프)")
+    parser.add_argument("--limit-per-channel", type=int, default=None, dest="limit_per_channel")
+    parser.add_argument("--cap-per-account", type=int, default=None, dest="cap_per_account")
+    parser.add_argument("--max-candidates", type=int, default=None, dest="max_candidates")
+    args = parser.parse_args(argv)
+
+    registry = yt.load_registry(Path(args.sources))
+    if args.run:
+        return _run(registry, args)
+    return _dry_run(registry, args)
+
+
 if __name__ == "__main__":
-    sys.exit(main())  # noqa: F821 — main 은 Task 2 에서 추가.
+    sys.exit(main())

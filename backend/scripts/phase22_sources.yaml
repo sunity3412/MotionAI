@@ -12,6 +12,18 @@
 #   · 채널이 아니라 시리즈/영상 단위로 판단. 수집 = 균등 샘플(dump-all 아님;
 #     동작별 max <= 2*min, 미보유 동작 >= 2종). per_channel_cap 로 harvest 단계 강제.
 #   · 실제 다운로드/S3 적재 = belle greenlight (Task 3). 본 파일 = 열거/필터 규율만.
+#
+# ── watch 규약 (phase22_watch.py 쌓기 러너, 22-11) ────────────────────────────
+#   · phase22_watch.py --run 은 이 레지스트리의 watch 대상을 주기 수집한다.
+#   · watch 대상 = 선택 필드 `watch: false` 부재(기본 opt-in). 옵트아웃하려면
+#     해당 entry 에 `watch: false` 추가(수집 대상에서 제외, 등재/이력은 보존).
+#     - YouTube: enabled=true 채널만 watch(미성년 등 enabled=false 격리 유지).
+#     - Instagram: 트랙 전체(IG 어댑터는 enabled 무관 처리 — collect_phase22_instagram).
+#   · 신규 채널 등재 형식 (belle 승인 후에만 추가):
+#       필수: name / channel_url / platform(youtube|instagram) / tier / bucket(정타|fault) / notes
+#       선택: discipline_include(오버라이드) / duration_window / series_include /
+#             search / search_query / curation_profile / cap_per_account / enabled / watch
+#   · eunji.poledancer(정은지 본인, cap 60)는 watch:false 부재 = watch 대상(주 1회 페이스).
 
 defaults:
   # 종목 필터 — 제목이 include 에 매칭되고 exclude 에 매칭되지 않아야 후보.

@@ -3005,19 +3005,29 @@ def _build_fault_zoom_comparisons(
     )
 
 
-def _joint_scores(joints: list) -> dict[str, float]:
-    """result.joints(kismam key + score) → {keypoint 이름: score}. Mode3 개선판단용."""
-    out: dict[str, float] = {}
-    for j in joints or ():
-        kp = _KISMAM_TO_KEYPOINT.get(str((j or {}).get("key", "")))
-        sc = (j or {}).get("score")
-        if kp is None or sc is None:
-            continue
-        try:
-            out[kp] = float(sc)
-        except (TypeError, ValueError):
-            continue
-    return out
+# 29-CONTEXT D-08 — mode3 zoom 대상 매핑: 감점 record criterion id → region.
+# DeductionRecord 는 keypoint 필드를 나르지 않으므로(29-PLAN-REVIEW HIGH-1) record
+# 에서 관절을 읽지 않고 criterion id 로 region 을 파생한다. 이 표는 29-04 앱 helper
+# (deductionLabels.ts projectDeductionRecordKeypoints) 매핑과 항목 동일해야 record 행
+# ↔ zoom 카드 드릴다운 매칭(result.tsx:962-974, REGION_MEMBER_KEYPOINTS 교집합)이
+# 성립한다 — 측당 1벌, cross-side 일치가 D-08 수용 기준.
+# line · dimension_overall_fallback · 기타 미등록 id 는 의도적 미등록: line 은
+# collective 전신 criterion(joint_keys 빈 튜플)이라 특정 부위 카드가 오도
+# (29-04 앱 무투영 결정과 정합).
+_MODE3_ZOOM_CRITERION_REGION: dict[str, str] = {
+    "leg_extension": "legs",
+    "split_angle": "legs",
+    "arm_extension": "arms",
+}
+
+# region 카드 멤버 keypoint — 앱 REGION_MEMBER_KEYPOINTS(deductionLabels.ts:90-96)
+# 미러, keypointReport 8-keypoint 이름공간. 좌+우 동일-kind 멤버를 넘기면
+# fault_zoom._group_fault_joints 의 기존 region 카드 경로(_REGION_JOINTS 부분집합)
+# 가 카드 1장으로 묶는다 — 렌더러 무접촉 재사용.
+_MODE3_ZOOM_REGION_MEMBERS: dict[str, tuple[str, ...]] = {
+    "legs": ("left_hip", "right_hip", "left_knee", "right_knee"),
+    "arms": ("left_shoulder", "right_shoulder", "left_hand", "right_hand"),
+}
 
 
 def _build_mode3_fault_zoom_comparisons(
@@ -3032,15 +3042,17 @@ def _build_mode3_fault_zoom_comparisons(
     cached_user_frames=None,
     dtw_match=None,
 ) -> list[dict]:
-    """Mode3 변화 부위 확대 비교 — 현재 vs 지난 영상. kind=improved/worsened.
+    """Mode3 감점 부위 확대 비교 — 현재 vs 지난 영상. kind='deficit' 만.
 
-    belle 2026-06-21 — 이전 영상 대비 어디가 좋아졌나/나빠졌나를 보여준다(mode3=
-    progress, [[mode3-progress-not-similarity]]). 변화 관절 = 현재↔지난 per-joint
-    score 차 최대 top-2. 방향 = score 증가→improved/감소→worsened(각도 수학 회피,
-    정직). 지난 영상은 prev.result.myVideoKey 로 S3 다운로드(임시, 종료 후 정리).
+    29-CONTEXT D-08 — zoom 대상 = 이번 분석 deductionBreakdown 감점 record 의
+    criterion id → region 매핑(_MODE3_ZOOM_CRITERION_REGION). 구 |Δscore| top-2
+    (현재↔지난 per-joint score 차, improved/worsened) 소스는 폐기 — mode1 줌과
+    동일 개념(이번 분석 결함 부위만). improved(개선 부위 축하 카드)는 deferred:
+    어떤 경로에서도 방출하지 않는다. 지난 영상은 prev.result.myVideoKey 로 S3
+    다운로드(임시, 종료 후 정리).
 
     Phase 27 SPD-04 (D-06) — comparisons list[dict] 반환(사후 update 경로). `result` 는
-    per-joint score read 전용(사후 mutation 금지). 대상 부재/무변화 → 빈 리스트.
+    deductionBreakdown read 전용(사후 mutation 금지). 감점 record 부재 → 빈 리스트.
     """
     if not user_video_path or not user_report or not prev:
         return []
@@ -3050,20 +3062,21 @@ def _build_mode3_fault_zoom_comparisons(
     if not prev_report or not prev_video_key:
         return []
 
-    curr_scores = _joint_scores(result.get("joints") or [])
-    prev_scores = _joint_scores(prev_result.get("joints") or [])
-    # 양쪽에 score 있는 관절만 — 변화량(|Δscore|) 최대 top-2.
-    common = [k for k in curr_scores if k in prev_scores]
-    if not common:
+    # 감점 record criterion → region 파생 (같은 region 중복 record = 카드 1장 dedupe,
+    # 순서 = record 등장 순, 카드 수 상한 = 현행 top-2 유지).
+    records = (result.get("deductionBreakdown") or {}).get("records") or []
+    regions: list[str] = []
+    for rec in records:
+        region = _MODE3_ZOOM_CRITERION_REGION.get(str((rec or {}).get("criterion", "")))
+        if region is not None and region not in regions:
+            regions.append(region)
+    regions = regions[:2]
+    if not regions:
+        # 29-CONTEXT D-08 — 감점 record 없으면 zoom 카드 없음 = 의도된 동작
+        # (4/5 빈 criteria 동작 자연 귀결 + line 등 비매핑 criterion 뿐인 경우 포함).
         return []
-    common.sort(key=lambda k: -abs(curr_scores[k] - prev_scores[k]))
-    change_joints = [k for k in common if abs(curr_scores[k] - prev_scores[k]) >= 1.0][:2]
-    if not change_joints:
-        return []
-    kinds = {
-        k: ("improved" if curr_scores[k] >= prev_scores[k] else "worsened")
-        for k in change_joints
-    }
+    fault_joints = [j for r in regions for j in _MODE3_ZOOM_REGION_MEMBERS[r]]
+    kinds = {j: "deficit" for j in fault_joints}
 
     from sunity_shared.analysis import vision_veto
 
@@ -3078,7 +3091,7 @@ def _build_mode3_fault_zoom_comparisons(
         # 영상이라 도립 pose 대칭 문제로 사이각을 안전 생략(quick-260705-wbs).
         return _render_fault_zoom(
             result, user_video_path, prev_video_path, user_report, prev_report,
-            change_joints, {}, kinds,  # mode3 = 숫자 없음(방향만)
+            fault_joints, {}, kinds,  # mode3 = 숫자 없음(region 카드, kind='deficit')
             vision_veto.worst_pose_timestamp(profile),
             uid, analysis_id, bucket,
             # 28-05 가 시간비례 근사를 제거(D-04) — mode3 도 DTW 대응으로 같은-pose

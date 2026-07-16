@@ -1524,6 +1524,16 @@ const frameIdx = Math.floor(currentTime * report.fps);
 - **MEDIUM-2:** record 내부는 STRICT — `baselineKind` present-but-nullable(optional 아님, Python 이 항상 키 방출), `ipsfAnchor`+`baselineValue` 는 모든 record 에 REQUIRED. legacy-compat 는 whole `deductionBreakdown?` 필드 + breakdown-level `coverageGaps?`/`fallback?` 에서만. (예외: record-level `rawPoints?`/`capApplied?` — §10.2, 상한 적용 record 에만 방출되는 additive optional, quick-260705-k8h.)
 - **MEDIUM-3:** `coverageGaps` entry 는 flat-scalar provenance(`bodyPart`/`faultState`/`keypointSet`/`ruleId`, optional scalar — Firestore nested-array 금지)를 supported_difference 에서 채운다 → 보이지만-0감점 gap 추적가능.
 
+### §10.7 mode3 방출 조건 (Phase 29 신설 — D-01/D-02/D-03, 신규 필드 0)
+
+`deductionBreakdown` 은 mode 무관 optional 그대로다 — mode3 를 위한 계약 필드 신설 0. mode3 의 방출 **조건**만 다음과 같이 서술한다:
+
+- **방출 조건 (D-01):** mode3 는 등록 동작의 ipsf_absolute measured seed(md — RTMW 절대 각도, profile-gated) 보유 시에만 방출. Gemini 추가 호출 0 (vision 비교는 계속 보류).
+- **status 불변 (D-01):** 방출 doc 의 `visionVeto.status` 는 `'mode3_held'` 유지 — `'applied'` 아님. mode3 에서 breakdown 존재 ≠ vision veto 실행 (앱의 vetoApplied 파생은 mode1 의미 그대로).
+- **항등 (D-02):** 방출 doc 의 `overallScore == deductionBreakdown.final` (100−Σ감점, §10.1 산술 그대로). 성장 델타 소스는 저장 `overallScore` 단일 — pre-tally 점수를 나르는 별도 필드 없음.
+- **미방출 (D-03):** md 빈 dict(미등록 동작 + 빈 criteria 동작)는 breakdown 미방출 + `overallScore` 불변 — 기준 없는 감점 0=100 위양성 차단. legacy mode3 doc(breakdown 부재)은 그대로 유효.
+- production 노출은 29-05 sweep 게이트(정은지 페어셋 mode3) 통과 후 Pod 재기동 시점.
+
 ---
 
 ## §11. MotionAlignment (Phase 28 신설 — ALGN-01 동작 기반 비교 정렬)

@@ -114,10 +114,11 @@ Reuse: `Ionicons` (`warning`, `information-circle`), existing `styles.card` shap
 2. Disclaimer header (one line, `typography.caption`, `textSecondary`): frames the whole section as possibility-only + expert referral (see Copywriting).
 3. One `InjuryRiskFlagCard` per active flag (amber banner surface), in severity order (highest first).
 
-**Per-flag card layout:**
+**Per-flag card layout:** (structure `{title, why, recommendation}` — 29-CONTEXT D-14 추가분)
 - Row 1: `Ionicons name="warning"` (size 16, `warnAmber`) + flag title (`boxLabel`, color `warnAmber`).
 - Row 2: "why" line (`caption`, `textPrimary`, lineHeight 18) = posture condition + control-loss signal in plain Korean (D-02 combination), phrased as 가능성.
-- Row 3 (shared, once per card OR once per section): "전문가 확인 권유" line (`caption`, `textSecondary`).
+- Row 3 (29-CONTEXT D-14): recommendation intro `이렇게 해보세요` (`captionSmall`, color `warnAmber`) + recommendation line (`caption`, `textPrimary`, lineHeight 18) = flagType 별 결이 다른 구체적 완화 행동, "~해요/~주세요" 체. 부상 확정이 아닌 행동 안내이며, "각도" 금지어 미사용.
+- Row 4 (shared, once per section footer): "강사와 점검" 톤 전문가 확인 캡션 (`caption`, `textSecondary`). 이 캡션이 정확한 진단의 소유처 — 카드 recommendation 은 완화 안내에 그친다.
 
 **Conditional rendering / states:**
 - **No active flags → entire section is OMITTED.** Do NOT render a "안전합니다 / 부상 위험 없음" reassurance — that is a false safety claim and is forbidden (matches the project's graceful-omit pattern, e.g. `bodyProfileSummary`, `openQuestionsForCoach`). Absence of warning ≠ safety guarantee.
@@ -132,15 +133,18 @@ Reuse: `Ionicons` (`warning`, `information-circle`), existing `styles.card` shap
 
 All Korean. **Forbidden word: "부상" as a confirmed claim** — never "부상입니다 / 부상 위험 있음(단정)". Always frame as **"위험 가능성 / ~할 수 있어요 / 부담 가능성"** + expert referral. No emojis.
 
+**29-CONTEXT D-14 — recommendation 행 추가.** 각 flag 카피가 `{title, why}` → `{title, why, recommendation}` 로 확장된다. recommendation 은 flagType 별로 결이 다른 구체적 완화 행동을 "~해요/~주세요" 체로 제시하되, 부상 확정 단정 금지 + "각도" 금지어 미사용. 정확한 진단은 아래 `이렇게 해보세요` 권고가 아니라 expert-referral 캡션이 소유한다. 아래 recommendation 카피는 `app/src/components/InjuryRiskSection.tsx` `FLAG_COPY` 와 문자열 일치해야 한다 (Copywriting Contract 동기화 규칙).
+
 | Element | Copy |
 |---------|------|
 | Section title | `부상 위험 신호` |
 | Section disclaimer (header line) | `부상을 확정하는 신호가 아니라, 측정값에서 보이는 위험 가능성이에요. 전문가 확인을 권해드려요.` |
-| Flag — 좌우 비대칭 (D-03) | Title: `좌우 비대칭 신호` · Why: `기준보다 좌우 움직임 차이가 크고, 동작이 흔들리는 구간이 있어요. 한쪽에 무리가 갈 가능성이 있어요.` |
-| Flag — 요추 과신전 (D-04) | Title: `허리 부담 가능성` · Why: `허리를 깊게 젖히면서 자세가 불안정한 구간이 보여요. 허리에 부담이 갈 수 있어요. (몸통을 한 덩어리로 추정한 값이라 정확하지 않을 수 있어요.)` |
-| Flag — 관절 과신전 (D-05) | Title: `무릎·팔꿈치 과신전 가능성` · Why: `무릎 또는 팔꿈치가 반대로 젖혀지는(역꺾임) 자세가 통제가 흔들리는 구간에서 보여요. 관절에 무리가 갈 수 있어요.` |
-| Flag — 레벨 대비 무리 (D-06, Mode 1 only) | Title: `레벨 대비 무리한 동작 가능성` · Why: `입력하신 경력 대비 난이도가 높은 동작이고, 반동·흔들림이 함께 보여요. 단계를 낮춰 연습하는 게 안전할 수 있어요.` |
-| Expert-referral line (per card or section footer) | `정확한 판단은 강사 또는 전문가와 함께 확인해 주세요.` |
+| Recommendation intro (per card, 29-CONTEXT D-14) | `이렇게 해보세요` |
+| Flag — 좌우 비대칭 (D-03) | Title: `좌우 비대칭 신호` · Why: `기준보다 좌우 움직임 차이가 크고, 동작이 흔들리는 구간이 있어요. 한쪽에 무리가 갈 가능성이 있어요.` · Recommendation (D-14): `약한 쪽 근력과 유연성을 보강하는 운동으로 좌우 균형을 맞추고, 동작 전에 몸을 충분히 풀어 주세요.` |
+| Flag — 요추 과신전 (D-04) | Title: `허리 부담 가능성` · Why: `허리를 깊게 젖히면서 자세가 불안정한 구간이 보여요. 허리에 부담이 갈 수 있어요. (몸통을 한 덩어리로 추정한 값이라 정확하지 않을 수 있어요.)` · Recommendation (D-14): `허리만 젖히지 말고 코어와 엉덩이 힘으로 몸통을 함께 받치고, 젖히는 범위는 강사와 함께 조금씩 늘려 주세요.` |
+| Flag — 관절 과신전 (D-05) | Title: `무릎·팔꿈치 과신전 가능성` · Why: `무릎 또는 팔꿈치가 반대로 젖혀지는(역꺾임) 자세가 통제가 흔들리는 구간에서 보여요. 관절에 무리가 갈 수 있어요.` · Recommendation (D-14): `관절을 끝까지 펴서 잠그지 말고 살짝 힘을 준 상태로 지지하고, 그립과 받치는 자세를 다시 점검해 주세요.` |
+| Flag — 레벨 대비 무리 (D-06, Mode 1 only) | Title: `레벨 대비 무리한 동작 가능성` · Why: `입력하신 경력 대비 난이도가 높은 동작이고, 반동·흔들림이 함께 보여요. 단계를 낮춰 연습하는 게 안전할 수 있어요.` · Recommendation (D-14): `한 단계 쉬운 동작으로 기초를 다진 뒤 올라가고, 지금 동작은 강사 지도 아래에서 연습해 주세요.` |
+| Expert-referral line (per card or section footer, "강사와 점검" 톤) | `정확한 판단은 강사 또는 전문가와 함께 확인해 주세요.` |
 | Empty state (no flags) | (none — section is not rendered; NO reassurance text) |
 | Error state | (none — this is a derived deterministic layer; if `SafetyFlag` data is absent/malformed, omit the section silently, matching `result.tsx` graceful-degrade convention) |
 | Destructive confirmation | none (no destructive actions in this phase) |

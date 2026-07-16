@@ -8,6 +8,7 @@
 // 짧은 쪽이 끝나면 일시정지(루프 X) — 비교 시 동기 어긋남 방지.
 
 import { Ionicons } from '@expo/vector-icons';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { StatusBar } from 'expo-status-bar';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -201,6 +202,16 @@ const VIDEO_ASPECT = 9 / 16;
 // 크롭 — 인물은 통상 중앙이라 안전. 크롭 정도 조정은 이 상수만 상향/하향.
 const FULLSCREEN_ZOOM = 1.35;
 
+// 29-CONTEXT D-11/D-12 — 진짜 가로 + 구빌드(27) 폴백. 정적 import = OTA 크래시 (RESEARCH Pitfall 3).
+// expo-screen-orientation 9.0.9 는 모듈 최상위에서 requireNativeModule('ExpoScreenOrientation')
+// 를 실행한다(build/ExpoScreenOrientation.js 실측) — 파일 상단 정적 import 를 넣으면 네이티브
+// 모듈이 없는 구빌드(TestFlight 27)가 OTA 번들 평가 시점에 앱 전체 크래시한다(가로 기능 미사용도).
+// requireOptionalNativeModule 은 부재 시 throw 없이 null 반환 → 런타임 감지만으로 분기.
+// 실제 lockAsync 호출은 함수 스코프 lazy require('expo-screen-orientation') 뒤에서만(Metro 는
+// require 호출 시점 평가 → 구빌드에서 해당 함수 미호출이면 안전).
+const hasNativeOrientation =
+  requireOptionalNativeModule('ExpoScreenOrientation') != null;
+
 export function VideoCompare({
   leftLabel,
   rightLabel,
@@ -261,8 +272,8 @@ export function VideoCompare({
   const trackWidthRef = useRef(0);
 
   // quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 가로 전체화면 뷰어.
-  // portrait 고정(app.json orientation) 유지 + Modal 안 뷰 90° 회전으로 가로
-  // 레이아웃 시뮬레이트 (expo-screen-orientation = native 모듈 추가라 금지, OTA 전제).
+  // 29-CONTEXT D-11/D-12 — 새 빌드는 hasNativeOrientation 감지 시 진짜 가로(LANDSCAPE)로
+  // lock, 구빌드(27)는 Modal 안 뷰 90° 회전 핵으로 가로 레이아웃 시뮬레이트(폴백 보존).
   // 같은 leftPlayer/rightPlayer 인스턴스에 두 번째 VideoView 를 attach → 재생
   // 위치/상태 연속, drift 보정 tick·togglePlay·seekBoth 가 양 레이아웃을 그대로 제어.
   const [fullscreen, setFullscreen] = useState(false);
@@ -282,14 +293,52 @@ export function VideoCompare({
   // 짧은 변을 100% 채우는 9:16 박스. window 파생값이라 하드코딩 아님.
   const fsBoxH = fsShort;
   const fsBoxW = Math.round(fsShort * VIDEO_ASPECT);
+
+  // 29-CONTEXT D-11 — 진짜 가로 lock. hasNativeOrientation === false(구빌드)면 no-op →
+  // 기존 90° 회전 핵 폴백이 그대로 동작(D-12). lazy require 는 함수 스코프 — 정적 import
+  // 금지(모듈 최상위 requireNativeModule 크래시, Pitfall 3). lockAsync 실패는 무해화
+  // (iPad/기기 자동회전 설정 등 — Pitfall 5, HUMAN-UAT 관찰 항목).
+  const lockLandscape = useCallback(() => {
+    if (!hasNativeOrientation) return;
+    const ScreenOrientation = require('expo-screen-orientation');
+    ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT,
+    ).catch(() => {
+      /* 가로 lock 실패 — 폴백 없이 세로 유지(HUMAN-UAT) */
+    });
+  }, []);
+  const lockPortrait = useCallback(() => {
+    if (!hasNativeOrientation) return;
+    const ScreenOrientation = require('expo-screen-orientation');
+    ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.PORTRAIT_UP,
+    ).catch(() => {
+      /* 세로 복귀 실패 — 무해화 */
+    });
+  }, []);
+
   const openFullscreen = () => {
     fullscreenRef.current = true;
     setFullscreen(true);
+    // 진입 lock 은 Modal 마운트(commit) 이후 effect 에서 — 마운트 전 lock 은 무효(Pattern 4).
   };
   const closeFullscreen = () => {
+    // 이탈 시퀀스: PORTRAIT_UP lock 을 setState 전에 먼저 — 역순이면 세로 복귀 전 Modal 이
+    // 닫혀 flicker(Pattern 4). onRequestClose(Android back)도 이 경로 공유.
+    lockPortrait();
     fullscreenRef.current = false;
     setFullscreen(false);
   };
+
+  // 29-CONTEXT D-11 — 가로/세로 전환 부수효과. fullscreen 진입 시 Modal 마운트 이후(effect=
+  // commit 이후) 가로 lock, 이탈/언마운트 시 세로 복원. closeFullscreen 이 선제 lockPortrait
+  // 하므로 cleanup 은 다른 이탈 경로(언마운트, 화면 이탈) 안전망. 구빌드는 두 helper 가 no-op.
+  useEffect(() => {
+    if (fullscreen) lockLandscape();
+    return () => {
+      lockPortrait();
+    };
+  }, [fullscreen, lockLandscape, lockPortrait]);
 
   // ── 28-06 (D-01/D-02) 동작 기준 워핑 소비 ──────────────────────────────────
   // 학생(left)=master 시계 불변, 정은지(right)만 warp(tStudent)→tRef. alignment
@@ -957,26 +1006,38 @@ export function VideoCompare({
           transparent={false}
           animationType="fade"
           statusBarTranslucent
-          supportedOrientations={['portrait']}
+          // 29-CONTEXT D-11 — 진짜 가로 분기는 Modal 이 landscape 를 허용해야 실제 회전한다
+          // (RN Modal 은 자체 orientation 허용 목록 보유, Pattern 4). 구빌드 폴백은 portrait
+          // 고정 유지(90° 회전 핵이 가로를 시뮬레이트하므로 실제 회전 불필요).
+          supportedOrientations={
+            hasNativeOrientation ? ['portrait', 'landscape'] : ['portrait']
+          }
           onRequestClose={closeFullscreen}
         >
           {/* 모달 unmount 시 root _layout 의 StatusBar 로 자연 복귀 */}
           <StatusBar hidden />
           <View style={styles.fsRoot}>
-            {/* follow-up (belle 실기기 1차) — 회전 컨테이너는 short/long 파생 치수.
+            {/* follow-up (belle 실기기 1차) — 컨테이너는 short/long 파생 치수.
                 영상 row 가 컨테이너 전체를 채우고(absoluteFill), 상단 bar 와 하단
                 컨트롤은 영상 위 overlay — 스택 배치로 영상 높이를 깎지 않는다
-                (스택이면 유효 영상 높이 ~250pt = 세로 카드와 동급이 근본 원인). */}
+                (스택이면 유효 영상 높이 ~250pt = 세로 카드와 동급이 근본 원인).
+                29-CONTEXT D-11 — 진짜 가로(hasNativeOrientation)면 기기가 실제 회전하므로
+                90° transform·축 스왑 오프셋을 생략하고 화면(=fsLong×fsShort)을 그대로 채운다.
+                구빌드 폴백은 fsRotated(rotate 90deg) + 중앙 오프셋 핵을 byte-보존. */}
             <View
-              style={[
-                styles.fsRotated,
-                {
-                  width: fsLong,
-                  height: fsShort,
-                  left: (fsShort - fsLong) / 2,
-                  top: (fsLong - fsShort) / 2,
-                },
-              ]}
+              style={
+                hasNativeOrientation
+                  ? [styles.fsLandscape, { width: fsLong, height: fsShort }]
+                  : [
+                      styles.fsRotated,
+                      {
+                        width: fsLong,
+                        height: fsShort,
+                        left: (fsShort - fsLong) / 2,
+                        top: (fsLong - fsShort) / 2,
+                      },
+                    ]
+              }
             >
               {/* belle 실기기 2차 2026-07-05 — url 있는 슬롯만 렌더. 단일 영상
                   (hasLeft xor hasRight)이면 justifyContent center 가 1박스를
@@ -1226,6 +1287,14 @@ const styles = StyleSheet.create({
   fsRotated: {
     position: 'absolute',
     transform: [{ rotate: '90deg' }],
+  },
+  // 29-CONTEXT D-11 — 진짜 가로 컨테이너. 기기가 실제 회전하므로 fsLong×fsShort 가 곧
+  // 화면 치수 → top/left 0 에서 전체를 채운다(90° transform·중앙 오프셋 불필요). 내부
+  // fsVideoRow/fsTopBar/fsControlsWrap 는 회전 핵과 동일 좌표계라 렌더 코드 공유.
+  fsLandscape: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   // 상단 bar overlay — 우측에 토글 + 닫기. 두 9:16 박스가 중앙 인접 배치라
   // (393 기기 기준 박스 우측 끝 x 는 약 639) 우측 끝 버튼 영역과 겹치지 않음.

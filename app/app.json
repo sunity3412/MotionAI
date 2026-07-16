@@ -53,7 +53,8 @@
       ],
       "expo-video",
       "expo-asset",
-      "expo-mail-composer"
+      "expo-mail-composer",
+      "expo-screen-orientation"
     ],
     "extra": {
       "router": {},

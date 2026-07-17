@@ -70,10 +70,15 @@ function formatRelative(epochMs: number): string {
 // 성격이 다르므로 유지 결정(30-CONTEXT Claude's Discretion / D-01 재량): 헤더는
 // "지금까지 전체 누적" 맥락이라 그래프의 모드별 주별 평균과 역할이 구분되고, 삭제 시
 // 정보 손실이라 유지가 더 정확하다. 그래프 카드에는 이 혼합 평균을 절대 노출하지 않는다.
+// (30-REVIEW WR-01) NaN·scoreSuppressed 방어는 growthSelectors.hasUsableGrowthScore
+// 와 동일 기준(HIGH-1 신뢰 계약) — typeof NaN === 'number' 라 Number.isFinite 필수,
+// 결과화면에서 숨긴 점수(scoreSuppressed)는 헤더 평균에도 되살리지 않는다.
 function averageScore(analyses: AnalysisDoc[]): number | null {
   const scores = analyses
-    .map((a) => a.result?.overallScore)
-    .filter((s): s is number => typeof s === 'number');
+    .map((a) => a.result)
+    .filter((r): r is NonNullable<typeof r> => !!r && r.scoreSuppressed !== true)
+    .map((r) => r.overallScore)
+    .filter((s): s is number => typeof s === 'number' && Number.isFinite(s));
   if (scores.length === 0) return null;
   return Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length);
 }

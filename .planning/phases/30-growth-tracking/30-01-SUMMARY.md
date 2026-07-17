@@ -102,6 +102,11 @@ None - no external service configuration required. 앱 JS-only 변경(OTA 가능
 - 30-03(컴포넌트)·30-04(홈 카드 통합)가 import 할 타입·함수 계약 확정: WeeklyPoint, MotionDeltaRow, weeklyAverages, defaultGrowthMode, motionDeltas, weekStartOf, hasUsableGrowthScore + colors.declineBlue.
 - mode3 인식 동작명 방출 필드(D-04 백엔드 층)는 이 plan 스코프 밖 — 후속 plan(백엔드 3-way lockstep)에서 처리. 현 motionDeltas 는 mode3 를 '내 기록' 단일 그룹으로 처리(legacy 폴백 정합).
 
+## Self-Check: PASSED
+
+- Files verified on disk: growthSelectors.ts, assert-growth-selectors.mjs, colors.ts, 30-01-SUMMARY.md
+- Commits verified in git log: 0994b65, 16dd253, 23b1a0b, 4d6f013
+
 ---
 *Phase: 30-growth-tracking*
 *Completed: 2026-07-17*

@@ -1,0 +1,124 @@
+{
+ "Chair-spin": {
+  "status": "done",
+  "task_id": "3dd2685f-549b-42d3-91e1-37b56b8fd0f5",
+  "elapsed_s": 431.3,
+  "usage": {
+   "duration": 15.92,
+   "input_video_duration": 7.96,
+   "output_video_duration": 7.96,
+   "video_count": 1,
+   "SR": 720
+  },
+  "out_mb": 3.48
+ },
+ "power-spin": {
+  "status": "error",
+  "task_id": "eaacfc5f-7bfe-4c54-95b4-c5ab6fd68f54",
+  "error": "{\"task_id\": \"eaacfc5f-7bfe-4c54-95b4-c5ab6fd68f54\", \"task_status\": \"FAILED\", \"submit_time\": \"2026-07-17 15:18:53.211\", \"scheduled_time\": \"2026-07-17 15:18:53.243\", \"end_time\": \"2026-07-17 15:24:44.214\", \"code\": \"DataInspectionFailed\", \"message\": \"Green net check failed for image (output): Output dat"
+ },
+ "sideway-spin": {
+  "status": "done",
+  "task_id": "82317d68-dfda-47bf-a556-be180ae16b6f",
+  "elapsed_s": 446.8,
+  "usage": {
+   "duration": 16,
+   "input_video_duration": 8,
+   "output_video_duration": 8,
+   "video_count": 1,
+   "SR": 720
+  },
+  "out_mb": 3.06
+ },
+ "peter-pan": {
+  "status": "done",
+  "task_id": "3c6f4908-e593-4c43-b125-8c1cd7c5ac73",
+  "elapsed_s": 462.1,
+  "usage": {
+   "duration": 16,
+   "input_video_duration": 8,
+   "output_video_duration": 8,
+   "video_count": 1,
+   "SR": 720
+  },
+  "out_mb": 3.24
+ },
+ "elbow-twist-sister": {
+  "status": "done",
+  "task_id": "c4f85935-9258-4b1e-a7fa-75c697d93f4a",
+  "elapsed_s": 340.1,
+  "usage": {
+   "duration": 16,
+   "input_video_duration": 8,
+   "output_video_duration": 8,
+   "video_count": 1,
+   "SR": 720
+  },
+  "out_mb": 2.94
+ },
+ "Diamond-Spin": {
+  "status": "done",
+  "task_id": "a4da1e97-5355-46a6-bb33-281bf122ecd8",
+  "elapsed_s": 432.6,
+  "usage": {
+   "duration": 16,
+   "input_video_duration": 8,
+   "output_video_duration": 8,
+   "video_count": 1,
+   "SR": 720
+  },
+  "out_mb": 2.63
+ },
+ "sliding-spin": {
+  "status": "done",
+  "task_id": "a9b59975-8c2e-4c54-8579-88f419cccaf2",
+  "elapsed_s": 355.0,
+  "usage": {
+   "duration": 16.02,
+   "input_video_duration": 8.01,
+   "output_video_duration": 8.01,
+   "video_count": 1,
+   "SR": 720
+  },
+  "out_mb": 3.18
+ },
+ "invert": {
+  "status": "done",
+  "task_id": "0cb66f35-44b5-4dcc-9fba-c159a9bdd78d",
+  "elapsed_s": 94.1,
+  "usage": {
+   "duration": 16,
+   "input_video_duration": 8,
+   "output_video_duration": 8,
+   "video_count": 1,
+   "SR": 720
+  },
+  "out_mb": 2.81
+ },
+ "kip-up": {
+  "status": "done",
+  "task_id": "b51a463f-ee3b-4528-8896-e8f29509a34b",
+  "elapsed_s": 333.5,
+  "usage": {
+   "duration": 15.6,
+   "input_video_duration": 7.8,
+   "output_video_duration": 7.8,
+   "video_count": 1,
+   "SR": 720
+  },
+  "out_mb": 3.35
+ },
+ "straddle-invert": {
+  "status": "done",
+  "task_id": "37caf8d6-933e-4448-aae4-fd15306ac547",
+  "elapsed_s": 340.5,
+  "usage": {
+   "duration": 16,
+   "input_video_duration": 8,
+   "output_video_duration": 8,
+   "video_count": 1,
+   "SR": 720
+  },
+  "out_mb": 2.1
+ }
+}

@@ -1,0 +1,123 @@
+[
+ {
+  "clip": "Chair-spin",
+  "status": "ok",
+  "angle_mae_deg": 25.0,
+  "lr_mapping": "direct",
+  "bone_cv_orig": 0.167,
+  "bone_cv_wan": 0.244,
+  "bone_cv_ratio": 1.46,
+  "jerk_orig": 0.0462,
+  "jerk_wan": 0.0955,
+  "conf_orig": 0.8,
+  "conf_wan": 0.77
+ },
+ {
+  "clip": "Diamond-Spin",
+  "status": "ok",
+  "angle_mae_deg": 9.9,
+  "lr_mapping": "direct",
+  "bone_cv_orig": 0.18,
+  "bone_cv_wan": 0.208,
+  "bone_cv_ratio": 1.15,
+  "jerk_orig": 0.089,
+  "jerk_wan": 0.0874,
+  "conf_orig": 0.72,
+  "conf_wan": 0.71
+ },
+ {
+  "clip": "elbow-twist-sister",
+  "status": "ok",
+  "angle_mae_deg": 33.3,
+  "lr_mapping": "direct",
+  "bone_cv_orig": 0.427,
+  "bone_cv_wan": 0.477,
+  "bone_cv_ratio": 1.12,
+  "jerk_orig": 0.5385,
+  "jerk_wan": 0.6406,
+  "conf_orig": 0.54,
+  "conf_wan": 0.62
+ },
+ {
+  "clip": "invert",
+  "status": "ok",
+  "angle_mae_deg": 22.2,
+  "lr_mapping": "direct",
+  "bone_cv_orig": 1.16,
+  "bone_cv_wan": 0.605,
+  "bone_cv_ratio": 0.52,
+  "jerk_orig": 0.4034,
+  "jerk_wan": 0.4383,
+  "conf_orig": 0.7,
+  "conf_wan": 0.69
+ },
+ {
+  "clip": "kip-up",
+  "status": "ok",
+  "angle_mae_deg": 6.3,
+  "lr_mapping": "direct",
+  "bone_cv_orig": 0.169,
+  "bone_cv_wan": 0.171,
+  "bone_cv_ratio": 1.01,
+  "jerk_orig": 0.0732,
+  "jerk_wan": 0.1234,
+  "conf_orig": 0.78,
+  "conf_wan": 0.8
+ },
+ {
+  "clip": "peter-pan",
+  "status": "ok",
+  "angle_mae_deg": 9.4,
+  "lr_mapping": "direct",
+  "bone_cv_orig": 0.143,
+  "bone_cv_wan": 0.173,
+  "bone_cv_ratio": 1.21,
+  "jerk_orig": 0.1004,
+  "jerk_wan": 0.0392,
+  "conf_orig": 0.58,
+  "conf_wan": 0.64
+ },
+ {
+  "clip": "power-spin",
+  "status": "blocked"
+ },
+ {
+  "clip": "sideway-spin",
+  "status": "ok",
+  "angle_mae_deg": 8.6,
+  "lr_mapping": "direct",
+  "bone_cv_orig": 0.265,
+  "bone_cv_wan": 0.215,
+  "bone_cv_ratio": 0.81,
+  "jerk_orig": 0.19,
+  "jerk_wan": 0.1542,
+  "conf_orig": 0.75,
+  "conf_wan": 0.75
+ },
+ {
+  "clip": "sliding-spin",
+  "status": "ok",
+  "angle_mae_deg": 38.7,
+  "lr_mapping": "swap",
+  "bone_cv_orig": 0.076,
+  "bone_cv_wan": 0.215,
+  "bone_cv_ratio": 2.84,
+  "jerk_orig": 0.0,
+  "jerk_wan": 0.0133,
+  "conf_orig": 0.77,
+  "conf_wan": 0.59
+ },
+ {
+  "clip": "straddle-invert",
+  "status": "ok",
+  "angle_mae_deg": 7.7,
+  "lr_mapping": "direct",
+  "bone_cv_orig": 0.151,
+  "bone_cv_wan": 0.154,
+  "bone_cv_ratio": 1.02,
+  "jerk_orig": 0.0258,
+  "jerk_wan": 0.0176,
+  "conf_orig": 0.79,
+  "conf_wan": 0.79
+ }
+]

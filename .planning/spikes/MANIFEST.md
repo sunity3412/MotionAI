@@ -45,7 +45,8 @@ belle 박제 (변경 금지). spike 진행 중 새 requirement 발생 시 즉시
 | 005 | frontend-3d-viewer | standard | RTMW 3D joints + react-three-fiber + expo-three frontend viewer. AI 영상 생성 없이 사용자 360° 인터랙션 가능. v2 deferred → MVP 가능 승격 | ✓ VALIDATED-ARCHITECTURE | frontend, 3d-viewer, react-three-fiber, expo, decoupling, user-interactive, mvp-viable |
 | 004-iii | omni-gate-resume | resume(004) | Omni API 실물 스모크 + 10건 pose-consistency 게이트 (GT-free 3축) | ⚠ PARTIAL — 앵글/비용/동기 검증, 굴곡각 MAE 중앙 22.8°+뼈길이 CV 악화=채점 투입 부적격, 모더레이션 30%/10% 차단. 007/006 상대비교로 재판정 | gemini-omni, gate, partial, moderation-risk |
 | 006 | perspose-pr-math-baseline | comparison | PR 수학 회전(픽셀 생성 0)만으로 재추론 개선 — 생성 대비 실익 판정 기준선 | ○ PLANNED | perspose, math, license-free |
-| 007a | recammaster-wan | comparison | ReCamMaster(Wan2.1, Apache)가 폴스포츠 10건에서 자세 충실도 유지하는가 (GPU Pod 필요) | ○ PLANNED-POD | recammaster, open-model, camera-control |
+| 007a | recammaster-wan | comparison | ReCamMaster(Wan2.1) 하한 측정 | ✗ ABANDONED — belle 지시(구모델→최신모델 대체) + Pod 쿼터 충돌, GEN3C 로 일원화 | recammaster, abandoned |
+| 008 | wan27-videoedit-gate | comparison | Wan2.7-VideoEdit(DashScope, belle 키)가 동일 10건에서 자세 충실도 유지하는가 | ★ WINNER(닫힌 API 트랙) — MAE 중앙 9.9°(Omni 22.8°의 2.3배 우수), <10° 5/9, 워터마크 off 지원, 차단 10%, 참고코너 엔진 1순위 | wan2.7, dashscope, camera-angle, reference-corner |
 | 007b | gen3c-cosmos-7b | comparison | GEN3C 3D-cache 카메라컨트롤이 동일 10건에서 자세 충실도 유지하는가 (GPU Pod 필요) | ○ PLANNED-POD | nvidia, gen3c, open-model, 3d-cache |
 
 ## Risk Order Rationale

@@ -320,3 +320,26 @@ Vertex AI GA 전까지 spike 자체 실행 불가. 박제 + roadmap 만.
 | 나머지 6건 | ±0.03 이내 | 중앙 근접 클립은 무영향 |
 
 **판정:** naive 영상 전처리 PR = 부적격. 올바른 통합 = (a) PersPose 원안대로 **모델 입력 crop 단계 통합** 또는 (b) **역수직 구간 조건부 적용** (인버전 검출 시만). 역수직 개선 −58% 는 실증됐으므로 Phase 4 플랜에 "인버전 조건부 PR" 을 측정 보강 후보로 반영.
+
+---
+
+## Spike 008 — Wan2.7-VideoEdit (DashScope) 게이트 결과 (2026-07-17, belle 키)
+
+**셋업:** Omni와 동일 10건·동일 프롬프트·동일 측정(RTMW 재추론 GT-free 3축). 입력 = S3 presigned URL, `wan2.7-videoedit` + watermark:false + seed 42. 스크립트 `wan_gate_batch.py`, 수치 `wan_out/metrics.json`.
+
+**생성: 9/10** — 차단은 power-spin 1건(2/2 결정적, Alibaba Green net "output"). **Omni와 차단 교차**: Omni 영구차단(straddle-invert)을 Wan 통과, Wan 차단(power-spin)을 Omni 통과 — 두 벤더 필터 기준 상이. 건당 처리 6~7분(Omni 80~170s보다 느림), usage duration 16/클립.
+
+**측정 (9쌍):**
+
+| 지표 | Wan2.7 | Omni (동일 프로토콜) |
+|---|---|---|
+| 굴곡각 MAE 중앙 | **9.9°** | 22.8° |
+| MAE <10° 클립 | **5/9** (kip-up 6.3 / straddle 7.7 / sideway 8.6 / peter-pan 9.4 / Diamond 9.9) | 2/9 |
+| 뼈길이 CV | 대체로 안정 (x1.0~1.2), invert 개선 x0.52 | 5/9 악화 |
+| 최악 outlier | sliding-spin 38.7° + CV x2.84 | elbow-twist 40.9° |
+| 워터마크 | **없음 (watermark:false 지원)** | SynthID 강제 |
+| 모더레이션 | 10% 영구 차단 | 첫시도 30% / 영구 10% |
+
+**판정: Wan2.7 = 닫힌 API 트랙 승자.** 자세 충실도 Omni 대비 ~2.3배 우수, 절반 이상 클립이 10° 미만. 단 (a) outlier 존재(sliding-spin) — 점수 투입은 여전히 게이트 미달, (b) 모더레이션 차단 잔존(power-spin류 복장), (c) 건당 6~7분 지연. **"참고하세요 코너"(비채점) 엔진 1순위 후보로 승격**, 점수 보강은 GEN3C(오픈)와의 비교 + judge 게이트(Qwen3-VL-Plus 후보) 후 재판정.
+
+**007a(ReCamMaster/Wan2.1) 폐기 박제:** belle 지시("구모델 검증을 최신 모델로 대체") + Pod 디스크 쿼터 충돌 → 셋업 중단·모델 삭제(29GB 회수). 접근법의 오픈 트랙 검증은 GEN3C(007b)로 일원화.

@@ -435,7 +435,17 @@ mode='mode3', isFirst(bool),
 previousAnalysisId?, deltaFromPrevious?{line?,stability,angle?}  (isFirst면 없음)
 scoringBasis?          실제 채점 SOURCE (Phase 19, Mode3 = 정확히 4 값)
 scoringBasisLabel?     사용자 표시용 한국어 라벨
+recognizedMotionId?    인식기가 알아낸 동작 canonical id (Phase 30 D-04)
+recognizedMotionName?  인식기가 알아낸 동작 표시명 (Phase 30 D-04)
 ```
+  recognizedMotionId / recognizedMotionName (Phase 30 Plan 30-02, D-04) = mode3
+  파이프라인이 이미 인식 중이던 동작 id/명(`TechniqueProfile.motion_id`/`name`)을
+  comparison 에 적립. OPTIONAL (legacy doc 호환) — 부재 시(legacy doc / 인식 실패
+  FallbackRecognizer) 앱은 '내 기록' 단일 그룹. 인식 성공(motion_id 존재) 시
+  첫 분석(isFirst=True)부터 방출. **이번 phase 화면 미소비 — Phase 16(학원 명칭
+  카테고리 체계) 소비 예정**. 3-way lockstep: `app/src/types/analysis.ts`
+  Mode3Comparison + `models.py` (Phase 30 주석 명세) + `assemble.build_mode3`
+  (recognized_motion_id/name kwargs). 세 곳 동시 갱신 필수.
   deltaFromPrevious = 발전(progress). '몇 % 일치'가 아니라 절대 차원(라인/안정성)의
   이전 분석 대비 증감(±). 절대 지표라 세션 간 같은 척도. 첫 분석이면 없음.
   키는 양쪽 분석 공통 차원만 (line 이 한쪽에 없으면 stability 만).

@@ -117,6 +117,58 @@ def test_mode3_delta_only_over_common_dimensions():
     assert set(c["deltaFromPrevious"]) == {"line", "stability"}
 
 
+def test_mode3_recognized_motion_emitted_on_first():
+    # Phase 30 D-04 (HIGH-3): recognized 필드는 early return 앞에 삽입 →
+    # 첫 분석(is_first=True) mode3 도 실어보낸다.
+    c = assemble.build_mode3(
+        is_first=True,
+        recognized_motion_id="ref-foo",
+        recognized_motion_name="Foo",
+    )
+    assert c["recognizedMotionId"] == "ref-foo"
+    assert c["recognizedMotionName"] == "Foo"
+    assert c["isFirst"] is True
+
+
+def test_mode3_recognized_motion_emitted_on_progress():
+    # progress 경로(is_first=False + previous_analysis_id)에서도 두 키 emit.
+    c = assemble.build_mode3(
+        is_first=False,
+        previous_analysis_id="prev123",
+        prev_dimension_scores={"line": 70, "stability": 50},
+        cur_dimension_scores={"line": 78, "stability": 45},
+        recognized_motion_id="ref-foo",
+        recognized_motion_name="Foo",
+    )
+    assert c["recognizedMotionId"] == "ref-foo"
+    assert c["recognizedMotionName"] == "Foo"
+    assert c["previousAnalysisId"] == "prev123"
+
+
+def test_mode3_recognized_motion_absent_when_id_none():
+    # 기본값(None) 시 두 키 부재 — legacy 동형 보존. (기존
+    # test_mode3_first_has_no_delta 의 exact-dict assert 무수정 통과가 이를 잠근다.)
+    c = assemble.build_mode3(is_first=True)
+    assert "recognizedMotionId" not in c
+    assert "recognizedMotionName" not in c
+    # name 만 있고 id 가 None 이면 둘 다 미추가.
+    c2 = assemble.build_mode3(is_first=True, recognized_motion_name="Foo")
+    assert "recognizedMotionId" not in c2
+    assert "recognizedMotionName" not in c2
+
+
+def test_mode3_recognized_motion_type_enforced():
+    # T-30-03: 비-str 입력 → ValueError (LLM 유래 값 타입 강제).
+    import pytest
+
+    with pytest.raises(ValueError):
+        assemble.build_mode3(is_first=True, recognized_motion_id=123)
+    with pytest.raises(ValueError):
+        assemble.build_mode3(
+            is_first=True, recognized_motion_id="ref-foo", recognized_motion_name=456
+        )
+
+
 def test_referenceVideoUrl_only_when_given():
     a = _assess()
     r1 = assemble.build_result(a, DIMS, 90, assemble.build_mode1(REF, 90), "s3://my")

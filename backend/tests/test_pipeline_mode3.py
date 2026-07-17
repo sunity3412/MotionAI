@@ -79,6 +79,57 @@ def test_second_analysis_has_progress_delta_and_angle():
     assert set(comparison["deltaFromPrevious"]) == {"line", "stability"}
 
 
+# ── Phase 30 D-04 (HIGH-3) — 인식 동작 id/명 방출 pytest 증명 ──────────────
+# 기존 _profile() 은 motion_id=None 이라 방출 경로가 실테스트되지 않는다. motion_id 를
+# 실은 프로파일로 first·progress 두 파이프라인 경로 모두에서 comparison 에
+# recognizedMotionId/recognizedMotionName 이 흐르는지 assert (grep 배선만으로 통과하는
+# false-green 차단).
+def _recognized_profile() -> technique.TechniqueProfile:
+    """motion_id/name 실린 인식 성공 프로파일 (_profile() 나머지 필드 복제)."""
+    exp = {
+        k: technique.JOINT_EXTEND
+        if k.endswith("elbow") or k.endswith("knee")
+        else technique.JOINT_BENT_OK
+        for k in JOINT_KEYS
+    }
+    return technique.TechniqueProfile(
+        name="Foo",
+        category="recognized",
+        joint_expectations=exp,
+        motion_id="ref-foo",
+    )
+
+
+def test_first_analysis_emits_recognized_motion():
+    # first(is_first=True) 경로 — recognized 필드가 early return 앞 emit 되어 실린다.
+    _, _, _, comparison, _prev_match = app._mode3_comparison(
+        _video(1), None, _recognized_profile()
+    )
+    assert comparison["recognizedMotionId"] == "ref-foo"
+    assert comparison["recognizedMotionName"] == "Foo"
+
+
+def test_progress_analysis_emits_recognized_motion():
+    # progress(is_first=False + prev) 경로도 방출.
+    prev = _as_prev(_video(7), "prevA", {"line": 60, "stability": 65})
+    _, _, _, comparison, _prev_match = app._mode3_comparison(
+        _video(2), prev, _recognized_profile()
+    )
+    assert comparison["recognizedMotionId"] == "ref-foo"
+    assert comparison["recognizedMotionName"] == "Foo"
+
+
+def test_no_recognized_motion_when_id_none():
+    # negative — 인식 실패(_profile() motion_id=None) 경로는 두 키 부재 (legacy 동형).
+    _, _, _, first_cmp, _ = app._mode3_comparison(_video(1), None, _profile())
+    assert "recognizedMotionId" not in first_cmp
+    assert "recognizedMotionName" not in first_cmp
+    prev = _as_prev(_video(7), "prevA", {"line": 60, "stability": 65})
+    _, _, _, prog_cmp, _ = app._mode3_comparison(_video(2), prev, _profile())
+    assert "recognizedMotionId" not in prog_cmp
+    assert "recognizedMotionName" not in prog_cmp
+
+
 def _well_extended(seed: int, t: int = 40) -> np.ndarray:
     """잘 신전된(거의 180°) 자세 — 절대 라인 점수가 높게 나오는 "잘한" 영상.
 

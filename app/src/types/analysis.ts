@@ -274,6 +274,11 @@ export interface Mode3Comparison {
     | 'previous_analysis_plus_absolute'
     | 'previous_analysis_plus_reference_free_absolute';
   scoringBasisLabel?: string; // 사용자 표시용 한국어 라벨 (정확한 채점 source 노출)
+  // Phase 30 (30-CONTEXT D-04) — mode3 인식 동작 데이터 적립(이번 phase 화면 미소비,
+  // Phase 16이 소비). 부재(legacy doc/인식 실패)=앱은 '내 기록' 단일 그룹. Python
+  // lockstep: assemble.build_mode3 + models.py + docs/contract.md §4와 동시 갱신.
+  recognizedMotionId?: string;
+  recognizedMotionName?: string;
 }
 
 // Phase 12.5 (2026-06-07): 차원별 explanation. 결과 화면 "왜 이 점수인지" 가시화.

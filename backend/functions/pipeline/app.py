@@ -3354,7 +3354,18 @@ def _mode3_comparison(
             assessments,
             abs_dims,
             overall,
-            assemble.build_mode3(is_first=True, scoring_basis=first_basis),
+            # Phase 30 D-04: 인식된 동작 id/명 적립 (첫 분석도 방출 — build_mode3 가
+            # early return 앞 emit). profile.motion_id 가 None(FallbackRecognizer/인식
+            # 실패)이면 builder 가 두 키 미추가(계약) → 호출부 조건 분기 불필요.
+            # motion_id None 이면 name('미상' placeholder 가능)도 무의미 — builder 가
+            # id-None 시 name 도 미emit (Task 1 규칙)이므로 그대로 전달해도 안전.
+            # 저신뢰 억제(_apply_score_suppression)와 독립 emit — D-04 는 데이터 적립.
+            assemble.build_mode3(
+                is_first=True,
+                scoring_basis=first_basis,
+                recognized_motion_id=profile.motion_id,
+                recognized_motion_name=profile.name,
+            ),
             None,  # prev_dtw_match — 첫 분석은 정렬 컨텍스트 부재 (28-04 미방출 = legacy)
         )
     num_joints = len(prev.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
@@ -3395,6 +3406,9 @@ def _mode3_comparison(
         prev_dimension_scores=prev_dims,
         cur_dimension_scores=abs_dims,  # 발전 델타는 절대 3차원만(같은 척도)
         scoring_basis=progress_basis,
+        # Phase 30 D-04: progress 분기도 인식 동작 id/명 적립 (억제와 독립 emit).
+        recognized_motion_id=profile.motion_id,
+        recognized_motion_name=profile.name,
     )
     return assessments, dim_scores, overall, comparison, prev_dtw_match
 

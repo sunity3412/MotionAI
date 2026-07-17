@@ -41,7 +41,7 @@ belle 박제 (변경 금지). spike 진행 중 새 requirement 발생 시 즉시
 | 003 | gemini-vision-view-reasoning | standard | Gemini multimodal reasoning 으로 occluded joint 좌표 추정 (픽셀 합성 X). SMPL-X 없이 occlusion 보완 | ✓ VALIDATED-PROTOTYPE | gemini-vision, multimodal-reasoning, license-clear, low-cost |
 | 004 | gemini-omni-view-editing | standard | Gemini Omni 의 영상 입력 → 카메라 앵글 변경 + 편집. Phase 17 SDK 호환, Vertex GA 후 PRIMARY 후보. clean-data gate 필수 | ⏳ VALIDATED-DEFERRED-VERTEX-GA | gemini-omni, video-editing, vertex-ai, deferred, hybrid-primary |
 | 005 | frontend-3d-viewer | standard | RTMW 3D joints + react-three-fiber + expo-three frontend viewer. AI 영상 생성 없이 사용자 360° 인터랙션 가능. v2 deferred → MVP 가능 승격 | ✓ VALIDATED-ARCHITECTURE | frontend, 3d-viewer, react-three-fiber, expo, decoupling, user-interactive, mvp-viable |
-| 004-iii | omni-gate-resume | resume(004) | Omni API 실물 (`gemini-omni-flash-preview`) 스모크 1건 → 10건 pose-consistency 게이트 (회전5/역수직3/spin2, GT-free 3축) | ○ PLANNED (2026-07-17 재개) | gemini-omni, gate, resume |
+| 004-iii | omni-gate-resume | resume(004) | Omni API 실물 스모크 + 10건 pose-consistency 게이트 (GT-free 3축) | ⚠ PARTIAL — 앵글/비용/동기 검증, 굴곡각 MAE 중앙 22.8°+뼈길이 CV 악화=채점 투입 부적격, 모더레이션 30%/10% 차단. 007/006 상대비교로 재판정 | gemini-omni, gate, partial, moderation-risk |
 | 006 | perspose-pr-math-baseline | comparison | PR 수학 회전(픽셀 생성 0)만으로 재추론 개선 — 생성 대비 실익 판정 기준선 | ○ PLANNED | perspose, math, license-free |
 | 007a | recammaster-wan | comparison | ReCamMaster(Wan2.1, Apache)가 폴스포츠 10건에서 자세 충실도 유지하는가 (GPU Pod 필요) | ○ PLANNED-POD | recammaster, open-model, camera-control |
 | 007b | gen3c-cosmos-7b | comparison | GEN3C 3D-cache 카메라컨트롤이 동일 10건에서 자세 충실도 유지하는가 (GPU Pod 필요) | ○ PLANNED-POD | nvidia, gen3c, open-model, 3d-cache |

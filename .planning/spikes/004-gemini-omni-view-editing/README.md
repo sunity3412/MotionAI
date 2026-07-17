@@ -278,3 +278,30 @@ Vertex AI GA 전까지 spike 자체 실행 불가. 박제 + roadmap 만.
 - Interactions API는 experimental warning. `interaction.output_video.uri` = **직접 다운로드 URI** (`files/<id>:download?alt=media`) — `client.files.get` 폴링 불필요/불가(빈 body로 JSONDecodeError), `client.files.download(file=uri)` 바로 호출이 정답.
 - `client.interactions.get(id)` 로 재조회 가능 — 생성 크래시 시 재과금 없이 출력 회수 가능 (이번에 실증).
 - 산출물 로컬: `smoke_out/power_spin_side_view.mp4` + `smoke_out/frames/pair_*.png` (원본↔출력 나란히).
+
+### Iteration 3 실행 — 004-iii-b 10건 pose-consistency 게이트 (2026-07-17)
+
+**셋업:** 10건(회전5/역수직3/spin2 — 정은지 ref 6 + phase22 수집 4) 8초 트림 → Omni 앵글 90° 회전 → 새 Pod(vktsrcks6dc1h4, 4090) RTMW(production 동일 onnx) 9fps 재추론 → GT-free 3축. 스크립트: `run_gate_batch.py`(멱등 journal) + `extract_kpts_pod.py` + `compute_metrics.py`, 수치: `gate_out/metrics.json`.
+
+**생성 결과: 9/10.** 모더레이션 차단 첫 시도 3/10 (peter-pan·sideway-spin·straddle-invert, "prohibited content" — 폴스포츠 복장 오탐 추정), 재시도로 2건 통과(확률적), **straddle-invert 는 2회 연속 차단(영구)**. 비용 실측 9건 ≈ $7.4, 건당 80~170s.
+
+**측정 결과 (9쌍):**
+
+| 지표 | 값 |
+|---|---|
+| 굴곡각 MAE | **5.5°~40.9° (중앙 22.8°)** — Chair-spin 5.5 / kip-up 9.9 / peter-pan 12.1 / sliding 13.4 / sideway 22.8 / invert 24.8 / power-spin 27.7 / Diamond 31.2 / elbow-twist 40.9 |
+| 뼈길이 CV 비율(omni/orig) | 5/9 악화 (최대 x1.82 sliding-spin, x1.52 power-spin) = 사지 길이 프레임간 요동 — 시점 무관 환각 증거 |
+| jerk | kip-up x1.87 / peter-pan x1.76 악화, 나머지 비슷 |
+| L/R 매핑 | 전 건 direct (회전 후 라벨 스왑 없음) |
+
+**해석 (과대해석 방지 주석):**
+- 2D 굴곡각은 시점 준불변일 뿐이라 MAE 에는 정당한 투영 변화분이 섞여 있음 — **절대 판정이 아니라 4-way bake-off 상대 비교의 공통 자(동일 프로토콜)로 쓰는 것이 정당**. 단 뼈길이 CV 악화는 투영과 무관한 순수 환각 신호.
+- 원본 자체 추적이 나쁜 3건(elbow-twist conf 0.54 / invert CV 1.16 / power-spin CV 1.03)은 측정 기질 노이즈 포함. 추적 깨끗한 5건만 봐도 5.5°~31.2° 산포.
+- 흥미: invert/elbow-twist 는 omni 출력에서 CV 가 오히려 개선(x0.33/x0.82) — 생성 과정이 모션블러를 제거해 RTMW 추적이 쉬워지는 부수효과.
+
+### Verdict 갱신: **PARTIAL** (VALIDATED-DEFERRED-VERTEX-GA → 본 검증 완료)
+
+1. ✓ 검증됨: API 실물·앵글 실회전·시간 동기·비용($0.82/8초)·멀티턴 편집 — 기능 자체는 진짜.
+2. ✗ **채점(측정) 입력 기준 미달**: 관절각 편차 중앙 22.8° = 우리 감점 단위와 같은 자릿수. 지금 품질로 재추론→융합에 넣으면 점수 오염. "분석 정확도 절대 원칙" 위배.
+3. ✗ **모더레이션 리스크**: 첫 시도 30% 차단 + 10% 영구 차단 — 실사용자 영상에서 재현되면 기능 신뢰 붕괴. production 채택 전 해소 필수 (Vertex enterprise 설정으로 완화 가능한지 확인 과제).
+4. → **측정 보강 용도는 007(GEN3C 3D-cache/ReCamMaster) + 006(PR 수학) 상대 비교로 재판정.** 사용자 대면 "다른 각도 보기"(비채점 시각 기능) 후보로는 조건부 유지 — 모더레이션 해소 전제.

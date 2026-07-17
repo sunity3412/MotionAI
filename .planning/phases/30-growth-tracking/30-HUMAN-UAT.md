@@ -44,3 +44,34 @@
 - [ ] mode3 실분석 1건 → `comparison.recognizedMotionId` 저장 확인 (인식 성공 영상)
 - [ ] 인식 실패 영상 mode3 → 두 키 부재(legacy 동형) 확인
 - [ ] (선택) Lambda SAM 재배포 성공 시 CloudFormation `UPDATE_COMPLETE` 확인
+
+## Plan 30-04 (홈 성장 카드 2층 토글 — E1/E2 사용자 노출)
+
+### Ops 노트 — production OTA 발행 (오케스트레이터 이월)
+
+- **발행 상태: 오케스트레이터 이월 (deferred-to-orchestrator).** EAS 인증은 정상
+  (`npx eas-cli whoami` → sunity3412 확인)이나, 본 플랜은 워크트리 격리 실행이라
+  발행을 워크트리에서 직접 하지 않는다:
+  1. 워크트리 `app/node_modules` 는 메인 체크아웃 심링크(번들 무결성 우려) →
+     반환 전 제거됨.
+  2. 워크트리 HEAD = base `1d0cc2d`(wave 2 마감) + 30-04 커밋이라, 오케스트레이터가
+     wave 3 머지를 완료한 **최종 main 커밋과 git SHA 가 다르다** — EAS update 는 커밋
+     메타데이터를 박제하므로 잘못된 커밋으로 발행될 위험.
+- **다음 조치(오케스트레이터):** wave 3 머지 후 메인 체크아웃에서 발행:
+  `cd app && npx eas-cli update --branch production --message "phase 30: growth card weekly avg + per-motion deltas"`.
+  앱 변경분 전부 JS-only(신규 native 모듈 0)라 OTA 가능(Phase 27/28 선례).
+- **발행 후 확인:** `npx eas-cli update:list --branch production --limit 1` 에 phase 30
+  메시지 최신 업데이트 존재.
+
+### 실기기 확인 항목 (배치 UAT — 즉시 belle 호출 금지)
+
+- [ ] 홈 성장 카드 [추이]/[동작별] 탭 전환 — 카드 높이 불변(홈 레이아웃 안 움직임),
+  활성 탭 브랜드색(brandTint 배경 + brand 텍스트) 식별 (D-08/D-03)
+- [ ] [추이] 모드 토글 기본값 = 마지막 분석 모드 (해당 모드 주별 점 부족 시 타 모드
+  자동 폴백 동작) (D-03)
+- [ ] [추이] 선이 주별 평균 점 + 주 시작일 라벨('M/D주')로 그려짐 — raw 건별 나열 아님 (D-01)
+- [ ] [동작별] 리스트 — '프로 비교'/'내 기록' 배지 구분, ▲=브랜드레드/▼=파랑,
+  '+N점/−N점' 포인트 표기, 첫 기록 동작은 "첫 기록 N점 (비교 전)" (D-05/D-06/D-09)
+- [ ] [동작별] 보기에서 모드 토글 미노출 (D-09)
+- [ ] 분석 부족 상태에서 정정된 locked 카피("서로 다른 주에 분석을 2번 이상 하면") 표시 (D-03 null 분기)
+- [ ] 명시 선택 모드의 주별 점 부족 시 빈 차트가 아니라 안내 카피("이 모드는 주별 데이터가 아직 부족해요") 표시 (D-03)

@@ -611,6 +611,7 @@ export default function AnalysisResult() {
       updatedAt={storedDoc.updatedAt}
       createdAt={storedDoc.createdAt}
       anglesFrames={storedDoc.anglesFrames}
+      analysisId={storedDoc.analysisId}
     />
   );
 }
@@ -627,6 +628,7 @@ function AnalysisResultContent({
   updatedAt,
   createdAt,
   anglesFrames,
+  analysisId,
 }: {
   result: AnalysisResult;
   name?: string;
@@ -639,6 +641,8 @@ function AnalysisResultContent({
   // 9fps angles 공간 T). keypointReport.frames(18fps 업샘플)와 도메인이 달라
   // 이 값을 써야 틱이 실제 결함 시점에 찍힌다. 부재(구 doc)면 틱 생략.
   anglesFrames?: number;
+  // 29 리뷰 WR-03 — 현재(좌측) 본인 영상 myVideoUrl TTL 재발급용 현재 doc ID.
+  analysisId: string;
 }) {
   const router = useRouter();
   const grade = scoreGrade(result.overallScore);
@@ -713,6 +717,34 @@ function AnalysisResultContent({
       cancelled = true;
     };
   }, [prevDoc?.analysisId, prevDoc?.createdAt, prevDoc?.result?.myVideoKey]);
+
+  // 29 리뷰 WR-03 — 현재(좌측) 본인 영상 재발급. D-09 가 mode3 prev(freshPrevUrl)
+  // 와 mode1 reference(freshRefUrl)만 배선하고 현재 doc 의 myVideoUrl 은 훅이
+  // 없어, 7일 넘은 분석을 기록 탭에서 다시 열면 좌측 슬롯이 만료 URL 로 로드
+  // 실패했다. freshPrevUrl 훅 1:1 미러 — 6일 초과면 현재 analysisId 로 재발급,
+  // ext 는 WR-02 와 동일하게 실측 result.myVideoKey 에서 파생. 실패 시 기존
+  // URL 폴백 유지(__DEV__ warn 만).
+  const [freshMyUrl, setFreshMyUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const SAFE_TTL_MS = 6 * 24 * 60 * 60 * 1000; // 6일 margin (7일 TTL 안전)
+    const age = Date.now() - (createdAt || 0);
+    if (age < SAFE_TTL_MS) {
+      setFreshMyUrl(null); // 만료 X — 기존 myVideoUrl 사용
+      return;
+    }
+    const ext = result.myVideoKey?.endsWith('.mov') ? 'mov' : 'mp4';
+    let cancelled = false;
+    requestPlaybackUrl(analysisId, ext)
+      .then((resp) => {
+        if (!cancelled) setFreshMyUrl(resp.playbackUrl);
+      })
+      .catch((err) => {
+        if (__DEV__) console.warn('[playback-url] 내 영상 재발급 실패', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisId, createdAt, result.myVideoKey]);
 
   // 29-CONTEXT D-09 — D1 fix (진단: presigned 7일 TTL 만료 확정 — 신선/구 mode1
   // doc 의 referenceVideoUrl 모두 AccessDenied "Request has expired" 실측).
@@ -1452,7 +1484,9 @@ function AnalysisResultContent({
               rightLabel={
                 cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
               }
-              leftUrl={result.myVideoUrl || undefined}
+              // 29 리뷰 WR-03 — 재발급 URL 최우선 (myVideoUrl 은 분석 시점 서명
+              // 7일 TTL — 6일 초과 열람 시 freshMyUrl 재발급, 실패 시 기존 폴백).
+              leftUrl={freshMyUrl || result.myVideoUrl || undefined}
               rightUrl={
                 cmp.mode === 'mode1'
                   ? // 29-CONTEXT D-09 — 재발급 URL 최우선 (referenceVideoUrl 은

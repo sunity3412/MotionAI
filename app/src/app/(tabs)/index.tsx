@@ -325,6 +325,12 @@ const MODE_OPTIONS: ReadonlyArray<{ value: AnalysisMode; label: string }> = [
 // 동작별 리스트 표시 상한 (Claude 재량 — 카드 높이 폭주 방지, 최신 활동순 상위만).
 // 델타·평균은 재계산하지 않고 growthSelectors.motionDeltas 결과를 slice 만 한다.
 const MOTION_ROW_CAP = 4;
+// 추이 차트 표시 주 상한 (30-REVIEW WR-02 — 구 구현 slice(0,6) 상한 정신 계승).
+// GrowthChart viewBox 폭 320(innerW 284)에서 주 라벨("12/29주" fontSize 9 ≈ 30px)이
+// 겹치지 않는 상한 = 8. 최근 주 우선(slice 음수 인덱스), 평균·델타 재계산 없음 —
+// MOTION_ROW_CAP 과 동일한 표시층 slice 패턴. 카드 높이(GROWTH_CARD_CONTENT_HEIGHT)
+// 계약(D-08)은 무접촉.
+const TREND_WEEK_CAP = 8;
 // 콘텐츠 영역 단일 높이 상수 (D-08 / MEDIUM-1). [추이](GrowthChart H=132)·[동작별]·
 // 빈 상태·GrowthLockedCard 본문이 전부 이 값을 minHeight 로 공유해 보기·상태 전환 시
 // 카드 바깥 레이아웃이 흔들리지 않는다. 값 = GrowthChart 132 + 여백 20 기준.
@@ -382,7 +388,7 @@ function GrowthCard({ analyses }: { analyses: AnalysisDoc[] }) {
   const effectiveMode: AnalysisMode = modeOverride ?? baseMode ?? 'mode3';
 
   const trendPoints = useMemo(
-    () => weeklyAverages(analyses, effectiveMode),
+    () => weeklyAverages(analyses, effectiveMode).slice(-TREND_WEEK_CAP),
     [analyses, effectiveMode],
   );
   const motionRows = useMemo(

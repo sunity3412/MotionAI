@@ -695,7 +695,12 @@ function AnalysisResultContent({
       setFreshPrevUrl(null); // 만료 X — 기존 URL 사용
       return;
     }
-    const ext = prevDoc.videoFormat || 'mp4';
+    // 29 리뷰 WR-02 — videoFormat 은 어떤 생산 경로도 기록하지 않아(생산자 0 +
+    // normalize 미매핑) 항상 undefined → ext 'mp4' 고정이었다. mov 업로드 prev
+    // 재발급이 존재하지 않는 .mp4 키를 서명(서명은 객체 존재와 무관하게 성공)해
+    // prev 영상이 조용히 안 떴다. 백엔드가 항상 기록하는 실측 키
+    // result.myVideoKey(pipeline complete_analysis)에서 확장자를 파생한다.
+    const ext = prevDoc.result?.myVideoKey?.endsWith('.mov') ? 'mov' : 'mp4';
     let cancelled = false;
     requestPlaybackUrl(prevDoc.analysisId, ext)
       .then((resp) => {
@@ -707,7 +712,7 @@ function AnalysisResultContent({
     return () => {
       cancelled = true;
     };
-  }, [prevDoc?.analysisId, prevDoc?.createdAt, prevDoc?.videoFormat]);
+  }, [prevDoc?.analysisId, prevDoc?.createdAt, prevDoc?.result?.myVideoKey]);
 
   // 29-CONTEXT D-09 — D1 fix (진단: presigned 7일 TTL 만료 확정 — 신선/구 mode1
   // doc 의 referenceVideoUrl 모두 AccessDenied "Request has expired" 실측).

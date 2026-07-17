@@ -1036,11 +1036,11 @@ Plans:
 **Goal:** 성장 그래프를 실증 피드백대로 재설계 (시나리오 5). E1: raw 점수 나열 → 평균값 기반. E2: 동작별 상승/하락률 막대(주식창식) 형태 검토 — `mode3-progress-not-similarity`(발전≠일치, %일치 헤드라인 금지) 원칙 정합 확인 필수. 지적 단위 세션간 개선 추적(fault_category 매칭+신뢰구간)은 이후 단계로 유지.
 **Requirements**: TBD
 **Depends on:** 없음 (앱 — 병렬 가능)
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 30 to break down)
+- [x] TBD (run /gsd-plan-phase 30 to break down) (completed 2026-07-17)
 
 ### Phase 31: 교정 시각물 — 기하 오버레이 + 외부 생성 API 실루엣 (visual-correction)
 

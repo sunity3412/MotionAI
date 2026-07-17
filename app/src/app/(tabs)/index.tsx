@@ -11,6 +11,10 @@ import {
 } from 'react-native';
 import { GrowthChart } from '../../components/GrowthChart';
 import { OctagonScore } from '../../components/OctagonScore';
+import {
+  defaultGrowthMode,
+  weeklyAverages,
+} from '../../lib/growthSelectors';
 import { useReferenceMotions } from '../../lib/referenceMotions';
 import { useMyAnalyses } from '../../lib/userAnalyses';
 import type { AnalysisDoc, ReferenceMotion, SkillLevel } from '../../types/analysis';
@@ -290,13 +294,22 @@ function ChallengeRow({
 }
 
 function GrowthCard({ analyses }: { analyses: AnalysisDoc[] }) {
-  // 분석 점수(overallScore) 추이 꺾은선. Figma 1:719 — 차트 안 상단 라벨.
-  const recent = analyses.slice(0, 6).reverse(); // 최근 6건, 오래된→최근
-  const scores = recent.map((a) => a.result?.overallScore ?? 0);
+  // 주별 평균 추이 꺾은선 (30-CONTEXT D-01). raw 6건 나열이 아니라 growthSelectors 가
+  // 산출한 WeeklyPoint[] 를 GrowthChart 에 전달한다.
+  // TODO(30-04-PLAN.md): 잠정 배선 — 같은 phase wave 3의 30-04(depends_on 30-03)가
+  // 2층 토글 상태 기반 배선 + GrowthLockedCard 분기로 즉시 교체. 지금은 typecheck 정합만
+  // 유지하려 기본 모드(defaultGrowthMode)를 자동 선택하고, 그 모드가 null(양 모드 주별 점
+  // <2)이면 'mode3' 로 폴백한다. 이 폴백의 weeklyAverages 결과가 2점 미만이면 GrowthChart
+  // 가 null 을 반환해 카드 내부가 비어 보일 수 있는데, 이 빈 상태는 30-04 가 D-03 null 분기
+  // (GrowthLockedCard 게이트 교체)로 해소하는 것이 계약이라 이 배선에서는 건드리지 않는다.
+  const points = weeklyAverages(
+    analyses,
+    defaultGrowthMode(analyses) ?? 'mode3',
+  );
   return (
     <View style={styles.growthCard}>
-      <Text style={styles.growthHeader}>이번주 성장 그래프</Text>
-      <GrowthChart scores={scores} />
+      <Text style={styles.growthHeader}>주별 평균 성장 그래프</Text>
+      <GrowthChart points={points} />
     </View>
   );
 }

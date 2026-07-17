@@ -1007,7 +1007,7 @@ Plans:
 **Goal:** 결과 화면의 남은 파일럿 gap 일괄 해소 (시나리오 3/6/9). (a) ⑨ 부상 대응법 노출: `SafetyFlag.recommendation` 데이터가 있는데 `InjuryRiskSection`이 안 그리던 것 — 즉시 가능, 첫 plan. (b) ③ Mode3 점수 내역: 백엔드 Mode3 deductionBreakdown 방출 + 앱 게이트 확장 (gap #4). (c) ⑥ Mode3 확대비교 배선(`_attach_fault_zoom_comparisons` Mode3 확장, 타입 준비됨) + D1 비교영상(Mode1 회귀 확인 + Mode3에도 비교영상). (d) D4 진짜 가로 방향: expo-screen-orientation 전환(90도 회전 핵 폐기) — **새 EAS 빌드 필요, F1 expo-mail-composer와 같은 빌드에 동승**.
 **Requirements**: 신규 REQ ID 없음 — 커버리지 = 29-CONTEXT.md 결정 D-01~D-14
 **Depends on:** Phase 28 (비교영상·줌이 동작 정렬 결과물 소비)
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 
@@ -1029,7 +1029,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 29-08-PLAN.md — D-13 마감: phase gate + OTA 발행 + EAS 빌드 2종·iOS 무인 제출 (F1 동승) + 29-HUMAN-UAT.md 적립
+- [x] 29-08-PLAN.md — D-13 마감: phase gate + OTA 발행 + EAS 빌드 2종·iOS 무인 제출 (F1 동승) + 29-HUMAN-UAT.md 적립
 
 ### Phase 30: 성장 추적 개선 — 평균 기반·동작별 막대 (growth-tracking)
 

@@ -3328,6 +3328,23 @@ def _mode3_comparison(
             getattr(profile, "motion_id", None)
         )
     is_reference_free = assemble.is_reference_free_motion(branch_info)
+    # Phase 30 WR-04 (30-REVIEW): recognized_motion_id/name 은 적립 전용 옵셔널 필드
+    # (contract.md §4 — 이번 phase 화면 미소비). 인식기 경계는 런타임 str 을 보증하지
+    # 않음(예: gemini_technique_recognizer._profile_from_cache 의 무검증 캐시 복원).
+    # 비-str 이면 build_mode3 의 T-30-03 ValueError 가 _process 광역 except 를 타고
+    # 분석 전체를 server_error 로 죽이므로, 여기서 해당 필드만 drop + warning 하고
+    # 분석은 계속한다 (scene_finder·coach writer graceful-degrade 관례 정합).
+    # builder 의 타입 강제(T-30-03 — 오염 데이터 적립 방지)는 유지: drop 이 곧 방지.
+    _rm_id = profile.motion_id if isinstance(profile.motion_id, str) else None
+    _rm_name = profile.name if isinstance(profile.name, str) else None
+    if profile.motion_id is not None and _rm_id is None:
+        log.warning(
+            "recognized_motion_id 비-str — 적립 생략 (분석 계속): %r", profile.motion_id
+        )
+    if profile.name is not None and _rm_name is None:
+        log.warning(
+            "recognized_motion_name 비-str — 적립 생략 (분석 계속): %r", profile.name
+        )
     prev_angles = (prev or {}).get("angles")
     if not prev or not prev_angles:
         # 첫 분석(또는 이전 angles 미저장) — 비교 대상 없음. 코칭은 신전 부족분(IPSF 라인) 기준.
@@ -3355,16 +3372,16 @@ def _mode3_comparison(
             abs_dims,
             overall,
             # Phase 30 D-04: 인식된 동작 id/명 적립 (첫 분석도 방출 — build_mode3 가
-            # early return 앞 emit). profile.motion_id 가 None(FallbackRecognizer/인식
-            # 실패)이면 builder 가 두 키 미추가(계약) → 호출부 조건 분기 불필요.
+            # early return 앞 emit). _rm_id 가 None(FallbackRecognizer/인식 실패/비-str
+            # drop, WR-04)이면 builder 가 두 키 미추가(계약) → 호출부 조건 분기 불필요.
             # motion_id None 이면 name('미상' placeholder 가능)도 무의미 — builder 가
             # id-None 시 name 도 미emit (Task 1 규칙)이므로 그대로 전달해도 안전.
             # 저신뢰 억제(_apply_score_suppression)와 독립 emit — D-04 는 데이터 적립.
             assemble.build_mode3(
                 is_first=True,
                 scoring_basis=first_basis,
-                recognized_motion_id=profile.motion_id,
-                recognized_motion_name=profile.name,
+                recognized_motion_id=_rm_id,
+                recognized_motion_name=_rm_name,
             ),
             None,  # prev_dtw_match — 첫 분석은 정렬 컨텍스트 부재 (28-04 미방출 = legacy)
         )
@@ -3407,8 +3424,9 @@ def _mode3_comparison(
         cur_dimension_scores=abs_dims,  # 발전 델타는 절대 3차원만(같은 척도)
         scoring_basis=progress_basis,
         # Phase 30 D-04: progress 분기도 인식 동작 id/명 적립 (억제와 독립 emit).
-        recognized_motion_id=profile.motion_id,
-        recognized_motion_name=profile.name,
+        # WR-04: str 경계 정규화(_rm_id/_rm_name) 후 전달 — 비-str 은 필드만 drop.
+        recognized_motion_id=_rm_id,
+        recognized_motion_name=_rm_name,
     )
     return assessments, dim_scores, overall, comparison, prev_dtw_match
 

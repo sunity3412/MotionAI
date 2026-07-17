@@ -141,9 +141,11 @@ export type VideoCompareProps = {
   onLegendPress?: (markerNumber: number) => void;
   /**
    * quick-260705-r6v — 재생바 결함 측정 시점 틱 (buildDeductionTicks, frame 도메인).
-   * 탭 시 양쪽 영상을 그 시점으로 동기 seek. tickFrameCount = 사용자
-   * keypointReport.frames (초 환산용 실효 fps 기준). 세로 카드/전체화면 공용
-   * (renderControls 공유). 데이터 없으면 틱 생략.
+   * 탭 시 양쪽 영상을 그 시점으로 동기 seek. 29 리뷰 WR-01 — tickFrameCount =
+   * doc top-level anglesFrames (9fps angles 공간 T). frameIndex 가 9fps 인덱스
+   * 이므로 keypointReport.frames(18fps 업샘플) 배선 금지 — 절반 시각으로 어긋남.
+   * 초 환산 기준 duration 은 leftDuration(사용자=master 도메인). 세로 카드/
+   * 전체화면 공용 (renderControls 공유). 데이터 없으면 틱 생략.
    */
   timelineTicks?: { numbers: number[]; frameIndex: number }[];
   tickFrameCount?: number;
@@ -766,16 +768,21 @@ export function VideoCompare({
       </Pressable>
       <View style={styles.timeline}>
         {/* quick-260705-r6v — 결함 측정 시점 틱 (track 위 별도 줄, panResponder 와
-            겹치지 않게 분리). sec = frameIndex * duration / tickFrameCount (Fix-A
-            실효 fps 규칙). 탭 = 양쪽 동기 seek(seekBoth). 세로/전체화면 공용. */}
+            겹치지 않게 분리). 29 리뷰 WR-01 — sec = frameIndex * leftDuration /
+            tickFrameCount: frameIndex 는 좌측(사용자) 영상 9fps angles 도메인이라
+            환산 기준은 leftDuration(master). legacy 경로의 duration=min(dL,dR)을
+            쓰면 우측이 짧은 doc 에서 틱이 추가로 앞당겨진다. 트랙 위 위치(pct)만
+            재생 도메인 duration 기준(기존 클램프 유지). 탭 = 양쪽 동기
+            seek(seekBoth). 세로/전체화면 공용. */}
         {timelineTicks &&
           timelineTicks.length > 0 &&
           tickFrameCount != null &&
           tickFrameCount > 0 &&
+          leftDuration > 0 &&
           duration > 0 && (
             <View style={styles.tickRow} pointerEvents="box-none">
               {timelineTicks.map((tick) => {
-                const sec = (tick.frameIndex * duration) / tickFrameCount;
+                const sec = (tick.frameIndex * leftDuration) / tickFrameCount;
                 if (!isFinite(sec) || sec < 0) return null;
                 const leftPct = Math.max(0, Math.min(100, (sec / duration) * 100));
                 const label = tick.numbers.map((n) => circledNumberKo(n)).join('');

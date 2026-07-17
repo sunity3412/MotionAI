@@ -282,7 +282,10 @@ export function buildDeductionMarkers(
 // quick-260705-r6v — 재생바 결함 틱 데이터 (해외 사례: Frame.io 챕터 점프 계열).
 // 재생 중 영상 위엔 점만 두고, "언제 그 결함이 나왔는지"는 재생바 틱으로 전달한다
 // (탭 = 양쪽 영상 동기 seek). 전부 저장값 read-only — 초 환산은 VideoCompare 가
-// duration 으로 수행(frame 도메인만 방출).
+// 수행(frame 도메인만 방출). 29 리뷰 WR-01 — 여기서 방출하는 frameIndex 는
+// sourceFrameIndices.user = 9fps angles 배열 공간 인덱스. 초 환산 분모는
+// keypointReport.frames(18fps 업샘플)가 아니라 doc top-level anglesFrames(9fps T),
+// 기준 duration 은 leftDuration(사용자 영상 도메인)이어야 한다.
 //
 // 규칙:
 //   - visionVeto.status==='applied' 이고 windowMedianAngleDeltas.sourceFrameIndices

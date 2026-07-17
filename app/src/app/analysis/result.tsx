@@ -610,6 +610,7 @@ export default function AnalysisResult() {
       bodyProfileSummary={bodyProfileSummary}
       updatedAt={storedDoc.updatedAt}
       createdAt={storedDoc.createdAt}
+      anglesFrames={storedDoc.anglesFrames}
     />
   );
 }
@@ -625,6 +626,7 @@ function AnalysisResultContent({
   bodyProfileSummary,
   updatedAt,
   createdAt,
+  anglesFrames,
 }: {
   result: AnalysisResult;
   name?: string;
@@ -633,6 +635,10 @@ function AnalysisResultContent({
   updatedAt?: number;
   // 29-CONTEXT D-09 — mode1 referenceVideoUrl TTL 재발급 판단 기준(doc 생성 시각).
   createdAt?: number;
+  // 29 리뷰 WR-01 — 재생바 결함 틱 초 환산 기준(doc top-level anglesFrames,
+  // 9fps angles 공간 T). keypointReport.frames(18fps 업샘플)와 도메인이 달라
+  // 이 값을 써야 틱이 실제 결함 시점에 찍힌다. 부재(구 doc)면 틱 생략.
+  anglesFrames?: number;
 }) {
   const router = useRouter();
   const grade = scoreGrade(result.overallScore);
@@ -1512,10 +1518,13 @@ function AnalysisResultContent({
               }
               // quick-260705-r6v — 전체화면 여백 고정 범례 + 재생바 결함 틱.
               // cleanPass/legacy/mode3 면 자연히 빈 배열 (별도 분기 불요).
-              // tickFrameCount = 사용자 keypointReport.frames (초 환산 실효 fps 기준).
+              // 29 리뷰 WR-01 — tickFrameCount = doc top-level anglesFrames
+              // (9fps angles 공간 T). 틱 frameIndex(sourceFrameIndices)가 9fps
+              // 인덱스인데 keypointReport.frames 는 18fps 업샘플이라 종전 배선은
+              // 틱/seek 이 실제 시점의 절반 위치였다. 부재(구 doc)면 0 → 틱 생략.
               fullscreenLegend={fullscreenLegend}
               timelineTicks={timelineTicks}
-              tickFrameCount={userKeypointReport?.frames ?? 0}
+              tickFrameCount={anglesFrames ?? 0}
               // quick-260705-r6v — 여백 범례 탭 → 드릴다운 시트 (진입점 2).
               // VideoCompare 가 closeFullscreen 선행 후 콜백(iOS 중첩 Modal 회피).
               onLegendPress={openRecordByNumber}

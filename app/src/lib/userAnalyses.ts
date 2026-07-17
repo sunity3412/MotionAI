@@ -352,6 +352,14 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
     ...(typeof raw.learningOptIn === 'boolean'
       ? { learningOptIn: raw.learningOptIn }
       : {}),
+    // 29 리뷰 WR-01 — 재생바 결함 틱 초 환산 기준. visionVeto 의
+    // sourceFrameIndices 는 9fps angles 배열 공간 인덱스인데 keypointReport.frames
+    // 는 18fps 업샘플 저장이라 도메인이 다르다(틱이 절반 시각에 찍힘). top-level
+    // anglesFrames(T, 9fps 공간)를 통과시켜 결과 화면이 tickFrameCount 로 쓴다
+    // (learningOptIn 매핑 패턴 미러 — number 일 때만, 부재 시 undefined 유지).
+    ...(typeof raw.anglesFrames === 'number'
+      ? { anglesFrames: raw.anglesFrames }
+      : {}),
   };
 }
 

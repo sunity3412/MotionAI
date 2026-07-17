@@ -304,6 +304,14 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-reference
       RetentionInDays: 30
+  # 29 리뷰 WR-05 — playback-url 만 LogGroup 누락으로 로그 무기한 보존이었다
+  # (Lambda 자동 생성 로그 그룹 = 만료 없음, CFN 관리 밖). 나머지 4개 함수와
+  # 동일하게 30일 보존으로 정렬.
+  PlaybackUrlLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-playback-url
+      RetentionInDays: 30
   ReferenceAutoRegisterLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:

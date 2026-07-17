@@ -29,6 +29,8 @@ belle 박제 (변경 금지). spike 진행 중 새 requirement 발생 시 즉시
 - **🎯 2026-07-17 재개 박제 (Iteration 3):** Omni API 실물 출시 (`gemini-omni-flash-preview`, Gemini API+AI Studio 6/30, **$0.10/sec** — 추정 대비 2-6배 저렴). **오픈 대체재 등장으로 구도 변경 = 4-way bake-off**: Omni(API) vs ReCamMaster(Wan2.1/Apache, 단일영상→새 궤적 재렌더 = 태스크 그대로) vs NVIDIA GEN3C-Cosmos-7B(Open Model License 상업 OK, 3D cache = 환각 구조적 억제) vs PersPose PR(수학, 환각 원천 불가). 오픈 경로 = 과금 0 + SynthID 없음 + 학생 영상 인프라 내 유지.
 - **🎯 GT-free 검증 프로토콜 확정 (NLM 2026-07-17):** 10건 게이트 측정 = 교차시점 관절각 MAE(IPSF Page 19 "split angle 시점 불변") + 시간축 가속도 스파이크 + 뼈길이 불변. 사람 점수 라벨링 0 정합. phase 22 VLM(Qwen3-VL 계열) = 생성 불가·**judge 역할** (기하 무결성/시간 일관성 1-5점).
 
+- **🎯 belle 제품 방향 박제 (2026-07-17):** 카메라 앵글의 **점수 반영은 stretch goal** — "회전을 돌려보면 말했던 자세가 여기서 어긋난다" 수준의 올바른 분석이 되면 채점 보강 채택, 게이트 미달이면 강행 금지. **미달분은 phase 22 자체 VLM 학습 트랙과 동행** (도메인 파인튜닝으로 재도전). **폴백 확정 = "참고하세요 코너"**: 비채점 시각 기능으로 사용자가 각도를 직접 돌려보는 UX (Spike 005 R3F 수학 뷰어 + 합성 영상 후보) — 점수와 분리된 참고 콘텐츠로 노출.
+
 ## Spikes
 
 | # | Name | Type | Validates | Verdict | Tags |

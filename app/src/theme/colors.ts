@@ -81,6 +81,13 @@ export const colors = {
   // brand #FF4B33 변경 0 (CLAUDE.md §4).
   advisoryOrange: '#E6A300', // warnAmber alias — advisory 마커/텍스트/칩
   advisoryOrangeBg: '#FFF6E5', // warnAmberBg alias — advisory 배지/칩 배경
+
+  // ── Phase 30 신설 토큰 (D-06 성장 카드 하락 표시) ──────────────────────
+  // 30-CONTEXT D-06 — 주식창 관례: 상승 ▲=brand(#FF4B33 그대로, 신규 토큰 불필요) /
+  // 하락 ▼=파랑. 기존 progressGreen(+)/progressRed(−)는 부호-색이 D-06과 반대라
+  // (상승=초록/하락=빨강) 성장 카드 재사용 금지 — 신규 declineBlue 토큰으로 분리한다.
+  // highlight(#006FFD) 값 alias. brand #FF4B33 변경 0 (CLAUDE.md §4).
+  declineBlue: '#006FFD', // ▼ 하락 표시 (highlight alias)
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

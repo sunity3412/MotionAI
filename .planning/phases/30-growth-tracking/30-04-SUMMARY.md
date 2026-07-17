@@ -112,6 +112,13 @@ None - 앱 JS-only 변경(OTA 가능). OTA 발행은 오케스트레이터가 �
 - E1/E2 사용자 노출 완료 — 30-01/30-03 산출물 고아 해소. Phase 30의 사용자 노출 층 종결.
 - OTA 발행 = 오케스트레이터 대기(wave 3 머지 후). Pod 재가동 시 D-04 백엔드 방출 필드(30-02)가 git pull로 반영되면 [동작별] mode3 그룹핑이 학원 명칭 카테고리 체계(Phase 16)로 확장 가능.
 
+## Self-Check: PASSED
+
+- Files verified on disk (worktree): index.tsx, 30-HUMAN-UAT.md, 30-04-SUMMARY.md
+- Commits verified in git log: 5f970ea (Task 1 feat), 00fb5d7 (Task 2 docs), 33a8ec7 (SUMMARY docs)
+- typecheck GREEN, key_links 4종 grep 매치, TODO(30-04)·"이번주 성장 그래프" 0건, GROWTH_CARD_CONTENT_HEIGHT 4매치, 신규 라인 hex 0건
+- 워크트리 clean(node_modules 심링크 제거, 미추적 파일 0)
+
 ---
 *Phase: 30-growth-tracking*
 *Completed: 2026-07-17*

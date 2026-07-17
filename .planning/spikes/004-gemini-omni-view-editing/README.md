@@ -214,3 +214,47 @@ Vertex AI GA 전까지 spike 자체 실행 불가. 박제 + roadmap 만.
 - [PetaPixel — Veo 3.1 inpainting/outpainting](https://petapixel.com/2026/01/19/google-veo-3-1-updates-promise-even-more-realistic-ai-generated-video/)
 - [MindStudio — Omni vs Veo 3.1](https://www.veo3ai.io/blog/gemini-omni-vs-veo-3-1-what-changed)
 - [YouTube — belle 박제 소스 (NEW Google Gemini AI Editor)](https://www.youtube.com/watch?v=HmBGro96z-k)
+
+---
+
+## Iteration 3 — 2026-07-17 재개: API 실물 확인 + 리서치 갱신 (belle 지시 "한 달이면 AI가 크게 변한다")
+
+### API 실물 (6월 박제 대비 정정)
+
+| 항목 | 6/13 박제 | 2026-07-17 실물 |
+|---|---|---|
+| 출시 경로 | Vertex AI 대기 | **Gemini API + AI Studio 선출시 (2026-06-30)** — model id `gemini-omni-flash-preview` (public preview) |
+| 가격 | $0.20-0.60/sec 추정 ($2-6/10초) | **$0.10/sec output** (Veo 3.1 Fast 동일) — 추정 대비 2-6배 저렴, 10건 게이트 ~$10-30 |
+| Vertex Model Garden | 미등록 | Google Cloud 블로그 "Omni Flash available" 발표 — enterprise DPA path 확인 필요 (production 전제) |
+| 능력 데모 | prompt guide 문구 | 공식 데모: 바이올린 클립 카메라 정면→후면 회전 + 멀티턴 편집 지속성 실연 |
+| 캡 | 10초/720p | 동일 (긴 영상 = 구간 분할 호출) + SynthID 강제 유지 |
+
+### NLM 재조사 (2026-07-17, 모션기술 88소스 + 파인튜닝 가이드 97소스)
+
+1. **합성→재추론→융합 파이프라인은 문헌 부재** — 우리가 조합을 개척. 재료: JPMA(재투영 신뢰도 가중, 단 가림에서 불안정), P-Agg(가설 평균), confidence-aware majority voting.
+2. **GT-free 자세 충실도 검증 프로토콜 확보** (10건 게이트 측정법): (a) 교차 시점 일관성 — 원본 vs 합성 시점 RTMW 3D 포즈 정렬 후 관절각 MAE (IPSF Page 19 "split angle 시점 불변" = 근거), (b) 시간축 일관성(가속도 스파이크), (c) 뼈길이 프레임간 불변, (+2D 재투영 오차).
+3. **폴스포츠 특화 권고 스택**: ① PR 위상회전(수학, PersPose — 자세 충실도 수학적 보장/환각 원천 불가) → ② CLIFF 전역방향 → ③ Lie algebra/쿼터니언 평활화. **문헌은 "생성 이전에 수학 정규화 먼저" 권고** → 스파이크 비교군에 PR 필수.
+4. **phase 22 파인튜닝 후보군(Qwen3-VL/InternVL3.5)은 생성 능력 0 — 대체 불가, 대신 judge 역할 확정**: 합성 영상의 기하 무결성(뼈대 비율/왜곡 1-5점) + 시간 일관성(VBench 유사 축) 판정. 당장은 Gemini 3.x judge, 장기적으로 phase 22 자체 VLM이 도메인 judge 승계 후보.
+5. NLM 갭: NVIDIA NVS 계열·카메라컨트롤 오픈 모델 커버리지 없음 → 웹 리서치로 보강 (아래).
+
+### 오픈 모델 대체재 발견 (2026-07-17 웹 리서치) — Omni 단독 후보 구도 깨짐
+
+| 모델 | 정체 | 라이선스 | 우리 태스크 적합 |
+|---|---|---|---|
+| **ReCamMaster** (Kuaishou/Kling, ICCV'25 Best Paper Finalist) | **단일 영상 → 새 카메라 궤적 재렌더** — 우리 태스크 정의 그대로 | 코드/데이터 공개, 오픈 체크포인트 = Wan2.1 기반 (Wan = Apache-2.0) | ★★★ 태스크 일치 최고 |
+| **NVIDIA GEN3C-Cosmos-7B** (CVPR'25 Highlight) | depth 점군 3D cache 조건부 카메라컨트롤 영상 생성 — monocular dynamic video NVS 명시 지원 | **NVIDIA Open Model License = 상업 OK** | ★★★ 3D cache 구조가 환각을 구조적으로 억제 (Omni 대비 잠재 강점) |
+| Wan2.2 (Alibaba) | MoE 오픈 영상 생성 백본 (카메라컨트롤 파생 생태계) | Apache-2.0 상업 OK | 백본/생태계 |
+| VACE (Wan 계열) | 오픈 video-to-video 편집 프레임워크 | Apache 계열 | 보조 (앵글 특화 아님) |
+
+**전략 함의:**
+- 오픈 경로 = 과금 $0 (GPU만) + **SynthID 없음** + **학생 영상이 우리 인프라 밖으로 안 나감** (Omni는 Google 전송 = DPA 전제) + phase 22 플라이휠로 향후 도메인 파인튜닝 가능성.
+- 단 GPU Pod 필요 (현재 Pod 부재 — 재생성 후 실행) + 셋업 비용 + 품질 미검증.
+- **구도 변경: "Omni 단독 본검증" → "Omni(API) vs ReCamMaster(오픈) vs GEN3C(오픈) vs PR(수학) 4-way bake-off"** — Spike 001 evaluate_4way 하네스 설계 그대로 재사용.
+
+### Sources (Iteration 3)
+
+- [Google Cloud Blog — Omni Flash available](https://cloud.google.com/blog/products/ai-machine-learning/nano-banana-2-lite-and-gemini-omni-flash-available)
+- [Gemini API changelog](https://ai.google.dev/gemini-api/docs/changelog)
+- [nvidia/GEN3C-Cosmos-7B (HF)](https://huggingface.co/nvidia/GEN3C-Cosmos-7B) / [GEN3C GitHub](https://github.com/nv-tlabs/GEN3C)
+- [ReCamMaster GitHub](https://github.com/KlingAIResearch/ReCamMaster) / [arXiv 2503.11647](https://arxiv.org/abs/2503.11647)
+- [Wan2.2 GitHub (Apache-2.0)](https://github.com/Wan-Video/Wan2.2)

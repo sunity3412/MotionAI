@@ -159,10 +159,15 @@ export function motionDeltas(analyses: AnalysisDoc[]): MotionDeltaRow[] {
       key = cmp.referenceMotionId;
       label = cmp.referenceMotionName;
       badge = '프로 비교';
-    } else {
+    } else if (doc.mode === 'mode3') {
       key = 'self';
       label = '내 기록';
       badge = '내 기록';
+    } else {
+      // (30-REVIEW WR-03) mode1 인데 comparison 형상 불일치(런타임 Firestore 데이터는
+      // TS 계약을 보증하지 않음) — '내 기록' 그룹에 합산하면 방어 경로에서 D-02 모드
+      // 비혼합이 깨지므로 어느 그룹에도 넣지 않고 skip.
+      continue;
     }
     const g = groups.get(key) ?? { label, badge, docs: [] };
     g.docs.push(doc);

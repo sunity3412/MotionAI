@@ -258,3 +258,23 @@ Vertex AI GA 전까지 spike 자체 실행 불가. 박제 + roadmap 만.
 - [nvidia/GEN3C-Cosmos-7B (HF)](https://huggingface.co/nvidia/GEN3C-Cosmos-7B) / [GEN3C GitHub](https://github.com/nv-tlabs/GEN3C)
 - [ReCamMaster GitHub](https://github.com/KlingAIResearch/ReCamMaster) / [arXiv 2503.11647](https://arxiv.org/abs/2503.11647)
 - [Wan2.2 GitHub (Apache-2.0)](https://github.com/Wan-Video/Wan2.2)
+
+### Iteration 3 실행 — 004-iii-a Omni API 스모크 (2026-07-17)
+
+**셋업:** `power-spin-correct.mp4` (S3 fixtures) 8초 트림 → Files API 업로드 → `interactions.create(model="gemini-omni-flash-preview", input=[document, "rotate the camera 90 degrees to view from her left side, keep pose/motion/timing identical"])`.
+
+**결과: SMOKE PASS**
+
+| 실측 | 값 |
+|---|---|
+| 파이프라인 | 업로드 10.4s + 생성 ~65s → status=completed |
+| 출력 | 8.17s / 720×1280 (9:16 유지) / 2.06MB mp4 |
+| 비용 | 출력 8.17s × $0.10 ≈ **$0.82** (usage: video out 47,302 tokens) |
+| 앵글 변경 | **실제로 회전됨** — 원본에 안 보이던 스튜디오 반대편 벽(로고 벽)이 드러나는 시점으로 전환, 방/폴/인물 정체성 보존 |
+| 시간 동기 | 타임스탬프별 스핀 위상 대체로 일치 (0.5/2/4/6/7.5s 프레임 대조) |
+| 자세 충실도 | **의심 지점 존재** — 7.5s 프레임에서 다리 벌림 각(레그 스플릿 폭)이 원본과 눈에 띄게 다름. 정확히 10건 정량 게이트(관절각 MAE)가 재야 할 결함 유형 |
+
+**SDK 함정 박제 (게이트 러너 재사용):**
+- Interactions API는 experimental warning. `interaction.output_video.uri` = **직접 다운로드 URI** (`files/<id>:download?alt=media`) — `client.files.get` 폴링 불필요/불가(빈 body로 JSONDecodeError), `client.files.download(file=uri)` 바로 호출이 정답.
+- `client.interactions.get(id)` 로 재조회 가능 — 생성 크래시 시 재과금 없이 출력 회수 가능 (이번에 실증).
+- 산출물 로컬: `smoke_out/power_spin_side_view.mp4` + `smoke_out/frames/pair_*.png` (원본↔출력 나란히).

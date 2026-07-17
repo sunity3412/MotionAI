@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -10,14 +10,21 @@ import {
   View,
 } from 'react-native';
 import { GrowthChart } from '../../components/GrowthChart';
+import { GrowthMotionBars } from '../../components/GrowthMotionBars';
 import { OctagonScore } from '../../components/OctagonScore';
 import {
   defaultGrowthMode,
+  motionDeltas,
   weeklyAverages,
 } from '../../lib/growthSelectors';
 import { useReferenceMotions } from '../../lib/referenceMotions';
 import { useMyAnalyses } from '../../lib/userAnalyses';
-import type { AnalysisDoc, ReferenceMotion, SkillLevel } from '../../types/analysis';
+import type {
+  AnalysisDoc,
+  AnalysisMode,
+  ReferenceMotion,
+  SkillLevel,
+} from '../../types/analysis';
 import {
   colors,
   gradients,
@@ -59,6 +66,10 @@ function formatRelative(epochMs: number): string {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
+// 홈 헤더 "(평균 N점)" — 전체 누적 평균(모드 혼합). 성장 그래프(D-02 모드 분리)와
+// 성격이 다르므로 유지 결정(30-CONTEXT Claude's Discretion / D-01 재량): 헤더는
+// "지금까지 전체 누적" 맥락이라 그래프의 모드별 주별 평균과 역할이 구분되고, 삭제 시
+// 정보 손실이라 유지가 더 정확하다. 그래프 카드에는 이 혼합 평균을 절대 노출하지 않는다.
 function averageScore(analyses: AnalysisDoc[]): number | null {
   const scores = analyses
     .map((a) => a.result?.overallScore)
@@ -74,7 +85,10 @@ export default function Home() {
 
   const recent = analyses[0] ?? null;
   const avg = useMemo(() => averageScore(analyses), [analyses]);
-  const hasGrowth = analyses.length >= 2;
+  // (D-03 null 분기) 성장 카드 렌더 게이트 = defaultGrowthMode !== null. 단순 건수
+  // (analyses.length>=2)가 아니라 "어느 한 모드라도 주별 점 2개 이상"이 기준 — 같은 주
+  // 2건은 주별 평균 점 1개뿐이라 추이를 못 그리므로, 주별 기준과 정합하는 게이트로 교체한다.
+  const growthBaseMode = useMemo(() => defaultGrowthMode(analyses), [analyses]);
 
   // 오늘 도전해볼 동작: 고급 우선 → 중급 → 기본기 (Figma 1:719 — 챌린지 욕구 자극 우선), 최대 3개
   const challenges = useMemo<ReferenceMotion[]>(() => {
@@ -202,7 +216,7 @@ export default function Home() {
           )}
 
           <Text style={styles.sectionTitle}>성장 그래프</Text>
-          {hasGrowth ? (
+          {growthBaseMode !== null ? (
             <GrowthCard analyses={analyses} />
           ) : (
             <GrowthLockedCard />
@@ -293,33 +307,138 @@ function ChallengeRow({
   );
 }
 
-function GrowthCard({ analyses }: { analyses: AnalysisDoc[] }) {
-  // 주별 평균 추이 꺾은선 (30-CONTEXT D-01). raw 6건 나열이 아니라 growthSelectors 가
-  // 산출한 WeeklyPoint[] 를 GrowthChart 에 전달한다.
-  // TODO(30-04-PLAN.md): 잠정 배선 — 같은 phase wave 3의 30-04(depends_on 30-03)가
-  // 2층 토글 상태 기반 배선 + GrowthLockedCard 분기로 즉시 교체. 지금은 typecheck 정합만
-  // 유지하려 기본 모드(defaultGrowthMode)를 자동 선택하고, 그 모드가 null(양 모드 주별 점
-  // <2)이면 'mode3' 로 폴백한다. 이 폴백의 weeklyAverages 결과가 2점 미만이면 GrowthChart
-  // 가 null 을 반환해 카드 내부가 비어 보일 수 있는데, 이 빈 상태는 30-04 가 D-03 null 분기
-  // (GrowthLockedCard 게이트 교체)로 해소하는 것이 계약이라 이 배선에서는 건드리지 않는다.
-  const points = weeklyAverages(
-    analyses,
-    defaultGrowthMode(analyses) ?? 'mode3',
+// 보기 전환 탭 (D-08) — [추이]/[동작별]. 모드 토글(D-02)은 [추이]에만 노출(D-09).
+const VIEW_OPTIONS = [
+  { value: 'trend', label: '추이' },
+  { value: 'byMotion', label: '동작별' },
+] as const;
+// 모드 토글 카피 = history.tsx modeBadge 재사용 ('프로 비교'=mode1 / '내 기록'=mode3, D-02).
+const MODE_OPTIONS: ReadonlyArray<{ value: AnalysisMode; label: string }> = [
+  { value: 'mode1', label: '프로 비교' },
+  { value: 'mode3', label: '내 기록' },
+];
+// 동작별 리스트 표시 상한 (Claude 재량 — 카드 높이 폭주 방지, 최신 활동순 상위만).
+// 델타·평균은 재계산하지 않고 growthSelectors.motionDeltas 결과를 slice 만 한다.
+const MOTION_ROW_CAP = 4;
+// 콘텐츠 영역 단일 높이 상수 (D-08 / MEDIUM-1). [추이](GrowthChart H=132)·[동작별]·
+// 빈 상태·GrowthLockedCard 본문이 전부 이 값을 minHeight 로 공유해 보기·상태 전환 시
+// 카드 바깥 레이아웃이 흔들리지 않는다. 값 = GrowthChart 132 + 여백 20 기준.
+const GROWTH_CARD_CONTENT_HEIGHT = 152;
+
+// 성장 카드 전용 소형 세그먼트 토글 (BodyProfileForm Segmented analog — import 대신
+// 이식해 스타일 결합 방지, RecentAnalysisCard 선례). 활성 탭 = chipSelected 관례
+// (colors.brandTint bg + colors.brand border/text, D-03 "활성 브랜드색 명확 표시").
+function GrowthToggle<T extends string>({
+  options,
+  selected,
+  groupLabel,
+  onSelect,
+}: {
+  options: ReadonlyArray<{ value: T; label: string }>;
+  selected: T;
+  groupLabel: string;
+  onSelect: (v: T) => void;
+}) {
+  return (
+    <View style={styles.toggleRow}>
+      {options.map((opt) => {
+        const isSel = selected === opt.value;
+        return (
+          <Pressable
+            key={opt.value}
+            onPress={() => onSelect(opt.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSel }}
+            accessibilityLabel={`${groupLabel} ${opt.label}${isSel ? ', 선택됨' : ''}`}
+            hitSlop={6}
+            style={[styles.toggleTab, isSel && styles.toggleTabSelected]}
+          >
+            <Text style={[styles.toggleTabText, isSel && styles.toggleTabTextSelected]}>
+              {opt.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
+}
+
+function GrowthCard({ analyses }: { analyses: AnalysisDoc[] }) {
+  // 2층 토글 (30-CONTEXT D-02/D-03/D-08/D-09): 보기(추이/동작별) × 모드(프로 비교/내 기록).
+  const [view, setView] = useState<'trend' | 'byMotion'>('trend');
+  // 모드는 사용자가 토글을 누른 뒤에만 non-null(override). 기본값에 defaultGrowthMode 를
+  // 넣지 않는다 — analyses 가 비동기 도착이라 useState 초기화 시점엔 [] 여서 stale 됨.
+  const [modeOverride, setModeOverride] = useState<AnalysisMode | null>(null);
+
+  // 유효 모드 = override(사용자 선택) ?? defaultGrowthMode(마지막 분석 모드 + 폴백, D-03).
+  // GrowthCard 는 부모 게이트(defaultGrowthMode !== null)를 통과했을 때만 렌더되므로
+  // baseMode 는 사실상 non-null. 'mode3' 폴백은 타입 방어(도달 불가).
+  const baseMode = useMemo(() => defaultGrowthMode(analyses), [analyses]);
+  const effectiveMode: AnalysisMode = modeOverride ?? baseMode ?? 'mode3';
+
+  const trendPoints = useMemo(
+    () => weeklyAverages(analyses, effectiveMode),
+    [analyses, effectiveMode],
+  );
+  const motionRows = useMemo(
+    () => motionDeltas(analyses).slice(0, MOTION_ROW_CAP),
+    [analyses],
+  );
+
   return (
     <View style={styles.growthCard}>
       <Text style={styles.growthHeader}>주별 평균 성장 그래프</Text>
-      <GrowthChart points={points} />
+      <GrowthToggle
+        options={VIEW_OPTIONS}
+        selected={view}
+        groupLabel="성장 보기"
+        onSelect={setView}
+      />
+      {/* 모드 토글은 [추이] 보기에만 (D-09: [동작별]은 통합 리스트가 배지로 모드 구분). */}
+      {view === 'trend' && (
+        <GrowthToggle
+          options={MODE_OPTIONS}
+          selected={effectiveMode}
+          groupLabel="비교 모드"
+          onSelect={setModeOverride}
+        />
+      )}
+      <View style={styles.growthBody}>
+        {view === 'trend' ? (
+          // 주별 점 2개 이상이면 추이선, 미만이면 같은 높이 안내(D-03: 명시 선택 모드가
+          // 부족해도 빈 화면 금지 — 기본값 폴백과 달리 사용자 선택은 존중하되 안내 카피).
+          trendPoints.length >= 2 ? (
+            <GrowthChart points={trendPoints} />
+          ) : (
+            <View style={styles.growthEmpty}>
+              <Text style={styles.growthEmptyText}>
+                이 모드는 주별 데이터가{'\n'}아직 부족해요
+              </Text>
+            </View>
+          )
+        ) : motionRows.length > 0 ? (
+          <GrowthMotionBars rows={motionRows} />
+        ) : (
+          <View style={styles.growthEmpty}>
+            <Text style={styles.growthEmptyText}>
+              동작별로 비교할 기록이{'\n'}아직 부족해요
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
 
 function GrowthLockedCard() {
   // Figma 1:794: 솔리드 회색 박스 + 가운데 카피. 아이콘·점선 없음.
+  // (D-03 null 분기) 카피 정정: "분석을 2번 이상 하면"은 주별 평균 기준과 불일치
+  // (같은 주 2건 = 주별 점 1개)하므로 서로 다른 주 기준으로 바로잡는다. 본문 minHeight 는
+  // GrowthCard 본문과 동일한 GROWTH_CARD_CONTENT_HEIGHT 를 공유(카드 높이 일정, MEDIUM-1).
   return (
     <View style={styles.growthLocked}>
       <Text style={styles.growthLockedText}>
-        분석을 2번 이상 하면{'\n'}AI 그래프가 보여요
+        서로 다른 주에 분석을 2번 이상 하면{'\n'}성장 그래프가 보여요
       </Text>
     </View>
   );
@@ -463,10 +582,37 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  toggleRow: { flexDirection: 'row', gap: 8 },
+  toggleTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    borderRadius: radius.button,
+    backgroundColor: colors.bg,
+  },
+  // 활성 탭 = chipSelected 관례 (brandTint bg + brand border/text) — D-03 브랜드색 명확 표시.
+  toggleTabSelected: { backgroundColor: colors.brandTint, borderColor: colors.brand },
+  toggleTabText: { ...typography.buttonSecondary, color: colors.textPrimary },
+  toggleTabTextSelected: { color: colors.brand },
+  // [추이]/[동작별] 공통 본문 컨테이너 — 단일 높이 상수로 카드 높이 고정 (MEDIUM-1).
+  growthBody: {
+    minHeight: GROWTH_CARD_CONTENT_HEIGHT,
+    justifyContent: 'center',
+  },
+  growthEmpty: { alignItems: 'center', justifyContent: 'center' },
+  growthEmptyText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   growthLocked: {
     backgroundColor: '#EFEFEF', // Figma 1:794 — 솔리드 회색 박스
     borderRadius: radius.card,
-    paddingVertical: spacing.cardPadding + 18,
+    minHeight: GROWTH_CARD_CONTENT_HEIGHT, // GrowthCard 본문과 동일 높이 공유 (MEDIUM-1)
     paddingHorizontal: spacing.cardPadding,
     alignItems: 'center',
     justifyContent: 'center',

@@ -3085,8 +3085,12 @@ def _build_mode3_fault_zoom_comparisons(
         ext = os.path.splitext(prev_video_key)[1] or ".mp4"
         tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
         tmp.close()
-        _s3.download_file(bucket, prev_video_key, tmp.name)
+        # 29 리뷰 WR-04 — download 전에 경로 바인딩. download_file 예외 시에도
+        # finally 의 _safe_unlink_local_video 가 delete=False 임시파일을 정리한다
+        # (종전엔 성공 후 할당이라 실패 반복 시 장수명 Pod 에 빈 파일 누적 —
+        # T-05-03-02 "delete=False 는 caller 책임 정리" 규율).
         prev_video_path = tmp.name
+        _s3.download_file(bucket, prev_video_key, prev_video_path)
         # Mode3 는 split_angle_present 기본 False(게이트 A) — 기준이 사용자 지난
         # 영상이라 도립 pose 대칭 문제로 사이각을 안전 생략(quick-260705-wbs).
         return _render_fault_zoom(

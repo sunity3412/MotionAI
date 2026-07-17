@@ -645,6 +645,8 @@ def build_mode3(
     cur_dimension_scores: dict | None = None,
     scoring_basis: str | None = None,
     scoring_basis_label: str | None = None,
+    recognized_motion_id: str | None = None,
+    recognized_motion_name: str | None = None,
 ) -> dict:
     """자기 성장(mode3) 비교 블록.
 
@@ -658,11 +660,29 @@ def build_mode3(
     전달 시에만 scoringBasis + scoringBasisLabel emit. 허용값 = 정확히 4 Mode3 값
     (_MODE3_SCORING_BASES). `reference_motion` 은 Mode1 전용 — Mode3 에 들어오면
     거짓 reference 비교 함의이므로 ValueError (free-form 문자열도 거부).
+
+    Phase 30 (D-04): recognized_motion_id/name 미전달(None) 시 기존 dict 정확히
+    보존 (두 키 미추가 — legacy 동형). recognized 필드는 early return 전에 out 에
+    추가하므로 첫 분석(is_first=True) mode3 도 실어보낸다 (REVIEW HIGH-3). str 이
+    아니면 ValueError (T-30-03 — LLM 유래 값 타입 강제). name 은 truthy 일 때만 emit.
+    3중 계약: analysis.ts + models.py + docs/contract.md §4 lockstep.
     """
     if scoring_basis is not None and scoring_basis not in _MODE3_SCORING_BASES:
         raise ValueError(
             f"build_mode3 scoring_basis 는 4 Mode3 값 중 하나여야 함 "
             f"(reference_motion 은 Mode1 전용 — Mode3 불가): {scoring_basis!r}"
+        )
+    if recognized_motion_id is not None and not isinstance(recognized_motion_id, str):
+        raise ValueError(
+            f"build_mode3 recognized_motion_id 는 str 이어야 함 (T-30-03): "
+            f"{recognized_motion_id!r}"
+        )
+    if recognized_motion_name is not None and not isinstance(
+        recognized_motion_name, str
+    ):
+        raise ValueError(
+            f"build_mode3 recognized_motion_name 는 str 이어야 함 (T-30-03): "
+            f"{recognized_motion_name!r}"
         )
     out: dict = {"mode": "mode3", "isFirst": bool(is_first)}
     if scoring_basis is not None:
@@ -670,6 +690,12 @@ def build_mode3(
         out["scoringBasisLabel"] = (
             scoring_basis_label or _MODE3_SCORING_BASIS_LABELS.get(scoring_basis, "")
         )
+    # Phase 30 D-04: recognized 필드는 early return 전에 추가 (첫 분석도 포함).
+    # id 가 None 이면 두 키 모두 미추가 = legacy dict 바이트 동일 보존.
+    if recognized_motion_id is not None:
+        out["recognizedMotionId"] = recognized_motion_id
+        if recognized_motion_name:
+            out["recognizedMotionName"] = recognized_motion_name
     if is_first or not previous_analysis_id:
         return out
     out["previousAnalysisId"] = previous_analysis_id

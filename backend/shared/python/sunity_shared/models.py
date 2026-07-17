@@ -66,6 +66,17 @@ MODE3_SCORING_BASES = (
     "previous_analysis_plus_reference_free_absolute",
 )
 
+# ── Phase 30 (D-04): comparison.recognizedMotionId/Name 명세 ──────────────
+# mode3 분석에서 인식기가 이미 알아낸 동작 id/명을 comparison 에 optional 로 방출
+# (데이터 적립 — 이번 phase 화면 미소비, Phase 16 이 학원 명칭 카테고리로 소비).
+# source = TechniqueProfile.motion_id / TechniqueProfile.name (analysis/technique.py).
+# 값은 free string(인식기 canonical motion id / 표시명)이라 enum tuple 불필요 —
+# 타입 강제(str)는 assemble.build_mode3 가 소유(비-str = ValueError, T-30-03).
+# recognized_motion_id 가 None(FallbackRecognizer/인식 실패)이면 두 키 모두 미추가
+# (legacy doc 동형 보존, 마이그레이션 0). 3중 계약: app/src/types/analysis.ts
+# (Mode3Comparison.recognizedMotionId?/recognizedMotionName?) + assemble.build_mode3 +
+# docs/contract.md §4 와 lockstep (세 곳 동시 갱신 필수).
+
 # ── Phase 20 (SCORE-08, TRUST-08) + Phase 24 (ND-01, 밴드 제거): visionVeto audit 명세 ──
 # 비전 채점 결과 audit. status 가 채점 실행을 증명한다 (부재 ≠ 실행, HIGH-1). Phase 24:
 # severity→고정천장 밴드 제거 — applied 시 tallyFinal(감점 합산 최종) 동반.

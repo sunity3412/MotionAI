@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-29)
 
 **Core value:** 분석 정확도 — 점수가 믿을 만하고 첫 분석이 "전문가 수준으로 구체적". 수치는 보조, 원인이 핵심.
-**Current focus:** Phase 30 — growth-tracking
+**Current focus:** Phase 31 — api-visual-correction (CONTEXT 완료, plan 은 GEN3C 판정 대기)
 
 > **20-04 / SCORE-09 ownership (belle 2026-06-23, D-14 amended + D-15, ITERATION6):** Phase 20-04 의 still-frame SEVERITY_CAP **regression subset** (SCORE-08 cap + TRUST-06 결정론) 은 Phase 23-03 eval 이 still-frame veto 경로에서 OWN·검증한다 (superseded-by-23-03) — 정은지 95~100 / kip-up fault = moderate 점수 ≤75 (20-04 evidence 75/moderate 와 일치, ≤50 억지 격상=curve-fit 금지) / 결정론(cold+warm) / EVAL18 변별 4쌍 퇴행0. **SCORE-09 (일반화/sensitivity — 미보유+above-cutoff 양방검증) 는 흡수되지 않고 별도 PENDING 으로 Phase 20 / 후속에 잔류한다.** Phase 23 을 SCORE-09 미처리로 닫거나 20-04 를 SCORE-09 채로 superseded 처리 금지.
 

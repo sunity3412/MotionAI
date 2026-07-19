@@ -101,6 +101,62 @@ playbackUrl   string   S3 presigned GET URL
 expiresInSec  number   URL 만료(초) = 604800 (7일)
 ```
 
+#### POST /playback-url — `asset` 확장 (Phase 31, 리뷰 H-02)
+
+기존 body 에 optional 필드 하나를 추가한다. **`asset` 미지정 = 기존 동작 100% 보존**
+(하위호환 — 기존 두 변형과 응답 스키마 모두 불변).
+
+```
+asset  'correctedPose' | 'rotation'   optional  ← 지정 시 analysisId 와 함께 사용
+```
+
+`asset` 지정 시 서버는 **토큰 uid 로 스코프된 분석 문서**에서 해당 asset 의 key
+(`correctedPoseKey` / `rotationVideoKey`)를 읽고, `results/{uid}/{analysisId}/` prefix
+정확 일치를 검증한 뒤 **1시간 presign** 을 발급한다.
+
+- **클라이언트 임의 key 없음** — 요청에 S3 key 를 실어 보내는 파라미터가 계약에 존재하지
+  않는다. 클라이언트는 asset **종류**만 고르고, 실제 key 선택은 전적으로 서버 몫이다
+  (server-selected asset type, 리뷰 H-02/H-05). referenceMotionId 변형의 allowlist
+  가드와 동일 철학.
+- 필드 부재(아직 생성 안 됨) / 상태 미완료(`!= 'done'`) / prefix 불일치 = **전부 동일한
+  `404 not_found`** — 어느 단계에서 걸렸는지 응답으로 구분되지 않는다 (leak 0,
+  referenceMotionId 4종 가드 선례).
+- 응답: `{playbackUrl, expiresInSec: 3600}`. 영상 재생용 7일 TTL 과 달리 **1시간**인 이유는
+  이 URL 이 화면 표시 즉시 소비되고 재방문 시 재발급되기 때문이다.
+
+#### POST /visual/rotation (Phase 31 — D-06)
+
+카메라앵글 회전 참고 영상 **온디맨드 생성 요청**. (인증: Firebase ID token 필수)
+건당 수분·과금이라 자동 생성하지 않는다 — 버튼 → 백그라운드 생성 → 카드 갱신.
+
+요청
+```
+analysisId  string   본인 소유 분석 건
+```
+
+응답
+```
+202  {"rotationStatus": "pending"}   신규 접수 / 재시도 수락
+200  {"rotationStatus": "done"}      이미 완료 — URL 미포함(표시 URL 은 playback-url asset)
+400  code 'bad_request'              analysisId 누락·형식 오류
+401  code 'unauthorized'             토큰 부재/검증 실패
+404  code 'not_found'                존재·소유·상태 가드 합산 단일 응답
+429  code 'daily_limit'              일일 생성 한도 초과
+503  code 'feature_disabled'         VisualJobsEnabled flag OFF
+```
+
+- **404 단일 응답:** 문서 부재 / 타인 소유 / 생성 불가 상태를 하나의 404 로 합산한다 —
+  타인의 analysisId 를 넣어 존재 여부를 떠보는 경로가 없다 (playback-url `guards_ok`
+  선례, leak 0).
+- **200 에 URL 을 담지 않는다** — 이미 `done` 이어도 표시 URL 은 `POST /playback-url`
+  의 `asset: 'rotation'` 재서명으로만 얻는다 (URL 비저장 원칙, 리뷰 H-02).
+- **`daily_limit` 한도 명세 (리뷰 M-06):** 사용자당 **3건/일** + 전역 **30건/일**.
+  **일 경계 = KST(UTC+9) 자정 리셋** — 파일럿 사용자가 전원 한국이라 UTC 자정 리셋은
+  한국 시간 오전 9시에 한도가 풀리는 혼란을 준다. 서버가 KST 기준 날짜 키
+  (`quotaDateKey`)로 집계한다. 파일럿 규모에서는 사실상 무제한이되 남용만 막는 수준(D-07).
+- **`feature_disabled` 는 조용히 처리:** flag OFF 응답을 받으면 앱은 에러를 띄우지 않고
+  버튼을 비활성화한다 (D-08 조용한 폴백). R3F 뷰어는 그대로 표시된다.
+
 > 참고: backend/CLAUDE.md 의 `POST /analyze`, `GET /history/{userId}` 는
 > 본 계약에선 각각 "S3 트리거 자동 실행", "Firestore 직접 쿼리"로 대체한다
 > (앱은 분석 트리거 API를 직접 호출하지 않고, 기록은 users/{uid}/analyses 쿼리).
@@ -341,6 +397,56 @@ faultZoomStatus   'pending' | 'done' | 'failed'   optional  ← zoom 렌더 진�
     넣지 않는다 — status enum 확장 3-way 비용 회피. result 내부 scalar 필드로만 존재.
   - Python 정본: `models.py FAULT_ZOOM_STATUSES` + `firestore_admin.update_analysis_fault_zoom`.
     lockstep: `app/src/types/analysis.ts AnalysisResult.faultZoomStatus?` ↔ models.py ↔ 본 §4.
+
+`visual 교정 시각물 필드` (Phase 31 — D-05/D-06/D-08)
+```
+correctedPoseStatus       'pending' | 'done' | 'failed'   optional  ← 교정 자세 이미지 상태
+correctedPoseKey          string                          optional  ← S3 key (URL 아님)
+correctedPoseJoint        string                          optional  ← 교정 대상 top-1 결함 keypoint
+correctedPoseUpdatedAtMs  number                          optional  ← epoch ms, 이 필드 전용
+rotationStatus            'pending' | 'done' | 'failed'   optional  ← 회전 참고 영상 상태
+rotationVideoKey          string                          optional  ← S3 key (URL 아님)
+rotationUpdatedAtMs       number                          optional  ← epoch ms, 이 필드 전용
+```
+  - **두 산출물의 생성 시점이 다르다.** `correctedPose*`(D-05)는 **분석 완료 시 자동
+    생성**(결함 top-1 부위만) — 첫 분석의 "전문가 수준" 인상이 core value 라서 무조건
+    만든다. `rotation*`(D-06)은 건당 수분·과금이라 **온디맨드**(`POST /visual/rotation`)
+    로만 생성되고, 대기 중에는 R3F 수학 3D 뷰어가 즉시 대체재로 표시된다.
+  - 상태 의미(양쪽 동일): `pending`=생성 중(카드 자리 placeholder) / `done`=도착(카드
+    표시) / `failed`=생성 실패(카드 숨김).
+  - **부재 = legacy doc** — optional, migration 없음. `failed` 와 부재는 앱에서 동일하게
+    "카드 숨김"으로 처리된다 — 모더레이션 차단(실측 ~10%)을 사용자에게 에러로 노출하지
+    않는 **조용한 폴백**(D-08). 실패를 강조하면 "기능이 불안하다"는 인상만 남는다.
+  - **URL 비저장 원칙 (리뷰 H-02):** 문서에는 presigned URL 을 **저장하지 않는다**. key
+    만 두고, 표시 URL 은 `POST /playback-url` 의 `asset` 확장으로 매번 재서명한다. 문서에
+    URL 을 박제하면 (a) TTL 만료 후 죽은 URL 이 남고 (b) 클라이언트가 임의 key 를
+    서명시킬 여지가 생긴다. 서버가 asset 종류로 key 를 **선택**하는 형태만 허용.
+  - **전용 timestamp (리뷰 H-06):** pending 타임아웃/dedupe 판정은 각 필드의
+    `*UpdatedAtMs` 로만 한다 — 공용 `updatedAt` 은 무관한 write 로도 갱신돼 pending
+    수명을 잘못 늘린다.
+  - **점수 비반영 invariant:** 두 산출물 모두 채점에 들어가지 않는다 (카메라앵글 stretch
+    게이트 미통과). 결과 화면에서도 점수 내역 **아래** "참고하세요" 섹션에 분리 배치한다
+    (D-09) — 점수 비반영이 레이아웃으로 드러나야 한다.
+  - **내부 구현 노트 (앱 비노출):** 생성 작업은 백엔드 전용 `visualJobs` 컬렉션으로
+    관리하고, 일일 한도는 job 문서의 `quotaDateKey`(KST 일 경계) 로 집계한다. 앱은 이
+    컬렉션을 읽지 않으며 계약에도 포함되지 않는다 — 위 7필드가 앱이 보는 전부다.
+  - Python 정본: `models.py VISUAL_STATUSES` + `firestore_admin.update_analysis_visual`.
+    lockstep: `app/src/types/analysis.ts AnalysisResult.correctedPoseStatus?`/`rotationStatus?`
+    ↔ models.py ↔ 본 §4.
+
+`FaultZoomComparison` 뷰어 프레임 소스 (Phase 31 — D-10)
+```
+userFrameIdx  number   optional  ← 학생 측 대응 프레임 인덱스
+refFrameIdx   number   optional  ← 기준(정은지) 측 대응 프레임 인덱스
+refMatched    boolean  optional  ← 기준 측 대응 성공 여부
+```
+  - DTW 대응 프레임 쌍이며 **`keypointReport` 프레임 공간(9fps angles 도메인)**의 정수
+    인덱스다 (18fps 업샘플 공간 아님 — §11 fps 도메인 주의 동일).
+  - crop PNG(`imageUrl`)와 달리 2D 비교 뷰어는 좌표를 직접 렌더하므로 "이 카드가 가리키는
+    순간"의 프레임 인덱스가 필요하다. `refMatched=false` 면 뷰어가 학생 단독 렌더
+    (`refMatch: 'failed'` 와 정합).
+  - **부재(legacy) = 뷰어 프레임 동기화 없음** — optional, migration 없음
+    (`tier?`/`refMatch?` 선례). 31-03 이 방출.
 
 `dimensionScores` = IPSF 폴스포츠 실행 심사기준 (docs/research/폴스포츠-지식.md).
   신체 부위가 아니라 심판이 보는 실행 차원. **3차원** (2026-05-29 balance 차원 제거 —
@@ -1631,3 +1737,4 @@ const frameIdx = Math.floor(currentTime * report.fps);
 *Plan 09-01 §9.11 추가: 2026-06-10 — ForcePatternInference + ForcePatternFinding 신설 (Wave 0 = TS interface + Python frozen dataclass + Firestore scoped validator + frontend null-guard 단일 atomic commit). D-09-D1 / D-09-U1 (3-way atomic lockstep) / D-09-U3 / D-09-U4 / D-09-U5. Wave 1 (Plan 09-02) 가 본체 함수 + 18 canned + pipeline wiring 박제.*
 *quick-260705-k8h §10 갱신: 2026-07-05 — 관절(criterion record)당 감점 상한 −20 (belle 승인). §10.2 optional 2필드(`rawPoints`/`capApplied`) 신설 — 상한 적용 record 에만 방출, 미적용 record byte-호환. final 밴드/severity 밴드 없음 유지 (record 단위 명시 규칙 클램프).*
 *Plan 28-03 §11 추가: 2026-07-08 — MotionAlignment (ALGN-01 동작 기반 비교 정렬) 3-way lockstep (TS interface + Python MOTION_ALIGNMENT_KEYS + 본 §11). tier 3단(warped/trim_only/disabled, D-02) + 초 단위 fps 도메인(9fps vs 18fps) + anchors flat 상한 512 + tier↔anchors 역불변식(MEDIUM-3, disabled 만 빈 anchors) + legacy 하위호환 + Phase 22 source:'vlm' 상위 호환 + FaultZoomComparison.refMatch(D-04) 신설.*
+*Plan 31-04 §2 + §4 추가: 2026-07-20 — Phase 31 visual 교정 시각물 3-way lockstep (TS optional 필드 + Python VISUAL_STATUSES + 본 절). correctedPose* 4 + rotation* 3 필드(URL 비저장 — 표시 URL 은 playback-url asset 재서명, 리뷰 H-02 / pending 타임아웃은 전용 *UpdatedAtMs, 리뷰 H-06) + FaultZoomComparison 뷰어 프레임 소스 3필드(D-10) + POST /visual/rotation 신설(429 daily_limit = 사용자 3건·전역 30건/일, KST 자정 리셋 명시 — 리뷰 M-06 / 503 feature_disabled 조용한 폴백 — D-08) + POST /playback-url asset 확장(server-selected key, 1시간 presign, 미지정 시 기존 동작 보존).*

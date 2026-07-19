@@ -1051,14 +1051,25 @@ Plans:
 
 Plans:
 
+**Wave 1**
+
 - [ ] 31-01-PLAN.md — Wave 0 테스트 스캐폴드 + 계약 3면 (silhouette/rotation 상태 머신, /visual/rotation 계약) [W1]
 - [ ] 31-02-PLAN.md — 이미지 모델 스모크 실측 (wan2.7-image-pro vs qwen-image-edit-plus, D-03 선정) [W1]
 - [ ] 31-03-PLAN.md — fault_zoom 목표각 화살표 + 목표선 (D-11/D-12, 기존 줌 카드 위 PIL 렌더) [W1]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 31-04-PLAN.md — VisualGenEngine Protocol + Wan 어댑터 2종 + Gemini judge (D-02) [W2]
 - [ ] 31-05-PLAN.md — 앱 3D 뷰어 중첩 + ReferenceCornerSection (D-04/D-09/D-10, 목업 checkpoint) [W2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 31-06-PLAN.md — pipeline 실루엣 사후 훅 + consent-gated 페어 적재 (D-05/D-08, 블러 checkpoint) [W3]
 - [ ] 31-07-PLAN.md — 회전 온디맨드 Lambda 2종 + VisualQueue IaC (D-06/D-07) [W3]
 - [ ] 31-08-PLAN.md — result.tsx 참고코너 통합 + 회전 요청 클라이언트 (D-06/D-08/D-09) [W3]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 31-09-PLAN.md — sam deploy checkpoint + 실검증 + OTA + HUMAN-UAT 적립 (D-01) [W4]
 
 ---

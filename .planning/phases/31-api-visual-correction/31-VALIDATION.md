@@ -328,4 +328,6 @@ revision: iteration11
 - [x] belle SETTLED 축(즉시-삭제 SLA / pair 단일시도) CONTEXT 박제 — 리뷰 재개 금지
 - [x] `nyquist_compliant: true` re-declared (9차 §7 15조건 반영 후)
 
-**Approval:** planner 2026-07-20 (iteration11 targeted replan — 11차 ownership 한정 4 반례 BLOCK 반영: B11-01~04, 31-02/09/10 + Validation targeted. self-ref·nested tx 는 10차 해소 확정. belle SETTLED 축 유지. D-06 완료알림만 belle 결정 대기. 12차는 §7 77~80 4 반례만 재검증)
+**Approval:** planner 2026-07-20 (iteration11 targeted replan — 11차 ownership 한정 4 반례 BLOCK 반영: B11-01~04, 31-02/09/10 + Validation targeted. self-ref·nested tx 는 10차 해소 확정. belle SETTLED 축 유지).
+
+**★ 외부 리뷰 APPROVE (12차, 2026-07-20 — 커밋 290cfaa):** 6 delete-fence barrier 전부 해소 + 11차 4 반례 전부 차단 + BLOCKER 0. **계획 계약 승인 — 실행 가능.** 단, §7 77~80 4 barrier + self-ref/nested tx test 는 **구현 단계에서 실제 통과해야 closure 가 실행 증거까지 완성**(리뷰가 명시: "이 문서는 계획 승인이며 구현 테스트를 대신하지 않는다"). 남은 belle 결정 = D-06 완료알림(31-11 Task1c) 하나. 다음 = `/gsd-execute-phase 31`(Wave 0 = 31-01 Task1b 버킷 provision 부터).

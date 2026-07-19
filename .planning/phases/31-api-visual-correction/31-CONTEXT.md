@@ -11,10 +11,20 @@
 (2단) 생성 시각물 — 교정 실루엣 이미지 + 카메라앵글 회전 참고코너 (spike 004/006/008 검증 완료 엔진 사용)
 부산물 = `[틀린 폼→고쳐진 폼]` 페어 적재 → phase 22 재도전(플라이휠 옵션 C) 원료.
 **phase 22 실패와 무관하게 성립** — 31은 22의 소비자가 아니라 공급자 (2026-07-17 belle 확인).
+**[AMENDED 2026-07-20, 9차 B9-04 — belle 위임 후 planner 결정]:** pair 는 부산물이므로 **사용자 표시·cleanup·finalize 의 critical path 를 막지 않는다** — pair store 는 cleanup 직전 단일 시도(source 존재 구간)이고, 네트워크 일시장애(network/5xx) 시 `pairStoreStatus='failed'` 로 진행하며 durable 재시도를 하지 않는다. **해당 pair 는 유실을 수용한다**(플라이휠은 대량 볼륨 목적이라 개별 pair 손실 영향 미미). 손실이 누적되면 운영 재처리로 보강. durable pair outbox 는 파일럿 범위 밖(후속 phase 후보).
 
 </domain>
 
 <decisions>
+## ★ SETTLED AXES — 리뷰어 재개 금지 (belle 2026-07-20, Q1 응답)
+
+아래 축은 belle 지시로 **확정**됐다. 후속 리뷰는 이 축의 *설계 선택*을 재논의하지 말고, 선택된 설계의 *closure(계약·fault test)* 만 검증한다.
+
+- **임시 생체 프레임 privacy SLA = "즉시 삭제(하드 크래시에도 보장)" — 현행 유지 확정.** 24h-lifecycle-only 로의 단순화는 belle 가 배제했다. 따라서 per-invocation reservation + key-level ownership(`visualInputObjects/{hash}`) + crash-recoverable janitor(claim lease/owner) machinery 는 **의도된 설계**이며, "복잡하니 없애자"는 리뷰 금지. B9-01/02/03 은 이 설계 *안에서* 닫는다(janitor lease 복구·cross-reservation same-key ownership·multi-object expected∪created).
+- **비-버저닝 전용 VisualInputBucket 아키텍처(6차)** — 확정, 재논의 금지.
+- **pair 네트워크 실패 = 단일 시도 + 손실 수용(9차 B9-04 amended, 위 D-01 각주)** — durable outbox 재제안 금지.
+- **D-06 완료 알림 실체** = 31-11 Task1c belle 결정 대기(미확정 — 이 축만 열려 있음).
+
 ## Implementation Decisions
 
 ### 스코프 구성

@@ -6,14 +6,15 @@ nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-19
 replanned: 2026-07-19
-revision: iteration9
+revision: iteration10
 ---
 
 # Phase 31 — Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
-> Source: 31-RESEARCH.md + 31-PLAN-REVIEW-ITERATION2~9.md 요구 게이트 (…7차 fault 14종 + 8차 §7 15조건 + 9차 §7 실행 허용 15조건).
-> Task IDs = 2026-07-20 iteration9 targeted replan (13 plans / **6 waves + Wave 0 bucket provision(+자기-완결 1일 lifecycle)** — 31-01/02/09/10/12 + CONTEXT + Validation 수정, 31-11 불변).
+> Source: 31-RESEARCH.md + 31-PLAN-REVIEW-ITERATION2~10.md 요구 게이트 (…8차 §7 15 + 9차 §7 15 + 10차 §7 실행 허용 14조건).
+> Task IDs = 2026-07-20 iteration10 targeted replan (13 plans / **6 waves + Wave 0(bucket provision + visual-input 1일 lifecycle live 적용)** — 31-01/02/09/10/12 + Validation 수정, 31-11 불변).
+> **10차 핵심: 9차에 도입한 visualInputObjects key-ownership 를 `active|deleting` delete-fence 상태 머신으로 완성 — self-ref 소비(B10-01), delete fence(B10-02), 전 종료경로 ref release(B10-03), Wave 0 lifecycle 승인/action 통일(B10-04), expireAt timestamp+Firestore TTL policy(H10-02), $VIB fail-closed(H10-05), alarm concrete threshold(H10-06).**
 > **9차 핵심: reservation/janitor 를 '문서 CAS'에서 '실 S3 key ownership + crash-recoverable janitor lease'로 승격 — janitor claim lease 복구(B9-01), key-level ownership 문서 visualInputObjects/{hash}로 cross-reservation 동일-key 삭제 봉쇄(B9-02), 삭제 후보 expected∪created(B9-03), chosen bucket name 전파(B9-05), Wave 0 자기-완결 1일 lifecycle(H9-08).**
 > **★belle SETTLED (CONTEXT): 즉시-삭제 privacy SLA 현행 유지 확정 + pair 단일 시도 손실 수용(B9-04 amended) — 이 두 축은 리뷰 재개 금지, closure 만 검증.**
 > **8차 핵심: 7차 추가분(create CAS·reservation·janitor)의 선형화 결함 6 blocker 봉쇄 — begin_visual_job_create typed status(acquired→즉시 vendor create, no-op 0, B8-01), finalizer unconditional correctedPose gate(inputSealed=False 우회 0, B8-02) + cleanup_blocked 원자 clear(B8-03), dispatcher s3:GetObject(HeadObject 부재, B8-04), per-invocation immutable reservation(B8-05) + producer/janitor 공유 claim CAS 선형화(B8-06). pair 는 cleanup 만 durable·단일 시도(H8-02, 플라이휠 손실 belle 결정 위임).**
@@ -68,7 +69,7 @@ revision: iteration9
 | 31-01/T3 | 31-01 | 1 | async-only blocked(B4-02) + pair manifest(B4-04) + PASS4/FAIL8(H4-10) | T-31-65 | sync-only→blocked, before/after pair 10키, 표본 하한 | script+assert | RESULTS/manifest(pair)/privacy 스키마 assert + grep Training | ⬜ pending |
 | 31-02/T1 | 31-02 | 1 | 테스트 스캐폴드 + mock(run_contended/commit_lost/clock) | — | N/A | unit | `python -m pytest backend/tests/phase31 -x -q` | ⬜ pending |
 | 31-02/T2 | 31-02 | 1 | 상태 10종 + typed 10종 terminal + VISUAL_PRIVACY_BLOCKERS + outbox/claim/pending-terminal/privacy 필드 + VISUAL_CLAIM_LEASE_MS + sent cursor | — | postprocessing 포함, cleanup_blocked 비-terminal(privacy blocker), inputSealed/privacyBlocker/cleanupVerifiedAtMs, 신규 state 미추가 | unit | python -c import assert | ⬜ pending |
-| 31-02/T3 | 31-02 | 1 | begin typed status(B8-01)+full write set(H9-03) + finalizer unconditional gate(B8-02)+cleanup_blocked clear(B8-03) + reservation/orphan state machine **+ janitor claim lease 복구(B9-01) + key-ownership 문서(B9-02) + nested tx 내부함수(H9-04) + orphan reopen(H9-07) + closed TTL(H9-06)** (8차 B8-01~06/H8-03 + 9차 B9-01/B9-02/H9-01/H9-03/H9-04/H9-06/H9-07) | T-31-…/85/86/87/88 | begin write set, done/failed×inputSealed False 거부, janitor claim crash 재claim, key ownership ref, nested tx 단일 commit, orphan reopen | unit | `python -m pytest backend/tests/phase31/test_visual_jobs.py -x -q` | ⬜ pending |
+| 31-02/T3 | 31-02 | 1 | begin typed status(B8-01)+full write set(H9-03) + finalizer unconditional gate(B8-02)+cleanup_blocked clear(B8-03) + reservation/orphan state machine **+ janitor claim lease 복구(B9-01) + key-ownership 문서(B9-02) + nested tx 내부함수(H9-04) + orphan reopen(H9-07) + closed TTL(H9-06)** (8차 B8-01~06 + 9차 B9-01/B9-02/H9-04/H9-07 + **10차 B10-01/B10-02/B10-03(active|deleting fence·self-ref·release)/H10-01(promote tx)/H10-03(concrete TTL)/H10-04(typed refs)**) | T-31-…/85~92 | begin write set, ownership 6 barrier(self-ref/fence/crash/release), nested tx 전부-또는-전무, expireAt TTL | unit | `python -m pytest backend/tests/phase31/test_visual_jobs.py -x -q` | ⬜ pending |
 | 31-03/T1 | 31-03 | 1 | 화살표 기하 + topology parity (D-11) | T-31-09/10 | record 비의존, parity 단일, adversarial golden | unit | `python -m pytest backend/tests/test_fault_zoom_arrow.py -x -q` | ⬜ pending |
 | 31-03/T2 | 31-03 | 1 | CorrectedPoseTarget 단일 계약 | T-31-53 | reference_relative 미유입, abs 정렬 | unit | `python -m pytest backend/tests/test_fault_zoom_arrow.py -x -q` | ⬜ pending |
 | 31-03/T3 | 31-03 | 1 | 배선+프레임 쌍+무회귀 (D-12) | T-31-11 | 채점 read-only | unit | `python -m pytest backend/tests -q` | ⬜ pending |
@@ -92,10 +93,10 @@ revision: iteration9
 | 31-11/T3 | 31-11 | 3 | 통합 (무조건 훅, H-02 재서명) | T-31-46/47 | URL 소비 0, 폴링 0 | unit (jest) + typecheck | `cd app && npx jest && npm run typecheck` | ⬜ pending |
 | 31-09/T1 | 31-09 | 4 | claim 4상태 + busy visibility + snapshot handoff + owner/lease CAS + internal transition send 0 + **begin status 분기(acquired→vendor create 1회, concurrent acquired 1/busy 1, B8-01/M8-04)** (B5-01/B6-01/B4-02/B4-03/H5-04/M6-03/7차 H7-01/8차 B8-01/M8-04) | T-31-32/33/62/69/70/75 | busy→change_visibility+batchItemFailures, claimed snapshot only, crash 5지점, sync→vendor_error, **H7-01 internal transition send 0, H7-02 create CAS** | unit | `python -m pytest backend/tests/phase31/test_visual_worker.py -x -q` | ⬜ pending |
 | 31-09/T2 | 31-09 | 4 | fetch/judge/pose_check/postprocess (H4-01/H5-01/H5-05/B6-03/B6-04/B5-03/H6-03/H6-05, H4-05, B4-05, M5-01/M6-04/M6-05 + 7차 B7-03/B7-04/H7-07/H7-08) | T-31-34/35/36/63/71/72/73/77 | 성공+실패 postprocessing(inputSealed), 단일 delete cleanup, cleanup_verified_at_ms 파라미터(B7-03), pair off critical path(H7-07), copy REPLACE metadata(H7-08), consent 재read, hash conflict, failed_config 비차단 | unit | `python -m pytest backend/tests/phase31/test_visual_worker.py -x -q` | ⬜ pending |
-| 31-09/T3 | 31-09 | 4 | rotation streaming + dispatcher + **janitor crash-recoverable(claim lease B9-01 + key ownership ref B9-02 + expected∪created B9-03 + predicate 표 H9-02) + create failure kind 분기 H9-09 + reconciliation H9-06** (7차 H7-04/8차 B8-06/H8-01/M8-05/9차 B9-01/B9-02/B9-03/H9-02/H9-09) | T-31-37/58/88 | janitor claim crash 재claim, 동일 key live ref, multi-object expected∪created, predicate 표, create kind 분기 | unit | `python -m pytest backend/tests -q` | ⬜ pending |
+| 31-09/T3 | 31-09 | 4 | rotation streaming + dispatcher + **janitor crash-recoverable(claim lease B9-01 + key ownership ref B9-02 + expected∪created B9-03 + predicate 표 H9-02) + create failure kind 분기 H9-09 + reconciliation H9-06** (7차 H7-04/8차 B8-06/H8-01/M8-05/9차 B9-01~03/H9-02/H9-09 + **10차 B10-01/B10-02/B10-03 claim_key_for_delete fence + release**) | T-31-37/58/88~91 | janitor claim_key_for_delete(self-ref 소비·delete fence·재claim), worker cleanup release, orphan 동일 fence | unit | `python -m pytest backend/tests -q` | ⬜ pending |
 | 31-10/T1 | 31-10 | 5 | 재서명 + exact guard + validator | T-31-41 | exact basename + status done + failed stale 404 | unit | `python -m pytest backend/tests/phase31/test_visual_url.py -x -q` | ⬜ pending |
 | 31-10/T2 | 31-10 | 5 | 원자 요청 + outboxSeq dispatch + M-06 (B4-01) | T-31-38/39/40/42 | fail-closed env, send 실패→pending 잔존, mark(action+seq) | unit | `python -m pytest backend/tests/phase31/test_visual_request.py -x -q` | ⬜ pending |
-| 31-10/T3 | 31-10 | 5 | per-invocation reservation + **key ownership acquire/promote/release(B9-02) + TTL build gate(H9-01) + alarm 8종 exact resource(H9-05/M9-03) + chosen name dry-run(B9-05)** (8차 B8-05/B8-06/B8-04/H8-04 + 9차 B9-02/B9-05/H9-01/H9-05/M9-03) | T-31-43/54/73/76/80/81 | key ownership ref, TTL gate, alarm 8종, chosen name 하드코딩 0 | lint+unit | `(cd backend && sam validate --lint) && python -m pytest backend/tests/phase31/test_visual_dispatch.py -x -q` | ⬜ pending |
+| 31-10/T3 | 31-10 | 5 | per-invocation reservation + **key ownership acquire/promote/release(B9-02) + TTL build gate(H9-01) + alarm 8종 exact resource(H9-05/M9-03) + chosen name dry-run(B9-05)** (8차 B8-05/B8-06/B8-04/H8-04 + 9차 B9-02/B9-05/H9-01/H9-05 + **10차 B10-02/B10-03(fence·전 종료경로 release)/H10-05($VIB fail-closed·Default 제거)/H10-06(alarm concrete threshold)**) | T-31-43/54/73/76/80/81/90/91 | deleting fence acquire, 전 종료경로 release, $VIB fail-closed, alarm numeric | lint+unit | `(cd backend && sam validate --lint) && python -m pytest backend/tests/phase31/test_visual_dispatch.py -x -q` | ⬜ pending |
 | 31-12/T1 | 31-12 | 6 | 3중 게이트 + build(5 alarm + worker ListBucket/PutMetricData IAM + 버전 액션 부재) (H4-09/H5-06/M6-01/H6-02/B6-02/7차 B7-01/H7-03) | T-31-66 | template env 일치, 5 alarm(Orphan/CleanupBlocked/PairConflict 포함), worker ListBucket 존재, 버전 액션 부재 | full suite | `python -m pytest backend/tests -q && (cd backend && sam validate --lint)` | ⬜ pending |
 | 31-12/T2 | 31-12 | 6 | 버킷당 4파일 lifecycle put+교차 rollback + Never-versioned 재확인 + **canary get_object_retention/legal_hold 직접 API + AccessDenied fail-closed(H8-08)** + chosen-name 전파(H8-07) (H4-04/H5-07/H6-08/7차 B7-06/B7-07/H7-09 + 8차 H8-07/H8-08) | T-31-55/68/82/84 | 1:1 put, 교차 rollback, 전용 API canary, AccessDenied STOP | manual (human-action) | — | ⬜ pending |
 | 31-12/T3 | 31-12 | 6 | 배포(flag OFF) + 401/503/404 + iam_probe + worker s3:ListBucket allowed(B7-01) + Pod user VisualInputBucket(H7-02) + 버전/lock simulate (H4-02/B6-02/H6-08/7차 B7-01/H7-02) | T-31-48/49/67/79/81 | worker ListBucket allowed + 실 role canary, Pod IAM, 버전 액션 denied | manual (human-action) | — | ⬜ pending |
@@ -226,27 +227,47 @@ revision: iteration9
 
 ---
 
-## §7 실행 허용 조건 추적표 (9차 리뷰 — 15조건)
+### 10차 §7 신규 편입 (ownership delete-fence 6 barrier + lifecycle/TTL/deploy — 실행 허용 직결)
+
+| # | 시나리오 | 주입 지점 | PASS 기준 | Task |
+|---|----------|-----------|-----------|------|
+| 63 | A-only expired self-ref | 31-02 claim_key_for_delete | 자기 ref 소비 후 다른 ref 0 → deleting→delete→doc 제거(B10-01) | 31-02/T3 + 31-09/T3 |
+| 64 | A-expired + B-live 동일 key | 31-02 claim_key_for_delete | A 는 deleting claim 실패, K delete 0(B9-02) | 31-02/T3 + 31-09/T3 |
+| 65 | janitor deleting claim → producer acquire | 31-02 active|deleting fence | deleting 중 acquire False, delete close 후 acquire True(B10-02) | 31-02/T3 + 31-10/T3 |
+| 66 | deleting/delete 직후 crash | 31-02 deleteLease + 31-09 | deleteLease 만료 후 재claim → S3 0/doc 정리(B10-02) | 31-02/T3 + 31-09/T3 |
+| 67 | reservation claim+두 key promote+job create | 31-02 nested tx | 단일 commit/commit-loss 전부-또는-전무(H10-01) | 31-02/T3 |
+| 68 | worker cleanup 후 job ref | 31-09 _cleanup_visual_input | job ref 0 + object doc 제거(B10-03) | 31-09/T2 |
+| 69 | producer 전 종료경로 ref | 31-10 producer | collision/put실패/option-b/analysis_missing/reserve예외 후 res ref 0(B10-03) | 31-10/T3 |
+| 70 | orphan janitor delete fence | 31-09 orphan sweep | live reservation/job ref 동일 deleting fence 사용(B10-02) | 31-09/T3 |
+| 71 | closed expireAt + Firestore TTL policy | 31-02 close + 31-12 checkpoint | collection group TTL policy 활성·실삭제(H10-02) | 31-02/T3 + 31-12/T2 |
+| 72 | Wave 0 lifecycle 승인/action 일치 + rollback | 31-01 Task1b | name/what-built/action/done 모두 적용 명시 + before artifact(B10-04) | 31-01/T1b |
+| 73 | Wave 0 rule 존재 시 dry-run/put 반복 idempotent | 31-01/10/12 | duplicate ID 없이 결과 hash 동일(B10-04) | 31-01/T1b + 31-12/T2 |
+| 74 | $VIB 미정·JSON 부재·schema 오류 | 31-12 deploy | deploy/lifecycle/IAM/E2E 모두 시작 전 실패(H10-05) | 31-12/T2·T3 |
+| 75 | alternative bucket 전파 | 31-01/10/12 | dry-run→SAM param→IAM ARN→Pod env→E2E prefix exact(B9-05) | 31-01/T1b + 31-12 |
+| 76 | alarm 8종 concrete threshold | 31-10 template + 31-12 build | Threshold/Period/EvaluationPeriods numeric parser 검증(H10-06) | 31-10/T3 + 31-12/T1 |
+
+---
+
+## §7 실행 허용 조건 추적표 (10차 리뷰 — 14조건)
 
 | # | 조건 | 플랜 위치 | 테스트 |
 |---|------|-----------|--------|
-| 1 | reservation/orphan janitor claim 직후 crash 가 lease 만료 후 재claim 되어 cleanup 완료 | 31-02 claim lease + 31-09 janitor | 31-02/T3 + 31-09/T3 |
-| 2 | expired A 와 동일 key live B 있을 때 A janitor 는 key 삭제 안 함 | 31-02 key ownership + 31-09 | 31-02/T3 + 31-09/T3 |
-| 3 | src record→training PUT 2xx→record 전 crash 뒤 두 expected key 모두 삭제 | 31-09 janitor | 31-09/T3 + 31-10/T3 |
-| 4 | janitor 삭제 후보 = expected∪created + key별 live owner 0 선검증 | 31-02 helper + 31-09 | 31-02/T3 + 31-09/T3 |
-| 5 | pair 정책 = durable outbox 또는 belle-approved CONTEXT amend 로 닫힘 | CONTEXT amended(단일 시도) | 31-09/T2 |
-| 6 | chosen alternative bucket 이 dry-run→SAM param→lifecycle→IAM→Pod→E2E 전파 | 31-01/10/12 chosen name | 31-01/T1b+31-10/T3+31-12 |
-| 7 | reservation TTL 값 + PipelineTimeout+margin<=TTL build gate | 31-02 상수 + 31-10 gate | 31-02/T2 + 31-10/T3 |
-| 8 | terminal/inputSealed/mismatched/matching-nonterminal janitor predicate 표 test | 31-09 janitor | 31-09/T3 |
-| 9 | begin acquired transaction 의 nextAction/dispatchState/outboxSeq full write set 고정 | 31-02 begin(4c) | 31-02/T3 |
-| 10 | reserve 와 reservation claim 이 하나의 transaction/commit-loss 단위 | 31-02 _claim_..._tx | 31-02/T3 |
-| 11 | same orphan key closed→new incident 가 다시 open→cleanup | 31-02 upsert reopen | 31-02/T3 |
-| 12 | claimed_by_job/closed 문서 reconciliation + metadata TTL | 31-02 close deleteAfter + 31-09 reconcile | 31-02/T3 + 31-09/T3 |
-| 13 | template action 에 OrphanOldestAge/SweepFailed alarm exact resource | 31-10 template | 31-10/T3 + 31-12/T1 |
-| 14 | Wave 0 lifecycle/smoke hard-crash 방어 선택이 plan/VALIDATION 일치 | 31-01 Task1b + 본 문서 | 31-01/T1b |
-| 15 | alarm 8종(DLQ 포함)/lifecycle 4파일/Object Lock API/plan tag balance lockstep | 31-10/31-12 | 31-10/T3 + 31-12/T1 |
+| 1 | expired A-only key 가 자기 ref 소비 후 delete+close 수렴 | 31-02 claim_key_for_delete | 31-02/T3 + 31-09/T3 |
+| 2 | expired A + live B 동일 key → A 는 deleting claim 실패 | 31-02 fence | 31-02/T3 + 31-09/T3 |
+| 3 | janitor deleting claim 후 producer acquire 실패, delete close 후만 재시도 성공 | 31-02 active|deleting | 31-02/T3 + 31-10/T3 |
+| 4 | deleting claim 직후·delete 성공 직후 crash 가 lease 만료 후 재claim→S3 0/doc 정리 | 31-02 deleteLease + 31-09 | 31-02/T3 + 31-09/T3 |
+| 5 | reservation claim+두 key ownership promote+job create = 단일 transaction | 31-02 nested tx(H10-01) | 31-02/T3 |
+| 6 | worker 성공·실패 cleanup 뒤 job ref 0 + object doc 제거 | 31-09 cleanup(B10-03) | 31-09/T2 |
+| 7 | producer PUT실패·collision·option-b·analysis_missing·reserve예외 뒤 res ref 정리 | 31-10 producer(B10-03) | 31-10/T3 |
+| 8 | orphan janitor 도 live reservation/job ref 동일 deleting fence 사용 | 31-09 orphan sweep | 31-09/T3 |
+| 9 | closed reservation/orphan expireAt timestamp + collection group Firestore TTL policy | 31-02 close + 31-12 checkpoint | 31-02/T3 + 31-12/T2 |
+| 10 | Wave 0 checkpoint 설명·action 모두 lifecycle mutation 명시 + before/rollback | 31-01 Task1b | 31-01/T1b |
+| 11 | Wave 0 rule 존재 시 31-10 dry-run/31-12 put 반복해도 duplicate ID 없이 동일 | 31-01/10/12 idempotent | 31-01/T1b + 31-12/T2 |
+| 12 | $VIB 미정·JSON 부재·schema 오류면 deploy/lifecycle/IAM/E2E 시작 전 실패 | 31-12 fail-closed | 31-12/T2·T3 |
+| 13 | alternative bucket fixture 가 dry-run→SAM param→IAM ARN→Pod env→E2E prefix exact 전파 | 31-01/10/12 | 31-01/T1b + 31-12 |
+| 14 | ownership 6 barrier + 전체 backend test + SAM validate/build green | 31-02/09/10 | 전 task |
 
-> 참고: 2차~8차 게이트는 위 fault matrix 에 흡수됨. 9차 검증 축 = reservation/janitor 를 crash-recoverable key-ownership 상태 머신으로 승격 + chosen-name 전파 + pair/SLA belle 결정 박제. belle SETTLED 축(즉시-삭제 SLA / pair 단일시도)은 재개 금지 — closure 만.
+> 참고: 2차~9차 게이트는 위 fault matrix 에 흡수됨. 10차 검증 축 = visualInputObjects 를 active|deleting delete-fence 상태 머신으로 완성(self-ref/fence/전 종료경로 release) + Wave 0 lifecycle 승인 정합 + Firestore TTL policy + $VIB fail-closed. belle SETTLED 축(즉시-삭제 SLA / pair 단일시도)은 재개 금지 — closure 만.
 
 ---
 
@@ -281,7 +302,7 @@ revision: iteration9
 - [x] Sampling continuity: no 3 consecutive tasks without automated verify
 - [x] Wave 0 covers all MISSING references (31-02/T1, 31-11/T1)
 - [x] Fault-Injection Matrix 가 task map 자동 테스트에 편입 (5차 10종 + 6차 15종 + 7차 §6 14종 신규 — worker ListBucket/Suspended 오판 차단/cleanupVerified 파라미터 handoff/failed cleanup validator/하드크래시 reservation+janitor/option-b 보상/신규 버킷 provision/두 버킷 lifecycle 교차 rollback/internal transition send 0/create CAS/metric IAM+alarm/D-06 완료알림 결정)
-- [x] §7 실행 허용 15조건 추적표 완비 (9차 리뷰 — reservation/janitor crash-safe 승격)
+- [x] §7 실행 허용 14조건 추적표 완비 (10차 리뷰 — ownership delete-fence 완성). 9차 §7 2/4/12(self-ref/fence/release/TTL) 미충족분을 10차 계약으로 닫음 (M10-05)
 - [x] "성공 경로만 cleanup" 기대값 제거 — 성공·실패 공통 cleanup 증명 후 terminal (H5-05/B6-03/7차 B7-04)
 - [x] 신규 VisualInputBucket 생성 절차(Wave 0 provision) + worker s3:ListBucket + Never-versioned 오판 차단 반영
 - [x] upload-first 하드크래시 durable reservation+janitor — "즉시 잔존 0" 정상 경로 한정 정정
@@ -292,4 +313,4 @@ revision: iteration9
 - [x] belle SETTLED 축(즉시-삭제 SLA / pair 단일시도) CONTEXT 박제 — 리뷰 재개 금지
 - [x] `nyquist_compliant: true` re-declared (9차 §7 15조건 반영 후)
 
-**Approval:** planner 2026-07-20 (iteration9 targeted replan — 9차 리뷰 BLOCK 반영: B9-01~05 + H9-01~09 + M9-01~06, 31-01/02/09/10/12 + CONTEXT + Validation targeted. Q1 SLA=현행유지(belle)·Q2 pair=단일시도(planner) 확정. D-06 완료알림만 belle 결정 대기)
+**Approval:** planner 2026-07-20 (iteration10 targeted replan — 10차 리뷰 BLOCK 반영: B10-01~04 + H10-01~07 + M10-01~05, 31-01/02/09/10/12 + Validation targeted. ownership active|deleting delete-fence 완성 후 §7 재선언. belle SETTLED 축 유지. D-06 완료알림만 belle 결정 대기)

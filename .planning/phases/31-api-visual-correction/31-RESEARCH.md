@@ -366,20 +366,20 @@ body = {
 1. **일일 한도 수치 (D-07 재량)**
    - What we know: 실루엣 자동 = 분석당 1장 (분석 자체가 한도 역할). 회전 영상 ~$0.8/건·6~7분.
    - Recommendation: 회전 영상 사용자당 3건/일, 실루엣은 분석당 1 자동(별도 한도 불필요) + 전역 안전핀(일 총 생성 30건, env 조정 가능). 파일럿 규모에서 사실상 무제한.
-   - **RESOLVED:** 31-07 채택 — 회전 영상 사용자당 3건/일 + 전역 안전핀 30건/일 (env 조정 가능).
+   - **RESOLVED:** 31-10 채택 (재넘버링 — 구 31-07) — 회전 영상 사용자당 3건/일 + 전역 안전핀 30건/일 (env 조정 가능).
 2. **페어 적재 시 원본측 프레임의 얼굴 블러 여부**
    - What we know: anonymize_batch.py (얼굴 블러) 선례 존재, LICENSE-AUDIT 는 anonymize 강제를 내부 데이터에 적용.
    - What's unclear: learningOptIn=true 신규 페어에도 블러 강제인지 (블러하면 생성 헤드 학습 품질에 영향 가능).
    - Recommendation: v1 은 블러 없이 적재하되 S3 `training/phase31/pairs/` 접근을 학습 파이프라인으로 한정 + manifest 에 consent provenance 기록. plan 의 checkpoint:decision 으로 belle 확인.
-   - **RESOLVED:** 31-06/T1 checkpoint:decision 으로 belle 게이트 (블러 여부는 그 게이트에서 확정).
+   - **RESOLVED:** 31-01/T1 privacy checkpoint:decision 으로 belle 게이트 (재넘버링 — 블러 여부·option A/B 는 privacy_decision.json 에 확정).
 3. **실루엣 카드의 위치 — 참고코너 안 vs 결함 줌 캐러셀 안**
    - What we know: D-09 는 참고코너를 정의하지만 실루엣이 "참고코너 소속" 인지 명시가 없다. 실루엣은 결함 교정물이라 줌 카드 옆이 동선상 자연스럽고, 점수 비반영 원칙상 참고코너도 논리적.
    - Recommendation: 참고코너 배치 (비채점 시각물 일관 원칙). UI 목업 선제시([[ux-propose-user-centric-screens-first]]) 때 belle 확인.
-   - **RESOLVED:** 31-05/T1 checkpoint:decision 으로 belle 게이트 (목업 선제시 때 위치 확정).
+   - **RESOLVED:** 31-08/T1 목업 checkpoint:decision 으로 belle 게이트 (재넘버링 — 목업 선제시 때 위치 확정).
 4. **회전 영상의 입력 = 원본 전체 vs 트림 클립**
    - What we know: spike 는 8초 트림 사용. 비용/지연은 길이 비례(usage duration 16/클립).
    - Recommendation: 분석 구간(execStartS~landEndS 또는 앞 8초) 트림 후 전송 — ffmpeg 는 Lambda 에 없음 → **imageio-ffmpeg 바이너리 동봉 or 트림 없이 원본 전송** 중 택1. 원본 전송이 단순(파일럿 영상은 짧음) — 워커에 ffmpeg 의존 추가는 피하는 쪽 권장.
-   - **RESOLVED:** 31-07/T2 원본 전송 채택 (ffmpeg 의존 없음 — 파일럿 영상 길이 짧음).
+   - **RESOLVED:** 31-09/T3 원본 전송 채택 (재넘버링 — ffmpeg 의존 없음, 파일럿 영상 길이 짧음).
 
 ## Environment Availability
 

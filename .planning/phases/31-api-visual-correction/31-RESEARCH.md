@@ -1,4 +1,15 @@
-> **[SUPERSEDE 2026-07-19 구조 재플랜]** 본 문서의 PoseViewer3D/R3F 절·silhouette 명명(책임 맵 포함)은 31-CONTEXT.md [AMENDED 2026-07-19] + 31-REVIEWS.md 해소로 대체됨 (amended D-04/D-10, L-02: silhouette → correctedPose). 충돌 시 PLAN.md 가 우선.
+## Historical — do not implement (2026-07-19 supersede, 2차 리뷰 M2-03 격리)
+
+아래 항목은 본문에 남아 있어도 **구현 금지** — 각 위치에 `[HISTORICAL]` 마커가 있다. 단일 기준은 31-CONTEXT.md [AMENDED 2026-07-19] + 31-01~31-12 PLAN 이다.
+
+| Historical 내용 (본문 잔존) | 대체 (구현 기준) |
+|---|---|
+| R3F/PoseViewer3D/orbit 3D 뷰어 (책임 맵·Summary·diagram·dont-hand-roll·설치 표) | amended D-10: 2D 카메라 평면 뷰어 — 31-08 `PoseCompareViewer` (react-native-svg, three/R3F import 금지) |
+| "silhouette" 명명 (필드·key·함수명) | L-02: `correctedPose` — key = `corrected_pose_{joint}.png` (31-02/31-04/31-09) |
+| `_process` 내부/인라인 실루엣 생성 훅 | H-01/B2-03: enqueue-only + replay-safe reserve 분기 — 31-10 `_enqueue_corrected_pose_job` |
+| 워커 단일 긴 폴링·fail_analysis 매핑·7일 presign 저장 | B-03/B2-02/H-02: action 단위 state machine + canonical key + 1h asset 재서명 — 31-09/31-10 |
+
+충돌 시 PLAN.md 가 우선.
 
 # Phase 31: 교정 시각물 — 기하 오버레이 + 외부 생성 API 실루엣 - Research
 
@@ -58,7 +69,7 @@
 |----|-------------|------------------|
 | D-11/D-12 | 목표 각도 화살표를 기존 결함 줌 카드 위에 | fault_zoom.py 는 이미 PIL 로 각도 호(`_draw_leg_angle`)·마커(`_mark`)를 crop-px 공간에 그린다 — 화살표는 동일 렌더러 확장. deficits/direction 데이터는 DeductionRecord + JointScore.direction 에 이미 존재 |
 | D-03/D-05 | 실루엣 이미지 자동 생성 (top-1 결함 프레임) | `_process` 사후 단계 패턴 = faultZoomStatus 선례 (Phase 27 SPD-04). DashScope 이미지 편집 모델 후보 확정 (§Standard Stack). 프레임 소스 = cached_user_frames + fault frame 선택 로직 기존 재사용 |
-| D-04/D-10 | R3F 뷰어 + 목표 자세 반투명 중첩 | PoseViewer3D.tsx **이미 구현·배포됨** (three/@react-three/fiber/drei/expo-gl 설치 완료). referenceJoints prop 예약석 존재 — 활성화만 필요. reference/{id} Firestore 문서에 joints3d 존재 (Wave 5 top-level mirror, 11개 전부 phase4_v1) |
+| D-04/D-10 | **[HISTORICAL — 구현 금지, amended D-10 = 2D 뷰어]** R3F 뷰어 + 목표 자세 반투명 중첩 | PoseViewer3D.tsx **이미 구현·배포됨** (three/@react-three/fiber/drei/expo-gl 설치 완료). referenceJoints prop 예약석 존재 — 활성화만 필요. reference/{id} Firestore 문서에 joints3d 존재 (Wave 5 top-level mirror, 11개 전부 phase4_v1) |
 | D-06 | 회전 영상 온디맨드 + 완료 알림 | wan_gate_batch.py 의 create task→폴링→다운로드 패턴 재사용. 신규 HTTP Lambda(202 즉답) + 비동기 워커(SQS) 필요 — API GW HTTP API 30s 한도 (§Pitfalls 1). 완료 알림 = Firestore onSnapshot 카드 갱신 (push 인프라 없음·불필요) |
 | D-07 | 일일 생성 한도 | Firestore 사용자 문서 counter (transaction). 권장 수치 §Open Questions |
 | D-08 | 조용한 폴백 | faultZoomStatus='failed' → 카드 숨김 선례 그대로. 상태 필드 방출로 앱이 조용히 미표시 |
@@ -70,13 +81,13 @@
 ## Summary
 
 이 phase 는 신규 기술 도입이 거의 없다. **핵심 발견: 필요한 인프라의 대부분이 이미 존재한다.**
-(1) 1단 오버레이(D-11/12)는 backend `fault_zoom.py` PIL 렌더러의 확장이다 — 앱은 crop-px 좌표를 모르므로 화살표는 반드시 backend 가 PNG 에 그려야 한다(앱 SVG 오버레이 아님). (2) R3F 3D 뷰어(D-04/10)는 PoseViewer3D.tsx 로 이미 완성·배포되어 있고, 의존성 4종(three/R3F/drei/expo-gl)도 설치돼 있다 — 남은 것은 referenceMotions.ts 가 reference 문서의 joints3d 를 normalize 해 흘리고 예약석 referenceJoints prop 을 활성화하는 배선뿐이다. (3) 실루엣/회전영상의 Firestore 방출은 faultZoomStatus(pending→done/failed) 사후 부분 업데이트 선례를 그대로 복제한다.
+(1) 1단 오버레이(D-11/12)는 backend `fault_zoom.py` PIL 렌더러의 확장이다 — 앱은 crop-px 좌표를 모르므로 화살표는 반드시 backend 가 PNG 에 그려야 한다(앱 SVG 오버레이 아님). (2) **[HISTORICAL — 구현 금지]** R3F 3D 뷰어(D-04/10)는 PoseViewer3D.tsx 로 이미 완성·배포되어 있고, 의존성 4종(three/R3F/drei/expo-gl)도 설치돼 있다 — 남은 것은 referenceMotions.ts 가 reference 문서의 joints3d 를 normalize 해 흘리고 예약석 referenceJoints prop 을 활성화하는 배선뿐이다. (3) 실루엣/회전영상의 Firestore 방출은 faultZoomStatus(pending→done/failed) 사후 부분 업데이트 선례를 그대로 복제한다.
 
 외부 API 통합은 spike 008 이 이미 실측을 마쳤다: `wan2.7-videoedit` (dashscope-intl, 비동기 task, 건당 6~7분, ~$0.8, watermark:false, 모더레이션 영구차단 ~10%). 이미지 실루엣용 모델은 동일 endpoint 의 `wan2.7-image-pro` (1순위 — 검증된 Wan 계열, 동일 키/모더레이션 특성) 또는 `qwen-image-edit-plus`(폴백, 동기 API) — 정확한 파라미터·가격은 미실측이므로 **plan 의 첫 작업으로 1건 스모크 테스트**를 권장한다.
 
 가장 중요한 아키텍처 결정: **실루엣 자동 생성(D-05)은 `_process` 사후 단계**(RunPod/Lambda 공용 코드 1벌, 점수 완료를 블록하지 않음), **회전 영상 온디맨드(D-06)는 신규 Lambda 워커**(Pod 무관 — 순수 HTTP, 기존 분석 문서에 대해 Pod 없이도 동작해야 함). API Gateway HTTP API 의 30초 통합 한도 때문에 온디맨드 요청 엔드포인트는 즉답(202)하고 실제 생성은 SQS 경유 워커가 수행한다.
 
-**Primary recommendation:** 신규 패키지 0 으로 진행 — backend 는 stdlib urllib(스파이크 패턴), 앱은 기설치 R3F 스택. 계약 3면(analysis.ts + models.py + contract.md) 동시 수정 항목은 실루엣 필드·회전영상 상태·참고코너 데이터 3건.
+**Primary recommendation:** 신규 패키지 0 으로 진행 — backend 는 stdlib urllib(스파이크 패턴), 앱은 **[HISTORICAL: "기설치 R3F 스택" 부분 구현 금지 — 31-08 은 react-native-svg 2D]** 기설치 R3F 스택. 계약 3면(analysis.ts + models.py + contract.md) 동시 수정 항목은 실루엣 필드·회전영상 상태·참고코너 데이터 3건.
 
 ## Architectural Responsibility Map
 
@@ -86,7 +97,7 @@
 | 교정 실루엣 생성 (D-03/05) | Backend `_process` 사후 단계 (순수 HTTP) | Firestore 부분 업데이트 | 분석 완료 시 자동 = 파이프라인 후처리. 코드 1벌 원칙(Lambda/RunPod 공용) |
 | 실루엣 품질 게이트 | Backend (Gemini 3.5-flash vision judge) | — | GPU 불필요·Pod OFF 에서도 동작하는 HTTP judge. RTMW 재추론 게이트는 Pod 의존이라 부적합 |
 | 회전 영상 온디맨드 (D-06) | 신규 HTTP Lambda(요청 202) + SQS 워커 Lambda | Firestore 상태 머신 | 기존 분석 문서에 Pod 없이 동작 필수. 6~7분 > API GW 30s |
-| R3F 3D 뷰어 (D-04/10) | App (PoseViewer3D 확장) | Firestore reference joints3d read | 이미 구현됨 — referenceJoints 활성화 + 반투명 중첩만 |
+| **[HISTORICAL — 구현 금지]** R3F 3D 뷰어 (D-04/10) | App (PoseViewer3D 확장) | Firestore reference joints3d read | 이미 구현됨 — referenceJoints 활성화 + 반투명 중첩만 |
 | 참고코너 섹션 (D-09) | App (result.tsx) | — | 점수 내역(ScoreBreakdownSection) 아래 신규 섹션 |
 | 페어 적재 (플라이휠) | Backend (S3 `training/phase31/`) | Firestore learningOptIn read | phase22 training/ 레이아웃·동의 게이트 선례 |
 | 일일 한도 (D-07) | Backend (Firestore counter) | — | 요청 Lambda 가 transaction 으로 검사·증가 |
@@ -156,7 +167,7 @@
    ├─ 점수 내역 (ScoreBreakdownSection)
    └─ "참고하세요" 섹션 (신규, D-09 — 비채점 시각 분리)
         ├─ 교정 실루엣 카드 (silhouetteStatus 구독, pending 자리표시/failed 숨김)
-        ├─ R3F 3D 뷰어 (내 자세 + 목표 반투명 중첩, D-10)
+        ├─ [HISTORICAL] R3F 3D 뷰어 → 실제 구현 = 2D PoseCompareViewer (31-08)
         │     data: result.joints3d + reference doc joints3d (모두 Firestore 기존)
         └─ [회전 영상 생성] 버튼 (D-06)
               │ POST /visual/rotation (신규 Lambda: auth→한도검사→SQS→202)
@@ -247,7 +258,7 @@ body = {
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| 3D 뷰어/회전 제스처 | 자체 3D 수학·PanResponder 카메라 | 기존 PoseViewer3D (R3F+drei OrbitControls) | 이미 구현·UAT 통과. degenerate-depth 축 재매핑 등 함정 해소 완료 |
+| **[HISTORICAL — 구현 금지]** 3D 뷰어/회전 제스처 | 자체 3D 수학·PanResponder 카메라 | 기존 PoseViewer3D (R3F+drei OrbitControls) | 이미 구현·UAT 통과. degenerate-depth 축 재매핑 등 함정 해소 완료 |
 | 결함 프레임 선택 | 새 프레임 선택 로직 | fault_zoom.select_confident_frame + vision sourceFrameIndices 기존 경로 | crop 프레임과 vision 측정 프레임 정합 이슈 이미 해결됨 (quick-260702-sic) |
 | DTW ref 프레임 대응 | 재계산 | fault_zoom._matched_ref_frame (dtw_match 재사용) | "DTW 재계산 금지" 기존 계약 |
 | 이미지 품질 판정 | 자체 얼굴 검출/왜곡 측정 CV 코드 | Gemini 3.5-flash 구조화 judge | 기존 vision judge 인프라(structured JSON 파싱·재시도) 재사용. CV 자체 구현은 위양성 튜닝 수렁 |
@@ -378,7 +389,7 @@ body = {
 | Gemini 키 (SSM) | 품질 judge | ✓ (운영 중) | — | judge 생략 시 게이트 통과 보수화 |
 | RunPod GPU Pod | 신규 분석 (실루엣 자동생성의 전제) | ✗ (전부 OFF — 의도적) | — | 코드/배선은 Pod 무관 진행, E2E 는 Pod 재생성 후 |
 | AWS SAM CLI + Docker | 신규 Lambda 배포 | ✓ (기존 워크플로) | — | 배포는 belle 승인 checkpoint |
-| R3F 스택 (three/fiber/drei/expo-gl) | D-04/10 | ✓ 설치·운영 | ^0.184/^9.6.1/^10.7.7/~16.0.10 | — |
+| **[HISTORICAL — phase 31 미사용]** R3F 스택 (three/fiber/drei/expo-gl) | D-04/10 | ✓ 설치·운영 | ^0.184/^9.6.1/^10.7.7/~16.0.10 | — |
 | ffmpeg (Lambda 워커) | 영상 트림(선택) | ✗ (Lambda 기본 없음) | — | 트림 없이 원본 전송 (권장) |
 | S3 버킷 `sunity-motion-pilot-videos` | 산출물/페어 저장 | ✓ | — | — |
 

@@ -1,4 +1,4 @@
-> **[SUPERSEDE 2026-07-19 구조 재플랜]** 본 문서의 PoseViewer3D/R3F 절·silhouette 명명(책임 맵 포함)은 31-CONTEXT.md [AMENDED 2026-07-19] + 31-REVIEWS.md 해소로 대체됨 (amended D-04/D-10, L-02: silhouette → correctedPose). 충돌 시 PLAN.md 가 우선.
+> **[SUPERSEDE 2026-07-19 — Historical do-not-implement 격리 (2차 리뷰 M2-03)]** 본문 중 아래 절은 역사 기록이며 구현 금지: PoseViewer3D 관련 전부(File Classification 행 + referenceJoints 활성화 절 → 31-08 PoseCompareViewer 2D 로 대체), "silhouette" 명명·`update_analysis_silhouette`/`update_analysis_rotation`(→ 31-02 `update_analysis_visual`), `_run_deferred_silhouette` 인라인 생성 훅(→ 31-10 enqueue-only + CorrectedPoseTarget), worker 의 fail_analysis 매핑·7일 presign 저장·단일 폴링(→ 31-09 action state machine + canonical key), 구 테스트 4파일 명명(→ 31-02 스캐폴드 9파일). 각 절 시작에 [HISTORICAL] 마커. 충돌 시 PLAN.md 우선.
 
 # Phase 31: api-visual-correction - Pattern Map
 
@@ -22,7 +22,7 @@
 | `backend/template.yaml` | 수정 | IaC | — | 자기 자신 `PlaybackUrlFunction`/`AnalysisQueue`/`PipelineFunction` | exact |
 | `backend/tests/phase31/` (conftest + 4 파일) | 신규 | test | — | `backend/tests/phase22/conftest.py` + `test_shadow_wiring.py` | exact |
 | `app/src/components/ReferenceCornerSection.tsx` | 신규 | component (섹션) | request-response (props) | `components/ScoreBreakdownSection.tsx` | exact |
-| `app/src/components/PoseViewer3D.tsx` | 수정 | component (3D) | transform | 자기 자신 (예약 prop `referenceJoints` line 360) | exact |
+| **[HISTORICAL — 구현 금지]** `app/src/components/PoseViewer3D.tsx` | 수정 | component (3D) | transform | 자기 자신 (예약 prop `referenceJoints` line 360) | exact |
 | `app/src/lib/referenceMotions.ts` | 수정 | data-source hook | CRUD (onSnapshot) | 자기 자신 `normalize()` + `referenceKeypointReport` guard (line 103) | exact |
 | `app/src/app/analysis/result.tsx` | 수정 | screen | request-response | 자기 자신 zoom pending effect (1066) + 섹션 삽입 (1419) | exact |
 | `app/src/types/analysis.ts` + `docs/contract.md` | 수정 | contract (TS) | — | 자기 자신 `faultZoomStatus?` (line 572) + `FaultZoomComparison` (439) | exact |
@@ -132,7 +132,9 @@ visual-request 고유분: SQS 발행(boto3 `sqs.send_message`) 후 **202 즉답*
 
 ---
 
-### `backend/functions/visual-worker/app.py` (worker, event-driven)
+### [HISTORICAL — 부분 대체] `backend/functions/visual-worker/app.py` (worker, event-driven)
+
+> 아래 analog 중 fail_analysis 매핑·7일 presign·단일 폴링은 구현 금지 — 31-09 action 단위 state machine(create/poll/fetch/judge/pose_check) + 1h asset 재서명이 기준.
 
 **Analog:** `backend/functions/pipeline/app.py::lambda_handler` (lines 4816-4867) — SQS 레코드 루프 + 예외→Firestore fail 매핑:
 
@@ -167,7 +169,9 @@ def _signed_get(bucket: str, key: str) -> str:
 
 ---
 
-### `backend/functions/pipeline/app.py` — 실루엣 사후 단계 훅 (수정)
+### [HISTORICAL — 구현 금지] `backend/functions/pipeline/app.py` — 실루엣 사후 단계 훅 (수정)
+
+> 인라인 생성 복제는 폐기 — 기준은 31-10 `_enqueue_corrected_pose_job` (reserve 분기 + CorrectedPoseTarget + outbox).
 
 **Analog:** 같은 파일 `_run_deferred_fault_zoom` (lines 3116-3158) — 사후 단계의 정확한 골격. 실루엣용 `_run_deferred_silhouette` 는 이 함수를 이름만 바꿔 복제:
 
@@ -245,7 +249,9 @@ def _draw_leg_angle(img, pelvis_px, left_px, right_px, angle_deg) -> bool:
 
 ---
 
-### `backend/shared/.../firestore_admin.py` — 부분 업데이트 함수 2종 (수정)
+### [HISTORICAL — 구현 금지] `backend/shared/.../firestore_admin.py` — 부분 업데이트 함수 2종 (수정)
+
+> `update_analysis_silhouette`/`update_analysis_rotation` 은 폐기 — 기준은 31-02 `update_analysis_visual` + reserve/transition 5종.
 
 **Analog:** `update_analysis_fault_zoom` (lines 1138-1187) — 시그니처·검증·field-path update 전부 복제:
 
@@ -373,7 +379,9 @@ named export + inline prop 타입 + "미전달 시 렌더 diff 0" optional prop 
 
 ---
 
-### `app/src/components/PoseViewer3D.tsx` — referenceJoints 활성화 (수정)
+### [HISTORICAL — 구현 금지] `app/src/components/PoseViewer3D.tsx` — referenceJoints 활성화 (수정)
+
+> amended D-10: 3D 뷰어 폐기 — 기준은 31-08 `PoseCompareViewer` (react-native-svg 2D).
 
 **Analog:** 같은 파일 예약석 (lines 356-373) — 활성화 지점이 이미 표시돼 있음:
 

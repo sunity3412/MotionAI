@@ -6,14 +6,15 @@ nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-19
 replanned: 2026-07-19
-revision: iteration7
+revision: iteration8
 ---
 
 # Phase 31 — Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
-> Source: 31-RESEARCH.md `## Validation Architecture` + 31-PLAN-REVIEW-ITERATION2/3/4/5/6/7.md 요구 게이트 (2차 §8 16종 + 3차 §8-3 11종 + 4차 §8 11종 + 5차 §6 10종 + 6차 §6 신규 축 + 7차 §6 fault/IAM matrix 14종 + §7 실행 허용 14조건).
-> Task IDs = 2026-07-19 iteration7 targeted replan (13 plans / **6 waves 실행 + Wave 0 bucket provision 전제** — 31-01/02/09/10/11/12 + Validation 수정, 나머지 불변).
+> Source: 31-RESEARCH.md `## Validation Architecture` + 31-PLAN-REVIEW-ITERATION2~8.md 요구 게이트 (…5차 §6 10종 + 6차 신규 축 + 7차 fault 14종 + 8차 §7 실행 허용 15조건).
+> Task IDs = 2026-07-19 iteration8 targeted replan (13 plans / **6 waves + Wave 0 bucket provision** — 31-01/02/09/10/12 + Validation 수정, 31-11 불변).
+> **8차 핵심: 7차 추가분(create CAS·reservation·janitor)의 선형화 결함 6 blocker 봉쇄 — begin_visual_job_create typed status(acquired→즉시 vendor create, no-op 0, B8-01), finalizer unconditional correctedPose gate(inputSealed=False 우회 0, B8-02) + cleanup_blocked 원자 clear(B8-03), dispatcher s3:GetObject(HeadObject 부재, B8-04), per-invocation immutable reservation(B8-05) + producer/janitor 공유 claim CAS 선형화(B8-06). pair 는 cleanup 만 durable·단일 시도(H8-02, 플라이휠 손실 belle 결정 위임).**
 > **7차 핵심: 비-버저닝 버킷 아키텍처를 실 AWS 에 연결 — 신규 VisualInputBucket 을 31-01 Task1b(Wave 0)에서 provision(Never-versioned/PublicAccessBlock/SSE), worker s3:ListBucket 추가(cleanup 403 방지), Suspended 오판 차단(Status 부재만 통과), cleanupVerifiedAtMs 파라미터 handoff(done|failed 공통), upload-first 하드크래시 durable reservation+janitor, 버킷당 4 lifecycle 파일, D-06 완료알림 belle 결정(31-11 Task1c).**
 > **6차 belle 아키텍처 조정: 임시 생체 프레임(correctedPose source/staging)은 신규 비-버저닝 전용 버킷(VisualInputBucket)으로 이동 — cleanup = 단일 delete + list-objects-v2 KeyCount 0(version 열거 소멸). 학습 페어(training/phase31/pairs/)만 versioned VideoBucket 유지 → version-aware 삭제·Object Lock canary 대상.**
 > `nyquist_compliant: true` 는 5차 §6 확장 + 6차 §6 신규 축(claim owner→실행 snapshot handoff·새 outboxSeq claim clear·producer preflight/inputSealed·cleanup_blocked 비-terminal·same-seq expired claim 정확 필터·partial pair payload hash 검증·pair failed_config 비차단·version/lock IAM simulate·deterministic multi-object E2E) 후 재선언한 값이다.
@@ -65,7 +66,7 @@ revision: iteration7
 | 31-01/T3 | 31-01 | 1 | async-only blocked(B4-02) + pair manifest(B4-04) + PASS4/FAIL8(H4-10) | T-31-65 | sync-only→blocked, before/after pair 10키, 표본 하한 | script+assert | RESULTS/manifest(pair)/privacy 스키마 assert + grep Training | ⬜ pending |
 | 31-02/T1 | 31-02 | 1 | 테스트 스캐폴드 + mock(run_contended/commit_lost/clock) | — | N/A | unit | `python -m pytest backend/tests/phase31 -x -q` | ⬜ pending |
 | 31-02/T2 | 31-02 | 1 | 상태 10종 + typed 10종 terminal + VISUAL_PRIVACY_BLOCKERS + outbox/claim/pending-terminal/privacy 필드 + VISUAL_CLAIM_LEASE_MS + sent cursor | — | postprocessing 포함, cleanup_blocked 비-terminal(privacy blocker), inputSealed/privacyBlocker/cleanupVerifiedAtMs, 신규 state 미추가 | unit | python -c import assert | ⬜ pending |
-| 31-02/T3 | 31-02 | 1 | outbox CAS + claim dict 4상태(snapshot handoff) + owner/lease CAS + 새 seq claim clear + privacy validator finalize + 이중 durable-cursor (B5-01/B6-01/B6-04/H5-03/H5-04/H5-06/H6-01/H6-07/M6-01/H4-07) | T-31-05/06/07/52/56/57/62/63/69/70/74/75 | claim dict 4상태 반환 snapshot, owner/lease CAS, 새 seq claim clear, cleanupVerified/inputSealed done validator, pending/sent 독립 cursor + same-seq expired claim 필터, finalize 파생 | unit | `python -m pytest backend/tests/phase31/test_visual_jobs.py -x -q` | ⬜ pending |
+| 31-02/T3 | 31-02 | 1 | outbox/claim CAS + **begin_visual_job_create typed status(B8-01) + finalizer unconditional correctedPose gate(B8-02)+cleanup_blocked 원자 clear(B8-03) + per-invocation reservation state machine(B8-05/B8-06/H8-03) + orphan registry** (…B6-01/B6-04/H6-01/H6-07 + 8차 B8-01~03/B8-05/B8-06/H8-03) | T-31-…/74/75/85/86/87/88 | begin acquired→create 1회, done/failed×inputSealed=False 거부, blocker clear+terminal 1txn, reservation create-only+claim CAS 배타, orphan | unit | `python -m pytest backend/tests/phase31/test_visual_jobs.py -x -q` | ⬜ pending |
 | 31-03/T1 | 31-03 | 1 | 화살표 기하 + topology parity (D-11) | T-31-09/10 | record 비의존, parity 단일, adversarial golden | unit | `python -m pytest backend/tests/test_fault_zoom_arrow.py -x -q` | ⬜ pending |
 | 31-03/T2 | 31-03 | 1 | CorrectedPoseTarget 단일 계약 | T-31-53 | reference_relative 미유입, abs 정렬 | unit | `python -m pytest backend/tests/test_fault_zoom_arrow.py -x -q` | ⬜ pending |
 | 31-03/T3 | 31-03 | 1 | 배선+프레임 쌍+무회귀 (D-12) | T-31-11 | 채점 read-only | unit | `python -m pytest backend/tests -q` | ⬜ pending |
@@ -87,14 +88,14 @@ revision: iteration7
 | 31-11/T1c | 31-11 | 3 | D-06 완료 알림 실체 결정 (7차 H7-06) | — | push 구현 vs amended decision | manual (decision) | — | ⬜ pending |
 | 31-11/T2 | 31-11 | 3 | ApiError + 상태 순수 로직 | T-31-45 | typed code 분기 | unit (jest) | `cd app && npx jest src/lib/__tests__/visualCards.test.ts` | ⬜ pending |
 | 31-11/T3 | 31-11 | 3 | 통합 (무조건 훅, H-02 재서명) | T-31-46/47 | URL 소비 0, 폴링 0 | unit (jest) + typecheck | `cd app && npx jest && npm run typecheck` | ⬜ pending |
-| 31-09/T1 | 31-09 | 4 | claim dict 4상태 + busy visibility + snapshot handoff + owner/lease CAS + async-only + moderation clear + internal transition send 0 + create CAS (B5-01/B6-01/B4-02/B4-03/H5-04/M6-03/7차 H7-01/H7-02) | T-31-32/33/62/69/70/75 | busy→change_visibility+batchItemFailures, claimed snapshot only, crash 5지점, sync→vendor_error, **H7-01 internal transition send 0, H7-02 create CAS** | unit | `python -m pytest backend/tests/phase31/test_visual_worker.py -x -q` | ⬜ pending |
+| 31-09/T1 | 31-09 | 4 | claim 4상태 + busy visibility + snapshot handoff + owner/lease CAS + internal transition send 0 + **begin status 분기(acquired→vendor create 1회, concurrent acquired 1/busy 1, B8-01/M8-04)** (B5-01/B6-01/B4-02/B4-03/H5-04/M6-03/7차 H7-01/8차 B8-01/M8-04) | T-31-32/33/62/69/70/75 | busy→change_visibility+batchItemFailures, claimed snapshot only, crash 5지점, sync→vendor_error, **H7-01 internal transition send 0, H7-02 create CAS** | unit | `python -m pytest backend/tests/phase31/test_visual_worker.py -x -q` | ⬜ pending |
 | 31-09/T2 | 31-09 | 4 | fetch/judge/pose_check/postprocess (H4-01/H5-01/H5-05/B6-03/B6-04/B5-03/H6-03/H6-05, H4-05, B4-05, M5-01/M6-04/M6-05 + 7차 B7-03/B7-04/H7-07/H7-08) | T-31-34/35/36/63/71/72/73/77 | 성공+실패 postprocessing(inputSealed), 단일 delete cleanup, cleanup_verified_at_ms 파라미터(B7-03), pair off critical path(H7-07), copy REPLACE metadata(H7-08), consent 재read, hash conflict, failed_config 비차단 | unit | `python -m pytest backend/tests/phase31/test_visual_worker.py -x -q` | ⬜ pending |
-| 31-09/T3 | 31-09 | 4 | rotation streaming + dispatcher(이중 cursor/H6-01/ScannedOutboxMaxAge) + **janitor(visualOrphans/reservation sweep, 7차 H7-04/B7-05)** + reconciler(+cleanup_blocked/orphan remediation) (H5-06/H6-01/M6-01/M5-02/7차 H7-04) | T-31-37/58 | upload_file, content-type exact, 스캔 window age, expired claim 복구, janitor 하드크래시 orphan 삭제, reconcile | unit | `python -m pytest backend/tests -q` | ⬜ pending |
+| 31-09/T3 | 31-09 | 4 | rotation streaming + dispatcher + **janitor(claim_reservation_for_janitor CAS 선형화 B8-06 + bounded cursor/due/1,200 drain H8-01 + OpenCount/OldestAge/SweepFailed metric M8-05)** + reconciler (H5-06/H6-01/M6-01/M5-02/7차 H7-04/8차 B8-06/H8-01/M8-05) | T-31-37/58/88 | janitor claim CAS(reserve↔delete 배타), bounded drain, barrier concurrency, age/failure metric | unit | `python -m pytest backend/tests -q` | ⬜ pending |
 | 31-10/T1 | 31-10 | 5 | 재서명 + exact guard + validator | T-31-41 | exact basename + status done + failed stale 404 | unit | `python -m pytest backend/tests/phase31/test_visual_url.py -x -q` | ⬜ pending |
 | 31-10/T2 | 31-10 | 5 | 원자 요청 + outboxSeq dispatch + M-06 (B4-01) | T-31-38/39/40/42 | fail-closed env, send 실패→pending 잔존, mark(action+seq) | unit | `python -m pytest backend/tests/phase31/test_visual_request.py -x -q` | ⬜ pending |
-| 31-10/T3 | 31-10 | 5 | preflight+reservation-first(B7-05)+full-64hex(M7-02)+IfNoneMatch/409+inputSealed/terminal-replay/orphan 삭제(created_keys) + 필수 visualOrphans(H7-04) + IaC(worker s3:ListBucket B7-01/PutMetricData+5 alarm H7-03/Never-versioned dry-run B7-02/버킷당 4 lifecycle 파일 B7-07) | T-31-43/54/73/76/80/81 | preflight PUT 0, reservation→PUT→reserve, 하드크래시 orphan, worker ListBucket, Never-versioned only, 4 lifecycle shape | lint+unit | `(cd backend && sam validate --lint) && python -m pytest backend/tests/phase31/test_visual_dispatch.py -x -q` | ⬜ pending |
+| 31-10/T3 | 31-10 | 5 | preflight + **per-invocation immutable reservation create-only(B8-05) + reserve claim_for_job CAS(B8-06)** + full-64hex + terminal-replay/orphan 삭제 + IaC(worker ListBucket/PutMetricData + **dispatcher GetObject/prefix ListBucket, HeadObject 0 B8-04/H8-04** + 7 alarm M8-05 + Never-versioned/4 lifecycle 파일 M8-01) | T-31-43/54/73/76/80/81 | reservation A/B overwrite 0, claim CAS, dispatcher GetObject, HeadObject 0, 7 alarm | lint+unit | `(cd backend && sam validate --lint) && python -m pytest backend/tests/phase31/test_visual_dispatch.py -x -q` | ⬜ pending |
 | 31-12/T1 | 31-12 | 6 | 3중 게이트 + build(5 alarm + worker ListBucket/PutMetricData IAM + 버전 액션 부재) (H4-09/H5-06/M6-01/H6-02/B6-02/7차 B7-01/H7-03) | T-31-66 | template env 일치, 5 alarm(Orphan/CleanupBlocked/PairConflict 포함), worker ListBucket 존재, 버전 액션 부재 | full suite | `python -m pytest backend/tests -q && (cd backend && sam validate --lint)` | ⬜ pending |
-| 31-12/T2 | 31-12 | 6 | 버킷당 4파일 lifecycle put + 교차 rollback(B7-07) + VisualInputBucket 존재/Never-versioned 재확인(B7-06/H7-09) + 페어 버킷 canary(get_object_retention/legal_hold 직접 API M7-01) (H4-04/H5-07/H6-08/7차 B7-06/B7-07/H7-09/M7-01) | T-31-55/68/82/84 | 파일↔버킷 1:1 put, 교차 rollback, Status 부재 재확인, canary 직접 API | manual (human-action) | — | ⬜ pending |
+| 31-12/T2 | 31-12 | 6 | 버킷당 4파일 lifecycle put+교차 rollback + Never-versioned 재확인 + **canary get_object_retention/legal_hold 직접 API + AccessDenied fail-closed(H8-08)** + chosen-name 전파(H8-07) (H4-04/H5-07/H6-08/7차 B7-06/B7-07/H7-09 + 8차 H8-07/H8-08) | T-31-55/68/82/84 | 1:1 put, 교차 rollback, 전용 API canary, AccessDenied STOP | manual (human-action) | — | ⬜ pending |
 | 31-12/T3 | 31-12 | 6 | 배포(flag OFF) + 401/503/404 + iam_probe + worker s3:ListBucket allowed(B7-01) + Pod user VisualInputBucket(H7-02) + 버전/lock simulate (H4-02/B6-02/H6-08/7차 B7-01/H7-02) | T-31-48/49/67/79/81 | worker ListBucket allowed + 실 role canary, Pod IAM, 버전 액션 denied | manual (human-action) | — | ⬜ pending |
 | 31-12/T4 | 31-12 | 6 | 실 E2E 2종 + Never-versioned 재확인(B7-02) + H6-09 deterministic → **worker-role cleanup 증명**(M7-04) → KeyCount 0(IsTruncated M7-01) + OTA + UAT | T-31-50/51 | Status 부재 재확인, worker-role/CloudWatch 증명, KeyCount 0, E2E PASS 전 완료 금지 | integration | `test -f 31-HUMAN-UAT.md && grep -q "D-10" ...` | ⬜ pending |
 
@@ -173,7 +174,7 @@ revision: iteration7
 | 27 | bucket Status=Suspended | 31-10 dry-run + 31-12 checkpoint | dry-run/checkpoint/flag ON 모두 blocked | 31-10/T3 + 31-12/T2·T4 |
 | 28 | bucket Status key 부재 | 31-10 dry-run + 31-12 | unversioned gate 통과 + Versions/DeleteMarkers 0 | 31-10/T3 + 31-12/T2 |
 | 29 | remaining 0, job cleanupVerified=0 done finalize | 31-02 finalize + 31-09 postprocess | cleanup_verified_at_ms 파라미터 병합 후 done 성공 + job 문서 기록 | 31-02/T3 + 31-09/T2 |
-| 30 | correctedPose failed + cleanupVerified=0/inputSealed True | 31-02 finalize validator | ValueError, analysis terminal 0 (done|failed 공통) | 31-02/T3 + 31-09/T2 |
+| 30 | correctedPose done/failed × inputSealed=False × cleanupVerified=0 (네 조합) | 31-02 finalize validator | 전부 ValueError(unconditional gate — inputSealed=False 우회 0, 8차 B8-02) | 31-02/T3 + 31-09/T2 |
 | 31 | src PUT 직후 hard crash | 31-10 reservation + 31-09 janitor | durable reservation/janitor 가 lifecycle 대기 없이 prefix 0 | 31-10/T3 + 31-09/T3 |
 | 32 | src 성공→trainingSrc 실패(option-b) | 31-10 created_keys 보상 | created_keys 역순 delete 또는 durable visualOrphans 등록 | 31-10/T3 |
 | 33 | terminal cleanup 뒤 stale producer PUT→hard crash | 31-09 janitor | janitor 가 object 0 복구 | 31-09/T3 |
@@ -186,26 +187,45 @@ revision: iteration7
 
 ---
 
-## §7 실행 허용 조건 추적표 (7차 리뷰 — 14조건)
+### 8차 §7 신규 편입 (선형화·privacy·IAM — 실행 허용 직결)
+
+| # | 시나리오 | 주입 지점 | PASS 기준 | Task |
+|---|----------|-----------|-----------|------|
+| 40 | 최초 reserved create | 31-09 _action_create + 31-02 begin | begin acquired → vendor create 정확 1회(creating no-op 0) | 31-09/T1 + 31-02/T3 |
+| 41 | concurrent same-seq create | 31-02 begin_visual_job_create | acquired 1·busy/stale 1·vendor create total 1 (M8-04) | 31-09/T1 + 31-02/T3 |
+| 42 | correctedPose done/failed × inputSealed=False | 31-02 finalizer | 네 조합 전부 ValueError(unconditional gate B8-02) | 31-02/T3 + 31-09/T2 |
+| 43 | cleanup 5회 실패→blocked→remaining 0 | 31-02 finalizer + 31-09 postprocess | cleanup_verified>0 시 privacyBlocker 원자 clear+terminal 한 transaction(B8-03) | 31-02/T3 + 31-09/T2 |
+| 44 | template `s3:HeadObject` 존재 | 31-10 template + 31-12 build | 전 template HeadObject 0, dispatcher GetObject/DeleteObject/prefix ListBucket (B8-04/H8-04) | 31-10/T3 + 31-12/T1 |
+| 45 | concurrent producer A/B reservation | 31-10 create_input_reservation | per-invocation immutable, A/B overwrite 0, 두 key 모두 소유/삭제(B8-05) | 31-10/T3 + 31-02/T3 |
+| 46 | janitor read → producer reserve → janitor delete | 31-02 reservation CAS | claim_for_job↔claim_for_janitor 배타, 유효 job 입력 delete 0(B8-06) | 31-02/T3 + 31-09/T3 |
+| 47 | reservation/orphan 1,200건 | 31-09 janitor bounded cursor | starvation 0 drain + oldest-age/failure alarm(H8-01/M8-05) | 31-09/T3 |
+| 48 | pair network 실패 | 31-09 postprocess | user terminal 미차단 + cleanup 만 durable, pair 단일 시도(H8-02, 플라이휠 손실 amended) | 31-09/T2 |
+| 49 | Wave 0 bucket policy/lifecycle | 31-01 Task1b + 31-12 | 보안속성만(lifecycle 이연 H8-05) + policy Sid merge/rollback(H8-06) + chosen name 전파(H8-07) | 31-01/T1b + 31-12/T2 |
+| 50 | Object Lock canary AccessDenied | 31-12 Task2 | get_object_retention/legal_hold 직접 호출 + AccessDenied fail-closed(H8-08) | 31-12/T2 |
+
+---
+
+## §7 실행 허용 조건 추적표 (8차 리뷰 — 15조건)
 
 | # | 조건 | 플랜 위치 | 테스트 |
 |---|------|-----------|--------|
-| 1 | Worker bucket ARN `s3:ListBucket` + prefix condition + live simulate/canary | 31-10 IAM + 31-12 simulate | 31-10/T3 + 31-12/T3 |
-| 2 | VisualInputBucket `Status` key 부재만 허용; Suspended fixture blocked | 31-10 dry-run + 31-12 | 31-10/T3 + 31-12/T2·T4 |
-| 3 | correctedPose done cleanupVerified handoff가 한 원자 계약(파라미터)으로 고정 | 31-02 finalize param + 31-09 handoff | 31-02/T3 + 31-09/T2 |
-| 4 | correctedPose failed도 inputSealed+cleanupVerified 공통 validator 통과 후만 terminal | 31-02 done|failed 공통 validator | 31-02/T3 + 31-09/T2 |
-| 5 | PUT 직후 hard crash용 durable cleanup 주체(reservation+janitor) 존재 | 31-10 reservation + 31-09 janitor | 31-10/T3 + 31-09/T3 |
-| 6 | srcKey/trainingSrcKey별 created ownership + partial compensation | 31-10 created_keys | 31-10/T3 |
-| 7 | 신규 bucket create/보안/존재 검증이 Wave 0 checkpoint에 존재 | 31-01 Task1b + 31-12 재확인 | 31-01/T1b + 31-12/T2 |
-| 8 | bucket별 lifecycle before/merged 4파일 + 교차 rollback | 31-10 dry-run 4파일 + 31-12 put | 31-10/T3 + 31-12/T2 |
-| 9 | creating internal transition action-null send 0 | 31-09 _advance internal | 31-09/T1 |
-| 10 | create inbound generation/action/outboxSeq/nextDispatchAt CAS | 31-09 begin_visual_job_create | 31-09/T1 |
-| 11 | worker/pipeline PutMetricData IAM + cleanup/orphan/pair-conflict alarms | 31-10 IAM+alarm + 31-12 build | 31-10/T3 + 31-12/T1 |
-| 12 | orphan registry가 필수 durable record이고 실제 consumer 존재 | 31-10 visualOrphans + 31-09 janitor/list_stuck | 31-10/T3 + 31-09/T3 |
-| 13 | 31-01 smoke가 전용 unversioned bucket에서 delete+HEAD 404 검증 | 31-01 Task2(전용 버킷) | 31-01/T2 |
-| 14 | D-06 완료 알림 구현 또는 명시적 amended decision | 31-11 Task1c belle 결정 | 31-11/T1c |
+| 1 | 최초 reserved create 가 begin 에서 acquired→vendor create 정확 1회 | 31-02 begin + 31-09 _action_create | 31-02/T3 + 31-09/T1 |
+| 2 | concurrent same-seq acquired 정확 1·나머지 busy/stale·외부 create 총 1 | 31-02 begin | 31-09/T1 |
+| 3 | begin_visual_job_create 가 31-02 files/action/acceptance 에 실제 함수로 존재 | 31-02 (4c) 9번째 함수 | 31-02/T3 |
+| 4 | correctedPose done/failed 모두 inputSealed/cleanupVerified/privacyBlocker unconditional 요구 | 31-02 finalizer | 31-02/T3 |
+| 5 | inputSealed=False·cleanupVerified=0 네 조합 helper 거부 | 31-02 finalizer | 31-02/T3 |
+| 6 | cleanup 5회 실패→blocked→remaining 0 이 blocker clear+terminal 한 transaction | 31-02 finalizer + 31-09 | 31-02/T3 + 31-09/T2 |
+| 7 | 전 template `s3:HeadObject` 0 + dispatcher prefix ListBucket/GetObject/DeleteObject | 31-10 template + 31-12 build | 31-10/T3 + 31-12/T1 |
+| 8 | per-invocation reservation 이 다른 expectedKeys overwrite 안 함 | 31-10 create_input_reservation | 31-10/T3 + 31-02/T3 |
+| 9 | janitor claim ↔ producer reserve 공유 CAS — "reserve 후 delete" 불가 | 31-02 reservation CAS | 31-02/T3 + 31-09/T3 |
+| 10 | reservation TTL 이 producer timeout/margin 단일 상수 관계 | 31-02 VISUAL_INPUT_RESERVATION_TTL_MS | 31-02/T2·T3 |
+| 11 | reservation/orphan 1,200 bounded cursor drain + oldest-age alarm | 31-09 janitor | 31-09/T3 |
+| 12 | pair network 실패가 user terminal 미차단 + durable 재처리 or belle amend | 31-09 + CONTEXT/VALIDATION amend | 31-09/T2 |
+| 13 | Wave 0 bucket policy/lifecycle before/merge/put-get/rollback + chosen-name 전파 | 31-01 Task1b(policy) + 31-12(lifecycle) | 31-01/T1b + 31-12/T2 |
+| 14 | 31-10/31-12 frontmatter/read_first/action/acceptance/done 이 4 lifecycle 파일·5+alarm lockstep | 31-10/31-12 | 31-10/T3 + 31-12/T1 |
+| 15 | Object Lock canary 가 get_object_retention/get_object_legal_hold 실제 호출 + AccessDenied fail-closed | 31-12 Task2 | 31-12/T2 |
 
-> 참고: 2차~6차 게이트는 위 fault matrix 에 흡수됨. 7차 검증 축 = 4 불변식(VisualInputBucket never-versioned+worker list/delete 가능 / correctedPose done·failed cleanup 증명·terminal 단일 계약 / upload-first 하드크래시에 job 또는 durable orphan record 반드시 잔존 / bucket 생성·lifecycle·rollback·metric alarm 이 실 명령·IAM 주체에 연결).
+> 참고: 2차~7차 게이트는 위 fault matrix 에 흡수됨. 8차 검증 축 = 6 blocker 선형화(create acquired 정상 1회 / finalizer unconditional gate·cleanup_blocked 회복 / dispatcher GetObject / per-invocation reservation·producer↔janitor 공유 CAS). 7차 축(worker ListBucket/Never-versioned/cleanup 파라미터/failed validator/reservation+janitor/bucket provision/4 lifecycle 파일/create CAS/durable orphan/smoke 전용버킷/D-06 결정)은 위 15조건에 승계·강화됨.
 
 ---
 
@@ -230,6 +250,7 @@ revision: iteration7
 | 실 E2E 2종 + Never-versioned 재확인 + worker-role cleanup 증명 → KeyCount 0 | D-05/D-06, H-07, 7차 B7-02/M7-04 | Pod 재생성 + flag ON | **완료 필요조건** — 31-12/T4 |
 | VisualInputBucket provision (Never-versioned/보안 속성) | 7차 B7-06/H7-07 | 신규 버킷 생성·belle 승인 | **Wave 0 전제** — 31-01/T1b |
 | D-06 완료 알림 실체 (push vs amended) | 7차 H7-06 | 제품 목표 결정 | belle 결정 — 31-11/T1c |
+| pair network 실패 durability (단일 시도 수용 vs durable outbox) | 8차 H8-02 | 데이터 플라이휠 손실 = 제품 결정 | belle amend — CONTEXT/success criteria |
 
 ---
 
@@ -239,13 +260,14 @@ revision: iteration7
 - [x] Sampling continuity: no 3 consecutive tasks without automated verify
 - [x] Wave 0 covers all MISSING references (31-02/T1, 31-11/T1)
 - [x] Fault-Injection Matrix 가 task map 자동 테스트에 편입 (5차 10종 + 6차 15종 + 7차 §6 14종 신규 — worker ListBucket/Suspended 오판 차단/cleanupVerified 파라미터 handoff/failed cleanup validator/하드크래시 reservation+janitor/option-b 보상/신규 버킷 provision/두 버킷 lifecycle 교차 rollback/internal transition send 0/create CAS/metric IAM+alarm/D-06 완료알림 결정)
-- [x] §7 실행 허용 14조건 추적표 완비 (7차 리뷰 — 4 불변식 + Wave 0 provision)
+- [x] §7 실행 허용 15조건 추적표 완비 (8차 리뷰 — 6 blocker 선형화)
 - [x] "성공 경로만 cleanup" 기대값 제거 — 성공·실패 공통 cleanup 증명 후 terminal (H5-05/B6-03/7차 B7-04)
 - [x] 신규 VisualInputBucket 생성 절차(Wave 0 provision) + worker s3:ListBucket + Never-versioned 오판 차단 반영
 - [x] upload-first 하드크래시 durable reservation+janitor — "즉시 잔존 0" 정상 경로 한정 정정
 - [x] D-06 완료 알림 belle 결정 checkpoint(31-11 Task1c) — phase goal 축소 방지
 - [x] No watch-mode flags
 - [x] Feedback latency < 140s
-- [x] `nyquist_compliant: true` re-declared (7차 §6 신규 축 반영 후)
+- [x] pair network 실패 = user terminal 미차단 + cleanup 만 durable(H8-02) — 플라이휠 손실은 belle amend 대기
+- [x] `nyquist_compliant: true` re-declared (8차 §7 15조건 반영 후)
 
-**Approval:** planner 2026-07-19 (iteration7 targeted replan — 7차 리뷰 BLOCK 반영: B7-01~07 + H7-01~09 + M7-01~05, 31-01/02/09/10/11/12 + Validation targeted. D-06 완료알림·B7-03/B7-05 옵션은 belle 결정 checkpoint 로 위임)
+**Approval:** planner 2026-07-19 (iteration8 targeted replan — 8차 리뷰 BLOCK 반영: B8-01~06 + H8-01~09 + M8-01~05, 31-01/02/09/10/12 + Validation targeted. D-06 완료알림(31-11 T1c)·pair 플라이휠 손실(H8-02) 은 belle 결정 위임)

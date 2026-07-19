@@ -57,6 +57,42 @@ function normalizeCoachHook(value: unknown): CoachCommentHook | null {
   };
 }
 
+// Phase 31 (D-05/D-06/D-08) — visual 교정 시각물 필드 방어 파싱 헬퍼.
+// backend 방출값을 신뢰하지 않는다 (T-31-12 Tampering): 임의 값은 undefined 로
+// 조용히 강등하고, 필드를 drop 하지는 않는다 (부재 = legacy doc 하위호환).
+const VISUAL_STATUSES = ['pending', 'done', 'failed'] as const;
+type VisualStatus = (typeof VISUAL_STATUSES)[number];
+
+function normalizeVisualStatus(value: unknown): VisualStatus | undefined {
+  return VISUAL_STATUSES.includes(value as VisualStatus)
+    ? (value as VisualStatus)
+    : undefined;
+}
+
+// S3 key 방어: 결과물 key 는 반드시 `results/` prefix 다. 그 외(오염 데이터·타 prefix)
+// 는 undefined 로 강등 — 앱이 임의 key 를 재서명 요청에 실어 보내는 경로를 원천 차단
+// (리뷰 H-02: 재서명은 server-selected asset type 으로만).
+function normalizeResultKey(value: unknown): string | undefined {
+  return typeof value === 'string' && value.startsWith('results/')
+    ? value
+    : undefined;
+}
+
+// 전용 timestamp (리뷰 H-06) — 공용 updatedAt 이 아니라 이 값으로 pending 타임아웃을
+// 판정하므로 유한 number 만 통과시킨다 (NaN/Infinity 는 비교 시 영구 pending 유발).
+function normalizeFiniteMs(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+// 프레임 인덱스 — 배열 인덱스로 쓰이므로 음수/소수/NaN 전부 거부.
+function normalizeFrameIdx(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
+    ? value
+    : undefined;
+}
+
 export interface UserAnalysesState {
   analyses: AnalysisDoc[]; // createdAt 내림차순
   loading: boolean;
@@ -317,6 +353,47 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
         estCostUsd:
           typeof meta.estCostUsd === 'number' ? meta.estCostUsd : undefined,
       },
+    };
+  }
+  // Phase 31 (D-05/D-06/D-08) — correctedPose*/rotation* 방어 파싱 (T-31-12).
+  // faultZoomStatus 사후 분리 패턴의 mirror. 세 규칙:
+  //   · status 2종은 3값 화이트리스트만 통과 — 그 외(오타/신규 값/비문자열)는
+  //     undefined → 카드 숨김. 알 수 없는 상태를 표시하느니 조용히 감춘다(D-08).
+  //   · key 2종은 `results/` prefix 검증 — 오염 key 조용히 강등 (리뷰 H-02).
+  //   · *UpdatedAtMs 는 유한 number 만 — pending 타임아웃 기준 (리뷰 H-06).
+  // 필드 부재(legacy doc)면 전부 undefined 로 남아 기존 화면과 동일하게 동작한다.
+  if (result) {
+    const r = result as Record<string, unknown>;
+    result = {
+      ...result,
+      correctedPoseStatus: normalizeVisualStatus(r.correctedPoseStatus),
+      correctedPoseKey: normalizeResultKey(r.correctedPoseKey),
+      correctedPoseJoint:
+        typeof r.correctedPoseJoint === 'string'
+          ? r.correctedPoseJoint
+          : undefined,
+      correctedPoseUpdatedAtMs: normalizeFiniteMs(r.correctedPoseUpdatedAtMs),
+      rotationStatus: normalizeVisualStatus(r.rotationStatus),
+      rotationVideoKey: normalizeResultKey(r.rotationVideoKey),
+      rotationUpdatedAtMs: normalizeFiniteMs(r.rotationUpdatedAtMs),
+    };
+  }
+  // Phase 31 (D-10) — FaultZoomComparison 의 뷰어 프레임 소스 방어 파싱.
+  // 항목 자체는 보존하고(카드는 계속 렌더) 신규 3필드만 검증한다 — 잘못된 인덱스로
+  // 뷰어가 크래시하느니 프레임 동기화만 조용히 포기(부재=legacy 와 동일 경로).
+  if (Array.isArray(result?.faultZoomComparisons)) {
+    result = {
+      ...result,
+      faultZoomComparisons: result.faultZoomComparisons.map((c) => {
+        const raw = c as unknown as Record<string, unknown>;
+        return {
+          ...c,
+          userFrameIdx: normalizeFrameIdx(raw.userFrameIdx),
+          refFrameIdx: normalizeFrameIdx(raw.refFrameIdx),
+          refMatched:
+            typeof raw.refMatched === 'boolean' ? raw.refMatched : undefined,
+        };
+      }),
     };
   }
   return {

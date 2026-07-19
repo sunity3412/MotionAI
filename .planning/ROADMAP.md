@@ -1047,30 +1047,33 @@ Plans:
 **Goal:** "교정된 모습을 보여주는" 시각 출력을 지금 MVP(Gemini 트랙)에 추가 — 힉스필드 방식(외부 API 먼저, 자체화는 데이터 쌓인 뒤). (1단) 기하 오버레이 렌더: 이상 궤적 선·목표 각도 화살표·힘 방향 벡터를 원본 영상 위에 — 이미 가진 데이터(reference 각도, windowMedian 편차, DTW 매칭)와 KeypointOverlay 렌더 체계로 즉시 가능. (2단) 외부 이미지 생성/편집 API로 교정 실루엣 프리미엄 프로토타입 — 품질 게이트(얼굴/배경 왜곡) + **통과 품질분을 `[틀린 폼→고쳐진 폼]` 페어로 적재 = Phase 22 v2 자체 생성 헤드의 학습 데이터 제조**. Phase 22 discuss(22-CONTEXT.md D-03)에서 분기된 phase. 오버레이 원칙([[ux-propose-user-centric-screens-first]]) 준수 — 최악 케이스 목업 선제시.
 **Requirements**: TBD (공식 REQ ID 없음 — 31-CONTEXT.md D-01~D-12 가 요구사항)
 **Depends on:** 없음 (Phase 22와 병렬, 앱+외부 API 트랙)
-**Plans:** 9 plans (4 waves)
+**Plans:** 12 plans (4 waves) — 2026-07-19 structural replan (31-REVIEWS.md BLOCK 반영: B-01~03/H-01~07 해소, 구 9플랜 대체)
 
 Plans:
 
 **Wave 1**
 
-- [ ] 31-01-PLAN.md — Wave 0 테스트 스캐폴드 + 계약 3면 (silhouette/rotation 상태 머신, /visual/rotation 계약) [W1]
-- [ ] 31-02-PLAN.md — 이미지 모델 스모크 실측 (wan2.7-image-pro vs qwen-image-edit-plus, D-03 선정) [W1]
-- [ ] 31-03-PLAN.md — fault_zoom 목표각 화살표 + 목표선 (D-11/D-12, 기존 줌 카드 위 PIL 렌더) [W1]
+- [ ] 31-01-PLAN.md — release gates: privacy checkpoint(H-04) + 이미지 모델 스모크 + ACCEPTANCE 임계값 (blocked=true=롤아웃 차단) [W1]
+- [ ] 31-02-PLAN.md — durable visual job substrate: visualJobs 원자 예약·CAS·전용 timestamp·canonical key (H-06/B-03 기반) [W1]
+- [ ] 31-03-PLAN.md — TargetArrowSpec 3점+reference 좌표 화살표 (B-02 해소, D-11/D-12) + 프레임 쌍 방출 (B-01) [W1]
+- [ ] 31-04-PLAN.md — 계약 3면 TS/contract: correctedPose*/rotation* (URL 비저장, H-02) + /visual/rotation·asset 재서명 절 [W1]
 
-**Wave 2** *(blocked on Wave 1 completion)*
+**Wave 2** *(blocked on Wave 1)*
 
-- [ ] 31-04-PLAN.md — VisualGenEngine Protocol + Wan 어댑터 2종 + Gemini judge (D-02) [W2]
-- [ ] 31-05-PLAN.md — 앱 3D 뷰어 중첩 + ReferenceCornerSection (D-04/D-09/D-10, 목업 checkpoint) [W2]
+- [ ] 31-05-PLAN.md — typed 엔진 어댑터(M-08) + H-05 다운로드 경계 + before/after judge (H-03) [W2]
+- [ ] 31-06-PLAN.md — 결정론 pose 게이트: Pod /pose-image + pose_gate fail-closed (H-03) [W2]
+- [ ] 31-07-PLAN.md — 페어 적재 privacy: strict 동의 + HMAC 가명 + 삭제 경로 (H-04, D-01) [W2]
+- [ ] 31-08-PLAN.md — 앱 컴포넌트: 2D 비교 뷰어(amended D-10, B-01 해소) + 참고코너 섹션 + 목업 checkpoint [W2]
 
-**Wave 3** *(blocked on Wave 2 completion)*
+**Wave 3** *(blocked on Wave 2)*
 
-- [ ] 31-06-PLAN.md — pipeline 실루엣 사후 훅 + consent-gated 페어 적재 (D-05/D-08, 블러 checkpoint) [W3]
-- [ ] 31-07-PLAN.md — 회전 온디맨드 Lambda 2종 + VisualQueue IaC (D-06/D-07) [W3]
-- [ ] 31-08-PLAN.md — result.tsx 참고코너 통합 + 회전 요청 클라이언트 (D-06/D-08/D-09) [W3]
+- [ ] 31-09-PLAN.md — visual worker state machine: delayed-SQS poller (B-03 해소) + correctedPose/rotation 잡 [W3]
+- [ ] 31-10-PLAN.md — HTTP 표면: asset 재서명(H-02) + 요청 Lambda(H-06) + enqueue-only 훅(H-01) + IaC flag OFF [W3]
+- [ ] 31-11-PLAN.md — 앱 통합: ApiError(M-05) + 재서명 소비 + jest 테스트(M-03) + result.tsx [W3]
 
-**Wave 4** *(blocked on Wave 3 completion)*
+**Wave 4** *(blocked on Wave 3)*
 
-- [ ] 31-09-PLAN.md — sam deploy checkpoint + 실검증 + OTA + HUMAN-UAT 적립 (D-01) [W4]
+- [ ] 31-12-PLAN.md — fail-closed 배포 게이트: belle deploy(OFF→ON canary) + 실 E2E 2종 = phase 완료 필요조건 (H-07) [W4]
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

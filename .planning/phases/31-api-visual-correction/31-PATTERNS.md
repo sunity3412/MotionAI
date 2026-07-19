@@ -1,3 +1,5 @@
+> **[SUPERSEDE 2026-07-19 구조 재플랜]** 본 문서의 PoseViewer3D/R3F 절·silhouette 명명(책임 맵 포함)은 31-CONTEXT.md [AMENDED 2026-07-19] + 31-REVIEWS.md 해소로 대체됨 (amended D-04/D-10, L-02: silhouette → correctedPose). 충돌 시 PLAN.md 가 우선.
+
 # Phase 31: api-visual-correction - Pattern Map
 
 **Mapped:** 2026-07-19

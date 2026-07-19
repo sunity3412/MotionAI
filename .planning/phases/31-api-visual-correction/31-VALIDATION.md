@@ -127,6 +127,8 @@ revision: iteration3
 | key rotation: HMAC v1→v2 후 삭제 | 31-07 삭제 스크립트 | retired v1 재계산으로 기존 pair 삭제 성공 | 31-07/T2 | 12(H3-11) |
 | malformed SQS 메시지 | 31-09 handler | batchItemFailures → DLQ 증거 (조용 삭제 0) | 31-09/T1 | (M2-02) |
 | template drift | 31-10 파싱 assert | visibility >= 6×timeout + maxReceiveCount >= 5 + OutboxPendingAge alarm 존재 | 31-10/T3 | 9(H3-09) |
+| **composite index 회피** | 31-02 list_dispatch_pending | **단일 등가 쿼리(dispatchState=='pending')만 발행 + nextDispatchAtMs in-memory 필터 — 복합 range 쿼리 미발생 (mock where 호출 검증). 실 EventBridge FAILED_PRECONDITION 방지 (STATE.md phase-33 선례)** | 31-02/T3 | 2 |
+| **URL 비저장 3면** | 31-09 종료 후 | job/analysis 직렬화 + SQS body + caplog log record 전부 'http(s)://'/'outputUrl'/'signedUrl' 부재 | 31-09/T1 | 6 |
 
 ---
 

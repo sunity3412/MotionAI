@@ -6,15 +6,15 @@ nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-19
 replanned: 2026-07-19
-revision: iteration2
+revision: iteration3
 ---
 
 # Phase 31 — Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
-> Source: 31-RESEARCH.md `## Validation Architecture` + 31-PLAN-REVIEW-ITERATION2.md 요구 게이트 (§8 acceptance gate 16종).
-> Task IDs = 2026-07-19 iteration2 replan (12 plans / **5 waves** — H2-08 직렬화: 31-09(wave 3) → 31-10(wave 4) → 31-12(wave 5)).
-> `nyquist_compliant: true` 는 M2-04 반영(아래 Fault-Injection Matrix 를 task map 에 편입) 후 재선언한 값이다.
+> Source: 31-RESEARCH.md `## Validation Architecture` + 31-PLAN-REVIEW-ITERATION2/3.md 요구 게이트 (2차 §8 16종 + 3차 §8-3 11종).
+> Task IDs = 2026-07-19 iteration3 replan (13 plans / **6 waves** — H2-08+H3-02+H3-09 직렬화: 31-13(w3) → 31-09(w4) → 31-10(w5) → 31-12(w6)).
+> `nyquist_compliant: true` 는 3차 §6 fault matrix 재작성(CAS no-op PASS 기준 제거 + dispatcher 복구·finalize 원자·upload-first 테스트 편입) 후 재선언한 값이다.
 
 ---
 
@@ -39,15 +39,16 @@ revision: iteration2
 
 ---
 
-## Wave Structure (H2-08 반영)
+## Wave Structure (H2-08 + 3차 H3-02/H3-09 반영)
 
 | Wave | Plans | 비고 |
 |------|-------|------|
 | 1 | 31-01, 31-02, 31-03, 31-04 | 계약·target·상태 기반 (리뷰 §7 Step 1·2 선행) |
 | 2 | 31-05, 31-06, 31-07, 31-08 | 어댑터·게이트·페어·앱 컴포넌트 |
-| 3 | 31-09, 31-11 | 워커 코드 + 앱 통합 (파일 겹침 0) |
-| 4 | 31-10 | HTTP 표면·enqueue·IaC — **31-09 산출(visual-worker CodeUri) 의존 (H2-08)** |
-| 5 | 31-12 | live mutation checkpoint + 배포 + E2E |
+| 3 | 31-11, 31-13 | 앱 통합 + **calibration harness (31-05/06 실 측정 코드 뒤 — H3-02)** (파일 겹침 0) |
+| 4 | 31-09 | 워커+dispatcher 코드 — 31-13 calibration 임계값 소비 |
+| 5 | 31-10 | HTTP 표면·enqueue·IaC — **31-09 산출(visual-worker/dispatch CodeUri) 의존 (H2-08)** |
+| 6 | 31-12 | live mutation checkpoint + 배포 + E2E |
 
 ---
 
@@ -76,68 +77,76 @@ revision: iteration2
 | 31-08/T1 | 31-08 | 2 | 목업 선제시 + 카드 위치 | — | N/A | manual (decision) | — | ⬜ pending |
 | 31-08/T2 | 31-08 | 2 | amended D-10 2D 뷰어 + M-02 단일 구독 | T-31-28/31 | R3F 0, "3D" 문구 0 | typecheck | `cd app && npm run typecheck` | ⬜ pending |
 | 31-08/T3 | 31-08 | 2 | D-09 참고코너 섹션 | T-31-29/30 | 에러 배너 0, 점수 미표시 | typecheck | `cd app && npm run typecheck` | ⬜ pending |
-| 31-09/T1 | 31-09 | 3 | B2-02 action state machine + lease + M2-02 DLQ 증거 | T-31-32/33 | crash-injection 6지점, malformed→batchItemFailures, create_unconfirmed | unit | `python -m pytest backend/tests/phase31/test_visual_worker.py -x -q` | ⬜ pending |
-| 31-09/T2 | 31-09 | 3 | correctedPose fetch/judge/pose_check (invocation 분리) | T-31-34/35/36 | hash key equality, 종결 정리, env tolerance 분리, 판정 메타 flat 기록 | unit | `python -m pytest backend/tests/phase31/test_visual_worker.py -x -q` | ⬜ pending |
-| 31-09/T3 | 31-09 | 3 | rotation streaming fetch + H2-02 sweeper + 운영 스크립트 | T-31-37 | upload_file (bytes 적재 0), outbox 재발행, reconciliation 목록 | unit | `python -m pytest backend/tests -q` | ⬜ pending |
+| 31-09/T1 | 31-09 | 4 | B2-02 action state machine + lease + M2-02 DLQ 증거 | T-31-32/33 | crash-injection 6지점, malformed→batchItemFailures, create_unconfirmed | unit | `python -m pytest backend/tests/phase31/test_visual_worker.py -x -q` | ⬜ pending |
+| 31-09/T2 | 31-09 | 4 | correctedPose fetch/judge/pose_check (invocation 분리) | T-31-34/35/36 | hash key equality, 종결 정리, env tolerance 분리, 판정 메타 flat 기록 | unit | `python -m pytest backend/tests/phase31/test_visual_worker.py -x -q` | ⬜ pending |
+| 31-09/T3 | 31-09 | 4 | rotation streaming fetch + H2-02 sweeper + 운영 스크립트 | T-31-37 | upload_file (bytes 적재 0), outbox 재발행, reconciliation 목록 | unit | `python -m pytest backend/tests -q` | ⬜ pending |
 | 31-11/T1 | 31-11 | 3 | jest-expo 패키지 정당성 (M-03 전제) | T-31-SC | npmjs 확인 후 설치 (auto-approve 불가) | manual + `npx jest --listTests` | — | ⬜ pending |
 | 31-11/T2 | 31-11 | 3 | M-05 ApiError + 상태 순수 로직 | T-31-45 | typed code 분기 | unit (jest) | `cd app && npx jest src/lib/__tests__/visualCards.test.ts` | ⬜ pending |
 | 31-11/T3 | 31-11 | 3 | 통합 (M-04 무조건 훅, H-02 재서명 소비) | T-31-46/47 | URL 필드 소비 0, 폴링 0 | unit (jest) + typecheck | `cd app && npx jest && npm run typecheck` | ⬜ pending |
-| 31-10/T1 | 31-10 | 4 | H-02 재서명 + M2-01 exact guard + L-03 validator | T-31-41 | exact basename + status done + failed stale 404 | unit | `python -m pytest backend/tests/phase31/test_visual_url.py -x -q` | ⬜ pending |
-| 31-10/T2 | 31-10 | 4 | H-06 원자 요청 + H2-02 outbox dispatch + M-06 | T-31-38/39/40/42 | fail-closed env, 전용 timestamp dedupe, send 실패→dispatch_failed+sweeper | unit | `python -m pytest backend/tests/phase31/test_visual_request.py -x -q` | ⬜ pending |
-| 31-10/T3 | 31-10 | 4 | B2-03 replay-safe enqueue + H2-01 IaC + H2-09 dry-run | T-31-43/44/54/55 | reserve 반환 유일 분기, immutable hash key, template 파싱 assert, live mutation 0 | lint+unit | `(cd backend && sam validate --lint) && python -m pytest backend/tests/phase31/test_visual_dispatch.py -x -q` | ⬜ pending |
-| 31-12/T1 | 31-12 | 5 | 전체 게이트 + blocked 검사 (H-03) | — | blocked=true → 롤아웃 차단 | full suite | `python -m pytest backend/tests -q && (cd backend && sam validate --lint)` | ⬜ pending |
-| 31-12/T2 | 31-12 | 5 | H2-09 라이브 mutation checkpoint (lifecycle merge + SSM versioned 키) | T-31-55 | belle 승인 + before rollback + put 후 get 검증 | manual (human-action) | — | ⬜ pending |
-| 31-12/T3 | 31-12 | 5 | belle 배포 (flag OFF) + 401/503/404 + H2-02 IAM 실검증 | T-31-48/49 | simulate-principal-policy/canary — Pipeline+RunPod SendMessage (§8 gate 8) | manual (human-action) | — | ⬜ pending |
-| 31-12/T4 | 31-12 | 5 | H-07 실 E2E 2종 + OTA + UAT (§8 gate 16) | T-31-50/51 | E2E PASS 전 완료 선언 금지 | integration | `test -f 31-HUMAN-UAT.md && grep -q "D-10" ...` | ⬜ pending |
+| 31-13/T1 | 31-13 | 3 | H3-02 calibrate_visual_gates harness (31-05 judge + 31-06 pose 실 코드 재현) | T-31-56 | fixture hash/model version/실행 시각 기록, grid FA/FR 표 | script+assert | `python backend/scripts/calibrate_visual_gates.py --dry && test -f .../CALIBRATION.json` | ⬜ pending |
+| 31-13/T2 | 31-13 | 3 | CALIBRATION.json chosen 임계값 + ACCEPTANCE 반영 (31-05/06 소비) | — | 미달 시 blocked=true 전파 | script+assert | CALIBRATION.json 스키마 assert (chosen display/training/confidence) | ⬜ pending |
+| 31-10/T1 | 31-10 | 5 | H-02 재서명 + M2-01 exact guard + L-03 validator | T-31-41 | exact basename + status done + failed stale 404 | unit | `python -m pytest backend/tests/phase31/test_visual_url.py -x -q` | ⬜ pending |
+| 31-10/T2 | 31-10 | 5 | H-06 원자 요청 + H2-02 outbox dispatch + M-06 | T-31-38/39/40/42 | fail-closed env, 전용 timestamp dedupe, send 실패→dispatchState pending 잔존→dispatcher 복구 | unit | `python -m pytest backend/tests/phase31/test_visual_request.py -x -q` | ⬜ pending |
+| 31-10/T3 | 31-10 | 5 | B2-03 replay-safe enqueue + H2-01 IaC + H2-09 dry-run | T-31-43/44/54/55 | reserve 반환 유일 분기, immutable hash key, template 파싱 assert, live mutation 0 | lint+unit | `(cd backend && sam validate --lint) && python -m pytest backend/tests/phase31/test_visual_dispatch.py -x -q` | ⬜ pending |
+| 31-12/T1 | 31-12 | 6 | 전체 게이트 + blocked 검사 (H-03) | — | blocked=true → 롤아웃 차단 | full suite | `python -m pytest backend/tests -q && (cd backend && sam validate --lint)` | ⬜ pending |
+| 31-12/T2 | 31-12 | 6 | H2-09 라이브 mutation checkpoint (lifecycle merge + SSM versioned 키) | T-31-55 | belle 승인 + before rollback + put 후 get 검증 | manual (human-action) | — | ⬜ pending |
+| 31-12/T3 | 31-12 | 6 | belle 배포 (flag OFF) + 401/503/404 + H2-02 IAM 실검증 | T-31-48/49 | simulate-principal-policy/canary — Pipeline+RunPod SendMessage (§8 gate 8) | manual (human-action) | — | ⬜ pending |
+| 31-12/T4 | 31-12 | 6 | H-07 실 E2E 2종 + OTA + UAT (§8 gate 16) | T-31-50/51 | E2E PASS 전 완료 선언 금지 | integration | `test -f 31-HUMAN-UAT.md && grep -q "D-10" ...` | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
 ---
 
-## Fault-Injection Matrix (M2-04 — nyquist 재선언의 근거)
+## Fault-Injection Matrix (M2-04 + 3차 리뷰 §6 — nyquist 재선언의 근거)
 
-내구성 주장은 happy-path mock 이 아니라 아래 주입 테스트로 증명한다. 각 행은 위 task map 의 자동 테스트에 편입되어 있다.
+내구성 주장은 happy-path mock 이 아니라 아래 주입 테스트로 증명한다. **3차 리뷰 §6 원칙: "재전달 → CAS no-op 멱등" 은 PASS 기준이 아니다 (중복 방지 ≠ 다음 작업 복구). 모든 crash/replay 테스트의 최종 기준 = `terminal 도달 + 외부 create 중복 0 + job/analysis 일치 + PII 잔존 없음`.**
 
-| Fault | 주입 지점 | 기대 동작 | Task | §8 gate |
+| Fault | 주입 지점 | 기대 동작 (3차 §6 기준) | Task | §8-3 gate |
 |-------|-----------|-----------|------|---------|
-| crash: vendor create 직전 | 31-09 _action_create (creating 전이 후) | lease 만료 후 'create_unconfirmed' — 자동 재생성 0 | 31-09/T1 | 4 |
-| crash: vendor 2xx 직후·taskId write 전 | 31-09 _action_create | 동일 — 중복 과금 0 (수동 reconciliation 목록) | 31-09/T1 | 4 |
-| crash: taskId write 직후 | 31-09 | 재전달이 polling 재개, create 재호출 0 | 31-09/T1 | 4 |
-| crash: continuation send 직전 | 31-09 공통 | batchItemFailures 재전달 → CAS 멱등 재실행 | 31-09/T1 | 4 |
-| crash: S3 put 직후·CAS 전 (fetch) | 31-09 fetch | 재실행 멱등 (동일 dest, 벤더 호출 0) | 31-09/T1 | 4 |
-| crash: terminal write 직전 | 31-09 | 종결 재시도, 외부 호출 0 | 31-09/T1 | 4 |
-| replay: duplicate `_process` after done | 31-10 enqueue | 완전 no-op — S3/표시 상태/SQS 불변 | 31-10/T3 | 6 |
-| replay: duplicate while polling | 31-10 enqueue | no-op | 31-10/T3 | 6 |
-| concurrency: 2 enqueue 동시 | 31-10 enqueue (reserve 순차 2회 모사) | S3 put 1회·SQS 1회 | 31-10/T3 | 6 |
-| crash: reserve 후 send 전 | 31-10 enqueue / 31-10 visual-request | dispatch_failed + nextDispatchAtMs → sweeper 재발행 | 31-10/T2·T3 + 31-09/T3 | 7 |
-| redirect: 실 301/302/303/307/308 | 31-05 local HTTP server | 전부 VendorDownloadError('redirect') — 실 opener 경유 | 31-05/T2 | 10 |
-| oversize/RSS: 200MB 급 스트림 | 31-05 다운로드 | 파일 스트리밍 peak RSS < 64MB 증가 + 실측 기록 | 31-05/T2 | 11 |
-| key rotation: HMAC v1→v2 회전 후 삭제 | 31-07 삭제 스크립트 | retired v1 재계산으로 기존 pair 삭제 성공 | 31-07/T2 | 12 |
-| malformed SQS 메시지 | 31-09 handler | batchItemFailures → DLQ 증거 (조용 삭제 0) | 31-09/T1 | — (M2-02) |
-| template drift | 31-10 파싱 assert | visibility >= 6×timeout, maxReceiveCount >= 5 위반 시 테스트 실패 | 31-10/T3 | 9 |
+| crash: vendor create 직전 | 31-09 _action_create (creating 전이 후) | lease 만료 후 'create_unconfirmed' — 자동 재생성 0 (수동 판정) | 31-09/T1 | 4(B2-02) |
+| crash: vendor 2xx 직후·taskId write 전 | 31-09 _action_create | 동일 — 중복 과금 0 | 31-09/T1 | 4 |
+| **crash: polling CAS commit 직후·send 전** | 31-09 poll (nextAction=fetch outbox 기록됨) | **dispatcher 가 fetch 를 1회 이상 발행 → terminal 도달, 외부 create 중복 0** | 31-09/T1 + 31-09/T2(dispatcher) | 1·2(B3-01) |
+| **crash: fetching CAS commit 직후·send 전** | 31-09 fetch (nextAction=judge outbox) | **dispatcher 가 judge 복구 → terminal** | 31-09/T1·T2 | 1·2 |
+| **crash: judging CAS commit 직후·send 전** | 31-09 judge (nextAction=pose_check outbox) | **dispatcher 가 pose_check 복구 → terminal** | 31-09/T1·T2 | 1·2 |
+| **crash: pose_checking CAS commit 직후·send 전** | 31-09 pose_check (nextAction outbox) | **dispatcher 복구 → terminal** | 31-09/T1·T2 | 1·2 |
+| **crash: canonical S3 put 후·finalize transaction 전** | 31-09 finalize | **재전달 후 finalize_visual_job 원자 종결 — job+analysis 동시 done** | 31-09/T1 | 3(B3-02) |
+| **finalize transaction commit 응답 유실** | 31-09 finalize | **재전달 no-op 이어도 job·analysis 두 문서 이미 일치** | 31-09/T1 | 3 |
+| **invariant: job terminal ↔ analysis result 항상 일치** | 31-02 finalize_visual_job property test | 어떤 crash 조합에서도 (job done ⟺ analysis done) | 31-02/T3 | 3 |
+| moderation retry | 31-09 poll blocked | polling→retry_ready + nextAction='create' outbox, create 는 retry_ready 처리 (polling no-op 아님) | 31-09/T1 | 1(B3-01) |
+| replay: duplicate `_process` after done | 31-10 enqueue | 완전 no-op — S3/표시 상태/SQS 불변 (done 되감기 0) | 31-10/T3 | 5·6 |
+| **replay: worker done 후 producer 늦은 pending** | 31-10 enqueue vs worker | **done 이 pending 으로 되감기지 않음 (pending 은 reserve transaction 안에서만 기록)** | 31-10/T3 | 5(B3-03) |
+| **crash: reserve 후 S3 put 전 / S3 exception** | 31-10 enqueue (upload-first) | **vendor create 0 — S3 put/head 성공 후에만 reserve 하므로 input 없는 reserved 구조적 불가** | 31-10/T3 | (B3-03) |
+| **concurrency: 동시 2 enqueue (barrier transaction)** | 31-02 reserve run_contended / emulator | **job 1개·counter +1·외부 create 1회** (순차 모사 아님) | 31-02/T3 | 6 |
+| **직렬화: job/analysis 문서에 URL 부재** | 31-09 전체 doc 직렬화 assert | 'http://'/'https://'/'outputUrl'/'signedUrl' 전부 부재 (hostname 문자열 검사 아님) | 31-09/T1 | (H3-01·M3-04) |
+| redirect: 실 301/302/303/307/308 | 31-05 **TLS local server** + SSL context 주입 | 전부 VendorDownloadError('redirect') — https 계약 유지한 채 실 opener 30x 도달 (scheme gate 우회 금지) | 31-05/T2 | 10(H3-05) |
+| oversize/RSS: 대용량 스트림 | 31-05 **isolated subprocess** | 파일 스트리밍 peak RSS 증가 제한 + 플랫폼 단위 정규화 JSON | 31-05/T2 | 11(H3-06) |
+| Gemini judge body 상한 | 31-09 judge (정규화 후) | before+after serialized body < 16MB 내부 상한, 초과 = 'judge_input_too_large' | 31-09/T1 | (H3-03) |
+| /pose-image 상한 | 31-09 pose_check | pose 전용 resize/re-encode 후 decoded/pixel/dimension 상한 준수 | 31-09/T1 | (H3-04) |
+| pair partial put 실패 (1/2/3번째) | 31-07 store_training_pair | commit marker 없는 부분 pair 잔존 0 — object 0 또는 committed pair 만 | 31-07/T2 | (H3-07) |
+| versioned bucket 삭제 | 31-07 삭제 스크립트 | list_object_versions 로 Versions+DeleteMarkers 전부 versionId 삭제 → noncurrent 0 | 31-07/T2 | (H3-08) |
+| key rotation: HMAC v1→v2 후 삭제 | 31-07 삭제 스크립트 | retired v1 재계산으로 기존 pair 삭제 성공 | 31-07/T2 | 12(H3-11) |
+| malformed SQS 메시지 | 31-09 handler | batchItemFailures → DLQ 증거 (조용 삭제 0) | 31-09/T1 | (M2-02) |
+| template drift | 31-10 파싱 assert | visibility >= 6×timeout + maxReceiveCount >= 5 + OutboxPendingAge alarm 존재 | 31-10/T3 | 9(H3-09) |
 
 ---
 
-## §8 Acceptance Gate 추적표 (2차 리뷰 — 16종 전부 플랜 텍스트에서 추적 가능)
+## §8-3 Acceptance Gate 추적표 (3차 리뷰 실행 승인 조건 11종)
 
-| Gate | 내용 | 플랜 위치 |
-|------|------|-----------|
-| 1 | CorrectedPoseTarget 단일 객체 | 31-03/T2 |
-| 2 | reference_relative 미유입 테스트 | 31-03/T2 (record 오염 불변 테스트) |
-| 3 | signed-negative 정렬 + unmapped 생략 | 31-03/T2 |
-| 4 | create 전후 crash 무고아·무중복과금 | 31-02/T3 (lease validator) + 31-09/T1 (crash 6지점) |
-| 5 | 이미지 adapter 내부 폴링 금지 | 31-05/T1 |
-| 6 | duplicate _process no-op | 31-10/T3 |
-| 7 | outbox/sweeper 양 kind 복구 | 31-02/T3 + 31-09/T3 + 31-10/T2·T3 |
-| 8 | Pipeline+RunPod SendMessage 실권한 | 31-10/T3 (정책 명시) + 31-12/T3 (simulate/canary) |
-| 9 | visibility/redrive 공식 권고 | 31-10/T3 (1800/5 + 파싱 assert) |
-| 10 | 실 urllib 30x 거부 통합 테스트 | 31-05/T2 |
-| 11 | 200MB streaming + peak RSS | 31-05/T2 + 31-09/T3 (upload_file) |
-| 12 | HMAC rotation 후 삭제 + 보존 숫자 | 31-01/T1 (retentionDays) + 31-07/T2 |
-| 13 | option B 실행 가능 anonymizer | 31-01/T1 (Pod blur 설계) + 31-07/T1 (Lambda blur 0) + 31-10/T3 (trainingSrcKey) |
-| 14 | calibration 기반 임계값 | 31-01/T3 + 31-05/T3 (대조 테스트) |
-| 15 | 31-09→31-10 직렬 DAG + live mutation checkpoint | frontmatter (wave 3→4→5) + 31-12/T2 |
-| 16 | 실 E2E 2종 PASS | 31-12/T4 |
+| # | 조건 | 플랜 위치 |
+|---|------|-----------|
+| 1 | 모든 nonterminal transition 이 state + next-action outbox 를 같은 transaction 에 기록 | 31-02/T3 (transition_visual_job) |
+| 2 | dispatcher 가 dispatchState=pending 인 모든 state 를 독립 concurrency 로 복구 | 31-02/T3 (list_dispatch_pending) + 31-09/T2 (VisualDispatchFunction, reserved concurrency 1) + 31-10 IaC |
+| 3 | job terminal 과 analysis visual status 가 하나의 transaction 으로 갱신 | 31-02/T3 (finalize_visual_job) + 31-09 (전 종결 경로) |
+| 4 | correctedPose input object 준비 전 create action 발행 불가 | 31-10/T3 (upload-first) |
+| 5 | producer 늦은 pending write 가 worker done 되감기 불가 | 31-02/T3 (reserve 안에서만 pending) + 31-10/T3 |
+| 6 | signed vendor URL 이 Firestore/SQS/log 에 미저장 | 31-02 (계약에 URL 필드 부재) + 31-09/T1 (직렬화 URL 부재 assert) |
+| 7 | calibration 이 31-05/06 실 측정 코드 재현 harness 로 실행 | 31-13 (calibrate_visual_gates.py, 31-05/06 뒤 wave 3) |
+| 8 | Gemini before/after · /pose-image 요청이 byte/pixel 상한 안 정규화 | 31-09/T1 (judge 16MB) + 31-09 (pose resize) + 31-05/06 상한 계약 |
+| 9 | pair partial put 실패 시 PII orphan 0 | 31-07/T2 (commit marker + cleanup) |
+| 10 | versioned bucket 에서도 lifecycle·삭제가 noncurrent version 제거 | 31-07/T2 (versionId 삭제) + 31-10/T3 (NoncurrentVersionExpiration dry-run) |
+| 11 | fault injection 이 각 CAS commit 직후 crash + terminal atomic commit 응답 유실 검증 | 31-09/T1 (전이 4지점 + finalize 2지점) |
+
+> 참고: 2차 리뷰 §8 16종은 위 fault matrix + 3차 §8-3 표에 흡수됨 (CorrectedPoseTarget/lease/DAG/E2E 등). 2차→3차 재넘버링으로 gate 15(DAG)의 wave 는 이제 31-13(w3)→31-09(w4)→31-10(w5)→31-12(w6).
 
 ---
 
@@ -167,8 +176,8 @@ revision: iteration2
 - [x] All tasks have `<automated>` verify or checkpoint 게이트 (checkpoint 6건 = belle)
 - [x] Sampling continuity: no 3 consecutive tasks without automated verify
 - [x] Wave 0 covers all MISSING references (31-02/T1, 31-11/T1)
-- [x] Fault-Injection Matrix 가 task map 자동 테스트에 편입됨 (M2-04)
-- [x] §8 gate 16종 추적표 완비
+- [x] Fault-Injection Matrix 가 task map 자동 테스트에 편입됨 (M2-04 + 3차 §6 재작성 — CAS no-op PASS 기준 제거)
+- [x] §8-3 실행 승인 조건 11종 추적표 완비 (2차 16종 흡수)
 - [x] No watch-mode flags
 - [x] Feedback latency < 120s
 - [x] `nyquist_compliant: true` re-declared (M2-04 반영 후)

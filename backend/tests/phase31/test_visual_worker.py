@@ -1396,6 +1396,108 @@ def test_no_urls_anywhere_in_serialized_state(cp):
         assert "outputUrl" not in blob and "signedUrl" not in blob
 
 
+# ═══════════════ rotation (Task 3) ═══════════════
+
+
+@pytest.fixture
+def rot(monkeypatch, wired):
+    from sunity_shared.analysis import visual_gen
+
+    state = dict(wired)
+    state["content_type"] = "video/mp4"
+    state["video_bytes"] = b"\x00\x00\x00\x18ftypmp42" + b"v" * 512
+
+    def _fake_download(url, dest, **kw):
+        with open(dest, "wb") as fh:
+            fh.write(state["video_bytes"])
+        ctype = state["content_type"].split(";")[0].strip().lower()
+        allowed = kw.get("allowed_content_types") or ()
+        # 31-05 의 실제 판정(startswith)을 그대로 모사한다 — 그래야 worker 가 거는
+        # exact membership 방어가 의미 있는지 테스트가 판별할 수 있다.
+        if not any(ctype.startswith(t) for t in allowed):
+            raise visual_gen.VendorDownloadError("bad_content_type")
+        import hashlib
+
+        return visual_gen.DownloadedAsset(
+            path=dest,
+            sha256=hashlib.sha256(state["video_bytes"]).hexdigest(),
+            size_bytes=len(state["video_bytes"]),
+            content_type=ctype,
+        )
+
+    monkeypatch.setattr(visual_gen, "download_vendor_asset", _fake_download)
+    return state
+
+
+def seed_rotation_fetching(rot):
+    return seed_job(
+        rot["db"], rot["clock"], kind="rotation", state="fetching",
+        nextAction="fetch", taskId="t1", outboxSeq=4,
+    )
+
+
+def test_rotation_fetch_streams_to_canonical_and_finalizes(rot):
+    """H2-05 — 수백 MB 를 메모리에 올리지 않는다. upload_file(멀티파트) 경로."""
+    rot["adapter"].poll_results = [_poll("succeeded")]
+    job_id, _ = seed_rotation_fetching(rot)
+
+    run(rot, job_id, "fetch", 4)
+
+    job = read_job(rot["db"], job_id)
+    assert job["state"] == "done"
+    key = f"results/{UID}/{ANALYSIS_ID}/rotation.mp4"
+    assert ("video-bkt", key) in rot["s3"].objects
+    assert rot["adapter"].poll_calls == ["t1"], "taskId 재-poll 미수행 (H3-01)"
+    assert read_analysis(rot["db"])["result"]["rotationStatus"] == "done"
+
+
+def test_rotation_does_not_pass_through_postprocessing(rot):
+    """rotation 은 임시 입력·pair 가 없어 cleanup 계약을 경유하지 않는다."""
+    rot["adapter"].poll_results = [_poll("succeeded")]
+    job_id, _ = seed_rotation_fetching(rot)
+
+    run(rot, job_id, "fetch", 4)
+
+    job = read_job(rot["db"], job_id)
+    assert job["state"] == "done"
+    assert job.get("pendingTerminalState") is None
+    assert job.get("inputSealed") is not True
+
+
+@pytest.mark.parametrize(
+    "content_type,ok",
+    [
+        ("video/mp4", True),
+        ("video/mp4; charset=utf-8", True),
+        ("video/mp4foo", False),  # M5-02 — startswith 로는 통과해 버린다
+        ("text/html", False),
+    ],
+)
+def test_rotation_content_type_exact_membership(rot, content_type, ok):
+    """M5-02 — 확장자만 맞춘 다른 포맷을 mp4 로 적재하는 경로를 닫는다."""
+    rot["content_type"] = content_type
+    rot["adapter"].poll_results = [_poll("succeeded")]
+    job_id, _ = seed_rotation_fetching(rot)
+
+    run(rot, job_id, "fetch", 4)
+
+    job = read_job(rot["db"], job_id)
+    if ok:
+        assert job["state"] == "done"
+    else:
+        assert job["state"] == "failed" and job["failureReason"] == "invalid_output"
+
+
+def test_rotation_never_persists_url(rot):
+    rot["adapter"].poll_results = [_poll("succeeded")]
+    job_id, _ = seed_rotation_fetching(rot)
+
+    run(rot, job_id, "fetch", 4)
+
+    blob = json.dumps(read_job(rot["db"], job_id))
+    assert "http://" not in blob and "https://" not in blob
+
+
 # ═══════════════ 금지 심볼 (acceptance grep) ═══════════════
 
 

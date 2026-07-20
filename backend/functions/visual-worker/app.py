@@ -1297,11 +1297,91 @@ def _action_postprocess(job_id: str, job: dict, *, owner: str) -> None:
     )
 
 
+# ── action: fetch (rotation) ────────────────────────────────────────────
+
+ROTATION_MAX_BYTES = 200_000_000
+ROTATION_CONTENT_TYPES = ("video/mp4",)
+
+
+def _assert_exact_content_type(asset, allowed: tuple[str, ...]) -> None:
+    """M5-02 — Content-Type 은 **exact membership** 이어야 한다.
+
+    31-05 의 download_vendor_asset 은 `startswith` 로 판정한다. 그러면
+    'video/mp4foo' 같은 값이 통과한다 — 확장자만 맞춘 다른 포맷을 mp4 로 적재하는
+    경로다. 공유 모듈은 다른 플랜 소유라 호출자인 여기서 정확 일치를 다시 건다.
+    DownloadedAsset.content_type 은 이미 정규화(파라미터 제거/소문자)돼 있다.
+    """
+    if asset.content_type not in allowed:
+        raise _InvalidJobInput()
+
+
+def _action_fetch_rotation(job_id: str, job: dict, *, owner: str) -> None:
+    from sunity_shared.analysis import visual_gen
+
+    if job.get("state") != "fetching":
+        return
+
+    result = _adapter(models.VISUAL_KIND_ROTATION).poll(job.get("taskId"))
+    if result.state == visual_gen.VENDOR_STATE_PENDING:
+        _advance(
+            job_id, job, next_state="fetching", updates={}, next_action="fetch",
+            owner=owner, delay_s=POLL_DELAY_S,
+        )
+        return
+    if result.state != visual_gen.VENDOR_STATE_SUCCEEDED:
+        reason = (
+            "moderation" if result.state == visual_gen.VENDOR_STATE_BLOCKED else "vendor_error"
+        )
+        _finalize_rotation_failure(job_id, job, reason, owner=owner)
+        return
+
+    import tempfile
+
+    dest = tempfile.mkstemp(suffix=".mp4")[1]
+    canonical_key = f"results/{job.get('uid')}/{job.get('analysisId')}/rotation.mp4"
+    try:
+        asset = visual_gen.download_vendor_asset(
+            result.output_url,
+            dest,
+            max_bytes=ROTATION_MAX_BYTES,
+            allowed_content_types=ROTATION_CONTENT_TYPES,
+        )
+        _assert_exact_content_type(asset, ROTATION_CONTENT_TYPES)
+        # H2-05: 수백 MB 를 메모리에 올리지 않는다. /tmp 스트리밍 + multipart upload.
+        _s3().upload_file(
+            dest,
+            _env("VIDEO_BUCKET"),
+            canonical_key,
+            ExtraArgs={"ContentType": "video/mp4"},
+        )
+    except (visual_gen.VendorDownloadError, _InvalidJobInput):
+        _finalize_rotation_failure(job_id, job, "invalid_output", owner=owner)
+        return
+    finally:
+        _unlink_quiet(dest)
+
+    # rotation 은 임시 입력·pair 가 없어 postprocessing 을 경유하지 않는다.
+    firestore_admin.finalize_visual_job(
+        job_id,
+        terminal_state="done",
+        failure_reason=None,
+        job_meta=None,
+        display_status=models.VISUAL_STATUS_DONE,
+        expect_states=("fetching",),
+        key=canonical_key,
+        expect_generation=int(job.get("generation") or 0),
+        expect_outbox_seq=int(job.get("outboxSeq") or 0),
+        expect_claim_owner=owner,
+        now_ms=_now_ms(),
+    )
+
+
 # ── action 디스패치 테이블 ───────────────────────────────────────────────
 
 _ACTION_HANDLERS: dict = {
     "poll": _action_poll,
     "fetch:correctedPose": _action_fetch_corrected,
+    "fetch:rotation": _action_fetch_rotation,
     "judge": _action_judge,
     "pose_check": _action_pose_check,
     "postprocess": _action_postprocess,

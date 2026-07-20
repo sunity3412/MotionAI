@@ -2,181 +2,219 @@
 phase: 31-api-visual-correction
 plan: 01
 subsystem: privacy-release-gate + image-model-smoke
-status: BLOCKED
-tags: [privacy, dashscope, s3, release-gate, smoke]
+status: PARTIAL
+tags: [privacy, dashscope, s3, release-gate, smoke, calibration-input]
 requires:
-  - "환경 권한: 라이브 AWS mutation 실행 허용 (현재 classifier 차단 — Task 1b)"
-  - "데이터: spike 004 pair 후보 이미지 접근 경로 (Task 3)"
+  - "추가 생성 예산 승인: fixtures_manifest H4-10 하한(PASS4/FAIL8) 미달분 확보용"
+  - "공유 fixture 저장 위치 + 보존기간 결정: 31-13 을 타 머신/Pod 에서 실행할 경우"
 provides:
   - "smoke/privacy_decision.json — consentVersion/blurOption/retentionDays (M2-05)"
-  - "31-ACCEPTANCE.md — Privacy Release Gate + Hard Rejection 확정본"
+  - "smoke/RESULTS.json — chosen_model=wan2.7-image-pro, sync=false, blocked=false (B4-02)"
+  - "smoke/fixtures_manifest.json — 실측 교정 pair 8건, 라벨 전건 시각 확인 (B4-04)"
+  - "smoke/image_smoke.py — 재현 가능한 스모크 하니스"
   - "infra/visual_input_bucket.json — bucket name 단일 출처 (H8-07)"
+  - "VisualInputBucket 실물 provision 완료 (Never-versioned + 1일 lifecycle)"
+  - "31-ACCEPTANCE.md — Privacy Release Gate + Hard Rejection + 모델 선정 실측"
 affects:
   - "31-07 (CONSENT_VERSION/BLUR_OPTION 배포 상수 대조 대상 확보)"
-  - "31-10 / 31-12 (bucket name 단일 출처 확보, 단 버킷 실물 미생성)"
-  - "31-13 (fixtures_manifest 미생성 — calibration 입력 부재)"
+  - "31-10 / 31-12 (bucket 실물 + name 단일 출처 확보, blocked=false 로 게이트 입력 존재)"
+  - "31-13 (calibration 입력 확보, 단 표본 하한 미달)"
+  - "31-05 / 31-06 (pose_tolerance 지배적 실패 유형 실측 — 프롬프트 설계 입력)"
 tech-stack:
   added: []
   patterns:
     - "privacy 결정의 machine-readable 방출 (런타임 .planning 읽기 금지, build-time 대조)"
+    - "인물 이미지 git 배제 — 경로 + sha256 참조만으로 pair 계약 성립 (T-31-02)"
+    - "생성 모델 후보의 async/sync 여부를 릴리스 게이트로 사용 (B4-02)"
 key-files:
   created:
     - .planning/phases/31-api-visual-correction/smoke/privacy_decision.json
-    - .planning/phases/31-api-visual-correction/31-ACCEPTANCE.md
+    - .planning/phases/31-api-visual-correction/smoke/image_smoke.py
+    - .planning/phases/31-api-visual-correction/smoke/RESULTS.json
+    - .planning/phases/31-api-visual-correction/smoke/fixtures_manifest.json
     - .planning/phases/31-api-visual-correction/infra/visual_input_bucket.json
     - .planning/phases/31-api-visual-correction/infra/visual_input_wave0_lifecycle.json
-  modified: []
+    - .planning/phases/31-api-visual-correction/infra/visual_input_wave0_lifecycle_before.json
+    - .planning/phases/31-api-visual-correction/infra/visual_input_policy_before.json
+  modified:
+    - .planning/phases/31-api-visual-correction/31-ACCEPTANCE.md
 decisions:
   - "privacy option-a (블러 없음) 확정 — downstream B 분기 제거 대상"
   - "retentionDays=180 은 Sunity 학습 페어 삭제 SLA이며 벤더 보존 기간이 아님을 스키마에 명시"
   - "벤더 보존 일수는 문서 확정 불가 — null 로 두고 추정 금지"
+  - "D-03 이미지 모델 = wan2.7-image-pro 확정. qwen-image-edit-plus 는 동기 전용이라 v1 구조적 탈락"
+  - "fixtures_manifest 하한 미달을 패딩 대신 meetsFloor=false 로 박제 — 라벨 조작 거부"
+  - "spike 004 회전 산출물은 pair 의미 불일치로 전량 제외"
 metrics:
-  tasks_completed: 1
+  tasks_completed: 4
   tasks_total: 4
-  duration: "약 45분"
-  completed: null
+  duration: "약 25분 (재개 세션)"
+  completed: "2026-07-20"
 ---
 
 # Phase 31 Plan 01: 외부 처리 release gate + 이미지 모델 스모크 Summary
 
-belle 승인으로 Task 1(privacy release gate)은 확정·방출 완료. **Task 1b 이후는 환경 권한
-차단으로 실행 불가** — 승인은 있으나 실행 권한이 없다. 두 개의 독립 blocker 로 정지한다.
+D-03 이미지 모델을 `wan2.7-image-pro` 로 실측 확정하고, async-only 릴리스 게이트를 `blocked=false`
+로 통과시켰다. **단 `fixtures_manifest.json` 이 H4-10 표본 하한에 미달한다** — 승인 예산 8콜을
+전량 써서 실제 pair 8건(PASS 2/FAIL 6)만 확보했고, 부족분을 지어내지 않았다.
 
 ## 작업 상태
 
 | Task | 내용 | 상태 | 커밋 |
 |------|------|------|------|
-| 1 | privacy release gate | **COMPLETE** | `f17a801` |
-| 1b | VisualInputBucket provision | **BLOCKED** (권한) | — |
-| 2 | 이미지 모델 스모크 실호출 | **BLOCKED** (1b 의존) | — |
-| 3 | RESULTS/fixtures_manifest/ACCEPTANCE | **PARTIAL** | `63f83a0` |
+| 1 | privacy release gate | COMPLETE | `f17a801` |
+| 1b | VisualInputBucket provision | **COMPLETE** | `fe4d255` (before-manifest) |
+| 2 | 이미지 모델 스모크 실호출 | **COMPLETE** | `bd405f9` |
+| 3 | RESULTS + fixtures_manifest + ACCEPTANCE | **COMPLETE (하한 미달 박제)** | `63f83a0`, `7ca5b3b` |
 
-`smoke/RESULTS.json` 과 `smoke/fixtures_manifest.json` 은 **생성되지 않았다.**
-계획서 Task 3 의 automated verify 는 이 두 파일을 요구하므로 **현재 통과하지 않는다.**
+## Task 1b — VisualInputBucket provision 검증 결과
 
-## 완료된 작업
+버킷 `sunity-motion-pilot-visual-input` 생성 완료. 아래는 **재개 세션에서 읽기 전용 API 로 독립 재확인**한 값이다.
 
-### Task 1 — privacy release gate (COMPLETE)
+| 검증 항목 | 실측 결과 |
+|-----------|-----------|
+| 리전 | `ap-northeast-2` (`LocationConstraint` 일치) |
+| **버저닝 (B7-02)** | **`get-bucket-versioning` 응답 본문 비어 있음 — `Status` 키 부재. versioning API 를 한 번도 호출하지 않았다 (Never-versioned)** |
+| Block Public Access | `BlockPublicAcls` / `IgnorePublicAcls` / `BlockPublicPolicy` / `RestrictPublicBuckets` 전부 `true` |
+| 암호화 | SSE-S3 `AES256`, `BucketKeyEnabled: true` |
+| Ownership | `BucketOwnerEnforced` |
+| Object Lock | `ObjectLockConfigurationNotFoundError` — 미설정 확인 |
+| Bucket policy | 단일 Sid `DenyInsecureTransport` (`aws:SecureTransport=false` 일 때 `s3:*` Deny) |
+| Lifecycle | ID `visual-input-1d`, `Filter.Prefix` `visual-input/`, `Status` Enabled, `Expiration.Days` 1 — put 후 get 재확인 |
+| 태그 | `project=sunity-motion`, `environment=pilot` |
+| SSM HMAC 키 | `/sunity/motion/pair-id-hmac-keys` SecureString v1 생성. 스키마 `{"active":"k1","keys":{"k1":"<32B base64>"}}` 확인 — **비밀값은 어떤 로그에도 출력하지 않았다** |
 
-belle 결정을 `smoke/privacy_decision.json` 으로 방출했다. 확정값: `blurOption="none"`(option-a),
-`retentionDays=180`, `consentVersion="pilot-optout-v1"`, 지출 상한 32콜.
+**신규 버킷 분기 확정** (사전 `head-bucket` 404):
 
-belle 지시에 따라 **retentionDays 의 의미를 스키마 수준에서 못박았다** — `retentionDaysScope`
-= `"sunity_training_pairs_only"`, `retentionDaysMeaning` 에 "벤더 보존 기간이 아니다" 명시.
-벤더 보존은 별도 `vendorRetention` 객체로 분리하고 `retentionDays: null` + 미공개 사유를 기록해
-**숫자를 추정하지 않았다.**
+- `infra/visual_input_wave0_lifecycle_before.json` = `{"Rules":[]}` (lifecycle 부재 정규화)
+- `infra/visual_input_policy_before.json` = `priorPolicyExisted: false`, `mergePathTaken: false`
+  — 기존 정책이 없으므로 Sid merge 경로를 타지 않고 known policy 를 그대로 put 했다.
 
-### 벤더 정책 조사 결과
+## Task 2 — 이미지 모델 스모크 (생성 8콜, 상한 8콜)
 
-엔드포인트는 국제망 `dashscope-intl.aliyuncs.com`(싱가포르) — 본토 아님.
-`help.aliyun.com/zh/model-studio/data-security`(2026-07-20 조회) 기준: 모델 학습 미사용 명시,
-AES-256, SOC 2 통과. 보존 일수는 "법령상 저장"으로만 기술되고 **숫자 미공개**이며 국제망 전용
-영문 data-security 문서 URL 4종은 전부 404 였다.
+`smoke/image_smoke.py` 로 fixture 4종 × 모델 2종 = 8콜을 실행했다.
+fixture 는 `gate_in/*.mp4` 중간 프레임 4장 — 직립(Chair-spin) / 도립+모션블러(invert) /
+도립+가림(power-spin) / 직립+가림(sideway-spin).
 
-### Task 3 — 부분 (ACCEPTANCE 골격)
+| 항목 | `wan2.7-image-pro` | `qwen-image-edit-plus` |
+|------|--------------------|------------------------|
+| 엔드포인트 | `/api/v1/services/aigc/image-generation/generation` | `/api/v1/services/aigc/multimodal-generation/generation` |
+| 호출 방식 | **async — `X-DashScope-Async` → `task_id` 폴링** | **sync 전용** |
+| HTTP 200 / 이미지 반환 | 4/4 / 4/4 | 4/4 / 4/4 |
+| 지연 | 16.4 ~ 21.6s | 11.6 ~ 13.8s |
+| 모더레이션 차단 | 0/4 | 0/4 |
+| 시각 판정 PASS | **2/4** | **0/4** |
 
-`31-ACCEPTANCE.md` 작성. "Privacy Release Gate"·"Hard Rejection" 은 확정본,
-Display/Training/Calibration 은 설계대로 placeholder(임계값 선언 숫자 0 — H3-02 준수 grep 확인),
-"라벨 pair 셋" 은 BLOCKED 표기. `infra/` manifest 2종은 값 정의만 완료(미적용).
+엔드포인트·바디 형상은 추측하지 않고 벤더 문서(2026-07-20 조회)에서 확인한 뒤 사용했다.
 
-## Blockers
+**위생 확인:** 임시 S3 key 4건 전부 `delete-object` 후 `head-object` 404 확인(4/4).
+키는 SSM 경유만, 리터럴 0. 산출 이미지는 `.planning` 하위 0건.
 
-### Blocker 1 — 라이브 AWS mutation 권한 차단 (Task 1b)
+### 실측이 뒤집은 가정
 
-`aws s3api create-bucket` 이 Claude Code auto mode classifier 에 의해 거부됐다(2회 확인).
-읽기 전용 호출(`head-bucket`, `sts get-caller-identity`, `ssm get-parameter`)은 정상 동작하므로
-**AWS 자격증명 문제가 아니라 실행 환경의 쓰기 작업 차단**이다.
+1. **모더레이션 차단 0/8.** spike 008 의 **영상** 편집 실측(첫 시도 30%, 영구 10%)과 대비된다.
+   다만 8표본으로 차단률을 확정할 수 없으므로 **D-08 조용한 폴백은 그대로 유지**한다 —
+   0건을 "차단 없음"으로 일반화하지 않았다.
+2. **지배적 실패는 `pose_tolerance` 다.** 두 모델 모두 "지정 관절만 교정하고 나머지는 보존하라"를
+   자주 어기고 자세를 전면 재생성했다. 8건 중 목표 관절만 교정하고 나머지를 보존한 사례는 **2건뿐**이며
+   둘 다 wan 이다. 31-05/31-06 프롬프트 설계와 31-13 임계값이 이 유형을 반드시 다뤄야 한다.
 
-belle 의 승인은 제품·비용 승인이며 이 기술적 권한 게이트를 해제하지 못한다. 우회를 시도하지 않았고
-샌드박스 비활성화 옵션도 쓰지 않았다. 해소 방법은 둘 중 하나다:
+## Task 3 — RESULTS.json / fixtures_manifest.json / ACCEPTANCE
 
-1. 사용자가 `aws s3api` / `aws ssm put-parameter` 에 대한 Bash 권한 규칙 추가
-2. 사용자가 직접 provision 실행 (아래 명령 그대로 사용 가능)
+### RESULTS.json — `blocked = false`
 
-미실행 mutation 목록 (승인 완료, 실행만 남음):
+`chosen_model = wan2.7-image-pro`, `sync = false`. B4-02 async-only 게이트를 통과했다.
+`qwen-image-edit-plus` 는 동기 전용이라 **품질과 무관하게 v1 후보에서 구조적으로 탈락**한다.
 
-```
-BUCKET=sunity-motion-pilot-visual-input   REGION=ap-northeast-2   AWS_PROFILE=sunity-motion
+> `blocked=false` 는 **품질 통과가 아니다.** 임계값 산출과 calibration 미달 판정은 31-13 몫이며
+> 31-13 이 이 파일을 갱신할 수 있다 (H3-02).
 
-aws s3api create-bucket --bucket $BUCKET --region $REGION \
-  --create-bucket-configuration LocationConstraint=$REGION
-aws s3api put-public-access-block --bucket $BUCKET --public-access-block-configuration \
-  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
-aws s3api put-bucket-ownership-controls --bucket $BUCKET \
-  --ownership-controls 'Rules=[{ObjectOwnership=BucketOwnerEnforced}]'
-aws s3api put-bucket-encryption --bucket $BUCKET --server-side-encryption-configuration \
-  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
-aws s3api put-bucket-policy --bucket $BUCKET --policy <SecureTransport deny>
-aws s3api put-bucket-lifecycle-configuration --bucket $BUCKET \
-  --lifecycle-configuration file://infra/visual_input_wave0_lifecycle.json
-aws ssm put-parameter --name /sunity/motion/pair-id-hmac-keys --type SecureString \
-  --value '{"active":"v1","keys":{"v1":"<random>"}}'
-```
+### fixtures_manifest.json — 계약 충족, 표본 하한 미달
 
-**`put-bucket-versioning` 은 호출하지 않는다** (Never-versioned — B7-02).
-검증(`get-bucket-versioning` Status key 부재 / PublicAccessBlock / SSE / ownership / no Object Lock /
-policy Sid / lifecycle 1일 rule)은 provision 후 재개 시 수행해 SUMMARY 에 기록해야 한다.
+10키 pair 계약은 전건 충족. **라벨 8건 전부 산출 이미지를 Read 로 시각 확인하고 부여했다 — 미확인 추정 0건.**
 
-### Blocker 2 — pair 후보 원본 이미지가 worktree 에 없음 (Task 3)
+| 항목 | 요구 (H4-10) | 실제 | 판정 |
+|------|--------------|------|------|
+| PASS | ≥ 4 | 2 | 미달 |
+| FAIL | ≥ 8 | 6 | 미달 |
+| 총 pair | ≥ 12 | 8 | 미달 |
+| category 커버 | 좌/우 × 직립/도립 + 가림 + 모션블러 | 전부 충족 | 충족 |
+| failure axis | 6축 | 3축 (`correction_invisible`, `pose_tolerance`, `clothing`) | 미달 |
 
-`fixtures_manifest.json` 은 spike 004 의 `wan_out/*.png` 와 `kpts*/` 를 입력으로
-beforeSha256/afterSha256 계산 + 시각 라벨(PASS/FAIL) + afterKeypointSource 를 채워야 한다.
-그런데 이 파일들은 **git 미추적(untracked)** 이라 main 체크아웃에만 존재하고 worktree 에는 없다.
-worktree 의 `wan_out/` 에는 `journal.json`·`metrics.json` 만 있고 이미지는 **0건**이다.
+누락 축: `pole`, `background`, `extra_limbs`, `identity`.
 
-AWS 권한과 무관한 별도 문제이므로, **권한이 풀려도 Task 3 는 이 상태로는 완료 불가**다.
-이미지를 커밋하는 것은 T-31-02(인물 이미지 git 저장 금지)와 정면 충돌하므로,
-worktree 가 아닌 main 체크아웃에서 실행하거나 이미지를 별도 경로로 전달하는 방식이 필요하다.
-**임의로 판단해 진행하지 않았다** — 판정 대상 이미지를 못 본 채 라벨을 채우면 manifest 가 허구가 되고,
-그 manifest 는 31-13 calibration 의 유일한 입력이라 오염이 그대로 임계값으로 전파된다.
+**미달을 패딩하지 않은 이유 (의도적 판단):**
+
+1. 승인 예산 8콜 전량 소진 — 추가 pair 는 추가 예산이 필요하다.
+2. spike 004 산출물(`wan_out/pair_chair_*.png`, `smoke_out/frames/*.png`)을 **전량 제외**했다.
+   실제로 열어 확인한 결과 (a) **좌우 2분할 합성 이미지**라 before/after 를 분리 경로로 참조할 수 없고,
+   (b) **카메라 회전** 산출물이라 `jointKey`/`targetDeg` 교정 의미가 성립하지 않는다.
+   pair 로 넣으면 31-13 이 채택할 임계값이 그대로 오염된다.
+3. 누락 축은 8표본에서 **실제로 발생하지 않았다.** 두 모델 모두 폴·배경·사지 보존은 잘 지켰다는
+   실측 결과이며, 해당 축 FAIL 표본은 표본 수를 늘리거나 **적대적 프롬프트를 별도 설계**해야 얻는다.
 
 ## Deviations from Plan
 
-**1. [Rule 3 - 계획 가정과 실측 불일치] SSM `/sunity/motion/pair-id-hmac-keys` 미존재**
+**1. [Rule 3] SSM `/sunity/motion/pair-id-hmac-keys` 미존재 → 신규 생성 분기**
 
-- **발견 시점:** Task 1b 사전 실측
-- **내용:** 계획서(Task 1 context (c), H2-06)는 versioned HMAC key set 파라미터를 기존 존재로
-  가정하지만, `aws ssm get-parameter` 결과 `ParameterNotFound` 였다.
-- **조치:** belle 승인을 받아 **신규 생성 분기로 정정**. 생성 자체는 Blocker 1 로 미실행.
-- **영향:** 31-07 의 pair 가명화 경로는 이 파라미터 생성 전까지 동작 불가.
+계획서는 기존 존재를 가정했으나 실측 결과 `ParameterNotFound` 였다. belle 승인 후 신규 생성으로
+정정했고, 재개 세션에서 SecureString v1 + 스키마(`active`/`keys`)를 재확인했다.
 
-**2. [실측에 따른 분기 확정] VisualInputBucket 신규 생성 분기**
+**2. [실측 분기 확정] VisualInputBucket 신규 생성**
 
-- 버킷 미존재(404) 확인 → 기존 policy/lifecycle merge·rollback 경로는 타지 않는다.
-- `visual_input_policy_before.json` 은 생성하지 않았다(기존 정책 없음).
-- lifecycle before manifest 는 `{"Rules":[]}` 로 기록 예정이나, 실제 put 이 미실행이므로
-  **before 파일도 생성하지 않았다** — 미적용 상태에서 before 를 남기면 적용된 것으로 오독될 수 있다.
+사전 404 → 기존 policy/lifecycle merge·rollback 경로 미사용. before manifest 2종은
+"기존 없음"을 명시적으로 기록하는 형태로 작성했다(빈 파일로 두면 미적용과 구분되지 않는다).
 
-**3. [계획 대비 축소] Task 3 부분 실행**
+**3. [Rule 3] 엔드포인트 미확정 → 문서 조회 후 확정**
 
-- `RESULTS.json` / `fixtures_manifest.json` 미생성 (Blocker 1·2).
-- `31-ACCEPTANCE.md` 는 확정 가능한 절만 채우고 나머지는 BLOCKED/placeholder 로 명시.
+계획서는 `wan2.7-image-pro` 의 이미지 편집 엔드포인트를 미상으로 두었다. 추측 대신 벤더 문서를
+조회해 `image-generation/generation` + `X-DashScope-Async` 를 확인한 뒤 호출했다.
+
+**4. [T-31-02 방어] fixture 이미지 저장 위치 재배치**
+
+pair 이미지를 처음 `~/sunity-fixtures` 에 두었으나 **홈 디렉터리 자체가 git 저장소**이고 해당 경로가
+ignore 되지 않음을 발견했다(추적되진 않았으나 인물 이미지가 커밋될 위험). 즉시
+`/Users/Shared/sunity-fixtures/31-01-visual-correction/` 로 이전하고 어떤 git 저장소에도 속하지
+않음을 확인했다.
+
+**5. [계획 대비 축소] fixtures_manifest 표본 하한 미달**
+
+위 "미달을 패딩하지 않은 이유" 참조. 계획서 Task 3 의 automated verify 중 `len>=12` +
+`PASS>=4` + `FAIL>=8` 절은 **통과하지 않는다.** 나머지 절(RESULTS 스키마, 10키 계약,
+privacy 3키, ACCEPTANCE `Training` grep)은 통과한다.
 
 ## Known Stubs
 
 | 항목 | 위치 | 사유 |
 |------|------|------|
-| 라벨 pair 셋 절 | `31-ACCEPTANCE.md` | Blocker 2 — 원본 이미지 부재. Task 3 재개 시 해소 |
+| `afterKeypointSource.modelVersion = null` | `fixtures_manifest.json` 전건 | RTMW 실측 미수행. 라벨은 육안 판정이며 달성 각도 측정은 31-13 몫 (M4-05). 숫자를 추정해 채우지 않았다 |
 | Display/Training 임계값 | `31-ACCEPTANCE.md` | **의도된 placeholder** — 31-13 harness 산출 (H3-02) |
 | Calibration 결과표 | `31-ACCEPTANCE.md` | **의도된 placeholder** — 31-13 기입 |
 
-`infra/visual_input_wave0_lifecycle.json` 은 stub 이 아니라 **정의 완료·미적용** 상태다.
+## 잔여 blocker (belle 결정 필요)
 
-## 재개 조건
+**1. fixtures_manifest 표본 하한 — 추가 생성 예산**
 
-1. AWS mutation 권한 부여 또는 사용자 직접 provision → Task 1b 검증 기록
-2. pair 후보 이미지 접근 경로 확정 → Task 3 manifest
-3. 이후 Task 2 스모크(8콜 상한) → RESULTS.json → 31-ACCEPTANCE 갱신
+하한 충족까지 최소 PASS +2 / FAIL +2 (총 4 pair) 가 부족하고, 누락 축 4종
+(`pole`/`background`/`extra_limbs`/`identity`)은 적대적 프롬프트 설계가 별도로 필요하다.
+현 승인 상한은 생성 8콜(소진) + calibration judge 24콜(31-13 몫, 미사용)이다.
+**추가 생성 콜 예산 없이는 31-13 이 H4-10 을 만족하는 입력을 받을 수 없다.**
 
-**phase 진행 판정: 31-01 은 미완료다.** `RESULTS.json` 부재이므로 31-12 배포 게이트의
-`blocked` 판정 입력 자체가 없다 — 후속 wave 는 이 상태로 출발하면 안 된다.
+**2. 공유 fixture 저장 위치 + 보존기간**
+
+현재 pair 이미지는 로컬 단일 머신 경로에 있다. 31-13 을 다른 머신/Pod 에서 실행하려면
+공유 저장 위치와 그 보존기간을 belle 이 승인해야 한다(인물 이미지이므로 privacy 결정 대상).
+임의로 새 클라우드 PII 표면을 만들지 않았다.
 
 ## Self-Check: PASSED
 
-- `smoke/privacy_decision.json` — 존재, 스키마 assert 통과 (3키 + 값 검증)
-- `31-ACCEPTANCE.md` — 존재, "Training" grep 통과, 임계값 선언 숫자 0 확인
-- `infra/visual_input_bucket.json`, `infra/visual_input_wave0_lifecycle.json` — 존재
-- 커밋 `d15fb53`, `f17a801`, `63f83a0` — git log 확인
-- AWS mutation 0건 / 외부 과금 호출 0건 — 승인 상한 32콜 중 **0콜 사용**
-- `.planning` 하위 인물 이미지 0건
+- `smoke/privacy_decision.json`, `smoke/image_smoke.py`, `smoke/RESULTS.json`,
+  `smoke/fixtures_manifest.json` — 전부 존재, JSON 파싱/스키마 assert 통과
+- `infra/` manifest 4종 — 전부 존재
+- `31-ACCEPTANCE.md` — 존재, `Training` grep 통과, Display/Training 임계값 선언 숫자 0
+- 커밋 `fe4d255`, `bd405f9`, `7ca5b3b` — git log 확인
+- 버킷 속성 8종 — 읽기 전용 API 로 독립 재확인 (versioning `Status` 키 부재 포함)
+- 생성 호출 **8/8 (상한 준수, 초과 0)**. calibration judge 24콜 미사용
+- `.planning/phases/31-api-visual-correction` 하위 인물 이미지 **0건**
+- 스테이징된 PNG **0건** (`git diff --cached --name-only` 확인)
 - STATE.md / ROADMAP.md 무수정

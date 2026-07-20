@@ -11,6 +11,7 @@
 
 import {
   collection,
+  doc,
   onSnapshot,
   query,
   type FirestoreError,
@@ -238,4 +239,121 @@ export function useReferenceMotions(): ReferenceMotionsState {
   }, []);
 
   return { motions, loading, error };
+}
+
+// ── Phase 31 (31-08, amended D-10) — 자세 비교 뷰어용 단일 문서 구독 ────────
+//
+// 리뷰 M-02: 위 `useReferenceMotions` 컬렉션 구독에 joints3d 를 얹지 않는다.
+// joints3d 는 T*17*3 flat 배열(수천~수만 원소)이라 컬렉션 구독에 실으면 reference
+// 문서 전 건의 대형 배열을 매 구독마다 내려받게 된다 (읽기 비용 + 메모리). 비교
+// 뷰어는 "지금 보고 있는 mode1 기준 동작 1건" 만 필요하므로 doc() 단일 문서를
+// 따로 구독한다. `normalize()` 가 joints3d 를 의도적으로 strip 하는 것과 정합 —
+// 컬렉션 경로는 계속 메타데이터 전용으로 남는다.
+//
+// 읽기 전용. 이 훅은 reference 문서에 절대 write 하지 않는다 (40k index-entry
+// 한도 — [[analyses-index-exemption-fix]] 선례).
+export interface ReferencePose3dState {
+  /** (T, 17, 3) reshape 결과. 검증 실패 시 null (조용한 강등). */
+  joints3d: number[][][] | null;
+  /** joints3d 의 keypoint 이름 (length 17). null 이면 undefined. */
+  jointKeys: string[] | null;
+  frames: number;
+  loading: boolean;
+}
+
+const POSE3D_JOINT_COUNT = 17; // COCO-17
+const POSE3D_COORD_DIM = 3; // xyz
+
+// flat joints3d → (T, 17, 3). 길이/키 개수/좌표 차원이 서로 어긋나면 null.
+// 부분 복구를 시도하지 않는다 — 어긋난 배열을 잘라 쓰면 엉뚱한 관절이 연결된
+// 스켈레톤이 그려져 "틀린 그림을 자신있게 보여주는" 최악의 실패가 된다.
+function reshapeJoints3d(
+  flat: unknown,
+  keys: unknown,
+  frames: unknown,
+  coordDim: unknown,
+): { joints3d: number[][][]; jointKeys: string[]; frames: number } | null {
+  if (!Array.isArray(flat) || !Array.isArray(keys)) return null;
+  const jointKeys = keys.filter((k): k is string => typeof k === 'string');
+  if (jointKeys.length !== POSE3D_JOINT_COUNT) return null;
+  // coordDim 은 부재 가능(구 doc) — 존재하면 3 이어야 한다.
+  if (coordDim !== undefined && coordDim !== POSE3D_COORD_DIM) return null;
+  const stride = POSE3D_JOINT_COUNT * POSE3D_COORD_DIM;
+  if (flat.length === 0 || flat.length % stride !== 0) return null;
+  const T = flat.length / stride;
+  // joints3dFrames 는 reshape 메타 — 존재하면 실제 길이와 일치해야 한다.
+  if (typeof frames === 'number' && frames !== T) return null;
+
+  const out: number[][][] = new Array(T);
+  for (let t = 0; t < T; t += 1) {
+    const frame: number[][] = new Array(POSE3D_JOINT_COUNT);
+    for (let j = 0; j < POSE3D_JOINT_COUNT; j += 1) {
+      const base = t * stride + j * POSE3D_COORD_DIM;
+      const p: number[] = new Array(POSE3D_COORD_DIM);
+      for (let c = 0; c < POSE3D_COORD_DIM; c += 1) {
+        const v = flat[base + c];
+        // NaN/inf/비수치는 그대로 통과시키지 않고 NaN 으로 통일 — 뷰어가
+        // 유한값 검사 한 번으로 해당 관절을 건너뛴다.
+        p[c] = typeof v === 'number' && Number.isFinite(v) ? v : NaN;
+      }
+      frame[j] = p;
+    }
+    out[t] = frame;
+  }
+  return { joints3d: out, jointKeys, frames: T };
+}
+
+/**
+ * reference/{motionId} 단일 문서의 joints3d 를 구독한다 (컬렉션 구독 아님).
+ *
+ * motionId 가 null/undefined 면 구독을 만들지 않고 즉시 빈 상태를 반환한다 —
+ * 훅은 조건부 호출 없이 항상 호출할 수 있어야 하므로(리뷰 M-04) 가드는 훅
+ * 바깥이 아니라 내부 effect 에 둔다.
+ */
+export function useReferenceMotionDoc(
+  motionId: string | null | undefined,
+): ReferencePose3dState {
+  const [state, setState] = useState<ReferencePose3dState>({
+    joints3d: null,
+    jointKeys: null,
+    frames: 0,
+    loading: Boolean(motionId),
+  });
+
+  useEffect(() => {
+    if (!motionId) {
+      setState({ joints3d: null, jointKeys: null, frames: 0, loading: false });
+      return;
+    }
+    setState((prev) => ({ ...prev, loading: true }));
+    const unsub = onSnapshot(
+      doc(db, 'reference', motionId),
+      (snap) => {
+        const raw = snap.data() as Record<string, unknown> | undefined;
+        const parsed = raw
+          ? reshapeJoints3d(
+              raw.joints3d,
+              raw.joints3dKeys,
+              raw.joints3dFrames,
+              raw.coordDim,
+            )
+          : null;
+        setState({
+          joints3d: parsed?.joints3d ?? null,
+          jointKeys: parsed?.jointKeys ?? null,
+          frames: parsed?.frames ?? 0,
+          loading: false,
+        });
+      },
+      (err: FirestoreError) => {
+        if (__DEV__) console.warn('[referenceMotions] doc onSnapshot error', err);
+        // 조용한 강등 (D-08) — 에러 문자열을 노출하지 않는다. 뷰어를 숨기는 건
+        // 호출부(참고코너)의 렌더 가드 몫.
+        setState({ joints3d: null, jointKeys: null, frames: 0, loading: false });
+      },
+    );
+    return unsub;
+  }, [motionId]);
+
+  return state;
 }

@@ -1,0 +1,757 @@
+{
+ "table": [
+  {
+   "pose_tol_deg": 8.0,
+   "confidence": 0.6,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 8.0,
+   "confidence": 0.7,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 8.0,
+   "confidence": 0.8,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 8.0,
+   "confidence": 0.85,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 10.0,
+   "confidence": 0.6,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 10.0,
+   "confidence": 0.7,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 10.0,
+   "confidence": 0.8,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 10.0,
+   "confidence": 0.85,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 15.0,
+   "confidence": 0.6,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 15.0,
+   "confidence": 0.7,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 15.0,
+   "confidence": 0.8,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 15.0,
+   "confidence": 0.85,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 20.0,
+   "confidence": 0.6,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 20.0,
+   "confidence": 0.7,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 20.0,
+   "confidence": 0.8,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  },
+  {
+   "pose_tol_deg": 20.0,
+   "confidence": 0.85,
+   "false_accept": 0,
+   "false_reject": 0,
+   "true_pass": 0,
+   "true_fail": 0,
+   "undeterminable": 12,
+   "evaluable": 0
+  }
+ ],
+ "confidence_only_table": [
+  {
+   "confidence": 0.6,
+   "false_accept_upper_bound": 4,
+   "false_reject_lower_bound": 1,
+   "true_pass": 2,
+   "true_fail": 5,
+   "n": 12
+  },
+  {
+   "confidence": 0.7,
+   "false_accept_upper_bound": 4,
+   "false_reject_lower_bound": 1,
+   "true_pass": 2,
+   "true_fail": 5,
+   "n": 12
+  },
+  {
+   "confidence": 0.8,
+   "false_accept_upper_bound": 4,
+   "false_reject_lower_bound": 1,
+   "true_pass": 2,
+   "true_fail": 5,
+   "n": 12
+  },
+  {
+   "confidence": 0.85,
+   "false_accept_upper_bound": 4,
+   "false_reject_lower_bound": 1,
+   "true_pass": 2,
+   "true_fail": 5,
+   "n": 12
+  }
+ ],
+ "confidence_only_note": "pose 축 제외 judge 단독 스윕. production 게이트가 아니며 FA 는 상한, FR 은 하한이다 (pose 게이트는 통과 집합을 줄이기만 한다).",
+ "confusion": {
+  "sample_counts": {
+   "total": 12,
+   "labeled_pass": 3,
+   "labeled_fail": 9,
+   "judge_available": 12,
+   "pose_measured": 0
+  },
+  "judge_only_confusion": {
+   "pass_labeled_pass": 2,
+   "pass_labeled_fail": 4,
+   "fail_labeled_pass": 1,
+   "fail_labeled_fail": 5
+  },
+  "by_category": {
+   "inverted": {
+    "n": 6,
+    "predicted_pass": 3,
+    "predicted_fail": 3,
+    "labeled_pass": 1,
+    "labeled_fail": 5
+   },
+   "right": {
+    "n": 6,
+    "predicted_pass": 4,
+    "predicted_fail": 2,
+    "labeled_pass": 0,
+    "labeled_fail": 6
+   },
+   "occlusion": {
+    "n": 6,
+    "predicted_pass": 4,
+    "predicted_fail": 2,
+    "labeled_pass": 0,
+    "labeled_fail": 6
+   },
+   "upright": {
+    "n": 6,
+    "predicted_pass": 3,
+    "predicted_fail": 3,
+    "labeled_pass": 2,
+    "labeled_fail": 4
+   },
+   "left": {
+    "n": 6,
+    "predicted_pass": 2,
+    "predicted_fail": 4,
+    "labeled_pass": 3,
+    "labeled_fail": 3
+   },
+   "motion_blur": {
+    "n": 3,
+    "predicted_pass": 1,
+    "predicted_fail": 2,
+    "labeled_pass": 1,
+    "labeled_fail": 2
+   }
+  },
+  "failure_axis_detection": {
+   "correction_invisible": {
+    "n": 2,
+    "detected": 1
+   },
+   "pose_tolerance": {
+    "n": 6,
+    "detected": 2
+   },
+   "pole": {
+    "n": 1,
+    "detected": 1
+   },
+   "background": {
+    "n": 1,
+    "detected": 1
+   },
+   "extra_limbs": {
+    "n": 1,
+    "detected": 1
+   },
+   "identity": {
+    "n": 1,
+    "detected": 1
+   },
+   "clothing": {
+    "n": 1,
+    "detected": 1
+   }
+  },
+  "failure_axes_present": [
+   "background",
+   "clothing",
+   "correction_invisible",
+   "extra_limbs",
+   "identity",
+   "pole",
+   "pose_tolerance"
+  ]
+ },
+ "pairs": [
+  {
+   "id": "wan2.7-image-pro__power-spin-inverted-right-knee",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "beforeSha256": "4e552331bcb90049c8cbf3975c7fb3e115652c988afa4bbcc5c7103f0e3c3f04",
+   "afterSha256": "127a60c50dc8a6b9c5b0a0312a9109c95a382bb470af9a2308111bb1c83f0255",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [
+    "correction_invisible"
+   ],
+   "category": [
+    "inverted",
+    "right",
+    "occlusion"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": true
+    },
+    "confidence": 1.0,
+    "reason": "The generation is highly successful. The right leg has been extended nearly straight (about 175 degrees) as instructed, while keeping the identity, clothing, background, pole, and other body parts completely consistent and free of anomalies."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__sideway-spin-upright-right-knee",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "beforeSha256": "3eea2aa023912bb7066efada544f69a74b4cb2d495a76edc4c9703e50a012ed3",
+   "afterSha256": "8dd6d74dbd2fb12ecb13588212fdcf33e0f2673526e725dc9290678d43b244de",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [
+    "pose_tolerance"
+   ],
+   "category": [
+    "upright",
+    "right",
+    "occlusion"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": true
+    },
+    "confidence": 0.95,
+    "reason": "The generated image perfectly preserves the person's identity, clothing, pole position, and background details. The correction is highly successful, as the right knee (and both legs) are straightened to nearly 180 degrees, matching the 175-degree instruction."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__chair-spin-upright-left-knee",
+   "label": "PASS",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "beforeSha256": "3498a637f40da4765e3d14367c6565cea130eab6fc7861415489505de18474d9",
+   "afterSha256": "7071b2fda7a2aa38f5646b0de3ee991dc55968e53210c3610948096a16f44500",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [],
+   "category": [
+    "upright",
+    "left"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": true
+    },
+    "confidence": 0.98,
+    "reason": "The generated image perfectly preserves the identity, clothing, background, and pole of the original image while correcting the left knee angle to be straight (~175 degrees) as instructed. No visual artifacts or extra limbs are present."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__invert-inverted-left-knee",
+   "label": "PASS",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "beforeSha256": "8c018fa6635966ac6bcd4986d65b7dae52ab5305225710b321468bfb3814822d",
+   "afterSha256": "1ab6a2ca88f51b1aeca6f14102e41f8d0869431b5ac463e85540cd657d143a4c",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [],
+   "category": [
+    "inverted",
+    "left",
+    "motion_blur"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": true
+    },
+    "confidence": 0.95,
+    "reason": "The correction of the left knee to a straight angle of approximately 175 degrees is clearly visible and well-executed. The person's identity, background, pole, and overall clothing are preserved perfectly without any extra limbs or major artifacts."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__calib-chair-spin-upright-left-knee-v2",
+   "label": "PASS",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "beforeSha256": "3498a637f40da4765e3d14367c6565cea130eab6fc7861415489505de18474d9",
+   "afterSha256": "ad4922eb38e4bf1e5225639a351d06493789d7dcb4d7ad2461f6c99ba4a73346",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [],
+   "category": [
+    "upright",
+    "left"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": false
+    },
+    "confidence": 0.9,
+    "reason": "머리카락(포니테일)이 휘날리던 것에서 아래로 차분히 내려온 것을 제외하고는, 무릎 각도를 포함한 전반적인 자세가 원본과 완벽히 동일하여 무릎 각도 교정이 수행되지 않았습니다."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__calib-invert-inverted-left-knee-v2",
+   "label": "FAIL",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "beforeSha256": "8c018fa6635966ac6bcd4986d65b7dae52ab5305225710b321468bfb3814822d",
+   "afterSha256": "9ac97ce1dfc4813067e42b16decd54cda056f444a8c20a196ce41b847e80544d",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [
+    "pose_tolerance"
+   ],
+   "category": [
+    "inverted",
+    "left",
+    "motion_blur"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": false
+    },
+    "confidence": 0.9,
+    "reason": "The generation preserves the identity, clothing, background, and pole extremely well, with no extra limbs or distortion. However, the instruction was to correct the left knee to approximately 175 degrees (nearly straight). In the AFTER image, one leg remains fully extended while the other leg, which was tightly bent in the BEFORE image, is still bent at approximately 90 degrees instead of being straightened to 175 degrees."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__calib-power-spin-inverted-right-knee-v2",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "beforeSha256": "4e552331bcb90049c8cbf3975c7fb3e115652c988afa4bbcc5c7103f0e3c3f04",
+   "afterSha256": "6ff24757d419a82fd71e0175e56551d48a83c08c1efe9f2f75a22299035cbfd1",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [
+    "pose_tolerance"
+   ],
+   "category": [
+    "inverted",
+    "right",
+    "occlusion"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": true
+    },
+    "confidence": 0.95,
+    "reason": "The AI successfully corrected the right knee (and both legs) to be straight (about 175 degrees) extending downwards along the pole, whereas in the original image the legs were bent and horizontal. The person's identity, clothing, pole, and background are all exceptionally well-preserved without any visual anomalies or extra limbs."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__calib-sideway-spin-upright-right-knee-v2",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "beforeSha256": "3eea2aa023912bb7066efada544f69a74b4cb2d495a76edc4c9703e50a012ed3",
+   "afterSha256": "e1e9fc699731d04813c1eb9837d2981dd70ed56c91126b9d42d57cf5cd91a2ff",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [
+    "pose_tolerance"
+   ],
+   "category": [
+    "upright",
+    "right",
+    "occlusion"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": true
+    },
+    "confidence": 0.95,
+    "reason": "The generated image successfully extends the legs (right knee corrected to approximately 175 degrees) while perfectly preserving the identity of the person, clothing, background elements (such as the plant and curtains), and the pole position without introducing any extra limbs or artifacts."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__calib-adv-pole-chair-spin-left-knee",
+   "label": "FAIL",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "beforeSha256": "3498a637f40da4765e3d14367c6565cea130eab6fc7861415489505de18474d9",
+   "afterSha256": "46ef1a6cf5845558e1cc5978fc6a7e2ec6022c3b2c6292267bc3c71e4cecaa6b",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [
+    "pole",
+    "pose_tolerance"
+   ],
+   "category": [
+    "upright",
+    "left"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": false,
+     "clothing_ok": false,
+     "background_ok": false,
+     "pole_ok": false,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": false
+    },
+    "confidence": 1.0,
+    "reason": "생성된 이미지에서 폴이 완전히 사라졌으며, 원래의 자세를 유지하면서 관절을 교정하는 대신 완전히 다른 서 있는 자세로 전면 재그려졌습니다."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__calib-adv-background-sideway-spin-right-knee",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "beforeSha256": "3eea2aa023912bb7066efada544f69a74b4cb2d495a76edc4c9703e50a012ed3",
+   "afterSha256": "7f22a6a3d3526d744aebc3439acd080b2034e6eed14889e6b2116618d3072ecb",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [
+    "background",
+    "correction_invisible"
+   ],
+   "category": [
+    "upright",
+    "right",
+    "occlusion"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": false,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": false
+    },
+    "confidence": 0.9,
+    "reason": "배경이 실내 스튜디오에서 해변가 노을로 완전히 변경되었습니다. 또한, 오른쪽 무릎(right_knee)을 약 175도(เกือบ 곧게)로 펴도록 하는 교정 지시가 반영되지 않고 여전히 굽혀진 상태를 유지하고 있습니다."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__calib-adv-extralimbs-invert-left-knee",
+   "label": "FAIL",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "beforeSha256": "8c018fa6635966ac6bcd4986d65b7dae52ab5305225710b321468bfb3814822d",
+   "afterSha256": "0fb20afa0337275262bfe6a612f2ec25f44d12b6390e73382b863aa5cd72d610",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [
+    "extra_limbs",
+    "pose_tolerance"
+   ],
+   "category": [
+    "inverted",
+    "left",
+    "motion_blur"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": true,
+     "clothing_ok": true,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": false,
+     "correction_visible": false
+    },
+    "confidence": 1.0,
+    "reason": "생성된 이미지에 팔이 여러 개 달리는 치명적인 외형 왜곡이 발생했습니다. 또한 목표한 left_knee의 교정(175도 부근으로 펴는 것)도 이루어지지 않았습니다."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  },
+  {
+   "id": "wan2.7-image-pro__calib-adv-identity-power-spin-right-knee",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "beforeSha256": "4e552331bcb90049c8cbf3975c7fb3e115652c988afa4bbcc5c7103f0e3c3f04",
+   "afterSha256": "e1746fd20ffc70fed6c71e4568f95a1e78f59af9b4a1fc0b637ac1d9e0853e8b",
+   "generatorModel": "wan2.7-image-pro",
+   "failureAxes": [
+    "identity",
+    "clothing"
+   ],
+   "category": [
+    "inverted",
+    "right",
+    "occlusion"
+   ],
+   "judge": {
+    "available": true,
+    "axes": {
+     "identity_ok": false,
+     "clothing_ok": false,
+     "background_ok": true,
+     "pole_ok": true,
+     "single_person_ok": true,
+     "no_extra_limbs": true,
+     "correction_visible": true
+    },
+    "confidence": 1.0,
+    "reason": "원본 이미지의 인물(여성, 검은색 탑과 흰색 바지)과 생성 이미지의 인물(남성, 파란색 트레이닝 복)의 정체성 및 의상이 완전히 다르게 변경되었습니다. 자세 또한 완전히 새로 그려져 정체성과 의상 보존에 실패했습니다."
+   },
+   "pose": {
+    "status": "unmeasured",
+    "reason": "pose_gate_unavailable"
+   }
+  }
+ ],
+ "meta": {
+  "judge_model": "gemini-3.5-flash",
+  "prompt_version": "judge-v1",
+  "judge_axes": [
+   "identity_ok",
+   "clothing_ok",
+   "background_ok",
+   "pole_ok",
+   "single_person_ok",
+   "no_extra_limbs",
+   "correction_visible"
+  ],
+  "pose_model_versions": {},
+  "pose_model_version_set": [],
+  "ran_at": "2026-07-20T01:23:10.312042Z",
+  "manifest_sha256": "870357efa3d318e216067eee539bf5c441ffca545c5f2b36a16b948271c83cc8",
+  "manifest_path": "/Users/kimtaesung/Dev/SunityMotion/.planning/phases/31-api-visual-correction/smoke/fixtures_manifest.json",
+  "generator_scope": "wan2.7-image-pro",
+  "pose_tol_grid": [
+   8.0,
+   10.0,
+   15.0,
+   20.0
+  ],
+  "confidence_grid": [
+   0.6,
+   0.7,
+   0.8,
+   0.85
+  ],
+  "judge_calls_made": 0,
+  "judge_call_cap": 24,
+  "stopped_early_on_call_cap": false,
+  "excluded_pairs": [],
+  "pose_endpoint_used": true,
+  "reproduce": "PYTHONPATH=backend/shared/python python3 backend/scripts/calibrate_visual_gates.py --manifest fixtures_manifest.json --generator wan2.7-image-pro --pose-url <pod>/pose-image"
+ },
+ "blocked": true,
+ "blocked_reasons": [
+  "insufficient_pass_samples:3<4",
+  "pose_unmeasured_fraction:12/12>0.25",
+  "confidence_axis_non_discriminating:all_4_grid_values_tie_at_FA4"
+ ]
+}

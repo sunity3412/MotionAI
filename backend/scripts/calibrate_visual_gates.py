@@ -327,6 +327,53 @@ def evaluate_grid(pairs: list[dict], pose_tol_grid, confidence_grid) -> list[dic
     return table
 
 
+def evaluate_confidence_only(pairs: list[dict], confidence_grid) -> list[dict]:
+    """pose 축을 뺀 **judge 단독** confidence 스윕.
+
+    production 게이트가 아니다 — 실제 판정은 judge AND pose 다. 그래도 이 표에는
+    엄밀한 의미가 있다: pose 게이트는 통과 집합을 줄이기만 하므로
+
+        judge 단독 FA  >=  production FA   (상한)
+        judge 단독 FR  <=  production FR   (하한)
+
+    즉 여기서 이미 false accept 가 남는 confidence 값은, pose 게이트가 그 산출물을
+    따로 잡아내지 못하는 한 production 에서도 통과시킨다. pose 를 못 잰 상태에서도
+    confidence 축에 대해 말할 수 있는 것을 정확히 이만큼으로 한정한다.
+    """
+    from sunity_shared.analysis.visual_gen import judge_display_pass
+
+    rows = []
+    for conf in confidence_grid:
+        fa = fr = tp = tn = 0
+        for p in pairs:
+            judge = p["judge"]
+            predicted = (
+                judge_display_pass(_verdict_from_raw(judge), min_confidence=conf)
+                if judge["available"]
+                else False
+            )
+            label_pass = p["label"] == "PASS"
+            if predicted and not label_pass:
+                fa += 1
+            elif not predicted and label_pass:
+                fr += 1
+            elif predicted:
+                tp += 1
+            else:
+                tn += 1
+        rows.append(
+            {
+                "confidence": conf,
+                "false_accept_upper_bound": fa,
+                "false_reject_lower_bound": fr,
+                "true_pass": tp,
+                "true_fail": tn,
+                "n": len(pairs),
+            }
+        )
+    return rows
+
+
 def choose_thresholds(table: list[dict]) -> dict:
     """display = FA 최소(동률 FR 최소). training = display 보다 **양축 모두 엄격**한
     조합 중 FA 0 우선.
@@ -560,6 +607,7 @@ def main() -> int:
         cache_path.write_text(json.dumps(cache, ensure_ascii=False, indent=1))
 
     table = evaluate_grid(pairs, pose_tol_grid, confidence_grid)
+    confidence_only_table = evaluate_confidence_only(pairs, confidence_grid)
     confusion = build_confusion(pairs)
 
     from sunity_shared.analysis import visual_gen
@@ -606,9 +654,28 @@ def main() -> int:
         blocks.append(
             f"pose_unmeasured_fraction:{unmeasured}/{len(pairs)}>{MAX_UNMEASURED_FRACTION}"
         )
+    # confidence 축이 격자 전 구간에서 같은 FA/FR 를 내면, 그 축은 이 표본에서
+    # **판별력이 없다**. 이때 "FA 최소" 규칙은 전 조합 동률이라 사실상 무작위 선택이
+    # 되고, 그건 M4-03 이 금지한 arbitrary fallback 이다. 측정이 있었더라도 그 측정이
+    # 임계값을 고를 근거가 되지 못한다는 사실 자체를 blocked 로 남긴다.
+    distinct = {
+        (r["false_accept_upper_bound"], r["false_reject_lower_bound"])
+        for r in confidence_only_table
+    }
+    if len(confidence_only_table) > 1 and len(distinct) == 1:
+        blocks.append(
+            "confidence_axis_non_discriminating:"
+            f"all_{len(confidence_only_table)}_grid_values_tie_at_"
+            f"FA{confidence_only_table[0]['false_accept_upper_bound']}"
+        )
 
     result: dict = {
         "table": table,
+        "confidence_only_table": confidence_only_table,
+        "confidence_only_note": (
+            "pose 축 제외 judge 단독 스윕. production 게이트가 아니며 FA 는 상한, "
+            "FR 은 하한이다 (pose 게이트는 통과 집합을 줄이기만 한다)."
+        ),
         "confusion": confusion,
         "pairs": pairs,
         "meta": meta,

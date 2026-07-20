@@ -1798,3 +1798,1575 @@ def store_vlm_shadow(video_hash: str, role: str, payload: dict) -> None:
         },
         merge=True,
     )
+
+
+# ══════════════════════ Phase 31: visual job 데이터 계약 ══════════════════════
+#
+# 근거: 31-02-PLAN + 외부 리뷰 3~11차.
+#   B3-01 outbox instance / B3-02 원자 finalize / B3-03 reserve
+#   B4-01 outboxSeq CAS / B4-03 retry_ready
+#   B5-01 claim 4상태 + owner/lease CAS / H5-03 fresh requestKey / H5-06 durable cursor
+#   B6-01 새 seq claim clear / B6-04 cleanup_blocked 비-terminal / H6-01 sent-recovery 필터
+#   B7-03 cleanup_verified_at_ms 파라미터 병합
+#   B8-01 begin_visual_job_create / B8-02 unconditional privacy gate / B8-03 blocker clear
+#   B8-05 create-only reservation / B8-06 reservation claim 배타
+#   B9-01 janitor claim lease 복구 / B9-02 cross-reservation ownership / H9-04 nested tx 금지
+#   B10-01~03 self-ref 소비 / active|deleting fence / ref release
+#   B11-01 deleting 은 항상 acquire fence + commit_key_delete fencing token
+#   B11-04 job ref 는 expireAt 무시 — 항상 live
+#
+# 핵심 불변식 3개:
+#   1. 모든 nonterminal 전이는 단일 transaction 으로 {state 검증 + 다음 state + nextAction
+#      + dispatchState='pending' + nextDispatchAtMs + 새 outboxSeq + claim clear} 를 원자
+#      기록하고 **갱신된 snapshot 을 반환**한다. 후속 단계는 이 snapshot 만 쓴다 —
+#      인바운드 SQS 메시지 값을 재사용하지 않는다.
+#   2. 외부 side-effect 는 claim_visual_job_action() 이 'claimed' 를 준 뒤에만 나간다.
+#      'busy' 는 정상 ACK 금지(batchItemFailures) — 그래야 SQS 중복 전달이 유료 action 을
+#      두 번 실행하지 않는다.
+#   3. terminal 종결은 finalize_visual_job() 하나뿐이다. job terminal 과 analysis 표시
+#      상태가 같은 multi-document transaction 이라 둘이 영구 불일치할 수 없다.
+
+
+# ── Firestore seam (테스트가 in-memory 로 교체하는 지점) ────────────────────
+#
+# 본 모듈의 기존 함수들은 `_doc()` 만 쓰지만 visual job 계약은 transaction/query 가
+# 필수다. 아래 4개를 얇은 seam 으로 분리해 두면 backend/tests/phase31/conftest.py 의
+# FakeFirestore 가 **실제 optimistic concurrency 를 재현**하며 CAS 를 검증할 수 있다
+# (mock 이 통과시켜 주는 게 아니라 진짜 conflict/재시도가 난다).
+
+
+def _collection(name: str):
+    return _db().collection(name)
+
+
+def _field_filter(field: str, op: str, value):
+    """where(filter=FieldFilter(...)) — positional where 는 deprecated."""
+    from google.cloud.firestore_v1.base_query import FieldFilter
+
+    return FieldFilter(field, op, value)
+
+
+def _query_start_after_name(query, collection_name: str, doc_id: str):
+    """__name__ 정렬 cursor. dict cursor 의 __name__ 은 DocumentReference 를 요구한다.
+
+    추가 read 없이 ref 만 만들어 넘긴다(cursor 용 get() 은 낭비).
+    """
+    return query.start_after({"__name__": _doc(f"{collection_name}/{doc_id}")})
+
+
+def _run_in_transaction(fn):
+    """fn(transaction) 을 Firestore transaction 으로 실행. 충돌 시 SDK 가 재시도한다."""
+    from firebase_admin import firestore
+
+    return firestore.transactional(fn)(_db().transaction())
+
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)
+
+
+def _as_ts(ms: int):
+    """Firestore TTL policy 대상 expireAt — **timestamp 타입** 필수 (10차 H10-02).
+
+    millisecond number 로 저장하면 TTL policy 가 문서를 영영 지우지 않는다.
+    """
+    import datetime
+
+    return datetime.datetime.fromtimestamp(ms / 1000.0, tz=datetime.timezone.utc)
+
+
+_VISUAL_JOBS_COLLECTION = "visualJobs"
+
+
+def _snap_dict(snap) -> dict | None:
+    if snap is None or not getattr(snap, "exists", False):
+        return None
+    return snap.to_dict() or {}
+
+
+# ═══════════════ (10) key-level ownership — active|deleting delete fence ═══════════════
+#
+# "참조 수를 세고 0이면 지운다" 는 **세고 나서 지우기 직전에 producer 가 acquire 하는**
+# 창이 남는다 (T-31-90). key 마다 문서를 두고 2상태 fence 를 건다.
+
+
+def _object_ref(bucket: str, key: str):
+    return _doc(models.visual_input_object_doc_path(bucket, key))
+
+
+def _is_live_ref(entry: dict, now_ms: int) -> bool:
+    """job ref 는 **항상 live** (11차 B11-04).
+
+    job ref 에 expireAt 만료를 적용하면 살아있는 nonterminal job 의 입력을 janitor 가
+    지운다 (T-31-94). job ref 는 worker/reconciler 의 explicit release 로만 사라진다.
+    reservation ref 만 expireAt 만료 판정 대상이다.
+    """
+    if entry.get("kind") == "job":
+        return True
+    return int(entry.get("expireAt") or 0) > now_ms
+
+
+def live_ref_count(bucket: str, key: str, *, now_ms: int) -> int:
+    """진단/테스트용 — live ref 수. 삭제 판정은 claim_key_for_delete 만 한다."""
+    data = _snap_dict(_object_ref(bucket, key).get()) or {}
+    refs = data.get("refs") or {}
+    return sum(1 for e in refs.values() if _is_live_ref(e, now_ms))
+
+
+def acquire_key_ownership(
+    bucket: str,
+    key: str,
+    *,
+    ref: str,
+    kind: str,
+    now_ms: int,
+    expire_at_ms: int | None = None,
+) -> bool:
+    """producer 가 PUT/재사용 **전** 호출. 성공(True) 해야만 S3 에 손댄다.
+
+    **state=='deleting' 이면 lease 만료 여부와 무관하게 항상 False** (11차 B11-01).
+    만료된 deleting 을 producer 가 active 로 회수하면, 그 사이 살아 돌아온 이전 janitor 의
+    늦은 DeleteObject 가 방금 올린 입력을 지운다 (T-31-93). 만료 deleting 회수는
+    janitor 전용이고, janitor 는 commit_key_delete 로 한 번 더 fencing 된다.
+
+    Args:
+      ref: ref id — reservation id 또는 job id.
+      kind: models.VISUAL_OBJECT_REF_KINDS ('reservation' | 'job').
+      expire_at_ms: reservation ref 전용 만료. job ref 는 무시된다(항상 live).
+    """
+    if kind not in models.VISUAL_OBJECT_REF_KINDS:
+        raise ValueError(f"kind must be one of {list(models.VISUAL_OBJECT_REF_KINDS)}")
+
+    def _tx(transaction):
+        obj = _object_ref(bucket, key)
+        data = _snap_dict(obj.get(transaction=transaction))
+        if data is None:
+            transaction.set(
+                obj,
+                {
+                    "bucket": bucket,
+                    "key": key,
+                    "state": "active",
+                    "refs": {
+                        ref: {
+                            "kind": kind,
+                            "generation": 0,
+                            "expireAt": int(expire_at_ms or 0),
+                        }
+                    },
+                    "deleteOwner": None,
+                    "deleteLeaseExpiresAt": 0,
+                    "generation": 0,
+                    "updatedAtMs": now_ms,
+                },
+            )
+            return True
+        if data.get("state") == "deleting":
+            return False  # B11-01 — 만료여도 회수 금지.
+        refs = dict(data.get("refs") or {})
+        refs[ref] = {
+            "kind": kind,
+            "generation": int(data.get("generation") or 0),
+            "expireAt": int(expire_at_ms or 0),
+        }
+        transaction.update(obj, {"refs": refs, "updatedAtMs": now_ms})
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+def _promote_key_ownership_to_job_tx(
+    transaction,
+    bucket: str,
+    key: str,
+    *,
+    reservation_ref: str,
+    job_ref: str,
+    snapshot: dict | None = None,
+    now_ms: int | None = None,
+) -> bool:
+    """reserve transaction 안에서 reservation ref → job ref 원자 교체 (10차 H10-01).
+
+    nested @transactional 금지 (9차 H9-04) — transaction 객체를 인자로 받는다. 여러 key
+    를 승격할 때 전부 이전 또는 전부 승격만 허용되도록 **같은 transaction** 을 공유한다.
+
+    **job ref 는 expireAt 을 설정하지 않는다 — 항상 live** (11차 B11-04). reservation 의
+    만료를 job ref 로 복사하면 살아있는 job 의 입력이 만료로 삭제 가능해진다.
+
+    Args:
+      snapshot: read-all-before-write 를 위해 호출측이 미리 읽어둔 문서. 주면 read 를
+        건너뛰고 write 만 버퍼링한다.
+    """
+    obj = _object_ref(bucket, key)
+    data = snapshot if snapshot is not None else _snap_dict(obj.get(transaction=transaction))
+    if data is None or data.get("state") == "deleting":
+        return False
+    refs = dict(data.get("refs") or {})
+    refs.pop(reservation_ref, None)
+    refs[job_ref] = {
+        "kind": "job",
+        "generation": int(data.get("generation") or 0),
+        # expireAt 없음 — B11-04.
+    }
+    transaction.update(obj, {"refs": refs, "updatedAtMs": now_ms or _now_ms()})
+    return True
+
+
+def release_key_ownership(bucket: str, key: str, *, ref: str) -> None:
+    """ref 제거. refs 가 비고 deleting 이 아니면 ownership 문서 자체를 지운다.
+
+    종료 경로(worker cleanup / producer 보상 / reservation·orphan close)의 **필수 부분**
+    이다 (10차 B10-03). 빠뜨리면 ownership 문서가 영구 잔존해 이후 그 key 의 cleanup 이
+    영원히 skip 된다 (T-31-91).
+    """
+
+    def _tx(transaction):
+        obj = _object_ref(bucket, key)
+        data = _snap_dict(obj.get(transaction=transaction))
+        if data is None:
+            return
+        refs = dict(data.get("refs") or {})
+        refs.pop(ref, None)
+        if not refs and data.get("state") != "deleting":
+            transaction.delete(obj)
+            return
+        transaction.update(obj, {"refs": refs, "updatedAtMs": _now_ms()})
+
+    _run_in_transaction(_tx)
+
+
+def claim_key_for_delete(
+    bucket: str,
+    key: str,
+    *,
+    deleting_ref: str,
+    owner: str,
+    lease_ms: int,
+    now_ms: int,
+) -> dict | None:
+    """외부 delete 권한 획득. 성공 시 fencing token, 실패(다른 live ref 존재) 시 None.
+
+    순서가 중요하다 (10차 B10-01):
+      (a) refs 에서 **자기 ref 를 먼저 소비**한다. 이걸 안 하면 자기 자신을 live ref 로
+          세어 삭제가 영원히 멈춘다 (T-31-89 self-ref liveness 붕괴).
+      (b) 남은 refs 중 live 판정 — job ref 는 항상 live, reservation ref 만 expireAt.
+      (c) live 0 이면 state='deleting' + generation+1 CAS 후 token 반환.
+
+    반환 token 은 **외부 DeleteObject 직전** commit_key_delete 로 재검증해야 한다.
+    """
+
+    def _tx(transaction):
+        obj = _object_ref(bucket, key)
+        data = _snap_dict(obj.get(transaction=transaction))
+        if data is None:
+            return None
+        state = data.get("state") or "active"
+        cur_owner = data.get("deleteOwner")
+        lease_exp = int(data.get("deleteLeaseExpiresAt") or 0)
+        if state == "deleting" and lease_exp > now_ms and cur_owner != owner:
+            return None  # 다른 janitor 가 유효 lease 보유.
+
+        refs = dict(data.get("refs") or {})
+        refs.pop(deleting_ref, None)  # (a) 자기 ref 소비 — B10-01.
+        if any(_is_live_ref(e, now_ms) for e in refs.values()):  # (b)
+            # 다른 live ref 존재 → 삭제 불가. 자기 ref 소비는 확정한다.
+            transaction.update(obj, {"refs": refs, "updatedAtMs": now_ms})
+            return None
+        generation = int(data.get("generation") or 0) + 1  # (c) fencing token.
+        transaction.update(
+            obj,
+            {
+                "refs": refs,
+                "state": "deleting",
+                "deleteOwner": owner,
+                "deleteLeaseExpiresAt": now_ms + int(lease_ms),
+                "generation": generation,
+                "updatedAtMs": now_ms,
+            },
+        )
+        return {
+            "owner": owner,
+            "generation": generation,
+            "leaseExpiresAt": now_ms + int(lease_ms),
+        }
+
+    return _run_in_transaction(_tx)
+
+
+def commit_key_delete(bucket: str, key: str, *, token: dict, now_ms: int) -> bool:
+    """외부 DeleteObject **직전** fencing 재검증 (11차 B11-01).
+
+    state=='deleting' AND deleteOwner==token.owner AND generation==token.generation AND
+    미만료 lease 를 전부 통과해야 True. lease 만료 뒤 되살아난 이전 claimant 는
+    generation 이 이미 올라가 있어 여기서 차단된다 — lease 길이가 아니라 이 generation
+    비교가 실제 방어다.
+    """
+
+    def _tx(transaction):
+        data = _snap_dict(_object_ref(bucket, key).get(transaction=transaction))
+        if data is None:
+            return False
+        return bool(
+            data.get("state") == "deleting"
+            and data.get("deleteOwner") == token.get("owner")
+            and int(data.get("generation") or 0) == int(token.get("generation"))
+            and int(data.get("deleteLeaseExpiresAt") or 0) > now_ms
+        )
+
+    return _run_in_transaction(_tx)
+
+
+# ═══════════════ (8) per-invocation upload reservation ═══════════════
+#
+# 임시 생체 프레임 privacy SLA = "즉시 삭제(하드 크래시에도 보장)" 는 belle 확정 축이다
+# (31-CONTEXT SETTLED AXES) — 24h lifecycle 로 대체하지 않는다. producer 는 PUT 전에
+# per-invocation **immutable** reservation 을 만들고, janitor 는 그 reservation 을
+# claim 한 뒤에만 삭제한다. reserve_visual_job 과 janitor 의 claim 이 **배타 CAS** 라
+# "janitor 가 확인 → producer 가 reserve → janitor 가 삭제" 순열이 성립하지 않는다.
+
+
+def _reservation_ref(job_id: str, reservation_id: str):
+    return _doc(models.visual_input_reservation_doc_path(job_id, reservation_id))
+
+
+def create_input_reservation(
+    job_id: str,
+    reservation_id: str,
+    *,
+    owner: str,
+    bucket: str,
+    source_hash: str,
+    expected_keys,
+    now_ms: int,
+    ttl_ms: int | None = None,
+) -> dict:
+    """create-only precondition (8차 B8-05). 이미 있으면 **덮어쓰지 않고** 기존 반환.
+
+    per-invocation immutable 이라 동시 producer 가 서로의 reservation 을 덮어써
+    expectedKeys 를 잃는 일이 없다 (T-31-88).
+    """
+    ttl = int(ttl_ms if ttl_ms is not None else models.VISUAL_INPUT_RESERVATION_TTL_MS)
+
+    def _tx(transaction):
+        ref = _reservation_ref(job_id, reservation_id)
+        existing = _snap_dict(ref.get(transaction=transaction))
+        if existing is not None:
+            return existing
+        payload = {
+            "jobId": job_id,
+            "reservationId": reservation_id,
+            "owner": owner,
+            "bucket": bucket,
+            "sourceHash": source_hash,
+            "expectedKeys": list(expected_keys or []),
+            "createdKeys": [],
+            "state": "open",
+            "leaseExpiresAt": now_ms + ttl,
+            "claimOwner": None,
+            "claimLeaseExpiresAt": 0,
+            "claimAttempt": 0,
+            "createdAtMs": now_ms,
+        }
+        transaction.set(ref, payload)
+        return payload
+
+    return _run_in_transaction(_tx)
+
+
+def record_reservation_keys(
+    job_id: str, reservation_id: str, *, created_keys, owner: str
+) -> bool:
+    """실제 PUT 한 key 기록. owner CAS — 남의 reservation 을 오염시키지 못한다."""
+
+    def _tx(transaction):
+        ref = _reservation_ref(job_id, reservation_id)
+        data = _snap_dict(ref.get(transaction=transaction))
+        if data is None or data.get("owner") != owner:
+            return False
+        merged = list(dict.fromkeys(list(data.get("createdKeys") or []) + list(created_keys or [])))
+        transaction.update(ref, {"createdKeys": merged})
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+def reservation_keys(data: dict) -> list:
+    """expectedKeys ∪ createdKeys (순서 보존 dedupe). 다중 객체 정리의 단일 출처."""
+    return list(
+        dict.fromkeys(list(data.get("expectedKeys") or []) + list(data.get("createdKeys") or []))
+    )
+
+
+def _claim_reservation_for_job_tx(
+    transaction,
+    job_id: str,
+    reservation_id: str,
+    *,
+    owner: str,
+    now_ms: int,
+    snapshot: dict | None = None,
+) -> bool:
+    """reservation 을 job 소유로 확정 (8차 B8-06). nested @transactional 금지 — 9차 H9-04.
+
+    open + owner 일치 + 미만료여야 True. 'claimed_by_janitor' 이거나 만료면 False 이고,
+    호출측(reserve)은 job 을 만들지 않고 'reservation_lost' 를 돌려 새 preflight 를
+    요구한다 — janitor 가 이미 가져간 입력 위에 job 을 세우지 않기 위해서다.
+
+    Args:
+      snapshot: reserve 의 read-all-before-write 를 위해 미리 읽어둔 문서.
+    """
+    ref = _reservation_ref(job_id, reservation_id)
+    data = snapshot if snapshot is not None else _snap_dict(ref.get(transaction=transaction))
+    if data is None:
+        return False
+    if data.get("state") != "open":
+        return False
+    if data.get("owner") != owner:
+        return False
+    if int(data.get("leaseExpiresAt") or 0) <= now_ms:
+        return False
+    transaction.update(ref, {"state": "claimed_by_job", "claimedAtMs": now_ms})
+    return True
+
+
+def claim_reservation_for_job(
+    job_id: str, reservation_id: str, *, owner: str, now_ms: int
+) -> bool:
+    """단독 transaction wrapper. 본체는 reserve_visual_job 과 **같은 함수**를 쓴다."""
+
+    def _tx(transaction):
+        return _claim_reservation_for_job_tx(
+            transaction, job_id, reservation_id, owner=owner, now_ms=now_ms
+        )
+
+    return _run_in_transaction(_tx)
+
+
+def _reservation_has_live_job(data: dict, now_ms: int) -> bool:
+    """H9-02 predicate — 이 reservation 의 key 를 소유한 nonterminal unsealed job 존재?
+
+    terminal job / inputSealed job / 이미 다른 payload 로 넘어간 job 은 삭제를 막지
+    않는다(입력을 더 안 쓴다). matching nonterminal unsealed job 만 보존 대상이다.
+    """
+    bucket = data.get("bucket")
+    for key in reservation_keys(data):
+        obj = _snap_dict(_object_ref(bucket, key).get()) or {}
+        for ref_id, entry in (obj.get("refs") or {}).items():
+            if entry.get("kind") != "job":
+                continue
+            job = _snap_dict(_doc(models.visual_job_doc_path(ref_id)).get())
+            if job is None:
+                continue
+            if job.get("state") in models.VISUAL_TERMINAL_STATES:
+                continue
+            if job.get("inputSealed") is True:
+                continue
+            return True
+    return False
+
+
+def claim_reservation_for_janitor(
+    job_id: str,
+    reservation_id: str,
+    *,
+    owner: str,
+    now_ms: int,
+    claim_lease_ms: int | None = None,
+) -> bool:
+    """janitor 회수 claim. **성공 후에만 S3 delete 를 시도한다.**
+
+    claim 대상:
+      - (state=='open' AND leaseExpiresAt<=now) — TTL 만료된 미사용 reservation
+      - (state=='claimed_by_janitor' AND claimLeaseExpiresAt<=now) — 이전 janitor 가
+        claim 직후 crash 한 경우의 재claim (9차 B9-01). 이게 없으면 claim 직후 crash 한
+        reservation 이 영원히 회수되지 않아 PII 가 남는다.
+
+    'claimed_by_job' 은 항상 False — 유효 job 의 입력을 지우지 않는다.
+    live job ref 가 남아 있으면(H9-02) 역시 False.
+    """
+    lease = int(claim_lease_ms if claim_lease_ms is not None else models.VISUAL_JANITOR_CLAIM_LEASE_MS)
+    pre = _snap_dict(_reservation_ref(job_id, reservation_id).get())
+    if pre is None:
+        return False
+    if _reservation_has_live_job(pre, now_ms):
+        return False
+
+    def _tx(transaction):
+        ref = _reservation_ref(job_id, reservation_id)
+        data = _snap_dict(ref.get(transaction=transaction))
+        if data is None:
+            return False
+        state = data.get("state")
+        claimable = (
+            state == "open" and int(data.get("leaseExpiresAt") or 0) <= now_ms
+        ) or (
+            state == "claimed_by_janitor"
+            and int(data.get("claimLeaseExpiresAt") or 0) <= now_ms
+        )
+        if not claimable:
+            return False
+        transaction.update(
+            ref,
+            {
+                "state": "claimed_by_janitor",
+                "claimOwner": owner,
+                "claimLeaseExpiresAt": now_ms + lease,
+                "claimAttempt": int(data.get("claimAttempt") or 0) + 1,
+            },
+        )
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+def close_reservation(
+    job_id: str, reservation_id: str, *, owner: str | None = None, now_ms: int | None = None
+) -> bool:
+    """종결 — 'closed' + TTL expireAt + **모든 key 의 ref release 를 같은 transaction**.
+
+    release 를 별도 호출로 미루면 close 직후 crash 시 ownership 문서가 영구 잔존한다
+    (10차 B10-03 / T-31-91). 상태 전이의 필수 부분이라 원자로 묶는다.
+    """
+    now = int(now_ms if now_ms is not None else _now_ms())
+
+    def _tx(transaction):
+        ref = _reservation_ref(job_id, reservation_id)
+        data = _snap_dict(ref.get(transaction=transaction))
+        if data is None:
+            return False
+        bucket = data.get("bucket")
+        keys = reservation_keys(data)
+        obj_reads = [
+            (k, _object_ref(bucket, k), _snap_dict(_object_ref(bucket, k).get(transaction=transaction)))
+            for k in keys
+        ]
+        transaction.update(
+            ref,
+            {
+                "state": "closed",
+                "closedAtMs": now,
+                "expireAt": _as_ts(now + models.VISUAL_CLOSED_DOC_RETENTION_MS),
+            },
+        )
+        for _key, obj, obj_data in obj_reads:
+            if obj_data is None:
+                continue
+            refs = dict(obj_data.get("refs") or {})
+            refs.pop(reservation_id, None)
+            if not refs and obj_data.get("state") != "deleting":
+                transaction.delete(obj)
+            else:
+                transaction.update(obj, {"refs": refs, "updatedAtMs": now})
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+# ═══════════════ (9) durable orphan registry ═══════════════
+#
+# 보상 delete 가 실패하면 **반드시** 여기 남긴다 — "지우려다 실패했는데 아무도 모르는
+# PII" 를 만들지 않기 위해서다.
+
+
+def upsert_visual_orphan(bucket: str, key: str, *, now_ms: int, reason: str) -> str:
+    """보상 delete 실패 기록. closed 였던 같은 key 가 재발하면 재오픈한다 (9차 H9-07).
+
+    문서 id 가 (bucket,key) 결정론 해시라 재발 시 같은 문서를 만난다. closed 로 두면
+    두 번째 사고가 조용히 묻히므로 generation+1 로 새 incident 를 연다.
+    """
+    orphan_id = models.visual_input_object_doc_path(bucket, key).rsplit("/", 1)[-1]
+
+    def _tx(transaction):
+        ref = _doc(models.visual_orphan_doc_path(orphan_id))
+        data = _snap_dict(ref.get(transaction=transaction))
+        if data is None:
+            transaction.set(
+                ref,
+                {
+                    "bucket": bucket,
+                    "key": key,
+                    "state": "open",
+                    "generation": 1,
+                    "attempt": 0,
+                    "nextRetryAtMs": now_ms,
+                    "lastError": reason,
+                    "createdAtMs": now_ms,
+                    "claimOwner": None,
+                    "claimLeaseExpiresAt": 0,
+                },
+            )
+            return orphan_id
+        if data.get("state") == "closed":
+            transaction.update(
+                ref,
+                {
+                    "state": "open",
+                    "generation": int(data.get("generation") or 0) + 1,
+                    "attempt": 0,
+                    "nextRetryAtMs": now_ms,
+                    "lastError": reason,
+                    "claimOwner": None,
+                    "claimLeaseExpiresAt": 0,
+                    "expireAt": None,
+                },
+            )
+            return orphan_id
+        transaction.update(ref, {"lastError": reason})
+        return orphan_id
+
+    return _run_in_transaction(_tx)
+
+
+def claim_visual_orphan(
+    orphan_id: str, *, owner: str, now_ms: int, lease_ms: int | None = None
+) -> dict | None:
+    """(open AND due) 또는 (claimed AND lease 만료) 를 claim (9차 B9-01 crash 재claim)."""
+    lease = int(lease_ms if lease_ms is not None else models.VISUAL_JANITOR_CLAIM_LEASE_MS)
+
+    def _tx(transaction):
+        ref = _doc(models.visual_orphan_doc_path(orphan_id))
+        data = _snap_dict(ref.get(transaction=transaction))
+        if data is None:
+            return None
+        state = data.get("state")
+        claimable = (
+            state == "open" and int(data.get("nextRetryAtMs") or 0) <= now_ms
+        ) or (
+            state == "claimed" and int(data.get("claimLeaseExpiresAt") or 0) <= now_ms
+        )
+        if not claimable:
+            return None
+        updated = dict(data)
+        updated.update(
+            {
+                "state": "claimed",
+                "claimOwner": owner,
+                "claimLeaseExpiresAt": now_ms + lease,
+                "attempt": int(data.get("attempt") or 0) + 1,
+            }
+        )
+        transaction.update(
+            ref,
+            {
+                "state": "claimed",
+                "claimOwner": owner,
+                "claimLeaseExpiresAt": now_ms + lease,
+                "attempt": updated["attempt"],
+            },
+        )
+        return updated
+
+    return _run_in_transaction(_tx)
+
+
+def close_visual_orphan(orphan_id: str, *, now_ms: int) -> bool:
+    """delete + HEAD404 확인 후 종결 + ownership ref release (10차 B10-03)."""
+
+    def _tx(transaction):
+        ref = _doc(models.visual_orphan_doc_path(orphan_id))
+        data = _snap_dict(ref.get(transaction=transaction))
+        if data is None:
+            return False
+        obj = _object_ref(data.get("bucket"), data.get("key"))
+        obj_data = _snap_dict(obj.get(transaction=transaction))
+        transaction.update(
+            ref,
+            {
+                "state": "closed",
+                "closedAtMs": now_ms,
+                "expireAt": _as_ts(now_ms + models.VISUAL_CLOSED_DOC_RETENTION_MS),
+            },
+        )
+        if obj_data is not None:
+            refs = dict(obj_data.get("refs") or {})
+            refs.pop(orphan_id, None)
+            if not refs:
+                transaction.delete(obj)
+            else:
+                transaction.update(obj, {"refs": refs, "updatedAtMs": now_ms})
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+def bump_visual_orphan(orphan_id: str, *, next_retry_at_ms: int, last_error: str) -> bool:
+    """실패 backoff — claim 반납 후 다음 시도 시각 기록."""
+
+    def _tx(transaction):
+        ref = _doc(models.visual_orphan_doc_path(orphan_id))
+        if _snap_dict(ref.get(transaction=transaction)) is None:
+            return False
+        transaction.update(
+            ref,
+            {
+                "state": "open",
+                "nextRetryAtMs": int(next_retry_at_ms),
+                "lastError": last_error,
+                "claimOwner": None,
+                "claimLeaseExpiresAt": 0,
+            },
+        )
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+# ═══════════════ (1) reserve — dispatch 가능 상태를 여는 transaction ═══════════════
+
+
+def reserve_visual_job(
+    uid: str,
+    analysis_id: str,
+    kind: str,
+    *,
+    date_key: str | None = None,
+    user_limit: int | None = None,
+    global_limit: int | None = None,
+    payload: dict | None = None,
+    allow_retry_failed: bool = False,
+    reservation_id: str | None = None,
+    reservation_owner: str | None = None,
+    now_ms: int | None = None,
+) -> dict:
+    """job 예약 + analysis 'pending' + 초기 outbox/claim/privacy 를 한 transaction 에 (B3-03).
+
+    correctedPose 호출측은 **immutable srcKey S3 conditional put/preflight 를 먼저 마친
+    뒤에만** 호출한다 (upload-first). 입력이 이미 S3 에 있는 상태여야 job 이 만들어지고,
+    job 이 만들어지면 그 입력은 janitor 로부터 보호된다.
+
+    correctedPose + reservation_id 지정 시, **같은 transaction 안에서** reservation claim
+    (B8-06) + 각 key 의 reservation→job ownership 승격(H10-01)이 함께 성공해야 job 이
+    생성된다. 셋이 단일 commit/commit-loss 단위라 "job 은 생겼는데 입력은 janitor 소유"
+    같은 중간 상태가 없다.
+
+    Returns:
+      {"created": True, "job": {...}}
+      {"created": False, "job": {...}}        이미 존재 (호출측 분기 근거 — B2-03)
+      {"created": False, "reason": ...}       models.VISUAL_RESERVE_REASONS
+    """
+    if kind not in models.VISUAL_JOB_KINDS:
+        raise ValueError(f"kind must be one of {list(models.VISUAL_JOB_KINDS)}")
+    if payload:
+        _validate_dict_only_scalars(payload, path="payload")
+    now = int(now_ms if now_ms is not None else _now_ms())
+    job_id = models.visual_job_id(uid, analysis_id, kind)
+    uses_quota = kind == models.VISUAL_KIND_ROTATION and date_key is not None
+
+    def _tx(transaction):
+        # ── read all ──────────────────────────────────────────────────────
+        job_ref = _doc(models.visual_job_doc_path(job_id))
+        job = _snap_dict(job_ref.get(transaction=transaction))
+        analysis_ref = _doc(models.analysis_doc_path(uid, analysis_id))
+        analysis = _snap_dict(analysis_ref.get(transaction=transaction))
+
+        user_ref = global_ref = None
+        user_count = global_count = 0
+        if uses_quota:
+            user_ref = _doc(models.visual_quota_doc_path(uid, date_key))
+            user_count = int((_snap_dict(user_ref.get(transaction=transaction)) or {}).get("count") or 0)
+            if global_limit is not None:
+                global_ref = _doc(models.visual_quota_doc_path("_global", date_key))
+                global_count = int(
+                    (_snap_dict(global_ref.get(transaction=transaction)) or {}).get("count") or 0
+                )
+
+        reservation = None
+        obj_snaps: list[tuple] = []
+        if reservation_id is not None:
+            reservation = _snap_dict(
+                _reservation_ref(job_id, reservation_id).get(transaction=transaction)
+            )
+            if reservation is not None:
+                bucket = reservation.get("bucket")
+                for key in reservation_keys(reservation):
+                    obj_ref = _object_ref(bucket, key)
+                    obj_snaps.append(
+                        (bucket, key, _snap_dict(obj_ref.get(transaction=transaction)))
+                    )
+
+        # ── decide ────────────────────────────────────────────────────────
+        if analysis is None:
+            return {"created": False, "reason": "analysis_missing"}
+
+        is_retry = False
+        if job is not None:
+            if not (allow_retry_failed and job.get("state") == "failed"):
+                return {"created": False, "job": job}
+            is_retry = True
+
+        if uses_quota:
+            if user_limit is not None and user_count >= int(user_limit):
+                return {"created": False, "reason": "daily_limit"}
+            if global_limit is not None and global_count >= int(global_limit):
+                return {"created": False, "reason": "daily_limit"}
+
+        if reservation_id is not None:
+            if reservation is None:
+                return {"created": False, "reason": "reservation_lost"}
+            # 승격 가능성을 **쓰기 전에 전부** 확인한다 (H10-01 all-or-nothing). 하나라도
+            # 불가능하면 claim 조차 버퍼링하지 않아, 일부 key 만 승격된 채 job 이 없는
+            # 중간 상태가 생기지 않는다.
+            if any(
+                obj_data is None or obj_data.get("state") == "deleting"
+                for _b, _k, obj_data in obj_snaps
+            ):
+                return {"created": False, "reason": "reservation_lost"}
+            if not _claim_reservation_for_job_tx(
+                transaction,
+                job_id,
+                reservation_id,
+                owner=reservation_owner,
+                now_ms=now,
+                snapshot=reservation,
+            ):
+                return {"created": False, "reason": "reservation_lost"}
+            for bucket, key, obj_data in obj_snaps:
+                if not _promote_key_ownership_to_job_tx(
+                    transaction,
+                    bucket,
+                    key,
+                    reservation_ref=reservation_id,
+                    job_ref=job_id,
+                    snapshot=obj_data,
+                    now_ms=now,
+                ):
+                    return {"created": False, "reason": "reservation_lost"}
+
+        # ── write all ─────────────────────────────────────────────────────
+        generation = int(job.get("generation") or 1) + 1 if is_retry else 1
+        doc = {
+            "uid": uid,
+            "analysisId": analysis_id,
+            "kind": kind,
+            "state": "reserved",
+            # outbox 초기값 (B4-01) — 예약 즉시 dispatch 가능.
+            "nextAction": "create",
+            "dispatchState": "pending",
+            "nextDispatchAtMs": now,
+            "outboxSeq": 1,
+            # claim 초기값은 clear 상태 (B6-01) — create 는 claim CAS 를 쓰지 않는다.
+            "claimedOutboxSeq": 0,
+            "claimState": None,
+            "claimOwner": None,
+            "claimLeaseExpiresAt": 0,
+            "generation": generation,
+            "attempt": 0,
+            "retryCount": 0,
+            "taskId": None,
+            "requestKey": None,
+            "leaseOwner": None,
+            "leaseExpiresAt": 0,
+            "failureReason": None,
+            "pendingTerminalState": None,
+            "pendingFailureReason": None,
+            "pairAttempt": 0,
+            "cleanupAttempt": 0,
+            # privacy 초기값 (B6-03/B6-04).
+            "inputSealed": False,
+            "privacyBlocker": None,
+            "cleanupVerifiedAtMs": 0,
+            "requestedAtMs": now,
+            "updatedAtMs": now,
+            "quotaDateKey": date_key,
+            "reservationId": reservation_id,
+        }
+        if payload:
+            doc.update(payload)
+        transaction.set(job_ref, doc)
+
+        if uses_quota:
+            transaction.set(user_ref, {"count": user_count + 1, "dateKey": date_key}, True)
+            if global_ref is not None:
+                transaction.set(global_ref, {"count": global_count + 1, "dateKey": date_key}, True)
+
+        # 표시 상태 'pending' 은 job 예약과 **같은 transaction** 이어야 한다 (B3-03) —
+        # 늦은 pending 이 terminal 을 덮어쓰는 창을 없앤다.
+        transaction.update(
+            analysis_ref,
+            {
+                f"result.{kind}Status": models.VISUAL_STATUS_PENDING,
+                f"result.{kind}UpdatedAtMs": now,
+            },
+        )
+        return {"created": True, "job": doc}
+
+    return _run_in_transaction(_tx)
+
+
+# ═══════════════ (2) transition — outbox instance CAS + claim owner/lease CAS ═══════════════
+
+
+def transition_visual_job(
+    job_id: str,
+    *,
+    expect_states,
+    updates: dict,
+    next_action: str | None,
+    expect_outbox_seq: int,
+    expect_generation: int | None = None,
+    expect_claim_owner: str | None = None,
+    now_ms: int | None = None,
+    next_dispatch_at_ms: int | None = None,
+) -> dict | None:
+    """nonterminal 전이. 성공 시 **갱신된 job snapshot**, CAS 실패 시 None.
+
+    snapshot 을 돌려주는 게 계약의 핵심이다 (5차 H5-04): 호출자는 전이 후 새 outboxSeq /
+    generation / requestKey 를 **여기서만** 얻고, 인바운드 SQS 메시지 값을 재사용하지
+    않는다. 재사용하면 이미 한 칸 진행한 job 을 옛 seq 로 다시 건드린다.
+
+    CAS 4중:
+      - state ∈ expect_states
+      - generation == expect_generation (구세대 메시지 차단)
+      - outboxSeq == expect_outbox_seq (구 action instance 차단 — B4-01)
+      - expect_claim_owner 지정 시 claimOwner/claimedOutboxSeq 일치 + **lease 미만료**
+        (lease 를 잃은 늦은 worker 의 write 차단 — B5-01 + H6-07)
+
+    Raises:
+      ValueError: terminal 전이 시도, 상태별 필수 필드 누락 등 계약 위반.
+    """
+    now = int(now_ms if now_ms is not None else _now_ms())
+
+    def _tx(transaction):
+        ref = _doc(models.visual_job_doc_path(job_id))
+        job = _snap_dict(ref.get(transaction=transaction))
+        if job is None:
+            return None
+        if job.get("state") not in tuple(expect_states):
+            return None
+        if expect_generation is not None and int(job.get("generation") or 0) != int(expect_generation):
+            return None
+        if int(job.get("outboxSeq") or 0) != int(expect_outbox_seq):
+            return None
+        if expect_claim_owner is not None:
+            if job.get("claimOwner") != expect_claim_owner:
+                return None
+            if int(job.get("claimedOutboxSeq") or 0) != int(expect_outbox_seq):
+                return None
+            if now >= int(job.get("claimLeaseExpiresAt") or 0):
+                return None  # lease 만료 — 이미 남이 재claim 했을 수 있다.
+
+        candidate = dict(job)
+        candidate.update(updates)
+        from_state = job.get("state")
+        new_state = candidate.get("state")
+
+        if new_state in models.VISUAL_TERMINAL_STATES:
+            raise ValueError("terminal 은 finalize_visual_job 전용 — transition 금지")
+        if new_state not in models.VISUAL_JOB_STATES:
+            raise ValueError(f"state must be one of {list(models.VISUAL_JOB_STATES)}")
+        if next_action is not None and next_action not in models.VISUAL_NEXT_ACTIONS:
+            raise ValueError(f"next_action must be one of {list(models.VISUAL_NEXT_ACTIONS)}")
+        # next_action=None 은 'creating' 에서만 — create 는 outbox 가 아니라 durable
+        # lease 로 보호되기 때문이다. 그 외 nonterminal 이 nextAction 없이 남으면
+        # dispatcher 가 집을 수 없어 job 이 영구 정지한다.
+        if next_action is None and new_state != "creating":
+            raise ValueError(f"nonterminal state {new_state!r} 는 next_action 필수")
+        if new_state == "postprocessing" and next_action != "postprocess":
+            raise ValueError("postprocessing 전이는 next_action='postprocess' 필수")
+        if new_state == "polling" and not candidate.get("taskId"):
+            raise ValueError("polling 전이는 비어있지 않은 taskId 필수")
+
+        generation = int(job.get("generation") or 1)
+        if new_state == "creating":
+            if from_state == "retry_ready":
+                if candidate.get("taskId") is not None:
+                    raise ValueError("retry_ready→creating 은 taskId=None 강제 (B4-03)")
+                generation += 1
+            if not candidate.get("leaseOwner") or not candidate.get("leaseExpiresAt"):
+                raise ValueError("creating 전이는 leaseOwner/leaseExpiresAt 필수")
+            # requestKey 는 **이 transaction 안에서** 새 generation 으로 만든다 (H5-03).
+            # caller 가 준 값은 무시 — 옛 generation 의 멱등키가 새 세대에 새면
+            # 벤더가 이전 결과를 그대로 돌려준다.
+            candidate["requestKey"] = f"{job_id}:gen{generation}"
+
+        outbox_seq = int(job.get("outboxSeq") or 0) + 1
+        candidate.update(
+            {
+                "generation": generation,
+                "outboxSeq": outbox_seq,
+                "nextAction": next_action,
+                "dispatchState": None if new_state == "creating" else "pending",
+                "nextDispatchAtMs": 0
+                if new_state == "creating"
+                else int(next_dispatch_at_ms if next_dispatch_at_ms is not None else now),
+                # 새 outboxSeq → 다음 action 용 claim 필드 원자 clear (B6-01).
+                # claimedOutboxSeq 는 audit 로 남기되 새 seq 와 반드시 다르다(=이전 seq).
+                "claimState": None,
+                "claimOwner": None,
+                "claimLeaseExpiresAt": 0,
+                "updatedAtMs": now,
+            }
+        )
+        if new_state == "creating":
+            assert candidate["requestKey"].endswith(f":gen{candidate['generation']}")
+        transaction.set(ref, candidate)
+        return candidate
+
+    return _run_in_transaction(_tx)
+
+
+# ═══════════════ (3) claim — dict 4상태 ═══════════════
+
+
+def claim_visual_job_action(
+    job_id: str,
+    *,
+    generation: int,
+    action: str,
+    outbox_seq: int,
+    owner: str,
+    lease_ms: int,
+    now_ms: int,
+) -> dict:
+    """외부 side-effect **전** claim. 반환 `{"status", "job"}`.
+
+    status 4상태:
+      claimed    미claim 또는 same-seq lease 만료 → owner/lease 원자 갱신 후 실행 가능
+      busy       same-seq + 유효 lease → **정상 ACK 금지** (batchItemFailures 로 반납).
+                 정상 ACK 하면 중복 전달이 유료 action 을 두 번 태운다 (T-31-62)
+      stale      generation/action/outboxSeq 불일치 → 외부 0, 정상 ACK
+      completed  이미 다음 instance/terminal → 외부 0, 정상 ACK
+
+    **claimedOutboxSeq 단독 판정 금지** (B5-01): claimState/claimOwner/claimLeaseExpiresAt
+    를 함께 봐야 same-seq active(busy) 와 same-seq expired(재claim 가능) 가 구분된다.
+
+    반환 snapshot 은 owner handoff 의 **유일 출처**다 (B6-01) — 호출자는 claim 이전 job 을
+    action 이나 후속 CAS 에 재사용하지 않는다.
+
+    create action 은 claim 을 쓰지 않는다 — begin_visual_job_create 의 creating lease 특례.
+    """
+    def _tx(transaction):
+        ref = _doc(models.visual_job_doc_path(job_id))
+        job = _snap_dict(ref.get(transaction=transaction))
+        if job is None:
+            return {"status": "stale", "job": None}
+
+        cur_seq = int(job.get("outboxSeq") or 0)
+        cur_gen = int(job.get("generation") or 0)
+        if (
+            job.get("state") in models.VISUAL_TERMINAL_STATES
+            or cur_gen > int(generation)
+            or cur_seq > int(outbox_seq)
+        ):
+            return {"status": "completed", "job": job}
+        if cur_gen != int(generation) or cur_seq != int(outbox_seq) or job.get("nextAction") != action:
+            return {"status": "stale", "job": job}
+
+        claimed_seq = int(job.get("claimedOutboxSeq") or 0)
+        if (
+            claimed_seq == int(outbox_seq)
+            and job.get("claimOwner")
+            and int(job.get("claimLeaseExpiresAt") or 0) > int(now_ms)
+        ):
+            return {"status": "busy", "job": job}
+
+        updated = dict(job)
+        updated.update(
+            {
+                "claimedOutboxSeq": int(outbox_seq),
+                "claimState": "claimed",
+                "claimOwner": owner,
+                "claimLeaseExpiresAt": int(now_ms) + int(lease_ms),
+            }
+        )
+        transaction.update(
+            ref,
+            {
+                "claimedOutboxSeq": int(outbox_seq),
+                "claimState": "claimed",
+                "claimOwner": owner,
+                "claimLeaseExpiresAt": int(now_ms) + int(lease_ms),
+            },
+        )
+        return {"status": "claimed", "job": updated}
+
+    return _run_in_transaction(_tx)
+
+
+# ═══════════════ (4b) read ═══════════════
+
+
+def read_visual_job(job_id: str) -> dict | None:
+    """단순 get (side-effect 0). 31-10 producer preflight + janitor 가 사용 (7차 H7-03)."""
+    return _snap_dict(_doc(models.visual_job_doc_path(job_id)).get())
+
+
+# ═══════════════ (4c) begin_visual_job_create — create 전용 CAS ═══════════════
+
+
+def begin_visual_job_create(
+    job_id: str,
+    *,
+    expect_generation: int,
+    expect_outbox_seq: int,
+    now_ms: int,
+    owner: str,
+    lease_ms: int,
+    expect_next_action: str = "create",
+) -> dict:
+    """vendor create 전용 CAS (8차 B8-01). 반환 `{"status", "job"}`.
+
+    status 5상태:
+      acquired    creating 전이 완료 — **반환 snapshot 하나로 즉시 vendor create 1회**.
+                  future lease 를 다시 busy 로 판정해 no-op 하지 않는다(그러면 정상
+                  create 가 영영 안 나간다 — T-31-85). 2차 _advance(creating) 호출 없음
+      busy        다른 owner 가 유효 lease 보유
+      unconfirmed lease 만료 + taskId 부재 → **수동 판정**. 자동 재생성 금지 (B2-02):
+                  create 가 벤더에 도달했는지 알 수 없어 재시도가 이중 과금이 된다
+      resume      taskId 존재 → polling 재개
+      stale       generation/outboxSeq/nextAction 불일치 또는 terminal → 외부 0, 정상 ACK
+
+    create 는 claim CAS 를 쓰지 않는다 (B6-01): reserve/retry_ready snapshot 의 claim
+    필드가 clear 상태라 claim owner CAS 를 걸면 자기 자신에게 막힌다.
+    """
+    def _tx(transaction):
+        ref = _doc(models.visual_job_doc_path(job_id))
+        job = _snap_dict(ref.get(transaction=transaction))
+        if job is None:
+            return {"status": "stale", "job": None}
+        state = job.get("state")
+        if state in models.VISUAL_TERMINAL_STATES:
+            return {"status": "stale", "job": job}
+
+        if state == "creating":
+            if job.get("taskId"):
+                return {"status": "resume", "job": job}
+            if int(job.get("leaseExpiresAt") or 0) > int(now_ms):
+                # 유효 lease 보유 — 자기 owner 여도 busy 로 반납한다. stale(정상 ACK)로
+                # 두면 job 이 dispatcher 복구까지 멈추고, 재진입을 허용하면 벤더 create 가
+                # 두 번 나갈 여지가 생긴다. busy 는 visibility 뒤 재전달이라 둘 다 없다.
+                return {"status": "busy", "job": job}
+            return {"status": "unconfirmed", "job": job}
+
+        if (
+            state not in ("reserved", "retry_ready")
+            or int(job.get("generation") or 0) != int(expect_generation)
+            or int(job.get("outboxSeq") or 0) != int(expect_outbox_seq)
+            or job.get("nextAction") != expect_next_action
+            or int(job.get("nextDispatchAtMs") or 0) > int(now_ms)
+        ):
+            return {"status": "stale", "job": job}
+
+        generation = int(job.get("generation") or 1)
+        if state == "retry_ready":
+            generation += 1
+
+        # H9-03 고정 write set — 여기서 빠지는 필드가 있으면 옛 create 메시지가
+        # stale 로 죽지 않고 두 번째 vendor create 를 태운다.
+        updated = dict(job)
+        updated.update(
+            {
+                "state": "creating",
+                "generation": generation,
+                "taskId": None,
+                "leaseOwner": owner,
+                "leaseExpiresAt": int(now_ms) + int(lease_ms),
+                "requestKey": f"{job_id}:gen{generation}",
+                "outboxSeq": int(job.get("outboxSeq") or 0) + 1,
+                "nextAction": None,
+                "dispatchState": None,
+                "nextDispatchAtMs": 0,
+                "claimState": None,
+                "claimOwner": None,
+                "claimLeaseExpiresAt": 0,
+                "updatedAtMs": int(now_ms),
+            }
+        )
+        transaction.set(ref, updated)
+        return {"status": "acquired", "job": updated}
+
+    return _run_in_transaction(_tx)
+
+
+# ═══════════════ (5) mark dispatched ═══════════════
+
+
+def mark_visual_job_dispatched(
+    job_id: str,
+    *,
+    expect_action: str,
+    expect_outbox_seq: int,
+    expect_generation: int | None = None,
+) -> bool:
+    """SQS send 성공 후 'pending'→'sent' CAS (B4-01).
+
+    3중 CAS(generation+action+outboxSeq)여야 하는 이유: 이전 action 의 send 가 늦게
+    성공해 mark 를 던지면, 그 사이 job 이 다음 action 으로 전이했더라도 seq/action 이
+    달라 no-op 된다. seq 없이 하면 늦은 mark 가 새 continuation 의 pending 을 'sent' 로
+    덮어 dispatcher 가 영영 재발행하지 않는다 (T-31-56).
+    """
+    def _tx(transaction):
+        ref = _doc(models.visual_job_doc_path(job_id))
+        job = _snap_dict(ref.get(transaction=transaction))
+        if job is None:
+            return False
+        if job.get("dispatchState") != "pending":
+            return False
+        if expect_generation is not None and int(job.get("generation") or 0) != int(expect_generation):
+            return False
+        if job.get("nextAction") != expect_action:
+            return False
+        if int(job.get("outboxSeq") or 0) != int(expect_outbox_seq):
+            return False
+        transaction.update(ref, {"dispatchState": "sent"})
+        return True
+
+    return _run_in_transaction(_tx)
+
+
+# ═══════════════ (6) dispatcher — 이중 durable cursor ═══════════════
+
+
+def _save_scan_cursor(cursor_path: str, last_id: str | None) -> None:
+    _doc(cursor_path).set({"lastId": last_id, "updatedAtMs": _now_ms()}, merge=True)
+
+
+def _scan_cycle(field_value: str, cursor_path: str, max_scan: int) -> tuple[list, bool, bool]:
+    """등가 쿼리 1개 + __name__ 정렬 + durable cursor 순환 스캔.
+
+    **복합 인덱스 금지 이유** (STATE.md phase-33 3f6681f 선례): 등가(dispatchState==)와
+    range(nextDispatchAtMs<=) 를 한 쿼리에 섞으면 Firestore 가 composite index 를 요구하고
+    운영에서 FAILED_PRECONDITION 으로 죽는다. 그래서 등가만 서버에 맡기고 due 판정은
+    python 에서 한다.
+
+    **cursor 순환이 필요한 이유** (H4-08): 매번 앞에서 N개만 보면 앞쪽 문서가 계속 잡혀
+    뒤쪽이 영구 starvation 된다. durable cursor 로 이어 스캔하고 끝에서 wrap 하면
+    max_scan 을 넘는 backlog 도 여러 호출에 걸쳐 전량 drain 된다.
+    """
+    cursor_ref = _doc(cursor_path)
+    last_id = (_snap_dict(cursor_ref.get()) or {}).get("lastId")
+
+    def _query(start_after_id):
+        q = _collection(_VISUAL_JOBS_COLLECTION).where(
+            filter=_field_filter("dispatchState", "==", field_value)
+        )
+        q = q.order_by("__name__")
+        if start_after_id:
+            q = _query_start_after_name(q, _VISUAL_JOBS_COLLECTION, start_after_id)
+        return q
+
+    scanned = list(_query(last_id).limit(max_scan).stream())
+    wrapped = False
+    if len(scanned) < max_scan and last_id:
+        seen = {s.id for s in scanned}
+        for snap in _query(None).limit(max_scan - len(scanned)).stream():
+            if snap.id in seen:
+                continue
+            scanned.append(snap)
+        wrapped = True
+
+    truncated = len(scanned) >= max_scan
+    return scanned, truncated, wrapped
+
+
+def list_dispatch_pending(now_ms: int, *, limit: int = 20, max_scan: int = 1000) -> dict:
+    """dispatcher 가 발행할 항목 목록. 두 종류를 한 번에 돌려준다.
+
+    (a) pending — dispatchState=='pending' 이면서 due(nextDispatchAtMs<=now). CAS 는
+        성공했는데 SQS send 가 유실된 경우가 여기로 복구된다.
+    (b) sent-recovery — dispatchState=='sent' 인데
+        `claimedOutboxSeq==outboxSeq AND claimState=='claimed' AND
+         0 < claimLeaseExpiresAt <= now_ms AND state nonterminal`.
+        **claim 직후 crash 의 durable 복구 주체다** (5차 B5-01 + 6차 H6-01). "재전달
+        no-op 멱등" 만으로는 복구되지 않는다 — 아무도 재전달을 만들어주지 않기 때문.
+        정확 필터라 미claim sent(lease 0)나 구 seq claim 은 재발행하지 않는다(정상 sent
+        재발행 0). dispatchState 를 pending 으로 되돌리지 않는다.
+
+    pending/sent 는 **독립 durable cursor** 로 순환한다 (H5-06/H6-01) — cursor 를 공유하면
+    한쪽이 다른 쪽을 굶긴다. 두 종류가 서로를 굶기지 않도록 각각 limit 만큼 담는다.
+
+    Returns:
+      items: [{jobId, nextAction, generation, outboxSeq, state, recovery}]
+      scanned_outbox_max_age_ms: **스캔 window 안** due 항목의 최고 경과 (M6-01 —
+        전체 backlog 최고령이 아니다. 알람 해석 시 truncated 와 함께 봐야 한다)
+      truncated: pending 스캔이 max_scan 에 도달 (backlog 초과 신호 — 31-10 alarm)
+      cursor_wrapped: 순환 wrap 발생
+    """
+    pending, truncated, wrapped = _scan_cycle(
+        "pending", models.visual_dispatch_cursor_doc_path(), max_scan
+    )
+
+    due = []
+    max_age = 0
+    for snap in pending:
+        data = snap.to_dict()
+        at = int(data.get("nextDispatchAtMs") or 0)
+        if at > int(now_ms):
+            continue
+        max_age = max(max_age, int(now_ms) - at)
+        due.append((at, snap.id, data))
+    due.sort(key=lambda r: r[0])
+
+    emitted = due[:limit]
+    items = [
+        {
+            "jobId": job_id,
+            "nextAction": data.get("nextAction"),
+            "generation": int(data.get("generation") or 0),
+            "outboxSeq": int(data.get("outboxSeq") or 0),
+            "state": data.get("state"),
+            "recovery": False,
+        }
+        for _at, job_id, data in emitted
+    ]
+    # cursor 는 **실제로 발행한** 마지막 문서까지만 전진시킨다 (H4-08). 스캔한 끝까지
+    # 밀면 window 당 limit 개만 발행되고 나머지 (max_scan - limit) 개는 매 순환마다
+    # 같은 자리에서 다시 건너뛰어져 영구 starvation 된다 — backlog 전량 drain 불가.
+    _save_scan_cursor(
+        models.visual_dispatch_cursor_doc_path(),
+        max((job_id for _at, job_id, _d in emitted), default=(pending[-1].id if pending else None)),
+    )
+
+    sent, _sent_truncated, sent_wrapped = _scan_cycle(
+        "sent", models.visual_dispatch_sent_cursor_doc_path(), max_scan
+    )
+    recovered_ids: list[str] = []
+    for snap in sent:
+        if len(recovered_ids) >= limit:
+            break
+        data = snap.to_dict()
+        lease = int(data.get("claimLeaseExpiresAt") or 0)
+        if data.get("state") in models.VISUAL_TERMINAL_STATES:
+            continue
+        if data.get("claimState") != "claimed":
+            continue
+        if int(data.get("claimedOutboxSeq") or 0) != int(data.get("outboxSeq") or 0):
+            continue
+        if not (0 < lease <= int(now_ms)):
+            continue
+        items.append(
+            {
+                "jobId": snap.id,
+                "nextAction": data.get("nextAction"),
+                "generation": int(data.get("generation") or 0),
+                "outboxSeq": int(data.get("outboxSeq") or 0),
+                "state": data.get("state"),
+                "recovery": True,
+            }
+        )
+        recovered_ids.append(snap.id)
+
+    _save_scan_cursor(
+        models.visual_dispatch_sent_cursor_doc_path(),
+        max(recovered_ids, default=(sent[-1].id if sent else None)),
+    )
+
+    return {
+        "items": items,
+        "scanned_outbox_max_age_ms": max_age,
+        "truncated": truncated,
+        "cursor_wrapped": bool(wrapped or sent_wrapped),
+    }
+
+
+# ═══════════════ (4) finalize — 유일한 terminal 경로 ═══════════════
+
+
+def _assert_visual_key_prefix(key: str, uid: str, analysis_id: str) -> None:
+    prefix = f"results/{uid}/{analysis_id}/"
+    if not key.startswith(prefix):
+        raise ValueError(f"visual key 는 {prefix!r} prefix 필수 (H-02): got {key!r}")
+
+
+def finalize_visual_job(
+    job_id: str,
+    *,
+    terminal_state: str,
+    failure_reason: str | None,
+    job_meta: dict | None,
+    display_status: str,
+    expect_states,
+    key: str | None = None,
+    joint: str | None = None,
+    cleanup_verified_at_ms: int | None = None,
+    expect_generation: int | None = None,
+    expect_outbox_seq: int | None = None,
+    expect_claim_owner: str | None = None,
+    now_ms: int | None = None,
+) -> str:
+    """job terminal + analysis 표시 상태를 **하나의 multi-document transaction** 으로.
+
+    둘을 나누면 사이의 crash 가 "job 은 done 인데 앱은 영원히 pending" 을 만든다
+    (T-31-57). uid/analysisId/kind 는 **caller 인자가 아니라 job 문서에서 파생**한다 —
+    caller 가 틀린(또는 악의적인) analysisId 를 넣어도 남의 분석을 건드릴 수 없다 (H4-07).
+
+    Returns: 'finalized' | 'stale'(CAS 실패 no-op) | 'orphaned_analysis'
+
+    Raises:
+      ValueError: 모순 조합, correctedPose privacy gate 위반, key prefix 위반.
+    """
+    if terminal_state not in models.VISUAL_TERMINAL_STATES:
+        raise ValueError("terminal_state must be 'done' or 'failed'")
+    if display_status not in models.VISUAL_STATUSES:
+        raise ValueError(f"display_status must be one of {list(models.VISUAL_STATUSES)}")
+    meta = dict(job_meta or {})
+    # privacy 필드는 dedicated 파라미터로만 (8차 B8-03) — job_meta 우회로 지우면
+    # 재확인 없이 blocker 가 사라진다.
+    for banned in ("privacyBlocker", "cleanupVerifiedAtMs"):
+        if banned in meta:
+            raise ValueError(f"job_meta 로 {banned} 지정 금지 — dedicated parameter 사용")
+    if meta:
+        _validate_dict_only_scalars(meta, path="job_meta")
+
+    # 모순 조합 거부 — 표시와 실제가 어긋난 terminal 을 애초에 못 쓰게 한다.
+    if terminal_state == "done":
+        if display_status != models.VISUAL_STATUS_DONE:
+            raise ValueError("terminal 'done' 은 display_status='done' 필수")
+        if not key:
+            raise ValueError("terminal 'done' 은 canonical key 필수")
+        if failure_reason is not None:
+            raise ValueError("terminal 'done' 은 failure_reason=None 필수")
+    else:
+        if display_status != models.VISUAL_STATUS_FAILED:
+            raise ValueError("terminal 'failed' 는 display_status='failed' 필수")
+        if key is not None:
+            raise ValueError("terminal 'failed' 는 canonical key 금지")
+        if failure_reason not in models.VISUAL_FAILURE_REASONS:
+            raise ValueError(
+                f"failure_reason must be one of {list(models.VISUAL_FAILURE_REASONS)}"
+            )
+
+    now = int(now_ms if now_ms is not None else _now_ms())
+
+    def _tx(transaction):
+        job_ref = _doc(models.visual_job_doc_path(job_id))
+        job = _snap_dict(job_ref.get(transaction=transaction))
+        if job is None:
+            return "stale"
+        if job.get("state") not in tuple(expect_states):
+            return "stale"
+        if expect_generation is not None and int(job.get("generation") or 0) != int(expect_generation):
+            return "stale"
+        if expect_outbox_seq is not None and int(job.get("outboxSeq") or 0) != int(expect_outbox_seq):
+            return "stale"
+        if expect_claim_owner is not None:
+            if job.get("claimOwner") != expect_claim_owner:
+                return "stale"
+            if expect_outbox_seq is not None and int(job.get("claimedOutboxSeq") or 0) != int(
+                expect_outbox_seq
+            ):
+                return "stale"
+            if now >= int(job.get("claimLeaseExpiresAt") or 0):
+                return "stale"
+
+        uid = job.get("uid")
+        analysis_id = job.get("analysisId")
+        kind = job.get("kind")
+        analysis_ref = _doc(models.analysis_doc_path(uid, analysis_id))
+        analysis = _snap_dict(analysis_ref.get(transaction=transaction))
+
+        # cleanup 시각 기록과 terminal 전이는 **같은 transaction** 이어야 한다 (7차 B7-03).
+        # job_meta 로만 넘기면 validator 가 기존 문서(0)를 읽어 항상 ValueError 났다.
+        candidate = dict(job)
+        candidate.update(meta)
+        candidate["state"] = terminal_state
+        candidate["failureReason"] = failure_reason
+        if cleanup_verified_at_ms is not None and int(cleanup_verified_at_ms) > 0:
+            candidate["cleanupVerifiedAtMs"] = int(cleanup_verified_at_ms)
+            candidate["privacyBlocker"] = None  # B8-03 — clear+terminal 원자 완성.
+        elif job.get("privacyBlocker") is not None:
+            raise ValueError(
+                "privacyBlocker 존재 — cleanup_verified_at_ms 재확인 없이 terminal 금지"
+            )
+
+        # ★ correctedPose privacy gate — **unconditional** (8차 B8-02).
+        # 'inputSealed==True 이면' 같은 조건부로 쓰면 inputSealed=False 인 job(예: 예약
+        # 직후 문서)이 게이트를 통째로 건너뛰어 cleanup 없이 terminal 이 된다 (T-31-86).
+        # done/failed 공통이다 — 실패해도 임시 생체 프레임은 지워져야 한다.
+        if kind == models.VISUAL_KIND_CORRECTED_POSE:
+            if candidate.get("inputSealed") is not True:
+                raise ValueError("correctedPose terminal 은 inputSealed=True 필수 (B8-02)")
+            if int(candidate.get("cleanupVerifiedAtMs") or 0) <= 0:
+                raise ValueError("correctedPose terminal 은 cleanupVerifiedAtMs>0 필수 (B8-02)")
+            if candidate.get("privacyBlocker") is not None:
+                raise ValueError("correctedPose terminal 은 privacyBlocker=None 필수 (B8-02)")
+
+        if key is not None:
+            _assert_visual_key_prefix(key, uid, analysis_id)
+
+        job_write = dict(meta)
+        job_write.update(
+            {
+                "state": terminal_state,
+                "failureReason": failure_reason,
+                "nextAction": None,
+                "dispatchState": None,
+                "updatedAtMs": now,
+            }
+        )
+        if "cleanupVerifiedAtMs" in candidate:
+            job_write["cleanupVerifiedAtMs"] = candidate["cleanupVerifiedAtMs"]
+        job_write["privacyBlocker"] = candidate.get("privacyBlocker")
+
+        if analysis is None:
+            # 표시할 곳이 없다 — job 만 typed 실패로 닫고 reconciler 에 넘긴다.
+            transaction.update(
+                job_ref,
+                {
+                    "state": "failed",
+                    "failureReason": "orphaned_analysis",
+                    "nextAction": None,
+                    "dispatchState": None,
+                    "updatedAtMs": now,
+                },
+            )
+            return "orphaned_analysis"
+
+        transaction.update(job_ref, job_write)
+        analysis_update = {
+            f"result.{kind}Status": display_status,
+            f"result.{kind}UpdatedAtMs": now,
+        }
+        if terminal_state == "done":
+            analysis_update[f"result.{_visual_key_field(kind)}"] = key
+            if kind == models.VISUAL_KIND_CORRECTED_POSE and joint is not None:
+                analysis_update["result.correctedPoseJoint"] = joint
+        # 분석 공용 top-level updatedAt 은 건드리지 않는다 — 시각물은 표현물이라
+        # 분석 자체의 갱신 시각을 흔들면 안 된다 (D-03 경계).
+        transaction.update(analysis_ref, analysis_update)
+        return "finalized"
+
+    return _run_in_transaction(_tx)
+
+
+def _visual_key_field(kind: str) -> str:
+    """canonical key 필드명. 31-04 TS 측과 lockstep."""
+    return "correctedPoseKey" if kind == models.VISUAL_KIND_CORRECTED_POSE else "rotationVideoKey"
+
+
+# ═══════════════ (7) 운영 reconciler 전용 ═══════════════
+
+
+def update_analysis_visual(
+    uid: str,
+    analysis_id: str,
+    kind: str,
+    *,
+    status: str,
+    key: str | None = None,
+    joint: str | None = None,
+) -> None:
+    """terminal reconciler(31-09 운영 스크립트) **전용**.
+
+    production worker 경로에서 호출 금지 — job 문서를 건너뛰고 표시 상태만 바꾸면
+    finalize 의 원자성이 깨진다. 31-09 acceptance 가 grep 으로 강제한다.
+
+    URL 파라미터가 없다는 점이 계약이다 (H-02/H3-01): Firestore 에는 canonical key 만
+    저장하고 presigned URL 은 인증 재서명 경로에서만 만든다.
+    """
+    if kind not in models.VISUAL_JOB_KINDS:
+        raise ValueError(f"kind must be one of {list(models.VISUAL_JOB_KINDS)}")
+    if status not in models.VISUAL_STATUSES:
+        raise ValueError(f"status must be one of {list(models.VISUAL_STATUSES)}")
+    if key is not None:
+        _assert_visual_key_prefix(key, uid, analysis_id)
+    update = {
+        f"result.{kind}Status": status,
+        f"result.{kind}UpdatedAtMs": _now_ms(),
+    }
+    if key is not None:
+        update[f"result.{_visual_key_field(kind)}"] = key
+    if joint is not None and kind == models.VISUAL_KIND_CORRECTED_POSE:
+        update["result.correctedPoseJoint"] = joint
+    # top-level updatedAt 미갱신 (D-03 경계).
+    _doc(models.analysis_doc_path(uid, analysis_id)).update(update)

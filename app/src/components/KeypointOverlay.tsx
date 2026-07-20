@@ -211,6 +211,17 @@ function readFrameAxis(
   return { points, hasKnee };
 }
 
+// [fix 2026-07-21] Wave 1(정적) 렌더용 no-op 이벤트 소스 — useEvent 는 1st arg 가
+// null 이면 내부 addListener 호출에서 크래시한다. 구독 인터페이스만 흉내내는 상수를
+// 모듈 레벨에 두어 참조 안정성(리렌더마다 재구독 방지)도 함께 확보한다.
+const NOOP_EVENT_SOURCE = {
+  addListener: () => ({ remove: () => {} }),
+  removeListener: () => {},
+  removeAllListeners: () => {},
+  emit: () => {},
+  listenerCount: () => 0,
+};
+
 export function KeypointOverlay({
   player,
   keypointReport,
@@ -238,8 +249,17 @@ export function KeypointOverlay({
   //
   // useEvent 1st arg 타입은 EventEmitter<TEventsMap> — VideoPlayer 가 그 shape
   // 을 구현하지만 expo 의 public 타입에 명시적 변환이 필요. unknown 경유 cast.
+  //
+  // [fix 2026-07-21] Wave 1(정적, player 미전달) 크래시 — useEvent 는 1st arg 에
+  // null 이 오면 내부 addListener 호출에서 죽는다 (Render Error: Cannot read
+  // property 'addListener' of null, PoseCompareFrames 정적 소비에서 실측). 문서상
+  // "Wave 1 = player 생략" 지원이었지만 실제 정적 소비처가 지금까지 없어 잠복했다.
+  // player 부재 시 no-op emitter 를 대신 넘겨 hook 순서를 유지한다 — 이벤트는
+  // 오지 않고 initial value 만 쓰이므로 정적 렌더 의미 그대로.
   const timeUpdate = useEvent(
-    (player ?? null) as unknown as Parameters<typeof useEvent>[0],
+    (player ?? NOOP_EVENT_SOURCE) as unknown as Parameters<
+      typeof useEvent
+    >[0],
     'timeUpdate',
     { currentTime: player?.currentTime ?? 0 } as Parameters<typeof useEvent>[2],
   ) as { currentTime: number } | null;

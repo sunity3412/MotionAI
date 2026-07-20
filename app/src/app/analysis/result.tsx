@@ -2098,6 +2098,42 @@ function AnalysisResultContent({
           userPose={viewerUserPose}
           refPose={viewerRefPose}
           jointKeys={viewerJointKeys}
+          // 2026-07-21 belle 결정 ("사람이 나와야지") — 스켈레톤 대신 비교 순간의
+          // 실제 영상 프레임. URL 은 동작 비교(VideoCompare)와 같은 재발급 우선
+          // 사다리(WR-03/D-09). 시각 = kr 공간 인덱스 / kr.fps — joints3d(9fps)
+          // 공간과 섞지 않는다 (2026-07-20 프레임 시점 버그 재발 방지).
+          poseFrames={
+            compareFrames
+              ? {
+                  user: {
+                    url: freshMyUrl || result.myVideoUrl || undefined,
+                    timeSec:
+                      compareFrames.userIdx /
+                      (result.keypointReport?.fps || 9),
+                    report: userKeypointReport,
+                    frameIdx: compareFrames.userIdx,
+                    label: '내 자세',
+                  },
+                  reference: {
+                    url:
+                      freshRefUrl ||
+                      result.referenceVideoUrl ||
+                      refMotion?.videoUrl ||
+                      undefined,
+                    timeSec:
+                      compareFrames.refIdx /
+                      (referenceKeypointReport?.fps || 18),
+                    report: referenceKeypointReport,
+                    frameIdx: compareFrames.refIdx,
+                    label:
+                      cmp.mode === 'mode1'
+                        ? `${cmp.athleteName} 선수`
+                        : '목표 자세',
+                  },
+                  videoSize: overlayVideoSize,
+                }
+              : null
+          }
         />
 
         {/* ── quick-260705-o0s: 참고 지표 (구 '세부 점수', 맨 아래 강등) ──────

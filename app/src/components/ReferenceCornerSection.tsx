@@ -27,6 +27,7 @@
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PoseCompareFrames, type PoseFrameSlot } from './PoseCompareFrames';
 import { PoseCompareViewer } from './PoseCompareViewer';
 import { colors, layout, radius, spacing, typography } from '../theme';
 
@@ -48,6 +49,7 @@ export function ReferenceCornerSection({
   userPose,
   refPose,
   jointKeys,
+  poseFrames,
 }: {
   correctedPoseState: ReferenceCardState;
   /** 재서명된 fresh URL (caller 가 playback-url asset 으로 발급). */
@@ -66,6 +68,16 @@ export function ReferenceCornerSection({
   userPose: number[][] | null;
   refPose: number[][] | null;
   jointKeys: string[];
+  /**
+   * 2026-07-21 belle 결정 ("사람이 나와야지") — 비교 순간의 실제 영상 프레임 쌍.
+   * 양쪽 url 이 있으면 스켈레톤 대신 실프레임(PoseCompareFrames)을 그린다.
+   * 없거나 한쪽 url 이 비면 기존 스켈레톤 뷰어 폴백 (조용한 폴백, D-08).
+   */
+  poseFrames?: {
+    user: PoseFrameSlot;
+    reference: PoseFrameSlot;
+    videoSize: { width: number; height: number };
+  } | null;
 }) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태가 아니다.
   // 훅은 조건부 호출이 불가하므로 항상 호출하고 URL 유무로 제어한다
@@ -83,6 +95,10 @@ export function ReferenceCornerSection({
   // 스켈레톤을 "비교"라고 부르며 보여주는 것보다 숨기는 편이 정직하다.
   const showViewer =
     userPose != null && refPose != null && jointKeys.length > 0;
+  // 실프레임은 양쪽 영상 URL 이 있을 때만 — 한쪽만 사람이 나오는 "비교"는 성립하지
+  // 않으므로(정직한 강등) 그 경우 스켈레톤 뷰어로 폴백한다.
+  const framesReady =
+    poseFrames != null && !!poseFrames.user.url && !!poseFrames.reference.url;
   const showRotation = rotationState !== 'hidden';
 
   // 셋 다 숨김이면 섹션 헤더만 남아 빈 껍데기가 된다 → 섹션 자체를 렌더하지 않음.
@@ -136,24 +152,43 @@ export function ReferenceCornerSection({
       {showViewer && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>자세 비교</Text>
-          <Text style={styles.caption}>
-            내 자세와 목표 자세를 겹쳐 보여드려요
-          </Text>
-          <PoseCompareViewer
-            userPose={userPose}
-            refPose={refPose}
-            jointKeys={jointKeys}
-          />
-          <View style={styles.legendRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, styles.legendSwatchUser]} />
-              <Text style={styles.legendText}>내 자세</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, styles.legendSwatchTarget]} />
-              <Text style={styles.legendText}>목표 자세</Text>
-            </View>
-          </View>
+          {framesReady && poseFrames ? (
+            <>
+              <Text style={styles.caption}>
+                점수에 반영된 비교 순간의 실제 화면이에요
+              </Text>
+              <PoseCompareFrames
+                user={poseFrames.user}
+                reference={poseFrames.reference}
+                videoSize={poseFrames.videoSize}
+              />
+            </>
+          ) : (
+            <>
+              <Text style={styles.caption}>
+                내 자세와 목표 자세를 겹쳐 보여드려요
+              </Text>
+              <PoseCompareViewer
+                userPose={userPose}
+                refPose={refPose}
+                jointKeys={jointKeys}
+              />
+              <View style={styles.legendRow}>
+                <View style={styles.legendItem}>
+                  <View
+                    style={[styles.legendSwatch, styles.legendSwatchUser]}
+                  />
+                  <Text style={styles.legendText}>내 자세</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View
+                    style={[styles.legendSwatch, styles.legendSwatchTarget]}
+                  />
+                  <Text style={styles.legendText}>목표 자세</Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
       )}
 

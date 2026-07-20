@@ -25,9 +25,15 @@ import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
+import { ReferenceCornerSection } from '../../components/ReferenceCornerSection';
+import type {
+  ReferenceCardState,
+  RotationCardState,
+} from '../../components/ReferenceCornerSection';
 import { normalizeMotionAlignment } from '../../lib/alignmentWarp';
 import {
   ANGLE_VS_REFERENCE_PREFIX,
+  JOINT_LABEL_KO,
   KEYPOINT_FROM_ANGLE_KEY,
   REGION_MEMBER_KEYPOINTS,
   buildDeductionMarkers,
@@ -40,10 +46,27 @@ import {
   isCleanPass,
   projectDeductionRecordKeypoints,
 } from '../../lib/deductionLabels';
-import { useReferenceMotion } from '../../lib/referenceMotions';
+import { reshapePose3dData } from '../../lib/joints';
+import {
+  useReferenceMotion,
+  useReferenceMotionDoc,
+} from '../../lib/referenceMotions';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
-import { requestPlaybackUrl, requestReferencePlaybackUrl } from '../../lib/api';
+import {
+  fetchVisualAssetUrl,
+  requestPlaybackUrl,
+  requestReferencePlaybackUrl,
+  requestRotationVideo,
+} from '../../lib/api';
+import {
+  CORRECTED_POSE_PENDING_TIMEOUT_MS,
+  ROTATION_PENDING_TIMEOUT_MS,
+  isDailyLimit,
+  mapFrameIdx,
+  pickCompareFrames,
+  visualCardState,
+} from '../../lib/visualCards';
 import {
   DIMENSION_LABEL_KO,
   DIMENSION_ORDER,
@@ -673,6 +696,209 @@ function AnalysisResultContent({
   const { motion: refMotion } = useReferenceMotion(
     cmp.mode === 'mode1' ? cmp.referenceMotionId : undefined,
   );
+
+  // ── Phase 31 참고코너 (D-06/D-08/D-09/D-10) ────────────────────────────
+  // 훅은 전부 무조건 호출한다 (리뷰 M-04) — mode 분기 안에서 훅을 부르면 mode1↔mode3
+  // 사이에서 훅 순서가 달라져 React 가 상태를 잘못 연결한다. 분기는 훅에 넘기는
+  // '인자'로만 표현한다.
+  //
+  // 신규 setInterval/폴링 0 (D-06 amended, belle option B) — 카드 갱신은 전적으로
+  // useAnalysisDoc 의 onSnapshot 재렌더가 담당한다. 백그라운드 푸시 알림은 이번
+  // phase 범위 밖이며, 사용자는 결과 화면을 다시 열어 완료를 확인한다.
+  const nowMs = Date.now();
+
+  // 교정 자세 이미지: 상태는 전용 correctedPoseUpdatedAtMs 로만 판정한다 (리뷰 H-06).
+  // 공용 updatedAt 은 무관한 write 로도 갱신돼 pending 수명을 잘못 늘린다.
+  const correctedPoseDerived = visualCardState(
+    result.correctedPoseStatus,
+    result.correctedPoseUpdatedAtMs,
+    nowMs,
+    CORRECTED_POSE_PENDING_TIMEOUT_MS,
+  );
+  const rotationDerived = visualCardState(
+    result.rotationStatus,
+    result.rotationUpdatedAtMs,
+    nowMs,
+    ROTATION_PENDING_TIMEOUT_MS,
+  );
+
+  // 표시 URL 은 Firestore 문서가 아니라 매번 재서명으로 받는다 (리뷰 H-02).
+  // nonce 를 올리면 effect 가 다시 돌아 새 URL 을 발급한다 (만료 복구 경로).
+  const [correctedPoseUrl, setCorrectedPoseUrl] = useState<string | null>(null);
+  const [correctedPoseNonce, setCorrectedPoseNonce] = useState(0);
+  const [correctedPoseRetried, setCorrectedPoseRetried] = useState(false);
+  const [rotationUrl, setRotationUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (correctedPoseDerived !== 'done') {
+      setCorrectedPoseUrl(null);
+      return;
+    }
+    let alive = true;
+    fetchVisualAssetUrl(analysisId, 'correctedPose')
+      .then((url) => {
+        if (alive) setCorrectedPoseUrl(url);
+      })
+      // 조용한 폴백 (D-08): 재서명 실패는 사용자에게 노출하지 않는다. URL 이 없으면
+      // 카드가 로딩 자리표시로 남고 에러 문구는 뜨지 않는다.
+      .catch(() => {
+        if (alive) setCorrectedPoseUrl(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [correctedPoseDerived, analysisId, correctedPoseNonce]);
+
+  useEffect(() => {
+    if (rotationDerived !== 'done') {
+      setRotationUrl(null);
+      return;
+    }
+    let alive = true;
+    fetchVisualAssetUrl(analysisId, 'rotation')
+      .then((url) => {
+        if (alive) setRotationUrl(url);
+      })
+      .catch(() => {
+        if (alive) setRotationUrl(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [rotationDerived, analysisId]);
+
+  // 만료/403 복구는 1회로 제한한다. 상한이 없으면 영구 실패하는 URL 에서
+  // onError → 재발급 → onError 무한 루프가 돈다.
+  const onCorrectedPoseImageError = () => {
+    if (correctedPoseRetried) return;
+    setCorrectedPoseRetried(true);
+    setCorrectedPoseNonce((n) => n + 1);
+  };
+
+  // 회전 영상 온디맨드 요청 (D-06).
+  const [rotationBusy, setRotationBusy] = useState(false);
+  const [rotationJustRequested, setRotationJustRequested] = useState(false);
+  const [rotationLimitNotice, setRotationLimitNotice] = useState<
+    string | undefined
+  >(undefined);
+
+  const onRequestRotation = async () => {
+    if (rotationBusy) return;
+    setRotationBusy(true);
+    setRotationLimitNotice(undefined);
+    try {
+      await requestRotationVideo(analysisId);
+      // 낙관적 pending — 실제 동기화는 onSnapshot 이 한다.
+      setRotationJustRequested(true);
+    } catch (e) {
+      // 한도 초과만 사용자에게 알린다 (인라인 1줄). code 로만 분기 —
+      // message 문자열 파싱 금지 (리뷰 M-05).
+      if (isDailyLimit(e)) {
+        setRotationLimitNotice(
+          '오늘 만들 수 있는 참고 영상을 모두 사용했어요. 내일 다시 시도할 수 있어요.',
+        );
+      }
+      // feature_disabled / 네트워크 / 기타 → 조용히 버튼만 원복 (D-08).
+      // "기능이 불안하다"는 인상을 남기지 않는다.
+    } finally {
+      setRotationBusy(false);
+    }
+  };
+
+  const correctedPoseState: ReferenceCardState =
+    correctedPoseDerived === 'hidden'
+      ? 'hidden'
+      : correctedPoseDerived === 'pending'
+        ? 'pending'
+        : correctedPoseUrl
+          ? 'ready'
+          : 'loading';
+
+  const rotationState: RotationCardState =
+    result.rotationStatus === undefined
+      ? // 아직 요청 전 (legacy/미요청) — 온디맨드 기능의 진입점이므로 버튼을 보여준다.
+        'requestable'
+      : result.rotationStatus === 'failed'
+        ? // 실패는 숨김. 모더레이션 차단은 재시도해도 대개 다시 막히고 과금만 든다 (D-08).
+          'hidden'
+        : rotationDerived === 'hidden'
+          ? // pending 타임아웃 — 'failed' 와 달리 잡이 유실됐을 뿐이므로 다시 요청할 수
+            // 있게 둔다. 여기서 'hidden' 으로 두면 이 분석 건에서 회전 영상 기능이
+            // 영구히 사라진다 (서버가 dedupe 하므로 중복 과금 위험은 낮다).
+            'requestable'
+          : rotationDerived === 'pending' || rotationJustRequested
+            ? 'pending'
+            : rotationUrl
+              ? 'ready'
+              : 'pending';
+
+  // 비교 뷰어 데이터 — mode3 는 targetRefId=null 로 내려 뷰어가 자연히 숨겨진다.
+  // 정직한 강등(Pitfall 6): DTW 대응은 mode1 reference 에만 성립하므로, 학생 자세만
+  // 그려놓고 "비교"라 부르지 않는다.
+  const targetRefId = cmp.mode === 'mode1' ? cmp.referenceMotionId : null;
+  const refDoc = useReferenceMotionDoc(targetRefId);
+
+  const compareFrames = useMemo(
+    () => pickCompareFrames(result.faultZoomComparisons),
+    [result.faultZoomComparisons],
+  );
+
+  const userJoints3d = useMemo(
+    () =>
+      reshapePose3dData(
+        result.joints3d,
+        result.joints3dKeys,
+        result.joints3dFrames,
+      ),
+    [result.joints3d, result.joints3dKeys, result.joints3dFrames],
+  );
+
+  // 프레임 인덱스는 keypointReport(9fps angles) 공간이라 joints3d 공간으로 환산한다.
+  // anglesFrames 부재(구 doc)면 두 공간이 같다고 보고 항등 매핑한다.
+  const { viewerUserPose, viewerRefPose, viewerJointKeys } = useMemo(() => {
+    const empty = {
+      viewerUserPose: null as number[][] | null,
+      viewerRefPose: null as number[][] | null,
+      viewerJointKeys: [] as string[],
+    };
+    if (!compareFrames || !userJoints3d || userJoints3d.length === 0) return empty;
+    const refFrames = refDoc.joints3d;
+    if (!refFrames || refFrames.length === 0) return empty;
+
+    const userKeys = result.joints3dKeys ?? refDoc.jointKeys;
+    const refKeys = refDoc.jointKeys ?? result.joints3dKeys;
+    if (!userKeys || !refKeys) return empty;
+    // 두 문서의 keypoint 순서가 다르면 같은 인덱스가 다른 관절을 가리킨다 —
+    // 뼈대가 엉뚱하게 이어진 스켈레톤을 그리느니 숨긴다 (31-08 reshape 강등과 동일 철학).
+    if (
+      userKeys.length !== refKeys.length ||
+      userKeys.some((k, i) => k !== refKeys[i])
+    ) {
+      return empty;
+    }
+
+    const srcFrames = anglesFrames ?? userJoints3d.length;
+    const uIdx = mapFrameIdx(compareFrames.userIdx, srcFrames, userJoints3d.length);
+    const rIdx = mapFrameIdx(compareFrames.refIdx, srcFrames, refFrames.length);
+    if (uIdx === null || rIdx === null) return empty;
+
+    return {
+      viewerUserPose: userJoints3d[uIdx] ?? null,
+      viewerRefPose: refFrames[rIdx] ?? null,
+      viewerJointKeys: userKeys,
+    };
+  }, [
+    compareFrames,
+    userJoints3d,
+    refDoc.joints3d,
+    refDoc.jointKeys,
+    result.joints3dKeys,
+    anglesFrames,
+  ]);
+
+  const correctedPoseJointLabel = result.correctedPoseJoint
+    ? JOINT_LABEL_KO[result.correctedPoseJoint]
+    : undefined;
 
   // refMotion.meanAngles 가 있으면 result.joints 의 targetAngle 을 정은지 실측
   // 평균으로 덮어쓴다 (예: 168° → 153.74°). 코칭팁 angleGuide 가 자동으로 정밀치
@@ -1807,6 +2033,27 @@ function AnalysisResultContent({
             )}
           </>
         )}
+
+        {/* ── Phase 31 (D-09): "참고하세요" 참고코너 ────────────────────────
+            배치 = 보완 운동 **아래**, 참고 지표 근처 (31-08 Task 1 belle 승인
+            option-a). 채점 관련 표면(점수카드·감점 내역·보완 운동)을 전부 지난
+            뒤에 오므로 "점수 비반영"이 레이아웃만 봐도 드러난다 — 이게 D-09 의
+            요구이고, 위로 올리면 비채점 생성물이 채점 근거처럼 읽힌다.
+            세 카드가 모두 숨김이면 컴포넌트가 스스로 null 을 반환한다. */}
+        <ReferenceCornerSection
+          correctedPoseState={correctedPoseState}
+          correctedPoseImageUrl={correctedPoseUrl ?? undefined}
+          correctedPoseJointLabel={correctedPoseJointLabel}
+          onCorrectedPoseImageError={onCorrectedPoseImageError}
+          rotationState={rotationState}
+          rotationVideoUrl={rotationUrl ?? undefined}
+          onRequestRotation={onRequestRotation}
+          rotationRequestBusy={rotationBusy}
+          limitNotice={rotationLimitNotice}
+          userPose={viewerUserPose}
+          refPose={viewerRefPose}
+          jointKeys={viewerJointKeys}
+        />
 
         {/* ── quick-260705-o0s: 참고 지표 (구 '세부 점수', 맨 아래 강등) ──────
             belle 3차 피드백 승인 순서 ⑦ — 각도 유사도(DTW)/안정성은 참고 지표이지

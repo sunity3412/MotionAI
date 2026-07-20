@@ -17,6 +17,13 @@ import { useMyAnalyses } from '../../lib/userAnalyses';
 import { dismissBodyProfilePrompt, useBodyProfile } from '../../lib/bodyProfile';
 import { BodyProfilePromptModal } from '../../components/BodyProfilePromptModal';
 import BodyProfileForm from '../../components/BodyProfileForm';
+import { PickErrorDialog } from '../../components/PickErrorDialog';
+import { describePickFailure } from '../../lib/pickerFailure';
+import type {
+  PickFailure,
+  PickFailureAction,
+  PickFailureKind,
+} from '../../lib/pickerFailure';
 import type { AnalysisMode } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
@@ -122,8 +129,11 @@ export default function Analyze() {
   const [mode, setMode] = useState<AnalysisMode | null>(
     referenceMotionId ? 'mode1' : null,
   );
-  const [error, setError] = useState<string | null>(null);
-  const [permissionBlocked, setPermissionBlocked] = useState(false);
+  // [hotfix 2026-07-20 / quick-260720-hn8] 실패 표시 단일 상태. 기존의 오류 문자열 +
+  // 권한차단 boolean 조합은 인라인 캡션으로만 렌더돼 실기기에서 사실상 보이지 않았고
+  // 해결책도 못 줬다 (belle: "분석조차 안 되면 안 되니까 해결방안을 알려줘야지").
+  // 이제 실패는 제목/본문/버튼을 담은 객체 하나로 수렴하고 PickErrorDialog 이 띄운다.
+  const [failure, setFailure] = useState<PickFailure | null>(null);
   const [busy, setBusy] = useState(false);
   // [WR-02] busy 최신값 미러 — 지연 재오픈 타이머 콜백이 stale closure 로 옛 busy 를
   // 읽지 않도록 ref 로 참조한다 (타이머 예약 후 [즉석 촬영] 으로 카메라 present 중이면
@@ -188,16 +198,18 @@ export default function Analyze() {
 
   const backToModeSelect = () => {
     setMode(null);
-    setError(null);
-    setPermissionBlocked(false);
+    setFailure(null);
   };
 
-  const validate = (asset: ImagePicker.ImagePickerAsset): string | null => {
+  // [quick-260720-hn8] 문구가 아니라 원인 종류만 반환한다 — 사용자 문구 소유권은
+  // pickerFailure.ts 단일점(해결단계까지 함께 관리). 화면은 종류→안내 변환만 한다.
+  const validate = (
+    asset: ImagePicker.ImagePickerAsset,
+  ): PickFailureKind | null => {
     const source = asset.fileName ?? asset.uri;
     const ext = source.split('.').pop()?.toLowerCase() ?? '';
-    if (!ALLOWED.includes(ext)) return 'mp4, mov 형식의 영상만 분석할 수 있어요.';
-    if (asset.fileSize != null && asset.fileSize > MAX_BYTES)
-      return '100MB 이하 영상만 분석할 수 있어요.';
+    if (!ALLOWED.includes(ext)) return 'format';
+    if (asset.fileSize != null && asset.fileSize > MAX_BYTES) return 'tooLarge';
     return null;
   };
 
@@ -347,10 +359,10 @@ export default function Analyze() {
     const asset = result.assets[0];
     const problem = validate(asset);
     if (problem) {
-      setError(problem);
+      setFailure(describePickFailure(problem));
       return;
     }
-    setError(null);
+    setFailure(null);
     const source = asset.fileName ?? asset.uri;
     const ext = (source.split('.').pop()?.toLowerCase() ?? 'mp4') as VideoFormat;
     const picked: Picked = {
@@ -423,13 +435,33 @@ export default function Analyze() {
     setTalkvPicked(null);
   };
 
+  // [quick-260720-hn8] 실패 알림창 오른쪽 버튼 동작. 알림창을 먼저 닫고 분기한다.
+  //   openSettings — 권한 거부. 설정 앱으로 보낸다.
+  //   repick       — [다른 파일 선택]. 앨범 picker 를 다시 연다. cancelTalkv 와 동일한
+  //                  지연·busy 가드를 쓴다: iOS 는 Modal fade-out 중에 picker VC 를
+  //                  present 하면 충돌하고(WR-02), 다른 picker 진행 중이면 스킵해야
+  //                  동시 presentation 을 피한다. 타이머 핸들은 기존 cleanup effect 가
+  //                  회수한다(화면 이탈 후 엉뚱한 곳에서 앨범이 뜨는 것 방지).
+  //   dismiss      — 카메라 기인 실패 등. 닫기만.
+  const handleFailureAction = (action: PickFailureAction) => {
+    setFailure(null);
+    if (action === 'openSettings') {
+      Linking.openSettings();
+      return;
+    }
+    if (action === 'repick') {
+      repickTimer.current = setTimeout(() => {
+        if (!busyRef.current) void pickFromLibrary();
+      }, TALKV_REPICK_DELAY_MS);
+    }
+  };
+
   const pickFromCamera = async () => {
     setBusy(true);
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
-        setPermissionBlocked(true);
-        setError('촬영하려면 카메라 권한이 필요해요.');
+        setFailure(describePickFailure('permissionCamera'));
         return;
       }
       // [#20 입력 화질] 즉석 촬영은 최고 화질로 캡처 — 카톡 압축본을 받기 전에
@@ -442,10 +474,10 @@ export default function Analyze() {
       try {
         handleResult(shot);
       } catch (handleErr) {
-        setError(`촬영한 영상을 처리하지 못했어요. (${errText(handleErr)})`);
+        setFailure(describePickFailure('processFailed', errText(handleErr)));
       }
     } catch (err) {
-      setError(`카메라를 여는 중 문제가 발생했어요. (${errText(err)})`);
+      setFailure(describePickFailure('cameraOpen', errText(err)));
     } finally {
       setBusy(false);
     }
@@ -456,8 +488,7 @@ export default function Analyze() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        setPermissionBlocked(true);
-        setError('앨범에서 가져오려면 사진 접근 권한이 필요해요.');
+        setFailure(describePickFailure('permissionLibrary'));
         return;
       }
       // [#20 입력 화질] 앨범에서 가져올 때 transcoding 으로 인한 추가 화질 손실을
@@ -485,9 +516,13 @@ export default function Analyze() {
           });
         } catch (fallbackErr) {
           // 두 경로 모두 실패 — 원인을 삼키지 않고 노출한다. 무음 실패는 재현 없이
-          // 진단이 불가능해 원격 디버깅을 막는다.
-          setError(
-            `앨범에서 영상을 가져오지 못했어요. (원본: ${errText(primaryErr)} / 변환: ${errText(fallbackErr)})`,
+          // 진단이 불가능해 원격 디버깅을 막는다. iCloud 오프로드는 아직 가설이므로
+          // 원본/변환 두 오류 문자열을 detail 로 함께 실어 화면에 남긴다.
+          setFailure(
+            describePickFailure(
+              'libraryOpen',
+              `원본: ${errText(primaryErr)} / 변환: ${errText(fallbackErr)}`,
+            ),
           );
           return;
         }
@@ -497,10 +532,10 @@ export default function Analyze() {
       try {
         handleResult(result);
       } catch (handleErr) {
-        setError(`선택한 영상을 처리하지 못했어요. (${errText(handleErr)})`);
+        setFailure(describePickFailure('processFailed', errText(handleErr)));
       }
     } catch (err) {
-      setError(`앨범을 여는 중 문제가 발생했어요. (${errText(err)})`);
+      setFailure(describePickFailure('libraryOpen', errText(err)));
     } finally {
       setBusy(false);
     }
@@ -596,15 +631,6 @@ export default function Analyze() {
             </Text>
           </Pressable>
 
-          {error && <Text style={styles.error}>{error}</Text>}
-          {permissionBlocked && (
-            <Pressable
-              onPress={() => Linking.openSettings()}
-              accessibilityRole="button"
-            >
-              <Text style={styles.link}>설정에서 권한 허용하기</Text>
-            </Pressable>
-          )}
         </ScrollView>
 
         {/* [Phase 26 D-06/D-07] 카톡 압축본 경고 다이얼로그 — Figma Dialog Pattern
@@ -729,6 +755,26 @@ export default function Analyze() {
             />
           </SafeAreaView>
         </Modal>
+
+        {/* [quick-260720-hn8] 영상 선택·업로드 실패 안내 (Figma node 1:499 카드형).
+            인라인 캡션은 실기기에서 보이지 않아 사용자가 원인도 해결책도 알 수 없었다.
+            오른쪽 버튼은 실패 종류별로 [설정 열기] / [다른 파일 선택] / [확인] 로 갈린다.
+
+            이중 모달 금지: 실패는 talkv/lowQuality/권유 게이트보다 **앞에서** 발생하고
+            전부 early return 이라 구조상 배타적이지만, 이 코드베이스는 직렬 게이트 타이밍
+            으로 두 번(WR-01/WR-02) 당한 이력이 있어 방어적으로 AND 조건을 건다. */}
+        <PickErrorDialog
+          failure={
+            talkvPicked == null &&
+            lowQualityPicked == null &&
+            !promptVisible &&
+            !formVisible
+              ? failure
+              : null
+          }
+          onClose={() => setFailure(null)}
+          onAction={handleFailureAction}
+        />
       </View>
     );
   }
@@ -853,11 +899,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 4,
-  },
-  error: {
-    ...typography.caption,
-    color: colors.inputError, // 오류 = 틸 (§4)
-    marginTop: 20,
   },
   // [#20 입력 화질] 소스 선택 안내 — 보조 캡션 톤, 비강압적.
   guidance: {
@@ -996,12 +1037,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     paddingVertical: 8,
-  },
-  link: {
-    ...typography.caption,
-    color: colors.brand,
-    textDecorationLine: 'underline',
-    marginTop: 12,
   },
   sampleLink: {
     ...typography.caption,

@@ -566,6 +566,10 @@ function segmentHint(seg: SegmentScores): string {
 // Wrapper (default export) — 담당은 4가지: 파라미터 읽기, doc 구독, body profile
 // 폴백 상태, 로딩/미보유 UI. doc.result 가 non-null 일 때만 자식을 마운트하므로
 // 자식(AnalysisResultContent)의 훅 순서가 렌더 간 안정하다 (리뷰 HIGH-1).
+// [2026-07-20] 회전 영상 기능 플래그. 백엔드 생성 Lambda 미배포 상태라 false.
+// 되살릴 때 true 로 바꾸고 visual-worker/dispatch/request 를 함께 배포할 것.
+const ROTATION_FEATURE_ENABLED = false;
+
 export default function AnalysisResult() {
   const router = useRouter();
   const { name, analysisId } = useLocalSearchParams<{
@@ -814,8 +818,18 @@ function AnalysisResultContent({
           ? 'ready'
           : 'loading';
 
-  const rotationState: RotationCardState =
-    result.rotationStatus === undefined
+  const rotationState: RotationCardState = !ROTATION_FEATURE_ENABLED
+    ? // [2026-07-20 belle 결정] 회전 영상은 이번 릴리스에서 끈다. 백엔드 생성
+      // Lambda 3종을 배포하지 않았으므로 버튼을 누르면 실패한다 — 앱은 서버 flag 를
+      // 알 수 없어 'requestable' 로 떨어지고 **없는 기능의 버튼이 노출됐다**(실기기 확인).
+      //
+      // 끈 이유는 품질이다: 실측 2건에서 sliding-spin 이 봉을 잡은 자세를 봉에서
+      // 떨어진 다른 자세로 바꾸고 화면 자막까지 환각했다(`Sliding spin`→`Stafing spin`).
+      // 회전 영상의 위험은 교정 이미지와 다르다 — **사용자가 그것을 자기 자세로
+      // 착각한다.** 없는 결함을 만들어내는 시각물이라 미노출이 맞다.
+      // 되살릴 때는 이 상수만 true 로 (31-CLOSEOUT.md §3).
+      'hidden'
+    : result.rotationStatus === undefined
       ? // 아직 요청 전 (legacy/미요청) — 온디맨드 기능의 진입점이므로 버튼을 보여준다.
         'requestable'
       : result.rotationStatus === 'failed'
@@ -877,9 +891,28 @@ function AnalysisResultContent({
       return empty;
     }
 
-    const srcFrames = anglesFrames ?? userJoints3d.length;
-    const uIdx = mapFrameIdx(compareFrames.userIdx, srcFrames, userJoints3d.length);
-    const rIdx = mapFrameIdx(compareFrames.refIdx, srcFrames, refFrames.length);
+    // [fix 2026-07-20] 사용자/기준은 **서로 다른 프레임 공간**이다. 기준 인덱스를
+    // 사용자 프레임 수로 환산하던 버그가 있었다: refFrameIdx(기준 keypointReport
+    // 공간)를 srcFrames(사용자 anglesFrames)로 나누면, 기준 영상이 사용자보다 길 때
+    // `idx >= fromFrames` 에 걸려 mapFrameIdx 가 null 을 반환하고 뷰어가 통째로
+    // 숨는다. 실측: 사용자 anglesFrames 83 / refFrameIdx 90 → null → 미표시.
+    // 기준(정은지)이 사용자 영상보다 긴 것은 흔하므로 대부분의 분석에서 재현됐다.
+    //
+    // 기준 측 원본 공간은 reference 문서의 keypointReport 프레임 수인데, 앱은 그
+    // 값을 따로 들고 있지 않다. reference 의 joints3d 프레임 수(refFrames.length)가
+    // 같은 공간이므로(둘 다 기준 영상 전체를 같은 샘플링으로 덮는다) 그것을 src 로
+    // 쓴다 — 결과적으로 기준은 항등 매핑이 되고, 범위 검사만 유효하게 남는다.
+    const userSrcFrames = anglesFrames ?? userJoints3d.length;
+    const uIdx = mapFrameIdx(
+      compareFrames.userIdx,
+      userSrcFrames,
+      userJoints3d.length,
+    );
+    const rIdx = mapFrameIdx(
+      compareFrames.refIdx,
+      refFrames.length,
+      refFrames.length,
+    );
     if (uIdx === null || rIdx === null) return empty;
 
     return {

@@ -867,8 +867,9 @@ function AnalysisResultContent({
     [result.joints3d, result.joints3dKeys, result.joints3dFrames],
   );
 
-  // 프레임 인덱스는 keypointReport(9fps angles) 공간이라 joints3d 공간으로 환산한다.
-  // anglesFrames 부재(구 doc)면 두 공간이 같다고 보고 항등 매핑한다.
+  // 프레임 인덱스는 keypointReport 프레임 공간이라 joints3d 공간으로 환산한다.
+  // 원 공간 = keypointReport.frames. 부재/0 인 구 doc 은 anglesFrames, 그것도 없으면
+  // 항등 매핑 폴백.
   const { viewerUserPose, viewerRefPose, viewerJointKeys } = useMemo(() => {
     const empty = {
       viewerUserPose: null as number[][] | null,
@@ -902,7 +903,17 @@ function AnalysisResultContent({
     // 값을 따로 들고 있지 않다. reference 의 joints3d 프레임 수(refFrames.length)가
     // 같은 공간이므로(둘 다 기준 영상 전체를 같은 샘플링으로 덮는다) 그것을 src 로
     // 쓴다 — 결과적으로 기준은 항등 매핑이 되고, 범위 검사만 유효하게 남는다.
-    const userSrcFrames = anglesFrames ?? userJoints3d.length;
+    // [fix 2026-07-20 #2] faultZoom 인덱스의 원 공간 = **keypointReport 프레임 공간**.
+    // 사용자 문서는 keypointReport 18fps(실측 frames=166) / joints3d·angles 9fps(83)
+    // 로 두 공간이 갈라져 있는데, 종전 코드는 anglesFrames 를 원 공간으로 가정해
+    // 항등 통과시켰다 — 뷰어가 2배 뒤 시점의 자세를 그렸다(실기기 2026-07-20,
+    // 뭉개진 삼각형). reference 11건은 kr==joints3d==angles 단일 공간(전수 실측)이라
+    // 아래 ref 쪽 항등 매핑은 무결. kr 부재/0 구 문서는 종전대로 anglesFrames 폴백.
+    const krFrames = result.keypointReport?.frames;
+    const userSrcFrames =
+      (typeof krFrames === 'number' && krFrames > 0 ? krFrames : undefined) ??
+      anglesFrames ??
+      userJoints3d.length;
     const uIdx = mapFrameIdx(
       compareFrames.userIdx,
       userSrcFrames,
@@ -926,6 +937,7 @@ function AnalysisResultContent({
     refDoc.joints3d,
     refDoc.jointKeys,
     result.joints3dKeys,
+    result.keypointReport,
     anglesFrames,
   ]);
 

@@ -1047,16 +1047,16 @@ Plans:
 **Goal:** "교정된 모습을 보여주는" 시각 출력을 지금 MVP(Gemini 트랙)에 추가 — 힉스필드 방식(외부 API 먼저, 자체화는 데이터 쌓인 뒤). (1단) 기하 오버레이 렌더: 이상 궤적 선·목표 각도 화살표·힘 방향 벡터를 원본 영상 위에 — 이미 가진 데이터(reference 각도, windowMedian 편차, DTW 매칭)와 KeypointOverlay 렌더 체계로 즉시 가능. (2단) 외부 이미지 생성/편집 API로 교정 실루엣 프리미엄 프로토타입 — 품질 게이트(얼굴/배경 왜곡) + **통과 품질분을 `[틀린 폼→고쳐진 폼]` 페어로 적재 = Phase 22 v2 자체 생성 헤드의 학습 데이터 제조**. Phase 22 discuss(22-CONTEXT.md D-03)에서 분기된 phase. 오버레이 원칙([[ux-propose-user-centric-screens-first]]) 준수 — 최악 케이스 목업 선제시.
 **Requirements**: TBD (공식 REQ ID 없음 — 31-CONTEXT.md D-01~D-12 가 요구사항)
 **Depends on:** 없음 (Phase 22와 병렬, 앱+외부 API 트랙)
-**Plans:** 12 plans (5 waves) — 2026-07-19 iteration2 replan (31-PLAN-REVIEW-ITERATION2.md BLOCK 반영: B2-01~03 target/state/enqueue 계약 + H2-01~10 + M2-01~05; H2-08 로 31-09→31-10→31-12 직렬화)
+**Plans:** 4/13 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 31-01-PLAN.md — release gates: privacy checkpoint(H-04, 보존일수·blur 위치 H2-06/H2-10, privacy_decision.json M2-05) + 스모크 + calibration 기반 임계값(H2-07) [W1]
-- [ ] 31-02-PLAN.md — durable visual job substrate: side-effect 단위 9상태 + lease/requestKey + outbox + CAS validator (B2-02/H2-02 기반) [W1]
-- [ ] 31-03-PLAN.md — TargetArrowSpec(topology parity H2-03) + CorrectedPoseTarget 단일 target 계약(B2-01) + 프레임 쌍 방출 (B-01) [W1]
-- [ ] 31-04-PLAN.md — 계약 3면 TS/contract: correctedPose*/rotation* (URL 비저장, H-02) + /visual/rotation·asset 재서명 절 [W1]
+- [x] 31-01-PLAN.md — release gates: privacy checkpoint(H-04, 보존일수·blur 위치 H2-06/H2-10, privacy_decision.json M2-05) + 스모크 + calibration 기반 임계값(H2-07) [W1]
+- [x] 31-02-PLAN.md — durable visual job substrate: side-effect 단위 9상태 + lease/requestKey + outbox + CAS validator (B2-02/H2-02 기반) [W1]
+- [x] 31-03-PLAN.md — TargetArrowSpec(topology parity H2-03) + CorrectedPoseTarget 단일 target 계약(B2-01) + 프레임 쌍 방출 (B-01) [W1]
+- [x] 31-04-PLAN.md — 계약 3면 TS/contract: correctedPose*/rotation* (URL 비저장, H-02) + /visual/rotation·asset 재서명 절 [W1]
 
 **Wave 2** *(blocked on Wave 1)*
 

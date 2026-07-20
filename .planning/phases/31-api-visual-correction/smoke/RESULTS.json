@@ -1,0 +1,132 @@
+{
+ "measured_at": "2026-07-20T09:30:00+0900",
+ "chosen_model": "wan2.7-image-pro",
+ "endpoint": "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/image-generation/generation",
+ "task_poll_endpoint": "https://dashscope-intl.aliyuncs.com/api/v1/tasks/{task_id}",
+ "request_params": {
+  "headers": {
+   "X-DashScope-Async": "enable",
+   "Content-Type": "application/json",
+   "Authorization": "Bearer <SSM /sunity/motion/dashscope-api-key>"
+  },
+  "body": {
+   "model": "wan2.7-image-pro",
+   "input": {
+    "messages": [
+     {
+      "role": "user",
+      "content": [
+       {
+        "image": "<presigned VisualInputBucket URL, 1h>"
+       },
+       {
+        "text": "<correction prompt>"
+       }
+      ]
+     }
+    ]
+   },
+   "parameters": {
+    "n": 1,
+    "watermark": false,
+    "prompt_extend": false
+   }
+  }
+ },
+ "sync": false,
+ "blocked": false,
+ "blocked_rule": "B4-02 async-only 릴리스 게이트: 두 후보 모두 실패했거나 chosen 이 sync 모델이면 blocked=true. chosen(wan2.7-image-pro)이 async task_id 를 반환했고 8/8 호출이 성공했으므로 blocked=false.",
+ "candidates": [
+  {
+   "model": "wan2.7-image-pro",
+   "endpoint": "/api/v1/services/aigc/image-generation/generation",
+   "sync": false,
+   "async_task_id_returned": true,
+   "calls": 4,
+   "http_200": 4,
+   "image_returned": 4,
+   "moderation_blocked": 0,
+   "latency_s": {
+    "each": [
+     16.5,
+     21.6,
+     16.4,
+     16.6
+    ],
+    "min": 16.4,
+    "max": 21.6,
+    "p95_estimate": 21.6,
+    "p95_caveat": "n=4 — 통계적 p95 아님. 관측 최댓값을 상한 대용으로 기록."
+   },
+   "usage_sample": {
+    "size": "2730*1536",
+    "total_tokens": 9435,
+    "image_count": 1,
+    "output_tokens": 2,
+    "input_tokens": 9433
+   },
+   "visual_pass": 2,
+   "visual_fail": 2
+  },
+  {
+   "model": "qwen-image-edit-plus",
+   "endpoint": "/api/v1/services/aigc/multimodal-generation/generation",
+   "sync": true,
+   "async_task_id_returned": false,
+   "calls": 4,
+   "http_200": 4,
+   "image_returned": 4,
+   "moderation_blocked": 0,
+   "latency_s": {
+    "each": [
+     11.6,
+     12.6,
+     13.8,
+     12.4
+    ],
+    "min": 11.6,
+    "max": 13.8,
+    "p95_estimate": 13.8,
+    "p95_caveat": "n=4 — 통계적 p95 아님. 관측 최댓값을 상한 대용으로 기록."
+   },
+   "usage_sample": {
+    "height": 768,
+    "image_count": 1,
+    "width": 1376
+   },
+   "visual_pass": 0,
+   "visual_fail": 4
+  }
+ ],
+ "selection_rationale": [
+  "wan2.7-image-pro 는 X-DashScope-Async 로 task_id 를 반환한다 — v1 async-only 요건 충족 (B4-02).",
+  "qwen-image-edit-plus 는 동기 전용이라 async 요건에서 **구조적으로 탈락**한다 — 품질과 무관하게 v1 후보 불가.",
+  "시각 판정에서도 wan 2/4 PASS vs qwen 0/4 PASS 로 격차가 있었다. qwen 은 4건 모두 자세를 전면 재생성했고 1건은 복장 색까지 바꿨다.",
+  "D-02 의 'Wan2.7 확정'과 벤더/키/모더레이션 특성이 동일해 계열 정합."
+ ],
+ "moderation": {
+  "blocked_calls": 0,
+  "total_calls": 8,
+  "note": "이미지 편집 8콜에서 모더레이션 차단 0건. spike 008 의 **영상** 편집 실측(첫 시도 30%, 영구 10%)과 대비되는 결과다. 표본 8건은 차단률을 확정하기에 작으므로 D-08 조용한 폴백은 그대로 유지한다 — 0건을 '차단 없음'으로 일반화하지 않는다."
+ },
+ "cost": {
+  "calls_used": 8,
+  "max_calls": 8,
+  "approved_ceiling_source": "smoke/privacy_decision.json.spendApproval.smokeGenerationCalls",
+  "usage_unit": "wan: token 기반(input≈9.4k/콜, image_count 1). qwen: width/height/image_count 만 반환 — 토큰 미노출.",
+  "note": "생성 8콜 전량 소진. calibration judge 24콜은 31-13 몫으로 미사용."
+ },
+ "s3_hygiene": {
+  "bucket": "sunity-motion-pilot-visual-input",
+  "prefix": "visual-input/_smoke/<run_id>/",
+  "cleanup_verified": true,
+  "note": "각 임시 key delete-object 후 head-object 404 확인 4/4 (H7-05)."
+ },
+ "notes": [
+  "blocked=false 이므로 31-12 배포 게이트는 이 축에서 flag OFF 를 강제하지 않는다.",
+  "단 **품질 기준 통과가 아니다** — 임계값 산출·calibration 미달 판정은 31-13 harness 몫이고 31-13 이 RESULTS.json 을 갱신할 수 있다 (H3-02).",
+  "31-13 의 입력인 fixtures_manifest.json 은 현재 H4-10 하한(PASS4/FAIL8) 미달(PASS2/FAIL6)이다 — 별도 blocker 이며 이 파일의 blocked 판정과는 다른 축이다.",
+  "제품 관점 실측 함의: 두 모델 모두 '지정 관절만 교정' 지시를 자주 어기고 자세를 전면 재생성했다. 8건 중 목표 관절만 교정하고 나머지를 보존한 사례는 2건(둘 다 wan)이다. 31-05/31-06 프롬프트 설계와 31-13 pose_tolerance 임계값이 이 실패 유형을 반드시 다뤄야 한다.",
+  "presigned URL·이미지 바이너리는 이 파일에 포함하지 않는다 (T-31-01/T-31-02)."
+ ]
+}

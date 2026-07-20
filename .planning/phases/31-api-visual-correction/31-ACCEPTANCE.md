@@ -1,7 +1,7 @@
 # Phase 31 — 시각 교정물 수용 기준 (ACCEPTANCE)
 
-> **상태: PARTIAL.** "## Privacy Release Gate" 와 "## Hard Rejection" 은 확정본이다.
-> "## 라벨 pair 셋" 은 **미작성(BLOCKED)** — 31-01 Task 3 재개 필요.
+> **상태: PARTIAL.** "## Privacy Release Gate", "## Hard Rejection", "## 모델 선정 실측" 은 확정본이다.
+> "## 라벨 pair 셋" 은 **작성됐으나 H4-10 하한 미달** — 추가 생성 예산 승인 필요.
 > "## Display 게이트" / "## Training 적재 게이트" 임계값과 "## Calibration 결과표" 는
 > 설계상 placeholder 이며 **31-13 harness 가 기입**한다 (H3-02 — 선언값 금지).
 
@@ -76,21 +76,67 @@ Display 게이트 전부 + 추가 임계값.
 
 ---
 
+## 모델 선정 실측 (D-03 확정)
+
+**실측: 2026-07-20, 생성 8콜.** 원본 = `smoke/RESULTS.json`.
+
+| 항목 | `wan2.7-image-pro` | `qwen-image-edit-plus` |
+|------|--------------------|------------------------|
+| 엔드포인트 | `/api/v1/services/aigc/image-generation/generation` | `/api/v1/services/aigc/multimodal-generation/generation` |
+| 호출 방식 | **async (task_id 반환)** | **sync 전용** |
+| HTTP 200 | 4/4 | 4/4 |
+| 이미지 반환 | 4/4 | 4/4 |
+| 지연 | 16.4 ~ 21.6s | 11.6 ~ 13.8s |
+| 모더레이션 차단 | 0/4 | 0/4 |
+| 시각 판정 PASS | **2/4** | **0/4** |
+
+**chosen = `wan2.7-image-pro`. `blocked = false`.**
+
+- B4-02 async-only 게이트: chosen 이 async task_id 를 반환하므로 통과.
+- `qwen-image-edit-plus` 는 **동기 전용이라 v1 후보에서 구조적으로 탈락**한다 (품질과 무관).
+- 모더레이션 차단 0/8 — spike 008 **영상** 편집의 첫시도 30%/영구 10%와 대비된다.
+  표본 8건은 차단률 확정에 부족하므로 **D-08 조용한 폴백은 유지**한다.
+
+> **주의: `blocked=false` 는 품질 통과가 아니다.** 임계값 산출과 calibration 미달 판정은
+> 31-13 harness 몫이며 31-13 이 `RESULTS.json` 을 갱신할 수 있다 (H3-02).
+
+### 실측이 드러낸 실패 유형 (31-05/31-06 프롬프트 설계 입력)
+
+두 모델 모두 "지정 관절만 교정하고 나머지는 보존하라"는 지시를 자주 어기고 **자세를 전면 재생성**했다.
+8건 중 목표 관절만 교정하고 나머지를 보존한 사례는 **2건(둘 다 wan)** 이다.
+`pose_tolerance` 가 지배적 실패 축이므로 31-13 임계값 설계가 이 유형을 반드시 다뤄야 한다.
+
+---
+
 ## 라벨 pair 셋
 
-**미작성 (BLOCKED).** `smoke/fixtures_manifest.json` 이 아직 없다.
+**작성됨 — `smoke/fixtures_manifest.json`. 단 H4-10 하한 미달.**
 
-요구 계약 (B4-04 / H4-10) — 재개 시 충족 대상:
+| 항목 | 요구 (H4-10) | 실제 | 판정 |
+|------|--------------|------|------|
+| PASS | ≥ 4 | **2** | 미달 |
+| FAIL | ≥ 8 | **6** | 미달 |
+| 총 pair | ≥ 12 | **8** | 미달 |
+| category 커버 | 좌/우 × 직립/도립 + 가림 + 모션블러 | 전부 충족 | 충족 |
+| failure axis 커버 | 6축 | `correction_invisible`, `pose_tolerance`, `clothing` (3축) | 미달 |
 
-- 최소 12 pair, **PASS ≥ 4 / FAIL ≥ 8**
-- category 커버: 관절 2종 이상 × 좌/우 × 직립/도립 + 가림 1+ + 모션블러 1+
-- FAIL 8 은 failure axis 를 각각 포함: pole 붕괴 / identity·clothing 변형 / background 변형 /
-  extra limbs·person / correction invisible / pose tolerance failure
-- 항목 키 10종: `id`, `beforePath`, `beforeSha256`, `afterPath`, `afterSha256`, `label`,
-  `jointKey`, `targetDeg`, `afterKeypointSource`(`path` + per-fixture `modelVersion`), `failureAxes`, `category`
+누락 축: `pole`, `background`, `extra_limbs`, `identity`.
 
-**차단 사유:** pair 후보 원본(spike `wan_out/*.png`, `kpts*/`)이 **git 미추적 파일**이라
-worktree 에 존재하지 않는다. 상세 = `31-01-SUMMARY.md` Blocker 2.
+**미달 사유 (라벨을 지어내지 않은 결과):**
+
+1. 승인된 생성 8콜을 **전량 소진**해 실제 교정 pair 8건만 확보했다. 추가 pair 는 추가 예산이 필요하다.
+2. spike 004 산출물(`wan_out/pair_chair_*.png`, `smoke_out/frames/*.png`)은 **제외**했다 —
+   (a) 좌우 2분할 **합성 이미지**라 before/after 를 분리 경로로 참조할 수 없고,
+   (b) **카메라 회전** 산출물이라 `jointKey`/`targetDeg` 교정 의미가 없다.
+   pair 로 넣으면 31-13 임계값이 그대로 오염된다.
+3. 누락 축은 8표본에서 **실제로 발생하지 않았다** — 두 모델 모두 폴·배경·사지 보존은 잘 지켰다는
+   실측 결과다. 해당 축 FAIL 표본은 표본 수를 늘리거나 적대적 프롬프트를 별도 설계해야 얻을 수 있다.
+
+**모든 라벨은 Claude 가 산출 이미지 8건을 전부 시각 확인하고 부여했다 — 미확인 추정 0건.**
+
+> 이미지는 git 에 저장하지 않는다 (T-31-02). manifest 는 경로 + sha256 만 참조하며
+> 실물은 `/Users/Shared/sunity-fixtures/31-01-visual-correction/` 에 있다(어떤 git 저장소에도 미포함).
+> **미결정:** 31-13 을 다른 머신/Pod 에서 실행하려면 공유 저장 위치와 그 보존기간을 belle 이 승인해야 한다.
 
 ---
 

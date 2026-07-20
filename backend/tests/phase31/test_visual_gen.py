@@ -535,3 +535,228 @@ print(json.dumps({{"baseline_bytes": baseline, "peak_bytes": peak,
     measured = json.loads(proc.stdout.strip().splitlines()[-1])
     assert dest.stat().st_size == _HUGE_BYTES
     assert measured["delta_bytes"] < 64 * 1024 * 1024, measured
+
+
+# ═════════════ Task 3: prepare_judge_payload + judge ═════════════
+
+
+def _verdict(**overrides) -> visual_gen.JudgeVerdict:
+    base = {axis: True for axis in visual_gen.JUDGE_AXES}
+    base.update({"confidence": 0.9, "reason": "ok"})
+    base.update(overrides)
+    return visual_gen.JudgeVerdict(**base)
+
+
+@pytest.fixture
+def gemini_http(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    return _scripted_urlopen(monkeypatch)
+
+
+def _gemini_reply(payload: dict) -> dict:
+    return {"candidates": [{"content": {"parts": [{"text": json.dumps(payload)}]}}]}
+
+
+def _verdict_payload(**overrides) -> dict:
+    p = {axis: True for axis in visual_gen.JUDGE_AXES}
+    p.update({"confidence": 0.91, "reason": "preserved"})
+    p.update(overrides)
+    return p
+
+
+def _inline_images(body: bytes) -> list[bytes]:
+    import base64 as _b64
+
+    parts = json.loads(body)["contents"][0]["parts"]
+    return [_b64.b64decode(p["inline_data"]["data"]) for p in parts if "inline_data" in p]
+
+
+def test_prepare_payload_normalizes_large_images_under_cap():
+    """4000x3000 원본 2장이 정규화 후 16MB 상한 아래로 들어간다."""
+    big = _real_image("PNG", size=(4000, 3000))
+    body = visual_gen.prepare_judge_payload(big, big, "p")
+    assert len(body) < visual_gen.JUDGE_BODY_MAX_BYTES
+    parts = json.loads(body)["contents"][0]["parts"]
+    assert [p["text"] for p in parts if "text" in p] == ["BEFORE (원본)", "AFTER (생성)", "p"]
+    assert all(p["inline_data"]["mime_type"] == "image/jpeg" for p in parts if "inline_data" in p)
+
+
+def test_prepare_payload_downscales_to_2048_edge():
+    from io import BytesIO
+
+    from PIL import Image
+
+    body = visual_gen.prepare_judge_payload(
+        _real_image("PNG", size=(4000, 1000)), _real_image("PNG"), "p"
+    )
+    img = Image.open(BytesIO(_inline_images(body)[0]))
+    assert max(img.size) == 2048
+
+
+def test_prepare_payload_strips_exif():
+    from io import BytesIO
+
+    from PIL import Image
+
+    exif = Image.Exif()
+    exif[271] = "SecretCameraMaker"
+    src = _real_image("JPEG", exif=exif.tobytes())
+    assert b"SecretCameraMaker" in src
+
+    out = _inline_images(visual_gen.prepare_judge_payload(src, src, "p"))[0]
+    assert b"SecretCameraMaker" not in out
+    assert not dict(Image.open(BytesIO(out)).getexif())
+
+
+def test_prepare_payload_raises_when_serialized_body_exceeds_cap(monkeypatch):
+    monkeypatch.setattr(visual_gen, "JUDGE_BODY_MAX_BYTES", 1024)
+    with pytest.raises(visual_gen.JudgeInputTooLargeError):
+        visual_gen.prepare_judge_payload(_real_image("PNG"), _real_image("PNG"), "p")
+
+
+def test_bomb_input_is_rejected_before_any_gemini_call(gemini_http):
+    """bomb 은 판정 API 로 나가기 전에 typed 로 끝난다 (H4-06)."""
+    bomb = _png_claiming(20000, 20000)
+    with pytest.raises(visual_gen.JudgeInputTooLargeError):
+        visual_gen.judge_corrected_pose(bomb, bomb, {}, api_key="k")
+    assert gemini_http.calls == []
+
+
+def test_judge_parses_verdict_and_sends_key_in_header_only(gemini_http):
+    gemini_http.queue.append(_gemini_reply(_verdict_payload(clothing_ok=False)))
+    v = visual_gen.judge_corrected_pose(
+        _real_image("PNG"), _real_image("PNG"), {"correction_hint": "왼 무릎"}, api_key="G-SECRET"
+    )
+    assert v is not None
+    assert v.clothing_ok is False and v.identity_ok is True
+    assert v.confidence == pytest.approx(0.91)
+
+    call = gemini_http.calls[0]
+    assert call["url"] == visual_gen.GEMINI_ENDPOINT
+    assert "gemini-3.5-flash" in call["url"]
+    assert call["headers"]["x-goog-api-key"] == "G-SECRET"
+    assert "G-SECRET" not in call["url"]
+    texts = [p["text"] for p in json.loads(call["body"])["contents"][0]["parts"] if "text" in p]
+    assert any("왼 무릎" in t for t in texts)
+
+
+def test_judge_returns_none_without_key_and_makes_no_request(gemini_http):
+    assert visual_gen.judge_corrected_pose(_real_image("PNG"), _real_image("PNG"), {}) is None
+    assert gemini_http.calls == []
+
+
+def test_judge_retries_once_on_5xx_then_fails_closed(gemini_http):
+    for _ in range(2):
+        gemini_http.queue.append(
+            urllib.error.HTTPError(visual_gen.GEMINI_ENDPOINT, 503, "x", {}, None)
+        )
+    assert (
+        visual_gen.judge_corrected_pose(_real_image("PNG"), _real_image("PNG"), {}, api_key="k")
+        is None
+    )
+    assert len(gemini_http.calls) == 2
+
+
+def test_judge_recovers_when_retry_succeeds(gemini_http):
+    gemini_http.queue.append(urllib.error.HTTPError(visual_gen.GEMINI_ENDPOINT, 500, "x", {}, None))
+    gemini_http.queue.append(_gemini_reply(_verdict_payload()))
+    v = visual_gen.judge_corrected_pose(_real_image("PNG"), _real_image("PNG"), {}, api_key="k")
+    assert v is not None and len(gemini_http.calls) == 2
+
+
+def test_judge_does_not_retry_on_4xx(gemini_http):
+    gemini_http.queue.append(urllib.error.HTTPError(visual_gen.GEMINI_ENDPOINT, 400, "x", {}, None))
+    assert (
+        visual_gen.judge_corrected_pose(_real_image("PNG"), _real_image("PNG"), {}, api_key="k")
+        is None
+    )
+    assert len(gemini_http.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        {"candidates": [{"content": {"parts": [{"text": "not json"}]}}]},
+        {"candidates": []},
+        {},
+    ],
+)
+def test_judge_fails_closed_on_malformed_reply(gemini_http, reply):
+    gemini_http.queue.append(reply)
+    assert (
+        visual_gen.judge_corrected_pose(_real_image("PNG"), _real_image("PNG"), {}, api_key="k")
+        is None
+    )
+
+
+def test_judge_fails_closed_when_axis_missing(gemini_http):
+    payload = _verdict_payload()
+    del payload["pole_ok"]
+    gemini_http.queue.append(_gemini_reply(payload))
+    assert (
+        visual_gen.judge_corrected_pose(_real_image("PNG"), _real_image("PNG"), {}, api_key="k")
+        is None
+    )
+
+
+def test_judge_key_absent_from_logs(gemini_http, caplog):
+    gemini_http.queue.append(urllib.error.HTTPError(visual_gen.GEMINI_ENDPOINT, 400, "x", {}, None))
+    with caplog.at_level("DEBUG"):
+        visual_gen.judge_corrected_pose(
+            _real_image("PNG"), _real_image("PNG"), {}, api_key="LEAKME"
+        )
+    assert "LEAKME" not in caplog.text
+
+
+def test_pass_helpers_take_threshold_as_argument():
+    """모듈이 임계값을 알면 31-13 calibration 이 grid 를 못 돈다 (H3-02)."""
+    for fn in (visual_gen.judge_display_pass, visual_gen.judge_training_pass):
+        param = inspect.signature(fn).parameters["min_confidence"]
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY
+        assert param.default is inspect.Parameter.empty
+    assert not re.search(r"(?<![\w.])0\.\d+", _SRC), "판정 임계값 리터럴 금지"
+
+
+def test_confidence_boundary_is_inclusive():
+    v = _verdict(confidence=0.80)
+    assert visual_gen.judge_display_pass(v, min_confidence=0.80) is True
+    assert visual_gen.judge_display_pass(v, min_confidence=0.81) is False
+
+
+def test_display_and_training_thresholds_diverge_on_same_verdict():
+    """같은 판정이 노출은 통과, 학습 적재는 탈락 — 실패 비용이 다르기 때문 (B4-05)."""
+    v = _verdict(confidence=0.80)
+    assert visual_gen.judge_display_pass(v, min_confidence=0.70) is True
+    assert visual_gen.judge_training_pass(v, min_confidence=0.95) is False
+
+
+@pytest.mark.parametrize("axis", ["single_person_ok", "no_extra_limbs"])
+def test_hard_rejection_beats_high_confidence(axis):
+    v = _verdict(confidence=1.0, **{axis: False})
+    assert visual_gen.judge_display_pass(v, min_confidence=0.0) is False
+    assert visual_gen.judge_training_pass(v, min_confidence=0.0) is False
+
+
+def test_preservation_axis_failure_blocks_pass():
+    """전면 재생성 실패 유형 — correction_visible 은 참인데 보존 축이 깨진 경우.
+
+    31-01 실측에서 8건 중 6건이 이 형태였다(자세 전면 재생성, 1건은 복장 색까지
+    변경). 이 케이스가 통과하면 judge 는 무의미하다.
+    """
+    for broken in ("identity_ok", "clothing_ok", "background_ok", "pole_ok"):
+        v = _verdict(confidence=1.0, correction_visible=True, **{broken: False})
+        assert visual_gen.judge_display_pass(v, min_confidence=0.0) is False
+
+
+def test_judge_stays_lambda_compatible():
+    for banned in ("google.genai", "google_genai", "from google", "pydantic", "import requests"):
+        assert banned not in _SRC
+    assert "generativelanguage" in _SRC
+    assert "x-goog-api-key" in _SRC
+    assert visual_gen.PROMPT_VERSION == "judge-v1"
+
+
+def test_prepare_payload_called_only_inside_judge():
+    """워커가 prepare 를 선호출하면 같은 이미지를 두 번 decode 한다 (M4-02)."""
+    assert _SRC.count("prepare_judge_payload(") == 2  # def + judge_corrected_pose 내 1회
+    assert "prepare_judge_payload(" in inspect.getsource(visual_gen.judge_corrected_pose)

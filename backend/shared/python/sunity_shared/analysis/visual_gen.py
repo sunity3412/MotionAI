@@ -577,3 +577,261 @@ def _unlink_quiet(path: str) -> None:
         os.unlink(path)
     except OSError:
         pass
+
+
+# ── before/after 보존 judge (H-03 + H3-02/H3-03 + M4-02) ──────────────────
+
+GEMINI_ENDPOINT = (
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+)
+
+# 31-13 calibration meta 재현성 — 프롬프트가 바뀌면 여기도 올려야 임계값이
+# 어느 프롬프트에서 잡힌 값인지 추적된다.
+PROMPT_VERSION = "judge-v1"
+
+# Gemini 공식 inline request 상한은 20MB
+# (https://ai.google.dev/gemini-api/docs/vision — inline data 20MB).
+# base64 팽창(4/3)과 JSON 오버헤드를 감안해 16MB 에서 미리 끊는다.
+JUDGE_BODY_MAX_BYTES = 16 * 1024 * 1024
+
+_JUDGE_ALLOWED_FORMATS = ("PNG", "JPEG")
+_JUDGE_MAX_DECODED_BYTES = 20 * 1024 * 1024
+_JUDGE_MAX_PIXELS = 16 * 1024 * 1024
+_JUDGE_MAX_EDGE = 8192
+_JUDGE_NORMALIZED_EDGE = 2048
+_JUDGE_JPEG_QUALITY = 85
+
+# 판정 축 7종. 벤더가 "지정 관절만 교정" 지시를 자주 어기고 자세를 전면
+# 재생성한다는 31-01 실측(8건 중 보존 성공 2건)이 이 축 구성의 근거다 —
+# correction_visible 하나만 보면 전면 재생성이 통과해 버린다.
+JUDGE_AXES = (
+    "identity_ok",
+    "clothing_ok",
+    "background_ok",
+    "pole_ok",
+    "single_person_ok",
+    "no_extra_limbs",
+    "correction_visible",
+)
+
+# confidence 와 무관하게 실패로 처리하는 축 — "사람이 아예 다르거나, 여럿이거나,
+# 팔다리가 더 생긴" 산출물은 확신도가 낮다는 이유로 통과시킬 수 없다.
+_HARD_REJECTION_AXES = ("single_person_ok", "no_extra_limbs")
+
+_JUDGE_PROMPT = (
+    "너는 폴스포츠 자세 교정 이미지의 검수자다. BEFORE 는 사용자의 원본 프레임이고 "
+    "AFTER 는 특정 관절 하나를 교정하도록 생성된 이미지다. 두 이미지를 비교해 "
+    "AFTER 가 BEFORE 의 인물 정체성/복장/배경/폴 위치를 보존했는지, 인물이 정확히 "
+    "한 명인지, 팔다리가 늘거나 왜곡되지 않았는지, 그리고 의도한 교정이 실제로 "
+    "보이는지를 판정하라. 자세가 전면적으로 다시 그려졌다면 correction_visible 이 "
+    "참이더라도 보존 축들을 거짓으로 판정하라. 확신이 없으면 confidence 를 낮게 잡아라."
+)
+
+_JUDGE_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **{axis: {"type": "boolean"} for axis in JUDGE_AXES},
+        "confidence": {"type": "number"},
+        "reason": {"type": "string"},
+    },
+    "required": [*JUDGE_AXES, "confidence", "reason"],
+}
+
+
+@dataclass(frozen=True)
+class JudgeVerdict:
+    """judge 판정 — 7축 bool + confidence + 근거 문장."""
+
+    identity_ok: bool
+    clothing_ok: bool
+    background_ok: bool
+    pole_ok: bool
+    single_person_ok: bool
+    no_extra_limbs: bool
+    correction_visible: bool
+    confidence: float
+    reason: str
+
+
+def _normalize_for_judge(data: bytes) -> bytes:
+    """safe_decode → EXIF 제거 + 최대 변 축소 + JPEG 재인코딩.
+
+    판정용 **파생본**이다 — canonical 산출물은 건드리지 않는다. EXIF 를 떨어뜨리는
+    이유는 원본 촬영 메타(위치/기기)가 외부 판정 API 로 새 나가는 것을 막기 위함이다
+    (T-31-01). 재인코딩은 픽셀만 다시 쓰므로 메타가 자연히 사라진다.
+    """
+    from PIL import Image
+
+    img = safe_decode_image(
+        data,
+        allowed_formats=_JUDGE_ALLOWED_FORMATS,
+        max_decoded_bytes=_JUDGE_MAX_DECODED_BYTES,
+        max_pixels=_JUDGE_MAX_PIXELS,
+        max_edge=_JUDGE_MAX_EDGE,
+    )
+    img = img.convert("RGB")
+    longest = max(img.size)
+    if longest > _JUDGE_NORMALIZED_EDGE:
+        scale = _JUDGE_NORMALIZED_EDGE / longest
+        new_size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
+        img = img.resize(new_size, Image.LANCZOS)
+    buf = _bytes_io(b"")
+    img.save(buf, format="JPEG", quality=_JUDGE_JPEG_QUALITY)
+    return buf.getvalue()
+
+
+def prepare_judge_payload(before_png: bytes, after_png: bytes, prompt: str) -> bytes:
+    """두 이미지를 정규화해 Gemini generateContent body 로 직렬화한다.
+
+    상한 초과(또는 decode 경계 위반)는 typed JudgeInputTooLargeError — None 으로
+    뭉개지 않는다. 호출측이 'judge_input_too_large' 로 종결해야 하는데, None 은
+    "판정 실패(재시도 가능)" 와 구분되지 않기 때문이다.
+
+    judge_corrected_pose 내부에서만 호출된다 (M4-02 — 워커가 선호출하면 같은
+    이미지를 두 번 decode 하게 되고, 그 자체가 bomb 증폭 경로다).
+    """
+    try:
+        before_jpeg = _normalize_for_judge(before_png)
+        after_jpeg = _normalize_for_judge(after_png)
+    except ImageDecodeError as e:
+        raise JudgeInputTooLargeError(f"decode rejected: {e.reason}") from None
+
+    body = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": "BEFORE (원본)"},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": base64.b64encode(before_jpeg).decode(),
+                        }
+                    },
+                    {"text": "AFTER (생성)"},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": base64.b64encode(after_jpeg).decode(),
+                        }
+                    },
+                    {"text": prompt},
+                ],
+            }
+        ],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": _JUDGE_RESPONSE_SCHEMA,
+        },
+    }
+    serialized = json.dumps(body).encode()
+    if len(serialized) > JUDGE_BODY_MAX_BYTES:
+        raise JudgeInputTooLargeError(f"body {len(serialized)} > {JUDGE_BODY_MAX_BYTES}")
+    return serialized
+
+
+def _parse_verdict(payload: dict) -> JudgeVerdict | None:
+    """Gemini 응답 → JudgeVerdict. 스키마 위반은 None (검증 SDK 미반입 — 수동 검사)."""
+    try:
+        candidates = payload["candidates"]
+        text = candidates[0]["content"]["parts"][0]["text"]
+        parsed = json.loads(text)
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    values = {}
+    for axis in JUDGE_AXES:
+        v = parsed.get(axis)
+        if not isinstance(v, bool):
+            return None
+        values[axis] = v
+    confidence = parsed.get("confidence")
+    if not isinstance(confidence, (int, float)) or isinstance(confidence, bool):
+        return None
+    reason = parsed.get("reason")
+    if not isinstance(reason, str):
+        return None
+    return JudgeVerdict(**values, confidence=float(confidence), reason=reason)
+
+
+def judge_corrected_pose(
+    before_png: bytes,
+    after_png: bytes,
+    context: dict,
+    *,
+    api_key: str | None = None,
+) -> JudgeVerdict | None:
+    """before/after 를 함께 판정 → JudgeVerdict, 판정 불가 시 None (fail-closed).
+
+    None 은 "통과" 가 아니다 — 호출측(31-09)이 judge_failed 로 종결한다. 판정
+    불가한 산출물을 사용자에게 보여주지 않는 것이 D-08 의 조용한 폴백이다.
+
+    JudgeInputTooLargeError 만은 전파한다 — 재시도해도 같은 결과인 결정론적
+    입력 문제라 'judge_input_too_large' 로 구분 종결해야 한다.
+    """
+    key = api_key or os.environ.get("GEMINI_API_KEY")
+    if not key:
+        log.warning("judge skipped — GEMINI_API_KEY 미설정")
+        return None
+
+    prompt = _JUDGE_PROMPT
+    hint = context.get("correction_hint") if isinstance(context, dict) else None
+    if isinstance(hint, str) and hint:
+        prompt = f"{prompt}\n\n교정 지시: {hint}"
+    body = prepare_judge_payload(before_png, after_png, prompt)
+
+    for attempt in range(2):
+        req = urllib.request.Request(GEMINI_ENDPOINT, data=body, method="POST")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("x-goog-api-key", key)
+        try:
+            with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_S) as r:
+                raw = r.read()
+        except urllib.error.HTTPError as e:
+            if e.code >= 500 and attempt == 0:
+                continue
+            log.warning("judge http error status=%s", e.code)
+            return None
+        except Exception:  # noqa: BLE001 - 네트워크 실패는 fail-closed (키 미로깅)
+            if attempt == 0:
+                continue
+            log.warning("judge request failed")
+            return None
+        try:
+            payload = json.loads(raw)
+        except (ValueError, TypeError):
+            return None
+        return _parse_verdict(payload) if isinstance(payload, dict) else None
+    return None
+
+
+def _preserved(verdict: JudgeVerdict) -> bool:
+    return all(getattr(verdict, axis) for axis in JUDGE_AXES)
+
+
+def _hard_rejected(verdict: JudgeVerdict) -> bool:
+    return any(not getattr(verdict, axis) for axis in _HARD_REJECTION_AXES)
+
+
+def judge_display_pass(verdict: JudgeVerdict, *, min_confidence: float) -> bool:
+    """앱 노출 허용 여부. 임계값은 인자 주입 (H3-02 — 모듈에 리터럴 금지).
+
+    31-09 가 DISPLAY_JUDGE_CONFIDENCE env 로 주입하고, 값 자체는 31-13
+    calibration harness 가 grid 로 고른다.
+    """
+    if _hard_rejected(verdict):
+        return False
+    return _preserved(verdict) and verdict.confidence >= min_confidence
+
+
+def judge_training_pass(verdict: JudgeVerdict, *, min_confidence: float) -> bool:
+    """학습 페어 적재 허용 여부 — display 와 같은 축, 더 높은 임계값을 주입받는다.
+
+    별도 함수인 이유(B4-05): 노출 기준과 학습 적재 기준은 실패 비용이 다르다.
+    잘못 노출된 이미지는 사용자가 한 번 보고 끝이지만, 잘못 적재된 페어는 이후
+    모델을 영구히 오염시킨다. 31-09 가 TRAINING_JUDGE_CONFIDENCE 로 별개 주입.
+    """
+    if _hard_rejected(verdict):
+        return False
+    return _preserved(verdict) and verdict.confidence >= min_confidence

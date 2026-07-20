@@ -1,0 +1,24 @@
+{
+  "Rules": [
+    {
+      "Expiration": {
+        "Days": 30
+      },
+      "ID": "expire-raw-uploads-30d",
+      "Filter": {
+        "Prefix": "uploads/"
+      },
+      "Status": "Enabled"
+    },
+    {
+      "ID": "phase31-pairs-retention",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "training/phase31/pairs/"
+      },
+      "Expiration": {
+        "Days": 180
+      }
+    }
+  ]
+}

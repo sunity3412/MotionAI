@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import hashlib
 import json
 import logging
 import os
@@ -43,6 +44,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from concurrent.futures import ThreadPoolExecutor  # Phase 27 D-03 — 분석-로컬 prefetch
 from enum import Enum
 from pathlib import Path
@@ -3177,6 +3179,498 @@ def _run_deferred_fault_zoom(
             )
 
 
+# ═══════════ Phase 31 (D-05) — correctedPose 자동 생성 enqueue ═══════════
+#
+# **이 훅은 enqueue 만 한다.** 생성(DashScope)·판정(Gemini)·pose gate 는 전부
+# visual-worker 소유다. 여기서 벤더를 부르면 분석 응답 시간에 수분이 붙는다.
+#
+# 임시 생체 프레임(source PNG)은 **전용 비-버저닝 버킷**(VISUAL_INPUT_BUCKET)에
+# 올린다 — VideoBucket 이 아니다. 버저닝 버킷에서는 delete_object 가 delete marker
+# 만 만들고 과거 version 이 남아, "즉시 삭제" privacy SLA 를 version 열거 없이는
+# 지킬 수 없다. 비-버저닝이면 delete 1회 = 완전 소거다 (6차 아키텍처 / T-31-76).
+#
+# 순서 계약 = **upload-first** (3차 B3-03): 입력을 먼저 S3 에 올린 뒤에만 job 을
+# 만든다. 반대로 하면 "job 은 있는데 입력이 없는" action 이 성립해 worker 가
+# 영구 실패한다. 대신 upload-first 는 "job 없이 남은 입력(orphan)" 을 만들 수
+# 있으므로, PUT **전에** durable reservation 을 남겨 janitor 가 회수하게 한다
+# (7차 B7-05 / T-31-80).
+
+_CORRECTED_POSE_MAX_PUT_RETRY = 3
+
+_SQS_CLIENT = None
+
+
+def _sqs():
+    """lazy SQS client — visual 훅 외의 경로는 SQS 를 쓰지 않는다(콜드스타트 절약)."""
+    global _SQS_CLIENT
+    if _SQS_CLIENT is None:
+        _SQS_CLIENT = boto3.client("sqs")
+    return _SQS_CLIENT
+
+
+def _visual_input_bucket() -> str | None:
+    return os.environ.get("VISUAL_INPUT_BUCKET") or None
+
+
+def _visual_jobs_enabled() -> bool:
+    return os.environ.get("VISUAL_JOBS_ENABLED") == "true"
+
+
+def _s3_error_code(exc) -> str:
+    return str(((getattr(exc, "response", None) or {}).get("Error") or {}).get("Code") or "")
+
+
+def _record_visual_orphan(bucket: str, key: str, *, reason: str) -> None:
+    """보상 delete 실패의 **필수** durable 기록 (7차 H7-04).
+
+    옵션 로그가 아니다 — "지우려다 실패했는데 아무도 모르는 PII" 를 만들지 않기
+    위해 소비 주체(janitor)가 있는 문서로 남긴다. metric 은 알람용 부가물이라
+    실패해도 삼킨다.
+    """
+    try:
+        firestore_admin.upsert_visual_orphan(
+            bucket, key, now_ms=_visual_now_ms(), reason=reason
+        )
+    except Exception:  # noqa: BLE001 - 기록 실패까지는 막지 못한다(로그로 남긴다)
+        log.exception("visualOrphans 기록 실패 bucket=%s key=%s", bucket, key)
+    try:
+        boto3.client("cloudwatch").put_metric_data(
+            Namespace="SunityVisual",
+            MetricData=[{"MetricName": "VisualOrphanSourceObject", "Value": 1.0}],
+        )
+    except Exception:  # noqa: BLE001 - 관측 실패가 business path 를 막으면 안 된다
+        log.warning("VisualOrphanSourceObject metric put 실패")
+
+
+def _visual_now_ms() -> int:
+    import time
+
+    return int(time.time() * 1000)
+
+
+def _delete_owned_key(bucket: str, key: str, *, ref: str, owner: str) -> bool:
+    """**producer 의 유일한 삭제 경로** (11차 B11-02).
+
+    직접 delete_object 를 부르면 안 되는 이유: 같은 deterministic key 를 쓰는 다른
+    live reservation/job 이 있을 수 있다. 내 보상 삭제가 남의 살아있는 입력을
+    지우면 그 job 은 입력 없이 영구 실패한다. claim 이 None 이면 삭제하지 않는다.
+
+    commit 재검증까지 통과해야 실제 DeleteObject 를 던진다 — lease 만료 뒤 되살아난
+    이전 claimant 를 generation fencing 으로 막는 계약(11차 B11-01)의 일부다.
+    """
+    now_ms = _visual_now_ms()
+    token = firestore_admin.claim_key_for_delete(
+        bucket,
+        key,
+        deleting_ref=ref,
+        owner=owner,
+        lease_ms=models.VISUAL_OBJECT_DELETE_LEASE_MS,
+        now_ms=now_ms,
+    )
+    if token is None:
+        # 다른 live ref 존재 — 내 ref 는 소비됐고 객체는 그 소유자가 책임진다.
+        log.info("visual 입력 삭제 보류(다른 live ref) key=%s", key)
+        return False
+    if not firestore_admin.commit_key_delete(bucket, key, token=token, now_ms=_visual_now_ms()):
+        log.warning("visual 입력 삭제 fencing 실패 key=%s", key)
+        return False
+    try:
+        _s3.delete_object(Bucket=bucket, Key=key)
+        return True
+    except Exception:  # noqa: BLE001 - 실패는 orphan 문서로 승계
+        log.warning("visual 입력 delete 실패 — orphan 등록 key=%s", key)
+        _record_visual_orphan(bucket, key, reason="producer_compensation_delete_failed")
+        return False
+
+
+def _release_visual_keys(bucket: str, keys, *, ref: str) -> None:
+    """ownership ref 해제 — **모든 종료 경로의 필수 부분** (10차 B10-03 / T-31-91).
+
+    빠뜨리면 ownership 문서가 refs 를 든 채 영구 잔존해 그 key 의 cleanup 이 영원히
+    skip 된다. loser 경로(created=False)도 예외가 아니다 — 미release 시 winner job 의
+    worker terminal gate 가 내 ref TTL 이 끝날 때까지 막힌다 (11차 B11-03).
+    """
+    for key in keys:
+        try:
+            firestore_admin.release_key_ownership(bucket, key, ref=ref)
+        except Exception:  # noqa: BLE001 - 해제 실패가 분석을 막으면 안 된다
+            log.warning("key ownership release 실패 key=%s ref=%s", key, ref)
+
+
+def _close_visual_reservation(job_id: str, reservation_id: str, *, owner: str) -> None:
+    try:
+        firestore_admin.close_reservation(
+            job_id, reservation_id, owner=owner, now_ms=_visual_now_ms()
+        )
+    except Exception:  # noqa: BLE001 - janitor 가 TTL 만료로 회수한다
+        log.warning("reservation close 실패 job_id=%s", job_id)
+
+
+def _enqueue_corrected_pose_job(
+    *,
+    uid: str,
+    analysis_id: str,
+    target,
+    src_png: bytes,
+    request_id: str,
+) -> None:
+    """correctedPose job enqueue (D-05). 어떤 경로도 재raise 하지 않는다.
+
+    분석은 이미 complete 이므로 이 훅의 어떤 실패도 사용자 결과를 막지 않는다.
+
+    단계:
+      (0) preflight — job 이 어떤 state 로든 있으면 **source PUT 을 하지 않는다**
+          (6차 B6-03). 이미 done/failed 인 job 뒤에 새 입력을 올리면 cleanup 이
+          끝난 뒤 PII 가 되살아난다. 최종 권위는 reserve 지만, 대부분의 replay 는
+          여기서 S3 접촉 0 으로 끝난다.
+      (0.5) PUT **전** per-invocation immutable reservation + key ownership 획득.
+          reservation 이 per-invocation 인 이유(8차 B8-05): 단일 {jobId} 문서를
+          덮어쓰면 동시 invocation 이 서로의 expectedKeys 를 잃어 회수 대상에서
+          빠진다.
+      (1) 조건부 PUT(IfNoneMatch='*') — 이미 있으면 HEAD 의 full sha256 을 대조해
+          재사용하고, 불일치면 차단한다(collision/tampering). 두 invocation 이
+          서로의 입력을 갈아끼울 수 없다 (4차 M4-04 / 5차 B5-02).
+      (2) reserve — job + 표시 pending + 초기 outbox + reservation claim +
+          ownership 승격이 한 transaction (B3-03 / B8-06 / H10-01).
+      (3) inputSealed / terminal replay → 이번에 만든 입력 즉시 삭제.
+      (4) 실패/analysis_missing/commit loss → orphan 보상.
+      (5) best-effort SQS 발행.
+    """
+    if not _visual_jobs_enabled():
+        return
+    if target is None:  # B2-01 — 불확실하면 생성하지 않는다
+        return
+    bucket = _visual_input_bucket()
+    if not bucket:
+        log.error("VISUAL_INPUT_BUCKET 미설정 — correctedPose enqueue 생략")
+        return
+    if not src_png:
+        return
+
+    job_id = models.visual_job_id(uid, analysis_id, models.VISUAL_KIND_CORRECTED_POSE)
+    # full 64 hex (7차 M7-02) — prefix 절단은 불필요한 충돌 차단만 늘린다.
+    source_hash = hashlib.sha256(src_png).hexdigest()
+    src_key = f"visual-input/{uid}/{analysis_id}/{source_hash}.png"
+    reservation_id = request_id
+    created_keys: list[str] = []
+    acquired_keys: list[str] = []
+
+    try:
+        # ── (0) preflight ────────────────────────────────────────────────
+        existing = firestore_admin.read_visual_job(job_id)
+        if existing is not None:
+            if (
+                existing.get("dispatchState") == "pending"
+                and existing.get("srcKey") == src_key
+            ):
+                _dispatch_visual_job(job_id, existing)
+            return
+
+        # ── (0.5) reservation + key ownership (PUT 전) ───────────────────
+        now_ms = _visual_now_ms()
+        firestore_admin.create_input_reservation(
+            job_id,
+            reservation_id,
+            owner=request_id,
+            bucket=bucket,
+            source_hash=source_hash,
+            expected_keys=[src_key],
+            now_ms=now_ms,
+        )
+        if not firestore_admin.acquire_key_ownership(
+            bucket,
+            src_key,
+            ref=reservation_id,
+            kind="reservation",
+            now_ms=now_ms,
+            expire_at_ms=now_ms + models.VISUAL_INPUT_RESERVATION_TTL_MS,
+        ):
+            # state=='deleting' — 회수 중인 key 를 되살리지 않는다 (11차 B11-01).
+            log.info("visual 입력 key 삭제 진행 중 — enqueue 생략 key=%s", src_key)
+            _close_visual_reservation(job_id, reservation_id, owner=request_id)
+            return
+        acquired_keys.append(src_key)
+
+        # ── (1) 조건부 PUT ───────────────────────────────────────────────
+        if not _put_visual_source(bucket, src_key, src_png, source_hash):
+            _release_visual_keys(bucket, acquired_keys, ref=reservation_id)
+            _close_visual_reservation(job_id, reservation_id, owner=request_id)
+            return
+        created_keys.append(src_key)
+        firestore_admin.record_reservation_keys(
+            job_id, reservation_id, created_keys=created_keys, owner=request_id
+        )
+
+        # ── (2) reserve ──────────────────────────────────────────────────
+        payload = dict(target.to_payload())
+        payload["srcKey"] = src_key
+        payload["sourceHash"] = source_hash
+        try:
+            res = firestore_admin.reserve_visual_job(
+                uid,
+                analysis_id,
+                models.VISUAL_KIND_CORRECTED_POSE,
+                payload=payload,
+                allow_retry_failed=False,
+                reservation_id=reservation_id,
+                reservation_owner=request_id,
+                now_ms=_visual_now_ms(),
+            )
+        except Exception:  # noqa: BLE001 - commit 유실 포함 (4) 보상으로
+            log.warning("correctedPose reserve 실패 — orphan 보상 job_id=%s", job_id)
+            _compensate_visual_orphan(
+                bucket, job_id, src_key, created_keys, reservation_id, request_id
+            )
+            return
+
+        reason = res.get("reason")
+        if reason == "reservation_lost":
+            # janitor 가 이미 이 reservation 을 회수했다 — 내 삭제는 0.
+            _release_visual_keys(bucket, acquired_keys, ref=reservation_id)
+            return
+        if reason is not None:
+            # analysis_missing 등 — job 이 안 생겼으므로 입력은 고아다.
+            _compensate_visual_orphan(
+                bucket, job_id, src_key, created_keys, reservation_id, request_id
+            )
+            return
+
+        job = res.get("job") or {}
+        if res.get("created"):
+            # 성공 — reserve 가 ownership 을 job 으로 승격하고 reservation 을 닫았다.
+            _dispatch_visual_job(job_id, job)
+            return
+
+        # ── (3) created False — 기존 job 분기 ────────────────────────────
+        sealed = job.get("inputSealed") is True
+        terminal = job.get("state") in models.VISUAL_TERMINAL_STATES
+        if (sealed or terminal) and created_keys:
+            # terminal/sealed 뒤에 남은 새 입력 = cleanup 이 끝난 뒤 되살아난 PII.
+            for key in created_keys:
+                _delete_owned_key(bucket, key, ref=reservation_id, owner=request_id)
+            log.info("terminal/sealed replay 입력 즉시 삭제 job_id=%s", job_id)
+        _release_visual_keys(bucket, acquired_keys, ref=reservation_id)
+        _close_visual_reservation(job_id, reservation_id, owner=request_id)
+    except Exception:  # noqa: BLE001 - 분석은 이미 complete (비차단 규율)
+        log.exception("correctedPose enqueue 실패 (분석 비차단) job_id=%s", job_id)
+
+
+def _maybe_enqueue_corrected_pose(
+    *,
+    result: dict,
+    user_report: dict | None,
+    ref_report: dict | None,
+    ref_video_path: str | None,
+    cached_user_frames,
+    uid: str,
+    analysis_id: str,
+    request_id: str,
+) -> None:
+    """call-site — target 을 만들고 source 프레임을 PNG 로 굳혀 enqueue 에 넘긴다.
+
+    **flag 를 가장 먼저 본다.** OFF(기본)면 프레임 인코딩도 reference 재추출도 하지
+    않는다 — 운영 분석 경로에 비용 0 (D-08 조용한 폴백). 31-12 가 belle 승인 하에
+    켠다.
+
+    target 계약의 유일한 소비자다 (B2-01): joint/targetDeg/source frame 을 여기서
+    임의로 재계산하지 않고 build_corrected_pose_target 결과만 쓴다. 생성 지시와
+    31-09 의 pose gate 검증 기준이 갈라지지 않게 하려는 것이다.
+
+    mode1 전용인 이유: target_deg 는 DTW 로 매칭된 **reference 3점의 내각**이다.
+    비교 기준이 없는 mode3 에는 목표각의 출처가 없다.
+    """
+    if not _visual_jobs_enabled():
+        return
+    if not user_report or not ref_report or not ref_video_path:
+        return
+    try:
+        from sunity_shared.analysis import fault_zoom as _fz
+
+        vv = result.get("visionVeto") or {}
+        sfi = (vv.get("windowMedianAngleDeltas") or {}).get("sourceFrameIndices") or {}
+        u_list = sfi.get("user") or []
+        r_list = sfi.get("reference") or []
+        fault_joints = list(vv.get("faultJoints") or [])
+        if not (u_list and r_list and fault_joints):
+            return
+        # 줌 카드와 **같은** 프레임 쌍을 쓴다 — 교정 이미지와 확대 비교가 다른
+        # 순간을 가리키면 사용자에겐 서로 모순된 두 장이 된다 (B2-01).
+        u_idx = _fz.select_confident_frame(user_report, u_list, fault_joints)
+        r_idx = _fz.select_confident_frame(ref_report, r_list, fault_joints)
+        if u_idx is None or r_idx is None:
+            return
+
+        from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+
+        ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
+        ref_frames = ext.extract(ref_video_path)
+        if ref_frames is None or len(ref_frames) <= r_idx:
+            return
+        ref_shape = (int(ref_frames.shape[1]), int(ref_frames.shape[2]))
+
+        target = _fz.build_corrected_pose_target(
+            ((result.get("deductionBreakdown") or {}).get("records")),
+            user_report,
+            ref_report,
+            (int(u_idx), int(r_idx)),
+            False,
+            ref_frame_shape=ref_shape,
+        )
+        if target is None:
+            return
+
+        user_frames = cached_user_frames
+        if user_frames is None or len(user_frames) <= target.user_frame_idx:
+            return
+        src_png = _encode_png(user_frames[target.user_frame_idx])
+        if not src_png:
+            return
+
+        _enqueue_corrected_pose_job(
+            uid=uid,
+            analysis_id=analysis_id,
+            target=target,
+            src_png=src_png,
+            request_id=request_id,
+        )
+    except Exception:  # noqa: BLE001 - 분석은 이미 complete (비차단 규율)
+        log.warning(
+            "correctedPose target 준비 실패 (분석 비차단) uid=%s analysis_id=%s",
+            uid,
+            analysis_id,
+        )
+
+
+def _encode_png(frame) -> bytes | None:
+    """(H, W, 3) RGB uint8 → PNG 바이트.
+
+    PIL 은 **lazy import** 다 — pipeline/requirements.txt 는 250MB 한도 때문에
+    Pillow 를 의도적으로 제외한다(실측 262MB 초과 기록). 이 훅이 실제로 도는 곳은
+    Pillow 가 있는 Pod 런타임이고, Lambda 폴백에서는 flag OFF 라 여기 도달하지
+    않는다. import 실패는 조용히 생략한다.
+    """
+    try:
+        import io
+
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.fromarray(frame).save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:  # noqa: BLE001 - Pillow 부재(Lambda) 포함
+        log.info("correctedPose source PNG 인코딩 생략 (Pillow 미가용 가능)")
+        return None
+
+
+def _compensate_visual_orphan(
+    bucket: str,
+    job_id: str,
+    src_key: str,
+    created_keys: list,
+    reservation_id: str,
+    request_id: str,
+) -> None:
+    """reserve 미성립 시 보상 (6차 H6-02).
+
+    job 을 다시 읽어 판단한다: job 이 없으면 이번 입력은 확실한 고아이므로 삭제,
+    job 이 있고 그 입력이 내 것이면(payload.srcKey 일치) 살아있는 job 의 입력이므로
+    유지한다. commit 응답만 유실되고 실제로는 성공한 경우가 여기다.
+    """
+    try:
+        job = firestore_admin.read_visual_job(job_id)
+    except Exception:  # noqa: BLE001 - 못 읽으면 삭제하지 않는다(보수적)
+        log.warning("보상 판단용 job 재read 실패 job_id=%s", job_id)
+        for key in created_keys:
+            _record_visual_orphan(bucket, key, reason="compensation_job_read_failed")
+        return
+
+    if job is not None and job.get("srcKey") == src_key:
+        # commit 은 성사됐다 — 입력은 그 job 의 것이다.
+        return
+    for key in created_keys:
+        _delete_owned_key(bucket, key, ref=reservation_id, owner=request_id)
+    _release_visual_keys(bucket, [src_key], ref=reservation_id)
+    _close_visual_reservation(job_id, reservation_id, owner=request_id)
+
+
+def _put_visual_source(bucket: str, key: str, body: bytes, source_hash: str) -> bool:
+    """조건부 immutable PUT. 성공(신규 생성) 또는 동일 해시 재사용이면 True.
+
+    IfNoneMatch='*' 는 "없을 때만 생성" 이다. 412/409 는 경쟁이 있었다는 뜻이므로
+    HEAD 로 기존 객체의 full sha256 을 읽어 **정확히 같은 바이트**일 때만 재사용한다.
+    다르면 같은 key 에 다른 프레임이 있다는 뜻이라 진행하지 않는다 (M4-04).
+    """
+    for attempt in range(_CORRECTED_POSE_MAX_PUT_RETRY):
+        try:
+            _s3.put_object(
+                Bucket=bucket,
+                Key=key,
+                Body=body,
+                ContentType="image/png",
+                Metadata={"sha256": source_hash},
+                IfNoneMatch="*",
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001 - 코드로 분기
+            code = _s3_error_code(exc)
+            if code in ("PreconditionFailed", "412"):
+                break
+            if code in ("ConditionalRequestConflict", "409") and attempt + 1 < _CORRECTED_POSE_MAX_PUT_RETRY:
+                continue
+            if code in ("ConditionalRequestConflict", "409"):
+                break
+            log.warning("visual source PUT 실패 code=%s key=%s", code, key)
+            return False
+
+    try:
+        head = _s3.head_object(Bucket=bucket, Key=key)
+    except Exception:  # noqa: BLE001 - 존재 판정 불가 → 진행하지 않는다
+        log.warning("visual source HEAD 실패 key=%s", key)
+        return False
+    existing_hash = (head.get("Metadata") or {}).get("sha256")
+    if existing_hash != source_hash:
+        log.error(
+            "srcKey collision/tampering — 기존 객체 해시 불일치 key=%s", key
+        )
+        return False
+    return True  # 동일 바이트 재사용
+
+
+def _dispatch_visual_job(job_id: str, job: dict) -> None:
+    """best-effort 발행. 실패해도 dispatchState='pending' 이 남아 dispatcher 가 복구."""
+    queue_url = os.environ.get("VISUAL_QUEUE_URL")
+    if not queue_url:
+        log.error("VISUAL_QUEUE_URL 미설정 — dispatcher 복구에 위임")
+        return
+    action = job.get("nextAction") or "create"
+    outbox_seq = int(job.get("outboxSeq") or 0)
+    generation = int(job.get("generation") or 0)
+    try:
+        _sqs().send_message(
+            QueueUrl=queue_url,
+            MessageBody=json.dumps(
+                {
+                    "jobId": job_id,
+                    "generation": generation,
+                    "action": action,
+                    "outboxSeq": outbox_seq,
+                }
+            ),
+        )
+    except Exception:  # noqa: BLE001 - dispatcher 가 재발행 (H3-09)
+        log.warning("correctedPose send 실패 job_id=%s — outbox pending 유지", job_id)
+        return
+    try:
+        firestore_admin.mark_visual_job_dispatched(
+            job_id,
+            expect_action=action,
+            expect_outbox_seq=outbox_seq,
+            expect_generation=generation,
+        )
+    except Exception:  # noqa: BLE001 - mark 실패는 재발행(멱등)으로 흡수
+        log.warning("mark_visual_job_dispatched 실패 job_id=%s", job_id)
+
+
 def _extension_target_dict(
     profile: technique.TechniqueProfile,
 ) -> dict[str, float]:
@@ -4764,6 +5258,22 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 space=space_str,
             )
         log.info("분석 완료 uid=%s analysis_id=%s mode=%s", uid, analysis_id, mode)
+
+        # Phase 31 D-05 — correctedPose 자동 생성 enqueue. **fault-zoom 조건부 밖**
+        # (H-01): 줌 카드 유무와 무관하게 판단되어야 하고, 여기서 실패해도 분석은
+        # 이미 complete 라 사용자 결과에 영향이 없다. flag 기본 OFF 라 31-12 가
+        # 켜기 전까지 운영 경로 비용 0 (enqueue 만 — 벤더 호출 0).
+        if fault_zoom_kind == "mode1":
+            _maybe_enqueue_corrected_pose(
+                result=result,
+                user_report=keypoint_report_dict,
+                ref_report=reference_keypoint_report_dict,
+                ref_video_path=reference_local_video_path,
+                cached_user_frames=cached_user_frames,
+                uid=uid,
+                analysis_id=analysis_id,
+                request_id=uuid.uuid4().hex,
+            )
 
         # Phase 27 SPD-04 (D-06) — fault_zoom 사후 렌더. complete_analysis 로 점수/verdict/
         # 감점 내역이 확정된 뒤(status='done'), zoom PNG 를 여기서 렌더해

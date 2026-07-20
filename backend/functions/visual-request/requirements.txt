@@ -1,0 +1,19 @@
+# visual-request Lambda (31-10). sunity_shared 는 Layer 박제, boto3 는 런타임 제공.
+
+# Firestore Admin transaction (reserve_visual_job) + Firebase Auth ID token 검증.
+firebase-admin>=6,<7
+
+# PyYAML — sunity_shared.firestore_admin 의 transitive import
+# (sunity_shared.analysis.force_signals.py module-level yaml import).
+# 선례 2건 인용:
+#   - pipeline/requirements.txt: "2026-06-12 deploy fix: 500 ImportError 박힘
+#     (reference-auto-register 와 동일 원인)."
+#   - playback-url/requirements.txt: "2026-07-17 deploy fix: 29-06 배포 직후 500
+#     Runtime.ImportModuleError 직격 원인 (upload-url/reference-api 의 2026-06-12
+#     deploy fix 와 동일 패턴)."
+# 이 함수는 사용자가 버튼을 누르는 유일한 진입점이다 — 여기가 ImportError 로 죽으면
+# 기능 자체가 시작되지 않는다. 신설 시점에 박제한다.
+pyyaml>=6.0,<7.0
+
+# Pillow 불요: 이미지를 열지 않는다 (예약 + 발행만).
+# google-genai / DashScope SDK 금지: 생성 호출 주체는 visual-worker 다.

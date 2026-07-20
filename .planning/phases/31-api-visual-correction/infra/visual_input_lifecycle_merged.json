@@ -1,0 +1,14 @@
+{
+  "Rules": [
+    {
+      "ID": "visual-input-1d",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "visual-input/"
+      },
+      "Expiration": {
+        "Days": 1
+      }
+    }
+  ]
+}

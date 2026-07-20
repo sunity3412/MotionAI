@@ -31,9 +31,10 @@ import re
 
 import boto3
 
-from sunity_shared import firestore_admin, responses
+from sunity_shared import firestore_admin, models, responses
 from sunity_shared.auth import AuthError, verify_request
 from sunity_shared.s3keys import build_upload_key
+from sunity_shared.validation import validate_analysis_id_format
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -46,20 +47,81 @@ _ALLOWED_EXT = ("mp4", "mov")
 _REF_ID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 # 재서명 허용 S3 키 prefix (Task 1 실측: 전 11 doc videoS3Key = reference/*.mp4).
 _REF_KEY_PREFIX = "reference/"
+# Phase 31 asset 확장 (contract.md "POST /playback-url — asset 확장", 리뷰 H-02).
+# 표시 URL 은 매 요청 재서명이라 1시간이면 충분하다 — 영상 재생용 7일과 다르다.
+_ASSET_EXPIRES = 3600
+_ASSET_CONTENT_TYPE = {"png": "image/png", "mp4": "video/mp4"}
 _s3 = boto3.client("s3")
 
 
-def _sign_get(key: str) -> str | None:
-    """presigned GET 발급. 실패 시 None (caller 가 500 응답)."""
+def _sign_get(key: str, *, expires: int | None = None, content_type: str | None = None) -> str | None:
+    """presigned GET 발급. 실패 시 None (caller 가 500 응답).
+
+    content_type 지정 시 ResponseContentType 을 서명에 포함한다 — 브라우저/RN 이
+    S3 기본 octet-stream 대신 이미지/영상으로 렌더링하도록.
+    """
+    params: dict = {"Bucket": _BUCKET, "Key": key}
+    if content_type:
+        params["ResponseContentType"] = content_type
     try:
         return _s3.generate_presigned_url(
             "get_object",
-            Params={"Bucket": _BUCKET, "Key": key},
-            ExpiresIn=_PLAYBACK_EXPIRES,
+            Params=params,
+            ExpiresIn=expires if expires is not None else _PLAYBACK_EXPIRES,
         )
     except Exception:  # noqa: BLE001 - 서명 실패는 서버 오류로 통일
         log.exception("presigned GET 실패")
         return None
+
+
+def _handle_asset(uid: str, analysis_id: str, asset: str) -> dict:
+    """asset 재서명 — 서버가 key 를 **구성**하고 저장 key 와 exact 비교 (M2-01).
+
+    클라이언트는 asset 종류만 고르고 key 는 절대 보내지 않는다(H-02/H-05). 저장된
+    key 를 그대로 서명하지 않고 canonical 형태를 서버가 새로 만들어 **전체 문자열
+    일치**를 요구하는 이유(2차 리뷰 M2-01): 생성 실패로 status 가 failed 로 돌아간
+    뒤에도 이전 성공분의 key 필드가 문서에 남을 수 있다. basename prefix 검사만 하면
+    그 stale key 가 계속 서명된다. status=='done' + exact equality 두 가지를 모두
+    요구해야 "지금 이 분석 건의 현재 asset" 만 서명된다.
+
+    가드 위반은 전부 동일 404 — 어느 단계에서 걸렸는지 응답으로 구분되지 않는다.
+    """
+    doc = firestore_admin.get_analysis(uid, analysis_id) or {}
+    result = doc.get("result")
+    result = result if isinstance(result, dict) else {}
+
+    if asset == models.VISUAL_KIND_CORRECTED_POSE:
+        joint = result.get("correctedPoseJoint")
+        stored = result.get("correctedPoseKey")
+        status = result.get("correctedPoseStatus")
+        # joint 부재 = canonical key 를 구성할 수 없음 → 404 (추측 서명 차단).
+        expected = (
+            f"results/{uid}/{analysis_id}/corrected_pose_{joint}.png"
+            if isinstance(joint, str) and joint
+            else None
+        )
+        ext = "png"
+    else:
+        stored = result.get("rotationVideoKey")
+        status = result.get("rotationStatus")
+        expected = f"results/{uid}/{analysis_id}/rotation.mp4"
+        ext = "mp4"
+
+    guards_ok = (
+        status == models.VISUAL_STATUS_DONE  # failed/pending/부재 = stale key 여도 404
+        and expected is not None
+        and isinstance(stored, str)
+        and stored == expected  # exact equality — prefix/basename 부분일치 불가
+    )
+    if not guards_ok:
+        return responses.error("not_found", "시각 교정물을 찾을 수 없어요.", status=404)
+
+    url = _sign_get(expected, expires=_ASSET_EXPIRES, content_type=_ASSET_CONTENT_TYPE[ext])
+    if url is None:
+        return responses.error("server_error", "서명 실패", status=500)
+
+    log.info("playback-url 발급(asset) uid=%s analysis_id=%s asset=%s", uid, analysis_id, asset)
+    return responses.ok({"playbackUrl": url, "expiresInSec": _ASSET_EXPIRES})
 
 
 def _handle_reference(uid: str, reference_motion_id: str) -> dict:
@@ -106,6 +168,7 @@ def lambda_handler(event: dict, _context) -> dict:
     analysis_id = body.get("analysisId", "")
     reference_motion_id = body.get("referenceMotionId", "")
     ext = body.get("ext", "mp4")
+    asset = body.get("asset")
 
     # analysisId / referenceMotionId 상호 배타 (contract.md §2)
     if analysis_id and reference_motion_id:
@@ -122,9 +185,18 @@ def lambda_handler(event: dict, _context) -> dict:
         return responses.error("bad_request", "analysisId 필수", status=400)
     if ext not in _ALLOWED_EXT:
         return responses.error("bad_request", f"ext 는 {_ALLOWED_EXT} 중 하나여야 합니다", status=400)
-    # analysisId 정합 (uuid hex 32자) — path injection 방지
-    if not (analysis_id.isalnum() and len(analysis_id) >= 16):
+    # analysisId 정합 (uuid hex 32자) — path injection 방지. 공유 validator (L-03).
+    if not validate_analysis_id_format(analysis_id):
         return responses.error("bad_request", "analysisId 형식 오류", status=400)
+
+    # Phase 31 asset 확장 — 미지정이면 아래 기존 경로가 바이트 동일하게 동작한다.
+    # (검증 순서를 기존 그대로 두어 asset 미지정 요청의 응답이 1바이트도 안 바뀌게 한다.)
+    if asset is not None:
+        if asset not in models.VISUAL_JOB_KINDS:
+            return responses.error(
+                "bad_request", f"asset 은 {list(models.VISUAL_JOB_KINDS)} 중 하나여야 합니다", status=400
+            )
+        return _handle_asset(uid, analysis_id, asset)
 
     # 3. presigned GET (uid 가 token 박제 — caller 가 자기 영상만 fetch)
     key = build_upload_key(uid, analysis_id, ext)

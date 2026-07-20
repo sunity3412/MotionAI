@@ -612,6 +612,301 @@ def test_enqueue_never_raises(s3, sqs, env, analysis, monkeypatch):
     _enqueue()  # 예외가 새어나오면 테스트 실패
 
 
+# ═══════════════ SAM template 배선 게이트 ═══════════════
+#
+# 여기 단언들은 "YAML 이 예쁘다" 가 아니라 **부등식 계약**을 지킨다. lease 와
+# visibility 와 timeout 은 서로를 구속하는데, 그 관계가 코드가 아니라 IaC 숫자에
+# 살아 있어서 리뷰만으로는 깨진 걸 못 본다.
+
+
+@pytest.fixture(scope="module")
+def template() -> dict:
+    yaml = pytest.importorskip("yaml")
+
+    class _Loader(yaml.SafeLoader):
+        pass
+
+    def _passthrough(loader, tag_suffix, node):
+        if isinstance(node, yaml.ScalarNode):
+            return {f"Fn::{tag_suffix}": loader.construct_scalar(node)}
+        if isinstance(node, yaml.SequenceNode):
+            return {f"Fn::{tag_suffix}": loader.construct_sequence(node, deep=True)}
+        return {f"Fn::{tag_suffix}": loader.construct_mapping(node, deep=True)}
+
+    _Loader.add_multi_constructor("!", _passthrough)
+    return yaml.load(_TEMPLATE.read_text(encoding="utf-8"), Loader=_Loader)
+
+
+def _res(template, name) -> dict:
+    return template["Resources"][name]["Properties"]
+
+
+def _statements(props) -> list:
+    out = []
+    for policy in props.get("Policies") or []:
+        for st in (policy or {}).get("Statement") or []:
+            out.append(st)
+    return out
+
+
+def _actions(props) -> set:
+    out: set[str] = set()
+    for st in _statements(props):
+        action = st.get("Action")
+        out.update([action] if isinstance(action, str) else action or [])
+    return out
+
+
+def test_visual_input_bucket_parameter_has_no_default(template):
+    """H10-05: override 누락이 조용히 통과하면 엉뚱한 버킷에 생체 프레임이 쌓인다."""
+    param = template["Parameters"]["VisualInputBucketName"]
+
+    assert "Default" not in param
+    assert "AllowedPattern" in param
+
+
+def test_bucket_name_matches_single_source_json():
+    """9차 B9-05: 이름의 단일 출처는 infra JSON 이다 — 실행 경로 하드코딩 0."""
+    infra = json.loads(
+        (
+            _BACKEND.parent
+            / ".planning"
+            / "phases"
+            / "31-api-visual-correction"
+            / "infra"
+            / "visual_input_bucket.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert infra["bucketName"] == BUCKET
+    assert infra["region"] == "ap-northeast-2"
+    # 템플릿은 이름을 Parameter 로만 받는다 — 리터럴 박제 0.
+    assert BUCKET not in _TEMPLATE.read_text(encoding="utf-8")
+
+
+def test_four_gate_envs_have_no_sam_default(template):
+    """31-09 는 5개 허용오차 env 를 fail-closed 로 만들었다 — Default 는 그 설계를 깬다.
+
+    CALIBRATION.json 이 blocked(chosen 부재)인 현재, 배포가 막히는 것이 정상이다.
+    """
+    for name in (
+        "DisplayJudgeConfidence",
+        "TrainingJudgeConfidence",
+        "DisplayPoseTolDeg",
+        "TrainingPoseTolDeg",
+    ):
+        assert "Default" not in template["Parameters"][name], name
+
+    worker_env = _res(template, "VisualWorkerFunction")["Environment"]["Variables"]
+    for env_name in (
+        "DISPLAY_JUDGE_CONFIDENCE",
+        "TRAINING_JUDGE_CONFIDENCE",
+        "DISPLAY_POSE_TOL_DEG",
+        "TRAINING_POSE_TOL_DEG",
+    ):
+        assert env_name in worker_env
+
+
+def test_calibration_is_blocked_so_no_chosen_values_exist():
+    """게이트 값을 발명하지 않았음을 고정한다 — 측정 결과가 blocked 면 blocked 다."""
+    calib = json.loads(
+        (
+            _BACKEND.parent
+            / ".planning"
+            / "phases"
+            / "31-api-visual-correction"
+            / "smoke"
+            / "CALIBRATION.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert calib["blocked"] is True
+    assert "chosen" not in calib
+
+
+def test_build_gate_1_claim_lease_between_worker_timeout_and_visibility(template):
+    """H6-07: lease > visibility 면 crash 복구가 영원히 막히고, lease < worker
+    실행시간이면 정상 작업 중 재claim 으로 이중 유료 호출이 난다."""
+    worker_timeout_ms = _res(template, "VisualWorkerFunction")["Timeout"] * 1000
+    visibility_ms = _res(template, "VisualQueue")["VisibilityTimeout"] * 1000
+
+    assert worker_timeout_ms < models.VISUAL_CLAIM_LEASE_MS < visibility_ms
+
+
+def test_build_gate_2_training_gates_stricter_than_display():
+    """B4-05/M4-03: 표시보다 느슨한 학습 기준은 학습셋을 오염시킨다."""
+    source = _TEMPLATE.read_text(encoding="utf-8")
+
+    assert "TRAINING_JUDGE_CONFIDENCE" in source and "DISPLAY_JUDGE_CONFIDENCE" in source
+    # 값이 주입되는 시점(31-12)에 강제할 부등식을 계약으로 명시한다.
+    assert "TRAINING_JUDGE_CONFIDENCE" in source
+    assert "TRAINING_POSE_TOL_DEG" in source
+
+
+@pytest.mark.parametrize(
+    ("display_judge", "training_judge", "display_tol", "training_tol", "ok"),
+    [
+        (0.8, 0.9, 15.0, 10.0, True),
+        (0.9, 0.8, 15.0, 10.0, False),  # 학습이 더 느슨 — 금지
+        (0.8, 0.9, 10.0, 15.0, False),  # 학습 허용오차가 더 큼 — 금지
+        (0.8, 0.8, 15.0, 10.0, False),  # 동률 — strict 아님
+    ],
+)
+def test_build_gate_2_strict_ordering_predicate(
+    display_judge, training_judge, display_tol, training_tol, ok
+):
+    """31-12 가 override 값을 넣을 때 적용할 strict ordering 판정 (B4-05)."""
+    assert (training_judge > display_judge and training_tol < display_tol) is ok
+
+
+def test_build_gate_3_reservation_ttl_covers_pipeline_timeout(template):
+    """9차 H9-01: producer 가 아직 살아있는데 janitor 가 그 입력을 회수하면 안 된다."""
+    pipeline_timeout_ms = _res(template, "PipelineFunction")["Timeout"] * 1000
+    max_compensation_ms = 600_000
+    margin_ms = 300_000
+
+    assert (
+        pipeline_timeout_ms + max_compensation_ms + margin_ms
+        <= models.VISUAL_INPUT_RESERVATION_TTL_MS
+    )
+
+
+def test_build_gate_4_delete_lease_outlives_dispatcher(template):
+    """11차 B11-01: 이전 claimant 가 lease 만료 뒤 살아 돌아와 늦은 delete 를 못 던지게."""
+    dispatch_timeout_ms = _res(template, "VisualDispatchFunction")["Timeout"] * 1000
+
+    assert (
+        dispatch_timeout_ms + models.VISUAL_CLOCK_SKEW_MS
+        < models.VISUAL_OBJECT_DELETE_LEASE_MS
+    )
+
+
+def test_orphan_age_alarm_threshold_is_exactly_double_ttl(template):
+    """H10-06: Threshold 는 Python 표현식이 아닌 concrete Parameter 여야 한다."""
+    threshold = template["Parameters"]["VisualOrphanOldestAgeThresholdMs"]["Default"]
+
+    assert threshold == models.VISUAL_INPUT_RESERVATION_TTL_MS * 2
+    alarm = _res(template, "VisualOrphanOldestAgeAlarm")
+    assert alarm["Namespace"] == "SunityVisual"
+    assert alarm["MetricName"] == "VisualOrphanOldestAgeMs"
+    assert alarm["TreatMissingData"] == "notBreaching"
+
+
+def test_queue_visibility_and_redrive(template):
+    """H2-01: visibility >= 6 × worker Timeout, maxReceiveCount >= 5."""
+    queue = _res(template, "VisualQueue")
+    worker_timeout = _res(template, "VisualWorkerFunction")["Timeout"]
+
+    assert queue["VisibilityTimeout"] >= 6 * worker_timeout
+    assert queue["RedrivePolicy"]["maxReceiveCount"] >= 5
+
+
+def test_worker_reports_batch_item_failures_and_has_no_schedule(template):
+    """H3-09: worker 에 Schedule 이 붙으면 복구가 worker 동시성에 묶인다."""
+    worker = _res(template, "VisualWorkerFunction")
+    events = worker["Events"]
+
+    assert events["Queue"]["Properties"]["FunctionResponseTypes"] == [
+        "ReportBatchItemFailures"
+    ]
+    assert events["Queue"]["Properties"]["BatchSize"] == 1
+    assert all(e.get("Type") != "Schedule" for e in events.values())
+
+
+def test_dispatcher_is_single_concurrency_and_scheduled(template):
+    dispatch = _res(template, "VisualDispatchFunction")
+
+    assert dispatch["ReservedConcurrentExecutions"] == 1
+    assert dispatch["Events"]["Tick"]["Properties"]["Schedule"] == "rate(1 minute)"
+
+
+def test_worker_iam_has_listbucket_with_prefix_and_no_version_actions(template):
+    """B7-01: ListBucket 누락은 전 job cleanup_blocked(T-31-81).
+    B6-02: 버전 액션이 있으면 '버저닝을 켜도 도는' 코드가 자란다."""
+    props = _res(template, "VisualWorkerFunction")
+    actions = _actions(props)
+
+    assert "s3:ListBucket" in actions
+    assert {"s3:GetObject", "s3:PutObject", "s3:DeleteObject"} <= actions
+    assert "s3:DeleteObjectVersion" not in actions
+    assert "s3:ListBucketVersions" not in actions
+    assert "cloudwatch:PutMetricData" in actions
+
+    list_stmts = [
+        st for st in _statements(props) if "s3:ListBucket" in str(st.get("Action"))
+    ]
+    assert list_stmts and all("Condition" in st for st in list_stmts)
+
+
+def test_dispatcher_iam_uses_getobject_not_nonexistent_headobject(template):
+    """B8-04: `s3:HeadObject` 라는 IAM action 은 존재하지 않는다."""
+    actions = _actions(_res(template, "VisualDispatchFunction"))
+
+    assert {"s3:GetObject", "s3:DeleteObject", "s3:ListBucket"} <= actions
+    # 주석 언급이 아니라 실제 Action 값을 본다 — 어떤 함수도 이 action 을 못 쓴다.
+    all_actions: set[str] = set()
+    for name, res in template["Resources"].items():
+        if res.get("Type") == "AWS::Serverless::Function":
+            all_actions |= _actions(res["Properties"])
+    assert "s3:HeadObject" not in all_actions
+
+
+def test_pipeline_producer_iam(template):
+    """B6-02/B6-03/H7-03 — 조건부 PUT + 보상 delete + 재read + metric."""
+    actions = _actions(_res(template, "PipelineFunction"))
+
+    assert {"sqs:SendMessage", "cloudwatch:PutMetricData"} <= actions
+    assert "s3:DeleteObjectVersion" not in actions
+
+
+def test_gemini_key_is_worker_only(template):
+    """T-31-43: judge 를 부르지 않는 함수가 키를 들고 있을 이유가 없다."""
+    for name in ("VisualRequestFunction", "VisualDispatchFunction"):
+        env = _res(template, name).get("Environment", {}).get("Variables", {})
+        assert "GEMINI_API_KEY" not in env
+
+    worker_env = _res(template, "VisualWorkerFunction")["Environment"]["Variables"]
+    assert "GEMINI_API_KEY" in worker_env
+    assert "dashscope-api-key" in str(worker_env["DASHSCOPE_API_KEY"])
+
+
+def test_feature_flag_defaults_off(template):
+    """H-07: 미검증 기능을 전면 노출하지 않는다."""
+    assert template["Parameters"]["VisualJobsEnabled"]["Default"] == "false"
+
+
+def test_all_eight_alarms_present_with_full_definitions(template):
+    """9차 M9-03 — logical ID 표 정합 + 각 알람이 완전 정의를 갖는지."""
+    expected = [
+        "VisualDLQAlarm",
+        "VisualScannedOutboxAgeAlarm",
+        "VisualOutboxScanTruncatedAlarm",
+        "VisualOrphanSourceObjectAlarm",
+        "VisualCleanupBlockedAlarm",
+        "VisualPairConflictAlarm",
+        "VisualOrphanOldestAgeAlarm",
+        "VisualOrphanSweepFailedAlarm",
+    ]
+    for name in expected:
+        props = _res(template, name)
+        assert props["MetricName"]
+        assert props["Namespace"]
+        assert "Threshold" in props
+        assert props["EvaluationPeriods"] >= 1
+        assert props["Period"] >= 60
+        assert props["DatapointsToAlarm"] >= 1
+        assert props["TreatMissingData"] == "notBreaching"
+
+
+def test_log_groups_have_retention(template):
+    for name in (
+        "VisualRequestLogGroup",
+        "VisualWorkerLogGroup",
+        "VisualDispatchLogGroup",
+    ):
+        assert _res(template, name)["RetentionInDays"] == 30
+
+
 def test_hook_does_not_import_visual_gen():
     """생성/판정은 worker 소유 — 분석 경로에서 벤더 모듈을 끌어오지 않는다.
 

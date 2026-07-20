@@ -41,6 +41,63 @@ Parameters:
       RunPod 서버와 공유하는 인증 토큰. server.py 가 X-RunPod-Token 헤더로 검증.
       RunPod 측 RUNPOD_AUTH_TOKEN 과 정확히 같은 값. NoEcho 로 CFN/콘솔에 마스킹.
 
+  # ── Phase 31 (시각 교정물) ──────────────────────────────────────────
+  VisualInputBucketName:
+    Type: String
+    AllowedPattern: "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+    Description: >
+      임시 생체 프레임(correctedPose source) 전용 S3 버킷.
+      ⚠ **Default 를 두지 않는다** (10차 H10-05): override 를 빠뜨린 배포가
+      조용히 엉뚱한 버킷을 쓰는 fail-open 을 막는다 — 값이 없으면 deploy 가
+      실패해야 한다. 단일 출처는
+      .planning/phases/31-api-visual-correction/infra/visual_input_bucket.json
+      이며 repo-root helper 가 그 값으로 SAM override 를 구성한다.
+      ⚠ 이 템플릿은 버킷을 만들지 않는다 — 이미 생성돼 있고(Never-versioned /
+      Block Public Access 4/4 / SSE-S3 / BucketOwnerEnforced), **버저닝 API 는
+      한 번도 호출된 적이 없어야 한다**. 비-버저닝이라야 delete_object 1회가
+      완전 소거이고, 그래야 "즉시 삭제" privacy SLA 가 version 열거 없이
+      성립한다 (6차 아키텍처 / T-31-76).
+  VisualJobsEnabled:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >
+      시각 교정물 기능 플래그 (H-07). **기본 OFF** — 미검증 기능을 전면 노출하지
+      않는다. OFF 면 producer 훅과 POST /visual/rotation 이 모두 조용히 폴백한다.
+  DisplayJudgeConfidence:
+    Type: String
+    Description: >
+      표시용 judge 신뢰도 하한. **Default 없음이 의도다** — 31-09 는 5개 허용오차
+      env 를 "값 없으면 fail-closed(카드 미표시)" 로 만들었다. 여기 Default 를 두면
+      그 설계가 무력화되고, 미보정 임계값으로 사용자에게 카드가 나간다.
+      값의 출처는 smoke/CALIBRATION.json 의 chosen 이며, 현재 그 파일은
+      `blocked: true`(pass 표본 3<4 / pose 미측정 12/12 / confidence 축 비변별)라
+      **chosen 값이 존재하지 않는다**. 즉 지금은 배포할 수 없는 것이 맞다 —
+      보정을 마친 뒤 31-12 가 override 로 주입한다.
+  TrainingJudgeConfidence:
+    Type: String
+    Description: >
+      학습 페어 적재용 judge 신뢰도 하한. 표시용보다 **엄격**해야 한다
+      (build gate: TRAINING > DISPLAY — B4-05). 표시보다 느슨하면 표시엔 못 쓴
+      품질이 학습셋에 들어가 모델을 오염시킨다. Default 없음 (위와 동일 이유).
+  DisplayPoseTolDeg:
+    Type: String
+    Description: >
+      표시용 pose gate 허용오차(도). Default 없음 (위와 동일 이유).
+  TrainingPoseTolDeg:
+    Type: String
+    Description: >
+      학습 페어 적재용 pose 허용오차(도). 표시용보다 **작아야** 한다
+      (build gate: TRAINING < DISPLAY — B4-05). Default 없음.
+  VisualOrphanOldestAgeThresholdMs:
+    Type: Number
+    Default: 3600000
+    Description: >
+      VisualOrphanOldestAgeMs 알람 임계 (10차 H10-06 — Python 상수 표현식이 아닌
+      concrete numeric). models.VISUAL_INPUT_RESERVATION_TTL_MS(1,800,000) × 2 와
+      정확히 일치해야 하며 build test 가 대조한다. TTL 두 배가 넘도록 회수되지
+      않은 고아는 janitor 가 실제로 돌지 않고 있다는 뜻이다.
+
 Globals:
   Function:
     Runtime: python3.12
@@ -273,11 +330,34 @@ Resources:
           # 박힘 박힘 박힘 belle 박힘 박힘 박힘 박힘 (Pod 재생성 시 SSM put-parameter).
           RUNPOD_ANALYZE_URL: "{{resolve:ssm:/sunity/motion/runpod-analyze-url}}"
           RUNPOD_AUTH_TOKEN: "{{resolve:ssm:/sunity/motion/runpod-auth-token}}"
+          # Phase 31 (H2-02/B6-02/B6-03) — producer 훅. flag 기본 OFF 라
+          # 켜기 전까지 이 함수의 동작은 바뀌지 않는다.
+          VISUAL_QUEUE_URL: !Ref VisualQueue
+          VISUAL_JOBS_ENABLED: !Ref VisualJobsEnabled
+          VISUAL_INPUT_BUCKET: !Ref VisualInputBucketName
       Policies:
         - Statement:
             - Effect: Allow
               Action: [s3:GetObject, s3:PutObject]
               Resource: !Sub arn:aws:s3:::${VideoBucketName}/*
+        - Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt VisualQueue.Arn
+        - Statement:
+            # producer 는 조건부 PUT / 보상 delete / orphan 판단 재read 를 한다.
+            # 버전 액션 부재가 계약 (B6-02) — 비-버저닝 버킷.
+            - Effect: Allow
+              Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+              Resource: !Sub arn:aws:s3:::${VisualInputBucketName}/visual-input/*
+        - Statement:
+            # VisualOrphanSourceObject 방출 주체 (7차 H7-03).
+            - Effect: Allow
+              Action: cloudwatch:PutMetricData
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  cloudwatch:namespace: SunityVisual
         - Statement:
             # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
             # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
@@ -292,6 +372,333 @@ Resources:
           Properties:
             Queue: !GetAtt AnalysisQueue.Arn
             BatchSize: 1
+
+  # ══════════════ Phase 31 — 시각 교정물 (D-05/D-06/D-07) ══════════════
+  #
+  # 큐 하나 + 함수 셋(request/worker/dispatch). worker 와 dispatcher 를 **분리**한
+  # 이유(H3-09 / T-31-58): 복구 경로가 worker 와 동시성을 공유하면 worker 가
+  # backlog 로 concurrency 를 다 먹었을 때 복구가 굶는다 — 정확히 복구가 필요한
+  # 순간에 복구가 멈춘다.
+
+  VisualQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sunity-motion-${Stage}-visual
+      # H2-01: visibility >= 6 × worker Timeout(300). lease 계약과 함께 봐야 한다 —
+      # models.VISUAL_CLAIM_LEASE_MS(360,000) 가 worker timeout*1000 보다 크고
+      # 이 visibility*1000 보다 작아야 crash 복구가 막히지 않는다 (H6-07 build gate).
+      VisibilityTimeout: 1800
+      MessageRetentionPeriod: 86400
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt VisualDLQ.Arn
+        # >= 5 — 벤더 일시 오류로 유료 작업이 DLQ 로 조기 낙오하지 않게.
+        maxReceiveCount: 5
+
+  VisualDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sunity-motion-${Stage}-visual-dlq
+      MessageRetentionPeriod: 1209600
+
+  # ── POST /visual/rotation : 온디맨드 회전 요청 (D-06) ────────────────
+  VisualRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-visual-request
+      CodeUri: functions/visual-request/
+      Handler: app.lambda_handler
+      Timeout: 10
+      Environment:
+        Variables:
+          VISUAL_QUEUE_URL: !Ref VisualQueue
+          VISUAL_JOBS_ENABLED: !Ref VisualJobsEnabled
+          # 한도는 fail-closed 파싱이다 — 파싱 불가/부재는 0(전부 429). 값이
+          # 있어야 생성이 가능하다 (M-06).
+          ROTATION_DAILY_LIMIT: "3"
+          ROTATION_GLOBAL_DAILY_LIMIT: "30"
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+        - Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt VisualQueue.Arn
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: POST
+            Path: /visual/rotation
+
+  # ── 시각 교정물 워커 (SQS consumer) ─────────────────────────────────
+  # **Schedule 이벤트 없음** (H3-09) — 복구는 VisualDispatchFunction 전담.
+  VisualWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-visual-worker
+      CodeUri: functions/visual-worker/
+      Handler: app.lambda_handler
+      Timeout: 300
+      # MemorySize 근거: 31-05 가 200MB 다운로드의 RSS 증가를 약 1.97MB 로 실측했다
+      # (스트리밍 실동작 확인). 다만 그 측정은 **darwin** 이라 31-05 SUMMARY 가
+      # "IaC 산정은 Linux/container 측정 기준" 이라고 명시했다 — 여기 1024 는 Pillow
+      # 디코딩 여유를 둔 보수값이며, 31-12 가 Linux 실측으로 확정한다.
+      MemorySize: 1024
+      # 동시 2 — 유료 벤더 호출이라 폭주를 구조적으로 막는다.
+      ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          VISUAL_INPUT_BUCKET: !Ref VisualInputBucketName
+          VISUAL_QUEUE_URL: !Ref VisualQueue
+          VISUAL_JOBS_ENABLED: !Ref VisualJobsEnabled
+          DASHSCOPE_API_KEY: "{{resolve:ssm:/sunity/motion/dashscope-api-key}}"
+          PAIR_ID_HMAC_KEYS: "{{resolve:ssm:/sunity/motion/pair-id-hmac-keys}}"
+          # GEMINI_API_KEY 는 **워커 전용** — judge 호출 주체만 갖는다 (T-31-43).
+          GEMINI_API_KEY: "{{resolve:ssm:/sunity/motion/gemini-api-key}}"
+          RUNPOD_ANALYZE_URL: "{{resolve:ssm:/sunity/motion/runpod-analyze-url}}"
+          RUNPOD_AUTH_TOKEN: "{{resolve:ssm:/sunity/motion/runpod-auth-token}}"
+          # 4 게이트 (B4-05/M4-03). 값 출처 =
+          # .planning/phases/31-api-visual-correction/smoke/CALIBRATION.json 의 chosen.
+          # 표시보다 학습이 엄격하다: TRAINING_JUDGE > DISPLAY_JUDGE,
+          # TRAINING_POSE_TOL < DISPLAY_POSE_TOL. build test 가 강제한다.
+          DISPLAY_JUDGE_CONFIDENCE: !Ref DisplayJudgeConfidence
+          TRAINING_JUDGE_CONFIDENCE: !Ref TrainingJudgeConfidence
+          DISPLAY_POSE_TOL_DEG: !Ref DisplayPoseTolDeg
+          TRAINING_POSE_TOL_DEG: !Ref TrainingPoseTolDeg
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource:
+                - !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
+                - !Sub arn:aws:s3:::${VideoBucketName}/results/*
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource:
+                - !Sub arn:aws:s3:::${VideoBucketName}/results/*
+                - !Sub arn:aws:s3:::${VideoBucketName}/training/*
+        - Statement:
+            # 7차 B7-01: cleanup 의 list_objects_v2 재조회가 **bucket ARN** 의
+            # ListBucket 을 요구한다. 없으면 전 job 이 cleanup_blocked 로 막힌다.
+            # prefix condition 으로 visual-input/ 밖은 열거되지 않는다.
+            - Effect: Allow
+              Action: s3:ListBucket
+              Resource: !Sub arn:aws:s3:::${VisualInputBucketName}
+              Condition:
+                StringLike:
+                  s3:prefix: "visual-input/*"
+        - Statement:
+            # 버전 액션(s3:DeleteObjectVersion / s3:ListBucketVersions) 부재가
+            # 계약이다 (B6-02) — 비-버저닝 버킷이라 필요 없고, 권한이 있으면
+            # "버저닝을 켜도 동작하는" 코드가 슬며시 자라 T-31-76 이 되돌아온다.
+            - Effect: Allow
+              Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+              Resource: !Sub arn:aws:s3:::${VisualInputBucketName}/visual-input/*
+        - Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt VisualQueue.Arn
+        - Statement:
+            # 7차 H7-03 — VisualCleanupBlocked / VisualPairConflict 방출 주체.
+            - Effect: Allow
+              Action: cloudwatch:PutMetricData
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  cloudwatch:namespace: SunityVisual
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt VisualQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes: [ReportBatchItemFailures]
+
+  # ── 디스패처 + privacy janitor (복구 전담 — H3-09) ───────────────────
+  VisualDispatchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-visual-dispatch
+      CodeUri: functions/visual-dispatch/
+      Handler: app.lambda_handler
+      # Timeout 120 은 lease 계약의 입력이다 (11차 B11-01 build gate):
+      # Timeout*1000 + margin < models.VISUAL_OBJECT_DELETE_LEASE_MS(180,000).
+      Timeout: 120
+      MemorySize: 256
+      # 1 — 스캔/발행이 중복되면 같은 job 을 두 번 발행한다.
+      ReservedConcurrentExecutions: 1
+      Environment:
+        Variables:
+          VISUAL_QUEUE_URL: !Ref VisualQueue
+          VISUAL_JOBS_ENABLED: !Ref VisualJobsEnabled
+          # janitor 가 만료 reservation/orphan 의 임시 프레임을 회수한다 (H7-04).
+          VISUAL_INPUT_BUCKET: !Ref VisualInputBucketName
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+        - Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt VisualQueue.Arn
+        - Statement:
+            # H8-04 — prefix-scoped ListBucket.
+            - Effect: Allow
+              Action: s3:ListBucket
+              Resource: !Sub arn:aws:s3:::${VisualInputBucketName}
+              Condition:
+                StringLike:
+                  s3:prefix: "visual-input/*"
+        - Statement:
+            # delete 후 HEAD 404 확인은 **GetObject** 권한이다 —
+            # `s3:HeadObject` 라는 IAM action 은 존재하지 않는다 (8차 B8-04).
+            - Effect: Allow
+              Action: [s3:GetObject, s3:DeleteObject]
+              Resource: !Sub arn:aws:s3:::${VisualInputBucketName}/visual-input/*
+        - Statement:
+            - Effect: Allow
+              Action: cloudwatch:PutMetricData
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  cloudwatch:namespace: SunityVisual
+      Events:
+        Tick:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 minute)
+
+  # ── 알람 8종 (9차 M9-03 logical ID 표 정합) ──────────────────────────
+  VisualDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub sunity-motion-${Stage}-visual-dlq
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt VisualDLQ.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  # M6-01 — 스캔 window 안 due 항목의 최고 경과. truncated 와 **함께** 봐야
+  # 해석이 맞는다(전체 backlog 최고령이 아니다).
+  VisualScannedOutboxAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub sunity-motion-${Stage}-visual-outbox-age
+      Namespace: SunityVisual
+      MetricName: ScannedOutboxMaxAgeMs
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 900000
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  # H5-06 — scan 이 limit 에 닿았다 = backlog 가 한 사이클에 안 빠진다.
+  VisualOutboxScanTruncatedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub sunity-motion-${Stage}-visual-outbox-truncated
+      Namespace: SunityVisual
+      MetricName: OutboxScanTruncated
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  # H6-02 — 지우려다 실패한 임시 생체 프레임. PII 잔존 신호라 1건도 묵히지 않는다.
+  VisualOrphanSourceObjectAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub sunity-motion-${Stage}-visual-orphan-source
+      Namespace: SunityVisual
+      MetricName: VisualOrphanSourceObject
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  # 7차 H7-03 — cleanup 이 막히면 입력이 남는다(대개 ListBucket 403 = T-31-81).
+  VisualCleanupBlockedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub sunity-motion-${Stage}-visual-cleanup-blocked
+      Namespace: SunityVisual
+      MetricName: VisualCleanupBlocked
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  VisualPairConflictAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub sunity-motion-${Stage}-visual-pair-conflict
+      Namespace: SunityVisual
+      MetricName: VisualPairConflict
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  # 9차 H9-05/M8-05 — 임계는 Parameter(concrete numeric). build test 가
+  # models.VISUAL_INPUT_RESERVATION_TTL_MS × 2 와 exact 대조한다 (H10-06).
+  VisualOrphanOldestAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub sunity-motion-${Stage}-visual-orphan-oldest-age
+      Namespace: SunityVisual
+      MetricName: VisualOrphanOldestAgeMs
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: !Ref VisualOrphanOldestAgeThresholdMs
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  VisualOrphanSweepFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub sunity-motion-${Stage}-visual-orphan-sweep-failed
+      Namespace: SunityVisual
+      MetricName: VisualOrphanSweepFailed
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
 
   # ── 로그 보관 30일 (비용 관리 — backend_CLAUDE.md) ──────────────────
   UploadUrlLogGroup:
@@ -321,6 +728,21 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-pipeline
+      RetentionInDays: 30
+  VisualRequestLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-visual-request
+      RetentionInDays: 30
+  VisualWorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-visual-worker
+      RetentionInDays: 30
+  VisualDispatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-visual-dispatch
       RetentionInDays: 30
 
 Outputs:

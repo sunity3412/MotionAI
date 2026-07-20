@@ -2,7 +2,7 @@
 //
 // 근거: 31-CONTEXT D-10 [AMENDED 2026-07-19, belle — 31-PLAN-REVIEW B-01 재결정].
 // 원안은 손가락 드래그로 시점을 바꾸는 뷰어였으나, RTMW 출력에는 실측 깊이가
-// 없어(축 분산 z~235 / x~95 / y≈0) 시점을 바꾸면 실제로는 존재하지 않는 정보를
+// 없어(2D 백본 — z 전 관절 0) 시점을 바꾸면 실제로는 존재하지 않는 정보를
 // 사용자에게 사실처럼 보여주게 된다. 그래서 이 뷰어는 카메라 평면을 고정하고
 // "어디가 다른지" 만 보여준다. result.tsx:1191 의 구 R3F 뷰어 제거 결정과 정합.
 //
@@ -21,12 +21,57 @@ import { StyleSheet, View } from 'react-native';
 import { colors, radius } from '../theme';
 
 // ── 투영 축 ──────────────────────────────────────────────────────────────
-// joints3d(pole_aligned) 는 수직 분산이 Z 축에 있다 (구 R3F 뷰어의 축 분산 분석
-// 주석이 근거: z spread ~235, x ~95, y≈0). 따라서 화면 가로 = 축 0(x),
-// 화면 세로 = 축 2(z) 로 투영하고 깊이 축(1)은 버린다. y≈0 축을 세로로 쓰면
-// 스켈레톤이 한 줄로 깔린다.
+// [fix 2026-07-20] 가로는 두 세대 모두 축 0(x). 세로는 **문서 세대에 따라 축이
+// 다르다** — 컴파일타임 상수가 이 버그의 원인이었다.
+//
+// joints3d 는 라벨만 "pole_aligned" 이고 실제 축 의미는 처리 시점 환경에 따라
+// 두 세대가 Firestore 에 공존한다 (2026-07-20 전수 실측):
+//   · y-era: 세로 = 축 1, 축 2 ≡ 0 — RTMW 2D 백본이 z 를 0 패딩하고
+//     (rtmw_engine.py) 프로덕션 Pod 에 scipy 가 없어 폴 정렬(y→z 회전)이
+//     ImportError 폴백으로 no-op (rtmw_133_to_coco17.py). 현 Pod 신규 분석 +
+//     reference 6건 (power-spin/kip-up/combo/elbow-twist-sister/pdshape/peter-pan).
+//   · z-era: 세로 = 축 2, 축 1 ≡ 0 — 정렬이 실제 수행되던 환경 산출.
+//     reference 5건 (climb/foxtop/foxtop-split/invert/sideway-spin) + 구 분석.
+//     구 주석 "z spread ~235, y≈0"(c49a075, phase 20 구 R3F 뷰어)은 이 세대 실측.
+//
+// 그래서 세로축은 포즈별 런타임 선택이다: 축 1/축 2 중 분산이 있는 쪽이 세로,
+// 나머지(실측 전 문서에서 정확히 상수 0)는 버린다. 상수를 어느 쪽으로 골라도
+// 반대 세대 문서가 가로 한 줄로 깔린다 (AXIS_V=2 시절 이 파일의 버그가 그것).
+// 31-08 이 세로 "부호"를 런타임 결정(어깨가 고관절 위)한 것과 같은 철학의 축
+// 버전이고, phase 20 remapFrameForFrontView 가 같은 증상을 같은 방식으로 고친
+// 선례다. 진짜 3D(양축 동시 분산) 문서는 현 코퍼스에 0건 — 그런 데이터가 오면
+// "더 큰 분산" 선택이 최선 근사다.
 const AXIS_H = 0;
-const AXIS_V = 2;
+
+/**
+ * 포즈별 세로축 선택: 축 1(y-era) vs 축 2(z-era) 중 분산이 큰 쪽.
+ *
+ * 실측 코퍼스에서는 두 후보 중 정확히 한 축이 상수 0 이라 판별이 무모호하다.
+ * 유한값이 하나도 없거나 분산이 같으면 축 1 — 이후 몸통 길이 가드가 퇴화
+ * 포즈를 null 로 걸러 뷰어를 숨긴다 (억지로 그리지 않는다).
+ */
+function pickVerticalAxis(pose: number[][]): 1 | 2 {
+  let min1 = Infinity;
+  let max1 = -Infinity;
+  let min2 = Infinity;
+  let max2 = -Infinity;
+  for (const p of pose) {
+    if (!Array.isArray(p)) continue;
+    const v1 = p[1];
+    const v2 = p[2];
+    if (Number.isFinite(v1)) {
+      if (v1 < min1) min1 = v1;
+      if (v1 > max1) max1 = v1;
+    }
+    if (Number.isFinite(v2)) {
+      if (v2 < min2) min2 = v2;
+      if (v2 > max2) max2 = v2;
+    }
+  }
+  const spread1 = max1 - min1; // 유한값 없으면 -Infinity
+  const spread2 = max2 - min2;
+  return spread2 > spread1 ? 2 : 1;
+}
 
 // ── COCO-17 인접 bone ────────────────────────────────────────────────────
 // 이름으로 선언하고 jointKeys 로 인덱스를 해석한다 — 배열 순서를 맹신하면
@@ -66,7 +111,8 @@ function midpoint(a: Pt | null, b: Pt | null): Pt | null {
 /**
  * 단일 프레임 (17,3) → 뷰박스 좌표로 정규화된 관절 맵.
  *
- * 1) 카메라 평면 2축으로 투영 (깊이 폐기)
+ * 1) 카메라 평면 2축으로 투영 — 세로축은 포즈별 런타임 선택(pickVerticalAxis),
+ *    퇴화축(상수 0)은 폐기 (좌표계 축 가정 회피)
  * 2) 고관절 중점을 원점으로 이동
  * 3) 몸통 길이로 스케일 → 두 자세가 같은 크기로 겹침
  * 4) 어깨가 항상 고관절보다 위에 오도록 세로 부호 결정 (좌표계 부호 가정 회피)
@@ -78,13 +124,15 @@ function normalizePose(
   pose: number[][],
   indexOf: Map<string, number>,
 ): Map<string, Pt> | null {
+  // 사용자/기준이 서로 다른 세대일 수 있어(구 분석 × 현 참조) 포즈마다 고른다.
+  const axisV = pickVerticalAxis(pose);
   const rawAt = (name: string): Pt | null => {
     const i = indexOf.get(name);
     if (i == null) return null;
     const p = pose[i];
     if (!Array.isArray(p)) return null;
     const x = p[AXIS_H];
-    const y = p[AXIS_V];
+    const y = p[axisV];
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     return { x, y };
   };

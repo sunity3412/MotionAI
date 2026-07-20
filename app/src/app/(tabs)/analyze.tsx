@@ -92,6 +92,21 @@ export function isKakaoCompressedVideoName(source: string): boolean {
   return source.toLowerCase().includes(KAKAO_COMPRESSED_MARKER);
 }
 
+// [hotfix 2026-07-20] 실패 원인을 사용자 화면까지 올리기 위한 최소 직렬화.
+// 기존 `catch {}` 는 원인을 통째로 버려서 실기기 재현 없이는 진단이 불가능했다.
+// 길이를 제한해 UI 를 깨지 않고, 문자열화 자체가 실패해도 던지지 않는다.
+export function errText(err: unknown): string {
+  try {
+    if (err instanceof Error) {
+      return (err.message || err.name || 'Error').slice(0, 120);
+    }
+    if (typeof err === 'string') return err.slice(0, 120);
+    return String(err).slice(0, 120);
+  } catch {
+    return '알 수 없는 오류';
+  }
+}
+
 export default function Analyze() {
   const router = useRouter();
   // 홈 챌린지 카드 우회 진입 — referenceMotionId 가 있으면 모드 선택 단계를
@@ -420,14 +435,17 @@ export default function Analyze() {
       // [#20 입력 화질] 즉석 촬영은 최고 화질로 캡처 — 카톡 압축본을 받기 전에
       // 원본 디테일을 확보해야 미세 자세 차이를 분석할 수 있음 (iOS 전용 필드,
       // Android 에선 무시됨).
-      handleResult(
-        await ImagePicker.launchCameraAsync({
-          mediaTypes: ['videos'],
-          videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
-        }),
-      );
-    } catch {
-      setError('카메라를 여는 중 문제가 발생했어요. 다시 시도해주세요.');
+      const shot = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
+      });
+      try {
+        handleResult(shot);
+      } catch (handleErr) {
+        setError(`촬영한 영상을 처리하지 못했어요. (${errText(handleErr)})`);
+      }
+    } catch (err) {
+      setError(`카메라를 여는 중 문제가 발생했어요. (${errText(err)})`);
     } finally {
       setBusy(false);
     }
@@ -445,15 +463,44 @@ export default function Analyze() {
       // [#20 입력 화질] 앨범에서 가져올 때 transcoding 으로 인한 추가 화질 손실을
       // 막음 — Current 는 가능하면 원본 표현을 그대로 사용해 재인코딩을 피한다
       // (기본 Automatic 은 호환 코덱으로 재변환할 수 있음, iOS 전용).
-      handleResult(
-        await ImagePicker.launchImageLibraryAsync({
+      //
+      // [hotfix 2026-07-20] Current 는 원본이 기기에 없으면 실패한다 — iOS "저장 공간
+      // 최적화"가 원본을 iCloud 로 오프로드하면 앨범에는 그대로 보이지만 즉시 못 내준다.
+      // belle 실기기: 앨범은 열리는데 영상을 고르는 순간 실패(같은 영상이 이전엔 정상).
+      // 화질은 원본 우선으로 시도하되, 실패하면 흐름을 막지 말고 Automatic 으로 재시도한다.
+      let result: ImagePicker.ImagePickerResult;
+      try {
+        result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['videos'],
           preferredAssetRepresentationMode:
             ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
-        }),
-      );
-    } catch {
-      setError('앨범을 여는 중 문제가 발생했어요. 다시 시도해주세요.');
+        });
+      } catch (primaryErr) {
+        try {
+          result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['videos'],
+            preferredAssetRepresentationMode:
+              ImagePicker.UIImagePickerPreferredAssetRepresentationMode
+                .Automatic,
+          });
+        } catch (fallbackErr) {
+          // 두 경로 모두 실패 — 원인을 삼키지 않고 노출한다. 무음 실패는 재현 없이
+          // 진단이 불가능해 원격 디버깅을 막는다.
+          setError(
+            `앨범에서 영상을 가져오지 못했어요. (원본: ${errText(primaryErr)} / 변환: ${errText(fallbackErr)})`,
+          );
+          return;
+        }
+      }
+      // 선택 이후 처리 실패를 "앨범을 여는 중 문제"로 뭉뚱그리지 않는다 — 기존 문구는
+      // 원인을 잘못 가리켜 실기기 진단을 지연시켰다.
+      try {
+        handleResult(result);
+      } catch (handleErr) {
+        setError(`선택한 영상을 처리하지 못했어요. (${errText(handleErr)})`);
+      }
+    } catch (err) {
+      setError(`앨범을 여는 중 문제가 발생했어요. (${errText(err)})`);
     } finally {
       setBusy(false);
     }

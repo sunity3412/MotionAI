@@ -6,6 +6,8 @@
   - PoseEstimator  : 프레임 → 3D keypoints (NLF)    → pose_estimator.py  (DEPRECATED)
   - PoseEngine     : 프레임 → list[PoseFrame] (신규) → pose_engines/ 디렉터리
   - CoachWriter    : Top-3 편차 → 자연어 코칭 (LLM)  → coach_writer.py
+  - ImageEditEngine: 프레임+프롬프트 → 교정 이미지     → visual_gen.py (Phase 31)
+  - VideoEditEngine: 영상+프롬프트 → 회전 합성 영상    → visual_gen.py (Phase 31)
 
 CoachWriter 만 graceful: 키 미설정·실패 시 빈 dict → assemble 이 수치 기반
 폴백 문장 사용(가짜 수치 생성 아님 — 실제 편차값으로 서술).
@@ -85,6 +87,59 @@ class PoseEngine(Protocol):
 class CoachWriter(Protocol):
     def write(self, context: dict) -> dict:
         """{joint_key: 코칭문장}. 키 미설정/실패 시 {} 반환 허용."""
+        ...
+
+
+# ── Phase 31 시각 교정물 생성 엔진 (D-02/D-04, 플랜 31-05) ──────────────
+#
+# 이미지·영상 **양쪽 모두** create_task/poll 2단계다 (2차 리뷰 B2-02).
+# 어댑터가 내부에서 장시간 폴링하면 Lambda 타임아웃 안에서 taskId 를 journal
+# 하지 못한 채 죽어 벤더 작업이 고아가 된다(과금 발생·회수 불가). 그래서
+# create 는 taskId 만 받고 즉시 반환하고, 폴링은 워커(31-09)가 재호출로 한다.
+#
+# 구현은 형제 모듈 visual_gen.py (WanImageAdapter / WanVideoEditAdapter).
+
+
+class ImageEditEngine(Protocol):
+    """정지 이미지 교정 생성 엔진 (correctedPose — D-05).
+
+    v1 async-only 계약 박제 (4차 리뷰 B4-02):
+      sync succeeded 즉시반환 = production 미허용 — create action 은 async
+      VendorTaskCreated(taskId) 만 정상 경로로 취급 (sync 지원은 future phase:
+      same-invocation staging 완료 후 judging outbox — v1 미포함).
+
+    반환이 VendorPollResult 인 sync 모델도 타입상 표현은 가능하지만, 그 경우
+    taskId 가 없어 fetch 가 재-poll 로 fresh URL 을 얻을 수 없다. 릴리스
+    게이트(31-01/31-13)가 visual_gen.IMAGE_ENGINE_BLOCKED 를 보고 그런 후보를
+    blocked 처리한다.
+    """
+
+    def create_task(self, image_url: str, prompt: str):
+        """교정 생성 작업 생성 → VendorTaskCreated | VendorPollResult.
+
+        정상(async) 경로는 VendorTaskCreated(task_id). 워커는 taskId 를 journal
+        한 뒤 별도 호출에서 poll 한다 — 어댑터 내부 폴링 루프 금지 (B2-02).
+        """
+        ...
+
+    def poll(self, task_id: str):
+        """작업 상태 조회 → VendorPollResult."""
+        ...
+
+
+class VideoEditEngine(Protocol):
+    """회전 합성 영상 생성 엔진 (rotation — amended D-04: wan2.7-videoedit 가
+    회전의 유일 수단. GEN3C 는 spike 007b 에서 부적격 판정).
+
+    ImageEditEngine 과 동형 — create_task/poll 2단계.
+    """
+
+    def create_task(self, video_url: str, prompt: str):
+        """회전 합성 작업 생성 → VendorTaskCreated | VendorPollResult."""
+        ...
+
+    def poll(self, task_id: str):
+        """작업 상태 조회 → VendorPollResult."""
         ...
 
 

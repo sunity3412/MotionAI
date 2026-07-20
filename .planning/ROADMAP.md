@@ -1047,7 +1047,7 @@ Plans:
 **Goal:** "교정된 모습을 보여주는" 시각 출력을 지금 MVP(Gemini 트랙)에 추가 — 힉스필드 방식(외부 API 먼저, 자체화는 데이터 쌓인 뒤). (1단) 기하 오버레이 렌더: 이상 궤적 선·목표 각도 화살표·힘 방향 벡터를 원본 영상 위에 — 이미 가진 데이터(reference 각도, windowMedian 편차, DTW 매칭)와 KeypointOverlay 렌더 체계로 즉시 가능. (2단) 외부 이미지 생성/편집 API로 교정 실루엣 프리미엄 프로토타입 — 품질 게이트(얼굴/배경 왜곡) + **통과 품질분을 `[틀린 폼→고쳐진 폼]` 페어로 적재 = Phase 22 v2 자체 생성 헤드의 학습 데이터 제조**. Phase 22 discuss(22-CONTEXT.md D-03)에서 분기된 phase. 오버레이 원칙([[ux-propose-user-centric-screens-first]]) 준수 — 최악 케이스 목업 선제시.
 **Requirements**: TBD (공식 REQ ID 없음 — 31-CONTEXT.md D-01~D-12 가 요구사항)
 **Depends on:** 없음 (Phase 22와 병렬, 앱+외부 API 트랙)
-**Plans:** 10/13 plans executed
+**Plans:** 11/13 plans executed
 
 Plans:
 
@@ -1067,7 +1067,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 31-09-PLAN.md — visual worker: action 단위 state machine (create/poll/fetch/judge/pose_check, B2-02 crash 6지점) + sweeper + rotation 스트리밍 [W3]
+- [x] 31-09-PLAN.md — visual worker: action 단위 state machine (create/poll/fetch/judge/pose_check, B2-02 crash 6지점) + sweeper + rotation 스트리밍 [W3]
 - [x] 31-11-PLAN.md — 앱 통합: ApiError(M-05) + 재서명 소비 + jest 테스트(M-03) + result.tsx [W3]
 
 **Wave 4** *(blocked on Wave 3 — H2-08: IaC 가 31-09 worker 산출 의존)*

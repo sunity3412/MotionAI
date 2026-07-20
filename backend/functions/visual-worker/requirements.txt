@@ -1,0 +1,27 @@
+# visual-worker Lambda (31-09). sunity_shared 는 Layer 박제, boto3 는 런타임 제공.
+
+# Firestore Admin transaction (visual job claim/transition/finalize).
+firebase-admin>=6,<7
+
+# PyYAML — sunity_shared.firestore_admin 의 transitive import
+# (sunity_shared.analysis.force_signals.py module-level yaml import).
+# 선례 2건 인용:
+#   - pipeline/requirements.txt: "2026-06-12 deploy fix: 500 ImportError 박힘
+#     (reference-auto-register 와 동일 원인)."
+#   - playback-url/requirements.txt: "2026-07-17 deploy fix: 29-06 배포 직후 500
+#     Runtime.ImportModuleError 직격 원인 (upload-url/reference-api 의 2026-06-12
+#     deploy fix 와 동일 패턴)."
+# 같은 함정을 세 번째로 밟지 않기 위해 신설 시점에 박제한다.
+pyyaml>=6.0,<7.0
+
+# Pillow — 31-05 prepare_judge_payload / safe_decode_image 와 31-06 pose gate
+# 정규화가 PIL 을 직접 쓴다. **pipeline/requirements.txt 는 Pillow 를 의도적으로
+# 제외**하고 있다(250MB 한도, 실측 262MB 초과 기록). 그 제약은 pipeline 함수의
+# 것이고, judge/pose gate 를 실제로 호출하는 주체는 이 함수다. 여기 없으면 judge
+# 경로가 배포 환경에서 ImportError 로 죽는다 — pipeline 쪽을 건드려 한도를
+# 넘기는 대신 호출자인 여기에 둔다.
+Pillow>=10.0,<12.0
+
+# google-genai 금지: judge 는 stdlib urllib 로 Gemini REST 를 직접 호출한다
+# (visual_gen.judge_corrected_pose). SDK 를 넣으면 googleapiclient/grpc 가 딸려와
+# pipeline 이 겪은 250MB 초과를 그대로 반복한다.

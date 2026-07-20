@@ -14,6 +14,21 @@
 
 좌표계: keypointReport.data 는 flat (T*J*2), 값은 [0,1] 정규화 (frame 의 W/H 기준).
 프레임은 frame_extractor 가 긴 변 640 으로 리사이즈한 (H,W,3) uint8.
+
+Phase 31-03 (D-11/D-12) — 목표 각도 화살표 + correctedPose target:
+  · **display 전용, 채점 무접촉** — 화살표/target 경로는 dimensions/kismam 을 import
+    하지 않고 점수/veto/게이트에 어떤 값도 되돌리지 않는다.
+  · 리뷰 B-02: 화살표 기하는 (proximal, vertex, distal) 3점 + DTW 대응 reference
+    좌표로만 만든다. 감점 record 의 direction 어휘나 수치 필드로 화면 기하를 만들면
+    "편차값을 절대 목표각으로" 오독하는 경로가 생긴다 (reference_relative record 의
+    measuredValue 는 학생 절대 관절각이 아니라 정은지-대비 편차다).
+  · 2차 리뷰 H2-03: 미러 반사 후보를 "현재 distal 에 더 가까운 쪽"으로 고르면 큰
+    교정에서 오방향이 나온다 ("올바른 교정은 작은 이동"이라는 거짓 가정). 반사 여부는
+    per-joint 거리가 아니라 full-body topology(어깨/힙 좌우 방향)로 프레임 단위 1회
+    판정하고, 불명확하면 화살표를 생략한다.
+  · 2차 리뷰 B2-01: 자동 교정의 joint/targetDeg/source frame 은 CorrectedPoseTarget
+    단일 immutable 계약으로 묶는다 (따로 계산 금지). 감점 record 는 후보 우선순위에만
+    쓰고, 목표각은 DTW matched reference 3점 내각에서만 계산한다.
 """
 
 from __future__ import annotations
@@ -776,6 +791,493 @@ def _compose(user_crop: Image.Image, ref_crop: Image.Image) -> bytes:
     return buf.getvalue()
 
 
+# ─────────── D-11 목표 각도 화살표 (Phase 31-03, 리뷰 B-02 / 2차 H2-03) ───────────
+#
+# 화살표가 답해야 하는 것은 "어디까지 올려야 하는가"이고, 그 답의 유일한 출처는
+# **DTW 로 대응된 reference 프레임의 실제 관절 좌표**다. 감점 record 의 수치 필드로
+# 화면 기하를 만들면 안 되는 이유 (리뷰 B-02):
+#   · reference_relative record 의 measuredValue 는 학생의 절대 관절각이 아니라
+#     정은지-대비 편차다 (split_angle_degs_from_records 의 동일 함정 참조).
+#   · baselineValue 는 IPSF 목표치(180 등)이지 이 프레임의 목표 좌표가 아니다.
+#   · direction 어휘('over_target')는 방향 부호일 뿐 화면 벡터가 아니다.
+# 그래서 _build_arrow_spec 은 DeductionRecord 를 인자로 받지 않는다 (테스트가 시그니처
+# 로 고정). record 는 CorrectedPoseTarget 의 후보 우선순위에만 쓴다.
+
+# 화살표 최소 이동량(crop 출력 px) — **display 전용, 채점 무접촉**.
+# 목표 endpoint 가 현재 distal 과 이만큼도 안 떨어지면 화살표가 점처럼 뭉쳐 방향을
+# 못 읽는다 → 생략(negligible_delta). _MIN_LEG_VEC_PX 선례와 같은 성격의 표시 상수.
+_MIN_ARROW_DELTA_PX = 12
+
+# parity 판정용 좌우 최소 분리(정규화) — **display 전용, 채점 무접촉**.
+# 어깨/힙의 수평 분리가 이보다 작으면 정면·측면 경계라 좌우 방향 부호가 노이즈다
+# → 판정 불가('unknown') → 화살표 생략 (H2-03: 불확실하면 지시하지 않는다).
+_MIN_PARITY_SEP = 0.02
+
+# 세그먼트 degenerate 임계(frame px) — proximal↔vertex 가 겹치면 정합 변환이 정의되지
+# 않는다 (0 으로 나눔). _MIN_LEG_VEC_PX 와 같은 취지의 드로잉 가드.
+_MIN_SEG_PX = 1.0
+
+# parity 판정에 쓰는 topology keypoint — 어깨/힙 4점 (full-body, per-joint 아님).
+_PARITY_KEYS = ("left_shoulder", "right_shoulder", "left_hip", "right_hip")
+
+# 화살표를 그릴 수 있는 관절의 **명시 선언 매핑**: joint_key → (proximal, vertex, distal).
+# 선언되지 않은 관절은 화살표도 correctedPose target 도 만들지 않는다 (리뷰 B-02
+# omission 규칙 — renderer 가 추론으로 관절을 만들어내지 않는다). skeleton.JOINT_ANGLES
+# 와 동일 3점 구성이지만 여기 선언이 렌더 계약의 단일 출처다 (어깨는 vertex 기하가
+# 몸통-팔 혼합이라 v1 화살표 대상에서 제외).
+ARROW_JOINT_MAP: dict[str, tuple[str, str, str]] = {
+    "left_knee": ("left_hip", "left_knee", "left_ankle"),
+    "right_knee": ("right_hip", "right_knee", "right_ankle"),
+    "left_elbow": ("left_shoulder", "left_elbow", "left_wrist"),
+    "right_elbow": ("right_shoulder", "right_elbow", "right_wrist"),
+    "left_hip": ("left_shoulder", "left_hip", "left_knee"),
+    "right_hip": ("right_shoulder", "right_hip", "right_knee"),
+}
+
+
+def joint_inner_angle_deg(
+    proximal_xy: tuple[float, float],
+    vertex_xy: tuple[float, float],
+    distal_xy: tuple[float, float],
+) -> float:
+    """vertex 내각(도) — **각도 산출의 단일 출처** (3차 리뷰: 계산 이원화 금지).
+
+    TargetArrowSpec 과 CorrectedPoseTarget.target_deg, 그리고 31-06 pose gate 가
+    전부 이 함수를 import 한다. 같은 3점에서 서로 다른 각도가 나오면 "생성 지시"와
+    "검증 기준"이 갈라져 잘못된 목표에 정확히 맞춘 이미지가 gate 를 통과한다.
+
+    입력은 **등방(isotropic) 좌표계** — frame px 를 넣는다. 정규화 [0,1] 좌표를 그대로
+    넣으면 W/H 비율만큼 각도가 왜곡된다. 겹친 좌표(degenerate)는 nan.
+    """
+    ax = float(proximal_xy[0]) - float(vertex_xy[0])
+    ay = float(proximal_xy[1]) - float(vertex_xy[1])
+    bx = float(distal_xy[0]) - float(vertex_xy[0])
+    by = float(distal_xy[1]) - float(vertex_xy[1])
+    na = math.hypot(ax, ay)
+    nb = math.hypot(bx, by)
+    if na <= 0.0 or nb <= 0.0:
+        return float("nan")
+    cos = (ax * bx + ay * by) / (na * nb)
+    return math.degrees(math.acos(max(-1.0, min(1.0, cos))))
+
+
+@dataclass(frozen=True)
+class TargetArrowSpec:
+    """한 관절의 목표 각도 화살표 스펙 (display 전용, immutable).
+
+    px 필드는 전부 **crop 출력 좌표**(_to_crop_px 경유, [0,_OUT-1]). omit_reason 이
+    있으면 좌표는 None 이고 _draw_target_arrow 가 즉시 False (드로잉 0).
+    mirror_parity 는 판정 결과 provenance — 'same' | 'mirrored' | 'unknown'.
+    source_kind 는 v1 'reference_pose' 고정 ('ipsf_absolute' 는 필드만 예약).
+    """
+
+    vertex: str
+    proximal: str | None
+    distal: str | None
+    user_vertex_px: tuple[int, int] | None
+    user_proximal_px: tuple[int, int] | None
+    user_distal_px: tuple[int, int] | None
+    target_endpoint_px: tuple[int, int] | None
+    source_kind: str
+    mirror_parity: str
+    confidence: float
+    omit_reason: str | None
+
+
+def _parity_pts(report: dict, frame_idx: int) -> dict[str, tuple[float, float] | None]:
+    """parity 판정용 어깨/힙 4점(정규화) — 저신뢰/결측은 None (_gated_kp 계약)."""
+    return {k: _gated_kp(report, frame_idx, k) for k in _PARITY_KEYS}
+
+
+def _facing_sign(kps: dict[str, tuple[float, float] | None]) -> int | None:
+    """한 프레임의 좌우 방향 부호 (+1 | -1) — 판정 불가면 None.
+
+    어깨 벡터(left→right)와 힙 벡터(left→right)의 **수평 성분 부호**를 함께 본다.
+    둘이 다르면(상체와 골반이 반대 방향을 가리킴) 몸통 topology 가 신뢰 불가 →
+    None. 분리가 _MIN_PARITY_SEP 미만이면 정면/측면 경계라 부호가 노이즈 → None.
+    """
+    ls, rs = kps.get("left_shoulder"), kps.get("right_shoulder")
+    lh, rh = kps.get("left_hip"), kps.get("right_hip")
+    if ls is None or rs is None or lh is None or rh is None:
+        return None
+    s_dx = rs[0] - ls[0]
+    h_dx = rh[0] - lh[0]
+    if abs(s_dx) < _MIN_PARITY_SEP or abs(h_dx) < _MIN_PARITY_SEP:
+        return None
+    s_sign = 1 if s_dx > 0 else -1
+    h_sign = 1 if h_dx > 0 else -1
+    if s_sign != h_sign:
+        return None
+    return s_sign
+
+
+def _frame_mirror_parity(
+    user_kps: dict[str, tuple[float, float] | None],
+    ref_kps: dict[str, tuple[float, float] | None],
+) -> str:
+    """사용자↔reference 프레임의 좌우 parity — 'same' | 'mirrored' | 'unknown'.
+
+    **per-joint 거리 선택 금지** (2차 리뷰 H2-03). "반사한 후보가 현재 자세에 더
+    가까우면 그쪽" 휴리스틱은 "올바른 교정은 작은 이동"이라는 거짓 가정이라, 축을
+    가로지르는 큰 교정/잘못 접힌 무릎에서 정확히 반대 방향을 지시한다. 그래서 반사
+    여부는 관절이 아니라 **프레임 단위 full-body topology 로 1회** 결정하고, 그
+    결과를 provenance 에 남긴다. 불명확('unknown')이면 호출측이 화살표를 생략한다 —
+    "가까운 쪽" 폴백을 사용자 지시에 쓰지 않는다.
+    """
+    u = _facing_sign(user_kps)
+    r = _facing_sign(ref_kps)
+    if u is None or r is None:
+        return "unknown"
+    return "same" if u == r else "mirrored"
+
+
+def _omit_arrow(joint_key: str, reason: str, parity: str = "unknown") -> TargetArrowSpec:
+    """omission 스펙 — 좌표 0개, 드로잉 0 (리뷰 B-02 omission 규칙)."""
+    triple = ARROW_JOINT_MAP.get(joint_key)
+    return TargetArrowSpec(
+        vertex=joint_key,
+        proximal=triple[0] if triple else None,
+        distal=triple[2] if triple else None,
+        user_vertex_px=None,
+        user_proximal_px=None,
+        user_distal_px=None,
+        target_endpoint_px=None,
+        source_kind="reference_pose",
+        mirror_parity=parity,
+        confidence=0.0,
+        omit_reason=reason,
+    )
+
+
+def _build_arrow_spec(
+    joint_key: str,
+    user_report: dict,
+    u_kp_idx: int,
+    ref_report: dict,
+    r_kp_idx: int,
+    ref_match_failed: bool,
+    crop_ctx: tuple[int, int, int, int, int],
+) -> TargetArrowSpec:
+    """목표 각도 화살표 스펙 산출 — reference 좌표 정합 기하만 사용 (리뷰 B-02).
+
+    **감점 record 를 인자로 받지 않는다** — 화면 기하가 채점 수치에 오염될 경로 자체를
+    시그니처에서 제거한다 (T-31-10). crop_ctx = (left, top, side, w, h): 사용자측 crop
+    이 쓴 그 프레임 좌표계 (_side_crop 반환 box + 프레임 shape).
+
+    정합 기하: reference 의 (proximal, vertex) 를 사용자의 (proximal, vertex) 에 겹치는
+    2D similarity 변환(회전+등방 스케일+평행이동) T 를 구해 reference distal 에 적용한
+    점이 목표 endpoint 다. 즉 "정은지의 그 순간 관절 형상을 내 몸 크기·방향에 맞춰
+    올려놓으면 발끝이 어디로 가는가"를 그린다. 후보가 2개 나오는 선택 로직이 없다 —
+    반사 여부는 parity 가 유일 결정자다 (H2-03).
+
+    생략 규칙: ref 대응 실패 / 미선언 관절 / 6점 저신뢰 / parity 불명 / 미세 delta.
+    """
+    if ref_match_failed:
+        return _omit_arrow(joint_key, "ref_match_failed")
+    triple = ARROW_JOINT_MAP.get(joint_key)
+    if triple is None:
+        return _omit_arrow(joint_key, "unmapped_joint")
+    p_key, v_key, d_key = triple
+
+    u_pts = [_gated_kp(user_report, u_kp_idx, k) for k in (p_key, v_key, d_key)]
+    r_pts = [_gated_kp(ref_report, r_kp_idx, k) for k in (p_key, v_key, d_key)]
+    if any(p is None for p in u_pts) or any(p is None for p in r_pts):
+        return _omit_arrow(joint_key, "low_confidence")
+    confs = [
+        _kp_conf(user_report, u_kp_idx, k) for k in (p_key, v_key, d_key)
+    ] + [_kp_conf(ref_report, r_kp_idx, k) for k in (p_key, v_key, d_key)]
+    confidence = min(float(c) for c in confs if c is not None)
+
+    parity = _frame_mirror_parity(
+        _parity_pts(user_report, u_kp_idx), _parity_pts(ref_report, r_kp_idx)
+    )
+    if parity == "unknown":
+        return _omit_arrow(joint_key, "parity_unknown")
+
+    left, top, side, w, h = crop_ctx
+    # 각도/정합은 등방 좌표계(frame px)에서 — 정규화 좌표는 W/H 비율만큼 각을 왜곡.
+    up, uv, ud = [(p[0] * w, p[1] * h) for p in u_pts]
+    rp, rv, rd = [(p[0] * w, p[1] * h) for p in r_pts]
+    if parity == "mirrored":
+        # 좌우 반사(수직축). 축 위치는 similarity 의 평행이동이 흡수하므로 임의 —
+        # reference vertex 를 축으로 잡는다. 후보 비교 없음: parity 가 이미 결정했다.
+        axis = rv[0]
+        rp = (2 * axis - rp[0], rp[1])
+        rd = (2 * axis - rd[0], rd[1])
+        rv = (axis, rv[1])
+
+    vx, vy = rv[0] - rp[0], rv[1] - rp[1]
+    Vx, Vy = uv[0] - up[0], uv[1] - up[1]
+    den = vx * vx + vy * vy
+    if den < _MIN_SEG_PX or (Vx * Vx + Vy * Vy) < _MIN_SEG_PX:
+        # proximal↔vertex 가 겹침 = 정합 변환 미정의 (0 나눗셈). 그리면 방향이
+        # 무의미하므로 생략 — _MIN_LEG_VEC_PX 드로잉 가드와 동일 취지.
+        return _omit_arrow(joint_key, "degenerate_segment", parity)
+    # z = V / v (복소수 나눗셈) = 회전 + 등방 스케일. T(p) = up + z * (p - rp).
+    zr = (Vx * vx + Vy * vy) / den
+    zi = (Vy * vx - Vx * vy) / den
+    dx, dy = rd[0] - rp[0], rd[1] - rp[1]
+    tx = up[0] + zr * dx - zi * dy
+    ty = up[1] + zi * dx + zr * dy
+
+    # crop-px 변환은 전부 _to_crop_px 경유 (좌표 변환 단일 출처).
+    def to_px(xy: tuple[float, float]) -> tuple[int, int]:
+        return _to_crop_px((xy[0] / w, xy[1] / h), left, top, side, w, h)
+
+    u_prox_px = to_px(up)
+    u_vert_px = to_px(uv)
+    u_dist_px = to_px(ud)
+    tgt_px = to_px((tx, ty))
+    if math.hypot(
+        tgt_px[0] - u_dist_px[0], tgt_px[1] - u_dist_px[1]
+    ) < _MIN_ARROW_DELTA_PX:
+        return _omit_arrow(joint_key, "negligible_delta", parity)
+
+    return TargetArrowSpec(
+        vertex=v_key,
+        proximal=p_key,
+        distal=d_key,
+        user_vertex_px=u_vert_px,
+        user_proximal_px=u_prox_px,
+        user_distal_px=u_dist_px,
+        target_endpoint_px=tgt_px,
+        source_kind="reference_pose",
+        mirror_parity=parity,
+        confidence=confidence,
+        omit_reason=None,
+    )
+
+
+def _draw_target_arrow(img: Image.Image, spec: TargetArrowSpec) -> bool:
+    """현재 distal → 목표 endpoint 화살표 + 목표 마커 (in-place) — 성공 여부 반환.
+
+    _draw_leg_angle 계약 준수: omit_reason 이 있으면 즉시 False(드로잉 0), degenerate
+    는 생략, 라벨은 숫자/기호만(PIL 기본 폰트 한글 글리프 부재 — 한글은 앱 담당).
+    display 전용, 채점 무접촉.
+    """
+    if spec.omit_reason is not None:
+        return False
+    if spec.user_distal_px is None or spec.target_endpoint_px is None:
+        return False
+    x0, y0 = spec.user_distal_px
+    x1, y1 = spec.target_endpoint_px
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy)
+    if length < _MIN_ARROW_DELTA_PX:
+        return False
+    draw = ImageDraw.Draw(img)
+    draw.line([(x0, y0), (x1, y1)], fill=_BRAND, width=4)
+    # 삼각 화살촉 — 끝점에서 진행 반대 방향으로 head 만큼 물러난 밑변.
+    ux, uy = dx / length, dy / length
+    head = min(16.0, length * 0.45)
+    half = head * 0.5
+    bx, by = x1 - ux * head, y1 - uy * head
+    nx, ny = -uy, ux
+    draw.polygon(
+        [
+            (x1, y1),
+            (int(round(bx + nx * half)), int(round(by + ny * half))),
+            (int(round(bx - nx * half)), int(round(by - ny * half))),
+        ],
+        fill=_BRAND,
+    )
+    # 목표 endpoint 점선 마커 — 4 호 세그먼트(간격 40도)로 점선 원.
+    r = max(6, int(_OUT * 0.05))
+    for start in (0, 90, 180, 270):
+        draw.arc(
+            [x1 - r, y1 - r, x1 + r, y1 + r],
+            start=start,
+            end=start + 50,
+            fill=_BRAND,
+            width=3,
+        )
+    return True
+
+
+# ─────────── CorrectedPoseTarget — 자동 교정 target 단일 계약 (2차 리뷰 B2-01) ───────────
+#
+# 리뷰 B2-01 원문 요구: "joint, targetDeg, src_png 를 따로 계산하지 않고 하나의
+# immutable 계약으로 만든다." 따로 계산하면 top-1 감점과 top-1 fault zoom 이 서로 다른
+# 기준을 골라 source frame / joint / target pose 가 각각 다른 순간을 가리킬 수 있고,
+# 31-09 의 프롬프트와 pose gate 가 같은 오염 target 을 공유해 "잘못된 목표에 정확히
+# 맞춘" 이미지가 gate 를 통과한다.
+#
+# 그래서 이 계약이 지키는 것 3가지:
+#   (1) target_deg 는 **DTW matched reference 3점 내각**에서만 나온다. 감점 record 의
+#       수치 필드는 어떤 산술에도 들어가지 않는다 — reference_relative record 의 측정
+#       수치는 학생의 절대 관절각이 아니라 정은지-대비 편차라서, 그걸 목표각으로 쓰면
+#       "편차값을 절대 목표각으로" 지시하게 된다 (리뷰 B-02 와 동일 함정).
+#   (2) 후보 우선순위는 **abs(points) 내림차순 → 동률 시 criterion key 오름차순**.
+#       DeductionRecord.points 는 signed-negative 라 max(points) 는 "가장 큰 감점"이
+#       아니라 0 에 가장 가까운 **최소** 감점을 고른다 (deduction_engine.py:60 함정).
+#       tie-break 를 criterion key 로 고정하는 이유(3차 M3-06): 같은 감점 record 의
+#       순서가 입력/직렬화에 따라 바뀌면 target 도 바뀌어 결정론이 깨진다.
+#   (3) criterion→joint 선언 매핑이 없으면 후보가 아니다. collective(line)·양측 묶음
+#       (leg_extension/arm_extension/split_angle)·reach 는 어느 COCO 관절 하나로
+#       환원할 수 없어 선언하지 않는다 = correctedPose 생략(legacy 숨김).
+
+# 감점 criterion → ARROW_JOINT_MAP joint_key 의 **명시 선언 매핑**.
+# ipsf_criteria.CRITERION_GROUPS 중 joint_keys 가 정확히 1개인 per-joint criterion만
+# 이관한다. 다관절/collective criterion 을 임의로 한 관절에 배정하면 "잘못된 관절을
+# 교정한 이미지"가 나온다 (B2-01). 어깨(angle_vs_reference__*_shoulder)는
+# ARROW_JOINT_MAP 미선언이라 여기서도 제외 — 두 맵이 어긋나면 target 은 있는데 화살표는
+# 없는 불일치가 생긴다.
+CRITERION_JOINT_MAP: dict[str, str] = {
+    f"angle_vs_reference__{jk}": jk for jk in ARROW_JOINT_MAP
+}
+
+# **삭제 전용 안정 레지스트리 — 절대 항목 제거 금지** (3차 리뷰 M3-05).
+# append-only. 31-07 의 페어 삭제는 pairId(uid:analysisId:joint HMAC)를 재계산해야
+# 하는데, ARROW_JOINT_MAP 에서 관절이 제거/rename 되면 과거에 적재된 페어의 joint
+# 이름이 사라져 그 pairId 를 다시 만들 수 없다 = 삭제 불가능한 고아 페어. 그래서
+# 렌더 계약(ARROW_JOINT_MAP)과 삭제 계약(이 레지스트리)을 분리하고, 여기서는 관절을
+# 빼지 않는다. 새 관절 추가 시 양쪽에 함께 넣는다.
+HISTORICAL_JOINT_REGISTRY: frozenset[str] = frozenset({
+    "left_knee", "right_knee",
+    "left_elbow", "right_elbow",
+    "left_hip", "right_hip",
+})
+
+# 렌더 계약 ⊆ 삭제 계약 불변식 — 위반하면 삭제 불가 페어가 생긴다 (M3-05).
+assert set(ARROW_JOINT_MAP) <= HISTORICAL_JOINT_REGISTRY
+assert set(CRITERION_JOINT_MAP.values()) <= HISTORICAL_JOINT_REGISTRY
+
+# provenance 버전 — 31-09 프롬프트/pose gate 와 31-10 payload 가 같은 계약을 읽는지
+# 확인하는 스칼라. 계약 필드가 바뀌면 반드시 올린다.
+CP_TARGET_PROVENANCE_VERSION = "cp-target-v1"
+
+
+@dataclass(frozen=True)
+class CorrectedPoseTarget:
+    """자동 교정 생성의 joint/targetDeg/source frame 단일 immutable 계약 (B2-01).
+
+    31-10 enqueue 는 to_payload() 의 스칼라만 job payload 에 기록하고, 31-09 의
+    프롬프트와 pose gate 는 **같은 객체의 provenance** 를 소비한다 — 생성 지시와
+    검증 기준이 갈라지지 않게.
+
+    hash 필드명 단일 계약 (checker W1): payload key `sourceHash` = 원본 프레임 PNG 의
+    sha256 **full hex** (pipeline 31-10 이 산출·병합, 여기 source_frame_hash 와 동일
+    값). S3 srcKey 의 hash 세그먼트는 `sourceHash[:16]`.
+    """
+
+    joint_key: str
+    proximal_key: str
+    vertex_key: str
+    distal_key: str
+    user_frame_idx: int
+    ref_frame_idx: int
+    source_kind: str
+    source_frame_hash: str | None
+    target_deg: float
+    confidence: float
+    provenance_version: str = CP_TARGET_PROVENANCE_VERSION
+
+    def to_payload(self) -> dict:
+        """31-02 reserve_visual_job payload 의 flat scalar (Firestore-flat 정합).
+
+        srcKey / sourceHash 는 프레임을 실제로 쓰는 pipeline(31-10)이 병합한다 —
+        기하 계층은 프레임 바이트를 모른다.
+        """
+        return {
+            "jointKey": self.joint_key,
+            "targetDeg": self.target_deg,
+            "userFrameIdx": self.user_frame_idx,
+            "refFrameIdx": self.ref_frame_idx,
+            "sourceKind": self.source_kind,
+            "confidence": self.confidence,
+            "provenanceVersion": self.provenance_version,
+        }
+
+
+def build_corrected_pose_target(
+    records,
+    user_report: dict,
+    ref_report: dict,
+    dtw_pairs: tuple[int, int] | None,
+    ref_match_failed: bool,
+    *,
+    ref_frame_shape: tuple[int, int] | None = None,
+) -> "CorrectedPoseTarget | None":
+    """top-1 결함 관절의 교정 target — 불확실하면 None(생성 생략) (2차 리뷰 B2-01).
+
+    records: deductionBreakdown.records (flat dict 리스트). **후보 우선순위에만** 쓴다 —
+      criterion 과 points 외의 필드는 읽지 않는다 (수치 미유입, §8 gate 2).
+    dtw_pairs: 줌 카드가 쓴 그 (u_kp_idx, r_kp_idx) — keypointReport 인덱스 공간.
+      source frame 과 target 이 **같은 순간**을 가리키게 강제하는 계약 (B2-01).
+    ref_frame_shape: reference 프레임 (H, W). keypointReport 좌표는 W/H 로 각각
+      정규화돼 있어 정사각이 아니면 내각이 비율만큼 왜곡된다 — 모르면 목표각을
+      신뢰할 수 없으므로 None 반환(생성 생략). joint_inner_angle_deg 와 동일한
+      등방 좌표계 계약.
+
+    None(생략) 조건: 후보 0 / ref 대응 실패 / DTW 쌍 부재 / 프레임 형상 미상 /
+    reference 3점 저신뢰 / parity 불명. **잘못된 target 으로 생성하지 않는다.**
+    """
+    if ref_match_failed or dtw_pairs is None or ref_frame_shape is None:
+        return None
+    if not isinstance(records, list):
+        return None
+
+    # (a)(b) 후보 = 선언 매핑이 있는 criterion 만, abs(points) 내림차순 + key 오름차순.
+    candidates: list[tuple[float, str, str]] = []
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        crit = rec.get("criterion")
+        joint_key = CRITERION_JOINT_MAP.get(crit)
+        if joint_key is None:
+            continue
+        try:
+            magnitude = abs(float(rec.get("points")))
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(magnitude):
+            continue
+        candidates.append((magnitude, str(crit), joint_key))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda t: (-t[0], t[1]))
+    joint_key = candidates[0][2]
+
+    triple = ARROW_JOINT_MAP.get(joint_key)
+    if triple is None:
+        return None
+    p_key, v_key, d_key = triple
+
+    u_kp_idx, r_kp_idx = int(dtw_pairs[0]), int(dtw_pairs[1])
+    r_pts = [_gated_kp(ref_report, r_kp_idx, k) for k in (p_key, v_key, d_key)]
+    if any(p is None for p in r_pts):
+        return None
+    parity = _frame_mirror_parity(
+        _parity_pts(user_report, u_kp_idx), _parity_pts(ref_report, r_kp_idx)
+    )
+    if parity == "unknown":
+        return None
+
+    # (c) target_deg = DTW matched reference 3점 내각 (화살표와 동일 geometry helper).
+    # 반사는 내각을 바꾸지 않으므로 parity 는 게이트로만 쓴다 (반사 적용 불필요).
+    h, w = int(ref_frame_shape[0]), int(ref_frame_shape[1])
+    rp, rv, rd = [(p[0] * w, p[1] * h) for p in r_pts]
+    target_deg = joint_inner_angle_deg(rp, rv, rd)
+    if not np.isfinite(target_deg):
+        return None
+
+    confs = [_kp_conf(ref_report, r_kp_idx, k) for k in (p_key, v_key, d_key)]
+    confidence = min(float(c) for c in confs if c is not None)
+
+    return CorrectedPoseTarget(
+        joint_key=joint_key,
+        proximal_key=p_key,
+        vertex_key=v_key,
+        distal_key=d_key,
+        user_frame_idx=u_kp_idx,
+        ref_frame_idx=r_kp_idx,
+        source_kind="reference_pose",
+        source_frame_hash=None,
+        target_deg=float(target_deg),
+        confidence=confidence,
+    )
+
+
 def build_fault_zoom_comparisons(
     user_frames: np.ndarray,
     ref_frames: np.ndarray,
@@ -794,6 +1296,7 @@ def build_fault_zoom_comparisons(
     ref_frame_idx: int | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
     split_angle_present: bool = False,
+    draw_arrows: bool = False,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -821,6 +1324,11 @@ def build_fault_zoom_comparisons(
         False(default)면 스플릿 아닌 legs 카드는 r6x 이전 circle 렌더로 복귀.
       · 게이트 B — split 카드라도 학생(user) 측만 그린다. 정은지(ref) 측은 kip-up
         도립 pose 부정확으로 선이 폭주(pose 한계)해 선 없는 crop 을 유지한다.
+    draw_arrows (Phase 31-03, D-11/D-12): 목표 각도 화살표를 학생측 crop 에 그린다.
+      False(default) = 기존 호출 전부 **바이트 동일 무회귀**. True 여도 사이각을 그린
+      legs 카드에는 그리지 않는다 — 호(벌림각)와 화살표(발끝 목표)가 같은 발목 주변에
+      겹쳐 시각 언어가 충돌하므로 v1 은 한 카드에 하나만 (게이트 A/B 선례와 동일 취지,
+      병행 렌더는 31-12 실 fixture 시각 게이트 후 재검토). reference 측은 무접촉.
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
@@ -971,6 +1479,32 @@ def build_fault_zoom_comparisons(
                 u_crop = _mark(
                     u_img, deficit, circle=u_kind == "valid", anchor_px=u_anchor
                 )
+            # D-11 목표 각도 화살표 (Phase 31-03) — 학생측 crop 에만, ARROW_JOINT_MAP
+            # 에 선언된 멤버 관절만. 사이각을 그린 카드는 건너뛴다(시각 언어 충돌).
+            # 생략 규칙은 전부 _build_arrow_spec 안에 있고 _draw_target_arrow 가
+            # omit_reason 을 보면 즉시 False 라 여기서 조건 중복 판정하지 않는다.
+            if (
+                draw_arrows
+                and not u_drew_legs
+                and u_kind == "valid"
+                and u_box is not None
+            ):
+                u_h, u_w = u_frame.shape[0], u_frame.shape[1]
+                for member in unit.members:
+                    if member not in ARROW_JOINT_MAP:
+                        continue
+                    _draw_target_arrow(
+                        u_crop,
+                        _build_arrow_spec(
+                            member,
+                            user_report,
+                            u_kp_idx,
+                            ref_report,
+                            r_kp_idx,
+                            ref_match_failed,
+                            (u_box[0], u_box[1], u_box[2], u_w, u_h),
+                        ),
+                    )
             # ref 측은 _mark/사이각 모두 없음 — 선 없는 crop 그대로(게이트 B).
             png = _compose(u_crop, r_img)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
@@ -979,6 +1513,15 @@ def build_fault_zoom_comparisons(
             "joint": unit.joint,
             "deficitDeg": deficit,
             "png": png,
+            # DTW 대응 프레임 쌍 (리뷰 B-01, Phase 31-03) — 2D 비교 뷰어(amended
+            # D-10)의 프레임 정합 소스. draw_arrows 와 무관하게 **항상** 방출한다:
+            # 뷰어는 화살표 유무와 별개로 "내 자세 어느 프레임 ↔ 목표 어느 프레임"을
+            # 알아야 중첩할 수 있다. 둘 다 keypointReport 인덱스 공간(u_kp_idx/
+            # r_kp_idx) — 프레임 배열(9fps) 인덱스가 아니다. refMatched=False 면
+            # refFrameIdx 는 전신 폴백의 중앙 프레임이라 정합 근거가 아니다.
+            "userFrameIdx": int(u_kp_idx),
+            "refFrameIdx": int(r_kp_idx),
+            "refMatched": not ref_match_failed,
         }
         kind = (joint_kinds or {}).get(unit.joint)
         if kind:

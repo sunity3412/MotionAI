@@ -2816,6 +2816,10 @@ def _render_fault_zoom(
         ref_frame_idx=ref_frame_idx,
         split_angle_degs=split_angle_degs,
         split_angle_present=split_angle_present,
+        # D-11/D-12 (Phase 31-03) — 확정 결함 카드에만 목표 각도 화살표. 생략 규칙
+        # (ref 대응 실패/미선언 관절/저신뢰/parity 불명/미세 delta)은 전부 fault_zoom
+        # 안에 있다. 채점 무접촉 — 렌더 전용.
+        draw_arrows=True,
     )
     # advisory 배치 (quick-260704-fz4) — 프레임 추출은 위 1회 재사용. joint_kinds
     # 'deficit' 은 좌+우 grouping(arms 1장) 활성용 내부 전달일 뿐, 방출 item 에는
@@ -2841,6 +2845,9 @@ def _render_fault_zoom(
             # advisory("측정 초과·확인 권장")는 확정 스플릿 결함이 아니므로 사이각을
             # 그리지 않는다(게이트 A) — 확정 어조 오인 방지. tier 가 캡션 소유.
             split_angle_present=False,
+            # 화살표도 같은 이유로 미드로잉 — "여기까지 올려야 함"은 확정 지시라
+            # advisory("측정 초과·확인 권장") 카드에 얹으면 어조가 뒤집힌다.
+            draw_arrows=False,
         )
     out: list[dict] = []
     for tier, batch, key_prefix in (
@@ -2876,6 +2883,18 @@ def _render_fault_zoom(
             # FaultZoomComparison.refMatch ('dtw'|'failed', 부재=legacy=캡션 없음).
             if c.get("refMatch") in ("dtw", "failed"):
                 item["refMatch"] = c["refMatch"]
+            # 리뷰 B-01 (Phase 31-03) — DTW 대응 프레임 쌍 pass-through. int/bool
+            # scalar 라 _validate_dict_only_scalars flat 제약 통과. 2D 비교 뷰어
+            # (amended D-10)가 "내 자세 어느 프레임 ↔ 목표 어느 프레임"을 중첩하는
+            # 정합 소스. TS lockstep: analysis.ts FaultZoomComparison 의 optional
+            # userFrameIdx/refFrameIdx/refMatched — **계약 반영은 31-04 담당**
+            # (부재=legacy doc=뷰어 미표시). region/refMatch 선례와 동일 조건부 복사.
+            if isinstance(c.get("userFrameIdx"), int):
+                item["userFrameIdx"] = c["userFrameIdx"]
+            if isinstance(c.get("refFrameIdx"), int):
+                item["refFrameIdx"] = c["refFrameIdx"]
+            if isinstance(c.get("refMatched"), bool):
+                item["refMatched"] = c["refMatched"]
             out.append(item)
     # Phase 27 SPD-04 (D-06) — result 부착 대신 comparisons 반환 (사후 update 경로).
     return out

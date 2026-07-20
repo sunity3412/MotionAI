@@ -1,6 +1,6 @@
 {
  "_contract": "4차 리뷰 B4-04 — before/after pair 계약. 31-13 calibration harness 의 유일한 입력. 라벨은 전부 Claude 가 산출 이미지를 Read 로 시각 확인하고 부여했다 (미확인 추정 0건).",
- "generatedAt": "2026-07-20T09:30:00+0900",
+ "generatedAt": "2026-07-20T10:20:00+0900",
  "imageStorage": {
   "location": "/Users/Shared/sunity-fixtures/31-01-visual-correction",
   "inGit": false,
@@ -8,24 +8,27 @@
   "durabilityCaveat": "현재 로컬 단일 머신 경로다. 31-13 을 다른 머신/Pod 에서 돌리려면 공유 저장 위치(보존기간 명시)를 belle 이 승인해야 한다 — 미결정."
  },
  "floor": {
-  "rule": "H4-10 — PASS >= 4, FAIL >= 8, failure axis 다양성",
+  "rule": "H4-10 — PASS >= 4, FAIL >= 8, failure axis 다양성. 판정 scope 는 production 분포(chosen model wan2.7-image-pro)다 — qwen-image-edit-plus 는 B4-02 async-only 게이트에서 구조적으로 탈락했으므로 그 산출물로 고른 임계값은 결코 돌지 않을 코드에 대한 근거가 된다.",
   "requiredPass": 4,
   "requiredFail": 8,
-  "actualPass": 2,
-  "actualFail": 6,
+  "scope": "wan2.7-image-pro",
+  "actualPass": 3,
+  "actualFail": 9,
   "meetsFloor": false,
+  "allGeneratorsPass": 3,
+  "allGeneratorsFail": 13,
   "failureAxesPresent": [
+   "background",
    "clothing",
    "correction_invisible",
+   "extra_limbs",
+   "identity",
+   "pole",
    "pose_tolerance"
   ],
-  "failureAxesMissing": [
-   "pole",
-   "identity",
-   "background",
-   "extra_limbs"
-  ],
-  "shortfallNote": "하한 미달이다. 승인된 생성 8콜을 전량 소진해 실제 교정 pair 8건(PASS 2/FAIL 6)만 확보했다. 부족분을 채우려면 추가 생성 예산이 필요하다 — 라벨을 지어내지 않았다. spike 004 의 wan_out/*.png·smoke_out/frames/*.png 는 (a) 좌우 2분할 합성 이미지라 before/after 를 분리한 경로로 참조할 수 없고, (b) **카메라 회전** 산출물이라 jointKey/targetDeg 교정 의미가 없어 pair 로 쓰면 31-13 임계값이 오염된다 — 전량 제외했다. 누락 축(pole/background/extra_limbs/identity)은 8표본에서 실제로 발생하지 않았다 — 두 모델 모두 보존 축은 잘 지켰다는 실측 결과이며, 해당 축 FAIL 표본은 표본 수를 늘리거나 적대적 프롬프트를 별도 설계해야 얻을 수 있다."
+  "failureAxesMissing": [],
+  "shortfallNote": "31-13 에서 belle 승인 추가 예산 8콜을 전량 집행했다(누적 생성 16콜: 31-01 8 + 31-13 8). wan scope 는 4 → 12 pair 로 늘었고 **failure axis 는 7종 전부 확보**했다(pole/background/extra_limbs/identity 는 적대적 프롬프트로 유도). 그러나 **PASS 는 3건으로 하한 4에 1건 부족**하다 — faithful 4콜 중 PASS 는 chair-spin 1건뿐이었다. 하한을 맞추려고 FAIL 을 PASS 로 재라벨하지 않았다. 적대적 4건은 실패를 인위적으로 유도한 표본이라 production 실패 분포가 아니다 — judge 축 검출력 검증에는 유효하지만 FA/FR 격자에서는 true_fail 을 과대계상한다. sampleKind 로 구분해 두었다.",
+  "labelProvenance": "신규 8건 전부 Claude 가 before/after 이미지를 Read 로 열어 시각 확인한 뒤 라벨을 부여했다 — 미확인 추정 0건."
  },
  "fixtures": [
   {
@@ -56,7 +59,8 @@
     "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/Chair-spin.mp4",
     "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
    },
-   "rationale": "뒤쪽 다리는 펴졌으나 자세가 깊은 런지로 전환됐다 — 앞다리에 없던 굴곡이 새로 생기고 체간이 전방으로 크게 기울었다. 목표 관절 외 변경폭이 과도하다. 인물·복장·배경·폴은 보존."
+   "rationale": "뒤쪽 다리는 펴졌으나 자세가 깊은 런지로 전환됐다 — 앞다리에 없던 굴곡이 새로 생기고 체간이 전방으로 크게 기울었다. 목표 관절 외 변경폭이 과도하다. 인물·복장·배경·폴은 보존.",
+   "sampleKind": "natural"
   },
   {
    "id": "qwen-image-edit-plus__invert-inverted-left-knee",
@@ -88,7 +92,8 @@
     "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/invert.mp4",
     "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
    },
-   "rationale": "**복장 색이 뒤바뀌었다** — 원본 버건디 상의+블랙 하의가 출력에서 블랙 상의+버건디 하의로 교체됐다(identity/clothing 보존 지시 위반). 동시에 수평 레이아웃이 백밴드 자세로 바뀌어 동작이 완전히 달라졌고 얼굴이 새로 렌더됐다."
+   "rationale": "**복장 색이 뒤바뀌었다** — 원본 버건디 상의+블랙 하의가 출력에서 블랙 상의+버건디 하의로 교체됐다(identity/clothing 보존 지시 위반). 동시에 수평 레이아웃이 백밴드 자세로 바뀌어 동작이 완전히 달라졌고 얼굴이 새로 렌더됐다.",
+   "sampleKind": "natural"
   },
   {
    "id": "qwen-image-edit-plus__power-spin-inverted-right-knee",
@@ -119,7 +124,8 @@
     "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/power-spin.mp4",
     "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
    },
-   "rationale": "수평 레이아웃이 다리를 위로 든 수직 도립 자세로 바뀌어 신체 축이 약 90도 회전했다. 목표(오른무릎 신전)와 무관한 전면적 자세 재생성이다. 복장·배경·폴은 보존."
+   "rationale": "수평 레이아웃이 다리를 위로 든 수직 도립 자세로 바뀌어 신체 축이 약 90도 회전했다. 목표(오른무릎 신전)와 무관한 전면적 자세 재생성이다. 복장·배경·폴은 보존.",
+   "sampleKind": "natural"
   },
   {
    "id": "qwen-image-edit-plus__sideway-spin-upright-right-knee",
@@ -150,7 +156,8 @@
     "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/sideway-spin.mp4",
     "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
    },
-   "rationale": "접은 무릎 자세에서 양다리 수평 신전으로 전환 — wan 의 동일 fixture 실패와 같은 과잉 적용 유형이다. 인물·복장·배경·폴은 보존되나 비대상 관절 변경폭이 허용 범위를 넘는다."
+   "rationale": "접은 무릎 자세에서 양다리 수평 신전으로 전환 — wan 의 동일 fixture 실패와 같은 과잉 적용 유형이다. 인물·복장·배경·폴은 보존되나 비대상 관절 변경폭이 허용 범위를 넘는다.",
+   "sampleKind": "natural"
   },
   {
    "id": "wan2.7-image-pro__power-spin-inverted-right-knee",
@@ -181,7 +188,8 @@
     "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/power-spin.mp4",
     "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
    },
-   "rationale": "폴 뒤에서 굽어 있던 목표 무릎이 출력에서도 여전히 굽어 있다. 이미 펴져 있던 반대쪽 다리만 더 길게 신전됐다. 인물·복장·배경·폴은 모두 보존됐고 추가 사지도 없어 **단일 축 실패**다 — 가림(occlusion) 구간의 교정 누락 사례."
+   "rationale": "폴 뒤에서 굽어 있던 목표 무릎이 출력에서도 여전히 굽어 있다. 이미 펴져 있던 반대쪽 다리만 더 길게 신전됐다. 인물·복장·배경·폴은 모두 보존됐고 추가 사지도 없어 **단일 축 실패**다 — 가림(occlusion) 구간의 교정 누락 사례.",
+   "sampleKind": "natural"
   },
   {
    "id": "wan2.7-image-pro__sideway-spin-upright-right-knee",
@@ -212,7 +220,8 @@
     "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/sideway-spin.mp4",
     "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
    },
-   "rationale": "무릎을 접어 폴에 앉은 자세에서 양다리 완전 수평 신전 자세로 바뀌어 동작 자체가 달라졌다. 목표는 오른무릎 신전이었으나 비대상 관절(고관절·반대쪽 다리·체간 각도)이 함께 크게 이동했다. 인물·복장·배경·폴은 보존."
+   "rationale": "무릎을 접어 폴에 앉은 자세에서 양다리 완전 수평 신전 자세로 바뀌어 동작 자체가 달라졌다. 목표는 오른무릎 신전이었으나 비대상 관절(고관절·반대쪽 다리·체간 각도)이 함께 크게 이동했다. 인물·복장·배경·폴은 보존.",
+   "sampleKind": "natural"
   },
   {
    "id": "wan2.7-image-pro__chair-spin-upright-left-knee",
@@ -240,7 +249,8 @@
     "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/Chair-spin.mp4",
     "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
    },
-   "rationale": "뒤쪽 왼무릎이 굴곡 상태에서 거의 완전 신전으로 교정됐다. 인물 동일(옆얼굴·포니테일), 복장 동일(회색 패턴 크롭탑+스컬 프린트 레깅스+회색 양말), 배경 동일(거울·Pole Dream 로고·벽 콘센트), 폴 수직 유지, 추가 사지 없음. 무릎 신전의 자연스러운 귀결로 발이 바닥에 모이고 프레이밍이 다소 축소·우측 이동했으나 배경 '내용' 변형은 없다."
+   "rationale": "뒤쪽 왼무릎이 굴곡 상태에서 거의 완전 신전으로 교정됐다. 인물 동일(옆얼굴·포니테일), 복장 동일(회색 패턴 크롭탑+스컬 프린트 레깅스+회색 양말), 배경 동일(거울·Pole Dream 로고·벽 콘센트), 폴 수직 유지, 추가 사지 없음. 무릎 신전의 자연스러운 귀결로 발이 바닥에 모이고 프레이밍이 다소 축소·우측 이동했으나 배경 '내용' 변형은 없다.",
+   "sampleKind": "natural"
   },
   {
    "id": "wan2.7-image-pro__invert-inverted-left-knee",
@@ -269,7 +279,368 @@
     "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/invert.mp4",
     "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
    },
-   "rationale": "도립 레이아웃을 유지한 채 양다리가 수평으로 깔끔히 신전됐고 원본의 발 모션블러가 해소됐다. 인물·복장(버건디 브라탑+블랙 쇼츠)·배경(커튼·화분·천장 마운트)·폴 모두 보존, 추가 사지 없음. 목표 관절(왼무릎) 교정이 명확히 보인다."
+   "rationale": "도립 레이아웃을 유지한 채 양다리가 수평으로 깔끔히 신전됐고 원본의 발 모션블러가 해소됐다. 인물·복장(버건디 브라탑+블랙 쇼츠)·배경(커튼·화분·천장 마운트)·폴 모두 보존, 추가 사지 없음. 목표 관절(왼무릎) 교정이 명확히 보인다.",
+   "sampleKind": "natural"
+  },
+  {
+   "id": "wan2.7-image-pro__calib-chair-spin-upright-left-knee-v2",
+   "beforePath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/before/Chair-spin.png",
+   "beforeSha256": "3498a637f40da4765e3d14367c6565cea130eab6fc7861415489505de18474d9",
+   "afterPath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/after/wan2.7-image-pro__calib-chair-spin-upright-left-knee-v2.png",
+   "afterSha256": "ad4922eb38e4bf1e5225639a351d06493789d7dcb4d7ad2461f6c99ba4a73346",
+   "label": "PASS",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "afterKeypointSource": {
+    "path": "manual",
+    "modelVersion": null,
+    "status": "unmeasured_pending_pose_endpoint",
+    "note": "라벨은 Claude 육안 판정이다. 달성 각도 RTMW 실측은 살아있는 Pod 의 /pose-image 가 필요하며 2026-07-20 현재 Pod 부재로 미수행 — 숫자를 추정해 채우지 않는다 (M4-05)."
+   },
+   "failureAxes": [],
+   "category": [
+    "upright",
+    "left"
+   ],
+   "generatorModel": "wan2.7-image-pro",
+   "generatorMode": "async",
+   "sampleKind": "natural",
+   "generationIntent": "faithful",
+   "generationPrompt": "Straighten only the athlete's trailing left knee to full extension (about 175 degrees). Keep the person's identity, face, hair, body shape, clothing, the vertical pole and its position, and the entire background exactly unchanged. Change nothing except the single specified joint.",
+   "generationRun": {
+    "generatedAt": "2026-07-20T10:16:00+0900",
+    "run": "31-13 추가 생성 예산 8콜 (belle 승인)",
+    "model": "wan2.7-image-pro",
+    "mode": "async",
+    "parameters": {
+     "n": 1,
+     "watermark": false,
+     "prompt_extend": false
+    }
+   },
+   "beforeSource": {
+    "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/Chair-spin.mp4",
+    "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
+   },
+   "rationale": "뒤쪽 왼무릎이 굴곡에서 신전으로 교정됐다. 인물 동일(측면 프로필·포니테일), 복장 동일(회색 패턴 크롭탑+스컬 프린트 레깅스+회색 양말), 배경 동일(거울·Pole Dream 로고·벽 콘센트), 폴 수직 유지, 추가 사지 없음. 무릎 신전에 따라 체간이 다소 수직으로 서고 프레이밍이 넓어졌으나 동작 정체성과 그립은 유지 — 31-01 chair-spin PASS 와 같은 기준으로 판정했다."
+  },
+  {
+   "id": "wan2.7-image-pro__calib-invert-inverted-left-knee-v2",
+   "beforePath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/before/invert.png",
+   "beforeSha256": "8c018fa6635966ac6bcd4986d65b7dae52ab5305225710b321468bfb3814822d",
+   "afterPath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/after/wan2.7-image-pro__calib-invert-inverted-left-knee-v2.png",
+   "afterSha256": "9ac97ce1dfc4813067e42b16decd54cda056f444a8c20a196ce41b847e80544d",
+   "label": "FAIL",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "afterKeypointSource": {
+    "path": "manual",
+    "modelVersion": null,
+    "status": "unmeasured_pending_pose_endpoint",
+    "note": "라벨은 Claude 육안 판정이다. 달성 각도 RTMW 실측은 살아있는 Pod 의 /pose-image 가 필요하며 2026-07-20 현재 Pod 부재로 미수행 — 숫자를 추정해 채우지 않는다 (M4-05)."
+   },
+   "failureAxes": [
+    "pose_tolerance"
+   ],
+   "category": [
+    "inverted",
+    "left",
+    "motion_blur"
+   ],
+   "generatorModel": "wan2.7-image-pro",
+   "generatorMode": "async",
+   "sampleKind": "natural",
+   "generationIntent": "faithful",
+   "generationPrompt": "In this inverted pole pose, straighten only the athlete's left knee to full extension (about 175 degrees). Keep the person's identity, face, hair, body shape, clothing, the vertical pole and its position, and the entire background exactly unchanged. Change nothing except the single specified joint.",
+   "generationRun": {
+    "generatedAt": "2026-07-20T10:16:00+0900",
+    "run": "31-13 추가 생성 예산 8콜 (belle 승인)",
+    "model": "wan2.7-image-pro",
+    "mode": "async",
+    "parameters": {
+     "n": 1,
+     "watermark": false,
+     "prompt_extend": false
+    }
+   },
+   "beforeSource": {
+    "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/invert.mp4",
+    "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
+   },
+   "rationale": "산출물에 여전히 약 90도로 꺾인 무릎이 선명하게 남아 있고, 동시에 체간 각도와 양다리 배치가 원본과 다르게 재배열됐다. 인물·복장·배경·폴은 보존. **도립 시점이라 좌/우 판별이 육안으로 모호하다** — 다만 굴곡 무릎이 남은 채 자세가 재배열된 산출물을 교정 결과로 노출할 수 없으므로 fail-closed 로 FAIL 처리했다."
+  },
+  {
+   "id": "wan2.7-image-pro__calib-power-spin-inverted-right-knee-v2",
+   "beforePath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/before/power-spin.png",
+   "beforeSha256": "4e552331bcb90049c8cbf3975c7fb3e115652c988afa4bbcc5c7103f0e3c3f04",
+   "afterPath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/after/wan2.7-image-pro__calib-power-spin-inverted-right-knee-v2.png",
+   "afterSha256": "6ff24757d419a82fd71e0175e56551d48a83c08c1efe9f2f75a22299035cbfd1",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "afterKeypointSource": {
+    "path": "manual",
+    "modelVersion": null,
+    "status": "unmeasured_pending_pose_endpoint",
+    "note": "라벨은 Claude 육안 판정이다. 달성 각도 RTMW 실측은 살아있는 Pod 의 /pose-image 가 필요하며 2026-07-20 현재 Pod 부재로 미수행 — 숫자를 추정해 채우지 않는다 (M4-05)."
+   },
+   "failureAxes": [
+    "pose_tolerance"
+   ],
+   "category": [
+    "inverted",
+    "right",
+    "occlusion"
+   ],
+   "generatorModel": "wan2.7-image-pro",
+   "generatorMode": "async",
+   "sampleKind": "natural",
+   "generationIntent": "faithful",
+   "generationPrompt": "Straighten only the athlete's right knee, which is bent behind the pole, to full extension (about 175 degrees). Keep the person's identity, face, hair, body shape, clothing, the vertical pole and its position, and the entire background exactly unchanged. Change nothing except the single specified joint.",
+   "generationRun": {
+    "generatedAt": "2026-07-20T10:16:00+0900",
+    "run": "31-13 추가 생성 예산 8콜 (belle 승인)",
+    "model": "wan2.7-image-pro",
+    "mode": "async",
+    "parameters": {
+     "n": 1,
+     "watermark": false,
+     "prompt_extend": false
+    }
+   },
+   "beforeSource": {
+    "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/power-spin.mp4",
+    "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
+   },
+   "rationale": "원본의 수평 스핀 레이아웃이 폴 위로 상체를 접고 양다리를 바닥 쪽으로 늘어뜨린 전혀 다른 자세로 바뀌었다. 다리가 펴지긴 했으나 동작 자체가 재생성된 결과다. 인물·복장·배경·폴은 보존 — 단일 축(pose_tolerance) 실패."
+  },
+  {
+   "id": "wan2.7-image-pro__calib-sideway-spin-upright-right-knee-v2",
+   "beforePath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/before/sideway-spin.png",
+   "beforeSha256": "3eea2aa023912bb7066efada544f69a74b4cb2d495a76edc4c9703e50a012ed3",
+   "afterPath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/after/wan2.7-image-pro__calib-sideway-spin-upright-right-knee-v2.png",
+   "afterSha256": "e1e9fc699731d04813c1eb9837d2981dd70ed56c91126b9d42d57cf5cd91a2ff",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "afterKeypointSource": {
+    "path": "manual",
+    "modelVersion": null,
+    "status": "unmeasured_pending_pose_endpoint",
+    "note": "라벨은 Claude 육안 판정이다. 달성 각도 RTMW 실측은 살아있는 Pod 의 /pose-image 가 필요하며 2026-07-20 현재 Pod 부재로 미수행 — 숫자를 추정해 채우지 않는다 (M4-05)."
+   },
+   "failureAxes": [
+    "pose_tolerance"
+   ],
+   "category": [
+    "upright",
+    "right",
+    "occlusion"
+   ],
+   "generatorModel": "wan2.7-image-pro",
+   "generatorMode": "async",
+   "sampleKind": "natural",
+   "generationIntent": "faithful",
+   "generationPrompt": "Straighten only the athlete's tucked right knee to full extension (about 175 degrees), keeping both hands on the pole. Keep the person's identity, face, hair, body shape, clothing, the vertical pole and its position, and the entire background exactly unchanged. Change nothing except the single specified joint.",
+   "generationRun": {
+    "generatedAt": "2026-07-20T10:16:00+0900",
+    "run": "31-13 추가 생성 예산 8콜 (belle 승인)",
+    "model": "wan2.7-image-pro",
+    "mode": "async",
+    "parameters": {
+     "n": 1,
+     "watermark": false,
+     "prompt_extend": false
+    }
+   },
+   "beforeSource": {
+    "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/sideway-spin.mp4",
+    "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
+   },
+   "rationale": "무릎을 접어 폴에 매달린 자세에서 양다리를 좌하방으로 완전 신전한 레이아웃으로 바뀌었다 — 31-01 동일 fixture 와 같은 과잉 적용 유형이 강화 프롬프트에서도 재현됐다. 인물·복장·배경·폴은 보존."
+  },
+  {
+   "id": "wan2.7-image-pro__calib-adv-pole-chair-spin-left-knee",
+   "beforePath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/before/Chair-spin.png",
+   "beforeSha256": "3498a637f40da4765e3d14367c6565cea130eab6fc7861415489505de18474d9",
+   "afterPath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/after/wan2.7-image-pro__calib-adv-pole-chair-spin-left-knee.png",
+   "afterSha256": "46ef1a6cf5845558e1cc5978fc6a7e2ec6022c3b2c6292267bc3c71e4cecaa6b",
+   "label": "FAIL",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "afterKeypointSource": {
+    "path": "manual",
+    "modelVersion": null,
+    "status": "unmeasured_pending_pose_endpoint",
+    "note": "라벨은 Claude 육안 판정이다. 달성 각도 RTMW 실측은 살아있는 Pod 의 /pose-image 가 필요하며 2026-07-20 현재 Pod 부재로 미수행 — 숫자를 추정해 채우지 않는다 (M4-05)."
+   },
+   "failureAxes": [
+    "pole",
+    "pose_tolerance"
+   ],
+   "category": [
+    "upright",
+    "left"
+   ],
+   "generatorModel": "wan2.7-image-pro",
+   "generatorMode": "async",
+   "sampleKind": "adversarial",
+   "generationIntent": "elicit_pole_failure",
+   "generationPrompt": "Straighten the athlete's left knee to full extension and remove the vertical pole entirely from the scene so she stands free.",
+   "generationRun": {
+    "generatedAt": "2026-07-20T10:16:00+0900",
+    "run": "31-13 추가 생성 예산 8콜 (belle 승인)",
+    "model": "wan2.7-image-pro",
+    "mode": "async",
+    "parameters": {
+     "n": 1,
+     "watermark": false,
+     "prompt_extend": false
+    }
+   },
+   "beforeSource": {
+    "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/Chair-spin.mp4",
+    "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
+   },
+   "rationale": "**폴이 장면에서 완전히 사라졌다.** 인물은 폴 없이 맨몸으로 서 있고 양팔이 옆으로 내려왔다 — 자세도 전면 재생성. 복장·배경(거울·Pole Dream 로고·콘센트)은 보존. 유도 성공."
+  },
+  {
+   "id": "wan2.7-image-pro__calib-adv-background-sideway-spin-right-knee",
+   "beforePath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/before/sideway-spin.png",
+   "beforeSha256": "3eea2aa023912bb7066efada544f69a74b4cb2d495a76edc4c9703e50a012ed3",
+   "afterPath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/after/wan2.7-image-pro__calib-adv-background-sideway-spin-right-knee.png",
+   "afterSha256": "7f22a6a3d3526d744aebc3439acd080b2034e6eed14889e6b2116618d3072ecb",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "afterKeypointSource": {
+    "path": "manual",
+    "modelVersion": null,
+    "status": "unmeasured_pending_pose_endpoint",
+    "note": "라벨은 Claude 육안 판정이다. 달성 각도 RTMW 실측은 살아있는 Pod 의 /pose-image 가 필요하며 2026-07-20 현재 Pod 부재로 미수행 — 숫자를 추정해 채우지 않는다 (M4-05)."
+   },
+   "failureAxes": [
+    "background",
+    "correction_invisible"
+   ],
+   "category": [
+    "upright",
+    "right",
+    "occlusion"
+   ],
+   "generatorModel": "wan2.7-image-pro",
+   "generatorMode": "async",
+   "sampleKind": "adversarial",
+   "generationIntent": "elicit_background_failure",
+   "generationPrompt": "Straighten the athlete's right knee to full extension and replace the indoor studio background with a bright outdoor beach at sunset.",
+   "generationRun": {
+    "generatedAt": "2026-07-20T10:16:00+0900",
+    "run": "31-13 추가 생성 예산 8콜 (belle 승인)",
+    "model": "wan2.7-image-pro",
+    "mode": "async",
+    "parameters": {
+     "n": 1,
+     "watermark": false,
+     "prompt_extend": false
+    }
+   },
+   "beforeSource": {
+    "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/sideway-spin.mp4",
+    "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
+   },
+   "rationale": "**배경이 실내 스튜디오에서 석양 해변으로 통째로 교체됐다.** 동시에 목표였던 오른무릎은 여전히 굽어 있어 교정이 보이지 않는다. 인물·복장·폴은 보존. 유도 성공(축 2종 동시 발생)."
+  },
+  {
+   "id": "wan2.7-image-pro__calib-adv-extralimbs-invert-left-knee",
+   "beforePath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/before/invert.png",
+   "beforeSha256": "8c018fa6635966ac6bcd4986d65b7dae52ab5305225710b321468bfb3814822d",
+   "afterPath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/after/wan2.7-image-pro__calib-adv-extralimbs-invert-left-knee.png",
+   "afterSha256": "0fb20afa0337275262bfe6a612f2ec25f44d12b6390e73382b863aa5cd72d610",
+   "label": "FAIL",
+   "jointKey": "left_knee",
+   "targetDeg": 175,
+   "afterKeypointSource": {
+    "path": "manual",
+    "modelVersion": null,
+    "status": "unmeasured_pending_pose_endpoint",
+    "note": "라벨은 Claude 육안 판정이다. 달성 각도 RTMW 실측은 살아있는 Pod 의 /pose-image 가 필요하며 2026-07-20 현재 Pod 부재로 미수행 — 숫자를 추정해 채우지 않는다 (M4-05)."
+   },
+   "failureAxes": [
+    "extra_limbs",
+    "pose_tolerance"
+   ],
+   "category": [
+    "inverted",
+    "left",
+    "motion_blur"
+   ],
+   "generatorModel": "wan2.7-image-pro",
+   "generatorMode": "async",
+   "sampleKind": "adversarial",
+   "generationIntent": "elicit_extra_limbs_failure",
+   "generationPrompt": "Straighten the athlete's left knee to full extension and give her an additional pair of arms, like a multi-armed statue.",
+   "generationRun": {
+    "generatedAt": "2026-07-20T10:16:00+0900",
+    "run": "31-13 추가 생성 예산 8콜 (belle 승인)",
+    "model": "wan2.7-image-pro",
+    "mode": "async",
+    "parameters": {
+     "n": 1,
+     "watermark": false,
+     "prompt_extend": false
+    }
+   },
+   "beforeSource": {
+    "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/invert.mp4",
+    "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
+   },
+   "rationale": "**팔이 4개로 늘었다** — 폴을 잡은 팔 외에 우측으로 뻗은 팔 3개가 추가 렌더됐다. 자세도 재배열. 인물·복장·배경·폴은 보존. 유도 성공."
+  },
+  {
+   "id": "wan2.7-image-pro__calib-adv-identity-power-spin-right-knee",
+   "beforePath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/before/power-spin.png",
+   "beforeSha256": "4e552331bcb90049c8cbf3975c7fb3e115652c988afa4bbcc5c7103f0e3c3f04",
+   "afterPath": "/Users/Shared/sunity-fixtures/31-01-visual-correction/after/wan2.7-image-pro__calib-adv-identity-power-spin-right-knee.png",
+   "afterSha256": "e1746fd20ffc70fed6c71e4568f95a1e78f59af9b4a1fc0b637ac1d9e0853e8b",
+   "label": "FAIL",
+   "jointKey": "right_knee",
+   "targetDeg": 175,
+   "afterKeypointSource": {
+    "path": "manual",
+    "modelVersion": null,
+    "status": "unmeasured_pending_pose_endpoint",
+    "note": "라벨은 Claude 육안 판정이다. 달성 각도 RTMW 실측은 살아있는 Pod 의 /pose-image 가 필요하며 2026-07-20 현재 Pod 부재로 미수행 — 숫자를 추정해 채우지 않는다 (M4-05)."
+   },
+   "failureAxes": [
+    "identity",
+    "clothing"
+   ],
+   "category": [
+    "inverted",
+    "right",
+    "occlusion"
+   ],
+   "generatorModel": "wan2.7-image-pro",
+   "generatorMode": "async",
+   "sampleKind": "adversarial",
+   "generationIntent": "elicit_identity_failure",
+   "generationPrompt": "Straighten the athlete's right knee to full extension and replace the athlete with a completely different person: a man with short blonde hair and a beard, wearing a blue tracksuit.",
+   "generationRun": {
+    "generatedAt": "2026-07-20T10:16:00+0900",
+    "run": "31-13 추가 생성 예산 8콜 (belle 승인)",
+    "model": "wan2.7-image-pro",
+    "mode": "async",
+    "parameters": {
+     "n": 1,
+     "watermark": false,
+     "prompt_extend": false
+    }
+   },
+   "beforeSource": {
+    "video": ".planning/spikes/004-gemini-omni-view-editing/gate_in/power-spin.mp4",
+    "extraction": "ffmpeg -ss <duration*0.5> -frames:v 1 (중간 프레임)"
+   },
+   "rationale": "**인물이 완전히 다른 사람으로 교체됐다** — 짧은 금발+수염의 남성, 파란 트랙수트. 배경(hAn GYM 로고·화분·커튼)과 폴, 수평 레이아웃은 보존. 유도 성공(identity+clothing 동시)."
   }
  ]
 }

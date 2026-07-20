@@ -392,6 +392,7 @@ def test_arrow_geometry_never_touches_deduction_records():
         fz._frame_mirror_parity,
         fz._facing_sign,
         fz.joint_inner_angle_deg,
+        fz.build_corrected_pose_target,
     ):
         src = inspect.getsource(fn)
         for token in forbidden:
@@ -430,3 +431,237 @@ def test_joint_inner_angle_deg_known_answers():
     assert abs(fz.joint_inner_angle_deg((0, 10), (0, 0), (0, -10)) - 180.0) < 1e-6
     assert abs(fz.joint_inner_angle_deg((0, 10), (0, 0), (0, 10)) - 0.0) < 1e-6
     assert math.isnan(fz.joint_inner_angle_deg((0, 0), (0, 0), (1, 0)))
+
+
+# ═══════════ CorrectedPoseTarget — 2차 리뷰 B2-01 §8 gate ═══════════
+
+_REF_SHAPE = (_H, _W)
+
+
+def _cp_reports(ref_straight: bool = True, ref_conf: float = 0.9):
+    """user(굽음) + reference(폄|90도) 한 쌍 — 좌/우 무릎 모두 세팅."""
+    u_frame = dict(_torso(1))
+    r_frame = dict(_torso(1))
+    for side in ("left", "right"):
+        uh = u_frame[f"{side}_hip"]
+        u_frame[f"{side}_knee"] = (uh[0], uh[1] + 0.20)
+        u_frame[f"{side}_ankle"] = (uh[0] + 0.12, uh[1] + 0.32)
+        rh = r_frame[f"{side}_hip"]
+        r_frame[f"{side}_knee"] = (rh[0], rh[1] + 0.20)
+        r_frame[f"{side}_ankle"] = (
+            (rh[0], rh[1] + 0.40) if ref_straight else (rh[0] + 0.20, rh[1] + 0.20)
+        )
+    return _report([u_frame]), _report([r_frame], conf=ref_conf)
+
+
+def _rec(criterion: str, points: float, **extra) -> dict:
+    """감점 record — 기하와 무관한 수치 필드를 일부러 채워 미유입을 증명한다."""
+    base = {
+        "criterion": criterion,
+        "points": points,
+        "measuredValue": 42.0,
+        "baselineValue": 180.0,
+        "deviation": 12.0,
+        "unit": "deg",
+        "deviationSource": "reference_relative",
+    }
+    base.update(extra)
+    return base
+
+
+def test_target_deg_comes_from_reference_geometry_only():
+    """§8 gate 2 — record 수치를 극단값으로 오염시켜도 target_deg 불변."""
+    u_rep, r_rep = _cp_reports(ref_straight=True)
+    clean = fz.build_corrected_pose_target(
+        [_rec("angle_vs_reference__left_knee", -30.0)],
+        u_rep, r_rep, (0, 0), False, ref_frame_shape=_REF_SHAPE,
+    )
+    polluted = fz.build_corrected_pose_target(
+        [_rec(
+            "angle_vs_reference__left_knee", -30.0,
+            measuredValue=999.0, baselineValue=999.0, deviation=999.0,
+        )],
+        u_rep, r_rep, (0, 0), False, ref_frame_shape=_REF_SHAPE,
+    )
+    assert clean is not None and polluted is not None
+    assert clean.target_deg == polluted.target_deg
+    # reference 는 hip→knee→ankle 이 일직선 → 내각 180도.
+    assert abs(clean.target_deg - 180.0) < 1e-6
+    assert clean.source_kind == "reference_pose"
+
+
+def test_target_deg_tracks_reference_shape_not_record():
+    """reference 형상이 90도면 target_deg 도 90도 (record 는 동일하게 유지)."""
+    u_rep, r_rep = _cp_reports(ref_straight=False)
+    tgt = fz.build_corrected_pose_target(
+        [_rec("angle_vs_reference__left_knee", -30.0)],
+        u_rep, r_rep, (0, 0), False, ref_frame_shape=_REF_SHAPE,
+    )
+    assert tgt is not None
+    assert abs(tgt.target_deg - 90.0) < 1e-6
+
+
+def test_candidate_priority_uses_abs_points_not_max():
+    """§8 gate 3 — points 는 signed-negative, max(points) 함정 차단."""
+    u_rep, r_rep = _cp_reports()
+    records = [
+        _rec("angle_vs_reference__left_elbow", -5.0),
+        _rec("angle_vs_reference__left_knee", -30.0),
+        _rec("angle_vs_reference__right_knee", -12.0),
+    ]
+    tgt = fz.build_corrected_pose_target(
+        records, u_rep, r_rep, (0, 0), False, ref_frame_shape=_REF_SHAPE
+    )
+    assert tgt is not None
+    assert tgt.joint_key == "left_knee", "가장 큰 감점(-30)의 관절이어야 한다"
+    # 입력 순서를 바꿔도 같은 선택 (결정론).
+    tgt2 = fz.build_corrected_pose_target(
+        list(reversed(records)), u_rep, r_rep, (0, 0), False,
+        ref_frame_shape=_REF_SHAPE,
+    )
+    assert tgt2 is not None and tgt2.joint_key == "left_knee"
+
+
+def test_tie_break_is_criterion_key_ascending():
+    """M3-06 — 동률 감점은 criterion key 오름차순으로 결정론 고정."""
+    u_rep, r_rep = _cp_reports()
+    records = [
+        _rec("angle_vs_reference__right_knee", -20.0),
+        _rec("angle_vs_reference__left_knee", -20.0),
+    ]
+    a = fz.build_corrected_pose_target(
+        records, u_rep, r_rep, (0, 0), False, ref_frame_shape=_REF_SHAPE
+    )
+    b = fz.build_corrected_pose_target(
+        list(reversed(records)), u_rep, r_rep, (0, 0), False,
+        ref_frame_shape=_REF_SHAPE,
+    )
+    assert a is not None and b is not None
+    assert a.joint_key == b.joint_key == "left_knee"  # 'angle...__left_knee' < right
+
+
+def test_unmapped_and_collective_criteria_yield_none():
+    """§8 gate 3 — 선언 매핑 없는 criterion 만 있으면 생성 생략."""
+    u_rep, r_rep = _cp_reports()
+    for crit in ("line", "leg_extension", "arm_extension", "split_angle",
+                 "body_relative_reach", "dimension_overall_fallback"):
+        assert crit not in fz.CRITERION_JOINT_MAP, f"{crit} 은 선언 대상이 아니다"
+    tgt = fz.build_corrected_pose_target(
+        [_rec("line", -40.0), _rec("leg_extension", -30.0)],
+        u_rep, r_rep, (0, 0), False, ref_frame_shape=_REF_SHAPE,
+    )
+    assert tgt is None
+
+
+def test_none_when_uncertain():
+    """생략 조건 계열 — 잘못된 target 으로 생성하지 않는다."""
+    u_rep, r_rep = _cp_reports()
+    records = [_rec("angle_vs_reference__left_knee", -30.0)]
+    common = dict(ref_frame_shape=_REF_SHAPE)
+    # ref 대응 실패
+    assert fz.build_corrected_pose_target(
+        records, u_rep, r_rep, (0, 0), True, **common
+    ) is None
+    # DTW 쌍 부재
+    assert fz.build_corrected_pose_target(
+        records, u_rep, r_rep, None, False, **common
+    ) is None
+    # 후보 0
+    assert fz.build_corrected_pose_target(
+        [], u_rep, r_rep, (0, 0), False, **common
+    ) is None
+    # reference 3점 저신뢰
+    _u, low_ref = _cp_reports(ref_conf=0.2)
+    assert fz.build_corrected_pose_target(
+        records, u_rep, low_ref, (0, 0), False, **common
+    ) is None
+    # parity 불명 (reference 몸통 좌우 분리 붕괴)
+    flat = {
+        "left_shoulder": (0.500, 0.30), "right_shoulder": (0.505, 0.30),
+        "left_hip": (0.500, 0.50), "right_hip": (0.505, 0.50),
+        "left_knee": (0.500, 0.70), "left_ankle": (0.500, 0.90),
+    }
+    assert fz.build_corrected_pose_target(
+        records, u_rep, _report([flat]), (0, 0), False, **common
+    ) is None
+    # 프레임 형상 미상 → 내각이 비율만큼 왜곡되므로 신뢰 불가 → 생략
+    assert fz.build_corrected_pose_target(
+        records, u_rep, r_rep, (0, 0), False, ref_frame_shape=None
+    ) is None
+
+
+def test_source_frame_and_target_share_the_same_moment():
+    """B2-01 — user_frame_idx 가 전달된 DTW 쌍의 u_kp_idx 와 일치."""
+    u_frame = dict(_torso(1))
+    r_frame = dict(_torso(1))
+    for side in ("left", "right"):
+        uh, rh = u_frame[f"{side}_hip"], r_frame[f"{side}_hip"]
+        u_frame[f"{side}_knee"] = (uh[0], uh[1] + 0.20)
+        u_frame[f"{side}_ankle"] = (uh[0] + 0.12, uh[1] + 0.32)
+        r_frame[f"{side}_knee"] = (rh[0], rh[1] + 0.20)
+        r_frame[f"{side}_ankle"] = (rh[0], rh[1] + 0.40)
+    # 3프레임 report — 쌍 (2, 1) 이 그대로 실려야 한다.
+    u_rep = _report([u_frame, u_frame, u_frame])
+    r_rep = _report([r_frame, r_frame, r_frame])
+    tgt = fz.build_corrected_pose_target(
+        [_rec("angle_vs_reference__left_knee", -30.0)],
+        u_rep, r_rep, (2, 1), False, ref_frame_shape=_REF_SHAPE,
+    )
+    assert tgt is not None
+    assert tgt.user_frame_idx == 2 and tgt.ref_frame_idx == 1
+
+
+def test_to_payload_is_flat_scalar_with_provenance_version():
+    u_rep, r_rep = _cp_reports()
+    tgt = fz.build_corrected_pose_target(
+        [_rec("angle_vs_reference__left_knee", -30.0)],
+        u_rep, r_rep, (0, 0), False, ref_frame_shape=_REF_SHAPE,
+    )
+    assert tgt is not None
+    payload = tgt.to_payload()
+    assert set(payload) == {
+        "jointKey", "targetDeg", "userFrameIdx", "refFrameIdx",
+        "sourceKind", "confidence", "provenanceVersion",
+    }
+    for k, v in payload.items():
+        assert isinstance(v, (str, int, float, bool)) or v is None, (
+            f"{k} 가 flat scalar 가 아니다 (firestore-nested-array-flat)"
+        )
+    assert payload["provenanceVersion"] == "cp-target-v1"
+    assert payload["jointKey"] == "left_knee"
+    # dataclass 는 immutable (계약 고정).
+    try:
+        tgt.target_deg = 1.0  # type: ignore[misc]
+    except Exception as exc:
+        assert exc.__class__.__name__ == "FrozenInstanceError"
+    else:
+        raise AssertionError("CorrectedPoseTarget 이 immutable 이 아니다")
+
+
+def test_declared_criteria_exist_in_scoring_engine():
+    """오타 드리프트 차단 — 선언한 criterion id 가 실제 채점 엔진에 존재해야 한다.
+
+    (읽기 전용 lockstep 검증. fault_zoom 자체는 ipsf_criteria 를 import 하지 않는다 —
+    화살표/target 경로의 채점 모듈 무의존 원칙 유지.)
+    """
+    from sunity_shared.analysis import ipsf_criteria
+
+    known = {c["id"] for c in ipsf_criteria.CRITERION_GROUPS}
+    unknown = set(fz.CRITERION_JOINT_MAP) - known
+    assert not unknown, f"채점 엔진에 없는 criterion 을 선언했다: {sorted(unknown)}"
+
+
+def test_arrow_target_path_does_not_import_scoring_modules():
+    """T-31-10 — 화살표/target 경로가 채점 모듈에 의존하지 않는다 (검증 게이트)."""
+    src = Path(fz.__file__).read_text(encoding="utf-8")
+    for banned in ("dimensions", "kismam", "deduction_engine", "ipsf_criteria"):
+        assert f"import {banned}" not in src and f"from .{banned}" not in src, (
+            f"fault_zoom 이 채점 모듈 {banned} 을 import 한다"
+        )
+
+
+def test_historical_joint_registry_covers_render_and_criterion_maps():
+    """M3-05 — 삭제 전용 레지스트리가 렌더/criterion 매핑을 덮는다."""
+    assert set(fz.ARROW_JOINT_MAP) <= fz.HISTORICAL_JOINT_REGISTRY
+    assert set(fz.CRITERION_JOINT_MAP.values()) <= fz.HISTORICAL_JOINT_REGISTRY
+    assert isinstance(fz.HISTORICAL_JOINT_REGISTRY, frozenset)

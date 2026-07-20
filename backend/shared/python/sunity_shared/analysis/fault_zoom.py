@@ -1094,6 +1094,190 @@ def _draw_target_arrow(img: Image.Image, spec: TargetArrowSpec) -> bool:
     return True
 
 
+# ─────────── CorrectedPoseTarget — 자동 교정 target 단일 계약 (2차 리뷰 B2-01) ───────────
+#
+# 리뷰 B2-01 원문 요구: "joint, targetDeg, src_png 를 따로 계산하지 않고 하나의
+# immutable 계약으로 만든다." 따로 계산하면 top-1 감점과 top-1 fault zoom 이 서로 다른
+# 기준을 골라 source frame / joint / target pose 가 각각 다른 순간을 가리킬 수 있고,
+# 31-09 의 프롬프트와 pose gate 가 같은 오염 target 을 공유해 "잘못된 목표에 정확히
+# 맞춘" 이미지가 gate 를 통과한다.
+#
+# 그래서 이 계약이 지키는 것 3가지:
+#   (1) target_deg 는 **DTW matched reference 3점 내각**에서만 나온다. 감점 record 의
+#       수치 필드는 어떤 산술에도 들어가지 않는다 — reference_relative record 의 측정
+#       수치는 학생의 절대 관절각이 아니라 정은지-대비 편차라서, 그걸 목표각으로 쓰면
+#       "편차값을 절대 목표각으로" 지시하게 된다 (리뷰 B-02 와 동일 함정).
+#   (2) 후보 우선순위는 **abs(points) 내림차순 → 동률 시 criterion key 오름차순**.
+#       DeductionRecord.points 는 signed-negative 라 max(points) 는 "가장 큰 감점"이
+#       아니라 0 에 가장 가까운 **최소** 감점을 고른다 (deduction_engine.py:60 함정).
+#       tie-break 를 criterion key 로 고정하는 이유(3차 M3-06): 같은 감점 record 의
+#       순서가 입력/직렬화에 따라 바뀌면 target 도 바뀌어 결정론이 깨진다.
+#   (3) criterion→joint 선언 매핑이 없으면 후보가 아니다. collective(line)·양측 묶음
+#       (leg_extension/arm_extension/split_angle)·reach 는 어느 COCO 관절 하나로
+#       환원할 수 없어 선언하지 않는다 = correctedPose 생략(legacy 숨김).
+
+# 감점 criterion → ARROW_JOINT_MAP joint_key 의 **명시 선언 매핑**.
+# ipsf_criteria.CRITERION_GROUPS 중 joint_keys 가 정확히 1개인 per-joint criterion만
+# 이관한다. 다관절/collective criterion 을 임의로 한 관절에 배정하면 "잘못된 관절을
+# 교정한 이미지"가 나온다 (B2-01). 어깨(angle_vs_reference__*_shoulder)는
+# ARROW_JOINT_MAP 미선언이라 여기서도 제외 — 두 맵이 어긋나면 target 은 있는데 화살표는
+# 없는 불일치가 생긴다.
+CRITERION_JOINT_MAP: dict[str, str] = {
+    f"angle_vs_reference__{jk}": jk for jk in ARROW_JOINT_MAP
+}
+
+# **삭제 전용 안정 레지스트리 — 절대 항목 제거 금지** (3차 리뷰 M3-05).
+# append-only. 31-07 의 페어 삭제는 pairId(uid:analysisId:joint HMAC)를 재계산해야
+# 하는데, ARROW_JOINT_MAP 에서 관절이 제거/rename 되면 과거에 적재된 페어의 joint
+# 이름이 사라져 그 pairId 를 다시 만들 수 없다 = 삭제 불가능한 고아 페어. 그래서
+# 렌더 계약(ARROW_JOINT_MAP)과 삭제 계약(이 레지스트리)을 분리하고, 여기서는 관절을
+# 빼지 않는다. 새 관절 추가 시 양쪽에 함께 넣는다.
+HISTORICAL_JOINT_REGISTRY: frozenset[str] = frozenset({
+    "left_knee", "right_knee",
+    "left_elbow", "right_elbow",
+    "left_hip", "right_hip",
+})
+
+# 렌더 계약 ⊆ 삭제 계약 불변식 — 위반하면 삭제 불가 페어가 생긴다 (M3-05).
+assert set(ARROW_JOINT_MAP) <= HISTORICAL_JOINT_REGISTRY
+assert set(CRITERION_JOINT_MAP.values()) <= HISTORICAL_JOINT_REGISTRY
+
+# provenance 버전 — 31-09 프롬프트/pose gate 와 31-10 payload 가 같은 계약을 읽는지
+# 확인하는 스칼라. 계약 필드가 바뀌면 반드시 올린다.
+CP_TARGET_PROVENANCE_VERSION = "cp-target-v1"
+
+
+@dataclass(frozen=True)
+class CorrectedPoseTarget:
+    """자동 교정 생성의 joint/targetDeg/source frame 단일 immutable 계약 (B2-01).
+
+    31-10 enqueue 는 to_payload() 의 스칼라만 job payload 에 기록하고, 31-09 의
+    프롬프트와 pose gate 는 **같은 객체의 provenance** 를 소비한다 — 생성 지시와
+    검증 기준이 갈라지지 않게.
+
+    hash 필드명 단일 계약 (checker W1): payload key `sourceHash` = 원본 프레임 PNG 의
+    sha256 **full hex** (pipeline 31-10 이 산출·병합, 여기 source_frame_hash 와 동일
+    값). S3 srcKey 의 hash 세그먼트는 `sourceHash[:16]`.
+    """
+
+    joint_key: str
+    proximal_key: str
+    vertex_key: str
+    distal_key: str
+    user_frame_idx: int
+    ref_frame_idx: int
+    source_kind: str
+    source_frame_hash: str | None
+    target_deg: float
+    confidence: float
+    provenance_version: str = CP_TARGET_PROVENANCE_VERSION
+
+    def to_payload(self) -> dict:
+        """31-02 reserve_visual_job payload 의 flat scalar (Firestore-flat 정합).
+
+        srcKey / sourceHash 는 프레임을 실제로 쓰는 pipeline(31-10)이 병합한다 —
+        기하 계층은 프레임 바이트를 모른다.
+        """
+        return {
+            "jointKey": self.joint_key,
+            "targetDeg": self.target_deg,
+            "userFrameIdx": self.user_frame_idx,
+            "refFrameIdx": self.ref_frame_idx,
+            "sourceKind": self.source_kind,
+            "confidence": self.confidence,
+            "provenanceVersion": self.provenance_version,
+        }
+
+
+def build_corrected_pose_target(
+    records,
+    user_report: dict,
+    ref_report: dict,
+    dtw_pairs: tuple[int, int] | None,
+    ref_match_failed: bool,
+    *,
+    ref_frame_shape: tuple[int, int] | None = None,
+) -> "CorrectedPoseTarget | None":
+    """top-1 결함 관절의 교정 target — 불확실하면 None(생성 생략) (2차 리뷰 B2-01).
+
+    records: deductionBreakdown.records (flat dict 리스트). **후보 우선순위에만** 쓴다 —
+      criterion 과 points 외의 필드는 읽지 않는다 (수치 미유입, §8 gate 2).
+    dtw_pairs: 줌 카드가 쓴 그 (u_kp_idx, r_kp_idx) — keypointReport 인덱스 공간.
+      source frame 과 target 이 **같은 순간**을 가리키게 강제하는 계약 (B2-01).
+    ref_frame_shape: reference 프레임 (H, W). keypointReport 좌표는 W/H 로 각각
+      정규화돼 있어 정사각이 아니면 내각이 비율만큼 왜곡된다 — 모르면 목표각을
+      신뢰할 수 없으므로 None 반환(생성 생략). joint_inner_angle_deg 와 동일한
+      등방 좌표계 계약.
+
+    None(생략) 조건: 후보 0 / ref 대응 실패 / DTW 쌍 부재 / 프레임 형상 미상 /
+    reference 3점 저신뢰 / parity 불명. **잘못된 target 으로 생성하지 않는다.**
+    """
+    if ref_match_failed or dtw_pairs is None or ref_frame_shape is None:
+        return None
+    if not isinstance(records, list):
+        return None
+
+    # (a)(b) 후보 = 선언 매핑이 있는 criterion 만, abs(points) 내림차순 + key 오름차순.
+    candidates: list[tuple[float, str, str]] = []
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        crit = rec.get("criterion")
+        joint_key = CRITERION_JOINT_MAP.get(crit)
+        if joint_key is None:
+            continue
+        try:
+            magnitude = abs(float(rec.get("points")))
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(magnitude):
+            continue
+        candidates.append((magnitude, str(crit), joint_key))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda t: (-t[0], t[1]))
+    joint_key = candidates[0][2]
+
+    triple = ARROW_JOINT_MAP.get(joint_key)
+    if triple is None:
+        return None
+    p_key, v_key, d_key = triple
+
+    u_kp_idx, r_kp_idx = int(dtw_pairs[0]), int(dtw_pairs[1])
+    r_pts = [_gated_kp(ref_report, r_kp_idx, k) for k in (p_key, v_key, d_key)]
+    if any(p is None for p in r_pts):
+        return None
+    parity = _frame_mirror_parity(
+        _parity_pts(user_report, u_kp_idx), _parity_pts(ref_report, r_kp_idx)
+    )
+    if parity == "unknown":
+        return None
+
+    # (c) target_deg = DTW matched reference 3점 내각 (화살표와 동일 geometry helper).
+    # 반사는 내각을 바꾸지 않으므로 parity 는 게이트로만 쓴다 (반사 적용 불필요).
+    h, w = int(ref_frame_shape[0]), int(ref_frame_shape[1])
+    rp, rv, rd = [(p[0] * w, p[1] * h) for p in r_pts]
+    target_deg = joint_inner_angle_deg(rp, rv, rd)
+    if not np.isfinite(target_deg):
+        return None
+
+    confs = [_kp_conf(ref_report, r_kp_idx, k) for k in (p_key, v_key, d_key)]
+    confidence = min(float(c) for c in confs if c is not None)
+
+    return CorrectedPoseTarget(
+        joint_key=joint_key,
+        proximal_key=p_key,
+        vertex_key=v_key,
+        distal_key=d_key,
+        user_frame_idx=u_kp_idx,
+        ref_frame_idx=r_kp_idx,
+        source_kind="reference_pose",
+        source_frame_hash=None,
+        target_deg=float(target_deg),
+        confidence=confidence,
+    )
+
+
 def build_fault_zoom_comparisons(
     user_frames: np.ndarray,
     ref_frames: np.ndarray,

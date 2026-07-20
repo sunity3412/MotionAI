@@ -907,6 +907,247 @@ def test_log_groups_have_retention(template):
         assert _res(template, name)["RetentionInDays"] == 30
 
 
+# ═══════════════ 인프라 dry-run (read-only — H2-09) ═══════════════
+
+
+def _dryrun():
+    if "visual_infra_dryrun" in sys.modules:
+        return sys.modules["visual_infra_dryrun"]
+    spec = importlib.util.spec_from_file_location("visual_infra_dryrun", _DRYRUN)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["visual_infra_dryrun"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class FakeInfraS3:
+    """versioning/lock/lifecycle 응답을 주입 가능한 read-only S3 대역."""
+
+    def __init__(self, versioning=None, lock=None, lifecycle=None) -> None:
+        self.versioning = versioning or {}
+        self.lock = lock
+        self.lifecycle = lifecycle or {}
+        self.calls: list[str] = []
+
+    def get_bucket_versioning(self, Bucket):  # noqa: N803
+        self.calls.append("get_bucket_versioning")
+        return self.versioning.get(Bucket, {})
+
+    def get_object_lock_configuration(self, Bucket):  # noqa: N803
+        self.calls.append("get_object_lock_configuration")
+        conf = (self.lock or {}).get(Bucket)
+        if conf is None:
+            raise _ClientError("ObjectLockConfigurationNotFoundError")
+        return conf
+
+    def list_object_versions(self, Bucket, Prefix=None, MaxKeys=None):  # noqa: N803
+        self.calls.append("list_object_versions")
+        return {"Versions": [], "DeleteMarkers": []}
+
+    def get_bucket_lifecycle_configuration(self, Bucket):  # noqa: N803
+        self.calls.append("get_bucket_lifecycle_configuration")
+        conf = self.lifecycle.get(Bucket)
+        if conf is None:
+            raise _ClientError("NoSuchLifecycleConfiguration")
+        return conf
+
+
+class FakeSSM:
+    def get_parameter(self, Name, WithDecryption=False):  # noqa: N803
+        raise _ClientError("ParameterNotFound")
+
+
+@pytest.mark.parametrize(
+    ("status", "blocked"),
+    [
+        (None, False),  # Never-versioned — 유일한 통과 조건
+        ("Enabled", True),
+        ("Suspended", True),  # B7-02: 단순 delete 로 과거 version 완전 삭제 미보장
+    ],
+)
+def test_visual_input_bucket_versioning_gate(status, blocked):
+    dry = _dryrun()
+    versioning = {} if status is None else {"Status": status}
+    s3 = FakeInfraS3(versioning={BUCKET: versioning})
+
+    res = dry.check_visual_input_bucket(s3, BUCKET)
+
+    assert res["blocked"] is blocked
+    if blocked:
+        assert "never_versioned" in res["reason"]
+
+
+def test_visual_input_object_lock_blocks():
+    dry = _dryrun()
+    s3 = FakeInfraS3(
+        versioning={BUCKET: {}},
+        lock={BUCKET: {"ObjectLockConfiguration": {"ObjectLockEnabled": "Enabled"}}},
+    )
+
+    assert dry.check_visual_input_bucket(s3, BUCKET)["blocked"] is True
+
+
+def test_pair_bucket_default_retention_blocks():
+    """H4-04: default retention 이면 삭제 SLA 자체가 불가능하다 — fail-closed."""
+    dry = _dryrun()
+    s3 = FakeInfraS3(
+        versioning={"vb": {"Status": "Enabled"}},
+        lock={
+            "vb": {
+                "ObjectLockConfiguration": {
+                    "ObjectLockEnabled": "Enabled",
+                    "Rule": {"DefaultRetention": {"Days": 30}},
+                }
+            }
+        },
+    )
+
+    res = dry.check_pair_bucket(s3, "vb")
+
+    assert res["blocked"] is True
+    assert res["reason"] == "object_lock_default_retention"
+
+
+def test_pair_bucket_lock_without_default_defers_canary_to_31_12():
+    """H5-07: 실 canary delete 는 이 스크립트가 하지 않는다."""
+    dry = _dryrun()
+    s3 = FakeInfraS3(
+        versioning={"vb": {"Status": "Enabled"}},
+        lock={"vb": {"ObjectLockConfiguration": {"ObjectLockEnabled": "Enabled"}}},
+    )
+
+    res = dry.check_pair_bucket(s3, "vb")
+
+    assert res["blocked"] is False
+    assert res["canaryRequired"] is True
+
+
+def test_visual_input_merged_rule_has_no_noncurrent_expiration():
+    """H7-08: 비-버저닝 버킷에 noncurrent 규칙은 잘못된 신호다."""
+    dry = _dryrun()
+
+    rules = dry.visual_input_merged_rules([])
+
+    assert len(rules) == 1
+    rule = rules[0]
+    assert rule["Filter"]["Prefix"] == "visual-input/"
+    assert rule["Expiration"] == {"Days": 1}
+    assert "NoncurrentVersionExpiration" not in rule
+
+
+def test_pairs_merged_rule_adds_noncurrent_when_versioned():
+    """H3-08: 버저닝 버킷은 현재 version 만 지워선 실제로 사라지지 않는다."""
+    dry = _dryrun()
+
+    rules = dry.pairs_merged_rules([], retention_days=180, versioned=True)
+    rule = rules[0]
+
+    assert rule["NoncurrentVersionExpiration"]["NoncurrentDays"] == 180
+    assert rule["Expiration"]["ExpiredObjectDeleteMarker"] is True
+
+
+def test_existing_lifecycle_rules_are_preserved():
+    """T-31-55: 라이브 lifecycle 교체로 기존 규칙이 소실되면 안 된다."""
+    dry = _dryrun()
+    existing = [
+        {"ID": "uploads-30d", "Status": "Enabled", "Expiration": {"Days": 30}},
+        {"ID": "phase31-pairs-retention", "Status": "Enabled", "Expiration": {"Days": 1}},
+    ]
+
+    merged = dry.pairs_merged_rules(existing, retention_days=180, versioned=False)
+    ids = [r["ID"] for r in merged]
+
+    assert "uploads-30d" in ids  # 남의 규칙 보존
+    assert ids.count("phase31-pairs-retention") == 1  # 같은 ID 만 교체
+    assert merged[-1]["Expiration"]["Days"] == 180
+
+
+def test_lifecycle_files_are_single_bucket_shape(tmp_path):
+    """B7-07: 멀티버킷 wrapper 면 31-12 가 파일↔버킷 1:1 put 을 못 한다."""
+    dry = _dryrun()
+    s3 = FakeInfraS3(versioning={BUCKET: {}, "vb": {}})
+
+    report = dry.run(s3, FakeSSM(), out_dir=tmp_path, video_bucket="vb")
+
+    assert sorted(report["lifecycleFiles"]) == [
+        "video_lifecycle_before.json",
+        "video_lifecycle_merged.json",
+        "visual_input_lifecycle_before.json",
+        "visual_input_lifecycle_merged.json",
+    ]
+    for name in report["lifecycleFiles"]:
+        payload = json.loads((tmp_path / name).read_text(encoding="utf-8"))
+        assert set(payload) == {"Rules"}
+        dry.validate_lifecycle_shape(payload)
+
+
+def test_dryrun_performs_zero_mutations(tmp_path):
+    """H2-09 — 이 스크립트에는 put/delete/create 호출이 존재하지 않는다."""
+    dry = _dryrun()
+    s3 = FakeInfraS3(versioning={BUCKET: {}, "vb": {}})
+
+    report = dry.run(s3, FakeSSM(), out_dir=tmp_path, video_bucket="vb")
+
+    assert report["liveMutations"] == 0
+    assert all(c.startswith(("get_", "list_")) for c in s3.calls)
+
+    source = _DRYRUN.read_text(encoding="utf-8")
+    for banned in (
+        "put_bucket_lifecycle_configuration(",
+        "put_bucket_versioning(",
+        "delete_object(",
+        "put_object(",
+        "put_parameter(",
+        "create_bucket(",
+    ):
+        assert banned not in source, banned
+
+
+def test_bucket_name_has_no_hardcoded_default():
+    """B9-05: 단일 출처 JSON 이 없으면 STOP — 기본 이름으로 조회하지 않는다."""
+    dry = _dryrun()
+    source = _DRYRUN.read_text(encoding="utf-8")
+
+    assert BUCKET not in source
+
+    with pytest.raises(dry.DryRunStop):
+        dry.load_bucket_config(Path("/nonexistent/visual_input_bucket.json"))
+
+
+def test_alternative_bucket_name_flows_through(tmp_path, monkeypatch):
+    """이름이 바뀌어도 조회/산출이 그 값에서 파생되는지 (하드코딩 0 실증)."""
+    dry = _dryrun()
+    alt = tmp_path / "visual_input_bucket.json"
+    alt.write_text(
+        json.dumps({"bucketName": "alt-visual-bucket", "region": "ap-northeast-2"}),
+        encoding="utf-8",
+    )
+
+    cfg = dry.load_bucket_config(alt)
+
+    assert cfg["bucketName"] == "alt-visual-bucket"
+
+
+def test_hmac_param_absent_yields_instruction_not_write():
+    dry = _dryrun()
+
+    res = dry.check_hmac_key_param(FakeSSM())
+
+    assert res["present"] is False
+    assert "put-parameter" in res["instruction"]  # 지시문일 뿐 실행 아님
+
+
+def test_retention_days_comes_from_privacy_decision_json():
+    """M3-02 경계: 런타임이 아니라 로컬 스크립트가 읽는다 — 값은 발명하지 않는다."""
+    dry = _dryrun()
+    from sunity_shared.analysis.pair_store import RETENTION_DAYS
+
+    decision = dry.load_privacy_decision()
+
+    assert decision["retentionDays"] == RETENTION_DAYS
+    assert decision["blurOption"] == "none"
+
+
 def test_hook_does_not_import_visual_gen():
     """생성/판정은 worker 소유 — 분석 경로에서 벤더 모듈을 끌어오지 않는다.
 

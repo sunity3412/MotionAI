@@ -512,6 +512,15 @@ def list_committed_pairs(s3_client, bucket: str) -> dict:
     return {"pairs": pairs, "quarantine": quarantine}
 
 
+def read_pair_meta_raw(s3_client, bucket: str, pid: str) -> dict | None:
+    """검증 **이전**의 meta 원본. 삭제 inventory gate 전용 (H3-11).
+
+    소비 경로(list_committed_pairs)는 검증 실패분을 quarantine 으로 걸러내지만, 삭제는
+    반대다 — quarantine 된 페어도 실제 이미지를 들고 있으므로 반드시 삭제 대상에 든다.
+    """
+    return _get_json(s3_client, bucket, meta_key(pid))
+
+
 def load_committed_pair(s3_client, bucket: str, pid: str) -> dict | None:
     """단건 로드. marker/payload 검증 실패 시 None (조용한 부분 소비 금지)."""
     pair, reason = _open_pair(s3_client, bucket, pid)

@@ -514,3 +514,257 @@ def test_scaffold_fake_clock_alive(fake_clock):
     """공용 스캐폴드(주입 시계)가 살아 있는지 — 31-02 골격 계약 유지."""
     start = fake_clock()
     assert fake_clock.advance(1000) == start + 1000
+
+
+# ═══════════════════════ 삭제 스크립트 (Task 2) ═══════════════════════
+
+
+import delete_training_pair as deleter  # noqa: E402 - conftest 가 backend/scripts 를 주입
+
+
+class FakeVersionedS3(FakeS3):
+    """version + delete marker 를 실제로 유지하는 S3 모사.
+
+    `list_object_versions` 의 재개는 **(KeyMarker, VersionIdMarker) 쌍**이 실제 entry 와
+    맞아야만 성공한다 — 스크립트가 KeyMarker 만 넘기면 여기서 즉시 실패한다. 단일 key 의
+    version 이 페이지 경계에 걸릴 때 누락/반복이 생기는 경로를 잡는 장치다 (H6-06).
+    """
+
+    def __init__(self, page_size: int = 1000, version_page_size: int = 1000) -> None:
+        super().__init__(page_size)
+        self.versions: list[dict] = []
+        self.version_page_size = version_page_size
+        self.deleted_batches: list[list[dict]] = []
+        self.suppress_delete = False
+
+    def _sorted(self) -> None:
+        self.versions.sort(key=lambda e: e["Key"])  # stable — key 내 삽입 순서 유지
+
+    def put_object(self, **kwargs):
+        out = super().put_object(**kwargs)
+        self.add_version(kwargs["Key"], f"ver-{len(self.versions) + 1}")
+        return out
+
+    def add_version(self, key: str, version_id: str, marker: bool = False) -> None:
+        self.versions.append({"Key": key, "VersionId": version_id, "marker": marker})
+        self._sorted()
+
+    def list_object_versions(self, *, Bucket, Prefix="", KeyMarker=None, VersionIdMarker=None):
+        self.calls.append(("list_versions", Prefix))
+        entries = [e for e in self.versions if e["Key"].startswith(Prefix)]
+        start = 0
+        if KeyMarker is not None or VersionIdMarker is not None:
+            for index, entry in enumerate(entries):
+                if entry["Key"] == KeyMarker and entry["VersionId"] == VersionIdMarker:
+                    start = index
+                    break
+            else:
+                raise AssertionError(
+                    "KeyMarker/VersionIdMarker 쌍이 맞지 않는다 — 두 marker 를 함께 넘겨야 한다"
+                )
+        page = entries[start:start + self.version_page_size]
+        nxt = start + len(page)
+        truncated = nxt < len(entries)
+        out = {
+            "Versions": [
+                {"Key": e["Key"], "VersionId": e["VersionId"]} for e in page if not e["marker"]
+            ],
+            "DeleteMarkers": [
+                {"Key": e["Key"], "VersionId": e["VersionId"]} for e in page if e["marker"]
+            ],
+            "IsTruncated": truncated,
+        }
+        if truncated:
+            out["NextKeyMarker"] = entries[nxt]["Key"]
+            out["NextVersionIdMarker"] = entries[nxt]["VersionId"]
+        return out
+
+    def delete_objects(self, *, Bucket, Delete):
+        objects = Delete["Objects"]
+        self.deleted_batches.append(list(objects))
+        if self.suppress_delete:
+            return {}
+        wanted = {(o["Key"], o["VersionId"]) for o in objects}
+        self.versions = [e for e in self.versions if (e["Key"], e["VersionId"]) not in wanted]
+        for key, _vid in wanted:
+            if not any(e["Key"] == key for e in self.versions):
+                self.store.pop(key, None)
+        return {}
+
+
+class FakeSSM:
+    def __init__(self, value) -> None:
+        self.value = value
+
+    def get_parameter(self, *, Name, WithDecryption=False):
+        assert WithDecryption is True, "SecureString 은 WithDecryption=True 로 읽어야 한다"
+        return {"Parameter": {"Value": self.value}}
+
+
+@pytest.fixture
+def vs3() -> FakeVersionedS3:
+    return FakeVersionedS3()
+
+
+def _key_set() -> dict:
+    return pair_store.validate_hmac_key_set(_KEY_SET)
+
+
+# ─────────────────────── key set 로드 ───────────────────────
+
+
+def test_load_key_set_from_ssm():
+    key_set = deleter.load_key_set(FakeSSM(json.dumps(_KEY_SET)), "/param")
+    assert set(key_set["keys"]) == {"k1", "k2"}
+
+
+@pytest.mark.parametrize("bad", ["{not json", json.dumps({"active": "k9", "keys": {"k1": _KEY_V1}}), None])
+def test_load_key_set_aborts_on_invalid_schema(bad):
+    with pytest.raises(deleter.DeletionAborted):
+        deleter.load_key_set(FakeSSM(bad), "/param")
+
+
+def test_plan_covers_every_key_version_and_historical_joint():
+    plan = deleter.plan_pair_ids(_key_set(), "uid-abc", "an-123", pair_store.HISTORICAL_PAIR_JOINTS)
+    assert len(plan) == 2 * len(pair_store.HISTORICAL_PAIR_JOINTS)
+    assert {v for v, _j, _p in plan} == {"k1", "k2"}
+    assert len({p for _v, _j, p in plan}) == len(plan)  # 충돌 없는 가명 ID
+
+
+# ─────────────────────── 키 회전 (H2-06 / H3-11) ───────────────────────
+
+
+def test_deletes_pair_stored_under_retired_key(vs3):
+    """k1 으로 적재된 뒤 k2 로 회전됐어도 삭제된다 — active 하나만 보면 못 지운다."""
+    pid_v1 = _pid(version="k1")
+    _store(vs3, pid=pid_v1, version="k1")
+    assert vs3.store
+
+    report = deleter.run_deletion(
+        vs3, _key_set(), bucket=_BUCKET, uid="uid-abc", analysis_id="an-123"
+    )
+
+    assert [e["pairId"] for e in report["prefixes"]] == [pid_v1]
+    assert report["prefixes"][0]["keyVersion"] == "k1"
+    assert vs3.store == {}
+    assert vs3.versions == []
+
+
+def test_inventory_gate_aborts_when_key_version_unrecoverable(vs3):
+    """meta 가 k3 를 선언하는데 key set 에 없다 = 재계산 불가 고아. 부분 삭제 대신 중단."""
+    pid = _pid()
+    _store(vs3, pid=pid)
+    orphan = _pid(analysis="an-orphan")
+    meta = json.loads(vs3.store[f"training/phase31/pairs/{pid}/meta.json"])
+    meta["hmacKeyVersion"] = "k3"
+    vs3.seed(f"training/phase31/pairs/{orphan}/meta.json", json.dumps(meta).encode())
+
+    with pytest.raises(deleter.DeletionAborted, match="k3"):
+        deleter.run_deletion(vs3, _key_set(), bucket=_BUCKET, uid="uid-abc", analysis_id="an-123")
+
+    assert vs3.deleted_batches == []
+
+
+def test_inventory_gate_counts_quarantined_pairs(vs3):
+    """payload 가 깨져 quarantine 된 페어도 이미지를 들고 있다 — 삭제 대상에서 빠지면 안 된다."""
+    pid = _pid()
+    _store(vs3, pid=pid)
+    vs3.store[f"training/phase31/pairs/{pid}/after.png"] = b"tampered"
+    assert pair_store.list_committed_pairs(vs3, _BUCKET)["quarantine"]
+    assert deleter.inventory_key_versions(vs3, _BUCKET) == {"k2"}
+
+
+# ─────────────────────── versioned 완전 삭제 (H3-08 / H6-06) ───────────────────────
+
+
+def test_single_key_versions_split_across_pages_are_all_deleted(vs3):
+    """한 key 의 Versions 2 + DeleteMarkers 1 이 페이지 경계로 갈려도 3건 전부 삭제."""
+    pid = _pid()
+    prefix = pair_store.pair_prefix(pid)
+    key = f"{prefix}before.png"
+    vs3.seed(key, _BEFORE)
+    vs3.add_version(key, "ver-a")
+    vs3.add_version(key, "ver-b")
+    vs3.add_version(key, "ver-marker", marker=True)
+    vs3.version_page_size = 2  # 경계가 단일 key 내부를 관통한다
+
+    assert len(deleter.enumerate_versions(vs3, _BUCKET, prefix)) == 3
+    assert deleter.delete_prefix(vs3, _BUCKET, prefix) == 3
+    assert deleter.enumerate_versions(vs3, _BUCKET, prefix) == []
+    deleted = {(o["Key"], o["VersionId"]) for batch in vs3.deleted_batches for o in batch}
+    assert deleted == {(key, "ver-a"), (key, "ver-b"), (key, "ver-marker")}
+
+
+def test_enumerate_versions_has_no_duplicates_across_pages(vs3):
+    pid = _pid()
+    prefix = pair_store.pair_prefix(pid)
+    _store(vs3, pid=pid)
+    for i in range(5):
+        vs3.add_version(f"{prefix}before.png", f"extra-{i}")
+    vs3.version_page_size = 2
+
+    found = deleter.enumerate_versions(vs3, _BUCKET, prefix)
+    assert len(found) == len({(e["Key"], e["VersionId"]) for e in found}) == 8
+
+
+def test_residue_after_delete_is_abort_not_silent_success(vs3):
+    """삭제가 반영되지 않았는데 성공으로 보고하면 '지웠다'는 응답이 거짓이 된다."""
+    pid = _pid()
+    prefix = pair_store.pair_prefix(pid)
+    _store(vs3, pid=pid)
+    vs3.suppress_delete = True
+
+    with pytest.raises(deleter.DeletionAborted, match="남았다"):
+        deleter.delete_prefix(vs3, _BUCKET, prefix)
+
+
+def test_truncated_listing_without_marker_aborts(vs3):
+    pid = _pid()
+    prefix = pair_store.pair_prefix(pid)
+    _store(vs3, pid=pid)
+    vs3.list_object_versions = lambda **_kw: {"Versions": [], "IsTruncated": True}
+
+    with pytest.raises(deleter.DeletionAborted, match="marker"):
+        deleter.enumerate_versions(vs3, _BUCKET, prefix)
+
+
+# ─────────────────────── dry-run ───────────────────────
+
+
+def test_dry_run_lists_without_deleting(vs3):
+    pid = _pid()
+    _store(vs3, pid=pid)
+    before = dict(vs3.store)
+
+    report = deleter.run_deletion(
+        vs3, _key_set(), bucket=_BUCKET, uid="uid-abc", analysis_id="an-123", dry_run=True
+    )
+
+    assert report["dry_run"] is True
+    assert report["deleted"] == 0
+    assert [e["pairId"] for e in report["prefixes"]] == [pid]
+    assert report["prefixes"][0]["objects"] == 3
+    assert vs3.deleted_batches == []
+    assert vs3.store == before
+
+
+def test_run_deletion_on_absent_pair_is_noop(vs3):
+    report = deleter.run_deletion(
+        vs3, _key_set(), bucket=_BUCKET, uid="uid-none", analysis_id="an-none"
+    )
+    assert report["prefixes"] == [] and report["deleted"] == 0
+    assert vs3.deleted_batches == []
+
+
+# ─────────────────────── 구조 계약 ───────────────────────
+
+
+def test_script_reuses_pair_store_contract_and_never_touches_versioning():
+    src = Path(deleter.__file__).read_text(encoding="utf-8")
+    code = src.split('"""')[2]  # 모듈 docstring 제외 — 설명문의 언급은 참조가 아니다
+    assert "ARROW_JOINT_MAP" not in code  # 삭제는 append-only registry 만 순회 (M3-05)
+    assert "put_bucket_versioning" not in src
+    assert "get_bucket_versioning" not in code
+    assert ".planning" not in src
+    for symbol in ("pair_id", "validate_hmac_key_set", "HISTORICAL_PAIR_JOINTS"):
+        assert getattr(deleter, symbol) is getattr(pair_store, symbol)

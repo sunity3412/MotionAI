@@ -172,12 +172,25 @@ def _normalize_for_pose(image_bytes: bytes) -> str:
 def _post_pose_image(
     pose_url: str, image_b64: str, token: str, timeout_s: float
 ) -> dict | None:
-    """/pose-image 호출. 전송/서버 계층 실패는 None (→ unavailable)."""
+    """/pose-image 호출. 전송/서버 계층 실패는 None (→ unavailable).
+
+    RunPod proxy(*.proxy.runpod.net) 는 Cloudflare 뒤에 있다. urllib 의 기본
+    User-Agent("Python-urllib/3.x") 가 Cloudflare 봇 차단(에러 1010)에 걸려 403 이
+    떨어진다 — `pipeline/app.py::_delegate_to_runpod` 가 같은 이유로 UA/Accept 를
+    박아둔 선례가 있는데 이 파일이 물려받지 못했다. 2026-07-20 실측: UA 없으면
+    403(1010), `sunity-motion/1.0` 이면 200 + keypoints 17. 게이트가 fail-closed 라
+    이 누락은 에러 없이 **교정 이미지 기능 전체가 조용히 미동작**하는 형태로 나타난다.
+    """
     body = json.dumps({"imageB64": image_b64}).encode("utf-8")
     req = urllib.request.Request(
         pose_url,
         data=body,
-        headers={"Content-Type": "application/json", "X-RunPod-Token": token},
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "sunity-motion-pilot/1.0 (+pose-gate)",
+            "X-RunPod-Token": token,
+        },
         method="POST",
     )
     try:

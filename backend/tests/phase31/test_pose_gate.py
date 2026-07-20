@@ -555,3 +555,30 @@ def test_scaffold_fake_clock_alive(fake_clock):
     """공용 스캐폴드 생존 확인 (31-02 conftest 계약)."""
     start = fake_clock()
     assert fake_clock.advance(1000) == start + 1000
+
+
+# ─────────────────── 8. Cloudflare 봇 차단 회귀 방지 ───────────────────
+
+
+def test_sends_browser_like_user_agent(pose_server):
+    """RunPod proxy 는 Cloudflare 뒤 — 기본 urllib UA 는 403(1010) 으로 차단된다.
+
+    2026-07-20 실측: UA 없이 호출하면 `HTTPError 403 / error code: 1010`,
+    `sunity-motion/1.0` 을 박으면 200 + keypoints 17. 게이트가 fail-closed 라 이
+    헤더가 빠지면 예외 하나 없이 **교정 이미지 기능 전체가 조용히 미동작**한다
+    (calibration 이 12/12 pose_gate_unavailable 로 막혔던 실제 원인).
+    `pipeline/app.py::_delegate_to_runpod` 가 같은 이유로 UA 를 박아둔 선례를
+    이 파일이 물려받지 못해 발생했으므로, 회귀를 테스트로 고정한다.
+    """
+    pose_server.payload = _knee_payload(
+        hip=(0.5, 0.3), knee=(0.5, 0.5), ankle=(0.7, 0.5), width=600, height=600
+    )
+    _measure(_png(64, 64), target_deg=90.0)
+
+    assert pose_server.calls, "요청이 전송되지 않았다"
+    headers = {k.lower(): v for k, v in pose_server.calls[0]["headers"].items()}
+    ua = headers.get("User-agent".lower()) or headers.get("user-agent", "")
+    assert ua, "User-Agent 헤더 부재 — Cloudflare 1010 으로 차단된다"
+    assert "python-urllib" not in ua.lower(), (
+        f"기본 urllib UA({ua!r}) 는 Cloudflare 봇 차단 대상"
+    )

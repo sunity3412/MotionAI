@@ -88,6 +88,13 @@ export const colors = {
   // (상승=초록/하락=빨강) 성장 카드 재사용 금지 — 신규 declineBlue 토큰으로 분리한다.
   // highlight(#006FFD) 값 alias. brand #FF4B33 변경 0 (CLAUDE.md §4).
   declineBlue: '#006FFD', // ▼ 하락 표시 (highlight alias)
+
+  // ── quick-260720-hn8 신설 토큰 (Figma node 1:499 `Group 53` 실측) ───────
+  // 영상 선택 실패 알림창(중앙 카드형) 전용. 라이트 테마 유지, brand #FF4B33 변경 0.
+  // dialogBg 는 브랜드 계열을 톤다운한 연핑크 — 기존 brandBg(#FFE5E0)와 다른 실측값
+  // 이라 alias 하지 않고 별도 토큰으로 둔다.
+  dialogBg: '#F9E8EA', // 알림창 카드 배경
+  dialogMutedText: '#918D8D', // [닫기] 보조 버튼 텍스트
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

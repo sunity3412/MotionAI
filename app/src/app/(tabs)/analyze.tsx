@@ -17,9 +17,13 @@ import { useMyAnalyses } from '../../lib/userAnalyses';
 import { dismissBodyProfilePrompt, useBodyProfile } from '../../lib/bodyProfile';
 import { BodyProfilePromptModal } from '../../components/BodyProfilePromptModal';
 import BodyProfileForm from '../../components/BodyProfileForm';
-import { PickErrorSheet } from '../../components/PickErrorSheet';
+import { PickErrorDialog } from '../../components/PickErrorDialog';
 import { describePickFailure } from '../../lib/pickerFailure';
-import type { PickFailure, PickFailureKind } from '../../lib/pickerFailure';
+import type {
+  PickFailure,
+  PickFailureAction,
+  PickFailureKind,
+} from '../../lib/pickerFailure';
 import type { AnalysisMode } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
@@ -128,7 +132,7 @@ export default function Analyze() {
   // [hotfix 2026-07-20 / quick-260720-hn8] 실패 표시 단일 상태. 기존의 오류 문자열 +
   // 권한차단 boolean 조합은 인라인 캡션으로만 렌더돼 실기기에서 사실상 보이지 않았고
   // 해결책도 못 줬다 (belle: "분석조차 안 되면 안 되니까 해결방안을 알려줘야지").
-  // 이제 실패는 원인/해결단계/액션을 담은 객체 하나로 수렴하고 PickErrorSheet 이 띄운다.
+  // 이제 실패는 제목/본문/버튼을 담은 객체 하나로 수렴하고 PickErrorDialog 이 띄운다.
   const [failure, setFailure] = useState<PickFailure | null>(null);
   const [busy, setBusy] = useState(false);
   // [WR-02] busy 최신값 미러 — 지연 재오픈 타이머 콜백이 stale closure 로 옛 busy 를
@@ -431,6 +435,27 @@ export default function Analyze() {
     setTalkvPicked(null);
   };
 
+  // [quick-260720-hn8] 실패 알림창 오른쪽 버튼 동작. 알림창을 먼저 닫고 분기한다.
+  //   openSettings — 권한 거부. 설정 앱으로 보낸다.
+  //   repick       — [다른 파일 선택]. 앨범 picker 를 다시 연다. cancelTalkv 와 동일한
+  //                  지연·busy 가드를 쓴다: iOS 는 Modal fade-out 중에 picker VC 를
+  //                  present 하면 충돌하고(WR-02), 다른 picker 진행 중이면 스킵해야
+  //                  동시 presentation 을 피한다. 타이머 핸들은 기존 cleanup effect 가
+  //                  회수한다(화면 이탈 후 엉뚱한 곳에서 앨범이 뜨는 것 방지).
+  //   dismiss      — 카메라 기인 실패 등. 닫기만.
+  const handleFailureAction = (action: PickFailureAction) => {
+    setFailure(null);
+    if (action === 'openSettings') {
+      Linking.openSettings();
+      return;
+    }
+    if (action === 'repick') {
+      repickTimer.current = setTimeout(() => {
+        if (!busyRef.current) void pickFromLibrary();
+      }, TALKV_REPICK_DELAY_MS);
+    }
+  };
+
   const pickFromCamera = async () => {
     setBusy(true);
     try {
@@ -731,14 +756,14 @@ export default function Analyze() {
           </SafeAreaView>
         </Modal>
 
-        {/* [quick-260720-hn8] 영상 선택·업로드 실패 안내. 인라인 캡션은 실기기에서
-            보이지 않아 사용자가 원인도 해결책도 알 수 없었다 → 바텀시트로 전환.
-            [설정 열기] 액션은 권한 거부/iCloud 의심 실패에서 설정 앱을 연다.
+        {/* [quick-260720-hn8] 영상 선택·업로드 실패 안내 (Figma node 1:499 카드형).
+            인라인 캡션은 실기기에서 보이지 않아 사용자가 원인도 해결책도 알 수 없었다.
+            오른쪽 버튼은 실패 종류별로 [설정 열기] / [다른 파일 선택] / [확인] 로 갈린다.
 
             이중 모달 금지: 실패는 talkv/lowQuality/권유 게이트보다 **앞에서** 발생하고
             전부 early return 이라 구조상 배타적이지만, 이 코드베이스는 직렬 게이트 타이밍
             으로 두 번(WR-01/WR-02) 당한 이력이 있어 방어적으로 AND 조건을 건다. */}
-        <PickErrorSheet
+        <PickErrorDialog
           failure={
             talkvPicked == null &&
             lowQualityPicked == null &&
@@ -748,10 +773,7 @@ export default function Analyze() {
               : null
           }
           onClose={() => setFailure(null)}
-          onAction={(action) => {
-            setFailure(null);
-            if (action.kind === 'openSettings') Linking.openSettings();
-          }}
+          onAction={handleFailureAction}
         />
       </View>
     );

@@ -2,15 +2,20 @@
 //
 // belle 요구: "분석조차 안 되면 안 되니까 해결방안을 알려줘야지 고객들에게."
 // 목적은 에러를 예쁘게 보여주는 게 아니라 **사용자가 다음에 뭘 하면 되는지 알게 하는 것**.
-// 그래서 각 실패는 title(무슨 일인지) + cause(왜 그런지) + steps(무엇을 하면 되는지) +
-// action(즉시 실행 가능한 버튼) 4요소를 반드시 갖는다.
+// 그래서 각 실패는 title(무슨 일인지) + lines(원인 1줄 + 행동 1줄) + 오른쪽 버튼
+// (즉시 실행 가능한 행동) 으로 구성한다.
+//
+// 문구 출처 — Figma node 1:499 `Group 53` 확정본:
+//   · 용량 초과 / 형식 미지원 2종은 **디자인 확정 문구라 한 글자도 바꾸지 않는다.**
+//     'mp4, mov형식의' 의 붙임(공백 없음)도 원문 그대로다.
+//   · 나머지(권한 거부·picker 실패·처리 실패)는 Figma 에 없어 같은 양식으로 확장했다
+//     (원인 1줄 + 행동 1줄, '~요' 종결).
 //
 // 기술 용어 노출 금지 — iCloud 오프로드 / representation mode 같은 내부 개념은
-// "사진 앱에서 영상을 한 번 열어 다운로드가 끝난 뒤 다시 선택해주세요" 같은 행동
-// 지시로 번역한다 (폴스포츠 수강생이 읽고 실제로 행동할 수 있어야 함).
+// "사진 앱에서 영상을 열어 다운로드한 뒤 다시 선택해주세요" 같은 행동 지시로 번역한다.
 //
-// react / react-native / expo import 0 — 순수 데이터 매핑이라 테스트 하니스 없이
-// `node --test` 로 바로 검증된다 (신규 npm 의존성 0 제약).
+// react / react-native / expo import 0 — 순수 데이터 매핑이라 `node --test` 로 바로
+// 검증된다 (신규 npm 의존성 0 제약).
 
 export type PickFailureKind =
   | 'permissionCamera'
@@ -21,108 +26,101 @@ export type PickFailureKind =
   | 'cameraOpen'
   | 'processFailed';
 
-export type PickFailureAction =
-  | { kind: 'openSettings'; label: string }
-  | { kind: 'dismiss'; label: string };
+// 오른쪽(주) 버튼의 동작. 왼쪽은 항상 [닫기] 로 고정이라 별도 표현하지 않는다.
+//   openSettings — 설정 앱 열기 (권한 거부)
+//   repick       — 알림창 닫고 앨범 picker 재오픈 (앨범 기인 실패)
+//   dismiss      — 닫기만 (재오픈이 부적절한 카메라 기인 실패)
+export type PickFailureAction = 'openSettings' | 'repick' | 'dismiss';
 
 export interface PickFailure {
   kind: PickFailureKind;
   title: string;
-  cause: string;
-  steps: string[];
-  action: PickFailureAction;
+  // 본문. Figma 확정본이 2줄 구성이라 배열로 유지한다 (줄바꿈 위치가 디자인의 일부).
+  lines: string[];
+  primaryLabel: string;
+  primaryAction: PickFailureAction;
   // picker 가 던진 원본 오류 문자열. iCloud 오프로드는 아직 **가설**이라(에어드랍
   // 로컬 파일 성공 / 앨범 원본 실패라는 정황 증거뿐) 실패가 재현될 때 원인을
   // 확정·기각할 증거가 화면에 남아야 한다. 가공하지 않고 그대로 싣는다.
+  // Figma 양식에 없는 진단 전용 요소 — 본문 아래 작은 회색 텍스트로 눈에 띄지 않게 둔다.
   detail?: string;
 }
 
 type PickFailureCopy = Omit<PickFailure, 'kind' | 'detail'>;
 
+const REPICK_LABEL = '다른 파일 선택';
+
 function copyFor(kind: PickFailureKind): PickFailureCopy {
   switch (kind) {
-    case 'permissionLibrary':
+    // ── Figma 확정 문구 (변경 금지) ──────────────────────────────────────
+    case 'tooLarge':
       return {
-        title: '사진 접근 권한이 꺼져 있어요',
-        cause:
-          '앨범에 저장된 영상을 가져오려면 사진 접근 권한이 필요해요. 지금은 권한이 꺼져 있어 영상을 읽을 수 없어요.',
-        steps: [
-          '아래 [설정 열기] 를 눌러 설정 앱으로 이동해 주세요.',
-          'Sunity 를 찾아 [사진] 항목을 눌러주세요.',
-          "[모든 사진] 을 선택해 접근을 허용해 주세요.",
-          '앱으로 돌아와 [앨범에서 선택] 을 다시 눌러주세요.',
+        title: '용량이 너무 커요',
+        lines: [
+          '100MB 이하 영상만 업로드 할 수 있어요.',
+          '영상을 잘라서 다시 시도해주세요.',
         ],
-        action: { kind: 'openSettings', label: '설정 열기' },
-      };
-    case 'permissionCamera':
-      return {
-        title: '카메라 권한이 꺼져 있어요',
-        cause:
-          '앱에서 바로 촬영하려면 카메라 권한이 필요해요. 지금은 권한이 꺼져 있어 카메라를 열 수 없어요.',
-        steps: [
-          '아래 [설정 열기] 를 눌러 설정 앱으로 이동해 주세요.',
-          'Sunity 를 찾아 [카메라] 를 켜주세요.',
-          '앱으로 돌아와 [즉석 촬영] 을 다시 눌러주세요.',
-        ],
-        action: { kind: 'openSettings', label: '설정 열기' },
+        primaryLabel: REPICK_LABEL,
+        primaryAction: 'repick',
       };
     case 'format':
       return {
-        title: '지원하지 않는 형식이에요',
-        cause:
-          '지금은 mp4, mov 형식의 영상만 분석할 수 있어요. 선택한 영상은 다른 형식이라 읽을 수 없어요.',
-        steps: [
-          'mp4 또는 mov 형식의 다른 영상을 골라주세요.',
-          '앱에서 직접 촬영하면 항상 분석 가능한 형식으로 저장돼요.',
-        ],
-        action: { kind: 'dismiss', label: '다른 영상 선택' },
+        title: '지원할 수 없는 파일이에요',
+        lines: ['mp4, mov형식의 영상만', '업로드 가능해요.'],
+        primaryLabel: REPICK_LABEL,
+        primaryAction: 'repick',
       };
-    case 'tooLarge':
-      return {
-        title: '영상 용량이 너무 커요',
-        cause:
-          '100MB 이하 영상만 분석할 수 있어요. 선택한 영상은 100MB 를 넘어서 업로드할 수 없어요.',
-        steps: [
-          '동작이 담긴 부분만 짧게 잘라서 다시 올려주세요.',
-          '앱에서 직접 촬영하면 분석에 맞는 길이로 저장돼요.',
-        ],
-        action: { kind: 'dismiss', label: '다른 영상 선택' },
-      };
+    // ── Figma 미수록 — 같은 양식으로 확장 ────────────────────────────────
     case 'libraryOpen':
       return {
         title: '영상을 가져오지 못했어요',
-        cause:
-          '앨범에 보이는 영상이라도 실제 파일이 기기에 없을 수 있어요. 저장 공간을 아끼려고 원본이 클라우드에 올라가 있으면 목록에는 보여도 바로 가져오지 못해요.',
-        steps: [
-          '사진 앱에서 그 영상을 열어 끝까지 재생한 뒤, 다운로드가 끝나면 다시 선택해 주세요.',
-          'Wi-Fi 에 연결된 상태에서 다시 시도해 주세요.',
-          "설정 앱 > 사진 에서 [iPhone 저장 공간 최적화] 대신 [원본 다운로드 및 보관] 을 선택해 주세요.",
-          '계속 안 되면 앱에서 직접 촬영해 주세요. 촬영본은 항상 기기에 저장돼요.',
+        lines: [
+          '이 영상은 기기에 저장되어 있지 않을 수 있어요.',
+          '사진 앱에서 영상을 열어 다운로드한 뒤 다시 선택해주세요.',
         ],
-        action: { kind: 'openSettings', label: '설정 열기' },
+        primaryLabel: REPICK_LABEL,
+        primaryAction: 'repick',
+      };
+    case 'permissionLibrary':
+      return {
+        title: '사진 접근 권한이 필요해요',
+        lines: [
+          '앨범에서 영상을 가져오려면 사진 접근 권한이 필요해요.',
+          '설정에서 사진 접근을 허용한 뒤 다시 시도해주세요.',
+        ],
+        primaryLabel: '설정 열기',
+        primaryAction: 'openSettings',
+      };
+    case 'permissionCamera':
+      return {
+        title: '카메라 접근 권한이 필요해요',
+        lines: [
+          '앱에서 바로 촬영하려면 카메라 권한이 필요해요.',
+          '설정에서 카메라를 켠 뒤 다시 시도해주세요.',
+        ],
+        primaryLabel: '설정 열기',
+        primaryAction: 'openSettings',
       };
     case 'cameraOpen':
       return {
         title: '카메라를 열지 못했어요',
-        cause:
-          '권한은 있지만 카메라를 실행하는 단계에서 실패했어요. 다른 앱이 카메라를 쓰고 있으면 이런 일이 생길 수 있어요.',
-        steps: [
-          '카메라를 쓰고 있는 다른 앱(영상통화 등)이 있는지 확인하고 종료해 주세요.',
-          '앱을 완전히 껐다가 다시 켠 뒤 시도해 주세요.',
-          '급하면 앨범에서 저장된 영상을 선택해 주세요.',
+        lines: [
+          '다른 앱이 카메라를 쓰고 있으면 열리지 않을 수 있어요.',
+          '해당 앱을 종료한 뒤 다시 시도해주세요.',
         ],
-        action: { kind: 'dismiss', label: '확인' },
+        // 카메라 기인 실패라 앨범 재오픈은 부적절 — 닫기만.
+        primaryLabel: '확인',
+        primaryAction: 'dismiss',
       };
     case 'processFailed':
       return {
-        title: '선택한 영상을 처리하지 못했어요',
-        cause:
-          '영상은 정상적으로 골랐지만, 앱이 그 영상을 읽는 단계에서 실패했어요. 앨범을 여는 문제와는 다른 단계예요.',
-        steps: [
-          '같은 영상 대신 다른 영상으로 다시 시도해 주세요.',
-          '앱에서 직접 촬영한 영상은 이 문제가 거의 없어요.',
+        title: '영상을 처리하지 못했어요',
+        lines: [
+          '영상은 선택했지만 읽는 중에 문제가 생겼어요.',
+          '다른 영상으로 다시 시도해주세요.',
         ],
-        action: { kind: 'dismiss', label: '다른 영상 선택' },
+        primaryLabel: REPICK_LABEL,
+        primaryAction: 'repick',
       };
     default: {
       // 컴파일 타임 exhaustiveness 게이트 — PickFailureKind 에 값을 추가하고

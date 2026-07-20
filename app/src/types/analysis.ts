@@ -470,6 +470,20 @@ export interface FaultZoomComparison {
    * fault_zoom refMatch 방출 (region/tier 선례와 동일 — contract.md FaultZoomComparison 절).
    */
   refMatch?: 'dtw' | 'failed';
+  /**
+   * Phase 31 (D-10) — DTW 대응 프레임 쌍. `keypointReport` 프레임 공간(9fps
+   * angles 도메인)의 정수 인덱스로, 2D 비교 뷰어가 "이 카드가 가리키는 순간"을
+   * 좌/우 각각 어느 프레임에서 그릴지 결정하는 소스다. crop PNG(imageUrl)와
+   * 달리 뷰어는 좌표를 직접 렌더하므로 프레임 인덱스가 필요.
+   * userFrameIdx=학생 측 / refFrameIdx=기준(정은지) 측 / refMatched=기준 측
+   * 대응 성공 여부(false 면 뷰어가 학생 단독 렌더 — refMatch 'failed' 와 정합).
+   * 부재(legacy doc)=뷰어 프레임 동기화 없음(하위호환, tier?/refMatch? 선례).
+   * 31-03 이 방출. Python lockstep: fault_zoom 방출부 + contract.md
+   * FaultZoomComparison 절.
+   */
+  userFrameIdx?: number;
+  refFrameIdx?: number;
+  refMatched?: boolean;
 }
 
 // Phase 28 (ALGN-01 동작 기반 비교 정렬) — 학생(left)=master 시계 불변, 정은지(right)만
@@ -570,6 +584,43 @@ export type AnalysisResult = ScoreSuppression & {
   // models.py FAULT_ZOOM_STATUSES + firestore_admin.update_analysis_fault_zoom +
   // contract.md faultZoomStatus 절.
   faultZoomStatus?: 'pending' | 'done' | 'failed';
+  // Phase 31 (D-05) — 교정된 자세 이미지(결함 top-1 부위의 순간 프레임 → 고친 폼).
+  // 분석 완료 시 자동 생성되어 사후 부분 업데이트로 도착한다 (faultZoomStatus 와
+  // 동일한 사후 분리 패턴).
+  // 'pending'=생성 중(카드 자리 placeholder) / 'done'=도착(카드 표시) /
+  // 'failed'·부재(legacy doc)=카드 숨김 — 실패를 사용자에게 에러로 노출하지 않는
+  // 조용한 폴백(D-08). 무한 pending 고아는 correctedPoseUpdatedAtMs 로 판정.
+  //
+  // URL 은 저장하지 않는다 — 표시 URL 은 POST /playback-url 의
+  // `asset: 'correctedPose'` 재서명으로만 발급 (리뷰 H-02). 문서에 presigned URL 을
+  // 박제하면 TTL 만료 후 죽은 URL 이 남고, 클라이언트가 임의 key 를 서명시킬 여지가
+  // 생긴다. 문서에는 S3 key 만 두고 서버가 asset 종류로 key 를 선택한다.
+  //
+  // 타임아웃/dedupe 판정 기준은 이 correctedPoseUpdatedAtMs 이며 공용 updatedAt 이
+  // 아니다 (리뷰 H-06 — 공용 updatedAt 은 무관한 write 로도 갱신돼 pending 수명을
+  // 잘못 늘린다).
+  //
+  // Python lockstep: models.py VISUAL_STATUSES + firestore_admin.update_analysis_visual
+  // + contract.md "visual 교정 시각물 필드" 절.
+  correctedPoseStatus?: 'pending' | 'done' | 'failed';
+  correctedPoseKey?: string; // S3 key (results/{uid}/{analysisId}/ prefix). URL 아님.
+  correctedPoseJoint?: string; // 교정 대상 top-1 결함 keypoint (앱이 한글 라벨 구성).
+  correctedPoseUpdatedAtMs?: number; // epoch ms — 이 필드 전용 타임아웃/dedupe 기준.
+  // Phase 31 (D-06) — 카메라앵글 회전 참고 영상. 건당 수분·과금이라 자동이 아니라
+  // 온디맨드(POST /visual/rotation) → 백그라운드 생성 → 카드 갱신이다. 대기 중에는
+  // R3F 수학 3D 뷰어가 즉시 대체재로 표시된다.
+  // 상태 의미·URL 비저장 원칙·전용 timestamp 기준은 correctedPose* 와 동일
+  // (리뷰 H-02 / H-06). 표시 URL 은 asset: 'rotation' 재서명.
+  //
+  // 점수 비반영 invariant: 회전 산출물은 채점에 절대 들어가지 않는다
+  // ([[camera-angle-scoring-stretch-reference-corner]]) — 결과 화면에서도 점수 내역
+  // 아래 "참고하세요" 섹션에 분리 배치(D-09).
+  //
+  // Python lockstep: models.py VISUAL_STATUSES + firestore_admin.update_analysis_visual
+  // + contract.md "visual 교정 시각물 필드" / "POST /visual/rotation" 절.
+  rotationStatus?: 'pending' | 'done' | 'failed';
+  rotationVideoKey?: string; // S3 key (results/{uid}/{analysisId}/ prefix). URL 아님.
+  rotationUpdatedAtMs?: number; // epoch ms — 이 필드 전용 타임아웃/dedupe 기준.
   // Phase 28 (ALGN-01) — 동작 기반 비교 정렬 맵. OPTIONAL (부재=현행 절대시계, legacy
   // 하위호환, no migration). VideoCompare 가 소비(alignmentWarp.ts warpTime/segmentRate).
   // Python lockstep: models.py MOTION_ALIGNMENT_KEYS + firestore_admin._validate_motion_alignment

@@ -25,6 +25,7 @@ backend/tests/conftest.py 가 이미 shared/python 을 주입하지만, phase31 
 
 from __future__ import annotations
 
+import copy
 import io
 import json
 import sys
@@ -77,20 +78,22 @@ class NotFound(Exception):
     """update() 대상 문서 부재 — 실 Firestore 의 NotFound 모사."""
 
 
-def _expand_field_paths(payload: dict) -> dict:
-    """update() 의 dotted field-path 를 nested map 으로 확장 (실 Firestore 의미)."""
-    out: dict = {}
+def _apply_update(doc: dict, payload: dict) -> None:
+    """`.update()` 의미 — 각 field path 의 값을 **교체**한다 (deep merge 아님).
+
+    실 Firestore 에서 `update({"refs": {...}})` 는 refs 맵 전체를 갈아끼운다. 여기서
+    deep merge 하면 "ref 를 제거하는 write" 가 조용히 no-op 이 되어, ownership fence 의
+    핵심(자기 ref 소비 / release)이 테스트를 통과해 버린다. dotted key 는 해당 경로만
+    교체하고 형제 필드는 보존한다.
+    """
     for key, value in payload.items():
-        if "." not in key:
-            out[key] = value
-            continue
-        head, _, tail = key.partition(".")
-        out.setdefault(head, {})
-        if not isinstance(out[head], dict):
-            out[head] = {}
-        nested = _expand_field_paths({tail: value})
-        _deep_merge(out[head], nested)
-    return out
+        parts = key.split(".")
+        cur = doc
+        for part in parts[:-1]:
+            if not isinstance(cur.get(part), dict):
+                cur[part] = {}
+            cur = cur[part]
+        cur[parts[-1]] = value
 
 
 def _deep_merge(base: dict, patch: dict) -> dict:
@@ -109,7 +112,8 @@ class _FakeSnapshot:
         self.exists = data is not None
 
     def to_dict(self) -> dict:
-        return json.loads(json.dumps(self._data)) if self._data is not None else {}
+        # deepcopy — datetime(expireAt, TTL policy 대상) 은 JSON 직렬화 불가.
+        return copy.deepcopy(self._data) if self._data is not None else {}
 
 
 class _FakeDocRef:
@@ -270,16 +274,13 @@ class FakeFirestore:
             self.store.pop(path, None)
         elif op == "set":
             if merge and path in self.store:
-                _deep_merge(self.store[path], json.loads(json.dumps(payload)))
+                _deep_merge(self.store[path], copy.deepcopy(payload))
             else:
-                self.store[path] = json.loads(json.dumps(payload))
+                self.store[path] = copy.deepcopy(payload)
         elif op == "update":
             if path not in self.store:
                 raise NotFound(path)
-            _deep_merge(
-                self.store[path],
-                _expand_field_paths(json.loads(json.dumps(payload))),
-            )
+            _apply_update(self.store[path], copy.deepcopy(payload))
         else:  # pragma: no cover - 방어
             raise AssertionError(f"unknown op {op}")
         self.version[path] = self.version.get(path, 0) + 1

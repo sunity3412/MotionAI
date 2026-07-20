@@ -657,9 +657,652 @@ def _terminal_intent(job_id: str, job: dict, reason: str, *, owner: str | None) 
         _finalize_rotation_failure(job_id, job, reason, owner=owner)
 
 
+# ── 이미지 정규화 / S3 헬퍼 ──────────────────────────────────────────────
+
+# M5-03: decompression bomb cap 은 **모듈 로드 시 1회** 고정한다. 호출마다 세우면
+# 예외 경로에서 원복이 빠져 전역 상태가 오염된다.
+_MAX_IMAGE_PIXELS = 16_000_000
+_MAX_IMAGE_BYTES = 20_000_000
+_MAX_IMAGE_EDGE = 8192
+
+try:  # pragma: no cover - Pillow 는 requirements.txt 에 있다
+    from PIL import Image as _PILImage
+
+    _PILImage.MAX_IMAGE_PIXELS = _MAX_IMAGE_PIXELS
+except ImportError:  # pragma: no cover
+    _PILImage = None
+
+_NOT_FOUND_CODES = frozenset({"404", "NoSuchKey", "NotFound"})
+
+VISUAL_INPUT_PREFIX = "visual-input/{uid}/{analysis_id}/"
+
+
+def _head(bucket: str, key: str) -> dict | None:
+    """HEAD — 부재는 None, 그 외 오류는 전파한다.
+
+    모든 예외를 '부재' 로 뭉개면 권한 오류가 조용히 재PUT 으로 이어진다.
+    """
+    try:
+        return _s3().head_object(Bucket=bucket, Key=key)
+    except Exception as exc:  # noqa: BLE001 - 코드 확인 후 재전파
+        code = str(
+            ((getattr(exc, "response", None) or {}).get("Error") or {}).get("Code") or ""
+        )
+        if code in _NOT_FOUND_CODES:
+            return None
+        raise
+
+
+def _head_sha(bucket: str, key: str) -> tuple[bool, str | None]:
+    head = _head(bucket, key)
+    if head is None:
+        return False, None
+    return True, (head.get("Metadata") or {}).get("sha256")
+
+
+def _get_bytes(bucket: str, key: str) -> bytes:
+    return _s3().get_object(Bucket=bucket, Key=key)["Body"].read()
+
+
+def _normalize_png(raw: bytes) -> tuple[bytes, str]:
+    """벤더 산출물 → EXIF 제거 PNG 재인코딩 + sha256 (H4-05/H4-06).
+
+    JPEG 로 와도 canonical 은 항상 PNG 다. EXIF 에는 촬영 기기/위치가 실릴 수 있어
+    학습 페어와 앱 노출 양쪽에 남으면 안 된다. 재인코딩이 그걸 확실히 떨군다.
+    """
+    import hashlib
+    import io
+
+    from sunity_shared.analysis import visual_gen
+
+    img = visual_gen.safe_decode_image(
+        raw,
+        allowed_formats=("PNG", "JPEG"),
+        max_decoded_bytes=_MAX_IMAGE_BYTES,
+        max_pixels=_MAX_IMAGE_PIXELS,
+        max_edge=_MAX_IMAGE_EDGE,
+    )
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="PNG")
+    data = buf.getvalue()
+    return data, hashlib.sha256(data).hexdigest()
+
+
+def _decode_failure_reason(exc) -> str:
+    """M5-01 — decode 오류를 두 typed 실패로 분리한다.
+
+    size/pixel 초과는 '입력이 너무 큼'(재시도해도 같음)이고, corrupt/format 불일치는
+    '산출물이 잘못됨'이다. 하나로 뭉치면 운영에서 원인 분리가 불가능해진다.
+    """
+    reason = getattr(exc, "reason", "")
+    return "judge_input_too_large" if reason in ("too_large", "bomb") else "invalid_output"
+
+
+def _staging_key(job: dict) -> str:
+    return (
+        VISUAL_INPUT_PREFIX.format(uid=job.get("uid"), analysis_id=job.get("analysisId"))
+        + f"{job.get('sourceHash')}_after.png"
+    )
+
+
+def _canonical_key(job: dict) -> str:
+    return (
+        f"results/{job.get('uid')}/{job.get('analysisId')}/"
+        f"corrected_pose_{job.get('jointKey')}.png"
+    )
+
+
+# ── action: fetch (correctedPose) ────────────────────────────────────────
+
+
+def _action_fetch_corrected(job_id: str, job: dict, *, owner: str) -> None:
+    from sunity_shared.analysis import visual_gen
+
+    if job.get("state") != "fetching":
+        return
+
+    # H3-01: 저장된 URL 이 아니라 taskId 로 **재-poll** 해 fresh URL 을 얻는다.
+    result = _adapter(models.VISUAL_KIND_CORRECTED_POSE).poll(job.get("taskId"))
+    if result.state == visual_gen.VENDOR_STATE_PENDING:
+        _advance(
+            job_id, job, next_state="fetching", updates={}, next_action="fetch",
+            owner=owner, delay_s=POLL_DELAY_S,
+        )
+        return
+    if result.state != visual_gen.VENDOR_STATE_SUCCEEDED:
+        reason = (
+            "moderation" if result.state == visual_gen.VENDOR_STATE_BLOCKED else "vendor_error"
+        )
+        _finalize_correctedpose_intent(job_id, job, reason, owner=owner)
+        return
+
+    bucket = _env("VISUAL_INPUT_BUCKET")
+    src_key = job.get("srcKey")
+    if not bucket or not src_key:
+        _finalize_correctedpose_intent(job_id, job, "invalid_output", owner=owner)
+        return
+    # srcKey 가 이 job 의 신원으로 만들어진 키인지 확인 (B2-03).
+    if not src_key.startswith(
+        VISUAL_INPUT_PREFIX.format(uid=job.get("uid"), analysis_id=job.get("analysisId"))
+    ):
+        _finalize_correctedpose_intent(job_id, job, "invalid_output", owner=owner)
+        return
+    if _head(bucket, src_key) is None:
+        _finalize_correctedpose_intent(job_id, job, "invalid_output", owner=owner)
+        return
+
+    import tempfile
+
+    dest = tempfile.mkstemp(suffix=".img")[1]
+    try:
+        asset = visual_gen.download_vendor_asset(
+            result.output_url,
+            dest,
+            max_bytes=_MAX_IMAGE_BYTES,
+            allowed_content_types=("image/png", "image/jpeg"),
+        )
+        with open(asset.path, "rb") as fh:
+            raw = fh.read()
+    except visual_gen.VendorDownloadError:
+        _finalize_correctedpose_intent(job_id, job, "invalid_output", owner=owner)
+        return
+    finally:
+        _unlink_quiet(dest)
+
+    try:
+        png, after_hash = _normalize_png(raw)
+    except visual_gen.ImageDecodeError as exc:
+        _finalize_correctedpose_intent(
+            job_id, job, _decode_failure_reason(exc), owner=owner
+        )
+        return
+
+    staging_key = _staging_key(job)
+    exists, existing_sha = _head_sha(bucket, staging_key)
+    if exists and existing_sha != after_hash:
+        # H6-03: deterministic key 인데 내용이 다르다 = tampering 이거나 비결정성이다.
+        # 덮어쓰면 어느 쪽이든 증거가 사라진다.
+        log.error("staging hash conflict job_id=%s key=%s", job_id, staging_key)
+        _finalize_correctedpose_intent(job_id, job, "invalid_output", owner=owner)
+        return
+    if not exists:
+        _s3().put_object(
+            Bucket=bucket,
+            Key=staging_key,
+            Body=png,
+            ContentType="image/png",
+            Metadata={"sha256": after_hash},
+        )
+
+    _advance(
+        job_id,
+        job,
+        next_state="judging",
+        updates={"stagingKey": staging_key, "afterHash": after_hash},
+        next_action="judge",
+        owner=owner,
+    )
+
+
+def _unlink_quiet(path: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
+# ── action: judge ───────────────────────────────────────────────────────
+
+
+def _action_judge(job_id: str, job: dict, *, owner: str) -> None:
+    from sunity_shared.analysis import visual_gen
+
+    if job.get("state") != "judging":
+        return
+
+    bucket = _env("VISUAL_INPUT_BUCKET")
+    try:
+        # D-08 fail-closed: 채택 임계값이 없으면 판정 기준이 없다 → 노출하지 않는다.
+        display_min = _required_float_env("DISPLAY_JUDGE_CONFIDENCE")
+        training_min = _required_float_env("TRAINING_JUDGE_CONFIDENCE")
+    except _CalibrationMissing as exc:
+        log.error("calibration env 부재 env=%s job_id=%s", exc.env_name, job_id)
+        _finalize_correctedpose_intent(
+            job_id, job, "judge_failed", owner=owner,
+            meta={"calibrationMissing": exc.env_name},
+        )
+        return
+
+    before_raw = _get_bytes(bucket, job.get("srcKey"))
+    import hashlib
+
+    if hashlib.sha256(before_raw).hexdigest() != job.get("sourceHash"):
+        # 원본이 바뀌었다면 이 판정은 다른 입력에 대한 것이다.
+        _finalize_correctedpose_intent(job_id, job, "invalid_output", owner=owner)
+        return
+    after_png = _get_bytes(bucket, job.get("stagingKey"))
+
+    try:
+        verdict = visual_gen.judge_corrected_pose(
+            before_raw,
+            after_png,
+            {
+                "joint": job.get("jointKey"),
+                "targetDeg": job.get("targetDeg"),
+                "correction_hint": _corrected_pose_prompt(job),
+            },
+        )
+    except visual_gen.JudgeInputTooLargeError:
+        _finalize_correctedpose_intent(job_id, job, "judge_input_too_large", owner=owner)
+        return
+    except visual_gen.ImageDecodeError as exc:
+        _finalize_correctedpose_intent(job_id, job, _decode_failure_reason(exc), owner=owner)
+        return
+
+    if verdict is None:
+        # None 은 통과가 아니다 — 판정 불가한 산출물은 보여주지 않는다 (D-08).
+        _finalize_correctedpose_intent(job_id, job, "judge_failed", owner=owner)
+        return
+
+    display_pass = visual_gen.judge_display_pass(verdict, min_confidence=display_min)
+    training_pass = visual_gen.judge_training_pass(verdict, min_confidence=training_min)
+
+    if not display_pass:
+        _finalize_correctedpose_intent(
+            job_id, job, "judge_failed", owner=owner,
+            meta={"judgeConfidence": float(verdict.confidence), "judgeDisplayPass": False},
+        )
+        return
+
+    _advance(
+        job_id,
+        job,
+        next_state="pose_checking",
+        updates={
+            "judgeDisplayPass": True,
+            "judgeTrainingPass": bool(training_pass),
+            "judgeConfidence": float(verdict.confidence),
+        },
+        next_action="pose_check",
+        owner=owner,
+    )
+
+
+# ── action: pose_check ──────────────────────────────────────────────────
+
+
+def _source_preserved_angles(src_png: bytes, *, pose_url: str, token: str) -> dict | None:
+    """원본 프레임의 관절 각도 — pose gate 의 '목표 외 관절 보존' 검사 기준.
+
+    ★ 각도 공식의 출처는 `fault_zoom.joint_inner_angle_deg` **하나뿐**이다 (B2-01).
+    여기서 keypoint→각도 변환을 다시 구현하면 생성 지시(target_deg)와 검증 기준이
+    서로 다른 계산으로 갈라진다 — 리뷰 라운드가 닫으려던 바로 그 실패 모드다.
+    그래서 pose_gate 의 정규화/전송/각도 추출 경로를 그대로 재사용한다.
+
+    이 검사가 필요한 이유: 31-01 실측 스모크에서 8개 산출물 중 목표 관절을 고치면서
+    나머지 포즈를 보존한 것은 2개뿐이었다. 목표 관절만 보는 게이트는 "다른 사람
+    사진" 을 통과시킨다.
+
+    측정 불가면 None — 호출측이 fail-closed 로 종결한다.
+    """
+    from sunity_shared.analysis import fault_zoom, pose_gate
+
+    try:
+        image_b64 = pose_gate._normalize_for_pose(src_png)
+    except pose_gate._NormalizeError:
+        return None
+    payload = pose_gate._post_pose_image(pose_url, image_b64, token, 60.0)
+    if payload is None or not payload.get("ok"):
+        return None
+    try:
+        width = float(payload.get("width") or 0.0)
+        height = float(payload.get("height") or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if width <= 0 or height <= 0:
+        return None
+
+    angles: dict[str, float] = {}
+    for joint_key in fault_zoom.ARROW_JOINT_MAP:
+        measured = pose_gate._angle_from_payload(payload, joint_key, width, height)
+        if measured is not None:
+            angles[joint_key] = float(measured)
+    return angles
+
+
+def _action_pose_check(job_id: str, job: dict, *, owner: str) -> None:
+    from sunity_shared.analysis import pair_store, pose_gate
+
+    if job.get("state") != "pose_checking":
+        return
+
+    try:
+        display_tol = _required_float_env("DISPLAY_POSE_TOL_DEG")
+        training_tol = _required_float_env("TRAINING_POSE_TOL_DEG")
+        preserve_tol = _required_float_env("PRESERVE_POSE_TOL_DEG")
+    except _CalibrationMissing as exc:
+        log.error("calibration env 부재 env=%s job_id=%s", exc.env_name, job_id)
+        _finalize_correctedpose_intent(
+            job_id, job, "pose_gate_unavailable", owner=owner,
+            meta={"calibrationMissing": exc.env_name},
+        )
+        return
+
+    analyze_url = _env("RUNPOD_ANALYZE_URL")
+    token = _env("RUNPOD_AUTH_TOKEN")
+    if not analyze_url or not token:
+        _finalize_correctedpose_intent(job_id, job, "pose_gate_unavailable", owner=owner)
+        return
+    pose_url = pose_gate.derive_pose_url(analyze_url)
+
+    input_bucket = _env("VISUAL_INPUT_BUCKET")
+    before_png = _get_bytes(input_bucket, job.get("srcKey"))
+    after_png = _get_bytes(input_bucket, job.get("stagingKey"))
+
+    preserved = _source_preserved_angles(before_png, pose_url=pose_url, token=token)
+    if preserved is None:
+        # 원본을 못 재면 '보존됐는지' 를 판정할 수 없다 = 통과가 아니다.
+        _finalize_correctedpose_intent(job_id, job, "pose_gate_unavailable", owner=owner)
+        return
+
+    result = pose_gate.measure_generated_pose(
+        after_png,
+        joint_key=job.get("jointKey"),
+        target_deg=float(job.get("targetDeg") or 0.0),
+        tolerance_deg=display_tol,
+        pose_url=pose_url,
+        token=token,
+        # ★ 이걸 넘기지 않으면 게이트는 목표 관절만 본다 — 포즈를 통째로 새로 그린
+        #   산출물이 그대로 통과한다 (31-01 실측의 지배적 실패 모드).
+        preserved_targets=preserved,
+        preserve_tolerance_deg=preserve_tol,
+    )
+
+    gate_meta = {
+        "poseGateErrorDeg": float(result.error_deg) if result.error_deg is not None else None,
+        "poseGateMeasuredDeg": (
+            float(result.measured_deg) if result.measured_deg is not None else None
+        ),
+        "poseGateReason": result.reason,
+        "poseGatePreservedViolation": result.preserved_violation,
+    }
+    if not result.passed:
+        reason = (
+            "pose_gate_unavailable"
+            if result.reason == pose_gate.REASON_UNAVAILABLE
+            else "pose_gate_failed"
+        )
+        _finalize_correctedpose_intent(job_id, job, reason, owner=owner, meta=gate_meta)
+        return
+
+    # canonical 적재 먼저 (B3-02) — 표시 key 없이 done 이 되는 창을 만들지 않는다.
+    video_bucket = _env("VIDEO_BUCKET")
+    canonical_key = _canonical_key(job)
+    after_hash = job.get("afterHash")
+    exists, existing_sha = _head_sha(video_bucket, canonical_key)
+    if exists and existing_sha != after_hash:
+        log.error("canonical hash conflict job_id=%s key=%s", job_id, canonical_key)
+        _finalize_correctedpose_intent(job_id, job, "invalid_output", owner=owner, meta=gate_meta)
+        return
+    if not exists:
+        # H7-08: MetadataDirective='REPLACE' + sha256 명시. 기본 COPY 로 두면 metadata
+        # 가 안 따라와 다음 replay 가 정상 객체를 integrity conflict 로 오판한다.
+        _s3().copy_object(
+            Bucket=video_bucket,
+            Key=canonical_key,
+            CopySource={"Bucket": input_bucket, "Key": job.get("stagingKey")},
+            MetadataDirective="REPLACE",
+            Metadata={"sha256": str(after_hash)},
+            ContentType="image/png",
+        )
+        _, copied_sha = _head_sha(video_bucket, canonical_key)
+        if copied_sha != after_hash:
+            _finalize_correctedpose_intent(
+                job_id, job, "invalid_output", owner=owner, meta=gate_meta
+            )
+            return
+
+    # B5-03: pairId/keyVersion 을 **여기서 1회 고정**한다. postprocess 재시도가 active
+    # key 를 다시 고르면 키 회전 시 같은 분석이 서로 다른 pairId 로 두 번 적재된다.
+    pair_eligible = bool(job.get("judgeTrainingPass")) and (
+        result.error_deg is not None and float(result.error_deg) <= training_tol
+    )
+    pair_id = pair_key_version = None
+    pair_pre_status = None
+    if pair_eligible:
+        key_set = pair_store.validate_hmac_key_set(os.environ.get(pair_store.HMAC_KEYS_ENV))
+        if key_set:
+            active = key_set.get("active")
+            pair_id = pair_store.pair_id(
+                job.get("uid"), job.get("analysisId"), job.get("jointKey"),
+                hmac_key=key_set["keys"][active],
+            )
+            pair_key_version = active
+        else:
+            # H6-05: HMAC env 오류는 **부산물**의 문제다. 사용자 표시(correctedPose)를
+            # 여기서 막으면 학습 파이프라인 설정 실수가 제품 기능을 죽인다.
+            pair_pre_status = "failed_config"
+
+    updates = dict(gate_meta)
+    updates.update(
+        {
+            "canonicalKey": canonical_key,
+            "poseGatePassed": True,
+            "inputSealed": True,  # B6-03 producer hard gate
+            "pendingTerminalState": "done",
+            "pendingFailureReason": None,
+            "pairEligible": pair_eligible,
+            "pairId": pair_id,
+            "pairHmacKeyVersion": pair_key_version,
+            "pairPreStatus": pair_pre_status,
+        }
+    )
+    _advance(
+        job_id, job, next_state="postprocessing", updates=updates,
+        next_action="postprocess", owner=owner,
+    )
+
+
+# ── action: postprocess (cleanup + pair + finalize) ─────────────────────
+
+
+def _list_all_keys(bucket: str, prefix: str) -> list[str]:
+    """exact prefix 전량 열거 (continuation 끝까지).
+
+    한 페이지만 보고 '없다' 고 판정하면 1000개 초과 시 임시 프레임이 남는다.
+    """
+    keys: list[str] = []
+    token = None
+    while True:
+        kwargs = {"Bucket": bucket, "Prefix": prefix}
+        if token:
+            kwargs["ContinuationToken"] = token
+        resp = _s3().list_objects_v2(**kwargs)
+        keys.extend(obj["Key"] for obj in resp.get("Contents") or [])
+        if not resp.get("IsTruncated"):
+            return keys
+        token = resp.get("NextContinuationToken")
+        if not token:
+            return keys
+
+
+def _cleanup_visual_input(bucket: str, uid: str, analysis_id: str) -> tuple[int, int]:
+    """비-버저닝 버킷의 임시 생체 프레임 소거 → (remainingObject, failedCount).
+
+    버저닝이 없으므로 delete 1회로 완전 소거된다 — version 열거/삭제가 불필요하다.
+    **HTTP 200 만 믿지 않는다** (M6-05): delete_objects 는 부분 실패를 200 응답의
+    Errors 배열로 돌려준다. 그걸 안 보면 "삭제했다고 기록됐지만 남아 있는 PII" 가 된다.
+    """
+    prefix = VISUAL_INPUT_PREFIX.format(uid=uid, analysis_id=analysis_id)
+    keys = _list_all_keys(bucket, prefix)
+    failed = 0
+    for start in range(0, len(keys), 1000):
+        batch = keys[start : start + 1000]
+        resp = _s3().delete_objects(
+            Bucket=bucket, Delete={"Objects": [{"Key": k} for k in batch]}
+        )
+        for err in resp.get("Errors") or []:
+            failed += 1
+            log.error(
+                "cleanup delete error code=%s key=%s", err.get("Code"), err.get("Key")
+            )
+    remaining = len(_list_all_keys(bucket, prefix))
+    return remaining, failed
+
+
+def _release_input_ownership(bucket: str, job_id: str, job: dict) -> None:
+    """B10-03: 정상 cleanup 도 ownership ref 를 반드시 release 한다.
+
+    안 하면 job ref 가 영구 live 로 남아(B11-04 — job ref 는 만료되지 않는다)
+    같은 key 에 대한 이후 janitor 삭제가 영원히 skip 된다.
+    """
+    for field in ("srcKey", "trainingSrcKey"):
+        key = job.get(field)
+        if key:
+            try:
+                firestore_admin.release_key_ownership(bucket, key, ref=job_id)
+            except Exception:  # noqa: BLE001 - release 실패가 finalize 를 막지 않는다
+                log.warning("release_key_ownership failed key_field=%s", field)
+
+
+def _store_pair(job: dict) -> str:
+    """학습 페어 1건. 반환은 pairStoreStatus.
+
+    S3 PUT **직전** 동의를 재read 한다 (H5-01): pose_check 시점의 opt-in 을 믿으면
+    그 사이의 철회를 무시하고 적재하게 된다.
+    """
+    from sunity_shared.analysis import pair_store
+
+    analysis = firestore_admin.get_analysis(job.get("uid"), job.get("analysisId")) or {}
+    if analysis.get("learningOptIn") is not True or analysis.get("revokedAt"):
+        return "skipped_consent"
+
+    input_bucket = _env("VISUAL_INPUT_BUCKET")
+    pairs_bucket = _env("PAIRS_BUCKET", pair_store.PAIRS_BUCKET_DEFAULT)
+    before_key = job.get("trainingSrcKey") or job.get("srcKey")
+    try:
+        before_png = _get_bytes(input_bucket, before_key)
+        after_png = _get_bytes(_env("VIDEO_BUCKET"), job.get("canonicalKey"))
+    except Exception:  # noqa: BLE001 - 부산물 실패가 사용자 표시를 막지 않는다
+        log.warning("pair source read failed")
+        return "failed"
+
+    try:
+        return pair_store.store_training_pair(
+            _s3(),
+            pairs_bucket,
+            pair_id=job.get("pairId"),
+            hmac_key_version=job.get("pairHmacKeyVersion"),
+            joint=job.get("jointKey"),
+            before_png=before_png,
+            after_png=after_png,
+            learning_opt_in=analysis.get("learningOptIn"),
+            consent_captured_at_ms=int(analysis.get("consentCapturedAtMs") or 0),
+            quality={
+                "model_id": _env("VISUAL_MODEL_ID", "wan2.7-image-pro"),
+                "judge_confidence": job.get("judgeConfidence"),
+                "pose_error_deg": job.get("poseGateErrorDeg"),
+                "source_generation": job.get("generation"),
+                "provenance": job.get("provenanceVersion"),
+            },
+        )
+    except Exception:  # noqa: BLE001
+        log.warning("store_training_pair failed")
+        return "failed"
+
+
+def _action_postprocess(job_id: str, job: dict, *, owner: str) -> None:
+    """durable 종결 — pair(부산물) → cleanup(필수) → finalize (H4-01/B6-03/B6-04)."""
+    if job.get("state") != "postprocessing":
+        return
+
+    now = _now_ms()
+    bucket = _env("VISUAL_INPUT_BUCKET")
+    pending_state = job.get("pendingTerminalState") or "failed"
+
+    # (a) pair — 부산물이라 critical path 를 막지 않는다 (7차 H7-07 / 8차 H8-02).
+    pair_status = job.get("pairStoreStatus")
+    if pair_status is None:
+        if job.get("pairPreStatus") == "failed_config":
+            pair_status = "failed_config"
+        elif job.get("pairEligible") and job.get("pairId") and pending_state == "done":
+            pair_status = _store_pair(job)
+            if pair_status == "conflict":
+                # 같은 pairId 에 다른 내용이 있다 = 재시도로 풀 문제가 아니다.
+                log.error("pair conflict quarantine job_id=%s pair_id=%s", job_id, job.get("pairId"))
+                _put_metric("VisualPairConflict")
+        else:
+            pair_status = "skipped"
+
+    # (b) cleanup — 필수. 여기만 durable self-loop 를 가진다.
+    remaining, failed = _cleanup_visual_input(bucket, job.get("uid"), job.get("analysisId"))
+    if remaining == 0 and failed == 0:
+        _release_input_ownership(bucket, job_id, job)
+
+    if remaining > 0 or failed > 0:
+        attempt = int(job.get("cleanupAttempt") or 0) + 1
+        blocked = attempt >= CLEANUP_ATTEMPT_MAX
+        if blocked:
+            _put_metric("VisualCleanupBlocked")
+            log.error(
+                "cleanup blocked job_id=%s remaining=%s failed=%s", job_id, remaining, failed
+            )
+        # ★ terminal finalize 금지 (B6-04). cleanup 미완을 terminal 실패로 적으면
+        #   PII 가 남은 채 job 이 종결돼 복구 주체가 사라진다.
+        _advance(
+            job_id,
+            job,
+            next_state="postprocessing",
+            updates={
+                "cleanupAttempt": attempt,
+                "cleanupRemaining": int(remaining),
+                "cleanupFailed": int(failed),
+                "pairStoreStatus": pair_status,
+                "privacyBlocker": models.VISUAL_PRIVACY_BLOCKER_CLEANUP if blocked else None,
+            },
+            next_action="postprocess",
+            owner=owner,
+            delay_s=CLEANUP_BLOCKED_BACKOFF_S if blocked else 60,
+        )
+        return
+
+    # (c) cleanup 검증 완료 — 이제서야 terminal.
+    meta = {"pairStoreStatus": pair_status}
+    for field in (
+        "judgeConfidence", "judgeDisplayPass", "judgeTrainingPass",
+        "poseGateErrorDeg", "poseGateMeasuredDeg", "poseGateReason", "poseGatePassed",
+    ):
+        if job.get(field) is not None:
+            meta[field] = job.get(field)
+
+    terminal_done = pending_state == "done"
+    firestore_admin.finalize_visual_job(
+        job_id,
+        terminal_state=pending_state,
+        failure_reason=None if terminal_done else job.get("pendingFailureReason"),
+        job_meta=meta,
+        display_status=(
+            models.VISUAL_STATUS_DONE if terminal_done else models.VISUAL_STATUS_FAILED
+        ),
+        expect_states=("postprocessing",),
+        key=job.get("canonicalKey") if terminal_done else None,
+        joint=job.get("jointKey"),
+        # B7-03: cleanup proof 는 **dedicated 파라미터**로 넘긴다. job_meta 로 넘기면
+        # finalize 가 검증하기 전에 값이 병합되는 순서 모순이 생긴다.
+        cleanup_verified_at_ms=now,
+        expect_generation=int(job.get("generation") or 0),
+        expect_outbox_seq=int(job.get("outboxSeq") or 0),
+        expect_claim_owner=owner,
+        now_ms=now,
+    )
+
+
 # ── action 디스패치 테이블 ───────────────────────────────────────────────
-# Task 2/3 에서 fetch/judge/pose_check/postprocess 가 채워진다.
 
 _ACTION_HANDLERS: dict = {
     "poll": _action_poll,
+    "fetch:correctedPose": _action_fetch_corrected,
+    "judge": _action_judge,
+    "pose_check": _action_pose_check,
+    "postprocess": _action_postprocess,
 }

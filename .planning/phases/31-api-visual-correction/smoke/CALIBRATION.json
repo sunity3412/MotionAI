@@ -3,162 +3,162 @@
   {
    "pose_tol_deg": 8.0,
    "confidence": 0.6,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 8.0,
    "confidence": 0.7,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 8.0,
    "confidence": 0.8,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 8.0,
    "confidence": 0.85,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 10.0,
    "confidence": 0.6,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 10.0,
    "confidence": 0.7,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 10.0,
    "confidence": 0.8,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 10.0,
    "confidence": 0.85,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 15.0,
    "confidence": 0.6,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 15.0,
    "confidence": 0.7,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 15.0,
    "confidence": 0.8,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 15.0,
    "confidence": 0.85,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 20.0,
    "confidence": 0.6,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 20.0,
    "confidence": 0.7,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 20.0,
    "confidence": 0.8,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   },
   {
    "pose_tol_deg": 20.0,
    "confidence": 0.85,
-   "false_accept": 0,
-   "false_reject": 0,
-   "true_pass": 0,
-   "true_fail": 0,
-   "undeterminable": 12,
-   "evaluable": 0
+   "false_accept": 2,
+   "false_reject": 1,
+   "true_pass": 2,
+   "true_fail": 6,
+   "undeterminable": 1,
+   "evaluable": 11
   }
  ],
  "confidence_only_table": [
@@ -202,7 +202,7 @@
    "labeled_pass": 3,
    "labeled_fail": 9,
    "judge_available": 12,
-   "pose_measured": 0
+   "pose_measured": 11
   },
   "judge_only_confusion": {
    "pass_labeled_pass": 2,
@@ -326,8 +326,11 @@
     "reason": "The generation is highly successful. The right leg has been extended nearly straight (about 175 degrees) as instructed, while keeping the identity, clothing, background, pole, and other body parts completely consistent and free of anomalies."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 5.784,
+    "error_deg": 169.216,
+    "model_version": null
    }
   },
   {
@@ -362,7 +365,7 @@
    },
    "pose": {
     "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "reason": "pose_gate_failed"
    }
   },
   {
@@ -393,8 +396,11 @@
     "reason": "The generated image perfectly preserves the identity, clothing, background, and pole of the original image while correcting the left knee angle to be straight (~175 degrees) as instructed. No visual artifacts or extra limbs are present."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 174.562,
+    "error_deg": 0.438,
+    "model_version": null
    }
   },
   {
@@ -426,8 +432,11 @@
     "reason": "The correction of the left knee to a straight angle of approximately 175 degrees is clearly visible and well-executed. The person's identity, background, pole, and overall clothing are preserved perfectly without any extra limbs or major artifacts."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 171.521,
+    "error_deg": 3.479,
+    "model_version": null
    }
   },
   {
@@ -458,8 +467,11 @@
     "reason": "머리카락(포니테일)이 휘날리던 것에서 아래로 차분히 내려온 것을 제외하고는, 무릎 각도를 포함한 전반적인 자세가 원본과 완벽히 동일하여 무릎 각도 교정이 수행되지 않았습니다."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 165.17,
+    "error_deg": 9.83,
+    "model_version": null
    }
   },
   {
@@ -493,8 +505,11 @@
     "reason": "The generation preserves the identity, clothing, background, and pole extremely well, with no extra limbs or distortion. However, the instruction was to correct the left knee to approximately 175 degrees (nearly straight). In the AFTER image, one leg remains fully extended while the other leg, which was tightly bent in the BEFORE image, is still bent at approximately 90 degrees instead of being straightened to 175 degrees."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 72.523,
+    "error_deg": 102.477,
+    "model_version": null
    }
   },
   {
@@ -528,8 +543,11 @@
     "reason": "The AI successfully corrected the right knee (and both legs) to be straight (about 175 degrees) extending downwards along the pole, whereas in the original image the legs were bent and horizontal. The person's identity, clothing, pole, and background are all exceptionally well-preserved without any visual anomalies or extra limbs."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 174.962,
+    "error_deg": 0.038,
+    "model_version": null
    }
   },
   {
@@ -563,8 +581,11 @@
     "reason": "The generated image successfully extends the legs (right knee corrected to approximately 175 degrees) while perfectly preserving the identity of the person, clothing, background elements (such as the plant and curtains), and the pole position without introducing any extra limbs or artifacts."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 177.755,
+    "error_deg": 2.755,
+    "model_version": null
    }
   },
   {
@@ -598,8 +619,11 @@
     "reason": "생성된 이미지에서 폴이 완전히 사라졌으며, 원래의 자세를 유지하면서 관절을 교정하는 대신 완전히 다른 서 있는 자세로 전면 재그려졌습니다."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 179.376,
+    "error_deg": 4.376,
+    "model_version": null
    }
   },
   {
@@ -634,8 +658,11 @@
     "reason": "배경이 실내 스튜디오에서 해변가 노을로 완전히 변경되었습니다. 또한, 오른쪽 무릎(right_knee)을 약 175도(เกือบ 곧게)로 펴도록 하는 교정 지시가 반영되지 않고 여전히 굽혀진 상태를 유지하고 있습니다."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 110.6,
+    "error_deg": 64.4,
+    "model_version": null
    }
   },
   {
@@ -670,8 +697,11 @@
     "reason": "생성된 이미지에 팔이 여러 개 달리는 치명적인 외형 왜곡이 발생했습니다. 또한 목표한 left_knee의 교정(175도 부근으로 펴는 것)도 이루어지지 않았습니다."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 178.653,
+    "error_deg": 3.653,
+    "model_version": null
    }
   },
   {
@@ -706,8 +736,11 @@
     "reason": "원본 이미지의 인물(여성, 검은색 탑과 흰색 바지)과 생성 이미지의 인물(남성, 파란색 트레이닝 복)의 정체성 및 의상이 완전히 다르게 변경되었습니다. 자세 또한 완전히 새로 그려져 정체성과 의상 보존에 실패했습니다."
    },
    "pose": {
-    "status": "unmeasured",
-    "reason": "pose_gate_unavailable"
+    "status": "measured",
+    "source": "pose_image_endpoint",
+    "measured_deg": 85.672,
+    "error_deg": 89.328,
+    "model_version": null
    }
   }
  ],
@@ -723,11 +756,25 @@
    "no_extra_limbs",
    "correction_visible"
   ],
-  "pose_model_versions": {},
-  "pose_model_version_set": [],
-  "ran_at": "2026-07-20T01:23:10.312042Z",
+  "pose_model_versions": {
+   "wan2.7-image-pro__power-spin-inverted-right-knee": null,
+   "wan2.7-image-pro__chair-spin-upright-left-knee": null,
+   "wan2.7-image-pro__invert-inverted-left-knee": null,
+   "wan2.7-image-pro__calib-chair-spin-upright-left-knee-v2": null,
+   "wan2.7-image-pro__calib-invert-inverted-left-knee-v2": null,
+   "wan2.7-image-pro__calib-power-spin-inverted-right-knee-v2": null,
+   "wan2.7-image-pro__calib-sideway-spin-upright-right-knee-v2": null,
+   "wan2.7-image-pro__calib-adv-pole-chair-spin-left-knee": null,
+   "wan2.7-image-pro__calib-adv-background-sideway-spin-right-knee": null,
+   "wan2.7-image-pro__calib-adv-extralimbs-invert-left-knee": null,
+   "wan2.7-image-pro__calib-adv-identity-power-spin-right-knee": null
+  },
+  "pose_model_version_set": [
+   "None"
+  ],
+  "ran_at": "2026-07-20T07:58:50.962055Z",
   "manifest_sha256": "870357efa3d318e216067eee539bf5c441ffca545c5f2b36a16b948271c83cc8",
-  "manifest_path": "/Users/kimtaesung/Dev/SunityMotion/.planning/phases/31-api-visual-correction/smoke/fixtures_manifest.json",
+  "manifest_path": ".planning/phases/31-api-visual-correction/smoke/fixtures_manifest.json",
   "generator_scope": "wan2.7-image-pro",
   "pose_tol_grid": [
    8.0,
@@ -751,7 +798,6 @@
  "blocked": true,
  "blocked_reasons": [
   "insufficient_pass_samples:3<4",
-  "pose_unmeasured_fraction:12/12>0.25",
   "confidence_axis_non_discriminating:all_4_grid_values_tie_at_FA4"
  ]
 }

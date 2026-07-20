@@ -1,0 +1,170 @@
+{
+ "127a60c50dc8a6b9c5b0a0312a9109c95a382bb470af9a2308111bb1c83f0255": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": true
+  },
+  "confidence": 1.0,
+  "reason": "The generation is highly successful. The right leg has been extended nearly straight (about 175 degrees) as instructed, while keeping the identity, clothing, background, pole, and other body parts completely consistent and free of anomalies."
+ },
+ "8dd6d74dbd2fb12ecb13588212fdcf33e0f2673526e725dc9290678d43b244de": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": true
+  },
+  "confidence": 0.95,
+  "reason": "The generated image perfectly preserves the person's identity, clothing, pole position, and background details. The correction is highly successful, as the right knee (and both legs) are straightened to nearly 180 degrees, matching the 175-degree instruction."
+ },
+ "7071b2fda7a2aa38f5646b0de3ee991dc55968e53210c3610948096a16f44500": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": true
+  },
+  "confidence": 0.98,
+  "reason": "The generated image perfectly preserves the identity, clothing, background, and pole of the original image while correcting the left knee angle to be straight (~175 degrees) as instructed. No visual artifacts or extra limbs are present."
+ },
+ "1ab6a2ca88f51b1aeca6f14102e41f8d0869431b5ac463e85540cd657d143a4c": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": true
+  },
+  "confidence": 0.95,
+  "reason": "The correction of the left knee to a straight angle of approximately 175 degrees is clearly visible and well-executed. The person's identity, background, pole, and overall clothing are preserved perfectly without any extra limbs or major artifacts."
+ },
+ "ad4922eb38e4bf1e5225639a351d06493789d7dcb4d7ad2461f6c99ba4a73346": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": false
+  },
+  "confidence": 0.9,
+  "reason": "머리카락(포니테일)이 휘날리던 것에서 아래로 차분히 내려온 것을 제외하고는, 무릎 각도를 포함한 전반적인 자세가 원본과 완벽히 동일하여 무릎 각도 교정이 수행되지 않았습니다."
+ },
+ "9ac97ce1dfc4813067e42b16decd54cda056f444a8c20a196ce41b847e80544d": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": false
+  },
+  "confidence": 0.9,
+  "reason": "The generation preserves the identity, clothing, background, and pole extremely well, with no extra limbs or distortion. However, the instruction was to correct the left knee to approximately 175 degrees (nearly straight). In the AFTER image, one leg remains fully extended while the other leg, which was tightly bent in the BEFORE image, is still bent at approximately 90 degrees instead of being straightened to 175 degrees."
+ },
+ "6ff24757d419a82fd71e0175e56551d48a83c08c1efe9f2f75a22299035cbfd1": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": true
+  },
+  "confidence": 0.95,
+  "reason": "The AI successfully corrected the right knee (and both legs) to be straight (about 175 degrees) extending downwards along the pole, whereas in the original image the legs were bent and horizontal. The person's identity, clothing, pole, and background are all exceptionally well-preserved without any visual anomalies or extra limbs."
+ },
+ "e1e9fc699731d04813c1eb9837d2981dd70ed56c91126b9d42d57cf5cd91a2ff": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": true
+  },
+  "confidence": 0.95,
+  "reason": "The generated image successfully extends the legs (right knee corrected to approximately 175 degrees) while perfectly preserving the identity of the person, clothing, background elements (such as the plant and curtains), and the pole position without introducing any extra limbs or artifacts."
+ },
+ "46ef1a6cf5845558e1cc5978fc6a7e2ec6022c3b2c6292267bc3c71e4cecaa6b": {
+  "available": true,
+  "axes": {
+   "identity_ok": false,
+   "clothing_ok": false,
+   "background_ok": false,
+   "pole_ok": false,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": false
+  },
+  "confidence": 1.0,
+  "reason": "생성된 이미지에서 폴이 완전히 사라졌으며, 원래의 자세를 유지하면서 관절을 교정하는 대신 완전히 다른 서 있는 자세로 전면 재그려졌습니다."
+ },
+ "7f22a6a3d3526d744aebc3439acd080b2034e6eed14889e6b2116618d3072ecb": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": false,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": false
+  },
+  "confidence": 0.9,
+  "reason": "배경이 실내 스튜디오에서 해변가 노을로 완전히 변경되었습니다. 또한, 오른쪽 무릎(right_knee)을 약 175도(เกือบ 곧게)로 펴도록 하는 교정 지시가 반영되지 않고 여전히 굽혀진 상태를 유지하고 있습니다."
+ },
+ "0fb20afa0337275262bfe6a612f2ec25f44d12b6390e73382b863aa5cd72d610": {
+  "available": true,
+  "axes": {
+   "identity_ok": true,
+   "clothing_ok": true,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": false,
+   "correction_visible": false
+  },
+  "confidence": 1.0,
+  "reason": "생성된 이미지에 팔이 여러 개 달리는 치명적인 외형 왜곡이 발생했습니다. 또한 목표한 left_knee의 교정(175도 부근으로 펴는 것)도 이루어지지 않았습니다."
+ },
+ "e1746fd20ffc70fed6c71e4568f95a1e78f59af9b4a1fc0b637ac1d9e0853e8b": {
+  "available": true,
+  "axes": {
+   "identity_ok": false,
+   "clothing_ok": false,
+   "background_ok": true,
+   "pole_ok": true,
+   "single_person_ok": true,
+   "no_extra_limbs": true,
+   "correction_visible": true
+  },
+  "confidence": 1.0,
+  "reason": "원본 이미지의 인물(여성, 검은색 탑과 흰색 바지)과 생성 이미지의 인물(남성, 파란색 트레이닝 복)의 정체성 및 의상이 완전히 다르게 변경되었습니다. 자세 또한 완전히 새로 그려져 정체성과 의상 보존에 실패했습니다."
+ }
+}

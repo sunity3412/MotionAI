@@ -240,14 +240,80 @@ def measure_pose_from_keypoints(entry: dict) -> dict:
     }
 
 
-def measure_pose_live(entry: dict, pose_url: str, token: str, max_tol: float) -> dict:
+def measure_source_preserved_angles(
+    entry: dict, pose_url: str, token: str
+) -> tuple[dict[str, float] | None, str | None]:
+    """before 이미지에서 **목표 관절 외** 관절각을 재어 preserved_targets 를 만든다.
+
+    31-09 프로덕션 워커는 `preserved_targets` 를 넘긴다. 이걸 빼고 보정하면 **실제로
+    돌지 않는 게이트 구성에 대해 임계값을 고르는 것**이 되어 B4-05 를 위반한다
+    (2026-07-20 실측으로 드러남: 남은 오통과 2건이 전부 `pose_tolerance` —
+    목표 관절만 우연히 맞고 자세는 통째로 재생성된 산출물이었다. 이건 정확히
+    preserved_targets 가 잡으라고 만든 유형이다).
+
+    각도 계산은 `pose_gate` 의 응답→각도 경로를 그대로 재사용한다 — 여기서 따로
+    구현하면 `joint_inner_angle_deg` 가 갈라져 B2-01 이 재발한다.
+    """
+    from sunity_shared.analysis import pose_gate
+
+    try:
+        image_b64 = pose_gate._normalize_for_pose(  # noqa: SLF001 - 동일 정규화 경로 재사용 필수
+            Path(entry["beforePath"]).read_bytes()
+        )
+    except Exception:  # noqa: BLE001
+        return None, "source_normalize_failed"
+
+    payload = pose_gate._post_pose_image(pose_url, image_b64, token, 60.0)  # noqa: SLF001
+    if payload is None:
+        return None, "source_pose_gate_unavailable"
+    if not payload.get("ok"):
+        return None, "source_no_person"
+
+    width = float(payload.get("width") or 0.0)
+    height = float(payload.get("height") or 0.0)
+    if width <= 0 or height <= 0:
+        return None, "source_unknown_frame_shape"
+
+    target_key = entry["jointKey"]
+    preserved: dict[str, float] = {}
+    for other_key in pose_gate.ARROW_JOINT_MAP:
+        if other_key == target_key:
+            continue
+        deg = pose_gate._angle_from_payload(payload, other_key, width, height)  # noqa: SLF001
+        if deg is not None and math.isfinite(deg):
+            preserved[other_key] = float(deg)
+    if not preserved:
+        return None, "source_no_measurable_joints"
+    return preserved, None
+
+
+def measure_pose_live(
+    entry: dict,
+    pose_url: str,
+    token: str,
+    max_tol: float,
+    preserve_tol: float | None = None,
+) -> dict:
     """라이브 경로 — 31-06 `measure_generated_pose` 실호출.
 
     tolerance 는 격자 최댓값을 넣는다. 여기서 필요한 것은 통과 여부가 아니라 **raw
     error_deg** 이고, 통과 판정은 격자가 나중에 각 조합에서 다시 한다. 이렇게 해야
     임계값이 측정 호출에 하드코딩되지 않는다 (H3-02).
+
+    `preserve_tol` 이 주어지면 before 이미지에서 preserved_targets 를 재어 함께
+    넘긴다 — **프로덕션(31-09)과 동일한 게이트 구성**이어야 임계값이 유효하다.
     """
     from sunity_shared.analysis import pose_gate
+
+    preserved: dict[str, float] | None = None
+    preserved_reason: str | None = None
+    if preserve_tol is not None:
+        preserved, preserved_reason = measure_source_preserved_angles(entry, pose_url, token)
+
+    kwargs: dict = {}
+    if preserved:
+        kwargs["preserved_targets"] = preserved
+        kwargs["preserve_tolerance_deg"] = preserve_tol
 
     result = pose_gate.measure_generated_pose(
         Path(entry["afterPath"]).read_bytes(),
@@ -256,18 +322,30 @@ def measure_pose_live(entry: dict, pose_url: str, token: str, max_tol: float) ->
         tolerance_deg=max_tol,
         pose_url=pose_url,
         token=token,
+        **kwargs,
     )
     if result.error_deg is None:
         # unavailable(전송) 과 failed(측정 불신) 를 구분해 남긴다 — 전자는 재시도
         # 가능, 후자는 산출물 문제다 (31-06 계약).
         return {"status": POSE_STATUS_UNMEASURED, "reason": result.reason or "no_error_deg"}
-    return {
+    out = {
         "status": POSE_STATUS_MEASURED,
         "source": "pose_image_endpoint",
         "measured_deg": round(float(result.measured_deg), 3),
         "error_deg": round(float(result.error_deg), 3),
         "model_version": None,
     }
+    # 보존 축은 격자가 재판정할 수 없다(원본 각도가 있어야 함) — 측정 시점 판정을
+    # 그대로 남겨 어느 관절이 무너졌는지 추적 가능하게 한다.
+    if preserved:
+        out["preserved_measured"] = len(preserved)
+        out["preserve_tol_deg"] = preserve_tol
+        out["preserve_violated_joint"] = getattr(result, "violated_joint", None)
+        out["preserve_passed"] = result.passed
+    elif preserve_tol is not None:
+        out["preserved_measured"] = 0
+        out["preserved_skip_reason"] = preserved_reason
+    return out
 
 
 # ── 격자 (판정은 31-05 함수 재사용) ───────────────────────────────────────
@@ -509,6 +587,15 @@ def main() -> int:
     ap.add_argument("--pose-tol-grid", default=None)
     ap.add_argument("--confidence-grid", default=None)
     ap.add_argument("--judge-cache", default=None, help="judge raw 캐시 JSON (재실행 과금 0)")
+    ap.add_argument(
+        "--preserve-tol-deg",
+        type=float,
+        default=None,
+        help=(
+            "주면 before 이미지에서 preserved_targets 를 재어 함께 넘긴다 — "
+            "31-09 프로덕션과 동일 게이트 구성(B4-05). 미지정 시 목표 관절만 검사."
+        ),
+    )
     args = ap.parse_args()
 
     pose_tol_grid = (
@@ -580,7 +667,9 @@ def main() -> int:
         if validate_keypoint_provenance(entry) is None:
             pose = measure_pose_from_keypoints(entry)
         elif args.pose_url and pose_token:
-            pose = measure_pose_live(entry, args.pose_url, pose_token, max_tol)
+            pose = measure_pose_live(
+                entry, args.pose_url, pose_token, max_tol, args.preserve_tol_deg
+            )
         else:
             pose = {
                 "status": POSE_STATUS_UNMEASURED,

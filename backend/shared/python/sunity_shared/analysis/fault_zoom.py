@@ -1296,6 +1296,7 @@ def build_fault_zoom_comparisons(
     ref_frame_idx: int | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
     split_angle_present: bool = False,
+    draw_arrows: bool = False,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -1323,6 +1324,11 @@ def build_fault_zoom_comparisons(
         False(default)면 스플릿 아닌 legs 카드는 r6x 이전 circle 렌더로 복귀.
       · 게이트 B — split 카드라도 학생(user) 측만 그린다. 정은지(ref) 측은 kip-up
         도립 pose 부정확으로 선이 폭주(pose 한계)해 선 없는 crop 을 유지한다.
+    draw_arrows (Phase 31-03, D-11/D-12): 목표 각도 화살표를 학생측 crop 에 그린다.
+      False(default) = 기존 호출 전부 **바이트 동일 무회귀**. True 여도 사이각을 그린
+      legs 카드에는 그리지 않는다 — 호(벌림각)와 화살표(발끝 목표)가 같은 발목 주변에
+      겹쳐 시각 언어가 충돌하므로 v1 은 한 카드에 하나만 (게이트 A/B 선례와 동일 취지,
+      병행 렌더는 31-12 실 fixture 시각 게이트 후 재검토). reference 측은 무접촉.
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
@@ -1473,6 +1479,32 @@ def build_fault_zoom_comparisons(
                 u_crop = _mark(
                     u_img, deficit, circle=u_kind == "valid", anchor_px=u_anchor
                 )
+            # D-11 목표 각도 화살표 (Phase 31-03) — 학생측 crop 에만, ARROW_JOINT_MAP
+            # 에 선언된 멤버 관절만. 사이각을 그린 카드는 건너뛴다(시각 언어 충돌).
+            # 생략 규칙은 전부 _build_arrow_spec 안에 있고 _draw_target_arrow 가
+            # omit_reason 을 보면 즉시 False 라 여기서 조건 중복 판정하지 않는다.
+            if (
+                draw_arrows
+                and not u_drew_legs
+                and u_kind == "valid"
+                and u_box is not None
+            ):
+                u_h, u_w = u_frame.shape[0], u_frame.shape[1]
+                for member in unit.members:
+                    if member not in ARROW_JOINT_MAP:
+                        continue
+                    _draw_target_arrow(
+                        u_crop,
+                        _build_arrow_spec(
+                            member,
+                            user_report,
+                            u_kp_idx,
+                            ref_report,
+                            r_kp_idx,
+                            ref_match_failed,
+                            (u_box[0], u_box[1], u_box[2], u_w, u_h),
+                        ),
+                    )
             # ref 측은 _mark/사이각 모두 없음 — 선 없는 crop 그대로(게이트 B).
             png = _compose(u_crop, r_img)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
@@ -1481,6 +1513,15 @@ def build_fault_zoom_comparisons(
             "joint": unit.joint,
             "deficitDeg": deficit,
             "png": png,
+            # DTW 대응 프레임 쌍 (리뷰 B-01, Phase 31-03) — 2D 비교 뷰어(amended
+            # D-10)의 프레임 정합 소스. draw_arrows 와 무관하게 **항상** 방출한다:
+            # 뷰어는 화살표 유무와 별개로 "내 자세 어느 프레임 ↔ 목표 어느 프레임"을
+            # 알아야 중첩할 수 있다. 둘 다 keypointReport 인덱스 공간(u_kp_idx/
+            # r_kp_idx) — 프레임 배열(9fps) 인덱스가 아니다. refMatched=False 면
+            # refFrameIdx 는 전신 폴백의 중앙 프레임이라 정합 근거가 아니다.
+            "userFrameIdx": int(u_kp_idx),
+            "refFrameIdx": int(r_kp_idx),
+            "refMatched": not ref_match_failed,
         }
         kind = (joint_kinds or {}).get(unit.joint)
         if kind:

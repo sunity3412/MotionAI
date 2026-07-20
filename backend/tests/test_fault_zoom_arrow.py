@@ -665,3 +665,131 @@ def test_historical_joint_registry_covers_render_and_criterion_maps():
     assert set(fz.ARROW_JOINT_MAP) <= fz.HISTORICAL_JOINT_REGISTRY
     assert set(fz.CRITERION_JOINT_MAP.values()) <= fz.HISTORICAL_JOINT_REGISTRY
     assert isinstance(fz.HISTORICAL_JOINT_REGISTRY, frozenset)
+
+
+# ═══════════ 줌 렌더 배선 + 프레임 쌍 방출 (Task 3, 리뷰 B-01) ═══════════
+
+
+from dataclasses import dataclass as _dc  # noqa: E402
+
+
+@_dc
+class _Match:
+    start: int
+    path: list
+
+
+def _zoom_frames(n: int, size: int = _W) -> np.ndarray:
+    """정사각 합성 프레임 (crop 좌표계를 테스트 상수와 일치시킨다)."""
+    a = np.zeros((n, size, size, 3), dtype=np.uint8)
+    for i in range(n):
+        a[i, :, :, 1] = (i * 7 + 30) % 255
+    return a
+
+
+def _zoom_pair(ref_straight: bool = True):
+    u_rep, r_rep = _cp_reports(ref_straight=ref_straight)
+    return _zoom_frames(4), _zoom_frames(4), u_rep, r_rep
+
+
+def _build(draw_arrows: bool, **kw):
+    u_frames, r_frames, u_rep, r_rep = _zoom_pair()
+    params = dict(
+        worst_seconds=0.0,
+        fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 21.0},
+        frames_fps=9.0,
+        user_frame_idx=0,
+        ref_frame_idx=0,
+        draw_arrows=draw_arrows,
+    )
+    params.update(kw)
+    return fz.build_fault_zoom_comparisons(
+        u_frames, r_frames, u_rep, r_rep, **params
+    )
+
+
+def test_draw_arrows_defaults_false_and_is_byte_identical():
+    """무회귀 게이트 — 기본값 경로는 기존 렌더와 PNG 바이트 동일."""
+    assert (
+        inspect.signature(fz.build_fault_zoom_comparisons)
+        .parameters["draw_arrows"].default is False
+    )
+    legacy = _build(draw_arrows=False)
+    explicit_off = _build(draw_arrows=False)
+    assert len(legacy) == 1
+    assert legacy[0]["png"] == explicit_off[0]["png"]
+    with_arrows = _build(draw_arrows=True)
+    assert with_arrows[0]["png"] != legacy[0]["png"], (
+        "draw_arrows=True 인데 렌더가 그대로다"
+    )
+
+
+def test_arrows_touch_user_side_only():
+    """reference 측 crop 은 무접촉 (합성 PNG 오른쪽 절반 픽셀 동일)."""
+    off = _build(draw_arrows=False)[0]["png"]
+    on = _build(draw_arrows=True)[0]["png"]
+    import io
+
+    a = np.asarray(Image.open(io.BytesIO(off)).convert("RGB"))
+    b = np.asarray(Image.open(io.BytesIO(on)).convert("RGB"))
+    assert a.shape == b.shape
+    split = fz._OUT + 6  # _compose 의 user 폭 + gap
+    assert np.array_equal(a[:, split:], b[:, split:]), "reference 측이 변했다"
+    assert not np.array_equal(a[:, :fz._OUT], b[:, :fz._OUT]), "user 측이 안 변했다"
+
+
+def test_item_emits_dtw_frame_pair_scalars():
+    """리뷰 B-01 — 프레임 쌍 3키가 draw_arrows 무관하게 항상 방출된다."""
+    for flag in (False, True):
+        item = _build(draw_arrows=flag)[0]
+        assert item["userFrameIdx"] == 0
+        assert item["refFrameIdx"] == 0
+        assert item["refMatched"] is True
+        for key in ("userFrameIdx", "refFrameIdx"):
+            assert isinstance(item[key], int)
+        assert isinstance(item["refMatched"], bool)
+
+
+def test_emitted_ref_frame_idx_matches_matched_ref_frame():
+    """방출값이 _matched_ref_frame 산출과 일치 (T-31-11 오정합 차단)."""
+    u_frames, r_frames, u_rep, r_rep = _zoom_pair()
+    # user local 1 → ref 2 (median), report fps 9 == frames fps 9 → identity 변환.
+    match = _Match(start=0, path=[(0, 0), (1, 2), (2, 3), (3, 3)])
+    comps = fz.build_fault_zoom_comparisons(
+        u_frames, r_frames, u_rep, r_rep,
+        worst_seconds=None,          # None → 중앙 프레임 = index 2
+        fault_joints=["left_knee"],
+        joint_deltas=None,
+        frames_fps=9.0,
+        dtw_match=match,
+        draw_arrows=True,
+    )
+    assert len(comps) == 1
+    u_idx = comps[0]["userFrameIdx"]
+    expected_ref = fz._matched_ref_frame(match, u_idx, ref_n=4)
+    assert expected_ref is not None
+    assert comps[0]["refFrameIdx"] == expected_ref
+    assert comps[0]["refMatched"] is True
+
+
+def test_ref_match_failure_reports_false_and_draws_no_arrow():
+    """대응 실패 → refMatched False + 화살표 0 (ref 전신 폴백 유지)."""
+    u_frames, r_frames, u_rep, r_rep = _zoom_pair()
+    no_match = _Match(start=0, path=[(90, 1)])  # 어떤 user local 과도 대응 안 됨
+    common = dict(
+        worst_seconds=None,
+        fault_joints=["left_knee"],
+        joint_deltas=None,
+        frames_fps=9.0,
+        dtw_match=no_match,
+    )
+    off = fz.build_fault_zoom_comparisons(
+        u_frames, r_frames, u_rep, r_rep, draw_arrows=False, **common
+    )
+    on = fz.build_fault_zoom_comparisons(
+        u_frames, r_frames, u_rep, r_rep, draw_arrows=True, **common
+    )
+    assert len(on) == 1
+    assert on[0]["refMatched"] is False
+    assert on[0]["png"] == off[0]["png"], "ref 대응 실패인데 화살표를 그렸다"

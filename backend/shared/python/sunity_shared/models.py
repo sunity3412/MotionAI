@@ -455,6 +455,337 @@ def reference_motion_path(motion_id: str) -> str:
 # invalid path 라 collection() 호출 시 ValueError. → reference 단일 컬렉션 채택.
 REFERENCE_MOTIONS_COLLECTION = "reference"
 
+
+# ══════════════════════ Phase 31: 시각 교정물 (D-05~D-08) ══════════════════════
+#
+# 교정 실루엣(correctedPose, D-05 자동 생성) + 회전 참고 영상(rotation, D-06 온디맨드)
+# 이 **하나의 durable visual job 계약**을 공유한다 (리뷰 H-01). 두 개념을 반드시
+# 구분할 것:
+#
+#   - **표시 상태** (VISUAL_STATUSES, 3값): 앱이 보는 result.{kind}Status.
+#     부재 = legacy doc → 카드 숨김 (FAULT_ZOOM_STATUS_* 선례와 동형).
+#   - **job 상태** (VISUAL_JOB_STATES, 10값): 백엔드 전용 visualJobs/* 문서의
+#     진행 상태. 앱에 절대 노출하지 않는다.
+#
+# 3면 lockstep: 본 파일 + app/src/types/analysis.ts(AnalysisResult.correctedPose*/
+# rotation*) + docs/contract.md. 표시 필드만 lockstep 대상이고 job 상태는 백엔드 내부다.
+#
+# **URL 금지 (H-02 + H3-01):** Firestore 에는 canonical S3 key 만 저장한다. 만료되는
+# presigned URL 을 문서에 남기면 앱이 죽은 URL 을 캐시한다 — URL 은 인증 재서명
+# 경로(31-10)에서만 발급. job 문서에도 outputUrl/signedUrl 필드가 없다(taskId 만).
+
+# ── 표시 상태 (앱 계약, 3값) ────────────────────────────────────────────
+VISUAL_STATUS_PENDING = "pending"
+VISUAL_STATUS_DONE = "done"
+VISUAL_STATUS_FAILED = "failed"
+VISUAL_STATUSES = (VISUAL_STATUS_PENDING, VISUAL_STATUS_DONE, VISUAL_STATUS_FAILED)
+
+# ── job 종류 ────────────────────────────────────────────────────────────
+VISUAL_KIND_CORRECTED_POSE = "correctedPose"  # D-05 정지 이미지 1장 (임시 생체 프레임 사용)
+VISUAL_KIND_ROTATION = "rotation"  # D-06 Wan2.7 회전 합성 영상 (임시 입력 없음)
+VISUAL_JOB_KINDS = (VISUAL_KIND_CORRECTED_POSE, VISUAL_KIND_ROTATION)
+
+# ── job 상태 (백엔드 전용, 10값) ─────────────────────────────────────────
+#
+# 원칙: **외부 side-effect 하나당 상태 하나** (B2-02). crash 가 어디서 나든 어떤 외부
+# 호출이 이미 나갔는지 상태만 보고 판정할 수 있어야 한다.
+#
+#   reserved        예약 완료, vendor create 대기 (nextAction='create')
+#   creating        vendor create 진행 — leaseOwner/leaseExpiresAt/requestKey 필수.
+#                   lease 만료 + taskId 부재 = 'create_unconfirmed' 수동 판정이며
+#                   **자동 재생성 금지** (2차 B2-02 — 과금 이중 소비 차단)
+#   polling         taskId 확보 후 벤더 폴링
+#   retry_ready     모더레이션 차단 후 재시도 대기. taskId=None 강제 +
+#                   nextAction='create' outbox 동반 (B4-03)
+#   fetching        taskId 재-poll 후 다운로드 → canonical S3 전송 (outputUrl 미저장)
+#   judging         Gemini before/after 판정 (correctedPose)
+#   pose_checking   결정론 pose 게이트 (correctedPose)
+#   postprocessing  correctedPose 전용 pre-terminal. **성공/실패 어느 terminal intent 든
+#                   여기를 거친다** (H4-01 + H5-05) — 임시 생체 프레임 cleanup(+동의 시
+#                   pair store)을 durable 수행한 뒤에야 finalize. cleanup 미완이면
+#                   privacyBlocker='cleanup_blocked' 로 postprocessing 유지(비-terminal,
+#                   6차 B6-04). rotation 은 임시 입력·pair 가 없어 fetching 에서 직접 finalize.
+#   done / failed   terminal — finalize_visual_job() 으로만 진입
+#
+# **신규 state 추가 금지** (5차/6차 상태 폭발 방지): claim 상태·pending-terminal·
+# privacy blocker 는 전부 별도 **필드**로 표현한다.
+#
+# **'dispatch_failed' state 는 존재하지 않는다** (B3-01): dispatch 실패 = "dispatchState
+# 가 'pending' 인 채로 남아 있는 상태" 이고, 복구 주체는 dispatcher 다. 실패를 상태로
+# 승격하면 복구 경로가 둘로 갈라진다.
+VISUAL_JOB_STATES = (
+    "reserved",
+    "creating",
+    "polling",
+    "retry_ready",
+    "fetching",
+    "judging",
+    "pose_checking",
+    "postprocessing",
+    "done",
+    "failed",
+)
+
+# nonterminal job 상태 (dispatcher/janitor 판정에 재사용).
+VISUAL_TERMINAL_STATES = ("done", "failed")
+VISUAL_NONTERMINAL_STATES = tuple(
+    s for s in VISUAL_JOB_STATES if s not in VISUAL_TERMINAL_STATES
+)
+
+# ── outbox action (nextAction 필드 값) ──────────────────────────────────
+# state 전이와 **같은 transaction** 에서만 기록된다 (B3-01).
+VISUAL_NEXT_ACTIONS = (
+    "create",
+    "poll",
+    "fetch",
+    "judge",
+    "pose_check",
+    "postprocess",
+)
+
+# ── typed 실패 사유 (terminal 전용, 10종) ────────────────────────────────
+#
+# 전부 terminal 이다. 'cleanup_blocked' 는 여기 **없다** — 6차 B6-04 로 비-terminal
+# privacyBlocker 로 옮겨졌다. cleanup 미완을 terminal 실패로 적으면 PII 가 남은 채
+# job 이 종결돼 복구 주체가 사라진다.
+VISUAL_FAILURE_REASONS = (
+    "moderation",  # 벤더 모더레이션 차단 (D-08 조용한 폴백 — 사용자에게 에러 미노출)
+    "timeout",
+    "vendor_error",
+    "invalid_output",
+    "judge_failed",
+    "judge_input_too_large",
+    "pose_gate_failed",
+    "pose_gate_unavailable",
+    "create_unconfirmed",  # creating lease 만료 + taskId 부재 → 수동 판정 (B2-02)
+    "orphaned_analysis",  # finalize 시점에 analysis 문서 부재
+)
+
+# ── privacy blocker (비-terminal, 6차 B6-04) ────────────────────────────
+#
+# cleanup 이 max retry 후에도 미완이면 job 은 postprocessing 을 유지하고 terminal
+# finalize 가 **금지**된다. 운영 복구 대상이며, 해결 후 같은 postprocess action 이
+# remainingObject==0 을 재확인(+cleanupVerifiedAtMs 기록)한 뒤에만 원래
+# pendingTerminalState 로 종결한다.
+VISUAL_PRIVACY_BLOCKER_CLEANUP = "cleanup_blocked"
+VISUAL_PRIVACY_BLOCKERS = (VISUAL_PRIVACY_BLOCKER_CLEANUP,)
+
+# ── lease / TTL / skew 상수 (10차 H10-03 — 전부 concrete 숫자) ────────────
+#
+# 모든 만료 비교는 **caller 가 넘긴 trusted UTC epoch ms 하나**로만 한다. Firestore
+# server timestamp 는 문서 저장용이지 lease 계산용이 아니다(두 시계를 섞으면 만료
+# 판정이 비결정적이 된다).
+
+# worker action claim lease. 부등식 계약 (6차 H6-07):
+#   WorkerTimeout(300s)*1000 < VISUAL_CLAIM_LEASE_MS < VisibilityTimeout(1800s)*1000
+# 아래여야 하는 이유: lease 가 visibility 보다 길면 SQS 재전달이 와도 계속 busy 라
+# crash 복구가 영원히 막힌다. 위여야 하는 이유: lease 가 worker 최대 실행시간보다
+# 짧으면 정상 작업 중에 남이 재claim 해 이중 외부 호출이 난다.
+# 31-10 template build gate 가 이 부등식을 SAM 파라미터와 대조한다.
+VISUAL_CLAIM_LEASE_MS = 360_000  # 300s Lambda timeout + 60s margin
+
+# per-invocation upload reservation TTL. PipelineFunction Timeout(900s) + 보상 재시도
+# 구간(600s) + margin(300s). janitor 는 이 TTL 이 지난 'open' reservation 만 회수한다.
+# 31-10 build gate: PipelineTimeout*1000 + 최대보상구간 + margin <= 이 값.
+VISUAL_INPUT_RESERVATION_TTL_MS = 1_800_000  # 30분
+
+# janitor 가 reservation/orphan 을 claim 하고 유지하는 lease. janitor 함수
+# Timeout(120s) 보다 길어야 claim 직후 crash 가 lease 만료 뒤 재실행된다.
+VISUAL_JANITOR_CLAIM_LEASE_MS = 240_000  # 4분
+
+# key-level delete lease. 부등식 계약 (11차 B11-01):
+#   VisualDispatchFunction Timeout(120s)*1000 + margin < VISUAL_OBJECT_DELETE_LEASE_MS
+# 이전 claimant 가 lease 만료 뒤까지 살아서 늦은 delete 를 던지지 못하게 한다.
+# lease 길이는 보조 방어일 뿐이고, 실제 차단은 commit_key_delete 의 generation
+# fencing token 재검증이다.
+VISUAL_OBJECT_DELETE_LEASE_MS = 180_000  # 3분
+
+# 분산 시계 오차 허용치. lease 만료 판정에서 경계값을 다룰 때만 사용한다.
+VISUAL_CLOCK_SKEW_MS = 5_000
+
+# closed reservation/orphan 문서 보존 기간. expireAt 은 **timestamp 타입**이어야
+# Firestore TTL policy 대상이 된다 (10차 H10-02 — millisecond number 는 TTL 미적용).
+VISUAL_CLOSED_DOC_RETENTION_MS = 604_800_000  # 7일
+
+# ── job 문서 필드 계약 ───────────────────────────────────────────────────
+#
+# visualJobs/{jobId} 는 **백엔드 전용 컬렉션**이다 (firestore.rules 에서 앱 접근 차단 —
+# T-31-08). 아래 필드는 전부 flat scalar 다 ([[firestore-nested-array-flat]]).
+#
+# 신원/불변:
+#   uid, analysisId, kind, requestedAtMs, quotaDateKey, payload(flat scalar dict)
+#
+# 진행:
+#   state           VISUAL_JOB_STATES 중 하나
+#   generation      재시도 세대. retry_ready→creating 승격 시 +1 (구세대 메시지 차단)
+#   taskId          벤더 task id (polling/fetching 에서만 유효; retry_ready 는 None 강제)
+#   requestKey      f"{jobId}:gen{generation}" — vendor create 멱등키. 'creating' 전이가
+#                   **그 transaction 안에서** 새 generation 으로 생성한다 (5차 H5-03).
+#                   suffix == persisted generation 을 validator 가 강제
+#   leaseOwner / leaseExpiresAt   vendor create durable lease ('creating' 전용)
+#   attempt, retryCount, failureReason
+#
+# outbox (B3-01 + B4-01):
+#   nextAction        VISUAL_NEXT_ACTIONS 또는 None(terminal / creating)
+#   dispatchState     'pending' | 'sent' | None
+#   nextDispatchAtMs  backoff 시각
+#   outboxSeq         **transition 마다 단조 증가**. generation 과 독립인 action
+#                     instance 식별자다. 이전 action 의 늦은 ACK 는 seq 불일치로
+#                     no-op 이라 다음 continuation 을 덮지 못한다
+#
+# claim — 4상태 판정 (5차 B5-01 + 6차 B6-01):
+#   claimedOutboxSeq       claim 된 outboxSeq (audit 로 유지)
+#   claimState             'claimed' | None
+#   claimOwner             claim 한 worker 식별자
+#   claimLeaseExpiresAt    claim lease 만료 시각
+#   → **claimedOutboxSeq 단독 판정 금지.** same-seq + 유효 lease = busy(정상 ACK 금지),
+#     same-seq + 만료 lease = 재claim 가능(claimed). 세 필드를 함께 봐야 구분된다.
+#   → 전이가 **새 outboxSeq 를 만들 때** claimState/claimOwner/claimLeaseExpiresAt 를
+#     같은 transaction 에서 원자 clear 한다. claimedOutboxSeq 는 audit 로 남기되 새
+#     outboxSeq 와 반드시 다르다(=이전 seq). 그래야 다음 action 의 첫 claim 이 새
+#     owner 를 온전히 획득한다.
+#
+# pending-terminal (5차 H5-05):
+#   pendingTerminalState   'done' | 'failed' | None — postprocessing 진입 시 고정되는
+#                          종결 의도. cleanup 을 마친 뒤 이 값으로 finalize 한다
+#   pendingFailureReason   위가 'failed' 일 때의 typed 사유
+#
+# pair (5차 B5-03 — postprocessing 진입 시 1회 고정):
+#   pairId, pairHmacKeyVersion, pairStoreStatus
+#   → pair 는 **부산물**이라 사용자 표시/cleanup/finalize 의 critical path 를 막지
+#     않는다 (9차 B9-04, 31-CONTEXT D-01 각주). 네트워크 일시장애 시
+#     pairStoreStatus='failed' 로 진행하고 해당 pair 유실을 수용한다
+#
+# durable retry 카운터 (5차 H5-02):
+#   pairAttempt, cleanupAttempt
+#
+# privacy (6차 B6-03/B6-04 + 8차 B8-02/B8-03):
+#   inputSealed        bool — pose_checking→postprocessing 진입 시 True 기록.
+#                      producer(31-10) hard gate
+#   privacyBlocker     VISUAL_PRIVACY_BLOCKERS 값 또는 None (비-terminal marker).
+#                      finalizer 가 cleanup_verified_at_ms>0 호출 시 원자 clear
+#   cleanupVerifiedAtMs  cleanup remainingObject==0 을 확인한 시각.
+#                      **correctedPose terminal(done|failed) 공통** finalize validator
+#                      요구다 — 'done 전용' 이 아니다 (8차 B8-02 / M8-03)
+
+
+def visual_job_id(uid: str, analysis_id: str, kind: str) -> str:
+    """visual job 멱등키. 같은 (uid, analysis, kind) 재요청은 같은 문서로 수렴한다."""
+    return f"{uid}_{analysis_id}_{kind}"
+
+
+def visual_job_doc_path(job_id: str) -> str:
+    """Firestore: visualJobs/{jobId} — 백엔드 전용 (앱 읽기 금지, T-31-08)."""
+    return f"visualJobs/{job_id}"
+
+
+def visual_quota_doc_path(uid: str, date_key: str) -> str:
+    """Firestore: visualQuota/{uid}_{dateKey} — 일일 생성 한도 카운터 (D-07).
+
+    reserve transaction 안에서 job 예약과 **원자로** 증가한다 — 카운터만 오르고 job 이
+    안 생기는 고아 quota, 또는 그 반대가 불가능해야 한다 (T-31-05).
+    """
+    return f"visualQuota/{uid}_{date_key}"
+
+
+def visual_dispatch_cursor_doc_path() -> str:
+    """dispatchState=='pending' 스캔의 durable cursor (5차 H5-06).
+
+    pending/sent 스캔이 cursor 를 공유하면 한쪽이 다른 쪽을 굶긴다 — 반드시 독립.
+    """
+    return "visualDispatch/scanCursor"
+
+
+def visual_dispatch_sent_cursor_doc_path() -> str:
+    """dispatchState=='sent' sent-recovery 스캔의 독립 durable cursor (6차 H6-01)."""
+    return "visualDispatch/sentCursor"
+
+
+# ── per-invocation upload reservation (8차 B8-05/B8-06 + 9차 B9-01) ──────
+#
+# 임시 생체 프레임 privacy SLA = "즉시 삭제(하드 크래시에도 보장)" 는 belle 확정 축이다
+# (31-CONTEXT SETTLED AXES). 24h lifecycle 만으로 대체하지 않는다. 그래서 producer 는
+# PUT 전에 per-invocation **immutable** reservation 을 만들고(create-only), janitor 는
+# 그 reservation 을 claim 한 뒤에만 삭제한다.
+#
+#   open              생성 직후. TTL 내에는 job 이 가져갈 수 있다
+#   claimed_by_job    reserve transaction 이 가져감 → janitor 삭제 금지 (유효 입력 보존)
+#   claimed_by_janitor  janitor 가 회수 중 (claim lease 보유)
+#   closed            종결. expireAt(timestamp) 로 Firestore TTL 정리 대상
+VISUAL_RESERVATION_STATES = (
+    "open",
+    "claimed_by_job",
+    "claimed_by_janitor",
+    "closed",
+)
+
+# reserve_visual_job 이 돌려주는 실패 사유 (created=False 일 때).
+VISUAL_RESERVE_REASONS = (
+    "analysis_missing",
+    "daily_limit",
+    "reservation_lost",  # reservation 이 janitor 에게 넘어갔거나 만료 — 새 preflight 필요
+)
+
+
+def visual_input_reservation_doc_path(job_id: str, reservation_id: str) -> str:
+    """Firestore: visualInputReservations/{jobId}_{reservationId} (per-invocation immutable)."""
+    return f"visualInputReservations/{job_id}_{reservation_id}"
+
+
+def visual_reservation_cursor_doc_path() -> str:
+    """reservation janitor 스캔의 durable cursor (8차 H8-01)."""
+    return "visualDispatch/reservationCursor"
+
+
+# ── durable orphan registry (H8-01/H8-03 + 9차 H9-07) ────────────────────
+#
+# 보상 delete 가 실패하면 반드시 여기 남긴다 — "실패했지만 아무도 모르는 PII" 를
+# 만들지 않기 위해서다.
+VISUAL_ORPHAN_STATES = ("open", "claimed", "closed")
+
+
+def visual_orphan_doc_path(orphan_id: str) -> str:
+    """Firestore: visualOrphans/{hash(bucket,key)}."""
+    return f"visualOrphans/{orphan_id}"
+
+
+def visual_orphan_cursor_doc_path() -> str:
+    """orphan janitor 스캔의 durable cursor (8차 H8-01)."""
+    return "visualDispatch/orphanCursor"
+
+
+# ── key-level ownership = active|deleting delete fence (10차 B10-01~03 + 11차 B11-01/B11-04) ──
+#
+# 같은 S3 key 를 여러 reservation/job 이 참조할 수 있다. "참조 수를 세고 0이면 지운다"
+# 만으로는 **세고 나서 지우기 직전에 producer 가 새로 acquire 하는** 창이 남는다
+# (T-31-90). 그래서 key 마다 문서를 두고 active|deleting 2상태 fence 를 건다:
+#
+#   - producer 의 acquire 는 state=='deleting' 이면 **lease 만료 여부와 무관하게 항상
+#     False** 다 (11차 B11-01). 만료된 deleting 을 producer 가 active 로 회수하면
+#     이전 janitor 의 늦은 delete 가 새 입력을 지운다. 회수는 janitor 전용이다.
+#   - 외부 DeleteObject 직전에 commit_key_delete 가 owner+generation+미만료 lease 를
+#     재검증한다. generation 이 fencing token 이라 늦은 claimant 는 차단된다.
+VISUAL_OBJECT_STATES = ("active", "deleting")
+
+# refs map 의 ref 종류. **job ref 는 expireAt 을 두지 않는다 — 항상 live** 다
+# (11차 B11-04): worker/reconciler 의 explicit release 전까지 만료로 사라지면
+# 살아있는 nonterminal job 의 입력을 janitor 가 지운다 (T-31-94). reservation ref 만
+# expireAt 만료 판정 대상이다.
+VISUAL_OBJECT_REF_KINDS = ("reservation", "job")
+
+
+def visual_input_object_doc_path(bucket: str, key: str) -> str:
+    """Firestore: visualInputObjects/{hash(bucket,key)}.
+
+    S3 key 는 '/' 를 포함해 Firestore 문서 id 로 쓸 수 없다. bucket+key 를 결정론
+    해시로 접는다 — 같은 객체는 언제나 같은 문서로 수렴해야 ownership fence 가 성립한다
+    (해시는 보안 목적이 아니라 id 정규화 목적).
+    """
+    import hashlib
+
+    digest = hashlib.sha256(f"{bucket}\n{key}".encode()).hexdigest()
+    return f"visualInputObjects/{digest[:40]}"
+
 # ── PoseFrame / PoleAxis re-export (lockstep with app/src/types/analysis.ts) ──
 # Phase 1 D-04/D-05/D-11/D-12 계약 타입.
 # 변경 시 analysis/pose_frame.py + app/src/types/analysis.ts + docs/contract.md §6 동시 갱신.

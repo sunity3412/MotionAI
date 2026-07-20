@@ -89,3 +89,29 @@
 - **닫힌 경로:** belle 이 제시했던 *"카메라 앵글이 되면 확대비교 문제가 소멸"* 은 **당분간 열리지 않는다.** 32 는 **생성 없이** ①②③을 달성해야 한다
 - **이월:** 확대비교 프레이밍 결함([[faultzoom-reference-crop-2x-wider-diagnosed]])은 32 이후 별건
 - **되살릴 조건:** 자체 학습 모델이 "국소 편집 준수" 를 확보하면 엔진 교체로 복귀. 그때 픽셀 공간 합성(BrushNet 방식)이 구조적 보장 수단 (32-SEED §2-6)
+
+---
+
+## 8. 실행 결과 (2026-07-20 저녁)
+
+**OTA 발행 완료** — update group `65a907a3-56bc-438c-a801-f113afe9428e`, runtime 1.0.0, iOS+Android. 정상 경로 빌드(worktree 1개, 실제 node_modules, typecheck 통과).
+
+**Pod:** `xps7co0m2njzpi` (4090). bootstrap + 서빙 패키지 + 서버 기동 완료, `/health` 200, `/analyze`·`/pose-image` 등재. Lambda/SSM(v15) 동기화 완료.
+
+**검증 분석 (mode1 + ref-power-spin, `verify311784550483`):**
+
+| 항목 | 결과 |
+|---|---|
+| status | `done` — **phase 31 코드가 mode1 에서 안 깨진다** |
+| 점수 | overall 80 (`line 0 / angle 100 / stability 88`) |
+| 거부권 | **`applied`** |
+| faultZoom | 4장, `faultZoomStatus: done` |
+| **신규 필드** | `userFrameIdx: 18` / `refFrameIdx: 14` / `refMatched: true` / `refMatch: dtw` **정상 방출** → 2D 비교 뷰어의 프레임 정합 소스 확보 |
+| 확대비교 프레이밍 | **개선됨** — 양쪽 패널 배율이 비슷해짐(오전 belle 지적 대비) |
+| **화살표** | ❌ **4장 중 0장** — 구조적 불일치, 상세 = `32-SEED.md` §0-A ⑩-가 |
+
+**belle 이 겪은 `server_error` 는 코드 문제가 아니었다** — 새 Pod 에 서버가 안 떠 있었고(내가 `/health` 확인을 건너뜀) 죽은 주소로 요청이 갔다. 서버 기동 후 같은 경로가 정상 완료됐다.
+
+**화살표는 롤백하지 않는다** [belle 결정] — 안 뜰 뿐 틀린 것을 그리지는 않으므로 사용자 피해 0. 32 에서 **수리가 아니라 대체** 대상으로 다룬다(외부 과제 큐).
+
+**잔여 확인 (belle):** 앱 완전 종료 **2회** 후 Mode 1 분석 1건 → 참고하세요 섹션 + 2D 자세 비교 뷰어 실물 확인. → HUMAN-UAT 적립 대상.

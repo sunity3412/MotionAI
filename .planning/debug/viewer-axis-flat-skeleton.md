@@ -52,7 +52,7 @@ z가 전 관절 0 → 세로 좌표 상수 → 한 줄. 주석이 경고한 바�
 
 ## Live 환경
 
-- OTA 3회 발행: `65a907a3` → `c7acf831` (수정 1차) → `e5a4f177` (이 세션 수정, 커밋 `89402fc`). Pod `xps7co0m2njzpi` (4090) 가동 중, `/health` 200, repo `4f13092`.
+- OTA 4회 발행: `65a907a3` → `c7acf831` (수정 1차) → `e5a4f177` (축 수정, `89402fc`) → `138ec235` (프레임 시점+로딩 100%, `b0f1d52`). Pod `xps7co0m2njzpi` (4090) 가동 중, `/health` 200, repo `4f13092`.
 - 백엔드 회귀 baseline: 57 failed / 3366 passed / 수집오류 2 (`--continue-on-collection-errors` 필수). 이 baseline 악화 금지.
 
 ## Current Focus
@@ -63,7 +63,7 @@ test: "완료 — 하네스 v2 전부 PASS (y-era 1/1 · 혼합 1/2 · z-era 2/2
 
 expecting: "달성 — 세 쌍 모두 yExtent>10, 17관절 유한, 어깨<고관절, 축 선택 기대값 일치."
 
-next_action: "CHECKPOINT(human-verify) — belle 실기기 확인 대기. 시뮬레이터 검증·커밋(89402fc)·OTA(e5a4f177) 완료. belle: 앱 완전 종료 후 재실행 **2회**로 새 번들 적용 → 자세 비교 카드가 power-spin(y-era)·climb 또는 invert(z-era) 각 1건에서 사람 형태인지 확인. 확인되면 /gsd-debug continue viewer-axis-flat-skeleton 으로 archive_session(resolved 이동+knowledge base). 그다음 /gsd-code-review 31 (인계: force_signals tilt≡0 후보 + 축 의미 백엔드 고정 사안)"
+next_action: "CHECKPOINT(human-verify) — belle 실기기 확인 대기 (OTA 138ec235, 재실행 2회). 확인 항목: ①기존 파워스핀 55점(mode1) 분석의 자세 비교 카드가 영상 속 시점과 일치하는 전신 자세인지 ②climb 또는 invert 기준 mode1 1건도 정상인지 ③다음 분석에서 로딩이 100% 표시 후 넘어가는지. 확인되면 /gsd-debug continue viewer-axis-flat-skeleton 으로 archive_session. 그다음 /gsd-code-review 31 (인계: force_signals tilt≡0 후보 + 축 의미 백엔드 고정 사안 + 뷰박스 클리핑)"
 
 reasoning_checkpoint:
   hypothesis: "PoseCompareViewer AXIS_V=2가 실환경에서 상수 0인 z축을 화면 세로로 투영해 전 관절이 같은 세로 좌표를 얻는다 — 스켈레톤이 가로 일직선으로 붕괴한다. 실환경 세로 분산은 axis1(y, 이미지 세로)이다."
@@ -94,6 +94,10 @@ tdd_checkpoint: null
 - timestamp: 2026-07-20 — checked: force_signals.py:924-959 (형제 후보, 수정 아님). found: `_shoulder_tilt_pole_aligned`/`_hip_tilt_pole_aligned` = arcsin(|dz|/norm), has_pole_aligned 게이트는 dict 존재만 확인(z=0이어도 truthy). implication: 프로덕션 z≡0이면 tilt 항상 0° — "코드의 데이터 가정 vs 실제 보유 불일치" 동일 계열 후보. **이 세션 스코프 밖** → /gsd-code-review 31 인계 대상.
 - timestamp: 2026-07-20 — checked: 시뮬레이터 실기 검증(Expo Go 54, iPhone 16 Pro). belle 재현 문서(2f68dcb3)를 시뮬레이터 uid(OXBmHmjTazccoYQzEVQxC3mUnWT2)로 admin 복사 후 결과 화면 딥링크 진입. found: 앱 기동·결과 화면 전체 렌더 정상(55점 실측 일치), 자세 비교 카드에서 사용자(빨강)·기준(회색) 스켈레톤 모두 사람 형태 — 가로 막대 붕괴 재현 없음. 형상이 실측 spread와 정합(사용자 x66/y79≈정방형, 기준 x99/y176≈세로형). implication: 수정이 실데이터 앱 경로 전체(Firestore 구독→reshape→뷰어)에서 유효. 부수 관찰: 참고 지표 카드 텍스트 겹침은 Expo Go 폰트 폴백 아티팩트로 판단(TestFlight 빌드는 폰트 내장) — 이번 변경과 무관.
 - timestamp: 2026-07-20 — 커밋 `89402fc` (PoseCompareViewer.tsx + 이 세션 파일) push 완료 → OTA 발행: branch production, update group `e5a4f177-0d2d-42e2-8846-70ec5d84a830`, runtime 1.0.0, iOS update `019f7fe0-0883-731c-a9e6-f3019f79197b`. 롤백 시: `npx eas update:republish --group <직전 정상 group>` (직전 = c7acf831 발행분, `npx eas update:list --branch production` 으로 확인).
+- timestamp: 2026-07-20 (belle 실기기 138ec235 이전) — **형제 버그 #2 belle 실기기 발견**: 축 수정(e5a4f177) 적용 후에도 빨간 스켈레톤이 뭉개진 삼각형. 실측 원인: 사용자 문서는 keypointReport 18fps(frames=166) / joints3d·angles 9fps(83) **이중 공간**인데 result.tsx 가 faultZoom userFrameIdx(kr 공간)를 anglesFrames 로 환산(항등) → joints3d[34](2배 뒤 시점, spread 66×79 뭉개진 자세)를 그림. 올바른 환산 34×83/166=[17] 은 spread 140×174 전신 자세(ASCII 실측). reference 11건은 kr==joints3d==angles 단일 공간 전수 실측 — ref 항등 매핑 무결. ★내 시뮬레이터 검증 기준이 "한 줄 아님"에 그쳐 이걸 통과시켰음 — 검증도 §4 패턴(실데이터 의미 대조 누락)에 당함.
+- timestamp: 2026-07-20 — fix #2 적용: result.tsx userSrcFrames = keypointReport.frames 우선(부재/0 → anglesFrames → 항등 폴백, 구 doc 불변). useMemo deps 에 keypointReport 추가. 시뮬레이터 재검증(강화 기준: 영상 시점 일치): 빨간 스켈레톤 전신 복원, ASCII[17] 형상과 일치. 커밋 `26fc9f9`.
+- timestamp: 2026-07-20 — 동반 수정: 로딩 진행률 55% 점프(belle 동일 세션 보고). 원인: 진행률이 실측 229.6s 기준 시뮬레이션인데 파이프라인 고속화로 done 이 링 ~55% 시점 도착 → done 즉시 체크 화면 전환이라 100% 미표시. 분석 자체는 서버 완결 확인(c027e7bc done 55점 전 필드 정상 — 덜 끝난 것 아님). fix: done 후 700ms 링 100% 유지 → 체크 화면 → 전환(총 1.6s). 시뮬레이터 실캡처(100% 링 확인). 커밋 `b0f1d52`.
+- timestamp: 2026-07-20 — OTA 재발행: update group `138ec235-814a-4c3d-a275-45bf877afcea` (커밋 b0f1d52). 직전 정상 group = e5a4f177 (축 수정만 포함).
 - timestamp: 2026-07-20 — checked: 실데이터 하네스 1차 (verify-viewer-axis.mjs, 읽기 전용). found: ①인계 실측 정확 재현 (user f34 66.03/79.01/0.00, ref f90 99.13/175.85/0.00) ②프레임 선택 앱 동일 (userFrameIdx 34/refFrameIdx 90, 항등 매핑) ③AXIS_V=2 → 양측 yExtent 0.00 (버그 재현) ④AXIS_V=1 → user yExtent 35.14 / ref 112.01, 17관절 유한, 어깨(47.9)<고관절(50.0). implication: 실패 케이스에 한해 수정 유효 확인.
 - timestamp: 2026-07-20 — checked: Firestore 코퍼스 z-스캔 + 축 의미 판별 (scan-axis-semantics.mjs). found: **reference 11건 = y-era 6건(z≡0: combo/elbow-twist-sister/kip-up/pdshape/peter-pan/power-spin) + z-era 5건(y≡0, z spread 149~198: climb/foxtop/foxtop-split/invert/sideway-spin)**. 분석 표본 14건 = y-era 11 + z-era 3 (pdshapeokr*, e2e 916203bb). true-3D(양축 동시 분산) 0건. implication: 저장 axis 의미가 처리 시점 환경(scipy 유무 = 정렬 실행 여부)에 따라 문서별로 다르다. 상수 축은 어느 값도 전 코퍼스에 옳을 수 없음 → **뷰어측 올바른 최소 수정 = 포즈별 런타임 세로축 선택** (두 후보 중 정확히 한 축이 상수 0이므로 판별 무모호). phase 20 `c49a075`가 같은 증상을 같은 방식(remapFrameForFrontView)으로 고친 선례.
 - timestamp: 2026-07-20 — observed (스코프 밖 메모): AXIS_V=1 시 ref power-spin f90 yExtent=112 > VIEW 100 — 완전 신전 자세는 몸통 26유닛 기준 ~4.3배라 뷰박스를 살짝 넘어 상하단 클리핑 가능. 31-08 사이징 설계 파라미터(TORSO_UNITS) 사안이며 이번 버그와 별개 — 보고만.

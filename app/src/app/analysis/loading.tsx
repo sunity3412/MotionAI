@@ -383,7 +383,7 @@ export default function AnalysisLoading() {
   const failed = status === 'failed' || errorCode != null;
   const done = status === 'done';
 
-  // done 도달 시 결과 화면 자동 이동 — 완료 메시지 약간 보여주고 전환.
+  // done 도달 시 결과 화면 자동 이동 — 링 100%(700ms) → 완료 메시지 → 전환.
   useEffect(() => {
     if (!done) return;
     const t = setTimeout(() => {
@@ -397,7 +397,7 @@ export default function AnalysisLoading() {
           referenceMotionName,
         },
       });
-    }, 900);
+    }, 1600);
     return () => clearTimeout(t);
   }, [done, mode, name, analysisId, referenceMotionId, referenceMotionName, router]);
 
@@ -442,6 +442,20 @@ export default function AnalysisLoading() {
     }, PROGRESS_CREEP_MS);
     return () => clearInterval(t);
   }, [status, done, failed]);
+
+  // [fix 2026-07-20] 완료 시 100% 를 실제로 보여준다 — 종전엔 done 즉시 체크 화면으로
+  // 갈아타 링이 중간값(실기기 55%)에서 사라져 "덜 끝났는데 넘어갔다"로 읽혔다.
+  // done 후 700ms 동안 링(100%) 유지 → 체크 화면 → 결과 전환. 분석 완료의 근거는
+  // 서버 status=done 이므로 이 유지 시간은 표시 전용이다.
+  const [doneHeld, setDoneHeld] = useState(false);
+  useEffect(() => {
+    if (!done) {
+      setDoneHeld(false);
+      return;
+    }
+    const t = setTimeout(() => setDoneHeld(true), 700);
+    return () => clearTimeout(t);
+  }, [done]);
 
   if (failed) {
     const code: AnalysisErrorCode = errorCode ?? 'server_error';
@@ -542,7 +556,7 @@ export default function AnalysisLoading() {
     );
   }
 
-  if (done) {
+  if (done && doneHeld) {
     return (
       <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
         <StatusBar style="light" />

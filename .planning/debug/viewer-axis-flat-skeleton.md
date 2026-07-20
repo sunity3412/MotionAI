@@ -52,7 +52,7 @@ z가 전 관절 0 → 세로 좌표 상수 → 한 줄. 주석이 경고한 바�
 
 ## Live 환경
 
-- OTA 2회 발행: `65a907a3` → `c7acf831` (수정 1차). Pod `xps7co0m2njzpi` (4090) 가동 중, `/health` 200, repo `4f13092`.
+- OTA 3회 발행: `65a907a3` → `c7acf831` (수정 1차) → `e5a4f177` (이 세션 수정, 커밋 `89402fc`). Pod `xps7co0m2njzpi` (4090) 가동 중, `/health` 200, repo `4f13092`.
 - 백엔드 회귀 baseline: 57 failed / 3366 passed / 수집오류 2 (`--continue-on-collection-errors` 필수). 이 baseline 악화 금지.
 
 ## Current Focus
@@ -63,7 +63,7 @@ test: "완료 — 하네스 v2 전부 PASS (y-era 1/1 · 혼합 1/2 · z-era 2/2
 
 expecting: "달성 — 세 쌍 모두 yExtent>10, 17관절 유한, 어깨<고관절, 축 선택 기대값 일치."
 
-next_action: "CHECKPOINT(human-verify) — belle 실기기 확인 대기. 확인되면 archive_session(커밋+resolved 이동+knowledge base). 다음 세션: OTA 발행 전 시뮬레이터 기동([[verify-ui-on-simulator-before-ota]]) → /gsd-code-review 31 (인계: force_signals tilt≡0 후보 + 축 의미 백엔드 고정 사안)"
+next_action: "CHECKPOINT(human-verify) — belle 실기기 확인 대기. 시뮬레이터 검증·커밋(89402fc)·OTA(e5a4f177) 완료. belle: 앱 완전 종료 후 재실행 **2회**로 새 번들 적용 → 자세 비교 카드가 power-spin(y-era)·climb 또는 invert(z-era) 각 1건에서 사람 형태인지 확인. 확인되면 /gsd-debug continue viewer-axis-flat-skeleton 으로 archive_session(resolved 이동+knowledge base). 그다음 /gsd-code-review 31 (인계: force_signals tilt≡0 후보 + 축 의미 백엔드 고정 사안)"
 
 reasoning_checkpoint:
   hypothesis: "PoseCompareViewer AXIS_V=2가 실환경에서 상수 0인 z축을 화면 세로로 투영해 전 관절이 같은 세로 좌표를 얻는다 — 스켈레톤이 가로 일직선으로 붕괴한다. 실환경 세로 분산은 axis1(y, 이미지 세로)이다."
@@ -92,6 +92,8 @@ tdd_checkpoint: null
 - timestamp: 2026-07-20 — checked: normalizePose vSign (PoseCompareViewer.tsx:105). found: `shoulderMid.y >= hipMid.y ? -1 : 1` — 런타임 데이터 결정. implication: 축 교체 후에도 자동 적응. 이미지 y(아래 증가)에서 정립 자세 어깨 y < 고관절 y → vSign=1 → 화면 위 (확인 4).
 - timestamp: 2026-07-20 — checked: PoseCompareViewer 소비처. found: ReferenceCornerSection.tsx:142 단일. PoseViewer3D는 라우팅 없는 smoke 화면 전용. implication: 수정 blast radius = 파일 1개 상수 1개 + 주석.
 - timestamp: 2026-07-20 — checked: force_signals.py:924-959 (형제 후보, 수정 아님). found: `_shoulder_tilt_pole_aligned`/`_hip_tilt_pole_aligned` = arcsin(|dz|/norm), has_pole_aligned 게이트는 dict 존재만 확인(z=0이어도 truthy). implication: 프로덕션 z≡0이면 tilt 항상 0° — "코드의 데이터 가정 vs 실제 보유 불일치" 동일 계열 후보. **이 세션 스코프 밖** → /gsd-code-review 31 인계 대상.
+- timestamp: 2026-07-20 — checked: 시뮬레이터 실기 검증(Expo Go 54, iPhone 16 Pro). belle 재현 문서(2f68dcb3)를 시뮬레이터 uid(OXBmHmjTazccoYQzEVQxC3mUnWT2)로 admin 복사 후 결과 화면 딥링크 진입. found: 앱 기동·결과 화면 전체 렌더 정상(55점 실측 일치), 자세 비교 카드에서 사용자(빨강)·기준(회색) 스켈레톤 모두 사람 형태 — 가로 막대 붕괴 재현 없음. 형상이 실측 spread와 정합(사용자 x66/y79≈정방형, 기준 x99/y176≈세로형). implication: 수정이 실데이터 앱 경로 전체(Firestore 구독→reshape→뷰어)에서 유효. 부수 관찰: 참고 지표 카드 텍스트 겹침은 Expo Go 폰트 폴백 아티팩트로 판단(TestFlight 빌드는 폰트 내장) — 이번 변경과 무관.
+- timestamp: 2026-07-20 — 커밋 `89402fc` (PoseCompareViewer.tsx + 이 세션 파일) push 완료 → OTA 발행: branch production, update group `e5a4f177-0d2d-42e2-8846-70ec5d84a830`, runtime 1.0.0, iOS update `019f7fe0-0883-731c-a9e6-f3019f79197b`. 롤백 시: `npx eas update:republish --group <직전 정상 group>` (직전 = c7acf831 발행분, `npx eas update:list --branch production` 으로 확인).
 - timestamp: 2026-07-20 — checked: 실데이터 하네스 1차 (verify-viewer-axis.mjs, 읽기 전용). found: ①인계 실측 정확 재현 (user f34 66.03/79.01/0.00, ref f90 99.13/175.85/0.00) ②프레임 선택 앱 동일 (userFrameIdx 34/refFrameIdx 90, 항등 매핑) ③AXIS_V=2 → 양측 yExtent 0.00 (버그 재현) ④AXIS_V=1 → user yExtent 35.14 / ref 112.01, 17관절 유한, 어깨(47.9)<고관절(50.0). implication: 실패 케이스에 한해 수정 유효 확인.
 - timestamp: 2026-07-20 — checked: Firestore 코퍼스 z-스캔 + 축 의미 판별 (scan-axis-semantics.mjs). found: **reference 11건 = y-era 6건(z≡0: combo/elbow-twist-sister/kip-up/pdshape/peter-pan/power-spin) + z-era 5건(y≡0, z spread 149~198: climb/foxtop/foxtop-split/invert/sideway-spin)**. 분석 표본 14건 = y-era 11 + z-era 3 (pdshapeokr*, e2e 916203bb). true-3D(양축 동시 분산) 0건. implication: 저장 axis 의미가 처리 시점 환경(scipy 유무 = 정렬 실행 여부)에 따라 문서별로 다르다. 상수 축은 어느 값도 전 코퍼스에 옳을 수 없음 → **뷰어측 올바른 최소 수정 = 포즈별 런타임 세로축 선택** (두 후보 중 정확히 한 축이 상수 0이므로 판별 무모호). phase 20 `c49a075`가 같은 증상을 같은 방식(remapFrameForFrontView)으로 고친 선례.
 - timestamp: 2026-07-20 — observed (스코프 밖 메모): AXIS_V=1 시 ref power-spin f90 yExtent=112 > VIEW 100 — 완전 신전 자세는 몸통 26유닛 기준 ~4.3배라 뷰박스를 살짝 넘어 상하단 클리핑 가능. 31-08 사이징 설계 파라미터(TORSO_UNITS) 사안이며 이번 버그와 별개 — 보고만.

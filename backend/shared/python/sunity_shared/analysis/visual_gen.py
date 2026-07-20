@@ -365,3 +365,215 @@ class WanVideoEditAdapter(_WanAdapterBase):
             },
         }
         return self._create(BASE + VIDEO_CREATE_PATH, body)
+
+
+# ── 공용 이미지 디코드 방어 (H4-06) ───────────────────────────────────────
+
+
+def safe_decode_image(
+    data: bytes,
+    *,
+    allowed_formats: tuple[str, ...],
+    max_decoded_bytes: int,
+    max_pixels: int,
+    max_edge: int,
+):
+    """bytes → PIL.Image. decode 전/직후 3중 cap 으로 bomb 을 typed 로 거부한다.
+
+    judge(prepare_judge_payload)와 pose gate(31-06)가 공용으로 쓴다 — 외부에서
+    들어온 이미지 바이트가 Gemini/Pod 로 나가기 **전에** 여기서 걸러진다.
+
+    3중 cap 이 다 필요한 이유:
+      1. len(data) — 압축 상태 상한. 네트워크에서 받은 직후 즉시 판정.
+      2. Image.MAX_IMAGE_PIXELS — PIL 이 decode 도중 스스로 터뜨리게 함.
+         압축 20MB 이하인데 20000x20000 인 bomb 은 (1) 을 통과하므로 필요.
+      3. open 직후 format/width/height 재검사 — PIL 은 lazy 라 open 시점에는
+         헤더만 읽는다. 실제 픽셀 접근 전에 여기서 끊어야 메모리가 안 터진다.
+
+    반환된 Image 는 아직 lazy 다. 호출측이 load/convert 하기 전에 이 함수를
+    통과했다는 사실이 보장된다.
+    """
+    from PIL import Image, UnidentifiedImageError
+
+    if len(data) > max_decoded_bytes:
+        raise ImageDecodeError("too_large")
+
+    previous_cap = Image.MAX_IMAGE_PIXELS
+    Image.MAX_IMAGE_PIXELS = max_pixels
+    try:
+        img = Image.open(_bytes_io(data))
+    except Image.DecompressionBombError:
+        raise ImageDecodeError("bomb") from None
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise ImageDecodeError("unreadable") from None
+    finally:
+        Image.MAX_IMAGE_PIXELS = previous_cap
+
+    if (img.format or "").upper() not in allowed_formats:
+        raise ImageDecodeError("bad_format")
+    width, height = img.size
+    if max(width, height) > max_edge or width * height > max_pixels:
+        raise ImageDecodeError("bad_dimension")
+    return img
+
+
+def _bytes_io(data: bytes):
+    from io import BytesIO
+
+    return BytesIO(data)
+
+
+# ── 벤더 산출물 다운로드 경계 (H-05 + H2-04/H2-05 + H3-05) ────────────────
+
+_ALLOWED_HOST_SUFFIXES = ("aliyuncs.com",)
+_DOWNLOAD_CHUNK = 64 * 1024
+
+
+@dataclass(frozen=True)
+class DownloadedAsset:
+    """다운로드 결과 — 바이트가 아니라 **파일 경로**다 (H2-05).
+
+    벤더 산출물은 수백 MB 일 수 있어 메모리로 받으면 Lambda 가 OOM 난다.
+    /tmp 로 스트리밍하고 sha256 을 누적 계산해 무결성 참조를 남긴다.
+    """
+
+    path: str
+    sha256: str
+    size_bytes: int
+    content_type: str
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """모든 리다이렉트를 즉시 거부 (H2-04 + H3-05).
+
+    벤더 응답 URL 은 신뢰 경계 밖이다. 리다이렉트를 따라가면 호스트 allowlist와
+    사설 IP 검사를 **첫 홉에만** 적용한 꼴이 돼 SSRF 가 열린다 (T-31-16).
+    redirect_request 만 막으면 부족해서 http_error_30x 도 전부 덮는다.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise VendorDownloadError("redirect")
+
+    def http_error_301(self, req, fp, code, msg, headers):
+        raise VendorDownloadError("redirect")
+
+    http_error_302 = http_error_301
+    http_error_303 = http_error_301
+    http_error_307 = http_error_301
+    http_error_308 = http_error_301
+
+
+def _host_allowed(host: str, allowed_suffixes: tuple[str, ...]) -> bool:
+    """정확 매칭 — 'evilaliyuncs.com' 이 'aliyuncs.com' 으로 통과하지 않게 한다."""
+    host = host.lower()
+    return any(host == s or host.endswith("." + s) for s in allowed_suffixes)
+
+
+def _resolve_public(host: str) -> None:
+    """호스트의 **모든** A/AAAA 가 공인 IP 인지 확인 (T-31-16 SSRF).
+
+    하나라도 사설/루프백/링크로컬/예약이면 거부한다 — DNS rebinding 은 여러
+    레코드 중 하나만 내부를 가리켜도 성립하기 때문이다.
+    """
+    try:
+        infos = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        raise VendorDownloadError("bad_host") from None
+    if not infos:
+        raise VendorDownloadError("bad_host")
+    for info in infos:
+        addr = ipaddress.ip_address(info[4][0])
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_reserved
+            or addr.is_multicast
+            or addr.is_unspecified
+        ):
+            raise VendorDownloadError("private_ip")
+
+
+def download_vendor_asset(
+    url: str,
+    dest_path: str,
+    *,
+    max_bytes: int,
+    allowed_content_types: tuple[str, ...],
+    timeout_s: int = _HTTP_TIMEOUT_S,
+    _test_allowed_hosts: tuple[str, ...] | None = None,
+    _test_allow_private: bool = False,
+    _test_ssl_context=None,
+) -> DownloadedAsset:
+    """벤더 산출물을 dest_path 로 스트리밍 다운로드.
+
+    경계 7종: https 고정 / 호스트 allowlist / 사설 IP 거부 / 리다이렉트 거부 /
+    Content-Type allowlist / 타임아웃 / 누적 바이트 cap.
+
+    평문 HTTP 폴백 스위치는 **인자로 존재하지 않는다** (H3-05). 그런 스위치가
+    시그니처에 있으면 언젠가 켜진다 — 애초에 만들지 않는다.
+
+    `_test_*` 인자는 테스트 전용이다 (self-signed TLS 로컬 서버로 실제 30x 를
+    핸들러에 도달시키기 위함). production 호출부에는 나타나지 않으며 31-09
+    acceptance 가 grep 으로 강제한다.
+
+    URL 의 query(서명)는 어떤 경로로도 로깅하지 않는다 (T-31-01).
+    """
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https":
+        raise VendorDownloadError("bad_scheme")
+    host = parsed.hostname or ""
+    allowed_hosts = _test_allowed_hosts or _ALLOWED_HOST_SUFFIXES
+    if not _host_allowed(host, allowed_hosts):
+        raise VendorDownloadError("bad_host")
+    if not _test_allow_private:
+        _resolve_public(host)
+
+    handlers: list = [_NoRedirectHandler(), urllib.request.ProxyHandler({})]
+    if _test_ssl_context is not None:
+        handlers.append(urllib.request.HTTPSHandler(context=_test_ssl_context))
+    opener = urllib.request.build_opener(*handlers)
+
+    digest = hashlib.sha256()
+    total = 0
+    try:
+        with opener.open(url, timeout=timeout_s) as resp:
+            content_type = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+            if not any(content_type.startswith(t) for t in allowed_content_types):
+                raise VendorDownloadError("bad_content_type")
+            with open(dest_path, "wb") as fh:
+                while True:
+                    chunk = resp.read(_DOWNLOAD_CHUNK)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise VendorDownloadError("too_large")
+                    digest.update(chunk)
+                    fh.write(chunk)
+    except VendorDownloadError:
+        _unlink_quiet(dest_path)
+        raise
+    except socket.timeout:
+        _unlink_quiet(dest_path)
+        raise VendorDownloadError("timeout") from None
+    except urllib.error.URLError as e:
+        _unlink_quiet(dest_path)
+        if isinstance(e.reason, VendorDownloadError):
+            raise e.reason from None
+        if isinstance(e.reason, socket.timeout):
+            raise VendorDownloadError("timeout") from None
+        log.warning("vendor download failed host=%s", host)
+        raise VendorDownloadError("bad_host") from None
+
+    return DownloadedAsset(
+        path=dest_path, sha256=digest.hexdigest(), size_bytes=total, content_type=content_type
+    )
+
+
+def _unlink_quiet(path: str) -> None:
+    """경계 위반 시 부분 파일을 남기지 않는다 — /tmp 는 invocation 간 공유된다."""
+    try:
+        os.unlink(path)
+    except OSError:
+        pass

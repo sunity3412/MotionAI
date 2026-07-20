@@ -1,0 +1,31 @@
+{
+  "consentVersion": "pilot-optout-v1",
+  "blurOption": "none",
+  "retentionDays": 180,
+  "retentionDaysScope": "sunity_training_pairs_only",
+  "retentionDaysMeaning": "우리(Sunity) S3 학습 페어의 삭제 SLA. 벤더(DashScope) 보존 기간이 아니다.",
+  "vendorRetention": {
+    "vendor": "Alibaba Cloud Model Studio (DashScope)",
+    "endpoint": "https://dashscope-intl.aliyuncs.com",
+    "jurisdiction": "Singapore (international endpoint, not mainland CN)",
+    "usedForVendorModelTraining": false,
+    "usedForVendorModelTrainingSource": "help.aliyun.com/zh/model-studio/data-security (2026-07-20 조회) — '귀하의 데이터를 모델 학습에 절대 사용하지 않음' 명시",
+    "encryption": "AES-256",
+    "certification": "SOC 2 (unqualified opinion)",
+    "retentionDays": null,
+    "retentionNote": "벤더는 '법령 요구에 따라 호출 시 생성 데이터를 저장'한다고만 명시하고 일수를 공개하지 않는다. 국제망 전용 영문 data-security 문서 URL 4종이 404 였다. 숫자를 추정하지 않는다 — 고지 문구는 '일정 기간 보관, 일수 미공개'로 기술한다."
+  },
+  "hmacKeyParam": "/sunity/motion/pair-id-hmac-keys",
+  "hmacKeyVersioning": true,
+  "noticeDirection": "분석 시 얼굴이 포함된 프레임이 제3자(Alibaba Cloud Model Studio, 싱가포르)로 전송됩니다. 벤더는 이 데이터를 모델 학습에 사용하지 않는다고 명시하며, 벤더 정책상 일정 기간(일수 미공개) 보관됩니다. 학습 동의(learningOptIn) 사용자의 교정 페어는 Sunity 저장소에 가명화(HMAC)되어 보관되며 180일 후 삭제됩니다.",
+  "noticeMustStateFaceTransfer": true,
+  "spendApproval": {
+    "smokeGenerationCalls": 8,
+    "calibrationJudgeCalls": 24,
+    "totalMaxCalls": 32,
+    "onExceed": "STOP + belle 보고 (상한 초과 금지)"
+  },
+  "decidedBy": "belle",
+  "decidedAtMs": 1784505925100,
+  "decidedAt": "2026-07-20"
+}

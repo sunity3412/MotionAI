@@ -24,6 +24,18 @@ class ValidationError(Exception):
         self.http_status = http_status
 
 
+def validate_analysis_id_format(analysis_id) -> bool:
+    """analysisId 형식 가드 (uuid hex 32자 전제 — 영숫자 + 길이 16 이상).
+
+    31-10 L-03: upload-url / playback-url / visual-request 세 진입점이 같은 문자열
+    규칙을 인라인으로 복제하고 있었다. S3 key path injection 방지가 목적이라 한 곳이
+    느슨해지면 그 진입점만 뚫린다 — 공유 validator 로 단일화한다.
+
+    형식 위반만 판정한다(존재/소유 여부는 호출측 Firestore 가드 몫).
+    """
+    return isinstance(analysis_id, str) and analysis_id.isalnum() and len(analysis_id) >= 16
+
+
 @dataclass(frozen=True)
 class UploadRequest:
     mode: str

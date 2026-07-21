@@ -3,7 +3,7 @@
     "name": "Sunity AI Coach",
     "slug": "sunity-ai-coach",
     "scheme": "sunityaicoach",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -54,7 +54,14 @@
       "expo-video",
       "expo-asset",
       "expo-mail-composer",
-      "expo-screen-orientation"
+      "expo-screen-orientation",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false
+        }
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {},

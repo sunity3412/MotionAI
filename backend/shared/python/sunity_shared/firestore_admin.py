@@ -1400,6 +1400,96 @@ def update_analysis_fault_zoom(
     )
 
 
+def _validate_coach_audio(payload, *, path: str = "coachAudio") -> None:  # noqa: ANN001
+    """coachAudio scoped validator (Phase 32 Plan 32-16, D-18 — contract.md §12.7).
+
+    형상: {status: 'done'|'failed', items: list[{recordId, key}]}. generic
+    `_validate_dict_only_scalars` 본체 변경 영구 0 — 각 item 을 그 validator 로
+    라우팅해 nested list/dict 를 거부하고(safetyFlags 선례), 본 validator 는
+    키 화이트리스트 + enum + 타입만 추가로 강제한다 (stricter):
+      · 최상위 키 = models.COACH_AUDIO_KEYS 정확히 (누락/여분 거부)
+      · status ∈ models.COACH_AUDIO_STATUSES
+      · items = list, 각 item 키 = models.COACH_AUDIO_ITEM_KEYS 정확히
+      · recordId/key 비어있지 않은 str + key 는 'results/' prefix
+        (H-02 — 오염 key 가 doc 에 실리는 것 자체를 차단)
+    실패 시 TypeError/ValueError raise (caller 가 graceful 처리).
+    """
+    if not isinstance(payload, dict):
+        raise TypeError(
+            f"_validate_coach_audio: dict 입력만 허용. path={path or '<root>'}, "
+            f"got={type(payload).__name__}"
+        )
+    if set(payload.keys()) != set(models.COACH_AUDIO_KEYS):
+        raise ValueError(
+            f"{path}: 키는 {list(models.COACH_AUDIO_KEYS)} 정확히여야 함. "
+            f"got={sorted(payload.keys())}"
+        )
+    status = payload["status"]
+    if status not in models.COACH_AUDIO_STATUSES:
+        raise ValueError(
+            f"{path}.status: {list(models.COACH_AUDIO_STATUSES)} 중 하나여야 함. "
+            f"got={status!r}"
+        )
+    items = payload["items"]
+    if not isinstance(items, list):
+        raise TypeError(
+            f"{path}.items: list 만 허용. got={type(items).__name__}"
+        )
+    for i, item in enumerate(items):
+        item_path = f"{path}.items[{i}]"
+        # nested list/dict 거부 — generic validator 라우팅 (본체 무수정).
+        _validate_dict_only_scalars(item, path=item_path)
+        if set(item.keys()) != set(models.COACH_AUDIO_ITEM_KEYS):
+            raise ValueError(
+                f"{item_path}: 키는 {list(models.COACH_AUDIO_ITEM_KEYS)} 정확히여야 함. "
+                f"got={sorted(item.keys())}"
+            )
+        record_id = item["recordId"]
+        key = item["key"]
+        if not isinstance(record_id, str) or not record_id:
+            raise ValueError(f"{item_path}.recordId: 비어있지 않은 str 이어야 함")
+        if not isinstance(key, str) or not key.startswith("results/"):
+            raise ValueError(
+                f"{item_path}.key: 'results/' prefix 의 str 이어야 함 (H-02)"
+            )
+
+
+def update_analysis_coach_audio(
+    uid: str,
+    analysis_id: str,
+    items: list[dict],
+    status: str,
+) -> None:
+    """coach_audio 사후 부분 업데이트 (Phase 32 Plan 32-16, D-18 — fault_zoom 뼈대 복제).
+
+    complete_analysis(status='done') **이후** 같은 분석 태스크에서 호출한다. 점수/
+    verdict/감점 내역은 이미 확정됐고(D-03 경계), 큐 오디오 mp3 는 표현물이라 사후
+    도착이 허용된다 (update_analysis_fault_zoom 과 동일 규율). `result.coachAudio`
+    **단일 field-path** 만 부분 갱신 — 그 외 어떤 result.* 필드도 사후 변경 금지
+    (T-27-18 / D-03).
+
+    검증: `_validate_coach_audio` (키 화이트리스트 + status enum + item scalar-only
+    + key results/ prefix). 오디오 목록은 매번 통째 교체이므로 fault_zoom 선례대로
+    명시적 field-path `.update()` 채택 (merge 의 배열 병합 모호성 회피).
+
+    Args:
+      items: [{recordId, key}] scalar dict 리스트. status='failed' 또는 큐 없음
+        분석은 빈 리스트 허용.
+      status: models.COACH_AUDIO_STATUSES 중 하나 (done/failed).
+
+    Raises:
+      ValueError/TypeError: 형상 위반 (_validate_coach_audio).
+    """
+    payload = {"status": status, "items": list(items or [])}
+    _validate_coach_audio(payload)
+    _doc(models.analysis_doc_path(uid, analysis_id)).update(
+        {
+            "result.coachAudio": payload,
+            "updatedAt": int(time.time() * 1000),
+        }
+    )
+
+
 # ─────────────────── Plan 06-03 (2026-06-08, R2 fix round-2) ─────────────
 #
 # Phase 6 (2026-06-08, Plan 06-03) — D-06-B2 + R2 fix (round-2). mode1 silently

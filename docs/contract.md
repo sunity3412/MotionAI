@@ -124,6 +124,27 @@ asset  'correctedPose' | 'rotation'   optional  ← 지정 시 analysisId 와 �
 - 응답: `{playbackUrl, expiresInSec: 3600}`. 영상 재생용 7일 TTL 과 달리 **1시간**인 이유는
   이 URL 이 화면 표시 즉시 소비되고 재방문 시 재발급되기 때문이다.
 
+#### POST /playback-url — `asset: 'coachAudio'` 확장 (Phase 32 Plan 32-16, D-18 B안)
+
+재생 중 큐 오디오 mp3(§12.7) 재서명. Phase 31 asset 확장과 동일 철학(H-02) —
+**`asset` 미지정/기존 종류 요청의 동작은 바이트 불변**이다.
+
+```
+asset     'coachAudio'   analysisId 와 함께 사용
+recordId  string         §12.3 recordId (형식 r{2자리}:{criterion} — 영숫자·언더스코어).
+                         형식 위반 = 400 bad_request (path injection 차단)
+```
+
+- 서버가 `results/{uid}/{analysisId}/coach_audio_{recordId}.mp3` canonical key 를
+  **서버 측에서 구성**(`s3keys.build_coach_audio_key` — 저장 측과 단일 출처)하고,
+  `result.coachAudio.items` 중 같은 `recordId` 항목의 저장 key 와 **전체 문자열
+  exact 비교** 후에만 1시간 presign 을 발급한다 (prefix/basename 부분일치 불가 —
+  타 객체 열람 차단). 클라이언트는 recordId 만 지정 — S3 key 를 실어 보내는
+  파라미터는 계약에 없다 (server-selected, H-02/H-05).
+- `coachAudio.status != 'done'` / 항목 부재 / key 불일치 = **전부 동일한
+  `404 not_found`** (leak 0 — Phase 31 asset 가드 선례).
+- 응답: `{playbackUrl, expiresInSec: 3600}` (`ResponseContentType: audio/mpeg`).
+
 #### POST /visual/rotation (Phase 31 — D-06)
 
 카메라앵글 회전 참고 영상 **온디맨드 생성 요청**. (인증: Firebase ID token 필수)
@@ -1796,6 +1817,20 @@ const frameIdx = Math.floor(currentTime * report.fps);
 - `_validate_summary_praise`: 키 화이트리스트 + `source` enum + `headline` 비어있지 않은 str ≤200자 + `evidenceValue` finite\|None.
 - `_validate_coach_questions`: list ≤10 + 각 항목 scalar-only dict(`_validate_dict_only_scalars` 라우팅) + `text` 1..200자 + `source` 백엔드 enum(`'user'` 거부) + `recordId` str\|None.
 
+### §12.7 coachAudio (`result.coachAudio`) — 재생 중 큐 오디오 (Phase 32 Plan 32-16, D-18 B안)
+
+records 의 `cueLine`(§12.3 — 승인 문구집 32-05 골격, D-09 무수치, **문구 변경 금지** = 텍스트 그대로 합성)을 백엔드가 분석 **사후** 스테이지(`coach_audio`)에서 AWS Polly(neural)로 사전 합성해 S3 `results/{uid}/{analysisId}/coach_audio_{recordId}.mp3` (canonical key 단일 출처 = `s3keys.build_coach_audio_key`)로 저장하고, `firestore_admin.update_analysis_coach_audio` 가 `result.coachAudio` **단일 field-path** 를 부분 갱신한다 (`faultZoomStatus` 사후 분리 선례 — complete(status='done') 이후 표현물 도착, 채점·verdict 무접촉). **부재(legacy doc) = 오디오 표면 미렌더** (하위호환, `tier?` 서술 모범, no migration). 합성 실패는 graceful — status done 유지, 자막 경로 무영향 (SP-3).
+
+> **런타임 생성 예외 각주:** 클라우드 TTS 는 **분석 시점 사전 생성**으로, 32-CONTEXT 의 "런타임 신규 생성 AI 0" 은 시각 생성(교정 이미지·회전 영상) OFF 를 지칭한다 — belle 이 D-18 에서 명시 승인한 음성 합성 예외 (32-GATE-DECISIONS §샘플 게이트).
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `status` | 'done'\|'failed' | `done` = 합성 완료 (`items` 유효 — 빈 리스트 = 재생할 큐 없음, 고아 아님) / `failed` = 스테이지 실패 (자막만 — 조용한 폴백) |
+| `items` | `{recordId, key}[]` | scalar dict 배열 (safetyFlags 선례 — nested array 아님). `recordId` = §12.3 recordId — **32-12 audioCue prefetch 의 cueId(=recordId) 조인 키**. `key` = canonical S3 키(`results/` prefix). **URL 비저장** — 재생 URL 은 `POST /playback-url` `asset: 'coachAudio'` 재서명으로만 (리뷰 H-02) |
+
+- 검증: `_validate_coach_audio` — 키 화이트리스트(`COACH_AUDIO_KEYS`/`COACH_AUDIO_ITEM_KEYS` 정확히) + `status` enum + 각 item scalar-only dict(`_validate_dict_only_scalars` 라우팅) + `recordId` 비어있지 않은 str + `key` `results/` prefix.
+- 3-way lockstep: `app/src/types/analysis.ts` `CoachAudio`/`CoachAudioItem` ↔ `models.py` `COACH_AUDIO_KEYS` 블록 ↔ 본 §12.7.
+
 ---
 
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
@@ -1811,3 +1846,4 @@ const frameIdx = Math.floor(currentTime * report.fps);
 *Plan 28-03 §11 추가: 2026-07-08 — MotionAlignment (ALGN-01 동작 기반 비교 정렬) 3-way lockstep (TS interface + Python MOTION_ALIGNMENT_KEYS + 본 §11). tier 3단(warped/trim_only/disabled, D-02) + 초 단위 fps 도메인(9fps vs 18fps) + anchors flat 상한 512 + tier↔anchors 역불변식(MEDIUM-3, disabled 만 빈 anchors) + legacy 하위호환 + Phase 22 source:'vlm' 상위 호환 + FaultZoomComparison.refMatch(D-04) 신설.*
 *Plan 31-04 §2 + §4 추가: 2026-07-20 — Phase 31 visual 교정 시각물 3-way lockstep (TS optional 필드 + Python VISUAL_STATUSES + 본 절). correctedPose* 4 + rotation* 3 필드(URL 비저장 — 표시 URL 은 playback-url asset 재서명, 리뷰 H-02 / pending 타임아웃은 전용 *UpdatedAtMs, 리뷰 H-06) + FaultZoomComparison 뷰어 프레임 소스 3필드(D-10) + POST /visual/rotation 신설(429 daily_limit = 사용자 3건·전역 30건/일, KST 자정 리셋 명시 — 리뷰 M-06 / 503 feature_disabled 조용한 폴백 — D-08) + POST /playback-url asset 확장(server-selected key, 1시간 presign, 미지정 시 기존 동작 보존).*
 *Plan 32-06 §12 추가: 2026-07-21 — 미션 루프 + 번역 레이어 방출 3-way lockstep (TS Mission/MissionOutcome/SummaryPraise/CoachQuestion + DeductionRecord 확장 ↔ models.py MISSION_KEYS 블록 ↔ 본 §12). faultKey(motionId::ruleId::criterion — 리뷰 blocker 1)·baseline 저장(D-26)·streak doc 체인+motionId 가드·에스컬레이션(D-27)·D-14 정합(안전=streak 1·escalation none 강제)·recordId 안정 조인 키+summaryPraise 단일 원천(리뷰 blocker 5)·3단 문구 슬롯(D-08)·tolerance(D-10)·coachQuestions(D-28/D-29, 'user'=클라이언트 로컬 전용). 방출은 32-09 부터 — legacy doc 부재 하위호환.*
+*Plan 32-16 §12.7 + playback-url coachAudio 확장 추가: 2026-07-22 — 재생 중 큐 오디오 (D-18 B안, 32-GATE-DECISIONS §샘플 게이트 확정) 3-way lockstep (TS CoachAudio/CoachAudioItem ↔ models.py COACH_AUDIO_KEYS 블록 ↔ §12.7). Polly(neural) 사후 합성(fault_zoom 사후 분리 선례 — 채점 무접촉)·cueId(=recordId) 조인·canonical key 단일 출처(s3keys.build_coach_audio_key)·asset 'coachAudio' 재서명(recordId 형식 가드 + 서버 구성 canonical + exact 비교, H-02)·런타임 생성 예외 각주(사전 생성 — belle D-18 명시 승인). 방출은 32-16 배포부터 — legacy doc 부재 하위호환.*

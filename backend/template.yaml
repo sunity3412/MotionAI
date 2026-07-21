@@ -341,6 +341,15 @@ Resources:
               Action: [s3:GetObject, s3:PutObject]
               Resource: !Sub arn:aws:s3:::${VideoBucketName}/*
         - Statement:
+            # Phase 32 (Plan 32-16, D-18 B안) — 재생 중 큐 오디오. records 의
+            # cueLine(승인 문구집 골격)을 분석 **사후** 스테이지에서 AWS Polly
+            # (neural)로 합성해 results/ 에 mp3 저장. 신규 시크릿 0 — boto3
+            # client("polly"), 리전 = 함수 리전(ap-northeast-2).
+            # polly:SynthesizeSpeech 는 resource-level 제한 미지원 → "*" 가 정답.
+            - Effect: Allow
+              Action: polly:SynthesizeSpeech
+              Resource: "*"
+        - Statement:
             - Effect: Allow
               Action: sqs:SendMessage
               Resource: !GetAtt VisualQueue.Arn

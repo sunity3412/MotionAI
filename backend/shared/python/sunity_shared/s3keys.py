@@ -41,3 +41,14 @@ def parse_upload_key(key: str) -> ParsedUploadKey | None:
         analysis_id=m.group("analysis_id"),
         ext=m.group("ext"),
     )
+
+
+def build_coach_audio_key(uid: str, analysis_id: str, record_id: str) -> str:
+    """재생 중 큐 오디오 mp3 의 canonical S3 키 (Phase 32 Plan 32-16, D-18).
+
+    **단일 출처** — pipeline(합성 저장)과 playback-url(서버 구성 canonical key +
+    저장 key exact 비교, 리뷰 H-02)이 이 함수 하나를 공유해 drift 를 차단한다.
+    record_id 는 contract.md §12.3 recordId('r{index:02d}:{criterion}') 를 그대로
+    각인 — 32-12 audioCue prefetch 가 cueId(=recordId)로 mp3 와 안정 조인한다.
+    """
+    return f"{RESULT_PREFIX}/{uid}/{analysis_id}/coach_audio_{record_id}.mp3"

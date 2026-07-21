@@ -578,6 +578,30 @@ export interface CoachQuestion {
   recordId?: string;
 }
 
+// Phase 32 (Plan 32-16 — D-18 B안 클라우드 TTS) — 재생 중 큐 오디오 조인 목록.
+// 백엔드가 분석 **사후** 스테이지에서 records 의 cueLine(승인 문구집 골격 —
+// D-09 무수치)을 AWS Polly(neural)로 사전 합성해 S3 에 저장하고
+// update_analysis_coach_audio 부분 갱신으로 도착시킨다 (faultZoomStatus 사후
+// 분리 선례). 부재(legacy doc) = 오디오 표면 미렌더 (하위호환, tier? 서술 모범
+// — no migration).
+//   status: 'done' = 합성 완료 (items 유효 — 빈 리스트 = 재생할 큐 없음) /
+//   'failed' = 합성 실패 (자막만 — 조용한 폴백, 분석 무훼손 SP-3).
+//   items[].recordId = §12.3 recordId — 32-12 audioCue prefetch 의 cueId 조인 키.
+//   items[].key = canonical S3 키 (results/ prefix). URL 은 저장하지 않는다 —
+//   재생 URL 은 POST /playback-url { asset: 'coachAudio', recordId } 재서명으로만
+//   발급 (리뷰 H-02 — 서버 구성 canonical key + 저장 key exact 비교).
+// Python lockstep: models.py COACH_AUDIO_KEYS 블록 +
+// firestore_admin.update_analysis_coach_audio + docs/contract.md §12.7.
+export interface CoachAudioItem {
+  recordId: string;
+  key: string; // S3 key (results/{uid}/{analysisId}/coach_audio_{recordId}.mp3). URL 아님.
+}
+
+export interface CoachAudio {
+  status: 'done' | 'failed';
+  items: CoachAudioItem[];
+}
+
 // Phase 24 (SCORE-10~16, ND-01/ND-07) — 투명 감점-합산 채점.
 // 점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점). severity→고정밴드
 // (Phase 20 visionVeto 의 옛 cap 필드) 제거. 보고서가 감점 내역("−X −Y −Z = 점수")을 노출하는 게 핵심
@@ -729,6 +753,9 @@ export type AnalysisResult = ScoreSuppression & {
   missionOutcome?: MissionOutcome; // mode3 전용 — mode1/prev 부재 시 키 생략
   summaryPraise?: SummaryPraise; // 잘한 점 단일 원천 (리뷰 blocker 5)
   coachQuestions?: CoachQuestion[]; // 자동 등재 (≤10) — 'user' 담기는 로컬 전용
+  // Phase 32 (Plan 32-16 — D-18 B안) — 재생 중 큐 오디오. complete 이후 사후 부분
+  // 업데이트로 도착 (fault_zoom 선례). 부재(legacy doc)=오디오 표면 미렌더.
+  coachAudio?: CoachAudio;
   // Phase 20 iter5 MEDIUM-2 — A2 reconcile audit (reconcile 관측). OPTIONAL.
   scoreSuppressionAudit?: ScoreSuppressionAudit;
   // IPSF 실행 차원 점수 (3차원: angle/line/stability).

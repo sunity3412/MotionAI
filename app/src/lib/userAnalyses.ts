@@ -20,6 +20,8 @@ import { normalizeBodyProfile } from './bodyProfile';
 import type {
   AnalysisDoc,
   AnalysisStatus,
+  CoachAudio,
+  CoachAudioItem,
   CoachCommentHook,
   CoachQuestion,
   DeductionBreakdown,
@@ -253,6 +255,33 @@ function normalizeCoachQuestions(value: unknown): CoachQuestion[] | undefined {
     });
   }
   return out;
+}
+
+// Phase 32 (Plan 32-16 — D-18 B안) — coachAudio 방어 파싱. 백엔드 방출값을
+// 신뢰하지 않는다: status 는 2값 화이트리스트, item 은 recordId 비어있지 않은
+// string + key `results/` prefix(normalizeResultKey 재사용 — H-02, 앱이 임의
+// key 를 재서명 요청에 실을 경로 원천 차단)일 때만 통과. malformed item 은
+// 드롭, 형상 전체 malformed 는 undefined (부재=legacy doc 하위호환 —
+// visual 필드 헬퍼 관례).
+function normalizeCoachAudio(value: unknown): CoachAudio | undefined {
+  if (value == null || typeof value !== 'object' || Array.isArray(value))
+    return undefined;
+  const a = value as Record<string, unknown>;
+  const status =
+    a.status === 'done' || a.status === 'failed' ? a.status : undefined;
+  if (!status) return undefined;
+  const rawItems = Array.isArray(a.items) ? a.items : [];
+  const items: CoachAudioItem[] = [];
+  for (const item of rawItems) {
+    if (item == null || typeof item !== 'object' || Array.isArray(item))
+      continue;
+    const it = item as Record<string, unknown>;
+    const recordId = normalizeNonEmptyString(it.recordId);
+    const key = normalizeResultKey(it.key); // results/ prefix 강등 (H-02)
+    if (!recordId || !key) continue; // malformed item 드롭 (방어)
+    items.push({ recordId, key });
+  }
+  return { status, items };
 }
 
 // DeductionRecord 확장 키 통과 파싱 (Plan 32-06 §12.3) — recordId/3단 문구는
@@ -592,6 +621,8 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       missionOutcome: normalizeMissionOutcome(r.missionOutcome),
       summaryPraise: normalizeSummaryPraise(r.summaryPraise),
       coachQuestions: normalizeCoachQuestions(r.coachQuestions),
+      // Phase 32 (Plan 32-16 — D-18) — 사후 도착 오디오 조인 목록 (부재=legacy).
+      coachAudio: normalizeCoachAudio(r.coachAudio),
     };
   }
   return {

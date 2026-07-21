@@ -267,6 +267,26 @@ SUMMARY_PRAISE_SOURCES = ("mission_improved", "clean_dimension", "criteria_met")
 # 3-way lockstep: app/src/types/analysis.ts CoachQuestion + docs/contract.md §12.5.
 COACH_QUESTION_SOURCES = ("safety", "mission_stuck", "unmeasured", "user")
 
+# ── Phase 32 (Plan 32-16): 재생 중 큐 오디오 (D-18 B안 — 클라우드 TTS) ────
+# result.coachAudio — Polly 사전 합성 오디오 조인 목록 {status, items}. 분석
+# **사후** 스테이지(pipeline coach_audio)가 update_analysis_coach_audio 로 부분
+# 갱신한다 — complete_analysis 무접촉 (fault_zoom 사후 분리 선례). 부재(legacy
+# doc) = 오디오 표면 미렌더 (하위호환, tier? 서술 모범 — no migration).
+#   status: 'done' = 합성 완료 (items 유효 — 빈 리스트 = 재생할 큐 없음, 고아
+#           아님) / 'failed' = 스테이지 실패 (자막만 — 조용한 폴백, SP-3).
+#   items[].recordId = §12.3 recordId — 32-12 audioCue prefetch 의 cueId 조인 키.
+#   items[].key = canonical S3 키 (s3keys.build_coach_audio_key 단일 출처 —
+#           URL 비저장 원칙, 리뷰 H-02. 재생 URL 은 playback-url asset 재서명만).
+# 3-way lockstep: app/src/types/analysis.ts CoachAudio + docs/contract.md §12.7.
+COACH_AUDIO_KEYS = ("status", "items")
+COACH_AUDIO_ITEM_KEYS = ("recordId", "key")
+COACH_AUDIO_STATUS_DONE = "done"
+COACH_AUDIO_STATUS_FAILED = "failed"
+COACH_AUDIO_STATUSES = (COACH_AUDIO_STATUS_DONE, COACH_AUDIO_STATUS_FAILED)
+# playback-url asset 확장 종류 — VISUAL_JOB_KINDS(시각 job 계약)와 분리 유지:
+# 오디오는 visual job 파이프라인(visualJobs/*)이 아니라 분석 사후 스테이지 산출물.
+PLAYBACK_ASSET_COACH_AUDIO = "coachAudio"
+
 # ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───
 # Mode3 미보유/저신뢰 동작의 점수카드 전체 억제 신호. scoringBasis 단독이 아닌 명시
 # 플래그로 backend↔frontend drift 차단 (iter2 HIGH-3).

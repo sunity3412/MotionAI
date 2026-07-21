@@ -98,7 +98,7 @@ from sunity_shared.events import iter_s3_keys_from_sqs
 # transitive deps (googleapiclient 등) 를 Lambda 배포에서 제거 + Pod 에는 영향 0
 # (Pod 의 runpod_inference/requirements.txt 박힘 유지).
 # 박제 후속 사용 위치 안에서 `from sunity_shared.gemini.* import ...` 박는다.
-from sunity_shared.s3keys import parse_upload_key
+from sunity_shared.s3keys import build_coach_audio_key, parse_upload_key
 
 # FfmpegFrameExtractor / NlfPoseEstimator / CerebrasCoachWriter 는 imageio·torch·
 # requests 같은 무거운 의존성을 끌어옴. RunPod 위임 모드에선 사용하지 않으므로
@@ -3179,6 +3179,133 @@ def _run_deferred_fault_zoom(
             )
 
 
+# ═══════ Phase 32 (Plan 32-16, D-18 B안) — 재생 중 큐 오디오 (Polly 사후 합성) ═══════
+#
+# B안(클라우드 TTS) 확정 (32-GATE-DECISIONS §샘플 게이트): records 의 cueLine
+# (승인 문구집 32-05 골격 — D-09 무수치, **문구 변경 금지** = 텍스트 그대로 합성)을
+# 분석 **사후** 스테이지에서 AWS Polly(neural)로 합성해
+# S3 results/{uid}/{analysisId}/coach_audio_{recordId}.mp3 (s3keys 단일 출처)로
+# 저장하고 result.coachAudio 를 부분 갱신한다. 채점·verdict 무접촉 — complete 이후
+# 표현물 도착 (fault_zoom 사후 분리 선례). 키의 recordId = cueId 조인 (32-12
+# audioCue prefetch). 실패는 전부 graceful (SP-3 — 자막 경로 무영향).
+#
+# 음성/엔진 = env 우선 (POLLY_VOICE_ID / POLLY_ENGINE) — Pod env 만으로 재배포 없이
+# 스왑 가능하게 설계 (32-16 Task 4 belle 청취 게이트 대비). 기본값 Seoyeon neural 은
+# belle 확정 전 **잠정** (32-GATE-DECISIONS §샘플 게이트 부속 — 확정 후 기본값 고정).
+_POLLY_VOICE_ID = os.environ.get("POLLY_VOICE_ID", "").strip() or "Seoyeon"
+_POLLY_ENGINE = os.environ.get("POLLY_ENGINE", "").strip() or "neural"
+_POLLY_CLIENT = None
+
+
+def _get_polly_client():
+    """Polly 클라이언트 lazy 싱글턴 — RunPod 위임 Lambda/합성 미사용 경로 무부담.
+
+    신규 시크릿 0 — Lambda IAM(template.yaml polly:SynthesizeSpeech) / Pod
+    sunity-motion 자격증명(기존 env)을 그대로 사용. 리전은 자격증명 기본 리전
+    (ap-northeast-2 — Pod AWS_DEFAULT_REGION / Lambda 함수 리전).
+    """
+    global _POLLY_CLIENT
+    if _POLLY_CLIENT is None:
+        _POLLY_CLIENT = boto3.client("polly")
+    return _POLLY_CLIENT
+
+
+def _synthesize_coach_audio_items(
+    cue_records: list[dict], uid: str, analysis_id: str, bucket: str
+) -> list[dict]:
+    """cueLine 보유 records 를 Polly 합성 → S3 저장 → items 반환 (record 단위 격리).
+
+    합성/업로드 실패는 그 record 만 생략 (log.warning — 부분 성공은 성공분만
+    items 로, 앱은 item 없는 큐를 자막만으로 재생). 텍스트는 문구집 cueLine
+    그대로 — 변형 0 (D-09 골격 소유권). 로그에 본문/시크릿 미기록.
+    """
+    items: list[dict] = []
+    for rec in cue_records:
+        record_id = rec["recordId"]
+        try:
+            resp = _get_polly_client().synthesize_speech(
+                Text=rec["cueLine"],
+                VoiceId=_POLLY_VOICE_ID,
+                Engine=_POLLY_ENGINE,
+                LanguageCode="ko-KR",
+                OutputFormat="mp3",
+            )
+            audio_bytes = resp["AudioStream"].read()
+            key = build_coach_audio_key(uid, analysis_id, record_id)
+            _s3.put_object(
+                Bucket=bucket,
+                Key=key,
+                Body=audio_bytes,
+                ContentType="audio/mpeg",
+            )
+            items.append({"recordId": record_id, "key": key})
+        except Exception:  # noqa: BLE001 - record 1건 실패는 그 record 만 (격리)
+            log.warning(
+                "coach_audio 합성 실패 — 해당 record 생략 "
+                "uid=%s analysis_id=%s record_id=%s",
+                uid, analysis_id, record_id,
+            )
+    return items
+
+
+def _run_deferred_coach_audio(
+    *,
+    result: dict,
+    uid: str,
+    analysis_id: str,
+    bucket: str,
+) -> None:
+    """complete_analysis 이후 큐 오디오 합성 → update_analysis_coach_audio 부분 갱신.
+
+    D-18 (32-GATE-DECISIONS B안) — 분석은 이미 complete(status='done')라 어떤 경로도
+    재raise 하지 않는다 (_run_deferred_fault_zoom 뼈대 복제):
+
+      · 합성 (부분)성공 또는 합성할 큐 없음 → done + items (빈 리스트 허용 —
+        결함 0/전부 fail-closed = 재생할 오디오 없음. 부재(legacy doc)와 구분).
+      · cueLine 보유 records 가 있는데 전부 실패 → failed(빈 리스트) — IAM/Polly
+        전면 장애를 done+[] 로 위장하지 않는다 (스윕이 검출 가능해야 함).
+      · 스테이지 예외 → failed(빈 리스트) + log.warning (앱은 자막만 — SP-3).
+      · failed write 자체 실패 → log.exception 만 (앱은 coachAudio 부재 = 미도착).
+
+    **동기 채점 경로 호출 금지** — 사후 전용 (속도 예산·timingsMs 회귀 0).
+    """
+    try:
+        breakdown = result.get("deductionBreakdown")
+        records = breakdown.get("records") if isinstance(breakdown, dict) else None
+        if not isinstance(records, list):
+            records = []
+        # cueLine 부재(fail-closed 조합 — 32-05)는 오디오 대상 아님 (자막도 없음).
+        cue_records = [
+            r for r in records
+            if isinstance(r, dict)
+            and isinstance(r.get("recordId"), str) and r.get("recordId")
+            and isinstance(r.get("cueLine"), str) and r.get("cueLine")
+        ]
+        items = _synthesize_coach_audio_items(cue_records, uid, analysis_id, bucket)
+        status = (
+            models.COACH_AUDIO_STATUS_FAILED
+            if cue_records and not items
+            else models.COACH_AUDIO_STATUS_DONE
+        )
+        firestore_admin.update_analysis_coach_audio(
+            uid, analysis_id, items, status=status
+        )
+    except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석 비차단 (graceful)
+        log.warning(
+            "coach_audio 사후 스테이지 실패 — failed 마킹 시도 (분석은 이미 complete) "
+            "uid=%s analysis_id=%s", uid, analysis_id,
+        )
+        try:
+            firestore_admin.update_analysis_coach_audio(
+                uid, analysis_id, [], status=models.COACH_AUDIO_STATUS_FAILED,
+            )
+        except Exception:  # noqa: BLE001 - failed write 실패 = coachAudio 미도착
+            log.exception(
+                "coach_audio failed 마킹 write 실패 — coachAudio 부재 유지 "
+                "uid=%s analysis_id=%s", uid, analysis_id,
+            )
+
+
 # ═══════════ Phase 31 (D-05) — correctedPose 자동 생성 enqueue ═══════════
 #
 # **이 훅은 enqueue 만 한다.** 생성(DashScope)·판정(Gemini)·pose gate 는 전부
@@ -5690,6 +5817,17 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 uid=uid,
                 analysis_id=analysis_id,
                 request_id=uuid.uuid4().hex,
+            )
+
+        # ── Phase 32 (Plan 32-16, D-18 B안) — 재생 중 큐 오디오 사후 합성 ────────
+        # complete(status='done') 이후 표현물 스테이지 (fault_zoom 사후 분리 선례).
+        # zoom(ffmpeg 재디코딩 수십 초)보다 **앞**에 두어 오디오가 먼저 도착 — 32-12
+        # audioCue prefetch 성립 시점 단축. 합성은 문장 N개 Polly 호출(수 초)이라
+        # zoom 지연 미미. timings_ms 는 이미 저장됨 → 사후 소요는 stage 로그
+        # 라인으로만 (fault_zoom 관례). 실패 전부 graceful — 분석 무훼손 (SP-3).
+        with _stage(timings_ms, analysis_id, "coach_audio"):
+            _run_deferred_coach_audio(
+                result=result, uid=uid, analysis_id=analysis_id, bucket=bucket
             )
 
         # Phase 27 SPD-04 (D-06) — fault_zoom 사후 렌더. complete_analysis 로 점수/verdict/

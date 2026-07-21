@@ -5,6 +5,16 @@ Cerebras LLM 으로 관절별 한국어 코칭 문장 생성. graceful — 키 �
 
 API 키는 Parameter Store 에 두고 환경변수 CEREBRAS_KEY_PARAM 로 파라미터명을
 주입 (auth.py 의 FIREBASE_SA_PARAM 패턴과 동일 — 코드/.env 하드코딩 금지).
+
+Phase 32 (Plan 32-09, D-11) — 가변부 슬롯 한정:
+  · 감점 카드 3단(상태→왜→행동) **골격은 phrasebook(승인 문구집)이 소유**한다.
+    조립 순서 = 골격 먼저(파이프라인 _attach_translation_emission 이 phrasebook
+    슬롯만 병합) — 이 writer 의 산출은 records 3단에 절대 병합되지 않고 기존
+    tips/detail 지정 슬롯으로만 흐른다 (골격 대체 경로 0).
+  · LLM 출력 사후 금지어 필터 — phrasebook.FORBIDDEN_PHRASES_PHRASEBOOK /
+    FORBIDDEN_REGEX_PHRASEBOOK 위반 entry 는 폐기 후 골격/수치 폴백 사용
+    (grep 게이트의 런타임 판, D-09/D-11).
+  · 전체 실패({} 반환) 시에도 문구집 골격만으로 3단이 성립한다 (D-11 graceful).
 """
 
 from __future__ import annotations
@@ -12,8 +22,17 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+
+from .phrasebook import FORBIDDEN_PHRASES_PHRASEBOOK, FORBIDDEN_REGEX_PHRASEBOOK
 
 log = logging.getLogger()
+
+# D-09/D-11 런타임 금지어 필터 재료 — 문구집 grep 게이트(test_phrasebook_forbidden)
+# 와 동일 상수 단일 출처. 모듈 로드 시 1회 컴파일 (write() 호출마다 재컴파일 0).
+_FORBIDDEN_REGEX_COMPILED: tuple[re.Pattern, ...] = tuple(
+    re.compile(p) for p in FORBIDDEN_REGEX_PHRASEBOOK
+)
 
 _SYSTEM = (
     "너는 폴스포츠 자세 교정 코치다. 학생 관절 각도가 전문가 기준과 얼마나 "
@@ -39,6 +58,14 @@ _SYSTEM = (
     "정확한 기준 각도만 인용하고 임의 수치를 생성하지 않으며, 동작별 정의 각도를 "
     "180° 로 일반화하지 않는다. 주입된 실측 데이터(관절 편차, 기준 각도, 비전 관찰)만 "
     "근거로 쓰고, 측정되지 않은 수치나 부위를 측정된 것처럼 말하지 않는다.\n"
+    "\n"
+    "[가변부 슬롯 한정 — 문구집 골격 보호]\n"
+    "감점 카드의 상태·이유·행동 큐 골격 문장은 승인된 고정 문구집이 소유한다 — "
+    "너의 출력은 골격을 대체하지 않으며, 지정된 가변부 슬롯(카드 detail 한 줄과 "
+    "자세히 모달)에만 병합된다. 허용되는 가변부 역할: (1) 주입된 실측 수치를 "
+    "문장에 자연스럽게 연결, (2) 조사·어미 자연화, (3) 응원 톤 조정. 주입 데이터와 "
+    "무관한 새 교정 지시, '무릎을 더 펴세요' 수준의 일반론 조언, 어느 동작에나 "
+    "붙는 범용 표어는 생성하지 않는다.\n"
     "\n"
     "JSON 으로만 답한다. 다른 텍스트, 마크다운, 주석 금지."
 )
@@ -269,14 +296,52 @@ class CerebrasCoachWriter:
                 max_completion_tokens=2500,  # detail2 길이 — 3 joints × 5 causes 박제 박제
             )
             data = json.loads(resp.choices[0].message.content)
-            return {
-                k: _normalize_entry(v)
-                for k, v in data.items()
-                if isinstance(v, (str, dict))
-            }
+            out: dict = {}
+            for k, v in data.items():
+                if not isinstance(v, (str, dict)):
+                    continue
+                entry = _normalize_entry(v)
+                # 32-09 (D-09/D-11) — 사후 금지어 필터: 위반 entry 는 통째로 폐기
+                # → 해당 관절은 문구집 골격/수치 폴백 사용 (grep 게이트의 런타임 판).
+                if _violates_forbidden_copy(entry):
+                    log.warning(
+                        "Cerebras 출력 금지어 검출 — entry 폐기(골격/폴백 사용) joint=%s",
+                        k,
+                    )
+                    continue
+                out[k] = entry
+            return out
         except Exception:  # noqa: BLE001
             log.exception("Cerebras 코칭 생성 실패 — 수치 폴백 사용")
             return {}
+
+
+def _violates_forbidden_copy(entry) -> bool:
+    """정규화된 entry 내 모든 string 에 금지어(리터럴+정규식) 검사 (D-09/D-11).
+
+    스코프 = 사용자에게 렌더될 수 있는 LLM 산출 전체 (detail / detail2.causes
+    title·explanation·fix / injuryRisk / coachNote). 위반 1건이면 entry 전체 폐기
+    — 부분 살리기(문장 절단)는 하지 않는다 (문구 품질 보호, 폴백은 골격/수치).
+    """
+    strings: list[str] = []
+
+    def _walk(v) -> None:  # noqa: ANN001
+        if isinstance(v, str):
+            strings.append(v)
+        elif isinstance(v, dict):
+            for x in v.values():
+                _walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                _walk(x)
+
+    _walk(entry)
+    for s in strings:
+        if any(phrase in s for phrase in FORBIDDEN_PHRASES_PHRASEBOOK):
+            return True
+        if any(rx.search(s) for rx in _FORBIDDEN_REGEX_COMPILED):
+            return True
+    return False
 
 
 def _normalize_entry(v) -> dict | str:

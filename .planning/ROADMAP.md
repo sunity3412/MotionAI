@@ -1086,23 +1086,50 @@ Plans:
 **Requirements**: D-01~D-30 (32-CONTEXT.md — 공식 REQ 매핑 없음, CONTEXT 결정이 요구사항 원본. FEED-01은 D-09 우선 해석)
 **Depends on:** Phase 31
 **Plans:** 15 plans (waves 1~10 — 4대 게이트: 실물 32-03 / 리서치+목업 32-04(w3) / 문구 감수 32-05 / 샘플 32-08(w4))
-
 Plans:
+**Wave 1**
 
 - [ ] 32-01-PLAN.md — 백엔드 수리 2건: D-16 사다리 재배치 + D-20 크롭 parity + phase32 테스트 스캐폴드 (w1)
 - [ ] 32-02-PLAN.md — 앱 수리: 수동 ±초 슬라이더·대략 맞춤 배지·legacy 폴백 + D-03 겹침 최소수리 (w1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 32-03-PLAN.md — 실물 게이트: Pod 배포·재분석 실측 + OTA + belle 실기기 → D-17 3건 확정 (w2, checkpoint)
-- [ ] 32-04-PLAN.md — 리서치+목업 게이트: 순서안 제시 + 적용 범위 목업(확정 3요소 공통 하한) → D-02/D-03/D-05/D-10 확정 (w3, checkpoint)
 - [ ] 32-05-PLAN.md — 문구집+용어 맵: phrasebook fixture·조립 함수·금지어 게이트 + belle 감수 (w2, checkpoint)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 32-04-PLAN.md — 리서치+목업 게이트: 순서안 제시 + 적용 범위 목업(확정 3요소 공통 하한) → D-02/D-03/D-05/D-10 확정 (w3, checkpoint)
 - [ ] 32-06-PLAN.md — 미션 엔진+계약 3면: select_mission·streak·에스컬레이션 + validator + normalize (w3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 32-07-PLAN.md — 타이포 토큰 + SummaryCard + summarySource + 코치마크 (w4)
 - [ ] 32-08-PLAN.md — 재생 중 자막 큐 + TTS·일러스트 샘플 게이트 → D-18/D-21 확정 (w4, checkpoint)
 - [ ] 32-09-PLAN.md — 파이프라인 방출 배선: 3단 문구·미션·코치 질문 + LLM 가변부 한정 (w4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 32-10-PLAN.md — 감점 카드 재구성: DeductionCard 3단+인라인 줌+게이지+미션 배지 + 드릴다운·위험 톤 (w5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 32-11-PLAN.md — result.tsx 대배선: 게이트 확정 순서 재배치 + 보완 운동 가로(2회차 우회 제안 포함) + 코치 질문 + 참고 지표 전환 (w6)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 32-12-PLAN.md — 오디오 큐 구현(A/B 어느 확정이든 phase 내 완결 — B안 조건부 Polly 태스크 포함) + 실패 UX(D-29/D-30) + D-09 전 화면 검증 + OTA + belle 확인 (w7, checkpoint)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
 - [ ] 32-13-PLAN.md — omni 스팟체크: 사후 스테이지 + 불일치 카드 숨김 + praise 교차검증 + 6동작 스윕 (w8)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
 - [ ] 32-14-PLAN.md — RTMW 측정층 확장 1단: keypointReport 8→12 + 하위호환 + 용량 검증 + 6동작 전수 스윕 (w9)
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
 - [ ] 32-15-PLAN.md — PR 인버전 조건부 보정 + 최종 전수 스윕 게이트 + belle 마감 확인 (w10, checkpoint)
 
 ---

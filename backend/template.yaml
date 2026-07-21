@@ -221,7 +221,13 @@ Resources:
       FunctionName: !Sub sunity-motion-${Stage}-playback-url
       CodeUri: functions/playback-url/
       Handler: app.lambda_handler
-      Timeout: 10
+      # 32-16 실측 (2026-07-22): cold start 에서 auth leg(Google cert fetch + JWT)
+      # 만 7.7s, asset 경로의 Firestore 첫 init(SSM SA fetch + gRPC) ~6s —
+      # Timeout 10/Memory 256(≈0.16 vCPU) 로는 doc-read asset 경로(coachAudio·
+      # correctedPose·rotation)가 cold 에서 타임아웃. Memory 512 = CPU 2배로
+      # cold 경로 단축 + Timeout 30 여유. 트래픽 미미해 비용 영향 무시 가능.
+      Timeout: 30
+      MemorySize: 512
       Policies:
         - Statement:
             - Effect: Allow
@@ -229,6 +235,11 @@ Resources:
               Resource:
                 - !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
                 - !Sub arn:aws:s3:::${VideoBucketName}/reference/*
+                # results/* — asset 재서명(31 correctedPose/rotation + 32-16
+                # coachAudio) 대상 prefix. presigned URL 은 서명 role 권한으로
+                # GET 되므로 이 항목 없이는 asset URL 이 전부 403 (32-16 실측 —
+                # 서명 자체는 성공하나 다운로드 403. 29 reference/* 선례와 동일 함정).
+                - !Sub arn:aws:s3:::${VideoBucketName}/results/*
         - Statement:
             - Effect: Allow
               Action: ssm:GetParameter

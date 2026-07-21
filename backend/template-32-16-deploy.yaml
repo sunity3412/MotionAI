@@ -180,7 +180,10 @@ Resources:
       FunctionName: !Sub sunity-motion-${Stage}-playback-url
       CodeUri: functions/playback-url/
       Handler: app.lambda_handler
-      Timeout: 10
+      # 32-16 실측: cold auth 7.7s + Firestore 첫 init ~6s > 10s — asset 경로
+      # 타임아웃 수리 (정본 template.yaml 동일 statement 와 lockstep).
+      Timeout: 30
+      MemorySize: 512
       Policies:
         - Statement:
             - Effect: Allow
@@ -188,6 +191,9 @@ Resources:
               Resource:
                 - !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
                 - !Sub arn:aws:s3:::${VideoBucketName}/reference/*
+                # results/* — asset 재서명(coachAudio 등) 대상. 없으면 presigned
+                # GET 전부 403 (32-16 실측 — 정본 template.yaml 과 lockstep).
+                - !Sub arn:aws:s3:::${VideoBucketName}/results/*
         - Statement:
             - Effect: Allow
               Action: ssm:GetParameter

@@ -24,6 +24,7 @@ fail-closed 원칙 (D-11 일반론 금지의 폴백): 미지원 조합/저정보
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 # ── fixture 경로 (exercise_map._CORRECTIVE_EXERCISES_PATH 패턴 정합:
@@ -165,6 +166,74 @@ def assemble_safety_phrases(flag_type: str) -> dict:
     return dict(_GENERIC_SAFETY)
 
 
+# ── 잘한 점 헤드라인 (32-09 Task 1 — 리뷰 blocker 5, D-06/D-26) ────────────────
+# 사람 말 — 수치 0 (D-09 invariant: 수치는 evidenceValue/evidenceUnit 구조 필드로
+# 분리, 렌더 위치는 앱 소관). 근거 없는 칭찬 fabrication 0 — 각 source 는 실측
+# 전제(개선 outcome / 감점 0 차원 / 감점 record 0)를 호출부가 확보한 뒤에만 발화.
+_PRAISE_HEADLINE_MISSION_IMPROVED = (
+    "지난 미션으로 짚었던 부분이 이번 영상에서 좋아졌어요 — 연습이 통하고 있어요"
+)
+_PRAISE_HEADLINE_CRITERIA_MET = (
+    "이번 영상에서는 측정된 감점 항목이 없었어요 — 지금 자세를 유지해보세요"
+)
+_PRAISE_HEADLINE_CLEAN_DIMENSION_PREFIX = "감점 없이 통과한 항목이 있어요 — "
+
+
+def assemble_praise(
+    outcome: dict | None,
+    clean_dimensions: list[str] | None,
+    criteria_met: bool,
+) -> dict | None:
+    """잘한 점 후보 단일 원천 — result.summaryPraise 조립 (32-09 / 리뷰 blocker 5).
+
+    우선순위 (D-26 — 지난 미션 개선이 1순위 소스):
+      ① mission_improved — outcome.improved is True (derive_mission_outcome 산출).
+      ② clean_dimension — 감점 0 차원. **측정 존재분만** — 호출부가 커버리지 갭/
+         quantification 불가 케이스를 제외한 차원 list 를 전달한다 (D-06 근거 없는
+         칭찬 금지). 라벨은 terminology_map terms(승인 카피, D-12 단일 출처)만 사용
+         — terms 에 없는 차원은 건너뜀 (라벨 fabrication 0).
+      ③ criteria_met — 측정된 감점 record 0 (기준 통과).
+      전부 아니면 None (칭찬 미방출 — summaryPraise 키 생략).
+
+    Returns:
+        {source, headline, evidenceValue, evidenceUnit} flat scalar dict
+        (models.SUMMARY_PRAISE_KEYS 화이트리스트 정확 일치) 또는 None.
+        headline 은 수치 미포함 사람 말 (D-09) — 수치 증거는 evidenceValue
+        (예: mission_improved 의 deltaPoints) 로만 분리 방출.
+    """
+    if isinstance(outcome, dict) and outcome.get("improved") is True:
+        delta = outcome.get("deltaPoints")
+        has_delta = (
+            not isinstance(delta, bool)
+            and isinstance(delta, (int, float))
+            and math.isfinite(delta)
+        )
+        return {
+            "source": "mission_improved",
+            "headline": _PRAISE_HEADLINE_MISSION_IMPROVED,
+            "evidenceValue": float(delta) if has_delta else None,
+            "evidenceUnit": "points" if has_delta else None,
+        }
+    terms = load_terminology_map().get("terms", {})
+    for dim in clean_dimensions or []:
+        term = terms.get(dim)
+        if isinstance(term, str) and term:
+            return {
+                "source": "clean_dimension",
+                "headline": f"{_PRAISE_HEADLINE_CLEAN_DIMENSION_PREFIX}'{term}'",
+                "evidenceValue": None,
+                "evidenceUnit": None,
+            }
+    if criteria_met:
+        return {
+            "source": "criteria_met",
+            "headline": _PRAISE_HEADLINE_CRITERIA_MET,
+            "evidenceValue": None,
+            "evidenceUnit": None,
+        }
+    return None
+
+
 def rendered_copy_strings() -> list[str]:
     """금지어 게이트용 — 화면에 렌더되는 카피 string 만 수집 (_meta provenance 제외).
 
@@ -190,4 +259,11 @@ def rendered_copy_strings() -> list[str]:
     _collect(pb.get("safetyEntries", {}))
     _collect(pb.get("failClosed", {}))
     _collect(load_terminology_map().get("terms", {}))
+    # 32-09 — summaryPraise 헤드라인(코드 상수)도 렌더 카피: 금지어 게이트 scope 에
+    # 포함해 D-09(수치/% 금지)를 테스트로 상시 강제한다 (fixture 밖 카피 누수 차단).
+    out.extend([
+        _PRAISE_HEADLINE_MISSION_IMPROVED,
+        _PRAISE_HEADLINE_CRITERIA_MET,
+        _PRAISE_HEADLINE_CLEAN_DIMENSION_PREFIX,
+    ])
     return out

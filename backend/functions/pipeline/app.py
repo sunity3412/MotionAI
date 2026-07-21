@@ -3993,6 +3993,410 @@ def _attach_motion_alignment(
         )
 
 
+# ── Phase 32 (Plan 32-09) — 번역 레이어·미션 루프 방출 배선 ─────────────────────
+#
+# 32-CONTEXT D-08(감점 카드 3단)/D-11(문구집 골격 소유)/D-19(미션 선정)/D-26(미션
+# baseline)/D-27(에스컬레이션)/D-28(코치 질문)/D-29(부분 실패 UX) + 리뷰 blocker
+# 1(faultKey 체인)·5(recordId·summaryPraise 단일 원천).
+#
+# 설계 원칙:
+#   · 전부 순수 계산(dict 조립) — 외부 호출 0, 신규 Firestore 쿼리 0 (prev 는 기존
+#     mode3 get_previous_analysis 결과 재사용 — composite index 함정 주석 준수).
+#   · 방출은 전부 result 안으로 — complete_analysis 신규 kwarg 0 (safetyFlags 선례).
+#   · 항목 단위 격리(리뷰 반영): record 1건의 문구 조립 실패는 그 record 만 문구
+#     없이 통과, 미션/praise/질문 각각도 독립 try — 표시 부가물이 완료된 분석을
+#     fail 시키지 않는다 (T-32-20, SP-3).
+#   · LLM(Cerebras)은 이 배선에 관여하지 않는다 — 3단 골격은 phrasebook(32-05,
+#     belle 승인 카피)만 소유 (D-11: LLM 전체 실패 시에도 3단 성립).
+
+# 미측정 신호 → 질문 라벨 (D-29). keypoint_set 는 내부 영어 enum 이라 사용자 카피
+# 로 못 쓴다 — coverageGaps.bodyPart(Gemini 한국어 서술)가 있으면 그것을 우선,
+# 없으면 이 고정 라벨. reach 라벨은 terminology_map terms['reach'](승인 카피,
+# D-12 단일 출처) verbatim.
+_UNMEASURED_LABEL_KO: dict[str, str] = {
+    "head_neck": "머리·목 방향",
+    "grip": "그립 위치",
+    "torso": "몸통 축",
+    "shoulder": "어깨 정렬",
+    "hip": "골반 축",
+    "body_relative_reach": "목표 지점까지 몸을 뻗어 닿는 정도",
+    "dimension_overall_fallback": "세부 부위별 측정",
+}
+# 질문 완성문 템플릿 (D-28 문구집 스타일 — 조사 회피 위해 라벨은 괄호 병기).
+_UNMEASURED_QUESTION_TEMPLATE = (
+    "이번 영상에서 정확히 재기 어려웠던 부분이 있어요 ({label}) — "
+    "강사님과 직접 확인해보고 싶어요"
+)
+# coachQuestions 상한 — firestore_admin._MAX_COACH_QUESTIONS(10) lockstep.
+_MAX_EMITTED_COACH_QUESTIONS = 10
+
+
+def _criterion_tolerance(criterion: str) -> float | None:
+    """criterion id → 실존 규칙 상수 tolerance (D-10 게이지 스케일 재료).
+
+    출처는 ipsf_criteria.CRITERION_GROUPS 뿐 — 자의 수치 생성 금지. 미등재
+    criterion(dimension_overall_fallback 등)은 None (호출부가 키 생략).
+    """
+    from sunity_shared.analysis import ipsf_criteria
+
+    for crit in ipsf_criteria.CRITERION_GROUPS:
+        if crit.get("id") == criterion:
+            tol = crit.get("tolerance")
+            if not isinstance(tol, bool) and isinstance(tol, (int, float)):
+                return float(tol)
+            return None
+    return None
+
+
+def collect_unmeasured_signals(breakdown, dimension_explanation) -> list[str]:
+    """'이번에 못 잰 것' 신호 수집 adapter (D-28/D-29 — source='unmeasured' 원천).
+
+    실존 신호 실측 기록 (2026-07-21 코드 확인 — 리뷰 반영, 발견 필드 명시):
+      · `deductionBreakdown.coverageGaps[]` — deduction_engine._gap_to_dict 방출
+        flat entry {faultType, reason, bodyPart, faultState, keypointSet, ruleId}.
+        측정 substrate 부재 결함 (ipsf_criteria.COVERAGE_GAP_KEYPOINT_SETS 5종
+        head_neck/grip/torso/shoulder/hip + reach 의 quantification_unavailable
+        entry — ruleId 'reach_substrate_unavailable_low_alignment').
+      · `deductionBreakdown.records[].ruleId ==
+        'quantification_unavailable_dimension_overall'` (criterion
+        'dimension_overall_fallback') — 정량화 전체 불가 whole-score 폴백 record.
+      · `dimensionExplanation` 에는 미측정 서술이 **실존하지 않는다** (assemble.
+        _deficit_summary_for 는 양호/deficit 카피만 방출 — 실측 결과 소스 제외).
+        시그니처에는 보존 — 향후 미측정 서술 도입 시의 명시 hook (플랜 지정 형상).
+
+    Args:
+        breakdown: result['deductionBreakdown'] dict 또는 None.
+        dimension_explanation: result['dimensionExplanation'] dict 또는 None
+            (현재 미소비 — 위 실측 기록 참조).
+
+    Returns:
+        한국어 라벨 list (등장 순서 보존 + dedup). 질문 문장 조립은 호출부
+        (_collect_coach_questions) 소관 — 이 함수는 신호 수집만.
+    """
+    del dimension_explanation  # 실측: 미측정 서술 실존 X — hook 보존 (docstring)
+    if not isinstance(breakdown, dict):
+        return []
+    labels: list[str] = []
+
+    def _add_label(label: str | None) -> None:
+        if isinstance(label, str) and label and label not in labels:
+            labels.append(label)
+
+    for gap in breakdown.get("coverageGaps") or []:
+        if not isinstance(gap, dict):
+            continue
+        body_part = gap.get("bodyPart")
+        keypoint_set = gap.get("keypointSet") or gap.get("faultType")
+        mapped = (
+            _UNMEASURED_LABEL_KO.get(keypoint_set)
+            if isinstance(keypoint_set, str)
+            else None
+        )
+        # bodyPart 는 Gemini 한국어 서술 우선 — 단 reach gap 의 합성값 'reach' 는
+        # 영어 내부어라 제외 (deduction_engine.py:298 실측).
+        if isinstance(body_part, str) and body_part and body_part != "reach":
+            _add_label(body_part)
+        else:
+            _add_label(mapped)
+    for rec in breakdown.get("records") or []:
+        if (
+            isinstance(rec, dict)
+            and rec.get("ruleId") == "quantification_unavailable_dimension_overall"
+        ):
+            _add_label(_UNMEASURED_LABEL_KO["dimension_overall_fallback"])
+    return labels
+
+
+def _criteria_met_for_praise(records: list, breakdown) -> bool:
+    """summaryPraise source='criteria_met' 판정 — 측정된 감점 record 0.
+
+    breakdown 자체 부재(레거시/게이트 경로)나 fallback 마커 존재(측정 불가)는
+    '기준 통과' 근거가 아니다 — False (D-06 근거 없는 칭찬 금지).
+    """
+    if not isinstance(breakdown, dict):
+        return False
+    if breakdown.get("fallback"):
+        return False
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        pts = rec.get("points")
+        if not isinstance(pts, bool) and isinstance(pts, (int, float)) and pts != 0:
+            return False
+    return True
+
+
+# deduction criterion → 관련 차원 (clean_dimension 모순 칭찬 차단용 — D-06).
+# 감점 record 가 실린 차원은 dimensionScores 가 100 이어도 '깨끗' 근거가 아니다
+# (vision-측정 substrate 가 dimension 산식과 다른 경로로 감점할 수 있음 — split 등).
+# body_relative_reach 는 위치 지표라 3 차원 밖 → 차원 차단 없음.
+_CRITERION_TO_DIMENSION: dict[str, str | None] = {
+    "leg_extension": "line",
+    "arm_extension": "line",
+    "line": "line",
+    "split_angle": "line",
+    "body_relative_reach": None,
+    "dimension_overall_fallback": None,  # whole-score 폴백 — fallback 체크가 차단
+}
+
+
+def _dimension_for_criterion(criterion: str) -> str | None:
+    if criterion.startswith("angle_vs_reference__"):
+        return "angle"
+    return _CRITERION_TO_DIMENSION.get(criterion)
+
+
+def _clean_praise_dimensions(result: dict, mode: str) -> list[str]:
+    """감점 0 차원 후보 (summaryPraise clean_dimension 재료 — 측정 존재분만).
+
+    호출부 책임(플랜 명시): 커버리지 갭 차원 제외 후 전달 —
+      · fallback == 'quantification_unavailable' 이면 전체 측정 불가 → 빈 list
+        ('깨끗함'의 측정 근거 부재, D-06).
+      · 실감점 record 가 매핑되는 차원 제외 — dimensionScores 100 이어도 감점
+        내역과 모순되는 칭찬 금지 (_CRITERION_TO_DIMENSION, D-06).
+      · mode3 의 angle 차원은 제외 — angle 은 이전 영상 유사도라 '잘한 점' 근거가
+        아니다 ([[mode3-overall-exclude-angle-similarity]] invariant 정합).
+    순서 = line → stability → angle (domain 핵심 가치 라인 우선, 결정적).
+    """
+    breakdown = result.get("deductionBreakdown")
+    if not isinstance(breakdown, dict):
+        return []
+    if breakdown.get("fallback") == "quantification_unavailable":
+        return []
+    dim_scores = result.get("dimensionScores")
+    if not isinstance(dim_scores, dict):
+        return []
+    deducted_dims: set[str] = set()
+    for rec in breakdown.get("records") or []:
+        if not isinstance(rec, dict):
+            continue
+        pts = rec.get("points")
+        criterion = rec.get("criterion")
+        if (
+            not isinstance(pts, bool)
+            and isinstance(pts, (int, float))
+            and pts != 0
+            and isinstance(criterion, str)
+        ):
+            mapped = _dimension_for_criterion(criterion)
+            if mapped:
+                deducted_dims.add(mapped)
+    out: list[str] = []
+    for dim in ("line", "stability", "angle"):
+        if mode == models.MODE_SELF and dim == "angle":
+            continue
+        if dim in deducted_dims:
+            continue
+        score = dim_scores.get(dim)
+        if not isinstance(score, bool) and isinstance(score, (int, float)) and score >= 100:
+            out.append(dim)
+    return out
+
+
+def _collect_coach_questions(result: dict, mission: dict | None) -> list[dict]:
+    """coachQuestions 자동 수집 (D-28/D-29) — 3 원천, recordId 조인, 상한 10.
+
+    원천 순서 (D-28): ① 위험 결함 항상 (safetyFlags → assemble_safety_phrases
+    coachQuestion, source='safety') → ② 3회 미개선 미션 (escalation=='coach_card'
+    → 해당 record 의 coachQuestion, source='mission_stuck', recordId 조인) →
+    ③ 이번에 못 잰 것 (collect_unmeasured_signals, source='unmeasured').
+    dedup = (text, recordId). 각 항목 flat scalar dict {text, source, recordId?}
+    — firestore_admin._validate_coach_questions 통과 형상.
+    """
+    from sunity_shared.analysis import phrasebook
+
+    questions: list[dict] = []
+    seen: set[tuple] = set()
+
+    def _add(text, source: str, record_id: str | None = None) -> None:  # noqa: ANN001
+        if not isinstance(text, str):
+            return
+        text = text.strip()
+        # validator 상한(200자) 초과 카피는 방출하지 않는다 — 문구집 승인 카피는
+        # 전부 상한 이내라 실경로 없음 (방어: 중간 절단 카피 노출 금지 — skip).
+        if not text or len(text) > 200:
+            return
+        key = (text, record_id)
+        if key in seen:
+            return
+        seen.add(key)
+        item: dict = {"text": text, "source": source}
+        if isinstance(record_id, str) and record_id:
+            item["recordId"] = record_id
+        questions.append(item)
+
+    # ① 위험 결함 항상 (D-28 — D-14 정합: 안내·강사 유도만, 게임 요소 0).
+    for flag in result.get("safetyFlags") or []:
+        if not isinstance(flag, dict):
+            continue
+        flag_type = flag.get("flagType")
+        phrases = phrasebook.assemble_safety_phrases(
+            flag_type if isinstance(flag_type, str) else ""
+        )
+        _add(phrases.get("coachQuestion"), "safety")
+
+    # ② 3회 미개선 미션 — coach_card 전면 승격 (D-27 3회차+).
+    if isinstance(mission, dict) and mission.get("escalation") == "coach_card":
+        record_id = mission.get("recordId")
+        records = (result.get("deductionBreakdown") or {}).get("records") or []
+        rec = next(
+            (
+                r
+                for r in records
+                if isinstance(r, dict)
+                and isinstance(record_id, str)
+                and r.get("recordId") == record_id
+            ),
+            None,
+        )
+        question = rec.get("coachQuestion") if isinstance(rec, dict) else None
+        _add(
+            question,
+            "mission_stuck",
+            record_id if isinstance(record_id, str) else None,
+        )
+
+    # ③ 이번에 못 잰 것 (D-29 — 정직 고지, 강사 확인 유도).
+    for label in collect_unmeasured_signals(
+        result.get("deductionBreakdown"), result.get("dimensionExplanation")
+    ):
+        _add(_UNMEASURED_QUESTION_TEMPLATE.format(label=label), "unmeasured")
+
+    return questions[:_MAX_EMITTED_COACH_QUESTIONS]
+
+
+def _attach_translation_emission(
+    result: dict,
+    *,
+    mode: str,
+    motion_id: str | None,
+    prev_doc: dict | None,
+    uid: str,
+    analysis_id: str,
+) -> None:
+    """32-09 방출 배선 본체 — recordId·3단 문구·미션·summaryPraise·코치 질문.
+
+    complete_analysis 호출 **전에만** 호출한다 (27-06 게이트 — motionAlignment
+    선례와 동일 위치 규율). 부작용 = result 신규 키 4개(mission/missionOutcome/
+    summaryPraise/coachQuestions) + records 항목의 additive 확장 키
+    (models.DEDUCTION_RECORD_EXTENSION_KEYS)뿐 — 기존 키 무변경(setdefault),
+    채점 무접촉. prev_doc = 기존 mode3 경로 get_previous_analysis 결과 재사용
+    (신규 쿼리 0 — mission.py 의 motionId 가드가 same-mode-only 실측 사실을 방어).
+    전체 실패해도 분석은 완주한다 (상위 try — T-32-20/SP-3).
+    """
+    try:
+        from sunity_shared.analysis import mission as mission_mod
+        from sunity_shared.analysis import phrasebook
+
+        breakdown = result.get("deductionBreakdown")
+        records = breakdown.get("records") if isinstance(breakdown, dict) else None
+        if not isinstance(records, list):
+            records = []
+
+        # (1)+(2) recordId 각인 + 문구집 3단·tolerance 병합 — record 단위 격리.
+        for i, rec in enumerate(records):
+            if not isinstance(rec, dict):
+                continue
+            criterion = rec.get("criterion")
+            if not isinstance(criterion, str) or not criterion:
+                continue
+            try:
+                # 안정 조인 키 — 방출 시 1회 각인 (contract.md §12.3 형식).
+                rec.setdefault("recordId", f"r{i:02d}:{criterion}")
+                rule_id = rec.get("ruleId")
+                phrases = phrasebook.assemble_phrases(
+                    motion_id,
+                    criterion,
+                    rule_id if isinstance(rule_id, str) else None,
+                )
+                # 계약 확장 키만 병합 — failClosed 마커는 record 계약 밖이라 제외
+                # (fail-closed 는 cueLine/exerciseId 부재로 판별, 32-05 스킴).
+                for slot in models.DEDUCTION_PHRASE_KEYS:
+                    value = phrases.get(slot)
+                    if isinstance(value, str) and value and slot not in rec:
+                        rec[slot] = value
+                tol = _criterion_tolerance(criterion)
+                if tol is not None and "tolerance" not in rec:
+                    rec["tolerance"] = tol
+            except Exception:  # noqa: BLE001 - record 1건 실패는 그 record 만 (리뷰 반영)
+                log.exception(
+                    "record 문구 조립 실패 — 해당 record 만 문구 없이 통과 "
+                    "uid=%s analysis_id=%s idx=%d",
+                    uid, analysis_id, i,
+                )
+
+        # (3) 미션 체인 — prev.result.mission (motionId 가드는 순수 함수 측).
+        prev_mission: dict | None = None
+        if isinstance(prev_doc, dict):
+            prev_result = prev_doc.get("result")
+            if isinstance(prev_result, dict):
+                pm = prev_result.get("mission")
+                prev_mission = pm if isinstance(pm, dict) else None
+
+        safety_flags = result.get("safetyFlags")
+        if not isinstance(safety_flags, list):
+            safety_flags = None
+
+        mission: dict | None = None
+        try:
+            mission = mission_mod.select_mission(
+                records, safety_flags, prev_mission, motion_id
+            )
+            if mission is not None:
+                result["mission"] = mission
+        except Exception:  # noqa: BLE001 - 미션 실패는 미션만 미방출 (항목 격리)
+            mission = None
+            log.exception(
+                "mission 선정 실패 — 미션 미방출 uid=%s analysis_id=%s",
+                uid, analysis_id,
+            )
+
+        outcome: dict | None = None
+        try:
+            outcome = mission_mod.derive_mission_outcome(
+                prev_mission, records, mode, motion_id
+            )
+            if outcome is not None:  # mode3 + prev 보유 시에만 (mode1/None 생략)
+                result["missionOutcome"] = outcome
+        except Exception:  # noqa: BLE001 - outcome 실패는 outcome 만 미방출
+            outcome = None
+            log.exception(
+                "missionOutcome 산출 실패 — 미방출 uid=%s analysis_id=%s",
+                uid, analysis_id,
+            )
+
+        # (4) summaryPraise — 잘한 점 단일 원천 (리뷰 blocker 5).
+        try:
+            praise = phrasebook.assemble_praise(
+                outcome,
+                _clean_praise_dimensions(result, mode),
+                _criteria_met_for_praise(records, breakdown),
+            )
+            if praise is not None:
+                result["summaryPraise"] = praise
+        except Exception:  # noqa: BLE001 - praise 실패는 praise 만 미방출
+            log.exception(
+                "summaryPraise 조립 실패 — 미방출 uid=%s analysis_id=%s",
+                uid, analysis_id,
+            )
+
+        # (5) coachQuestions 자동 수집 (D-28/D-29).
+        try:
+            questions = _collect_coach_questions(result, mission)
+            if questions:
+                result["coachQuestions"] = questions
+        except Exception:  # noqa: BLE001 - 질문 실패는 질문만 미방출
+            log.exception(
+                "coachQuestions 수집 실패 — 미방출 uid=%s analysis_id=%s",
+                uid, analysis_id,
+            )
+    except Exception:  # noqa: BLE001 - 방출 전체 실패도 분석 완주 (SP-3, T-32-20)
+        log.exception(
+            "32-09 번역 레이어 방출 전체 실패 — 분석 완주 유지 uid=%s analysis_id=%s",
+            uid, analysis_id,
+        )
+
+
 def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     _ensure_adapters()
     # Phase 27 SPD-01 — stage-timing 계측 (27-RESEARCH Pattern 6). D-01 before/after
@@ -5232,6 +5636,19 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 uid=uid,
                 analysis_id=analysis_id,
             )
+        # ── Phase 32 (Plan 32-09) — 번역 레이어·미션 루프 방출 (complete 직전) ──
+        # D-08/D-11/D-19/D-26~D-29 + 리뷰 blocker 1·2·5. 순수 dict 조립 — 외부 호출
+        # 0, 신규 쿼리 0 (prev = 위 mode3 경로의 get_previous_analysis 재사용).
+        # 채점 무접촉 — records 확장 키·result 신규 키 4개만 additive (32-03 스윕
+        # 기준선 diff 0 이 acceptance). 실패해도 분석 완주 (helper 내 상위 try).
+        _attach_translation_emission(
+            result,
+            mode=mode,
+            motion_id=getattr(profile, "motion_id", None),
+            prev_doc=mode3_prev,
+            uid=uid,
+            analysis_id=analysis_id,
+        )
         result["timingsMs"] = timings_ms
         with _stage(timings_ms, analysis_id, "firestore_complete"):  # Phase 27 SPD-01
             firestore_admin.complete_analysis(

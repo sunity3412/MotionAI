@@ -36,4 +36,25 @@ export const typography = {
   dialogButton: { fontSize: 15, fontWeight: '700', lineHeight: 20, letterSpacing: track(15) },
   // 진단용 오류 원문 — 눈에 띄지 않아야 하므로 최소 크기.
   dialogDetail: { fontSize: 11, fontWeight: '400', lineHeight: 15 },
+
+  // ── Phase 32 (32-07 D-05) 결과 화면 강조 토큰 (E2 스케일, 하한 17) ───────
+  // 출처: 32-GATE-DECISIONS.md D-05 = "E2(강, 하한 17)" + mockups/emphasis-tokens.md
+  // (index.html ⑤ 탭 승인본). 문제 = 현행 12~20 사이 본문용 중간 단계 부재 →
+  // 화면 대부분이 caption(12)/boxLabel(15)로 조판 = belle "전반이 너무 작음".
+  // 해법 = 옵션 b(신규 단계 추가만, 전역값 상향 아님 — 전 화면 파급 리스크 통제).
+  // 전역 토큰(caption 12 등) 무변경 — 결과 화면부터 적용 후 32-11/32-12 에서 확산.
+  //
+  // 하한 17: belle "폰트 젤 작은 것들 정말 너무 작음"(로딩 화면) 직격. emphasis-tokens
+  // E2 열의 badge 16 은 이 하한을 위반하므로 17 로 올려 채택 (사유 = 게이트 확정 하한).
+  // lineHeight = fontSize×1.3 이상 (Pitfall 3 — 줄겹침 방지). letterSpacing = track()=0
+  // (음수 letterSpacing 은 iOS 26+ SIGABRT :2-6). 강조 강(800)은 우리가 배포하는
+  // 폰트 파일(Pretendard Regular/Bold)에 맞춰 '700'(Bold)로 매핑 — 크기 계층으로 강조.
+  // Pretendard 실제 로드(D-05 후반)는 이 플랜 파일 범위 밖(_layout/asset) — 32-11 배선.
+  badge: { fontSize: 17, fontWeight: '600', lineHeight: 23, letterSpacing: track(17) }, // 측정 수치 소형 배지(D-09)
+  bodySm: { fontSize: 19, fontWeight: '400', lineHeight: 25, letterSpacing: track(19) }, // 왜/보조 본문
+  bodyMd: { fontSize: 21, fontWeight: '400', lineHeight: 28, letterSpacing: track(21) }, // 기본 본문
+  bodyMdBold: { fontSize: 21, fontWeight: '700', lineHeight: 28, letterSpacing: track(21) }, // 행동 큐(외부 초점)
+  bodyLg: { fontSize: 24, fontWeight: '700', lineHeight: 32, letterSpacing: track(24) }, // 카드 헤드라인(몸 말/상태)
+  title: { fontSize: 26, fontWeight: '700', lineHeight: 34, letterSpacing: track(26) }, // 섹션 타이틀
+  headline: { fontSize: 30, fontWeight: '700', lineHeight: 39, letterSpacing: track(30) }, // 요약 카드 대표 문장
 } as const;

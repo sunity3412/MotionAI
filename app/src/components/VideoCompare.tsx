@@ -989,6 +989,21 @@ export function VideoCompare({
     Math.min(100, ((manualOffsetSec + sliderBound) / (2 * sliderBound)) * 100),
   );
 
+  // 32-11 (실기기 피드백 #2 — 정렬 지점 시각 표시) — belle: "맞춰지는 지점을 확인하기
+  // 어려움". 자동 추천 오프셋(정렬 활성=0 / legacy=initialOffsetSec)의 트랙 위치에
+  // 브랜드 틱을 찍고, 현재 오프셋이 그 값과 스냅 이내로 일치하면 "정렬됨" 배지를
+  // 띄운다 — 사용자가 드래그로 추천 지점에 도달했음을 즉시 알 수 있게 한다.
+  const recommendedOffsetSec = alignmentActive ? 0 : (initialOffsetSec ?? 0);
+  const recommendedThumbPct = Math.max(
+    0,
+    Math.min(
+      100,
+      ((recommendedOffsetSec + sliderBound) / (2 * sliderBound)) * 100,
+    ),
+  );
+  const atRecommendedOffset =
+    Math.abs(manualOffsetSec - recommendedOffsetSec) < OFFSET_SNAP_SEC;
+
   // quick-260702-t0v — 컨트롤 공유 (로직 중복 0). 세로 카드와 가로 전체화면이
   // 같은 핸들러(togglePlay/stepBy/seekBoth/restart/panResponder)와 같은 JSX 를
   // 공유. dark=true(전체화면)면 어두운 배경 위 색만 토큰 분기.
@@ -1285,9 +1300,22 @@ export function VideoCompare({
         <View style={styles.offsetTuner}>
           <View style={styles.offsetTunerHeader}>
             <Text style={styles.offsetTunerLabel}>시작점 미세조정</Text>
-            <Text style={styles.offsetTunerValue}>
-              {fmtOffsetLabel(manualOffsetSec)}
-            </Text>
+            <View style={styles.offsetValueRow}>
+              {/* 32-11 피드백 #2 — 추천 지점 도달 시 "정렬됨" 배지. */}
+              {atRecommendedOffset ? (
+                <View style={styles.offsetAlignedBadge}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={13}
+                    color={colors.brand}
+                  />
+                  <Text style={styles.offsetAlignedText}>정렬됨</Text>
+                </View>
+              ) : null}
+              <Text style={styles.offsetTunerValue}>
+                {fmtOffsetLabel(manualOffsetSec)}
+              </Text>
+            </View>
           </View>
           <View style={styles.offsetTunerRow}>
             <View
@@ -1295,7 +1323,11 @@ export function VideoCompare({
               onLayout={onOffsetTrackLayout}
               accessibilityRole="adjustable"
               accessibilityLabel="두 영상 시작점 오프셋"
-              accessibilityValue={{ text: fmtOffsetLabel(manualOffsetSec) }}
+              accessibilityValue={{
+                text: atRecommendedOffset
+                  ? `${fmtOffsetLabel(manualOffsetSec)} · 추천 정렬 지점`
+                  : fmtOffsetLabel(manualOffsetSec),
+              }}
               accessibilityActions={[
                 { name: 'increment' },
                 { name: 'decrement' },
@@ -1305,6 +1337,16 @@ export function VideoCompare({
             >
               <View style={styles.offsetRail} pointerEvents="none" />
               <View style={styles.offsetCenterMark} pointerEvents="none" />
+              {/* 32-11 피드백 #2 — 자동 추천(정렬) 지점 틱. 브랜드색으로 "여기가
+                  맞춰지는 지점"을 상시 표시. 도달 시 굵게(atRecommended). */}
+              <View
+                style={[
+                  styles.offsetRecommendMark,
+                  { left: `${recommendedThumbPct}%` },
+                  atRecommendedOffset && styles.offsetRecommendMarkActive,
+                ]}
+                pointerEvents="none"
+              />
               <View
                 style={[styles.offsetThumb, { left: `${offsetThumbPct}%` }]}
                 pointerEvents="none"
@@ -1718,6 +1760,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand,
     borderWidth: 2,
     borderColor: colors.cardBg,
+  },
+  // 32-11 (실기기 피드백 #2) — 자동 추천(정렬) 지점 틱 + "정렬됨" 배지 (토큰만).
+  offsetRecommendMark: {
+    position: 'absolute',
+    marginLeft: -1,
+    top: (28 - 16) / 2,
+    width: 2,
+    height: 16,
+    borderRadius: 1,
+    backgroundColor: colors.brand,
+    opacity: 0.55,
+  },
+  offsetRecommendMarkActive: {
+    width: 3,
+    marginLeft: -1.5,
+    opacity: 1,
+  },
+  offsetValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  offsetAlignedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: colors.brandTint,
+  },
+  offsetAlignedText: {
+    ...typography.captionSmall,
+    color: colors.brand,
+    fontWeight: '700',
   },
   offsetResetBtn: {
     width: 28,

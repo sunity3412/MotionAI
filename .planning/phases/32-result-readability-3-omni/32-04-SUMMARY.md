@@ -2,40 +2,44 @@
 phase: 32-result-readability-3-omni
 plan: 04
 subsystem: result-ui-gates
-status: PAUSED_AT_CHECKPOINT
+status: COMPLETE
 tags: [mockup-gate, research-gate, D-02, D-03, D-05, D-10, checkpoint-decision]
 requires: [32-02, 32-03]
 provides:
-  - "mockups/ 목업 세트 (강도별 + 최악 케이스 + 참고 지표 2형태 + 강조 체계) — belle 결정 대기"
-  - "D-02 섹션 순서안 텍스트 원본 (section-order.md)"
-  - "D-05 강조 토큰 스펙 (emphasis-tokens.md)"
+  - "리서치 게이트(D-02) 확정 — 10항 순서 승인 + 세로 스크롤"
+  - "목업 게이트(D-03/D-05/D-10) 확정 — 게임 프레임 안 B(수치 전면 금지) · E2 타이포(하한 17)+Pretendard · 참고 지표 개인화 심사 시뮬레이션(재설계)"
+  - "⑤ 참조 원형 채택(Figma 결함 시트) + 확대쌍 사진 쌍 필수 — 32-10 시각 원형"
+  - "mockups/ 목업 세트 + 32-GATE-DECISIONS.md 확정 섹션 + 소비처 매핑 표"
 affects:
-  - "32-07 (타이포 토큰·요약 카드) / 32-10 (감점 카드) / 32-11 (재배치·참고 지표·세로/가로) — belle 결정 확정 후 입력"
+  - "32-07 (타이포 토큰 E2·요약 카드) / 32-10 (감점 카드·드릴다운 시트·게임 프레임·참조 원형) / 32-11 (재배치 세로 스크롤·개인화 심사 시뮬레이션)"
 key-files:
   created:
     - .planning/phases/32-result-readability-3-omni/mockups/index.html
     - .planning/phases/32-result-readability-3-omni/mockups/README.md
     - .planning/phases/32-result-readability-3-omni/mockups/section-order.md
     - .planning/phases/32-result-readability-3-omni/mockups/emphasis-tokens.md
-  modified: []
+  modified:
+    - .planning/phases/32-result-readability-3-omni/32-GATE-DECISIONS.md
 decisions:
-  - "목업은 self-contained HTML 1파일(index.html) + 텍스트 원본 2종 — belle Mac에서 더블클릭, 라이브 Figma MCP 불필요"
-  - "공통 shell 1벌 + 동일 fixture(최악 케이스) 재사용, 안별 변형 플래그만 교체 (전면 재제작 금지)"
+  - "D-02 = 10항 순서 승인 + 세로 스크롤 (폰트·세부는 후속 32-07/11/12 조정 — belle 조건)"
+  - "D-10 = 안 B(감점 카드+성장 탭). ★수치 전면/헤드라인 금지, 게이지는 길이만 (belle 강한 교정)"
+  - "D-05 = E2(하한 17) + Pretendard 실제 로드"
+  - "D-03 = 개인화 심사 시뮬레이션 재설계 (기존 2형태 폐기 — 지식전달형 비판)"
+  - "⑤ 참조 원형 = Figma 결함 시트 양식 + 확대쌍 사진 쌍 필수(32-10)"
   - "Figma 결과 화면 = design.md §8 미설계 문서 확정 → 현행 result.tsx 출발점"
 metrics:
-  completed: 1
+  completed: 2
   total: 2
-  checkpoint_task: 2
   completed_date: 2026-07-21
 ---
 
 # Phase 32 Plan 04: 리서치 게이트(D-02) + 목업 게이트(D-03/D-05/D-10) Summary
 
-**One-liner:** 4대 게이트 중 2개(리서치·목업)를 belle 결정으로 닫기 위한 산출물 — 공통 shell 기반 self-contained 비교 목업(강도별 A/B/C + 최악 케이스 4종 + 참고 지표 2형태 + 강조 체계 E1/E2 + D-09 검사표) + 섹션 순서/강조 토큰 텍스트 원본을 제작·커밋. **Task 2 checkpoint:decision 에서 belle 결정 대기 중 (plan 미완료).**
+**One-liner:** 4대 게이트 중 2개(리서치·목업)를 공통 shell 기반 self-contained 목업으로 제시하고 belle 결정으로 닫음 — D-02(10항 순서+세로 스크롤), D-10(게임 프레임 안 B, ★수치 전면 금지), D-05(E2 하한 17+Pretendard), D-03(개인화 심사 시뮬레이션 재설계) + ⑤ 참조 원형(Figma 결함 시트+확대쌍) 확정 → 32-GATE-DECISIONS.md에 소비처 매핑과 함께 적재.
 
-## Status: PAUSED AT CHECKPOINT (Task 2 / 2)
+## Status: COMPLETE (2/2 tasks)
 
-Task 1(목업 제작)은 완료·커밋. Task 2는 `checkpoint:decision` gate(`autonomous: false`) — belle의 UI 설계 결정이 필요하므로 자동 진행 불가. 구조화된 checkpoint 보고를 오케스트레이터에 반환(belle 릴레이). belle 결정 후 continuation agent가 32-GATE-DECISIONS.md에 확정 섹션 + 소비처 매핑 표를 적재하며 완료.
+Task 1(목업 제작) 완료·커밋. Task 2(checkpoint:decision) — belle이 목업 열람 후 왕복 3회로 4건 결정 + ⑤ 참조 원형 채택. 확정본을 32-GATE-DECISIONS.md에 "리서치 게이트 (D-02)" + "목업 게이트 (D-03/D-05/D-10)" 섹션 + "결정 → 소비 플랜/태스크" 매핑 표로 적재. 목업 README에 정정 노트(②탭 각도 전면 배치 폐기·줌 쌍 사진 필수) 병기.
 
 ## Task 1 — 완료 (commit a871afe)
 
@@ -52,23 +56,25 @@ Task 1(목업 제작)은 완료·커밋. Task 2는 `checkpoint:decision` gate(`a
 - % 환산 0건 · 측정 수치는 소형 배지만 · IPSF 규정 수치는 심사 코너 본문(구분 적용)
 - D-17 확정(양옆 동시+탭 확대·자세 카드 존치·큐 구간당 1개)과 모순 없음
 
-## Task 2 — CHECKPOINT (belle 결정 대기)
+## Task 2 — 완료 (belle 결정 4건 + ⑤ 참조 원형 적재)
 
-belle이 결정할 4항 (상세·권장안은 checkpoint 보고 참조):
-1. **D-02 섹션 순서 승인/수정 + 세로 스크롤 vs 가로 카드 넘김** → 32-11 소비
-2. **D-10 게임 프레임 범위** A(감점 카드 한정)/B(+성장 탭)/C(전면+추가 아이디어) → 32-10·32-07 소비
-3. **D-05 강조 스케일** E1(중)/E2(강, 하한 17) + Pretendard 로드 여부 → 32-07 소비
-4. **D-03 참고 지표 형태** 독립 심사 코너 vs 감점 카드 흡수 → 32-11 소비
+belle 확정 (32-GATE-DECISIONS.md canon):
+1. **D-02** = 10항 순서 승인 + **세로 스크롤(안 V)**. belle 조건 병기: "폰트·세부는 후속 조정"(32-07/11/12). → 32-11
+2. **D-10** = **안 B**(감점 카드 + 성장 탭). ★belle 강한 교정: **측정 수치 전면/헤드라인 금지, 게이지는 길이(bar)로만** — ②탭 각도 전면 배치 폐기. → 32-10 · 32-07
+3. **D-05** = **E2(하한 17) + Pretendard 실제 로드**. → 32-07
+4. **D-03** = **개인화 심사 시뮬레이션 재설계** (기존 2형태 모두 "지식전달형" 폐기) — 내 결함에 IPSF 규칙 적용, 독립 코너(채점 표면 뒤). → 32-11
+5. **⑤ 참조 원형(신규)** = belle Figma 과거 결함 상세 시트 양식(단계 배지+부위 칩+신뢰도 / 수치 0 헤드라인 / 근거 박스에만 수치 / 하단 고지) + **결함 확대쌍 사진 쌍 필수**(감점 항목 탭 → 드릴다운 시트에 사진 쌍+문구 3단+근거 박스). → 32-10
 
-**belle 결정 후 continuation 작업:** 32-GATE-DECISIONS.md에 "## 리서치 게이트 (D-02)" + "## 목업 게이트 (D-03/D-05/D-10)" 섹션 + "결정 → 소비 플랜/태스크" 매핑 표 적재 → plan 완료. (T-32-08 완화: belle 미결정 상태에서 GATE-DECISIONS.md에 확정 섹션 선기재하지 않음 — 후속 플랜이 이 파일만 신뢰하므로.)
+**적재 완료:** 32-GATE-DECISIONS.md "## 리서치 게이트 (D-02)" + "## 목업 게이트 (D-03/D-05/D-10)" 섹션 + 매핑 표(①→32-11, ②→32-10·32-07, ③→32-07, ④→32-11, ⑤→32-10). 목업 README 정정 노트 병기. (T-32-08 준수 — 후속 플랜이 이 파일만 신뢰.)
 
 ## Deviations from Plan
 
-없음 — Task 1은 플랜대로 실행. Task 2는 설계대로 checkpoint 정지.
-(파일 카운트 ≥3 충족을 위해 section-order.md/emphasis-tokens.md를 추가했으나, 이는 must_haves가 요구하는 '섹션 순서안 텍스트' + '강조 체계 스펙'의 belle 확인용 원본이자 32-11/32-07 소비 계약이므로 slop 아님.)
+- Task 1/2 모두 플랜대로. 파일 카운트 ≥3 충족을 위해 section-order.md/emphasis-tokens.md 추가 — must_haves가 요구하는 '섹션 순서안 텍스트' + '강조 체계 스펙'의 belle 확인용 원본이자 32-11/32-07 소비 계약이므로 slop 아님.
+- **게이트 결정 결과 (belle 주도 — 내 deviation 아님):** (a) D-03 목업 2형태 모두 폐기 → 개인화 심사 시뮬레이션 재설계, (b) D-10 ②탭 각도 전면 배치 폐기(수치 전면 금지 강화), (c) ⑤ 참조 원형 신규 채택. 목업은 canon 아님을 GATE-DECISIONS·README에 명시.
 
 ## Self-Check: PASSED
 
-- 산출물 4종 + SUMMARY 전부 FOUND
-- Task 1 commit a871afe FOUND
-- Task 2는 checkpoint(파일 산출 없음, 구조화 보고 반환)
+- 산출물 4종 + SUMMARY + GATE-DECISIONS 확정 섹션 전부 FOUND
+- Task 1 commit a871afe / SUMMARY commit f0a80a1 FOUND
+- GATE-DECISIONS.md "목업 게이트" 문자열 존재(verify 통과) · 매핑 표 존재
+- 커밋 후 git status clean 확인

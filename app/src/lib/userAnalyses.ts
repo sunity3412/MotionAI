@@ -21,8 +21,12 @@ import type {
   AnalysisDoc,
   AnalysisStatus,
   CoachCommentHook,
+  CoachQuestion,
   DeductionBreakdown,
   DeductionRecord,
+  Mission,
+  MissionOutcome,
+  SummaryPraise,
 } from '../types/analysis';
 
 // Phase 11 (Plan 11-02, COACH-01) — CoachCommentHook null-guard normalize.
@@ -91,6 +95,182 @@ function normalizeFrameIdx(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0
     ? value
     : undefined;
+}
+
+// ── Phase 32 (Plan 32-06 — D-19/D-26/D-27/D-08/D-28) 방어 파싱 헬퍼 ──────
+// backend 방출값을 신뢰하지 않는다 (T-32-14 DoS mitigate): 임의 값은 undefined
+// 로 조용히 강등하고, 필드를 drop 하지는 않는다 (부재 = legacy doc 하위호환 —
+// visual 필드 3종 헬퍼 관례). enum 은 models.py 상수와 lockstep
+// (test_mission_contract_lockstep.py 가 drift 차단).
+const MISSION_SELECTED_BY = ['safety', 'repeat', 'max_deduction'] as const;
+const MISSION_ESCALATIONS = ['none', 'exercise_detour', 'coach_card'] as const;
+const SUMMARY_PRAISE_SOURCES = [
+  'mission_improved',
+  'clean_dimension',
+  'criteria_met',
+] as const;
+const COACH_QUESTION_SOURCES = [
+  'safety',
+  'mission_stuck',
+  'unmeasured',
+  'user', // 클라이언트 로컬 전용 — 백엔드 방출엔 없음 (contract.md §12.5)
+] as const;
+
+// 유한 number 만 (normalizeFiniteMs 와 동일 로직 — 이름이 timestamp 전용이라
+// 범용 별칭을 둔다. tolerance/baseline 수치용).
+function normalizeFiniteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function normalizeNonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function normalizeMission(value: unknown): Mission | undefined {
+  if (value == null || typeof value !== 'object' || Array.isArray(value))
+    return undefined;
+  const m = value as Record<string, unknown>;
+  const faultKey = normalizeNonEmptyString(m.faultKey);
+  const criterion = normalizeNonEmptyString(m.criterion);
+  const selectedBy = MISSION_SELECTED_BY.includes(
+    m.selectedBy as Mission['selectedBy'],
+  )
+    ? (m.selectedBy as Mission['selectedBy'])
+    : undefined;
+  const escalation = MISSION_ESCALATIONS.includes(
+    m.escalation as Mission['escalation'],
+  )
+    ? (m.escalation as Mission['escalation'])
+    : undefined;
+  const streak =
+    typeof m.streak === 'number' && Number.isInteger(m.streak) && m.streak >= 1
+      ? m.streak
+      : undefined;
+  const baselinePoints =
+    typeof m.baselinePoints === 'number' &&
+    Number.isFinite(m.baselinePoints) &&
+    m.baselinePoints >= 0
+      ? m.baselinePoints
+      : undefined;
+  // 필수 골격이 malformed 면 미션 전체를 undefined 강등 (섹션 숨김 — 잘못된
+  // 미션을 표시하느니 조용히 감춘다, D-08 조용한 폴백 정합).
+  if (
+    !faultKey ||
+    !criterion ||
+    !selectedBy ||
+    !escalation ||
+    streak === undefined ||
+    baselinePoints === undefined
+  )
+    return undefined;
+  return {
+    faultKey,
+    criterion,
+    selectedBy,
+    streak,
+    escalation,
+    baselinePoints,
+    isSafety: m.isSafety === true,
+    ruleId: typeof m.ruleId === 'string' ? m.ruleId : null,
+    recordId: typeof m.recordId === 'string' ? m.recordId : null,
+    motionId: typeof m.motionId === 'string' ? m.motionId : null,
+    baselineDeviation: normalizeFiniteNumber(m.baselineDeviation) ?? null,
+    targetValue: normalizeFiniteNumber(m.targetValue) ?? null,
+    unit: typeof m.unit === 'string' ? m.unit : null,
+  };
+}
+
+function normalizeMissionOutcome(value: unknown): MissionOutcome | undefined {
+  if (value == null || typeof value !== 'object' || Array.isArray(value))
+    return undefined;
+  const o = value as Record<string, unknown>;
+  const faultKey = normalizeNonEmptyString(o.faultKey);
+  const criterion = normalizeNonEmptyString(o.criterion);
+  const baselinePoints = normalizeFiniteNumber(o.baselinePoints);
+  const currentPoints = normalizeFiniteNumber(o.currentPoints);
+  const deltaPoints = normalizeFiniteNumber(o.deltaPoints);
+  if (
+    typeof o.improved !== 'boolean' ||
+    !faultKey ||
+    !criterion ||
+    baselinePoints === undefined ||
+    currentPoints === undefined ||
+    deltaPoints === undefined
+  )
+    return undefined;
+  return {
+    improved: o.improved,
+    faultKey,
+    criterion,
+    baselinePoints,
+    currentPoints,
+    deltaPoints,
+    baselineDeviation: normalizeFiniteNumber(o.baselineDeviation) ?? null,
+    currentDeviation: normalizeFiniteNumber(o.currentDeviation) ?? null,
+    deltaDeviation: normalizeFiniteNumber(o.deltaDeviation) ?? null,
+  };
+}
+
+function normalizeSummaryPraise(value: unknown): SummaryPraise | undefined {
+  if (value == null || typeof value !== 'object' || Array.isArray(value))
+    return undefined;
+  const p = value as Record<string, unknown>;
+  const source = SUMMARY_PRAISE_SOURCES.includes(
+    p.source as SummaryPraise['source'],
+  )
+    ? (p.source as SummaryPraise['source'])
+    : undefined;
+  const headline = normalizeNonEmptyString(p.headline);
+  if (!source || !headline) return undefined;
+  return {
+    source,
+    headline,
+    evidenceValue: normalizeFiniteNumber(p.evidenceValue) ?? null,
+    evidenceUnit: typeof p.evidenceUnit === 'string' ? p.evidenceUnit : null,
+  };
+}
+
+function normalizeCoachQuestions(value: unknown): CoachQuestion[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: CoachQuestion[] = [];
+  for (const item of value) {
+    if (item == null || typeof item !== 'object' || Array.isArray(item))
+      continue; // malformed 항목만 제거 — 나머지는 보존 (필드 drop 없음 원칙)
+    const q = item as Record<string, unknown>;
+    const text = normalizeNonEmptyString(q.text);
+    const source = COACH_QUESTION_SOURCES.includes(
+      q.source as CoachQuestion['source'],
+    )
+      ? (q.source as CoachQuestion['source'])
+      : undefined;
+    if (!text || !source) continue;
+    out.push({
+      text,
+      source,
+      ...(typeof q.recordId === 'string' ? { recordId: q.recordId } : {}),
+    });
+  }
+  return out;
+}
+
+// DeductionRecord 확장 키 통과 파싱 (Plan 32-06 §12.3) — recordId/3단 문구는
+// string, tolerance 는 유한 number 만. malformed 는 undefined 강등하되 record
+// 자체와 기존 필드는 보존 (카드는 계속 렌더 — 문구만 조용히 포기).
+function normalizeRecordPhraseFields(rec: DeductionRecord): DeductionRecord {
+  const raw = rec as unknown as Record<string, unknown>;
+  return {
+    ...rec,
+    recordId: normalizeNonEmptyString(raw.recordId),
+    statusLine: normalizeNonEmptyString(raw.statusLine),
+    whyLine: normalizeNonEmptyString(raw.whyLine),
+    cueLine: normalizeNonEmptyString(raw.cueLine),
+    coachQuestion: normalizeNonEmptyString(raw.coachQuestion),
+    exerciseId: normalizeNonEmptyString(raw.exerciseId),
+    exerciseReason: normalizeNonEmptyString(raw.exerciseReason),
+    tolerance: normalizeFiniteNumber(raw.tolerance),
+  };
 }
 
 export interface UserAnalysesState {
@@ -239,9 +419,13 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
         ...result,
         deductionBreakdown: {
           ...raw,
-          records: raw.records.filter(
-            (r): r is DeductionRecord => r != null && typeof r === 'object',
-          ),
+          // Phase 32 (Plan 32-06 §12.3) — record 확장 키(recordId/3단 문구/
+          // tolerance) 통과 파싱. 기존 필드·record 는 보존(필드 drop 없음).
+          records: raw.records
+            .filter(
+              (r): r is DeductionRecord => r != null && typeof r === 'object',
+            )
+            .map(normalizeRecordPhraseFields),
         },
       };
     } else {
@@ -394,6 +578,20 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
             typeof raw.refMatched === 'boolean' ? raw.refMatched : undefined,
         };
       }),
+    };
+  }
+  // Phase 32 (Plan 32-06 — D-19/D-26/D-27/D-08/D-28) — 미션 루프·잘한 점·코치
+  // 질문 방어 파싱. 임의 값은 undefined 강등 + 필드 drop 없음 (부재=legacy doc
+  // 하위호환 — visual 필드 블록 mirror). 방출은 32-09 부터라 현행 doc 은 전부
+  // undefined 로 통과한다 (렌더 diff 0).
+  if (result) {
+    const r = result as Record<string, unknown>;
+    result = {
+      ...result,
+      mission: normalizeMission(r.mission),
+      missionOutcome: normalizeMissionOutcome(r.missionOutcome),
+      summaryPraise: normalizeSummaryPraise(r.summaryPraise),
+      coachQuestions: normalizeCoachQuestions(r.coachQuestions),
     };
   }
   return {

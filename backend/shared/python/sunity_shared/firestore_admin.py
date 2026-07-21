@@ -406,6 +406,212 @@ def _validate_motion_alignment(
             )
 
 
+# ── Phase 32 (Plan 32-06) — 미션 루프 + 번역 레이어 scoped validator 4종 ──
+#
+# D-19/D-26/D-27/D-14 + D-28/D-29 + 리뷰 blocker 1·5. motionAlignment 선례 뼈대
+# 복제 — result 안 단일 persistence path 전용, complete_analysis 신규 kwarg 0
+# ("result 안으로 흐른다", SP-1). None/부재 graceful(legacy doc — 방출은 32-09
+# 부터). generic `_validate_dict_only_scalars` 본체 변경 영구 0. records 확장 키
+# (recordId/3단 문구/tolerance)는 flat scalar 라 기존 record 검증 경로
+# (_validate_deduction_breakdown → _validate_dict_only_scalars)를 자동 통과 —
+# 별도 validator 불필요 (계약은 contract.md §12.3).
+# 3-way lockstep: models.py MISSION_KEYS 블록 + analysis.ts + contract.md §12.
+
+# 상한 상수 — 리뷰 반영 (T-32-12 Tampering mitigate).
+_MISSION_STREAK_MIN = 1
+_MAX_PRAISE_HEADLINE_CHARS = 200
+_MAX_COACH_QUESTIONS = 10
+_MAX_COACH_QUESTION_TEXT_CHARS = 200
+
+# 백엔드 방출 가능 coach question source — 'user' 는 클라이언트 로컬 전용
+# (사용자 담기, 백엔드 방출·validator 에 도달하지 않음 — contract.md §12.5).
+# 백엔드 코드가 'user' 를 방출하면 계약 위반이므로 여기서 거부한다.
+_BACKEND_COACH_QUESTION_SOURCES: tuple[str, ...] = tuple(
+    s for s in models.COACH_QUESTION_SOURCES if s != "user"
+)
+
+
+def _require_finite_number(value, *, path: str, allow_none: bool = False):  # noqa: ANN001
+    """finite 숫자 강제 (bool 명시 거부). allow_none 시 None graceful 통과."""
+    if value is None and allow_none:
+        return
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{path} 는 숫자 scalar 필수: {value!r}")
+    if not _math_kr.isfinite(value):
+        raise ValueError(f"{path} 는 finite 여야 함 (NaN/inf 금지)")
+
+
+def _require_str_or_none(value, *, path: str) -> None:  # noqa: ANN001
+    if value is not None and not isinstance(value, str):
+        raise ValueError(f"{path} 는 str|None 필수: {type(value).__name__}")
+
+
+def _validate_mission(payload, *, path: str = "mission") -> None:  # noqa: ANN001
+    """mission scoped validator — Phase 32 (Plan 32-06, T-32-12).
+
+    `result['mission']` 단일 persistence path 전용. 검증:
+      · dict 강제, 키는 models.MISSION_KEYS 화이트리스트.
+      · faultKey/criterion 비어있지 않은 str, ruleId/recordId/motionId/unit str|None.
+      · selectedBy ∈ MISSION_SELECTED_BY, escalation ∈ MISSION_ESCALATIONS.
+      · streak int 1..MISSION_STREAK_MAX(99) — mission._STREAK_CAP lockstep.
+      · baselinePoints finite ≥ 0, baselineDeviation/targetValue finite|None.
+      · isSafety bool. D-14 정합(isSafety→streak 1·escalation 'none')은 산출
+        순수 함수(analysis/mission.py)가 소유 — 저장층은 형식·범위만 강제.
+    위반 시 ValueError + path (caller 가 catch → fail_analysis).
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"{path} must be dict (mission): got {type(payload).__name__}"
+        )
+    extra = set(payload) - set(models.MISSION_KEYS)
+    if extra:
+        raise ValueError(f"{path}: 화이트리스트 밖 키 {sorted(extra)}")
+    for key in ("faultKey", "criterion"):
+        value = payload.get(key)
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"{path}.{key} 는 비어있지 않은 str 필수: {value!r}")
+    for key in ("ruleId", "recordId", "motionId", "unit"):
+        _require_str_or_none(payload.get(key), path=f"{path}.{key}")
+    selected_by = payload.get("selectedBy")
+    if selected_by not in models.MISSION_SELECTED_BY:
+        raise ValueError(f"{path}.selectedBy 미등재값: {selected_by!r}")
+    escalation = payload.get("escalation")
+    if escalation not in models.MISSION_ESCALATIONS:
+        raise ValueError(f"{path}.escalation 미등재값: {escalation!r}")
+    streak = payload.get("streak")
+    if isinstance(streak, bool) or not isinstance(streak, int):
+        raise ValueError(f"{path}.streak 는 int 필수: {streak!r}")
+    if not (_MISSION_STREAK_MIN <= streak <= models.MISSION_STREAK_MAX):
+        raise ValueError(
+            f"{path}.streak 범위 위반 ({_MISSION_STREAK_MIN}.."
+            f"{models.MISSION_STREAK_MAX}): {streak}"
+        )
+    if not isinstance(payload.get("isSafety"), bool):
+        raise ValueError(f"{path}.isSafety 는 bool 필수")
+    baseline_points = payload.get("baselinePoints")
+    _require_finite_number(baseline_points, path=f"{path}.baselinePoints")
+    if baseline_points < 0:
+        raise ValueError(f"{path}.baselinePoints 는 ≥0 필수: {baseline_points!r}")
+    _require_finite_number(
+        payload.get("baselineDeviation"),
+        path=f"{path}.baselineDeviation",
+        allow_none=True,
+    )
+    _require_finite_number(
+        payload.get("targetValue"), path=f"{path}.targetValue", allow_none=True
+    )
+
+
+def _validate_mission_outcome(
+    payload, *, path: str = "missionOutcome"
+) -> None:  # noqa: ANN001
+    """missionOutcome scoped validator — _validate_mission 동형 (수치 finite).
+
+    `result['missionOutcome']` 단일 persistence path 전용 (mode3 전용 산출물 —
+    mode1/prev 부재는 키 생략이라 None graceful). 수치·bool·키만 — 사람 문장
+    필드는 화이트리스트에 없다 (계산/카피 책임 분리).
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"{path} must be dict (missionOutcome): got {type(payload).__name__}"
+        )
+    extra = set(payload) - set(models.MISSION_OUTCOME_KEYS)
+    if extra:
+        raise ValueError(f"{path}: 화이트리스트 밖 키 {sorted(extra)}")
+    if not isinstance(payload.get("improved"), bool):
+        raise ValueError(f"{path}.improved 는 bool 필수")
+    for key in ("faultKey", "criterion"):
+        value = payload.get(key)
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"{path}.{key} 는 비어있지 않은 str 필수: {value!r}")
+    for key in ("baselinePoints", "currentPoints", "deltaPoints"):
+        _require_finite_number(payload.get(key), path=f"{path}.{key}")
+    for key in ("baselineDeviation", "currentDeviation", "deltaDeviation"):
+        _require_finite_number(
+            payload.get(key), path=f"{path}.{key}", allow_none=True
+        )
+
+
+def _validate_summary_praise(
+    payload, *, path: str = "summaryPraise"
+) -> None:  # noqa: ANN001
+    """summaryPraise scoped validator — 잘한 점 단일 원천 (리뷰 blocker 5).
+
+    headline 은 사람 말 상한 200자 — D-09 수치 invariant 자체는 phrasebook 조립
+    (32-09)의 금지어 게이트가 소유하고, 저장층은 형식·상한만 강제한다.
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"{path} must be dict (summaryPraise): got {type(payload).__name__}"
+        )
+    extra = set(payload) - set(models.SUMMARY_PRAISE_KEYS)
+    if extra:
+        raise ValueError(f"{path}: 화이트리스트 밖 키 {sorted(extra)}")
+    source = payload.get("source")
+    if source not in models.SUMMARY_PRAISE_SOURCES:
+        raise ValueError(f"{path}.source 미등재값: {source!r}")
+    headline = payload.get("headline")
+    if not isinstance(headline, str) or not headline.strip():
+        raise ValueError(f"{path}.headline 는 비어있지 않은 str 필수")
+    if len(headline) > _MAX_PRAISE_HEADLINE_CHARS:
+        raise ValueError(
+            f"{path}.headline 길이 {len(headline)} > 상한 "
+            f"{_MAX_PRAISE_HEADLINE_CHARS}"
+        )
+    _require_finite_number(
+        payload.get("evidenceValue"), path=f"{path}.evidenceValue", allow_none=True
+    )
+    _require_str_or_none(payload.get("evidenceUnit"), path=f"{path}.evidenceUnit")
+
+
+def _validate_coach_questions(
+    payload, *, path: str = "coachQuestions"
+) -> None:  # noqa: ANN001
+    """coachQuestions scoped validator — _validate_safety_flags 형태 (D-28/D-29).
+
+    각 항목 scalar-only dict (`_validate_dict_only_scalars` 라우팅 — generic
+    본체 무변경) + source 백엔드 enum + text 1..200자 + recordId str|None.
+    항목 수 ≤ 10 (리뷰 상한). **source='user' 거부** — 클라이언트 로컬 전용
+    ('강사님께 물어보기' 담기)이라 백엔드 방출에 나타나면 계약 위반이다
+    (contract.md §12.5).
+    """
+    if payload is None:
+        return
+    if not isinstance(payload, list):
+        raise TypeError(
+            f"{path} must be list[dict] (firestore-nested-array-flat): "
+            f"got {type(payload).__name__}"
+        )
+    if len(payload) > _MAX_COACH_QUESTIONS:
+        raise ValueError(
+            f"{path} 항목 수 {len(payload)} > 상한 {_MAX_COACH_QUESTIONS}"
+        )
+    for i, item in enumerate(payload):
+        item_path = f"{path}[{i}]"
+        _validate_dict_only_scalars(item, path=item_path)
+        text = item.get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError(f"{item_path}.text 는 비어있지 않은 str 필수")
+        if len(text) > _MAX_COACH_QUESTION_TEXT_CHARS:
+            raise ValueError(
+                f"{item_path}.text 길이 {len(text)} > 상한 "
+                f"{_MAX_COACH_QUESTION_TEXT_CHARS}"
+            )
+        source = item.get("source")
+        if source not in _BACKEND_COACH_QUESTION_SOURCES:
+            raise ValueError(
+                f"{item_path}.source 미등재값(백엔드 방출 불가 'user' 포함 거부): "
+                f"{source!r}"
+            )
+        _require_str_or_none(item.get("recordId"), path=f"{item_path}.recordId")
+
+
 def _validate_metric_dict_with_scalar_lists(d: dict, *, path: str) -> None:
     """metric dict 안 검증 — scalar / list[str] (화이트리스트 한정) 박제 허용.
 
@@ -1023,6 +1229,13 @@ def complete_analysis(
         # 흘러온 dict 를 scoped validator 로 검증 (상한/flat/단조 + tier↔anchors 역불변식,
         # 신규 kwarg 없음 — safetyFlags 선례).
         _validate_motion_alignment((result or {}).get("motionAlignment"))
+        # Phase 32 (Plan 32-06) — 미션 루프 + 번역 레이어 단일 persistence path.
+        # 전부 result 안으로 흐른다 (신규 kwarg 0 — SP-1, safetyFlags 선례).
+        # None/부재 graceful — 방출은 32-09 부터 (contract.md §12).
+        _validate_mission((result or {}).get("mission"))
+        _validate_mission_outcome((result or {}).get("missionOutcome"))
+        _validate_summary_praise((result or {}).get("summaryPraise"))
+        _validate_coach_questions((result or {}).get("coachQuestions"))
     payload: dict = {
         "status": models.STATUS_DONE,
         "result": dict(result) if result else {},

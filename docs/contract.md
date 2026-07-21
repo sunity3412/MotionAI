@@ -1726,6 +1726,78 @@ const frameIdx = Math.floor(currentTime * report.fps);
 
 ---
 
+## §12. 미션 루프 + 번역 레이어 방출 (Phase 32 Plan 32-06 신설 — D-08/D-19/D-26/D-27/D-28/D-29/D-14)
+
+미션→연습→확인 루프(D-19/D-26/D-27)와 감점 카드 번역 레이어(D-08)의 데이터 계약. 전부 `result` 안으로 흐르며(`complete_analysis` 신규 kwarg 0 — safetyFlags 선례), `firestore_admin` scoped validator(`_validate_mission`/`_validate_mission_outcome`/`_validate_summary_praise`/`_validate_coach_questions`)로만 검증한다. **방출은 32-09 파이프라인 배선부터** — 이전 doc 은 전 필드 부재(legacy 하위호환, `tier?` 서술 모범, no migration). 3-way lockstep: `app/src/types/analysis.ts` `Mission`/`MissionOutcome`/`SummaryPraise`/`CoachQuestion` + `DeductionRecord` 확장 ↔ `models.py` `MISSION_KEYS` 블록 ↔ 본 §12.
+
+### §12.1 Mission (`result.mission`)
+
+`analysis/mission.py` 순수 함수 `select_mission` 산출 — D-19 우선순위 **① 위험 결함(안전 안내) > ② 반복 미개선(faultKey 동일성) > ③ 감점 최대**. 결함 0 분석은 미션 없음(키 생략 — fabrication 금지).
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `faultKey` | string | 안정 결함 판별 키 — `{motionId}::{ruleId}::{criterion}` 결정적 조합(`build_fault_key`). criterion 이 좌우 관절을 내장(`angle_vs_reference__left_knee`)해 좌우 구분이 승계된다(리뷰 blocker 1 — criterion 단독 판별은 좌우·동작을 병합). motion/rule 부재 = `unknown`/`na` 고정 폴백 |
+| `criterion` | string | 선정 결함의 criterion (안전 미션은 safetyFlag `flagType`) |
+| `ruleId` | string\|null | 선정 record 의 ruleId (안전 미션 null) |
+| `recordId` | string\|null | 선정 record 의 안정 조인 키(§12.3) — record 에 부재 시 null |
+| `selectedBy` | 'safety'\|'repeat'\|'max_deduction' | D-19 우선순위 ①②③ 중 발동 항목 |
+| `streak` | number | 같은 faultKey 미개선 연속 회차 (1..99). **직전 doc 의 `mission.streak`+1 로 doc 체인 전파** — N개 문서 쿼리 없이 직전 1건으로 D-27 판정. `prev.motionId != 현재 motionId` 면 체인 리셋(다른 동작 오염 0 — `get_previous_analysis` 가 motion 을 필터하지 않는 실측 사실의 순수 함수 측 방어) |
+| `isSafety` | boolean | true = 안전 미션 (D-14 해석: **streak 1 고정 + escalation 'none' 강제** — 안전은 안내·코치 유도 전용, 게임·streak·에스컬레이션 제외) |
+| `escalation` | 'none'\|'exercise_detour'\|'coach_card' | D-27 — streak 2 = 보완 운동 우회, streak ≥3 = 코치 카드 전면 승격 |
+| `motionId` | string\|null | 현재 분석 인식 동작 id (체인 가드 기준) |
+| `baselinePoints` | number | 선정 record 의 \|points\| (≥0) — **다음 분석이 개선량을 계산하는 baseline** (D-26, 리뷰 blocker 1). 안전 미션은 0 |
+| `baselineDeviation` | number\|null | \|measuredValue−baselineValue\| — 둘 다 있을 때만 |
+| `targetValue` | number\|null | 선정 record 의 `baselineValue` (수치 측정 기준) |
+| `unit` | string\|null | 선정 record 의 unit (`deg`/`notch`/`score_delta`) |
+
+### §12.2 MissionOutcome (`result.missionOutcome`)
+
+`derive_mission_outcome(prev_mission, current_records, mode, motion_id)` 산출 — **mode3 전용**(mode1/prev 부재/motionId 불일치/prev 안전 미션/prev baseline 부재 = 키 생략). **수치·bool·키만** — 사람 문장(deltaSummary 류)은 만들지 않는다(문장은 32-09 phrasebook·summaryPraise 조립 + 앱 렌더 소관 — 계산/카피 책임 분리). 수치 렌더는 D-09 invariant(헤드라인 금지, 소형 보조만).
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `improved` | boolean | 소멸 또는 `currentPoints < baselinePoints − 0.01`(부동소수 여유) |
+| `faultKey`/`criterion` | string | 추적한 지난 미션의 결함 identity |
+| `baselinePoints` | number | prev mission 저장값 |
+| `currentPoints` | number | 잔존 시 \|points\|, 소멸 시 0 |
+| `deltaPoints` | number | baseline − current (양수=개선, 음수=악화 — 수치 진실 그대로) |
+| `baselineDeviation`/`currentDeviation`/`deltaDeviation` | number\|null | 편차 트랙 (측정 쌍 있을 때만) |
+
+### §12.3 DeductionRecord 확장 — recordId·3단 문구·tolerance
+
+§10.2 record 에 **additive optional** 확장 (부재 = legacy doc, 기존 11+2 키 byte-호환). record 는 flat scalar dict 그대로라 기존 `_validate_dict_only_scalars` 검증 경로를 자동 통과한다(validator 본체 무변경).
+
+- `recordId?: string` — **방출 시 1회 각인되는 안정 조인 키** (형식 `r{index:02d}:{criterion}`, 32-09 각인). 정렬·필터·숨김(32-13 스팟체크 `hiddenRecordIds`)·코치 질문 점프에 **index 대신 사용**한다(리뷰 blocker 5 — index 는 정렬/필터에 불안정).
+- 3단 문구 슬롯 (D-08 상태→왜→행동, phrasebook 32-05 골격 산출): `statusLine?`(몸 말 상태) / `whyLine?`(감점·위험 이유 1줄) / `cueLine?`(외부 큐 행동) / `coachQuestion?`(강사 질문 완성문) / `exerciseId?`+`exerciseReason?`(결함→운동 연결, D-13). fail-closed 조합은 `cueLine`/`exerciseId`/`exerciseReason` 을 **생략**(일반론 조언 fabrication 차단).
+- `tolerance?: number` — 규칙 상수 유래 허용 오차(게이지 스케일 재료, D-10). **자의적 수치 아님** — 32-09 가 실존 규칙 상수에서만 방출(있을 때만).
+
+### §12.4 SummaryPraise (`result.summaryPraise`)
+
+잘한 점 후보의 **단일 원천 = 백엔드 산출**(리뷰 blocker 5). 앱은 이 값을 그대로 소비하고, legacy doc(필드 부재)에서만 로컬 폴백을 파생한다(32-07 summarySource) — 스팟체크(32-13)가 교차검증하는 문장과 화면 문장이 동일해진다.
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `source` | 'mission_improved'\|'clean_dimension'\|'criteria_met' | 근거 소스 (D-06 — 측정 근거에서만, 근거 없는 칭찬 금지) |
+| `headline` | string (1..200자) | 사람 말 헤드라인 — **수치 미포함** (D-09 invariant: % 환산·수치 헤드라인 금지) |
+| `evidenceValue` | number\|null | 근거 수치 (예: deltaPoints) — 소형 보조 표기 전용 재료 |
+| `evidenceUnit` | string\|null | 근거 수치 단위 |
+
+### §12.5 coachQuestions (`result.coachQuestions`)
+
+코치 질문 자동 등재 목록 (D-28/D-29) — `{text, source, recordId?}` scalar dict 의 list(≤10, safetyFlags list[dict] 선례 — nested array 아님). 자동 수집 = 위험 결함 항상(`safety`) + 3회 미개선 미션(`mission_stuck`) + 이번에 못 잰 것(`unmeasured`). `recordId` 조인으로 해당 감점 카드 점프(부재 = 점프 없음).
+
+- `text: string` (1..200자) — 문구집 스타일 완성문.
+- `source: 'safety'|'mission_stuck'|'unmeasured'|'user'`. **`'user'` 는 클라이언트 로컬 전용**('강사님께 물어보기' 담기) — 백엔드 방출·validator 에 도달하지 않으며, validator 는 백엔드 방출값에서 `'user'` 를 거부한다.
+
+### §12.6 검증 규칙 (scoped validator)
+
+- `_validate_mission`: 키 화이트리스트(`MISSION_KEYS`) + `selectedBy`/`escalation` enum + `streak` int 1..99 + `baselinePoints` finite ≥0 + `faultKey`/`criterion` 비어있지 않은 str + nullable 필드 타입 강제. None graceful(legacy/미산출).
+- `_validate_mission_outcome`: 키 화이트리스트(`MISSION_OUTCOME_KEYS`) + `improved` bool + 수치 전부 finite(NaN/inf 거부) + nullable 편차 트랙.
+- `_validate_summary_praise`: 키 화이트리스트 + `source` enum + `headline` 비어있지 않은 str ≤200자 + `evidenceValue` finite\|None.
+- `_validate_coach_questions`: list ≤10 + 각 항목 scalar-only dict(`_validate_dict_only_scalars` 라우팅) + `text` 1..200자 + `source` 백엔드 enum(`'user'` 거부) + `recordId` str\|None.
+
+---
+
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
 *Phase 1 §6 추가: 2026-05-31 — PoseFrame/PoleAxis 3-way lockstep (H-3/H-4/M-1/M-2/M-5 REVIEWS 박제).*
 *Plan 01-19 §7 추가: 2026-06-02 — BodyNormalizationProfile (D-19 segment 비율, D-21 nullable). RTMW pivot 박제.*
@@ -1738,3 +1810,4 @@ const frameIdx = Math.floor(currentTime * report.fps);
 *quick-260705-k8h §10 갱신: 2026-07-05 — 관절(criterion record)당 감점 상한 −20 (belle 승인). §10.2 optional 2필드(`rawPoints`/`capApplied`) 신설 — 상한 적용 record 에만 방출, 미적용 record byte-호환. final 밴드/severity 밴드 없음 유지 (record 단위 명시 규칙 클램프).*
 *Plan 28-03 §11 추가: 2026-07-08 — MotionAlignment (ALGN-01 동작 기반 비교 정렬) 3-way lockstep (TS interface + Python MOTION_ALIGNMENT_KEYS + 본 §11). tier 3단(warped/trim_only/disabled, D-02) + 초 단위 fps 도메인(9fps vs 18fps) + anchors flat 상한 512 + tier↔anchors 역불변식(MEDIUM-3, disabled 만 빈 anchors) + legacy 하위호환 + Phase 22 source:'vlm' 상위 호환 + FaultZoomComparison.refMatch(D-04) 신설.*
 *Plan 31-04 §2 + §4 추가: 2026-07-20 — Phase 31 visual 교정 시각물 3-way lockstep (TS optional 필드 + Python VISUAL_STATUSES + 본 절). correctedPose* 4 + rotation* 3 필드(URL 비저장 — 표시 URL 은 playback-url asset 재서명, 리뷰 H-02 / pending 타임아웃은 전용 *UpdatedAtMs, 리뷰 H-06) + FaultZoomComparison 뷰어 프레임 소스 3필드(D-10) + POST /visual/rotation 신설(429 daily_limit = 사용자 3건·전역 30건/일, KST 자정 리셋 명시 — 리뷰 M-06 / 503 feature_disabled 조용한 폴백 — D-08) + POST /playback-url asset 확장(server-selected key, 1시간 presign, 미지정 시 기존 동작 보존).*
+*Plan 32-06 §12 추가: 2026-07-21 — 미션 루프 + 번역 레이어 방출 3-way lockstep (TS Mission/MissionOutcome/SummaryPraise/CoachQuestion + DeductionRecord 확장 ↔ models.py MISSION_KEYS 블록 ↔ 본 §12). faultKey(motionId::ruleId::criterion — 리뷰 blocker 1)·baseline 저장(D-26)·streak doc 체인+motionId 가드·에스컬레이션(D-27)·D-14 정합(안전=streak 1·escalation none 강제)·recordId 안정 조인 키+summaryPraise 단일 원천(리뷰 blocker 5)·3단 문구 슬롯(D-08)·tolerance(D-10)·coachQuestions(D-28/D-29, 'user'=클라이언트 로컬 전용). 방출은 32-09 부터 — legacy doc 부재 하위호환.*

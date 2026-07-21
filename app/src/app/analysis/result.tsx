@@ -15,7 +15,6 @@ import { InjuryRiskSection } from '../../components/InjuryRiskSection';
 import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
 import { RecommendedExerciseModal } from '../../components/RecommendedExerciseModal';
 import { CORRECTIVE_LIBRARY_HAS_ITEMS } from '../../data/correctiveExercises';
-import { DimensionDetailModal } from '../../components/DimensionDetailModal';
 import {
   KeypointOverlay,
   KEYPOINT_DELTA_HIGHLIGHT_DEG,
@@ -55,7 +54,6 @@ import {
   REGION_MEMBER_KEYPOINTS,
   buildDeductionMarkers,
   buildDeductionTicks,
-  composeDimensionDiagnosisKo,
   composeScoringBasisKo,
   composeShortActionLabelKo,
   criterionLabelKo,
@@ -85,9 +83,7 @@ import {
   visualCardState,
 } from '../../lib/visualCards';
 import {
-  DIMENSION_LABEL_KO,
   DIMENSION_ORDER,
-  DIMENSION_SUBLABEL_KO,
   DOMINANT_HAND_LABEL_KO,
   EXPERIENCE_LABEL_KO,
   PAIN_AREA_LABEL_KO,
@@ -98,13 +94,11 @@ import type {
   CoachingTip,
   CoachQuestion,
   DeductionRecord,
-  DimensionExplanation,
   FaultZoomComparison,
   JointDirection,
   JointScore,
   KeypointName,
   KeypointReport,
-  ScoreDimension,
   SegmentScores,
   SkillLevel,
   SynthesisWarningCode,
@@ -447,133 +441,11 @@ function ScoreContext({
   );
 }
 
-function DimensionScoreRow({
-  dim,
-  score,
-  delta,
-  explanation,
-  onDetailPress,
-  contextNote,
-  reframeVeto,
-  labelSuffix,
-}: {
-  dim: ScoreDimension;
-  score: number;
-  delta?: number;
-  // Phase 12.5: 차원별 baseline + deficitSummary. 옵셔널 — 이전 빌드 doc 호환.
-  explanation?: DimensionExplanation;
-  // Phase 12.5 v2 (belle 피드백): "자세히 ›" 링크 → 모달 (DimensionDetailModal).
-  onDetailPress?: (dim: ScoreDimension) => void;
-  // Phase 20 (UI ①): 비전 거부권 적용 시 점수 아래 맥락 (각도 100 오해 차단).
-  contextNote?: string;
-  // #2 (2026-06-21): 비전 거부권으로 종합이 낮아졌는데 이 차원 측정값이 높아(예: 각도
-  // 100) "완벽" 으로 오인되는 경우. 숫자를 측정값 톤으로 낮추고 contextNote 를 강조
-  // 콜아웃으로 띄운다 (흐린 한 줄로는 belle 가 오인 — 진짜 reframe).
-  reframeVeto?: boolean;
-  // quick-260705-o0s — ' (참고)' 접미 (angle/stability, 결과 화면 전용).
-  // DIMENSION_LABEL_KO 자체를 오염시키지 않기 위한 렌더 시 접미 (다른 화면 무접촉).
-  labelSuffix?: string;
-}) {
-  return (
-    <View style={styles.partRow}>
-      <View style={styles.partHead}>
-        <Text style={styles.partLabel}>
-          {`${DIMENSION_LABEL_KO[dim]}${labelSuffix ?? ''}`}
-        </Text>
-        {reframeVeto ? (
-          <View style={styles.partScoreReframeWrap}>
-            <Text style={styles.partScoreQualifier}>측정값</Text>
-            <Text style={styles.partScoreMuted}>{score}</Text>
-          </View>
-        ) : (
-          <Text style={styles.partScore}>{score}</Text>
-        )}
-      </View>
-      {/* Phase 12.5 v2: delta row 분리 (점수 아래 별도 줄, deficit 과 시각 분리) */}
-      {delta != null && delta !== 0 && (
-        <Text
-          style={[
-            styles.partDelta,
-            { color: delta > 0 ? colors.brand : colors.textSecondary },
-          ]}
-        >
-          {delta > 0 ? `지난 분석 대비 +${delta}점` : `지난 분석 대비 ${delta}점`}
-        </Text>
-      )}
-      <View style={styles.track}>
-        <View style={[styles.trackFill, { width: `${Math.max(0, Math.min(100, score))}%` }]} />
-      </View>
-      {/* sub row: 차원 부제 + "자세히 ›" 링크 */}
-      <View style={styles.partSubRow}>
-        <Text style={styles.dimSublabel}>{DIMENSION_SUBLABEL_KO[dim]}</Text>
-        {onDetailPress && (
-          <Pressable
-            onPress={() => onDetailPress(dim)}
-            accessibilityRole="button"
-            accessibilityLabel={`${DIMENSION_LABEL_KO[dim]} 자세히 보기`}
-            hitSlop={8}
-          >
-            <Text style={styles.dimMore}>자세히 ›</Text>
-          </Pressable>
-        )}
-      </View>
-      {/* deficit summary — 측정값/진단 (코칭 팁과 분리: 코칭 팁 = 행동 지시) */}
-      {explanation?.deficitSummary && (
-        <Text style={styles.dimDeficit}>
-          {highlightNumbers(explanation.deficitSummary)}
-        </Text>
-      )}
-      {/* Phase 20 (UI ①)/#2 — 비전 거부권 맥락. 각도 100인데 종합 75 → "완벽" 오해
-          차단. reframeVeto 면 강조 콜아웃(brandTint), 아니면 보조 톤 1줄. 토큰만. */}
-      {contextNote &&
-        (reframeVeto ? (
-          <View style={styles.dimReframeCallout}>
-            <Ionicons name="information-circle" size={15} color={colors.brand} />
-            <Text style={styles.dimReframeText}>{contextNote}</Text>
-          </View>
-        ) : (
-          <Text style={styles.dimContextNote}>{contextNote}</Text>
-        ))}
-    </View>
-  );
-}
+// (구 DimensionScoreRow 제거 — D-03/D-12. 세부 점수 행/자세히 모달 폐기, 차원 수치는
+//  감점 카드 게이지·심사 정보 코너로 흐른다.)
 
-// quick-260705-r6v — 참고 지표 진단 문장 미니 라벨 (결과 화면 전용, DIMENSION_LABEL_KO
-// 원본 무접촉). belle 예시 "동작 흐름 / 안정성".
-const DIAGNOSIS_LABEL_KO: Record<'angle' | 'stability', string> = {
-  angle: '동작 흐름',
-  stability: '안정성',
-};
-
-// quick-260705-r6v — 참고 지표 진단 문장 행 (숫자 카드 대체, mode1 한정).
-// "각도 유사도 99 인데 47점" 모순 카피 해소 — 숫자 대신 감점 유무 × 지표값 구간
-// 조건부 문장. 숫자는 '자세히' 모달로 이동. 토큰만 (하드코딩 금지).
-function DimensionDiagnosisRow({
-  dim,
-  sentence,
-  onDetailPress,
-}: {
-  dim: 'angle' | 'stability';
-  sentence: string;
-  onDetailPress: (dim: ScoreDimension) => void;
-}) {
-  return (
-    <View style={styles.partRow}>
-      <View style={styles.diagHead}>
-        <Text style={styles.partLabel}>{DIAGNOSIS_LABEL_KO[dim]}</Text>
-        <Pressable
-          onPress={() => onDetailPress(dim)}
-          accessibilityRole="button"
-          accessibilityLabel={`${DIAGNOSIS_LABEL_KO[dim]} 자세히 보기`}
-          hitSlop={8}
-        >
-          <Text style={styles.dimMore}>자세히 ›</Text>
-        </Pressable>
-      </View>
-      <Text style={styles.diagSentence}>{sentence}</Text>
-    </View>
-  );
-}
+// (구 DIAGNOSIS_LABEL_KO / DimensionDiagnosisRow 제거 — D-03/D-12. 추상 지표
+//  '동작 흐름'/'안정성' 나열 폐기, 심사 정보 코너로 대체.)
 
 // 콤보 부분 점수 행 (베이스/확장). PartScoreRow 와 트랙 바를 공유하되 델타 없음.
 function SegmentRow({ label, score }: { label: string; score: number }) {
@@ -1313,15 +1185,8 @@ function AnalysisResultContent({
   // 표시할 차원 = 결과에 존재하는 차원만 (mode1=3, mode3 first=2 또는 1, mode3 second+=3).
   // 재설계 이전 문서(옛 partScores·dimensionScores 없음)는 빈 객체로 폴백 — 크래시 방지.
   const dimensionScores = result.dimensionScores ?? {};
-  const dims = DIMENSION_ORDER.filter((d) => dimensionScores[d] != null);
-  // Phase 12.5: 차원별 explanation. 이전 빌드 doc 호환 — 없으면 hasExplanation=false.
-  const dimensionExplanation = result.dimensionExplanation;
-  const hasExplanation =
-    dimensionExplanation != null &&
-    Object.keys(dimensionExplanation).length > 0;
-  // Phase 12.5 T8: 차원 "자세히 ›" 모달 state. dim null = 닫힘.
-  const [detailDim, setDetailDim] = useState<ScoreDimension | null>(null);
-  const detailMode: 'mode1' | 'mode3' = cmp.mode === 'mode1' ? 'mode1' : 'mode3';
+  // (구 dims/dimensionExplanation/detailDim/DimensionDetailModal 제거 — D-03/D-12.
+  //  차원 수치는 summaryContent 칭찬 적격 판정·심사 정보 코너로만 흐른다.)
   // Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달 state. tip null = 닫힘.
   const [detailTip, setDetailTip] = useState<CoachingTip | null>(null);
   // Phase 13 (Plan 13-A): "다른 운동 보기" 전체 라이브러리 모달 state. false = 닫힘.
@@ -1519,8 +1384,8 @@ function AnalysisResultContent({
     () => lowReliabilityRatio(userKeypointReport),
     [userKeypointReport],
   );
-  const showOcclusionBadge = lowReliabilityRatioVal >= 0.2;
-  const occlusionPercent = Math.round(lowReliabilityRatioVal * 100);
+  // (구 참고 지표 occlusion badge 제거 — D-03/D-12. 가림 신호는 코칭 팁 추정
+  //  표기(isAngleEstimated)로만 노출. lowReliabilityRatioVal 은 그 경로에서 소비.)
 
   // #4 (2026-06-21) — 3D 자세 뷰어 제거. RTMW joints3d 는 깊이 없음(y≈0)이라 진짜
   // 회전 3D 가 원리적으로 불가 → 평면 뼈대를 "3D" 로 보여주던 오인 UI 였다. belle:
@@ -1587,10 +1452,7 @@ function AnalysisResultContent({
     );
   }, [vetoApplied, vetoFaultJoints, displayTips]);
 
-  const deltaFor = (dim: ScoreDimension): number | undefined =>
-    cmp.mode === 'mode3' && !cmp.isFirst
-      ? cmp.deltaFromPrevious?.[dim]
-      : undefined;
+  // (구 deltaFor 제거 — DimensionScoreRow delta 행 폐기와 함께 미사용.)
 
   // ══════════════════════════════════════════════════════════════════════
   // 32-11 대배선 — 요약/섹션/조인 뷰모델 (리뷰 MEDIUM: 파생 계산 useMemo).
@@ -2217,8 +2079,37 @@ function AnalysisResultContent({
 
         {/* ══ 5. 나머지 감점(접힘) + 상세 영역 (D-02 #5 collapsed) ══════════════
             점수 게이지는 D-01/D-09 로 헤드라인에서 이 상세 영역으로 강등(요약 카드가
-            점수 소형 배지를 담당). 투명 감점 내역(수치 삭제 금지)·구간 점수 유지.
-            나머지 감점 카드 접힘 목록은 Task 2 에서 이 아래로 이어진다. */}
+            점수 소형 배지를 담당). 투명 감점 내역(수치 삭제 금지)·구간 점수 유지. */}
+
+        {/* 나머지 감점 카드 — 기본 접힘 목록(탭 → 드릴다운 시트로 펼침). top-1(위
+            완결형) 제외. recordId 안정 키로 점프 y 기록 + 드릴다운 조인(index 조인
+            금지 — recordMaps). records 2개 미만이면 목록 생략. */}
+        {isVisible('collapsed') && records.length > 1 ? (
+          <>
+            <Text style={styles.sectionTitle}>다른 감점 항목</Text>
+            {records.map((rec, i) => {
+              if (i === topFixIndex) return null;
+              const key = recordKeyForIndex(records, i);
+              return (
+                <View
+                  key={key}
+                  onLayout={(e) => setCardY(key, e.nativeEvent.layout.y)}
+                >
+                  <DeductionCard
+                    record={toCardRecord(rec)}
+                    rightLabel={
+                      cmp.mode === 'mode1'
+                        ? `${cmp.athleteName} 선수`
+                        : '지난 영상'
+                    }
+                    expanded={false}
+                    onToggle={() => setDetailRecordIndex(i)}
+                  />
+                </View>
+              );
+            })}
+          </>
+        ) : null}
 
         {/* 점수 게이지 (강등) — suppressed 는 요약 카드가 담당하므로 여기선 octagon
             블록만(비억제). grade/summary/caption/veto 근거 유지. */}
@@ -2415,65 +2306,128 @@ function AnalysisResultContent({
           );
         })}
 
-        {/* ── Phase 11 (Plan 11-02, COACH-01 / D-06 / D-07 / HIGH-2):
-            강사에게 확인할 점 섹션 ─────────────────────────────────────────
-            두 리포트(force + body)의 openQuestionsForCoach 병합 결과(중복 제거 +
-            최대 5개). 수강생이 강사에게 가져갈 질문 거리 → 학원 도입·강사 보조
-            도구 포지셔닝 직접 지원. 질문이 1개 이상일 때만 섹션 렌더 (graceful —
-            hook 없는 이전 doc / 한쪽 리포트만 hook 인 doc 도 크래시 0).
-            섹션 헤더 sub 가 "AI = 강사 보조 도구" 톤을 강화한다 (D-07). */}
-        {openQuestionsForCoach.length > 0 && (
+        {/* ── 6. 성장·지난 미션 (D-26/D-27, mode3) — 미션→연습→확인 루프 상세.
+            헤드라인은 요약 카드가 담당하므로 여기는 상세. coach_card(3회 미개선) 시
+            코치 카드 전면 승격("혼자 안 되는 건 방법 문제일 수 있어요"). improved
+            정직 표시(수치는 소형 배지 — D-09). ── */}
+        {isVisible('growth') ? (
           <>
-            <Text style={styles.sectionTitle}>강사에게 확인할 점</Text>
-            <Text style={styles.coachSectionSub}>
-              아래 질문을 강사와 함께 확인해보세요.
-            </Text>
-            <View style={[styles.card, styles.coachCard]}>
-              {openQuestionsForCoach.map((q, i) => (
-                <View key={`${q}-${i}`} style={styles.coachQuestionRow}>
+            <Text style={styles.sectionTitle}>성장·지난 미션</Text>
+            {variantOf('growth') === 'coachCard' ? (
+              <View style={[styles.card, styles.vetoLeadCard]}>
+                <View style={styles.tipHead}>
                   <Ionicons
-                    name="chatbubble-ellipses-outline"
-                    size={16}
+                    name="people-circle-outline"
+                    size={20}
                     color={colors.brand}
                   />
-                  <Text style={styles.coachQuestionText}>{q}</Text>
+                  <Text style={styles.tipTitle}>{COACH_CARD_HEADLINE}</Text>
                 </View>
-              ))}
-            </View>
+                <Text style={styles.growthBody}>{COACH_CARD_BODY}</Text>
+                {combinedCoachQuestions.length > 0 ? (
+                  <Pressable
+                    onPress={() => jumpToQuestion(combinedCoachQuestions[0].recordId)}
+                    accessibilityRole="button"
+                    accessibilityLabel="강사에게 물어볼 질문 보기"
+                    hitSlop={8}
+                    style={styles.tipMoreRow}
+                  >
+                    <Text style={styles.tipMore}>물어볼 질문 보기 ›</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : result.missionOutcome ? (
+              <View style={[styles.card, styles.coachCard]}>
+                <Text style={styles.growthHeadline}>
+                  {result.missionOutcome.improved
+                    ? '지난 미션이 개선됐어요'
+                    : '지난 미션이 아직 남아있어요'}
+                </Text>
+                <Text style={styles.growthBody}>
+                  {result.missionOutcome.improved
+                    ? '지난번에 짚은 부분이 이번에 나아졌어요. 같은 방향으로 이어가요.'
+                    : '같은 부분이 이번에도 남았어요. 아래 보완 운동으로 우회해봐요.'}
+                </Text>
+                {typeof result.missionOutcome.deltaPoints === 'number' &&
+                result.missionOutcome.deltaPoints !== 0 ? (
+                  <View style={styles.growthDeltaBadge}>
+                    <Text style={styles.growthDeltaText}>
+                      {result.missionOutcome.deltaPoints > 0
+                        ? `+${result.missionOutcome.deltaPoints}점`
+                        : `${result.missionOutcome.deltaPoints}점`}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={styles.mode3LimitNotice}>
+                {cmp.mode === 'mode3' && cmp.isFirst
+                  ? '다음 분석부터 이전 미션의 개선을 확인해 드려요.'
+                  : '이번엔 이어갈 지난 미션이 없어요. 오늘 고칠 것 하나에 집중해봐요.'}
+              </Text>
+            )}
           </>
-        )}
+        ) : null}
 
-        {/* ── Phase 13 (Plan 13-A, PERS-03): 보완 운동 섹션 ──────────────
-            MEDIUM-1: 가시성 = 개인화 추천 있음 OR 라이브러리에 항목 있음.
-            추천이 비어도 라이브러리가 있으면 "전체 보완 운동 보기" entry 유지
-            (criteria 4 entry point 미소멸). 분기:
-            (a) 추천 있음 → result.recommendedExercises 카드 (3~5 subset) +
-                "다른 운동 보기" → 전체 라이브러리 모달.
-            (b) 추천 없음 → neutral 한 줄 + "전체 보완 운동 보기" → 동일 모달. */}
-        {((result.recommendedExercises?.length ?? 0) > 0 ||
-          CORRECTIVE_LIBRARY_HAS_ITEMS) && (
+        {/* ── 7. 보완 운동 (D-13 개편) — 전면 top-1 연결 1개 + 이유 1줄, '다른 운동
+            보기' 탭 시 가로 스크롤 최대 3(5개 세로 나열 폐지). exercise_detour(2회차
+            미개선) 시 우회 제안 카피 상단(D-27 2회차). 이유 1줄 = top-1 record
+            exerciseReason 우선, 부재 시 운동 purpose. ── */}
+        {isVisible('exercise') ? (
           <>
             <Text style={styles.sectionTitle}>보완 운동</Text>
-            {(result.recommendedExercises?.length ?? 0) > 0 ? (
+            {exerciseDetour ? (
+              <View style={[styles.card, styles.detourCard]}>
+                <Text style={styles.detourHeadline}>
+                  {EXERCISE_DETOUR_HEADLINE}
+                </Text>
+                <Text style={styles.detourBody}>{EXERCISE_DETOUR_BODY}</Text>
+              </View>
+            ) : null}
+            {frontExercise ? (
               <>
-                {result.recommendedExercises!.map((ex, i) => (
-                  <View
-                    key={`${ex.name}-${i}`}
-                    style={[styles.card, styles.exerciseCard]}
-                  >
-                    <Text style={styles.exerciseName}>{ex.name}</Text>
-                    <Text style={styles.exerciseSets}>{ex.setsReps}</Text>
-                    <Text style={styles.exercisePurpose}>{ex.purpose}</Text>
-                  </View>
-                ))}
+                {/* 전면 1개 — top-1 결함 연결 운동 + 이유 1줄(필수). */}
+                <View style={[styles.card, styles.exerciseCard]}>
+                  <Text style={styles.exerciseName}>{frontExercise.name}</Text>
+                  <Text style={styles.exerciseSets}>{frontExercise.setsReps}</Text>
+                  {frontExerciseReason ? (
+                    <Text style={styles.exercisePurpose}>
+                      {frontExerciseReason}
+                    </Text>
+                  ) : null}
+                </View>
+                {/* '다른 운동 보기' — 가로 스크롤 최대 3(세로 나열 폐지). */}
+                {altExercises.length > 0 ? (
+                  <>
+                    <Text style={styles.exerciseAltLabel}>다른 운동 보기</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.exerciseAltRow}
+                    >
+                      {altExercises.map((ex, i) => (
+                        <View
+                          key={`${ex.name}-${i}`}
+                          style={[styles.card, styles.exerciseAltCard]}
+                        >
+                          <Text style={styles.exerciseName}>{ex.name}</Text>
+                          <Text style={styles.exerciseSets}>{ex.setsReps}</Text>
+                          <Text style={styles.exercisePurpose} numberOfLines={3}>
+                            {ex.purpose}
+                          </Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </>
+                ) : null}
                 <Pressable
                   onPress={() => setExerciseModalOpen(true)}
                   accessibilityRole="button"
-                  accessibilityLabel="다른 보완 운동 보기"
+                  accessibilityLabel="전체 보완 운동 보기"
                   hitSlop={8}
                   style={styles.tipMoreRow}
                 >
-                  <Text style={styles.tipMore}>다른 운동 보기 ›</Text>
+                  <Text style={styles.tipMore}>전체 보완 운동 보기 ›</Text>
                 </Pressable>
               </>
             ) : (
@@ -2493,13 +2447,113 @@ function AnalysisResultContent({
               </>
             )}
           </>
-        )}
+        ) : null}
 
-        {/* ── Phase 31 (D-09): "참고하세요" 참고코너 ────────────────────────
-            배치 = 보완 운동 **아래**, 참고 지표 근처 (31-08 Task 1 belle 승인
-            option-a). 채점 관련 표면(점수카드·감점 내역·보완 운동)을 전부 지난
-            뒤에 오므로 "점수 비반영"이 레이아웃만 봐도 드러난다 — 이게 D-09 의
-            요구이고, 위로 올리면 비채점 생성물이 채점 근거처럼 읽힌다.
+        {/* ── 8. 강사 질문 (D-28) — 자동 수집(result.coachQuestions + legacy 폴백) +
+            사용자 담기(source 'user') 통합. 질문 탭 → recordId 맵으로 해당 감점 카드
+            scrollTo 점프(legacy는 점프 없음). 질문 1개 이상일 때만. ── */}
+        {isVisible('questions') ? (
+          <>
+            <Text style={styles.sectionTitle}>강사에게 확인할 점</Text>
+            <Text style={styles.coachSectionSub}>
+              아래 질문을 강사와 함께 확인해보세요. 탭하면 해당 감점 카드로 이동해요.
+            </Text>
+            <View style={[styles.card, styles.coachCard]}>
+              {combinedCoachQuestions.map((q, i) => {
+                const jumpable = !!q.recordId;
+                const inner = (
+                  <View style={styles.coachQuestionRow}>
+                    <Ionicons
+                      name={
+                        q.source === 'user'
+                          ? 'bookmark'
+                          : 'chatbubble-ellipses-outline'
+                      }
+                      size={16}
+                      color={colors.brand}
+                    />
+                    <Text style={styles.coachQuestionText}>{q.text}</Text>
+                    {jumpable ? (
+                      <Ionicons
+                        name="chevron-forward"
+                        size={14}
+                        color={colors.textSecondary}
+                      />
+                    ) : null}
+                  </View>
+                );
+                return jumpable ? (
+                  <Pressable
+                    key={`${q.text}-${i}`}
+                    onPress={() => jumpToQuestion(q.recordId)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${q.text} — 해당 감점 카드로 이동`}
+                    hitSlop={4}
+                  >
+                    {inner}
+                  </Pressable>
+                ) : (
+                  <View key={`${q.text}-${i}`}>{inner}</View>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+
+        {/* ── 9. 심사 정보 코너 (D-03 = 개인화 심사 시뮬레이션) ─────────────────
+            지식전달형(심사 기준만 나열) 폐기. 내 실제 감점 record 를 IPSF 감점
+            규칙으로 환산해 "내 수행이 실제 심사였다면" 을 보여준다. 수치는 실존
+            규칙 감점(자의적 % 아님) → D-09 % 금지 무충돌. 채점 표면 뒤(참고코너
+            앞, 순서 #9). 행 탭 → 드릴다운 시트(근거·사진 쌍). judgeInfo.visible
+            (감점 record 있을 때만) — cleanPass/suppressed 면 미렌더. ── */}
+        {isVisible('judgeInfo') ? (
+          <>
+            <Text style={styles.sectionTitle}>{JUDGE_SIM_TITLE}</Text>
+            <View style={styles.card}>
+              <Text style={styles.judgeIntro}>{JUDGE_SIM_INTRO}</Text>
+              {records.map((rec, i) => {
+                const key = recordKeyForIndex(records, i);
+                const fault = rec.statusLine ?? criterionLabelKo(rec.criterion);
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => setDetailRecordIndex(i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${fault} 심사 감점 ${formatDeductionNumber(
+                      Math.abs(rec.points),
+                    )}점 — 자세히 보기`}
+                    hitSlop={4}
+                    style={styles.judgeRow}
+                  >
+                    <View style={styles.judgeRowText}>
+                      <Text style={styles.judgeFault} numberOfLines={2}>
+                        {fault}
+                      </Text>
+                      {rec.whyLine ? (
+                        <Text style={styles.judgeReason} numberOfLines={2}>
+                          {rec.whyLine}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.judgeDeduction}>
+                      {`−${formatDeductionNumber(Math.abs(rec.points))}`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              <View style={styles.judgeTotalRow}>
+                <Text style={styles.judgeTotalLabel}>심사 환산 점수</Text>
+                <Text style={styles.judgeTotalValue}>{`${judgeFinal}점`}</Text>
+              </View>
+              <Text style={styles.judgeDisclaimer}>{JUDGE_SIM_DISCLAIMER}</Text>
+            </View>
+          </>
+        ) : null}
+
+        {/* ── 10. Phase 31 (D-09): "참고하세요" 참고코너 ────────────────────────
+            배치 = 채점 표면(점수·감점·보완 운동·심사 시뮬레이션) 전부 뒤 (31-08
+            belle 승인 option-a / 31 D-09 invariant). "점수 비반영"이 레이아웃만 봐도
+            드러난다 — 위로 올리면 비채점 생성물이 채점 근거처럼 읽힌다.
             세 카드가 모두 숨김이면 컴포넌트가 스스로 null 을 반환한다. */}
         <ReferenceCornerSection
           correctedPoseState={correctedPoseState}
@@ -2552,105 +2606,11 @@ function AnalysisResultContent({
           }
         />
 
-        {/* ── quick-260705-o0s: 참고 지표 (구 '세부 점수', 맨 아래 강등) ──────
-            belle 3차 피드백 승인 순서 ⑦ — 각도 유사도(DTW)/안정성은 참고 지표이지
-            종합 점수 근거가 아님 (종합 = 감점 tally, Phase 24). angle/stability
-            라벨에만 ' (참고)' 접미 — 결과 화면 렌더 접미라 DIMENSION_LABEL_KO
-            원본/타 화면 무접촉. occlusion badge/자세히 모달/reframe 콜아웃 유지. */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>참고 지표</Text>
-          {showOcclusionBadge && (
-            <View style={styles.occlusionBadge}>
-              <Ionicons name="warning" size={12} color={colors.warnAmber} />
-              <Text style={styles.occlusionBadgeText}>
-                {`가림 ${occlusionPercent}%`}
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.card}>
-          {dims.map((dim) => {
-            // quick-260705-r6v — mode1 + breakdown 보유 시 angle/stability 는 숫자
-            // 카드 대신 진단 문장 행(감점 유무 × 지표값 구간 조건부). 문장 null(비유한
-            // 값)이면 행 생략. line 차원 / mode3 경로 / mode1-legacy(breakdown 부재,
-            // cleanPass 판단 불가)는 기존 숫자 행(DimensionScoreRow) 유지.
-            const useDiagnosis =
-              cmp.mode === 'mode1' &&
-              result.deductionBreakdown != null &&
-              (dim === 'angle' || dim === 'stability');
-            if (useDiagnosis) {
-              const sentence = composeDimensionDiagnosisKo(
-                dim,
-                cleanPass,
-                dimensionScores[dim] as number,
-              );
-              if (sentence == null) return null;
-              return (
-                <DimensionDiagnosisRow
-                  key={dim}
-                  dim={dim}
-                  sentence={sentence}
-                  onDetailPress={(d) => setDetailDim(d)}
-                />
-              );
-            }
-            return (
-              <DimensionScoreRow
-                key={dim}
-                dim={dim}
-                score={dimensionScores[dim] as number}
-                delta={deltaFor(dim)}
-                explanation={dimensionExplanation?.[dim]}
-                onDetailPress={(d) => setDetailDim(d)}
-                // quick-260705-o0s — 각도 유사도/안정성에 ' (참고)' 접미 (결과 화면
-                // 전용 렌더 접미 — DIMENSION_LABEL_KO 소비하는 다른 화면 오염 0).
-                labelSuffix={
-                  dim === 'angle' || dim === 'stability' ? ' (참고)' : undefined
-                }
-              // Phase 20 (UI ①)/#2 + Phase 24 — 비전 채점 적용 시 '각도' 측정값이 높아(예: 100)
-              // "완벽" 으로 오인되는 문제. 측정값이 종합(감점 합산 final)보다 높을 때만 reframe:
-              // 숫자를 '측정값' 톤으로 낮추고 강조 콜아웃으로 "각도로 안 드러나는 결함을
-              // 발견해 종합을 낮췄다" 를 명시. 각도가 이미 종합 이하면 오인 없음 → 평범 표기.
-              // Phase 24: 권위 점수원 = §10 deductionBreakdown.final(밴드 제거). 폴백 =
-              // visionVeto.tallyFinal(applied audit mirror) → overallScore.
-              reframeVeto={
-                vetoApplied &&
-                dim === 'angle' &&
-                (dimensionScores[dim] as number) >
-                  (result.deductionBreakdown?.final ??
-                    (result.visionVeto?.status === 'applied'
-                      ? result.visionVeto.tallyFinal
-                      : result.overallScore ?? 0))
-              }
-              contextNote={
-                vetoApplied &&
-                dim === 'angle' &&
-                (dimensionScores[dim] as number) >
-                  (result.deductionBreakdown?.final ??
-                    (result.visionVeto?.status === 'applied'
-                      ? result.visionVeto.tallyFinal
-                      : result.overallScore ?? 0))
-                  ? // quick-260702-q8q 문구 사실 점검: "각도로 안 드러나는 자세 결함"
-                    // 은 vision-측정 split 케이스에 사실 정합(각도 차원은 DTW 유사도,
-                    // 감점은 vision 측정 — 거짓 아님) → 유지. quick-260705-o0s 재배치로
-                    // 점수 계산 내역이 이 섹션보다 위 → 꼬리 문장 "아래"→"위" 수정.
-                    `각도 측정은 기준에 가깝지만, AI 영상 분석이 각도로 안 드러나는 자세 결함을 발견해 종합 점수를 낮췄어요.${
-                      showBreakdownSection
-                        ? " 위 '점수 계산 내역'에서 감점 근거를 확인할 수 있어요."
-                        : ''
-                    }`
-                  : undefined
-              }
-              />
-            );
-          })}
-        </View>
-        {/* #4 표시 정합 — 안정성은 보조 지표(종합 입력 제외, 표시 유지). 근거 Phase 19 D-01 / dimensions.py 헤더 */}
-        {dims.includes('stability') && (
-          <Text style={styles.auxCaption}>
-            안정성은 자세 참고용 보조 지표예요. 종합 점수에는 직접 합산되지 않아요.
-          </Text>
-        )}
+        {/* ── (구 '참고 지표' = 세부 점수 dims.map 섹션 폐기 — D-03/D-12) ─────────
+            belle 게이트 확정: 추상 지표('안정성'/'동작 흐름') 나열은 "지식전달형"이라
+            폐기하고, 위 #9 심사 정보 코너(내 결함 → IPSF 감점 환산)로 대체했다. 차원
+            수치는 감점 카드 게이지·심사 시뮬레이션 감점으로 흐르므로 표면에서 '안정성'
+            류 추상 용어를 제거(D-12 일괄 적용). 종합 점수 산식(감점 tally)은 무변경. */}
 
         <Pressable
           style={styles.cta}
@@ -2667,22 +2627,7 @@ function AnalysisResultContent({
           <Text style={styles.link}>다시 분석하기</Text>
         </Pressable>
       </ScrollView>
-      {/* Phase 12.5 T8: 차원별 "자세히 ›" 모달. dim=null 시 닫힘.
-          belle 피드백 (2026-06-07): 동작 이름 + 사용자 이름 동적 카피 — 모달이
-          "폭스탑 동작에서 ... OO님의 분석을 반영하여" 식으로 자연어 안내. */}
-      <DimensionDetailModal
-        visible={detailDim != null}
-        dim={detailDim}
-        score={detailDim != null ? (dimensionScores[detailDim] ?? null) : null}
-        explanation={detailDim != null ? dimensionExplanation?.[detailDim] : undefined}
-        mode={detailMode}
-        motionName={cmp.mode === 'mode1' ? cmp.referenceMotionName : undefined}
-        userName={undefined /* TODO: Firebase displayName 박제 박제 박제 박제 */}
-        lowReliabilityRatio={lowReliabilityRatioVal}
-        scoringBasis={cmp.scoringBasis}
-        scoringBasisLabel={cmp.scoringBasisLabel}
-        onClose={() => setDetailDim(null)}
-      />
+      {/* (구 DimensionDetailModal 제거 — D-03/D-12. 차원 세부 점수 모달 폐기.) */}
       {/* Phase 12.5 T9: 코칭 팁 "자세히 ›" 모달. tip=null 시 닫힘. */}
       <CoachingTipDetailModal
         visible={detailTip != null}
@@ -3164,5 +3109,86 @@ const styles = StyleSheet.create({
     ...typography.buttonSecondary,
     color: colors.brand,
     textDecorationLine: 'underline',
+  },
+  // ── 32-11 대배선 신규 스타일 (토큰만, 하드코딩 금지) ───────────────────────
+  // 6. 성장·지난 미션
+  growthHeadline: { ...typography.listTitle, color: colors.textPrimary },
+  growthBody: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  growthDeltaBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.softBg,
+    borderRadius: radius.listItem,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  growthDeltaText: { ...typography.badge, color: colors.textMid },
+  // 7. 보완 운동 — 우회 카드 + 가로 스크롤
+  detourCard: {
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: colors.brandTint,
+    borderColor: colors.brand,
+  },
+  detourHeadline: { ...typography.boxLabel, color: colors.brand },
+  detourBody: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
+  exerciseAltLabel: {
+    ...typography.boxLabel,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  exerciseAltRow: { gap: 10, paddingVertical: 2, paddingRight: 4 },
+  exerciseAltCard: {
+    width: 200,
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  // 9. 심사 정보 코너 (개인화 심사 시뮬레이션)
+  judgeIntro: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  judgeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  judgeRowText: { flex: 1, gap: 2 },
+  judgeFault: { ...typography.boxLabel, color: colors.textPrimary },
+  judgeReason: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 17,
+  },
+  judgeDeduction: { ...typography.listTitle, color: colors.brand },
+  judgeTotalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  judgeTotalLabel: { ...typography.boxLabel, color: colors.textPrimary },
+  judgeTotalValue: { ...typography.listTitle, color: colors.textPrimary },
+  judgeDisclaimer: {
+    ...typography.captionSmall,
+    color: colors.textSecondary,
+    lineHeight: 15,
+    marginTop: 8,
   },
 });

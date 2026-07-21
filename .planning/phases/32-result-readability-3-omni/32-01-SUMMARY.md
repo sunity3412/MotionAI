@@ -145,6 +145,12 @@ _Note: TDD tasks have test→fix commits per the tdd="true" 태스크 규율._
 - **32-06 준비:** phase32 conftest 재사용 가능(fake_firestore 는 phase31 것 복제/import).
 - **블로커 없음.** 새 분석부터 적용(기존 doc 재처리 금지 — 같은 RTMW 엔진).
 
+## Self-Check: PASSED
+
+- 생성/수정 파일 8종 전부 존재 (conftest/ladder/parity 신설 3 + motion_alignment/fault_zoom/test 2벌 수정 4 + SUMMARY).
+- 커밋 5종 전부 존재: 39537b4(T1 RED)/27eafe5(T1 GREEN)/545dcdd(T2 RED)/b5afe29(T2 GREEN)/f00f653(SUMMARY).
+- 검증 160 passed, 채점 모듈 diff 0.
+
 ---
 *Phase: 32-result-readability-3-omni*
 *Completed: 2026-07-21*

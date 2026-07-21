@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Phase 32 목업 게이트 — belle 결정 보드 (D-02 / D-03 / D-05 / D-10)</title>
+<!-- Pretendard (design.md §2 확정 폰트) — 오프라인이면 시스템 폰트로 폴백 -->
+<link rel="stylesheet" as="style" crossorigin
+  href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+<style>
+/* =========================================================================
+   공통 shell (레이아웃 CSS 1벌) — 전 안이 .phone / .card / .board 를 공유하고
+   안별로 '변형 블록'만 JS 로 교체한다. 안×케이스 전면 재제작 금지(리뷰 반영).
+   design.md 준수: 브랜드 #FF4B33 · Pretendard · 라이트 전용 · 다크 배경 금지.
+   ========================================================================= */
+:root{
+  --brand:#FF4B33;            /* design.md §4 브랜드 (변경 금지) */
+  --brand-grad-a:#FFB1A6; --brand-grad-b:#FF6651;
+  --brand-tint:rgba(255,75,51,.10);
+  --brand-tint-2:rgba(255,75,51,.16);
+  --ink:#0C0C0C;             /* 텍스트 주 */
+  --ink-2:#6B6E76;           /* 본문 보조(하한 상향 반영: #ACACAC 보다 진하게) */
+  --ink-3:#ACACAC;           /* 메타 */
+  --teal:#54B8CD;            /* design.md 오류/안전 톤 — 레드 금지(브랜드 충돌 방지) */
+  --line:#E7E8EA;            /* 구분선(연) */
+  --line-2:#D9D9D9;          /* 카드 테두리 */
+  --card:#FFFFFF; --bg:#FFF7F5;
+  --ok:#1FA97A;              /* 달성/양호(게이지 채움) */
+
+  /* ── 타이포 토큰 (D-05) — 옵션 b: 신규 중간 단계 + 하한 상향 ──
+     현행 스케일 12~50 은 12~20 사이 본문용 중간 단계가 없어 화면이 caption(12)/
+     boxLabel(15) 로 조판됨 = belle "전반이 너무 작음"의 구조 원인.
+     아래는 '중간(E1)' 기본값. body-말(헤드라인)은 크게, 수치 배지는 작게(D-09). */
+  --f-caption:14px;  /* 메타/캡션 — 하한을 13~14 로(현행 10/12 폐지) */
+  --f-badge:15px;    /* 소형 수치 배지(D-09) */
+  --f-bodySm:17px;   /* 보조 본문 */
+  --f-bodyMd:19px;   /* 기본 본문(신규 단계) */
+  --f-bodyLg:21px;   /* 카드 헤드라인(몸 말) */
+  --f-title:23px;    /* 섹션 타이틀 */
+  --f-headline:27px; /* 요약 카드 대표 문장 */
+}
+/* 강조 체계 '강(E2)' — belle "폰트 젤 작은 것들 너무 작음" 직격 안. 하한을 17 로.
+   .emph-strong 를 <body> 에 걸면 전 목업이 이 스케일로 렌더된다(같은 shell 재사용). */
+body.emph-strong{
+  --f-caption:16px; --f-badge:16px; --f-bodySm:19px; --f-bodyMd:21px;
+  --f-bodyLg:24px; --f-title:26px; --f-headline:30px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',system-ui,sans-serif;
+  background:#F2F3F5; color:var(--ink);
+  letter-spacing:0; /* letterSpacing 음수 금지(iOS 26 SIGABRT 박제) */
+  -webkit-font-smoothing:antialiased;
+}
+/* ── 상단 컨트롤 바 ── */
+.topbar{position:sticky; top:0; z-index:50; background:#111; color:#fff; padding:12px 16px;}
+.topbar h1{font-size:16px; margin:0 0 8px; font-weight:700;}
+.topbar .sub{font-size:12px; color:#c9cbcf; margin:0 0 10px; line-height:1.5;}
+.tabs{display:flex; flex-wrap:wrap; gap:6px;}
+.tabs button{
+  border:0; border-radius:999px; padding:8px 13px; font-size:13px; font-weight:700;
+  background:#2a2c31; color:#e9eaec; cursor:pointer; font-family:inherit;
+}
+.tabs button.on{background:var(--brand); color:#fff;}
+.toggles{display:flex; gap:14px; align-items:center; margin-top:10px; flex-wrap:wrap;}
+.toggles label{font-size:12px; color:#e9eaec; display:flex; gap:6px; align-items:center; cursor:pointer;}
+.toggles .pill{background:#2a2c31; border-radius:999px; padding:4px 10px; display:flex; gap:8px; align-items:center;}
+
+/* ── 보드 ── */
+.board{display:none; padding:22px 16px 60px;}
+.board.on{display:block;}
+.board > h2{font-size:20px; margin:0 0 4px;}
+.board > .lead{font-size:13.5px; color:#4a4d54; margin:0 0 18px; line-height:1.65; max-width:960px;}
+.stage{display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start;}
+.col{display:flex; flex-direction:column; gap:10px; align-items:center;}
+.col .cap{font-size:13px; font-weight:800; color:#111; text-align:center;}
+.col .cap small{display:block; font-weight:500; color:#6b6e76; margin-top:3px; font-size:12px; max-width:320px; line-height:1.5;}
+.rec{display:inline-block; margin-top:6px; background:var(--brand-tint); color:var(--brand);
+  font-size:11.5px; font-weight:800; border-radius:999px; padding:3px 10px;}
+
+/* ── iPhone 프레임 shell ── */
+.phone{
+  width:340px; border-radius:38px; background:#000; padding:9px;
+  box-shadow:0 18px 40px rgba(0,0,0,.18);
+}
+.screen{
+  border-radius:30px; overflow:hidden; background:var(--bg);
+  height:720px; overflow-y:auto; position:relative;
+}
+.screen::-webkit-scrollbar{width:0;}
+.status{height:34px; display:flex; align-items:center; justify-content:space-between;
+  padding:0 20px; font-size:12px; color:var(--ink); font-weight:600;}
+.nav{padding:6px 18px 2px; display:flex; align-items:center; gap:10px;}
+.nav .back{font-size:20px; color:var(--ink);}
+.nav .ttl{font-size:15px; font-weight:700;}
+.pad{padding:6px 16px 30px;}
+
+/* ── 카드 (design.md §5-4) ── */
+.card{background:var(--card); border:0.9px solid var(--line-2); border-radius:15px; padding:16px; margin:12px 0;}
+.card.summary{border:0; background:linear-gradient(180deg,#FFFFFF,#FFF3F0); box-shadow:0 6px 18px rgba(255,75,51,.08);}
+.card.safety{border:1.4px solid var(--teal); background:#F4FBFC;}
+.sect-h{font-size:var(--f-title); font-weight:800; margin:22px 4px 2px;}
+.sect-sub{font-size:var(--f-caption); color:var(--ink-2); margin:0 4px 8px;}
+
+/* 헤드라인 = 몸 말(D-08 상태단), 크게 — 수치 없음(D-09) */
+.headline{font-size:var(--f-headline); font-weight:800; line-height:1.28; margin:0 0 6px;}
+.bodyline{font-size:var(--f-bodyMd); line-height:1.55; color:var(--ink); margin:6px 0;}
+.why{font-size:var(--f-bodySm); line-height:1.55; color:var(--ink-2); margin:4px 0;}
+/* 행동 큐(외부 초점) — 브랜드 강조는 '행동'에만(수치 아님) */
+.cue{display:inline-block; font-size:var(--f-bodyMd); font-weight:800; color:var(--brand);
+  background:var(--brand-tint); border-radius:12px; padding:9px 13px; margin-top:8px; line-height:1.4;}
+/* 소형 수치 배지(D-09) — 측정 수치는 여기 한 곳만, 작게, 강조색 금지.
+   장문도 잘리지 않도록 wrap 허용(확대비교 상단 잘림 렌더 재발 방지 — belle 피드백). */
+.mbadge{display:inline-flex; align-items:center; gap:6px; margin-top:10px;
+  background:#F1F2F4; color:#4a4d54; border-radius:10px; padding:7px 11px;
+  font-size:var(--f-badge); font-weight:600; line-height:1.45; white-space:normal; max-width:100%;}
+.mbadge .dot{width:7px;height:7px;border-radius:50%;background:var(--ok); flex:0 0 auto;}
+.mbadge b{font-weight:800; color:#22252b;}
+/* IPSF 규정 수치(교육 콘텐츠) — 측정값이 아니므로 본문 허용(D-09 검사표 구분) */
+.ipsf{display:inline-block; font-size:var(--f-caption); color:#7a5b12; background:#FFF6E0;
+  border-radius:8px; padding:3px 9px; margin-top:8px; font-weight:700;}
+
+/* ── 게임 프레임 3요소(D-10) — 게이지 / 미션 / 기록 배지 ── */
+.gauge{margin-top:12px;}
+.gauge .lab{display:flex; justify-content:space-between; font-size:var(--f-caption); color:var(--ink-2); margin-bottom:5px;}
+.gauge .lab b{color:var(--ink); font-weight:800;}
+.gtrack{height:14px; border-radius:999px; background:#EFEFF1; position:relative; overflow:hidden;}
+.gfill{position:absolute; left:0; top:0; bottom:0; border-radius:999px;
+  background:linear-gradient(90deg,var(--brand-grad-a),var(--brand-grad-b));}
+.gtarget{position:absolute; top:-3px; bottom:-3px; width:3px; background:var(--ink); border-radius:2px;}
+.gcap{font-size:var(--f-caption); color:var(--ink-2); margin-top:6px;}
+.gcap b{color:var(--brand); font-weight:800;}
+.mission{margin-top:12px; background:linear-gradient(100deg,#FFF3F0,#FFEbe6);
+  border:1px solid var(--brand-tint-2); border-radius:14px; padding:13px 14px;}
+.mission .tag{font-size:var(--f-caption); font-weight:900; color:var(--brand); letter-spacing:.2px;}
+.mission .txt{font-size:var(--f-bodyMd); font-weight:800; margin-top:4px; line-height:1.4;}
+.recordbadge{display:flex; gap:9px; align-items:center; margin-top:12px;
+  background:#EAF8F2; border:1px solid #CFEEDF; border-radius:12px; padding:10px 12px;}
+.recordbadge .ic{width:26px;height:26px;border-radius:50%;background:var(--ok);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex:0 0 auto;}
+.recordbadge .t{font-size:var(--f-bodySm); font-weight:700; line-height:1.4; color:#0f5b3f;}
+.recordbadge .t small{display:block; font-weight:600; color:#3f7a63; font-size:var(--f-caption); margin-top:1px;}
+
+/* 확대비교 줌 쌍(D-20 인라인) — 양옆 동시(D-17 확정) */
+.zoompair{display:flex; gap:8px; margin-top:12px;}
+.zoompair .z{flex:1; border-radius:12px; overflow:hidden; background:#20242c; height:120px; position:relative;}
+.zoompair .z .lab{position:absolute; left:8px; top:7px; font-size:11px; font-weight:800; color:#fff;
+  background:rgba(0,0,0,.45); border-radius:6px; padding:2px 7px;}
+.zoompair .z .fig{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  color:#8b93a1; font-size:11px;}
+.zoompair .z.mine{background:#232a33;}
+.zoompair .z.ref{background:#2a2320;}
+.tapz{text-align:center; font-size:var(--f-caption); color:var(--ink-3); margin-top:6px;}
+
+/* 접힘 카드(나머지 감점) */
+.collapsed{display:flex; align-items:center; gap:10px; padding:13px 14px; border:0.9px solid var(--line-2);
+  border-radius:13px; margin:9px 0; background:#fff;}
+.collapsed .n{width:24px;height:24px;border-radius:50%;background:var(--brand-tint);color:var(--brand);
+  font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+.collapsed .t{flex:1; font-size:var(--f-bodySm); font-weight:700;}
+.collapsed .chev{color:var(--ink-3); font-size:18px;}
+
+.chip{display:inline-block; font-size:12px; font-weight:800; padding:3px 10px; border-radius:999px;}
+.chip.brand{background:var(--brand-tint); color:var(--brand);}
+.chip.teal{background:#E4F5F8; color:#2C7C8C;}
+.chip.gray{background:#EEE; color:#555;}
+
+.score-mini{display:inline-flex; align-items:center; gap:7px; font-size:var(--f-caption); color:var(--ink-2);}
+.score-mini .oct{width:34px;height:34px;position:relative;display:flex;align-items:center;justify-content:center;}
+.score-mini .oct svg{position:absolute; inset:0;}
+.score-mini .oct span{font-size:14px; font-weight:900; color:var(--brand);}
+
+.cta{margin:14px 0 4px; height:50px; border-radius:13px; background:var(--brand); color:#fff;
+  display:flex;align-items:center;justify-content:center; font-size:var(--f-bodyMd); font-weight:800;}
+.cta.ghost{background:#fff; color:var(--ink); border:1px solid var(--line-2);}
+.coachrow{display:flex; gap:9px; align-items:center; padding:12px 0; border-bottom:1px solid var(--line);}
+.coachrow:last-child{border-bottom:0;}
+.coachrow .q{flex:1; font-size:var(--f-bodySm); line-height:1.45;}
+.coachrow .add{font-size:12px; font-weight:800; color:var(--brand); border:1px solid var(--brand-tint-2);
+  border-radius:999px; padding:5px 10px; white-space:nowrap;}
+
+/* 세로/가로 데모 */
+.hswipe{display:flex; gap:10px; overflow-x:auto; padding:4px 2px 10px; scroll-snap-type:x mandatory;}
+.hswipe .hc{flex:0 0 84%; scroll-snap-align:center; background:#fff; border:0.9px solid var(--line-2);
+  border-radius:15px; padding:15px; min-height:200px;}
+.dots{display:flex; gap:6px; justify-content:center; margin-top:4px;}
+.dots i{width:7px;height:7px;border-radius:50%;background:#D9D9D9;}
+.dots i.on{background:var(--brand); width:18px; border-radius:999px;}
+
+/* 순서 리스트 */
+.orderlist{counter-reset:o; max-width:560px;}
+.orderrow{display:flex; gap:12px; padding:11px 12px; border:1px solid var(--line); border-radius:12px;
+  margin:8px 0; background:#fff; align-items:flex-start;}
+.orderrow .num{width:26px;height:26px;border-radius:8px;background:var(--brand);color:#fff;font-weight:900;
+  font-size:14px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+.orderrow .body b{font-size:15px;}
+.orderrow .body p{margin:3px 0 0; font-size:12.5px; color:#5a5d64; line-height:1.5;}
+.orderrow .why{font-size:12px; color:#8a3d30; background:#FFF0ED; border-radius:7px; padding:2px 8px;
+  display:inline-block; margin-top:6px; font-weight:700;}
+.orderrow.safety{border-color:var(--teal); background:#F4FBFC;}
+.orderrow.inv{border-color:#C9CBCF; background:#FAFAFB;}
+
+/* 강조/타이포 비교표 */
+.typo{display:flex; gap:26px; flex-wrap:wrap;}
+.typo .col2{flex:1; min-width:280px;}
+.scale-row{display:flex; align-items:baseline; gap:14px; padding:7px 0; border-bottom:1px dashed var(--line);}
+.scale-row .tok{width:150px; font-size:12px; color:#6b6e76; font-family:ui-monospace,Menlo,monospace;}
+table.insp{border-collapse:collapse; width:100%; max-width:900px; font-size:13px; margin-top:8px;}
+table.insp th,table.insp td{border:1px solid var(--line-2); padding:9px 11px; text-align:left; vertical-align:top;}
+table.insp th{background:#FBEEEB; font-size:12.5px;}
+table.insp td b{color:var(--brand);}
+.ok-pass{color:var(--ok); font-weight:800;}
+.note{background:#FFFDF5; border:1px solid #F0E6C8; border-radius:10px; padding:11px 13px; font-size:12.5px;
+  color:#6b5a1f; line-height:1.6; max-width:900px; margin:12px 0;}
+.legend{font-size:12px; color:#6b6e76; margin:10px 0 0; line-height:1.6; max-width:900px;}
+.legend b{color:#111;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>Phase 32 목업 게이트 — belle 결정 보드</h1>
+  <p class="sub">공통 shell 1벌 + 동일 fixture(최악 케이스: 감점 7 + 장문 문구 + 안전 결함 동시) 재사용. 안별 '변형 블록'만 교체.
+    D-17 확정(양옆 동시+탭 확대·자세 비교 카드 존치·큐 구간당 1개)과 모순 없음. 아래 탭으로 5개 결정 보드 비교.</p>
+  <div class="tabs">
+    <button data-b="order" class="on">① 섹션 순서 + 세로/가로 (D-02)</button>
+    <button data-b="game">② 게임 프레임 강도 (D-10)</button>
+    <button data-b="edge">③ 최악·엣지 케이스</button>
+    <button data-b="ref">④ 참고 지표 형태 (D-03)</button>
+    <button data-b="typo">⑤ 강조 체계·타이포 (D-05)</button>
+  </div>
+  <div class="toggles">
+    <span class="pill">
+      <label><input type="radio" name="emph" value="mid" checked> 강조 '중(E1)'</label>
+      <label><input type="radio" name="emph" value="strong"> 강조 '강(E2)' — 폰트 하한 17</label>
+    </span>
+    <span style="font-size:11.5px;color:#9a9ca1">※ 라디오로 두 강조 스케일을 전 보드에 즉시 적용해 비교</span>
+  </div>
+</div>
+
+<!-- ===================== ① 섹션 순서 + 세로/가로 ===================== -->
+<section class="board on" id="board-order">
+  <h2>① 상세 섹션 순서안 (D-02) + 세로 스크롤 vs 가로 카드 넘김</h2>
+  <p class="lead">
+    1차 근거 = <b>Shneiderman(1996) overview-first</b>("요약 먼저 → 필요 시 상세") — 요약 1장+펼침(D-01)과 동형인 30년 검증 HCI 원칙.
+    2차 = <b>위험 우선 트리아지</b>(Kaia 선례) + 31 invariant(참고코너는 채점 표면 뒤). <b>정직 프레임</b>: 외부 큐의 학습 효과는
+    원문헌 기준 유리하나 출판 편향 보정 후 축소(McKay 2025) — 번역 레이어의 1차 정당화는 "학습 증명"이 아니라 <b>이해 가능성</b>(191°는 번역 없이 구조적으로 못 읽음).
+  </p>
+  <div class="stage">
+    <div class="col" style="max-width:600px">
+      <div class="cap">제안 순서 (10항)</div>
+      <div class="orderlist" id="orderlist"></div>
+    </div>
+    <div class="col">
+      <div class="cap">세로 스크롤 (안 V)<small>한 화면에 흐름이 이어짐 · 위→아래 트리아지 자연스러움 · 구현 최소</small></div>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span>▪▪▪ ◔</span></div>
+        <div class="nav"><span class="back">‹</span><span class="ttl">분석 결과</span></div>
+        <div class="pad" id="vscroll"></div>
+      </div></div>
+      <span class="rec">권장: 세로 스크롤 (트리아지·이탈 방지에 유리)</span>
+    </div>
+    <div class="col">
+      <div class="cap">가로 카드 넘김 (안 H)<small>섹션=카드 1장씩 옆으로 · 집중도 ↑ 이나 순서 통제/스크롤 이탈 위험 · 안전 카드 건너뜀 우려</small></div>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span>▪▪▪ ◔</span></div>
+        <div class="nav"><span class="back">‹</span><span class="ttl">분석 결과</span></div>
+        <div class="pad">
+          <div class="hswipe" id="hswipe"></div>
+          <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+          <p class="tapz">← 옆으로 넘겨 다음 섹션 →</p>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <p class="legend"><b>belle 결정 필요:</b> (1) 이 10항 순서 승인/수정, (2) 세로 스크롤(안 V) vs 가로 카드 넘김(안 H). 결정은 32-11 재배치가 소비.</p>
+</section>
+
+<!-- ===================== ② 게임 프레임 강도 ===================== -->
+<section class="board" id="board-game">
+  <h2>② 게임 프레임 적용 범위 (D-10)</h2>
+  <p class="lead">
+    <b>D-10 확정 3요소(목표 게이지 바 + 오늘의 미션 + mode3 기록 갱신 배지, 감점 카드 내)는 세 안 모두 공통 포함</b> — 미결은 <b>적용 범위</b>뿐.
+    톤 = "장난스럽진 않지만 친숙하게"(D-12). 아래 세 안은 <b>동일 최악 fixture</b>(감점 7 + 안전 결함)를 쓰고 확장 범위만 다르다.
+    수치는 헤드라인 금지·소형 배지 1곳(D-09).
+  </p>
+  <div class="stage">
+    <div class="col">
+      <div class="cap">안 A — 감점 카드 한정<small>3요소를 top-1 감점 카드 '안에만'. 나머지 화면은 차분한 정보 톤. 가장 보수적.</small></div>
+      <div class="phone"><div class="screen" data-scope="A"></div></div>
+    </div>
+    <div class="col">
+      <div class="cap">안 B — + 성장 탭 확장<small>감점 카드 3요소 + mode3 '성장·지난 미션' 섹션에 미션 추적 타임라인/연속 달성 표기까지.</small></div>
+      <div class="phone"><div class="screen" data-scope="B"></div></div>
+      <span class="rec">권장: 안 B (미션→연습→확인 루프가 성장 섹션에서 닫힘 · 과함 없음)</span>
+    </div>
+    <div class="col">
+      <div class="cap">안 C — 전면 확장 + 추가 아이디어<small>요약 카드에 '오늘의 한 가지' 히어로 게이지까지 승격 + Claude 추가안 3종(아래).</small></div>
+      <div class="phone"><div class="screen" data-scope="C"></div></div>
+    </div>
+  </div>
+  <div class="note" style="max-width:1040px">
+    <b>Claude 추가 아이디어 제안 (D-10 원문 "추가 아이디어 제안" — 안 C에 반영, 채택은 belle):</b><br>
+    ① <b>목표 근접 링(Streak Ring)</b> — 같은 미션을 연속으로 개선하면 게이지 옆 작은 링이 채워짐(측정 개선 기반, 포인트/레벨 아님 → D-19 "게이미피케이션 아님" 준수).<br>
+    ② <b>"오늘의 한 가지" 히어로</b> — 요약 카드 상단에 top-1 미션의 현재→목표 거리감만 큰 게이지로. 나머지는 접힘(one-thing).<br>
+    ③ <b>도달 축하 마이크로 배지</b> — 목표 각도 도달 시 감점 카드가 초록으로 전환 + "해냈어요" 1회 표기(장난스럽지 않은 담백한 확인). 안전 결함엔 절대 미적용(D-14).
+  </div>
+  <p class="legend"><b>belle 결정 필요:</b> 적용 범위 A / B / C(+추가 아이디어 채택 여부). 결정은 32-10(감점 카드)·32-07(요약/토큰)이 소비.</p>
+</section>
+
+<!-- ===================== ③ 최악·엣지 케이스 ===================== -->
+<section class="board" id="board-edge">
+  <h2>③ 최악 데이터 케이스 + 엣지 (ux-propose-user-centric-screens-first)</h2>
+  <p class="lead">UI 결정 전 <b>최악 케이스 선제시</b> 원칙. 아래 4개는 모두 같은 shell·토큰(현재 강조 스케일)로 렌더. 게임 프레임은 <b>권장 안 B</b> 기준.</p>
+  <div class="stage">
+    <div class="col">
+      <div class="cap">최악: 감점 7 + 장문 문구 + 안전 결함<small>안전 결함은 게임 프레임 제외·차분한 톤(D-14). 긴 측정 문구가 잘리지 않고 wrap.</small></div>
+      <div class="phone"><div class="screen" data-case="worst"></div></div>
+    </div>
+    <div class="col">
+      <div class="cap">감점 0 — 축하 케이스<small>고칠 게 없음. 잘한 점은 측정 근거(감점 0 차원)에서. 성장은 계속 표기.</small></div>
+      <div class="phone"><div class="screen" data-case="celebrate"></div></div>
+    </div>
+    <div class="col">
+      <div class="cap">부분 실패 — 커버리지 부족<small>"하반신만 확실히 쟀어요"(D-29). 잰 범위 내 미션 + 못 잰 것 코치 질문 자동 등재.</small></div>
+      <div class="phone"><div class="screen" data-case="partial"></div></div>
+    </div>
+    <div class="col">
+      <div class="cap">근거 빈약 — 잘한 점 소스 없음<small>없는 칭찬 금지(D-06). 응원 톤 정직 고지 후 바로 '오늘 고칠 것'.</small></div>
+      <div class="phone"><div class="screen" data-case="weak"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ④ 참고 지표 형태 ===================== -->
+<section class="board" id="board-ref">
+  <h2>④ 참고 지표 형태 (D-03) — 심사 정보 코너 vs 오늘 고칠 것 카드 흡수</h2>
+  <p class="lead">
+    belle 원문: "'안정성' 같은 추상 용어가 아니라 <b>실제 심사는 이렇게 파악한다</b>는 코너". 어느 쪽이든 표현 전면 수정 확정.
+    아래 두 형태 모두 <b>IPSF 실존 수치</b>(회당 −0.2 정렬/라인, 회당 −0.5 나쁜 각도/트랜지션, 20° 허용 오차, 추락 −3.0)를 쓴다 —
+    이는 <b>측정값이 아니라 교육 콘텐츠</b>라 본문 노출 허용(D-09 검사표 구분).
+  </p>
+  <div class="stage">
+    <div class="col">
+      <div class="cap">형태 1 — 독립 '심사 정보 코너'<small>순서안 #9, 채점 표면 뒤. 심사가 무엇을 어떻게 감점하는지 교육. 참고코너(31)보다 위·채점 카드보다 아래.</small></div>
+      <div class="phone"><div class="screen" data-ref="corner"></div></div>
+      <span class="rec">권장: 형태 1 (교육은 판정 뒤 · 감점 카드 과밀 방지)</span>
+    </div>
+    <div class="col">
+      <div class="cap">형태 2 — 오늘 고칠 것 카드로 흡수<small>순서안 #3. 각 감점 카드의 '왜' 줄에 "실제 심사에선 이렇게 감점돼요" 한 줄로 녹임.</small></div>
+      <div class="phone"><div class="screen" data-ref="absorb"></div></div>
+    </div>
+  </div>
+  <p class="legend"><b>belle 결정 필요:</b> 형태 1(독립 코너) vs 형태 2(카드 흡수). 결정은 32-11(참고 지표 표현)이 소비. 겹침 버그는 wave-1 최소 수리 완료 — 표현 전면 수정은 이 결정 뒤.</p>
+</section>
+
+<!-- ===================== ⑤ 강조 체계·타이포 ===================== -->
+<section class="board" id="board-typo">
+  <h2>⑤ 타이포 강조 체계 (D-05)</h2>
+  <p class="lead">
+    현행 스케일은 12~20 사이 본문용 중간 단계가 없어 화면이 caption(12)/boxLabel(15)로 조판됨 = belle "전반이 너무 작음"의 구조 원인.
+    Pretendard 미로드(시스템 폴백 중). letterSpacing 음수 금지(iOS 26 SIGABRT 박제). <b>상단 라디오로 '중(E1)'/'강(E2)'을 전 보드에 즉시 적용해 비교.</b>
+  </p>
+  <div class="typo">
+    <div class="col2">
+      <h3 style="font-size:16px;margin:0 0 6px">현행 (문제)</h3>
+      <div class="scale-row"><span class="tok">caption 12</span><span style="font-size:12px">보조 설명 — 너무 작음</span></div>
+      <div class="scale-row"><span class="tok">boxLabel 15</span><span style="font-size:15px">카드 레이블</span></div>
+      <div class="scale-row"><span class="tok">(중간 단계 없음)</span><span style="color:#c0392b;font-size:12px">← 12~20 갭: 본문이 12/15로 조판됨</span></div>
+      <div class="scale-row"><span class="tok">body 25</span><span style="font-size:25px">본문 설명</span></div>
+      <div class="scale-row"><span class="tok">heading 30</span><span style="font-size:30px">제목</span></div>
+      <div class="scale-row"><span class="tok">score 50</span><span style="font-size:34px;color:var(--brand);font-weight:900">62</span></div>
+    </div>
+    <div class="col2">
+      <h3 style="font-size:16px;margin:0 0 6px">제안 옵션 b — 신규 중간 단계 + 하한 상향</h3>
+      <div class="scale-row"><span class="tok">caption <b id="tc"></b></span><span style="font-size:var(--f-caption)">메타/캡션 (10·12 폐지)</span></div>
+      <div class="scale-row"><span class="tok">badge <b id="tb"></b></span><span style="font-size:var(--f-badge)">소형 수치 배지(D-09)</span></div>
+      <div class="scale-row"><span class="tok">bodySm <b id="ts"></b></span><span style="font-size:var(--f-bodySm)">보조 본문</span></div>
+      <div class="scale-row"><span class="tok">bodyMd <b id="tm"></b> (신규)</span><span style="font-size:var(--f-bodyMd)">기본 본문 — 새 중간 단계</span></div>
+      <div class="scale-row"><span class="tok">bodyLg <b id="tl"></b></span><span style="font-size:var(--f-bodyLg);font-weight:800">카드 헤드라인(몸 말)</span></div>
+      <div class="scale-row"><span class="tok">headline <b id="th"></b></span><span style="font-size:var(--f-headline);font-weight:800">요약 카드 대표 문장</span></div>
+    </div>
+  </div>
+  <h3 style="font-size:16px;margin:22px 0 4px">강조 규칙 (볼드·크기·색)</h3>
+  <table class="insp">
+    <tr><th>요소</th><th>크기</th><th>볼드</th><th>색</th><th>규칙</th></tr>
+    <tr><td>몸 말 헤드라인(상태)</td><td>bodyLg~headline</td><td>800</td><td>ink(#0C0C0C)</td><td>가장 큼 · <b>수치 금지</b></td></tr>
+    <tr><td>행동 큐(외부 초점)</td><td>bodyMd</td><td>800</td><td><b>브랜드 #FF4B33</b></td><td>강조색은 '행동'에만 · tint 배경 pill</td></tr>
+    <tr><td>왜(감점·위험 이유)</td><td>bodySm</td><td>400</td><td>ink-2</td><td>보조 톤</td></tr>
+    <tr><td>측정 수치 배지</td><td>badge(15/16)</td><td>600</td><td>중립 회색</td><td><b>강조색·헤드라인 금지</b> · 카드당 1곳 · 장문 wrap</td></tr>
+    <tr><td>IPSF 규정 수치</td><td>caption</td><td>700</td><td>머스터드</td><td>교육 콘텐츠 → 본문 허용(측정값 아님)</td></tr>
+    <tr><td>안전 결함</td><td>bodyLg</td><td>800</td><td><b>틸 #54B8CD</b></td><td>레드 금지 · 게임 프레임/미션 금지(D-14)</td></tr>
+  </table>
+
+  <h3 style="font-size:16px;margin:24px 0 4px">D-09 검사표 (전 목업 자체 점검 — 판정 기준 명문화)</h3>
+  <table class="insp">
+    <tr><th>검사 항목</th><th>기준</th><th>목업 준수</th></tr>
+    <tr><td>측정 수치(각도·편차·점수)가 헤드라인/강조에 등장?</td><td>금지 — 헤드라인은 몸 말만</td><td class="ok-pass">PASS — 모든 헤드라인 무수치, 각도는 .mbadge 만</td></tr>
+    <tr><td>측정 수치 배지 개수</td><td>카드당 1곳(소형 보조)</td><td class="ok-pass">PASS — .mbadge 카드당 1개</td></tr>
+    <tr><td>% 환산 노출?</td><td>금지(자의적 숫자 생성 방지)</td><td class="ok-pass">PASS — % 일치/환산 0건, 게이지도 실측 단위(°)</td></tr>
+    <tr><td>점수(overall)</td><td>소형 배지만, 첫 화면 히어로 금지</td><td class="ok-pass">PASS — .score-mini 옥타곤 34px, 요약 카드 우측 보조</td></tr>
+    <tr><td>IPSF 규정 수치(회당 −0.2 등)</td><td><b>측정값 아님 → 본문 허용</b>(교육 콘텐츠)</td><td class="ok-pass">구분 적용 — .ipsf/심사 코너에만, .mbadge 와 분리</td></tr>
+    <tr><td>참고코너(31) 위치</td><td>채점 표면 전부 뒤(invariant)</td><td class="ok-pass">PASS — 순서안 #10, 심사 코너(#9)보다도 뒤</td></tr>
+    <tr><td>안전 결함 게임화</td><td>금지(D-14)</td><td class="ok-pass">PASS — 안전 카드에 게이지/미션/배지 미적용</td></tr>
+  </table>
+  <p class="legend"><b>측정 수치 vs IPSF 규정 수치 구분(핵심):</b> <b>측정 수치</b> = 이 사용자 영상에서 <b>잰 값</b>(각도 141°, 편차 19°, 점수 62) → D-09 적용(헤드라인 금지·배지 1곳·% 금지). <b>IPSF 규정 수치</b> = 심사 규정 <b>교육 값</b>(회당 −0.2, 20° 허용 오차) → 측정값이 아니므로 심사 코너 본문에 허용. 이 구분을 전 목업이 지킴.</p>
+</section>
+
+<script>
+/* =========================================================================
+   동일 fixture 데이터 1세트 (전 안 공유). 안별로 렌더 함수의 '변형 플래그'만 바뀐다.
+   ========================================================================= */
+const FIX = {
+  motion:'제이드 (Jade)', mode:'mode3', scoreBadge:62,
+  safety:{
+    title:'어깨가 꺾이는 각도가 위험 범위에 있어요',
+    why:'이 각도가 반복되면 어깨 앞쪽에 무리가 쌓일 수 있어요.',
+    coach:'혼자 고치지 말고 강사님과 이 화면을 함께 보세요.'
+  },
+  mission:{ tag:'오늘의 미션', txt:'무릎으로 가슴을 끌어안듯 더 깊게 접기' },
+  gauge:{ label:'무릎 각도', unit:'°', current:141, target:180, cur_pct:64, tgt_pct:100 },
+  record:{ head:'지난번보다 무릎이 더 접혔어요', sub:'목표에 절반 넘게 왔어요 · +12°' },
+  // 감점 7 (IPSF 실존 분류)
+  deductions:[
+    {n:1, head:'무릎이 기준보다 덜 접혔어요', why:'다리 라인이 흐트러져 심사에서 감점되는 부분이에요',
+      cue:'무릎으로 가슴을 끌어안듯', measure:'측정 141° · 기준 180° · 허용 초과 19°', ipsf:'정렬 회당 −0.2', top:true},
+    {n:2, head:'발끝이 끝까지 안 펴졌어요', why:'발끝 포인이 빠지면 라인이 짧아 보여요', cue:'엄지발가락으로 천장을 밀듯', measure:'측정 158° · 기준 180°', ipsf:'라인 회당 −0.2'},
+    {n:3, head:'몸의 선이 한 줄로 안 모였어요', why:'클린 라인이 안 잡히면 정렬 감점이에요', cue:'정수리부터 발끝까지 한 줄 긋듯', measure:'편차 8cm', ipsf:'정렬 회당 −0.2'},
+    {n:4, head:'심사위원이 보기 어려운 각도예요', why:'사각지대에서 수행하면 요소 점수까지 놓쳐요', cue:'몸을 심사석 쪽으로 15도 열듯', measure:'몸 방향 −22°', ipsf:'나쁜 각도 회당 −0.5'},
+    {n:5, head:'팔이 끝까지 뻗지 않았어요', why:'신체 연장이 부족하면 완성도가 낮아 보여요', cue:'손끝으로 벽을 밀어내듯', measure:'측정 152° · 기준 180°', ipsf:'신체 연장 회당 −0.2'},
+    {n:6, head:'동작 사이가 툭 끊겼어요', why:'전환의 멈춤은 흐름(Flow)을 깨 감점돼요', cue:'숨을 내쉬며 다음 동작으로 흘리듯', measure:'정지 0.6s', ipsf:'트랜지션 회당 −0.5'},
+    {n:7, head:'골반이 살짝 틀어졌어요', why:'골반 정렬이 어긋나면 축이 흔들려 보여요', cue:'양쪽 골반을 정면으로 나란히', measure:'좌우 차 −11°', ipsf:'정렬 회당 −0.2'}
+  ],
+  coachQ:[
+    '어깨 각도가 위험하다는데, 제 몸에선 어떻게 확인하나요?',
+    '무릎을 더 접으려면 어떤 스트레칭부터 하면 좋을까요?',
+    '이번엔 팔 각도를 못 쟀는데, 직접 봐주실 수 있나요?'
+  ],
+  exercise:{ name:'힙 플렉서 스트레칭', why:'무릎을 더 깊이 접으려면 고관절 가동범위부터 늘려야 해요' }
+};
+
+const IPSF_CORNER = [
+  ['정렬·라인·신체 연장', '회당 −0.2', '무릎/발끝 정렬, 클린 라인, 연장 부족이 쌓이면 점수를 깎아요'],
+  ['나쁜 각도·트랜지션', '회당 −0.5', '심사석이 못 보는 각도·끊긴 전환은 더 크게 감점돼요'],
+  ['20° 허용 오차', 'Tolerance', '요구 각도에서 20° 이내면 기술을 유효로 인정 — 완벽보다 유효를 먼저'],
+  ['추락·슬립', '−3.0 / −1', '봉에서 떨어지거나 미끄러지면 큰 감점 — 안전이 최우선']
+];
+
+/* ---- 조립 헬퍼(변형 블록) ---- */
+function octagon(v){
+  return `<span class="score-mini"><span class="oct">
+    <svg viewBox="0 0 40 40"><polygon points="12,3 28,3 37,12 37,28 28,37 12,37 3,28 3,12"
+      fill="#fff" stroke="#FF4B33" stroke-width="2.4"/></svg><span>${v}</span></span>종합</span>`;
+}
+function gaugeHtml(g){
+  return `<div class="gauge">
+    <div class="lab"><span>${g.label}</span><span>현재 <b>${g.current}${g.unit}</b> → 목표 <b>${g.target}${g.unit}</b></span></div>
+    <div class="gtrack"><div class="gfill" style="width:${g.cur_pct}%"></div><div class="gtarget" style="left:${g.tgt_pct}%"></div></div>
+    <div class="gcap">목표까지 <b>${g.target-g.current}${g.unit}</b> 남았어요</div>
+  </div>`;
+}
+function missionHtml(m){ return `<div class="mission"><div class="tag">${m.tag}</div><div class="txt">${m.txt}</div></div>`; }
+function recordHtml(r){ return `<div class="recordbadge"><div class="ic">↑</div><div class="t">${r.head}<small>${r.sub}</small></div></div>`; }
+function zoomPair(mine,ref){
+  return `<div class="zoompair">
+    <div class="z mine"><span class="lab">${mine}</span><span class="fig">내 확대 프레임</span></div>
+    <div class="z ref"><span class="lab">${ref}</span><span class="fig">비교 확대 프레임</span></div>
+  </div><p class="tapz">양옆 동시 · 탭하면 한쪽 가로 확대 (D-17 확정)</p>`;
+}
+function safetyCard(s){
+  return `<div class="card safety">
+    <span class="chip teal">안전 먼저 확인</span>
+    <div class="headline" style="color:#2C7C8C;margin-top:8px">${s.title}</div>
+    <div class="why">${s.why}</div>
+    <div class="bodyline" style="font-weight:800;color:#2C7C8C">${s.coach}</div>
+  </div>`;
+}
+/* 감점 카드(변형: game=게임 프레임 3요소 포함 여부, refMode='absorb'면 IPSF 한 줄 흡수) */
+function deductionCard(d, opt){
+  opt = opt||{};
+  const measure = `<div class="mbadge"><span class="dot"></span><b>실측 검증</b> ${d.measure}</div>`;
+  const ipsfLine = opt.refMode==='absorb' && d.ipsf
+      ? `<div class="ipsf">실제 심사: ${d.ipsf}</div>` : '';
+  const game = opt.game ? (gaugeHtml(FIX.gauge)+missionHtml(FIX.mission)+recordHtml(FIX.record)) : '';
+  const zoom = opt.zoom!==false ? zoomPair('내 오늘','내 지난') : '';
+  return `<div class="card">
+    <span class="chip brand">오늘 고칠 것 ${d.top?'· 1순위':''}</span>
+    <div class="headline">${d.head}</div>
+    <div class="why">${d.why}</div>
+    <span class="cue">${d.cue}</span>
+    ${measure}${ipsfLine}
+    ${zoom}
+    ${game}
+  </div>`;
+}
+function collapsed(d){ return `<div class="collapsed"><span class="n">${d.n}</span><span class="t">${d.head}</span><span class="chev">›</span></div>`; }
+
+function summaryCard(opt){
+  opt=opt||{};
+  const good = opt.good!==false
+    ? `<div class="bodyline"><b>잘한 점 ·</b> 코어 안정이 지난번보다 좋아졌어요</div>`
+    : `<div class="bodyline" style="color:#6b6e76">이번엔 확실히 내세울 측정 근거가 적어요. 그래도 여기까지 온 게 대단해요 — 바로 한 가지만 고쳐봐요.</div>`;
+  const hero = opt.hero ? gaugeHtml(FIX.gauge) : '';
+  return `<div class="card summary">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="chip brand">${FIX.motion} · ${opt.modeLabel||'mode3 자기 비교'}</span>${octagon(opt.score!=null?opt.score:FIX.scoreBadge)}
+    </div>
+    ${good}
+    <div class="bodyline"><b>오늘 고칠 것 ·</b> ${opt.oneThing||'무릎을 기준보다 더 접기'}</div>
+    <div class="bodyline"><b>다음 행동 ·</b> ${opt.next||'무릎으로 가슴을 끌어안듯 한 세트'}</div>
+    ${hero}
+  </div>`;
+}
+function coachList(){
+  return `<div class="card"><span class="chip gray">강사님과 확인할 것</span>` +
+    FIX.coachQ.map(q=>`<div class="coachrow"><span class="q">${q}</span><span class="add">담기</span></div>`).join('')+`</div>`;
+}
+function exerciseCard(){
+  return `<div class="card"><span class="chip brand">오늘의 보완 운동</span>
+    <div class="headline" style="font-size:var(--f-bodyLg)">${FIX.exercise.name}</div>
+    <div class="why">${FIX.exercise.why}</div>
+    <p class="tapz" style="text-align:left;color:#FF4B33;font-weight:800;margin-top:8px">다른 운동 보기 › (가로로 최대 3개)</p></div>`;
+}
+function refCorner(){
+  return `<div class="card"><span class="chip gray">실제 심사는 이렇게 파악해요</span>
+    <div class="sect-sub" style="margin:8px 0 4px">'안정성' 같은 용어 대신, 심사가 무엇을 어떻게 보는지</div>` +
+    IPSF_CORNER.map(r=>`<div class="coachrow"><span class="q"><b>${r[0]}</b> <span class="ipsf">${r[1]}</span><br><span style="color:#6b6e76;font-size:14px">${r[2]}</span></span></div>`).join('')+`</div>`;
+}
+function referenceCorner31(){
+  return `<div class="card" style="background:#FAFAFB"><span class="chip gray">참고하세요</span>
+    <div class="sect-sub" style="margin-top:8px">점수에 반영되지 않는 참고 자료예요 (채점 표면 전부 뒤 — 31 invariant)</div></div>`;
+}
+
+/* ---- 섹션 순서안 데이터 ---- */
+const ORDER = [
+  ['요약 카드 1장','잘한 점 1 · 오늘 고칠 것 1 · 다음 행동 1 · 점수 소형 배지','Shneiderman overview-first / D-01',''],
+  ['위험 결함 (있을 때만)','안전은 스크롤 이탈 전에. 차분한 톤·코치 유도','트리아지(Kaia) / D-14','safety'],
+  ['오늘 고칠 것 상세 카드','top-1 감점: 3단 문장 + 인라인 줌 쌍 + 게이지 + 미션','one-thing / D-20 인라인',''],
+  ['동작 비교','초 맞춤 + 재생 중 큐 (양옆 동시·큐 구간당 1개)','주장→증거 순서 / D-17 확정',''],
+  ['나머지 감점 카드','기본 접힘 — 탭하여 펼침','pull 방식 / 수치 계층화',''],
+  ['성장·지난 미션 확인 (mode3)','미션→연습→확인 루프 폐쇄','D-26',''],
+  ['보완 운동','top-1 연결 1개 + 이유 1줄, 가로 최대 3','행동 처방은 이해 뒤 / D-13',''],
+  ['강사님과 확인할 것','코치 질문 목록 — 화면의 출구','제품 정의 ③ / peak-end',''],
+  ['심사 정보 코너','구 참고 지표 — 형태는 이 게이트','교육은 판정 뒤 / D-03',''],
+  ['참고하세요 (31 참고코너)','채점 표면 전부 뒤 — 위로 올리면 31 위반','31 D-09 invariant','inv']
+];
+
+/* ---- 렌더 ---- */
+function renderOrderList(){
+  document.getElementById('orderlist').innerHTML = ORDER.map((o,i)=>
+    `<div class="orderrow ${o[3]}"><span class="num">${i+1}</span><div class="body"><b>${o[0]}</b><p>${o[1]}</p><span class="why">근거: ${o[2]}</span></div></div>`
+  ).join('');
+}
+function renderVScroll(){
+  document.getElementById('vscroll').innerHTML =
+    summaryCard({}) + safetyCard(FIX.safety) + deductionCard(FIX.deductions[0],{game:true, zoom:true}) +
+    `<div class="sect-h">동작 비교</div><div class="card"><div class="zoompair"><div class="z mine"><span class="lab">내 영상</span><span class="fig">재생</span></div><div class="z ref"><span class="lab">지난 영상</span><span class="fig">재생</span></div></div><p class="tapz">양옆 동시 재생 · 구간당 큐 1개</p></div>` +
+    `<div class="sect-h">나머지 고칠 것</div>` + FIX.deductions.slice(1).map(collapsed).join('') +
+    exerciseCard() + coachList() + refCorner() + referenceCorner31();
+}
+function renderHSwipe(){
+  const cards = [
+    `<div class="hc">${summaryCard({}).replace('card summary','')}</div>`,
+    `<div class="hc" style="border-color:#54B8CD">${safetyCard(FIX.safety).replace('card safety','')}</div>`,
+    `<div class="hc">오늘 고칠 것<div class="headline" style="font-size:20px">${FIX.deductions[0].head}</div><span class="cue">${FIX.deductions[0].cue}</span></div>`,
+    `<div class="hc">동작 비교<p class="tapz" style="text-align:left">양옆 동시 재생</p></div>`,
+    `<div class="hc">성장·미션<div class="recordbadge" style="margin-top:10px"><div class="ic">↑</div><div class="t">${FIX.record.head}</div></div></div>`
+  ];
+  document.getElementById('hswipe').innerHTML = cards.join('');
+}
+function renderGame(){
+  document.querySelectorAll('[data-scope]').forEach(el=>{
+    const s = el.getAttribute('data-scope');
+    let html = shellTop('분석 결과');
+    html += `<div class="pad">`;
+    if(s==='C'){ html += summaryCard({hero:true}); }
+    else { html += summaryCard({}); }
+    html += safetyCard(FIX.safety);
+    html += deductionCard(FIX.deductions[0],{game:true, zoom:true}); // 3요소는 A·B·C 공통
+    if(s==='B' || s==='C'){
+      html += `<div class="sect-h">성장 · 지난 미션</div>
+        <div class="card">${recordHtml(FIX.record)}
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <div style="flex:1;text-align:center"><div style="font-size:22px;font-weight:900;color:#FF4B33">3</div><div style="font-size:12px;color:#6b6e76">연속 개선</div></div>
+          <div style="flex:1;text-align:center"><div style="font-size:22px;font-weight:900;color:#1FA97A">2</div><div style="font-size:12px;color:#6b6e76">목표 도달</div></div>
+          <div style="flex:1;text-align:center"><div style="font-size:22px;font-weight:900;color:#6b6e76">7</div><div style="font-size:12px;color:#6b6e76">이번 고칠 것</div></div>
+        </div></div>`;
+    }
+    if(s==='C'){
+      html += `<div class="card" style="background:#FFF7F5"><span class="chip brand">추가 아이디어</span>
+        <div class="bodyline"><b>목표 근접 링</b> · 같은 미션 연속 개선 시 게이지 옆 링이 채워져요 (측정 기반)</div>
+        <div class="gauge"><div class="lab"><span>목표 근접 링</span><span><b>3/5</b> 채움</span></div><div class="gtrack"><div class="gfill" style="width:60%"></div></div></div></div>`;
+    }
+    html += `</div>`;
+    el.innerHTML = html;
+  });
+}
+function shellTop(t){
+  return `<div class="status"><span>9:41</span><span>▪▪▪ ◔</span></div><div class="nav"><span class="back">‹</span><span class="ttl">${t}</span></div>`;
+}
+function renderEdge(){
+  document.querySelectorAll('[data-case]').forEach(el=>{
+    const c = el.getAttribute('data-case'); let html = shellTop('분석 결과')+`<div class="pad">`;
+    if(c==='worst'){
+      html += summaryCard({}) + safetyCard(FIX.safety) + deductionCard(FIX.deductions[0],{game:true,zoom:true}) +
+        `<div class="sect-h">나머지 고칠 것 (6)</div>` + FIX.deductions.slice(1).map(collapsed).join('') + coachList();
+    } else if(c==='celebrate'){
+      html += summaryCard({score:97, good:true, oneThing:'오늘은 고칠 게 없어요 — 이대로 유지!', next:'같은 동작 한 번 더 찍어 기록 남기기'}) +
+        `<div class="card"><span class="chip teal">축하해요</span><div class="headline">감점 없이 깔끔했어요</div>
+         <div class="bodyline"><b>잘한 점 근거 ·</b> 무릎·발끝·라인 모두 기준 충족(감점 0)</div>${recordHtml({head:'지난번보다 코어 안정이 좋아졌어요',sub:'목표 유지 · +5점'})}</div>` + coachList();
+    } else if(c==='partial'){
+      html += summaryCard({score:null, oneThing:'하반신부터 한 가지 고치기', next:'상반신은 다음에 다시 찍어요'}) +
+        `<div class="card" style="border-color:#54B8CD;background:#F4FBFC"><span class="chip teal">이번엔 여기까지 쟀어요</span>
+         <div class="headline" style="font-size:var(--f-bodyLg)">하반신만 확실히 잴 수 있었어요</div>
+         <div class="why">상반신은 가려져서 이번엔 측정을 건너뛰었어요. 잰 범위 안에서 미션을 잡았어요.</div></div>` +
+        deductionCard(FIX.deductions[0],{game:true,zoom:true}) +
+        `<div class="card"><span class="chip gray">강사님과 확인할 것 (자동 등재)</span>
+         <div class="coachrow"><span class="q">이번에 못 잰 <b>팔·어깨 각도</b>를 직접 봐주실 수 있나요?</span><span class="add">담김</span></div></div>`;
+    } else if(c==='weak'){
+      html += summaryCard({good:false, oneThing:'무릎을 기준보다 더 접기', next:'무릎으로 가슴을 끌어안듯 한 세트'}) +
+        deductionCard(FIX.deductions[0],{game:true,zoom:true});
+    }
+    html += `</div>`; el.innerHTML = html;
+  });
+}
+function renderRef(){
+  document.querySelectorAll('[data-ref]').forEach(el=>{
+    const mode = el.getAttribute('data-ref'); let html = shellTop('분석 결과')+`<div class="pad">`;
+    if(mode==='corner'){
+      html += summaryCard({}) + deductionCard(FIX.deductions[0],{game:true,zoom:true}) +
+        `<div class="sect-h">심사 정보</div>` + refCorner() + referenceCorner31();
+    } else { // absorb
+      html += summaryCard({}) + deductionCard(FIX.deductions[0],{game:true,zoom:true,refMode:'absorb'}) +
+        deductionCard(FIX.deductions[3],{zoom:false,refMode:'absorb'}) + referenceCorner31();
+    }
+    html += `</div>`; el.innerHTML = html;
+  });
+}
+function renderTypoLabels(){
+  const g = getComputedStyle(document.body);
+  const map={tc:'--f-caption',tb:'--f-badge',ts:'--f-bodySm',tm:'--f-bodyMd',tl:'--f-bodyLg',th:'--f-headline'};
+  for(const id in map){ const e=document.getElementById(id); if(e) e.textContent=g.getPropertyValue(map[id]).trim(); }
+}
+
+/* ---- 탭·토글 ---- */
+function show(b){
+  document.querySelectorAll('.board').forEach(s=>s.classList.toggle('on', s.id==='board-'+b));
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.b===b));
+}
+document.querySelectorAll('.tabs button').forEach(x=>x.onclick=()=>show(x.dataset.b));
+document.querySelectorAll('input[name=emph]').forEach(r=>r.onchange=()=>{
+  document.body.classList.toggle('emph-strong', r.value==='strong' && r.checked);
+  renderTypoLabels();
+});
+
+renderOrderList(); renderVScroll(); renderHSwipe(); renderGame(); renderEdge(); renderRef(); renderTypoLabels();
+</script>
+</body>
+</html>

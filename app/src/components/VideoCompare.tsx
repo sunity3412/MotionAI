@@ -48,6 +48,12 @@ type SlotProps = {
    * (기존 렌더 무회귀), 가로 전체화면 뷰어가 { sizeScale: 2.0 } 전달.
    */
   overlay?: OverlayRenderProp;
+  /**
+   * 32-08 (실기기 피드백 #2) — 슬롯 중앙 상태 오버레이 문구(예: "적용중입니다").
+   * 미전달/undefined = 미렌더(기존 소비처 렌더 diff 0). 오프셋이 적용되는 정은지
+   * (right) 슬롯에만 전달한다. pointerEvents none — 재생 컨트롤 방해 0.
+   */
+  busyLabel?: string;
 };
 
 // quick-260702-t0v — overlay render prop 단일 타입 (VideoCompareProps + SlotProps 공유).
@@ -80,7 +86,7 @@ function fmtOffsetLabel(sec: number): string {
   return `${sign}${Math.abs(rounded).toFixed(1)}초`;
 }
 
-function VideoSlot({ label, url, player, overlay }: SlotProps) {
+function VideoSlot({ label, url, player, overlay, busyLabel }: SlotProps) {
   return (
     <View style={styles.slot}>
       <View style={styles.slotFrame}>
@@ -99,6 +105,15 @@ function VideoSlot({ label, url, player, overlay }: SlotProps) {
                 {overlay(player)}
               </View>
             )}
+            {/* 32-08 (실기기 피드백 #2) — 오프셋 적용 로딩 표시. 영상 위 중앙 pill. */}
+            {busyLabel ? (
+              <View style={styles.slotBusyOverlay} pointerEvents="none">
+                <View style={styles.slotBusyPill}>
+                  <Ionicons name="sync" size={13} color={colors.textWhite} />
+                  <Text style={styles.slotBusyText}>{busyLabel}</Text>
+                </View>
+              </View>
+            ) : null}
           </>
         ) : (
           <View style={styles.slotEmpty}>
@@ -209,6 +224,16 @@ const THUMB_DIAMETER = 14;
 // 표현 가능하게 한다(렌더 계산부). 접근성 increment/decrement 도 이 스냅 1단위.
 const OFFSET_MAX_SEC = 3;
 const OFFSET_SNAP_SEC = 0.1;
+
+// 32-08 (실기기 피드백 #1) — 음수 오프셋 시작 홀드 임계. 목표시각(unclamped)이 음수인
+// 구간에서 정은지(right)를 0 프레임에 세우되, 이미 ~0 이면 재대입을 생략한다(불필요한
+// seek 억제). cR 이 이 값을 넘겨 전진했을 때만 0 으로 되돌린다.
+const START_HOLD_EPS_S = 0.05;
+
+// 32-08 (실기기 피드백 #2) — "적용중입니다" 표시 유지 시간(ms). 오프셋이 바뀔 때마다
+// 재스케줄되어 연속 드래그 중엔 유지되고, 마지막 변경 후 이 시간 뒤에 사라진다(정은지
+// 영상 seek·버퍼 안정 구간을 덮음). setTimeout 1개 — 신규 setInterval/tick 0.
+const OFFSET_APPLYING_HOLD_MS = 600;
 
 // quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 전체화면 오버레이 배율.
 // KeypointOverlay 는 viewBox 정규화 구조라 라벨 유효 크기 = 14 × 렌더높이/1280.
@@ -403,6 +428,11 @@ export function VideoCompare({
   // 갱신이 오프셋을 덮어쓰지 않는다(리뷰 HIGH — 비동기 state 함정).
   const userAdjustedRef = useRef(false);
   const offsetTrackWidthRef = useRef(0);
+  // 32-08 (실기기 피드백 #2) — 오프셋 적용 로딩 표시. 오프셋 조작(드래그/접근성)이 있으면
+  // 정은지(right) 슬롯에 "적용중입니다" 오버레이. 마지막 조작 후 OFFSET_APPLYING_HOLD_MS
+  // 뒤 자동 해제(디바운스 setTimeout 1개 — 신규 tick 0).
+  const [offsetApplying, setOffsetApplying] = useState(false);
+  const offsetApplyingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 슬라이더 범위: ±3초 기본. legacy 자동 오프셋이 더 크면 그만큼 확장(썸 표현 가능
   // + 드래그 시 값 점프 방지). initialOffsetSec 파생이라 드래그 중 안정적.
   const sliderBound = Math.max(
@@ -467,7 +497,12 @@ export function VideoCompare({
       const shorter =
         dL > 0 && dR > 0 ? Math.min(dL, dR) : Math.max(dL, dR);
       const ref = hasLeft ? leftPlayer : rightPlayer;
-      const bothPlaying = !!leftPlayer?.playing && !!rightPlayer?.playing;
+      // 32-08 (실기기 피드백 #1) — follow 경로 가드를 leftPlaying 으로. 시작 홀드 중
+      // 정은지(right)를 pause 하면 bothPlaying=false 가 되어 bothPlaying 가드로는 홀드
+      // 해제(resume) 판정 자체가 스킵된다. master(left) 재생 여부로 판정하고 right 의
+      // 재생/정지는 이 블록이 소유한다. legacy 경로는 종전대로 bothPlaying 가드 유지.
+      const leftPlaying = !!leftPlayer?.playing;
+      const bothPlaying = leftPlaying && !!rightPlayer?.playing;
       setPlaying(!!ref?.playing);
 
       // UAT 4차 Finding 1 — drift 보정 (Build 16 iter-2).
@@ -484,40 +519,62 @@ export function VideoCompare({
       if (
         hasLeft &&
         hasRight &&
+        followTick &&
+        leftPlaying &&
+        !scrubbingRef.current &&
+        dL > 0 &&
+        dR > 0 &&
+        leftPlayer &&
+        rightPlayer &&
+        cL < dL - 0.1
+      ) {
+        // 28-06 D-01 — 워핑/오프셋 활성: left=master 로 back-seek 없음, 목표값만
+        //   cR ≈ cL 에서 cR ≈ warp(cL)+offset 로 교체. rate=feedforward(아래),
+        //   이 tick seek=feedback 안전망 (A2). 끝부분 진입 전에만 보정(left 기준).
+        // 32-08 (실기기 피드백 #1) — 음수 오프셋(또는 warp<0) "정은지 재시작 루프"
+        //   stutter 차단. 기존 코드는 목표를 0 으로 클램프한 뒤 매 tick seek(0) 했는데,
+        //   right 가 재생으로 0→전진하면 |cR−0| 이 임계를 넘겨 다시 seek(0) → 0.2s 마다
+        //   프레임0 재시작 반복(belle "정은지 영상이 계속 재시작"). 목표시각(unclamped)이
+        //   음수인 구간에선 right 를 0 에 세우고 pause(전진 차단) → 정지 프레임 유지,
+        //   학생이 |offset| 지나 목표≥0 되면 resume. 목표 0 클램프 seek 루프 제거.
+        const rawComposedRef = targetRefTime(cL); // clampRefTarget 이전 warp+offset
+        if (rawComposedRef < 0) {
+          // 시작 홀드 — 정은지(right)를 0 프레임에 세워 둔다(전진하면 다시 0).
+          if (rightPlayer.playing) rightPlayer.pause();
+          if (cR > START_HOLD_EPS_S) rightPlayer.currentTime = 0;
+        } else {
+          // 홀드 해제 — 학생이 |offset| 를 지나 목표가 양수 진입. 정지돼 있으면 재개.
+          if (!rightPlayer.playing) rightPlayer.play();
+          // WR-01 — 클램프된 목표와 cR 의 차이로 drift 판정(끝쪽 warp>dR 초과 seek 도 차단).
+          const target = clampRefTarget(cL, dR);
+          const drift = Math.abs(cR - target);
+          if (drift > DRIFT_CORRECT_THRESHOLD_S) {
+            rightPlayer.currentTime = target;
+          }
+        }
+      } else if (
+        !followTick &&
+        hasLeft &&
+        hasRight &&
         bothPlaying &&
         !scrubbingRef.current &&
         dL > 0 &&
         dR > 0 &&
         leftPlayer &&
-        rightPlayer
+        rightPlayer &&
+        shorter > 0 &&
+        Math.max(cL, cR) < shorter - 0.1
       ) {
-        if (followTick) {
-          // 28-06 D-01 — 워핑 활성: left=master 로 back-seek 없음, 목표값만
-          //   cR ≈ cL 에서 cR ≈ warpTime(cL) 로 교체. rate=feedforward(아래),
-          //   이 tick seek=feedback 안전망 (A2 — expo-video rate 지연 미문서화,
-          //   0.2s 내 동기 보장). 끝부분 진입 전에만 보정(left 기준).
-          if (cL < dL - 0.1) {
-            // WR-01 — 클램프된 목표와 cR 의 차이로 drift 판정. 클램프 없이 음수
-            // target 이면 플레이어가 cR 을 0 으로 물어 drift 가 영구히 임계 초과 →
-            // seek 폭풍. 클램프 후 임계 이하면 seek 생략(정은지 시작 프레임 자연 대기).
-            const target = clampRefTarget(cL, dR);
-            const drift = Math.abs(cR - target);
-            if (drift > DRIFT_CORRECT_THRESHOLD_S) {
-              rightPlayer.currentTime = target;
-            }
-          }
-        } else if (shorter > 0 && Math.max(cL, cR) < shorter - 0.1) {
-          // legacy(부재/null/disabled) — 기존 상호 back-seek 그대로. 직접 대입은
-          // helper 경유로만 치환(right 는 setRightToStudentTime, 비활성=identity).
-          const drift = Math.abs(cL - cR);
-          if (drift > DRIFT_CORRECT_THRESHOLD_S) {
-            // 느린 쪽 시각을 authoritative time 으로 사용 (빠른 쪽 back-seek).
-            const slowerTime = Math.min(cL, cR);
-            if (cL > cR) {
-              leftPlayer.currentTime = slowerTime;
-            } else {
-              setRightToStudentTime(slowerTime);
-            }
+        // legacy(부재/null/disabled) — 기존 상호 back-seek 그대로. 직접 대입은
+        // helper 경유로만 치환(right 는 setRightToStudentTime, 비활성=identity).
+        const drift = Math.abs(cL - cR);
+        if (drift > DRIFT_CORRECT_THRESHOLD_S) {
+          // 느린 쪽 시각을 authoritative time 으로 사용 (빠른 쪽 back-seek).
+          const slowerTime = Math.min(cL, cR);
+          if (cL > cR) {
+            leftPlayer.currentTime = slowerTime;
+          } else {
+            setRightToStudentTime(slowerTime);
           }
         }
       }
@@ -808,6 +865,25 @@ export function VideoCompare({
     offsetTrackWidthRef.current = e.nativeEvent.layout.width;
   }, []);
 
+  // 32-08 (실기기 피드백 #2) — "적용중입니다" 표시 on + 디바운스 해제. 오프셋이 바뀔
+  // 때마다 호출 → 연속 드래그 중 유지, 마지막 변경 후 OFFSET_APPLYING_HOLD_MS 뒤 off.
+  const markOffsetApplying = useCallback(() => {
+    setOffsetApplying(true);
+    if (offsetApplyingTimerRef.current) clearTimeout(offsetApplyingTimerRef.current);
+    offsetApplyingTimerRef.current = setTimeout(() => {
+      setOffsetApplying(false);
+      offsetApplyingTimerRef.current = null;
+    }, OFFSET_APPLYING_HOLD_MS);
+  }, []);
+
+  // 언마운트 시 디바운스 타이머 정리 (누수 방지).
+  useEffect(
+    () => () => {
+      if (offsetApplyingTimerRef.current) clearTimeout(offsetApplyingTimerRef.current);
+    },
+    [],
+  );
+
   const setOffsetFromX = useCallback(
     (x: number) => {
       const w = offsetTrackWidthRef.current;
@@ -815,9 +891,10 @@ export function VideoCompare({
       const ratio = Math.max(0, Math.min(1, x / w));
       const raw = ratio * (2 * sliderBound) - sliderBound;
       userAdjustedRef.current = true;
+      markOffsetApplying(); // 실기기 피드백 #2 — 정은지 슬롯 "적용중입니다"
       setManualOffsetSec(Math.round(raw * 10) / 10); // 0.1초 스냅
     },
-    [sliderBound],
+    [sliderBound, markOffsetApplying],
   );
 
   const offsetPanResponder = useMemo(
@@ -840,12 +917,13 @@ export function VideoCompare({
           ? -OFFSET_SNAP_SEC
           : OFFSET_SNAP_SEC;
       userAdjustedRef.current = true;
+      markOffsetApplying(); // 실기기 피드백 #2 — 정은지 슬롯 "적용중입니다"
       setManualOffsetSec((prev) => {
         const next = Math.round((prev + delta) * 10) / 10;
         return Math.max(-sliderBound, Math.min(sliderBound, next));
       });
     },
-    [sliderBound],
+    [sliderBound, markOffsetApplying],
   );
 
   // 리셋 — 자동 제안값으로 복귀(legacy=initialOffsetSec / 정렬 활성=0). dirty 해제로
@@ -1119,6 +1197,7 @@ export function VideoCompare({
           url={rightUrl}
           player={rightPlayer}
           overlay={rightOverlay}
+          busyLabel={offsetApplying ? '적용중입니다' : undefined}
         />
       </View>
 
@@ -1369,6 +1448,31 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  // 32-08 (실기기 피드백 #2) — 오프셋 적용 로딩 오버레이 (정은지 슬롯 중앙 pill).
+  // 토큰만: videoBg(영상 다크 예외) 배경 + textWhite. 하드코딩 색 0.
+  slotBusyOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slotBusyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.button,
+    backgroundColor: colors.videoBg,
+  },
+  slotBusyText: {
+    ...typography.captionSmall,
+    color: colors.textWhite,
+    fontWeight: '700',
   },
   slotEmpty: {
     flex: 1,

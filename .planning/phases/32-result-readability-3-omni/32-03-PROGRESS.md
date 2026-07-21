@@ -1,14 +1,14 @@
-# 32-03 진행 상태 (Task 1~2 완료, Task 3 checkpoint 대기)
+# 32-03 진행 상태 (전 Task 완료 — 최종 상태는 32-03-SUMMARY.md 참조)
 
-**작성:** 2026-07-21 18:40 KST · **실행 커밋 기준:** `c45eb95` (wave-1 포함, origin push 완료)
+**작성:** 2026-07-21 18:40 KST (Task 3 완결 반영 19:05 KST) · **실행 커밋 기준:** `c45eb95` (wave-1 포함, origin push 완료)
 
 ## Task 상태
 
 | Task | 상태 | 커밋 |
 |---|---|---|
 | 1. Pod 배포 + 6동작 전수 스윕 (D-23) | **완료** — 게이트 PASS (증거: `32-03-SWEEP.md`) | `08b8d10` |
-| 2. wave-1 앱 OTA 발행 | **완료** — production+preview 발행 | (본 문서 커밋) |
-| 3. belle 실기기 리뷰 (D-17 3건 + D-23 매핑) | **checkpoint 대기** — 확정 시 `32-GATE-DECISIONS.md` 적재 | — |
+| 2. wave-1 앱 OTA 발행 | **완료** — production+preview 발행 | `4a0c668` |
+| 3. belle 실기기 리뷰 (D-17 3건 + D-23 매핑) | **완료** — `32-GATE-DECISIONS.md` 적재 | `b76361d` |
 
 ## Task 2 — OTA 발행 기록
 

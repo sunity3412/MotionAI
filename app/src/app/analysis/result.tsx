@@ -31,6 +31,7 @@ import type {
   RotationCardState,
 } from '../../components/ReferenceCornerSection';
 import { normalizeMotionAlignment } from '../../lib/alignmentWarp';
+import { legacyOffsetFromCompareFrames } from '../../lib/manualOffset';
 import {
   ANGLE_VS_REFERENCE_PREFIX,
   JOINT_LABEL_KO,
@@ -1406,6 +1407,26 @@ function AnalysisResultContent({
   const userKeypointReport = result.keypointReport ?? null;
   const referenceKeypointReport = refMotion?.referenceKeypointReport ?? null;
 
+  // 32-02 (D-16) — legacy doc(정렬 disabled/부재) 자동 시작 오프셋(sec). faultZoomComparisons
+  // 프레임 인덱스 쌍들의 median 으로 "대략 오프셋"을 산출해 VideoCompare 에 넘긴다
+  // (정렬 활성 doc 은 VideoCompare 내부 dirty 가드가 무시 — offset 0 시작). fps 는
+  // poseFrames 정본(:2105 부근)과 동일 환산: result.keypointReport?.fps || 9 /
+  // referenceKeypointReport?.fps || 18 (9/18 신규 하드코딩 금지, SP-6). 유효 쌍 0 →
+  // null → 0(오프셋 없음, 슬라이더만 제공).
+  const legacyStartOffsetSec = useMemo(
+    () =>
+      legacyOffsetFromCompareFrames(
+        result.faultZoomComparisons ?? null,
+        result.keypointReport?.fps || 9,
+        referenceKeypointReport?.fps || 18,
+      ) ?? 0,
+    [
+      result.faultZoomComparisons,
+      result.keypointReport?.fps,
+      referenceKeypointReport,
+    ],
+  );
+
   // Phase 12 Wave 2 (Plan 12-03 T2) — KeypointOverlay 토글 (D-12-C4 박제).
   // Pitfall 6 우회: useState(true) initial — 깜빡임 무시. OFF 사용자는 진입 시
   // 잠시 ON 보였다가 useEffect 가 AsyncStorage 읽어 false 로 전환 (수용 가능).
@@ -1752,6 +1773,10 @@ function AnalysisResultContent({
               // 무관 전달로 기흐름 (신규 워핑 구현 0). 신뢰도 사다리·배속 클램프는
               // 28 D-02 를 mode 무관하게 동일 적용 — 여기 mode 조건 추가 금지.
               alignment={videoAlignment}
+              // 32-02 (D-16) — legacy doc 자동 시작 오프셋 + 분석 전환 리셋 키.
+              // VideoCompare 가 dirty 가드로 사용자 조정 후엔 덮어쓰지 않는다.
+              initialOffsetSec={legacyStartOffsetSec}
+              resetKey={analysisId}
               rightLabel={
                 cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
               }

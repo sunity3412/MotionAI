@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "schemaVersion": "1.0.0",
+    "lastUpdated": "2026-07-21",
+    "purpose": "측정 용어(차원·지표) → 심사 언어 사람 말 단일 출처 (32-CONTEXT D-12). '안정성'·'각도 유사도' 같은 추상 용어를 심판이 실제로 보는 사람 말로 통일한다.",
+    "singleSource": "backend/data/terminology_map.json",
+    "mirror": "app/src/lib/terminologyMap.ts (값 문자열 동일 — backend/tests/phase32/test_terminology_lockstep.py 가 양방향 대조로 drift 차단, 주석 정합이 아니라 테스트 정합)",
+    "tone": "친숙하되 장난스럽지 않게 (belle 원문 D-12)",
+    "termKeys": "app/src/types/analysis.ts ScoreDimension(angle/line/stability) + 지표 용어(reach/split) — deductionLabels.ts CRITERION_LABEL_KO 정합",
+    "note": "실제 라벨 문자열 확정은 32-05 belle 감수(D-11/D-12)에서 조정될 수 있음."
+  },
+  "terms": {
+    "angle": "동작의 전체 흐름이 기준 자세와 얼마나 나란히 이어지는지",
+    "line": "팔다리를 끝까지 펴서 만드는 라인의 완성도",
+    "stability": "핵심 자세에서 흔들림 없이 버티는 힘",
+    "reach": "목표 지점까지 몸을 뻗어 닿는 정도",
+    "split": "다리를 벌려 만드는 각도의 크기"
+  }
+}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>32-08 일러스트 샘플 (D-21 품질 게이트)</title>
+<style>
+  :root { --brand:#FF4B33; --ink:#0C0C0C; --sub:#5A5A5A; --line:#E0E0E0; --bg:#FFFFFF; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,'Pretendard',system-ui,sans-serif; color:var(--ink); background:var(--bg); }
+  .wrap { max-width:1080px; margin:0 auto; padding:28px 20px 60px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .lede { color:var(--sub); font-size:14px; line-height:1.6; margin:0 0 20px; }
+  .cue { border-left:4px solid var(--brand); background:#FFF3F1; padding:12px 14px; border-radius:8px;
+         font-size:14px; line-height:1.7; margin:0 0 24px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media (max-width:820px){ .grid { grid-template-columns:1fr; } }
+  .card { border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#fff; }
+  .card img { display:block; width:100%; height:auto; background:#F5F5F5; }
+  .meta { padding:12px 14px; }
+  .tag { display:inline-block; font-size:11px; font-weight:700; color:var(--brand);
+         background:rgba(255,75,51,0.12); padding:3px 8px; border-radius:9px; margin-bottom:6px; }
+  .name { font-size:15px; font-weight:700; margin:0 0 4px; }
+  .desc { font-size:12.5px; color:var(--sub); line-height:1.6; margin:0; }
+  .note { margin-top:28px; border:1px dashed var(--line); border-radius:12px; padding:16px 18px;
+          font-size:13px; line-height:1.7; color:var(--sub); background:#FAFAFA; }
+  .note b { color:var(--ink); }
+  .decision { margin-top:20px; font-size:14px; line-height:1.7; }
+  .decision b { color:var(--brand); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>일러스트 샘플 — D-21 품질 게이트</h1>
+  <p class="lede">
+    belle 검수용. 기준선 = <b>"형태감 있는 고품질 인체 일러스트"</b> (캐릭터화 X, 졸라맨 X).
+    이 바를 넘으면 <b>도입</b>, 미달이면 <b>시각 표현 없이 실프레임 + 텍스트로 정직 폴백</b>.
+    상황 = 무릎 접기 → 다리 신전(leg_extension) 외부 큐. 코럴(#FF4B33) 강조선 = 큐 방향("발끝으로 천장을 길게").
+    익명(무얼굴)으로 특정인(정은지 포함) 닮음 회피됨.
+  </p>
+
+  <div class="cue">
+    발끝으로 천장을 길게 밀어낸다는 느낌으로 다리를 쭉 뻗어보세요.<br />
+    다리 라인이 끝까지 뻗지 않으면 심사에서 신전 완성도로 감점되는 부분이에요.
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <img src="illust_variant1_pro.jpg" alt="일러스트 1 — pro 벡터" />
+      <div class="meta">
+        <span class="tag">gemini-3-pro-image</span>
+        <p class="name">1안 · 클린 에디토리얼 벡터</p>
+        <p class="desc">측면 뷰, 매끈한 볼륨 셰이딩. 신전 다리에 코럴 큐 흐름. 익명 무표정.</p>
+      </div>
+    </div>
+    <div class="card">
+      <img src="illust_variant2_pro.jpg" alt="일러스트 2 — pro 준실사" />
+      <div class="meta">
+        <span class="tag">gemini-3-pro-image</span>
+        <p class="name">2안 · 소프트 준실사 해부</p>
+        <p class="desc">핸드드로잉 톤, 자연스러운 근육·형태. 신전 다리에 코럴 라인.</p>
+      </div>
+    </div>
+    <div class="card">
+      <img src="illust_variant3_flash.jpg" alt="일러스트 3 — flash 실루엣" />
+      <div class="meta">
+        <span class="tag">gemini-3.1-flash-image</span>
+        <p class="name">3안 · 벡터 실루엣 (저비용 티어)</p>
+        <p class="desc">실루엣 벡터 + 코럴 아웃라인. pro 대비 품질/비용 비교용.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>폴백(도입 안 할 때):</b> 시각 표현 없이 <b>비교 순간의 실제 영상 프레임 + 텍스트 문구집(cueLine)</b>만 노출한다
+    (31 실프레임 사다리 재사용). 억지 일러스트로 볼품없게 채우지 않는다 — 정직 폴백.<br />
+    <b>도입할 때:</b> 정적 에셋(빌드타임 번들)로만. <b>런타임 생성 AI 0</b>(제작만 오프라인). 상업 사용권은 도입 결정 시 Gemini 약관 재확인 1회.
+  </div>
+
+  <p class="decision">
+    <b>belle 결정:</b> ① 도입 / 폴백  ② 도입이면 어느 스타일(1안 pro벡터 / 2안 pro준실사 / 3안 flash실루엣)
+  </p>
+</div>
+</body>
+</html>

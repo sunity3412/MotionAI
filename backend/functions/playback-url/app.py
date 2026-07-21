@@ -33,7 +33,7 @@ import boto3
 
 from sunity_shared import firestore_admin, models, responses
 from sunity_shared.auth import AuthError, verify_request
-from sunity_shared.s3keys import build_upload_key
+from sunity_shared.s3keys import build_coach_audio_key, build_upload_key
 from sunity_shared.validation import validate_analysis_id_format
 
 log = logging.getLogger()
@@ -50,7 +50,13 @@ _REF_KEY_PREFIX = "reference/"
 # Phase 31 asset 확장 (contract.md "POST /playback-url — asset 확장", 리뷰 H-02).
 # 표시 URL 은 매 요청 재서명이라 1시간이면 충분하다 — 영상 재생용 7일과 다르다.
 _ASSET_EXPIRES = 3600
-_ASSET_CONTENT_TYPE = {"png": "image/png", "mp4": "video/mp4"}
+# mp3 = Phase 32 (Plan 32-16, D-18) 재생 중 큐 오디오 (contract.md §12.7).
+_ASSET_CONTENT_TYPE = {"png": "image/png", "mp4": "video/mp4", "mp3": "audio/mpeg"}
+# Phase 32 (Plan 32-16) — coachAudio asset 의 recordId 형식 화이트리스트
+# (contract.md §12.3 'r{index:02d}:{criterion}' — criterion 은 영숫자·언더스코어).
+# path injection('../' 등) 을 canonical key 구성 **전에** 차단한다 (_REF_ID_RE 선례).
+# exact 비교(H-02)가 최종 방어지만, 형식 가드로 조작 입력이 key 빌더에 닿지 않게 한다.
+_COACH_AUDIO_RECORD_ID_RE = re.compile(r"^r[0-9]{2}:[A-Za-z0-9_]{1,64}$")
 _s3 = boto3.client("s3")
 
 
@@ -124,6 +130,58 @@ def _handle_asset(uid: str, analysis_id: str, asset: str) -> dict:
     return responses.ok({"playbackUrl": url, "expiresInSec": _ASSET_EXPIRES})
 
 
+def _handle_coach_audio(uid: str, analysis_id: str, record_id) -> dict:  # noqa: ANN001
+    """coachAudio asset 재서명 (Phase 32 Plan 32-16, D-18 — contract.md §12.7 / H-02).
+
+    _handle_asset 과 동일 규율: 클라이언트는 recordId 만 지정하고 key 는 절대
+    보내지 않는다. 서버가 canonical key 를 **구성**(s3keys.build_coach_audio_key —
+    저장 측과 단일 출처)하고 result.coachAudio.items 중 같은 recordId 항목의 저장
+    key 와 **전체 문자열 exact 비교** 후에만 서명한다 (prefix/basename 부분일치
+    불가 — stale key·타 객체 열람 차단, M2-01 선례). uid 는 토큰 유래 — 타 uid 의
+    recordId 로 구성한 canonical key 는 본인 doc 의 저장 key 와 일치할 수 없다.
+
+    가드 위반은 전부 동일 404 — 어느 단계에서 걸렸는지 응답으로 구분되지 않는다.
+    """
+    if not isinstance(record_id, str) or not _COACH_AUDIO_RECORD_ID_RE.match(record_id):
+        return responses.error("bad_request", "recordId 형식 오류", status=400)
+
+    doc = firestore_admin.get_analysis(uid, analysis_id) or {}
+    result = doc.get("result")
+    result = result if isinstance(result, dict) else {}
+    coach_audio = result.get("coachAudio")
+    coach_audio = coach_audio if isinstance(coach_audio, dict) else {}
+    status = coach_audio.get("status")
+    items = coach_audio.get("items")
+    items = items if isinstance(items, list) else []
+
+    expected = build_coach_audio_key(uid, analysis_id, record_id)
+    stored = next(
+        (
+            it.get("key")
+            for it in items
+            if isinstance(it, dict) and it.get("recordId") == record_id
+        ),
+        None,
+    )
+    guards_ok = (
+        status == models.COACH_AUDIO_STATUS_DONE  # failed/부재 = stale key 여도 404
+        and isinstance(stored, str)
+        and stored == expected  # exact equality — 서버 구성 canonical 만 서명
+    )
+    if not guards_ok:
+        return responses.error("not_found", "코칭 오디오를 찾을 수 없어요.", status=404)
+
+    url = _sign_get(expected, expires=_ASSET_EXPIRES, content_type=_ASSET_CONTENT_TYPE["mp3"])
+    if url is None:
+        return responses.error("server_error", "서명 실패", status=500)
+
+    log.info(
+        "playback-url 발급(coachAudio) uid=%s analysis_id=%s record_id=%s",
+        uid, analysis_id, record_id,
+    )
+    return responses.ok({"playbackUrl": url, "expiresInSec": _ASSET_EXPIRES})
+
+
 def _handle_reference(uid: str, reference_motion_id: str) -> dict:
     """referenceMotionId 재서명 — Firestore doc videoS3Key 화이트리스트 경유만.
 
@@ -192,6 +250,10 @@ def lambda_handler(event: dict, _context) -> dict:
     # Phase 31 asset 확장 — 미지정이면 아래 기존 경로가 바이트 동일하게 동작한다.
     # (검증 순서를 기존 그대로 두어 asset 미지정 요청의 응답이 1바이트도 안 바뀌게 한다.)
     if asset is not None:
+        # Phase 32 (Plan 32-16, D-18) — coachAudio 는 visual job 이 아니라 별도
+        # 분기 (VISUAL_JOB_KINDS 무접촉 — 기존 asset 종류의 응답 바이트 불변).
+        if asset == models.PLAYBACK_ASSET_COACH_AUDIO:
+            return _handle_coach_audio(uid, analysis_id, body.get("recordId"))
         if asset not in models.VISUAL_JOB_KINDS:
             return responses.error(
                 "bad_request", f"asset 은 {list(models.VISUAL_JOB_KINDS)} 중 하나여야 합니다", status=400

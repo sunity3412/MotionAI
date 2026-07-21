@@ -29,6 +29,7 @@ import {
   warpTime,
 } from '../lib/alignmentWarp';
 import { composeRefTarget } from '../lib/manualOffset';
+import { activeCue, type CueWindow } from '../lib/cueTrack';
 import { circledNumberKo } from '../lib/deductionLabels';
 import { colors, layout, radius, spacing, typography } from '../theme';
 import type { MotionAlignment } from '../types/analysis';
@@ -196,6 +197,13 @@ export type VideoCompareProps = {
    * 미세조정이 새는 것 차단). 미전달 시 초기화 트리거 없음.
    */
   resetKey?: string;
+  /**
+   * 32-08 (D-18 자막 큐) — 재생 중 결함 구간 자막 큐 윈도우 (cueTrack.buildCueWindows
+   * 산출). 학생(left) 도메인 초 [startSec,endSec). 기존 tick(100ms)이 activeCue 로
+   * 현재 큐를 판정해 영상 하단 자막으로 오버레이한다. **미전달/undefined = 기존 렌더
+   * diff 0**(opt-in — 배선은 32-11 result.tsx). text 는 문구집 cueLine(수치 0, D-09).
+   */
+  cueWindows?: CueWindow[];
 };
 
 // UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).
@@ -232,8 +240,12 @@ const START_HOLD_EPS_S = 0.05;
 
 // 32-08 (실기기 피드백 #2) — "적용중입니다" 표시 유지 시간(ms). 오프셋이 바뀔 때마다
 // 재스케줄되어 연속 드래그 중엔 유지되고, 마지막 변경 후 이 시간 뒤에 사라진다(정은지
-// 영상 seek·버퍼 안정 구간을 덮음). setTimeout 1개 — 신규 setInterval/tick 0.
+// 영상 seek·버퍼 안정 구간을 덮음). setTimeout 1개 — 신규 폴링 타이머/tick 0.
 const OFFSET_APPLYING_HOLD_MS = 600;
+
+// 32-08 (D-18 자막 큐) — cueWindows 미전달 시 tick 이 읽는 안정 빈 배열(매 렌더 새
+// 배열 churn 방지 — activeCue(EMPTY, t)=null 이라 자막 미렌더, 기존 소비처 diff 0).
+const EMPTY_CUE_WINDOWS: CueWindow[] = [];
 
 // quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 전체화면 오버레이 배율.
 // KeypointOverlay 는 viewBox 정규화 구조라 라벨 유효 크기 = 14 × 렌더높이/1280.
@@ -285,6 +297,7 @@ export function VideoCompare({
   alignment: alignmentInput,
   initialOffsetSec,
   resetKey,
+  cueWindows,
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
@@ -433,6 +446,14 @@ export function VideoCompare({
   // 뒤 자동 해제(디바운스 setTimeout 1개 — 신규 tick 0).
   const [offsetApplying, setOffsetApplying] = useState(false);
   const offsetApplyingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 32-08 (D-18 자막 큐) — 재생 중 자막. tick(100ms 폴링 클로저)이 최신 cueWindows 를
+  // 읽도록 ref 미러(alignmentRef 관례). 자막 text state 는 activeCue 결과가 바뀔 때만
+  // 갱신(activeCueTextRef 로 이전값 비교 — 렌더 churn 방지). 미전달 시 항상 null.
+  const cueWindowsRef = useRef<CueWindow[]>(cueWindows ?? EMPTY_CUE_WINDOWS);
+  cueWindowsRef.current = cueWindows ?? EMPTY_CUE_WINDOWS;
+  const [activeCueText, setActiveCueText] = useState<string | null>(null);
+  const activeCueTextRef = useRef<string | null>(null);
   // 슬라이더 범위: ±3초 기본. legacy 자동 오프셋이 더 크면 그만큼 확장(썸 표현 가능
   // + 드래그 시 값 점프 방지). initialOffsetSec 파생이라 드래그 중 안정적.
   const sliderBound = Math.max(
@@ -504,6 +525,17 @@ export function VideoCompare({
       const leftPlaying = !!leftPlayer?.playing;
       const bothPlaying = leftPlaying && !!rightPlayer?.playing;
       setPlaying(!!ref?.playing);
+
+      // 32-08 (D-18 자막 큐) — 현재 학생(master) 시각의 큐를 기존 tick 위에서 판정한다
+      // (신규 타이머 0). cL=학생 도메인 초, cueWindows 도 학생 프레임/fps 산출이라 동일
+      // 도메인. 자막 text 가 바뀔 때만 setState(변경 없으면 렌더 churn 0). cueWindows
+      // 미전달 시 cueWindowsRef=EMPTY → activeCue null → 자막 미렌더(기존 소비처 diff 0).
+      const cue = activeCue(cueWindowsRef.current, cL);
+      const nextCueText = cue ? cue.text : null;
+      if (nextCueText !== activeCueTextRef.current) {
+        activeCueTextRef.current = nextCueText;
+        setActiveCueText(nextCueText);
+      }
 
       // UAT 4차 Finding 1 — drift 보정 (Build 16 iter-2).
       //   tick 100ms 마다 매번 drift > 0.2s 면 즉시 보정. hysteresis 없음.
@@ -1199,6 +1231,20 @@ export function VideoCompare({
           overlay={rightOverlay}
           busyLabel={offsetApplying ? '적용중입니다' : undefined}
         />
+        {/* 32-08 (D-18 자막 큐) — 재생 중 결함 구간 자막. 영상 프레임 하단 중앙 pill.
+            수치 미포함(D-09) — text 는 문구집 cueLine(행동문). cueWindows 미전달 시
+            activeCueText=null → 미렌더. 수직 위치는 32-11 배선 시 실기기 미세조정. */}
+        {activeCueText ? (
+          <View style={styles.cueSubtitleWrap} pointerEvents="none">
+            <Text
+              style={styles.cueSubtitle}
+              numberOfLines={2}
+              accessibilityRole="text"
+            >
+              {activeCueText}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Phase 20 (UI A4) — "자동 구간 맞춤" 신뢰 배지.
@@ -1480,6 +1526,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#F4F4F4',
+  },
+  // 32-08 (D-18 자막 큐) — 영상 프레임 하단 자막 오버레이 (row 절대 자식). paddingBottom
+  // 이 slotLabel 영역을 비켜 프레임 하단에 앉힌다. 토큰만: videoBg 배경 + textWhite.
+  cueSubtitleWrap: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 26,
+  },
+  cueSubtitle: {
+    ...typography.caption,
+    color: colors.textWhite,
+    textAlign: 'center',
+    backgroundColor: colors.videoBg,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.button,
+    overflow: 'hidden',
+    lineHeight: 17,
   },
   slotEmptyText: {
     ...typography.captionSmall,

@@ -1609,6 +1609,16 @@ function AnalysisResultContent({
     vetoFaultJoints,
   ]);
 
+  // 32-12 (D-18 B안 재생 중 큐 오디오) — coachAudio mp3 가 준비된(status 'done' +
+  // items 존재) 경우에만 VideoCompare 에 analysisId 를 넘겨 오디오 토글·재생을 켠다.
+  // 'failed'(합성 실패 — 자막만)/부재(legacy doc)면 undefined → 오디오 표면 미렌더.
+  // 재생 URL 재서명·prefetch·cueId 조인은 audioCue.ts 소유(화면은 게이트만 판정).
+  const coachAudioAnalysisId =
+    result.coachAudio?.status === 'done' &&
+    (result.coachAudio.items?.length ?? 0) > 0
+      ? analysisId
+      : undefined;
+
   // 요약 카드 3요소 (deriveSummaryContent — 32-07). mode3 헤드라인=발전 델타 invariant
   // 는 summaryPraise(백엔드 사람 말)가 담당(D-26). 수치는 카드가 소형 배지 1곳만.
   const summaryContent = useMemo(() => {
@@ -2035,6 +2045,9 @@ function AnalysisResultContent({
               // 산출(record cueLine + 매칭 zoom userFrameIdx + 학생 fps). 미전달
               // 시 기존 렌더 diff 0(opt-in). cleanPass/legacy 면 빈 배열.
               cueWindows={cueWindows}
+              // 32-12 (D-18 B안) — coachAudio mp3 준비 doc 에서만 오디오 토글·재생
+              // 활성(cueId=recordId 조인). failed/legacy 면 undefined → 자막만.
+              audioAnalysisId={coachAudioAnalysisId}
             />
             {/* 28-CONTEXT D-05 — 정렬 데이터는 새 분석부터, legacy 는 재분석 유도.
                 조건 = motionAlignment 필드 부재(undefined)만. normalize null(데이터

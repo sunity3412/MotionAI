@@ -173,6 +173,32 @@ export function fetchVisualAssetUrl(
   });
 }
 
+// Phase 32 (Plan 32-12 — D-18 B안 재생 중 큐 오디오) — coachAudio mp3 표시 URL 재서명.
+// 백엔드(32-16)가 분석 사후 스테이지에서 records 의 cueLine 을 Polly 로 합성해 S3 에
+// 저장하고 result.coachAudio.items[{recordId, key}] 로 도착시킨다. URL 은 문서에 저장하지
+// 않으므로(죽은 URL 박제 방지, 리뷰 H-02) 재생 시점마다 여기서 재서명한다.
+// 클라이언트는 recordId(=cueId)만 넘기고 실제 S3 key 구성·검증은 전적으로 서버 몫이다
+// (server-selected canonical key + 저장 key exact 비교 — 임의 key 서명 경로 없음).
+// 미등재 recordId·형식 위반·타 uid 는 전부 404/400 로 합산된다 (leak 0, 32-16 스모크 실증).
+export function fetchCoachAudioUrl(
+  analysisId: string,
+  recordId: string,
+): Promise<string> {
+  return authedJson<{ playbackUrl?: unknown }>('/playback-url', {
+    method: 'POST',
+    body: { analysisId, asset: 'coachAudio', recordId },
+  }).then((res) => {
+    if (typeof res.playbackUrl !== 'string' || res.playbackUrl.length === 0) {
+      throw new ApiError(
+        'POST /playback-url: playbackUrl 필드 부재/형식 오류',
+        200,
+        'malformed_response',
+      );
+    }
+    return res.playbackUrl;
+  });
+}
+
 // S3 presigned PUT 으로 영상 업로드. Content-Type 은 서명에 묶지 않지만
 // (upload-url Lambda 가 Params 에서 제외) PUT 헤더로 보내면 S3 가 그 값을 객체
 // 메타데이터로 저장한다. 이걸 안 박으면 binary/octet-stream 으로 저장돼서

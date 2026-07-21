@@ -30,6 +30,13 @@ import {
 } from '../lib/alignmentWarp';
 import { composeRefTarget } from '../lib/manualOffset';
 import { activeCue, type CueWindow } from '../lib/cueTrack';
+import {
+  isAudioCueEnabled,
+  prefetchCueAudio,
+  setAudioCueEnabled,
+  speakCue,
+  stopCue,
+} from '../lib/audioCue';
 import { circledNumberKo } from '../lib/deductionLabels';
 import { colors, layout, radius, spacing, typography } from '../theme';
 import type { MotionAlignment } from '../types/analysis';
@@ -204,6 +211,14 @@ export type VideoCompareProps = {
    * diff 0**(opt-in — 배선은 32-11 result.tsx). text 는 문구집 cueLine(수치 0, D-09).
    */
   cueWindows?: CueWindow[];
+  /**
+   * 32-12 (D-18 B안 재생 중 큐 오디오) — coachAudio mp3 가 준비된 분석의 analysisId.
+   * 전달되면 동작 비교 영역에 "음성 안내" 토글이 노출되고, 자막 큐 전환 시점에 같은
+   * cueId(=recordId)의 Polly mp3 를 재생한다(설정 on 일 때만 — 기본 off, 학원 소음).
+   * **미전달/undefined = 오디오 표면 미렌더**(coachAudio 부재/legacy doc — 자막만).
+   * cueId 조인·prefetch·재서명은 audioCue.ts 소유(이 컴포넌트는 트리거만).
+   */
+  audioAnalysisId?: string;
 };
 
 // UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).
@@ -298,6 +313,7 @@ export function VideoCompare({
   initialOffsetSec,
   resetKey,
   cueWindows,
+  audioAnalysisId,
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
@@ -454,6 +470,59 @@ export function VideoCompare({
   cueWindowsRef.current = cueWindows ?? EMPTY_CUE_WINDOWS;
   const [activeCueText, setActiveCueText] = useState<string | null>(null);
   const activeCueTextRef = useRef<string | null>(null);
+
+  // 32-12 (D-18 B안 오디오 큐) — 재생 중 자막 큐와 동일 트리거로 Polly mp3 재생.
+  // audioAnalysisId 전달 시에만 오디오 표면 노출(coachAudio 보유 doc). 토글 상태는
+  // React state(스위치 렌더) + ref(tick 클로저에서 동기 판정)로 이중 보유. 기본 off
+  // (학원 소음 — audioCue hydrate 가 영속값을 로드해 마운트 시 초기값 반영).
+  const audioAvailable = !!audioAnalysisId;
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const audioEnabledRef = useRef(false);
+  audioEnabledRef.current = audioEnabled;
+
+  // 오디오 큐 목록 (cueWindow → cue 객체). cueId=recordId 로 Polly mp3 조인.
+  const audioCues = useMemo(
+    () =>
+      (cueWindows ?? []).map((w) => ({
+        cueId: w.recordId ?? null,
+        text: w.text,
+      })),
+    [cueWindows],
+  );
+
+  // 화면 진입 시 hydrate(영속 설정 로드) + prefetch(on 일 때 cueId 별 URL 일괄 발급).
+  // 완료 후 토글 초기값을 영속 설정으로 반영한다. audioAnalysisId 부재면 미동작(자막만).
+  useEffect(() => {
+    if (!audioAnalysisId) return;
+    let alive = true;
+    prefetchCueAudio(audioAnalysisId, audioCues)
+      .then(() => {
+        if (alive) setAudioEnabled(isAudioCueEnabled());
+      })
+      .catch(() => {
+        /* graceful — prefetch 실패해도 자막은 정상 */
+      });
+    return () => {
+      alive = false;
+      // 화면 이탈/분석 전환 시 발화 중단(다음 doc 로 새지 않게).
+      stopCue();
+    };
+  }, [audioAnalysisId, audioCues]);
+
+  // 토글 — 켜면 즉시 prefetch(마운트 시 off 였다면 URL 미발급). 끄면 발화 중단.
+  // setAudioCueEnabled 가 enabled 를 동기 반영하므로 직후 prefetch 가 on 을 본다.
+  const handleToggleAudio = useCallback(() => {
+    const next = !audioEnabledRef.current;
+    setAudioEnabled(next);
+    setAudioCueEnabled(next);
+    if (next && audioAnalysisId) {
+      prefetchCueAudio(audioAnalysisId, audioCues).catch(() => {
+        /* graceful */
+      });
+    } else if (!next) {
+      stopCue();
+    }
+  }, [audioAnalysisId, audioCues]);
   // 슬라이더 범위: ±3초 기본. legacy 자동 오프셋이 더 크면 그만큼 확장(썸 표현 가능
   // + 드래그 시 값 점프 방지). initialOffsetSec 파생이라 드래그 중 안정적.
   const sliderBound = Math.max(
@@ -535,6 +604,16 @@ export function VideoCompare({
       if (nextCueText !== activeCueTextRef.current) {
         activeCueTextRef.current = nextCueText;
         setActiveCueText(nextCueText);
+        // 32-12 (D-18 B안) — 자막 전환과 동일 지점에서 오디오 큐. 설정 on + cueId
+        // 조인 시에만 발화(speakCue 내부에서 캐시 미스=자막만). 큐 해제 시 발화 중단.
+        // tick 은 큐가 바뀔 때만 이 블록에 진입 → 매 tick 재재생 없음(stutter 0).
+        if (audioEnabledRef.current) {
+          if (cue && cue.recordId) {
+            speakCue({ cueId: cue.recordId, text: cue.text });
+          } else {
+            stopCue();
+          }
+        }
       }
 
       // UAT 4차 Finding 1 — drift 보정 (Build 16 iter-2).
@@ -694,6 +773,7 @@ export function VideoCompare({
       leftPlayer?.pause();
       rightPlayer?.pause();
       setPlaying(false);
+      stopCue(); // 32-12 — 일시정지 시 발화 중단(자막은 activeCue 가 유지 판정).
     } else {
       // UAT 4차 Finding 2 — 끝난 상태에서 다시 재생 시 정은지 영상 멈춤 finding.
       //   이전 (Build 14): `current` (= leftCurrent) 한쪽만 검사 → 우측이 자기
@@ -794,6 +874,8 @@ export function VideoCompare({
       // 폴링은 다음 tick 까지 0~100ms 지연 — 즉시 라벨 갱신(right 는 warp 목표시각).
       if (hasLeft) setLeftCurrent(safe);
       if (hasRight) setRightCurrent(targetRefTime(safe));
+      // 32-12 — seek/step 으로 위치가 튀면 현재 발화를 끊는다(다음 큐 전환 시 재발화).
+      stopCue();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setRightToStudentTime/
     // targetRefTime 은 alignmentRef 를 읽어 stale 클로저 무해(선행 tick ref 패턴 동일).
@@ -1262,6 +1344,34 @@ export function VideoCompare({
         ) : null}
       </View>
 
+      {/* 32-12 (D-18 B안 오디오 큐) — "음성 안내" 토글. coachAudio mp3 보유 doc
+          (audioAnalysisId 전달) 에서만 노출. 기본 off(학원 소음) — 켜면 재생 중 자막
+          큐 전환 시점에 같은 문장을 음성으로 안내한다. 소형 pill(토큰·accessibility). */}
+      {audioAvailable ? (
+        <Pressable
+          onPress={handleToggleAudio}
+          accessibilityRole="switch"
+          accessibilityLabel="재생 중 음성 안내"
+          accessibilityState={{ checked: audioEnabled }}
+          hitSlop={8}
+          style={[styles.audioToggle, audioEnabled && styles.audioToggleOn]}
+        >
+          <Ionicons
+            name={audioEnabled ? 'volume-high' : 'volume-mute'}
+            size={15}
+            color={audioEnabled ? colors.textWhite : colors.textMid}
+          />
+          <Text
+            style={[
+              styles.audioToggleText,
+              audioEnabled && styles.audioToggleTextOn,
+            ]}
+          >
+            {audioEnabled ? '음성 안내 켜짐' : '음성 안내'}
+          </Text>
+        </Pressable>
+      ) : null}
+
       {/* Phase 20 (UI A4) — "자동 구간 맞춤" 신뢰 배지.
           belle 가 서로 다른 시작점의 두 영상을 자동 정렬한 점을 호평 → 이 정렬이
           의도된 것임을 사용자에게 정직하게 알린다. 두 영상이 모두 있을 때만 노출
@@ -1591,6 +1701,32 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     overflow: 'hidden',
     lineHeight: 17,
+  },
+  // 32-12 (D-18 B안) — "음성 안내" 토글 pill. off=연회색 테두리, on=브랜드 채움.
+  audioToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.cardBg,
+  },
+  audioToggleOn: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  audioToggleText: {
+    ...typography.caption,
+    color: colors.textMid,
+    fontWeight: '600',
+  },
+  audioToggleTextOn: {
+    color: colors.textWhite,
   },
   slotEmptyText: {
     ...typography.captionSmall,

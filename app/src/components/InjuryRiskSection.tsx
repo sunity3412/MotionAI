@@ -25,6 +25,11 @@ import { colors, radius, spacing, typography } from '../theme';
 const SECTION_TITLE = '부상 위험 신호';
 const SECTION_DISCLAIMER =
   '부상을 확정하는 신호가 아니라, 측정값에서 보이는 위험 가능성이에요. 전문가 확인을 권해드려요.';
+// 32-10 D-14 — 위험 결함은 게임화(게이지·미션·배지) 금지, 차분한 안전 톤. 문구집
+// safetyEntries(backend/data/phrasebook.json)의 coachQuestion 톤("강사님과 이 화면을
+// 함께 확인해보고 싶어요")과 정합 — 혼자 교정하지 말고 강사와 함께 보라는 코치 유도를
+// 이 섹션의 핵심 문구로 노출한다(게이지/미션 배지 등 게임 프레임 요소 미포함 — import 0).
+const COACH_TOGETHER = '혼자 고치지 말고, 강사와 이 화면을 함께 보세요.';
 const EXPERT_REFERRAL = '정확한 판단은 강사 또는 전문가와 함께 확인해 주세요.';
 
 // 29-CONTEXT D-14 — 권고 행 도입구. 부상 확정이 아니라 완화 행동 안내임을 명시.
@@ -105,6 +110,11 @@ export function InjuryRiskSection({ flags }: InjuryRiskSectionProps) {
       {sorted.map((flag, i) => (
         <InjuryRiskFlagCard key={`${flag.flagType}-${i}`} flag={flag} />
       ))}
+      {/* 32-10 D-14 — 코치 유도 핵심 문구 (게임 프레임 없이 차분한 안전 톤). */}
+      <View style={styles.coachTogether}>
+        <Ionicons name="people" size={16} color={colors.warnAmber} />
+        <Text style={styles.coachTogetherText}>{COACH_TOGETHER}</Text>
+      </View>
       <Text style={styles.referral}>{EXPERT_REFERRAL}</Text>
     </View>
   );
@@ -160,5 +170,21 @@ const styles = StyleSheet.create({
     ...typography.caption, // 12 / 400
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  // 32-10 D-14 — 코치 유도 핵심 문구 박스. 차분한 안전 톤(중립 배경 — 추가 amber 경보
+  // 아님). 게임 프레임(게이지·미션·배지) 요소 없음.
+  coachTogether: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.softBg, // 중립 배경 (알람 아님)
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+    marginTop: 2,
+  },
+  coachTogetherText: {
+    ...typography.bodySm, // 19 / 400 — E2 토큰(강사 유도 핵심 문구, 잘림 방지 lineHeight 25)
+    color: colors.textPrimary,
+    flexShrink: 1,
   },
 });

@@ -107,25 +107,23 @@ def test_relaxed_crop_centers_follow_low_conf_coords():
     assert rb - ra > 20 and gb - ga > 20, "부위-중심 차별화 (동일 전신 반복 해소)"
 
 
-def test_relaxed_margin_widens_crop_vs_valid():
-    """흩어진 좌표의 relaxed crop 은 같은 좌표의 valid crop 보다 넓다.
+def test_relaxed_framing_matches_valid_after_d20():
+    """Phase 32 (D-20): relaxed 프레이밍이 valid 와 동일 배율(1.8)로 통일.
 
-    _RELAXED_MARGIN 은 bbox 파생분에만 적용 (floor 미적용 — 크기 폭주 방지,
-    2026-07-05 pod 재현). display 전용 상수 — 채점 경로 무접촉이라 calibration
-    gate 대상 아님. 구 테스트는 단일점 relaxed 변=336(floor*margin 폭주 크기)을
-    assert 하고 있었음 — 새 계약(흩어진 2점, bbox 파생 확대)으로 재작성.
+    구 계약(relaxed 가 _RELAXED_MARGIN=2.0 만큼 더 넓음)은 "정은지 crop 이 비교와
+    안 맞음"(belle 실기기)이라, _side_crop 의 relaxed 분기가 valid 와 동일하게
+    margin=1.0(bbox*1.8)으로 프레이밍을 통일했다. 마커는 좌표 오차에 민감하므로
+    relaxed 의 anchor_px=None 생략 게이트는 현행 유지(프레이밍/마커 분리).
+    상수 _RELAXED_MARGIN 은 향후 마커 게이트 튜닝 참조용으로 보존(프레이밍 미사용).
     """
-    assert fz._RELAXED_MARGIN == 2.0
+    assert fz._RELAXED_MARGIN == 2.0  # 상수 보존(삭제 아님, D-20 프레이밍 미사용)
     frame = _grad_frames()[0]
-    pts = [(0.4, 0.5), (0.6, 0.5)]  # bbox 80px — 흩어진 좌표
-    valid_img = fz._side_crop(frame, pts, [])[0]
-    relaxed_img = fz._side_crop(frame, [], pts)[0]
-    c = fz._OUT // 2
-    r_valid_edge = valid_img.getpixel((0, c))[0]
-    r_relaxed_edge = relaxed_img.getpixel((0, c))[0]
-    # 400px 프레임: valid 변 = max(168, 80*1.8=144)=168 (left=116, red≈74) /
-    # relaxed 변 = max(168, 80*1.8*2.0=288)=288 (left=56, red≈36).
-    assert r_relaxed_edge < r_valid_edge - 20, "relaxed 가 더 넓은 컨텍스트를 담는다"
+    pts = [(0.3, 0.5), (0.7, 0.5)]  # bbox 160px → valid/relaxed 둘 다 bbox*1.8=288
+    valid_box = fz._side_crop(frame, pts, [])[3]
+    relaxed_box = fz._side_crop(frame, [], pts)[3]
+    # 구 코드: relaxed 변 = 160*1.8*2.0=576 → 프레임 400 클램프 ≠ valid 288 (더 넓음).
+    # D-20 후: 양측 margin 1.0 → 둘 다 288 (parity).
+    assert valid_box[2] == relaxed_box[2] == 288, "relaxed 프레이밍 == valid (D-20 통일)"
 
 
 def test_relaxed_dense_pts_stay_at_floor_size_not_full_width():

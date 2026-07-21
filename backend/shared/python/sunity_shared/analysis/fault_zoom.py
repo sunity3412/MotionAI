@@ -34,11 +34,14 @@ Phase 31-03 (D-11/D-12) — 목표 각도 화살표 + correctedPose target:
 from __future__ import annotations
 
 import io
+import logging
 import math
 from dataclasses import dataclass
 
 import numpy as np
 from PIL import Image, ImageDraw
+
+log = logging.getLogger(__name__)
 
 # crop 한 변 = 프레임 짧은 변의 비율 (관절 주변 zoom — 작을수록 더 확대).
 _CROP_FRAC = 0.42
@@ -86,12 +89,12 @@ _REGION_JOINTS: dict[str, frozenset[str]] = {
 _BBOX_MARGIN = 1.8
 
 # 완화(relaxed) crop 확대 배율 — **display 전용, 채점 무접촉** (Phase 25-03).
-# 저신뢰-유한 좌표는 실제 부위에서 벗어나 있을 수 있어 valid 공식 대비 넓게
-# 잡아 부위가 crop 안에 남도록 한다. 채점/veto/게이트 경로에 진입하지 않는
-# 표시 전용 상수이므로 calibration-source-hard-gate 대상 아님.
-# 적용 범위 = bbox 파생분에만 (quick-260705-ftn): 2026-07-05 pod 재현 —
-# floor(_CROP_FRAC 기본 줌)에도 margin 을 곱하면 side 가 프레임 전폭(360)에
-# 클램프돼 모든 relaxed crop 이 전신처럼 보임 (belle 실기기, kip-up fault 76점).
+# Phase 32 (D-20): 프레이밍에는 더 이상 적용하지 않는다 — relaxed 프레이밍이 valid
+# 대비 2배 넓어 "정은지 crop 이 비교와 안 맞음"(belle 실기기)이라, _side_crop 의 relaxed
+# 분기가 valid 와 동일하게 margin=1.0(양측 1.8배)으로 프레이밍을 통일했다
+# (faultzoom-reference-crop-2x-wider-diagnosed 합의: 프레이밍은 좌표 오차에 둔감 →
+# 통일, 마커는 민감 → relaxed anchor_px=None 생략 게이트만 유지). 상수는 삭제하지 않고
+# 향후 마커 게이트/완화 crop 튜닝 참조용으로 보존한다(현재 프레이밍 미사용).
 _RELAXED_MARGIN = 2.0
 
 
@@ -580,7 +583,10 @@ def _side_crop(
             left, top, s,
         )
     if relaxed_pts:
-        left, top, s = _box_for(relaxed_pts, _RELAXED_MARGIN)
+        # D-20 (32-CONTEXT): 프레이밍은 valid 와 동일 배율(margin=1.0 → bbox*1.8)로 통일 —
+        # relaxed 가 2배 넓어 정은지 crop 이 비교와 안 맞던 문제 해소. 마커는 민감하므로
+        # crop_kind="relaxed" 유지 → anchor_px=None 생략 게이트는 현행대로(프레이밍/마커 분리).
+        left, top, s = _box_for(relaxed_pts, 1.0)
         return _render_crop(frame, left, top, s), "relaxed", None, (
             left, top, s,
         )
@@ -1297,6 +1303,7 @@ def build_fault_zoom_comparisons(
     split_angle_degs: tuple[float | None, float | None] | None = None,
     split_angle_present: bool = False,
     draw_arrows: bool = False,
+    analysis_id: str | None = None,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -1447,6 +1454,20 @@ def build_fault_zoom_comparisons(
             # 게이트 B 로 ref 측 사이각 미드로잉 → kind/box 미사용(선 없는 crop).
             r_img, _r_kind, _r_anchor, _r_box = _side_crop(
                 r_frame, [xy for _n, xy in r_valid], r_relaxed
+            )
+            # D-20 (32-CONTEXT): crop side px 구조 로그 (관측 전용, 채점/방출 무접촉).
+            # 32-03 전수 스윕이 육안 비교에 더해 user/ref side 비(0.8~1.25)로 프레이밍
+            # 수치 parity 를 판정하는 재료. box 는 (left, top, side) — full 폴백은 None
+            # (crop 박스 없음). analysis_id 는 caller 가 넘긴 로그 상관 키(미지정=None).
+            log.info(
+                "fault_zoom_crop analysis_id=%s region=%s "
+                "user_kind=%s user_side_px=%s ref_kind=%s ref_side_px=%s",
+                analysis_id,
+                unit.region or unit.joint,
+                u_kind,
+                u_box[2] if u_box is not None else "full",
+                _r_kind,
+                _r_box[2] if _r_box is not None else "full",
             )
             # legs(스플릿) 카드: 앵커 동그라미 대신 다리 사이각(선 2 + 호 + 수치).
             # 게이트 A(quick-260705-wbs) — split_angle criterion 이 실제 records 에

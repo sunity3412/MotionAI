@@ -193,7 +193,10 @@ def test_tier_distance_boundaries():
     """distance 임계 사다리 (vision_veto _ALIGN_GLOBAL_T1=8.0/T2=25.0 재사용).
 
     8.0 → warped(경계 포함) / 8.1 → trim_only(reason 존재) / 25.0 → trim_only /
-    25.1 → disabled. clean slope(=1.0) 로 rate clamp 는 통과 → tier 는 distance 만 결정."""
+    25.1 → trim_only(low_global_confidence). clean slope(=1.0) 로 rate clamp 는 통과.
+    Phase 32 (D-16): distance > T2 도 sane 한 첫 anchor 면 disabled 대신 trim_only 로
+    방출(anchors 보존) — degenerate 3종/이상치 anchor 만 disabled (test_motion_alignment_
+    ladder.py 가 저신뢰 trim_only/anchor sanity 낙하를 전담 검증)."""
     path = [(i, i) for i in range(18)]  # 기울기 1.0 (클램프 내)
 
     r80 = motion_alignment.build_motion_alignment(
@@ -212,10 +215,13 @@ def test_tier_distance_boundaries():
     )
     assert r250["tier"] == "trim_only"
 
+    # Phase 32 (D-16): 저신뢰(distance > T2)도 sane 한 첫 anchor 면 trim_only 로 방출
+    # (구 disabled 에서 변경 — anchors 보존, "시작점 맞춤" 유지).
     r251 = motion_alignment.build_motion_alignment(
         _match(path, distance=25.1), user_fps=9.0, ref_fps=9.0
     )
-    assert r251["tier"] == "disabled"
+    assert r251["tier"] == "trim_only"
+    assert r251["reason"] == "low_global_confidence"
 
 
 def test_rate_clamp_violation_downgrades_to_trim_only():

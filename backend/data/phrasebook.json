@@ -1,0 +1,209 @@
+{
+  "_meta": {
+    "schemaVersion": "1.0.0",
+    "lastUpdated": "2026-07-21",
+    "purpose": "동작×결함 고정 문구집 (32-CONTEXT D-08/D-11/D-13/D-14/D-28) — 32-09 파이프라인 방출·32-10 감점 카드 렌더의 데이터 원천. LLM 은 가변부(상황·조사·응원 톤)만 소유하고 골격(상태→왜→행동→코치질문→운동연결)은 이 fixture 가 소유한다. '무릎을 더 펴세요' 수준 일반론 생성 경로를 차단.",
+    "slotSpec": {
+      "statusLine": "상태 — 몸 말 (관절명 허용, 이해용). 수치 금지 (D-09).",
+      "whyLine": "왜 — 감점·위험 이유 1줄 (IPSF 심사 언어). 수치 금지.",
+      "cueLine": "행동 — 외부 큐 (수행용, Wulf external focus). fail-closed 시 생략.",
+      "coachQuestion": "강사님께 그대로 보여줄 수 있는 완성문 (D-28).",
+      "exerciseId": "corrective_exercises.json defects 실존 키 (D-13 결함→운동 관계 고정). fail-closed 시 생략.",
+      "exerciseReason": "결함→운동 연결 이유 1줄 (D-13 필수). fail-closed 시 생략."
+    },
+    "matchPriority": [
+      "{motionKey}.{criterion}  (동작 전용 override)",
+      "__common__.{criterion}   (criterion 공통 — 동작 독립)",
+      "failClosed               (미지원 조합 폴백 — 일반론 조언 생성 차단)"
+    ],
+    "keySources": {
+      "criterion": "backend/shared/python/sunity_shared/analysis/ipsf_criteria.py CRITERION_GROUPS (5 core: leg_extension/arm_extension/split_angle/line/body_relative_reach + 8 angle_vs_reference__{JOINT_KEYS}) + deduction_engine.py:272 dimension_overall_fallback",
+      "safetyFlags": "backend/shared/python/sunity_shared/analysis/safety_flags.py _FLAG_TYPES (asymmetry/trunk_hyperextension/joint_hyperextension/level_mismatch)",
+      "keypointSet": "backend/shared/python/sunity_shared/analysis/vision_veto.py FAULT_KEYPOINT_SETS (leg/arm/line/head_neck/grip/torso/shoulder/hip)",
+      "registeredMotions": "backend/shared/python/sunity_shared/analysis/gemini_motion_classifier.py REGISTERED_MOTIONS (10) — 미등재 동작은 __common__ 경로로 동일 phrasing",
+      "exerciseId": "backend/data/corrective_exercises.json defects 키 (grip_weak/shoulder_unstable/core_weak/legs_not_extended/hip_hamstring_tight/glute_hip_unstable)",
+      "jointLabels": "app/src/lib/deductionLabels.ts JOINT_LABEL_KO/ANGLE_MEANING_KO + backend skeleton.py JOINT_LABEL_KO"
+    },
+    "evidence": {
+      "leg_extension / arm_extension / line": "docs/research/폴스포츠-지식.md — IPSF Code of Points §A 트랙1 Clean Lines(사지 신전 완성도) + 트랙2 신전 부족 누적 감점 (회당 −0.2 정렬/라인/신장, 20° 허용오차). NotebookLM 폴스포츠 노트북 '폴스포츠에 대한 지식'(e688fb4e).",
+      "split_angle": "15-SPLIT-MEASUREMENT-DESIGN §3 (객관 180° 강요 금지 — reference_relative 정은지 max-split 대비 부족분) + 폴스포츠-지식.md 스플릿 완성도.",
+      "body_relative_reach": "ipsf_criteria.py body_relative_reach ipsf_anchor='engineering_interpretation 몸-상대 reach 부족, baseline-relative' + 폴스포츠-지식.md 동작 도달 완성도.",
+      "angle_vs_reference__{joint}": "quick-260626-jwu 관절별 reference_relative(정은지 대비 per-joint 편차) — 방향 미상(abs deviation)이라 cueLine 은 '기준 자세에 겹쳐 맞추기' 외부-기준 큐로 통일.",
+      "safetyEntries": "Phase 10 safety_flags.py D-01~D-06 (측정 기반 결정론 위험 신호) + 32-CONTEXT D-14 (게임 프레임 제외·차분한 안전 톤·'혼자 고치지 말고 강사와 이 화면을 함께 보세요').",
+      "exerciseLinks": "backend/shared/python/sunity_shared/analysis/exercise_map.py _KEYPOINT_SET_TO_DEFECTS (leg→hip_hamstring_tight/legs_not_extended, arm→shoulder_unstable, line→core_weak) + corrective_exercises.json purpose 필드."
+    },
+    "coverageMatrix": {
+      "rows": [
+        "ref-climb",
+        "ref-foxtop",
+        "ref-foxtop-split",
+        "ref-invert",
+        "ref-sideway-spin",
+        "ref-kip-up",
+        "ref-power-spin",
+        "ref-peter-pan",
+        "ref-elbow-twist-sister",
+        "ref-pdshape",
+        "미등재"
+      ],
+      "criterionColumns": {
+        "leg_extension": "criterion_common",
+        "arm_extension": "criterion_common",
+        "split_angle": "criterion_common",
+        "line": "criterion_common",
+        "body_relative_reach": "criterion_common",
+        "angle_vs_reference__left_elbow": "criterion_common",
+        "angle_vs_reference__right_elbow": "criterion_common",
+        "angle_vs_reference__left_shoulder": "criterion_common",
+        "angle_vs_reference__right_shoulder": "criterion_common",
+        "angle_vs_reference__left_hip": "criterion_common",
+        "angle_vs_reference__right_hip": "criterion_common",
+        "angle_vs_reference__left_knee": "criterion_common",
+        "angle_vs_reference__right_knee": "criterion_common",
+        "dimension_overall_fallback": "fail_closed"
+      },
+      "safetyColumns": {
+        "asymmetry": "safety_common",
+        "trunk_hyperextension": "safety_common",
+        "joint_hyperextension": "safety_common",
+        "level_mismatch": "safety_common"
+      },
+      "cellRule": "분류는 전 motion 행에 동일 적용된다 — entries 가 criterion-keyed(동작 독립)이라 등록 10동작·미등재 모두 같은 phrasing 경로를 탄다. 동작 전용(motion-specific) override 는 현재 0 (일반화 우선 — 같은 criterion 이 동작마다 다른 뜻이 되지 않음, [[scoring-redesign-must-generalize-no-overfit]]). 따라서 11행 × 18열 = 198 셀이 전부 {criterion_common | safety_common | fail_closed} 로 분류되며 빈 셀 0.",
+      "emissionNote": "등록 동작: ipsf_absolute(leg/arm/line)는 profile.expects_extension 활성 시 방출, reference_relative(split_angle/angle_vs_reference__*)는 정은지 대비 편차로 방출. 미등재 동작: ipsf_absolute seed 가 비어(expects_extension 없음) reference_relative + dimension_overall_fallback 만 방출 → 그래도 __common__ entry 가 phrasing 을 커버(미등재라고 문구가 비지 않음). dimension_overall_fallback(엔진이 결함을 특정 관절로 국소화 실패한 저정보 폴백)은 전 행에서 fail_closed — 특정 행동 큐를 지어내지 않는다(일반론 차단).",
+      "failClosedPolicy": "미지원 조합(entry 부재 criterion, 미래/드리프트 id 포함)과 dimension_overall_fallback 은 failClosed 로 라우팅된다. failClosed 는 cueLine·exerciseId 를 만들지 않고(행동문 생략), whyLine 은 안전한 사실만, coachQuestion 으로 강사 확인을 유도한다 — 일반론 교정 지시 생성 경로 0 (D-11 일반론 금지)."
+    }
+  },
+  "entries": {
+    "__common__.leg_extension": {
+      "statusLine": "무릎이 기준보다 덜 펴져 있어요",
+      "whyLine": "다리 라인이 끝까지 뻗지 않으면 심사에서 신전 완성도로 감점되는 부분이에요",
+      "cueLine": "발끝으로 천장을 길게 밀어낸다는 느낌으로 다리를 쭉 뻗어보세요",
+      "coachQuestion": "무릎을 끝까지 펴려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "legs_not_extended",
+      "exerciseReason": "무릎을 끝까지 펴는 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.arm_extension": {
+      "statusLine": "팔꿈치가 기준보다 덜 펴져 있어요",
+      "whyLine": "팔이 곧게 뻗지 않으면 라인 완성도에서 감점되는 부분이에요",
+      "cueLine": "손끝을 벽 너머로 멀리 보낸다는 느낌으로 팔을 길게 뻗어보세요",
+      "coachQuestion": "팔꿈치를 끝까지 펴려면 어깨를 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "shoulder_unstable",
+      "exerciseReason": "팔을 곧게 뻗으려면 광배와 어깨 안정근이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.split_angle": {
+      "statusLine": "다리를 벌린 각도가 기준보다 좁아요",
+      "whyLine": "다리를 더 벌리지 못하면 스플릿 완성도에서 감점되는 부분이에요",
+      "cueLine": "양 무릎을 각각 반대쪽 벽으로 밀어낸다는 느낌으로 다리를 벌려보세요",
+      "coachQuestion": "다리를 더 벌리려면 어떤 스트레칭부터 하면 좋을지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "hip_hamstring_tight",
+      "exerciseReason": "다리를 더 벌리려면 고관절과 햄스트링 유연성이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.line": {
+      "statusLine": "몸 전체 라인이 곧게 펴지지 않았어요",
+      "whyLine": "팔다리 라인이 한 흐름으로 곧게 뻗지 않으면 라인 완성도에서 감점되는 부분이에요",
+      "cueLine": "정수리와 발끝을 서로 반대 방향으로 길게 늘인다는 느낌으로 온몸을 뻗어보세요",
+      "coachQuestion": "몸 전체를 곧게 유지하려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "core_weak",
+      "exerciseReason": "몸 전체를 곧게 유지하려면 코어가 중심을 잡아줘야 하기 때문이에요"
+    },
+    "__common__.body_relative_reach": {
+      "statusLine": "목표 지점까지 아직 덜 닿았어요",
+      "whyLine": "필요한 지점까지 뻗지 못하면 동작 완성도에서 감점되는 부분이에요",
+      "cueLine": "닿으려는 지점을 향해 몸을 한 뼘 더 보낸다는 느낌으로 뻗어보세요",
+      "coachQuestion": "목표 지점까지 더 뻗으려면 무엇부터 준비하면 좋을지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "hip_hamstring_tight",
+      "exerciseReason": "더 멀리 뻗으려면 고관절 가동 범위가 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.angle_vs_reference__left_knee": {
+      "statusLine": "왼쪽 무릎 각도가 기준 자세와 차이가 있어요",
+      "whyLine": "무릎 각도가 기준에서 벗어나면 자세 정확도에서 감점되는 부분이에요",
+      "cueLine": "왼쪽 무릎을 기준 자세의 무릎 라인에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
+      "coachQuestion": "왼쪽 무릎 각도를 기준에 맞추려면 어떻게 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "legs_not_extended",
+      "exerciseReason": "무릎 각도를 기준에 맞추려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.angle_vs_reference__right_knee": {
+      "statusLine": "오른쪽 무릎 각도가 기준 자세와 차이가 있어요",
+      "whyLine": "무릎 각도가 기준에서 벗어나면 자세 정확도에서 감점되는 부분이에요",
+      "cueLine": "오른쪽 무릎을 기준 자세의 무릎 라인에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
+      "coachQuestion": "오른쪽 무릎 각도를 기준에 맞추려면 어떻게 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "legs_not_extended",
+      "exerciseReason": "무릎 각도를 기준에 맞추려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.angle_vs_reference__left_elbow": {
+      "statusLine": "왼쪽 팔꿈치 각도가 기준 자세와 차이가 있어요",
+      "whyLine": "팔꿈치 각도가 기준에서 벗어나면 라인 완성도에서 감점되는 부분이에요",
+      "cueLine": "왼쪽 팔꿈치를 기준 자세의 팔 라인에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
+      "coachQuestion": "왼쪽 팔꿈치 각도를 기준에 맞추려면 어깨를 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "shoulder_unstable",
+      "exerciseReason": "팔꿈치를 기준에 맞춰 펴려면 어깨와 광배 안정근이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.angle_vs_reference__right_elbow": {
+      "statusLine": "오른쪽 팔꿈치 각도가 기준 자세와 차이가 있어요",
+      "whyLine": "팔꿈치 각도가 기준에서 벗어나면 라인 완성도에서 감점되는 부분이에요",
+      "cueLine": "오른쪽 팔꿈치를 기준 자세의 팔 라인에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
+      "coachQuestion": "오른쪽 팔꿈치 각도를 기준에 맞추려면 어깨를 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "shoulder_unstable",
+      "exerciseReason": "팔꿈치를 기준에 맞춰 펴려면 어깨와 광배 안정근이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.angle_vs_reference__left_shoulder": {
+      "statusLine": "왼쪽 어깨(겨드랑이) 벌린 각도가 기준 자세와 차이가 있어요",
+      "whyLine": "어깨 벌린 각도가 기준에서 벗어나면 자세 정확도에서 감점되는 부분이에요",
+      "cueLine": "왼쪽 팔과 몸통 사이 각을 기준 자세에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
+      "coachQuestion": "왼쪽 어깨 각도를 기준에 맞추려면 견갑을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "shoulder_unstable",
+      "exerciseReason": "어깨 각도를 안정적으로 유지하려면 견갑 안정근이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.angle_vs_reference__right_shoulder": {
+      "statusLine": "오른쪽 어깨(겨드랑이) 벌린 각도가 기준 자세와 차이가 있어요",
+      "whyLine": "어깨 벌린 각도가 기준에서 벗어나면 자세 정확도에서 감점되는 부분이에요",
+      "cueLine": "오른쪽 팔과 몸통 사이 각을 기준 자세에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
+      "coachQuestion": "오른쪽 어깨 각도를 기준에 맞추려면 견갑을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "shoulder_unstable",
+      "exerciseReason": "어깨 각도를 안정적으로 유지하려면 견갑 안정근이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.angle_vs_reference__left_hip": {
+      "statusLine": "왼쪽 다리 벌린 각도가 기준 자세와 차이가 있어요",
+      "whyLine": "다리 벌린 각도가 기준에서 벗어나면 자세 정확도에서 감점되는 부분이에요",
+      "cueLine": "왼쪽 허벅지와 몸통 사이 각을 기준 자세에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
+      "coachQuestion": "왼쪽 다리 벌린 각도를 기준에 맞추려면 고관절을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "hip_hamstring_tight",
+      "exerciseReason": "다리 벌린 각도를 기준에 맞추려면 고관절 유연성이 받쳐줘야 하기 때문이에요"
+    },
+    "__common__.angle_vs_reference__right_hip": {
+      "statusLine": "오른쪽 다리 벌린 각도가 기준 자세와 차이가 있어요",
+      "whyLine": "다리 벌린 각도가 기준에서 벗어나면 자세 정확도에서 감점되는 부분이에요",
+      "cueLine": "오른쪽 허벅지와 몸통 사이 각을 기준 자세에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
+      "coachQuestion": "오른쪽 다리 벌린 각도를 기준에 맞추려면 고관절을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
+      "exerciseId": "hip_hamstring_tight",
+      "exerciseReason": "다리 벌린 각도를 기준에 맞추려면 고관절 유연성이 받쳐줘야 하기 때문이에요"
+    }
+  },
+  "safetyEntries": {
+    "asymmetry": {
+      "statusLine": "좌우 균형이 한쪽으로 치우쳐 있어요",
+      "whyLine": "한쪽으로 힘이 쏠린 채 버티면 그 관절에 무리가 쌓일 수 있어요",
+      "coachQuestion": "지금 자세로 계속 연습해도 괜찮은지 강사님과 이 화면을 함께 확인해보고 싶어요"
+    },
+    "trunk_hyperextension": {
+      "statusLine": "허리가 기준보다 많이 젖혀져 있어요",
+      "whyLine": "허리를 과하게 젖힌 채 버티면 허리에 부담이 쌓일 수 있어요",
+      "coachQuestion": "허리를 어디까지 젖혀도 안전한지 강사님과 이 화면을 함께 확인해보고 싶어요"
+    },
+    "joint_hyperextension": {
+      "statusLine": "무릎이나 팔꿈치가 뒤로 꺾이는 방향까지 펴져 있어요",
+      "whyLine": "관절이 중립을 넘어 뒤로 꺾이면 인대에 무리가 갈 수 있어요",
+      "coachQuestion": "관절을 어느 정도까지 펴야 안전한지 강사님과 이 화면을 함께 확인해보고 싶어요"
+    },
+    "level_mismatch": {
+      "statusLine": "지금 동작이 현재 경력에 비해 난도가 높은 편이에요",
+      "whyLine": "준비가 덜 된 상태에서 무리하면 부상 위험이 커질 수 있어요",
+      "coachQuestion": "이 동작을 지금 연습해도 괜찮을지 강사님과 이 화면을 함께 확인해보고 싶어요"
+    }
+  },
+  "failClosed": {
+    "statusLine": "심사 기준과 차이가 측정된 부분이에요",
+    "whyLine": "기준과 차이가 있는 건 확인됐지만, 정확한 원인은 이 영상만으로 단정하기 어려운 부분이에요",
+    "coachQuestion": "이 부분을 어떻게 고치면 좋을지 강사님과 이 화면을 함께 확인해보고 싶어요"
+  }
+}

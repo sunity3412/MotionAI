@@ -156,11 +156,9 @@ export interface ZoomLike {
   recordId?: string | null;
 }
 
-export interface RecordMapEntry<
-  R extends RecordLike,
-  Z extends ZoomLike,
-  Q extends CoachQuestionLike,
-> {
+// Z 는 제약 없음(기본 ZoomLike) — 실 zoom 계약(FaultZoomComparison)이 recordId 를
+// 갖지 않아도 매처(matchZoom) 주입 경로로 조인하기 위함. weak-type 회피.
+export interface RecordMapEntry<R extends RecordLike, Z, Q extends CoachQuestionLike> {
   record: R;
   key: string; // 안정 조인 키 (recordId 또는 'idx:N')
   index: number; // 원 배열 index (점프 y 조인·legacy 폴백용)
@@ -179,8 +177,8 @@ export interface RecordMapEntry<
  */
 export function buildRecordMaps<
   R extends RecordLike,
-  Z extends ZoomLike,
-  Q extends CoachQuestionLike,
+  Z = ZoomLike,
+  Q extends CoachQuestionLike = CoachQuestionLike,
 >(
   records: readonly R[] | null | undefined,
   zooms: readonly Z[] | null | undefined,
@@ -210,7 +208,9 @@ export function buildRecordMaps<
     if (matchZoom) {
       zoomPair = matchZoom(record, index);
     } else if (rid != null) {
-      zoomPair = zs.find((z) => z.recordId === rid) ?? null;
+      // Z 는 제약 없음 — 폴백 recordId 조인은 구조적 캐스트로만(향후 recordId 각인 zoom).
+      zoomPair =
+        zs.find((z) => (z as ZoomLike).recordId === rid) ?? null;
     }
 
     map.set(key, { record, key, index, questions: joinedQuestions, zoomPair });

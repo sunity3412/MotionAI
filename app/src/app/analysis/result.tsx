@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -30,6 +30,22 @@ import type {
   ReferenceCardState,
   RotationCardState,
 } from '../../components/ReferenceCornerSection';
+// ── 32-11 대배선 — 32-07/32-08/32-10 산출 컴포넌트·뷰모델 배선 ──────────────
+import { SummaryCard } from '../../components/SummaryCard';
+import { DeductionCard } from '../../components/DeductionCard';
+import type { DeductionCardRecord } from '../../components/DeductionCard';
+import { ResultCoachmarks } from '../../components/ResultCoachmarks';
+import { hasSeenResultCoachmark, markResultCoachmarkSeen } from '../../lib/coachmark';
+import { deriveSummaryContent } from '../../lib/summarySource';
+import type { SummaryInput } from '../../lib/summarySource';
+import {
+  deriveResultSections,
+  buildRecordMaps,
+  recordKeyForIndex,
+} from '../../lib/resultSections';
+import type { ResultSectionKey, ResultSection } from '../../lib/resultSections';
+import { buildCueWindows } from '../../lib/cueTrack';
+import type { CueInput } from '../../lib/cueTrack';
 import { normalizeMotionAlignment } from '../../lib/alignmentWarp';
 import { legacyOffsetFromCompareFrames } from '../../lib/manualOffset';
 import {
@@ -80,6 +96,7 @@ import type {
   AnalysisResult,
   BodyProfile,
   CoachingTip,
+  CoachQuestion,
   DeductionRecord,
   DimensionExplanation,
   FaultZoomComparison,
@@ -117,6 +134,31 @@ const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
   intermediate: '중급',
   advanced: '고급',
 };
+
+// 32-11 (D-17 확정 밀도 = 결함 구간당 1개) — 재생 중 자막 큐 윈도우 폭(초)과 상한.
+// 결함 순간 전후 CUE_WINDOW_SEC/2 동안 자막 유지. maxCues 는 record 수로 두되(각
+// record 1윈도우), 겹칠 땐 activeCue 가 시작 늦은(더 정확한) 큐를 우선한다.
+const CUE_WINDOW_SEC = 1.6;
+
+// 32-11 (D-03 확정 = 개인화 심사 시뮬레이션) — 지식전달형 금지. 내 실제 결함들에
+// IPSF 감점 규칙(실존 규칙 곱셈)을 적용해 "실제 심사였다면" 을 보여주는 카피 상수.
+const JUDGE_SIM_TITLE = '내 수행이 실제 심사였다면';
+const JUDGE_SIM_INTRO =
+  '국제 폴스포츠(IPSF) 심사 기준으로 내 자세를 채점하면, 위에서 짚은 결함들이 이렇게 감점으로 환산돼요.';
+const JUDGE_SIM_DISCLAIMER =
+  'AI가 추정한 감점 시뮬레이션이에요. 실제 심사·강사 평가와 함께 확인하면 가장 정확해요.';
+
+// 32-11 (D-13) — 보완 운동 개편 카피. 전면 1개 + 이유 1줄, '다른 운동 보기' 가로 최대 3.
+const EXERCISE_DETOUR_HEADLINE = '이 운동부터 해보면 쉬워져요';
+const EXERCISE_DETOUR_BODY =
+  '같은 부분이 두 번째도 잘 안 됐어요. 자세를 더 밀어붙이기보다, 먼저 이 보완 운동으로 필요한 힘·가동범위를 만들어봐요.';
+const EXERCISE_MAX_ALT = 3;
+
+// 32-11 (D-27 3회차) — 코치 카드 전면 승격 카피. "혼자 안 되는 건 자세가 아니라
+// 방법 문제일 수 있어요" 톤.
+const COACH_CARD_HEADLINE = '혼자 안 되는 건 자세가 아니라 방법 문제일 수 있어요';
+const COACH_CARD_BODY =
+  '같은 부분이 세 번째도 개선되지 않았어요. 이쯤이면 혼자 반복보다 강사님과 한 번 점검하는 게 빠를 수 있어요. 아래 질문을 그대로 가져가 보세요.';
 
 // [R1] BodyProfile snapshot 요약 — 결과 화면은 분석-당시 SNAPSHOT(storedDoc.
 // bodyProfile)을 source-of-truth 로 표기(재현성, live useBodyProfile 아님).
@@ -1550,9 +1592,317 @@ function AnalysisResultContent({
       ? cmp.deltaFromPrevious?.[dim]
       : undefined;
 
+  // ══════════════════════════════════════════════════════════════════════
+  // 32-11 대배선 — 요약/섹션/조인 뷰모델 (리뷰 MEDIUM: 파생 계산 useMemo).
+  // 위 기존 파생값(markers/actionLabels/joints/veto…)을 소비해 새 컴포넌트
+  // (SummaryCard/DeductionCard/cueTrack)로 조립한다. 순서·가시성은 resultSections
+  // 뷰모델 단일 지점이 결정하고, 카드 상호작용은 recordId 조인 맵으로만 잇는다.
+  // ══════════════════════════════════════════════════════════════════════
+
+  const records = useMemo(
+    () => result.deductionBreakdown?.records ?? [],
+    [result.deductionBreakdown],
+  );
+  const hasRecords = records.length > 0;
+
+  // top-1 감점 record index — 미션 record 우선(result.mission.recordId), 없으면 최대
+  // 감점(points 가장 음수). cleanPass/legacy 면 -1.
+  const topFixIndex = useMemo(() => {
+    if (records.length === 0) return -1;
+    const mid = result.mission?.recordId;
+    if (mid) {
+      const i = records.findIndex((r) => r.recordId === mid);
+      if (i >= 0) return i;
+    }
+    let best = 0;
+    for (let i = 1; i < records.length; i += 1) {
+      if (records[i].points < records[best].points) best = i;
+    }
+    return best;
+  }, [records, result.mission?.recordId]);
+  const topFixRecord = topFixIndex >= 0 ? records[topFixIndex] : null;
+  const topFixKey =
+    topFixIndex >= 0 ? recordKeyForIndex(records, topFixIndex) : null;
+
+  // DeductionRecord(계약) → DeductionCardRecord(카드 로컬 모양) 매핑.
+  const toCardRecord = (rec: DeductionRecord): DeductionCardRecord => ({
+    recordId: rec.recordId,
+    label: criterionLabelKo(rec.criterion),
+    statusLine: rec.statusLine,
+    whyLine: rec.whyLine,
+    cueLine: rec.cueLine,
+    points: rec.points,
+    measured: rec.measuredValue,
+    target: rec.baselineValue,
+    unit: rec.unit,
+    tolerance: rec.tolerance,
+  });
+
+  // 결함 zoom(userFrameIdx 보유) 조인 매처 — 기존 selectedZoom 투영 규칙과 동일
+  // (keypoint 투영 ∩ zoom joint/region, advisory 제외). cueWindows·recordMaps 공용.
+  const matchZoomForRecord = (rec: DeductionRecord): FaultZoomComparison | null => {
+    const kps = new Set(projectDeductionRecordKeypoints(rec, vetoFaultJoints));
+    if (kps.size === 0) return null;
+    for (const z of result.faultZoomComparisons ?? []) {
+      if (z.tier === 'advisory') continue;
+      const zoomKps: KeypointName[] = z.region
+        ? [...(REGION_MEMBER_KEYPOINTS[z.region] ?? [])]
+        : [z.joint];
+      if (zoomKps.some((k) => kps.has(k))) return z;
+    }
+    return null;
+  };
+
+  // 강사 질문 — 자동 수집(result.coachQuestions, D-28) + legacy 폴백
+  // (openQuestionsForCoach, coachQuestions 부재 doc만) + 사용자 담기(source 'user').
+  const [userQuestions, setUserQuestions] = useState<CoachQuestion[]>([]);
+  const autoQuestions = useMemo<CoachQuestion[]>(() => {
+    const out: CoachQuestion[] = [];
+    const seen = new Set<string>();
+    for (const q of result.coachQuestions ?? []) {
+      const t = q.text?.trim();
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      out.push({ text: t, source: q.source, recordId: q.recordId });
+    }
+    if ((result.coachQuestions?.length ?? 0) === 0) {
+      for (const t of openQuestionsForCoach) {
+        const trimmed = t.trim();
+        if (!trimmed || seen.has(trimmed)) continue;
+        seen.add(trimmed);
+        out.push({ text: trimmed, source: 'unmeasured' });
+      }
+    }
+    return out;
+  }, [result.coachQuestions, openQuestionsForCoach]);
+  const combinedCoachQuestions = useMemo<CoachQuestion[]>(() => {
+    const seen = new Set(autoQuestions.map((q) => q.text));
+    const extra = userQuestions.filter((q) => !seen.has(q.text));
+    return [...autoQuestions, ...extra];
+  }, [autoQuestions, userQuestions]);
+  // '강사님께 물어보기' 담기 — recordId 로 완성문(record.coachQuestion) 또는 라벨 기반.
+  const addUserQuestion = (recordId: string | null) => {
+    const rec =
+      recordId != null ? records.find((r) => r.recordId === recordId) : undefined;
+    const text =
+      rec?.coachQuestion ??
+      (rec
+        ? `${criterionLabelKo(rec.criterion)} 어떻게 교정하면 좋을지 강사님께 여쭤보고 싶어요`
+        : '이 부분 어떻게 교정하면 좋을지 강사님께 여쭤보고 싶어요');
+    setUserQuestions((prev) =>
+      prev.some((q) => q.text === text)
+        ? prev
+        : [...prev, { text, source: 'user', recordId: recordId ?? undefined }],
+    );
+  };
+
+  // recordId 조인 맵 — record→{questions, zoomPair, index, key}. 카드 점프·질문
+  // 연결이 전부 이 맵의 안정 키를 쓴다(배열 index 조인 금지 — 리뷰 반영).
+  const recordMaps = useMemo(
+    () =>
+      buildRecordMaps<DeductionRecord, FaultZoomComparison, CoachQuestion>(
+        records,
+        result.faultZoomComparisons ?? [],
+        combinedCoachQuestions,
+        (rec) => matchZoomForRecord(rec),
+      ),
+    // matchZoomForRecord 는 result.faultZoomComparisons/vetoFaultJoints 파생.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [records, result.faultZoomComparisons, combinedCoachQuestions, vetoFaultJoints],
+  );
+
+  // 재생 중 자막 큐 (D-18 자막 + D-17 밀도) — record 의 cueLine(부재 legacy=행동구
+  // 폴백) + 매칭 zoom 의 userFrameIdx(학생 9fps) + 학생 fps 로 윈도우 산출.
+  const cueWindows = useMemo(() => {
+    const inputs: CueInput[] = [];
+    for (const rec of records) {
+      const zoom = matchZoomForRecord(rec);
+      const userFrameIdx = zoom?.userFrameIdx;
+      if (typeof userFrameIdx !== 'number') continue;
+      const text =
+        rec.cueLine ??
+        actionPhraseForRecord(rec, vetoFaultJoints, actionLabels) ??
+        '';
+      if (!text) continue;
+      inputs.push({
+        userFrameIdx,
+        text,
+        points: rec.points,
+        recordId: rec.recordId,
+      });
+    }
+    return buildCueWindows(
+      inputs,
+      result.keypointReport?.fps || 9,
+      CUE_WINDOW_SEC,
+      records.length,
+    );
+    // matchZoomForRecord/actionPhraseForRecord 는 아래 deps 파생.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    records,
+    result.faultZoomComparisons,
+    result.keypointReport?.fps,
+    actionLabels,
+    vetoFaultJoints,
+  ]);
+
+  // 요약 카드 3요소 (deriveSummaryContent — 32-07). mode3 헤드라인=발전 델타 invariant
+  // 는 summaryPraise(백엔드 사람 말)가 담당(D-26). 수치는 카드가 소형 배지 1곳만.
+  const summaryContent = useMemo(() => {
+    const gaps = (result.deductionBreakdown?.coverageGaps ?? []).map(
+      (g) => g.faultType,
+    );
+    const dimSignals = DIMENSION_ORDER.filter(
+      (d) => dimensionScores[d] != null,
+    ).map((d) => ({
+      key: d as string,
+      score: dimensionScores[d] as number,
+      // 감점 record 가 있으면 clean 칭찬 폴백 차단(모순 칭찬 0 — D-06). 백엔드
+      // summaryPraise 가 있으면 이 폴백은 미사용(단일 원천 우선).
+      hasDeduction: hasRecords,
+      metCriteria: (dimensionScores[d] as number) >= 90,
+    }));
+    const input: SummaryInput = {
+      mode: cmp.mode === 'mode1' ? 'mode1' : 'mode3',
+      summaryPraise: result.summaryPraise ?? null,
+      missionOutcome: result.missionOutcome
+        ? {
+            improved: result.missionOutcome.improved,
+            deltaPoints: result.missionOutcome.deltaPoints,
+            criterion: result.missionOutcome.criterion,
+          }
+        : null,
+      mission: result.mission
+        ? {
+            criterion: result.mission.criterion,
+            recordId: result.mission.recordId,
+            isSafety: result.mission.isSafety,
+          }
+        : null,
+      dimensionScores: dimSignals,
+      coverageGaps: gaps,
+      deductionRecords: records.map((r) => ({
+        criterion: r.criterion,
+        points: r.points,
+        recordId: r.recordId,
+        statusLine: r.statusLine,
+        cueLine: r.cueLine,
+        exerciseReason: r.exerciseReason,
+        coachQuestion: r.coachQuestion,
+      })),
+      safetyFlagCount: result.safetyFlags?.length ?? 0,
+    };
+    return deriveSummaryContent(input);
+  }, [
+    result.summaryPraise,
+    result.missionOutcome,
+    result.mission,
+    result.deductionBreakdown,
+    result.safetyFlags,
+    records,
+    dimensionScores,
+    hasRecords,
+    cmp.mode,
+  ]);
+
+  // 섹션 순서·가시성 — resultSections 뷰모델 단일 결정 지점(node --test 고정).
+  const sections = useMemo(
+    () =>
+      deriveResultSections({
+        mode: cmp.mode === 'mode1' ? 'mode1' : 'mode3',
+        isCleanPass: cleanPass,
+        isScoreSuppressed,
+        safetyFlagCount: result.safetyFlags?.length ?? 0,
+        hasRecords,
+        hasMission: result.mission != null,
+        escalation: result.mission?.escalation ?? null,
+        hasMissionOutcome: result.missionOutcome != null,
+        hasPhrases: records.some(
+          (r) => r.statusLine != null || r.cueLine != null,
+        ),
+        isMode3First: cmp.mode === 'mode3' && cmp.isFirst,
+        hasQuestions: combinedCoachQuestions.length > 0,
+        hasExercise:
+          (result.recommendedExercises?.length ?? 0) > 0 ||
+          CORRECTIVE_LIBRARY_HAS_ITEMS,
+      }),
+    [
+      cmp,
+      cleanPass,
+      isScoreSuppressed,
+      result.safetyFlags,
+      hasRecords,
+      result.mission,
+      result.missionOutcome,
+      result.recommendedExercises,
+      records,
+      combinedCoachQuestions,
+    ],
+  );
+  const sectionMap = useMemo(() => {
+    const m = new Map<ResultSectionKey, ResultSection>();
+    for (const s of sections) m.set(s.key, s);
+    return m;
+  }, [sections]);
+  const isVisible = (k: ResultSectionKey) => sectionMap.get(k)?.visible === true;
+  const variantOf = (k: ResultSectionKey) => sectionMap.get(k)?.variant;
+
+  // 첫 진입 코치마크 1회 (32-07 D-07) — hasSeenResultCoachmark 체크 후 표시/기록.
+  const [coachmarkVisible, setCoachmarkVisible] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    hasSeenResultCoachmark().then((seen) => {
+      if (alive && !seen) setCoachmarkVisible(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const dismissCoachmarks = () => {
+    setCoachmarkVisible(false);
+    markResultCoachmarkSeen();
+  };
+
+  // 카드 점프 — ScrollView ref + record 카드 y 기록(onLayout). 요약 '오늘 고칠 것'
+  // 탭·질문 탭이 recordId 안정 키로 해당 카드 위치로 스크롤한다.
+  const scrollRef = useRef<ScrollView>(null);
+  const cardYRef = useRef<Map<string, number>>(new Map());
+  const setCardY = (key: string, y: number) => {
+    cardYRef.current.set(key, y);
+  };
+  const jumpToRecordKey = (key: string | null) => {
+    if (!key) return;
+    const y = cardYRef.current.get(key);
+    if (typeof y === 'number') {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+    }
+  };
+  // 질문의 recordId → 안정 키 (records 에서 index 역산 폴백 포함).
+  const jumpToQuestion = (recordId: string | undefined) => {
+    if (!recordId) return;
+    const idx = records.findIndex((r) => r.recordId === recordId);
+    jumpToRecordKey(
+      idx >= 0 ? recordKeyForIndex(records, idx) : recordId,
+    );
+  };
+
+  // 보완 운동 (D-13) — 전면 1개(개인화 추천 top) + 이유 1줄(top-1 record.exerciseReason
+  // 우선, 부재 시 운동 purpose) + 나머지 가로 최대 3.
+  const recommendedExercises = result.recommendedExercises ?? [];
+  const frontExercise = recommendedExercises[0] ?? null;
+  const frontExerciseReason =
+    topFixRecord?.exerciseReason ?? frontExercise?.purpose ?? null;
+  const altExercises = recommendedExercises.slice(1, 1 + EXERCISE_MAX_ALT);
+  const exerciseDetour = result.mission?.escalation === 'exercise_detour';
+
+  // 심사 시뮬레이션 (D-03) — 내 실제 감점 record 를 IPSF 규칙 감점으로 환산.
+  const judgeFinal = result.deductionBreakdown?.final ?? result.overallScore;
+
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -1621,76 +1971,75 @@ function AnalysisResultContent({
           </View>
         )}
 
-        {/* ── Phase 12 Wave 1 (Plan 12-02 T4) — 영역 1: 점수 게이지 ─────── */}
-        {/* Phase 20 TRUST-07 (iter2 HIGH-2) — Mode3 미보유/저신뢰 시 점수카드 전체를
-            '기준 없음' state 로 대체. OctagonScore + gradeBadge + summary + LevelBenchmark +
-            scoreCaption 전부 비억제(!isScoreSuppressed) 분기 아래에만 둔다 — octagon 만 숨기면
-            grade/summary/caption 으로 confident 점수가 누출된다 (D-08 confident 97 차단). */}
-        {isScoreSuppressed ? (
+        {/* ═══ 32-11 대배선 — D-02 확정 순서 (resultSections 뷰모델 단일 지점) ═══
+            요약 → 위험 → 오늘 고칠 것 top-1 → 동작 비교 → 상세(접힘) → 성장 →
+            보완 운동 → 강사 질문 → 심사 정보 → 참고하세요(31). 근거 = 32-GATE-
+            DECISIONS D-02. 순서·가시성은 sections(resultSections)가 단일 지점에서
+            결정하고, 카드 상호작용은 recordId 조인 맵(recordMaps)으로만 잇는다. */}
+
+        {/* ── 1. 요약 카드 (D-01 첫 콘텐츠) ─────────────────────────────────
+            suppressed → '기준 없음', 아니면 SummaryCard(잘한 점 사람 말 헤드라인 +
+            오늘 고칠 것 + 다음 행동 + 점수 소형 배지 1곳). mode3 헤드라인=발전 델타
+            invariant 는 summaryPraise(백엔드 사람 말)가 담당(D-26). 큰 점수 게이지는
+            D-09 로 아래 상세 영역으로 강등(헤드라인 수치 금지). */}
+        {variantOf('summary') === 'suppressed' ? (
           <View style={styles.card}>
             <Text style={styles.suppressedTitle}>기준 없음</Text>
             <Text style={styles.suppressedBody}>{suppressedHeaderCopy}</Text>
           </View>
         ) : (
-          <View style={styles.card}>
-            <OctagonScore score={result.overallScore} size={168} />
-            <View style={styles.gradeRow}>
-              <Text style={styles.gradeBadge}>{grade}</Text>
-              <Text style={styles.summary}>{summary}</Text>
-            </View>
-            {/* Phase 20 (UI ④) — 가짜 입문/중급/고급 티어 제거. 정은지 기준 거리 +
-                교정 포인트(+ 손에 있는 self delta)로 점수에 의미 부여. */}
-            <ScoreContext
-              score={result.overallScore}
-              mode={cmp.mode === 'mode1' ? 'mode1' : 'mode3'}
-              athleteName={cmp.mode === 'mode1' ? cmp.athleteName : null}
-              correctionPoint={correctionPoint}
-              cleanPass={cleanPass}
-              selfDelta={
-                cmp.mode === 'mode3' &&
-                !cmp.isFirst &&
-                prevDoc?.result?.overallScore != null
-                  ? result.overallScore - prevDoc.result.overallScore
-                  : null
-              }
-            />
-            {/* Phase 20 (UI B1) — 비전 거부권으로 점수가 내려갔을 때 "왜 내려갔는지"를
-                점수 근처에 1줄로 노출 (belle: "내가 판단할 길이 없네"). primaryFault =
-                Gemini 가 찾은 결함 DESCRIPTION(자연어, 숫자 아님). legacy doc 호환 —
-                applied + primaryFault 있을 때만 렌더. 토큰만 (하드코딩 금지). */}
-            {vetoPrimaryFault ? (
-              <Text style={styles.scoringBasis}>
-                AI 영상 분석에서 발견한 점: {vetoPrimaryFault}
-              </Text>
-            ) : null}
-            {/* 260612-t9m: 점수 안내 캡션 — stability tol 25° 보정과 함께 "90+ 정상" 사용자 인지 정합 */}
-            <Text style={styles.scoreCaption}>
-              촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요. 90점 이상이면 정상 자세에 가깝습니다.
-            </Text>
-          </View>
+          <SummaryCard
+            praise={summaryContent.praise}
+            todayFix={summaryContent.todayFix}
+            nextAction={summaryContent.nextAction}
+            score={result.overallScore}
+            onPressTodayFix={() => jumpToRecordKey(topFixKey)}
+            onPressExpand={() => jumpToRecordKey(topFixKey)}
+          />
         )}
 
-        {/* 29-CONTEXT D-05 — mode3 한계 고지 (breakdown 부재 경로: 미등록/legacy/
-            빈 criteria/suppressed). breakdown 표시 중이면 ScoreBreakdownSection
-            footnote 로 렌더되므로 여기선 미표시 — !showBreakdownSection 게이트로
-            mode3 결과에 한계 고지가 정확히 1곳 존재하도록 보장. mode1 무회귀. */}
-        {cmp.mode === 'mode3' && !showBreakdownSection ? (
-          <Text style={styles.mode3LimitNotice}>{MODE3_LIMIT_NOTICE}</Text>
-        ) : null}
+        {/* ── 2. 위험 결함 (D-14 트리아지) — 요약 직후 승격, 있을 때만. 컴포넌트
+            self-null (플래그 0 → 미렌더). ── */}
+        {isVisible('risk') ? <InjuryRiskSection flags={result.safetyFlags} /> : null}
 
-        {/* ── Phase 10 (10-02 D-08) — 부상 위험 신호 amber 경고 섹션 ────────
-            점수 게이지 직후 + "동작 비교" 직전. 플래그 없으면 컴포넌트가 null 반환
-            (섹션 OMIT, 안심 카피 금지). flagType 4종 카피맵 보유 → 10-03/10-04
-            플래그 자동 렌더. result.safetyFlags 부재/구버전 doc → graceful no-render. */}
-        <InjuryRiskSection flags={result.safetyFlags} />
-
-        {/* ── quick-260705-o0s → 29-CONTEXT D-01: 감점 0 성공 축하 섹션 (belle
-            추가 피드백 #2) — 100점 정타(records 빈 배열)면 축하가 주인공.
-            refCard/vetoLeadCard 스타일 패턴 차용 (brandTint, 토큰만). 29-04:
-            mode 무관 (mode3 등록 동작 clean 도 축하). 단 mode3 축하 카피는 mode1
-            문구(정은지 유사 계열) 재사용 금지 — 발전/자세 형태 중심 별도 문구,
-            29-CONTEXT D-05 금지어 배제. legacy/미등록은 여전히 false. */}
-        {cleanPass && (
+        {/* ── 3. 오늘 고칠 것 top-1 (D-08 완결형 DeductionCard) ────────────────
+            미션 record 우선/최대 감점 1건을 상태→왜→게이지→행동→미션→물어보기로
+            완결 렌더. cleanPass 면 축하 카드가 대신(요약 clean variant). 확대 사진
+            쌍은 드릴다운 시트(D-17 자세 비교 카드) 진입점으로 잇는다. onLayout 으로
+            점프 y 기록(요약 '오늘 고칠 것' 탭 대상). */}
+        {isVisible('topFix') && topFixRecord ? (
+          <View
+            onLayout={(e) =>
+              setCardY(topFixKey ?? 'topFix', e.nativeEvent.layout.y)
+            }
+          >
+            <DeductionCard
+              record={toCardRecord(topFixRecord)}
+              zoomPending={zoomPending}
+              mission={
+                result.mission
+                  ? { isMission: true, isSafety: result.mission.isSafety }
+                  : undefined
+              }
+              rightLabel={
+                cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
+              }
+              expanded
+              onAskCoach={(rid) => addUserQuestion(rid)}
+            />
+            {matchZoomForRecord(topFixRecord) || zoomPending ? (
+              <Pressable
+                onPress={() => setDetailRecordIndex(topFixIndex)}
+                accessibilityRole="button"
+                accessibilityLabel="확대 비교 자세히 보기"
+                hitSlop={8}
+                style={styles.tipMoreRow}
+              >
+                <Text style={styles.tipMore}>확대 비교 자세히 보기 ›</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : variantOf('summary') === 'clean' ? (
           <View style={[styles.card, styles.cleanPassCard]}>
             <Text style={styles.cleanPassTitle}>감점 항목이 없어요</Text>
             <Text style={styles.cleanPassBody}>
@@ -1699,50 +2048,7 @@ function AnalysisResultContent({
                 : '측정 기준을 모두 통과했어요. 이 자세를 그대로 유지하세요.'}
             </Text>
           </View>
-        )}
-
-        {/* ── quick-260705-o0s: 점수 계산 내역 — 종합 점수 직후로 승격 ─────
-            47점의 공식 설명(감점 내역)이 첫 화면 주인공 (belle 3차 피드백 승인
-            순서 ②). cleanPass 여도 렌더 유지 — "측정 감점 없음" 행이 100점의
-            공식 근거 (투명성 원칙). 렌더 가드는 기존 showBreakdownSection 그대로
-            (mode1 + breakdown 보유 doc 전용, legacy/mode3 숨김). 번호/기준문구는
-            buildDeductionMarkers/composeScoringBasisKo 단일 소스.
-            점수 원칙: [[scoring-must-be-transparent-deduction-tally]]. */}
-        {showBreakdownSection && result.deductionBreakdown != null && (
-          <>
-            <Text style={styles.sectionTitle}>점수 계산 내역</Text>
-            <ScoreBreakdownSection
-              breakdown={result.deductionBreakdown}
-              recordNumbers={markers.recordNumbers}
-              basisLine={breakdownBasisLine}
-              // 29-CONTEXT D-05 — mode3 한계 고지는 내역 카드 footnote 로 (mode1 미전달).
-              limitNotice={cmp.mode === 'mode3' ? MODE3_LIMIT_NOTICE : undefined}
-              // quick-260705-r6v — 내역 행 탭 → 드릴다운 시트 (진입점 1).
-              onRecordPress={setDetailRecordIndex}
-            />
-          </>
-        )}
-
-        {/* ── 콤보 부분 점수 (mode1 콤보 모션 분석 시에만) — 점수 상세 계열이라
-            내역 직후 배치 (quick-260705-o0s 재배치 재량 판단). ─────────── */}
-        {cmp.mode === 'mode1' && cmp.segmentScores && (
-          <>
-            <Text style={styles.sectionTitle}>구간별 점수</Text>
-            <View style={styles.card}>
-              <SegmentRow
-                label={`${cmp.segmentScores.baseMotionName} 베이스`}
-                score={cmp.segmentScores.base}
-              />
-              <SegmentRow
-                label="콤보 확장 구간"
-                score={cmp.segmentScores.extension}
-              />
-              <Text style={styles.segmentHintText}>
-                {segmentHint(cmp.segmentScores)}
-              </Text>
-            </View>
-          </>
-        )}
+        ) : null}
 
         {/* ── 영역 2: 영상 + 키포인트 오버레이 (D-12-A1 #2 / D-12-C1 mode 분기) ─
             mode1 = 사용자 + 정은지 split (둘 다 오버레이 박제).
@@ -1863,6 +2169,10 @@ function AnalysisResultContent({
               // quick-260705-r6v — 여백 범례 탭 → 드릴다운 시트 (진입점 2).
               // VideoCompare 가 closeFullscreen 선행 후 콜백(iOS 중첩 Modal 회피).
               onLegendPress={openRecordByNumber}
+              // 32-11 (D-18 자막 + D-17 밀도) — 재생 중 결함 구간 자막 큐. cueTrack
+              // 산출(record cueLine + 매칭 zoom userFrameIdx + 학생 fps). 미전달
+              // 시 기존 렌더 diff 0(opt-in). cleanPass/legacy 면 빈 배열.
+              cueWindows={cueWindows}
             />
             {/* 28-CONTEXT D-05 — 정렬 데이터는 새 분석부터, legacy 는 재분석 유도.
                 조건 = motionAlignment 필드 부재(undefined)만. normalize null(데이터
@@ -1904,6 +2214,87 @@ function AnalysisResultContent({
             다음 분석부터 이전 영상과 비교해 발전을 확인해 드려요.
           </Text>
         ) : null}
+
+        {/* ══ 5. 나머지 감점(접힘) + 상세 영역 (D-02 #5 collapsed) ══════════════
+            점수 게이지는 D-01/D-09 로 헤드라인에서 이 상세 영역으로 강등(요약 카드가
+            점수 소형 배지를 담당). 투명 감점 내역(수치 삭제 금지)·구간 점수 유지.
+            나머지 감점 카드 접힘 목록은 Task 2 에서 이 아래로 이어진다. */}
+
+        {/* 점수 게이지 (강등) — suppressed 는 요약 카드가 담당하므로 여기선 octagon
+            블록만(비억제). grade/summary/caption/veto 근거 유지. */}
+        {isScoreSuppressed ? null : (
+          <View style={styles.card}>
+            <OctagonScore score={result.overallScore} size={168} />
+            <View style={styles.gradeRow}>
+              <Text style={styles.gradeBadge}>{grade}</Text>
+              <Text style={styles.summary}>{summary}</Text>
+            </View>
+            <ScoreContext
+              score={result.overallScore}
+              mode={cmp.mode === 'mode1' ? 'mode1' : 'mode3'}
+              athleteName={cmp.mode === 'mode1' ? cmp.athleteName : null}
+              correctionPoint={correctionPoint}
+              cleanPass={cleanPass}
+              selfDelta={
+                cmp.mode === 'mode3' &&
+                !cmp.isFirst &&
+                prevDoc?.result?.overallScore != null
+                  ? result.overallScore - prevDoc.result.overallScore
+                  : null
+              }
+            />
+            {vetoPrimaryFault ? (
+              <Text style={styles.scoringBasis}>
+                AI 영상 분석에서 발견한 점: {vetoPrimaryFault}
+              </Text>
+            ) : null}
+            <Text style={styles.scoreCaption}>
+              촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요. 90점 이상이면 정상 자세에 가깝습니다.
+            </Text>
+          </View>
+        )}
+
+        {/* 29-CONTEXT D-05 — mode3 한계 고지 (breakdown 부재 경로). breakdown 표시
+            중이면 footnote 로 렌더되므로 여기선 !showBreakdownSection 게이트. */}
+        {cmp.mode === 'mode3' && !showBreakdownSection ? (
+          <Text style={styles.mode3LimitNotice}>{MODE3_LIMIT_NOTICE}</Text>
+        ) : null}
+
+        {/* 점수 계산 내역 — 투명 감점 tally(수치 삭제 금지). 렌더 가드/번호/기준문구
+            기존 그대로. 내역 행 탭 → 드릴다운 시트(진입점 1).
+            점수 원칙: [[scoring-must-be-transparent-deduction-tally]]. */}
+        {showBreakdownSection && result.deductionBreakdown != null && (
+          <>
+            <Text style={styles.sectionTitle}>점수 계산 내역</Text>
+            <ScoreBreakdownSection
+              breakdown={result.deductionBreakdown}
+              recordNumbers={markers.recordNumbers}
+              basisLine={breakdownBasisLine}
+              limitNotice={cmp.mode === 'mode3' ? MODE3_LIMIT_NOTICE : undefined}
+              onRecordPress={setDetailRecordIndex}
+            />
+          </>
+        )}
+
+        {/* 콤보 부분 점수 (mode1 콤보 모션 분석 시에만). */}
+        {cmp.mode === 'mode1' && cmp.segmentScores && (
+          <>
+            <Text style={styles.sectionTitle}>구간별 점수</Text>
+            <View style={styles.card}>
+              <SegmentRow
+                label={`${cmp.segmentScores.baseMotionName} 베이스`}
+                score={cmp.segmentScores.base}
+              />
+              <SegmentRow
+                label="콤보 확장 구간"
+                score={cmp.segmentScores.extension}
+              />
+              <Text style={styles.segmentHintText}>
+                {segmentHint(cmp.segmentScores)}
+              </Text>
+            </View>
+          </>
+        )}
 
         {/* quick-260705-r6v — 메인 '문제 부위 확대 비교' 섹션 제거 (구 확대 비교
             컴포넌트 파일 삭제). 확대사진은 내역 행/여백 범례/(세로) 번호 점 탭 →
@@ -2319,6 +2710,9 @@ function AnalysisResultContent({
         // 29-CONTEXT D-06 — mode3 드릴다운 비교 라벨도 지난/이번 계열 (정은지 미언급).
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'}
       />
+      {/* 32-07 D-07 (32-11 배선) — 첫 진입 코치마크 1회. "오늘 고칠 건 하나만" +
+          "자세히는 펼쳐요". hasSeenResultCoachmark 로 1회만, 탭 시 기록. */}
+      <ResultCoachmarks visible={coachmarkVisible} onDismiss={dismissCoachmarks} />
     </View>
   );
 }

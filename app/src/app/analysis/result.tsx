@@ -2567,10 +2567,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   // 진단 문장 (body 톤, 숫자 카드 대체).
+  // 32-02 (D-03 최소 수리) — lineHeight 21 < fontSize 25(typography.body 상속)이라
+  // '동작 흐름'/'안정성' 장문이 다중 행에서 줄겹침. lineHeight ≥ fontSize×1.3 규칙
+  // (32-RESEARCH Pitfall 3)에 따라 35(=25×1.4)로 상향. 표현 전면 수정(심사 정보
+  // 코너 전환)은 목업 게이트(32-04) 이후 32-11 소관 — 여기서는 겹침 해소만.
   diagSentence: {
     ...typography.body,
     color: colors.textPrimary,
-    lineHeight: 21,
+    lineHeight: 35,
     marginTop: 6,
   },
   // 차원별 deficit summary (측정값/진단). 수치는 highlightNumbers 로 강조.

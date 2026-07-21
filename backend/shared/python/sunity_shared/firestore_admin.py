@@ -939,6 +939,11 @@ def _validate_keypoint_report(
       · reliability: list[str ∈ {"high","medium","low"}].
       · warnings: list[non-empty str].
       · 화이트리스트 외 key 박제 시 reject.
+      · [32-14 신설 — 길이 정합] joints 길이 ∈ {8(legacy), 12(phase32)} +
+        frames 스칼라 존재 시 data 길이 == frames×J×2, confidence 길이 ==
+        frames×J (frames 부재 legacy 형상은 기존 그대로 통과 — T-32-36).
+        기존 per-key 검사(현행)는 길이를 비검사했음 — 이 블록이 신설이며
+        legacy 8 doc green 테스트(test_keypoint_report_expansion)로 하위호환 증명.
 
     위반 시 ValueError + path 정보 (caller 가 catch → fail_analysis 진입).
     """
@@ -1079,6 +1084,35 @@ def _validate_keypoint_report(
         raise ValueError(
             f"{sub} unexpected type at keypointReport: {type(value).__name__}"
         )
+
+    # ── 32-14 (D-22 1단) — 길이 정합 검사 신설 ────────────────────────────
+    # scoped validator 내부에만 추가 (_validate_dict_only_scalars 본체 무변경
+    # 박제 유지). per-key 검사 통과 후 cross-field 정합만 여기서 강제.
+    joints_val = payload.get("joints")
+    if isinstance(joints_val, list):
+        J = len(joints_val)
+        if J not in (8, 12):
+            raise ValueError(
+                f"{path}.joints length must be 8 (legacy) or 12 (phase32), "
+                f"got {J} — 32-14 길이 정합"
+            )
+        frames_val = payload.get("frames")
+        # frames 스칼라 존재 시에만 data/confidence 길이 정합 강제.
+        # 부재 legacy 형상은 기존 그대로 통과 (T-32-36 하위호환).
+        if isinstance(frames_val, int) and not isinstance(frames_val, bool):
+            T = frames_val
+            data_val = payload.get("data")
+            if isinstance(data_val, list) and len(data_val) != T * J * 2:
+                raise ValueError(
+                    f"{path}.data length must be frames*joints*2 = {T * J * 2}, "
+                    f"got {len(data_val)} — 32-14 길이 정합"
+                )
+            conf_val = payload.get("confidence")
+            if isinstance(conf_val, list) and len(conf_val) != T * J:
+                raise ValueError(
+                    f"{path}.confidence length must be frames*joints = {T * J}, "
+                    f"got {len(conf_val)} — 32-14 길이 정합"
+                )
 
 
 # ── Plan 04-01 (Phase 4 Wave 1, 2026-06-13) — joints3d 전용 validator ─────

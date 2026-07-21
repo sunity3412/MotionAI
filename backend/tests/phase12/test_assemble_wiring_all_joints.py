@@ -154,11 +154,14 @@ def test_build_keypoint_report_invalid_fps_raises() -> None:
 
 
 def test_build_keypoint_report_data_length_invariant() -> None:
-    """data length = T * J * 2 — __post_init__ 통과 후 동등 검증."""
+    """data length = T * J * 2 — __post_init__ 통과 후 동등 검증.
+
+    32-14: J = NUM_KEYPOINTS_PHASE12 파생 (8→12 확장 자동 추종).
+    """
     frames = [_frame_with_knee(), _frame_without_knee()]
     report = build_keypoint_report(frames, fps=9.0)
-    assert len(report.data) == 2 * 8 * 2
-    assert len(report.confidence) == 2 * 8
+    assert len(report.data) == 2 * NUM_KEYPOINTS_PHASE12 * 2
+    assert len(report.confidence) == 2 * NUM_KEYPOINTS_PHASE12
     assert len(report.reliability) == 2
 
 

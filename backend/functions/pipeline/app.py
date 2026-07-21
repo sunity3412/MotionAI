@@ -567,8 +567,10 @@ def _apply_keypoint_refinement_to_report(
     joints = list(keypoint_report.joints)
     J = len(joints)
     # Plan 17-03 박제 schema joint_key → KeypointReport joint name 매핑 박제.
-    # schema 는 elbow/shoulder/hip/knee, KeypointReport 는 shoulder/hip/knee/hand.
-    # elbow 는 KeypointReport 에 없어서 skip (audit only).
+    # [32-14 audit 판정 — 의도적 유지] KeypointReport 는 12관절로 확장됐지만
+    # (elbow 존재), refined elbow 좌표의 **쓰기측 반영은 보수 유지 (None)**.
+    # 신규 관절 좌표 덮어쓰기는 관절별 신뢰도 실측 게이트(2단) 뒤 재검토 —
+    # augmenter 측 매핑 활성은 읽기(대조·mirror hint) 전용 (fail-safe).
     schema_to_report: dict[str, str | None] = {
         "left_elbow": None,
         "right_elbow": None,
@@ -5749,9 +5751,14 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 분석 algorithm (DTW / threshold / Phase 6/7/8 calibration) = 9fps 유지.
         # 저장 시점에 18fps 로 선형 upsample (Phase 12 hotfix 2026-06-11 belle UAT
         # 1차: 빠른 회전 시 keypoint 끊김 + 끝부분 정지 자세 mitigation).
-        # 18fps 선택 이유 — Firestore 40k index entry/document 한도:
+        # 18fps 선택 이유 — Firestore 40k index entry/document 한도 (당시 J=8 기준):
         #   30fps × 60s × 8 joints × 2 = 28,800 data + confidence/axis 합 ~60k → 한도 초과.
         #   18fps × 60s × 8 × 2 = 17,280 data + 기타 합 ~26k → 안전.
+        # [32-14 J=12 갱신] 18fps × 60s × 12 × 2 = 25,920 data + confidence 12,960
+        #   + axis/reliability 합 ~49.7k — naive 인덱싱 기준으론 40k 초과이나,
+        #   analyses 컬렉션 keypointReport 리프는 인덱스 면제 적용
+        #   ([[analyses-index-exemption-fix]] — 32-14 Task 3 에서 면제 상태 재확인).
+        #   1MB 문서 한도는 실측 직렬화 바이트로 별도 검증 (32-14-SUMMARY).
         # belle UAT 1차 17초 영상에선 9fps → 18fps 만으로도 충분히 부드러움 개선.
         keypoint_report_raw = build_keypoint_report(pose_frames, fps=9.0)
         keypoint_report_obj = (

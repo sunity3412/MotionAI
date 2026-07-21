@@ -122,11 +122,15 @@ def test_ts_reference_motion_has_reference_keypoint_report() -> None:
     )
 
 
-def test_python_dataclass_has_eight_body_keypoints() -> None:
-    """Python _KEYPOINT_NAMES tuple 이 R11 정합 8 박제 (axis 제외)."""
-    assert len(_KEYPOINT_NAMES) == 8
-    assert NUM_KEYPOINTS_PHASE12 == 8
-    expected = {
+def test_python_dataclass_has_twelve_body_keypoints() -> None:
+    """Python _KEYPOINT_NAMES tuple — 32-14 (D-22 1단) 12 박제 (axis 제외).
+
+    legacy 8 (R11) + 발목2·팔꿈치2. legacy 8 이 tuple 앞부분 순서 불변으로
+    유지되는지도 검증 (기존 doc 소비처 이름 안정성).
+    """
+    assert len(_KEYPOINT_NAMES) == 12
+    assert NUM_KEYPOINTS_PHASE12 == 12
+    legacy_prefix = (
         "left_shoulder",
         "right_shoulder",
         "left_hip",
@@ -135,6 +139,13 @@ def test_python_dataclass_has_eight_body_keypoints() -> None:
         "right_knee",
         "left_hand",
         "right_hand",
+    )
+    assert _KEYPOINT_NAMES[:8] == legacy_prefix
+    expected = set(legacy_prefix) | {
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow",
     }
     assert set(_KEYPOINT_NAMES) == expected
     # axis 는 KeypointName 안에 박제 X (별도 axisData field).

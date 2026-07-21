@@ -865,9 +865,12 @@ def build_keypoint_report(
     *,
     fps: float,
 ) -> KeypointReport | None:
-    """8 body keypoint flat + axisData polyline → KeypointReport 산출.
+    """12 body keypoint flat + axisData polyline → KeypointReport 산출.
 
     Phase 12 Wave 0B (Plan 12-01) 박제 — KeypointOverlay Wave 1+ 소비.
+    Phase 32 (32-14, D-22 1단) — _KEYPOINT_NAMES 8→12 확장을 len() 파생으로
+    자동 추종 (발목·팔꿈치 추출 배선 — pose 추론 무변경, 추출만 확장).
+    keypoints_2d 에 신규 키 부재 시 기존 fallback 그대로 (0.0, 0.0) + conf 0.
 
     Args:
         pose_frames: PoseFrame 시퀀스. 각 frame.keypoints_2d 사용 (R1 RTMW 채움).
@@ -1019,7 +1022,9 @@ def build_keypoint_report(
         )
 
     return KeypointReport(
-        version="1.0",
+        # 32-14 version bump: "1.0"(legacy 8관절) → "1.1"(12관절 확장).
+        # version 은 참고용 — 소비처 판별 기준은 joints 배열 길이 (capability source).
+        version="1.1",
         joints=joints_list,
         frames=T,
         fps=float(fps),

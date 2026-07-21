@@ -66,8 +66,9 @@ _TARGET_JOINTS: tuple[JointKeyLiteral, ...] = (
     "right_knee",
 )
 
-# 좌우 pair 박제 — mirror hint 산출용. KeypointReport 의 _KEYPOINT_NAMES (8 body) 와
-# 부분 overlap (shoulder/hip/knee). elbow 는 schema 에는 있고 KeypointReport 에는 없음.
+# 좌우 pair 박제 — mirror hint 산출용. KeypointReport 의 _KEYPOINT_NAMES (32-14 부터
+# 12 body) 와 overlap. elbow 는 32-14 표시 승격으로 KeypointReport 에도 존재 —
+# 신규 12관절 doc 에선 elbow pair 도 RTMW 원본 대조 가능 (legacy 8 doc 은 skip).
 _MIRROR_PAIRS: tuple[tuple[JointKeyLiteral, JointKeyLiteral], ...] = (
     ("left_elbow", "right_elbow"),
     ("left_shoulder", "right_shoulder"),
@@ -163,13 +164,14 @@ def _keypoint_report_confidence(
     return float(confidence[idx])
 
 
-# JointKeyLiteral 의 8 schema joint key → KeypointReport.joints 의 8 body joint key 매핑.
-# schema 는 elbow/shoulder/hip/knee, KeypointReport 는 shoulder/hip/knee/hand.
-# 겹치는 6개 (shoulder/hip/knee) 만 KeypointReport 박제 가능. 나머지 (elbow 2개) 는
-# audit-only — Firestore geminiD.augmentedFrames 에 박힘.
+# JointKeyLiteral 의 8 schema joint key → KeypointReport.joints joint key 매핑.
+# 32-14 (D-22 1단): KeypointReport 가 12관절로 확장되어 elbow 매핑 활성 —
+# 목적은 audit 비교·mirror hint 데이터 확충 (Gemini elbow ↔ RTMW elbow 대조
+# 가능화). 채점 경로 무접촉 (G5/mirror 는 audit 필드만 산출). legacy 8관절
+# report 에선 조회 헬퍼가 joints 부재로 None 반환 → 기존과 동일하게 skip.
 _SCHEMA_TO_REPORT_JOINT: dict[str, str | None] = {
-    "left_elbow": None,  # KeypointReport 에 elbow 없음 — audit only.
-    "right_elbow": None,
+    "left_elbow": "left_elbow",  # 32-14 활성 (구 None=audit-only)
+    "right_elbow": "right_elbow",
     "left_shoulder": "left_shoulder",
     "right_shoulder": "right_shoulder",
     "left_hip": "left_hip",
@@ -205,7 +207,9 @@ def _check_neighbor_distance(
     """
     report_joint = _SCHEMA_TO_REPORT_JOINT.get(schema_joint_key)
     if report_joint is None:
-        # KeypointReport 에 elbow 없음 — 비교 데이터 없음 → 통과 (audit only).
+        # 매핑 밖 schema key (방어) — 비교 데이터 없음 → 통과 (audit only).
+        # 32-14 부터 elbow 도 매핑됨 — legacy 8관절 report 는 아래 confidence
+        # 조회가 None 반환 (joints 부재) → 인접 비교 skip = 기존과 동일 통과.
         return True
 
     frames = int(getattr(keypoint_report_2d, "frames", 0))
@@ -264,7 +268,9 @@ def _detect_mirror_swap(
         report_left = _SCHEMA_TO_REPORT_JOINT.get(left_key)
         report_right = _SCHEMA_TO_REPORT_JOINT.get(right_key)
         if report_left is None or report_right is None:
-            # KeypointReport 에 elbow 없음 — RTMW 원본 비교 불가, skip.
+            # 매핑 밖 schema key (방어) — RTMW 원본 비교 불가, skip.
+            # 32-14 부터 elbow 매핑 활성 — legacy 8관절 report 는 아래
+            # data_xy 조회 None → continue (기존 동작 동일).
             continue
         rtmw_left = _keypoint_report_data_xy(
             keypoint_report_2d, frame_idx, report_left

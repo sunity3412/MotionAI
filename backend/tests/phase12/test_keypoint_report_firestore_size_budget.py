@@ -27,10 +27,15 @@ def _load_pipeline_app():
 
 
 def test_worst_case_size_budget_under_700_kib() -> None:
-    """9 fps × 60 s × 10 필드 worst-case → ≤ 700 KiB."""
+    """9 fps × 60 s × 10 필드 worst-case → ≤ 700 KiB.
+
+    32-14: J 는 NUM_KEYPOINTS_PHASE12 파생 (8→12 확장 자동 추종) — J=12 에서도
+    예산 안임을 이 테스트가 재검증한다.
+    """
     from sunity_shared.analysis.keypoint_frame import (
         NUM_KEYPOINTS_PHASE12,
         KeypointReport,
+        _KEYPOINT_NAMES,
     )
 
     pipeline_app = _load_pipeline_app()
@@ -38,22 +43,13 @@ def test_worst_case_size_budget_under_700_kib() -> None:
     FPS = 9.0
     DURATION_S = 60
     T = int(FPS * DURATION_S)  # 540
-    J = NUM_KEYPOINTS_PHASE12  # 8
+    J = NUM_KEYPOINTS_PHASE12
 
     # Synthetic worst-case — 모든 float 가 7-digit precision (0.1234567 같은 박제).
     # JSON 직렬화 시 한 number 당 ~9 byte ("0.1234567,").
     report = KeypointReport(
         version="1.0",
-        joints=[
-            "left_shoulder",
-            "right_shoulder",
-            "left_hip",
-            "right_hip",
-            "left_knee",
-            "right_knee",
-            "left_hand",
-            "right_hand",
-        ],
+        joints=list(_KEYPOINT_NAMES),
         frames=T,
         fps=FPS,
         data=[0.1234567] * (T * J * 2),
@@ -84,6 +80,7 @@ def test_typical_30s_size_budget_under_350_kib() -> None:
     from sunity_shared.analysis.keypoint_frame import (
         NUM_KEYPOINTS_PHASE12,
         KeypointReport,
+        _KEYPOINT_NAMES,
     )
 
     pipeline_app = _load_pipeline_app()
@@ -95,16 +92,7 @@ def test_typical_30s_size_budget_under_350_kib() -> None:
 
     report = KeypointReport(
         version="1.0",
-        joints=[
-            "left_shoulder",
-            "right_shoulder",
-            "left_hip",
-            "right_hip",
-            "left_knee",
-            "right_knee",
-            "left_hand",
-            "right_hand",
-        ],
+        joints=list(_KEYPOINT_NAMES),
         frames=T,
         fps=FPS,
         data=[0.5] * (T * J * 2),

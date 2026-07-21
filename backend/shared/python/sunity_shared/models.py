@@ -1029,10 +1029,13 @@ from .analysis.safety_flags import (  # noqa: E402, F401 — 파일 하단 re-ex
 )
 
 # Phase 12 Wave 0B (Plan 12-01, 2026-06-10) — KeypointReport 신설 박제.
-#   KeypointReport = 8 body keypoint flat + axisData polyline + axisMask.
+#   KeypointReport = 12 body keypoint flat + axisData polyline + axisMask.
+#   (Phase 32 / 32-14 D-22 1단: 8 → 12 확장 — +발목2·팔꿈치2. legacy doc 은
+#    joints 8 — joints 배열 길이가 capability source, version 은 참고.)
 #   TS 미러: app/src/types/analysis.ts KeypointReport interface.
 #   docs 미러: docs/contract.md §9.12.
 # 변경 시 양쪽 + docs/contract.md §9.12 동시 갱신 (CLAUDE.md Cross-cutting).
+# NUM_KEYPOINTS_PHASE12 는 keypoint_frame._KEYPOINT_NAMES len() 파생 — 자동 추종.
 from .analysis.keypoint_frame import (  # noqa: E402, F401 — 파일 하단 re-export 패턴
     NUM_KEYPOINTS_PHASE12,
     KeypointName,

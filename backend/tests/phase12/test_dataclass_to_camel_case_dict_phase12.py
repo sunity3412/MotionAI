@@ -23,25 +23,20 @@ def _load_pipeline_app():
 
 
 def _make_minimal_keypoint_report():
-    """T=1, J=8 의 최소 KeypointReport instance — camelCase 변환 source."""
+    """T=1, J=NUM_KEYPOINTS_PHASE12 최소 KeypointReport — camelCase 변환 source.
+
+    32-14: joints 를 _KEYPOINT_NAMES 파생으로 구성 — 8→12 확장 자동 추종.
+    """
     from sunity_shared.analysis.keypoint_frame import (
         NUM_KEYPOINTS_PHASE12,
         KeypointReport,
+        _KEYPOINT_NAMES,
     )
 
     J = NUM_KEYPOINTS_PHASE12
     return KeypointReport(
         version="1.0",
-        joints=[
-            "left_shoulder",
-            "right_shoulder",
-            "left_hip",
-            "right_hip",
-            "left_knee",
-            "right_knee",
-            "left_hand",
-            "right_hand",
-        ],
+        joints=list(_KEYPOINT_NAMES),
         frames=1,
         fps=9.0,
         data=[0.5] * (1 * J * 2),

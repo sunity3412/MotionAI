@@ -1552,21 +1552,24 @@ Phase 11 이 신설한 per-report LLM 코칭 코멘트 hook (D-02). `ForcePatter
 - **TS source:** `app/src/types/analysis.ts::KeypointReport` (10 필드, R10 + R7 iter-2 정합)
 - **Python source:** `backend/shared/python/sunity_shared/analysis/keypoint_frame.py::KeypointReport` (frozen dataclass + `__post_init__` validator)
 - **Firestore 저장 경로:** `users/{uid}/analyses/{analysisId}.result.keypointReport` — `_validate_keypoint_report` scoped validator 박제 ([[firestore-nested-array-flat]] 정합)
+- **validator 길이 정합 (32-14 신설):** joints 길이 ∈ {8, 12} + (frames 스칼라 존재 시) `data` 길이 == frames×J×2, `confidence` 길이 == frames×J. frames 부재 legacy 형상은 기존 그대로 통과 (T-32-36 하위호환).
 - **camelCase 변환:** `_dataclass_to_camel_case_dict` (pipeline/app.py) 가 `axis_data` → `axisData`, `axis_mask` → `axisMask` 자동 변환
 
-#### §9.12.1 KeypointName Literal (R11 — 8 body keypoint, axis 제외)
+#### §9.12.1 KeypointName Literal (R11 + 32-14 확장 — 12 body keypoint, axis 제외)
 
-`left_shoulder` / `right_shoulder` / `left_hip` / `right_hip` / `left_knee` / `right_knee` / `left_hand` / `right_hand`
+`left_shoulder` / `right_shoulder` / `left_hip` / `right_hip` / `left_knee` / `right_knee` / `left_hand` / `right_hand` + **(32-14 D-22 1단)** `left_ankle` / `right_ankle` / `left_elbow` / `right_elbow`
 
-- `left_hand` / `right_hand` 는 COCO-17 의 `left_wrist` / `right_wrist` 매핑 (loose hand 박제, v2 wrist 신설은 후속 plan).
+- `left_hand` / `right_hand` 는 COCO-17 의 `left_wrist` / `right_wrist` 매핑 (loose hand 박제, v2 wrist 신설은 후속 plan). ankle/elbow 는 COCO-17 동명 키 1:1 (32-14).
 - axis 는 별도 `axisData` field (R2 정합 — UI 자체 계산 차단, A7 해소).
+- **하위호환 (32-14): `joints` 배열이 capability source** — 무엇이 측정됐는지의 단일 판별 기준은 doc 의 joints 배열(길이·이름)이다. legacy doc(joints 8)과 신규 doc(joints 12)을 소비처가 배열 길이로 자연 분기 — 하드코딩 8 금지, `version` 필드는 참고용.
+- **감점 무유입 (32-14 1단):** 신규 4관절은 표시·측정 승격만 — 각도층(`skeleton.JOINT_ANGLES`)·감점 모듈(kismam/dimensions) 무접촉. 감점 편입(2단)은 관절별 신뢰도 실측 게이트 뒤 별도 plan.
 
 #### §9.12.2 KeypointReport (10 필드)
 
 | Field (camelCase / snake_case) | Type | Notes |
 |--------------------------------|------|-------|
-| `version` | `string` | "1.0" 초기 (non-empty) |
-| `joints` | `KeypointName[]` | length = J = 8 (`_KEYPOINT_NAMES` tuple) — R11 |
+| `version` | `string` | "1.0" = legacy 8관절 방출분 / "1.1" = 32-14 12관절 방출분 (non-empty, 참고용 — 판별은 joints 길이) |
+| `joints` | `KeypointName[]` | length = J = 8(legacy) \| 12(32-14, `_KEYPOINT_NAMES` tuple) — **capability source** |
 | `frames` | `number` | T (>= 0) |
 | `fps` | `number` | > 0 — R3 정합, default 제거 (운영 값 9.0) |
 | `data` | `number[]` | flat T × J × 2 — H3 iter-4 finite only (NaN/Inf reject) |
@@ -1612,6 +1615,8 @@ const frameIdx = Math.floor(currentTime * report.fps);
 | `axis_polyline_unavailable` | `compute_axis_frames` 가 모든 frame 에서 None 반환 (어깨/골반 keypoint 누락) |
 
 *Phase 12 Wave 0B 추가: 2026-06-10 — KeypointReport 신설 (Wave 0B = TS interface + Python frozen dataclass + Firestore scoped validator + frontend null-guard + reference seed 확장 단일 atomic commit). D-12-E2 / D-12-U1 (3-way atomic lockstep) / D-12-E3. Wave 1 (Plan 12-02+) 가 KeypointOverlay 컴포넌트 + UI wiring 박제.*
+
+*Phase 32 (32-14) 확장: 2026-07-22 — D-22 1단: joints 8→12 (+left/right_ankle, +left/right_elbow), version "1.0"→"1.1" bump, validator 길이 정합 신설(joints ∈ {8,12} + data/confidence frames×J 정합), 하위호환 = joints 배열이 capability source. 감점 반영(2단)은 관절별 신뢰도 실측 게이트 뒤 별도 plan. 3면 lockstep 동시 수정 (analysis.ts + keypoint_frame.py/models.py + 본 §9.12).*
 
 ---
 

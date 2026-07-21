@@ -1478,8 +1478,12 @@ export interface CoachCommentHook {
 // Wave 1+ = KeypointOverlay 컴포넌트 + mode1 split overlay.
 
 /**
- * 8 body keypoint enum (R11 — axis 제외, axisData 별도 field).
+ * 12 body keypoint enum (R11 8 legacy + 32-14 D-22 1단 확장 4 — axis 제외,
+ * axisData 별도 field).
  * `left_hand` / `right_hand` 는 COCO-17 의 `left_wrist` / `right_wrist` 매핑.
+ * ankle/elbow 는 COCO-17 동명 1:1 (32-14 표시 승격 — 감점 무유입).
+ * 하위호환: legacy doc 은 joints 8 — **joints 배열 길이가 capability source**
+ * (무엇이 측정됐는지의 단일 판별 기준), version 필드는 참고.
  */
 export type KeypointName =
   | 'left_shoulder'
@@ -1489,13 +1493,20 @@ export type KeypointName =
   | 'left_knee'
   | 'right_knee'
   | 'left_hand'
-  | 'right_hand';
+  | 'right_hand'
+  | 'left_ankle'
+  | 'right_ankle'
+  | 'left_elbow'
+  | 'right_elbow';
 
 /**
  * Phase 12 신설 — KeypointOverlay 소비.
  *
  * 10 필드 (R10 + R7 iter-2 정합):
- *   - 8 body keypoint flat (T × 8 × 2) — `data`
+ *   - body keypoint flat (T × joints.length × 2) — `data`.
+ *     joints.length = 8(legacy) | 12(32-14 확장: +발목2·팔꿈치2).
+ *     **joints 배열이 capability source** — 소비처는 배열 길이/이름으로 판별
+ *     (하드코딩 8 금지, version 필드는 참고).
  *   - axisData polyline (T × 3 × 2, shoulder_mid / hip_mid / knee_mid?,
  *     finite only — NaN 영구 0회, R7 iter-2)
  *   - axisMask (T × 3 bool, knee_mid 미가용 frame 은 `mask[2] = false`
@@ -1511,9 +1522,15 @@ export type KeypointName =
  * (`_validate_keypoint_report` scoped validator 가 nested-array 차단).
  */
 export interface KeypointReport {
-  /** "1.0" 초기 (non-empty). */
+  /**
+   * "1.0" = legacy 8관절 방출분 / "1.1" = 32-14 12관절 확장 방출분.
+   * 참고용 — 하위호환 판별은 joints 배열 길이 (capability source).
+   */
   version: string;
-  /** 8 body keypoint name (R11 — axis 제외). */
+  /**
+   * body keypoint name (R11 + 32-14 — axis 제외).
+   * 8 = legacy, 12 = phase32 확장(+ankle/elbow). 배열이 capability source.
+   */
   joints: KeypointName[];
   /** T (>= 0). */
   frames: number;

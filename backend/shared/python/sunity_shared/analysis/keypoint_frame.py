@@ -20,6 +20,12 @@ Firestore 저장 — flat 강제 ([[firestore-nested-array-flat]]).
 Phase 책임 경계:
   - Phase 12 = raw 수치 (KeypointOverlay)
   - Wave 1 = UI 소비 (mask 참조해서 polyline 2-point or 3-point 분기)
+
+Phase 32 (32-14, D-22 1단) — 표시층 8→12 승격:
+  - _KEYPOINT_NAMES 에 left/right_ankle + left/right_elbow append (legacy 8 순서 불변).
+  - 감점 무유입: 각도층 skeleton.JOINT_ANGLES·kismam·dimensions 무접촉.
+  - 하위호환: joints 배열 길이가 capability source — legacy 8 doc 과 신규 12 doc
+    을 소비처가 길이로 판별 (version 필드는 참고).
 """
 
 from __future__ import annotations
@@ -29,8 +35,11 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 
-# ── KeypointName Literal (R11 정합 — 8 body keypoint) ─────────────────────
+# ── KeypointName Literal (R11 정합 + 32-14 D-22 1단 확장 — 12 body keypoint) ──
 # axis 는 별도 axisData (compute_axis_frames 산출) — 본 enum 에 포함 X.
+# Phase 32 (32-14): RTMW 백본이 이미 검출하는 발목·팔꿈치를 표시층으로 승격.
+# 감점 반영(2단)은 관절별 신뢰도 실측 게이트 뒤 — 각도층(skeleton.JOINT_ANGLES)·
+# 감점 모듈은 본 확장에서 무접촉 (T-32-34 mitigate).
 
 KeypointName = Literal[
     "left_shoulder",
@@ -41,11 +50,16 @@ KeypointName = Literal[
     "right_knee",
     "left_hand",
     "right_hand",
+    "left_ankle",
+    "right_ankle",
+    "left_elbow",
+    "right_elbow",
 ]
-"""8 body keypoint enum — Wave 1 KeypointOverlay 가 라벨 lookup.
+"""12 body keypoint enum (8 legacy + 32-14 발목·팔꿈치 4) — KeypointOverlay 라벨 lookup.
 
 `left_hand` / `right_hand` 는 COCO-17 의 `left_wrist` / `right_wrist` 에
-매핑된다 (loose hand 박제). v2 의 wrist 신설은 후속 plan 책임.
+매핑된다 (loose hand 박제). ankle/elbow 는 COCO-17 동명 키 1:1 (32-14).
+하위호환: 기존 doc 은 joints 8 — **joints 배열이 capability source** (길이 판별).
 """
 
 _KEYPOINT_NAMES: tuple[KeypointName, ...] = (
@@ -57,10 +71,19 @@ _KEYPOINT_NAMES: tuple[KeypointName, ...] = (
     "right_knee",
     "left_hand",
     "right_hand",
+    # ── 32-14 (D-22 1단) 신규 — legacy 8 뒤에 append (기존 8 순서 불변) ──
+    "left_ankle",
+    "right_ankle",
+    "left_elbow",
+    "right_elbow",
 )
 
 NUM_KEYPOINTS_PHASE12: int = len(_KEYPOINT_NAMES)
-"""8 — KeypointReport.joints 기본 길이 (R10/R11 정합)."""
+"""12 — KeypointReport.joints 방출 길이 (len 파생 — 하드코딩 금지, 32-14).
+
+legacy doc 은 8 (phase12~32-13 방출분). 소비처는 상수가 아니라 각 doc 의
+joints 배열 길이를 신뢰할 것 (capability source).
+"""
 
 _AXIS_POLYLINE_POINTS: int = 3
 """R2 정합 — axisData polyline = shoulder_mid + hip_mid + knee_mid?."""
@@ -69,6 +92,8 @@ _VALID_RELIABILITY: frozenset[str] = frozenset({"high", "medium", "low"})
 
 # COCO-17 → KeypointName 매핑 (assemble.build_keypoint_report 가 사용).
 # left_hand → left_wrist 등 loose mapping 박제.
+# 32-14: ankle/elbow 는 COCO-17 동명 키 1:1 (RTMW _build_keypoints_2d_from_rtmw
+# 가 skeleton.KEYPOINT_NAMES 17개 전수를 keypoints_2d 에 채움 — 추출만 확장).
 JOINT_KEY_TO_ANGLE_KEY: dict[str, str] = {
     "left_shoulder": "left_shoulder",
     "right_shoulder": "right_shoulder",
@@ -78,6 +103,10 @@ JOINT_KEY_TO_ANGLE_KEY: dict[str, str] = {
     "right_knee": "right_knee",
     "left_hand": "left_wrist",
     "right_hand": "right_wrist",
+    "left_ankle": "left_ankle",
+    "right_ankle": "right_ankle",
+    "left_elbow": "left_elbow",
+    "right_elbow": "right_elbow",
 }
 
 
@@ -86,8 +115,9 @@ class KeypointReport:
     """Phase 12 신설 — KeypointOverlay 소비.
 
     10 필드 (R10 + R7 iter-2 정합):
-      version        : str (non-empty, "1.0" 초기)
-      joints         : list[str] (len == 8, _KEYPOINT_NAMES tuple)
+      version        : str (non-empty, "1.0" legacy / "1.1" 32-14 12관절 — 참고용,
+                        판별은 joints 길이 = capability source)
+      joints         : list[str] (len == 8(legacy) | 12(32-14 확장), _KEYPOINT_NAMES tuple)
       frames         : int (>= 0)
       fps            : float (> 0) — R3 정합, default 제거
       data           : list[float] (flat, len == T × J × 2 — finite only, H3 iter-4)

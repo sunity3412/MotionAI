@@ -26,25 +26,19 @@ from sunity_shared.analysis.keypoint_frame import (
 
 
 def _kwargs(**overrides) -> dict:
-    """KeypointReport 기본 kwargs (frames=2, joints=8).
+    """KeypointReport 기본 kwargs (frames=2, joints=NUM_KEYPOINTS_PHASE12).
 
-    T=2, J=8 → data len=32 (2*8*2), confidence len=16 (2*8), axisData len=12
-    (2*3*2), axisMask len=6 (2*3), reliability len=2.
+    32-14: joints 를 _KEYPOINT_NAMES 파생으로 구성 — 8→12 확장 자동 추종.
+    T=2 → data len=T*J*2, confidence len=T*J, axisData len=12 (2*3*2),
+    axisMask len=6 (2*3), reliability len=2.
     """
+    from sunity_shared.analysis.keypoint_frame import _KEYPOINT_NAMES
+
     T = 2
-    J = NUM_KEYPOINTS_PHASE12  # 8
+    J = NUM_KEYPOINTS_PHASE12
     base = dict(
         version="1.0",
-        joints=[
-            "left_shoulder",
-            "right_shoulder",
-            "left_hip",
-            "right_hip",
-            "left_knee",
-            "right_knee",
-            "left_hand",
-            "right_hand",
-        ],
+        joints=list(_KEYPOINT_NAMES),
         frames=T,
         fps=9.0,
         data=[0.5] * (T * J * 2),
@@ -100,13 +94,13 @@ def test_zero_frames_constructs() -> None:
 def test_data_length_mismatch_raises() -> None:
     """data 길이 != T*J*2 → ValueError + 메시지 'data length'."""
     with pytest.raises(ValueError, match="data length"):
-        KeypointReport(**_kwargs(data=[0.5] * 10))  # 32 expected, got 10
+        KeypointReport(**_kwargs(data=[0.5] * 10))  # T*J*2 expected, got 10
 
 
 def test_confidence_length_mismatch_raises() -> None:
     """confidence 길이 != T*J → ValueError."""
     with pytest.raises(ValueError, match="confidence length"):
-        KeypointReport(**_kwargs(confidence=[0.5] * 10))  # 16 expected
+        KeypointReport(**_kwargs(confidence=[0.5] * 10))  # T*J expected
 
 
 def test_reliability_length_mismatch_raises() -> None:
@@ -131,8 +125,12 @@ def test_axis_mask_length_mismatch_raises() -> None:
 
 
 def test_data_nan_raises() -> None:
-    """H3 iter-4 — data 에 NaN → ValueError 'data finite'."""
-    bad = [0.5] * 32
+    """H3 iter-4 — data 에 NaN → ValueError 'data finite'.
+
+    32-14: bad 길이를 T*J*2 파생으로 (하드코딩 32 제거 — 길이 오류가 finite
+    오류를 가리는 것 방지).
+    """
+    bad = [0.5] * (2 * NUM_KEYPOINTS_PHASE12 * 2)
     bad[0] = float("nan")
     with pytest.raises(ValueError, match="data finite"):
         KeypointReport(**_kwargs(data=bad))
@@ -140,33 +138,37 @@ def test_data_nan_raises() -> None:
 
 def test_data_inf_raises() -> None:
     """H3 iter-4 — data 에 Inf → ValueError 'data finite'."""
-    bad = [0.5] * 32
+    bad = [0.5] * (2 * NUM_KEYPOINTS_PHASE12 * 2)
     bad[5] = math.inf
     with pytest.raises(ValueError, match="data finite"):
         KeypointReport(**_kwargs(data=bad))
 
 
 def test_confidence_nan_raises() -> None:
-    """H3 iter-4 — confidence 에 NaN → ValueError 'confidence range'."""
-    bad = [0.5] * 16
+    """H3 iter-4 — confidence 에 NaN → ValueError 'confidence range'.
+
+    32-14: bad 길이 T*J 파생 (하드코딩 16 제거 — 길이 오류가 range 오류를
+    가리면 테스트 의도가 무효화됨).
+    """
+    bad = [0.5] * (2 * NUM_KEYPOINTS_PHASE12)
     bad[0] = float("nan")
-    with pytest.raises(ValueError, match="confidence"):
+    with pytest.raises(ValueError, match="confidence range"):
         KeypointReport(**_kwargs(confidence=bad))
 
 
 def test_confidence_out_of_range_negative_raises() -> None:
     """H3 iter-4 — confidence < 0 → ValueError 'confidence range'."""
-    bad = [0.5] * 16
+    bad = [0.5] * (2 * NUM_KEYPOINTS_PHASE12)
     bad[0] = -0.1
-    with pytest.raises(ValueError, match="confidence"):
+    with pytest.raises(ValueError, match="confidence range"):
         KeypointReport(**_kwargs(confidence=bad))
 
 
 def test_confidence_out_of_range_above_one_raises() -> None:
     """H3 iter-4 — confidence > 1 → ValueError 'confidence range'."""
-    bad = [0.5] * 16
+    bad = [0.5] * (2 * NUM_KEYPOINTS_PHASE12)
     bad[0] = 1.5
-    with pytest.raises(ValueError, match="confidence"):
+    with pytest.raises(ValueError, match="confidence range"):
         KeypointReport(**_kwargs(confidence=bad))
 
 

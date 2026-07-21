@@ -1,0 +1,358 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# 32-16 브리지 배포 템플릿 (one-shot) — 정본 아님. 정본 = backend/template.yaml.
+#
+# 왜 별도 파일인가: 정본 template.yaml 은 Phase 31 시각 교정물 스택(aee7d17)을
+# 포함하는데, 그 파라미터 4종(Display/Training Judge·PoseTol)은 CALIBRATION.json
+# blocked 상태라 **의도적으로 배포 불가**다 ("값이 없으면 deploy 가 실패해야 한다"
+# — 31 H10-05 fail-closed). Phase 31 은 SAM 배포를 이월했고 라이브 스택은
+# 3ae4715 시점 형상이다. 32-16 은 Lambda 표면(polly IAM + playback-url 코드 +
+# SharedLayer)만 배포해야 하므로, 이 파일 = **라이브 스택 기준선(3ae4715) +
+# 32-16 polly 정책 1개** 로 구성했다 — Phase 31 게이트 무접촉.
+#
+# 사용: cd backend && sam build --use-container -t template-32-16-deploy.yaml
+#       && sam deploy --no-confirm-changeset
+# 폐기: Phase 31 calibration 해소 후 정본 template.yaml 전체 배포가 성립하면
+#       이 파일을 삭제한다 (정본에는 polly 정책이 이미 반영돼 있어 수렴).
+# ═══════════════════════════════════════════════════════════════════════════
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Sunity Motion AI — 별도 서버리스 인프라 (기존 sunity.ai EC2 와 완전 분리).
+  앱이 직접 호출: POST /upload-url, GET /reference.
+  분석은 S3 업로드 이벤트 → SQS → pipeline Lambda (비동기).
+  단일 진실: docs/contract.md / backend/backend_CLAUDE.md.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: pilot
+    Description: 배포 단계 (파일럿). 리소스 이름 접미사로 사용.
+  VideoBucketName:
+    Type: String
+    Default: sunity-motion-pilot-videos
+    Description: >
+      영상 원본/결과 S3 버킷명 (전역 고유해야 함).
+      ⚠ 이 템플릿은 버킷 자체를 만들지 않는다 — belle 가 awscli 로 직접
+      만든 기존 버킷(reference/ 5 영상 포함)을 보존하기 위함. 배포 후
+      별도로 버킷 Notification(s3:ObjectCreated:* → AnalysisQueue)을 설정.
+      절차는 README 의 "외부 버킷 노티 설정" 섹션 참조.
+  FirebaseSaParam:
+    Type: String
+    Default: /sunity/motion/firebase-sa
+    Description: >
+      Firebase 서비스 계정 JSON 을 담은 SSM Parameter Store(SecureString) 이름.
+      이 템플릿은 비밀값을 만들지 않는다 — 배포 전 콘솔/CLI 로 별도 생성.
+  RunpodAnalyzeUrl:
+    Type: String
+    Default: ""
+    Description: >
+      RunPod 분석 서버의 POST /analyze 엔드포인트 URL.
+      빈 문자열이면 PipelineFunction 이 자체적으로 NLF 추론 시도(폴백, Lambda CPU
+      에선 NaN). 운영 배포 시 https://<pod-id>-8000.proxy.runpod.net/analyze.
+  RunpodAuthToken:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: >
+      RunPod 서버와 공유하는 인증 토큰. server.py 가 X-RunPod-Token 헤더로 검증.
+      RunPod 측 RUNPOD_AUTH_TOKEN 과 정확히 같은 값. NoEcho 로 CFN/콘솔에 마스킹.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    Timeout: 15
+    MemorySize: 256
+    Layers:
+      - !Ref SharedLayer
+    Environment:
+      Variables:
+        VIDEO_BUCKET: !Ref VideoBucketName
+        FIREBASE_SA_PARAM: !Ref FirebaseSaParam
+
+Resources:
+  # ── 공통 코드 레이어 (sunity_shared) ────────────────────────────────
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub sunity-motion-${Stage}-shared
+      ContentUri: shared/python/
+      CompatibleRuntimes: [python3.12]
+      CompatibleArchitectures: [arm64]
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: python3.12
+      BuildArchitecture: arm64
+
+  # ── 영상 버킷: 외부 — belle 가 awscli 로 사전 생성한 버킷 사용. ─────
+  # CloudFormation import 없이 외부 reference 로 두는 이유:
+  #  · 기존 reference/ 5 영상이 들어있어 보존 우선
+  #  · CFN import 는 절차 복잡 (이전 belle 작업 보존 + 추가 시간)
+  # 향후 운영 단에서 SAM 으로 흡수하려면 backend/README.md "CFN import" 절차.
+  #
+  # 버킷 자체에 필요한 설정(라이프사이클·CORS·Notification)은 README 참조:
+  #   1) aws s3api put-bucket-lifecycle-configuration ... (uploads/ 30일 만료)
+  #   2) aws s3api put-bucket-cors ...                    (앱 PUT 허용)
+  #   3) aws s3api put-bucket-notification-configuration  (s3:ObjectCreated → SQS)
+
+  # ── 분석 비동기 큐 (S3 → SQS → pipeline) ────────────────────────────
+  AnalysisQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sunity-motion-${Stage}-analysis
+      VisibilityTimeout: 960   # pipeline Timeout(900) 보다 길게
+      MessageRetentionPeriod: 86400
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt AnalysisDLQ.Arn
+        maxReceiveCount: 3
+
+  AnalysisDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sunity-motion-${Stage}-analysis-dlq
+      MessageRetentionPeriod: 1209600
+
+  AnalysisQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref AnalysisQueue]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowS3SendMessage
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt AnalysisQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Sub arn:aws:s3:::${VideoBucketName}
+
+  # ── HTTP API (앱이 직접 호출하는 2개 라우트) ────────────────────────
+  MotionHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      CorsConfiguration:
+        AllowOrigins: ["*"]
+        AllowHeaders: [Content-Type, Authorization]
+        AllowMethods: [GET, POST, OPTIONS]
+
+  # ── POST /upload-url : presigned PUT URL 발급 (완전 구현) ────────────
+  UploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-upload-url
+      CodeUri: functions/upload-url/
+      Handler: app.lambda_handler
+      Timeout: 10
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
+        - Statement:
+            # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
+            # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
+            # 있어 명시적 Statement 로 작성. ARN 은 `parameter${name}` 형식이라
+            # FirebaseSaParam(`/sunity/motion/firebase-sa`) 의 leading slash 가 그대로 ARN 의 `/` 와 합쳐진다.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: POST
+            Path: /upload-url
+
+  # ── POST /playback-url : 영상 재생용 GET signed URL 재발급 ───────────
+  # 박제 (2026-06-06 belle): myVideoUrl 7일 TTL 만료 → mode3 second+ 영상 안 뜸.
+  # 신설 endpoint — uid + analysisId + ext 박제 → fresh signed GET URL 반환.
+  # 29-CONTEXT D-09 — D1 fix: referenceMotionId 재서명 확장. presigned URL 은
+  # 서명 role 의 권한으로 GET 되므로 reference/* GetObject 가 없으면 재발급
+  # URL 이 403 — uploads/* 와 함께 reference/* 허용 (그 외 prefix 는 불허 유지).
+  PlaybackUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-playback-url
+      CodeUri: functions/playback-url/
+      Handler: app.lambda_handler
+      Timeout: 10
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource:
+                - !Sub arn:aws:s3:::${VideoBucketName}/uploads/*
+                - !Sub arn:aws:s3:::${VideoBucketName}/reference/*
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: POST
+            Path: /playback-url
+
+  # ── POST /reference/auto-register : 정은지 영상 → Gemini A → reference 자동 등록 ──
+  # Plan 17-05. AI-SPEC §1b 영역 A. belle 만 호출 가능 (BELLE_UID 이중 인증).
+  # Timeout 240s — Files API 폴링 upper bound 120s + Pro 호출 ~15s + S3 download/
+  # Firestore write ~5s + cold start/jitter 여유 100s. 120s 박제는 폴링 자체로
+  # timeout 예산 소진 위험 (Plan 05 WARN-2 정합).
+  # MemorySize 512MB — Gemini SDK + firebase-admin + pydantic + boto3 load 박제.
+  ReferenceAutoRegisterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-reference-auto-register
+      CodeUri: functions/reference-auto-register/
+      Handler: app.lambda_handler
+      Timeout: 240
+      MemorySize: 512
+      Environment:
+        Variables:
+          # 2026-06-12 e2e Issue #2 fix — SSM dynamic reference 박힘 박힘 sam deploy
+          # 후에도 env 박힘 박힘 (이전: SAM default "" 박힘 reset). SSM 박힘 박힘 박힘
+          # belle 가 console/CLI 박힘 박힘.
+          # GEMINI_A_MODEL — resolve_model('A', env_override=...) 단일 source.
+          # 미설정 시 sunity_shared.gemini.config.DEFAULT_A_MODEL ('gemini-3.1-pro-preview').
+          GEMINI_A_MODEL: "{{resolve:ssm:/sunity/motion/gemini-a-model}}"
+          # BELLE_UID — belle Firebase uid 박제. 비박힘 시 403 강제 reject.
+          BELLE_UID: "{{resolve:ssm:/sunity/motion/belle-uid}}"
+          # GEMINI_API_KEY — Gemini A 호출 박힘 (Google AI Studio key).
+          GEMINI_API_KEY: "{{resolve:ssm:/sunity/motion/gemini-api-key}}"
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub arn:aws:s3:::${VideoBucketName}/reference/*
+        - Statement:
+            # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
+            # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
+            # 있어 명시적 Statement 로 작성.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: POST
+            Path: /reference/auto-register
+
+  # ── GET /reference : 기준 모션 목록 (기준 모션 선택 화면 #9) ─────────
+  ReferenceApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-reference
+      CodeUri: functions/reference-api/
+      Handler: app.lambda_handler
+      Timeout: 10
+      Policies:
+        - Statement:
+            # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
+            # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
+            # 있어 명시적 Statement 로 작성. ARN 은 `parameter${name}` 형식이라
+            # FirebaseSaParam(`/sunity/motion/firebase-sa`) 의 leading slash 가 그대로 ARN 의 `/` 와 합쳐진다.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+      Events:
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MotionHttpApi
+            Method: GET
+            Path: /reference
+
+  # ── 분석 파이프라인 (S3→SQS 트리거. #7 에서 ML 채움 — 현재 stub) ────
+  PipelineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sunity-motion-${Stage}-pipeline
+      CodeUri: functions/pipeline/
+      Handler: app.lambda_handler
+      # RunPod 위임 모드에서는 Pod 가 202 를 즉시 반환하므로 Lambda 는 수 초 안에 끝남.
+      # Timeout 900 은 폴백(직접 NLF) 경로 안전 마진. 위임 모드에선 사실상 사용 안 됨.
+      Timeout: 900
+      MemorySize: 1024
+      Environment:
+        Variables:
+          # 2026-06-12 e2e Issue #2 fix — SSM dynamic reference 박힘. RunpodAnalyzeUrl/
+          # RunpodAuthToken parameter 박힘 박힘 X (legacy default ""). 박힘 박힘 SSM
+          # 박힘 박힘 박힘 belle 박힘 박힘 박힘 박힘 (Pod 재생성 시 SSM put-parameter).
+          RUNPOD_ANALYZE_URL: "{{resolve:ssm:/sunity/motion/runpod-analyze-url}}"
+          RUNPOD_AUTH_TOKEN: "{{resolve:ssm:/sunity/motion/runpod-auth-token}}"
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [s3:GetObject, s3:PutObject]
+              Resource: !Sub arn:aws:s3:::${VideoBucketName}/*
+        - Statement:
+            # Phase 32 (Plan 32-16, D-18 B안) — 재생 중 큐 오디오 Polly 사후 합성.
+            # 정본 template.yaml 의 동일 statement 와 lockstep (수렴 지점).
+            # polly:SynthesizeSpeech 는 resource-level 제한 미지원 → "*" 가 정답.
+            - Effect: Allow
+              Action: polly:SynthesizeSpeech
+              Resource: "*"
+        - Statement:
+            # SAM SSMParameterReadPolicy 가 leading slash 가 있는 ParameterName 을
+            # 잘못 변환해 `parameter//sunity/...` 이중 슬래시 ARN 으로 박는 버그가
+            # 있어 명시적 Statement 로 작성. ARN 은 `parameter${name}` 형식이라
+            # FirebaseSaParam(`/sunity/motion/firebase-sa`) 의 leading slash 가 그대로 ARN 의 `/` 와 합쳐진다.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FirebaseSaParam}
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AnalysisQueue.Arn
+            BatchSize: 1
+
+  # ── 로그 보관 30일 (비용 관리 — backend_CLAUDE.md) ──────────────────
+  UploadUrlLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-upload-url
+      RetentionInDays: 30
+  ReferenceApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-reference
+      RetentionInDays: 30
+  # 29 리뷰 WR-05 — playback-url 만 LogGroup 누락으로 로그 무기한 보존이었다
+  # (Lambda 자동 생성 로그 그룹 = 만료 없음, CFN 관리 밖). 나머지 4개 함수와
+  # 동일하게 30일 보존으로 정렬.
+  PlaybackUrlLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-playback-url
+      RetentionInDays: 30
+  ReferenceAutoRegisterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-reference-auto-register
+      RetentionInDays: 30
+  PipelineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/sunity-motion-${Stage}-pipeline
+      RetentionInDays: 30
+
+Outputs:
+  ApiBaseUrl:
+    Description: 앱이 호출할 API 베이스 URL (POST /upload-url, GET /reference)
+    Value: !Sub https://${MotionHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
+  VideoBucket:
+    Description: 영상 업로드 S3 버킷
+    Value: !Ref VideoBucketName
+  AnalysisQueueUrl:
+    Description: 분석 비동기 큐 URL
+    Value: !Ref AnalysisQueue

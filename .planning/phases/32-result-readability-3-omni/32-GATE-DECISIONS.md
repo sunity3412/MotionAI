@@ -119,3 +119,23 @@ belle이 Figma에서 과거 제작 결함 상세 시트 구성을 가져와 채�
 | ⑤ 참조 원형 | Figma 결함 시트 양식 + **확대쌍 사진 쌍 필수** | **32-10** |
 
 **T-32-08 준수:** 결정·일자·belle 원문 요지·참조 원형 적재 완료 — 후속 플랜(32-07/32-10/32-11)은 이 파일만 신뢰.
+
+---
+
+## 샘플 게이트 (D-18/D-21)
+
+- **상태:** belle 청취·검수 **대기** (32-08 executor 샘플 제출 완료 — 2026-07-21). 아래 "### 결정"은 belle 답변 후 기재.
+- **제출물 (`.planning/phases/32-result-readability-3-omni/samples/`):**
+  - 오디오 A안 참고 녹음 `tts_device_approx.m4a`(비대표·macOS say) + iPhone 단축어 실기기 청취 절차(README)
+  - 오디오 B안 `tts_polly.mp3`(Polly neural Seoyeon, 동일 문장)
+  - 일러스트 3안 `illust_variant1_pro.jpg`/`illust_variant2_pro.jpg`/`illust_variant3_flash.jpg` + `illust_gallery.html`
+  - `README.md`(재생성 커맨드·provenance·likeness 회피·native build 필요 명기)
+- **결정할 것:** ① 오디오 방식 = **A 기기 TTS(expo-speech)** vs **B 클라우드 TTS(Polly+expo-audio)**. ② 일러스트 = **도입** vs **실프레임+텍스트 폴백**(도입 시 1/2/3안 중 스타일).
+- **공통 전제(결정 재료):** 어느 오디오 방식이든 Expo 오디오 native 모듈 1개 추가 → **OTA 불가, 새 EAS build + TestFlight 재설치 1회**(32-12). A/B 모두 이번 phase(32-12) 내 완결.
+- **권장(executor):** 오디오 = **A(기기 TTS)** — 비용 0·계약 변경 0·구현 최소(음질만 belle 청취로 확인). 일러스트 = **도입(2안 pro 준실사)** — 3종 모두 "형태감" 바 충족·익명(likeness 안전)이라 폴백보다 이해 보조 우위, 단 belle 검수가 최종.
+
+### 결정 (belle 답변 후 기재)
+
+- 오디오: _(A / B)_ — (기재 예정)
+- 일러스트: _(도입[스타일] / 폴백)_ — (기재 예정)
+- **후속 조치:** **B 확정 시** 32-12 Task 2(백엔드 TTS 스테이지+SAM 표면, 파일 9개)를 별도 플랜 `32-16-PLAN.md`(wave 7, depends_on 32-08·32-11)으로 물리 분리 후 wave 7 진입(W-2). **A 확정 시** '분리 불요' 기재. (이 후속은 belle 답변을 relay 받은 뒤 수행 — 배경 executor는 대화형 확정 불가.)

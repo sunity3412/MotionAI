@@ -1619,6 +1619,14 @@ function AnalysisResultContent({
       ? analysisId
       : undefined;
 
+  // 32-12 (D-29 부분 실패 정직 고지) — 측정 커버리지 갭 존재 신호. 32-09 가 방출하는
+  // deductionBreakdown.coverageGaps(가려짐·화면 밖 등으로 못 잰 결함 유형). 존재 시
+  // 요약 카드 아래에 "잰 범위만 확실히 분석했다"는 정직 고지 + 재촬영 팁을 렌더한다.
+  // 못 잰 것은 coachQuestions(source 'unmeasured')로 자동 등재돼 표시되므로(32-09),
+  // 여기서는 커버리지 자체의 정직 고지만 담당한다(미션 구성은 방출이 이미 담당).
+  const hasCoverageGap =
+    (result.deductionBreakdown?.coverageGaps?.length ?? 0) > 0;
+
   // 요약 카드 3요소 (deriveSummaryContent — 32-07). mode3 헤드라인=발전 델타 invariant
   // 는 summaryPraise(백엔드 사람 말)가 담당(D-26). 수치는 카드가 소형 배지 1곳만.
   const summaryContent = useMemo(() => {
@@ -1869,6 +1877,33 @@ function AnalysisResultContent({
             onPressExpand={() => jumpToRecordKey(topFixKey)}
           />
         )}
+
+        {/* 32-12 (D-29 부분 실패 정직 고지) — 커버리지 갭이 있을 때만. 못 잰 부분을
+            정직하게 알리고(과장·감춤 금지) 다음 행동(촬영 가이드)을 1줄로 잇는다.
+            잰 범위 내 미션·질문은 32-09 방출이 담당 — 이 블록은 정직 고지 전담. */}
+        {hasCoverageGap ? (
+          <View style={styles.coverageCard}>
+            <Text style={styles.coverageTitle}>
+              이번엔 화면에 잘 잡힌 부분 위주로 분석했어요
+            </Text>
+            <Text style={styles.coverageBody}>
+              가려지거나 화면 밖으로 나간 부분은 이번 영상에서 정확히 재기 어려웠어요.
+              보이는 자세를 기준으로 확실히 잰 것만 짚었어요.
+            </Text>
+            <Pressable
+              onPress={() => router.push('/tutorial')}
+              accessibilityRole="button"
+              accessibilityLabel="촬영 가이드 보기"
+              hitSlop={8}
+              style={styles.coverageTipRow}
+            >
+              <Text style={styles.coverageTip}>
+                몸 전체가 화면에 들어오게 다시 촬영하면 더 많은 부분을 분석할 수 있어요.
+                촬영 가이드 보기 ›
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* ── 2. 위험 결함 (D-14 트리아지) — 요약 직후 승격, 있을 때만. 컴포넌트
             self-null (플래그 0 → 미렌더). ── */}
@@ -2984,6 +3019,25 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textPrimary,
     lineHeight: 18,
+  },
+  // 32-12 (D-29) — 부분 실패 정직 고지 카드. 경고(빨강) 아님 — 차분한 정보 톤
+  // (softBg + 좌측 정렬). D-05 하한 17 준수(bodyMdBold/bodySm). 오버클레임 금지.
+  coverageCard: {
+    backgroundColor: colors.softBg,
+    borderRadius: radius.card,
+    borderWidth: layout.cardBorderWidth,
+    borderColor: colors.border,
+    padding: spacing.cardPadding,
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  coverageTitle: { ...typography.bodyMdBold, color: colors.textPrimary },
+  coverageBody: { ...typography.bodySm, color: colors.textMid },
+  coverageTipRow: { alignSelf: 'stretch' },
+  coverageTip: {
+    ...typography.bodySm,
+    color: colors.brand,
+    fontWeight: '600',
   },
   tipCard: { alignItems: 'flex-start', gap: 8 },
   // Phase 11 (Plan 11-02, D-06 / D-07) — "강사에게 확인할 점" 섹션.

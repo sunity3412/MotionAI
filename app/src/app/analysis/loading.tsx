@@ -470,18 +470,23 @@ export default function AnalysisLoading() {
     //   와 배타 — 화질 승인 영상은 화질 안내가 먼저(D-07). 게이트/임계는 서버측이며
     //   불변(D-01), 여기선 안내 카피만 (백엔드 무접촉).
     const isPlainNotPole = isNotPole && !isLowQualityNotPole;
+    // 32-12 (D-30 전체 실패 카피 정비) — 친숙·응원 톤 + 다음 행동 1개(하단 "다시
+    // 분석하기" CTA + 분기별 확인 팁). 구조 재설계 금지 — 카피·톤만 정비한다
+    // (32-CONTEXT D-30). 실패를 사용자 탓으로 돌리지 않고 "금방 된다"는 회복 톤.
     const errorTitle = isNoHuman
-      ? '사람을 찾지 못했어요'
+      ? '아직 자세를 찾지 못했어요'
       : isLowQualityNotPole
-        ? '화질이 낮아 분석하지 못했을 수 있어요'
+        ? '화질 때문에 분석이 어려웠어요'
         : isNotPole
-          ? '기준 동작과 너무 달라요'
-          : '분석 중 문제가 발생했어요';
-    const errorBody = isLowQualityNotPole
-      ? '영상 화질이 낮아 자세를 인식하지 못했을 수 있어요. 원본 화질 영상으로 다시 시도하거나 앱에서 직접 촬영해 주세요.'
-      : isPlainNotPole
-        ? '촬영 구도나 거리가 기준 영상과 많이 다르면 이렇게 나올 수 있어요. 몸 전체가 화면에 들어오는 거리에서 정면 기준으로 다시 촬영해 보세요.'
-        : ERROR_MESSAGE[code];
+          ? '기준 동작과 조금 달랐어요'
+          : '잠깐 문제가 있었어요';
+    const errorBody = isNoHuman
+      ? '영상에서 아직 사람을 찾지 못했어요. 전신이 잘 보이게 다시 촬영하면 금방 분석할 수 있어요.'
+      : isLowQualityNotPole
+        ? '화질이 낮으면 자세를 정확히 읽기 어려워요. 원본 화질로 다시 올리거나 앱에서 직접 촬영하면 훨씬 잘 분석돼요.'
+        : isPlainNotPole
+          ? '촬영 구도나 거리가 기준 영상과 많이 다르면 이렇게 나올 수 있어요. 몸 전체가 화면에 들어오는 거리에서 정면으로 다시 찍어보면 좋아요.'
+          : '분석 중 잠깐 문제가 있었어요. 잠시 후 다시 시도하면 대부분 잘 돼요.';
     return (
       <LinearGradient colors={[NAVY_TOP, NAVY_BOT]} style={styles.container}>
         <StatusBar style="light" />
@@ -545,10 +550,15 @@ export default function AnalysisLoading() {
             </View>
           )}
         </View>
+        {/* 32-12 (D-30) — 재업로드 동선. 두 진입 플로우 모두 push('/analysis/loading')
+            이라 router.back()은 mode1(reference 경유)에서 분석탭이 아닌 기준선택 화면으로
+            떨어진다. 실패 후 다음 행동은 어느 모드든 분석탭 재진입이 확실하므로 replace 로
+            실패 스택을 정리하며 분석탭으로 보낸다(result.tsx 재분석 upsell 과 동일 패턴). */}
         <Pressable
           style={styles.cta}
-          onPress={() => router.back()}
+          onPress={() => router.replace('/(tabs)/analyze')}
           accessibilityRole="button"
+          accessibilityLabel="다시 분석하기"
         >
           <Text style={styles.ctaText}>다시 분석하기</Text>
         </Pressable>

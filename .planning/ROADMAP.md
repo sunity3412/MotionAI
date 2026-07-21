@@ -1085,7 +1085,7 @@ Plans:
 **Goal:** 수강생이 결과 화면에서 ① 자기 말로 문제를 설명하고 ② 다음 행동 하나를 알고 ③ 강사에게 물을 것을 갖게 된다 — 요약 카드 1장+번역 레이어(3단 문장·문구집)+미션 루프+코치 출구로 재구성하고, 즉시수리 3건(초맞춤·겹침·크롭)을 wave-1 선행, 엔진 레버 3종(omni 스팟체크·RTMW 12관절·PR 인버전)으로 분석을 보강한다. 런타임 신규 생성 AI 0.
 **Requirements**: D-01~D-30 (32-CONTEXT.md — 공식 REQ 매핑 없음, CONTEXT 결정이 요구사항 원본. FEED-01은 D-09 우선 해석)
 **Depends on:** Phase 31
-**Plans:** 6/15 plans executed
+**Plans:** 9/16 plans executed
 Plans:
 **Wave 1**
 
@@ -1104,9 +1104,9 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 32-07-PLAN.md — 타이포 토큰 + SummaryCard + summarySource + 코치마크 (w4)
-- [ ] 32-08-PLAN.md — 재생 중 자막 큐 + TTS·일러스트 샘플 게이트 → D-18/D-21 확정 (w4, checkpoint)
-- [ ] 32-09-PLAN.md — 파이프라인 방출 배선: 3단 문구·미션·코치 질문 + LLM 가변부 한정 (w4)
+- [x] 32-07-PLAN.md — 타이포 토큰 + SummaryCard + summarySource + 코치마크 (w4)
+- [x] 32-08-PLAN.md — 재생 중 자막 큐 + TTS·일러스트 샘플 게이트 → D-18/D-21 확정 (w4, checkpoint)
+- [x] 32-09-PLAN.md — 파이프라인 방출 배선: 3단 문구·미션·코치 질문 + LLM 가변부 한정 (w4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 

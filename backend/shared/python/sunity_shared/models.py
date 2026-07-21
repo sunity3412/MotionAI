@@ -287,6 +287,33 @@ COACH_AUDIO_STATUSES = (COACH_AUDIO_STATUS_DONE, COACH_AUDIO_STATUS_FAILED)
 # 오디오는 visual job 파이프라인(visualJobs/*)이 아니라 분석 사후 스테이지 산출물.
 PLAYBACK_ASSET_COACH_AUDIO = "coachAudio"
 
+# ── Phase 32 (Plan 32-13): 스팟체크 (D-22/D-23 — 문장↔영상 일치 자가검증) ──
+# result.spotCheck — 분석 **사후** 스테이지(pipeline spot_check)가 감점 카드
+# 문장(statusLine/cueLine)과 summaryPraise.headline 을 영상 프레임과 대조한
+# 판정 결과. update_analysis_spot_check 로만 부분 갱신 (complete_analysis
+# 무접촉 — fault_zoom/coach_audio 사후 분리 선례). 채점·verdict·tally 무접촉 —
+# 판정 권한 = 카드 표면 숨김뿐 (T-32-30).
+#   status: 'done' = 검수 수행 (hiddenRecordIds 유효 — 빈 배열 = 숨길 것 없음) /
+#           'skipped' = 키/입력 부재로 미수행 / 'failed' = 호출·파싱 실패.
+#   표시 정책 (contract.md §12.8 명문): 부재(legacy)/미도착(pending)/skipped/
+#   failed = 전 카드 표시 (fail-open — 숨김 권한은 '확정 mismatch' 에만).
+#   hiddenRecordIds = §12.3 recordId 목록 — 앱이 감점 카드 표면에서만 숨김
+#   (점수 계산 내역 투명 tally 는 미필터). verdicts = 감사 저장(사용자 비노출,
+#   reason ≤120자). praiseMismatch = summaryPraise 교차검증 불일치 → 앱이
+#   praise 를 로컬 폴백 체인으로 강등 (32-07 summarySource 경로).
+# 3-way lockstep: app/src/types/analysis.ts SpotCheck + docs/contract.md §12.8.
+SPOT_CHECK_KEYS = (
+    "status", "hiddenRecordIds", "verdicts", "praiseMismatch", "model",
+    "promptVersion",
+)
+SPOT_CHECK_STATUSES = ("done", "skipped", "failed")
+SPOT_CHECK_VERDICTS = ("match", "mismatch", "uncertain")
+SPOT_CHECK_VERDICT_KEYS = ("recordId", "verdict", "reason")
+# 판정 상한 — analysis/spot_check.py SPOTCHECK_MAX_RECORDS 와 lockstep
+# (verdicts/hiddenRecordIds 항목 수 검증 기준).
+SPOT_CHECK_MAX_VERDICTS = 8
+SPOT_CHECK_REASON_MAX_LEN = 120
+
 # ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───
 # Mode3 미보유/저신뢰 동작의 점수카드 전체 억제 신호. scoringBasis 단독이 아닌 명시
 # 플래그로 backend↔frontend drift 차단 (iter2 HIGH-3).

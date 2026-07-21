@@ -602,6 +602,40 @@ export interface CoachAudio {
   items: CoachAudioItem[];
 }
 
+// Phase 32 (Plan 32-13 — D-22/D-23) — 문장↔영상 일치 스팟체크 판정 결과.
+// 백엔드가 분석 **사후** 스테이지에서 감점 카드 문장(§12.3 statusLine/cueLine)과
+// summaryPraise.headline(앱이 렌더하는 바로 그 문장 — 단일 원천, 리뷰 blocker 5)
+// 을 영상 프레임과 대조해 update_analysis_spot_check 부분 갱신으로 도착시킨다
+// (faultZoomStatus/coachAudio 사후 분리 선례). 채점·tally 무접촉 — 판정 권한 =
+// 카드 표면 숨김뿐 (T-32-30).
+//
+// 표시 정책 (contract.md §12.8 명문 — 앱 소비 규칙):
+//   · 부재(legacy doc)/미도착(pending)/'skipped'/'failed' = 전 카드 표시
+//     (fail-open — 검수는 비차단 부가 레이어. 사전 숨김 없음, 늦은 숨김은
+//     onSnapshot 자연 반영 = 짧은 노출 후 숨김 수용 트레이드오프).
+//   · 'done' 일 때만 hiddenRecordIds 적용. 숨김은 감점 카드 **표면만** —
+//     점수 계산 내역(ScoreBreakdownSection 투명 tally)은 절대 필터하지 않는다.
+//   · recordId 없는 legacy record = 조인 불가 = 표시 유지.
+//   · praiseMismatch=true = 요약 카드 praise 를 로컬 폴백 체인으로 강등
+//     (summarySource.spotCheckPraiseMismatch — 근거 미검증 칭찬 노출 방지).
+// verdicts 는 감사 저장 (사용자 비노출 — 렌더 금지, reason ≤120자).
+// Python lockstep: models.py SPOT_CHECK_KEYS 블록 +
+// firestore_admin.update_analysis_spot_check + docs/contract.md §12.8.
+export interface SpotCheckVerdict {
+  recordId: string;
+  verdict: 'match' | 'mismatch' | 'uncertain';
+  reason?: string;
+}
+
+export interface SpotCheck {
+  status: 'done' | 'skipped' | 'failed';
+  hiddenRecordIds: string[]; // 명백 불일치(≤8) — 'done' 일 때만 적용
+  verdicts?: SpotCheckVerdict[]; // 감사용 scalar dict 배열 (safetyFlags 선례)
+  praiseMismatch?: boolean;
+  model?: string;
+  promptVersion?: string;
+}
+
 // Phase 24 (SCORE-10~16, ND-01/ND-07) — 투명 감점-합산 채점.
 // 점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점). severity→고정밴드
 // (Phase 20 visionVeto 의 옛 cap 필드) 제거. 보고서가 감점 내역("−X −Y −Z = 점수")을 노출하는 게 핵심
@@ -756,6 +790,11 @@ export type AnalysisResult = ScoreSuppression & {
   // Phase 32 (Plan 32-16 — D-18 B안) — 재생 중 큐 오디오. complete 이후 사후 부분
   // 업데이트로 도착 (fault_zoom 선례). 부재(legacy doc)=오디오 표면 미렌더.
   coachAudio?: CoachAudio;
+  // Phase 32 (Plan 32-13 — D-22/D-23) — 문장↔영상 스팟체크. complete 이후 사후
+  // 부분 업데이트로 도착. 부재(legacy)/skipped/failed = 전 카드 표시 (fail-open,
+  // contract.md §12.8 표시 정책). 'done' 일 때만 hiddenRecordIds 로 감점 카드
+  // 표면 숨김 (투명 tally 미필터 — 채점 불변).
+  spotCheck?: SpotCheck;
   // Phase 20 iter5 MEDIUM-2 — A2 reconcile audit (reconcile 관측). OPTIONAL.
   scoreSuppressionAudit?: ScoreSuppressionAudit;
   // IPSF 실행 차원 점수 (3차원: angle/line/stability).

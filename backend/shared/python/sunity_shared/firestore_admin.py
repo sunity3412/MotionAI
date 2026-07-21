@@ -1490,6 +1490,136 @@ def update_analysis_coach_audio(
     )
 
 
+def _validate_spot_check(payload, *, path: str = "spotCheck") -> None:  # noqa: ANN001
+    """spotCheck scoped validator (Phase 32 Plan 32-13, D-23 — contract.md §12.8).
+
+    형상: {status, hiddenRecordIds, verdicts, praiseMismatch, model, promptVersion}.
+    generic `_validate_dict_only_scalars` 본체 변경 영구 0 — 각 verdict item 을 그
+    validator 로 라우팅해 nested list/dict 를 거부하고(coachAudio 선례), 본
+    validator 는 키 화이트리스트 + enum + 상한 + 숨김-정합 불변식을 추가 강제한다:
+      · 최상위 키 = models.SPOT_CHECK_KEYS 정확히 (누락/여분 거부)
+      · status ∈ models.SPOT_CHECK_STATUSES
+      · hiddenRecordIds = list[str 비어있지 않음], ≤ SPOT_CHECK_MAX_VERDICTS
+      · verdicts = list ≤ SPOT_CHECK_MAX_VERDICTS, 각 item 키 =
+        models.SPOT_CHECK_VERDICT_KEYS 정확히, verdict ∈ SPOT_CHECK_VERDICTS,
+        reason str ≤ SPOT_CHECK_REASON_MAX_LEN
+      · praiseMismatch bool / model·promptVersion 비어있지 않은 str
+      · **숨김-정합 불변식 (T-32-30):** hiddenRecordIds 의 모든 id 는 verdicts 에
+        verdict='mismatch' 로 존재해야 한다 — 숨김 권한은 명백 불일치 판정에만.
+    실패 시 TypeError/ValueError raise (caller 가 graceful 처리).
+    """
+    if not isinstance(payload, dict):
+        raise TypeError(
+            f"_validate_spot_check: dict 입력만 허용. path={path or '<root>'}, "
+            f"got={type(payload).__name__}"
+        )
+    if set(payload.keys()) != set(models.SPOT_CHECK_KEYS):
+        raise ValueError(
+            f"{path}: 키는 {list(models.SPOT_CHECK_KEYS)} 정확히여야 함. "
+            f"got={sorted(payload.keys())}"
+        )
+    status = payload["status"]
+    if status not in models.SPOT_CHECK_STATUSES:
+        raise ValueError(
+            f"{path}.status: {list(models.SPOT_CHECK_STATUSES)} 중 하나여야 함. "
+            f"got={status!r}"
+        )
+    hidden = payload["hiddenRecordIds"]
+    if not isinstance(hidden, list):
+        raise TypeError(
+            f"{path}.hiddenRecordIds: list 만 허용. got={type(hidden).__name__}"
+        )
+    if len(hidden) > models.SPOT_CHECK_MAX_VERDICTS:
+        raise ValueError(
+            f"{path}.hiddenRecordIds: {models.SPOT_CHECK_MAX_VERDICTS} 건 초과"
+        )
+    for i, rid in enumerate(hidden):
+        if not isinstance(rid, str) or not rid:
+            raise ValueError(
+                f"{path}.hiddenRecordIds[{i}]: 비어있지 않은 str 이어야 함"
+            )
+    verdicts = payload["verdicts"]
+    if not isinstance(verdicts, list):
+        raise TypeError(
+            f"{path}.verdicts: list 만 허용. got={type(verdicts).__name__}"
+        )
+    if len(verdicts) > models.SPOT_CHECK_MAX_VERDICTS:
+        raise ValueError(
+            f"{path}.verdicts: {models.SPOT_CHECK_MAX_VERDICTS} 건 초과"
+        )
+    mismatch_ids: set[str] = set()
+    for i, item in enumerate(verdicts):
+        item_path = f"{path}.verdicts[{i}]"
+        # nested list/dict 거부 — generic validator 라우팅 (본체 무수정).
+        _validate_dict_only_scalars(item, path=item_path)
+        if set(item.keys()) != set(models.SPOT_CHECK_VERDICT_KEYS):
+            raise ValueError(
+                f"{item_path}: 키는 {list(models.SPOT_CHECK_VERDICT_KEYS)} "
+                f"정확히여야 함. got={sorted(item.keys())}"
+            )
+        rid = item["recordId"]
+        verdict = item["verdict"]
+        reason = item["reason"]
+        if not isinstance(rid, str) or not rid:
+            raise ValueError(f"{item_path}.recordId: 비어있지 않은 str 이어야 함")
+        if verdict not in models.SPOT_CHECK_VERDICTS:
+            raise ValueError(
+                f"{item_path}.verdict: {list(models.SPOT_CHECK_VERDICTS)} 중 "
+                f"하나여야 함. got={verdict!r}"
+            )
+        if not isinstance(reason, str):
+            raise ValueError(f"{item_path}.reason: str 이어야 함")
+        if len(reason) > models.SPOT_CHECK_REASON_MAX_LEN:
+            raise ValueError(
+                f"{item_path}.reason: {models.SPOT_CHECK_REASON_MAX_LEN}자 초과"
+            )
+        if verdict == "mismatch":
+            mismatch_ids.add(rid)
+    if not isinstance(payload["praiseMismatch"], bool):
+        raise TypeError(f"{path}.praiseMismatch: bool 만 허용")
+    for key in ("model", "promptVersion"):
+        value = payload[key]
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"{path}.{key}: 비어있지 않은 str 이어야 함")
+    # 숨김-정합 불변식 — 숨김은 mismatch verdict 로 뒷받침돼야 함 (T-32-30).
+    orphan = [rid for rid in hidden if rid not in mismatch_ids]
+    if orphan:
+        raise ValueError(
+            f"{path}.hiddenRecordIds: mismatch verdict 없는 id {orphan} — "
+            "숨김 권한은 명백 불일치 판정에만"
+        )
+
+
+def update_analysis_spot_check(
+    uid: str,
+    analysis_id: str,
+    spot_check: dict,
+) -> None:
+    """spot_check 사후 부분 업데이트 (Phase 32 Plan 32-13, D-23 — fault_zoom 뼈대 복제).
+
+    complete_analysis(status='done') **이후** 같은 분석 태스크에서 호출한다. 점수/
+    verdict/감점 내역은 이미 확정됐고(D-03 경계), 스팟체크 판정은 표시-레이어
+    메타라 사후 도착이 허용된다 (update_analysis_fault_zoom 과 동일 규율).
+    `result.spotCheck` **단일 field-path** 만 부분 갱신 — 그 외 어떤 result.*
+    필드도 사후 변경 금지 (T-27-18 / D-03 / T-32-33).
+
+    검증: `_validate_spot_check` (키 화이트리스트 + status/verdict enum +
+    hiddenRecordIds str 검증 + verdicts scalar dict ≤8 + reason ≤120자 +
+    숨김-정합 불변식). 판정은 매번 통째 교체이므로 fault_zoom 선례대로 명시적
+    field-path `.update()` 채택 (merge 의 배열 병합 모호성 회피).
+
+    Raises:
+      ValueError/TypeError: 형상 위반 (_validate_spot_check).
+    """
+    _validate_spot_check(spot_check)
+    _doc(models.analysis_doc_path(uid, analysis_id)).update(
+        {
+            "result.spotCheck": dict(spot_check),
+            "updatedAt": int(time.time() * 1000),
+        }
+    )
+
+
 # ─────────────────── Plan 06-03 (2026-06-08, R2 fix round-2) ─────────────
 #
 # Phase 6 (2026-06-08, Plan 06-03) — D-06-B2 + R2 fix (round-2). mode1 silently

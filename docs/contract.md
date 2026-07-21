@@ -1831,6 +1831,27 @@ records 의 `cueLine`(§12.3 — 승인 문구집 32-05 골격, D-09 무수치, 
 - 검증: `_validate_coach_audio` — 키 화이트리스트(`COACH_AUDIO_KEYS`/`COACH_AUDIO_ITEM_KEYS` 정확히) + `status` enum + 각 item scalar-only dict(`_validate_dict_only_scalars` 라우팅) + `recordId` 비어있지 않은 str + `key` `results/` prefix.
 - 3-way lockstep: `app/src/types/analysis.ts` `CoachAudio`/`CoachAudioItem` ↔ `models.py` `COACH_AUDIO_KEYS` 블록 ↔ 본 §12.7.
 
+### §12.8 spotCheck (`result.spotCheck`) — 문장↔영상 일치 스팟체크 (Phase 32 Plan 32-13, D-22/D-23)
+
+감점 카드 문장(§12.3 `statusLine`/`cueLine` — 승인 문구집 골격)과 `summaryPraise.headline`(§12.4 — **백엔드 방출 단일 원천, 앱이 렌더하는 바로 그 문장**)을 백엔드가 분석 **사후** 스테이지(`spot_check`)에서 분석에 이미 쓰인 9fps 프레임 서브셋과 대조 판정하고, `firestore_admin.update_analysis_spot_check` 가 `result.spotCheck` **단일 field-path** 를 부분 갱신한다 (`faultZoomStatus`/`coachAudio` 사후 분리 선례 — complete(status='done') 이후 도착, 채점·verdict·감점 tally 무접촉). 명백 불일치(`mismatch`) 판정 record 만 `hiddenRecordIds` 로 방출 — 앱은 해당 감점 카드를 **표면에서만** 숨긴다 ("틀린 말을 내보내느니 안 보여줌", D-23). **점수 계산 내역(투명 감점 tally, §10)은 절대 필터하지 않는다** — 채점 불변 ([[scoring-must-be-transparent-deduction-tally]]).
+
+> **표시 정책 (명문):**
+> ① **spotCheck 부재(legacy doc)·미도착(pending)** = **전 카드 표시** — 현행 프로덕션과 동일. D-23 의 숨김 규칙은 '확정 불일치'에만 적용되고, 검수는 비차단 부가 레이어이므로 사전 숨김은 하지 않는다. `onSnapshot` 실시간 구독이라 늦은 숨김은 자연 반영 — **짧은 노출 후 숨김은 수용하는 트레이드오프**임을 명기한다.
+> ② **`status='skipped'`(키/입력 부재)·`status='failed'`(호출/파싱 실패)** = **fail-open (전 카드 표시) + 백엔드 로그** — 근거: 검수 레이어 장애가 제품 전체를 비우는 것은 '비차단 부가 기능' 원칙 위반이며, **숨김 권한은 '명백 불일치 판정'에만** 있다 (uncertain = 표시 — 과숨김 방지, T-32-30).
+> ③ `status='done'` 일 때만 `hiddenRecordIds` 를 적용한다. recordId 없는 legacy record 는 조인 불가 = 표시 유지 (fail-open 정합).
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `status` | 'done'\|'skipped'\|'failed' | `done` = 검수 수행 (빈 `hiddenRecordIds` = 숨길 것 없음) / `skipped` = 키·프레임 부재로 미수행 / `failed` = 호출·파싱 실패 (둘 다 fail-open) |
+| `hiddenRecordIds` | string[] | 명백 불일치 판정 record 의 §12.3 recordId (≤8). 카드 **표면** 숨김 전용 — tally·드릴다운 내역 미필터 |
+| `verdicts` | `{recordId, verdict, reason}[]` | 감사 저장 (**사용자 비노출** — reason ≤120자, scalar dict 배열 ≤8). `verdict` ∈ 'match'\|'mismatch'\|'uncertain'. 판정 상한 8 초과 record 는 미포함(= uncertain 취급 = 표시) |
+| `praiseMismatch` | boolean | `summaryPraise.headline` 교차검증 불일치 — true 면 앱이 praise 를 로컬 폴백 체인의 다음 소스로 강등 (32-07 `summarySource` 경로 — 근거 미검증 칭찬 노출 방지) |
+| `model` | string | 판정 모델 id (env `GEMINI_SPOTCHECK_MODEL` 주입 — 감사) |
+| `promptVersion` | string | 스팟체크 프롬프트 버전 (변경 시 bump — 판정 분포의 버전 경계 감사) |
+
+- 검증: `_validate_spot_check` — 키 화이트리스트(`SPOT_CHECK_KEYS` 정확히) + `status`/`verdict` enum + `hiddenRecordIds` str 검증 + verdicts scalar-only dict(≤8, reason ≤120자) + **숨김-정합 불변식**(hiddenRecordIds 의 모든 id 는 verdicts 에 verdict='mismatch' 로 존재 — 숨김 권한은 명백 불일치 판정에만, T-32-30).
+- 3-way lockstep: `app/src/types/analysis.ts` `SpotCheck`/`SpotCheckVerdict` ↔ `models.py` `SPOT_CHECK_KEYS` 블록 ↔ 본 §12.8.
+
 ---
 
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
@@ -1847,3 +1868,4 @@ records 의 `cueLine`(§12.3 — 승인 문구집 32-05 골격, D-09 무수치, 
 *Plan 31-04 §2 + §4 추가: 2026-07-20 — Phase 31 visual 교정 시각물 3-way lockstep (TS optional 필드 + Python VISUAL_STATUSES + 본 절). correctedPose* 4 + rotation* 3 필드(URL 비저장 — 표시 URL 은 playback-url asset 재서명, 리뷰 H-02 / pending 타임아웃은 전용 *UpdatedAtMs, 리뷰 H-06) + FaultZoomComparison 뷰어 프레임 소스 3필드(D-10) + POST /visual/rotation 신설(429 daily_limit = 사용자 3건·전역 30건/일, KST 자정 리셋 명시 — 리뷰 M-06 / 503 feature_disabled 조용한 폴백 — D-08) + POST /playback-url asset 확장(server-selected key, 1시간 presign, 미지정 시 기존 동작 보존).*
 *Plan 32-06 §12 추가: 2026-07-21 — 미션 루프 + 번역 레이어 방출 3-way lockstep (TS Mission/MissionOutcome/SummaryPraise/CoachQuestion + DeductionRecord 확장 ↔ models.py MISSION_KEYS 블록 ↔ 본 §12). faultKey(motionId::ruleId::criterion — 리뷰 blocker 1)·baseline 저장(D-26)·streak doc 체인+motionId 가드·에스컬레이션(D-27)·D-14 정합(안전=streak 1·escalation none 강제)·recordId 안정 조인 키+summaryPraise 단일 원천(리뷰 blocker 5)·3단 문구 슬롯(D-08)·tolerance(D-10)·coachQuestions(D-28/D-29, 'user'=클라이언트 로컬 전용). 방출은 32-09 부터 — legacy doc 부재 하위호환.*
 *Plan 32-16 §12.7 + playback-url coachAudio 확장 추가: 2026-07-22 — 재생 중 큐 오디오 (D-18 B안, 32-GATE-DECISIONS §샘플 게이트 확정) 3-way lockstep (TS CoachAudio/CoachAudioItem ↔ models.py COACH_AUDIO_KEYS 블록 ↔ §12.7). Polly(neural) 사후 합성(fault_zoom 사후 분리 선례 — 채점 무접촉)·cueId(=recordId) 조인·canonical key 단일 출처(s3keys.build_coach_audio_key)·asset 'coachAudio' 재서명(recordId 형식 가드 + 서버 구성 canonical + exact 비교, H-02)·런타임 생성 예외 각주(사전 생성 — belle D-18 명시 승인). 방출은 32-16 배포부터 — legacy doc 부재 하위호환.*
+*Plan 32-13 §12.8 추가: 2026-07-22 — 문장↔영상 스팟체크 (D-22/D-23) 3-way lockstep (TS SpotCheck/SpotCheckVerdict ↔ models.py SPOT_CHECK_KEYS 블록 ↔ §12.8). 사후 스테이지 판정(동기 경로 신규 외부 호출 0 — 속도 예산 구조 보호)·recordId 기반 카드 표면 숨김(tally 미필터 — 채점 불변)·praise 교차검증 동일 호출(단일 원천 = summaryPraise.headline, 리뷰 blocker 5)·표시 정책 명문(부재/pending/skipped/failed = 전 카드 표시 fail-open — 숨김 권한은 명백 mismatch 에만, uncertain = 표시)·숨김-정합 불변식. 방출은 32-13 배포부터 — legacy doc 부재 하위호환.*

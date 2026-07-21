@@ -3306,6 +3306,193 @@ def _run_deferred_coach_audio(
             )
 
 
+# ═══════ Phase 32 (Plan 32-13, D-22/D-23) — 감점 카드 문장↔영상 스팟체크 ═══════
+#
+# 분석이 방출한 감점 카드 문장(statusLine/cueLine)과 summaryPraise.headline(백엔드
+# 방출 단일 원천 — 앱이 렌더하는 바로 그 문장, 리뷰 blocker 5)을 분석 **사후**
+# 스테이지에서 프레임과 대조하고, 명백 불일치(mismatch) record 만 hiddenRecordIds
+# 로 부분 갱신한다 — 앱이 해당 카드를 표면에서 숨긴다("틀린 말을 내보내느니 안
+# 보여줌", D-23). 채점·verdict·tally 무접촉 (판정 권한 = 숨김만, T-32-30).
+# **동기 채점 경로 호출 금지** — 사후 전용 (phase 27 1분대 속도 예산 구조 보호,
+# 동기 경로 신규 외부 호출 0). 실패 전부 graceful (SP-3 — 완료 분석 무훼손).
+
+# 프레임 서브셋 인코딩 파라미터 — 분석에 이미 쓰인 9fps/640px 프레임을 그대로
+# JPEG 재인코딩만 한다 (재추출/재디코딩 0). 스모크 실측 60KB/장 × ≤8장 ≈ ≤0.5MB.
+_SPOTCHECK_JPEG_QUALITY = 85
+
+
+def _build_spot_check_video_ref(
+    judged_records: list,
+    angles,
+    profile,
+    frames,
+) -> list[dict]:
+    """스팟체크 프레임 서브셋 — hold window 균등 대표 프레임 (record 당 최대 2).
+
+    window 근거: 감점 record 의 절대-기준 측정(extension/split/line)은 전부
+    dimensions._select_window hold window 에서 이뤄진다(_hold_window_median_dict
+    와 동일 소스 공유 — 별도 window 계산 금지, drift 방지). record 별 개별 시간
+    창은 계약에 존재하지 않으므로 "record 당 최대 2" 는 프레임 예산 산술로
+    구현한다: 총 프레임 = clamp(2×판정 record 수, SPOTCHECK_MIN_FRAMES..MAX).
+    판정 record 0건(praise 만 검수)이어도 최소 예산으로 프레임을 공급한다.
+
+    실패는 빈 리스트 반환 (호출측 run_spot_check 가 'skipped' no-op — SP-3).
+    """
+    from sunity_shared.analysis import spot_check as spot_check_mod
+
+    try:
+        if frames is None:
+            return []
+        arr = np.asarray(frames)
+        if arr.ndim != 4 or arr.shape[0] < 1:
+            return []
+        total = int(arr.shape[0])
+
+        # hold window — 측정과 동일 소스 (dimensions._select_window 공유).
+        try:
+            _, (ws, we) = dimensions._select_window(np.asarray(angles, dtype=float), profile)
+            ws = max(0, min(int(ws), total - 1))
+            we = max(ws + 1, min(int(we), total))
+        except Exception:  # noqa: BLE001 - window 실패 = 전 구간 폴백 (graceful)
+            ws, we = 0, total
+
+        budget = max(
+            spot_check_mod.SPOTCHECK_MIN_FRAMES,
+            min(
+                spot_check_mod.SPOTCHECK_MAX_FRAMES,
+                spot_check_mod.SPOTCHECK_FRAMES_PER_RECORD
+                * max(1, len(judged_records)),
+            ),
+        )
+        span = we - ws
+        n = min(budget, span)
+        if n < 1:
+            return []
+        # 균등 간격 인덱스 (중복 제거, 결정적).
+        if n == 1:
+            indices = [ws + span // 2]
+        else:
+            step = (span - 1) / (n - 1)
+            indices = sorted({ws + int(round(i * step)) for i in range(n)})
+
+        from io import BytesIO
+
+        from PIL import Image  # lazy — 어댑터 초기화(_ensure_adapters) 후 가용
+
+        # fps 단일 출처 (_pipeline_frame_fps — I1, 리터럴 9.0 금지). 어댑터 미초기화
+        # 환경(로컬 단위테스트 — frame_extractor 의존성 부재)에서는 초 라벨을
+        # 포기하고 프레임 인덱스 라벨로 강등 (라벨은 프롬프트 표기 전용 — graceful).
+        try:
+            fps: float | None = _pipeline_frame_fps()
+        except Exception:  # noqa: BLE001 - fps 소스 부재 = 인덱스 라벨 폴백
+            fps = None
+        video_ref: list[dict] = []
+        for idx in indices:
+            buf = BytesIO()
+            Image.fromarray(arr[idx]).convert("RGB").save(
+                buf, format="JPEG", quality=_SPOTCHECK_JPEG_QUALITY
+            )
+            label = (
+                f"프레임 t≈{idx / fps:.1f}s:" if fps else f"프레임 #{idx}:"
+            )
+            video_ref.append(
+                {
+                    "label": label,
+                    "imageBytes": buf.getvalue(),
+                    "mime": "image/jpeg",
+                }
+            )
+        return video_ref
+    except Exception:  # noqa: BLE001 - 프레임 준비 실패 = 빈 입력 (skipped no-op)
+        log.exception("spot_check 프레임 서브셋 준비 실패 — skipped 폴백")
+        return []
+
+
+def _run_deferred_spot_check(
+    *,
+    result: dict,
+    angles,
+    profile,
+    frames,
+    uid: str,
+    analysis_id: str,
+) -> None:
+    """complete_analysis 이후 스팟체크 → update_analysis_spot_check 부분 갱신.
+
+    D-23 — 분석은 이미 complete(status='done')라 어떤 경로도 재raise 하지 않는다
+    (_run_deferred_fault_zoom/_run_deferred_coach_audio 뼈대 복제):
+
+      · run_spot_check 반환(항상 dict — done/skipped/failed) → 그대로 저장.
+        'done' + 빈 hiddenRecordIds = 검수 통과. 'skipped'/'failed' = fail-open
+        (전 카드 표시 — contract.md §12.8 표시 정책).
+      · mismatch 발견 시 구조 로그 적재 (D-23 "로그 적재" — analysis_id/recordId/
+        criterion/reason. 문장 본문·프레임 바이트 미로그).
+      · 스테이지 예외 → failed 마킹 시도, 그마저 실패 → log.exception 만
+        (spotCheck 부재 = legacy 표시 정책과 동일 = 전 카드 표시).
+
+    **동기 채점 경로 호출 금지** — 사후 전용 (속도 예산·timingsMs 회귀 0).
+    """
+    from sunity_shared.analysis import spot_check as spot_check_mod
+
+    try:
+        breakdown = result.get("deductionBreakdown")
+        records = breakdown.get("records") if isinstance(breakdown, dict) else None
+        if not isinstance(records, list):
+            records = []
+        praise = result.get("summaryPraise")
+        praise_headline = (
+            praise.get("headline") if isinstance(praise, dict) else None
+        )
+
+        judged = spot_check_mod.select_judged_records(records)
+        video_ref = _build_spot_check_video_ref(judged, angles, profile, frames)
+        payload = spot_check_mod.run_spot_check(
+            video_ref, records, praise_headline
+        )
+
+        # D-23 구조 로그 적재 — 불일치 판정 감사 추적 (사용자 비노출).
+        for verdict in payload.get("verdicts") or []:
+            if verdict.get("verdict") == "mismatch":
+                rid = verdict.get("recordId", "")
+                criterion = rid.split(":", 1)[1] if ":" in rid else ""
+                log.warning(
+                    "spot_check mismatch analysis_id=%s record_id=%s "
+                    "criterion=%s reason=%s",
+                    analysis_id, rid, criterion, verdict.get("reason", ""),
+                )
+        if payload.get("praiseMismatch"):
+            log.warning(
+                "spot_check praise mismatch analysis_id=%s (summaryPraise 강등 신호)",
+                analysis_id,
+            )
+
+        firestore_admin.update_analysis_spot_check(uid, analysis_id, payload)
+    except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석 비차단 (graceful)
+        log.warning(
+            "spot_check 사후 스테이지 실패 — failed 마킹 시도 (분석은 이미 complete) "
+            "uid=%s analysis_id=%s", uid, analysis_id,
+        )
+        try:
+            firestore_admin.update_analysis_spot_check(
+                uid,
+                analysis_id,
+                {
+                    "status": "failed",
+                    "hiddenRecordIds": [],
+                    "verdicts": [],
+                    "praiseMismatch": False,
+                    "model": spot_check_mod.DEFAULT_SPOTCHECK_MODEL,
+                    "promptVersion": spot_check_mod.SPOTCHECK_PROMPT_VERSION,
+                },
+            )
+        except Exception:  # noqa: BLE001 - failed write 실패 = spotCheck 부재 유지
+            log.exception(
+                "spot_check failed 마킹 write 실패 — spotCheck 부재 유지 "
+                "(부재 = 전 카드 표시, fail-open) uid=%s analysis_id=%s",
+                uid, analysis_id,
+            )
+
+
 # ═══════════ Phase 31 (D-05) — correctedPose 자동 생성 enqueue ═══════════
 #
 # **이 훅은 enqueue 만 한다.** 생성(DashScope)·판정(Gemini)·pose gate 는 전부
@@ -5876,6 +6063,23 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # Phase 27 Task 3 — zoom 렌더 완료 후 프레임 캐시 명시 해제(메모리 반환).
             # (inputs.frames 참조도 함수 종료 시 GC — cached 로컬만 즉시 끊는다.)
             cached_user_frames = None
+
+        # ── Phase 32 (Plan 32-13, D-22/D-23) — 문장↔영상 스팟체크 사후 스테이지 ──
+        # firestore_complete **이후** (사후 표현물 검수 — fault_zoom/coach_audio
+        # 사후 분리 선례, 셋 중 마지막). 동기 채점 경로에 호출 금지 — 구조로 속도
+        # 예산 보호 (phase 27 1분대 회귀 0). timings_ms 는 이미 저장됨 → 사후
+        # 소요는 stage 로그 라인으로만 (fault_zoom 관례). 프레임은 inputs.frames
+        # 재사용 (cached_user_frames 해제 후에도 유효 — 재추출/재디코딩 0).
+        # 실패 전부 graceful — 분석 무훼손 (SP-3, T-32-31).
+        with _stage(timings_ms, analysis_id, "spot_check"):
+            _run_deferred_spot_check(
+                result=result,
+                angles=angles,
+                profile=profile,
+                frames=inputs.frames,
+                uid=uid,
+                analysis_id=analysis_id,
+            )
     finally:
         # Phase 27 D-04 — 세션 File API 핸들 일괄 delete = 분석당 1회 (unlink 보다 앞).
         # NoHuman/NotPole 조기 raise 경로 포함 도달 보장 (Pitfall 2) — 20GB 적체 재발 방지.

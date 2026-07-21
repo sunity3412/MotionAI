@@ -1467,21 +1467,42 @@ function AnalysisResultContent({
   );
   const hasRecords = records.length > 0;
 
+  // 32-13 (D-23) — 스팟체크 불일치 카드 숨김 recordId 집합. 표시 정책
+  // (contract.md §12.8): status 'done' 일 때만 적용 — 부재(legacy)/pending/
+  // skipped/failed 는 빈 집합 = 전 카드 표시 (fail-open). recordId 없는 legacy
+  // record 는 조인 불가 = 표시 유지.
+  //
+  // ★숨김 경계 (채점 tally 불변): 이 집합은 감점 카드 **표면**(top-1 완결형,
+  // 접힘 목록, 재생 중 큐 자막·오디오, 요약 카드 파생)에만 적용한다.
+  // ScoreBreakdownSection(점수 계산 내역 투명 tally)과 DeductionDetailSheet
+  // 드릴다운 내역은 절대 필터하지 않는다 — 점수·감점 합산의 투명성은 숨김
+  // 권한 밖 ([[scoring-must-be-transparent-deduction-tally]], T-32-30).
+  const hiddenRecordIds = useMemo(() => {
+    const sc = result.spotCheck;
+    if (sc?.status !== 'done') return new Set<string>();
+    return new Set(sc.hiddenRecordIds);
+  }, [result.spotCheck]);
+  const isRecordHidden = (rec: DeductionRecord): boolean =>
+    rec.recordId != null && hiddenRecordIds.has(rec.recordId);
+
   // top-1 감점 record index — 미션 record 우선(result.mission.recordId), 없으면 최대
-  // 감점(points 가장 음수). cleanPass/legacy 면 -1.
+  // 감점(points 가장 음수). cleanPass/legacy 면 -1. 스팟체크 숨김 record 는 top-1
+  // 후보에서 제외 (숨긴 문장을 요약·완결형 카드로 되살리지 않음 — D-23).
   const topFixIndex = useMemo(() => {
     if (records.length === 0) return -1;
     const mid = result.mission?.recordId;
-    if (mid) {
+    if (mid && !hiddenRecordIds.has(mid)) {
       const i = records.findIndex((r) => r.recordId === mid);
       if (i >= 0) return i;
     }
-    let best = 0;
-    for (let i = 1; i < records.length; i += 1) {
-      if (records[i].points < records[best].points) best = i;
+    let best = -1;
+    for (let i = 0; i < records.length; i += 1) {
+      const rid = records[i].recordId;
+      if (rid != null && hiddenRecordIds.has(rid)) continue;
+      if (best < 0 || records[i].points < records[best].points) best = i;
     }
     return best;
-  }, [records, result.mission?.recordId]);
+  }, [records, result.mission?.recordId, hiddenRecordIds]);
   const topFixRecord = topFixIndex >= 0 ? records[topFixIndex] : null;
   const topFixKey =
     topFixIndex >= 0 ? recordKeyForIndex(records, topFixIndex) : null;
@@ -1575,9 +1596,12 @@ function AnalysisResultContent({
 
   // 재생 중 자막 큐 (D-18 자막 + D-17 밀도) — record 의 cueLine(부재 legacy=행동구
   // 폴백) + 매칭 zoom 의 userFrameIdx(학생 9fps) + 학생 fps 로 윈도우 산출.
+  // 32-13: 스팟체크 숨김 record 는 큐에서도 제외 — 불일치 판정된 문장을 자막·
+  // 오디오로 재생하는 것도 '틀린 말 내보내기' (D-23 동일 원칙, 표면 숨김의 일부).
   const cueWindows = useMemo(() => {
     const inputs: CueInput[] = [];
     for (const rec of records) {
+      if (isRecordHidden(rec)) continue;
       const zoom = matchZoomForRecord(rec);
       const userFrameIdx = zoom?.userFrameIdx;
       if (typeof userFrameIdx !== 'number') continue;
@@ -1607,6 +1631,7 @@ function AnalysisResultContent({
     result.keypointReport?.fps,
     actionLabels,
     vetoFaultJoints,
+    hiddenRecordIds,
   ]);
 
   // 32-12 (D-18 B안 재생 중 큐 오디오) — coachAudio mp3 가 준비된(status 'done' +
@@ -1646,6 +1671,9 @@ function AnalysisResultContent({
     const input: SummaryInput = {
       mode: cmp.mode === 'mode1' ? 'mode1' : 'mode3',
       summaryPraise: result.summaryPraise ?? null,
+      // 32-13 (D-22 잘한 점 교차검증) — 스팟체크가 headline 불일치를 판정하면
+      // doc praise 를 강등하고 로컬 폴백 체인의 다음 소스로 (32-07 selectPraise).
+      spotCheckPraiseMismatch: result.spotCheck?.praiseMismatch === true,
       missionOutcome: result.missionOutcome
         ? {
             improved: result.missionOutcome.improved,
@@ -1662,20 +1690,27 @@ function AnalysisResultContent({
         : null,
       dimensionScores: dimSignals,
       coverageGaps: gaps,
-      deductionRecords: records.map((r) => ({
-        criterion: r.criterion,
-        points: r.points,
-        recordId: r.recordId,
-        statusLine: r.statusLine,
-        cueLine: r.cueLine,
-        exerciseReason: r.exerciseReason,
-        coachQuestion: r.coachQuestion,
-      })),
+      // 32-13 — 숨김 record 는 요약 파생(오늘 고칠 것 헤드라인·다음 행동 문구)
+      // 에서도 제외 (불일치 문장을 요약 카드로 되살리지 않음 — 카드 표면의 일부).
+      deductionRecords: records
+        .filter((r) => !isRecordHidden(r))
+        .map((r) => ({
+          criterion: r.criterion,
+          points: r.points,
+          recordId: r.recordId,
+          statusLine: r.statusLine,
+          cueLine: r.cueLine,
+          exerciseReason: r.exerciseReason,
+          coachQuestion: r.coachQuestion,
+        })),
       safetyFlagCount: result.safetyFlags?.length ?? 0,
     };
     return deriveSummaryContent(input);
+    // isRecordHidden 은 hiddenRecordIds 파생.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     result.summaryPraise,
+    result.spotCheck,
     result.missionOutcome,
     result.mission,
     result.deductionBreakdown,
@@ -1684,6 +1719,7 @@ function AnalysisResultContent({
     dimensionScores,
     hasRecords,
     cmp.mode,
+    hiddenRecordIds,
   ]);
 
   // 섹션 순서·가시성 — resultSections 뷰모델 단일 결정 지점(node --test 고정).
@@ -2131,12 +2167,17 @@ function AnalysisResultContent({
 
         {/* 나머지 감점 카드 — 기본 접힘 목록(탭 → 드릴다운 시트로 펼침). top-1(위
             완결형) 제외. recordId 안정 키로 점프 y 기록 + 드릴다운 조인(index 조인
-            금지 — recordMaps). records 2개 미만이면 목록 생략. */}
-        {isVisible('collapsed') && records.length > 1 ? (
+            금지 — recordMaps). records 2개 미만이면 목록 생략.
+            32-13: 스팟체크 숨김 record 는 카드 표면에서 제외 (recordId 맵 기반 —
+            아래 ScoreBreakdownSection 투명 내역은 미필터, 채점 tally 불변). */}
+        {isVisible('collapsed') &&
+        records.length > 1 &&
+        records.some((r, i) => i !== topFixIndex && !isRecordHidden(r)) ? (
           <>
             <Text style={styles.sectionTitle}>다른 감점 항목</Text>
             {records.map((rec, i) => {
               if (i === topFixIndex) return null;
+              if (isRecordHidden(rec)) return null;
               const key = recordKeyForIndex(records, i);
               return (
                 <View

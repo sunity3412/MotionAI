@@ -360,3 +360,374 @@ def test_no_toplevel_google_genai_import():
     assert not re.search(
         r"^(from google|import google)", source, flags=re.MULTILINE
     )
+
+
+# ═══════════════ Task 2 — 계약 validator + 사후 스테이지 배선 ═══════════════
+
+import importlib.util
+import sys
+
+import numpy as np
+
+from sunity_shared import firestore_admin, models
+
+_BACKEND = Path(__file__).resolve().parents[2]
+
+
+def _load_module(name: str, path: Path):
+    """pipeline app.py 파일 경로 spec 로드 (고유 모듈명 — test_coach_audio 관례)."""
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture(scope="module")
+def papp():
+    """pipeline app — spot_check 사후 스테이지 소유 모듈."""
+    return _load_module(
+        "pipeline_app_phase32_spot_check",
+        _BACKEND / "functions" / "pipeline" / "app.py",
+    )
+
+
+def _payload(**overrides) -> dict:
+    base = {
+        "status": "done",
+        "hiddenRecordIds": [],
+        "verdicts": [],
+        "praiseMismatch": False,
+        "model": "gemini-3.1-pro-preview",
+        "promptVersion": "v1.0",
+    }
+    base.update(overrides)
+    return base
+
+
+# ─────────────────────── _validate_spot_check ───────────────────────
+
+
+def test_validator_accepts_done_with_backed_hidden():
+    firestore_admin._validate_spot_check(
+        _payload(
+            hiddenRecordIds=["r00:leg_extension"],
+            verdicts=[
+                {
+                    "recordId": "r00:leg_extension",
+                    "verdict": "mismatch",
+                    "reason": "명백 반증",
+                },
+                {"recordId": "r01:split_angle", "verdict": "match", "reason": "ok"},
+            ],
+        )
+    )
+
+
+def test_validator_accepts_skipped_and_failed_noop():
+    firestore_admin._validate_spot_check(_payload(status="skipped"))
+    firestore_admin._validate_spot_check(_payload(status="failed"))
+
+
+def test_validator_rejects_bad_keys_status_and_verdict():
+    with pytest.raises(ValueError):
+        firestore_admin._validate_spot_check(_payload(extra="x"))
+    with pytest.raises(ValueError):
+        firestore_admin._validate_spot_check(_payload(status="pending"))
+    with pytest.raises(ValueError):
+        firestore_admin._validate_spot_check(
+            _payload(
+                verdicts=[
+                    {"recordId": "r00:x", "verdict": "hide", "reason": ""},
+                ]
+            )
+        )
+
+
+def test_validator_rejects_orphan_hidden_id():
+    """숨김-정합 불변식 — mismatch verdict 없는 숨김 id 거부 (T-32-30)."""
+    with pytest.raises(ValueError, match="mismatch verdict 없는"):
+        firestore_admin._validate_spot_check(
+            _payload(
+                hiddenRecordIds=["r00:leg_extension"],
+                verdicts=[
+                    {
+                        "recordId": "r00:leg_extension",
+                        "verdict": "uncertain",
+                        "reason": "",
+                    },
+                ],
+            )
+        )
+
+
+def test_validator_rejects_over_limits_and_nested():
+    over = [
+        {"recordId": f"r{i:02d}:x", "verdict": "match", "reason": ""}
+        for i in range(models.SPOT_CHECK_MAX_VERDICTS + 1)
+    ]
+    with pytest.raises(ValueError, match="초과"):
+        firestore_admin._validate_spot_check(_payload(verdicts=over))
+    with pytest.raises(ValueError, match="120"):
+        firestore_admin._validate_spot_check(
+            _payload(
+                verdicts=[
+                    {"recordId": "r00:x", "verdict": "match", "reason": "가" * 121},
+                ]
+            )
+        )
+    with pytest.raises(TypeError):
+        firestore_admin._validate_spot_check(
+            _payload(
+                verdicts=[
+                    {"recordId": "r00:x", "verdict": "match", "reason": {"a": 1}},
+                ]
+            )
+        )
+    with pytest.raises(TypeError):
+        firestore_admin._validate_spot_check(_payload(praiseMismatch="yes"))
+
+
+def test_update_writes_single_field_path(monkeypatch):
+    """update_analysis_spot_check = result.spotCheck 단일 field-path 부분 갱신."""
+    captured: list[dict] = []
+
+    class FakeDoc:
+        def update(self, fields: dict):
+            captured.append(fields)
+
+    monkeypatch.setattr(firestore_admin, "_doc", lambda path: FakeDoc())
+    firestore_admin.update_analysis_spot_check("u1", "a" * 32, _payload())
+    assert len(captured) == 1
+    keys = set(captured[0].keys())
+    assert keys == {"result.spotCheck", "updatedAt"}  # 그 외 result.* 사후 변경 0
+
+
+def test_adapter_models_lockstep():
+    """어댑터 상수 ↔ models 계약 상수 drift 차단."""
+    assert tuple(spot_check._ALLOWED_VERDICTS) == models.SPOT_CHECK_VERDICTS
+    assert spot_check.SPOTCHECK_MAX_RECORDS == models.SPOT_CHECK_MAX_VERDICTS
+    assert spot_check._REASON_MAX_LEN == models.SPOT_CHECK_REASON_MAX_LEN
+
+
+# ─────────────────────── _build_spot_check_video_ref ───────────────────────
+
+
+def _fake_frames(n: int = 20) -> np.ndarray:
+    return np.zeros((n, 24, 24, 3), dtype=np.uint8)
+
+
+def test_video_ref_budget_and_shape(papp):
+    """예산 = clamp(2×record 수, 4..8) — label + JPEG bytes."""
+    angles = np.full((20, 8), 150.0)
+    judged = [_rec(f"r{i:02d}:leg_extension") for i in range(3)]
+    ref = papp._build_spot_check_video_ref(judged, angles, None, _fake_frames())
+    assert 1 <= len(ref) <= 6  # 2×3=6 상한 (window 폭에 따라 중복 제거 가능)
+    for f in ref:
+        assert f["mime"] == "image/jpeg"
+        # 초 라벨(fps 가용) 또는 인덱스 라벨(로컬 — fps 소스 부재 폴백) 둘 다 허용.
+        assert f["label"].startswith("프레임 ")
+        assert isinstance(f["imageBytes"], bytes) and len(f["imageBytes"]) > 0
+
+
+def test_video_ref_caps_at_max_frames(papp):
+    angles = np.full((60, 8), 150.0)
+    judged = [_rec(f"r{i:02d}:leg_extension") for i in range(8)]
+    ref = papp._build_spot_check_video_ref(judged, angles, None, _fake_frames(60))
+    assert len(ref) <= spot_check.SPOTCHECK_MAX_FRAMES == 8
+
+
+def test_video_ref_none_frames_is_empty(papp):
+    assert papp._build_spot_check_video_ref([], np.zeros((5, 8)), None, None) == []
+
+
+def test_video_ref_window_failure_falls_back_whole_clip(papp, monkeypatch):
+    """_select_window 예외 = 전 구간 폴백 (graceful — 빈 입력 아님)."""
+    monkeypatch.setattr(
+        papp.dimensions,
+        "_select_window",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("window fail")),
+    )
+    angles = np.full((20, 8), 150.0)
+    ref = papp._build_spot_check_video_ref(
+        [_rec("r00:leg_extension")], angles, None, _fake_frames()
+    )
+    assert len(ref) >= 1
+
+
+# ─────────────────────── _run_deferred_spot_check ───────────────────────
+
+
+def _result_with_records(praise: bool = True) -> dict:
+    result = {
+        "deductionBreakdown": {
+            "baseline": 100,
+            "records": [
+                _rec("r00:leg_extension", points=-20),
+                _rec("r01:split_angle", points=-10),
+            ],
+            "final": 70,
+        },
+    }
+    if praise:
+        result["summaryPraise"] = {
+            "source": "clean_dimension",
+            "headline": "이 부분은 기준에 맞게 잘 해냈어요",
+        }
+    return result
+
+
+@pytest.fixture
+def spot_updates(monkeypatch):
+    """update_analysis_spot_check 캡처 — 실 validator 경유 (coach_audio 관례)."""
+    captured: list[dict] = []
+
+    def _update(uid, analysis_id, payload):
+        firestore_admin._validate_spot_check(payload)
+        captured.append({"uid": uid, "analysis_id": analysis_id, **payload})
+
+    monkeypatch.setattr(firestore_admin, "update_analysis_spot_check", _update)
+    return captured
+
+
+def test_deferred_passes_praise_headline_and_stores(papp, spot_updates, monkeypatch):
+    """run_spot_check 호출 인자에 summaryPraise.headline 전달 + 판정 저장."""
+    calls: list[dict] = []
+
+    def _fake_run(video_ref, records, praise_headline=None):
+        calls.append(
+            {"n_frames": len(video_ref), "praise": praise_headline}
+        )
+        return {
+            "status": "done",
+            "hiddenRecordIds": ["r00:leg_extension"],
+            "verdicts": [
+                {
+                    "recordId": "r00:leg_extension",
+                    "verdict": "mismatch",
+                    "reason": "명백 반증",
+                },
+                {"recordId": "r01:split_angle", "verdict": "match", "reason": "ok"},
+            ],
+            "praiseMismatch": True,
+            "model": "gemini-3.1-pro-preview",
+            "promptVersion": "v1.0",
+        }
+
+    from sunity_shared.analysis import spot_check as sc_mod
+
+    monkeypatch.setattr(sc_mod, "run_spot_check", _fake_run)
+
+    papp._run_deferred_spot_check(
+        result=_result_with_records(),
+        angles=np.full((20, 8), 150.0),
+        profile=None,
+        frames=_fake_frames(),
+        uid="u1",
+        analysis_id="a" * 32,
+    )
+    assert calls[0]["praise"] == "이 부분은 기준에 맞게 잘 해냈어요"
+    assert calls[0]["n_frames"] >= 1
+    assert len(spot_updates) == 1
+    assert spot_updates[0]["hiddenRecordIds"] == ["r00:leg_extension"]
+    assert spot_updates[0]["praiseMismatch"] is True
+
+
+def test_deferred_failure_marks_failed(papp, spot_updates, monkeypatch):
+    """스테이지 내부 예외 = failed 마킹 (분석 무훼손 — raise 0)."""
+    from sunity_shared.analysis import spot_check as sc_mod
+
+    def _boom(*a, **k):
+        raise RuntimeError("stage boom")
+
+    monkeypatch.setattr(sc_mod, "run_spot_check", _boom)
+    papp._run_deferred_spot_check(
+        result=_result_with_records(),
+        angles=np.full((20, 8), 150.0),
+        profile=None,
+        frames=_fake_frames(),
+        uid="u1",
+        analysis_id="a" * 32,
+    )
+    assert len(spot_updates) == 1
+    assert spot_updates[0]["status"] == "failed"
+    assert spot_updates[0]["hiddenRecordIds"] == []
+
+
+def test_deferred_double_failure_never_raises(papp, monkeypatch):
+    """failed 마킹 write 실패까지 겹쳐도 재raise 0 (spotCheck 부재 = fail-open)."""
+    from sunity_shared.analysis import spot_check as sc_mod
+
+    monkeypatch.setattr(
+        sc_mod, "run_spot_check", lambda *a, **k: (_ for _ in ()).throw(RuntimeError())
+    )
+    monkeypatch.setattr(
+        firestore_admin,
+        "update_analysis_spot_check",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("write down")),
+    )
+    papp._run_deferred_spot_check(
+        result=_result_with_records(),
+        angles=np.full((20, 8), 150.0),
+        profile=None,
+        frames=_fake_frames(),
+        uid="u1",
+        analysis_id="a" * 32,
+    )  # 예외 전파 없으면 통과
+
+
+def test_deferred_no_praise_none(papp, spot_updates, monkeypatch):
+    """summaryPraise 부재 doc = praise_headline None 전달."""
+    calls: list[dict] = []
+    from sunity_shared.analysis import spot_check as sc_mod
+
+    def _fake_run(video_ref, records, praise_headline=None):
+        calls.append({"praise": praise_headline})
+        return {
+            "status": "done",
+            "hiddenRecordIds": [],
+            "verdicts": [],
+            "praiseMismatch": False,
+            "model": "m",
+            "promptVersion": "v1.0",
+        }
+
+    monkeypatch.setattr(sc_mod, "run_spot_check", _fake_run)
+    papp._run_deferred_spot_check(
+        result=_result_with_records(praise=False),
+        angles=np.full((20, 8), 150.0),
+        profile=None,
+        frames=_fake_frames(),
+        uid="u1",
+        analysis_id="a" * 32,
+    )
+    assert calls[0]["praise"] is None
+    assert spot_updates[0]["status"] == "done"
+
+
+# ─────────────────────── 코드 순서 (사후 스테이지 보장) ───────────────────────
+
+
+def test_spot_check_stage_after_complete_and_fault_zoom():
+    """spot_check _stage 블록이 firestore_complete·fault_zoom **이후** 위치.
+
+    동기 채점 경로(complete 이전) 신규 외부 호출 0 을 소스 순서로 고정한다
+    (플랜 acceptance — 속도 예산 구조 보호).
+    """
+    source = (_BACKEND / "functions" / "pipeline" / "app.py").read_text(
+        encoding="utf-8"
+    )
+    complete_pos = source.index('"firestore_complete"')
+    fault_zoom_pos = source.index(
+        "_run_deferred_fault_zoom(\n                    render="
+    )
+    stage_pos = source.index('_stage(timings_ms, analysis_id, "spot_check")')
+    deferred_pos = source.index("_run_deferred_spot_check(\n                result=")
+    assert complete_pos < stage_pos
+    assert fault_zoom_pos < stage_pos
+    assert stage_pos < deferred_pos
+    # 동기 경로에 spot_check 외부 호출이 없다 — run_spot_check 호출 지점은 정확히
+    # 1곳 (_run_deferred_spot_check 내부, complete 이후).
+    assert source.count("run_spot_check(") == 1

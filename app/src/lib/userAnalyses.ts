@@ -28,6 +28,8 @@ import type {
   DeductionRecord,
   Mission,
   MissionOutcome,
+  SpotCheck,
+  SpotCheckVerdict,
   SummaryPraise,
 } from '../types/analysis';
 
@@ -282,6 +284,57 @@ function normalizeCoachAudio(value: unknown): CoachAudio | undefined {
     items.push({ recordId, key });
   }
   return { status, items };
+}
+
+// Phase 32 (Plan 32-13 — D-23) — spotCheck 방어 파싱. 백엔드 방출값을 신뢰하지
+// 않는다: status 3값 화이트리스트, hiddenRecordIds 는 비어있지 않은 string 만,
+// verdict 는 enum 만 통과 (malformed 항목 드롭). 형상 전체 malformed 는
+// undefined = 부재(legacy) 와 동일한 전 카드 표시 fail-open (contract.md §12.8
+// 표시 정책 — 오염된 숨김 목록이 카드를 잘못 감추는 것을 방어, T-32-30).
+const SPOT_CHECK_STATUSES = ['done', 'skipped', 'failed'] as const;
+const SPOT_CHECK_VERDICTS = ['match', 'mismatch', 'uncertain'] as const;
+
+function normalizeSpotCheck(value: unknown): SpotCheck | undefined {
+  if (value == null || typeof value !== 'object' || Array.isArray(value))
+    return undefined;
+  const s = value as Record<string, unknown>;
+  const status = SPOT_CHECK_STATUSES.includes(s.status as SpotCheck['status'])
+    ? (s.status as SpotCheck['status'])
+    : undefined;
+  if (!status) return undefined;
+  const hiddenRecordIds = normalizeStringArray(s.hiddenRecordIds).filter(
+    (id) => id.length > 0,
+  );
+  const verdicts: SpotCheckVerdict[] = [];
+  if (Array.isArray(s.verdicts)) {
+    for (const item of s.verdicts) {
+      if (item == null || typeof item !== 'object' || Array.isArray(item))
+        continue;
+      const v = item as Record<string, unknown>;
+      const recordId = normalizeNonEmptyString(v.recordId);
+      const verdict = SPOT_CHECK_VERDICTS.includes(
+        v.verdict as SpotCheckVerdict['verdict'],
+      )
+        ? (v.verdict as SpotCheckVerdict['verdict'])
+        : undefined;
+      if (!recordId || !verdict) continue; // malformed 항목만 드롭
+      verdicts.push({
+        recordId,
+        verdict,
+        ...(typeof v.reason === 'string' ? { reason: v.reason } : {}),
+      });
+    }
+  }
+  return {
+    status,
+    hiddenRecordIds,
+    verdicts,
+    praiseMismatch: s.praiseMismatch === true,
+    ...(typeof s.model === 'string' ? { model: s.model } : {}),
+    ...(typeof s.promptVersion === 'string'
+      ? { promptVersion: s.promptVersion }
+      : {}),
+  };
 }
 
 // DeductionRecord 확장 키 통과 파싱 (Plan 32-06 §12.3) — recordId/3단 문구는
@@ -623,6 +676,8 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       coachQuestions: normalizeCoachQuestions(r.coachQuestions),
       // Phase 32 (Plan 32-16 — D-18) — 사후 도착 오디오 조인 목록 (부재=legacy).
       coachAudio: normalizeCoachAudio(r.coachAudio),
+      // Phase 32 (Plan 32-13 — D-23) — 사후 도착 스팟체크 (부재=전 카드 표시).
+      spotCheck: normalizeSpotCheck(r.spotCheck),
     };
   }
   return {

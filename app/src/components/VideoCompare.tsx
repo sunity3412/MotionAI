@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  type AccessibilityActionEvent,
   type LayoutChangeEvent,
   Modal,
   PanResponder,
@@ -27,6 +28,7 @@ import {
   segmentRate,
   warpTime,
 } from '../lib/alignmentWarp';
+import { composeRefTarget } from '../lib/manualOffset';
 import { circledNumberKo } from '../lib/deductionLabels';
 import { colors, layout, radius, spacing, typography } from '../theme';
 import type { MotionAlignment } from '../types/analysis';
@@ -67,6 +69,15 @@ function fmtTimeDecimal(s: number): string {
   const m = Math.floor(s / 60);
   const sec = s - m * 60;
   return `${m}:${sec.toFixed(1).padStart(4, '0')}`;
+}
+
+// 32-02 (D-16) — 수동 오프셋 라벨 (예: "+1.5초" / "0초" / "−0.8초"). 부호는 U+2212
+// minus(−)로 통일 (결과 화면 "−감점" 표기 관례와 정합). 0.1초 스냅이라 소수 1자리.
+function fmtOffsetLabel(sec: number): string {
+  const rounded = Math.round(sec * 10) / 10;
+  if (rounded === 0) return '0초';
+  const sign = rounded > 0 ? '+' : '−';
+  return `${sign}${Math.abs(rounded).toFixed(1)}초`;
 }
 
 function VideoSlot({ label, url, player, overlay }: SlotProps) {
@@ -156,6 +167,20 @@ export type VideoCompareProps = {
    * normalizeMotionAlignment 로 소비측에서 재검증(T-28-02) — 통과분만 재생 제어.
    */
   alignment?: MotionAlignment | null;
+  /**
+   * 32-02 (D-16) — legacy doc(정렬 disabled/부재) 자동 시작 오프셋(sec). result.tsx 가
+   * faultZoomComparisons 프레임 인덱스 median(legacyOffsetFromCompareFrames)으로 산출해
+   * 넘긴다. 미전달/0 이면 오프셋 없이 시작(렌더 diff 0). 사용자가 슬라이더를 만지기
+   * 전 + 정렬 비활성일 때만 반영된다(dirty 가드). Firestore 지연 로드로 늦게 도착해도
+   * 반영, 사용자가 조정한 뒤에는 prop 갱신이 덮어쓰지 않는다.
+   */
+  initialOffsetSec?: number;
+  /**
+   * 32-02 (D-16) — 분석 전환 감지 키(호출부가 analysisId 전달). 값이 바뀌면 수동
+   * 오프셋을 0 으로 초기화하고 dirty 가드를 해제한다(다른 분석으로 넘어갈 때 이전
+   * 미세조정이 새는 것 차단). 미전달 시 초기화 트리거 없음.
+   */
+  resetKey?: string;
 };
 
 // UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).
@@ -178,6 +203,12 @@ const START_SYNC_THRESHOLD_S = 0.05;
 //   THUMB_RADIUS: timeline 위 drag 손잡이 hit area 반지름. 트랙 두께 4 + 손잡이 12.
 const STEP_SECONDS = 0.1;
 const THUMB_DIAMETER = 14;
+
+// 32-02 (D-16) — 수동 시작점 미세조정 슬라이더. 범위 ±3초·스냅 0.1초는 재량(D-16).
+// legacy 자동 오프셋이 ±3초를 넘으면 sliderBound 를 그 크기까지 확장해 썸이 항상
+// 표현 가능하게 한다(렌더 계산부). 접근성 increment/decrement 도 이 스냅 1단위.
+const OFFSET_MAX_SEC = 3;
+const OFFSET_SNAP_SEC = 0.1;
 
 // quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 전체화면 오버레이 배율.
 // KeypointOverlay 는 viewBox 정규화 구조라 라벨 유효 크기 = 14 × 렌더높이/1280.
@@ -227,6 +258,8 @@ export function VideoCompare({
   timelineTicks,
   tickFrameCount,
   alignment: alignmentInput,
+  initialOffsetSec,
+  resetKey,
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
@@ -358,10 +391,38 @@ export function VideoCompare({
   // 플랫폼 재버퍼 위험, 28-RESEARCH Anti-Patterns).
   const lastRateRef = useRef(1.0);
 
+  // ── 32-02 (D-16) 수동 시작점 오프셋 ────────────────────────────────────────
+  // manualOffsetSec = 사용자 슬라이더/접근성 조작 + legacy 자동 오프셋을 합친 단일
+  // 스칼라 초. clampRefTarget(단일 warp 경유 지점)에서 composeRefTarget 으로 합성돼
+  // drift 보정 tick·togglePlay·seek 에 자동 반영된다. tick(setInterval 클로저)이 최신
+  // 값을 읽도록 ref 미러(alignmentRef 관례 복제 — stale 클로저 회피).
+  const [manualOffsetSec, setManualOffsetSec] = useState(0);
+  const manualOffsetRef = useRef(manualOffsetSec);
+  manualOffsetRef.current = manualOffsetSec;
+  // 사용자가 슬라이더/접근성 액션을 만졌는지(dirty). true 면 initialOffsetSec prop
+  // 갱신이 오프셋을 덮어쓰지 않는다(리뷰 HIGH — 비동기 state 함정).
+  const userAdjustedRef = useRef(false);
+  const offsetTrackWidthRef = useRef(0);
+  // 슬라이더 범위: ±3초 기본. legacy 자동 오프셋이 더 크면 그만큼 확장(썸 표현 가능
+  // + 드래그 시 값 점프 방지). initialOffsetSec 파생이라 드래그 중 안정적.
+  const sliderBound = Math.max(
+    OFFSET_MAX_SEC,
+    Math.ceil(Math.abs(initialOffsetSec ?? 0)),
+  );
+  // 오프셋이 걸리면(수동/legacy 자동) 정은지(right)를 절대 동기(mutual back-seek)가
+  // 아니라 warp 활성 경로와 동일한 master(left)/follow(right) 로 제어해야 오프셋이
+  // 유지된다 — 절대 동기는 offset 을 drift 로 오인해 되돌린다. 오프셋 0 이면
+  // alignmentActive 와 동일값이라 legacy 경로 byte-보존(렌더/동작 diff 0).
+  const followActive = alignmentActive || manualOffsetSec !== 0;
+
   // right 목표시각 = 정렬 활성 시 warp(tStudent), 아니면 identity. 순수 계산.
+  // 32-02 (D-16) — 표시 라벨(setRightCurrent)용. 수동/legacy 오프셋을 더해 즉시 라벨이
+  // 실제 재생 위치와 맞게 한다(클램프는 tick 이 실 player 시각에서 자기보정). 오프셋
+  // 0 이면 기존값과 동일 — legacy byte-보존.
   const targetRefTime = (tStudent: number): number => {
     const a = alignmentRef.current;
-    return a && a.tier !== 'disabled' ? warpTime(a, tStudent) : tStudent;
+    const rawWarp = a && a.tier !== 'disabled' ? warpTime(a, tStudent) : tStudent;
+    return rawWarp + manualOffsetRef.current;
   };
   // WR-01 — 정렬 활성 경로에서만 warp 목표시각을 [0, dR] 로 클램프. warpTime 은 범위
   // 밖을 기울기 1.0 으로 연장하므로 u0>r0(학생 준비 구간 > 정은지 트림 시작)이면
@@ -370,9 +431,11 @@ export function VideoCompare({
   // seek 도 차단. 비활성(legacy) = identity 무클램프 → 절대시계 byte-동일 보존.
   const clampRefTarget = (tStudent: number, dR: number): number => {
     const a = alignmentRef.current;
-    const raw = a && a.tier !== 'disabled' ? warpTime(a, tStudent) : tStudent;
-    if (!a || a.tier === 'disabled') return raw; // legacy identity — 무클램프
-    return dR > 0 ? Math.max(0, Math.min(raw, dR)) : Math.max(0, raw);
+    const rawWarp = a && a.tier !== 'disabled' ? warpTime(a, tStudent) : tStudent;
+    // 32-02 (D-16) — 수동/legacy 오프셋 합성 + [0,dR] 클램프를 이 단일 warp 경유
+    // 지점에서 담당(composeRefTarget). 오프셋 0 + 정상 입력 범위면 legacy 동작과
+    // byte-동일(setRightToStudentTime 호출부의 t 는 항상 [0,dR] 내라 클램프 no-op).
+    return composeRefTarget(rawWarp, manualOffsetRef.current, dR);
   };
   // right 쓰기의 유일한 warp 경유 지점 (MEDIUM-1 코드 형태 규율) — 정렬 활성 경로의
   // rightPlayer.currentTime 대입은 전부 여기로 격리, 비활성 시 identity 라 legacy 동일.
@@ -414,6 +477,10 @@ export function VideoCompare({
       //   상태에서 또 보정 들어가면 stutter).
       const aTick = alignmentRef.current;
       const activeTick = !!aTick && aTick.tier !== 'disabled';
+      // 32-02 (D-16) — 수동/legacy 오프셋이 걸리면 master(left)/follow(right) 로 제어
+      // (절대 동기 back-seek 는 오프셋을 drift 로 오인해 되돌림). 오프셋 0 이면
+      // activeTick 과 동일 → legacy mutual back-seek 경로 byte-보존.
+      const followTick = activeTick || manualOffsetRef.current !== 0;
       if (
         hasLeft &&
         hasRight &&
@@ -424,7 +491,7 @@ export function VideoCompare({
         leftPlayer &&
         rightPlayer
       ) {
-        if (activeTick) {
+        if (followTick) {
           // 28-06 D-01 — 워핑 활성: left=master 로 back-seek 없음, 목표값만
           //   cR ≈ cL 에서 cR ≈ warpTime(cL) 로 교체. rate=feedforward(아래),
           //   이 tick seek=feedback 안전망 (A2 — expo-video rate 지연 미문서화,
@@ -485,7 +552,9 @@ export function VideoCompare({
       //   도달 시 pause. cR 이 warp(ref-time)이라 min(cL,cR) 혼합이 무의미 → 활성
       //   경로는 either-own-end 로 종료 판정(비활성은 기존 로직 그대로 보존).
       const eitherReachedOwnEnd = leftReachedOwnEnd || rightReachedOwnEnd;
-      const shouldPauseAtEnd = activeTick
+      // 32-02 (D-16) — 오프셋 활성(followTick)도 either-own-end 로 종료(right 가 offset
+      // 만큼 앞서/뒤처져 min(cL,cR) 혼합이 무의미). 오프셋 0 = 기존 legacy 판정 보존.
+      const shouldPauseAtEnd = followTick
         ? eitherReachedOwnEnd
         : minReachedShortEnd || bothReachedOwnEnd;
       if (shouldPauseAtEnd) {
@@ -517,7 +586,10 @@ export function VideoCompare({
   // 28-06 (WR-02) — 정렬 활성 시 재생 정의역 = left(master) 도메인. cR=warp(cL)라
   //   min(dL,dR) 혼합은 무의미(progress bar 조기 100% 고정 / seek 상한 오절단). 활성
   //   경로는 leftDuration 단일 기준, 비활성은 기존 로직(짧은 쪽) 그대로 보존.
-  const duration = alignmentActive
+  // 32-02 (D-16) — 오프셋 활성(followActive)도 master(left) 도메인 단일 기준(정렬
+  // 활성과 동일 이유: cR=warp/offset 이라 min(dL,dR) 혼합 무의미). 오프셋 0 =
+  // alignmentActive 와 동일값 → legacy 로직 byte-보존.
+  const duration = followActive
     ? leftDuration
     : hasLeft && hasRight
       ? leftDuration > 0 && rightDuration > 0
@@ -548,7 +620,9 @@ export function VideoCompare({
       //   max(cL,cR) >= min(dL,dR) 혼합은 cR=warp(cL) 가 짧은 정은지 duration 을 조기
       //   초과하면 중간 일시정지 후 재개가 0초 재시작이 되는 버그. 비활성은 기존 유지.
       const maxCurrent = Math.max(leftCurrent, rightCurrent);
-      const isAtEnd = alignmentActive
+      // 32-02 (D-16) — 오프셋 활성(followActive)도 either-own-end 종료 판정(tick 과 동일
+      // 도메인). 오프셋 0 = 기존 판정 보존.
+      const isAtEnd = followActive
         ? (leftDuration > 0 && leftCurrent >= leftDuration - 0.05) ||
           (rightDuration > 0 && rightCurrent >= rightDuration - 0.05)
         : duration > 0 && maxCurrent >= duration - 0.05;
@@ -569,7 +643,8 @@ export function VideoCompare({
         }, REPLAY_SEEK_DELAY_MS);
       } else if (needsStartSync && leftPlayer && rightPlayer) {
         // 중간 정지 후 다시 재생 시 두 player 시각 동기화 먼저.
-        if (alignmentActive) {
+        // 32-02 (D-16) — 오프셋 활성(followActive)도 master/follow(right=warp+offset).
+        if (followActive) {
           // 28-06 D-01 (MEDIUM-1) — 워핑 활성: left(master) 유지 + right 만
           //   warp(leftCurrent). slowerTime min 절대시간 대입은 워핑 하 무의미
           //   (right 타임라인이 다름) — 활성 경로에 절대 대입 잔존 차단.
@@ -612,7 +687,10 @@ export function VideoCompare({
       //   는 setRightToStudentTime 이 warp+[0,dR] 클램프 담당. alignmentRef 로 활성
       //   판정(선행 ref 패턴 — 콜백 churn 회피). 비활성은 기존 로직.
       const aSeek = alignmentRef.current;
-      const activeSeek = !!aSeek && aSeek.tier !== 'disabled';
+      // 32-02 (D-16) — 오프셋 활성도 master(dL) 상한(right 는 setRightToStudentTime 이
+      // warp+offset+[0,dR] 클램프 담당). 오프셋 0 = 기존 legacy 상한 보존.
+      const activeSeek =
+        (!!aSeek && aSeek.tier !== 'disabled') || manualOffsetRef.current !== 0;
       const maxAllowed = activeSeek
         ? dL
         : hasLeft && hasRight && dL > 0 && dR > 0
@@ -642,7 +720,9 @@ export function VideoCompare({
       //   base=cL-오프셋 → "0.1초 앞으로"가 학생을 오프셋만큼 뒤로 점프). right 는
       //   seekBoth → setRightToStudentTime 이 warp 로 따라간다. 비활성은 기존 유지
       //   (느린 쪽 = 진짜 sync 위치).
-      const base = alignmentActive
+      // 32-02 (D-16) — 오프셋 활성도 base=master(left)만(rightCurrent=warp+offset 은
+      // 다른 타임라인이라 min 혼합이 학생 영상을 점프시킴). 오프셋 0 = 기존 보존.
+      const base = followActive
         ? leftCurrent
         : hasLeft && hasRight
           ? Math.min(leftCurrent, rightCurrent)
@@ -651,7 +731,7 @@ export function VideoCompare({
             : rightCurrent;
       seekBoth(base + deltaS);
     },
-    [hasAny, hasLeft, hasRight, leftCurrent, rightCurrent, seekBoth, alignmentActive],
+    [hasAny, hasLeft, hasRight, leftCurrent, rightCurrent, seekBoth, followActive],
   );
 
   // PanResponder — timeline track drag = scrub. locationX 가 track element 내부
@@ -719,6 +799,85 @@ export function VideoCompare({
 
   const progressPct =
     duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
+
+  // ── 32-02 (D-16) 수동 오프셋 슬라이더 핸들러 ───────────────────────────────
+  // 신규 npm 의존성 0 — PanResponder(RN 내장) 기반 커스텀 드래그 슬라이더. 트랙 폭
+  // 대비 locationX 비율 → [-sliderBound, +sliderBound] 매핑 → 0.1초 스냅. 조작 시
+  // userAdjustedRef=true 로 dirty 표시(initialOffsetSec 덮어쓰기 차단).
+  const onOffsetTrackLayout = useCallback((e: LayoutChangeEvent) => {
+    offsetTrackWidthRef.current = e.nativeEvent.layout.width;
+  }, []);
+
+  const setOffsetFromX = useCallback(
+    (x: number) => {
+      const w = offsetTrackWidthRef.current;
+      if (w <= 0) return;
+      const ratio = Math.max(0, Math.min(1, x / w));
+      const raw = ratio * (2 * sliderBound) - sliderBound;
+      userAdjustedRef.current = true;
+      setManualOffsetSec(Math.round(raw * 10) / 10); // 0.1초 스냅
+    },
+    [sliderBound],
+  );
+
+  const offsetPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (e) => setOffsetFromX(e.nativeEvent.locationX),
+        onPanResponderMove: (e) => setOffsetFromX(e.nativeEvent.locationX),
+      }),
+    [setOffsetFromX],
+  );
+
+  // 접근성 폴백 — 드래그 불가 사용자(VoiceOver 등)가 increment/decrement 로 ±0.1초
+  // 조정. accessibilityRole="adjustable" 와 짝(아래 트랙 View).
+  const onOffsetAccessibilityAction = useCallback(
+    (e: AccessibilityActionEvent) => {
+      const delta =
+        e.nativeEvent.actionName === 'decrement'
+          ? -OFFSET_SNAP_SEC
+          : OFFSET_SNAP_SEC;
+      userAdjustedRef.current = true;
+      setManualOffsetSec((prev) => {
+        const next = Math.round((prev + delta) * 10) / 10;
+        return Math.max(-sliderBound, Math.min(sliderBound, next));
+      });
+    },
+    [sliderBound],
+  );
+
+  // 리셋 — 자동 제안값으로 복귀(legacy=initialOffsetSec / 정렬 활성=0). dirty 해제로
+  // 이후 initialOffsetSec 지연 도착도 다시 반영되게 한다.
+  const resetOffset = useCallback(() => {
+    userAdjustedRef.current = false;
+    setManualOffsetSec(!alignmentActive ? (initialOffsetSec ?? 0) : 0);
+  }, [alignmentActive, initialOffsetSec]);
+
+  // initialOffsetSec 비동기 도착 + resetKey(analysisId) 전환 처리 (리뷰 HIGH).
+  //  (a) resetKey 변경 = 다른 분석 진입 → 오프셋 0 초기화 + dirty 해제.
+  //  (b) 미조작(dirty=false) + legacy(정렬 비활성)일 때만 initialOffsetSec 반영 —
+  //      Firestore 지연 로드로 prop 이 늦게 와도 적용되고, 사용자가 만진 뒤엔 유지.
+  //  정렬 활성(warped/trim_only)은 legacy 자동 오프셋 대상 아님(offset 0 시작).
+  const prevResetKeyRef = useRef(resetKey);
+  useEffect(() => {
+    if (prevResetKeyRef.current !== resetKey) {
+      prevResetKeyRef.current = resetKey;
+      userAdjustedRef.current = false;
+      setManualOffsetSec(0);
+      return;
+    }
+    if (!userAdjustedRef.current && !alignmentActive && initialOffsetSec != null) {
+      setManualOffsetSec(initialOffsetSec);
+    }
+  }, [initialOffsetSec, resetKey, alignmentActive]);
+
+  // 썸 위치(%) — manualOffsetSec 를 [-sliderBound, sliderBound] → [0,100] 매핑.
+  const offsetThumbPct = Math.max(
+    0,
+    Math.min(100, ((manualOffsetSec + sliderBound) / (2 * sliderBound)) * 100),
+  );
 
   // quick-260702-t0v — 컨트롤 공유 (로직 중복 0). 세로 카드와 가로 전체화면이
   // 같은 핸들러(togglePlay/stepBy/seekBoth/restart/panResponder)와 같은 JSX 를
@@ -921,17 +1080,30 @@ export function VideoCompare({
   // 28-06 (Task 2) — tier 별 정직한 배지 카피. alignment 부재(legacy doc) = null →
   //   기존 정적 배지 유지(D-05 배너는 28-07 result.tsx 책임, 배지/배너 분리). 수치
   //   표기 안 함 — DTW distance 원값은 사용자 의미 없음(Phase 20 A4, 가짜/무의미 수치
-  //   금지). tier 사다리 3단(D-02, belle 지정 톤).
+  //   금지, D-09 정합). tier 사다리(D-02, belle 지정 톤).
+  //
+  // 32-02 (D-16) — "끄지 않는다": (1) trim_only + low_global_confidence 는 "대략 맞춤"
+  //   정직 라벨 + 미세조정 유도. (2) disabled(degenerate)의 기존 정렬-포기 배지 문구는
+  //   폐지 — '시작점을 직접 맞춰주세요' 직접 맞춤 유도로 교체(아래 슬라이더 안내).
+  //   포기 계열 리터럴은 코드베이스에서 완전히 제거(grep 0).
   const alignBadgeCopy: { title: string; hint: string } | null = !alignment
     ? null
     : alignment.tier === 'warped'
       ? { title: '자동 구간 맞춤', hint: '동작 기준으로 자동 구간을 맞췄어요' }
       : alignment.tier === 'trim_only'
-        ? {
-            title: '자동 구간 맞춤',
-            hint: '동작 차이가 있어 시작점만 맞췄어요 (배속 조정은 꺼짐)',
-          }
-        : { title: '자동 정렬 꺼짐', hint: '기준 동작과 차이가 커 자동 정렬을 껐어요' };
+        ? alignment.reason === 'low_global_confidence'
+          ? {
+              title: '대략 맞춤',
+              hint: '동작 차이가 커 시작점만 대략 맞췄어요 — 아래에서 미세조정할 수 있어요',
+            }
+          : {
+              title: '자동 구간 맞춤',
+              hint: '동작 차이가 있어 시작점만 맞췄어요 (배속 조정은 꺼짐)',
+            }
+        : {
+            title: '시작점을 직접 맞춰주세요',
+            hint: '아래 미세조정으로 두 영상의 시작을 맞출 수 있어요',
+          };
 
   return (
     <View style={styles.card}>
@@ -976,6 +1148,53 @@ export function VideoCompare({
               ? alignBadgeCopy.hint
               : '서로 다른 시작점을 핵심 구간 기준으로 자동 정렬했어요.'}
           </Text>
+        </View>
+      )}
+
+      {/* 32-02 (D-16) — 수동 시작점 미세조정 슬라이더. "끄지 않는다": 전 tier 공통
+          노출(warped/trim_only/disabled/legacy 모두). 드래그 = 두 영상 시작 오프셋
+          ±조정, 리셋 = 자동 제안값 복귀. 접근성: adjustable + increment/decrement.
+          단일 warp 경유 지점(clampRefTarget)에서 composeRefTarget 합성돼 재생·seek 에
+          자동 반영. 세션 상태만(영속화는 실물 게이트 후 — D-17). */}
+      {hasLeft && hasRight && (
+        <View style={styles.offsetTuner}>
+          <View style={styles.offsetTunerHeader}>
+            <Text style={styles.offsetTunerLabel}>시작점 미세조정</Text>
+            <Text style={styles.offsetTunerValue}>
+              {fmtOffsetLabel(manualOffsetSec)}
+            </Text>
+          </View>
+          <View style={styles.offsetTunerRow}>
+            <View
+              style={styles.offsetTrack}
+              onLayout={onOffsetTrackLayout}
+              accessibilityRole="adjustable"
+              accessibilityLabel="두 영상 시작점 오프셋"
+              accessibilityValue={{ text: fmtOffsetLabel(manualOffsetSec) }}
+              accessibilityActions={[
+                { name: 'increment' },
+                { name: 'decrement' },
+              ]}
+              onAccessibilityAction={onOffsetAccessibilityAction}
+              {...offsetPanResponder.panHandlers}
+            >
+              <View style={styles.offsetRail} pointerEvents="none" />
+              <View style={styles.offsetCenterMark} pointerEvents="none" />
+              <View
+                style={[styles.offsetThumb, { left: `${offsetThumbPct}%` }]}
+                pointerEvents="none"
+              />
+            </View>
+            <Pressable
+              onPress={resetOffset}
+              accessibilityRole="button"
+              accessibilityLabel="시작점 미세조정 초기화"
+              hitSlop={8}
+              style={styles.offsetResetBtn}
+            >
+              <Ionicons name="refresh" size={14} color={colors.brand} />
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -1264,6 +1483,76 @@ const styles = StyleSheet.create({
     ...typography.captionSmall,
     color: colors.textSecondary,
     lineHeight: 15,
+  },
+  // ── 32-02 (D-16) 수동 시작점 미세조정 슬라이더 (토큰만, 하드코딩 색 0) ──────
+  offsetTuner: {
+    gap: 6,
+  },
+  offsetTunerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  offsetTunerLabel: {
+    ...typography.captionSmall,
+    color: colors.textSecondary,
+    fontWeight: '700',
+  },
+  offsetTunerValue: {
+    ...typography.captionSmall,
+    color: colors.brand,
+    fontWeight: '700',
+  },
+  offsetTunerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  // 트랙 높이 28 = 편안한 드래그 타깃. rail/thumb/centerMark 는 파생 top 으로 수직 중앙
+  // (timelineTrack top 5 = (14-4)/2 선례와 동일 산식).
+  offsetTrack: {
+    flex: 1,
+    height: 28,
+    justifyContent: 'center',
+  },
+  offsetRail: {
+    position: 'absolute',
+    top: (28 - 4) / 2,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: colors.divider,
+    borderRadius: 2,
+  },
+  // 0초(중앙) 기준선 — 사용자가 무보정 지점을 인지.
+  offsetCenterMark: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -1,
+    top: (28 - 10) / 2,
+    width: 2,
+    height: 10,
+    borderRadius: 1,
+    backgroundColor: colors.textDisabled,
+  },
+  offsetThumb: {
+    position: 'absolute',
+    top: (28 - THUMB_DIAMETER) / 2,
+    width: THUMB_DIAMETER,
+    height: THUMB_DIAMETER,
+    borderRadius: THUMB_DIAMETER / 2,
+    marginLeft: -THUMB_DIAMETER / 2,
+    backgroundColor: colors.brand,
+    borderWidth: 2,
+    borderColor: colors.cardBg,
+  },
+  offsetResetBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.brandTint,
   },
   // ── quick-260702-t0v — 가로 전체화면 뷰어 (belle TestFlight #27) ─────────
   // 진입 버튼: 전체 너비 pill (brandTint 배경 + brand 텍스트, 토큰만).

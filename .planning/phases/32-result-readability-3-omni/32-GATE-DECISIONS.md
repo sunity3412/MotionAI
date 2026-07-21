@@ -142,3 +142,9 @@ belle이 Figma에서 과거 제작 결함 상세 시트 구성을 가져와 채�
 - **② 일러스트 (D-21) = 도입, 2안 준실사 스타일** (`samples/illust_variant2_pro.jpg`, `gemini-3-pro-image`). belle 원문 요지 **"셋다 너무 멋진디, 상상이상"** + **1안(`illust_variant1_pro.jpg`)에서 다리 3개 해부학 오류 발견·지적.**
 - **★신규 품질 게이트 (belle 지적 — 필수 기록):** AI 일러스트는 **해부학 오류(사지 개수·관절 방향) 위험**이 있으므로, 일러스트 에셋 제작 시 **해부학 검수 + belle 최종 승인 게이트**를 반드시 거친다. **무검수 자동 반영 금지.** → **32-12 일러스트 태스크(Task 1 (5))의 acceptance criteria에 반영**한다(32-12 실행 executor가 이 파일을 읽고 반영 — 32-12-PLAN.md 본문은 파일 소유권 충돌 방지 위해 미수정, 이 기록이 단일 출처).
 - **후속 조치 (W-2 — B 확정 실행됨):** 32-12 **Task 2(백엔드 Polly 합성 스테이지+playback asset+SAM/Pod 배포+6동작 스윕)를 별도 플랜 `32-16-PLAN.md`(wave 7, depends_on 32-08·32-11)으로 물리 분리 생성 완료** (32-08 executor 산출). **32-12-PLAN.md 본문은 미수정** — 32-12 실행 시 executor가 이 기록을 읽고 Task 2를 '32-16에서 수행'으로 skip 처리(파일 소유권 충돌 방지). 32-16은 해부학 검수 게이트와 무관(백엔드 오디오 전용).
+
+### Polly 음성 부속 결정 (32-16 Task 4 — 2026-07-22 심야)
+
+- **Polly 음성 = 잠정 Seoyeon neural** (2026-07-22 심야, belle 야간 지시로 확정 이월 — 원문 요지: "목소리는 선택으로 냅두고 나머지 쭉 할 수도 있는거지?" → 오케스트레이터 확인 후 승인). 현재 프로덕션 가동 중인 기본값 유지 — env/상수 변경 없음.
+- **최종 확정 = 아침 belle 청취 대기** — 후보 3종: `seoyeon_neural.mp3` / `jihye_neural.mp3` / `seoyeon_generative.mp3` (`samples/voice/`, 동일 코칭 문장). **변경 시 재배포 불요** (env 스왑 — `POLLY_VOICE_ID`/`POLLY_ENGINE`, Pod start_server.sh export + 재기동).
+- 32-16 배포·스윕은 잠정 음성으로 완결됨 (DIFF_MEMBERS=0 + mp3 스모크 200 — `32-16-SWEEP.md`).

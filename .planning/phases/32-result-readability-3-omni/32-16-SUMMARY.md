@@ -57,7 +57,7 @@ patterns-established:
   - "사후 부분 갱신 필드 추가 = update_analysis_{field} helper + scoped validator + 단일 field-path .update() (fault_zoom 뼈대)"
 
 requirements-completed: [D-23]
-requirements-partial: [D-18 (구현·배포·스윕 완료 — 최종 음성 belle 청취 확정 checkpoint 대기), D-09 (오디오 문장 = 승인 문구집 cueLine 그대로 — 무수치 승계)]
+requirements-partial: [D-18 (구현·배포·스윕 완료 + 잠정 Seoyeon neural 가동 — belle 야간 지시로 최종 청취 확정만 아침 이월, 변경 시 env 스왑·재배포 불요), D-09 (오디오 문장 = 승인 문구집 cueLine 그대로 — 무수치 승계)]
 
 # Metrics
 duration: ~1h 50m (스윕 76분 포함)
@@ -66,7 +66,7 @@ completed: 2026-07-22
 
 # Phase 32 Plan 16: 백엔드 TTS Polly 스테이지 + coachAudio 계약 + 배포·스윕 Summary
 
-**B안(AWS Polly neural) 오디오 백엔드를 완결 배선 — 분석 사후 스테이지가 records 의 cueLine 을 recordId 조인 키로 합성·저장하고, playback-url 이 H-02 exact 비교로만 mp3 를 재서명하며, SAM+Pod 배포 후 6동작 전수 스윕 점수 diff 0 + 실 mp3 200 스모크로 프로덕션 실증. 남은 것은 belle 음성 청취 확정(checkpoint) 하나 — env 스왑 설계로 확정 후 재배포 불요.**
+**B안(AWS Polly neural) 오디오 백엔드를 완결 배선 — 분석 사후 스테이지가 records 의 cueLine 을 recordId 조인 키로 합성·저장하고, playback-url 이 H-02 exact 비교로만 mp3 를 재서명하며, SAM+Pod 배포 후 6동작 전수 스윕 점수 diff 0 + 실 mp3 200 스모크로 프로덕션 실증. 음성은 belle 야간 지시로 잠정 Seoyeon neural 확정·가동 (최종 청취 = 아침 이월, env 스왑 설계라 변경 시에도 재배포 불요).**
 
 ## Task Commits
 
@@ -75,7 +75,7 @@ completed: 2026-07-22
 | 1 | Polly 사후 스테이지 + coachAudio 계약 3면 + normalize | `f07b3a5` |
 | 2 | playback-url coachAudio asset (H-02 exact 가드) | `93a21d4` |
 | 3 | graceful·asset guard·validator 테스트 26건 | `0a5e7f6` |
-| 4(부분) | 음성 후보 샘플 3종 커밋 (belle 청취 대기 — checkpoint) | `ebef2fd` |
+| 4 | 음성 후보 샘플 3종 커밋 + 잠정 Seoyeon neural 확정 기록 (아침 청취 이월) | `ebef2fd`, docs 커밋 |
 | 5 | 브리지 배포 템플릿 | `312ec21` |
 | 5(수리) | cold 타임아웃 + results/* GetObject 배포 수리 | `9615d7c` |
 
@@ -109,12 +109,13 @@ completed: 2026-07-22
 - **스윕**: 6동작 12멤버 SERIAL 76분 (runId `1784649897`) — **DIFF_MEMBERS=0** (32-09 기준선 대비 점수·criteria·err 전 멤버 동일), coachAudio 전 완주 doc 방출 (fault items 3/3/7/7/1 = record 수 완전 조인, correct done+0, climb failed 부재 정상), canonical key 전 항목 일치, S3 HEAD 21/21, validator 전 doc PASS, 동기 경로 timingsMs 회귀 0. 상세 = `32-16-SWEEP.md`.
 - **스모크** (실 배포 Lambda): coachAudio asset 200 → presigned GET 200 `audio/mpeg` 27KB → 미등재 recordId 404 → 형식 위반 400 → 미지원 asset 400.
 
-### Task 4 (checkpoint 대기) — 음성 후보 샘플
+### Task 4 — 음성 후보 샘플 + 잠정 확정 (belle 야간 지시로 아침 확정 이월 — 잠정 서연 가동)
 
 - ap-northeast-2 ko-KR 가용 전수(describe-voices 실계정): Seoyeon(neural/generative/standard), Jihye(neural).
 - 동일 코칭 문장(32-08 샘플 문장 — 문구집 leg_extension cueLine+whyLine)으로 3종 생성·커밋: `samples/voice/seoyeon_neural.mp3` / `jihye_neural.mp3` / `seoyeon_generative.mp3` (+README 청취 안내).
 - 샘플 생성 = sunity-motion 자격의 SynthesizeSpeech 실증 (Pod 프로덕션 경로와 동일 IAM 사용자).
-- **belle 확정 후 (continuation)**: 기본값과 다르면 pipeline 상수·env 반영 + 32-GATE-DECISIONS 1줄 기록.
+- **잠정 확정 = Seoyeon neural** (belle 야간 지시 — "목소리는 선택으로 냅두고 나머지 쭉", 오케스트레이터 승인 relay). 현재 프로덕션 가동 중인 기본값 그대로 — env/상수 변경 0. 결정 기록 = 32-GATE-DECISIONS §샘플 게이트 "Polly 음성 부속 결정" (append).
+- **최종 확정 = 아침 belle 청취** — 변경 선택 시 반영 절차 1줄: Jihye neural → Pod `POLLY_VOICE_ID=Jihye` / Seoyeon generative → Pod `POLLY_ENGINE=generative` (start_server.sh export 추가 + 재기동, 재배포 불요. Seoyeon neural 유지 시 작업 0).
 
 ## Deviations from Plan
 
@@ -167,9 +168,9 @@ completed: 2026-07-22
 - playback mp3 presigned 200 스모크 + 가드 404/400
 - STATE.md/ROADMAP.md 무접촉 (orchestrator 소관)
 
-## Next (continuation 필요분)
+## Next
 
-1. belle 음성 확정 (checkpoint) → 기본값과 다르면 pipeline 기본 상수 또는 Pod/Lambda env 반영 + 32-GATE-DECISIONS §샘플 게이트 1줄 기록.
+1. **아침 belle 청취 최종 확정** (잠정 = Seoyeon neural 가동 중): Seoyeon neural 유지 → 작업 0 / Jihye neural → Pod `POLLY_VOICE_ID=Jihye` / Seoyeon generative → Pod `POLLY_ENGINE=generative` (start_server.sh export + 재기동, 재배포 불요) + GATE-DECISIONS 확정 1줄.
 2. 32-12 오디오 배선(audioCue.ts B-branch)이 이 플랜의 playback-url + coachAudio 계약을 소비 (백엔드 선행 완료).
 
 ## Self-Check: PASSED
@@ -183,4 +184,4 @@ completed: 2026-07-22
 
 ---
 *Phase: 32-result-readability-3-omni*
-*Completed: 2026-07-22 (Task 4 음성 확정 checkpoint 대기)*
+*Completed: 2026-07-22 (음성 = 잠정 Seoyeon neural 가동, 최종 청취만 아침 이월 — belle 야간 지시)*

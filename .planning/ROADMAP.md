@@ -1079,6 +1079,19 @@ Plans:
 - [ ] 31-12-PLAN.md — fail-closed 배포 게이트: live mutation checkpoint(H2-09) + belle deploy(OFF→ON) + IAM 실검증(H2-02) + 실 E2E 2종 = phase 완료 필요조건 [W5]
 
 ---
+
+### Phase 32: 분석 결과를 읽히게 만들기 — 해석·방법·코치 (result readability: 결과 화면 재설계 + 즉시수리 3건 + omni 분석 보강)
+
+**Goal:** [To be planned — /gsd-discuss-phase 32. SEED = .planning/phases/32-result-readability-3-omni/32-SEED.md (belle 실기기 총평 §10 + 열린 질문 Q1~Q5 포함)]
+**Requirements**: TBD
+**Depends on:** Phase 31
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 32 to break down)
+
+---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*
 *Roadmap updated: 2026-05-31 (belle 결정 — 상용/베타 = MediaPipe + Gemini, NLF/SMPL-X = R&D 비교군 격리. Phase 1·2 재정의)*
@@ -1090,3 +1103,4 @@ Plans:
 *Roadmap updated: 2026-06-02 (Plan 01-20 belle license checkpoint 통과 — Production=rtmw-x-384x288 (commercial_ok, validation-pilot scope), Fallback=rtmw-l-384x288. weights_manifest production_eligible=1. Plan 21 진입 차단 해소. v1.5 에 "RTMW clean weight 경로(B) 출시 hard gate" 박제 — 상업 출시 전 mmpose 공식 commercial-friendly weight 또는 자체 clean-data fine-tune 으로 교체 필요 (belle 지시 별도 plan).)*
 *Roadmap updated: 2026-06-24 (Phase 24 신설 — 투명 감점-합산 채점 엔진. belle 채점 철학 결정타([[scoring-must-be-transparent-deduction-tally]]): Phase 20 의 severity→고정밴드(`SEVERITY_CAP`/`apply_downward_cap`)는 자의적=사람 판단 주입 → 점수=baseline(100)−Σ(측정편차×명시규칙 감점), 보고서가 감점 내역 노출 엔진으로 교체. Gemini 강등(점수X·측정대상만 짚기). Phase 20 은 재설계 아님 — working parts 보존, 밴드 한 단만 신규 phase 가 supersede. 23-03 의 케이스별 기대점수 밴드(moderate≤75) curve-fit → Phase 24 추적성·단조성 게이트로 대체. discuss 결정 = 24-CONTEXT.md ND-01~07. Phase 19·20·23 의존, Pod 필요, Phase 22 보다 먼저.)*
 *Roadmap updated: 2026-07-04 (Phase 25 신설 — 상체 감점 커버리지 vision-pointed window 측정. TestFlight 실증에서 어깨 40° 측정-무감점 갭 확정, quick 260702-o0c worst-window 실험 = 메커니즘 실증 but success 위양성으로 revert([[window-median-silent-seed-fp-reverted]]). 아키텍처 = 짚기(Gemini faultKey)/측정(worst-window)/감점(규칙) 역할 분리 + Gemini-silent 는 full-path median 유지. belle 판정: 88도 50도 아닌 사이가 정답, 점수 짜맞추기 금지.)*
+*Roadmap updated: 2026-07-21 (Phase 32 신설 — 분석 결과를 읽히게: 해석·방법·코치. belle "전체 방안부터" 결정으로 즉시수리 3건(동작비교 초맞춤·참고지표 겹침·확대비교 크롭)을 32 방안에 흡수, wave-1 앞배치 방침. SEED = 32-SEED.md, 근거 = 2026-07-20 deep-research(OPTIMAL 이론) + belle 실기기 총평 §10.)*

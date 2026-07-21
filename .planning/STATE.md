@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: 22-04 COMPLETE — full batch 129/129(수락 109) + JSONL S3 완성(train 99/val 2) + SUMMARY 작성. 다음=22-06 bake-off 계속, 22-07 진입 전 val 얇음·3트랙 완전체 belle 결정
-last_updated: "2026-07-19T23:49:38.199Z"
-last_activity: 2026-07-19 -- Phase 31 execution started
+last_updated: "2026-07-21T00:04:16.252Z"
+last_activity: "2026-07-20 - Completed quick task 260720-hn8: 영상 선택 실패 알림창 전환 + iCloud 폴백"
 progress:
-  total_phases: 33
-  completed_phases: 15
-  total_plans: 192
-  completed_plans: 146
-  percent: 45
+  total_phases: 15
+  completed_phases: 7
+  total_plans: 79
+  completed_plans: 72
+  percent: 47
 ---
 
 # Project State
@@ -608,6 +608,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 - Phase 30 added: 여정 트랙 등재 (belle 승인 2026-07-06)
 - Phase 31 added: 여정 트랙 등재 (belle 승인 2026-07-06)
 - Phase 22 edited: 스코프 확정(22-CONTEXT.md D-01~16) + Phase 21 디커플 — 22 먼저
+- Phase 32 added: 분석 결과를 읽히게 — 해석·방법·코치. 즉시수리 3건(동작비교 초맞춤/참고지표 겹침/확대비교 크롭) wave-1 흡수
 
 ### Decisions
 

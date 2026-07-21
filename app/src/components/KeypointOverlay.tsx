@@ -1,7 +1,8 @@
 // Phase 12 Wave 2 (Plan 12-03 T1) — 영상 위 키포인트 오버레이 (frame sync).
 //
 // 책임 (Wave 2):
-//   - 8 body keypoint (좌우 어깨/엉덩이/무릎/손) + axisData polyline 렌더
+//   - body keypoint (joints 배열 파생 — legacy 8: 좌우 어깨/엉덩이/무릎/손,
+//     32-14 확장 12: +좌우 발목/팔꿈치) + axisData polyline 렌더
 //   - player prop 전달 시 useEvent(player, 'timeUpdate') 로 frame index 자동 산출.
 //     player 미전달 시 props.frameIndex (default 0) 의 정적 렌더 (Wave 1 호환).
 //   - jointAngles prop 으로 current/target 받아 delta ≥ deltaThresholdDeg 강조.
@@ -19,7 +20,8 @@
 // alignment 는 v2 (12-deferred-items.md 박제).
 //
 // 좌표계 약속 (Wave 0B KeypointReport schema §9.12):
-//   - keypointReport.data = flat T × 8 × 2, image normalized 0..1
+//   - keypointReport.data = flat T × joints.length × 2 (8 legacy | 12 32-14),
+//     image normalized 0..1 — joints 배열이 capability source (하드코딩 8 금지)
 //   - keypointReport.axisData = flat T × 3 × 2, shoulder_mid / hip_mid / knee_mid?
 //   - keypointReport.axisMask[idx*3 + 2] === false → polyline 2-point (knee_mid 생략)
 //   - UI 단 좌표 산출 절대 X (백엔드 산출만 read, D-12 §12 안티 패턴)
@@ -45,6 +47,9 @@ export const KEYPOINT_LOW_CONFIDENCE_THRESHOLD = 0.5;
 // Wave 2 (Plan 12-03 T1) — KeypointName → JointScore.key 매핑.
 // 손은 시각 keypoint, elbow 는 kismam angle key (delta 산출 source).
 // 어깨/엉덩이/무릎 = 1:1, 손 = elbow 로 reuse (v1, wrist 신설 v2).
+// [32-14 D-22 1단] 신규 4관절(ankle/elbow keypoint)은 null — 각도 delta 강조
+// 배선 없음(표시 전용 점). ankle 각은 kismam 에 없고, elbow 각의 시각 proxy 는
+// legacy 손 매핑 유지(이중 강조 방지). 감점 편입(2단) 게이트 후 재검토.
 const JOINT_KEY_TO_ANGLE_KEY: Record<KeypointName, string | null> = {
   left_shoulder: 'left_shoulder',
   right_shoulder: 'right_shoulder',
@@ -54,9 +59,14 @@ const JOINT_KEY_TO_ANGLE_KEY: Record<KeypointName, string | null> = {
   right_knee: 'right_knee',
   left_hand: 'left_elbow',
   right_hand: 'right_elbow',
+  left_ankle: null,
+  right_ankle: null,
+  left_elbow: null,
+  right_elbow: null,
 };
 
-// UI-SPEC §5 + RESEARCH §Code Examples §1. 8 keypoint + 8 bone.
+// UI-SPEC §5 + RESEARCH §Code Examples §1. 8 bone (32-14: 신규 4관절은
+// 점만 렌더 — bone 확장은 2단 게이트 후 재검토).
 // shoulder ↔ shoulder, hip ↔ hip, shoulder ↔ hip (좌/우), hip ↔ knee (좌/우),
 // shoulder ↔ hand (좌/우).
 const BONES: readonly [KeypointName, KeypointName][] = [
@@ -147,7 +157,7 @@ export type KeypointOverlayProps = {
 type Point = { x: number; y: number };
 type KeypointPoint = Point & { confidence: number };
 
-// frame=0 (또는 prop frameIndex) 의 8 keypoint 좌표 + confidence reshape.
+// frame=0 (또는 prop frameIndex) 의 keypoint 좌표 + confidence reshape (J = joints.length).
 // flat array 전체 reshape 회피 — 한 frame 만 slice (T × J × 2 → J point).
 // confidence flat array (T × J) 도 동일 frame slice 동시 read (12-deferred §12-D).
 function readFramePositions(
@@ -493,7 +503,7 @@ export function KeypointOverlay({
           );
         })}
 
-        {/* 8 keypoint circles. 저신뢰 keypoint 는 estimateGray (12-deferred §12-D).
+        {/* keypoint circles (J = joints.length — 8 legacy | 12). 저신뢰는 estimateGray (12-deferred §12-D).
             quick-260704-fz4 — attention(주황) 은 강조와 동일 스케일(RADIUS_HI +
             흰 외곽선, Phase 20 A2 가독 선례)이되 fill=advisoryOrange. 저신뢰가
             항상 우선 (advisory 승격 금지). */}

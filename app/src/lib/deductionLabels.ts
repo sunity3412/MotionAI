@@ -39,6 +39,10 @@ export const JOINT_LABEL_KO: Record<string, string> = {
   right_hand: '오른쪽 팔',
   left_elbow: '왼쪽 팔꿈치',
   right_elbow: '오른쪽 팔꿈치',
+  // 32-14 (D-22 1단) — keypointReport 12관절 확장분. elbow 는 angle key 로
+  // 기존재 → keypoint 키 공간에서도 동일 항목 재사용 (이중 키 공간 커버 관례).
+  left_ankle: '왼쪽 발목',
+  right_ankle: '오른쪽 발목',
 };
 
 // 결함단위(region) 카드 한국어 라벨 (quick-260702-sic) — 좌+우 관절 묶음 카드

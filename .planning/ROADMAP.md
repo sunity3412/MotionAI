@@ -1082,14 +1082,28 @@ Plans:
 
 ### Phase 32: 분석 결과를 읽히게 만들기 — 해석·방법·코치 (result readability: 결과 화면 재설계 + 즉시수리 3건 + omni 분석 보강)
 
-**Goal:** [To be planned — /gsd-discuss-phase 32. SEED = .planning/phases/32-result-readability-3-omni/32-SEED.md (belle 실기기 총평 §10 + 열린 질문 Q1~Q5 포함)]
-**Requirements**: TBD
+**Goal:** 수강생이 결과 화면에서 ① 자기 말로 문제를 설명하고 ② 다음 행동 하나를 알고 ③ 강사에게 물을 것을 갖게 된다 — 요약 카드 1장+번역 레이어(3단 문장·문구집)+미션 루프+코치 출구로 재구성하고, 즉시수리 3건(초맞춤·겹침·크롭)을 wave-1 선행, 엔진 레버 3종(omni 스팟체크·RTMW 12관절·PR 인버전)으로 분석을 보강한다. 런타임 신규 생성 AI 0.
+**Requirements**: D-01~D-30 (32-CONTEXT.md — 공식 REQ 매핑 없음, CONTEXT 결정이 요구사항 원본. FEED-01은 D-09 우선 해석)
 **Depends on:** Phase 31
-**Plans:** 0 plans
+**Plans:** 15 plans (waves 1~9 — 4대 게이트: 실물 32-03 / 리서치+목업 32-04 / 문구 감수 32-05 / 샘플 32-08)
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 32 to break down)
+- [ ] 32-01-PLAN.md — 백엔드 수리 2건: D-16 사다리 재배치 + D-20 크롭 parity + phase32 테스트 스캐폴드 (w1)
+- [ ] 32-02-PLAN.md — 앱 수리: 수동 ±초 슬라이더·대략 맞춤 배지·legacy 폴백 + D-03 겹침 최소수리 (w1)
+- [ ] 32-03-PLAN.md — 실물 게이트: Pod 배포·재분석 실측 + OTA + belle 실기기 → D-17 3건 확정 (w2, checkpoint)
+- [ ] 32-04-PLAN.md — 리서치+목업 게이트: 순서안 제시 + 강도별 목업 → D-02/D-03/D-05/D-10 확정 (w2, checkpoint)
+- [ ] 32-05-PLAN.md — 문구집+용어 맵: phrasebook fixture·조립 함수·금지어 게이트 + belle 감수 (w2, checkpoint)
+- [ ] 32-06-PLAN.md — 미션 엔진+계약 3면: select_mission·streak·에스컬레이션 + validator + normalize (w3)
+- [ ] 32-07-PLAN.md — 타이포 토큰 + SummaryCard + summarySource + 코치마크 (w3)
+- [ ] 32-08-PLAN.md — 재생 중 자막 큐 + TTS·일러스트 샘플 게이트 → D-18/D-21 확정 (w3, checkpoint)
+- [ ] 32-09-PLAN.md — 파이프라인 방출 배선: 3단 문구·미션·코치 질문 + LLM 가변부 한정 (w4)
+- [ ] 32-10-PLAN.md — 감점 카드 재구성: DeductionCard 3단+인라인 줌+게이지+미션 배지 + 드릴다운·위험 톤 (w4)
+- [ ] 32-11-PLAN.md — result.tsx 대배선: 게이트 확정 순서 재배치 + 보완 운동 가로 + 코치 질문 + 참고 지표 전환 (w5)
+- [ ] 32-12-PLAN.md — 오디오 큐 구현 + 실패 UX(D-29/D-30) + D-09 전 화면 검증 + OTA + belle 확인 (w6, checkpoint)
+- [ ] 32-13-PLAN.md — omni 스팟체크: 사후 스테이지 + 불일치 카드 숨김 + 6동작 스윕 (w7)
+- [ ] 32-14-PLAN.md — RTMW 측정층 확장 1단: keypointReport 8→12 + 하위호환 + 용량 검증 (w8)
+- [ ] 32-15-PLAN.md — PR 인버전 조건부 보정 + 최종 전수 스윕 게이트 + belle 마감 확인 (w9, checkpoint)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

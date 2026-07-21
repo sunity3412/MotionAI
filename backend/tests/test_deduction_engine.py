@@ -112,10 +112,16 @@ def test_contract_lockstep():
     assert m, "DeductionRecord interface 부재"
     ts_fields = set(re.findall(r"(\w+)\??:", m.group(1)))
     # quick-260705-k8h: TS regex 는 optional 필드(rawPoints?/capApplied?)도 잡으므로
-    # 필수 ∪ optional == TS 필드 set 으로 lockstep 단언 + 두 집합 disjoint 가드.
+    # 필수 ∪ optional == TS 필드 set 으로 lockstep 단언 + 집합 disjoint 가드.
+    # Plan 32-06 (§12.3): DEDUCTION_RECORD_EXTENSION_KEYS(recordId/3단 문구/
+    # tolerance — 32-09 방출 additive optional 8키)가 3번째 집합으로 합류.
     assert (set(models.DEDUCTION_RECORD_KEYS)
-            | set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)) == ts_fields
+            | set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)
+            | set(models.DEDUCTION_RECORD_EXTENSION_KEYS)) == ts_fields
     assert not set(models.DEDUCTION_RECORD_KEYS) & set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)
+    assert not set(models.DEDUCTION_RECORD_KEYS) & set(models.DEDUCTION_RECORD_EXTENSION_KEYS)
+    assert not set(models.DEDUCTION_RECORD_OPTIONAL_KEYS) & set(
+        models.DEDUCTION_RECORD_EXTENSION_KEYS)
     assert "baselineValue" in models.DEDUCTION_RECORD_KEYS
     assert "baselineKind" in models.DEDUCTION_RECORD_KEYS
     assert "fallback" in models.DEDUCTION_BREAKDOWN_KEYS

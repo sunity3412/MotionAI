@@ -197,6 +197,76 @@ MOTION_ALIGNMENT_TIERS = ("warped", "trim_only", "disabled")
 MOTION_ALIGNMENT_SOURCES = ("dtw", "vlm")
 MOTION_ALIGNMENT_MAX_ANCHOR_FLOATS = 512
 
+# ── Phase 32 (Plan 32-06): 미션 루프 + 번역 레이어 방출 계약 ─────────────
+# D-19/D-26/D-27/D-14 미션 엔진(analysis/mission.py 순수 함수 산출)과 D-08 감점
+# 카드 3단 문구·recordId·summaryPraise·coachQuestions 의 계약 상수. 전부
+# "result 안으로 흐른다" — complete_analysis 신규 kwarg 0 (safetyFlags 선례),
+# scoped validator 로만 검증. 방출은 32-09 파이프라인 배선부터 (legacy doc 부재 =
+# 하위호환, tier? 서술 모범).
+#
+# result.mission — 오늘의 미션 (13키 flat scalar).
+#   faultKey = motionId::ruleId::criterion 결정적 조합 (analysis/mission.py
+#   build_fault_key — criterion 이 좌우 관절을 내장해 faultKey 에 승계, 리뷰
+#   blocker 1). baseline*(baselinePoints/baselineDeviation/targetValue/unit)은
+#   다음 분석의 개선량 계산 재료 (D-26). isSafety=True 미션은 streak 1 고정 +
+#   escalation 'none' 강제 (D-14 — 안전은 안내 전용, 게임·에스컬레이션 제외).
+# 3-way lockstep: app/src/types/analysis.ts Mission + docs/contract.md §12.1.
+MISSION_KEYS = (
+    "faultKey", "criterion", "ruleId", "recordId", "selectedBy", "streak",
+    "isSafety", "escalation", "motionId", "baselinePoints",
+    "baselineDeviation", "targetValue", "unit",
+)
+MISSION_SELECTED_BY = ("safety", "repeat", "max_deduction")
+MISSION_ESCALATIONS = ("none", "exercise_detour", "coach_card")
+# streak 상한 — analysis/mission.py _STREAK_CAP 과 lockstep (validator 1..99).
+MISSION_STREAK_MAX = 99
+
+# result.missionOutcome — 지난 미션의 수치 outcome (mode3 전용, 9키 flat scalar).
+# **수치·bool·키만** — 사람 문장(deltaSummary 류)은 phrasebook 조립(32-09)·앱
+# 렌더 소관 (계산/카피 책임 분리, 리뷰 반영).
+# 3-way lockstep: app/src/types/analysis.ts MissionOutcome + docs/contract.md §12.2.
+MISSION_OUTCOME_KEYS = (
+    "improved", "faultKey", "criterion", "baselinePoints", "currentPoints",
+    "deltaPoints", "baselineDeviation", "currentDeviation", "deltaDeviation",
+)
+
+# DeductionRecord 확장 — 감점 카드 3단 문구 슬롯 (D-08, phrasebook._ENTRY_SLOTS
+# 와 동형). fail-closed 조합은 cueLine/exerciseId/exerciseReason 을 **생략**한다
+# (32-05 — 일반론 조언 fabrication 차단). 전부 additive optional — 기존 record
+# 11+2 키 byte-호환, record 검증은 기존 _validate_dict_only_scalars 경로가 scalar
+# 신규 키를 자동 통과시킨다 (validator 본체 무변경).
+# 3-way lockstep: app/src/types/analysis.ts DeductionRecord + docs/contract.md §12.3.
+DEDUCTION_PHRASE_KEYS = (
+    "statusLine", "whyLine", "cueLine", "coachQuestion", "exerciseId",
+    "exerciseReason",
+)
+# recordId — 방출 시 1회 각인되는 안정 조인 키 (형식 'r{index:02d}:{criterion}',
+# 32-09 각인). 정렬·필터·숨김(32-13 스팟체크)에 index 대신 사용 (리뷰 blocker 5).
+# tolerance — 규칙 상수 유래 허용 오차 (게이지 스케일 재료 — 자의 수치 금지, D-10).
+#
+# §12.3 additive optional 전체 집합 — DeductionRecord 의 32-06 확장 8키.
+# DEDUCTION_RECORD_KEYS(필수 11)/DEDUCTION_RECORD_OPTIONAL_KEYS(k8h cap 쌍 2)와
+# 반드시 disjoint. test_deduction_engine.test_contract_lockstep 이 TS interface
+# 필드 집합과의 3-set 합집합 동등을 강제한다.
+DEDUCTION_RECORD_EXTENSION_KEYS = (
+    ("recordId",) + DEDUCTION_PHRASE_KEYS + ("tolerance",)
+)
+
+# result.summaryPraise — 잘한 점 후보 단일 원천 (백엔드 산출, D-06/D-26 + 리뷰
+# blocker 5). headline 은 사람 말 — **수치 미포함** (D-09 invariant: 수치는
+# evidenceValue/evidenceUnit 구조 필드로 분리, 렌더 위치는 앱 소관).
+# 3-way lockstep: app/src/types/analysis.ts SummaryPraise + docs/contract.md §12.4.
+SUMMARY_PRAISE_KEYS = ("source", "headline", "evidenceValue", "evidenceUnit")
+SUMMARY_PRAISE_SOURCES = ("mission_improved", "clean_dimension", "criteria_met")
+
+# result.coachQuestions — 코치 질문 자동 등재 목록 (D-28/D-29). 각 항목
+# {text, source, recordId?} scalar dict (safetyFlags list[dict] 선례 — nested
+# array 아님). recordId 조인으로 해당 감점 카드 점프.
+# **source='user' 는 클라이언트 로컬 전용** (사용자 담기 — 백엔드 방출·validator
+# 에 도달하지 않음). 백엔드 방출 가능값은 'user' 제외 3종.
+# 3-way lockstep: app/src/types/analysis.ts CoachQuestion + docs/contract.md §12.5.
+COACH_QUESTION_SOURCES = ("safety", "mission_stuck", "unmeasured", "user")
+
 # ── Phase 20 (TRUST-07): scoreSuppressed + scoreSuppressedReason 명세 ───
 # Mode3 미보유/저신뢰 동작의 점수카드 전체 억제 신호. scoringBasis 단독이 아닌 명시
 # 플래그로 backend↔frontend drift 차단 (iter2 HIGH-3).

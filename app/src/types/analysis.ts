@@ -507,6 +507,77 @@ export interface MotionAlignment {
   distance: number;
 }
 
+// Phase 32 (Plan 32-06 — 32-CONTEXT D-19/D-26/D-27/D-14) — 미션 루프 계약.
+// backend analysis/mission.py 순수 함수가 산출, 32-09 파이프라인이 result.mission
+// 으로 방출. 부재(legacy doc) = 미션 표면 미렌더 (하위호환, tier? 선례 — no migration).
+// faultKey = `{motionId}::{ruleId}::{criterion}` 결정적 조합 — criterion 이 좌우
+// 관절을 내장(angle_vs_reference__left_knee)해 좌우 구분이 승계된다 (리뷰 blocker 1).
+// baseline*(baselinePoints/baselineDeviation/targetValue/unit) = 다음 분석의
+// 개선량 계산 재료 (D-26). isSafety=true 는 streak 1 고정 + escalation 'none'
+// 강제 — 안전은 안내 전용, 게임·에스컬레이션 제외 (D-14).
+// Python lockstep: models.py MISSION_KEYS/MISSION_SELECTED_BY/MISSION_ESCALATIONS
+// + docs/contract.md §12.1.
+export interface Mission {
+  faultKey: string;
+  criterion: string;
+  ruleId?: string | null;
+  // 선정 record 의 안정 조인 키 (부재 시 null — §12.3 recordId 참조).
+  recordId?: string | null;
+  selectedBy: 'safety' | 'repeat' | 'max_deduction';
+  streak: number; // 1..99 — 같은 faultKey 미개선 연속 회차 (doc 체인 전파)
+  isSafety: boolean;
+  escalation: 'none' | 'exercise_detour' | 'coach_card'; // D-27 (2회차/3회차+)
+  motionId?: string | null;
+  baselinePoints: number; // 선정 record |points| — 다음 분석 개선량 계산 기준
+  baselineDeviation?: number | null; // |measured−target| (둘 다 있을 때만)
+  targetValue?: number | null;
+  unit?: string | null;
+}
+
+// Phase 32 (Plan 32-06 — D-26) — 지난 미션의 수치 outcome (mode3 전용).
+// **수치·bool·키만** — 사람 문장은 백엔드 phrasebook 조립(summaryPraise)·앱 렌더
+// 소관 (계산/카피 책임 분리, 리뷰 반영). 수치 렌더는 D-09 invariant 준수 —
+// 헤드라인 금지, 소형 보조 표기만.
+// Python lockstep: models.py MISSION_OUTCOME_KEYS + docs/contract.md §12.2.
+export interface MissionOutcome {
+  improved: boolean;
+  faultKey: string;
+  criterion: string;
+  baselinePoints: number; // prev mission 저장값
+  currentPoints: number; // 잔존 시 |points|, 소멸 시 0
+  deltaPoints: number; // baseline − current (양수 = 개선, 음수 = 악화)
+  baselineDeviation?: number | null;
+  currentDeviation?: number | null;
+  deltaDeviation?: number | null;
+}
+
+// Phase 32 (Plan 32-06 — D-06/D-26 + 리뷰 blocker 5) — 잘한 점 후보 단일 원천.
+// 백엔드가 phrasebook 으로 산출·방출(32-09) — 앱은 소비하고 legacy doc 만 로컬
+// 폴백 파생(32-07 summarySource). 스팟체크(32-13)가 이 headline 을 교차검증하므로
+// 앱이 렌더하는 문장과 검증 대상 문장이 동일해진다.
+// headline 은 사람 말 — **수치 미포함** (D-09: 수치는 evidenceValue/evidenceUnit
+// 구조 필드로만 분리, 렌더 여부·위치는 소비 컴포넌트 소관).
+// Python lockstep: models.py SUMMARY_PRAISE_KEYS/SUMMARY_PRAISE_SOURCES +
+// docs/contract.md §12.4.
+export interface SummaryPraise {
+  source: 'mission_improved' | 'clean_dimension' | 'criteria_met';
+  headline: string;
+  evidenceValue?: number | null;
+  evidenceUnit?: string | null;
+}
+
+// Phase 32 (Plan 32-06 — D-28/D-29) — 코치 질문 자동 등재 항목. list[dict-of-
+// scalars] 라 Firestore 허용 (nested array 아님 — safetyFlags 선례). recordId
+// 조인으로 해당 감점 카드 점프 (부재 = 점프 없음).
+// **source 'user' 는 클라이언트 로컬 전용** ('강사님께 물어보기' 담기) — 백엔드
+// 방출·validator 에 도달하지 않는다 (백엔드 방출 가능값은 나머지 3종).
+// Python lockstep: models.py COACH_QUESTION_SOURCES + docs/contract.md §12.5.
+export interface CoachQuestion {
+  text: string; // 문구집 스타일 완성문 (D-28)
+  source: 'safety' | 'mission_stuck' | 'unmeasured' | 'user';
+  recordId?: string;
+}
+
 // Phase 24 (SCORE-10~16, ND-01/ND-07) — 투명 감점-합산 채점.
 // 점수 = baseline(100) − Σ(criterion별 측정편차 × 명시규칙 감점). severity→고정밴드
 // (Phase 20 visionVeto 의 옛 cap 필드) 제거. 보고서가 감점 내역("−X −Y −Z = 점수")을 노출하는 게 핵심
@@ -538,6 +609,29 @@ export interface DeductionRecord {
   // contract.md §10.2. fallback record(dimension_overall_fallback)는 클램프 비대상.
   rawPoints?: number; // SIGNED NEGATIVE — 관절당 상한(-20) 적용 전 원 감점. capApplied 시에만.
   capApplied?: true; // 이 record 의 감점이 관절당 상한 -20 으로 클램프됨 (투명 내역 유지).
+  // ── Phase 32 (Plan 32-06 — D-08/D-10 + 리뷰 blocker 5) additive optional ──
+  // 부재 = legacy doc (32-09 방출 이전) — 전부 하위호환. Python lockstep =
+  // models.py DEDUCTION_RECORD_EXTENSION_KEYS + docs/contract.md §12.3. record
+  // 검증은 scalar 라 기존 _validate_dict_only_scalars 경로 자동 통과.
+  // 주의 — 이 interface 블록 주석에는 word-colon 패턴·중괄호 금지
+  // (test_deduction_engine.test_contract_lockstep 의 regex 필드 추출과 충돌).
+  //
+  // recordId — 방출 시 1회 각인되는 안정 조인 키. 형식은 r + 2자리 index +
+  // 콜론 + criterion (contract.md §12.3, 32-09 각인). 정렬·필터·숨김(32-13
+  // 스팟체크 hiddenRecordIds)에 배열 index 대신 사용.
+  recordId?: string;
+  // 감점 카드 3단 문구 (D-08 상태→왜→행동) + 코치 질문·운동 연결 (D-13/D-28).
+  // phrasebook(32-05) 골격 산출 — fail-closed 조합은 cueLine/exerciseId/
+  // exerciseReason 생략 (일반론 조언 fabrication 차단).
+  statusLine?: string; // 상태 (몸 말, 관절명 허용 — 이해용)
+  whyLine?: string; // 왜 (감점·위험 이유 1줄, 심사 언어)
+  cueLine?: string; // 행동 (외부 큐 — 수행용)
+  coachQuestion?: string; // '강사님께 물어보기' 완성문 (D-28)
+  exerciseId?: string; // 연결 보완 운동 id (D-13)
+  exerciseReason?: string; // 왜 이 운동인지 결함→운동 연결 이유 1줄 (D-13 필수 짝)
+  // 규칙 상수 유래 허용 오차 — 게이지 스케일 재료 (D-10). 자의적 수치 아님 —
+  // 32-09 가 실존 규칙 상수(CRITERION_GROUPS 등)에서만 방출 (있을 때만).
+  tolerance?: number;
 }
 // HIGH-1: OBJECT shape (bare list 아님). final = max(0, round(100 + Σ record.points)) —
 // final 단위 clamp 은 max(0,…) 뿐(final 밴드 없음). record 단위로는 관절당 감점 상한 -20
@@ -626,6 +720,15 @@ export type AnalysisResult = ScoreSuppression & {
   // Python lockstep: models.py MOTION_ALIGNMENT_KEYS + firestore_admin._validate_motion_alignment
   // + contract.md §11. source:'vlm'=Phase 22 v1 time_anchors 상위 호환 축.
   motionAlignment?: MotionAlignment;
+  // Phase 32 (Plan 32-06 — D-19/D-26/D-27/D-08/D-28) — 미션 루프 + 번역 레이어.
+  // 전부 OPTIONAL — 32-09 방출 이전 legacy doc 부재 하위호환 (백엔드는 None 시
+  // 키 생략 방출). "result 안으로 흐른다" — complete_analysis 신규 kwarg 0,
+  // firestore_admin scoped validator(_validate_mission 등)로만 검증.
+  // Python lockstep: models.py MISSION_KEYS 블록 + docs/contract.md §12.
+  mission?: Mission;
+  missionOutcome?: MissionOutcome; // mode3 전용 — mode1/prev 부재 시 키 생략
+  summaryPraise?: SummaryPraise; // 잘한 점 단일 원천 (리뷰 blocker 5)
+  coachQuestions?: CoachQuestion[]; // 자동 등재 (≤10) — 'user' 담기는 로컬 전용
   // Phase 20 iter5 MEDIUM-2 — A2 reconcile audit (reconcile 관측). OPTIONAL.
   scoreSuppressionAudit?: ScoreSuppressionAudit;
   // IPSF 실행 차원 점수 (3차원: angle/line/stability).

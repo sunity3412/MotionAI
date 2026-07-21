@@ -453,7 +453,7 @@ JOINT_KEY_TO_ANGLE_KEY = {..., "left_hand": "left_wrist", ...}  # COCO-17 키로
 | A6 | legacy doc 대략 오프셋 소스로 faultZoomComparisons 프레임 인덱스 사용 가능(refMatch='dtw'인 카드 존재 전제) | 수리 #1 | 중간 — refMatched=false/카드 0장 doc은 폴백 불가 → 수동 슬라이더만 제공(그래도 D-16 충족) |
 | A7 | keypointReport J 확장 후에도 reference doc(18fps)이 1MB 한도 내 | RTMW 확장 | 중간 — 초과 시 fps 다운샘플 또는 확장 관절 분리 저장 필요. 확장 태스크에 계산 검증 포함할 것 |
 
-## Open Questions
+## Open Questions (ROUTED — 게이트/태스크로 해소: 1→32-13 T1 스모크, 2→32-08 T3 샘플 게이트+32-12, 3·4→32-04 목업 게이트, 5→32-03 실물 게이트, 6→32-03/32-13~15 Pod 절차)
 
 1. **omni 스팟체크 모델 ID** — gemini-omni-flash-preview(텍스트 판정 미검증) vs gemini-3.1-pro-preview(검증). 권장: 스모크 1콜 태스크로 확정, 실패 시 3.1-pro. (A1)
 2. **오디오 방식** — 샘플 게이트(D-18)가 닫음. 리서치는 양 경로 구현 코스트를 위 표로 제공 완료.

@@ -39,20 +39,20 @@ created: 2026-07-21
 
 ## Per-Task Verification Map
 
-> Task ID는 PLAN.md 확정 후 planner가 기입. 아래는 결정(D-XX) 기준 사전 맵.
+> Task ID 기입 완료 (2026-07-21 revision — 플랜 확정). nyquist_compliant는 실행 후 verifier가 올림.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | 1 | D-16 사다리 재배치 (low_global_confidence → trim_only + anchors 보존, degenerate만 disabled) | — | N/A | unit | `pytest backend/tests/phase32/test_motion_alignment_ladder.py -x` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 1 | D-16 수동 오프셋 클램프·warp 합성 순수 계산 | — | N/A | unit (app) | `node --test app/src/lib/__tests__/manualOffset.test.ts` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 1 | D-20 relaxed 프레이밍 margin=1.0·마커 게이트 유지 | — | N/A | unit | `pytest backend/tests/phase32/test_fault_zoom_crop_parity.py -x` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 1 | D-03 겹침 수리 — lineHeight ≥ fontSize 정적 검사 | — | N/A | grep/unit + manual | 스타일 grep 게이트 + typecheck + 시뮬레이터/실기기 | ❌ W0 | ⬜ pending |
-| TBD | TBD | 2+ | D-11/D-09 문구집 금지어(수치 헤드라인·% 환산·일반론 패턴) grep 게이트 | — | N/A | unit | `pytest backend/tests/phase32/test_phrasebook_forbidden.py -x` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 2+ | D-19/D-27 미션 선정 우선순위·streak 체인 순수 함수 | — | N/A | unit | `pytest backend/tests/phase32/test_mission_rules.py -x` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 엔진 | D-22 RTMW keypointReport 12관절 방출·validator·하위호환(8관절 doc) | — | N/A | unit | `pytest backend/tests/phase32/test_keypoint_report_expansion.py -x` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 엔진 | D-23 스팟체크 불일치 → 카드 숨김 플래그·로그 (graceful 실패 = no-op) | — | 외부 API 실패 시 분석 결과 훼손 금지 | unit + Pod | 로컬 unit + Pod fixture 6동작 순차 스윕 | ❌ W0 / Pod | ⬜ pending |
-| TBD | TBD | 엔진 | D-22 PR 인버전 조건부 적용·비인버전 무회귀 | — | N/A | Pod sweep | fixture 6동작 순차 (kip-up 편중 금지) | Pod manual | ⬜ pending |
-| TBD | TBD | 2+ | 계약 3면 신규 필드 lockstep (contract.md + analysis.ts + models.py) | — | N/A | unit | 기존 lockstep 테스트 패턴 확장 | ❌ W0 | ⬜ pending |
+| 32-01 T1 | 32-01 | 1 | D-16 사다리 재배치 (low_global_confidence → trim_only + anchors 보존, degenerate만 disabled) | — | N/A | unit | `pytest backend/tests/phase32/test_motion_alignment_ladder.py -x` | ❌ W0 | ⬜ pending |
+| 32-02 T1 | 32-02 | 1 | D-16 수동 오프셋 클램프·warp 합성 순수 계산 | — | N/A | unit (app) | `node --test app/src/lib/__tests__/manualOffset.test.ts` | ❌ W0 | ⬜ pending |
+| 32-01 T2 | 32-01 | 1 | D-20 relaxed 프레이밍 margin=1.0·마커 게이트 유지 | — | N/A | unit | `pytest backend/tests/phase32/test_fault_zoom_crop_parity.py -x` | ❌ W0 | ⬜ pending |
+| 32-02 T3 | 32-02 | 1 | D-03 겹침 수리 — lineHeight ≥ fontSize 정적 검사 | — | N/A | grep/unit + manual | 스타일 grep 게이트 + typecheck + 시뮬레이터/실기기 | ❌ W0 | ⬜ pending |
+| 32-05 T2 | 32-05 | 2 | D-11/D-09 문구집 금지어(수치 헤드라인·% 환산·일반론 패턴) grep 게이트 | — | N/A | unit | `pytest backend/tests/phase32/test_phrasebook_forbidden.py -x` | ❌ W0 | ⬜ pending |
+| 32-06 T1 | 32-06 | 3 | D-19/D-27 미션 선정 우선순위·streak 체인 순수 함수 | — | N/A | unit | `pytest backend/tests/phase32/test_mission_rules.py -x` | ❌ W0 | ⬜ pending |
+| 32-14 T1 | 32-14 | 9 | D-22 RTMW keypointReport 12관절 방출·validator·하위호환(8관절 doc) | — | N/A | unit | `pytest backend/tests/phase32/test_keypoint_report_expansion.py -x` | ❌ W0 | ⬜ pending |
+| 32-13 T1~T3 | 32-13 | 8 | D-23 스팟체크 불일치 → 카드 숨김 플래그·로그 (graceful 실패 = no-op) | — | 외부 API 실패 시 분석 결과 훼손 금지 | unit + Pod | 로컬 unit + Pod fixture 6동작 순차 스윕 | ❌ W0 / Pod | ⬜ pending |
+| 32-15 T1~T2 | 32-15 | 10 | D-22 PR 인버전 조건부 적용·비인버전 무회귀 | — | N/A | Pod sweep | fixture 6동작 순차 (kip-up 편중 금지) | Pod manual | ⬜ pending |
+| 32-06 T2 | 32-06 | 3 | 계약 3면 신규 필드 lockstep (contract.md + analysis.ts + models.py) | — | N/A | unit | 기존 lockstep 테스트 패턴 확장 | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

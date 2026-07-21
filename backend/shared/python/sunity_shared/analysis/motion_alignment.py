@@ -19,6 +19,11 @@ distance 임계 출처 (calibration-source-hard-gate):
 
 채점 무접촉: 채점 경로(per_joint_deviation/kismam/dimensions) import 0, veto still 경로 무접촉.
 결정론: 정렬/median 만 사용, 랜덤/시간 의존 0.
+
+D-16 (32-CONTEXT): 저신뢰(distance > DISTANCE_T2)도 disabled 로 버리지 않고 trim_only 로
+  방출해 sanity 검증된 anchors("시작점 맞춤")를 보존한다 — belle 최우선 수리. 진짜
+  degenerate 3종(invalid_fps/empty_path/insufficient_anchors)과 첫 anchor 가 타임라인
+  범위 밖/non-finite 인 이상치만 disabled 로 남는다(파생 offset garbage 차단, 리뷰 MEDIUM).
 """
 
 from __future__ import annotations
@@ -176,7 +181,25 @@ def build_motion_alignment(match, *, user_fps: float, ref_fps: float) -> dict | 
         else:
             reason = "low_global_confidence"
     else:
-        tier = "disabled"
+        # D-16 (32-CONTEXT): 저신뢰(distance > DISTANCE_T2)도 disabled 대신 trim_only 로
+        # 방출해 anchors 를 보존한다 — 배속 워핑은 끄되 시작점 맞춤은 살린다(belle 최우선
+        # 수리, "동작 비교 정렬 포기 보완"). 단 방출 전 첫 anchor sanity 가드(리뷰 MEDIUM):
+        # 첫 anchor 쌍 (u0, r0)이 각 타임라인 범위 [0, dur] 밖이거나 non-finite 면 파생
+        # offset 이 garbage 이므로 기존 degenerate 경로(insufficient_anchors — 신규 reason
+        # enum 0, 기존 값 재사용)로 낙하시켜 이상치 offset 이 trim 기준으로 쓰이는 것을 막는다.
+        # 두 anchor 가 각자 [0, dur] 안이면 |r0 − u0| ≤ max(user_dur, ref_dur) 가 자동 성립.
+        user_dur = end_sec
+        _ref_indices = [j for (_i, j) in path]
+        ref_dur = (max(_ref_indices) / ref_fps) if _ref_indices else 0.0
+        first_anchor_ok = (
+            math.isfinite(u0)
+            and 0.0 <= u0 <= user_dur
+            and math.isfinite(r0)
+            and 0.0 <= r0 <= ref_dur
+        )
+        if not first_anchor_ok:
+            return _disabled(distance, "insufficient_anchors")
+        tier = "trim_only"
         reason = "low_global_confidence"
 
     anchors: list[float] = []

@@ -63,22 +63,26 @@ completed: 2026-07-21
 
 **동작×결함 고정 문구집(13 entry × 상태→왜→행동→코치질문→운동연결 5슬롯 + 4 안전 entry + fail-closed 폴백) + 측정 용어→심사 언어 용어 맵을, 실존 방출값 커버리지 매트릭스·금지어 게이트·양방향 lockstep·belle 감수의 4중 보증으로 구축 — LLM 골격 소유 경로 차단(D-11)**
 
-## ⚠ CHECKPOINT — belle 승인 대기 (Task 3, blocking)
+## CHECKPOINT — belle 전량 승인 (Task 3, 종결)
 
-**Tasks 1-2 완료. Task 3(belle 문구 전량 감수)은 blocking checkpoint 로 belle 승인 대기 중.**
+**Tasks 1-3 완료. Task 3(belle 문구 전량 감수) = 전량 승인 (2026-07-21).**
 
 - 감수 산출물: `.planning/phases/32-result-readability-3-omni/32-PHRASEBOOK-REVIEW.md` (전 entry 표 + 안전 + fail-closed + 용어 맵 + 커버리지 매트릭스 요약 + belle 판정 기준 5개)
-- 승인 시: 이 SUMMARY 의 "belle 승인 기록" 란에 정본 기록 (32-GATE-DECISIONS.md 는 32-03 소유 — 같은 웨이브 파일 충돌 회피)
-- 수정 지시 시: 항목 단위 반영 후 금지어(`test_phrasebook_forbidden.py`)·lockstep(`test_terminology_lockstep.py`) 게이트 재실행
+- 승인 후 수정 지시 없음 → 금지어·lockstep 게이트 재실행 불요 (승인 시점 게이트 green 유지)
 
-### belle 승인 기록
+### belle 승인 기록 (정본)
 
-_(belle 승인/수정 결과 대기 — 승인 시 "승인 (2026-MM-DD)" 기록, 수정 시 반영 항목 로그)_
+- **판정:** 전량 승인
+- **일자:** 2026-07-21
+- **응답 원문:** "전량 승인"
+- **맥락:** 오케스트레이터가 판정 기준 5가지(①톤 친숙하되 장난스럽지 않게 ②행동문이 일반론 아닌 외부 큐 ③심사 언어가 IPSF 기준과 정합 ④코치 질문이 강사에게 그대로 보여줄 완성문 ⑤fail-closed 문구 자연스러움)와 문구 전량 + 설계 판단 4건을 제시한 상태에서 전량 승인.
+- **승인에 포함된 설계 판단 4건:** (1) entries 전량 criterion-common 일반화(동작 전용 override 0) (2) dimension_overall_fallback → fail-closed (3) angle_vs_reference cueLine = 기준 자세 겹치기 외부-기준 큐 (4) REGISTERED_MOTIONS 실측 10동작으로 매트릭스 행 정정.
+- **수정 지시:** 없음. → D-11 승인 선출시 충족. 파일럿 현장(강사·수강생) 반응으로 개정하는 것은 후속(D-11 개정 경로).
 
 ## Performance
 
-- **Duration:** ~45 min
-- **Tasks:** 2/3 완료 (Task 3 = belle 승인 대기 checkpoint)
+- **Duration:** ~45 min (+ belle 감수 turnaround)
+- **Tasks:** 3/3 완료 (Task 3 = belle 전량 승인 2026-07-21)
 - **Files created:** 8
 - **Tests:** phase32 31 passed (신규 21 + 기존 10 무회귀)
 
@@ -94,7 +98,8 @@ _(belle 승인/수정 결과 대기 — 승인 시 "승인 (2026-MM-DD)" 기록,
 1. **Task 1: phrasebook.json 초안 + 커버리지 매트릭스** — `2296414` (feat)
 2. **Task 2 (TDD RED): assembly/forbidden/lockstep 실패 테스트** — `5fb1ad8` (test)
 3. **Task 2 (TDD GREEN): phrasebook.py + terminology_map.json + terminologyMap.ts** — `dd3d4a9` (feat)
-4. **Task 3: 32-PHRASEBOOK-REVIEW.md 감수 산출물** — `63f6a6e` (docs) — belle 승인 대기
+4. **Task 3: 32-PHRASEBOOK-REVIEW.md 감수 산출물** — `63f6a6e` (docs)
+5. **Task 3: belle 전량 승인 반영 (승인란 + SUMMARY 정본)** — 이 문서와 동일 종결 커밋 (docs)
 
 ## Files Created
 
@@ -149,9 +154,9 @@ _(belle 승인/수정 결과 대기 — 승인 시 "승인 (2026-MM-DD)" 기록,
 
 ## Next Phase Readiness
 
-- **belle 승인 후** 32-09(파이프라인 방출)·32-10(감점 카드 렌더)이 phrasebook.py 를 데이터 원천으로 소비 가능.
+- **belle 전량 승인 완료 (2026-07-21)** — 32-09(파이프라인 방출)·32-10(감점 카드 렌더)이 phrasebook.py 를 데이터 원천으로 소비 가능. 문구 변경 재작업 위험 해소.
 - **미지원 조합은 fail-closed 로 코치 출구 연결** — 일반론 재유입 경로 0 (성공 기준 충족).
-- **blocker:** Task 3 belle 전량 감수 승인 (D-11 승인 선출시). 승인 전 32-09 배선 착수 시 문구 변경 재작업 위험.
+- **blocker 없음.** D-11 승인 선출시 충족. 파일럿 현장 반응 기반 개정은 후속 D-11 개정 경로(별도).
 
 ## Self-Check: PASSED
 
@@ -161,5 +166,5 @@ _(belle 승인/수정 결과 대기 — 승인 시 "승인 (2026-MM-DD)" 기록,
 
 ---
 *Phase: 32-result-readability-3-omni*
-*Plan: 05 — Tasks 1-2 완료, Task 3 belle 승인 대기 (checkpoint)*
-*Updated: 2026-07-21*
+*Plan: 05 — Tasks 1-3 완료 (Task 3 belle 전량 승인 2026-07-21)*
+*Completed: 2026-07-21*

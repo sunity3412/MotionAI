@@ -147,7 +147,9 @@ dimension_overall_fallback(엔진이 결함을 특정 관절로 국소화 실패
 
 ## belle 승인란
 
-- [ ] 전량 승인 ("승인")
+- [x] **전량 승인 ("전량 승인")** — 2026-07-21
 - [ ] 항목별 수정 지시 → Claude 반영 후 재감수
 
-_승인/수정 결과는 32-05-SUMMARY.md 에 정본 기록 (32-GATE-DECISIONS.md 는 32-03 소유 — 같은 웨이브 파일 충돌 회피)._
+**승인 원문:** "전량 승인" (belle, 2026-07-21). 판정 기준 5가지(톤·외부 큐·IPSF 심사 언어·코치 질문 완성문·fail-closed 자연스러움)와 문구 전량·설계 판단 4건(criterion-common 일반화 / dimension_overall_fallback=fail-closed / angle_vs_reference=기준 겹치기 큐 / REGISTERED_MOTIONS 10 정정)을 제시한 상태에서 전량 승인. 수정 지시 없음.
+
+_정본 기록은 32-05-SUMMARY.md (32-GATE-DECISIONS.md 는 32-03 소유 — 같은 웨이브 파일 충돌 회피)._

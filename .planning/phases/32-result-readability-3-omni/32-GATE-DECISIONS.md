@@ -145,6 +145,7 @@ belle이 Figma에서 과거 제작 결함 상세 시트 구성을 가져와 채�
 
 ### Polly 음성 부속 결정 (32-16 Task 4 — 2026-07-22 심야)
 
-- **Polly 음성 = 잠정 Seoyeon neural** (2026-07-22 심야, belle 야간 지시로 확정 이월 — 원문 요지: "목소리는 선택으로 냅두고 나머지 쭉 할 수도 있는거지?" → 오케스트레이터 확인 후 승인). 현재 프로덕션 가동 중인 기본값 유지 — env/상수 변경 없음.
-- **최종 확정 = 아침 belle 청취 대기** — 후보 3종: `seoyeon_neural.mp3` / `jihye_neural.mp3` / `seoyeon_generative.mp3` (`samples/voice/`, 동일 코칭 문장). **변경 시 재배포 불요** (env 스왑 — `POLLY_VOICE_ID`/`POLLY_ENGINE`, Pod start_server.sh export + 재기동).
-- 32-16 배포·스윕은 잠정 음성으로 완결됨 (DIFF_MEMBERS=0 + mp3 스모크 200 — `32-16-SWEEP.md`).
+- **Polly 음성 = Seoyeon neural — 최종 확정** (2026-07-22 아침, belle 3종 청취 후 원문 "seoyeon_neural 로 가자"). 잠정값이 그대로 확정되어 **반영 작업 0** (프로덕션 가동 중인 기본값 유지, env/상수 변경 없음).
+  - 확정 경위: 심야에는 belle 야간 지시("목소리는 선택으로 냅두고 나머지 쭉 할 수도 있는거지?")로 잠정 Seoyeon neural 가동 → 아침 후보 3종(`seoyeon_neural.mp3` / `jihye_neural.mp3` / `seoyeon_generative.mp3`, `samples/voice/`, 동일 코칭 문장) 청취 후 확정.
+  - 향후 변경 시 **재배포 불요** (env 스왑 — `POLLY_VOICE_ID`/`POLLY_ENGINE`, Pod start_server.sh export + 재기동).
+- 32-16 배포·스윕은 이 음성으로 완결됨 (DIFF_MEMBERS=0 + mp3 스모크 200 — `32-16-SWEEP.md`).

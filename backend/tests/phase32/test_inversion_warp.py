@@ -200,6 +200,109 @@ class TestUnwarpFailSafe:
         assert ok is False
 
 
+class TestEngineSecondPassHook:
+    """32-15 Task 2 — RTMWPoseEngine 2-pass 조건부 훅 배선 (mock inferencer DI).
+
+    warp_frames 는 cv2 의존(GPU/Pod 경로)이라 identity 스텁으로 monkeypatch —
+    mock inferencer 는 픽셀 무관 상수 반환이므로 배선 검증에 충분하다.
+    수학 자체(왕복·fail-safe)는 위 순수 테스트가 커버.
+    """
+
+    W, H = 72, 128  # principal point = (36, 64)
+
+    def _engine(self, inferencer):
+        from sunity_shared.analysis.pose_engines.rtmw.rtmw_engine import RTMWPoseEngine
+        return RTMWPoseEngine.create_with_inferencer(inferencer)
+
+    def _pole(self):
+        from sunity_shared.analysis.pose_frame import PoleAxis
+        return PoleAxis(
+            axis_vector=(0.0, 1.0, 0.0),
+            confidence_level="low",
+            source="vertical_fallback",
+            frame_index=None,
+        )
+
+    def _make_inferencer(self, inverted: bool, center_x: float = 36.0):
+        """모든 프레임 동일 인체 반환 mock — body 17 평균 = (center_x, 64)."""
+        from unittest.mock import MagicMock
+
+        kps = np.zeros((1, 133, 2), dtype=np.float32)
+        kps[0, :, 0] = center_x
+        kps[0, :17, 1] = 64.0
+        sh_y, hip_y = (74.0, 54.0) if inverted else (54.0, 74.0)
+        kps[0, [_L_SHOULDER, _R_SHOULDER], 1] = sh_y
+        kps[0, [_L_HIP, _R_HIP], 1] = hip_y
+        scores = np.full((1, 133), 0.9, dtype=np.float32)
+        mock = MagicMock()
+        mock.return_value = (kps, scores)
+        return mock
+
+    def _frames(self, n=8):
+        return np.zeros((n, self.H, self.W, 3), dtype=np.uint8)
+
+    def test_env_off_no_second_pass(self, monkeypatch):
+        monkeypatch.delenv("PR_INVERSION_ENABLED", raising=False)
+        mock = self._make_inferencer(inverted=True)
+        out = self._engine(mock).estimate(self._frames(), self._pole())
+        assert len(out) == 8
+        assert mock.call_count == 8  # 1차만 — env 기본 off
+
+    def test_env_on_upright_detect_false_identical(self, monkeypatch):
+        # 정립 영상: detect False → 기존 경로 그대로 (추론 1회분 + 결과 동일)
+        mock_off = self._make_inferencer(inverted=False)
+        monkeypatch.delenv("PR_INVERSION_ENABLED", raising=False)
+        baseline = self._engine(mock_off).estimate(self._frames(), self._pole())
+
+        mock_on = self._make_inferencer(inverted=False)
+        monkeypatch.setenv("PR_INVERSION_ENABLED", "1")
+        out = self._engine(mock_on).estimate(self._frames(), self._pole())
+        assert mock_on.call_count == 8  # 2차 없음
+        assert out == baseline  # frozen dataclass 동등 — 바이트 동일 경로
+
+    def test_env_on_inverted_identity_center_runs_second_pass(self, monkeypatch):
+        # 인체 중심 = 광학 중심 → H = I → 교체돼도 좌표 불변 (왕복 무손실 배선 증명)
+        mock_off = self._make_inferencer(inverted=True)
+        monkeypatch.delenv("PR_INVERSION_ENABLED", raising=False)
+        baseline = self._engine(mock_off).estimate(self._frames(), self._pole())
+
+        mock_on = self._make_inferencer(inverted=True)
+        monkeypatch.setenv("PR_INVERSION_ENABLED", "1")
+        monkeypatch.setattr(iw, "warp_frames", lambda frames, hs: frames.copy())
+        out = self._engine(mock_on).estimate(self._frames(), self._pole())
+        assert mock_on.call_count == 16  # 1차 8 + 2차 8
+        assert out == baseline  # H=I → unwarp identity → 좌표 동일
+
+    def test_env_on_inverted_offcenter_coords_unwarped(self, monkeypatch):
+        # 중심이 광학 중심 밖 → H ≠ I → 2차 좌표가 H⁻¹ 로 원본 공간 변환됨
+        mock_off = self._make_inferencer(inverted=True, center_x=12.0)
+        monkeypatch.delenv("PR_INVERSION_ENABLED", raising=False)
+        baseline = self._engine(mock_off).estimate(self._frames(), self._pole())
+
+        mock_on = self._make_inferencer(inverted=True, center_x=12.0)
+        monkeypatch.setenv("PR_INVERSION_ENABLED", "1")
+        monkeypatch.setattr(iw, "warp_frames", lambda frames, hs: frames.copy())
+        out = self._engine(mock_on).estimate(self._frames(), self._pole())
+        assert mock_on.call_count == 16
+        assert out != baseline  # 좌표 교체 발생 (2차 적용)
+
+    def test_env_on_warp_failure_graceful_first_pass(self, monkeypatch):
+        # 워프 실패(cv2 부재 등) → 1차 결과 유지 (graceful — 분석 중단 금지)
+        mock_off = self._make_inferencer(inverted=True)
+        monkeypatch.delenv("PR_INVERSION_ENABLED", raising=False)
+        baseline = self._engine(mock_off).estimate(self._frames(), self._pole())
+
+        def _boom(frames, hs):
+            raise RuntimeError("warp 실패 시뮬레이션")
+
+        mock_on = self._make_inferencer(inverted=True)
+        monkeypatch.setenv("PR_INVERSION_ENABLED", "1")
+        monkeypatch.setattr(iw, "warp_frames", _boom)
+        out = self._engine(mock_on).estimate(self._frames(), self._pole())
+        assert mock_on.call_count == 8  # 2차 추론 미도달
+        assert out == baseline
+
+
 class TestPurity:
     """Behavior 5 — 순수성: torch 0 / cv2 는 GPU 워프 함수 내부 lazy 만."""
 

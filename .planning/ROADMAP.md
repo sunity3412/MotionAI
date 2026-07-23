@@ -1132,6 +1132,16 @@ Plans:
 
 - [ ] 32-15-PLAN.md — PR 인버전 조건부 보정 + 최종 전수 스윕 게이트 + belle 마감 확인 (w10, checkpoint)
 
+### Phase 33: 결과 신뢰 회복 — "궁금만 하는 앱" 끝내기 (result-trust-recovery)
+
+**Goal:** belle 이 결과 화면에서 던진 의문 5개(확대사진·키포인트·붉은 표시·바 마커/음성·코칭 문구)에 화면이 스스로 답하게 만든다. 척추 = 정확한 분석: A-0 게이트로 "짚은 부위 vs 실제 결함 부위"를 6동작 전수 대조해 표현/기질 분기를 먼저 판정하고, 그 위에서 확대비교(같은 순간·배율·표시)·영상 위 표시(표시마다 답 or 없앰)·코칭 문구(동작별 phrasebook, fail-closed)·일러스트(준실사 2안, 해부학 전수 검수)를 재구성한다. 심플 우선(설명 추가는 최후 수단, 새 화면당 +1줄 상한)·오류 0(산출물마다 틀리면 걸리는 장치 + 눈으로 확인 의무). 채점 산식·임계값 무접촉.
+**Requirements**: D-01~D-25 (33-CONTEXT.md — CONTEXT 결정이 요구사항 원본, 공식 REQ 매핑 없음)
+**Depends on:** Phase 32
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 33 to break down)
+
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*
@@ -1145,3 +1155,4 @@ Plans:
 *Roadmap updated: 2026-06-24 (Phase 24 신설 — 투명 감점-합산 채점 엔진. belle 채점 철학 결정타([[scoring-must-be-transparent-deduction-tally]]): Phase 20 의 severity→고정밴드(`SEVERITY_CAP`/`apply_downward_cap`)는 자의적=사람 판단 주입 → 점수=baseline(100)−Σ(측정편차×명시규칙 감점), 보고서가 감점 내역 노출 엔진으로 교체. Gemini 강등(점수X·측정대상만 짚기). Phase 20 은 재설계 아님 — working parts 보존, 밴드 한 단만 신규 phase 가 supersede. 23-03 의 케이스별 기대점수 밴드(moderate≤75) curve-fit → Phase 24 추적성·단조성 게이트로 대체. discuss 결정 = 24-CONTEXT.md ND-01~07. Phase 19·20·23 의존, Pod 필요, Phase 22 보다 먼저.)*
 *Roadmap updated: 2026-07-04 (Phase 25 신설 — 상체 감점 커버리지 vision-pointed window 측정. TestFlight 실증에서 어깨 40° 측정-무감점 갭 확정, quick 260702-o0c worst-window 실험 = 메커니즘 실증 but success 위양성으로 revert([[window-median-silent-seed-fp-reverted]]). 아키텍처 = 짚기(Gemini faultKey)/측정(worst-window)/감점(규칙) 역할 분리 + Gemini-silent 는 full-path median 유지. belle 판정: 88도 50도 아닌 사이가 정답, 점수 짜맞추기 금지.)*
 *Roadmap updated: 2026-07-21 (Phase 32 신설 — 분석 결과를 읽히게: 해석·방법·코치. belle "전체 방안부터" 결정으로 즉시수리 3건(동작비교 초맞춤·참고지표 겹침·확대비교 크롭)을 32 방안에 흡수, wave-1 앞배치 방침. SEED = 32-SEED.md, 근거 = 2026-07-20 deep-research(OPTIMAL 이론) + belle 실기기 총평 §10.)*
+*Roadmap updated: 2026-07-23 (Phase 33 신설 — 결과 신뢰 회복 "궁금만 하는 앱" 끝내기. 32 UAT 종료 findings 기반. 척추=정확한 분석(A-0 게이트 신설), 표현 계층=확대비교·영상 표시·코칭 문구·일러스트를 "표시마다 답 or 없앰" 원칙으로 재구성. 심플 우선+오류 0(눈으로 확인 의무). SEED=33-SEED.md, 지침=33-PLANNING-APPROACH.md, CONTEXT D-01~D-25. belle 승인 "착수 깔~꼼하게".)*

@@ -48,6 +48,7 @@ created: 2026-07-23
 | 문구 방향 vs 기준영상 모순 0 (hard gate) | A-2 | D-14/D-18 | manual eyeball 전수 | open each authored cue vs ref frame; fail-closed on contradiction | procedure |
 | crop item↔criterion joint-exact | A-5 | D-12/D-18 | unit + eyeball 전수 | assert join returns joint-matching card; open ALL regenerated PNGs | ❌ W0 |
 | crop same-moment / same-scale / same-marking OR card dropped | A-5 | D-12 | eyeball 전수 | open user/ref PNG pairs side-by-side (all cards, all 6 motions) | procedure |
+| angle number un-baked from crop PNG (defect #6, number only in 내역) | A-5 | D-12/D-16/D-18 | unit + eyeball 전수 | assert `_mark`/`_draw_leg_angle` number-text branch removed; open regenerated PNGs — no baked number | ❌ W0 |
 | overlay/marker 표시 ↔ 지적 항목 two-way; no orphan marker | A-6 | D-13/D-18 | unit | extend `buildDeductionMarkers` / `selectedZoom` tests | ❌ W0 |
 | voice pause + region highlight on cue start | A-6 | D-13 | sim render | Simulator recording of cue transition | procedure |
 | illustration anatomy 전수 (limb count, joint direction); 1 fail → set unwired | A-7 | D-15/D-18 | eyeball 전수 | open every generated illustration | procedure |
@@ -58,7 +59,7 @@ created: 2026-07-23
 
 ## Wave 0 Requirements
 
-- [ ] `backend/tests/phase33/` — new test dir: phrasebook motion-specific (no `__common__` for registered combos), crop join joint-exact, orphan-marker two-way match. Analog: `backend/tests/phase32/`.
+- [ ] `backend/tests/phase33/` — new test dir: phrasebook motion-specific (no `__common__` for registered combos), crop join joint-exact, un-baked-number assertion, orphan-marker two-way match. Analog: `backend/tests/phase32/`.
 - [ ] Firestore doc-dump helper — none exists in `backend/scripts/`; small `firebase-admin` script keyed by uid/analysisId to eyeball real values (D-19). Serves A-0 + belle-doc mockup data (D-10).
 - [ ] A-0 analysis step — read `phase25_sweep_report.json` (`visionVeto.faultJoints` pointed / `seedObservation.window_joints,fallback_joints` measured / `activatedCriteria` shown) + dumped belle doc → produce the D-04 evidence table and branch verdict.
 - [ ] Fixture-less registered motions (ref-foxtop, ref-foxtop-split, ref-invert, ref-sideway-spin) — alternative verification per D-23 (no fixture mp4). Planner MUST name the substitute proof; silent skip forbidden (D-18).
@@ -74,6 +75,7 @@ created: 2026-07-23
 | Behavior | Decision | Why Manual | Test Instructions |
 |----------|----------|------------|-------------------|
 | crop PNG pair reads as "same moment/scale/marking" | D-12 | visual judgment; no numeric proxy for "reads as comparable" | open all card PNG pairs, all 6 motions; any mismatch → card must be dropped, not shipped |
+| crop PNG has no baked angle number (defect #6) | D-12/D-16 | visual; number must live only in 내역 | open all regenerated crop PNGs; any baked number → fail (un-bake regressed) |
 | coaching cue matches ref-motion actual direction | D-14 | domain-truth vs authored text; contradiction is semantic | dump each emitted cue, compare to ref frame direction; contradiction → fail-closed |
 | illustration anatomy correct (limbs, joint direction) | D-15 | generative asset; anatomy errors (e.g. 3 legs) only visible on open | open every illustration; 1 fail → whole set unwired |
 | voice-cue pauses video + highlights region | D-13 | timing/interaction behavior | Simulator recording; confirm pause→highlight→resume sequence |
@@ -87,8 +89,8 @@ created: 2026-07-23
 - [x] Every deliverable has an automated verify OR a named manual procedure + a D-18 "틀리면 걸리는 장치"
 - [x] No silent skips: fixture-less motions have named substitute proof
 - [x] Wave 0 covers all ❌-marked references (test dir, doc-dump helper) — 33-01
-- [x] 6-motion sweep run serially (pipeline not concurrency-safe) — 33-10
-- [x] Sim render + PNG/mp3 전수 열람 before belle UAT — 33-10
+- [x] 6-motion sweep run serially (pipeline not concurrency-safe) — 33-16 (phase gate re-sweep)
+- [x] Sim render + PNG/mp3 전수 열람 before belle UAT — 33-16 (phase gate)
 - [x] `nyquist_compliant: true` set (plan-checker confirmed every task maps to a row)
 
 **Approval:** approved 2026-07-23 (plan-checker verification passed, 0 blockers)

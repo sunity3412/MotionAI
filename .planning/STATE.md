@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 32 context gathered (discuss 완료 — D-01~D-30 + 4대 게이트)
-last_updated: "2026-07-23T13:27:18.107Z"
-last_activity: 2026-07-23
+stopped_at: "Phase 33 Wave1-5 완료(substrate), Wave6 재검증서 채점 산식 결함 발견 → IPSF 감점상한 재설계 PIVOT. 내일 spec부터. 필독=33-SCORING-REDESIGN-HANDOFF.md. flip(33-07) 보류. Pod terminate(D-30)."
+last_updated: "2026-07-24T00:00:00.000Z"
+last_activity: 2026-07-24 -- Phase 33 채점 산식 IPSF 감점상한 재설계 pivot 결정
 progress:
   total_phases: 16
   completed_phases: 8

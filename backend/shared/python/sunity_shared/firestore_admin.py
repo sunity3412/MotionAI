@@ -1986,14 +1986,96 @@ def get_analysis(uid: str, analysis_id: str) -> dict | None:
     return data
 
 
+# ─── 33-17: shadow-reference resolver + 전역 release 포인터 (codex concern 3 / suggestion 7) ───
+
+# reference/_release.activeCandidate = 단일 authoritative 활성 candidate 버전.
+# 활성화는 이 포인터 1회 write 로 원자적으로 이뤄진다 (reprocess 스크립트 _flip_active_pointer).
+_RELEASE_POINTER_PATH = "reference/_release"
+_RELEASE_POINTER_FIELD = "activeCandidate"
+
+# eval 이 production top-level 을 flip 하지 않고 candidate 버전을 소비하도록 하는 shadow env.
+# run_sweep.py / verify_self_comparison.py 의 --reference-version 이 in-process 로 세팅한다.
+_SHADOW_REFERENCE_ENV = "SUNITY_SHADOW_REFERENCE_VERSION"
+
+# 후속 파이프라인이 소비하는 candidate consumer 필드 (top-level meta 위에 overlay).
+_REFERENCE_CONSUMER_FIELDS = (
+    "angles", "anglesJointKeys", "anglesFrames",
+    "joints3d", "joints3dKeys", "joints3dFrames",
+    "coordDim", "space",
+    "keypointReport",
+    "pipelineVersion", "reprocessedAt",
+)
+
+
+def _angles_content_hash(angles) -> str:
+    """소비된 angles 의 content hash (8 hex). 어떤 candidate 를 읽었는지 증명 (concern 3)."""
+    import hashlib
+
+    blob = repr(angles).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()[:8]
+
+
 def get_reference_motion(motion_id: str) -> dict | None:
-    """기준 모션 1건. keyframe 각도 데이터(angles) + 메타 포함(ml_CLAUDE.md 등록)."""
-    snap = _doc(models.reference_motion_path(motion_id)).get()
-    if not snap.exists:
+    """기준 모션 1건. keyframe 각도 데이터(angles) + 메타 포함(ml_CLAUDE.md 등록).
+
+    33-17 해석 순서 (codex concern 3 / suggestion 7):
+      (1) SUNITY_SHADOW_REFERENCE_VERSION 이 세팅되면 reference/{id}/versions/{v} 를 읽어
+          consumer 필드를 top-level meta 위에 overlay 하고, version+anglesHash 를 로깅한다.
+          top-level 문서는 절대 write 하지 않는다 (read-only — eval 이 production 을 안 건드림).
+      (2) 아니면 reference/_release.activeCandidate (전역 포인터) 로 해석 —
+          reference/{id}/versions/{activeCandidate} 를 읽는다.
+      (3) 둘 다 없으면 기존 top-level 읽기 (하위호환).
+    """
+    import logging
+    import os
+
+    log = logging.getLogger(__name__)
+
+    base_snap = _doc(models.reference_motion_path(motion_id)).get()
+    base = base_snap.to_dict() if base_snap.exists else None
+
+    # 해석할 candidate version 결정 (shadow env → 전역 포인터 → None).
+    shadow = os.environ.get(_SHADOW_REFERENCE_ENV)
+    resolved_version = None
+    source = None
+    if shadow:
+        resolved_version = shadow
+        source = "shadow_env"
+    else:
+        release_snap = _doc(_RELEASE_POINTER_PATH).get()
+        if release_snap.exists:
+            rel = release_snap.to_dict() or {}
+            if rel.get(_RELEASE_POINTER_FIELD):
+                resolved_version = rel[_RELEASE_POINTER_FIELD]
+                source = "release_pointer"
+
+    if resolved_version:
+        vsnap = _doc(
+            f"{models.REFERENCE_MOTIONS_COLLECTION}/{motion_id}/versions/{resolved_version}"
+        ).get()
+        if vsnap.exists:
+            overlay = vsnap.to_dict() or {}
+            merged = dict(base or {})
+            for k in _REFERENCE_CONSUMER_FIELDS:
+                if k in overlay:
+                    merged[k] = overlay[k]
+            merged.setdefault("motionId", motion_id)
+            log.info(
+                "resolved shadow reference %s version=%s anglesHash=%s source=%s",
+                motion_id, resolved_version,
+                _angles_content_hash(overlay.get("angles")), source,
+            )
+            return merged
+        # candidate 버전 문서가 없으면 안전하게 top-level 로 폴백 (조용한 무효화 방지 로깅).
+        log.warning(
+            "reference %s: resolved version=%s (source=%s) 문서 부재 → top-level 폴백",
+            motion_id, resolved_version, source,
+        )
+
+    if base is None:
         return None
-    data = snap.to_dict() or {}
-    data.setdefault("motionId", motion_id)
-    return data
+    base.setdefault("motionId", motion_id)
+    return base
 
 
 def get_previous_analysis(

@@ -1,0 +1,7 @@
+{
+  "tol": 20.0,
+  "slope": 1.2,
+  "cap": 90,
+  "MEAN_EPSILON_DEG": 0.1,
+  "P99_EPSILON_DEG": 1.0
+}

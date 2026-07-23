@@ -246,18 +246,21 @@ def _dtw_aligned_joint_medians(student_angles, reference_angles, joint_keys):
     except Exception:
         return {}, {}
     seg = a_user[match.start : match.end]
+    # 33-M3-SPEC.md §5 S3: path 의 ref 인덱스는 window-local 이므로 반드시 windowed
+    # reference 를 소비한다. 전체 a_ref 로 인덱싱하면 조용한 오채점/오정렬(신규 FP/FN).
+    a_ref_win = a_ref[match.ref_start : match.ref_end]
     path = match.path
     if not path or seg.shape[0] == 0:
         return {}, {}
-    J = min(a_ref.shape[1], seg.shape[1], len(joint_keys))
+    J = min(a_ref_win.shape[1], seg.shape[1], len(joint_keys))
     user_vals: list[list[float]] = [[] for _ in range(J)]
     ref_vals: list[list[float]] = [[] for _ in range(J)]
     for u, r in path:
-        if u >= seg.shape[0] or r >= a_ref.shape[0]:
+        if u >= seg.shape[0] or r >= a_ref_win.shape[0]:
             continue
         for j in range(J):
             uv = seg[u, j]
-            rv = a_ref[r, j]
+            rv = a_ref_win[r, j]
             if np.isfinite(uv):
                 user_vals[j].append(float(uv))
             if np.isfinite(rv):

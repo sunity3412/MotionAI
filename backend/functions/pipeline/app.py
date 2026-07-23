@@ -1740,6 +1740,7 @@ def _angles_to_dtw_median_dicts(
     user_seg: np.ndarray | None,
     ref_angles: np.ndarray | None,
     joint_keys: tuple[str, ...],
+    ref_boundary: int | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """표시-점수 정합 helper (Phase 19 TRUST-01 / HIGH-2 iter-1).
 
@@ -1767,20 +1768,25 @@ def _angles_to_dtw_median_dicts(
     if a_user.ndim != 2 or a_ref.ndim != 2 or a_user.shape[0] == 0 or a_ref.shape[0] == 0:
         return {}, {}
     # 점수 경로(per_joint_deviation)와 동일한 DTW 정렬 사용 — 표시·점수 source 통일.
-    match = motion_dtw(feature_vector(a_user), feature_vector(a_ref))
+    # 33-M3-SPEC.md §5 S1: 점수 경로와 동일 ref_boundary 를 넘겨 같은 window 를 고르고,
+    # window-local path 인덱스를 windowed reference 로 소비한다(표시·점수 정합 유지).
+    match = motion_dtw(
+        feature_vector(a_user), feature_vector(a_ref), ref_boundary=ref_boundary
+    )
     seg = a_user[match.start : match.end]
+    a_ref_win = a_ref[match.ref_start : match.ref_end]
     path = match.path
     if not path or seg.shape[0] == 0:
         return {}, {}
-    J = min(a_ref.shape[1], seg.shape[1], len(joint_keys))
+    J = min(a_ref_win.shape[1], seg.shape[1], len(joint_keys))
     user_vals: list[list[float]] = [[] for _ in range(J)]
     ref_vals: list[list[float]] = [[] for _ in range(J)]
     for u, r in path:
-        if u >= seg.shape[0] or r >= a_ref.shape[0]:
+        if u >= seg.shape[0] or r >= a_ref_win.shape[0]:
             continue
         for j in range(J):
             uv = seg[u, j]
-            rv = a_ref[r, j]
+            rv = a_ref_win[r, j]
             if np.isfinite(uv):
                 user_vals[j].append(float(uv))
             if np.isfinite(rv):
@@ -4004,17 +4010,27 @@ def _extension_target_dict(
 
 
 def _deviation_against(
-    user_angles: np.ndarray, ref_angles_flat, num_joints: int
+    user_angles: np.ndarray, ref_angles_flat, num_joints: int,
+    ref_boundary: int | None = None,
 ):
     """기준 시퀀스 대비 관절별 각도 편차(도) — mode1(정은지)·mode3 second+(이전 영상)
     공용 코어. flat 저장 angles 를 reshape → DTW 정렬 → per_joint_deviation.
-    반환: (deviation(J,), match, user_seg, a_ref) — mode1 은 segment 점수에 match 사용."""
+    반환: (deviation(J,), match, user_seg, a_ref_full) — mode1 은 segment 점수에 match 사용.
+
+    33-M3-SPEC.md §5 S2: path 의 ref 인덱스는 window-local 이므로 per_joint_deviation
+    은 windowed reference(a_ref[ref_start:ref_end])를 소비한다(전체 a_ref 로 넘기면
+    인덱스 어긋남 → 조용한 오채점). 반환 a_ref 는 downstream(veto/segment nr_full)용
+    전체 시퀀스다. ref_boundary(공유 베이스 경계, 전체 프레임 인덱스)가 주어지면 §2.2
+    구조 바닥으로 window 선정에 반영한다(mode3 는 None)."""
     a_ref = np.asarray(ref_angles_flat, dtype=float)
     if a_ref.ndim == 1:
         a_ref = a_ref.reshape(-1, num_joints)
-    match = motion_dtw(feature_vector(user_angles), feature_vector(a_ref))
+    match = motion_dtw(
+        feature_vector(user_angles), feature_vector(a_ref), ref_boundary=ref_boundary
+    )
     user_seg = user_angles[match.start : match.end]
-    deviation = per_joint_deviation(match.path, user_seg, a_ref)
+    a_ref_win = a_ref[match.ref_start : match.ref_end]
+    deviation = per_joint_deviation(match.path, user_seg, a_ref_win)
     return deviation, match, user_seg, a_ref
 
 
@@ -5083,8 +5099,21 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             num_joints = len(ref.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
             # Phase 27 SPD-01 — dtw_scoring 단계 계측 (DTW 정렬 + KISMAM 평가 + 각도 차원).
             with _stage(timings_ms, analysis_id, "dtw_scoring"):
+                # 33-M3-SPEC.md §2.2 구조 바닥 — 공유 베이스 기술이면 base/확장 경계를
+                # 산출해 nu<nr window 선정에 반영(경계 밖 window 는 fail-closed 전체 기준).
+                _mode1_ref_boundary = None
+                if (
+                    ref.get("sharedBaseMotionId")
+                    and ref.get("baseUntilS") is not None
+                    and ref.get("clipRange")
+                ):
+                    _nr_full = len(ref["angles"]) // max(num_joints, 1)
+                    _mode1_ref_boundary = segments.ref_boundary_frame(
+                        ref["clipRange"], ref["baseUntilS"], _nr_full
+                    )
                 deviation, match, user_seg, a_ref = _deviation_against(
-                    angles, ref["angles"], num_joints
+                    angles, ref["angles"], num_joints,
+                    ref_boundary=_mode1_ref_boundary,
                 )
                 reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
                 # 28-04 — ref angles fps 를 doc 메타에서 확보(하드코딩 금지, I1). phase4_v1
@@ -5098,7 +5127,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # (user matched-window vs ref full-clip) + jitter 민감 → 표시·점수 불일치.
                 # _angles_to_dtw_median_dicts 가 per_joint_deviation 과 동일 path/median source 사용.
                 user_mean_mode1, ref_mean_mode1 = _angles_to_dtw_median_dicts(
-                    angles, a_ref, skeleton.JOINT_KEYS
+                    angles, a_ref, skeleton.JOINT_KEYS,
+                    ref_boundary=_mode1_ref_boundary,
                 )
                 assessments = kismam.assess(
                     deviation,
@@ -5127,12 +5157,16 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 base_ref = firestore_admin.get_reference_motion(
                     ref["sharedBaseMotionId"]
                 )
+                # 33-M3-SPEC.md §5.1 — segments 는 window-local path 를 소비하므로
+                # windowed reference + ref_start + nr_full 을 넘긴다(경계 로컬 시프트).
                 seg_scores = segments.segment_scores(
                     ref,
                     (base_ref or {}).get("name", ""),
                     match.path,
                     user_seg,
-                    a_ref,
+                    a_ref[match.ref_start : match.ref_end],
+                    ref_start=match.ref_start,
+                    nr_full=len(a_ref),
                 )
             comparison = assemble.build_mode1(ref, angle_dim, seg_scores)
             # fault-zoom — 기준 영상 keypoint 좌표(reference doc 저장분) 캡처.

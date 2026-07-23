@@ -33,20 +33,25 @@ def test_similar_less_than_dissimilar():
 
 
 def test_segment_search_finds_embedded_motion():
+    # 33-M3-SPEC.md §1.2 — find_action_segment 는 paired range 반환:
+    # ((사용자 u_s,u_e), (기준 r_s,r_e)). nu>nr 이므로 사용자 트리밍·기준 통째.
     ref = _wave(30)
     idle = np.zeros((25, 2))
-    user = np.concatenate([idle, _wave(30), idle])  # 앞뒤 대기 구간
-    s, e = find_action_segment(user, ref, radius=8)
+    user = np.concatenate([idle, _wave(30), idle])  # 앞뒤 대기 구간, nu=85 > nr=30
+    (s, e), (r_s, r_e) = find_action_segment(user, ref, radius=8)
     # 동작은 대략 25~55 구간 — 시작이 대기 끝 근처여야
     assert 15 <= s <= 35
     assert (e - s) == len(ref)
+    assert (r_s, r_e) == (0, len(ref)), "nu>nr 경로: 기준은 통째"
 
 
 def test_motion_dtw_trims_and_aligns():
+    # nu>nr 경로 — 사용자 준비/대기 트리밍, 기준 통째(ref_start=0, ref_end=nr).
     ref = _wave(30)
     user = np.concatenate([np.zeros((20, 2)), _wave(30), np.zeros((10, 2))])
     m = motion_dtw(user, ref, radius=8)
     assert m.end - m.start == len(ref)
+    assert m.ref_start == 0 and m.ref_end == len(ref)  # 33-M3-SPEC.md §1.1 paired range
     assert m.distance < 0.05  # 동작 자체는 거의 동일
     assert m.path[0][1] == 0 and m.path[-1][1] == len(ref) - 1
 

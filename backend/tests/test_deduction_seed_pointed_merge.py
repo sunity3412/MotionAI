@@ -59,7 +59,10 @@ def _extend_profile():
 
 
 def _identity_match(T):
-    return MotionMatch(start=0, end=T, distance=0.0, path=[(i, i) for i in range(T)])
+    return MotionMatch(
+        start=0, end=T, ref_start=0, ref_end=T,
+        distance=0.0, path=[(i, i) for i in range(T)],
+    )
 
 
 def _quant(wm_deltas=None):

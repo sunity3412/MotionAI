@@ -489,7 +489,10 @@ def _unregistered_profile():
 
 def _identity_match(T):
     """identity DTW match — path local 인덱스 (i,i), start=0 end=T (점수경로와 동일 인덱싱)."""
-    return MotionMatch(start=0, end=T, distance=0.0, path=[(i, i) for i in range(T)])
+    return MotionMatch(
+        start=0, end=T, ref_start=0, ref_end=T,
+        distance=0.0, path=[(i, i) for i in range(T)],
+    )
 
 
 def _ref_angles(T, deg=170.0):

@@ -26,7 +26,12 @@ def _match(path, distance, start=0, end=None):
     end 미지정 시 path 의 최대 user_local + 1 로 구간 끝 추정 (path 없으면 start)."""
     if end is None:
         end = start + (max((i for i, _ in path), default=-1) + 1) if path else start
-    return MotionMatch(start=start, end=end, distance=distance, path=list(path))
+    # 33-M3-SPEC.md §1.1 — 합성 매치는 전체-기준 정렬(ref_start=0, ref_end=max ref+1).
+    _ref_end = (max((r for _, r in path), default=-1) + 1) if path else 0
+    return MotionMatch(
+        start=start, end=end, ref_start=0, ref_end=_ref_end,
+        distance=distance, path=list(path),
+    )
 
 
 def _pairs(result):

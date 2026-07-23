@@ -39,7 +39,12 @@ def _match(path, distance, start=0, end=None):
     """합성 MotionMatch 빌더 (test_motion_alignment 관례 재사용)."""
     if end is None:
         end = start + (max((i for i, _ in path), default=-1) + 1) if path else start
-    return MotionMatch(start=start, end=end, distance=distance, path=list(path))
+    # 33-M3-SPEC.md §1.1 — 합성 매치는 전체-기준 정렬(ref_start=0, ref_end=max ref+1).
+    _ref_end = (max((r for _, r in path), default=-1) + 1) if path else 0
+    return MotionMatch(
+        start=start, end=end, ref_start=0, ref_end=_ref_end,
+        distance=distance, path=list(path),
+    )
 
 
 def _scored_result() -> dict:

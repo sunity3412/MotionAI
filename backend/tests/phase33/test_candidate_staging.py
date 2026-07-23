@@ -200,3 +200,86 @@ def test_write_versioned_run1_and_run2_stay_distinct() -> None:
     assert f"reference/{mid}/versions/phase33-cm3-run2" in fs.store
     # backing 활성 doc 은 무변형 (candidate write 는 active-pointed doc 을 안 건드림)
     assert fs.store[f"reference/{mid}"] == {"activeVersion": "phase4_v1"}
+
+
+# ══════════════════════ Task 2: shadow-reference resolver + 전역 포인터 ══════════════════════
+
+
+def _patch_firestore_admin(monkeypatch, fs: FakeFS):
+    """firestore_admin._doc 를 FakeFS path seam 으로 교체 → get_reference_motion 검증."""
+    from sunity_shared import firestore_admin
+
+    monkeypatch.setattr(firestore_admin, "_doc", fs.doc, raising=True)
+    return firestore_admin
+
+
+def _seed_reference(fs: FakeFS, mid: str, *, top_seed: float, cand_version: str, cand_seed: float):
+    top = _make_payload(mid, seed=top_seed)
+    top["activeVersion"] = "phase4_v1"
+    fs.store[f"reference/{mid}"] = top
+    fs.store[f"reference/{mid}/versions/{cand_version}"] = _make_payload(mid, seed=cand_seed)
+
+
+def test_shadow_env_overlay_returns_candidate_and_leaves_top_level(monkeypatch, caplog):
+    """SUNITY_SHADOW_REFERENCE_VERSION 세팅 시 candidate angles overlay + top-level 무변형 + hash 로깅."""
+    fs = FakeFS()
+    mid = "ref-pdshape"
+    _seed_reference(fs, mid, top_seed=100.0, cand_version="phase33-cm3-run1", cand_seed=7.0)
+    top_before = copy.deepcopy(fs.store[f"reference/{mid}"])
+
+    fa = _patch_firestore_admin(monkeypatch, fs)
+    monkeypatch.setenv("SUNITY_SHADOW_REFERENCE_VERSION", "phase33-cm3-run1")
+
+    with caplog.at_level(logging.INFO, logger="sunity_shared.firestore_admin"):
+        out = fa.get_reference_motion(mid)
+
+    # candidate angles overlay (top_seed 100 이 아니라 cand_seed 7 기반)
+    assert out is not None
+    assert out["angles"] == _make_payload(mid, seed=7.0)["angles"]
+    assert out["angles"] != top_before["angles"]
+    # top-level 문서는 절대 write 되지 않음 (read-only)
+    assert fs.store[f"reference/{mid}"] == top_before
+    # version+hash 로깅 증거 (concern 3 — 어떤 candidate 가 소비됐는지 증명)
+    logtext = "\n".join(r.getMessage() for r in caplog.records)
+    assert "resolved shadow reference" in logtext
+    assert "version=phase33-cm3-run1" in logtext
+    assert "anglesHash=" in logtext
+
+
+def test_no_env_no_pointer_returns_top_level_unchanged(monkeypatch):
+    """shadow env 없고 _release 포인터 없으면 top-level 그대로 (하위호환)."""
+    fs = FakeFS()
+    mid = "ref-pdshape"
+    _seed_reference(fs, mid, top_seed=100.0, cand_version="phase33-cm3-run1", cand_seed=7.0)
+
+    fa = _patch_firestore_admin(monkeypatch, fs)
+    monkeypatch.delenv("SUNITY_SHADOW_REFERENCE_VERSION", raising=False)
+
+    out = fa.get_reference_motion(mid)
+    assert out is not None
+    assert out["angles"] == _make_payload(mid, seed=100.0)["angles"]  # top-level, candidate 아님
+
+
+def test_global_release_pointer_resolution(monkeypatch):
+    """shadow env 없이 reference/_release.activeCandidate 로 candidate 해석."""
+    fs = FakeFS()
+    mid = "ref-pdshape"
+    _seed_reference(fs, mid, top_seed=100.0, cand_version="phase33-cm3-run1", cand_seed=7.0)
+    fs.store["reference/_release"] = {"activeCandidate": "phase33-cm3-run1"}
+
+    fa = _patch_firestore_admin(monkeypatch, fs)
+    monkeypatch.delenv("SUNITY_SHADOW_REFERENCE_VERSION", raising=False)
+
+    out = fa.get_reference_motion(mid)
+    assert out is not None
+    assert out["angles"] == _make_payload(mid, seed=7.0)["angles"]  # 포인터가 가리키는 candidate
+    # 포인터 해석도 read-only — top-level 무변형
+    assert fs.store[f"reference/{mid}"]["angles"] == _make_payload(mid, seed=100.0)["angles"]
+
+
+def test_missing_reference_returns_none(monkeypatch):
+    """top-level 부재 + shadow/pointer 없음 → None (기존 계약 보존)."""
+    fs = FakeFS()
+    fa = _patch_firestore_admin(monkeypatch, fs)
+    monkeypatch.delenv("SUNITY_SHADOW_REFERENCE_VERSION", raising=False)
+    assert fa.get_reference_motion("ref-nope") is None

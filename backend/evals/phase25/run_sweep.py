@@ -325,8 +325,27 @@ def main() -> int:
         "--tag", choices=("cold", "warm"), default="cold",
         help="cold=캐시 전량 miss 1차 실행(기본) / warm=재실행(캐시 hit, *_warm.json 기록)",
     )
+    parser.add_argument(
+        "--reference-version", type=str, default=None,
+        help=(
+            "candidate reference 버전을 flip 없이 소비 (33-17 concern 3). "
+            "SUNITY_SHADOW_REFERENCE_VERSION 을 세팅해 in-process _process 가 "
+            "reference/{id}/versions/{v} 를 read-only overlay 로 읽게 한다 — production "
+            "top-level 은 무변형. SERIAL 유지(동시성 미변경)."
+        ),
+    )
     args = parser.parse_args()
     suffix = "" if args.tag == "cold" else "_warm"
+
+    # 33-17: shadow reference 버전 주입 (in-process _process 가 get_reference_motion 경유
+    # candidate 를 소비). serial 이므로 프로세스 전역 env 세팅으로 충분.
+    if args.reference_version:
+        os.environ["SUNITY_SHADOW_REFERENCE_VERSION"] = args.reference_version
+        print(
+            f"[setup] shadow reference version = {args.reference_version} "
+            "(read-only overlay, production top-level 무변형)",
+            flush=True,
+        )
 
     # 27-02 — stage_timing INFO 로그 방출 (27-01 계측 log.info 는 핸들러 미구성 시
     # lastResort(WARNING) 에 걸러진다). eval 로그 파일에 단계별 라인 박제용.

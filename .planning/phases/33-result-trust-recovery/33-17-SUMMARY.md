@@ -121,3 +121,7 @@ None. All three primitives are fully implemented and covered by 12 pytest cases 
 - `3fd6005` feat(33-17): immutable candidate version ids in reprocess script
 - `9f81633` feat(33-17): shadow-reference resolver + global release pointer in get_reference_motion
 - `c667c03` feat(33-17): idempotent atomic 11-doc flip with immutable pre_phase4 + hash verify
+
+## Self-Check: PASSED
+
+All 5 key files exist and all 4 commits (`3fd6005`, `9f81633`, `c667c03`, `4b1eccf`) are present in history. Working tree clean (only generated `.pyc` untracked, not staged).

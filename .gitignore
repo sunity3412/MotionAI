@@ -41,3 +41,7 @@ app/scripts/_viz_*.py
 
 # Phase 14 pre-seed active-pose snapshot (hashes only in run log; raw snapshot not committed)
 .planning/phases/14-reference-motion-registration/14-PRESEED-SNAPSHOT.json
+
+# Phase 33 롤백 원천 — reference 11 doc 백업 (~7.4 MiB, git 추적 금지 · 로컬+S3 이중 보관).
+# backup_reference_docs.py 산출 (reference-11-preC-*.json + .MANIFEST.json). S3 미러가 원천.
+.planning/debug/backups/

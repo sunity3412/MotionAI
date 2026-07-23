@@ -94,6 +94,13 @@ S3_PREFIX = "backups/"
 # 격리 복원 리허설 컬렉션 — 실 reference 와 절대 겹치면 안 됨 (T-33-20 방어).
 REHEARSAL_COLLECTION_DEFAULT = "reference_restore_rehearsal"
 
+# 실 reference 컬렉션이 single-field 인덱스에서 면제한 필드 (콘솔에서 owner 가 설정,
+# [[firestore-index-entry-limit]] / [[analyses-index-exemption-fix]]). 대형 flat 배열이
+# 40k index-entry 한도를 넘기지 않도록 자동 인덱싱을 끈다. 격리 리허설 컬렉션은 이
+# 면제가 없으면 set(merge=False) 이 400 INDEX_ENTRIES_COUNT_LIMIT_EXCEEDED 로 실패한다
+# → 실 restore 경로(면제된 reference/{id})와 동형이 되도록 같은 면제를 복제한다.
+REFERENCE_EXEMPT_FIELDS: tuple[str, ...] = ("angles", "joints3d", "keypointReport")
+
 
 def _canon(obj) -> bytes:
     """결정론적 canonical 직렬화 — sort_keys 로 Firestore 키 순서 무관 바이트 비교.
@@ -381,7 +388,11 @@ def _run_backup(args: argparse.Namespace) -> tuple[int, Path | None, str | None]
 
     # PASS — atomic rename tmp → out (백업 glob 매칭 유일 이름).
     os.replace(tmp_path, out)
-    manifest_path = out.with_name(out.name + ".MANIFEST.json")
+    # MANIFEST 이름은 백업 stem 기반 (`{stem}.MANIFEST.json`) — `{name}.MANIFEST.json`
+    # (= `...json.MANIFEST.json`)는 백업 glob `reference-11-preC-*.json` 에 매칭되며
+    # sorted()[-1] 에서 백업 대신 잡히는 함정을 만든다. stem 기반은 'M' < 'j' 라 백업보다
+    # 먼저 정렬돼 백업 조회를 오염시키지 않는다.
+    manifest_path = out.with_name(out.stem + ".MANIFEST.json")
     manifest = {
         "status": "PASS",
         "backupPath": str(out),
@@ -429,6 +440,48 @@ def _resolve_rehearsal_source(args: argparse.Namespace, fresh: Path | None) -> P
     return Path(matches[-1]) if matches else None
 
 
+def _ensure_rehearsal_exemptions(collection: str) -> list[str]:
+    """격리 리허설 컬렉션에 실 reference 와 동일한 single-field 인덱스 면제를 건다.
+
+    대형 flat 배열(angles/joints3d/keypointReport)의 자동 인덱싱을 꺼 40k index-entry
+    한도(400 INDEX_ENTRIES_COUNT_LIMIT_EXCEEDED)를 피한다 — 실 restore 경로가 향하는
+    reference/{id}(면제됨)와 동형으로 만든다. FirestoreAdminClient 를 SA 크리덴셜로
+    구성하며, 각 field override 는 long-running op 라 완료까지 대기한다. 멱등
+    (이미 면제면 같은 config 재적용). 반환: 면제 적용한 field path 목록.
+    """
+    sa_path = os.environ.get("FIREBASE_SA_PATH")
+    if not sa_path or not Path(sa_path).is_file():
+        raise RuntimeError(
+            "인덱스 면제 설정에는 FIREBASE_SA_PATH(로컬 SA 파일)가 필요하다 — "
+            f"현재 값 {sa_path!r} 파일 없음 (D-18)."
+        )
+    from google.cloud import firestore_admin_v1
+    from google.oauth2 import service_account
+
+    project = json.loads(Path(sa_path).read_text())["project_id"]
+    creds = service_account.Credentials.from_service_account_file(sa_path)
+    client = firestore_admin_v1.FirestoreAdminClient(credentials=creds)
+
+    applied: list[str] = []
+    for field in REFERENCE_EXEMPT_FIELDS:
+        name = (
+            f"projects/{project}/databases/(default)/collectionGroups/"
+            f"{collection}/fields/{field}"
+        )
+        # indexes=[] + uses_ancestor_config=False = 이 필드 single-field 인덱스 면제.
+        fld = firestore_admin_v1.Field(
+            name=name,
+            index_config=firestore_admin_v1.Field.IndexConfig(
+                indexes=[], uses_ancestor_config=False
+            ),
+        )
+        op = client.update_field(request=firestore_admin_v1.UpdateFieldRequest(field=fld))
+        op.result(timeout=180)  # long-running op 완료 대기 (빈 컬렉션이라 신속).
+        applied.append(f"{collection}/{field}")
+        print(f"  인덱스 면제 적용: {collection}/{field}", flush=True)
+    return applied
+
+
 def _rehearse_restore(source: Path, collection: str, keep: bool) -> int:
     """백업 JSON 을 격리 컬렉션에 set(merge=False) 복원 → 읽어 바이트 비교 (round-trip).
 
@@ -451,6 +504,18 @@ def _rehearse_restore(source: Path, collection: str, keep: bool) -> int:
     if not docs:
         print("REHEARSAL FAIL — 백업 docs 비어 있음 (D-18).", flush=True)
         return 4
+
+    # 리허설 백엔드 선택:
+    #  · FIRESTORE_EMULATOR_HOST 설정 시 → 로컬 에뮬레이터 (40k index-entry 한도 미적용,
+    #    실 프로젝트 무접촉 — 완전 격리, plan 이 명시 허용한 경로).
+    #  · 미설정 시 → 실 Firestore 격리 컬렉션. 이때만 실 reference 와 동일한 인덱스
+    #    면제를 복제해야 40k 한도(400 INDEX_ENTRIES_COUNT_LIMIT_EXCEEDED)를 피한다.
+    emulator = os.environ.get("FIRESTORE_EMULATOR_HOST")
+    if emulator:
+        print(f"### 에뮬레이터 모드 — FIRESTORE_EMULATOR_HOST={emulator} (실 프로젝트 무접촉)", flush=True)
+    else:
+        print("### 실 Firestore 격리 컬렉션 — 인덱스 면제 복제 (angles/joints3d/keypointReport)", flush=True)
+        _ensure_rehearsal_exemptions(collection)
 
     results: list[tuple[str, bool, str]] = []
     written: list[str] = []

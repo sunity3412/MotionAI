@@ -283,3 +283,85 @@ def test_missing_reference_returns_none(monkeypatch):
     fa = _patch_firestore_admin(monkeypatch, fs)
     monkeypatch.delenv("SUNITY_SHADOW_REFERENCE_VERSION", raising=False)
     assert fa.get_reference_motion("ref-nope") is None
+
+
+# ══════════════════════ Task 3: idempotent atomic 11-doc flip ══════════════════════
+
+_FLIP_IDS = ["ref-a", "ref-b", "ref-c"]
+
+
+def _setup_flip(mod):
+    """flip 대상 top-level(구 phase4_v1) 시드 + candidate completed + manifest(hash)."""
+    fs = FakeFS()
+    completed: dict[str, dict] = {}
+    for i, mid in enumerate(_FLIP_IDS):
+        # 구 활성 상태 — pre_phase4 rollback preimage 가 될 값.
+        fs.store[f"reference/{mid}"] = {
+            "activeVersion": "phase4_v1",
+            "angles": [999.0],
+            "old_meta": mid,
+        }
+        payload = _make_payload(mid, seed=float(i + 1))
+        payload["pipelineVersion"] = "phase33-cm3-run1"
+        completed[mid] = payload
+    manifest = {mid: mod._release_doc_hash(completed[mid]) for mid in _FLIP_IDS}
+    return fs, completed, manifest
+
+
+def test_flip_pre_phase4_immutable_and_idempotent() -> None:
+    """2번째 flip 이 pre_phase4 preimage 를 덮어쓰지 않고 11/11 로 수렴 (concern 7)."""
+    mod = _load_reprocess()
+    fs, completed, manifest = _setup_flip(mod)
+
+    mod._flip_active_pointer(fs, _FLIP_IDS, completed, "phase33-cm3-run1", manifest)
+
+    pre1 = copy.deepcopy(fs.store["reference/ref-a/versions/pre_phase4"])
+    assert pre1["angles"] == [999.0]  # flip 전 구 top-level 을 포착
+    assert pre1["activeVersion"] == "phase4_v1"
+
+    # 재실행 전 top-level 을 인위적으로 흔들어 놓음 (crash 후 재개 모사).
+    fs.store["reference/ref-a"]["angles"] = [123.0]
+
+    # 2번째 flip (resumable) — 예외 없이 수렴해야 함.
+    mod._flip_active_pointer(fs, _FLIP_IDS, completed, "phase33-cm3-run1", manifest)
+
+    pre2 = fs.store["reference/ref-a/versions/pre_phase4"]
+    assert pre2 == pre1, "pre_phase4 preimage 가 2번째 flip 에서 덮어써짐 — rollback 소스 파괴"
+    # 11/11 activeVersion 수렴 + candidate angles 재-mirror(흔든 값 복구)
+    for mid in _FLIP_IDS:
+        assert fs.store[f"reference/{mid}"]["activeVersion"] == "phase33-cm3-run1"
+    assert fs.store["reference/ref-a"]["angles"] != [123.0]
+
+
+def test_flip_post_write_verify_detects_doctored_hash() -> None:
+    """manifest 의 한 doc hash 를 조작하면 post-write verify 가 raise (부분 flip 감지)."""
+    mod = _load_reprocess()
+    fs, completed, manifest = _setup_flip(mod)
+    manifest["ref-b"] = "deadbeefdeadbeef"  # 11번째 doc(여기선 2번째) hash 오염
+
+    with pytest.raises(ValueError, match="post-write verify|부분 flip|ref-b"):
+        mod._flip_active_pointer(fs, _FLIP_IDS, completed, "phase33-cm3-run1", manifest)
+
+
+def test_flip_drives_global_release_pointer() -> None:
+    """flip 이 reference/_release.activeCandidate 를 candidate 로 세팅 (단일 원자 포인터)."""
+    mod = _load_reprocess()
+    fs, completed, manifest = _setup_flip(mod)
+
+    mod._flip_active_pointer(fs, _FLIP_IDS, completed, "phase33-cm3-run1", manifest)
+
+    assert fs.store["reference/_release"]["activeCandidate"] == "phase33-cm3-run1"
+    for mid in _FLIP_IDS:
+        assert fs.store[f"reference/{mid}"]["activeVersion"] == "phase33-cm3-run1"
+
+
+def test_flip_partial_completed_aborts_before_write() -> None:
+    """completed 가 motion 수보다 적으면 write 전에 abort (T-04-W5-03 gate 보존)."""
+    mod = _load_reprocess()
+    fs, completed, manifest = _setup_flip(mod)
+    partial = {k: completed[k] for k in _FLIP_IDS[:2]}
+
+    with pytest.raises(ValueError, match="flip 차단"):
+        mod._flip_active_pointer(fs, _FLIP_IDS, partial, "phase33-cm3-run1", manifest)
+    # 전역 포인터가 쓰이지 않음 (gate 전 쓰기 0)
+    assert "reference/_release" not in fs.store

@@ -407,54 +407,57 @@ def _write_versioned(
 
 
 def _flip_active_pointer(
-    fs_client, motion_ids: list[str], completed: dict
+    fs_client,
+    motion_ids: list[str],
+    completed: dict,
+    version: str = PIPELINE_VERSION,
+    manifest: dict | None = None,
 ) -> None:
-    """5개 전부 완료 시에만 active 포인터 flip + top-level mirror (D-09, T-04-W5-03).
+    """11개 전부 완료 시에만 idempotent atomic flip (D-09, T-04-W5-03, 33-17 concern 7).
 
-    단계:
-      (a) flip 전 현재 top-level 필드 스냅샷을 reference/{id}/versions/pre_phase4 에 백업 (rollback 소스).
-      (b) reference/{id}.activeVersion = "phase4_v1" 업데이트.
-      (c) top-level mirror (BLOCKER-2 핵심): versions/phase4_v1 의 consumer 필드를
-          reference/{id} top-level 에 merge.
-          현재 앱/백엔드 consumer 는 activeVersion resolver 없이 top-level 을 직접 읽음
-          (앱 lib/reference-lib → collection(db,'reference') + firestore_admin reference/{id}) — mirror 없으면 무효과.
+    단계 (재실행 안전 / resumable):
+      (a) pre_phase4 백업 — 해당 문서가 **아직 없을 때만** 쓴다 (immutable preimage).
+          re-run 이 rollback 스냅샷을 덮어쓰지 않는다 (codex concern 7).
+      (b) reference/{id}.activeVersion = version 갱신 (idempotent).
+      (c) top-level mirror: candidate consumer 필드를 reference/{id} top-level 에 merge
+          (앱/백엔드가 resolver 없이 top-level 을 직접 읽는 하위호환 경로 정합).
+      (d) 전역 release 포인터 reference/_release.activeCandidate = version (단일 원자 flip).
+      (e) POST-WRITE VERIFY (manifest 제공 시): 11개 문서를 전부 재read 해
+          activeVersion == version (11/11) AND per-doc content hash == manifest[id] 를
+          단언한다. 하나라도 불일치면 raise — 부분 flip 을 조용히 배포하지 않는다.
 
-    T-04-W5-03: len(completed) == len(motion_ids) 강제 검사.
-      미통과 시 ValueError raise.
-
+    T-04-W5-03: len(completed) == len(motion_ids) 강제 검사 (미통과 시 ValueError).
     T-04-W5-01: env var 값 로그 출력 금지.
+    33-17: manifest = {motion_id: _release_doc_hash(payload)} (33-18 release-manifest 의
+      hash source). manifest=None 이면 post-write verify 를 생략한다 (하위호환 — 기존
+      호출자/테스트 계약 보존; 실 프로덕션 main() 은 항상 manifest 를 넘긴다).
     """
     if len(completed) != len(motion_ids):
         raise ValueError(
             f"active flip 차단: {len(completed)}/{len(motion_ids)} 완료 — "
-            f"5개 전부 완료 시에만 flip (T-04-W5-03, D-09)"
+            f"전부 완료 시에만 flip (T-04-W5-03, D-09)"
         )
 
     for motion_id in motion_ids:
         ref_doc = fs_client.collection("reference").document(motion_id)
 
-        # (a) flip 전 현재 top-level 스냅샷 백업 (rollback 소스)
+        # (a) pre_phase4 백업 — 부재 시에만 (immutable preimage, concern 7).
         current_snap = ref_doc.get().to_dict() or {}
-        old_version = current_snap.get("activeVersion", "unknown")
-        log.info(
-            "  [%s] flip 전 activeVersion=%r → pre_phase4 백업",
-            motion_id, old_version
-        )
-        backup_doc = (
-            ref_doc.collection("versions").document("pre_phase4")
-        )
-        backup_doc.set(current_snap)
+        backup_doc = ref_doc.collection("versions").document("pre_phase4")
+        if _doc_exists(backup_doc):
+            log.info("  [%s] pre_phase4 이미 존재 — rollback preimage 보존 (덮어쓰지 않음)", motion_id)
+        else:
+            old_version = current_snap.get("activeVersion", "unknown")
+            log.info(
+                "  [%s] flip 전 activeVersion=%r → pre_phase4 백업 (최초 1회)",
+                motion_id, old_version,
+            )
+            backup_doc.set(current_snap)
 
-        # (b) activeVersion flip
-        ref_doc.update({"activeVersion": PIPELINE_VERSION})
-        log.info("  [%s] activeVersion → %r", motion_id, PIPELINE_VERSION)
-
-        # (c) top-level mirror (BLOCKER-2):
-        # consumer 소비 필드 (angles / anglesJointKeys / anglesFrames +
-        # joints3d / joints3dKeys / joints3dFrames / coordDim / space 등)
-        # 를 reference/{id} top-level 에 merge.
+        # (b) activeVersion flip (idempotent) + (c) top-level mirror.
         payload = completed[motion_id]
         mirror_fields: dict = {
+            "activeVersion": version,
             "angles": payload.get("angles"),
             "anglesJointKeys": payload.get("anglesJointKeys"),
             "anglesFrames": payload.get("anglesFrames"),
@@ -465,13 +468,54 @@ def _flip_active_pointer(
             "space": payload.get("space"),
             "pipelineVersion": payload.get("pipelineVersion"),
             "reprocessedAt": payload.get("reprocessedAt"),
-            # keypointReport 도 top-level mirror (mode1 소비 경로 정합)
             "keypointReport": payload.get("keypointReport"),
         }
-        # None 값 제거 (Firestore update 에서 None 은 필드 삭제 시맨틱 가능)
+        # None 값 제거 (Firestore update 에서 None 은 필드 삭제 시맨틱 가능).
         mirror_fields = {k: v for k, v in mirror_fields.items() if v is not None}
-        ref_doc.update(mirror_fields)
-        log.info("  [%s] top-level mirror 완료 (%d 필드)", motion_id, len(mirror_fields))
+        # set(merge=True): top-level 문서가 없어도 안전 (idempotent set/merge, resumable).
+        ref_doc.set(mirror_fields, merge=True)
+        log.info(
+            "  [%s] activeVersion → %r + top-level mirror (%d 필드)",
+            motion_id, version, len(mirror_fields),
+        )
+
+    # (d) 전역 release 포인터 = 단일 authoritative 활성 버전 (activation 은 이 write 1회).
+    release_doc = fs_client.collection("reference").document("_release")
+    release_doc.set({RELEASE_POINTER_FIELD: version}, merge=True)
+    log.info("  전역 release 포인터 %s.%s = %r", RELEASE_POINTER_PATH, RELEASE_POINTER_FIELD, version)
+
+    # (e) POST-WRITE VERIFY — 11/11 activeVersion + per-doc hash (manifest 제공 시).
+    if manifest is not None:
+        mismatches: list[str] = []
+        for motion_id in motion_ids:
+            ref_doc = fs_client.collection("reference").document(motion_id)
+            snap = ref_doc.get().to_dict() or {}
+            if snap.get("activeVersion") != version:
+                mismatches.append(
+                    f"{motion_id}: activeVersion={snap.get('activeVersion')!r} != {version!r}"
+                )
+                continue
+            actual_hash = _release_doc_hash(snap)
+            expected_hash = manifest.get(motion_id)
+            if expected_hash is not None and actual_hash != expected_hash:
+                mismatches.append(
+                    f"{motion_id}: hash={actual_hash} != manifest={expected_hash}"
+                )
+        # 전역 포인터도 검증.
+        rel_snap = release_doc.get().to_dict() or {}
+        if rel_snap.get(RELEASE_POINTER_FIELD) != version:
+            mismatches.append(
+                f"_release.{RELEASE_POINTER_FIELD}={rel_snap.get(RELEASE_POINTER_FIELD)!r} != {version!r}"
+            )
+        if mismatches:
+            raise ValueError(
+                "post-write verify 실패 — 부분 flip 감지 (33-17 concern 7): "
+                + "; ".join(mismatches)
+            )
+        log.info(
+            "  post-write verify PASS — %d/%d activeVersion=%r + per-doc hash + 전역 포인터 일치",
+            len(motion_ids), len(motion_ids), version,
+        )
 
 
 # ── main() ────────────────────────────────────────────────────────────────────
@@ -648,8 +692,10 @@ def main() -> int:
         print("\n--no-flip 지정 — active pointer flip 생략.", flush=True)
     else:
         print("\n=== active pointer flip ===", flush=True)
+        # release-manifest: 각 doc 의 consumer-field content hash (post-write 11/11 검증 source).
+        manifest = {mid: _release_doc_hash(results[mid]) for mid in motion_ids}
         try:
-            _flip_active_pointer(fs_client, motion_ids, results)
+            _flip_active_pointer(fs_client, motion_ids, results, version, manifest)
         except ValueError as exc:
             print(f"ERROR: active flip 차단 — {exc}", file=sys.stderr)
             return 1

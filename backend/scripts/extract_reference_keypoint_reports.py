@@ -1,6 +1,10 @@
-"""Phase 12 hotfix (2026-06-11) — 정은지 reference 5건 referenceKeypointReport 산출.
+"""Phase 12 hotfix (2026-06-11) — 정은지 reference referenceKeypointReport 산출.
 
 belle UAT 1차 결과 5번 (정은지 측 KeypointOverlay 안 그려짐) fix.
+33-04 (C+M3 substrate): 기본 motion 11종 + 기본 fps 9.0 (candidate 재추출본 정합).
+백필 본류는 backfill_reference_downstream.py 가 live pose 로 keypointReport/
+referenceKeypointReport 를 candidate 버전에 직접 MERGE 한다 — 본 스크립트는 standalone
+재산출/디버그 경로로 9fps 라벨을 유지한다.
 
 Pod GPU 전용 (RTMW 의존). S3 → frame extract → RTMW pose → build_keypoint_report
 → JSON. 로컬에서 seed-reference-motions.mjs --keypoint-reports 로 Firestore merge.
@@ -48,13 +52,22 @@ from sunity_shared.analysis.pose_engines.rtmw.rtmw_engine import (  # noqa: E402
 from sunity_shared.analysis.pose_frame import PoleAxis  # noqa: E402
 
 
-# Firestore reference doc id 와 동기 유지 (extract_reference_angles.py MOTION_IDS mirror).
+# Firestore reference doc id 와 동기 유지. 33-04 (C+M3 substrate) — 11종 전체 기본값.
+# 원본 5(Plan 06-03) + 후속 6. keypointReport 는 candidate 9fps 로 산출한다.
 MOTION_IDS = [
+    # 원본 5
     "ref-sideway-spin",
     "ref-climb",
     "ref-invert",
     "ref-foxtop",
     "ref-foxtop-split",
+    # 후속 6
+    "ref-combo",
+    "ref-elbow-twist-sister",
+    "ref-kip-up",
+    "ref-pdshape",
+    "ref-peter-pan",
+    "ref-power-spin",
 ]
 
 S3_BUCKET = "sunity-motion-pilot-videos"
@@ -139,11 +152,11 @@ def main() -> int:
     parser.add_argument(
         "--target-fps",
         type=float,
-        default=18.0,
+        default=9.0,
         help=(
-            "Target sampling fps. Default 18.0 — backend pipeline 의 18fps "
-            "upsample (commit e6350ed) 정합. 9fps 박힘 시 사용자 vs reference "
-            "fps 박힘 으로 KeypointOverlay drift 발생 (12-deferred §12 박힘)."
+            "Target sampling fps. 33-04 (C+M3 substrate) — default 9.0 으로 변경 "
+            "(candidate 9fps 재추출본 정합). 구 18.0 은 학생 경로(9fps)와 기질 비대칭을 "
+            "만들던 값 — ref-student-substrate-gap M1 해소. keypointReport.fps 라벨 = 9.0."
         ),
     )
     parser.add_argument(

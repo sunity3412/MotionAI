@@ -1,50 +1,54 @@
-"""정은지 reference 11개의 downstream 4필드 백필 orchestrator (Pod GPU 직접 실행).
+"""정은지 reference 11개의 downstream 필드 candidate-aware 백필 orchestrator (Pod GPU).
 
-목적 (D-01 / D-02 / R1 / R2 / R6 / R2-3 / R2-5 / R3-2 / R4-1 / R4-2 / R5):
-  reference 백필은 학생 `_process` 가 호출하는 SAME `sunity_shared.analysis` 함수들을
-  거치되, REFERENCE_V1_FORCE_CONFIG (pinned config) 로 거친다 — provably exact FOR THAT
-  CONFIG, NOT "student path exact". 운영 `_process` 는 env-driven `_preflight_label_gate_passed()`
-  + Layer-2-조건부 `technique_profile` 을 넘기지만, 본 reference pin 은 그것들을 None 으로
-  고정한다 (R2). 또한 force motion_id 는 FallbackRecognizer profile (= None) 에서 resolve 되어
-  known-reference contact/boost 가 발동하지 않는다 (R4-2).
+33-04 재작성 (codex concern 2 / suggestion 3):
+  기존 스크립트는 (a) TOP-LEVEL phase4_v1 angles (get_reference_motion:구 461) 를
+  source 로 읽고, (b) "NEVER writes Firestore" 로 seed JSON 만 뱉고, (c) 추출 fps 를
+  REFERENCE_TARGET_FPS=18.0 로 하드코딩하고, (d) keypointReport / bodyComparisonSourcePose
+  를 산출하지 않았다. C+M3 substrate 트랙에서는 활성(phase4_v1)이 아니라 **candidate
+  버전**(reference/{id}/versions/{candidate}) 이 authoritative source 이므로, 이 스크립트는:
+    · candidate 버전에서 새 angles/keypointReport 를 읽고 (top-level 절대 미접촉),
+    · 파생 필드를 전부 재산출한 뒤,
+    · 같은 candidate 버전 문서에 MERGE 백한다 (activeVersion/top-level 무접촉 — flip 은 33-07),
+    · fps 는 candidate 메타(keypointReport.fps) 또는 --target-fps CLI 에서 읽는다 (18.0 하드코딩 제거),
+    · bodyComparisonSourcePose 는 실존 producer(extract_reference_body_profiles._build_source_pose)
+      로 산출해 11 doc 전부 채운다.
 
-산출 4필드:
-  · meanAngles          — STORED active phase4_v1 angles 의 nanmean (R1, 재추론 X)
-  · techniqueProfile    — FallbackRecognizer().recognize(STORED angles) EXTEND (R1, 재추론 X)
-  · bodyNormalizationProfile — measure_body_profile(live pose_frames) (D-02 hybrid)
-  · forceDirectionPattern    — infer_force_direction_pattern(force_signals(live frames)) (D-02 hybrid)
+candidate consumer 필드(angles/joints3d/keypointReport)는 33-03 재추출본을 재사용하고,
+live pose_frames 는 bodyNormalizationProfile / forceDirectionPattern / bodyComparisonSourcePose /
+referenceKeypointReport 산출에만 한 번 추론한다 (raw keypoints/confidence 는 candidate flat 에 없음).
 
-핵심 데이터 흐름:
-  meanAngles + EXTEND 의 source 는 STORED active phase4_v1 `angles` (R1) — belle 가
-  시각적으로 검수한 active pose 가 authoritative (D-01/D-02). RTMW 재추론은 ONLY live
-  `pose_frames` (raw keypoints_3d + confidence) 를 얻기 위함이며, 이것은
-  BodyNormalizationProfile + ForceDirectionPattern 만 소비한다 (phase4_v1 엔 raw
-  keypoint/confidence 가 없음). 재추론 angles 는 검증 전용 — stored-vs-rerun 각도
-  integrity gate 가 발산 시 (meanAngleDelta > MEAN_EPSILON_DEG OR p99 > P99_EPSILON_DEG —
-  robust, RTMW transient spike 허용) 전체 seed 를 중단한다 (R1).
+산출/merge 필드 (전부 candidate 버전 문서로):
+  · meanAngles                — candidate angles 의 nanmean (재추론 X)
+  · techniqueProfile          — FallbackRecognizer().recognize(candidate angles) (재추론 X)
+  · bodyNormalizationProfile  — measure_body_profile(live pose_frames)
+  · forceDirectionPattern     — infer_force_direction_pattern(force_signals(live)) (REFERENCE_V1_FORCE_CONFIG)
+  · bodyComparisonSourcePose  — _build_source_pose(live pose_frames) (대표 frame = 평균 conf 최대)
+  · keypointReport            — build_keypoint_report(live, fps=candidate fps) — fps 라벨 9.0
+  · referenceKeypointReport   — 동상 (mode1 소비 경로)
+  · captureViews              — 단일시점 baseline (D-03) = 1
+
+integrity gate (R1) — candidate angles 와 live rerun angles 의 systematic shift 만 차단
+(meanAngleDelta > MEAN_EPSILON_DEG OR p99 > P99_EPSILON_DEG). RTMW transient single-frame
+spike 는 허용. gate 가 걸리면 임계를 올리지 말고 원인 조사 (D-29). 채점 산식 무접촉 (D-20).
+REFERENCE_V1_FORCE_CONFIG (pinned) 유지.
 
 실행 (Pod, `-m` 미사용):
-  # 1) 먼저 credential + 11-doc completeness gate (no S3/RTMW). 14-03 Task 1 이 호출.
+  # 1) credential + 11-doc completeness gate (no S3/RTMW).
   python backend/scripts/backfill_reference_downstream.py --check-firestore \\
-      --motions ref-climb,ref-foxtop,ref-foxtop-split,ref-invert,ref-sideway-spin,\\
-ref-combo,ref-elbow-twist-sister,ref-kip-up,ref-pdshape,ref-peter-pan,ref-power-spin
-  # 2) dry-run (split JSON stdout, 파일 미생성)
-  python backend/scripts/backfill_reference_downstream.py --bucket sunity-motion-pilot-videos --dry-run
-  # 3) real-run (gate 통과 시에만 fixture write)
-  python backend/scripts/backfill_reference_downstream.py --bucket sunity-motion-pilot-videos \\
-      --output /workspace/reference-downstream-backfill.json
+      --motions ref-climb,ref-combo,...,ref-power-spin
+  # 2) dry-run — candidate source → derive → 산출 dump stdout, Firestore 미write.
+  python backend/scripts/backfill_reference_downstream.py \\
+      --reference-version phase33-cm3-run1 --bucket sunity-motion-pilot-videos --dry-run
+  # 3) real-run — gate 통과 시 candidate 버전 문서에 MERGE + 산출 dump.
+  python backend/scripts/backfill_reference_downstream.py \\
+      --reference-version phase33-cm3-run1 --bucket sunity-motion-pilot-videos \\
+      --write-candidate --output /workspace/reference-downstream-backfill.json
 
-산출 fixture (R2-5 split):
-  { generatedAt, seedPayload: { <id>: {meanAngles, techniqueProfile,
-    bodyNormalizationProfile, forceDirectionPattern, captureViews} },
-    diagnostics: { <id>: {storedAnglesHash, rerunAnglesHash, anglesFrames,
-    maxAngleDelta, meanAngleDelta, forceSignalsReportSummary, meanAnglesSource,
-    techniqueProfileSource, forceConfig, forceMotionIdSource, forceMotionId} } }
-
-NEVER writes Firestore. NEVER touches joints3d/angles/activeVersion (Pitfall 4 / D-02).
+candidate 버전 문서에만 MERGE 한다. top-level / activeVersion / joints3d / angles 는
+절대 write 하지 않는다 (Pitfall 4 / D-02 / 33-17 candidate!=active 가드).
 
 [per [[reference-library-phase4-all11]] (Pitfall 1), [[firestore-nested-array-flat]],
- [[reference-v1-pinned-force-config]], [[runpod-gpu-env]], Plan 14-02 Task 1]
+ [[reference-v1-pinned-force-config]], [[runpod-gpu-env]], 33-CONTEXT D-18~D-30, codex concern 2]
 """
 
 from __future__ import annotations
@@ -65,8 +69,10 @@ from pathlib import Path
 
 import numpy as np
 
-# sys.path 주입 — shared/python layer (in-script, `-m` 미사용; extract_reference_body_profiles.py:39 패턴).
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "shared" / "python"))
+# sys.path 주입 — shared/python layer + scripts 디렉터리(sibling producer 재사용).
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(_SCRIPTS_DIR.parents[0] / "shared" / "python"))
+sys.path.insert(0, str(_SCRIPTS_DIR))
 
 # 헤비 의존 (imageio / rtmlib / boto3 / firebase-admin) 는 main()/각 모드 안에서 lazy
 # import — `--help` 가 Mac 로컬에서도 exit 0 (의존성 부재 시 fail-fast 는 실행 시점).
@@ -114,31 +120,24 @@ REFERENCE_V1_FORCE_CONFIG: dict = {
     "forceMotionId": None,
 }
 
-# stored-vs-rerun 각도 integrity gate 임계 (R1) — ROBUST 버전.
+# stored-vs-rerun 각도 integrity gate 임계 (R1) — ROBUST 버전. 재fit 금지 (D-29).
 # RTMW 는 길고 복잡한(가림/모호한) 동작의 일부 프레임에서 비결정적이다 — 동일 영상·동일
 # 코드인데도 ref-combo 가 한 실행 23.43° → 다음 실행 0.193° (단일 프레임 keypoint L/R
 # swap 류). MAX 단일 프레임 게이트는 이 transient spike 에 걸려 매 실행 다른 motion 이
-# 랜덤 실패한다 (11/11 동시 통과가 운에 의존). 따라서 gate 는 SYSTEMATIC shift 만 본다:
+# 랜덤 실패한다. 따라서 gate 는 SYSTEMATIC shift 만 본다:
 #   · meanAngleDelta > MEAN_EPSILON_DEG  (전체 평균 이동 = 진짜 pose-version 변화)
 #   · p99AngleDelta  > P99_EPSILON_DEG   (분위 99%까지 이동 = 산발적 spike 가 아님)
 # transient single-frame spike (mean≈0, p99≈0, max 만 큼) 는 허용 — 학생 _process 도
 # 같은 RTMW 로 같은 프레임 모호성을 겪으므로 일관적이다. 진단용 maxAngleDelta 는 계속 기록.
-# 향후 신규 전문가/동작에도 일관 동작 (belle 2026-06-15 robust gate 결정).
+# gate 가 걸리면 임계를 올리지 말고 원인 조사 (33-04 D-29 / [[calibration-source-hard-gate]]).
 MEAN_EPSILON_DEG = 0.1
 P99_EPSILON_DEG = 1.0
 
-# 백필 re-inference 의 frame-extraction fps. phase4_v1 active angles 는
-# reprocess_reference_motions_phase4.py --target-fps 18.0 ("pipeline 정합") 로 생성됐다
-# (예: ref-climb anglesFrames=257). 백필 rerun 이 9fps 면 frame 수가 어긋나(≈172)
-# stored-vs-rerun angle gate (R1) 가 항상 frame-count mismatch 로 abort 한다.
-# 따라서 rerun 은 phase4_v1 과 동일한 18fps 로 추출해야 gate 가 정렬되고,
-# body/force 필드도 stored pose 와 같은 frame 기반으로 산출된다.
-# (학생 _process 는 FfmpegFrameExtractor() 기본 9fps — reference(18) vs student(9) 의
-#  fps 차이는 Phase 14 가 만든 게 아닌 기존 조건이며 Mode 1 비교 정합은 Phase 15 의 몫.)
-REFERENCE_TARGET_FPS = 18.0
-
 # 단일시점 baseline (D-03) — 모든 motion captureViews=1.
 DEFAULT_CAPTURE_VIEWS = 1
+
+# candidate 버전 문서 하위경로 템플릿 (33-17 versions/{candidate}).
+_VERSIONS_SUBPATH = "reference/{motion_id}/versions/{version}"
 
 
 # ── 산출 dataclass ─────────────────────────────────────────────────────────
@@ -223,8 +222,27 @@ def _technique_profile_to_camel(profile) -> dict:
     }
 
 
+def _keypoint_report_to_camel(report) -> dict:
+    """KeypointReport dataclass → Firestore camelCase dict.
+
+    extract_reference_keypoint_reports._camel_case_report 와 1:1 (flat list 필드).
+    """
+    return {
+        "version": report.version,
+        "joints": list(report.joints),
+        "frames": int(report.frames),
+        "fps": float(report.fps),
+        "data": list(report.data),
+        "confidence": list(report.confidence),
+        "reliability": list(report.reliability),
+        "axisData": list(report.axis_data),
+        "axisMask": list(report.axis_mask),
+        "warnings": list(report.warnings),
+    }
+
+
 def _sha256_angles(arr: np.ndarray) -> str:
-    """STORED / re-run angles 의 canonical sha256 (diagnostics 용)."""
+    """candidate / re-run angles 의 canonical sha256 (diagnostics 용)."""
     a = np.ascontiguousarray(np.asarray(arr, dtype=np.float64))
     return hashlib.sha256(a.tobytes()).hexdigest()
 
@@ -241,8 +259,8 @@ def compute_reference_downstream(
 ) -> ReferenceDownstreamResult:
     """4 downstream 필드 산출 — SAME sunity_shared 함수, REFERENCE_V1_FORCE_CONFIG (R6).
 
-    meanAngles / techniqueProfile 는 `angles` 인자 (orchestrator 가 STORED active
-    phase4_v1 angles 로 set, R1) 에서만 산출 — 절대 재추론 angles 가 아니다.
+    meanAngles / techniqueProfile 는 `angles` 인자 (orchestrator 가 candidate 버전
+    angles 로 set, R1) 에서만 산출 — 절대 재추론 angles 가 아니다.
     bodyNormalizationProfile / forceDirectionPattern 은 `pose_frames` (live RTMW) 에서.
 
     R2 — 학생 _process 는 env 기반 _preflight_label_gate_passed() 를 전달하므로 이것은
@@ -267,7 +285,7 @@ def compute_reference_downstream(
             f"angles must be 2D (T, J), got shape {stored.shape}"
         )
 
-    # ── meanAngles (R1) — STORED angles 의 nanmean. 재추론 X. ──────────────
+    # ── meanAngles (R1) — candidate angles 의 nanmean. 재추론 X. ────────────
     with np.errstate(all="ignore"):
         mean_vec = np.nanmean(stored, axis=0)
     mean_angles = {
@@ -277,14 +295,14 @@ def compute_reference_downstream(
         for i in range(min(len(skeleton.JOINT_KEYS), stored.shape[1]))
     }
 
-    # ── techniqueProfile (R1) — FallbackRecognizer EXTEND from STORED angles. ─
+    # ── techniqueProfile (R1) — FallbackRecognizer EXTEND from candidate angles. ─
     # D-01 동일 fn (_process:1610). Fallback per A1 default (NOT Gemini).
     profile = FallbackRecognizer().recognize(stored)
     technique_profile = _technique_profile_to_camel(profile)
 
     # ── bodyNormalizationProfile (D-02 hybrid) — live pose_frames. ──────────
     # measure_body_profile (_process:1171) 는 raw keypoints_3d (+confidence) 필요
-    # → phase4_v1 flat 에는 없음 → 재추론 frames 가 유일 source.
+    # → candidate flat 에는 없음 → 재추론 frames 가 유일 source.
     body_profile = measure_body_profile(pose_frames)
     body_normalization_profile = _dataclass_to_camel_dict(body_profile)
 
@@ -296,10 +314,9 @@ def compute_reference_downstream(
     # semantics 를 썼다고 가정하면 안 된다 (R4-2).
     force_motion_id = getattr(profile, "motion_id", None)
 
-    # R2 — compute_force_signals 에 STORED angles (이미 temporal_fill 1회, caller
+    # R2 — compute_force_signals 에 candidate angles (이미 temporal_fill 1회, caller
     # 책임) + 주입 pole_axis_measurement (R6) 전달. preflight=None + technique=None +
-    # motion_id=None 으로 PIN → D-01 EXACT parity under REFERENCE_V1_FORCE_CONFIG
-    # (test_d01_reference_v1_pinned_config_parity 의 직접 호출 reference 와 동일).
+    # motion_id=None 으로 PIN → D-01 EXACT parity under REFERENCE_V1_FORCE_CONFIG.
     force_signals_report = fs.compute_force_signals(
         pose_frames,
         pole_axis_measurement,
@@ -320,8 +337,8 @@ def compute_reference_downstream(
     force_direction_pattern = _dataclass_to_camel_dict(fpi)
 
     diagnostics = {
-        "meanAnglesSource": "reference.phase4_v1.angles",
-        "techniqueProfileSource": "reference.phase4_v1.angles",
+        "meanAnglesSource": "reference.candidate.angles",
+        "techniqueProfileSource": "reference.candidate.angles",
         "forceConfig": dict(force_config),
         "forceMotionIdSource": "fallback_profile_motion_id",
         "forceMotionId": force_motion_id,
@@ -350,12 +367,8 @@ def _run_check_firestore(motion_ids: list[str]) -> int:
     auth._ensure_firebase() (FIREBASE_SA_JSON / FIREBASE_SA_PATH / FIREBASE_SA_PARAM
     via auth._load_service_account_dict) 사용 — 절대 hand-rolled credentials.Certificate
     path 금지. 각 doc 에 대해 activeVersion + angles + anglesJointKeys + anglesFrames
-    present AND frame-count sanity (anglesFrames > 0 AND len(angles) ==
-    anglesFrames * len(anglesJointKeys)) 검사. keys-not-values OK/FAIL 라인 출력.
+    present AND frame-count sanity 검사. keys-not-values OK/FAIL 라인 출력.
     모든 요청 motion 통과 시에만 exit 0; missing creds OR incomplete doc → 비-0.
-
-    Pod production gate (14-03 Task 1) 는 11개 전부 명시 전달 → non-ref-climb
-    completeness 실패가 expensive S3/RTMW 전에 fail fast (T-14-15).
     """
     # lazy import — Mac `--help` 에서도 exit 0.
     try:
@@ -452,46 +465,145 @@ def _run_check_firestore(motion_ids: list[str]) -> int:
     return 0
 
 
-# ── full backfill path ─────────────────────────────────────────────────────
-def _read_stored_angles(firestore_admin, motion_id: str) -> tuple[np.ndarray, str]:
-    """STORED active phase4_v1 angles 읽기 + reshape (T,J) (R1, A).
+# ── candidate 버전 read / merge helpers (33-04) ─────────────────────────────
+def _read_candidate_doc(firestore_admin, motion_id: str, version: str) -> dict:
+    """reference/{id}/versions/{version} 직접 read (top-level 미접촉).
 
-    Returns (stored_angles (T,J), storedAnglesHash). incomplete 시 RuntimeError.
+    33-17 shadow overlay 와 별개로 candidate 문서 자체를 직접 읽는다 — 백필은 candidate
+    를 source AND merge target 으로 명시 소유해야 하기 때문 (codex concern 2).
     """
-    doc = firestore_admin.get_reference_motion(motion_id)
-    if doc is None:
-        raise RuntimeError(f"reference/{motion_id} doc 없음")
+    path = _VERSIONS_SUBPATH.format(motion_id=motion_id, version=version)
+    snap = firestore_admin._doc(path).get()
+    if not snap.exists:
+        raise RuntimeError(
+            f"reference/{motion_id}/versions/{version} 문서 부재 — 33-03 재추출 candidate 없음"
+        )
+    return snap.to_dict() or {}
+
+
+def _candidate_angles(doc: dict, motion_id: str) -> tuple[np.ndarray, str]:
+    """candidate 버전 angles 읽기 + reshape (T,J). Returns (angles, hash)."""
     angles = doc.get("angles")
     joint_keys = doc.get("anglesJointKeys")
     frames = doc.get("anglesFrames")
     if angles is None or joint_keys is None or frames is None:
         raise RuntimeError(
-            f"reference/{motion_id} incomplete — angles/anglesJointKeys/anglesFrames 누락"
+            f"candidate {motion_id} incomplete — angles/anglesJointKeys/anglesFrames 누락"
         )
     n_frames = int(frames)
     n_j = len(joint_keys)
     if n_frames <= 0 or len(angles) != n_frames * n_j:
         raise RuntimeError(
-            f"reference/{motion_id} frame-count 불일치 (anglesFrames={n_frames} "
+            f"candidate {motion_id} frame-count 불일치 (anglesFrames={n_frames} "
             f"jointKeys={n_j} len(angles)={len(angles)})"
         )
     stored = np.asarray(angles, dtype=float).reshape(n_frames, n_j)
     return stored, _sha256_angles(stored)
 
 
+def _resolve_target_fps(doc: dict, cli_fps: float | None, motion_id: str) -> float:
+    """추출 fps 결정 — CLI > candidate keypointReport.fps. 18.0 하드코딩 폴백 없음.
+
+    C+M3 은 학생 경로(9fps)와 기질을 맞추는 게 목적이므로 fps 는 candidate 메타에서
+    읽는다 (33-03 재추출본 keypointReport.fps = 9.0). CLI --target-fps 로 명시 override 가능.
+    둘 다 없으면 에러 (18.0 로 조용히 폴백 금지 — codex concern 2).
+    """
+    if cli_fps is not None:
+        return float(cli_fps)
+    kp = doc.get("keypointReport")
+    if isinstance(kp, dict) and kp.get("fps"):
+        return float(kp["fps"])
+    raise RuntimeError(
+        f"candidate {motion_id}: fps 를 결정할 수 없음 — candidate keypointReport.fps 부재 "
+        f"AND --target-fps 미지정 (REFERENCE_TARGET_FPS 하드코딩 폴백 제거됨)."
+    )
+
+
+def _merge_into_candidate(
+    firestore_admin, motion_id: str, version: str, fields: dict
+) -> None:
+    """파생 필드를 candidate 버전 문서에 MERGE (top-level/activeVersion 무접촉).
+
+    검증은 firestore_admin 의 scoped validator 재사용:
+      · meanAngles / techniqueProfile / bodyNormalizationProfile → flat-no-nested-array.
+      · forceDirectionPattern → scoped force-pattern validator (findings[].warnings 허용).
+      · keypointReport / referenceKeypointReport → scoped keypoint-report validator.
+      · bodyComparisonSourcePose → flat-no-nested-array.
+    """
+    firestore_admin._validate_flat_dict_no_nested_array(
+        fields["meanAngles"], path="meanAngles"
+    )
+    firestore_admin._validate_flat_dict_no_nested_array(
+        fields["techniqueProfile"], path="techniqueProfile"
+    )
+    firestore_admin._validate_flat_dict_no_nested_array(
+        fields["bodyNormalizationProfile"], path="bodyNormalizationProfile"
+    )
+    firestore_admin._validate_force_pattern_inference(
+        fields["forceDirectionPattern"], path="forceDirectionPattern"
+    )
+    firestore_admin._validate_keypoint_report(
+        fields["keypointReport"], path="keypointReport"
+    )
+    firestore_admin._validate_keypoint_report(
+        fields["referenceKeypointReport"], path="referenceKeypointReport"
+    )
+    firestore_admin._validate_flat_dict_no_nested_array(
+        fields["bodyComparisonSourcePose"], path="bodyComparisonSourcePose"
+    )
+
+    now_ms = int(time.time() * 1000)
+    payload: dict = {}
+    for k, v in fields.items():
+        payload[k] = v
+        payload[f"{k}UpdatedAt"] = now_ms
+    payload["downstreamBackfillVersion"] = "phase33-cm3-04"
+    payload["downstreamBackfilledAt"] = now_ms
+
+    path = _VERSIONS_SUBPATH.format(motion_id=motion_id, version=version)
+    firestore_admin._doc(path).set(payload, merge=True)
+    log.info(
+        "merge into candidate ok motion_id=%s version=%s body_conf=%s force_findings=%d "
+        "keypointReport.fps=%s",
+        motion_id,
+        version,
+        fields["bodyNormalizationProfile"].get("confidence"),
+        len(fields["forceDirectionPattern"].get("findings") or []),
+        fields["keypointReport"].get("fps"),
+    )
+
+
+def _mean_angles_summary(mean_angles: dict) -> dict:
+    """meanAngles 를 dump 용 요약 (전 관절 값이 아니라 통계 + 유한 개수)."""
+    vals = [v for v in mean_angles.values() if isinstance(v, (int, float))]
+    if not vals:
+        return {"count": 0, "finite": 0}
+    arr = np.asarray(vals, dtype=float)
+    return {
+        "count": len(mean_angles),
+        "finite": int(np.isfinite(arr).sum()),
+        "min": round(float(np.nanmin(arr)), 3),
+        "max": round(float(np.nanmax(arr)), 3),
+        "mean": round(float(np.nanmean(arr)), 3),
+    }
+
+
+# ── full backfill path (candidate source → derive → merge) ──────────────────
 def _process_one(
     motion_id: str,
     video_path: Path,
     extractor,
     rtmw_engine,
-    stored_angles: np.ndarray,
-    stored_hash: str,
+    candidate_angles: np.ndarray,
+    candidate_hash: str,
+    target_fps: float,
 ) -> tuple[dict, dict]:
-    """단일 motion full backfill → (seedPayload[id], diagnostics[id]).
+    """단일 motion candidate 백필 → (mergeFields[id], diagnostics[id]).
 
-    B (live frames) → C (angle integrity gate) → D (compute) → E (split).
-    angle gate 발산 시 RuntimeError (caller 가 전체 seed 중단, R1).
+    B(live frames) → C(angle integrity gate vs candidate) → D(compute) →
+    E(source_pose + keypoint reports). angle gate 발산 시 RuntimeError (caller 중단, R1).
     """
+    from sunity_shared.analysis.assemble import build_keypoint_report
     from sunity_shared.analysis.features import (
         compute_joint_angles,
         joint_uncertainty,
@@ -502,9 +614,16 @@ def _process_one(
     from sunity_shared.analysis.pose_frame import PoleAxis, to_coco17_array
     from sunity_shared.analysis.temporal import temporal_fill
 
+    # bodyComparisonSourcePose 실존 producer 재사용 (codex — concrete producer 명시).
+    # extract_reference_body_profiles._build_source_pose: 대표 frame = 평균 keypoint
+    # confidence 최대 → to_coco17_array 단일 frame 슬라이스 (17×4 flat, torso_px).
+    import extract_reference_body_profiles as erbp
+
     t0 = time.time()
 
     # (B) LIVE FRAMES — vertical-fallback PoleAxis + RTMW estimate (D-02 hybrid).
+    # PR_INVERSION_ENABLED=1 env 하에서 RTMWPoseEngine 이 인버전 보정을 내부 적용 →
+    # candidate(PR-on) 와 동일 기질. target_fps 는 candidate 와 일치 (기질 정합).
     frames = extractor.extract(str(video_path))
     default_pole = PoleAxis(
         axis_vector=(0.0, 1.0, 0.0),
@@ -518,7 +637,7 @@ def _process_one(
     pole_meas = build_pole_axis_measurement(default_pole, line=None, frame_index=None)
 
     # (C) ANGLE INTEGRITY GATE (R1) — re-run angles 는 검증 전용, meanAngles/EXTEND 의
-    #     source 가 아니다. ONE temporal_fill (Pitfall 3 — double-smooth 금지).
+    #     source 가 아니다 (그건 candidate angles). ONE temporal_fill (double-smooth 금지).
     kp = to_coco17_array(pose_frames)
     rerun_angles = temporal_fill(compute_joint_angles(kp), joint_uncertainty(kp))
     rerun_frames = int(rerun_angles.shape[0])
@@ -527,30 +646,25 @@ def _process_one(
             f"[{motion_id}] frame-alignment 실패 — rerun angles frames={rerun_frames} "
             f"!= len(pose_frames)={len(pose_frames)}"
         )
-    # stored (T,J) vs rerun (T',J) — frame 수가 다르면 element-wise delta 불가
-    # (pose-version 재검증 문제). 같은 길이일 때만 delta 산출, 다르면 abort.
-    if stored_angles.shape[0] != rerun_angles.shape[0]:
+    if candidate_angles.shape[0] != rerun_angles.shape[0]:
         raise RuntimeError(
-            f"[{motion_id}] stored vs rerun frame 수 불일치 — pose-version 재검증 필요 "
-            f"(stored T={stored_angles.shape[0]} rerun T={rerun_angles.shape[0]})"
+            f"[{motion_id}] candidate vs rerun frame 수 불일치 — pose-version 재검증 필요 "
+            f"(candidate T={candidate_angles.shape[0]} rerun T={rerun_angles.shape[0]}). "
+            f"target_fps={target_fps} 가 candidate 추출 fps 와 다를 수 있음."
         )
-    diff = np.abs(stored_angles - rerun_angles)
-    # WR-04 — NaN-coverage 게이트. nanmean/nanpercentile 은 stored/rerun 의 NaN
-    # 위치가 어긋난 element 를 조용히 무시하므로, joint column 단위로 NaN-coverage 가
-    # 갈라진 경우(예: stored 는 knee 있음, rerun 은 유실) robust 통계가 보지 못한다.
-    # 비교 가능한(non-NaN) element 비율이 낮으면 pose-version drift 로 보고 abort.
+    diff = np.abs(candidate_angles - rerun_angles)
+    # NaN-coverage 게이트 — joint column 단위 NaN-coverage divergence 차단.
     comparable = np.isfinite(diff)
     coverage = float(comparable.mean()) if diff.size else 1.0
     if coverage < 0.95:
         raise RuntimeError(
             f"[{motion_id}] angle gate — NaN coverage {coverage:.2%} < 95%, "
-            f"pose-version 재검증 필요 (stored/rerun NaN 위치 divergence)."
+            f"pose-version 재검증 필요 (candidate/rerun NaN 위치 divergence)."
         )
     max_delta = float(np.nanmax(diff)) if diff.size else 0.0
     mean_delta = float(np.nanmean(diff)) if diff.size else 0.0
     p99_delta = float(np.nanpercentile(diff, 99)) if diff.size else 0.0
     rerun_hash = _sha256_angles(rerun_angles)
-    # 진단 로깅 — divergence 가 단일 프레임 spike(예: L/R flip) 인지 pervasive 인지 분류용.
     if diff.size:
         p95 = float(np.nanpercentile(diff, 95))
         over1 = int(np.count_nonzero(diff > 1.0))
@@ -568,54 +682,86 @@ def _process_one(
     )
     if gate_failed:
         raise RuntimeError(
-            f"[{motion_id}] stored-vs-rerun angle gate 실패 — meanAngleDelta={mean_delta:.4f} "
+            f"[{motion_id}] candidate-vs-rerun angle gate 실패 — meanAngleDelta={mean_delta:.4f} "
             f"(>{MEAN_EPSILON_DEG}) 또는 p99AngleDelta={p99_delta:.3f} (>{P99_EPSILON_DEG}); "
-            f"maxAngleDelta={max_delta:.3f} (참고). pose-version 재검증 문제 — derived-field 백필 X, "
-            f"전체 real seed 중단 (R1)."
+            f"maxAngleDelta={max_delta:.3f} (참고). 임계 재fit 금지 (D-29) — 원인 조사. "
+            f"pose-version 재검증 문제 — derived-field 백필 X, 전체 real seed 중단 (R1)."
         )
 
-    # (D) COMPUTE — REFERENCE_V1_FORCE_CONFIG, STORED angles + 주입 pole_meas.
+    # (D) COMPUTE — REFERENCE_V1_FORCE_CONFIG, candidate angles + 주입 pole_meas.
     result = compute_reference_downstream(
         pose_frames,
         pole_axis_measurement=pole_meas,
-        angles=stored_angles,  # R1 — STORED, 재추론 angles 아님.
-        fps=REFERENCE_TARGET_FPS,  # phase4_v1 정합 (18fps) — 추출 fps 와 일치.
+        angles=candidate_angles,  # R1 — candidate 버전 angles, 재추론 아님.
+        fps=target_fps,  # candidate 추출 fps 와 일치.
         motion_id=motion_id,
         mode_context="mode1",
         force_config=REFERENCE_V1_FORCE_CONFIG,
     )
 
-    # (E) SPLIT FIXTURE — seedPayload (5필드) + diagnostics (hashes/deltas/summary).
+    # (E-1) bodyComparisonSourcePose — 실존 producer 재사용.
+    source_pose_dict, rep_idx, rep_conf = erbp._build_source_pose(pose_frames)
+    if source_pose_dict is None:
+        raise RuntimeError(
+            f"[{motion_id}] bodyComparisonSourcePose 산출 실패 (대표 frame conf/torso/NaN). "
+            f"11/11 필수 — 비교 화면 깨짐 (T-33-30). derived-field 백필 X."
+        )
+
+    # (E-2) keypointReport + referenceKeypointReport — build_keypoint_report(live, 9fps).
+    #   candidate fps 라벨(9.0) 로 산출 — top-level 18fps 라벨과 결별 (codex concern 2).
+    report = build_keypoint_report(pose_frames, fps=target_fps)
+    if report is None:
+        raise RuntimeError(
+            f"[{motion_id}] build_keypoint_report 반환 None — keypoints_2d 부재"
+        )
+    keypoint_report = _keypoint_report_to_camel(report)
+
     seed = result.seed_payload()
+    merge_fields = {
+        "meanAngles": seed["meanAngles"],
+        "techniqueProfile": seed["techniqueProfile"],
+        "bodyNormalizationProfile": seed["bodyNormalizationProfile"],
+        "forceDirectionPattern": seed["forceDirectionPattern"],
+        "captureViews": seed["captureViews"],
+        "bodyComparisonSourcePose": source_pose_dict,
+        "keypointReport": keypoint_report,
+        # referenceKeypointReport (mode1 앱 소비 필드) — 동일 live 산출.
+        "referenceKeypointReport": dict(keypoint_report),
+    }
+
     diag = dict(result.diagnostics)
     diag.update(
         {
-            "storedAnglesHash": stored_hash,
+            "candidateAnglesHash": candidate_hash,
             "rerunAnglesHash": rerun_hash,
             "anglesFrames": rerun_frames,
+            "targetFps": target_fps,
             "maxAngleDelta": max_delta,
             "meanAngleDelta": mean_delta,
             "p99AngleDelta": p99_delta,
-            # DEFERRED 결정: raw forceSignalsReport 를 Firestore 에 persist 할지는
-            # 미정 — 현재는 diagnostics summary 만 (artifact-only).
+            "sourcePoseRepFrame": rep_idx,
+            "sourcePoseConfidence": rep_conf,
+            "keypointReportFps": keypoint_report.get("fps"),
+            "keypointReportFrames": keypoint_report.get("frames"),
         }
     )
 
     log.info(
-        "[%s] frames=%d body_conf=%s maxAngleDelta=%.4f %.1fs",
+        "[%s] frames=%d body_conf=%s keypointReport.fps=%s meanAngleDelta=%.4f p99=%.3f %.1fs",
         motion_id,
         len(pose_frames),
-        seed["bodyNormalizationProfile"].get("confidence"),
-        max_delta,
+        merge_fields["bodyNormalizationProfile"].get("confidence"),
+        keypoint_report.get("fps"),
+        mean_delta,
+        p99_delta,
         time.time() - t0,
     )
-    return seed, diag
+    return merge_fields, diag
 
 
 def _has_nan_or_inf(obj) -> bool:
-    """seedPayload 내부에 NaN/inf scalar 가 있으면 True (R5 all-or-nothing)."""
-    # WR-02 — np.float32 등 float-비서브클래스 numpy scalar 도 명시 포함
-    # (np.float64 만 float subclass 라 우회될 수 있음).
+    """merge fields 내부에 NaN/inf scalar 가 있으면 True (all-or-nothing)."""
+    # np.float32 등 float-비서브클래스 numpy scalar 도 명시 포함.
     if isinstance(obj, (float, np.floating)):
         return not math.isfinite(float(obj))
     if isinstance(obj, dict):
@@ -625,9 +771,53 @@ def _has_nan_or_inf(obj) -> bool:
     return False
 
 
+def _dump_entry(motion_id: str, merge_fields: dict, diag: dict) -> dict:
+    """per-candidate-doc VALUE dump (D-19 — 열어서 확인 가능한 산출)."""
+    bnp = merge_fields["bodyNormalizationProfile"]
+    fdp = merge_fields["forceDirectionPattern"]
+    kp = merge_fields["keypointReport"]
+    tp = merge_fields["techniqueProfile"]
+    sp = merge_fields["bodyComparisonSourcePose"]
+    return {
+        "meanAnglesSummary": _mean_angles_summary(merge_fields["meanAngles"]),
+        "techniqueProfile": {
+            "name": tp.get("name"),
+            "category": tp.get("category"),
+            "jointExpectationsCount": len(tp.get("jointExpectations") or {}),
+        },
+        "bodyNormalizationProfile": {
+            "confidence": bnp.get("confidence"),
+            "estimatedHeightScale": bnp.get("estimatedHeightScale"),
+            "shoulderHipRatio": bnp.get("shoulderHipRatio"),
+            "nonNaN": not _has_nan_or_inf(bnp),
+        },
+        "forceDirectionPattern": {
+            "findings": len(fdp.get("findings") or []),
+            "warnings": len(fdp.get("warnings") or []),
+        },
+        "keypointReportFps": kp.get("fps"),
+        "keypointReportFrames": kp.get("frames"),
+        "referenceKeypointReportPresent": (
+            merge_fields.get("referenceKeypointReport") is not None
+        ),
+        "bodyComparisonSourcePosePresent": sp is not None,
+        "bodyComparisonSourcePoseValuesLen": len(sp.get("values") or []),
+        "bodyComparisonSourcePoseConfidence": sp.get("confidence"),
+        "meanAngleDelta": diag.get("meanAngleDelta"),
+        "p99AngleDelta": diag.get("p99AngleDelta"),
+        "maxAngleDelta": diag.get("maxAngleDelta"),
+        "candidateAnglesHash": diag.get("candidateAnglesHash"),
+        "rerunAnglesHash": diag.get("rerunAnglesHash"),
+    }
+
+
 def _run_backfill(args, motion_ids: list[str]) -> int:
-    """full backfill path — STORED read → S3 → RTMW → compute → gate → split JSON."""
-    # 헤비 의존 fail-fast 체크 (Wave-0 요구).
+    """candidate 백필 path — candidate read → S3 → RTMW → gate → merge into candidate."""
+    if not args.reference_version:
+        log.error("candidate 백필에는 --reference-version 필요 (예: phase33-cm3-run1).")
+        return 2
+
+    # 헤비 의존 fail-fast 체크.
     try:
         import boto3  # noqa: F401
         import imageio  # noqa: F401
@@ -653,20 +843,22 @@ def _run_backfill(args, motion_ids: list[str]) -> int:
         RTMWPoseEngine,
     )
 
+    version = args.reference_version
     s3 = _boto3.client("s3", region_name=region)
-    # phase4_v1 정합 — 18fps 추출 (stored anglesFrames 와 frame 정렬, R1 gate 통과).
-    extractor = FfmpegFrameExtractor(target_fps=REFERENCE_TARGET_FPS)
     rtmw_engine = RTMWPoseEngine()
 
+    write = bool(args.write_candidate) and not args.dry_run
     log.info(
-        "backfill start motions=%d mode=%s (AWS region=%s)",
+        "candidate backfill start version=%s motions=%d mode=%s (AWS region=%s)",
+        version,
         len(motion_ids),
-        "dry-run" if args.dry_run else "real-run",
+        "dry-run" if not write else "real-run (merge into candidate)",
         region,
     )
 
-    seed_payload: dict[str, dict] = {}
+    merged: dict[str, dict] = {}
     diagnostics: dict[str, dict] = {}
+    dump: dict[str, dict] = {}
     failures: list[str] = []
 
     with tempfile.TemporaryDirectory() as td:
@@ -674,94 +866,93 @@ def _run_backfill(args, motion_ids: list[str]) -> int:
         for motion_id in motion_ids:
             log.info("--- %s ---", motion_id)
             try:
-                # (A) STORED ANGLES READ (R1) — meanAngles/EXTEND 의 유일 source.
-                stored_angles, stored_hash = _read_stored_angles(
-                    firestore_admin, motion_id
-                )
-                # S3 download — keys-not-values (bucket/key 만, 시크릿 미출력).
+                # (A) CANDIDATE READ — angles/keypointReport (top-level 미접촉).
+                cand_doc = _read_candidate_doc(firestore_admin, motion_id, version)
+                cand_angles, cand_hash = _candidate_angles(cand_doc, motion_id)
+                target_fps = _resolve_target_fps(cand_doc, args.target_fps, motion_id)
+                extractor = FfmpegFrameExtractor(target_fps=target_fps)
+
                 video_path = td_path / f"{motion_id}.mp4"
                 key = f"reference/{motion_id}.mp4"
-                log.info("S3 download s3://%s/%s", args.bucket, key)
+                log.info(
+                    "S3 download s3://%s/%s (fps=%.4g)", args.bucket, key, target_fps
+                )
                 s3.download_file(args.bucket, key, str(video_path))
-                seed, diag = _process_one(
+
+                merge_fields, diag = _process_one(
                     motion_id,
                     video_path,
                     extractor,
                     rtmw_engine,
-                    stored_angles,
-                    stored_hash,
+                    cand_angles,
+                    cand_hash,
+                    target_fps,
                 )
-                seed_payload[motion_id] = seed
+                merged[motion_id] = merge_fields
                 diagnostics[motion_id] = diag
-            except Exception:  # noqa: BLE001 — per-motion 격리 (로깅), exit 은 all-or-nothing.
+                dump[motion_id] = _dump_entry(motion_id, merge_fields, diag)
+            except Exception:  # noqa: BLE001 — per-motion 격리, exit 은 all-or-nothing.
                 log.error("[%s] FAIL — %s", motion_id, traceback.format_exc())
                 failures.append(motion_id)
 
-    # ── all-or-nothing gate (R5) ──────────────────────────────────────────
-    nan_inf = any(_has_nan_or_inf(v) for v in seed_payload.values())
+    # ── all-or-nothing gate ────────────────────────────────────────────────
+    nan_inf = any(_has_nan_or_inf(v) for v in merged.values())
     gate_failed = (
         len(failures) > 0
-        or len(seed_payload) != len(ALL_MOTION_IDS)
+        or len(merged) != len(motion_ids)
         or nan_inf
     )
 
-    fixture = {
+    artifact = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "seedPayload": seed_payload,
+        "referenceVersion": version,
+        "epsilons": {
+            "meanEpsilonDeg": MEAN_EPSILON_DEG,
+            "p99EpsilonDeg": P99_EPSILON_DEG,
+        },
+        "perCandidateDump": dump,
         "diagnostics": diagnostics,
+        "failures": failures,
     }
 
-    if args.dry_run:
-        # dry-run → split JSON stdout, 파일 미생성.
-        print(json.dumps(fixture, ensure_ascii=False, indent=2))
-        log.info(
-            "dry-run 완료 — %d/%d motion 측정 (failures=%d nan_inf=%s). 파일 미생성.",
-            len(seed_payload),
-            len(ALL_MOTION_IDS),
+    # per-candidate dump 는 항상 stdout (D-19 — 열어보는 산출).
+    print(json.dumps(artifact, ensure_ascii=False, indent=2))
+
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(artifact, ensure_ascii=False, indent=2))
+        log.info("artifact → %s (%.1f KB)", args.output, args.output.stat().st_size / 1024)
+
+    if gate_failed:
+        log.error(
+            "all-or-nothing gate 실패 — failures=%d len(merged)=%d (need %d) nan_inf=%s. "
+            "candidate MERGE 미실행.",
             len(failures),
+            len(merged),
+            len(motion_ids),
             nan_inf,
+        )
+        return 1
+
+    if not write:
+        log.info(
+            "dry-run 완료 — %d/%d motion candidate 파생 산출 (Firestore write 0). "
+            "--write-candidate 로 candidate 버전 문서에 MERGE.",
+            len(merged),
+            len(motion_ids),
         )
         return 0
 
-    if gate_failed and not args.allow_partial_diagnostic:
-        # R5 — seedable fixture 미생성. 진단 JSON 만 (있으면) write 후 비-0 exit.
-        log.error(
-            "all-or-nothing gate 실패 — failures=%d len(seedPayload)=%d (need %d) "
-            "nan_inf=%s. seedable fixture 미생성 (--allow-partial-diagnostic 로 강제).",
-            len(failures),
-            len(seed_payload),
-            len(ALL_MOTION_IDS),
-            nan_inf,
+    # gate 통과 + --write-candidate → candidate 버전 문서에 MERGE.
+    for motion_id in motion_ids:
+        _merge_into_candidate(
+            firestore_admin, motion_id, version, merged[motion_id]
         )
-        if args.output:
-            diag_path = args.output.with_suffix(".diagnostic.json")
-            diag_path.parent.mkdir(parents=True, exist_ok=True)
-            diag_path.write_text(
-                json.dumps(
-                    {
-                        "generatedAt": fixture["generatedAt"],
-                        "diagnostics": diagnostics,
-                        "failures": failures,
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                )
-            )
-            log.info("진단 JSON → %s", diag_path)
-        return 1
-
-    # gate 통과 (또는 --allow-partial-diagnostic) → seedable fixture write.
-    if not args.output:
-        log.error("real-run 에는 --output 필요.")
-        return 2
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(fixture, ensure_ascii=False, indent=2))
     log.info(
-        "real-run 완료 — %d/%d motion. → %s (%.1f KB)",
-        len(seed_payload),
-        len(ALL_MOTION_IDS),
-        args.output,
-        args.output.stat().st_size / 1024,
+        "real-run 완료 — %d/%d motion candidate versions/%s 에 MERGE (top-level/activeVersion 무접촉).",
+        len(merged),
+        len(motion_ids),
+        version,
     )
     return 0
 
@@ -769,50 +960,65 @@ def _run_backfill(args, motion_ids: list[str]) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "정은지 reference 11개의 downstream 4필드 (meanAngles + techniqueProfile + "
-            "bodyNormalizationProfile + forceDirectionPattern) 백필 orchestrator. "
-            "Pod GPU 직접 실행 (CPU NaN). --check-firestore 먼저 (R2-3/R3-2)."
+            "정은지 reference 11개의 downstream 필드 candidate-aware 백필 orchestrator. "
+            "candidate 버전(reference/{id}/versions/{v}) 에서 read + merge. Pod GPU 직접 실행."
         )
     )
     parser.add_argument(
         "--bucket",
         default=None,
-        help="S3 bucket (예: sunity-motion-pilot-videos). full backfill 에 필요.",
+        help="S3 bucket (예: sunity-motion-pilot-videos). candidate 백필에 필요.",
+    )
+    parser.add_argument(
+        "--reference-version",
+        default=None,
+        help=(
+            "source AND merge target candidate 버전 id (예: phase33-cm3-run1). "
+            "top-level/activeVersion 은 절대 미접촉 (flip 은 33-07)."
+        ),
+    )
+    parser.add_argument(
+        "--target-fps",
+        default=None,
+        type=float,
+        help=(
+            "추출 fps override. 미지정 시 candidate keypointReport.fps 에서 읽는다 "
+            "(REFERENCE_TARGET_FPS=18.0 하드코딩 폴백 제거됨 — codex concern 2)."
+        ),
     )
     parser.add_argument(
         "--output",
         default=None,
         type=Path,
-        help="seedable JSON 출력 경로 (real-run 필수, 예: /workspace/reference-downstream-backfill.json)",
+        help="산출 artifact JSON 출력 경로 (예: /workspace/reference-downstream-backfill.json)",
     )
     parser.add_argument(
         "--motions",
         default=None,
         help=(
             "쉼표 분리 motion id list. 미지정 시 11-union 전체 (Pitfall 1 — 절대 5-subset "
-            "default 금지). --check-firestore 의 Pod production gate 는 11개 전부 명시 전달."
+            "default 금지)."
         ),
     )
     parser.add_argument(
         "--check-firestore",
         action="store_true",
         help=(
-            "R2-3/R3-2 — credential + completeness gate. NEVER S3/RTMW. 요청 motion 전부 "
-            "activeVersion+angles+anglesJointKeys+anglesFrames + frame-count sanity 검사 후 "
-            "exit. 11개 전부 명시 시 fail-fast 게이트, 1개 시 순수 credential 체크."
+            "credential + completeness gate. NEVER S3/RTMW. 요청 motion 전부 "
+            "activeVersion+angles+anglesJointKeys+anglesFrames + frame-count sanity 검사 후 exit."
         ),
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="split JSON 을 stdout 으로만 출력. 파일 미생성.",
+        help="candidate 파생 산출 + dump stdout, Firestore MERGE 미실행.",
     )
     parser.add_argument(
-        "--allow-partial-diagnostic",
+        "--write-candidate",
         action="store_true",
         help=(
-            "R5 우회 — all-or-nothing gate 실패 시에도 seedable fixture 강제 생성 "
-            "(진단 전용, 운영 seed 금지)."
+            "gate 통과 시 candidate 버전 문서(reference/{id}/versions/{v}) 에 파생 필드 MERGE. "
+            "top-level / activeVersion 은 절대 미접촉."
         ),
     )
     args = parser.parse_args()
@@ -830,7 +1036,7 @@ def main() -> None:
         sys.exit(_run_check_firestore(motion_ids))
 
     if not args.bucket:
-        log.error("full backfill 에는 --bucket 필요 (또는 --check-firestore).")
+        log.error("candidate 백필에는 --bucket 필요 (또는 --check-firestore).")
         sys.exit(2)
     sys.exit(_run_backfill(args, motion_ids))
 

@@ -69,35 +69,125 @@ def dtw(X, Y, radius: int | None = None):
     return D[n, m] / (n + m), path
 
 
+# ── M3 정렬 게이트 상수 (33-M3-SPEC.md §8 — 정렬 substrate, 채점 상수 아님) ──────
+# D-20/D-29 재확인: 아래 3상수는 **정렬 게이트**다. 감점 산식·tol 20°·slope 1.2·cap·
+# epsilon 은 전부 불변(재fit 0). gate 가 걸리면 임계를 올리지 말고 원인을 조사한다.
+COVERAGE_FLOOR = 0.80        # nu/nr 이 미만이면 기준 미트리밍(전체 정렬) — §2.1
+AMBIGUITY_EPSILON = 0.02     # 근-동률 window 판정(정규화 DTW 거리) — §4-3
+AMBIGUITY_OVERLAP_MIN = 0.80  # 근-동률 후보 프레임 집합 겹침(Jaccard) 하한 — §4-3
+
+
 @dataclass(frozen=True)
 class MotionMatch:
-    start: int          # 사용자 시퀀스 동작 구간 시작 (프레임)
-    end: int            # 끝 (exclusive)
+    start: int          # 사용자 시퀀스 동작 구간 시작 (프레임, inclusive)
+    end: int            # 사용자 끝 (exclusive)
+    ref_start: int      # 기준 window 시작 (프레임, inclusive) — 33-M3-SPEC.md §1.1 NEW
+    ref_end: int        # 기준 window 끝 (exclusive) — NEW
     distance: float     # 정규화 DTW 거리 (작을수록 유사)
-    path: list          # [(user_idx, ref_idx)...] (구간 로컬 인덱스 기준)
+    path: list          # [(user_local_idx, ref_local_idx)...]
+                        #   두 인덱스 모두 **window-local**:
+                        #   user_local ∈ [0, end-start), ref_local ∈ [0, ref_end-ref_start).
+                        #   ref 통째면(ref_start=0, ref_end=nr) 현행과 byte-identical.
 
 
-def find_action_segment(F_user, F_ref, radius: int = 12) -> tuple[int, int]:
-    """1단계: ref 길이 윈도우를 사용자에 슬라이딩 → 최소거리 구간 (start,end)."""
-    nu, nr = len(F_user), len(F_ref)
-    if nu <= nr:
-        return 0, nu  # 더 짧으면 통째로 사용
-    step = max(1, (nu - nr) // 60)  # 비용 상한 (~60 윈도우)
-    best = (0, nr, np.inf)
-    for s in range(0, nu - nr + 1, step):
-        d, _ = dtw(F_user[s : s + nr], F_ref, radius=radius)
-        if d < best[2]:
-            best = (s, s + nr, d)
-    return best[0], best[1]
+def _slide_windows(long_seq, short_seq, radius: int) -> list[tuple[int, float]]:
+    """긴 시퀀스에서 short 길이 window 를 슬라이딩 → [(start, 정규화DTW거리), ...] 전체 후보.
+
+    step 상한은 현행과 동일(~60 window). best 지표도 현행과 같은 dtw 정규화 거리 —
+    새 지표 도입 금지(33-M3-SPEC.md §1.2). window 는 연속(contiguous) 구간만.
+    """
+    nlong, nshort = len(long_seq), len(short_seq)
+    step = max(1, (nlong - nshort) // 60)
+    cands: list[tuple[int, float]] = []
+    for s in range(0, nlong - nshort + 1, step):
+        d, _ = dtw(long_seq[s : s + nshort], short_seq, radius=radius)
+        cands.append((s, float(d)))
+    return cands
 
 
-def motion_dtw(F_user, F_ref, radius: int = 12) -> MotionMatch:
-    """2단계 포함 전체: 동작 구간 탐색 후 기준 모션과 정렬."""
+def _window_ambiguous(
+    cands: list[tuple[int, float]], best_start: int, best_dist: float, win: int
+) -> bool:
+    """best window 와 AMBIGUITY_EPSILON 이내인 다른 후보가 **실질적으로 다른 기준
+    프레임 집합**(Jaccard 겹침 < AMBIGUITY_OVERLAP_MIN)을 선택하면 True(모호).
+
+    근-동률 후보가 서로 다른 국면을 남기면(준비 vs 기술) min-distance 임의 선택이
+    팽창 window 를 고를 수 있어 §4 fail-closed 로 전체 기준 폴백한다.
+    """
+    b0, b1 = best_start, best_start + win
+    for s, d in cands:
+        if s == best_start:
+            continue
+        if abs(d - best_dist) > AMBIGUITY_EPSILON:
+            continue
+        inter = max(0, min(b1, s + win) - max(b0, s))
+        union = (b1 - b0) + win - inter
+        jaccard = inter / union if union > 0 else 1.0
+        if jaccard < AMBIGUITY_OVERLAP_MIN:
+            return True
+    return False
+
+
+def find_action_segment(
+    F_user, F_ref, radius: int = 12, ref_boundary: int | None = None
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """1단계: (사용자 (u_s,u_e), 기준 (r_s,r_e)) paired range 를 함께 반환.
+
+    긴 쪽을 짧은 쪽 길이로 min-DTW 슬라이딩(양방향 대칭), 짧은 쪽은 통째. 준비/대기
+    제거는 긴 쪽에서 발생한다. 어느 쪽도 통째면 (0, n). 33-M3-SPEC.md §1.2/§2/§3/§4.
+
+    ref_boundary: 공유 베이스 기술의 base/확장 경계(전체 ref 프레임 인덱스). 주어지면
+      nu<nr window 가 경계를 내부에 엄격히 두지 못할 때 §4 fail-closed(§2.2 구조 바닥).
+      None 이면 구조 바닥 미적용(일반 reference).
+
+    동작 id/technique 로 분기하지 않는다(D-02, I3) — 전역 규칙의 두 방향일 뿐이다.
+    """
     F_user = np.asarray(F_user, dtype=float)
     F_ref = np.asarray(F_ref, dtype=float)
-    s, e = find_action_segment(F_user, F_ref, radius=radius)
-    dist, path = dtw(F_user[s:e], F_ref, radius=radius)
-    return MotionMatch(start=s, end=e, distance=float(dist), path=path)
+    nu, nr = len(F_user), len(F_ref)
+
+    if nu == nr:
+        return (0, nu), (0, nr)  # 둘 다 통째
+
+    if nu > nr:
+        # 현행 유지: 사용자를 nr 길이로 슬라이딩, 기준 통째(이미 발동하는 경로).
+        cands = _slide_windows(F_user, F_ref, radius)
+        best_s = min(cands, key=lambda c: c[1])[0]
+        return (best_s, best_s + nr), (0, nr)
+
+    # nu < nr — 신규 경로(핵심 수정): 기준을 nu 길이로 슬라이딩. §2 두 바닥 통과 시에만.
+    # §2.1 수치 바닥 — coverage floor. nu<nr 에서 유지 기준 비율 = nu/nr.
+    if nu / nr < COVERAGE_FLOOR:
+        return (0, nu), (0, nr)  # fail-closed 전체 기준 (팽창 불가)
+    cands = _slide_windows(F_ref, F_user, radius)
+    best_rs, best_dist = min(cands, key=lambda c: c[1])
+    # §4-3 모호 window → fail-closed.
+    if _window_ambiguous(cands, best_rs, best_dist, nu):
+        return (0, nu), (0, nr)
+    # §2.2 구조 바닥 — 공유 베이스 경계가 window 내부에 엄격히.
+    if ref_boundary is not None and not (best_rs < ref_boundary < best_rs + nu):
+        return (0, nu), (0, nr)
+    return (0, nu), (best_rs, best_rs + nu)
+
+
+def motion_dtw(
+    F_user, F_ref, radius: int = 12, ref_boundary: int | None = None
+) -> MotionMatch:
+    """2단계 포함 전체: paired 동작 구간 탐색 후 windowed 양쪽을 DTW 정렬.
+
+    33-M3-SPEC.md §1.3 — dtw 는 windowed 양쪽(F_ref[r_s:r_e])을 받으므로 path 의 ref
+    인덱스는 자동으로 window-local 이다. ref 통째면 현행과 byte-identical.
+    """
+    F_user = np.asarray(F_user, dtype=float)
+    F_ref = np.asarray(F_ref, dtype=float)
+    (u_s, u_e), (r_s, r_e) = find_action_segment(
+        F_user, F_ref, radius=radius, ref_boundary=ref_boundary
+    )
+    dist, path = dtw(F_user[u_s:u_e], F_ref[r_s:r_e], radius=radius)
+    return MotionMatch(
+        start=u_s, end=u_e, ref_start=r_s, ref_end=r_e,
+        distance=float(dist), path=path,
+    )
 
 
 def per_joint_deviation(path, A_user_seg, A_ref):

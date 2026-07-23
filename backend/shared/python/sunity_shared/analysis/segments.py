@@ -39,15 +39,22 @@ def split_path_by_ref(path, ref_boundary: int):
 
 
 def segment_scores(
-    ref: dict, base_motion_name: str, path, user_seg, a_ref
+    ref: dict, base_motion_name: str, path, user_seg, a_ref,
+    ref_start: int = 0, nr_full: int | None = None,
 ) -> dict | None:
     """베이스 공유 기술이면 베이스/확장 구간 KISMAM 점수 dict, 아니면 None.
 
     ref              : reference 기술 문서 (sharedBaseMotionId/baseUntilS/clipRange)
     base_motion_name : 베이스 기술 이름 (Firestore 조회는 호출자 책임 — 순수성 유지)
-    path             : motion_dtw 정렬 경로 [(user_idx, ref_idx)...]
+    path             : motion_dtw 정렬 경로 [(user_idx, ref_local_idx)...] (window-local)
     user_seg         : 사용자 동작 구간 각도 (T_seg, J)
-    a_ref            : reference 각도 (T_ref, J)
+    a_ref            : **windowed** reference 각도 (T_win, J) = A_ref[ref_start:ref_end]
+    ref_start        : window 시작(전체 ref 프레임 인덱스). 통째면 0.
+    nr_full          : 전체 reference 길이(경계 산출용). None 이면 len(a_ref)(=통째 가정).
+
+    33-M3-SPEC.md §5.1 — path 가 window-local 이므로 base/확장 경계도 window-local 로
+    시프트한다: boundary_win = boundary_full - ref_start. ref_start=0·nr_full=len(a_ref)
+    이면 현행(pre-M3)과 동일 동작(하위호환).
     """
     base_id = ref.get("sharedBaseMotionId")
     base_until_s = ref.get("baseUntilS")
@@ -56,9 +63,11 @@ def segment_scores(
         return None
 
     a_ref = np.asarray(a_ref, dtype=float)
-    boundary = ref_boundary_frame(clip, base_until_s, len(a_ref))
+    nr_full = len(a_ref) if nr_full is None else int(nr_full)
+    boundary_full = ref_boundary_frame(clip, base_until_s, nr_full)
+    boundary = boundary_full - int(ref_start)  # window-local 경계
     if boundary <= 0 or boundary >= len(a_ref):
-        return None  # 한쪽 구간이 비면 분할이 의미 없음
+        return None  # 한쪽 구간이 비면 분할이 의미 없음 (§2.2 통과 시 항상 만족)
 
     base_path, ext_path = split_path_by_ref(path, boundary)
     if not base_path or not ext_path:

@@ -34,8 +34,11 @@ from sunity_shared.analysis.motiondtw import (
     per_joint_deviation,
 )
 
-# GREEN(Task 2)에서 실제 해시로 확정. RED 단계에서는 의도적 불일치로 실패.
-PER_JOINT_DEVIATION_SHA256 = "RED_PENDING_FILL_IN_TASK2"
+# per_joint_deviation 산식 본문(motiondtw.py) SHA-256 — D-20/D-29 불변식 고정.
+# 산식이 바뀌면(median→mean 등) 이 해시가 트립한다. M3 는 이 함수를 건드리지 않는다.
+PER_JOINT_DEVIATION_SHA256 = (
+    "7e23e00d1764525051f1fc4b7aa93b8827f4abe58f212ebbaf4b774b410d1373"
+)
 
 
 def _wave(n, phase=0.0, amp=1.0):
@@ -134,10 +137,24 @@ def test_m3_shared_base_structural_floor():
 
 # ── I3: no motion-key branch ─────────────────────────────────────────────────
 def test_m3_no_motion_key_branch_source():
-    """(a) 소스 검사: window 선정 로직에 motion_id/technique/동작이름 참조 0."""
-    src = inspect.getsource(find_action_segment)
+    """(a) 소스 검사: window 선정 **로직**에 motion_id/technique/동작이름 참조 0.
+
+    docstring/주석의 D-02 설명 언급은 오탐이므로 코드 본문만 검사한다(AST 로 docstring
+    제거 + 주석 제거)."""
+    import ast
+
+    tree = ast.parse(inspect.getsource(find_action_segment))
+    fn = tree.body[0]
+    # docstring(첫 표현식 문자열) 제거.
+    if (
+        fn.body
+        and isinstance(fn.body[0], ast.Expr)
+        and isinstance(fn.body[0].value, ast.Constant)
+    ):
+        fn.body = fn.body[1:]
+    code_only = ast.unparse(fn)
     for token in ("motion_id", "technique", "motionId", "motion_key", "동작이름"):
-        assert token not in src, f"find_action_segment 에 동작-키 분기 발견: {token}"
+        assert token not in code_only, f"find_action_segment 에 동작-키 분기 발견: {token}"
 
 
 def test_m3_no_motion_key_branch_behavior():
@@ -168,6 +185,42 @@ def test_m3_alignment_gate_constants_present():
     assert COVERAGE_FLOOR == 0.80
     assert AMBIGUITY_EPSILON == 0.02
     assert AMBIGUITY_OVERLAP_MIN == 0.80
+
+
+# ── scoring-untouched DATA-GATE (codex concern 8 — `|| echo` 흡수 버그 수정) ──
+def test_m3_scoring_untouched_data_gate(tmp_path):
+    """채점 무접촉을 JSON/종료코드 데이터 게이트로 증명한다. 산문 grep 이나 trailing
+    `|| echo ... OK` 가 아니라, live 코드 상수 ↔ pinned 매니페스트의 값 비교 + gate_check
+    종료 코드로 강제(D-20/D-29). 실패하면 이 assertion 이 트립한다(흡수 불가)."""
+    import json as _json
+    from pathlib import Path
+
+    import gate_check
+    from dump_scoring_constants import current_scoring_constants
+
+    pinned = Path(__file__).with_name("scoring_constants_pinned.json")
+    live_path = tmp_path / "scoring_constants_current.json"
+    live_path.write_text(
+        _json.dumps(current_scoring_constants(), ensure_ascii=False), encoding="utf-8"
+    )
+    # (a) 저수준: pinned 의 모든 키가 live 값과 동일해야 problems 가 비어야 한다.
+    live = _json.loads(live_path.read_text(encoding="utf-8"))
+    problems = gate_check._check_scoring_constants(live, str(pinned))
+    assert problems == [], f"scoring-constants drift: {problems}"
+    # (b) CLI 종료 코드: gate_check.main 이 정확히 0 을 반환(게이트 통과).
+    rc = gate_check.main(
+        ["--file", str(live_path), "--scoring-constants-match", str(pinned)]
+    )
+    assert rc == 0, f"gate_check.main rc={rc} (0 이어야 함)"
+    # (c) drift 주입 시 non-zero — 게이트가 실제로 잡는지(흡수 아님) 확인.
+    tampered = tmp_path / "tampered.json"
+    bad = dict(live)
+    bad["tol"] = 25.0  # 임계 재fit 시뮬레이션
+    tampered.write_text(_json.dumps(bad), encoding="utf-8")
+    rc_bad = gate_check.main(
+        ["--file", str(tampered), "--scoring-constants-match", str(pinned)]
+    )
+    assert rc_bad != 0, "drift 를 게이트가 잡지 못함(concern 8 회귀)"
 
 
 def test_m3_motion_match_carries_reference_range():

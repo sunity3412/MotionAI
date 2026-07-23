@@ -1137,7 +1137,7 @@ Plans:
 **Goal:** belle 이 결과 화면에서 던진 의문 5개(확대사진·키포인트·붉은 표시·바 마커/음성·코칭 문구)에 화면이 스스로 답하게 만든다. 척추 = 정확한 분석: A-0 게이트로 "짚은 부위 vs 실제 결함 부위"를 6동작 전수 대조해 표현/기질 분기를 먼저 판정하고, 그 위에서 확대비교(같은 순간·배율·표시)·영상 위 표시(표시마다 답 or 없앰)·코칭 문구(동작별 phrasebook, fail-closed)·일러스트(준실사 2안, 해부학 전수 검수)를 재구성한다. 심플 우선(설명 추가는 최후 수단, 새 화면당 +1줄 상한)·오류 0(산출물마다 틀리면 걸리는 장치 + 눈으로 확인 의무). 채점 산식·임계값 무접촉.
 **Requirements**: D-01~D-32 (33-CONTEXT.md — CONTEXT 결정이 요구사항 원본, 공식 REQ 매핑 없음. D-26~D-32 = A-0 "어긋남 큼" substrate 편입)
 **Depends on:** Phase 32
-**Plans:** 8/21 plans executed
+**Plans:** 9/21 plans executed
 Plans:
 **Wave 1** *(A-0 게이트 — DONE)*
 
@@ -1163,7 +1163,7 @@ Plans:
 
 **Wave 5** *(blocked on 33-04,19)*
 
-- [ ] 33-05-PLAN.md — SEED Task 3: M3 구현 (33-M3-SPEC 준수, paired range + coverage floor, alignment-only 테스트, JSON scoring-untouched gate) [autonomous] (codex concern 4/8)
+- [x] 33-05-PLAN.md — SEED Task 3: M3 구현 (33-M3-SPEC 준수, paired range + coverage floor, alignment-only 테스트, JSON scoring-untouched gate) [autonomous] (codex concern 4/8)
 
 **Wave 6** *(blocked on 33-05,17,18,20)*
 

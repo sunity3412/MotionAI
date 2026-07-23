@@ -1138,17 +1138,45 @@ Plans:
 **Requirements**: D-01~D-25 (33-CONTEXT.md — CONTEXT 결정이 요구사항 원본, 공식 REQ 매핑 없음)
 **Depends on:** Phase 32
 **Plans:** 10 plans
-
 Plans:
+**Wave 1**
+
 - [ ] 33-01-PLAN.md — Wave 0 substrate (test scaffold + doc-dump helper) + A-0 분석 정확성 BLOCKING gate (D-04 branch verdict)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 33-02-PLAN.md — A-1 동작별 기준 자세 4질의 표 (공통 재료, 6 fixture → 11 registered)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 33-03-PLAN.md — A-2 코칭 문구 동작별 phrasebook 데이터 (code-change-0, 방향 전수 대조 fail-closed)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 33-04-PLAN.md — A-3 확대비교 조사 (D-07 기준 + 근거 3갈래 + 안 2~3개 + seam #1 결정)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 33-05-PLAN.md — A-4 목업 (실데이터+최악케이스, 3 상태전이) → belle 확인 ① [checkpoint]
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 33-06-PLAN.md — A-5 확대비교 구현 (crop provenance/join joint-exact, 8종 결함, contract lockstep)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 33-07-PLAN.md — A-6 영상 위 표시 구현 (키포인트 opt-in, 마커 자기응답, 음성 정지+강조+재개)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
 - [ ] 33-08-PLAN.md — A-7 일러스트 세트 생성 + 해부학 전수 검수 + 앱 배선 (silent-hidden)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
 - [ ] 33-09-PLAN.md — 웨이브 B: 수치 자리 이동 (D-16) + 타이포·safe-area 버그·레이아웃 (D-17)
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
 - [ ] 33-10-PLAN.md — phase gate: 6동작 Pod 전수 재분석 + 시뮬 렌더 전수 → belle 실기기 UAT ② [checkpoint]
 
 ---

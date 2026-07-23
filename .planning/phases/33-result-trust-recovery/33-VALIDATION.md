@@ -1,8 +1,8 @@
 ---
 phase: 33
 slug: result-trust-recovery
-status: draft
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-23
 ---
@@ -84,11 +84,11 @@ created: 2026-07-23
 
 ## Validation Sign-Off
 
-- [ ] Every deliverable has an automated verify OR a named manual procedure + a D-18 "틀리면 걸리는 장치"
-- [ ] No silent skips: fixture-less motions have named substitute proof
-- [ ] Wave 0 covers all ❌-marked references (test dir, doc-dump helper)
-- [ ] 6-motion sweep run serially (pipeline not concurrency-safe)
-- [ ] Sim render + PNG/mp3 전수 열람 before belle UAT
-- [ ] `nyquist_compliant: true` set once planner maps every task to a row
+- [x] Every deliverable has an automated verify OR a named manual procedure + a D-18 "틀리면 걸리는 장치"
+- [x] No silent skips: fixture-less motions have named substitute proof
+- [x] Wave 0 covers all ❌-marked references (test dir, doc-dump helper) — 33-01
+- [x] 6-motion sweep run serially (pipeline not concurrency-safe) — 33-10
+- [x] Sim render + PNG/mp3 전수 열람 before belle UAT — 33-10
+- [x] `nyquist_compliant: true` set (plan-checker confirmed every task maps to a row)
 
-**Approval:** pending
+**Approval:** approved 2026-07-23 (plan-checker verification passed, 0 blockers)

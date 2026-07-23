@@ -57,6 +57,54 @@ app = FastAPI(title="Sunity Motion · RunPod Inference")
 
 _AUTH_TOKEN = os.environ.get("RUNPOD_AUTH_TOKEN", "")
 
+
+# ── warm-Pod stale-code guard (33-18 / codex concern 6) ──────────────────────
+#
+# 따뜻한(warm) Pod 재사용은 프로세스가 이미 떠 있어 /health 200 만으로는 **어떤
+# 커밋의 코드가 도는지·모델이 올라왔는지** 를 증명하지 못한다. 그래서 /health 에
+# ①코드 커밋 SHA ②핵심 env 플래그(PR_INVERSION_ENABLED / RTMW_DETERMINISTIC)
+# ③model-init canary(어댑터/엔진 로드 여부) 를 함께 실어, 33-04/06/07 이 "정확히
+# 이 커밋 + 이 모델" 을 확인할 수 있게 한다.
+#
+# 노출값은 전부 **비밀이 아니다** — 커밋 SHA·플래그 bool·엔진 클래스명은 릴리스
+# provenance 이지 시크릿이 아니다. 토큰·키·env 원문 값은 절대 싣지 않는다
+# (T-04-W5-01). 기존 liveness 계약(외부 모니터가 무인증 호출)은 유지한다.
+
+
+def _resolve_commit_sha() -> str:
+    """부팅 시점 1회 확정. 우선순위: SUNITY_COMMIT_SHA env → `git rev-parse HEAD`.
+
+    warm 재사용 중 코드가 바뀌어도 이 값은 **부팅 시점 리비전** 을 가리킨다 — 그게
+    핵심이다(프로세스가 실제로 로드한 코드). 둘 다 실패하면 'unknown'.
+    """
+    sha = os.environ.get("SUNITY_COMMIT_SHA", "").strip()
+    if sha:
+        return sha
+    try:
+        import subprocess
+
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(_BACKEND),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except Exception:  # noqa: BLE001 - git 부재/타임아웃은 unknown 으로 강등
+        pass
+    return "unknown"
+
+
+def _env_flag(name: str) -> bool:
+    """1/true/on 계열만 True (대소문자 무시). env 원문 값은 반환하지 않는다."""
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "on", "yes")
+
+
+# 부팅 시점 리비전 각인 — warm 재사용 시에도 이 프로세스가 로드한 커밋을 가리킨다.
+_COMMIT_SHA = _resolve_commit_sha()
+
 # pipeline/app.py 를 모듈로 1회 로드. Lambda 와 동일 코드라 분기 0.
 _pipeline_lock = threading.Lock()
 _pipeline_module: Any = None
@@ -225,13 +273,58 @@ def _warmup() -> None:
         log.exception("워밍업 실패 — 첫 요청 처리 시 재시도")
 
 
+def _model_init_canary() -> dict:
+    """model-init canary — warm 재사용이 **살아있음(liveness)** 을 넘어 **모델 로드
+    parity** 를 증명하도록 하는 값싼 결정론 자기점검.
+
+    무거운 추론을 돌리지 않는다(GPU 점유·지연 유발) — 이미 로드된 모듈/어댑터/엔진의
+    존재만 확인한다. pipeline 모듈이 로드됐고 어댑터·pose estimator·recognizer 가
+    붙어 있으면 modelLoaded=True. 예외는 삼켜 canary=False 로만 반영(헬스는 죽지 않음).
+    """
+    canary: dict = {
+        "pipelineLoaded": _pipeline_module is not None,
+        "adaptersReady": False,
+        "poseEngine": None,
+        "recognizer": None,
+    }
+    mod = _pipeline_module
+    if mod is None:
+        canary["modelLoaded"] = False
+        return canary
+    try:
+        estimator = getattr(mod, "_POSE_ESTIMATOR", None)
+        recognizer = getattr(mod, "_RECOGNIZER", None)
+        engine = getattr(mod, "_RTMW_ENGINE", None)
+        canary["adaptersReady"] = estimator is not None
+        canary["poseEngine"] = type(engine).__name__ if engine is not None else None
+        canary["recognizer"] = (
+            type(recognizer).__name__ if recognizer is not None else None
+        )
+        canary["modelLoaded"] = estimator is not None
+    except Exception:  # noqa: BLE001 - canary 실패는 False 로만 반영, 헬스는 유지
+        canary["modelLoaded"] = False
+    return canary
+
+
 @app.get("/health")
 def health() -> dict:
-    """liveness probe. 인증 불필요(외부 모니터링 도구가 호출). 무거운 검사 없음."""
+    """liveness + source/model parity probe. 인증 불필요(외부 모니터가 호출).
+
+    기존 liveness 필드에 더해 warm-Pod stale-code guard(33-18 / codex concern 6)용
+    ①commitSha ②env 플래그 ③model-init canary 를 싣는다. 모두 비밀이 아님 —
+    토큰/키/env 원문 값은 절대 포함하지 않는다. 무거운 추론 없음(canary 는 로드
+    상태 점검만)."""
     return {
         "status": "ok",
         "auth_configured": bool(_AUTH_TOKEN),
         "pipeline_loaded": _pipeline_module is not None,
+        # ── warm-Pod parity (33-18) ──
+        "commitSha": _COMMIT_SHA,
+        "envFlags": {
+            "PR_INVERSION_ENABLED": _env_flag("PR_INVERSION_ENABLED"),
+            "RTMW_DETERMINISTIC": _env_flag("RTMW_DETERMINISTIC"),
+        },
+        "modelInitCanary": _model_init_canary(),
     }
 
 

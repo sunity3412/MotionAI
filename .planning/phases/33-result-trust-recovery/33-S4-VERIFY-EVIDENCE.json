@@ -1,0 +1,275 @@
+{
+  "tol": 20.0,
+  "slope": 1.2,
+  "cap": 90,
+  "MEAN_EPSILON_DEG": 0.1,
+  "P99_EPSILON_DEG": 1.0,
+  "_meta": {
+    "plan": "33-06",
+    "candidate": "phase33-cm3-run1",
+    "runId": "1784816075",
+    "pod": "k508k3lut0o3f1",
+    "commit": "eb08e87302839e3f1db48511993d50b7f75d2240",
+    "env": {
+      "RTMW_DETERMINISTIC": "1",
+      "PR_INVERSION_ENABLED": "1",
+      "GEMINI_VISION_VETO_ENABLED": "1",
+      "shadow": "phase33-cm3-run1"
+    },
+    "coverageMatrix": "33-COVERAGE-MATRIX.md (canonical)",
+    "note": "여유(margin)=RTMW-deterministic. separation=score(Gemini vision-pointing 변동 내포)."
+  },
+  "perDocHashes": {
+    "ref-climb": "189818749ceb9e6ac60ce3326a93840dd080a07ad3a9dd9279bf1ad8fba3fd31",
+    "ref-combo": "962858007db729a7a3493b94040c0a2d78ccd43c2bc68a0387bd750f8ee99cdf",
+    "ref-elbow-twist-sister": "ab405e277e9a99244f511b0667051d2ebec77627494377b79447e8fb391b902c",
+    "ref-foxtop": "772fc74583e083be60c2064d1a675743da219ff88612443f5559ad3b81b86c35",
+    "ref-foxtop-split": "b7ace7bf652b0ece2f1c6fbe60fb218a2d4e4b3ef6bc2316db1673a96478eba6",
+    "ref-invert": "4675914993a5bbfcc06805070162eb8eaf4fd98774eb6430bfab56eeacc81922",
+    "ref-kip-up": "b9a30db6698a60b1325634a32c1315e18d6736c39339aec52d09024f025fe44d",
+    "ref-pdshape": "8705f364e818c8f9ec50ed637d70a9e4263a835b41a6d2caa681effd9fb6b19e",
+    "ref-peter-pan": "0acce03f4e7d88f38bf6a23cde7699ea23b1dbf6a2154a31340be99a3b64e636",
+    "ref-power-spin": "f6eb4a22c3ecf5451ae10c5241a7ba0ef6bd857f43d064fd9e0c3edb6f85164a",
+    "ref-sideway-spin": "27786be791bdf6a3da35b8548f39703434d3cf9ad3e1a6bc1bd2da9b05dd7db2"
+  },
+  "consumedRefAnglesHash": {
+    "power-spin": {
+      "ref-power-spin": "4267fbfa"
+    },
+    "peter-pan": {
+      "ref-peter-pan": "2e8393e8"
+    },
+    "elbow-twist-sister": {
+      "ref-elbow-twist-sister": "7ef0ffaa"
+    },
+    "pdshape": {
+      "ref-pdshape": "a1f9e553"
+    },
+    "kip-up": {
+      "ref-kip-up": "e663f549"
+    }
+  },
+  "margins": {
+    "power-spin": {
+      "candidate": 12.23,
+      "baseline": 9.0,
+      "delta": 3.23,
+      "positive": true
+    },
+    "peter-pan": {
+      "candidate": 16.388,
+      "baseline": 10.5,
+      "delta": 5.888,
+      "positive": true
+    },
+    "elbow-twist-sister": {
+      "candidate": 3.099,
+      "baseline": 0.2,
+      "delta": 2.899,
+      "positive": true
+    },
+    "pdshape": {
+      "candidate": 3.292,
+      "baseline": -1.2,
+      "delta": 4.492,
+      "positive": true
+    },
+    "kip-up": {
+      "candidate": 19.06,
+      "baseline": 15.8,
+      "delta": 3.26,
+      "positive": true
+    }
+  },
+  "separations": {
+    "power-spin": {
+      "sep": 35,
+      "floor": 45,
+      "meets": false
+    },
+    "peter-pan": {
+      "sep": 21,
+      "floor": 21,
+      "meets": true
+    },
+    "elbow-twist-sister": {
+      "sep": 100,
+      "floor": 35,
+      "meets": true
+    },
+    "pdshape": {
+      "sep": 57,
+      "floor": 53,
+      "meets": true
+    },
+    "kip-up": {
+      "sep": 21,
+      "floor": 20,
+      "meets": true
+    }
+  },
+  "separationFloorStability": {
+    "note": "floor 는 baseline 소스에 따라 불안정 — 분리 게이트가 Gemini vision-변동을 내포함을 실증.",
+    "docFloor": {
+      "power-spin": 45,
+      "peter-pan": 21,
+      "elbow-twist-sister": 35,
+      "pdshape": 53,
+      "kip-up": 20
+    },
+    "committedBaselineSep": {
+      "power-spin": 43,
+      "peter-pan": 17,
+      "elbow-twist-sister": 39,
+      "pdshape": 46,
+      "kip-up": 53
+    }
+  },
+  "inversionFloorReduction": {
+    "elbow-twist-sister": {
+      "baselineMaxDev": 19.8,
+      "candMaxDev": 16.901,
+      "drop": 2.899,
+      "meets": true
+    },
+    "pdshape": {
+      "baselineMaxDev": 21.2,
+      "candMaxDev": 16.708,
+      "drop": 4.492,
+      "meets": true
+    }
+  },
+  "m8ServerSubstrate": {
+    "ref-climb": {
+      "layout": "(x,y,0)",
+      "finite": true,
+      "krDataFinite": true,
+      "axisDataFinite": true
+    },
+    "ref-foxtop": {
+      "layout": "(x,y,0)",
+      "finite": true,
+      "krDataFinite": true,
+      "axisDataFinite": true
+    },
+    "ref-foxtop-split": {
+      "layout": "(x,y,0)",
+      "finite": true,
+      "krDataFinite": true,
+      "axisDataFinite": true
+    },
+    "ref-invert": {
+      "layout": "(x,y,0)",
+      "finite": true,
+      "krDataFinite": true,
+      "axisDataFinite": true
+    },
+    "ref-sideway-spin": {
+      "layout": "(x,y,0)",
+      "finite": true,
+      "krDataFinite": true,
+      "axisDataFinite": true
+    }
+  },
+  "m3Fired": {
+    "elbow-twist-sister:fault": true,
+    "kip-up:fault": true
+  },
+  "safety": {
+    "candidateFlagCount": 0,
+    "baselineFlagCount": 0,
+    "newFP": 0,
+    "newFN": 0,
+    "climbNotPoleGate": "consistent with baseline (both members status=comparison)"
+  },
+  "pdshape2RunStability": {
+    "run1Margin": 3.2923,
+    "run2Margin": 3.2923,
+    "edit": 0.0,
+    "predeclaredMax": 2.0
+  },
+  "comboDeterminism": {
+    "run1MaxDev": 0.0025594865728066907,
+    "run2MaxDev": 0.0025594865728066907,
+    "drift": 0.0,
+    "p99Epsilon": 1.0
+  },
+  "selfComparison": {
+    "ref-foxtop": {
+      "score": 100,
+      "maxDev": 0.0027
+    },
+    "ref-foxtop-split": {
+      "score": 100,
+      "maxDev": 0.0028
+    },
+    "ref-invert": {
+      "score": 100,
+      "maxDev": 0.0028
+    },
+    "ref-sideway-spin": {
+      "score": 100,
+      "maxDev": 0.0029
+    },
+    "ref-combo": {
+      "score": 100,
+      "maxDev": 0.0026
+    }
+  },
+  "scoringConstantsLive": {
+    "tol": 20.0,
+    "slope": 1.2,
+    "cap": 90,
+    "MEAN_EPSILON_DEG": 0.1,
+    "P99_EPSILON_DEG": 1.0
+  },
+  "rollbackTriggers": {
+    "marginNegative": false,
+    "m8DeviceRegression": false,
+    "comboDeterminismExceedP99": false,
+    "safetyNewFpFn": false
+  },
+  "gate1": {
+    "status": "PASS",
+    "desc": "success 여유 전항 양수(pdshape neg→pos 포함)",
+    "pdshapeFlip": true
+  },
+  "gate2": {
+    "status": "FAIL",
+    "desc": "fault/success separation ≥ predeclared floor",
+    "failing": [
+      "power-spin"
+    ]
+  },
+  "gate3": {
+    "status": "PASS",
+    "desc": "inversion 편차 바닥 ≥2.0° 감소"
+  },
+  "gate4": {
+    "status": "PASS",
+    "desc": "M8 서버측 원본-5 (x,y,0) 단일 수렴(디바이스 육안=33-16)"
+  },
+  "gate5": {
+    "status": "PASS",
+    "desc": "M3 발동 ≥1 멤버"
+  },
+  "gate6": {
+    "status": "PASS",
+    "desc": "safety 신규 FP/FN == 0"
+  },
+  "gate7": {
+    "status": "PASS",
+    "desc": "pdshape 2-run edit < 2.0°"
+  },
+  "gate8": {
+    "status": "PASS",
+    "desc": "임계 refit 0 (live==pinned, scoring-constants-match)"
+  },
+  "elbowTwistRoute": {
+    "candidateMargin": 3.099,
+    "baselineMargin": 0.2,
+    "haltThreshold": 2.0,
+    "halt": false,
+    "route": "33-21 no-op (여유 +3.10 ≥ +2.0)"
+  }
+}

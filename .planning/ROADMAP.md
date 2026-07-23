@@ -1137,77 +1137,85 @@ Plans:
 **Goal:** belle 이 결과 화면에서 던진 의문 5개(확대사진·키포인트·붉은 표시·바 마커/음성·코칭 문구)에 화면이 스스로 답하게 만든다. 척추 = 정확한 분석: A-0 게이트로 "짚은 부위 vs 실제 결함 부위"를 6동작 전수 대조해 표현/기질 분기를 먼저 판정하고, 그 위에서 확대비교(같은 순간·배율·표시)·영상 위 표시(표시마다 답 or 없앰)·코칭 문구(동작별 phrasebook, fail-closed)·일러스트(준실사 2안, 해부학 전수 검수)를 재구성한다. 심플 우선(설명 추가는 최후 수단, 새 화면당 +1줄 상한)·오류 0(산출물마다 틀리면 걸리는 장치 + 눈으로 확인 의무). 채점 산식·임계값 무접촉.
 **Requirements**: D-01~D-32 (33-CONTEXT.md — CONTEXT 결정이 요구사항 원본, 공식 REQ 매핑 없음. D-26~D-32 = A-0 "어긋남 큼" substrate 편입)
 **Depends on:** Phase 32
-**Plans:** 1/16 plans executed (A-0 게이트 완료 → C+M3 substrate 편입 re-plan)
+**Plans:** 1/21 plans executed (A-0 완료 → C+M3 substrate 편입 → cross-AI(codex) 리뷰 반영 release-mechanics re-plan: 신규 33-17~33-21 + 33-02~33-07 수정)
 Plans:
 **Wave 1** *(A-0 게이트 — DONE)*
 
 - [x] 33-01-PLAN.md — Wave 0 substrate (test scaffold + doc-dump helper) + A-0 분석 정확성 BLOCKING gate → 판정 "어긋남 큼" (HALT)
 
-**웨이브 S — substrate C+M3 (A-0 판정으로 편입, 표현 계층 선행 조건 D-28)**
+**웨이브 S — substrate C+M3 (A-0 판정으로 편입 + codex 리뷰 반영 release-mechanics, 표현 계층 선행 조건 D-28)**
 
-**Wave 2** *(blocked on Wave 1)*
+**Wave 2** *(blocked on Wave 1 — 병렬 5 plan, 파일 무충돌)*
 
-- [ ] 33-02-PLAN.md — SEED Task 0: reference 11 doc 백업 (로컬+S3, 4-check 무결성 게이트 + SHA-256) [autonomous]
+- [ ] 33-02-PLAN.md — SEED Task 0: reference 11 doc 백업 강화 (temp→rename, whole-file SHA-256 S3 metadata + re-download byte-compare + restore rehearsal) [autonomous] (codex concern 10)
+- [ ] 33-17-PLAN.md — 신규: staging+activation 프리미티브 (candidate version id `phase33-cm3-*` refuse-overwrite + shadow-reference resolver + idempotent atomic flip/global pointer) [autonomous] (codex concern 1/3/7)
+- [ ] 33-18-PLAN.md — 신규: release manifest tuple + Pod /health commit-SHA+canary + gate_check.py JSON data-gate [autonomous] (codex concern 5/6/8, suggestion 2/7)
+- [ ] 33-19-PLAN.md — 신규: 33-M3-SPEC.md 잠금 (paired user+reference range + coverage floor + fail-closed + byte-identical invariants) — 33-05 선행 [autonomous] (codex concern 4)
+- [ ] 33-20-PLAN.md — 신규: 33-COVERAGE-MATRIX.md 단일 11동작 커버리지 표 (climb/sideway-spin/combo 해소) [autonomous] (codex suggestion 10)
 
-**Wave 3** *(blocked on Wave 2)*
+**Wave 3** *(blocked on 33-02,17,18)*
 
-- [ ] 33-03-PLAN.md — SEED Task 1: 11종 재추출 @9fps --no-flip (PR on, detect_inversion 로그 vs 위험도 표, combo 2회) [Pod, checkpoint]
+- [ ] 33-03-PLAN.md — SEED Task 1: 11종 재추출 @9fps → candidate versions(run1+run2) + commit-pinned Pod deploy(canary) + traffic isolation + manifest rows [Pod, checkpoint] (codex concern 1/5/6/14)
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 33-04-PLAN.md — SEED Task 2: 다운스트림 백필 (REFERENCE_TARGET_FPS 18→9, 7필드 재산출, 임계 재fit 0) [autonomous]
+- [ ] 33-04-PLAN.md — SEED Task 2: candidate-aware 백필 (versions/{candidate} read+merge, fps candidate/CLI, real bodyComparisonSourcePose, warm-Pod canary blocking) [Pod, checkpoint] (codex concern 2/6/15)
 
-**Wave 5** *(blocked on Wave 4)*
+**Wave 5** *(blocked on 33-04,19)*
 
-- [ ] 33-05-PLAN.md — SEED Task 3: M3 수정 (find_action_segment nu<=nr, 파급 3곳 + safety-flag 회귀) [autonomous]
+- [ ] 33-05-PLAN.md — SEED Task 3: M3 구현 (33-M3-SPEC 준수, paired range + coverage floor, alignment-only 테스트, JSON scoring-untouched gate) [autonomous] (codex concern 4/8)
 
-**Wave 6** *(blocked on Wave 5)*
+**Wave 6** *(blocked on 33-05,17,18,20)*
 
-- [ ] 33-06-PLAN.md — SEED Task 4: 전수 재검증 (6동작 SERIAL + fixture-less 4 self-comparison + M8 시뮬 + SEED 8항 게이트) [Pod, checkpoint]
+- [ ] 33-06-PLAN.md — SEED Task 4: 재검증 (shadow-candidate sweep + JSON 8항 data-gate + predeclared boundaries + coverage matrix + elbow-twist → 33-21 route) [Pod, checkpoint] (codex concern 3/8/12/13/14)
 
-**Wave 7** *(blocked on Wave 6)*
+**Wave 7** *(blocked on 33-06 — 조건부 HALT loop)*
 
-- [ ] 33-07-PLAN.md — SEED Task 5: active flip + 프로덕션 활성화 (8항 PASS 후에만, 롤백 armed) [Pod+belle, checkpoint]
+- [ ] 33-21-PLAN.md — 신규(조건부): elbow-twist HALT gap-closure. 33-06 여유 ≥+2.0° → no-op / <+2.0° → belle 단일질문 + substrate loop 재검증. 33-07 차단 [Pod+belle, checkpoint] (codex concern 13)
+
+**Wave 8** *(blocked on 33-06,21,17,18)*
+
+- [ ] 33-07-PLAN.md — SEED Task 5: atomic tuple flip (M3 commit prod deploy + global-pointer 11-doc flip + 11/11 hash verify + maintenance window/deployment status + tuple-consistent rollback) [Pod+belle, checkpoint] (codex concern 5/7, suggestion 7)
 
 **웨이브 A — 표현 계층 (substrate 전항 PASS 후에만 — D-28)**
 
-**Wave 8** *(blocked on Wave 7 = substrate PASS)*
+**Wave 9** *(blocked on Wave 8 = substrate PASS)*
 
-- [ ] 33-08-PLAN.md — A-1 동작별 기준 자세 4질의 표 (공통 재료, reprocessed ref 대조, 6→11 registered)
+- [ ] 33-08-PLAN.md — A-1 동작별 기준 자세 4질의 표 (공통 재료, reprocessed ref 대조, 33-20 커버리지 매트릭스 인용)
 
-**Wave 9** *(blocked on Wave 8)*
+**Wave 10** *(blocked on Wave 9)*
 
-- [ ] 33-09-PLAN.md — A-2 코칭 문구 동작별 phrasebook (code-change-0, 방향 전수 대조 fail-closed)
+- [ ] 33-09-PLAN.md — A-2 코칭 문구 동작별 phrasebook (code-change-0, 방향 전수 대조 fail-closed, 33-20 인용)
 
-**Wave 10** *(blocked on Wave 8)*
+**Wave 11** *(blocked on Wave 9)*
 
 - [ ] 33-10-PLAN.md — A-3 확대비교 조사 (D-07 기준 + 근거 3갈래 + 안 2~3개 + seam #1 결정)
 
-**Wave 11** *(blocked on Waves 9,10)*
+**Wave 12** *(blocked on Waves 10,11)*
 
-- [ ] 33-11-PLAN.md — A-4 목업 (실데이터+최악케이스, 3 상태전이) → belle 확인 ① [checkpoint]
-
-**Wave 12** *(blocked on Wave 11)*
-
-- [ ] 33-12-PLAN.md — A-5 확대비교 구현 (crop provenance/join joint-exact, 8종 결함, contract lockstep)
+- [ ] 33-11-PLAN.md — A-4 목업 (실데이터 로컬 다운로드+provenance, 최악케이스, 3 상태전이) → belle 확인 ① [checkpoint] (codex concern 16)
 
 **Wave 13** *(blocked on Wave 12)*
 
+- [ ] 33-12-PLAN.md — A-5 확대비교 구현 (crop provenance/join joint-exact, 8종 결함, contract lockstep)
+
+**Wave 14** *(blocked on Wave 13)*
+
 - [ ] 33-13-PLAN.md — A-6 영상 위 표시 구현 (키포인트 opt-in, 마커 자기응답, 음성 정지+강조+재개)
 
-**Wave 14** *(blocked on Waves 9,13)*
+**Wave 15** *(blocked on Waves 10,14)*
 
 - [ ] 33-14-PLAN.md — A-7 일러스트 세트 생성 + 해부학 전수 검수 + 앱 배선 (silent-hidden)
 
 **웨이브 B — 정돈 (A 앞으로 당기지 않음)**
 
-**Wave 15** *(blocked on Waves 12,13,14)*
+**Wave 16** *(blocked on Waves 13,14,15)*
 
 - [ ] 33-15-PLAN.md — 웨이브 B: 수치 자리 이동 (D-16) + 타이포·safe-area 버그·레이아웃 (D-17)
 
-**Wave 16** *(blocked on Wave 15 — phase gate)*
+**Wave 17** *(blocked on Wave 16 — phase gate)*
 
-- [ ] 33-16-PLAN.md — phase gate: 6동작 Pod 전수 재분석 + 시뮬 렌더 전수 → belle 실기기 UAT ② [checkpoint]
+- [ ] 33-16-PLAN.md — phase gate: belle GPU greenlight(blocking) + 6동작 Pod 전수 재분석 + 시뮬 렌더 전수 → belle 실기기 UAT ② [checkpoint] (codex concern 15)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
@@ -1222,5 +1230,6 @@ Plans:
 *Roadmap updated: 2026-06-24 (Phase 24 신설 — 투명 감점-합산 채점 엔진. belle 채점 철학 결정타([[scoring-must-be-transparent-deduction-tally]]): Phase 20 의 severity→고정밴드(`SEVERITY_CAP`/`apply_downward_cap`)는 자의적=사람 판단 주입 → 점수=baseline(100)−Σ(측정편차×명시규칙 감점), 보고서가 감점 내역 노출 엔진으로 교체. Gemini 강등(점수X·측정대상만 짚기). Phase 20 은 재설계 아님 — working parts 보존, 밴드 한 단만 신규 phase 가 supersede. 23-03 의 케이스별 기대점수 밴드(moderate≤75) curve-fit → Phase 24 추적성·단조성 게이트로 대체. discuss 결정 = 24-CONTEXT.md ND-01~07. Phase 19·20·23 의존, Pod 필요, Phase 22 보다 먼저.)*
 *Roadmap updated: 2026-07-04 (Phase 25 신설 — 상체 감점 커버리지 vision-pointed window 측정. TestFlight 실증에서 어깨 40° 측정-무감점 갭 확정, quick 260702-o0c worst-window 실험 = 메커니즘 실증 but success 위양성으로 revert([[window-median-silent-seed-fp-reverted]]). 아키텍처 = 짚기(Gemini faultKey)/측정(worst-window)/감점(규칙) 역할 분리 + Gemini-silent 는 full-path median 유지. belle 판정: 88도 50도 아닌 사이가 정답, 점수 짜맞추기 금지.)*
 *Roadmap updated: 2026-07-21 (Phase 32 신설 — 분석 결과를 읽히게: 해석·방법·코치. belle "전체 방안부터" 결정으로 즉시수리 3건(동작비교 초맞춤·참고지표 겹침·확대비교 크롭)을 32 방안에 흡수, wave-1 앞배치 방침. SEED = 32-SEED.md, 근거 = 2026-07-20 deep-research(OPTIMAL 이론) + belle 실기기 총평 §10.)*
+*Roadmap updated: 2026-07-23 (Phase 33 --reviews replan — cross-AI(codex) 리뷰 반영. release-mechanics 결함 8건(HIGH)+MEDIUM 수정: 신규 33-17(candidate staging+shadow resolver+atomic flip)·33-18(release manifest+/health canary+gate_check JSON gate)·33-19(M3 spec 잠금)·33-20(coverage matrix)·33-21(elbow-twist HALT loop, 조건부). 33-02~33-07 수정(candidate version id·candidate-aware backfill·JSON data-gate·tuple-atomic flip). 33-01(A-0, 실행완료) 무접촉. belle FULL RELEASE ENGINEERING scope. 16→21 plans, waves 재배치(표현 8~16→9~17). 채점 산식 무접촉 D-20/D-29 유지.)
 *Roadmap updated: 2026-07-23 (Phase 33 신설 — 결과 신뢰 회복 "궁금만 하는 앱" 끝내기. 32 UAT 종료 findings 기반. 척추=정확한 분석(A-0 게이트 신설), 표현 계층=확대비교·영상 표시·코칭 문구·일러스트를 "표시마다 답 or 없앰" 원칙으로 재구성. 심플 우선+오류 0(눈으로 확인 의무). SEED=33-SEED.md, 지침=33-PLANNING-APPROACH.md, CONTEXT D-01~D-25. belle 승인 "착수 깔~꼼하게".)*
 *Roadmap updated: 2026-07-23 (Phase 33 re-plan — 33-01 A-0 게이트 실행 판정 "어긋남 큼" → D-04 분기로 C+M3 substrate 트랙 편입. 10 plans → 16 plans. 웨이브 S(33-02~07 = SEED Task 0~5: 백업→11종 재추출@9fps→백필→M3→8항 재검증→flip)를 33-01 다음 root 로, 표현 계층(구 33-02~10)을 33-08~16 으로 재번호. 모든 표현 웨이브가 substrate PASS(33-07) 선행 조건 D-28. Pod-touching(33-03/06/07/16)+목업(33-11)+UAT(33-16)=autonomous:false. D-26~D-32 신설 커버. 채점 산식·임계 무접촉 D-20/D-29. 근거=33-A0-EVIDENCE.md + ref-student-substrate-gap.md.)*

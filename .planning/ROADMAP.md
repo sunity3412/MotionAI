@@ -1135,49 +1135,79 @@ Plans:
 ### Phase 33: 결과 신뢰 회복 — "궁금만 하는 앱" 끝내기 (result-trust-recovery)
 
 **Goal:** belle 이 결과 화면에서 던진 의문 5개(확대사진·키포인트·붉은 표시·바 마커/음성·코칭 문구)에 화면이 스스로 답하게 만든다. 척추 = 정확한 분석: A-0 게이트로 "짚은 부위 vs 실제 결함 부위"를 6동작 전수 대조해 표현/기질 분기를 먼저 판정하고, 그 위에서 확대비교(같은 순간·배율·표시)·영상 위 표시(표시마다 답 or 없앰)·코칭 문구(동작별 phrasebook, fail-closed)·일러스트(준실사 2안, 해부학 전수 검수)를 재구성한다. 심플 우선(설명 추가는 최후 수단, 새 화면당 +1줄 상한)·오류 0(산출물마다 틀리면 걸리는 장치 + 눈으로 확인 의무). 채점 산식·임계값 무접촉.
-**Requirements**: D-01~D-25 (33-CONTEXT.md — CONTEXT 결정이 요구사항 원본, 공식 REQ 매핑 없음)
+**Requirements**: D-01~D-32 (33-CONTEXT.md — CONTEXT 결정이 요구사항 원본, 공식 REQ 매핑 없음. D-26~D-32 = A-0 "어긋남 큼" substrate 편입)
 **Depends on:** Phase 32
-**Plans:** 1/10 plans executed
+**Plans:** 1/16 plans executed (A-0 게이트 완료 → C+M3 substrate 편입 re-plan)
 Plans:
-**Wave 1**
+**Wave 1** *(A-0 게이트 — DONE)*
 
-- [x] 33-01-PLAN.md — Wave 0 substrate (test scaffold + doc-dump helper) + A-0 분석 정확성 BLOCKING gate (D-04 branch verdict)
+- [x] 33-01-PLAN.md — Wave 0 substrate (test scaffold + doc-dump helper) + A-0 분석 정확성 BLOCKING gate → 판정 "어긋남 큼" (HALT)
 
-**Wave 2** *(blocked on Wave 1 completion)*
+**웨이브 S — substrate C+M3 (A-0 판정으로 편입, 표현 계층 선행 조건 D-28)**
 
-- [ ] 33-02-PLAN.md — A-1 동작별 기준 자세 4질의 표 (공통 재료, 6 fixture → 11 registered)
+**Wave 2** *(blocked on Wave 1)*
 
-**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 33-02-PLAN.md — SEED Task 0: reference 11 doc 백업 (로컬+S3, 4-check 무결성 게이트 + SHA-256) [autonomous]
 
-- [ ] 33-03-PLAN.md — A-2 코칭 문구 동작별 phrasebook 데이터 (code-change-0, 방향 전수 대조 fail-closed)
+**Wave 3** *(blocked on Wave 2)*
 
-**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 33-03-PLAN.md — SEED Task 1: 11종 재추출 @9fps --no-flip (PR on, detect_inversion 로그 vs 위험도 표, combo 2회) [Pod, checkpoint]
 
-- [ ] 33-04-PLAN.md — A-3 확대비교 조사 (D-07 기준 + 근거 3갈래 + 안 2~3개 + seam #1 결정)
+**Wave 4** *(blocked on Wave 3)*
 
-**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 33-04-PLAN.md — SEED Task 2: 다운스트림 백필 (REFERENCE_TARGET_FPS 18→9, 7필드 재산출, 임계 재fit 0) [autonomous]
 
-- [ ] 33-05-PLAN.md — A-4 목업 (실데이터+최악케이스, 3 상태전이) → belle 확인 ① [checkpoint]
+**Wave 5** *(blocked on Wave 4)*
 
-**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 33-05-PLAN.md — SEED Task 3: M3 수정 (find_action_segment nu<=nr, 파급 3곳 + safety-flag 회귀) [autonomous]
 
-- [ ] 33-06-PLAN.md — A-5 확대비교 구현 (crop provenance/join joint-exact, 8종 결함, contract lockstep)
+**Wave 6** *(blocked on Wave 5)*
 
-**Wave 7** *(blocked on Wave 6 completion)*
+- [ ] 33-06-PLAN.md — SEED Task 4: 전수 재검증 (6동작 SERIAL + fixture-less 4 self-comparison + M8 시뮬 + SEED 8항 게이트) [Pod, checkpoint]
 
-- [ ] 33-07-PLAN.md — A-6 영상 위 표시 구현 (키포인트 opt-in, 마커 자기응답, 음성 정지+강조+재개)
+**Wave 7** *(blocked on Wave 6)*
 
-**Wave 8** *(blocked on Wave 7 completion)*
+- [ ] 33-07-PLAN.md — SEED Task 5: active flip + 프로덕션 활성화 (8항 PASS 후에만, 롤백 armed) [Pod+belle, checkpoint]
 
-- [ ] 33-08-PLAN.md — A-7 일러스트 세트 생성 + 해부학 전수 검수 + 앱 배선 (silent-hidden)
+**웨이브 A — 표현 계층 (substrate 전항 PASS 후에만 — D-28)**
 
-**Wave 9** *(blocked on Wave 8 completion)*
+**Wave 8** *(blocked on Wave 7 = substrate PASS)*
 
-- [ ] 33-09-PLAN.md — 웨이브 B: 수치 자리 이동 (D-16) + 타이포·safe-area 버그·레이아웃 (D-17)
+- [ ] 33-08-PLAN.md — A-1 동작별 기준 자세 4질의 표 (공통 재료, reprocessed ref 대조, 6→11 registered)
 
-**Wave 10** *(blocked on Wave 9 completion)*
+**Wave 9** *(blocked on Wave 8)*
 
-- [ ] 33-10-PLAN.md — phase gate: 6동작 Pod 전수 재분석 + 시뮬 렌더 전수 → belle 실기기 UAT ② [checkpoint]
+- [ ] 33-09-PLAN.md — A-2 코칭 문구 동작별 phrasebook (code-change-0, 방향 전수 대조 fail-closed)
+
+**Wave 10** *(blocked on Wave 8)*
+
+- [ ] 33-10-PLAN.md — A-3 확대비교 조사 (D-07 기준 + 근거 3갈래 + 안 2~3개 + seam #1 결정)
+
+**Wave 11** *(blocked on Waves 9,10)*
+
+- [ ] 33-11-PLAN.md — A-4 목업 (실데이터+최악케이스, 3 상태전이) → belle 확인 ① [checkpoint]
+
+**Wave 12** *(blocked on Wave 11)*
+
+- [ ] 33-12-PLAN.md — A-5 확대비교 구현 (crop provenance/join joint-exact, 8종 결함, contract lockstep)
+
+**Wave 13** *(blocked on Wave 12)*
+
+- [ ] 33-13-PLAN.md — A-6 영상 위 표시 구현 (키포인트 opt-in, 마커 자기응답, 음성 정지+강조+재개)
+
+**Wave 14** *(blocked on Waves 9,13)*
+
+- [ ] 33-14-PLAN.md — A-7 일러스트 세트 생성 + 해부학 전수 검수 + 앱 배선 (silent-hidden)
+
+**웨이브 B — 정돈 (A 앞으로 당기지 않음)**
+
+**Wave 15** *(blocked on Waves 12,13,14)*
+
+- [ ] 33-15-PLAN.md — 웨이브 B: 수치 자리 이동 (D-16) + 타이포·safe-area 버그·레이아웃 (D-17)
+
+**Wave 16** *(blocked on Wave 15 — phase gate)*
+
+- [ ] 33-16-PLAN.md — phase gate: 6동작 Pod 전수 재분석 + 시뮬 렌더 전수 → belle 실기기 UAT ② [checkpoint]
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
@@ -1193,3 +1223,4 @@ Plans:
 *Roadmap updated: 2026-07-04 (Phase 25 신설 — 상체 감점 커버리지 vision-pointed window 측정. TestFlight 실증에서 어깨 40° 측정-무감점 갭 확정, quick 260702-o0c worst-window 실험 = 메커니즘 실증 but success 위양성으로 revert([[window-median-silent-seed-fp-reverted]]). 아키텍처 = 짚기(Gemini faultKey)/측정(worst-window)/감점(규칙) 역할 분리 + Gemini-silent 는 full-path median 유지. belle 판정: 88도 50도 아닌 사이가 정답, 점수 짜맞추기 금지.)*
 *Roadmap updated: 2026-07-21 (Phase 32 신설 — 분석 결과를 읽히게: 해석·방법·코치. belle "전체 방안부터" 결정으로 즉시수리 3건(동작비교 초맞춤·참고지표 겹침·확대비교 크롭)을 32 방안에 흡수, wave-1 앞배치 방침. SEED = 32-SEED.md, 근거 = 2026-07-20 deep-research(OPTIMAL 이론) + belle 실기기 총평 §10.)*
 *Roadmap updated: 2026-07-23 (Phase 33 신설 — 결과 신뢰 회복 "궁금만 하는 앱" 끝내기. 32 UAT 종료 findings 기반. 척추=정확한 분석(A-0 게이트 신설), 표현 계층=확대비교·영상 표시·코칭 문구·일러스트를 "표시마다 답 or 없앰" 원칙으로 재구성. 심플 우선+오류 0(눈으로 확인 의무). SEED=33-SEED.md, 지침=33-PLANNING-APPROACH.md, CONTEXT D-01~D-25. belle 승인 "착수 깔~꼼하게".)*
+*Roadmap updated: 2026-07-23 (Phase 33 re-plan — 33-01 A-0 게이트 실행 판정 "어긋남 큼" → D-04 분기로 C+M3 substrate 트랙 편입. 10 plans → 16 plans. 웨이브 S(33-02~07 = SEED Task 0~5: 백업→11종 재추출@9fps→백필→M3→8항 재검증→flip)를 33-01 다음 root 로, 표현 계층(구 33-02~10)을 33-08~16 으로 재번호. 모든 표현 웨이브가 substrate PASS(33-07) 선행 조건 D-28. Pod-touching(33-03/06/07/16)+목업(33-11)+UAT(33-16)=autonomous:false. D-26~D-32 신설 커버. 채점 산식·임계 무접촉 D-20/D-29. 근거=33-A0-EVIDENCE.md + ref-student-substrate-gap.md.)*

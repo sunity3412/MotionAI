@@ -1,8 +1,9 @@
 # Phase 33: result-trust-recovery - Context
 
 **Gathered:** 2026-07-23
-**Status:** Ready for planning
-**Source:** Synthesized from authored design docs — `33-PLANNING-APPROACH.md` + `33-SEED.md` (belle-locked). No fresh discuss-phase run: belle's operating rule caps her involvement at 2 touchpoints (mockup confirm + device UAT); re-asking settled decisions is forbidden.
+**Revised:** 2026-07-23 (A-0 게이트 실측 판정 "어긋남 큼" → C+M3 substrate 트랙 편입 확정. D-26~D-32 신설, D-11/D-25 갱신. 근거 = `33-A0-EVIDENCE.md`. re-plan 입력.)
+**Status:** Ready for planning (re-plan — substrate 편입)
+**Source:** Synthesized from authored design docs — `33-PLANNING-APPROACH.md` + `33-SEED.md` (belle-locked). No fresh discuss-phase run: belle's operating rule caps her involvement at 2 touchpoints (mockup confirm + device UAT); re-asking settled decisions is forbidden. A-0 분기 편입은 D-04 가 사전 승인한 Claude 실측 판정(belle 질문 아님).
 
 <domain>
 ## Phase Boundary
@@ -13,13 +14,15 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 
 **척추 (모든 것은 정확한 분석의 열매):** 표현 계층(확대비교·영상 표시·문구·일러스트)은 전부 "정확한 분석"이라는 뿌리의 열매다. 뿌리가 틀리면 화면을 아무리 잘 만들어도 "틀린 것을 예쁘게 보여주는 것"이 된다. 그래서 웨이브 A 최선두에 A-0(분석 출력 정확성 확인) 게이트를 둔다.
 
-**In scope**
-- 웨이브 A (핵심): 확대비교 · 영상 위 표시 · 코칭 문구 · 일러스트 — 전부 표현/데이터 계층
-- 웨이브 B (정돈): 수치 자리 이동 · 타이포/레이아웃(상태바 겹침 버그 포함) · 개별버그 6건 — A 앞으로 당기지 않음
+**A-0 게이트 판정 (2026-07-23, 실측 완료 — `33-A0-EVIDENCE.md`):** **어긋남 큼.** 6동작 전수에서 pointed/shown/measured 세 집합 불일치 + 대조 기준선(window_joints) 사실상 부재 + belle 실 doc crop 3장 국면 어긋남(표현으로 치유 불가). → **D-04 분기에 따라 C+M3 substrate 트랙이 phase 33 안으로 편입 확정.** 표현 계층은 substrate(뿌리) 복원 이후에만 진행한다. 이 판정·편입은 실측 결과이며 belle 질문이 아니다(D-01/D-04).
 
-**Out of scope (별도 트랙)**
-- 기준모션↔학생 추출 기질 정합 (C+M3) — `.planning/debug/ref-student-substrate-gap.md` 인계 완료. 단, A-0 판정이 "어긋남 큼"이면 이 트랙을 phase 33 안으로 끌어온다 (§D-04).
-- 채점 산식·임계값 (이 phase 는 표현·문구 계층, 채점 무접촉)
+**In scope**
+- 웨이브 S (뿌리 · A-0 다음 최선두): 기준모션↔학생 추출 기질 정합 (C+M3) — `.planning/debug/ref-student-substrate-gap.md` SEED(Task 0~5 + 성공 판정 8항 + 롤백 설계). ref↔student 프레임 국면 대응 + 실측 window substrate 복원. **모든 표현 작업의 선행 조건**(D-26~D-32).
+- 웨이브 A (표현·데이터): 확대비교 · 영상 위 표시 · 코칭 문구 · 일러스트 — substrate 전항 PASS 후.
+- 웨이브 B (정돈): 수치 자리 이동 · 타이포/레이아웃(상태바 겹침 버그 포함) · 개별버그 6건 — A 앞으로 당기지 않음.
+
+**Out of scope**
+- 채점 산식·감점 임계값 재fit — D-20 불변. C+M3 의 M3(`find_action_segment`)는 정렬 substrate 수정이지 감점 산식·tol·slope·cap 변경이 아니다(D-29).
 - iCloud 영상 실기기 재확인 (폴백은 1.1.0 포함, UAT 항목 유지)
 
 </domain>
@@ -50,7 +53,7 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 - **D-10** 목업 = 정지 화면 + 상태 전이만(애니메이션 제작 안 함): `재생 중`→`음성 중(정지+부위 강조)`→`음성 후 재개` 정지 3컷. HTML 한 장에 담아 belle 이 폰에서 링크로 연다. 데이터는 belle 실제 분석 doc 만 사용(uid `csKWYvI3WCPYPysNQ9KkWecaUvq1` / analysis `071df9f894d64d1696f106e613f51f5c`), mock 금지(부족 시 phase25eval fixture 실 doc 보조, 합성 금지). 안 2~3개를 나란히 — 단 Claude 가 판정 기준(D-07)으로 먼저 떨어뜨린 뒤 살아남은 것만 belle 에게 올린다.
 
 ### 웨이브 A 내부 순서 (병렬 아님 — 실제 의존)
-- **D-11** 순서 = A-0(분석 정확성) → ① 동작별 기준 자세 확정(D-09 표, 공통 재료) → ② 코칭 문구(코드 변경 0, 재료 최초 소비, 신뢰 최저비용 복구) → ③ 확대비교(조사→목업→구현) → ④ 영상 위 표시(확대비교 목업과 함께 belle 확인 1회) → ⑤ 일러스트(문구 확정돼야 무엇을 그릴지 정해짐). 목업(③④)은 하나로 묶어 belle 확인 1회.
+- **D-11** 순서 = A-0(분석 정확성, **완료·판정 어긋남 큼**) → **[웨이브 S — substrate C+M3: Task0 백업 → Task1 11종 재추출(Pod) → Task2 다운스트림 백필 → Task3 M3(`find_action_segment`) 수정 → Task4 6동작 전수 재검증(SEED 8항) → Task5 active flip+앱 배포. D-27~D-31]** → ① 동작별 기준 자세 확정(D-09 표, 공통 재료) → ② 코칭 문구(코드 변경 0, 재료 최초 소비, 신뢰 최저비용 복구) → ③ 확대비교(조사→목업→구현) → ④ 영상 위 표시(확대비교 목업과 함께 belle 확인 1회) → ⑤ 일러스트(문구 확정돼야 무엇을 그릴지 정해짐). **웨이브 S 전항 PASS 이후에만 ①~⑤ 진행**(척추 원칙 — 뿌리 복원 전 표현 금지). 목업(③④)은 하나로 묶어 belle 확인 1회.
 
 ### W1 확대비교 (belle 최우선)
 - **D-12** 두 사진은 같은 순간·같은 배율·같은 표시여야 하고, 캡션이 무엇을 견주는 중인지 한 문장으로 말한다. 안 되면 그 카드는 내보내지 않는다. 실측 결함 8종 해소: 정은지 쪽 표시 없음 / 배율 불일치 / 3장 같은 순간(user34·ref90 고정) / 국면 어긋남 / 항목↔크롭 오연결("다리 스플릿"에 `left_shoulder` 55°) / 각도 배지 PNG 에 구워짐 / 크롭 인물 밖 잘림 / `advisory` 미노출. 손볼 곳 = 백엔드 crop 생성(`analysis/fault_zoom*`) + 앱 연결(`app/src/app/analysis/result.tsx:1215 selectedZoom` — region 첫 매치 반환이라 관절 정확도 없음). Task 1 = 목업(선행 게이트).
@@ -80,7 +83,16 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 - **D-22** 브랜드 `#FF4B33` 불변 · 라이트 테마 · 하드코딩 금지(theme 토큰만). Figma 우선, 텍스트로 검색(노드 이름 아님).
 - **D-23** 검증은 6동작 fixture 전수 동일 빈도. 한 동작만 좋아지면 미완료 판정. fixture 없는 등재 동작은 대체 검증 수단을 계획에 명시.
 - **D-24** 조사 없이 바로 구현하는 태스크 금지(현 확대비교가 그렇게 만들어져 망가진 것으로 판단).
-- **D-25** Pod `rbpnmxhbfoeg35` 는 꺼져 있음(볼륨 생존). crop 재생성·재분석 검증 태스크는 Pod 재기동 절차를 전제로 편성, 실행 시점은 belle 확인 후 Claude 가 켜고 셋업.
+- **D-25** Pod 는 **전부 terminate 됨**(belle 2026-07-23 — 구 `rbpnmxhbfoeg35` 포함, 이전 "볼륨 생존" 기록은 정정됨). crop 재생성·재추출·재분석 태스크는 belle GPU 요청 → 재기동 → SSM+Lambda 재동기화 절차를 전제로 편성, autonomous:false. 실행 시점은 belle greenlight 후 Claude 가 셋업. (상세 = D-30)
+
+### 웨이브 S — substrate C+M3 (A-0 판정 "어긋남 큼"으로 편입 확정)
+- **D-26** A-0 판정 = **어긋남 큼** (실측, `33-A0-EVIDENCE.md`). 이 분기는 belle 질문이 아니라 Claude 실측 판정(D-01/D-04). **33-01(A-0 gate)은 실행 완료·커밋됨(`bde90be`) — 재작성/덮어쓰기 금지.** substrate 웨이브는 33-01 다음 새 플랜으로 편성한다.
+- **D-27** C+M3 권위 스펙 = `.planning/debug/ref-student-substrate-gap.md` 의 `## 인계 — C+M3 실행 계획`(Task 0~5) + `## 성공 판정 기준`(8항) + `## 롤백 설계` + `## elbow-twist 처방 경로`. Task 순서 불변(각 Task 는 앞 Task 산출물을 전제) — M3(Task3)는 Task1·2 완료 후에만. 계획은 이 SEED 를 그대로 태스크화한다(재발명 금지).
+- **D-28** substrate 웨이브가 표현 웨이브(①~⑤·B)의 **선행 조건**. 뿌리(정확 분석) 복원 전 어떤 crop·문구·오버레이·일러스트도 진행하지 않는다 — 척추 원칙 + A-0 국면 어긋남은 표현으로 치유 불가(D-03/D-28). substrate 성공 판정 8항 전부 PASS 가 표현 착수 게이트.
+- **D-29** D-20 유지 재확인 — M3(`find_action_segment`/`motiondtw.py:83`) 수정은 정렬 substrate 복원이며 감점 산식·`tol 20°`·`slope 1.2`·`cap 90`·`MEAN_EPSILON_DEG`·`P99_EPSILON_DEG` 는 전부 **불변(재fit 0)**. 성공 판정 8항 #8 이 임계값 불변을 명시 조건으로 못박음. gate 가 걸리면 임계를 올리지 말고 원인을 조사.
+- **D-30** Pod 전 종료 대응 — substrate 재추출(Task1)·재분석(Task4)·flip(Task5)은 belle 에게 GPU 모델 명시 요청(EU-RO-1 4090 우선순위, `pod-request-include-gpu-model`) → Network Storage Pod 재기동 → bootstrap·start_server·VETO env·X-RunPod-Token 스모크 → SSM+Lambda 재동기화 절차를 전제. 해당 태스크 `autonomous:false`, belle greenlight 후 Claude 가 켜고 셋업/재동기화. eval 은 SERIAL(동시 호출 오염 금지).
+- **D-31** 롤백 대비 필수 — Task 0 백업(reference 11 doc 전량, 실측 7.4 MiB, 로컬+S3 이중, git 커밋 금지)이 **어떤 write 보다 선행**. 백업 무결성 게이트(11/11 존재·frames 정합·SHA-256) 실패 시 재처리 착수 금지. 운영 reference 덮어쓰기는 `--no-flip` 단계적 배포 — active 포인터 flip 은 Task 4 전항 PASS 후에만. 롤백 트리거(여유 부호 음수·M8 회귀·combo 재현성 초과·안전플래그 신규)에 즉시 복원.
+- **D-32** belle 접점은 substrate 편입 후에도 **2회 원칙 유지**(목업 확인 1 + 실기기 UAT 1). 예외 = ⓐ Pod greenlight(운영 액션, 설계 질문 아님) ⓑ elbow-twist 조건부 단일 질문("정은지 정상 영상과 기준 영상이 같은 동작으로 보이십니까?" — 재추출 후 여유 `< +2.0°`일 때만, 점수·수치 제시 금지, SEED elbow-twist 처방 경로). 그 외 substrate 결정 전부 Claude 자율 + 근거 문서화.
 
 ### Claude's Discretion
 - 조사 안 2~3개의 구체 시각 관용구 선택(나란히 vs 겹침, 크기 기준, 차이 표시 방식) — D-07 로 자체 검열 후 살아남은 것만.
@@ -102,10 +114,17 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 ### 근거 (증상 실측)
 - `.planning/phases/32-result-readability-3-omni/32-UAT-FINDINGS-2026-07-22.md` — belle TestFlight 1.1.0 실기기 UAT + Claude 실데이터·코드 실측. 확대비교 결함 8종(§A) · phrasebook 원인 규명 · 영상 표시 무설명.
 
-### 범위 밖 인계
-- `.planning/debug/ref-student-substrate-gap.md` — 기준모션↔학생 추출 기질 정합(C+M3). A-0 판정이 "어긋남 큼"이면 이 문서가 phase 33 진입.
+### 웨이브 S substrate (A-0 "어긋남 큼"으로 IN SCOPE — 권위 SEED)
+- `.planning/phases/33-result-trust-recovery/33-A0-EVIDENCE.md` — A-0 게이트 실측 판정(어긋남 큼) 근거. 편입의 트리거.
+- `.planning/debug/ref-student-substrate-gap.md` — **C+M3 권위 스펙(D-27).** `## 인계 — C+M3 실행 계획`(Task 0~5) / `## 성공 판정 기준`(8항) / `## 롤백 설계` / `## 재처리 위험도 표`(R-1~R-6) / `## elbow-twist 처방 경로` / `## 기존 산출물(재사용)` 전부 태스크화 대상.
 
-### 코드 앵커 (손볼 곳)
+### substrate 코드·스크립트 앵커
+- `backend/scripts/reprocess_reference_motions_phase4.py` — Task1 재추출(`--motions 11종`·`--target-fps 9.0`·`--no-flip`, env `PR_INVERSION_ENABLED=1`/`RTMW_DETERMINISTIC=1`).
+- `backend/scripts/backfill_reference_downstream.py` + `extract_reference_keypoint_reports.py` — Task2 백필(`REFERENCE_TARGET_FPS` 18→9 동반 수정).
+- `backend/shared/python/sunity_shared/analysis/motiondtw.py:83` — Task3 M3(`find_action_segment`, `nu<=nr` 무력화). 파급 3곳: `pipeline/app.py:1770`·`:4015`·`analysis/safety_flags.py:245`. 테스트 `backend/tests/test_motiondtw.py:39,45` 동반 갱신.
+- `backend/scripts/{rollback_reference_motions_phase4,verify_self_comparison,measure_reference_fps}.py` — 롤백·자기비교(fixture 미보유 4종)·fps 계측(기보유, 재사용).
+
+### 표현 계층 코드 앵커 (손볼 곳 — substrate PASS 후)
 - `backend/data/phrasebook.json` — 동작별 문구 데이터 작성 대상(현재 13 entry 전부 `__common__`).
 - `backend/shared/python/sunity_shared/analysis/phrasebook.py:145` — 조회 순서(이미 동작별 지원).
 - `backend/shared/python/sunity_shared/analysis/fault_zoom*` — crop 생성.
@@ -125,7 +144,7 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 <deferred>
 ## Deferred Ideas
 
-- 기준모션↔학생 기질 정합 (C+M3) — 별도 트랙(A-0 분기 시에만 진입).
+- ~~기준모션↔학생 기질 정합 (C+M3)~~ — **편입됨**: A-0 판정 "어긋남 큼"으로 웨이브 S(in scope)로 이동(D-26~D-32).
 - iCloud 영상 실기기 재확인 — UAT 항목으로 유지.
 - 셀프서비스 reference 등록 일반화 — 미해당.
 

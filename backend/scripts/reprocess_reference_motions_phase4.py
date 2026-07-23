@@ -63,6 +63,46 @@ S3_BUCKET = "sunity-motion-pilot-videos"
 S3_PREFIX = "reference"
 PIPELINE_VERSION = "phase4_v1"
 
+# 전역 release 포인터 (33-17, codex suggestion 7):
+# reference/_release.activeCandidate = 현재 활성 candidate 버전 (단일 원자 flip 대상).
+RELEASE_POINTER_PATH = "reference/_release"
+RELEASE_POINTER_FIELD = "activeCandidate"
+
+# top-level mirror / release-manifest 해시 대상 consumer 필드 (채점 소비 경로 정합).
+# 이 필드 집합의 content hash 로 11-doc flip 의 per-doc 무결성을 검증한다 (concern 7).
+_HASH_CONSUMER_FIELDS = (
+    "angles", "anglesJointKeys", "anglesFrames",
+    "joints3d", "joints3dKeys", "joints3dFrames",
+    "coordDim", "space",
+)
+
+
+def _release_doc_hash(payload: dict) -> str:
+    """payload 의 consumer 필드 content hash (16 hex, 결정론).
+
+    top-level mirror 로 소비되는 필드만 해시 — flip 후 11-doc 재검증의 per-doc
+    hash source (release-manifest). 순수 함수 (Firestore/네트워크 무관, stdlib hashlib).
+    """
+    import hashlib
+
+    consumer = {k: payload.get(k) for k in _HASH_CONSUMER_FIELDS}
+    blob = json.dumps(consumer, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
+def _doc_exists(doc_ref) -> bool:
+    """DocumentReference 존재 여부. 실 Firestore(.exists) + 테스트 fake(to_dict) 양립.
+
+    실 Firestore snapshot 은 `.exists` 를 제공하고 미존재 시 to_dict()==None.
+    일부 테스트 fake 는 `.exists` 가 없고 미존재 시 to_dict()=={} (falsy) 를 준다 —
+    두 경우 모두 안전하게 판정한다.
+    """
+    snap = doc_ref.get()
+    exists = getattr(snap, "exists", None)
+    if exists is None:
+        return bool(snap.to_dict())
+    return bool(exists)
+
 # RTMW vertical pole_axis fallback (extract_reference_angles.py:82-87 정합).
 # reference 영상은 학원 환경 — 폴 거의 항상 수직. PoleDetector 호출 비용 회피.
 _VERTICAL_POLE_AXIS_KWARGS = dict(
@@ -76,16 +116,21 @@ _VERTICAL_POLE_AXIS_KWARGS = dict(
 # ── _validate_payload_schema (BLOCKER-2, D-09) ───────────────────────────────
 
 
-def _validate_payload_schema(payload: dict, motion_id: str) -> None:
+def _validate_payload_schema(
+    payload: dict, motion_id: str, version: str = PIPELINE_VERSION
+) -> None:
     """11개 키 존재 + pipelineVersion + angles 비어있지 않음 검증 (BLOCKER-2).
 
     검증 항목:
       angles(list), anglesJointKeys(list), anglesFrames(int),
       keypointReport(dict), joints3d(list flat), joints3dKeys(list len 17 COCO-17),
       joints3dFrames(int), coordDim(==3), space("pole_aligned"),
-      pipelineVersion("phase4_v1"), reprocessedAt(str ISO 8601)
+      pipelineVersion(== resolved version), reprocessedAt(str ISO 8601)
 
     5개 전부 통과하기 전에는 Firestore write 가 일어나지 않음 (D-09).
+
+    33-17: pipelineVersion 은 frozen 상수가 아니라 **resolved version 인자** 와 비교한다
+    (기본값 phase4_v1 = 하위호환). phase-33 은 phase33-cm3-run1/run2 를 넘긴다.
 
     raises:
       ValueError: 키 누락 / pipelineVersion 불일치 / angles 빈 list / coordDim != 3 시.
@@ -103,10 +148,10 @@ def _validate_payload_schema(payload: dict, motion_id: str) -> None:
             f"{motion_id}: schema 검증 실패 — 누락 키: {sorted(missing)}"
         )
 
-    if payload["pipelineVersion"] != PIPELINE_VERSION:
+    if payload["pipelineVersion"] != version:
         raise ValueError(
             f"{motion_id}: pipelineVersion 불일치 — "
-            f"기대={PIPELINE_VERSION!r}, 실제={payload['pipelineVersion']!r}"
+            f"기대={version!r}, 실제={payload['pipelineVersion']!r}"
         )
 
     if not payload["angles"]:
@@ -139,6 +184,7 @@ def _reprocess_one(
     s3_prefix: str,
     synthesis_adapter=None,
     _dry_run: bool = False,
+    version: str = PIPELINE_VERSION,
 ) -> dict:
     """1 motion → Phase 4-compatible payload dict.
 
@@ -192,7 +238,7 @@ def _reprocess_one(
             "joints3dFrames": T,
             "coordDim": 3,
             "space": "pole_aligned",
-            "pipelineVersion": PIPELINE_VERSION,
+            "pipelineVersion": version,
             "reprocessedAt": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -298,7 +344,7 @@ def _reprocess_one(
             "joints3dFrames": joints3d_frames_int,
             "coordDim": 3,
             "space": "pole_aligned",
-            "pipelineVersion": PIPELINE_VERSION,
+            "pipelineVersion": version,
             "reprocessedAt": datetime.now(timezone.utc).isoformat(),
         }
     finally:
@@ -311,24 +357,48 @@ def _reprocess_one(
 # ── _write_versioned (D-09) ───────────────────────────────────────────────────
 
 
-def _write_versioned(fs_client, motion_id: str, payload: dict) -> str:
-    """Firestore reference/{motion_id}/versions/phase4_v1 에 payload 저장.
+def _write_versioned(
+    fs_client, motion_id: str, payload: dict, version: str = PIPELINE_VERSION
+) -> str:
+    """Firestore reference/{motion_id}/versions/{version} 에 payload 저장.
 
     반환값: 저장된 문서 경로 문자열.
     직접 active 포인터를 건드리지 않음 — flip 은 별도 단계 (_flip_active_pointer).
 
-    canonical path = reference/{id}/versions/phase4_v1.
+    canonical path = reference/{id}/versions/{version}.
     잘못된 collection 사용 금지 (HIGH-2, HIGH-3): reference/{id} 경로 전용.
+
+    33-17 불변식 (codex concern 1):
+      (1) candidate != active 단언 — resolved version 이 doc 의 현재 activeVersion 과
+          같으면 abort (ValueError). --no-flip 이 active-pointed backing doc 을
+          덮어쓰는 phase4_v1 충돌을 원천 차단.
+      (2) refuse-overwrite — versions/{version} 이 이미 존재하면 abort (ValueError).
+          run1 을 run2 가 clobber 하지 못하게 하여 두 candidate 를 distinct 유지.
     """
-    path = f"reference/{motion_id}/versions/{PIPELINE_VERSION}"
-    doc_ref = (
-        fs_client
-        .collection("reference")
-        .document(motion_id)
-        .collection("versions")
-        .document(PIPELINE_VERSION)
+    ref_doc = fs_client.collection("reference").document(motion_id)
+
+    # (1) candidate != active 단언 (concern 1): active-pointed backing doc 보호.
+    current = ref_doc.get().to_dict() or {}
+    active = current.get("activeVersion")
+    if active is not None and active == version:
+        raise ValueError(
+            f"{motion_id}: candidate version {version!r} == 현재 activeVersion — "
+            f"active-pointed backing doc 을 덮어쓸 수 없음 (33-17 concern 1). "
+            f"phase-33 은 새 candidate id(phase33-cm3-run1/run2)를 넘겨야 함."
+        )
+
+    # (2) refuse-overwrite (concern 1): 기존 candidate version 덮어쓰기 금지.
+    version_doc = (
+        ref_doc.collection("versions").document(version)
     )
-    doc_ref.set(payload)
+    if _doc_exists(version_doc):
+        raise ValueError(
+            f"{motion_id}: versions/{version} 이 이미 존재 — refuse to overwrite "
+            f"(33-17 concern 1). run1/run2 는 distinct candidate id 로 분리."
+        )
+
+    path = f"reference/{motion_id}/versions/{version}"
+    version_doc.set(payload)
     log.info("  [%s] versioned write 완료 → %s", motion_id, path)
     return path
 
@@ -438,6 +508,16 @@ def main() -> int:
         help="재처리+버전 쓰기는 하되 active 포인터 flip 생략 (단계적 배포용).",
     )
     parser.add_argument(
+        "--version",
+        type=str,
+        default=PIPELINE_VERSION,
+        help=(
+            "Candidate version id (default 'phase4_v1' = 하위호환). "
+            "phase-33 substrate 는 'phase33-cm3-run1' / 'phase33-cm3-run2' 를 넘김 — "
+            "immutable candidate id, refuse-overwrite + candidate!=active 로 보호 (33-17)."
+        ),
+    )
+    parser.add_argument(
         "--s3-prefix",
         type=str,
         default=S3_PREFIX,
@@ -446,6 +526,7 @@ def main() -> int:
     args = parser.parse_args()
 
     motion_ids: list[str] = args.motions
+    version: str = args.version
 
     if args.dry_run:
         # dry-run: schema 구조 검증만 (S3/Firestore 무관)
@@ -460,8 +541,9 @@ def main() -> int:
                     s3_prefix=args.s3_prefix,
                     synthesis_adapter=None,
                     _dry_run=True,
+                    version=version,
                 )
-                _validate_payload_schema(payload, motion_id)
+                _validate_payload_schema(payload, motion_id, version)
                 print(f"  [{motion_id}] dry-run schema OK", flush=True)
             except (ValueError, Exception) as exc:
                 print(f"  [{motion_id}] dry-run FAIL — {exc}", flush=True)
@@ -494,6 +576,7 @@ def main() -> int:
                 s3_prefix=args.s3_prefix,
                 synthesis_adapter=None,  # is_reference=True: 합성 비활성 (G4 가드)
                 _dry_run=False,
+                version=version,
             )
             results[motion_id] = payload
             print(f"  [{motion_id}] reprocess OK ({time.time() - t0:.1f}s)", flush=True)
@@ -516,7 +599,7 @@ def main() -> int:
             )
             return 1
         try:
-            _validate_payload_schema(results[motion_id], motion_id)
+            _validate_payload_schema(results[motion_id], motion_id, version)
             print(f"  [{motion_id}] schema gate PASS", flush=True)
         except ValueError as exc:
             print(
@@ -529,7 +612,7 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps({
         "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "pipelineVersion": PIPELINE_VERSION,
+        "pipelineVersion": version,
         "motions": results,
     }, ensure_ascii=False, indent=2))
     print(f"\n재처리 JSON 저장 → {args.out}", flush=True)
@@ -557,7 +640,7 @@ def main() -> int:
     # 단계 3: _write_versioned (각 motion 에 versions/phase4_v1 저장)
     print("\n=== Firestore versioned write ===", flush=True)
     for motion_id in motion_ids:
-        path = _write_versioned(fs_client, motion_id, results[motion_id])
+        path = _write_versioned(fs_client, motion_id, results[motion_id], version)
         print(f"  [{motion_id}] → {path}", flush=True)
 
     # 단계 4: _flip_active_pointer (--no-flip 없으면 실행)

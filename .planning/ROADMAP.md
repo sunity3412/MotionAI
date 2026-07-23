@@ -1137,7 +1137,7 @@ Plans:
 **Goal:** belle 이 결과 화면에서 던진 의문 5개(확대사진·키포인트·붉은 표시·바 마커/음성·코칭 문구)에 화면이 스스로 답하게 만든다. 척추 = 정확한 분석: A-0 게이트로 "짚은 부위 vs 실제 결함 부위"를 6동작 전수 대조해 표현/기질 분기를 먼저 판정하고, 그 위에서 확대비교(같은 순간·배율·표시)·영상 위 표시(표시마다 답 or 없앰)·코칭 문구(동작별 phrasebook, fail-closed)·일러스트(준실사 2안, 해부학 전수 검수)를 재구성한다. 심플 우선(설명 추가는 최후 수단, 새 화면당 +1줄 상한)·오류 0(산출물마다 틀리면 걸리는 장치 + 눈으로 확인 의무). 채점 산식·임계값 무접촉.
 **Requirements**: D-01~D-32 (33-CONTEXT.md — CONTEXT 결정이 요구사항 원본, 공식 REQ 매핑 없음. D-26~D-32 = A-0 "어긋남 큼" substrate 편입)
 **Depends on:** Phase 32
-**Plans:** 1/21 plans executed (A-0 완료 → C+M3 substrate 편입 → cross-AI(codex) 리뷰 반영 release-mechanics re-plan: 신규 33-17~33-21 + 33-02~33-07 수정)
+**Plans:** 6/21 plans executed
 Plans:
 **Wave 1** *(A-0 게이트 — DONE)*
 
@@ -1147,11 +1147,11 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 — 병렬 5 plan, 파일 무충돌)*
 
-- [ ] 33-02-PLAN.md — SEED Task 0: reference 11 doc 백업 강화 (temp→rename, whole-file SHA-256 S3 metadata + re-download byte-compare + restore rehearsal) [autonomous] (codex concern 10)
-- [ ] 33-17-PLAN.md — 신규: staging+activation 프리미티브 (candidate version id `phase33-cm3-*` refuse-overwrite + shadow-reference resolver + idempotent atomic flip/global pointer) [autonomous] (codex concern 1/3/7)
-- [ ] 33-18-PLAN.md — 신규: release manifest tuple + Pod /health commit-SHA+canary + gate_check.py JSON data-gate [autonomous] (codex concern 5/6/8, suggestion 2/7)
-- [ ] 33-19-PLAN.md — 신규: 33-M3-SPEC.md 잠금 (paired user+reference range + coverage floor + fail-closed + byte-identical invariants) — 33-05 선행 [autonomous] (codex concern 4)
-- [ ] 33-20-PLAN.md — 신규: 33-COVERAGE-MATRIX.md 단일 11동작 커버리지 표 (climb/sideway-spin/combo 해소) [autonomous] (codex suggestion 10)
+- [x] 33-02-PLAN.md — SEED Task 0: reference 11 doc 백업 강화 (temp→rename, whole-file SHA-256 S3 metadata + re-download byte-compare + restore rehearsal) [autonomous] (codex concern 10)
+- [x] 33-17-PLAN.md — 신규: staging+activation 프리미티브 (candidate version id `phase33-cm3-*` refuse-overwrite + shadow-reference resolver + idempotent atomic flip/global pointer) [autonomous] (codex concern 1/3/7)
+- [x] 33-18-PLAN.md — 신규: release manifest tuple + Pod /health commit-SHA+canary + gate_check.py JSON data-gate [autonomous] (codex concern 5/6/8, suggestion 2/7)
+- [x] 33-19-PLAN.md — 신규: 33-M3-SPEC.md 잠금 (paired user+reference range + coverage floor + fail-closed + byte-identical invariants) — 33-05 선행 [autonomous] (codex concern 4)
+- [x] 33-20-PLAN.md — 신규: 33-COVERAGE-MATRIX.md 단일 11동작 커버리지 표 (climb/sideway-spin/combo 해소) [autonomous] (codex suggestion 10)
 
 **Wave 3** *(blocked on 33-02,17,18)*
 

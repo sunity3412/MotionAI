@@ -1,7 +1,7 @@
 ---
 plan: 33-04
 title: S2 candidate-aware 백필 증거 — 11 reference downstream @9fps → versions/phase33-cm3-run1
-status: in_progress
+status: complete
 pod: k508k3lut0o3f1 (dedicated eval Pod)
 commit: 8682c83acda0f9ba89e3ce7211954cc0d5c0bc48
 candidate: phase33-cm3-run1
@@ -97,32 +97,11 @@ referenceKeypointReport, meanAngles} — 백필이 top-level 을 건드리면 �
 
 **로컬 게이트:** ast.parse OK, test_reference_backfill.py 9 passed, 채점 파일 diff 0 (D-20).
 
-## Task 2 — candidate 백필 실행 (warm Pod) — integrity gate 전수 PASS + 인덱스 한도 발견
+## Task 2 — candidate 백필 실행 (warm Pod) — 11/11 완주 (옵션 B 채택)
 
-### 무결성 게이트 (11/11 PASS, 임계 재fit 0 — D-29)
+### ★ 실행 이력 — Firestore 40k index-entry 한도 → 옵션 B(인덱스 면제) 해소
 
-warm Pod 에서 `--reference-version phase33-cm3-run1 --write-candidate` 실행. candidate angles vs
-live rerun angles(9fps, PR-on) integrity gate 는 **11/11 전부 통과** — meanAngleDelta 0.0025 /
-p99AngleDelta 0.005 (임계 0.1 / 1.0 대비 20~200배 여유). frame 수 candidate 정합, keypointReport.fps=9.0,
-bodyNormalizationProfile non-NaN (body_conf 0.49~0.64), bodyComparisonSourcePose 산출 성공.
-
-| motion | frames(9fps) | meanΔ | p99Δ | maxΔ | body_conf | srcPose repFrame/conf | keypointReport.fps |
-|--------|------|-------|------|------|-----------|----------------------|--------------------|
-| ref-climb | 172 | 0.0025 | 0.005 | 0.005 | 0.593 | — / — | 9.0 |
-| ref-foxtop | 284 | 0.0025 | 0.005 | 0.005 | 0.504 | — | 9.0 |
-| ref-foxtop-split | 324 | 0.0025 | 0.005 | 0.005 | 0.526 | — | 9.0 |
-| ref-invert | 174 | 0.0025 | 0.005 | 0.005 | 0.529 | — | 9.0 |
-| ref-sideway-spin | 199 | 0.0025 | 0.005 | 0.005 | 0.639 | — | 9.0 |
-| ref-combo | 621 | 0.0025 | 0.005 | 0.005 | 0.497 | — | 9.0 |
-| ref-power-spin | 106 | 0.0025 | 0.005 | 0.005 | 0.487 | 15 / 0.843 | 9.0 |
-| (나머지 4종 elbow-twist-sister/kip-up/pdshape/peter-pan) | 정상 처리 | 0.0025 | 0.005 | 0.005 | non-NaN | 산출 | 9.0 |
-
-- **R-4 재현성 재확인**: ref-combo(과거 23.43°→0.193° 요동 이력) meanΔ=0.0025 / maxΔ=0.005 — 결정론 유지.
-- 산출 artifact: Pod `/workspace/reference-downstream-backfill.json` (28.9 KB, perCandidateDump 11/11 + diagnostics).
-
-### ★ 발견 — Firestore 40k index-entry 한도 (candidate MERGE 부분 실패)
-
-candidate 버전 문서에 MERGE 하는 단계에서 `ref-combo` 부터 실패:
+1차 `--write-candidate` 실행에서 candidate MERGE 가 `ref-combo` 부터 실패:
 
 ```
 grpc._channel._InactiveRpcError: status = INVALID_ARGUMENT
@@ -131,17 +110,64 @@ grpc._channel._InactiveRpcError: status = INVALID_ARGUMENT
 
 - 원인 = [[firestore-index-entry-limit]] (문서당 40,000 index-entry 한도). 신규 대형 배열 필드
   `referenceKeypointReport`(data/confidence flat, combo 621f × 12관절 ≈ 2.2만 entry)가
-  **`versions` collection-group 에서 인덱스 면제되어 있지 않아** 대형 candidate 문서를 한도 초과시킴.
-- 33-03 이 `angles`/`joints3d`/`keypointReport` 를 combo candidate 에 정상 write 한 사실 →
-  이 3개는 versions 에서 이미 인덱스 면제됨. **면제 목록에 없는 `referenceKeypointReport` 만이 초과 유발.**
-  (top-level `reference` 컬렉션엔 referenceKeypointReport 면제 존재 — 현행 top-level 18fps refKR 이 그 증거.)
-- **부분 MERGE 상태** (active pointer 무접촉, `_release` ABSENT — 프로덕션 무영향):
-  MERGE 성공 5종 = climb·foxtop·foxtop-split·invert·sideway-spin (전 파생 필드 + referenceKeypointReport).
-  MERGE 미실행 6종 = combo·elbow-twist-sister·kip-up·pdshape·peter-pan·power-spin.
-- **선택 필요 (아래 33-04 SUMMARY / 오케스트레이터 결정)**:
-  · (A) candidate 엔 `keypointReport`@9fps(이미 면제·존재) + 소형 파생 필드 + bodyComparisonSourcePose 만
-    MERGE 하고, 대형 `referenceKeypointReport`@9fps 는 인덱스 면제가 이미 존재하는 **top-level flip(33-07)**
-    에서 투영. → owner 인프라 불필요, candidate lean. (부분 write 된 5종의 referenceKeypointReport 는 삭제해 균일화.)
-  · (B) belle(owner)이 `versions` collection-group 에 `referenceKeypointReport` 단일필드 인덱스 면제를
-    추가 → 33-04 재실행해 11/11 candidate 에 referenceKeypointReport 포함 write.
+  **`versions` collection-group 에서 인덱스 면제되어 있지 않아** 대형 candidate 문서(combo 621f)를 초과시킴.
+  33-03 이 `angles`/`joints3d`/`keypointReport` 를 combo candidate 에 정상 write 한 사실 → 이 3개는
+  versions 에서 이미 면제됨. 면제 목록에 없던 `referenceKeypointReport` 만이 초과 유발 (combo 단일).
+- **belle 결정 = 옵션 B.** 오케스트레이터가 Firestore single-field 인덱스 면제 2건 추가 (둘 다 exit 0, `--disable-indexes`):
+  · `collectionGroup=versions, field=referenceKeypointReport`
+  · `collectionGroup=reference, field=referenceKeypointReport` (33-07 flip 의 top-level 미러 시 combo 재초과 예방)
+  → 원래 acceptance("referenceKeypointReport in candidate 11/11")를 **그대로 충족**한다.
+- 면제 추가 후 동일 백필 재실행 → **11/11 MERGE 성공, PY_EXIT=0, failures=[]** (combo 포함).
+
+### 무결성 게이트 + per-candidate 덤프 (11/11 PASS, 임계 재fit 0 — D-29)
+
+candidate angles vs live rerun angles(9fps, PR-on) integrity gate **11/11 전부 통과** — meanΔ/p99Δ 가
+임계(0.1 / 1.0) 대비 20~200배 여유. bodyNormalizationProfile non-NaN, bodyComparisonSourcePose values=68
+(=4×17 COCO-17), keypointReport.fps=9.0, referenceKeypointReport 11/11 존재.
+
+| motion | meanΔ | p99Δ | maxΔ | bodyNorm conf(non-NaN) | keypointReport.fps | referenceKeypointReport | srcPose vals/conf | force findings |
+|--------|-------|------|------|------------------------|--------------------|-------------------------|-------------------|----------------|
+| ref-climb | 0.0025 | 0.0049 | 0.0050 | 0.593 | 9.0 | ✓ | 68 / 0.859 | 1 |
+| ref-foxtop | 0.0025 | 0.0049 | 0.0050 | 0.504 | 9.0 | ✓ | 68 / 0.832 | 3 |
+| ref-foxtop-split | 0.0025 | 0.0050 | 0.0050 | 0.526 | 9.0 | ✓ | 68 / 0.837 | 2 |
+| ref-invert | 0.0025 | 0.0049 | 0.0050 | 0.529 | 9.0 | ✓ | 68 / 0.837 | 3 |
+| ref-sideway-spin | 0.0025 | 0.0050 | 0.0050 | 0.639 | 9.0 | ✓ | 68 / 0.854 | 0 |
+| ref-combo | 0.0025 | 0.0049 | 0.0050 | 0.497 | 9.0 | ✓ | 68 / 0.868 | 3 |
+| ref-elbow-twist-sister | 0.0025 | 0.0050 | 0.0050 | 0.385 | 9.0 | ✓ | 68 / 0.827 | 3 |
+| ref-kip-up | 0.0024 | 0.0050 | 0.0050 | 0.667 | 9.0 | ✓ | 68 / 0.842 | 0 |
+| ref-pdshape | 0.0024 | 0.0049 | 0.0050 | 0.450 | 9.0 | ✓ | 68 / 0.802 | 3 |
+| ref-peter-pan | 0.0026 | 0.0049 | 0.0050 | 0.574 | 9.0 | ✓ | 68 / 0.872 | 2 |
+| ref-power-spin | 0.0025 | 0.0049 | 0.0050 | 0.487 | 9.0 | ✓ | 68 / 0.843 | 3 |
+
+- meanAngles: 11/11 finite (JOINT_KEYS 8매핑), techniqueProfile: FallbackRecognizer EXTEND (name='미상' — fallback 정상, Gemini 아님).
+- **R-4 재현성 재확인**: ref-combo(과거 23.43°→0.193° 요동 이력) meanΔ=0.0025 / maxΔ=0.005 — 결정론 유지.
+- 산출 artifact: Pod `/workspace/reference-downstream-backfill.json` (perCandidateDump 11/11 + diagnostics).
+
+### versions/{candidate} 에만 기록 + top-level 무접촉 (probe 전후 대조)
+
+| 항목 | baseline | 백필 후 |
+|------|----------|---------|
+| candidate 파생 필드 (meanAngles/techniqueProfile/bodyNormalizationProfile/forceDirectionPattern/keypointReport/referenceKeypointReport/bodyComparisonSourcePose/captureViews) | 부재(keypointReport 제외) | **11/11 전부 존재** |
+| candidate keypointReport.fps | 9.0 | 9.0 (불변) |
+| top-level content hash (angles/joints3d/activeVersion/pipelineVersion/keypointReport/referenceKeypointReport/meanAngles) | 위 baseline 표 | **11/11 동일 (무변경)** |
+| top-level activeVersion | phase4_v1 (11/11) | **phase4_v1 (11/11 불변)** |
+| `reference/_release` | ABSENT | **ABSENT (재확인)** |
+
+top-level content hash 가 11/11 전부 baseline 과 동일 → 백필이 top-level 을 **한 번도 write 하지 않음**을 증명.
+파생 필드는 `versions/phase33-cm3-run1` 에만 MERGE 됨 (activeVersion/flip 무접촉 — flip 은 33-07).
+
+## 종합
+
+| 항목 | 결과 |
+|------|------|
+| Task 0 warm-Pod canary (commit+flags+model) | PASS |
+| Task 1 candidate-source+merge / fps candidate / real bodyComparisonSourcePose producer / epsilon·FORCE_CONFIG 무접촉 | PASS |
+| Task 2 integrity gate 11/11 (임계 0.1/1.0 무변경, refit 0) | PASS |
+| Task 2 파생 필드 11/11 versions/{candidate} MERGE (referenceKeypointReport 포함, 옵션 B) | PASS |
+| keypointReport.fps=9.0 (11/11) | PASS |
+| bodyNormalizationProfile non-NaN (11/11) | PASS |
+| bodyComparisonSourcePose 존재 (values=68, 11/11) | PASS |
+| top-level/activeVersion 무접촉 (hash 11/11 동일) | PASS |
+| reference/_release ABSENT | PASS |
+| 채점 파일 diff / epsilon refit (D-20/D-29) | 0 |
 

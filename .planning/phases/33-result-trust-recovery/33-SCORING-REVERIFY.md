@@ -67,6 +67,28 @@ climb(fault/correct 모두) `not_pole_motion` 안전 게이트(`angle 0 < 25`)�
 - **켜는 법:** 특정 criterion yaml 에 `split_fail_threshold_deg` 추가 = 유일 레버.
 - **왜 지금 안 켜는가:** split 검출은 과거 kip-up 위양성을 재유발한 이력([[kipup-fp-RESOLVED-phase24A]]). 켜는 순간 그 FP 재발 위험 → **켤 때는 반드시 6 fixture 재검증 게이트를 다시 통과**해야 함(별도 gated plan, 오늘 범위 밖). 구조는 준비됐고 스위치만 꺼둔 상태.
 
+## 영상 전수 검증 (belle 요청 — "감점이 진짜 결함을 짚는지", 5 fault fixture 실영상 vs 정은지 육안)
+
+Pod 종료 후 S3 영상(`fixtures/phase15/{motion}/fault.mp4` + `reference/ref-{motion}.mp4`)을 로컬 다운로드·ffmpeg 프레임 추출로 육안 대조. climb 제외 5개.
+
+| 동작 | 점수 | 영상 관찰 | 점수 크기 | vision severity |
+|---|---:|---|:---:|:---:|
+| power-spin | 80 | 제법 잘하는 스핀, 덜 다듬어짐 | 타당 | none |
+| peter-pan | 86 | 클라임/홀드, 다리 살짝 덜 폄 | 타당(사소) | none |
+| kip-up | 79 | 넓은 다리 수평 홀드, athletic | 타당 | none |
+| elbow-twist-sister | 60 | **역립**, 라인 다소 무너짐 | 타당(난도) | none |
+| pdshape | 60 | **역립**, 정은지보다 덜 신전 | 타당 | none |
+
+**발견 ① 점수 크기는 5/5 정당.** 학생 전부 "알아볼 수 있는 동작을 정은지보다 덜 깨끗하게" — 그로스 에러 없음, vision severity=none 과 일치. 스프레드 60~86 합리적(역립 2개=60, 스핀/클라임=79~86). 재설계는 믿을 만한 점수를 냄.
+
+**발견 ② 관절 귀속은 불신 — 특히 역립 2개.** elbow-twist/pdshape 는 7~8관절이 **균일하게 ~30°씩** 감점 — "8관절 각각 진짜 결함"이 아니라 **거꾸로 자세에서 포즈추정/정렬이 통째 틀어진 아티팩트** 냄새. 2트랙 캡이 0붕괴 막아 60 세운 건 옳으나(엔진 역할), "왜 60 = 이 8관절"을 사용자에게 보이면 안 됨. **A-0("엉뚱한 데를 짚는다")의 잔존 형태.**
+
+**power-spin 3측정 시스템 재해석(정정):** worst-window 70° 는 두 클립(8.2s vs 10.5s) 위상 어긋남에서 온 **정렬 아티팩트** — 지속 결함 아님. 점수엔 DTW-median(보수적)을 쓰는 게 옳음([[window-median-silent-seed-fp-reverted]] 설계 그대로). 초기 "점수가 제일 약한 걸 탄다" 경보는 영상 확인 후 철회.
+
+**fixture 성격:** 이 fault fixture 들은 "그로스 폴트"가 아니라 "챔피언보다 덜 깨끗한" 데모 — 영상 내용 기준 60~86 은 공정. belle 가 그로스 폴트를 기대했다면 그건 채점이 아닌 fixture 설계 이슈.
+
 ## 결론
 
-R5 일반화 게이트 **PASS** — curve-fit 없이 구조 불변식 동시 성립. 재설계는 "다관절 결함 0점 뭉침"을 제거하면서(elbow-twist 0→60) 고수 만점·단조·재구성·캡아래 변별을 보존. flip(33-07)은 belle 보류 유지.
+R5 일반화 게이트 **PASS** — curve-fit 없이 구조 불변식 동시 성립. 재설계는 "다관절 결함 0점 뭉침"을 제거하면서(elbow-twist 0→60) 고수 만점·단조·재구성·캡아래 변별을 보존. **점수 크기는 영상으로 검증됨(5/5 정당).** flip(33-07)은 belle 보류 유지.
+
+**다음 작업(belle 지정): 관절 귀속 정밀도** — 점수 "크기"는 맞으나 "어느 관절/왜"가 불신(특히 역립 균일 다관절 = 측정 아티팩트). = 33-NEXT-JOINT-ATTRIBUTION-SEED.md 참조.

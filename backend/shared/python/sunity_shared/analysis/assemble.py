@@ -810,6 +810,13 @@ def rebuild_tips_for_vision_fault(
     veto = result.get("visionVeto") if isinstance(result, dict) else None
     if not isinstance(veto, dict) or veto.get("status") != "applied":
         return result
+    # 33-NEXT — 귀속 저신뢰(역립 광범위-다관절 아티팩트) 시 per-joint 팁 재조립을 건너뛴다.
+    # magnitude(감점 record/final)는 그대로 두되, "왼팔꿈치 30°·오른무릎 28°..." 식 8관절
+    # 단정이 사용자에게 새는 것을 막는다(belle DECISION 1 "단정형 금지"). 앱 표현 레이어는
+    # result["attributionReliability"].aggregateStatement 로 clean aggregate 를 렌더한다.
+    attr = result.get("attributionReliability")
+    if isinstance(attr, dict) and attr.get("unreliable"):
+        return result
     tips = result.get("tips")
     is_generic_only = (
         isinstance(tips, list)

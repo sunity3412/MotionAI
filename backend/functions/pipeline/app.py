@@ -2026,15 +2026,22 @@ def _collect_vision_fault_context(
             reference_pose_frames=reference_pose_frames,
             cached_user_frames=cached_user_frames,
         )
+        # WR-02 — keypoint confidence 를 실제로 측정했는지 추적한다. pair 부재(frame-pair 선택
+        # 실패) 또는 student_confidence None 이면 미측정 → visibility 0.0 은 sentinel 이지
+        # genuine worst 가 아니다. 이 bit 를 alignment 에 실어 33-NEXT 마커가 미측정 0.0 을
+        # 발화 신호로 오인하지 않게 한다(assess_alignment_confidence 는 0.0 으로 collapse).
         visibility = 0.0
+        visibility_measured = False
         if pair is not None and pair.student_confidence is not None:
             visibility = float(pair.student_confidence)
+            visibility_measured = True
         alignment = vision_veto.assess_alignment_confidence(
             match=reference_dtw_match,
             selected_user_frame=user_frame_idx,
             keypoint_visibility=visibility,
         ) if reference_dtw_match is not None else {"adoption": "single"}
         alignment["selector_version"] = selection.get("selector_version")
+        alignment["visibility_measured"] = visibility_measured
 
         # 정렬 게이트 분리 (Phase 24 plan 06 = Option B1, belle 2026-06-29).
         # alignment 게이트는 frame "선택 품질"만 판단하게 하고, Gemini "실행 여부"와 분리한다.
@@ -2232,10 +2239,96 @@ def _baseline_kind_for_profile(profile) -> str:
     return "hip_line"
 
 
+# ── 33-NEXT (역립 관절 귀속 정밀도) — attribution_unreliable 마커 ─────────────────
+# 근거: .planning/debug/inversion-joint-attribution.md (H1 확정),
+#       .planning/phases/33-result-trust-recovery/33-NEXT-JOINT-ATTRIBUTION-SEED.md 가설3,
+#       reliability.py H-4 "추정 표기 + 후속 단정 금지" 설계 의도(D-05 박제).
+#
+# 문제(H1 root): 역립(self-occluded inverted) 자세에서 RTMW keypoint 신뢰도(visibility)가
+# 급락하고 DTW 정렬 품질이 저하되면, 채점 경로 per_joint_deviation(절대 median|Δ|)이
+# 해부학적으로 무관한 관절까지 tol(20°) 위로 균일 부양시켜 7~8관절 전부가
+# angle_vs_reference fallback record 를 생성한다. vision severity=none(Gemini 침묵)이면
+# 이 fallback 이 그대로 사용자 귀속이 되어 "엉뚱한 관절을 짚는" A-0 위반이 발생한다
+# (elbow-twist-sister / pdshape 실측).
+#
+# 마커 설계(belle DECISION 1 — magnitude-neutral): 점수 record 는 절대 불변(magnitude 60
+# 유지, D-20/D-29). 저신뢰-광범위-다관절 귀속일 때만 unreliable=True 를 방출해, 다운스트림
+# (coach / 앱 표현)이 특정 관절 단정을 회피하고 "전체 자세가 정은지보다 덜 정돈됨" 수준의
+# clean aggregate 로 강등하게 한다(reliability.py "단정형 금지" 정합).
+#
+# 게이트(3-조건 AND — 5-fixture 로컬 유도, curve-fit 금지 → 6-fixture serial GPU sweep 로
+# 일반화·비역립 무오발 검증 필요):
+#   1) gemini_silent           — Gemini 가 특정 결함 관절을 하나도 못 짚음(pointed=∅).
+#   2) over_tol_count >= 5/8    — 광범위 다관절이 tol 초과(개별 결함 아닌 전역 부양 서명).
+#   3) low_alignment           — visibility < 0.70 OR DTW distance > 60(저신뢰/저정렬 측정).
+# 로컬 실측(phase25 baseline, 5 fault fixture):
+#   elbow-twist(over=7, vis=0.686, dist=62.9) → FIRE ; pdshape(8, 0.448, 64.3) → FIRE
+#   power-spin(3) / peter-pan(3) / kip-up(pointed=4) → 미발화. 완전 변별.
+_ATTR_MIN_OVER_TOL_JOINTS: int = 5      # over-tol 관절 수 하한(전역 부양 서명). [5-fixture 유도]
+_ATTR_MAX_VISIBILITY: float = 0.70      # 이 미만이면 저신뢰 keypoint. [5-fixture 유도]
+_ATTR_MAX_DTW_DISTANCE: float = 60.0    # 이 초과면 저정렬 DTW. [5-fixture 유도]
+# 다운스트림이 per-joint 단정 대신 그대로 노출할 clean aggregate(belle DECISION 1 예시 문구).
+_ATTR_AGGREGATE_STATEMENT: str = "전체 자세가 정은지 선수보다 덜 정돈된 편이에요."
+# WR-01 — pointed=∅ 를 "silent(짚을 게 없음)"로 볼 수 있는 vision 상태 집합. Gemini 가
+# 영상을 실제로 평가해 affirmative 결론(정타/verdict 후보/저정렬 best-effort)을 낸 경우만.
+# skipped_error / resource_limited / disabled / mode3_held / missing_* 는 vision 이 부재/실패한
+# signal-absent 상태 → pointed=∅ 여도 "침묵"이 아니라 "신호 없음"이므로 발화 금지(vision 오류를
+# 저신뢰-역립으로 오인하는 오발 차단).
+_ATTR_AFFIRMATIVE_VISION_STATUSES: frozenset[str] = frozenset(
+    {"no_fault", "candidate_verdict", "low_alignment_confidence"}
+)
+
+
+def _assess_attribution_reliability(
+    *,
+    gemini_silent: bool,
+    over_tol_count: int,
+    visibility: float | None,
+    dtw_distance: float | None,
+) -> dict:
+    """저신뢰-광범위-다관절 귀속 여부 판정 — magnitude-neutral 마커(점수 무관).
+
+    reliability.py H-4 "추정 표기 + 후속 단정 금지"의 seed-stage 상위 게이트다. 개별
+    keypoint confidence 원본이 아니라 정렬-집계 신호(visibility / DTW distance)로 판정한다
+    (로컬 재현 가능 — pod 미의존). 순수 함수: AWS/네트워크/모델 무관, 단위테스트 대상.
+
+    Args:
+        gemini_silent: Gemini 가 특정 결함 관절을 하나도 못 짚었는지(pointed=∅).
+        over_tol_count: tol(IPSF 20°) 초과 angle_vs_reference 관절 수(전역 부양 서명).
+        visibility: 정렬 window keypoint 가시성(0~1). None → 신호 없음(gate 미기여).
+        dtw_distance: 정규화 DTW 거리(작을수록 유사). None → 신호 없음(gate 미기여).
+
+    Returns:
+        {unreliable, geminiSilent, overTolJointCount, visibility, dtwDistance
+         [+aggregateStatement when unreliable]}. unreliable=True 시에만 aggregateStatement
+        키를 실어 다운스트림이 clean aggregate 로 강등할 수 있게 한다.
+    """
+    low_alignment = (
+        (visibility is not None and visibility < _ATTR_MAX_VISIBILITY)
+        or (dtw_distance is not None and dtw_distance > _ATTR_MAX_DTW_DISTANCE)
+    )
+    unreliable = bool(
+        gemini_silent
+        and over_tol_count >= _ATTR_MIN_OVER_TOL_JOINTS
+        and low_alignment
+    )
+    marker: dict = {
+        "unreliable": unreliable,
+        "geminiSilent": bool(gemini_silent),
+        "overTolJointCount": int(over_tol_count),
+        "visibility": float(visibility) if visibility is not None else None,
+        "dtwDistance": float(dtw_distance) if dtw_distance is not None else None,
+    }
+    if unreliable:
+        marker["aggregateStatement"] = _ATTR_AGGREGATE_STATEMENT
+    return marker
+
+
 def _build_deduction_measured_deviations(
     *, angles, profile, assessments, dimension_scores, quantification,
     reference_dtw_match=None, reference_angles=None, split_deficit_deg=None,
-    vision_pointed_joints=None, seed_audit_out=None,
+    vision_pointed_joints=None, seed_audit_out=None, alignment_visibility=None,
+    alignment_visibility_measured=True, vision_status=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2264,9 +2357,16 @@ def _build_deduction_measured_deviations(
         Gemini-silent 관절은 기존 full-path DTW median 유지 — 260702-o0c(경로 either/or)
         FAIL 원인(silent 관절까지 window 편향 표집 → success 위양성)의 정확한 해소.
         pointed=None/빈(legacy/mode3) → 전 관절 DTW fallback (기존과 byte-동일, 무회귀).
-      · seed_audit_out: dict 전달 시 {pointed, window_joints, fallback_joints} 기록
-        (25-04 eval harness 구조 게이트 입력 — production 호출부는 미전달, 부작용 0.
-        스키마/Firestore 계약 변경 0 — window 집계 출처는 로그+eval audit 로만 관측).
+      · seed_audit_out: dict 전달 시 {pointed, window_joints, fallback_joints,
+        attributionReliability} 기록 (25-04 eval harness 구조 게이트 + 33-NEXT production
+        다운스트림 강등 공통 채널). record/final 무접촉 — md(점수 substrate)는 읽기만.
+      · alignment_visibility: 정렬 window keypoint 가시성(0~1) — 33-NEXT attribution_
+        unreliable 게이트 입력(저신뢰 신호). production 은 ctx.alignment.visibility 주입,
+        eval/legacy 미전달 시 None(게이트 미기여). DTW distance 는 reference_dtw_match 에서
+        직접 읽어 별도 인자 불필요.
+
+    반환값(md)은 33-NEXT 마커 배선 전후로 byte-동일 — 마커는 seed_audit_out 에만 기록되고
+    md 를 절대 변경하지 않는다(magnitude-neutral 보장, D-20/D-29).
     """
     from sunity_shared.analysis import dimensions
     from sunity_shared.analysis.skeleton import JOINT_KEYS
@@ -2412,6 +2512,52 @@ def _build_deduction_measured_deviations(
         seed_audit_out["pointed"] = list(pointed)
         seed_audit_out["window_joints"] = list(window_joints)
         seed_audit_out["fallback_joints"] = list(fallback_joints)
+
+    # ── 33-NEXT — attribution_unreliable 마커 (seedObservation 확장, 점수 무관) ──
+    # md(점수 substrate)는 여기서 절대 mutate 하지 않는다 — 오직 읽기(over-tol 카운트).
+    # over-tol = 방출된 angle_vs_reference__{jk} 중 tol(IPSF 20°, 단일 진실) 초과 관절 수.
+    # 이는 tally 가 record 로 감점할 관절 집합과 동일(엔진 dead-zone == tol). dtw_distance =
+    # 정규화 DTW 거리.
+    #
+    # NOTE(리뷰 coupling) — over_tol_count 는 angle_vs_reference__{jk} record 만 센다.
+    # *등록된* 프로파일(expects_extension)은 이 경로 대신 ipsf_absolute(leg/arm_extension/line)
+    # deficit 을 방출하므로 over_tol_count 가 과소집계된다. 역립 타깃은 미등록 프로파일이라
+    # angle_vs_reference 경로로만 흐르므로 이 마커는 benign 하다. 즉 발화 로직은 "미등록
+    # 프로파일" 가정에 커플링돼 있다 — 등록 동작에 이 마커를 확장하려면 ipsf_absolute
+    # over-tol 카운트를 별도로 합산해야 한다(현재는 의도적으로 미등록만 커버).
+    from sunity_shared.analysis.ipsf_criteria import _ANGLE_TOLERANCE_DEG
+
+    over_tol_count = sum(
+        1
+        for jk in JOINT_KEYS
+        if float(md.get(f"angle_vs_reference__{jk}", 0.0)) > _ANGLE_TOLERANCE_DEG
+    )
+    dtw_distance = None
+    if reference_dtw_match is not None:
+        _dist = getattr(reference_dtw_match, "distance", None)
+        if isinstance(_dist, (int, float)) and _dist == _dist:  # finite guard(NaN 제외)
+            dtw_distance = float(_dist)
+    # WR-01 — pointed=∅ 는 vision 이 affirmatively 평가한 상태에서만 "silent(짚을 게 없음)"이다.
+    # skipped_error / resource_limited 등 signal-absent 상태의 pointed=∅ 는 vision 부재이지
+    # 침묵이 아니므로, vision 오류를 저신뢰-역립으로 오인해 오발하지 않도록 발화 금지한다.
+    gemini_silent = (len(pointed) == 0) and (
+        vision_status in _ATTR_AFFIRMATIVE_VISION_STATUSES
+    )
+    # WR-02 — alignment visibility 0.0 은 "측정했는데 최악"과 "미측정 sentinel"이 구분되지
+    # 않는다(assess_alignment_confidence 가 missing confidence 를 0.0 으로 collapse). 미측정
+    # (alignment_visibility_measured=False)이면 None 으로 강등해 발화에 기여시키지 않는다 —
+    # frame-pair 선택 실패(미측정)를 genuine worst visibility 로 오인하는 오발 차단.
+    visibility_signal = alignment_visibility if alignment_visibility_measured else None
+    attribution = _assess_attribution_reliability(
+        gemini_silent=gemini_silent,
+        over_tol_count=over_tol_count,
+        visibility=visibility_signal,
+        dtw_distance=dtw_distance,
+    )
+    if isinstance(seed_audit_out, dict):
+        # seedObservation 확장 — eval harness(structure gate) + production(다운스트림 강등)
+        # 공통 채널. record/final 미접촉(magnitude-neutral).
+        seed_audit_out["attributionReliability"] = attribution
 
     return md
 
@@ -5503,6 +5649,17 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             vision_pointed_joints = pointed_joints_from_supported_differences(
                 vision_fault_context.supported_differences
             )
+            # 33-NEXT — attribution_unreliable 마커 seed 채널. builder 는 md(점수) 무접촉으로
+            # 이 dict 에 seedObservation(attributionReliability 포함)만 기록한다. visibility 는
+            # 정렬 텔레메트리(ctx.alignment)에서 읽어 builder 에 주입(DTW distance 는 builder 가
+            # reference_dtw_match 에서 직접).
+            seed_audit: dict = {}
+            _ctx_align = getattr(vision_fault_context, "alignment", None) or {}
+            _align_visibility = _ctx_align.get("visibility")
+            # WR-02 — 미측정 visibility(0.0 sentinel)는 발화에 기여시키지 않는다.
+            _align_visibility_measured = bool(_ctx_align.get("visibility_measured", False))
+            # WR-01 — pointed=∅ 를 침묵으로 볼지 vision 상태로 게이트한다.
+            _vision_status = getattr(vision_fault_context, "collection_status", None)
             measured_deviations = _build_deduction_measured_deviations(
                 angles=angles,
                 profile=profile,
@@ -5515,6 +5672,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # split — mode1 에서만 산출(reference_relative), mode3/legacy 는 None → 미방출.
                 split_deficit_deg=split_deficit_deg,
                 vision_pointed_joints=vision_pointed_joints,
+                seed_audit_out=seed_audit,
+                alignment_visibility=_align_visibility,
+                alignment_visibility_measured=_align_visibility_measured,
+                vision_status=_vision_status,
             )
             result = _apply_vision_veto(
                 result,
@@ -5528,6 +5689,17 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 measured_deviations=measured_deviations,
                 baseline_kind=baseline_kind,
             )
+            # 33-NEXT — 저신뢰-광범위-다관절 귀속일 때만 마커를 result 에 실어 다운스트림
+            # (coach/앱 표현)이 per-joint 단정을 회피하게 한다(belle DECISION 1). record/
+            # overallScore/deductionBreakdown.final 무접촉(magnitude-neutral) — 마커가 없거나
+            # reliable 이면 result 는 기존과 byte-동일(다른 fixture 무영향).
+            _attr_marker = seed_audit.get("attributionReliability")
+            if (
+                isinstance(result, dict)
+                and isinstance(_attr_marker, dict)
+                and _attr_marker.get("unreliable")
+            ):
+                result["attributionReliability"] = _attr_marker
         else:
             # 레거시 경로 (collect 미산출) — 기존 Gemini 호출 경로 graceful 폴백.
             # quantification 도 명명 substrate 도 없다 → tally unavailable fallback(iter4 HIGH-2).

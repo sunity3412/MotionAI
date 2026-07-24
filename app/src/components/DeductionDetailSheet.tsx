@@ -76,6 +76,12 @@ const EVIDENCE_TITLE = '이 원인은 어떻게 측정됐나';
 // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 카피 (시트가
 // 실제 라벨 소유). 확정 결함 아님 — advisoryOrange 톤(표시 전용).
 const ESTIMATED_AREA_LABEL = '예상 부위';
+// IN-01 — 저신뢰 시 관절을 단정하지 않는 시트 제목(정확한 관절 assert 금지).
+const ESTIMATED_AREA_TITLE = '예상 부위 (참고)';
+// IN-01 — 저신뢰 시 특정 관절에 −X 감점을 귀속할 수 없어 수치 대신 노출하는 안내.
+// 크롭·배지는 유지하되 거짓 정밀도(관절별 감점 숫자)만 제거.
+const ESTIMATED_AREA_POINTS_NOTE =
+  '이 부위는 추정이라 관절별 감점 수치는 종합 점수로만 반영돼요';
 
 export function DeductionDetailSheet({
   visible,
@@ -119,12 +125,16 @@ export function DeductionDetailSheet({
           <View style={styles.handle} />
           <View style={styles.titleRow}>
             <Text style={styles.title}>
-              {recordNumber != null ? (
+              {/* IN-01 — 저신뢰 시 원문자 번호 억제(오버레이 마커 번호도 억제돼
+                  대응 점이 없다) + 관절 단정 대신 "예상 부위" 제목. */}
+              {recordNumber != null && !estimatedArea ? (
                 <Text style={styles.titleNumber}>
                   {`${circledNumberKo(recordNumber)} `}
                 </Text>
               ) : null}
-              {criterionLabelKo(record.criterion)}
+              {estimatedArea
+                ? ESTIMATED_AREA_TITLE
+                : criterionLabelKo(record.criterion)}
             </Text>
             <Pressable
               onPress={onClose}
@@ -221,10 +231,18 @@ export function DeductionDetailSheet({
                 기존 투명 감점 내역(측정값·기준·편차·규칙) 그대로 유지(삭제 0). */}
             <View style={styles.evidenceBox}>
               <Text style={styles.evidenceTitle}>{EVIDENCE_TITLE}</Text>
-              <View style={styles.metricRow}>
-                <Text style={styles.metricDetail}>{row.detailText}</Text>
-                <Text style={styles.metricPoints}>{row.pointsText}</Text>
-              </View>
+              {/* IN-01 — 저신뢰 시 관절별 감점 수치(−X)를 특정 관절에 귀속할 수
+                  없어 거짓 정밀도를 제거하고 안내로 대체. 크롭·배지는 유지. */}
+              {estimatedArea ? (
+                <Text style={styles.estimatedPointsNote}>
+                  {ESTIMATED_AREA_POINTS_NOTE}
+                </Text>
+              ) : (
+                <View style={styles.metricRow}>
+                  <Text style={styles.metricDetail}>{row.detailText}</Text>
+                  <Text style={styles.metricPoints}>{row.pointsText}</Text>
+                </View>
+              )}
             </View>
 
             {/* 강사 연결 줄 (gate ⑤). */}
@@ -389,6 +407,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   metricPoints: { ...typography.bodyMdBold, color: colors.brand },
+  // IN-01 (quick-260724-q6b) — 저신뢰 시 감점 수치 대신 노출하는 안내(거짓 정밀도
+  // 제거). 근거 박스 내부라 textMid 본문 톤. 토큰만.
+  estimatedPointsNote: {
+    ...typography.bodySm,
+    color: colors.textMid,
+  },
   // 강사 연결 줄.
   coachConnect: {
     ...typography.bodySm,

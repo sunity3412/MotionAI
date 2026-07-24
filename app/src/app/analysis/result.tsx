@@ -139,6 +139,10 @@ const ATTR_SCORE_AGGREGATE_FALLBACK =
   '거꾸로 자세라 관절별 감점 위치는 추정이에요. 종합 점수는 그대로예요.';
 // 확대비교 크롭 "예상 부위" 배지 (확정 결함 아님 — 표시 전용).
 const ATTR_ZOOM_ESTIMATED_LABEL = '예상 부위';
+// IN-01 (quick-260724-q6b) — 역립 저신뢰 시 확대비교 진입점 라벨. topFix 카드가
+// 억제돼 확대비교가 도달 불가한 gap 을 메운다 (belle: "예상 부위"로 도달 가능해야
+// 함). "AI 공부 중" 안내줄이 맥락을 주므로 추정임이 전달됨 — 확정 결함 단정 아님.
+const ATTR_ZOOM_ESTIMATED_ENTRY_LABEL = '예상 부위 확대 비교 보기';
 
 const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
   basic: '기본기',
@@ -1085,6 +1089,31 @@ function AnalysisResultContent({
     }
     return bestKp ? [bestKp] : [];
   }, [attributionUnreliable, result.deductionBreakdown, result.visionVeto]);
+
+  // IN-01 (quick-260724-q6b) — 예상 부위 확대비교 진입점이 열 record 의 index.
+  // estimatedAreaKeypoints 의 record 경로(angle_vs_reference + keypoint 매핑, |points|
+  // 최대)와 동일 선택 로직이므로 진입점과 오버레이 주황 점이 같은 관절을 가리킨다.
+  // windowMedian 폴백 경로는 대응 record 가 없어 index 없음 → null(진입점 미렌더 —
+  // graceful: 안내줄 + 정은지 비교는 그대로). false/부재 시 null.
+  const estimatedAreaRecordIndex = useMemo<number | null>(() => {
+    if (!attributionUnreliable) return null;
+    let bestIdx: number | null = null;
+    let bestAbs = -1;
+    const recs = result.deductionBreakdown?.records ?? [];
+    for (let i = 0; i < recs.length; i++) {
+      const r = recs[i];
+      if (!r.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) continue;
+      const jk = r.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
+      const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
+      if (!kp) continue;
+      const abs = Math.abs(r.points);
+      if (abs > bestAbs) {
+        bestAbs = abs;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }, [attributionUnreliable, result.deductionBreakdown]);
 
   // quick-260705-o0s — 영상 점 번호 ↔ 내역 행 번호 단일 소스 (buildDeductionMarkers).
   // 오버레이 markerNumbers 와 ScoreBreakdownSection recordNumbers 가 같은 결과물을
@@ -2293,6 +2322,31 @@ function AnalysisResultContent({
           </Text>
         ) : null}
 
+        {/* IN-01 (quick-260724-q6b) — 역립 저신뢰 시 확대비교 진입점. topFix 카드가
+            억제돼(위 !attributionUnreliable 게이트) 확대비교가 도달 불가한 gap 을
+            메운다 (belle: "예상 부위"로 도달 가능해야 함). 안내줄이 이미 추정 맥락을
+            주므로 확정 결함 단정 아님. 매칭 크롭이 없고 pending 도 아니면 미렌더(빈
+            시트 열지 않음) — 안내줄 + 정은지 비교는 그대로. false/부재 시 diff 0. */}
+        {attributionUnreliable &&
+        estimatedAreaRecordIndex != null &&
+        (matchZoomForRecord(records[estimatedAreaRecordIndex]) || zoomPending) ? (
+          <Pressable
+            onPress={() => setDetailRecordIndex(estimatedAreaRecordIndex)}
+            accessibilityRole="button"
+            accessibilityLabel={ATTR_ZOOM_ESTIMATED_ENTRY_LABEL}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.estimatedZoomEntry,
+              pressed && styles.estimatedZoomEntryPressed,
+            ]}
+          >
+            <Text style={styles.estimatedZoomEntryText}>
+              {ATTR_ZOOM_ESTIMATED_ENTRY_LABEL}
+            </Text>
+            <Text style={styles.estimatedZoomEntryChevron}>›</Text>
+          </Pressable>
+        ) : null}
+
         {/* ══ 5. 나머지 감점(접힘) + 상세 영역 (D-02 #5 collapsed) ══════════════
             점수 게이지는 D-01/D-09 로 헤드라인에서 이 상세 영역으로 강등(요약 카드가
             점수 소형 배지를 담당). 투명 감점 내역(수치 삭제 금지)·구간 점수 유지. */}
@@ -2988,6 +3042,28 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
     paddingHorizontal: 4,
+  },
+  // IN-01 (quick-260724-q6b) — 역립 저신뢰 확대비교 진입점 카드. advisoryOrange 톤
+  // (확정 결함 아님 — "예상" 강조), 신규 색 금지. 토큰만.
+  estimatedZoomEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.advisoryOrangeBg,
+    borderRadius: radius.card,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.cardPadding,
+    marginTop: 4,
+  },
+  estimatedZoomEntryPressed: { opacity: 0.85 },
+  estimatedZoomEntryText: {
+    ...typography.bodyMdBold,
+    color: colors.advisoryOrange,
+    flexShrink: 1,
+  },
+  estimatedZoomEntryChevron: {
+    ...typography.bodyMdBold,
+    color: colors.advisoryOrange,
   },
   // Phase 20 TRUST-07 — 점수 억제 시 '기준 없음' state 카피. 토큰만 (하드코딩 금지).
   suppressedTitle: {

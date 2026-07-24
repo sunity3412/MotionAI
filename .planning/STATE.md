@@ -76,7 +76,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-24
+Last activity: 2026-07-24 - Completed quick task 260724-q6b: IN-01 역립 저신뢰 결과화면 표현 강등 (시뮬레이터 렌더 게이트 대기)
 
 ### Quick Tasks Completed
 
@@ -119,6 +119,7 @@ Last activity: 2026-07-24
 | 260715-fjw | phase22 perturb 트랙 재설계 (v5 준비, 로컬) — v4 aligned 게이트 synthetic_holdout gap 처방 3건: D1/D2 drift primitive+stage 변위 강화(stage2 순수 가려짐→가시 변위 신호 생성), D3 `_STAGE_CYCLE=(1,1,2,3)` 변위-우선 배분, D4 subsample-first(표시 프레임 내 교란 보장 — 순수 항등 echo 제거, v2 "무보정 동률" 기계적 원인 해소), D5 1/3 좌표전용 샘플(게이트 aligned 좌표전용 경로와 문자 단위 동일, `_TASK_INSTRUCTION` 단일 진실 재사용) + `_meta.perturb_coords_only_count`, D6 corrected_coords 전체 프레임 echo 유지 근거 박제(부분 방출=cherry-picking 게이트 완화 차단). `_coords_to_frames` frame_labels 로 배열 인덱스/프레임 라벨 분리. phase22 267 passed. 게이트 하네스·채점 diff 0. **v5 절대 수치는 v4 직접 비교 불가**(교란 분포 자체 변경, 상대 게이트 semantics 불변). 다음=Pod `--assemble --with-perturb --upload` v5 조립→SFT v5→aligned 게이트 | 2026-07-15 | 8c71497 | [260715-fjw-phase22-perturb-stage-corrected-coords](./quick/260715-fjw-phase22-perturb-stage-corrected-coords/) |
 | 260716-jg6 | phase22 v6 학습셋 assemble + terra13 union (SFT 입력 산출) — 소실된 accepted 라벨을 S3 train/val distill 152행에서 무손실 역복원 → terra13 union(계약 안전장치: 각 terra fault를 normalize+_faults_satisfy_contract 개별검증, 위반분만 드롭·gemini 보존) → `full_batch.assemble_jsonl` 무변형 호출로 v6 조립(perturb 0=C1, fault_bearing 88/fault_free 61 cap 1.5=B). terra 순 +21 fault, 12/13 delta>0, **7 recoveries**(General-pole-movements head/eyes 결함=각도·편차 전무로 감점계약 부적합 정당 드롭; belle 7 수용). 게이트 7/8 PASS(perturb 0/leakage ∅/normalize 100%/pytest 273). 프로덕션 코드 0 수정. S3 canonical 교체 완료(pre-v6→jsonl_v5_backup/ 백업). 다음=belle Pod 기동→SFT v6→게이트(런북: 260716-jg6-SFT-RUNBOOK.md, **v6 판정=eval18, synthetic_holdout FAIL은 C1 예상귀결**) | 2026-07-16 | 1b0b521 | [260716-jg6-phase22-v6-assemble-terra13-union-sft](./quick/260716-jg6-phase22-v6-assemble-terra13-union-sft/) |
 | 260720-hn8 | 영상 선택 실패를 Figma 카드형 알림창으로 전환 + 원인별 해결안내 + iCloud 오프로드 폴백(Current 실패→Automatic 재시도) + catch 오류 삼킴 제거. belle 실기기 앨범 픽 실패 대응. **근본원인 미해결(iCloud 가설)** — 알림창이 실제 picker 오류 문자열을 노출해 belle 캡처가 가설 확정/폐기 증거. Figma 확정문구 2종 원문 유지, 신규 의존성 0, node --test 7/7 | 2026-07-20 | f329e99 | [260720-hn8-icloud](./quick/260720-hn8-icloud/) |
+| 260724-q6b | IN-01 역립 저신뢰(attributionReliability.unreliable) 결과화면 표현 강등 — 앱측이 백엔드 마커(d5490a8) 소비. 단일 게이트로 8개 per-joint 단정 표면(오버레이/점수내역/팁/확대비교 + 오늘고칠것/다른감점/요약todayFix/심사코너)을 "확정"→"예상/집계" 강등, 동작비교에 "AI 공부 중" 안내 1줄(모드별). 점수값 byte 불변, 카피 상수화, 테마 토큰만, typecheck clean. **남은 게이트=시뮬레이터 렌더 확인 후 belle 확인→OTA** | 2026-07-24 | 604b2bf | [260724-q6b-in-01-attributionreliability-ai](./quick/260724-q6b-in-01-attributionreliability-ai/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

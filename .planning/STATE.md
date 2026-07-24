@@ -4,12 +4,12 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 33 채점 재설계 context gathered (D-33~D-38, dormant critical track)
-last_updated: "2026-07-24T00:42:09.068Z"
-last_activity: 2026-07-23
+last_updated: "2026-07-24T01:06:52.656Z"
+last_activity: 2026-07-24 -- Phase 33 planning complete
 progress:
   total_phases: 35
   completed_phases: 16
-  total_plans: 230
+  total_plans: 232
   completed_plans: 184
   percent: 46
 ---
@@ -74,7 +74,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-23
+Last activity: 2026-07-24 -- Phase 33 planning complete
 
 ### Quick Tasks Completed
 

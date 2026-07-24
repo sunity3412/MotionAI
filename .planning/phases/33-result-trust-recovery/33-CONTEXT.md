@@ -1,11 +1,24 @@
 # Phase 33: result-trust-recovery - Context
 
 **Gathered:** 2026-07-23
+**Revised:** 2026-07-24 (채점 산식 IPSF 감점상한 재설계 PIVOT — Wave6 재검증서 관절별 감점 무제한 누적→다관절 결함 0점 뭉침 발견. belle 이 D-20/D-29 "채점 무접촉" 전제를 명시적으로 뒤집음. `/gsd-spec-phase 33` → `33-SPEC.md`(감점 2트랙 상한, 5요구·8불변식) 잠금 → `/gsd-discuss-phase 33` HOW 논의. D-33~D-37 신설, D-20/D-29 SUPERSEDED.)
 **Revised:** 2026-07-23 (A-0 게이트 실측 판정 "어긋남 큼" → C+M3 substrate 트랙 편입 확정. D-26~D-32 신설, D-11/D-25 갱신. 근거 = `33-A0-EVIDENCE.md`. re-plan 입력.)
-**Status:** Ready for planning (re-plan — substrate 편입)
-**Source:** Synthesized from authored design docs — `33-PLANNING-APPROACH.md` + `33-SEED.md` (belle-locked). No fresh discuss-phase run: belle's operating rule caps her involvement at 2 touchpoints (mockup confirm + device UAT); re-asking settled decisions is forbidden. A-0 분기 편입은 D-04 가 사전 승인한 Claude 실측 판정(belle 질문 아님).
+**Status:** Ready for planning (채점 재설계 트랙 — 새 플랜 필요. 기존 21 플랜은 표현/substrate 트랙, 이 컨텍스트로 미영향)
+**Source:** Synthesized from authored design docs — `33-PLANNING-APPROACH.md` + `33-SEED.md` (belle-locked). 채점 재설계 트랙은 `33-SPEC.md`(belle spec-phase 결정) + 2026-07-24 discuss-phase(belle HOW 결정 3건). A-0 분기 편입은 D-04 가 사전 승인한 Claude 실측 판정(belle 질문 아님).
 
 <domain>
+
+## SPEC Lock (채점 재설계 트랙 — 2026-07-24)
+
+**`33-SPEC.md` (5 requirements + 8 invariants) locks WHAT — MUST read before planning.** Downstream agents treat its Requirements/Boundaries/Acceptance as locked; do NOT re-ask.
+
+**최종 설계식:** `final = max(25, 100 − min(40, Σ실행감점) − Σ치명감점)`
+- 실행 트랙(라인/각도 편차 누적) = 총합 상한 −40 → 바닥 60. IPSF 실행감점 총합상한 −25(≈IPSF 60점 스케일의 42%) 비례환산.
+- 치명 트랙(필수 완전신전 미달 = 요소 미인정) = −40 집계캡 + −20 관절캡 **둘 다 우회**, 절대 바닥 25.
+- 3단: 정은지 95~100 / 실행결함 60~95 / 치명결함 25~60. 절대 바닥 25.
+
+이 트랙은 D-20/D-29("채점 무접촉")를 **SUPERSEDE** 한다(belle 2026-07-24 명시). substrate(재추출·백필·M3)는 무접촉·유지.
+
 ## Phase Boundary
 
 belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 답하게** 만든다 — "보면 궁금만 하는 앱"을 끝낸다.
@@ -17,12 +30,15 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 **A-0 게이트 판정 (2026-07-23, 실측 완료 — `33-A0-EVIDENCE.md`):** **어긋남 큼.** 6동작 전수에서 pointed/shown/measured 세 집합 불일치 + 대조 기준선(window_joints) 사실상 부재 + belle 실 doc crop 3장 국면 어긋남(표현으로 치유 불가). → **D-04 분기에 따라 C+M3 substrate 트랙이 phase 33 안으로 편입 확정.** 표현 계층은 substrate(뿌리) 복원 이후에만 진행한다. 이 판정·편입은 실측 결과이며 belle 질문이 아니다(D-01/D-04).
 
 **In scope**
+- **웨이브 R (채점 재설계 · 2026-07-24 PIVOT — substrate 다음, 점수 의존 표현/flip 선행):** IPSF 2트랙 감점 상한 도입 (`deduction_engine.tally`). `33-SPEC.md` 잠금. 실행 −40 집계캡(바닥 60) + 치명 트랙(관절캡·집계캡 우회, 절대 바닥 25). 6 fixture 전수 재검증(구조적 불변식 INV-1~8). D-33~D-37.
 - 웨이브 S (뿌리 · A-0 다음 최선두): 기준모션↔학생 추출 기질 정합 (C+M3) — `.planning/debug/ref-student-substrate-gap.md` SEED(Task 0~5 + 성공 판정 8항 + 롤백 설계). ref↔student 프레임 국면 대응 + 실측 window substrate 복원. **모든 표현 작업의 선행 조건**(D-26~D-32).
 - 웨이브 A (표현·데이터): 확대비교 · 영상 위 표시 · 코칭 문구 · 일러스트 — substrate 전항 PASS 후.
 - 웨이브 B (정돈): 수치 자리 이동 · 타이포/레이아웃(상태바 겹침 버그 포함) · 개별버그 6건 — A 앞으로 당기지 않음.
 
 **Out of scope**
-- 채점 산식·감점 임계값 재fit — D-20 불변. C+M3 의 M3(`find_action_segment`)는 정렬 substrate 수정이지 감점 산식·tol·slope·cap 변경이 아니다(D-29).
+- ~~채점 산식·감점 임계값 재fit — D-20 불변~~ — **SUPERSEDED (2026-07-24):** 채점 산식 재설계가 웨이브 R 로 IN SCOPE(D-33~D-37, `33-SPEC.md`). 단 기존 임계값(tol 20°·slope 1.2·per-record −20·per-criterion 90)은 재fit 하지 않음 — NEW 집계캡(−40)·치명 트랙·절대 바닥 25 만 추가(D-35).
+- substrate 재작업(재추출 33-03·백필 33-04·M3 33-05) — 검증 완료·유지, 재실행 금지.
+- flip(33-07)·점수 의존 표현(A-1~A-7) — 채점 재검증 PASS까지 blocked. flip 보류.
 - iCloud 영상 실기기 재확인 (폴백은 1.1.0 포함, UAT 항목 유지)
 
 </domain>
@@ -78,7 +94,7 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 - **D-19** 눈으로 확인 의무 — "코드가 통과했다"를 확인으로 치지 않고 산출물 자체를 연다: 이미지(크롭·오버레이·일러스트)=실제 파일 전수 열람 / 문구·JSON=실제 방출값 전수 / 앱 화면=시뮬레이터 실렌더+스크린샷 / 분석 doc=실제 값 덤프 / 백엔드=6동작 전수 재분석 후 산출물 열람. 각 태스크 완료 조건에 "무엇을 열어 무엇을 확인했나"를 적는다. belle 에게 보내기 전 Claude 가 먼저 연다.
 
 ### 제약 (cross-cutting)
-- **D-20** 채점 산식·임계값 무접촉 — 이 phase 는 표현·문구 계층.
+- **D-20** ~~채점 산식·임계값 무접촉 — 이 phase 는 표현·문구 계층.~~ **SUPERSEDED (2026-07-24, belle):** 채점 산식 재설계가 웨이브 R 로 편입(D-33~D-37). 무접촉 전제 폐기. 단 기존 임계값(tol/slope/기존 캡)은 재fit 금지 — NEW 집계캡·치명 트랙·바닥만 추가.
 - **D-21** UI 변경은 시뮬레이터 렌더 확인 후 OTA. typecheck·빌드 성공은 렌더 크래시를 못 잡는다. expo-updates 는 재실행 2회째 적용.
 - **D-22** 브랜드 `#FF4B33` 불변 · 라이트 테마 · 하드코딩 금지(theme 토큰만). Figma 우선, 텍스트로 검색(노드 이름 아님).
 - **D-23** 검증은 6동작 fixture 전수 동일 빈도. 한 동작만 좋아지면 미완료 판정. fixture 없는 등재 동작은 대체 검증 수단을 계획에 명시.
@@ -89,10 +105,18 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 - **D-26** A-0 판정 = **어긋남 큼** (실측, `33-A0-EVIDENCE.md`). 이 분기는 belle 질문이 아니라 Claude 실측 판정(D-01/D-04). **33-01(A-0 gate)은 실행 완료·커밋됨(`bde90be`) — 재작성/덮어쓰기 금지.** substrate 웨이브는 33-01 다음 새 플랜으로 편성한다.
 - **D-27** C+M3 권위 스펙 = `.planning/debug/ref-student-substrate-gap.md` 의 `## 인계 — C+M3 실행 계획`(Task 0~5) + `## 성공 판정 기준`(8항) + `## 롤백 설계` + `## elbow-twist 처방 경로`. Task 순서 불변(각 Task 는 앞 Task 산출물을 전제) — M3(Task3)는 Task1·2 완료 후에만. 계획은 이 SEED 를 그대로 태스크화한다(재발명 금지).
 - **D-28** substrate 웨이브가 표현 웨이브(①~⑤·B)의 **선행 조건**. 뿌리(정확 분석) 복원 전 어떤 crop·문구·오버레이·일러스트도 진행하지 않는다 — 척추 원칙 + A-0 국면 어긋남은 표현으로 치유 불가(D-03/D-28). substrate 성공 판정 8항 전부 PASS 가 표현 착수 게이트.
-- **D-29** D-20 유지 재확인 — M3(`find_action_segment`/`motiondtw.py:83`) 수정은 정렬 substrate 복원이며 감점 산식·`tol 20°`·`slope 1.2`·`cap 90`·`MEAN_EPSILON_DEG`·`P99_EPSILON_DEG` 는 전부 **불변(재fit 0)**. 성공 판정 8항 #8 이 임계값 불변을 명시 조건으로 못박음. gate 가 걸리면 임계를 올리지 말고 원인을 조사.
+- **D-29** ~~D-20 유지 재확인 — M3 수정은 정렬 substrate 복원이며 감점 산식 전부 불변.~~ **부분 SUPERSEDED (2026-07-24):** 감점 산식 자체는 웨이브 R 에서 재설계(D-33~D-37). **단 기존 임계값은 여전히 불변** — `tol 20°`·`slope 1.2`·기존 `per-criterion cap 90`·`per-record −20`·`MEAN_EPSILON_DEG`·`P99_EPSILON_DEG` 재fit 0. 웨이브 R 은 이들 위에 NEW 집계캡(−40)·치명 트랙 분리·절대 바닥(25)만 얹는다. gate 가 걸리면 기존 임계를 올리지 말고 원인 조사(원칙 유지).
 - **D-30** Pod 전 종료 대응 — substrate 재추출(Task1)·재분석(Task4)·flip(Task5)은 belle 에게 GPU 모델 명시 요청(EU-RO-1 4090 우선순위, `pod-request-include-gpu-model`) → Network Storage Pod 재기동 → bootstrap·start_server·VETO env·X-RunPod-Token 스모크 → SSM+Lambda 재동기화 절차를 전제. 해당 태스크 `autonomous:false`, belle greenlight 후 Claude 가 켜고 셋업/재동기화. eval 은 SERIAL(동시 호출 오염 금지).
 - **D-31** 롤백 대비 필수 — Task 0 백업(reference 11 doc 전량, 실측 7.4 MiB, 로컬+S3 이중, git 커밋 금지)이 **어떤 write 보다 선행**. 백업 무결성 게이트(11/11 존재·frames 정합·SHA-256) 실패 시 재처리 착수 금지. 운영 reference 덮어쓰기는 `--no-flip` 단계적 배포 — active 포인터 flip 은 Task 4 전항 PASS 후에만. 롤백 트리거(여유 부호 음수·M8 회귀·combo 재현성 초과·안전플래그 신규)에 즉시 복원.
 - **D-32** belle 접점은 substrate 편입 후에도 **2회 원칙 유지**(목업 확인 1 + 실기기 UAT 1). 예외 = ⓐ Pod greenlight(운영 액션, 설계 질문 아님) ⓑ elbow-twist 조건부 단일 질문("정은지 정상 영상과 기준 영상이 같은 동작으로 보이십니까?" — 재추출 후 여유 `< +2.0°`일 때만, 점수·수치 제시 금지, SEED elbow-twist 처방 경로). 그 외 substrate 결정 전부 Claude 자율 + 근거 문서화.
+
+### 웨이브 R — 채점 재설계 (2026-07-24 PIVOT, `33-SPEC.md` 잠금)
+- **D-33** 발견 = 채점 결함 (substrate 아님). `deduction_engine.tally` 의 `final = max(0, 100 + Σ points)` 에 **감점 총합 상한 부재** → elbow-twist 다관절 결함(8관절, 각 −20 관절캡 미달)이 합 −111.4 → floor 0. `overallScore = breakdown.final` 직결(`pipeline/app.py:2530/2621/2691`). angle 차원은 58인데 헤드라인 0. belle "0점 과하다, IPSF 로 가야 공감" → 재설계.
+- **D-34** 2트랙 상한 도입. **실행 트랙**(라인/각도 편차 누적) = 총합 −40 집계캡 → 바닥 60 (IPSF 실행감점 상한 −25 ≈ IPSF 60 스케일 42% 비례환산). **치명 트랙**(필수 완전신전 미달 = 요소 미인정) = 별도 합산. 최종식 `final = max(25, 100 − min(40, Σ실행) − Σ치명)`.
+- **D-35** 치명 트랙 판별 = **기존 0-fail 요소만, 단 현재 그 요소는 dormant → 치명 트랙 구조만 구현·활성 criterion 0.** 실측(2026-07-24): `split_fail_threshold_deg` 키를 실제로 보유한 criterion **0개** — `ipsf_criteria.py:96-97` 주석대로 "per-move expects_split flag 도입 시 후속"이라 미배선. 게다가 split_angle 은 `reference_relative` 분기라 엔진의 0-fail 체크(`ipsf_absolute` 분기)에 도달조차 안 함(2중 dormant). **6 fixture 점검 결과**(baseline breakdowns): 깨끗한 "요소 미수행" 케이스 0 — 전부 실행결함(관절 편차). 유일한 split_angle 발동은 kip-up(dev 30, 스플릿 동작 아님)인데 이는 **알려진 측정 아티팩트**([[split-measurement-doesnt-discriminate-kipup]], Phase24/25 해결). **∴ 지금 split 0-fail 배선 = kip-up 위양성 재유발 위험 + 검증 fixture 부재.** belle 확정(2026-07-24): 구조만 넣고 dormant, split 0-fail 배선은 문서화 후속(D-defer). **새 임계 신설 0**([[scoring-redesign-must-generalize-no-overfit]]).
+- **D-36** 치명 record 는 **−40 집계캡 + −20 관절캡 둘 다 우회** (요소미인정 크기 = ipsf_cap 90 보존 → split 0-fail 단독 −90). 실행 record 는 기존 90캡·−20 관절캡 유지 → −40 집계캡. **절대 바닥 25** — belle: 채점까지 도달 = not_pole_motion 게이트 통과했으므로 그 동작을 (못해도) 시도한 것, 0 은 부당. 완전 무관 영상은 채점 전 탈락. 3단 = 정은지 95~100 / 실행결함 60~95 / 치명결함 25~60.
+- **D-37** `deductionBreakdown` 형상 = **additive**. 각 record 에 `track`('execution'|'critical'), 상위에 `executionRawTotal`/`executionCappedTotal`/`criticalTotal`/`executionCap`(40)/`scoreFloor`(25) 추가. 기존 `rawPoints`/`capApplied` additive 패턴 계승(구 doc 하위호환). **계약 3파일 동시 갱신**(`app/src/types/analysis.ts` + `models.py` + `docs/contract.md`) — 앱 `result.tsx` 가 breakdown 소비. INV-6 재구성 보장. 엔진 numpy-pure 유지.
+- **D-38** 검증 = 6 fixture 전수 + **구조적 불변식 INV-1~8 만** (`33-SPEC.md`). fixture별 목표점 금지([[judgment-must-not-fixate-on-recent-fixture]]). 새 Pod 필요(D-30 절차, belle GPU greenlight 선행, eval SERIAL). 엔진 단위테스트(`backend/tests/`)로 산식 선검증 후 Pod 재분석. **INV-3(치명 하강)·INV-8(바닥 25) 은 dormant 트랙이라 합성 단위테스트로 검증**(현 fixture 미트리거). **주의(INV-4 변별):** −40 집계캡은 바닥 60 에서 영상들을 평탄화한다 — baseline 실측상 power-spin 57→60·kip-up 47→60 으로 둘 다 60 수렴 가능(변별 상실 지점). 재검증 시 실행결함 영상 간 변별이 캡 위에서 유지되는지 명시 확인. **baseline breakdowns(phase25)는 substrate 재추출 이전 값** — 실제 재검증은 33-03/04/05 이후 신 substrate 로 재분석(수치 달라짐, 구조만 참조).
 
 ### Claude's Discretion
 - 조사 안 2~3개의 구체 시각 관용구 선택(나란히 vs 겹침, 크기 기준, 차이 표시 방식) — D-07 로 자체 검열 후 살아남은 것만.
@@ -106,6 +130,16 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 ## Canonical References
 
 **Downstream agents MUST read these before planning or implementing.**
+
+### 채점 재설계 트랙 — 잠긴 요구사항 (2026-07-24, 최우선)
+- `.planning/phases/33-result-trust-recovery/33-SPEC.md` — **Locked requirements — MUST read before planning.** 5 requirements + 8 invariants(INV-1~8) + 최종 설계식 + Boundaries. 웨이브 R(D-33~D-38)의 권위 스펙.
+
+### 채점 재설계 코드 앵커
+- `backend/shared/python/sunity_shared/analysis/deduction_engine.py` — `tally()` 산식 수정 대상. `final = max(0, 100 + Σ points)`(line 349) → `max(25, 100 − min(40, Σ실행) − Σ치명)`. `PER_RECORD_DEDUCTION_CAP=20`(line 43)·`DeductionRecord`(track 필드 추가)·`DeductionBreakdown`(집계필드 추가).
+- `backend/shared/python/sunity_shared/analysis/ipsf_criteria.py` — `_ANGLE_CAP=90`·`_SLOPE=1.2`·`split_fail_threshold_deg`(치명 판별 = 이 필드 보유 criterion). 임계값 재fit 금지(D-29).
+- `backend/functions/pipeline/app.py:2530/2621/2691` — `overallScore = breakdown.final` 3경로(수정 불요, 산식이 엔진 내부).
+- `app/src/types/analysis.ts` + `backend/shared/python/sunity_shared/models.py` + `docs/contract.md` — `deductionBreakdown` 계약 미러(D-37, 동시 갱신).
+- `backend/tests/` — 엔진 단위테스트로 산식 선검증(D-38).
 
 ### 이 phase 의 설계 원본 (belle-locked)
 - `.planning/phases/33-result-trust-recovery/33-PLANNING-APPROACH.md` — 계획 수립 지침. 척추(§0.1) · 심플 우선(§0.5) · 판정 기준(§2) · 웨이브 A 순서(§4) · 계획 모양(§5) · 오류 0 설계(§6.5) · 눈으로 확인 의무(§6.6). **plan-phase 의 1차 입력.**
@@ -145,6 +179,7 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 ## Deferred Ideas
 
 - ~~기준모션↔학생 기질 정합 (C+M3)~~ — **편입됨**: A-0 판정 "어긋남 큼"으로 웨이브 S(in scope)로 이동(D-26~D-32).
+- **split 0-fail(요소 미인정) 배선** — 치명 트랙 활성화 후속(D-35). 필요조건: ① per-move `expects_split`(및 필수 완전신전 요소) flag 를 recognizer 가 공급 ② 스플릿-미수행 실패 영상 fixture 확보(kip-up 아티팩트 아닌 진짜 케이스). 활성화 시 치명 트랙 구조(D-36)에 zero-rework 로 붙음. 지금 배선 금지 사유 = kip-up split FP 재유발([[split-measurement-doesnt-discriminate-kipup]]) + 검증 fixture 부재. belle IPSF 요소-미인정 직관의 실현 경로.
 - iCloud 영상 실기기 재확인 — UAT 항목으로 유지.
 - 셀프서비스 reference 등록 일반화 — 미해당.
 

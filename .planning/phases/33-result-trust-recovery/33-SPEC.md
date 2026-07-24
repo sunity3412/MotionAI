@@ -3,12 +3,13 @@
 **Created:** 2026-07-24
 **Ambiguity score:** 0.161 (gate: ≤ 0.20)
 **Requirements:** 5 locked
+**Revised:** 2026-07-24 (discuss-phase) — critical-track floor changed from 0 to an absolute score floor of **25** (belle: 채점까지 도달한 영상은 not_pole_motion 게이트를 통과한 것이므로 0은 부당; 완전 무관 영상은 채점 전 탈락). Formula: `final = max(25, 100 − min(40, Σexec) − Σcritical)`.
 
 > **Scope note:** This SPEC covers the **채점 산식 재설계(scoring redesign)** pivot inserted mid-phase (Wave 6, 33-06). It supersedes the phase-33 premise D-20/D-29 ("채점 산식 무접촉") which belle explicitly reversed on 2026-07-24 ([[scoring-ipsf-deduction-cap-no-zero-pileup]]). It does NOT re-spec the 표현/flip track (A-1~A-7, 33-07~33-16), which remains governed by 33-CONTEXT.md and is blocked on this redesign. The M3 sub-spec `33-M3-SPEC.md` (33-05, alignment) is a separate artifact and is untouched.
 
 ## Goal
 
-The overall score changes from **unbounded per-joint deduction accumulation that collapses multi-joint execution faults to 0** to a **two-track IPSF-anchored deduction model**: execution deductions (line/angle deviations) are capped in aggregate at −40 (floor 60), while critical faults (required full-extension not met = element non-recognition) bypass that cap and can drive the score to 0.
+The overall score changes from **unbounded per-joint deduction accumulation that collapses multi-joint execution faults to 0** to a **two-track IPSF-anchored deduction model**: execution deductions (line/angle deviations) are capped in aggregate at −40 (floor 60), while critical faults (required full-extension not met = element non-recognition) bypass that cap and pull the score below the execution floor, down to an absolute score floor of 25.
 
 ## Background
 
@@ -29,10 +30,10 @@ The redesign closes this by introducing an aggregate execution-deduction cap and
    - Target: execution-track deductions are aggregated then capped at −40 before subtraction: `capped_exec = min(40, Σ|execution points|)`. A video with only execution faults (no critical fault) scores ≥ 60
    - Acceptance: the elbow-twist fixture (execution-only, Σ raw ≈ −111.4) yields `overallScore == 60`; a fixture with small execution deductions (Σ raw < 40) is unchanged from the pre-cap value (cap not reached)
 
-2. **Critical-fault track bypasses the cap and can reach 0**: Required full-extension not met (element non-recognition) is a separate, uncapped track.
+2. **Critical-fault track bypasses the execution cap and per-record clamp, floored at 25**: Required full-extension not met (element non-recognition) is a separate track that pulls below the execution floor down to an absolute score floor of 25.
    - Current: full-extension 0-fail (split_angle < 160°) produces at most −20 (per-record clamp), indistinguishable in floor from ordinary execution faults; there is no track separation
-   - Target: critical deductions (required-extension element below its recognition threshold) are summed separately and NOT subject to the −40 execution cap: `final = max(0, 100 − min(40, Σ|execution|) − Σ|critical|)`; a video that fails a required full-extension element can reach 0
-   - Acceptance: a fixture with a full-extension 0-fail element scores below 60 (and can reach 0 when critical + execution deductions ≥ 100); a fixture with the same execution deviations but NO critical fault scores ≥ 60
+   - Target: critical deductions (existing full-extension 0-fail elements — split_angle < 160° today) are summed separately, bypass BOTH the −40 execution cap AND the −20 per-record clamp (so the element-non-recognition magnitude, ipsf_cap 90, is preserved), and the final score is floored at 25: `final = max(25, 100 − min(40, Σ|execution|) − Σ|critical|)`; a video that fails a required full-extension element lands at 25 (single split 0-fail = −90 → floored to 25)
+   - Acceptance: a fixture with a full-extension 0-fail element scores below 60 and at/near 25; a fixture with the same execution deviations but NO critical fault scores ≥ 60
 
 3. **IPSF-proportional cap provenance**: The −40 execution cap is derived from IPSF, not fixture-tuned.
    - Current: no aggregate cap exists; the only IPSF-cited constants are tolerance 20° / split 160° 0-fail (`ipsf_criteria.py` [CITED]); slope/per-criterion caps are [ASSUMED]
@@ -53,7 +54,8 @@ The redesign closes this by introducing an aggregate execution-deduction cap and
 
 **In scope:**
 - Aggregate execution-deduction cap (−40 / floor 60) in `deduction_engine.tally`
-- Two-track separation: execution track (capped) vs critical/full-extension-non-recognition track (uncapped, floor 0)
+- Two-track separation: execution track (capped) vs critical/full-extension-non-recognition track (bypasses caps, absolute floor 25) — **structure only; the critical track is DORMANT** (no criterion triggers it today; verified by unit test)
+- Absolute score floor of 25 for any scored video
 - IPSF-provenance documentation of the −40 constant
 - Transparent `deductionBreakdown` representation of the cap + tracks
 - Structural-invariant re-verification across all 6 fixtures (requires a fresh Pod for GPU re-analysis)
@@ -63,7 +65,8 @@ The redesign closes this by introducing an aggregate execution-deduction cap and
 - flip (33-07) and score-dependent 표현 track (A-1~A-7, 33-08~33-16) — blocked until this redesign is verified; flip explicitly on hold
 - gate2 separation floor — discarded (fixture curve-fit + Gemini variance)
 - Fault visualization (crop position / illustration) — independent of scoring, may proceed in parallel
-- Re-tuning tolerance (20°), slope (1.2), per-record cap (−20), or per-criterion cap (90) — unchanged; only the NEW aggregate cap + track split are added
+- Re-tuning tolerance (20°), slope (1.2), per-record cap (−20), or per-criterion cap (90) — unchanged; only the NEW aggregate cap + track split + floor are added
+- Wiring split 0-fail (per-move `expects_split` flag + activating `split_fail_threshold_deg`) — deferred follow-up; activating it now would regress the resolved kip-up split FP ([[split-measurement-doesnt-discriminate-kipup]]) and has no clean fixture to validate against
 - Per-fixture target scores / expected-range calibration — banned as overfit ([[scoring-redesign-must-generalize-no-overfit]])
 
 ## Constraints
@@ -81,11 +84,12 @@ Structural invariants — must ALL hold across ALL 6 fixtures simultaneously (no
 
 - [ ] **INV-1 Elite floor**: 정은지 / well-executed videos score ≥ 95
 - [ ] **INV-2 Execution floor**: videos with execution faults only (no critical/full-extension miss) score ≥ 60 and never below 60
-- [ ] **INV-3 Critical descent**: videos with a required full-extension element not met score < 60 (and reach 0 when critical + execution deductions ≥ 100)
+- [ ] **INV-3 Critical descent** (unit-test, synthetic): a critical deduction (bypassing exec cap + per-record clamp) pulls the score below 60 down to floor 25. Verified by unit test with synthetic critical input — the critical track is structurally implemented but DORMANT (no criterion carries `split_fail_threshold_deg` today; the 6 fixtures are all execution-only, and wiring split 0-fail is a documented follow-up per D-35 to avoid the known kip-up split FP regression)
 - [ ] **INV-4 Discrimination preserved**: within the fixture set, better-executed videos score strictly higher than worse-executed ones (monotone margin preserved; no rank inversions vs. eyeball ordering)
 - [ ] **INV-5 Monotone deduction**: a strictly worse posture (larger measured deviation) never yields a higher score than a milder one — the deduction is monotone in measured deviation
-- [ ] **INV-6 Reconstructability**: for every fixture, `overallScore` is reconstructable from `deductionBreakdown` via `max(0, 100 − min(40, Σexec) − Σcritical)`
-- [ ] **INV-7 elbow-twist anchor**: the elbow-twist failure fixture (execution-only, Σ raw ≈ −111.4) scores exactly 60
+- [ ] **INV-6 Reconstructability**: for every fixture, `overallScore` is reconstructable from `deductionBreakdown` via `max(25, 100 − min(40, Σexec) − Σcritical)`
+- [ ] **INV-7 elbow-twist anchor**: the elbow-twist failure fixture (execution-only, no critical fault, Σ raw ≈ −111.4) scores exactly 60
+- [ ] **INV-8 Absolute floor**: no scored video (any that passes the not_pole_motion / no_human gates) scores below 25
 
 ## Ambiguity Report
 

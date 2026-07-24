@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: awaiting_human_verify
 trigger: "확대비교(fault-zoom) 크롭이 모든 결함 관절에 대해 같은 단일 프레임에서 잘려 나온다 — 결함별 최악 순간이 아니라 한 순간의 부위별 확대일 뿐. belle §6.6 재발 버그"
 created: 2026-07-25
 updated: 2026-07-25
@@ -14,10 +14,22 @@ updated: 2026-07-25
 - Repro: elbow-twist-sister/fault Mode1 분석 → result.faultZoomComparisons 의 모든 항목 userFrameIdx 동일.
 
 ## Evidence
-- timestamp: 2026-07-25 라이브 Pod 9w5es4y760il9w, elbow-twist-sister/fault 2회 재분석
+- timestamp: 2026-07-25 라이브 Pod 9w5es4y760il9w, elbow-twist-sister/fault 2회 재분석 (fix 前)
   - shadow phase33-cm3-run1: crop left_knee userFrame=140 / right_shoulder userFrame=140 (둘 다 140, refFrame 162)
   - production phase4_v1: crop left_knee / left_hand / left_shoulder 전부 userFrame=140 (refFrame 324)
   - 모든 크롭 동일 userFrame + 동일 refFrame. 관절만 다름.
+- timestamp: 2026-07-25 라이브 Pod 213.173.107.230:17519 (commit 149b770), elbow-twist-sister/fault (fix 後)
+  - AID=elbowtwistINVCHK260725pjfix, shadow phase33-cm3-run1, PR_INVERSION_ENABLED=1. STATUS=done SCORE=60.
+  - CROP left_knee (confirmed): userFrame=140 refFrame=162
+  - CROP right_shoulder (advisory): userFrame=148 refFrame=166
+  - CROP right_hand (advisory): userFrame=148 refFrame=166
+  - **결론: 크롭이 더 이상 전부 140 아님** — 무릎 카드(140)와 팔 카드(148)가 다른 프레임(≈0.44s@18fps 차)에서 잘림. fix 前 knee/shoulder 동일 140 → fix 後 knee 140 / shoulder 148. 뭉개기 해소 실증.
+  - 팔 2관절(right_shoulder+right_hand)이 둘 다 148 = 같은 팔이라 co-visible(정상, 붕괴 아님). 차별화는 부위/가시성 기준으로 창발.
+  - ⚠ 환경: cudnn9 부재로 onnxruntime CUDA EP 로드 실패 → RTMW **CPU 폴백**(WALL 502s). 프레임 선택(fix)은 keypoint conf 기반이라 CPU/GPU 무관하게 동작하지만, keypoint 품질은 GPU 대비 다를 수 있음(육안 시 참고). 이번 fixture 는 confirmed 카드 1장뿐 — confirmed 배치 내 다관절 차별화는 다관절 confirmed fixture 로 재확인 여지.
+  - S3 crop keys (belle 육안):
+    - results/phase25eval/elbowtwistINVCHK260725pjfix/zoom_left_knee.png
+    - results/phase25eval/elbowtwistINVCHK260725pjfix/zoom_adv_right_shoulder.png
+    - results/phase25eval/elbowtwistINVCHK260725pjfix/zoom_adv_right_hand.png
 
 ## Current Focus
 - status: fix 구현 완료, 유닛테스트 PASS, 라이브 Pod 재렌더 대기.

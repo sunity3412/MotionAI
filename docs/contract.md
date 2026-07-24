@@ -1655,11 +1655,17 @@ const frameIdx = Math.floor(currentTime * report.fps);
 `deductionBreakdown` 은 **객체** `{ baseline, records, final, coverageGaps?, fallback? }` 이다(bare list 아님). consumers 는 `result.deductionBreakdown?.final` 을 읽는다. `records`/`coverageGaps` 는 **flat dict 의 list** (Firestore nested-array 금지 — `angleDeltas`/`bodyRelativeNotches` 와 동일 형식).
 
 - `baseline: 100` — 점수 baseline(미감점 천장). **재-floor 금지** — final 의 상한 밴드가 아니다.
-- `final: number` — `max(0, round(100 + Σ record.points))`. **final 단위 유일 clamp 은 `max(0,…)`** (NO `min(100,…)`, NO severity ceiling — ND-01). record 단위로는 관절당 감점 상한 −20(`PER_RECORD_DEDUCTION_CAP`, quick-260705-k8h, belle 승인 2026-07-05)이 `points` 에 이미 적용돼 있다 — 클램프된 record 는 §10.2 `rawPoints`/`capApplied` 로 원 감점을 투명 노출(밴드 아님 — record 단위 명시 규칙 클램프, final 밴드 없음 그대로).
+- `final: number` — **Wave R 2트랙 산식(33-SPEC.md R1/R2, D-34/D-36):** `max(25, round(100 − min(40, Σ|execution points|) − Σ|critical points|))`. 실행 트랙(`track` 부재/`'execution'`, 라인/각도 편차)은 합산 후 −40 집계캡(`executionCap`) → 바닥 60; 치명 트랙(`track='critical'`, 필수 완전신전 미달 = 요소 미인정)은 −40 집계캡 + −20 per-record 캡 둘 다 우회해 바닥 60 아래로 끌어내리고, 최종은 절대 바닥 25(`scoreFloor`)로 clamp. **severity→고정천장 밴드는 여전히 없음**(NO `min(100,…)`, NO severity ceiling — ND-01; 집계캡은 밴드가 아니라 IPSF 실행-감점 총합상한의 비례환산). record 단위로는 관절당 감점 상한 −20(`PER_RECORD_DEDUCTION_CAP`, quick-260705-k8h)이 실행 record 의 `points` 에 이미 적용돼 있다 — 클램프된 record 는 §10.2 `rawPoints`/`capApplied` 로 원 감점을 투명 노출(치명 record 는 −20 캡 비대상). **치명 트랙은 현재 DORMANT**(활성 criterion 0 — split_fail_threshold_deg 보유 criterion 없음, D-35): 실 doc 은 전부 실행-only, 치명 하강은 합성 단위테스트로만 검증(D-38).
 - `records: DeductionRecord[]`
 - `coverageGaps?` / `fallback?` — breakdown-level 에서만 optional(legacy-compat).
+- **Wave R 2트랙 재구성 집계(additive-optional, D-37, INV-6):** two-track tally 경로에서만 방출(dimension_overall fallback 조기 return 경로는 부재 — 그 경로 재구성은 §10.5). 구 doc/앱 하위호환(부재 = 재설계 이전 doc). Python lockstep = `models.DEDUCTION_BREAKDOWN_OPTIONAL_KEYS`, TS = `DeductionBreakdown` 의 동명 optional. **INV-6 재구성:** `final == max(scoreFloor, round(100 + executionCappedTotal + criticalTotal))`.
+  - `executionRawTotal?: number` — 실행 record `points` 원합(SIGNED NEGATIVE, 캡 전).
+  - `executionCappedTotal?: number` — `-min(executionCap, |executionRawTotal|)` (집계캡 적용값).
+  - `criticalTotal?: number` — 치명 record `points` 합(집계캡·관절캡 우회, SIGNED NEGATIVE).
+  - `executionCap?: number` — `40`(실행 감점 집계 상한, 단일 project-level 상수 — fixture별 re-fit 금지).
+  - `scoreFloor?: number` — `25`(채점 도달 영상 절대 점수 바닥).
 
-### §10.2 DeductionRecord (필수 11 필드 + optional 2)
+### §10.2 DeductionRecord (필수 11 필드 + optional 3)
 
 | 필드 | 타입 | 의미 |
 |------|------|------|
@@ -1675,7 +1681,8 @@ const frameIdx = Math.floor(currentTime * report.fps);
 | `source` | 'geometry'\|'vision' | 측정 provenance. 'vision' = geometric 측정 불가 결함(split — kip-up keypoint saturate)의 vision-측정 편차로 점수화된 record(belle 2026-06-29 결정 A). 점수 산식은 동일 명시 규칙(tol×slope) — Gemini 점수 아님(ND-02 유지) |
 | `deviationSource` | 'ipsf_absolute'\|'reference_relative'\|'dimension_overall' | per-criterion 편차 출처 |
 | `rawPoints?` | number | **optional** — 관절당 상한(−20, `PER_RECORD_DEDUCTION_CAP`) 적용 전 원 감점(SIGNED NEGATIVE). **상한이 적용된 record 에만 방출** — 미적용 record 는 키 자체 생략(기존 11필드 byte-호환). 투명 감점-합산 내역 보존. |
-| `capApplied?` | true | **optional** — 이 record 의 감점이 관절당 상한 −20 으로 클램프됨(quick-260705-k8h, belle 승인 2026-07-05). `rawPoints` 와 반드시 쌍으로 방출. fallback record(`dimension_overall_fallback`)는 클램프 비대상(§10.5 `final == dimension_overall` 불변식 보존). |
+| `capApplied?` | true | **optional** — 이 record 의 감점이 관절당 상한 −20 으로 클램프됨(quick-260705-k8h, belle 승인 2026-07-05). `rawPoints` 와 반드시 쌍으로 방출. fallback record(`dimension_overall_fallback`)는 클램프 비대상(§10.5 참조). |
+| `track?` | 'execution'\|'critical' | **optional** (Wave R, 33-SPEC.md R4, D-37) — 2트랙 분류. `'critical'` record 에만 방출; `'execution'`(기본)은 키 생략(기존 11필드 byte-호환, legacy doc 부재 안전). 실행 트랙은 −40 집계캡 대상, 치명 트랙(필수 완전신전 미달 = 요소 미인정)은 집계캡·관절캡 우회(§10.1). **현재 DORMANT** — 활성 criterion 0(D-35). |
 
 **deviationSource 의미:** 각도/라인 criterion(leg_extension/arm_extension/line)은 학생-각도-vs-IPSF-절대-기준(180°/160°) → `ipsf_absolute`. `body_relative_reach` 는 `bodyRelativeNotches[].delta_notches`(학생−코치, baseline-relative) → `reference_relative`. `angle_vs_reference__{joint}` 는 정은지(reference) 대비 per-joint median |Δ각도| 편차(24-07 §3-1), `split_angle` 은 정은지 대비 split 부족분(geometric md 부재 시 vision-측정 편차 주입 → 그 record 는 `source='vision'`) — 둘 다 `reference_relative`. fallback record → `dimension_overall`.
 
@@ -1690,7 +1697,7 @@ const frameIdx = Math.floor(currentTime * report.fps);
 
 ### §10.5 fallback (MEDIUM-1 — traceable)
 
-`quantificationStatus=='unavailable'` → `final = dimension_overall`(**100 으로 리셋 금지** — Phase 20 위양성 방어 보존) + record 1개(`criterion='dimension_overall_fallback'`, `ruleId='quantification_unavailable_dimension_overall'`, `baselineValue=100`, `points=round(dimension_overall−100,1)` signed-negative, `unit='score_delta'`, `deviationSource='dimension_overall'`)로 `100 + Σ points == final` 유지. `fallback='gemini_silent'` 은 Gemini 무지목인데 measured 감점이 적용된 관측 마커(final 은 여전히 기하 반영, 100 아님).
+`quantificationStatus=='unavailable'` → `final = max(SCORE_FLOOR, round(dimension_overall))`(**100 으로 리셋 금지** — Phase 20 위양성 방어 보존; **Wave R 절대 바닥 25 적용** — 채점 도달 = not_pole_motion/no_human 게이트 통과했으므로 sub-25 부당, INV-8/D-36, 경로 무관) + record 1개(`criterion='dimension_overall_fallback'`, `ruleId='quantification_unavailable_dimension_overall'`, `baselineValue=100`, `points=round(dimension_overall−100,1)` signed-negative, `unit='score_delta'`, `deviationSource='dimension_overall'`). 이 fallback passthrough 는 2트랙 산식이 아니므로 §10.1 집계 필드(`executionCap` 등)를 방출하지 않는다 — 재구성 불변식은 `final == max(SCORE_FLOOR, round(dimension_overall))`. `fallback='gemini_silent'` 은 Gemini 무지목인데 measured 감점이 적용된 관측 마커(final 은 여전히 기하 반영, 100 아님).
 
 ### §10.6 strictness + coverageGaps provenance
 

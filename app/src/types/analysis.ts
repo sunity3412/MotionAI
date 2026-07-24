@@ -667,6 +667,10 @@ export interface DeductionRecord {
   // contract.md §10.2. fallback record(dimension_overall_fallback)는 클램프 비대상.
   rawPoints?: number; // SIGNED NEGATIVE — 관절당 상한(-20) 적용 전 원 감점. capApplied 시에만.
   capApplied?: true; // 이 record 의 감점이 관절당 상한 -20 으로 클램프됨 (투명 내역 유지).
+  // Wave R (33-SPEC.md R4, D-37) 2트랙 분류. critical record 에만 방출 (execution 기본,
+  // 키 생략 = 기존 11필드 byte-호환, legacy doc 부재 안전). Python lockstep =
+  // models.DEDUCTION_RECORD_OPTIONAL_KEYS + docs/contract.md §10.2. 주석 word-colon 금지.
+  track?: 'execution' | 'critical';
   // ── Phase 32 (Plan 32-06 — D-08/D-10 + 리뷰 blocker 5) additive optional ──
   // 부재 = legacy doc (32-09 방출 이전) — 전부 하위호환. Python lockstep =
   // models.py DEDUCTION_RECORD_EXTENSION_KEYS + docs/contract.md §12.3. record
@@ -710,6 +714,17 @@ export interface DeductionBreakdown {
     ruleId?: string;
   }[];
   fallback?: 'quantification_unavailable' | 'gemini_silent';
+  // Wave R (33-SPEC.md R1/R4/INV-6, D-34/D-37) — 2트랙 산식 재구성 집계. two-track tally
+  // 경로에서만 방출 (dimension_overall fallback 조기 return 경로는 부재 — 그 경로 재구성은
+  // §10.5 final == max(scoreFloor, round(dimensionOverall))). 전부 additive optional (구
+  // doc/앱 하위호환). 재구성 (INV-6): final == max(scoreFloor, round(100 +
+  // executionCappedTotal + criticalTotal)). Python lockstep =
+  // models.DEDUCTION_BREAKDOWN_OPTIONAL_KEYS + docs/contract.md §10.
+  executionRawTotal?: number; // Σ|실행| 원합 (SIGNED NEGATIVE)
+  executionCappedTotal?: number; // -min(executionCap, |executionRawTotal|)
+  criticalTotal?: number; // Σ|치명| (집계캡·관절캡 우회, SIGNED NEGATIVE)
+  executionCap?: number; // 40 — 실행 감점 집계 상한 (IPSF 총합상한 비례환산)
+  scoreFloor?: number; // 25 — 채점 도달 영상 절대 점수 바닥
 }
 
 export type AnalysisResult = ScoreSuppression & {

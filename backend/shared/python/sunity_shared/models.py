@@ -176,8 +176,24 @@ DEDUCTION_RECORD_KEYS = (
 # (MEDIUM-2) 의 유일한 optional 예외. fallback record(dimension_overall_fallback)는
 # 클램프 비대상. 3-way lockstep: app/src/types/analysis.ts DeductionRecord +
 # docs/contract.md §10.2.
-DEDUCTION_RECORD_OPTIONAL_KEYS = ("rawPoints", "capApplied")
+# Wave R (33-SPEC.md R4, D-37): track — 2트랙 분류('execution'|'critical'). additive
+# optional — 'critical' record 에만 방출(execution=기본, 키 생략 = 기존 11키 byte-호환,
+# legacy doc 부재 안전). rawPoints/capApplied 패턴 계승. 3-way lockstep:
+# app/src/types/analysis.ts DeductionRecord.track? + docs/contract.md §10.2.
+DEDUCTION_RECORD_OPTIONAL_KEYS = ("rawPoints", "capApplied", "track")
 DEDUCTION_BREAKDOWN_KEYS = ("baseline", "records", "final", "coverageGaps", "fallback")
+# Wave R (33-SPEC.md R1/R4/INV-6, D-34/D-37): 2트랙 산식 재구성 집계 필드 — breakdown-level
+# additive optional. two-track tally 경로에서만 방출(dimension_overall fallback 조기 return
+# 경로는 부재 — 그 경로 재구성은 §10.5 final == max(SCORE_FLOOR, round(dimension_overall))).
+# 필수 5키(DEDUCTION_BREAKDOWN_KEYS)는 무접촉 — 구 doc/앱 하위호환. INV-6:
+#   final == max(scoreFloor, round(100 + executionCappedTotal + criticalTotal)).
+#   executionRawTotal = Σ|실행| 원합 / executionCappedTotal = -min(executionCap, |raw|) /
+#   criticalTotal = Σ|치명|(캡 우회) / executionCap = 40 / scoreFloor = 25.
+# 3-way lockstep: app/src/types/analysis.ts DeductionBreakdown + docs/contract.md §10.
+DEDUCTION_BREAKDOWN_OPTIONAL_KEYS = (
+    "executionRawTotal", "executionCappedTotal", "criticalTotal",
+    "executionCap", "scoreFloor",
+)
 
 # ── Phase 28 (ALGN-01): MotionAlignment 계약 상수 ─────────────────────
 # 동작 기반 비교 정렬 맵 — 학생(left)=master 시계 불변, 정은지(right)만 warp(tStudent)→tRef.

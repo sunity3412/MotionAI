@@ -31,6 +31,21 @@ updated: 2026-07-25
     - results/phase25eval/elbowtwistINVCHK260725pjfix/zoom_adv_right_shoulder.png
     - results/phase25eval/elbowtwistINVCHK260725pjfix/zoom_adv_right_hand.png
 
+## Evidence — DTW 정렬 fix 재렌더 (2026-07-25, commit ea55069, Pod 213.173.107.230:17519 GPU 복구)
+- GPU 복구: onnxruntime CPU 폴백 원인 = 비대화형 ssh 셸이 ~/.bashrc(LD_LIBRARY_PATH cudnn/cublas 이미 설정) 미소스. fix = 실행 셸에 LD_LIBRARY_PATH(nvidia/{cudnn,cublas,...}/lib) + RTMW env 명시 export. 직접 InferenceSession 프로브: rtmw-x-384.onnx / yolox_m.onnx 둘 다 `providers=['CUDAExecutionProvider','CPUExecutionProvider']` (CUDA 활성). 재렌더 WALL=156.2s (구 CPU 502s → −346s = RTMW GPU 가속분; 잔여 156s 는 Gemini veto 네트워크 대기). ★ 영구 fix 아님 — .bashrc 는 이미 맞음(대화형만), 비대화형 렌더는 env 명시 필요. flip 용 서버(uvicorn pid3289)는 대화형 기동이라 GPU 정상.
+- AID=elbowtwistINVCHK260725align, SHADOW=phase33-cm3-run1, PR_INVERSION_ENABLED=1. STATUS=done SCORE=60 (149b770 과 동일 — 채점 무접촉 실증).
+- sourceFrameIndices(9fps): USER_WINDOW=[70,71,72,73,74] REF_WINDOW=[73,74,75,76,77] (DTW 오프셋 +3@9fps=+6@kp18fps 일정). keypointReport fps=18.
+- **카드별 DTW 정렬 (userFrameIdx/refFrameIdx=kp18fps 공간, →9fps=÷2, window position):**
+  - left_knee (confirmed): user kp140→9fps70=pos0 / ref kp146→9fps73=REF pos0 → **같은 window index 0 ✓**
+  - right_shoulder (advisory): user kp144→9fps72=pos2 / ref kp150→9fps75=REF pos2 → **같은 index 2 ✓**
+  - right_hand (advisory): user kp148→9fps74=pos4 / ref kp154→9fps77=REF pos4 → **같은 index 4 ✓**
+  - 세 카드 전부 student↔reference 같은 window position(DTW 짝). user→ref 갭 일정(kp +6) = position-lock 시그니처. fix 前(149b770): knee 140→162(갭22)/shoulder 148→166(갭18) 가변 = 독립선택 붕괴.
+- S3 crop keys (belle 육안 — 카드 내 정은지 패널이 학생과 같은 순간인지):
+  - results/phase25eval/elbowtwistINVCHK260725align/zoom_left_knee.png
+  - results/phase25eval/elbowtwistINVCHK260725align/zoom_adv_right_shoulder.png
+  - results/phase25eval/elbowtwistINVCHK260725align/zoom_adv_right_hand.png
+- 육안 확정 = PENDING (belle). 코드/프레임 정렬은 검증됐으나 "두 패널이 같은 동작 순간으로 보이는가"는 이미지 open 필요.
+
 ## belle 육안 결과 (2026-07-25, commit 149b770 크롭 3장 open)
 - ✅ 마커 위치 = belle "아주 잘돼" (손 크롭: 머리카락에 가려진 손을 정확히 집음 — Claude 오독 정정). 마커 로직 무접촉.
 - ✅ 프레임 뭉침(전부 140) 해소는 됨 (knee 140 / arms 148).

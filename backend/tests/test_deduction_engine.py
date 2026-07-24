@@ -402,16 +402,16 @@ def _tally(measured, ctx, *, dimension_overall=80, baseline_kind="hip_line",
     )
 
 
-def test_no_final_band():
-    # 밴드-부재 의미 유지 (quick-260705-k8h 후): 50/75/90 floor 없음 — huge deviation
-    # 3건이 각각 per-record 상한 -20 으로 클램프돼 final == 100 - round(3 × cap) == 40
-    # (< 50, 상수 파생 구조 단언 — sweep 수치 타깃 아님). record 단위 cap 은 밴드가
-    # 아니다(명시 규칙 클램프) — final 단위 floor/ceiling 은 여전히 없음.
+def test_no_severity_ceiling_band_execution_cap_floors_at_60():
+    # Wave R (33-SPEC.md R1, D-34): severity→고정천장 밴드는 여전히 없음(min(100/min(final
+    # 부재). 그러나 실행 감점은 합산 후 −EXECUTION_DEDUCTION_CAP(−40) 집계캡 → 바닥 60 이
+    # 신설됐다 — 병적 입력(500/500/500 → 3× per-record −20 → 실행 Σ −60)도 실행 전용이면
+    # 60 밑으로 안 내려간다(INV-2/INV-7). 집계캡은 severity 밴드가 아니라 IPSF 실행-감점
+    # 총합상한(단일 상수, sweep 수치 타깃 아님).
     b = _tally(_measured(leg=500.0, arm=500.0, split=500.0),
                _ctx([_diff("무릎", "굽음")]))
-    assert b.final == 100 - round(3 * deduction_engine.PER_RECORD_DEDUCTION_CAP) == 40
-    assert b.final < 50  # 50-floor 밴드 부재 증거
-    # source guard — no min-band near the return.
+    assert b.final == 60  # 100 − min(40, 60) (INV-2 execution floor)
+    # source guard — no severity min-ceiling near the return (집계캡 min 은 상수 대상).
     src = (pathlib.Path(deduction_engine.__file__).read_text(encoding="utf-8"))
     assert "min(100" not in src
     assert "min(final" not in src
@@ -798,7 +798,11 @@ def test_split_no_vision_deviation_no_score():
 def test_breakdown_serializes_flat():
     b = _tally(_measured(leg=40.0), _ctx([_diff("무릎", "굽음")]))
     d = b.to_dict()
-    assert set(d.keys()) == set(models.DEDUCTION_BREAKDOWN_KEYS)
+    # Wave R (D-37): 필수 5키 + 2트랙 집계 5키(additive-optional, two-track 경로 방출).
+    agg_keys = {"executionRawTotal", "executionCappedTotal", "criticalTotal",
+                "executionCap", "scoreFloor"}
+    assert set(models.DEDUCTION_BREAKDOWN_KEYS) <= set(d.keys())
+    assert agg_keys <= set(d.keys())
     assert isinstance(d["records"], list)
     for rec in d["records"]:
         # leg=40 → capped record 포함 (quick-260705-k8h) — cap-인지 키 형상 helper.
@@ -806,7 +810,12 @@ def test_breakdown_serializes_flat():
         _assert_record_keys(rec)
         for v in rec.values():
             assert not isinstance(v, (list, dict)), "nested array/dict 금지(Firestore-flat)"
-    assert d["final"] == max(0, round(100.0 + sum(r["points"] for r in d["records"])))
+    for k in agg_keys:
+        assert isinstance(d[k], (int, float)), f"{k} 는 flat scalar (Firestore)"
+    # Wave R 재구성 (INV-6): final == max(scoreFloor, round(100 + execCapped + critical)).
+    assert d["final"] == max(
+        d["scoreFloor"], round(100.0 + d["executionCappedTotal"] + d["criticalTotal"])
+    )
 
 
 # ── 25-02 review CR-01 — fold 멤버 라우팅 보존 ────────────────────────────────

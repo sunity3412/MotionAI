@@ -42,6 +42,24 @@ _BASELINE = 100.0
 # (contract.md §10.5)과 100+Σpoints==final 추적성이 동시에 깨진다.
 PER_RECORD_DEDUCTION_CAP = 20.0
 
+# ── Wave R 채점 재설계 (33-SPEC.md R1~R3, D-34/D-36 — 2트랙 IPSF 감점 상한) ──────
+# 무제한 per-joint 감점 누적이 다관절 실행결함을 0 으로 뭉갠 결함(elbow-twist 8관절
+# Σ −111.4 → floor 0, 그 자신의 angle 차원은 58)을 2트랙 산식으로 교체:
+#   final = max(SCORE_FLOOR, round(100 − min(EXECUTION_DEDUCTION_CAP, Σ|실행|) − Σ|치명|))
+# EXECUTION_DEDUCTION_CAP: 실행 트랙(라인/각도 편차) 감점 합의 집계 상한 → 바닥 60.
+#   provenance: IPSF Code of Points 실행-감점 총합상한 −25.0 는 ~60점 IPSF 실행 스케일의
+#   ≈42% → 우리 0~100 스케일로 비례환산 −40. **단일 project-level 상수** — fixture별·
+#   criterion별 re-fit 아님([[scoring-redesign-must-generalize-no-overfit]], D-34/R3).
+#   기존 임계(tol 20°·slope 1.2·per-record −20·per-criterion 90)는 무접촉 — 그 위에
+#   NEW 집계캡만 얹는다(D-29 잔여).
+EXECUTION_DEDUCTION_CAP = 40.0
+# SCORE_FLOOR: 채점까지 도달한 영상의 절대 점수 바닥. belle: 채점에 도달 = not_pole_motion
+#   /no_human 게이트를 통과 = 그 동작을 (못해도) 시도한 것이므로 0 은 부당. 완전 무관
+#   영상은 채점 전 탈락한다(D-36). 3단 = 정은지 95~100 / 실행결함 60~95 / 치명결함 25~60.
+#   경로 무관 불변식(INV-8): 2트랙 tally 와 dimension_overall fallback 조기 return 양쪽 모두
+#   이 바닥을 적용한다.
+SCORE_FLOOR = 25.0
+
 
 @dataclass(frozen=True)
 class DeductionRecord:
@@ -67,6 +85,13 @@ class DeductionRecord:
     # 상한 미적용 record 는 기존 11키 형상 byte-동일(구 앱/legacy doc 무영향).
     raw_points: float | None = None  # 상한 전 원 감점(signed-negative) — cap_applied 시에만 방출
     cap_applied: bool = False
+    # Wave R (33-SPEC.md R1/R4, D-34/D-36/D-37): 2트랙 분류. 'execution'(라인/각도 편차,
+    # −40 집계캡 대상) | 'critical'(필수 완전신전 미달 = 요소 미인정, 집계캡·관절캡 우회).
+    # default 'execution' 이라 기존 생성부(fallback record 포함) 무수정 호환. to_dict 는
+    # 'critical' 일 때만 track 키를 additive 방출 — execution 은 키 생략(기존 11키 byte-호환,
+    # legacy doc 부재 안전, DEDUCTION_RECORD_OPTIONAL_KEYS 계승). 현재 치명 트랙은 DORMANT
+    # (활성 criterion 0, D-35) — 실 record 는 전부 'execution'.
+    track: str = "execution"
 
     def to_dict(self) -> dict:
         """flat camelCase dict (models.DEDUCTION_RECORD_KEYS [+OPTIONAL_KEYS],
@@ -88,6 +113,9 @@ class DeductionRecord:
             # 투명 내역 유지: 클램프된 record 만 원 감점 + 마커를 additive 방출.
             d["rawPoints"] = self.raw_points
             d["capApplied"] = True
+        if self.track == "critical":
+            # additive-optional: 치명 record 만 track 방출(execution=기본, 키 생략).
+            d["track"] = self.track
         return d
 
 
@@ -102,17 +130,36 @@ class DeductionBreakdown:
     final: int
     coverage_gaps: tuple
     fallback: str | None
+    # Wave R (33-SPEC.md R4, D-37): 2트랙 산식 재구성(INV-6) additive-optional 집계 필드.
+    # 두 트랙 tally 경로에서만 채워지고 dimension_overall fallback 조기 return 경로는 None
+    # (그 경로의 재구성은 §10.5 final == max(SCORE_FLOOR, round(dimension_overall)) 별도
+    # 불변식). to_dict 는 None 이면 키 자체를 생략(구 doc/앱 하위호환, rawPoints/capApplied
+    # additive 패턴 계승).
+    execution_raw_total: float | None = None
+    execution_capped_total: float | None = None
+    critical_total: float | None = None
+    execution_cap: float | None = None
+    score_floor: float | None = None
 
     def to_dict(self) -> dict:
-        """OBJECT {baseline, records, final, coverageGaps, fallback} — records/coverageGaps
-        는 flat dict 의 list(Firestore nested-array 금지)."""
-        return {
+        """OBJECT {baseline, records, final, coverageGaps, fallback [+2트랙 집계]} —
+        records/coverageGaps 는 flat dict 의 list(Firestore nested-array 금지)."""
+        d = {
             "baseline": self.baseline,
             "records": [r.to_dict() for r in self.records],
             "final": self.final,
             "coverageGaps": [dict(g) for g in self.coverage_gaps],
             "fallback": self.fallback,
         }
+        if self.execution_cap is not None:
+            # 2트랙 경로 — INV-6 재구성용 집계를 additive 방출(D-37):
+            # final == max(scoreFloor, round(100 + executionCappedTotal + criticalTotal)).
+            d["executionRawTotal"] = self.execution_raw_total
+            d["executionCappedTotal"] = self.execution_capped_total
+            d["criticalTotal"] = self.critical_total
+            d["executionCap"] = self.execution_cap
+            d["scoreFloor"] = self.score_floor
+        return d
 
     def to_records(self) -> list:
         """INTERNAL helper — to_dict()['records'] 만."""
@@ -282,7 +329,11 @@ def tally(
             deviation_source="dimension_overall",
         )
         _collect_coverage_gaps(fault_context, md, crit_by_id, coverage_gaps)
-        final = max(0, round(dim))
+        # Wave R (INV-8, D-36): 절대 바닥 25 는 경로 무관 — 2트랙 tally 뿐 아니라
+        # whole-score fallback passthrough 에도 적용(채점 도달 = 시도한 것, sub-25 부당).
+        # §10.5 불변식이 final == dimension_overall 에서 max(SCORE_FLOOR, round(·))로 이동.
+        # 2트랙 집계 필드는 이 경로에 부재(None) — additive-optional, 재구성은 §10.5.
+        final = int(max(SCORE_FLOOR, round(dim)))
         return DeductionBreakdown(
             baseline=int(_BASELINE), records=(fallback_record,), final=final,
             coverage_gaps=tuple(coverage_gaps), fallback="quantification_unavailable",
@@ -310,20 +361,28 @@ def tally(
         meta = _criterion_deduction(cid, crit, md, quantification, baseline_kind)
         if meta is None:
             continue  # substrate 부재/None → 0 기여(honest 0, ND-06)
-        over, measured_value, baseline_value, unit, dev_kind = meta
+        over, measured_value, baseline_value, unit, dev_kind, track = meta
         if not np.isfinite(over):  # NaN/Inf guard (Security V5)
             continue
         if over <= 0.0:
             continue  # dead-zone — 감점 0(record 미방출)
         raw = over * crit["slope"]                     # LINEAR (MEDIUM-2 — gaussian 아님)
         capped = min(raw, crit["ipsf_cap"])            # per-criterion cap BEFORE sum (ND-04b)
-        # 관절당 감점 상한 -20 클램프 (quick-260705-k8h — PER_RECORD_DEDUCTION_CAP 주석
-        # 참조). 반올림(0.1 단위) 후 비교 — float epsilon 이 rawPoints == points 인 가짜
-        # capApplied 잡음 record 를 만들지 않게 한다. 경계(정확히 == 상한)는 상한 이하
-        # 취급(필드 생략).
         capped_r = round(capped, 1)
-        cap_hit = capped_r > PER_RECORD_DEDUCTION_CAP
-        points_val = PER_RECORD_DEDUCTION_CAP if cap_hit else capped_r
+        if track == "critical":
+            # Wave R (D-36): 치명 record(필수 완전신전 미달 = 요소 미인정)는 −20 관절캡을
+            # 우회 — 요소미인정 크기(ipsf_cap 90)를 보존한다. **DORMANT** (0-fail 분기는
+            # split_fail_threshold_deg 보유 criterion 이 없어 미발화, D-35) — 합성
+            # 단위테스트 전용 경로. per-record 캡 미적용이므로 rawPoints/capApplied 없음.
+            points_val = capped_r
+            cap_hit = False
+        else:
+            # 관절당 감점 상한 -20 클램프 (quick-260705-k8h — PER_RECORD_DEDUCTION_CAP 주석
+            # 참조). 반올림(0.1 단위) 후 비교 — float epsilon 이 rawPoints == points 인 가짜
+            # capApplied 잡음 record 를 만들지 않게 한다. 경계(정확히 == 상한)는 상한 이하
+            # 취급(필드 생략).
+            cap_hit = capped_r > PER_RECORD_DEDUCTION_CAP
+            points_val = PER_RECORD_DEDUCTION_CAP if cap_hit else capped_r
         rec_baseline_kind = baseline_kind if cid == "body_relative_reach" else None
         records.append(DeductionRecord(
             criterion=cid,
@@ -342,19 +401,52 @@ def tally(
             deviation_source=crit["deviation_source"],
             raw_points=(-capped_r if cap_hit else None),
             cap_applied=cap_hit,
+            track=track,
         ))
 
-    # (10) final = max(0, round(100 + Σ points)) — final 단위 clamp 은 max(0,…) 뿐
-    # (points 는 이미 per-record 상한 적용값).
-    final = max(0, round(_BASELINE + sum(r.points for r in records)))
+    # (10) Wave R 2트랙 최종 (33-SPEC.md R1/R2, D-34/D-36): 실행 감점은 합산 후 −40
+    # 집계캡(바닥 60), 치명 감점은 집계캡·관절캡 둘 다 우회, 절대 바닥 25.
+    # final = max(25, round(100 − min(40, Σ|실행|) − Σ|치명|)). 산식·재구성은 _two_track_final.
+    exec_raw, exec_capped, crit_total, final = _two_track_final(records)
     fallback = "gemini_silent" if (gemini_silent and records) else None
     return DeductionBreakdown(
         baseline=int(_BASELINE), records=tuple(records), final=final,
         coverage_gaps=tuple(coverage_gaps), fallback=fallback,
+        execution_raw_total=exec_raw, execution_capped_total=exec_capped,
+        critical_total=crit_total, execution_cap=EXECUTION_DEDUCTION_CAP,
+        score_floor=SCORE_FLOOR,
     )
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
+
+
+def _two_track_final(records):
+    """Wave R 2트랙 최종 점수 + 재구성 집계 (33-SPEC.md R1/R2/R4, D-34/D-36).
+
+    실행 트랙(track != 'critical') 감점은 합산 후 −EXECUTION_DEDUCTION_CAP(−40) 집계캡
+    → 바닥 60 (INV-2/INV-7). 치명 트랙(track == 'critical')은 집계캡·per-record 캡 둘 다
+    우회(D-36)해 바닥 60 아래로 끌어내리고, 최종은 SCORE_FLOOR(25) 절대 바닥(INV-8):
+
+        final = max(25, round(100 − min(40, Σ|실행|) − Σ|치명|))
+
+    반환: (execution_raw_total, execution_capped_total, critical_total, final).
+    앞 3개는 INV-6 재구성용 방출값(0.1 단위 반올림) — final == max(SCORE_FLOOR,
+    round(100 + execution_capped_total + critical_total)) 가 dict 만으로 성립한다.
+    """
+    execution_raw_total = round(
+        sum(r.points for r in records if r.track != "critical"), 1
+    )
+    critical_total = round(
+        sum(r.points for r in records if r.track == "critical"), 1
+    )
+    execution_capped_total = round(
+        -min(EXECUTION_DEDUCTION_CAP, abs(execution_raw_total)), 1
+    )
+    final = int(max(
+        SCORE_FLOOR, round(_BASELINE + execution_capped_total + critical_total)
+    ))
+    return execution_raw_total, execution_capped_total, critical_total, final
 
 
 _IPSF_ABSOLUTE_BASELINE = {
@@ -366,17 +458,21 @@ _IPSF_ABSOLUTE_BASELINE = {
 
 
 def _criterion_deduction(cid, crit, md, quantification, baseline_kind):
-    """ACTIVATED criterion 1개의 (over, measured_value, baseline_value, unit, dev_kind).
+    """ACTIVATED criterion 1개의 (over, measured_value, baseline_value, unit, dev_kind, track).
 
     ipsf_absolute(angle/line): over = max(0, dev − tol); split 은 160° 0-fail 불연속.
     reference_relative(reach): insufficient-reach shortfall(HIGH-2). substrate 부재 → None.
+    track(Wave R, D-35/D-36): 'critical' 은 오직 full-extension 0-fail 분기
+    (split_fail_threshold_deg 보유 + measured_value < fail_thr) — 현재 그 필드를 가진
+    criterion 이 없어 DORMANT. 그 외 전부 'execution'.
     """
     if crit["direction"] == "insufficient_reach":
         sf = _notch_shortfall(quantification, crit)
         if sf is None:
             return None
         total_shortfall, measured_sum, baseline_sum = sf
-        return total_shortfall, measured_sum, baseline_sum, crit.get("unit", "notch"), "reach"
+        return (total_shortfall, measured_sum, baseline_sum,
+                crit.get("unit", "notch"), "reach", "execution")
 
     # reference_relative (over_target) — 24-07 §3-1. measured_deviations[cid] = 정은지(reference)
     # 대비 per-joint median |Δ각도| 편차(deg, motiondtw.per_joint_deviation). 목표 = reference 대비
@@ -388,7 +484,7 @@ def _criterion_deduction(cid, crit, md, quantification, baseline_kind):
             return None
         tol = crit["tolerance"]
         over = max(0.0, d - tol)
-        return over, d, 0.0, "deg", "reference_relative"
+        return over, d, 0.0, "deg", "reference_relative", "execution"
 
     # ipsf_absolute — measured_deviations[cid] = student-angle-vs-target deficit(deg).
     dev = md.get(cid)
@@ -404,11 +500,14 @@ def _criterion_deduction(cid, crit, md, quantification, baseline_kind):
     # 추정 student angle; 그 각이 160° 미만이면 요소 무효(최대 감점 = cap 까지).
     fail_thr = crit.get("split_fail_threshold_deg")
     if fail_thr is not None and measured_value < fail_thr:
-        # 0-fail → cap 도달하도록 충분히 큰 over (cap 이 min 으로 제한).
+        # 0-fail → cap 도달하도록 충분히 큰 over (cap 이 min 으로 제한). Wave R: 이 분기가
+        # 치명(요소 미인정) 트랙 — 집계캡·관절캡 우회(D-36). DORMANT: split_fail_threshold_deg
+        # 를 실제로 보유한 criterion 이 0개(D-35, ipsf_criteria.py:96-97) → 미발화. 지금
+        # 배선(per-move expects_split)하면 kip-up split 위양성 재유발이라 문서화 후속.
         big_over = crit["ipsf_cap"] / max(crit["slope"], 1e-6)
-        return big_over, measured_value, baseline_value, "deg", "ipsf_absolute"
+        return big_over, measured_value, baseline_value, "deg", "ipsf_absolute", "critical"
     over = max(0.0, d - tol)
-    return over, measured_value, baseline_value, "deg", "ipsf_absolute"
+    return over, measured_value, baseline_value, "deg", "ipsf_absolute", "execution"
 
 
 def _supported_differences(fault_context):

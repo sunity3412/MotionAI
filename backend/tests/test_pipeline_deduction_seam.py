@@ -272,7 +272,12 @@ def test_breakdown_object_set_on_result_and_flat(monkeypatch):
         measured_deviations={"leg_extension": 40.0}, baseline_kind="floor",
     )
     bd = out["deductionBreakdown"]
-    assert set(bd.keys()) == {"baseline", "records", "final", "coverageGaps", "fallback"}
+    # Wave R (D-37): 필수 5키 + 2트랙 집계 5키(additive-optional, INV-6 재구성).
+    base_keys = {"baseline", "records", "final", "coverageGaps", "fallback"}
+    agg_keys = {"executionRawTotal", "executionCappedTotal", "criticalTotal",
+                "executionCap", "scoreFloor"}
+    assert base_keys <= set(bd.keys())
+    assert agg_keys <= set(bd.keys())
     assert bd["baseline"] == 100
     for r in bd["records"]:
         assert "baselineValue" in r and "baselineKind" in r

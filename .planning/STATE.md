@@ -76,7 +76,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-24 - Completed quick task 260724-q6b: IN-01 역립 저신뢰 결과화면 표현 강등 (시뮬레이터 렌더 게이트 대기)
+Last activity: 2026-07-24 - Completed quick task 260724-q6b: IN-01 역립 저신뢰 결과화면 표현 강등 + 확대비교 예상부위 입구(d94ff96), 시뮬레이터 렌더 게이트 PASS → belle 확인 후 OTA
 
 ### Quick Tasks Completed
 

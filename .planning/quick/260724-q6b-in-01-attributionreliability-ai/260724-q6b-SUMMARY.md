@@ -42,9 +42,14 @@ date: 2026-07-24
 - a7c2587 feat: attributionUnreliable gate — LOCKED-4 + guidance line
 - 604b2bf feat: remaining 4 per-joint surfaces (same gate)
 
-## 남은 게이트 (미완)
-- **시뮬레이터 렌더 확인** (verify-ui-on-simulator-before-ota) — unreliable 케이스에서 크래시 0 + 8표면 강등 육안 확인. typecheck는 렌더 크래시 미포착. 합성 unreliable doc 시딩 필요.
-- OTA는 belle 확인 후.
+## 후속 (belle 결정) — 확대비교 입구 살리기
+- 역립 저신뢰서 확대비교 입구가 억제로 사라진 gap 발견 → belle "예상 부위라도 보여줘야". 후속 커밋 d94ff96: "예상 부위 확대 비교 보기" 입구(안내줄 아래, advisoryOrange) + 시트 estimatedArea hedge(제목 "예상 부위 (참고)"·감점수치→"이 부위는 추정이라 관절별 감점 수치는 종합 점수로만 반영돼요"·크롭+배지 유지). 상세=SUMMARY-followup.md.
+
+## 시뮬레이터 렌더 게이트 — PASS (2026-07-24, 합성 __DEV__ mock, expo run:ios iPhone16)
+- 크래시 0. 집계 "= 종합 60점", "AI 공부 중" 안내 1줄, 점수 60 당당, per-joint 팁/카드/심사코너 억제 — 스크린샷 육안 확인(in01-05/07).
+- 확대비교 입구 렌더 + 탭→"예상 부위 (참고)" hedge 시트(−N점 없음) — 육안 확인(in01b-01/02).
+- ⚠ 실제 자산 필요분(라이브 Pod 없어 미확인, 코드경로는 존재): 오버레이 주황 "예상 부위" 1점(영상 프레임 필요), 실제 크롭 사진.
+- **남은 것 = belle 최종 확인 → OTA.**
 
 ## 파일
 - app/src/types/analysis.ts, app/src/lib/userAnalyses.ts, app/src/components/ScoreBreakdownSection.tsx, app/src/components/DeductionDetailSheet.tsx, app/src/app/analysis/result.tsx

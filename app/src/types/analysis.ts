@@ -727,7 +727,27 @@ export interface DeductionBreakdown {
   scoreFloor?: number; // 25 — 채점 도달 영상 절대 점수 바닥
 }
 
+// IN-01 (quick-260724-q6b) — 역립/자기가림 저신뢰 자세에서 per-joint 귀속(어느 관절이
+// 틀렸는지)이 신뢰 불가임을 앱에 알리는 마커. unreliable=true 이면 앱은 결과 화면의 모든
+// per-joint "확정" 표면을 "예상/집계"로 강등한다 (점수 값은 무접촉 — 표현 전용).
+// Python lockstep: backend/functions/pipeline/app.py _assess_attribution_reliability
+//   (2282-2324) 방출 형상 + 5696-5702 result 부착 (unreliable=True 일 때만 실림 —
+//   reliable/부재 doc 은 byte-동일). aggregateStatement 는 unreliable=True 시에만 동반.
+export interface AttributionReliability {
+  unreliable: boolean;
+  geminiSilent: boolean;
+  overTolJointCount: number;
+  visibility: number | null;
+  dtwDistance: number | null;
+  // unreliable=True 시에만 실림 — 관절명 없는 전체 자세 집계 문장 (예: '전체 자세가
+  // 정은지 선수보다 덜 정돈된 편이에요.'). 앱이 per-joint 강등 시 대체 문장으로 사용.
+  aggregateStatement?: string;
+}
+
 export type AnalysisResult = ScoreSuppression & {
+  // IN-01 (quick-260724-q6b) — 역립 저신뢰 per-joint 귀속 마커. OPTIONAL/legacy-doc
+  // 호환 (부재 = 정상 동작 — 역립 저신뢰에서만 방출). 앱 표현 강등 전용, 점수 무접촉.
+  attributionReliability?: AttributionReliability;
   // Phase 27 SPD-01 — 단계별 소요(ms). backend/audit 전용, 사용자 비노출(UI 소비 금지).
   // Python lockstep: pipeline app.py `_stage` + contract.md timingsMs 절. flat
   // Record<string, number> (nested 금지 — [[firestore-nested-array-flat]]). 키는 자유

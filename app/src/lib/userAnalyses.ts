@@ -20,6 +20,7 @@ import { normalizeBodyProfile } from './bodyProfile';
 import type {
   AnalysisDoc,
   AnalysisStatus,
+  AttributionReliability,
   CoachAudio,
   CoachAudioItem,
   CoachCommentHook,
@@ -334,6 +335,30 @@ function normalizeSpotCheck(value: unknown): SpotCheck | undefined {
     ...(typeof s.promptVersion === 'string'
       ? { promptVersion: s.promptVersion }
       : {}),
+  };
+}
+
+// IN-01 (quick-260724-q6b) — attributionReliability 방어 파싱. 백엔드 방출값을
+// 신뢰하지 않는다: 객체 아니거나 unreliable/geminiSilent 가 boolean 아니면 undefined
+// (malformed doc 렌더 크래시 0 — normalizeSpotCheck 관례). visibility/dtwDistance 는
+// 유한 number 아니면 null, overTolJointCount 는 유한 number 아니면 0, aggregateStatement
+// 는 비어있지 않은 string 일 때만 보존. 부재(정상 doc)=undefined → 렌더 diff 0.
+function normalizeAttributionReliability(
+  value: unknown,
+): AttributionReliability | undefined {
+  if (value == null || typeof value !== 'object' || Array.isArray(value))
+    return undefined;
+  const a = value as Record<string, unknown>;
+  if (typeof a.unreliable !== 'boolean' || typeof a.geminiSilent !== 'boolean')
+    return undefined;
+  const aggregateStatement = normalizeNonEmptyString(a.aggregateStatement);
+  return {
+    unreliable: a.unreliable,
+    geminiSilent: a.geminiSilent,
+    overTolJointCount: normalizeFiniteNumber(a.overTolJointCount) ?? 0,
+    visibility: normalizeFiniteNumber(a.visibility) ?? null,
+    dtwDistance: normalizeFiniteNumber(a.dtwDistance) ?? null,
+    ...(aggregateStatement ? { aggregateStatement } : {}),
   };
 }
 
@@ -678,6 +703,11 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
       coachAudio: normalizeCoachAudio(r.coachAudio),
       // Phase 32 (Plan 32-13 — D-23) — 사후 도착 스팟체크 (부재=전 카드 표시).
       spotCheck: normalizeSpotCheck(r.spotCheck),
+      // IN-01 (quick-260724-q6b) — 역립 저신뢰 per-joint 귀속 마커 (부재=정상 동작,
+      // unreliable=false/부재 시 렌더 diff 0). 앱 표현 강등 전용, 점수 무접촉.
+      attributionReliability: normalizeAttributionReliability(
+        r.attributionReliability,
+      ),
     };
   }
   return {

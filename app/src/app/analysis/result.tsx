@@ -1993,8 +1993,24 @@ function AnalysisResultContent({
         ) : (
           <SummaryCard
             praise={summaryContent.praise}
-            todayFix={summaryContent.todayFix}
-            nextAction={summaryContent.nextAction}
+            // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 "오늘 고칠 것" 헤드라인을
+            // 관절명 없는 집계 문장으로 라우팅 (TODAY_NONE '고칠 것 없음' 폴백 금지 —
+            // clean 오인 방지). "다음 행동" 은 record cueLine(관절-행동)이라 숨김.
+            // praise/score 배지는 유지(확신 표면 — 리드). 신규 카피 0.
+            todayFix={
+              attributionUnreliable
+                ? {
+                    headline:
+                      result.attributionReliability?.aggregateStatement ??
+                      ATTR_SCORE_AGGREGATE_FALLBACK,
+                    criterion: '',
+                    gameFrame: false,
+                  }
+                : summaryContent.todayFix
+            }
+            nextAction={
+              attributionUnreliable ? null : summaryContent.nextAction
+            }
             score={result.overallScore}
             onPressTodayFix={() => jumpToRecordKey(topFixKey)}
             onPressExpand={() => jumpToRecordKey(topFixKey)}
@@ -2037,7 +2053,10 @@ function AnalysisResultContent({
             완결 렌더. cleanPass 면 축하 카드가 대신(요약 clean variant). 확대 사진
             쌍은 드릴다운 시트(D-17 자세 비교 카드) 진입점으로 잇는다. onLayout 으로
             점프 y 기록(요약 '오늘 고칠 것' 탭 대상). */}
-        {isVisible('topFix') && topFixRecord ? (
+        {/* IN-01 — 역립 저신뢰 시 topFix "오늘 고칠 것" per-joint 카드 억제 (관절
+            단정 방지). records 보유(cleanPass=false) 라 clean 카드 폴백도 미충족 →
+            null. 점수·안내는 ScoreBreakdownSection aggregate + 안내 1줄이 대신 전달. */}
+        {isVisible('topFix') && topFixRecord && !attributionUnreliable ? (
           <View
             onLayout={(e) =>
               setCardY(topFixKey ?? 'topFix', e.nativeEvent.layout.y)
@@ -2283,7 +2302,9 @@ function AnalysisResultContent({
             금지 — recordMaps). records 2개 미만이면 목록 생략.
             32-13: 스팟체크 숨김 record 는 카드 표면에서 제외 (recordId 맵 기반 —
             아래 ScoreBreakdownSection 투명 내역은 미필터, 채점 tally 불변). */}
+        {/* IN-01 — 역립 저신뢰 시 "다른 감점 항목" per-joint 목록 억제. */}
         {isVisible('collapsed') &&
+        !attributionUnreliable &&
         records.length > 1 &&
         records.some((r, i) => i !== topFixIndex && !isRecordHidden(r)) ? (
           <>
@@ -2716,8 +2737,10 @@ function AnalysisResultContent({
             규칙으로 환산해 "내 수행이 실제 심사였다면" 을 보여준다. 수치는 실존
             규칙 감점(자의적 % 아님) → D-09 % 금지 무충돌. 채점 표면 뒤(참고코너
             앞, 순서 #9). 행 탭 → 드릴다운 시트(근거·사진 쌍). judgeInfo.visible
-            (감점 record 있을 때만) — cleanPass/suppressed 면 미렌더. ── */}
-        {isVisible('judgeInfo') ? (
+            (감점 record 있을 때만) — cleanPass/suppressed 면 미렌더. ──
+            IN-01 — 역립 저신뢰 시 records.map per-joint 결함 행 섹션 전체 억제
+            (특정 관절 단정 방지). */}
+        {isVisible('judgeInfo') && !attributionUnreliable ? (
           <>
             <Text style={styles.sectionTitle}>{JUDGE_SIM_TITLE}</Text>
             <View style={styles.card}>

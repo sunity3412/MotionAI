@@ -123,6 +123,23 @@ const FAULT_ZOOM_PENDING_TIMEOUT_MS = 180_000;
 const MODE3_LIMIT_NOTICE =
   '카메라로 잰 자세 형태 기준이에요. 같은 동작을 새 영상으로 다시 올리면 이전 영상과 비교한 발전 분석이 본격 시작돼요. 그립·디테일 점검은 코치님 비교 분석을 이용해보세요.';
 
+// IN-01 (quick-260724-q6b) — 역립/자기가림 저신뢰(attributionReliability.unreliable)
+// 시 per-joint 단정을 강등하고 동작비교 영역에 "AI 공부 중" 안내 1줄을 정확히 1회
+// 렌더. mode-aware (mode1 / mode3 progress / mode3 first). belle 확정 원칙: 저신뢰
+// 시 가치를 삭제하지 않고 거짓 per-joint 단정도 하지 않는다 — 확신하는 것(점수·비교·
+// 성장)을 앞세우고 per-joint 는 "예상" 으로 강등한다. 문구는 로직 무접촉 재조정용 상수.
+const ATTR_GUIDANCE_MODE1 =
+  '거꾸로 자세는 관절 하나하나까진 AI가 아직 공부 중이에요. 정은지 선수 영상을 자세히 비교해보세요.';
+const ATTR_GUIDANCE_MODE3_PROGRESS =
+  '점수 기준으로 이전보다 발전하고 있어요. 거꾸로 자세 세부 관절은 AI가 아직 공부 중이에요.';
+const ATTR_GUIDANCE_MODE3_FIRST =
+  '첫 분석이에요 — 다음부터 발전을 비교해드려요. 거꾸로 자세 세부는 AI가 공부 중이에요.';
+// 점수 계산 내역 집계 문장 폴백 (백엔드 aggregateStatement 부재 시). 관절명 없음.
+const ATTR_SCORE_AGGREGATE_FALLBACK =
+  '거꾸로 자세라 관절별 감점 위치는 추정이에요. 종합 점수는 그대로예요.';
+// 확대비교 크롭 "예상 부위" 배지 (확정 결함 아님 — 표시 전용).
+const ATTR_ZOOM_ESTIMATED_LABEL = '예상 부위';
+
 const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
   basic: '기본기',
   intermediate: '중급',
@@ -1029,6 +1046,46 @@ function AnalysisResultContent({
   // 가 tally 의 실체) 각 소비처에 방어 게이트로 명시한다.
   const cleanPass = isCleanPass(result.deductionBreakdown);
 
+  // IN-01 (quick-260724-q6b) — 역립/자기가림 저신뢰 게이트 단일 신호 (Task 3/4 공용).
+  // unreliable 이면 per-joint 단정 표면(오버레이 마커·점수 내역·코칭 팁·확대비교 라벨·
+  // topFix·접힘 카드·요약 헤드라인·심사 코너)을 전부 강등/억제한다. 점수 값
+  // (overallScore/final/records)은 byte-불변 — 표현 전용. false/부재 시 렌더 diff 0.
+  const attributionUnreliable = result.attributionReliability?.unreliable === true;
+
+  // IN-01 — 예상 부위 단일 관절 (역립 저신뢰 오버레이 주황 점 최대 1개). angle_vs_
+  // reference 감점 record 중 |points| 최대이며 keypoint 매핑되는 관절 1개, 폴백은
+  // windowMedianAngleDeltas |delta_deg| 최대. 매핑 없으면 빈 배열(점 0개).
+  const estimatedAreaKeypoints = useMemo<KeypointName[]>(() => {
+    if (!attributionUnreliable) return [];
+    let bestKp: KeypointName | null = null;
+    let bestAbs = -1;
+    for (const r of result.deductionBreakdown?.records ?? []) {
+      if (!r.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) continue;
+      const jk = r.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
+      const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
+      if (!kp) continue;
+      const abs = Math.abs(r.points);
+      if (abs > bestAbs) {
+        bestAbs = abs;
+        bestKp = kp;
+      }
+    }
+    if (!bestKp && result.visionVeto?.status === 'applied') {
+      let bestDelta = -1;
+      for (const d of result.visionVeto.windowMedianAngleDeltas?.deltas ?? []) {
+        if (!Number.isFinite(d.delta_deg)) continue;
+        const kp = KEYPOINT_FROM_ANGLE_KEY[d.joint];
+        if (!kp) continue;
+        const abs = Math.abs(d.delta_deg);
+        if (abs > bestDelta) {
+          bestDelta = abs;
+          bestKp = kp;
+        }
+      }
+    }
+    return bestKp ? [bestKp] : [];
+  }, [attributionUnreliable, result.deductionBreakdown, result.visionVeto]);
+
   // quick-260705-o0s — 영상 점 번호 ↔ 내역 행 번호 단일 소스 (buildDeductionMarkers).
   // 오버레이 markerNumbers 와 ScoreBreakdownSection recordNumbers 가 같은 결과물을
   // 소비해 항상 일치. markers.keypointNumbers 키는 confirmedKeypoints 의 부분집합
@@ -1158,6 +1215,28 @@ function AnalysisResultContent({
     [result.deductionBreakdown, markers.recordNumbers, result.visionVeto],
   );
 
+  // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 오버레이 per-joint 마커 강등 파생.
+  // unreliable 이면 확정 빨강 점/번호/그룹/범례/틱을 모두 비우고 예상 부위 주황 점
+  // 최대 1개(estimatedAreaKeypoints)만 남긴다 — 번호가 사라졌으므로 범례/틱도 빈
+  // 배열로 두어 모순 방지. false/부재 시 기존 소스 그대로 → 렌더 diff 0.
+  const overlayHighlightKeypoints = attributionUnreliable
+    ? []
+    : confirmedKeypointList;
+  const overlayAttentionKeypoints = attributionUnreliable
+    ? estimatedAreaKeypoints
+    : attentionKeypoints;
+  const overlayGroupMarkers = attributionUnreliable ? [] : markers.groupMarkers;
+  const overlayMarkerNumbers = attributionUnreliable
+    ? {}
+    : markers.keypointNumbers;
+  const overlayForceHighlightWorstCount = attributionUnreliable
+    ? 0
+    : vetoApplied
+      ? 2
+      : 0;
+  const overlayFullscreenLegend = attributionUnreliable ? [] : fullscreenLegend;
+  const overlayTimelineTicks = attributionUnreliable ? [] : timelineTicks;
+
   // quick-260702-q8q → 29-CONTEXT D-01 — "점수 계산 내역" 섹션 렌더 가드.
   // 29-04: mode 무관화 — deductionBreakdown 보유 doc 만 (29-02 가 mode3 등록 동작
   // md 보유 시에만 방출하므로 미등록/legacy/빈 criteria 동작은 필드 부재 → 섹션
@@ -1168,8 +1247,10 @@ function AnalysisResultContent({
   // Phase 20 (UI ④) — 점수 맥락 카드의 "교정 포인트". 비전 결함(primaryFault)
   // 우선, 없으면 top 코칭 팁 제목(가장 먼저 다듬을 관절). 둘 다 없으면 null →
   // 일반 격려 카피. 추가 fetch 0 (이미 result 에 있는 데이터만 사용).
-  const correctionPoint =
-    vetoPrimaryFault ?? result.tips[0]?.title ?? null;
+  // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 헤드라인에 관절명이 새지 않도록 null.
+  const correctionPoint = attributionUnreliable
+    ? null
+    : (vetoPrimaryFault ?? result.tips[0]?.title ?? null);
 
   const summary =
     cmp.mode === 'mode1'
@@ -1416,13 +1497,19 @@ function AnalysisResultContent({
   // 차단됨). backend tip 본문이 75 헤드라인과 충돌하지 않도록 방어. veto 미적용
   // (정타) 영상은 원본 tips 그대로 — 정상 칭찬 카피 보존.
   const displayTips = useMemo(() => {
-    if (!vetoApplied) return result.tips;
     const CONTRADICTORY = ['거의 동일', '일치도 100', '거의 다 왔'];
-    return result.tips.filter((tip) => {
-      const text = `${tip.title} ${tip.detail}`;
-      return !CONTRADICTORY.some((phrase) => text.includes(phrase));
-    });
-  }, [result.tips, vetoApplied]);
+    const base = !vetoApplied
+      ? result.tips
+      : result.tips.filter((tip) => {
+          const text = `${tip.title} ${tip.detail}`;
+          return !CONTRADICTORY.some((phrase) => text.includes(phrase));
+        });
+    // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 per-joint 팁(tip.joint != null) 제거
+    // (관절 단정 금지). generic 팁만 남긴다. false/부재 시 base 그대로.
+    return attributionUnreliable
+      ? base.filter((tip) => tip.joint == null)
+      : base;
+  }, [result.tips, vetoApplied, attributionUnreliable]);
 
   // quick-260704-fwb — '먼저 교정할 점' 카드 처방 구조. 상태(primaryFault) 아래
   // 원인 기전(rootCauseHypotheses 상위 2건, supportCount 내림차순, '~로 보임' 가설
@@ -1978,7 +2065,12 @@ function AnalysisResultContent({
                 hitSlop={8}
                 style={styles.tipMoreRow}
               >
-                <Text style={styles.tipMore}>확대 비교 자세히 보기 ›</Text>
+                {/* IN-01 — 역립 저신뢰 시 "예상 부위" 라벨로 치환 (확정 결함 아님). */}
+                <Text style={styles.tipMore}>
+                  {attributionUnreliable
+                    ? `${ATTR_ZOOM_ESTIMATED_LABEL} 확대 비교 ›`
+                    : '확대 비교 자세히 보기 ›'}
+                </Text>
               </Pressable>
             ) : null}
           </View>
@@ -2055,17 +2147,22 @@ function AnalysisResultContent({
                   // records ∪ vetoFaultJoints) 단일 조립으로 확장 — 표·마커·카드
                   // 가 같은 "빨강=확정 감점" 소스를 쓴다. 비면 기존 각도편차
                   // 폴백 (무회귀).
-                  highlightKeypoints={confirmedKeypointList}
+                  // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 확정 빨강 점 제거
+                  // (overlayHighlightKeypoints=[]) + 예상 주황 점 최대 1개로 강등.
+                  highlightKeypoints={overlayHighlightKeypoints}
                   // quick-260704-fz4 — 측정 초과·확인 권장(주황, 감점 아님) 마커.
                   // 표·확대 카드와 동일 단일 소스(attentionKeypoints memo).
-                  attentionKeypoints={attentionKeypoints}
+                  // IN-01 — 역립 저신뢰 시 estimatedAreaKeypoints(최대 1개)로 치환.
+                  attentionKeypoints={overlayAttentionKeypoints}
                   // quick-260705-r6v — 스플릿(다리 4관절) 그룹 마커: 멤버 centroid
                   // 1점 + 번호. 영상 위 텍스트 pill 은 전면 제거(여백 범례/시트로
                   // 이동). 사용자 측만 전달 (정은지 측 무변경).
-                  groupMarkers={markers.groupMarkers}
+                  // IN-01 — 역립 저신뢰 시 빈 배열(번호 단정 제거).
+                  groupMarkers={overlayGroupMarkers}
                   // quick-260705-o0s — 감점 record 관절 번호 점 ('점수 계산 내역'
                   // 행 번호와 buildDeductionMarkers 단일 소스 — 항상 일치).
-                  markerNumbers={markers.keypointNumbers}
+                  // IN-01 — 역립 저신뢰 시 빈 객체(번호 단정 제거).
+                  markerNumbers={overlayMarkerNumbers}
                   // quick-260705-r6v — 번호 점 탭 → 드릴다운 시트 (진입점 3).
                   // 전체화면(opts.sizeScale 존재)에선 시트가 중첩 Modal 이 되므로
                   // 콜백 미전달 — 전체화면 점 탭은 여백 범례가 대체(iOS 함정 회피).
@@ -2073,7 +2170,8 @@ function AnalysisResultContent({
                   // Phase 20 (UI ②) — faultJoints 가 없을 때(매핑 0/legacy)만 폴백:
                   // 임계(20°) 넘는 관절이 없으면 편차 최대 2개 강제 강조 (마커 0개 모순 제거).
                   // 정타 영상은 0 → 오탐 0.
-                  forceHighlightWorstCount={vetoApplied ? 2 : 0}
+                  // IN-01 — 역립 저신뢰 시 0 (강제 강조 폴백 억제).
+                  forceHighlightWorstCount={overlayForceHighlightWorstCount}
                   // quick-260702-t0v — 가로 전체화면 뷰어가 opts.sizeScale=2.0 전달
                   // (각도 라벨 가독). 세로 카드는 opts 미전달 → 1 (무회귀).
                   sizeScale={opts?.sizeScale ?? 1}
@@ -2106,8 +2204,9 @@ function AnalysisResultContent({
               // (9fps angles 공간 T). 틱 frameIndex(sourceFrameIndices)가 9fps
               // 인덱스인데 keypointReport.frames 는 18fps 업샘플이라 종전 배선은
               // 틱/seek 이 실제 시점의 절반 위치였다. 부재(구 doc)면 0 → 틱 생략.
-              fullscreenLegend={fullscreenLegend}
-              timelineTicks={timelineTicks}
+              // IN-01 — 역립 저신뢰 시 빈 배열(번호가 사라져 범례/틱 모순 방지).
+              fullscreenLegend={overlayFullscreenLegend}
+              timelineTicks={overlayTimelineTicks}
               tickFrameCount={anglesFrames ?? 0}
               // quick-260705-r6v — 여백 범례 탭 → 드릴다운 시트 (진입점 2).
               // VideoCompare 가 closeFullscreen 선행 후 콜백(iOS 중첩 Modal 회피).
@@ -2158,6 +2257,20 @@ function AnalysisResultContent({
         {cmp.mode === 'mode3' && cmp.isFirst ? (
           <Text style={styles.mode3LimitNotice}>
             다음 분석부터 이전 영상과 비교해 발전을 확인해 드려요.
+          </Text>
+        ) : null}
+
+        {/* IN-01 (quick-260724-q6b) — 역립 저신뢰 "AI 공부 중" 안내 1줄 (유일 인스턴스).
+            동작비교 header 게이트 밖 top-level 이라 mode1/mode3-progress/mode3-first
+            세 경로 모두에서 정확히 1회 렌더된다. mode-aware. 이 표현은 화면 전체에서
+            이 한 곳에만 존재 — 다른 곳 추가 금지. false/부재 시 미렌더(diff 0). */}
+        {attributionUnreliable ? (
+          <Text style={styles.mode3LimitNotice}>
+            {cmp.mode === 'mode1'
+              ? ATTR_GUIDANCE_MODE1
+              : cmp.isFirst
+                ? ATTR_GUIDANCE_MODE3_FIRST
+                : ATTR_GUIDANCE_MODE3_PROGRESS}
           </Text>
         ) : null}
 
@@ -2223,7 +2336,8 @@ function AnalysisResultContent({
                   : null
               }
             />
-            {vetoPrimaryFault ? (
+            {/* IN-01 — 역립 저신뢰 시 관절 단정(primaryFault) 표기 숨김. */}
+            {vetoPrimaryFault && !attributionUnreliable ? (
               <Text style={styles.scoringBasis}>
                 AI 영상 분석에서 발견한 점: {vetoPrimaryFault}
               </Text>
@@ -2252,6 +2366,13 @@ function AnalysisResultContent({
               basisLine={breakdownBasisLine}
               limitNotice={cmp.mode === 'mode3' ? MODE3_LIMIT_NOTICE : undefined}
               onRecordPress={setDetailRecordIndex}
+              // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 per-joint 감점 행 대신
+              // 관절명 없는 집계 문장 1줄로 강등 (= 종합 final 은 그대로 표기).
+              aggregateMode={attributionUnreliable}
+              aggregateText={
+                result.attributionReliability?.aggregateStatement ??
+                ATTR_SCORE_AGGREGATE_FALLBACK
+              }
             />
           </>
         )}
@@ -2293,7 +2414,8 @@ function AnalysisResultContent({
             quick-260705-o0s — cleanPass 방어 게이트: 감점 0 이면 veto applied 일 수
             없지만(감점 record 가 tally 실체) '먼저 교정할 점'은 문제-계열 섹션이라
             명시적으로 숨긴다 (isCleanPass 단일 신호). */}
-        {!cleanPass && vetoApplied && vetoPrimaryFault ? (
+        {/* IN-01 — 역립 저신뢰 시 '먼저 교정할 점' 카드 숨김 (관절 단정 방지). */}
+        {!cleanPass && vetoApplied && vetoPrimaryFault && !attributionUnreliable ? (
           <View style={[styles.card, styles.tipCard, styles.vetoLeadCard]}>
             <View style={styles.tipHead}>
               <Ionicons name="alert-circle" size={20} color={colors.brand} />
@@ -2741,6 +2863,9 @@ function AnalysisResultContent({
         // D-04 앱측 (28-05 공급) — DTW 대응 실패 시 ref 는 전신 폴백 이미지라
         // "같은 동작 순간을 못 찾았다"고 정직 고지. 부재(legacy)/'dtw'면 false → 캡션 없음.
         refMatchFailed={selectedZoom?.refMatch === 'failed'}
+        // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 (확정
+        // 결함 아님). 크롭·수치·비교는 유지 (시트가 라벨 소유).
+        estimatedArea={attributionUnreliable}
         // 29-CONTEXT D-06 — mode3 드릴다운 비교 라벨도 지난/이번 계열 (정은지 미언급).
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'}
       />

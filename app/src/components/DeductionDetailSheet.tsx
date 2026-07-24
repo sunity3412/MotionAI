@@ -48,6 +48,9 @@ interface Props {
   zoomPending?: boolean;
   // Phase 28 D-04 — DTW 기준 프레임 대응 실패 시 true. 전신 폴백 정직 캡션.
   refMatchFailed?: boolean;
+  // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 true. 크롭은 유지하되 "예상 부위"
+  // 배지를 얹어 확정 결함이 아니라 추정 부위임을 표시 (크롭·수치·비교 삭제 0).
+  estimatedArea?: boolean;
   // 우측 비교 대상 라벨 — Mode1='정은지 선수', Mode3='지난 분석'.
   rightLabel: string;
 }
@@ -70,6 +73,9 @@ const AI_DISCLAIMER =
 const COACH_CONNECT = '강사가 함께 보면 더 구체적인 피드백을 받을 수 있어요';
 const CHECK_BULLET = '확인하기 — 거울을 보며 동작을 직접 재현해 보세요';
 const EVIDENCE_TITLE = '이 원인은 어떻게 측정됐나';
+// IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 카피 (시트가
+// 실제 라벨 소유). 확정 결함 아님 — advisoryOrange 톤(표시 전용).
+const ESTIMATED_AREA_LABEL = '예상 부위';
 
 export function DeductionDetailSheet({
   visible,
@@ -80,6 +86,7 @@ export function DeductionDetailSheet({
   zoom,
   zoomPending = false,
   refMatchFailed = false,
+  estimatedArea = false,
   rightLabel,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
@@ -151,6 +158,15 @@ export function DeductionDetailSheet({
                 합성 PNG 1장 + 좌 '내 영상'/우 rightLabel halfLabel 오버레이. */}
             {zoom ? (
               <>
+                {/* IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위"
+                    배지 (확정 결함 아님, advisoryOrange 톤). 크롭·수치·비교는 유지. */}
+                {estimatedArea ? (
+                  <View style={styles.estimatedBadge}>
+                    <Text style={styles.estimatedBadgeText}>
+                      {ESTIMATED_AREA_LABEL}
+                    </Text>
+                  </View>
+                ) : null}
                 <View style={[styles.imageWrap, { height: imgH }]}>
                   <Image
                     source={{ uri: zoom.imageUrl }}
@@ -308,6 +324,20 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  // IN-01 (quick-260724-q6b) — 역립 저신뢰 "예상 부위" 배지 (advisoryOrange 재사용,
+  // 신규 색 금지). 크롭 이미지 위 칩.
+  estimatedBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.advisoryOrangeBg,
+    borderRadius: radius.listItem,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  estimatedBadgeText: {
+    ...typography.caption,
+    color: colors.advisoryOrange,
+    fontWeight: '700',
   },
   halfLabel: {
     position: 'absolute',

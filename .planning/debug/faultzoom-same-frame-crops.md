@@ -31,7 +31,37 @@ updated: 2026-07-25
     - results/phase25eval/elbowtwistINVCHK260725pjfix/zoom_adv_right_shoulder.png
     - results/phase25eval/elbowtwistINVCHK260725pjfix/zoom_adv_right_hand.png
 
-## Current Focus
+## belle 육안 결과 (2026-07-25, commit 149b770 크롭 3장 open)
+- ✅ 마커 위치 = belle "아주 잘돼" (손 크롭: 머리카락에 가려진 손을 정확히 집음 — Claude 오독 정정). 마커 로직 무접촉.
+- ✅ 프레임 뭉침(전부 140) 해소는 됨 (knee 140 / arms 148).
+- ❌ **NEW 서브버그 (belle): 카드 안에서 학생 패널 ↔ 정은지 패널이 서로 다른 동작 순간.** 손 카드 user=148 / ref=166 인데 두 패널이 동작의 다른 지점 → "정은지 쪽은 아예 다른 장면" 이질감. 카드 내 student↔reference 는 같은 DTW 순간이어야 함.
+- (부차) 카드 간 프레임 차이(140 vs 148 ≈0.9s)가 눈엔 같은 순간 — "카드마다 의미있게 다른 순간"은 설계질문 → 확대비교 트랙(33-10 목업). 이 debug 범위 아님.
+
+## NEW 근본원인 (코드 확인, 149b770 fault_zoom.py)
+- line 68-73: `sel_u = select_confident_frame(user_report, user_frame_candidates, unit.members)` = **학생 가시성**으로 프레임값 선택.
+- line 79-91: `sel_r = select_confident_frame(ref_report, ref_frame_candidates, unit.members)` = **기준 가시성**으로 **독립** 선택.
+- window(user/ref candidates)는 DTW-대응 index-정렬 리스트인데, sel_u/sel_r 을 각자 confidence로 고르면 index 가 달라져 → student↔reference DTW 짝 깨짐. (fix 전 단일프레임 경로도 동일 독립선택이었으나 1쌍이라 덜 드러남.)
+
+## FIX 방향 (정렬)
+- window **인덱스**를 학생 가시성으로 1개 선택(크롭 앵커=학생 결함) → 기준 프레임 = `ref_frame_candidates[그 index]` (DTW 짝) 사용. sel_r 독립선택 제거.
+- select_confident_frame 이 값 반환이면 그 값의 user_frame_candidates 내 index 를 찾아 ref_frame_candidates[index] 로 매핑. 인덱스 어긋남 방지.
+- confirmed + advisory 양쪽. marker/deficit 로직 무접촉. 채점 무접촉(D-20).
+- 검증: 재렌더 → user/ref frame 이 같은 DTW 순간(카드 내 정렬) + belle 육안. (프레임선택 CPU/GPU 동일이라 정렬검증은 CPU 렌더로 충분 — GPU/cudnn9 복구는 flip용 별건.)
+
+## Current Focus (NEW 서브버그 — DTW 정렬, 2026-07-25)
+- status: 정렬 fix 구현 완료, 유닛테스트 43 PASS. 커밋+push → 라이브 Pod GPU 복구 → 재렌더 → belle 육안 대기.
+- **fix**: `build_fault_zoom_comparisons` 루프에서 sel_u/sel_r 독립 선택 제거. 신규 `select_confident_index(user_report, u_cands, members)` 로 학생 가시성 window **position** 1개 선택(크롭 앵커=학생 결함) → 학생 프레임 = `u_cands[pos]`, 기준 프레임 = `ref_frame_candidates[pos]`(DTW 짝). confirmed+advisory 양 배치 공유(둘 다 같은 build 함수 경유 — app.py 무접촉). None-candidates(mode3/legacy) 경로 byte-동일(진입 안 함). marker/deficit 무접촉. 채점 무접촉(사후 렌더, deductionBreakdown 불변).
+- **신규 테스트**: `test_ref_frame_dtw_aligned_to_user_not_independent`(user window [3..7]/ref window [10..14] DTW 짝, ref conf peak=pos4 여도 학생 pos0 따라 ref=10), `test_multi_card_ref_frames_stay_dtw_aligned_per_card`(다관절 카드별 u_pos==r_pos), `test_select_confident_index_maps_value_to_position`.
+- next_action: 커밋+push → Pod(213.173.107.230:17519) cudnn9 복구(CUDAExecutionProvider 활성화) → `_inv_check.py` fresh AID 재렌더 → faultZoomComparisons 덤프(카드별 user/ref DTW 정렬 확인) → 크롭 S3 → belle 육안(카드 내 student↔reference 같은 순간인지).
+
+## reasoning_checkpoint (NEW 서브버그)
+- hypothesis: "카드 안 student↔reference 이질감의 원인은 sel_r 독립선택. window(user/ref candidates)는 position 으로 DTW 대응인데 sel_u=학생 conf 최대값, sel_r=기준 conf 최대값을 각자 고르면 index 가 달라 서로 다른 DTW 순간을 렌더한다."
+- confirming_evidence: ["149b770 line 1456-1468: sel_r = select_confident_frame(ref_report, ...) 독립 선택", "app.py 3130-3138: sourceFrameIndices user/reference 는 position 대응 리스트를 그대로 candidates 로 pass-through", "belle 육안: 손 카드 user=148/ref=166 두 패널이 동작의 다른 지점"]
+- falsification_test: "재렌더 카드별 u_pos != r_pos 로 나오면(같은 window index 인데도 다른 순간) = position 대응 가정 오류 → DTW path 재검토 필요."
+- fix_rationale: "학생 가시성으로 position 1개 선택 후 ref=same-position 후보 → 카드 내 두 패널이 같은 DTW 순간. 학생측 값 선택은 select_confident_frame 위임으로 byte-동일 보존(149b770 검증된 프레임 유지)."
+- blind_spots: "position 대응이 실제 DTW 짝인지는 sourceFrameIndices 생성부(features.window_median_angle_deltas)의 user/reference 리스트가 정말 같은 DTW path 로 산출됐는지에 의존. Pod 육안이 최종 판정."
+
+## Current Focus (구 — 프레임 뭉침 fix, 149b770)
 - status: fix 구현 완료, 유닛테스트 PASS, 라이브 Pod 재렌더 대기.
 - **구조 확정(요구 #1)**: `sourceFrameIndices` = `{"user":[c-2..c+2], "reference":[c-2..c+2]}` = worst-pose 중심 ±window(features.window_median_angle_deltas, window=2) **공용 연속 프레임 리스트**. **관절별 데이터 아님** (debug 초기 가설의 "관절별 데이터 존재"는 오류 — sfi["user"] 는 fault_joints 순서 정렬 배열이 아니라 단일 window). 관절→프레임 매핑은 sfi 에 없다. 따라서 관절별 차별화 = 이 window 안에서 unit(관절/region) 멤버 confidence 최대 프레임을 카드마다 독립 선택(select_confident_frame per-unit).
 - **근본 원인 확정**: `_build_fault_zoom_comparisons`(app.py ~3106) 가 window 를 `select_confident_frame(user_report, u_list, **전 fault_joints**)` 로 단일 프레임으로 뭉개 `build_fault_zoom_comparisons` 에 넘김 → 함수가 그 단일 프레임을 unit 루프 전체에 재사용 → 모든 카드 동일 userFrame.

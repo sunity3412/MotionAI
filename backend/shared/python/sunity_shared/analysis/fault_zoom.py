@@ -255,6 +255,39 @@ def select_confident_frame(
     return best_idx
 
 
+def select_confident_index(
+    report: dict,
+    candidates: list,
+    members: list[str] | tuple[str, ...],
+    frames_fps: float = 9.0,
+) -> int | None:
+    """멤버 관절 confidence 최대 프레임의 **원본 candidates 내 위치** (순수).
+
+    select_confident_frame 이 반환하는 '프레임 값'을 그 값의 candidates 내 index 로
+    바꿔준다 — DTW 정렬용. user/ref window(sourceFrameIndices)는 **position 으로 DTW
+    대응**(user_frame_candidates[i] ↔ ref_frame_candidates[i])하므로, 카드 안에서
+    student↔reference 를 같은 순간으로 맞추려면 값이 아니라 **같은 index** 로 짝지어야
+    한다 (faultzoom-same-frame-crops NEW 서브버그, belle 2026-07-25: sel_r 을 ref
+    자기 confidence 로 독립 선택하면 index 가 어긋나 정은지 패널이 학생과 다른 순간을
+    보여줌 — "정은지 쪽은 아예 다른 장면").
+
+    선택 규칙은 select_confident_frame 과 동일(정렬 순회 + 최소 프레임값 tie-break,
+    legacy conf 부재 → sorted median). 그 함수에 위임하므로 학생측 프레임 선택은
+    byte-동일하게 보존된다. 빈/전원 비정수 → None. 선택 값의 원본 위치를 못 찾으면
+    (이론상 불가) None → 호출측 batch 기본 프레임 폴백.
+    """
+    sel_value = select_confident_frame(report, candidates, members, frames_fps)
+    if sel_value is None:
+        return None
+    for i, c in enumerate(candidates or []):
+        try:
+            if int(c) == int(sel_value):
+                return i
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _frame_index(seconds: float | None, fps: float, n_frames: int) -> int:
     """worst-pose 초 → 프레임 인덱스 (clamp). seconds None → 중앙 프레임."""
     if n_frames <= 0:
@@ -1436,36 +1469,48 @@ def build_fault_zoom_comparisons(
     for unit in _group_fault_joints(list(fault_joints), joint_kinds):
         if len(out) >= max_items:
             break
-        # ── 관절별 프레임 선택 (faultzoom-same-frame-crops fix) ──────────────
+        # ── 관절별 프레임 선택 + DTW 정렬 (faultzoom-same-frame-crops fix) ────
         # candidates(worst-pose window) 주어지면 unit 멤버 관절 confidence 최대
-        # 프레임을 window 안에서 독립 선택 → 카드마다 프레임 상이. 선택 실패
-        # (window 부재/전원 저신뢰)면 batch 기본 프레임 폴백 = 종전 동작.
-        # 채점 무접촉 — display 프레임 선택만.
+        # 프레임의 **window position** 을 학생 가시성으로 1개 선택(크롭 앵커=학생
+        # 결함) → 카드마다 프레임 상이. 기준 프레임은 **같은 position 의 ref 후보**
+        # (DTW 짝)를 쓴다.
+        #
+        # NEW 서브버그 fix (belle 2026-07-25): 종전엔 sel_r 을 ref 자기 confidence 로
+        # **독립 선택** → user/ref 가 서로 다른 window index 를 골라 카드 안에서
+        # 정은지 패널이 학생과 다른 동작 순간을 보여줌("정은지 쪽은 아예 다른 장면").
+        # user/ref window(sourceFrameIndices)는 position 으로 DTW 대응하므로 값이
+        # 아니라 **같은 index** 로 짝지어 카드 내 student↔reference 를 같은 순간으로
+        # 정렬한다. 선택 실패(window 부재/전원 저신뢰)면 batch 기본 프레임 폴백 =
+        # 종전 동작. 채점 무접촉 — display 프레임 선택만.
         u_idx_unit, u_kp_idx_unit = u_idx, u_kp_idx
+        r_idx_unit, r_kp_idx_unit = r_idx, r_kp_idx
+        ref_match_failed_unit = ref_match_failed
         if user_frame_candidates:
-            sel_u = select_confident_frame(
-                user_report, list(user_frame_candidates), unit.members, frames_fps
+            u_cands = list(user_frame_candidates)
+            sel_pos = select_confident_index(
+                user_report, u_cands, unit.members, frames_fps
             )
-            if sel_u is not None:
-                u_idx_unit = max(0, min(int(sel_u), max(0, u_n - 1)))
+            if sel_pos is not None:
+                u_idx_unit = max(0, min(int(u_cands[sel_pos]), max(0, u_n - 1)))
                 u_kp_idx_unit = _to_rep_idx(
                     u_idx_unit, frames_fps, u_rep_fps, u_rep_frames
                 )
-        r_idx_unit, r_kp_idx_unit = r_idx, r_kp_idx
-        ref_match_failed_unit = ref_match_failed
-        if ref_frame_candidates:
-            sel_r = select_confident_frame(
-                ref_report, list(ref_frame_candidates), unit.members, frames_fps
-            )
-            if sel_r is not None:
-                # window 선택 성공 = vision 측정 프레임 정합 (override 경로와 동일
-                # 취급 — refMatch='dtw'). window 는 DTW-matched worst-pose ±window
-                # 이라 same-pose 대응 유지.
-                r_idx_unit = max(0, min(int(sel_r), max(0, r_n - 1)))
-                r_kp_idx_unit = _to_rep_idx(
-                    r_idx_unit, frames_fps, r_rep_fps, r_rep_frames
-                )
-                ref_match_failed_unit = False
+                # 기준 프레임 = 같은 window position 의 DTW 짝 (독립 선택 제거).
+                # window 는 DTW-matched worst-pose ±window 라 position 대응이
+                # same-pose 를 유지 → override 경로와 동일 취급 (refMatch='dtw').
+                if ref_frame_candidates is not None:
+                    r_cands = list(ref_frame_candidates)
+                    if sel_pos < len(r_cands):
+                        try:
+                            sel_r = int(r_cands[sel_pos])
+                        except (TypeError, ValueError):
+                            sel_r = None
+                        if sel_r is not None:
+                            r_idx_unit = max(0, min(sel_r, max(0, r_n - 1)))
+                            r_kp_idx_unit = _to_rep_idx(
+                                r_idx_unit, frames_fps, r_rep_fps, r_rep_frames
+                            )
+                            ref_match_failed_unit = False
         u_valid, u_relaxed = _member_pts(user_report, u_kp_idx_unit, unit.members)
         if ref_match_failed_unit:
             # 대응 실패 = ref 측 전신 폴백 강제 (D-04). 좌표 계산을 건너뛰고 빈

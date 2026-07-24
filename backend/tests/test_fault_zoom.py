@@ -862,3 +862,96 @@ def test_candidates_fallback_when_selection_yields_no_confident_frame():
     # legacy conf 부재 → select 는 window median(3) 반환 → 양 카드 공통 프레임 3.
     assert all(c["userFrameIdx"] == 3 for c in comps)
     assert len(comps) == 2
+
+
+# ─── 카드 내 student↔reference DTW 정렬 (NEW 서브버그, belle 2026-07-25) ────────
+# belle 육안: 프레임 뭉침(전부 140)은 해소됐으나 카드 안에서 학생 패널 ↔ 정은지 패널이
+# 서로 다른 동작 순간("정은지 쪽은 아예 다른 장면"). 원인: sel_r 을 ref 자기 confidence
+# 로 독립 선택 → user/ref window index 어긋남. fix: 학생 가시성으로 window position 1개
+# 선택 → 기준 프레임 = ref_frame_candidates[그 position] (DTW 짝). 채점 무접촉.
+
+
+def test_select_confident_index_maps_value_to_position():
+    """select_confident_index = select_confident_frame 값의 원본 candidates 위치."""
+    conf = [0.5] * 9
+    conf[3], conf[4], conf[5] = 0.9, 0.1, 0.5
+    rep = _report_conf_seq(9, 9.0, {"left_knee": conf})
+    # 값 선택 3 → 원본 [5,3,4] 에서 위치 1.
+    assert fz.select_confident_frame(rep, [5, 3, 4], ["left_knee"]) == 3
+    assert fz.select_confident_index(rep, [5, 3, 4], ["left_knee"]) == 1
+    # 오름차순 candidates 면 값==원본 위치의 값 (position 0).
+    assert fz.select_confident_index(rep, [3, 4, 5], ["left_knee"]) == 0
+    # 빈/전원 비정수 → None (select_confident_frame 계약 계승).
+    assert fz.select_confident_index(rep, [], ["left_knee"]) is None
+    assert fz.select_confident_index(rep, ["x", None], ["left_knee"]) is None
+
+
+def test_ref_frame_dtw_aligned_to_user_not_independent():
+    """카드 내 기준 프레임 = 학생이 고른 window position 의 DTW 짝 (독립 선택 아님).
+
+    핵심 회귀 게이트: user window 와 ref window 가 **다른 절대 프레임**(DTW 로 대응된
+    서로 다른 시각)이고, ref confidence peak 이 학생과 **다른 position** 을 가리켜도,
+    ref 프레임은 학생이 고른 position 의 ref 후보를 따른다 — 카드 내 두 패널이 같은
+    DTW 순간. 종전 독립 선택이면 ref 는 자기 peak(position 4=frame 14)를 골랐다.
+    """
+    joints = ["left_knee"]
+    n = 20
+    # user knee conf peak = frame 3 (window position 0).
+    user_conf = {"left_knee": [0.6] * n}
+    user_conf["left_knee"][3] = 0.95
+    # ref knee conf peak = frame 14 (window position 4) — 독립 선택이면 14 를 고를 것.
+    ref_conf = {"left_knee": [0.6] * n}
+    ref_conf["left_knee"][14] = 0.95
+    user_rep = _report_perframe_conf(n, 9.0, joints, user_conf)
+    ref_rep = _report_perframe_conf(n, 9.0, joints, ref_conf)
+    user_window = [3, 4, 5, 6, 7]
+    ref_window = [10, 11, 12, 13, 14]  # DTW 짝: position i ↔ user_window[i]
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(n), _frames(n), user_rep, ref_rep,
+        worst_seconds=None, fault_joints=joints,
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+        user_frame_candidates=user_window,
+        ref_frame_candidates=ref_window,
+    )
+    assert len(comps) == 1
+    c = comps[0]
+    # 학생이 window position 0(frame 3)을 고름 → 기준 = ref_window[0] = 10.
+    assert c["userFrameIdx"] == 3
+    assert c["refFrameIdx"] == 10, "ref = DTW 짝(position 0)=10, 독립선택 14 아님"
+    assert c["refMatch"] == "dtw"
+
+
+def test_multi_card_ref_frames_stay_dtw_aligned_per_card():
+    """다관절 카드 각각에서 user/ref 가 같은 window position(DTW 짝)으로 정렬된다."""
+    joints = ["left_knee", "left_shoulder"]
+    n = 20
+    # user: knee peak = frame 3(pos 0), shoulder peak = frame 6(pos 3).
+    user_conf = {"left_knee": [0.6] * n, "left_shoulder": [0.6] * n}
+    user_conf["left_knee"][3] = 0.95
+    user_conf["left_shoulder"][6] = 0.95
+    # ref confidence 는 어디를 가리키든 무관 — 정렬은 학생 position 을 따른다.
+    ref_conf = {"left_knee": [0.9] * n, "left_shoulder": [0.9] * n}
+    user_rep = _report_perframe_conf(n, 9.0, joints, user_conf)
+    ref_rep = _report_perframe_conf(n, 9.0, joints, ref_conf)
+    user_window = [3, 4, 5, 6, 7]
+    ref_window = [12, 13, 14, 15, 16]  # position i ↔ user_window[i]
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(n), _frames(n), user_rep, ref_rep,
+        worst_seconds=None, fault_joints=joints,
+        joint_deltas={"left_knee": 20.0, "left_shoulder": 15.0},
+        frames_fps=9.0,
+        user_frame_candidates=user_window,
+        ref_frame_candidates=ref_window,
+    )
+    by_joint = {c["joint"]: c for c in comps}
+    # knee: user pos 0 (frame 3) → ref_window[0] = 12.
+    assert by_joint["left_knee"]["userFrameIdx"] == 3
+    assert by_joint["left_knee"]["refFrameIdx"] == 12
+    # shoulder: user pos 3 (frame 6) → ref_window[3] = 15.
+    assert by_joint["left_shoulder"]["userFrameIdx"] == 6
+    assert by_joint["left_shoulder"]["refFrameIdx"] == 15
+    # 각 카드의 user/ref 가 같은 window position (DTW 짝) 임을 명시 검증.
+    for c in comps:
+        u_pos = user_window.index(c["userFrameIdx"])
+        r_pos = ref_window.index(c["refFrameIdx"])
+        assert u_pos == r_pos, f"{c['joint']}: user/ref 같은 window index"

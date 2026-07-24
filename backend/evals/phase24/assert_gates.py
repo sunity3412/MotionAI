@@ -194,12 +194,23 @@ def check_traceability(breakdowns) -> list[str]:
     for i, b in enumerate(breakdowns):
         d = b.to_dict() if hasattr(b, "to_dict") else b
         records = d["records"]
-        # 통합 signed-negative 합산식 — fallback 경로 포함.
-        expected = max(0, round(100 + sum(r["points"] for r in records)))
+        # Wave R 2트랙 재구성 (33-SPEC.md INV-6, D-34/D-37): two-track tally 는 실행 감점을
+        # −executionCap 집계캡, 치명은 캡 우회, 절대 바닥 scoreFloor 로 clamp 하므로 원
+        # signed-negative 합산(100+Σpoints)과 final 이 더는 같지 않다. 집계 필드가 방출된
+        # doc 은 final == max(scoreFloor, round(100 + executionCappedTotal + criticalTotal)).
+        # fallback/legacy(집계 부재)는 통합 합산 + 절대 바닥(fallback 도 §10.5 floor 25).
+        floor = d.get("scoreFloor", deduction_engine.SCORE_FLOOR)
+        if d.get("executionCap") is not None:
+            expected = int(max(
+                floor, round(100 + d["executionCappedTotal"] + d["criticalTotal"])
+            ))
+            recon = "max(scoreFloor, round(100 + executionCappedTotal + criticalTotal))"
+        else:
+            expected = int(max(floor, round(100 + sum(r["points"] for r in records))))
+            recon = "max(scoreFloor, round(100 + Σpoints))"
         if d["final"] != expected:
             failures.append(
-                f"[traceability] breakdown[{i}] final={d['final']} != "
-                f"max(0, round(100 + Σpoints))={expected}"
+                f"[traceability] breakdown[{i}] final={d['final']} != {recon}={expected}"
             )
         for j, r in enumerate(records):
             tag = f"breakdown[{i}].records[{j}] ({r.get('criterion')})"

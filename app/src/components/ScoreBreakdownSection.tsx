@@ -34,12 +34,23 @@ export function ScoreBreakdownSection({
   basisLine,
   limitNotice,
   onRecordPress,
+  aggregateMode,
+  aggregateText,
 }: {
   breakdown: DeductionBreakdown;
   /** records 인덱스 정렬 번호 (null = 번호 없음). 영상 빨간 점과 동일 소스. */
   recordNumbers?: (number | null)[];
   /** 채점 기준 1줄 (composeScoringBasisKo). null/미전달 시 생략. */
   basisLine?: string | null;
+  /**
+   * IN-01 (quick-260724-q6b) — 역립 저신뢰 시 per-joint 감점 행을 단정하지 않도록
+   * 집계 모드로 전환. truthy 면 records.map(+ empty-state)를 aggregateText 한 줄로
+   * 치환하고 번호↔영상 각주를 숨긴다. baseline/= 종합 final 은 두 분기 공통 유지
+   * (final 값 불변). 미전달(기존 caller) 시 렌더 diff 0.
+   */
+  aggregateMode?: boolean;
+  /** aggregateMode 시 records 대신 렌더할 집계 문장(관절명 없음). */
+  aggregateText?: string;
   /**
    * 29-CONTEXT D-05 — mode3 한계 고지 1줄 (측정 범위 + 다음 행동 유도). 카드
    * 최하단 footnote 슬롯에 기존 footnote 토큰으로 렌더. 미전달 시 렌더 diff 0
@@ -70,8 +81,13 @@ export function ScoreBreakdownSection({
         <Text style={styles.baselineValue}>{breakdown.baseline}</Text>
       </View>
 
-      {/* record 행 목록 — 저장 순서 그대로 (엔진이 결정적 정렬, 재정렬 금지) */}
-      {breakdown.records.length === 0 ? (
+      {/* IN-01 (quick-260724-q6b) — 역립 저신뢰 집계 모드: per-joint 감점 행 대신
+          관절명 없는 집계 문장 1줄. records.map / empty-state 전체를 치환한다
+          (번호가 없으므로 아래 각주도 hasAnyNumber 로 자동 숨김). = 종합 final 은
+          아래 finalRow 에서 그대로 표기 (점수 불변). */}
+      {aggregateMode ? (
+        <Text style={styles.aggregateLine}>{aggregateText}</Text>
+      ) : breakdown.records.length === 0 ? (
         <Text style={styles.emptyText}>
           측정 감점 없음 — 기준 점수 그대로예요.
         </Text>
@@ -130,8 +146,9 @@ export function ScoreBreakdownSection({
         })
       )}
 
-      {/* 번호 ↔ 영상 마커 매핑 안내 각주 (record 목록 아래, 합계 행 위) */}
-      {hasAnyNumber && (
+      {/* 번호 ↔ 영상 마커 매핑 안내 각주 (record 목록 아래, 합계 행 위).
+          IN-01 — aggregateMode 시 번호 행 자체가 없으므로 각주도 숨김. */}
+      {!aggregateMode && hasAnyNumber && (
         <Text style={styles.footnote}>
           번호는 위 영상의 빨간 점 위치와 같아요.
         </Text>
@@ -176,6 +193,13 @@ const styles = StyleSheet.create({
   },
   // 채점 기준 1줄 — caption 톤 (quick-260705-o0s).
   basisLine: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  // IN-01 (quick-260724-q6b) — 역립 저신뢰 집계 문장 1줄. basisLine 토큰 패턴 mirror
+  // (caption + textSecondary, 색 하드코딩 금지).
+  aggregateLine: {
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,

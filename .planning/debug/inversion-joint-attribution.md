@@ -5,7 +5,9 @@ created: 2026-07-24
 updated: 2026-07-24
 root_cause_confirmed: true
 crux_answer: "H1 (역립 저신뢰 포즈추정) — H2 반증. 균일 ~30° 는 절대median 채점 metric 아티팩트."
-checkpoint: "belle DECISION 1=approach A(magnitude-neutral marker) / DECISION 2=GPU deferred(request-when-ready). 로컬 5-fixture 변별 검증 후 STOP+report."
+checkpoint: "belle DECISION 1=approach A(magnitude-neutral marker) / DECISION 2=GPU deferred(request-when-ready). LIVE 6-fixture GPU sweep 완료(2026-07-24 d5490a8) → GENERALIZES_CLEANLY, 임계 최종, misfire 0. belle end-to-end 확인 대기."
+next: "belle IN-01 앱측 변경 선택(추천). 결과화면이 attributionReliability.aggregateStatement 소비 → 억제된 tip 대신 집계문구 렌더. Figma 우선 → 시뮬레이터 검증 → OTA. belle 외출로 PAUSE(2026-07-24). 그 후 belle end-to-end 확인 → resolved/ archive."
+pod: "e73rm2lpev5x1b (RTX 4090) — 스윕 완료. belle 콘솔 Stop 권장(Volume 생존, 데이터 안 휘발). IN-01은 앱측이라 Pod 불필요."
 ---
 
 # Debug: 역립 관절 귀속 정밀도 (균일 다관절 편차 근본원인)
@@ -247,9 +249,43 @@ verification: |
       test_pipeline_deduction_seam/test_deduction_engine/test_deduction_two_track/test_vision_veto/
       test_phase25_eval_gates/test_pipeline_vision_gate). test_p1_objective_knee_decontamination
       4 failed 는 pre-existing(git stash 전후 동일 — 등록 프로파일 YAML 미활성 환경 이슈, 무관).
-  미완(belle DECISION 2 greenlight 대기): 6-fixture serial GPU sweep(shadow phase33-cm3-run1,
-  RTX 4090 EU-RO-1) 로 임계 일반화·비역립 무오발·WR-03 razor-thin margin 재검증. 파이프라인
-  비-동시성 → serial 필수.
+  --- LIVE GPU SWEEP 재검증 완료 (2026-07-24, RTX 4090 213.173.102.141, d5490a8) ---
+  6-fixture SERIAL in-process _process cold sweep(backend/evals/phase25/run_sweep.py,
+  EVAL_OUT_DIR=/tmp/sunity_eval_out repo 밖, baseline git status CLEAN 무오염 확인).
+  마커 실측값(seedObservation.attributionReliability, phase25 baseline recorded 아님):
+
+    fixture              inversion  fire  silent  over  vis     dtw     cstatus
+    power-spin/fault     no         F     False   3     0.666   58.97   candidate_verdict (pointed=knees)
+    peter-pan/fault      no         F     True    3     0.844   52.82   no_fault
+    elbow-twist/fault    YES        T     True    7     0.495   63.24   no_fault   ← FIRE ✓
+    pdshape/fault        YES        T     True    7     0.690   63.64   no_fault   ← FIRE ✓
+    kip-up/fault         no         F     False   0     0.839   26.95   candidate_verdict (pointed=3)
+    climb/fault          no         F(N/A)-      -      -       -       NotPoleMotionError (not_pole 게이트, 채점 전 중단)
+    전 success(5) over=0 → 전부 NO-FIRE(짚기-FP any=0/upper=0).
+
+  판정(머신검증 GENERALIZES_CLEANLY): 마커가 정확히 2 역립(elbow-twist/pdshape)에만 발화,
+  비역립 4개 전부 무오발. VERDICT 스크립트 mismatch=0.
+
+  ★ WR-03 razor-thin RESOLVED FAVORABLY: recorded baseline 은 power-spin 이 over_tol 3<5
+    단일 게이트로만 차단(vis=0.708 겨우>0.70, dtw=60.13 겨우>60). LIVE 에서 power-spin 은
+    이제 2중 독립 차단 — over_tol=3<5(count) AND non-silent(candidate_verdict, Gemini 가
+    양 무릎 짚음). vis=0.666<0.70·dtw=58.97 로 alignment 게이트는 통과하지만 count·silent 가
+    각각 독립 차단 → baseline 보다 오히려 SAFER. 임계 무변경으로 misfire 0.
+
+  ★ over_tol 분리 마진 넉넉: 비역립 최대 3 vs 역립 최소 7, 임계 5 가 정중앙(gap 4). razor-thin
+    아님 — over_tol 이 가장 깨끗한 판별 차원. pdshape vis=0.690 은 0.70 에 근접(마진 0.010)이나
+    dtw=63.64>60 이 OR 로 alignment 게이트를 독립 충족(redundant backup) → 견고.
+
+  ★ AND-게이트 결정적 검증: 역립 success 멤버(elbow-twist vis=0.618, pdshape vis=0.578,
+    peter-pan vis=0.292)는 전부 저-visibility 이나 over_tol=0 이라 무발화. 즉 저신뢰 측정
+    "단독"으론 발화 안 함 — 광범위 다관절 편차(over≥5)+저정렬+silent 3조건 동시 필요.
+    마커는 "역립"이 아니라 "저신뢰 측정 × 광범위 편차 = 불신 귀속"을 정확히 탐지(설계의도 정합).
+
+  ★ magnitude 보존 확인: fault overall 실측 60~80(정당한 결함 점수) 그대로, 마커는 side-channel.
+    5 fixture 점수 변별 유지(fault<correct, margin 20~40). cold-rerun 결정성 selection_identical=true.
+
+  나머지 검증(E6 로컬): 단위 19 + 명명 스위트 248 pass. → LIVE 일반화 확정, 임계 최종(무조정),
+  misfire 0. 배포 준비 완료.
 files_changed:
   - backend/functions/pipeline/app.py (marker 함수+상수, WR-01 affirmative-status frozenset+
     vision_status gate, WR-02 visibility_measured 추적+강등, NOTE coupling 주석, builder+call site 배선)
@@ -269,7 +305,7 @@ reasoning_checkpoint:
 
 ## Current Focus
 
-- hypothesis: (확정) H1 root — 역립 저신뢰 포즈추정 → DTW 정렬 저하 → per_joint_deviation 절대median 이 전 관절을 tol 위로 균일 부양 → 잘못된 다관절 귀속. magnitude(60) 정당(Wave R), 문제는 귀속.
-- test: approach A(magnitude-neutral 마커) + specialist review WR-01/WR-02 반영 후 로컬 재검증 — 5-fixture 변별 불변 + error-status NO-FIRE + 미측정 visibility NO-FIRE.
-- expecting: (충족) 마커가 정확히 2 역립 fixture 에만 발화, WR-01/WR-02 오발 경로 차단, 임계 무변경, 점수 byte-불변. 단위 19 + 명명 스위트 248 pass.
-- next_action: (완료 — checkpoint) belle greenlight 대기 = 6-fixture serial GPU sweep(shadow phase33-cm3-run1, RTX 4090 EU-RO-1) 로 WR-03 razor-thin margin 일반화·비역립 무오발 재검증. 변경 staged/uncommitted 유지(belle 워크플로 지시 대기).
+- hypothesis: (확정·LIVE 검증됨) 마커 게이트(silent∧over≥5∧저정렬)가 LIVE GPU 실측값에서 정확히 2 역립에만 발화, 비역립 4개 무오발. 임계 5-fixture 로컬 유도값이 6-fixture LIVE 에 일반화됨.
+- test: (완료) 6-fixture SERIAL in-process _process cold sweep — GENERALIZES_CLEANLY(머신검증 mismatch=0).
+- expecting: (충족) elbow-twist/pdshape fire(over=7,silent,vis<0.70&dtw>60), 나머지 4 no-fire. WR-03 power-spin 은 baseline 보다 SAFER(2중 차단). 임계 무조정. magnitude 보존.
+- next_action: (완료 — CHECKPOINT) belle 에게 GENERALIZES_CLEANLY 보고 + end-to-end 확인 요청. belle "confirmed fixed" 시 archive_session(resolved/ 이동 + KB 갱신 + commit). 변경 이미 commit d5490a8 로 main 반영됨.

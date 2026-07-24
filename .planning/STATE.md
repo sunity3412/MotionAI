@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 33 Wave1-5 완료(substrate), Wave6 재검증서 채점 산식 결함 발견 → IPSF 감점상한 재설계 PIVOT. 내일 spec부터. 필독=33-SCORING-REDESIGN-HANDOFF.md. flip(33-07) 보류. Pod terminate(D-30)."
-last_updated: "2026-07-24T00:00:00.000Z"
-last_activity: 2026-07-24 -- Phase 33 채점 산식 IPSF 감점상한 재설계 pivot 결정
+stopped_at: Phase 33 채점 재설계 context gathered (D-33~D-38, dormant critical track)
+last_updated: "2026-07-24T00:42:09.068Z"
+last_activity: 2026-07-23
 progress:
-  total_phases: 16
-  completed_phases: 8
-  total_plans: 116
-  completed_plans: 96
-  percent: 50
+  total_phases: 35
+  completed_phases: 16
+  total_plans: 230
+  completed_plans: 184
+  percent: 46
 ---
 
 # Project State
@@ -727,9 +727,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T13:26:39.646Z
+Last session: 2026-07-24T00:42:09.037Z
 
-Stopped at: Phase 32 context gathered (discuss 완료 — D-01~D-30 + 4대 게이트)
+Stopped at: Phase 33 채점 재설계 context gathered (D-33~D-38, dormant critical track)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -796,7 +796,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: None
+Resume file: .planning/phases/33-result-trust-recovery/33-CONTEXT.md
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

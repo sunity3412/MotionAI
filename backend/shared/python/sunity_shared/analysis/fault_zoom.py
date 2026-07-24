@@ -1300,6 +1300,8 @@ def build_fault_zoom_comparisons(
     dtw_ref_fps: float | None = None,
     user_frame_idx: int | None = None,
     ref_frame_idx: int | None = None,
+    user_frame_candidates: list[int] | tuple[int, ...] | None = None,
+    ref_frame_candidates: list[int] | tuple[int, ...] | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
     split_angle_present: bool = False,
     draw_arrows: bool = False,
@@ -1315,6 +1317,16 @@ def build_fault_zoom_comparisons(
       9fps frames 배열 인덱스 공간. 주어진 측은 worst_seconds/DTW 선택을 대체한다
       (vision veto 가 측정한 그 프레임 = 표시 프레임 정합). 둘 다 None(default) 이면
       기존 동작 100% 보존 (하위호환).
+    user_frame_candidates/ref_frame_candidates (faultzoom-same-frame-crops fix): vision
+      측정 worst-pose window(windowMedianAngleDeltas.sourceFrameIndices 의 user/reference
+      리스트, ±window 연속 프레임)를 그대로 넘긴다. 주어지면 **crop unit(관절/region)
+      마다** 그 unit 멤버 관절의 평균 confidence 최대 프레임을 window 안에서 독립 선택
+      (select_confident_frame) → 카드마다 프레임이 달라진다. 회전 동작에서 관절 가시성
+      peak 시점이 다르므로 "결함마다 자기 프레임"이 성립한다. 재발 버그(§6.6): 종전엔
+      호출측이 window 를 select_confident_frame(전 fault_joints)로 **단일 프레임으로 뭉개**
+      전달 → 모든 카드가 같은 프레임(userFrame=140). None(default)이면 단일
+      user_frame_idx/worst_seconds/DTW 경로 100% 보존 (하위호환, mode3/legacy). 채점
+      무접촉 — display 프레임 선택만 (deductionBreakdown 불변).
     split_angle_degs (quick-260705-r6x): region=='legs' 카드의 (학생 각도, 기준
       각도) 수치 — 호 옆 표기용. None(default) 이면 legs 카드도 선+호만(수치 생략).
       non-legs/legacy 경로는 무접촉. 채점 무접촉 — display 렌더 전용.
@@ -1424,14 +1436,44 @@ def build_fault_zoom_comparisons(
     for unit in _group_fault_joints(list(fault_joints), joint_kinds):
         if len(out) >= max_items:
             break
-        u_valid, u_relaxed = _member_pts(user_report, u_kp_idx, unit.members)
-        if ref_match_failed:
+        # ── 관절별 프레임 선택 (faultzoom-same-frame-crops fix) ──────────────
+        # candidates(worst-pose window) 주어지면 unit 멤버 관절 confidence 최대
+        # 프레임을 window 안에서 독립 선택 → 카드마다 프레임 상이. 선택 실패
+        # (window 부재/전원 저신뢰)면 batch 기본 프레임 폴백 = 종전 동작.
+        # 채점 무접촉 — display 프레임 선택만.
+        u_idx_unit, u_kp_idx_unit = u_idx, u_kp_idx
+        if user_frame_candidates:
+            sel_u = select_confident_frame(
+                user_report, list(user_frame_candidates), unit.members, frames_fps
+            )
+            if sel_u is not None:
+                u_idx_unit = max(0, min(int(sel_u), max(0, u_n - 1)))
+                u_kp_idx_unit = _to_rep_idx(
+                    u_idx_unit, frames_fps, u_rep_fps, u_rep_frames
+                )
+        r_idx_unit, r_kp_idx_unit = r_idx, r_kp_idx
+        ref_match_failed_unit = ref_match_failed
+        if ref_frame_candidates:
+            sel_r = select_confident_frame(
+                ref_report, list(ref_frame_candidates), unit.members, frames_fps
+            )
+            if sel_r is not None:
+                # window 선택 성공 = vision 측정 프레임 정합 (override 경로와 동일
+                # 취급 — refMatch='dtw'). window 는 DTW-matched worst-pose ±window
+                # 이라 same-pose 대응 유지.
+                r_idx_unit = max(0, min(int(sel_r), max(0, r_n - 1)))
+                r_kp_idx_unit = _to_rep_idx(
+                    r_idx_unit, frames_fps, r_rep_fps, r_rep_frames
+                )
+                ref_match_failed_unit = False
+        u_valid, u_relaxed = _member_pts(user_report, u_kp_idx_unit, unit.members)
+        if ref_match_failed_unit:
             # 대응 실패 = ref 측 전신 폴백 강제 (D-04). 좌표 계산을 건너뛰고 빈
             # 리스트를 넘겨 _side_crop 3단 강하의 전신 폴백 단계로 직행 (새 렌더
             # 금지 — 기존 좌표-결측 전신 폴백 분기 재사용). 학생 카드는 유지.
             r_valid, r_relaxed = [], []
         else:
-            r_valid, r_relaxed = _member_pts(ref_report, r_kp_idx, unit.members)
+            r_valid, r_relaxed = _member_pts(ref_report, r_kp_idx_unit, unit.members)
         if not u_valid and not r_valid:
             # 양측 다 신뢰 좌표 0 — 최소 한 측 valid 일 때만 카드 (기존 skip
             # 규칙 보존). relaxed 는 반대측이 valid 인 카드에서 전신 폴백을
@@ -1443,8 +1485,8 @@ def build_fault_zoom_comparisons(
         ]
         deficit = max(member_deltas) if member_deltas else None
         try:
-            u_frame = user_frames[u_idx]
-            r_frame = ref_frames[r_idx]
+            u_frame = user_frames[u_idx_unit]
+            r_frame = ref_frames[r_idx_unit]
             u_img, u_kind, u_anchor, u_box = _side_crop(
                 u_frame,
                 [xy for _n, xy in u_valid],
@@ -1490,7 +1532,7 @@ def build_fault_zoom_comparisons(
                 and u_box is not None
             ):
                 u_drew_legs = _draw_side_leg_angle(
-                    u_img, u_frame, user_report, u_kp_idx, u_box, u_deg
+                    u_img, u_frame, user_report, u_kp_idx_unit, u_box, u_deg
                 )
             # user 측: 사이각을 그렸으면 원 생략(배지는 유지 — 배지=부족분/호=측정
             # 각도로 역할 분리), 아니면 기존 규칙 그대로.
@@ -1519,10 +1561,10 @@ def build_fault_zoom_comparisons(
                         _build_arrow_spec(
                             member,
                             user_report,
-                            u_kp_idx,
+                            u_kp_idx_unit,
                             ref_report,
-                            r_kp_idx,
-                            ref_match_failed,
+                            r_kp_idx_unit,
+                            ref_match_failed_unit,
                             (u_box[0], u_box[1], u_box[2], u_w, u_h),
                         ),
                     )
@@ -1540,9 +1582,9 @@ def build_fault_zoom_comparisons(
             # 알아야 중첩할 수 있다. 둘 다 keypointReport 인덱스 공간(u_kp_idx/
             # r_kp_idx) — 프레임 배열(9fps) 인덱스가 아니다. refMatched=False 면
             # refFrameIdx 는 전신 폴백의 중앙 프레임이라 정합 근거가 아니다.
-            "userFrameIdx": int(u_kp_idx),
-            "refFrameIdx": int(r_kp_idx),
-            "refMatched": not ref_match_failed,
+            "userFrameIdx": int(u_kp_idx_unit),
+            "refFrameIdx": int(r_kp_idx_unit),
+            "refMatched": not ref_match_failed_unit,
         }
         kind = (joint_kinds or {}).get(unit.joint)
         if kind:
@@ -1553,6 +1595,6 @@ def build_fault_zoom_comparisons(
         # 실패='failed'(전신 폴백). override(ref_frame_idx)는 vision 측정 프레임
         # 정합이 보장되므로 'dtw' 취급. scalar str 이라 _validate_dict_only_scalars
         # flat 제약 통과. app.py _render_fault_zoom mapper 가 최종 doc 까지 pass-through.
-        item["refMatch"] = "failed" if ref_match_failed else "dtw"
+        item["refMatch"] = "failed" if ref_match_failed_unit else "dtw"
         out.append(item)
     return out

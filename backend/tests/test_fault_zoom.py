@@ -760,3 +760,105 @@ def test_draw_leg_angle_pixels_and_degenerate():
         img2, (100, 100), (103, 100), (280, 300), 130.0
     ) is False
     assert img2.getpixel((100, 100)) == (0, 0, 0), "degenerate = 원본 유지"
+
+
+# ─── 관절별 프레임 선택 (faultzoom-same-frame-crops fix) ───────────────────────
+# windowMedianAngleDeltas.sourceFrameIndices 는 worst-pose 중심 ±window 공용 리스트
+# (관절별 데이터 아님). 종전엔 호출측이 select_confident_frame(전 fault_joints)로
+# 이 window 를 단일 프레임으로 뭉개 넘겨 모든 카드가 같은 프레임(§6.6 재발 버그).
+# fix: window 를 candidates 로 넘기고 build 루프가 unit 멤버 confidence 최대 프레임을
+# 카드마다 독립 선택 → 카드별 프레임 상이. 채점 무접촉(deductionBreakdown 불변).
+
+
+def _report_perframe_conf(n: int, fps: float, joints, conf_by_joint):
+    """joint 별로 프레임마다 다른 confidence 를 심은 합성 report.
+
+    conf_by_joint[joint] = [프레임별 conf ...] (길이 n). data 는 전부 중앙(0.5).
+    confidence flat layout = T*J (frame-major, conf[fi*nj + j]).
+    """
+    nj = len(joints)
+    data: list[float] = []
+    conf: list[float] = []
+    for fi in range(n):
+        for j, jn in enumerate(joints):
+            data += [0.5, 0.5]
+            conf.append(float(conf_by_joint[jn][fi]))
+    return {
+        "joints": list(joints), "frames": n, "fps": fps,
+        "data": data, "confidence": conf,
+    }
+
+
+def test_per_joint_candidates_select_different_frames():
+    """관절별 confidence peak 시점이 다르면 카드마다 다른 프레임에서 잘린다."""
+    joints = ["left_knee", "left_shoulder"]
+    n = 10
+    # knee conf peak = frame 3, shoulder conf peak = frame 7 (둘 다 >=0.5 valid).
+    conf = {
+        "left_knee": [0.6] * n,
+        "left_shoulder": [0.6] * n,
+    }
+    conf["left_knee"][3] = 0.95
+    conf["left_shoulder"][7] = 0.95
+    user_rep = _report_perframe_conf(n, 9.0, joints, conf)
+    ref_rep = _report_perframe_conf(n, 9.0, joints, conf)
+    window = [3, 4, 5, 6, 7]
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(n), _frames(n), user_rep, ref_rep,
+        worst_seconds=None,  # 폴백 무의미 — candidates 가 프레임을 결정
+        fault_joints=joints,
+        joint_deltas={"left_knee": 20.0, "left_shoulder": 15.0},
+        frames_fps=9.0,
+        user_frame_candidates=window,
+        ref_frame_candidates=window,
+    )
+    by_joint = {c["joint"]: c for c in comps}
+    assert set(by_joint) == {"left_knee", "left_shoulder"}
+    # 각 카드는 자기 관절 confidence 최대 프레임 (report fps==frames_fps → identity).
+    assert by_joint["left_knee"]["userFrameIdx"] == 3
+    assert by_joint["left_shoulder"]["userFrameIdx"] == 7
+    assert by_joint["left_knee"]["refFrameIdx"] == 3
+    assert by_joint["left_shoulder"]["refFrameIdx"] == 7
+    # 핵심 회귀 게이트: 카드끼리 프레임이 다르다 (§6.6 "전부 같은 프레임" 재발 방지).
+    assert (
+        by_joint["left_knee"]["userFrameIdx"]
+        != by_joint["left_shoulder"]["userFrameIdx"]
+    )
+    # window 선택 성공 = vision 측정 프레임 정합 → refMatch 'dtw'.
+    assert by_joint["left_knee"]["refMatch"] == "dtw"
+
+
+def test_candidates_none_preserves_single_frame_behavior():
+    """candidates 미지정(mode3/legacy) → worst_seconds 단일 프레임 경로 100% 보존."""
+    joints = ["left_knee", "left_shoulder"]
+    n = 10
+    conf = {"left_knee": [0.9] * n, "left_shoulder": [0.9] * n}
+    user_rep = _report_perframe_conf(n, 9.0, joints, conf)
+    ref_rep = _report_perframe_conf(n, 9.0, joints, conf)
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(n), _frames(n), user_rep, ref_rep,
+        worst_seconds=0.5,  # 9fps → frame 4 (양 카드 공통)
+        fault_joints=joints, joint_deltas=None, frames_fps=9.0,
+    )
+    frames = {c["userFrameIdx"] for c in comps}
+    # candidates 없으면 모든 카드가 worst_seconds 단일 프레임 (종전 동작).
+    assert len(frames) == 1
+
+
+def test_candidates_fallback_when_selection_yields_no_confident_frame():
+    """candidates 있으나 unit 멤버 conf 전무 → batch 기본 프레임 폴백(비크래시)."""
+    # report 에 confidence 부재 → select_confident_frame 은 sorted median 폴백.
+    joints = ["left_knee", "left_shoulder"]
+    user_rep = _report(9, 9.0, joints=tuple(joints))  # confidence 부재(legacy)
+    ref_rep = _report(9, 9.0, joints=tuple(joints))
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(9), _frames(9), user_rep, ref_rep,
+        worst_seconds=0.2, fault_joints=joints,
+        joint_deltas={"left_knee": 10.0, "left_shoulder": 10.0},
+        frames_fps=9.0,
+        user_frame_candidates=[2, 3, 4],
+        ref_frame_candidates=[2, 3, 4],
+    )
+    # legacy conf 부재 → select 는 window median(3) 반환 → 양 카드 공통 프레임 3.
+    assert all(c["userFrameIdx"] == 3 for c in comps)
+    assert len(comps) == 2

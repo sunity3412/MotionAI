@@ -2913,6 +2913,8 @@ def _render_fault_zoom(
     ref_frame_idx: int | None = None,
     *,
     dtw_ref_fps: float | None = None,
+    user_frame_candidates: list[int] | None = None,
+    ref_frame_candidates: list[int] | None = None,
     advisory_joints: list[str] | None = None,
     advisory_deltas: dict[str, float] | None = None,
     split_angle_degs: tuple[float | None, float | None] | None = None,
@@ -2970,6 +2972,10 @@ def _render_fault_zoom(
         dtw_ref_fps=dtw_ref_fps,
         user_frame_idx=user_frame_idx,
         ref_frame_idx=ref_frame_idx,
+        # 관절별 프레임 window (faultzoom-same-frame-crops fix) — 카드마다 자기
+        # 관절 confidence 최대 프레임 선택. None=단일 프레임 경로 폴백(mode3/legacy).
+        user_frame_candidates=user_frame_candidates,
+        ref_frame_candidates=ref_frame_candidates,
         split_angle_degs=split_angle_degs,
         split_angle_present=split_angle_present,
         # D-11/D-12 (Phase 31-03) — 확정 결함 카드에만 목표 각도 화살표. 생략 규칙
@@ -2997,6 +3003,10 @@ def _render_fault_zoom(
             dtw_ref_fps=dtw_ref_fps,
             user_frame_idx=user_frame_idx,
             ref_frame_idx=ref_frame_idx,
+            # advisory 카드도 관절별 프레임 선택 (confirmed 와 동일 window) —
+            # 각 advisory 관절이 자기 confidence 최대 프레임에서 잘린다.
+            user_frame_candidates=user_frame_candidates,
+            ref_frame_candidates=ref_frame_candidates,
             split_angle_degs=split_angle_degs,
             # advisory("측정 초과·확인 권장")는 확정 스플릿 결함이 아니므로 사이각을
             # 그리지 않는다(게이트 A) — 확정 어조 오인 방지. tier 가 캡션 소유.
@@ -3103,22 +3113,29 @@ def _build_fault_zoom_comparisons(
     # vision_veto.py:486 정합). fault_joints 가 vv.faultJoints 에서 온 경우에만
     # 적용 — 편차 top-2 폴백 경로는 vision 측정 프레임과 무관(기존 worst_seconds).
     # 부재/legacy doc → None = 기존 동작 (하위호환).
-    user_frame_idx: int | None = None
-    ref_frame_idx: int | None = None
+    #
+    # faultzoom-same-frame-crops fix (§6.6 재발 버그): 종전엔 여기서
+    # select_confident_frame(전 fault_joints)로 window 를 **단일 프레임으로 뭉개**
+    # user_frame_idx/ref_frame_idx 로 넘겼다 → build_fault_zoom_comparisons 가 그
+    # 단일 프레임을 모든 카드에 재사용 → 결함 관절이 달라도 전부 같은 프레임
+    # (userFrame=140). **구조 사실**: sourceFrameIndices = {"user":[c-2..c+2],
+    # "reference":[c-2..c+2]} = worst-pose 중심 ±window 공용 리스트(관절별 데이터
+    # 아님). 그래서 관절별 차별화는 이 window 안에서 unit(관절/region) 멤버
+    # confidence 최대 프레임을 카드마다 독립 선택하는 것으로 달성한다 —
+    # window 를 그대로 candidates 로 넘기고, 선택은 build_fault_zoom_comparisons
+    # 루프 안에서 unit 별 수행(단일 뭉개기 제거). 채점 무접촉 — display 프레임만.
+    user_frame_candidates: list[int] | None = None
+    ref_frame_candidates: list[int] | None = None
     if fault_joints:
         sfi = (vv.get("windowMedianAngleDeltas") or {}).get("sourceFrameIndices") or {}
         u_list = sfi.get("user") or []
         r_list = sfi.get("reference") or []
         if u_list and r_list:
             try:
-                user_frame_idx = _fz.select_confident_frame(
-                    user_report, u_list, fault_joints
-                )
-                ref_frame_idx = _fz.select_confident_frame(
-                    ref_report, r_list, fault_joints
-                )
+                user_frame_candidates = [int(x) for x in u_list]
+                ref_frame_candidates = [int(x) for x in r_list]
             except (TypeError, ValueError):
-                user_frame_idx = ref_frame_idx = None
+                user_frame_candidates = ref_frame_candidates = None
     if not fault_joints:
         # veto 미적용(각도 차원이 결함을 잡은 경우) — 편차 최대 keypoint top-2 폴백.
         fault_joints = [
@@ -3170,8 +3187,8 @@ def _build_fault_zoom_comparisons(
         vision_veto.worst_pose_timestamp(profile),
         uid, analysis_id, bucket,
         dtw_match=dtw_match,
-        user_frame_idx=user_frame_idx,
-        ref_frame_idx=ref_frame_idx,
+        user_frame_candidates=user_frame_candidates,
+        ref_frame_candidates=ref_frame_candidates,
         advisory_joints=advisory,
         advisory_deltas=advisory_deltas,
         split_angle_degs=split_degs,

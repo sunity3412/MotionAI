@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 33 채점 재설계 context gathered (D-33~D-38, dormant critical track)
-last_updated: "2026-07-24T01:06:52.656Z"
-last_activity: 2026-07-24 -- Phase 33 planning complete
+stopped_at: Completed 33-22-PLAN.md (two-track deduction redesign)
+last_updated: "2026-07-24T01:51:17.267Z"
+last_activity: 2026-07-24
 progress:
-  total_phases: 35
-  completed_phases: 16
-  total_plans: 232
-  completed_plans: 184
-  percent: 46
+  total_phases: 16
+  completed_phases: 8
+  total_plans: 118
+  completed_plans: 99
+  percent: 50
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 33 (result-trust-recovery) — EXECUTING
-Plan: 3 of 10
+Plan: 2 of 23
 Verification: 22-12 COMPLETE (2026-07-16) — 데이터 플라이휠 "공부하기" 배치 루프 상설화. run_retrain_cycle.sh 1커맨드 사이클 러너(preflight[serial lock+greenlight 과금 게이트+디스크 30GB+git pull] → label[신규분만 과금] → assemble[jsonl_backup_ s3 백업 선행 후 canonical 교체] → train → gates[bf16 병합+compute_cap>=12 조건부 flashinfer env] → promote[promotion 래칫]) + promotion.py 순수 래칫(parse_gate_verdict/make_ledger_entry/apply_ratchet/make_cycle_report — 게이트 PASS[--require-pass exit 0]만 current 전진, FAIL 은 attempt 기록만, 사람/judge 점수 저장 0) + promotion_ledger.json(current=null 초기) + FLYWHEEL-RUNBOOK §2(belle 주1회 트리거·flashinfer 박제·래칫 해석·비용 관측치). TDD 9 테스트, phase22 302 pass/1 skip, 기존 러너·게이트(run_sft/run_sft_gates/assert_gates/build_jsonl/merge_and_quant) 무접촉. 실 Pod 사이클(라벨 과금/SFT/게이트)은 v7 종료 후 런북 절차(belle 트리거). // 이전:
 Verification: 22-11 COMPLETE (2026-07-16) — 데이터 플라이휠 "쌓기" 상설화. phase22_watch.py belle 1커맨드(PHASE22_BELLE_GREENLIGHT=1 --run) watch 러너 + _meta.collection_batches[] 배치 증분 등재 규약(마감 무결성 정합, build_jsonl 무접촉) + watch:false 옵트아웃 + FLYWHEEL-RUNBOOK §1. 순수 헬퍼+불변식 TDD, phase22 293 pass/1 skip, 프로덕션 무접촉 리허설 통과. 실 수집(과금)은 런북 절차 이월. // 이전:
 Verification: 22-04 COMPLETE (2026-07-11). 교사 증류 full batch 129/129 터미널(수락 109 / rejected_judge 12 / parse 6 / contract 2, 소스별 IG 91%·internal 88%·YT 79%, File API 잔여물 0) → SFT 학습셋 S3 완성 `training/phase22/jsonl/` (train.jsonl 99행 = distill 87 + text 14 / val.jsonl 2행, video_hash split, 균등 트림 109→87). 수집 마감 f66f25f(collection_complete=true + balance_waiver, 내부 371 fault track 이월). 시험 배치 3라운드가 129행 과금 전 결함 4건 fix(enum 59ac1a1/동작명 c5b14ef/judge 루브릭 eb69692/배열 파싱 ce992e0). 조립 중첩 타입 강제 = normalize_report 단일 owner(25e6752+1930099, coaching 80/87 보존). phase22 테스트 156 pass/1 skip. Known limitations: val 2행 얇음·svg_spec 감독 0/87·perturb/shadow 트랙 미합류(2트랙) — 22-04-SUMMARY.md 참조.
@@ -74,7 +74,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-24 -- Phase 33 planning complete
+Last activity: 2026-07-24
 
 ### Quick Tasks Completed
 
@@ -332,7 +332,7 @@ Last activity: 2026-07-20 - Completed quick task 260720-hn8: 영상 선택 실�
 
 상세 = `.planning/roadmap-replan-2026-06-07.md` + `.planning/roadmap-replan-2026-06-07-review.md`.
 
-Progress: [████████░░] 83%
+Progress: [████████░░] 84%
 
 ## ▶ Plan 23 sweep verdict `phase1_ready_to_swap=False` (2026-06-03) — D-16 보류
 
@@ -592,6 +592,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 22 P12 | 18min | 3 tasks | 5 files |
 | Phase 33 P01 | 20 | 2 tasks | 3 files |
 | Phase 33 P33-04 | 52min | 3 tasks | 3 files |
+| Phase 33 P22 | 55m | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -693,6 +694,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 33-04: candidate 백필은 versions/{candidate} 를 source AND merge target 으로 소유 — top-level/activeVersion 무접촉 (flip 은 33-07)
 - [Phase ?]: 33-04: referenceKeypointReport 40k index 한도 → belle 옵션 B (versions+reference collection-group 인덱스 면제 추가), acceptance 원문 유지
 - [Phase ?]: 33-04: fps 는 candidate keypointReport.fps(9.0)/CLI — REFERENCE_TARGET_FPS=18.0 제거; epsilon(0.1/1.0)+FORCE_CONFIG verbatim, gate 11/11 refit 0
+- [Phase ?]: 33-22: two-track deduction — execution -40 aggregate cap (floor 60) + dormant critical bypass + absolute floor 25; existing thresholds byte-unchanged; contract mirrored across 3 files (D-34/D-36/D-37)
 
 ### Pending Todos
 
@@ -727,9 +729,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-24T00:42:09.037Z
+Last session: 2026-07-24T01:51:10.427Z
 
-Stopped at: Phase 33 채점 재설계 context gathered (D-33~D-38, dormant critical track)
+Stopped at: Completed 33-22-PLAN.md (two-track deduction redesign)
 
 ### 2026-06-07 추가 fix 5종 (빌드 10 → 11 박제)
 
@@ -796,7 +798,7 @@ belle 의 의문 박제 정신 정합:
 3. "고급 88" = 사용자 박제 SkillLevel (advanced) 박제 평균 점수, 현재 분석과 무관
 4. VideoCompare 10초 정지 = 짧은 영상 끝나면 둘 다 정지 (동시 비교 박제 정합)
 
-Resume file: .planning/phases/33-result-trust-recovery/33-CONTEXT.md
+Resume file: None
 
 ### 2026-06-06 세션 핵심 사건 — OpenMMLab CDN 글로벌 만료
 

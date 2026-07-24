@@ -1134,10 +1134,10 @@ Plans:
 
 ### Phase 33: 결과 신뢰 회복 — "궁금만 하는 앱" 끝내기 (result-trust-recovery)
 
-**Goal:** belle 이 결과 화면에서 던진 의문 5개(확대사진·키포인트·붉은 표시·바 마커/음성·코칭 문구)에 화면이 스스로 답하게 만든다. 척추 = 정확한 분석: A-0 게이트로 "짚은 부위 vs 실제 결함 부위"를 6동작 전수 대조해 표현/기질 분기를 먼저 판정하고, 그 위에서 확대비교(같은 순간·배율·표시)·영상 위 표시(표시마다 답 or 없앰)·코칭 문구(동작별 phrasebook, fail-closed)·일러스트(준실사 2안, 해부학 전수 검수)를 재구성한다. 심플 우선(설명 추가는 최후 수단, 새 화면당 +1줄 상한)·오류 0(산출물마다 틀리면 걸리는 장치 + 눈으로 확인 의무). 채점 산식·임계값 무접촉.
-**Requirements**: D-01~D-32 (33-CONTEXT.md — CONTEXT 결정이 요구사항 원본, 공식 REQ 매핑 없음. D-26~D-32 = A-0 "어긋남 큼" substrate 편입)
+**Goal:** belle 이 결과 화면에서 던진 의문 5개(확대사진·키포인트·붉은 표시·바 마커/음성·코칭 문구)에 화면이 스스로 답하게 만든다. 척추 = 정확한 분석: A-0 게이트로 "짚은 부위 vs 실제 결함 부위"를 6동작 전수 대조해 표현/기질 분기를 먼저 판정하고, 그 위에서 확대비교(같은 순간·배율·표시)·영상 위 표시(표시마다 답 or 없앰)·코칭 문구(동작별 phrasebook, fail-closed)·일러스트(준실사 2안, 해부학 전수 검수)를 재구성한다. 심플 우선(설명 추가는 최후 수단, 새 화면당 +1줄 상한)·오류 0(산출물마다 틀리면 걸리는 장치 + 눈으로 확인 의무). **웨이브 R(2026-07-24 PIVOT)**: 33-06 재검증서 발견한 채점 결함(관절별 감점 무제한 누적→다관절 결함 0점 뭉침)을 IPSF 2트랙 감점상한으로 재설계(실행 −40 집계캡→바닥 60 / 치명 트랙 절대바닥 25). D-20/D-29 "채점 무접촉" 전제는 belle 이 명시적으로 뒤집음 — 단 기존 임계값(tol/slope/기존 캡)은 재fit 금지, NEW 집계캡·치명 트랙·바닥만 추가.
+**Requirements**: D-01~D-38 (33-CONTEXT.md — CONTEXT 결정이 요구사항 원본, 공식 REQ 매핑 없음. D-26~D-32 = A-0 "어긋남 큼" substrate 편입. D-33~D-38 = 웨이브 R 채점 재설계, 권위 스펙 33-SPEC.md R1~R5 + INV-1~8)
 **Depends on:** Phase 32
-**Plans:** 9/21 plans executed
+**Plans:** 9/23 plans executed
 Plans:
 **Wave 1** *(A-0 게이트 — DONE)*
 
@@ -1172,6 +1172,16 @@ Plans:
 **Wave 7** *(blocked on 33-06 — 조건부 HALT loop)*
 
 - [ ] 33-21-PLAN.md — 신규(조건부): elbow-twist HALT gap-closure. 33-06 여유 ≥+2.0° → no-op / <+2.0° → belle 단일질문 + substrate loop 재검증. 33-07 차단 [Pod+belle, checkpoint] (codex concern 13)
+
+**웨이브 R — 채점 산식 재설계 (2026-07-24 PIVOT, 권위 스펙 33-SPEC.md — flip 33-07 선행 게이트)**
+
+**Wave 21** *(신규 트랙 루트 — substrate(33-03/04/05, 완료) 위에 얹음, 기존 웨이브와 무충돌)*
+
+- [ ] 33-22-PLAN.md — 엔진 2트랙 감점상한: `deduction_engine.tally` 실행 −40 집계캡(바닥 60) + 치명 트랙(관절캡·집계캡 우회, 절대바닥 25, DORMANT) + additive breakdown(track/executionRawTotal/…) + 계약 3파일 미러 + 합성 단위테스트(INV-3/6/7/8, elbow-twist Σ−111.4→60) [autonomous] (D-33~D-37, R1~R4)
+
+**Wave 22** *(blocked on 33-22 — belle GPU greenlight 선행)*
+
+- [ ] 33-23-PLAN.md — 6 fixture 전수 재검증: 새 Pod(EU-RO-1 4090) 직렬 shadow 재분석 → 구조적 불변식 INV-1/2/4/5/6 (per-fixture 목표점 금지, INV-4 캡 위 변별 명시 확인). PASS 시 flip 33-07 unblock [Pod+belle, checkpoint] (D-38, R5)
 
 **Wave 8** *(blocked on 33-06,21,17,18)*
 

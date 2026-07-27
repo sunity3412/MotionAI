@@ -288,6 +288,135 @@ def select_confident_index(
     return None
 
 
+# ── 같은-포즈 기준 프레임 매칭 (faultzoom-same-frame-crops, belle 육안 #2) ─────────
+# belle 2026-07-25: "시작점·길이 다른 건 이해하나 **최대한 비슷한 포즈를 캡처해서
+# 비교**해야지." DTW window position 정렬(ea55069)은 **타이밍 대응**이지 **시각 포즈
+# 대응**이 아니다 — DTW 는 관절각(방향 불변) 시퀀스 위에서 계산되므로 학생이 등을
+# 돌린 순간과 정은지가 정면을 보는 순간이 같은 position 에 놓일 수 있다.
+#
+# 2026-07-26 실측(ref-elbow-twist-sister, 9fps 그리드 육안): 학생 프레임 70 에 시각적으로
+# 맞는 기준 프레임은 68 인데 DTW 짝은 73 이었다. 둘의 간격 5프레임(≈0.55s)은 종전 후보
+# window(±2)를 완전히 벗어나므로, window 안에서 재선택하는 것만으로는 도달 자체가 불가.
+# → 기준 후보를 DTW 짝 주변으로 **확대**하고 그 안에서 포즈 거리 최소를 고른다.
+#
+# 전부 **display 전용, 채점 무접촉** — fault_zoom 은 complete 이후 사후 렌더라
+# deductionBreakdown/veto/게이트에 어떤 값도 되돌리지 않는다 (D-20).
+
+# 기준 프레임 탐색 반경(초). DTW 짝을 중심으로 ±이 값 안에서만 고른다 — DTW 를
+# 타이밍 backbone 으로 남기고 시각 대응만 국소 보정하는 취지(전 구간 탐색은 동작의
+# 다른 국면에서 우연히 닮은 프레임을 집어올 위험). 실측 어긋남 0.55s 의 약 2배 마진.
+# 초 단위로 두어 frames_fps 가 바뀌어도 의미가 보존된다.
+_POSE_SEARCH_SECONDS = 1.2
+
+# 포즈 거리 계산에 필요한 최소 공통 신뢰관절 수. 3점 이하면 이동/스케일 정규화 후
+# 남는 자유도가 거의 없어 거리값이 의미를 잃는다(역립 구간 keypoint 붕괴 시 2~3개만
+# 살아남는 경우가 흔함 — 그 노이즈로 프레임을 옮기면 오히려 악화).
+_POSE_MIN_COMMON_JOINTS = 4
+
+# 동률 판정 마진(상대). 최소 거리 대비 이 비율 안쪽은 "사실상 같은 정도로 닮음"으로
+# 보고 그중 **DTW 짝에 가장 가까운** 프레임을 택한다 — 타이밍 대응을 근거 없이
+# 버리지 않기 위한 tie-break (가중치 λ 튜닝 회피).
+_POSE_TIE_MARGIN = 0.05
+
+
+def _confident_pose(report: dict, kp_idx: int) -> dict[str, tuple[float, float]]:
+    """(frame) 의 신뢰 keypoint 좌표 map — {joint: (x,y)}, 정규화 0..1 원본 그대로.
+
+    게이트는 crop 앵커와 같은 _KP_CONF_MIN(0.5) 재사용 — 포즈 매칭 전용 신규 튜닝
+    상수를 만들지 않는다. confidence 부재(legacy report)는 **불통과**: 신뢰를
+    증명 못한 좌표로 기준 프레임을 옮기면 조용한 악화가 되므로, 그 경우 호출측이
+    DTW 짝(종전 동작)으로 폴백하게 둔다.
+    """
+    out: dict[str, tuple[float, float]] = {}
+    for joint in report.get("joints") or []:
+        xy = _kp_xy(report, kp_idx, joint)
+        if xy is None:
+            continue
+        c = _kp_conf(report, kp_idx, joint)
+        if c is None or c < _KP_CONF_MIN:
+            continue
+        out[joint] = xy
+    return out
+
+
+def pose_distance(
+    pose_a: dict[str, tuple[float, float]],
+    pose_b: dict[str, tuple[float, float]],
+) -> float | None:
+    """두 포즈의 시각 거리 (순수). 낮을수록 같은 포즈. 계산 불가 → None.
+
+    **공통 신뢰관절만** 써서 각자 centroid 이동 + RMS 반경 스케일 정규화 후
+    관절당 L2 평균. 사람마다 체격/카메라 거리/화면 내 위치가 달라 원좌표 비교는
+    무의미하므로 이동·스케일은 제거하고, **회전과 좌우 배치는 일부러 남긴다** —
+    belle 이 지적한 "앞을 보는데 뒤돌아본 순간"(facing) 은 좌우 어깨/골반이 화면에서
+    뒤집히는 것으로 나타나므로, 회전 정규화를 하면 바로 그 신호가 지워진다.
+
+    토르소 4관절 고정 기준으로 정규화하지 않는 이유: 역립 구간에서 토르소 keypoint
+    가 전부 살아있는 프레임이 20/70 뿐이라(2026-07-26 ref-elbow-twist-sister 실측)
+    고정 기준을 쓰면 정작 필요한 구간에서 계산 자체가 안 선다.
+    """
+    common = sorted(set(pose_a) & set(pose_b))
+    if len(common) < _POSE_MIN_COMMON_JOINTS:
+        return None
+    a = np.asarray([pose_a[j] for j in common], dtype=float)
+    b = np.asarray([pose_b[j] for j in common], dtype=float)
+    if not (np.isfinite(a).all() and np.isfinite(b).all()):
+        return None
+    a = a - a.mean(axis=0)
+    b = b - b.mean(axis=0)
+    sa = float(np.sqrt(np.mean(np.sum(a * a, axis=1))))
+    sb = float(np.sqrt(np.mean(np.sum(b * b, axis=1))))
+    if not (np.isfinite(sa) and np.isfinite(sb)) or sa <= 1e-9 or sb <= 1e-9:
+        # 관절이 한 점에 뭉친 붕괴 프레임 — 정규화하면 0/0.
+        return None
+    d = float(np.mean(np.linalg.norm(a / sa - b / sb, axis=1)))
+    return d if np.isfinite(d) else None
+
+
+def select_pose_matched_ref_frame(
+    user_report: dict,
+    ref_report: dict,
+    user_kp_idx: int,
+    ref_anchor_idx: int,
+    ref_n: int,
+    *,
+    frames_fps: float,
+    ref_rep_fps: float,
+    ref_rep_frames: int,
+    search_seconds: float = _POSE_SEARCH_SECONDS,
+) -> int | None:
+    """학생 프레임과 **가장 닮은 포즈**의 기준 프레임 (9fps frames 인덱스) | None.
+
+    ref_anchor_idx = DTW 짝 기준 프레임(9fps frames 공간). 그 주변 ±search_seconds
+    안의 기준 프레임 전부에 대해 학생 포즈와의 pose_distance 를 재고 최소를 고른다.
+    최소값 대비 _POSE_TIE_MARGIN 안쪽 후보가 여럿이면 **anchor 에 가장 가까운** 것
+    (DTW 타이밍 존중). 학생/기준 어느 쪽이든 신뢰 keypoint 가 모자라 한 프레임도
+    채점 못 하면 None → 호출측이 anchor(종전 동작) 유지.
+
+    반환이 anchor 와 같을 수 있다(그게 실제 최적일 때). 표시 전용, 채점 무접촉.
+    """
+    if ref_n <= 0:
+        return None
+    user_pose = _confident_pose(user_report, user_kp_idx)
+    if len(user_pose) < _POSE_MIN_COMMON_JOINTS:
+        return None
+    span = int(round(max(0.0, float(search_seconds)) * max(1e-6, float(frames_fps))))
+    lo = max(0, int(ref_anchor_idx) - span)
+    hi = min(ref_n - 1, int(ref_anchor_idx) + span)
+    scored: list[tuple[float, int]] = []
+    for r in range(lo, hi + 1):
+        r_kp = _to_rep_idx(r, frames_fps, ref_rep_fps, ref_rep_frames)
+        d = pose_distance(user_pose, _confident_pose(ref_report, r_kp))
+        if d is not None:
+            scored.append((d, r))
+    if not scored:
+        return None
+    best = min(d for d, _r in scored)
+    tie = best * (1.0 + _POSE_TIE_MARGIN)
+    near = [r for d, r in scored if d <= tie]
+    return min(near, key=lambda r: (abs(r - int(ref_anchor_idx)), r))
+
+
 def _frame_index(seconds: float | None, fps: float, n_frames: int) -> int:
     """worst-pose 초 → 프레임 인덱스 (clamp). seconds None → 중앙 프레임."""
     if n_frames <= 0:
@@ -1360,6 +1489,10 @@ def build_fault_zoom_comparisons(
       전달 → 모든 카드가 같은 프레임(userFrame=140). None(default)이면 단일
       user_frame_idx/worst_seconds/DTW 경로 100% 보존 (하위호환, mode3/legacy). 채점
       무접촉 — display 프레임 선택만 (deductionBreakdown 불변).
+      기준(ref) 측 프레임은 이 window 의 DTW 짝을 **anchor** 로만 삼고, 최종 표시
+      프레임은 select_pose_matched_ref_frame 이 anchor ±_POSE_SEARCH_SECONDS 안에서
+      학생 포즈와 가장 닮은 것으로 고른다 (belle 육안 #2 — DTW 는 타이밍 대응일 뿐
+      시각 국면을 보장하지 않음). 판정 불가 시 anchor 유지.
     split_angle_degs (quick-260705-r6x): region=='legs' 카드의 (학생 각도, 기준
       각도) 수치 — 호 옆 표기용. None(default) 이면 legs 카드도 선+호만(수치 생략).
       non-legs/legacy 경로는 무접촉. 채점 무접촉 — display 렌더 전용.
@@ -1511,6 +1644,38 @@ def build_fault_zoom_comparisons(
                                 r_idx_unit, frames_fps, r_rep_fps, r_rep_frames
                             )
                             ref_match_failed_unit = False
+                # ── 같은-포즈 매칭 (belle 육안 #2) ─────────────────────────
+                # DTW 짝은 **타이밍** anchor 로만 쓰고, 실제 표시할 기준 프레임은
+                # 그 주변에서 학생 포즈와 가장 닮은 것으로 고른다. DTW 가 관절각
+                # (방향 불변) 위에서 계산되는 탓에 같은 window position 이어도
+                # 앞/뒤가 뒤집힌 순간이 잡히던 문제(belle: "정은지는 앞을 보는데
+                # 학생은 뒤돌아본 순간")를 여기서 교정한다. 신뢰 keypoint 부족 등으로
+                # 판정 불가면 None → anchor(ea55069 동작) 그대로 = 조용한 악화 없음.
+                if not ref_match_failed_unit:
+                    posed = select_pose_matched_ref_frame(
+                        user_report,
+                        ref_report,
+                        u_kp_idx_unit,
+                        r_idx_unit,
+                        r_n,
+                        frames_fps=frames_fps,
+                        ref_rep_fps=r_rep_fps,
+                        ref_rep_frames=r_rep_frames,
+                    )
+                    log.info(
+                        "fault_zoom_pose_match analysis_id=%s region=%s "
+                        "user_kp=%s dtw_ref=%s posed_ref=%s",
+                        analysis_id,
+                        unit.region or unit.joint,
+                        u_kp_idx_unit,
+                        r_idx_unit,
+                        posed if posed is not None else "none",
+                    )
+                    if posed is not None:
+                        r_idx_unit = max(0, min(int(posed), max(0, r_n - 1)))
+                        r_kp_idx_unit = _to_rep_idx(
+                            r_idx_unit, frames_fps, r_rep_fps, r_rep_frames
+                        )
         u_valid, u_relaxed = _member_pts(user_report, u_kp_idx_unit, unit.members)
         if ref_match_failed_unit:
             # 대응 실패 = ref 측 전신 폴백 강제 (D-04). 좌표 계산을 건너뛰고 빈

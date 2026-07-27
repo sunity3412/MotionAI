@@ -955,3 +955,180 @@ def test_multi_card_ref_frames_stay_dtw_aligned_per_card():
         u_pos = user_window.index(c["userFrameIdx"])
         r_pos = ref_window.index(c["refFrameIdx"])
         assert u_pos == r_pos, f"{c['joint']}: user/ref 같은 window index"
+
+
+# ─── 같은-포즈 기준 프레임 매칭 (belle 육안 #2, 2026-07-25) ──────────────────────
+# belle: "정은지는 앞을 보는데 학생은 뒤돌아본 순간 → 이게 무슨 비교지?" DTW window
+# position 정렬은 **타이밍** 대응일 뿐 **시각 국면** 대응이 아니다. 2026-07-26 실측:
+# 학생 9fps 프레임 70 에 시각적으로 맞는 기준 프레임은 68 인데 DTW 짝은 73 이었고,
+# 68 은 종전 후보 window(±2) 밖이라 window 내 재선택으로는 도달 불가였다.
+# → anchor(DTW 짝) 주변으로 확대 탐색 + 포즈 거리 최소 선택. 판정 불가 시 anchor 유지.
+
+# 정면(앞) 포즈와 그 좌우 반전(뒤돌아봄) — facing 판별의 최소 재현.
+_POSE_JOINTS = (
+    "left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_knee",
+)
+_POSE_FRONT = {
+    "left_shoulder": (0.40, 0.30), "right_shoulder": (0.60, 0.30),
+    "left_hip": (0.42, 0.60), "right_hip": (0.58, 0.60),
+    "left_knee": (0.45, 0.85),
+}
+_POSE_BACK = {j: (1.0 - x, y) for j, (x, y) in _POSE_FRONT.items()}
+
+
+def _report_xy(n, fps, joints, pose_of_frame, conf: float = 0.9) -> dict:
+    """프레임별 관절 좌표를 직접 심은 합성 report (포즈 매칭 검증용).
+
+    pose_of_frame(frame_idx) -> {joint: (x, y)}. conf 는 전 관절 공통.
+    """
+    data: list[float] = []
+    confs: list[float] = []
+    for fi in range(n):
+        pose = pose_of_frame(fi)
+        for jn in joints:
+            x, y = pose[jn]
+            data += [float(x), float(y)]
+            confs.append(float(conf))
+    return {
+        "joints": list(joints), "frames": n, "fps": fps,
+        "data": data, "confidence": confs,
+    }
+
+
+def test_pose_distance_ignores_translation_and_scale():
+    """체격/카메라거리/화면위치 차이는 제거 — 같은 포즈면 거리 0."""
+    a = dict(_POSE_FRONT)
+    # 0.5 배 축소 + (0.2, -0.1) 평행이동 = 같은 포즈의 다른 사람/다른 촬영.
+    b = {j: (0.5 * x + 0.2, 0.5 * y - 0.1) for j, (x, y) in a.items()}
+    d = fz.pose_distance(a, b)
+    assert d is not None and d < 1e-9, f"이동·스케일 정규화되어야 함 (got {d})"
+
+
+def test_pose_distance_detects_facing_flip():
+    """좌우 반전(앞/뒤 돌아봄)은 **크게** 다른 포즈로 잡혀야 한다.
+
+    belle 지적의 핵심 신호 — 회전까지 정규화하면 이 차이가 지워지므로 하면 안 된다.
+    """
+    same = fz.pose_distance(_POSE_FRONT, _POSE_FRONT)
+    flipped = fz.pose_distance(_POSE_FRONT, _POSE_BACK)
+    assert same is not None and flipped is not None
+    assert same < 1e-9
+    assert flipped > 0.3, f"facing 반전이 거의 0 이면 판별 불가 (got {flipped})"
+
+
+def test_pose_distance_requires_min_common_joints():
+    """공통 신뢰관절 3개 이하 → None (노이즈로 프레임 옮기기 금지)."""
+    a = {j: _POSE_FRONT[j] for j in list(_POSE_FRONT)[:3]}
+    assert fz.pose_distance(a, _POSE_FRONT) is None
+    b = {j: _POSE_FRONT[j] for j in list(_POSE_FRONT)[:4]}
+    assert fz.pose_distance(b, _POSE_FRONT) is not None
+
+
+def test_pose_distance_none_on_collapsed_points():
+    """전 관절이 한 점에 뭉친 붕괴 프레임 → 정규화 0/0 → None."""
+    collapsed = {j: (0.5, 0.5) for j in _POSE_JOINTS}
+    assert fz.pose_distance(collapsed, _POSE_FRONT) is None
+    assert fz.pose_distance(collapsed, collapsed) is None
+
+
+def test_pose_matched_ref_frame_beats_dtw_anchor():
+    """핵심 게이트 — DTW 짝이 아니라 **포즈가 닮은** 기준 프레임을 고른다.
+
+    학생=정면. 기준은 프레임 12 만 정면이고 나머지(anchor 17 포함)는 전부 반전.
+    종전 동작이면 anchor 17(반전=belle 이 지적한 '다른 장면')을 그대로 썼다.
+    """
+    n = 40
+    user_rep = _report_xy(n, 9.0, _POSE_JOINTS, lambda _f: _POSE_FRONT)
+    ref_rep = _report_xy(
+        n, 9.0, _POSE_JOINTS, lambda f: _POSE_FRONT if f == 12 else _POSE_BACK
+    )
+    got = fz.select_pose_matched_ref_frame(
+        user_rep, ref_rep, user_kp_idx=3, ref_anchor_idx=17, ref_n=n,
+        frames_fps=9.0, ref_rep_fps=9.0, ref_rep_frames=n,
+    )
+    assert got == 12, f"포즈 일치 프레임 12 를 골라야 함 (got {got})"
+
+
+def test_pose_matched_ref_frame_stays_inside_search_window():
+    """탐색 반경 밖의 완벽 일치는 고르지 않는다 (DTW = 타이밍 backbone 유지).
+
+    9fps·1.2s → span 11 → anchor 17 의 탐색 범위 [6,28]. 완벽 일치를 2(범위 밖)에
+    두면 무시하고, 범위 안은 전부 동률이므로 tie-break 로 anchor 를 유지한다.
+    """
+    n = 40
+    user_rep = _report_xy(n, 9.0, _POSE_JOINTS, lambda _f: _POSE_FRONT)
+    ref_rep = _report_xy(
+        n, 9.0, _POSE_JOINTS, lambda f: _POSE_FRONT if f == 2 else _POSE_BACK
+    )
+    got = fz.select_pose_matched_ref_frame(
+        user_rep, ref_rep, user_kp_idx=3, ref_anchor_idx=17, ref_n=n,
+        frames_fps=9.0, ref_rep_fps=9.0, ref_rep_frames=n,
+    )
+    assert got == 17, f"범위 밖(2)을 집지 말고 동률 tie-break=anchor (got {got})"
+
+
+def test_pose_matched_ref_frame_none_when_user_keypoints_untrusted():
+    """학생 신뢰 keypoint 부족 → None → 호출측이 anchor(종전 동작) 유지."""
+    n = 40
+    user_rep = _report_xy(n, 9.0, _POSE_JOINTS, lambda _f: _POSE_FRONT, conf=0.2)
+    ref_rep = _report_xy(n, 9.0, _POSE_JOINTS, lambda _f: _POSE_FRONT)
+    assert fz.select_pose_matched_ref_frame(
+        user_rep, ref_rep, user_kp_idx=3, ref_anchor_idx=17, ref_n=n,
+        frames_fps=9.0, ref_rep_fps=9.0, ref_rep_frames=n,
+    ) is None
+    # confidence 부재(legacy report)도 동일하게 미발동 — 미증명 좌표로 이동 금지.
+    legacy = _report_xy(n, 9.0, _POSE_JOINTS, lambda _f: _POSE_FRONT)
+    legacy.pop("confidence")
+    assert fz.select_pose_matched_ref_frame(
+        legacy, ref_rep, user_kp_idx=3, ref_anchor_idx=17, ref_n=n,
+        frames_fps=9.0, ref_rep_fps=9.0, ref_rep_frames=n,
+    ) is None
+
+
+def test_build_ref_frame_uses_pose_match_outside_dtw_window():
+    """end-to-end — 카드의 refFrameIdx 가 DTW 후보 window 밖 포즈일치 프레임이 된다.
+
+    2026-07-26 실측 구조 재현: 시각적으로 맞는 기준 프레임이 후보 window(±2) 밖에
+    있어서, window 내 재선택만으로는 도달 불가였던 상황.
+    """
+    n = 40
+    joints = list(_POSE_JOINTS)
+    user_rep = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
+    ref_rep = _report_xy(
+        n, 9.0, joints, lambda f: _POSE_FRONT if f == 11 else _POSE_BACK
+    )
+    user_window = [3, 4, 5, 6, 7]
+    ref_window = [15, 16, 17, 18, 19]  # DTW 짝 — 전부 반전 포즈
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(n), _frames(n), user_rep, ref_rep,
+        worst_seconds=None, fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+        user_frame_candidates=user_window,
+        ref_frame_candidates=ref_window,
+    )
+    assert len(comps) == 1
+    c = comps[0]
+    assert c["userFrameIdx"] == 3, "학생 프레임 선택은 무접촉(가시성 기준)"
+    assert c["refFrameIdx"] == 11, (
+        f"기준 = 포즈일치 11 (DTW 짝 15 도, window 밖도 아님) (got {c['refFrameIdx']})"
+    )
+    assert c["refMatch"] == "dtw"
+
+
+def test_build_keeps_dtw_ref_when_pose_match_impossible():
+    """포즈 판정 불가(좌표 붕괴) → 기준 프레임 = DTW 짝 그대로 (조용한 악화 없음)."""
+    n = 20
+    joints = ["left_knee"]
+    conf = {"left_knee": [0.9] * n}
+    # _report_perframe_conf 는 전 좌표 (0.5,0.5) = 붕괴 → pose_distance None.
+    user_rep = _report_perframe_conf(n, 9.0, joints, conf)
+    ref_rep = _report_perframe_conf(n, 9.0, joints, conf)
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(n), _frames(n), user_rep, ref_rep,
+        worst_seconds=None, fault_joints=joints,
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+        user_frame_candidates=[3, 4, 5, 6, 7],
+        ref_frame_candidates=[10, 11, 12, 13, 14],
+    )
+    assert len(comps) == 1
+    assert comps[0]["refFrameIdx"] == 10, "ea55069 DTW 짝 동작 보존"

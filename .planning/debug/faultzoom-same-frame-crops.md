@@ -1,5 +1,5 @@
 ---
-status: fixing
+status: awaiting_human_verify
 trigger: "확대비교(fault-zoom) 크롭이 모든 결함 관절에 대해 같은 단일 프레임에서 잘려 나온다 — 결함별 최악 순간이 아니라 한 순간의 부위별 확대일 뿐. belle §6.6 재발 버그"
 created: 2026-07-25
 updated: 2026-07-27
@@ -177,13 +177,97 @@ Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WAR
 - 판정: 무발동 폴백은 안전(악화 0)하나 **belle 1순위(무릎 카드 같은-포즈)는 미해결** — 무릎
   카드가 ea55069 와 같은 프레임이므로 belle 육안 재요청 무의미. 게이트/기저 재설계 필요.
 
-## Current Focus (ACTIVE — 기저 비교불가 BLOCKER fix, 2026-07-27)
-- status: **95ee80f 재렌더 완료 — pose-match 전 카드 무발동 실측(위 Evidence). 게이트 재설계 국면.**
-- NEW next_action(2026-07-27 재렌더 후): 무발동 3갈래(학생측 <4 관절 2건 / ref측 기저 커버 0
-  1건)를 모두 통과시키는 게이트·기저 재설계 — 비교불가 버그 재도입 금지·신규 튜닝상수 최소
-  원칙 유지. 후보 방향: (i) 매칭 전용 confidence 완화(_KP_CONF_MIN 재검토 — 단 조용한 악화
-  경계), (ii) 기저 = 학생 신뢰관절 ∩ window 내 가용성 교집합(비교공정성 유지), (iii) 단일
-  프레임 대신 소구간(temporal window) 포즈 비교. 설계안 실 keypoint 로 A/B 후 구현.
+## Evidence — 게이트/기저 A/B + **NEW 근본원인: ref 타임베이스 4/3 불일치** (2026-07-27, Pod ovblalej2102sb)
+- **A/B 1차 (게이트 재설계, /workspace/_gate_ab_probe.py):**
+  - 신규 사실 #1 — **관절 이름공간 불일치**: user keypointReport = 12관절(ankle/elbow 포함),
+    ref referenceKeypointReport = **8관절**(ankle/elbow 아예 없음). 95ee80f 무발동의
+    right_shoulder 갈래(기저6 커버0)의 실체 = 기저 6관절 중 4개(ankles/elbows)가 ref
+    이름공간에 **존재 자체를 안 함** → 커버 0 구조 확정. confidence 붕괴 아님.
+  - 이름공간 교집합(8관절)으로 기저 제한 + conf 게이트 제거(A_free)/학생 conf 가중(D_wgt)
+    /temporal ±1(C_tmp) 전부 **alive 23/23, 3카드 전부 발동**. knee 카드 승자 R67
+    (0.442, 2위 0.742 — 압도적 마진), 오답 anchor R73=1.266 최하위권 ✓ 판별력 실증.
+- **신규 사실 #2 (더 큰 근본원인) — ref 크롭 표시가 처음부터 시간 왜곡:**
+  - ref videoS3Key 영상: raw 655프레임/PTS 24.4s → frame_extractor(렌더러가 크롭에 쓰는
+    배열) = **220프레임**. referenceKeypointReport = 329@18fps = **9fps 환산 164.5**.
+  - Pod 에서 출하 RTMW 를 ref 영상 220프레임에 실행 → video-space report 생성 →
+    doc-report 각 프레임을 pose_distance 최소로 video 프레임에 대응(/workspace/_timebase_map.py):
+    단조 사슬 = **t_vid = (4/3)·t_rep, 오프셋 0** (양 끝점 정확: rep0→vid0, rep18.0s→vid24.0s;
+    rk216→vj144 = 정확히 4/3, d=0.013). 해석: report 는 raw **매 2프레임** 샘플(655/2≈329,
+    18fps 로 라벨), extractor 는 PTS 9fps(매 ~3프레임) — **rep 인덱스 ↔ video 인덱스가
+    4/3 배율로 어긋남**. 학생측은 report 가 같은 extractor 프레임에서 in-run 생성이라
+    배율 1.0(무왜곡) — 학생 패널이 늘 맞았던 이유.
+  - **함의**: 렌더러는 ref_frames[rep인덱스] 로 크롭 → 모든 ref 패널이 자기 타임스탬프의
+    3/4 지점(결함 창 기준 ≈2.7s 이른 순간)을 보여줘 왔음. belle "정은지 쪽은 아예 다른
+    장면" + "부위조차 안 맞음"(크롭 박스 좌표는 진짜 순간의 관절좌표인데 이미지는 다른
+    순간) 정량 설명. 07-26 "GT: video R68" 은 video-space 관찰 — 잘못된 창(왜곡 인덱스
+    주변)에서의 시각 최적이었고, rep-space 탐색과 창 자체가 달랐음.
+- 판정: fix 는 2단 — (1) **ref 표시 인덱스 타임베이스 매핑** `v_idx = round(r9 · N_video/N_rep9)`
+  (양쪽 report/영상 길이에서 유도 — 상수 0, 정합 ref 는 배율 1.0 자동 no-op, 표시 전용),
+  (2) 게이트/기저 재설계(이름공간 교집합 + 매칭 전용 conf 완화) 로 pose-match 발동.
+
+## Current Focus (ACTIVE — 게이트/기저 재설계 A/B, 2026-07-27)
+- status: **재설계 후보 실 keypoint A/B 평가 국면.** 95ee80f 재렌더에서 pose-match 전 카드
+  무발동 실측(학생측 <4 게이트 2건 / ref 기저 커버 0 1건). 수용 기준(belle): 무릎 카드가
+  학생 패널과 **같은 포즈/facing** 의 기준을 보여야 함 — 무릎 카드 학생 프레임의 신뢰관절이
+  2개뿐이므로 **strict 신뢰관절 집합만으로는 어떤 재설계도 수용 기준 미달**(구조적).
+  → 매칭 신호를 신뢰관절 집합과 분리하는 설계 필요(저신뢰 keypoint 매칭 전용 사용 등).
+- hypothesis: "RTMW 는 저신뢰 구간에도 전 관절 좌표를 출력한다. 매칭(표시 전용)에 한해
+  confidence 게이트를 완화/가중치화하면, 기저를 학생 프레임으로 고정하는 한 비교공정성
+  (95ee80f)은 유지되면서 무발동 3갈래가 모두 열린다. 저신뢰 좌표가 국면(웅크림/facing)을
+  판별하는지는 실측으로만 판정 가능."
+- test: Pod 프로브(_pose_probe.py 패턴 확장)로 후보 설계 A/B — 실 doc 학생 keypoint
+  (elbowtwistINVCHK260727pose) × 실 ref keypoint. **ground truth = 2026-07-26 육안 그리드**
+  (학생 S70=kp140 의 시각 최적 ref = R68, 근접 R66/R79; DTW 짝 R73 은 오답).
+  후보: (A) 매칭 전용 conf 게이트 제거/완화 — 기저 = 학생 프레임 finite 좌표 전체(고정),
+  (D) 기저 = finite 전체 + **학생 confidence 를 관절 가중치로 고정**(후보 간 동일 가중 공간
+  = like-for-like 유지, per-candidate 가중은 비교불가 재도입이라 금지),
+  (B) 기저 = 학생 신뢰관절 ∩ window 가용성(참고용 — 무릎 카드 못 여는 것 확인용 대조군),
+  (C) temporal window 다중프레임 — A/D 승자 위에 얹어 개선 여부만 확인.
+- expecting: 무릎 카드에서 후보가 R66~R68/R79 계열(웅크림+등돌림)을 고르면 = 저신뢰 좌표도
+  국면 판별 가능 → 채택. R73 근처/무작위면 = 좌표 자체가 붕괴 → keypoint 신호로는 불가,
+  비-keypoint 신호(프레임 화소 등) 국면으로 전환.
+- **A/B 결과 (실행 완료, 위 Evidence 절)**: 이름공간 교집합 필수 발견 + 타임베이스 4/3
+  왜곡 발견. D_wgt(학생 conf 가중) 채택 — 3카드 발동, 정확 매핑 하에 육안 대조:
+  knee S070↔RV090 같은 웅크린 역립 국면 ✓, shoulder S072↔RV102 ✓, hand S074↔RV115
+  (아치+대각 다리) ✓ D_wgt 가 A_free 보다 근접.
+- **구현 완료 (fault_zoom.py + test_fault_zoom.py, 커밋 전 검증 완료):**
+  - `pose_distance(weights=)` — 가중 centroid/RMS/평균. 비가중 경로 byte-보존.
+  - `select_pose_matched_ref_frame` — 기저 = finite ∩ ref 이름공간 ∩ conf>0,
+    가중 = 학생 confidence(탐색 내 고정). legacy(conf 배열 부재) → None 보수성 유지.
+    탐색 상한 = min(video, rep9 공간) — rep 밖 clamp 중복채점 차단.
+  - `ref_display_frame_index` — rep 공간 → 비디오 배열 선형 매핑(길이비, 상수 0,
+    정합 ref 는 identity). 크롭 지점에서만 적용, refFrameIdx 방출(kp 공간) 불변.
+  - fault_zoom_crop 로그에 ref_rep_idx/ref_video_idx 추가 (Pod 관측용).
+  - 테스트 55→60: 저신뢰 발동(수용 기준) / legacy None 분리 / 이름공간 교집합 /
+    가중 할인+무효가중 None / 타임베이스 매핑 단위 / e2e 매핑된 비디오 프레임 크롭.
+    닮음사본 회귀 게이트는 NaN 좌표 기반으로 재정의(ref conf 미사용 명문화).
+  - 전체 스위트: 61 fail/12 err = 문서화된 pre-existing 과 동일, 3443 passed. 회귀 0.
+- **검증 실행 결과 (2026-07-27 저녁, commit 4cb272a Pod 배포 후):**
+  - 재렌더 tb/tb2/tb3/tb4: STATUS done SCORE **60 불변** (D-20 4연속) — 단
+    **faultZoomComparisons 0장**. 원인 추적 완료 = **내 코드 아님**:
+    visionVeto.status=applied + faultJoints 아침과 동일한데 **worst-moment 가 0 으로
+    붕괴** (window [0,1,2] vs 아침 [70..74]). app.py:2018 `at=worst_pose_timestamp
+    (profile)` 가 None → `(at or 0.0)*9` → frame 0. profile.key_moments = Gemini
+    moment extractor 산출 — generateContent/File API 직접 curl 은 둘 다 HTTP 200
+    (키 유효·쿼터 정상)이라 **일시적 Gemini 영상처리 지연/무응답**으로 판정
+    (attributionReliability.geminiSilent=true 정합). window [0,1,2]에선 legs 관절
+    양측 전부 conf 0.2~0.3 < 0.5 → 기존 "양측 valid 0 → 카드 skip" 규칙(구코드도
+    동일)으로 0장 — pre-existing 경로.
+  - ⚠ 부수 발견(별건, 채점인접이라 미수정): `(at or 0.0)` 이 None 을 frame 0 으로
+    붕괴 — vision_veto.py:1043 이 경고한 바로 그 falsy-collapse 패턴이 호출측에 있음.
+  - **결정적 검증(Gemini 우회, 출하 build 직접 구동)**: 아침 window [70..74]/[73..77]
+    + 실 user keypointReport(260727pose doc) + 실 ref report + 실 extractor 프레임으로
+    `build_fault_zoom_comparisons` 실행 → **3카드 전부 생성 + 예측값 전부 일치**:
+    - left_knee: pose_match 73→67, refFrameIdx=134(kp), **ref_video_idx=90** ✓
+    - right_shoulder: 75→76, refFrameIdx=152, **ref_video_idx=102** ✓
+    - right_hand: 77→86, refFrameIdx=172, **ref_video_idx=115** ✓
+    - userFrameIdx 140/144/148 불변(학생측 무접촉) ✓
+  - **크롭 PNG 3장 직접 open (scratchpad/tbfix/)**: 세 카드 모두 학생↔정은지 패널이
+    **같은 국면·같은 facing·같은 부위** — knee 카드(2회 반려된 그 카드) 양 패널 모두
+    웅크린 역립+머리 아래, hand 카드 정은지 패널이 종전 "골반·발"이 아니라 학생과
+    같은 머리/손 부위. 수용 기준 자체 판정 통과 — belle 육안 대기.
+- next_action: belle 육안 체크포인트 (tb5 자연 렌더 재시도 병행 — Gemini moment 회복
+  시 S3 실렌더 크롭으로, 아니면 driven 크롭 S3 업로드로 제시).
 - **구현 (commit 95ee80f, fault_zoom.py + test_fault_zoom.py):**
   - `pose_distance(..., basis=)` — 기저 관절을 못 덮는 후보는 None(채점 불가). 자동
     공통관절 모드는 단일 쌍 비교 전용으로 격하 + docstring 에 비교불가 함정 실측 기록.
@@ -209,6 +293,35 @@ Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WAR
 - next_action: belle Pod 기동 → `_inv_check.py` fresh AID 재렌더(shadow phase33-cm3-run1,
   PR_INVERSION_ENABLED=1) → `fault_zoom_pose_match` 로그(발동/폴백) + faultZoomComparisons
   refFrameIdx 확인 → 크롭 S3 다운로드 → 이미지 직접 open → belle 육안.
+
+## reasoning_checkpoint (게이트 재설계 + 타임베이스 매핑, 2026-07-27)
+- hypothesis: "무발동의 3갈래는 (a) conf>=0.5 강성 게이트가 역립 학생 프레임(신뢰 2~3관절)을
+  차단, (b) user 12관절 vs ref 8관절 이름공간 불일치로 기저 커버가 구조적으로 0. 그리고
+  belle 의 '아예 다른 장면'의 더 깊은 원인은 (c) ref report 타임라인(매 2 raw 프레임,
+  콘텐츠 18.3s)과 렌더러 비디오 배열(PTS 9fps, 24.4s)이 4/3 배율로 어긋나는데 렌더러가
+  identity 로 인덱싱해 모든 ref 크롭이 이른 순간을 보여준 것."
+- confirming_evidence:
+  - "Pod 프로브: conf 게이트 제거+이름공간 교집합만으로 3카드 alive 23/23 (A/B 1차)"
+  - "출하 RTMW 를 ref 비디오에 실행 → rep↔video 대응 실측: t_vid=(4/3)·t_rep, 오프셋 0,
+    양 끝점 정확 (rk216→vj144 d=0.013)"
+  - "정확 매핑 하 육안: knee 승자 rep R67 → 비디오 RV090 이 학생 S070 과 같은 웅크린
+    역립+등돌림 국면 (3카드 전부 대조 완료, D_wgt 채택)"
+  - "학생측은 report 가 in-run 생성이라 배율 1.0 — 학생 패널이 늘 맞았던 것과 정합"
+- falsification_test: "재렌더에서 (a) fault_zoom_crop 로그 ref_video_idx 가 rep_idx 와 같으면
+  (=배율 1.0 으로 계산됨) 매핑 미발동 → 메타 전달 경로 재조사. (b) 크롭 이미지의 정은지
+  패널이 여전히 다른 국면이면 → 선형 매핑 가정(콘텐츠 등간 커버) 오류 → 비선형 대응 필요.
+  (c) SCORE 가 60 에서 움직이면 D-20 위반 → 즉시 revert."
+- fix_rationale: "타임베이스는 데이터(양쪽 길이)에서 유도되는 선형 매핑이라 상수 0, 정합
+  ref 는 identity 로 자기보정. 매칭은 신호(finite 좌표)와 신뢰(가중)를 분리 — 게이트를
+  낮추는 대신 기여를 conf 로 할인해 저신뢰 좌표의 발언권을 정보량만큼만 준다. 기저·가중
+  고정으로 95ee80f 비교공정성 불변. 두 fix 모두 표시 전용 — 채점 경로 무접촉."
+- blind_spots:
+  - "선형 매핑은 '두 시퀀스가 같은 콘텐츠를 등간 커버' 가정 — 이 ref 에선 실측 성립,
+    다른 ref(11개 라이브러리)는 미실측. 단 정합 ref 는 identity 라 악화 불가."
+  - "가중 매칭의 저신뢰 좌표 사용이 다른 fixture(비역립 power-spin 등)에서 오히려
+    소음일 가능성 — belle 우선순위 ④ 전수 검증에서 관측."
+  - "veto still 경로(_build_selected_frame_pair)도 같은 타임베이스 버그를 공유하나
+    채점(비전 veto) 입력이라 이 debug 범위 밖 — 아래 '알려진 미적용 갭' 에 기록."
 
 ## reasoning_checkpoint (기저 비교불가 BLOCKER, 2026-07-27)
 - hypothesis: "후보마다 관절 기저가 달라 pose_distance 값이 서로 비교 불가다. 이동+스케일을
@@ -259,6 +372,12 @@ Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WAR
 - **재검토 트리거:** belle 육안이 Mode1 포즈매칭 크롭을 승인하면 그때 mode3 + top-2 폴백으로
   확대(별도 사이클). 승인 못 받으면 확대할 이유 자체가 없다.
 - **현재 상태 명시:** 이건 "정상 동작" 이 아니라 **알려진 미적용 갭**이다.
+- **NEW 갭 (2026-07-27, 타임베이스)**: veto still 경로(app.py `_build_selected_frame_pair`
+  1885-1898)도 rep 공간 DTW 인덱스로 ref 비디오 배열을 직접 인덱싱 — **같은 4/3 왜곡**.
+  단 이 still 은 Gemini vision veto(채점 경로) 입력이라 고치면 faultJoints/점수가 움직인다
+  → D-20(표시 전용) 범위 밖, 이 debug 에서 의도적 미수정. **함의가 큼**: veto 가 봐 온
+  '기준 프레임'이 실제 DTW 순간보다 이르다 → 별도 사이클로 belle 결정 필요 (채점 영향
+  검증 동반). mode1 fault_zoom 크롭만 이번에 교정.
 
 ## Current Focus (구 — 같은-포즈 매칭, 2026-07-26)
 - status: **fix 구현 완료, 유닛테스트 52 PASS (기존 43 + 신규 9). Pod 재렌더 블로커.**
@@ -323,7 +442,44 @@ Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WAR
 - 각도 숫자 배지("81°"/"30°") 사용자 표기 부적절 (belle: 각도 인식 불가) — 제거 검토.
 - 대체문구 "전체 자세가 정은지 선수보다 덜 정돈된 편이에요" 비실행적 → 확정결함 리드 + "AI 공부 중" + 코치 라우팅.
 
-## Resolution (3차 — 같은-포즈 매칭 + 기저 고정, ACTIVE)
+## Resolution (4차 — ref 타임베이스 매핑 + 게이트 재설계, ACTIVE — awaiting belle)
+- root_cause (2겹, 2026-07-27 확정):
+  1. **ref 표시 타임베이스 불일치**: referenceKeypointReport(phase4_v1 재처리)는 raw
+     매 2프레임 샘플(329@"18fps" = 콘텐츠 18.3s)인데 렌더러 frame_extractor 는 PTS
+     9fps(220프레임 = 24.4s). 렌더러가 rep 공간 인덱스로 비디오 배열을 identity
+     인덱싱 → **모든 ref 크롭이 자기 시점의 3/4 지점(≈2.7s 이른 순간)** 표시.
+     실측: 출하 RTMW 로 rep↔video 대응 산출 → t_vid=(4/3)·t_rep, 오프셋 0.
+     학생측은 report 가 같은 extractor 프레임에서 in-run 생성이라 무왜곡 — 학생
+     패널만 늘 맞았던 이유. belle "정은지 쪽은 아예 다른 장면"+"부위조차 안 맞음"
+     (크롭 박스 좌표는 진짜 순간, 이미지는 다른 순간)의 근본원인.
+  2. **pose-match 무발동 게이트**: (a) user report 12관절 vs ref report 8관절
+     (ankle/elbow 부재) 이름공간 불일치 → 기저 커버 구조적 0, (b) conf>=0.5 강성
+     게이트가 역립 학생 프레임(신뢰 2~3관절)을 차단.
+- fix (commit 4cb272a, fault_zoom.py 전용 — app.py 무접촉, 표시 전용 D-20):
+  - `ref_display_frame_index`: rep 공간 → 비디오 배열 길이비 선형 매핑 (상수 0,
+    정합 ref/mode3 는 identity 자기보정). 크롭 지점에서만 적용, refFrameIdx(kp 공간)
+    방출 불변(뷰어 계약 무접촉).
+  - `select_pose_matched_ref_frame` 재설계: 기저 = finite 좌표 ∩ ref 이름공간 ∩
+    conf>0, 가중 = 학생 confidence(탐색 내 고정 — 95ee80f 비교공정성 불변). legacy
+    (conf 배열 부재) → None → anchor 보수성 유지. ref conf 는 매칭 미사용(붕괴 구간
+    무발동 재발 방지, garbage 좌표는 거리로 자기배제).
+  - `pose_distance(weights=)` 가중 Procrustes. 비가중 경로 byte-보존.
+- verification:
+  - ✅ 유닛 60 PASS (신규: 저신뢰 발동/legacy None/이름공간 교집합/가중 할인/타임베이스
+    매핑/e2e 매핑 크롭). 전체 스위트 61 fail/12 err = pre-existing 동일, 3443 passed.
+  - ✅ Pod 실데이터: 출하 build 구동(아침 window) → 3카드 예측값 전부 일치
+    (pose_match 73→67/75→76/77→86, video 90/102/115, 학생측 불변).
+  - ✅ 크롭 PNG 직접 open — 3카드 전부 학생↔정은지 같은 국면·facing·부위.
+    S3: results/phase25eval/drivetb260727/drive_zoom_{left_knee,adv_right_shoulder,
+    adv_right_hand}.png
+  - ✅ SCORE 60 불변 (tb~tb5 renders — 채점 무접촉 실증).
+  - ⏳ belle 육안 + 자연 렌더 재확인 (Gemini moment 일시 장애 회복 후).
+- 남은 후속: ① 서버(uvicorn, 6d4722e) 재기동으로 fix 반영(belle 승인 후) ② veto still
+  경로 동일 타임베이스 버그(채점인접 — 별도 사이클, belle 결정) ③ app.py:2019
+  `(at or 0.0)` None→frame0 붕괴(별건) ④ mode3/top-2 폴백 확대(승인 후) ⑤ 비역립
+  power-spin 전수 검증(belle 우선순위 ④).
+
+## Resolution (3차 — 같은-포즈 매칭 + 기저 고정, 완료 — 4차로 계승)
 - root_cause: 기준 패널 프레임을 **DTW window position** 으로만 정했다. DTW 는 관절각(방향 불변) 시퀀스 위에서 계산되므로 타이밍만 대응시킬 뿐 시각 국면(앞/뒤 facing·굽힘/폄)을 보장하지 않는다 → 학생이 등 돌려 웅크린 순간에 정은지가 정면 응시 + 다리 뻗은 순간이 짝지어졌다. 게다가 후보 window 가 ±2프레임(9fps)뿐이라 **시각적으로 맞는 기준 프레임(실측 5프레임=0.55s 밖)이 후보에 아예 없었다** — window 내 재선택으로는 구조적으로 도달 불가.
   - **서브 root_cause (2026-07-27 BLOCKER)**: 1차 구현(191c296)의 pose_distance 가 후보마다 자기 교집합 관절로 채점 → 값이 서로 다른 공간에서 나와 비교 불가. 자유도가 관절 수에 비례해 **저관절 후보가 최소값 경쟁에서 구조적 승리**(실 fixture 재현: k=4 후보가 k=8 전부 추월).
 - fix: DTW 짝을 anchor 로 강등하고, anchor ±1.2s 확대 탐색 안에서 **학생 프레임과 pose_distance 최소**인 기준 프레임을 선택. 거리 = 공통 신뢰관절 Procrustes(이동+스케일 정규화, 회전·좌우 보존). **관절 기저 = 학생 crop 프레임 신뢰관절로 탐색 내내 고정(95ee80f)** — 기저 미커버 후보는 채점 불가로 제외, 모든 후보가 동일 관절 공간에서 경쟁. 판정 불가 시 anchor 유지(종전 동작).

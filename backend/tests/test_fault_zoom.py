@@ -1067,16 +1067,32 @@ def test_pose_matched_ref_frame_stays_inside_search_window():
     assert got == 17, f"범위 밖(2)을 집지 말고 동률 tie-break=anchor (got {got})"
 
 
-def test_pose_matched_ref_frame_none_when_user_keypoints_untrusted():
-    """학생 신뢰 keypoint 부족 → None → 호출측이 anchor(종전 동작) 유지."""
+def test_pose_matched_fires_with_low_confidence_user_joints():
+    """게이트 재설계 (2026-07-27) — 학생 conf 가 낮아도(배열이 존재하면) 발동한다.
+
+    실 fixture 실측: 역립 무릎 카드의 학생 프레임은 conf>=0.5 관절이 2개뿐이라
+    strict 게이트로는 belle 수용 기준("무릎 카드도 같은 포즈 기준 패널") 자체가
+    구조적으로 불가능했다. 저신뢰 좌표도 finite 면 매칭 신호로 쓰되 confidence 를
+    관절 가중치로 할인한다 (Pod A/B: 3카드 발동 + knee 승자 = 육안 GT 국면)."""
     n = 40
     user_rep = _report_xy(n, 9.0, _POSE_JOINTS, lambda _f: _POSE_FRONT, conf=0.2)
-    ref_rep = _report_xy(n, 9.0, _POSE_JOINTS, lambda _f: _POSE_FRONT)
-    assert fz.select_pose_matched_ref_frame(
+    ref_rep = _report_xy(
+        n, 9.0, _POSE_JOINTS, lambda f: _POSE_FRONT if f == 12 else _POSE_BACK
+    )
+    got = fz.select_pose_matched_ref_frame(
         user_rep, ref_rep, user_kp_idx=3, ref_anchor_idx=17, ref_n=n,
         frames_fps=9.0, ref_rep_fps=9.0, ref_rep_frames=n,
-    ) is None
-    # confidence 부재(legacy report)도 동일하게 미발동 — 미증명 좌표로 이동 금지.
+    )
+    assert got == 12, f"저신뢰(0.2)여도 발동해 포즈일치 12 를 골라야 함 (got {got})"
+
+
+def test_pose_matched_ref_frame_none_when_user_confidence_absent():
+    """confidence 배열 부재(legacy report) → None — 가중을 세울 수 없어 이동 금지.
+
+    저신뢰 발동(위 테스트)과 달리 신뢰도 신호 자체가 없는 좌표로 기준 프레임을
+    옮기면 조용한 악화가 된다 — 종전 보수성 유지 (anchor 폴백)."""
+    n = 40
+    ref_rep = _report_xy(n, 9.0, _POSE_JOINTS, lambda _f: _POSE_FRONT)
     legacy = _report_xy(n, 9.0, _POSE_JOINTS, lambda _f: _POSE_FRONT)
     legacy.pop("confidence")
     assert fz.select_pose_matched_ref_frame(
@@ -1201,13 +1217,18 @@ def _report_xy_conf(n, fps, joints, pose_of_frame, conf_of_frame) -> dict:
 
 
 def test_pose_matched_low_joint_similarity_copy_cannot_win():
-    """BLOCKER 회귀 게이트 — 저관절 닮음사본 후보가 탐색에서 우승 불가.
+    """BLOCKER 회귀 게이트 — 기저를 못 덮는 닮음사본 후보가 탐색에서 우승 불가.
 
-    ref 프레임 12 = 학생 기저(5관절)의 **부분집합(토르소 4관절)만** 신뢰 + 그
+    ref 프레임 12 = 학생 기저(5관절) 중 left_knee 좌표가 **결측(NaN)** + 나머지
     4관절이 학생의 정확한 닮음변환. 종전 코드(후보별 교집합)에선 거리 ~0 으로
     무조건 우승 + tie 밴드(best*1.05)가 0 으로 붕괴해 정직한 후보를 전부 배제했다.
-    ref 프레임 20 = 전 관절 신뢰 + 학생과 거의 동일(정직한 최적).
+    ref 프레임 20 = 전 관절 존재 + 학생과 거의 동일(정직한 최적).
     기저 고정 후: 12 는 채점 불가 → 20 이 이겨야 한다.
+
+    2026-07-27 게이트 재설계 반영: 후보의 관절 커버리지는 **finite 좌표** 기준
+    (ref confidence 는 매칭에 미사용 — 역립 구간 ref conf 붕괴로 게이트하면 무발동
+    재발). f==12 의 left_knee conf 0.2 는 무시됨을 함께 못 박는다 — 배제는 오직
+    NaN 좌표(기저 미커버)로만 일어난다.
     """
     n = 40
     joints = list(_POSE_JOINTS)
@@ -1216,6 +1237,7 @@ def test_pose_matched_low_joint_similarity_copy_cannot_win():
     sim_copy = {
         j: (0.5 * x + 0.2, 0.5 * y - 0.1) for j, (x, y) in _POSE_FRONT.items()
     }
+    sim_copy["left_knee"] = (float("nan"), float("nan"))  # 기저 미커버(결측)
 
     def ref_pose(f):
         if f == 12:
@@ -1226,7 +1248,7 @@ def test_pose_matched_low_joint_similarity_copy_cannot_win():
 
     def ref_conf(f):
         if f == 12:
-            return {"left_knee": 0.2}  # 토르소 4관절만 신뢰 (기저 미달)
+            return {"left_knee": 0.2}  # 무시되어야 함 (ref conf 미사용)
         return {}
 
     user_rep = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
@@ -1236,5 +1258,97 @@ def test_pose_matched_low_joint_similarity_copy_cannot_win():
         frames_fps=9.0, ref_rep_fps=9.0, ref_rep_frames=n,
     )
     assert got == 20, (
-        f"저관절 닮음사본(12)이 아니라 전기저 정직 후보(20)여야 함 (got {got})"
+        f"기저 미커버 닮음사본(12)이 아니라 전기저 정직 후보(20)여야 함 (got {got})"
     )
+
+
+# ─── 게이트/기저 재설계 + ref 타임베이스 매핑 (2026-07-27) ──────────────────────
+# 실 fixture 무발동 3갈래 실측: (a) 학생 conf>=0.5 관절 2~3개 < 4 게이트,
+# (b) user 12관절 vs ref 8관절 이름공간 불일치 → 기저 커버 0. 재설계 = 기저를
+# finite∩ref이름공간∩conf>0 으로, 학생 confidence 를 가중으로. 그리고 ref rep 공간
+# 인덱스로 비디오 배열을 직접 인덱싱하던 타임베이스 버그(4/3 왜곡 실측)를
+# ref_display_frame_index 로 교정.
+
+
+def test_pose_matched_basis_restricted_to_ref_joint_namespace():
+    """user 12관절 vs ref 8관절 — 기저가 이름공간 교집합으로 제한되어 발동한다.
+
+    실측(2026-07-27): phase4_v1 ref report 는 8관절(ankle/elbow 부재)인데 학생
+    report 는 12관절. 종전엔 학생 신뢰관절(ankle/elbow 포함)이 기저가 되어 ref 가
+    구조적으로 못 덮음 → 무발동. 교집합 제한 후엔 공유 관절만으로 매칭한다.
+    """
+    n = 40
+    extra = {"left_ankle": (0.44, 0.95), "right_elbow": (0.66, 0.45)}
+    user_joints = list(_POSE_JOINTS) + list(extra)
+    user_front = {**_POSE_FRONT, **extra}
+    user_rep = _report_xy(n, 9.0, user_joints, lambda _f: user_front)
+    ref_rep = _report_xy(
+        n, 9.0, _POSE_JOINTS, lambda f: _POSE_FRONT if f == 12 else _POSE_BACK
+    )
+    got = fz.select_pose_matched_ref_frame(
+        user_rep, ref_rep, user_kp_idx=3, ref_anchor_idx=17, ref_n=n,
+        frames_fps=9.0, ref_rep_fps=9.0, ref_rep_frames=n,
+    )
+    assert got == 12, f"이름공간 교집합 기저로 발동해야 함 (got {got})"
+
+
+def test_pose_distance_weights_discount_low_confidence_joints():
+    """가중 거리 — 저신뢰 관절의 편차는 신뢰도만큼 할인된다 (탐색 내 가중 고정 전제)."""
+    basis = sorted(_POSE_FRONT)
+    moved_knee = dict(_POSE_FRONT)
+    moved_knee["left_knee"] = (0.75, 0.55)  # knee 만 크게 이동
+    # knee 가중 ~0 → knee 편차가 사실상 무시되어 거리 ~0.
+    w_knee_dead = {j: (1e-6 if j == "left_knee" else 0.9) for j in basis}
+    d_w = fz.pose_distance(_POSE_FRONT, moved_knee, basis=basis, weights=w_knee_dead)
+    d_u = fz.pose_distance(_POSE_FRONT, moved_knee, basis=basis)
+    assert d_u is not None and d_u > 0.1
+    assert d_w is not None and d_w < 0.05, f"저가중 관절 편차는 할인 (got {d_w})"
+    # 가중 합 0 / 음수 가중 → None (계산 불가 — 조용한 오답 금지).
+    w_zero = {j: 0.0 for j in basis}
+    assert fz.pose_distance(_POSE_FRONT, moved_knee, basis=basis, weights=w_zero) is None
+    w_neg = {j: (-0.5 if j == "left_knee" else 0.9) for j in basis}
+    assert fz.pose_distance(_POSE_FRONT, moved_knee, basis=basis, weights=w_neg) is None
+
+
+def test_ref_display_frame_index_timebase_mapping():
+    """rep 공간 → 비디오 배열 인덱스 — 실측(4/3 왜곡) 재현 + 정합 identity 보존."""
+    # 실측 재현: rep 329@18fps(9fps 환산 164.5) vs 비디오 220프레임 → 배율 4/3.
+    assert fz.ref_display_frame_index(0, 220, 329, 18.0) == 0
+    assert fz.ref_display_frame_index(67, 220, 329, 18.0) == 90
+    assert fz.ref_display_frame_index(73, 220, 329, 18.0) == 98
+    assert fz.ref_display_frame_index(163, 220, 329, 18.0) == 218
+    # 정합(학생 in-run report / mode3 지난영상): rep 2N@18fps == 비디오 N → identity.
+    for i in (0, 5, 9):
+        assert fz.ref_display_frame_index(i, 10, 20, 18.0) == i
+    # rep 메타 부재(legacy) → identity + clamp.
+    assert fz.ref_display_frame_index(7, 10, 0, 18.0) == 7
+    assert fz.ref_display_frame_index(99, 10, 0, 18.0) == 9
+    assert fz.ref_display_frame_index(3, 0, 329, 18.0) == 0
+
+
+def test_build_ref_crop_uses_timebase_mapped_video_frame():
+    """end-to-end — ref 크롭이 rep 인덱스가 아니라 매핑된 비디오 프레임에서 잘린다.
+
+    rep 10프레임@18fps(9fps 환산 5) vs 비디오 10프레임 → 배율 2. 선택된 rep 공간
+    anchor 3 → 비디오 프레임 6 (_frames R채널 = idx*10 → 60). 종전 버그면 비디오
+    3 (R=30). refFrameIdx(kp 공간) 방출은 불변 — 뷰어 계약 무접촉.
+    """
+    import io as _io
+
+    from PIL import Image as _Img
+
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(10), _frames(10), _report(10, 9.0), _report(10, 18.0),
+        worst_seconds=None, fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+        user_frame_candidates=[1, 2, 3],
+        ref_frame_candidates=[2, 3, 4],
+    )
+    assert len(comps) == 1
+    c = comps[0]
+    # 학생(legacy conf 부재) → median 후보 2 = pos 1 → ref anchor = 3 (rep 공간).
+    assert c["refFrameIdx"] == 6, "kp 공간 방출 불변 (rep idx 3 → 18fps kp 6)"
+    img = _Img.open(_io.BytesIO(c["png"])).convert("RGB")
+    # ref 반쪽 좌하단 픽셀 (marker/배지 없는 영역) — 비디오 프레임 6 의 R=60.
+    r, _g, _b = img.getpixel((fz._OUT + 6 + 12, fz._OUT - 12))
+    assert r == 60, f"타임베이스 매핑된 비디오 프레임 6(R=60)이어야 함 (got R={r})"

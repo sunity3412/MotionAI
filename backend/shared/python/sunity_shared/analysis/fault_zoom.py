@@ -347,6 +347,7 @@ def pose_distance(
     pose_b: dict[str, tuple[float, float]],
     *,
     basis: Sequence[str] | None = None,
+    weights: dict[str, float] | None = None,
 ) -> float | None:
     """두 포즈의 시각 거리 (순수). 낮을수록 같은 포즈. 계산 불가 → None.
 
@@ -363,6 +364,12 @@ def pose_distance(
     basis: 채점에 쓸 관절 집합을 **고정**한다. 양쪽 포즈가 이 관절을 전부 갖고 있을
       때만 값을 내고, 하나라도 없으면 None(= 그 후보는 채점 불가). None(default)이면
       두 포즈의 공통 관절을 자동 사용 — **단일 쌍 비교 전용**이다.
+
+    weights: 관절별 기여 가중 (2026-07-27 게이트 재설계 — 학생 confidence). 주어지면
+      centroid/스케일/평균이 전부 가중으로 바뀐다. **탐색 1회 안에서 반드시 동일한
+      가중을 전 후보에 강제할 것** — 후보마다 가중이 다르면 basis 를 고정해도 값이
+      서로 다른 공간에서 나와 비교불가 버그가 재발한다. 합 0/비유한 → None.
+      None(default) = 비가중 (기존 산출 byte-보존 경로).
 
     ⚠ **여러 후보의 거리를 서로 비교(min 선택)할 때는 basis 를 반드시 고정할 것.**
     자동 공통관절 모드로 후보들을 줄세우면 후보마다 다른 관절 기저에서 나온 값을
@@ -387,6 +394,19 @@ def pose_distance(
     b = np.asarray([pose_b[j] for j in common], dtype=float)
     if not (np.isfinite(a).all() and np.isfinite(b).all()):
         return None
+    if weights is not None:
+        w = np.asarray([float(weights.get(j, 0.0)) for j in common], dtype=float)
+        if not np.isfinite(w).all() or float(w.sum()) <= 1e-9 or (w < 0).any():
+            return None
+        wn = w / float(w.sum())
+        a = a - (a * wn[:, None]).sum(axis=0)
+        b = b - (b * wn[:, None]).sum(axis=0)
+        sa = float(np.sqrt(float((wn * np.sum(a * a, axis=1)).sum())))
+        sb = float(np.sqrt(float((wn * np.sum(b * b, axis=1)).sum())))
+        if not (np.isfinite(sa) and np.isfinite(sb)) or sa <= 1e-9 or sb <= 1e-9:
+            return None
+        d = float((wn * np.linalg.norm(a / sa - b / sb, axis=1)).sum())
+        return d if np.isfinite(d) else None
     a = a - a.mean(axis=0)
     b = b - b.mean(axis=0)
     sa = float(np.sqrt(np.mean(np.sum(a * a, axis=1))))
@@ -415,37 +435,72 @@ def select_pose_matched_ref_frame(
     ref_anchor_idx = DTW 짝 기준 프레임(9fps frames 공간). 그 주변 ±search_seconds
     안의 기준 프레임 전부에 대해 학생 포즈와의 pose_distance 를 재고 최소를 고른다.
     최소값 대비 _POSE_TIE_MARGIN 안쪽 후보가 여럿이면 **anchor 에 가장 가까운** 것
-    (DTW 타이밍 존중). 학생/기준 어느 쪽이든 신뢰 keypoint 가 모자라 한 프레임도
-    채점 못 하면 None → 호출측이 anchor(종전 동작) 유지.
+    (DTW 타이밍 존중). 판정 불가면 None → 호출측이 anchor(종전 동작) 유지.
 
-    **관절 기저 고정 (2026-07-27 비교불가 BLOCKER fix)**: 탐색 1회 안의 모든 후보를
-    **학생 크롭 프레임의 신뢰관절 집합**이라는 동일 기저로 채점한다(pose_distance
-    basis= 강제). 후보마다 자기 교집합으로 채점하면 값이 서로 다른 공간에서 나와
-    관절 적은 후보가 최소값 경쟁에서 구조적으로 이긴다(실측: pose_distance docstring).
-    기저를 못 덮는 후보는 채점 불가로 탐색에서 제외 — 의미론은 "학생 크롭에서 실제로
-    보이는 부위를 가장 비슷하게 재현하는 기준 프레임". 기저 크기 게이트는 기존
-    _POSE_MIN_COMMON_JOINTS(4) 재사용(신규 튜닝상수 0), 기저를 덮는 후보가 하나도
-    없으면 None → anchor 유지(종전 동작 그대로).
+    **매칭 신호 = finite 좌표 ∩ ref 이름공간, 가중 = 학생 confidence
+    (2026-07-27 게이트 재설계)**. 종전 conf>=0.5 게이트는 실 fixture 에서 전 카드
+    무발동이었다 — (a) 역립 구간 학생 신뢰관절 2~3개 < 4, (b) user report 12관절 vs
+    ref report 8관절 이름공간 불일치로 기저(ankle/elbow 포함)를 ref 가 구조적으로
+    못 덮음. 재설계: 기저 = 학생 프레임의 **finite 좌표** 관절 ∩ **ref report 가
+    가진 관절 이름** ∩ conf>0, 가중치 = 학생 confidence 그대로(저신뢰 좌표도 신호로
+    쓰되 기여를 신뢰도만큼 할인 — 신규 튜닝상수 0, conf 값 = 데이터). Pod A/B 실측
+    (elbow-twist-sister 실 keypoint): 3카드 전부 발동, knee 승자가 육안 GT 국면
+    (웅크린 역립+등돌림)과 일치, 오답 anchor 는 최하위권. 학생 report 에 confidence
+    배열이 없으면(legacy) 가중을 세울 수 없어 종전대로 None → anchor 유지.
+
+    **관절 기저·가중 고정 (비교불가 BLOCKER fix 유지)**: 탐색 1회 안의 모든 후보를
+    동일 기저 + 동일 가중(학생측)으로 채점한다. 후보마다 자기 교집합/자기 가중으로
+    채점하면 값이 서로 다른 공간에서 나와 관절 적은 후보가 최소값 경쟁에서 구조적으로
+    이긴다(실측: pose_distance docstring). 기저를 못 덮는 후보는 채점 불가로 제외.
+    기저 크기 게이트는 기존 _POSE_MIN_COMMON_JOINTS(4) 재사용. ref 측 confidence 는
+    매칭에 쓰지 않는다 — 역립 구간 ref conf 붕괴(0~8 요동 실측)로 게이트하면 무발동
+    재발하고, ref 좌표가 garbage 면 거리가 커져 스스로 탈락한다(자기배제).
+
+    탐색 상한은 ref_n(비디오 배열)과 **rep 공간 길이** 중 작은 쪽 — ref 타임베이스
+    불일치(rep 18.3s vs video 24.4s 실측) 시 rep 밖 인덱스는 _to_rep_idx clamp 로
+    마지막 rep 프레임을 중복 채점하게 되므로 자른다.
 
     반환이 anchor 와 같을 수 있다(그게 실제 최적일 때). 표시 전용, 채점 무접촉.
     """
     if ref_n <= 0:
         return None
-    user_pose = _confident_pose(user_report, user_kp_idx)
+    ref_names = set(ref_report.get("joints") or [])
+    user_pose: dict[str, tuple[float, float]] = {}
+    weights: dict[str, float] = {}
+    for joint in user_report.get("joints") or []:
+        if joint not in ref_names:
+            continue
+        xy = _kp_xy(user_report, user_kp_idx, joint)
+        if xy is None:
+            continue
+        c = _kp_conf(user_report, user_kp_idx, joint)
+        if c is None or c <= 0.0:
+            # conf 부재(legacy report) 포함 — 신뢰도 신호가 없는 좌표로는 기준
+            # 프레임을 옮기지 않는다(조용한 악화 방지, 종전 보수성 유지).
+            continue
+        user_pose[joint] = xy
+        weights[joint] = float(c)
     if len(user_pose) < _POSE_MIN_COMMON_JOINTS:
         return None
-    # 기저 = 학생 프레임 신뢰관절 (탐색 내내 불변). 모든 후보가 동일 관절로 채점되어
-    # "최소 거리 승자" 비교가 like-for-like 로 성립한다.
+    # 기저 + 가중 = 학생 프레임에서 1회 고정 (탐색 내내 불변). 모든 후보가 동일
+    # 관절·동일 가중으로 채점되어 "최소 거리 승자" 비교가 like-for-like 로 성립.
     basis = sorted(user_pose)
+    rep9_n = int(round(
+        int(ref_rep_frames) * float(frames_fps) / max(1e-6, float(ref_rep_fps))
+    ))
+    hi_bound = min(int(ref_n), rep9_n) if rep9_n > 0 else int(ref_n)
     span = int(round(max(0.0, float(search_seconds)) * max(1e-6, float(frames_fps))))
     lo = max(0, int(ref_anchor_idx) - span)
-    hi = min(ref_n - 1, int(ref_anchor_idx) + span)
+    hi = min(hi_bound - 1, int(ref_anchor_idx) + span)
     scored: list[tuple[float, int]] = []
     for r in range(lo, hi + 1):
         r_kp = _to_rep_idx(r, frames_fps, ref_rep_fps, ref_rep_frames)
-        d = pose_distance(
-            user_pose, _confident_pose(ref_report, r_kp), basis=basis
-        )
+        cand = {
+            j: xy
+            for j in basis
+            if (xy := _kp_xy(ref_report, r_kp, j)) is not None
+        }
+        d = pose_distance(user_pose, cand, basis=basis, weights=weights)
         if d is not None:
             scored.append((d, r))
     if not scored:
@@ -454,6 +509,43 @@ def select_pose_matched_ref_frame(
     tie = best * (1.0 + _POSE_TIE_MARGIN)
     near = [r for d, r in scored if d <= tie]
     return min(near, key=lambda r: (abs(r - int(ref_anchor_idx)), r))
+
+
+def ref_display_frame_index(
+    r9_idx: int,
+    ref_video_n: int,
+    ref_rep_frames: int,
+    ref_rep_fps: float,
+    frames_fps: float = 9.0,
+) -> int:
+    """rep(각도/keypointReport) 9fps 인덱스 → ref **비디오 프레임 배열** 인덱스 (순수).
+
+    **ref 타임베이스 불일치 fix (2026-07-27, faultzoom-same-frame-crops)**. 실측
+    (ref-elbow-twist-sister): referenceKeypointReport = 329프레임@18fps(콘텐츠 18.3s,
+    raw 매 2프레임 샘플)인데 렌더러의 frame_extractor 는 같은 영상에서 PTS 9fps 로
+    220프레임(24.4s)을 뽑는다. 종전 렌더는 rep 공간 인덱스로 비디오 배열을 직접
+    인덱싱해 **모든 ref 크롭이 자기 시점의 3/4 지점(결함 창 기준 ≈2.7s 이른 순간)**
+    을 보여줬다 — belle "정은지 쪽은 아예 다른 장면"의 근본원인. Pod 에서 출하 RTMW
+    를 비디오 프레임에 돌려 rep↔video 대응을 실측한 결과 t_vid = (4/3)·t_rep,
+    오프셋 0 (양 끝점 정확) — 즉 두 시퀀스는 같은 콘텐츠를 다른 샘플링 밀도로 덮고
+    있어 **길이 비례 선형 매핑**이 성립한다.
+
+    매핑 = round(r9_idx × ref_video_n / rep9_n), rep9_n = rep_frames·frames_fps/rep_fps.
+    rep 과 비디오가 정합(학생측 in-run report, mode3 지난영상, 올바른 재처리 ref)이면
+    rep9_n == ref_video_n → 배율 1.0 → **identity(byte-동일)**. rep 메타 부재(legacy)
+    → identity 폴백. 데이터에서 유도되는 자기보정 — 신규 튜닝상수 0. 표시 전용,
+    채점 무접촉 (keypoint 좌표/refFrameIdx 는 rep 공간 그대로 — 뷰어 계약 불변).
+    """
+    if ref_video_n <= 0:
+        return 0
+    idx = max(0, min(int(r9_idx), ref_video_n - 1))
+    if ref_rep_frames <= 0 or ref_rep_fps <= 0 or frames_fps <= 0:
+        return idx
+    rep9_n = int(ref_rep_frames) * float(frames_fps) / float(ref_rep_fps)
+    if rep9_n <= 0:
+        return idx
+    scale = float(ref_video_n) / rep9_n
+    return max(0, min(int(round(int(r9_idx) * scale)), ref_video_n - 1))
 
 
 def _frame_index(seconds: float | None, fps: float, n_frames: int) -> int:
@@ -1735,7 +1827,17 @@ def build_fault_zoom_comparisons(
         deficit = max(member_deltas) if member_deltas else None
         try:
             u_frame = user_frames[u_idx_unit]
-            r_frame = ref_frames[r_idx_unit]
+            # ref 표시 프레임 = 타임베이스 매핑 (rep 공간 → 비디오 배열,
+            # ref_display_frame_index docstring 실측 근거). 정합 ref 는 배율 1.0
+            # identity. 대응실패(전신 폴백)는 r_idx_unit 이 이미 비디오 중앙이라 제외.
+            r_display_idx = (
+                r_idx_unit
+                if ref_match_failed_unit
+                else ref_display_frame_index(
+                    r_idx_unit, r_n, r_rep_frames, r_rep_fps, frames_fps
+                )
+            )
+            r_frame = ref_frames[r_display_idx]
             u_img, u_kind, u_anchor, u_box = _side_crop(
                 u_frame,
                 [xy for _n, xy in u_valid],
@@ -1752,13 +1854,16 @@ def build_fault_zoom_comparisons(
             # (crop 박스 없음). analysis_id 는 caller 가 넘긴 로그 상관 키(미지정=None).
             log.info(
                 "fault_zoom_crop analysis_id=%s region=%s "
-                "user_kind=%s user_side_px=%s ref_kind=%s ref_side_px=%s",
+                "user_kind=%s user_side_px=%s ref_kind=%s ref_side_px=%s "
+                "ref_rep_idx=%s ref_video_idx=%s",
                 analysis_id,
                 unit.region or unit.joint,
                 u_kind,
                 u_box[2] if u_box is not None else "full",
                 _r_kind,
                 _r_box[2] if _r_box is not None else "full",
+                r_idx_unit,
+                r_display_idx,
             )
             # legs(스플릿) 카드: 앵커 동그라미 대신 다리 사이각(선 2 + 호 + 수치).
             # 게이트 A(quick-260705-wbs) — split_angle criterion 이 실제 records 에

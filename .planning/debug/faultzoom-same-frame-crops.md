@@ -1,9 +1,8 @@
 ---
-status: verifying
+status: fixing
 trigger: "확대비교(fault-zoom) 크롭이 모든 결함 관절에 대해 같은 단일 프레임에서 잘려 나온다 — 결함별 최악 순간이 아니라 한 순간의 부위별 확대일 뿐. belle §6.6 재발 버그"
 created: 2026-07-25
 updated: 2026-07-27
-blocked_on: "Pod 기동 — 9w5es4y760il9w proxy /health=404, SSH 213.173.107.230:17519 refused. belle Connect 탭 재확인 필요 ([[current-pod-9w5es4y760il9w]] 주의사항)"
 ---
 
 # fault-zoom 크롭이 전부 한 프레임에서 잘림 (결함별 최악 순간 미반영)
@@ -155,8 +154,36 @@ Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WAR
 - INFO fix 포함: 붕괴 폴백 테스트가 4관절 전좌표 붕괴로 실제 붕괴 분기를 태움.
 - 미완(Pod): 교차 인물(학생↔기준) 실측 + belle 육안 — ref↔ref proxy 한계는 종전 기록대로.
 
+## Evidence — 새 Pod 재렌더 + 무발동 실측 (2026-07-27, commit 6d4722e, Pod ovblalej2102sb)
+- **새 Pod**: `ovblalej2102sb` (RTX 4090, EU). SSH `root@213.173.99.44 -p 32613`, proxy
+  `https://ovblalej2102sb-8000.proxy.runpod.net`. 구 9w5es4y760il9w 대체(belle 신규 생성),
+  Network Volume 생존. `bootstrap_full.sh` 재실행(새 컨테이너 pip 초기화), 서버 기동
+  (health commitSha=6d4722e, CUDA EP 활성 probe 확인), **SSM `/sunity/motion/runpod-analyze-url`
+  (v19) + Lambda `RUNPOD_ANALYZE_URL` 새 proxy 로 동기화 완료** — 앱/프로덕션 경로 이 Pod.
+- **재렌더**: AID=`elbowtwistINVCHK260727pose`, shadow phase33-cm3-run1, PR_INVERSION_ENABLED=1,
+  RTMW GPU. WALL 169.0s. STATUS=done **SCORE=60** (149b770/ea55069 와 동일 — 채점 무접촉 3연속 실증).
+- **크롭 프레임 = ea55069 렌더와 완전 동일**: left_knee(confirmed) u_kp140/r_kp146,
+  right_shoulder(advisory) u144/r150, right_hand(advisory) u148/r154. → **pose-match 전 카드 무발동.**
+- ⚠ 로그 판별 함정: `_inv_check.py` 단독 실행은 logging 핸들러 미구성 → `fault_zoom_pose_match`
+  INFO 가 lastResort(WARNING+)에 삼켜져 **로그 0줄 = 미실행 증거 아님**. 프로브로 대체 판별.
+- **프로브 (`/workspace/_pose_probe.py`, 출하 `fz.select_pose_matched_ref_frame`/`pose_distance`
+  직접 호출, 실 doc keypoint)**: 무발동의 원인 3카드 3갈래 —
+  - left_knee: **학생** kp140 신뢰관절 2개(right_ankle,right_knee) < 4 → 탐색 스킵(user-side 게이트).
+  - right_hand: 학생 kp148 신뢰관절 3개 < 4 → 탐색 스킵(user-side 게이트).
+  - right_shoulder: 기저 6관절 성립, window 23후보(r=64..86) 중 **기저 커버 0개** → 전멸 → None.
+    ref 신뢰관절수 0~8 요동(역립 keypoint 붕괴); 8관절 후보(r=82,83,85)도 기저 미커버.
+  - `select_pose_matched_ref_frame` 반환 = None (3카드 전부) — reasoning_checkpoint
+    falsification_test **(b) 현실화** + user-side 게이트 병행 원인(예견 밖 신규 사실).
+- 판정: 무발동 폴백은 안전(악화 0)하나 **belle 1순위(무릎 카드 같은-포즈)는 미해결** — 무릎
+  카드가 ea55069 와 같은 프레임이므로 belle 육안 재요청 무의미. 게이트/기저 재설계 필요.
+
 ## Current Focus (ACTIVE — 기저 비교불가 BLOCKER fix, 2026-07-27)
-- status: **BLOCKER fix 구현 완료 + 실 keypoint 검증 + 커밋(95ee80f). Pod 재렌더만 남음(belle 미기동).**
+- status: **95ee80f 재렌더 완료 — pose-match 전 카드 무발동 실측(위 Evidence). 게이트 재설계 국면.**
+- NEW next_action(2026-07-27 재렌더 후): 무발동 3갈래(학생측 <4 관절 2건 / ref측 기저 커버 0
+  1건)를 모두 통과시키는 게이트·기저 재설계 — 비교불가 버그 재도입 금지·신규 튜닝상수 최소
+  원칙 유지. 후보 방향: (i) 매칭 전용 confidence 완화(_KP_CONF_MIN 재검토 — 단 조용한 악화
+  경계), (ii) 기저 = 학생 신뢰관절 ∩ window 내 가용성 교집합(비교공정성 유지), (iii) 단일
+  프레임 대신 소구간(temporal window) 포즈 비교. 설계안 실 keypoint 로 A/B 후 구현.
 - **구현 (commit 95ee80f, fault_zoom.py + test_fault_zoom.py):**
   - `pose_distance(..., basis=)` — 기저 관절을 못 덮는 후보는 None(채점 불가). 자동
     공통관절 모드는 단일 쌍 비교 전용으로 격하 + docstring 에 비교불가 함정 실측 기록.

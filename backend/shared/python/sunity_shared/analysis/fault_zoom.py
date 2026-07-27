@@ -1040,16 +1040,6 @@ def _side_crop(
     return _full_frame_fit(frame), "full", None, None
 
 
-def _deficit_label(deficit_deg: float) -> str:
-    """deficit 배지 라벨 포맷 (quick-260704-fz4 후속) — "40°" (숫자 + 도 기호).
-
-    구 "40deg" 원어 표기 교체 (belle 실기기 피드백). U+00B0 도 기호는 PIL 기본
-    폰트(Pillow 12 load_default) 글리프 보유 확인 완료 (getmask 4x8 + 렌더 픽셀
-    검증) — "한글 글리프 부재" 제약(모듈 docstring)과 무관, latin-1 범위라 안전.
-    """
-    return f"{int(round(deficit_deg))}°"
-
-
 def _timestamp_label(seconds: float) -> str:
     """타임스탬프 배지 라벨 — "7.8s" (belle #3 요구 4, 2026-07-28).
 
@@ -1067,8 +1057,9 @@ def _stamp_time(img: Image.Image, seconds: float | None) -> Image.Image:
     프레임 인덱스/fps, 기준 = 타임베이스 매핑된 표시 프레임/fps — refFrameIdx
     (kp 공간)가 아니라 실제 보여주는 비디오 프레임의 시각).
 
-    배지 색은 deficit 배지(_BRAND, 우상단)와 구분되는 무채색 — 감점 시각 언어와
-    혼동 방지. seconds None/비유한/음수 → no-op (graceful).
+    배지 색은 무채색 — 브랜드색(감점/마커 시각 언어)과 혼동 방지. belle 2026-07-28
+    ("각도 배지는 빼고 초 표기로 바꿔줘") 이후 크롭의 유일한 텍스트 오버레이.
+    seconds None/비유한/음수 → no-op (graceful).
     """
     if seconds is None:
         return img
@@ -1088,31 +1079,26 @@ def _stamp_time(img: Image.Image, seconds: float | None) -> Image.Image:
 
 def _mark(
     img: Image.Image,
-    deficit_deg: float | None,
     circle: bool = True,
     anchor_px: tuple[int, int] | None = None,
 ) -> Image.Image:
-    """브랜드 원 + (deficit 있으면) 숫자 배지. 한글 없음(폰트 회피).
+    """브랜드 원 마커. 한글 없음(폰트 회피).
 
     circle 중심 = anchor_px(결함 관절의 crop-내 좌표, Phase 25-03 Task 2 —
     grouped bbox crop 에서 관절이 중심을 벗어나도 원이 관절을 가리킴). anchor_px
     None 이면 기존 crop 중앙 (하위호환).
     circle=False = relaxed/전신 폴백 측 (좌표 불확실/중앙 비결함 — 원 생략,
-    오인 방지). deficit 배지는 유지. 라벨 포맷 = _deficit_label ("40°") —
-    confirmed/advisory 양 배치가 본 함수를 공유하므로 동일 적용.
+    오인 방지).
+    구 deficit 각도 배지(우상단 "40°")는 제거 (belle 2026-07-28 "각도 배지는
+    빼고 초 표기로 바꿔줘" — 사용자는 각도 숫자를 해석 못함, faultzoom debug
+    큐 ③ 종결). deficitDeg **데이터**는 payload 에 그대로 방출 (D-20 —
+    렌더만 제거, 채점/계약 무접촉). 시각 표기는 _stamp_time 타임스탬프로 대체.
     """
     draw = ImageDraw.Draw(img)
     if circle:
         cx, cy = anchor_px if anchor_px is not None else (_OUT // 2, _OUT // 2)
         r = int(_OUT * 0.16)
         draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=_BRAND, width=4)
-    if deficit_deg is not None and deficit_deg > 0:
-        txt = _deficit_label(deficit_deg)
-        # 배지 배경 (가독성) — 우상단. 폭 추정 = 글자당 8px 상한 유지
-        # (° 글리프는 4px 로 더 좁음 — 여유폭, 잘림 없음).
-        tw = 8 * len(txt) + 10
-        draw.rectangle([_OUT - tw - 8, 8, _OUT - 8, 34], fill=_BRAND)
-        draw.text((_OUT - tw - 2, 13), txt, fill=(255, 255, 255))
     return img
 
 
@@ -1121,13 +1107,14 @@ def _draw_leg_angle(
     pelvis_px: tuple[int, int],
     left_px: tuple[int, int],
     right_px: tuple[int, int],
-    angle_deg: float | None,
 ) -> bool:
-    """골반 중점→양 다리 선 2개 + 사이각 호(arc) + (있으면) 각도 수치 (in-place).
+    """골반 중점→양 다리 선 2개 + 사이각 호(arc) (in-place).
 
     belle 2026-07-05 실기기: 스플릿 결함의 본질 = 두 다리 벌림 각도. 앵커 동그라미
     대신 사이각을 직접 그려 호 크기 차이가 곧 결함으로 보이게 한다. 성공 여부를
-    반환 — display 전용, 채점 무접촉. 한글 없음(선/호/숫자만, 모듈 docstring 정합).
+    반환 — display 전용, 채점 무접촉. 한글 없음(선/호만, 모듈 docstring 정합).
+    구 각도 수치 라벨(호 옆 "130°")은 제거 (belle 2026-07-28 각도 숫자 사용자
+    노출 제거) — 선+호(시각 언어)는 유지, 숫자만 뺀다.
     """
     px, py = pelvis_px
     lx, ly = left_px
@@ -1151,20 +1138,6 @@ def _draw_leg_angle(
     draw.arc(
         [px - r, py - r, px + r, py + r], start=a1, end=a2, fill=_BRAND, width=3
     )
-    if angle_deg is not None and np.isfinite(angle_deg):
-        txt = _deficit_label(float(angle_deg))
-        # 호 이등분 방향 반지름 r+12 지점에 배지 (기존 _mark 배지 스타일 재사용,
-        # 폭 추정 8px/글자 동일).
-        mid = math.radians(a1 + ((a2 - a1) % 360) / 2.0)
-        label_r = r + 12
-        mx = px + label_r * math.cos(mid)
-        my = py + label_r * math.sin(mid)
-        tw = 8 * len(txt) + 10
-        th = 22
-        x0 = int(round(mx - tw / 2.0))
-        y0 = int(round(my - th / 2.0))
-        draw.rectangle([x0, y0, x0 + tw, y0 + th], fill=_BRAND)
-        draw.text((x0 + 5, y0 + 5), txt, fill=(255, 255, 255))
     return True
 
 
@@ -1174,7 +1147,6 @@ def _draw_side_leg_angle(
     report: dict,
     kp_idx: int,
     box: tuple[int, int, int],
-    angle_deg: float | None,
 ) -> bool:
     """한 측 crop 에 다리 사이각을 그린다 (quick-260705-r6x) — 성공 여부 반환.
 
@@ -1197,7 +1169,7 @@ def _draw_side_leg_angle(
     pelvis_px = _to_crop_px(pts[0], left, top, side, w, h)
     left_px = _to_crop_px(pts[1], left, top, side, w, h)
     right_px = _to_crop_px(pts[2], left, top, side, w, h)
-    return _draw_leg_angle(img, pelvis_px, left_px, right_px, angle_deg)
+    return _draw_leg_angle(img, pelvis_px, left_px, right_px)
 
 
 def split_angle_degs_from_records(
@@ -1795,7 +1767,9 @@ def build_fault_zoom_comparisons(
     user_frames/ref_frames: frame_extractor.extract 결과 (T,H,W,3) uint8 @ frames_fps.
     worst_seconds: vision_veto.worst_pose_timestamp (None 이면 중앙 프레임).
     fault_joints: 강조할 keypoint 이름들 (visionVeto.faultJoints 또는 편차 top).
-    joint_deltas: keypoint 이름 → deficit 각도(도). 없으면 마커만(숫자 X).
+    joint_deltas: keypoint 이름 → deficit 각도(도) — payload deficitDeg 데이터
+      전용. 크롭 이미지에는 각도 숫자를 그리지 않는다 (belle 2026-07-28 "각도
+      배지는 빼고 초 표기로" — 시각 표기는 _stamp_time 타임스탬프).
     user_frame_idx/ref_frame_idx: **명시 프레임 override (quick-260702-sic)** — 둘 다
       9fps frames 배열 인덱스 공간. 주어진 측은 worst_seconds/DTW 선택을 대체한다
       (vision veto 가 측정한 그 프레임 = 표시 프레임 정합). 둘 다 None(default) 이면
@@ -1814,9 +1788,11 @@ def build_fault_zoom_comparisons(
       프레임은 select_pose_matched_ref_frame 이 anchor ±_POSE_SEARCH_SECONDS 안에서
       학생 포즈와 가장 닮은 것으로 고른다 (belle 육안 #2 — DTW 는 타이밍 대응일 뿐
       시각 국면을 보장하지 않음). 판정 불가 시 anchor 유지.
-    split_angle_degs (quick-260705-r6x): region=='legs' 카드의 (학생 각도, 기준
-      각도) 수치 — 호 옆 표기용. None(default) 이면 legs 카드도 선+호만(수치 생략).
-      non-legs/legacy 경로는 무접촉. 채점 무접촉 — display 렌더 전용.
+    split_angle_degs (quick-260705-r6x → 2026-07-28 미렌더): **수치 미표기** —
+      belle "각도 배지는 빼고 초 표기로" 결정으로 호 옆 각도 라벨 제거. legs
+      카드는 선+호만 그린다. 파라미터는 호출측(app.py) 시그니처 호환으로만
+      유지되며 렌더에 쓰이지 않는다 (belle 최종 승인 후 별도 사이클에서
+      app.py 와 함께 제거 예정 — 이 debug 는 app.py 무접촉 원칙).
     dtw_ref_fps (CR-01): dtw_match.path 의 ref 인덱스가 사는 fps 공간. None(default)=
       r_rep_fps (mode1 = 정은지 reference doc, angles==keypointReport.fps 18fps —
       byte-identical 하위호환). mode3(지난 사용자 doc)는 prev angles 가 9fps 저장분
@@ -2103,7 +2079,8 @@ def build_fault_zoom_comparisons(
                 r_idx_unit,
                 r_display_idx,
             )
-            # legs(스플릿) 카드: 앵커 동그라미 대신 다리 사이각(선 2 + 호 + 수치).
+            # legs(스플릿) 카드: 앵커 동그라미 대신 다리 사이각(선 2 + 호 —
+            # 각도 수치 라벨은 belle 2026-07-28 결정으로 미표기).
             # 게이트 A(quick-260705-wbs) — split_angle criterion 이 실제 records 에
             # 있는 legs 카드(split_angle_present=True)만 진입. legs 카드는 스플릿뿐
             # 아니라 무릎(leg_extension)/골반(hip) 결함으로도 뜨는데 (2026-07-05
@@ -2114,8 +2091,6 @@ def build_fault_zoom_comparisons(
             # 게이트 B(quick-260705-wbs) — 학생(user) 측만 그린다. 정은지(ref) 측은
             # kip-up 도립 pose 부정확으로 선이 폭주(pose 한계)해 선 없는 crop 유지.
             # TODO(Phase 22): 자체학습 pose 개선 후 정은지(ref) 측 사이각 재활성.
-            # split_angle_degs=(학생 수치, 기준 수치), None 이면 수치 생략(선+호만).
-            u_deg = split_angle_degs[0] if split_angle_degs else None
             u_drew_legs = False
             if (
                 unit.region == "legs"
@@ -2124,15 +2099,16 @@ def build_fault_zoom_comparisons(
                 and u_box is not None
             ):
                 u_drew_legs = _draw_side_leg_angle(
-                    u_img, u_frame, user_report, u_kp_idx_unit, u_box, u_deg
+                    u_img, u_frame, user_report, u_kp_idx_unit, u_box
                 )
-            # user 측: 사이각을 그렸으면 원 생략(배지는 유지 — 배지=부족분/호=측정
-            # 각도로 역할 분리), 아니면 기존 규칙 그대로.
+            # user 측: 사이각을 그렸으면 원 생략(선/호와 시각 언어 충돌 방지),
+            # 아니면 기존 규칙 그대로. 각도 배지 없음(belle 2026-07-28) —
+            # deficit 은 payload deficitDeg 로만 방출.
             if u_drew_legs:
-                u_crop = _mark(u_img, deficit, circle=False, anchor_px=None)
+                u_crop = _mark(u_img, circle=False, anchor_px=None)
             else:
                 u_crop = _mark(
-                    u_img, deficit, circle=u_kind == "valid", anchor_px=u_anchor
+                    u_img, circle=u_kind == "valid", anchor_px=u_anchor
                 )
             # D-11 목표 각도 화살표 (Phase 31-03) — 학생측 crop 에만, ARROW_JOINT_MAP
             # 에 선언된 멤버 관절만. 사이각을 그린 카드는 건너뛴다(시각 언어 충돌).

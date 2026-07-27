@@ -239,7 +239,7 @@ def test_side_crop_relaxed_and_full_have_no_anchor():
 def test_mark_circle_drawn_at_anchor_not_center():
     """_mark 의 circle 이 anchor_px 에 그려진다 (픽셀 검증)."""
     img = Image.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
-    fz._mark(img, None, circle=True, anchor_px=(80, 180))
+    fz._mark(img, circle=True, anchor_px=(80, 180))
     r = int(fz._OUT * 0.16)
     assert img.getpixel((80 + r, 180)) == (255, 75, 51), "링이 anchor 를 둘러쌈"
     assert img.getpixel((fz._OUT // 2 + r, fz._OUT // 2)) == (0, 0, 0), (
@@ -247,7 +247,7 @@ def test_mark_circle_drawn_at_anchor_not_center():
     )
     # anchor_px 부재 → 기존 중앙 circle (하위호환, 기존 테스트와 동일 규칙).
     img2 = Image.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
-    fz._mark(img2, None, circle=True)
+    fz._mark(img2, circle=True)
     c = fz._OUT // 2
     assert img2.getpixel((c + r, c)) == (255, 75, 51)
 
@@ -256,9 +256,9 @@ def _spy_mark(monkeypatch):
     calls: list[tuple[bool, tuple[int, int] | None]] = []
     orig = fz._mark
 
-    def spy(img, deficit, circle=True, anchor_px=None):
+    def spy(img, circle=True, anchor_px=None):
         calls.append((circle, anchor_px))
-        return orig(img, deficit, circle=circle, anchor_px=anchor_px)
+        return orig(img, circle=circle, anchor_px=anchor_px)
 
     monkeypatch.setattr(fz, "_mark", spy)
     return calls
@@ -293,7 +293,7 @@ def test_build_grouped_circle_at_max_deficit_joint(monkeypatch):
 
 
 def test_build_relaxed_user_side_no_circle(monkeypatch):
-    """user 측 저신뢰-유한(relaxed) → circle=False (앵커 생략, deficit 배지 유지)."""
+    """user 측 저신뢰-유한(relaxed) → circle=False (앵커 생략)."""
     calls = _spy_mark(monkeypatch)
     frames = _grad_frames(9)
     user_rep = _report_pos(9, 9.0, {"left_knee": (0.5, 0.5)}, {"left_knee": 0.1})

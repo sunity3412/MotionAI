@@ -244,31 +244,43 @@ def test_confidence_present_and_high_passes_gate():
     assert len(comps) == 1 and comps[0]["png"][:4] == b"\x89PNG"
 
 
-# ─────────── quick-260704-fz4 후속 — deficit 배지 라벨 "N°" 포맷 ───────────
+# ─────────── belle 2026-07-28 — 각도 배지 제거 (초 표기 대체) ───────────
 
 
-def test_deficit_label_uses_degree_symbol():
-    """배지 라벨 = 숫자 + 도 기호 (구 "40deg" 원어 표기 교체, belle 실기기).
+def test_no_angle_badge_on_crops():
+    """각도 배지("40°" 우상단) 미렌더 — belle "각도 배지는 빼고 초 표기로 바꿔줘".
 
-    round 반올림 + 도 기호(U+00B0)가 PIL 기본 폰트 글리프를 보유하는지까지
-    못 박는다 — confirmed/advisory 양 배치가 _mark 를 공유하므로 단일 검증으로
-    충분.
+    (a) _mark 단독: 구 배지 영역(우상단)에 브랜드 픽셀 0 — circle 만 그린다.
+    (b) build e2e: joint_deltas 가 있어도 크롭 우상단 배지 영역은 무채색이고,
+        deficitDeg **데이터**는 payload 에 그대로 방출 (D-20 — 렌더만 제거).
+    _deficit_label 헬퍼도 함께 제거됐다 (사용처 소멸).
     """
-    assert fz._deficit_label(40.0) == "40°"
-    assert fz._deficit_label(23.4) == "23°"
-    assert fz._deficit_label(23.5) == "24°"
-    assert "deg" not in fz._deficit_label(30.0)
-
-    from PIL import ImageFont
-
-    mask = ImageFont.load_default().getmask("°")
-    assert mask.size[0] > 0, "PIL 기본 폰트에 도 기호 글리프 존재"
-
-    # 실제 배지 렌더 smoke — 예외 없이 그려지고 배지 사각형에 브랜드 픽셀 존재.
+    # (a) 구 배지 자리 = 우상단 [_OUT-58.._OUT-8, 8..34] 근방 — 브랜드 픽셀 0.
     img = fz._mark(
-        fz._full_frame_fit(np.zeros((64, 64, 3), dtype=np.uint8)), 40.0
+        fz._full_frame_fit(np.zeros((64, 64, 3), dtype=np.uint8)), circle=False
     )
-    assert img.getpixel((fz._OUT - 12, 10)) == (255, 75, 51), "배지 배경 렌더"
+    for x in range(fz._OUT - 58, fz._OUT - 8, 5):
+        for y in range(8, 34, 5):
+            assert img.getpixel((x, y)) != (255, 75, 51), "각도 배지 렌더 금지"
+
+    assert not hasattr(fz, "_deficit_label"), "_deficit_label 제거(사용처 소멸)"
+
+    # (b) e2e — deltas 있어도 학생 패널 우상단에 브랜드 배지 없음 + payload 유지.
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(9), _frames(9), _report(9, 9.0), _report(9, 9.0),
+        worst_seconds=0.5, fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 40.0}, frames_fps=9.0,
+    )
+    assert comps and comps[0]["deficitDeg"] == 40.0, "deficitDeg 데이터는 방출 유지"
+    import io
+
+    from PIL import Image as _I
+
+    png = _I.open(io.BytesIO(comps[0]["png"]))
+    # 합성 이미지 = [학생|기준] 가로 병치 — 학생 패널 우상단 검사.
+    for x in range(fz._OUT - 58, fz._OUT - 8, 5):
+        for y in range(8, 34, 5):
+            assert png.getpixel((x, y)) != (255, 75, 51), "e2e 각도 배지 없음"
 
 
 # ─────────── quick-260704-fz4 — select_advisory_joints (advisory tier 선별) ───────────
@@ -438,9 +450,9 @@ def _spy_mark(monkeypatch):
     calls: list[tuple[bool, tuple[int, int] | None]] = []
     orig = fz._mark
 
-    def spy(img, deficit, circle=True, anchor_px=None):
+    def spy(img, circle=True, anchor_px=None):
         calls.append((circle, anchor_px))
-        return orig(img, deficit, circle=circle, anchor_px=anchor_px)
+        return orig(img, circle=circle, anchor_px=anchor_px)
 
     monkeypatch.setattr(fz, "_mark", spy)
     return calls
@@ -449,8 +461,8 @@ def _spy_mark(monkeypatch):
 def _spy_leg_angle(monkeypatch):
     calls: list[tuple] = []
 
-    def spy(img, pelvis_px, left_px, right_px, angle_deg):
-        calls.append((pelvis_px, left_px, right_px, angle_deg))
+    def spy(img, pelvis_px, left_px, right_px):
+        calls.append((pelvis_px, left_px, right_px))
         return True  # 그렸다고 가정 (드로잉 분기 검증 — 실 픽셀은 Test 7)
 
     monkeypatch.setattr(fz, "_draw_leg_angle", spy)
@@ -497,7 +509,7 @@ def test_legs_valid_side_draws_angle(monkeypatch):
 
     2026-07-05 belle 승인: 정은지(ref) 측은 kip-up 도립 pose 부정확으로 선이
     폭주(pose 한계)해 그리지 않는다. 학생 측만 _draw_leg_angle 1회 + user
-    _mark circle=False(원 생략, 배지 유지). ref 는 _mark 없음(선 없는 crop).
+    _mark circle=False(원 생략). ref 는 _mark 없음(선 없는 crop).
     """
     leg_calls = _spy_leg_angle(monkeypatch)
     mark_calls = _spy_mark(monkeypatch)
@@ -511,39 +523,29 @@ def test_legs_valid_side_draws_angle(monkeypatch):
     )
     assert len(comps) == 1 and comps[0]["region"] == "legs"
     assert len(leg_calls) == 1, "게이트 B: user 측만 사이각(ref 측 미드로잉)"
-    assert mark_calls == [(False, None)], "user 원 생략(배지 유지), ref 는 _mark 없음"
+    assert mark_calls == [(False, None)], "user 원 생략, ref 는 _mark 없음"
 
 
-def test_legs_split_angle_numbers_passed(monkeypatch):
-    """Test 3a: split_angle_degs=(130,170) → user 측 130 만 전달 (게이트 B)."""
-    leg_calls = _spy_leg_angle(monkeypatch)
-    frames = _frames(9, h=400, w=400)
-    rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
-    fz.build_fault_zoom_comparisons(
-        frames, frames, rep, rep, worst_seconds=0.5,
-        fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
-        joint_kinds={j: "deficit" for j in _LEGS_XY},
-        split_angle_degs=(130.0, 170.0), split_angle_present=True,
-    )
-    assert [c[3] for c in leg_calls] == [130.0], "user 측 학생 벌림각만(ref 미드로잉)"
+def test_legs_split_angle_degs_ignored_no_numbers(monkeypatch):
+    """Test 3 (2026-07-28 개정): split_angle_degs 는 렌더에 미사용 — 수치 없는 선+호만.
 
-
-def test_legs_split_angle_none_omits_numbers(monkeypatch):
-    """Test 3b: split_angle_degs=None → user 측 angle_deg=None (수치 생략, 선+호만).
-
-    kip-up reference_relative 경로: 수치는 없지만 사이각 자체는 의미 있어 학생
-    측에 선+호만 그린다 (2026-07-05 belle pod 전동작 검증).
+    belle "각도 배지는 빼고 초 표기로" — 구 3a/3b(수치 전달 검증)를 대체한다.
+    split_angle_degs 가 있든(130,170) 없든(None) 드로잉 호출은 동일 1회이고
+    각도 수치는 어떤 값도 전달되지 않는다 (파라미터는 app.py 호출 호환으로만
+    잔존). 선+호 시각 언어는 유지 (2026-07-05 belle 승인 사항 보존).
     """
     leg_calls = _spy_leg_angle(monkeypatch)
     frames = _frames(9, h=400, w=400)
     rep = _report_pos_conf(9, 9.0, _LEGS_XY, {})  # 명시적 고신뢰 0.9
-    fz.build_fault_zoom_comparisons(
-        frames, frames, rep, rep, worst_seconds=0.5,
-        fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
-        joint_kinds={j: "deficit" for j in _LEGS_XY},
-        split_angle_degs=None, split_angle_present=True,
-    )
-    assert [c[3] for c in leg_calls] == [None], "user 측만 선+호(수치 None)"
+    for degs in ((130.0, 170.0), None):
+        fz.build_fault_zoom_comparisons(
+            frames, frames, rep, rep, worst_seconds=0.5,
+            fault_joints=list(_LEGS_XY), joint_deltas=None, frames_fps=9.0,
+            joint_kinds={j: "deficit" for j in _LEGS_XY},
+            split_angle_degs=degs, split_angle_present=True,
+        )
+    assert len(leg_calls) == 2, "degs 유무 무관 user 측 1회씩 드로잉(동작 동일)"
+    assert all(len(c) == 3 for c in leg_calls), "각도 수치 미전달(3점 좌표만)"
 
 
 def test_legs_low_conf_ref_side_no_angle(monkeypatch):
@@ -665,11 +667,11 @@ def test_draw_side_leg_angle_skips_when_hip_outside_crop(monkeypatch):
     }
     rep = _report_pos_conf(1, 9.0, xy, {j: 0.7 for j in xy})
     # crop box = 하단만(top280,side100) → hip(y0.1=40px) 이 crop 위로 벗어남.
-    assert fz._draw_side_leg_angle(img, frame, rep, 0, (150, 280, 100), None) is False
+    assert fz._draw_side_leg_angle(img, frame, rep, 0, (150, 280, 100)) is False
     assert leg_calls == [], "crop 밖 hip → 사이각 드로잉 생략(폴백)"
 
     # 대조(regression): hip 을 포함하는 큰 crop → 정상 드로잉 (게이트 통과).
-    assert fz._draw_side_leg_angle(img, frame, rep, 0, (0, 0, 400), None) is True
+    assert fz._draw_side_leg_angle(img, frame, rep, 0, (0, 0, 400)) is True
     assert len(leg_calls) == 1, "crop 이 3점 전부 포함하면 그린다"
 
 
@@ -745,20 +747,25 @@ def test_split_angle_degs_from_records_pure():
 
 
 def test_draw_leg_angle_pixels_and_degenerate():
-    """Test 7: 실 픽셀 smoke — 두 선 위 브랜드색 + degenerate 폴백(False)."""
+    """Test 7: 실 픽셀 smoke — 두 선 위 브랜드색 + 수치 라벨 부재 + degenerate 폴백.
+
+    2026-07-28 belle "각도 배지는 빼고": 구 각도 수치 라벨(호 이등분 방향
+    r+12 지점 배지)이 그려지지 않음을 픽셀로 못 박는다 — 이 기하(골반 180,80 /
+    다리 끝 y300)에서 구 라벨 중심은 (180,142)였다.
+    """
     from PIL import Image as _I
 
     img = _I.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
-    assert fz._draw_leg_angle(img, (180, 80), (80, 300), (280, 300), 130.0) is True
+    assert fz._draw_leg_angle(img, (180, 80), (80, 300), (280, 300)) is True
     # 두 선(골반→왼/오른) 중점 픽셀 = 브랜드색.
     assert img.getpixel((130, 190)) == fz._BRAND, "골반→왼 다리 선"
     assert img.getpixel((230, 190)) == fz._BRAND, "골반→오른 다리 선"
+    # 구 수치 라벨 자리(호 아래 중앙) = 무드로잉 (선/호 경로 밖 좌표).
+    assert img.getpixel((180, 142)) == (0, 0, 0), "각도 수치 라벨 없음"
 
     # degenerate — 벡터 길이 < _MIN_LEG_VEC_PX → 드로잉 없이 원본 반환.
     img2 = _I.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
-    assert fz._draw_leg_angle(
-        img2, (100, 100), (103, 100), (280, 300), 130.0
-    ) is False
+    assert fz._draw_leg_angle(img2, (100, 100), (103, 100), (280, 300)) is False
     assert img2.getpixel((100, 100)) == (0, 0, 0), "degenerate = 원본 유지"
 
 

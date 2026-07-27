@@ -305,9 +305,21 @@ def select_confident_index(
 
 # 기준 프레임 탐색 반경(초). DTW 짝을 중심으로 ±이 값 안에서만 고른다 — DTW 를
 # 타이밍 backbone 으로 남기고 시각 대응만 국소 보정하는 취지(전 구간 탐색은 동작의
-# 다른 국면에서 우연히 닮은 프레임을 집어올 위험). 실측 어긋남 0.55s 의 약 2배 마진.
-# 초 단위로 두어 frames_fps 가 바뀌어도 의미가 보존된다.
-_POSE_SEARCH_SECONDS = 1.2
+# 다른 국면에서 우연히 닮은 프레임을 집어올 위험). 초 단위로 두어 frames_fps 가
+# 바뀌어도 의미가 보존된다.
+# 2026-07-28 (belle #3): 1.2 → 4.0. 실측(elbow-twist-sister): 역립 구간에서 DTW
+# anchor 가 육안 GT 대비 ≈2.4s drift(GT rep51 vs anchor rep73) — ±1.2s 창은 진짜
+# 같은-포즈 프레임(RV068/080 tuck)에 구조적으로 도달 불가였다. 2.4s + 마진 = 4.0s.
+# 다른 국면 오포착 위험은 궤적 평균(_POSE_TRAJ_RADIUS)이 방어한다.
+_POSE_SEARCH_SECONDS = 4.0
+
+# 궤적 매칭 반경(±프레임, frames_fps 공간) — select_pose_matched_pair 가 후보 쌍을
+# 단일 프레임이 아니라 **±이 반경의 궤적 평균**으로 채점한다. 환각 keypoint 는
+# 프레임 간 flicker 하므로(실측: v90 단일프레임 0.45 최소가 이웃 0.84+ 의 고립점)
+# 시간 폭을 늘리면 환각의 시간 불안정성이 스스로 벌점이 된다 — 환각 감지 임계/λ
+# 튜닝 없이 강건화. 값 2 = worst-pose window(features.window_median_angle_deltas
+# window=2) 관행 정합.
+_POSE_TRAJ_RADIUS = 2
 
 # 포즈 거리 계산에 필요한 최소 공통 신뢰관절 수. 3점 이하면 이동/스케일 정규화 후
 # 남는 자유도가 거의 없어 거리값이 의미를 잃는다(역립 구간 keypoint 붕괴 시 2~3개만
@@ -509,6 +521,148 @@ def select_pose_matched_ref_frame(
     tie = best * (1.0 + _POSE_TIE_MARGIN)
     near = [r for d, r in scored if d <= tie]
     return min(near, key=lambda r: (abs(r - int(ref_anchor_idx)), r))
+
+
+def select_pose_matched_pair(
+    user_report: dict,
+    ref_report: dict,
+    user_frame_candidates: list,
+    ref_frame_candidates: list,
+    members: tuple[str, ...] | list[str],
+    ref_n: int,
+    *,
+    frames_fps: float,
+    user_rep_fps: float,
+    user_rep_frames: int,
+    ref_rep_fps: float,
+    ref_rep_frames: int,
+    search_seconds: float = _POSE_SEARCH_SECONDS,
+    traj_radius: int = _POSE_TRAJ_RADIUS,
+) -> tuple[int, int] | None:
+    """(학생 window position, 기준 9fps 프레임) 최적 쌍 | None (belle #3, 2026-07-28).
+
+    학생 프레임과 기준 프레임을 **함께** 고른다 — 카드가 보여줄 것은 "가장 비교
+    가능한 한 쌍"이므로 [학생 프레임 선택]과 [기준 포즈 매칭]을 한 원리로 통일한다.
+
+    학생 후보 = window 중 **마커 가능 프레임만** (unit 멤버 중 valid(conf>=
+    _KP_CONF_MIN 또는 legacy conf 부재) 좌표 보유 — belle 이 승인한 마커(원)가
+    사라지는 프레임으로는 옮기지 않는다). 각 학생 후보에 대해 그 position 의 DTW
+    짝을 anchor 로 ±search_seconds 기준 프레임을 **±traj_radius 궤적 평균**으로
+    채점하고, 전 (학생, 기준) 쌍 중 평균 거리 최소를 반환한다.
+
+    단일 프레임 대신 궤적 평균을 쓰는 이유 (2026-07-28 실측): 역립 구간 환각
+    keypoint 는 conf 게이트를 통과한 채(무릎 conf 0.68~0.70 이 얼굴 위치) 특정
+    프레임에서만 우연히 학생 포즈와 겹쳐 **고립된 단일프레임 최소값**을 만든다
+    (v90: 0.45, 이웃 0.84+). 진짜 같은 포즈는 이웃 프레임도 함께 닮으므로 궤적
+    평균이 환각 프레임을 자연 강등한다. 같은 원리가 학생 측에도 작동 — 환각된
+    학생 포즈(kp144 어깨=얼굴, conf 0.57)는 어떤 기준 궤적과도 일치가 나빠
+    (0.690 vs 진짜 어깨 kp148 의 0.618) 쌍 경쟁에서 스스로 밀린다.
+
+    anchor-근접 tie-break(_POSE_TIE_MARGIN)는 이 경로에 **없다** — 실측에서 동률
+    밴드 + anchor 근접이 환각 프레임(v90)을 유지하는 장치로 작동했다 (진짜 tuck
+    v80 이 0.46 vs 0.45 로 밴드 안이었는데 anchor 근접이 v90 을 고름). 궤적 평균이
+    이미 노이즈를 흡수하므로 순수 argmin. 완전 동률만 (|r-anchor|, r, pos) 순
+    결정론 tie-break.
+
+    비교공정성: 한 (학생후보, k) 안에서 기저·가중을 고정해 모든 기준 후보가
+    like-for-like 경쟁(95ee80f 불변식 유지). 학생 후보 간에는 기저가 다를 수
+    있으나(각자 가시성) 후보가 valid-멤버 게이트로 1~3개로 제한되고 전 k 궤적
+    (2*traj_radius+1 개 전부 채점 가능해야 경쟁)이 요구되어 실효 위험이 낮다고
+    판단 — faultzoom-same-frame-crops 2026-07-28 blind_spots 문서화.
+
+    판정 불가(후보 전멸/legacy conf 부재/기저 부족) → None → 호출측이 종전 사슬
+    (select_confident_index + select_pose_matched_ref_frame)로 폴백 = 악화 없음.
+    표시 전용, 채점 무접촉 (D-20).
+    """
+    if ref_n <= 0:
+        return None
+    pairs: list[tuple[int, int, int]] = []  # (pos, u9, anchor)
+    n = min(len(user_frame_candidates or []), len(ref_frame_candidates or []))
+    for pos in range(n):
+        try:
+            u9 = int(user_frame_candidates[pos])
+            anchor = int(ref_frame_candidates[pos])
+        except (TypeError, ValueError):
+            continue
+        pairs.append((pos, u9, anchor))
+    if not pairs:
+        return None
+    rep9_n = int(round(
+        int(ref_rep_frames) * float(frames_fps) / max(1e-6, float(ref_rep_fps))
+    ))
+    hi_bound = min(int(ref_n), rep9_n) if rep9_n > 0 else int(ref_n)
+    if hi_bound <= 0:
+        return None
+    span = int(round(max(0.0, float(search_seconds)) * max(1e-6, float(frames_fps))))
+    radius = max(0, int(traj_radius))
+    ref_names = set(ref_report.get("joints") or [])
+
+    def _user_pose_at(u_kp: int):
+        pose: dict[str, tuple[float, float]] = {}
+        weights: dict[str, float] = {}
+        for joint in user_report.get("joints") or []:
+            if joint not in ref_names:
+                continue
+            xy = _kp_xy(user_report, u_kp, joint)
+            if xy is None:
+                continue
+            c = _kp_conf(user_report, u_kp, joint)
+            if c is None or c <= 0.0:
+                continue
+            pose[joint] = xy
+            weights[joint] = float(c)
+        return pose, weights
+
+    best: tuple[float, int, int, int] | None = None  # (mean_d, |r-anchor|, r, pos)
+    for pos, u9, anchor in pairs:
+        u_kp_center = _to_rep_idx(u9, frames_fps, user_rep_fps, user_rep_frames)
+        marker_capable = False
+        for m in members:
+            xy = _kp_xy(user_report, u_kp_center, m)
+            if xy is None:
+                continue
+            c = _kp_conf(user_report, u_kp_center, m)
+            if c is None or c >= _KP_CONF_MIN:
+                marker_capable = True
+                break
+        if not marker_capable:
+            continue
+        per_k: list[tuple[list[str], dict, dict]] | None = []
+        for k in range(-radius, radius + 1):
+            u_kp_k = _to_rep_idx(u9 + k, frames_fps, user_rep_fps, user_rep_frames)
+            pose, w = _user_pose_at(u_kp_k)
+            if len(pose) < _POSE_MIN_COMMON_JOINTS:
+                per_k = None
+                break
+            per_k.append((sorted(pose), pose, w))
+        if not per_k:
+            continue
+        lo = max(radius, anchor - span)
+        hi = min(hi_bound - 1 - radius, anchor + span)
+        for r in range(lo, hi + 1):
+            total = 0.0
+            ok = True
+            for i, (basis, pose, w) in enumerate(per_k):
+                r_kp = _to_rep_idx(
+                    r + (i - radius), frames_fps, ref_rep_fps, ref_rep_frames
+                )
+                cand = {
+                    j: xy
+                    for j in basis
+                    if (xy := _kp_xy(ref_report, r_kp, j)) is not None
+                }
+                d = pose_distance(pose, cand, basis=basis, weights=w)
+                if d is None:
+                    ok = False
+                    break
+                total += d
+            if ok:
+                key = (total / len(per_k), abs(r - anchor), r, pos)
+                if best is None or key < best:
+                    best = key
+    if best is None:
+        return None
+    return best[3], best[2]
 
 
 def ref_display_frame_index(
@@ -894,6 +1048,42 @@ def _deficit_label(deficit_deg: float) -> str:
     검증) — "한글 글리프 부재" 제약(모듈 docstring)과 무관, latin-1 범위라 안전.
     """
     return f"{int(round(deficit_deg))}°"
+
+
+def _timestamp_label(seconds: float) -> str:
+    """타임스탬프 배지 라벨 — "7.8s" (belle #3 요구 4, 2026-07-28).
+
+    한글 글리프 부재(모듈 docstring)로 "초" 는 못 쓴다 — 숫자 + latin "s".
+    """
+    return f"{seconds:.1f}s"
+
+
+def _stamp_time(img: Image.Image, seconds: float | None) -> Image.Image:
+    """패널 좌하단 영상 타임스탬프 배지 (belle #3 요구 4 — display 전용, 채점 무접촉).
+
+    belle 2026-07-28: "세 주제의 사진이 크게 다른 장면이라고 느껴지지 않는 점 —
+    확대사진 아래에 몇 초인지 기입해주면 해결". 사용자가 원본 영상을 스크럽해
+    그 순간을 찾을 수 있도록 **비디오 타임라인 초**를 찍는다 (학생 = frames_fps
+    프레임 인덱스/fps, 기준 = 타임베이스 매핑된 표시 프레임/fps — refFrameIdx
+    (kp 공간)가 아니라 실제 보여주는 비디오 프레임의 시각).
+
+    배지 색은 deficit 배지(_BRAND, 우상단)와 구분되는 무채색 — 감점 시각 언어와
+    혼동 방지. seconds None/비유한/음수 → no-op (graceful).
+    """
+    if seconds is None:
+        return img
+    try:
+        s = float(seconds)
+    except (TypeError, ValueError):
+        return img
+    if not np.isfinite(s) or s < 0:
+        return img
+    draw = ImageDraw.Draw(img)
+    txt = _timestamp_label(s)
+    tw = 8 * len(txt) + 10
+    draw.rectangle([8, _OUT - 34, 8 + tw, _OUT - 8], fill=(40, 40, 40))
+    draw.text((14, _OUT - 29), txt, fill=(255, 255, 255))
+    return img
 
 
 def _mark(
@@ -1749,7 +1939,55 @@ def build_fault_zoom_comparisons(
         u_idx_unit, u_kp_idx_unit = u_idx, u_kp_idx
         r_idx_unit, r_kp_idx_unit = r_idx, r_kp_idx
         ref_match_failed_unit = ref_match_failed
-        if user_frame_candidates:
+        pair_selected = False
+        if user_frame_candidates and ref_frame_candidates is not None:
+            # ── (학생, 기준) 쌍 동시 최적화 — 궤적 매칭 (belle #3, 2026-07-28) ──
+            # 학생 프레임(관절 conf argmax)과 기준 프레임(단일프레임 pose 거리)을
+            # 따로 고르면 역립 환각 keypoint(conf 게이트 통과)가 양쪽을 각각
+            # 오염시킨다 — 실측: 학생 어깨=얼굴(conf 0.57 vs 진짜 0.56), 기준
+            # 무릎=얼굴(conf 0.70, 단일프레임 거리 고립 최소). 쌍을 궤적 평균으로
+            # 함께 고르면 환각의 시간 불안정성이 스스로 벌점이 된다. None →
+            # 종전 사슬(아래) 그대로 = ea55069+95ee80f 동작 폴백.
+            pair = select_pose_matched_pair(
+                user_report,
+                ref_report,
+                list(user_frame_candidates),
+                list(ref_frame_candidates),
+                unit.members,
+                r_n,
+                frames_fps=frames_fps,
+                user_rep_fps=u_rep_fps,
+                user_rep_frames=u_rep_frames,
+                ref_rep_fps=r_rep_fps,
+                ref_rep_frames=r_rep_frames,
+            )
+            if pair is not None:
+                p_pos, p_ref = pair
+                u_cands_p = list(user_frame_candidates)
+                try:
+                    u_sel = int(u_cands_p[p_pos])
+                except (TypeError, ValueError, IndexError):
+                    u_sel = None
+                if u_sel is not None:
+                    u_idx_unit = max(0, min(u_sel, max(0, u_n - 1)))
+                    u_kp_idx_unit = _to_rep_idx(
+                        u_idx_unit, frames_fps, u_rep_fps, u_rep_frames
+                    )
+                    r_idx_unit = max(0, min(int(p_ref), max(0, r_n - 1)))
+                    r_kp_idx_unit = _to_rep_idx(
+                        r_idx_unit, frames_fps, r_rep_fps, r_rep_frames
+                    )
+                    ref_match_failed_unit = False
+                    pair_selected = True
+                    log.info(
+                        "fault_zoom_pose_pair analysis_id=%s region=%s "
+                        "user9=%s ref9=%s",
+                        analysis_id,
+                        unit.region or unit.joint,
+                        u_idx_unit,
+                        r_idx_unit,
+                    )
+        if user_frame_candidates and not pair_selected:
             u_cands = list(user_frame_candidates)
             sel_pos = select_confident_index(
                 user_report, u_cands, unit.members, frames_fps
@@ -1923,6 +2161,17 @@ def build_fault_zoom_comparisons(
                         ),
                     )
             # ref 측은 _mark/사이각 모두 없음 — 선 없는 crop 그대로(게이트 B).
+            # 타임스탬프 (belle #3 요구 4): 양 패널 좌하단에 각자 비디오 초.
+            # ref 전신 폴백(refMatch='failed')은 대응 근거가 없는 프레임이라
+            # 시각을 찍으면 대응이 있는 것처럼 오독됨 → 생략.
+            u_crop = _stamp_time(
+                u_crop, u_idx_unit / frames_fps if frames_fps > 0 else None
+            )
+            if not ref_match_failed_unit:
+                r_img = _stamp_time(
+                    r_img,
+                    r_display_idx / frames_fps if frames_fps > 0 else None,
+                )
             png = _compose(u_crop, r_img)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue

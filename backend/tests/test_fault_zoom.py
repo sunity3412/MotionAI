@@ -1052,6 +1052,9 @@ def test_pose_matched_ref_frame_beats_dtw_anchor():
 def test_pose_matched_ref_frame_stays_inside_search_window():
     """탐색 반경 밖의 완벽 일치는 고르지 않는다 (DTW = 타이밍 backbone 유지).
 
+    search_seconds 를 명시(1.2s)해 반경 불변식 자체를 검증한다 — 모듈 기본값
+    (_POSE_SEARCH_SECONDS)은 실측 drift 에 따라 조정될 수 있는 값(2026-07-28
+    1.2→4.0)이므로 테스트가 기본값에 결합하면 값 조정마다 오탐한다.
     9fps·1.2s → span 11 → anchor 17 의 탐색 범위 [6,28]. 완벽 일치를 2(범위 밖)에
     두면 무시하고, 범위 안은 전부 동률이므로 tie-break 로 anchor 를 유지한다.
     """
@@ -1063,6 +1066,7 @@ def test_pose_matched_ref_frame_stays_inside_search_window():
     got = fz.select_pose_matched_ref_frame(
         user_rep, ref_rep, user_kp_idx=3, ref_anchor_idx=17, ref_n=n,
         frames_fps=9.0, ref_rep_fps=9.0, ref_rep_frames=n,
+        search_seconds=1.2,
     )
     assert got == 17, f"범위 밖(2)을 집지 말고 동률 tie-break=anchor (got {got})"
 
@@ -1106,12 +1110,17 @@ def test_build_ref_frame_uses_pose_match_outside_dtw_window():
 
     2026-07-26 실측 구조 재현: 시각적으로 맞는 기준 프레임이 후보 window(±2) 밖에
     있어서, window 내 재선택만으로는 도달 불가였던 상황.
+
+    2026-07-28 (belle #3, pair-opt 궤적 매칭): 일치 프레임을 단일 스파이크가 아니라
+    **plateau(9..13)** 로 둔다 — 궤적 평균(±_POSE_TRAJ_RADIUS)은 이웃까지 닮아야
+    최소가 되는 설계라(환각 flicker 의 고립 최소 강등이 목적) 고립 단일프레임
+    일치는 의도적으로 우승하지 못한다. plateau 중심 11 이 유일 최소.
     """
     n = 40
     joints = list(_POSE_JOINTS)
     user_rep = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
     ref_rep = _report_xy(
-        n, 9.0, joints, lambda f: _POSE_FRONT if f == 11 else _POSE_BACK
+        n, 9.0, joints, lambda f: _POSE_FRONT if 9 <= f <= 13 else _POSE_BACK
     )
     user_window = [3, 4, 5, 6, 7]
     ref_window = [15, 16, 17, 18, 19]  # DTW 짝 — 전부 반전 포즈
@@ -1124,9 +1133,11 @@ def test_build_ref_frame_uses_pose_match_outside_dtw_window():
     )
     assert len(comps) == 1
     c = comps[0]
-    assert c["userFrameIdx"] == 3, "학생 프레임 선택은 무접촉(가시성 기준)"
+    assert c["userFrameIdx"] == 3, (
+        "학생 후보 전원 동일 포즈/conf → 결정론 tie-break 로 첫 후보 유지"
+    )
     assert c["refFrameIdx"] == 11, (
-        f"기준 = 포즈일치 11 (DTW 짝 15 도, window 밖도 아님) (got {c['refFrameIdx']})"
+        f"기준 = 포즈일치 plateau 중심 11 (DTW 짝 15 아님) (got {c['refFrameIdx']})"
     )
     assert c["refMatch"] == "dtw"
 
@@ -1349,6 +1360,193 @@ def test_build_ref_crop_uses_timebase_mapped_video_frame():
     # 학생(legacy conf 부재) → median 후보 2 = pos 1 → ref anchor = 3 (rep 공간).
     assert c["refFrameIdx"] == 6, "kp 공간 방출 불변 (rep idx 3 → 18fps kp 6)"
     img = _Img.open(_io.BytesIO(c["png"])).convert("RGB")
-    # ref 반쪽 좌하단 픽셀 (marker/배지 없는 영역) — 비디오 프레임 6 의 R=60.
-    r, _g, _b = img.getpixel((fz._OUT + 6 + 12, fz._OUT - 12))
+    # ref 반쪽 **우하단** 픽셀 — 비디오 프레임 6 의 R=60. 좌하단은 2026-07-28
+    # 타임스탬프 배지(_stamp_time, fill 40)가 덮으므로 샘플 지점을 옮겼다.
+    r, _g, _b = img.getpixel((2 * fz._OUT - 12, fz._OUT - 12))
     assert r == 60, f"타임베이스 매핑된 비디오 프레임 6(R=60)이어야 함 (got R={r})"
+
+
+# ── (학생, 기준) 쌍 동시 최적화 — 궤적 매칭 (belle #3, 2026-07-28) ──────────────
+
+
+def _pose_displaced(joint: str, xy: tuple[float, float]) -> dict:
+    """_POSE_FRONT 에서 한 관절만 xy 로 옮긴 변형 — 환각 flicker 재현용."""
+    p = dict(_POSE_FRONT)
+    p[joint] = xy
+    return p
+
+
+def test_pair_prefers_student_frame_with_best_trajectory_match():
+    """conf argmax 가 아니라 **최적 궤적 짝**으로 학생 프레임을 고른다.
+
+    실 fixture 재현 (2026-07-28): 학생 어깨 keypoint 가 kp144 에서 얼굴에 환각
+    (conf 0.57)돼 conf argmax(vs 진짜 어깨 kp148 의 0.56)가 환각 프레임을 골랐다.
+    합성: 후보 B(프레임 8)는 conf 가 더 높지만 어깨가 환각 위치 — 어떤 기준
+    궤적과도 일치가 나빠 쌍 경쟁에서 진다. 후보 A(프레임 3, conf 낮음)가 승자.
+    """
+    n = 20
+    joints = list(_POSE_JOINTS)
+    user_rep = _report_xy_conf(
+        n, 9.0, joints,
+        lambda f: (
+            _pose_displaced("right_shoulder", (0.45, 0.85)) if f == 8
+            else _POSE_FRONT
+        ),
+        lambda f: {"right_shoulder": 0.99 if f == 8 else 0.6},
+    )
+    ref_rep = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
+    got = fz.select_pose_matched_pair(
+        user_rep, ref_rep, [3, 8], [10, 12], ("right_shoulder",), n,
+        frames_fps=9.0, user_rep_fps=9.0, user_rep_frames=n,
+        ref_rep_fps=9.0, ref_rep_frames=n,
+    )
+    assert got is not None
+    pos, r = got
+    assert pos == 0, f"환각(고conf) 후보가 아니라 궤적 최적 후보 (got pos={pos})"
+    assert r == 10, f"완전 동률 ref 는 anchor 유지 (got r={r})"
+
+
+def test_pair_excludes_student_frames_without_valid_marker_member():
+    """valid(conf>=0.5) 멤버 없는 학생 프레임은 궤적이 완벽해도 후보가 아니다.
+
+    마커(원)는 valid 멤버에만 그려진다 — belle 이 승인한 마커가 사라지는
+    프레임으로 옮기지 않는다 (marker-capable 게이트).
+    """
+    n = 20
+    joints = list(_POSE_JOINTS)
+    # 후보 B(프레임 8)는 완벽 일치지만 멤버 conf 0.3 → 제외. A(프레임 3)는
+    # 살짝 어긋난 포즈(무릎만 이동)여도 valid 라 승자.
+    user_rep = _report_xy_conf(
+        n, 9.0, joints,
+        lambda f: (
+            _pose_displaced("left_knee", (0.50, 0.80)) if 1 <= f <= 5
+            else _POSE_FRONT
+        ),
+        lambda f: {"right_shoulder": 0.3 if f == 8 else 0.9},
+    )
+    ref_rep = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
+    got = fz.select_pose_matched_pair(
+        user_rep, ref_rep, [3, 8], [10, 12], ("right_shoulder",), n,
+        frames_fps=9.0, user_rep_fps=9.0, user_rep_frames=n,
+        ref_rep_fps=9.0, ref_rep_frames=n,
+    )
+    assert got is not None
+    assert got[0] == 0, f"valid 멤버 없는 후보(8)는 제외돼야 함 (got pos={got[0]})"
+
+
+def test_pair_none_when_no_marker_capable_candidate():
+    """전 후보가 저신뢰 멤버뿐 → None → 호출측 종전 사슬 폴백."""
+    n = 20
+    joints = list(_POSE_JOINTS)
+    user_rep = _report_xy_conf(
+        n, 9.0, joints, lambda _f: _POSE_FRONT,
+        lambda _f: {"right_shoulder": 0.2},
+    )
+    ref_rep = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
+    assert fz.select_pose_matched_pair(
+        user_rep, ref_rep, [3, 8], [10, 12], ("right_shoulder",), n,
+        frames_fps=9.0, user_rep_fps=9.0, user_rep_frames=n,
+        ref_rep_fps=9.0, ref_rep_frames=n,
+    ) is None
+
+
+def test_pair_none_for_legacy_report_without_confidence():
+    """confidence 배열 부재(legacy) → None — 신뢰 신호 없는 좌표로 쌍을 세우지
+    않는다 (select_pose_matched_ref_frame 의 legacy 보수성과 동일)."""
+    n = 20
+    joints = list(_POSE_JOINTS)
+    legacy = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
+    legacy.pop("confidence")
+    ref_rep = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
+    assert fz.select_pose_matched_pair(
+        legacy, ref_rep, [3, 8], [10, 12], ("left_knee",), n,
+        frames_fps=9.0, user_rep_fps=9.0, user_rep_frames=n,
+        ref_rep_fps=9.0, ref_rep_frames=n,
+    ) is None
+
+
+def test_pair_ref_search_escapes_candidate_window():
+    """기준 탐색이 DTW 후보 window 밖(±_POSE_SEARCH_SECONDS)까지 미친다.
+
+    2026-07-28 실측 재현: DTW anchor 가 ≈2.4s drift 해 진짜 같은-포즈 프레임이
+    window 밖에 있던 상황. plateau(4..8) 중심 6 은 anchor 30 에서 24프레임
+    (2.7s) 떨어져 있어도 ±4.0s 탐색이 도달한다.
+    """
+    n = 60
+    joints = list(_POSE_JOINTS)
+    user_rep = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
+    ref_rep = _report_xy(
+        n, 9.0, joints, lambda f: _POSE_FRONT if 4 <= f <= 8 else _POSE_BACK
+    )
+    got = fz.select_pose_matched_pair(
+        user_rep, ref_rep, [20, 21], [30, 31], ("left_knee",), n,
+        frames_fps=9.0, user_rep_fps=9.0, user_rep_frames=n,
+        ref_rep_fps=9.0, ref_rep_frames=n,
+    )
+    assert got is not None
+    assert got[1] == 6, f"plateau 중심 6 (anchor 30 에서 2.7s 밖) (got r={got[1]})"
+
+
+# ── 타임스탬프 배지 (belle #3 요구 4, 2026-07-28) ──────────────────────────────
+
+
+def test_timestamp_label_format():
+    assert fz._timestamp_label(7.777) == "7.8s"
+    assert fz._timestamp_label(0.0) == "0.0s"
+    assert fz._timestamp_label(12.0) == "12.0s"
+
+
+def test_stamp_time_noop_on_invalid_seconds():
+    from PIL import Image as _Img
+
+    base = _Img.new("RGB", (fz._OUT, fz._OUT), (7, 7, 7))
+    for bad in (None, -1.0, float("nan")):
+        img = _Img.new("RGB", (fz._OUT, fz._OUT), (7, 7, 7))
+        out = fz._stamp_time(img, bad)
+        assert list(out.getdata()) == list(base.getdata()), f"no-op 이어야 함: {bad}"
+
+
+def test_build_stamps_video_seconds_on_both_panels():
+    """end-to-end — 학생/기준 패널 좌하단에 타임스탬프 배지가 찍힌다.
+
+    배지 fill (40,40,40) 픽셀을 좌하단 샘플로 확인 — 학생 = 프레임 인덱스/fps,
+    기준 = 타임베이스 매핑된 표시 프레임/fps (별도 단위검증은 timebase 테스트).
+    """
+    import io as _io
+
+    from PIL import Image as _Img
+
+    m = _Match(start=0, path=[(i, i) for i in range(10)])
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(10), _frames(10), _report(10, 9.0), _report(10, 9.0),
+        worst_seconds=0.5, fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0, dtw_match=m,
+    )
+    assert len(comps) == 1
+    img = _Img.open(_io.BytesIO(comps[0]["png"])).convert("RGB")
+    # 합성 canvas 는 가운데 6px 구분선 — ref 패널 로컬 x = 합성 x − (_OUT + 6).
+    assert img.getpixel((12, fz._OUT - 12)) == (40, 40, 40), "학생 패널 배지"
+    assert img.getpixel((fz._OUT + 6 + 12, fz._OUT - 12)) == (40, 40, 40), (
+        "기준 패널 배지"
+    )
+
+
+def test_build_skips_ref_stamp_on_full_body_fallback():
+    """refMatch='failed'(전신 폴백) 기준 패널엔 타임스탬프를 찍지 않는다 —
+    대응 근거 없는 프레임에 시각을 찍으면 대응이 있는 것처럼 오독됨."""
+    import io as _io
+
+    from PIL import Image as _Img
+
+    comps = fz.build_fault_zoom_comparisons(
+        _frames(10), _frames(10), _report(10, 9.0), _report(10, 9.0),
+        worst_seconds=0.5, fault_joints=["left_knee"],
+        joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
+    )
+    assert len(comps) == 1
+    assert comps[0]["refMatch"] == "failed"
+    img = _Img.open(_io.BytesIO(comps[0]["png"])).convert("RGB")
+    assert img.getpixel((12, fz._OUT - 12)) == (40, 40, 40), "학생 패널은 찍힘"
+    assert img.getpixel((fz._OUT + 6 + 12, fz._OUT - 12)) != (40, 40, 40), (
+        "전신 폴백 기준 패널은 미표기"
+    )

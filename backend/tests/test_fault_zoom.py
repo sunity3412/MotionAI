@@ -1116,19 +1116,125 @@ def test_build_ref_frame_uses_pose_match_outside_dtw_window():
 
 
 def test_build_keeps_dtw_ref_when_pose_match_impossible():
-    """포즈 판정 불가(좌표 붕괴) → 기준 프레임 = DTW 짝 그대로 (조용한 악화 없음)."""
+    """포즈 판정 불가(좌표 붕괴) → 기준 프레임 = DTW 짝 그대로 (조용한 악화 없음).
+
+    관절은 4개(기저 크기 게이트 통과) + 전 좌표 (0.5,0.5) 붕괴 — 코드리뷰 INFO:
+    종전엔 관절 1개(<4)라 관절수 미달로 폴백해 docstring(좌표 붕괴)과 다른 분기를
+    태우고 있었다. 4관절 전부 붕괴로 바꿔 실제 붕괴 분기(스케일 0 → None)를 태운다.
+    """
     n = 20
-    joints = ["left_knee"]
-    conf = {"left_knee": [0.9] * n}
+    joints = ["left_knee", "left_hip", "left_shoulder", "right_shoulder"]
+    conf = {j: [0.9] * n for j in joints}
     # _report_perframe_conf 는 전 좌표 (0.5,0.5) = 붕괴 → pose_distance None.
     user_rep = _report_perframe_conf(n, 9.0, joints, conf)
     ref_rep = _report_perframe_conf(n, 9.0, joints, conf)
     comps = fz.build_fault_zoom_comparisons(
         _frames(n), _frames(n), user_rep, ref_rep,
-        worst_seconds=None, fault_joints=joints,
+        worst_seconds=None, fault_joints=["left_knee"],
         joint_deltas={"left_knee": 20.0}, frames_fps=9.0,
         user_frame_candidates=[3, 4, 5, 6, 7],
         ref_frame_candidates=[10, 11, 12, 13, 14],
     )
     assert len(comps) == 1
     assert comps[0]["refFrameIdx"] == 10, "ea55069 DTW 짝 동작 보존"
+
+
+# ─── 관절 기저 고정 (비교불가 BLOCKER, 2026-07-27) ──────────────────────────────
+# 후보마다 자기 공통관절로 pose_distance 를 재면 값이 서로 다른 공간에서 나온다 —
+# 이동+스케일 제거 후 남는 자유도가 관절 수에 비례해 **관절 적은 후보가 최소값
+# 경쟁에서 구조적으로 이긴다** (실측: 랜덤 포즈 min 통계 k=4→0.185 vs k=8→0.486,
+# ref-elbow-twist-sister 실 탐색에서 k=4 후보가 k=8 후보 전부 추월). fix = 탐색
+# 1회 안에서 기저(학생 신뢰관절)를 고정, 기저 못 덮는 후보는 채점 불가로 제외.
+
+
+def test_pose_distance_basis_rejects_partial_candidate():
+    """기저를 못 덮는 후보 = 채점 불가(None) — 저관절 허위승리의 입구 차단.
+
+    BLOCKER 재현(probe A): 학생 관절의 부분집합(4관절)만 가진 후보가 그 4관절의
+    정확한 닮음변환 사본이면, 자동-공통관절 모드에선 거리 ~0 으로 전신 거의동일
+    후보를 제쳤다. 기저 고정 후에는 채점 자체가 안 되어 추월이 불가능하다.
+    """
+    student = dict(_POSE_FRONT)  # 5관절
+    subset = {"left_shoulder", "right_shoulder", "left_hip", "right_hip"}
+    partial = {
+        j: (0.5 * x + 0.2, 0.5 * y - 0.1)
+        for j, (x, y) in student.items() if j in subset
+    }
+    # 자동 모드(단일 쌍 비교 전용)는 부분집합 교집합으로 ~0 을 낸다 — 버그의 재료.
+    auto = fz.pose_distance(student, partial)
+    assert auto is not None and auto < 1e-9
+    # 기저 고정: 학생 5관절 기저를 못 덮음 → None (탐색에서 제외).
+    assert fz.pose_distance(student, partial, basis=sorted(student)) is None
+
+
+def test_pose_distance_basis_restricts_scored_joints():
+    """기저가 채점 관절을 **정확히** 규정한다 — 모든 후보가 동일 공간의 값을 받는다."""
+    student = dict(_POSE_FRONT)
+    candidate = dict(_POSE_FRONT)
+    candidate["left_knee"] = (0.95, 0.05)  # 기저 밖 관절에서만 크게 다름
+    basis = ["left_shoulder", "right_shoulder", "left_hip", "right_hip"]
+    auto = fz.pose_distance(student, candidate)  # 공통 5관절 → 큰 거리
+    fixed = fz.pose_distance(student, candidate, basis=basis)  # 기저 4관절 → 0
+    assert auto is not None and auto > 0.1
+    assert fixed is not None and fixed < 1e-9
+
+
+def _report_xy_conf(n, fps, joints, pose_of_frame, conf_of_frame) -> dict:
+    """프레임·관절별 좌표+confidence 를 직접 심은 합성 report (기저 검증용).
+
+    pose_of_frame(fi) -> {joint: (x, y)}, conf_of_frame(fi) -> {joint: conf}
+    (누락 관절 conf 는 0.9).
+    """
+    data: list[float] = []
+    confs: list[float] = []
+    for fi in range(n):
+        pose = pose_of_frame(fi)
+        cmap = conf_of_frame(fi)
+        for jn in joints:
+            x, y = pose[jn]
+            data += [float(x), float(y)]
+            confs.append(float(cmap.get(jn, 0.9)))
+    return {
+        "joints": list(joints), "frames": n, "fps": fps,
+        "data": data, "confidence": confs,
+    }
+
+
+def test_pose_matched_low_joint_similarity_copy_cannot_win():
+    """BLOCKER 회귀 게이트 — 저관절 닮음사본 후보가 탐색에서 우승 불가.
+
+    ref 프레임 12 = 학생 기저(5관절)의 **부분집합(토르소 4관절)만** 신뢰 + 그
+    4관절이 학생의 정확한 닮음변환. 종전 코드(후보별 교집합)에선 거리 ~0 으로
+    무조건 우승 + tie 밴드(best*1.05)가 0 으로 붕괴해 정직한 후보를 전부 배제했다.
+    ref 프레임 20 = 전 관절 신뢰 + 학생과 거의 동일(정직한 최적).
+    기저 고정 후: 12 는 채점 불가 → 20 이 이겨야 한다.
+    """
+    n = 40
+    joints = list(_POSE_JOINTS)
+    near_pose = dict(_POSE_FRONT)
+    near_pose["left_knee"] = (0.46, 0.84)  # 미세 차이 — 거리 작지만 0 아님
+    sim_copy = {
+        j: (0.5 * x + 0.2, 0.5 * y - 0.1) for j, (x, y) in _POSE_FRONT.items()
+    }
+
+    def ref_pose(f):
+        if f == 12:
+            return sim_copy
+        if f == 20:
+            return near_pose
+        return _POSE_BACK
+
+    def ref_conf(f):
+        if f == 12:
+            return {"left_knee": 0.2}  # 토르소 4관절만 신뢰 (기저 미달)
+        return {}
+
+    user_rep = _report_xy(n, 9.0, joints, lambda _f: _POSE_FRONT)
+    ref_rep = _report_xy_conf(n, 9.0, joints, ref_pose, ref_conf)
+    got = fz.select_pose_matched_ref_frame(
+        user_rep, ref_rep, user_kp_idx=3, ref_anchor_idx=17, ref_n=n,
+        frames_fps=9.0, ref_rep_fps=9.0, ref_rep_frames=n,
+    )
+    assert got == 20, (
+        f"저관절 닮음사본(12)이 아니라 전기저 정직 후보(20)여야 함 (got {got})"
+    )

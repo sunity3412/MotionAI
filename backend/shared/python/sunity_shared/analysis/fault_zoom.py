@@ -36,6 +36,7 @@ from __future__ import annotations
 import io
 import logging
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -311,6 +312,8 @@ _POSE_SEARCH_SECONDS = 1.2
 # 포즈 거리 계산에 필요한 최소 공통 신뢰관절 수. 3점 이하면 이동/스케일 정규화 후
 # 남는 자유도가 거의 없어 거리값이 의미를 잃는다(역립 구간 keypoint 붕괴 시 2~3개만
 # 살아남는 경우가 흔함 — 그 노이즈로 프레임을 옮기면 오히려 악화).
+# 2026-07-27 부터 **기저 크기 게이트**로도 재사용 — select_pose_matched_ref_frame 의
+# 고정 기저(학생 신뢰관절)가 이 수 미만이면 탐색 자체를 안 한다(신규 튜닝상수 0).
 _POSE_MIN_COMMON_JOINTS = 4
 
 # 동률 판정 마진(상대). 최소 거리 대비 이 비율 안쪽은 "사실상 같은 정도로 닮음"으로
@@ -342,6 +345,8 @@ def _confident_pose(report: dict, kp_idx: int) -> dict[str, tuple[float, float]]
 def pose_distance(
     pose_a: dict[str, tuple[float, float]],
     pose_b: dict[str, tuple[float, float]],
+    *,
+    basis: Sequence[str] | None = None,
 ) -> float | None:
     """두 포즈의 시각 거리 (순수). 낮을수록 같은 포즈. 계산 불가 → None.
 
@@ -354,8 +359,28 @@ def pose_distance(
     토르소 4관절 고정 기준으로 정규화하지 않는 이유: 역립 구간에서 토르소 keypoint
     가 전부 살아있는 프레임이 20/70 뿐이라(2026-07-26 ref-elbow-twist-sister 실측)
     고정 기준을 쓰면 정작 필요한 구간에서 계산 자체가 안 선다.
+
+    basis: 채점에 쓸 관절 집합을 **고정**한다. 양쪽 포즈가 이 관절을 전부 갖고 있을
+      때만 값을 내고, 하나라도 없으면 None(= 그 후보는 채점 불가). None(default)이면
+      두 포즈의 공통 관절을 자동 사용 — **단일 쌍 비교 전용**이다.
+
+    ⚠ **여러 후보의 거리를 서로 비교(min 선택)할 때는 basis 를 반드시 고정할 것.**
+    자동 공통관절 모드로 후보들을 줄세우면 후보마다 다른 관절 기저에서 나온 값을
+    비교하게 되는데, 이동+스케일을 제거하고 남는 자유도가 관절 수에 비례하므로
+    **관절이 적은 후보가 구조적으로 낮은 거리를 받아** 최소값 경쟁에서 부당하게
+    이긴다(2026-07-27 실측: 랜덤 포즈 min 통계 k=4 → 0.185 vs k=8 → 0.486,
+    ref-elbow-twist-sister 실 탐색에서 k=4 후보가 k=8 후보 전부를 이김). 극단적으로,
+    후보가 학생의 부분집합 관절만 신뢰 가능하고 그게 닮음변환 사본이면 거리가
+    ~0 이 되어 전신이 거의 일치하는 후보를 제친다.
     """
-    common = sorted(set(pose_a) & set(pose_b))
+    if basis is None:
+        common = sorted(set(pose_a) & set(pose_b))
+    else:
+        common = sorted(set(basis))
+        if not set(common) <= (set(pose_a) & set(pose_b)):
+            # 기저를 다 못 채우는 후보 = 비교 불가 → 탐색에서 제외(대체 관절로
+            # 몰래 채점하면 바로 그 비교불가 버그가 된다).
+            return None
     if len(common) < _POSE_MIN_COMMON_JOINTS:
         return None
     a = np.asarray([pose_a[j] for j in common], dtype=float)
@@ -393,6 +418,15 @@ def select_pose_matched_ref_frame(
     (DTW 타이밍 존중). 학생/기준 어느 쪽이든 신뢰 keypoint 가 모자라 한 프레임도
     채점 못 하면 None → 호출측이 anchor(종전 동작) 유지.
 
+    **관절 기저 고정 (2026-07-27 비교불가 BLOCKER fix)**: 탐색 1회 안의 모든 후보를
+    **학생 크롭 프레임의 신뢰관절 집합**이라는 동일 기저로 채점한다(pose_distance
+    basis= 강제). 후보마다 자기 교집합으로 채점하면 값이 서로 다른 공간에서 나와
+    관절 적은 후보가 최소값 경쟁에서 구조적으로 이긴다(실측: pose_distance docstring).
+    기저를 못 덮는 후보는 채점 불가로 탐색에서 제외 — 의미론은 "학생 크롭에서 실제로
+    보이는 부위를 가장 비슷하게 재현하는 기준 프레임". 기저 크기 게이트는 기존
+    _POSE_MIN_COMMON_JOINTS(4) 재사용(신규 튜닝상수 0), 기저를 덮는 후보가 하나도
+    없으면 None → anchor 유지(종전 동작 그대로).
+
     반환이 anchor 와 같을 수 있다(그게 실제 최적일 때). 표시 전용, 채점 무접촉.
     """
     if ref_n <= 0:
@@ -400,13 +434,18 @@ def select_pose_matched_ref_frame(
     user_pose = _confident_pose(user_report, user_kp_idx)
     if len(user_pose) < _POSE_MIN_COMMON_JOINTS:
         return None
+    # 기저 = 학생 프레임 신뢰관절 (탐색 내내 불변). 모든 후보가 동일 관절로 채점되어
+    # "최소 거리 승자" 비교가 like-for-like 로 성립한다.
+    basis = sorted(user_pose)
     span = int(round(max(0.0, float(search_seconds)) * max(1e-6, float(frames_fps))))
     lo = max(0, int(ref_anchor_idx) - span)
     hi = min(ref_n - 1, int(ref_anchor_idx) + span)
     scored: list[tuple[float, int]] = []
     for r in range(lo, hi + 1):
         r_kp = _to_rep_idx(r, frames_fps, ref_rep_fps, ref_rep_frames)
-        d = pose_distance(user_pose, _confident_pose(ref_report, r_kp))
+        d = pose_distance(
+            user_pose, _confident_pose(ref_report, r_kp), basis=basis
+        )
         if d is not None:
             scored.append((d, r))
     if not scored:

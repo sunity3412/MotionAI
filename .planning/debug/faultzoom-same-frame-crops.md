@@ -2,7 +2,7 @@
 status: verifying
 trigger: "확대비교(fault-zoom) 크롭이 모든 결함 관절에 대해 같은 단일 프레임에서 잘려 나온다 — 결함별 최악 순간이 아니라 한 순간의 부위별 확대일 뿐. belle §6.6 재발 버그"
 created: 2026-07-25
-updated: 2026-07-26
+updated: 2026-07-27
 blocked_on: "Pod 기동 — 9w5es4y760il9w proxy /health=404, SSH 213.173.107.230:17519 refused. belle Connect 탭 재확인 필요 ([[current-pod-9w5es4y760il9w]] 주의사항)"
 ---
 
@@ -100,7 +100,140 @@ blocked_on: "Pod 기동 — 9w5es4y760il9w proxy /health=404, SSH 213.173.107.23
   - → 지표가 (a) 역립 여부 (b) 굽힘 vs 폄 (c) 팔다리 배치를 **실 footage 에서 판별**함을 실증. belle 케이스(학생=웅크림 vs 기준=폄+정면)가 정확히 이 축에서 갈린다.
 - ⚠ 미검증(Pod 필요): 학생↔기준 **교차 인물** 실측. 로컬에 학생 keypoint 확보 경로 없음(Firestore DNS 차단 + pose estimator 부재).
 
-## Current Focus (ACTIVE — 같은-포즈 매칭, 2026-07-26)
+## Evidence — 코드리뷰 BLOCKER 자체 재현 (2026-07-27, commit 191c296)
+
+Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WARNING 1 / INFO 1.
+**권위로 수용하지 않고 실제 출하 코드에 직접 재현**함. 3개 독립 probe 전부 재현됨.
+
+- **BLOCKER 주장**: `pose_distance` 가 후보 프레임마다 `common = set(pose_a) & set(pose_b)` 를
+  **따로** 계산 → 후보마다 **다른 관절 기저**로 정규화되어 "최소 거리 승자" 가 like-for-like
+  비교가 아님. 관절 수가 적은 프레임일수록 이동+스케일 제거 후 남는 자유도가 작아 **구조적으로
+  낮은 거리**를 받음.
+- **probe A (리뷰어 재현 구성, 실 `fz.pose_distance`)**: user=6관절 / refA=6관절 거의 동일(노이즈
+  0.004) / refB=토르소 4관절만 + 학생 4관절의 **정확한 닮음변환**(다리는 미상).
+  - refA = **0.01546**, refB = **5.6e-16** → **알고리즘이 refB 를 선호 = 재현됨.**
+  - 게다가 `tie = best*1.05` 가 ~0 으로 붕괴 → 동률 밴드가 anchor 와 refA 를 **배제** →
+    "폴백=anchor 유지" 보증이 **성공 경로에서는 성립하지 않음** (리뷰어 지적 정확).
+- **probe B (구조적 편향, 랜덤 포즈 4000회 × k=4..8)**: 평균은 평평(1.266~1.282)이라 "평균이
+  낮다"는 틀림. 그러나 알고리즘이 실제로 쓰는 통계는 **최소값**이고 하위꼬리는 단조:
+  `p05` 0.720(k=4) → 0.935(k=8), `min` 0.185(k=4) → 0.486(k=8).
+  → 관절 적은 후보가 **우승할 확률**이 체계적으로 높다 = 편향 실재(리뷰어 표현이 정확).
+- **probe C (실 fixture, ref-elbow-twist-sister 실 keypoint, ±1.2s window)**:
+  - query kp=164(8관절), scorable 16 → **승자 = kp144, 거리 0.263, 공통관절 k=4** 로
+    모든 k=8 후보(최선 0.356)를 이김. `corr(joint_count, distance) = -0.171`.
+  - 다른 조합(q=192,a=202)에서도 OLD 승자 = 223 @ **0.049, k=4** (고정 기저에선 채점 자체
+    불가) vs 일관 기저 정직한 승자 = 220 @ 0.701.
+  - → **합성 케이스가 아니라 이 fixture 의 실제 탐색 window 안에서 발생**.
+- **판정: BLOCKER 유효.** Pod 재렌더를 하기 전에 고치지 않으면 렌더 결과가 inconclusive
+  (기준 프레임이 움직여도 그게 개선인지 저관절 허위승리인지 구분 불가).
+
+### 수정안 실데이터 평가 (3안 비교, 실 keypoint 12개 탐색)
+- `OLD`(후보마다 자기 교집합) — alive 12/12. **비교 불가(버그).**
+- `NEW`(기저 = 학생 ∩ **anchor**) — 이론상 매력적(anchor 가 항상 채점 가능 → "anchor 보다
+  나은가" 의미가 명확)이나 **alive 4/12**. anchor 프레임 자체가 역립 구간에서 자주 붕괴
+  (기저 크기 0~3) → 기능이 정작 필요한 구간에서 죽음. **기각**.
+- `STRICT`(기저 = **학생 프레임의 신뢰관절**, 후보는 그 전부를 신뢰관절로 가져야 채점) —
+  **alive 12/12**, 후보수 3~18. 12건 중 2건에서 승자가 OLD 와 달라지고, 달라진 2건이 정확히
+  저관절 허위승리 케이스. probe A 의 refB 는 **채점 불가(None)** → 추월 불가. **채택**.
+
+## Evidence — 기저 고정 fix 구현 + 출하 함수 검증 (2026-07-27, commit 95ee80f)
+- fix: `pose_distance(basis=)` + `select_pose_matched_ref_frame` 탐색 진입 시
+  `basis = sorted(user_pose)` 1회 고정, 전 후보 강제. 신규 튜닝상수 0
+  (`_POSE_MIN_COMMON_JOINTS` 기저 게이트 겸용). 기저 미커버 후보 = None(제외),
+  후보 전멸 = None → anchor 유지(ea55069 폴백 불변).
+- **출하 함수 실 keypoint 재검증** (재구현 아닌 실제 `fz.select_pose_matched_ref_frame`,
+  ref-elbow-twist-sister 18fps, identity fps 매핑, scratchpad verify_shipped_basis.py):
+  - 12개 (query,anchor) 탐색: 독립 STRICT 계산과 **12/12 일치**, 저관절 승자 **0**,
+    alive **12/12**, 전 건 anchor 에서 이동(자기프레임 proxy 특성상 정당).
+  - 종전 허위승자 kp144(q=164,a=170) / kp223(q=192,a=202): 고정 기저에서 **채점
+    불가(None)** — 최소값 경쟁 진입 자체가 불가 = 구조적 배제 실증.
+- 테스트: test_fault_zoom.py 52→55 PASS (신규 3 — probe A 부분후보 배제 / 기저가
+  채점관절을 정확히 규정 / 저관절 닮음사본 select 우승 불가). 인접 11개 파일 375 PASS.
+- 전체 스위트 A/B (fix ↔ HEAD revert): 61 fail/12 err **동일**, fix 측 +3 pass(신규
+  테스트) — fix 유발 회귀 0. (07-26 기록 45 fail 에서 61 로 드리프트한 것은
+  gemini 모델/설정 계열 pre-existing, fault_zoom 무관 — revert A/B 로 실증.)
+- INFO fix 포함: 붕괴 폴백 테스트가 4관절 전좌표 붕괴로 실제 붕괴 분기를 태움.
+- 미완(Pod): 교차 인물(학생↔기준) 실측 + belle 육안 — ref↔ref proxy 한계는 종전 기록대로.
+
+## Current Focus (ACTIVE — 기저 비교불가 BLOCKER fix, 2026-07-27)
+- status: **BLOCKER fix 구현 완료 + 실 keypoint 검증 + 커밋(95ee80f). Pod 재렌더만 남음(belle 미기동).**
+- **구현 (commit 95ee80f, fault_zoom.py + test_fault_zoom.py):**
+  - `pose_distance(..., basis=)` — 기저 관절을 못 덮는 후보는 None(채점 불가). 자동
+    공통관절 모드는 단일 쌍 비교 전용으로 격하 + docstring 에 비교불가 함정 실측 기록.
+  - `select_pose_matched_ref_frame` — 탐색 진입 시 `basis = sorted(user_pose)` 1회 고정,
+    전 후보에 `basis=` 강제. 모든 후보가 동일 관절 공간의 값으로 경쟁.
+  - 신규 튜닝상수 **0** — `_POSE_MIN_COMMON_JOINTS`(4) 가 기저 크기 게이트 겸용(주석 명시).
+  - 폴백 불변: 기저를 덮는 후보 0 → None → anchor 유지 = ea55069 동작.
+- **검증 (커밋 전 완료):**
+  - 유닛테스트 52→**55 PASS** (신규 3: 부분후보 배제(probe A 재현) / 기저가 채점관절을
+    정확히 규정 / 저관절 닮음사본 우승 불가(end-to-end select)).
+  - fault_zoom 인접 11개 테스트 파일 **375 PASS**.
+  - 전체 스위트 A/B: HEAD 기준 61 fail/12 err ↔ fix 적용 61 fail/12 err (+3 pass = 신규
+    테스트). **fix 유발 회귀 0** (61건은 gemini/body-profile 계열 pre-existing — 07-26
+    기록 45건에서 드리프트했으나 fix 와 무관, revert A/B 로 실증).
+  - **출하 함수 실 keypoint 검증**: `select_pose_matched_ref_frame` 를 ref-elbow-twist-sister
+    실 keypoint(18fps identity 매핑)로 12개 (query,anchor) 탐색 → 독립 STRICT 계산과
+    **12/12 일치, 저관절 승자 0, alive 12/12**. 종전 허위승자 kp144(q=164)/kp223(q=192)
+    는 채점 불가(None)로 **구조적으로 추월 불가** 확인.
+  - INFO fix: `test_build_keeps_dtw_ref_when_pose_match_impossible` 4관절 전좌표 붕괴로
+    변경 — 실제 붕괴 분기(스케일 0 → None)를 태움. docstring 정합.
+- **WARNING 판정 (mode3 / top-2 폴백 / override 경로 미진입)**: 아래 "판정 기록" 절 참조.
+  결론 = **사실 인정 + 지금은 확대 안 함(의도적 유보, 근거 기록)**.
+- next_action: belle Pod 기동 → `_inv_check.py` fresh AID 재렌더(shadow phase33-cm3-run1,
+  PR_INVERSION_ENABLED=1) → `fault_zoom_pose_match` 로그(발동/폴백) + faultZoomComparisons
+  refFrameIdx 확인 → 크롭 S3 다운로드 → 이미지 직접 open → belle 육안.
+
+## reasoning_checkpoint (기저 비교불가 BLOCKER, 2026-07-27)
+- hypothesis: "후보마다 관절 기저가 달라 pose_distance 값이 서로 비교 불가다. 이동+스케일을
+  제거하면 남는 자유도가 관절 수에 비례하므로, 관절이 적은 후보가 **최소값 경쟁에서** 구조적
+  으로 유리하다. 따라서 탐색 1회 안에서 기저를 고정하면 승자 선택이 like-for-like 가 된다."
+- confirming_evidence:
+  - "probe A: 실 fz.pose_distance 로 4관절 닮음변환 사본(5.6e-16)이 6관절 거의동일(0.0155)을 이김"
+  - "probe B: k=4→8 에서 min 0.185→0.486, p05 0.720→0.935 단조 — 최소값 통계의 편향 실측"
+  - "probe C: 실 fixture 실 keypoint 탐색에서 k=4 후보가 k=8 후보 전부를 이김(corr −0.171)"
+  - "실데이터 3안 비교: 기저 고정(STRICT) alive 12/12 로 기능 생존, refB 는 채점불가로 배제"
+- falsification_test: "기저를 고정했는데도 Pod 재렌더에서 (a) 선택 프레임이 여전히 저관절
+  프레임으로 쏠리면 = 기저 고정이 편향을 못 막은 것 → 거리 정의 자체 재설계. (b) 기저를 덮는
+  후보가 0이라 전 카드가 anchor 로 폴백되면 = 학생/기준 신뢰관절 교집합이 실제로 비어
+  기능 무발동 → 게이트(_KP_CONF_MIN 재사용) 재검토. 두 경우 다 `fault_zoom_pose_match` 로그로 판별."
+- fix_rationale: "버그의 정확한 기전은 '거리 값이 후보마다 다른 공간에서 나온다' 이므로, 고쳐야
+  할 것은 거리 공식이 아니라 **비교의 공정성**이다. 기저를 학생 프레임(탐색 내내 고정된 유일한
+  기준점)으로 못 박으면 모든 후보가 같은 공간에서 나온 값이 된다. 증상(허위 저거리) 억제용
+  가중치·페널티를 얹지 않는 이유 = 그건 λ 튜닝이고 fixture overfit 위험."
+- blind_spots:
+  - "학생 신뢰관절이 많고(예: 8) 기준 window 가 붕괴 구간이면 기저를 덮는 후보가 0 → 무발동.
+    안전(anchor 유지)이지만 belle 이 본 그 카드에서 무발동일 가능성 — Pod 로그로만 관측 가능."
+  - "실데이터 평가는 ref↔ref proxy(학생 keypoint 로컬 확보 불가, Firestore DNS 차단).
+    교차 인물에서 기저 커버리지가 더 낮을 수 있음."
+  - "tie 밴드가 곱셈(best*1.05)이라 best 가 0 근처면 밴드가 붕괴. 기저 고정 후에는 best≈0 이
+    '진짜 거의 동일' 을 뜻하므로 옳은 동작이라 판단하고 상수를 추가하지 않음 — 단 이 판단은
+    pose_distance 가 스케일 정규화(단위 RMS 반경) 되어 값 범위가 고정이라는 전제에 의존."
+
+## 판정 기록 — WARNING(mode3 / top-2 폴백 / override 경로) 확대 유보
+- **사실 확인 (코드 추적, 리뷰어 주장 검증됨):**
+  - `_build_mode3_fault_zoom_comparisons`(app.py 3288) 은 `user_frame_candidates` 를
+    **전달하지 않음** → mode3 zoom 카드는 여전히 DTW 인덱스 원본 기준 프레임. **사실**.
+  - Mode1 "편차 top-2 폴백"(app.py 3139, vv.faultJoints 비었을 때) 도 candidates=None →
+    미적용. **사실**.
+  - override 경로(`user_frame_idx`/`ref_frame_idx`): `_render_fault_zoom` 호출부는 3184/3288
+    두 곳뿐이고 **어느 쪽도 이 인자를 넘기지 않음** → 프로덕션 사문(dead) 파라미터.
+    리뷰어 지적은 문자적으로 맞으나 실효 영향 없음.
+- **커밋 메시지 문구 정정:** 191c296 의 "mode3/legacy 경로 byte-동일" 은 마치 **설계 요구**
+  인 것처럼 읽히지만, debug 파일의 실제 제약은 "**sourceFrameIndices 부재/legacy doc** →
+  기존 단일프레임 동작 폴백" 이다. 그건 하위호환 조항이지 "mode3 는 교정에서 제외한다" 가
+  아니다. 리뷰어 지적대로 **부정확한 프레이밍**이었고 여기서 정정한다.
+- **그럼에도 지금 확대하지 않는 결정 (의도적 유보):**
+  1. 이 접근은 **아직 단 한 번도 렌더로 검증되지 않았다.** belle 은 포즈매칭된 크롭을 한 장도
+     본 적이 없다. 검증 신호가 0인 휴리스틱을 경로 3개로 넓히면 실패 시 원인 분리가 불가능해진다.
+  2. mode3 는 기준이 **같은 사람의 지난 영상**이고 dtw fps 공간도 다르다(9fps vs 18fps,
+     CR-01). 포즈 거리의 의미와 인덱스 변환 상호작용이 Mode1 과 동일하다는 근거가 없다.
+  3. top-2 폴백은 프레임 출처가 다르다(vision window 아님, worst_seconds 기반) — DTW 짝
+     window 자체가 없어 anchor 개념이 성립하는지 별도 확인이 필요하다.
+- **재검토 트리거:** belle 육안이 Mode1 포즈매칭 크롭을 승인하면 그때 mode3 + top-2 폴백으로
+  확대(별도 사이클). 승인 못 받으면 확대할 이유 자체가 없다.
+- **현재 상태 명시:** 이건 "정상 동작" 이 아니라 **알려진 미적용 갭**이다.
+
+## Current Focus (구 — 같은-포즈 매칭, 2026-07-26)
 - status: **fix 구현 완료, 유닛테스트 52 PASS (기존 43 + 신규 9). Pod 재렌더 블로커.**
 - **fix (backend/shared/python/sunity_shared/analysis/fault_zoom.py, +165, app.py 무접촉):**
   - 신규 `pose_distance(pose_a, pose_b)` — **공통 신뢰관절**만으로 centroid 이동 + RMS 반경 스케일 정규화 후 관절당 L2 평균. 이동·스케일은 제거(체격/카메라거리/화면위치 차이), **회전·좌우 배치는 일부러 보존** — facing(앞/뒤) 신호가 바로 거기 있으므로 회전 정규화하면 belle 지적을 못 잡는다. 토르소 4관절 고정 기준을 안 쓴 이유 = 역립 구간에서 토르소 전부 살아있는 프레임이 20/70뿐(실측).
@@ -163,14 +296,16 @@ blocked_on: "Pod 기동 — 9w5es4y760il9w proxy /health=404, SSH 213.173.107.23
 - 각도 숫자 배지("81°"/"30°") 사용자 표기 부적절 (belle: 각도 인식 불가) — 제거 검토.
 - 대체문구 "전체 자세가 정은지 선수보다 덜 정돈된 편이에요" 비실행적 → 확정결함 리드 + "AI 공부 중" + 코치 라우팅.
 
-## Resolution (3차 — 같은-포즈 매칭, ACTIVE)
+## Resolution (3차 — 같은-포즈 매칭 + 기저 고정, ACTIVE)
 - root_cause: 기준 패널 프레임을 **DTW window position** 으로만 정했다. DTW 는 관절각(방향 불변) 시퀀스 위에서 계산되므로 타이밍만 대응시킬 뿐 시각 국면(앞/뒤 facing·굽힘/폄)을 보장하지 않는다 → 학생이 등 돌려 웅크린 순간에 정은지가 정면 응시 + 다리 뻗은 순간이 짝지어졌다. 게다가 후보 window 가 ±2프레임(9fps)뿐이라 **시각적으로 맞는 기준 프레임(실측 5프레임=0.55s 밖)이 후보에 아예 없었다** — window 내 재선택으로는 구조적으로 도달 불가.
-- fix: DTW 짝을 anchor 로 강등하고, anchor ±1.2s 확대 탐색 안에서 **학생 프레임과 pose_distance 최소**인 기준 프레임을 선택. 거리 = 공통 신뢰관절 Procrustes(이동+스케일 정규화, 회전·좌우 보존). 판정 불가 시 anchor 유지(종전 동작).
-- files_changed: backend/shared/python/sunity_shared/analysis/fault_zoom.py, backend/tests/test_fault_zoom.py (app.py 무접촉 — 배선은 ea55069 에서 이미 candidates pass-through)
+  - **서브 root_cause (2026-07-27 BLOCKER)**: 1차 구현(191c296)의 pose_distance 가 후보마다 자기 교집합 관절로 채점 → 값이 서로 다른 공간에서 나와 비교 불가. 자유도가 관절 수에 비례해 **저관절 후보가 최소값 경쟁에서 구조적 승리**(실 fixture 재현: k=4 후보가 k=8 전부 추월).
+- fix: DTW 짝을 anchor 로 강등하고, anchor ±1.2s 확대 탐색 안에서 **학생 프레임과 pose_distance 최소**인 기준 프레임을 선택. 거리 = 공통 신뢰관절 Procrustes(이동+스케일 정규화, 회전·좌우 보존). **관절 기저 = 학생 crop 프레임 신뢰관절로 탐색 내내 고정(95ee80f)** — 기저 미커버 후보는 채점 불가로 제외, 모든 후보가 동일 관절 공간에서 경쟁. 판정 불가 시 anchor 유지(종전 동작).
+- files_changed: backend/shared/python/sunity_shared/analysis/fault_zoom.py, backend/tests/test_fault_zoom.py (app.py 무접촉 — 배선은 ea55069 에서 이미 candidates pass-through). commits: 191c296(포즈매칭) + 95ee80f(기저 고정).
 - verification:
-  - ✅ 유닛테스트 52 PASS (신규 9 — facing 반전 검출 / 탐색범위 / 동률 tie-break / 폴백 / end-to-end)
-  - ✅ 백엔드 전체 스위트 회귀 0 — 잔여 실패 45건 + 수집오류 12건은 HEAD 의 fault_zoom.py 로 되돌려도 **동일하게 재현**(pre-existing, gemini/body-profile 계열, fault_zoom 미참조)
+  - ✅ 유닛테스트 55 PASS (191c296 신규 9 + 95ee80f 신규 3 — 기저 부분후보 배제/채점관절 규정/저관절 우승 불가)
+  - ✅ 백엔드 전체 스위트 A/B 회귀 0 — HEAD revert ↔ fix 적용 61 fail/12 err 동일(+3 pass = 신규 테스트). pre-existing 은 gemini/body-profile 계열, fault_zoom 미참조
   - ✅ 지표 실물 검증 — 실 ref keypoint 랭킹 산출 후 **해당 프레임 이미지 직접 open**, 최근접=웅크린 역립 계열 / 최원거리=편 역립·선 자세로 분리 확인
+  - ✅ 출하 함수 실 keypoint 검증(95ee80f) — 12/12 독립계산 일치, 저관절 승자 0, 종전 허위승자 2건 채점불가로 배제
   - ⏳ **미완: Pod 재렌더(학생↔기준 교차 실측) + belle 육안** — Pod down 으로 블로킹
 - 남은 belle 우선순위 (이 fix 뒤): ① 크롭 표기 숫자 ≠ 채점 숫자 ② advisory 크롭이 감점부위로 오해 ③ 각도 숫자 노출 제거 ④ 비역립(power-spin) 전수 검증 ⑤ 크롭+감점근거 세트
 

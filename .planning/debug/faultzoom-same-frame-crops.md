@@ -1,8 +1,9 @@
 ---
-status: awaiting_human_verify
+status: verifying
 trigger: "확대비교(fault-zoom) 크롭이 모든 결함 관절에 대해 같은 단일 프레임에서 잘려 나온다 — 결함별 최악 순간이 아니라 한 순간의 부위별 확대일 뿐. belle §6.6 재발 버그"
 created: 2026-07-25
-updated: 2026-07-25
+updated: 2026-07-26
+blocked_on: "Pod 기동 — 9w5es4y760il9w proxy /health=404, SSH 213.173.107.230:17519 refused. belle Connect 탭 재확인 필요 ([[current-pod-9w5es4y760il9w]] 주의사항)"
 ---
 
 # fault-zoom 크롭이 전부 한 프레임에서 잘림 (결함별 최악 순간 미반영)

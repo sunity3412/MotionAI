@@ -2,7 +2,7 @@
 status: awaiting_human_verify
 trigger: "확대비교(fault-zoom) 크롭이 모든 결함 관절에 대해 같은 단일 프레임에서 잘려 나온다 — 결함별 최악 순간이 아니라 한 순간의 부위별 확대일 뿐. belle §6.6 재발 버그"
 created: 2026-07-25
-updated: 2026-07-27
+updated: 2026-07-28
 ---
 
 # fault-zoom 크롭이 전부 한 프레임에서 잘림 (결함별 최악 순간 미반영)
@@ -205,7 +205,69 @@ Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WAR
   (양쪽 report/영상 길이에서 유도 — 상수 0, 정합 ref 는 배율 1.0 자동 no-op, 표시 전용),
   (2) 게이트/기저 재설계(이름공간 교집합 + 매칭 전용 conf 완화) 로 pose-match 발동.
 
-## Current Focus (ACTIVE — 게이트/기저 재설계 A/B, 2026-07-27)
+## belle 육안 #3 (2026-07-28, commit 4cb272a — drivetb260727 크롭 3장) → **NOT FIXED**
+- belle verbatim (요지): "이렇게 잡는건 이전이랑 변하는게 없는데... 큰일이네 계획부터 다시 짜야하나 기술적 문제인건가"
+  1. **무릎 카드 (1순위)**: 학생 무릎을 집는 건 좋음(마커 OK). 그러나 **정은지 패널이 같은 자세에서 무릎을 잡은 화면이 아님 — "엉뚱한 사진"**. 비교가 성립 안 함.
+  2. **어깨 카드**: (i) **REGRESSION — 어제(ea55069 렌더)는 어깨를 잘 집었는데 오늘은 목을 집음.** (ii) facing 불일치 지속(정은지=정면 / 학생=측면) → 비교 사진 아님.
+  3. **손 카드**: 두 패널 자세 다름 + "손 모양을 뭐 어떻게 하라는지 모르겠음" → advisory 실행가능성 설계 이슈(기존 큐 "advisory 오해" 항목) — belle 없이 구현 금지, 기록만.
+  4. **세 카드가 크게 다른 장면으로 안 느껴짐** (회전 동작 특성 감안) → belle 승인 추가: **크롭 아래/위에 영상 몇 초인지 타임스탬프 기입** (display-only). 각도 배지↔타임스탬프 교체 여부는 belle 질문으로 기록(무단 제거 금지).
+- ⚠ 자체판정(scratchpad/tbfix open — "같은 국면·facing·부위")과 belle 판정 충돌 → 자체판정 근거 재검증 필요. 내가 연 이미지와 belle이 본 S3 이미지가 같은 것인지 + "국면 일치"와 "무릎이 비교 가능하게 프레이밍됨"은 다른 기준임을 유의.
+
+## Evidence — belle #3 반려 원인 실측 (2026-07-28, drivetb260727 크롭 + Pod keypoint dump)
+- **S3↔로컬 md5 동일** — belle 과 같은 이미지를 봤음. 이전 자체판정("같은 부위")이 무릎 카드에서 오판이었음 (국면 일치 ≠ 부위 프레이밍).
+- **[H1 확정 — 무릎 카드 ref 패널]** Pod dump: ref rep kp134 에서 left_knee=(0.446,0.546) conf **0.70** / right_knee=(0.507,0.551) conf **0.68** — 그러나 RV090 실물에서 그 좌표는 **정은지 얼굴/턱** 위치. 실제 무릎은 y≈0.36~0.42 (엉덩이 위). 오버레이(overlay_kp134_on_RV090.png)로 실증: hips(conf 0.44~0.48)는 대략 맞고, "knees"는 머리에 환각 — **역립 keypoint 환각이 conf 0.5 게이트를 통과**. 크롭박스 valid=[가짜 무릎 2점] → 머리/가슴 중심 크롭 → 진짜 무릎 프레임 밖. **순간(rep67↔video90 매핑)은 맞고, 프레이밍이 가짜 좌표를 따라감.**
+- **[H3 기각 — 어깨 카드 "목" 회귀]** 어제(ea55069 렌더) ↔ 오늘(drivetb) 학생 패널 **픽셀 동일**(meanabs diff 0.00~0.01) — 코드/데이터 회귀 없음. 마커 링은 항상 크롭 중심(180,180) r=57 (크롭박스가 앵커 중심이므로). belle 의 "어제는 어깨 잘 잡았다" = **149b770 크롭(u_kp148)** 기억 — kp148 에선 어깨가 시각적으로 분리돼 보임(pjfix_shoulder.png 확인). ea55069 의 DTW-정렬 fix 가 어깨 카드 학생 프레임을 kp148→kp144 로 옮겼고(conf 0.57 vs 0.56 — 사실상 동률), kp144 에선 어깨 keypoint(0.507,0.540)가 얼굴 옆이라 링이 "목"으로 읽힘.
+- **[H4 기각]** driven build 는 출하 build 함수 + 실 doc/report/프레임 사용 — 자연 렌더와 같은 경로.
+- 어깨 카드 facing 불일치(ref 정면/학생 측면)는 지속 — pose-match 가중거리에서 환각 ref 좌표가 판별을 흐리는 keypoint 품질 한계(IN-01 계열)와 얽힘.
+
+## Evidence — 심화 실측: 전이 프레이밍 기각 + 진짜 구조 (2026-07-28)
+- **전이(transfer) 프레이밍 검증 → 이 카드에선 무효**: 학생 kp140 가중 Procrustes 로 학생 legs 좌표를 ref 프레임에 사상 → 전이 박스(left89,top249,side151) ≈ 출하 박스(96,276,151). 이유 = **학생의 무릎(턱 포즈라 진짜로 머리 옆) ↔ ref 의 환각 무릎(머리에 가짜)이 같은 위치로 수렴**. 프레이밍 기법 문제가 아니라 **선택된 ref 프레임 자체가 다른 포즈**.
+- **ref 프레임 선택의 구조적 한계 실측 (콘택트시트 sheet_win_62_112 / sheet_zoom_cands)**:
+  - 학생 S70 = 몸 웅크린(tuck) 역립. 진짜 시각 매칭 = **RV068 / RV082** (tuck+등돌림, 07-26 GT 정합).
+  - 현 탐색창 = DTW anchor rep73 ±1.2s = **video ≈83..112** → RV068(밖), RV082(경계 밖 1프레임). 도달 불가.
+  - 승자 RV090(rep67) = 다리 편 아치 자세(≠tuck). 그런데 keypoint 공간에선 tuck 처럼 보임 — **환각 무릎(머리 위치, conf 0.68~0.70)이 학생의 진짜 tuck 무릎(머리 옆)과 우연히 겹침** → 지표가 "실제 tuck"과 "환각상 tuck"을 구분 불가. 07-27 A/B 의 "RV090 ✓ 육안"은 오판(대충 역립+머리아래만 보고 국면 일치로 침).
+  - DTW anchor 자체가 이 구간에서 video 기준 ≈2.5~3s 어긋나 있음(역립 구간 ref 각도 품질 저하 → DTW path drift 추정).
+- **어깨 카드 학생 마커 "목" 실측 (sheet_shoulder_kps)**: 학생 right_shoulder keypoint 가 kp144 에서 **얼굴에 환각**(conf 0.57), kp148 에선 진짜 어깨(conf 0.56). 프레임 선택(멤버 평균 conf argmax)이 0.01 노이즈 차로 환각 프레임을 선택. 149b770 의 "어깨 잘 잡힌" 크롭은 **다른 doc(CPU RTMW 런)** 이라 노이즈가 반대로 떨어져 kp148 이 이긴 것 — 선택 규칙 회귀 아님, argmax 가 노이즈 위에서 구르는 구조.
+  - window 내 right_shoulder 궤적: y=0.460/0.515/**0.540(환각,144)**/0.520/0.521(148) — **window 중앙값(≈0.520) 대비 kp144 가 최대 이탈** = 동률(conf 5% 밴드)시 "window 중앙값 좌표에 가장 가까운 프레임" tie-break 가 kp148 을 선택함(중앙값 = 환각-강건 합의 신호, fixture-무관 원리).
+
+## Current Focus (ACTIVE — belle #3 반려 fix 설계, 2026-07-28)
+- status: 원인 3겹 확정. fix 후보 설계/검증 국면.
+- root_cause(#3, 3갈래):
+  1. **탐색창이 진짜 매칭을 구조적으로 배제** — DTW anchor 가 역립 구간에서 ≈3s drift, ±1.2s 창 안에 tuck 프레임 없음 (GT RV068/082 도달 불가).
+  2. **환각 keypoint 가 지표를 기만** — ref 무릎 환각이 학생 tuck 과 겹쳐 잘못된 프레임이 압도적 1위(0.442 vs 0.742).
+  3. **학생측 프레임 선택도 환각 취약** — conf argmax 0.01 차가 환각 프레임(kp144, 어깨=얼굴)을 선택.
+- fix 후보 검증 결과 (Pod 프로브 3종 — widen/traj/pair, 2026-07-28):
+  - widen 단독(±4s): v80(진짜 tuck) 0.46 vs v90(환각) 0.45 = 동률 밴드 → anchor-근접 tie-break 가 **v90 유지 (실패)**. 중앙값-좌표 tie-break 도 이동 관절에서 실패(어깨 x 단조 이동 → 중앙값=환각 프레임 x 와 우연 일치, 로컬 계산으로 기각).
+  - **trajectory-mean(±2k, per-k 고정 기저)**: v90 = 고립 최소점(이웃 0.84+, 환각 flicker 시그니처) → 궤적 평균에서 강등. knee 승자 v70(GT R68 인접, tuck family ✓ 육안), @148 승자 v132(팔 뻗은 아치 = S74 구조 일치 ✓ 육안).
+  - **pair-opt (학생 후보 × 궤적 매칭, 학생 후보 = valid(conf≥0.5) 멤버 보유 프레임만)**:
+    - legs: 유일 valid-anchor 후보 = u70 (belle 승인 프레임 자동 보존) → ref v70 (0.692, v90 0.706 강등)
+    - right_shoulder: 후보 {72,73,74} → **u74(kp148, 마커=진짜 어깨) ↔ v132 (0.618)** 최적 — 환각 프레임(kp144)은 휴리스틱 없이 자연 강등(환각 포즈는 어떤 ref 와도 궤적 일치가 나쁨)
+    - right_hand: 유일 후보 u74 → v132 (v115 보다 육안 근접)
+  - 3카드 전부 육안 정합 + belle 승인 프레임/마커 보존 → **pair-opt + trajectory 채택**.
+- **구현/검증 완료 (commit e8613e8)** — 위 "pair-opt 궤적 매칭 구현 + 검증" Evidence 절.
+- next_action: **belle 육안 체크포인트** — S3 drivepair260728 크롭 3장. belle 에게 물을 것:
+  ① 각도 배지(20°/36°/30°)를 타임스탬프로 **대체**할지, 병기 유지할지 (무단 제거 금지 원칙)
+  ② 손(advisory) 카드 실행가능성("뭘 어떻게 하라는지") — 설계 항목, belle 지휘 필요
+  ③ 어깨 카드 facing 잔차(정은지 약간 정면) — keypoint 품질 한계(IN-01 계열) 수용 여부
+- 별도 보고(범위 밖): Gemini moment extractor 침묵 24h+ 지속 → 자연 렌더 카드 0장 (파이프라인 자체는 SCORE 60 정상). 회복 안 되면 별건 조사 필요.
+
+## reasoning_checkpoint (belle #3 — pair-opt 궤적 매칭 + 타임스탬프, 2026-07-28)
+- hypothesis: "belle #3 의 3가지 시각 결함은 공통 뿌리 = **역립 구간 keypoint 환각이 conf 게이트를 통과**하고, 단일프레임 신호(관절 conf argmax / 단일프레임 pose 거리)가 그 환각에 올라탐. 환각은 프레임 간 flicker 하므로 (a) ref 선택을 ±2 궤적 평균으로, (b) 학생 프레임 선택을 '최적 궤적 짝을 이루는 valid-마커 프레임'으로 바꾸면 환각 프레임이 자연 강등된다. 또 DTW anchor 가 이 구간에서 ≈2.4s drift(실측) → 탐색창 ±1.2s 로는 GT 도달 불가 → ±4.0s 로 확대."
+- confirming_evidence:
+  - "ref rep kp134 '무릎' = 정은지 얼굴 위치 (conf 0.68~0.70, 오버레이 실증) — 단일프레임 승자 v90 의 실체"
+  - "v90 = 고립 최소(0.45, 이웃 0.84+) / 궤적 평균에선 v70(GT 인접) 이 승자 — flicker 시그니처 실측"
+  - "학생 right_shoulder kp144 = 얼굴 환각(conf 0.57) vs kp148 = 진짜 어깨(0.56) — 0.01 노이즈 argmax 실증. pair-opt 는 kp148 을 자연 선택(0.618 vs 0.690)"
+  - "GT rep51 vs DTW anchor rep73 = 2.4s drift 실측 → ±4s 필요"
+  - "pair-opt 3카드: legs u70(승인 프레임 보존)+v70 / shoulder u74+v132 / hand u74+v132 — 전부 콘택트시트 육안 정합"
+- falsification_test: "driven 재렌더에서 (a) knee 카드 ref 패널이 tuck 포즈+무릎 포함 크롭이 아니면 → rep kp104(v70) 좌표도 환각 = keypoint 신호 한계, 비-keypoint 국면 전환. (b) 어깨 카드 학생 마커가 어깨를 안 집으면 → kp148 재검. (c) SCORE 60 이탈 → D-20 위반 즉시 revert. (d) 기존 유닛테스트 의도 위반(폴백 경로 변화) → 재설계."
+- fix_rationale: "환각을 감지하는 별도 휴리스틱(임계/λ)을 만들지 않고, **비교의 시간 폭을 늘려**(궤적) 환각의 시간 불안정성이 스스로 벌점이 되게 한다. 학생 프레임도 '마커 가능(valid) 후보 중 최적 짝'으로 골라 [마커 정확성]과 [포즈 대응]을 한 원리로 통일. 신규 상수 = _POSE_TRAJ_RADIUS(2, features window=2 관행 정합) 1개 + 기존 _POSE_SEARCH_SECONDS 값 변경(1.2→4.0, drift 실측 근거). anchor-근접 tie-break 는 pair 경로에서 제거 — 실측에서 환각 유지 장치로 작동(v90). 폴백 사슬 보존: pair-opt None → 기존 confident-index+단일프레임 매칭(ea55069+95ee80f) 그대로. 전부 표시 전용, 채점 무접촉."
+- blind_spots:
+  - "학생 후보 간 기저가 다를 수 있어 pair 점수가 엄밀 like-for-like 는 아님(기저 작은 후보의 구조적 저거리 편향 잔존 가능) — valid-멤버 게이트가 후보를 1~3개로 제한해 실효 위험 낮다고 판단, 문서화"
+  - "±4s 확대가 비역립 동작(power-spin)에서 다른 국면 포착 위험 — 궤적 평균이 방어하나 미실측 (belle 우선순위 ④ 전수 검증에서 관측)"
+  - "n=1 fixture 검증 — 마진 얇음(0.692 vs 0.706 = 2%). 원리(궤적=환각 강건)는 fixture-무관이나 수치 우위는 재현 미보장"
+  - "v70 의 ref 크롭박스가 무릎을 담는지는 rep kp104 좌표 품질에 의존 — driven 렌더로 확인 예정"
+
+## Current Focus (구 — 게이트/기저 재설계 A/B, 2026-07-27)
 - status: **재설계 후보 실 keypoint A/B 평가 국면.** 95ee80f 재렌더에서 pose-match 전 카드
   무발동 실측(학생측 <4 게이트 2건 / ref 기저 커버 0 1건). 수용 기준(belle): 무릎 카드가
   학생 패널과 **같은 포즈/facing** 의 기준을 보여야 함 — 무릎 카드 학생 프레임의 신뢰관절이
@@ -293,6 +355,38 @@ Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WAR
 - next_action: belle Pod 기동 → `_inv_check.py` fresh AID 재렌더(shadow phase33-cm3-run1,
   PR_INVERSION_ENABLED=1) → `fault_zoom_pose_match` 로그(발동/폴백) + faultZoomComparisons
   refFrameIdx 확인 → 크롭 S3 다운로드 → 이미지 직접 open → belle 육안.
+
+## Evidence — pair-opt 궤적 매칭 구현 + 검증 (2026-07-28, commit e8613e8)
+- **구현 (fault_zoom.py + test_fault_zoom.py):**
+  - `select_pose_matched_pair` — (학생 window position, 기준 9fps 프레임) 동시 최적화.
+    학생 후보 = valid(conf≥0.5) 멤버 보유 프레임만(마커 보존 게이트). 채점 = ±2
+    궤적 평균(per-k 기저·가중 고정 = 95ee80f 비교공정성 유지). anchor-근접
+    tie-break 없음(완전 동률만 |r−anchor| 결정론). None → 종전 사슬
+    (confident-index + 단일프레임 매칭) 폴백.
+  - `_POSE_SEARCH_SECONDS` 1.2→4.0 (drift 실측 2.4s + 마진). `_POSE_TRAJ_RADIUS=2` 신설.
+  - `_stamp_time` — 양 패널 좌하단 비디오 초 배지(fill 40,40,40 — 감점 시각언어와
+    분리). refMatch='failed' 전신 폴백 패널은 미표기(대응 오독 방지). 각도 배지 유지.
+- **유닛 검증**: test_fault_zoom 69 PASS (신규 9 — pair 환각 강등/마커 게이트/전멸
+  None/legacy None/window 밖 도달, 타임스탬프 포맷/no-op/양패널 e2e/전신폴백 미표기).
+  기존 2건 의도 보존 수정(단일 스파이크→plateau 픽스처 = 궤적 의미론 반영, 샘플
+  픽셀 이동 = 새 배지 회피 — 각 docstring 에 사유 명시). 인접 11파일 320 PASS.
+  전체 스위트 61 fail/12 err = pre-existing 동일, 3452 passed(+9=신규). 회귀 0.
+- **Pod driven 렌더 (출하 build, 실 doc/report/프레임)**: 프로브 예측과 3카드 완전 일치 —
+  - legs: u9=70(kp140 보존, belle 승인 마커) / ref rep9=52 → kp104, **video 70(RV070)**
+  - right_shoulder: u9=74(**kp148 — 마커가 진짜 어깨**, 149b770 에서 belle 승인한 그 프레임) / ref video 132
+  - right_hand: u9=74(kp148, 승인 마커) / ref video 132
+- **크롭 3장 직접 open (scratchpad/pairfix)**:
+  - knee 카드: 양 패널 모두 **웅크린(tuck) 역립, 같은 facing(등/측면), 엉덩이~머리 같은 부위** — ref kp104 무릎 keypoint(conf 0.50/0.61)가 tuck 포즈에선 실제 무릎 위치와 근사(RV070 오버레이+크롭박스 실측: 박스가 hips+무릎+토르소 전부 포함).
+  - shoulder 카드: 학생 = kp148(어깨/겨드랑이 마커 — 반려된 kp144 "목" 아님), ref = 팔 위로 뻗은 아치(구조 일치). facing 잔차(정은지 약간 정면) 있음.
+  - hand 카드: 양 패널 머리+머리카락+손 부위, 같은 국면.
+  - 타임스탬프: 학생 7.8s/8.2s, 기준 7.8s/14.7s — 카드가 서로 다른 순간임이 표기됨.
+- **자연 렌더 (AID elbowtwistINVCHK260728pair2)**: STATUS done **SCORE 60** (D-20 5연속
+  불변 ✓). 단 faultZoomComparisons **0장** — **Gemini moment extractor 침묵 지속**
+  (geminiSilent=true, 어젯밤과 동일, 24h+ 경과 — "일시적" 가정 흔들림. worst_pose_timestamp
+  None → 카드 생성 자체 스킵, sourceFrameIndices 미방출). pre-existing(내 코드 아님,
+  app.py:2018 falsy-collapse 별건 기록 유지). **belle 육안은 driven 크롭으로 진행**
+  (전 사이클과 동일 방식 — driven=출하 build 함수 그대로라 대표성 있음).
+- S3 (belle 육안): results/phase25eval/drivepair260728/drive_zoom_{left_knee,adv_right_shoulder,adv_right_hand}.png
 
 ## reasoning_checkpoint (게이트 재설계 + 타임베이스 매핑, 2026-07-27)
 - hypothesis: "무발동의 3갈래는 (a) conf>=0.5 강성 게이트가 역립 학생 프레임(신뢰 2~3관절)을
@@ -442,7 +536,42 @@ Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WAR
 - 각도 숫자 배지("81°"/"30°") 사용자 표기 부적절 (belle: 각도 인식 불가) — 제거 검토.
 - 대체문구 "전체 자세가 정은지 선수보다 덜 정돈된 편이에요" 비실행적 → 확정결함 리드 + "AI 공부 중" + 코치 라우팅.
 
-## Resolution (4차 — ref 타임베이스 매핑 + 게이트 재설계, ACTIVE — awaiting belle)
+## Resolution (5차 — pair-opt 궤적 매칭 + 타임스탬프, ACTIVE — awaiting belle)
+- root_cause (belle #3 반려, 3갈래 — 전부 실측):
+  1. **탐색창이 진짜 매칭을 구조적으로 배제**: DTW anchor 가 역립 구간에서 video 기준
+     ≈2.4s drift(GT rep51 vs anchor rep73) → ±1.2s 창 안에 같은-포즈(tuck) 프레임 부재.
+  2. **환각 keypoint 가 단일프레임 지표를 기만**: ref 무릎이 머리에 환각(conf 0.68~0.70,
+     오버레이 실증)돼 학생의 진짜 tuck 무릎(턱 포즈라 머리 옆)과 우연히 겹침 → 잘못된
+     프레임 v90 이 고립 최소(0.45, 이웃 0.84+)로 압승. + anchor-근접 tie-break 가
+     동률(진짜 tuck v80=0.46)에서 환각 쪽을 유지.
+  3. **학생측 프레임 선택도 환각 취약**: right_shoulder 가 kp144 에서 얼굴에 환각
+     (conf 0.57)돼 conf argmax 가 0.01 노이즈 차로 진짜 어깨 프레임(kp148, 0.56)을
+     제침 — "목을 잡고 있음" 의 실체. (149b770 의 "잘 잡힌" 크롭은 다른 doc(CPU 런)
+     노이즈가 반대로 떨어진 것 — 규칙 회귀 아님.)
+- fix (commit e8613e8, fault_zoom.py 전용 — app.py 무접촉, 표시 전용 D-20):
+  - `select_pose_matched_pair`: 학생 프레임(valid 멤버 보유 = 마커 가능 프레임만)과
+    기준 프레임을 **±2 궤적 평균**으로 동시 최적화. 환각은 프레임 간 flicker 라
+    궤적 평균에서 자연 강등 — 환각 감지 임계/λ 0개. anchor-근접 tie-break 제거
+    (pair 경로). None → 종전 사슬(ea55069+95ee80f) 폴백.
+  - `_POSE_SEARCH_SECONDS` 1.2→4.0 (drift 실측 근거). `_POSE_TRAJ_RADIUS=2` 신설
+    (features window=2 관행 정합).
+  - `_stamp_time`: 양 패널 좌하단 비디오 타임스탬프(belle 승인 요구 4). 전신 폴백
+    ref 패널 미표기. 각도 배지는 유지(제거는 belle 질문으로 회부).
+- verification:
+  - ✅ 유닛 69 PASS(신규 9) / 인접 320 PASS / 전체 61f/12e pre-existing 동일(+9 pass)
+  - ✅ Pod driven 렌더 = 프로브 예측 3카드 완전 일치 (legs u70→ref v70 / shoulder
+    u74(kp148)→v132 / hand u74→v132)
+  - ✅ 크롭 3장 직접 open — knee 양패널 tuck+같은 facing+무릎 포함(RV070 크롭박스
+    실측), shoulder 마커=진짜 어깨(belle 승인 프레임), hand 같은 부위, 타임스탬프 표기
+  - ✅ 자연 렌더 SCORE 60 불변(D-20 5연속)
+  - ⏳ belle 육안 (S3 drivepair260728) — 승인 시 서버 재기동 + archive
+- 남은 후속: ① 서버(uvicorn) 재기동으로 fix 반영(belle 승인 후) ② **Gemini moment
+  extractor 침묵 24h+ 지속**(자연 렌더 카드 0장 — 별건 조사 후보 승격) ③ veto still
+  타임베이스(채점인접, 별도 사이클) ④ app.py:2018 `(at or 0.0)` falsy-collapse(별건)
+  ⑤ mode3/top-2 폴백 확대(승인 후) ⑥ power-spin 등 비역립 전수 검증(belle ④)
+  ⑦ advisory 손 카드 실행가능성 + 각도 배지 제거 여부(belle 설계 결정).
+
+## Resolution (4차 — ref 타임베이스 매핑 + 게이트 재설계, 구 — 5차로 계승)
 - root_cause (2겹, 2026-07-27 확정):
   1. **ref 표시 타임베이스 불일치**: referenceKeypointReport(phase4_v1 재처리)는 raw
      매 2프레임 샘플(329@"18fps" = 콘텐츠 18.3s)인데 렌더러 frame_extractor 는 PTS

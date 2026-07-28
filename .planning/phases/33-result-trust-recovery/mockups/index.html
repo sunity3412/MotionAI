@@ -37,6 +37,22 @@
    5. ④ 멈춤 컷 = s018(엉덩이 방향, conf 0.2) → s017(u34 감점 측정 순간, 두 다리 가시,
       conf 0.68~0.82) 교체 + 강조 = 큰 원 1개 → 다리 모양 따라가는 얇은 선 2개 (kp34 실좌표)
    6. 일러스트 B = SVG placeholder 제거 → 32-08 belle 확정 2안 시안 실물(illust_variant2_pro.jpg)
+   ---------------------------------------------------------------------------
+   [4라운드 2026-07-28] belle 피드백 4건 반영 (3라운드 판정 "진짜 많이 좋아졌는데, 좀만 더 조정"):
+   1. 어깨 쌍 미세조정 — 방향 승인("좋다 이거"), 기준 크롭을 어깨 꼭짓점 중심으로 재절단
+      → 두 패널 모두 꼭짓점 = 패널 정중앙(180,180)·같은 배율, 마킹 기하 통일(팔 선 64px·
+      몸통 선 85px·호 반경 27·두께 동일). v40 프레임·수동 배치 공개는 유지.
+      제품화 답(belle "가능만 하면"): 기준 라이브러리 11개 고정 → 기준 앵커는 모션당 1회
+      수동 주석 저장으로 충분(A-5 지시, ⑤ 기록) — 런타임 자동화 불필요.
+   2. 다리 상세 = 결함 2건이 "고칠 것 1·2" 번호 헤더 카드로 분리 — 무릎 신전 블록이
+      묻혀 안 보인다는 지적("하나 어디 갔냐"). record 내용은 불변, 표기만 강화.
+   3. ④ 카피 = 목표 문장 선행 구조 — 멈춤 컷은 학생의 실제(다리 수평) 자세라 "아래로"의
+      지시 대상이 화면에 없음("뭔 소리냐") → "목표는 위아래 한 줄 스플릿" 문장을 앞세우고
+      행동 지시가 따라오게 교체 (수직 스플릿 목표는 33-08/33-09 검증분 유지, 새 방향 창작 0).
+      phrasebook cueLine 의 목표-선행 개정은 A-6(33-13) 후속 — 이 플랜에서 phrasebook 미수정.
+   4. ④-b 일러스트 = belle B(동반) 선택 확정 — 조건: 일러스트는 "그 동작의 목표 자세 컷
+      (코칭 부위 하이라이트)"이어야 함(스타일 샘플 아님) → A-7(33-14) 생성 요건으로 박제,
+      A는 미채택 표기.
    ========================================================================= */
 :root{
   --brand:#FF4B33;            /* design.md §4 브랜드 (변경 금지) */
@@ -150,6 +166,16 @@ body{
 .legfx polyline.halo{stroke:rgba(255,255,255,.72); stroke-width:9;}
 .legfx.pulse{animation:legpulse 1.4s ease-in-out infinite;}
 @keyframes legpulse{0%,100%{opacity:1;} 50%{opacity:.5;}}
+/* ② 결함 블록 번호 헤더 (4라운드 피드백 2 — 두 블록이 안 놓치고 보이게) */
+.card.fault{border:1.5px solid var(--brand-tint-2); padding-top:0; overflow:hidden;}
+.fault-head{display:flex; align-items:center; gap:8px; margin:0 -14px 10px; padding:11px 14px;
+  background:var(--brand-tint); border-bottom:1px solid var(--brand-tint-2);
+  font-size:15px; font-weight:800; color:var(--brand); line-height:1.35;}
+/* ④-b belle 선택 표기 (4라운드 피드백 4 — B 확정, A 미채택) */
+.pickbadge{display:inline-block; background:var(--brand); color:#fff; border-radius:999px;
+  padding:4px 12px; font-size:12px; font-weight:800; margin-bottom:4px;}
+.col.notpicked .player{opacity:.45;}
+.col.notpicked .cap{color:#8b93a1;}
 /* ③ 탭 검수용 배너 (3라운드 피드백 4 — 앱 비탑재 명시) */
 .reviewbanner{max-width:940px; margin:0 auto 16px; background:var(--brand-tint); border:1.5px solid var(--brand);
   border-radius:12px; padding:12px 14px; font-size:13.5px; line-height:1.6; color:#8a3d30;}
@@ -187,13 +213,13 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
 </head>
 <body>
 <div class="topbar">
-  <h1>Phase 33 목업 — 확대비교 · 영상 위 표시 (belle 확인 ① — 3라운드)</h1>
+  <h1>Phase 33 목업 — 확대비교 · 영상 위 표시 (belle 확인 ① — 4라운드)</h1>
   <p class="sub">데이터 전부 실물: belle 분석 doc <b>071df9f894d64d1696f106e613f51f5c</b> (파워스핀 잘못된예시, 51점)
     + 역립 실 doc(엘보 트위스트). 프레이밍 D는 이미 확정 — 여기서 다시 묻지 않아요.
-    <b>3라운드 반영:</b> ① 다리 글 ↔ doc record 전수 대조를 ⑤에 박제(의역·수치 오독 발견분 원문 교체) ·
-    ② <b>어깨 쌍 양쪽에 같은 각도 표시</b> + "여기를 보세요" 한 줄 · ③ 참고 문구 통일(감점 아님·회전 힘 영향) ·
-    ④ 최악 케이스 탭 = 검수용 명시 + 가림 해법 · ⑤ 멈춤 컷 = 두 다리 보이는 측정 순간으로 교체 + 다리 선 강조 ·
-    ⑥ 일러스트 = 2안 시안 실물.</p>
+    <b>4라운드 반영 (3라운드 피드백 4건):</b> ① <b>어깨 쌍 미세조정</b> — 두 사진 모두 어깨 꼭짓점을
+    정중앙에·같은 배율·같은 마킹 기하(선 길이·호·두께 동일) · ② 다리 상세 = <b>"고칠 것 1·2" 번호 헤더</b>로
+    벌림·무릎 신전 두 블록이 다 보이게 · ③ ④ 카피 = <b>목표 문장 선행</b> 구조("위아래 한 줄 스플릿"을 먼저,
+    행동 지시가 다음) · ④ 일러스트 = <b>belle 선택 B(동반) 확정</b> 반영, A-7 생성 요건 박제.</p>
   <div class="tabs">
     <button data-b="base" class="on">① 기본 화면 (D 확정)</button>
     <button data-b="detail">② 부위 탭 → 상세</button>
@@ -252,18 +278,18 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
 <section class="board" id="board-detail">
   <h2>② 부위 탭 → 상세 — 확대 크롭 + 감점근거 글 + 일러스트 슬롯 (설계 질문 ①)</h2>
   <p class="lead">
-    기본 화면에서 부위를 탭하면 열리는 상세예요. <b>3라운드 수정 2건:</b>
-    (1) <b>어깨</b> — 다리 카드가 읽히는 이유(빨간 마킹이 결함을 그려줌)를 어깨에도 적용:
-    <b>학생·기준 두 사진에 같은 각도 표시</b>(팔 선 + 몸통 선 + 사이각 호)를 그리고,
-    사진 아래 "여기를 보세요" 한 줄을 붙였어요. 학생 쪽 = doc keypoint 실좌표, 기준 쪽 =
-    수동 배치(자동 좌표가 신뢰 게이트에 걸림 — 사유는 ⑤). 방향 일치 v40 프레임은 유지.
-    (2) <b>글 전수 대조</b> — 모든 블록의 글·수치를 doc record 원문·원값으로 맞췄어요
-    (2라운드 의역·수치 오독 발견분 교체, 대조 표는 ⑤).
+    기본 화면에서 부위를 탭하면 열리는 상세예요. <b>4라운드 수정 2건:</b>
+    (1) <b>어깨 쌍 미세조정</b> — 방향은 승인받았고("좋다 이거"), 남은 어긋남을 잡았어요:
+    기준 사진 크롭을 어깨 꼭짓점 중심으로 다시 잘라 <b>두 사진 모두 꼭짓점이 정중앙·같은
+    배율</b>이 되게 하고, 마킹 기하를 통일(팔 선·몸통 선 길이, 호 반경, 두께 전부 동일)했어요.
+    v40 프레임과 기준 쪽 수동 배치 공개는 그대로 (제품화 방안은 ⑤ A-5 지시).
+    (2) <b>다리 상세</b> — "무릎 피는 거 하나 어디 갔냐"(둘째 블록이 묻힘) 지적 →
+    결함 2건을 <b>"고칠 것 1 · 고칠 것 2" 번호 헤더 카드</b>로 분리했어요. record 내용은 불변.
   </p>
   <div class="stage">
     <div class="col">
-      <div class="cap">부위 상세 시트<small>다리 = 감점 2건 겹친 실제 케이스. 사진 마킹이 가리키는 결함(벌림)이 첫 블록,
-        무릎 신전은 둘째 블록 — 결함별로 나뉘고 수치는 각 블록 맨 뒤 작은 글씨.</small></div>
+      <div class="cap">부위 상세 시트<small>다리 = 감점 2건 겹친 실제 케이스. "고칠 것 1(벌림) · 고칠 것 2(무릎 신전)"
+        번호 헤더로 두 블록이 다 보여요 — 수치는 각 블록 맨 뒤 작은 글씨 그대로.</small></div>
       <div class="phone"><div class="screen">
         <div class="status"><span>9:41</span><span>&#9642;&#9642;&#9642; &#9684;</span></div>
         <div class="nav"><span class="back">&#8249;</span><span class="ttl">자세 비교 — 부위 상세</span></div>
@@ -278,10 +304,10 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
       </div></div>
     </div>
   </div>
-  <p class="legend"><b>belle 확인 포인트 (3라운드):</b> (1) 어깨 — 양쪽에 같은 각이 그려지니
-    이제 두 사진이 "무엇을 견주는지" 읽히나요? (2) "여기를 보세요" 한 줄이 시선을 잡아주나요?
-    (3) 참고(손)는 상세 글 없이 사진만 — 점수 감점은 되지 않지만 회전·힘에 영향을 줄 수 있는
-    부위라 눈에 띈 차이만 보여드려요.</p>
+  <p class="legend"><b>belle 확인 포인트 (4라운드):</b> (1) 어깨 — 두 사진이 이제 같은 중심·
+    같은 배율·같은 표시로 "정말 미세조정"이 됐나요? (2) 다리 — "고칠 것 1 · 고칠 것 2" 헤더로
+    벌림과 무릎 신전 두 개가 다 보이나요? (3) 참고(손)는 상세 글 없이 사진만 — 점수 감점은
+    되지 않지만 회전·힘에 영향을 줄 수 있는 부위라 눈에 띈 차이만 보여드려요.</p>
 </section>
 
 <!-- ===================== ③ 최악 케이스 (D-08) ===================== -->
@@ -299,13 +325,13 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
 <section class="board" id="board-video">
   <h2>④ 영상 위 표시 — 재생 중 → 음성 중(정지+부위 강조) → 재개</h2>
   <p class="lead">
-    흐름(재생→멈춤+강조→재개)과 왼/오른 개인화 카피·펄스는 승인 — 유지. <b>3라운드 수정 2건:</b>
-    (a) <b>멈춤 컷 교체</b> — 이전 컷(2.0s)은 엉덩이가 카메라를 향해 두 다리가 구분되지 않는
-    프레임이었어요(belle 지적). 음성 구간 안에서 <b>두 다리가 실제로 보이는 프레임 = 감점을 잰
-    바로 그 순간(1.89s, u34)</b>으로 교체 — 선택 근거·좌표 신뢰도는 ⑤.
-    (b) <b>강조 재설계</b> — 큰 원 1개는 덩어리로 보인다는 지적. 관절 원도 큰 원도 아닌,
-    <b>다리 모양을 따라가는 얇은 선 2개</b>(왼다리·오른다리, doc keypoint 실좌표)로 바꾸고
-    펄스는 유지했어요.
+    흐름(재생→멈춤+강조→재개)·멈춤 컷(1.89s)·다리 선 강조는 승인 — 유지. <b>4라운드 수정 1건:</b>
+    <b>카피 구조 교체</b> — "오른다리는 아래로 길게 눌러 한 줄로"가 이해 불가라는 지적("뭔 소리냐").
+    원인: 문장이 <b>목표 모양(수직 스플릿)</b>을 그리는데, 멈춤 컷의 학생 자세는 다리가 수평이라
+    "아래로"가 가리키는 대상이 화면에 없었어요. → <b>목표 문장을 먼저</b> 말하고 행동 지시가
+    따라오게 바꿨어요: "목표는 폴을 따라 위아래 한 줄 스플릿" → 왼다리·오른다리 지시.
+    방향 자체는 33-08/33-09 에서 검증된 수직 스플릿 목표 그대로 — 새 방향 창작 0.
+    (phrasebook cueLine 의 목표-선행 개정은 A-6(33-13) 데이터 후속 — ⑤ 기록)
   </p>
   <div class="stage">
     <div class="col" style="max-width:300px">
@@ -333,7 +359,7 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
           <polyline points="181.8,304.0 120.6,312.3 73.8,337.9"/>
           <polyline points="186.5,331.5 153.0,326.4 131.8,336.6"/>
         </svg>
-        <div class="subtitle">왼다리는 폴을 따라 수직으로, 오른다리는 아래로 길게 눌러 한 줄로 뻗어보세요</div>
+        <div class="subtitle">목표는 폴을 따라 위아래 한 줄 스플릿이에요. 왼다리는 폴과 나란히 위로 곧게, 오른다리는 그 반대 방향으로 길게 뻗어요.</div>
         <div class="pbar"><div class="fill" style="width:21%"></div>
           <span class="cuedot" style="left:21%"></span><span class="cuedot" style="left:52%"></span><span class="cuedot" style="left:78%"></span></div>
         <div class="pstate"><span class="ic">&#10073;&#10073;</span><span>음성 중 — 잠시 멈춤</span></div>
@@ -351,19 +377,20 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
     </div>
   </div>
 
-  <h2 style="margin-top:34px">④-b 음성 시점 일러스트 — 있는 버전 / 없는 버전 (belle 미결, 비교 후 결정)</h2>
+  <h2 style="margin-top:34px">④-b 음성 시점 일러스트 — belle 선택: B (일러스트 동반)</h2>
   <p class="lead">
-    같은 멈춤 컷 두 벌이에요. 오른쪽만 우상단에 <b>동작 일러스트</b>가 함께 떠요 — "폴을 따라 수직"을
-    말로만 듣는 것과 그림으로 보는 것의 차이를 비교해 주세요.
-    <b>3라운드:</b> B의 일러스트를 드로잉 placeholder 에서 <b>32-08에서 belle 이 확정한 준실사 2안
-    시안 실물</b>로 교체했어요. 단 이 시안의 동작은 파워스핀이 아니라 스타일 확인용 컷 —
-    power-spin 전용 컷은 A-7(33-14)에서 이 스타일로 생성해요.
+    <b>4라운드: belle 이 B 를 선택했어요 (확인 ① 3라운드 결정).</b> 조건 — 일러스트는 스타일
+    샘플이 아니라 <b>"그 자세에서의 부분"</b>: 그 동작의 목표 자세 컷에서 코칭하는 부위가
+    하이라이트된 그림이어야 해요. → <b>A-7(33-14) 생성 요건</b>으로 박제: 동작별 목표 자세 컷을
+    32-08 확정 2안(준실사) 스타일로 생성 + 코칭 부위 하이라이트 + 해부학 전수 검수.
+    아래 B 의 이미지는 여전히 <b>스타일 확인용 시안 실물</b>이에요(파워스핀 아님 — 정직 표기 유지),
+    실제 동작별 컷은 A-7 산출물로 교체돼요. A 는 미채택으로 남겨 비교 맥락만 보존해요.
   </p>
   <div class="stage">
-    <div class="col" style="max-width:300px">
-      <div class="cap">A · 일러스트 없음 (현행)<small>자막+다리 선 강조만.</small></div>
+    <div class="col notpicked" style="max-width:300px">
+      <div class="cap"><span class="chip gray">미채택</span><br>A · 일러스트 없음<small>자막+다리 선 강조만 — 비교 맥락 보존용.</small></div>
       <div class="player">
-        <img src="assets/belle_still_f017.png" alt="음성 중 — 일러스트 없음" />
+        <img src="assets/belle_still_f017.png" alt="음성 중 — 일러스트 없음 (미채택)" />
         <div class="dim"></div>
         <svg class="legfx pulse" viewBox="0 0 360 640" preserveAspectRatio="none" aria-hidden="true">
           <polyline class="halo" points="181.8,304.0 120.6,312.3 73.8,337.9"/>
@@ -371,15 +398,15 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
           <polyline points="181.8,304.0 120.6,312.3 73.8,337.9"/>
           <polyline points="186.5,331.5 153.0,326.4 131.8,336.6"/>
         </svg>
-        <div class="subtitle">왼다리는 폴을 따라 수직으로, 오른다리는 아래로 길게 눌러 한 줄로 뻗어보세요</div>
+        <div class="subtitle">목표는 폴을 따라 위아래 한 줄 스플릿이에요. 왼다리는 폴과 나란히 위로 곧게, 오른다리는 그 반대 방향으로 길게 뻗어요.</div>
         <div class="pbar"><div class="fill" style="width:21%"></div>
           <span class="cuedot" style="left:21%"></span><span class="cuedot" style="left:52%"></span><span class="cuedot" style="left:78%"></span></div>
         <div class="pstate"><span class="ic">&#10073;&#10073;</span><span>음성 중 — 잠시 멈춤</span></div>
       </div>
     </div>
     <div class="col" style="max-width:300px">
-      <div class="cap">B · 일러스트 동반<small>음성이 읽는 동안 목표 자세 일러스트가 함께 —
-        스타일 실물(32-08 확정 2안), power-spin 컷은 A-7 생성.</small></div>
+      <div class="cap"><span class="pickbadge">belle 선택 — 확인 ① 3라운드</span><br>B · 일러스트 동반<small>음성이 읽는 동안 목표 자세 일러스트가 함께.
+        A-7 요건: 동작별 목표 자세 컷 + 코칭 부위 하이라이트 (아래 이미지는 스타일 확인용 시안).</small></div>
       <div class="player">
         <img src="assets/belle_still_f017.png" alt="음성 중 — 일러스트 동반" />
         <div class="dim"></div>
@@ -394,17 +421,17 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
           <img src="assets/illust_variant2_pro.jpg" alt="준실사 2안 시안 실물 (32-08 belle 확정 스타일)" />
           <div class="t">스타일 실물 — 32-08 확정 2안 시안. power-spin 전용 컷은 A-7(33-14)에서 이 스타일로 생성</div>
         </div>
-        <div class="subtitle">왼다리는 폴을 따라 수직으로, 오른다리는 아래로 길게 눌러 한 줄로 뻗어보세요</div>
+        <div class="subtitle">목표는 폴을 따라 위아래 한 줄 스플릿이에요. 왼다리는 폴과 나란히 위로 곧게, 오른다리는 그 반대 방향으로 길게 뻗어요.</div>
         <div class="pbar"><div class="fill" style="width:21%"></div>
           <span class="cuedot" style="left:21%"></span><span class="cuedot" style="left:52%"></span><span class="cuedot" style="left:78%"></span></div>
         <div class="pstate"><span class="ic">&#10073;&#10073;</span><span>음성 중 — 잠시 멈춤</span></div>
       </div>
     </div>
   </div>
-  <p class="legend"><b>belle 확인 포인트 (3라운드):</b> (1) 멈춤 컷에서 이제 왼다리/오른다리가
-    구분돼 읽히나요? (컷 = 감점을 잰 1.89s 순간, 이전 2.0s 컷은 엉덩이 방향이라 기각 — 근거는 ⑤)
-    (2) 다리 선 강조가 큰 원 1개보다 "어디를 말하는지" 잘 짚나요?
-    (3) 일러스트 A/B 중 어느 쪽인가요? (B = 32-08 확정 2안 스타일 실물)
+  <p class="legend"><b>belle 확인 포인트 (4라운드):</b> (1) 목표 문장("위아래 한 줄 스플릿")이
+    먼저 오니 이제 "오른다리는 그 반대 방향으로"가 이해되나요? (2) B 선택 반영이 맞나요 —
+    특히 A-7 일러스트 요건("그 자세에서의 부분": 동작별 목표 자세 컷 + 코칭 부위 하이라이트)이
+    의도하신 조건 그대로인가요?
     재생 바의 마커 3개 = 감점 항목 3건의 순간 — 누르면 그 항목으로 이동하는 동작을 상정해요.</p>
 </section>
 
@@ -427,10 +454,12 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
     <tr><td>belle_ref_full_hold</td>
       <td><code>reference/ref-power-spin.mp4</code> t=9.0s (hold 구간)</td>
       <td>대응 실패 폴백 표시용 기준 전신 실프레임</td></tr>
-    <tr><td>belle_shoulder_pair_facing <span class="chip brand">3R 갱신</span></td>
+    <tr><td>belle_shoulder_pair_facing <span class="chip brand">4R 갱신</span></td>
       <td>좌 = <code>uploads/csKW…/071df….mp4</code> v17 (doc u34 순간) · 우 = <code>reference/ref-power-spin.mp4</code> v40 (t≈4.0s)</td>
-      <td>② 어깨 상세 쌍. 3라운드: 양쪽에 같은 각도 표시(팔 선+몸통 선+호) 베이크 — 좌표 근거는 아래
-        "어깨 표시 좌표 근거". 바탕은 실프레임 crop/resize (같은 크롭 박스 220px·같은 배율), 합성 0</td></tr>
+      <td>② 어깨 상세 쌍. 4라운드 미세조정: 기준 크롭을 어깨 꼭짓점 중심으로 재절단 → <b>두 패널 모두
+        꼭짓점 = 패널 정중앙(180,180)</b>, 같은 220px 크롭·같은 배율 유지 + 마킹 기하 통일(팔 선 64px·
+        몸통 선 85px·호 반경 27·두께 동일 — 각도 방향은 실좌표/육안 배치 그대로). 좌표 근거는 아래
+        "어깨 표시 좌표 근거". 바탕은 실프레임 crop/resize, 합성 0</td></tr>
     <tr><td>belle_still_f017 <span class="chip brand">3R 신규</span></td>
       <td><code>uploads/csKW…/071df….mp4</code> → 9fps·640px 추출 s017 (t=1.89s = doc u34 감점 측정 순간)</td>
       <td>④ 멈춤 컷 교체분. crop/resize 0, 원프레임 그대로 — 다리 선은 HTML 오버레이(베이크 아님)</td></tr>
@@ -442,7 +471,8 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
       <td>학생 v17 | 기준 v45(구 정렬 순간) | 기준 v40(방향 일치 채택) — 위 두 영상 실프레임</td>
       <td>아래 "방향 일치 프레임 탐색 기록"의 시각 증거 (한 장에 3프레임 나란히)</td></tr>
     <tr><td colspan="3">받은 시각: 1라운드 2026-07-28 19:00~19:05 KST + 2라운드 신규 2장 20:40~20:55 KST + 3라운드
-      갱신(어깨 쌍 표시 베이크·s017 추가) 2026-07-28 21:40~21:55 KST · doc = uid csKWYvI3WCPYPysNQ9KkWecaUvq1 / analysis <b>071df9f894d64d1696f106e613f51f5c</b> (status done · mode1 · 51점 · faultZoomStatus done)</td></tr>
+      갱신(어깨 쌍 표시 베이크·s017 추가) 2026-07-28 21:40~21:55 KST + 4라운드 갱신(어깨 쌍 재중심 — 원본 프레임은
+      3라운드 로컬 보관분 재사용, 재다운로드 없음) 2026-07-28 22:23 KST · doc = uid csKWYvI3WCPYPysNQ9KkWecaUvq1 / analysis <b>071df9f894d64d1696f106e613f51f5c</b> (status done · mode1 · 51점 · faultZoomStatus done)</td></tr>
   </table>
 
   <h3 style="font-size:15px;margin:18px 0 4px">다리 글 ↔ doc record 전수 대조 (3라운드 — "짜맞춤 아님" 검증)</h3>
@@ -494,8 +524,14 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
       <td>reference keypoint report — kp78~81 conf 0.20~0.46 전부 &lt;0.5, kp80 은 어깨=손 좌표 동일(붕괴) +
         기준 report 에 elbow 관절 자체가 없음</td>
       <td class="drop">자동 드로잉 불가(신뢰 게이트 탈락) → <b>수동 배치</b> — v40 프레임 선택과 같은 지위(육안, 공개).
-        같은 선 두께·색·호 반경으로 학생 쪽과 동일 표기. 앱 자동화는 A-5 과제: 등면 구간 기준 좌표 확보(별도 신호)
-        전까지 이 카드의 기준 쪽 표시는 자동 생성 불가</td></tr>
+        4라운드: 수동 앵커의 full-frame 환산값을 기준으로 크롭을 어깨 중심 재절단(crop 77,146 → 105,152) —
+        꼭짓점이 학생 쪽과 같은 (180,180). 선 두께·색·호 반경·선 길이 학생 쪽과 전부 동일 표기</td></tr>
+    <tr><td><b>A-5(33-12) 구현 지시</b> <span class="chip brand">4R 확정</span></td>
+      <td colspan="2">belle "가능만 하면"에 대한 답: <b>가능해요 — 런타임 자동화가 필요 없어요.</b>
+        기준 라이브러리는 <b>11개 동작으로 고정</b>(phase4_v1 pinned)이라, 기준 쪽 각도 앵커(어깨·팔꿈치·엉덩이
+        방향점)는 <b>기준 모션당 1회 수동 주석</b>으로 달아 reference doc 에 앵커 데이터로 저장하면 끝 —
+        A-5 는 이 저장된 앵커를 읽어 그리기만 하면 돼요. 학생 쪽은 지금처럼 conf 게이트 통과 keypoint 자동
+        드로잉. 즉 "기준 등면 좌표 자동 확보" 미해결 문제는 제품 경로에서 제거됨(수동 1회 주석이 대체)</td></tr>
   </table>
 
   <h3 style="font-size:15px;margin:18px 0 4px">④ 멈춤 컷 선택 기록 (3라운드 — 두 다리 가시 프레임)</h3>
@@ -529,6 +565,19 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
       부호 신호가 오답/정답 미구분). A-5(33-12) 자동화는 별도 신호(탐색창 확대 + 프레임 화소 대조 등)가 필요 — 구현 시 결정 항목</td></tr>
   </table>
 
+  <h3 style="font-size:15px;margin:18px 0 4px">4라운드 확정 · 후속 지시 (이 플랜은 기록만 — 코드·데이터 미수정)</h3>
+  <table class="insp">
+    <tr><th>대상</th><th>내용</th></tr>
+    <tr><td>A-5 (33-12)</td><td>기준 어깨 각도 앵커 = <b>기준 모션당 1회 수동 주석</b> 데이터로 저장·소비
+      (위 "어깨 표시 좌표 근거" 표의 구현 지시 행). 런타임 facing 자동 판별 요구 제거</td></tr>
+    <tr><td>A-6 (33-13)</td><td>phrasebook cueLine <b>목표-선행 구조 개정</b> — belle 가 4라운드 카피
+      ("목표는 폴을 따라 위아래 한 줄 스플릿이에요. …")를 승인하면, 해당 문형을 phrasebook 데이터에
+      반영. <b>이 플랜에서는 phrasebook.json 을 수정하지 않음</b>(기록만)</td></tr>
+    <tr><td>A-7 (33-14)</td><td>belle B(일러스트 동반) 선택의 조건 = 생성 요건: <b>동작별 목표 자세 컷</b>을
+      32-08 확정 준실사 2안 스타일로 생성 + <b>코칭 부위 하이라이트</b>("그 자세에서의 부분") +
+      해부학 전수 검수. 스타일 샘플 재사용 금지 — 목업의 시안 이미지는 자리표시</td></tr>
+  </table>
+
   <h3 style="font-size:15px;margin:18px 0 4px">사전 자체 검열 (판정 기준 6개 — belle 도달 전 Claude 가 먼저 떨어뜨림)</h3>
   <table class="insp">
     <tr><th>안</th><th>판정</th><th>사유</th></tr>
@@ -557,9 +606,10 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
     <tr><td>어깨 몸-방향 (2라운드 갱신)</td><td>1라운드 = 글로 흡수(belle A). 2라운드 belle 재판정("매칭시켜야") → 수동 프로브로
       같은 회전 사이클 내 방향 일치 프레임 v40 을 찾아 쌍 교체 성공(위 탐색 기록). <b>자동화는 미해결</b> —
       2D keypoint 자동 판별은 프로브 FAIL 확정이라 A-5 구현에서 별도 신호 필요.</td></tr>
-    <tr><td>어깨 각도 표시 (3라운드)</td><td>학생 쪽 = doc kp34 실좌표 자동. <b>기준 쪽 = 수동 배치</b> —
+    <tr><td>어깨 각도 표시 (4라운드 갱신)</td><td>학생 쪽 = doc kp34 실좌표 자동. <b>기준 쪽 = 수동 배치</b> —
       ref kp report 가 등면 구간에서 conf 0.20~0.46(게이트 미달)+elbow 미보유라 자동 드로잉 불가(위 좌표 근거 표).
-      수동 배치도 육안 검증(확대 열람)을 거쳤지만, 앱 자동화는 기준 등면 좌표 확보가 선행돼야 해요(A-5 결정 항목).</td></tr>
+      4라운드에서 크롭 재중심·기하 통일로 두 패널을 동일 표기로 맞췄고, 제품 경로는 <b>기준 모션당 1회
+      수동 주석</b>(라이브러리 11개 고정)으로 확정 — 런타임 자동화 불필요(A-5 구현 지시 행).</td></tr>
     <tr><td>③ 가림 카드 사진 (3라운드)</td><td>확정 해법은 "안 가려진 프레임 캡처"(select_confident_frame 원칙의 크롭 앵커 적용)인데,
       카드 사진은 아직 가려진 순간의 저장분 실물이에요 — 보이는-프레임 캡처의 실물 예시는 A-5 구현 후 재분석분에서 나와요.
       (목업은 방향 확정용, 실물 렌더 아님을 명시)</td></tr>
@@ -569,12 +619,12 @@ code{font-family:ui-monospace,Menlo,monospace; font-size:11.5px; background:#F1F
     <tr><td>마커 위치</td><td>기본 화면 그룹 경계는 doc keypointReport 실좌표의 항목별 bounding. 단 이 목업의 그리기 자체는 앱 구현 전 제안 UI(오버레이).</td></tr>
   </table>
 
-  <p class="legend"><b>확인 방법 기록 (3라운드):</b> belle 에게 보내기 전 Claude 가 직접 확인한 것 —
-    (1) 어깨 쌍 마킹: 조립 후 두 패널을 각각 확대 열람해 선이 팔·몸통 위에 얹히는지 검증.
-    (2) ④ 다리 선: HTML 오버레이와 같은 좌표를 PIL 로 s017 실프레임에 겹쳐 렌더해 다리 위에 얹히는지 검증.
-    (3) 일러스트 실물(illust_variant2_pro.jpg)을 열어 32-08 확정 2안 시안인지 확인.
-    (4) 페이지 전체를 헤드리스 렌더해 탭 5개 스크린샷을 열람. 글 대조는 doc dump 원문(deductionBreakdown
-    records 전문)과 필드 단위로 대조했어요.</p>
+  <p class="legend"><b>확인 방법 기록 (4라운드):</b> belle 에게 보내기 전 Claude 가 직접 확인한 것 —
+    (1) 어깨 쌍 재조립: 두 패널의 어깨 꼭짓점이 각각 (180.1,180.1)/(180.2,180.2)로 일치함을 스크립트
+    출력으로 확인 + 조립본과 패널별 확대본을 열람해 선이 팔·몸통 위에 얹히는지 재검증.
+    (2) ④ 다리 선: 3라운드 검증분 유지(카피만 교체, 오버레이 좌표 불변).
+    (3) 페이지 전체를 헤드리스 렌더해 수정 탭(②·④·⑤) 스크린샷을 열람 — "고칠 것 1·2" 헤더 노출,
+    목표-선행 카피, B 선택 배지·A 미채택 표기 확인. 글 대조 표(3라운드)는 불변.</p>
 </section>
 
 <script>
@@ -587,13 +637,17 @@ const DETAILS = {
     pairL: '내 자세', pairR: '기준 (정은지)',
     onecap: '사진의 빨간 두 줄 = 내 두 다리 라인과 그 사이 각이에요',
     /* 블록 순서 = 사진의 마킹(벌림각 두 줄)이 가리키는 결함 먼저.
-       doc 저장 순서는 신전→벌림 — 순서만 화면 배치, 내용은 record 원문 (⑤ 대조 표). */
+       doc 저장 순서는 신전→벌림 — 순서만 화면 배치, 내용은 record 원문 (⑤ 대조 표).
+       4라운드: label = "고칠 것 N" 번호 헤더 (belle "무릎 피는 거 하나 어디 갔냐" — 둘째 블록
+       매몰 방지). record 내용(head/why/cue/num)은 불변, 표기만 추가. */
     records: [
-      { head: '다리를 벌린 각도가 기준보다 좁아요',
+      { label: '고칠 것 1 — 다리 벌림 (−12점)',
+        head: '다리를 벌린 각도가 기준보다 좁아요',
         why: '사진의 두 줄 사이가 좁을수록 스플릿이 덜 벌어진 것 — 다리를 더 벌리지 못하면 스플릿 완성도에서 감점되는 부분이에요',
         cue: '양 무릎을 각각 반대쪽 벽으로 밀어낸다는 느낌으로 다리를 벌려보세요',
         num: '측정 수치(참고) — 기준 대비 30° 좁음 → −12점' },
-      { head: '무릎이 기준보다 덜 펴져 있어요',
+      { label: '고칠 것 2 — 무릎 신전 (−20점)',
+        head: '무릎이 기준보다 덜 펴져 있어요',
         why: '다리 라인이 끝까지 뻗지 않으면 심사에서 신전 완성도로 감점되는 부분이에요',
         cue: '발끝으로 천장을 길게 밀어낸다는 느낌으로 다리를 쭉 뻗어보세요',
         num: '측정 수치(참고) — 실측 141° · 기준 180° → −20점(상한 적용)' }
@@ -608,7 +662,8 @@ const DETAILS = {
     pairL: '내 자세', pairR: '기준 (정은지)',
     onecap: '여기를 보세요: 빨간 두 선 사이 각 — 그립 팔과 몸통이 벌어진 정도를 기준과 견줘요',
     records: [
-      { head: '왼쪽 어깨(겨드랑이) 벌린 각도가 기준 자세와 차이가 있어요',
+      { label: '고칠 것 — 어깨 각도 (−17.4점)',
+        head: '왼쪽 어깨(겨드랑이) 벌린 각도가 기준 자세와 차이가 있어요',
         why: '어깨 벌린 각도가 기준에서 벗어나면 자세 정확도에서 감점되는 부분이에요',
         cue: '왼쪽 팔과 몸통 사이 각을 기준 자세에 나란히 겹쳐본다는 느낌으로 맞춰보세요',
         num: '측정 수치(참고) — 기준과 34° 차이 → −17.4점' }
@@ -639,8 +694,10 @@ function renderDetail(key){
   h += `<div class="onecap">${d.onecap}</div>`;
   h += `</div>`;
   for(const r of d.records){
-    /* 2라운드: 각도 수치 = 보조 강등 (녹색 배지 → 블록 맨 뒤 작은 회색 줄) */
-    h += `<div class="card">
+    /* 2라운드: 각도 수치 = 보조 강등 (녹색 배지 → 블록 맨 뒤 작은 회색 줄)
+       4라운드: "고칠 것 N" 번호 헤더 + 테두리 카드 — 결함 블록 매몰 방지 */
+    h += `<div class="card fault">
+      ${r.label ? `<div class="fault-head">${r.label}</div>` : ''}
       <div class="headline">${r.head}</div>
       <div class="why">${r.why}</div>
       <span class="cue">${r.cue}</span>
@@ -716,9 +773,13 @@ document.addEventListener('click', e=>{
 
 renderDetail('legs');
 renderWorst();
-/* 딥링크: index.html#detail / #worst / #video / #prov */
+/* 딥링크: index.html#detail / #worst / #video / #prov / #detail-shoulder (부위 지정) */
 const h0 = location.hash.replace('#','');
-if(h0 && document.getElementById('board-'+h0)) show(h0);
+if(h0){
+  const [b0, k0] = h0.split('-');
+  if(document.getElementById('board-'+b0)) show(b0);
+  if(b0==='detail' && k0 && DETAILS[k0]) renderDetail(k0);
+}
 </script>
 </body>
 </html>

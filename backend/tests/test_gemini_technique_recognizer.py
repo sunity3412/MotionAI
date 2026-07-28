@@ -402,6 +402,107 @@ class TestCacheShortCircuit:
         assert "joint_expectations" in store_args[1]
 
 
+# ─────────────────── Test 10-b (33-A4 수리): cache hit hold_window 복원 ───────────────────
+
+
+class TestCacheHoldWindowRestore:
+    """33-A4-PHASE-EVIDENCE §5 끊긴 지점 1 회귀 방지.
+
+    캐시 히트 경로가 hold_window(yaml hold_moment 국면 게이트의 유일한 구현)를
+    복원하지 않으면 dimensions._select_window 가 국면 무관 분산 최소 자동 창으로
+    폴백한다. 본 클래스는 캐시 경로가 신선 경로와 동일한 hold_window 를 내는지
+    (동작 무관, 구조 불변식)를 검증한다.
+    """
+
+    def _cache_hit_profile(self, payload: dict) -> TechniqueProfile:
+        cache = MagicMock()
+        cache.lookup.return_value = payload
+        rec = GeminiTechniqueRecognizer(extractor=MagicMock(), cache=cache)
+        return rec.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+
+    def test_cache_hit_restores_hold_window(self) -> None:
+        # 단일 hold moment 7.0s → ±2초 창 = (5.0*9, 9.0*9) = (45, 81).
+        profile = self._cache_hit_profile(
+            {
+                "motion": "ref-invert",
+                "joint_expectations": {jk: JOINT_BENT_OK for jk in JOINT_KEYS},
+                "moments": [
+                    {
+                        "moment_key": "hold",
+                        "timestamp_seconds": 7.0,
+                        "confidence": 0.85,
+                        "frame_index": 63,
+                    }
+                ],
+            }
+        )
+        assert profile.hold_window == (45, 81), (
+            "cache hit 시 hold_window 미복원 — 국면 게이트 소실 (33-A4 §5 재발)"
+        )
+
+    def test_fresh_and_cache_paths_produce_identical_hold_window(self) -> None:
+        # 구조 불변식: 같은 moments 라면 신선 경로 profile 과 캐시 round-trip
+        # profile 의 hold_window 가 동일해야 한다.
+        ext = _StubExtractor(
+            moments=[_StubMoment("hold", 7.2, 0.85)],
+            raw_response='{"motion_name": "ref-invert"}',
+            raw_motion_name="ref-invert",
+        )
+        store_cache = MagicMock()
+        store_cache.lookup.return_value = None
+        rec_fresh = GeminiTechniqueRecognizer(extractor=ext, cache=store_cache)
+        fresh_profile = rec_fresh.recognize(_angles_8j(), frames="/tmp/fake.mp4")
+        assert fresh_profile.hold_window is not None, "신선 경로 hold_window 전제"
+
+        # 신선 경로가 store 한 payload 그대로 캐시 히트로 재현.
+        store_args, _ = store_cache.store.call_args
+        cached_payload = store_args[1]
+        cached_profile = self._cache_hit_profile(cached_payload)
+        assert cached_profile.hold_window == fresh_profile.hold_window, (
+            "캐시 히트 profile 의 hold_window 가 신선 경로와 다름 — 코드 2벌 분기"
+        )
+
+    def test_cache_hit_without_hold_moment_keeps_hold_window_none(self) -> None:
+        # hold moment 없음 → None (자동 창 폴백 유지, 가짜 창 생성 금지).
+        profile = self._cache_hit_profile(
+            {
+                "motion": "ref-invert",
+                "joint_expectations": {jk: JOINT_BENT_OK for jk in JOINT_KEYS},
+                "moments": [
+                    {
+                        "moment_key": "setup",
+                        "timestamp_seconds": 1.0,
+                        "confidence": 0.9,
+                        "frame_index": 9,
+                    }
+                ],
+            }
+        )
+        assert profile.hold_window is None
+
+    def test_hold_window_survives_key_moments_restore_failure(self) -> None:
+        # KeyMoment dataclass 복원 실패(비수치 confidence → Layer 2 비활성)와
+        # 독립적으로 hold_window 는 raw dict 에서 복원되어야 한다.
+        profile = self._cache_hit_profile(
+            {
+                "motion": "ref-invert",
+                "joint_expectations": {jk: JOINT_BENT_OK for jk in JOINT_KEYS},
+                "moments": [
+                    {
+                        "moment_key": "hold",
+                        "timestamp_seconds": 7.0,
+                        "confidence": "not-a-number",
+                        "frame_index": 63,
+                    }
+                ],
+            }
+        )
+        assert profile.key_moments is None, "비수치 confidence → Layer 2 비활성 전제"
+        assert profile.hold_window == (45, 81), (
+            "Layer 2 복원 실패가 hold_window 복원까지 무너뜨림 — 결합 금지"
+        )
+
+
 # ─────────────────── Test 11 (W1 fix): adapter source has no reject keywords ───────────────────
 
 

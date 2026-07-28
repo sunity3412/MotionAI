@@ -2,7 +2,7 @@
 phase: 33-result-trust-recovery
 plan: 08
 title: A-1 동작별 기준 자세 조사 표 (동작 x 4질의)
-status: task1-fixtures
+status: complete
 authored: 2026-07-28
 requirements: [D-09, D-18, D-19, D-23, D-28]
 consumers: [33-09 (A-2 코칭 문구), 33-10 (A-3 크롭 설계), 33-14 (A-7 일러스트)]
@@ -49,6 +49,35 @@ sources:
 | **ref-kip-up** (킵업) | **인버전 없이**(실측 inv 3%) 머리 위·발 아래 유지, 다리 반동(사이드 스윕)으로 약 3~3.5회전. 스윙~후방 통과에서 **양 무릎 신전(실측 168~176°) + 와이드 스트래들(실측 벌림각 최대 ~70°)**, 위 그립 팔 신전(실측 오른 팔꿈치 171.7°/오른 어깨 152.1°) | 어깨 처짐·으쓱(스윙 추진력 손실 — fault 가 left/right_shoulder 로 실포착), 스트래들 폭 부족·좌우 비대칭(split_angle 실포착), 무릎 굽음(추진 모멘트 손실). **주의: 무릎각은 fault 변별 신호가 아님이 실증됨**(정타가 fault 보다 더 굽는 신호 inversion — yaml 이력) → 코칭 우선순위는 어깨·스트래들 | "어깨 눌러(으쓱 금지)", "다리 크게 벌려(스트래들)", "무릎 펴고 발끝 포인", "반동은 다리로 만들어" | 스윙~후방 통과(3~5.5s, peak 4s, f27~f50): **양 어깨 + 스트래들 폭(양 고관절)**, 무릎은 보조 | `angle_vs_reference__{left_shoulder, right_shoulder}` + `split_angle` (fault 47점) | **ref frame confirms** — candidate f27~f50 (24프레임 일관) |
 | **ref-climb** (클라임) | 오른손 상단 그립 + **양 무릎 X자**(왼 무릎 폴 앞·오른 무릎 폴 뒤)로 폴 잠금, 직립(실측 inv 4%), 연속 회전. peak(5s, f45) 실측: **양 무릎 대칭 굽힘 109.9°/109.6°(X자 hook)** + 그립 팔 신전(팔꿈치 176.8°/173.3°). 두 무릎의 접촉 안정성이 체공·회전 매끄러움 결정. IPSF Climbs 카테고리 = 각도 임계 없음(의도된 미박제) | 앞 무릎이 폴에 깊게 안 닿음(X자 잠금 약화 → 미끄러짐), 뒤 무릎 풀림(회전 감속 → 낙하), 어깨 으쓱(회전축 흔들림), 눈에 띄는 고쳐잡기·덜컹임(IPSF visible adjustments −0.5/건) | "무릎으로 잠가(X자)", "앞 무릎 깊게 대", "어깨 내려", "부드럽게 이어서" | hook 잠금 순간(peak 5s, f45 부근): **양 무릎 X자 접촉부 + 주 그립 어깨** | 없음 — **mode1 비교 게이트 전용(점수 없음)**, sweep status=comparison, activatedCriteria=None (COVERAGE-MATRIX (a) 항) | **ref frame confirms** — candidate f45± (X자 굽힘·직립·그립 신전 실측) |
 
+## 표 2 — fixture 없는 등재 4동작 (대체 검증 = reprocessed reference doc, D-23)
+
+> **대체 증거 규약:** 이 4동작은 phase25 fixture mp4 가 없다 (COVERAGE-MATRIX 행 7~10).
+> 각 행의 검증은 **"no fixture mp4 — verified against reprocessed reference doc
+> `reference/{motionId}/versions/phase33-cm3-run1`"** + 33-06 S4 self-comparison(자기 재투입
+> 100점, maxDev ≈ 0.003°) + M8 크롭 PNG(`33-S4-M8-crops/{motionId}_0.png`) 열람이다.
+> criteria scope: fixture sweep 이 없으므로 activatedCriteria 인용 불가 — 대신 candidate
+> techniqueProfile.jointExpectations + criteria yaml(정은지 측정 박제)로 스코프를 잡는다.
+
+| 동작 | ① 완성 기준 | ② 흔한 실패 | ③ 강사 교정 어휘 | ④ 어디를 · 어느 순간 | criteria scope (대체) | 대체 검증 증거 |
+|---|---|---|---|---|---|---|
+| **ref-invert** (인버트) | 리프트 진입(팔 굽혀 가슴을 폴에 붙임, 반동 금지) → 1단계 측면 플랭크 → 2단계 **인버트 스플릿**: 실측 f63(7s) 도립 + 다리 벌림각 152.1° + 무릎 157.5°/171.9° 신전. **좌우 대칭**이 채점 핵심. yaml 박제 hip 55.9°/71.7° ↔ candidate f63 hip 62.0°/75.5° 정합. IPSF Body Position Inverted 등재(골반이 머리 위로 완전히 넘어가는 정렬) | 스플릿 좌우 비대칭(한쪽으로 기움), 골반 닫혀 다리 찢기 짧아짐(스플릿 라인 손상), 리프트에 반동 사용, 전환(5~6s) 거칢 — 허리만 꺾임, 발끝 포인 부족 | "가슴 폴에 붙여", "골반 열어", "다리 일자로 찢어", "반동 쓰지 마(코어로 올라가)", "발끝 포인" | 인버트 스플릿 hold(6~10s, peak 7s, f63 부근): **양 고관절 외전 + 양 무릎 + 좌우 대칭**. 보조: 리프트 구간(1~3s) 주 지지 견갑 | techniqueProfile: right_knee=extend, 나머지 bent_ok. yaml(ref-invert.yaml): 정은지 hold 측정 6관절 박제 (shoulder 28.4°/21.1°, hip 55.9°/71.7°, knee 137.0°/138.1°) | no fixture mp4 — verified against reprocessed reference doc `reference/ref-invert/versions/phase33-cm3-run1` (f49~f76 열람) + S4 self-comparison 100점/maxDev 0.0028 + M8 크롭 `ref-invert_0.png` 육안(그립·다리 hook 정위치) |
+| **ref-foxtop** (폭스탑) | 0~6s 인버트와 동일 베이스 → 다리 교환(왼/오른 무릎 hook 교대) → **수직 스플릿(15~21s): 도립 유지 + 왼다리 위·오른다리 아래**, 실측 f164~f183: 위 다리 151~173°·아래 다리 22~49°, 양 무릎 신전 165~174°. 문서(reference-motions.md) "왼쪽 다리 위" 가 candidate 실측과 일치 | 다리 교환 순간 양 어깨 균형 붕괴(회전축 흔들림), 수직 스플릿 좌우 비대칭·한쪽 기움, 무릎 굽음(라인 흐려짐), 주 지지 견갑 무너짐(교환·스플릿 진입 불가) | "다리 바꿔 걸어", "위 다리 수직으로", "견갑 고정", "라인 유지하면서 넘어가" | 수직 스플릿(15~21s, peak 18s, f164~f183): **위(왼)다리 라인 + 양 무릎 + 주 그립 견갑**. 보조: 다리 교환(9~12s) 순간 | techniqueProfile: 전관절 bent_ok(도립 hold 특성). yaml(ref-foxtop.yaml): 정은지 수직 스플릿 hold(15~21s) 6관절 박제 (knee 152.0°/147.3° 등) | no fixture mp4 — verified against reprocessed reference doc `reference/ref-foxtop/versions/phase33-cm3-run1` (f135~f190 열람, 결측 프레임 제외) + S4 self-comparison 100점/maxDev 0.0027 + M8 크롭 `ref-foxtop_0.png` 육안(역위 그립 마커 정위치) |
+| **ref-foxtop-split** (폭스탑 스플릿) | 0~18s 폭스탑 동일 흐름, **채점 피크 = 11~13s 양 다리 펼침 스플릿**: 실측 f108(12s) 도립 + 한 다리 수평(100.9°)·한 다리 위(160.3°), 벌림각 98.8°, **신전측 무릎 170.0° / hook 측 무릎 86.0° 굽힘** (yaml 박제 신전측 144.1°/hook 측 78.9° 와 방향 일치). 이후 양팔 펼침 수평 라인 슬로우 로테이션(18~26s) | 스플릿 피크 좌우 비대칭(피크 라인이 한쪽으로 기움), hook 무릎 풀림, 슬로우 로테이션(22~26s)에서 척추 정렬이 가장 먼저 무너짐, 그립 교체(~30s) 순간 흔들림 | "펼쳐(스플릿)", "위 다리 무릎 펴", "훅 놓치지 마", "모멘텀 떨어져도 라인 버텨" | 채점 피크(11~13s, f99~f117): **양 다리 벌림각 + 신전측 무릎 + hook 무릎**. 보조: 슬로우 로테이션 척추 정렬 | techniqueProfile: 전관절 bent_ok. yaml(ref-foxtop-split.yaml): 채점 피크(11~13s) 6관절 박제 (knee 144.1°/78.9°, hip 125.5°/106.5° 등) | no fixture mp4 — verified against reprocessed reference doc `reference/ref-foxtop-split/versions/phase33-cm3-run1` (f99~f117 열람) + S4 self-comparison 100점/maxDev 0.0028 + M8 크롭 `ref-foxtop-split_0.png` 육안 |
+| **ref-sideway-spin** (사이드웨이 스핀) | 오른손 상단 그립 + **백 아치 + 자유 다리 신전** 연속 회전(비인버전 — 실측 inv 0~1%). peak 9s(f81) 실측: 양 무릎 173.3°/179.5° 신전 + 주 그립 오른 팔꿈치 174~178° 신전, 직립 유지. 하나의 자세 고정이 아니라 회전 중 백 아치·다리 라인이 자연 변형되며 이어지는 발레 라인 | 어깨 올라가 회전축 흔들림(백 아치 라인 흐트러짐), 자유 다리 무릎 굽음(chair spin 처럼 보임), 아치 얕음(고관절 신전 부족), 회전 모멘텀 부족(몸이 폴에 붙음 — IPSF −2.0) | "가슴 열어(흉추까지)", "다리 길게 밀어", "어깨 내려", "아치 깊게" | 회전 peak(9s±2s, f63~f99): **자유 다리 무릎·고관절 신전 + 주 그립 어깨**. **척추 아치 곡률은 UNVERIFIED** — 8관절 키포인트에 spine_mid 없음(각도 데이터 부재), 문구 근거는 체크포인트 노트만 | techniqueProfile: left_knee·right_knee·right_elbow=extend (실측 신전과 일치). yaml(ref-sideway-spin.yaml): 회전 peak(7~11s) 6관절 박제 (knee 162.5°/159.1° 등) | no fixture mp4 — verified against reprocessed reference doc `reference/ref-sideway-spin/versions/phase33-cm3-run1` (f63~f99 열람) + S4 self-comparison 100점/maxDev 0.0029 + M8 크롭 `ref-sideway-spin_0.png` 육안 |
+
+### ref-combo — A-1 제외 (의도된 누락, 조용한 스킵 아님)
+
+`ref-combo` 는 **미등재**(REGISTERED_MOTIONS 10종에 없음 — `gemini_motion_classifier.py:26-41`,
+`test_gemini_motion_classifier.py` len==10 assert)이므로 canonical COVERAGE-MATRIX 의 33-08
+consumer contract 에 따라 **A-1 표에 넣지 않는다**. 코칭 문구는 phrasebook `__common__` 경로가
+담당(33-09 소관), substrate 검증은 33-06 self-comparison(100점/maxDev 0.0026) + R-4 2-run
+결정론(drift 0.0)으로 이미 완료. **행 부재가 곧 이 명시다.**
+
+### 커버리지 산술 체크 (COVERAGE-MATRIX 정합)
+
+표 1(6) + 표 2(4) = **등재 10동작 전부** = REGISTERED_MOTIONS(10). 미등재 1(combo) = 명시적
+제외. reference 라이브러리 11 doc = 10 + 1. 행이 늘거나 빠지면 이 산술이 깨져 드러난다.
+
 ## 검증 노트 — 무엇을 열어서 무엇을 확인했나 (D-19)
 
 전 동작 공통: Firestore `reference/{motionId}/versions/phase33-cm3-run1` (reprocessedAt
@@ -65,6 +94,10 @@ sources:
 | pdshape | candidate f54~f90 | inv 74%(도립), f54 양 무릎 141.6°/101.8° 굽힘 + 다리 위쪽(178°/148°) — 클로즈드 접힘 셰이프 |
 | kip-up | candidate f27~f50 (24프레임) | inv 3%(인버전 없음), 무릎 168~176° 신전 유지, 다리 벌림각 최대 ~70°(스트래들 사이클), 오른팔 신전(팔꿈치 171~175°)·왼팔 굽힘 |
 | climb | candidate f27~f63 | inv 4%(직립), peak f45 양 무릎 109.9°/109.6° 대칭 굽힘(X자 hook), 팔꿈치 176.8°/173.3° 신전 |
+| invert | candidate f49~f76 | f63(7s) 도립 전환 확인, 다리 벌림각 152.1°, 무릎 157.5°/171.9°, hip 62.0°/75.5°(yaml 55.9°/71.7° 정합) |
+| foxtop | candidate f135~f190 + M8 크롭 PNG | 수직 스플릿 구간(f164~f183) 왼다리 위·오른다리 아래, 무릎 165~174° 신전 — 문서 "왼쪽 다리 위" 일치 |
+| foxtop-split | candidate f99~f117 + M8 크롭 PNG | f108 도립 + 벌림각 98.8°, 신전측 무릎 170.0°/hook 측 86.0° — yaml 방향 일치 |
+| sideway-spin | candidate f63~f99 + M8 크롭 PNG | inv 0~1%(비인버전), peak f81 무릎 173.3°/179.5° 신전, 오른 팔꿈치 174~178° 신전 |
 
 ### UNVERIFIED 항목 (D-18 — 전수 불가분 명시)
 
@@ -75,6 +108,12 @@ sources:
 - **③열(강사 교정 어휘) 전체:** 특정 동작에 대한 강사 인터뷰 원문 미보유. 기존 문서
   (reference-motions.md 체크포인트 노트 정은지 v6 확정 + seed 노트 + IPSF 한국어 보고서)의
   어휘 재조합이다. 파일럿에서 강사 실사용 어휘가 수집되면 이 열을 갱신한다.
+- **sideway-spin 척추 아치 곡률:** 8관절 키포인트에 spine_mid 가 없어 candidate 데이터로
+  아치 깊이를 확인할 수 없다 — 아치 관련 문구·크롭 근거는 체크포인트 노트뿐(UNVERIFIED).
+  크롭(A-3)이 아치를 자르려면 별도 근거가 필요하다.
+- **fixture-less 4동작의 흔한 실패(②열):** fault fixture 가 없어 "실측으로 잡힌 실패"가
+  아니라 체크포인트 노트의 실패 서술 + IPSF 실행 감점 언어에서 온 것이다. 6 fixture 동작의
+  ②열(sweep fault 실포착 병기)과 근거 등급이 다름을 명시한다.
 
 ## 이 산출물이 틀렸다면 어떻게 알았을까 (D-18)
 

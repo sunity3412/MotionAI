@@ -1054,8 +1054,11 @@ def _stamp_time(img: Image.Image, seconds: float | None) -> Image.Image:
     belle 2026-07-28: "세 주제의 사진이 크게 다른 장면이라고 느껴지지 않는 점 —
     확대사진 아래에 몇 초인지 기입해주면 해결". 사용자가 원본 영상을 스크럽해
     그 순간을 찾을 수 있도록 **비디오 타임라인 초**를 찍는다 (학생 = frames_fps
-    프레임 인덱스/fps, 기준 = 타임베이스 매핑된 표시 프레임/fps — refFrameIdx
-    (kp 공간)가 아니라 실제 보여주는 비디오 프레임의 시각).
+    프레임 인덱스/fps).
+
+    belle ④ 2026-07-28 개정: **학생 패널 전용.** 기준(정은지) 패널 초 표기는
+    제거 — 앱 동작비교 싱크 미세조정 값을 서버 렌더가 모르는 채 원시 초를
+    박으면 조정한 사용자에게 혼란. 호출부는 build 루프의 u_crop 1곳뿐.
 
     배지 색은 무채색 — 브랜드색(감점/마커 시각 언어)과 혼동 방지. belle 2026-07-28
     ("각도 배지는 빼고 초 표기로 바꿔줘") 이후 크롭의 유일한 텍스트 오버레이.
@@ -2137,17 +2140,13 @@ def build_fault_zoom_comparisons(
                         ),
                     )
             # ref 측은 _mark/사이각 모두 없음 — 선 없는 crop 그대로(게이트 B).
-            # 타임스탬프 (belle #3 요구 4): 양 패널 좌하단에 각자 비디오 초.
-            # ref 전신 폴백(refMatch='failed')은 대응 근거가 없는 프레임이라
-            # 시각을 찍으면 대응이 있는 것처럼 오독됨 → 생략.
+            # 타임스탬프 (belle #3 요구 4 → belle ④ 2026-07-28 개정): **학생 패널만**.
+            # 기준(정은지) 패널 초 표기는 제거 — 앱 동작비교의 싱크 미세조정(앞/뒤)
+            # 값을 서버 렌더가 알 수 없어, 조정한 사용자에게 원시 초가 박히면
+            # 오히려 혼란 (belle 확정 + Claude 동의). display 전용, 채점 무접촉.
             u_crop = _stamp_time(
                 u_crop, u_idx_unit / frames_fps if frames_fps > 0 else None
             )
-            if not ref_match_failed_unit:
-                r_img = _stamp_time(
-                    r_img,
-                    r_display_idx / frames_fps if frames_fps > 0 else None,
-                )
             png = _compose(u_crop, r_img)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue

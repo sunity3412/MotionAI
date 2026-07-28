@@ -1513,11 +1513,12 @@ def test_stamp_time_noop_on_invalid_seconds():
         assert list(out.getdata()) == list(base.getdata()), f"no-op 이어야 함: {bad}"
 
 
-def test_build_stamps_video_seconds_on_both_panels():
-    """end-to-end — 학생/기준 패널 좌하단에 타임스탬프 배지가 찍힌다.
+def test_build_stamps_video_seconds_on_student_panel_only():
+    """end-to-end — 타임스탬프 배지는 **학생 패널에만** 찍힌다 (belle ④ 2026-07-28).
 
-    배지 fill (40,40,40) 픽셀을 좌하단 샘플로 확인 — 학생 = 프레임 인덱스/fps,
-    기준 = 타임베이스 매핑된 표시 프레임/fps (별도 단위검증은 timebase 테스트).
+    배지 fill (40,40,40) 픽셀을 좌하단 샘플로 확인 — 학생 = 프레임 인덱스/fps.
+    기준(정은지) 패널은 미표기: 앱 동작비교 싱크 미세조정 값을 서버 렌더가
+    모르는 채 원시 초를 박으면 조정한 사용자에게 혼란 (구 "양패널" 테스트 대체).
     """
     import io as _io
 
@@ -1530,17 +1531,18 @@ def test_build_stamps_video_seconds_on_both_panels():
         joint_deltas={"left_knee": 20.0}, frames_fps=9.0, dtw_match=m,
     )
     assert len(comps) == 1
+    assert comps[0]["refMatch"] == "dtw", "이 테스트는 대응 성공 경로여야 함"
     img = _Img.open(_io.BytesIO(comps[0]["png"])).convert("RGB")
     # 합성 canvas 는 가운데 6px 구분선 — ref 패널 로컬 x = 합성 x − (_OUT + 6).
     assert img.getpixel((12, fz._OUT - 12)) == (40, 40, 40), "학생 패널 배지"
-    assert img.getpixel((fz._OUT + 6 + 12, fz._OUT - 12)) == (40, 40, 40), (
-        "기준 패널 배지"
+    assert img.getpixel((fz._OUT + 6 + 12, fz._OUT - 12)) != (40, 40, 40), (
+        "기준 패널 미표기 (belle ④)"
     )
 
 
 def test_build_skips_ref_stamp_on_full_body_fallback():
-    """refMatch='failed'(전신 폴백) 기준 패널엔 타임스탬프를 찍지 않는다 —
-    대응 근거 없는 프레임에 시각을 찍으면 대응이 있는 것처럼 오독됨."""
+    """전신 폴백(refMatch='failed') 기준 패널도 당연히 미표기 — belle ④ 이후
+    기준 패널 전면 미표기의 폴백 경로 회귀 가드(구 사유: 대응 오독 방지)."""
     import io as _io
 
     from PIL import Image as _Img

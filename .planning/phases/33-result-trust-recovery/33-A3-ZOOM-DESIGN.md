@@ -184,3 +184,129 @@ Ochy / coach.ly 조사 — 선두 앱 중 **자동 관절 타이트 크롭을 �
 **틀리면 걸리는 장치 (D-18):** 이 절이 그 장치다 — 백엔드가 못 주는 데이터를 그린
 옵션(겹침·와이프·유령·궤적·아치 드로잉·facing 동일 전제)은 목업 전에 여기서 INVALID 로
 걸렸다. A-4 목업이 이 절과 모순되는 표시를 그리면 이 문서 대조로 즉시 반증된다.
+
+## 3. 옵션 — framingexp A/B/C/D 채택/기각 기록 (새 옵션 생성 금지)
+
+옵션 후보는 이미 **같은 실데이터로 렌더돼 belle 육안 판정까지 끝났다** — S3
+`results/phase25eval/framingexp260728/` (framing_exp_{knee,shoulder,hand}.png,
+소스 = frame_extractor 동일 해상도 360×640 실프레임, 미화 없음). 이 절은 그
+채택/기각 사유를 D-07 기준으로 박제한다. 새 옵션을 만들지 않는다 (2026-07-28 수정
+노트 — 재발산 금지).
+
+| 옵션 | 내용 | 판정 | 사유 (D-07 대응) |
+|---|---|---|---|
+| Option A (현행 확대크롭) | 관절 중심 `_CROP_FRAC` 0.42 타이트 크롭, 2.4× 업스케일 | **기본 화면 기각 / 탭-상세로 승계** | ①은 되나 ④ 취약(업스케일 열화 + 폴/전신 맥락 제거 — 2(c)-1, 벤치마크 선례 0). 정보(정확히 어느 관절)는 D 의 마커가 승계. 탭-상세에서는 글+일러스트가 ③을 보완하므로 생존 |
+| Option B (세로 패널 캡처, 마커 없음) | 인물 bbox fit 세로 패널, 1.6× 업스케일, 드로잉 0 | **기각** | ① 실패 — 마커가 없어 3초 안에 짚을 수 없음. belle verbatim "마커가 없는 것보단 있는 게 나을 것 같고" |
+| Option C (전신+폴 원본 프레임) | 다운스케일 전신, 최고 선명 | **기각** | 인물이 작아져 ①·② 실패 (belle 육안). 선명도 이득이 판독성 손실을 못 이김 |
+| Option D (세로 패널 + 마커) | 인물 bbox fit 세로 패널 + 폴 포함 + **잡힌 관절 전부 마커 원** | **채택 — 기본 화면** (belle verbatim "D로 하는 걸로") | ① 마커가 짚음 ② 폴 대비 전신 라인이 보임(도메인 정합) ④ 1.6× 로 A 보다 선명 + relaxed/full 강하 시 마커 생략 게이트 ⑥ 카드 반복 제거로 요소 수 감소 |
+
+**확정 구조 (belle 2026-07-28 — 본 문서는 기록만):**
+기본 화면 = **Option D 캡처 1장** (잡힌 관절 전부 마커 — 대표 1개 아님, 2(c)-8 붕괴
+해소) → **부위 탭 = 상세** (Option A 급 확대 크롭 + 감점근거 글 + facing 설명 흡수
+(belle A) + A-7 일러스트 슬롯 — Ochy progressive disclosure). 구현은 앱+계약 변경 수반,
+시뮬 확인 후 OTA.
+
+**갈래 지점별 결정 기록 (조사 지시서의 split points — 확정 설계에 흡수):**
+
+| 갈래 | 결정 | 근거 |
+|---|---|---|
+| 나란히 vs 겹침 | **나란히** (탭-상세의 [학생\|기준] 쌍) | 겹침·와이프 INVALID (2(b)/2(c)-5) — 정합 보장 불가 |
+| 크기 기준 (몸·관절·폴) | 기본 화면 = **몸(인물 bbox) + 폴 포함** / 탭-상세 = 관절 중심 | 도메인(폴 대비 라인) + 해상도(2(c)-1) + Ochy 2단 구조 |
+| 차이 표시 (원·화살표·각도호·유령) | **원 마커(잡힌 관절 전부) + 상세 글**. 각도호는 split 카드 한정 게이트 유지. 유령 INVALID | 2(b) 표 — 마커 VALID / 각도호 VALID-게이트 / 유령 INVALID |
+| 캡션 (D-12) | 탭-상세의 감점근거 글이 캡션 역할 (무엇을 견주는 중인지 한 문장 + 필요 시 facing 설명) | D-05 ③(최후 한 줄) — 기본 화면에는 새 문장 0 |
+
+## 4. seam #1 결정 — backend criterion-keyed crops (Open Q2 해소)
+
+### 결정
+
+**backend criterion-keyed crops 를 채택한다.** crop 생성 입력을 `visionVeto.faultJoints`
+단독(+advisory top-2)에서 → **`deductionBreakdown.records[]`(화면에 실제 표시되는
+항목)가 가리키는 관절 집합**으로 전환하고, 각 crop payload 에 자기 record 를 식별하는
+scalar 키(criterion)를 실어 앱 join 을 first-match 추측에서 **키 일치**로 바꾼다.
+app joint-exact join 단독안(OTA-only)은 **기각**한다. A-5 는 이 결정을 재론하지 않는다.
+
+### 근거 (A-0 증거를 candidate substrate 에서 재확인)
+
+1. **crop 이 화면 항목과 다른 관절 집합에서 만들어진다 — substrate 복원 후에도.**
+   crop 은 `pipeline/app.py:3098` `fault_joints = list(vv.get("faultJoints") or [])`
+   (+`select_advisory_joints` 편차 top-2, `app.py:3085`)에서, 화면 항목은
+   `deductionBreakdown.records[]`(criteria)에서 나온다. candidate substrate 실측
+   (debug 2026-07-28, elbowtwistINVCHK260728badge2): 방출 record = a_v_r 7관절
+   (elbows·knees·shoulders·hip)인데 crop = legs 묶음(대표 left_knee) + advisory
+   arms 2장 — **세 집합이 여전히 불일치.** A-0 의 pointed≠shown 은 substrate 결함이
+   아니라 **출처 이원화의 구조 결함**이므로 flip 이후에도 남는다. 계획 지침
+   ("crops built from the wrong joint set → prefer the backend fix")의 조건이 성립.
+2. **결함⑤(vision record 전체 투영)는 앱 단독으로 못 고친다.**
+   `deductionLabels.ts:236` — `source==='vision'` record 는 keypoint 를 faultJoints
+   **전체**로 투영한다("다리 스플릿"→어깨 포함 6관절). `result.tsx:1325 selectedZoom`
+   (구 :1215)을 joint-exact 로 바꿔도 투영 자체가 전체 집합이라 오연결이 남는다.
+   record별 관절 provenance 를 앱이 가지려면 결국 **백엔드가 방출해야** 하므로
+   "OTA-only" 이점은 최악 결함(⑤)에 한해 허상이다.
+3. **도메인 정합.** IPSF 심판의 감점 관찰 자체가 criterion-키 구조다 (2(a) —
+   요소표 criteria 를 신체와 1:1 대조, 해부학 경계로 잘라 봄). crop 이 "그 criterion
+   이 계측한 부위·순간"에서 태어나면 항목↔크롭 정합이 **조인이 아니라 출생**으로
+   보장된다 (D-03 — 표현으로 분석 오류 덮기 금지의 반대 방향, 원천 수정).
+4. **확정 Ochy 구조가 record 단위 상세를 요구한다.** 부위 탭 → 상세(확대 크롭 +
+   감점근거 글)에서 크롭과 글은 **같은 record** 의 것이어야 한다. 글(phrasebook,
+   33-09)은 record.criterion 키로 이미 born-matched — 크롭만 다른 출처면 상세 화면
+   안에서 다시 seam 이 재발한다.
+5. **비용 조건 충족.** Pod 는 현재 가동 중 (8hrks3hrxmtgw6, RTX 4090 — D-25 의
+   "전부 terminate" 전제는 해소됨). A-5 는 어차피 Ochy 구조로 앱+계약 변경을 수반하고
+   D-19/D-23 이 6동작 전수 재분석을 요구하므로, 백엔드 crop 변경의 한계비용은 낮다.
+   저장된 구 doc 의 crop 이 낡는 것은 어느 안이든 동일 (재분석으로만 갱신 —
+   33-RESEARCH §Runtime State).
+
+### 기각안 기록 (app joint-exact join 단독)
+
+- 장점: OTA-only, 백엔드 무접촉.
+- 기각 사유: (근거 2) vision record 에 무력 + crop 이 record 관절을 아예 안 가진 경우
+  (candidate 실측: a_v_r__right_elbow record ↔ arms crop 은 advisory tier 라 시트
+  미노출) 사진 없는 항목만 늘어남 — 정직하나 커버리지 손실. seam 을 조인에서 재봉하는
+  한 "짚은 곳이 진짜 그곳"(정합성 ②)이 구조 보장되지 않는다 (D-03).
+- 단, **키 일치 join 자체는 백엔드안의 앱측 반쪽**으로 흡수된다 — crop 이 criterion
+  키를 실어오면 `selectedZoom` 은 region-first 추측을 버리고 키 일치로 단순화된다
+  (첫 매치 오연결 소멸, 코드도 짧아짐 — D-07 ⑥).
+
+### A-5 구현 지침 (재결정 금지 범위)
+
+- crop 단위 생성: `deductionBreakdown.records[]` → criterion→관절 매핑(
+  `deductionLabels.ts:221 projectDeductionRecordKeypoints` 규칙의 백엔드 미러 —
+  a_v_r__{jk}→단일 관절 / split_angle→legs / leg_extension→legs)으로 unit 구성.
+  vision record 는 faultJoints ∩ criterion 부위로 좁힌다 (전체 투영 금지).
+- payload: 각 item 에 `criterion`(scalar) 추가 — 계약 3파일 동시 갱신
+  (`analysis.ts` + `models.py` + `docs/contract.md`), scalar-only 검증 유지.
+- advisory(비채점 참고) crop 은 현행 tier 분리 유지 — record 없는 crop 은 상세
+  시트가 아니라 D 캡처 마커(참고 표시)로만.
+- 검증(D-18/D-19): 재분석 후 전 카드에 대해 record.criterion == crop.criterion
+  전수 assert + PNG 전수 열람. 불일치 카드는 미노출 (D-12).
+
+## 5. 옵션별 D-07 사전 판정 (Claude 자체 검열 — belle 도달 전)
+
+좋은 케이스 + D-08 최악 케이스(가림/인버전/모션블러/프레임 밖/좌표 결측)를 함께 판정.
+
+| 기준 | Option D 기본 화면 (채택) | 탭-상세 = Option A 크롭 + 글 + 일러스트 슬롯 (채택) | Option B/C + INVALID 관용구 (기각) |
+|---|---|---|---|
+| ① 3초 짚기 | PASS — 잡힌 관절 전부 마커 (2(c)-8 숨김 해소) | PASS — 탭한 부위만 확대 | B: FAIL(마커 무) / C: FAIL(인물 소) |
+| ② 형태로 차이 | PASS(조건부) — 폴 대비 전신 라인. facing ~20° 잔차는 글로 흡수 (belle A) | PASS — [학생\|기준] 나란히 + criterion-키 crop 으로 "짚은 곳=진짜 그곳" | 겹침/와이프/유령: 정합 깨지면 차이 아닌 노이즈 — FAIL |
+| ③ 뭘 하라 | 마커 자체론 없음 → 탭 유도 (D-05 ① 표시 최소) | PASS — 감점근거 글(phrasebook cueLine 동일 소스) + 일러스트 | 유령: 틀린 시범을 자신 있게 — FAIL |
+| ④ 최악 데이터 | PASS — relaxed/full 강하 시 마커 생략, 세로 패널은 좌표 오차에 둔감. 결측 프레임은 window 내 conf argmax 가 회피 | 조건부 PASS — DTW 실패 시 refMatch='failed' 정직 폴백 + 카드 미노출(D-12). 업스케일 열화는 잔존(한계 명시) | 궤적선: 회전 자기겹침 — FAIL |
+| ⑤ 자기 근거 | PASS — 마커 = 채점이 짚은 관절만 (짝 없는 표시 금지 D-18), 학생 패널 타임스탬프 | PASS — criterion 키가 곧 근거 (내부 검수 로그로 관절·프레임 기록, 화면 미노출 D-06) | 겹침: 오정렬이 근거를 위장 — FAIL |
+| ⑥ 더 단순 | PASS — 카드 캐러셀 반복 → 캡처 1장. 새 라벨 0 | PASS(조건부) — 글은 기존 phrasebook 슬롯 재사용, 새 문장 신설 0 / 일러스트는 A-7 슬롯 예약만 | — |
+
+**살아남은 안 = 2개** (D 기본 화면 / 탭-상세 세트) — A-4 목업은 이 2개만 그린다.
+목업 필수 포함 최악 케이스: 역립(elbow-twist, 마커 강등 상태) + 좌표 결측(relaxed/full
+폴백 카드) + DTW 실패(refMatch='failed' 상세 화면) — 좋은 케이스 1개
+(power-spin hold)와 함께 (D-08).
+
+## 이 산출물이 틀렸다면 어떻게 알았을까 (D-18/D-19)
+
+- 데이터 한계 주장(2(c))은 전부 fault_zoom.py 함수:라인 앵커를 달았다 — 같은 코드를
+  다시 열면 즉시 반증된다. 상수·배율(0.42/360/2.4×/1.6×)은 debug 실측과 교차 확인.
+- seam 결정 근거 1(집합 불일치)은 candidate substrate 실측(debug 2026-07-28 렌더
+  3장 + faultJoints 프로브)으로 재확인했다 — flip 후에도 같은 프로브(record 방출
+  criteria vs crop joints 덤프)로 재검증 가능하며, 만약 일치한다면 이 결정의 전제가
+  무너진 것이므로 A-5 착수 전 반증된다.
+- 옵션 채택/기각은 belle 육안 verbatim + S3 실렌더 시트를 근거로 박제 — 시트가
+  존재하지 않거나 verbatim 이 다르면 debug 파일 대조로 걸린다.
+- NotebookLM 부재 판정(강사 지도 방식)은 "없다"를 숨기지 않고 명시했다 — 파일럿
+  현장 수집 시 갱신 대상으로 남긴다.

@@ -65,6 +65,54 @@ def _adapter_reject_guard(text: str, *, context: str) -> None:
     _enforce_no_coordinate_or_score(text, context=context)
 
 
+def _moment_field(m: Any, key: str, default: Any) -> Any:
+    """moment 필드 추출 — KeyMoment 객체(속성)와 cache dict(키) 양쪽 허용.
+
+    33-A4 수리 공통 accessor: 신선 경로는 KeyMoment dataclass, 캐시 경로는
+    _serialize_moment 가 저장한 dict. 두 표현을 같은 코드로 읽는다.
+    """
+    if isinstance(m, dict):
+        return m.get(key, default)
+    return getattr(m, key, default)
+
+
+def _hold_window_from_moments(moments: Any) -> tuple[int, int] | None:
+    """KeyMoments[hold] timestamp → (start_frame, end_frame) hold 창.
+
+    33-A4 수리 (33-A4-PHASE-EVIDENCE §5) — yaml hold_moment 스코프를 시간축에
+    구현하는 유일한 장치가 profile.hold_window 인데, 종전에는 캐시 히트 경로
+    (_profile_from_cache)가 이 필드를 복원하지 않아 국면 게이트가 소실 →
+    dimensions._select_window 가 국면 무관 분산 최소 자동 창으로 폴백했다.
+    이제 신선 경로(_build_profile)와 캐시 경로 모두 본 함수 하나만 호출
+    ("분기 0, 코드 1벌"). 특정 동작(motion) 분기 없음 — 전 동작 공통.
+
+    박제: hold moment 2개 이상 = 첫/마지막 timestamp, 1개 = ±2초 창, 0개 = None
+    (None = dimensions.hold_window 자동 창 폴백, 기존 graceful 경로 유지).
+    """
+    if not moments:
+        return None
+    fps = 9.0  # frame_extractor.py target_fps (박제 정신 정합)
+    try:
+        ts_list = sorted(
+            float(_moment_field(m, "timestamp_seconds", 0.0))
+            for m in moments
+            if str(_moment_field(m, "moment_key", "")) == "hold"
+        )
+    except (TypeError, ValueError) as exc:
+        # graceful — 캐시 dict 의 timestamp 가 비수치면 자동 창 폴백 (분석 차단 X).
+        log.warning("hold_window 산출 실패 (자동 창 폴백): %s", exc)
+        return None
+    if not ts_list:
+        return None
+    if len(ts_list) >= 2:
+        start_sec, end_sec = ts_list[0], ts_list[-1]
+    else:
+        # 단일 hold moment = ±2초 window 박제
+        start_sec = max(0.0, ts_list[0] - 2.0)
+        end_sec = ts_list[0] + 2.0
+    return (int(round(start_sec * fps)), int(round(end_sec * fps)))
+
+
 def _compute_video_hash(video_path: Any) -> str:
     """video_hash 산출 (B3 fix — PII 미노출).
 
@@ -305,19 +353,9 @@ class GeminiTechniqueRecognizer:
         # frame_index 변환 후 hold_window 박제. dimensions.line_score / stability_score
         # 가 자동 추출 (분산 최소 sub-window) 대신 이 윈도우 사용.
         # 사용자 영상의 standing setup/dismount frame 잡힘 위양성 박제 정신 정합.
-        # 박제: hold KeyMoment 가 여러 개면 첫/마지막 timestamp 로 박제. 1개면 ±2초 박제.
-        hold_window_tuple: tuple[int, int] | None = None
-        hold_moments = [m for m in moments if m.moment_key == "hold"]
-        if hold_moments:
-            fps = 9.0  # frame_extractor.py target_fps (박제 정신 정합)
-            ts_list = sorted(m.timestamp_seconds for m in hold_moments)
-            if len(ts_list) >= 2:
-                start_sec, end_sec = ts_list[0], ts_list[-1]
-            else:
-                # 단일 hold moment = ±2초 window 박제
-                start_sec = max(0.0, ts_list[0] - 2.0)
-                end_sec = ts_list[0] + 2.0
-            hold_window_tuple = (int(round(start_sec * fps)), int(round(end_sec * fps)))
+        # 33-A4 수리: 창 계산은 _hold_window_from_moments 공통 함수로 이동 —
+        # 캐시 히트 경로(_profile_from_cache)와 코드 1벌 공유.
+        hold_window_tuple = _hold_window_from_moments(moments)
 
         return TechniqueProfile(
             name=motion,
@@ -344,6 +382,12 @@ class GeminiTechniqueRecognizer:
         비활성되는 박제 영구 차단. cached["moments"] 가 list[dict] 박제이면 KeyMoment
         dataclass 로 복원 후 tuple 박제. 빈 list 또는 키 누락 시 None (Layer 2 자동
         graceful fallback + warning 'layer2_unavailable').
+
+        33-A4 수리 (33-A4-PHASE-EVIDENCE §5 끊긴 지점 1) — hold_window 복원 추가.
+        종전에는 캐시 히트 시 hold_window=None 으로 남아 yaml hold_moment 국면
+        게이트가 소실 → 분산 최소 자동 창 폴백(국면 무관). 이제 신선 경로와 동일한
+        _hold_window_from_moments 로 cached["moments"] raw dict 에서 직접 산출 —
+        KeyMoment 복원(Layer 2) 실패와 독립적으로 국면 게이트가 살아남는다.
         """
         # REVIEWS Cycle 2 §3 MEDIUM — TechniqueCache round-trip key_moments 박제.
         key_moments_tuple: tuple | None = None
@@ -387,6 +431,8 @@ class GeminiTechniqueRecognizer:
             required_split_deg=None,
             requires_hold=True,
             is_symmetric=False,
+            # 33-A4 수리 — 신선 경로와 동일 함수로 국면 게이트 복원 (raw dict 입력).
+            hold_window=_hold_window_from_moments(cached_moments),
             motion_id=cached.get("motion"),  # C2 fix
             key_moments=key_moments_tuple,
         )

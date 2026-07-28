@@ -1,9 +1,97 @@
 ---
-status: paused
+status: fixing
 trigger: "확대비교(fault-zoom) 크롭이 모든 결함 관절에 대해 같은 단일 프레임에서 잘려 나온다 — 결함별 최악 순간이 아니라 한 순간의 부위별 확대일 뿐. belle §6.6 재발 버그"
 created: 2026-07-25
 updated: 2026-07-28
 ---
+
+## Current Focus (ACTIVE — "마지막 미세조정+보완" 라운드, 2026-07-28 저녁 재개)
+- 안건 (벤치마킹 절에서 확정, 이 순서로):
+  1. **기준 패널 초 표기 제거** — belle 확정분(④). fault_zoom.py 의 ref 측 `_stamp_time`
+     호출 제거 + 테스트 갱신. display 전용, 채점 무접촉(D-20).
+  2. **어깨 미러/facing 조사** — (a) 매칭이 미러 프레임을 골랐나 vs (b) 정은지 원본이
+     반대 방향 회전이라 같은-facing 프레임 자체가 없나. 실측 = Pod (영상 로컬 부재 확인,
+     fixtures/reference mp4 로컬에 없음 — 2026-07-28 재확인).
+  3. **프레이밍 실험 렌더** — 세로 패널 / 전신(폴 포함) / 자동 드로잉 버전을 현행 크롭과
+     나란히 belle 육안용 한 벌. 실험 렌더(scratchpad 드라이버, 출하 코드 무접촉).
+  4. Ochy/글결합 설계 = belle 체크포인트 후에만 (무단구현 금지 유지).
+- hypothesis: (안건 1 은 조사 아님 — belle 확정 display 변경.) 안건 2 가설 2갈래는 위 (a)/(b).
+- test: 안건 1 = 유닛 픽셀 테스트 + Pod driven 렌더 + SCORE 60 불변. 안건 2 = ref 영상
+  전 구간 facing 실측(어깨 x-순서/육안 그리드) vs 학생 u74 facing.
+- expecting: 안건 2 에서 (b)로 판명되면 기술 fix 아님 → 표시/설명 설계(안건 4 계열)로 전환.
+- next_action: **belle 통합 체크포인트** (안건 1 로컬검증 완료 / 안건 2 판별 완료 /
+  안건 3 실험 시트 S3 업로드 완료 — 아래 Evidence 절들). Pod 기동 요청 동반.
+
+## Evidence — 안건 3 (프레이밍 실험 렌더) 완료 (2026-07-28, scratchpad 드라이버 — 출하 코드 무접촉)
+- **방법 (정직성 원칙)**: 소스 = frame_extractor 동일 해상도(360x640) 프레임 — 출하 가능
+  품질을 그대로 반영 (4K 원본으로 미화하지 않음). 관절 앵커/크롭박스 = **출하 크롭 패널을
+  프레임에 템플릿 매칭해 역산** (score 0.79~0.92, 마커 링 = 크롭 중심 = 앵커 성질 이용):
+  knee SV070 앵커 (154,354) / shoulder SV074 (170,334) / hand SV074 (172,388).
+- **카드별 4버전 비교 시트** (A 현행 확대크롭(S3 실물) / B 세로 패널 캡처(확대 없음) /
+  C 전신+폴(원본 프레임) / D 세로+마커 원). B·D 는 1.6x 업스케일(현행 2.4x 대비 선명),
+  C 는 다운스케일(최고 선명). 타임스탬프 = 학생 패널만(belle ④ 반영, 40,40,40).
+- **자체 관찰**: B/D 에서 몸 전체 vs 폴 관계가 보여 "무릎은 전체 포즈를 봐야" 요구 충족 +
+  선명도 우위. A 의 정보(정확히 어느 관절인지)는 D 의 마커 원이 승계. C 는 인물이 작아짐.
+  사이각 선 버전은 이 fixture 에 split 카드가 없어 미포함(문서화).
+- **facing fix 미리보기 (안건 2 연계)**: 학생 S74 | 현행 R132 | 후보 R130 | 후보 R118 세로
+  패널 4장 나란히 — R130 이 "화면만 같으면" 요구를 충족함을 belle 이 직접 비교 가능.
+- S3 (belle 육안): results/phase25eval/framingexp260728/
+  - framing_exp_{knee,shoulder,hand}.png (4버전 비교 시트 3장)
+  - facing_fix_preview_shoulder.png (매칭 fix 가정 미리보기)
+  - mirror_test_S74_R132.png (② "미러 아님" 증거 — 반전본 명백 불일치)
+
+## Evidence — 안건 2 (어깨 미러/facing) 판별 완료: **(a) 확정, (b) 기각** (2026-07-28, 로컬 영상 실측)
+- **방법**: ref/학생 영상 S3 다운로드 → frame_extractor 정확 재현(매 3번째 raw 프레임,
+  ref 219장 = 렌더러 배열 공간, student 179장) → 라벨 콘택트시트 + 토르소 고해상 크롭 육안.
+  scratchpad/facing/ (sheet_student_62_85, sheet_ref_{60_95,96_117,118_147,148_190},
+  mirror_test_S74_R132, facing_candidates_R129_133, facing_candidates_other_revs).
+- **미러 검증 (mirror_test_S74_R132.png)**: R132 좌우반전본은 명백히 불일치(토르소가 폴
+  반대편) — 프레임 레벨 이미지 미러 아님. R132 원본이 학생 S74 와 같은 대구조(토르소
+  폴-왼쪽, 머리 아래).
+- **belle "수평 반전" 인상의 실체** (belle 이 본 badge2 크롭 S3 재확인): 실루엣은 같은데
+  **몸통 장축 회전(가슴 방향)이 반대** — 학생 S74 = 등-폴/가슴·얼굴이 카메라-왼쪽으로
+  열림, 정은지 R132 = 가슴·얼굴이 폴 쪽(오른쪽)으로 감김. 타이트 크롭에선 정확히
+  "수평 반전 준 것"으로 읽힘. 이미지 미러가 아니라 **facing(토르소 회전 위상) 불일치**.
+- **(b) 기각 — 회전 방향 동일**: 시퀀스 실측(seq_student_68_77 / seq_ref_126_138) —
+  학생 가슴 스윕 L→카메라→R (S72→S74→S77), 정은지 가슴 스윕 카메라→폴(R)→등
+  (R127→R132→R135) = **같은 회전 방향**. "정은지 원본이 반대 방향 회전" 아님.
+- **(a) 확정 — 같은-facing 프레임이 존재하는데 매칭이 못 골랐다**:
+  - 같은 revolution 안 **R129-R130 (가슴 카메라 쪽, 얼굴 노출, 다리 위) = 학생 facing 일치
+    — 최적 후보는 R130** (facing_fix_preview_shoulder.png 512px 대조로 확정).
+  - 이전 revolution R118-R119 는 **실루엣(다리 대각 up-right)은 근사하나 상체 facing 은
+    등-쪽으로 더 돌아가 있음** — 소형 타일 1차 판정(일치)을 512px 대조에서 정정. R130 우세.
+  - 전부 ±4s 탐색창 내부 (anchor rep9≈75→video100, ±36 rep9 프레임 → video ≈52..148).
+  - 선택된 R132 는 facing 스윕에서 2~3프레임 늦은 순간 — **형상(다리 완전 신전)은 최고,
+    facing 은 이미 폴 쪽으로 돌아간 뒤**. 정은지는 완전 아치 도달이 학생보다 회전 위상
+    2~4프레임 늦음(형상-위상 offset) → 단일 최적점이 형상을 facing 보다 우선함.
+- **원인 가설 (Pod 정량 검증 필요 — keypoint 로컬 부재)**: ref 8관절 2D Procrustes 거리가
+  토르소 장축 회전(가슴 앞/뒤)에 둔감 — 깊이 모호성으로 chest-toward vs chest-away 의
+  2D 배치가 유사 + 환각 노이즈. **fix 후보 = facing 일치 신호** (학생↔후보의 어깨/골반
+  x-순서 부호 일치를 게이트 or 가중치로) — 표시 전용, 상수 최소. R130/R118 계열이 이기는지
+  Pod 프로브로 A/B 후 구현 판단 (belle 체크포인트에 시각 증거와 함께 회부).
+- 잔여 미확인: 매칭이 R132 를 R129/130 보다 선호한 정량 이유(궤적 평균 스코어 분해)는
+  실 keypointReport 필요 → Pod 재기동 후.
+
+## Evidence — 안건 1 (기준 패널 초 표기 제거) 구현 완료 + 로컬 검증 (2026-07-28, commit 27635ce)
+- **발견**: 세션 재개 시 HEAD = 27635ce "fix(fault_zoom): remove reference-panel timestamp —
+  student panel only (belle ④)" (10:42, origin 대비 1커밋 ahead 미push) — 직전 컨텍스트가
+  구현·커밋 후 debug 파일 갱신 전에 종료된 것. diff 검수: build 루프 ref 측 `_stamp_time`
+  호출 블록 삭제(학생 u_crop 호출 유지), `_stamp_time` docstring belle ④ 개정 명시,
+  테스트 2건 갱신(`test_build_stamps_video_seconds_on_student_panel_only` = ref 패널 픽셀
+  ≠(40,40,40) 반전 단언 + refMatch=='dtw' 가드, 전신폴백 테스트 사유 개정). 범위 정확 —
+  fault_zoom.py+test 2파일, app.py 무접촉, deficitDeg/채점 무접촉.
+- **로컬 검증 (이 세션 실측)**:
+  - fault_zoom 2파일 81 PASS (79221f0 과 동수 — 테스트 개수 불변, 단언만 반전)
+  - 인접 11파일(assemble/dimensions/features/kismam/motiondtw/segments/selfmotion/
+    technique/temporal/vision_veto/assemble_dim) 154 PASS, 실패 0
+  - 전체 스위트(--continue-on-collection-errors): **61 fail / 12 err / 3451 passed**
+    = 79221f0 baseline 과 완전 동일. 회귀 0.
+- **Pod 상태 (블로커)**: proxy /health=404 + SSH 213.173.99.44:32613 refused +
+  runpodctl/API키 로컬 부재 → **Pod driven 렌더/서버 재기동 불가** (Pod 정지 또는 재시작
+  으로 SSH 포트 변경 추정). SSM runpod-analyze-url 은 여전히 ovblalej2102sb proxy —
+  프로덕션 경로도 현재 죽어 있음(belle 에게 Pod 기동 요청 필요).
+- **S3 로컬 접근 확인**: aws --profile sunity-motion 으로 sunity-motion-pilot-videos
+  reference/ 목록 조회 성공 → 안건 2 는 영상 로컬 다운로드 + 육안 그리드로 진행 가능.
 
 ## belle 육안 #4 — 통합 verdict (2026-07-28 자정께, elbowtwistINVCHK260728badge2 크롭 3장)
 - ① 무릎: **"진짜 많이 나아졌는데 이정도면 상관은 없긴한데"** — 포즈매칭 방향 수용(3연속 반려 탈출).
@@ -33,6 +121,33 @@ updated: 2026-07-28
    확인됨 — 사진+글 결합이 유력.
 4. 잔여 후속 유지: geminiSilent 플래그, veto still 타임베이스(별도 사이클), app.py:2018
    falsy-collapse, mode3/top-2 폴백 확대, power-spin 전수 검증, split_angle_degs 정리.
+
+## 벤치마킹 → 프레이밍 방향 결정 (2026-07-28 저녁, 세션 재개 직전 — 메인 대화에서 확정)
+- belle 잠자리 의견(verbatim 요지): "이만큼 확대하는 게 맞는지 검토. 무릎은 전체 포즈를 봐야
+  하지 않나. 확대가 아니라 그 순간 캡처 + 확대하기 버튼도 좋을 듯. 쉬운 쪽/디테일한 쪽 고민."
+- 코드 실측: 단일 관절 크롭 = `_CROP_FRAC 0.42`(짧은 변), 소스가 9fps/640px 프레임이라
+  세로영상 기준 151px→360px **2.4× 업스케일** — 더 확대할수록 흐려지고, 덜 확대할수록 선명.
+  무릎 카드는 좌+우 묶임 조건 미충족 시 이 타이트 크롭에 떨어짐.
+- 벤치마크 조사 결과 (V1 Golf/OnForm/Sportsbox AI/Ochy/coach.ly, 메인 세션 2026-07-28):
+  - 선두 앱 중 **자동 관절 타이트 크롭을 기본 표시로 쓰는 곳 없음.** 표준 = 전신 side-by-side
+    + 선·각·원 드로잉으로 시선 유도 (V1/OnForm은 코치 수동 드로잉, 우리는 자동 오버레이가 대체).
+  - Ochy(러닝, 자동분석+부위별 점수로 우리와 최유사) = 전신 개요 → **부위 탭하면 상세**
+    (progressive disclosure). belle: **"Ochy 패턴은 좋은 거 같아" — 방향 승인.**
+  - 촬영/코칭 가이드(coach.ly): 전신 프레임 필수, 피드백은 핵심 1~2개 단순 명확.
+  - 폴 도메인: AI 폼 피드백 폴 앱 부재(직접 선례 없음). 폴 = 수직 기준선 — 관절 크롭은
+    강사가 보는 "폴 대비 라인" 맥락을 제거. IPSF line 채점도 전신 라인 기준.
+- **이번 라운드 안건 갱신 (belle "바로바로 진행" — 지금 세션에서 수행):**
+  1. 기준 패널 초 표기 제거 (④ 확정분, 그대로).
+  2. 어깨 미러/facing 조사 (② 그대로).
+  3. **프레이밍 실험 렌더 (신규)**: 세로 패널(정사각 버림) + 전신(폴 포함) + 기존 자동
+     드로잉(마커 원/사이각 선) 버전을 한 벌 뽑아 **현행 크롭과 나란히** belle 육안 비교.
+     display 전용, 채점 무접촉. "전신이면 안 보일까봐" 우려는 세로 패널로 인물 크기 확보해 검증.
+  4. Ochy 패턴(기본=캡처, 탭/버튼→확대 크롭+감점근거 글)은 ①③ 글결합 설계와 한 세트 —
+     **설계 체크포인트에서 belle 확정 후 구현** (무단구현 금지 유지). 앱+계약 변경 수반.
+     **A-7 일러스트 연계 (belle 확인 2026-07-28)**: Phase 33 D-15 준실사 2안 일러스트
+     (33-14-PLAN 미착수, samples/ 3장·앱 배선 0줄)는 프레임 위 드로잉 오버레이와 별개의
+     독립 삽화지만, Ochy 상세 화면의 "다이어그램" 자리가 그 배선처 — 상세 뷰 설계 시
+     일러스트 슬롯을 레이아웃에 미리 포함(글+크롭만으로 짜서 A-7 때 재설계하는 일 방지).
 
 ## Current Focus (구 — belle 결정 반영: 각도 배지 제거 + 초 표기 유지, 2026-07-28)
 - checkpoint 회신 (belle verbatim): "각도 배지는 빼고 초 표기로 바꿔줘" — 설계질문 ①에 대한 답.

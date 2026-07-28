@@ -1,28 +1,21 @@
 ---
-status: fixing
+status: resolved
 trigger: "확대비교(fault-zoom) 크롭이 모든 결함 관절에 대해 같은 단일 프레임에서 잘려 나온다 — 결함별 최악 순간이 아니라 한 순간의 부위별 확대일 뿐. belle §6.6 재발 버그"
 created: 2026-07-25
-updated: 2026-07-28T23:55+09:00
+updated: 2026-07-28T13:32+09:00
+resolved: 2026-07-28
 ---
 
-## Current Focus (ACTIVE — facing 프로브 완료: fix 후보 정량 FAIL → 미적용, 2026-07-29)
-- 체크포인트 회신 반영 완료 (오케스트레이터 처리분 4건 — 재실행 금지, 아래
-  "Evidence — 체크포인트 회신" 절에 기록): Pod 8hrks3hrxmtgw6 마이그레이션 /
-  안건 1 종결 / belle 설계 확정 기록 / belle 무릎 질문 해결.
-- **facing 정량 프로브 결과 (아래 Evidence 절, /workspace/_facing_probe.py 실측)**:
-  - 원인 가설(2D Procrustes 가 토르소 장축 회전에 둔감) = **확정** — 단 기전이 더
-    구체화됨: v130↔v132 의 facing 차이는 같은 반회전 안 ~20° 추가 회전이라 8관절
-    2D 기하에 거의 안 찍힘 (sh dx −0.0955→−0.089, 부호 불변).
-  - fix 후보(어깨/골반 x-순서 부호 게이트/가중) = **정량 A/B 전제조건 FAIL** —
-    부호가 오답(r99/v132)과 GT(r97/v130)를 구분 못함 (학생 u74·r99·r97 전부 sh −1,
-    hip +1 동일). 게이트 시뮬레이션: 승자 byte-동일(r99 유지) = 카드 이동 0.
-    가중으로 36.2% 거리 격차를 뒤집으려면 대형 λ 튜닝 = fixture overfit 금지 위반.
-  - **belle 승인 조건("Pod 정량 A/B 통과 시에만 적용") 미충족 → fix 미적용.**
-    출하 코드 무접촉 — 실측 근거만 기록 (checkpoint 지시 4항 그대로).
-- next_action: **belle 체크포인트** — facing 잔차는 keypoint 신호 한계(IN-01 계열)로
-  판정됨. 선택지 회부: (a) 잔차 수용 + Ochy 상세 글결합에서 설명으로 흡수(기확정
-  설계 사이클에 포함) (b) 비-keypoint 신호(프레임 화소/vision) 매칭 = 별도 사이클
-  비용 검토. 결정 전 무단구현 금지.
+## Current Focus (CLOSED — belle 최종 결정 A 수신, 세션 종결 2026-07-28)
+- **belle 최종 체크포인트 회신 (decision)**: **A 선택 — "A. 글로 흡수 (추천)"** (verbatim).
+  facing 잔재는 수용하고, 이미 확정된 Ochy 탭-상세 글결합에서 "정은지는 이 순간 몸이
+  폴 쪽으로 더 감긴 상태" 류 설명으로 흡수. **B(비-keypoint 신호)는 미채택 — 백로그
+  기록도 불요** (belle 이 "A"만 선택).
+- 기술 트랙 종결. facing 프로브 실측(2D Procrustes 토르소 회전 둔감 확정 + x-순서
+  부호 fix 판별 실패)은 아래 Evidence 절에 보존 — fix 미적용(belle 승인 조건 미충족)
+  판정 그대로 확정.
+- 남은 작업은 debug 가 아니라 **설계/구현 사이클** 항목 — 최종 Resolution 절 참조.
+- next_action: 없음 — 세션 archive (resolved/ 이동 + docs 커밋, push 없음).
 
 ## Evidence — 체크포인트 회신 반영 (2026-07-28 심야, 오케스트레이터 처리분 — 기록만)
 - **Pod 마이그레이션**: 구 ovblalej2102sb → 신 **8hrks3hrxmtgw6** (RTX 4090, Network
@@ -843,7 +836,71 @@ Pod 대기 중 191c296 에 대해 Python 코드리뷰 실행 → BLOCKER 1 / WAR
 - 각도 숫자 배지("81°"/"30°") 사용자 표기 부적절 (belle: 각도 인식 불가) — 제거 검토.
 - 대체문구 "전체 자세가 정은지 선수보다 덜 정돈된 편이에요" 비실행적 → 확정결함 리드 + "AI 공부 중" + 코치 라우팅.
 
-## Resolution (6차 — 각도 배지 제거 + 초 표기, ACTIVE — awaiting belle)
+## Resolution (최종 — 기술 트랙 종결, 2026-07-28)
+- **belle 최종 결정 (세션 종결 체크포인트, verbatim)**: **A 선택 — "A. 글로 흡수 (추천)"**.
+  facing 잔재는 수용하고, 이미 확정된 Ochy 탭-상세 글결합에서 "정은지는 이 순간 몸이
+  폴 쪽으로 더 감긴 상태" 류 설명으로 흡수. **B(비-keypoint 신호) 미채택 — 백로그
+  기록도 불요** (belle 이 "A"만 선택).
+
+### root_cause (누적 확정 — 라운드별 상세는 2~6차 Resolution 절)
+확대비교 크롭의 "전 카드 같은 프레임 / 기준 패널 엉뚱한 장면"은 단일 버그가 아니라 5겹:
+1. window 를 단일 프레임으로 뭉개 전 crop unit 재사용 (2차)
+2. 학생/기준 프레임 독립 선택으로 카드 내 DTW 짝 붕괴 (2차 서브)
+3. DTW 타이밍 정렬이 시각 포즈(국면·facing)를 보장하지 않음 + 탐색창(±2프레임) 구조적 부족 (3차)
+4. ref keypointReport ↔ 렌더 비디오 배열 타임베이스 4/3 불일치 — 모든 ref 패널이 ≈2.7s 이른 순간 표시 (4차)
+5. 역립 구간 keypoint 환각(무릎→머리, conf 0.68~0.70)이 단일프레임 conf argmax / pose 거리 신호를 기만 (5차)
+표시층 정리: 각도 배지 제거 + 초 표기(6차) → ref 패널 초 표기 제거(이번 라운드).
+**잔여 facing ~20°(같은 반회전 내 토르소 회전)는 8관절 2D 기하의 원리적 한계 — belle A 로 글결합 흡수.**
+
+### fix (커밋 체인 — 전부 표시 전용, 채점 무접촉 D-20)
+149b770(per-unit 프레임 선택) → ea55069(DTW position-lock) → 191c296+95ee80f(pose-match
++ 기저 고정) → 4cb272a(ref 타임베이스 선형 매핑 + conf 가중 게이트 재설계) →
+e8613e8(pair-opt ±2 궤적 평균 — 환각 자연 강등, 창 ±4s) → 79221f0(각도 배지 제거,
+초 표기) → 27635ce(ref 패널 초 표기 제거, 학생 패널만).
+
+### 이번 라운드 ("마지막 미세조정+보완") 종결 요약
+1. **ref 초 표기 제거 — 완전 종결** (27635ce): 구현 + 로컬 검증(fault_zoom 81 PASS,
+   전체 스위트 61f/12e baseline 동일) + Pod 실물 driven 렌더 3/3 직접 열람(학생 패널만
+   7.8s/8.2s, ref 패널 무표기).
+2. **어깨 미러 → facing 원인 규명**: 이미지 미러 아님(mirror_test_S74_R132 실증).
+   실체 = 같은 반회전 내 ~20° 토르소 회전(v130↔v132, sh dx −0.0955→−0.089 부호 불변)
+   — 얼굴/가슴 방향은 8관절 이름공간에 부재. **keypoint 기반 fix 의 원리적 한계 실증**:
+   x-순서 부호가 학생 u74·오답 r99·GT r97 3자 동일(sh −1/hip +1), 거리 격차 36.2%,
+   게이트 시뮬 승자 byte-동일(카드 이동 0) → belle 승인 조건(Pod 정량 A/B 통과) 미충족
+   → fix 미적용 → **belle A: Ochy 탭-상세 글결합으로 흡수 (확정)**.
+3. **무릎 질문 해결** ("위로 뻗은 다리의 굽은 무릎이 왜 안 잡혔나"): visionVeto.faultJoints
+   = [left_knee, right_knee, left_hip, right_hip] (deficit 각 20.0) — **채점은 4관절 전부
+   포착**. legs 묶음 카드가 대표관절(left_knee) 마커 1개만 표시해 화면에서 숨긴 것 =
+   **표시 문제** (채점 문제 아님).
+4. **설계 확정 (belle)**: 프레이밍 **D**(세로 패널 캡처 + 마커) + **Ochy 탭-상세**
+   (기본 = D 캡처 1장 → 부위 탭 = 확대크롭 + 감점근거 글) + **잡힌 관절 전부 마커**
+   (대표 1개 아님) + facing 설명 글 흡수(이번 A 결정).
+
+### 남은 작업 — debug 아님, 설계/구현 사이클 항목
+(a) 프레이밍 D 구현
+(b) 잡힌 관절 전부 마커 (visionVeto faultJoints 전체)
+(c) Ochy 탭-상세 = 확대크롭 + 감점근거 글 + facing 설명 흡수(belle A) + A-7 일러스트 슬롯
+(d) 앱+계약 변경 수반 — 시뮬 확인 후 OTA ([[verify-ui-on-simulator-before-ota]])
+
+### 잔여 후속 (유지 이관 — 별건/별도 사이클)
+① geminiSilent 플래그 지속(카드 생성은 회복, 부분) ② veto still 타임베이스(채점인접,
+belle 결정 동반) ③ app.py:2018 `(at or 0.0)` falsy-collapse ④ mode3/top-2 폴백 확대
+⑤ power-spin 등 비역립 전수 검증 ⑥ split_angle_degs 파라미터 정리(app.py 동반)
+
+### files_changed
+- backend/shared/python/sunity_shared/analysis/fault_zoom.py
+- backend/functions/pipeline/app.py (149b770 한정 — candidates pass-through)
+- backend/tests/test_fault_zoom.py, backend/tests/test_fault_zoom_relaxed_crop.py
+
+### verification (최종)
+- SCORE 60 (D-20) **6연속 불변** — 채점 무접촉 전 커밋 실증
+- belle 육안 수용: "진짜 많이 나아졌는데 이정도면 상관은 없긴한데" (3연속 반려 탈출)
+- 전체 스위트 61 fail/12 err = pre-existing baseline 동일, 회귀 0
+- driven 렌더 = 자연 렌더 S3 크롭 **md5 완전 일치** (출하 경로 대표성 실증)
+- ref 초 표기 제거 Pod 실물 3/3 직접 열람
+- belle 최종 결정 A 로 잔여 facing 잔차 처리 경로 확정 — 기술 트랙 종결
+
+## Resolution (6차 — 각도 배지 제거 + 초 표기, 구 — 최종으로 계승)
 - 트리거: belle 체크포인트 회신 "각도 배지는 빼고 초 표기로 바꿔줘" (설계질문 ① 답).
 - fix (commit 79221f0, fault_zoom.py + 테스트 2파일 — app.py 무접촉, 표시 전용 D-20):
   - `_mark` deficit 배지(우상단 N°) 제거 — circle 마커 무접촉. deficitDeg payload 유지.

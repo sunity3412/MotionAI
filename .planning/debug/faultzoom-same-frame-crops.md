@@ -2,30 +2,95 @@
 status: fixing
 trigger: "확대비교(fault-zoom) 크롭이 모든 결함 관절에 대해 같은 단일 프레임에서 잘려 나온다 — 결함별 최악 순간이 아니라 한 순간의 부위별 확대일 뿐. belle §6.6 재발 버그"
 created: 2026-07-25
-updated: 2026-07-28T11:25+09:00
+updated: 2026-07-28T23:55+09:00
 ---
 
-## Current Focus (ACTIVE — "마지막 미세조정+보완" 라운드, 2026-07-28 저녁 재개)
-- 안건 (벤치마킹 절에서 확정, 이 순서로):
-  1. **기준 패널 초 표기 제거** — belle 확정분(④). fault_zoom.py 의 ref 측 `_stamp_time`
-     호출 제거 + 테스트 갱신. display 전용, 채점 무접촉(D-20).
-  2. **어깨 미러/facing 조사** — (a) 매칭이 미러 프레임을 골랐나 vs (b) 정은지 원본이
-     반대 방향 회전이라 같은-facing 프레임 자체가 없나. 실측 = Pod (영상 로컬 부재 확인,
-     fixtures/reference mp4 로컬에 없음 — 2026-07-28 재확인).
-  3. **프레이밍 실험 렌더** — 세로 패널 / 전신(폴 포함) / 자동 드로잉 버전을 현행 크롭과
-     나란히 belle 육안용 한 벌. 실험 렌더(scratchpad 드라이버, 출하 코드 무접촉).
-  4. Ochy/글결합 설계 = belle 체크포인트 후에만 (무단구현 금지 유지).
-- hypothesis: (안건 1 은 조사 아님 — belle 확정 display 변경.) 안건 2 가설 2갈래는 위 (a)/(b).
-- test: 안건 1 = 유닛 픽셀 테스트 + Pod driven 렌더 + SCORE 60 불변. 안건 2 = ref 영상
-  전 구간 facing 실측(어깨 x-순서/육안 그리드) vs 학생 u74 facing.
-- expecting: 안건 2 에서 (b)로 판명되면 기술 fix 아님 → 표시/설명 설계(안건 4 계열)로 전환.
-- next_action: **belle 통합 체크포인트 대기** (안건 1 로컬검증 완료 / 안건 2 판별 완료 /
-  안건 3 실험 시트 S3 업로드 완료 — 아래 Evidence 절들). belle 회신 후:
-  ① Pod 기동되면 → 27635ce pull+서버 재기동 + driven 렌더(ref 무표기 실물 확인) +
-    facing 정량 프로브(R130 vs R132 스코어 분해, 매칭이 R132 를 고른 이유)
-  ② 프레이밍 방향(B/C/D) 결정 시 → 해당 방향 구현은 앱/계약 영향 검토 후 별도 사이클
-    (Ochy 글결합 설계와 한 세트 — 무단구현 금지 유지)
-  ③ facing fix (어깨/골반 x-순서 일치 신호) → Pod A/B 통과 시에만 구현.
+## Current Focus (ACTIVE — facing 프로브 완료: fix 후보 정량 FAIL → 미적용, 2026-07-29)
+- 체크포인트 회신 반영 완료 (오케스트레이터 처리분 4건 — 재실행 금지, 아래
+  "Evidence — 체크포인트 회신" 절에 기록): Pod 8hrks3hrxmtgw6 마이그레이션 /
+  안건 1 종결 / belle 설계 확정 기록 / belle 무릎 질문 해결.
+- **facing 정량 프로브 결과 (아래 Evidence 절, /workspace/_facing_probe.py 실측)**:
+  - 원인 가설(2D Procrustes 가 토르소 장축 회전에 둔감) = **확정** — 단 기전이 더
+    구체화됨: v130↔v132 의 facing 차이는 같은 반회전 안 ~20° 추가 회전이라 8관절
+    2D 기하에 거의 안 찍힘 (sh dx −0.0955→−0.089, 부호 불변).
+  - fix 후보(어깨/골반 x-순서 부호 게이트/가중) = **정량 A/B 전제조건 FAIL** —
+    부호가 오답(r99/v132)과 GT(r97/v130)를 구분 못함 (학생 u74·r99·r97 전부 sh −1,
+    hip +1 동일). 게이트 시뮬레이션: 승자 byte-동일(r99 유지) = 카드 이동 0.
+    가중으로 36.2% 거리 격차를 뒤집으려면 대형 λ 튜닝 = fixture overfit 금지 위반.
+  - **belle 승인 조건("Pod 정량 A/B 통과 시에만 적용") 미충족 → fix 미적용.**
+    출하 코드 무접촉 — 실측 근거만 기록 (checkpoint 지시 4항 그대로).
+- next_action: **belle 체크포인트** — facing 잔차는 keypoint 신호 한계(IN-01 계열)로
+  판정됨. 선택지 회부: (a) 잔차 수용 + Ochy 상세 글결합에서 설명으로 흡수(기확정
+  설계 사이클에 포함) (b) 비-keypoint 신호(프레임 화소/vision) 매칭 = 별도 사이클
+  비용 검토. 결정 전 무단구현 금지.
+
+## Evidence — 체크포인트 회신 반영 (2026-07-28 심야, 오케스트레이터 처리분 — 기록만)
+- **Pod 마이그레이션**: 구 ovblalej2102sb → 신 **8hrks3hrxmtgw6** (RTX 4090, Network
+  Volume 생존 → 셋업 계보 유효). SSH `ssh -i ~/.ssh/id_ed25519 -p 24943
+  root@213.173.103.156`, proxy `https://8hrks3hrxmtgw6-8000.proxy.runpod.net`.
+  bootstrap_full.sh 완료, `source /workspace/aws_env.sh && bash /workspace/start_server.sh`
+  로 기동, /health OK (commitSha **654f439**, RTMW+Gemini recognizer 로드). SSM
+  `/sunity/motion/runpod-analyze-url` + Lambda `sunity-motion-pilot-pipeline` env
+  RUNPOD_ANALYZE_URL → 신 proxy /analyze 동기화 완료 — **프로덕션 경로 복구.**
+  **서버 기동 중 — pkill 금지, 프로브는 별도 프로세스로.**
+- **안건 1 (ref 초 표기 제거) 종결**: 654f439 pull 후 _drive_build.py driven 렌더 3장
+  (/workspace/_fdump/drive_zoom_*.png)을 오케스트레이터가 직접 열람 — 학생 패널만
+  7.8s/8.2s, ref 패널 무표기, 3/3 확인. Pod 실물 검증까지 완료 = 안건 1 완전 종결.
+- **belle 설계 확정 3건**은 "belle 설계 확정" 절(654f439 커밋분)에 기존 기록 유지 —
+  프레이밍 D + Ochy 탭-상세 + facing fix 조건부 승인.
+- **belle 무릎 질문 해결** (belle: "위로 뻗은 다리의 굽은 무릎이 왜 안 잡혔나"):
+  - Pod 프로브 실측: visionVeto.faultJoints = [left_knee, right_knee, left_hip,
+    right_hip] (deficits 각 20.0) — **채점은 잡았음.** legs 묶음 카드가 대표관절
+    (left_knee) 마커 1개로만 표시해 화면에서 숨겨진 것 = **표시 문제.**
+  - kismam per-joint: left_knee Δ16.3 / right_knee Δ3.2 — 그러나
+    attributionReliability.unreliable=true (visibility 0.51, overTolJointCount 8,
+    geminiSilent true) → 좌우 귀속 신뢰 불가. **vision 이 kismam 놓친 것을 보완한 사례.**
+  - **설계 함의: D 캡처 마커는 "잡힌 관절 전부"에 붙여야 함 (대표 1개 아님)** —
+    Ochy 구현 사이클에 반영.
+- 환경: Pod python 에서 firestore_admin 사용 시 `source /workspace/aws_env.sh &&
+  export FIREBASE_SA_PATH=/workspace/firebase-sa.json AWS_DEFAULT_REGION=ap-northeast-2`.
+
+## Evidence — facing 정량 프로브: 스코어 분해 + fix 후보 부호 신호 판별 실패 (2026-07-29, Pod 8hrks3hrxmtgw6)
+- **방법**: /workspace/_facing_probe.py (읽기 전용 별도 프로세스, 서버 무접촉).
+  실 데이터 = elbowtwistINVCHK260727pose 학생 doc keypointReport + ref-elbow-twist-sister
+  referenceKeypointReport (검증된 _pair_probe.py 접근 패턴 그대로). 출하 수학 완전 재현:
+  `fz.select_pose_matched_pair` ground truth 가 e8613e8 렌더와 3카드 일치
+  (legs u70→r52/v70, shoulder u74→r99/v132, hand u74→r99/v132). 전 (u후보, ref후보)
+  궤적 평균 거리표 + 프레임별 어깨/골반 x-순서(부호·dx·conf) 덤프
+  (/workspace/_facing_probe_out.json, 로컬 사본 scratchpad).
+- **① R132 선호의 정량 분해 (어깨 카드)**: 승자 (u74, r99/v132) d=**0.6175** (전
+  쌍 global argmin). GT facing 일치 (u74, r97/v130) = **0.8412 = 36.2% 열세** (pos4
+  랭킹 16위). 최선 교차쌍 (u73, r97) = 0.7178 도 16.2% 열세. 2위 r98/v131=0.6508.
+  → 지표가 v132 를 압도적으로 선호 — 동률/노이즈가 아니라 구조적 선호.
+- **② 원인 가설 확정 + 기전 구체화**: ref sh 부호 시계열은 반회전 주기로 규칙적
+  진동(r87..r94=+1 → r95..r102=−1 → r105..r108=+1). belle GT 의 v130(가슴 카메라쪽)
+  과 오답 v132(가슴 폴쪽으로 감김)는 **같은 −1 반회전 내부의 ~20° 차이** (2 video
+  프레임): sh dx −0.0955 → −0.089 로 사실상 불변. 얼굴 방향(belle 의 지배적 시각
+  단서)은 8관절 이름공간에 없음. → 2D 관절 기하는 이 회전 위상차에 구조적으로 봉사
+  (지표는 대신 사지 형상 — 다리/팔 신전 — 이 최고인 v132 에 보상). 원인 가설
+  "2D Procrustes 토르소 장축 회전 둔감" **확정**.
+- **③ fix 후보(x-순서 부호 일치) 판별 실패 — 정량 A/B 전제조건 FAIL**:
+  - 부호 대조: 학생 u74 = sh **−1**(dx −0.120)/hip +1(+0.024) · 오답 r99 = sh
+    **−1**(−0.089)/hip +1(+0.004) · GT r97 = sh **−1**(−0.0955)/hip +1(+0.066,
+    단 hip conf 0.178/0.185 = 붕괴 직전). **세 프레임 부호 완전 동일 → 신호가
+    오답과 GT 를 원리적으로 구분 불가.**
+  - 게이트 시뮬레이션 (sh 부호 일치, 부호 0/부재 통과): 어깨 카드 승자
+    **byte-동일** (pos4 u74 r99 d=0.6175, 배제 28/73 후보 = r87..r94 계열 =
+    belle 이 이미 육안 강등한 R118 족만 걸러짐). **A/B 기준 (i) "어깨/손 카드
+    same-facing 이동" 충족 불가 — 카드 이동 0.**
+  - 가중 변형: 36.2% 거리 격차를 부호 불일치 벌점으로 뒤집으려면 대형 λ — 부호가
+    confusion 을 못 가르므로 어떤 λ 도 이 카드에선 무효, 게다가 λ 튜닝 자체가
+    fixture overfit 금지(judgment-must-not-fixate-on-recent-fixture) 위반.
+  - 퇴화 부호 빈발: 학생 u70 sh=0(dx 정확히 0) / r52 sh=0 / r89·r103·r104 부호 0 —
+    게이트에 엣지케이스 규칙 필요 = 효과 0 인 fix 에 취약성만 추가.
+- **④ 판정: belle 승인 조건 미충족 → fix 미적용 (출하 코드 무접촉).** A/B 기준
+  (ii)~(iv)는 (i) 실패로 무의미. legs 카드 회귀 위험 0 (변경 자체 없음).
+- **함의 (belle 결정 회부용, 무단구현 금지)**: 어깨/손 카드 facing 잔차 = **keypoint
+  신호 한계 (IN-01 계열)** — 시각 지배 단서(얼굴/가슴 방향, 반회전 내 ~20°)가 8관절
+  2D 기하에 부재. 경로: (a) 잔차 수용 + Ochy 탭-상세 글결합에서 "정은지는 이 순간
+  몸이 폴 쪽으로 더 감긴 상태" 류 설명으로 흡수 (기확정 설계 사이클에 포함, 추가
+  기술비용 0) (b) 비-keypoint 매칭 신호(프레임 화소/vision 임베딩) = 별도 사이클
+  (GPU/API 비용 + 검증 부담). 프로브 산출물: /workspace/_facing_probe{.py,_out.json}.
 
 ## Evidence — 안건 3 (프레이밍 실험 렌더) 완료 (2026-07-28, scratchpad 드라이버 — 출하 코드 무접촉)
 - **방법 (정직성 원칙)**: 소스 = frame_extractor 동일 해상도(360x640) 프레임 — 출하 가능

@@ -2920,6 +2920,8 @@ def _render_fault_zoom(
     split_angle_degs: tuple[float | None, float | None] | None = None,
     split_angle_present: bool = False,
     cached_user_frames=None,
+    criterion_units: list[dict] | None = None,
+    stamp_ref: bool = False,
 ) -> list[dict]:
     """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → comparisons 리스트.
 
@@ -2943,11 +2945,17 @@ def _render_fault_zoom(
     split_angle_present (quick-260705-wbs): 게이트 A — split_angle criterion 이 실제
     있는 confirmed 배치에만 True. advisory("측정 초과·확인 권장")는 확정 스플릿
     결함이 아니므로 항상 False(사이각 미드로잉). Mode3 도 default False(honest 생략).
+    criterion_units (33-12 A-5, seam #1): record-파생 crop unit — confirmed 배치에만
+    전달한다 (advisory 는 record 없는 참고 카드라 현행 tier 분리 유지, 33-A3 지침).
+    item 의 criterion 은 S3 키·앱 join 키가 된다. None = legacy fan-out.
+    stamp_ref (33-12 A-5, 6R 규칙 3): 회전류(technique category='spin' — 데이터
+    키잉, 동작명 하드코딩 금지) 비교쌍의 기준 패널 실영상 초 표기. confirmed·
+    advisory 두 배치 모두 적용 (둘 다 비교쌍).
     """
     from sunity_shared.analysis import fault_zoom
     from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
 
-    if not fault_joints:
+    if not fault_joints and not criterion_units:
         return []
     ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
     # Phase 27 Task 3 — 학생(user) 프레임 캐시 재사용(재추출 소멸). 동일 9fps/640px
@@ -2982,6 +2990,10 @@ def _render_fault_zoom(
         # (ref 대응 실패/미선언 관절/저신뢰/parity 불명/미세 delta)은 전부 fault_zoom
         # 안에 있다. 채점 무접촉 — 렌더 전용.
         draw_arrows=True,
+        # 33-12 (A-5 seam #1) — record-파생 criterion unit + 회전류 기준측 초 표기.
+        criterion_units=criterion_units,
+        stamp_ref=stamp_ref,
+        analysis_id=analysis_id,
     )
     # advisory 배치 (quick-260704-fz4) — 프레임 추출은 위 1회 재사용. joint_kinds
     # 'deficit' 은 좌+우 grouping(arms 1장) 활성용 내부 전달일 뿐, 방출 item 에는
@@ -3014,6 +3026,10 @@ def _render_fault_zoom(
             # 화살표도 같은 이유로 미드로잉 — "여기까지 올려야 함"은 확정 지시라
             # advisory("측정 초과·확인 권장") 카드에 얹으면 어조가 뒤집힌다.
             draw_arrows=False,
+            # advisory 는 record 없는 참고 카드 — criterion_units 미전달 (legacy
+            # fan-out, 33-A3 tier 분리 유지). 회전류 초 표기는 비교쌍 공통 적용.
+            stamp_ref=stamp_ref,
+            analysis_id=analysis_id,
         )
     out: list[dict] = []
     for tier, batch, key_prefix in (
@@ -3022,7 +3038,11 @@ def _render_fault_zoom(
         ("advisory", adv_comps, "zoom_adv_"),
     ):
         for c in batch:
-            skey = f"results/{uid}/{analysis_id}/{key_prefix}{c['joint']}.png"
+            # 33-12 (A-5) — criterion 카드는 criterion 을 S3 키로 사용 (record 별
+            # 카드 유일성 — 두 record 의 대표 관절이 같아도 키 충돌 없음). criterion
+            # 은 [a-z_] criteria id 라 S3-safe. legacy/advisory 는 종전 joint 키.
+            key_base = c.get("criterion") or c["joint"]
+            skey = f"results/{uid}/{analysis_id}/{key_prefix}{key_base}.png"
             _s3.put_object(
                 Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
             )
@@ -3061,6 +3081,12 @@ def _render_fault_zoom(
                 item["refFrameIdx"] = c["refFrameIdx"]
             if isinstance(c.get("refMatched"), bool):
                 item["refMatched"] = c["refMatched"]
+            # 33-12 (A-5 seam #1) — criterion pass-through (region/tier 선례 동일
+            # 조건부 복사). scalar str — flat 제약 통과. TS lockstep:
+            # FaultZoomComparison.criterion? + contract.md §11.7. 부재(legacy/
+            # advisory)=키 부재 → 앱은 keypoint 교집합 폴백 join.
+            if isinstance(c.get("criterion"), str):
+                item["criterion"] = c["criterion"]
             out.append(item)
     # Phase 27 SPD-04 (D-06) — result 부착 대신 comparisons 반환 (사후 update 경로).
     return out
@@ -3141,9 +3167,26 @@ def _build_fault_zoom_comparisons(
         fault_joints = [
             k for k, _ in sorted(joint_deltas.items(), key=lambda kv: -kv[1])[:2]
         ]
-    if not fault_joints:
+    # ── criterion-keyed crop unit (33-12 A-5, seam #1 — 33-A3 §4 확정) ─────────
+    # crop 단위를 **deductionBreakdown.records[](화면에 실제 표시되는 항목)**에서
+    # 파생한다 — 항목↔크롭이 출생부터 정합 (defect #5 근본: visionVeto.faultJoints
+    # 단독 파생은 화면 항목과 다른 관절 집합을 잘랐다, 33-A0 실측). vision record
+    # 는 faultJoints ∩ criterion 부위로 좁힌다 (전체 투영 금지). record 부재/빈
+    # 리스트(legacy doc·breakdown 미방출)는 None → 종전 fault_joints fan-out 보존.
+    _records = (result.get("deductionBreakdown") or {}).get("records")
+    criterion_units: list[dict] | None = None
+    if isinstance(_records, list) and _records:
+        criterion_units = _fz.criterion_units_from_records(
+            _records, fault_joints, _KISMAM_TO_KEYPOINT
+        )
+    if not fault_joints and not criterion_units:
         return []
     kinds = {j: "deficit" for j in fault_joints}
+    # criterion unit 멤버(record-파생 region 멤버 등)도 kind='deficit' — 앱 캡션
+    # ("기준보다 부족") 재료. fault_joints 밖 멤버가 kind 없이 방출되는 구멍 방지.
+    for _cu in criterion_units or []:
+        for _j in _cu.get("joints") or ():
+            kinds.setdefault(_j, "deficit")
     # advisory("측정 초과·확인 권장") 카드 배선 (quick-260704-fz4, CONTEXT locked).
     # windowMedianAngleDeltas(veto applied 에서만 존재 — Mode1 전용) 의 kismam
     # angle key 를 _KISMAM_TO_KEYPOINT 로 keypoint 매핑 후, 확정(fault_joints)
@@ -3174,7 +3217,6 @@ def _build_fault_zoom_comparisons(
     # split_vs_reference(reference_relative, vision-주입 kip-up 포함)는 measured
     # 가 편차라 표기하면 오독 → 수치 생략, 선+호만 (belle pod PNG 검증 2026-07-05
     # fix: 학생 라벨=deficit 50°/기준 라벨=0° 오표기). 채점 무접촉 — display 전용.
-    _records = (result.get("deductionBreakdown") or {}).get("records")
     split_degs = _fz.split_angle_degs_from_records(_records)
     # 게이트 A(quick-260705-wbs): split_angle criterion 이 records 에 있을 때만 legs
     # 사이각을 그린다. 존재 판정(split_present)과 수치(split_degs)를 분리 — kip-up
@@ -3194,6 +3236,10 @@ def _build_fault_zoom_comparisons(
         split_angle_degs=split_degs,
         split_angle_present=split_present,
         cached_user_frames=cached_user_frames,  # Phase 27 Task 3 — 학생 재추출 소멸
+        criterion_units=criterion_units,  # 33-12 A-5 — record-파생 crop unit
+        # 회전류 기준측 초 표기 (6R 규칙 3) — technique category 데이터 키잉
+        # (동작명 하드코딩 금지). 'spin' = 회전류 (technique.py category 어휘).
+        stamp_ref=getattr(profile, "category", None) == "spin",
     )
 
 
@@ -3256,13 +3302,24 @@ def _build_mode3_fault_zoom_comparisons(
 
     # 감점 record criterion → region 파생 (같은 region 중복 record = 카드 1장 dedupe,
     # 순서 = record 등장 순, 카드 수 상한 = 현행 top-2 유지).
+    # 33-12 (A-5 seam #1): region 별 첫 record 의 criterion 을 unit 에 실어 방출 —
+    # 앱 join 이 키 일치로 성립 (mode3 는 이미 record-파생이라 대상 선택은 불변,
+    # criterion 라벨만 추가). D-12 drop/같은 표시 규칙은 criterion unit 에 적용됨.
     records = (result.get("deductionBreakdown") or {}).get("records") or []
     regions: list[str] = []
+    crit_units: list[dict] = []
     for rec in records:
-        region = _MODE3_ZOOM_CRITERION_REGION.get(str((rec or {}).get("criterion", "")))
+        crit = str((rec or {}).get("criterion", ""))
+        region = _MODE3_ZOOM_CRITERION_REGION.get(crit)
         if region is not None and region not in regions:
             regions.append(region)
+            crit_units.append({
+                "criterion": crit,
+                "joints": _MODE3_ZOOM_REGION_MEMBERS[region],
+                "region": region,
+            })
     regions = regions[:2]
+    crit_units = crit_units[:2]
     if not regions:
         # 29-CONTEXT D-08 — 감점 record 없으면 zoom 카드 없음 = 의도된 동작
         # (4/5 빈 criteria 동작 자연 귀결 + line 등 비매핑 criterion 뿐인 경우 포함).
@@ -3300,6 +3357,9 @@ def _build_mode3_fault_zoom_comparisons(
             # _pipeline_frame_fps() = frame_extractor target_fps 단일 출처(리터럴 금지).
             dtw_ref_fps=_pipeline_frame_fps(),
             cached_user_frames=cached_user_frames,  # Phase 27 Task 3 — 학생 재추출 소멸
+            criterion_units=crit_units,  # 33-12 A-5 — record criterion 키 방출
+            # 회전류 기준측 초 표기 (6R 규칙 3) — mode3 도 비교쌍이라 동일 적용.
+            stamp_ref=getattr(profile, "category", None) == "spin",
         )
     finally:
         _safe_unlink_local_video(prev_video_path)

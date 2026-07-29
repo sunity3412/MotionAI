@@ -89,6 +89,107 @@ _REGION_JOINTS: dict[str, frozenset[str]] = {
 # grouped bbox crop 마진 — 멤버 관절 전체 + 주변 컨텍스트.
 _BBOX_MARGIN = 1.8
 
+# ── criterion-keyed crop (33-12 A-5, seam #1 — 33-A3 §4 확정) ────────────────
+# crop 단위를 visionVeto.faultJoints 가 아니라 deductionBreakdown.records[](화면
+# 표시 항목)에서 파생시키는 투영 규칙의 데이터. 3면 미러 계약 (측당 1벌, 항목 동일
+# 유지 필수): 앱 deductionLabels.ts CRITERION_REGION_KEYPOINTS/REGION_MEMBER_KEYPOINTS
+# + pipeline _MODE3_ZOOM_CRITERION_REGION/_MODE3_ZOOM_REGION_MEMBERS.
+# line·dimension_overall_fallback 은 의도적 미등록 — collective 전신 criterion 이라
+# 특정 부위 카드가 오도 (29-04 앱 무투영 결정 정합).
+CRITERION_REGION: dict[str, str] = {
+    "split_angle": "legs",
+    "leg_extension": "legs",
+    "arm_extension": "arms",
+}
+# region 대표 멤버 — keypointReport 8-keypoint 이름공간 (앱 REGION_MEMBER_KEYPOINTS
+# 미러). _REGION_JOINTS(확장 이름공간 포함)는 소속 판정용, 이 튜플은 카드 멤버용.
+REGION_MEMBERS: dict[str, tuple[str, ...]] = {
+    "legs": ("left_hip", "right_hip", "left_knee", "right_knee"),
+    "arms": ("left_shoulder", "right_shoulder", "left_hand", "right_hand"),
+}
+# 앱 deductionLabels.ts ANGLE_VS_REFERENCE_PREFIX 미러 (관절별 reference_relative).
+ANGLE_VS_REFERENCE_PREFIX = "angle_vs_reference__"
+
+
+def criterion_units_from_records(
+    records,
+    fault_joints,
+    angle_key_to_keypoint: dict[str, str],
+    max_units: int = 4,
+) -> list[dict]:
+    """감점 record → criterion-keyed crop unit 리스트 (순수, boto3/이름공간 무지).
+
+    A-3 seam #1 (33-A3 §4 — 재론 금지): crop 이 "그 criterion 이 계측한 부위"에서
+    태어나면 항목↔크롭 정합이 조인이 아니라 출생으로 보장된다 (D-12, defect #5 근본).
+    투영 규칙 = 앱 projectDeductionRecordKeypoints 백엔드 미러 + vision 좁힘:
+
+      (1) dimension_overall_fallback · unit=='score_delta' → 미생성.
+      (2) angle_vs_reference__{jk} → angle_key_to_keypoint 단일 관절 (미매핑 skip).
+      (3) source=='vision' → **faultJoints ∩ criterion 부위** (전체 투영 금지 —
+          다리 스플릿 항목이 어깨 crop 을 얻는 defect #5 의 근본). 부위 미상
+          criterion 은 기존 전체 투영 유지, 교집합 공집합은 부위 멤버 폴백.
+      (4) 그 외(ipsf geometry) → CRITERION_REGION → REGION_MEMBERS. line·미등록
+          → 미생성 (앱 무투영 결정 미러).
+
+    angle_key_to_keypoint 는 호출측(pipeline._KISMAM_TO_KEYPOINT) 소유 — 본 모듈은
+    kismam 이름공간 무지 유지 (select_advisory_joints 관례 동일). 중복 criterion 은
+    첫 record 승(S3 키·join 키 유일성), 상한 max_units. 반환 항목 =
+    {"criterion": str, "joints": tuple[str, ...], "region": str | None}.
+    표시 전용, 채점 무접촉 (D-20) — records 는 읽기만 한다.
+    """
+    if not isinstance(records, list):
+        return []
+    pool = [str(j) for j in (fault_joints or []) if j]
+    out: list[dict] = []
+    seen: set[str] = set()
+    for rec in records:
+        if len(out) >= max(0, int(max_units)):
+            break
+        if not isinstance(rec, dict):
+            continue
+        crit = rec.get("criterion")
+        if not isinstance(crit, str) or not crit or crit in seen:
+            continue
+        if crit == "dimension_overall_fallback" or rec.get("unit") == "score_delta":
+            continue
+        joints: list[str] = []
+        region: str | None = None
+        if crit.startswith(ANGLE_VS_REFERENCE_PREFIX):
+            kp = (angle_key_to_keypoint or {}).get(
+                crit[len(ANGLE_VS_REFERENCE_PREFIX):]
+            )
+            if kp is None:
+                continue
+            joints = [str(kp)]
+        elif rec.get("source") == "vision":
+            region = CRITERION_REGION.get(crit)
+            if region is None:
+                joints = list(pool)
+            else:
+                members = _REGION_JOINTS.get(region, frozenset())
+                joints = [j for j in pool if j in members]
+                if not joints:
+                    joints = list(REGION_MEMBERS[region])
+        else:
+            region = CRITERION_REGION.get(crit)
+            if region is None:
+                continue
+            joints = list(REGION_MEMBERS[region])
+        # dedupe (순서 보존) — 빈 unit 은 미생성.
+        ordered: list[str] = []
+        for j in joints:
+            if j not in ordered:
+                ordered.append(j)
+        if not ordered:
+            continue
+        seen.add(crit)
+        out.append({
+            "criterion": crit,
+            "joints": tuple(ordered),
+            "region": region,
+        })
+    return out
+
 # 완화(relaxed) crop 확대 배율 — **display 전용, 채점 무접촉** (Phase 25-03).
 # Phase 32 (D-20): 프레이밍에는 더 이상 적용하지 않는다 — relaxed 프레이밍이 valid
 # 대비 2배 넓어 "정은지 crop 이 비교와 안 맞음"(belle 실기기)이라, _side_crop 의 relaxed
@@ -106,6 +207,10 @@ class _CropUnit:
     joint: str  # 대표 keypoint (S3 key / TS 계약의 joint 필드)
     members: tuple[str, ...]  # crop bbox 에 담을 keypoint 전부 (단일이면 (joint,))
     region: str | None  # "legs" | "arms" | None
+    # 33-12 (A-5 seam #1) — 이 crop 을 낳은 감점 record 의 criterion id.
+    # None = legacy fan-out(_group_fault_joints)/advisory — 기존 동작 byte-보존.
+    # 보유 시 item 에 scalar 로 방출 + D-12 drop/같은 표시 규칙 적용.
+    criterion: str | None = None
 
 
 def _group_fault_joints(
@@ -1764,6 +1869,8 @@ def build_fault_zoom_comparisons(
     split_angle_present: bool = False,
     draw_arrows: bool = False,
     analysis_id: str | None = None,
+    criterion_units: list[dict] | None = None,
+    stamp_ref: bool = False,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -1814,6 +1921,19 @@ def build_fault_zoom_comparisons(
       legs 카드에는 그리지 않는다 — 호(벌림각)와 화살표(발끝 목표)가 같은 발목 주변에
       겹쳐 시각 언어가 충돌하므로 v1 은 한 카드에 하나만 (게이트 A/B 선례와 동일 취지,
       병행 렌더는 31-12 실 fixture 시각 게이트 후 재검토). reference 측은 무접촉.
+    criterion_units (33-12 A-5, seam #1 — 33-A3 §4): criterion_units_from_records
+      산출({"criterion","joints","region"} 리스트). 주어지면 fault_joints fan-out
+      (_group_fault_joints) 대신 record-파생 unit 으로 카드를 만들고 item 에
+      `criterion` scalar 를 방출한다 — 항목↔크롭이 출생부터 정합 (defect #5 근본).
+      이 경로에만 D-12 카드 불변식이 강제된다: ① 같은 순간 불가(ref 대응 실패) ·
+      ② 같은 배율 불가(한 측 full 폴백) → 카드 미방출(drop) · ③ 같은 표시 —
+      기준(정은지) 측도 마킹(원, legs 사이각은 양측 모두 가능할 때만 둘 다).
+      None(default) = legacy 경로 byte-보존 (D-04 정직 폴백 refMatch='failed' 유지 —
+      mode1 record 부재 doc·advisory 배치·기존 테스트 하위호환).
+    stamp_ref (33-12 A-5, 6R 규칙 3 — 07-25 "기준측 초 제거"의 belle amendment):
+      True 면 기준(정은지) 패널에도 실영상 초 타임스탬프를 찍는다. 회전류 동작은
+      프레임이 비슷해 초가 유일한 프레임 구분자 — 회전류 판정은 호출측(pipeline)이
+      technique category 데이터로 키잉한다 (동작명 하드코딩 금지, 이름공간 무지).
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
@@ -1899,7 +2019,24 @@ def build_fault_zoom_comparisons(
             r_kp_idx = r_rep_frames // 2 if r_rep_frames > 0 else 0
 
     deltas = joint_deltas or {}
-    for unit in _group_fault_joints(list(fault_joints), joint_kinds):
+    # ── unit 파생 (33-12 A-5) — criterion_units 주어지면 record-파생, 아니면
+    # 기존 fault_joints fan-out byte-보존 (legacy/advisory/mode 무회귀).
+    if criterion_units is not None:
+        units: list[_CropUnit] = []
+        for cu in criterion_units:
+            joints = [str(j) for j in (cu.get("joints") or ()) if j]
+            if not joints:
+                continue
+            crit = cu.get("criterion")
+            units.append(_CropUnit(
+                joint=joints[0],
+                members=tuple(joints),
+                region=cu.get("region"),
+                criterion=str(crit) if crit else None,
+            ))
+    else:
+        units = _group_fault_joints(list(fault_joints), joint_kinds)
+    for unit in units:
         if len(out) >= max_items:
             break
         # ── 관절별 프레임 선택 + DTW 정렬 (faultzoom-same-frame-crops fix) ────
@@ -2024,6 +2161,12 @@ def build_fault_zoom_comparisons(
                         r_kp_idx_unit = _to_rep_idx(
                             r_idx_unit, frames_fps, r_rep_fps, r_rep_frames
                         )
+        if unit.criterion is not None and ref_match_failed_unit:
+            # D-12 ① 같은 순간 불가 (33-12 A-5) — criterion 카드는 기준 프레임
+            # 대응이 성립하지 않으면 방출하지 않는다 (불일치 쌍 미노출). legacy
+            # 경로는 D-04 정직 폴백(전신+refMatch='failed') byte-보존 — 구 doc·
+            # advisory·기존 테스트 하위호환 (test_fault_zoom_ref_match 박제).
+            continue
         u_valid, u_relaxed = _member_pts(user_report, u_kp_idx_unit, unit.members)
         if ref_match_failed_unit:
             # 대응 실패 = ref 측 전신 폴백 강제 (D-04). 좌표 계산을 건너뛰고 빈
@@ -2061,24 +2204,42 @@ def build_fault_zoom_comparisons(
                 u_relaxed,
                 anchor=_anchor_xy(u_valid, deltas) if u_valid else None,
             )
-            # 게이트 B 로 ref 측 사이각 미드로잉 → kind/box 미사용(선 없는 crop).
-            r_img, _r_kind, _r_anchor, _r_box = _side_crop(
-                r_frame, [xy for _n, xy in r_valid], r_relaxed
+            # ref 측 crop — criterion 카드(33-12 A-5)는 anchor 를 넘겨 학생과 같은
+            # 시각 언어(원 마커)를 얻는다 (defect #1). legacy 는 게이트 B 로 무마킹.
+            r_img, r_kind, r_anchor, r_box = _side_crop(
+                r_frame,
+                [xy for _n, xy in r_valid],
+                r_relaxed,
+                anchor=_anchor_xy(r_valid, deltas) if r_valid else None,
             )
+            if unit.criterion is not None and (
+                u_kind == "full" or r_kind == "full"
+            ):
+                # D-12 ② 같은 배율 불가 (33-12 A-5) — 한 측이 전신 폴백이면 두
+                # 사진의 배율이 다르다 (contain-fit vs 부위 zoom). criterion 카드는
+                # 미방출. valid/relaxed 는 프레이밍 배율이 통일돼(32-01 D-20) 배율
+                # parity 성립 — drop 대상 아님.
+                continue
             # D-20 (32-CONTEXT): crop side px 구조 로그 (관측 전용, 채점/방출 무접촉).
             # 32-03 전수 스윕이 육안 비교에 더해 user/ref side 비(0.8~1.25)로 프레이밍
             # 수치 parity 를 판정하는 재료. box 는 (left, top, side) — full 폴백은 None
             # (crop 박스 없음). analysis_id 는 caller 가 넘긴 로그 상관 키(미지정=None).
+            # crop provenance (33-12 A-5, D-06/D-05) — criterion·관절·프레임은
+            # **내부 검수 로그 전용**. 화면 라벨로 렌더하지 않는다 (앱은 이 값을
+            # 캡션에 노출하지 않음). 33-16 재분석 검수가 이 로그로 item↔crop
+            # criterion 전수 대조를 수행한다 (D-18).
             log.info(
-                "fault_zoom_crop analysis_id=%s region=%s "
+                "fault_zoom_crop analysis_id=%s region=%s criterion=%s "
                 "user_kind=%s user_side_px=%s ref_kind=%s ref_side_px=%s "
-                "ref_rep_idx=%s ref_video_idx=%s",
+                "user_frame=%s ref_rep_idx=%s ref_video_idx=%s",
                 analysis_id,
                 unit.region or unit.joint,
+                unit.criterion or "none",
                 u_kind,
                 u_box[2] if u_box is not None else "full",
-                _r_kind,
-                _r_box[2] if _r_box is not None else "full",
+                r_kind,
+                r_box[2] if r_box is not None else "full",
+                u_idx_unit,
                 r_idx_unit,
                 r_display_idx,
             )
@@ -2091,19 +2252,39 @@ def build_fault_zoom_comparisons(
             # hip+knee), 사이각은 "다리 벌림"의 시각 언어라 스플릿 아닌 결함에
             # 그리면 오독을 낳는다 → 스플릿 아닌 legs 카드는 이 블록 미진입, 아래
             # 기존 circle 렌더로 복귀한다.
-            # 게이트 B(quick-260705-wbs) — 학생(user) 측만 그린다. 정은지(ref) 측은
-            # kip-up 도립 pose 부정확으로 선이 폭주(pose 한계)해 선 없는 crop 유지.
-            # TODO(Phase 22): 자체학습 pose 개선 후 정은지(ref) 측 사이각 재활성.
+            # 게이트 B(quick-260705-wbs) — legacy 경로는 학생(user) 측만 그린다.
+            # criterion 경로(33-12 A-5)는 게이트 B 를 **완화**한다 (defect #1):
+            # D-12 같은 표시 — 학생·기준 **양측 모두** 그릴 수 있을 때만 둘 다
+            # 그리고, 한쪽이라도 게이트(conf _gated_kp + crop 포함 _pt_in_crop +
+            # degenerate) 미달이면 양쪽 다 선을 긋지 않고 원 마커로 폴백한다
+            # (비대칭 표시 금지 — 확신 없는 모양선은 긋지 않는다). 구 게이트 B 의
+            # 사유였던 kip-up ref 선 폭주는 crop 포함 게이트(quick-260705-r6x)가
+            # 방어하므로 무조건 차단 대신 게이트 통과 조건부로 전환한다.
             u_drew_legs = False
+            r_drew_legs = False
             if (
                 unit.region == "legs"
                 and split_angle_present
                 and u_kind == "valid"
                 and u_box is not None
             ):
-                u_drew_legs = _draw_side_leg_angle(
-                    u_img, u_frame, user_report, u_kp_idx_unit, u_box
-                )
+                if unit.criterion is not None:
+                    if r_kind == "valid" and r_box is not None:
+                        r_try = r_img.copy()
+                        if _draw_side_leg_angle(
+                            r_try, r_frame, ref_report, r_kp_idx_unit, r_box
+                        ):
+                            u_try = u_img.copy()
+                            if _draw_side_leg_angle(
+                                u_try, u_frame, user_report, u_kp_idx_unit, u_box
+                            ):
+                                u_img, r_img = u_try, r_try
+                                u_drew_legs = True
+                                r_drew_legs = True
+                else:
+                    u_drew_legs = _draw_side_leg_angle(
+                        u_img, u_frame, user_report, u_kp_idx_unit, u_box
+                    )
             # user 측: 사이각을 그렸으면 원 생략(선/호와 시각 언어 충돌 방지),
             # 아니면 기존 규칙 그대로. 각도 배지 없음(belle 2026-07-28) —
             # deficit 은 payload deficitDeg 로만 방출.
@@ -2139,14 +2320,29 @@ def build_fault_zoom_comparisons(
                             (u_box[0], u_box[1], u_box[2], u_w, u_h),
                         ),
                     )
-            # ref 측은 _mark/사이각 모두 없음 — 선 없는 crop 그대로(게이트 B).
-            # 타임스탬프 (belle #3 요구 4 → belle ④ 2026-07-28 개정): **학생 패널만**.
-            # 기준(정은지) 패널 초 표기는 제거 — 앱 동작비교의 싱크 미세조정(앞/뒤)
-            # 값을 서버 렌더가 알 수 없어, 조정한 사용자에게 원시 초가 박히면
-            # 오히려 혼란 (belle 확정 + Claude 동의). display 전용, 채점 무접촉.
+            # 기준(정은지) 측 마킹 (33-12 A-5, defect #1 — D-12 같은 표시):
+            # criterion 카드만 학생과 같은 시각 언어를 적용한다 — valid 면 원 마커
+            # (앵커 = 결함 관절), legs 선+호는 위 both-or-neither 에서 처리. relaxed
+            # 는 anchor_px=None 생략 게이트 유지(확신 없는 표식 금지). legacy 카드는
+            # 종전 게이트 B(무마킹) byte-보존.
+            if unit.criterion is not None and not r_drew_legs:
+                r_img = _mark(
+                    r_img, circle=r_kind == "valid", anchor_px=r_anchor
+                )
+            # 타임스탬프 (belle #3 요구 4 → belle ④ 2026-07-28 개정 → 6R amendment
+            # 2026-07-28): 학생 패널 상시. 기준(정은지) 패널은 **stamp_ref(회전류)**
+            # 일 때만 — 회전 동작은 프레임이 비슷해 초가 유일한 프레임 구분자라
+            # 07-25 제거 결정을 belle 이 회전류 한정으로 수정했다 (6R 규칙 3).
+            # 회전류 판정은 호출측이 technique category 데이터로 키잉 (동작명
+            # 하드코딩 금지). display 전용, 채점 무접촉.
             u_crop = _stamp_time(
                 u_crop, u_idx_unit / frames_fps if frames_fps > 0 else None
             )
+            if stamp_ref:
+                r_img = _stamp_time(
+                    r_img,
+                    r_display_idx / frames_fps if frames_fps > 0 else None,
+                )
             png = _compose(u_crop, r_img)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue
@@ -2169,6 +2365,11 @@ def build_fault_zoom_comparisons(
             item["kind"] = kind
         if unit.region:
             item["region"] = unit.region
+        # 33-12 (A-5 seam #1) — criterion scalar 방출: 앱 join 의 키 일치 재료.
+        # scalar str 이라 _validate_dict_only_scalars flat 제약 통과. 3-way
+        # lockstep: analysis.ts FaultZoomComparison.criterion? + contract.md §11.7.
+        if unit.criterion:
+            item["criterion"] = unit.criterion
         # D-04 provenance scalar (region 선례 형식) — 기준 프레임 대응 성공='dtw',
         # 실패='failed'(전신 폴백). override(ref_frame_idx)는 vision 측정 프레임
         # 정합이 보장되므로 'dtw' 취급. scalar str 이라 _validate_dict_only_scalars

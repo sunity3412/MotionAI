@@ -532,6 +532,11 @@ PIPELINE_SEQUENCE = (
 #   (result.faultZoomStatus)로 유지한다. 3-way lockstep 은 analysis.ts
 #   AnalysisResult.faultZoomStatus? + firestore_admin.update_analysis_fault_zoom +
 #   contract.md faultZoomStatus 절.
+#   item 형상 참고 (33-12 A-5): faultZoomComparisons[] item 은 scalar-only 로
+#   region/tier/refMatch 선례에 더해 `criterion`(이 crop 을 낳은 감점 record 의
+#   criterion id — 앱 join 키 일치 재료)을 조건부 방출한다. item 필드 lockstep 은
+#   analysis.ts FaultZoomComparison + fault_zoom/pipeline 방출부 주석 +
+#   contract.md §11.7 (본 모듈은 status enum 만 소유 — §11.6 refMatch 선례).
 FAULT_ZOOM_STATUS_PENDING = "pending"
 FAULT_ZOOM_STATUS_DONE = "done"
 FAULT_ZOOM_STATUS_FAILED = "failed"

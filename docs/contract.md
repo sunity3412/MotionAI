@@ -1757,6 +1757,17 @@ const frameIdx = Math.floor(currentTime * report.fps);
 
 `FaultZoomComparison` 에 `refMatch?: 'dtw' | 'failed'` scalar 를 추가한다 — 기준(정은지) 측 프레임 대응 provenance. `'failed'`=DTW 대응 실패로 전신 폴백(앱이 "동작 대응 실패 — 전신 비교" 캡션 렌더), **부재(legacy)**=캡션 없음(하위호환). 동작 기반 정렬로 부위-정합 crop 을 시도했으나 실패한 케이스를 사용자에게 조용히 숨기지 않고 명시(analysis.ts `FaultZoomComparison` 주석 + Python 방출부 주석 lockstep — region/tier 선례와 동일).
 
+### §11.7 FaultZoomComparison.criterion (33-12 A-5 — seam #1, D-12)
+
+`FaultZoomComparison` 에 `criterion?: string` scalar 를 추가한다 — 이 crop 을 낳은 감점 record 의 criterion id (예: `angle_vs_reference__left_knee`, `split_angle`).
+
+- **출생 정합 (33-A3 §4 확정):** crop 단위는 `visionVeto.faultJoints` 단독이 아니라 **`deductionBreakdown.records[]`(화면 표시 항목)가 가리키는 관절 집합**에서 파생한다 (`fault_zoom.criterion_units_from_records`). vision record 는 faultJoints ∩ criterion 부위로 좁힌다 (전체 투영 금지 — "다리 스플릿 항목에 어깨 crop" defect 근본 수리).
+- **join 규칙:** 앱은 criterion 키 일치를 1차로 조인한다 (`deductionLabels.matchZoomForDeductionRecord`). criterion 보유 카드는 keypoint 교집합 추측 조인 대상이 아니다. **부재(legacy doc·advisory)** = 기존 교집합 폴백 (하위호환, `tier?` 서술 모범 — no migration).
+- **D-12 카드 불변식 (criterion 카드 한정):** 같은 순간(기준 프레임 대응 실패)·같은 배율(한 측 전신 폴백)이 성립하지 않으면 그 카드는 방출하지 않는다 (drop — 불일치 쌍 미노출). legacy 경로는 §11.6 의 D-04 정직 폴백을 유지한다. 같은 표시 — criterion 카드는 기준(정은지) 측도 학생과 같은 시각 언어(원 마커, legs 사이각은 양측 모두 가능할 때만 둘 다)로 그린다.
+- **S3 키:** criterion 카드는 `zoom_{criterion}.png` (record 별 유일 — 대표 관절 충돌 방지). legacy/advisory 는 종전 `zoom_{joint}.png`/`zoom_adv_{joint}.png`.
+- **provenance 내부 전용 (D-06/D-05):** crop 의 criterion·관절·프레임 provenance 는 서버 구조 로그(`fault_zoom_crop`)에만 기록한다 — 화면 라벨로 렌더하지 않는다.
+- 3-way lockstep: `analysis.ts FaultZoomComparison.criterion?` ↔ `fault_zoom.py`/`pipeline _render_fault_zoom` 방출부 ↔ 본 절 (models.py 는 status 만 소유 — §11.6 선례).
+
 ---
 
 ## §12. 미션 루프 + 번역 레이어 방출 (Phase 32 Plan 32-06 신설 — D-08/D-19/D-26/D-27/D-28/D-29/D-14)

@@ -484,6 +484,17 @@ export interface FaultZoomComparison {
   userFrameIdx?: number;
   refFrameIdx?: number;
   refMatched?: boolean;
+  /**
+   * 33-12 (A-5, seam #1 — 33-A3 §4) — 이 crop 을 낳은 감점 record 의 criterion id.
+   * crop 이 deductionBreakdown.records[] 에서 태어나(criterion-keyed) 항목↔크롭
+   * 정합이 조인이 아니라 출생으로 보장된다 (D-12, defect #5 근본 수리). 앱 join 은
+   * 키 일치가 1차 — criterion 보유 카드는 keypoint 교집합 추측 조인 대상이 아니다
+   * (deductionLabels.ts matchZoomForDeductionRecord). 부재(legacy doc·advisory)=
+   * 기존 교집합 폴백 (tier?/refMatch? 선례 — no migration). Python lockstep:
+   * fault_zoom.criterion_units_from_records + pipeline _render_fault_zoom 방출 +
+   * contract.md §11.7.
+   */
+  criterion?: string;
 }
 
 // Phase 28 (ALGN-01 동작 기반 비교 정렬) — 학생(left)=master 시계 불변, 정은지(right)만

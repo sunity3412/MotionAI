@@ -51,7 +51,6 @@ import {
   ANGLE_VS_REFERENCE_PREFIX,
   JOINT_LABEL_KO,
   KEYPOINT_FROM_ANGLE_KEY,
-  REGION_MEMBER_KEYPOINTS,
   buildDeductionMarkers,
   buildDeductionTicks,
   composeScoringBasisKo,
@@ -59,6 +58,7 @@ import {
   criterionLabelKo,
   formatDeductionNumber,
   isCleanPass,
+  matchZoomForDeductionRecord,
   projectDeductionRecordKeypoints,
 } from '../../lib/deductionLabels';
 import { reshapePose3dData } from '../../lib/joints';
@@ -1318,24 +1318,17 @@ function AnalysisResultContent({
     detailRecordIndex != null
       ? markers.recordNumbers[detailRecordIndex] ?? null
       : null;
-  // zoom 매칭 — 선택 record 투영 keypoint ∩ faultZoomComparisons (joint 또는
-  // REGION_MEMBER_KEYPOINTS[region]). tier='confirmed'(또는 tier 부재 legacy)만 —
-  // advisory 는 감점 시트에 오매칭 금지 (planner_findings 7). 없으면 null (사진 없이
-  // 수치·문구만 — graceful).
+  // zoom 매칭 (33-12 A-5, seam #1) — criterion 키 일치 1차 + legacy 교집합 폴백.
+  // 규칙 단일 출처 = deductionLabels.matchZoomForDeductionRecord (region-first
+  // 첫 매치 추측 조인 제거 — defect #5 앱측 반쪽). advisory 는 감점 시트에
+  // 오매칭 금지 (기존 규칙). 없으면 null (사진 없이 수치·문구만 — graceful).
   const selectedZoom = useMemo<FaultZoomComparison | null>(() => {
     if (!selectedRecord) return null;
-    const kps = new Set(
-      projectDeductionRecordKeypoints(selectedRecord, vetoFaultJoints),
+    return matchZoomForDeductionRecord(
+      selectedRecord,
+      vetoFaultJoints,
+      result.faultZoomComparisons ?? [],
     );
-    if (kps.size === 0) return null;
-    for (const z of result.faultZoomComparisons ?? []) {
-      if (z.tier === 'advisory') continue;
-      const zoomKps: KeypointName[] = z.region
-        ? [...(REGION_MEMBER_KEYPOINTS[z.region] ?? [])]
-        : [z.joint];
-      if (zoomKps.some((k) => kps.has(k))) return z;
-    }
-    return null;
   }, [selectedRecord, vetoFaultJoints, result.faultZoomComparisons]);
   // actionPhrase — 범례와 동일 소스 (문구 이중화 금지).
   const selectedActionPhrase = selectedRecord
@@ -1637,20 +1630,15 @@ function AnalysisResultContent({
     tolerance: rec.tolerance,
   });
 
-  // 결함 zoom(userFrameIdx 보유) 조인 매처 — 기존 selectedZoom 투영 규칙과 동일
-  // (keypoint 투영 ∩ zoom joint/region, advisory 제외). cueWindows·recordMaps 공용.
-  const matchZoomForRecord = (rec: DeductionRecord): FaultZoomComparison | null => {
-    const kps = new Set(projectDeductionRecordKeypoints(rec, vetoFaultJoints));
-    if (kps.size === 0) return null;
-    for (const z of result.faultZoomComparisons ?? []) {
-      if (z.tier === 'advisory') continue;
-      const zoomKps: KeypointName[] = z.region
-        ? [...(REGION_MEMBER_KEYPOINTS[z.region] ?? [])]
-        : [z.joint];
-      if (zoomKps.some((k) => kps.has(k))) return z;
-    }
-    return null;
-  };
+  // 결함 zoom(userFrameIdx 보유) 조인 매처 — selectedZoom 과 동일 단일 출처
+  // (deductionLabels.matchZoomForDeductionRecord — 33-12 A-5 criterion 키 일치
+  // 1차 + legacy 교집합 폴백, advisory 제외). cueWindows·recordMaps 공용.
+  const matchZoomForRecord = (rec: DeductionRecord): FaultZoomComparison | null =>
+    matchZoomForDeductionRecord(
+      rec,
+      vetoFaultJoints,
+      result.faultZoomComparisons ?? [],
+    );
 
   // 강사 질문 — 자동 수집(result.coachQuestions, D-28) + legacy 폴백
   // (openQuestionsForCoach, coachQuestions 부재 doc만) + 사용자 담기(source 'user').

@@ -11,6 +11,7 @@
 import type {
   DeductionBreakdown,
   DeductionRecord,
+  FaultZoomComparison,
   KeypointName,
   VisionVeto,
 } from '../types/analysis';
@@ -209,15 +210,21 @@ export function composeScoringBasisKo(
 // recordProjectedKeypoints)의 규칙을 여기로 이관해 "동일 규칙" 페어링을 실현한다
 // (규칙 1벌). 전부 저장값 read-only — 재계산/재해석 0.
 //
-// **평가 순서 고정 (mode1 무회귀):** 기존 3규칙에 전부 비매치인 record 에만
-// ipsf_absolute criterion 테이블을 적용 — 분기 순서상 마지막. mode1 의
-// vision-sourced split_angle record 는 종전대로 (3) vision 분기에서 faultJoints
-// (vision 확정 부분집합)로 투영되고, 테이블의 legs 고정 4관절로 절대 바뀌지 않는다
-// (테이블을 vision 앞에 두면 mode1 그룹 마커 멤버·centroid 가 조용히 드리프트 — 금지).
+// **평가 순서 고정:** 기존 3규칙에 전부 비매치인 record 에만
+// ipsf_absolute criterion 테이블을 적용 — 분기 순서상 마지막.
 //   (1) dimension_overall_fallback · unit='score_delta' → []
 //   (2) angle_vs_reference__{jk} → KEYPOINT_FROM_ANGLE_KEY 단일 keypoint
-//   (3) source==='vision' → faultJoints 전체
+//   (3) source==='vision' → faultJoints ∩ criterion 부위 (33-12 A-5 좁힘 — 아래)
 //   (4) ipsf_absolute geometry criterion → CRITERION_REGION_KEYPOINTS(부위) / line·미등록 → []
+//
+// 33-12 (A-5, seam #1 — 33-A3 §4) vision 좁힘: 구 (3)은 faultJoints **전체** 투영
+// 이라 "다리 스플릿" record 가 어깨 마커·크롭까지 얻었다 (defect #5, 항목↔표시
+// 부위 불일치 — belle 승인 마커 규칙 위반: 마커는 record 가 지칭하는 관절 그룹 위).
+// 새 규칙 = faultJoints ∩ criterion 부위 (백엔드 fault_zoom.criterion_units_from_
+// records 미러, 측당 1벌). 부위 미상 criterion 은 기존 전체 투영 유지, 교집합
+// 공집합은 부위 멤버 폴백 (커버리지 보존). 구 주석의 "vision 분기는 faultJoints
+// 전체로 절대 불변" 가드(29 무회귀)는 A-3 seam 결정이 의도적으로 대체 — vision
+// 부분집합 semantics 는 유지하되 부위 밖 관절만 걷어낸다.
 export function projectDeductionRecordKeypoints(
   record: DeductionRecord,
   faultJoints: readonly KeypointName[] | undefined,
@@ -233,10 +240,49 @@ export function projectDeductionRecordKeypoints(
     const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
     return kp ? [kp] : [];
   }
-  if (record.source === 'vision') return [...(faultJoints ?? [])];
+  if (record.source === 'vision') {
+    const pool = [...(faultJoints ?? [])];
+    const region = CRITERION_REGION_KEYPOINTS[record.criterion];
+    if (!region) return pool;
+    const narrowed = pool.filter((kp) => region.includes(kp));
+    return narrowed.length > 0 ? narrowed : [...region];
+  }
   // 위 3규칙 전부 비매치 — ipsf_absolute geometry criterion(mode3 seed).
   const region = CRITERION_REGION_KEYPOINTS[record.criterion];
   return region ? [...region] : [];
+}
+
+// 33-12 (A-5, seam #1) — record ↔ 확대비교 카드 join 의 단일 출처.
+// result.tsx selectedZoom / matchZoomForRecord 가 전부 이 함수를 소비한다
+// (조인 규칙 사본 2벌 금지). 규칙:
+//   1차 — criterion 키 일치: crop 이 자기 record 의 criterion 을 실어오므로
+//         (born-matched, 33-A3 §4) 키가 같은 카드만 연결. criterion 보유 카드는
+//         keypoint 교집합 추측 조인 대상에서 **제외** — region-first 첫 매치가
+//         "다리 항목에 어깨 크롭"을 붙이던 defect #5 의 앱측 반쪽 제거.
+//   2차 — legacy(criterion 부재) 카드 한정 keypoint 교집합 폴백 (구 doc 하위호환).
+//   advisory tier 는 항상 제외 (감점 시트 오매칭 금지 — 기존 규칙 유지).
+// 매칭 없음 → null (사진 없이 수치·문구만 — graceful, 기존 동작).
+export function matchZoomForDeductionRecord(
+  record: DeductionRecord,
+  faultJoints: readonly KeypointName[] | undefined,
+  comparisons: readonly FaultZoomComparison[] | null | undefined,
+): FaultZoomComparison | null {
+  if (!comparisons || comparisons.length === 0) return null;
+  for (const z of comparisons) {
+    if (z.tier === 'advisory') continue;
+    if (z.criterion != null && z.criterion === record.criterion) return z;
+  }
+  const kps = new Set(projectDeductionRecordKeypoints(record, faultJoints));
+  if (kps.size === 0) return null;
+  for (const z of comparisons) {
+    if (z.tier === 'advisory') continue;
+    if (z.criterion != null) continue; // criterion 카드는 키 일치로만 — 오연결 차단
+    const zoomKps: KeypointName[] = z.region
+      ? [...(REGION_MEMBER_KEYPOINTS[z.region] ?? [])]
+      : [z.joint];
+    if (zoomKps.some((k) => kps.has(k))) return z;
+  }
+  return null;
 }
 
 export function buildDeductionMarkers(

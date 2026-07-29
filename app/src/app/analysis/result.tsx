@@ -21,6 +21,7 @@ import {
 } from '../../components/KeypointOverlay';
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
+import { DefectIllustration } from '../../components/DefectIllustration';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
@@ -2990,6 +2991,14 @@ function AnalysisResultContent({
         estimatedArea={attributionUnreliable}
         // 29-CONTEXT D-06 — mode3 드릴다운 비교 라벨도 지난/이번 계열 (정은지 미언급).
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'}
+        // 33-14 (A-7, D-15) — 결함 → 일러스트 매핑. 키 = mode1 기준 모션 ID
+        // (동작명 분기 0 — 데이터 맵). mode3/미검증 동작은 DefectIllustration 이
+        // null 렌더 (silent hidden — 틀린 그림은 없는 것보다 나쁘다, D-18).
+        illustrationSlot={
+          <DefectIllustration
+            motionId={cmp.mode === 'mode1' ? cmp.referenceMotionId : null}
+          />
+        }
       />
       {/* 32-07 D-07 (32-11 배선) — 첫 진입 코치마크 1회. "오늘 고칠 건 하나만" +
           "자세히는 펼쳐요". hasSeenResultCoachmark 로 1회만, 탭 시 기록. */}

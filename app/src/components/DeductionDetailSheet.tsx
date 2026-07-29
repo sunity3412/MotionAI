@@ -53,6 +53,10 @@ interface Props {
   estimatedArea?: boolean;
   // 우측 비교 대상 라벨 — Mode1='정은지 선수', Mode3='지난 분석'.
   rightLabel: string;
+  // 33-14 (A-7, D-15) — 결함 일러스트 슬롯. 매핑(결함→일러스트)은 caller(result.tsx)
+  // 소유, 시트는 자리만 제공. 승인 목업 ② "확대 크롭 + 감점근거 글 + 일러스트 슬롯".
+  // 부재/미검증 = 렌더 0 (DefectIllustration 이 자체 hidden — 시트는 관여하지 않음).
+  illustrationSlot?: React.ReactNode;
 }
 
 // criterion → 심사 언어 용어(terminologyMap) 매핑. 미등록 criterion 은 null(용어줄 생략).
@@ -94,6 +98,7 @@ export function DeductionDetailSheet({
   refMatchFailed = false,
   estimatedArea = false,
   rightLabel,
+  illustrationSlot,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
   if (!record) return null;
@@ -218,6 +223,11 @@ export function DeductionDetailSheet({
                 <Text style={styles.actionPhrase}>{effectiveCue}</Text>
               </View>
             ) : null}
+
+            {/* 33-14 (A-7) — 목표 자세 일러스트. 말 없이 뭘 하라는지 보여주는
+                장치(D-05: 라벨 텍스트 없이 그림만). 미검증/mode3 = 슬롯 자체가
+                null 을 렌더 (silent hidden). */}
+            {illustrationSlot ?? null}
 
             {/* 확인하기 불릿 (gate ⑤) + 심사 언어 용어줄(terminologyMap). */}
             <View style={styles.bullets}>

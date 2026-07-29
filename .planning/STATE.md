@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Completed 33-22-PLAN.md (two-track deduction redesign)
-last_updated: "2026-07-29T03:08:41.299Z"
+last_updated: "2026-07-29T03:49:23.937Z"
 last_activity: 2026-07-29
 progress:
-  total_phases: 16
-  completed_phases: 8
-  total_plans: 118
-  completed_plans: 106
-  percent: 50
+  total_phases: 35
+  completed_phases: 16
+  total_plans: 232
+  completed_plans: 193
+  percent: 46
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 33 (result-trust-recovery) — EXECUTING
-Plan: 3 of 23
+Plan: 4 of 23
 
 > ✓ Wave R (채점 재설계) COMPLETE (2026-07-24) — 33-22 2트랙 IPSF 감점 엔진(실행 −40캡 바닥60 + DORMANT 치명 캡우회 절대바닥25, `final=max(25,100−min(40,Σ실행)−Σ치명)`, 기존 임계 byte-unchanged) + 33-23 재검증 PASS. Pod b9l5gt1vpc4ho1(4090, ac59904 재핀, shadow candidate phase33-cm3-run1) serial 6 fixture: INV-1/2/4/5/6 동시 성립(재구성 10/10, 엘보우 −111.4→바닥60 앵커 재현, INV-4 캡 평탄화 elbow/pdshape→60=의도 트레이드오프 curve-fit 안 함), 회귀 0(HEAD vs baseline 61==61), 채점 테스트 241 pass. climb=not_pole 게이트 예외. **flip(33-07) belle 보류 유지** — 표현 트랙(33-07~16,33-21) 미착수. 정직 맥락: fault 점수 상승(57→80 등)=엔진 아닌 새 기질 효과, belle 판단 별건. 상세=33-SCORING-REVERIFY.md
 Verification: 22-12 COMPLETE (2026-07-16) — 데이터 플라이휠 "공부하기" 배치 루프 상설화. run_retrain_cycle.sh 1커맨드 사이클 러너(preflight[serial lock+greenlight 과금 게이트+디스크 30GB+git pull] → label[신규분만 과금] → assemble[jsonl_backup_ s3 백업 선행 후 canonical 교체] → train → gates[bf16 병합+compute_cap>=12 조건부 flashinfer env] → promote[promotion 래칫]) + promotion.py 순수 래칫(parse_gate_verdict/make_ledger_entry/apply_ratchet/make_cycle_report — 게이트 PASS[--require-pass exit 0]만 current 전진, FAIL 은 attempt 기록만, 사람/judge 점수 저장 0) + promotion_ledger.json(current=null 초기) + FLYWHEEL-RUNBOOK §2(belle 주1회 트리거·flashinfer 박제·래칫 해석·비용 관측치). TDD 9 테스트, phase22 302 pass/1 skip, 기존 러너·게이트(run_sft/run_sft_gates/assert_gates/build_jsonl/merge_and_quant) 무접촉. 실 Pod 사이클(라벨 과금/SFT/게이트)은 v7 종료 후 런북 절차(belle 트리거). // 이전:
@@ -598,6 +598,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 33 P22 | 55m | 3 tasks | 7 files |
 | Phase 33 P12 | 80m | 2 tasks | 8 files |
 | Phase 33 P13 | 25분 | 2 tasks | 6 files |
+| Phase 33 P14 | 50m | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -705,6 +706,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 33-12: defect #6 은 79221f0 선해결 확인 — 회귀 핀 박제, PNG 전수 열람은 33-16 Pod 재스위프 소관
 - [Phase ?]: 33-13: 영상 위 표시 = 스켈레톤 기본숨김+옵트인, 마커 = record 양방향(고아 미렌더), 음성 큐 = 정지+부위강조+재개
 - [Phase ?]: 33-13: phrasebook cueLine 54건 목표-선행 문형 + 화면 어휘 게이트(채점 내부 용어 → 강사 화법, 어휘 목록 데이터 운용)
+- [Phase ?]: 33-14 A-7: 검수 PASS 6동작 번들(power-spin=7R cand1 채택) + 미완 4동작 fail-closed hidden — 재생성 상한 3회 소진 정직 보고, 틀린 그림 미배선
+- [Phase ?]: 33-14: 일러스트 슬롯 = DeductionDetailSheet.illustrationSlot 옵셔널 prop (승인 목업 ② 위치), 결함→일러스트 매핑은 result.tsx 소유 (motionId 데이터 키잉)
 
 ### Pending Todos
 
@@ -739,7 +742,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-29T03:08:31.718Z
+Last session: 2026-07-29T03:48:47.578Z
 
 Stopped at: Completed 33-22-PLAN.md (two-track deduction redesign)
 

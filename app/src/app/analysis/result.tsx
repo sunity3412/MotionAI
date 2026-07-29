@@ -1667,6 +1667,18 @@ function AnalysisResultContent({
       result.faultZoomComparisons ?? [],
     );
 
+  // 33-13 (A-6, D-13 대표 UX) — 음성 큐 recordId → 강조 부위 투영. cue 는
+  // records 에서 태어나므로(cueWindows 조립) 항상 짝이 있다 — 못 찾으면 빈 배열
+  // = 강조 0 (D-18 고아 가드). 투영 규칙 = projectDeductionRecordKeypoints 단일
+  // 출처 (마커·크롭과 동일 부위 — 규칙 사본 0). IN-01 역립 저신뢰 시 부위 단정
+  // 강조 억제(빈 배열).
+  const focusKeypointsForRecordId = (recordId: string): KeypointName[] => {
+    if (attributionUnreliable) return [];
+    const rec = records.find((r) => r.recordId === recordId);
+    if (!rec) return [];
+    return projectDeductionRecordKeypoints(rec, vetoFaultJoints);
+  };
+
   // 강사 질문 — 자동 수집(result.coachQuestions, D-28) + legacy 폴백
   // (openQuestionsForCoach, coachQuestions 부재 doc만) + 사용자 담기(source 'user').
   const [userQuestions, setUserQuestions] = useState<CoachQuestion[]>([]);
@@ -2245,6 +2257,14 @@ function AnalysisResultContent({
                   // quick-260702-t0v — 가로 전체화면 뷰어가 opts.sizeScale=2.0 전달
                   // (각도 라벨 가독). 세로 카드는 opts 미전달 → 1 (무회귀).
                   sizeScale={opts?.sizeScale ?? 1}
+                  // 33-13 (A-6, D-13 대표 UX) — 음성 큐 동안 해당 record 부위
+                  // 강조 (VideoCompare 가 발화 recordId 를 opts 로 전달). 짝
+                  // 없으면 빈 배열 = 강조 0 (고아 가드).
+                  focusKeypoints={
+                    opts?.voiceCueRecordId
+                      ? focusKeypointsForRecordId(opts.voiceCueRecordId)
+                      : undefined
+                  }
                 />
               )}
               rightOverlay={(player, opts) =>

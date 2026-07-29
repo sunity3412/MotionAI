@@ -32,6 +32,7 @@ import { composeRefTarget } from '../lib/manualOffset';
 import { activeCue, type CueWindow } from '../lib/cueTrack';
 import {
   isAudioCueEnabled,
+  isCueSpeaking,
   prefetchCueAudio,
   setAudioCueEnabled,
   speakCue,
@@ -62,12 +63,19 @@ type SlotProps = {
    * (right) 슬롯에만 전달한다. pointerEvents none — 재생 컨트롤 방해 0.
    */
   busyLabel?: string;
+  /**
+   * 33-13 (A-6) — 발화 중인 음성 큐의 recordId. overlay render prop 의
+   * opts.voiceCueRecordId 로 전달돼 caller(result.tsx)가 해당 record 부위 강조
+   * (KeypointOverlay.focusKeypoints)를 켠다. 학생(left) 슬롯에만 배선.
+   */
+  cueRecordId?: string | null;
 };
 
 // quick-260702-t0v — overlay render prop 단일 타입 (VideoCompareProps + SlotProps 공유).
+// 33-13 — opts.voiceCueRecordId 확장 (음성 큐 부위 강조 — 학생 측 소비).
 type OverlayRenderProp = (
   player: VideoPlayer | null,
-  opts?: { sizeScale?: number },
+  opts?: { sizeScale?: number; voiceCueRecordId?: string | null },
 ) => React.ReactNode;
 
 function fmtTime(s: number): string {
@@ -94,7 +102,7 @@ function fmtOffsetLabel(sec: number): string {
   return `${sign}${Math.abs(rounded).toFixed(1)}초`;
 }
 
-function VideoSlot({ label, url, player, overlay, busyLabel }: SlotProps) {
+function VideoSlot({ label, url, player, overlay, busyLabel, cueRecordId }: SlotProps) {
   return (
     <View style={styles.slot}>
       <View style={styles.slotFrame}>
@@ -110,7 +118,7 @@ function VideoSlot({ label, url, player, overlay, busyLabel }: SlotProps) {
             />
             {overlay && (
               <View style={styles.overlayContainer} pointerEvents="box-none">
-                {overlay(player)}
+                {overlay(player, { voiceCueRecordId: cueRecordId ?? null })}
               </View>
             )}
             {/* 32-08 (실기기 피드백 #2) — 오프셋 적용 로딩 표시. 영상 위 중앙 pill. */}
@@ -269,6 +277,11 @@ const OFFSET_APPLYING_HOLD_MS = 600;
 // 32-08 (D-18 자막 큐) — cueWindows 미전달 시 tick 이 읽는 안정 빈 배열(매 렌더 새
 // 배열 churn 방지 — activeCue(EMPTY, t)=null 이라 자막 미렌더, 기존 소비처 diff 0).
 const EMPTY_CUE_WINDOWS: CueWindow[] = [];
+
+// 33-13 (A-6, D-13 대표 UX) — 음성 큐 일시정지 안전 상한(ms). Polly cueLine 은
+// 수 초 분량 — mp3 종료 이벤트가 유실돼도 이 상한 뒤 강제 재개해 영상이 영구
+// 멈춤에 빠지지 않게 한다 (기존 100ms tick 이 판정 — 신규 타이머 0).
+const CUE_PAUSE_MAX_MS = 15000;
 
 // quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 전체화면 오버레이 배율.
 // KeypointOverlay 는 viewBox 정규화 구조라 라벨 유효 크기 = 14 × 렌더높이/1280.
@@ -489,6 +502,17 @@ export function VideoCompare({
   const audioEnabledRef = useRef(false);
   audioEnabledRef.current = audioEnabled;
 
+  // 33-13 (A-6, D-13 대표 UX — belle 제안 채택 W2) — 음성 큐 시작 시 영상
+  // 일시정지 + 해당 부위 강조, 음성 끝나면 재개. 판정은 전부 기존 100ms tick
+  // 위에서 (신규 타이머 루프 0). voiceCueRecordId = 강조 대상 record (overlay
+  // render prop opts 로 caller 에 전달). voicePauseRef = 음성 때문에 멈췄는지
+  // (사용자 정지와 구분 — 사용자가 개입하면 즉시 해제해 자동 재개 억제).
+  const [voiceCueRecordId, setVoiceCueRecordId] = useState<string | null>(null);
+  const voiceCueRecordIdRef = useRef<string | null>(null);
+  voiceCueRecordIdRef.current = voiceCueRecordId;
+  const voicePauseRef = useRef(false);
+  const voicePauseStartRef = useRef(0);
+
   // 오디오 큐 목록 (cueWindow → cue 객체). cueId=recordId 로 Polly mp3 조인.
   const audioCues = useMemo(
     () =>
@@ -616,13 +640,53 @@ export function VideoCompare({
         // 32-12 (D-18 B안) — 자막 전환과 동일 지점에서 오디오 큐. 설정 on + cueId
         // 조인 시에만 발화(speakCue 내부에서 캐시 미스=자막만). 큐 해제 시 발화 중단.
         // tick 은 큐가 바뀔 때만 이 블록에 진입 → 매 tick 재재생 없음(stutter 0).
+        //
+        // 33-13 (A-6, D-13 대표 UX — belle 제안): 발화가 실제로 시작됐을 때만
+        // (started=true — mp3 조인·재생 성공) 영상을 멈추고 부위를 강조한다.
+        // 짝 없는 큐/캐시 미스는 자막만 — 멈춤·강조 미발동(D-18 고아 가드).
+        // 재생 중이 아니면(사용자가 이미 정지) 멈춤 없이 강조만.
         if (audioEnabledRef.current) {
           if (cue && cue.recordId) {
-            speakCue({ cueId: cue.recordId, text: cue.text });
+            const started = speakCue({ cueId: cue.recordId, text: cue.text });
+            if (started) {
+              setVoiceCueRecordId(cue.recordId);
+              if (leftPlaying) {
+                leftPlayer?.pause();
+                rightPlayer?.pause();
+                setPlaying(false);
+                voicePauseRef.current = true;
+                voicePauseStartRef.current = Date.now();
+              }
+            }
           } else {
             stopCue();
+            if (!voicePauseRef.current) setVoiceCueRecordId(null);
           }
         }
+      }
+
+      // 33-13 — 음성 끝 → 강조 해제 + 재개 (기존 tick 재사용 — 신규 타이머 0).
+      // isCueSpeaking() 은 didJustFinish 이벤트 기반이라 mp3 버퍼링 중에도 유지.
+      // 안전 상한(CUE_PAUSE_MAX_MS) 초과 시 강제 재개 — 영구 멈춤 차단. scrub
+      // 중에는 판정 보류(사용자 제스처 우선).
+      if (voicePauseRef.current && !scrubbingRef.current) {
+        const overMax =
+          Date.now() - voicePauseStartRef.current > CUE_PAUSE_MAX_MS;
+        if (!isCueSpeaking() || overMax) {
+          voicePauseRef.current = false;
+          setVoiceCueRecordId(null);
+          if (overMax) stopCue();
+          leftPlayer?.play();
+          rightPlayer?.play();
+          setPlaying(true);
+        }
+      } else if (
+        !voicePauseRef.current &&
+        voiceCueRecordIdRef.current != null &&
+        !isCueSpeaking()
+      ) {
+        // 멈춤 없던 발화(정지 상태 중 발화)의 종료 — 강조만 해제.
+        setVoiceCueRecordId(null);
       }
 
       // UAT 4차 Finding 1 — drift 보정 (Build 16 iter-2).
@@ -783,7 +847,12 @@ export function VideoCompare({
       rightPlayer?.pause();
       setPlaying(false);
       stopCue(); // 32-12 — 일시정지 시 발화 중단(자막은 activeCue 가 유지 판정).
+      // 33-13 — 사용자 정지 = 음성 멈춤 상태 해제(자동 재개 억제) + 강조 해제.
+      voicePauseRef.current = false;
+      setVoiceCueRecordId(null);
     } else {
+      // 33-13 — 사용자가 직접 재생 = 음성 멈춤 홀드 해제(자동 재개와 중복 방지).
+      voicePauseRef.current = false;
       // UAT 4차 Finding 2 — 끝난 상태에서 다시 재생 시 정은지 영상 멈춤 finding.
       //   이전 (Build 14): `current` (= leftCurrent) 한쪽만 검사 → 우측이 자기
       //   native end 넘어가 있어도 reset 발동 안 함. 또한 seek = 0 직후 즉시
@@ -885,6 +954,9 @@ export function VideoCompare({
       if (hasRight) setRightCurrent(targetRefTime(safe));
       // 32-12 — seek/step 으로 위치가 튀면 현재 발화를 끊는다(다음 큐 전환 시 재발화).
       stopCue();
+      // 33-13 — 위치 점프 = 음성 멈춤 홀드/강조 해제 (사용자 제스처 우선).
+      voicePauseRef.current = false;
+      setVoiceCueRecordId(null);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setRightToStudentTime/
     // targetRefTime 은 alignmentRef 를 읽어 stale 클로저 무해(선행 tick ref 패턴 동일).
@@ -990,14 +1062,34 @@ export function VideoCompare({
 
   // 32-08 (실기기 피드백 #2) — "적용중입니다" 표시 on + 디바운스 해제. 오프셋이 바뀔
   // 때마다 호출 → 연속 드래그 중 유지, 마지막 변경 후 OFFSET_APPLYING_HOLD_MS 뒤 off.
+  //
+  // 33-13 (A-6, W2 — belle: "영상이 먼저 움직임") — 멈춘 상태에서 적용 → 적용 후
+  // 재생. 조작 시작 시 재생 중이면 양쪽을 멈추고, 홀드 타이머 종료(적용 완료) 시
+  // 재개한다. 원래 정지 상태였으면 재개하지 않는다(개입 금지).
+  const offsetWasPlayingRef = useRef(false);
   const markOffsetApplying = useCallback(() => {
+    if (leftPlayer?.playing || rightPlayer?.playing) {
+      offsetWasPlayingRef.current = true;
+      leftPlayer?.pause();
+      rightPlayer?.pause();
+      setPlaying(false);
+      stopCue();
+      voicePauseRef.current = false;
+      setVoiceCueRecordId(null);
+    }
     setOffsetApplying(true);
     if (offsetApplyingTimerRef.current) clearTimeout(offsetApplyingTimerRef.current);
     offsetApplyingTimerRef.current = setTimeout(() => {
       setOffsetApplying(false);
       offsetApplyingTimerRef.current = null;
+      if (offsetWasPlayingRef.current) {
+        offsetWasPlayingRef.current = false;
+        leftPlayer?.play();
+        rightPlayer?.play();
+        setPlaying(true);
+      }
     }, OFFSET_APPLYING_HOLD_MS);
-  }, []);
+  }, [leftPlayer, rightPlayer]);
 
   // 언마운트 시 디바운스 타이머 정리 (누수 방지).
   useEffect(
@@ -1258,6 +1350,7 @@ export function VideoCompare({
     url: string | undefined,
     player: VideoPlayer | null,
     overlay?: OverlayRenderProp,
+    cueRecordId?: string | null,
   ) => {
     const zoomW = Math.round(fsBoxW * FULLSCREEN_ZOOM);
     const zoomH = Math.round(fsBoxH * FULLSCREEN_ZOOM);
@@ -1281,7 +1374,10 @@ export function VideoCompare({
               allowsPictureInPicture={false}
             />
             <View style={styles.overlayContainer} pointerEvents="box-none">
-              {overlay?.(player, { sizeScale: FULLSCREEN_OVERLAY_SCALE })}
+              {overlay?.(player, {
+                sizeScale: FULLSCREEN_OVERLAY_SCALE,
+                voiceCueRecordId: cueRecordId ?? null,
+              })}
             </View>
           </View>
         ) : (
@@ -1339,6 +1435,8 @@ export function VideoCompare({
           url={leftUrl}
           player={leftPlayer}
           overlay={leftOverlay}
+          // 33-13 (A-6) — 음성 큐 부위 강조는 학생(left) 측만 (record = 학생 결함).
+          cueRecordId={voiceCueRecordId}
         />
         <VideoSlot
           label={rightLabel}
@@ -1349,12 +1447,20 @@ export function VideoCompare({
         />
         {/* 32-08 (D-18 자막 큐) — 재생 중 결함 구간 자막. 영상 프레임 하단 중앙 pill.
             수치 미포함(D-09) — text 는 문구집 cueLine(행동문). cueWindows 미전달 시
-            activeCueText=null → 미렌더. 수직 위치는 32-11 배선 시 실기기 미세조정. */}
+            activeCueText=null → 미렌더. 33-13 — 목표-선행 큐(2문장)가 잘리지 않게
+            3줄 허용. */}
         {activeCueText ? (
           <View style={styles.cueSubtitleWrap} pointerEvents="none">
+            {/* 33-13 (A-6, 승인 목업 ④ 컷 2) — 음성 중 정지 상태 표시 1줄. */}
+            {voiceCueRecordId != null && !playing ? (
+              <View style={styles.voicePausePill}>
+                <Ionicons name="pause" size={12} color={colors.textWhite} />
+                <Text style={styles.voicePauseText}>음성 중 — 잠시 멈춤</Text>
+              </View>
+            ) : null}
             <Text
               style={styles.cueSubtitle}
-              numberOfLines={2}
+              numberOfLines={3}
               accessibilityRole="text"
             >
               {activeCueText}
@@ -1566,7 +1672,14 @@ export function VideoCompare({
                   자동 중앙 배치. 진입 버튼이 hasAny 가드라 0박스 케이스 없음. */}
               <View style={styles.fsVideoRow}>
                 {hasLeft &&
-                  renderFullscreenSlot(leftLabel, leftUrl, leftPlayer, leftOverlay)}
+                  renderFullscreenSlot(
+                    leftLabel,
+                    leftUrl,
+                    leftPlayer,
+                    leftOverlay,
+                    // 33-13 — 전체화면에서도 음성 큐 부위 강조 유지 (학생 측).
+                    voiceCueRecordId,
+                  )}
                 {hasRight &&
                   renderFullscreenSlot(
                     rightLabel,
@@ -1720,6 +1833,23 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     overflow: 'hidden',
     lineHeight: 17,
+  },
+  // 33-13 (A-6, 승인 목업 ④ 컷 2) — "음성 중 — 잠시 멈춤" 상태 pill. 자막 위
+  // 소형 표시. 토큰만: videoBg + textWhite (하드코딩 색 0).
+  voicePausePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.button,
+    backgroundColor: colors.videoBg,
+    marginBottom: 4,
+  },
+  voicePauseText: {
+    ...typography.captionSmall,
+    color: colors.textWhite,
+    fontWeight: '700',
   },
   // 32-12 (D-18 B안) — "음성 안내" 토글 pill. off=연회색 테두리, on=브랜드 채움.
   audioToggle: {

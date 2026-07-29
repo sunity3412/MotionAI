@@ -50,6 +50,31 @@ const urlCache = new Map<string, string>();
 let player: AudioPlayer | null = null;
 let playingCueId: string | null = null;
 
+// 33-13 (A-6, D-13 대표 UX) — 발화 진행 플래그. speakCue 성공 시 true,
+// didJustFinish 이벤트/stopCue 에서 false. VideoCompare 의 기존 100ms tick 이
+// isCueSpeaking() 폴링으로 "음성 끝 → 영상 재개"를 판정한다 (신규 타이머 0).
+// player.playing 단독 판정은 mp3 버퍼링 중 false 라 즉시 재개 오판 — 이벤트
+// 기반 플래그가 로딩 구간을 관통해 유지된다.
+let speechActive = false;
+let statusListenerAttached = false;
+
+// didJustFinish 구독 1회 부착 (player 인스턴스 재사용·replace 에도 유지).
+function attachStatusListener(): void {
+  if (statusListenerAttached || !player) return;
+  statusListenerAttached = true;
+  player.addListener('playbackStatusUpdate', (status) => {
+    if (status.didJustFinish) {
+      speechActive = false;
+      playingCueId = null;
+    }
+  });
+}
+
+/** 발화 진행 중 여부 (버퍼링 포함). VideoCompare tick 의 재개 판정 소비. */
+export function isCueSpeaking(): boolean {
+  return speechActive;
+}
+
 // 설정값을 AsyncStorage 에서 메모리 캐시로 로드 + 오디오 세션 1회 설정. graceful:
 // 읽기 실패 시 off(기본값)로 둔다 — 오류가 원치 않는 발화를 만들면 안 되므로 조용히
 // 꺼지는 방향으로 실패한다. 여러 번 호출해도 1회만 실효(hydrated 가드).
@@ -136,31 +161,41 @@ export async function prefetchCueAudio(
  * replace 로 이전 발화를 자동 중단(리뷰 — 이전 발화 stop). 같은 cueId 재요청은
  * 무시(중복 재시작 stutter 방지 — tick 은 큐 전환 시에만 호출하나 방어).
  * 캐시 미스(prefetch 실패/미조인)는 no-op(자막만).
+ *
+ * 33-13 — 발화 시작 여부 boolean 반환. VideoCompare 가 true 일 때만 영상을
+ * 일시정지한다(대표 UX 패턴) — 캐시 미스/미조인 큐(false)는 자막만이라 멈춤도
+ * 없다 (짝 없는 큐 미발동, D-18 고아 가드).
  */
-export function speakCue(cue: Cue): void {
-  if (!enabled) return;
+export function speakCue(cue: Cue): boolean {
+  if (!enabled) return false;
   const id = cue.cueId;
-  if (!id) return;
+  if (!id) return false;
   const url = urlCache.get(id);
-  if (!url) return; // 미조인/미prefetch → 자막만
-  if (playingCueId === id && player?.playing) return;
+  if (!url) return false; // 미조인/미prefetch → 자막만
+  if (playingCueId === id && player?.playing) return true;
   try {
     if (!player) {
       player = createAudioPlayer(url);
     } else {
       player.replace(url); // 이전 발화 중단 + 새 소스
     }
+    attachStatusListener();
     playingCueId = id;
+    speechActive = true;
     player.play();
+    return true;
   } catch {
     // released/플랫폼 예외 — 무해화(자막만). 다음 큐에서 재시도.
     playingCueId = null;
+    speechActive = false;
+    return false;
   }
 }
 
 /** 발화 중단 (일시정지·seek·언마운트·off 전환 시). 리소스는 유지(재사용). */
 export function stopCue(): void {
   playingCueId = null;
+  speechActive = false;
   if (!player) return;
   try {
     if (player.playing) player.pause();

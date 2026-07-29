@@ -174,3 +174,61 @@ def test_sanity_extraction_nonzero() -> None:
     assert len(strings) >= 50, (
         f"렌더 카피 추출이 {len(strings)} 개 — 게이트 무의미 의심 (경로/스키마 확인)"
     )
+
+
+# ── Test 4 — 33-13 (A-6, belle 확인 ① 7R/4R 규칙) 화면 어휘 게이트 + 목표-선행 ──
+def _fixture_copy_strings(fixture: dict) -> list[tuple[str, str]]:
+    """phrasebook.json 안의 화면 렌더 카피 (path, text) 전수 — entries + safetyEntries
+    + failClosed. _meta 는 provenance 문서라 스코프 밖 (phase32 forbidden 게이트와
+    동일 원칙). terminology_map 은 용어 사전(내부 용어를 번역하는 것이 존재 이유)
+    이라 이 게이트의 대상이 아니다."""
+    out: list[tuple[str, str]] = []
+
+    def walk(obj: object, path: str) -> None:
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                walk(v, f"{path}.{k}")
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                walk(v, f"{path}[{i}]")
+        elif isinstance(obj, str):
+            out.append((path, obj))
+
+    walk(fixture.get("entries", {}), "entries")
+    walk(fixture.get("safetyEntries", {}), "safetyEntries")
+    walk(fixture.get("failClosed", {}), "failClosed")
+    return out
+
+
+def test_screen_vocabulary_gate() -> None:
+    """33-13 (A-6) — 채점 내부 용어(국면·신전·재신전·완성도)는 화면 문장 금지.
+
+    belle 확인 ① 7R 규칙 (b): 내부 용어는 내부 기록 전용, 화면은 수강생·강사
+    실사용 어휘. 어휘 목록은 데이터(_meta.screenVocabularyGate.words)로 운용 —
+    동작·항목 무관 공통 (동작명 하드코딩 0)."""
+    fixture = _load_fixture()
+    words = fixture["_meta"]["screenVocabularyGate"]["words"]
+    assert words, "_meta.screenVocabularyGate.words 부재 — 어휘 게이트 데이터 소실"
+    viol = [
+        (path, w)
+        for path, text in _fixture_copy_strings(fixture)
+        for w in words
+        if w in text
+    ]
+    assert not viol, f"화면 어휘 게이트 위반 (채점 내부 용어 화면 노출): {viol}"
+
+
+def test_motion_specific_cueline_goal_first() -> None:
+    """33-13 (A-6) — 동작 전용 cueLine 은 목표-선행 문형 (belle 4R 승인:
+    '목표는 …이에요. <행동 큐>'). 목표 문장 = 33-A1 완성 기준의 검증 claim 만 —
+    동작별 데이터(cueLine 선두)로 운용, __common__ 은 동작 미상이라 대상 밖
+    (일반론 목표 fabrication 금지)."""
+    fixture = _load_fixture()
+    entries = fixture["entries"]
+    viol = [
+        k
+        for k in _motion_specific_keys(entries)
+        if isinstance(entries[k].get("cueLine"), str)
+        and not entries[k]["cueLine"].startswith("목표는 ")
+    ]
+    assert not viol, f"목표-선행 미적용 동작 전용 cueLine: {viol}"

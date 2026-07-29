@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "schemaVersion": "1.1.0",
-    "lastUpdated": "2026-07-28",
+    "schemaVersion": "1.2.0",
+    "lastUpdated": "2026-07-29 (33-13 A-6: goal-first cueLine + screen vocabulary gate)",
     "purpose": "동작×결함 고정 문구집 (32-CONTEXT D-08/D-11/D-13/D-14/D-28) — 32-09 파이프라인 방출·32-10 감점 카드 렌더의 데이터 원천. LLM 은 가변부(상황·조사·응원 톤)만 소유하고 골격(상태→왜→행동→코치질문→운동연결)은 이 fixture 가 소유한다. '무릎을 더 펴세요' 수준 일반론 생성 경로를 차단.",
     "slotSpec": {
       "statusLine": "상태 — 몸 말 (관절명 허용, 이해용). 수치 금지 (D-09).",
@@ -71,32 +71,105 @@
       },
       "cellRule": "기본 분류는 전 motion 행에 동일 적용된다(criterion_common | safety_common | fail_closed, 빈 셀 0). 33-09(D-02/D-14)부터 동작 전용(motion-specific) override 레이어가 그 위에 얹힌다 — 같은 criterion 이 동작마다 다른 뜻이 되는 것(파워스핀 leg_extension = 수직 스플릿 vs 공통 '천장' 큐)은 채점이 아니라 표현의 문제라 phrasing 만 동작-조건부로 만들었다(채점 무접촉, D-20). override 조합은 아래 motionOverrides 가 단일 원천이며 test_phrasebook_motion_specific.py 가 entries 와 lockstep 을 강제한다. override scope = 각 동작이 실제 방출하는 조합만(6 fixture 동작 = phase25 sweep fault activatedCriteria 실측, fixture-less 4동작 = 33-A1 대체 행의 criteria yaml 6관절 + techniqueProfile expects_extension). ref-climb 은 mode1 비교 게이트 전용(criteria 방출 0)이라 override 없음 — 의도된 0. 미등재(ref-combo 포함)는 __common__ 경로 유지.",
       "motionOverrides": {
-        "ref-power-spin": ["leg_extension", "angle_vs_reference__left_hip", "angle_vs_reference__right_hip", "angle_vs_reference__left_shoulder"],
-        "ref-peter-pan": ["angle_vs_reference__left_shoulder", "angle_vs_reference__right_elbow", "angle_vs_reference__right_knee"],
-        "ref-elbow-twist-sister": ["angle_vs_reference__left_elbow", "angle_vs_reference__right_elbow", "angle_vs_reference__left_knee", "angle_vs_reference__right_knee", "angle_vs_reference__left_shoulder", "angle_vs_reference__right_shoulder", "angle_vs_reference__left_hip"],
-        "ref-pdshape": ["angle_vs_reference__left_elbow", "angle_vs_reference__right_elbow", "angle_vs_reference__left_shoulder", "angle_vs_reference__right_shoulder", "angle_vs_reference__left_hip", "angle_vs_reference__right_hip", "angle_vs_reference__left_knee", "angle_vs_reference__right_knee"],
-        "ref-kip-up": ["angle_vs_reference__left_shoulder", "angle_vs_reference__right_shoulder", "split_angle"],
-        "ref-invert": ["split_angle", "leg_extension", "angle_vs_reference__left_knee", "angle_vs_reference__right_knee", "angle_vs_reference__left_hip", "angle_vs_reference__right_hip", "angle_vs_reference__left_shoulder", "angle_vs_reference__right_shoulder"],
-        "ref-foxtop": ["angle_vs_reference__left_knee", "angle_vs_reference__right_knee", "angle_vs_reference__left_hip", "angle_vs_reference__right_hip", "angle_vs_reference__left_shoulder", "angle_vs_reference__right_shoulder"],
-        "ref-foxtop-split": ["split_angle", "angle_vs_reference__left_knee", "angle_vs_reference__right_knee", "angle_vs_reference__left_hip", "angle_vs_reference__right_hip", "angle_vs_reference__left_shoulder", "angle_vs_reference__right_shoulder"],
-        "ref-sideway-spin": ["leg_extension", "arm_extension", "angle_vs_reference__left_knee", "angle_vs_reference__right_knee", "angle_vs_reference__left_hip", "angle_vs_reference__right_hip", "angle_vs_reference__left_shoulder", "angle_vs_reference__right_shoulder"]
+        "ref-power-spin": [
+          "leg_extension",
+          "angle_vs_reference__left_hip",
+          "angle_vs_reference__right_hip",
+          "angle_vs_reference__left_shoulder"
+        ],
+        "ref-peter-pan": [
+          "angle_vs_reference__left_shoulder",
+          "angle_vs_reference__right_elbow",
+          "angle_vs_reference__right_knee"
+        ],
+        "ref-elbow-twist-sister": [
+          "angle_vs_reference__left_elbow",
+          "angle_vs_reference__right_elbow",
+          "angle_vs_reference__left_knee",
+          "angle_vs_reference__right_knee",
+          "angle_vs_reference__left_shoulder",
+          "angle_vs_reference__right_shoulder",
+          "angle_vs_reference__left_hip"
+        ],
+        "ref-pdshape": [
+          "angle_vs_reference__left_elbow",
+          "angle_vs_reference__right_elbow",
+          "angle_vs_reference__left_shoulder",
+          "angle_vs_reference__right_shoulder",
+          "angle_vs_reference__left_hip",
+          "angle_vs_reference__right_hip",
+          "angle_vs_reference__left_knee",
+          "angle_vs_reference__right_knee"
+        ],
+        "ref-kip-up": [
+          "angle_vs_reference__left_shoulder",
+          "angle_vs_reference__right_shoulder",
+          "split_angle"
+        ],
+        "ref-invert": [
+          "split_angle",
+          "leg_extension",
+          "angle_vs_reference__left_knee",
+          "angle_vs_reference__right_knee",
+          "angle_vs_reference__left_hip",
+          "angle_vs_reference__right_hip",
+          "angle_vs_reference__left_shoulder",
+          "angle_vs_reference__right_shoulder"
+        ],
+        "ref-foxtop": [
+          "angle_vs_reference__left_knee",
+          "angle_vs_reference__right_knee",
+          "angle_vs_reference__left_hip",
+          "angle_vs_reference__right_hip",
+          "angle_vs_reference__left_shoulder",
+          "angle_vs_reference__right_shoulder"
+        ],
+        "ref-foxtop-split": [
+          "split_angle",
+          "angle_vs_reference__left_knee",
+          "angle_vs_reference__right_knee",
+          "angle_vs_reference__left_hip",
+          "angle_vs_reference__right_hip",
+          "angle_vs_reference__left_shoulder",
+          "angle_vs_reference__right_shoulder"
+        ],
+        "ref-sideway-spin": [
+          "leg_extension",
+          "arm_extension",
+          "angle_vs_reference__left_knee",
+          "angle_vs_reference__right_knee",
+          "angle_vs_reference__left_hip",
+          "angle_vs_reference__right_hip",
+          "angle_vs_reference__left_shoulder",
+          "angle_vs_reference__right_shoulder"
+        ]
       },
       "emissionNote": "등록 동작: ipsf_absolute(leg/arm/line)는 profile.expects_extension 활성 시 방출, reference_relative(split_angle/angle_vs_reference__*)는 정은지 대비 편차로 방출. 미등재 동작: ipsf_absolute seed 가 비어(expects_extension 없음) reference_relative + dimension_overall_fallback 만 방출 → 그래도 __common__ entry 가 phrasing 을 커버(미등재라고 문구가 비지 않음). dimension_overall_fallback(엔진이 결함을 특정 관절로 국소화 실패한 저정보 폴백)은 전 행에서 fail_closed — 특정 행동 큐를 지어내지 않는다(일반론 차단).",
       "failClosedPolicy": "미지원 조합(entry 부재 criterion, 미래/드리프트 id 포함)과 dimension_overall_fallback 은 failClosed 로 라우팅된다. failClosed 는 cueLine·exerciseId 를 만들지 않고(행동문 생략), whyLine 은 안전한 사실만, coachQuestion 으로 강사 확인을 유도한다 — 일반론 교정 지시 생성 경로 0 (D-11 일반론 금지)."
-    }
+    },
+    "screenVocabularyGate": {
+      "words": [
+        "국면",
+        "신전",
+        "재신전",
+        "완성도"
+      ],
+      "rationale": "33-13 (A-6, belle 확인 ① 7R 규칙 b) — 채점 내부 용어는 내부 기록 전용, 화면 문장(entries 슬롯)은 수강생·강사 실사용 어휘로 풀어쓴다. 게이트는 이 목록 데이터로 운용(동작·항목 무관 공통) — 검사는 tests/phase33/test_phrasebook_motion_specific.py 화면 어휘 게이트."
+    },
+    "goalFirstCueLine": "33-13 (A-6, belle 확인 ① 4R 승인 문형) — 동작 전용 cueLine 은 목표-선행 구조 (\"목표는 …이에요. <행동 큐>\"). 목표 문장 출처 = 33-A1-MOTION-STANDARDS ① 완성 기준의 검증 claim 만 (UNVERIFIED 좌우 라벨·척추 아치 곡률 미사용, 기능 역할 지칭 33-09 규칙 유지). __common__ 은 동작 미상이라 목표 문장 없음(일반론 목표 fabrication 금지 — fail-closed)."
   },
   "entries": {
     "__common__.leg_extension": {
       "statusLine": "무릎이 기준보다 덜 펴져 있어요",
-      "whyLine": "다리 라인이 끝까지 뻗지 않으면 심사에서 신전 완성도로 감점되는 부분이에요",
+      "whyLine": "다리 라인이 끝까지 뻗지 않으면 그만큼 심사에서 감점되는 부분이에요",
       "cueLine": "발끝으로 천장을 길게 밀어낸다는 느낌으로 다리를 쭉 뻗어보세요",
       "coachQuestion": "무릎을 끝까지 펴려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "무릎을 끝까지 펴는 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "무릎을 끝까지 펴는 다리 힘이 받쳐줘야 하기 때문이에요"
     },
     "__common__.arm_extension": {
       "statusLine": "팔꿈치가 기준보다 덜 펴져 있어요",
-      "whyLine": "팔이 곧게 뻗지 않으면 라인 완성도에서 감점되는 부분이에요",
+      "whyLine": "팔이 곧게 뻗지 않으면 라인이 흐트러진 만큼 심사에서 감점되는 부분이에요",
       "cueLine": "손끝을 벽 너머로 멀리 보낸다는 느낌으로 팔을 길게 뻗어보세요",
       "coachQuestion": "팔꿈치를 끝까지 펴려면 어깨를 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
@@ -104,7 +177,7 @@
     },
     "__common__.split_angle": {
       "statusLine": "다리를 벌린 각도가 기준보다 좁아요",
-      "whyLine": "다리를 더 벌리지 못하면 스플릿 완성도에서 감점되는 부분이에요",
+      "whyLine": "다리를 더 벌리지 못하면 모자란 만큼 심사에서 감점되는 부분이에요",
       "cueLine": "양 무릎을 각각 반대쪽 벽으로 밀어낸다는 느낌으로 다리를 벌려보세요",
       "coachQuestion": "다리를 더 벌리려면 어떤 스트레칭부터 하면 좋을지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
@@ -112,7 +185,7 @@
     },
     "__common__.line": {
       "statusLine": "몸 전체 라인이 곧게 펴지지 않았어요",
-      "whyLine": "팔다리 라인이 한 흐름으로 곧게 뻗지 않으면 라인 완성도에서 감점되는 부분이에요",
+      "whyLine": "팔다리 라인이 한 흐름으로 곧게 뻗지 않으면 라인이 흐트러진 만큼 심사에서 감점되는 부분이에요",
       "cueLine": "정수리와 발끝을 서로 반대 방향으로 길게 늘인다는 느낌으로 온몸을 뻗어보세요",
       "coachQuestion": "몸 전체를 곧게 유지하려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "core_weak",
@@ -120,7 +193,7 @@
     },
     "__common__.body_relative_reach": {
       "statusLine": "목표 지점까지 아직 덜 닿았어요",
-      "whyLine": "필요한 지점까지 뻗지 못하면 동작 완성도에서 감점되는 부분이에요",
+      "whyLine": "필요한 지점까지 뻗지 못하면 모자란 만큼 심사에서 감점되는 부분이에요",
       "cueLine": "닿으려는 지점을 향해 몸을 한 뼘 더 보낸다는 느낌으로 뻗어보세요",
       "coachQuestion": "목표 지점까지 더 뻗으려면 무엇부터 준비하면 좋을지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
@@ -132,7 +205,7 @@
       "cueLine": "왼쪽 무릎을 기준 자세의 무릎 라인에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
       "coachQuestion": "왼쪽 무릎 각도를 기준에 맞추려면 어떻게 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "무릎 각도를 기준에 맞추려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "무릎 각도를 기준에 맞추려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "__common__.angle_vs_reference__right_knee": {
       "statusLine": "오른쪽 무릎 각도가 기준 자세와 차이가 있어요",
@@ -140,11 +213,11 @@
       "cueLine": "오른쪽 무릎을 기준 자세의 무릎 라인에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
       "coachQuestion": "오른쪽 무릎 각도를 기준에 맞추려면 어떻게 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "무릎 각도를 기준에 맞추려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "무릎 각도를 기준에 맞추려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "__common__.angle_vs_reference__left_elbow": {
       "statusLine": "왼쪽 팔꿈치 각도가 기준 자세와 차이가 있어요",
-      "whyLine": "팔꿈치 각도가 기준에서 벗어나면 라인 완성도에서 감점되는 부분이에요",
+      "whyLine": "팔꿈치 각도가 기준에서 벗어나면 라인이 흐트러진 만큼 심사에서 감점되는 부분이에요",
       "cueLine": "왼쪽 팔꿈치를 기준 자세의 팔 라인에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
       "coachQuestion": "왼쪽 팔꿈치 각도를 기준에 맞추려면 어깨를 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
@@ -152,7 +225,7 @@
     },
     "__common__.angle_vs_reference__right_elbow": {
       "statusLine": "오른쪽 팔꿈치 각도가 기준 자세와 차이가 있어요",
-      "whyLine": "팔꿈치 각도가 기준에서 벗어나면 라인 완성도에서 감점되는 부분이에요",
+      "whyLine": "팔꿈치 각도가 기준에서 벗어나면 라인이 흐트러진 만큼 심사에서 감점되는 부분이에요",
       "cueLine": "오른쪽 팔꿈치를 기준 자세의 팔 라인에 나란히 겹쳐본다는 느낌으로 맞춰보세요",
       "coachQuestion": "오른쪽 팔꿈치 각도를 기준에 맞추려면 어깨를 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
@@ -192,16 +265,16 @@
     },
     "ref-power-spin.leg_extension": {
       "statusLine": "파워스핀 스플릿에서 무릎이 기준보다 덜 펴져 있어요",
-      "whyLine": "위아래 일자 스플릿 라인이 무릎에서 꺾이면 신전 완성도에서 감점되는 부분이에요",
-      "cueLine": "위로 뻗는 다리는 폴을 따라 수직으로, 반대 다리는 아래로 길게 눌러 한 줄로 뻗어보세요",
+      "whyLine": "위아래 일자 스플릿 라인이 무릎에서 꺾이면 다리가 끝까지 펴지지 않은 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 폴을 따라 위아래 한 줄 스플릿이에요. 위로 뻗는 다리는 폴을 따라 수직으로, 반대 다리는 아래로 길게 눌러 한 줄로 뻗어보세요",
       "coachQuestion": "스핀 중에 위아래 스플릿 다리를 끝까지 펴려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "회전 중에도 무릎을 끝까지 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "회전 중에도 무릎을 끝까지 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-power-spin.angle_vs_reference__left_hip": {
       "statusLine": "왼쪽 다리 벌린 각도가 파워스핀 기준 자세와 차이가 있어요",
       "whyLine": "위아래 일자 스플릿에서 다리 각이 벗어나면 자세 정확도에서 감점되는 부분이에요",
-      "cueLine": "폴을 따라 위아래로 뻗는 일자 스플릿을 유지한 채, 왼쪽 다리 라인을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 폴을 따라 위아래 한 줄 스플릿이에요. 폴을 따라 위아래로 뻗는 일자 스플릿을 유지한 채, 왼쪽 다리 라인을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "파워스핀 스플릿에서 왼쪽 다리 각도를 기준에 맞추려면 고관절을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "스플릿 다리 각을 기준까지 열려면 고관절과 햄스트링 유연성이 받쳐줘야 하기 때문이에요"
@@ -209,7 +282,7 @@
     "ref-power-spin.angle_vs_reference__right_hip": {
       "statusLine": "오른쪽 다리 벌린 각도가 파워스핀 기준 자세와 차이가 있어요",
       "whyLine": "위아래 일자 스플릿에서 다리 각이 벗어나면 자세 정확도에서 감점되는 부분이에요",
-      "cueLine": "폴을 따라 위아래로 뻗는 일자 스플릿을 유지한 채, 오른쪽 다리 라인을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 폴을 따라 위아래 한 줄 스플릿이에요. 폴을 따라 위아래로 뻗는 일자 스플릿을 유지한 채, 오른쪽 다리 라인을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "파워스핀 스플릿에서 오른쪽 다리 각도를 기준에 맞추려면 고관절을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "스플릿 다리 각을 기준까지 열려면 고관절과 햄스트링 유연성이 받쳐줘야 하기 때문이에요"
@@ -217,7 +290,7 @@
     "ref-power-spin.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 파워스핀 기준 자세와 차이가 있어요",
       "whyLine": "그립 어깨가 무너지면 스플릿 라인이 기울어 실행 감점으로 이어지는 부분이에요",
-      "cueLine": "어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 폴을 따라 위아래 한 줄 스플릿이에요. 어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "스핀 원심력을 버틸 때 그립 어깨가 무너지지 않으려면 어떻게 잡아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "원심력을 버티는 그립 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"
@@ -225,7 +298,7 @@
     "ref-peter-pan.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 피터팬 기준 자세와 차이가 있어요",
       "whyLine": "그립 어깨가 떨어지면 스태그 셰이프 라인이 무너져 감점으로 이어지는 부분이에요",
-      "cueLine": "어깨를 으쓱하지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 한쪽 무릎은 폴을 감고 반대 다리는 길게 뻗는 모양이에요. 어깨를 으쓱하지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "피터팬에서 그립 어깨를 안정적으로 누르려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "그립 어깨를 눌러 유지하려면 견갑 안정근이 받쳐줘야 하기 때문이에요"
@@ -233,7 +306,7 @@
     "ref-peter-pan.angle_vs_reference__right_elbow": {
       "statusLine": "오른쪽 팔꿈치 각도가 피터팬 기준 자세와 차이가 있어요",
       "whyLine": "그립 팔이 굽으면 두 손 그립 간격이 무너져 셰이프가 흔들리는 부분이에요",
-      "cueLine": "그립 팔을 팔꿈치까지 곧게 눌러 뻗고, 두 손 사이 간격을 그대로 유지해보세요",
+      "cueLine": "목표는 한쪽 무릎은 폴을 감고 반대 다리는 길게 뻗는 모양이에요. 그립 팔을 팔꿈치까지 곧게 눌러 뻗고, 두 손 사이 간격을 그대로 유지해보세요",
       "coachQuestion": "피터팬에서 그립 간격을 유지하려면 팔을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "그립 팔을 곧게 유지하려면 어깨와 광배 안정근이 받쳐줘야 하기 때문이에요"
@@ -241,7 +314,7 @@
     "ref-peter-pan.angle_vs_reference__right_knee": {
       "statusLine": "오른쪽 무릎 각도가 피터팬 기준 자세와 차이가 있어요",
       "whyLine": "폴을 감는 훅 무릎이 풀리거나 모양이 달라지면 스태그 셰이프가 무너지는 부분이에요",
-      "cueLine": "오른쪽 무릎으로 폴을 깊게 걸어(훅) 그 모양을 그대로 두고, 반대 다리만 길게 뻗어보세요",
+      "cueLine": "목표는 한쪽 무릎은 폴을 감고 반대 다리는 길게 뻗는 모양이에요. 오른쪽 무릎으로 폴을 깊게 걸어(훅) 그 모양을 그대로 두고, 반대 다리만 길게 뻗어보세요",
       "coachQuestion": "훅 무릎이 풀리지 않게 걸어 두려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "glute_hip_unstable",
       "exerciseReason": "훅을 풀리지 않게 유지하려면 다리를 거는 힙 주변 근력이 받쳐줘야 하기 때문이에요"
@@ -249,7 +322,7 @@
     "ref-elbow-twist-sister.angle_vs_reference__left_elbow": {
       "statusLine": "왼쪽 팔꿈치 각도가 엘보 트위스트 기준 자세와 차이가 있어요",
       "whyLine": "엘보 그립을 고쳐 잡거나 감는 각이 달라지면 실행 감점으로 이어지는 부분이에요",
-      "cueLine": "팔꿈치로 폴을 단단히 감은(엘보 그립) 채, 그 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 윗다리를 폴을 따라 곧게 뽑는 자세예요. 팔꿈치로 폴을 단단히 감은(엘보 그립) 채, 그 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "엘보 그립을 고쳐 잡지 않고 버티려면 어떻게 감아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "grip_weak",
       "exerciseReason": "엘보 그립을 흔들리지 않게 버티려면 팔 그립 유지력이 받쳐줘야 하기 때문이에요"
@@ -257,7 +330,7 @@
     "ref-elbow-twist-sister.angle_vs_reference__right_elbow": {
       "statusLine": "오른쪽 팔꿈치 각도가 엘보 트위스트 기준 자세와 차이가 있어요",
       "whyLine": "엘보 그립을 고쳐 잡거나 감는 각이 달라지면 실행 감점으로 이어지는 부분이에요",
-      "cueLine": "팔꿈치로 폴을 단단히 감은(엘보 그립) 채, 그 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 윗다리를 폴을 따라 곧게 뽑는 자세예요. 팔꿈치로 폴을 단단히 감은(엘보 그립) 채, 그 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "엘보 그립을 고쳐 잡지 않고 버티려면 어떻게 감아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "grip_weak",
       "exerciseReason": "엘보 그립을 흔들리지 않게 버티려면 팔 그립 유지력이 받쳐줘야 하기 때문이에요"
@@ -265,23 +338,23 @@
     "ref-elbow-twist-sister.angle_vs_reference__left_knee": {
       "statusLine": "왼쪽 무릎 각도가 엘보 트위스트 기준 자세와 차이가 있어요",
       "whyLine": "도립에서 윗다리 수직 라인이 무릎에서 꺾이거나 훅이 풀리면 감점으로 이어지는 부분이에요",
-      "cueLine": "윗다리는 폴 축을 따라 수직으로 뽑고 훅은 걸린 모양 그대로 둔 채, 왼쪽 무릎을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 윗다리를 폴을 따라 곧게 뽑는 자세예요. 윗다리는 폴 축을 따라 수직으로 뽑고 훅은 걸린 모양 그대로 둔 채, 왼쪽 무릎을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "도립에서 윗다리를 수직으로 뽑으려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "윗다리를 수직으로 뽑아 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "윗다리를 수직으로 뽑아 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-elbow-twist-sister.angle_vs_reference__right_knee": {
       "statusLine": "오른쪽 무릎 각도가 엘보 트위스트 기준 자세와 차이가 있어요",
       "whyLine": "도립에서 윗다리 수직 라인이 무릎에서 꺾이거나 훅이 풀리면 감점으로 이어지는 부분이에요",
-      "cueLine": "윗다리는 폴 축을 따라 수직으로 뽑고 훅은 걸린 모양 그대로 둔 채, 오른쪽 무릎을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 윗다리를 폴을 따라 곧게 뽑는 자세예요. 윗다리는 폴 축을 따라 수직으로 뽑고 훅은 걸린 모양 그대로 둔 채, 오른쪽 무릎을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "도립에서 윗다리를 수직으로 뽑으려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "윗다리를 수직으로 뽑아 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "윗다리를 수직으로 뽑아 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-elbow-twist-sister.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 엘보 트위스트 기준 자세와 차이가 있어요",
       "whyLine": "지지 어깨가 흔들리면 도립과 트위스트 유지가 무너지는 부분이에요",
-      "cueLine": "그립 쪽 견갑을 단단히 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 윗다리를 폴을 따라 곧게 뽑는 자세예요. 그립 쪽 견갑을 단단히 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "도립을 버티는 동안 어깨가 흔들리지 않으려면 어떻게 잡아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "도립을 버티는 지지 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"
@@ -289,7 +362,7 @@
     "ref-elbow-twist-sister.angle_vs_reference__right_shoulder": {
       "statusLine": "오른쪽 어깨(겨드랑이) 각도가 엘보 트위스트 기준 자세와 차이가 있어요",
       "whyLine": "지지 어깨가 흔들리면 도립과 트위스트 유지가 무너지는 부분이에요",
-      "cueLine": "그립 쪽 견갑을 단단히 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 윗다리를 폴을 따라 곧게 뽑는 자세예요. 그립 쪽 견갑을 단단히 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "도립을 버티는 동안 어깨가 흔들리지 않으려면 어떻게 잡아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "도립을 버티는 지지 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"
@@ -297,7 +370,7 @@
     "ref-elbow-twist-sister.angle_vs_reference__left_hip": {
       "statusLine": "왼쪽 다리 벌린 각도가 엘보 트위스트 기준 자세와 차이가 있어요",
       "whyLine": "위아래 가위 스플릿 각이 벗어나면 자세 정확도에서 감점되는 부분이에요",
-      "cueLine": "위아래로 가르는 가위 스플릿을 유지한 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 윗다리를 폴을 따라 곧게 뽑는 자세예요. 위아래로 가르는 가위 스플릿을 유지한 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "가위 스플릿 각을 기준까지 열려면 고관절을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "가위 스플릿 각을 기준까지 열려면 고관절과 햄스트링 유연성이 받쳐줘야 하기 때문이에요"
@@ -305,7 +378,7 @@
     "ref-pdshape.angle_vs_reference__left_knee": {
       "statusLine": "왼쪽 무릎 각도가 기준 셰이프와 차이가 있어요",
       "whyLine": "이 동작은 다리를 깊게 접는 클로즈드 셰이프가 기준이라, 접은 모양이 달라지면 감점으로 이어지는 부분이에요",
-      "cueLine": "무릎을 펴는 게 아니라, 깊게 접은 다리 모양 그대로 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 무릎을 펴는 게 아니라, 깊게 접은 다리 모양 그대로 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "접은 다리 모양을 흔들리지 않게 유지하려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "glute_hip_unstable",
       "exerciseReason": "접은 셰이프를 그대로 유지하려면 힙 주변을 잡아주는 근력이 받쳐줘야 하기 때문이에요"
@@ -313,7 +386,7 @@
     "ref-pdshape.angle_vs_reference__right_knee": {
       "statusLine": "오른쪽 무릎 각도가 기준 셰이프와 차이가 있어요",
       "whyLine": "이 동작은 다리를 깊게 접는 클로즈드 셰이프가 기준이라, 접은 모양이 달라지면 감점으로 이어지는 부분이에요",
-      "cueLine": "무릎을 펴는 게 아니라, 깊게 접은 다리 모양 그대로 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 무릎을 펴는 게 아니라, 깊게 접은 다리 모양 그대로 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "접은 다리 모양을 흔들리지 않게 유지하려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "glute_hip_unstable",
       "exerciseReason": "접은 셰이프를 그대로 유지하려면 힙 주변을 잡아주는 근력이 받쳐줘야 하기 때문이에요"
@@ -321,7 +394,7 @@
     "ref-pdshape.angle_vs_reference__left_hip": {
       "statusLine": "왼쪽 다리 벌린 각도가 기준 셰이프와 차이가 있어요",
       "whyLine": "골반이 풀리면 비대칭 클로즈드 셰이프의 균형이 무너지는 부분이에요",
-      "cueLine": "훅 걸린 다리와 접은 다리의 골반을 그대로 잠근 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 훅 걸린 다리와 접은 다리의 골반을 그대로 잠근 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "이 셰이프에서 골반을 잠가 두려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "glute_hip_unstable",
       "exerciseReason": "골반을 잠가 셰이프를 유지하려면 힙 주변 근력이 받쳐줘야 하기 때문이에요"
@@ -329,7 +402,7 @@
     "ref-pdshape.angle_vs_reference__right_hip": {
       "statusLine": "오른쪽 다리 벌린 각도가 기준 셰이프와 차이가 있어요",
       "whyLine": "골반이 풀리면 비대칭 클로즈드 셰이프의 균형이 무너지는 부분이에요",
-      "cueLine": "훅 걸린 다리와 접은 다리의 골반을 그대로 잠근 채, 오른쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 훅 걸린 다리와 접은 다리의 골반을 그대로 잠근 채, 오른쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "이 셰이프에서 골반을 잠가 두려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "glute_hip_unstable",
       "exerciseReason": "골반을 잠가 셰이프를 유지하려면 힙 주변 근력이 받쳐줘야 하기 때문이에요"
@@ -337,7 +410,7 @@
     "ref-pdshape.angle_vs_reference__left_elbow": {
       "statusLine": "왼쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요",
       "whyLine": "폴을 잡은 팔 각이 달라지면 셰이프 지지가 흔들리는 부분이에요",
-      "cueLine": "양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "이 셰이프에서 그립 팔을 어떻게 잡아야 안정적인지 강사님께 여쭤보고 싶어요",
       "exerciseId": "grip_weak",
       "exerciseReason": "그립 팔 각을 유지하려면 손과 팔 그립 유지력이 받쳐줘야 하기 때문이에요"
@@ -345,7 +418,7 @@
     "ref-pdshape.angle_vs_reference__right_elbow": {
       "statusLine": "오른쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요",
       "whyLine": "폴을 잡은 팔 각이 달라지면 셰이프 지지가 흔들리는 부분이에요",
-      "cueLine": "양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "이 셰이프에서 그립 팔을 어떻게 잡아야 안정적인지 강사님께 여쭤보고 싶어요",
       "exerciseId": "grip_weak",
       "exerciseReason": "그립 팔 각을 유지하려면 손과 팔 그립 유지력이 받쳐줘야 하기 때문이에요"
@@ -353,7 +426,7 @@
     "ref-pdshape.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 기준 셰이프와 차이가 있어요",
       "whyLine": "어깨로 버티는 지지 각이 무너지면 셰이프가 한쪽으로 쏠리는 부분이에요",
-      "cueLine": "어깨가 귀 쪽으로 말리지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 어깨가 귀 쪽으로 말리지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "어깨 부하가 한쪽으로 쏠리지 않게 버티려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "셰이프 부하를 버티는 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"
@@ -361,7 +434,7 @@
     "ref-pdshape.angle_vs_reference__right_shoulder": {
       "statusLine": "오른쪽 어깨(겨드랑이) 각도가 기준 셰이프와 차이가 있어요",
       "whyLine": "어깨로 버티는 지지 각이 무너지면 셰이프가 한쪽으로 쏠리는 부분이에요",
-      "cueLine": "어깨가 귀 쪽으로 말리지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 어깨가 귀 쪽으로 말리지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "어깨 부하가 한쪽으로 쏠리지 않게 버티려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "셰이프 부하를 버티는 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"
@@ -369,7 +442,7 @@
     "ref-kip-up.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 킵업 기준 자세와 차이가 있어요",
       "whyLine": "어깨가 처지거나 으쓱 올라가면 스윙 추진력이 새는 부분이에요",
-      "cueLine": "어깨를 귀에서 멀리 눌러 고정한 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 무릎을 편 채 양다리를 좌우로 크게 벌려 반동을 만드는 거예요. 어깨를 귀에서 멀리 눌러 고정한 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "킵업 스윙에서 어깨가 처지지 않으려면 어떻게 눌러야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "스윙 추진력을 어깨로 받치려면 견갑 안정근이 받쳐줘야 하기 때문이에요"
@@ -377,55 +450,55 @@
     "ref-kip-up.angle_vs_reference__right_shoulder": {
       "statusLine": "오른쪽 어깨(겨드랑이) 각도가 킵업 기준 자세와 차이가 있어요",
       "whyLine": "어깨가 처지거나 으쓱 올라가면 스윙 추진력이 새는 부분이에요",
-      "cueLine": "어깨를 귀에서 멀리 눌러 고정한 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 무릎을 편 채 양다리를 좌우로 크게 벌려 반동을 만드는 거예요. 어깨를 귀에서 멀리 눌러 고정한 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "킵업 스윙에서 어깨가 처지지 않으려면 어떻게 눌러야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "스윙 추진력을 어깨로 받치려면 견갑 안정근이 받쳐줘야 하기 때문이에요"
     },
     "ref-kip-up.split_angle": {
       "statusLine": "다리를 벌린 각도가 킵업 기준보다 좁아요",
-      "whyLine": "스트래들 폭이 좁거나 좌우가 다르면 반동이 약해지고 스플릿 완성도에서 감점되는 부분이에요",
-      "cueLine": "무릎을 편 채 양다리를 좌우로 크게 벌려(와이드 스트래들) 반동을 다리로 만들어보세요",
+      "whyLine": "스트래들 폭이 좁거나 좌우가 다르면 반동이 약해지고 모자란 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 무릎을 편 채 양다리를 좌우로 크게 벌려 반동을 만드는 거예요. 다리를 와이드 스트래들로 활짝 벌린 채, 반동을 다리로 만들어보세요",
       "coachQuestion": "스트래들 폭을 더 벌리려면 어떤 준비부터 하면 좋을지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "스트래들을 더 벌리려면 고관절과 햄스트링 유연성이 받쳐줘야 하기 때문이에요"
     },
     "ref-invert.split_angle": {
       "statusLine": "다리를 벌린 각도가 인버트 스플릿 기준보다 좁아요",
-      "whyLine": "골반이 닫혀 찢기가 짧아지면 스플릿 완성도에서 감점되는 부분이에요",
-      "cueLine": "골반을 열고 양다리를 서로 반대 방향으로 일자로 밀어내듯 찢어보세요",
+      "whyLine": "골반이 닫혀 찢기가 짧아지면 모자란 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 거꾸로 매달려 두 다리를 좌우 대칭 일자로 찢는 거예요. 골반을 열고 양다리를 서로 반대 방향으로 일자로 밀어내듯 찢어보세요",
       "coachQuestion": "인버트에서 골반을 열고 다리를 더 찢으려면 어떤 스트레칭부터 하면 좋을지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "다리를 일자로 찢으려면 고관절과 햄스트링 유연성이 받쳐줘야 하기 때문이에요"
     },
     "ref-invert.leg_extension": {
       "statusLine": "인버트 스플릿에서 무릎이 기준보다 덜 펴져 있어요",
-      "whyLine": "스플릿 라인이 무릎에서 꺾이면 신전 완성도에서 감점되는 부분이에요",
-      "cueLine": "양다리를 서로 반대 방향으로 길게 밀어내며 무릎을 끝까지 펴고 발끝 포인까지 이어보세요",
+      "whyLine": "스플릿 라인이 무릎에서 꺾이면 다리가 끝까지 펴지지 않은 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 거꾸로 매달려 두 다리를 좌우 대칭 일자로 찢는 거예요. 양다리를 서로 반대 방향으로 길게 밀어내며 무릎을 끝까지 펴고 발끝 포인까지 이어보세요",
       "coachQuestion": "인버트 스플릿에서 무릎을 끝까지 펴려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "스플릿 다리를 끝까지 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "스플릿 다리를 끝까지 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-invert.angle_vs_reference__left_knee": {
       "statusLine": "왼쪽 무릎 각도가 인버트 기준 자세와 차이가 있어요",
-      "whyLine": "스플릿 다리가 무릎에서 꺾이면 라인 완성도에서 감점되는 부분이에요",
-      "cueLine": "스플릿 양다리를 길게 뻗은 채, 왼쪽 무릎을 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
+      "whyLine": "스플릿 다리가 무릎에서 꺾이면 라인이 흐트러진 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 거꾸로 매달려 두 다리를 좌우 대칭 일자로 찢는 거예요. 스플릿 양다리를 길게 뻗은 채, 왼쪽 무릎을 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
       "coachQuestion": "인버트 스플릿에서 왼쪽 무릎까지 곧게 펴려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "무릎을 기준까지 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "무릎을 기준까지 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-invert.angle_vs_reference__right_knee": {
       "statusLine": "오른쪽 무릎 각도가 인버트 기준 자세와 차이가 있어요",
-      "whyLine": "스플릿 다리가 무릎에서 꺾이면 라인 완성도에서 감점되는 부분이에요",
-      "cueLine": "스플릿 양다리를 길게 뻗은 채, 오른쪽 무릎을 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
+      "whyLine": "스플릿 다리가 무릎에서 꺾이면 라인이 흐트러진 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 거꾸로 매달려 두 다리를 좌우 대칭 일자로 찢는 거예요. 스플릿 양다리를 길게 뻗은 채, 오른쪽 무릎을 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
       "coachQuestion": "인버트 스플릿에서 오른쪽 무릎까지 곧게 펴려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "무릎을 기준까지 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "무릎을 기준까지 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-invert.angle_vs_reference__left_hip": {
       "statusLine": "왼쪽 다리 벌린 각도가 인버트 기준 자세와 차이가 있어요",
       "whyLine": "스플릿 좌우가 다르면 라인이 한쪽으로 기울어 감점되는 부분이에요",
-      "cueLine": "골반을 연 스플릿을 유지한 채, 왼쪽 다리 각을 반대쪽 다리와 대칭이 되게 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 두 다리를 좌우 대칭 일자로 찢는 거예요. 골반을 연 스플릿을 유지한 채, 왼쪽 다리 각을 반대쪽 다리와 대칭이 되게 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "스플릿 좌우 대칭을 맞추려면 어느 쪽을 먼저 열어야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "스플릿 각을 좌우 대칭으로 열려면 고관절 유연성이 받쳐줘야 하기 때문이에요"
@@ -433,7 +506,7 @@
     "ref-invert.angle_vs_reference__right_hip": {
       "statusLine": "오른쪽 다리 벌린 각도가 인버트 기준 자세와 차이가 있어요",
       "whyLine": "스플릿 좌우가 다르면 라인이 한쪽으로 기울어 감점되는 부분이에요",
-      "cueLine": "골반을 연 스플릿을 유지한 채, 오른쪽 다리 각을 반대쪽 다리와 대칭이 되게 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 두 다리를 좌우 대칭 일자로 찢는 거예요. 골반을 연 스플릿을 유지한 채, 오른쪽 다리 각을 반대쪽 다리와 대칭이 되게 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "스플릿 좌우 대칭을 맞추려면 어느 쪽을 먼저 열어야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "스플릿 각을 좌우 대칭으로 열려면 고관절 유연성이 받쳐줘야 하기 때문이에요"
@@ -441,7 +514,7 @@
     "ref-invert.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 인버트 기준 자세와 차이가 있어요",
       "whyLine": "지지 견갑이 무너지면 도립 유지가 흔들리는 부분이에요",
-      "cueLine": "폴을 잡은 팔 쪽 견갑을 단단히 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 두 다리를 좌우 대칭 일자로 찢는 거예요. 폴을 잡은 팔 쪽 견갑을 단단히 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "인버트로 올라가고 버틸 때 견갑을 어떻게 잡아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "도립을 버티는 견갑은 어깨 안정근이 받쳐줘야 하기 때문이에요"
@@ -449,7 +522,7 @@
     "ref-invert.angle_vs_reference__right_shoulder": {
       "statusLine": "오른쪽 어깨(겨드랑이) 각도가 인버트 기준 자세와 차이가 있어요",
       "whyLine": "지지 견갑이 무너지면 도립 유지가 흔들리는 부분이에요",
-      "cueLine": "폴을 잡은 팔 쪽 견갑을 단단히 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달려 두 다리를 좌우 대칭 일자로 찢는 거예요. 폴을 잡은 팔 쪽 견갑을 단단히 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "인버트로 올라가고 버틸 때 견갑을 어떻게 잡아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "도립을 버티는 견갑은 어깨 안정근이 받쳐줘야 하기 때문이에요"
@@ -457,23 +530,23 @@
     "ref-foxtop.angle_vs_reference__left_knee": {
       "statusLine": "왼쪽 무릎 각도가 폭스탑 기준 자세와 차이가 있어요",
       "whyLine": "수직 스플릿에서 무릎이 굽으면 라인이 흐려져 감점되는 부분이에요",
-      "cueLine": "위아래 수직 스플릿을 유지한 채, 왼쪽 무릎을 곧게 펴서 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 위 다리를 폴을 따라 수직으로 세우는 스플릿이에요. 위아래 수직 스플릿을 유지한 채, 왼쪽 무릎을 곧게 펴서 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
       "coachQuestion": "폭스탑 수직 스플릿에서 무릎까지 펴려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "수직 스플릿 다리를 곧게 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "수직 스플릿 다리를 곧게 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-foxtop.angle_vs_reference__right_knee": {
       "statusLine": "오른쪽 무릎 각도가 폭스탑 기준 자세와 차이가 있어요",
       "whyLine": "수직 스플릿에서 무릎이 굽으면 라인이 흐려져 감점되는 부분이에요",
-      "cueLine": "위아래 수직 스플릿을 유지한 채, 오른쪽 무릎을 곧게 펴서 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 위 다리를 폴을 따라 수직으로 세우는 스플릿이에요. 위아래 수직 스플릿을 유지한 채, 오른쪽 무릎을 곧게 펴서 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
       "coachQuestion": "폭스탑 수직 스플릿에서 무릎까지 펴려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "수직 스플릿 다리를 곧게 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "수직 스플릿 다리를 곧게 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-foxtop.angle_vs_reference__left_hip": {
       "statusLine": "왼쪽 다리 벌린 각도가 폭스탑 기준 자세와 차이가 있어요",
       "whyLine": "위아래 스플릿 각이 벗어나면 자세 정확도에서 감점되는 부분이에요",
-      "cueLine": "위로 뻗는 다리는 폴을 따라 수직으로, 아래 다리는 길게 눌러 둔 채 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 위 다리를 폴을 따라 수직으로 세우는 스플릿이에요. 위로 뻗는 다리는 폴을 따라 수직으로, 아래 다리는 길게 눌러 둔 채 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "폭스탑 수직 스플릿 각을 기준까지 열려면 고관절을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "수직 스플릿 각을 열려면 고관절과 햄스트링 유연성이 받쳐줘야 하기 때문이에요"
@@ -481,7 +554,7 @@
     "ref-foxtop.angle_vs_reference__right_hip": {
       "statusLine": "오른쪽 다리 벌린 각도가 폭스탑 기준 자세와 차이가 있어요",
       "whyLine": "위아래 스플릿 각이 벗어나면 자세 정확도에서 감점되는 부분이에요",
-      "cueLine": "위로 뻗는 다리는 폴을 따라 수직으로, 아래 다리는 길게 눌러 둔 채 오른쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 위 다리를 폴을 따라 수직으로 세우는 스플릿이에요. 위로 뻗는 다리는 폴을 따라 수직으로, 아래 다리는 길게 눌러 둔 채 오른쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "폭스탑 수직 스플릿 각을 기준까지 열려면 고관절을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "수직 스플릿 각을 열려면 고관절과 햄스트링 유연성이 받쳐줘야 하기 때문이에요"
@@ -489,7 +562,7 @@
     "ref-foxtop.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 폭스탑 기준 자세와 차이가 있어요",
       "whyLine": "주 지지 견갑이 무너지면 다리 교환과 스플릿 진입이 흔들리는 부분이에요",
-      "cueLine": "다리를 바꿔 걸고 스플릿으로 넘어가는 동안 견갑을 고정한 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 위 다리를 폴을 따라 수직으로 세우는 스플릿이에요. 다리를 바꿔 걸고 스플릿으로 넘어가는 동안 견갑을 고정한 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "다리 교환 순간에 어깨 균형이 무너지지 않으려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "교환과 스플릿을 버티는 견갑은 어깨 안정근이 받쳐줘야 하기 때문이에요"
@@ -497,15 +570,15 @@
     "ref-foxtop.angle_vs_reference__right_shoulder": {
       "statusLine": "오른쪽 어깨(겨드랑이) 각도가 폭스탑 기준 자세와 차이가 있어요",
       "whyLine": "주 지지 견갑이 무너지면 다리 교환과 스플릿 진입이 흔들리는 부분이에요",
-      "cueLine": "다리를 바꿔 걸고 스플릿으로 넘어가는 동안 견갑을 고정한 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 위 다리를 폴을 따라 수직으로 세우는 스플릿이에요. 다리를 바꿔 걸고 스플릿으로 넘어가는 동안 견갑을 고정한 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "다리 교환 순간에 어깨 균형이 무너지지 않으려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "교환과 스플릿을 버티는 견갑은 어깨 안정근이 받쳐줘야 하기 때문이에요"
     },
     "ref-foxtop-split.split_angle": {
       "statusLine": "다리를 벌린 각도가 폭스탑 스플릿 기준보다 좁아요",
-      "whyLine": "피크에서 두 다리가 덜 펼쳐지면 스플릿 완성도에서 감점되는 부분이에요",
-      "cueLine": "훅을 놓치지 않은 채, 두 다리를 서로 멀어지게 활짝 펼쳐보세요",
+      "whyLine": "피크에서 두 다리가 덜 펼쳐지면 모자란 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 거꾸로 매달린 채 두 다리를 활짝 펼치는 스플릿이에요. 훅을 놓치지 않은 채, 두 다리를 서로 멀어지게 활짝 펼쳐보세요",
       "coachQuestion": "펼침 스플릿을 더 벌리려면 어떤 스트레칭부터 하면 좋을지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "펼침 각을 더 열려면 고관절과 햄스트링 유연성이 받쳐줘야 하기 때문이에요"
@@ -513,15 +586,15 @@
     "ref-foxtop-split.angle_vs_reference__left_knee": {
       "statusLine": "왼쪽 무릎 각도가 폭스탑 스플릿 기준 자세와 차이가 있어요",
       "whyLine": "뻗는 다리 무릎이 굽으면 피크 라인이 짧아져 감점되는 부분이에요",
-      "cueLine": "펼침 스플릿에서 뻗는 다리 무릎을 끝까지 펴서 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 두 다리를 활짝 펼치는 스플릿이에요. 펼침 스플릿에서 뻗는 다리 무릎을 끝까지 펴서 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
       "coachQuestion": "펼침 피크에서 뻗는 다리를 끝까지 펴려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "뻗는 다리를 끝까지 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "뻗는 다리를 끝까지 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-foxtop-split.angle_vs_reference__right_knee": {
       "statusLine": "오른쪽 무릎 각도가 폭스탑 스플릿 기준 자세와 차이가 있어요",
       "whyLine": "훅 무릎이 풀리면 펼침 스플릿의 지지가 무너지는 부분이에요",
-      "cueLine": "오른쪽 무릎 훅은 걸린 모양 그대로 유지한 채, 그 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 두 다리를 활짝 펼치는 스플릿이에요. 오른쪽 무릎 훅은 걸린 모양 그대로 유지한 채, 그 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "펼침 중에 훅 무릎이 풀리지 않으려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "glute_hip_unstable",
       "exerciseReason": "훅을 풀리지 않게 유지하려면 다리를 거는 힙 주변 근력이 받쳐줘야 하기 때문이에요"
@@ -529,7 +602,7 @@
     "ref-foxtop-split.angle_vs_reference__left_hip": {
       "statusLine": "왼쪽 다리 벌린 각도가 폭스탑 스플릿 기준 자세와 차이가 있어요",
       "whyLine": "펼침 스플릿 각이 벗어나면 피크 라인이 한쪽으로 기울어 감점되는 부분이에요",
-      "cueLine": "두 다리를 펼친 스플릿을 유지한 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 두 다리를 활짝 펼치는 스플릿이에요. 두 다리를 펼친 스플릿을 유지한 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "펼침 스플릿에서 좌우 라인이 기울지 않으려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "펼침 각을 좌우 고르게 열려면 고관절 유연성이 받쳐줘야 하기 때문이에요"
@@ -537,7 +610,7 @@
     "ref-foxtop-split.angle_vs_reference__right_hip": {
       "statusLine": "오른쪽 다리 벌린 각도가 폭스탑 스플릿 기준 자세와 차이가 있어요",
       "whyLine": "펼침 스플릿 각이 벗어나면 피크 라인이 한쪽으로 기울어 감점되는 부분이에요",
-      "cueLine": "두 다리를 펼친 스플릿을 유지한 채, 오른쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 두 다리를 활짝 펼치는 스플릿이에요. 두 다리를 펼친 스플릿을 유지한 채, 오른쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "펼침 스플릿에서 좌우 라인이 기울지 않으려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "펼침 각을 좌우 고르게 열려면 고관절 유연성이 받쳐줘야 하기 때문이에요"
@@ -545,7 +618,7 @@
     "ref-foxtop-split.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 폭스탑 스플릿 기준 자세와 차이가 있어요",
       "whyLine": "그립 쪽 어깨가 흔들리면 펼침 셰이프의 지지가 무너지는 부분이에요",
-      "cueLine": "그립 쪽 견갑을 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 두 다리를 활짝 펼치는 스플릿이에요. 그립 쪽 견갑을 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "펼침과 슬로우 로테이션 동안 어깨를 어떻게 잡아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "펼침 셰이프를 버티는 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"
@@ -553,23 +626,23 @@
     "ref-foxtop-split.angle_vs_reference__right_shoulder": {
       "statusLine": "오른쪽 어깨(겨드랑이) 각도가 폭스탑 스플릿 기준 자세와 차이가 있어요",
       "whyLine": "그립 쪽 어깨가 흔들리면 펼침 셰이프의 지지가 무너지는 부분이에요",
-      "cueLine": "그립 쪽 견갑을 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 거꾸로 매달린 채 두 다리를 활짝 펼치는 스플릿이에요. 그립 쪽 견갑을 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "펼침과 슬로우 로테이션 동안 어깨를 어떻게 잡아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "펼침 셰이프를 버티는 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"
     },
     "ref-sideway-spin.leg_extension": {
       "statusLine": "사이드웨이 스핀에서 무릎이 기준보다 덜 펴져 있어요",
-      "whyLine": "자유 다리 무릎이 굽으면 회전 라인이 짧아 보여 신전 완성도에서 감점되는 부분이에요",
-      "cueLine": "다리를 몸에서 멀리 밀어낸다는 느낌으로 무릎을 끝까지 펴고 발끝 포인까지 이어보세요",
+      "whyLine": "자유 다리 무릎이 굽으면 회전 라인이 짧아 보여 다리가 끝까지 펴지지 않은 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 다리를 길게 뻗은 라인을 그리며 도는 거예요. 다리를 몸에서 멀리 밀어낸다는 느낌으로 무릎을 끝까지 펴고 발끝 포인까지 이어보세요",
       "coachQuestion": "회전 중에 다리를 끝까지 펴려면 어디에 힘을 줘야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "회전 중에도 무릎을 끝까지 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "회전 중에도 무릎을 끝까지 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-sideway-spin.arm_extension": {
       "statusLine": "그립 팔 팔꿈치가 기준보다 덜 펴져 있어요",
-      "whyLine": "폴을 잡은 팔이 굽으면 회전 라인 완성도에서 감점되는 부분이에요",
-      "cueLine": "폴을 잡은 팔을 팔꿈치까지 곧게 눌러, 길게 매달린다는 느낌으로 뻗어보세요",
+      "whyLine": "폴을 잡은 팔이 굽으면 회전 라인이 흐트러진 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 다리를 길게 뻗은 라인을 그리며 도는 거예요. 폴을 잡은 팔을 팔꿈치까지 곧게 눌러, 길게 매달린다는 느낌으로 뻗어보세요",
       "coachQuestion": "그립 팔을 곧게 편 채 회전을 버티려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "그립 팔을 곧게 뻗어 매달리려면 어깨와 광배 안정근이 받쳐줘야 하기 때문이에요"
@@ -577,31 +650,31 @@
     "ref-sideway-spin.angle_vs_reference__left_knee": {
       "statusLine": "왼쪽 무릎 각도가 사이드웨이 스핀 기준 자세와 차이가 있어요",
       "whyLine": "회전 중 다리 라인이 무릎에서 꺾이면 자세 정확도에서 감점되는 부분이에요",
-      "cueLine": "회전 중에도 다리를 길게 뻗은 채, 왼쪽 무릎을 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 다리를 길게 뻗은 라인을 그리며 도는 거예요. 회전 중에도 다리를 길게 뻗은 채, 왼쪽 무릎을 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
       "coachQuestion": "회전 내내 왼쪽 무릎을 편 채 유지하려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "회전 중 무릎을 기준까지 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "회전 중 무릎을 기준까지 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-sideway-spin.angle_vs_reference__right_knee": {
       "statusLine": "오른쪽 무릎 각도가 사이드웨이 스핀 기준 자세와 차이가 있어요",
       "whyLine": "회전 중 다리 라인이 무릎에서 꺾이면 자세 정확도에서 감점되는 부분이에요",
-      "cueLine": "회전 중에도 다리를 길게 뻗은 채, 오른쪽 무릎을 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 다리를 길게 뻗은 라인을 그리며 도는 거예요. 회전 중에도 다리를 길게 뻗은 채, 오른쪽 무릎을 기준 자세의 다리 라인에 겹쳐 맞춰보세요",
       "coachQuestion": "회전 내내 오른쪽 무릎을 편 채 유지하려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "legs_not_extended",
-      "exerciseReason": "회전 중 무릎을 기준까지 펴려면 다리 신전 근력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "회전 중 무릎을 기준까지 펴려면 다리를 끝까지 펴는 힘이 받쳐줘야 하기 때문이에요"
     },
     "ref-sideway-spin.angle_vs_reference__left_hip": {
       "statusLine": "왼쪽 다리 벌린 각도가 사이드웨이 스핀 기준 자세와 차이가 있어요",
-      "whyLine": "다리를 밀어내는 각이 벗어나면 회전 라인 완성도에서 감점되는 부분이에요",
-      "cueLine": "다리를 길게 밀어 둔 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
+      "whyLine": "다리를 밀어내는 각이 벗어나면 회전 라인이 흐트러진 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 다리를 길게 뻗은 라인을 그리며 도는 거예요. 다리를 길게 밀어 둔 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "회전 라인에서 왼쪽 다리 각을 기준에 맞추려면 고관절을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "다리 각을 기준까지 열려면 고관절 유연성과 가동 범위가 받쳐줘야 하기 때문이에요"
     },
     "ref-sideway-spin.angle_vs_reference__right_hip": {
       "statusLine": "오른쪽 다리 벌린 각도가 사이드웨이 스핀 기준 자세와 차이가 있어요",
-      "whyLine": "다리를 밀어내는 각이 벗어나면 회전 라인 완성도에서 감점되는 부분이에요",
-      "cueLine": "다리를 길게 밀어 둔 채, 오른쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
+      "whyLine": "다리를 밀어내는 각이 벗어나면 회전 라인이 흐트러진 만큼 심사에서 감점되는 부분이에요",
+      "cueLine": "목표는 다리를 길게 뻗은 라인을 그리며 도는 거예요. 다리를 길게 밀어 둔 채, 오른쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "회전 라인에서 오른쪽 다리 각을 기준에 맞추려면 고관절을 어떻게 써야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "hip_hamstring_tight",
       "exerciseReason": "다리 각을 기준까지 열려면 고관절 유연성과 가동 범위가 받쳐줘야 하기 때문이에요"
@@ -609,7 +682,7 @@
     "ref-sideway-spin.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 사이드웨이 스핀 기준 자세와 차이가 있어요",
       "whyLine": "어깨가 올라가면 회전축이 흔들려 라인이 무너지는 부분이에요",
-      "cueLine": "어깨가 귀 쪽으로 올라가지 않게 내려 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 다리를 길게 뻗은 라인을 그리며 도는 거예요. 어깨가 귀 쪽으로 올라가지 않게 내려 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "회전 중에 어깨를 내려 잡으려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "회전축을 잡는 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"
@@ -617,7 +690,7 @@
     "ref-sideway-spin.angle_vs_reference__right_shoulder": {
       "statusLine": "오른쪽 어깨(겨드랑이) 각도가 사이드웨이 스핀 기준 자세와 차이가 있어요",
       "whyLine": "어깨가 올라가면 회전축이 흔들려 라인이 무너지는 부분이에요",
-      "cueLine": "어깨가 귀 쪽으로 올라가지 않게 내려 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
+      "cueLine": "목표는 다리를 길게 뻗은 라인을 그리며 도는 거예요. 어깨가 귀 쪽으로 올라가지 않게 내려 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "회전 중에 어깨를 내려 잡으려면 어떻게 해야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "회전축을 잡는 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"

@@ -4,13 +4,13 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Completed 33-22-PLAN.md (two-track deduction redesign)
-last_updated: "2026-07-29T01:15:16.936Z"
-last_activity: 2026-07-28 -- Phase 33 execution started
+last_updated: "2026-07-29T02:35:58.236Z"
+last_activity: 2026-07-29
 progress:
   total_phases: 35
   completed_phases: 16
   total_plans: 232
-  completed_plans: 186
+  completed_plans: 191
   percent: 46
 ---
 
@@ -28,14 +28,14 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 ## Current Position
 
 Phase: 33 (result-trust-recovery) — EXECUTING
-Plan: 1 of 23
+Plan: 2 of 23
 
 > ✓ Wave R (채점 재설계) COMPLETE (2026-07-24) — 33-22 2트랙 IPSF 감점 엔진(실행 −40캡 바닥60 + DORMANT 치명 캡우회 절대바닥25, `final=max(25,100−min(40,Σ실행)−Σ치명)`, 기존 임계 byte-unchanged) + 33-23 재검증 PASS. Pod b9l5gt1vpc4ho1(4090, ac59904 재핀, shadow candidate phase33-cm3-run1) serial 6 fixture: INV-1/2/4/5/6 동시 성립(재구성 10/10, 엘보우 −111.4→바닥60 앵커 재현, INV-4 캡 평탄화 elbow/pdshape→60=의도 트레이드오프 curve-fit 안 함), 회귀 0(HEAD vs baseline 61==61), 채점 테스트 241 pass. climb=not_pole 게이트 예외. **flip(33-07) belle 보류 유지** — 표현 트랙(33-07~16,33-21) 미착수. 정직 맥락: fault 점수 상승(57→80 등)=엔진 아닌 새 기질 효과, belle 판단 별건. 상세=33-SCORING-REVERIFY.md
 Verification: 22-12 COMPLETE (2026-07-16) — 데이터 플라이휠 "공부하기" 배치 루프 상설화. run_retrain_cycle.sh 1커맨드 사이클 러너(preflight[serial lock+greenlight 과금 게이트+디스크 30GB+git pull] → label[신규분만 과금] → assemble[jsonl_backup_ s3 백업 선행 후 canonical 교체] → train → gates[bf16 병합+compute_cap>=12 조건부 flashinfer env] → promote[promotion 래칫]) + promotion.py 순수 래칫(parse_gate_verdict/make_ledger_entry/apply_ratchet/make_cycle_report — 게이트 PASS[--require-pass exit 0]만 current 전진, FAIL 은 attempt 기록만, 사람/judge 점수 저장 0) + promotion_ledger.json(current=null 초기) + FLYWHEEL-RUNBOOK §2(belle 주1회 트리거·flashinfer 박제·래칫 해석·비용 관측치). TDD 9 테스트, phase22 302 pass/1 skip, 기존 러너·게이트(run_sft/run_sft_gates/assert_gates/build_jsonl/merge_and_quant) 무접촉. 실 Pod 사이클(라벨 과금/SFT/게이트)은 v7 종료 후 런북 절차(belle 트리거). // 이전:
 Verification: 22-11 COMPLETE (2026-07-16) — 데이터 플라이휠 "쌓기" 상설화. phase22_watch.py belle 1커맨드(PHASE22_BELLE_GREENLIGHT=1 --run) watch 러너 + _meta.collection_batches[] 배치 증분 등재 규약(마감 무결성 정합, build_jsonl 무접촉) + watch:false 옵트아웃 + FLYWHEEL-RUNBOOK §1. 순수 헬퍼+불변식 TDD, phase22 293 pass/1 skip, 프로덕션 무접촉 리허설 통과. 실 수집(과금)은 런북 절차 이월. // 이전:
 Verification: 22-04 COMPLETE (2026-07-11). 교사 증류 full batch 129/129 터미널(수락 109 / rejected_judge 12 / parse 6 / contract 2, 소스별 IG 91%·internal 88%·YT 79%, File API 잔여물 0) → SFT 학습셋 S3 완성 `training/phase22/jsonl/` (train.jsonl 99행 = distill 87 + text 14 / val.jsonl 2행, video_hash split, 균등 트림 109→87). 수집 마감 f66f25f(collection_complete=true + balance_waiver, 내부 371 fault track 이월). 시험 배치 3라운드가 129행 과금 전 결함 4건 fix(enum 59ac1a1/동작명 c5b14ef/judge 루브릭 eb69692/배열 파싱 ce992e0). 조립 중첩 타입 강제 = normalize_report 단일 owner(25e6752+1930099, coaching 80/87 보존). phase22 테스트 156 pass/1 skip. Known limitations: val 2행 얇음·svg_spec 감독 0/87·perturb/shadow 트랙 미합류(2트랙) — 22-04-SUMMARY.md 참조.
 Next: 데이터 플라이휠 운영 상설화 완료(쌓기 §1 + 공부 §2). 실 사이클은 belle 트리거(런북 §2, v7 종료 후 Pod). 잔여 플랜: 22-08~10 서빙 swap(게이트 PASS 시 promotion_ledger current 진입 조건) + 22-03 Tasks 2-4(Pod 배선) belle-gated 이월. bake-off 백본 = Qwen3-VL-8B CONFIRMED(260713-jjq).
-Status: Executing Phase 33
+Status: Ready to execute
 
 > ◐ 22-03 IN-PROGRESS — Task 1(helper)만 실행 (2026-07-09, LOCAL ONLY, Firestore/네트워크/Pod 0). `firestore_admin.store_vlm_shadow(video_hash, role, payload)` shadow 로깅 helper 추가: vlm_shadow/{video_hash} top-level 컬렉션(gemini_cache 형제)에 `{video_hash, created_at, updated_at, roles:{veto/recognizer/coach}}` set(merge=True) deep-merge 누적, created_at 첫 기록 보존, D-12 PII 키 재귀 거부(_reject_pii_keys, 정규화 denylist — T-22-07), nested-array 사전 차단(_validate_flat_dict_no_nested_array 재사용). firestore.rules catch-all default-deny로 클라이언트 접근 차단(T-22-08). TDD 2 commits(test f1f2d5b/feat f295d1e), phase22 전체 67 pass/2 skip. **Task 2(pipeline app.py VLM_SHADOW_LOG 배선 — production 판정경로 변형), Task 3(Pod 변형 blocking checkpoint), Task 4(Pod 배포+shadow 스모크+피크 VRAM 실측)는 belle-gated + 라이브 GPU Pod 필요로 후속 세션 이월.** 22-03-BASELINE-FAILED.txt/22-POD-VRAM.md 미생성(Pod 필요). ROADMAP 22-03 미완료 유지. 다음=belle greenlight+Pod 준비 후 Task 2~4 재개.
 
@@ -76,7 +76,7 @@ Status: Executing Phase 33
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-28 -- Phase 33 execution started
+Last activity: 2026-07-29
 
 ### Quick Tasks Completed
 
@@ -596,6 +596,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 | Phase 33 P01 | 20 | 2 tasks | 3 files |
 | Phase 33 P33-04 | 52min | 3 tasks | 3 files |
 | Phase 33 P22 | 55m | 3 tasks | 7 files |
+| Phase 33 P12 | 80m | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -698,6 +699,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 33-04: referenceKeypointReport 40k index 한도 → belle 옵션 B (versions+reference collection-group 인덱스 면제 추가), acceptance 원문 유지
 - [Phase ?]: 33-04: fps 는 candidate keypointReport.fps(9.0)/CLI — REFERENCE_TARGET_FPS=18.0 제거; epsilon(0.1/1.0)+FORCE_CONFIG verbatim, gate 11/11 refit 0
 - [Phase ?]: 33-22: two-track deduction — execution -40 aggregate cap (floor 60) + dormant critical bypass + absolute floor 25; existing thresholds byte-unchanged; contract mirrored across 3 files (D-34/D-36/D-37)
+- [Phase ?]: 33-12: 확대비교 seam = 백엔드 criterion-keyed crops 구현 — crop 이 deductionBreakdown.records 에서 출생, 앱 join 은 criterion 키 일치 (defect #5 근본 수리)
+- [Phase ?]: 33-12: D-12 카드 불변식(같은 순간·배율·표시 or drop)은 criterion 카드 한정 — legacy 는 D-04 정직 폴백 byte-보존
+- [Phase ?]: 33-12: defect #6 은 79221f0 선해결 확인 — 회귀 핀 박제, PNG 전수 열람은 33-16 Pod 재스위프 소관
 
 ### Pending Todos
 
@@ -732,7 +736,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-24T01:51:10.427Z
+Last session: 2026-07-29T02:35:34.806Z
 
 Stopped at: Completed 33-22-PLAN.md (two-track deduction redesign)
 

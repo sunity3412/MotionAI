@@ -1244,13 +1244,34 @@ function AnalysisResultContent({
     [result.deductionBreakdown, markers.recordNumbers, result.visionVeto],
   );
 
+  // 33-13 (A-6, D-18 양방향 대응) — breakdown record 보유 doc 의 영상 위 빨강
+  // 마커는 buildDeductionMarkers 투영(번호 점 관절 + 그룹 멤버)으로만 구성한다 —
+  // record 와 짝 없는 마커(고아)는 미렌더. 종전 소스(confirmedKeypointList =
+  // records 투영 ∪ vetoFaultJoints 전체)는 record 투영 밖 faultJoints 여분이
+  // 무번호 빨강 점을 만들 수 있었다. breakdown 부재(legacy)는 기존 소스 유지
+  // (record 가 없어 양방향 대응 자체가 정의 불가 — graceful 하위호환).
+  const hasBreakdownRecords =
+    (result.deductionBreakdown?.records.length ?? 0) > 0;
+  const markerBackedKeypoints = useMemo<KeypointName[]>(() => {
+    const set = new Set<KeypointName>();
+    for (const kp of Object.keys(markers.keypointNumbers) as KeypointName[]) {
+      set.add(kp);
+    }
+    for (const g of markers.groupMarkers) {
+      for (const kp of g.keypoints) set.add(kp);
+    }
+    return Array.from(set);
+  }, [markers]);
+
   // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 오버레이 per-joint 마커 강등 파생.
   // unreliable 이면 확정 빨강 점/번호/그룹/범례/틱을 모두 비우고 예상 부위 주황 점
   // 최대 1개(estimatedAreaKeypoints)만 남긴다 — 번호가 사라졌으므로 범례/틱도 빈
   // 배열로 두어 모순 방지. false/부재 시 기존 소스 그대로 → 렌더 diff 0.
   const overlayHighlightKeypoints = attributionUnreliable
     ? []
-    : confirmedKeypointList;
+    : hasBreakdownRecords
+      ? markerBackedKeypoints
+      : confirmedKeypointList;
   const overlayAttentionKeypoints = attributionUnreliable
     ? estimatedAreaKeypoints
     : attentionKeypoints;
@@ -1258,11 +1279,15 @@ function AnalysisResultContent({
   const overlayMarkerNumbers = attributionUnreliable
     ? {}
     : markers.keypointNumbers;
+  // 33-13 — record 보유 doc 은 강제 강조 폴백 0 (편차 최대 N 강조는 record 와
+  // 짝 없는 고아 마커 — D-18). legacy(breakdown 부재)만 기존 폴백 유지.
   const overlayForceHighlightWorstCount = attributionUnreliable
     ? 0
-    : vetoApplied
-      ? 2
-      : 0;
+    : hasBreakdownRecords
+      ? 0
+      : vetoApplied
+        ? 2
+        : 0;
   const overlayFullscreenLegend = attributionUnreliable ? [] : fullscreenLegend;
   const overlayTimelineTicks = attributionUnreliable ? [] : timelineTicks;
 
@@ -1437,20 +1462,22 @@ function AnalysisResultContent({
     ],
   );
 
-  // Phase 12 Wave 2 (Plan 12-03 T2) — KeypointOverlay 토글 (D-12-C4 박제).
-  // Pitfall 6 우회: useState(true) initial — 깜빡임 무시. OFF 사용자는 진입 시
-  // 잠시 ON 보였다가 useEffect 가 AsyncStorage 읽어 false 로 전환 (수용 가능).
+  // Phase 12 Wave 2 (Plan 12-03 T2) → 33-13 (A-6, D-13) — 스켈레톤 토글.
+  // belle: "뭘 잡은거지" — 설명 없는 키포인트 12점 상시 노출 금지 → **기본 숨김 +
+  // 옵트인**으로 반전 (useState(false), 저장값 'true' 일 때만 켬). 감점 마커
+  // (항목 그룹 경계·번호 점·참고 점)는 skeletonVisible 무관 상시 렌더 — 마커는
+  // record 양방향 대응이라 스스로 답한다 (KeypointOverlay 분리, D-18).
   //
   // AsyncStorage key '@sunity:keypoint_overlay_enabled' — Firebase Auth backing
   // store 와 namespace 충돌 0 ([[firebase-project-account]] 정합, T-12-03-T4).
-  const [overlayVisible, setOverlayVisible] = useState<boolean>(true);
+  const [overlayVisible, setOverlayVisible] = useState<boolean>(false);
   useEffect(() => {
     AsyncStorage.getItem('@sunity:keypoint_overlay_enabled')
       .then((v) => {
-        if (v === 'false') setOverlayVisible(false);
+        if (v === 'true') setOverlayVisible(true);
       })
       .catch(() => {
-        /* graceful — 시각 토글 default 보존 */
+        /* graceful — 시각 토글 default(숨김) 보존 */
       });
   }, []);
   const handleToggleOverlay = (next: boolean) => {
@@ -2176,8 +2203,15 @@ function AnalysisResultContent({
                   player={player}
                   keypointReport={userKeypointReport}
                   videoSize={overlayVideoSize}
-                  visible={overlayVisible}
-                  jointAngles={userJointAngles}
+                  // 33-13 (A-6, D-13) — 마커 레이어는 상시(visible), 추적 스켈레톤
+                  // 만 토글(skeletonVisible 기본 숨김). 마커는 record 양방향 대응
+                  // 이라 스스로 답한다 — 설명 없는 12점만 옵트인으로 강등.
+                  visible={true}
+                  skeletonVisible={overlayVisible}
+                  // 33-13 — record 보유 doc 은 각도편차(>20°) 폴백 강조 차단
+                  // (record 와 짝 없는 고아 빨강 마커 금지, D-18). jointAngles 는
+                  // 폴백 강조 산출 전용이라 미전달로 충분. legacy 는 기존 유지.
+                  jointAngles={hasBreakdownRecords ? undefined : userJointAngles}
                   // #3 (2026-06-21) — 결함 keypoint 권위 강조. quick-260704-fz4:
                   // 소스를 vetoFaultJoints 단독 → confirmedKeypoints(감점 근거
                   // records ∪ vetoFaultJoints) 단일 조립으로 확장 — 표·마커·카드
@@ -2247,6 +2281,9 @@ function AnalysisResultContent({
               // quick-260705-r6v — 여백 범례 탭 → 드릴다운 시트 (진입점 2).
               // VideoCompare 가 closeFullscreen 선행 후 콜백(iOS 중첩 Modal 회피).
               onLegendPress={openRecordByNumber}
+              // 33-13 (A-6, D-13) — 재생바 틱 탭 = 시점 seek + 그 감점 항목 열기
+              // (진입점 4 — belle: "눌러도 뭔지 모름" 해소. 같은 시트 state 소비).
+              onTickPress={openRecordByNumber}
               // 32-11 (D-18 자막 + D-17 밀도) — 재생 중 결함 구간 자막 큐. cueTrack
               // 산출(record cueLine + 매칭 zoom userFrameIdx + 학생 fps). 미전달
               // 시 기존 렌더 diff 0(opt-in). cleanPass/legacy 면 빈 배열.

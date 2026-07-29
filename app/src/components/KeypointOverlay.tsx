@@ -30,7 +30,7 @@
 
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Ellipse, G, Line, Rect, Text as SvgText } from 'react-native-svg';
 import { useEvent } from 'expo';
 import type { VideoPlayer } from 'expo-video';
 import { colors } from '../theme';
@@ -145,6 +145,22 @@ export type KeypointOverlayProps = {
    */
   markerNumbers?: Partial<Record<KeypointName, number>>;
   /**
+   * 33-13 (A-6, D-13) — 추적 스켈레톤(전 관절 흰 점 + bone + 축 polyline) 표시 여부.
+   * belle: "뭘 잡은거지" — 설명 없는 12점 상시 노출 금지 → 기본 숨김 + 옵트인
+   * 토글(result.tsx AsyncStorage). 감점 마커(항목 단위 그룹 경계·번호 점·참고 점)는
+   * 이 값과 무관하게 렌더 — 마커는 감점 record 와 양방향 대응(D-18)이라 스스로
+   * 답한다. default true (기존 소비처 렌더 diff 0 — reference 측 스켈레톤 소비 등).
+   */
+  skeletonVisible?: boolean;
+  /**
+   * 33-13 (A-6, D-13 대표 UX 패턴) — 음성 큐 동안 강조할 부위(해당 큐 record 의
+   * 투영 keypoint). 비어있지 않고 고신뢰 멤버가 1개 이상이면 전체 프레임을
+   * 어둡게(dim) 깔고 그 부위의 그룹 경계만 강조 렌더한다 (승인 목업 ④ 컷 2 —
+   * 음성 중 정지 + 부위 강조). 짝 없는 큐는 caller 가 빈 배열/미전달로 강조 0
+   * (D-18 고아 가드). 고신뢰 멤버 0 = 강조 미렌더 (확신 없는 표시는 긋지 않는다).
+   */
+  focusKeypoints?: readonly KeypointName[];
+  /**
    * quick-260702-t0v — 마커/라벨 크기 배율 (default 1 = 기존 렌더와 수치 동일).
    * viewBox "0 0 1 1" 정규화 구조라 모든 크기 상수(라벨 64×26, fontSize 14,
    * 원 반지름 10/14 등)가 렌더 크기에 비례 축소됨 → 세로 카드(높이 ~290pt)에선
@@ -246,6 +262,8 @@ export function KeypointOverlay({
   groupMarkers,
   onMarkerPress,
   markerNumbers,
+  skeletonVisible = true,
+  focusKeypoints,
   sizeScale = 1,
 }: KeypointOverlayProps) {
   // Hooks 순서 안정성 — early return 전에 모든 hook 호출 (React rules of hooks).
@@ -394,26 +412,61 @@ export function KeypointOverlay({
   if (!visible || keypointReport == null) return null;
   if (!positions) return null;
 
-  // quick-260705-r6v — 그룹(중점) 마커 centroid. 멤버 keypoint 현재 frame 위치의
-  // 산술 평균(표시 배치용 — 좌표/각도 산출 아님). 저신뢰(conf<0.5) 멤버는 centroid
-  // 계산에서 제외하되 나머지로 진행, 유효 멤버 0이면 미렌더.
-  const groupCentroids: { number: number; x: number; y: number }[] = [];
-  for (const g of groupMarkers ?? []) {
-    let sx = 0;
-    let sy = 0;
+  // 33-13 (A-6, belle 확인 ① 승인 목업 ①) — 부위 경계 산출 공용 helper.
+  // 고신뢰(conf≥0.5) 멤버 keypoint 들의 bounding 을 항목(부위) 단위 타원 경계로
+  // 만든다 — 관절원 나열/거대 타원 금지, 부위 형상(실좌표 bounding) 추종.
+  // 유효 멤버 0 = null (저신뢰 구간 그룹 자동 생략 — 확신 없는 표시는 긋지 않는다).
+  // bounding 은 백엔드 좌표의 시각 배치이지 좌표/각도 산출이 아님 (D-12 §12 무관).
+  const boundsFor = (
+    kps: readonly KeypointName[],
+  ): { cx: number; cy: number; rx: number; ry: number } | null => {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
     let n = 0;
-    for (const kp of g.keypoints) {
+    for (const kp of kps) {
       const p = positions.get(kp);
       if (!p) continue;
       if (p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD) continue;
-      sx += p.x;
-      sy += p.y;
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
       n += 1;
     }
-    if (n > 0) groupCentroids.push({ number: g.number, x: sx / n, y: sy / n });
+    if (n === 0) return null;
+    // 여백 = 강조 원 반지름 스케일 (x 축은 W, y 축은 H 정규화 — viewBox 0 0 1 1).
+    const padX = (18 * S) / W;
+    const padY = (18 * S) / H;
+    return {
+      cx: (minX + maxX) / 2,
+      cy: (minY + maxY) / 2,
+      rx: (maxX - minX) / 2 + padX,
+      ry: (maxY - minY) / 2 + padY,
+    };
+  };
+
+  // quick-260705-r6v → 33-13 — 그룹 마커: 멤버 centroid 1점(구) 대신 항목 단위
+  // 부위 경계 타원(승인 목업 ① mkg). 번호는 경계 상단 배지로 유지 — 점수 계산
+  // 내역 행 번호와의 양방향 대응(단일 소스 buildDeductionMarkers)은 불변.
+  const groupBounds: {
+    number: number;
+    cx: number;
+    cy: number;
+    rx: number;
+    ry: number;
+  }[] = [];
+  for (const g of groupMarkers ?? []) {
+    const b = boundsFor(g.keypoints);
+    if (b) groupBounds.push({ number: g.number, ...b });
   }
 
-  // quick-260705-r6v — 번호 점 탭 타깃 (keypointNumbers 관절 + 그룹 centroid).
+  // 33-13 (A-6) — 음성 큐 부위 강조 경계. 고신뢰 멤버 0 이면 null (강조 미렌더).
+  const focusBounds =
+    focusKeypoints && focusKeypoints.length > 0 ? boundsFor(focusKeypoints) : null;
+
+  // quick-260705-r6v — 번호 점 탭 타깃 (keypointNumbers 관절 + 그룹 경계 중심).
   // 번호 렌더 규칙(highlighted + 고신뢰)과 정합. onMarkerPress 없으면 빈 배열.
   const tapTargets: { number: number; x: number; y: number }[] = [];
   if (onMarkerPress) {
@@ -423,8 +476,8 @@ export function KeypointOverlay({
       const num = markerNumbers?.[joint];
       if (num != null) tapTargets.push({ number: num, x: p.x, y: p.y });
     }
-    for (const g of groupCentroids) {
-      tapTargets.push({ number: g.number, x: g.x, y: g.y });
+    for (const g of groupBounds) {
+      tapTargets.push({ number: g.number, x: g.cx, y: g.cy });
     }
   }
 
@@ -445,8 +498,10 @@ export function KeypointOverlay({
         // SVG 는 터치 비대상 — 번호 점 탭은 아래 형제 Pressable 레이어가 받는다.
         pointerEvents="none"
       >
-        {/* axisData polyline — UI-SPEC §5: 2-point (mask=false) or 3-point */}
-        {axis &&
+        {/* axisData polyline — UI-SPEC §5: 2-point (mask=false) or 3-point.
+            33-13 — 스켈레톤 옵트인 (기본 숨김, D-13). */}
+        {skeletonVisible &&
+          axis &&
           axis.points.length >= 2 &&
           axis.points.slice(0, -1).map((p, i) => {
             const q = axis.points[i + 1];
@@ -468,8 +523,10 @@ export function KeypointOverlay({
         {/* Bones (8). 12-deferred §12-D 분기 우선순위:
             1. 저신뢰 (endpoint 한쪽이라도 conf < 0.5) → estimateGray + dashed
             2. 강조 (highlighted joint 포함) → brand
-            3. 기본 → 흰색 */}
-        {BONES.map(([a, b], i) => {
+            3. 기본 → 흰색
+            33-13 — 스켈레톤 옵트인: bone 도 추적 스켈레톤의 일부라 기본 숨김.
+            결함 부위 표시는 항목 단위 그룹 경계/번호 점이 담당 (승인 목업 ①). */}
+        {skeletonVisible && BONES.map(([a, b], i) => {
           const pa = positions.get(a);
           const pb = positions.get(b);
           if (!pa || !pb) return null;
@@ -511,6 +568,10 @@ export function KeypointOverlay({
           const isLowConf = p.confidence < KEYPOINT_LOW_CONFIDENCE_THRESHOLD;
           const isHi = highlightedJoints.has(joint);
           const isAttn = !isHi && attentionJoints.has(joint);
+          // 33-13 — 스켈레톤 숨김 시 마커 관절(확정 빨강/참고 주황, 고신뢰)만
+          // 렌더. 저신뢰 회색 점·일반 흰 점은 추적 스켈레톤 소속 — 기본 숨김
+          // (저신뢰 관절 위 확정 마커도 미렌더: 확신 없는 표시는 긋지 않는다).
+          if (!skeletonVisible && (isLowConf || !(isHi || isAttn))) return null;
           const fill = isLowConf
             ? colors.estimateGray
             : isHi
@@ -521,11 +582,15 @@ export function KeypointOverlay({
           // Phase 20 (UI A2) — 강조(brand) 원의 외곽선을 brand→흰색으로 교체.
           // 같은 brand 색 외곽선은 영상 위에서 윤곽이 사라져 "안 보임" finding 의
           // 원인. 흰색 테두리가 brand 점을 분주한 배경에서 분리해 가독성 ↑.
+          // 33-13 — 참고(advisory) 점은 점선 윤곽 원 (승인 목업 ① "점선 = 참고" —
+          // 감점 아님을 형태로도 구분. 채움 없는 주황 점선 + 흰 분리 유지 불필요).
           const stroke = isLowConf
             ? colors.estimateGray
-            : isHi || isAttn
-              ? '#FFFFFF'
-              : 'rgba(0,0,0,0.6)';
+            : isAttn
+              ? colors.advisoryOrange
+              : isHi
+                ? '#FFFFFF'
+                : 'rgba(0,0,0,0.6)';
           // Phase 20 (UI A2) — 강조(brand) 관절은 더 큰 반지름 + 두꺼운 외곽선
           // 으로 가독성 ↑. 정상/저신뢰 원은 기존 크기 유지.
           const emphasized = (isHi || isAttn) && !isLowConf;
@@ -535,19 +600,24 @@ export function KeypointOverlay({
           // 카드/가로 전체화면 동일 규칙 자동 (quick-260702-t0v 메커니즘 재사용).
           // 저신뢰(회색) 원에는 숫자 미표기 — 측정 불신뢰 위 확정 번호 금지.
           const num = isHi && !isLowConf ? markerNumbers?.[joint] : undefined;
+          const isAdvisoryDashed = isAttn && !isLowConf;
           return (
             <G key={`kp-${joint}`}>
               <Circle
                 cx={p.x}
                 cy={p.y}
                 r={emphasized ? RADIUS_HI : RADIUS}
-                fill={fill}
+                // 33-13 — 참고 점은 채움 없는 점선 원 (목업 ① mk.adv).
+                fill={isAdvisoryDashed ? 'none' : fill}
                 fillOpacity={isLowConf ? 0.7 : 1.0}
                 stroke={stroke}
                 strokeWidth={
                   emphasized
                     ? STROKE_CIRCLE_OUTLINE_HI
                     : STROKE_CIRCLE_OUTLINE
+                }
+                strokeDasharray={
+                  isAdvisoryDashed ? `${(3 * S) / W} ${(3 * S) / W}` : undefined
                 }
               />
               {num != null && (
@@ -568,33 +638,92 @@ export function KeypointOverlay({
           );
         })}
 
-        {/* quick-260705-r6v — 그룹(중점) 마커. 관절명 없는 vision record(스플릿 →
-            다리 4관절)를 멤버 centroid 1점에 강조 원 + 흰 bold 숫자로 렌더한다.
-            멤버 관절 자체는 highlightKeypoints 로 계속 빨강 강조(bone 포함)되지만
-            개별 숫자는 없음 — 숫자는 이 중점 1점만("번호 다 1" 해소). 시각 규칙은
-            번호 점 원(RADIUS_HI + 흰 외곽선 + brand fill)과 동일(sizeScale 곱). */}
-        {groupCentroids.map((g) => (
-          <G key={`group-${g.number}`}>
-            <Circle
-              cx={g.x}
-              cy={g.y}
-              r={RADIUS_HI}
-              fill={colors.brand}
-              stroke="#FFFFFF"
-              strokeWidth={STROKE_CIRCLE_OUTLINE_HI}
+        {/* quick-260705-r6v → 33-13 (A-6, 승인 목업 ①) — 항목 단위 그룹 마커.
+            관절명 없는 record(스플릿 → 다리 4관절 / mode3 부위 record)를 멤버
+            keypoint 실좌표 bounding 의 부위 경계 타원으로 렌더한다 — 관절원
+            나열·중점 1점 대신 부위 형상 추종(belle 확인 ① 확정). 번호 배지는
+            경계 상단 — 점수 계산 내역 행 번호와 단일 소스(buildDeductionMarkers)
+            양방향 대응 유지. 흰 halo + brand 선 (목업 mkg 시각 규칙). */}
+        {groupBounds.map((g) => {
+          const badgeY = Math.max(RADIUS_HI, g.cy - g.ry);
+          return (
+            <G key={`group-${g.number}`}>
+              <Ellipse
+                cx={g.cx}
+                cy={g.cy}
+                rx={g.rx}
+                ry={g.ry}
+                fill="none"
+                stroke="#FFFFFF"
+                strokeWidth={STROKE_HI + STROKE_CIRCLE_OUTLINE_HI}
+                strokeOpacity={0.55}
+              />
+              <Ellipse
+                cx={g.cx}
+                cy={g.cy}
+                rx={g.rx}
+                ry={g.ry}
+                fill="none"
+                stroke={colors.brand}
+                strokeWidth={STROKE_HI}
+              />
+              <Circle
+                cx={g.cx}
+                cy={badgeY}
+                r={RADIUS_HI}
+                fill={colors.brand}
+                stroke="#FFFFFF"
+                strokeWidth={STROKE_CIRCLE_OUTLINE_HI}
+              />
+              <SvgText
+                x={g.cx}
+                y={badgeY + NUM_FONT_SIZE * 0.35}
+                fill="#FFFFFF"
+                fontSize={NUM_FONT_SIZE}
+                fontWeight="700"
+                textAnchor="middle"
+              >
+                {String(g.number)}
+              </SvgText>
+            </G>
+          );
+        })}
+
+        {/* 33-13 (A-6, D-13 대표 UX) — 음성 큐 부위 강조. 전체 프레임 dim 위에
+            해당 record 부위의 경계만 올린다 (승인 목업 ④ 컷 2 — 음성 중 정지 +
+            부위 강조). 고신뢰 멤버 0 이면 focusBounds=null → dim 자체를 깔지
+            않는다 (강조 없는 어두운 화면 금지 — 자막·음성만). */}
+        {focusBounds && (
+          <G>
+            <Rect
+              x={0}
+              y={0}
+              width={1}
+              height={1}
+              fill="#000000"
+              fillOpacity={0.34}
             />
-            <SvgText
-              x={g.x}
-              y={g.y + NUM_FONT_SIZE * 0.35}
-              fill="#FFFFFF"
-              fontSize={NUM_FONT_SIZE}
-              fontWeight="700"
-              textAnchor="middle"
-            >
-              {String(g.number)}
-            </SvgText>
+            <Ellipse
+              cx={focusBounds.cx}
+              cy={focusBounds.cy}
+              rx={focusBounds.rx}
+              ry={focusBounds.ry}
+              fill="none"
+              stroke="#FFFFFF"
+              strokeWidth={(STROKE_HI + STROKE_CIRCLE_OUTLINE_HI) * 1.4}
+              strokeOpacity={0.72}
+            />
+            <Ellipse
+              cx={focusBounds.cx}
+              cy={focusBounds.cy}
+              rx={focusBounds.rx}
+              ry={focusBounds.ry}
+              fill="none"
+              stroke={colors.brand}
+              strokeWidth={STROKE_HI * 1.4}
+            />
           </G>
-        ))}
+        )}
       </Svg>
       {/* quick-260705-r6v — 번호 점 탭 히트 레이어 (SVG 위 형제, box-none).
           번호 있는 마커 위치에 고정 44pt Pressable 을 정규화 좌표(x100 퍼센트)로

@@ -184,6 +184,14 @@ export type VideoCompareProps = {
   timelineTicks?: { numbers: number[]; frameIndex: number }[];
   tickFrameCount?: number;
   /**
+   * 33-13 (A-6, D-13) — 재생바 결함 틱 탭 시 해당 감점 항목으로 이동 콜백
+   * (belle: "눌러도 뭔지 모름" → 마커 = 지적 항목임을 밝히고 누르면 그 항목으로).
+   * 탭 = 동기 seek(기존) 후 이 콜백으로 항목 열기. 전체화면에서는 iOS 중첩 Modal
+   * 함정 회피를 위해 closeFullscreen() 선행 후 호출(onLegendPress 관례 동일).
+   * 미전달 시 기존 seek 전용 동작 diff 0.
+   */
+  onTickPress?: (markerNumber: number) => void;
+  /**
    * 28-06 (D-01/D-02) — 동작 기준 정렬 맵. 부재/null = 현행 절대시계 100% 보존
    * (faultZoomStatus/tier legacy 폴백 선례 — no migration). 학생(left)=master 로
    * 시계 불변, 정은지(right)만 warp(tStudent)→tRef 로 따라간다. malformed 는
@@ -309,6 +317,7 @@ export function VideoCompare({
   onLegendPress,
   timelineTicks,
   tickFrameCount,
+  onTickPress,
   alignment: alignmentInput,
   initialOffsetSec,
   resetKey,
@@ -1155,9 +1164,19 @@ export function VideoCompare({
                 return (
                   <Pressable
                     key={`tick-${tick.frameIndex}`}
-                    onPress={() => seekBoth(sec)}
+                    // 33-13 (A-6, D-13) — 틱 = 지적 항목 마커. 탭 = 그 시점으로
+                    // 동기 seek(기존) + 그 감점 항목 열기(onTickPress). 전체화면
+                    // (dark)은 closeFullscreen 선행 — iOS 중첩 Modal 함정 회피
+                    // (onLegendPress 관례). 미전달 시 seek 만(기존 diff 0).
+                    onPress={() => {
+                      seekBoth(sec);
+                      if (onTickPress) {
+                        if (dark) closeFullscreen();
+                        onTickPress(tick.numbers[0]);
+                      }
+                    }}
                     accessibilityRole="button"
-                    accessibilityLabel={`${tick.numbers.join(', ')}번 감점 시점으로 이동`}
+                    accessibilityLabel={`${tick.numbers.join(', ')}번 감점 항목 — 시점 이동 후 항목 열기`}
                     hitSlop={8}
                     style={[styles.tick, { left: `${leftPct}%` }]}
                   >

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Polygon, Stop } from 'react-native-svg';
-import { colors } from '../theme';
+import { colors, typography } from '../theme';
 
 // 점수 위젯 — 정팔각형 게이지 (design.md §5-5 + Figma 1:719).
 // 회색 트랙 옥타곤 위에 점수(0~100)만큼 브랜드 그라디언트로 채워지는 게이지.
@@ -60,7 +60,14 @@ export function OctagonScore({
           strokeDashoffset={dashOffset}
         />
       </Svg>
-      <Text style={[styles.value, { fontSize: size >= 140 ? 52 : 36 }]}>
+      {/* 33-15 (D-17/D-22) — 인라인 fontSize 52/36 하드코딩 제거 (값 불변 토큰화).
+          fontFamily 도 토큰이 공급해 Pretendard 정합 (시스템 폰트 잔재 해소). */}
+      <Text
+        style={[
+          styles.value,
+          size >= 140 ? typography.scoreGaugeLg : typography.scoreGaugeSm,
+        ]}
+      >
         {clamped}
       </Text>
     </View>
@@ -72,8 +79,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // 크기/굵기/폰트는 typography.scoreGaugeLg/Sm 토큰이 공급 (33-15 토큰화).
   value: {
-    fontWeight: '700',
     color: colors.brand,
     position: 'absolute',
   },

@@ -39,6 +39,7 @@ export function SummaryCard({
   score,
   onPressTodayFix,
   onPressExpand,
+  expanded,
 }: {
   praise: SummaryPraiseResult | null;
   todayFix: SummaryTodayFix | null;
@@ -46,8 +47,13 @@ export function SummaryCard({
   score: number;
   /** 오늘 고칠 것 탭 → 해당 상세 감점 카드로 점프 (동선은 32-11 배선). */
   onPressTodayFix: () => void;
-  /** 펼침 상세 보기 진입. */
+  /** 펼침 상세 보기 진입. 33-15 (D-17): 재탭 = 접기 (caller 토글). */
   onPressExpand: () => void;
+  /**
+   * 33-15 (D-17) — 펼침 상태. true 면 라벨 '접기' + chevron-up (재탭 안 접힘
+   * 해소 — 토글 상태가 라벨로 드러난다). 미전달(다른 소비처) 시 기존 렌더 유지.
+   */
+  expanded?: boolean;
 }) {
   const clamped = Math.max(0, Math.min(100, Math.round(score)));
   const todayHeadline = todayFix?.headline ?? TODAY_NONE;
@@ -96,16 +102,25 @@ export function SummaryCard({
         </View>
       ) : null}
 
-      {/* 펼침 상세 진입 (채점 표면 재배치는 32-11) */}
+      {/* 펼침 상세 진입 (채점 표면 재배치는 32-11). 33-15 (D-17): expanded 시
+          '접기' + chevron-up — 재탭이 접기 동작임이 라벨로 드러난다. */}
       <Pressable
         style={styles.expandRow}
         onPress={onPressExpand}
         accessibilityRole="button"
-        accessibilityLabel="분석 상세 펼쳐 보기"
+        accessibilityLabel={
+          expanded === true ? '분석 상세 접기' : '분석 상세 펼쳐 보기'
+        }
         hitSlop={8}
       >
-        <Text style={styles.expandText}>자세히 보기</Text>
-        <Ionicons name="chevron-down" size={16} color={colors.brand} />
+        <Text style={styles.expandText}>
+          {expanded === true ? '접기' : '자세히 보기'}
+        </Text>
+        <Ionicons
+          name={expanded === true ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={colors.brand}
+        />
       </Pressable>
     </View>
   );

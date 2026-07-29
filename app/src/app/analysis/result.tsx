@@ -10,6 +10,11 @@ import {
   Text,
   View,
 } from 'react-native';
+// 33-15 (D-17) — 본문↔상단 상태바 겹침 수정. 고정 layout.safeAreaTop(59) 을 스크롤
+// 콘텐츠 안쪽 패딩으로 쓰면 스크롤 시 본문이 상태바 아래로 파고든다 — 컨테이너
+// 레벨 실측 inset(useSafeAreaInsets)으로 뷰포트 자체를 상태바 아래에서 시작시킨다.
+// SafeAreaProvider 는 expo-router 루트가 제공 (inquiry.tsx 선례).
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccuracyLimitBadge } from '../../components/AccuracyLimitBadge';
 import { InjuryRiskSection } from '../../components/InjuryRiskSection';
 import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
@@ -509,6 +514,8 @@ const ROTATION_FEATURE_ENABLED = false;
 
 export default function AnalysisResult() {
   const router = useRouter();
+  // 33-15 (D-17) — safe-area 실측 inset (컨테이너 상단 패딩).
+  const insets = useSafeAreaInsets();
   const { name, analysisId } = useLocalSearchParams<{
     name?: string;
     analysisId?: string;
@@ -540,7 +547,7 @@ export default function AnalysisResult() {
   // 기존 에러 표시 계층 컨벤션 재사용. 시뮬 데이터는 렌더하지 않는다.
   if (!storedDoc?.result) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
@@ -609,6 +616,8 @@ function AnalysisResultContent({
   analysisId: string;
 }) {
   const router = useRouter();
+  // 33-15 (D-17) — safe-area 실측 inset (본문 컨테이너 상단 패딩, wrapper 와 동일).
+  const insets = useSafeAreaInsets();
   const grade = scoreGrade(result.overallScore);
   const cmp = result.comparison;
 
@@ -1987,6 +1996,44 @@ function AnalysisResultContent({
     );
   };
 
+  // 33-15 (D-17) — 요약 카드 '자세히 보기' 토글. 종전엔 topFix 카드로만 점프해
+  // (요약 바로 아래라 거의 안 움직임 + 재탭 무반응) belle 가 "재탭 안 접힘 /
+  // 스크롤 오정지"로 지적. 펼침 = 점수 상세 영역(게이지 카드 → 내역 순 앵커,
+  // onLayout 실측 y)으로 스크롤 + 라벨 '접기', 재탭 = 최상단 복귀 (접힘 상태 복원).
+  // 앵커 키는 전용 setCardY 슬롯 — record 키와 충돌 없음.
+  const DETAIL_ANCHOR_KEYS = ['anchor:scoreGauge', 'anchor:scoreBreakdown'];
+  const [detailExpanded, setDetailExpanded] = useState(false);
+  const toggleDetailExpanded = () => {
+    if (detailExpanded) {
+      setDetailExpanded(false);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      return;
+    }
+    setDetailExpanded(true);
+    for (const key of DETAIL_ANCHOR_KEYS) {
+      const y = cardYRef.current.get(key);
+      if (typeof y === 'number') {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+        return;
+      }
+    }
+    // 앵커 미기록(억제 + 내역 부재 등) — 상세가 아래쪽에 있으므로 끝으로 폴백.
+    scrollRef.current?.scrollToEnd({ animated: true });
+  };
+
+  // 33-15 (D-17) — '오늘 고칠 것' 외 추가 감점 항목 스크롤 어포던스. 추가 항목은
+  // 동작 비교(긴 영상 카드) 아래 '다른 감점 항목' 목록이라 발견이 어렵다 — top-1
+  // 카드 아래에 개수 + 이동 링크를 제공한다 (표시 조건 = 목록 섹션과 동일 미러).
+  const otherVisibleRecordCount = records.filter(
+    (r, i) => i !== topFixIndex && !isRecordHidden(r),
+  ).length;
+  const jumpToCollapsedList = () => {
+    const y = cardYRef.current.get('anchor:collapsedList');
+    if (typeof y === 'number') {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+    }
+  };
+
   // 보완 운동 (D-13) — 전면 1개(개인화 추천 top) + 이유 1줄(top-1 record.exerciseReason
   // 우선, 부재 시 운동 purpose) + 나머지 가로 최대 3.
   const recommendedExercises = result.recommendedExercises ?? [];
@@ -2000,7 +2047,7 @@ function AnalysisResultContent({
   const judgeFinal = result.deductionBreakdown?.final ?? result.overallScore;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}
@@ -2110,7 +2157,9 @@ function AnalysisResultContent({
             }
             score={result.overallScore}
             onPressTodayFix={() => jumpToRecordKey(topFixKey)}
-            onPressExpand={() => jumpToRecordKey(topFixKey)}
+            // 33-15 (D-17) — 자세히 보기 = 점수 상세 앵커 토글 (재탭 = 접기/복귀).
+            onPressExpand={toggleDetailExpanded}
+            expanded={detailExpanded}
           />
         )}
 
@@ -2186,6 +2235,22 @@ function AnalysisResultContent({
                   {attributionUnreliable
                     ? `${ATTR_ZOOM_ESTIMATED_LABEL} 확대 비교 ›`
                     : '확대 비교 자세히 보기 ›'}
+                </Text>
+              </Pressable>
+            ) : null}
+            {/* 33-15 (D-17) — 추가 감점 항목 스크롤 어포던스. 추가 항목이 동작
+                비교(긴 카드) 아래 있어 발견이 어렵다 — 개수 + 이동 링크 1줄.
+                표시 조건 = '다른 감점 항목' 섹션 렌더 조건 미러 (모순 링크 0). */}
+            {isVisible('collapsed') && otherVisibleRecordCount > 0 ? (
+              <Pressable
+                onPress={jumpToCollapsedList}
+                accessibilityRole="button"
+                accessibilityLabel={`다른 감점 항목 ${otherVisibleRecordCount}개로 이동`}
+                hitSlop={8}
+                style={styles.tipMoreRow}
+              >
+                <Text style={styles.tipMore}>
+                  {`아래에 다른 감점 항목 ${otherVisibleRecordCount}개 더 보기 ›`}
                 </Text>
               </Pressable>
             ) : null}
@@ -2448,7 +2513,15 @@ function AnalysisResultContent({
         records.length > 1 &&
         records.some((r, i) => i !== topFixIndex && !isRecordHidden(r)) ? (
           <>
-            <Text style={styles.sectionTitle}>다른 감점 항목</Text>
+            <Text
+              style={styles.sectionTitle}
+              // 33-15 (D-17) — 추가 감점 항목 어포던스 링크의 스크롤 목적지.
+              onLayout={(e) =>
+                setCardY('anchor:collapsedList', e.nativeEvent.layout.y)
+              }
+            >
+              다른 감점 항목
+            </Text>
             {records.map((rec, i) => {
               if (i === topFixIndex) return null;
               if (isRecordHidden(rec)) return null;
@@ -2477,7 +2550,13 @@ function AnalysisResultContent({
         {/* 점수 게이지 (강등) — suppressed 는 요약 카드가 담당하므로 여기선 octagon
             블록만(비억제). grade/summary/caption/veto 근거 유지. */}
         {isScoreSuppressed ? null : (
-          <View style={styles.card}>
+          <View
+            style={styles.card}
+            // 33-15 (D-17) — '자세히 보기' 스크롤 앵커 1순위 (점수 상세 시작).
+            onLayout={(e) =>
+              setCardY('anchor:scoreGauge', e.nativeEvent.layout.y)
+            }
+          >
             <OctagonScore score={result.overallScore} size={168} />
             <View style={styles.gradeRow}>
               <Text style={styles.gradeBadge}>{grade}</Text>
@@ -2520,7 +2599,15 @@ function AnalysisResultContent({
             점수 원칙: [[scoring-must-be-transparent-deduction-tally]]. */}
         {showBreakdownSection && result.deductionBreakdown != null && (
           <>
-            <Text style={styles.sectionTitle}>점수 계산 내역</Text>
+            <Text
+              style={styles.sectionTitle}
+              // 33-15 (D-17) — '자세히 보기' 스크롤 앵커 2순위 (게이지 억제 시).
+              onLayout={(e) =>
+                setCardY('anchor:scoreBreakdown', e.nativeEvent.layout.y)
+              }
+            >
+              점수 계산 내역
+            </Text>
             <ScoreBreakdownSection
               breakdown={result.deductionBreakdown}
               recordNumbers={markers.recordNumbers}
@@ -3064,8 +3151,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg, // 서브 화면 = 흰 배경 (§5-1)
   },
+  // 33-15 (D-17) — 상단 inset 은 컨테이너(실측 insets.top)가 담당. 콘텐츠 안쪽
+  // 고정 paddingTop(구 layout.safeAreaTop)은 스크롤 시 본문이 상태바와 겹치는
+  // 원인이라 제거 (header marginTop 16 이 첫 요소 간격 담당).
   content: {
-    paddingTop: layout.safeAreaTop,
     paddingHorizontal: spacing.screenX,
     paddingBottom: layout.safeAreaBottom + 24,
     gap: 14,
@@ -3143,11 +3232,12 @@ const styles = StyleSheet.create({
   },
   // 29-CONTEXT D-05 — mode3 한계 고지 독립 1줄 (breakdown 부재 경로). caption 톤,
   // 토큰만 (하드코딩 금지). breakdown 경로는 ScoreBreakdownSection footnote 사용.
+  // 33-15 (D-17) — 좌우 여백 통일: 최상위 텍스트 블록의 임의 paddingHorizontal 4
+  // 제거 — 좌우 가장자리는 content 의 spacing.screenX 단일 기준.
   mode3LimitNotice: {
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
-    paddingHorizontal: 4,
   },
   // IN-01 (quick-260724-q6b) — 역립 저신뢰 확대비교 진입점 카드. advisoryOrange 톤
   // (확정 결함 아님 — "예상" 강조), 신규 색 금지. 토큰만.

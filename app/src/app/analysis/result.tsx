@@ -1299,6 +1299,12 @@ function AnalysisResultContent({
   // 조건 제거 근거 = 29-CONTEXT D-01 (mode3 투명 감점-합산 소비).
   const showBreakdownSection = result.deductionBreakdown != null;
 
+  // 33-15 (D-16) — 각도 수치 이동 게이트. 점수 계산 내역 카드가 있을 때만 코칭 팁
+  // 카드에서 각도 수치를 걷어낸다 (이동, 삭제 아님). legacy doc(내역 카드 부재)은
+  // 코칭 팁의 각도 줄이 수치의 유일한 거처라 종전 렌더 유지 — 이동 불가 시 삭제
+  // 금지 ([[scoring-must-be-transparent-deduction-tally]] 투명 공개 원칙).
+  const angleNumbersRelocated = showBreakdownSection;
+
   // Phase 20 (UI ④) — 점수 맥락 카드의 "교정 포인트". 비전 결함(primaryFault)
   // 우선, 없으면 top 코칭 팁 제목(가장 먼저 다듬을 관절). 둘 다 없으면 null →
   // 일반 격려 카피. 추가 fetch 0 (이미 result 에 있는 데이터만 사용).
@@ -1560,6 +1566,40 @@ function AnalysisResultContent({
       ? base.filter((tip) => tip.joint == null)
       : base;
   }, [result.tips, vetoApplied, attributionUnreliable]);
+
+  // 33-15 (D-16) — 코칭 팁 카드에서 걷어낸 각도 수치의 새 거처 행 조립. 소스는
+  // 종전 팁 각도 줄과 동일(displayTips 관절의 angleGuide) — 모순 카피 필터·IN-01
+  // 저신뢰 per-joint 억제가 그대로 승계되므로 저신뢰 시 자연히 빈 배열(관절 단정 0).
+  // 관절 라벨 = JOINT_LABEL_KO 데이터 키잉 (동작명 하드코딩 0, 10동작 공통).
+  // isAngleEstimated 는 lowReliabilityRatioVal/userKeypointReport 파생.
+  const angleReferenceRows = useMemo(() => {
+    const out: {
+      key: string;
+      label: string;
+      line: string;
+      estimated: boolean;
+    }[] = [];
+    for (const tip of displayTips) {
+      if (!tip.joint) continue;
+      if (out.some((r) => r.key === tip.joint)) continue;
+      const joint = joints.find((j) => j.key === tip.joint);
+      if (!joint) continue;
+      const guide = angleGuide(joint);
+      if (!guide || joint.currentAngle == null || joint.targetAngle == null) {
+        continue;
+      }
+      const estimated = isAngleEstimated(tip.joint);
+      out.push({
+        key: tip.joint,
+        label: JOINT_LABEL_KO[tip.joint] ?? tip.joint,
+        line: `${estimated ? '추정' : '현재'} ${Math.round(joint.currentAngle)}° → 기준 ${Math.round(joint.targetAngle)}°`,
+        estimated,
+      });
+    }
+    return out;
+    // isAngleEstimated 는 아래 deps 파생 (lowReliabilityRatioVal/userKeypointReport).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayTips, joints, lowReliabilityRatioVal, userKeypointReport]);
 
   // quick-260704-fwb — '먼저 교정할 점' 카드 처방 구조. 상태(primaryFault) 아래
   // 원인 기전(rootCauseHypotheses 상위 2건, supportCount 내림차순, '~로 보임' 가설
@@ -2494,6 +2534,9 @@ function AnalysisResultContent({
                 result.attributionReliability?.aggregateStatement ??
                 ATTR_SCORE_AGGREGATE_FALLBACK
               }
+              // 33-15 (D-16) — 코칭 팁에서 이동해 온 관절 각도 참고 행 (이동, 삭제
+              // 아님). IN-01 저신뢰 시 displayTips 필터 승계로 자연히 빈 배열.
+              angleReference={angleReferenceRows}
             />
           </>
         )}
@@ -2586,7 +2629,16 @@ function AnalysisResultContent({
                 <Text style={styles.tipIndex}>{i + 1}</Text>
                 <Text style={styles.tipTitle}>{tip.title}</Text>
               </View>
-              {guide && (
+              {/* 33-15 (D-16) — 각도 수치는 점수 계산 내역 '관절 각도 참고'로 이동.
+                  내역 카드 보유 doc 은 행동 언어(cue)만 잔류. legacy(내역 부재)는
+                  수치의 유일한 거처라 종전 각도 줄 유지 (이동 불가 시 삭제 금지). */}
+              {guide && angleNumbersRelocated ? (
+                guide.cue && !estimated ? (
+                  <View style={styles.tipAngleRow}>
+                    <Text style={styles.tipAngleCue}>{guide.cue}</Text>
+                  </View>
+                ) : null
+              ) : guide ? (
                 <View style={styles.tipAngleRow}>
                   {estimated && joint?.currentAngle != null ? (
                     <>
@@ -2619,7 +2671,7 @@ function AnalysisResultContent({
                     <Text style={styles.tipAngleCue}>{guide.cue}</Text>
                   )}
                 </View>
-              )}
+              ) : null}
               <Text style={styles.tipDetail}>{highlightNumbers(tip.detail)}</Text>
               {/* Phase 12.5 T9: detail2 (causes/injuryRisk/coachNote) 있을 때만
                   "자세히 ›" 링크 표시. LLM 응답 graceful 처리. */}
@@ -3559,7 +3611,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 17,
   },
-  judgeDeduction: { ...typography.listTitle, color: colors.brand },
+  // 33-15 (D-16) — 감점 수치 listTitle → metricNumber 강등 (수치는 근거, 헤드라인 아님).
+  judgeDeduction: { ...typography.metricNumber, color: colors.brand },
   judgeTotalRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3570,7 +3623,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.divider,
   },
   judgeTotalLabel: { ...typography.boxLabel, color: colors.textPrimary },
-  judgeTotalValue: { ...typography.listTitle, color: colors.textPrimary },
+  // 33-15 (D-16) — 환산 점수도 metricNumber 강등 (51점 헤드라인급 크기 해소).
+  judgeTotalValue: { ...typography.metricNumber, color: colors.textPrimary },
   judgeDisclaimer: {
     ...typography.captionSmall,
     color: colors.textSecondary,

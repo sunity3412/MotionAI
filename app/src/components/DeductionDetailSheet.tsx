@@ -75,8 +75,28 @@ const AI_DISCLAIMER =
   'AI가 추정한 가능성이에요. 강사 수업과 함께 확인하면 가장 정확한 피드백을 받을 수 있어요.';
 // gate ⑤ 강사 연결 줄.
 const COACH_CONNECT = '강사가 함께 보면 더 구체적인 피드백을 받을 수 있어요';
-const CHECK_BULLET = '확인하기 — 거울을 보며 동작을 직접 재현해 보세요';
+// 33-15 (D-16) — 대시 나열("확인하기 — …") 문장화.
+const CHECK_BULLET = '거울을 보며 동작을 직접 재현해서 확인해 보세요';
 const EVIDENCE_TITLE = '이 원인은 어떻게 측정됐나';
+
+// 33-15 (D-16) — 대시 나열("이 지표 — …") 문장화용 목적격 조사(을/를) 선택.
+// termText 값이 받침 유무로 갈려("힘"→을, "크기"→를) 고정 조사는 오표기 유발
+// (ReferenceCornerSection 조사 함정 주석 선례). 마지막 글자의 한글 종성 유무로
+// 판정, 비한글은 '를' 폴백 (terminologyPlain 미등록 원문 노출 관례).
+function objectJosa(text: string): string {
+  const last = text.charCodeAt(text.length - 1);
+  if (last >= 0xac00 && last <= 0xd7a3) {
+    return (last - 0xac00) % 28 > 0 ? '을' : '를';
+  }
+  return '를';
+}
+
+// 33-15 (A-6 이관, 6R 확정 문형) — 초 표기 라벨: 본문 + 괄호 보조설명(브랜드 컬러).
+// 사진 속 초 = 백엔드 _stamp_time(학생 상시 · 회전류 기준측 stamp_ref, 33-12) 베이크.
+// 라벨은 criterion 보유 카드(33-12+ 파이프라인 산출 = 초 베이크 보장)에서만 렌더 —
+// 구 PNG(초 미베이크)에 없는 배지를 지칭하는 거짓 라벨 방지 (데이터 키잉 게이트).
+const TIME_STAMP_NOTE_MAIN = '사진 속 초는 영상에서 이 순간을 찾는 위치예요';
+const TIME_STAMP_NOTE_PAREN = '(감점 부분)';
 // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 카피 (시트가
 // 실제 라벨 소유). 확정 결함 아님 — advisoryOrange 톤(표시 전용).
 const ESTIMATED_AREA_LABEL = '예상 부위';
@@ -196,6 +216,18 @@ export function DeductionDetailSheet({
                     <Text style={styles.halfLabelText}>{rightLabel}</Text>
                   </View>
                 </View>
+                {/* 33-15 (A-6 이관, 6R 확정 문형) — 초 표기 라벨. 괄호 보조설명 =
+                    브랜드 컬러 (목업 .pnote 정합). IN-01 저신뢰(estimatedArea)는
+                    확정 결함이 아니라 "감점 부분" 단정 라벨 미표시. criterion 부재
+                    (legacy 크롭 = 초 미베이크 가능)도 미표시 — 거짓 지칭 방지. */}
+                {zoom.criterion && !estimatedArea ? (
+                  <Text style={styles.timeStampNote}>
+                    {`${TIME_STAMP_NOTE_MAIN} `}
+                    <Text style={styles.timeStampNoteParen}>
+                      {TIME_STAMP_NOTE_PAREN}
+                    </Text>
+                  </Text>
+                ) : null}
                 {/* Phase 28 D-04 — DTW 대응 실패 시 ref 는 전신 폴백이라 정직 고지. */}
                 {refMatchFailed ? (
                   <Text style={styles.refMatchNote}>
@@ -229,10 +261,13 @@ export function DeductionDetailSheet({
                 null 을 렌더 (silent hidden). */}
             {illustrationSlot ?? null}
 
-            {/* 확인하기 불릿 (gate ⑤) + 심사 언어 용어줄(terminologyMap). */}
+            {/* 확인하기 안내 (gate ⑤) + 심사 언어 용어줄(terminologyMap).
+                33-15 (D-16) — 대시 나열을 문장화 (조사는 objectJosa 로 받침 판정). */}
             <View style={styles.bullets}>
               {termText ? (
-                <Text style={styles.bullet}>{`이 지표 — ${termText}`}</Text>
+                <Text style={styles.bullet}>
+                  {`이 지표는 ${termText}${objectJosa(termText)} 봐요`}
+                </Text>
               ) : null}
               <Text style={styles.bullet}>{CHECK_BULLET}</Text>
             </View>
@@ -353,6 +388,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
   },
+  // 33-15 (A-6 이관) — 초 표기 라벨. 본문 = 보조 톤, 괄호 보조설명 = 브랜드 컬러
+  // + bold (목업 .pnote 정합 — 6R 확정 문형).
+  timeStampNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  timeStampNoteParen: {
+    color: colors.brand,
+    fontWeight: '700',
+  },
   // IN-01 (quick-260724-q6b) — 역립 저신뢰 "예상 부위" 배지 (advisoryOrange 재사용,
   // 신규 색 금지). 크롭 이미지 위 칩.
   estimatedBadge: {
@@ -416,7 +462,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     flex: 1,
   },
-  metricPoints: { ...typography.bodyMdBold, color: colors.brand },
+  // 33-15 (D-16) — 감점 수치 bodyMdBold(21) → metricNumber(17) 강등 (수치는 근거).
+  metricPoints: { ...typography.metricNumber, color: colors.brand },
   // IN-01 (quick-260724-q6b) — 저신뢰 시 감점 수치 대신 노출하는 안내(거짓 정밀도
   // 제거). 근거 박스 내부라 textMid 본문 톤. 토큰만.
   estimatedPointsNote: {

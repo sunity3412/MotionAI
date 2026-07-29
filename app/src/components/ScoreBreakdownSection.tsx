@@ -22,11 +22,21 @@ import {
   formatDeductionRecord,
   formatDeductionNumber,
 } from '../lib/deductionLabels';
-import { colors, layout, radius, spacing, typography } from '../theme';
+import { colors, fontFamily, layout, radius, spacing, typography } from '../theme';
 import type { DeductionBreakdown } from '../types/analysis';
 
 // quick-260705-r6v — 원문자(①②③) 는 deductionLabels.circledNumberKo 단일 소스
 // (범례/시트/내역 행이 같은 규칙 — 중복 2벌 제거).
+
+// 33-15 (D-16) — 코칭 팁 카드에서 이동해 온 관절 각도 수치 행 (참고 영역).
+// "각도 수치 = 점수 상세(참고 영역)로만" — 수치는 삭제가 아니라 이동
+// ([[scoring-must-be-transparent-deduction-tally]] 투명 공개 원칙 유지).
+export interface AngleReferenceRow {
+  key: string; // angle key (left_knee 등) — 데이터 키잉, 동작명 하드코딩 0
+  label: string; // JOINT_LABEL_KO 결과 (한국어 관절명)
+  line: string; // "현재 148° → 기준 154°" / "추정 148° → 기준 154°"
+  estimated: boolean; // 가림·측정 불확실 구간 (estimateGray 톤 + 각주)
+}
 
 export function ScoreBreakdownSection({
   breakdown,
@@ -36,6 +46,7 @@ export function ScoreBreakdownSection({
   onRecordPress,
   aggregateMode,
   aggregateText,
+  angleReference,
 }: {
   breakdown: DeductionBreakdown;
   /** records 인덱스 정렬 번호 (null = 번호 없음). 영상 빨간 점과 동일 소스. */
@@ -63,6 +74,12 @@ export function ScoreBreakdownSection({
    * 미전달 시 렌더 diff 0 (다른 소비처/legacy 무회귀).
    */
   onRecordPress?: (recordIndex: number) => void;
+  /**
+   * 33-15 (D-16) — 관절 각도 참고 행 (코칭 팁 카드에서 이동). 미전달/빈 배열 시
+   * 렌더 diff 0 (다른 소비처/legacy 무회귀). IN-01 저신뢰 시 caller 의 displayTips
+   * 필터가 per-joint 팁을 제거하므로 자연히 빈 배열 (관절 단정 0).
+   */
+  angleReference?: AngleReferenceRow[];
 }) {
   const gapCount = breakdown.coverageGaps?.length ?? 0;
   // 번호 매핑은 설명 없이는 발견되지 않는 규칙 — 번호가 1개 이상일 때만 각주.
@@ -163,6 +180,33 @@ export function ScoreBreakdownSection({
         <Text style={styles.finalValue}>{breakdown.final}점</Text>
       </View>
 
+      {/* 33-15 (D-16) — 관절 각도 참고 영역: 코칭 팁 카드에서 이동해 온 각도 수치의
+          새 거처 (이동, 삭제 아님 — 투명 공개). 수치 톤 = badge 스케일 보조
+          (D-09 헤드라인 수치 금지). 추정(가림·저신뢰) 행은 estimateGray + 각주. */}
+      {angleReference && angleReference.length > 0 ? (
+        <View style={styles.angleRefBlock}>
+          <Text style={styles.angleRefTitle}>관절 각도 참고</Text>
+          {angleReference.map((r) => (
+            <View key={r.key} style={styles.angleRefRow}>
+              <Text style={styles.angleRefLabel}>{r.label}</Text>
+              <Text
+                style={[
+                  styles.angleRefValue,
+                  r.estimated && styles.angleRefValueEstimated,
+                ]}
+              >
+                {r.line}
+              </Text>
+            </View>
+          ))}
+          {angleReference.some((r) => r.estimated) ? (
+            <Text style={styles.footnote}>
+              추정 표시는 가림·측정 불확실 구간의 값이에요.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* coverage gap 각주 — 정직한 커버리지 노출 (fabricate 금지, ND-06 정신) */}
       {gapCount > 0 && (
         <Text style={styles.footnote}>
@@ -225,8 +269,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
   },
-  // 감점 수치 — brand 계열 강조.
-  recordPoints: { ...typography.listTitle, color: colors.brand },
+  // 감점 수치 — brand 계열 강조. 33-15 (D-16): listTitle → metricNumber 강등
+  // (수치는 헤드라인이 아니라 근거 — badge 스케일 고정, 하드코딩 크기 0).
+  recordPoints: { ...typography.metricNumber, color: colors.brand },
   finalRow: {
     borderTopWidth: 1,
     borderTopColor: colors.divider,
@@ -234,7 +279,30 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   finalLabel: { ...typography.boxLabel, color: colors.textPrimary },
-  finalValue: { ...typography.listTitle, color: colors.brand },
+  finalValue: { ...typography.metricNumber, color: colors.brand },
+  // 33-15 (D-16) — 관절 각도 참고 영역 (코칭 팁 각도 수치의 새 거처). 참고 톤 —
+  // 수치 강등 원칙(badge 스케일, D-05 하한 17) + estimateGray 재사용 (신규 색 0).
+  angleRefBlock: {
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    paddingTop: 10,
+    gap: 6,
+  },
+  angleRefTitle: { ...typography.badge, color: colors.textSecondary },
+  angleRefRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  angleRefLabel: {
+    ...typography.badge,
+    fontWeight: '400',
+    fontFamily: fontFamily.regular,
+    color: colors.textPrimary,
+  },
+  angleRefValue: { ...typography.badge, color: colors.textMid },
+  angleRefValueEstimated: { color: colors.estimateGray },
   emptyText: {
     ...typography.caption,
     color: colors.textSecondary,

@@ -108,6 +108,10 @@ export function ReferenceCornerSection({
     <View style={styles.wrapper}>
       <Text style={styles.sectionTitle}>참고하세요</Text>
       <Text style={styles.sectionSub}>점수에는 반영되지 않아요</Text>
+      {/* 33-15 (D-16) — 무엇을 왜 보는지 안내 1줄 (D-05 최소 카피). */}
+      <Text style={styles.sectionGuide}>
+        내 자세와 기준 자세가 어디서 달라지는지 눈으로 견줘보는 용도예요
+      </Text>
 
       {showCorrected && (
         <View style={styles.card}>
@@ -154,8 +158,12 @@ export function ReferenceCornerSection({
           <Text style={styles.cardTitle}>자세 비교</Text>
           {framesReady && poseFrames ? (
             <>
+              {/* 33-15 (D-16) — 모순 카피 수정: 섹션 서브("점수에는 반영되지
+                  않아요")와 "점수에 반영된 비교 순간"이 같은 섹션에 동거하던
+                  충돌 해소. 사실은 유지(분석이 비교한 순간의 실프레임) — "점수"
+                  표현만 제거. */}
               <Text style={styles.caption}>
-                점수에 반영된 비교 순간의 실제 화면이에요
+                분석에서 비교한 순간의 실제 화면이에요
               </Text>
               <PoseCompareFrames
                 user={poseFrames.user}
@@ -247,6 +255,13 @@ const styles = StyleSheet.create({
   sectionTitle: { ...typography.sectionTitle, color: colors.textPrimary },
   // 점수 비반영 고지 — 섹션 최상단 서브카피 (D-09).
   sectionSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: -8,
+  },
+  // 33-15 (D-16) — 무엇을 왜 보는지 안내 1줄. 서브카피와 한 묶음 (동일 톤).
+  sectionGuide: {
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,

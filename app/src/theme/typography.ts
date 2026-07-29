@@ -63,4 +63,18 @@ export const typography = {
   bodyLg: { fontSize: 24, fontWeight: '700', fontFamily: fontFamily.bold, lineHeight: 32, letterSpacing: track(24) }, // 카드 헤드라인(몸 말/상태)
   title: { fontSize: 26, fontWeight: '700', fontFamily: fontFamily.bold, lineHeight: 34, letterSpacing: track(26) }, // 섹션 타이틀
   headline: { fontSize: 30, fontWeight: '700', fontFamily: fontFamily.bold, lineHeight: 39, letterSpacing: track(30) }, // 요약 카드 대표 문장
+
+  // ── 33-15 (D-16) 수치 강등 토큰 ─────────────────────────────────────────
+  // 감점/점수 숫자(−17.4·−20·51점)는 헤드라인이 아니라 근거다 — 점수 계산 내역·
+  // 심사 코너·근거 박스의 숫자는 headline 스케일(bodyLg 24↑) 아래 badge 스케일
+  // (D-05 하한 17)로 고정한다. bold 유지(숫자 가독), 크기만 강등. letterSpacing 은
+  // track()=0 박제 유지 (음수 = iOS 26+ SIGABRT, :2-6).
+  metricNumber: { fontSize: 17, fontWeight: '700', fontFamily: fontFamily.bold, lineHeight: 23, letterSpacing: track(17) },
+
+  // ── 33-15 (D-17/D-22) OctagonScore 중앙 수치 토큰화 ─────────────────────
+  // 인라인 fontSize 52/36 하드코딩 제거(타입 스케일 전수 점검) — 값 불변 토큰화.
+  // 점수 게이지는 D-09 로 이미 상세 영역으로 위치 강등된 채점 표면이라 크기 유지,
+  // fontFamily 만 Pretendard 정합(시스템 폰트 잔재 해소).
+  scoreGaugeLg: { fontSize: 52, fontWeight: '700', fontFamily: fontFamily.bold },
+  scoreGaugeSm: { fontSize: 36, fontWeight: '700', fontFamily: fontFamily.bold },
 } as const;

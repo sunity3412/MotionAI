@@ -95,6 +95,21 @@ export const colors = {
   // 이라 alias 하지 않고 별도 토큰으로 둔다.
   dialogBg: '#F9E8EA', // 알림창 카드 배경
   dialogMutedText: '#918D8D', // [닫기] 보조 버튼 텍스트
+
+  // ── quick-260730-py1 신설 토큰 (33-G S7 — 승인 목업 7R CSS 실측) ──────────
+  // 출처 = `.planning/phases/33-result-trust-recovery/mockups/index.html`:
+  //   `.methodline{color:#2C7C8C; background:#F4FBFC; border:1px solid #CFE9EF}`
+  //   `.facing{background:#F4FBFC; border:1px solid #CFE9EF; color:#2C7C8C}`
+  // 용도 = 부위 상세 시트의 "정직 정보" 톤(측정 방법 라벨 · 두 사진이 달라 보이는
+  // 이유). 감점(brand 빨강)도 참고(advisory 주황)도 아닌 **설명** 계열이라 별 톤.
+  //
+  // 기존 inputError/labelRequired(#54B8CD)와 다른 값인 이유: #54B8CD 는 흰 배경 위
+  // 짧은 라벨용 밝은 틸이라 본문 길이 문장에서 대비가 부족하다. 승인본은 본문
+  // 대비용으로 더 어두운 #2C7C8C 를 썼고, 그 값을 그대로 박제한다 (alias 아님).
+  // brand #FF4B33 변경 0 (CLAUDE.md §4). 라이트 배경 유지.
+  infoTeal: '#2C7C8C', // 정직 정보 텍스트 (method/facing)
+  infoTealBg: '#F4FBFC', // 정직 정보 박스 배경
+  infoTealBorder: '#CFE9EF', // 정직 정보 박스 테두리
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

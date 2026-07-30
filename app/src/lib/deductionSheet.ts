@@ -131,6 +131,12 @@ export interface RegionSheetView {
   title: string;
   /** 시트 상단 크롭을 낳은 record 인덱스 (블록 순서의 첫 항목). */
   primaryRecordIndex: number;
+  /**
+   * 그 record 의 criterion id. 시트 하단 심사 언어 용어줄(terminologyMap)이
+   * criterion 키로 매핑되므로 뷰모델이 원 키를 함께 나른다 — 렌더가 라벨
+   * 문자열에서 criterion 을 역파싱하면 라벨 규칙 사본이 생긴다.
+   */
+  primaryCriterion: string;
   blocks: RegionSheetBlock[];
   pairCapLeft: string | null;
   pairCapRight: string | null;
@@ -418,6 +424,7 @@ export function buildRegionSheetView(
     partKey,
     title,
     primaryRecordIndex,
+    primaryCriterion: records[primaryRecordIndex].criterion,
     blocks,
     pairCapLeft,
     pairCapRight,

@@ -1,18 +1,35 @@
-// 감점 record 드릴다운 시트 (quick-260705-r6v → 32-10 D-15 3단화 + gate ⑤ 참조 원형).
+// 부위 상세 시트 (승인 목업 7R ② 구조 — quick-260730-py1, 33-G S6/S7).
 //
-// 32-10(D-15): 메인 감점 카드와 같은 3단 원칙(상태→왜→행동)을 시트 상단에 얹고, 그
-// 아래 기존 투명 감점 내역(측정값·기준·편차·규칙)을 "이 원인은 어떻게 측정됐나" 회색
-// 근거 박스로 계층화한다 — 수치는 이 박스에만(D-09). 수치 삭제 금지(계층화만,
-// [[scoring-must-be-transparent-deduction-tally]] 불변).
+// 종전 구조는 **record 단위**였다 (부위에 감점 2건이면 시트가 2개 열렸다). 승인
+// 목업 ② 는 **부위 단위**다: 칩 → 크롭 1쌍 → paircap(좌우 실영상 초) → onecap →
+// 결함 블록 N개(다리 = "고칠 것 1"·"고칠 것 2") → facing → 일러스트.
+// belle 확인 ② 반려의 "무릎 피는 거 하나 어디 갔냐"(4R#2)가 이 구조의 이유다.
 //
-// gate ⑤ 참조 원형(belle Figma 결함 상세 시트): 수치 0 문구 헤드라인 + 결함 확대쌍
-// 사진 + 회색 근거 박스(수치 여기만) + 확인하기 불릿 + 강사 연결 줄 + AI 추정 고지 박스.
-// 폰트 피드백(GATE-DECISIONS): 이전 측정 문구 "상단 글자 잘림"(fontSize 25 / lineHeight
-// 21 불일치)을 E2 토큰(bodySm 19/25 등, lineHeight = fontSize×1.3↑)로 교체해 방지.
+// 조판·카피 조립은 `lib/deductionSheet.ts` 가 소유한다 (순수 함수, node --test 로
+// 고정). 이 컴포넌트는 뷰모델을 **렌더만** 한다 — 조판 분기 사본 0.
 //
-// Props 는 무변경(result.tsx 배선은 32-11 — 이 플랜 무접촉). 신규 3단은 기존 record 의
-// statusLine/whyLine/cueLine 옵셔널 필드를 읽고, 부재(legacy doc)면 기존 렌더 유지.
-// 토큰만 사용 (CLAUDE.md §4). 이모지 0. 라이트 전용.
+// 승인 CSS → 앱 토큰 매핑 (M-14 — 목업 px 는 데스크톱 스케일, 앱은 토큰 우선.
+// 색 실측값은 theme/colors.ts 에 출처와 함께 박제 — 여기 hex 리터럴 0):
+//   .fault-head (15/800 brand on brand-tint + 하단 보더) → boxLabel + brandTint
+//   .headline (bodyLg 800) → typography.bodyLg
+//   .why (bodySm ink-2) → bodySm + textMid
+//   .basis (연회색 배경 + line 보더, b=진한 잉크) → softBg + border + bold 세그먼트
+//   .cue (bodyMd 800 brand on brand-tint radius 12) → bodyMdBold brand + brandTint
+//   .methodline (틸 박스) → caption 스케일 본문 + infoTeal 토큰 3종
+//   .numnote (12.5 ink-3) → caption + textSecondary
+//   .paircap (12/800 회색 space-between) → caption 700 + textMid
+//   .onecap (caption ink-2 center) → caption + textMid + center
+//   .facing (틸 박스, bodySm) → bodySm + infoTeal 토큰 3종
+// 신규 폰트 크기 리터럴 0 (CLAUDE.md §4). 이모지 0. 라이트 전용.
+//
+// 유지되는 승인 원형(gate ⑤ belle Figma, M-13): bullets(용어줄·확인하기) ·
+// coachConnect · aiNoteBox — 위치만 일러스트 뒤로 이동. 삭제 금지.
+// 대체된 것: 하단 "이 원인은 어떻게 측정됐나" 근거 박스 → 블록 맨 뒤 numnote
+// (2R 수치 강등 — 수치의 승인 거처가 바뀐 것이지 수치가 사라진 게 아니다).
+//
+// 제거된 것 (M-1): 사진 속 베이크 초를 지칭하던 안내 라벨 2개(구 33-15 A-6 이관분).
+// 초 표기의 정본은 승인 7R 의 paircap 텍스트다 — 두 곳에 같은 초를 쓰면 이중 표기가
+// 되고, PNG 재생성(§C-4) 후에는 사진 속 표기 자체가 사라진다.
 
 import React from 'react';
 import {
@@ -27,23 +44,21 @@ import {
   View,
 } from 'react-native';
 
-import {
-  ANGLE_VS_REFERENCE_PREFIX,
-  circledNumberKo,
-  criterionLabelKo,
-  formatDeductionRecord,
-} from '../lib/deductionLabels';
+import { ANGLE_VS_REFERENCE_PREFIX } from '../lib/deductionLabels';
+import { objectJosaKo, type RegionSheetView } from '../lib/deductionSheet';
 import { terminologyPlain, type TerminologyTerm } from '../lib/terminologyMap';
 import { colors, radius, spacing, typography } from '../theme';
-import type { DeductionRecord, FaultZoomComparison } from '../types/analysis';
+import type { FaultZoomComparison } from '../types/analysis';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  record: DeductionRecord | null;
-  recordNumber: number | null;
-  actionPhrase: string | null;
-  zoom: FaultZoomComparison | null;
+  /** 부위 단위 뷰모델 (lib/deductionSheet.buildRegionSheetView). null = 미렌더. */
+  view: RegionSheetView | null;
+  /** 시트 상단 크롭 (view.primaryRecordIndex 의 카드). */
+  primaryZoom: FaultZoomComparison | null;
+  /** 블록 안 크롭 — key = recordIndex (view.blocks[].blockRecordIndexForCrop). */
+  blockZooms?: Record<number, FaultZoomComparison | null>;
   // Phase 27 D-06 — zoom 사후 도착 대기 중이면 true. 확대사진 자리에 로딩 placeholder.
   zoomPending?: boolean;
   // Phase 28 D-04 — DTW 기준 프레임 대응 실패 시 true. 전신 폴백 정직 캡션.
@@ -51,7 +66,8 @@ interface Props {
   // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 true. 크롭은 유지하되 "예상 부위"
   // 배지를 얹어 확정 결함이 아니라 추정 부위임을 표시 (크롭·수치·비교 삭제 0).
   estimatedArea?: boolean;
-  // 우측 비교 대상 라벨 — Mode1='정은지 선수', Mode3='지난 분석'.
+  // 우측 비교 대상 라벨 — Mode1='정은지 선수', Mode3='지난 영상'. 크롭 위 halfLabel 용
+  // (paircap 우측 라벨은 뷰모델이 소유 — rightPairLabel).
   rightLabel: string;
   // 33-14 (A-7, D-15) — 결함 일러스트 슬롯. 매핑(결함→일러스트)은 caller(result.tsx)
   // 소유, 시트는 자리만 제공. 승인 목업 ② "확대 크롭 + 감점근거 글 + 일러스트 슬롯".
@@ -77,43 +93,23 @@ const AI_DISCLAIMER =
 const COACH_CONNECT = '강사가 함께 보면 더 구체적인 피드백을 받을 수 있어요';
 // 33-15 (D-16) — 대시 나열("확인하기 — …") 문장화.
 const CHECK_BULLET = '거울을 보며 동작을 직접 재현해서 확인해 보세요';
-const EVIDENCE_TITLE = '이 원인은 어떻게 측정됐나';
-
-// 33-15 (D-16) — 대시 나열("이 지표 — …") 문장화용 목적격 조사(을/를) 선택.
-// termText 값이 받침 유무로 갈려("힘"→을, "크기"→를) 고정 조사는 오표기 유발
-// (ReferenceCornerSection 조사 함정 주석 선례). 마지막 글자의 한글 종성 유무로
-// 판정, 비한글은 '를' 폴백 (terminologyPlain 미등록 원문 노출 관례).
-function objectJosa(text: string): string {
-  const last = text.charCodeAt(text.length - 1);
-  if (last >= 0xac00 && last <= 0xd7a3) {
-    return (last - 0xac00) % 28 > 0 ? '을' : '를';
-  }
-  return '를';
-}
-
-// 33-15 (A-6 이관, 6R 확정 문형) — 초 표기 라벨: 본문 + 괄호 보조설명(브랜드 컬러).
-// 사진 속 초 = 백엔드 _stamp_time(학생 상시 · 회전류 기준측 stamp_ref, 33-12) 베이크.
-// 라벨은 criterion 보유 카드(33-12+ 파이프라인 산출 = 초 베이크 보장)에서만 렌더 —
-// 구 PNG(초 미베이크)에 없는 배지를 지칭하는 거짓 라벨 방지 (데이터 키잉 게이트).
-const TIME_STAMP_NOTE_MAIN = '사진 속 초는 영상에서 이 순간을 찾는 위치예요';
-const TIME_STAMP_NOTE_PAREN = '(감점 부분)';
+// 승인 목업 ② 크롭 카드 칩 (renderDetail chip.brand / chip.gray).
+const CHIP_TODAY_FIX = '오늘 고칠 것';
+const CHIP_ADVISORY = '참고 — 감점은 아니지만 회전·힘에 영향';
+// 시트 제목 접미 (부위 단위 재구성 — 승인본 ② 는 부위 시트다).
+const SHEET_TITLE_SUFFIX = ' 부위 상세';
 // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 카피 (시트가
 // 실제 라벨 소유). 확정 결함 아님 — advisoryOrange 톤(표시 전용).
 const ESTIMATED_AREA_LABEL = '예상 부위';
 // IN-01 — 저신뢰 시 관절을 단정하지 않는 시트 제목(정확한 관절 assert 금지).
 const ESTIMATED_AREA_TITLE = '예상 부위 (참고)';
-// IN-01 — 저신뢰 시 특정 관절에 −X 감점을 귀속할 수 없어 수치 대신 노출하는 안내.
-// 크롭·배지는 유지하되 거짓 정밀도(관절별 감점 숫자)만 제거.
-const ESTIMATED_AREA_POINTS_NOTE =
-  '이 부위는 추정이라 관절별 감점 수치는 종합 점수로만 반영돼요';
 
 export function DeductionDetailSheet({
   visible,
   onClose,
-  record,
-  recordNumber,
-  actionPhrase,
-  zoom,
+  view,
+  primaryZoom,
+  blockZooms,
   zoomPending = false,
   refMatchFailed = false,
   estimatedArea = false,
@@ -121,20 +117,34 @@ export function DeductionDetailSheet({
   illustrationSlot,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
-  if (!record) return null;
+  if (!view) return null;
 
   const sheetHeight = Math.round(winH * 0.78);
-  const row = formatDeductionRecord(record);
   // 합성 이미지 = [내 영상 | 기준] 정사각 2개 → 가로:세로 ≈ 2:1.
   const imgW = width - spacing.screenX * 2;
   const imgH = imgW / 2;
 
-  // 3단 문구 (D-15) — statusLine/whyLine 상단, cueLine(부재 시 actionPhrase 폴백)은 행동 박스.
-  const has3Dan = !!(record.statusLine || record.whyLine || record.cueLine);
-  const effectiveCue = record.cueLine ?? actionPhrase ?? null;
-  // 심사 언어 용어줄 (terminologyMap 적용 — "이 지표가 무엇인지").
-  const term = criterionTerm(record.criterion);
+  // 심사 언어 용어줄 (terminologyMap 적용 — "이 지표가 무엇인지"). 부위 시트라
+  // 기준 record = 상단 크롭을 낳은 블록의 criterion (뷰모델이 원 키를 나른다).
+  const term = criterionTerm(view.primaryCriterion);
   const termText = term ? terminologyPlain(term) : null;
+
+  const renderCrop = (zoom: FaultZoomComparison) => (
+    <View style={[styles.imageWrap, { height: imgH }]}>
+      <Image
+        source={{ uri: zoom.imageUrl }}
+        style={styles.image}
+        resizeMode="contain"
+        accessibilityLabel={`${view.title} 확대 비교 이미지`}
+      />
+      <View style={[styles.halfLabel, styles.halfLabelLeft]}>
+        <Text style={styles.halfLabelText}>내 영상</Text>
+      </View>
+      <View style={[styles.halfLabel, styles.halfLabelRight]}>
+        <Text style={styles.halfLabelText}>{rightLabel}</Text>
+      </View>
+    </View>
+  );
 
   return (
     <Modal
@@ -149,17 +159,11 @@ export function DeductionDetailSheet({
         <View style={[styles.sheet, { height: sheetHeight }]}>
           <View style={styles.handle} />
           <View style={styles.titleRow}>
+            {/* IN-01 — 저신뢰 시 관절 단정 대신 "예상 부위" 제목 (S17 PASS 보존). */}
             <Text style={styles.title}>
-              {/* IN-01 — 저신뢰 시 원문자 번호 억제(오버레이 마커 번호도 억제돼
-                  대응 점이 없다) + 관절 단정 대신 "예상 부위" 제목. */}
-              {recordNumber != null && !estimatedArea ? (
-                <Text style={styles.titleNumber}>
-                  {`${circledNumberKo(recordNumber)} `}
-                </Text>
-              ) : null}
               {estimatedArea
                 ? ESTIMATED_AREA_TITLE
-                : criterionLabelKo(record.criterion)}
+                : `${view.title}${SHEET_TITLE_SUFFIX}`}
             </Text>
             <Pressable
               onPress={onClose}
@@ -177,24 +181,28 @@ export function DeductionDetailSheet({
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* 3단 상단 — 상태(몸 말 헤드라인, 수치 0) → 왜(감점 이유). 부재 시 생략. */}
-            {has3Dan ? (
-              <View style={styles.threeStep}>
-                {record.statusLine ? (
-                  <Text style={styles.stepStatus}>{record.statusLine}</Text>
-                ) : null}
-                {record.whyLine ? (
-                  <Text style={styles.stepWhy}>{record.whyLine}</Text>
-                ) : null}
-              </View>
-            ) : null}
-
-            {/* 확대 이미지 (구 확대 비교 컴포넌트 자산 이식) — zoom 있을 때만.
-                합성 PNG 1장 + 좌 '내 영상'/우 rightLabel halfLabel 오버레이. */}
-            {zoom ? (
-              <>
-                {/* IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위"
-                    배지 (확정 결함 아님, advisoryOrange 톤). 크롭·수치·비교는 유지. */}
+            {/* ── 크롭 카드 (승인본 card: chip → cropimg → paircap → onecap) ── */}
+            {primaryZoom ? (
+              <View style={styles.cropCard}>
+                <View
+                  style={[
+                    styles.chip,
+                    view.isAdvisoryOnly ? styles.chipGray : styles.chipBrand,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      view.isAdvisoryOnly
+                        ? styles.chipTextGray
+                        : styles.chipTextBrand,
+                    ]}
+                  >
+                    {view.isAdvisoryOnly ? CHIP_ADVISORY : CHIP_TODAY_FIX}
+                  </Text>
+                </View>
+                {/* IN-01 — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 (확정 결함 아님,
+                    advisoryOrange 톤). 크롭·수치·비교는 유지. */}
                 {estimatedArea ? (
                   <View style={styles.estimatedBadge}>
                     <Text style={styles.estimatedBadgeText}>
@@ -202,31 +210,18 @@ export function DeductionDetailSheet({
                     </Text>
                   </View>
                 ) : null}
-                <View style={[styles.imageWrap, { height: imgH }]}>
-                  <Image
-                    source={{ uri: zoom.imageUrl }}
-                    style={styles.image}
-                    resizeMode="contain"
-                    accessibilityLabel={`${criterionLabelKo(record.criterion)} 확대 비교 이미지`}
-                  />
-                  <View style={[styles.halfLabel, styles.halfLabelLeft]}>
-                    <Text style={styles.halfLabelText}>내 영상</Text>
+                {renderCrop(primaryZoom)}
+                {/* paircap (6R) — 좌 '내 자세 · 실 N초' / 우 '기준 (정은지) · 실 N초'.
+                    초는 백엔드 방출값만 (뷰모델 소유 — 앱 재계산 금지, F-3). */}
+                {view.pairCapLeft || view.pairCapRight ? (
+                  <View style={styles.pairCapRow}>
+                    <Text style={styles.pairCapText}>{view.pairCapLeft}</Text>
+                    <Text style={styles.pairCapText}>{view.pairCapRight}</Text>
                   </View>
-                  <View style={[styles.halfLabel, styles.halfLabelRight]}>
-                    <Text style={styles.halfLabelText}>{rightLabel}</Text>
-                  </View>
-                </View>
-                {/* 33-15 (A-6 이관, 6R 확정 문형) — 초 표기 라벨. 괄호 보조설명 =
-                    브랜드 컬러 (목업 .pnote 정합). IN-01 저신뢰(estimatedArea)는
-                    확정 결함이 아니라 "감점 부분" 단정 라벨 미표시. criterion 부재
-                    (legacy 크롭 = 초 미베이크 가능)도 미표시 — 거짓 지칭 방지. */}
-                {zoom.criterion && !estimatedArea ? (
-                  <Text style={styles.timeStampNote}>
-                    {`${TIME_STAMP_NOTE_MAIN} `}
-                    <Text style={styles.timeStampNoteParen}>
-                      {TIME_STAMP_NOTE_PAREN}
-                    </Text>
-                  </Text>
+                ) : null}
+                {/* onecap — 무엇을 견주는 사진인지 1줄. 마킹 기하 단정 0 (M-6). */}
+                {view.oneCap ? (
+                  <Text style={styles.oneCap}>{view.oneCap}</Text>
                 ) : null}
                 {/* Phase 28 D-04 — DTW 대응 실패 시 ref 는 전신 폴백이라 정직 고지. */}
                 {refMatchFailed ? (
@@ -234,7 +229,7 @@ export function DeductionDetailSheet({
                     같은 동작 순간을 찾지 못해 전신 화면으로 보여드려요
                   </Text>
                 ) : null}
-              </>
+              </View>
             ) : zoomPending ? (
               // Phase 27 D-06 — zoom 사후 도착 대기. 확대 이미지만 렌더 중이라 로딩
               // placeholder. 도착(onSnapshot) 시 자동으로 위 이미지 분기로 전환된다.
@@ -248,11 +243,68 @@ export function DeductionDetailSheet({
               </View>
             ) : null}
 
-            {/* 행동(외부 큐) — cueLine 우선, 부재 시 actionPhrase 폴백. 있을 때만. */}
-            {effectiveCue ? (
-              <View style={styles.actionRow}>
-                <Text style={styles.actionLabel}>이렇게 교정해 보세요</Text>
-                <Text style={styles.actionPhrase}>{effectiveCue}</Text>
+            {/* ── 결함 블록 N개 (승인본 card.fault) ────────────────────────── */}
+            {view.blocks.map((block) => {
+              const blockZoom =
+                block.blockRecordIndexForCrop != null
+                  ? blockZooms?.[block.blockRecordIndexForCrop] ?? null
+                  : null;
+              return (
+                <View key={block.recordIndex} style={styles.faultCard}>
+                  {/* fault-head — 번호 헤더 (4R#2, 블록 매몰 방지). */}
+                  <View style={styles.faultHead}>
+                    <Text style={styles.faultHeadText}>{block.header}</Text>
+                  </View>
+                  <View style={styles.faultBody}>
+                    {block.statusLine ? (
+                      <Text style={styles.headline}>{block.statusLine}</Text>
+                    ) : null}
+                    {block.whyLine ? (
+                      <Text style={styles.why}>{block.whyLine}</Text>
+                    ) : null}
+                    {/* basis (5R#2) — "어디서 재나요" 굵은 문두 + 본문. 세그먼트를
+                        중첩 Text 로 그린다 (RN 은 HTML 을 해석하지 않는다). */}
+                    {block.basisLine ? (
+                      <View style={styles.basisBox}>
+                        <Text style={styles.basisText}>
+                          {block.basisLine.map((seg, i) => (
+                            <Text
+                              key={i}
+                              style={seg.bold ? styles.basisBold : undefined}
+                            >
+                              {seg.text}
+                            </Text>
+                          ))}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {block.cueLine ? (
+                      <View style={styles.cueBox}>
+                        <Text style={styles.cueText}>{block.cueLine}</Text>
+                      </View>
+                    ) : null}
+                    {/* methodline (5R#3) — 측정 방법 정직 라벨. */}
+                    {block.methodLine ? (
+                      <View style={styles.infoBox}>
+                        <Text style={styles.infoText}>{block.methodLine}</Text>
+                      </View>
+                    ) : null}
+                    {/* numnote (2R) — 수치는 블록 맨 뒤 작은 회색 줄. */}
+                    {block.numNote ? (
+                      <Text style={styles.numNote}>{block.numNote}</Text>
+                    ) : null}
+                    {/* 이 블록만의 확대 카드 (M-5) — 상단 크롭과 다른 카드일 때만.
+                        기존에 보이던 증거를 조용히 잃지 않는다. */}
+                    {blockZoom ? renderCrop(blockZoom) : null}
+                  </View>
+                </View>
+              );
+            })}
+
+            {/* facing — 두 사진이 달라 보이는 이유 (기준 정렬로 잰 항목이 있을 때만). */}
+            {view.facingLine ? (
+              <View style={styles.infoBox}>
+                <Text style={styles.infoText}>{view.facingLine}</Text>
               </View>
             ) : null}
 
@@ -262,32 +314,14 @@ export function DeductionDetailSheet({
             {illustrationSlot ?? null}
 
             {/* 확인하기 안내 (gate ⑤) + 심사 언어 용어줄(terminologyMap).
-                33-15 (D-16) — 대시 나열을 문장화 (조사는 objectJosa 로 받침 판정). */}
+                33-15 (D-16) — 대시 나열을 문장화 (조사는 objectJosaKo 로 받침 판정). */}
             <View style={styles.bullets}>
               {termText ? (
                 <Text style={styles.bullet}>
-                  {`이 지표는 ${termText}${objectJosa(termText)} 봐요`}
+                  {`이 지표는 ${termText}${objectJosaKo(termText)} 봐요`}
                 </Text>
               ) : null}
               <Text style={styles.bullet}>{CHECK_BULLET}</Text>
-            </View>
-
-            {/* "이 원인은 어떻게 측정됐나" 회색 근거 박스 — 수치는 여기에만(D-09).
-                기존 투명 감점 내역(측정값·기준·편차·규칙) 그대로 유지(삭제 0). */}
-            <View style={styles.evidenceBox}>
-              <Text style={styles.evidenceTitle}>{EVIDENCE_TITLE}</Text>
-              {/* IN-01 — 저신뢰 시 관절별 감점 수치(−X)를 특정 관절에 귀속할 수
-                  없어 거짓 정밀도를 제거하고 안내로 대체. 크롭·배지는 유지. */}
-              {estimatedArea ? (
-                <Text style={styles.estimatedPointsNote}>
-                  {ESTIMATED_AREA_POINTS_NOTE}
-                </Text>
-              ) : (
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricDetail}>{row.detailText}</Text>
-                  <Text style={styles.metricPoints}>{row.pointsText}</Text>
-                </View>
-              )}
             </View>
 
             {/* 강사 연결 줄 (gate ⑤). */}
@@ -347,22 +381,32 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     flexShrink: 1,
   },
-  // 원문자 번호 — 영상 빨간 점(brand)과 같은 색으로 시각 연결.
-  titleNumber: { ...typography.sectionTitle, color: colors.brand },
   closeBtn: { padding: 4 },
   closeText: { ...typography.sectionTitle, color: colors.textSecondary },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 16, gap: 14 },
-  // 3단 상단 블록 (D-15).
-  threeStep: { gap: 6 },
-  stepStatus: {
-    ...typography.bodyLg, // 24/700 카드 헤드라인(몸 말/상태) — E2 토큰, 줄겹침 방지
-    color: colors.textPrimary,
+  // ── 크롭 카드 (승인본 .card) ─────────────────────────────────────────────
+  cropCard: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+    gap: 8,
+    alignItems: 'stretch',
   },
-  stepWhy: {
-    ...typography.bodySm, // 19/400 왜·보조 본문 (lineHeight 25 — 잘림 방지)
-    color: colors.textMid,
+  // 승인본 .chip (radius 999 = pill).
+  chip: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
+  chipBrand: { backgroundColor: colors.brandTint },
+  chipGray: { backgroundColor: colors.softBg },
+  chipText: { ...typography.caption, fontWeight: '700' },
+  chipTextBrand: { color: colors.brand },
+  chipTextGray: { color: colors.textMid },
   // 구 확대 비교 컴포넌트 이미지 pane 이식 — 2:1 합성 이미지.
   imageWrap: {
     width: '100%',
@@ -388,16 +432,24 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
   },
-  // 33-15 (A-6 이관) — 초 표기 라벨. 본문 = 보조 톤, 괄호 보조설명 = 브랜드 컬러
-  // + bold (목업 .pnote 정합 — 6R 확정 문형).
-  timeStampNote: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    lineHeight: 18,
+  // 승인본 .paircap — 12/800 space-between (좌 내 자세 / 우 기준).
+  pairCapRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
   },
-  timeStampNoteParen: {
-    color: colors.brand,
+  pairCapText: {
+    ...typography.caption,
     fontWeight: '700',
+    color: colors.textMid,
+  },
+  // 승인본 .onecap — caption ink-2 center.
+  oneCap: {
+    ...typography.caption,
+    color: colors.textMid,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   // IN-01 (quick-260724-q6b) — 역립 저신뢰 "예상 부위" 배지 (advisoryOrange 재사용,
   // 신규 색 금지). 크롭 이미지 위 칩.
@@ -424,50 +476,86 @@ const styles = StyleSheet.create({
   halfLabelLeft: { left: 8 },
   halfLabelRight: { right: 8 },
   halfLabelText: { ...typography.caption, color: colors.textWhite, fontWeight: '700' },
-  // 행동(외부 큐) 박스 — 브랜드 틴트 강조.
-  actionRow: {
-    backgroundColor: colors.brandTint,
+  // ── 결함 블록 (승인본 .card.fault + .fault-head) ─────────────────────────
+  faultCard: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1.5,
+    borderColor: colors.brandTint,
     borderRadius: radius.card,
-    padding: spacing.cardPadding,
-    gap: 4,
+    overflow: 'hidden',
   },
-  actionLabel: { ...typography.badge, fontWeight: '400', color: colors.textSecondary },
-  actionPhrase: { ...typography.bodyMdBold, color: colors.textPrimary }, // 21/700 행동 큐
+  faultHead: {
+    backgroundColor: colors.brandTint,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.brandSoft,
+    paddingHorizontal: spacing.cardPadding,
+    paddingVertical: 11,
+  },
+  faultHeadText: {
+    ...typography.boxLabel, // 15/700 — 승인본 .fault-head 15/800
+    color: colors.brand,
+  },
+  faultBody: {
+    padding: spacing.cardPadding,
+    gap: 8,
+  },
+  headline: {
+    ...typography.bodyLg, // 24/700 카드 헤드라인(몸 말/상태) — E2 토큰
+    color: colors.textPrimary,
+  },
+  why: {
+    ...typography.bodySm, // 19/400 왜·보조 본문 (lineHeight 25 — 잘림 방지)
+    color: colors.textMid,
+  },
+  // 승인본 .basis — 연회색 배경 + line 보더 (기존 softBg + border 재사용).
+  basisBox: {
+    backgroundColor: colors.softBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.listItem,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  basisText: {
+    ...typography.bodySm,
+    color: colors.textMid,
+  },
+  basisBold: {
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  // 승인본 .cue — inline-block brand-tint 박스, brand 텍스트 (라벨 없음).
+  cueBox: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.brandTint,
+    borderRadius: radius.button,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+  },
+  cueText: { ...typography.bodyMdBold, color: colors.brand }, // 21/700 행동 큐
+  // 승인본 .methodline / .facing — 정직 정보 톤 (infoTeal 토큰, 승인 CSS 실측).
+  infoBox: {
+    backgroundColor: colors.infoTealBg,
+    borderWidth: 1,
+    borderColor: colors.infoTealBorder,
+    borderRadius: radius.listItem,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  infoText: {
+    ...typography.bodySm,
+    color: colors.infoTeal,
+  },
+  // 승인본 .numnote — 블록 맨 뒤 작은 회색 줄 (2R 수치 강등).
+  numNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
   // 확인하기 불릿 + 용어줄.
   bullets: { gap: 6 },
   bullet: {
     ...typography.bodySm, // 19/400 (lineHeight 25 — 잘림 방지)
-    color: colors.textMid,
-  },
-  // "이 원인은 어떻게 측정됐나" 회색 근거 박스 — 수치는 여기에만(D-09).
-  evidenceBox: {
-    backgroundColor: colors.softBg,
-    borderRadius: radius.card,
-    padding: spacing.cardPadding,
-    gap: 8,
-  },
-  evidenceTitle: {
-    ...typography.badge, // 17/600 — 소형 근거 박스 제목
-    color: colors.textSecondary,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  // 측정 문구 — bodySm(19/25) 로 교체해 상단 글자 잘림(구 body 25/lineHeight 21) 해소.
-  metricDetail: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  // 33-15 (D-16) — 감점 수치 bodyMdBold(21) → metricNumber(17) 강등 (수치는 근거).
-  metricPoints: { ...typography.metricNumber, color: colors.brand },
-  // IN-01 (quick-260724-q6b) — 저신뢰 시 감점 수치 대신 노출하는 안내(거짓 정밀도
-  // 제거). 근거 박스 내부라 textMid 본문 톤. 토큰만.
-  estimatedPointsNote: {
-    ...typography.bodySm,
     color: colors.textMid,
   },
   // 강사 연결 줄.

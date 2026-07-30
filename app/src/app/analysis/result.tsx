@@ -67,6 +67,7 @@ import {
   matchZoomForDeductionRecord,
   projectDeductionRecordKeypoints,
 } from '../../lib/deductionLabels';
+import { buildRegionSheetView } from '../../lib/deductionSheet';
 import { reshapePose3dData } from '../../lib/joints';
 import {
   useReferenceMotion,
@@ -1351,30 +1352,70 @@ function AnalysisResultContent({
     const idx = markers.recordNumbers.indexOf(markerNumber);
     if (idx >= 0) setDetailRecordIndex(idx);
   };
-  const selectedRecord =
-    detailRecordIndex != null
-      ? result.deductionBreakdown?.records[detailRecordIndex] ?? null
-      : null;
-  const selectedRecordNumber =
-    detailRecordIndex != null
-      ? markers.recordNumbers[detailRecordIndex] ?? null
-      : null;
+  // 33-G S6 (quick-260730-py1) — 시트는 **부위 단위**다. 진입점 7곳이 전부
+  // detailRecordIndex 로 모이므로 진입점 수정 없이 여기서 record → 부위 뷰모델로
+  // 승격한다. 조판·카피 조립은 lib/deductionSheet 소유 (사본 0).
+  //
   // zoom 매칭 (33-12 A-5, seam #1) — criterion 키 일치 1차 + legacy 교집합 폴백.
   // 규칙 단일 출처 = deductionLabels.matchZoomForDeductionRecord (region-first
   // 첫 매치 추측 조인 제거 — defect #5 앱측 반쪽). advisory 는 감점 시트에
   // 오매칭 금지 (기존 규칙). 없으면 null (사진 없이 수치·문구만 — graceful).
-  const selectedZoom = useMemo<FaultZoomComparison | null>(() => {
-    if (!selectedRecord) return null;
-    return matchZoomForDeductionRecord(
-      selectedRecord,
-      vetoFaultJoints,
-      result.faultZoomComparisons ?? [],
-    );
-  }, [selectedRecord, vetoFaultJoints, result.faultZoomComparisons]);
-  // actionPhrase — 범례와 동일 소스 (문구 이중화 금지).
-  const selectedActionPhrase = selectedRecord
-    ? actionPhraseForRecord(selectedRecord, vetoFaultJoints, actionLabels)
-    : null;
+  const sheetZooms = useMemo<(FaultZoomComparison | null)[]>(
+    () =>
+      (result.deductionBreakdown?.records ?? []).map((rec) =>
+        matchZoomForDeductionRecord(
+          rec,
+          vetoFaultJoints,
+          result.faultZoomComparisons ?? [],
+        ),
+      ),
+    [result.deductionBreakdown, vetoFaultJoints, result.faultZoomComparisons],
+  );
+  // paircap 우측 라벨 — 승인본 6R 문형 `기준 (정은지)`. mode3 는 `지난 영상`.
+  // (crop 위 halfLabel 용 rightLabel 은 기존 문형 `{name} 선수` 유지 — 두 표면의
+  //  승인 문형이 서로 다르다.)
+  const rightPairLabel =
+    cmp.mode === 'mode1' ? `기준 (${cmp.athleteName})` : '지난 영상';
+  const sheetView = useMemo(() => {
+    const records = result.deductionBreakdown?.records ?? [];
+    if (records.length === 0) return null;
+    return buildRegionSheetView({
+      records,
+      recordNumbers: markers.recordNumbers,
+      actionPhrases: records.map((rec) =>
+        actionPhraseForRecord(rec, vetoFaultJoints, actionLabels),
+      ),
+      zooms: sheetZooms,
+      selectedRecordIndex: detailRecordIndex,
+      rightPairLabel,
+      estimatedArea: attributionUnreliable,
+      faultJoints: vetoFaultJoints,
+    });
+  }, [
+    result.deductionBreakdown,
+    markers.recordNumbers,
+    vetoFaultJoints,
+    actionLabels,
+    sheetZooms,
+    detailRecordIndex,
+    rightPairLabel,
+    attributionUnreliable,
+  ]);
+  // 상단 크롭 = 그룹 크롭을 낳은 record 의 카드. refMatch 정직 캡션도 이 카드 기준.
+  const sheetPrimaryZoom =
+    sheetView != null ? sheetZooms[sheetView.primaryRecordIndex] ?? null : null;
+  // 블록 안 크롭 (M-5) — 상단 크롭과 다른 카드를 가진 블록만. 기존에 보이던
+  // 증거를 조용히 잃지 않는다.
+  const sheetBlockZooms = useMemo<Record<number, FaultZoomComparison | null>>(() => {
+    const map: Record<number, FaultZoomComparison | null> = {};
+    for (const block of sheetView?.blocks ?? []) {
+      if (block.blockRecordIndexForCrop != null) {
+        map[block.blockRecordIndexForCrop] =
+          sheetZooms[block.blockRecordIndexForCrop] ?? null;
+      }
+    }
+    return map;
+  }, [sheetView, sheetZooms]);
 
   // Phase 27 D-06 — zoom 사후 도착. contract.md faultZoomStatus 절.
   // 27-06 이 점수/verdict/감점 내역을 status='done' 시점에 먼저 도착시키고, zoom PNG
@@ -3117,14 +3158,13 @@ function AnalysisResultContent({
       <DeductionDetailSheet
         visible={detailRecordIndex != null}
         onClose={() => setDetailRecordIndex(null)}
-        record={selectedRecord}
-        recordNumber={selectedRecordNumber}
-        actionPhrase={selectedActionPhrase}
-        zoom={selectedZoom}
+        view={sheetView}
+        primaryZoom={sheetPrimaryZoom}
+        blockZooms={sheetBlockZooms}
         zoomPending={zoomPending}
         // D-04 앱측 (28-05 공급) — DTW 대응 실패 시 ref 는 전신 폴백 이미지라
         // "같은 동작 순간을 못 찾았다"고 정직 고지. 부재(legacy)/'dtw'면 false → 캡션 없음.
-        refMatchFailed={selectedZoom?.refMatch === 'failed'}
+        refMatchFailed={sheetPrimaryZoom?.refMatch === 'failed'}
         // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 (확정
         // 결함 아님). 크롭·수치·비교는 유지 (시트가 라벨 소유).
         estimatedArea={attributionUnreliable}

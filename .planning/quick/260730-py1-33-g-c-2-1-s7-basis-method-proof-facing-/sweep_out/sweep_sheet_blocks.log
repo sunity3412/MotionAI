@@ -1,0 +1,36 @@
+(node:76754) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/kimtaesung/Dev/SunityMotion/.planning/quick/260730-py1-33-g-c-2-1-s7-basis-method-proof-facing-/sweep_sheet_blocks.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/kimtaesung/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:76754) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/kimtaesung/Dev/SunityMotion/app/src/lib/deductionLabels.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/kimtaesung/Dev/SunityMotion/app/package.json.
+
+### 스위프 요약 (등재 10동작)
+
+| 동작 | yaml joint | record | 그룹 | 블록 | 번호부여 | method null(ipsf) | basis null(zoom無) |
+|---|---|---|---|---|---|---|---|
+| ref-climb | 0 | 13 | 6 | 13 | 8 | 3 | 1 |
+| ref-elbow-twist-sister | 0 | 13 | 6 | 13 | 8 | 3 | 1 |
+| ref-foxtop-split | 6 | 13 | 6 | 13 | 8 | 3 | 1 |
+| ref-foxtop | 6 | 13 | 6 | 13 | 8 | 3 | 1 |
+| ref-invert | 6 | 13 | 6 | 13 | 8 | 3 | 1 |
+| ref-kip-up | 0 | 13 | 6 | 13 | 8 | 3 | 1 |
+| ref-pdshape | 0 | 13 | 6 | 13 | 8 | 3 | 1 |
+| ref-peter-pan | 0 | 13 | 6 | 13 | 8 | 3 | 1 |
+| ref-power-spin | 2 | 13 | 6 | 13 | 8 | 3 | 1 |
+| ref-sideway-spin | 6 | 13 | 6 | 13 | 8 | 3 | 1 |
+
+합계: 동작 10 / record 130 / 블록 130 / 소실 0 / 중복 0
+
+✔ INV-1: criteria yaml glob 파생 — 등재 동작 10개 발견 (하드코딩 목록 0) (0.534958ms)
+✔ INV-2~6: 등재 전 동작에서 그룹핑·번호·method·fail-closed 불변식 성립 (5.336375ms)
+✔ INV-6b: 동작명 리터럴 0 — 뷰모델 소스에 등재 모션 id 문자열 부재 (0.56975ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116.756417

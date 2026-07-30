@@ -5,8 +5,9 @@
 // 결함 블록 N개(다리 = "고칠 것 1"·"고칠 것 2") → facing → 일러스트.
 // belle 확인 ② 반려의 "무릎 피는 거 하나 어디 갔냐"(4R#2)가 이 구조의 이유다.
 //
-// 조판·카피 조립은 `lib/deductionSheet.ts` 가 소유한다 (순수 함수, node --test 로
-// 고정). 이 컴포넌트는 뷰모델을 **렌더만** 한다 — 조판 분기 사본 0.
+// 조판·카피 조립은 `lib/deductionSheet.ts buildRegionSheetView` 가 소유한다 (순수
+// 함수, node --test 로 고정). 호출은 caller(result.tsx)가 하고 이 컴포넌트는 그
+// 결과(`RegionSheetView`)를 **렌더만** 한다 — 조판 분기 사본 0.
 //
 // 승인 CSS → 앱 토큰 매핑 (M-14 — 목업 px 는 데스크톱 스케일, 앱은 토큰 우선.
 // 색 실측값은 theme/colors.ts 에 출처와 함께 박제 — 여기 hex 리터럴 0):

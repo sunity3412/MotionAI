@@ -78,10 +78,23 @@ export function mapFrameIdx(
   return Math.min(Math.max(scaled, 0), toFrames - 1);
 }
 
-/** 뷰어가 그릴 좌/우 프레임 쌍. */
+/**
+ * 뷰어가 그릴 좌/우 프레임 쌍.
+ *
+ * `userIdx`/`refIdx` = keypointReport(rep) 프레임 공간 인덱스 — 오버레이 좌표를
+ * 뽑는 축이다. `userSec`/`refSec` = **백엔드가 방출한 실영상 초**(비디오 9fps
+ * 공간)로, 같은 카드가 가리키는 순간을 사람이 보는 시각으로 표기·탐색할 때 쓴다.
+ *
+ * ⚠ 두 축은 다르다 (rep 18fps 329프레임 ↔ video 9fps 220프레임). `refIdx / fps`
+ * 로 초를 추정하면 타임베이스 불일치를 그대로 먹는다 — 그것이 F-3("자세 비교
+ * 페어가 다른 순간")의 근본원인이었다. 초는 방출값만 쓴다.
+ * 부재(legacy doc / 기준 대응 실패) = undefined → 소비처가 fail-closed.
+ */
 export interface CompareFrames {
   userIdx: number;
   refIdx: number;
+  userSec?: number;
+  refSec?: number;
 }
 
 /**
@@ -97,7 +110,13 @@ export interface CompareFrames {
  */
 export function pickCompareFrames(
   comparisons:
-    | { userFrameIdx?: number; refFrameIdx?: number; refMatched?: boolean }[]
+    | {
+        userFrameIdx?: number;
+        refFrameIdx?: number;
+        refMatched?: boolean;
+        userVideoSec?: number;
+        refVideoSec?: number;
+      }[]
     | undefined,
 ): CompareFrames | null {
   const top = comparisons?.[0];
@@ -108,7 +127,20 @@ export function pickCompareFrames(
     return null;
   }
   if ((userFrameIdx as number) < 0 || (refFrameIdx as number) < 0) return null;
-  return { userIdx: userFrameIdx as number, refIdx: refFrameIdx as number };
+  // 33-G F-3 (quick-260730-py1, M-11) — 초는 **이미 고른 같은 카드**에서 함께
+  // 읽는다 (별 조인 0, 나눗셈 0). 유한·비음수만 담고 그 외는 담지 않는다 —
+  // 소비처가 부재를 fail-closed 로 처리한다.
+  const out: CompareFrames = {
+    userIdx: userFrameIdx as number,
+    refIdx: refFrameIdx as number,
+  };
+  if (typeof top.userVideoSec === 'number' && Number.isFinite(top.userVideoSec) && top.userVideoSec >= 0) {
+    out.userSec = top.userVideoSec;
+  }
+  if (typeof top.refVideoSec === 'number' && Number.isFinite(top.refVideoSec) && top.refVideoSec >= 0) {
+    out.refSec = top.refVideoSec;
+  }
+  return out;
 }
 
 /**

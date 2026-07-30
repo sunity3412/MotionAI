@@ -1501,10 +1501,15 @@ function AnalysisResultContent({
 
   // 32-02 (D-16) — legacy doc(정렬 disabled/부재) 자동 시작 오프셋(sec). faultZoomComparisons
   // 프레임 인덱스 쌍들의 median 으로 "대략 오프셋"을 산출해 VideoCompare 에 넘긴다
-  // (정렬 활성 doc 은 VideoCompare 내부 dirty 가드가 무시 — offset 0 시작). fps 는
-  // poseFrames 정본(:2105 부근)과 동일 환산: result.keypointReport?.fps || 9 /
-  // referenceKeypointReport?.fps || 18 (9/18 신규 하드코딩 금지, SP-6). 유효 쌍 0 →
+  // (정렬 활성 doc 은 VideoCompare 내부 dirty 가드가 무시 — offset 0 시작). 유효 쌍 0 →
   // null → 0(오프셋 없음, 슬라이더만 제공).
+  //
+  // ⚠ 33-G F-3 (quick-260730-py1): 구 주석의 "poseFrames 정본과 동일 환산" 선언은
+  // **폐기**됐다. 참고코너 poseFrames 는 이제 백엔드 방출 초(userVideoSec/refVideoSec)
+  // 를 쓰고 rep 인덱스÷fps 추정을 하지 않는다. 여기 남은 rep÷fps 환산은 VideoCompare
+  // **정렬 시작 오프셋** 전용이며(동작 비교 거동 = 이미 PASS 표면) 이 단위 범위 밖이다 —
+  // 폐기된 규칙을 다시 복제하지 말 것. 초 정합 확장은 백엔드 초 방출 범위가 넓어질 때
+  // 별 단위로 판정한다.
   const legacyStartOffsetSec = useMemo(
     () =>
       legacyOffsetFromCompareFrames(
@@ -3084,29 +3089,35 @@ function AnalysisResultContent({
           jointKeys={viewerJointKeys}
           // 2026-07-21 belle 결정 ("사람이 나와야지") — 스켈레톤 대신 비교 순간의
           // 실제 영상 프레임. URL 은 동작 비교(VideoCompare)와 같은 재발급 우선
-          // 사다리(WR-03/D-09). 시각 = kr 공간 인덱스 / kr.fps — joints3d(9fps)
-          // 공간과 섞지 않는다 (2026-07-20 프레임 시점 버그 재발 방지).
+          // 사다리(WR-03/D-09).
+          //
+          // 33-G F-3 (quick-260730-py1, M-11) — **초는 백엔드 방출값만**
+          // (`userVideoSec`/`refVideoSec`). rep 인덱스를 rep.fps 로 나눠 초를
+          // 추정하는 것 금지: rep(18fps) ↔ video(9fps) 타임베이스 불일치를 그대로
+          // 먹어 "자세 비교 페어가 다른 순간"이 됐다(belle 확인 ② 반려 F-3).
+          // frameIdx/report 는 오버레이 좌표계라 rep 공간 **그대로 유지**한다.
+          //   userSec 부재 → 페어 전체 null (틀린 순간을 보여주지 않는다).
+          //   refSec 부재 → reference.url 미지정 → 기존 framesReady=false 경로로
+          //   스켈레톤 폴백 (신규 분기 0).
           poseFrames={
-            compareFrames
+            compareFrames && compareFrames.userSec != null
               ? {
                   user: {
                     url: freshMyUrl || result.myVideoUrl || undefined,
-                    timeSec:
-                      compareFrames.userIdx /
-                      (result.keypointReport?.fps || 9),
+                    timeSec: compareFrames.userSec,
                     report: userKeypointReport,
                     frameIdx: compareFrames.userIdx,
                     label: '내 자세',
                   },
                   reference: {
                     url:
-                      freshRefUrl ||
-                      result.referenceVideoUrl ||
-                      refMotion?.videoUrl ||
-                      undefined,
-                    timeSec:
-                      compareFrames.refIdx /
-                      (referenceKeypointReport?.fps || 18),
+                      compareFrames.refSec != null
+                        ? freshRefUrl ||
+                          result.referenceVideoUrl ||
+                          refMotion?.videoUrl ||
+                          undefined
+                        : undefined,
+                    timeSec: compareFrames.refSec ?? 0,
                     report: referenceKeypointReport,
                     frameIdx: compareFrames.refIdx,
                     label:

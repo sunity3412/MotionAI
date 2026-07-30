@@ -1,0 +1,64 @@
+{
+  "after": {
+    "advisory_batch": [
+      "3bd448ebc702b243be17b97a168ed589590bf26a1ae316f0960b1a273714924e"
+    ],
+    "legacy_arrows": [
+      "f1f06d68cd5d6116f9bfce20962a1d6bf987f31d6d670d23d92f8c66b34e07c9"
+    ],
+    "legacy_full_failed": [
+      "69178c7f27d70bf621eddd1f76f49c5dff35c3e49980e64f37455e488c9c8fed"
+    ],
+    "legacy_grouped_split": [
+      "04d3f1da2c0a398b494d5a35803829797b3f1fdb60d1ee822eb613604d1b0dbb"
+    ],
+    "legacy_real_frames": [
+      "58495032ce4fd2a21777d8def01263ad0769a34dea8a1251675c008a7b606544"
+    ],
+    "legacy_relaxed": [
+      "1c954467f49dbb9f4c50b955d731435f50bd9672edceda57d7809abe39e0dfbb"
+    ],
+    "legacy_single": [
+      "1c954467f49dbb9f4c50b955d731435f50bd9672edceda57d7809abe39e0dfbb"
+    ],
+    "legacy_stamp_ref": [
+      "d2cb155a03f957d6aea88994a319cf25752c66ad78a043264b952412b9afec5f"
+    ],
+    "mode3_dtw_ref_fps": [
+      "1c954467f49dbb9f4c50b955d731435f50bd9672edceda57d7809abe39e0dfbb"
+    ]
+  },
+  "before": {
+    "advisory_batch": [
+      "3bd448ebc702b243be17b97a168ed589590bf26a1ae316f0960b1a273714924e"
+    ],
+    "legacy_arrows": [
+      "f1f06d68cd5d6116f9bfce20962a1d6bf987f31d6d670d23d92f8c66b34e07c9"
+    ],
+    "legacy_full_failed": [
+      "69178c7f27d70bf621eddd1f76f49c5dff35c3e49980e64f37455e488c9c8fed"
+    ],
+    "legacy_grouped_split": [
+      "04d3f1da2c0a398b494d5a35803829797b3f1fdb60d1ee822eb613604d1b0dbb"
+    ],
+    "legacy_real_frames": [
+      "58495032ce4fd2a21777d8def01263ad0769a34dea8a1251675c008a7b606544"
+    ],
+    "legacy_relaxed": [
+      "1c954467f49dbb9f4c50b955d731435f50bd9672edceda57d7809abe39e0dfbb"
+    ],
+    "legacy_single": [
+      "1c954467f49dbb9f4c50b955d731435f50bd9672edceda57d7809abe39e0dfbb"
+    ],
+    "legacy_stamp_ref": [
+      "d2cb155a03f957d6aea88994a319cf25752c66ad78a043264b952412b9afec5f"
+    ],
+    "mode3_dtw_ref_fps": [
+      "1c954467f49dbb9f4c50b955d731435f50bd9672edceda57d7809abe39e0dfbb"
+    ]
+  },
+  "cards": 9,
+  "cases": 9,
+  "diffs": [],
+  "match": true
+}

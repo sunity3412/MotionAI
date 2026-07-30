@@ -29,8 +29,8 @@ KeypointOverlay.tsx/deductionLabels.ts/fault_zoom.py 표적 grep·정독). §9 �
 
 | # | 스펙 (목업 근거) | 현 구현 | 판정 |
 |---|---|---|---|
-| S6 | **부위 단위 시트**: 칩 → 크롭 페어 → **paircap "내 자세 · 실 1.7초 / 기준 · 실 3.07초"**(기준측 초 필수, 6R) → onecap 마킹 설명 1줄 → 결함 블록 N개(다리 = 고칠 것 1·2) → facing → 일러스트 | **record 단위 시트**(부위에 결함 2개면 시트 2개). paircap 텍스트 초 없음 — 초는 PNG 베이크(`_stamp_time`)+일반 안내문 1줄. onecap 없음 (`DeductionDetailSheet.tsx` 전독) | **PARTIAL** |
-| S7 | 블록 요소: **"고칠 것 N — 항목 (−N점)" 번호 헤더**(4R#2) · **basis "어디서 재나요"**(5R#2) · **method 정직 라벨**(5R#3) · numnote 수치 강등 · **proof 증거 3컷**(초 캡션+pnote) · **facing "두 사진이 달라 보이는 이유"** | 번호 헤더 없음(시트 제목 = ①+criterion 라벨). **basis·method·proof·facing 전부 앱에 없음**(전 소스 grep 0건). 수치 강등만 유사 구현(근거 박스 D-09) | **FAIL** |
+| S6 | **부위 단위 시트**: 칩 → 크롭 페어 → **paircap "내 자세 · 실 1.7초 / 기준 · 실 3.07초"**(기준측 초 필수, 6R) → onecap 마킹 설명 1줄 → 결함 블록 N개(다리 = 고칠 것 1·2) → facing → 일러스트 | **부위 단위로 재구성됨** (quick-260730-py1, `deductionSheet.buildRegionSheetView`). **시뮬 렌더 확인(오케스트레이터)**: 시트 제목 "어깨 부위 상세", 순서 = 칩 → 크롭 페어 → paircap 좌우 → onecap 1줄 → 블록 → 일러스트 = 승인 순서 일치. **한 부위 2감점 = 시트 1개·블록 2개**를 임시 doc(어깨 좌+우)으로 실증 — "고칠 것 2 — 왼쪽 어깨 (−8.9점)" / "고칠 것 3 — 오른쪽 어깨 (−5.1점)", 각 블록이 자기 basis·cue·method 보유(병합 0). 번호 = 전역 마커 번호. ⚠ **paircap 초는 미검증** — 렌더 가능한 doc 4건이 전부 §C-1 백엔드 변경 이전 산출이라 `userVideoSec`/`refVideoSec` 필드 자체가 없다(Firestore 조회로 확인). 앱은 rep 인덱스 재계산 없이 폴백 = 올바른 거동이나 **초가 실제로 찍히는지는 §C-4 Pod 재산출 doc 에서 판정** | **부분 PASS** (구조·블록 N개 PASS / 초 표기 미검증) |
+| S7 | 블록 요소: **"고칠 것 N — 항목 (−N점)" 번호 헤더**(4R#2) · **basis "어디서 재나요"**(5R#2) · **method 정직 라벨**(5R#3) · numnote 수치 강등 · **proof 증거 3컷**(초 캡션+pnote) · **facing "두 사진이 달라 보이는 이유"** | **번호 헤더·basis·method·numnote 신설·렌더 확인**(quick-260730-py1 + 시뮬). 헤더 = 브랜드 틴트 바(카드 좌우 끝까지), 1감점 부위는 번호 절 생략·2감점은 번호 부여. basis "어디서 재나요:" 회색 박스(굵은 문두가 `<b>` 문자열 노출 없이 중첩 Text 로 렌더). method "측정 방법 —" 틸 박스. numnote 블록 맨 뒤 작은 회색. **미달 2축(의도적 fail-closed, 날조 금지)**: ① **proof 3컷 = 자리 자체를 두지 않음** — 백엔드가 카드당 PNG 1장만 방출하고 "좋았던/감점/마무리" 분류는 doc 에 없는 측정 판단이라 앱이 만들면 판정 날조(M-10) ② **basis 구간 축 부재** — 창 인덱스→초 변환에 필요한 fps 가 앱에 없고, 인덱스를 나눠 초를 추정한 것이 F-3 근본원인이라 반복 금지(M-7). **facing 은 렌더 미확인**(어깨 항목에서 해당 위치까지 확인 못 함) | **PARTIAL** (4축 PASS / proof·basis구간 = §C-4 백엔드 방출 대기 / facing 미검증) |
 | S8 | **각도 표시 베이크(어깨류)** — 두 패널 동일: 팔 선+옆구리 선+호 r16, **꼭짓점=겨드랑이**(학생 = shoulder→hip t=0.15 kp 규칙 / 기준 = **모션당 1회 수동 앵커 주석**, 4R·7R#2) | **구현됨** (quick-260730-l7t) — `_draw_joint_angle` + `build_angle_bake_spec` + `ANGLE_BAKE_MAP`(접미사 키잉 4계열) + `_ARMPIT_T=0.15`. 기하 = 팔 64/옆구리 85/호 r16 (`_OUT=360` 이라 승인본 px 1:1), 흰 halo 아래 + 브랜드 코어 위, **호는 흰 단색**(승인 자산 픽셀 실측). 앵커 주석 = `reference_anchors.py` + `judging_data/reference_anchors/`(ref-power-spin 시딩). known-answer 테스트 = 겨드랑이 (200,262) + 실측 사이각 139.8° | **부분 PASS** — 힙류 자동 성립·어깨류 주석 시 성립(스위프 실증), **무릎·팔꿈치류는 8kp 기준으로 원리적 미성립** → §C-4 (아래 잔여 ①②) |
 | S9 | **crop 중심 = criterion 꼭짓점 관절 정중앙**, 같은 배율 (4R#1). region 인접 매핑 금지 | **PASS** (quick-260730-l7t) — `criterion_vertex_xy` 단일 출처 + `_crop_box_centered`(안쪽 shift 0) + `_render_crop_padded`(흰 패딩) + 카드당 1회 산출 공용 한 변 `_CRITERION_CROP_FRAC=220/360`. region 상수 3개는 crop 중심 결정에서 강등(멤버·캡션 보조). 인접 매핑 `elbow→hand` 제거(백엔드 `_KISMAM_TO_KEYPOINT` + 앱 `KEYPOINT_FROM_ANGLE_KEY` 동시). 실 7R 학생 프레임 재현 = 프레이밍이 승인 좌 패널과 일치, `user_side_px==ref_side_px==220` | **PASS** (M-2 해소, 단 정중앙 적용 범위 = 단일 관절 각도 카드 — L-10) |
 | S10 | 다리류 벌림각 렌더(두 선+사이각, `has_split_angle_record` 게이트) | `_draw_leg_angle:1213`·`_draw_side_leg_angle:1252` 존재. **단 12관절 doc 에서 조용히 생략됨** — `REGION_MEMBERS["legs"]`(hips+knees, ankle 미포함 = 8관절 시절 정의)가 crop bbox 를 정하는데 `_leg_line_pts` 는 **ankle 우선**이라 벌림이 큰 스플릿에서 ankle 이 crop 밖 → `_pt_in_crop` 탈락 → 원 마커 폴백. 실측 = out y 465/486 vs 허용 396 (quick-260730-l7t 스위프). **이 플랜 무관 pre-existing**(관련 함수 전부 무수정 + legacy 해시 변경 0) | **PARTIAL** (구 PASS 는 코드 존재만 확인한 판정 — 12관절 doc 실측 미검증. 근본원인·수리 후보 = quick-260730-l7t `deferred-items.md` D-1, §C-4 에서 실 doc 판정) |
@@ -70,7 +70,7 @@ KeypointOverlay.tsx/deductionLabels.ts/fault_zoom.py 표적 grep·정독). §9 �
 
 | # | 발견 | 수리 방향 | 판정 |
 |---|---|---|---|
-| F-3 | 자세 비교(참고하세요) 페어 다른 순간 — ref = 대표 프레임 | **백엔드분 PASS** (quick-260730-l7t) — 근본원인 확정: 앱이 `refFrameIdx / rep.fps` 로 초를 추정해 rep(18fps) ↔ video(9fps) 타임베이스 불일치를 그대로 먹었다. 백엔드가 `userVideoSec`/`refVideoSec` 를 방출한다(`_stamp_time` 과 동일 산출, 기준측은 `ref_display_frame_index` 보정 경유, ref 대응 실패 시 미방출). 3-way lockstep = `analysis.ts` + `contract.md §11.8` + 파이프라인 매퍼. **앱 렌더(참고코너/paircap 초 표기)는 §C-2** | 백엔드 PASS / 앱 잔여 |
+| F-3 | 자세 비교(참고하세요) 페어 다른 순간 — ref = 대표 프레임 | **백엔드분 PASS** (quick-260730-l7t) — 근본원인 확정: 앱이 `refFrameIdx / rep.fps` 로 초를 추정해 rep(18fps) ↔ video(9fps) 타임베이스 불일치를 그대로 먹었다. 백엔드가 `userVideoSec`/`refVideoSec` 를 방출한다(`_stamp_time` 과 동일 산출, 기준측은 `ref_display_frame_index` 보정 경유, ref 대응 실패 시 미방출). 3-way lockstep = `analysis.ts` + `contract.md §11.8` + 파이프라인 매퍼. **앱 코드분 PASS**(quick-260730-py1) — `compareFrames.(userIdx|refIdx) / fps` 초 추정 2곳 제거(grep 2→0, 오케스트레이터 재확인), `pickCompareFrames` 가 카드의 `userSec`/`refSec` 를 그대로 운반, 초 미방출 doc 은 실프레임 대신 스켈레톤 폴백. ⚠ **렌더 미검증** — 렌더 가능한 doc 4건이 전부 초 필드 이전 산출이라 참고코너 페어가 확대 크롭과 같은 순간인지 화면으로 확인 불가 → §C-4 재산출 doc 에서 판정 | 백엔드 PASS · 앱 코드 PASS / **렌더 미검증** |
 | F-4 | 100점 헤드라인 폰트 이탈 + 카피 어색 | 요약 카피 빌더 `result.tsx:475-505` 계열 — 조립식 제거·길이 통제·재작성 | FAIL |
 | F-5 | 슬라이더 기호 불명 | `GoalGaugeBar.tsx` — 현재 점 마커·허용 밴드에 시각 라벨 없음(a11y 라벨만 `:90`). 라벨 명시 | FAIL |
 | F-6 | 실기기 음성 무음 | **§9 유력 가설 반증** — `audioCue.ts:93` `playsInSilentMode: true` 이미 설정. 원인 재조사 필요(setAudioModeAsync 호출 시점·플레이어 수명·실기기 조건) | FAIL (원인 미상) |
@@ -126,5 +126,32 @@ KeypointOverlay.tsx/deductionLabels.ts/fault_zoom.py 표적 grep·정독). §9 �
 | ④ | 앱: region-first 조인 강등 · paircap 초 렌더 · 시트 재구성 · 참고코너 페어 | §C-2 | L-8 — 본 플랜은 값 방출까지 |
 | ⑤ | crop 전수 재생성 · OTA · belle 확인 ③ | §C-4 / D-45 | 일괄 1회 원칙 |
 
+## C-2 1단위 기록 (앱 시트, quick-260730-py1 — 2026-07-30)
+
+범위 = S7 블록 요소 + S6 부위 단위 재구성 + F-3 앱분. 나머지 §C-2(S19 pulse · S1~S3 칩 ·
+S13 일러스트 · S23 illu-float · S12 어휘 · F-4~F-8)는 다음 단위.
+
+**렌더 확인은 오케스트레이터가 직접 수행**(실행자 도구에 시뮬레이터 없음 — 자기 렌더 검증 금지
+구조). 증거 = `.planning/quick/260730-py1-.../sim_evidence/` 스크린샷 11장 + 임시 doc 생성·삭제
+스크립트. iPhone 16 Pro 시뮬, Metro 디버그 빌드(OTA 미발행, D-45).
+
+| 케이스 | 판정 | 근거 |
+|---|---|---|
+| 부위 2감점 = 시트 1개·블록 2개 | **PASS** | 임시 doc(어깨 좌+우)에서 "고칠 것 2/3" 두 블록, 각자 점수·basis·cue·method 보유. belle "무릎 피는 거 하나 어디 갔냐"의 구조 해소 |
+| 1감점 부위 = 번호 절 생략 | **PASS** | 킵업 어깨 시트 헤더 "고칠 것 — 왼쪽 어깨(…) (−16.2점)" 번호 없음 |
+| 블록 번호 = 전역 마커 번호 | **PASS** | 2·3 부여(1 = 팔꿈치 record). 영상 점·내역 행·블록 단일 소스 |
+| basis / method / numnote | **PASS** | 회색·틸 박스 + 맨 뒤 작은 회색. 굵은 문두 `<b>` 문자열 노출 0 |
+| 순서·레이아웃·크래시 | **PASS** | 승인 순서 일치, 카드 테두리 내 잘림 0, 시트 열림/닫힘 크래시 0, 이모지 0 |
+| **paircap 초 표기** | **미검증** | 렌더 가능 doc 4건 전부 §C-1 이전 산출 → `userVideoSec`/`refVideoSec` 필드 부재(Firestore 조회 확인). 앱은 재계산 없이 폴백(올바름) |
+| **F-3 참고코너 페어** | **미검증** | 같은 이유. 코드측 초 추정 제거는 grep 확인 |
+| facing · estimatedArea 시트 | **미검증** | 해당 위치·doc 까지 확인 못 함 |
+| LogBox 경고 배너 | **미해결** | 결과 화면에서 배너 출현. 디바이스 로그엔 시뮬 오디오·securityd 노이즈만 있어 JS 경고 내용 미확인(Metro stdout = 타 세션 프로세스). 레이아웃·크래시 영향은 관찰되지 않음 |
+
+**한 번 오판했다가 정정한 것(기록):** 임시 doc 이 목록 최상단이 아니어서 킵업 시트를 임시 doc 으로
+오인해 "두 감점이 병합됐다 = 결함"으로 판단할 뻔했다. 표시 점수(−16.2)가 그 doc 의 어떤 감점
+합과도 맞지 않아 Firestore 를 조회해 doc 을 특정하고 철회했다. **화면만 보고 결함을 단정하지 않고
+데이터로 doc 을 특정할 것.**
+
 *스펙 원본 = mockups/index.html 전독. 결정 = 33-CONTEXT.md D-39~D-45. §9 = 33-PHASE-GATE-EVIDENCE.md.*
 *C-1 재채점 = quick-260730-l7t (2026-07-30). 자체 도출 결정 L-1~L-11 = 그 플랜 SUMMARY.*
+*C-2 1단위 = quick-260730-py1 (2026-07-30). 자체 도출 결정 M-1~M-21 = 그 플랜/SUMMARY.*

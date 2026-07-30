@@ -76,7 +76,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-30 - Completed quick task 260730-l7t: 33-G §C-1 백엔드 수리 (S9 정중앙 crop · S8 각도 베이크 · F-3 실영상 초)
+Last activity: 2026-07-30 - Completed quick task 260730-py1: 33-G §C-2 앱 1단위 (부위 단위 시트 + S7 블록 요소 + F-3 앱분)
 
 ### Quick Tasks Completed
 
@@ -121,6 +121,8 @@ Last activity: 2026-07-30 - Completed quick task 260730-l7t: 33-G §C-1 백엔�
 | 260720-hn8 | 영상 선택 실패를 Figma 카드형 알림창으로 전환 + 원인별 해결안내 + iCloud 오프로드 폴백(Current 실패→Automatic 재시도) + catch 오류 삼킴 제거. belle 실기기 앨범 픽 실패 대응. **근본원인 미해결(iCloud 가설)** — 알림창이 실제 picker 오류 문자열을 노출해 belle 캡처가 가설 확정/폐기 증거. Figma 확정문구 2종 원문 유지, 신규 의존성 0, node --test 7/7 | 2026-07-20 | f329e99 | [260720-hn8-icloud](./quick/260720-hn8-icloud/) |
 | 260724-q6b | IN-01 역립 저신뢰(attributionReliability.unreliable) 결과화면 표현 강등 — 앱측이 백엔드 마커(d5490a8) 소비. 단일 게이트로 8개 per-joint 단정 표면(오버레이/점수내역/팁/확대비교 + 오늘고칠것/다른감점/요약todayFix/심사코너)을 "확정"→"예상/집계" 강등, 동작비교에 "AI 공부 중" 안내 1줄(모드별). 점수값 byte 불변, 카피 상수화, 테마 토큰만, typecheck clean. **남은 게이트=시뮬레이터 렌더 확인 후 belle 확인→OTA** | 2026-07-24 | 604b2bf | [260724-q6b-in-01-attributionreliability-ai](./quick/260724-q6b-in-01-attributionreliability-ai/) |
 | 260730-l7t | 33-G §C-1 백엔드 수리 (승인 목업 7R 대비 FAIL 3건) — **S9** crop 중심을 criterion 꼭짓점 관절 정중앙·두 패널 동일 배율(`criterion_vertex_xy` 단일 출처 + `_crop_box_centered` 흰 패딩 + `_CRITERION_CROP_FRAC=220/360`), region 상수는 crop 중심 결정에서 강등. **belle #7·#9 "팔꿈치인데 손을 집고 있음" 근본원인 = `_KISMAM_TO_KEYPOINT` elbow→hand 인접 대입** — 백엔드+앱 미러 동시 제거. **S8** 각도 베이크(`_draw_joint_angle` + `ANGLE_BAKE_MAP` 접미사 키잉 4계열 + `_ARMPIT_T=0.15`) + 기준 앵커 **관절 대입 선언** 계약(정적 좌표 금지 — 표시 프레임이 DTW 실측 순간이라 가변), both-or-neither 대칭 게이트. **F-3** 근본원인 = 앱이 `refFrameIdx / rep.fps`로 초 추정(rep 18fps ↔ video 9fps 불일치) → 백엔드가 `userVideoSec`/`refVideoSec` 방출 + 3-way lockstep. 검증 = 등재 10동작 스위프 110카드(정중앙 60 전건 배율 일치·비대칭 0·동작명 분기 0) + 생성 PNG 승인 자산 대조 + legacy 해시 9케이스 무변경 + `backend/tests` 회귀 0. **잔여: 9모션 주석값·무릎/팔꿈치 각도(12kp 재처리 필요)=§C-4, 앱 렌더=§C-2. S10 pre-existing 결함 발견→PARTIAL 정정** | 2026-07-30 | c9b0609 | [260730-l7t-33-g-c-1-fault-zoom-py-s9-crop-criterion](./quick/260730-l7t-33-g-c-1-fault-zoom-py-s9-crop-criterion/) |
+
+| 260730-py1 | 33-G §C-2 앱 1단위 (승인 목업 시트 재설계) — **S7** 블록 요소 신설(번호 헤더·basis "어디서 재나요"·method 정직 라벨·numnote 강등) + **S6** record 단위 → **부위 단위** 시트 재구성(`deductionSheet.buildRegionSheetView`, paircap 좌우·onecap) + **F-3 앱분**(`compareFrames.(userIdx|refIdx) / fps` 초 추정 2곳 제거 → 카드의 `userSec`/`refSec` 운반). 검증 = 오케스트레이터가 시뮬 직접 렌더(실행자는 시뮬 도구 없음): **부위 2감점 = 시트 1개·블록 2개**(고칠 것 2/3, 각자 점수·basis·method) 실증 = belle "무릎 피는 거 하나 어디 갔냐" 구조 해소 · 번호=전역 마커 번호 · 크래시·잘림 0 · 스위프 10동작 130블록 0손실. **의도적 fail-closed 2건**: proof 3컷(백엔드 1장만 방출, 3컷 분류는 doc 에 없는 판단 → 날조 금지)·basis 구간 축(fps 부재, 인덱스 나누기가 F-3 원인) → §C-4. **미검증: paircap 초·참고코너 렌더**(doc 4건이 초 필드 이전 산출)·facing·LogBox 경고 내용 | 2026-07-30 | cfb3694 | [260730-py1-33-g-c-2-1-s7-basis-method-proof-facing-](./quick/260730-py1-33-g-c-2-1-s7-basis-method-proof-facing-/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

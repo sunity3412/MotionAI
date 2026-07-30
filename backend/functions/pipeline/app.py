@@ -2862,10 +2862,21 @@ def _apply_vision_veto_from_context(
 
 
 # kismam joint key(result.joints[].key) → 앱이 강조하는 keypoint 이름.
-# 손은 elbow 의 시각 proxy (KeypointOverlay JOINT_KEY_TO_ANGLE_KEY 역방향 정합).
+#
+# 33-G S9 (quick-260730-l7t): elbow → hand 인접 매핑 **제거**. 32-14(D-22 1단)로
+# keypointReport 가 12관절이 되어 elbow 를 직접 표기할 수 있게 됐고, hand 대입은
+# belle #7·#9 "팔꿈치인데 손을 집고 있음"의 실 원인이었다 — 팔꿈치 criterion 이
+# 손 좌표를 crop 중심·마커로 써서 카드가 다른 관절을 가리켰다. 인접 관절 대체는
+# 하지 않는다(L-6): 기준 report(phase4_v1 legacy 8관절)에 elbow 가 없으면 그 카드는
+# D-12 ②(한 측 전신 폴백)로 떨어지고, 복귀 경로는 judging_data/reference_anchors/
+# 의 관절 대입 선언이다. "틀린 조언보다 없는 게 낫다"(D-43 동원리).
+#
+# 이 map 은 **채점 경로에 없다** — 감점 record 생성은 deduction_engine/ipsf_criteria
+# 소유이고, 이 map 의 소비처는 _keypoint_deltas(표시용 deficit)·criterion_units·
+# advisory 선별(전부 display)뿐이다.
 _KISMAM_TO_KEYPOINT = {
-    "left_elbow": "left_hand",
-    "right_elbow": "right_hand",
+    "left_elbow": "left_elbow",
+    "right_elbow": "right_elbow",
     "left_shoulder": "left_shoulder",
     "right_shoulder": "right_shoulder",
     "left_hip": "left_hip",
@@ -3081,6 +3092,16 @@ def _render_fault_zoom(
                 item["refFrameIdx"] = c["refFrameIdx"]
             if isinstance(c.get("refMatched"), bool):
                 item["refMatched"] = c["refMatched"]
+            # F-3 (quick-260730-l7t) — 두 패널 실영상 초 pass-through (region/
+            # refMatch 선례와 동일 조건부 복사). float scalar 라
+            # _validate_dict_only_scalars flat 제약 통과. 부재(legacy doc·기준
+            # 대응 실패)=키 부재 → 앱은 초 캡션 미렌더. bool 은 int 서브클래스라
+            # 명시 배제. TS lockstep: FaultZoomComparison.userVideoSec?/refVideoSec?
+            # + docs/contract.md §11.8.
+            for _sec_key in ("userVideoSec", "refVideoSec"):
+                _sec = c.get(_sec_key)
+                if isinstance(_sec, (int, float)) and not isinstance(_sec, bool):
+                    item[_sec_key] = float(_sec)
             # 33-12 (A-5 seam #1) — criterion pass-through (region/tier 선례 동일
             # 조건부 복사). scalar str — flat 제약 통과. TS lockstep:
             # FaultZoomComparison.criterion? + contract.md §11.7. 부재(legacy/

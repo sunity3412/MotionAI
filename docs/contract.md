@@ -1768,6 +1768,22 @@ const frameIdx = Math.floor(currentTime * report.fps);
 - **provenance 내부 전용 (D-06/D-05):** crop 의 criterion·관절·프레임 provenance 는 서버 구조 로그(`fault_zoom_crop`)에만 기록한다 — 화면 라벨로 렌더하지 않는다.
 - 3-way lockstep: `analysis.ts FaultZoomComparison.criterion?` ↔ `fault_zoom.py`/`pipeline _render_fault_zoom` 방출부 ↔ 본 절 (models.py 는 status 만 소유 — §11.6 선례).
 
+### §11.8 FaultZoomComparison.userVideoSec / refVideoSec (33-G F-3 — quick-260730-l7t)
+
+`FaultZoomComparison` 에 `userVideoSec?: number` · `refVideoSec?: number` scalar 2개를 추가한다 — 이 카드가 가리키는 **두 패널 각각의 실영상 초**.
+
+```
+userVideoSec  number  optional  ← 학생 패널 실영상 초 (9fps 프레임 인덱스 / fps)
+refVideoSec   number  optional  ← 기준 패널 실영상 초 (타임베이스 보정 후 인덱스 / fps)
+```
+
+- **값의 출처:** 백엔드가 crop PNG 좌하단에 베이크하는 타임스탬프(`fault_zoom._stamp_time`)와 **동일 산출**이다. 기준측은 `ref_display_frame_index`(rep→비디오 타임베이스 보정)를 거친 비디오 배열 인덱스에서 온다.
+- **fps 도메인 주의 (F-3 근본원인):** 이 두 필드는 **비디오 9fps 공간**이고, §11 의 `userFrameIdx`/`refFrameIdx` 는 **rep(각도/keypointReport) 프레임 공간**이다. 앱이 `refFrameIdx / keypointReport.fps` 로 초를 추정해 rep(예: 18fps 329프레임) ↔ video(9fps 220프레임) 불일치를 그대로 먹은 것이 "자세 비교(참고하세요) 페어가 crop 과 다른 순간"(§9-2 F-3)의 실 원인이다. **앱은 rep 인덱스로 초를 재계산하지 않는다** — 이 필드를 그대로 쓴다.
+- **용도:** 부위 상세 시트 paircap 초 표기(S6 — 승인 목업 6R "기준측 초 필수") + 참고코너/자세 비교 페어의 순간 정합(F-3).
+- **`refVideoSec` 부재 조건:** 기준 프레임 대응 실패(`refMatched=false` / `refMatch='failed'`) — 전신 폴백의 중앙 프레임이라 "같은 순간"의 근거가 없다. `frames_fps<=0` 이면 양쪽 모두 부재.
+- **부재(legacy doc) = 초 캡션 미렌더** (optional, migration 없음 — `tier?`/`refMatch?`/`criterion?` 선례).
+- 3-way lockstep: `analysis.ts FaultZoomComparison.userVideoSec?/refVideoSec?` ↔ `fault_zoom.py` 방출부 + `pipeline _render_fault_zoom` 매퍼 ↔ 본 절.
+
 ---
 
 ## §12. 미션 루프 + 번역 레이어 방출 (Phase 32 Plan 32-06 신설 — D-08/D-19/D-26/D-27/D-28/D-29/D-14)

@@ -1,0 +1,24 @@
+# 기준(reference) 각도 앵커 주석 — display 전용, 채점 무접촉 (D-44).
+# 스키마·절차 = 같은 디렉터리 README.md. 로더 = sunity_shared.analysis.reference_anchors.
+motion: ref-power-spin
+annotated: "2026-07-30"
+source: >-
+  승인 목업 7R 산출물 `mockups/assets/belle_shoulder_pair_dtwmatch_r7.png` 의
+  기준(우) 패널을 직접 열어(이미지 Read + 5배 확대 + 좌표 그리드) 판정.
+  그 패널 = reference/ref-power-spin.mp4 원본 프레임 92 (기준 각도공간 r46 =
+  DTW 가 실제로 짝지은 측정 순간, 실 3.07s) → 360x640 추출 → 겨드랑이 중심 220px 크롭.
+  기준 report(phase4_v1)는 legacy 8관절이라 elbow 관절 자체가 없다
+  (mockups/index.html 780-814행 "기준 (v40 = ref kp80)" 행에 박제).
+criteria:
+  angle_vs_reference__left_shoulder:
+    joint_substitutions:
+      # 기준 report 에 없는 elbow 를 hand(=COCO wrist)로 대입한다.
+      left_elbow: left_hand
+    note: >-
+      승인 7R 기준 패널 육안 판정 — 폴 그립 팔이 채점 국면에서 곧게 펴져 있다
+      (패널 좌표계에서 shoulder~(190,163) / elbow~(205,120) / wrist~(222,88) 추적,
+      elbow 내각 약 171도 = 신전). 겨드랑이 꼭짓점(180,180)에서 본 방향은
+      armpit->elbow 약 -67.4도 / armpit->hand 약 -65.5도 로 1.9도 차 —
+      팔이 펴져 있으므로 hand 를 팔(사지) 방향점으로 대입해도 각도 기하가 유지된다.
+      팔이 굽은 국면에서는 이 대입이 성립하지 않으므로 모션별로 따로 판정한다
+      (README "잔여 모션 주석 절차" 4단계).

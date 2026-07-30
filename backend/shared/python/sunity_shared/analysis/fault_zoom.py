@@ -2335,14 +2335,17 @@ def build_fault_zoom_comparisons(
             # 07-25 제거 결정을 belle 이 회전류 한정으로 수정했다 (6R 규칙 3).
             # 회전류 판정은 호출측이 technique category 데이터로 키잉 (동작명
             # 하드코딩 금지). display 전용, 채점 무접촉.
-            u_crop = _stamp_time(
-                u_crop, u_idx_unit / frames_fps if frames_fps > 0 else None
-            )
+            # F-3 (quick-260730-l7t) — 두 패널의 **실영상 초**. `_stamp_time` 이
+            # 찍는 그 값과 **같은 산출**을 item 으로도 방출한다(중복 계산 금지).
+            # 앱이 `refFrameIdx / rep.fps` 로 초를 추정하던 것이 F-3 "참고코너 페어가
+            # 다른 순간"의 실 원인이었다 — rep(예: 18fps 329f) ↔ video(9fps 220f)
+            # 타임베이스 불일치를 그대로 먹었다. 기준측은 ref_display_frame_index
+            # 보정을 거친 비디오 인덱스에서 온다.
+            u_video_sec = u_idx_unit / frames_fps if frames_fps > 0 else None
+            r_video_sec = r_display_idx / frames_fps if frames_fps > 0 else None
+            u_crop = _stamp_time(u_crop, u_video_sec)
             if stamp_ref:
-                r_img = _stamp_time(
-                    r_img,
-                    r_display_idx / frames_fps if frames_fps > 0 else None,
-                )
+                r_img = _stamp_time(r_img, r_video_sec)
             png = _compose(u_crop, r_img)
         except Exception:  # noqa: BLE001 - 단일 항목 실패는 전체를 막지 않음
             continue
@@ -2360,6 +2363,22 @@ def build_fault_zoom_comparisons(
             "refFrameIdx": int(r_kp_idx_unit),
             "refMatched": not ref_match_failed_unit,
         }
+        # F-3 실영상 초 (quick-260730-l7t) — paircap 초 표기(S6) + 참고코너 페어
+        # 정합. **rep 인덱스(userFrameIdx/refFrameIdx)로 초를 재계산 금지** — 두
+        # 값은 별개 축이다(rep 공간 vs 비디오 9fps 공간). 3-way lockstep:
+        # app/src/types/analysis.ts FaultZoomComparison.userVideoSec?/refVideoSec?
+        # + docs/contract.md §11.8 + pipeline _render_fault_zoom 매퍼 pass-through.
+        # scalar float 라 _validate_dict_only_scalars flat 제약 통과.
+        if u_video_sec is not None and np.isfinite(u_video_sec):
+            item["userVideoSec"] = float(u_video_sec)
+        # ref 대응 실패 카드는 미방출 — 전신 폴백의 중앙 프레임이라 "같은 순간"의
+        # 근거가 없다 (refMatched=False 와 정합).
+        if (
+            r_video_sec is not None
+            and not ref_match_failed_unit
+            and np.isfinite(r_video_sec)
+        ):
+            item["refVideoSec"] = float(r_video_sec)
         kind = (joint_kinds or {}).get(unit.joint)
         if kind:
             item["kind"] = kind

@@ -76,11 +76,18 @@ export const ANGLE_MEANING_KO: Record<string, string> = {
 };
 
 // angle key(kismam) → keypoint 이름 역매핑 (quick-260704-fz4) — 단일 출처.
-// backend pipeline _KISMAM_TO_KEYPOINT / KeypointOverlay JOINT_KEY_TO_ANGLE_KEY
-// 의 역방향 정합: elbow 각은 손(left_hand=COCO wrist)이 시각 proxy, 나머지 1:1.
+// backend pipeline _KISMAM_TO_KEYPOINT 미러 (측당 1벌, 항목 동일 유지 필수).
+//
+// 33-G S9 (quick-260730-l7t): elbow → 동명 관절로 교정. 종전 elbow→hand 인접
+// 매핑은 belle #7·#9 "팔꿈치인데 손을 집고 있음"의 원인이었다 — 팔꿈치 감점 항목의
+// 마커·확대 카드가 손을 가리켰다. 32-14(D-22 1단)로 keypointReport 가 12관절이 되어
+// elbow 를 직접 짚을 수 있다. **백엔드 map 과 함께 바꾼다** (한쪽만 고치면 앱
+// 오버레이가 손을, 백엔드 crop 이 팔꿈치를 가리키는 새 불일치가 생김).
+// legacy 8관절 doc 에서는 elbow 좌표가 없어 마커가 생략된다 — 인접 관절로
+// 대체하지 않는 fail-closed 가 의도다 (L-6, "틀린 조언보다 없는 게 낫다").
 export const KEYPOINT_FROM_ANGLE_KEY: Record<string, KeypointName> = {
-  left_elbow: 'left_hand',
-  right_elbow: 'right_hand',
+  left_elbow: 'left_elbow',
+  right_elbow: 'right_elbow',
   left_shoulder: 'left_shoulder',
   right_shoulder: 'right_shoulder',
   left_hip: 'left_hip',

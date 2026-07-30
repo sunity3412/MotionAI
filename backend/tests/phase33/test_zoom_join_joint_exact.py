@@ -73,9 +73,12 @@ def _report(n: int, fps: float, joint_xy, joint_conf) -> dict:
 
 # kismam angle key → keypoint 매핑 스텁 — pipeline._KISMAM_TO_KEYPOINT 미러
 # (fault_zoom 은 이름공간 무지 유지 — 매핑은 호출측 소유라 인자로 주입).
+# 33-G S9 (quick-260730-l7t): elbow → 동명 관절. hand 인접 매핑은 belle #7·#9
+# "팔꿈치인데 손을 집고 있음"의 원인이라 제거됐다. drift 게이트 =
+# tests/phase33/test_reference_anchors.py::test_test_stub_mirror_matches_pipeline_map.
 _ANGLE_MAP = {
-    "left_elbow": "left_hand",
-    "right_elbow": "right_hand",
+    "left_elbow": "left_elbow",
+    "right_elbow": "right_elbow",
     "left_shoulder": "left_shoulder",
     "right_shoulder": "right_shoulder",
     "left_hip": "left_hip",

@@ -495,6 +495,27 @@ export interface FaultZoomComparison {
    * contract.md §11.7.
    */
   criterion?: string;
+  /**
+   * 33-G F-3 (quick-260730-l7t) — 이 카드가 가리키는 **실영상 초**. 두 패널 각각의
+   * 원본 영상 타임라인 초(9fps 프레임 배열 인덱스 / fps)로, 백엔드가 crop PNG 에
+   * 베이크한 타임스탬프와 **같은 값**이다.
+   *
+   * 용도: (1) 부위 상세 시트의 paircap "내 자세 · 실 N초 / 기준 · 실 N초"(S6, 6R
+   * 규칙 — 기준측 초 필수), (2) 참고코너/자세 비교 페어가 crop 과 **같은 순간**을
+   * 가리키게 하는 정합 소스(F-3).
+   *
+   * ⚠️ `refFrameIdx / keypointReport.fps` 로 초를 **재계산하지 말 것.**
+   * userFrameIdx/refFrameIdx 는 rep(각도/keypointReport) 프레임 공간이고 이 필드는
+   * 비디오 9fps 공간이다 — 두 축이 다르다(예: rep 18fps 329프레임 ↔ video 9fps
+   * 220프레임). 앱이 rep 인덱스를 rep.fps 로 나눠 초를 추정한 것이 "참고하세요
+   * 페어가 다른 순간"(F-3)의 실 원인이었다.
+   *
+   * `refVideoSec` 부재 = 기준 프레임 대응 실패(`refMatched=false`) 또는 legacy doc.
+   * Python lockstep: fault_zoom 방출부 + pipeline `_render_fault_zoom` 매퍼 +
+   * docs/contract.md §11.8.
+   */
+  userVideoSec?: number;
+  refVideoSec?: number;
 }
 
 // Phase 28 (ALGN-01 동작 기반 비교 정렬) — 학생(left)=master 시계 불변, 정은지(right)만

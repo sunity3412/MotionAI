@@ -1,0 +1,14 @@
+
+=== 요약 (게이트 통과 프레임 비율, conf>=0.5 & 유효좌표) ===
+motion                       J frames |   L.ankle   R.ankle   L.elbow   R.elbow
+ref-climb                   12    172 |     0.895     0.901     0.814     0.866
+ref-combo                   12    621 |     0.607     0.667     0.688     0.691
+ref-elbow-twist-sister      12    220 |     0.364     0.514     0.523     0.446
+ref-foxtop                  12    284 |     0.616     0.665     0.694     0.687
+ref-foxtop-split            12    324 |     0.725     0.691     0.728     0.701
+ref-invert                  12    174 |     0.649     0.667     0.701     0.695
+ref-kip-up                  12     79 |     0.924     0.924     0.962     0.911
+ref-pdshape                 12    159 |     0.396     0.440     0.635     0.604
+ref-peter-pan               12     87 |     0.805     0.782     0.701     0.736
+ref-power-spin              12    106 |     0.557     0.585     0.623     0.774
+ref-sideway-spin            12    199 |     0.965     0.950     0.854     0.945

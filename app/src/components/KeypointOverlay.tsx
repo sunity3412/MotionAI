@@ -51,6 +51,11 @@ import Svg, {
 } from 'react-native-svg';
 import { useEvent } from 'expo';
 import type { VideoPlayer } from 'expo-video';
+// quick-260731-2jt (P-12, 2단위 이월) — 이 파일의 흰색 hex 리터럴 11곳을
+// `colors.textWhite` 로 일괄 교체했다. 값이 토큰과 문자 그대로 같아 렌더 결과는
+// 불변이고(app/CLAUDE.md 하드코딩 금지 정합), 형태·pulse·게이트 로직은 무접촉이다.
+// 잔여: `rgba(0,0,0,0.6)`(저신뢰 원 외곽) 은 대응 알파 토큰이 없어 유지 —
+// 알파 토큰 신설은 수리 사이클 밖(새 범위 금지).
 import { colors } from '../theme';
 import { PULSE_PERIOD_MS, buildFocusShapes } from '../lib/focusShape';
 import type { KeypointName, KeypointReport } from '../types/analysis';
@@ -668,7 +673,7 @@ export function KeypointOverlay({
                 y1={p.y}
                 x2={q.x}
                 y2={q.y}
-                stroke="#FFFFFF"
+                stroke={colors.textWhite}
                 strokeWidth={STROKE_BASE}
                 strokeOpacity={0.85}
                 strokeLinecap="round"
@@ -694,7 +699,7 @@ export function KeypointOverlay({
             ? colors.estimateGray
             : isHi
               ? colors.brand
-              : '#FFFFFF';
+              : colors.textWhite;
           const strokeWidth = isHi && !isLowConf ? STROKE_HI : STROKE_BASE;
           // dasharray viewBox 1×1 normalize → 짧은 dash + gap.
           const dashArray = isLowConf
@@ -738,7 +743,7 @@ export function KeypointOverlay({
               ? colors.brand
               : isAttn
                 ? colors.advisoryOrange
-                : '#FFFFFF';
+                : colors.textWhite;
           // Phase 20 (UI A2) — 강조(brand) 원의 외곽선을 brand→흰색으로 교체.
           // 같은 brand 색 외곽선은 영상 위에서 윤곽이 사라져 "안 보임" finding 의
           // 원인. 흰색 테두리가 brand 점을 분주한 배경에서 분리해 가독성 ↑.
@@ -749,7 +754,7 @@ export function KeypointOverlay({
             : isAttn
               ? colors.advisoryOrange
               : isHi
-                ? '#FFFFFF'
+                ? colors.textWhite
                 : 'rgba(0,0,0,0.6)';
           // Phase 20 (UI A2) — 강조(brand) 관절은 더 큰 반지름 + 두꺼운 외곽선
           // 으로 가독성 ↑. 정상/저신뢰 원은 기존 크기 유지.
@@ -786,7 +791,7 @@ export function KeypointOverlay({
                   // 세로 중앙 보정 — fontSize*0.35 근사 (기존 pill 텍스트 0.68
                   // 배치 관례 참고, cap-height 중심 정렬).
                   y={p.y + NUM_FONT_SIZE * 0.35}
-                  fill="#FFFFFF"
+                  fill={colors.textWhite}
                   fontSize={NUM_FONT_SIZE}
                   fontWeight="700"
                   textAnchor="middle"
@@ -828,7 +833,7 @@ export function KeypointOverlay({
                 rx={g.rx}
                 ry={g.ry}
                 fill="none"
-                stroke="#FFFFFF"
+                stroke={colors.textWhite}
                 strokeWidth={STROKE_HI + STROKE_CIRCLE_OUTLINE_HI}
                 strokeOpacity={0.55}
               />
@@ -851,7 +856,7 @@ export function KeypointOverlay({
                   rx={badgeRx}
                   ry={RADIUS_HI}
                   fill={stroke}
-                  stroke="#FFFFFF"
+                  stroke={colors.textWhite}
                   strokeWidth={STROKE_CIRCLE_OUTLINE_HI}
                 />
               ) : (
@@ -860,14 +865,14 @@ export function KeypointOverlay({
                   cy={badgeY}
                   r={RADIUS_HI}
                   fill={stroke}
-                  stroke="#FFFFFF"
+                  stroke={colors.textWhite}
                   strokeWidth={STROKE_CIRCLE_OUTLINE_HI}
                 />
               )}
               <SvgText
                 x={g.cx}
                 y={badgeY + NUM_FONT_SIZE * 0.35}
-                fill="#FFFFFF"
+                fill={colors.textWhite}
                 fontSize={NUM_FONT_SIZE}
                 fontWeight="700"
                 textAnchor="middle"
@@ -917,7 +922,7 @@ export function KeypointOverlay({
                 <Polyline
                   points={points}
                   fill="none"
-                  stroke="#FFFFFF"
+                  stroke={colors.textWhite}
                   strokeOpacity={0.72}
                   strokeWidth={FOCUS_LINE_HALO}
                   strokeLinecap="round"
@@ -941,7 +946,7 @@ export function KeypointOverlay({
                   rx={c.rx}
                   ry={c.ry}
                   fill="none"
-                  stroke="#FFFFFF"
+                  stroke={colors.textWhite}
                   strokeOpacity={0.72}
                   strokeWidth={FOCUS_CIRCLE_HALO}
                 />

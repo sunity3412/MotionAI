@@ -235,6 +235,19 @@ export type VideoCompareProps = {
    * cueId 조인·prefetch·재서명은 audioCue.ts 소유(이 컴포넌트는 트리거만).
    */
   audioAnalysisId?: string;
+  /**
+   * 33-G S23 (quick-260731-2jt) — 음성 중 우상단 **일러스트 동반**(illu-float,
+   * 3R 확정 B안). 승인 목업 `.illu-float`(`:215-218`)은 `.player` 안에서 dim +
+   * 부위 강조 + 자막 + "음성 중 — 잠시 멈춤"과 **같은 상태**에 함께 뜬다(`:518-538`).
+   *
+   * 자리는 이 컴포넌트가 갖고 **매핑은 caller** 가 갖는다 (33-14 illustrationSlot
+   * 선례) — 부위 키 산출·장면일치 판정은 result.tsx 소유 데이터다.
+   *
+   * fail-closed (P-9): 콜백이 null 을 돌려주면 **흰 카드 프레임 자체를 렌더하지
+   * 않는다**. 콘텐츠 없는 프레임은 새 "빈 배경 프레임"(belle #11)을 만든다.
+   * 미전달 = 기존 소비처 렌더 diff 0 (overlay / illustrationSlot 선례).
+   */
+  renderCueIllustration?: (recordId: string) => React.ReactNode;
 };
 
 // UAT 4차 (Build 14) finding 1+2 drift/replay 보정 상수 — Build 16 (iter-2).
@@ -263,6 +276,13 @@ const THUMB_DIAMETER = 14;
 // 표현 가능하게 한다(렌더 계산부). 접근성 increment/decrement 도 이 스냅 1단위.
 const OFFSET_MAX_SEC = 3;
 const OFFSET_SNAP_SEC = 0.1;
+
+// 33-G S23 (quick-260731-2jt) — illu-float 기하 비율. 승인 목업 `.illu-float`
+// (`mockups/index.html:215-218`)는 360px 폭 `.player` 안에서 width 104px,
+// inset(top/right) 10px 이다. 앱의 대응 면은 `styles.row`(P-6)이므로 절대 px 가
+// 아니라 **row 폭 대비 비율**로 옮긴다 — 기기 폭이 달라도 승인본 비례가 유지된다.
+const ILLU_FLOAT_WIDTH_RATIO = 104 / 360;
+const ILLU_FLOAT_INSET_RATIO = 10 / 360;
 
 // 32-08 (실기기 피드백 #1) — 음수 오프셋 시작 홀드 임계. 목표시각(unclamped)이 음수인
 // 구간에서 정은지(right)를 0 프레임에 세우되, 이미 ~0 이면 재대입을 생략한다(불필요한
@@ -336,6 +356,7 @@ export function VideoCompare({
   resetKey,
   cueWindows,
   audioAnalysisId,
+  renderCueIllustration,
 }: VideoCompareProps) {
   // expo-video: source 가 null 이면 자원만 잡고 재생 가능 상태 아님 — 훅 순서를
   // 깨지 않으면서 빈 URL 도 안전. 음소거 + 루프 끄기(비교에 방해 안 되게).
@@ -381,6 +402,17 @@ export function VideoCompare({
   const scrubbingRef = useRef(false);
   const wasPlayingBeforeScrubRef = useRef(false);
   const trackWidthRef = useRef(0);
+
+  // 33-G S23 (quick-260731-2jt) — illu-float 기하 기준 폭. 승인 목업의 `.player` 는
+  // 360px 폭 화면 1장이고 앱에서 그 대응은 `styles.row` 다(자막 wrap·"잠시 멈춤"
+  // pill 이 이미 row 레벨 = 승인본 대응 확립, P-6). 절대 px 를 그대로 옮기면 기기
+  // 마다 비율이 깨지므로 **측정한 row 폭의 비율**로 둔다(P-7). 퍼센트 스타일로는
+  // top 이 부모 **높이** 기준이라 축이 어긋난다 — 그래서 폭을 직접 잰다.
+  const [rowWidth, setRowWidth] = useState(0);
+  const handleRowLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    setRowWidth((prev) => (Math.abs(prev - w) < 0.5 ? prev : w));
+  }, []);
 
   // quick-260702-t0v (belle TestFlight #27 — 각도 라벨 가독) — 가로 전체화면 뷰어.
   // 29-CONTEXT D-11/D-12 — 새 빌드는 hasNativeOrientation 감지 시 진짜 가로(LANDSCAPE)로
@@ -1441,9 +1473,16 @@ export function VideoCompare({
             hint: '아래 미세조정으로 두 영상의 시작을 맞출 수 있어요',
           };
 
+  // 33-G S23 — illu-float 콘텐츠를 **먼저 받는다**(P-9). 프레임을 먼저 그리고
+  // 그 안에서 콜백을 부르면 결과가 null 일 때 빈 흰 카드가 남는다.
+  const cueIllustration =
+    voiceCueRecordId != null && renderCueIllustration
+      ? renderCueIllustration(voiceCueRecordId)
+      : null;
+
   return (
     <View style={styles.card}>
-      <View style={styles.row}>
+      <View style={styles.row} onLayout={handleRowLayout}>
         <VideoSlot
           label={leftLabel}
           url={leftUrl}
@@ -1459,6 +1498,30 @@ export function VideoCompare({
           overlay={rightOverlay}
           busyLabel={offsetApplying ? '적용중입니다' : undefined}
         />
+        {/* 33-G S23 (quick-260731-2jt) — 음성 중 일러스트 동반(illu-float).
+            승인 목업 `.illu-float`(`:215-218`) 기하를 비율로 재현: 폭 = row × 104/360,
+            inset = row × 10/360, 배경 rgba(255,255,255,.94) / radius 12 / padding 6 /
+            그림자 0 4px 14px rgba(0,0,0,.25) (테마 토큰 없는 승인본 값 — P-7).
+            발동 조건 = voiceCueRecordId != null (dim·강조·자막·"잠시 멈춤"과 같은 상태).
+            캡션 없음 (P-8 — 목업의 `.illu-float .t` 는 belle 후보-선택 안내이지 제품
+            카피가 아니다. D-05: 그림이 말을 대체).
+            rowWidth 0(측정 전)이면 미렌더 — 잘못된 크기로 한 프레임 튀지 않게. */}
+        {cueIllustration != null && rowWidth > 0 ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.illuFloat,
+              {
+                width: rowWidth * ILLU_FLOAT_WIDTH_RATIO,
+                top: rowWidth * ILLU_FLOAT_INSET_RATIO,
+                right: rowWidth * ILLU_FLOAT_INSET_RATIO,
+              },
+            ]}
+          >
+            {cueIllustration}
+          </View>
+        ) : null}
+
         {/* 32-08 (D-18 자막 큐) — 재생 중 결함 구간 자막. 영상 프레임 하단 중앙 pill.
             수치 미포함(D-09) — text 는 문구집 cueLine(행동문). cueWindows 미전달 시
             activeCueText=null → 미렌더. 33-13 — 목표-선행 큐(2문장)가 잘리지 않게
@@ -1824,6 +1887,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#F4F4F4',
+  },
+  // 33-G S23 (quick-260731-2jt) — 음성 중 일러스트 동반 카드 (row 절대 자식, 자막
+  // wrap 과 같은 레벨 = 승인본 `.player` 대응). width/top/right 는 row 폭 비율로
+  // 인라인 주입(P-7). 배경 알파·그림자는 대응 테마 토큰이 없어 승인본 값을 그대로
+  // 둔다 — 알파 토큰 신설은 이 수리의 범위 밖(P-12 동원리).
+  //   승인본: background rgba(255,255,255,.94) / border-radius 12 / padding 6
+  //           box-shadow 0 4px 14px rgba(0,0,0,.25)
+  //   RN 환산: CSS blur 14 ≈ shadowRadius 7 (RN 은 blur 의 절반 규약), elevation 4.
+  illuFloat: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 12,
+    padding: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 7,
+    elevation: 4,
   },
   // 32-08 (D-18 자막 큐) — 영상 프레임 하단 자막 오버레이 (row 절대 자식). paddingBottom
   // 이 slotLabel 영역을 비켜 프레임 하단에 앉힌다. 토큰만: videoBg 배경 + textWhite.

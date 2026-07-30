@@ -72,7 +72,9 @@ import {
   buildPartChips,
   buildPartGroups,
   buildRegionSheetView,
+  regionPartKeyForRecord,
 } from '../../lib/deductionSheet';
+import { hasIllustrationFor } from '../../lib/illustrationScene';
 import { reshapePose3dData } from '../../lib/joints';
 import {
   useReferenceMotion,
@@ -1833,6 +1835,24 @@ function AnalysisResultContent({
     return projectDeductionRecordKeypoints(rec, vetoFaultJoints);
   };
 
+  // 33-G S23 (quick-260731-2jt) — 음성 큐 recordId → illu-float 일러스트.
+  // 부위 키는 `regionPartKeyForRecord` 단일 출처(마커 그룹·부위 칩·부위 시트와
+  // 같은 단위 — 두 번째 그룹핑 규칙 금지, P-1), 장면일치는 시트와 **같은 판정**
+  // (P-9 — 시트에서 숨긴 그림을 영상 위에서 보여주면 결함이 표면만 옮긴 것이다).
+  // motionId 규칙도 시트와 동일 → mode3 는 자동 null. 못 찾거나 어긋나면 null 을
+  // 돌려주고, VideoCompare 는 그때 **흰 카드 프레임 자체를 렌더하지 않는다**.
+  const cueIllustrationForRecordId = (
+    recordId: string,
+  ): React.ReactNode | null => {
+    const motionId = cmp.mode === 'mode1' ? cmp.referenceMotionId : null;
+    if (!motionId) return null;
+    const rec = records.find((r) => r.recordId === recordId);
+    if (!rec) return null;
+    const partKey = regionPartKeyForRecord(rec, vetoFaultJoints);
+    if (!hasIllustrationFor(motionId, partKey)) return null;
+    return <DefectIllustration motionId={motionId} partKey={partKey} />;
+  };
+
   // 강사 질문 — 자동 수집(result.coachQuestions, D-28) + legacy 폴백
   // (openQuestionsForCoach, coachQuestions 부재 doc만) + 사용자 담기(source 'user').
   const [userQuestions, setUserQuestions] = useState<CoachQuestion[]>([]);
@@ -2527,6 +2547,10 @@ function AnalysisResultContent({
               // 32-12 (D-18 B안) — coachAudio mp3 준비 doc 에서만 오디오 토글·재생
               // 활성(cueId=recordId 조인). failed/legacy 면 undefined → 자막만.
               audioAnalysisId={coachAudioAnalysisId}
+              // 33-G S23 (quick-260731-2jt) — 음성 중 우상단 일러스트 동반.
+              // 자리는 VideoCompare, 매핑은 여기(33-14 illustrationSlot 선례).
+              // 시트와 같은 장면일치 판정을 통과할 때만 노드를 돌려준다 (P-9).
+              renderCueIllustration={cueIllustrationForRecordId}
             />
             {/* 33-G S3/F-8 (quick-260730-szk) — 부위 칩 행. 승인 목업 ① 은 칩을
                 캡처 카드 **바로 아래**에 둔다(`.jointchips` = `.dcap` 다음 형제).

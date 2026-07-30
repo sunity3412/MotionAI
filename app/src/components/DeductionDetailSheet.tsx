@@ -451,6 +451,8 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '700',
     color: colors.textMid,
+    // 좁은 기기에서 좌우 라벨이 서로 밀어내지 않고 줄바꿈되도록 (space-between 유지).
+    flexShrink: 1,
   },
   // 승인본 .onecap — caption ink-2 center.
   oneCap: {

@@ -329,6 +329,17 @@ export function matchZoomForDeductionRecord(
   return null;
 }
 
+// 33-G S1 (quick-260730-szk, N-16) — **부위 단위 그룹 마커(`partGroups`) 는 이 파일에
+// 없다.** 승인 목업 ① 은 마커를 "항목(부위) 단위 그룹 1경계"로 요구하고(2R#1 "동그라미가
+// 7개" 반려), 그 부위 키 산출은 `deductionSheet.regionPartKeyForRecord` 가 이미 소유한다
+// (시트·칩과 같은 단위여야 한다). `deductionSheet.ts` → 이 파일은 **이미 한 방향 의존**이라
+// 여기서 그 함수를 import 하면 순환이 된다 → `buildPartGroups(records, recordNumbers,
+// faultJoints)` 를 `deductionSheet.ts` 에 두고 `result.tsx` 가 `buildDeductionMarkers` 와
+// 나란히 호출한다. 부위 키 산출 사본은 **0벌**이다(두 번째 그룹핑 규칙 금지).
+//
+// 아래 `groupMarkers`(관절명 없는 record 의 멤버 묶음)는 legacy(breakdown 부재) doc 용
+// 경로로 남는다 — 이 함수의 3필드 산출 규칙은 한 줄도 바뀌지 않았다(내역 행 번호·행동구
+// 후보 게이트·재생바 틱이 그대로 소비 중).
 export function buildDeductionMarkers(
   records: DeductionRecord[],
   faultJoints: readonly KeypointName[] | undefined,

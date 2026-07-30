@@ -46,7 +46,11 @@ import {
 } from 'react-native';
 
 import { ANGLE_VS_REFERENCE_PREFIX } from '../lib/deductionLabels';
-import { objectJosaKo, type RegionSheetView } from '../lib/deductionSheet';
+import {
+  ADVISORY_CHIP_KO,
+  objectJosaKo,
+  type RegionSheetView,
+} from '../lib/deductionSheet';
 import { terminologyPlain, type TerminologyTerm } from '../lib/terminologyMap';
 import { colors, radius, spacing, typography } from '../theme';
 import type { FaultZoomComparison } from '../types/analysis';
@@ -96,7 +100,8 @@ const COACH_CONNECT = '강사가 함께 보면 더 구체적인 피드백을 받
 const CHECK_BULLET = '거울을 보며 동작을 직접 재현해서 확인해 보세요';
 // 승인 목업 ② 크롭 카드 칩 (renderDetail chip.brand / chip.gray).
 const CHIP_TODAY_FIX = '오늘 고칠 것';
-const CHIP_ADVISORY = '참고 — 감점은 아니지만 회전·힘에 영향';
+// 33-G S2 (quick-260730-szk) — 참고 칩 문형은 `lib/deductionSheet.ADVISORY_CHIP_KO`
+// 단일 소스. 여기 local 사본이 있던 동안 시트·칩·마커 title 이 서로 갈릴 수 있었다.
 // 시트 제목 접미 (부위 단위 재구성 — 승인본 ② 는 부위 시트다).
 const SHEET_TITLE_SUFFIX = ' 부위 상세';
 // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 카피 (시트가
@@ -205,7 +210,7 @@ export function DeductionDetailSheet({
                           : styles.chipTextBrand,
                       ]}
                     >
-                      {view.isAdvisoryOnly ? CHIP_ADVISORY : CHIP_TODAY_FIX}
+                      {view.isAdvisoryOnly ? ADVISORY_CHIP_KO : CHIP_TODAY_FIX}
                     </Text>
                   </View>
                 )}

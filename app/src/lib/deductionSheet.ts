@@ -63,9 +63,23 @@ const METHOD_VISION =
 /** method(정렬) 첫 문장 (5R#3). 두 번째 문장은 기준 초가 있을 때만 붙는다. */
 const METHOD_ALIGNED =
   '측정 방법 — 이 항목은 한 순간이 아니라 두 영상의 전 구간을 정렬해 견준 값이에요.';
-/** advisory(참고 부위) onecap — 기하 무단정이라 승인 원문 그대로. */
-const ADVISORY_ONE_CAP =
+/**
+ * 참고(advisory) 긴 안내 문형 — 승인 목업 legend "점선 = 참고 — 점수 감점은 되지
+ * 않지만 회전·힘 같은 전체 동작에 영향을 줄 수 있는 부위예요" 계열. 기하 무단정이라
+ * 승인 원문 그대로.
+ *
+ * 33-G S2 (quick-260730-szk) — **전 표면 단일 소스로 승격**(값 변경 0). advisory
+ * 시트 onecap · 부위 칩 인라인 안내가 같은 이 상수를 소비한다 (T-33G3-02 —
+ * 사본이 생기면 표면마다 문형이 갈라지고 그것이 3R#3 반려의 실체였다).
+ */
+export const ADVISORY_NOTE_KO =
   '참고 부위예요 — 점수 감점은 되지 않지만 회전·힘 같은 전체 동작에 영향을 줄 수 있어요. 눈에 띈 차이만 보여드려요';
+
+/**
+ * 참고(advisory) 짧은 칩형 — 승인 목업 `:1091` + 마커 title `:336` 과 문자 동일.
+ * 33-G S2 — `DeductionDetailSheet` 의 local 사본을 지우고 이 상수를 import 한다.
+ */
+export const ADVISORY_CHIP_KO = '참고 — 감점은 아니지만 회전·힘에 영향';
 /**
  * IN-01 (quick-260724-q6b) — 역립 저신뢰 시 관절별 감점 수치를 특정 관절에
  * 귀속할 수 없어 거짓 정밀도 대신 노출하는 안내. 종전 시트 근거 박스가 소유했던
@@ -213,7 +227,12 @@ export function regionPartKeyForRecord(
   return PART_ORDER.filter((t) => tokens.has(t)).join('+');
 }
 
-function titleForPartKey(partKey: string): string {
+/**
+ * 부위 키 → 화면 라벨. 33-G S3 (quick-260730-szk) — private `titleForPartKey` 에서
+ * export 로 승격. **칩 라벨과 시트 제목이 문자 단위로 같아야** 승인본 어휘가 두
+ * 표면에서 갈라지지 않는다(칩을 눌렀는데 다른 이름의 시트가 열리면 신뢰 결함).
+ */
+export function partLabelKo(partKey: string): string {
   if (partKey.startsWith(CRITERION_GROUP_PREFIX)) {
     return criterionLabelKo(partKey.slice(CRITERION_GROUP_PREFIX.length));
   }
@@ -253,6 +272,179 @@ function pairCapWithSec(label: string, sec: number | null): string {
   return secLabel ? `${label} · ${secLabel}` : label;
 }
 
+// ── 부위 그룹 마커 (33-G S1 / quick-260730-szk) ────────────────────────────
+
+/**
+ * 영상 위 **항목(부위) 단위 그룹 마커** 1건. 승인 목업 ① `.mkg` — "1라운드는 관절
+ * 단위 원 7개 … 항목은 3개인데 동그라미가 7개라 혼란(belle) → **항목 단위 그룹
+ * 3개**"(`mockups/index.html:314-317,331-335`).
+ */
+export interface PartGroupMarker {
+  /** 부위 키 — 칩·시트와 **같은 단위**(`regionPartKeyForRecord` 단일 출처). */
+  partKey: string;
+  /** 이 부위에 속한 감점 record 의 전역 마커 번호 (오름차순). */
+  numbers: number[];
+  /** 배지 표기. 2건 이상이면 `2·3` 병합 (N-2 — 재생바 틱의 번호 병합 선례 계승). */
+  badgeLabel: string;
+  /** 경계 bounding 산출용 멤버 keypoint 합집합. */
+  keypoints: KeypointName[];
+}
+
+/**
+ * 감점 record → 부위 단위 그룹 마커 (N-1). **마커 그룹 = 부위 칩 = 부위 시트**가 같은
+ * 단위여야 승인본의 "화면의 표시 수 = 항목 수"(`:349`)가 성립한다.
+ *
+ * 왜 `deductionLabels` 가 아니라 여기인가 (N-16): 부위 키 산출(`regionPartKeyForRecord`)
+ * 이 이 파일 소유이고 `deductionSheet` → `deductionLabels` 는 이미 한 방향 의존이라
+ * 반대 방향 import 는 순환이 된다. 두 번째 그룹핑 규칙을 쓰지 않기 위해 함수를 규칙
+ * 쪽으로 옮겼다 — 부위 키 사본 0벌.
+ *
+ * 규칙 (전부 저장값 read-only — 재계산·재해석 0):
+ *   - 순서 = 부위 첫 등장 순 (record 저장 순서 승계 — 엔진이 결정적 정렬).
+ *   - `numbers` = 그 부위 멤버 record 중 번호가 부여된 것만, 오름차순.
+ *   - `keypoints` = 멤버 record 투영의 합집합 (누락 0).
+ *   - 번호 0개 부위는 제외 (번호 없는 경계 = 내역 행과 짝 없는 고아 표시, D-18).
+ *   - 투영 keypoint 0개 부위(`line` 같은 collective criterion)도 제외 — 그릴 자리 없음.
+ */
+export function buildPartGroups(
+  records: readonly DeductionRecord[],
+  recordNumbers: readonly (number | null)[],
+  faultJoints: readonly KeypointName[] | undefined,
+): PartGroupMarker[] {
+  const order: string[] = [];
+  const byPart = new Map<
+    string,
+    { numbers: number[]; keypoints: KeypointName[] }
+  >();
+  (records ?? []).forEach((rec, i) => {
+    const partKey = regionPartKeyForRecord(rec, faultJoints);
+    let bucket = byPart.get(partKey);
+    if (!bucket) {
+      bucket = { numbers: [], keypoints: [] };
+      byPart.set(partKey, bucket);
+      order.push(partKey);
+    }
+    const num = recordNumbers?.[i];
+    if (num != null) bucket.numbers.push(num);
+    for (const kp of projectDeductionRecordKeypoints(rec, faultJoints)) {
+      if (!bucket.keypoints.includes(kp)) bucket.keypoints.push(kp);
+    }
+  });
+
+  const out: PartGroupMarker[] = [];
+  for (const partKey of order) {
+    const bucket = byPart.get(partKey);
+    if (!bucket) continue;
+    if (bucket.numbers.length === 0) continue;
+    if (bucket.keypoints.length === 0) continue;
+    const numbers = [...bucket.numbers].sort((a, b) => a - b);
+    out.push({
+      partKey,
+      numbers,
+      badgeLabel: numbers.join('·'),
+      keypoints: bucket.keypoints,
+    });
+  }
+  return out;
+}
+
+// ── 부위 칩 (33-G S3 / quick-260730-szk) ───────────────────────────────────
+
+/** 승인 목업 ① `.jointchips` 의 버튼 1개. */
+export interface PartChip {
+  partKey: string;
+  /** 감점 칩 = `partLabelKo` (시트 제목과 문자 동일) / 참고 칩 = `참고: {부위}`. */
+  label: string;
+  kind: 'deduction' | 'advisory';
+  /**
+   * 탭 시 열 시트의 record 인덱스. 그 부위의 **최소 번호** record (N-3 — 재생바 틱
+   * `onTickPress(tick.numbers[0])` 선례). 부위 시트라 어느 멤버로 열어도 같은 시트.
+   * 참고 칩은 record 가 없어 null (인라인 안내 토글, N-6).
+   */
+  firstRecordIndex: number | null;
+  numbers: number[];
+}
+
+export interface PartChipsInput {
+  records: readonly DeductionRecord[];
+  /** 전역 마커 번호 (`buildDeductionMarkers().recordNumbers`) — 번호 단일 출처. */
+  recordNumbers: readonly (number | null)[];
+  /** 측정 초과·확인 권장 관절 (감점 아님) — 참고 칩 입력. */
+  attentionKeypoints: readonly KeypointName[];
+  /** IN-01 역립 저신뢰 — 부위 단정 칩 억제. */
+  estimatedArea: boolean;
+  faultJoints?: readonly KeypointName[];
+}
+
+/**
+ * 부위 칩 행 (승인 목업 ① `:338-342` `다리` `어깨` `참고: 손`, `:317` "그룹이나 아래
+ * **부위 버튼**을 누르면 ② 상세로 이동해요").
+ *
+ * F-8(D-42)로 상시 마커가 사라지므로 이 칩 행이 **상시 진입점**을 대체한다. 부위
+ * 정의는 `buildPartGroups` 를 그대로 소비 — 두 번째 그룹핑 규칙 금지.
+ *
+ * fail-closed:
+ *   - `records` 0 → `[]` (N-14. 승인본 ① 은 감점 항목 화면이고, 칩 0개 빈 행은
+ *     "기본 화면 새 문장 0"(D-05·S5) 위반).
+ *   - `estimatedArea` → `[]` (IN-01 전용 진입점 카드가 이미 있고, 저신뢰에서 부위를
+ *     단정하는 칩은 S17 PASS 를 깬다).
+ */
+export function buildPartChips(input: PartChipsInput): PartChip[] {
+  const records = input.records ?? [];
+  if (records.length === 0) return [];
+  if (input.estimatedArea === true) return [];
+
+  const groups = buildPartGroups(
+    records,
+    input.recordNumbers ?? [],
+    input.faultJoints,
+  );
+
+  const chips: PartChip[] = [];
+  const claimedTokens = new Set<string>();
+  for (const g of groups) {
+    // 최소 번호를 가진 멤버 record 의 인덱스 (N-3).
+    const target = g.numbers[0];
+    let firstRecordIndex: number | null = null;
+    records.forEach((rec, i) => {
+      if (firstRecordIndex != null) return;
+      if (regionPartKeyForRecord(rec, input.faultJoints) !== g.partKey) return;
+      if (input.recordNumbers?.[i] === target) firstRecordIndex = i;
+    });
+    chips.push({
+      partKey: g.partKey,
+      label: partLabelKo(g.partKey),
+      kind: 'deduction',
+      firstRecordIndex,
+      numbers: g.numbers,
+    });
+    if (!g.partKey.startsWith(CRITERION_GROUP_PREFIX)) {
+      for (const token of g.partKey.split('+')) claimedTokens.add(token);
+    }
+  }
+
+  // 참고 칩 — attention keypoint 를 부위 토큰으로 접고 감점 부위와 겹치면 제외.
+  // 순서 = PART_ORDER (머리→발), 라벨 = 승인본 `참고: 손` 형식.
+  const advisoryTokens = new Set<string>();
+  for (const kp of input.attentionKeypoints ?? []) {
+    const token = BODY_PART_OF_KEYPOINT[kp];
+    if (!token) continue;
+    if (claimedTokens.has(token)) continue;
+    advisoryTokens.add(token);
+  }
+  for (const token of PART_ORDER) {
+    if (!advisoryTokens.has(token)) continue;
+    chips.push({
+      partKey: token,
+      label: `참고: ${BODY_PART_LABEL_KO[token] ?? token}`,
+      kind: 'advisory',
+      firstRecordIndex: null,
+      numbers: [],
+    });
+  }
+  return chips;
+}
+
 // ── 뷰모델 조립 ───────────────────────────────────────────────────────────
 
 export function buildRegionSheetView(
@@ -288,7 +480,7 @@ export function buildRegionSheetView(
   ];
   const primaryZoom = zoomOf(primaryRecordIndex);
 
-  const title = titleForPartKey(partKey);
+  const title = partLabelKo(partKey);
   const compareNoun = compareNounKo(input.rightPairLabel);
   const estimatedArea = input.estimatedArea === true;
 
@@ -308,7 +500,7 @@ export function buildRegionSheetView(
   // 지칭이 된다 → **무엇을 견주는지만** 말한다.
   let oneCap: string | null = null;
   if (isAdvisoryOnly) {
-    oneCap = ADVISORY_ONE_CAP;
+    oneCap = ADVISORY_NOTE_KO;
   } else if (primaryZoom) {
     const subject = measuredSubjectKo(records[primaryRecordIndex].criterion);
     if (subject) {

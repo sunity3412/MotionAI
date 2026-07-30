@@ -1227,6 +1227,46 @@ Plans:
 
 - [ ] 33-16-PLAN.md — phase gate: belle GPU greenlight(blocking) + 6동작 Pod 전수 재분석 + 시뮬 렌더 전수 → belle 실기기 UAT ② [checkpoint] (codex concern 15)
 
+### Phase 34: 분석 일반화 — 같은 자세면 같은 점수 (촬영조건·동작·기준버전 불변)
+
+**Goal:** 어떤 영상을 올려도 만족도가 같게. 점수가 움직여도 되는 이유는 **수강생이 실제로
+다르게 했을 때 하나뿐**이고, 그 외(촬영 앵글·거리·fps·해상도·체형·동작 종류·기준 버전)로
+점수가 움직이면 전부 결함으로 취급한다. belle 2026-07-31 지시: "정확하게, 나중에 어떤 영상을
+업로드해도 만족도가 마찬가지가 되도록 설계".
+
+**Requirements**: TBD (discuss-phase 에서 확정)
+
+**설계 뼈대 4겹 (제안, discuss 에서 확정):**
+1. **불변식 테스트 스위트** — 자세 고정 + 무관 조건만 변주 → 점수 허용치 내 불변을 기계 검사.
+   fixture별 기대점수(curve-fit) 대신 **fixture-무관 불변식**으로 게이트. memory:
+   `judgment-must-not-fixate-on-recent-fixture` · `scoring-redesign-must-generalize-no-overfit`
+2. **기질 정합** — 기준과 학생이 같은 파이프라인을 타게(현재: 기준 18fps·8관절·인버전 off vs
+   학생 9fps·12관절·인버전 on). 33-07 flip 이 이 겹의 선행. 근거 = `ref-student-substrate-gap.md`
+3. **최소 산출 계약** — 어떤 영상이든 보장 산출량을 정하고, 못 주면 조용히 비우는 대신
+   **왜 못 주는지 + 어떻게 하면 되는지**를 준다(재촬영 안내). 현행 fail-closed 는 틀린 말은
+   막았지만 결과가 얇아지는 값을 치르는 중. memory: `product-role-interpret-act-or-ask-coach`
+4. **앵글 분리** — 촬영 조건이 점수에 새지 않게 보정하거나, 보정 불가면 그 항목을 점수에서
+   빼고 정직하게 고지. 이게 안 되면 1번 불변식이 원리적으로 통과 불가. memory:
+   `camera-angle-scoring-stretch-reference-corner`
+
+**측정된 출발점 (2026-07-30~31 실측):**
+- 기준 영상의 발목·팔꿈치 신뢰도 게이트 통과율이 동작마다 **0.36~0.97** (sideway-spin 0.95 /
+  elbow-twist-sister 0.36) → 증거량이 동작별로 갈리고, 그게 곧 결과 두께의 편차가 된다.
+  증거 = `.planning/phases/33-result-trust-recovery/evidence-refkp/`
+- 등재 기준 모션 11개 / criteria yaml 10개 → 그 밖 동작은 비교 기준 부재.
+
+**belle 결정 대기 (discuss-phase 질문):**
+- 최소 산출 계약의 **하한** — 증거가 얇은 영상에서 몇 개까지 보장하고, 그 아래는 재촬영 안내로 돌릴지.
+- **등재 밖 동작** 수용 범위 — 11개만 정밀 지원하고 나머지는 안내로 돌릴지, 기준 없이 절대 기준으로 볼지.
+
+**Depends on:** Phase 33 (§9 수리 사이클 종료 + 확인 ③). 표시 계층 수리와 섞으면 반려가 길어져
+순서 분리. 단 33-07 flip 은 이 phase 2번 겹의 선행이라 결정 시점이 겹칠 수 있다.
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-discuss-phase 34 → /gsd-plan-phase 34)
+
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*
@@ -1243,3 +1283,4 @@ Plans:
 *Roadmap updated: 2026-07-23 (Phase 33 --reviews replan — cross-AI(codex) 리뷰 반영. release-mechanics 결함 8건(HIGH)+MEDIUM 수정: 신규 33-17(candidate staging+shadow resolver+atomic flip)·33-18(release manifest+/health canary+gate_check JSON gate)·33-19(M3 spec 잠금)·33-20(coverage matrix)·33-21(elbow-twist HALT loop, 조건부). 33-02~33-07 수정(candidate version id·candidate-aware backfill·JSON data-gate·tuple-atomic flip). 33-01(A-0, 실행완료) 무접촉. belle FULL RELEASE ENGINEERING scope. 16→21 plans, waves 재배치(표현 8~16→9~17). 채점 산식 무접촉 D-20/D-29 유지.)
 *Roadmap updated: 2026-07-23 (Phase 33 신설 — 결과 신뢰 회복 "궁금만 하는 앱" 끝내기. 32 UAT 종료 findings 기반. 척추=정확한 분석(A-0 게이트 신설), 표현 계층=확대비교·영상 표시·코칭 문구·일러스트를 "표시마다 답 or 없앰" 원칙으로 재구성. 심플 우선+오류 0(눈으로 확인 의무). SEED=33-SEED.md, 지침=33-PLANNING-APPROACH.md, CONTEXT D-01~D-25. belle 승인 "착수 깔~꼼하게".)*
 *Roadmap updated: 2026-07-23 (Phase 33 re-plan — 33-01 A-0 게이트 실행 판정 "어긋남 큼" → D-04 분기로 C+M3 substrate 트랙 편입. 10 plans → 16 plans. 웨이브 S(33-02~07 = SEED Task 0~5: 백업→11종 재추출@9fps→백필→M3→8항 재검증→flip)를 33-01 다음 root 로, 표현 계층(구 33-02~10)을 33-08~16 으로 재번호. 모든 표현 웨이브가 substrate PASS(33-07) 선행 조건 D-28. Pod-touching(33-03/06/07/16)+목업(33-11)+UAT(33-16)=autonomous:false. D-26~D-32 신설 커버. 채점 산식·임계 무접촉 D-20/D-29. 근거=33-A0-EVIDENCE.md + ref-student-substrate-gap.md.)*
+*Roadmap updated: 2026-07-31 (Phase 34 신설 — 분석 일반화 "같은 자세면 같은 점수". belle 지시: "정확하게, 나중에 어떤 영상을 업로드해도 만족도가 마찬가지가 되도록 설계". 원칙 = 점수가 움직여도 되는 이유는 수강생 수행 차이 하나뿐, 촬영조건·동작종류·기준버전으로 움직이면 결함. 4겹 = 불변식 스위트 / 기질 정합(33-07 선행) / 최소 산출 계약 / 앵글 분리. 실측 출발점 = 기준 발목·팔꿈치 신뢰도 0.36~0.97 동작별 편차(evidence-refkp). belle 결정 대기 2건 = 최소 산출 하한·등재 밖 동작 범위. Phase 33 수리 종료 후 착수.)*

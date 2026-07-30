@@ -52,3 +52,15 @@ SPEC.md revised: critical floor 0 → 25, INV-3 dormant/unit-test, INV-8 absolut
 ## belle touchpoints this session
 
 belle 도메인 결정 4건(실행 바닥 60 / 치명 우회 / 치명 바닥 25 / dormant 확정) + 구현 선택 2건(track 판별·breakdown 형상). 채점은 신뢰 직결이라 belle 이 spec+discuss 양쪽에 깊이 관여(D-01 2회 원칙의 예외 — 표현 트랙이 아니라 정확성 뿌리).
+
+---
+
+# 추가 세션 — §9 수리 사이클 진입 (2026-07-30)
+
+**논의 없이 종결.** Claude 가 gray area 4개(F-8 마커 / M-5 일러스트 범위 / M-1 각도 범위 / 배포 구성)를 제시했으나 belle 판정: **"이미 다 짜놓은 것에서 틀린 걸 수정하는데 논의를 왜 하나"** — 수리 사이클은 재논의 대상이 아니며 스펙은 승인 목업(7R) + §9 반려 기록으로 이미 완성돼 있음. 질문 철회.
+
+잔여 2건도 원칙으로 자체 도출 (belle 질문 아님):
+- F-8 상시 마커 = 제거 (승인본에 없는 구현 추가물, "승인본이 정답") → D-42
+- M-5 = 불일치 fail-closed 숨김 + 3:4 비율까지만, 부위별 생성은 deferred (수리에 새 범위 금지) → D-43
+
+기록 = D-39~D-45 (33-CONTEXT.md). 프로세스 교훈 메모리 박제: [[repair-cycle-no-rediscussion]] — 수리 사이클은 discuss 생략, 대답은 먼저 완결되게.

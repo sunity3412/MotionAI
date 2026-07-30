@@ -1,6 +1,7 @@
 # Phase 33: result-trust-recovery - Context
 
 **Gathered:** 2026-07-23
+**Revised:** 2026-07-30 (§9 gap-closure 수리 사이클 — belle 확인 ② 반려 12건. **재논의 없음** (belle 명시: 이미 결정·승인된 것의 수리에 논의 불요) — 스펙 = 승인 목업(라운드7 `mockups/index.html`) + `33-PHASE-GATE-EVIDENCE.md` §9 정본. D-39~D-45 신설.)
 **Revised:** 2026-07-24 (채점 산식 IPSF 감점상한 재설계 PIVOT — Wave6 재검증서 관절별 감점 무제한 누적→다관절 결함 0점 뭉침 발견. belle 이 D-20/D-29 "채점 무접촉" 전제를 명시적으로 뒤집음. `/gsd-spec-phase 33` → `33-SPEC.md`(감점 2트랙 상한, 5요구·8불변식) 잠금 → `/gsd-discuss-phase 33` HOW 논의. D-33~D-37 신설, D-20/D-29 SUPERSEDED.)
 **Revised:** 2026-07-23 (A-0 게이트 실측 판정 "어긋남 큼" → C+M3 substrate 트랙 편입 확정. D-26~D-32 신설, D-11/D-25 갱신. 근거 = `33-A0-EVIDENCE.md`. re-plan 입력.)
 **Status:** Ready for planning (채점 재설계 트랙 — 새 플랜 필요. 기존 21 플랜은 표현/substrate 트랙, 이 컨텍스트로 미영향)
@@ -34,6 +35,7 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 - 웨이브 S (뿌리 · A-0 다음 최선두): 기준모션↔학생 추출 기질 정합 (C+M3) — `.planning/debug/ref-student-substrate-gap.md` SEED(Task 0~5 + 성공 판정 8항 + 롤백 설계). ref↔student 프레임 국면 대응 + 실측 window substrate 복원. **모든 표현 작업의 선행 조건**(D-26~D-32).
 - 웨이브 A (표현·데이터): 확대비교 · 영상 위 표시 · 코칭 문구 · 일러스트 — substrate 전항 PASS 후.
 - 웨이브 B (정돈): 수치 자리 이동 · 타이포/레이아웃(상태바 겹침 버그 포함) · 개별버그 6건 — A 앞으로 당기지 않음.
+- **웨이브 G (§9 수리 · 2026-07-30):** belle 확인 ② 반려 12건 gap-closure — 승인 목업(7R) 명시분 미구현/다운그레이드 6건(M-1~M-6) + 구현/표현 결함 6건(F-3~F-8). 완료 조건 = **등재 10동작 일반화 확인** (single-motion-fixation blocking). D-39~D-45.
 
 **Out of scope**
 - ~~채점 산식·감점 임계값 재fit — D-20 불변~~ — **SUPERSEDED (2026-07-24):** 채점 산식 재설계가 웨이브 R 로 IN SCOPE(D-33~D-37, `33-SPEC.md`). 단 기존 임계값(tol 20°·slope 1.2·per-record −20·per-criterion 90)은 재fit 하지 않음 — NEW 집계캡(−40)·치명 트랙·절대 바닥 25 만 추가(D-35).
@@ -118,6 +120,15 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 - **D-37** `deductionBreakdown` 형상 = **additive**. 각 record 에 `track`('execution'|'critical'), 상위에 `executionRawTotal`/`executionCappedTotal`/`criticalTotal`/`executionCap`(40)/`scoreFloor`(25) 추가. 기존 `rawPoints`/`capApplied` additive 패턴 계승(구 doc 하위호환). **계약 3파일 동시 갱신**(`app/src/types/analysis.ts` + `models.py` + `docs/contract.md`) — 앱 `result.tsx` 가 breakdown 소비. INV-6 재구성 보장. 엔진 numpy-pure 유지.
 - **D-38** 검증 = 6 fixture 전수 + **구조적 불변식 INV-1~8 만** (`33-SPEC.md`). fixture별 목표점 금지([[judgment-must-not-fixate-on-recent-fixture]]). 새 Pod 필요(D-30 절차, belle GPU greenlight 선행, eval SERIAL). 엔진 단위테스트(`backend/tests/`)로 산식 선검증 후 Pod 재분석. **INV-3(치명 하강)·INV-8(바닥 25) 은 dormant 트랙이라 합성 단위테스트로 검증**(현 fixture 미트리거). **주의(INV-4 변별):** −40 집계캡은 바닥 60 에서 영상들을 평탄화한다 — baseline 실측상 power-spin 57→60·kip-up 47→60 으로 둘 다 60 수렴 가능(변별 상실 지점). 재검증 시 실행결함 영상 간 변별이 캡 위에서 유지되는지 명시 확인. **baseline breakdowns(phase25)는 substrate 재추출 이전 값** — 실제 재검증은 33-03/04/05 이후 신 substrate 로 재분석(수치 달라짐, 구조만 참조).
 
+### 웨이브 G — §9 수리 (2026-07-30, belle 확인 ② 반려 12건 gap-closure)
+- **D-39** **수리 사이클은 재논의하지 않는다** (belle 2026-07-30 명시: "이미 다 짜놓은 것에서 틀린 걸 수정하는데 논의를 왜 하나"). 스펙 = ① 승인 목업 라운드7 `mockups/index.html`(주석·CSS 포함이 스펙 — `.pulse` 1.4s, 각도표시 기하 규칙, crop 정중앙 규칙) ② `33-PHASE-GATE-EVIDENCE.md` §9(발견 12건 + §9-3 키잉 정본). 기존 결정이 답을 안 주는 지점도 "승인본이 정답 / 수리에 새 범위 금지" 원칙으로 Claude 가 도출·문서화하고 belle 에게 묻지 않는다.
+- **D-40** 검증 게이트 신설 = **승인 목업 스펙 표 선추출 → 구현 항목별 대조.** 반려 근본원인(코드 기준 검증, 목업 대비 대조 누락 — §9 서두)의 구조적 방지 장치. 목업 주석·CSS 에서 스펙 표를 먼저 뽑고, 시뮬 렌더·crop 산출물을 표 항목별로 대조한 뒤에만 완료 판정([[verify-against-approved-mockup-not-just-code]]). D-19(산출물 열람)에 추가되는 상위 게이트.
+- **D-41** 키잉 = §9-3 정본 그대로, **동작명 분기 0**: M-1 학생측 = criterion 관절별 kp 좌표 규칙(목업 7R 어깨용 규칙 존재 — 겨드랑이 = shoulder→hip t=0.15 — 무릎/팔꿈치/힙 계열로 확장 정의), 기준측 = reference 라이브러리 11개 × criterion 수동 앵커 주석 모션당 1회 / M-2 = criterion 관절 kp 중심 crop + 같은 배율(region 인접 테이블 폐기/보조화) / M-5 = 33-A1 국면 표 × 항목 부위로 일러스트 적합성 판정 / F-3 = DTW pair alignment 매칭 프레임 / M-3·M-4·F-4~F-8 = 공통 표현 계층. 완료 조건에 등재 10동작 일반화 스위프 확인 명시.
+- **D-42** F-8 상시 그룹 마커 = **제거.** 승인본 ④는 멈춤 컷(음성 큐 구간 부위 강조) 중심이고 상시 표기는 승인본에 없는 구현 추가물 — "승인본이 정답" + D-05(표시 줄이기)로 도출. 음성 큐 구간의 해당 부위 강조(pulse 포함)와 사용자 스켈레톤 토글(기본 숨김, 33-13)은 유지.
+- **D-43** M-5 범위 = **장면일치 판정 + 불일치 fail-closed 숨김 + M-6(3:4 원본 비율 렌더) 까지만.** 부위별 일러스트 신규 생성(어깨·상체 항목용)은 새 생성·검수 라운드가 필요한 새 범위라 수리 사이클에 넣지 않는다 — deferred 로 이동. 일치 판정 통과 일러스트만 노출(어깨 항목에 다리 일러스트 부착 같은 불일치는 숨김이 정답 — 틀린 조언보다 없는 게 낫다, D-14 동원리).
+- **D-44** 채점 무접촉 — 점수값·산식·임계 byte 불변(33-SPEC/D-33~38 잠금 유지). 12건 전부 표현·crop·일러스트·재생 계층. F-6(실기기 음성 무음)은 expo-audio `playsInSilentMode` 미지정 유력 — 조사 후 무음 스위치에서도 재생되게 수리(코칭 음성이 제품 핵심 경로).
+- **D-45** 배포·확인 ③ = **전 항목 수리 + Pod 재스위프 완료 후 일괄 OTA → belle 확인 1회.** 반려 2회 이력상 부분 배포로 확인 횟수를 늘리지 않는다(D-01 접점 최소). crop 재생성 항목(M-1·M-2·F-3)은 Pod 재스위프 필요 — belle greenlight 후 D-30 절차(Pod 현재 OFF, 재개 시 URL 재동기화). 검증 doc 3건(`uat-33-16-verification`)은 belle 계정 유지 — 확인 ③ 재확인용.
+
 ### Claude's Discretion
 - 조사 안 2~3개의 구체 시각 관용구 선택(나란히 vs 겹침, 크기 기준, 차이 표시 방식) — D-07 로 자체 검열 후 살아남은 것만.
 - 코칭 문구의 실제 한국어 표현 — D-14 하드 게이트(방향 대조) 통과가 전제.
@@ -158,6 +169,13 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 - `backend/shared/python/sunity_shared/analysis/motiondtw.py:83` — Task3 M3(`find_action_segment`, `nu<=nr` 무력화). 파급 3곳: `pipeline/app.py:1770`·`:4015`·`analysis/safety_flags.py:245`. 테스트 `backend/tests/test_motiondtw.py:39,45` 동반 갱신.
 - `backend/scripts/{rollback_reference_motions_phase4,verify_self_comparison,measure_reference_fps}.py` — 롤백·자기비교(fixture 미보유 4종)·fps 계측(기보유, 재사용).
 
+### 웨이브 G — §9 수리 (2026-07-30, 권위 스펙)
+- `.planning/phases/33-result-trust-recovery/mockups/index.html` — **승인 목업 라운드7 = 수리의 정답.** 주석·CSS(`.pulse` 1.4s, 각도표시 기하, crop 정중앙)가 스펙. D-40 스펙 표 추출 원본.
+- `.planning/phases/33-result-trust-recovery/33-PHASE-GATE-EVIDENCE.md` — §9 반려 12건 정본(9-1 목업 대비 diff / 9-2 구현·표현 결함 / 9-3 키잉 정본 / 9-4 다음).
+- `.planning/phases/33-result-trust-recovery/33-A1-MOTION-STANDARDS.md` — M-5 일러스트 장면일치 판정의 국면 표.
+- `backend/shared/python/sunity_shared/analysis/fault_zoom.py` — M-1 각도 베이크·M-2 crop 중심 규칙 수리 대상(criterion-keyed crop, 33-12).
+- `app/src/app/analysis/result.tsx`(selectedZoom join·마커) + `app/src/components/DeductionDetailSheet.tsx`(A-5 시트·일러스트 슬롯·M-6 비율) + `app/src/components/DefectIllustration.tsx`(A-7) + `app/src/lib/deductionLabels.ts` — 앱측 수리 대상. pulse 애니메이션 코드 현재 0건(M-3 미구현 실증).
+
 ### 표현 계층 코드 앵커 (손볼 곳 — substrate PASS 후)
 - `backend/data/phrasebook.json` — 동작별 문구 데이터 작성 대상(현재 13 entry 전부 `__common__`).
 - `backend/shared/python/sunity_shared/analysis/phrasebook.py:145` — 조회 순서(이미 동작별 지원).
@@ -182,6 +200,7 @@ belle 이 결과 화면을 보며 던진 의문 5개에 **화면이 스스로 �
 - **split 0-fail(요소 미인정) 배선** — 치명 트랙 활성화 후속(D-35). 필요조건: ① per-move `expects_split`(및 필수 완전신전 요소) flag 를 recognizer 가 공급 ② 스플릿-미수행 실패 영상 fixture 확보(kip-up 아티팩트 아닌 진짜 케이스). 활성화 시 치명 트랙 구조(D-36)에 zero-rework 로 붙음. 지금 배선 금지 사유 = kip-up split FP 재유발([[split-measurement-doesnt-discriminate-kipup]]) + 검증 fixture 부재. belle IPSF 요소-미인정 직관의 실현 경로.
 - iCloud 영상 실기기 재확인 — UAT 항목으로 유지.
 - 셀프서비스 reference 등록 일반화 — 미해당.
+- **부위별 일러스트 신규 생성** (어깨·상체 등 항목-부위별 세트) — D-43. 장면일치 숨김으로 일러스트 없는 항목이 생기는 것의 근본 해소책이나, 새 생성·해부학 검수 라운드(D-15 절차)가 필요한 새 범위라 §9 수리 사이클 밖. 미완 4동작(peter-pan·elbow-twist-sister·pdshape·sideway-spin) 재시도도 이 후속에 흡수.
 
 </deferred>
 

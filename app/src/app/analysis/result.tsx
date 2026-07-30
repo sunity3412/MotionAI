@@ -26,6 +26,7 @@ import {
 } from '../../components/KeypointOverlay';
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
+import { PartChipsRow } from '../../components/PartChipsRow';
 import { DefectIllustration } from '../../components/DefectIllustration';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
@@ -67,7 +68,11 @@ import {
   matchZoomForDeductionRecord,
   projectDeductionRecordKeypoints,
 } from '../../lib/deductionLabels';
-import { buildRegionSheetView } from '../../lib/deductionSheet';
+import {
+  buildPartChips,
+  buildPartGroups,
+  buildRegionSheetView,
+} from '../../lib/deductionSheet';
 import { reshapePose3dData } from '../../lib/joints';
 import {
   useReferenceMotion,
@@ -1139,6 +1144,39 @@ function AnalysisResultContent({
     [result.deductionBreakdown, vetoFaultJoints],
   );
 
+  // 33-G S1/S3 (quick-260730-szk) — **부위 단위** 그룹 마커 + 부위 칩. 승인 목업 ① 은
+  // 마커를 항목(부위) 단위 경계 1개로 묶고(2R#1 "동그라미가 7개") 그 아래에 부위 칩을
+  // 둔다. 두 산출 모두 `regionPartKeyForRecord` 단일 출처를 소비하므로 마커 그룹 =
+  // 칩 = 부위 시트가 같은 단위다 (두 번째 그룹핑 규칙 0).
+  const partGroups = useMemo(
+    () =>
+      buildPartGroups(
+        result.deductionBreakdown?.records ?? [],
+        markers.recordNumbers,
+        vetoFaultJoints,
+      ),
+    [result.deductionBreakdown, markers.recordNumbers, vetoFaultJoints],
+  );
+  // 부위 칩 — 입력은 전부 기존 판정 재사용 (새 게이트 신설 0): attentionKeypoints memo
+  // (주황 = 감점 아님), attributionUnreliable (IN-01 저신뢰).
+  const partChips = useMemo(
+    () =>
+      buildPartChips({
+        records: result.deductionBreakdown?.records ?? [],
+        recordNumbers: markers.recordNumbers,
+        faultJoints: vetoFaultJoints,
+        attentionKeypoints,
+        estimatedArea: attributionUnreliable,
+      }),
+    [
+      result.deductionBreakdown,
+      markers.recordNumbers,
+      vetoFaultJoints,
+      attentionKeypoints,
+      attributionUnreliable,
+    ],
+  );
+
   // quick-260705-o0s — 점수 계산 내역 상단 채점 기준 1줄 (deviationSource 자동 조립).
   const breakdownBasisLine = useMemo(
     () => composeScoringBasisKo(result.deductionBreakdown?.records ?? []),
@@ -1286,10 +1324,25 @@ function AnalysisResultContent({
   const overlayAttentionKeypoints = attributionUnreliable
     ? estimatedAreaKeypoints
     : attentionKeypoints;
-  const overlayGroupMarkers = attributionUnreliable ? [] : markers.groupMarkers;
+  // 33-G S1 (quick-260730-szk) — breakdown record 보유 doc 은 **부위 단위 그룹 경계**를
+  // 쓴다(승인 목업 ①). 그 경로에서는 개별 번호 점(markerNumbers)을 비워 그룹 배지가
+  // 번호를 전담한다 (N-4 — 그룹 타원 + 멤버 빨강 원 동시 렌더가 S1 PARTIAL 의 실체).
+  // legacy(breakdown 부재) doc 은 기존 groupMarkers/keypointNumbers 경로 그대로.
+  const overlayGroupMarkers = attributionUnreliable
+    ? []
+    : hasBreakdownRecords
+      ? partGroups.map((g) => ({
+          // 탭·범례 조인은 번호로 하므로 대표 번호 = 최소 번호 (N-3, 틱 선례).
+          number: g.numbers[0],
+          keypoints: g.keypoints,
+          badgeLabel: g.badgeLabel,
+        }))
+      : markers.groupMarkers;
   const overlayMarkerNumbers = attributionUnreliable
     ? {}
-    : markers.keypointNumbers;
+    : hasBreakdownRecords
+      ? {}
+      : markers.keypointNumbers;
   // 33-13 — record 보유 doc 은 강제 강조 폴백 0 (편차 최대 N 강조는 record 와
   // 짝 없는 고아 마커 — D-18). legacy(breakdown 부재)만 기존 폴백 유지.
   const overlayForceHighlightWorstCount = attributionUnreliable
@@ -1526,9 +1579,14 @@ function AnalysisResultContent({
 
   // Phase 12 Wave 2 (Plan 12-03 T2) → 33-13 (A-6, D-13) — 스켈레톤 토글.
   // belle: "뭘 잡은거지" — 설명 없는 키포인트 12점 상시 노출 금지 → **기본 숨김 +
-  // 옵트인**으로 반전 (useState(false), 저장값 'true' 일 때만 켬). 감점 마커
-  // (항목 그룹 경계·번호 점·참고 점)는 skeletonVisible 무관 상시 렌더 — 마커는
-  // record 양방향 대응이라 스스로 답한다 (KeypointOverlay 분리, D-18).
+  // 옵트인**으로 반전 (useState(false), 저장값 'true' 일 때만 켬).
+  //
+  // 33-G F-8 (quick-260730-szk, D-42) — 종전 주석은 "감점 마커는 skeletonVisible 무관
+  // 상시 렌더" 였다. belle 확인 ② 가 그것을 반려했다: 결과 화면에 들어오자마자 설명
+  // 없는 표시가 영상을 덮는다. D-42 = **상시 마커 제거** → 마커 계층은 이 토글 ON
+  // 또는 음성 큐 강조 중에만(`markersVisible`). 상시 진입점은 영상 카드 아래 **부위
+  // 칩**(PartChipsRow)이 대체하고, 번호 ↔ 내역 행 양방향 대응(D-18)은 남은 4진입점
+  // (칩·내역 행·재생바 틱·전체화면 여백 범례)이 유지한다.
   //
   // AsyncStorage key '@sunity:keypoint_overlay_enabled' — Firebase Auth backing
   // store 와 namespace 충돌 0 ([[firebase-project-account]] 정합, T-12-03-T4).
@@ -2367,11 +2425,17 @@ function AnalysisResultContent({
                   player={player}
                   keypointReport={userKeypointReport}
                   videoSize={overlayVideoSize}
-                  // 33-13 (A-6, D-13) — 마커 레이어는 상시(visible), 추적 스켈레톤
-                  // 만 토글(skeletonVisible 기본 숨김). 마커는 record 양방향 대응
-                  // 이라 스스로 답한다 — 설명 없는 12점만 옵트인으로 강등.
+                  // 33-13 (A-6, D-13) — 이 레이어 자체는 상시(visible): 음성 큐
+                  // dim/강조가 여기 얹힌다. 추적 스켈레톤은 토글(기본 숨김).
                   visible={true}
                   skeletonVisible={overlayVisible}
+                  // 33-G F-8 (quick-260730-szk, D-42) — 감점 마커 계층은 상시가
+                  // 아니다: 스켈레톤 토글 ON 또는 음성 큐 강조 중에만. 상시 진입점
+                  // 은 아래 부위 칩이 대체한다. `focusKeypoints`(강조)·dim 은 이
+                  // 게이트와 무관 — D-42 가 음성 큐 강조는 유지하라고 명시했다.
+                  markersVisible={
+                    overlayVisible || opts?.voiceCueRecordId != null
+                  }
                   // 33-13 — record 보유 doc 은 각도편차(>20°) 폴백 강조 차단
                   // (record 와 짝 없는 고아 빨강 마커 금지, D-18). jointAngles 는
                   // 폴백 강조 산출 전용이라 미전달로 충분. legacy 는 기존 유지.
@@ -2464,6 +2528,18 @@ function AnalysisResultContent({
               // 활성(cueId=recordId 조인). failed/legacy 면 undefined → 자막만.
               audioAnalysisId={coachAudioAnalysisId}
             />
+            {/* 33-G S3/F-8 (quick-260730-szk) — 부위 칩 행. 승인 목업 ① 은 칩을
+                캡처 카드 **바로 아래**에 둔다(`.jointchips` = `.dcap` 다음 형제).
+                F-8 로 상시 마커가 사라지므로 이 행이 상시 진입점을 대체한다 —
+                감점 칩 탭 → 기존 부위 상세 시트 state(진입점 신설 아님, 5번째 추가).
+                감점 0(cleanPass)·저신뢰(IN-01) doc 은 빌더가 빈 배열을 주므로 행
+                자체가 렌더되지 않는다 (N-14 / S17 보호). */}
+            {partChips.length > 0 ? (
+              <PartChipsRow
+                chips={partChips}
+                onPressPart={setDetailRecordIndex}
+              />
+            ) : null}
             {/* 28-CONTEXT D-05 — 정렬 데이터는 새 분석부터, legacy 는 재분석 유도.
                 조건 = motionAlignment 필드 부재(undefined)만. normalize null(데이터
                 있으나 malformed)은 배너 아님 — 필드 자체 부재만 순수 legacy.

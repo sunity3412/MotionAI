@@ -42,10 +42,32 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image, ImageDraw
 
+from . import reference_anchors
+
 log = logging.getLogger(__name__)
 
 # crop 한 변 = 프레임 짧은 변의 비율 (관절 주변 zoom — 작을수록 더 확대).
 _CROP_FRAC = 0.42
+
+# criterion 카드 전용 crop 한 변 비율 — **display 전용, 채점 무접촉** (33-G S9, L-1).
+# 승인 7R 자산(mockups/assets/belle_shoulder_pair_dtwmatch_r7.png)이 360x640 프레임의
+# **220px 크롭**이다 (mockups/index.html 619-630행 자산 근거표). _CROP_FRAC(0.42)를
+# 쓰면 승인본보다 좁아 팔 선(64px)·옆구리 선(85px)이 패널을 벗어난다. legacy/advisory/
+# mode3 는 _CROP_FRAC 을 그대로 쓴다(byte-불변) — 이 상수는 criterion 카드에만.
+# _MIN_LEG_VEC_PX 선례와 같은 성격의 표시 상수라 calibration-source-hard-gate 대상 아님.
+_CRITERION_CROP_FRAC = 220.0 / 360.0
+
+# 겨드랑이 근사 파라미터 — **display 전용, 채점 무접촉** (33-G S8/S9, 승인 7R#2).
+# 승인 목업 7R: "겨드랑이 근사 = shoulder->hip 선분 t=0.15 지점 (일반화 규칙 —
+# kp 만으로 계산되며 수동 아님, 육안 검증 통과)". belle 파란 손그림 원리 = 어깨
+# 관절이 아니라 **겨드랑이**가 꼭짓점 (6R 은 어깨 관절을 썼다가 "각·호가 몸통 위쪽에
+# 떠 보인다"로 기각됨).
+#
+# known-answer (mockups/index.html 780-790행 학생 패널 실좌표, 360x640):
+#   shoulder(203,254) · hip(182,304) → t=0.15 → (200,262)
+# lerp 는 아핀 변환이라 **정규화 공간에서 계산해도** 프레임 px 공간의 같은 지점을
+# 가리킨다 (축별 스케일 w/h 가 lerp 와 교환됨) — 그래서 정규화 좌표로 계산한다.
+_ARMPIT_T = 0.15
 # 합성 시 각 crop 출력 한 변(px). 두 장 가로 합성 → (2*OUT, OUT).
 _OUT = 360
 # 마커 색 (브랜드 #FF4B33).
@@ -73,6 +95,11 @@ _KP_CONF_MIN = 0.5
 # 결함단위(region) grouping — 같은 결함(스플릿 등)에서 온 좌+우 동일 부위 관절들을
 # 카드 1장으로 묶는다 (quick-260702-sic). keypointReport 의 8-keypoint 이름공간
 # (left/right_hand = COCO wrist 매핑) + 향후 확장 이름(ankle/elbow/wrist)을 함께 커버.
+#
+# **33-G S9 region 강등:** crop **중심** 결정에서 제외된다 — 중심의 단일 출처는
+# `criterion_vertex_xy` 다. region 은 (a) 멤버 집합 선정, (b) 앱 캡션 grouping 보조
+# 로만 남는다. 종전엔 멤버 bbox 가 중심을 정해 "criterion 이 계측한 꼭짓점"과 crop
+# 중심이 어긋났다 (승인 4R#1 "꼭짓점 = 패널 정중앙" 위반 = S9 FAIL).
 _REGION_JOINTS: dict[str, frozenset[str]] = {
     "legs": frozenset({
         "left_hip", "right_hip",
@@ -96,6 +123,9 @@ _BBOX_MARGIN = 1.8
 # + pipeline _MODE3_ZOOM_CRITERION_REGION/_MODE3_ZOOM_REGION_MEMBERS.
 # line·dimension_overall_fallback 은 의도적 미등록 — collective 전신 criterion 이라
 # 특정 부위 카드가 오도 (29-04 앱 무투영 결정 정합).
+#
+# **33-G S9 region 강등:** crop 중심 결정에서 제외 — 중심은 `criterion_vertex_xy`
+# 단일 출처. 이 표는 멤버 집합·앱 캡션 grouping 보조로만 쓴다.
 CRITERION_REGION: dict[str, str] = {
     "split_angle": "legs",
     "leg_extension": "legs",
@@ -103,6 +133,9 @@ CRITERION_REGION: dict[str, str] = {
 }
 # region 대표 멤버 — keypointReport 8-keypoint 이름공간 (앱 REGION_MEMBER_KEYPOINTS
 # 미러). _REGION_JOINTS(확장 이름공간 포함)는 소속 판정용, 이 튜플은 카드 멤버용.
+#
+# **33-G S9 region 강등:** crop 중심 결정에서 제외 — 중심은 `criterion_vertex_xy`
+# 단일 출처. 멤버 집합·앱 캡션 grouping 보조 역할만 유지.
 REGION_MEMBERS: dict[str, tuple[str, ...]] = {
     "legs": ("left_hip", "right_hip", "left_knee", "right_knee"),
     "arms": ("left_shoulder", "right_shoulder", "left_hand", "right_hand"),
@@ -962,11 +995,53 @@ def _crop_box(
     return left, top, side
 
 
+def _crop_box_centered(
+    h: int, w: int, cx: float, cy: float, side: int
+) -> tuple[int, int, int]:
+    """정규화 중심 (cx,cy) 를 **정확히 중앙**에 두는 crop 박스 (순수 기하, 33-G S9).
+
+    `_crop_box` 와 달리 안쪽 shift / 프레임 clamp 를 **하지 않는다** — 음수 left/top
+    과 프레임 초과를 그대로 반환하고, 넘친 영역은 `_render_crop_padded` 가 흰 패딩으로
+    채운다 (L-3). shift 하면 꼭짓점이 패널 정중앙을 벗어나 승인 4R#1("두 패널 모두
+    꼭짓점 = 패널 정중앙")이 깨진다.
+
+    side 는 호출측이 **두 프레임 짧은 변의 min** 에서 1회 산출해 양측에 같은 값을
+    넘긴다(L-2) → 어느 프레임도 초과하지 않으므로 상한 clamp 가 불필요하다. 하한은
+    `_crop_box` 와 동일(16).
+    """
+    side = max(16, int(side))
+    left = int(round(cx * w - side / 2))
+    top = int(round(cy * h - side / 2))
+    return left, top, side
+
+
 def _render_crop(frame: np.ndarray, left: int, top: int, side: int) -> Image.Image:
     """crop 박스를 잘라 (_OUT,_OUT) 으로 리사이즈."""
     h, w = frame.shape[0], frame.shape[1]
     crop = frame[top:min(h, top + side), left:min(w, left + side)]
     return Image.fromarray(crop).convert("RGB").resize((_OUT, _OUT), Image.BILINEAR)
+
+
+def _render_crop_padded(
+    frame: np.ndarray, left: int, top: int, side: int
+) -> Image.Image:
+    """프레임 밖을 흰 패딩으로 채워 정확히 (side,side) → (_OUT,_OUT) (33-G S9).
+
+    `_crop_box_centered` 의 clamp-없는 박스를 받는다. 프레임과의 교집합만 붙이고
+    나머지는 흰색 — 검은 패딩은 "잘린 사진"처럼 보이므로 `_full_frame_fit` 선례를
+    따라 흰 캔버스를 쓴다. 이 함수가 있어야 꼭짓점이 프레임 경계 근처여도 정중앙을
+    유지한다(L-3). `_render_crop`(legacy 경로)은 무수정.
+    """
+    h, w = frame.shape[0], frame.shape[1]
+    side = max(1, int(side))
+    canvas = np.full((side, side, 3), 255, dtype=np.uint8)
+    sx0, sy0 = max(0, left), max(0, top)
+    sx1, sy1 = min(w, left + side), min(h, top + side)
+    if sx1 > sx0 and sy1 > sy0:
+        canvas[sy0 - top:sy1 - top, sx0 - left:sx1 - left] = frame[sy0:sy1, sx0:sx1]
+    return Image.fromarray(canvas).convert("RGB").resize(
+        (_OUT, _OUT), Image.BILINEAR
+    )
 
 
 def _full_frame_fit(frame: np.ndarray) -> Image.Image:
@@ -1035,6 +1110,116 @@ def _anchor_xy(
     return best_xy
 
 
+def make_reference_anchor_resolver(
+    motion_id: str | None,
+    criterion: str | None,
+    *,
+    anchors: dict | None = None,
+):
+    """기준측 관절 좌표 조회자 — 앵커 대입 선언(reference_anchors) 경유 (33-G S8/S9).
+
+    반환 시그니처는 `_gated_kp` 와 **동일** `(report, frame_idx, joint)` 이라
+    `criterion_vertex_xy`/`build_angle_bake_spec` 이 앵커 이름공간을 모른 채 주입만
+    받는다 (`angle_key_to_keypoint`/`select_advisory_joints` 관례 유지).
+
+    주석 없음/모션 미지정 → `_gated_kp` 그대로(=대입 0). `anchors` 는 테스트·스위프
+    주입용 override 로, 지정 시 디스크 로드를 건너뛴다.
+    """
+    table = anchors if anchors is not None else (
+        reference_anchors.load_reference_anchors(motion_id) if motion_id else {}
+    )
+    entry = (table or {}).get(criterion or "") or {}
+    subs = entry.get("joint_substitutions") or {}
+    if not subs:
+        return _gated_kp
+
+    def _resolve(report: dict, frame_idx: int, joint: str):
+        decl = subs.get(joint)
+        if decl is None:
+            return _gated_kp(report, frame_idx, joint)
+        # report 우선(대입은 부재 관절 전용) 규칙은 resolve_anchor_joint_xy 소유.
+        return reference_anchors.resolve_anchor_joint_xy(
+            report, frame_idx, joint, decl, gated_kp=_gated_kp
+        )
+
+    return _resolve
+
+
+def _criterion_vertex_joint(
+    criterion: str | None, members: tuple[str, ...]
+) -> str | None:
+    """단일 관절 계열 criterion(`angle_vs_reference__*`)의 꼭짓점 관절명. 그 외 None.
+
+    관절명은 **호출측 매핑이 소유한 `members`** 에서 읽는다 — criterion 접미사는
+    kismam angle key 이름공간이라(left_hand↔left_wrist 등 차이) 직접 슬라이스하면
+    안 된다 (본 모듈의 이름공간 무지 유지).
+    """
+    if not criterion or not criterion.startswith(ANGLE_VS_REFERENCE_PREFIX):
+        return None
+    if len(members) != 1:
+        return None
+    return members[0]
+
+
+def criterion_vertex_xy(
+    criterion: str | None,
+    members: tuple[str, ...],
+    report: dict,
+    frame_idx: int,
+    deltas: dict[str, float] | None = None,
+    resolver=None,
+) -> tuple[float, float] | None:
+    """criterion 이 계측한 **꼭짓점**의 정규화 좌표 — crop 중심의 단일 출처 (33-G S9).
+
+    승인 4R#1: "두 패널 모두 꼭짓점 = 패널 정중앙(180,180)·같은 배율". 종전엔 멤버
+    bbox 중심이 crop 중심이라 "criterion 이 계측한 부위"와 어긋났다(S9 FAIL).
+
+    규칙 (criterion id + **관절명 접미사**로만 키잉 — 동작명 분기 0, D-41):
+      · `angle_vs_reference__{*_shoulder}` → 겨드랑이 근사 = shoulder->hip 선분
+        t=`_ARMPIT_T`. 좌우는 관절명 접두사(left/right)에서 파생.
+      · `angle_vs_reference__{jk}` (그 외) → jk 좌표.
+      · `split_angle` → 골반 중점(left_hip/right_hip) = `_leg_line_pts[0]` 동일 정의.
+      · 다관절 criterion(leg_extension/arm_extension 등) → `_anchor_xy` 최대편차 멤버.
+        이 분기는 criterion id 화이트리스트가 아니라 "단일 관절 계열이 아니다"는
+        **구조**로 들어온다 — 새 region criterion 이 추가돼도 코드 수정 0.
+      · 소스 kp 게이트 미달/부재 → None (추정 좌표로 중심을 잡지 않는다, T-l7t-05).
+
+    `resolver` = `(report, frame_idx, joint) -> xy | None`. 기본 `_gated_kp`(학생측),
+    기준측은 `make_reference_anchor_resolver` 로 앵커 대입을 얹어 주입한다.
+    순수 — region 표(`CRITERION_REGION`/`REGION_MEMBERS`/`_REGION_JOINTS`)를
+    참조하지 않는다 (S9 region 강등).
+    """
+    get = resolver if resolver is not None else _gated_kp
+    jk = _criterion_vertex_joint(criterion, members)
+    if jk is not None:
+        if jk.endswith("_shoulder"):
+            side = jk.split("_", 1)[0]
+            sh = get(report, frame_idx, jk)
+            hip = get(report, frame_idx, f"{side}_hip")
+            if sh is None or hip is None:
+                return None
+            t = _ARMPIT_T
+            return (
+                sh[0] + (hip[0] - sh[0]) * t,
+                sh[1] + (hip[1] - sh[1]) * t,
+            )
+        return get(report, frame_idx, jk)
+    if criterion == "split_angle":
+        lh = get(report, frame_idx, "left_hip")
+        rh = get(report, frame_idx, "right_hip")
+        if lh is None or rh is None:
+            return None
+        return ((lh[0] + rh[0]) / 2.0, (lh[1] + rh[1]) / 2.0)
+    valid: list[tuple[str, tuple[float, float]]] = []
+    for m in members:
+        xy = get(report, frame_idx, m)
+        if xy is not None:
+            valid.append((m, xy))
+    if not valid:
+        return None
+    return _anchor_xy(valid, deltas)
+
+
 def _to_crop_px(
     xy: tuple[float, float],
     left: int,
@@ -1082,10 +1267,22 @@ def _side_crop(
     valid_pts: list[tuple[float, float]],
     relaxed_pts: list[tuple[float, float]],
     anchor: tuple[float, float] | None = None,
+    *,
+    center: tuple[float, float] | None = None,
+    side_override: int | None = None,
 ) -> tuple[
     Image.Image, str, tuple[int, int] | None, tuple[int, int, int] | None
 ]:
     """한 측(user/ref)의 unit crop 3단 강하 → (이미지, crop_kind, anchor_px, box).
+
+    **정중앙 경로 (33-G S9, criterion 카드 전용):** `center` 와 `side_override` 가
+    함께 주어지면 3단 강하를 우회하고 `_crop_box_centered` + `_render_crop_padded` 로
+    "꼭짓점 = 패널 정중앙, 한 변 = 주어진 px" crop 을 만든다. 두 인자 중 하나라도
+    없으면 아래 현행 3단 강하 그대로 — legacy/advisory/mode3 산출 byte-불변.
+    이 경로의 crop_kind 는 "valid" 다: 꼭짓점 자체가 confidence 게이트(또는 앵커 대입
+    선언)를 통과한 신뢰 좌표이므로 마킹 자격이 있고, D-12 ②(전신 폴백 = 배율 불일치)
+    drop 대상도 아니다. `valid_pts`/`relaxed_pts` 는 이 경로에서 프레이밍에 쓰이지
+    않는다 (꼭짓점이 프레이밍의 단일 출처).
 
     crop_kind ∈ {"valid", "relaxed", "full"} — _mark 가 앵커 표시 여부 결정.
     anchor_px = anchor(결함 관절 정규화 좌표)의 crop-내 출력 픽셀 좌표 — valid
@@ -1109,6 +1306,15 @@ def _side_crop(
     촬영거리 불일치는 bbox 가 측별 person 스케일을 따라가며 자연 해소.
     """
     h, w = frame.shape[0], frame.shape[1]
+
+    if center is not None and side_override is not None:
+        left, top, s = _crop_box_centered(h, w, center[0], center[1], side_override)
+        return (
+            _render_crop_padded(frame, left, top, s),
+            "valid",
+            _to_crop_px(center, left, top, s, w, h),
+            (left, top, s),
+        )
 
     def _box_for(pts: list[tuple[float, float]], margin: float):
         xs = [p[0] * w for p in pts]
@@ -1871,6 +2077,8 @@ def build_fault_zoom_comparisons(
     analysis_id: str | None = None,
     criterion_units: list[dict] | None = None,
     stamp_ref: bool = False,
+    motion_id: str | None = None,
+    reference_anchor_overrides: dict | None = None,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -1934,6 +2142,14 @@ def build_fault_zoom_comparisons(
       True 면 기준(정은지) 패널에도 실영상 초 타임스탬프를 찍는다. 회전류 동작은
       프레임이 비슷해 초가 유일한 프레임 구분자 — 회전류 판정은 호출측(pipeline)이
       technique category 데이터로 키잉한다 (동작명 하드코딩 금지, 이름공간 무지).
+    motion_id (33-G S8/S9, quick-260730-l7t): 기준 모션 id — `reference_anchors` 의
+      **관절 대입 선언** lookup 키로만 쓴다 (동작별 데이터 키잉, 코드 분기 0). 기준
+      report(phase4_v1 legacy 8관절)에 없는 관절(elbow/ankle)을 그 모션의 채점 국면에서
+      어떤 관절로 대입해도 되는지 사람이 1회 판정한 데이터다. None(default) = 대입 0
+      → 부재 관절 꼭짓점 미성립 → 그 카드는 D-12 ② 로 떨어진다 (L-6 fail-closed,
+      인접 관절 대체 금지 — belle #7·#9 의 근본).
+    reference_anchor_overrides: 앵커 표 직접 주입 (테스트·스위프 하네스 전용).
+      지정 시 디스크 로드를 건너뛴다.
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
@@ -2198,11 +2414,47 @@ def build_fault_zoom_comparisons(
                 )
             )
             r_frame = ref_frames[r_display_idx]
+            # ── 33-G S9 — criterion 꼭짓점 정중앙 + 두 패널 동일 배율 (M-2) ────
+            # 승인 4R#1 "두 패널 모두 꼭짓점 = 패널 정중앙(180,180)·같은 배율".
+            # **both-or-neither:** 양측 꼭짓점이 모두 성립할 때만 정중앙 경로에
+            # 진입한다. 한 측만 정중앙이면 두 패널 배율/중심이 어긋나 승인본이
+            # 깨지고, 그 경우 인접 관절로 기준 꼭짓점을 만들어내지 않는다(L-6) —
+            # 기존 3단 강하로 돌아가고 기준측이 전신 폴백이면 D-12 ② 가 카드를
+            # 떨군다. 복귀 경로 = judging_data/reference_anchors 주석(L-9, §C-4).
+            u_vertex = r_vertex = None
+            shared_side: int | None = None
+            if unit.criterion is not None:
+                u_vertex = criterion_vertex_xy(
+                    unit.criterion, unit.members, user_report, u_kp_idx_unit,
+                    deltas, _gated_kp,
+                )
+                if not ref_match_failed_unit:
+                    r_vertex = criterion_vertex_xy(
+                        unit.criterion, unit.members, ref_report, r_kp_idx_unit,
+                        deltas,
+                        make_reference_anchor_resolver(
+                            motion_id, unit.criterion,
+                            anchors=reference_anchor_overrides,
+                        ),
+                    )
+                if u_vertex is not None and r_vertex is not None:
+                    # L-2 공용 한 변 = 두 프레임 짧은 변의 min 파생 (어느 프레임도
+                    # 초과하지 않음). 카드당 1회 산출해 양측에 같은 값을 넘긴다.
+                    shared_side = max(16, int(round(
+                        min(
+                            min(u_frame.shape[0], u_frame.shape[1]),
+                            min(r_frame.shape[0], r_frame.shape[1]),
+                        ) * _CRITERION_CROP_FRAC
+                    )))
+                else:
+                    u_vertex = r_vertex = None
             u_img, u_kind, u_anchor, u_box = _side_crop(
                 u_frame,
                 [xy for _n, xy in u_valid],
                 u_relaxed,
                 anchor=_anchor_xy(u_valid, deltas) if u_valid else None,
+                center=u_vertex,
+                side_override=shared_side,
             )
             # ref 측 crop — criterion 카드(33-12 A-5)는 anchor 를 넘겨 학생과 같은
             # 시각 언어(원 마커)를 얻는다 (defect #1). legacy 는 게이트 B 로 무마킹.
@@ -2211,6 +2463,8 @@ def build_fault_zoom_comparisons(
                 [xy for _n, xy in r_valid],
                 r_relaxed,
                 anchor=_anchor_xy(r_valid, deltas) if r_valid else None,
+                center=r_vertex,
+                side_override=shared_side,
             )
             if unit.criterion is not None and (
                 u_kind == "full" or r_kind == "full"
@@ -2228,10 +2482,14 @@ def build_fault_zoom_comparisons(
             # **내부 검수 로그 전용**. 화면 라벨로 렌더하지 않는다 (앱은 이 값을
             # 캡션에 노출하지 않음). 33-16 재분석 검수가 이 로그로 item↔crop
             # criterion 전수 대조를 수행한다 (D-18).
+            # 33-G S9 — vertex_centered/shared_side_px 추가: 32-03 parity 판정 재료를
+            # 유지하면서 §C-4 전수 대조가 "정중앙 경로 진입 여부"와 "공용 배율"을
+            # 수치로 되받을 수 있게 한다 (스위프 하네스가 이 두 필드를 읽는다).
             log.info(
                 "fault_zoom_crop analysis_id=%s region=%s criterion=%s "
                 "user_kind=%s user_side_px=%s ref_kind=%s ref_side_px=%s "
-                "user_frame=%s ref_rep_idx=%s ref_video_idx=%s",
+                "user_frame=%s ref_rep_idx=%s ref_video_idx=%s "
+                "vertex_centered=%s shared_side_px=%s",
                 analysis_id,
                 unit.region or unit.joint,
                 unit.criterion or "none",
@@ -2242,6 +2500,8 @@ def build_fault_zoom_comparisons(
                 u_idx_unit,
                 r_idx_unit,
                 r_display_idx,
+                shared_side is not None,
+                shared_side if shared_side is not None else "none",
             )
             # legs(스플릿) 카드: 앵커 동그라미 대신 다리 사이각(선 2 + 호 —
             # 각도 수치 라벨은 belle 2026-07-28 결정으로 미표기).

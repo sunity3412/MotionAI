@@ -1239,6 +1239,29 @@ def _to_crop_px(
     return max(0, min(_OUT - 1, ax)), max(0, min(_OUT - 1, ay))
 
 
+def _to_crop_px_unclamped(
+    xy: tuple[float, float],
+    left: int,
+    top: int,
+    side: int,
+    w: int,
+    h: int,
+) -> tuple[float, float]:
+    """`_to_crop_px` 와 같은 공식, **clamp 없음** (33-G S8 각도 방향 벡터 전용).
+
+    각도 표시의 방향점(사지/몸통 관절)은 crop 밖에 있을 수 있는데, `_to_crop_px` 의
+    [0,_OUT-1] clamp 를 태우면 좌표가 경계로 접혀 **방향 자체가 왜곡된다**(선이
+    엉뚱한 쪽을 가리킴). 방향만 쓰고 길이는 고정이므로(L-4) 좌표가 캔버스를 벗어나도
+    무해하다 — 따라서 여기서는 clamp 하지 않고 float 을 그대로 준다. clamp 가 필요한
+    마커/사이각 경로는 계속 `_to_crop_px` 를 쓴다 (기존 산출 byte-보존).
+    """
+    s = max(1, int(side))
+    return (
+        (xy[0] * w - left) / s * _OUT,
+        (xy[1] * h - top) / s * _OUT,
+    )
+
+
 def _pt_in_crop(
     xy: tuple[float, float],
     left: int,
@@ -1443,16 +1466,192 @@ def _draw_leg_angle(
     draw.line([pelvis_px, left_px], fill=_BRAND, width=4)
     draw.line([pelvis_px, right_px], fill=_BRAND, width=4)
     r = int(_OUT * 0.14)
-    # 이미지 좌표(y down)의 atan2 와 PIL arc(3시 기준 시계방향)가 정합.
-    a_left = math.degrees(math.atan2(ly - py, lx - px))
-    a_right = math.degrees(math.atan2(ry - py, rx - px))
-    a1, a2 = a_left, a_right
-    if (a2 - a1) % 360 > 180:  # 두 선 사이 minor arc 만 그린다.
-        a1, a2 = a2, a1
+    a1, a2 = _minor_arc_span_deg(pelvis_px, left_px, right_px)
     draw.arc(
         [px - r, py - r, px + r, py + r], start=a1, end=a2, fill=_BRAND, width=3
     )
     return True
+
+
+# ── 33-G S8 각도 표시 베이크 (승인 목업 7R#2) — display 전용, 채점 무접촉 ──────
+#
+# 승인 7R 확정 기하 (mockups/index.html 619-630행 자산 근거표):
+#   "기하 = 팔 선 64px·옆구리 선 85px 유지, **호 반경 27→16 축소**(각이 겨드랑이
+#    안쪽에 작게), 두 패널 꼭짓점 = 정중앙(180,180)"
+# 승인 자산 픽셀 재측정 (belle_shoulder_pair_dtwmatch_r7.png, 2026-07-30):
+#   · 선 = 브랜드 코어 약 6px + 양옆 흰 halo (목업 CSS `.legfx polyline` 코어 5 /
+#     `.halo` 9 와 정합) → halo 를 먼저, 코어를 나중에 그려 어떤 배경에서도 읽힌다.
+#   · 호 = **흰 단색** (r 13..16 전 구간 255,255,255 — 브랜드 코어 없음). 그래서
+#     호는 halo 색으로만 그린다 (승인본이 정답 — 임의로 브랜드색을 넣지 않는다).
+#   · 학생 패널 실측 65.3px @ -105.1° / 84.3px @ 112.3° · 기준 64.8px @ -76.6° /
+#     84.4px @ 53.7° → 사이각 130.3°(문서 129.9°).
+#
+# **선을 관절까지 잇지 않는 이유:** 방향만 쓰고 길이를 고정하면 (a) 두 패널의 기하가
+# 통일되고(승인본 조건 "두 패널 동일"), (b) distal keypoint 가 crop 안에 있는지에
+# 둔감해진다 — 사이각(_draw_side_leg_angle)이 필요로 하던 `_pt_in_crop` 게이트가
+# 여기서는 불필요하다. 7R 자산도 그렇게 그려졌다(팔 선 64px 고정).
+_ANGLE_LIMB_LEN_FRAC = 64.0 / 360.0
+_ANGLE_TORSO_LEN_FRAC = 85.0 / 360.0
+_ANGLE_ARC_R_FRAC = 16.0 / 360.0
+_ANGLE_HALO_W = 9
+_ANGLE_CORE_W = 5
+_HALO = (255, 255, 255)
+
+
+def _minor_arc_span_deg(
+    vertex_px: tuple[float, float],
+    a_px: tuple[float, float],
+    b_px: tuple[float, float],
+) -> tuple[float, float]:
+    """두 선 사이 **minor arc** 의 PIL arc (start, end) — 각도 공식 단일 출처.
+
+    이미지 좌표(y down)의 atan2 와 PIL arc(3시 기준 시계방향)가 정합. `_draw_leg_angle`
+    (다리 사이각)과 `_draw_joint_angle`(관절 각도 베이크)이 이 함수 하나를 공유한다 —
+    같은 시각 언어를 두 공식으로 구현하면 카드끼리 호 방향이 갈린다 (`_to_rep_idx`
+    단일 출처 선례).
+    """
+    px, py = vertex_px
+    a1 = math.degrees(math.atan2(a_px[1] - py, a_px[0] - px))
+    a2 = math.degrees(math.atan2(b_px[1] - py, b_px[0] - px))
+    if (a2 - a1) % 360 > 180:
+        a1, a2 = a2, a1
+    return a1, a2
+
+
+def _draw_joint_angle(
+    img: Image.Image,
+    vertex_px: tuple[float, float],
+    limb_dir_px: tuple[float, float],
+    torso_dir_px: tuple[float, float],
+) -> bool:
+    """꼭짓점에서 사지 선 + 몸통 선 + 사이각 호를 베이크 (in-place, 성공 여부 반환).
+
+    `limb_dir_px`/`torso_dir_px` 는 **방향점**(clamp 없는 crop-출력 좌표,
+    `_to_crop_px_unclamped`). 실제로 그리는 선은 그 방향의 **고정 길이**다 —
+    승인 7R 기하(팔 64 / 옆구리 85, 호 r16). 숫자 라벨 0 (belle 2026-07-28
+    "각도 배지는 빼고 초 표기로" — 수치의 단일 거처는 점수 내역, D-16).
+
+    방향 벡터가 `_MIN_LEG_VEC_PX` 미만이면 degenerate → False (드로잉 0, 호출측
+    원 마커 폴백). 한글 없음(선/호만, 모듈 docstring 정합).
+    """
+    vx, vy = float(vertex_px[0]), float(vertex_px[1])
+
+    def _unit(p):
+        dx, dy = float(p[0]) - vx, float(p[1]) - vy
+        n = math.hypot(dx, dy)
+        if n < _MIN_LEG_VEC_PX:
+            return None
+        return dx / n, dy / n
+
+    ul = _unit(limb_dir_px)
+    ut = _unit(torso_dir_px)
+    if ul is None or ut is None:
+        return False
+    limb_len = _ANGLE_LIMB_LEN_FRAC * _OUT
+    torso_len = _ANGLE_TORSO_LEN_FRAC * _OUT
+    limb_end = (vx + ul[0] * limb_len, vy + ul[1] * limb_len)
+    torso_end = (vx + ut[0] * torso_len, vy + ut[1] * torso_len)
+
+    draw = ImageDraw.Draw(img)
+    # halo 먼저(아래) → 코어 나중(위). 승인 자산 육안 + 목업 CSS `.legfx polyline.halo`.
+    for w_ in (_ANGLE_HALO_W, _ANGLE_CORE_W):
+        fill = _HALO if w_ == _ANGLE_HALO_W else _BRAND
+        draw.line([(vx, vy), limb_end], fill=fill, width=w_)
+        draw.line([(vx, vy), torso_end], fill=fill, width=w_)
+    r = _ANGLE_ARC_R_FRAC * _OUT
+    a1, a2 = _minor_arc_span_deg((vx, vy), limb_end, torso_end)
+    # 호는 흰 단색 — 승인 자산 실측(r 13..16 전 구간 흰색, 브랜드 코어 없음).
+    draw.arc(
+        [vx - r, vy - r, vx + r, vy + r], start=a1, end=a2, fill=_HALO, width=3
+    )
+    return True
+
+
+# 각도 베이크 선-쌍 선언: **관절명 접미사** → (사지측 방향 관절, 몸통측 방향 관절).
+# 좌우 접두사(left_/right_)는 런타임에 꼭짓점 관절명에서 파생 — 좌우를 표에 적으면
+# 항목이 2배가 되고 drift 가 생긴다. 동작명 분기 0 (D-41).
+#
+# `ARROW_JOINT_MAP`(31-03 목표 화살표)과 **어깨 포함 여부가 다른 이유** — 두 맵이
+# 어긋난 게 아니라 목적이 다르다:
+#   · 화살표는 (proximal, vertex, distal) 3점 내각으로 "어디까지 올려야 하는가"를
+#     지시하는데, 어깨는 vertex 기하가 몸통-팔 혼합이라 v1 대상에서 제외됐다.
+#   · 각도 베이크는 "겨드랑이를 꼭짓점으로 두고 팔 선·옆구리 선을 그린다"는 규칙이
+#     승인(7R#2)됐으므로 어깨가 **1급 대상**이다. 꼭짓점도 어깨 관절이 아니라
+#     겨드랑이(shoulder->hip t=0.15)다.
+ANGLE_BAKE_MAP: dict[str, tuple[str, str]] = {
+    "shoulder": ("elbow", "hip"),
+    "hip": ("knee", "shoulder"),
+    "knee": ("ankle", "hip"),
+    "elbow": ("hand", "shoulder"),
+}
+
+
+def build_angle_bake_spec(
+    criterion: str | None,
+    members: tuple[str, ...],
+    report: dict,
+    frame_idx: int,
+    resolver=None,
+) -> tuple[
+    tuple[float, float], tuple[float, float], tuple[float, float]
+] | None:
+    """각도 베이크 선-쌍 스펙 (정규화 좌표) → (꼭짓점, 사지 방향점, 몸통 방향점) | None.
+
+    꼭짓점은 `criterion_vertex_xy` 재사용 — crop 중심과 각도 꼭짓점이 **같은 단일
+    출처**여야 마커/각/호가 패널 정중앙에 앉는다(승인 4R#1). 방향점은
+    `ANGLE_BAKE_MAP` 선언 관절을 resolver 로 조회한다.
+
+    None 인 경우 (전부 fail-closed — 호출측이 원 마커로 폴백):
+      · 단일 관절 계열 criterion 이 아님 (split/다관절 → 다리 사이각이 담당).
+      · 관절 접미사가 `ANGLE_BAKE_MAP` 미선언.
+      · 꼭짓점 또는 방향 관절 하나라도 게이트 미달/부재 (기준 8kp 의 elbow/ankle
+        부재가 여기 해당 — 앵커 대입 선언이 채워지면 성립, L-7/L-9).
+    순수 — 채점 무접촉.
+    """
+    jk = _criterion_vertex_joint(criterion, members)
+    if jk is None:
+        return None
+    parts = jk.split("_", 1)
+    if len(parts) != 2:
+        return None
+    side, suffix = parts
+    decl = ANGLE_BAKE_MAP.get(suffix)
+    if decl is None:
+        return None
+    get = resolver if resolver is not None else _gated_kp
+    vertex = criterion_vertex_xy(criterion, members, report, frame_idx, None, get)
+    if vertex is None:
+        return None
+    limb = get(report, frame_idx, f"{side}_{decl[0]}")
+    torso = get(report, frame_idx, f"{side}_{decl[1]}")
+    if limb is None or torso is None:
+        return None
+    return vertex, limb, torso
+
+
+def _draw_side_joint_angle(
+    img: Image.Image,
+    frame: np.ndarray,
+    spec: tuple[
+        tuple[float, float], tuple[float, float], tuple[float, float]
+    ],
+    box: tuple[int, int, int],
+) -> bool:
+    """한 측 crop 에 각도 베이크 — 스펙(정규화) → crop 픽셀 → `_draw_joint_angle`.
+
+    방향점은 `_to_crop_px_unclamped`(clamp 금지 — 방향 왜곡 방지), 꼭짓점은
+    `_to_crop_px`(캔버스 내 보장). crop-포함 게이트는 두지 않는다 — 선 길이가
+    고정이라 distal 관절의 crop-내 포함 여부에 둔감하다(L-4).
+    """
+    h, w = frame.shape[0], frame.shape[1]
+    left, top, side = box
+    vertex, limb, torso = spec
+    return _draw_joint_angle(
+        img,
+        _to_crop_px(vertex, left, top, side, w, h),
+        _to_crop_px_unclamped(limb, left, top, side, w, h),
+        _to_crop_px_unclamped(torso, left, top, side, w, h),
+    )
 
 
 def _draw_side_leg_angle(
@@ -2421,9 +2620,20 @@ def build_fault_zoom_comparisons(
             # 깨지고, 그 경우 인접 관절로 기준 꼭짓점을 만들어내지 않는다(L-6) —
             # 기존 3단 강하로 돌아가고 기준측이 전신 폴백이면 D-12 ② 가 카드를
             # 떨군다. 복귀 경로 = judging_data/reference_anchors 주석(L-9, §C-4).
+            #
+            # **적용 범위 (L-10):** 정중앙 220px crop 은 **단일 관절 각도 꼭짓점**
+            # 카드(`angle_vs_reference__{jk}`)에만 적용한다. `split_angle`·다관절
+            # region 카드는 기존 프레이밍을 유지한다 — 승인 자산 근거표가 220px
+            # 겨드랑이 크롭을 **어깨 상세 쌍**(belle_shoulder_pair_dtwmatch_r7)에만
+            # 부여했고, 다리 카드는 별개 승인 렌더(S10 = 골반→양다리 두 선 + 사이각)를
+            # 갖는다. 골반 꼭짓점에 220px 를 씌우면 무릎이 crop 밖으로 나가
+            # `_pt_in_crop` 게이트가 탈락해 **승인 PASS 항목(S10)이 깨진다** — 한
+            # 자산에서 뽑은 규칙을 다른 카드 종류에 확대 적용하지 않는다.
             u_vertex = r_vertex = None
             shared_side: int | None = None
-            if unit.criterion is not None:
+            if unit.criterion is not None and _criterion_vertex_joint(
+                unit.criterion, unit.members
+            ) is not None:
                 u_vertex = criterion_vertex_xy(
                     unit.criterion, unit.members, user_report, u_kp_idx_unit,
                     deltas, _gated_kp,
@@ -2545,10 +2755,66 @@ def build_fault_zoom_comparisons(
                     u_drew_legs = _draw_side_leg_angle(
                         u_img, u_frame, user_report, u_kp_idx_unit, u_box
                     )
-            # user 측: 사이각을 그렸으면 원 생략(선/호와 시각 언어 충돌 방지),
+            # ── 33-G S8 각도 표시 베이크 (승인 7R#2) ─────────────────────────
+            # 순서 = ① 다리 사이각(위, split 카드) → ② 각도 베이크 → ③ 원 마커(폴백).
+            # **양측 게이트(M-4 대칭):** user·ref 스펙이 **둘 다** 성립할 때만 두
+            # 패널에 그린다. 기준 report(phase4_v1 legacy 8관절)에 elbow/ankle 이
+            # 없으면 스펙이 None → 양쪽 모두 미드로잉 → 원 마커 폴백. 한쪽만 그리면
+            # M-4(비대칭 마킹)가 재발한다. 기준측 부재 관절은 앵커 대입 선언으로
+            # 해석되고, 선언이 없으면 그 카드의 각도는 0 (L-7, §C-4 주석 채움 대기).
+            # copy-then-commit — 위 legs both-or-neither 패턴 그대로(부분 드로잉 0).
+            u_drew_angle = False
+            angle_reason = "unmapped"
+            if (
+                unit.criterion is not None
+                and not u_drew_legs
+                and u_kind == "valid" and u_box is not None
+                and r_kind == "valid" and r_box is not None
+            ):
+                # reason 귀속 순서: **미선언(각도 대상 아님)을 먼저** 판정해야
+                # user_gate(좌표 게이트 탈락)와 구분된다 — §C-4 진단 재료가 원인을
+                # 뒤섞지 않게. split/다관절 criterion 이 여기서 unmapped 로 빠진다.
+                _vj = _criterion_vertex_joint(unit.criterion, unit.members)
+                _suffix = _vj.split("_", 1)[1] if _vj and "_" in _vj else None
+                if _suffix not in ANGLE_BAKE_MAP:
+                    angle_reason = "unmapped"
+                else:
+                    u_spec = build_angle_bake_spec(
+                        unit.criterion, unit.members, user_report, u_kp_idx_unit,
+                        _gated_kp,
+                    )
+                    r_spec = build_angle_bake_spec(
+                        unit.criterion, unit.members, ref_report, r_kp_idx_unit,
+                        make_reference_anchor_resolver(
+                            motion_id, unit.criterion,
+                            anchors=reference_anchor_overrides,
+                        ),
+                    )
+                    if u_spec is None:
+                        angle_reason = "user_gate"
+                    elif r_spec is None:
+                        angle_reason = "ref_gate"
+                    else:
+                        u_try, r_try = u_img.copy(), r_img.copy()
+                        if _draw_side_joint_angle(
+                            u_try, u_frame, u_spec, u_box
+                        ) and _draw_side_joint_angle(
+                            r_try, r_frame, r_spec, r_box
+                        ):
+                            u_img, r_img = u_try, r_try
+                            u_drew_angle = True
+                        else:
+                            angle_reason = "degenerate"
+            log.info(
+                "fault_zoom_angle_bake analysis_id=%s criterion=%s angle_bake=%s",
+                analysis_id,
+                unit.criterion or "none",
+                "drawn" if u_drew_angle else f"omitted:{angle_reason}",
+            )
+            # user 측: 사이각/각도를 그렸으면 원 생략(선/호와 시각 언어 충돌 방지),
             # 아니면 기존 규칙 그대로. 각도 배지 없음(belle 2026-07-28) —
             # deficit 은 payload deficitDeg 로만 방출.
-            if u_drew_legs:
+            if u_drew_legs or u_drew_angle:
                 u_crop = _mark(u_img, circle=False, anchor_px=None)
             else:
                 u_crop = _mark(
@@ -2561,6 +2827,7 @@ def build_fault_zoom_comparisons(
             if (
                 draw_arrows
                 and not u_drew_legs
+                and not u_drew_angle
                 and u_kind == "valid"
                 and u_box is not None
             ):
@@ -2585,7 +2852,7 @@ def build_fault_zoom_comparisons(
             # (앵커 = 결함 관절), legs 선+호는 위 both-or-neither 에서 처리. relaxed
             # 는 anchor_px=None 생략 게이트 유지(확신 없는 표식 금지). legacy 카드는
             # 종전 게이트 B(무마킹) byte-보존.
-            if unit.criterion is not None and not r_drew_legs:
+            if unit.criterion is not None and not r_drew_legs and not u_drew_angle:
                 r_img = _mark(
                     r_img, circle=r_kind == "valid", anchor_px=r_anchor
                 )

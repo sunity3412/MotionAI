@@ -2933,6 +2933,7 @@ def _render_fault_zoom(
     cached_user_frames=None,
     criterion_units: list[dict] | None = None,
     stamp_ref: bool = False,
+    motion_id: str | None = None,
 ) -> list[dict]:
     """fault-zoom 공용 코어 — 프레임 추출 → crop 합성 → S3 업로드 → comparisons 리스트.
 
@@ -2962,6 +2963,10 @@ def _render_fault_zoom(
     stamp_ref (33-12 A-5, 6R 규칙 3): 회전류(technique category='spin' — 데이터
     키잉, 동작명 하드코딩 금지) 비교쌍의 기준 패널 실영상 초 표기. confirmed·
     advisory 두 배치 모두 적용 (둘 다 비교쌍).
+    motion_id (33-G S8/S9, quick-260730-l7t): 기준 모션 id(profile.motion_id) —
+    reference_anchors 관절 대입 선언 lookup 키. confirmed 배치에만 의미가 있다
+    (advisory 는 criterion_units 미전달이라 각도/정중앙 경로 미진입). Mode3 는
+    '기준'이 지난 사용자 영상이라 pinned 앵커 주석 대상이 아니므로 미전달(None).
     """
     from sunity_shared.analysis import fault_zoom
     from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
@@ -3004,6 +3009,11 @@ def _render_fault_zoom(
         # 33-12 (A-5 seam #1) — record-파생 criterion unit + 회전류 기준측 초 표기.
         criterion_units=criterion_units,
         stamp_ref=stamp_ref,
+        # 33-G S8/S9 (quick-260730-l7t) — 기준 앵커 주석 lookup 키. 기준 report
+        # (phase4_v1 legacy 8관절)에 없는 관절(elbow/ankle)의 대입 선언을
+        # judging_data/reference_anchors/{motion_id}.yaml 에서 읽는다. 데이터 키잉 —
+        # 렌더러에 동작명 분기 0. 미주석 모션 = 대입 0 = 그 카드 각도 미표시(L-7).
+        motion_id=motion_id,
         analysis_id=analysis_id,
     )
     # advisory 배치 (quick-260704-fz4) — 프레임 추출은 위 1회 재사용. joint_kinds
@@ -3261,6 +3271,14 @@ def _build_fault_zoom_comparisons(
         # 회전류 기준측 초 표기 (6R 규칙 3) — technique category 데이터 키잉
         # (동작명 하드코딩 금지). 'spin' = 회전류 (technique.py category 어휘).
         stamp_ref=getattr(profile, "category", None) == "spin",
+        # 33-G S8/S9 — 기준 앵커 주석 lookup 키 (profile.motion_id = Gemini canonical
+        # reference id, _match_reference_by_motion_id 와 같은 출처). None 가능
+        # (FallbackRecognizer/low_confidence) → 대입 0 = fail-closed.
+        motion_id=(
+            profile.motion_id
+            if isinstance(getattr(profile, "motion_id", None), str)
+            else None
+        ),
     )
 
 

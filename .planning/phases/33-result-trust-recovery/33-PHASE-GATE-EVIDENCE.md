@@ -177,12 +177,56 @@ powerspinFault 2, pdshapeFault 1, peterpanFault 1, kipupFault 1. `tier=advisory`
   `/workspace/_33_16_selfcompare.log`, cachecheck `/workspace/_33_16_cachecheck.log`
 - 우회 래퍼 3종 + 런처: Pod `/workspace/_33_16_*.{py,sh}` (eval 전용, repo 밖)
 
-## 7. 잔여 (Task 2·3 진입 전 체크)
+## 7. Task 2 — 시뮬레이터 실측 (iPhone 16 Pro, Metro dev, e4031d5 JS)
 
-- [ ] Task 2: 시뮬레이터 전수 렌더 (33-13 6시퀀스 + 33-15 8항목 + 확대비교/일러스트)
-      → 스크린샷 본 문서에 추가
-- [ ] OTA 발행 (33-12~15 일괄) — 시뮬 통과 후에만 (D-21)
+방법: Debug 빌드 + Metro(최신 JS), 스위프 doc 4건(powerspinFault/kipupFault/
+elbowtwistsisterFault/pdshapeCorrect)을 시뮬 익명 uid 아래로 admin 복사해 실데이터
+렌더. coachAudio 는 재서명 가드(H-02, uid-canonical exact 비교)가 타 uid key 를
+정확히 거부(404)함을 실측 — 검증용으로 mp3 를 시뮬 uid 경로로 복사 + doc key 동기
+후 200 확인 (가드 자체가 설계대로 작동한다는 실증. 스크린샷·녹화 = scratchpad
+sim_*.png / sim_cue_*.mp4, 세션 임시).
+
+### 7-1. PASS (렌더·크래시·레이아웃)
+
+- 앱 기동/인트로/홈(분석 보유 상태: 평균 80점 + 최근 킵업 79 옥타곤)/기록 4건
+  리스트/결과 화면 — 크래시 0, 상태바 겹침 0 (safe-area, 33-15 #1)
+- 감점 카드: 헤드라인 무수치(D-09), 다음 행동 cueLine 무수치(D-16), 자세히 보기
+  토글+앵커 스크롤(D-17), "아래에 다른 감점 항목 2개 더 보기" 어포던스(D-17)
+- 확대비교 상세 시트(A-5): ② 항목 배지 + 관절 정확 제목, 내 영상|정은지 선수 라벨,
+  양측 마커 crop(재스위프 재생성분과 동일 PNG), "사진 속 초는…" 캡션(33-15 초 표기),
+  근거 박스 "기준 대비 27.4° 차이 (허용 20° 초과 7.4°) −8.9" + AI 추정 고지
+- A-7 일러스트: power-spin PASS 에셋이 시트 슬롯에 렌더 (다리 라인 곧은 선 가이드 —
+  라인 계열 키잉 정합), 캡션 = terminologyMap.angle 데이터 소비
+- 33-13: 키포인트 기본 숨김(첫 진입 스켈레톤 0, 항목 그룹 마커만) → 토글 on 스켈레톤
+  양 패널 등장 → **앱 재실행 후에도 영속** / 코치마크 2건 1회성 표시 후 재진입 미표시
+- A-6 (kipupFault, 재생 중 자연 발화): 재생 3.1s 에서 **영상 정지 + 양 패널 dim +
+  "음성 중 — 잠시 멈춤" pill + 왼쪽 팔꿈치 부위 강조 + 목표-선행 자막** 전 요소 발화
+  (sim_cue_kipup.mp4 f_30~38), 음성 종료 후 강조·pill 해제 ✓
+- 동작 비교 카드: 대략 맞춤 배지 + 미세조정 슬라이더 + 정렬됨 + 바 마커 ①②③(감점
+  큐) + 가로로 크게 보기 — 전부 렌더
+
+### 7-2. FAIL / 관찰 (OTA 차단 사유 — D-21)
+
+- **[F-1] 음성 큐 종료 후 자동 재개 실패**: 강조·pill 해제까지는 되지만 영상이
+  3.1s 정지 상태로 영구 유지 (재생 ▶ 복귀, CUE_PAUSE_MAX_MS=15s 안전 상한도 미발화
+  — 2분+ 관찰). 33-13 #1 시퀀스의 "음성 종료 → 자동 재개" FAIL. 수동 재생은 가능.
+- **[F-2] 큐 정지 중 기준(정은지) 영상 계속 재생**: 학생 정지 중 ref 는 4.0→7.8s
+  진행 (drift-sync tick 이 rightPlayer 를 되살리는 것으로 추정) — "잠시 멈춤" pill
+  과 모순되는 표면, 재개 시 좌우 desync.
+- 관찰: powerspinFault 는 큐 창 3개가 전부 같은 순간(crop userFrame=2, 0.2s)에
+  겹쳐 재생 중 전환이 원리적으로 없음 — 진입 시(정지 상태) 1회 발화 후 "정지 중
+  발화=강조만" 설계 경로. 단일-순간 결함 doc 에서는 정지-재개 UX 가 자연 재생으로는
+  나타나지 않는다 (belle UAT 해석 시 참고).
+- Metro WARN 2건: expo-video `allowsFullscreen` deprecated (기능 영향 0, 후속 정리)
+
+### 8. 잔여
+
+- [ ] **F-1/F-2 수리** (별도 gap-closure — VideoCompare 큐 재개/드리프트 tick 상호작용)
+      → 수리 후 시뮬 재확인부터 재개
+- [ ] 시뮬 잔여 항목: 참고하세요 섹션 모순 카피(33-15 #3), 점수 내역 '관절 각도 참고'
+      행(33-15 #2), elbow-twist 0-crop graceful 렌더, pdshapeCorrect 성공 화면 —
+      F-1 수리 후 일괄
+- [ ] OTA 발행 (33-12~15 일괄) — **F-1/F-2 수리 + 시뮬 재통과 전 금지** (D-21)
 - [ ] Task 3: belle 확인 ② (5문항 + phase-32 3문항) — 접점 2/2
-- [ ] 일러스트 미완 4동작(peter-pan·elbow-twist-sister·pdshape·sideway-spin) 재시도
-      — 옵션, 미실행 (fail-closed 숨김 유지 중)
+- [ ] 일러스트 미완 4동작 재시도 — 옵션, 미실행 (fail-closed 숨김 유지 중)
 - ⚠ belle 실기기 분석 전 Pod→S3 회복 재확인 (§0-1 — 미회복 시 앱 분석 hang 위험)

@@ -656,6 +656,13 @@ export function VideoCompare({
                 setPlaying(false);
                 voicePauseRef.current = true;
                 voicePauseStartRef.current = Date.now();
+                // 33-16 게이트 F-2 fix — mid-tick pause 직후 tick 조기 종료.
+                // 아래 follow/drift 블록은 tick 시작 시 캡처된 stale
+                // leftPlaying=true 로 진입해 홀드해제 분기가 방금 멈춘
+                // 정은지(right)를 즉시 play() 부활시켰다(음성 정지 중 우측만
+                // 계속 재생). 다음 tick(100ms)이 신선한 상태로 판정 — 보정
+                // 1 tick 지연은 무해.
+                return;
               }
             }
           } else {
@@ -679,6 +686,13 @@ export function VideoCompare({
           leftPlayer?.play();
           rightPlayer?.play();
           setPlaying(true);
+          // 33-16 게이트 F-1 fix — mid-tick play 직후 tick 조기 종료.
+          // 같은 tick 하단 shouldPauseAtEnd 가 tick 시작 시 캡처된 stale
+          // cR(F-2 로 우측이 끝까지 주행한 값)로 either-own-end=true 판정
+          // → 방금 재개한 양쪽을 즉시 재-pause = 자동 재개 삼킴(영구 멈춤,
+          // voicePauseRef 이미 false 라 overMax 안전망도 미도달). 다음
+          // tick 이 신선한 재생상태·시각으로 판정한다.
+          return;
         }
       } else if (
         !voicePauseRef.current &&

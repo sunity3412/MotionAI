@@ -3260,9 +3260,14 @@ function AnalysisResultContent({
         // 33-14 (A-7, D-15) — 결함 → 일러스트 매핑. 키 = mode1 기준 모션 ID
         // (동작명 분기 0 — 데이터 맵). mode3/미검증 동작은 DefectIllustration 이
         // null 렌더 (silent hidden — 틀린 그림은 없는 것보다 나쁘다, D-18).
+        // 33-G S13/S25 (quick-260731-2jt) — 부착 판정 입력 = **이 시트의 부위 키**.
+        // 1단위 뷰모델이 이미 들고 있는 값이라 신규 상태·신규 계산 0이고, 마커 그룹·
+        // 부위 칩과 같은 단위다 (두 번째 그룹핑 규칙 금지, P-1). 장면과 어긋나면
+        // 슬롯 자체가 안 생긴다 (승인본 `:1114` — 빈 카드·플레이스홀더 아님).
         illustrationSlot={
           <DefectIllustration
             motionId={cmp.mode === 'mode1' ? cmp.referenceMotionId : null}
+            partKey={sheetView?.partKey ?? null}
           />
         }
       />

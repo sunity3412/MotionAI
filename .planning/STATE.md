@@ -76,7 +76,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-30 - Completed quick task 260730-py1: 33-G §C-2 앱 1단위 (부위 단위 시트 + S7 블록 요소 + F-3 앱분)
+Last activity: 2026-07-30 - Completed quick task 260730-szk: 33-G §C-2 앱 2단위 (마커·강조 — F-8/S1/S3 렌더 확인, S19/S2 미검증)
 
 ### Quick Tasks Completed
 
@@ -123,6 +123,8 @@ Last activity: 2026-07-30 - Completed quick task 260730-py1: 33-G §C-2 앱 1단
 | 260730-l7t | 33-G §C-1 백엔드 수리 (승인 목업 7R 대비 FAIL 3건) — **S9** crop 중심을 criterion 꼭짓점 관절 정중앙·두 패널 동일 배율(`criterion_vertex_xy` 단일 출처 + `_crop_box_centered` 흰 패딩 + `_CRITERION_CROP_FRAC=220/360`), region 상수는 crop 중심 결정에서 강등. **belle #7·#9 "팔꿈치인데 손을 집고 있음" 근본원인 = `_KISMAM_TO_KEYPOINT` elbow→hand 인접 대입** — 백엔드+앱 미러 동시 제거. **S8** 각도 베이크(`_draw_joint_angle` + `ANGLE_BAKE_MAP` 접미사 키잉 4계열 + `_ARMPIT_T=0.15`) + 기준 앵커 **관절 대입 선언** 계약(정적 좌표 금지 — 표시 프레임이 DTW 실측 순간이라 가변), both-or-neither 대칭 게이트. **F-3** 근본원인 = 앱이 `refFrameIdx / rep.fps`로 초 추정(rep 18fps ↔ video 9fps 불일치) → 백엔드가 `userVideoSec`/`refVideoSec` 방출 + 3-way lockstep. 검증 = 등재 10동작 스위프 110카드(정중앙 60 전건 배율 일치·비대칭 0·동작명 분기 0) + 생성 PNG 승인 자산 대조 + legacy 해시 9케이스 무변경 + `backend/tests` 회귀 0. **잔여: 9모션 주석값·무릎/팔꿈치 각도(12kp 재처리 필요)=§C-4, 앱 렌더=§C-2. S10 pre-existing 결함 발견→PARTIAL 정정** | 2026-07-30 | c9b0609 | [260730-l7t-33-g-c-1-fault-zoom-py-s9-crop-criterion](./quick/260730-l7t-33-g-c-1-fault-zoom-py-s9-crop-criterion/) |
 
 | 260730-py1 | 33-G §C-2 앱 1단위 (승인 목업 시트 재설계) — **S7** 블록 요소 신설(번호 헤더·basis "어디서 재나요"·method 정직 라벨·numnote 강등) + **S6** record 단위 → **부위 단위** 시트 재구성(`deductionSheet.buildRegionSheetView`, paircap 좌우·onecap) + **F-3 앱분**(`compareFrames.(userIdx|refIdx) / fps` 초 추정 2곳 제거 → 카드의 `userSec`/`refSec` 운반). 검증 = 오케스트레이터가 시뮬 직접 렌더(실행자는 시뮬 도구 없음): **부위 2감점 = 시트 1개·블록 2개**(고칠 것 2/3, 각자 점수·basis·method) 실증 = belle "무릎 피는 거 하나 어디 갔냐" 구조 해소 · 번호=전역 마커 번호 · 크래시·잘림 0 · 스위프 10동작 130블록 0손실. **의도적 fail-closed 2건**: proof 3컷(백엔드 1장만 방출, 3컷 분류는 doc 에 없는 판단 → 날조 금지)·basis 구간 축(fps 부재, 인덱스 나누기가 F-3 원인) → §C-4. **미검증: paircap 초·참고코너 렌더**(doc 4건이 초 필드 이전 산출)·facing·LogBox 경고 내용 | 2026-07-30 | cfb3694 | [260730-py1-33-g-c-2-1-s7-basis-method-proof-facing-](./quick/260730-py1-33-g-c-2-1-s7-basis-method-proof-facing-/) |
+
+| 260730-szk | 33-G §C-2 앱 2단위 (마커·강조) — **F-8** 상시 마커 제거(토글/음성 큐에서만) + **S1** 항목=부위 단위 그룹 경계+번호 배지(개별 관절 원 나열 제거) + **S3** 부위 칩 행 신설(1단위 `regionPartKeyForRecord` 재사용, 두 번째 그룹핑 규칙 금지) + **S19** 선/원 분기·pulse 1.4s 구현 + **S2** 참고 점선. F-8×S3 충돌은 승인본의 칩 행을 상시 진입점으로 세워 해결(마커 숨김 시 탭 영역도 비움). 렌더 확인(오케스트레이터): **F-8 PASS**(토글 OFF = 마커 0, 안 보이는 탭 0) · **S1 부분 PASS**(그룹 경계+배지, 개별 원 0) · **S3 PASS**(칩 3개 = 감점 부위 3개, 칩→해당 부위 시트, 1단위 구조 회귀 0). **S19·S2 미검증 — 시뮬 재생 구동 실패**(16프레임 전부 동일). 1단위 미해결 LogBox 경고 종결 = `expo-video allowsFullscreen` deprecation 2건(기존, 무관) + `Animated` 신규 경고 0. 소견: 흰색 hex 10→12(토큰 교체 다음 단위) | 2026-07-30 | df9d193 | [260730-szk-33-g-c-2-2-s19-pulse-s1-s3-f-8](./quick/260730-szk-33-g-c-2-2-s19-pulse-s1-s3-f-8/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

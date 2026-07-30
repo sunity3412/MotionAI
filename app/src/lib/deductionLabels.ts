@@ -54,6 +54,43 @@ export const REGION_LABEL_KO: Record<string, string> = {
   arms: '양팔',
 };
 
+// 33-G S6 (quick-260730-py1, M-3) — keypoint → **부위 상세 시트 그룹 토큰**.
+// 승인 목업 ② 는 시트를 record 단위가 아니라 부위 단위로 묶는다("다리" 시트 안에
+// 벌림·무릎 두 블록). 그 묶음 키가 여기 있다.
+//
+// ⚠ `REGION_LABEL_KO`/`REGION_MEMBER_KEYPOINTS`(legs/arms)와 **키 공간이 다르다** —
+// 저쪽은 백엔드 `fault_zoom._REGION_JOINTS` 미러(확대 카드 bbox 그룹, 좌+우 묶음)이고
+// 이쪽은 화면 시트 묶음(승인본 '다리' = hips+knees+ankles 통합)이다. 혼용 금지:
+// region 키를 시트 그룹으로 쓰면 ankle 을 잃고, 부위 토큰을 crop 멤버로 쓰면
+// 백엔드 계약이 깨진다.
+//
+// 좌우 미분할 = 승인본 규칙 (목업 '다리' 그룹이 왼/오른 다리를 한 시트에 담는다).
+// 12 keypoint 전건 매핑 (32-14 D-22 1단 확장분 ankle·elbow 포함).
+export const BODY_PART_OF_KEYPOINT: Record<
+  KeypointName,
+  'shoulder' | 'arm' | 'leg'
+> = {
+  left_shoulder: 'shoulder',
+  right_shoulder: 'shoulder',
+  left_elbow: 'arm',
+  right_elbow: 'arm',
+  left_hand: 'arm',
+  right_hand: 'arm',
+  left_hip: 'leg',
+  right_hip: 'leg',
+  left_knee: 'leg',
+  right_knee: 'leg',
+  left_ankle: 'leg',
+  right_ankle: 'leg',
+};
+
+// 부위 토큰 → 화면 라벨 (승인 목업 ② 부위 칩 어휘 '다리'/'어깨').
+export const BODY_PART_LABEL_KO: Record<string, string> = {
+  shoulder: '어깨',
+  arm: '팔',
+  leg: '다리',
+};
+
 // IPSF 각도 허용오차 20° 는 KeypointOverlay.KEYPOINT_DELTA_HIGHLIGHT_DEG 가 단일
 // 선언 (dimensions.py _LINE_TOL_DEG 정합) — 여기 중복 선언 금지, 소비처가 import.
 

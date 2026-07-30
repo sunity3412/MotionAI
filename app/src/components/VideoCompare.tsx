@@ -279,10 +279,19 @@ const OFFSET_SNAP_SEC = 0.1;
 
 // 33-G S23 (quick-260731-2jt) — illu-float 기하 비율. 승인 목업 `.illu-float`
 // (`mockups/index.html:215-218`)는 360px 폭 `.player` 안에서 width 104px,
-// inset(top/right) 10px 이다. 앱의 대응 면은 `styles.row`(P-6)이므로 절대 px 가
-// 아니라 **row 폭 대비 비율**로 옮긴다 — 기기 폭이 달라도 승인본 비례가 유지된다.
+// inset(top/right) 10px 이다.
+//
+// P-14 확정 (오케스트레이터, 2026-07-31) — **기준면 = row 가 아니라 패널 한 장.**
+// 승인본 `.player`(`:257`)는 영상 img 한 장을 담는 상자다(그 안에 dim·legfx·
+// illu-float·subtitle·pbar 가 전부 들어간다). 앱의 `row` 는 그 상자 **두 개**를
+// 담으므로, row 기준으로 옮기면 float 이 영상 대비 59.2% 가 되어 승인본(28.9%)의
+// 두 배로 커진다. float 은 영상 위에 얹히는 물건이라 **자기가 앉는 영상**에
+// 비례해야 승인본과 같게 읽힌다. 자막·"잠시 멈춤" 이 row 레벨인 것은 두 패널을
+// 가로지르는 레이아웃 사정이지 기준면 근거가 아니다.
 const ILLU_FLOAT_WIDTH_RATIO = 104 / 360;
 const ILLU_FLOAT_INSET_RATIO = 10 / 360;
+// `styles.row` 의 gap(8)과 한 쌍 — 둘이 어긋나면 float 이 패널 경계를 벗어난다.
+const ROW_PANEL_GAP = 8;
 
 // 32-08 (실기기 피드백 #1) — 음수 오프셋 시작 홀드 임계. 목표시각(unclamped)이 음수인
 // 구간에서 정은지(right)를 0 프레임에 세우되, 이미 ~0 이면 재대입을 생략한다(불필요한
@@ -1500,22 +1509,26 @@ export function VideoCompare({
         />
         {/* 33-G S23 (quick-260731-2jt) — 음성 중 일러스트 동반(illu-float).
             승인 목업 `.illu-float`(`:215-218`) 기하를 비율로 재현: 폭 = row × 104/360,
-            inset = row × 10/360, 배경 rgba(255,255,255,.94) / radius 12 / padding 6 /
+            inset = 패널 × 10/360 (P-14), 배경 rgba(255,255,255,.94) / radius 12 / padding 6 /
             그림자 0 4px 14px rgba(0,0,0,.25) (테마 토큰 없는 승인본 값 — P-7).
             발동 조건 = voiceCueRecordId != null (dim·강조·자막·"잠시 멈춤"과 같은 상태).
             캡션 없음 (P-8 — 목업의 `.illu-float .t` 는 belle 후보-선택 안내이지 제품
             카피가 아니다. D-05: 그림이 말을 대체).
             rowWidth 0(측정 전)이면 미렌더 — 잘못된 크기로 한 프레임 튀지 않게. */}
-        {cueIllustration != null && rowWidth > 0 ? (
+        {cueIllustration != null && rowWidth > ROW_PANEL_GAP ? (
           <View
             pointerEvents="none"
             style={[
               styles.illuFloat,
-              {
-                width: rowWidth * ILLU_FLOAT_WIDTH_RATIO,
-                top: rowWidth * ILLU_FLOAT_INSET_RATIO,
-                right: rowWidth * ILLU_FLOAT_INSET_RATIO,
-              },
+              (() => {
+                // P-14 — 패널 한 장 기준(= 승인본 `.player`). row 기준이면 승인본의 2배.
+                const panelWidth = (rowWidth - ROW_PANEL_GAP) / 2;
+                return {
+                  width: panelWidth * ILLU_FLOAT_WIDTH_RATIO,
+                  top: panelWidth * ILLU_FLOAT_INSET_RATIO,
+                  right: panelWidth * ILLU_FLOAT_INSET_RATIO,
+                };
+              })(),
             ]}
           >
             {cueIllustration}

@@ -24,16 +24,27 @@
 //  11) proof 필드 부재 (M-10 fail-closed — 빈 배열조차 두지 않는다)
 //  12) 방어 — records 빈 배열·index 범위 밖·zoom 전무에서 null/크래시 0
 //  13) T-33G2-01 — 방출 문자열에 HTML 마크업(`<`/`>`) 0
+//
+// quick-260730-szk 증축 (33-G S1/S2/S3):
+//  15) partGroups — 부위 단위 그룹 1개 + 번호 오름차순 병합 배지(N-2) + 투영 누락 0
+//  16) buildPartChips — 감점 칩 순서·라벨 동일성, advisory 칩, cleanPass·저신뢰 0
+//  17) 참고 문형 상수 2종 단일 소스 (T-33G3-02)
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  ADVISORY_CHIP_KO,
+  ADVISORY_NOTE_KO,
+  buildPartChips,
+  buildPartGroups,
   buildRegionSheetView,
   formatVideoSecKo,
+  partLabelKo,
   regionPartKeyForRecord,
   type RegionSheetInput,
 } from '../deductionSheet.ts';
+import { projectDeductionRecordKeypoints } from '../deductionLabels.ts';
 
 // ── 픽스처 ────────────────────────────────────────────────────────────────
 // 저장값만 사용 (앱 재계산 0). points 는 SIGNED NEGATIVE 계약.
@@ -654,4 +665,181 @@ test('Test 14 (numNote): 승인 문두 + 저장값 그대로 + 감점 (formatDed
     byIdx.get(1)?.numNote,
     '측정 수치(참고) — 측정 130° (기준 0°, 허용 초과 30°) (영상 비교 측정) → −12점',
   );
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// quick-260730-szk (33-G S1/S2/S3) — 부위 그룹 마커 · 부위 칩 · 참고 문형 단일화
+// ══════════════════════════════════════════════════════════════════════════
+
+// 승인 목업 ① 어깨 그룹 재현 — 한 부위에 감점 2건(좌·우 어깨). 1라운드가 관절 원
+// 2개를 나열했던 것이 2R#1 "동그라미가 7개" 반려의 실체다 → 그룹 1개 + 병합 배지.
+const SHOULDER_PAIR = [
+  rec({ criterion: 'angle_vs_reference__left_elbow', points: -6 }),
+  rec({ criterion: 'angle_vs_reference__left_shoulder', points: -8.9 }),
+  rec({ criterion: 'angle_vs_reference__right_shoulder', points: -5.1 }),
+];
+
+// ── Test 15: partGroups 병합 배지 (N-2) ───────────────────────────────────
+test('Test 15 (partGroups): 어깨 좌+우 2 record → 그룹 1개, numbers 오름차순, badgeLabel 2·3', () => {
+  const groups = buildPartGroups(SHOULDER_PAIR, [1, 2, 3], undefined);
+  const shoulder = groups.filter((g) => g.partKey === 'shoulder');
+  assert.equal(shoulder.length, 1, '어깨 그룹이 1개가 아니다 (관절 원 나열 = 2R#1 위반)');
+  assert.deepEqual(shoulder[0].numbers, [2, 3]);
+  assert.equal(shoulder[0].badgeLabel, '2·3');
+  // 팔(팔꿈치)은 별 그룹 — 부위가 다르면 합치지 않는다.
+  const arm = groups.filter((g) => g.partKey === 'arm');
+  assert.equal(arm.length, 1);
+  assert.equal(arm[0].badgeLabel, '1');
+});
+
+test('Test 15b (partGroups): 감점 1건 부위 → badgeLabel 이 단일 숫자', () => {
+  const groups = buildPartGroups(
+    [rec({ criterion: 'angle_vs_reference__left_knee' })],
+    [4],
+    undefined,
+  );
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].partKey, 'leg');
+  assert.equal(groups[0].badgeLabel, '4');
+  assert.deepEqual(groups[0].numbers, [4]);
+});
+
+test('Test 15c (partGroups): keypoints 합집합 == 부위 멤버 record 투영 합집합 (누락 0)', () => {
+  const faultJoints = ['left_hip', 'right_hip', 'left_knee', 'right_knee'] as const;
+  const records = [...LEGS_RECORDS, ...SHOULDER_PAIR];
+  const numbers = records.map((_, i) => i + 1);
+  const groups = buildPartGroups(records, numbers, faultJoints);
+  for (const g of groups) {
+    const expected = new Set<string>();
+    records.forEach((r) => {
+      if (regionPartKeyForRecord(r, faultJoints) !== g.partKey) return;
+      for (const kp of projectDeductionRecordKeypoints(r, faultJoints)) {
+        expected.add(kp);
+      }
+    });
+    assert.deepEqual(
+      [...g.keypoints].sort(),
+      [...expected].sort(),
+      `${g.partKey} 투영 누락/여분`,
+    );
+  }
+});
+
+test('Test 15d (partGroups): 번호 없는 부위·투영 0인 부위는 그룹에서 제외 (고아 경계 0)', () => {
+  // line = 투영 공집합 → 그릴 자리 없음. numbers null = 번호 없는 경계.
+  const groups = buildPartGroups(
+    [
+      rec({ criterion: 'line' }),
+      rec({ criterion: 'angle_vs_reference__left_knee' }),
+    ],
+    [1, null],
+    undefined,
+  );
+  assert.deepEqual(groups, []);
+});
+
+// ── Test 16: buildPartChips (S3 부위 칩) ──────────────────────────────────
+test('Test 16 (칩): 감점 칩 순서 = 첫 등장 순, 라벨 = 부위 시트 제목과 문자 동일', () => {
+  const chips = buildPartChips({
+    records: SHOULDER_PAIR,
+    recordNumbers: [1, 2, 3],
+    attentionKeypoints: [],
+    estimatedArea: false,
+  });
+  assert.deepEqual(
+    chips.map((c) => c.partKey),
+    ['arm', 'shoulder'],
+  );
+  for (const chip of chips) {
+    assert.equal(chip.kind, 'deduction');
+    assert.equal(chip.label, partLabelKo(chip.partKey));
+  }
+  // 칩 수 == 그룹 수 (승인본 "화면의 표시 수 = 항목 수").
+  const groups = buildPartGroups(SHOULDER_PAIR, [1, 2, 3], undefined);
+  assert.equal(chips.length, groups.length);
+  // N-3 — 병합 배지 탭 대상 = 그 부위의 최소 번호 record.
+  const shoulderChip = chips.find((c) => c.partKey === 'shoulder');
+  assert.equal(shoulderChip?.firstRecordIndex, 1);
+  assert.deepEqual(shoulderChip?.numbers, [2, 3]);
+});
+
+test('Test 16b (칩): attention 관절만 있는 부위 → advisory 칩 `참고: {부위}`', () => {
+  const chips = buildPartChips({
+    records: [rec({ criterion: 'angle_vs_reference__left_knee' })],
+    recordNumbers: [1],
+    attentionKeypoints: ['left_hand'],
+    estimatedArea: false,
+  });
+  assert.deepEqual(
+    chips.map((c) => [c.partKey, c.label, c.kind]),
+    [
+      ['leg', '다리', 'deduction'],
+      ['arm', '참고: 팔', 'advisory'],
+    ],
+  );
+  assert.equal(chips[1].firstRecordIndex, null);
+});
+
+test('Test 16c (칩): 감점 부위와 겹치는 attention 부위는 참고 칩 미생성 (중복 0)', () => {
+  const chips = buildPartChips({
+    records: [rec({ criterion: 'angle_vs_reference__left_knee' })],
+    recordNumbers: [1],
+    attentionKeypoints: ['right_knee'],
+    estimatedArea: false,
+  });
+  assert.deepEqual(
+    chips.map((c) => c.partKey),
+    ['leg'],
+  );
+});
+
+test('Test 16d (칩): records 0 → 빈 배열 (N-14 cleanPass 칩 행 미렌더)', () => {
+  assert.deepEqual(
+    buildPartChips({
+      records: [],
+      recordNumbers: [],
+      attentionKeypoints: ['left_hand'],
+      estimatedArea: false,
+    }),
+    [],
+  );
+});
+
+test('Test 16e (칩): estimatedArea → 빈 배열 (저신뢰에서 부위 단정 금지, S17 보호)', () => {
+  assert.deepEqual(
+    buildPartChips({
+      records: SHOULDER_PAIR,
+      recordNumbers: [1, 2, 3],
+      attentionKeypoints: [],
+      estimatedArea: true,
+    }),
+    [],
+  );
+});
+
+// ── Test 17: 참고 문형 단일 소스 (S2 / T-33G3-02) ─────────────────────────
+test('Test 17 (참고 문형): 상수 2종이 승인본 원문과 문자 일치', () => {
+  // 승인본 `:1091` 짧은 칩형.
+  assert.equal(ADVISORY_CHIP_KO, '참고 — 감점은 아니지만 회전·힘에 영향');
+  // 승인본 legend 긴 안내형 (기존 advisory onecap 값 그대로 — 값 변경 0).
+  assert.equal(
+    ADVISORY_NOTE_KO,
+    '참고 부위예요 — 점수 감점은 되지 않지만 회전·힘 같은 전체 동작에 영향을 줄 수 있어요. 눈에 띈 차이만 보여드려요',
+  );
+  // advisory 시트 onecap 이 같은 상수를 소비한다 (사본 0).
+  const view = buildRegionSheetView(
+    legsInput({
+      zooms: [
+        null,
+        zoom({
+          imageUrl: 'https://s3/adv.png',
+          criterion: 'split_angle',
+          tier: 'advisory',
+        }),
+      ],
+      selectedRecordIndex: 1,
+    }),
+  );
+  assert.ok(view);
+  assert.equal(view.oneCap, ADVISORY_NOTE_KO);
 });

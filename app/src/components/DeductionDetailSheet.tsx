@@ -185,23 +185,30 @@ export function DeductionDetailSheet({
             {/* ── 크롭 카드 (승인본 card: chip → cropimg → paircap → onecap) ── */}
             {primaryZoom ? (
               <View style={styles.cropCard}>
-                <View
-                  style={[
-                    styles.chip,
-                    view.isAdvisoryOnly ? styles.chipGray : styles.chipBrand,
-                  ]}
-                >
-                  <Text
+                {/* IN-01 (M-21) — 역립 저신뢰에서는 "오늘 고칠 것" 확정 칩을 걸지
+                    않는다. 바로 아래 "예상 부위" 배지와 서로 모순되고, IN-01 은
+                    확정 단정 표면을 강등하는 결정이다 (S17 PASS 보존). 승인 목업 ②
+                    에는 추정 케이스가 없어 이 분기의 정답은 승인본이 아니라
+                    IN-01 원칙에서 나온다. */}
+                {estimatedArea ? null : (
+                  <View
                     style={[
-                      styles.chipText,
-                      view.isAdvisoryOnly
-                        ? styles.chipTextGray
-                        : styles.chipTextBrand,
+                      styles.chip,
+                      view.isAdvisoryOnly ? styles.chipGray : styles.chipBrand,
                     ]}
                   >
-                    {view.isAdvisoryOnly ? CHIP_ADVISORY : CHIP_TODAY_FIX}
-                  </Text>
-                </View>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        view.isAdvisoryOnly
+                          ? styles.chipTextGray
+                          : styles.chipTextBrand,
+                      ]}
+                    >
+                      {view.isAdvisoryOnly ? CHIP_ADVISORY : CHIP_TODAY_FIX}
+                    </Text>
+                  </View>
+                )}
                 {/* IN-01 — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 (확정 결함 아님,
                     advisoryOrange 톤). 크롭·수치·비교는 유지. */}
                 {estimatedArea ? (

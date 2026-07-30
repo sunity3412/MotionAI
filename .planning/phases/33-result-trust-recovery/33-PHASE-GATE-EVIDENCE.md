@@ -246,7 +246,11 @@ sim_*.png / sim_cue_*.mp4, 세션 임시).
 
 - [x] F-1/F-2 수리 + 시뮬 재검증 (`6adbfe4`) — **OTA 차단 해제**
 - [x] 시뮬 잔여 4항목 (§7-3 전부 PASS)
-- [ ] **OTA 발행 (33-12~15 + F-fix 일괄)** — belle 고지 후 진행
+- [x] **OTA 발행 완료 (2026-07-30, belle 승인)** — branch production, runtime
+      1.1.0, group `ad955f54-a971-4d50-bb04-f72328d2d41c`, commit e92e576.
+      롤백 시: `npx eas update:republish --group <직전 정상 group>` (
+      `npx eas update:list --branch production` 로 확인). 실기기 적용 = 완전
+      종료 후 재실행 **2회**
 - [ ] Task 3: belle 확인 ② (5문항 + phase-32 3문항) — 접점 2/2
 - [ ] 일러스트 미완 4동작 재시도 — 옵션, 미실행 (fail-closed 숨김 유지 중)
 - ⚠ belle 실기기 분석 전 Pod→S3 회복 재확인 (§0-1 — 미회복 시 앱 분석 hang 위험)

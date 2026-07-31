@@ -11,7 +11,11 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { deriveSummaryContent, type SummaryInput } from '../summarySource.ts';
+import {
+  deriveSummaryContent,
+  PRAISE_HEADLINE_MAX_CHARS,
+  type SummaryInput,
+} from '../summarySource.ts';
 
 // D-09 수치-헤드라인 금지 검사용 정규식 (측정 단위가 헤드라인에 새는지 감지).
 const NUMBER_IN_HEADLINE = /\d+(\.\d+)?\s*(도|°|점|%)/;
@@ -158,6 +162,93 @@ test('Test 7b (다음 행동): cueLine 부재 시 보완 운동 이유 기반', 
   };
   const out = deriveSummaryContent(input);
   assert.equal(out.nextAction?.text, '햄스트링 유연성이 무릎 접힘을 돕습니다');
+});
+
+// ── F-4 (33-G, quick-260731-cum) — 헤드라인 조립·길이 강등 ─────────────────────
+
+test('Test 8a (F-4 조립형 강등): 백엔드 구 조립 headline → 승인 로컬 상수, source/evidence 보존', () => {
+  // 구 phrasebook.assemble_praise 산출물 그대로 (약 50자, 따옴표 조립).
+  const assembled =
+    "감점 없이 통과한 항목이 있어요 — '동작의 전체 흐름이 기준 자세와 얼마나 나란히 이어지는지'";
+  const out = deriveSummaryContent({
+    mode: 'mode1',
+    summaryPraise: {
+      source: 'clean_dimension',
+      headline: assembled,
+      evidenceValue: null,
+      evidenceUnit: null,
+    },
+  });
+  assert.ok(out.praise, 'praise 가 있어야 함');
+  assert.notEqual(out.praise?.headline, assembled, '조립형 문장이 그대로 노출됐다');
+  assert.ok(
+    (out.praise?.headline.length ?? 999) <= PRAISE_HEADLINE_MAX_CHARS,
+    `강등 후에도 상한 초과: ${out.praise?.headline}`,
+  );
+  assert.equal(out.praise?.source, 'clean_dimension'); // 근거 판정은 백엔드 소관 그대로
+});
+
+test('Test 8b (F-4 과길이 강등): 상한 초과 headline 은 조립형이 아니어도 강등, evidence 통과', () => {
+  const long = '가'.repeat(PRAISE_HEADLINE_MAX_CHARS + 1);
+  const out = deriveSummaryContent({
+    mode: 'mode3',
+    summaryPraise: {
+      source: 'mission_improved',
+      headline: long,
+      evidenceValue: 6,
+      evidenceUnit: '점',
+    },
+  });
+  assert.notEqual(out.praise?.headline, long);
+  assert.ok((out.praise?.headline.length ?? 999) <= PRAISE_HEADLINE_MAX_CHARS);
+  assert.equal(out.praise?.source, 'mission_improved');
+  assert.equal(out.praise?.evidenceValue, 6); // 수치는 구조 필드로 그대로 (D-09)
+  assert.equal(out.praise?.evidenceUnit, '점');
+
+  // 상한 이하 doc 문장은 건드리지 않는다 (단일 원천 원칙 유지 — Test 1 과 같은 축).
+  const exact = '가'.repeat(PRAISE_HEADLINE_MAX_CHARS);
+  const keep = deriveSummaryContent({
+    mode: 'mode3',
+    summaryPraise: { source: 'mission_improved', headline: exact },
+  });
+  assert.equal(keep.praise?.headline, exact);
+});
+
+test('Test 8c (F-4 회귀 가드): 승인 로컬 상수 3개가 전부 상한 이하 — 강등 대상이 되지 않는다', () => {
+  const cases: { input: SummaryInput; source: string }[] = [
+    {
+      source: 'mission_improved',
+      input: { mode: 'mode3', missionOutcome: { improved: true, deltaPoints: 4 } },
+    },
+    {
+      source: 'clean_dimension',
+      input: {
+        mode: 'mode1',
+        dimensionScores: [{ key: 'line', score: 100, hasDeduction: false }],
+        coverageGaps: [],
+      },
+    },
+    {
+      source: 'criteria_met',
+      input: {
+        mode: 'mode1',
+        dimensionScores: [
+          { key: 'angle', score: 88, hasDeduction: true, metCriteria: true },
+        ],
+        coverageGaps: [],
+      },
+    },
+  ];
+  for (const c of cases) {
+    const out = deriveSummaryContent(c.input);
+    assert.equal(out.praise?.source, c.source);
+    const h = out.praise?.headline ?? '';
+    assert.ok(
+      h.length <= PRAISE_HEADLINE_MAX_CHARS,
+      `승인 상수 ${c.source} 가 상한 초과(${h.length}자): ${h}`,
+    );
+    assert.ok(!NUMBER_IN_HEADLINE.test(h), `승인 상수에 수치 노출: ${h}`);
+  }
 });
 
 test('Test 7c (다음 행동): cue·운동 이유 모두 부재(fail-closed) → 코치 질문 유도 문구', () => {

@@ -62,7 +62,10 @@ export function SummaryCard({
       {/* 상단 — 잘한 점(몸 말 헤드라인) + 점수 소형 보조 배지(수치 1곳, 헤드라인 아님) */}
       <View style={styles.headerRow}>
         <View style={styles.praiseWrap}>
-          <Text style={styles.praiseHeadline}>
+          {/* F-4 (33-G) — 상자 이탈 방어 2겹째. 1겹은 summarySource 의 길이·조립
+              게이트(승인 상수로 강등)이고, 이건 그마저 뚫렸을 때의 하드 스톱이다.
+              승인 카피는 전부 20자 이하라 bodyLg 2줄 안에서 절대 잘리지 않는다. */}
+          <Text style={styles.praiseHeadline} numberOfLines={2}>
             {praise ? praise.headline : HONEST_NO_PRAISE}
           </Text>
           {praise ? null : (

@@ -176,7 +176,13 @@ _PRAISE_HEADLINE_MISSION_IMPROVED = (
 _PRAISE_HEADLINE_CRITERIA_MET = (
     "이번 영상에서는 측정된 감점 항목이 없었어요 — 지금 자세를 유지해보세요"
 )
-_PRAISE_HEADLINE_CLEAN_DIMENSION_PREFIX = "감점 없이 통과한 항목이 있어요 — "
+# 33-G F-4 (quick-260731-cum) — 종전엔 `_..._PREFIX + f"'{term}'"` 로 terminology
+# **전문을 따옴표로 붙여** 조립했다. 산출물이 약 50자가 되어 요약 카드 헤드라인
+# (typography.bodyLg 24/700) 상자를 이탈했고 belle 이 "폰트 이탈 + 카피 어색"으로 반려.
+# 조립을 없애고 **완성 문장 1개**로 고정한다(이름에서 _PREFIX 제거 = 조립 의도 삭제).
+# 잃는 정보(어느 차원이 깨끗했나)는 부위 상세 시트의 용어줄이 이미 렌더한다 — 같은
+# 정보를 두 곳에서 말하지 않는다(D-05 ①).
+_PRAISE_HEADLINE_CLEAN_DIMENSION = "감점 없이 통과한 항목이 있어요"
 
 
 def assemble_praise(
@@ -214,13 +220,16 @@ def assemble_praise(
             "evidenceValue": float(delta) if has_delta else None,
             "evidenceUnit": "points" if has_delta else None,
         }
+    # terminology 조회·루프는 **유지**한다 — 용어 매핑이 있는 차원이 실제로 있을 때만
+    # 칭찬을 방출하는 D-06 "근거 없는 칭찬 금지" 게이트가 이 루프다. 바뀐 것은 문장
+    # 조립뿐이고 근거 판정은 그대로다 (33-G F-4).
     terms = load_terminology_map().get("terms", {})
     for dim in clean_dimensions or []:
         term = terms.get(dim)
         if isinstance(term, str) and term:
             return {
                 "source": "clean_dimension",
-                "headline": f"{_PRAISE_HEADLINE_CLEAN_DIMENSION_PREFIX}'{term}'",
+                "headline": _PRAISE_HEADLINE_CLEAN_DIMENSION,
                 "evidenceValue": None,
                 "evidenceUnit": None,
             }
@@ -264,6 +273,6 @@ def rendered_copy_strings() -> list[str]:
     out.extend([
         _PRAISE_HEADLINE_MISSION_IMPROVED,
         _PRAISE_HEADLINE_CRITERIA_MET,
-        _PRAISE_HEADLINE_CLEAN_DIMENSION_PREFIX,
+        _PRAISE_HEADLINE_CLEAN_DIMENSION,
     ])
     return out

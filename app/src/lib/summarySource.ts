@@ -112,6 +112,30 @@ const PRAISE_HEADLINE: Record<SummaryPraiseResult['source'], string> = {
   criteria_met: '측정된 자세에서 기본 기준은 지켰어요',
 };
 
+// ── F-4 헤드라인 길이·조립 통제 (33-G F-4, quick-260731-cum) ──────────────────
+//
+// belle 반려: "100점 헤드라인 폰트 상자 이탈 + 카피 어색". 근본원인은 앱이 아니라
+// 백엔드 phrasebook.assemble_praise 가 terminology **전문을 따옴표로 붙여** 조립한
+// 것이었고(같은 라운드에서 조립 제거), 이 게이트는 **이미 저장된 doc** 을 화면에서
+// 고쳐 보이게 하는 두 번째 겹이다 — 백엔드만 고치면 Pod 재산출 전까지 화면이 그대로다.
+//
+// 상한 = 승인 로컬 상수 최장(`측정된 자세에서 기본 기준은 지켰어요` 20자) + 여유 4.
+// 자의적 픽셀 추정이 아니라 **승인된 문장이 전부 통과하고 조립형(약 50자)이 걸리는
+// 최소값**이다. 강등 대체 문장은 새 카피를 발명하지 않고 같은 source 의 승인 로컬
+// 상수를 쓴다 — 스팟체크 불일치 강등(32-13)과 같은 경로라 이미 검증된 표면이다.
+export const PRAISE_HEADLINE_MAX_CHARS = 24;
+
+// 조립형 꼬리 = ` — '…'` (백엔드 구 조립 산출물의 형태 그대로). 길이 상한과 별개
+// 축으로 둔다 — belle 이 "따옴표 조립"과 "길이 통제 불가"를 각각 지적했다.
+const ASSEMBLED_HEADLINE_TAIL = /\s—\s'[^']*'\s*$/;
+
+function isUnrenderableHeadline(headline: string): boolean {
+  return (
+    ASSEMBLED_HEADLINE_TAIL.test(headline) ||
+    headline.length > PRAISE_HEADLINE_MAX_CHARS
+  );
+}
+
 // 오늘 고칠 것 헤드라인 폴백 (매칭 record statusLine 부재 시 — fabrication 금지 최소문).
 const TODAY_FIX_GENERIC = '오늘은 이 부분에 집중해봐요';
 
@@ -124,10 +148,16 @@ const NEXT_ACTION_COACH_PROMPT = '어떻게 연습할지 막히면 강사님께 
 function selectPraise(input: SummaryInput): SummaryPraiseResult | null {
   const doc = input.summaryPraise;
   // (1) 단일 원천 — doc summaryPraise 를 그대로 채택 (스팟체크 불일치 아닐 때만).
+  // 단, 조립형·과길이 headline 은 같은 source 의 승인 로컬 상수로 **강등**한다
+  // (F-4). source/evidence 는 그대로 통과 — 강등되는 것은 문장 하나뿐이고, 근거
+  // 판정(어느 source 로 칭찬하는가)은 백엔드 소관 그대로다. 사유는 이 주석으로만
+  // 남긴다 — 화면에 새 문장 0 (D-05).
   if (doc && input.spotCheckPraiseMismatch !== true) {
     return {
       source: doc.source,
-      headline: doc.headline,
+      headline: isUnrenderableHeadline(doc.headline)
+        ? (PRAISE_HEADLINE[doc.source] ?? doc.headline)
+        : doc.headline,
       evidenceValue: doc.evidenceValue ?? null,
       evidenceUnit: doc.evidenceUnit ?? null,
     };

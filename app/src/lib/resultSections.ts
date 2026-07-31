@@ -219,6 +219,32 @@ export function buildRecordMaps<
   return map;
 }
 
+// ── F-7 펼침/접기 스크롤 앵커 (33-G F-7, quick-260731-cum) ────────────────────
+
+/**
+ * '자세히 보기'/'접기' 전환 시 스크롤할 목표 y. 주어진 키 순서대로 **처음으로
+ * 기록된** 앵커의 `max(0, y - pad)` 를 반환하고, 하나도 없으면 `null`(호출측 폴백).
+ *
+ * 왜 순수 함수인가: 종전 result.tsx 의 인라인 루프는 펼치기 **전에** 측정된
+ * `anchor:scoreGauge` y 로 곧장 점프해 요약 카드에서 한참 아래로 내려갔고
+ * (belle "확 내려감"), 그 y 자체도 stale 이었다. 호출측이 요약 카드 앵커를 1순위로
+ * 넘기면 누른 줄이 화면에 남는다 — 그 선택 규칙을 여기서 테스트 가능한 한 지점으로
+ * 소유한다.
+ */
+export function pickExpandAnchorY(
+  cardY: ReadonlyMap<string, number>,
+  keys: readonly string[],
+  pad: number,
+): number | null {
+  for (const key of keys) {
+    const y = cardY.get(key);
+    if (typeof y === 'number' && Number.isFinite(y)) {
+      return Math.max(0, y - pad);
+    }
+  }
+  return null;
+}
+
 // index → 안정 키 역산 (result.tsx 가 legacy index 폴백 조인 시 사용).
 export function recordKeyForIndex(
   records: readonly RecordLike[] | null | undefined,

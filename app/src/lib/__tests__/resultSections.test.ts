@@ -15,6 +15,7 @@
 //   3) legacy(3단 문구 부재) → topFix legacy 표식, 전 섹션 계산(크래시 0)
 //   4) mode3 — missionOutcome → growth outcome, escalation coach_card → coachCard 승격
 //   5) buildRecordMaps — recordId 조인 맵 + 'idx:N' 폴백 + 질문 조인, 충돌 0
+//   6) pickExpandAnchorY — F-7 펼침/접기 앵커 선택 (33-G, quick-260731-cum)
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,6 +23,7 @@ import assert from 'node:assert/strict';
 import {
   deriveResultSections,
   buildRecordMaps,
+  pickExpandAnchorY,
   RESULT_SECTION_ORDER,
   type ResultSectionsInput,
 } from '../resultSections.ts';
@@ -171,4 +173,28 @@ test('Test 5 (recordId 맵): recordId 조인 + idx 폴백 + 질문 조인, 충�
   assert.equal(dup.size, 2);
   assert.ok(dup.has('rX'));
   assert.ok(dup.has('idx:1'));
+});
+
+// ── Test 6: F-7 펼침/접기 앵커 선택 (33-G F-7, quick-260731-cum) ───────────────
+test('Test 6 (F-7 앵커): 첫 키 우선 / 두 번째 폴백 / 전무 → null / 음수 클램프', () => {
+  const KEYS = ['anchor:summaryCard', 'anchor:scoreGauge', 'anchor:scoreBreakdown'];
+
+  // 6-1. 첫 키가 기록돼 있으면 그것을 쓴다 — 요약 카드가 화면에 남아야 "펼쳐졌다"가
+  //      자명해진다(D-05 ②). 아래 앵커가 같이 있어도 첫 키가 이긴다.
+  const both = new Map<string, number>([
+    ['anchor:summaryCard', 420],
+    ['anchor:scoreGauge', 1880],
+  ]);
+  assert.equal(pickExpandAnchorY(both, KEYS, 12), 408);
+
+  // 6-2. 첫 키 미기록 → 다음 키로 폴백 (기존 동작 경로를 지우지 않는다).
+  const onlyGauge = new Map<string, number>([['anchor:scoreGauge', 1880]]);
+  assert.equal(pickExpandAnchorY(onlyGauge, KEYS, 12), 1868);
+
+  // 6-3. 하나도 기록 안 됨 → null (호출측이 scrollToEnd / y:0 으로 폴백).
+  assert.equal(pickExpandAnchorY(new Map<string, number>(), KEYS, 12), null);
+
+  // 6-4. pad 가 y 보다 크면 0 으로 클램프 (음수 스크롤 금지).
+  const top = new Map<string, number>([['anchor:summaryCard', 4]]);
+  assert.equal(pickExpandAnchorY(top, KEYS, 12), 0);
 });

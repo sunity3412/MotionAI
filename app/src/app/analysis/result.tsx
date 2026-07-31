@@ -47,6 +47,7 @@ import type { SummaryInput } from '../../lib/summarySource';
 import {
   deriveResultSections,
   buildRecordMaps,
+  pickExpandAnchorY,
   recordKeyForIndex,
 } from '../../lib/resultSections';
 import type { ResultSectionKey, ResultSection } from '../../lib/resultSections';
@@ -2122,27 +2123,31 @@ function AnalysisResultContent({
 
   // 33-15 (D-17) — 요약 카드 '자세히 보기' 토글. 종전엔 topFix 카드로만 점프해
   // (요약 바로 아래라 거의 안 움직임 + 재탭 무반응) belle 가 "재탭 안 접힘 /
-  // 스크롤 오정지"로 지적. 펼침 = 점수 상세 영역(게이지 카드 → 내역 순 앵커,
-  // onLayout 실측 y)으로 스크롤 + 라벨 '접기', 재탭 = 최상단 복귀 (접힘 상태 복원).
+  // 스크롤 오정지"로 지적. 토글 + '접기' 라벨 + chevron 방향으로 해소했다.
   // 앵커 키는 전용 setCardY 슬롯 — record 키와 충돌 없음.
   const DETAIL_ANCHOR_KEYS = ['anchor:scoreGauge', 'anchor:scoreBreakdown'];
+  // F-7 (33-G, quick-260731-cum) — 그 뒤 belle 이 "자세히 보기가 확 내려간다"로 재반려.
+  // 원인: 펼치는 즉시 **펼치기 전에 측정된** scoreGauge/scoreBreakdown y 로 점프해
+  // 요약 카드에서 한참 아래로 내려갔고, 그 y 자체도 stale 이었다(펼침이 레이아웃을
+  // 바꾸는데 갱신 전 값으로 스크롤). 앵커를 **요약 카드 자신**으로 옮긴다 — 누른 줄이
+  // 화면에 남고 그 아래에 새 내용이 나타나면 "펼쳐졌다"가 자명하다(D-05 ②).
+  // 부수 효과로 요약 카드 y 는 펼침으로 **변하지 않으므로**(펼침 콘텐츠는 전부 그
+  // 아래) layout 대기가 필요 없고 stale-y 경합도 같이 사라진다.
+  // 접기도 같은 앵커를 쓴다 — 종전 "최상단 복귀"는 승인 스펙이 아니라 구현 선택이었고,
+  // F-7 이 지적한 "확 튐"과 같은 성질이다.
+  const EXPAND_ANCHOR_KEYS = ['anchor:summaryCard', ...DETAIL_ANCHOR_KEYS];
   const [detailExpanded, setDetailExpanded] = useState(false);
   const toggleDetailExpanded = () => {
-    if (detailExpanded) {
-      setDetailExpanded(false);
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    const next = !detailExpanded;
+    setDetailExpanded(next);
+    const y = pickExpandAnchorY(cardYRef.current, EXPAND_ANCHOR_KEYS, 12);
+    if (y != null) {
+      scrollRef.current?.scrollTo({ y, animated: true });
       return;
     }
-    setDetailExpanded(true);
-    for (const key of DETAIL_ANCHOR_KEYS) {
-      const y = cardYRef.current.get(key);
-      if (typeof y === 'number') {
-        scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
-        return;
-      }
-    }
-    // 앵커 미기록(억제 + 내역 부재 등) — 상세가 아래쪽에 있으므로 끝으로 폴백.
-    scrollRef.current?.scrollToEnd({ animated: true });
+    // 앵커 전무(억제 + 내역 부재 등) — 기존 폴백 체인 그대로 유지.
+    if (next) scrollRef.current?.scrollToEnd({ animated: true });
+    else scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   // 33-15 (D-17) — '오늘 고칠 것' 외 추가 감점 항목 스크롤 어포던스. 추가 항목은
@@ -2253,39 +2258,47 @@ function AnalysisResultContent({
             오늘 고칠 것 + 다음 행동 + 점수 소형 배지 1곳). mode3 헤드라인=발전 델타
             invariant 는 summaryPraise(백엔드 사람 말)가 담당(D-26). 큰 점수 게이지는
             D-09 로 아래 상세 영역으로 강등(헤드라인 수치 금지). */}
-        {variantOf('summary') === 'suppressed' ? (
-          <View style={styles.card}>
-            <Text style={styles.suppressedTitle}>기준 없음</Text>
-            <Text style={styles.suppressedBody}>{suppressedHeaderCopy}</Text>
-          </View>
-        ) : (
-          <SummaryCard
-            praise={summaryContent.praise}
-            // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 "오늘 고칠 것" 헤드라인을
-            // 관절명 없는 집계 문장으로 라우팅 (TODAY_NONE '고칠 것 없음' 폴백 금지 —
-            // clean 오인 방지). "다음 행동" 은 record cueLine(관절-행동)이라 숨김.
-            // praise/score 배지는 유지(확신 표면 — 리드). 신규 카피 0.
-            todayFix={
-              attributionUnreliable
-                ? {
-                    headline:
-                      result.attributionReliability?.aggregateStatement ??
-                      ATTR_SCORE_AGGREGATE_FALLBACK,
-                    criterion: '',
-                    gameFrame: false,
-                  }
-                : summaryContent.todayFix
-            }
-            nextAction={
-              attributionUnreliable ? null : summaryContent.nextAction
-            }
-            score={result.overallScore}
-            onPressTodayFix={() => jumpToRecordKey(topFixKey)}
-            // 33-15 (D-17) — 자세히 보기 = 점수 상세 앵커 토글 (재탭 = 접기/복귀).
-            onPressExpand={toggleDetailExpanded}
-            expanded={detailExpanded}
-          />
-        )}
+        {/* F-7 (33-G) — '자세히 보기'/'접기' 스크롤 앵커. 요약 카드 자신의 y 를
+            기록해 전환 후에도 누른 줄이 화면에 남게 한다(위 toggleDetailExpanded
+            주석 참조). 래퍼는 스타일 없는 View 1겹 — content 컨테이너의 flex 자식
+            수가 그대로(1개)라 gap/여백이 변하지 않는다. */}
+        <View
+          onLayout={(e) => setCardY('anchor:summaryCard', e.nativeEvent.layout.y)}
+        >
+          {variantOf('summary') === 'suppressed' ? (
+            <View style={styles.card}>
+              <Text style={styles.suppressedTitle}>기준 없음</Text>
+              <Text style={styles.suppressedBody}>{suppressedHeaderCopy}</Text>
+            </View>
+          ) : (
+            <SummaryCard
+              praise={summaryContent.praise}
+              // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 "오늘 고칠 것" 헤드라인을
+              // 관절명 없는 집계 문장으로 라우팅 (TODAY_NONE '고칠 것 없음' 폴백 금지 —
+              // clean 오인 방지). "다음 행동" 은 record cueLine(관절-행동)이라 숨김.
+              // praise/score 배지는 유지(확신 표면 — 리드). 신규 카피 0.
+              todayFix={
+                attributionUnreliable
+                  ? {
+                      headline:
+                        result.attributionReliability?.aggregateStatement ??
+                        ATTR_SCORE_AGGREGATE_FALLBACK,
+                      criterion: '',
+                      gameFrame: false,
+                    }
+                  : summaryContent.todayFix
+              }
+              nextAction={
+                attributionUnreliable ? null : summaryContent.nextAction
+              }
+              score={result.overallScore}
+              onPressTodayFix={() => jumpToRecordKey(topFixKey)}
+              // 33-15 (D-17) + F-7 (33-G) — 자세히 보기/접기 = 요약 카드 앵커 토글.
+              onPressExpand={toggleDetailExpanded}
+              expanded={detailExpanded}
+            />
+          )}
+        </View>
 
         {/* 32-12 (D-29 부분 실패 정직 고지) — 커버리지 갭이 있을 때만. 못 잰 부분을
             정직하게 알리고(과장·감춤 금지) 다음 행동(촬영 가이드)을 1줄로 잇는다.

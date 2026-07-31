@@ -1,0 +1,71 @@
+[
+  {
+    "analysisId": "powerspinFault1785373695",
+    "status": "done",
+    "mode": "mode1",
+    "referenceMotionId": "ref-power-spin",
+    "overallScore": 80,
+    "faultZoomCards": 5,
+    "faultZoomCriteria": [
+      "angle_vs_reference__left_elbow",
+      "angle_vs_reference__left_shoulder",
+      "angle_vs_reference__left_knee",
+      null,
+      null
+    ],
+    "userVideoSec": null,
+    "refVideoSec": null,
+    "videoKey": "fixtures/phase15/power-spin/fault.mp4",
+    "updatedAt": 1785373802909,
+    "createdAt": 1785373698165
+  },
+  {
+    "analysisId": "elbowtwistsisterFault1785373695",
+    "status": "done",
+    "mode": "mode1",
+    "referenceMotionId": "ref-elbow-twist-sister",
+    "overallScore": 60,
+    "faultZoomCards": 0,
+    "faultZoomCriteria": [],
+    "userVideoSec": null,
+    "refVideoSec": null,
+    "videoKey": "fixtures/phase15/elbow-twist-sister/fault.mp4",
+    "updatedAt": 1785374198067,
+    "createdAt": 1785374047175
+  },
+  {
+    "analysisId": "pdshapeCorrect1785373695",
+    "status": "done",
+    "mode": "mode1",
+    "referenceMotionId": "ref-pdshape",
+    "overallScore": 100,
+    "faultZoomCards": 2,
+    "faultZoomCriteria": [
+      null,
+      null
+    ],
+    "userVideoSec": null,
+    "refVideoSec": null,
+    "videoKey": "fixtures/phase15/pdshape/correct.mp4",
+    "updatedAt": 1785374572641,
+    "createdAt": 1785374469163
+  },
+  {
+    "analysisId": "kipupFault1785373695",
+    "status": "done",
+    "mode": "mode1",
+    "referenceMotionId": "ref-kip-up",
+    "overallScore": 79,
+    "faultZoomCards": 3,
+    "faultZoomCriteria": [
+      "angle_vs_reference__left_elbow",
+      "angle_vs_reference__left_shoulder",
+      null
+    ],
+    "userVideoSec": null,
+    "refVideoSec": null,
+    "videoKey": "fixtures/phase15/kip-up/fault.mp4",
+    "updatedAt": 1785374653383,
+    "createdAt": 1785374576559
+  }
+]

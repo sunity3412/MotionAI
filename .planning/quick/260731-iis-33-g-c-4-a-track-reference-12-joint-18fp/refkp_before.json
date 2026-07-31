@@ -1,0 +1,362 @@
+{
+  "release": {
+    "docExists": false,
+    "activeCandidate": null,
+    "allKeys": []
+  },
+  "candidateVersion": "phase33-cm3-run1",
+  "motions": [
+    {
+      "motion": "ref-sideway-spin",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 298,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 298,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 298,
+      "refkpJoints": 8,
+      "scoringHash": "6a0ef2c4a69dee82",
+      "resolvedAnglesFrames": 298,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 199,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 199,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 199,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 149.0,
+      "anglesRep9N": 149.0
+    },
+    {
+      "motion": "ref-climb",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 257,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 257,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 257,
+      "refkpJoints": 8,
+      "scoringHash": "86356f46000b2284",
+      "resolvedAnglesFrames": 257,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 172,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 172,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 172,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 128.5,
+      "anglesRep9N": 128.5
+    },
+    {
+      "motion": "ref-invert",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 260,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 260,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 260,
+      "refkpJoints": 8,
+      "scoringHash": "f4740195c6cdd704",
+      "resolvedAnglesFrames": 260,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 174,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 174,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 174,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 130.0,
+      "anglesRep9N": 130.0
+    },
+    {
+      "motion": "ref-foxtop",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 426,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 426,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 426,
+      "refkpJoints": 8,
+      "scoringHash": "d57564cd82f5e684",
+      "resolvedAnglesFrames": 426,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 284,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 284,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 284,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 213.0,
+      "anglesRep9N": 213.0
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 485,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 485,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 485,
+      "refkpJoints": 8,
+      "scoringHash": "1838e2ac9024f7c4",
+      "resolvedAnglesFrames": 485,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 324,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 324,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 324,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 242.5,
+      "anglesRep9N": 242.5
+    },
+    {
+      "motion": "ref-combo",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 931,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 931,
+      "kpJoints": 8,
+      "refkpFps": 9.0,
+      "refkpFrames": 466,
+      "refkpJoints": 8,
+      "scoringHash": "28ae8f56428bd41d",
+      "resolvedAnglesFrames": 931,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 621,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 621,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 621,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 466.0,
+      "anglesRep9N": 465.5
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 329,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 329,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 329,
+      "refkpJoints": 8,
+      "scoringHash": "eb07eb2ac8955fff",
+      "resolvedAnglesFrames": 329,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 220,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 220,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 220,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 164.5,
+      "anglesRep9N": 164.5
+    },
+    {
+      "motion": "ref-kip-up",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 118,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 118,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 118,
+      "refkpJoints": 8,
+      "scoringHash": "a352fb1e038570cf",
+      "resolvedAnglesFrames": 118,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 79,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 79,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 79,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 59.0,
+      "anglesRep9N": 59.0
+    },
+    {
+      "motion": "ref-pdshape",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 237,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 237,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 237,
+      "refkpJoints": 8,
+      "scoringHash": "6188e6d1eeb8f03b",
+      "resolvedAnglesFrames": 237,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 159,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 159,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 159,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 118.5,
+      "anglesRep9N": 118.5
+    },
+    {
+      "motion": "ref-peter-pan",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 130,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 130,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 130,
+      "refkpJoints": 8,
+      "scoringHash": "ce02268968741c9a",
+      "resolvedAnglesFrames": 130,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 87,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 87,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 87,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 65.0,
+      "anglesRep9N": 65.0
+    },
+    {
+      "motion": "ref-power-spin",
+      "activeVersion": "phase4_v1",
+      "anglesFrames": 159,
+      "anglesJointKeysLen": 8,
+      "kpFps": 18.0,
+      "kpFrames": 159,
+      "kpJoints": 8,
+      "refkpFps": 18.0,
+      "refkpFrames": 159,
+      "refkpJoints": 8,
+      "scoringHash": "05eb0c1a155a3b21",
+      "resolvedAnglesFrames": 159,
+      "resolvedKpFps": 18.0,
+      "candidate": {
+        "docExists": true,
+        "anglesFrames": 106,
+        "keypointReport": {
+          "fps": 9.0,
+          "frames": 106,
+          "joints": 12
+        },
+        "referenceKeypointReport": {
+          "fps": 9.0,
+          "frames": 106,
+          "joints": 12
+        },
+        "hasReferenceKeypointReport": true
+      },
+      "refkpRep9N": 79.5,
+      "anglesRep9N": 79.5
+    }
+  ]
+}

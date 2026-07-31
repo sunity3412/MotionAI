@@ -1,0 +1,71 @@
+load /workspace/yolox_weights/yolox_m.onnx with onnxruntime backend
+[0;93m2026-07-31 05:46:26.645046387 [W:onnxruntime:, session_state.cc:1166 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.[m
+[0;93m2026-07-31 05:46:26.645190660 [W:onnxruntime:, session_state.cc:1168 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+load /workspace/rtmw_weights/rtmw-x-384.onnx with onnxruntime backend
+
+[powerspinFault1785373695] key=fixtures/phase15/power-spin/fault.mp4 prevScore=80 prevUpdatedAt=1785476446506
+    [stage] fixtures/phase15/power-spin/fault.mp4 크기 일치(43322289) → 로컬 스테이지 사용
+Phase 17 telemetry extras 미설치: No module named 'phoenix' — bootstrap_tracing noop (분석 흐름 차단 0).
+    [stage] reference/ref-power-spin.mp4 크기 일치(3127706) → 로컬 스테이지 사용
+Cerebras 코칭 생성 실패 — 수치 폴백 사용
+Traceback (most recent call last):
+  File "/workspace/SunityMotion/backend/shared/python/sunity_shared/analysis/coach_writer.py", line 298, in write
+    data = json.loads(resp.choices[0].message.content)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/decoder.py", line 353, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ^^^^^^^^^^^^^^^^^^^^^^
+json.decoder.JSONDecodeError: Unterminated string starting at: line 27 column 15 (char 1001)
+  _process OK (127s) status=done score=60 cards=4 userVideoSec=None refVideoSec=None updatedAt=1785476915337
+
+[kipupFault1785373695] key=fixtures/phase15/kip-up/fault.mp4 prevScore=79 prevUpdatedAt=1785374653383
+    [stage] fixtures/phase15/kip-up/fault.mp4 크기 일치(34656979) → 로컬 스테이지 사용
+torso_px ratio extreme uid=fvcNXzEqKjgqVxRPVSj1iwFnIpn2 analysis_id=kipupFault1785373695 target=74.3 ref=7.4 ratio=10.04 — student/reference 촬영 거리 불일치 가능
+    [stage] reference/ref-kip-up.mp4 크기 일치(2252863) → 로컬 스테이지 사용
+  _process OK (100s) status=done score=79 cards=2 userVideoSec=None refVideoSec=None updatedAt=1785477016933
+
+[pdshapeCorrect1785373695] key=fixtures/phase15/pdshape/correct.mp4 prevScore=100 prevUpdatedAt=1785374572641
+    [stage] fixtures/phase15/pdshape/correct.mp4 크기 일치(81200742) → 로컬 스테이지 사용
+    [stage] reference/ref-pdshape.mp4 크기 일치(4517365) → 로컬 스테이지 사용
+Cerebras 코칭 생성 실패 — 수치 폴백 사용
+Traceback (most recent call last):
+  File "/workspace/SunityMotion/backend/shared/python/sunity_shared/analysis/coach_writer.py", line 298, in write
+    data = json.loads(resp.choices[0].message.content)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/decoder.py", line 353, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ^^^^^^^^^^^^^^^^^^^^^^
+json.decoder.JSONDecodeError: Unterminated string starting at: line 66 column 26 (char 2307)
+Cerebras 코칭 생성 실패 — 수치 폴백 사용
+Traceback (most recent call last):
+  File "/workspace/SunityMotion/backend/shared/python/sunity_shared/analysis/coach_writer.py", line 298, in write
+    data = json.loads(resp.choices[0].message.content)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/decoder.py", line 353, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ^^^^^^^^^^^^^^^^^^^^^^
+json.decoder.JSONDecodeError: Unterminated string starting at: line 24 column 18 (char 873)
+  _process OK (160s) status=done score=100 cards=1 userVideoSec=None refVideoSec=None updatedAt=1785477179144
+
+[elbowtwistsisterFault1785373695] key=fixtures/phase15/elbow-twist-sister/fault.mp4 prevScore=60 prevUpdatedAt=1785374198067
+    [stage] fixtures/phase15/elbow-twist-sister/fault.mp4 크기 일치(92437315) → 로컬 스테이지 사용
+    [stage] reference/ref-elbow-twist-sister.mp4 크기 일치(6372808) → 로컬 스테이지 사용
+  _process OK (197s) status=done score=63 cards=5 userVideoSec=None refVideoSec=None updatedAt=1785477377975

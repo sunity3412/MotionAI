@@ -1,0 +1,5609 @@
+{
+  "motions": [
+    "ref-climb",
+    "ref-elbow-twist-sister",
+    "ref-foxtop",
+    "ref-foxtop-split",
+    "ref-invert",
+    "ref-kip-up",
+    "ref-pdshape",
+    "ref-peter-pan",
+    "ref-power-spin",
+    "ref-sideway-spin"
+  ],
+  "cards": [
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 9,
+      "ref_sel_rep_idx": 18,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 719,
+      "png_sha256": "e920b62975800cfdd2c58807da4f6f08c74189234ee8ea22a4df2e913a362420",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 116,
+      "ref_sel_rep_idx": 232,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 724,
+      "png_sha256": "33b0998e72bb67a4237a43482de76f1102edc113233efc0730c73005de607c3d",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 9,
+      "ref_sel_rep_idx": 18,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 790,
+      "brand_px_ref": 726,
+      "png_sha256": "7f0b0f13f75554a3fe64a3a42854fd364fcbd5737540db343112f9df13102e22",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 30,
+      "ref_sel_rep_idx": 60,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 755,
+      "png_sha256": "c29ee515509287dd87c564a885490938dbb9bc90dff717ff5b9eea75d1166a42",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 9,
+      "ref_sel_rep_idx": 18,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 751,
+      "png_sha256": "0b2564cc889292e89df722ac30ebf65f9e952d2d709d0bdaa2705dbe8185958f",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 43,
+      "ref_sel_rep_idx": 86,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 710,
+      "png_sha256": "25c8856d289e5eb601b305813d703376a88df6b41e04ddebc15b1e2377ac1a9f",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 9,
+      "ref_sel_rep_idx": 18,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 761,
+      "brand_px_ref": 724,
+      "png_sha256": "be4c915a4c0ab2462411f0cc15595b909323d13aea5c1d67930a0c023e827792",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 5,
+      "ref_sel_rep_idx": 10,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 723,
+      "brand_px_ref": 788,
+      "png_sha256": "10be98770dad8c95109420f9ad57581dac1eb996175c2d6d72883166aa79df53",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 5,
+      "ref_sel_rep_idx": 10,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "176",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "cf801f8d072c4dcd65f3550796324da0f9456248c28ea8a7670f69661f3574c1",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__arm_extension.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 9,
+      "ref_sel_rep_idx": 18,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "2e8de4b73ce2ac16ba9c601e93a14c0cdbe90bcae10c6e7aa5368e347f1aa885",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-climb__leg_extension.png"
+    },
+    {
+      "motion": "ref-climb",
+      "motion_index": 0,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.405,
+          0.68
+        ],
+        "right": [
+          0.605,
+          0.68
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 257,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 9,
+      "ref_sel_rep_idx": 18,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            120,
+            385,
+            151
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": true,
+      "right_ankle_in_crop": true,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "ankle",
+      "right_endpoint_expected": "ankle",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1903,
+      "brand_px_ref": 1941,
+      "png_sha256": "f3e721719318b761e98fc6639e87c69f3a0d917fb20f28f89b4a404d4c931c4e",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-climb__split_angle.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 10,
+      "ref_sel_rep_idx": 20,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 759,
+      "png_sha256": "0b6852e237c422bff3277d031a3e0473142feb854cee91e79e0cb39b9c25ae71",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 46,
+      "ref_sel_rep_idx": 92,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 604,
+      "png_sha256": "5efc64aa626823207d7c984bb69966ecce59c50157aee566db2900c30946bb42",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 6,
+      "ref_sel_rep_idx": 12,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 790,
+      "brand_px_ref": 736,
+      "png_sha256": "ee183f516c9c620a4c89f9bf4dd115a520fa2644c368870861e8491ef5c29947",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 7,
+      "ref_sel_rep_idx": 14,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 628,
+      "png_sha256": "bd28f630bf15021e5474253333346181d997d181542a198b78d751326c386e7d",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 53,
+      "ref_sel_rep_idx": 106,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 754,
+      "png_sha256": "23573acf0a8cc9fec1dccd61a2f4df867013926c43eeee6d7043e64259ea8f0a",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 6,
+      "ref_sel_rep_idx": 12,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 651,
+      "png_sha256": "465409db7c1f0d2045bcce8557a98d4b6b7ade1aa834b118a745e705aeb61ce3",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 81,
+      "ref_sel_rep_idx": 162,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 758,
+      "brand_px_ref": 748,
+      "png_sha256": "28369ae114aee107e8ce067c7e53791bce6b019aeafa3585f3830f57107bd3b0",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 10,
+      "ref_sel_rep_idx": 20,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 722,
+      "brand_px_ref": 717,
+      "png_sha256": "eb51e36458a6542bf7ee13fe06879ac34c0ac23af3fa4f52cce2ccd4041883f5",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 7,
+      "ref_sel_rep_idx": 14,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "192",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "9fdc15538d93ec148c5dff546bda8d89f19a719885f115a528438dbbb79d20ba",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__arm_extension.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 10,
+      "ref_sel_rep_idx": 20,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "235",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "ffcb225580ac2ffa5234526a43eb39e15afd1ce52dd4265eda0e470253757098",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-elbow-twist-sister__leg_extension.png"
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "motion_index": 1,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f014.png",
+      "ref_frame": "belle_still_f022.png",
+      "ankle_ladder": {
+        "left": [
+          0.385,
+          0.7100000000000001
+        ],
+        "right": [
+          0.625,
+          0.7100000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 329,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 10,
+      "ref_sel_rep_idx": 20,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "235",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            76,
+            167,
+            235
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": true,
+      "right_ankle_in_crop": true,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "ankle",
+      "right_endpoint_expected": "ankle",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 2176,
+      "brand_px_ref": 1405,
+      "png_sha256": "3abcee686535a5d35cce4a2255495bfbc67f9fce11c8f6a731742090970cdb9c",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-elbow-twist-sister__split_angle.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 22,
+      "ref_sel_rep_idx": 44,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 790,
+      "brand_px_ref": 709,
+      "png_sha256": "84d7ccd76eee4f66c00c774db263e1cabc924db2ff2c835eae637b88ef2ceb66",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 52,
+      "ref_sel_rep_idx": 104,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 719,
+      "png_sha256": "d2441c96d30c155c50f6c18c791b86ad12dda34e7d1d97522349c05da4b3f480",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 84,
+      "ref_sel_rep_idx": 168,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 730,
+      "png_sha256": "a8bafa1f5a7b4886ae19abf453a6953c7954bb50d9689194c2720aabb4e02a06",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 84,
+      "ref_sel_rep_idx": 168,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 742,
+      "png_sha256": "885749b3cdda5de375faf99a8856b984c6c5ddf7b26dda824391d46c540a0289",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 7,
+      "ref_sel_rep_idx": 14,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 753,
+      "png_sha256": "a93d72564392486d4660b1de32ba54c5b3571c8b2b4b86fbc5ace1482c69d0eb",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 39,
+      "ref_sel_rep_idx": 78,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 717,
+      "brand_px_ref": 713,
+      "png_sha256": "ce6182df4d91c79615ecf87fddcc0262edf86ef102fb644f249dad38e4a108d3",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 22,
+      "ref_sel_rep_idx": 44,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 605,
+      "png_sha256": "22c55d41fdd7ba1bf9643135dbf3f65e2130d0d85f4c4434d779f758466d6dd1",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 58,
+      "ref_sel_rep_idx": 116,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 669,
+      "png_sha256": "d77650f144e0815806e617d3dbf9742f6d793e2f3ce8d35a4d21a588e6dd1c09",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 59,
+      "ref_sel_rep_idx": 118,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "174",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "1c44b15b608a6739cc78add5b97c637e05c6765f8768670a88596923aa11b45b",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__arm_extension.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 7,
+      "ref_sel_rep_idx": 14,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "cf95589ceffb1e8e47797fea6b60c3f8d2c04428fafd1cdd1be3a2fcb075c213",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop__leg_extension.png"
+    },
+    {
+      "motion": "ref-foxtop",
+      "motion_index": 2,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f017.png",
+      "ref_frame": "belle_still_f027.png",
+      "ankle_ladder": {
+        "left": [
+          0.365,
+          0.74
+        ],
+        "right": [
+          0.645,
+          0.74
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 426,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 7,
+      "ref_sel_rep_idx": 14,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            92,
+            325,
+            151
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": true,
+      "right_ankle_in_crop": true,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "ankle",
+      "right_endpoint_expected": "ankle",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 2339,
+      "brand_px_ref": 1534,
+      "png_sha256": "d78139f8cc882615ad6d80c32dbb76bf4bcedac47de2ce9217d1c4d89daf1317",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-foxtop__split_angle.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 221,
+      "ref_sel_rep_idx": 442,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 790,
+      "brand_px_ref": 720,
+      "png_sha256": "6d1e8c7f3244d5fb40d04827204d71dadf2402275a5e344f9f8ddd34e687715b",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 221,
+      "ref_sel_rep_idx": 442,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 720,
+      "png_sha256": "b776c526eebfe4a96602376f1dee6e8d8efc04cae7aa386e949d65af7ecf76e8",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 221,
+      "ref_sel_rep_idx": 442,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 719,
+      "png_sha256": "1234d4a71349b6c44e8ed23fca926a6a86e93d5857e30403b6de6e2d93518276",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 25,
+      "ref_sel_rep_idx": 50,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 631,
+      "png_sha256": "ce599004b5fcfe3d86b8fe1ccbad336990d0acc88ae5237e537f8d3cc35510c1",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 221,
+      "ref_sel_rep_idx": 442,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 727,
+      "png_sha256": "96b50a6d3da1b337a361a1cd90d4439f986e7d15d046fe65cb50cd6851a0dc0d",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 54,
+      "ref_sel_rep_idx": 108,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 715,
+      "brand_px_ref": 600,
+      "png_sha256": "a414ea5dd3f26812b73c6cd3a8da975e9c34b9fbcf087b182022cdf2c11e29f4",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 221,
+      "ref_sel_rep_idx": 442,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 585,
+      "png_sha256": "e471c8247b41b834dfedcd0c7697f48836234f6f57aed00bba1b511d6a044bda",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 224,
+      "ref_sel_rep_idx": 448,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 675,
+      "png_sha256": "f05f90e3480921b7948bee360698fc2c8a78cb47f0e815d92c9e9f837cc401e8",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 231,
+      "ref_sel_rep_idx": 462,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "c93c476729f8f288963f3a065d1484bc2dbbf590a127d5615ee8052d96e1420c",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__arm_extension.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 221,
+      "ref_sel_rep_idx": 442,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "dc2df1ca963cc83992d51ea5a8b94ab482d24bf894e15b3415b34b4e6ff3bf66",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-foxtop-split__leg_extension.png"
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "motion_index": 3,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f018.png",
+      "ref_frame": "belle_still_f070.png",
+      "ankle_ladder": {
+        "left": [
+          0.345,
+          0.77
+        ],
+        "right": [
+          0.665,
+          0.77
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 485,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 221,
+      "ref_sel_rep_idx": 442,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            125,
+            345,
+            151
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": false,
+          "right_ankle_in_crop": false,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "knee",
+          "right_endpoint_expected": "knee"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": false,
+      "right_ankle_in_crop": false,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "knee",
+      "right_endpoint_expected": "knee",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1646,
+      "brand_px_ref": 1326,
+      "png_sha256": "9aa52d228f6ad27ec0dc0eae3c5655c537b2dc0df2d34aab4fe54a0bade1392a",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-foxtop-split__split_angle.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 7,
+      "ref_sel_rep_idx": 14,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "omitted:degenerate",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "9a07d54b78f7d4abcae6009bf7d8720a799d83237cbf2137f30a45771ae76665",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 10,
+      "ref_sel_rep_idx": 20,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 717,
+      "png_sha256": "aa7b53f4cefc89b3532fdf2edb81606dbde5480deed00c7b807ebc4c9108377d",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 25,
+      "ref_sel_rep_idx": 50,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 640,
+      "png_sha256": "a9a530bb4ebe3801cf34aab5eac42a9c4413dd4b482ed77df288f46e055989a7",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 25,
+      "ref_sel_rep_idx": 50,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 726,
+      "png_sha256": "a44864228195fbf2ff6ec95d627945ee80e130dd6e35558269a063dba10f09f1",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 7,
+      "ref_sel_rep_idx": 14,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 754,
+      "brand_px_ref": 777,
+      "png_sha256": "79bcfb25540f6fe5fdf31c915345b27922736b8195f6fc3f6cee12c61fe148b1",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 76,
+      "ref_sel_rep_idx": 152,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 742,
+      "brand_px_ref": 700,
+      "png_sha256": "18750efe1d0022ea509cb3ceb70e61086dc78614d236cdd2f7e4277bbc170dc0",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 112,
+      "ref_sel_rep_idx": 224,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 780,
+      "png_sha256": "8897939bb93ab64f3bfa515c71cce74721674ad78422177a66b8a3891763b0f5",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 3,
+      "ref_sel_rep_idx": 6,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 724,
+      "png_sha256": "495e41c1791a425c05bc6c7dc02c97660546633569e85b7811acc5a0b76f34e1",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 77,
+      "ref_sel_rep_idx": 154,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "5415fd96e591f402b2fba9f58dd008f0ad5c6f5a57f521ee8974c4f78adeba45",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__arm_extension.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 7,
+      "ref_sel_rep_idx": 14,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "9709697215b9f11ea100e26da0b7b09d7d440cbdee5da9ee0cccae9d5f6eb5a9",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-invert__leg_extension.png"
+    },
+    {
+      "motion": "ref-invert",
+      "motion_index": 4,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f022.png",
+      "ref_frame": "belle_still_f075.png",
+      "ankle_ladder": {
+        "left": [
+          0.325,
+          0.8
+        ],
+        "right": [
+          0.685,
+          0.8
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 260,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 7,
+      "ref_sel_rep_idx": 14,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            100,
+            345,
+            151
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": false,
+          "right_ankle_in_crop": false,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "knee",
+          "right_endpoint_expected": "knee"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": false,
+      "right_ankle_in_crop": false,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "knee",
+      "right_endpoint_expected": "knee",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1646,
+      "brand_px_ref": 1986,
+      "png_sha256": "c185cca012925f762efe2083aff3c9ae56136fdd3bbec5c4ecf32d251b478b5c",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-invert__split_angle.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 27,
+      "ref_sel_rep_idx": 54,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 627,
+      "png_sha256": "185998924b0f37704f9e7c71b756581705515933c87d6732457b8750849d977b",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 46,
+      "ref_sel_rep_idx": 92,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 754,
+      "png_sha256": "e583b2047dba2a80f33b080a6baf7c2f6f640651f5ccd682b439407a7b057154",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 40,
+      "ref_sel_rep_idx": 80,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 790,
+      "brand_px_ref": 761,
+      "png_sha256": "7e0fc368d77eb2121c14b7097236fdb01b3a29bd596b7c1aac19718c18f64db5",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 40,
+      "ref_sel_rep_idx": 80,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 752,
+      "png_sha256": "c1a230594ff8163cba5b26da7b6f23142af2ead28a275ed9ad8dd55fe00288fd",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 20,
+      "ref_sel_rep_idx": 40,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 727,
+      "png_sha256": "c844d308b5856249721965e30299cb87b7b58a330e8acdacf170a05a6ce4ecfd",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 20,
+      "ref_sel_rep_idx": 40,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 639,
+      "png_sha256": "6300547b13af194985e8cbb62025bcee79aa86faf5921246b3456517a8ecd76e",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 27,
+      "ref_sel_rep_idx": 54,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 782,
+      "brand_px_ref": 785,
+      "png_sha256": "daf4ff6b08c823cdc7855a55609eabd3d9c1eab6f8edae8a51441dc5682c35ef",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 27,
+      "ref_sel_rep_idx": 54,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 744,
+      "brand_px_ref": 603,
+      "png_sha256": "1a97002b94a026505d4b73351127e25c179c7de1364a8941db9143d5ce9e91a2",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 2,
+      "ref_sel_rep_idx": 4,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "253",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1008,
+      "png_sha256": "2409e608c8e82d81ef4f497db8ff86d1166cd1a5a2f0560ada5f1de5e9df3104",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__arm_extension.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 27,
+      "ref_sel_rep_idx": 54,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "171",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "46af28dee1d124bcaf6b733ab1ab10c5b53a92113cba831a3b5d5497badadb72",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-kip-up__leg_extension.png"
+    },
+    {
+      "motion": "ref-kip-up",
+      "motion_index": 5,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f027.png",
+      "ref_frame": "belle_still_f082.png",
+      "ankle_ladder": {
+        "left": [
+          0.305,
+          0.8300000000000001
+        ],
+        "right": [
+          0.7050000000000001,
+          0.8300000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 118,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 27,
+      "ref_sel_rep_idx": 54,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "171",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            120,
+            320,
+            171
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": false,
+          "right_ankle_in_crop": false,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "knee",
+          "right_endpoint_expected": "knee"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": false,
+      "right_ankle_in_crop": false,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "knee",
+      "right_endpoint_expected": "knee",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1646,
+      "brand_px_ref": 2399,
+      "png_sha256": "a6989d659d78bb9b25a3f4b723fe4ff7cf0f9ead02c94865eaedfa6291bf90af",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-kip-up__split_angle.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 110,
+      "ref_sel_rep_idx": 220,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 741,
+      "png_sha256": "e64c6afef4159d279d56f4a50ecbc038b7658358087c5e304dfc1cb34b5eaab8",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 112,
+      "ref_sel_rep_idx": 224,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 757,
+      "png_sha256": "2c3c44cf8aa5c56a3dfaf5ec4f2464e027fb67015d64dba927670016e78ed4c0",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 110,
+      "ref_sel_rep_idx": 220,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 790,
+      "brand_px_ref": 660,
+      "png_sha256": "b9e13d433d4b67aac624e1ff72e1c87e1719a6ef53b1b8d31f201e156c842b3d",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 3,
+      "ref_sel_rep_idx": 6,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 731,
+      "png_sha256": "75e6221bb61275313a2e8555be187dc51d002b3f7749de363d125314766714a7",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 3,
+      "ref_sel_rep_idx": 6,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 611,
+      "png_sha256": "6e073ee2bcda24825f2c85e9f6498afd3e5b06f05c8b61ebf6c27eaf5b23d96c",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 3,
+      "ref_sel_rep_idx": 6,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 741,
+      "png_sha256": "72b8bb7b454262e61bf76a4c8e385c7e698204e61b6be26c116fe7d15503d77f",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 3,
+      "ref_sel_rep_idx": 6,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 783,
+      "brand_px_ref": 690,
+      "png_sha256": "b51f2f67557e7857ffbd60fa53604952664505de6f968ea1bf0e5f3a003402a6",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 109,
+      "ref_sel_rep_idx": 218,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 746,
+      "brand_px_ref": 645,
+      "png_sha256": "1d087ea68ce1ad17f919bce2cedfffbd23a738c82e91fa58d2abfa51e1e17ed8",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 113,
+      "ref_sel_rep_idx": 226,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "234",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "9597ded69f69141fdd82967df97a29ff2fb0eedc1a78cd176131eb74b7ca7fd8",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__arm_extension.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 109,
+      "ref_sel_rep_idx": 218,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "167",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "b76ef76924d0f932b0554a6544e5b07d62a976d8fa76ca629b58cfc30f1a475f",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-pdshape__leg_extension.png"
+    },
+    {
+      "motion": "ref-pdshape",
+      "motion_index": 6,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f070.png",
+      "ref_frame": "belle_still_f010.png",
+      "ankle_ladder": {
+        "left": [
+          0.28500000000000003,
+          0.8600000000000001
+        ],
+        "right": [
+          0.725,
+          0.8600000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 237,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 109,
+      "ref_sel_rep_idx": 218,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "167",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            71,
+            207,
+            167
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": false,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "knee"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": false,
+          "right_ankle_in_crop": false,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "knee",
+          "right_endpoint_expected": "knee"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": false,
+      "right_ankle_in_crop": false,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "knee",
+      "right_endpoint_expected": "knee",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1646,
+      "brand_px_ref": 1288,
+      "png_sha256": "6ed6cbb479f74df08aa63bad23b06497f791c80eeea23466b0a3f28241654ab1",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-pdshape__split_angle.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 57,
+      "ref_sel_rep_idx": 114,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 628,
+      "png_sha256": "60110f79e5f61f390abadc1498aef19f8ef8e01a3dee64e567856febf3e8dc40",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 18,
+      "ref_sel_rep_idx": 36,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 721,
+      "png_sha256": "87552c84c9932e8d976905346970100d62c5254083f402e530f82a027b7be99b",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 36,
+      "ref_sel_rep_idx": 72,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 790,
+      "brand_px_ref": 747,
+      "png_sha256": "24340bb8ed714d125dbcd37740338a400ea428ddf8d1cbc669248be8ddc98434",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 18,
+      "ref_sel_rep_idx": 36,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 758,
+      "png_sha256": "06a7416fa4a6d5e7a70c2e1dc04a92fcd5f593434d2964c93e18042da1c117ef",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 18,
+      "ref_sel_rep_idx": 36,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 728,
+      "png_sha256": "307ba97c2ec031c4fad17dba7f04720b42b1d0be25752becdf3d05be4903bb21",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 18,
+      "ref_sel_rep_idx": 36,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 754,
+      "png_sha256": "e45585447cc4e94a58471f330a8c18b0c52a4cde6470f2f802ade3321d412db9",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 17,
+      "ref_sel_rep_idx": 34,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 785,
+      "brand_px_ref": 717,
+      "png_sha256": "6b240860ea6164b5e483fb6f1400818d7116ac5842821633f59b4c202beac517",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 18,
+      "ref_sel_rep_idx": 36,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 747,
+      "brand_px_ref": 702,
+      "png_sha256": "969f10a8616aaafcb824b9a0be44a55608b9001c12a542b1a0357719608e2714",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 18,
+      "ref_sel_rep_idx": 36,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "253",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "b7ccef790ca12303a878a3b7106425a54835550a22b8cf71fe0f28251689d7a1",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__arm_extension.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 18,
+      "ref_sel_rep_idx": 36,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "8f18e20367d20201ff3c30bd0257f7aa6309ba9c9025a1294eed83753e5ca82f",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-peter-pan__leg_extension.png"
+    },
+    {
+      "motion": "ref-peter-pan",
+      "motion_index": 7,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f075.png",
+      "ref_frame": "belle_still_f014.png",
+      "ankle_ladder": {
+        "left": [
+          0.265,
+          0.89
+        ],
+        "right": [
+          0.745,
+          0.89
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 130,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 18,
+      "ref_sel_rep_idx": 36,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            63,
+            267,
+            151
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": false,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "knee",
+          "right_endpoint_expected": "ankle"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": false,
+          "right_ankle_in_crop": false,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "knee",
+          "right_endpoint_expected": "knee"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": false,
+      "right_ankle_in_crop": false,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "knee",
+      "right_endpoint_expected": "knee",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1646,
+      "brand_px_ref": 1063,
+      "png_sha256": "d68268b3f98de97b824bf0a5d3cd0a197be5b19374bc405fa4eb0e02aebc7dcc",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-peter-pan__split_angle.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 16,
+      "ref_sel_rep_idx": 32,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 784,
+      "brand_px_ref": 597,
+      "png_sha256": "e43baaabef0026e7160b13da653815f751be21f86834e62d2f88dc96c0f63f83",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 65,
+      "ref_sel_rep_idx": 130,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 742,
+      "brand_px_ref": 727,
+      "png_sha256": "5f6ea9c8dc53ad7655967c3a5b5a3068a90dc8eb6db9811cbb08d92c28e482db",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 15,
+      "ref_sel_rep_idx": 30,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 778,
+      "png_sha256": "45090495469dd1342b94098adb27cad13666950b666cdf256aaa64f21b980734",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 5,
+      "ref_sel_rep_idx": 10,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 774,
+      "png_sha256": "ae5058249e9cc847ebaf918d38184143dcbeeb05273fdca6194af5bf8921996e",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 5,
+      "ref_sel_rep_idx": 10,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 790,
+      "brand_px_ref": 590,
+      "png_sha256": "5a65d9035d47e955bf50e3afcf3d216f166a4c2ec8cf7d0d9af567595b334519",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 25,
+      "ref_sel_rep_idx": 50,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 670,
+      "png_sha256": "5d0eae4195c0612059aff027b5606f34ba5d56a83d7cea682ce78cb7a638f950",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 15,
+      "ref_sel_rep_idx": 30,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 664,
+      "png_sha256": "fe2c3a567d04a42aef88619ab4c36ddcbd1800b073504f8fcd01bcc102a1328d",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 16,
+      "ref_sel_rep_idx": 32,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 705,
+      "png_sha256": "32e62c349aea8577ed63f6f4afb878893d89677effe1392f57cc1ff126f5776f",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 5,
+      "ref_sel_rep_idx": 10,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "241",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "f462cd0942c4475d36706ae0a7e212bba31cf4c98abc7c51d698d6b4b62988e7",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__arm_extension.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 16,
+      "ref_sel_rep_idx": 32,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "3d13af48473142157246750251c0acb5c32d0ad78f5fea6da061b8932cb82b77",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-power-spin__leg_extension.png"
+    },
+    {
+      "motion": "ref-power-spin",
+      "motion_index": 8,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f082.png",
+      "ref_frame": "belle_still_f017.png",
+      "ankle_ladder": {
+        "left": [
+          0.245,
+          0.92
+        ],
+        "right": [
+          0.765,
+          0.92
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 159,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 16,
+      "ref_sel_rep_idx": 32,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "151",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            96,
+            199,
+            151
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": false,
+          "right_ankle_in_crop": false,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "knee",
+          "right_endpoint_expected": "knee"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": false,
+      "right_ankle_in_crop": false,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "knee",
+      "right_endpoint_expected": "knee",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.1111111111111111,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1646,
+      "brand_px_ref": 1101,
+      "png_sha256": "85b8945e24451c3ab5cdd2abcd9e2b3ecca109f5eb3efb7e8f3edb9d94848538",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-power-spin__split_angle.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "angle_vs_reference__left_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 121,
+      "ref_sel_rep_idx": 242,
+      "ref_member_gated": {
+        "left_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 790,
+      "brand_px_ref": 733,
+      "png_sha256": "b85dee1e1df57ade50118a691baf20754ced5ca1a0365b74298f152eae762901",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__angle_vs_reference__left_shoulder.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "angle_vs_reference__right_shoulder",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 132,
+      "ref_sel_rep_idx": 264,
+      "ref_member_gated": {
+        "right_shoulder": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 756,
+      "brand_px_ref": 722,
+      "png_sha256": "0cc9c6c08a05d5e669d9e19f7373a4953437f0331ae42d8398bcb091611ec11d",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__angle_vs_reference__right_shoulder.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "angle_vs_reference__left_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 9,
+      "ref_sel_rep_idx": 18,
+      "ref_member_gated": {
+        "left_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 787,
+      "brand_px_ref": 763,
+      "png_sha256": "73b1de827cceb53277e0909a5bb78d144be52e144988ae5daa1ee416a5022187",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__angle_vs_reference__left_hip.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "angle_vs_reference__right_hip",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 121,
+      "ref_sel_rep_idx": 242,
+      "ref_member_gated": {
+        "right_hip": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 753,
+      "brand_px_ref": 752,
+      "png_sha256": "04aad4c636739efa2da7d5a88305b3cd0a9e18eefce0a2528d4d3616b6238178",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__angle_vs_reference__right_hip.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "angle_vs_reference__left_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 10,
+      "ref_sel_rep_idx": 20,
+      "ref_member_gated": {
+        "left_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 784,
+      "brand_px_ref": 663,
+      "png_sha256": "70a9082ab654e08ae5e793eb064a1839b663ae695f71252798d067dd463d21c5",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__angle_vs_reference__left_knee.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "angle_vs_reference__right_knee",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 10,
+      "ref_sel_rep_idx": 20,
+      "ref_member_gated": {
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 742,
+      "brand_px_ref": 610,
+      "png_sha256": "ce7ac014a6ef4f3b55f38a83ec2c4f3e65dce64a2c4c9d6015043bbb259d6611",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__angle_vs_reference__right_knee.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "angle_vs_reference__left_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 132,
+      "ref_sel_rep_idx": 264,
+      "ref_member_gated": {
+        "left_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 752,
+      "brand_px_ref": 729,
+      "png_sha256": "4ff8012fb6f4cafa778f0c23bbf10e557953a8b5ac699a13816010f34c6b1123",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__angle_vs_reference__left_elbow.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "angle_vs_reference__right_elbow",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 143,
+      "ref_sel_rep_idx": 286,
+      "ref_member_gated": {
+        "right_elbow": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "220",
+      "ref_kind": "valid",
+      "ref_side_px": "220",
+      "vertex_centered": true,
+      "shared_side_px": "220",
+      "angle_bake": "drawn",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": true,
+      "ref_angle_drawn": true,
+      "brand_px_user": 721,
+      "brand_px_ref": 773,
+      "png_sha256": "a0730a07f3b2c32adea41fb5dd6564f7a5977624a0f049913b689c103dfbe2cb",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__angle_vs_reference__right_elbow.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "arm_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 6,
+      "ref_sel_rep_idx": 12,
+      "ref_member_gated": {
+        "left_shoulder": true,
+        "right_shoulder": true,
+        "left_hand": true,
+        "right_hand": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "245",
+      "ref_kind": "valid",
+      "ref_side_px": "180",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "8d9aefba5ff589608ddc32fdd109768fb37b91bb68da2215454f4ffe296d6a4f",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__arm_extension.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "leg_extension",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 10,
+      "ref_sel_rep_idx": 20,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "175",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1356,
+      "brand_px_ref": 1356,
+      "png_sha256": "128f676c2c030bd2805fdc285a4aafe9c3c2abf3b2747dc68892d602d304e447",
+      "deterministic": true,
+      "leg_drawn": false,
+      "png": "ref-sideway-spin__leg_extension.png"
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "motion_index": 9,
+      "criterion": "split_angle",
+      "emitted": true,
+      "user_frame": "belle_still_f010.png",
+      "ref_frame": "belle_still_f018.png",
+      "ankle_ladder": {
+        "left": [
+          0.22499999999999998,
+          0.9500000000000001
+        ],
+        "right": [
+          0.785,
+          0.9500000000000001
+        ]
+      },
+      "ref_rep_fps": 18.0,
+      "ref_rep_frames": 298,
+      "ref_rep_joints": 12,
+      "ref_sel_9fps": 10,
+      "ref_sel_rep_idx": 20,
+      "ref_member_gated": {
+        "left_hip": true,
+        "right_hip": true,
+        "left_knee": true,
+        "right_knee": true
+      },
+      "user_kind": "valid",
+      "user_side_px": "219",
+      "ref_kind": "valid",
+      "ref_side_px": "175",
+      "vertex_centered": false,
+      "shared_side_px": "none",
+      "angle_bake": "omitted:unmapped",
+      "leg_geom": {
+        "ref": {
+          "side": "ref",
+          "box": [
+            87,
+            370,
+            175
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": true,
+          "right_ankle_in_crop": true,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "ankle",
+          "right_endpoint_expected": "ankle"
+        },
+        "user": {
+          "side": "user",
+          "box": [
+            73,
+            247,
+            219
+          ],
+          "drew": true,
+          "pelvis_in_crop": true,
+          "left_ankle_in_crop": false,
+          "right_ankle_in_crop": false,
+          "left_knee_in_crop": true,
+          "right_knee_in_crop": true,
+          "left_endpoint_expected": "knee",
+          "right_endpoint_expected": "knee"
+        }
+      },
+      "pelvis_in_crop": true,
+      "left_ankle_in_crop": false,
+      "right_ankle_in_crop": false,
+      "left_knee_in_crop": true,
+      "right_knee_in_crop": true,
+      "left_endpoint_expected": "knee",
+      "right_endpoint_expected": "knee",
+      "userVideoSec": 0.4444444444444444,
+      "refVideoSec": 0.0,
+      "user_angle_drawn": false,
+      "ref_angle_drawn": false,
+      "brand_px_user": 1646,
+      "brand_px_ref": 1940,
+      "png_sha256": "6d541383375fb152d8975dfab44608f3f3598c07c0ce14df9160d31c35ab6753",
+      "deterministic": true,
+      "leg_drawn": true,
+      "png": "ref-sideway-spin__split_angle.png"
+    }
+  ],
+  "ladder": true,
+  "ref_meta": {
+    "ref-climb": {
+      "fps": 18.0,
+      "frames": 257,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.8677,
+        "right_shoulder": 0.8872,
+        "left_hip": 0.8405,
+        "right_hip": 0.8677,
+        "left_knee": 0.8677,
+        "right_knee": 0.9105,
+        "left_hand": 0.8249,
+        "right_hand": 0.8093,
+        "left_ankle": 0.9144,
+        "right_ankle": 0.9183,
+        "left_elbow": 0.8171,
+        "right_elbow": 0.8638
+      }
+    },
+    "ref-elbow-twist-sister": {
+      "fps": 18.0,
+      "frames": 329,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.4863,
+        "right_shoulder": 0.4742,
+        "left_hip": 0.3495,
+        "right_hip": 0.3617,
+        "left_knee": 0.4377,
+        "right_knee": 0.4802,
+        "left_hand": 0.465,
+        "right_hand": 0.3343,
+        "left_ankle": 0.4012,
+        "right_ankle": 0.5258,
+        "left_elbow": 0.5289,
+        "right_elbow": 0.4225
+      }
+    },
+    "ref-foxtop": {
+      "fps": 18.0,
+      "frames": 426,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.6526,
+        "right_shoulder": 0.6385,
+        "left_hip": 0.5094,
+        "right_hip": 0.5258,
+        "left_knee": 0.4977,
+        "right_knee": 0.5587,
+        "left_hand": 0.6221,
+        "right_hand": 0.6197,
+        "left_ankle": 0.5141,
+        "right_ankle": 0.5376,
+        "left_elbow": 0.6455,
+        "right_elbow": 0.6033
+      }
+    },
+    "ref-foxtop-split": {
+      "fps": 18.0,
+      "frames": 485,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.6577,
+        "right_shoulder": 0.6536,
+        "left_hip": 0.5711,
+        "right_hip": 0.5814,
+        "left_knee": 0.6289,
+        "right_knee": 0.6124,
+        "left_hand": 0.6536,
+        "right_hand": 0.5732,
+        "left_ankle": 0.6289,
+        "right_ankle": 0.6021,
+        "left_elbow": 0.6866,
+        "right_elbow": 0.6557
+      }
+    },
+    "ref-invert": {
+      "fps": 18.0,
+      "frames": 260,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.6654,
+        "right_shoulder": 0.6962,
+        "left_hip": 0.6462,
+        "right_hip": 0.6615,
+        "left_knee": 0.6423,
+        "right_knee": 0.65,
+        "left_hand": 0.65,
+        "right_hand": 0.6538,
+        "left_ankle": 0.5962,
+        "right_ankle": 0.6385,
+        "left_elbow": 0.6615,
+        "right_elbow": 0.6808
+      }
+    },
+    "ref-kip-up": {
+      "fps": 18.0,
+      "frames": 118,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.9153,
+        "right_shoulder": 0.9068,
+        "left_hip": 0.8983,
+        "right_hip": 0.8983,
+        "left_knee": 0.9068,
+        "right_knee": 0.8983,
+        "left_hand": 0.9576,
+        "right_hand": 0.9153,
+        "left_ankle": 0.9068,
+        "right_ankle": 0.9068,
+        "left_elbow": 0.9661,
+        "right_elbow": 0.9068
+      }
+    },
+    "ref-pdshape": {
+      "fps": 18.0,
+      "frames": 237,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.5401,
+        "right_shoulder": 0.5696,
+        "left_hip": 0.2954,
+        "right_hip": 0.308,
+        "left_knee": 0.3376,
+        "right_knee": 0.3882,
+        "left_hand": 0.5992,
+        "right_hand": 0.4388,
+        "left_ankle": 0.3376,
+        "right_ankle": 0.384,
+        "left_elbow": 0.6582,
+        "right_elbow": 0.5949
+      }
+    },
+    "ref-peter-pan": {
+      "fps": 18.0,
+      "frames": 130,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.6385,
+        "right_shoulder": 0.6385,
+        "left_hip": 0.7385,
+        "right_hip": 0.7462,
+        "left_knee": 0.7846,
+        "right_knee": 0.7538,
+        "left_hand": 0.7385,
+        "right_hand": 0.7692,
+        "left_ankle": 0.8,
+        "right_ankle": 0.7462,
+        "left_elbow": 0.6692,
+        "right_elbow": 0.7231
+      }
+    },
+    "ref-power-spin": {
+      "fps": 18.0,
+      "frames": 159,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.5597,
+        "right_shoulder": 0.6352,
+        "left_hip": 0.5723,
+        "right_hip": 0.5849,
+        "left_knee": 0.5346,
+        "right_knee": 0.5912,
+        "left_hand": 0.6352,
+        "right_hand": 0.8805,
+        "left_ankle": 0.5472,
+        "right_ankle": 0.5786,
+        "left_elbow": 0.6164,
+        "right_elbow": 0.7862
+      }
+    },
+    "ref-sideway-spin": {
+      "fps": 18.0,
+      "frames": 298,
+      "joints": [
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_hand",
+        "right_hand",
+        "left_ankle",
+        "right_ankle",
+        "left_elbow",
+        "right_elbow"
+      ],
+      "gate_coverage": {
+        "left_shoulder": 0.9161,
+        "right_shoulder": 0.9195,
+        "left_hip": 0.906,
+        "right_hip": 0.906,
+        "left_knee": 0.9262,
+        "right_knee": 0.9228,
+        "left_hand": 0.8154,
+        "right_hand": 0.906,
+        "left_ankle": 0.943,
+        "right_ankle": 0.9329,
+        "left_elbow": 0.8356,
+        "right_elbow": 0.9195
+      }
+    }
+  },
+  "ref_library_size": 11,
+  "ref_not_swept": [
+    "ref-combo"
+  ],
+  "invariant_violations": [
+    "ref-climb/arm_extension: 프레이밍 parity 이탈 ratio=1.392",
+    "ref-climb/leg_extension: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-climb/split_angle: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-elbow-twist-sister/arm_extension: 프레이밍 parity 이탈 ratio=1.276",
+    "ref-foxtop/arm_extension: 프레이밍 parity 이탈 ratio=1.408",
+    "ref-foxtop/leg_extension: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-foxtop/split_angle: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-foxtop-split/arm_extension: 프레이밍 parity 이탈 ratio=1.623",
+    "ref-foxtop-split/leg_extension: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-foxtop-split/split_angle: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-invert/arm_extension: 프레이밍 parity 이탈 ratio=1.623",
+    "ref-invert/leg_extension: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-invert/split_angle: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-kip-up/leg_extension: 프레이밍 parity 이탈 ratio=1.281",
+    "ref-kip-up/split_angle: 프레이밍 parity 이탈 ratio=1.281",
+    "ref-pdshape/leg_extension: 프레이밍 parity 이탈 ratio=1.311",
+    "ref-pdshape/split_angle: 프레이밍 parity 이탈 ratio=1.311",
+    "ref-peter-pan/leg_extension: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-peter-pan/split_angle: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-power-spin/leg_extension: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-power-spin/split_angle: 프레이밍 parity 이탈 ratio=1.450",
+    "ref-sideway-spin/arm_extension: 프레이밍 parity 이탈 ratio=1.361",
+    "ref-sideway-spin/leg_extension: 프레이밍 parity 이탈 ratio=1.251",
+    "ref-sideway-spin/split_angle: 프레이밍 parity 이탈 ratio=1.251"
+  ],
+  "anchor_all": false,
+  "label": "real-ref",
+  "ankle_ladder_spec": {
+    "enabled": true,
+    "axis_x": 0.505,
+    "y0": 0.68,
+    "dy": 0.03,
+    "dx0": 0.1,
+    "ddx": 0.02
+  }
+}

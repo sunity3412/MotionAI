@@ -1,0 +1,75 @@
+RTMW 엔진 init (가중치 로드 ~30초)...
+[0;93m2026-07-31 05:17:12.696087935 [W:onnxruntime:, session_state.cc:1166 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.[m
+[0;93m2026-07-31 05:17:12.696250229 [W:onnxruntime:, session_state.cc:1168 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+load /workspace/yolox_weights/yolox_m.onnx with onnxruntime backend
+load /workspace/rtmw_weights/rtmw-x-384.onnx with onnxruntime backend
+RTMW init 완료
+  [ref-sideway-spin] S3 download s3://sunity-motion-pilot-videos/reference/ref-sideway-spin.mp4
+    [stage] reference/ref-sideway-spin.mp4 크기 일치(5032882) → 로컬 스테이지 사용
+  [ref-sideway-spin] frame extract (18 fps)
+  [ref-sideway-spin] RTMW pose estimate (298 frame)
+  [ref-sideway-spin] build_keypoint_report
+  [ref-sideway-spin] OK (34.3s)
+  [ref-climb] S3 download s3://sunity-motion-pilot-videos/reference/ref-climb.mp4
+    [stage] reference/ref-climb.mp4 크기 일치(4223747) → 로컬 스테이지 사용
+  [ref-climb] frame extract (18 fps)
+  [ref-climb] RTMW pose estimate (257 frame)
+  [ref-climb] build_keypoint_report
+  [ref-climb] OK (21.2s)
+  [ref-invert] S3 download s3://sunity-motion-pilot-videos/reference/ref-invert.mp4
+    [stage] reference/ref-invert.mp4 크기 일치(4483834) → 로컬 스테이지 사용
+  [ref-invert] frame extract (18 fps)
+  [ref-invert] RTMW pose estimate (260 frame)
+  [ref-invert] build_keypoint_report
+  [ref-invert] OK (21.5s)
+  [ref-foxtop] S3 download s3://sunity-motion-pilot-videos/reference/ref-foxtop.mp4
+    [stage] reference/ref-foxtop.mp4 크기 일치(7601801) → 로컬 스테이지 사용
+  [ref-foxtop] frame extract (18 fps)
+  [ref-foxtop] RTMW pose estimate (426 frame)
+  [ref-foxtop] build_keypoint_report
+  [ref-foxtop] OK (32.8s)
+  [ref-foxtop-split] S3 download s3://sunity-motion-pilot-videos/reference/ref-foxtop-split.mp4
+    [stage] reference/ref-foxtop-split.mp4 크기 일치(8514993) → 로컬 스테이지 사용
+  [ref-foxtop-split] frame extract (18 fps)
+  [ref-foxtop-split] RTMW pose estimate (485 frame)
+  [ref-foxtop-split] build_keypoint_report
+  [ref-foxtop-split] OK (37.5s)
+  [ref-combo] S3 download s3://sunity-motion-pilot-videos/reference/ref-combo.mp4
+    [s3] reference/ref-combo.mp4 단일 스레드 다운로드 (18402631 bytes)
+  [ref-combo] frame extract (18 fps)
+  [ref-combo] RTMW pose estimate (931 frame)
+  [ref-combo] build_keypoint_report
+  [ref-combo] OK (234.1s)
+  [ref-elbow-twist-sister] S3 download s3://sunity-motion-pilot-videos/reference/ref-elbow-twist-sister.mp4
+    [stage] reference/ref-elbow-twist-sister.mp4 크기 일치(6372808) → 로컬 스테이지 사용
+  [ref-elbow-twist-sister] frame extract (18 fps)
+  [ref-elbow-twist-sister] RTMW pose estimate (329 frame)
+  [ref-elbow-twist-sister] build_keypoint_report
+  [ref-elbow-twist-sister] OK (25.8s)
+  [ref-kip-up] S3 download s3://sunity-motion-pilot-videos/reference/ref-kip-up.mp4
+    [stage] reference/ref-kip-up.mp4 크기 일치(2252863) → 로컬 스테이지 사용
+  [ref-kip-up] frame extract (18 fps)
+  [ref-kip-up] RTMW pose estimate (118 frame)
+  [ref-kip-up] build_keypoint_report
+  [ref-kip-up] OK (10.3s)
+  [ref-pdshape] S3 download s3://sunity-motion-pilot-videos/reference/ref-pdshape.mp4
+    [stage] reference/ref-pdshape.mp4 크기 일치(4517365) → 로컬 스테이지 사용
+  [ref-pdshape] frame extract (18 fps)
+  [ref-pdshape] RTMW pose estimate (237 frame)
+  [ref-pdshape] build_keypoint_report
+  [ref-pdshape] OK (18.7s)
+  [ref-peter-pan] S3 download s3://sunity-motion-pilot-videos/reference/ref-peter-pan.mp4
+    [stage] reference/ref-peter-pan.mp4 크기 일치(2287963) → 로컬 스테이지 사용
+  [ref-peter-pan] frame extract (18 fps)
+  [ref-peter-pan] RTMW pose estimate (130 frame)
+  [ref-peter-pan] build_keypoint_report
+  [ref-peter-pan] OK (11.5s)
+  [ref-power-spin] S3 download s3://sunity-motion-pilot-videos/reference/ref-power-spin.mp4
+    [stage] reference/ref-power-spin.mp4 크기 일치(3127706) → 로컬 스테이지 사용
+  [ref-power-spin] frame extract (18 fps)
+  [ref-power-spin] RTMW pose estimate (159 frame)
+  [ref-power-spin] build_keypoint_report
+  [ref-power-spin] OK (13.9s)
+
+총 11/11 motion 박제 (461.4s)
+  → /workspace/reference-kp-18fps.json

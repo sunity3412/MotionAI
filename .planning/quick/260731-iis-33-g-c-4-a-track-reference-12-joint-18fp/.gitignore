@@ -1,0 +1,7 @@
+# 재현 가능한 대용량 로컬 산출물 — 판정 재료(JSON·로그·대표 PNG)만 커밋한다.
+#   스위프 재생성 = python3 sweep_real_ref.py
+#   기준 보고서 재추출 = Pod 에서 pod_extract_wrapper.py
+sweep_out/**/*.png
+reference-kp-18fps.json
+refkp_backup.json
+pytest_after.txt

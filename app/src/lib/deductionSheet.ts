@@ -122,7 +122,7 @@ export interface TextSegment {
 export interface RegionSheetBlock {
   /** 원 records 배열 인덱스 (recordId 조인·번호 대조용). */
   recordIndex: number;
-  /** `고칠 것 2 — 다리 신전(펴짐) (−20점)` — 번호 절은 그룹 2건 이상일 때만. */
+  /** `고칠 것 2 — 다리 펴기 (−20점)` — 번호 절은 그룹 2건 이상일 때만. */
   header: string;
   statusLine: string | null;
   whyLine: string | null;

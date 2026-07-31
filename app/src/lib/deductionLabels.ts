@@ -476,8 +476,8 @@ export function isCleanPass(
 // criterion id → 한국어 라벨 (contract.md §10.2 카탈로그 고정분).
 const CRITERION_LABEL_KO: Record<string, string> = {
   split_angle: '다리 스플릿 각도',
-  leg_extension: '다리 신전(펴짐)',
-  arm_extension: '팔 신전(펴짐)',
+  leg_extension: '다리 펴기',
+  arm_extension: '팔 펴기',
   line: '바디 라인',
   body_relative_reach: '리치(도달 거리)',
   dimension_overall_fallback: '측정 기하 종합(정량화 불가 폴백)',

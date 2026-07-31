@@ -49,11 +49,11 @@
         "jointHints": ["무릎", "발목", "다리"]
       },
       "exercises": [
-        {"name": "Squats", "setsReps": "10~15회", "purpose": "다리 신전 근력 기반", "sourceRef": "NotebookLM e688fb4e [4]"},
-        {"name": "Lunges", "setsReps": "양발 10~15회", "purpose": "단측 다리 신전 강화", "sourceRef": "NotebookLM e688fb4e [4]"},
-        {"name": "Calf Raises", "setsReps": "15~20회", "purpose": "발목/종아리 신전 마무리", "sourceRef": "NotebookLM e688fb4e [4]"},
-        {"name": "High Kick", "setsReps": "양발 10회, 능동", "purpose": "능동 다리 신전 가동", "sourceRef": "NotebookLM e688fb4e [4]"},
-        {"name": "Lateral Leg Raise", "setsReps": "양측 10~15회", "purpose": "측면 다리 신전 근력", "sourceRef": "NotebookLM e688fb4e [4]"}
+        {"name": "Squats", "setsReps": "10~15회", "purpose": "다리 펴는 근력 기반", "sourceRef": "NotebookLM e688fb4e [4]"},
+        {"name": "Lunges", "setsReps": "양발 10~15회", "purpose": "한쪽 다리 펴기 강화", "sourceRef": "NotebookLM e688fb4e [4]"},
+        {"name": "Calf Raises", "setsReps": "15~20회", "purpose": "발목·종아리 펴기 마무리", "sourceRef": "NotebookLM e688fb4e [4]"},
+        {"name": "High Kick", "setsReps": "양발 10회, 능동", "purpose": "능동 다리 펴기 가동", "sourceRef": "NotebookLM e688fb4e [4]"},
+        {"name": "Lateral Leg Raise", "setsReps": "양측 10~15회", "purpose": "측면 다리 펴는 근력", "sourceRef": "NotebookLM e688fb4e [4]"}
       ]
     },
     "hip_hamstring_tight": {

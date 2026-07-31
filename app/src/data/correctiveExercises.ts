@@ -54,7 +54,7 @@ const DEFECT_TITLES: Record<string, string> = {
   grip_weak: '그립·악력 강화',
   shoulder_unstable: '어깨 안정화',
   core_weak: '코어 강화',
-  legs_not_extended: '다리 신전 강화',
+  legs_not_extended: '다리 펴기 강화',
   hip_hamstring_tight: '고관절·유연성',
   glute_hip_unstable: '둔근·골반 안정화',
 };

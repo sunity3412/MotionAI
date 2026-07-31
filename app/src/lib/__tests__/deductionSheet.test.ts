@@ -228,7 +228,7 @@ test('Test 3 (번호 헤더): 2건 그룹 = 전역 recordNumbers 값 / 1건 그�
   // 블록 순서 = 크롭 record(index 1, 번호 1) 먼저.
   assert.deepEqual(
     view.blocks.map((b) => b.header),
-    ['고칠 것 1 — 다리 스플릿 각도 (−12점)', '고칠 것 2 — 다리 신전(펴짐) (−20점)'],
+    ['고칠 것 1 — 다리 스플릿 각도 (−12점)', '고칠 것 2 — 다리 펴기 (−20점)'],
   );
 
   const solo = buildRegionSheetView({

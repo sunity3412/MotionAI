@@ -200,6 +200,21 @@ def _fixture_copy_strings(fixture: dict) -> list[tuple[str, str]]:
     return out
 
 
+def _rendered_copy_with_path() -> list[tuple[str, str]]:
+    """rendered_copy_strings() 전수 — 경로 정보 없는 flat list 라 index 로 라벨링.
+
+    quick-260731-cum (Q-7): 위 fixture walk 는 phrasebook.json 3섹션만 본다. 그래서
+    terminology_map terms('완성도')와 summaryPraise 헤드라인 상수는 **화면에 렌더되는데도**
+    어휘 게이트 밖에 있었다 — 33-G S12 잔재의 구조적 원인이다. 렌더 카피의 정본
+    수집기(phrasebook.rendered_copy_strings — 금지어/D-09 게이트가 이미 쓰는 것)를
+    같은 게이트에 붙여 뿌리에서 막는다. 경로 있는 fixture walk 는 그대로 두고 옆에 더한다.
+    """
+    return [
+        (f"rendered_copy_strings[{i}]", s)
+        for i, s in enumerate(rendered_copy_strings())
+    ]
+
+
 def test_screen_vocabulary_gate() -> None:
     """33-13 (A-6) — 채점 내부 용어(국면·신전·재신전·완성도)는 화면 문장 금지.
 
@@ -209,12 +224,8 @@ def test_screen_vocabulary_gate() -> None:
     fixture = _load_fixture()
     words = fixture["_meta"]["screenVocabularyGate"]["words"]
     assert words, "_meta.screenVocabularyGate.words 부재 — 어휘 게이트 데이터 소실"
-    viol = [
-        (path, w)
-        for path, text in _fixture_copy_strings(fixture)
-        for w in words
-        if w in text
-    ]
+    scope = _fixture_copy_strings(fixture) + _rendered_copy_with_path()
+    viol = [(path, w) for path, text in scope for w in words if w in text]
     assert not viol, f"화면 어휘 게이트 위반 (채점 내부 용어 화면 노출): {viol}"
 
 

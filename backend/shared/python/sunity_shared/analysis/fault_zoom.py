@@ -36,7 +36,7 @@ from __future__ import annotations
 import io
 import logging
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -945,7 +945,10 @@ def _gated_kp(
 
 
 def _leg_line_pts(
-    report: dict, frame_idx: int
+    report: dict,
+    frame_idx: int,
+    *,
+    in_crop: Callable[[tuple[float, float]], bool] | None = None,
 ) -> tuple[
     tuple[float, float], tuple[float, float], tuple[float, float]
 ] | None:
@@ -958,18 +961,38 @@ def _leg_line_pts(
     fault_joints(결함 관절 목록)와 무관하게 report 에서 직접 조회한다 — 드로잉
     좌표는 결함 목록이 아니라 실제 관절 위치를 따른다 (fault_joints 에 knee 만
     있어도 hips 가 report 에 valid 하면 그린다).
+
+    `in_crop` (quick-260730-l7t D-1 2안) — 주어지면 **그 카드 crop 에 들어오는**
+    후보만 채택한다. 32-14 로 keypointReport 가 12관절이 되면서 이 함수가 ankle 을
+    잡기 시작했는데 crop 멤버 집합(`REGION_MEMBERS["legs"]` = hips+knees)에는
+    ankle 이 없어, 벌림이 큰 스플릿일수록 ankle 이 crop 밖으로 나가 호출측
+    `_pt_in_crop` 게이트가 탈락 → 사이각이 통째로 생략됐다(S10 12관절 doc 미성립).
+    crop 배율(`REGION_MEMBERS`/`_box_for`/`_CROP_INCLUSION_MARGIN_PX`)은 **불변**
+    이므로 그 경우 선은 정강이(knee)까지만 그려지며, 이는 승인 목업 S10 범위 안이다
+    (1안 = crop 확대는 32-03 parity 를 이동시켜 미채택).
+    `in_crop=None`(기본값)이면 순회가 종전 `ankle or knee` 와 정확히 동치다 —
+    기존 2-인자 호출부의 거동 불변. 술어 주입은 이 모듈의 기존 관례
+    (`build_angle_bake_spec(..., resolver)`)를 따른다. 표시 전용, 채점 무접촉.
     """
     lh = _gated_kp(report, frame_idx, "left_hip")
     rh = _gated_kp(report, frame_idx, "right_hip")
     if lh is None or rh is None:
         return None
     pelvis = ((lh[0] + rh[0]) / 2.0, (lh[1] + rh[1]) / 2.0)
-    left_end = _gated_kp(report, frame_idx, "left_ankle") or _gated_kp(
-        report, frame_idx, "left_knee"
-    )
-    right_end = _gated_kp(report, frame_idx, "right_ankle") or _gated_kp(
-        report, frame_idx, "right_knee"
-    )
+
+    def _end(side: str) -> tuple[float, float] | None:
+        """그 측 다리 끝 — 후보 순서 ankle→knee, conf 게이트 AND crop 포함."""
+        for joint in (f"{side}_ankle", f"{side}_knee"):
+            xy = _gated_kp(report, frame_idx, joint)
+            if xy is None:
+                continue
+            if in_crop is not None and not in_crop(xy):
+                continue
+            return xy
+        return None
+
+    left_end = _end("left")
+    right_end = _end("right")
     if left_end is None or right_end is None:
         return None
     return pelvis, left_end, right_end
@@ -1671,12 +1694,21 @@ def _draw_side_leg_angle(
     (_to_crop_px clamp 로 선이 경계로 폭주 — 2026-07-05 정은지 ref 측 실측) 드로잉
     생략하고 기존 crop 폴백. conf 게이트(_gated_kp)와 AND — 신뢰 좌표라도 그 측
     crop 이 관절을 안 담으면 그리지 않는다.
+
+    끝점은 이제 `_leg_line_pts(in_crop=)` 가 이 box 로 **이미 crop 인지 선택**한다
+    (quick-260730-l7t D-1 — ankle 이 crop 밖이면 knee 로 폴백). 아래 3점 게이트는
+    폴백이 없는 골반 방어 + 이중 안전망으로 유지한다(끝점에 대해서는 중복).
+    포함 판정의 단일 출처는 계속 `_pt_in_crop` 이며 마진은 그 함수만 소유한다.
     """
-    pts = _leg_line_pts(report, kp_idx)
-    if pts is None:
-        return False
     h, w = frame.shape[0], frame.shape[1]
     left, top, side = box
+    pts = _leg_line_pts(
+        report,
+        kp_idx,
+        in_crop=lambda xy: _pt_in_crop(xy, left, top, side, w, h),
+    )
+    if pts is None:
+        return False
     if not all(_pt_in_crop(p, left, top, side, w, h) for p in pts):
         return False
     pelvis_px = _to_crop_px(pts[0], left, top, side, w, h)

@@ -675,6 +675,110 @@ def test_draw_side_leg_angle_skips_when_hip_outside_crop(monkeypatch):
     assert len(leg_calls) == 1, "crop 이 3점 전부 포함하면 그린다"
 
 
+# ── quick-260731-f5h D-1 — 다리 끝점 crop 인지 선택 (deferred 2안) ──────────────
+# 근본원인(quick-260730-l7t deferred D-1, 실측 확정): crop 멤버 집합
+# (REGION_MEMBERS["legs"] = hips+knees, **ankle 없음**)과 드로잉 점 집합
+# (_leg_line_pts = ankle 우선)이 어긋나, 12관절 doc 에서 벌림이 큰 스플릿일수록
+# ankle 이 crop 밖 → _pt_in_crop 게이트 탈락 → 사이각이 통째로 생략됐다.
+# 아래 두 테스트는 **단조 추가 계약 6행**을 각각 가른다 (수치 채우기 금지).
+
+_D1_LEGS_XY = {
+    **_LEGS_XY,
+    "left_ankle": (0.35, 0.95), "right_ankle": (0.65, 0.95),
+}
+
+
+def test_leg_line_pts_crop_aware_endpoint_selection():
+    """계약 1·2·3·4·6행 + 기본값 계약 — in_crop 술어 주입으로 선택 로직만 가른다.
+
+    술어는 좌표만 받는 순수 함수라 crop 기하 없이 각 행을 독립으로 세울 수 있다
+    (실 box 배선은 test_draw_side_leg_angle_uses_knee_when_ankle_outside_crop).
+    """
+    rep = _report_pos_conf(1, 9.0, _D1_LEGS_XY, {})  # 전원 고신뢰 0.9
+
+    # 계약 1행 — crop 이 전부 담으면 종전대로 ankle. (지금 그려지는 것은 그대로)
+    _p, le, re_ = fz._leg_line_pts(rep, 0, in_crop=lambda _xy: True)
+    assert le == (0.35, 0.95) and re_ == (0.65, 0.95), "crop 안이면 ankle 유지"
+
+    # 계약 2행 — ankle 만 crop 밖(y>=0.85 배제) → knee 폴백. None 아님.
+    #   ← 이 수리의 전부. 종전에는 ankle 이 선택돼 호출측 게이트에서 탈락했다.
+    _p, le, re_ = fz._leg_line_pts(rep, 0, in_crop=lambda xy: xy[1] < 0.85)
+    assert le == (0.3, 0.7) and re_ == (0.7, 0.7), "crop 밖 ankle → knee 폴백"
+
+    # 계약 6행 — 왼 ankle 만 배제 → 그 측만 knee, 반대측은 ankle (측별 독립).
+    _p, le, re_ = fz._leg_line_pts(
+        rep, 0, in_crop=lambda xy: not (xy[1] >= 0.85 and xy[0] < 0.5)
+    )
+    assert le == (0.3, 0.7), "왼측만 crop 밖 → 왼측 knee"
+    assert re_ == (0.65, 0.95), "오른측은 crop 안 → ankle 유지"
+
+    # 계약 4행 — ankle·knee 둘 다 crop 밖 → None (미드로잉 유지).
+    assert fz._leg_line_pts(rep, 0, in_crop=lambda xy: xy[1] < 0.6) is None
+
+    # 기본값 계약 — in_crop 미지정(2-인자 호출)이면 ankle 이 어디 있든 ankle.
+    # 기존 호출부(phase33/test_criterion_vertex_crop.py 포함) 거동 불변.
+    _p, le, re_ = fz._leg_line_pts(rep, 0)
+    assert le == (0.35, 0.95) and re_ == (0.65, 0.95), "기본값 = 종전 ankle 우선"
+
+    # 계약 3행 — ankle 부재(8관절 doc) + in_crop 지정 → 종전대로 knee.
+    rep8 = _report_pos_conf(1, 9.0, _LEGS_XY, {})
+    _p, le, re_ = fz._leg_line_pts(rep8, 0, in_crop=lambda _xy: True)
+    assert le == (0.3, 0.7) and re_ == (0.7, 0.7), "8관절 doc 거동 불변"
+
+
+def test_draw_side_leg_angle_uses_knee_when_ankle_outside_crop(monkeypatch):
+    """실 crop box 배선 — 끝점이 crop 기하에 따라 knee/ankle 로 갈린다 (계약 1·2·5).
+
+    box 는 `_side_crop` 이 반환하는 그 (left, top, side) 형식이고, 포함 판정은
+    프로덕션 `_pt_in_crop` 단일 출처가 한다 — 마진을 테스트에 복제하지 않는다.
+    """
+    leg_calls = _spy_leg_angle(monkeypatch)
+    from PIL import Image as _I
+
+    img = _I.new("RGB", (fz._OUT, fz._OUT), (0, 0, 0))
+    frame = _frames(1, h=400, w=400)[0]
+    # hips·knees 는 box 안, ankle 만 box 아래로 크게 벗어난 12관절 형상.
+    xy = {
+        "left_hip": (0.45, 0.35), "right_hip": (0.55, 0.35),
+        "left_knee": (0.35, 0.60), "right_knee": (0.65, 0.60),
+        "left_ankle": (0.25, 0.95), "right_ankle": (0.75, 0.95),
+    }
+    rep = _report_pos_conf(1, 9.0, xy, {})
+    tight = (100, 100, 200)   # ankle 만 밖 (y 상한 0.80)
+    wide = (0, 0, 400)        # ankle 까지 담음
+
+    # 전제 — 같은 형상에서 box 만으로 ankle 포함 여부가 갈린다 (프로덕션 술어).
+    assert fz._pt_in_crop((0.25, 0.95), *tight, 400, 400) is False
+    assert fz._pt_in_crop((0.35, 0.60), *tight, 400, 400) is True
+    assert fz._pt_in_crop((0.25, 0.95), *wide, 400, 400) is True
+
+    # 계약 2행 — ankle 이 crop 밖이어도 그린다. 끝점은 **knee 파생**.
+    assert fz._draw_side_leg_angle(img, frame, rep, 0, tight) is True
+    assert len(leg_calls) == 1, "crop 밖 ankle 은 knee 로 대체 — 미드로잉 아님"
+    _pelvis, lpx, rpx = leg_calls[0]
+    assert lpx == fz._to_crop_px((0.35, 0.60), *tight, 400, 400)
+    assert rpx == fz._to_crop_px((0.65, 0.60), *tight, 400, 400)
+    assert lpx != fz._to_crop_px((0.25, 0.95), *tight, 400, 400), "ankle 픽셀 아님"
+
+    # 계약 1행(대조) — ankle 까지 담는 box 면 끝점이 **ankle 파생**.
+    assert fz._draw_side_leg_angle(img, frame, rep, 0, wide) is True
+    assert len(leg_calls) == 2
+    _pelvis, lpx2, rpx2 = leg_calls[1]
+    assert lpx2 == fz._to_crop_px((0.25, 0.95), *wide, 400, 400)
+    assert rpx2 == fz._to_crop_px((0.75, 0.95), *wide, 400, 400)
+
+    # 계약 5행 — 골반이 box 밖이면 끝점이 전부 crop 안이어도 미드로잉(폴백 유지).
+    xy_hi = {**xy, "left_hip": (0.45, 0.10), "right_hip": (0.55, 0.10),
+             "left_knee": (0.40, 0.70), "right_knee": (0.60, 0.70),
+             "left_ankle": (0.38, 0.90), "right_ankle": (0.62, 0.90)}
+    rep_hi = _report_pos_conf(1, 9.0, xy_hi, {})
+    low_box = (150, 280, 100)
+    assert fz._pt_in_crop((0.38, 0.90), *low_box, 400, 400) is True, "끝점은 안"
+    assert fz._pt_in_crop((0.5, 0.10), *low_box, 400, 400) is False, "골반은 밖"
+    assert fz._draw_side_leg_angle(img, frame, rep_hi, 0, low_box) is False
+    assert len(leg_calls) == 2, "골반 crop 밖 → 드로잉 0 (폴백)"
+
+
 def test_non_legs_cards_no_leg_angle(monkeypatch):
     """Test 5: non-legs(arms grouped) → 사이각 0회, _mark 기존 circle=True 규칙."""
     leg_calls = _spy_leg_angle(monkeypatch)

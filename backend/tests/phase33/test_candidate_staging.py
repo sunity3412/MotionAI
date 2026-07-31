@@ -365,3 +365,85 @@ def test_flip_partial_completed_aborts_before_write() -> None:
         mod._flip_active_pointer(fs, _FLIP_IDS, partial, "phase33-cm3-run1", manifest)
     # 전역 포인터가 쓰이지 않음 (gate 전 쓰기 0)
     assert "reference/_release" not in fs.store
+
+
+# ═══════ 33-07 flip 잠복 버그 방어: referenceKeypointReport 동반 이동 ═══════
+#
+# 왜 필요한가: 채점은 `angles` 를, 표시 오버레이는 `referenceKeypointReport` 를 읽는다.
+# 후자는 `firestore_admin._REFERENCE_CONSUMER_FIELDS` 에 없어서 **항상 top-level** 에서
+# 읽힌다. flip 이 angles 만 옮기고 표시 보고서를 두고 가면 두 축의 타임베이스가 어긋나
+# 기준 패널이 의도 시점의 엉뚱한 프레임을 보여준다 (28-RESEARCH D2 기왕 이력).
+#
+# 소스가 둘인 이유: `_reprocess_one` payload 의 REQUIRED_KEYS 에는
+# referenceKeypointReport 가 **없다** (backfill_reference_downstream.py 가 candidate
+# 문서에 나중에 MERGE 한다). 그래서 payload 만 보는 1줄은 no-op 이 된다 —
+# candidate 버전 문서 폴백이 있어야 실제로 값이 실린다.
+
+_REFKP_A = {
+    "version": "phase33", "joints": ["nose", "left_hip"], "frames": 2, "fps": 18.0,
+    "data": [0.1] * 8, "confidence": [0.9] * 4,
+}
+_REFKP_B = {
+    "version": "phase33", "joints": ["nose"], "frames": 1, "fps": 9.0,
+    "data": [0.2] * 2, "confidence": [0.8],
+}
+
+
+def test_flip_mirrors_reference_keypoint_report_from_payload() -> None:
+    """payload 에 referenceKeypointReport 가 있으면 top-level 로 미러된다."""
+    mod = _load_reprocess()
+    fs, completed, manifest = _setup_flip(mod)
+    for mid in _FLIP_IDS:
+        completed[mid]["referenceKeypointReport"] = copy.deepcopy(_REFKP_A)
+    # payload 에 키가 늘어도 채점 8필드 해시는 그대로 (manifest 재계산 불필요) —
+    # 이 단언 자체가 "표시 필드는 채점 해시에 안 든다" 를 지킨다.
+    assert manifest == {mid: mod._release_doc_hash(completed[mid]) for mid in _FLIP_IDS}
+
+    mod._flip_active_pointer(fs, _FLIP_IDS, completed, "phase33-cm3-run1", manifest)
+
+    for mid in _FLIP_IDS:
+        assert fs.store[f"reference/{mid}"]["referenceKeypointReport"] == _REFKP_A
+
+
+def test_flip_mirrors_reference_keypoint_report_from_candidate_doc() -> None:
+    """payload 에 없고 candidate 버전 문서에만 있으면 폴백으로 미러된다.
+
+    실 프로덕션 형상이 이쪽이다 (_reprocess_one 산출에는 그 키가 없다).
+    폴백이 없으면 `payload.get(...)` 1줄은 no-op — "방어했다"가 거짓이 된다.
+    """
+    mod = _load_reprocess()
+    fs, completed, manifest = _setup_flip(mod)
+    for mid in _FLIP_IDS:
+        assert "referenceKeypointReport" not in completed[mid]  # 전제 박제
+        fs.store[f"reference/{mid}/versions/phase33-cm3-run1"] = {
+            **copy.deepcopy(completed[mid]),
+            "referenceKeypointReport": copy.deepcopy(_REFKP_A),
+        }
+        # flip 전 top-level 에는 낡은 표시 보고서가 남아 있다 (잠복 버그 재현 조건).
+        fs.store[f"reference/{mid}"]["referenceKeypointReport"] = copy.deepcopy(_REFKP_B)
+
+    mod._flip_active_pointer(fs, _FLIP_IDS, completed, "phase33-cm3-run1", manifest)
+
+    for mid in _FLIP_IDS:
+        got = fs.store[f"reference/{mid}"]["referenceKeypointReport"]
+        assert got == _REFKP_A, f"{mid}: 낡은 표시 보고서가 남음 — 타임베이스 불일치"
+        assert got["fps"] == 18.0 and got["frames"] == 2
+
+
+def test_flip_warns_and_preserves_when_report_absent_everywhere(caplog) -> None:
+    """payload·candidate 어디에도 없으면 값을 지어내지 않고 기존 값 보존 + 경고.
+
+    표시 보고서를 날조하지 않는다(fail-closed). 다만 조용히 넘어가면 낡은 타임베이스가
+    무증상으로 남으므로 운영자가 알 수 있게 경고를 남긴다.
+    """
+    mod = _load_reprocess()
+    fs, completed, manifest = _setup_flip(mod)
+    for mid in _FLIP_IDS:
+        fs.store[f"reference/{mid}"]["referenceKeypointReport"] = copy.deepcopy(_REFKP_B)
+
+    with caplog.at_level(logging.WARNING):
+        mod._flip_active_pointer(fs, _FLIP_IDS, completed, "phase33-cm3-run1", manifest)
+
+    for mid in _FLIP_IDS:
+        assert fs.store[f"reference/{mid}"]["referenceKeypointReport"] == _REFKP_B
+    assert "referenceKeypointReport" in caplog.text

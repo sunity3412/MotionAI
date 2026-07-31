@@ -456,6 +456,28 @@ def _flip_active_pointer(
 
         # (b) activeVersion flip (idempotent) + (c) top-level mirror.
         payload = completed[motion_id]
+
+        # 33-07 flip 잠복 버그 방어 — 표시 보고서가 채점 타임베이스와 함께 이동해야 함.
+        # 채점은 `angles` 를 읽고, 기준 오버레이는 `referenceKeypointReport` 를 읽는다.
+        # 후자는 firestore_admin._REFERENCE_CONSUMER_FIELDS 에 없어 **항상 top-level** 에서
+        # 읽히므로, flip 이 angles 만 옮기면 두 축의 프레임 공간이 어긋나 기준 패널이
+        # 의도 시점의 엉뚱한 프레임을 보여준다 (28-RESEARCH D2 기왕 이력).
+        # 소스가 둘인 이유: _reprocess_one 산출 payload 의 REQUIRED_KEYS 에는 그 키가 없다
+        # (backfill_reference_downstream.py 가 candidate 문서에 나중에 MERGE 한다).
+        # 따라서 payload 만 보는 1줄은 no-op — candidate 버전 문서 폴백까지 있어야 실제로 실린다.
+        ref_kp_report = payload.get("referenceKeypointReport")
+        if ref_kp_report is None:
+            cand_snap = ref_doc.collection("versions").document(version).get()
+            ref_kp_report = (cand_snap.to_dict() or {}).get("referenceKeypointReport")
+        if ref_kp_report is None:
+            # 값을 지어내지 않는다(fail-closed). 다만 조용히 두면 낡은 타임베이스가
+            # 무증상으로 남으므로 운영자가 알 수 있게 경고를 남긴다.
+            log.warning(
+                "  [%s] referenceKeypointReport 소스 없음 (payload·candidate 양쪽) — "
+                "top-level 표시 보고서가 낡은 채로 남는다 (33-07)",
+                motion_id,
+            )
+
         mirror_fields: dict = {
             "activeVersion": version,
             "angles": payload.get("angles"),
@@ -469,6 +491,7 @@ def _flip_active_pointer(
             "pipelineVersion": payload.get("pipelineVersion"),
             "reprocessedAt": payload.get("reprocessedAt"),
             "keypointReport": payload.get("keypointReport"),
+            "referenceKeypointReport": ref_kp_report,
         }
         # None 값 제거 (Firestore update 에서 None 은 필드 삭제 시맨틱 가능).
         mirror_fields = {k: v for k, v in mirror_fields.items() if v is not None}

@@ -27,16 +27,23 @@
 // 있는 이 파일은 node --test 로 실행할 수 없어 규칙을 떼어내야 검증 가능). 이
 // 파일은 **에셋 맵만** 소유하고 판정을 소비한다. 두 표의 키 목록 일치 = grep 게이트.
 //
+// §C-4 3번 (quick-260731-plf) — **키가 motionId 에서 에셋 키로 바뀌었다.** 승인 목업의
+// legs/shoulder/refonly 시트가 서로 다른 일러스트 값을 두므로 한 동작이 부위별로 여러
+// 장을 갖는다. 종전 `Record<motionId, require>` 에는 그 자리가 없었다. 아래 맵의 키는
+// 이제 `illustrationScene.ILLUSTRATION_SCENES[].asset` 이며, 33-14 통과 6장은 승인 자산
+// 무접촉을 위해 `asset === motionId` 로 남아 파일 경로·바이트가 그대로다. 신규분만
+// `{motionId}--{부위}` 형태를 쓴다.
+//
 // ScoreBreakdownSection 표준형: named export + inline prop 타입 + 헤더 주석 +
 // StyleSheet 하단 + theme 토큰만. 하드코딩 색상/간격/반경 0. 이모지 0. 라이트 전용.
 
 import { Image, StyleSheet, View } from 'react-native';
 
-import { illustrationMotionForPart } from '../lib/illustrationScene';
+import { illustrationAssetForPart } from '../lib/illustrationScene';
 import { radius } from '../theme';
 
-// 검수 PASS 에셋 맵 — RN 정적 require (번들 포함). 항목 추가 = 33-14 게이트
-// 재수행 후에만 (틀린 그림 유입 차단).
+// 검수 PASS 에셋 맵 — RN 정적 require (번들 포함). 키 = 장면 표의 `asset`.
+// 항목 추가 = 33-14 게이트 재수행 후에만 (틀린 그림 유입 차단).
 const VERIFIED_ILLUSTRATIONS: Record<string, number> = {
   'ref-power-spin': require('../../assets/illustrations/ref-power-spin.jpg'),
   'ref-kip-up': require('../../assets/illustrations/ref-kip-up.jpg'),
@@ -59,7 +66,7 @@ export function DefectIllustration({
   partKey: string | null | undefined;
 }) {
   // 장면일치 통과분만 조회 키가 된다 (P-2/P-3). 불일치·미등재·mode3 → null.
-  const matched = illustrationMotionForPart(motionId, partKey);
+  const matched = illustrationAssetForPart(motionId, partKey);
   const source = matched ? VERIFIED_ILLUSTRATIONS[matched] : undefined;
   if (source == null) return null; // 'hidden' — 미검증/불일치는 조용히 생략 (D-15/D-18/D-43)
 

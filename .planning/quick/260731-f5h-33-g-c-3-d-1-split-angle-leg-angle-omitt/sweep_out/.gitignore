@@ -1,0 +1,11 @@
+# 스위프 PNG 360장 = 72MB. 재현 가능한 로컬 산출물이라 판정 재료만 남기고 제외한다.
+#   재현: python3 sweep_leg_angle.py --out before   (수정 전 코드에서)
+#         python3 sweep_leg_angle.py --out after --assert
+# 커밋 대상 = summary.json 전건 + 대표 페어 PNG(아래 ! 예외).
+*.png
+!before/ref-power-spin__split_angle.png
+!after/ref-power-spin__split_angle.png
+!before/ref-climb__split_angle.png
+!after/ref-climb__split_angle.png
+!before-noladder/ref-power-spin__split_angle.png
+!after-noladder/ref-power-spin__split_angle.png

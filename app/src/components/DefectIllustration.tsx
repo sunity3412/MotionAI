@@ -51,6 +51,10 @@ const VERIFIED_ILLUSTRATIONS: Record<string, number> = {
   'ref-invert': require('../../assets/illustrations/ref-invert.jpg'),
   'ref-foxtop': require('../../assets/illustrations/ref-foxtop.jpg'),
   'ref-foxtop-split': require('../../assets/illustrations/ref-foxtop-split.jpg'),
+  // §C-4 3번 (quick-260731-plf) — 어깨·팔 부위별 신규분.
+  'ref-power-spin--shoulder': require('../../assets/illustrations/ref-power-spin--shoulder.jpg'),
+  'ref-kip-up--shoulder': require('../../assets/illustrations/ref-kip-up--shoulder.jpg'),
+  'ref-elbow-twist-sister--arm': require('../../assets/illustrations/ref-elbow-twist-sister--arm.jpg'),
 };
 
 export function DefectIllustration({

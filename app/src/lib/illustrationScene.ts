@@ -143,6 +143,27 @@ export const ILLUSTRATION_SCENES: readonly IllustrationScene[] = [
     provenance:
       '33-14 입력 12.25s (신전측 다리 곧음 + 벌림 개방) · 6R 선 교정 후 검수 = 직선이 다리 위에만·잔재 0 · 실물 열람 = 굵은 붉은 직선 1줄이 수평 신전 다리 골반→발끝, 어깨·팔 표시 없음',
   },
+  {
+    motionId: 'ref-power-spin',
+    parts: ['shoulder'],
+    asset: 'ref-power-spin--shoulder',
+    provenance:
+      'plf 입력 8.75s (33-A1 hold 창 7.1~10.2s 내 — 8.50s 는 양 견갑이 상의·머리카락에 가려 교체) · A-1 ④ "양 견갑" · 가이드 = 원(③ "어깨 으쓱하지 마(견갑 안정)" = 잠금 계열) · 실물 열람 + 2x 확대 = 붉은 원 1개가 등면 브라 스트랩 사이 견갑 위에만 있고 다리·팔에는 표시 0, 입력 대조에서 자세 복제 아님 확인',
+  },
+  {
+    motionId: 'ref-kip-up',
+    parts: ['shoulder'],
+    asset: 'ref-kip-up--shoulder',
+    provenance:
+      'plf 입력 3.75s (33-A1 스윙~후방 통과 3~5.5s) · A-1 ④ "양 어깨" + fault 가 left/right_shoulder 로 실포착 · 가이드 = 원(③ "어깨 눌러(으쓱 금지)" = 잠금 계열) · 실물 열람 + 2x 확대 = 붉은 원 1개가 등면 좌·우 견갑을 함께 감싸고 다리는 프레임 밖, 그립 손가락 5개 정상',
+  },
+  {
+    motionId: 'ref-elbow-twist-sister',
+    parts: ['arm'],
+    asset: 'ref-elbow-twist-sister--arm',
+    provenance:
+      'plf 입력 13.00s (33-A1 메인 hold peak, f117) · A-1 ④ "엘보 그립 팔" · 가이드 = 원(③ "팔꿈치로 감아" = hook 계열, 굽힘이 정답이라 직선 금지) · 실물 열람 + 2x 확대 = 붉은 원 1개가 폴을 감은 팔꿈치 잠금부 위에만 있고 어깨·다리 표시 0, 사지 2팔 2다리 확인(팔꿈치 그립 팔의 전완이 몸통으로 되돌아오는 형상)',
+  },
 ];
 
 /**

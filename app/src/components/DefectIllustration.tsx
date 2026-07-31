@@ -37,10 +37,14 @@
 // ScoreBreakdownSection 표준형: named export + inline prop 타입 + 헤더 주석 +
 // StyleSheet 하단 + theme 토큰만. 하드코딩 색상/간격/반경 0. 이모지 0. 라이트 전용.
 
+import { useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
 import { illustrationAssetForPart } from '../lib/illustrationScene';
 import { radius } from '../theme';
+
+// 등재 에셋 원본 비율 (720x964 — 9/9 전부 동일). 높이 = 실측 폭 × 이 값.
+const ASSET_H_OVER_W = 964 / 720;
 
 // 검수 PASS 에셋 맵 — RN 정적 require (번들 포함). 키 = 장면 표의 `asset`.
 // 항목 추가 = 33-14 게이트 재수행 후에만 (틀린 그림 유입 차단).
@@ -72,29 +76,52 @@ export function DefectIllustration({
   // 장면일치 통과분만 조회 키가 된다 (P-2/P-3). 불일치·미등재·mode3 → null.
   const matched = illustrationAssetForPart(motionId, partKey);
   const source = matched ? VERIFIED_ILLUSTRATIONS[matched] : undefined;
+  // 실측 폭 → 높이 (quick-260731-plf V-3). Hook 은 early return 앞에 둔다
+  // (조건부 Hook 금지 — matched 가 null 이어도 호출 순서가 같아야 한다).
+  const [boxW, setBoxW] = useState(0);
   if (source == null) return null; // 'hidden' — 미검증/불일치는 조용히 생략 (D-15/D-18/D-43)
 
   return (
-    <View style={styles.card}>
-      <Image
-        source={source}
-        style={styles.image}
-        resizeMode="cover"
-        accessibilityLabel="목표 자세 일러스트"
-      />
+    <View
+      // 높이를 **카드에도 직접** 준다. 자식(Image) 높이만 키우면 카드가 따라오지
+      // 않아 세로가 잘렸다(시뮬 실측 360x260 — 기대 360x482). 두 박스를 같은 값으로
+      // 확정해야 잘림 0 이 된다.
+      style={[
+        styles.card,
+        boxW > 0 ? { height: boxW * ASSET_H_OVER_W } : null,
+      ]}
+      onLayout={(e) => setBoxW(e.nativeEvent.layout.width)}
+    >
+      {boxW > 0 ? (
+        <Image
+          source={source}
+          style={{ width: boxW, height: boxW * ASSET_H_OVER_W }}
+          resizeMode="cover"
+          accessibilityLabel="목표 자세 일러스트"
+        />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // 높이를 **실측 폭 × 비율**로 준다 (quick-260731-plf V-3). 종전에는 Image 가
+  // `width:'100%' + aspectRatio` 를 들고 카드에는 높이 제약이 없었는데, 그 조합에서
+  // Image 가 카드보다 크게 깔리고 카드의 overflow:hidden 이 잘라냈다.
+  //
+  // ⚠ **부분 개선이고 미해결이다 (조용히 PASS 금지).** 시뮬 통제 비교 — 같은 에셋
+  // `ref-power-spin.jpg`(바이트 무접촉) 다리 시트:
+  //   · 수정 전: 위쪽 발/정강이만 약 3배 확대, 스크롤하면 무릎·종아리가 이어서 나옴
+  //   · 수정 후: 확대율 약 1/2 로 감소(폴 받침·바닥까지 보임) — 그러나 카드 박스가
+  //     여전히 약 360x260pt 라 이미지(360x482) 의 약 54% 만 보인다. 기대는 360x482.
+  // 즉 Image 쪽 크기는 잡혔고 **카드 높이가 왜 260 에 머무는지는 규명하지 못했다**
+  // (`aspectRatio` 를 카드에 준 1차 시도, 자식 높이로 밀어올린 2차 시도, 카드에 실측
+  // 높이를 직접 준 3차 시도 모두 260 유지). 추측 수리 대신 debug 사이클로 넘긴다.
+  // 일러스트는 **전신 기하가 곧 메시지**라 잘리면 축 자체가 전달되지 않는다
+  // (belle 확인 ② #11 "빈 프레임" 인접).
   card: {
     width: '100%',
     borderRadius: radius.card,
     overflow: 'hidden',
-  },
-  // 에셋 원본 비율 3:4 (720x964) — cover 크롭 없이 그대로 앉게 비율 고정.
-  image: {
-    width: '100%',
-    aspectRatio: 3 / 4,
   },
 });

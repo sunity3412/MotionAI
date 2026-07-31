@@ -76,7 +76,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-30 - Completed quick task 260730-szk: 33-G §C-2 앱 2단위 (마커·강조 — F-8/S1/S3 렌더 확인, S19/S2 미검증)
+Last activity: 2026-07-31 - §C-2 앱 수리 4단위 전부 완료(260730-py1·szk / 260731-2jt·cum). 남은 것 = D-1 다리 사이각 · §C-4 Pod 전수 재생성 · 일괄 OTA → belle 확인 ③
 
 ### Quick Tasks Completed
 
@@ -125,6 +125,9 @@ Last activity: 2026-07-30 - Completed quick task 260730-szk: 33-G §C-2 앱 2단
 | 260730-py1 | 33-G §C-2 앱 1단위 (승인 목업 시트 재설계) — **S7** 블록 요소 신설(번호 헤더·basis "어디서 재나요"·method 정직 라벨·numnote 강등) + **S6** record 단위 → **부위 단위** 시트 재구성(`deductionSheet.buildRegionSheetView`, paircap 좌우·onecap) + **F-3 앱분**(`compareFrames.(userIdx|refIdx) / fps` 초 추정 2곳 제거 → 카드의 `userSec`/`refSec` 운반). 검증 = 오케스트레이터가 시뮬 직접 렌더(실행자는 시뮬 도구 없음): **부위 2감점 = 시트 1개·블록 2개**(고칠 것 2/3, 각자 점수·basis·method) 실증 = belle "무릎 피는 거 하나 어디 갔냐" 구조 해소 · 번호=전역 마커 번호 · 크래시·잘림 0 · 스위프 10동작 130블록 0손실. **의도적 fail-closed 2건**: proof 3컷(백엔드 1장만 방출, 3컷 분류는 doc 에 없는 판단 → 날조 금지)·basis 구간 축(fps 부재, 인덱스 나누기가 F-3 원인) → §C-4. **미검증: paircap 초·참고코너 렌더**(doc 4건이 초 필드 이전 산출)·facing·LogBox 경고 내용 | 2026-07-30 | cfb3694 | [260730-py1-33-g-c-2-1-s7-basis-method-proof-facing-](./quick/260730-py1-33-g-c-2-1-s7-basis-method-proof-facing-/) |
 
 | 260730-szk | 33-G §C-2 앱 2단위 (마커·강조) — **F-8** 상시 마커 제거(토글/음성 큐에서만) + **S1** 항목=부위 단위 그룹 경계+번호 배지(개별 관절 원 나열 제거) + **S3** 부위 칩 행 신설(1단위 `regionPartKeyForRecord` 재사용, 두 번째 그룹핑 규칙 금지) + **S19** 선/원 분기·pulse 1.4s 구현 + **S2** 참고 점선. F-8×S3 충돌은 승인본의 칩 행을 상시 진입점으로 세워 해결(마커 숨김 시 탭 영역도 비움). 렌더 확인(오케스트레이터): **F-8 PASS**(토글 OFF = 마커 0, 안 보이는 탭 0) · **S1 부분 PASS**(그룹 경계+배지, 개별 원 0) · **S3 PASS**(칩 3개 = 감점 부위 3개, 칩→해당 부위 시트, 1단위 구조 회귀 0). **S19·S2 미검증 — 시뮬 재생 구동 실패**(16프레임 전부 동일). 1단위 미해결 LogBox 경고 종결 = `expo-video allowsFullscreen` deprecation 2건(기존, 무관) + `Animated` 신규 경고 0. 소견: 흰색 hex 10→12(토큰 교체 다음 단위) | 2026-07-30 | df9d193 | [260730-szk-33-g-c-2-2-s19-pulse-s1-s3-f-8](./quick/260730-szk-33-g-c-2-2-s19-pulse-s1-s3-f-8/) |
+
+| 260731-2jt | 33-G §C-2 앱 3단위 — **S13/S25** 일러스트 장면일치 fail-closed(`illustrationScene` 판정 모듈, 부위 토큰 ⊆ 에셋 장면 토큰, 공집합 vacuous ⊆ 차단) + **S23** illu-float + **S26** 판정. 장면 토큰은 에셋 6장 **실물 열람**으로만 부여 → **6장 전부 `leg` 단독**이라 어깨·팔 항목은 전 동작 미부착(130칸 중 부착 6). 부착 감소가 목적(D-43). 렌더 확인(오케스트레이터): **어깨 시트 미부착·다리 시트 부착 양방향 PASS** = belle M-5 해소. S26 = 렌더 정합(cover 0.417%)이고 "빈 배경"은 **에셋 구도**(배경 82~89%) → 재생성 시 구도 교정. **P-14 오케스트레이터 교정**: illu-float 기준면을 row→패널로(승인본 28.9% vs row 기준 59.2%). S23 렌더는 재생 필요로 미검증 | 2026-07-31 | bc48e58 | [260731-2jt-…](./quick/260731-2jt-33-g-c-2-3-s13-fail-closed-s23-illu-floa/) |
+| 260731-cum | 33-G §C-2 앱 **4단위(앱 마지막)** — **S12** 어휘 게이트(33-G 가 적은 3곳이 아니라 **7파일 16곳** 실측, `screenVocabulary.test.ts` 상시 스캔 + 백엔드 게이트를 `terminology_map.json` 까지 확장 = "완성도"가 살아남던 구조적 구멍 봉인) + **F-4** 헤드라인(근본원인이 앱이 아니라 백엔드 `phrasebook.py:223` 의 terminology 전문 따옴표 조립 ~50자 → 뿌리+앱+`numberOfLines` 3겹) + **F-5** 게이지 라벨 + **F-7** 전환 + **F-6 재조사**. 렌더 확인: **F-4 PASS**(100점 헤드라인 2줄 이내·배지 겹침 0), S12 앱 잔재 grep 0. **F-6 = FAIL 유지, 원인 미상** — 세션 경합을 파일:줄로 실증했으나 증거가 반증도 해서(카테고리 `.playback` 수렴) PASS 주장 0, 후보 5건 + belle 실기기 분기 절차만 산출. F-5·F-7·시트 용어줄 렌더 미확인 | 2026-07-31 | ad9210a | [260731-cum-…](./quick/260731-cum-33-g-c-2-4-s12-3-f-4-f-5-f-6-f-7/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

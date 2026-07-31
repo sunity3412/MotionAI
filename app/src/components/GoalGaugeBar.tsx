@@ -76,7 +76,10 @@ export function GoalGaugeBar({
 
   const sym = unitSymbol(unit);
   const badge = formatGoalBadge(current, target, unit);
-  const goalHint =
+  // 방향 문구는 **화면에서 빠지고 스크린 리더에만** 남는다 (F-5). 화면은 기호에
+  // 이름을 붙이는 쪽(범례)이 belle 지시이고, 문장을 하나 더 얹으면 D-05 문장 수
+  // 규칙에 걸린다 — 방향 정보는 기하(점이 선의 좌/우)와 이 라벨이 함께 진다.
+  const directionHint =
     direction === 'increase'
       ? '목표까지 늘리기'
       : direction === 'decrease'
@@ -87,7 +90,7 @@ export function GoalGaugeBar({
     <View
       style={styles.wrap}
       accessibilityRole="progressbar"
-      accessibilityLabel={`현재 ${formatGaugeNumber(current)}${sym}, 목표 ${formatGaugeNumber(target)}${sym} — ${goalHint}`}
+      accessibilityLabel={`현재 ${formatGaugeNumber(current)}${sym}, 목표 ${formatGaugeNumber(target)}${sym} — ${directionHint}`}
     >
       <View style={styles.track}>
         {/* 허용 오차 밴드 = 목표 주변 "닿으면 되는" 구간 (goal zone, 브랜드 틴트). */}
@@ -103,7 +106,22 @@ export function GoalGaugeBar({
         <View style={[styles.currentMarker, { left: pctStr(geo.ratio) }]} />
       </View>
       <View style={styles.legendRow}>
-        <Text style={styles.goalHint}>{goalHint}</Text>
+        {/* F-5 (33-G) — belle: "붉은 세로선 vs 검은 점 의미 불명. 기호만으로
+            현재/허용선 구분 불가. 라벨 명시". 기호에 이름을 붙인다. 스와치는 위
+            마커와 **같은 스타일 소스**(MARKER_FILL)에서 파생한다 — 스와치가 마커와
+            어긋나면 라벨이 오히려 거짓이 된다. 크기만 줄인다.
+            밴드(tolBand)에는 이름을 붙이지 않는다 — belle 이 지목한 건 두 기호이고,
+            요소를 늘리면 D-07 ⑥(화면이 전보다 단순해야)에 어긋난다. */}
+        <View style={styles.legendItems}>
+          <View style={styles.legendItem}>
+            <View style={styles.currentSwatch} />
+            <Text style={styles.legendLabel}>지금</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={styles.targetSwatch} />
+            <Text style={styles.legendLabel}>목표</Text>
+          </View>
+        </View>
         {/* 소형 수치 배지 — 게이지의 유일한 수치 노출점(D-09). % 환산 없음. */}
         <View style={styles.badgePill}>
           <Text style={styles.badgeText}>{badge}</Text>
@@ -112,6 +130,21 @@ export function GoalGaugeBar({
     </View>
   );
 }
+
+// 마커 채움 = 마커와 범례 스와치의 **단일 스타일 소스** (F-5, Q-16). 두 곳이 각자
+// 색을 적으면 한쪽만 바뀌었을 때 라벨이 거짓이 된다 — 여기서 한 벌만 파생한다.
+// 기하(위치·크기)는 각자 다르지만 "무엇으로 채워졌는가"는 반드시 같아야 한다.
+const MARKER_FILL = {
+  current: {
+    backgroundColor: colors.neutralDark,
+    borderWidth: 2,
+    borderColor: colors.cardBg,
+  },
+  target: {
+    backgroundColor: colors.brand,
+    borderRadius: 2,
+  },
+} as const;
 
 const styles = StyleSheet.create({
   wrap: { gap: 8, marginTop: 4 },
@@ -129,24 +162,21 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   targetMarker: {
+    ...MARKER_FILL.target,
     position: 'absolute',
     top: -3,
     bottom: -3,
     width: 3,
     marginLeft: -1.5,
-    borderRadius: 2,
-    backgroundColor: colors.brand,
   },
   currentMarker: {
+    ...MARKER_FILL.current,
     position: 'absolute',
     top: -2,
     width: 18,
     height: 18,
     marginLeft: -9,
     borderRadius: 9,
-    backgroundColor: colors.neutralDark,
-    borderWidth: 2,
-    borderColor: colors.cardBg,
   },
   legendRow: {
     flexDirection: 'row',
@@ -154,11 +184,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  goalHint: {
+  legendItems: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flexShrink: 1,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  // 스와치 = 마커와 같은 채움, 크기만 축소 (currentMarker 18 → 12 / 세로선 높이 14 → 12).
+  currentSwatch: {
+    ...MARKER_FILL.current,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  targetSwatch: {
+    ...MARKER_FILL.target,
+    width: 3,
+    height: 12,
+  },
+  legendLabel: {
     ...typography.badge,
     fontWeight: '400',
     color: colors.textSecondary,
-    flexShrink: 1,
   },
   badgePill: {
     backgroundColor: colors.softBg,

@@ -75,7 +75,39 @@ export function isCueSpeaking(): boolean {
   return speechActive;
 }
 
-// 설정값을 AsyncStorage 에서 메모리 캐시로 로드 + 오디오 세션 1회 설정. graceful:
+/**
+ * 오디오 모드 선언 — 무음 모드에서도 코치 큐가 들리게(playsInSilentMode) + 다른 앱
+ * 오디오는 잠깐 볼륨만 낮춤(duckOthers — 큐는 짧은 안내).
+ *
+ * **F-6 후보(미확정)**: 종전엔 이 선언이 `hydrate()` 안에서 **앱 수명당 1회**만
+ * 실행됐다. 그런데 `AVAudioSession` 은 expo-audio 와 expo-video 가 **공유**하고,
+ * expo-video 는 재생 상태가 바뀔 때마다 공유 세션을 자기 계산값으로 다시 쓴다
+ * (`expo-video/ios/VideoPlayer.swift:311` → `VideoManager.swift:105-111`).
+ * 음성 큐 1회당 pause 2 + play 2 = 최대 4번의 재작성이 **발화 직전·직후에** 일어나므로
+ * 우리의 1회성 선언은 그 사이에 덮인다. 그래서 재생 직전에 다시 선언한다.
+ *
+ * **이것이 실기기 무음의 원인이라는 증명은 없다** — 두 작성자 모두 카테고리는
+ * `.playback` 으로 수렴해서 무음 스위치 축은 이 경합으로 설명되지 않는다(SUMMARY
+ * `## F-6 재조사` 참조). 기존 성공 경로의 상위집합이라 회귀는 불가능하다는 것만이
+ * 이 변경의 보증이다.
+ *
+ * **되돌리는 방법**: `speakCue` 안의 `declareAudioMode();` 한 줄을 지운다
+ * (hydrate 쪽 호출은 종전 동작 그대로라 남겨둔다).
+ */
+function declareAudioMode(): void {
+  try {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      interruptionMode: 'duckOthers',
+    }).catch(() => {
+      /* graceful — 오디오 세션 설정 실패해도 재생 시도는 유지 */
+    });
+  } catch {
+    /* 동기 throw 도 무해화 — speakCue 반환 semantics 불변 */
+  }
+}
+
+// 설정값을 AsyncStorage 에서 메모리 캐시로 로드 + 오디오 세션 설정. graceful:
 // 읽기 실패 시 off(기본값)로 둔다 — 오류가 원치 않는 발화를 만들면 안 되므로 조용히
 // 꺼지는 방향으로 실패한다. 여러 번 호출해도 1회만 실효(hydrated 가드).
 async function hydrate(): Promise<void> {
@@ -87,14 +119,7 @@ async function hydrate(): Promise<void> {
   } catch {
     enabled = false;
   }
-  // 무음 모드에서도 코치 큐가 들리게(playsInSilentMode) + 다른 앱 오디오는 잠깐
-  // 볼륨만 낮춤(duckOthers — 큐는 짧은 안내). 실패는 무해화(권한/플랫폼 편차).
-  setAudioModeAsync({
-    playsInSilentMode: true,
-    interruptionMode: 'duckOthers',
-  }).catch(() => {
-    /* graceful — 오디오 세션 설정 실패해도 재생 시도는 유지 */
-  });
+  declareAudioMode();
 }
 
 /** 오디오 큐 on/off (동기 — tick 에서 즉시 판정). 캐시 미로드 시 기본 off. */
@@ -182,6 +207,9 @@ export function speakCue(cue: Cue): boolean {
     attachStatusListener();
     playingCueId = id;
     speechActive = true;
+    // F-6 후보(미확정) — 공유 AVAudioSession 이 expo-video 의 재생 상태 전이마다
+    // 재작성되므로, 발화 직전에 우리 모드를 다시 선언한다. 되돌리려면 이 한 줄 삭제.
+    declareAudioMode();
     player.play();
     return true;
   } catch {

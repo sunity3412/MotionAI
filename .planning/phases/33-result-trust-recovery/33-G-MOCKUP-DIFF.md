@@ -19,9 +19,9 @@ KeypointOverlay.tsx/deductionLabels.ts/fault_zoom.py 표적 grep·정독). §9 �
 
 | # | 스펙 (목업 근거) | 현 구현 | 판정 |
 |---|---|---|---|
-| S1 | 마커 = **항목 단위 그룹**(다리 1 + 어깨 1 + 참고 점선 1), 경계 = kp 실좌표 bounding. 관절 원 나열 금지 (2R#1) | 다리(스플릿 4관절)만 그룹(quick-260705-r6v, `result.tsx:2345`), 그 외 = 관절별 번호 점. 어깨 그룹 없음 | **PARTIAL** |
-| S2 | 실선 = 감점 / **점선 = 참고**, "감점은 되지 않지만 회전·힘에 영향" 프레임 전 표면 통일 (3R#3) | 참고(advisory) 점 존재하나 점선 원 형태·프레임 문구 통일 미확인 | **PARTIAL** |
-| S3 | 그룹 마커 + **부위 칩**(다리/어깨/참고: 손) 탭 → ② 상세 | 번호 점 탭 → 시트 존재(`result.tsx:2354` 진입점 3). **부위 칩 버튼 없음** | **PARTIAL** |
+| S1 | 마커 = **항목 단위 그룹**(다리 1 + 어깨 1 + 참고 점선 1), 경계 = kp 실좌표 bounding. 관절 원 나열 금지 (2R#1) | 다리(스플릿 4관절)만 그룹(quick-260705-r6v, `result.tsx:2345`), 그 외 = 관절별 번호 점. 어깨 그룹 없음 | **부분 PASS** (2단위 렌더확인 — 그룹 경계+번호 배지, 개별 관절 원 나열 0. 병합 배지는 도달 불가로 미확인) |
+| S2 | 실선 = 감점 / **점선 = 참고**, "감점은 되지 않지만 회전·힘에 영향" 프레임 전 표면 통일 (3R#3) | 참고(advisory) 점 존재하나 점선 원 형태·프레임 문구 통일 미확인 | **미검증** (2단위 코드 반영. 참고 관절 doc 도달 불가 + 재생 필요 → 실기기 확인 ③) |
+| S3 | 그룹 마커 + **부위 칩**(다리/어깨/참고: 손) 탭 → ② 상세 | 번호 점 탭 → 시트 존재(`result.tsx:2354` 진입점 3). **부위 칩 버튼 없음** | **PASS** (2단위 렌더확인 — 부위 칩 3개 = 감점 부위 3개, 칩→해당 시트, 1단위 구조 회귀 0) |
 | S4 | 저신뢰 구간 그룹 자동 생략 | conf 게이트 생략 존재(`KeypointOverlay.tsx:694` focusBounds null, relaxed anchor 생략) | PASS |
 | S5 | 기본 화면 새 문장 0 (D-05) | (시뮬 렌더로 확인 — 코드 grep 판정 불가) | 보류 |
 
@@ -36,7 +36,7 @@ KeypointOverlay.tsx/deductionLabels.ts/fault_zoom.py 표적 grep·정독). §9 �
 | S10 | 다리류 벌림각 렌더(두 선+사이각, `has_split_angle_record` 게이트) | `_draw_leg_angle:1213`·`_draw_side_leg_angle:1252` 존재. **단 12관절 doc 에서 조용히 생략됨** — `REGION_MEMBERS["legs"]`(hips+knees, ankle 미포함 = 8관절 시절 정의)가 crop bbox 를 정하는데 `_leg_line_pts` 는 **ankle 우선**이라 벌림이 큰 스플릿에서 ankle 이 crop 밖 → `_pt_in_crop` 탈락 → 원 마커 폴백. 실측 = out y 465/486 vs 허용 396 (quick-260730-l7t 스위프). **이 플랜 무관 pre-existing**(관련 함수 전부 무수정 + legacy 해시 변경 0) | **PARTIAL** (구 PASS 는 코드 존재만 확인한 판정 — 12관절 doc 실측 미검증. 근본원인·수리 후보 = quick-260730-l7t `deferred-items.md` D-1, §C-4 에서 실 doc 판정) |
 | S11 | 어깨류 기준 프레임 = DTW 실측 순간 (표시용 인덱스 금지, 5R#4) | DTW 짝 ± 4.0s 포즈 거리 탐색 구현(`fault_zoom.py:399-448`, belle #3 반영) | PASS |
 | S12 | **화면 어휘 게이트** — "국면·신전·재신전·완성도" 화면 금지, 방향 큐 = 33-A1 사지 방향 데이터 (7R#1) | phrasebook 쪽은 33-13 반영. **잔재 3곳**: `deductionLabels.ts:424` "다리 신전(펴짐)" 라벨, `DimensionDetailModal.tsx:94` "완성도 기준으로", `loading.tsx:68,72` 팁 "완성도" | **PARTIAL** |
-| S13 | 일러스트 = **그 항목의 부위·장면과 일치**(불변식 ②) — 불일치 부착 금지 | motionId 키잉 **동작당 1장을 모든 항목에 공통 부착**(`DefectIllustration.tsx:26-33` VERIFIED_ILLUSTRATIONS). 항목별 적합성 판정 코드 없음 → 어깨 항목에 다리 일러스트 | **FAIL** (= M-5) |
+| S13 | 일러스트 = **그 항목의 부위·장면과 일치**(불변식 ②) — 불일치 부착 금지 | motionId 키잉 **동작당 1장을 모든 항목에 공통 부착**(`DefectIllustration.tsx:26-33` VERIFIED_ILLUSTRATIONS). 항목별 적합성 판정 코드 없음 → 어깨 항목에 다리 일러스트 | **PASS** (3단위 렌더확인 — 어깨 시트 일러스트 **미부착**, 다리 시트 **부착**. 장면 토큰 = 에셋 6장 실물 열람으로 부여, 6장 전부 `leg` 단독이라 어깨·팔은 전 동작 미부착. M-5 해소) |
 
 ### ③ 최악 케이스 원칙
 
@@ -52,19 +52,19 @@ KeypointOverlay.tsx/deductionLabels.ts/fault_zoom.py 표적 grep·정독). §9 �
 | # | 스펙 | 현 구현 | 판정 |
 |---|---|---|---|
 | S18 | 상태전이: 재생 → 음성 중(정지+dim+강조+자막+"잠시 멈춤" 라벨) → 재개 | 33-13 구현 + F-1/F-2 수리(6adbfe4). dim·라벨 존재(`VideoCompare.tsx:506-702`) | PASS |
-| S19 | 강조 = jointKeys 그룹 위, kp 게이트 통과 → **모양 선(가시 구간만)** / 미달 → **부위 원**, **pulse 1.4s** | **원(bounds circle)만**(`KeypointOverlay.tsx:696-708`). 모양 선 분기 없음. **pulse/Animated 0건**(전 오버레이 소스) | **FAIL** (= M-3+§9 원만 표시) |
+| S19 | 강조 = jointKeys 그룹 위, kp 게이트 통과 → **모양 선(가시 구간만)** / 미달 → **부위 원**, **pulse 1.4s** | **원(bounds circle)만**(`KeypointOverlay.tsx:696-708`). 모양 선 분기 없음. **pulse/Animated 0건**(전 오버레이 소스) | **미검증** (2단위 코드 반영 — `Animated.loop`·선/원 분기 존재. **시뮬이 재생 중 화면을 캡처에 못 담아** 확인 불가 → 실기기 확인 ③) |
 | S20 | 재생바 cuedot = 항목 마커, 탭 → 항목 이동 | `VideoCompare.tsx:195,1273` 틱+탭 이동(33-13 D-13) | PASS |
 | S21 | 자막 = 목표 선행 카피 (4R#3) | phrasebook 목표-선행 54건(33-13 fda716d~) | PASS |
 | S22 | 멈춤 컷 = 결함 텍스트 서술 순간 (불변식 ①: record 실측 창 안) | 틱 = 측정 시점(buildDeductionTicks) 기반이나 멈춤 프레임=재생 위치 — 실측 창 앵커 보장 여부 실기기/시뮬 검증 필요 | 보류 |
-| S23 | 음성 중 우상단 **일러스트 동반**(illu-float, 3R 확정 B안) | **없음** — VideoCompare에 일러스트 코드 0건 | **FAIL** |
+| S23 | 음성 중 우상단 **일러스트 동반**(illu-float, 3R 확정 B안) | **없음** — VideoCompare에 일러스트 코드 0건 | **미검증** (3단위 코드 반영 + P-14 기준면 교정. 음성 큐 중에만 표시 → 재생 필요 → 실기기 확인 ③) |
 
 ### 일러스트 (A-7)
 
 | # | 스펙 | 현 구현 | 판정 |
 |---|---|---|---|
 | S24 | 생성 규칙 = 국면 완성 프레임 → i2i(후보 1 스타일 앵커) → 검수 4게이트 | 6동작 에셋 존재(`assets/illustrations/`), 규칙은 33-14 기록. 미완 4동작 fail-closed | PASS (재생성은 deferred) |
-| S25 | 불변식 ② 장면-일러스트 일치 — 항목 국면·부위 키잉 | S13과 동일 — 판정 코드 없음, 동작당 1장 | **FAIL** (S13에 흡수) |
-| S26 | 렌더 = 3:4 원본 그대로 (M-6) | `DefectIllustration.tsx:63` aspectRatio 3/4 (원본 720×964, cover 미세크롭 ~0.4%) — 코드상 정합. **belle #11 "빈 배경 프레임"의 실체 재현 필요**(에셋 구도 or 다른 표면) | **PARTIAL** (재현 확인) |
+| S25 | 불변식 ② 장면-일러스트 일치 — 항목 국면·부위 키잉 | S13과 동일 — 판정 코드 없음, 동작당 1장 | **PASS** (S13 과 동일 판정 코드로 해소) |
+| S26 | 렌더 = 3:4 원본 그대로 (M-6) | `DefectIllustration.tsx:63` aspectRatio 3/4 (원본 720×964, cover 미세크롭 ~0.4%) — 코드상 정합. **belle #11 "빈 배경 프레임"의 실체 재현 필요**(에셋 구도 or 다른 표면) | **판정 완료 — 에셋 구도 귀결** (cover 크롭 0.417% = 렌더 경로 정합. 에셋의 82~89%가 빈 스튜디오 배경이라 "빈 프레임"으로 읽힌다. 렌더 억지 수정(`contain` 전환) 안 함 — **에셋 재생성 시 구도 교정**이 답. belle #11 의 1차 원인이던 S13 불일치는 닫힘) |
 
 ## B. 목업 밖 구현·표현 결함 (§9-2)
 
@@ -75,7 +75,7 @@ KeypointOverlay.tsx/deductionLabels.ts/fault_zoom.py 표적 grep·정독). §9 �
 | F-5 | 슬라이더 기호 불명 | `GoalGaugeBar.tsx` — 현재 점 마커·허용 밴드에 시각 라벨 없음(a11y 라벨만 `:90`). 라벨 명시 | FAIL |
 | F-6 | 실기기 음성 무음 | **§9 유력 가설 반증** — `audioCue.ts:93` `playsInSilentMode: true` 이미 설정. 원인 재조사 필요(setAudioModeAsync 호출 시점·플레이어 수명·실기기 조건) | FAIL (원인 미상) |
 | F-7 | 자세히 보기 "확 내려감" | D-17 앵커 스크롤 — 전환 표현 조정(D-05 순서, Claude 재량) | FAIL |
-| F-8 | 상시 그룹 마커 | `result.tsx:1484` "skeletonVisible 무관 상시 렌더" — **제거**(D-42), 음성 큐 강조+스켈레톤 토글만 | FAIL |
+| F-8 | 상시 그룹 마커 | `result.tsx:1484` "skeletonVisible 무관 상시 렌더" — **제거**(D-42), 음성 큐 강조+스켈레톤 토글만 | **PASS** (2단위 렌더확인 — 토글 OFF 에서 마커 0, 마커 자리 탭해도 시트 안 열림 = 안 보이는 탭 0) |
 
 ## C. 수리 순서 (확정)
 

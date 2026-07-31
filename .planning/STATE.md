@@ -76,7 +76,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-07-31 - §C-4 3번 일러스트 완료(260731-plf) — 어깨·팔 3장 등재(4게이트), 부위별 키 전환 무손실. ★미해결 = 일러스트 슬롯 확대 절단(선행 결함, 부분 완화 bff3a477) → debug 사이클. 그 뒤 일괄 OTA → belle 확인 ③
+Last activity: 2026-07-31 - §C-4 3번 일러스트 완료(260731-plf) + 슬롯 적응형 높이(0b865d3, belle 지시) — 어깨·팔 3장 등재(4게이트), 부위별 키 전환 무손실. 일러스트 슬롯 건은 debug 종결(오측 확인 — 카드는 362x484.7 정상, e3ab2f5) + 적응형 높이로 마감. 다음 = 일괄 OTA → belle 확인 ③
 
 ### Quick Tasks Completed
 

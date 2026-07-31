@@ -64,6 +64,7 @@ const VERIFIED_ILLUSTRATIONS: Record<string, number> = {
 export function DefectIllustration({
   motionId,
   partKey,
+  maxHeight,
 }: {
   /** mode1 기준 모션 ID. null/미등록 = silent hidden (렌더 0). */
   motionId: string | null | undefined;
@@ -72,33 +73,46 @@ export function DefectIllustration({
    * 칩·부위 시트와 **같은 단위**). 그림 장면과 어긋나면 silent hidden (S13/S25).
    */
   partKey: string | null | undefined;
+  /**
+   * 이 슬롯이 쓸 수 있는 **최대 높이**(pt). 넘기면 비율을 유지한 채 폭을 줄여
+   * 그 안에 맞춘다 (belle 2026-07-31 "전체가 안 들어오면 적응형으로"). 값의
+   * 출처는 소비처가 **실측**해서 준다 — 이 컴포넌트가 시트 기하를 손계산하지
+   * 않는다. 미지정이면 상한 없음(폭 우선) = 종전 거동.
+   */
+  maxHeight?: number;
 }) {
   // 장면일치 통과분만 조회 키가 된다 (P-2/P-3). 불일치·미등재·mode3 → null.
   const matched = illustrationAssetForPart(motionId, partKey);
   const source = matched ? VERIFIED_ILLUSTRATIONS[matched] : undefined;
-  // 실측 폭 → 높이 (quick-260731-plf V-3). Hook 은 early return 앞에 둔다
+  // 실측 폭 (quick-260731-plf V-3). Hook 은 early return 앞에 둔다
   // (조건부 Hook 금지 — matched 가 null 이어도 호출 순서가 같아야 한다).
-  const [boxW, setBoxW] = useState(0);
+  const [availW, setAvailW] = useState(0);
   if (source == null) return null; // 'hidden' — 미검증/불일치는 조용히 생략 (D-15/D-18/D-43)
 
+  // 폭 우선, 단 높이 상한을 넘으면 **상한에 맞춰 폭을 줄인다**. 비율이 그대로라
+  // 잘림도 letterbox 도 없고, 그림이 작아질 뿐이다 — 일러스트는 전신 기하가 곧
+  // 메시지이므로 "조금 작게 전부" 가 "크게 반쪽" 보다 낫다.
+  const capW =
+    typeof maxHeight === 'number' && maxHeight > 0
+      ? maxHeight / ASSET_H_OVER_W
+      : Number.POSITIVE_INFINITY;
+  const w = Math.floor(Math.min(availW, capW));
+  const h = Math.round(w * ASSET_H_OVER_W);
+
   return (
-    <View
-      // 높이를 **카드에도 직접** 준다. 자식(Image) 높이만 키우면 카드가 따라오지
-      // 않는다 (RN 은 자식 높이를 부모로 밀어올리지 않는다). 두 박스를 같은 값으로
-      // 확정해야 `overflow:hidden` 이 잘라낼 여지가 0 이 된다.
-      style={[
-        styles.card,
-        boxW > 0 ? { height: boxW * ASSET_H_OVER_W } : null,
-      ]}
-      onLayout={(e) => setBoxW(e.nativeEvent.layout.width)}
-    >
-      {boxW > 0 ? (
-        <Image
-          source={source}
-          style={{ width: boxW, height: boxW * ASSET_H_OVER_W }}
-          resizeMode="cover"
-          accessibilityLabel="목표 자세 일러스트"
-        />
+    <View style={styles.wrap} onLayout={(e) => setAvailW(e.nativeEvent.layout.width)}>
+      {w > 0 ? (
+        // 높이를 **카드에도 직접** 준다. 자식(Image) 높이만 키우면 카드가 따라오지
+        // 않는다 (RN 은 자식 높이를 부모로 밀어올리지 않는다). 두 박스를 같은 값으로
+        // 확정해야 `overflow:hidden` 이 잘라낼 여지가 0 이 된다.
+        <View style={[styles.card, { width: w, height: h }]}>
+          <Image
+            source={source}
+            style={{ width: w, height: h }}
+            resizeMode="cover"
+            accessibilityLabel="목표 자세 일러스트"
+          />
+        </View>
       ) : null}
     </View>
   );
@@ -129,8 +143,17 @@ const styles = StyleSheet.create({
   // 에셋 9/9 전부 720x964 (`sips` 전수 실측) 이라 `resizeMode="cover"` 가 잘라낼
   // 여백이 없다. 새 에셋을 넣을 때 비율이 다르면 이 전제가 깨진다 — 그때는
   // ASSET_H_OVER_W 와 cover 를 함께 다시 봐야 한다.
-  card: {
+  //
+  // **적응형 (belle 2026-07-31).** 폭 고정이면 작은 화면에서 카드가 시트 뷰포트를
+  // 넘어 한 화면에 안 들어온다 (iPhone 16 Pro = 카드 485 vs 뷰포트 512 로 여유 27pt,
+  // SE 급 = 뷰포트 약 350 < 448.5 로 불가). 이제 소비처가 준 `maxHeight` 안에
+  // 맞추므로 기기 크기와 무관하게 전체가 보인다. wrap 이 폭을 실측하고, 줄어든
+  // 카드는 가운데 정렬한다.
+  wrap: {
     width: '100%',
+    alignItems: 'center',
+  },
+  card: {
     borderRadius: radius.card,
     overflow: 'hidden',
   },

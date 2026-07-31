@@ -77,8 +77,26 @@ interface Props {
   // 33-14 (A-7, D-15) — 결함 일러스트 슬롯. 매핑(결함→일러스트)은 caller(result.tsx)
   // 소유, 시트는 자리만 제공. 승인 목업 ② "확대 크롭 + 감점근거 글 + 일러스트 슬롯".
   // 부재/미검증 = 렌더 0 (DefectIllustration 이 자체 hidden — 시트는 관여하지 않음).
-  illustrationSlot?: React.ReactNode;
+  //
+  // **render prop (belle 2026-07-31 적응형).** 시트만이 자기 스크롤 뷰포트 높이를
+  // 안다. 그 값을 실측해 caller 에게 넘겨 일러스트가 한 화면에 들어오게 한다 —
+  // 소비처가 시트 chrome(handle·title·CTA·padding)을 손계산하지 않게 하는 배선이다.
+  // 아직 실측 전이면 0 이 온다(첫 렌더 1프레임).
+  illustrationSlot?: (maxHeight: number) => React.ReactNode;
 }
+
+// 일러스트 높이 상한 = 스크롤 뷰포트의 이 비율 (belle 2026-07-31 "적응형").
+//
+// **왜 고정 여유(pt)가 아니라 비율인가.** 시트 끝까지 내린 자연스러운 위치에서
+// 일러스트 전체가 보이려면 `일러스트 + 그 뒤 요소 ≤ 뷰포트` 여야 하는데, 뒤 요소
+// (bullets 3줄 + 강사 연결 + AI 고지)의 높이는 기기·폰트 배율마다 다르다. 고정 pt 를
+// 빼면 이 기기에서만 맞는 수가 된다. 절반으로 두면 뒤 요소가 나머지 절반을 쓰므로
+// 어느 기기에서도 성립한다 — 시뮬 실측(뷰포트 512 → 상한 256)에서 카드 195x261 이
+// 되어 전신 + 뒤 텍스트가 한 화면에 다 들어왔다.
+//
+// **작아지는 것은 감수한다.** 일러스트는 전신 기하가 곧 메시지라 "조금 작게 전부"가
+// "크게 반쪽"보다 낫다. 요소 삭제·순서 변경은 하지 않는다 (M-13 유지).
+const ILLUST_VIEWPORT_FRACTION = 0.5;
 
 // criterion → 심사 언어 용어(terminologyMap) 매핑. 미등록 criterion 은 null(용어줄 생략).
 function criterionTerm(criterion: string): TerminologyTerm | null {
@@ -123,6 +141,10 @@ export function DeductionDetailSheet({
   illustrationSlot,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
+  // 일러스트 적응형 상한의 출처 (belle 2026-07-31). 손계산 대신 실측한다 —
+  // 시트 chrome(paddingTop·handle·titleRow·CTA)을 더하고 빼는 산수는 폰트 배율·
+  // 기기마다 어긋나고, 그 어긋남이 이번 오진의 원인이었다.
+  const [scrollH, setScrollH] = React.useState(0);
   if (!view) return null;
 
   const sheetHeight = Math.round(winH * 0.78);
@@ -186,6 +208,7 @@ export function DeductionDetailSheet({
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            onLayout={(e) => setScrollH(e.nativeEvent.layout.height)}
           >
             {/* ── 크롭 카드 (승인본 card: chip → cropimg → paircap → onecap) ── */}
             {primaryZoom ? (
@@ -324,7 +347,12 @@ export function DeductionDetailSheet({
             {/* 33-14 (A-7) — 목표 자세 일러스트. 말 없이 뭘 하라는지 보여주는
                 장치(D-05: 라벨 텍스트 없이 그림만). 미검증/mode3 = 슬롯 자체가
                 null 을 렌더 (silent hidden). */}
-            {illustrationSlot ?? null}
+            {/* 적응형 상한 = 실측 스크롤 뷰포트 x 비율 (손계산 0). */}
+            {illustrationSlot
+              ? illustrationSlot(
+                  Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION),
+                )
+              : null}
 
             {/* 확인하기 안내 (gate ⑤) + 심사 언어 용어줄(terminologyMap).
                 33-15 (D-16) — 대시 나열을 문장화 (조사는 objectJosaKo 로 받침 판정). */}

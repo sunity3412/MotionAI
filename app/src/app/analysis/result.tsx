@@ -3301,12 +3301,15 @@ function AnalysisResultContent({
         // 1단위 뷰모델이 이미 들고 있는 값이라 신규 상태·신규 계산 0이고, 마커 그룹·
         // 부위 칩과 같은 단위다 (두 번째 그룹핑 규칙 금지, P-1). 장면과 어긋나면
         // 슬롯 자체가 안 생긴다 (승인본 `:1114` — 빈 카드·플레이스홀더 아님).
-        illustrationSlot={
+        // render prop — 시트가 자기 스크롤 뷰포트를 실측해 상한을 준다
+        // (belle 2026-07-31 적응형). 여기서 시트 기하를 계산하지 않는다.
+        illustrationSlot={(maxHeight) => (
           <DefectIllustration
             motionId={cmp.mode === 'mode1' ? cmp.referenceMotionId : null}
             partKey={sheetView?.partKey ?? null}
+            maxHeight={maxHeight}
           />
-        }
+        )}
       />
       {/* 32-07 D-07 (32-11 배선) — 첫 진입 코치마크 1회. "오늘 고칠 건 하나만" +
           "자세히는 펼쳐요". hasSeenResultCoachmark 로 1회만, 탭 시 기록. */}

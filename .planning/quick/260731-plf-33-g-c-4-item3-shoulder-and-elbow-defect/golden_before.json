@@ -1,0 +1,767 @@
+{
+  "__proto__|": {
+    "has": false
+  },
+  "__proto__|   ": {
+    "has": false
+  },
+  "__proto__|+": {
+    "has": false
+  },
+  "__proto__|++": {
+    "has": false
+  },
+  "__proto__|LEG": {
+    "has": false
+  },
+  "__proto__|arm": {
+    "has": false
+  },
+  "__proto__|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "__proto__|criterion:line": {
+    "has": false
+  },
+  "__proto__|criterion:split_angle": {
+    "has": false
+  },
+  "__proto__|leg": {
+    "has": false
+  },
+  "__proto__|legs": {
+    "has": false
+  },
+  "__proto__|null": {
+    "has": false
+  },
+  "__proto__|shoulder": {
+    "has": false
+  },
+  "__proto__|shoulder+arm": {
+    "has": false
+  },
+  "__proto__|undefined": {
+    "has": false
+  },
+  "constructor|": {
+    "has": false
+  },
+  "constructor|   ": {
+    "has": false
+  },
+  "constructor|+": {
+    "has": false
+  },
+  "constructor|++": {
+    "has": false
+  },
+  "constructor|LEG": {
+    "has": false
+  },
+  "constructor|arm": {
+    "has": false
+  },
+  "constructor|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "constructor|criterion:line": {
+    "has": false
+  },
+  "constructor|criterion:split_angle": {
+    "has": false
+  },
+  "constructor|leg": {
+    "has": false
+  },
+  "constructor|legs": {
+    "has": false
+  },
+  "constructor|null": {
+    "has": false
+  },
+  "constructor|shoulder": {
+    "has": false
+  },
+  "constructor|shoulder+arm": {
+    "has": false
+  },
+  "constructor|undefined": {
+    "has": false
+  },
+  "null|": {
+    "has": false
+  },
+  "null|   ": {
+    "has": false
+  },
+  "null|+": {
+    "has": false
+  },
+  "null|++": {
+    "has": false
+  },
+  "null|LEG": {
+    "has": false
+  },
+  "null|arm": {
+    "has": false
+  },
+  "null|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "null|criterion:line": {
+    "has": false
+  },
+  "null|criterion:split_angle": {
+    "has": false
+  },
+  "null|leg": {
+    "has": false
+  },
+  "null|legs": {
+    "has": false
+  },
+  "null|null": {
+    "has": false
+  },
+  "null|shoulder": {
+    "has": false
+  },
+  "null|shoulder+arm": {
+    "has": false
+  },
+  "null|undefined": {
+    "has": false
+  },
+  "ref-climb|": {
+    "has": false
+  },
+  "ref-climb|   ": {
+    "has": false
+  },
+  "ref-climb|+": {
+    "has": false
+  },
+  "ref-climb|++": {
+    "has": false
+  },
+  "ref-climb|LEG": {
+    "has": false
+  },
+  "ref-climb|arm": {
+    "has": false
+  },
+  "ref-climb|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-climb|criterion:line": {
+    "has": false
+  },
+  "ref-climb|criterion:split_angle": {
+    "has": false
+  },
+  "ref-climb|leg": {
+    "has": true
+  },
+  "ref-climb|legs": {
+    "has": false
+  },
+  "ref-climb|null": {
+    "has": false
+  },
+  "ref-climb|shoulder": {
+    "has": false
+  },
+  "ref-climb|shoulder+arm": {
+    "has": false
+  },
+  "ref-climb|undefined": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|   ": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|+": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|++": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|LEG": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|arm": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|criterion:line": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|criterion:split_angle": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|leg": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|legs": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|null": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|shoulder": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|shoulder+arm": {
+    "has": false
+  },
+  "ref-elbow-twist-sister|undefined": {
+    "has": false
+  },
+  "ref-foxtop-split|": {
+    "has": false
+  },
+  "ref-foxtop-split|   ": {
+    "has": false
+  },
+  "ref-foxtop-split|+": {
+    "has": false
+  },
+  "ref-foxtop-split|++": {
+    "has": false
+  },
+  "ref-foxtop-split|LEG": {
+    "has": false
+  },
+  "ref-foxtop-split|arm": {
+    "has": false
+  },
+  "ref-foxtop-split|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-foxtop-split|criterion:line": {
+    "has": false
+  },
+  "ref-foxtop-split|criterion:split_angle": {
+    "has": false
+  },
+  "ref-foxtop-split|leg": {
+    "has": true
+  },
+  "ref-foxtop-split|legs": {
+    "has": false
+  },
+  "ref-foxtop-split|null": {
+    "has": false
+  },
+  "ref-foxtop-split|shoulder": {
+    "has": false
+  },
+  "ref-foxtop-split|shoulder+arm": {
+    "has": false
+  },
+  "ref-foxtop-split|undefined": {
+    "has": false
+  },
+  "ref-foxtop|": {
+    "has": false
+  },
+  "ref-foxtop|   ": {
+    "has": false
+  },
+  "ref-foxtop|+": {
+    "has": false
+  },
+  "ref-foxtop|++": {
+    "has": false
+  },
+  "ref-foxtop|LEG": {
+    "has": false
+  },
+  "ref-foxtop|arm": {
+    "has": false
+  },
+  "ref-foxtop|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-foxtop|criterion:line": {
+    "has": false
+  },
+  "ref-foxtop|criterion:split_angle": {
+    "has": false
+  },
+  "ref-foxtop|leg": {
+    "has": true
+  },
+  "ref-foxtop|legs": {
+    "has": false
+  },
+  "ref-foxtop|null": {
+    "has": false
+  },
+  "ref-foxtop|shoulder": {
+    "has": false
+  },
+  "ref-foxtop|shoulder+arm": {
+    "has": false
+  },
+  "ref-foxtop|undefined": {
+    "has": false
+  },
+  "ref-invert|": {
+    "has": false
+  },
+  "ref-invert|   ": {
+    "has": false
+  },
+  "ref-invert|+": {
+    "has": false
+  },
+  "ref-invert|++": {
+    "has": false
+  },
+  "ref-invert|LEG": {
+    "has": false
+  },
+  "ref-invert|arm": {
+    "has": false
+  },
+  "ref-invert|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-invert|criterion:line": {
+    "has": false
+  },
+  "ref-invert|criterion:split_angle": {
+    "has": false
+  },
+  "ref-invert|leg": {
+    "has": true
+  },
+  "ref-invert|legs": {
+    "has": false
+  },
+  "ref-invert|null": {
+    "has": false
+  },
+  "ref-invert|shoulder": {
+    "has": false
+  },
+  "ref-invert|shoulder+arm": {
+    "has": false
+  },
+  "ref-invert|undefined": {
+    "has": false
+  },
+  "ref-kip-up|": {
+    "has": false
+  },
+  "ref-kip-up|   ": {
+    "has": false
+  },
+  "ref-kip-up|+": {
+    "has": false
+  },
+  "ref-kip-up|++": {
+    "has": false
+  },
+  "ref-kip-up|LEG": {
+    "has": false
+  },
+  "ref-kip-up|arm": {
+    "has": false
+  },
+  "ref-kip-up|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-kip-up|criterion:line": {
+    "has": false
+  },
+  "ref-kip-up|criterion:split_angle": {
+    "has": false
+  },
+  "ref-kip-up|leg": {
+    "has": true
+  },
+  "ref-kip-up|legs": {
+    "has": false
+  },
+  "ref-kip-up|null": {
+    "has": false
+  },
+  "ref-kip-up|shoulder": {
+    "has": false
+  },
+  "ref-kip-up|shoulder+arm": {
+    "has": false
+  },
+  "ref-kip-up|undefined": {
+    "has": false
+  },
+  "ref-pdshape|": {
+    "has": false
+  },
+  "ref-pdshape|   ": {
+    "has": false
+  },
+  "ref-pdshape|+": {
+    "has": false
+  },
+  "ref-pdshape|++": {
+    "has": false
+  },
+  "ref-pdshape|LEG": {
+    "has": false
+  },
+  "ref-pdshape|arm": {
+    "has": false
+  },
+  "ref-pdshape|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-pdshape|criterion:line": {
+    "has": false
+  },
+  "ref-pdshape|criterion:split_angle": {
+    "has": false
+  },
+  "ref-pdshape|leg": {
+    "has": false
+  },
+  "ref-pdshape|legs": {
+    "has": false
+  },
+  "ref-pdshape|null": {
+    "has": false
+  },
+  "ref-pdshape|shoulder": {
+    "has": false
+  },
+  "ref-pdshape|shoulder+arm": {
+    "has": false
+  },
+  "ref-pdshape|undefined": {
+    "has": false
+  },
+  "ref-peter-pan|": {
+    "has": false
+  },
+  "ref-peter-pan|   ": {
+    "has": false
+  },
+  "ref-peter-pan|+": {
+    "has": false
+  },
+  "ref-peter-pan|++": {
+    "has": false
+  },
+  "ref-peter-pan|LEG": {
+    "has": false
+  },
+  "ref-peter-pan|arm": {
+    "has": false
+  },
+  "ref-peter-pan|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-peter-pan|criterion:line": {
+    "has": false
+  },
+  "ref-peter-pan|criterion:split_angle": {
+    "has": false
+  },
+  "ref-peter-pan|leg": {
+    "has": false
+  },
+  "ref-peter-pan|legs": {
+    "has": false
+  },
+  "ref-peter-pan|null": {
+    "has": false
+  },
+  "ref-peter-pan|shoulder": {
+    "has": false
+  },
+  "ref-peter-pan|shoulder+arm": {
+    "has": false
+  },
+  "ref-peter-pan|undefined": {
+    "has": false
+  },
+  "ref-power-spin|": {
+    "has": false
+  },
+  "ref-power-spin|   ": {
+    "has": false
+  },
+  "ref-power-spin|+": {
+    "has": false
+  },
+  "ref-power-spin|++": {
+    "has": false
+  },
+  "ref-power-spin|LEG": {
+    "has": false
+  },
+  "ref-power-spin|arm": {
+    "has": false
+  },
+  "ref-power-spin|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-power-spin|criterion:line": {
+    "has": false
+  },
+  "ref-power-spin|criterion:split_angle": {
+    "has": false
+  },
+  "ref-power-spin|leg": {
+    "has": true
+  },
+  "ref-power-spin|legs": {
+    "has": false
+  },
+  "ref-power-spin|null": {
+    "has": false
+  },
+  "ref-power-spin|shoulder": {
+    "has": false
+  },
+  "ref-power-spin|shoulder+arm": {
+    "has": false
+  },
+  "ref-power-spin|undefined": {
+    "has": false
+  },
+  "ref-sideway-spin|": {
+    "has": false
+  },
+  "ref-sideway-spin|   ": {
+    "has": false
+  },
+  "ref-sideway-spin|+": {
+    "has": false
+  },
+  "ref-sideway-spin|++": {
+    "has": false
+  },
+  "ref-sideway-spin|LEG": {
+    "has": false
+  },
+  "ref-sideway-spin|arm": {
+    "has": false
+  },
+  "ref-sideway-spin|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-sideway-spin|criterion:line": {
+    "has": false
+  },
+  "ref-sideway-spin|criterion:split_angle": {
+    "has": false
+  },
+  "ref-sideway-spin|leg": {
+    "has": false
+  },
+  "ref-sideway-spin|legs": {
+    "has": false
+  },
+  "ref-sideway-spin|null": {
+    "has": false
+  },
+  "ref-sideway-spin|shoulder": {
+    "has": false
+  },
+  "ref-sideway-spin|shoulder+arm": {
+    "has": false
+  },
+  "ref-sideway-spin|undefined": {
+    "has": false
+  },
+  "ref-unknown-move|": {
+    "has": false
+  },
+  "ref-unknown-move|   ": {
+    "has": false
+  },
+  "ref-unknown-move|+": {
+    "has": false
+  },
+  "ref-unknown-move|++": {
+    "has": false
+  },
+  "ref-unknown-move|LEG": {
+    "has": false
+  },
+  "ref-unknown-move|arm": {
+    "has": false
+  },
+  "ref-unknown-move|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "ref-unknown-move|criterion:line": {
+    "has": false
+  },
+  "ref-unknown-move|criterion:split_angle": {
+    "has": false
+  },
+  "ref-unknown-move|leg": {
+    "has": false
+  },
+  "ref-unknown-move|legs": {
+    "has": false
+  },
+  "ref-unknown-move|null": {
+    "has": false
+  },
+  "ref-unknown-move|shoulder": {
+    "has": false
+  },
+  "ref-unknown-move|shoulder+arm": {
+    "has": false
+  },
+  "ref-unknown-move|undefined": {
+    "has": false
+  },
+  "toString|": {
+    "has": false
+  },
+  "toString|   ": {
+    "has": false
+  },
+  "toString|+": {
+    "has": false
+  },
+  "toString|++": {
+    "has": false
+  },
+  "toString|LEG": {
+    "has": false
+  },
+  "toString|arm": {
+    "has": false
+  },
+  "toString|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "toString|criterion:line": {
+    "has": false
+  },
+  "toString|criterion:split_angle": {
+    "has": false
+  },
+  "toString|leg": {
+    "has": false
+  },
+  "toString|legs": {
+    "has": false
+  },
+  "toString|null": {
+    "has": false
+  },
+  "toString|shoulder": {
+    "has": false
+  },
+  "toString|shoulder+arm": {
+    "has": false
+  },
+  "toString|undefined": {
+    "has": false
+  },
+  "undefined|": {
+    "has": false
+  },
+  "undefined|   ": {
+    "has": false
+  },
+  "undefined|+": {
+    "has": false
+  },
+  "undefined|++": {
+    "has": false
+  },
+  "undefined|LEG": {
+    "has": false
+  },
+  "undefined|arm": {
+    "has": false
+  },
+  "undefined|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "undefined|criterion:line": {
+    "has": false
+  },
+  "undefined|criterion:split_angle": {
+    "has": false
+  },
+  "undefined|leg": {
+    "has": false
+  },
+  "undefined|legs": {
+    "has": false
+  },
+  "undefined|null": {
+    "has": false
+  },
+  "undefined|shoulder": {
+    "has": false
+  },
+  "undefined|shoulder+arm": {
+    "has": false
+  },
+  "undefined|undefined": {
+    "has": false
+  },
+  "|": {
+    "has": false
+  },
+  "|   ": {
+    "has": false
+  },
+  "|+": {
+    "has": false
+  },
+  "|++": {
+    "has": false
+  },
+  "|LEG": {
+    "has": false
+  },
+  "|arm": {
+    "has": false
+  },
+  "|criterion:dimension_overall_fallback": {
+    "has": false
+  },
+  "|criterion:line": {
+    "has": false
+  },
+  "|criterion:split_angle": {
+    "has": false
+  },
+  "|leg": {
+    "has": false
+  },
+  "|legs": {
+    "has": false
+  },
+  "|null": {
+    "has": false
+  },
+  "|shoulder": {
+    "has": false
+  },
+  "|shoulder+arm": {
+    "has": false
+  },
+  "|undefined": {
+    "has": false
+  }
+}

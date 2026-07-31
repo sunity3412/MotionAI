@@ -1,0 +1,17 @@
+{
+  "ruler": "배경 = min>225 and (max-min)<22 (2jt 동일)",
+  "existing": {
+    "ref-climb.jpg": 17.6,
+    "ref-foxtop-split.jpg": 12.6,
+    "ref-foxtop.jpg": 11.1,
+    "ref-invert.jpg": 11.3,
+    "ref-kip-up.jpg": 14.8,
+    "ref-power-spin.jpg": 17.4
+  },
+  "new": {
+    "ref-power-spin--shoulder__try2.jpg": 26.4,
+    "ref-kip-up--shoulder__try1.jpg": 23.8,
+    "ref-elbow-twist-sister--arm__try1.jpg": 20.0
+  },
+  "existing_max": 17.6
+}

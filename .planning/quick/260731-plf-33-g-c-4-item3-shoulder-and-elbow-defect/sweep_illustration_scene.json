@@ -1,0 +1,1123 @@
+{
+  "generated_by": "quick-260731-plf sweep_illustration_scene.test.ts (2jt 포팅)",
+  "criteria_dir": "backend/judging_data/criteria",
+  "motions": 10,
+  "part_tokens": [
+    "shoulder",
+    "arm",
+    "leg"
+  ],
+  "probe_part_keys": [
+    "shoulder",
+    "arm",
+    "leg",
+    "shoulder+arm",
+    "shoulder+leg",
+    "arm+leg",
+    "shoulder+arm+leg"
+  ],
+  "totals": {
+    "cells": 130,
+    "attached": 9,
+    "not_attached": 121,
+    "motions_with_scene": 7,
+    "motions_without_scene": 3,
+    "multi_candidate_cells": 0,
+    "criterion_key_attached": 0,
+    "mode3_attached": 0
+  },
+  "scene_missing_motions": [
+    "ref-pdshape",
+    "ref-peter-pan",
+    "ref-sideway-spin"
+  ],
+  "rows": [
+    {
+      "motion": "ref-climb",
+      "file": "ref-climb.yaml",
+      "yamlJoints": 0,
+      "records": 17,
+      "hasScene": true,
+      "scenes": [
+        {
+          "parts": [
+            "leg"
+          ],
+          "asset": "ref-climb"
+        }
+      ],
+      "derivedPartKeys": [
+        "shoulder",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "leg",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [
+        "leg"
+      ],
+      "cells": [
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": true,
+          "assetUsed": "ref-climb"
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "file": "ref-elbow-twist-sister.yaml",
+      "yamlJoints": 0,
+      "records": 17,
+      "hasScene": true,
+      "scenes": [
+        {
+          "parts": [
+            "arm"
+          ],
+          "asset": "ref-elbow-twist-sister--arm"
+        }
+      ],
+      "derivedPartKeys": [
+        "shoulder",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "leg",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [
+        "arm"
+      ],
+      "cells": [
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": true,
+          "assetUsed": "ref-elbow-twist-sister--arm"
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "file": "ref-foxtop-split.yaml",
+      "yamlJoints": 6,
+      "records": 17,
+      "hasScene": true,
+      "scenes": [
+        {
+          "parts": [
+            "leg"
+          ],
+          "asset": "ref-foxtop-split"
+        }
+      ],
+      "derivedPartKeys": [
+        "shoulder",
+        "leg",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [
+        "leg"
+      ],
+      "cells": [
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": true,
+          "assetUsed": "ref-foxtop-split"
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    },
+    {
+      "motion": "ref-foxtop",
+      "file": "ref-foxtop.yaml",
+      "yamlJoints": 6,
+      "records": 17,
+      "hasScene": true,
+      "scenes": [
+        {
+          "parts": [
+            "leg"
+          ],
+          "asset": "ref-foxtop"
+        }
+      ],
+      "derivedPartKeys": [
+        "shoulder",
+        "leg",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [
+        "leg"
+      ],
+      "cells": [
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": true,
+          "assetUsed": "ref-foxtop"
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    },
+    {
+      "motion": "ref-invert",
+      "file": "ref-invert.yaml",
+      "yamlJoints": 6,
+      "records": 17,
+      "hasScene": true,
+      "scenes": [
+        {
+          "parts": [
+            "leg"
+          ],
+          "asset": "ref-invert"
+        }
+      ],
+      "derivedPartKeys": [
+        "shoulder",
+        "leg",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [
+        "leg"
+      ],
+      "cells": [
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": true,
+          "assetUsed": "ref-invert"
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    },
+    {
+      "motion": "ref-kip-up",
+      "file": "ref-kip-up.yaml",
+      "yamlJoints": 0,
+      "records": 17,
+      "hasScene": true,
+      "scenes": [
+        {
+          "parts": [
+            "leg"
+          ],
+          "asset": "ref-kip-up"
+        },
+        {
+          "parts": [
+            "shoulder"
+          ],
+          "asset": "ref-kip-up--shoulder"
+        }
+      ],
+      "derivedPartKeys": [
+        "shoulder",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "leg",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [
+        "shoulder",
+        "leg"
+      ],
+      "cells": [
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": true,
+          "assetUsed": "ref-kip-up--shoulder"
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": true,
+          "assetUsed": "ref-kip-up"
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    },
+    {
+      "motion": "ref-pdshape",
+      "file": "ref-pdshape.yaml",
+      "yamlJoints": 0,
+      "records": 17,
+      "hasScene": false,
+      "scenes": [],
+      "derivedPartKeys": [
+        "shoulder",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "leg",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [],
+      "cells": [
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    },
+    {
+      "motion": "ref-peter-pan",
+      "file": "ref-peter-pan.yaml",
+      "yamlJoints": 0,
+      "records": 17,
+      "hasScene": false,
+      "scenes": [],
+      "derivedPartKeys": [
+        "shoulder",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "leg",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [],
+      "cells": [
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    },
+    {
+      "motion": "ref-power-spin",
+      "file": "ref-power-spin.yaml",
+      "yamlJoints": 2,
+      "records": 17,
+      "hasScene": true,
+      "scenes": [
+        {
+          "parts": [
+            "leg"
+          ],
+          "asset": "ref-power-spin"
+        },
+        {
+          "parts": [
+            "shoulder"
+          ],
+          "asset": "ref-power-spin--shoulder"
+        }
+      ],
+      "derivedPartKeys": [
+        "leg",
+        "shoulder",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [
+        "leg",
+        "shoulder"
+      ],
+      "cells": [
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": true,
+          "assetUsed": "ref-power-spin"
+        },
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": true,
+          "assetUsed": "ref-power-spin--shoulder"
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "file": "ref-sideway-spin.yaml",
+      "yamlJoints": 6,
+      "records": 17,
+      "hasScene": false,
+      "scenes": [],
+      "derivedPartKeys": [
+        "shoulder",
+        "leg",
+        "arm",
+        "criterion:angle_vs_reference__left_hand",
+        "criterion:angle_vs_reference__right_hand",
+        "criterion:angle_vs_reference__left_ankle",
+        "criterion:angle_vs_reference__right_ankle",
+        "shoulder+arm",
+        "criterion:line",
+        "criterion:dimension_overall_fallback"
+      ],
+      "attachedKeys": [],
+      "cells": [
+        {
+          "partKey": "shoulder",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "leg",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_hand",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__left_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:angle_vs_reference__right_ankle",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:line",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "criterion:dimension_overall_fallback",
+          "origin": "derived",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        },
+        {
+          "partKey": "shoulder+arm+leg",
+          "origin": "probe",
+          "attached": false,
+          "assetUsed": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+# 생성 라운드 산출물(탈락본 포함)은 검수 증거지만 대용량이라 REVIEW.md 판정표로 대체한다.
+# 등재분은 app/assets/illustrations/ 에 커밋돼 있고, 재현 = generate.py.
+gen/*.jpg

@@ -1,0 +1,313 @@
+{
+  "generated_by": "quick-260731-plf emit_census.ts",
+  "docs_dir": ".planning/quick/260731-iis-33-g-c-4-a-track-reference-12-joint-18fp/docs_after",
+  "rule_source": "app/src/lib/deductionSheet.ts::regionPartKeyForRecord (실 앱 함수 import — 규칙 사본 0)",
+  "docs": [
+    {
+      "file": "elbowtwistsisterFault1785373695.json",
+      "analysisId": "elbowtwistsisterFault1785373695",
+      "mode": "mode1",
+      "referenceMotionId": "ref-elbow-twist-sister",
+      "overallScore": 63,
+      "records": 8,
+      "faultZoomCards": 5,
+      "visionVetoStatus": "applied",
+      "emitted": [
+        {
+          "partKey": "arm",
+          "criterion": "angle_vs_reference__left_elbow",
+          "points": -3.8,
+          "source": "geometry"
+        },
+        {
+          "partKey": "arm",
+          "criterion": "angle_vs_reference__right_elbow",
+          "points": -12.4,
+          "source": "geometry"
+        },
+        {
+          "partKey": "shoulder",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "points": -0.5,
+          "source": "geometry"
+        },
+        {
+          "partKey": "shoulder",
+          "criterion": "angle_vs_reference__right_shoulder",
+          "points": -11.1,
+          "source": "geometry"
+        },
+        {
+          "partKey": "leg",
+          "criterion": "angle_vs_reference__left_hip",
+          "points": -2.2,
+          "source": "geometry"
+        },
+        {
+          "partKey": "leg",
+          "criterion": "angle_vs_reference__right_hip",
+          "points": -2.1,
+          "source": "geometry"
+        },
+        {
+          "partKey": "leg",
+          "criterion": "angle_vs_reference__left_knee",
+          "points": -2.2,
+          "source": "geometry"
+        },
+        {
+          "partKey": "leg",
+          "criterion": "angle_vs_reference__right_knee",
+          "points": -2.6,
+          "source": "geometry"
+        }
+      ],
+      "partKeys": {
+        "arm": [
+          {
+            "partKey": "arm",
+            "criterion": "angle_vs_reference__left_elbow",
+            "points": -3.8,
+            "source": "geometry"
+          },
+          {
+            "partKey": "arm",
+            "criterion": "angle_vs_reference__right_elbow",
+            "points": -12.4,
+            "source": "geometry"
+          }
+        ],
+        "shoulder": [
+          {
+            "partKey": "shoulder",
+            "criterion": "angle_vs_reference__left_shoulder",
+            "points": -0.5,
+            "source": "geometry"
+          },
+          {
+            "partKey": "shoulder",
+            "criterion": "angle_vs_reference__right_shoulder",
+            "points": -11.1,
+            "source": "geometry"
+          }
+        ],
+        "leg": [
+          {
+            "partKey": "leg",
+            "criterion": "angle_vs_reference__left_hip",
+            "points": -2.2,
+            "source": "geometry"
+          },
+          {
+            "partKey": "leg",
+            "criterion": "angle_vs_reference__right_hip",
+            "points": -2.1,
+            "source": "geometry"
+          },
+          {
+            "partKey": "leg",
+            "criterion": "angle_vs_reference__left_knee",
+            "points": -2.2,
+            "source": "geometry"
+          },
+          {
+            "partKey": "leg",
+            "criterion": "angle_vs_reference__right_knee",
+            "points": -2.6,
+            "source": "geometry"
+          }
+        ]
+      }
+    },
+    {
+      "file": "kipupFault1785373695.json",
+      "analysisId": "kipupFault1785373695",
+      "mode": "mode1",
+      "referenceMotionId": "ref-kip-up",
+      "overallScore": 79,
+      "records": 2,
+      "faultZoomCards": 2,
+      "visionVetoStatus": "applied",
+      "emitted": [
+        {
+          "partKey": "leg",
+          "criterion": "split_angle",
+          "points": -20,
+          "source": "vision"
+        },
+        {
+          "partKey": "shoulder",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "points": -0.8,
+          "source": "geometry"
+        }
+      ],
+      "partKeys": {
+        "leg": [
+          {
+            "partKey": "leg",
+            "criterion": "split_angle",
+            "points": -20,
+            "source": "vision"
+          }
+        ],
+        "shoulder": [
+          {
+            "partKey": "shoulder",
+            "criterion": "angle_vs_reference__left_shoulder",
+            "points": -0.8,
+            "source": "geometry"
+          }
+        ]
+      }
+    },
+    {
+      "file": "pdshapeCorrect1785373695.json",
+      "analysisId": "pdshapeCorrect1785373695",
+      "mode": "mode1",
+      "referenceMotionId": "ref-pdshape",
+      "overallScore": 100,
+      "records": 1,
+      "faultZoomCards": 1,
+      "visionVetoStatus": "applied",
+      "emitted": [
+        {
+          "partKey": "leg",
+          "criterion": "angle_vs_reference__right_knee",
+          "points": -0.2,
+          "source": "geometry"
+        }
+      ],
+      "partKeys": {
+        "leg": [
+          {
+            "partKey": "leg",
+            "criterion": "angle_vs_reference__right_knee",
+            "points": -0.2,
+            "source": "geometry"
+          }
+        ]
+      }
+    },
+    {
+      "file": "powerspinFault1785373695.json",
+      "analysisId": "powerspinFault1785373695",
+      "mode": "mode1",
+      "referenceMotionId": "ref-power-spin",
+      "overallScore": 60,
+      "records": 3,
+      "faultZoomCards": 4,
+      "visionVetoStatus": "applied",
+      "emitted": [
+        {
+          "partKey": "leg",
+          "criterion": "leg_extension",
+          "points": -20,
+          "source": "geometry"
+        },
+        {
+          "partKey": "leg",
+          "criterion": "split_angle",
+          "points": -12,
+          "source": "vision"
+        },
+        {
+          "partKey": "shoulder",
+          "criterion": "angle_vs_reference__left_shoulder",
+          "points": -12.8,
+          "source": "geometry"
+        }
+      ],
+      "partKeys": {
+        "leg": [
+          {
+            "partKey": "leg",
+            "criterion": "leg_extension",
+            "points": -20,
+            "source": "geometry"
+          },
+          {
+            "partKey": "leg",
+            "criterion": "split_angle",
+            "points": -12,
+            "source": "vision"
+          }
+        ],
+        "shoulder": [
+          {
+            "partKey": "shoulder",
+            "criterion": "angle_vs_reference__left_shoulder",
+            "points": -12.8,
+            "source": "geometry"
+          }
+        ]
+      }
+    }
+  ],
+  "combos": [
+    {
+      "motionId": "ref-elbow-twist-sister",
+      "partKey": "arm",
+      "docs": [
+        "elbowtwistsisterFault1785373695.json"
+      ],
+      "records": 2
+    },
+    {
+      "motionId": "ref-elbow-twist-sister",
+      "partKey": "leg",
+      "docs": [
+        "elbowtwistsisterFault1785373695.json"
+      ],
+      "records": 4
+    },
+    {
+      "motionId": "ref-elbow-twist-sister",
+      "partKey": "shoulder",
+      "docs": [
+        "elbowtwistsisterFault1785373695.json"
+      ],
+      "records": 2
+    },
+    {
+      "motionId": "ref-kip-up",
+      "partKey": "leg",
+      "docs": [
+        "kipupFault1785373695.json"
+      ],
+      "records": 1
+    },
+    {
+      "motionId": "ref-kip-up",
+      "partKey": "shoulder",
+      "docs": [
+        "kipupFault1785373695.json"
+      ],
+      "records": 1
+    },
+    {
+      "motionId": "ref-pdshape",
+      "partKey": "leg",
+      "docs": [
+        "pdshapeCorrect1785373695.json"
+      ],
+      "records": 1
+    },
+    {
+      "motionId": "ref-power-spin",
+      "partKey": "leg",
+      "docs": [
+        "powerspinFault1785373695.json"
+      ],
+      "records": 2
+    },
+    {
+      "motionId": "ref-power-spin",
+      "partKey": "shoulder",
+      "docs": [
+        "powerspinFault1785373695.json"
+      ],
+      "records": 1
+    }
+  ]
+}

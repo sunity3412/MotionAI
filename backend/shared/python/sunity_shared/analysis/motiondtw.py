@@ -218,3 +218,59 @@ def per_joint_deviation(path, A_user_seg, A_ref):
     for k, (u, r) in enumerate(path):
         diffs[k] = np.abs(A_user_seg[u] - A_ref[r])
     return np.median(diffs, axis=0)
+
+
+def per_joint_representative_frames(path, A_user_seg, A_ref, start=0):
+    """관절별 "그 관절이 보고한 median 에 가장 가까운" 정렬 스텝의 학생 프레임.
+
+    quick-260801-gbk — 감점 record 가 보고한 집계값을 **어느 프레임에서 쟀는지**
+    되돌려 준다. per_joint_deviation 은 관절별 median 만 반환하고 그것을 만든 시계열
+    축을 버리는데, 확대비교 카드가 써야 할 순간이 바로 그 버려진 축에 있다.
+
+    **per_joint_deviation 본체는 건드리지 않는다.** 그 함수 소스의 SHA-256 이
+    backend/tests/phase33/test_m3_alignment_only.py 에 박제돼 있어 반환값 확장이나
+    out-param 추가는 전부 그 게이트를 깬다. 같은 diffs 순회를 sibling 으로 복제한다
+    (중복이지만 박제를 우회하지 않고 통과하는 유일한 길).
+
+    **argmax(최대 편차 프레임)를 쓰지 않는다.** 근거는 이 파일 198-209행 — 인접
+    프레임 간 각도 jitter 가 크고 상위 백분위 outlier 가 흔하다. 최대 편차 프레임은
+    그 outlier 프레임일 확률이 높고, 그것을 "여기가 감점 부분"이라며 확대해 보여주면
+    지금보다 나빠진다. median 에 가장 가까운 스텝을 고르면 record 가 실제로 보고한
+    값과 같은 순간을 가리킨다.
+
+    Args:
+        path: [(user_local, ref_idx), ...] — per_joint_deviation 과 동일 입력.
+        A_user_seg: (T,J) 학생 구간 각도 = angles[start:end].
+        A_ref: (T,J) 기준 각도.
+        start: 학생 구간 시작 절대 인덱스(MotionMatch.start). path 의 user 축은
+            구간-로컬이라 절대 프레임으로 되돌리려면 이 값을 더해야 한다.
+
+    Returns:
+        {joint_index: 학생 절대 프레임 인덱스}. path 가 비면 빈 dict. 유한 diff 가
+        없거나 median 이 비유한인 관절은 키 부재(fail-closed) — 그 관절은 감점
+        record 도 방출되지 않으므로 순간만 남는 일이 없다.
+    """
+    A_user_seg = np.asarray(A_user_seg, dtype=float)
+    A_ref = np.asarray(A_ref, dtype=float)
+    J = A_ref.shape[1]
+    if not path:
+        return {}
+    diffs = np.empty((len(path), J), dtype=float)
+    for k, (u, r) in enumerate(path):
+        diffs[k] = np.abs(A_user_seg[u] - A_ref[r])
+    base = int(start)
+    out: dict[int, int] = {}
+    for j in range(J):
+        col = diffs[:, j]
+        finite = np.isfinite(col)
+        if not finite.any():
+            continue
+        med = float(np.median(col))
+        if med != med:  # NaN median — 그 관절 record 자체가 방출되지 않는다.
+            continue
+        # 비유한 스텝은 후보에서 제외(inf 로 밀어냄). 동점은 argmin 이 첫 스텝을
+        # 고르므로 결정론적.
+        gaps = np.where(finite, np.abs(col - med), np.inf)
+        k_star = int(np.argmin(gaps))
+        out[j] = base + int(path[k_star][0])
+    return out

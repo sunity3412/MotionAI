@@ -83,7 +83,11 @@ from sunity_shared.analysis.features import (
     split_angle_series,
 )
 from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # 가벼움 — 예외만
-from sunity_shared.analysis.motiondtw import motion_dtw, per_joint_deviation
+from sunity_shared.analysis.motiondtw import (
+    motion_dtw,
+    per_joint_deviation,
+    per_joint_representative_frames,
+)
 from sunity_shared.analysis.motion_alignment import build_motion_alignment  # Phase 28 (ALGN-01)
 from sunity_shared.analysis.pole_geometry import (
     PoleAxisMeasurement,
@@ -2324,11 +2328,41 @@ def _assess_attribution_reliability(
     return marker
 
 
+# ── quick-260801-gbk: 측정 순간 산출 wrapper (표시 전용, 채점 무접촉) ────────
+# dimensions helper 를 그대로 호출하되 예외를 삼킨다 — 순간 산출 실패가 점수 substrate
+# 산출을 막으면 안 된다(순간은 있으면 좋은 것, 점수는 반드시 나와야 하는 것).
+# 실패 = None = 그 criterion 은 필드 없음(fail-closed).
+
+
+def _extension_moment_frame(dimensions, angles, profile, joint_key, target_deficit):
+    """leg/arm_extension 집계값을 만든 관절의 대표 프레임 | None."""
+    if not joint_key:
+        return None
+    try:
+        return dimensions.extension_representative_frame(
+            angles, profile, joint_key, target_deficit
+        )
+    except Exception:  # noqa: BLE001 — 순간 미확정은 필드 부재로 정직하게 남긴다
+        return None
+
+
+def _line_moment_frame(dimensions, angles, profile, joint_keys, target_deficit):
+    """line 집계값을 만든 관절 집합의 대표 프레임 | None."""
+    if not joint_keys:
+        return None
+    try:
+        return dimensions.line_representative_frame(
+            angles, profile, joint_keys, target_deficit
+        )
+    except Exception:  # noqa: BLE001 — 순간 미확정은 필드 부재로 정직하게 남긴다
+        return None
+
+
 def _build_deduction_measured_deviations(
     *, angles, profile, assessments, dimension_scores, quantification,
     reference_dtw_match=None, reference_angles=None, split_deficit_deg=None,
     vision_pointed_joints=None, seed_audit_out=None, alignment_visibility=None,
-    alignment_visibility_measured=True, vision_status=None,
+    alignment_visibility_measured=True, vision_status=None, measured_at_out=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2365,13 +2399,58 @@ def _build_deduction_measured_deviations(
         eval/legacy 미전달 시 None(게이트 미기여). DTW distance 는 reference_dtw_match 에서
         직접 읽어 별도 인자 불필요.
 
+      · measured_at_out: dict 전달 시 {criterion_id: {"frame_idx": int, "video_sec": float}}
+        기록 (quick-260801-gbk). "그 감점을 **어느 프레임에서 쟀는가**". md(점수
+        substrate)는 여기서 절대 mutate 하지 않는다 — 순간은 out-param 에만 기록된다
+        (seed_audit_out 과 정확히 같은 선례·같은 보장). 채우는 criterion 은 4계열뿐:
+        angle_vs_reference__{jk}(window/DTW 두 경로) / leg_extension / arm_extension /
+        line. **fail-closed 3종**(항목 자체가 없다):
+          - body_relative_reach: notches 에 시계열이 없다.
+          - dimension_overall_fallback: 특정 순간이 없는 record 다.
+          - split_angle: 프로덕션 실동작 경로가 vision 주입(deduction_engine)이라
+            우리가 잰 프레임이 없다. 기하 경로는 profile.required_split_deg 게이트가
+            항상 False 라 사문이다. 재지 않은 것에 "여기서 쟀다" 계약을 붙이면
+            이 필드가 없애려는 거짓을 되살린다.
+        frame_idx 도메인 = **학생 9fps angles 행 인덱스** (keypointReport rep 인덱스
+        아님). video_sec = frame_idx / _pipeline_frame_fps() — 리터럴 fps 금지.
+
     반환값(md)은 33-NEXT 마커 배선 전후로 byte-동일 — 마커는 seed_audit_out 에만 기록되고
-    md 를 절대 변경하지 않는다(magnitude-neutral 보장, D-20/D-29).
+    md 를 절대 변경하지 않는다(magnitude-neutral 보장, D-20/D-29). measured_at_out 도
+    동일 — 전달 유무와 무관하게 md 는 키·값 모두 같다.
     """
     from sunity_shared.analysis import dimensions
     from sunity_shared.analysis.skeleton import JOINT_KEYS
 
     md: dict = {}
+
+    # ── quick-260801-gbk: 측정 순간 out-param 기록기 ────────────────────────
+    # md 를 절대 건드리지 않는다. frame_idx 는 학생 9fps angles 행 인덱스.
+    # fps 는 _pipeline_frame_fps() 단일 출처 — 리터럴 금지. 어댑터 미초기화 +
+    # frame_extractor 의존성 부재(단위 테스트/Lambda 아닌 환경)에서는 그 함수가
+    # import 로 죽으므로 방어한다. 실패 시 fps=0 → video_sec 생략, frame_idx 는 그대로
+    # (초를 추측해 채우는 것보다 비우는 쪽이 정직하다).
+    _moment_fps = 0.0
+    if isinstance(measured_at_out, dict):
+        try:
+            _moment_fps = float(_pipeline_frame_fps())
+        except Exception:  # noqa: BLE001 — fps 미상은 video_sec 생략으로만 반영
+            _moment_fps = 0.0
+
+    def _record_moment(criterion_id, frame_idx) -> None:
+        """criterion 의 측정 프레임을 out-param 에만 남긴다 (fail-closed)."""
+        if not isinstance(measured_at_out, dict) or frame_idx is None:
+            return
+        try:
+            fi = int(frame_idx)
+        except (TypeError, ValueError):
+            return
+        if fi < 0:
+            return
+        entry: dict = {"frame_idx": fi}
+        if _moment_fps > 0:
+            entry["video_sec"] = fi / _moment_fps
+        measured_at_out[criterion_id] = entry
+
     # ── 각도 편차 (deg) — extension_deviation 만(0-100 SCORE 금지, HIGH-3) ──
     if angles is not None and profile is not None:
         try:
@@ -2383,32 +2462,52 @@ def _build_deduction_measured_deviations(
             dev_vec = extension_deficits_by_joint
 
             def _max_dev(joint_names):
-                vals = []
+                """(집계값, 그 값을 만든 관절) — 값은 종전과 동일, 형상만 확장.
+
+                quick-260801-gbk: 순간을 뽑으려면 좌/우 중 **어느 쪽이 이겼는지**를
+                알아야 한다. md 에 들어가는 값은 여전히 max 하나뿐이다.
+                """
+                best_v = None
+                best_jk = None
                 for jk in joint_names:
                     if jk in JOINT_KEYS:
                         v = float(dev_vec[JOINT_KEYS.index(jk)])
-                        if v == v:  # not NaN
-                            vals.append(v)
-                return max(vals) if vals else None
+                        if v == v and (best_v is None or v > best_v):  # not NaN
+                            best_v, best_jk = v, jk
+                return best_v, best_jk
 
-            leg = _max_dev(("left_knee", "right_knee"))
+            leg, leg_jk = _max_dev(("left_knee", "right_knee"))
             if leg is not None and leg > 0.0:
                 md["leg_extension"] = leg
-            arm = _max_dev(("left_elbow", "right_elbow"))
+                _record_moment("leg_extension", _extension_moment_frame(
+                    dimensions, angles, profile, leg_jk, leg
+                ))
+            arm, arm_jk = _max_dev(("left_elbow", "right_elbow"))
             if arm is not None and arm > 0.0:
                 md["arm_extension"] = arm
+                _record_moment("arm_extension", _extension_moment_frame(
+                    dimensions, angles, profile, arm_jk, arm
+                ))
             # line_deficit = COLLECTIVE 180° deficit (line_score 와 동일 source) — 모든 EXTEND
             # 관절 부족분의 평균(deg). leg/arm 과의 cross-exclusion 은 엔진 union 이후.
-            extend_devs = [
-                float(dev_vec[JOINT_KEYS.index(jk)])
+            # quick-260801-gbk: 집계에 실제로 기여한 관절 키를 함께 보관한다 — 순간은
+            # 그 관절 집합의 per-frame 평균에서 나와야 record 가 보고한 값과 같은
+            # 순간을 가리킨다. 값 산출 순서·연산은 종전과 동일.
+            extend_pairs = [
+                (jk, float(dev_vec[JOINT_KEYS.index(jk)]))
                 for jk in JOINT_KEYS
                 if profile.expects_extension(jk)
                 and float(dev_vec[JOINT_KEYS.index(jk)]) == float(dev_vec[JOINT_KEYS.index(jk)])
             ]
-            extend_devs = [d for d in extend_devs if d > 0.0]
+            extend_pairs = [(jk, d) for jk, d in extend_pairs if d > 0.0]
+            extend_devs = [d for _jk, d in extend_pairs]
             if extend_devs:
                 line_deficit = sum(extend_devs) / len(extend_devs)
                 md["line"] = line_deficit
+                _record_moment("line", _line_moment_frame(
+                    dimensions, angles, profile,
+                    [jk for jk, _d in extend_pairs], line_deficit,
+                ))
 
     # ── reach 칸 — quantification.bodyRelativeNotches forward(student/reference 동반, HIGH-2) ──
     # 각 칸 항목은 student_notches/reference_notches/delta_notches 를 들고 있어 엔진이
@@ -2422,6 +2521,15 @@ def _build_deduction_measured_deviations(
     # features.split_angle_series + max_split(peak)으로 산출(keypoints_4ch). 객관 180°
     # 강요 아님(belle over-EXTEND 위양성 회피, 15-SPLIT-MEASUREMENT-DESIGN §3). split_angle
     # criterion(reference_relative)이 소비: over = max(0, deficit − tol). None/0 → 미방출(honest 0).
+    #
+    # quick-260801-gbk — split_angle 에는 측정 순간을 **넣지 않는다**(fail-closed).
+    # 이 기하 경로는 profile.required_split_deg 게이트가 항상 False 라 사문이고,
+    # 프로덕션 실동작 경로는 deduction_engine 의 vision 주입이다. vision record 의
+    # measuredValue 는 Gemini 추정이지 우리가 어느 프레임에서 잰 값이 아니다 —
+    # 기하에서 뽑은 프레임을 "여기서 쟀다" 계약 아래 붙이면 앱이 다시 "위 사진은 그
+    # 값을 잰 순간이에요"라고 말하게 되고, 그것이 이 필드가 없애려는 거짓과 같은
+    # 종류다. out-param 이 이 빌더에 있고 엔진 주입보다 먼저 돌므로 fail-closed 는
+    # 추가 코드 없이 성립한다.
     if split_deficit_deg is not None:
         d_split = float(split_deficit_deg)
         if d_split == d_split and d_split > 0.0:  # not NaN, 양수만
@@ -2459,8 +2567,20 @@ def _build_deduction_measured_deviations(
     # 1. window 측정치 파싱 — {joint: abs(delta_deg)} (SIGNED→magnitude, f513587 패턴).
     #    NaN/0/형상불량 entry 는 wm_by_joint 미등재 → 그 관절은 DTW fallback 으로 강하.
     wm_by_joint: dict = {}
+    # quick-260801-gbk: 순간 산출용 부산물 — window 프레임 목록과 그 관절이 보고한
+    # 학생 각도 median. **median 을 재계산하지 않는다** — features._delta_entry 가 이미
+    # emit 한 student_deg 를 그대로 읽으므로 drift 가 원리적으로 불가능하다.
+    wm_student_deg: dict = {}
+    wm_user_frames: list = []
     wm = getattr(quantification, "windowMedianAngleDeltas", None)
     wm_deltas = wm.get("deltas") if isinstance(wm, dict) else None
+    _wm_src = wm.get("sourceFrameIndices") if isinstance(wm, dict) else None
+    if isinstance(_wm_src, dict):
+        for _c in _wm_src.get("user") or ():
+            try:
+                wm_user_frames.append(int(_c))
+            except (TypeError, ValueError):
+                continue
     for entry in wm_deltas or ():
         if not isinstance(entry, dict):
             continue  # 형상불량 entry 는 honest skip
@@ -2471,9 +2591,18 @@ def _build_deduction_measured_deviations(
             continue
         if _jk in JOINT_KEYS and _v == _v and _v > 0.0:
             wm_by_joint[_jk] = _v
+            try:
+                _sd = float(entry.get("student_deg"))
+            except (TypeError, ValueError):
+                _sd = float("nan")
+            if _sd == _sd:  # not NaN — 비유한이면 그 관절은 순간 fail-closed
+                wm_student_deg[_jk] = _sd
 
     # 2. DTW fallback 편차 — 기존 per_joint_deviation 1회 계산 (honest skip 유지).
     dtw_by_joint: dict = {}
+    # quick-260801-gbk: 같은 path 를 sibling 으로 한 번 더 훑어 관절별 대표 프레임.
+    # per_joint_deviation 본체는 SHA-256 박제라 반환값 확장이 불가능하다.
+    dtw_frame_by_joint: dict = {}
     if reference_dtw_match is not None and reference_angles is not None and angles is not None:
         try:
             path = getattr(reference_dtw_match, "path", None)
@@ -2486,8 +2615,45 @@ def _build_deduction_measured_deviations(
                 dev = per_joint_deviation(path, user_seg, reference_angles)
                 for i, jk in enumerate(JOINT_KEYS):
                     dtw_by_joint[jk] = float(dev[i])
+                if isinstance(measured_at_out, dict):
+                    try:
+                        _reps = per_joint_representative_frames(
+                            path, user_seg, reference_angles, int(start)
+                        )
+                    except Exception:  # noqa: BLE001 — 순간 실패는 필드 부재로만
+                        _reps = {}
+                    for i, jk in enumerate(JOINT_KEYS):
+                        if i in _reps:
+                            dtw_frame_by_joint[jk] = _reps[i]
         except Exception:  # noqa: BLE001 — 형상 mismatch/예외는 honest skip(reference_relative 미방출)
             dtw_by_joint = {}
+            dtw_frame_by_joint = {}
+
+    def _window_moment_frame(jk):
+        """pointed 관절의 순간 = window 안에서 student_deg 에 가장 가까운 프레임.
+
+        window 밖 프레임은 절대 고르지 않는다 — record 가 보고한 값이 그 window 의
+        median 이므로, 밖을 가리키면 "쟀다"는 계약이 깨진다.
+        """
+        sd = wm_student_deg.get(jk)
+        if sd is None or not wm_user_frames or angles is None:
+            return None
+        j = JOINT_KEYS.index(jk)
+        best_t = None
+        best_gap = None
+        for t in wm_user_frames:
+            if t < 0 or t >= len(angles):
+                continue
+            try:
+                a = float(angles[t][j])
+            except (TypeError, ValueError, IndexError):
+                continue
+            if a != a:  # NaN 프레임은 후보 아님
+                continue
+            gap = abs(a - sd)
+            if best_gap is None or gap < best_gap:
+                best_gap, best_t = gap, t
+        return best_t
 
     # 3. 관절 단위 선택 — pointed ∩ wm 만 window, 나머지 전부 DTW (pointed=None/빈 → 전 관절 DTW).
     pointed = tuple(vision_pointed_joints or ())
@@ -2497,9 +2663,16 @@ def _build_deduction_measured_deviations(
         if jk in pointed and jk in wm_by_joint:
             if _emit_reference_relative(jk, wm_by_joint[jk]):
                 window_joints.append(jk)
+                # 방출된 관절만 순간을 남긴다 — md 키와 순간 키가 정확히 대응.
+                _record_moment(
+                    f"angle_vs_reference__{jk}", _window_moment_frame(jk)
+                )
         elif jk in dtw_by_joint:
             if _emit_reference_relative(jk, dtw_by_joint[jk]):
                 fallback_joints.append(jk)
+                _record_moment(
+                    f"angle_vs_reference__{jk}", dtw_frame_by_joint.get(jk)
+                )
 
     # 4. 관찰 가능성 — 어느 경로가 감점 seed 를 만들었는지 로그 + eval audit 만
     #    (contract/Firestore 스키마 불변 — record source 는 기존 geometry 표기 유지).
@@ -5243,6 +5416,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # split deficit (reference_relative, mode1 only) — max(0, 정은지 max-split − 학생 max-split).
     # Mode3/legacy 는 None → split_angle 미방출(honest 0). 아래 Mode1 블록에서만 채움.
     split_deficit_deg = None
+    # quick-260801-gbk — criterion 별 측정 순간 out-param. mode3/legacy 에서도 이름이
+    # 존재해야 아래 _attach_translation_emission 호출부가 안전하다(빈 dict = 각인 0).
+    measured_at: dict = {}
 
     # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
     target_torso = _extract_target_torso_px(pose_frames)
@@ -5792,6 +5968,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 alignment_visibility=_align_visibility,
                 alignment_visibility_measured=_align_visibility_measured,
                 vision_status=_vision_status,
+                measured_at_out=measured_at,
             )
             result = _apply_vision_veto(
                 result,

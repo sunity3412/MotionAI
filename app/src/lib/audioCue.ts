@@ -43,8 +43,37 @@ export type Cue = { cueId: string | null; text: string };
 let enabled = false;
 let hydrated = false;
 
-// cueId → presigned mp3 URL (prefetch 산출). 재생 시점 네트워크 0.
-const urlCache = new Map<string, string>();
+// cueId → presigned mp3 URL + 만료 시각 (prefetch 산출). 재생 시점 네트워크 0.
+//
+// quick-260801-f77 — 종전에는 `Map<string, string>` 이라 만료 개념이 없었고 어디서도
+// 비워지지 않았다. presigned URL 수명은 1시간(playback-url `_ASSET_EXPIRES = 3600`)이라
+// 앱을 오래 띄워두면 죽은 URL 을 계속 재생 시도했다. 캐시를 없애지는 않는다 —
+// "재생 시점 네트워크 0 → 자막·음성 동기 유지"가 이 캐시의 존재 이유이기 때문이다
+// (아래 prefetchCueAudio 주석). 만료를 인지하게 고칠 뿐이다.
+type CachedAudio = { url: string; expiresAtMs: number };
+const urlCache = new Map<string, CachedAudio>();
+
+// 만료 여유. 경계에서 발화 도중 URL 이 죽으면 안 되므로 2분을 미리 깎는다.
+// prefetch 와 실제 발화 사이 간격은 사용자의 화면 체류 시간만큼 벌어질 수 있고,
+// 기기 시계 오차(서버 기준 만료 vs Date.now())도 이 여유가 흡수한다.
+const URL_EXPIRY_MARGIN_MS = 120_000;
+
+// 캐시가 어느 분석의 것인지. recordId 는 `r{index:02d}:{criterion}` (contract.md §12.3)
+// 이라 **분석 간 고유하지 않다** — `r00:...` 는 대부분의 분석에 존재한다. 무효화가
+// 없으면 결과 A 를 본 뒤 결과 B 를 열었을 때 A 의 mp3 가 재생된다.
+let cachedAnalysisId: string | null = null;
+
+/**
+ * 캐시 엔트리가 지금 써도 되는가. **만료 판정은 이 함수에만 둔다** — prefetch 와
+ * speakCue 가 각자 경계식을 들고 있으면 한쪽만 고쳐지는 사고가 난다.
+ * 타입 술어로 둬서 통과 후 `entry.url` 접근에 non-null 단언이 필요 없게 한다.
+ */
+function isFresh(
+  entry: CachedAudio | undefined,
+  nowMs: number,
+): entry is CachedAudio {
+  return !!entry && entry.expiresAtMs - URL_EXPIRY_MARGIN_MS > nowMs;
+}
 
 // 단일 재생 플레이어(lazy). 새 큐 = replace → 이전 발화 자동 중단.
 let player: AudioPlayer | null = null;
@@ -150,7 +179,7 @@ export async function setAudioCueEnabled(next: boolean): Promise<void> {
  * 후 isAudioCueEnabled() 로 토글 초기값을 읽는다).
  *
  * off 이면 네트워크 0(학원 소음 기본 off — 불필요 발급 억제). cueId 가 null 인 큐,
- * 이미 캐시된 cueId 는 스킵. 개별 발급 실패는 조용히 건너뜀(자막만 — graceful).
+ * **아직 신선한** 캐시를 가진 cueId 는 스킵. 개별 발급 실패는 조용히 건너뜀(자막만).
  *
  * 플랜 시그니처(cues 만)를 analysisId 동반으로 확장: B안 재서명은 analysisId 로만
  * 서버가 canonical key 를 구성하므로 필수 (Rule 3 — 확정 B안에서 시그니처 보정).
@@ -160,25 +189,67 @@ export async function prefetchCueAudio(
   cues: readonly Cue[],
 ): Promise<void> {
   await hydrate();
+  // quick-260801-f77 — 분석 전환 시 캐시 무효화. **enabled 게이트보다 먼저** 해야 한다:
+  // 오디오를 끈 채로 분석을 갈아탄 뒤 다시 켜면, 여기서 return 해버린 탓에 이전 분석의
+  // 캐시가 살아남아 남의 음성이 재생된다.
+  if (cachedAnalysisId !== analysisId) {
+    urlCache.clear();
+    cachedAnalysisId = analysisId;
+  }
   if (!enabled) return;
+  // 루프 전에 한 번만 잡아 재사용 — id 마다 now 가 흔들리면 경계에서 판정이 갈린다.
+  const now = Date.now();
   const ids = Array.from(
     new Set(
       cues
         .map((c) => c.cueId)
-        .filter((id): id is string => !!id && !urlCache.has(id)),
+        // "미보유 **또는 만료 임박**" 재발급. 종전 `!urlCache.has(id)` 는 한 번
+        // 캐시된 id 를 영원히 재발급 대상에서 제외해 결함 A 의 본체였다.
+        .filter((id): id is string => !!id && !isFresh(urlCache.get(id), now)),
     ),
   );
   await Promise.all(
     ids.map((recordId) =>
       fetchCoachAudioUrl(analysisId, recordId)
-        .then((url) => {
-          urlCache.set(recordId, url);
+        .then(({ url, expiresInSec }) => {
+          urlCache.set(recordId, {
+            url,
+            expiresAtMs: Date.now() + expiresInSec * 1000,
+          });
         })
         .catch(() => {
           /* 조용한 폴백 — 이 cueId 는 자막만 (분석/자막 무영향) */
         }),
     ),
   );
+}
+
+/**
+ * 단일 cueId URL 재발급 (캐시 갱신). 성공 시 저장된 엔트리를, 실패/전제 미충족 시
+ * null 을 돌려준다 — 오디오는 보조 채널이라 어떤 실패도 던지지 않는다.
+ * prefetch 이후에 만료된 큐(speakCue)와 로드 실패 재시도(onLoadTimeout)가 공유한다.
+ */
+async function reissue(recordId: string): Promise<CachedAudio | null> {
+  const analysisId = cachedAnalysisId;
+  // 어느 분석의 recordId 인지 모르면 서버가 canonical key 를 만들 수 없다.
+  if (!analysisId) return null;
+  try {
+    const { url, expiresInSec } = await fetchCoachAudioUrl(
+      analysisId,
+      recordId,
+    );
+    // 응답이 도착하는 사이 다른 분석으로 갈아탔으면 남의 캐시를 오염시키지 않는다.
+    if (cachedAnalysisId !== analysisId) return null;
+    const entry: CachedAudio = {
+      url,
+      expiresAtMs: Date.now() + expiresInSec * 1000,
+    };
+    urlCache.set(recordId, entry);
+    return entry;
+  } catch {
+    // 조용한 폴백 — 자막만. presigned URL 은 로그·에러에 싣지 않는다 (T-f77-02).
+    return null;
+  }
 }
 
 /**
@@ -195,8 +266,24 @@ export function speakCue(cue: Cue): boolean {
   if (!enabled) return false;
   const id = cue.cueId;
   if (!id) return false;
-  const url = urlCache.get(id);
-  if (!url) return false; // 미조인/미prefetch → 자막만
+  const entry = urlCache.get(id);
+  // quick-260801-f77 — 죽은 것이 확실한 URL 로는 재생을 시도하지 않는다. false 를
+  // 돌려주면 VideoCompare 가 영상을 멈추지 않으므로(대표 UX 패턴) 이 큐에서는 정지
+  // 자체가 발생하지 않는다 — 만료를 알면서 15초 멈추는 것이 가장 나쁜 선택이다.
+  if (!isFresh(entry, Date.now())) {
+    // **만료**(엔트리는 있었는데 시간이 지남)일 때만 재발급을 건다. 이 큐는 이미
+    // 놓쳤지만 다음 큐는 살린다. 반대로 **미조인/미prefetch**(entry 부재)는 종전대로
+    // 네트워크 0 no-op 이다 — audioCues 는 cueWindows 전체에서 파생될 뿐 mp3 보유
+    // 여부로 걸러지지 않아서(VideoCompare `audioCues`), 합성 실패 분석에서는 모든
+    // 큐가 영구 미스다. 여기서 무조건 재발급하면 큐가 바뀔 때마다 404 POST 를
+    // 쏘게 된다 (T-f77-01 자해 DoS).
+    if (entry) {
+      urlCache.delete(id); // 죽은 엔트리 축출
+      void reissue(id); // fire-and-forget — speakCue 는 동기 계약
+    }
+    return false;
+  }
+  const url = entry.url;
   if (playingCueId === id && player?.playing) return true;
   try {
     if (!player) {

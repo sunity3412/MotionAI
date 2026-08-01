@@ -180,14 +180,32 @@ export function fetchVisualAssetUrl(
 // 클라이언트는 recordId(=cueId)만 넘기고 실제 S3 key 구성·검증은 전적으로 서버 몫이다
 // (server-selected canonical key + 저장 key exact 비교 — 임의 key 서명 경로 없음).
 // 미등재 recordId·형식 위반·타 uid 는 전부 404/400 로 합산된다 (leak 0, 32-16 스모크 실증).
+//
+// quick-260801-f77 — 바로 위 "재생 시점마다 재서명한다" 는 선언은 지켜지지 않고 있었다.
+// 소비처(audioCue.ts)가 발급받은 URL 을 만료 개념 없는 Map 에 무기한 캐시해서, 앱을
+// 1시간 넘게 띄워두면 죽은 URL 을 계속 재생 시도했다(presigned TTL 3600s —
+// backend/functions/playback-url/app.py `_ASSET_EXPIRES`). 서버는 이미 응답에
+// expiresInSec 를 실어 보내고 있었는데 앱이 그 값을 버리고 있었을 뿐이다. 이제 만료
+// 시각을 함께 넘겨 캐시가 스스로 갱신하게 한다 (판정은 audioCue.ts `isFresh`).
+export type CoachAudioUrl = { url: string; expiresInSec: number };
+
+// 서버가 expiresInSec 를 안 주거나 형식이 깨졌을 때 쓰는 보수적 기본값.
+// 짧은 쪽으로 실패하는 이유: 과다 추정의 대가는 무음(사용자가 겪는 결함)이고,
+// 과소 추정의 대가는 authed POST 1회(재발급)뿐이다. 구 Lambda 가 떠 있어도
+// 앱이 죽지 않게 하는 하위호환 장치이기도 하다.
+const COACH_AUDIO_TTL_FALLBACK_SEC = 300;
+
 export function fetchCoachAudioUrl(
   analysisId: string,
   recordId: string,
-): Promise<string> {
-  return authedJson<{ playbackUrl?: unknown }>('/playback-url', {
-    method: 'POST',
-    body: { analysisId, asset: 'coachAudio', recordId },
-  }).then((res) => {
+): Promise<CoachAudioUrl> {
+  return authedJson<{ playbackUrl?: unknown; expiresInSec?: unknown }>(
+    '/playback-url',
+    {
+      method: 'POST',
+      body: { analysisId, asset: 'coachAudio', recordId },
+    },
+  ).then((res) => {
     if (typeof res.playbackUrl !== 'string' || res.playbackUrl.length === 0) {
       throw new ApiError(
         'POST /playback-url: playbackUrl 필드 부재/형식 오류',
@@ -195,7 +213,15 @@ export function fetchCoachAudioUrl(
         'malformed_response',
       );
     }
-    return res.playbackUrl;
+    // expiresInSec 는 검증 실패해도 던지지 않는다 — URL 자체는 멀쩡한데 부가
+    // 필드 하나 때문에 발화를 통째로 잃는 것이 더 나쁘다. 폴백으로 흡수한다.
+    const ttl =
+      typeof res.expiresInSec === 'number' &&
+      Number.isFinite(res.expiresInSec) &&
+      res.expiresInSec > 0
+        ? res.expiresInSec
+        : COACH_AUDIO_TTL_FALLBACK_SEC;
+    return { url: res.playbackUrl, expiresInSec: ttl };
   });
 }
 

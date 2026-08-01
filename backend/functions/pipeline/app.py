@@ -3275,6 +3275,12 @@ def _render_fault_zoom(
                 item["refFrameIdx"] = c["refFrameIdx"]
             if isinstance(c.get("refMatched"), bool):
                 item["refMatched"] = c["refMatched"]
+            # quick-260801-gbk — atMatched pass-through (refMatched 선례 동일 형식).
+            # 이 매퍼는 화이트리스트라 여기 없으면 앱이 인증을 영영 못 본다 →
+            # basis 절이 통째로 사라진다. bool scalar 라 flat 제약 통과.
+            # TS lockstep: FaultZoomComparison.atMatched? + contract.md §11.
+            if isinstance(c.get("atMatched"), bool):
+                item["atMatched"] = c["atMatched"]
             # F-3 (quick-260730-l7t) — 두 패널 실영상 초 pass-through (region/
             # refMatch 선례와 동일 조건부 복사). float scalar 라
             # _validate_dict_only_scalars flat 제약 통과. 부재(legacy doc·기준
@@ -3525,10 +3531,22 @@ def _build_mode3_fault_zoom_comparisons(
         region = _MODE3_ZOOM_CRITERION_REGION.get(crit)
         if region is not None and region not in regions:
             regions.append(region)
+            # quick-260801-gbk — mode1 의 criterion_units_from_records 와 **같은 규칙**
+            # 으로 측정 순간을 싣는다. 한쪽만 고치면 mode3 가 조용히 구 동작으로 남는다.
+            # bool 은 int 서브타입이라 명시 제외.
+            _at_raw = (rec or {}).get("atFrameIdx")
+            _at_idx = (
+                int(_at_raw)
+                if isinstance(_at_raw, int)
+                and not isinstance(_at_raw, bool)
+                and _at_raw >= 0
+                else None
+            )
             crit_units.append({
                 "criterion": crit,
                 "joints": _MODE3_ZOOM_REGION_MEMBERS[region],
                 "region": region,
+                "at_frame_idx": _at_idx,
             })
     regions = regions[:2]
     crit_units = crit_units[:2]

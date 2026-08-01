@@ -22,7 +22,9 @@ if str(_SHARED) not in sys.path:
 
 from sunity_shared.analysis import fault_zoom as fz  # noqa: E402
 
-_FPS = 9.0
+# **일부러 프로덕션 기본 fps 가 아닌 값** — 프레임 인덱스/초 변환이 인자로 받은
+# fps 를 실제로 쓰는지, 기본값을 가정하고 있는지를 값으로 구분한다.
+_FPS = 12.0
 _N = 24
 _SIZE = 96
 

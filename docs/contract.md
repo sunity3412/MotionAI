@@ -460,6 +460,7 @@ rotationUpdatedAtMs       number                          optional  ← epoch ms
 userFrameIdx  number   optional  ← 학생 측 대응 프레임 인덱스
 refFrameIdx   number   optional  ← 기준(정은지) 측 대응 프레임 인덱스
 refMatched    boolean  optional  ← 기준 측 대응 성공 여부
+atMatched     boolean  optional  ← 표시 프레임 == 그 record 의 측정 프레임
 ```
   - DTW 대응 프레임 쌍이며 **`keypointReport` 프레임 공간(9fps angles 도메인)**의 정수
     인덱스다 (18fps 업샘플 공간 아님 — §11 fps 도메인 주의 동일).
@@ -468,6 +469,13 @@ refMatched    boolean  optional  ← 기준 측 대응 성공 여부
     (`refMatch: 'failed'` 와 정합).
   - **부재(legacy) = 뷰어 프레임 동기화 없음** — optional, migration 없음
     (`tier?`/`refMatch?` 선례). 31-03 이 방출.
+  - **`atMatched` (quick-260801-gbk)** — 이 카드가 최종 채택한 학생 프레임이 그 감점
+    record 의 `atFrameIdx`(§10.2)와 **정확히 같을 때만** `true`. 앵커가 없었거나(순간
+    미확정 criterion) 앵커 창 안에서 다른 프레임이 선택되면 키 자체를 생략한다.
+    앱은 이 값이 `true` 일 때만 "위 사진은 그 값을 잰 순간" 절을 낸다.
+    **앱이 두 초를 빼서 추정하지 말 것** — 그러려면 앱이 fps 와 프레임 공간을 알아야
+    하고 그 구조가 정확히 §11.8 F-3 을 만들었다. 프레임을 실제로 고른 코드만 이 인증을
+    낼 수 있다(`refMatched` 와 동형·동의미).
 
 `dimensionScores` = IPSF 폴스포츠 실행 심사기준 (docs/research/폴스포츠-지식.md).
   신체 부위가 아니라 심판이 보는 실행 차원. **3차원** (2026-05-29 balance 차원 제거 —
@@ -1683,6 +1691,26 @@ const frameIdx = Math.floor(currentTime * report.fps);
 | `rawPoints?` | number | **optional** — 관절당 상한(−20, `PER_RECORD_DEDUCTION_CAP`) 적용 전 원 감점(SIGNED NEGATIVE). **상한이 적용된 record 에만 방출** — 미적용 record 는 키 자체 생략(기존 11필드 byte-호환). 투명 감점-합산 내역 보존. |
 | `capApplied?` | true | **optional** — 이 record 의 감점이 관절당 상한 −20 으로 클램프됨(quick-260705-k8h, belle 승인 2026-07-05). `rawPoints` 와 반드시 쌍으로 방출. fallback record(`dimension_overall_fallback`)는 클램프 비대상(§10.5 참조). |
 | `track?` | 'execution'\|'critical' | **optional** (Wave R, 33-SPEC.md R4, D-37) — 2트랙 분류. `'critical'` record 에만 방출; `'execution'`(기본)은 키 생략(기존 11필드 byte-호환, legacy doc 부재 안전). 실행 트랙은 −40 집계캡 대상, 치명 트랙(필수 완전신전 미달 = 요소 미인정)은 집계캡·관절캡 우회(§10.1). **현재 DORMANT** — 활성 criterion 0(D-35). |
+| `atFrameIdx?` | number | **optional** (quick-260801-gbk) — 이 감점을 **잰 학생 프레임**. 도메인은 학생 **9fps angles 행 인덱스**(keypointReport rep 인덱스 아님 — §11.8 F-3 과 다른 축). 순간을 신뢰 있게 정할 수 있는 criterion 에만 방출. |
+| `atVideoSec?` | number | **optional** — `atFrameIdx / 파이프라인 frames fps`. 백엔드가 나눠서 준다 — **앱이 rep fps 로 재계산 금지**(그 재계산이 §11.8 F-3 의 근본원인). fps 를 못 구하면 `atFrameIdx` 만 방출. |
+
+#### §10.2.1 측정 순간 산출 규칙 (quick-260801-gbk)
+
+`atFrameIdx` 는 **그 record 가 실제로 보고한 집계값에, 자기 per-frame 값이 가장 가까운 프레임**이다. **argmax(최대 편차 프레임)를 쓰지 않는다** — 각도 시계열은 인접 프레임 jitter 가 크고 상위 백분위 outlier 가 흔해서(motiondtw `per_joint_deviation` docstring 198-209행), 최대 편차 프레임을 "여기가 감점 부분"이라며 확대하면 지금보다 나빠진다.
+
+| criterion | 집계 (record 가 보고하는 값) | 순간 |
+|---|---|---|
+| `angle_vs_reference__{jk}` — Gemini pointed | `windowMedianAngleDeltas.deltas[].student_deg` = worst-window 안 학생 각도의 median | `sourceFrameIndices.user` **안에서** `abs(angles[t][j] − student_deg)` 최소 프레임. median 재계산 없음 — `features._delta_entry` 가 emit 한 값을 그대로 읽으므로 drift 가 원리적으로 불가능 |
+| `angle_vs_reference__{jk}` — Gemini silent | `per_joint_deviation` = DTW path 전체 median of `abs(Δ)` | `match.start + path[k*][0]`, `k*` = `abs(diffs[k][j] − median_j)` 최소 |
+| `leg_extension` / `arm_extension` | 관절쌍 중 max 인 관절의 `max(0, 180 − mean_over_window)` | 그 **argmax 관절**에 대해 `_select_window` 구간 안에서 per-frame 부족분이 집계값에 가장 가까운 프레임. (시간축 집계는 **mean** 이다 — "max" 는 좌/우 관절쌍 축) |
+| `line` | 양수 부족분 EXTEND 관절들의 평균 | 같은 관절 집합의 per-frame 평균 부족분이 집계값에 가장 가까운 프레임 |
+| `body_relative_reach` | notch 부족분 | **fail-closed — 필드 없음.** notches 에 시계열이 없다 |
+| `dimension_overall_fallback` | whole-score passthrough | **fail-closed — 필드 없음.** 특정 순간이 없는 record |
+| `split_angle` | vision 주입 편차 | **fail-closed — 필드 없음.** 아래 참조 |
+
+**`split_angle` 이 fail-closed 인 이유:** 생산자가 둘인데 프로덕션에서 사는 쪽은 시계열이 없는 쪽이다. ① 기하 빌더 경로는 `profile.required_split_deg` 게이트가 필요한데 **어떤 recognizer 도 이 값을 설정하지 않는다** → 사문. ② vision 주입(`deduction_engine`, `source='vision'`)이 **유일한 실동작 경로**이고, 그 `measuredValue` 는 Gemini 추정이라 **우리가 어느 프레임에서 잰 값이 아니다.** 기하에서 뽑은 프레임을 "여기서 쟀다" 계약 아래 붙이면 앱이 다시 "위 사진은 그 값을 잰 순간이에요"라고 말하게 되고, 그것이 이 필드가 없애려는 거짓과 같은 종류다. 재지 않았으면 "쟀다"고 쓸 수 없다.
+
+**채점 무접촉:** 이 두 필드는 `deduction_engine.tally` 가 **끝난 뒤** `_attach_translation_emission` 이 `setdefault` 로 각인한다. 점수를 계산하는 코드는 이 값을 볼 수 없다 — 불변식이 테스트가 아니라 구조로 보장된다.
 
 **deviationSource 의미:** 각도/라인 criterion(leg_extension/arm_extension/line)은 학생-각도-vs-IPSF-절대-기준(180°/160°) → `ipsf_absolute`. `body_relative_reach` 는 `bodyRelativeNotches[].delta_notches`(학생−코치, baseline-relative) → `reference_relative`. `angle_vs_reference__{joint}` 는 정은지(reference) 대비 per-joint median |Δ각도| 편차(24-07 §3-1), `split_angle` 은 정은지 대비 split 부족분(geometric md 부재 시 vision-측정 편차 주입 → 그 record 는 `source='vision'`) — 둘 다 `reference_relative`. fallback record → `dimension_overall`.
 

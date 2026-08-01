@@ -5040,6 +5040,7 @@ def _attach_translation_emission(
     prev_doc: dict | None,
     uid: str,
     analysis_id: str,
+    measured_at: dict | None = None,
 ) -> None:
     """32-09 방출 배선 본체 — recordId·3단 문구·미션·summaryPraise·코치 질문.
 
@@ -5050,6 +5051,12 @@ def _attach_translation_emission(
     채점 무접촉. prev_doc = 기존 mode3 경로 get_previous_analysis 결과 재사용
     (신규 쿼리 0 — mission.py 의 motionId 가드가 same-mode-only 실측 사실을 방어).
     전체 실패해도 분석은 완주한다 (상위 try — T-32-20/SP-3).
+
+    measured_at (quick-260801-gbk): {criterion_id: {"frame_idx", "video_sec"}} —
+    _build_deduction_measured_deviations 의 out-param 을 그대로 받는다. 여기서
+    record 에 atFrameIdx/atVideoSec 으로 **setdefault 각인**만 한다. 채점 코드는
+    이 값을 볼 수 없다(tally 는 이미 끝났다) — 그것이 점수 무접촉의 구조적 근거다.
+    항목이 없는 criterion 은 키를 만들지 않는다(fail-closed).
     """
     try:
         from sunity_shared.analysis import mission as mission_mod
@@ -5085,6 +5092,16 @@ def _attach_translation_emission(
                 tol = _criterion_tolerance(criterion)
                 if tol is not None and "tolerance" not in rec:
                     rec["tolerance"] = tol
+                # quick-260801-gbk — 측정 순간 각인. 기존 키 무변경(setdefault),
+                # scalar int/float 로 캐스팅해 Firestore flat 제약 통과.
+                moment = (measured_at or {}).get(criterion)
+                if isinstance(moment, dict):
+                    fi = moment.get("frame_idx")
+                    if isinstance(fi, (int, float)) and not isinstance(fi, bool):
+                        rec.setdefault("atFrameIdx", int(fi))
+                    vs = moment.get("video_sec")
+                    if isinstance(vs, (int, float)) and not isinstance(vs, bool):
+                        rec.setdefault("atVideoSec", float(vs))
             except Exception:  # noqa: BLE001 - record 1건 실패는 그 record 만 (리뷰 반영)
                 log.exception(
                     "record 문구 조립 실패 — 해당 record 만 문구 없이 통과 "
@@ -6468,6 +6485,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             prev_doc=mode3_prev,
             uid=uid,
             analysis_id=analysis_id,
+            measured_at=measured_at,
         )
         result["timingsMs"] = timings_ms
         with _stage(timings_ms, analysis_id, "firestore_complete"):  # Phase 27 SPD-01

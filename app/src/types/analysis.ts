@@ -516,6 +516,21 @@ export interface FaultZoomComparison {
    */
   userVideoSec?: number;
   refVideoSec?: number;
+  /**
+   * quick-260801-gbk — 이 카드가 보여주는 학생 프레임이 그 감점 record 의
+   * **측정 프레임과 동일함**을 fault_zoom 이 인증한 값.
+   *
+   * true = 카드가 최종 채택한 학생 프레임 == record.atFrameIdx. 그때만 앱이
+   * "위 사진은 그 값을 잰 순간" 이라고 말할 수 있다.
+   * 부재/false = 앵커가 없었거나(순간 미확정 criterion), 앵커 창 안에서 더 나은
+   * 프레임이 선택돼 표시 프레임이 측정 프레임을 벗어났다. 이때 절은 생략된다.
+   *
+   * ⚠️ 앱이 `atVideoSec` 과 `userVideoSec` 의 차를 계산해 이 값을 **추정하지 말 것.**
+   * 그러려면 앱이 fps 와 프레임 공간을 알아야 하고, 그 구조가 정확히 F-3 을 만들었다.
+   * 프레임을 실제로 고른 코드만 이 인증을 낼 수 있다 (`refMatched` 선례와 동형).
+   * Python lockstep: fault_zoom 방출부 + docs/contract.md §11.
+   */
+  atMatched?: boolean;
 }
 
 // Phase 28 (ALGN-01 동작 기반 비교 정렬) — 학생(left)=master 시계 불변, 정은지(right)만
@@ -726,6 +741,18 @@ export interface DeductionRecord {
   // 규칙 상수 유래 허용 오차 — 게이지 스케일 재료 (D-10). 자의적 수치 아님 —
   // 32-09 가 실존 규칙 상수(CRITERION_GROUPS 등)에서만 방출 (있을 때만).
   tolerance?: number;
+  // ── quick-260801-gbk — 이 감점을 어느 프레임에서 쟀는가 ──
+  // Python lockstep = models.py DEDUCTION_RECORD_MOMENT_KEYS + contract.md §10.2.
+  //
+  // atFrameIdx 는 학생 9fps angles 행 인덱스다. 같은 record 의 카드가 들고 있는
+  // userFrameIdx 는 keypointReport rep 공간이라 **다른 축**이다 — 두 값을 같은
+  // 축으로 다루면 §11.8 F-3 이 재발한다.
+  // atVideoSec 은 백엔드가 파이프라인 fps 로 나눠 준 초다. 앱이 rep fps 로
+  // 재계산하지 말 것 (그 재계산이 정확히 F-3 의 근본원인이었다).
+  // 부재 = 순간을 신뢰 있게 정할 수 없는 criterion (reach·whole-score fallback·
+  // vision 주입 split) 또는 legacy doc.
+  atFrameIdx?: number;
+  atVideoSec?: number;
 }
 // HIGH-1: OBJECT shape (bare list 아님). final = max(0, round(100 + Σ record.points)) —
 // final 단위 clamp 은 max(0,…) 뿐(final 밴드 없음). record 단위로는 관절당 감점 상한 -20

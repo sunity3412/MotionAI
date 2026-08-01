@@ -377,7 +377,19 @@ function normalizeRecordPhraseFields(rec: DeductionRecord): DeductionRecord {
     exerciseId: normalizeNonEmptyString(raw.exerciseId),
     exerciseReason: normalizeNonEmptyString(raw.exerciseReason),
     tolerance: normalizeFiniteNumber(raw.tolerance),
+    // quick-260801-gbk — 측정 순간. atFrameIdx 는 프레임 배열 인덱스로 쓰이므로
+    // 유한수만으로는 부족하다 (정수·비음수 게이트). 실패는 undefined 강등 —
+    // 그 record 는 "잰 순간" 절만 잃고 나머지는 그대로 렌더된다.
+    atFrameIdx: normalizeFrameIndex(raw.atFrameIdx),
+    atVideoSec: normalizeFiniteNumber(raw.atVideoSec),
   };
+}
+
+/** 프레임 배열 인덱스 — 유한 정수 + 비음수만 통과. 그 외 undefined. */
+function normalizeFrameIndex(value: unknown): number | undefined {
+  const n = normalizeFiniteNumber(value);
+  if (n === undefined || !Number.isInteger(n) || n < 0) return undefined;
+  return n;
 }
 
 export interface UserAnalysesState {
@@ -683,6 +695,10 @@ function normalize(id: string, raw: Record<string, unknown>): AnalysisDoc | null
           refFrameIdx: normalizeFrameIdx(raw.refFrameIdx),
           refMatched:
             typeof raw.refMatched === 'boolean' ? raw.refMatched : undefined,
+          // quick-260801-gbk — 표시 프레임 == 측정 프레임 인증. **true 화이트리스트**:
+          // 백엔드는 일치할 때만 true 를 넣고 그 외엔 키를 생략하므로, false 나
+          // 비-boolean 은 전부 undefined 로 접는다 (fail-closed → basis 절 생략).
+          atMatched: raw.atMatched === true ? true : undefined,
         };
       }),
     };

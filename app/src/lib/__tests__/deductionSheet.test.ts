@@ -67,6 +67,9 @@ function rec(over: Partial<Rec> & { criterion: string }): Rec {
     statusLine: over.statusLine,
     whyLine: over.whyLine,
     cueLine: over.cueLine,
+    // quick-260801-gbk — 이 감점을 잰 순간 (basis 절의 초 출처).
+    atFrameIdx: over.atFrameIdx,
+    atVideoSec: over.atVideoSec,
   } as Rec;
 }
 
@@ -80,6 +83,8 @@ function zoom(over: Partial<Zoom> & { imageUrl: string }): Zoom {
     tier: over.tier ?? 'confirmed',
     userVideoSec: over.userVideoSec,
     refVideoSec: over.refVideoSec,
+    // quick-260801-gbk — 표시 프레임 == 측정 프레임 인증 (백엔드 방출).
+    atMatched: over.atMatched,
   } as Zoom;
 }
 
@@ -412,8 +417,16 @@ test('Test 7b (method): 정렬 문형 + refVideoSec 부재 → 두 번째 문장
 
 // ── Test 8: basis (M-7) ───────────────────────────────────────────────────
 test('Test 8 (basis): 초 보유 → 두 문장 / 초 부재 → 뒷문장 생략 / {무엇} 미상 → 항목 지칭', () => {
+  // quick-260801-gbk — 초 출처는 rec.atVideoSec, 방출 조건은 zoom.atMatched.
+  // 문장 자체는 승인본 그대로 불변이고 출처·조건만 바뀌었다.
   const withSec = buildRegionSheetView({
-    records: [rec({ criterion: 'angle_vs_reference__left_shoulder' })],
+    records: [
+      rec({
+        criterion: 'angle_vs_reference__left_shoulder',
+        atFrameIdx: 16,
+        atVideoSec: 1.74,
+      }),
+    ],
     recordNumbers: [1],
     actionPhrases: [null],
     zooms: [
@@ -422,6 +435,7 @@ test('Test 8 (basis): 초 보유 → 두 문장 / 초 부재 → 뒷문장 생�
         criterion: 'angle_vs_reference__left_shoulder',
         userVideoSec: 1.74,
         refVideoSec: 3.07,
+        atMatched: true,
       }),
     ],
     selectedRecordIndex: 0,
@@ -842,4 +856,111 @@ test('Test 17 (참고 문형): 상수 2종이 승인본 원문과 문자 일치'
   );
   assert.ok(view);
   assert.equal(view.oneCap, ADVISORY_NOTE_KO);
+});
+
+// ── quick-260801-gbk — basis "잰 순간" 절의 출처·조건 ────────────────────────
+// 종전엔 표시 프레임의 초(zoom.userVideoSec)를 인쇄했다. 모든 카드가 worst_seconds
+// 한 시각에서 잘리던 시절엔 그 값이 우연히 맞았지만, 카드가 자기 순간을 갖게 되면
+// "문장의 초"와 "사진의 순간"이 갈릴 수 있다. 이제 초는 rec.atVideoSec 에서 나오고,
+// 절은 사진이 **바로 그 순간임을 백엔드가 인증**했을 때만 나온다.
+
+const GBK_SUBJECT_ONLY = '어디서 재나요: 이 항목은 겨드랑이 벌림을 재요.';
+
+function gbkView(
+  recOver: Record<string, unknown>,
+  zoomOver: Record<string, unknown> | null,
+) {
+  return buildRegionSheetView({
+    records: [
+      rec({ criterion: 'angle_vs_reference__left_shoulder', ...recOver }),
+    ],
+    recordNumbers: [1],
+    actionPhrases: [null],
+    zooms: [
+      zoomOver == null
+        ? null
+        : zoom({ imageUrl: 'https://s3/sh.png', ...zoomOver } as never),
+    ],
+    selectedRecordIndex: 0,
+    rightPairLabel: RIGHT_LABEL,
+  });
+}
+
+function gbkBasis(view: ReturnType<typeof buildRegionSheetView>): string {
+  return view?.blocks[0].basisLine?.map((s) => s.text).join('') ?? '';
+}
+
+test('gbk basis: 사진 없는 record 는 atVideoSec 이 있어도 절이 없다', () => {
+  // line·카드 4장 초과분 등 — 인쇄할 사진이 없으므로 "위 사진은…" 이 성립하지 않는다.
+  const view = gbkView({ atFrameIdx: 16, atVideoSec: 1.74 }, null);
+  assert.ok(view);
+  assert.equal(gbkBasis(view), GBK_SUBJECT_ONLY);
+});
+
+test('gbk basis: atMatched 부재/false 카드는 atVideoSec 이 있어도 절이 없다', () => {
+  // 앵커 창 안에서 다른 프레임이 채택된 카드 — 사진의 순간이 측정 순간이 아니다.
+  for (const atMatched of [undefined, false]) {
+    const view = gbkView(
+      { atFrameIdx: 16, atVideoSec: 1.74 },
+      { criterion: 'angle_vs_reference__left_shoulder', userVideoSec: 0.89, atMatched },
+    );
+    assert.ok(view);
+    const joined = gbkBasis(view);
+    assert.ok(!joined.includes('잰 순간'), `atMatched=${String(atMatched)}`);
+    assert.equal(joined, GBK_SUBJECT_ONLY); // 앞 절은 그대로 남는다.
+  }
+});
+
+test('gbk basis: 인증돼도 rec.atVideoSec 이 없으면 절이 없다', () => {
+  // 표시 프레임의 초(userVideoSec)로 대체하지 않는다 — 그것은 다른 축의 값이다.
+  const view = gbkView(
+    {},
+    { criterion: 'angle_vs_reference__left_shoulder', userVideoSec: 1.74, atMatched: true },
+  );
+  assert.ok(view);
+  assert.equal(gbkBasis(view), GBK_SUBJECT_ONLY);
+});
+
+test('gbk basis: 인쇄되는 초는 rec.atVideoSec 이지 표시 프레임 초가 아니다', () => {
+  const view = gbkView(
+    { atFrameIdx: 16, atVideoSec: 1.74 },
+    {
+      criterion: 'angle_vs_reference__left_shoulder',
+      userVideoSec: 9.99, // 일부러 다른 값 — 이것이 인쇄되면 안 된다.
+      atMatched: true,
+    },
+  );
+  assert.ok(view);
+  const joined = gbkBasis(view);
+  assert.ok(joined.includes('잰 순간(실 1.7초)'));
+  assert.ok(!joined.includes('10.0초'));
+});
+
+test('gbk basis: 둘 다 불성립이면 basis 행 자체가 null', () => {
+  const view = buildRegionSheetView({
+    records: [rec({ criterion: 'dimension_overall_fallback', unit: 'score_delta' })],
+    recordNumbers: [1],
+    actionPhrases: [null],
+    zooms: [null],
+    selectedRecordIndex: 0,
+    rightPairLabel: RIGHT_LABEL,
+  });
+  assert.ok(view);
+  assert.equal(view.blocks[0].basisLine, null);
+});
+
+test('gbk basis: 신규 키가 전부 없는 legacy doc 에서 크래시 0', () => {
+  // 종전 doc — atFrameIdx/atVideoSec/atMatched 부재. 절만 빠지고 나머지는 그대로.
+  const view = gbkView(
+    {},
+    {
+      criterion: 'angle_vs_reference__left_shoulder',
+      userVideoSec: 1.74,
+      refVideoSec: 3.07,
+    },
+  );
+  assert.ok(view);
+  assert.equal(gbkBasis(view), GBK_SUBJECT_ONLY);
+  // method 행의 기준 초는 이 변경과 무관하게 종전 출처(refVideoSec)를 유지한다.
+  assert.ok(view.blocks[0].methodLine?.includes('실 3.1초'));
 });

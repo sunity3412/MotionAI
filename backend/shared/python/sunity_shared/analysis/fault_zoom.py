@@ -167,8 +167,13 @@ def criterion_units_from_records(
     angle_key_to_keypoint 는 호출측(pipeline._KISMAM_TO_KEYPOINT) 소유 — 본 모듈은
     kismam 이름공간 무지 유지 (select_advisory_joints 관례 동일). 중복 criterion 은
     첫 record 승(S3 키·join 키 유일성), 상한 max_units. 반환 항목 =
-    {"criterion": str, "joints": tuple[str, ...], "region": str | None}.
+    {"criterion": str, "joints": tuple[str, ...], "region": str | None,
+     "at_frame_idx": int | None}.
     표시 전용, 채점 무접촉 (D-20) — records 는 읽기만 한다.
+
+    at_frame_idx (quick-260801-gbk): 그 record 의 `atFrameIdx` — **이 감점을 잰
+    학생 9fps 프레임**. 카드가 자기 순간을 프레임 앵커로 쓰게 하는 재료다. 비정수·
+    음수·bool 은 None 으로 강등(fail-closed → 그 unit 은 종전 경로 그대로).
     """
     if not isinstance(records, list):
         return []
@@ -216,10 +221,18 @@ def criterion_units_from_records(
         if not ordered:
             continue
         seen.add(crit)
+        # quick-260801-gbk — 측정 순간(있으면). bool 은 int 의 서브타입이라 명시 제외.
+        at_raw = rec.get("atFrameIdx")
+        at_idx = (
+            int(at_raw)
+            if isinstance(at_raw, int) and not isinstance(at_raw, bool) and at_raw >= 0
+            else None
+        )
         out.append({
             "criterion": crit,
             "joints": tuple(ordered),
             "region": region,
+            "at_frame_idx": at_idx,
         })
     return out
 
@@ -244,6 +257,9 @@ class _CropUnit:
     # None = legacy fan-out(_group_fault_joints)/advisory — 기존 동작 byte-보존.
     # 보유 시 item 에 scalar 로 방출 + D-12 drop/같은 표시 규칙 적용.
     criterion: str | None = None
+    # quick-260801-gbk — 그 record 를 잰 학생 9fps 프레임(있으면). 프레임 앵커.
+    # None = 순간 미확정 criterion / legacy / advisory — 종전 경로 그대로.
+    at_frame_idx: int | None = None
 
 
 def _group_fault_joints(
@@ -458,6 +474,17 @@ _POSE_SEARCH_SECONDS = 4.0
 # 튜닝 없이 강건화. 값 2 = worst-pose window(features.window_median_angle_deltas
 # window=2) 관행 정합.
 _POSE_TRAJ_RADIUS = 2
+
+# 측정 순간 앵커의 후보 반폭(±프레임, frames_fps 공간) — quick-260801-gbk.
+# record 가 "이 프레임에서 쟀다"고 알려준 프레임을 중심으로 이 반경 안에서만 표시
+# 프레임을 고른다. 앵커 프레임의 keypoint 가 붕괴해 있을 수 있으므로 점(點)이 아니라
+# 창(窓)으로 주고, 창 안 선택은 기존 confidence/포즈 매칭 로직이 그대로 한다.
+#
+# 값은 _POSE_TRAJ_RADIUS 와 같은 관행 출처(worst-pose window ±2)를 따르지만
+# **의미가 다르므로 별도 이름을 둔다** — 저쪽은 궤적 평균 반경(환각 방어), 이쪽은
+# 표시 프레임 후보 반폭(측정-표시 정합)이다. 상수를 공유하면 한쪽 튜닝이 다른 쪽을
+# 조용히 움직인다.
+_MOMENT_ANCHOR_RADIUS = 2
 
 # 포즈 거리 계산에 필요한 최소 공통 신뢰관절 수. 3점 이하면 이동/스케일 정규화 후
 # 남는 자유도가 거의 없어 거리값이 의미를 잃는다(역립 구간 keypoint 붕괴 시 2~3개만
@@ -2423,41 +2450,59 @@ def build_fault_zoom_comparisons(
     # 확대하면 "비교 부위 아닌 곳" 을 보여줘 오도한다 (파일럿 D2) — 260702-sic 의
     # confidence<0.5 전신 폴백과 일관된 정직 전략(오도 0, 정보 보존).
     ref_match_failed = False
+    # B1: DTW path 의 ref 인덱스가 사는 fps 공간 (CR-01 fix). mode1 (정은지
+    # reference doc)은 ref angles == keypointReport.fps(phase4_v1=18fps, 28-01 실측)라
+    # r_rep_fps 와 같지만, mode3(지난 사용자 doc)는 prev angles=9fps(파이프라인 저장분)
+    # 인데 keypointReport 만 18fps 로 upsample 저장돼 r_rep_fps(18) != dtw 공간(9) 이다.
+    # None(default)=r_rep_fps 로 mode1 하위호환(byte-identical) — 방출측이 mode3 에서만
+    # 명시한다.
+    #
+    # quick-260801-gbk: 이 두 값을 아래 `ref_frame_idx is None` 분기 **밖으로 끌어올린다**.
+    # unit 루프의 앵커 후보 산출이 두 값을 쓰는데, 분기 안에 두면 override 경로
+    # (ref_frame_idx 지정)에서 UnboundLocalError 가 난다 — fail-closed 규칙은 NameError 를
+    # 막지 못한다. 계산식·순서는 그대로라 기존 산출은 byte-동일.
+    _dtw_ref_fps = (
+        float(dtw_ref_fps)
+        if dtw_ref_fps is not None and float(dtw_ref_fps) > 0
+        else r_rep_fps
+    )
+    # clamp 도메인 = dtw fps 공간의 프레임 수 (r_rep_frames 를 fps 비율로 환산).
+    # mode1: 18/18 → r_rep_frames. mode3: 18→9 → prev anglesFrames 수. angles
+    # 인덱스를 잘못된 도메인으로 클램프하면 끝프레임 밀림(구 D2 오독).
+    _dtw_ref_frames = max(
+        1, int(round(r_rep_frames / max(1e-6, r_rep_fps) * _dtw_ref_fps))
+    )
+
+    def _ref_pair_for_user(u_cand: int):
+        """학생 9fps 프레임 → (기준 9fps frames 인덱스, 기준 rep 인덱스) | None.
+
+        2단 변환(dtw 공간 → frames / rep)은 **이 한 곳에서만** 만든다. 배치 기본
+        프레임과 unit 앵커 후보가 같은 공식을 공유해야 카드 안에서 학생과 기준이
+        같은 순간을 가리킨다 (quick-260705-ftn 중복 공식 금지 규율 계승).
+        `_matched_ref_frame` 본체는 이 파일 864-865 가 "수정 금지"로 박제한다 —
+        여기서는 호출만 한다.
+        """
+        if r_rep_frames <= 0:
+            return None
+        m = _matched_ref_frame(dtw_match, u_cand, _dtw_ref_frames)
+        if m is None:
+            return None
+        # mode1(dtw_ref_fps=r_rep_fps): rep 은 identity, frames 는 종전과 동일 —
+        # byte-identical. mode3(dtw_ref_fps=9): 9fps→18fps rep, 9fps→9fps frames.
+        return (
+            _to_rep_idx(m, _dtw_ref_fps, frames_fps, r_n),
+            _to_rep_idx(m, _dtw_ref_fps, r_rep_fps, r_rep_frames),
+        )
+
     if ref_frame_idx is not None:
         # override 경로 = vision 측정 프레임 정합 (dtw 취급 — 프레임 대응 보장됨).
         r_idx = max(0, min(int(ref_frame_idx), max(0, r_n - 1)))
         r_kp_idx = _to_rep_idx(r_idx, frames_fps, r_rep_fps, r_rep_frames)
     else:
-        # B1: DTW match 로 같은-pose 기준 프레임.
-        # dtw_ref_fps = DTW path 의 ref 인덱스가 사는 fps 공간 (CR-01 fix). mode1
-        # (정은지 reference doc)은 ref angles == keypointReport.fps(phase4_v1=18fps,
-        # 28-01 실측)라 r_rep_fps 와 같지만, mode3(지난 사용자 doc)는 prev angles=
-        # 9fps(파이프라인 저장분)인데 keypointReport 만 18fps 로 upsample 저장돼
-        # r_rep_fps(18) != dtw 공간(9) 이다. None(default)=r_rep_fps 로 mode1
-        # 하위호환(byte-identical) — 방출측이 mode3 에서만 9.0 을 명시한다.
-        _dtw_ref_fps = (
-            float(dtw_ref_fps)
-            if dtw_ref_fps is not None and float(dtw_ref_fps) > 0
-            else r_rep_fps
-        )
-        # clamp 도메인 = dtw fps 공간의 프레임 수 (r_rep_frames 를 fps 비율로 환산).
-        # mode1: 18/18 → r_rep_frames. mode3: 18→9 → prev anglesFrames 수. angles
-        # 인덱스를 잘못된 도메인으로 클램프하면 끝프레임 밀림(구 D2 오독).
-        _dtw_ref_frames = max(
-            1, int(round(r_rep_frames / max(1e-6, r_rep_fps) * _dtw_ref_fps))
-        )
-        if r_rep_frames <= 0:
-            r_matched = None
-        else:
-            r_matched = _matched_ref_frame(dtw_match, u_idx, _dtw_ref_frames)
-        if r_matched is not None:
-            # dtw 공간 인덱스 → keypointReport(rep) / 9fps frames 각각 변환 (D2 fix).
-            # 같은 _to_rep_idx 공식에 fps 인자만 다름(중복 공식 금지, quick-260705-ftn).
-            # mode1(dtw_ref_fps=r_rep_fps): r_kp_idx=r_matched (identity), r_idx 는
-            # 종전과 동일 — byte-identical. mode3(dtw_ref_fps=9): 9fps→18fps
-            # keypointReport, 9fps→9fps frames 로 같은 시각 정합.
-            r_kp_idx = _to_rep_idx(r_matched, _dtw_ref_fps, r_rep_fps, r_rep_frames)
-            r_idx = _to_rep_idx(r_matched, _dtw_ref_fps, frames_fps, r_n)
+        # B1: DTW match 로 같은-pose 기준 프레임 (D2 fix).
+        _batch_pair = _ref_pair_for_user(u_idx)
+        if _batch_pair is not None:
+            r_idx, r_kp_idx = _batch_pair
         else:
             # 대응 실패 → ref 전신 폴백 (D-04, ratio 근사 제거). 프레임은 중앙
             # (전신이므로 어느 순간이든 오도 0), 좌표는 아래 루프에서 강제 skip.
@@ -2480,6 +2525,9 @@ def build_fault_zoom_comparisons(
                 members=tuple(joints),
                 region=cu.get("region"),
                 criterion=str(crit) if crit else None,
+                # quick-260801-gbk — 여기를 빠뜨리면 unit.at_frame_idx 가 영원히
+                # None 이라 앵커 배선 전체가 no-op 출하가 된다.
+                at_frame_idx=cu.get("at_frame_idx"),
             ))
     else:
         units = _group_fault_joints(list(fault_joints), joint_kinds)
@@ -2503,7 +2551,52 @@ def build_fault_zoom_comparisons(
         r_idx_unit, r_kp_idx_unit = r_idx, r_kp_idx
         ref_match_failed_unit = ref_match_failed
         pair_selected = False
-        if user_frame_candidates and ref_frame_candidates is not None:
+        # ── quick-260801-gbk: unit 자기 측정 순간을 후보 창의 중심으로 ──────────
+        # 종전엔 모든 unit 이 같은 worst-pose window 후보를 받아 카드들이 한 시각에서
+        # 잘렸다 — worst_seconds 는 **동작 국면의 시각이지 감점이 난 시각이 아니다.**
+        # record 가 "이 프레임에서 쟀다"고 알려주면 그 주변을 후보로 준다. 창 안에서
+        # 어느 프레임을 쓸지는 아래 기존 선택 로직이 그대로 정한다(선택·pose 매칭·
+        # crop 로직 무접촉).
+        #
+        # 후보 구성은 2단이다:
+        #   ① 앵커 프레임의 멤버 keypoint 가 **크롭 가능**하면(_member_pts valid 비어있지
+        #      않음 — 카드가 학생 패널을 그릴 때 쓰는 바로 그 판정) 후보를 앵커 하나로
+        #      좁힌다. 우리가 실제로 잰 프레임이고 그릴 수도 있으니 그것을 보여준다.
+        #   ② 앵커 keypoint 가 붕괴했으면 ±_MOMENT_ANCHOR_RADIUS 창으로 넓혀 기존
+        #      confidence/포즈 선택 로직이 창 안에서 더 나은 프레임을 고르게 한다.
+        #      이때 표시 프레임은 측정 프레임이 아니므로 atMatched 가 붙지 않는다.
+        # ①을 두는 이유: 창을 그냥 주면 select_confident_frame 의 동점 tie-break 가
+        # **항상 가장 작은 프레임값**을 고르므로(이 파일 429-432행) 중앙에 놓인 앵커가
+        # 구조적으로 이길 수 없다 — 그러면 "이 사진이 그 값을 잰 순간"이 사실상 영원히
+        # 성립하지 않는다. 공유 선택 로직은 그대로 두고 후보만 좁힌다.
+        #
+        # fail-closed: 앵커가 없거나 DTW 대응이 후보 하나라도 실패하면 합성 후보를
+        # 통째로 버리고 원래 파라미터로 복귀 = 종전 산출 그대로.
+        u_cands_unit = user_frame_candidates
+        r_cands_unit = ref_frame_candidates
+        if unit.at_frame_idx is not None and dtw_match is not None:
+            _anchor = max(0, min(int(unit.at_frame_idx), max(0, u_n - 1)))
+            _anchor_kp = _to_rep_idx(_anchor, frames_fps, u_rep_fps, u_rep_frames)
+            _anchor_valid, _ = _member_pts(user_report, _anchor_kp, unit.members)
+            if _anchor_valid:
+                _u_syn = [_anchor]
+            else:
+                _u_syn = []
+                for _d in range(-_MOMENT_ANCHOR_RADIUS, _MOMENT_ANCHOR_RADIUS + 1):
+                    _c = max(0, min(_anchor + _d, max(0, u_n - 1)))
+                    if _c not in _u_syn:
+                        _u_syn.append(_c)
+            _r_syn: list[int] = []
+            for _c in _u_syn:
+                _pair = _ref_pair_for_user(_c)
+                if _pair is None:
+                    _r_syn = []
+                    break
+                _r_syn.append(_pair[0])
+            if _r_syn:
+                u_cands_unit = _u_syn
+                r_cands_unit = _r_syn
+        if u_cands_unit and r_cands_unit is not None:
             # ── (학생, 기준) 쌍 동시 최적화 — 궤적 매칭 (belle #3, 2026-07-28) ──
             # 학생 프레임(관절 conf argmax)과 기준 프레임(단일프레임 pose 거리)을
             # 따로 고르면 역립 환각 keypoint(conf 게이트 통과)가 양쪽을 각각
@@ -2514,8 +2607,8 @@ def build_fault_zoom_comparisons(
             pair = select_pose_matched_pair(
                 user_report,
                 ref_report,
-                list(user_frame_candidates),
-                list(ref_frame_candidates),
+                list(u_cands_unit),
+                list(r_cands_unit),
                 unit.members,
                 r_n,
                 frames_fps=frames_fps,
@@ -2526,7 +2619,7 @@ def build_fault_zoom_comparisons(
             )
             if pair is not None:
                 p_pos, p_ref = pair
-                u_cands_p = list(user_frame_candidates)
+                u_cands_p = list(u_cands_unit)
                 try:
                     u_sel = int(u_cands_p[p_pos])
                 except (TypeError, ValueError, IndexError):
@@ -2550,8 +2643,8 @@ def build_fault_zoom_comparisons(
                         u_idx_unit,
                         r_idx_unit,
                     )
-        if user_frame_candidates and not pair_selected:
-            u_cands = list(user_frame_candidates)
+        if u_cands_unit and not pair_selected:
+            u_cands = list(u_cands_unit)
             sel_pos = select_confident_index(
                 user_report, u_cands, unit.members, frames_fps
             )
@@ -2563,8 +2656,8 @@ def build_fault_zoom_comparisons(
                 # 기준 프레임 = 같은 window position 의 DTW 짝 (독립 선택 제거).
                 # window 는 DTW-matched worst-pose ±window 라 position 대응이
                 # same-pose 를 유지 → override 경로와 동일 취급 (refMatch='dtw').
-                if ref_frame_candidates is not None:
-                    r_cands = list(ref_frame_candidates)
+                if r_cands_unit is not None:
+                    r_cands = list(r_cands_unit)
                     if sel_pos < len(r_cands):
                         try:
                             sel_r = int(r_cands[sel_pos])
@@ -2922,6 +3015,14 @@ def build_fault_zoom_comparisons(
             "refFrameIdx": int(r_kp_idx_unit),
             "refMatched": not ref_match_failed_unit,
         }
+        # quick-260801-gbk — 표시 프레임이 그 record 의 **측정 프레임과 같음**을
+        # 인증한다. 최종 채택 학생 프레임이 앵커와 정확히 같을 때만 True; 앵커가
+        # 없거나 창 안에서 다른 프레임이 뽑혔으면 키 자체를 생략(refMatch/criterion
+        # 의 additive 관례). 앱은 **이 값만 보고** "위 사진은 그 값을 잰 순간" 절을
+        # 낸다 — 앱이 초 차이를 계산해 추정하면 §11.8 F-3 이 재발한다(rep 공간과
+        # 비디오 9fps 공간은 다른 축이다).
+        if unit.at_frame_idx is not None and u_idx_unit == unit.at_frame_idx:
+            item["atMatched"] = True
         # F-3 실영상 초 (quick-260730-l7t) — paircap 초 표기(S6) + 참고코너 페어
         # 정합. **rep 인덱스(userFrameIdx/refFrameIdx)로 초를 재계산 금지** — 두
         # 값은 별개 축이다(rep 공간 vs 비디오 9fps 공간). 3-way lockstep:

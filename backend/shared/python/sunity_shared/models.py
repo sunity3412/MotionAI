@@ -268,6 +268,27 @@ DEDUCTION_RECORD_EXTENSION_KEYS = (
     ("recordId",) + DEDUCTION_PHRASE_KEYS + ("tolerance",)
 )
 
+# quick-260801-gbk — "이 감점을 **어느 프레임에서 쟀는가**".
+#   atFrameIdx = 학생 **9fps angles 행 인덱스**(int). keypointReport 의 rep 인덱스가
+#     아니다 — 두 값은 별개 축이고, 섞으면 §11.8 F-3(앱이 rep 인덱스를 rep fps 로
+#     나눠 초를 추정)이 재발한다.
+#   atVideoSec = atFrameIdx / 파이프라인 frames fps (float). 함께 방출해서 앱이
+#     초를 **재계산하지 않게** 한다.
+#
+# 방출 대상은 4계열뿐: angle_vs_reference__{joint}(window/DTW 두 경로) /
+# leg_extension / arm_extension / line.
+# fail-closed(키 자체 부재) 3종과 그 이유:
+#   · body_relative_reach — notches 에 시계열이 없다.
+#   · dimension_overall_fallback — 특정 순간이 없는 whole-score passthrough record.
+#   · split_angle — 프로덕션 실동작 경로가 vision 주입이라 우리가 잰 프레임이 없다.
+#     기하 프레임을 붙이면 "재지 않은 것을 쟀다"고 쓰는 셈이다.
+#
+# 전부 additive optional scalar — 기존 11+2+8 키와 **disjoint**. legacy doc 은 키
+# 부재로 안전하고, record 검증은 기존 _validate_dict_only_scalars 가 scalar 신규
+# 키를 자동 통과시킨다(validator 본체 무변경).
+# 3-way lockstep: app/src/types/analysis.ts DeductionRecord + docs/contract.md §10.2.
+DEDUCTION_RECORD_MOMENT_KEYS = ("atFrameIdx", "atVideoSec")
+
 # result.summaryPraise — 잘한 점 후보 단일 원천 (백엔드 산출, D-06/D-26 + 리뷰
 # blocker 5). headline 은 사람 말 — **수치 미포함** (D-09 invariant: 수치는
 # evidenceValue/evidenceUnit 구조 필드로 분리, 렌더 위치는 앱 소관).

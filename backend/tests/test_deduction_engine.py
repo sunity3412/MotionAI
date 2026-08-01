@@ -115,13 +115,22 @@ def test_contract_lockstep():
     # 필수 ∪ optional == TS 필드 set 으로 lockstep 단언 + 집합 disjoint 가드.
     # Plan 32-06 (§12.3): DEDUCTION_RECORD_EXTENSION_KEYS(recordId/3단 문구/
     # tolerance — 32-09 방출 additive optional 8키)가 3번째 집합으로 합류.
+    # quick-260801-gbk: DEDUCTION_RECORD_MOMENT_KEYS(atFrameIdx/atVideoSec —
+    # "이 감점을 어느 프레임에서 쟀는가")가 4번째 집합으로 합류.
     assert (set(models.DEDUCTION_RECORD_KEYS)
             | set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)
-            | set(models.DEDUCTION_RECORD_EXTENSION_KEYS)) == ts_fields
+            | set(models.DEDUCTION_RECORD_EXTENSION_KEYS)
+            | set(models.DEDUCTION_RECORD_MOMENT_KEYS)) == ts_fields
     assert not set(models.DEDUCTION_RECORD_KEYS) & set(models.DEDUCTION_RECORD_OPTIONAL_KEYS)
     assert not set(models.DEDUCTION_RECORD_KEYS) & set(models.DEDUCTION_RECORD_EXTENSION_KEYS)
     assert not set(models.DEDUCTION_RECORD_OPTIONAL_KEYS) & set(
         models.DEDUCTION_RECORD_EXTENSION_KEYS)
+    for _other in (
+        models.DEDUCTION_RECORD_KEYS,
+        models.DEDUCTION_RECORD_OPTIONAL_KEYS,
+        models.DEDUCTION_RECORD_EXTENSION_KEYS,
+    ):
+        assert not set(_other) & set(models.DEDUCTION_RECORD_MOMENT_KEYS)
     assert "baselineValue" in models.DEDUCTION_RECORD_KEYS
     assert "baselineKind" in models.DEDUCTION_RECORD_KEYS
     assert "fallback" in models.DEDUCTION_BREAKDOWN_KEYS

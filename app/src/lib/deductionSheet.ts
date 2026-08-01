@@ -526,13 +526,26 @@ export function buildRegionSheetView(
         : `${BLOCK_HEAD_PREFIX} — ${label} (−${points}점)`;
 
     const blockZoom = zoomOf(i);
-    const blockUserSec = videoSecOf(blockZoom?.userVideoSec);
     const blockRefSec = videoSecOf(blockZoom?.refVideoSec);
     const subject = measuredSubjectKo(rec.criterion);
 
     // basis (M-7) — 재는 대상 + 그 값을 잰 순간. 구간 축은 §C-4 이관.
+    //
+    // quick-260801-gbk — "잰 순간" 절의 출처와 방출 조건을 함께 바꾼다.
+    // 출처: 표시 프레임의 초(zoom.userVideoSec)가 아니라 **이 감점을 잰 초**
+    //   (rec.atVideoSec). 종전엔 두 값이 항상 같았지만, 그 이유는 모든 카드가
+    //   worst_seconds 한 시각에서 잘렸기 때문이었다 — 문장은 맞고 사진이 틀렸다.
+    // 조건: 그 행에 사진이 있고(blockZoom), 그 사진이 **바로 그 순간임을 백엔드가
+    //   인증**했을 때만(atMatched). 출처만 바꾸면 사진 없는 행(line·카드 4장 초과분)과
+    //   앵커 미채택 카드까지 절을 얻어, 없애려던 거짓을 역방향으로 재생산한다.
+    // 인증은 앱이 계산하지 않는다 — 초 차이를 앱이 빼면 fps·프레임 공간을 앱이
+    //   알아야 하고 그 구조가 정확히 §11.8 F-3 을 만들었다.
     let basisLine: TextSegment[] | null = null;
-    const blockUserSecLabel = formatVideoSecKo(blockUserSec);
+    const blockMeasuredSec =
+      blockZoom != null && blockZoom.atMatched === true
+        ? videoSecOf(rec.atVideoSec)
+        : null;
+    const blockUserSecLabel = formatVideoSecKo(blockMeasuredSec);
     if (subject || blockUserSecLabel) {
       const segments: TextSegment[] = [{ text: BASIS_LABEL, bold: true }];
       if (subject) {

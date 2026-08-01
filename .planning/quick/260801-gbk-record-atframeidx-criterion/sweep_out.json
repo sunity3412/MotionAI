@@ -1,0 +1,772 @@
+{
+  "motions": [
+    "ref-climb",
+    "ref-elbow-twist-sister",
+    "ref-foxtop",
+    "ref-foxtop-split",
+    "ref-invert",
+    "ref-kip-up",
+    "ref-pdshape",
+    "ref-peter-pan",
+    "ref-power-spin",
+    "ref-sideway-spin"
+  ],
+  "rows": [
+    {
+      "motion": "ref-climb",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "4d1e21dd63650761abab68491f5c81d0829f3076203cee6f27acb3fd2bcac891"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "90371dbb91670f9bd36441b6f3d6789dc0a1e4ca169a80676be653fa8d54658d"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "c1dc52f4fcf30834ed729d48333d4ec1168033177d6257d4e8bea838bc0c6b7c"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "6a6bb70725ce1af566a92a7c208d3b293786220d12505529d499a977dbfa3624",
+          "12c3193a2919044a3ab9a55b6b060937332317beb1f06a48a41466fd90e2ee76",
+          "5ea62f1413f5945550281fdd56f1dd51ff3053a14978f0df817311577d4f6d52"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "9ec4c07d1588f56b3da355c4768491dafa79f0bc9958dd0b7fa5b41cb0eea7cb"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "4af998d876abe771bcd3fb000e076087eeda2f07d6ff888b2e14144933c00537"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "e86287370b6c73bca3d8866001f1bb78132945016ca6447d9fc482c29084d2f6"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "0d68e00c0a9ae5f8b4ca7e6ee1e689b25fa76512dda0cd71924ef0f7838e7ac5",
+          "c590ef268ec73723287875685d95a2944e9fbb614ef389d8ded6ec7fdf8b96f2",
+          "321c1958adeaa6f294214d9ba2af416468d2a68415cc1cc900ec173d5df719bc"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-foxtop",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "ba23e21017260c0f8a4735f636fcca99871e393c0440590e39a6f1b79fe9d0a6"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "e5645c9fb883814118fb6f7e01700a3304212ec91afa151c626a2ebcbc8d7e6e"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "ed2690c2f305bbae1d0543302b21796ece0382d77ec978a151802174f218f9ae"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "4489a58b13596fd627ade183f4e44ee614fb51d2a2b5ad6eb9543368ce848241",
+          "69df2add751c7119b509c27853c90fff298bc92336f48e1f67dfbdb8faa7b4ba",
+          "7e5bb04d43629413274946812f021a1ecc620cdab5274b7e2e701c15745b2354"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "81da18263b70d01a9b4bf0a76e953c293aa4fc15ec4c059a53364abfa91a7664"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "571b07e15c50e95eb21d584cc7c14bc964229b9b31f0cd6899f8559d967b363a"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "c39b82f9b96e271f1b8f818e37c3f467470bab316a026a7275767b08ae1bdb1f"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "e9dee96a6f4d2d9fc9331b306cb45cb8902d833bf8229a7ef7223fe81d50a4ca",
+          "ab5805398da8a1d8223dead43cbe10980346377dba30c8e05369a5c0dbb89c81",
+          "e0614e2956d9830470633d9f6adcfa1807214a2b1a3314126d934b9fdd6b8e5b"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-invert",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "628b183330d76db57a1a22a6db9f9b6edc643e46b9b4817e848205d2c04e2654"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "b0230c3995bb7fd8ad617312fbc6f1689f2e9aa87346d1695cbbaabd31f077d0"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "eaeb37d29ad394583eb94bb4589585a9f5166f1f73876440e1cc291c024b2695"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "2d4d9a15bc9d27fac432f7a7bb76015eb384a3a3fd7ee4061aa194621712021e",
+          "ffd10aa561576fab80e183e002fc3c9a07daf32671029af92f14779e35bb9852",
+          "1ccd7c292ea7cf784146a7b7d655333af5bdd1b2c482136fdc0d3c638709e823"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-kip-up",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "8929af498b0c5025ae237aa853cfc88cf32cb9890e7478be0333649b0a1e5183"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "78de77fd40df6062751695f2ced56f8cad6eaf033fd3b763b98da00191171cab"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "1d865b08b241c4bfdce9ca2d8280cd3e10b29550f5a0f4f311628e0343c01ee8"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "bc2f6636a0203c4fbde7e984ffb2d5dc8513076cfa7d250d7150d9f4f9602454",
+          "be86c147a199f9c7abd1da99024783a1f4289e641c7b107e5481584696b67531",
+          "9c018bfd19663212f61c45db3c9cb235caf9d34369da5a0df39744420064d471"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-pdshape",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "6917ab1adca826c954b0a7134cafa1c5cc4f3076cd8f48ca5a2cc60a5dacec70"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "84522cd1b44fd945a9fe3ea4b77e622de23fe7fc96754ed3a52d34aa70953fdf"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "635cedbcd5e91652f730c20565f0909ff173be66d88a0a398105544b9bf7e0d9"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "7896907f6b578043ec00e3cf15b92369db976cac78f5f4a2b27c3e23dc55e595",
+          "b7e3bd19de16b5a4d73ff3b915dde3d472877daf19fc7d6f2f6306b96da90f2d",
+          "5d392e6b3e758b9a344b6337cb611e9cb9583869e4f2b6ccbba9f0c7802b926b"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-peter-pan",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "ad8c8f5b678dc48dbee54a6e1a2ba7c4a3ee6bcd3b6291873c8da42df8cd49dc"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "d9b514eefbd8c52977b599adf8ebd95e47590c7da2a8032f48996165337419d2"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "8b1815597043c47256b0946e9c3df490e52fe47543cba52e8e9b36a151264871"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "358f9fbe2efa9ff9edcd165995dac28cb2158f3236ec175932e177b972401278",
+          "903c1b645a62e3446348a8c7d23f60f45363b067db3ae4f951d9a708e9cfd035",
+          "62c0138ffd0a788837a9da7acbf1298c56515e1bcd8bdf3c5c727bc49461faa5"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-power-spin",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_knee",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_knee",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_knee",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "7595442b9854b6683da367e71c158995825c552b5bed7ba35dde1dd415b6abe3"
+        },
+        {
+          "criterion": "angle_vs_reference__right_knee",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "bb9a2a619d3c52af59ebacf0eec1c546c7c015daefb8abbcf8e48f683a85c64d"
+        },
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "154b18462495741fdb660d8561aad3fa650e73ec750309e27df2ad444bc377d0"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "d37a33306af458f49c674196ad96b09a0d1717d4edb924bd1696bd69d67ce329",
+          "7b852a8518c45992a9e78589fdbe530a3a1bc07611ebbf73044965677fb59cd5",
+          "2ecabce1b6f69cffa84fec445f2940b3a95f5758d3092ca875a340d6715297d1"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_knee",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_knee",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 4,
+          "refFrameIdx": 4,
+          "atMatched": true,
+          "userVideoSec": 0.4444444444444444,
+          "png_sha256": "4d1e21dd63650761abab68491f5c81d0829f3076203cee6f27acb3fd2bcac891"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 9,
+          "refFrameIdx": 9,
+          "atMatched": true,
+          "userVideoSec": 1.0,
+          "png_sha256": "90371dbb91670f9bd36441b6f3d6789dc0a1e4ca169a80676be653fa8d54658d"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 14,
+          "refFrameIdx": 14,
+          "atMatched": true,
+          "userVideoSec": 1.5555555555555556,
+          "png_sha256": "c1dc52f4fcf30834ed729d48333d4ec1168033177d6257d4e8bea838bc0c6b7c"
+        }
+      ],
+      "distinct_user_frames": true,
+      "legacy_control": {
+        "png_sha256": [
+          "6a6bb70725ce1af566a92a7c208d3b293786220d12505529d499a977dbfa3624",
+          "12c3193a2919044a3ab9a55b6b060937332317beb1f06a48a41466fd90e2ee76",
+          "5ea62f1413f5945550281fdd56f1dd51ff3053a14978f0df817311577d4f6d52"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 2,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 7,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 12,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    }
+  ],
+  "gates": {
+    "a_distinct_frames": 10,
+    "b_compared_against": ".planning/quick/260801-gbk-record-atframeidx-criterion/sweep_out.before.json",
+    "total_motions": 10
+  },
+  "failures": []
+}

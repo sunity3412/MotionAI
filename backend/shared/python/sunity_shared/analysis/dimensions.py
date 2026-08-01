@@ -339,6 +339,82 @@ def line_deficits_by_joint(angles, profile: TechniqueProfile) -> dict[str, float
     return out
 
 
+# ── quick-260801-gbk: 감점을 "어느 프레임에서 쟀는가" ─────────────────────
+# extension_deviation / line 집계는 window 안 프레임들을 평균으로 뭉개 시간축을
+# 버린다. 아래 두 helper 는 그 window 를 다시 열어 **집계값에 가장 가까운** 프레임을
+# 돌려준다. 최대 부족 프레임(argmax)이 아니다 — 집계가 mean 인데 max 프레임을
+# 가리키면 record 가 보고한 값과 다른 순간을 지목하게 되고, 각도 jitter 가 큰
+# 프레임이 뽑혀 확대비교가 지금보다 나빠진다.
+#
+# windowing 은 반드시 `_select_window` 경유 (이 파일 286-297 의 drift 방지 규율).
+# 새 windowing 상수 0. extension_deviation / line_score 본체 무접촉 — 점수 substrate
+# 를 만드는 코드는 이 helper 를 호출하지 않는다.
+
+
+def extension_representative_frame(
+    angles,
+    profile: "TechniqueProfile | None",
+    joint_key: str,
+    target_deficit: float,
+) -> int | None:
+    """`joint_key` 의 per-frame 180° 부족분이 `target_deficit` 에 가장 가까운 프레임.
+
+    `target_deficit` 은 record 가 실제로 보고한 집계값(extension_deviation 이 낸
+    관절별 부족분)이다. 재계산하지 않고 받아 쓴다 — 재계산이 없으면 drift 도 없다.
+
+    Returns:
+        `_select_window` 구간 기준 **절대** 프레임 인덱스. window 가 비었거나 유한
+        각도가 하나도 없으면 None(fail-closed).
+    """
+    if joint_key not in JOINT_KEYS:
+        return None
+    sliced, (s, _e) = _select_window(angles, profile)
+    if sliced.shape[0] == 0:
+        return None
+    col = np.asarray(sliced[:, JOINT_KEYS.index(joint_key)], dtype=float)
+    finite = np.isfinite(col)
+    if not finite.any():
+        return None
+    deficits = np.maximum(0.0, _FULL_EXTENSION_DEG - col)
+    gaps = np.where(finite, np.abs(deficits - float(target_deficit)), np.inf)
+    return int(s) + int(np.argmin(gaps))
+
+
+def line_representative_frame(
+    angles,
+    profile: "TechniqueProfile | None",
+    joint_keys,
+    target_deficit: float,
+) -> int | None:
+    """`joint_keys` per-frame 평균 부족분이 `target_deficit` 에 가장 가까운 프레임.
+
+    `joint_keys` 는 line 집계값을 실제로 만든 관절 집합이어야 한다 — 호출측이
+    그 목록을 그대로 넘긴다(여기서 다시 고르지 않는다).
+
+    Returns:
+        절대 프레임 인덱스. 유효 관절/유한 프레임이 없으면 None(fail-closed).
+    """
+    cols = [JOINT_KEYS.index(k) for k in (joint_keys or ()) if k in JOINT_KEYS]
+    if not cols:
+        return None
+    sliced, (s, _e) = _select_window(angles, profile)
+    if sliced.shape[0] == 0:
+        return None
+    sub = np.asarray(sliced[:, cols], dtype=float)
+    deficits = np.maximum(0.0, _FULL_EXTENSION_DEG - sub)
+    gaps = np.full(sub.shape[0], np.inf, dtype=float)
+    target = float(target_deficit)
+    for t in range(sub.shape[0]):
+        row = deficits[t]
+        row_finite = row[np.isfinite(row)]
+        if row_finite.size == 0:
+            continue  # 그 프레임은 후보 아님 — 평균을 만들 수 없다.
+        gaps[t] = abs(float(row_finite.mean()) - target)
+    if not np.isfinite(gaps).any():
+        return None
+    return int(s) + int(np.argmin(gaps))
+
+
 def stability_wobble_by_joint(angles, profile: "TechniqueProfile | None" = None) -> dict[str, float]:
     """관절별 inter-frame diff median (windowed). stability deficit summary source.
 

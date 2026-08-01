@@ -1,0 +1,793 @@
+{
+  "motions": [
+    "ref-climb",
+    "ref-elbow-twist-sister",
+    "ref-foxtop",
+    "ref-foxtop-split",
+    "ref-invert",
+    "ref-kip-up",
+    "ref-pdshape",
+    "ref-peter-pan",
+    "ref-power-spin",
+    "ref-sideway-spin"
+  ],
+  "rows": [
+    {
+      "motion": "ref-climb",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "6a6bb70725ce1af566a92a7c208d3b293786220d12505529d499a977dbfa3624"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "12c3193a2919044a3ab9a55b6b060937332317beb1f06a48a41466fd90e2ee76"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "5ea62f1413f5945550281fdd56f1dd51ff3053a14978f0df817311577d4f6d52"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "6a6bb70725ce1af566a92a7c208d3b293786220d12505529d499a977dbfa3624",
+          "12c3193a2919044a3ab9a55b6b060937332317beb1f06a48a41466fd90e2ee76",
+          "5ea62f1413f5945550281fdd56f1dd51ff3053a14978f0df817311577d4f6d52"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-elbow-twist-sister",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "0d68e00c0a9ae5f8b4ca7e6ee1e689b25fa76512dda0cd71924ef0f7838e7ac5"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "c590ef268ec73723287875685d95a2944e9fbb614ef389d8ded6ec7fdf8b96f2"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "321c1958adeaa6f294214d9ba2af416468d2a68415cc1cc900ec173d5df719bc"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "0d68e00c0a9ae5f8b4ca7e6ee1e689b25fa76512dda0cd71924ef0f7838e7ac5",
+          "c590ef268ec73723287875685d95a2944e9fbb614ef389d8ded6ec7fdf8b96f2",
+          "321c1958adeaa6f294214d9ba2af416468d2a68415cc1cc900ec173d5df719bc"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-foxtop",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "4489a58b13596fd627ade183f4e44ee614fb51d2a2b5ad6eb9543368ce848241"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "69df2add751c7119b509c27853c90fff298bc92336f48e1f67dfbdb8faa7b4ba"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "7e5bb04d43629413274946812f021a1ecc620cdab5274b7e2e701c15745b2354"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "4489a58b13596fd627ade183f4e44ee614fb51d2a2b5ad6eb9543368ce848241",
+          "69df2add751c7119b509c27853c90fff298bc92336f48e1f67dfbdb8faa7b4ba",
+          "7e5bb04d43629413274946812f021a1ecc620cdab5274b7e2e701c15745b2354"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-foxtop-split",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "e9dee96a6f4d2d9fc9331b306cb45cb8902d833bf8229a7ef7223fe81d50a4ca"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "ab5805398da8a1d8223dead43cbe10980346377dba30c8e05369a5c0dbb89c81"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "e0614e2956d9830470633d9f6adcfa1807214a2b1a3314126d934b9fdd6b8e5b"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "e9dee96a6f4d2d9fc9331b306cb45cb8902d833bf8229a7ef7223fe81d50a4ca",
+          "ab5805398da8a1d8223dead43cbe10980346377dba30c8e05369a5c0dbb89c81",
+          "e0614e2956d9830470633d9f6adcfa1807214a2b1a3314126d934b9fdd6b8e5b"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-invert",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "2d4d9a15bc9d27fac432f7a7bb76015eb384a3a3fd7ee4061aa194621712021e"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "ffd10aa561576fab80e183e002fc3c9a07daf32671029af92f14779e35bb9852"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "1ccd7c292ea7cf784146a7b7d655333af5bdd1b2c482136fdc0d3c638709e823"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "2d4d9a15bc9d27fac432f7a7bb76015eb384a3a3fd7ee4061aa194621712021e",
+          "ffd10aa561576fab80e183e002fc3c9a07daf32671029af92f14779e35bb9852",
+          "1ccd7c292ea7cf784146a7b7d655333af5bdd1b2c482136fdc0d3c638709e823"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-kip-up",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "bc2f6636a0203c4fbde7e984ffb2d5dc8513076cfa7d250d7150d9f4f9602454"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "be86c147a199f9c7abd1da99024783a1f4289e641c7b107e5481584696b67531"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "9c018bfd19663212f61c45db3c9cb235caf9d34369da5a0df39744420064d471"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "bc2f6636a0203c4fbde7e984ffb2d5dc8513076cfa7d250d7150d9f4f9602454",
+          "be86c147a199f9c7abd1da99024783a1f4289e641c7b107e5481584696b67531",
+          "9c018bfd19663212f61c45db3c9cb235caf9d34369da5a0df39744420064d471"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-pdshape",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "7896907f6b578043ec00e3cf15b92369db976cac78f5f4a2b27c3e23dc55e595"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "b7e3bd19de16b5a4d73ff3b915dde3d472877daf19fc7d6f2f6306b96da90f2d"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "5d392e6b3e758b9a344b6337cb611e9cb9583869e4f2b6ccbba9f0c7802b926b"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "7896907f6b578043ec00e3cf15b92369db976cac78f5f4a2b27c3e23dc55e595",
+          "b7e3bd19de16b5a4d73ff3b915dde3d472877daf19fc7d6f2f6306b96da90f2d",
+          "5d392e6b3e758b9a344b6337cb611e9cb9583869e4f2b6ccbba9f0c7802b926b"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-peter-pan",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "358f9fbe2efa9ff9edcd165995dac28cb2158f3236ec175932e177b972401278"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "903c1b645a62e3446348a8c7d23f60f45363b067db3ae4f951d9a708e9cfd035"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "62c0138ffd0a788837a9da7acbf1298c56515e1bcd8bdf3c5c727bc49461faa5"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "358f9fbe2efa9ff9edcd165995dac28cb2158f3236ec175932e177b972401278",
+          "903c1b645a62e3446348a8c7d23f60f45363b067db3ae4f951d9a708e9cfd035",
+          "62c0138ffd0a788837a9da7acbf1298c56515e1bcd8bdf3c5c727bc49461faa5"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-power-spin",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_knee",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_knee",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_knee",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "d37a33306af458f49c674196ad96b09a0d1717d4edb924bd1696bd69d67ce329"
+        },
+        {
+          "criterion": "angle_vs_reference__right_knee",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "7b852a8518c45992a9e78589fdbe530a3a1bc07611ebbf73044965677fb59cd5"
+        },
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "2ecabce1b6f69cffa84fec445f2940b3a95f5758d3092ca875a340d6715297d1"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "d37a33306af458f49c674196ad96b09a0d1717d4edb924bd1696bd69d67ce329",
+          "7b852a8518c45992a9e78589fdbe530a3a1bc07611ebbf73044965677fb59cd5",
+          "2ecabce1b6f69cffa84fec445f2940b3a95f5758d3092ca875a340d6715297d1"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_knee",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_knee",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    },
+    {
+      "motion": "ref-sideway-spin",
+      "records": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "atFrameIdx": 4
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "atFrameIdx": 9
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "atFrameIdx": 14
+        }
+      ],
+      "cards": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "6a6bb70725ce1af566a92a7c208d3b293786220d12505529d499a977dbfa3624"
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "12c3193a2919044a3ab9a55b6b060937332317beb1f06a48a41466fd90e2ee76"
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "refFrameIdx": 8,
+          "atMatched": null,
+          "userVideoSec": 0.8888888888888888,
+          "png_sha256": "5ea62f1413f5945550281fdd56f1dd51ff3053a14978f0df817311577d4f6d52"
+        }
+      ],
+      "distinct_user_frames": false,
+      "legacy_control": {
+        "png_sha256": [
+          "6a6bb70725ce1af566a92a7c208d3b293786220d12505529d499a977dbfa3624",
+          "12c3193a2919044a3ab9a55b6b060937332317beb1f06a48a41466fd90e2ee76",
+          "5ea62f1413f5945550281fdd56f1dd51ff3053a14978f0df817311577d4f6d52"
+        ],
+        "userFrameIdx": [
+          8,
+          8,
+          8
+        ]
+      },
+      "anchor_crushed": [
+        {
+          "criterion": "angle_vs_reference__left_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__right_shoulder",
+          "userFrameIdx": 8,
+          "atMatched": null
+        },
+        {
+          "criterion": "angle_vs_reference__left_hip",
+          "userFrameIdx": 8,
+          "atMatched": null
+        }
+      ],
+      "override_cards": 3,
+      "override_error": null
+    }
+  ],
+  "gates": {
+    "a_distinct_frames": 0,
+    "b_compared_against": null,
+    "total_motions": 10
+  },
+  "failures": [
+    "(a) ref-climb: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-climb: atMatched=true 카드가 하나도 없다",
+    "(a) ref-elbow-twist-sister: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-elbow-twist-sister: atMatched=true 카드가 하나도 없다",
+    "(a) ref-foxtop: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-foxtop: atMatched=true 카드가 하나도 없다",
+    "(a) ref-foxtop-split: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-foxtop-split: atMatched=true 카드가 하나도 없다",
+    "(a) ref-invert: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-invert: atMatched=true 카드가 하나도 없다",
+    "(a) ref-kip-up: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-kip-up: atMatched=true 카드가 하나도 없다",
+    "(a) ref-pdshape: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-pdshape: atMatched=true 카드가 하나도 없다",
+    "(a) ref-peter-pan: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-peter-pan: atMatched=true 카드가 하나도 없다",
+    "(a) ref-power-spin: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-power-spin: atMatched=true 카드가 하나도 없다",
+    "(a) ref-sideway-spin: record 순간이 다른데 카드 프레임이 같다 [8, 8, 8]",
+    "(d) ref-sideway-spin: atMatched=true 카드가 하나도 없다"
+  ]
+}

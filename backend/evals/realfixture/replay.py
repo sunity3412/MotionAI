@@ -775,6 +775,13 @@ def build_verdict(app, manifest: dict, replays) -> dict:
         cards_ctrl = render_cards(app, replayed, ctrl_records, frames_fps)
         at_flags = [bool(c.get("atMatched")) for c in cards_treat]
         at_ratio = (sum(at_flags) / len(at_flags)) if at_flags else None
+        # advisory 카드는 criterion_units 를 받지 않아 **구조적으로** 앵커가 없다
+        # (quick-260801-gbk 가 이미 기록한 사실). 전체 비율만 내면 그 구조적 제외가
+        # 실패처럼 읽히므로 confirmed 전용 분모도 함께 낸다. 둘 다 남긴다.
+        conf_flags = [
+            bool(c.get("atMatched")) for c in cards_treat if c.get("tier") == "confirmed"
+        ]
+        conf_ratio = (sum(conf_flags) / len(conf_flags)) if conf_flags else None
 
         stored_cards = entry.get("sourceCardFrames") or []
         # 카드 경로 RECON — 대조군(순간 없음)이 저장 카드 프레임을 재현하는가.
@@ -832,6 +839,9 @@ def build_verdict(app, manifest: dict, replays) -> dict:
             "atMatchedRatio": at_ratio,
             "atMatchedCount": sum(at_flags),
             "cardCount": len(cards_treat),
+            "atMatchedConfirmedRatio": conf_ratio,
+            "atMatchedConfirmedCount": sum(conf_flags),
+            "confirmedCardCount": len(conf_flags),
         })
 
     print("\n── 판정 (atFrameIdx 가 실 데이터에서 record 마다 갈리는가) ──")
@@ -874,9 +884,14 @@ def build_verdict(app, manifest: dict, replays) -> dict:
     total_cards = sum(f["cardCount"] for f in fixtures)
     total_at = sum(f["atMatchedCount"] for f in fixtures)
     ratio = (total_at / total_cards) if total_cards else None
+    conf_cards = sum(f["confirmedCardCount"] for f in fixtures)
+    conf_at = sum(f["atMatchedConfirmedCount"] for f in fixtures)
+    conf_all = (conf_at / conf_cards) if conf_cards else None
     print(
-        f"\n실 데이터 atMatched = {total_at}/{total_cards}"
+        f"\n실 데이터 atMatched = 전체 {total_at}/{total_cards}"
         + (f" = {ratio:.1%}" if ratio is not None else "")
+        + f" · confirmed 전용 {conf_at}/{conf_cards}"
+        + (f" = {conf_all:.1%}" if conf_all is not None else "")
         + "  (합성 스위프 30/30 = 100% 와 나란히 읽을 것)"
     )
 
@@ -904,6 +919,9 @@ def build_verdict(app, manifest: dict, replays) -> dict:
         "atMatchedTotal": total_at,
         "cardTotal": total_cards,
         "atMatchedRatioTotal": ratio,
+        "atMatchedConfirmedTotal": conf_at,
+        "confirmedCardTotal": conf_cards,
+        "atMatchedConfirmedRatioTotal": conf_all,
         "syntheticSweepAtMatchedRatio": 1.0,
         "verdict": verdict,
         "decidableFixtures": [f["analysisId"] for f in decidable],
@@ -913,6 +931,11 @@ def build_verdict(app, manifest: dict, replays) -> dict:
             "vision 주입 record(split_angle)는 산출 입력이 doc 에 없어 재현 대상이 아니다.",
             "창 의존 criterion(leg/arm_extension·line)은 profile.hold_window 가 doc 밖이라 "
             "재현되지 않을 수 있다 — RECON 이 record 단위로 표시한다.",
+            "failClosed 가 비어 있는 것은 fail-closed 가 깨졌다는 뜻이 **아니다** — "
+            "설계상 순간이 없어야 할 split_angle record 자체가 재현되지 않아 "
+            "이 하네스의 관측 범위 밖이다. 여기서는 확인되지 않았다.",
+            "advisory 카드는 criterion_units 미전달로 구조적으로 atMatched 를 가질 수 "
+            "없다 — 전체 비율과 confirmed 전용 비율을 둘 다 읽을 것.",
         ],
     }
 

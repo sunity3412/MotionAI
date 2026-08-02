@@ -1,7 +1,10 @@
 {
+ "atMatchedConfirmedRatioTotal": 0.8,
+ "atMatchedConfirmedTotal": 8,
  "atMatchedRatioTotal": 0.6153846153846154,
  "atMatchedTotal": 8,
  "cardTotal": 13,
+ "confirmedCardTotal": 10,
  "decidableFixtures": [
   "elbowtwistsisterFault1785373695"
  ],
@@ -9,6 +12,8 @@
  "fixtures": [
   {
    "analysisId": "powerspinFault1785373695",
+   "atMatchedConfirmedCount": 3,
+   "atMatchedConfirmedRatio": 0.75,
    "atMatchedCount": 3,
    "atMatchedRatio": 0.6,
    "cardCount": 5,
@@ -157,6 +162,7 @@
      "userVideoSec": 2.111111111111111
     }
    ],
+   "confirmedCardCount": 4,
    "controlCardFrames": [
     38,
     38,
@@ -274,6 +280,8 @@
   },
   {
    "analysisId": "kipupFault1785373695",
+   "atMatchedConfirmedCount": 1,
+   "atMatchedConfirmedRatio": 1.0,
    "atMatchedCount": 1,
    "atMatchedRatio": 1.0,
    "cardCount": 1,
@@ -320,6 +328,7 @@
      "userVideoSec": 0.8888888888888888
     }
    ],
+   "confirmedCardCount": 1,
    "controlCardFrames": [
     16
    ],
@@ -377,6 +386,8 @@
   },
   {
    "analysisId": "pdshapeCorrect1785373695",
+   "atMatchedConfirmedCount": 0,
+   "atMatchedConfirmedRatio": 0.0,
    "atMatchedCount": 0,
    "atMatchedRatio": 0.0,
    "cardCount": 2,
@@ -422,6 +433,7 @@
      "userVideoSec": 5.777777777777778
     }
    ],
+   "confirmedCardCount": 1,
    "controlCardFrames": [
     104
    ],
@@ -462,6 +474,8 @@
   },
   {
    "analysisId": "elbowtwistsisterFault1785373695",
+   "atMatchedConfirmedCount": 4,
+   "atMatchedConfirmedRatio": 1.0,
    "atMatchedCount": 4,
    "atMatchedRatio": 0.8,
    "cardCount": 5,
@@ -616,6 +630,7 @@
      "userVideoSec": 8.0
     }
    ],
+   "confirmedCardCount": 4,
    "controlCardFrames": [
     144,
     144,
@@ -780,7 +795,9 @@
  "limits": [
   "PNG \ud53d\uc140 \ub0b4\uc6a9\uc740 \ud310\uc815 \uadfc\uac70\uac00 \uc544\ub2c8\ub2e4 \u2014 \ud504\ub808\uc784 \ubc30\uc5f4\uc774 \ud569\uc131\uc774\ub2e4. sha256 \uc740 \ud504\ub808\uc784 \uc120\ud0dd\uc774 \uac08\ub838\ub2e4\ub294 \ubc29\uc99d\uc77c \ubfd0. \uc0ac\uc9c4\uc774 \uc2e4\uc81c\ub85c \ub2e4\ub978 \uc21c\uac04\uc778\uc9c0\ub294 B \ub2e8\uacc4.",
   "vision \uc8fc\uc785 record(split_angle)\ub294 \uc0b0\ucd9c \uc785\ub825\uc774 doc \uc5d0 \uc5c6\uc5b4 \uc7ac\ud604 \ub300\uc0c1\uc774 \uc544\ub2c8\ub2e4.",
-  "\ucc3d \uc758\uc874 criterion(leg/arm_extension\u00b7line)\uc740 profile.hold_window \uac00 doc \ubc16\uc774\ub77c \uc7ac\ud604\ub418\uc9c0 \uc54a\uc744 \uc218 \uc788\ub2e4 \u2014 RECON \uc774 record \ub2e8\uc704\ub85c \ud45c\uc2dc\ud55c\ub2e4."
+  "\ucc3d \uc758\uc874 criterion(leg/arm_extension\u00b7line)\uc740 profile.hold_window \uac00 doc \ubc16\uc774\ub77c \uc7ac\ud604\ub418\uc9c0 \uc54a\uc744 \uc218 \uc788\ub2e4 \u2014 RECON \uc774 record \ub2e8\uc704\ub85c \ud45c\uc2dc\ud55c\ub2e4.",
+  "failClosed \uac00 \ube44\uc5b4 \uc788\ub294 \uac83\uc740 fail-closed \uac00 \uae68\uc84c\ub2e4\ub294 \ub73b\uc774 **\uc544\ub2c8\ub2e4** \u2014 \uc124\uacc4\uc0c1 \uc21c\uac04\uc774 \uc5c6\uc5b4\uc57c \ud560 split_angle record \uc790\uccb4\uac00 \uc7ac\ud604\ub418\uc9c0 \uc54a\uc544 \uc774 \ud558\ub124\uc2a4\uc758 \uad00\uce21 \ubc94\uc704 \ubc16\uc774\ub2e4. \uc5ec\uae30\uc11c\ub294 \ud655\uc778\ub418\uc9c0 \uc54a\uc558\ub2e4.",
+  "advisory \uce74\ub4dc\ub294 criterion_units \ubbf8\uc804\ub2ec\ub85c \uad6c\uc870\uc801\uc73c\ub85c atMatched \ub97c \uac00\uc9c8 \uc218 \uc5c6\ub2e4 \u2014 \uc804\uccb4 \ube44\uc728\uacfc confirmed \uc804\uc6a9 \ube44\uc728\uc744 \ub458 \ub2e4 \uc77d\uc744 \uac83."
  ],
  "referenceAnglesFps": 18,
  "studentAnglesFps": 9,

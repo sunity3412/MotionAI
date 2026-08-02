@@ -540,7 +540,7 @@ export interface FaultZoomComparison {
    * 나가면 틀린 출력이라 앱이 한 줄로 알린다(카드는 숨기지 않는다 — 정보 보존).
    * 부재 = criterion 없는 카드(legacy/advisory)이거나 legacy doc → 종전대로 문구 없음.
    *
-   * ⚠️ 앱이 `imageUrl` 픽셀을 보고 이 값을 **추정하지 말 것.** 그러면 판정이 렌더
+   * **주의** — 앱이 `imageUrl` 픽셀을 보고 이 값을 **추정하지 말 것.** 그러면 판정이 렌더
    * 배경에 의존한다. 그리는 코드만 이 인증을 낼 수 있다 (`refMatched` 선례와 동형).
    * `refMatch==='failed'` 와는 다른 사실이다 — 그쪽은 "같은 순간을 못 찾음",
    * 이쪽은 "순간은 맞췄는데 표시를 못 그림".

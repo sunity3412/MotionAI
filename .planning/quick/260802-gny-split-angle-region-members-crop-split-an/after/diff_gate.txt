@@ -1,0 +1,4 @@
+  [관측] power-spin split_angle 발목 in_crop before={'pelvis': True, 'left_knee': True, 'right_knee': True, 'left_ankle': True, 'right_ankle': True} after={'pelvis': True, 'left_knee': True, 'right_knee': True, 'left_ankle': True, 'right_ankle': True} flipped=none (before 부터 담고 있었다)
+  [관측] before sweep 배율 밴드(0.8~1.25) 이탈 0건: []
+  [관측] after sweep 배율 밴드(0.8~1.25) 이탈 8건: [('ref-foxtop', 'split_angle', 1.391304), ('ref-foxtop-split', 'split_angle', 1.543478), ('ref-invert', 'split_angle', 1.565217), ('ref-kip-up', 'split_angle', 1.565217), ('ref-pdshape', 'split_angle', 1.565217), ('ref-peter-pan', 'split_angle', 1.565217), ('ref-power-spin', 'split_angle', 1.565217), ('ref-sideway-spin', 'split_angle', 1.565217)]
+DIFF-OK (before -> after) — 게이트 3종 전건 통과

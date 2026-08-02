@@ -135,8 +135,14 @@ def test_criterion_units_from_records_joint_exact():
     assert tuple(by_crit["angle_vs_reference__left_knee"]["joints"]) == ("left_knee",)
 
     # vision split_angle → faultJoints ∩ legs — 어깨 배제 (defect #5 근본 assert).
+    # quick-260802-gny: 여기에 crop 프레이밍 추가 멤버(발목)가 더해진다. faultJoints
+    # 는 8-keypoint 이름공간이라 발목을 담을 수 없어(원리적) 교집합만으로는 split
+    # 카드가 자기 드로잉 점을 crop 밖에 두게 된다 — 그래서 분기 밖에서 붙인다.
+    # 이 테스트가 지키는 성질(다리 항목에 어깨 없음)은 아래 assert 가 그대로 지킨다.
     split_joints = set(by_crit["split_angle"]["joints"])
-    assert split_joints == _LEGS & set(fault_joints)
+    assert split_joints == (_LEGS & set(fault_joints)) | set(
+        fz.CRITERION_CROP_EXTRA_MEMBERS["split_angle"]
+    )
     assert not any("shoulder" in j for j in split_joints), (
         "다리 스플릿 항목에 어깨 관절이 투영됨 — vision 전체 투영 금지 (A-3/D-12)"
     )

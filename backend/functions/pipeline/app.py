@@ -3485,6 +3485,17 @@ _MODE3_ZOOM_REGION_MEMBERS: dict[str, tuple[str, ...]] = {
     "arms": ("left_shoulder", "right_shoulder", "left_hand", "right_hand"),
 }
 
+# criterion 별 crop 프레이밍 추가 멤버 — fault_zoom.CRITERION_CROP_EXTRA_MEMBERS
+# 미러 (quick-260802-gny). mode1 은 criterion_units_from_records 가, mode3 는 아래
+# crit_units 조립이 각각 unit 을 만들기 때문에 한쪽만 고치면 mode3 가 조용히 구
+# 동작으로 남는다. 두 표의 동등성은 backend/tests/test_fault_zoom.py
+# test_mode3_zoom_extra_members_mirror 가 강제한다.
+# 사유(그 criterion 이 그리는 점의 누락분 / region·순서를 안 건드리는 이유)는
+# fault_zoom 쪽 원본 주석이 소유한다 — 여기 복제하지 않는다.
+_MODE3_ZOOM_CRITERION_EXTRA_MEMBERS: dict[str, tuple[str, ...]] = {
+    "split_angle": ("left_ankle", "right_ankle"),
+}
+
 
 def _build_mode3_fault_zoom_comparisons(
     result: dict,
@@ -3544,7 +3555,14 @@ def _build_mode3_fault_zoom_comparisons(
             )
             crit_units.append({
                 "criterion": crit,
-                "joints": _MODE3_ZOOM_REGION_MEMBERS[region],
+                # quick-260802-gny — crop 프레이밍 멤버만 criterion 별로 가른다.
+                # 아래 fault_joints/kinds 는 손대지 않는다: item["kind"] 는
+                # unit.joint(=첫 멤버)로 조회되므로 영향이 없고, 건드리면 mode3
+                # fan-out 폴백 경로의 산출이 흔들린다.
+                "joints": (
+                    _MODE3_ZOOM_REGION_MEMBERS[region]
+                    + _MODE3_ZOOM_CRITERION_EXTRA_MEMBERS.get(crit, ())
+                ),
                 "region": region,
                 "at_frame_idx": _at_idx,
             })

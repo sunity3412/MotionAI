@@ -1,0 +1,736 @@
+{
+  "mode": "real",
+  "frameShape": {
+    "h": 640,
+    "w": 360
+  },
+  "frameShapeIsAssumption": true,
+  "fixtures": [
+    "elbowtwistsisterFault1785373695",
+    "kipupFault1785373695",
+    "pdshapeCorrect1785373695",
+    "powerspinFault1785373695"
+  ],
+  "rows": [
+    {
+      "fixture": "elbowtwistsisterFault1785373695",
+      "referenceMotionId": "ref-elbow-twist-sister",
+      "criterion": "angle_vs_reference__left_elbow",
+      "region": null,
+      "joints": [
+        "left_elbow"
+      ],
+      "jointCount": 1,
+      "recordSource": "geometry",
+      "storedCard": {
+        "userFrameIdx": 144,
+        "refFrameIdx": 278,
+        "region": null,
+        "joint": "left_elbow",
+        "deficitDeg": 3.5
+      },
+      "user": {
+        "crop_kind": "valid",
+        "box": [
+          107,
+          313,
+          151
+        ],
+        "valid_members": [
+          "left_elbow"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "in_crop": {
+          "pelvis": false,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": true,
+          "right_ankle": true
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.330485,
+          "right_knee": 0.386589,
+          "left_ankle": 0.480362,
+          "right_ankle": 0.533612
+        }
+      },
+      "ref": {
+        "crop_kind": "full",
+        "box": null,
+        "valid_members": [],
+        "relaxed_count": 0,
+        "in_crop": {
+          "pelvis": null,
+          "left_knee": null,
+          "right_knee": null,
+          "left_ankle": null,
+          "right_ankle": null
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.431009,
+          "right_knee": 0.471169,
+          "left_ankle": null,
+          "right_ankle": null
+        }
+      }
+    },
+    {
+      "fixture": "elbowtwistsisterFault1785373695",
+      "referenceMotionId": "ref-elbow-twist-sister",
+      "criterion": "angle_vs_reference__right_elbow",
+      "region": null,
+      "joints": [
+        "right_elbow"
+      ],
+      "jointCount": 1,
+      "recordSource": "geometry",
+      "storedCard": {
+        "userFrameIdx": 144,
+        "refFrameIdx": 278,
+        "region": null,
+        "joint": "right_elbow",
+        "deficitDeg": 8.3
+      },
+      "user": {
+        "crop_kind": "valid",
+        "box": [
+          107,
+          313,
+          151
+        ],
+        "valid_members": [
+          "right_elbow"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "in_crop": {
+          "pelvis": false,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": true,
+          "right_ankle": true
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.330485,
+          "right_knee": 0.386589,
+          "left_ankle": 0.480362,
+          "right_ankle": 0.533612
+        }
+      },
+      "ref": {
+        "crop_kind": "full",
+        "box": null,
+        "valid_members": [],
+        "relaxed_count": 0,
+        "in_crop": {
+          "pelvis": null,
+          "left_knee": null,
+          "right_knee": null,
+          "left_ankle": null,
+          "right_ankle": null
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.431009,
+          "right_knee": 0.471169,
+          "left_ankle": null,
+          "right_ankle": null
+        }
+      }
+    },
+    {
+      "fixture": "elbowtwistsisterFault1785373695",
+      "referenceMotionId": "ref-elbow-twist-sister",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "region": null,
+      "joints": [
+        "left_shoulder"
+      ],
+      "jointCount": 1,
+      "recordSource": "geometry",
+      "storedCard": {
+        "userFrameIdx": 144,
+        "refFrameIdx": 278,
+        "region": null,
+        "joint": "left_shoulder",
+        "deficitDeg": 3.1
+      },
+      "user": {
+        "crop_kind": "valid",
+        "box": [
+          81,
+          273,
+          151
+        ],
+        "valid_members": [
+          "left_shoulder"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": true,
+          "right_ankle": true
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.330485,
+          "right_knee": 0.386589,
+          "left_ankle": 0.480362,
+          "right_ankle": 0.533612
+        }
+      },
+      "ref": {
+        "crop_kind": "relaxed",
+        "box": [
+          113,
+          270,
+          151
+        ],
+        "valid_members": [],
+        "relaxed_count": 1,
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": null,
+          "right_ankle": null
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.431009,
+          "right_knee": 0.471169,
+          "left_ankle": null,
+          "right_ankle": null
+        }
+      },
+      "side_ratio": 1.0
+    },
+    {
+      "fixture": "elbowtwistsisterFault1785373695",
+      "referenceMotionId": "ref-elbow-twist-sister",
+      "criterion": "angle_vs_reference__right_shoulder",
+      "region": null,
+      "joints": [
+        "right_shoulder"
+      ],
+      "jointCount": 1,
+      "recordSource": "geometry",
+      "storedCard": {
+        "userFrameIdx": 144,
+        "refFrameIdx": 278,
+        "region": null,
+        "joint": "right_shoulder",
+        "deficitDeg": 19.6
+      },
+      "user": {
+        "crop_kind": "valid",
+        "box": [
+          110,
+          270,
+          151
+        ],
+        "valid_members": [
+          "right_shoulder"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": true,
+          "right_ankle": true
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.330485,
+          "right_knee": 0.386589,
+          "left_ankle": 0.480362,
+          "right_ankle": 0.533612
+        }
+      },
+      "ref": {
+        "crop_kind": "relaxed",
+        "box": [
+          113,
+          270,
+          151
+        ],
+        "valid_members": [],
+        "relaxed_count": 1,
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": null,
+          "right_ankle": null
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.431009,
+          "right_knee": 0.471169,
+          "left_ankle": null,
+          "right_ankle": null
+        }
+      },
+      "side_ratio": 1.0
+    },
+    {
+      "fixture": "kipupFault1785373695",
+      "referenceMotionId": "ref-kip-up",
+      "criterion": "split_angle",
+      "region": "legs",
+      "joints": [
+        "left_knee",
+        "right_knee",
+        "left_hip",
+        "right_hip",
+        "left_ankle",
+        "right_ankle"
+      ],
+      "jointCount": 6,
+      "recordSource": "vision",
+      "storedCard": {
+        "userFrameIdx": 16,
+        "refFrameIdx": 20,
+        "region": "legs",
+        "joint": "left_knee",
+        "deficitDeg": 50
+      },
+      "user": {
+        "crop_kind": "valid",
+        "box": [
+          124,
+          338,
+          236
+        ],
+        "valid_members": [
+          "left_knee",
+          "right_knee",
+          "left_hip",
+          "right_hip",
+          "left_ankle",
+          "right_ankle"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.364717,
+          "y": 0.188424
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": true,
+          "right_ankle": true
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.847102,
+          "right_knee": 0.899875,
+          "left_ankle": 0.890553,
+          "right_ankle": 0.863825
+        }
+      },
+      "ref": {
+        "crop_kind": "valid",
+        "box": [
+          155,
+          348,
+          162
+        ],
+        "valid_members": [
+          "left_knee",
+          "right_knee",
+          "left_hip",
+          "right_hip"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.250475,
+          "y": 0.103027
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": null,
+          "right_ankle": null
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.834119,
+          "right_knee": 0.842599,
+          "left_ankle": null,
+          "right_ankle": null
+        }
+      },
+      "side_ratio": 1.45679
+    },
+    {
+      "fixture": "kipupFault1785373695",
+      "referenceMotionId": "ref-kip-up",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "region": null,
+      "joints": [
+        "left_shoulder"
+      ],
+      "jointCount": 1,
+      "recordSource": "geometry",
+      "storedCard": {
+        "userFrameIdx": 16,
+        "refFrameIdx": 20,
+        "region": null,
+        "joint": "left_shoulder",
+        "deficitDeg": 23.3
+      },
+      "user": {
+        "crop_kind": "valid",
+        "box": [
+          149,
+          243,
+          151
+        ],
+        "valid_members": [
+          "left_shoulder"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": false,
+          "right_knee": false,
+          "left_ankle": false,
+          "right_ankle": false
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.847102,
+          "right_knee": 0.899875,
+          "left_ankle": 0.890553,
+          "right_ankle": 0.863825
+        }
+      },
+      "ref": {
+        "crop_kind": "valid",
+        "box": [
+          156,
+          249,
+          151
+        ],
+        "valid_members": [
+          "left_shoulder"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": false,
+          "right_knee": false,
+          "left_ankle": null,
+          "right_ankle": null
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.834119,
+          "right_knee": 0.842599,
+          "left_ankle": null,
+          "right_ankle": null
+        }
+      },
+      "side_ratio": 1.0
+    },
+    {
+      "fixture": "pdshapeCorrect1785373695",
+      "referenceMotionId": "ref-pdshape",
+      "criterion": "angle_vs_reference__right_knee",
+      "region": null,
+      "joints": [
+        "right_knee"
+      ],
+      "jointCount": 1,
+      "recordSource": "geometry",
+      "storedCard": null,
+      "nullReason": "저장 faultZoomComparisons 에 그 criterion 카드 없음"
+    },
+    {
+      "fixture": "powerspinFault1785373695",
+      "referenceMotionId": "ref-power-spin",
+      "criterion": "leg_extension",
+      "region": "legs",
+      "joints": [
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee"
+      ],
+      "jointCount": 4,
+      "recordSource": "geometry",
+      "storedCard": {
+        "userFrameIdx": 38,
+        "refFrameIdx": 36,
+        "region": "legs",
+        "joint": "left_hip",
+        "deficitDeg": 30
+      },
+      "user": {
+        "crop_kind": "valid",
+        "box": [
+          78,
+          244,
+          151
+        ],
+        "valid_members": [
+          "left_hip",
+          "right_hip"
+        ],
+        "relaxed_count": 2,
+        "norm_bbox_extent": {
+          "x": 0.059882,
+          "y": 0.034736
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": true,
+          "right_ankle": true
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.388165,
+          "right_knee": 0.470587,
+          "left_ankle": 0.425875,
+          "right_ankle": 0.598145
+        }
+      },
+      "ref": {
+        "crop_kind": "valid",
+        "box": [
+          90,
+          201,
+          151
+        ],
+        "valid_members": [
+          "left_hip",
+          "right_hip",
+          "left_knee",
+          "right_knee"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.047221,
+          "y": 0.04914
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": null,
+          "right_ankle": null
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.638406,
+          "right_knee": 0.585576,
+          "left_ankle": null,
+          "right_ankle": null
+        }
+      },
+      "side_ratio": 1.0
+    },
+    {
+      "fixture": "powerspinFault1785373695",
+      "referenceMotionId": "ref-power-spin",
+      "criterion": "split_angle",
+      "region": "legs",
+      "joints": [
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_ankle",
+        "right_ankle"
+      ],
+      "jointCount": 6,
+      "recordSource": "vision",
+      "storedCard": {
+        "userFrameIdx": 38,
+        "refFrameIdx": 36,
+        "region": "legs",
+        "joint": "left_hip",
+        "deficitDeg": 30
+      },
+      "user": {
+        "crop_kind": "valid",
+        "box": [
+          78,
+          248,
+          151
+        ],
+        "valid_members": [
+          "left_hip",
+          "right_hip",
+          "right_ankle"
+        ],
+        "relaxed_count": 3,
+        "norm_bbox_extent": {
+          "x": 0.059882,
+          "y": 0.048421
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": true,
+          "right_ankle": true
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.388165,
+          "right_knee": 0.470587,
+          "left_ankle": 0.425875,
+          "right_ankle": 0.598145
+        }
+      },
+      "ref": {
+        "crop_kind": "valid",
+        "box": [
+          90,
+          201,
+          151
+        ],
+        "valid_members": [
+          "left_hip",
+          "right_hip",
+          "left_knee",
+          "right_knee"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.047221,
+          "y": 0.04914
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": null,
+          "right_ankle": null
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.638406,
+          "right_knee": 0.585576,
+          "left_ankle": null,
+          "right_ankle": null
+        }
+      },
+      "side_ratio": 1.0
+    },
+    {
+      "fixture": "powerspinFault1785373695",
+      "referenceMotionId": "ref-power-spin",
+      "criterion": "angle_vs_reference__left_shoulder",
+      "region": null,
+      "joints": [
+        "left_shoulder"
+      ],
+      "jointCount": 1,
+      "recordSource": "geometry",
+      "storedCard": {
+        "userFrameIdx": 38,
+        "refFrameIdx": 36,
+        "region": null,
+        "joint": "left_shoulder",
+        "deficitDeg": 55
+      },
+      "user": {
+        "crop_kind": "valid",
+        "box": [
+          120,
+          177,
+          151
+        ],
+        "valid_members": [
+          "left_shoulder"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": true,
+          "right_ankle": true
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.388165,
+          "right_knee": 0.470587,
+          "left_ankle": 0.425875,
+          "right_ankle": 0.598145
+        }
+      },
+      "ref": {
+        "crop_kind": "valid",
+        "box": [
+          152,
+          160,
+          151
+        ],
+        "valid_members": [
+          "left_shoulder"
+        ],
+        "relaxed_count": 0,
+        "norm_bbox_extent": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "in_crop": {
+          "pelvis": true,
+          "left_knee": true,
+          "right_knee": true,
+          "left_ankle": null,
+          "right_ankle": null
+        },
+        "conf": {
+          "pelvis": null,
+          "left_knee": 0.638406,
+          "right_knee": 0.585576,
+          "left_ankle": null,
+          "right_ankle": null
+        }
+      },
+      "side_ratio": 1.0
+    }
+  ]
+}

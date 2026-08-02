@@ -789,23 +789,34 @@ export interface DeductionBreakdown {
 // IN-01 (quick-260724-q6b) — 역립/자기가림 저신뢰 자세에서 per-joint 귀속(어느 관절이
 // 틀렸는지)이 신뢰 불가임을 앱에 알리는 마커. unreliable=true 이면 앱은 결과 화면의 모든
 // per-joint "확정" 표면을 "예상/집계"로 강등한다 (점수 값은 무접촉 — 표현 전용).
-// Python lockstep: backend/functions/pipeline/app.py _assess_attribution_reliability
-//   (2282-2324) 방출 형상 + 5696-5702 result 부착 (unreliable=True 일 때만 실림 —
-//   reliable/부재 doc 은 byte-동일). aggregateStatement 는 unreliable=True 시에만 동반.
+//
+// quick-260802-nfd — **발화 여부와 무관하게 실린다.** 이전에는 unreliable=true 인 doc 에만
+// 실려서, 안 걸린 doc 의 게이트 입력(visibility/dtwDistance/overTolJointCount/geminiSilent)이
+// 어디에도 남지 않았다 → "발화해야 하는데 안 했나"를 원리적으로 검증 불가. 이제 게이트 입력을
+// 항상 기록한다(재는 것이지 판단하는 것이 아님 — 임계값·강등 동작 무변경).
+// 앱은 **값**으로만 분기한다: `?.unreliable === true` 엄격 비교(result.tsx). 필드 존재로
+// 분기하는 소비처는 0이므로, unreliable=false 마커가 실려도 강등은 켜지지 않는다.
+//
+// Python lockstep: backend/functions/pipeline/app.py `_assess_attribution_reliability`
+//   (방출 형상) + `_attach_attribution_marker` (result 부착 — 항상). aggregateStatement 만
+//   unreliable=true 시에만 동반한다.
 export interface AttributionReliability {
   unreliable: boolean;
   geminiSilent: boolean;
   overTolJointCount: number;
   visibility: number | null;
   dtwDistance: number | null;
-  // unreliable=True 시에만 실림 — 관절명 없는 전체 자세 집계 문장 (예: '전체 자세가
+  // unreliable=true 시에만 실림 — 관절명 없는 전체 자세 집계 문장 (예: '전체 자세가
   // 정은지 선수보다 덜 정돈된 편이에요.'). 앱이 per-joint 강등 시 대체 문장으로 사용.
+  // reliable 마커에 이 키가 있으면 회귀다 (강등 문구가 정상 doc 에 새는 것).
   aggregateStatement?: string;
 }
 
 export type AnalysisResult = ScoreSuppression & {
-  // IN-01 (quick-260724-q6b) — 역립 저신뢰 per-joint 귀속 마커. OPTIONAL/legacy-doc
-  // 호환 (부재 = 정상 동작 — 역립 저신뢰에서만 방출). 앱 표현 강등 전용, 점수 무접촉.
+  // IN-01 (quick-260724-q6b) + quick-260802-nfd — per-joint 귀속 신뢰도 마커. vision
+  // 컨텍스트 경로(mode1 collect 산출)에서 **항상** 방출된다. OPTIONAL 유지 —
+  // 부재 = legacy doc 또는 vision 컨텍스트 미산출(레거시 폴백) 경로. 강등 여부는
+  // 필드 존재가 아니라 `unreliable` 값으로만 판단할 것. 앱 표현 전용, 점수 무접촉.
   attributionReliability?: AttributionReliability;
   // Phase 27 SPD-01 — 단계별 소요(ms). backend/audit 전용, 사용자 비노출(UI 소비 금지).
   // Python lockstep: pipeline app.py `_stage` + contract.md timingsMs 절. flat

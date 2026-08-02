@@ -295,6 +295,7 @@ referenceVideoUrl string?          mode1: 정은지 영상 (우)
 visionVeto     { status, severity?, tallyFinal? } optional  ← Phase 20 SCORE-08 / Phase 24 (밴드 제거)
 scoreSuppressed bool? + scoreSuppressedReason? enum         ← Phase 20 TRUST-07
 scoreSuppressionAudit { recognizerCategory, branchReferenceFree, resolvedReason } optional ← Phase 20 iter5
+attributionReliability { unreliable, geminiSilent, overTolJointCount, visibility, dtwDistance, aggregateStatement? } optional ← IN-01 / quick-260802-nfd
 ```
 
 `visionVeto` (Phase 20 SCORE-08 / TRUST-08 + Phase 24 ND-01 — 비전 채점 audit, 밴드 제거)
@@ -397,6 +398,38 @@ timingsMs   { [stage: string]: number }   optional  ← 단계별 소요(ms), fl
   - Python 정본: pipeline `app.py` `_stage` contextmanager 주석 (자유 키 dict — status
     enum 아님, models.py 상수 불필요). lockstep: `app/src/types/analysis.ts
     AnalysisResult.timingsMs?` ↔ pipeline `_stage`/`result["timingsMs"]` ↔ 본 §4.
+
+`attributionReliability` (IN-01 quick-260724-q6b — per-joint 귀속 신뢰도 마커 / quick-260802-nfd — 게이트 입력 상시 기록)
+```
+unreliable          bool     per-joint 귀속(어느 관절이 틀렸는지)이 신뢰 불가한가
+geminiSilent        bool     게이트 입력 ①: Gemini 가 결함 관절을 하나도 못 짚음(pointed=∅)
+overTolJointCount   number   게이트 입력 ②: tol(IPSF 20°) 초과 angle_vs_reference 관절 수
+visibility          number|null  게이트 입력 ③-a: 정렬 window keypoint 가시성(0~1). 미측정 = null
+dtwDistance         number|null  게이트 입력 ③-b: 정규화 DTW 거리. 미보유 = null
+aggregateStatement? string   unreliable=true 시에만 동반 — 관절명 없는 집계 문장
+```
+  - **발화 조건 (3-조건 AND)**: `geminiSilent` AND `overTolJointCount >= 5` AND
+    (`visibility < 0.70` OR `dtwDistance > 60.0`). 역립/자기가림 자세에서 keypoint 신뢰도가
+    급락하면 해부학적으로 무관한 관절까지 tol 위로 균일 부양돼 "엉뚱한 관절을 짚는" 귀속이
+    발생하는데, 그때만 per-joint 단정을 회피시키기 위한 마커다.
+  - **점수 무접촉 (magnitude-neutral)**: `overallScore` / `deductionBreakdown.final` /
+    `records` 는 이 마커와 무관하게 불변. 마커는 **표현 강등 전용**이다.
+  - **quick-260802-nfd — 발화 여부와 무관하게 항상 방출**한다. 이전에는 `unreliable=true`
+    일 때만 실려서 안 걸린 doc 의 게이트 입력이 어디에도 남지 않았고, "발화해야 하는데 안
+    했나"를 원리적으로 검증할 수 없었다(done 분석 925건 전수: 발화 18건 중 17건이
+    elbow-twist 한 동작, 안 걸린 907건의 visibility 기록 0). 이제 게이트 입력을 상시 기록해
+    임계 재조정 판단의 근거를 만든다 — **임계값 자체는 이 사이클에서 무변경**.
+  - **소비 규칙 (하드)**: 강등 여부는 **필드 존재가 아니라 `unreliable` 값**으로만 판단할 것.
+    앱은 `result.attributionReliability?.unreliable === true` 엄격 비교(result.tsx),
+    백엔드는 `assemble.rebuild_tips_for_vision_fault` 의 `attr.get("unreliable")` falsy 검사다.
+    `aggregateStatement` 는 `unreliable=true` 시에만 실린다 — reliable 마커에 이 키가 있으면
+    강등 문구가 정상 doc 에 새는 회귀다.
+  - **부재 = legacy doc 또는 vision 컨텍스트 미산출(레거시 폴백) 경로** — optional, migration 없음.
+  - Firestore flat 정합: 전 필드 스칼라(또는 null) — nested list/dict 0
+    ([[firestore-nested-array-flat]] 보존).
+  - lockstep: `app/src/types/analysis.ts` `AttributionReliability` ↔ pipeline `app.py`
+    `_assess_attribution_reliability`(방출 형상) + `_attach_attribution_marker`(부착) ↔ 본 §4.
+    (models.py 상수 불필요 — status enum 아님, timingsMs 선례.)
 
 `faultZoomStatus` (Phase 27 SPD-04 — fault_zoom 사후 분리, D-06)
 ```

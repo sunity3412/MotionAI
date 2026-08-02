@@ -130,8 +130,10 @@
     "angle_vs_reference__right_hip"
    ],
    "referenceMotionId": "ref-power-spin",
-   "sheetRowsAfter": 2,
-   "sheetRowsBefore": 4,
+   "sheetRecordInputAfter": 2,
+   "sheetRecordInputBefore": 4,
+   "sheetRendersAfter": true,
+   "sheetRendersBefore": true,
    "storedDeductionFinal": 60,
    "storedScore": 60,
    "suppressedCriteria": [
@@ -241,8 +243,10 @@
     "angle_vs_reference__left_shoulder"
    ],
    "referenceMotionId": "ref-kip-up",
-   "sheetRowsAfter": 0,
-   "sheetRowsBefore": 1,
+   "sheetRecordInputAfter": 0,
+   "sheetRecordInputBefore": 1,
+   "sheetRendersAfter": false,
+   "sheetRendersBefore": true,
    "storedDeductionFinal": 79,
    "storedScore": 79,
    "suppressedCriteria": [
@@ -350,8 +354,10 @@
     "angle_vs_reference__right_knee"
    ],
    "referenceMotionId": "ref-pdshape",
-   "sheetRowsAfter": 0,
-   "sheetRowsBefore": 1,
+   "sheetRecordInputAfter": 0,
+   "sheetRecordInputBefore": 1,
+   "sheetRendersAfter": false,
+   "sheetRendersBefore": true,
    "storedDeductionFinal": 100,
    "storedScore": 100,
    "suppressedCriteria": [
@@ -507,8 +513,10 @@
     "angle_vs_reference__right_knee"
    ],
    "referenceMotionId": "ref-elbow-twist-sister",
-   "sheetRowsAfter": 3,
-   "sheetRowsBefore": 8,
+   "sheetRecordInputAfter": 3,
+   "sheetRecordInputBefore": 8,
+   "sheetRendersAfter": true,
+   "sheetRendersBefore": true,
    "storedDeductionFinal": 63,
    "storedScore": 63,
    "suppressedCriteria": [
@@ -579,7 +587,7 @@
   "kip-up \uc758 split_angle \uacfc power-spin \uc758 leg_extension \uc740 \uc774 \ud558\ub124\uc2a4\uac00 \uc560\ucd08\uc5d0 \uc7ac\ud604\ud558\uc9c0 \ubabb\ud558\ub294 record \ub2e4(quick-260802-czw Deviation 1\u00b72) \u2014 \uadf8 fixture \uc758 before/after \ub294 **\uc7ac\ud604\ub41c record \ubc94\uc704 \uc548\uc5d0\uc11c\ub9cc** \uc77d\uc5b4\uc57c \ud558\uace0 \uc800\uc7a5 doc \uc758 79/60 \uacfc \uc9c1\uc811 \ube44\uad50\ud558\uc9c0 \uc54a\ub294\ub2e4.",
   "elbow-twist \ub9cc RECON 8/8 MATCH \uc778 \ub2e4-record fixture \ub77c \ud310\uc815 \uc790\uaca9\uc774 \uc788\ub2e4.",
   "\uce74\ub4dc PNG \ud53d\uc140\uc740 \ud569\uc131\uc774\ub77c \ub0b4\uc6a9\uc774 \ubb34\uc758\ubbf8\ud558\ub2e4 \u2014 \uc5ec\uae30\uc11c \uc4f0\ub294 \uac83\uc740 \uc7a5\uc218\uc640 criterion \uc9d1\ud569\ubfd0\uc774\ub2e4.",
-  "\uac10\uc810 \uc2dc\ud2b8 \ud589 \uc218\ub294 records \ub97c 1:1 \uc21c\ud68c\ud558\ub294 deductionSheet.ts \uaddc\uc57d\uc5d0\uc11c \ud30c\uc0dd\ud55c \uac12\uc774\ub2e4 \u2014 \uc571\uc744 \uc2e4\uc81c\ub85c \ub80c\ub354\ud574 \uc13c \uac83\uc774 \uc544\ub2c8\ub2e4.",
+  "\uac10\uc810 \uc2dc\ud2b8\ub294 **\ud589 \uc218\ub97c \uc138\uc9c0 \uc54a\uc558\ub2e4** \u2014 \ub0b8 \uac12\uc740 \uc2dc\ud2b8\uc758 \uc785\ub825(records) \uc218\uc640 \ub80c\ub354 \uc5ec\ubd80(buildRegionSheetView \ub294 records 0 \uc774\uba74 null)\ub2e4. \uc2e4\uc81c \ud589\uc740 buildCauseGroupKeys \ub85c \uc6d0\uc778 \ubb36\uc74c\uc774\ub77c \ud589 \uc218 <= record \uc218\uc774\uace0, \uadf8\uac83\uc744 \ud655\uc778\ud558\ub824\uba74 \uc571\uc744 \ub80c\ub354\ud574\uc57c \ud55c\ub2e4 \u2014 \uc5ec\uae30\uc11c\ub294 \ud558\uc9c0 \uc54a\uc558\ub2e4.",
   "\uce74\ub4dc **\uc7a5\uc218\ub294 \ub2e8\uc870 \uac10\uc18c\ud558\uc9c0 \uc54a\ub294\ub2e4** \u2014 records \uac00 \ube44\uba74 _build_fault_zoom_comparisons \uac00 criterion_units=None \uc73c\ub85c legacy fault_joints fan-out \uc5d0 \ud3f4\ubc31\ud574(app.py:3507-3512, \uadf8 \uc8fc\uc11d\uc774 \uba85\uc2dc\ud55c \uc124\uacc4) criterion \uc5c6\ub294 confirmed \uce74\ub4dc\ub97c \ub9cc\ub4e0\ub2e4. \uc5b5\uc81c\ub294 \uce74\ub4dc\ub97c \uc5c6\uc560\ub294 \uac83\uc774 \uc544\ub2c8\ub77c **criterion \uc575\ucee4\ub97c \uc783\uac8c** \ud55c\ub2e4 \u2014 \uac10\uc810 0\uc778\ub370 \ud655\ub300 \uce74\ub4dc\uac00 \ub0a8\ub294 \uc870\ud569\uc774 \uc2e4\uc81c\ub85c \ub098\uc628\ub2e4(kip-up 1->2, pdshape 1->1). \ud45c\uc2dc \uc815\ucc45 \ud310\ub2e8 \ub300\uc0c1\uc774\uba70 \uc774 \uc0ac\uc774\ud074\uc740 \uace0\uce58\uc9c0 \uc54a\ub294\ub2e4.",
   "\ud5e4\ub4dc\ub77c\uc778\uc740 **\uac01\uc778 \ud6c4** result \uc758 mission \uc5d0\uc11c \uc77d\ub294\ub2e4 \u2014 mission \uc740 \uadf8 \uc2dc\uc810 record \ub85c \ub2e4\uc2dc \uc120\uc815\ub418\ubbc0\ub85c \uc800\uc7a5 doc \uc758 mission \uc744 \uc4f0\uba74 \uc5b5\uc81c \uc804\ud6c4\uac00 \uc5b8\uc81c\ub098 \uac19\uac8c \ub098\uc628\ub2e4.",
   "mode3 \uacbd\ub85c\u00b7ipsf_absolute \uad6c\uac04 \uc720\ub3c4\u00b7\uc2e4\uae30\uae30 \ud45c\uc2dc\ub294 \uc774 \uc0b0\ucd9c\ubb3c\uc758 \ubc94\uc704 \ubc16\uc774\ub2e4."

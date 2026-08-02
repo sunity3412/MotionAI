@@ -1312,9 +1312,14 @@ def build_noise_floor_report(app, manifest: dict) -> dict:
             "cardCriteriaAfter": sorted(crit_on),
             "cardsRemoved": sorted(crit_off - crit_on),
             "cardsAdded": sorted(crit_on - crit_off),
-            # 감점 시트 행 (deductionSheet.ts 는 records 를 1:1 순회한다)
-            "sheetRowsBefore": len(recs_off),
-            "sheetRowsAfter": len(recs_on),
+            # 감점 시트 — **행 수가 아니라 시트의 입력(records)** 이다.
+            # buildRegionSheetView 는 records 0 이면 null 을 돌려주고(시트 미렌더),
+            # 행은 buildCauseGroupKeys 로 원인 묶음이라 행 수 <= record 수다.
+            # 앱을 실제로 렌더해 센 값이 아니므로 이름으로 그것을 밝힌다.
+            "sheetRecordInputBefore": len(recs_off),
+            "sheetRecordInputAfter": len(recs_on),
+            "sheetRendersBefore": len(recs_off) > 0,
+            "sheetRendersAfter": len(recs_on) > 0,
             # 억제 내역 (전건)
             "suppressedRecords": supp,
             # 재구성
@@ -1400,8 +1405,10 @@ def build_noise_floor_report(app, manifest: dict) -> dict:
             "elbow-twist 만 RECON 8/8 MATCH 인 다-record fixture 라 판정 자격이 있다.",
             "카드 PNG 픽셀은 합성이라 내용이 무의미하다 — 여기서 쓰는 것은 장수와 "
             "criterion 집합뿐이다.",
-            "감점 시트 행 수는 records 를 1:1 순회하는 deductionSheet.ts 규약에서 "
-            "파생한 값이다 — 앱을 실제로 렌더해 센 것이 아니다.",
+            "감점 시트는 **행 수를 세지 않았다** — 낸 값은 시트의 입력(records) 수와 "
+            "렌더 여부(buildRegionSheetView 는 records 0 이면 null)다. 실제 행은 "
+            "buildCauseGroupKeys 로 원인 묶음이라 행 수 <= record 수이고, 그것을 "
+            "확인하려면 앱을 렌더해야 한다 — 여기서는 하지 않았다.",
             "카드 **장수는 단조 감소하지 않는다** — records 가 비면 "
             "_build_fault_zoom_comparisons 가 criterion_units=None 으로 legacy "
             "fault_joints fan-out 에 폴백해(app.py:3507-3512, 그 주석이 명시한 "

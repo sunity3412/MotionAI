@@ -557,8 +557,364 @@ def main(argv=None) -> int:
     return 0 if recon_all_pass else 1
 
 
-def build_verdict(app, manifest: dict, replays) -> dict:  # pragma: no cover - Task 3
-    raise NotImplementedError("판정 산출은 Task 3 에서 구현한다 (커밋 순서 강제)")
+# ---------------------------------------------------------------------------
+# 카드 렌더 — production `_render_fault_zoom` 을 **그대로** 돌린다.
+# 바꿔 끼우는 것은 영상→프레임 어댑터와 S3 업로드 두 곳뿐(어댑터 경계).
+# 그래야 `atMatched` pass-through 같은 매퍼 코드도 실제로 실행된다.
+# ---------------------------------------------------------------------------
+class _RecordingS3:
+    """put_object 바이트만 메모리에 담는다. 네트워크 0 — 그 외 호출은 죽는다."""
+
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+
+    def put_object(self, *, Bucket, Key, Body, ContentType=None):  # noqa: N803
+        self.objects[f"{Bucket}/{Key}"] = bytes(Body)
+        return {}
+
+    def generate_presigned_url(self, *_a, **_k):
+        return "https://example.invalid/czw-no-network"
+
+    def __getattr__(self, name):
+        raise RuntimeError(f"_RecordingS3.{name} 호출 — 이 하네스는 S3 에 접근하지 않는다")
+
+
+class _FixtureExtractorFactory:
+    """`FfmpegFrameExtractor(target_fps=..., max_side=...)` 자리에 끼우는 합성 추출기.
+
+    production `_render_fault_zoom` 은 학생 프레임을 `cached_user_frames` 로 받으므로
+    여기로 오는 것은 기준(우측) 영상뿐이다.
+    """
+
+    def __init__(self, frames) -> None:
+        self._frames = frames
+
+    def __call__(self, *_a, **kwargs):
+        outer = self
+
+        class _Ext:
+            target_fps = float(kwargs.get("target_fps") or 0.0)
+
+            def extract(self, *_a2, **_k2):
+                return outer._frames
+
+        return _Ext()
+
+
+def _synthetic_frames(n: int, seed: int) -> np.ndarray:
+    """프레임마다 1픽셀을 흔든 (n, 8, 8, 3) uint8 배열.
+
+    전부 동일하면 "카드가 다른 프레임을 골랐다"를 PNG 로 구분할 수 없다 —
+    프레임 선택이 갈렸는지 sha256 으로 보이게 하는 최소 표식이다
+    (`sweep_record_moment._load_frames` 선례). **픽셀 내용은 판정 근거가 아니다.**
+    """
+    n = max(1, int(n))
+    stack = np.zeros((n, 8, 8, 3), dtype=np.uint8)
+    stack[:, :, :, :] = np.uint8(seed % 256)
+    for f in range(n):
+        stack[f, 0, 0, :] = np.uint8((f * 7 + seed) % 256)
+    return stack
+
+
+def _ref_frames_count(ref_report: dict, frames_fps: float) -> int:
+    """기준 9fps 프레임 배열 길이 — production 의 fps 환산식을 그대로 쓴다.
+
+    `fault_zoom.build_fault_zoom_comparisons` 가 `_dtw_ref_frames` 를 만들 때 쓰는
+    바로 그 식(`round(rep_frames / rep_fps * 대상fps)`)이다. 하네스가 새 산술을
+    만들지 않는다. 이 길이는 기준 프레임 인덱스의 클램프 상한으로만 쓰이며,
+    적절한지는 대조군 카드가 저장 카드 프레임을 재현하는지로 검증된다.
+    """
+    rep_fps = float(ref_report.get("fps") or frames_fps)
+    rep_frames = int(ref_report.get("frames") or 0)
+    return max(1, int(round(rep_frames / max(1e-6, rep_fps) * frames_fps)))
+
+
+def render_cards(app, replayed: dict, records: list, frames_fps: float) -> list[dict]:
+    """production `_build_fault_zoom_comparisons` 호출 — 인자 조립도 production 담당.
+
+    `result` 는 저장 doc 의 result 를 그대로 쓰고 `deductionBreakdown` 만 재현본으로
+    바꾼다. 그 시점 production 이 fault_zoom 에 준 입력이 곧 저장된 result 이기 때문이다 —
+    바꾸는 것은 이 사이클이 검사하려는 변수(record) 하나뿐이다.
+    """
+    import copy
+    import hashlib
+    import types
+
+    from sunity_shared.analysis import fault_zoom
+
+    doc, ref, stored_result = replayed["doc"], replayed["ref"], replayed["result"]
+    user_report = stored_result.get("keypointReport")
+    ref_report = ref.get("referenceKeypointReport")
+    if not user_report or not ref_report:
+        return []
+
+    u_n = int(doc.get("anglesFrames") or 0)
+    r_n = _ref_frames_count(ref_report, frames_fps)
+    user_frames = _synthetic_frames(u_n, seed=11)
+    ref_frames = _synthetic_frames(r_n, seed=131)
+
+    card_result = copy.deepcopy(stored_result)
+    card_result["deductionBreakdown"] = {
+        **(replayed["breakdown"] or {}),
+        "records": records,
+    }
+
+    # frame_extractor 는 imageio 의존이라 이 venv 에서 import 자체가 죽는다.
+    # production 이 함수 안에서 import 하므로 sys.modules 에 미리 꽂는다.
+    fake_fe = types.ModuleType("sunity_shared.analysis.frame_extractor")
+    fake_fe.FfmpegFrameExtractor = _FixtureExtractorFactory(ref_frames)
+    prev_fe = sys.modules.get("sunity_shared.analysis.frame_extractor")
+    prev_s3, prev_get = app._s3, app._signed_get
+    rec_s3 = _RecordingS3()
+    sys.modules["sunity_shared.analysis.frame_extractor"] = fake_fe
+    app._s3 = rec_s3
+    app._signed_get = lambda _b, _k: "https://example.invalid/czw-no-network"
+    try:
+        items = app._build_fault_zoom_comparisons(
+            card_result,
+            "czw://user-video",
+            "czw://ref-video",
+            user_report,
+            ref_report,
+            replayed["profile"],
+            "czw-uid",
+            replayed["analysisId"],
+            "czw-bucket",
+            dtw_match=replayed["match"],
+            cached_user_frames=user_frames,
+        )
+    finally:
+        app._s3, app._signed_get = prev_s3, prev_get
+        if prev_fe is None:
+            sys.modules.pop("sunity_shared.analysis.frame_extractor", None)
+        else:
+            sys.modules["sunity_shared.analysis.frame_extractor"] = prev_fe
+
+    # PNG 바이트는 산출물에 넣지 않는다 — 합성 픽셀이라 내용이 무의미하고,
+    # 남길 가치가 있는 것은 "프레임 선택이 갈렸다"는 방증(sha256)뿐이다.
+    by_key = {k.rsplit("/", 1)[-1]: v for k, v in rec_s3.objects.items()}
+    out: list[dict] = []
+    for it in items:
+        base = it.get("criterion") or it.get("joint")
+        prefix = "zoom_" if it.get("tier") == "confirmed" else "zoom_adv_"
+        png = by_key.get(f"{prefix}{base}.png")
+        out.append({
+            "criterion": it.get("criterion"),
+            "joint": it.get("joint"),
+            "tier": it.get("tier"),
+            "region": it.get("region"),
+            "userFrameIdx": it.get("userFrameIdx"),
+            "refFrameIdx": it.get("refFrameIdx"),
+            "refMatched": it.get("refMatched"),
+            "userVideoSec": it.get("userVideoSec"),
+            "atMatched": it.get("atMatched"),
+            "png_sha256": hashlib.sha256(png).hexdigest() if png else None,
+        })
+    _ = fault_zoom  # 모듈 로딩 확인용(직접 호출은 production 이 한다)
+    return out
+
+
+def _engrave(app, replayed: dict, measured_at: dict) -> list[dict]:
+    """production `_attach_translation_emission` 으로 record 에 순간을 각인한다."""
+    import copy
+
+    breakdown = copy.deepcopy(replayed["breakdown"] or {})
+    result = {
+        "deductionBreakdown": breakdown,
+        "dimensionScores": replayed["result"].get("dimensionScores") or {},
+        "safetyFlags": replayed["result"].get("safetyFlags"),
+    }
+    app._attach_translation_emission(
+        result,
+        mode="mode1",
+        motion_id=replayed["motionId"],
+        prev_doc=None,
+        uid="czw-uid",
+        analysis_id=replayed["analysisId"],
+        measured_at=measured_at,
+    )
+    return list(breakdown.get("records") or [])
+
+
+def build_verdict(app, manifest: dict, replays) -> dict:
+    """판정 산출 — record 별 atFrameIdx 분포 + 카드 프레임.
+
+    **판정은 exit code 에 영향을 주지 않는다** (Task 2 규약). 이 러너가 묻는 것은
+    "재현했는가"이고, 답이 마음에 드는가는 별개다.
+    """
+    frames_fps = float(manifest["studentAnglesFps"])
+    fixtures: list[dict] = []
+    for entry, replayed, rc in replays:
+        matched = set(rc["matchedCriteria"])
+        treat_records = _engrave(app, replayed, replayed["measuredAt"])
+        ctrl_records = _engrave(app, replayed, {})
+
+        recs: list[dict] = []
+        fail_closed: list[dict] = []
+        for r in treat_records:
+            crit = r.get("criterion")
+            at = r.get("atFrameIdx")
+            row = {
+                "criterion": crit,
+                "source": r.get("source"),
+                "measuredValue": r.get("measuredValue"),
+                "points": r.get("points"),
+                "atFrameIdx": at,
+                "atVideoSec": r.get("atVideoSec"),
+                # 재현 못 한 record 로는 판정하지 않는다.
+                "reconMatched": crit in matched,
+            }
+            recs.append(row)
+            if at is None:
+                fail_closed.append({"criterion": crit, "source": r.get("source")})
+
+        judged = [r for r in recs if r["reconMatched"] and r["atFrameIdx"] is not None]
+        distinct = len({r["atFrameIdx"] for r in judged})
+
+        cards_treat = render_cards(app, replayed, treat_records, frames_fps)
+        cards_ctrl = render_cards(app, replayed, ctrl_records, frames_fps)
+        at_flags = [bool(c.get("atMatched")) for c in cards_treat]
+        at_ratio = (sum(at_flags) / len(at_flags)) if at_flags else None
+
+        stored_cards = entry.get("sourceCardFrames") or []
+        # 카드 경로 RECON — 대조군(순간 없음)이 저장 카드 프레임을 재현하는가.
+        # 재현하면 카드 인자 구성이 검증된 것이고, 그때만 처리군 델타가 근거가 된다.
+        ctrl_frames = sorted(
+            c["userFrameIdx"] for c in cards_ctrl if c.get("userFrameIdx") is not None
+        )
+        stored_frames = sorted(
+            c["userFrameIdx"] for c in stored_cards if c.get("userFrameIdx") is not None
+        )
+        card_recon = "REPRODUCED" if ctrl_frames == stored_frames else "NOT_REPRODUCED"
+        # 장수가 어긋나면 전체 비교가 실패로 뭉개진다(재현 못 한 record 가 카드 수를
+        # 바꾸므로). criterion 단위로도 대조해 어느 카드가 재현됐는지 남긴다.
+        ctrl_by_crit = {
+            c.get("criterion"): c.get("userFrameIdx")
+            for c in cards_ctrl
+            if c.get("criterion")
+        }
+        card_recon_by_criterion = []
+        for sc in stored_cards:
+            crit = sc.get("criterion")
+            if not crit:
+                continue
+            got = ctrl_by_crit.get(crit, "ABSENT")
+            card_recon_by_criterion.append({
+                "criterion": crit,
+                "storedUserFrameIdx": sc.get("userFrameIdx"),
+                "controlUserFrameIdx": None if got == "ABSENT" else got,
+                "verdict": (
+                    "ABSENT" if got == "ABSENT"
+                    else ("MATCH" if got == sc.get("userFrameIdx") else "MISMATCH")
+                ),
+            })
+
+        fixtures.append({
+            "analysisId": entry["analysisId"],
+            "referenceMotionId": entry["referenceMotionId"],
+            "motionId": replayed["motionId"],
+            "storedScore": entry.get("overallScore"),
+            "reconVerdict": rc["verdict"],
+            "reconRows": rc["rows"],
+            "reconMatchedCriteria": sorted(matched),
+            "profileExtendJoints": replayed["profileExtendJoints"],
+            "profileHoldWindow": replayed["profileHoldWindow"],
+            "records": recs,
+            "judgedRecordCount": len(judged),
+            "distinctAtFrameIdx": distinct,
+            "failClosed": fail_closed,
+            "cards": cards_treat,
+            "cardsControl": cards_ctrl,
+            "cardRecon": card_recon,
+            "cardReconByCriterion": card_recon_by_criterion,
+            "controlCardFrames": ctrl_frames,
+            "storedCardFrames": stored_frames,
+            "atMatchedRatio": at_ratio,
+            "atMatchedCount": sum(at_flags),
+            "cardCount": len(cards_treat),
+        })
+
+    print("\n── 판정 (atFrameIdx 가 실 데이터에서 record 마다 갈리는가) ──")
+    for f in fixtures:
+        judged, distinct = f["judgedRecordCount"], f["distinctAtFrameIdx"]
+        if judged == 0:
+            line = "판정 불가 — 순간을 가진 재현 record 0건"
+        elif judged == 1:
+            line = "record 1건 — 갈림 여부를 물을 수 없다(비교 대상 없음)"
+        elif distinct == 1:
+            # belle 이 본 증상 그대로 — 감점이 여럿인데 순간이 하나.
+            line = (
+                f"뭉쳤다 — 재현 record {judged}건이 프레임 1개로 수렴. "
+                "quick-260801-gbk 는 실 데이터에서 실패"
+            )
+        elif distinct == judged:
+            line = f"갈렸다 — 재현 record {judged}건이 서로 다른 프레임 {distinct}개"
+        else:
+            line = (
+                f"갈렸다(부분 중복) — 재현 record {judged}건이 서로 다른 프레임 "
+                f"{distinct}개. 겹친 쌍 {judged - distinct}건"
+            )
+        print(f"  {f['analysisId']:34} {line}")
+        print(
+            f"      atFrameIdx={[r['atFrameIdx'] for r in f['records']]} "
+            f"cards(treat)={[c['userFrameIdx'] for c in f['cards']]} "
+            f"cards(ctrl)={f['controlCardFrames']} stored={f['storedCardFrames']} "
+            f"cardRecon={f['cardRecon']} atMatched={f['atMatchedCount']}/{f['cardCount']}"
+        )
+
+    weight = [f for f in fixtures if "elbowtwist" in f["analysisId"]]
+    if weight:
+        w = weight[0]
+        print(
+            "\n판정의 무게중심 = elbow-twist "
+            f"(record {w['judgedRecordCount']}건, 전부 angle_vs_reference, 관절 8개 상이): "
+            f"서로 다른 atFrameIdx {w['distinctAtFrameIdx']}개"
+        )
+
+    total_cards = sum(f["cardCount"] for f in fixtures)
+    total_at = sum(f["atMatchedCount"] for f in fixtures)
+    ratio = (total_at / total_cards) if total_cards else None
+    print(
+        f"\n실 데이터 atMatched = {total_at}/{total_cards}"
+        + (f" = {ratio:.1%}" if ratio is not None else "")
+        + "  (합성 스위프 30/30 = 100% 와 나란히 읽을 것)"
+    )
+
+    judged_all = sum(f["judgedRecordCount"] for f in fixtures)
+    distinct_all = sum(f["distinctAtFrameIdx"] for f in fixtures)
+    # 판정 대상 = 재현 record 2건 이상인 fixture (1건짜리는 갈림을 물을 수 없다).
+    decidable = [f for f in fixtures if f["judgedRecordCount"] > 1]
+    if not decidable:
+        verdict = "UNDECIDABLE"
+    elif all(f["distinctAtFrameIdx"] == 1 for f in decidable):
+        verdict = "CLUMPED"
+    elif all(
+        f["distinctAtFrameIdx"] == f["judgedRecordCount"] for f in decidable
+    ):
+        verdict = "SPLIT"
+    else:
+        verdict = "SPLIT_PARTIAL"
+    return {
+        "generatedBy": "backend/evals/realfixture/replay.py (quick-260802-czw)",
+        "studentAnglesFps": manifest["studentAnglesFps"],
+        "referenceAnglesFps": manifest["referenceAnglesFps"],
+        "fixtures": fixtures,
+        "judgedRecordTotal": judged_all,
+        "distinctAtFrameIdxTotal": distinct_all,
+        "atMatchedTotal": total_at,
+        "cardTotal": total_cards,
+        "atMatchedRatioTotal": ratio,
+        "syntheticSweepAtMatchedRatio": 1.0,
+        "verdict": verdict,
+        "decidableFixtures": [f["analysisId"] for f in decidable],
+        "limits": [
+            "PNG 픽셀 내용은 판정 근거가 아니다 — 프레임 배열이 합성이다. sha256 은 "
+            "프레임 선택이 갈렸다는 방증일 뿐. 사진이 실제로 다른 순간인지는 B 단계.",
+            "vision 주입 record(split_angle)는 산출 입력이 doc 에 없어 재현 대상이 아니다.",
+            "창 의존 criterion(leg/arm_extension·line)은 profile.hold_window 가 doc 밖이라 "
+            "재현되지 않을 수 있다 — RECON 이 record 단위로 표시한다.",
+        ],
+    }
 
 
 if __name__ == "__main__":

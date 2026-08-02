@@ -1,0 +1,1714 @@
+{
+ "armTotals": {
+  "A_no_anchor": {
+   "cards": 12,
+   "judged": 9,
+   "unmarked": 4
+  },
+  "B_anchor": {
+   "cards": 13,
+   "judged": 10,
+   "unmarked": 2
+  },
+  "C_anchor_tie": {
+   "cards": 13,
+   "judged": 10,
+   "unmarked": 1
+  }
+ },
+ "cardTotal": 13,
+ "finalIdenticalAll": true,
+ "fixtures": [
+  {
+   "analysisId": "powerspinFault1785373695",
+   "arms": {
+    "A_no_anchor": {
+     "cardCount": 5,
+     "frames": [
+      38,
+      38,
+      38,
+      38,
+      38
+     ],
+     "judgedCount": 4,
+     "unmarkedCount": 0,
+     "unmarkedCriteria": []
+    },
+    "B_anchor": {
+     "cardCount": 5,
+     "frames": [
+      144,
+      132,
+      14,
+      26,
+      38
+     ],
+     "judgedCount": 4,
+     "unmarkedCount": 0,
+     "unmarkedCriteria": []
+    },
+    "C_anchor_tie": {
+     "cardCount": 5,
+     "frames": [
+      144,
+      132,
+      14,
+      26,
+      38
+     ],
+     "judgedCount": 4,
+     "unmarkedCount": 0,
+     "unmarkedCriteria": []
+    }
+   },
+   "cardCount": 5,
+   "cards": [
+    {
+     "criterion": "leg_extension",
+     "joint": "left_hip",
+     "refMarked": true,
+     "refMatch": null,
+     "region": "legs",
+     "tier": "confirmed",
+     "userFrameIdx": 144
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "refMarked": true,
+     "refMatch": null,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 132
+    },
+    {
+     "criterion": "angle_vs_reference__left_hip",
+     "joint": "left_hip",
+     "refMarked": true,
+     "refMatch": null,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 14
+    },
+    {
+     "criterion": "angle_vs_reference__right_hip",
+     "joint": "right_hip",
+     "refMarked": true,
+     "refMatch": null,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 26
+    },
+    {
+     "criterion": null,
+     "joint": "left_elbow",
+     "refMarked": null,
+     "refMatch": null,
+     "region": null,
+     "tier": "advisory",
+     "userFrameIdx": 38
+    }
+   ],
+   "controlFinal": 62,
+   "dtwMaxTieDistinctFrames": 1,
+   "dtwPathSteps": 161,
+   "dtwTieJoints": 0,
+   "dtwTieScan": [
+    {
+     "exactTieSteps": 1,
+     "joint": "left_elbow",
+     "pathSteps": 161,
+     "tieConfidence": [
+      0.7375297546386719
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      36
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "right_elbow",
+     "pathSteps": 161,
+     "tieConfidence": [
+      0.7685317993164062
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      30
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "left_shoulder",
+     "pathSteps": 161,
+     "tieConfidence": [
+      0.5682833194732666
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      66
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "right_shoulder",
+     "pathSteps": 161,
+     "tieConfidence": [
+      0.5995549559593201
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      81
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "left_hip",
+     "pathSteps": 161,
+     "tieConfidence": [
+      0.2850569784641266
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      7
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "right_hip",
+     "pathSteps": 161,
+     "tieConfidence": [
+      0.4103122353553772
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      11
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "left_knee",
+     "pathSteps": 161,
+     "tieConfidence": [
+      0.4239621162414551
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      30
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "right_knee",
+     "pathSteps": 161,
+     "tieConfidence": [
+      0.4876589775085449
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      7
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    }
+   ],
+   "finalIdentical": true,
+   "mdIdentical": true,
+   "momentRecordCount": 8,
+   "motionId": "ref-power-spin",
+   "moved": [],
+   "movedCount": 0,
+   "reconVerdict": "PARTIAL",
+   "refMarkedJudgedCount": 4,
+   "refUnmarkedCount": 0,
+   "refUnmarkedCriteria": [],
+   "tieCandidateJoints": 0,
+   "tieScan": [
+    {
+     "gaps": [
+      34.471931,
+      1.189752,
+      0.048323,
+      1.500402,
+      0.0
+     ],
+     "joint": "left_elbow",
+     "tieConfidence": [
+      0.41751742362976074
+     ],
+     "tieFrames": [
+      21
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      17,
+      18,
+      19,
+      20,
+      21
+     ]
+    },
+    {
+     "gaps": [
+      9.554977,
+      0.167789,
+      0.0,
+      2.163602,
+      7.027844
+     ],
+     "joint": "right_elbow",
+     "tieConfidence": [
+      0.7753113508224487
+     ],
+     "tieFrames": [
+      19
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      17,
+      18,
+      19,
+      20,
+      21
+     ]
+    },
+    {
+     "gaps": [
+      23.871383,
+      26.441575,
+      0.0,
+      8.802895,
+      11.327856
+     ],
+     "joint": "left_shoulder",
+     "tieConfidence": [
+      0.604462742805481
+     ],
+     "tieFrames": [
+      19
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      17,
+      18,
+      19,
+      20,
+      21
+     ]
+    },
+    {
+     "gaps": [
+      2.52402,
+      1.90365,
+      0.0,
+      9.524011,
+      3.635249
+     ],
+     "joint": "right_shoulder",
+     "tieConfidence": [
+      0.5858923196792603
+     ],
+     "tieFrames": [
+      19
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      17,
+      18,
+      19,
+      20,
+      21
+     ]
+    },
+    {
+     "gaps": [
+      19.38764,
+      3.936483,
+      0.0,
+      6.837184,
+      34.716816
+     ],
+     "joint": "left_hip",
+     "tieConfidence": [
+      0.3881649076938629
+     ],
+     "tieFrames": [
+      19
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      17,
+      18,
+      19,
+      20,
+      21
+     ]
+    },
+    {
+     "gaps": [
+      2.416662,
+      2.768656,
+      0.0,
+      0.470276,
+      4.406014
+     ],
+     "joint": "right_hip",
+     "tieConfidence": [
+      0.47058653831481934
+     ],
+     "tieFrames": [
+      19
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      17,
+      18,
+      19,
+      20,
+      21
+     ]
+    },
+    {
+     "gaps": [
+      0.0,
+      8.282479,
+      1.228751,
+      13.739493,
+      27.294168
+     ],
+     "joint": "left_knee",
+     "tieConfidence": [
+      0.6819947957992554
+     ],
+     "tieFrames": [
+      17
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      17,
+      18,
+      19,
+      20,
+      21
+     ]
+    },
+    {
+     "gaps": [
+      0.0,
+      4.463034,
+      2.493118,
+      26.756967,
+      15.238622
+     ],
+     "joint": "right_knee",
+     "tieConfidence": [
+      0.6770610809326172
+     ],
+     "tieFrames": [
+      17
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      17,
+      18,
+      19,
+      20,
+      21
+     ]
+    }
+   ],
+   "treatmentFinal": 62
+  },
+  {
+   "analysisId": "kipupFault1785373695",
+   "arms": {
+    "A_no_anchor": {
+     "cardCount": 1,
+     "frames": [
+      16
+     ],
+     "judgedCount": 1,
+     "unmarkedCount": 0,
+     "unmarkedCriteria": []
+    },
+    "B_anchor": {
+     "cardCount": 1,
+     "frames": [
+      104
+     ],
+     "judgedCount": 1,
+     "unmarkedCount": 0,
+     "unmarkedCriteria": []
+    },
+    "C_anchor_tie": {
+     "cardCount": 1,
+     "frames": [
+      62
+     ],
+     "judgedCount": 1,
+     "unmarkedCount": 0,
+     "unmarkedCriteria": []
+    }
+   },
+   "cardCount": 1,
+   "cards": [
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "refMarked": true,
+     "refMatch": null,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 62
+    }
+   ],
+   "controlFinal": 99,
+   "dtwMaxTieDistinctFrames": 3,
+   "dtwPathSteps": 118,
+   "dtwTieJoints": 8,
+   "dtwTieScan": [
+    {
+     "exactTieSteps": 2,
+     "joint": "left_elbow",
+     "pathSteps": 118,
+     "tieConfidence": [
+      0.7042949795722961,
+      0.755553662776947
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      25,
+      42
+     ],
+     "tieSpanFrames": 17,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "right_elbow",
+     "pathSteps": 118,
+     "tieConfidence": [
+      0.7247108221054077,
+      0.7860976457595825,
+      0.7219860553741455
+     ],
+     "tieDistinctFrames": 3,
+     "tieFrames": [
+      24,
+      33,
+      59
+     ],
+     "tieSpanFrames": 35,
+     "tieSteps": 3
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "left_shoulder",
+     "pathSteps": 118,
+     "tieConfidence": [
+      0.8542117476463318,
+      0.5679235458374023
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      31,
+      52
+     ],
+     "tieSpanFrames": 21,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "right_shoulder",
+     "pathSteps": 118,
+     "tieConfidence": [
+      0.762243390083313,
+      0.5749172568321228
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      34,
+      44
+     ],
+     "tieSpanFrames": 10,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "left_hip",
+     "pathSteps": 118,
+     "tieConfidence": [
+      0.5806676149368286,
+      0.7083513736724854
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      25,
+      33
+     ],
+     "tieSpanFrames": 8,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "right_hip",
+     "pathSteps": 118,
+     "tieConfidence": [
+      0.6756572723388672,
+      0.6736342906951904
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      28,
+      58
+     ],
+     "tieSpanFrames": 30,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "left_knee",
+     "pathSteps": 118,
+     "tieConfidence": [
+      0.634524941444397,
+      0.7052136659622192
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      1,
+      27
+     ],
+     "tieSpanFrames": 26,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "right_knee",
+     "pathSteps": 118,
+     "tieConfidence": [
+      0.7605279088020325,
+      0.7595436573028564,
+      0.717617392539978
+     ],
+     "tieDistinctFrames": 3,
+     "tieFrames": [
+      7,
+      8,
+      20
+     ],
+     "tieSpanFrames": 13,
+     "tieSteps": 3
+    }
+   ],
+   "finalIdentical": true,
+   "mdIdentical": true,
+   "momentRecordCount": 8,
+   "motionId": "ref-kip-up",
+   "moved": [
+    {
+     "control": 25,
+     "criterion": "angle_vs_reference__left_elbow",
+     "reconMatched": false,
+     "treatment": 42
+    },
+    {
+     "control": 25,
+     "criterion": "angle_vs_reference__left_hip",
+     "reconMatched": false,
+     "treatment": 33
+    },
+    {
+     "control": 52,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "reconMatched": true,
+     "treatment": 31
+    }
+   ],
+   "movedCount": 3,
+   "reconVerdict": "PARTIAL",
+   "refMarkedJudgedCount": 1,
+   "refUnmarkedCount": 0,
+   "refUnmarkedCriteria": [],
+   "tieCandidateJoints": 0,
+   "tieScan": [
+    {
+     "gaps": [
+      4.680674,
+      5.47719,
+      9.300629,
+      0.0,
+      15.022821
+     ],
+     "joint": "left_elbow",
+     "tieConfidence": [
+      0.8338527679443359
+     ],
+     "tieFrames": [
+      10
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    {
+     "gaps": [
+      2.324591,
+      0.523798,
+      0.0,
+      2.84655,
+      6.001118
+     ],
+     "joint": "right_elbow",
+     "tieConfidence": [
+      0.7518380284309387
+     ],
+     "tieFrames": [
+      9
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    {
+     "gaps": [
+      21.509017,
+      12.545376,
+      0.0,
+      6.787284,
+      4.694072
+     ],
+     "joint": "left_shoulder",
+     "tieConfidence": [
+      0.7255961298942566
+     ],
+     "tieFrames": [
+      9
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    {
+     "gaps": [
+      0.965652,
+      0.470715,
+      0.0,
+      2.612912,
+      5.493153
+     ],
+     "joint": "right_shoulder",
+     "tieConfidence": [
+      0.7423222661018372
+     ],
+     "tieFrames": [
+      9
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    {
+     "gaps": [
+      0.0,
+      3.521014,
+      2.629899,
+      7.867144,
+      14.248779
+     ],
+     "joint": "left_hip",
+     "tieConfidence": [
+      0.7591254711151123
+     ],
+     "tieFrames": [
+      7
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    {
+     "gaps": [
+      2.584122,
+      1.155678,
+      0.0,
+      1.933317,
+      3.730361
+     ],
+     "joint": "right_hip",
+     "tieConfidence": [
+      0.7423222661018372
+     ],
+     "tieFrames": [
+      9
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    {
+     "gaps": [
+      0.81805,
+      0.261912,
+      0.375454,
+      0.23428,
+      0.0
+     ],
+     "joint": "left_knee",
+     "tieConfidence": [
+      0.13977637887001038
+     ],
+     "tieFrames": [
+      11
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    {
+     "gaps": [
+      0.636369,
+      0.178265,
+      0.603845,
+      0.235835,
+      0.0
+     ],
+     "joint": "right_knee",
+     "tieConfidence": [
+      0.12740929424762726
+     ],
+     "tieFrames": [
+      11
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   ],
+   "treatmentFinal": 99
+  },
+  {
+   "analysisId": "pdshapeCorrect1785373695",
+   "arms": {
+    "A_no_anchor": {
+     "cardCount": 1,
+     "frames": [
+      104
+     ],
+     "judgedCount": 0,
+     "unmarkedCount": 0,
+     "unmarkedCriteria": []
+    },
+    "B_anchor": {
+     "cardCount": 2,
+     "frames": [
+      160,
+      104
+     ],
+     "judgedCount": 1,
+     "unmarkedCount": 1,
+     "unmarkedCriteria": [
+      "angle_vs_reference__right_knee"
+     ]
+    },
+    "C_anchor_tie": {
+     "cardCount": 2,
+     "frames": [
+      48,
+      104
+     ],
+     "judgedCount": 1,
+     "unmarkedCount": 0,
+     "unmarkedCriteria": []
+    }
+   },
+   "cardCount": 2,
+   "cards": [
+    {
+     "criterion": "angle_vs_reference__right_knee",
+     "joint": "right_knee",
+     "refMarked": true,
+     "refMatch": null,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 48
+    },
+    {
+     "criterion": null,
+     "joint": "right_shoulder",
+     "refMarked": null,
+     "refMatch": null,
+     "region": null,
+     "tier": "advisory",
+     "userFrameIdx": 104
+    }
+   ],
+   "controlFinal": 100,
+   "dtwMaxTieDistinctFrames": 2,
+   "dtwPathSteps": 237,
+   "dtwTieJoints": 1,
+   "dtwTieScan": [
+    {
+     "exactTieSteps": 1,
+     "joint": "left_elbow",
+     "pathSteps": 237,
+     "tieConfidence": [
+      0.5337029695510864
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      8
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "right_elbow",
+     "pathSteps": 237,
+     "tieConfidence": [
+      0.387021005153656
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      38
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "left_shoulder",
+     "pathSteps": 237,
+     "tieConfidence": [
+      0.30422163009643555
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      38
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "right_shoulder",
+     "pathSteps": 237,
+     "tieConfidence": [
+      0.428430438041687
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      49
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "left_hip",
+     "pathSteps": 237,
+     "tieConfidence": [
+      0.22951850295066833
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      126
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "right_hip",
+     "pathSteps": 237,
+     "tieConfidence": [
+      0.2368800938129425
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      19
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "left_knee",
+     "pathSteps": 237,
+     "tieConfidence": [
+      0.2837078869342804
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      36
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 1
+    },
+    {
+     "exactTieSteps": 1,
+     "joint": "right_knee",
+     "pathSteps": 237,
+     "tieConfidence": [
+      0.31960785388946533,
+      0.1271936148405075
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      24,
+      81
+     ],
+     "tieSpanFrames": 57,
+     "tieSteps": 2
+    }
+   ],
+   "finalIdentical": true,
+   "mdIdentical": true,
+   "momentRecordCount": 8,
+   "motionId": "ref-pdshape",
+   "moved": [
+    {
+     "control": 81,
+     "criterion": "angle_vs_reference__right_knee",
+     "reconMatched": true,
+     "treatment": 24
+    }
+   ],
+   "movedCount": 1,
+   "reconVerdict": "PASS",
+   "refMarkedJudgedCount": 1,
+   "refUnmarkedCount": 0,
+   "refUnmarkedCriteria": [],
+   "tieCandidateJoints": 0,
+   "tieScan": [
+    {
+     "gaps": [
+      14.90164,
+      10.007245,
+      0.834554,
+      3.462016,
+      0.0
+     ],
+     "joint": "left_elbow",
+     "tieConfidence": [
+      0.29131123423576355
+     ],
+     "tieFrames": [
+      56
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      52,
+      53,
+      54,
+      55,
+      56
+     ]
+    },
+    {
+     "gaps": [
+      39.278906,
+      19.391294,
+      0.0,
+      41.62972,
+      46.699327
+     ],
+     "joint": "right_elbow",
+     "tieConfidence": [
+      0.4369683861732483
+     ],
+     "tieFrames": [
+      54
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      52,
+      53,
+      54,
+      55,
+      56
+     ]
+    },
+    {
+     "gaps": [
+      4.708234,
+      9.018832,
+      24.339629,
+      18.925537,
+      0.0
+     ],
+     "joint": "left_shoulder",
+     "tieConfidence": [
+      0.26539960503578186
+     ],
+     "tieFrames": [
+      56
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      52,
+      53,
+      54,
+      55,
+      56
+     ]
+    },
+    {
+     "gaps": [
+      0.0,
+      4.723149,
+      8.527542,
+      1.718873,
+      19.095234
+     ],
+     "joint": "right_shoulder",
+     "tieConfidence": [
+      0.33306634426116943
+     ],
+     "tieFrames": [
+      52
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      52,
+      53,
+      54,
+      55,
+      56
+     ]
+    },
+    {
+     "gaps": [
+      14.955355,
+      34.75585,
+      0.0,
+      28.808996,
+      15.005718
+     ],
+     "joint": "left_hip",
+     "tieConfidence": [
+      0.5013061761856079
+     ],
+     "tieFrames": [
+      54
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      52,
+      53,
+      54,
+      55,
+      56
+     ]
+    },
+    {
+     "gaps": [
+      0.0,
+      26.736386,
+      4.534554,
+      14.424049,
+      9.907486
+     ],
+     "joint": "right_hip",
+     "tieConfidence": [
+      0.33306634426116943
+     ],
+     "tieFrames": [
+      52
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      52,
+      53,
+      54,
+      55,
+      56
+     ]
+    },
+    {
+     "gaps": [
+      0.759634,
+      19.091746,
+      0.0,
+      13.939603,
+      49.123674
+     ],
+     "joint": "left_knee",
+     "tieConfidence": [
+      0.5013061761856079
+     ],
+     "tieFrames": [
+      54
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      52,
+      53,
+      54,
+      55,
+      56
+     ]
+    },
+    {
+     "gaps": [
+      27.281029,
+      24.840697,
+      4.439907,
+      0.0,
+      8.589827
+     ],
+     "joint": "right_knee",
+     "tieConfidence": [
+      0.2780909240245819
+     ],
+     "tieFrames": [
+      55
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      52,
+      53,
+      54,
+      55,
+      56
+     ]
+    }
+   ],
+   "treatmentFinal": 100
+  },
+  {
+   "analysisId": "elbowtwistsisterFault1785373695",
+   "arms": {
+    "A_no_anchor": {
+     "cardCount": 5,
+     "frames": [
+      144,
+      144,
+      144,
+      144,
+      144
+     ],
+     "judgedCount": 4,
+     "unmarkedCount": 4,
+     "unmarkedCriteria": [
+      "angle_vs_reference__left_elbow",
+      "angle_vs_reference__right_elbow",
+      "angle_vs_reference__left_shoulder",
+      "angle_vs_reference__right_shoulder"
+     ]
+    },
+    "B_anchor": {
+     "cardCount": 5,
+     "frames": [
+      54,
+      88,
+      134,
+      54,
+      144
+     ],
+     "judgedCount": 4,
+     "unmarkedCount": 1,
+     "unmarkedCriteria": [
+      "angle_vs_reference__right_elbow"
+     ]
+    },
+    "C_anchor_tie": {
+     "cardCount": 5,
+     "frames": [
+      54,
+      88,
+      134,
+      324,
+      144
+     ],
+     "judgedCount": 4,
+     "unmarkedCount": 1,
+     "unmarkedCriteria": [
+      "angle_vs_reference__right_elbow"
+     ]
+    }
+   },
+   "cardCount": 5,
+   "cards": [
+    {
+     "criterion": "angle_vs_reference__left_elbow",
+     "joint": "left_elbow",
+     "refMarked": true,
+     "refMatch": null,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 54
+    },
+    {
+     "criterion": "angle_vs_reference__right_elbow",
+     "joint": "right_elbow",
+     "refMarked": false,
+     "refMatch": null,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 88
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "refMarked": true,
+     "refMatch": null,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 134
+    },
+    {
+     "criterion": "angle_vs_reference__right_shoulder",
+     "joint": "right_shoulder",
+     "refMarked": true,
+     "refMatch": null,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 324
+    },
+    {
+     "criterion": null,
+     "joint": "right_shoulder",
+     "refMarked": null,
+     "refMatch": null,
+     "region": null,
+     "tier": "advisory",
+     "userFrameIdx": 144
+    }
+   ],
+   "controlFinal": 63,
+   "dtwMaxTieDistinctFrames": 2,
+   "dtwPathSteps": 330,
+   "dtwTieJoints": 7,
+   "dtwTieScan": [
+    {
+     "exactTieSteps": 2,
+     "joint": "left_elbow",
+     "pathSteps": 330,
+     "tieConfidence": [
+      0.32511767745018005
+     ],
+     "tieDistinctFrames": 1,
+     "tieFrames": [
+      27
+     ],
+     "tieSpanFrames": 0,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "right_elbow",
+     "pathSteps": 330,
+     "tieConfidence": [
+      0.5045601725578308,
+      0.49125760793685913
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      44,
+      46
+     ],
+     "tieSpanFrames": 2,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "left_shoulder",
+     "pathSteps": 330,
+     "tieConfidence": [
+      0.4992308020591736,
+      0.26298409700393677
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      67,
+      152
+     ],
+     "tieSpanFrames": 85,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "right_shoulder",
+     "pathSteps": 330,
+     "tieConfidence": [
+      0.11640994250774384,
+      0.5084323287010193
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      27,
+      162
+     ],
+     "tieSpanFrames": 135,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "left_hip",
+     "pathSteps": 330,
+     "tieConfidence": [
+      0.30952954292297363,
+      0.18985044956207275
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      30,
+      46
+     ],
+     "tieSpanFrames": 16,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "right_hip",
+     "pathSteps": 330,
+     "tieConfidence": [
+      0.2547833025455475,
+      0.649634599685669
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      54,
+      179
+     ],
+     "tieSpanFrames": 125,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "left_knee",
+     "pathSteps": 330,
+     "tieConfidence": [
+      0.6479091644287109,
+      0.10961384326219559
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      134,
+      161
+     ],
+     "tieSpanFrames": 27,
+     "tieSteps": 2
+    },
+    {
+     "exactTieSteps": 2,
+     "joint": "right_knee",
+     "pathSteps": 330,
+     "tieConfidence": [
+      0.28059086203575134,
+      0.1377663016319275
+     ],
+     "tieDistinctFrames": 2,
+     "tieFrames": [
+      18,
+      136
+     ],
+     "tieSpanFrames": 118,
+     "tieSteps": 2
+    }
+   ],
+   "finalIdentical": true,
+   "mdIdentical": true,
+   "momentRecordCount": 8,
+   "motionId": "ref-elbow-twist-sister",
+   "moved": [
+    {
+     "control": 54,
+     "criterion": "angle_vs_reference__right_hip",
+     "reconMatched": true,
+     "treatment": 179
+    },
+    {
+     "control": 27,
+     "criterion": "angle_vs_reference__right_shoulder",
+     "reconMatched": true,
+     "treatment": 162
+    }
+   ],
+   "movedCount": 2,
+   "reconVerdict": "PASS",
+   "refMarkedJudgedCount": 4,
+   "refUnmarkedCount": 1,
+   "refUnmarkedCriteria": [
+    "angle_vs_reference__right_elbow"
+   ],
+   "tieCandidateJoints": 0,
+   "tieScan": [
+    {
+     "gaps": [
+      9.733802,
+      13.089621,
+      0.0,
+      14.040601,
+      18.066065
+     ],
+     "joint": "left_elbow",
+     "tieConfidence": [
+      0.3171940743923187
+     ],
+     "tieFrames": [
+      72
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      70,
+      71,
+      72,
+      73,
+      74
+     ]
+    },
+    {
+     "gaps": [
+      0.0,
+      19.664183,
+      10.779379,
+      11.768126,
+      5.587241
+     ],
+     "joint": "right_elbow",
+     "tieConfidence": [
+      0.3035508096218109
+     ],
+     "tieFrames": [
+      70
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      70,
+      71,
+      72,
+      73,
+      74
+     ]
+    },
+    {
+     "gaps": [
+      4.952947,
+      5.146171,
+      0.0,
+      9.015883,
+      23.117787
+     ],
+     "joint": "left_shoulder",
+     "tieConfidence": [
+      0.42385512590408325
+     ],
+     "tieFrames": [
+      72
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      70,
+      71,
+      72,
+      73,
+      74
+     ]
+    },
+    {
+     "gaps": [
+      15.829963,
+      5.409349,
+      0.0,
+      10.494519,
+      5.355304
+     ],
+     "joint": "right_shoulder",
+     "tieConfidence": [
+      0.42327192425727844
+     ],
+     "tieFrames": [
+      72
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      70,
+      71,
+      72,
+      73,
+      74
+     ]
+    },
+    {
+     "gaps": [
+      10.399036,
+      0.0,
+      0.847869,
+      10.129202,
+      2.179588
+     ],
+     "joint": "left_hip",
+     "tieConfidence": [
+      0.4149206876754761
+     ],
+     "tieFrames": [
+      71
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      70,
+      71,
+      72,
+      73,
+      74
+     ]
+    },
+    {
+     "gaps": [
+      4.853634,
+      0.0,
+      12.785254,
+      16.112967,
+      0.816673
+     ],
+     "joint": "right_hip",
+     "tieConfidence": [
+      0.42080366611480713
+     ],
+     "tieFrames": [
+      71
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      70,
+      71,
+      72,
+      73,
+      74
+     ]
+    },
+    {
+     "gaps": [
+      0.0,
+      17.630332,
+      17.996758,
+      8.306675,
+      34.271071
+     ],
+     "joint": "left_knee",
+     "tieConfidence": [
+      0.3173426389694214
+     ],
+     "tieFrames": [
+      70
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      70,
+      71,
+      72,
+      73,
+      74
+     ]
+    },
+    {
+     "gaps": [
+      11.985444,
+      5.427473,
+      0.0,
+      16.000064,
+      41.057976
+     ],
+     "joint": "right_knee",
+     "tieConfidence": [
+      0.3865886926651001
+     ],
+     "tieFrames": [
+      72
+     ],
+     "tieSize": 1,
+     "windowFrames": [
+      70,
+      71,
+      72,
+      73,
+      74
+     ]
+    }
+   ],
+   "treatmentFinal": 63
+  }
+ ],
+ "frameSizeSensitivity": {
+  "baseline": 1,
+  "identical": true,
+  "scaled": 1,
+  "size": "640x360"
+ },
+ "generatedBy": ".planning/quick/260802-tie-frame-confidence-and-empty-ref-panel/measure_tie.py",
+ "limits": [
+  "\uc2e0\ub8b0\ub3c4 \ucd9c\ucc98\uac00 production \uacfc **\uc5b4\ub311\ud130\ub9cc** \ub2e4\ub974\ub2e4 \u2014 production \uc740 pose_frames(9fps), \ud558\ub124\uc2a4\ub294 \uc800\uc7a5 keypointReport(18fps \uc5c5\uc0d8\ud50c). \uc9dd\uc218 rep \uc778\ub371\uc2a4\uc5d0\uc11c \uc120\ud615\ubcf4\uac04 \uac00\uc911\uce58\uac00 0 \uc774\ub77c \uac19\uc740 \ud45c\ubcf8\uc774 \ubcf5\uc6d0\ub418\uc9c0\ub9cc, \uadf8 \ub4f1\uac00\ub294 \uc5ec\uae30\uc11c \uc2e4\uce21\ud55c \uac83\uc774 \uc544\ub2c8\ub77c upsample_to_fps \uc758 \uc0b0\uc2dd\uc5d0\uc11c \uc628 \uac83\uc774\ub2e4.",
+  "\uae30\uc900 report \uac00 legacy 8\uad00\uc808\uc774\uba74 elbow/ankle \uc2e0\ub8b0\ub3c4\ub97c \ubaa8\ub978\ub2e4 \u2192 \uadf8 \uad00\uc808\uc758 tie-break \ub294 \ud310\uc815 \ubd88\uac00\ub85c \ubbf8\uc801\uc6a9. \ud559\uc0dd report \ub9cc \uc2e0\ub8b0\ub3c4 \ucd9c\ucc98\ub85c \uc4f4\ub2e4.",
+  "vision \uc8fc\uc785 record(split_angle)\uc640 \ucc3d \uc758\uc874 criterion \uc740 czw RECON \uc774 \uc7ac\ud604\ud558\uc9c0 \ubabb\ud558\ub294 \uac83\ub4e4\uc774\ub77c \uc774 \uce21\uc815\uc758 \ubd84\ubaa8\uc5d0\ub3c4 \ub4e4\uc5b4\uc624\uc9c0 \uc54a\ub294\ub2e4.",
+  "PNG \ud53d\uc140 \ub0b4\uc6a9\uc740 \ud310\uc815 \uadfc\uac70\uac00 \uc544\ub2c8\ub2e4 \u2014 \ud504\ub808\uc784 \ubc30\uc5f4\uc774 \ud569\uc131\uc774\ub2e4. \u2461 \ub294 \ub80c\ub354 \ucf54\ub4dc\uac00 \ub0b8 \uc778\uc99d\uac12(refMarked)\uc744 \uc13c \uac83\uc774\uc9c0 \uc0ac\uc9c4\uc744 \ubcf8 \uac83\uc774 \uc544\ub2c8\ub2e4.",
+  "\u2461 \uc758 \uc138 \ud314\uc740 **\uc11c\ub85c \ub2e4\ub978 \ud504\ub808\uc784\uc758 \uce74\ub4dc**\ub2e4 \u2014 A \uc640 B/C \uc758 \uc218\ub97c \uc99d\uac10\uc73c\ub85c \uc77d\uc9c0 \ub9d0 \uac83. A \ub9cc\uc774 belle \uc774 07-31 doc \uc5d0\uc11c \ubcf8 \ud504\ub808\uc784\uc5d0 \ud574\ub2f9\ud55c\ub2e4.",
+  "\ud504\ub808\uc784 \ubc30\uc5f4\uc774 8x8 \ud569\uc131\uc774\ub77c crop \uae30\ud558\uc5d0 \uc758\uc874\ud558\ub294 \uac8c\uc774\ud2b8(_pt_in_crop)\ub294 \ud504\ub85c\ub355\uc158\uacfc \ub2e4\ub974\uac8c \ub3d9\uc791\ud560 \uc218 \uc788\ub2e4 \u2014 \uc544\ub798 frameSizeSensitivity \ub85c \ud655\uc778\ud55c\ub2e4."
+ ],
+ "mdIdenticalAll": true,
+ "momentRecordTotal": 32,
+ "movedTotal": 6,
+ "recordValueDecimals": 2,
+ "refMarkedJudgedTotal": 10,
+ "refUnmarkedTotal": 1,
+ "studentAnglesFps": 9.0,
+ "tieCandidateJointTotal": 0,
+ "tieEps": 0.01
+}

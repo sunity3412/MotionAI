@@ -195,14 +195,85 @@ def _angles_matrix(doc: dict) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# 신뢰도 어댑터 (quick-260802-tie) — 저장 keypointReport → 순간 tie-break 입력
+# ---------------------------------------------------------------------------
+def frame_confidence_from_keypoint_report(report: dict, frames_fps: float):
+    """저장 `keypointReport` → `(9fps 프레임, joint_keys) -> 0..1 | None`.
+
+    **어댑터 경계 치환**이다 — 규칙(최솟값 집계 · 동점 폭)은 production
+    `moment` 모듈이 그대로 소유하고, 여기서는 값을 어디서 읽어오는지만 바꾼다.
+
+    production 은 `pose_frames`(9fps, `angles` 와 같은 축)에서 읽지만 하네스에는
+    그 객체가 없다. 대신 doc 에 저장된 report 를 쓴다 — **같은 수치다**:
+      · report.confidence = `_clamp_unit(keypoints_2d[coco].visibility)`
+        (`assemble.build_keypoint_report`)
+      · 18fps 업샘플은 선형 보간이고 `new_t[i] = i * (9/18) = i/2` 이므로 짝수 rep
+        인덱스에서 가중치가 0 → **원본 9fps 표본이 그대로 복원**된다
+        (`keypoint_frame.upsample_to_fps`).
+      · 인덱스 변환은 production 과 같은 단일 출처(`fault_zoom._to_rep_idx`)를
+        호출한다 — 하네스가 fps 산술을 새로 쓰지 않는다.
+
+    관절 이름공간: 관절각 3점은 COCO-17 이름(`skeleton.JOINT_ANGLES`)이고 report 는
+    `KeypointName`(wrist→hand)이라 `JOINT_KEY_TO_ANGLE_KEY` 를 역인덱싱한다.
+    report 에 없는 keypoint(legacy 8관절의 elbow/ankle 등)는 **None**(판정 불가) —
+    0 으로 보정하지 않는다.
+    """
+    from sunity_shared.analysis.fault_zoom import _to_rep_idx
+    from sunity_shared.analysis.keypoint_frame import JOINT_KEY_TO_ANGLE_KEY
+    from sunity_shared.analysis.moment import _unit_conf
+    from sunity_shared.analysis.skeleton import JOINT_ANGLES
+
+    names = list((report or {}).get("joints") or ())
+    conf = list((report or {}).get("confidence") or ())
+    rep_fps = float((report or {}).get("fps") or frames_fps)
+    rep_frames = int((report or {}).get("frames") or 0)
+    coco_to_col = {
+        JOINT_KEY_TO_ANGLE_KEY[n]: i
+        for i, n in enumerate(names)
+        if n in JOINT_KEY_TO_ANGLE_KEY
+    }
+    j = len(names)
+
+    def _conf(frame_idx: int, joint_keys) -> float | None:
+        if j == 0 or rep_frames <= 0:
+            return None
+        rep_idx = _to_rep_idx(int(frame_idx), frames_fps, rep_fps, rep_frames)
+        worst: float | None = None
+        for jk in joint_keys or ():
+            triple = JOINT_ANGLES.get(jk)
+            if triple is None:
+                return None
+            for coco in triple:
+                col = coco_to_col.get(coco)
+                if col is None:
+                    return None
+                pos = rep_idx * j + col
+                if pos < 0 or pos >= len(conf):
+                    return None
+                c = _unit_conf(conf[pos])
+                if c is None:
+                    return None
+                if worst is None or c < worst:
+                    worst = c
+        return worst
+
+    return _conf
+
+
+# ---------------------------------------------------------------------------
 # 재생 — production 함수만 부른다. 하네스가 산식을 다시 쓰지 않는다.
 # ---------------------------------------------------------------------------
 class Blocked(Exception):
     """재현에 필요한 입력을 doc 에서 구할 수 없음 — 추정으로 메우지 않는다."""
 
 
-def replay_fixture(app, entry: dict) -> dict:
-    """분석 1건 재생 → {md, breakdown, measured_at, match, profile, ...}."""
+def replay_fixture(app, entry: dict, *, use_frame_confidence: bool = False) -> dict:
+    """분석 1건 재생 → {md, breakdown, measured_at, match, profile, ...}.
+
+    use_frame_confidence (quick-260802-tie): True 면 저장 keypointReport 에서 만든
+    신뢰도를 builder 에 주입한다 — 대표 프레임이 **동점일 때만** 쓰인다.
+    False(default) = 이 인자가 생기기 전과 완전히 같은 재생(RECON 게이트 무영향).
+    """
     from sunity_shared.analysis import dimensions, kismam, skeleton, vision_veto
     from sunity_shared.analysis.gemini_technique_recognizer import (
         GeminiTechniqueRecognizer,
@@ -277,6 +348,12 @@ def replay_fixture(app, entry: dict) -> dict:
     align = vv.get("alignment") or {}
     measured_at: dict = {}
     seed_audit: dict = {}
+    frame_confidence = None
+    if use_frame_confidence:
+        frame_confidence = frame_confidence_from_keypoint_report(
+            result.get("keypointReport") or {},
+            float(getattr(app._FRAME_EXTRACTOR, "target_fps", 0.0)) or 1.0,
+        )
     md = app._build_deduction_measured_deviations(
         angles=angles,
         profile=profile,
@@ -294,6 +371,7 @@ def replay_fixture(app, entry: dict) -> dict:
         alignment_visibility_measured=bool(align.get("visibility_measured", False)),
         vision_status=vv.get("collectionStatus"),
         measured_at_out=measured_at,
+        frame_confidence=frame_confidence,
     )
 
     # (6) tally — production 경로(_apply_vision_veto_from_context)를 그대로 탄다.
@@ -708,6 +786,8 @@ def render_cards(app, replayed: dict, records: list, frames_fps: float) -> list[
             "refMatched": it.get("refMatched"),
             "userVideoSec": it.get("userVideoSec"),
             "atMatched": it.get("atMatched"),
+            # quick-260802-tie — 기준 패널 마킹 인증(부재=criterion 없는 카드).
+            "refMarked": it.get("refMarked"),
             "png_sha256": hashlib.sha256(png).hexdigest() if png else None,
         })
     _ = fault_zoom  # 모듈 로딩 확인용(직접 호출은 production 이 한다)

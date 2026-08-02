@@ -3305,6 +3305,10 @@ function AnalysisResultContent({
         // D-04 앱측 (28-05 공급) — DTW 대응 실패 시 ref 는 전신 폴백 이미지라
         // "같은 동작 순간을 못 찾았다"고 정직 고지. 부재(legacy)/'dtw'면 false → 캡션 없음.
         refMatchFailed={sheetPrimaryZoom?.refMatch === 'failed'}
+        // quick-260802-tie — 기준 패널에 표시가 하나도 안 그려진 카드는 그렇다고
+        // 말한다(카드는 그대로 둔다 — 사진은 여전히 정보다). 백엔드 인증값만 본다:
+        // `=== false` 로 좁혀 **부재(legacy/advisory)는 종전대로 무문구**.
+        refUnmarked={sheetPrimaryZoom?.refMarked === false}
         // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 (확정
         // 결함 아님). 크롭·수치·비교는 유지 (시트가 라벨 소유).
         estimatedArea={attributionUnreliable}

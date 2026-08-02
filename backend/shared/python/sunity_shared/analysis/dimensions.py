@@ -32,7 +32,7 @@ from typing import Literal
 
 import numpy as np
 
-from . import kismam
+from . import kismam, moment
 from .pose_frame import Keypoint2D, PoseFrame
 from .skeleton import JOINT_KEYS
 from .technique import TechniqueProfile
@@ -349,6 +349,11 @@ def line_deficits_by_joint(angles, profile: TechniqueProfile) -> dict[str, float
 # windowing 은 반드시 `_select_window` 경유 (이 파일 286-297 의 drift 방지 규율).
 # 새 windowing 상수 0. extension_deviation / line_score 본체 무접촉 — 점수 substrate
 # 를 만드는 코드는 이 helper 를 호출하지 않는다.
+#
+# quick-260802-tie: 두 helper 의 최근접 선택을 `moment.select_moment_index` 하나로
+# 모았다. 규칙(집계값 최근접)은 그대로이고, **거리가 실질적으로 같은 후보가 여럿일
+# 때만** keypoint 신뢰도로 가른다. `frame_confidence` 미전달이면 종전 argmin 과
+# byte-동일 — 신규 임계 0, 게이트 완화 0.
 
 
 def extension_representative_frame(
@@ -356,11 +361,16 @@ def extension_representative_frame(
     profile: "TechniqueProfile | None",
     joint_key: str,
     target_deficit: float,
+    *,
+    frame_confidence=None,
 ) -> int | None:
     """`joint_key` 의 per-frame 180° 부족분이 `target_deficit` 에 가장 가까운 프레임.
 
     `target_deficit` 은 record 가 실제로 보고한 집계값(extension_deviation 이 낸
     관절별 부족분)이다. 재계산하지 않고 받아 쓴다 — 재계산이 없으면 drift 도 없다.
+
+    frame_confidence (quick-260802-tie): `(절대 프레임, joint_keys) -> 0..1 | None`.
+    거리가 동점인 후보들 사이에서만 쓰인다(`moment.TIE_EPS`). None(default)=종전 산출.
 
     Returns:
         `_select_window` 구간 기준 **절대** 프레임 인덱스. window 가 비었거나 유한
@@ -377,7 +387,17 @@ def extension_representative_frame(
         return None
     deficits = np.maximum(0.0, _FULL_EXTENSION_DEG - col)
     gaps = np.where(finite, np.abs(deficits - float(target_deficit)), np.inf)
-    return int(s) + int(np.argmin(gaps))
+    idx = moment.select_moment_index(
+        gaps,
+        confidence=(
+            None
+            if frame_confidence is None
+            else lambda k: frame_confidence(int(s) + int(k), (joint_key,))
+        ),
+    )
+    if idx is None:
+        return None
+    return int(s) + int(idx)
 
 
 def line_representative_frame(
@@ -385,16 +405,23 @@ def line_representative_frame(
     profile: "TechniqueProfile | None",
     joint_keys,
     target_deficit: float,
+    *,
+    frame_confidence=None,
 ) -> int | None:
     """`joint_keys` per-frame 평균 부족분이 `target_deficit` 에 가장 가까운 프레임.
 
     `joint_keys` 는 line 집계값을 실제로 만든 관절 집합이어야 한다 — 호출측이
     그 목록을 그대로 넘긴다(여기서 다시 고르지 않는다).
 
+    frame_confidence (quick-260802-tie): 동점 후보 사이에서만 쓰이는 신뢰도 조회.
+    집계에 실제로 기여한 관절 집합 전체를 함께 넘긴다 — 그 중 하나라도 신뢰도를
+    모르면 그 후보는 최근접 후보를 이기지 못한다(fail-closed).
+
     Returns:
         절대 프레임 인덱스. 유효 관절/유한 프레임이 없으면 None(fail-closed).
     """
-    cols = [JOINT_KEYS.index(k) for k in (joint_keys or ()) if k in JOINT_KEYS]
+    keys = tuple(k for k in (joint_keys or ()) if k in JOINT_KEYS)
+    cols = [JOINT_KEYS.index(k) for k in keys]
     if not cols:
         return None
     sliced, (s, _e) = _select_window(angles, profile)
@@ -412,7 +439,17 @@ def line_representative_frame(
         gaps[t] = abs(float(row_finite.mean()) - target)
     if not np.isfinite(gaps).any():
         return None
-    return int(s) + int(np.argmin(gaps))
+    idx = moment.select_moment_index(
+        gaps,
+        confidence=(
+            None
+            if frame_confidence is None
+            else lambda k: frame_confidence(int(s) + int(k), keys)
+        ),
+    )
+    if idx is None:
+        return None
+    return int(s) + int(idx)
 
 
 def stability_wobble_by_joint(angles, profile: "TechniqueProfile | None" = None) -> dict[str, float]:

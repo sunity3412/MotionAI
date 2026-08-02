@@ -494,6 +494,7 @@ userFrameIdx  number   optional  ← 학생 측 대응 프레임 인덱스
 refFrameIdx   number   optional  ← 기준(정은지) 측 대응 프레임 인덱스
 refMatched    boolean  optional  ← 기준 측 대응 성공 여부
 atMatched     boolean  optional  ← 표시 프레임 == 그 record 의 측정 프레임
+refMarked     boolean  optional  ← 기준 패널에 표시가 그려졌는가 (§11.9)
 ```
   - DTW 대응 프레임 쌍이며 **`keypointReport` 프레임 공간(9fps angles 도메인)**의 정수
     인덱스다 (18fps 업샘플 공간 아님 — §11 fps 도메인 주의 동일).
@@ -1844,6 +1845,21 @@ refVideoSec   number  optional  ← 기준 패널 실영상 초 (타임베이스
 - **`refVideoSec` 부재 조건:** 기준 프레임 대응 실패(`refMatched=false` / `refMatch='failed'`) — 전신 폴백의 중앙 프레임이라 "같은 순간"의 근거가 없다. `frames_fps<=0` 이면 양쪽 모두 부재.
 - **부재(legacy doc) = 초 캡션 미렌더** (optional, migration 없음 — `tier?`/`refMatch?`/`criterion?` 선례).
 - 3-way lockstep: `analysis.ts FaultZoomComparison.userVideoSec?/refVideoSec?` ↔ `fault_zoom.py` 방출부 + `pipeline _render_fault_zoom` 매퍼 ↔ 본 절.
+
+### §11.9 FaultZoomComparison.refMarked (quick-260802-tie)
+
+`FaultZoomComparison` 에 `refMarked?: boolean` scalar 를 추가한다 — 기준(정은지) 패널에 **표시가 하나라도 그려졌는지**를 렌더 코드가 인증한 값.
+
+```
+refMarked  boolean  optional  ← 기준 패널에 마킹(원/사이각/각도)이 그려졌는가
+```
+
+- **왜 필요한가:** 확대비교 카드의 기준 패널이 비어 있는데(오버레이 0) 아무 말 없이 나가고 있었다. 원인은 keypoint 신뢰도 게이트(`fault_zoom._KP_CONF_MIN`)·crop 포함 게이트(`_pt_in_crop`)·기준 앵커 미선언이 fail-closed 로 닫힌 **정상 동작**이지만, 비교 카드인데 비교 대상 표시가 없는 채로 침묵하는 것은 틀린 출력이다. 이 필드는 그 사실을 말하기 위한 것이지 게이트를 여는 것이 아니다 — 임계값은 무변경.
+- **값의 출처:** 그리는 코드가 인증한다. `_draw_side_leg_angle`(다리 사이각, both-or-neither) · `_draw_side_joint_angle`(관절 각도 베이크, 양측 대칭) · `_mark(circle=True)`(원 마커) 중 하나라도 기준 패널에 그렸으면 `true`. **앱이 PNG 픽셀을 보고 추측하지 않는다** — 그러면 판정이 렌더 배경에 의존한다(`refMatched`/`atMatched` 와 동형·동의미).
+- **방출 범위:** `criterion` 보유 카드만. legacy/advisory 카드는 게이트 B(quick-260705-wbs)로 기준측을 애초에 마킹하지 않는 **정책**이라 판정 대상이 아니다 — `false` 를 실으면 앱이 "게이트가 닫혔다"는 없는 이유를 말하게 된다.
+- **부재(legacy doc·advisory·criterion 부재) = 앱 종전대로**(문구 없음). optional, migration 없음 (`tier?`/`refMatch?`/`criterion?`/`atMatched?` 선례).
+- **`false` 일 때 앱 동작:** 카드를 숨기지 않고 짧은 한 줄을 덧붙인다(정보 보존). `refMatch='failed'` 캡션과 **자리를 나눠 쓴다** — 그쪽은 "같은 순간을 못 찾음"(프레임 대응 실패), 이쪽은 "순간은 맞췄는데 표시를 못 그림"(좌표 신뢰도)이다.
+- 3-way lockstep: `analysis.ts FaultZoomComparison.refMarked?` ↔ `fault_zoom.py` 방출부 + `pipeline _render_fault_zoom` 매퍼 ↔ 본 절.
 
 ---
 

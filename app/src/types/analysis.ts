@@ -531,6 +531,23 @@ export interface FaultZoomComparison {
    * Python lockstep: fault_zoom 방출부 + docs/contract.md §11.
    */
   atMatched?: boolean;
+  /**
+   * quick-260802-tie — 기준(정은지) 패널에 **표시가 하나라도 그려졌는지**를
+   * fault_zoom 렌더가 인증한 값.
+   *
+   * false = 오른쪽 패널이 crop 사진뿐이다. keypoint 신뢰도 게이트가 fail-closed 로
+   * 닫힌 정상 동작이지만, 비교 카드인데 비교 대상 표시가 없는 채로 아무 말 없이
+   * 나가면 틀린 출력이라 앱이 한 줄로 알린다(카드는 숨기지 않는다 — 정보 보존).
+   * 부재 = criterion 없는 카드(legacy/advisory)이거나 legacy doc → 종전대로 문구 없음.
+   *
+   * **주의** — 앱이 `imageUrl` 픽셀을 보고 이 값을 **추정하지 말 것.** 그러면 판정이 렌더
+   * 배경에 의존한다. 그리는 코드만 이 인증을 낼 수 있다 (`refMatched` 선례와 동형).
+   * `refMatch==='failed'` 와는 다른 사실이다 — 그쪽은 "같은 순간을 못 찾음",
+   * 이쪽은 "순간은 맞췄는데 표시를 못 그림".
+   * Python lockstep: fault_zoom 방출부 + pipeline `_render_fault_zoom` 매퍼 +
+   * docs/contract.md §11.9.
+   */
+  refMarked?: boolean;
 }
 
 // Phase 28 (ALGN-01 동작 기반 비교 정렬) — 학생(left)=master 시계 불변, 정은지(right)만

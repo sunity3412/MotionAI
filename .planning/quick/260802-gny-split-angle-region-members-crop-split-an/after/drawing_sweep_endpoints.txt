@@ -1,0 +1,12 @@
+motion                  box 4->6              끝점 4멤버   끝점 6멤버
+ref-climb               219->251              ankle/ankle  ankle/ankle
+ref-elbow-twist-sister  219->286              ankle/ankle  ankle/ankle
+ref-foxtop              219->320              ankle/ankle  ankle/ankle
+ref-foxtop-split        219->355              knee/knee    ankle/ankle
+ref-invert              219->360              knee/knee    ankle/ankle
+ref-kip-up              219->360              knee/knee    ankle/ankle
+ref-pdshape             219->360              knee/knee    ankle/ankle
+ref-peter-pan           219->360              knee/knee    ankle/ankle
+ref-power-spin          219->360              knee/knee    ankle/ankle
+ref-sideway-spin        219->360              knee/knee    ankle/ankle
+끝점이 바뀐 동작: 7 / 10

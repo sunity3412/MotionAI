@@ -537,17 +537,56 @@ def diff(a_label: str, b_label: str) -> int:
                         f"power-spin split_angle box 가 leg_extension 과 안 갈렸다: "
                         f"split={sb} leg={lb}"
                     )
+            # box 가 before 에서 실제로 움직였는가 — 멤버 추가가 프레이밍까지
+            # 도달했다는 직접 증거 (원래 계획에 없던 추가 하드 게이트).
+            a_box = (a_row.get("user") or {}).get("box")
+            b_box = (b_row.get("user") or {}).get("box")
+            if a_box == b_box:
+                fail.append(
+                    f"power-spin split_angle user box 가 안 움직였다: {a_box}"
+                )
             a_in = ((a_row.get("user") or {}).get("in_crop") or {})
             b_in = ((b_row.get("user") or {}).get("in_crop") or {})
+            # ── 계획 대비 게이트 변경 (quick-260802-gny, 실측 후) ──────────────
+            # 플랜은 "발목 _pt_in_crop 이 False -> True 로 바뀔 것"을 요구했다.
+            # **그 전제가 이 fixture 에서 사실이 아니다** — before 실측에서 이미
+            # 양쪽 발목 모두 True 였다. 사유는 기하다: 이 프레임의 valid 멤버가
+            # 골반 2점뿐이라 bbox 가 작고 box 변이 floor(min(h,w) * _CROP_FRAC)
+            # 로 결정되는데, 이 역립 포즈의 발목이 골반에서 30px 안쪽이라 처음부터
+            # crop 안이었다. 그래서 "담게 만든다"가 아니라 **"담고 있다"**를
+            # 검사한다. 게이트를 무르게 고친 것이 아니라 방향을 사실에 맞췄고,
+            # 대신 위의 box 이동 검사를 하드 게이트로 새로 추가했다.
+            # flip 여부는 판정이 아니라 관측으로 남긴다.
+            not_contained = [
+                j for j in ("left_ankle", "right_ankle") if b_in.get(j) is not True
+            ]
+            if not_contained:
+                fail.append(
+                    "power-spin split_angle after 에서 crop 이 발목을 담지 않는다: "
+                    f"{not_contained} (after={b_in})"
+                )
             flipped = [
                 j for j in ("left_ankle", "right_ankle")
                 if a_in.get(j) is not True and b_in.get(j) is True
             ]
-            if not flipped:
-                fail.append(
-                    "power-spin split_angle 발목 _pt_in_crop 이 False -> True 로 "
-                    f"바뀐 것이 없다: before={a_in} after={b_in}"
-                )
+            print(
+                f"  [관측] power-spin split_angle 발목 in_crop before={a_in} "
+                f"after={b_in} flipped={flipped or 'none (before 부터 담고 있었다)'}"
+            )
+
+    # ── 관측 리포트 (판정 아님) — 배율 parity 이동. 밴드는 읽기만 한다.
+    band = b_sweep.get("parityBand") or {"lo": _PARITY_LO, "hi": _PARITY_HI}
+    for label, dat in ((a_label, a_sweep), (b_label, b_sweep)):
+        out = [
+            r for r in dat["cards"]
+            if r.get("ratio") is not None
+            and not (band["lo"] <= r["ratio"] <= band["hi"])
+        ]
+        print(
+            f"  [관측] {label} sweep 배율 밴드({band['lo']}~{band['hi']}) 이탈 "
+            f"{len(out)}건: "
+            + str([(r["motion"], r["criterion"], r["ratio"]) for r in out])
+        )
 
     if fail:
         print(f"DIFF-FAIL ({a_label} -> {b_label})")

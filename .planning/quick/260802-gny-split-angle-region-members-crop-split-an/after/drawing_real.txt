@@ -1,0 +1,28 @@
+== power-spin
+  4멤버(before): user(kind=valid box=(78, 244, 151) drew=False endpoints=False)  ref(kind=valid box=(90, 201, 151) drew=True endpoints=True)  
+    -> both-or-neither 사이각 드로잉: False
+  6멤버(after): user(kind=valid box=(78, 248, 151) drew=False endpoints=False)  ref(kind=valid box=(90, 201, 151) drew=True endpoints=True)  
+    -> both-or-neither 사이각 드로잉: False
+    user left_knee conf=0.3881649076938629  (_KP_CONF_MIN=0.5)
+    user left_ankle conf=0.4258749485015869  (_KP_CONF_MIN=0.5)
+    user right_knee conf=0.47058653831481934  (_KP_CONF_MIN=0.5)
+    user right_ankle conf=0.5981449484825134  (_KP_CONF_MIN=0.5)
+== kip-up
+  4멤버(before): user(kind=valid box=(156, 353, 151) drew=True endpoints=True)  ref(kind=valid box=(155, 348, 162) drew=True endpoints=True)  
+    -> both-or-neither 사이각 드로잉: True
+  6멤버(after): user(kind=valid box=(124, 338, 236) drew=True endpoints=True)  ref(kind=valid box=(155, 348, 162) drew=True endpoints=True)  
+    -> both-or-neither 사이각 드로잉: True
+    user left_knee conf=0.8471018075942993  (_KP_CONF_MIN=0.5)
+    user left_ankle conf=0.8905526399612427  (_KP_CONF_MIN=0.5)
+    user right_knee conf=0.8998748660087585  (_KP_CONF_MIN=0.5)
+    user right_ankle conf=0.8638254404067993  (_KP_CONF_MIN=0.5)
+== power-spin
+  before(4) user: 끝점 없음 (미드로잉)
+  before(4) ref : 왼끝=left_knee 오른끝=right_knee
+  after(6)  user: 끝점 없음 (미드로잉)
+  after(6)  ref : 왼끝=left_knee 오른끝=right_knee
+== kip-up
+  before(4) user: 왼끝=left_ankle 오른끝=right_ankle
+  before(4) ref : 왼끝=left_knee 오른끝=right_knee
+  after(6)  user: 왼끝=left_ankle 오른끝=right_ankle
+  after(6)  ref : 왼끝=left_knee 오른끝=right_knee

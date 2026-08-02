@@ -1,0 +1,41 @@
+fixtures=4 studentAnglesFps=9 referenceAnglesFps=18
+firestore 차단 함수 24종
+
+== powerspinFault1785373695  (ref=ref-power-spin, motion=ref-power-spin)
+   profile EXTEND=['left_knee', 'right_knee'] hold_window=None baseline_kind=hip_line
+   pointed=['left_knee', 'right_knee'] dimension_overall=0 final stored=60 got=62 DIFF
+   MISMATCH  leg_extension                          mv 79.34 -> 141.04 (d=61.69999999999999) pts -20 -> -20.0
+             원인: `dimensions._select_window` 창 의존 criterion — 창은 profile.hold_window (Gemini KeyMoment 파생)가 정하는데 그 값이 분석 doc 에 없다. 창을 역산해 맞추면 그 순간 판정이 하네스의 창작이 되므로 비워 둔다.
+   MISSING   split_angle                            stored mv=30 src=vision
+             원인: vision 주입 record — 산출 입력(supported_differences 의 각도쌍)이 doc 에 남아 있지 않다(저장된 rootCauseHypotheses 는 fold 결과라 각도가 없다). 추정으로 채우지 않는다.
+   MATCH     angle_vs_reference__left_shoulder      mv=30.67 pts=-12.8
+   EXTRA     angle_vs_reference__left_hip           mv=22.4 pts=-2.9
+             원인: 저장 doc 의 `split_angle` 가 claim 하는 관절 — 그 record 를 재현하지 못해 engine cross-exclusion(deduction_engine.py:306-311)이 걸리지 않았다. 재현 실패의 기계적 파생이지 별개의 편차가 아니다.
+   EXTRA     angle_vs_reference__right_hip          mv=21.57 pts=-1.9
+             원인: 저장 doc 의 `split_angle` 가 claim 하는 관절 — 그 record 를 재현하지 못해 engine cross-exclusion(deduction_engine.py:306-311)이 걸리지 않았다. 재현 실패의 기계적 파생이지 별개의 편차가 아니다.
+
+== kipupFault1785373695  (ref=ref-kip-up, motion=ref-kip-up)
+   profile EXTEND=[] hold_window=None baseline_kind=floor
+   pointed=['right_elbow', 'left_knee', 'right_knee'] dimension_overall=95 final stored=79 got=99 DIFF
+   MISSING   split_angle                            stored mv=50 src=vision
+             원인: vision 주입 record — 산출 입력(supported_differences 의 각도쌍)이 doc 에 남아 있지 않다(저장된 rootCauseHypotheses 는 fold 결과라 각도가 없다). 추정으로 채우지 않는다.
+   MATCH     angle_vs_reference__left_shoulder      mv=20.67 pts=-0.8
+
+== pdshapeCorrect1785373695  (ref=ref-pdshape, motion=ref-pdshape)
+   profile EXTEND=[] hold_window=None baseline_kind=hip_line
+   pointed=[] dimension_overall=100 final stored=100 got=100 OK
+   MATCH     angle_vs_reference__right_knee         mv=20.19 pts=-0.2
+
+== elbowtwistsisterFault1785373695  (ref=ref-elbow-twist-sister, motion=ref-elbow-twist-sister)
+   profile EXTEND=[] hold_window=None baseline_kind=hip_line
+   pointed=[] dimension_overall=63 final stored=63 got=63 OK
+   MATCH     angle_vs_reference__left_elbow         mv=23.15 pts=-3.8
+   MATCH     angle_vs_reference__right_elbow        mv=30.29 pts=-12.4
+   MATCH     angle_vs_reference__left_shoulder      mv=20.41 pts=-0.5
+   MATCH     angle_vs_reference__right_shoulder     mv=29.22 pts=-11.1
+   MATCH     angle_vs_reference__left_hip           mv=21.86 pts=-2.2
+   MATCH     angle_vs_reference__right_hip          mv=21.72 pts=-2.1
+   MATCH     angle_vs_reference__left_knee          mv=21.81 pts=-2.2
+   MATCH     angle_vs_reference__right_knee         mv=22.14 pts=-2.6
+
+RECON: record 11/16 MATCH · fixture 4건

@@ -190,9 +190,29 @@ DEDUCTION_BREAKDOWN_KEYS = ("baseline", "records", "final", "coverageGaps", "fal
 #   executionRawTotal = Σ|실행| 원합 / executionCappedTotal = -min(executionCap, |raw|) /
 #   criticalTotal = Σ|치명|(캡 우회) / executionCap = 40 / scoreFloor = 25.
 # 3-way lockstep: app/src/types/analysis.ts DeductionBreakdown + docs/contract.md §10.
+# quick-260802-nse: suppressedRecords — **방출되지 않은 감점의 내역**.
+# record 가 아니다(점수에 기여 0). 감점 record 가 하는 단정("이 관절의 편차가 허용치를
+# 넘는다")이 그 값 자신의 median 신뢰구간 안에서 성립하지 않으면 record 를 방출하지 않고,
+# 얼마를 왜 빼지 않았는지를 여기 남긴다 — 그래야 점수 이동을 산술로 되짚을 수 있다
+# ([[scoring-must-be-transparent-deduction-tally]] 투명 합산).
+# 억제가 실제로 일어난 doc 에만 실리는 additive optional(빈 경우 키 생략) —
+# rawPoints/capApplied/executionCap 패턴 계승, 구 doc/앱 무영향.
+# 재구성 항등식: Σ wouldBePoints == executionRawTotal(억제 없음) − executionRawTotal(억제).
 DEDUCTION_BREAKDOWN_OPTIONAL_KEYS = (
     "executionRawTotal", "executionCappedTotal", "criticalTotal",
-    "executionCap", "scoreFloor",
+    "executionCap", "scoreFloor", "suppressedRecords",
+)
+# suppressedRecords[] 항목 — 전부 flat scalar(Firestore nested-array 금지).
+#   criterion    = 억제된 criterion id
+#   measuredValue/tolerance = 그 record 가 주장하던 값과 허용치
+#   intervalLow/intervalHigh = 그 값의 median 신뢰구간(억제 판정은 intervalLow<=tolerance)
+#   sampleSize   = 구간을 만든 표본수(관측치 — 판정에 쓰이지 않음, 0=미제공)
+#   wouldBePoints= 방출됐다면 들어갔을 감점(SIGNED NEGATIVE, per-record 상한 적용 후)
+#   ruleId       = 'deviation_within_measurement_error'
+# 3-way lockstep: app/src/types/analysis.ts SuppressedDeductionRecord + docs/contract.md §10.
+SUPPRESSED_RECORD_KEYS = (
+    "criterion", "measuredValue", "tolerance", "intervalLow", "intervalHigh",
+    "sampleSize", "wouldBePoints", "ruleId",
 )
 
 # ── Phase 28 (ALGN-01): MotionAlignment 계약 상수 ─────────────────────

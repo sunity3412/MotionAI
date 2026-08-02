@@ -871,7 +871,10 @@ def _validate_deduction_breakdown(
             f"_validate_deduction_breakdown: dict 입력만 허용. "
             f"path={path!r} got {type(breakdown).__name__}"
         )
-    for list_key in ("records", "coverageGaps"):
+    # quick-260802-nse: suppressedRecords 도 flat scalar dict 의 list 다 — 검증 대상에
+    # 넣지 않으면 nested array 가 이 키를 통해 그대로 새어 Firestore 쓰기가 실패한다
+    # ([[firestore-nested-array-flat]]).
+    for list_key in ("records", "coverageGaps", "suppressedRecords"):
         items = breakdown.get(list_key)
         if items is None:
             continue

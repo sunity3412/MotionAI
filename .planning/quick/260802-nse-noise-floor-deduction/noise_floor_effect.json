@@ -1,0 +1,598 @@
+{
+ "ciAlpha": 0.05,
+ "fixtures": [
+  {
+   "advisoryCardCountAfter": 1,
+   "advisoryCardCountBefore": 1,
+   "analysisId": "powerspinFault1785373695",
+   "cardCountAfter": 3,
+   "cardCountBefore": 5,
+   "cardCriteriaAfter": [
+    "angle_vs_reference__left_shoulder",
+    "leg_extension"
+   ],
+   "cardCriteriaBefore": [
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__right_hip",
+    "leg_extension"
+   ],
+   "cardsAdded": [],
+   "cardsAfter": [
+    {
+     "criterion": "leg_extension",
+     "joint": "left_hip",
+     "region": "legs",
+     "tier": "confirmed"
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": null,
+     "joint": "left_elbow",
+     "region": null,
+     "tier": "advisory"
+    }
+   ],
+   "cardsBefore": [
+    {
+     "criterion": "leg_extension",
+     "joint": "left_hip",
+     "region": "legs",
+     "tier": "confirmed"
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": "angle_vs_reference__left_hip",
+     "joint": "left_hip",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": "angle_vs_reference__right_hip",
+     "joint": "right_hip",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": null,
+     "joint": "left_elbow",
+     "region": null,
+     "tier": "advisory"
+    }
+   ],
+   "cardsRemoved": [
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__right_hip"
+   ],
+   "confirmedCardCountAfter": 2,
+   "confirmedCardCountBefore": 4,
+   "executionRawTotalAfter": -32.8,
+   "executionRawTotalBefore": -37.6,
+   "executionRawTotalMoved": -4.8,
+   "failClosedRecords": [
+    {
+     "criterion": "leg_extension",
+     "points": -20.0,
+     "reason": "different_estimator_select_window"
+    }
+   ],
+   "finalAfter": 67,
+   "finalBefore": 62,
+   "finalDelta": 5,
+   "finalIdentityHolds": true,
+   "headlineAfter": {
+    "criterion": "leg_extension",
+    "points": 20.0,
+    "selectedBy": "max_deduction",
+    "source": "mission",
+    "text": "\ud30c\uc6cc\uc2a4\ud540 \uc2a4\ud50c\ub9bf\uc5d0\uc11c \ubb34\ub98e\uc774 \uae30\uc900\ubcf4\ub2e4 \ub35c \ud3b4\uc838 \uc788\uc5b4\uc694"
+   },
+   "headlineBefore": {
+    "criterion": "leg_extension",
+    "points": 20.0,
+    "selectedBy": "max_deduction",
+    "source": "mission",
+    "text": "\ud30c\uc6cc\uc2a4\ud540 \uc2a4\ud50c\ub9bf\uc5d0\uc11c \ubb34\ub98e\uc774 \uae30\uc900\ubcf4\ub2e4 \ub35c \ud3b4\uc838 \uc788\uc5b4\uc694"
+   },
+   "headlineChanged": false,
+   "intervalCriteria": [
+    "angle_vs_reference__left_elbow",
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__right_elbow",
+    "angle_vs_reference__right_hip",
+    "angle_vs_reference__right_shoulder"
+   ],
+   "keptRecordsByteIdentical": true,
+   "mdByteIdentical": true,
+   "motionId": "ref-power-spin",
+   "reconstructs": true,
+   "recordCountAfter": 2,
+   "recordCountBefore": 4,
+   "recordCriteriaAfter": [
+    "leg_extension",
+    "angle_vs_reference__left_shoulder"
+   ],
+   "recordCriteriaBefore": [
+    "leg_extension",
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__right_hip"
+   ],
+   "referenceMotionId": "ref-power-spin",
+   "sheetRecordInputAfter": 2,
+   "sheetRecordInputBefore": 4,
+   "sheetRendersAfter": true,
+   "sheetRendersBefore": true,
+   "storedDeductionFinal": 60,
+   "storedScore": 60,
+   "suppressedCriteria": [
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__right_hip"
+   ],
+   "suppressedPointsSum": -4.8,
+   "suppressedRecords": [
+    {
+     "criterion": "angle_vs_reference__left_hip",
+     "intervalHigh": 27.18,
+     "intervalLow": 18.7,
+     "measuredValue": 22.4,
+     "ruleId": "deviation_within_measurement_error",
+     "sampleSize": 161,
+     "tolerance": 20.0,
+     "wouldBePoints": -2.9
+    },
+    {
+     "criterion": "angle_vs_reference__right_hip",
+     "intervalHigh": 27.04,
+     "intervalLow": 17.13,
+     "measuredValue": 21.57,
+     "ruleId": "deviation_within_measurement_error",
+     "sampleSize": 161,
+     "tolerance": 20.0,
+     "wouldBePoints": -1.9
+    }
+   ]
+  },
+  {
+   "advisoryCardCountAfter": 0,
+   "advisoryCardCountBefore": 0,
+   "analysisId": "kipupFault1785373695",
+   "cardCountAfter": 2,
+   "cardCountBefore": 1,
+   "cardCriteriaAfter": [],
+   "cardCriteriaBefore": [
+    "angle_vs_reference__left_shoulder"
+   ],
+   "cardsAdded": [],
+   "cardsAfter": [
+    {
+     "criterion": null,
+     "joint": "left_knee",
+     "region": "legs",
+     "tier": "confirmed"
+    },
+    {
+     "criterion": null,
+     "joint": "left_shoulder",
+     "region": "arms",
+     "tier": "confirmed"
+    }
+   ],
+   "cardsBefore": [
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "region": null,
+     "tier": "confirmed"
+    }
+   ],
+   "cardsRemoved": [
+    "angle_vs_reference__left_shoulder"
+   ],
+   "confirmedCardCountAfter": 2,
+   "confirmedCardCountBefore": 1,
+   "executionRawTotalAfter": 0,
+   "executionRawTotalBefore": -0.8,
+   "executionRawTotalMoved": -0.8,
+   "failClosedRecords": [],
+   "finalAfter": 100,
+   "finalBefore": 99,
+   "finalDelta": 1,
+   "finalIdentityHolds": true,
+   "headlineAfter": {
+    "criterion": null,
+    "points": null,
+    "selectedBy": null,
+    "source": "none",
+    "text": "\uc624\ub298\uc740 \uc774 \ubd80\ubd84\uc5d0 \uc9d1\uc911\ud574\ubd10\uc694"
+   },
+   "headlineBefore": {
+    "criterion": "angle_vs_reference__left_shoulder",
+    "points": 0.8,
+    "selectedBy": "max_deduction",
+    "source": "mission",
+    "text": "\uc67c\ucabd \uc5b4\uae68(\uaca8\ub4dc\ub791\uc774) \uac01\ub3c4\uac00 \ud0b5\uc5c5 \uae30\uc900 \uc790\uc138\uc640 \ucc28\uc774\uac00 \uc788\uc5b4\uc694"
+   },
+   "headlineChanged": true,
+   "intervalCriteria": [
+    "angle_vs_reference__left_elbow",
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__right_hip",
+    "angle_vs_reference__right_shoulder"
+   ],
+   "keptRecordsByteIdentical": true,
+   "mdByteIdentical": true,
+   "motionId": "ref-kip-up",
+   "reconstructs": true,
+   "recordCountAfter": 0,
+   "recordCountBefore": 1,
+   "recordCriteriaAfter": [],
+   "recordCriteriaBefore": [
+    "angle_vs_reference__left_shoulder"
+   ],
+   "referenceMotionId": "ref-kip-up",
+   "sheetRecordInputAfter": 0,
+   "sheetRecordInputBefore": 1,
+   "sheetRendersAfter": false,
+   "sheetRendersBefore": true,
+   "storedDeductionFinal": 79,
+   "storedScore": 79,
+   "suppressedCriteria": [
+    "angle_vs_reference__left_shoulder"
+   ],
+   "suppressedPointsSum": -0.8,
+   "suppressedRecords": [
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "intervalHigh": 25.55,
+     "intervalLow": 16.7,
+     "measuredValue": 20.67,
+     "ruleId": "deviation_within_measurement_error",
+     "sampleSize": 118,
+     "tolerance": 20.0,
+     "wouldBePoints": -0.8
+    }
+   ]
+  },
+  {
+   "advisoryCardCountAfter": 1,
+   "advisoryCardCountBefore": 1,
+   "analysisId": "pdshapeCorrect1785373695",
+   "cardCountAfter": 2,
+   "cardCountBefore": 2,
+   "cardCriteriaAfter": [],
+   "cardCriteriaBefore": [
+    "angle_vs_reference__right_knee"
+   ],
+   "cardsAdded": [],
+   "cardsAfter": [
+    {
+     "criterion": null,
+     "joint": "left_hip",
+     "region": "legs",
+     "tier": "confirmed"
+    },
+    {
+     "criterion": null,
+     "joint": "right_shoulder",
+     "region": null,
+     "tier": "advisory"
+    }
+   ],
+   "cardsBefore": [
+    {
+     "criterion": "angle_vs_reference__right_knee",
+     "joint": "right_knee",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": null,
+     "joint": "right_shoulder",
+     "region": null,
+     "tier": "advisory"
+    }
+   ],
+   "cardsRemoved": [
+    "angle_vs_reference__right_knee"
+   ],
+   "confirmedCardCountAfter": 1,
+   "confirmedCardCountBefore": 1,
+   "executionRawTotalAfter": 0,
+   "executionRawTotalBefore": -0.2,
+   "executionRawTotalMoved": -0.2,
+   "failClosedRecords": [],
+   "finalAfter": 100,
+   "finalBefore": 100,
+   "finalDelta": 0,
+   "finalIdentityHolds": true,
+   "headlineAfter": {
+    "criterion": null,
+    "points": null,
+    "selectedBy": null,
+    "source": "none",
+    "text": "\uc624\ub298\uc740 \uc774 \ubd80\ubd84\uc5d0 \uc9d1\uc911\ud574\ubd10\uc694"
+   },
+   "headlineBefore": {
+    "criterion": "angle_vs_reference__right_knee",
+    "points": 0.2,
+    "selectedBy": "max_deduction",
+    "source": "mission",
+    "text": "\uc624\ub978\ucabd \ubb34\ub98e \uac01\ub3c4\uac00 \uae30\uc900 \uc170\uc774\ud504\uc640 \ucc28\uc774\uac00 \uc788\uc5b4\uc694"
+   },
+   "headlineChanged": true,
+   "intervalCriteria": [
+    "angle_vs_reference__left_elbow",
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__left_knee",
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__right_elbow",
+    "angle_vs_reference__right_hip",
+    "angle_vs_reference__right_knee",
+    "angle_vs_reference__right_shoulder"
+   ],
+   "keptRecordsByteIdentical": true,
+   "mdByteIdentical": true,
+   "motionId": "ref-pdshape",
+   "reconstructs": true,
+   "recordCountAfter": 0,
+   "recordCountBefore": 1,
+   "recordCriteriaAfter": [],
+   "recordCriteriaBefore": [
+    "angle_vs_reference__right_knee"
+   ],
+   "referenceMotionId": "ref-pdshape",
+   "sheetRecordInputAfter": 0,
+   "sheetRecordInputBefore": 1,
+   "sheetRendersAfter": false,
+   "sheetRendersBefore": true,
+   "storedDeductionFinal": 100,
+   "storedScore": 100,
+   "suppressedCriteria": [
+    "angle_vs_reference__right_knee"
+   ],
+   "suppressedPointsSum": -0.2,
+   "suppressedRecords": [
+    {
+     "criterion": "angle_vs_reference__right_knee",
+     "intervalHigh": 25.77,
+     "intervalLow": 12.28,
+     "measuredValue": 20.19,
+     "ruleId": "deviation_within_measurement_error",
+     "sampleSize": 237,
+     "tolerance": 20.0,
+     "wouldBePoints": -0.2
+    }
+   ]
+  },
+  {
+   "advisoryCardCountAfter": 1,
+   "advisoryCardCountBefore": 1,
+   "analysisId": "elbowtwistsisterFault1785373695",
+   "cardCountAfter": 4,
+   "cardCountBefore": 5,
+   "cardCriteriaAfter": [
+    "angle_vs_reference__left_elbow",
+    "angle_vs_reference__right_elbow",
+    "angle_vs_reference__right_shoulder"
+   ],
+   "cardCriteriaBefore": [
+    "angle_vs_reference__left_elbow",
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__right_elbow",
+    "angle_vs_reference__right_shoulder"
+   ],
+   "cardsAdded": [],
+   "cardsAfter": [
+    {
+     "criterion": "angle_vs_reference__left_elbow",
+     "joint": "left_elbow",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": "angle_vs_reference__right_elbow",
+     "joint": "right_elbow",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": "angle_vs_reference__right_shoulder",
+     "joint": "right_shoulder",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": null,
+     "joint": "right_shoulder",
+     "region": null,
+     "tier": "advisory"
+    }
+   ],
+   "cardsBefore": [
+    {
+     "criterion": "angle_vs_reference__left_elbow",
+     "joint": "left_elbow",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": "angle_vs_reference__right_elbow",
+     "joint": "right_elbow",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": "angle_vs_reference__right_shoulder",
+     "joint": "right_shoulder",
+     "region": null,
+     "tier": "confirmed"
+    },
+    {
+     "criterion": null,
+     "joint": "right_shoulder",
+     "region": null,
+     "tier": "advisory"
+    }
+   ],
+   "cardsRemoved": [
+    "angle_vs_reference__left_shoulder"
+   ],
+   "confirmedCardCountAfter": 3,
+   "confirmedCardCountBefore": 4,
+   "executionRawTotalAfter": -27.3,
+   "executionRawTotalBefore": -36.9,
+   "executionRawTotalMoved": -9.6,
+   "failClosedRecords": [],
+   "finalAfter": 73,
+   "finalBefore": 63,
+   "finalDelta": 10,
+   "finalIdentityHolds": true,
+   "headlineAfter": {
+    "criterion": "angle_vs_reference__right_elbow",
+    "points": 12.4,
+    "selectedBy": "max_deduction",
+    "source": "mission",
+    "text": "\uc624\ub978\ucabd \ud314\uafc8\uce58 \uac01\ub3c4\uac00 \uc5d8\ubcf4 \ud2b8\uc704\uc2a4\ud2b8 \uae30\uc900 \uc790\uc138\uc640 \ucc28\uc774\uac00 \uc788\uc5b4\uc694"
+   },
+   "headlineBefore": {
+    "criterion": "angle_vs_reference__right_elbow",
+    "points": 12.4,
+    "selectedBy": "max_deduction",
+    "source": "mission",
+    "text": "\uc624\ub978\ucabd \ud314\uafc8\uce58 \uac01\ub3c4\uac00 \uc5d8\ubcf4 \ud2b8\uc704\uc2a4\ud2b8 \uae30\uc900 \uc790\uc138\uc640 \ucc28\uc774\uac00 \uc788\uc5b4\uc694"
+   },
+   "headlineChanged": false,
+   "intervalCriteria": [
+    "angle_vs_reference__left_elbow",
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__left_knee",
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__right_elbow",
+    "angle_vs_reference__right_hip",
+    "angle_vs_reference__right_knee",
+    "angle_vs_reference__right_shoulder"
+   ],
+   "keptRecordsByteIdentical": true,
+   "mdByteIdentical": true,
+   "motionId": "ref-elbow-twist-sister",
+   "reconstructs": true,
+   "recordCountAfter": 3,
+   "recordCountBefore": 8,
+   "recordCriteriaAfter": [
+    "angle_vs_reference__left_elbow",
+    "angle_vs_reference__right_elbow",
+    "angle_vs_reference__right_shoulder"
+   ],
+   "recordCriteriaBefore": [
+    "angle_vs_reference__left_elbow",
+    "angle_vs_reference__right_elbow",
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__right_shoulder",
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__right_hip",
+    "angle_vs_reference__left_knee",
+    "angle_vs_reference__right_knee"
+   ],
+   "referenceMotionId": "ref-elbow-twist-sister",
+   "sheetRecordInputAfter": 3,
+   "sheetRecordInputBefore": 8,
+   "sheetRendersAfter": true,
+   "sheetRendersBefore": true,
+   "storedDeductionFinal": 63,
+   "storedScore": 63,
+   "suppressedCriteria": [
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__right_hip",
+    "angle_vs_reference__left_knee",
+    "angle_vs_reference__right_knee"
+   ],
+   "suppressedPointsSum": -9.6,
+   "suppressedRecords": [
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "intervalHigh": 22.43,
+     "intervalLow": 16.91,
+     "measuredValue": 20.41,
+     "ruleId": "deviation_within_measurement_error",
+     "sampleSize": 330,
+     "tolerance": 20.0,
+     "wouldBePoints": -0.5
+    },
+    {
+     "criterion": "angle_vs_reference__left_hip",
+     "intervalHigh": 24.01,
+     "intervalLow": 19.66,
+     "measuredValue": 21.86,
+     "ruleId": "deviation_within_measurement_error",
+     "sampleSize": 330,
+     "tolerance": 20.0,
+     "wouldBePoints": -2.2
+    },
+    {
+     "criterion": "angle_vs_reference__right_hip",
+     "intervalHigh": 24.3,
+     "intervalLow": 18.55,
+     "measuredValue": 21.72,
+     "ruleId": "deviation_within_measurement_error",
+     "sampleSize": 330,
+     "tolerance": 20.0,
+     "wouldBePoints": -2.1
+    },
+    {
+     "criterion": "angle_vs_reference__left_knee",
+     "intervalHigh": 24.96,
+     "intervalLow": 18.93,
+     "measuredValue": 21.81,
+     "ruleId": "deviation_within_measurement_error",
+     "sampleSize": 330,
+     "tolerance": 20.0,
+     "wouldBePoints": -2.2
+    },
+    {
+     "criterion": "angle_vs_reference__right_knee",
+     "intervalHigh": 25.43,
+     "intervalLow": 18.52,
+     "measuredValue": 22.14,
+     "ruleId": "deviation_within_measurement_error",
+     "sampleSize": 330,
+     "tolerance": 20.0,
+     "wouldBePoints": -2.6
+    }
+   ]
+  }
+ ],
+ "generatedBy": "backend/evals/realfixture/replay.py --noise-floor-report (quick-260802-nse)",
+ "invariantsHold": true,
+ "limits": [
+  "kip-up \uc758 split_angle \uacfc power-spin \uc758 leg_extension \uc740 \uc774 \ud558\ub124\uc2a4\uac00 \uc560\ucd08\uc5d0 \uc7ac\ud604\ud558\uc9c0 \ubabb\ud558\ub294 record \ub2e4(quick-260802-czw Deviation 1\u00b72) \u2014 \uadf8 fixture \uc758 before/after \ub294 **\uc7ac\ud604\ub41c record \ubc94\uc704 \uc548\uc5d0\uc11c\ub9cc** \uc77d\uc5b4\uc57c \ud558\uace0 \uc800\uc7a5 doc \uc758 79/60 \uacfc \uc9c1\uc811 \ube44\uad50\ud558\uc9c0 \uc54a\ub294\ub2e4.",
+  "elbow-twist \ub9cc RECON 8/8 MATCH \uc778 \ub2e4-record fixture \ub77c \ud310\uc815 \uc790\uaca9\uc774 \uc788\ub2e4.",
+  "\uce74\ub4dc PNG \ud53d\uc140\uc740 \ud569\uc131\uc774\ub77c \ub0b4\uc6a9\uc774 \ubb34\uc758\ubbf8\ud558\ub2e4 \u2014 \uc5ec\uae30\uc11c \uc4f0\ub294 \uac83\uc740 \uc7a5\uc218\uc640 criterion \uc9d1\ud569\ubfd0\uc774\ub2e4.",
+  "\uac10\uc810 \uc2dc\ud2b8\ub294 **\ud589 \uc218\ub97c \uc138\uc9c0 \uc54a\uc558\ub2e4** \u2014 \ub0b8 \uac12\uc740 \uc2dc\ud2b8\uc758 \uc785\ub825(records) \uc218\uc640 \ub80c\ub354 \uc5ec\ubd80(buildRegionSheetView \ub294 records 0 \uc774\uba74 null)\ub2e4. \uc2e4\uc81c \ud589\uc740 buildCauseGroupKeys \ub85c \uc6d0\uc778 \ubb36\uc74c\uc774\ub77c \ud589 \uc218 <= record \uc218\uc774\uace0, \uadf8\uac83\uc744 \ud655\uc778\ud558\ub824\uba74 \uc571\uc744 \ub80c\ub354\ud574\uc57c \ud55c\ub2e4 \u2014 \uc5ec\uae30\uc11c\ub294 \ud558\uc9c0 \uc54a\uc558\ub2e4.",
+  "\uce74\ub4dc **\uc7a5\uc218\ub294 \ub2e8\uc870 \uac10\uc18c\ud558\uc9c0 \uc54a\ub294\ub2e4** \u2014 records \uac00 \ube44\uba74 _build_fault_zoom_comparisons \uac00 criterion_units=None \uc73c\ub85c legacy fault_joints fan-out \uc5d0 \ud3f4\ubc31\ud574(app.py:3507-3512, \uadf8 \uc8fc\uc11d\uc774 \uba85\uc2dc\ud55c \uc124\uacc4) criterion \uc5c6\ub294 confirmed \uce74\ub4dc\ub97c \ub9cc\ub4e0\ub2e4. \uc5b5\uc81c\ub294 \uce74\ub4dc\ub97c \uc5c6\uc560\ub294 \uac83\uc774 \uc544\ub2c8\ub77c **criterion \uc575\ucee4\ub97c \uc783\uac8c** \ud55c\ub2e4 \u2014 \uac10\uc810 0\uc778\ub370 \ud655\ub300 \uce74\ub4dc\uac00 \ub0a8\ub294 \uc870\ud569\uc774 \uc2e4\uc81c\ub85c \ub098\uc628\ub2e4(kip-up 1->2, pdshape 1->1). \ud45c\uc2dc \uc815\ucc45 \ud310\ub2e8 \ub300\uc0c1\uc774\uba70 \uc774 \uc0ac\uc774\ud074\uc740 \uace0\uce58\uc9c0 \uc54a\ub294\ub2e4.",
+  "\ud5e4\ub4dc\ub77c\uc778\uc740 **\uac01\uc778 \ud6c4** result \uc758 mission \uc5d0\uc11c \uc77d\ub294\ub2e4 \u2014 mission \uc740 \uadf8 \uc2dc\uc810 record \ub85c \ub2e4\uc2dc \uc120\uc815\ub418\ubbc0\ub85c \uc800\uc7a5 doc \uc758 mission \uc744 \uc4f0\uba74 \uc5b5\uc81c \uc804\ud6c4\uac00 \uc5b8\uc81c\ub098 \uac19\uac8c \ub098\uc628\ub2e4.",
+  "mode3 \uacbd\ub85c\u00b7ipsf_absolute \uad6c\uac04 \uc720\ub3c4\u00b7\uc2e4\uae30\uae30 \ud45c\uc2dc\ub294 \uc774 \uc0b0\ucd9c\ubb3c\uc758 \ubc94\uc704 \ubc16\uc774\ub2e4."
+ ],
+ "minSampleSize": 6,
+ "studentAnglesFps": 9,
+ "violations": []
+}

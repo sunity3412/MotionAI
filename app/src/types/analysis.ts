@@ -801,6 +801,27 @@ export interface DeductionBreakdown {
   criticalTotal?: number; // Σ|치명| (집계캡·관절캡 우회, SIGNED NEGATIVE)
   executionCap?: number; // 40 — 실행 감점 집계 상한 (IPSF 총합상한 비례환산)
   scoreFloor?: number; // 25 — 채점 도달 영상 절대 점수 바닥
+  // quick-260802-nse — **방출되지 않은 감점의 내역** (records 가 아니다: 점수 기여 0).
+  // 억제가 실제로 일어난 doc 에만 실리는 additive optional. 렌더링은 아직 없다 —
+  // 표시 추가는 belle 승인 사안이라 이 사이클은 타입만 미러한다.
+  // Python lockstep = models.DEDUCTION_BREAKDOWN_OPTIONAL_KEYS + docs/contract.md §10.
+  suppressedRecords?: SuppressedDeductionRecord[];
+}
+
+// quick-260802-nse — 감점 record 가 하는 단정("이 관절의 편차가 허용치를 넘는다")이
+// 그 값 자신의 median 신뢰구간 안에서 성립하지 않아 **방출되지 않은** 감점.
+// 얼마를 왜 빼지 않았는지가 남아야 점수 이동을 산술로 되짚을 수 있다(투명 합산).
+// 재구성 항등식: Σ wouldBePoints == executionRawTotal(억제 없음) − executionRawTotal(억제).
+// Python lockstep = models.SUPPRESSED_RECORD_KEYS + docs/contract.md §10.
+export interface SuppressedDeductionRecord {
+  criterion: string;
+  measuredValue: number; // 그 record 가 주장하던 값 (deg)
+  tolerance: number; // 허용치 (deg)
+  intervalLow: number; // median 신뢰구간 하한 — 억제 판정은 intervalLow <= tolerance
+  intervalHigh: number; // median 신뢰구간 상한
+  sampleSize: number; // 구간을 만든 표본수 (관측치, 0 = 미제공)
+  wouldBePoints: number; // 방출됐다면 들어갔을 감점 (SIGNED NEGATIVE)
+  ruleId: 'deviation_within_measurement_error';
 }
 
 // IN-01 (quick-260724-q6b) — 역립/자기가림 저신뢰 자세에서 per-joint 귀속(어느 관절이

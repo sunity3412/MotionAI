@@ -119,6 +119,52 @@ class DeductionRecord:
         return d
 
 
+# quick-260802-nse — 측정 불확실도 안에서 성립하지 않는 단정은 방출하지 않는다.
+# record 가 하는 주장은 "이 관절의 편차가 허용치를 넘는다" 하나다. 그 주장을 그 값
+# 자신의 median 신뢰구간으로 검정해, **구간 하한이 허용치 이하**면 그 record 를
+# 방출하지 않는다(= 허용치 초과가 측정 오차 안에서 성립하지 않는다).
+#
+# 이것은 밴드가 아니다 — 살아남는 record 의 points 는 종전과 byte-동일하고, 문턱은
+# 오직 **방출 여부**만 가른다. 감점의 크기를 깎는 것(over 에서 floor 를 빼는 것)은
+# 밴드이므로 하지 않는다([[scoring-must-be-transparent-deduction-tally]]).
+#
+# 억제된 감점은 지워지지 않고 suppressed_records 에 크기(wouldBePoints)와 함께 남아
+# 점수 이동을 산술로 되짚을 수 있다(belle 투명 합산 원칙).
+SUPPRESSION_RULE_ID = "deviation_within_measurement_error"
+
+
+@dataclass(frozen=True)
+class SuppressedRecord:
+    """방출되지 않은 감점의 내역 (quick-260802-nse).
+
+    record 가 아니다 — 점수에 기여하지 않는다. "얼마를 왜 빼지 않았는가"를 doc 만
+    보고 되짚기 위한 flat scalar 항목이다. would_be_points 는 방출됐다면 들어갔을
+    바로 그 값(per-record 상한 적용 후, signed-negative).
+    """
+
+    criterion: str
+    measured_value: float
+    tolerance: float
+    interval_low: float
+    interval_high: float
+    sample_size: int
+    would_be_points: float  # signed-negative
+    rule_id: str = SUPPRESSION_RULE_ID
+
+    def to_dict(self) -> dict:
+        """flat camelCase dict (models.SUPPRESSED_RECORD_KEYS, scalar only)."""
+        return {
+            "criterion": self.criterion,
+            "measuredValue": self.measured_value,
+            "tolerance": self.tolerance,
+            "intervalLow": self.interval_low,
+            "intervalHigh": self.interval_high,
+            "sampleSize": self.sample_size,
+            "wouldBePoints": self.would_be_points,
+            "ruleId": self.rule_id,
+        }
+
+
 @dataclass(frozen=True)
 class DeductionBreakdown:
     """감점-합산 결과 OBJECT (HIGH-1). final = max(0, round(100 + Σ record.points)) —
@@ -140,6 +186,11 @@ class DeductionBreakdown:
     critical_total: float | None = None
     execution_cap: float | None = None
     score_floor: float | None = None
+    # quick-260802-nse: 측정 불확실도 안이라 방출하지 않은 감점의 내역.
+    # default 빈 tuple 이라 기존 생성부 전부 무수정 호환. to_dict 는 **비어 있으면
+    # 키 자체를 생략** — rawPoints/capApplied/executionCap 가 이미 만든
+    # additive-optional 패턴 그대로(구 doc·구 앱 무영향).
+    suppressed_records: tuple = ()
 
     def to_dict(self) -> dict:
         """OBJECT {baseline, records, final, coverageGaps, fallback [+2트랙 집계]} —
@@ -159,6 +210,10 @@ class DeductionBreakdown:
             d["criticalTotal"] = self.critical_total
             d["executionCap"] = self.execution_cap
             d["scoreFloor"] = self.score_floor
+        if self.suppressed_records:
+            # quick-260802-nse — 억제가 실제로 일어난 doc 에만 실린다. 재구성 항등식:
+            # Σ wouldBePoints == executionRawTotal(억제 없음) − executionRawTotal(억제).
+            d["suppressedRecords"] = [s.to_dict() for s in self.suppressed_records]
         return d
 
     def to_records(self) -> list:
@@ -219,6 +274,7 @@ def tally(
     dimension_scores,
     baseline_kind,
     criterion_groups=ipsf_criteria.CRITERION_GROUPS,
+    measurement_error=None,
 ):
     """측정-기하 substrate → 투명 감점-합산 DeductionBreakdown.
 
@@ -234,6 +290,17 @@ def tally(
       dimension_scores: per-dimension 점수(예약 — 현 경로 미사용).
       baseline_kind: per-move baseline string(floor|pole_vertical|hip_line) — record 라벨 +
         reach notch 편차 구동(ND-05). 엔진은 profile 을 받지 않는다(no NameError surface).
+      measurement_error: `{criterion_id: (L, U)}` — 그 criterion 의 measuredValue 를 만든
+        표본에서 유도한 median 신뢰구간(quick-260802-nse, analysis.measurement_error).
+        `L <= tolerance` 면 그 record 를 **방출하지 않는다** — "허용치를 넘는다"는 단정이
+        그 값 자신의 측정 불확실도 안에서 성립하지 않기 때문이다. 억제된 감점은 크기와
+        함께 `DeductionBreakdown.suppressed_records` 에 남는다.
+
+        **엔진은 관절 이름을 파싱하지 않는다** — criterion id 로만 조회한다(동작명 분기 0).
+        **fail-closed**: None / 키 부재 / (L,U) 비유한·형상불량은 전부 종전대로 감점.
+        "구간을 못 구했다"를 "감점 0"으로 번역하지 않는다.
+        **기본 off byte-동일**: None(기본)이면 산출이 이 인자 도입 이전과 키·값 모두 같다
+        (`suppressedRecords` 키 자체가 없다).
     """
     md = measured_deviations or {}
     crit_by_id = {c["id"]: c for c in criterion_groups}
@@ -354,6 +421,7 @@ def tally(
 
     # (3)-(8) per-criterion 감점 누적.
     records: list[DeductionRecord] = []
+    suppressed: list[SuppressedRecord] = []
     for cid in _ordered(activated, criterion_groups):
         crit = crit_by_id.get(cid)
         if crit is None:
@@ -383,6 +451,27 @@ def tally(
             # 취급(필드 생략).
             cap_hit = capped_r > PER_RECORD_DEDUCTION_CAP
             points_val = PER_RECORD_DEDUCTION_CAP if cap_hit else capped_r
+
+        # ── quick-260802-nse: 방출 직전 억제 판정 ───────────────────────────
+        # 여기가 유일하게 옳은 자리다. 더 앞(md 생산·activated 구성)에서 가르면
+        # cross-exclusion 의 입력이 바뀌어 다른 record 가 **되살아나** 점수가 내려갈
+        # 수 있고, 더 뒤(points 계산)에서 가르면 감점의 크기를 깎는 밴드가 된다.
+        # 여기서 가르면 activated/cross-exclusion 은 byte-불변이고 살아남는 record 의
+        # points 도 byte-불변이다 — 문턱은 오직 방출 여부만 가른다.
+        _ci = _measurement_interval(measurement_error, cid)
+        if _ci is not None and _ci[0] <= crit["tolerance"]:
+            lo, hi, n_samples = _ci
+            suppressed.append(SuppressedRecord(
+                criterion=cid,
+                measured_value=round(measured_value, 2),
+                tolerance=float(crit["tolerance"]),
+                interval_low=round(lo, 2),
+                interval_high=round(hi, 2),
+                sample_size=n_samples,
+                would_be_points=-points_val,  # 방출됐다면 들어갔을 바로 그 값
+            ))
+            continue
+
         rec_baseline_kind = baseline_kind if cid == "body_relative_reach" else None
         records.append(DeductionRecord(
             criterion=cid,
@@ -415,7 +504,42 @@ def tally(
         execution_raw_total=exec_raw, execution_capped_total=exec_capped,
         critical_total=crit_total, execution_cap=EXECUTION_DEDUCTION_CAP,
         score_floor=SCORE_FLOOR,
+        suppressed_records=tuple(suppressed),
     )
+
+
+def _measurement_interval(measurement_error, cid):
+    """`measurement_error[cid]` → `(L, U, sample_size)` | None (quick-260802-nse).
+
+    **fail-closed 전부** — dict 아님 / 키 부재 / 형상 불량 / 비유한 / L>U 는 전부
+    None 을 돌려 그 criterion 이 **종전대로 감점**되게 한다. "구간을 못 구했다"를
+    "감점 0"으로 번역하지 않는다.
+
+    항목은 `(L, U)` 또는 `(L, U, n)`. n(표본수)은 억제 내역 재구성용 관측치일 뿐
+    판정에 쓰이지 않으므로 부재 시 0(미제공)으로 둔다 — 프로덕션 배선은 항상 3원소를
+    넘긴다(builder 참조). 조회는 **criterion id 로만** 한다: 엔진은 관절 이름을 파싱하지
+    않는다(동작명 분기 0).
+    """
+    if not isinstance(measurement_error, dict):
+        return None
+    item = measurement_error.get(cid)
+    if item is None or isinstance(item, (str, bytes, dict)):
+        return None
+    try:
+        parts = tuple(item)
+    except TypeError:
+        return None
+    if len(parts) < 2:
+        return None
+    lo = _finite(parts[0])
+    hi = _finite(parts[1])
+    if lo is None or hi is None or lo > hi:
+        return None
+    n = 0
+    if len(parts) >= 3:
+        n_val = _finite(parts[2])
+        n = int(n_val) if n_val is not None and n_val >= 0 else 0
+    return lo, hi, n
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────

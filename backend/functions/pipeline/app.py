@@ -2389,7 +2389,7 @@ def _build_deduction_measured_deviations(
     reference_dtw_match=None, reference_angles=None, split_deficit_deg=None,
     vision_pointed_joints=None, seed_audit_out=None, alignment_visibility=None,
     alignment_visibility_measured=True, vision_status=None, measured_at_out=None,
-    frame_confidence=None,
+    frame_confidence=None, measurement_error_out=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2448,10 +2448,37 @@ def _build_deduction_measured_deviations(
         표시 게이트(`fault_zoom._KP_CONF_MIN`)는 읽지도 바꾸지도 않는다. None(default)
         = 이 사이클 이전과 완전히 같은 산출(테스트·mode3·legacy 무회귀).
 
+      · measurement_error_out: dict 전달 시 `{criterion_id: (L, U, n)}` 기록
+        (quick-260802-nse). 그 criterion 의 measuredValue 를 만든 표본에서 유도한
+        median 신뢰구간 + 표본수. `deduction_engine.tally(measurement_error=)` 가
+        이것을 읽어 "허용치를 넘는다"는 단정이 측정 불확실도 안에서 성립하지 않는
+        record 를 방출하지 않는다.
+
+        **채우는 criterion 은 DTW-fallback 경로의 angle_vs_reference__{jk} 하나뿐이다.**
+        나머지는 전부 fail-closed(항목 부재 = 종전대로 감점):
+          - window 경로 angle_vs_reference: 추정량이 다르다 — 학생 window median 과
+            기준 window median 의 **차**이지 차이의 median 이 아니다. 게다가 표본이
+            최대 2*window+1 개라 분포무관 구간의 최소표본에 구조적으로 미달한다
+            (measurement_error.min_sample_size — 방법 자신이 못 묶는다고 선언한다).
+          - split_angle: 표본이 없다(vision 주입 추정 또는 peak).
+          - leg_extension / arm_extension / line: 다른 추정량(_select_window 창 집계)
+            이라 별도 유도가 필요하다 — 이번 사이클 범위 밖.
+          - body_relative_reach: 시계열이 없다.
+          - dimension_overall_fallback: 편차가 아니라 whole-score 다.
+
+        n(표본수) = len(path). 방출된 관절은 per_joint_deviation 이 유한값을 냈다는
+        뜻이고 np.median 은 NaN 을 전파하므로, 그 관절의 열은 전부 유한하다 →
+        유한 표본수 == len(path). (NaN 이 하나라도 있으면 편차가 NaN 이 되어
+        _emit_reference_relative 가 방출 자체를 막는다.)
+
+        **md 는 절대 mutate 하지 않는다** — seed_audit_out/measured_at_out 과 정확히
+        같은 선례·같은 보장. 실패는 예외가 아니라 항목 부재로만 반영한다.
+
     반환값(md)은 33-NEXT 마커 배선 전후로 byte-동일 — 마커는 seed_audit_out 에만 기록되고
     md 를 절대 변경하지 않는다(magnitude-neutral 보장, D-20/D-29). measured_at_out 도
     동일 — 전달 유무와 무관하게 md 는 키·값 모두 같다. frame_confidence 도 동일 —
-    표시 프레임만 움직이고 점수 substrate 는 그 존재를 모른다.
+    표시 프레임만 움직이고 점수 substrate 는 그 존재를 모른다. measurement_error_out 도
+    동일 — 구간은 md 를 읽지도 쓰지도 않고 out-param 에만 기록된다.
     """
     from sunity_shared.analysis import dimensions
     from sunity_shared.analysis import moment as _moment
@@ -2640,6 +2667,9 @@ def _build_deduction_measured_deviations(
     # quick-260801-gbk: 같은 path 를 sibling 으로 한 번 더 훑어 관절별 대표 프레임.
     # per_joint_deviation 본체는 SHA-256 박제라 반환값 확장이 불가능하다.
     dtw_frame_by_joint: dict = {}
+    # quick-260802-nse: 같은 표본에서 median 의 신뢰구간. 같은 path/user_seg/
+    # reference_angles 를 이미 손에 쥔 자리에서만 낸다(추가 정렬 계산 0).
+    dtw_ci_by_joint: dict = {}
     if reference_dtw_match is not None and reference_angles is not None and angles is not None:
         try:
             path = getattr(reference_dtw_match, "path", None)
@@ -2652,6 +2682,21 @@ def _build_deduction_measured_deviations(
                 dev = per_joint_deviation(path, user_seg, reference_angles)
                 for i, jk in enumerate(JOINT_KEYS):
                     dtw_by_joint[jk] = float(dev[i])
+                if isinstance(measurement_error_out, dict):
+                    try:
+                        from sunity_shared.analysis import measurement_error as _mer
+
+                        _cis = _mer.per_joint_median_ci(
+                            path, user_seg, reference_angles
+                        )
+                        _n = len(path)
+                        for i, jk in enumerate(JOINT_KEYS):
+                            if i in _cis:
+                                dtw_ci_by_joint[jk] = (
+                                    _cis[i][0], _cis[i][1], _n,
+                                )
+                    except Exception:  # noqa: BLE001 — 구간 실패는 항목 부재(fail-closed)
+                        dtw_ci_by_joint = {}
                 if isinstance(measured_at_out, dict):
                     try:
                         _reps = per_joint_representative_frames(
@@ -2666,6 +2711,7 @@ def _build_deduction_measured_deviations(
         except Exception:  # noqa: BLE001 — 형상 mismatch/예외는 honest skip(reference_relative 미방출)
             dtw_by_joint = {}
             dtw_frame_by_joint = {}
+            dtw_ci_by_joint = {}
 
     def _window_moment_frame(jk):
         """pointed 관절의 순간 = window 안에서 student_deg 에 가장 가까운 프레임.
@@ -2726,6 +2772,13 @@ def _build_deduction_measured_deviations(
                 _record_moment(
                     f"angle_vs_reference__{jk}", dtw_frame_by_joint.get(jk)
                 )
+                # quick-260802-nse — **방출된 DTW-fallback 관절에만** 구간을 남긴다.
+                # window 경로 관절(위 분기)에는 남기지 않는다: 추정량이 다르고 표본이
+                # 최소표본에 구조적으로 미달한다(fail-closed → 종전대로 감점).
+                if isinstance(measurement_error_out, dict) and jk in dtw_ci_by_joint:
+                    measurement_error_out[f"angle_vs_reference__{jk}"] = (
+                        dtw_ci_by_joint[jk]
+                    )
 
     # 4. 관찰 가능성 — 어느 경로가 감점 seed 를 만들었는지 로그 + eval audit 만
     #    (contract/Firestore 스키마 불변 — record source 는 기존 geometry 표기 유지).
@@ -2800,6 +2853,7 @@ def _apply_vision_veto(
     quantification=None,
     measured_deviations=None,
     baseline_kind: str = "hip_line",
+    measurement_error=None,
 ) -> dict:
     """v2 비전 채점 seam — reference-anchored 투명 감점-합산 (Phase 24 ND-01, 밴드 제거).
 
@@ -2836,6 +2890,7 @@ def _apply_vision_veto(
         return _apply_vision_veto_from_context(
             score_result, vision_fault_context, quantification,
             measured_deviations=measured_deviations, baseline_kind=baseline_kind,
+            measurement_error=measurement_error,
         )
 
     try:
@@ -2915,6 +2970,7 @@ def _apply_vision_veto(
 def _apply_vision_veto_from_context(
     score_result: dict, ctx, quantification,
     *, measured_deviations=None, baseline_kind: str = "hip_line",
+    measurement_error=None,
 ) -> dict:
     """context 제공 경로 — Gemini 미호출, verdict 재사용 + deduction tally + to_audit_dict (D-12 HIGH-1).
 
@@ -2940,6 +2996,10 @@ def _apply_vision_veto_from_context(
     tally 를 실행해 deductionBreakdown 을 방출한다 — 단 status 는 'mode3_held' 를
     유지한다(vision 비교는 여전히 보류라는 진실 신호). md 빈 dict 는 기존 passthrough
     (미방출 + 점수 byte-불변). production 노출은 29-05 sweep 게이트 후.
+
+    quick-260802-nse: measurement_error(criterion별 median 신뢰구간)는 **mode1 정렬
+    경로에만** 전달한다. mode3 분기(아래 mode3_held tally)에는 넘기지 않는다 — 기준
+    DTW 표본이 없어 구간을 유도할 대상이 애초에 없다(fail-closed).
     """
     from sunity_shared.analysis import vision_veto
     from sunity_shared.analysis import deduction_engine  # lazy — pure, no adapter
@@ -3036,6 +3096,7 @@ def _apply_vision_veto_from_context(
             measured_deviations=measured_deviations,
             dimension_scores=score_result.get("dimensionScores"),
             baseline_kind=baseline_kind,
+            measurement_error=measurement_error,
         )
         # 측정 감점 record 가 있으면 applied(final<dimension_overall 가능). 없으면 not_applicable
         # (측정 감점 0 AND Gemini-located criterion 0 — 점수 불변). TRUST-08 무음실패 방지:
@@ -6061,6 +6122,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 _frame_confidence = joint_confidence_from_pose_frames(pose_frames)
             except Exception:  # noqa: BLE001 — 신뢰도 미상 = 동점 판정 없이 종전 선택
                 _frame_confidence = None
+            # quick-260802-nse — criterion별 median 신뢰구간을 builder 가 채우고
+            # tally 가 읽는다. 빈 dict 면 억제 0(전 criterion 종전대로 감점).
+            _measurement_error: dict = {}
             measured_deviations = _build_deduction_measured_deviations(
                 angles=angles,
                 profile=profile,
@@ -6079,6 +6143,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 vision_status=_vision_status,
                 measured_at_out=measured_at,
                 frame_confidence=_frame_confidence,
+                measurement_error_out=_measurement_error,
             )
             result = _apply_vision_veto(
                 result,
@@ -6091,6 +6156,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 quantification=quantification,
                 measured_deviations=measured_deviations,
                 baseline_kind=baseline_kind,
+                measurement_error=_measurement_error,
             )
             # 33-NEXT — 저신뢰-광범위-다관절 귀속 마커를 result 에 실어 다운스트림
             # (coach/앱 표현)이 per-joint 단정을 회피하게 한다(belle DECISION 1). record/

@@ -2396,6 +2396,9 @@ def build_fault_zoom_comparisons(
       기준(정은지) 측도 마킹(원, legs 사이각은 양측 모두 가능할 때만 둘 다).
       None(default) = legacy 경로 byte-보존 (D-04 정직 폴백 refMatch='failed' 유지 —
       mode1 record 부재 doc·advisory 배치·기존 테스트 하위호환).
+      quick-260802-tie: 이 경로만 `refMarked` scalar 를 방출한다 — ③ 이 실제로
+      성립했는지(기준 패널에 표시가 그려졌는지)를 그리는 코드가 인증한 값.
+      legacy 경로는 게이트 B 로 기준측 무마킹이 정책이라 판정 대상이 아니다(키 부재).
     stamp_ref (33-12 A-5, 6R 규칙 3 — 07-25 "기준측 초 제거"의 belle amendment):
       True 면 기준(정은지) 패널에도 실영상 초 타임스탬프를 찍는다. 회전류 동작은
       프레임이 비슷해 초가 유일한 프레임 구분자 — 회전류 판정은 호출측(pipeline)이
@@ -2889,6 +2892,7 @@ def build_fault_zoom_comparisons(
             # 해석되고, 선언이 없으면 그 카드의 각도는 0 (L-7, §C-4 주석 채움 대기).
             # copy-then-commit — 위 legs both-or-neither 패턴 그대로(부분 드로잉 0).
             u_drew_angle = False
+            r_drew_angle = False
             angle_reason = "unmapped"
             if (
                 unit.criterion is not None
@@ -2921,13 +2925,18 @@ def build_fault_zoom_comparisons(
                         angle_reason = "ref_gate"
                     else:
                         u_try, r_try = u_img.copy(), r_img.copy()
-                        if _draw_side_joint_angle(
-                            u_try, u_frame, u_spec, u_box
-                        ) and _draw_side_joint_angle(
+                        # quick-260802-tie: 두 드로잉 결과를 **각각 이름으로 받는다** —
+                        # 기준 패널에 실제로 그려졌는지를 `u_drew_angle` 이라는 학생측
+                        # 이름으로 추론하지 않기 위해서다(그리는 코드가 인증한다).
+                        # `and` 단락 평가 순서·호출 횟수는 종전과 같다.
+                        _u_ok = _draw_side_joint_angle(u_try, u_frame, u_spec, u_box)
+                        _r_ok = _u_ok and _draw_side_joint_angle(
                             r_try, r_frame, r_spec, r_box
-                        ):
+                        )
+                        if _u_ok and _r_ok:
                             u_img, r_img = u_try, r_try
                             u_drew_angle = True
+                            r_drew_angle = True
                         else:
                             angle_reason = "degenerate"
             log.info(
@@ -2977,9 +2986,13 @@ def build_fault_zoom_comparisons(
             # (앵커 = 결함 관절), legs 선+호는 위 both-or-neither 에서 처리. relaxed
             # 는 anchor_px=None 생략 게이트 유지(확신 없는 표식 금지). legacy 카드는
             # 종전 게이트 B(무마킹) byte-보존.
+            r_drew_circle = False
             if unit.criterion is not None and not r_drew_legs and not u_drew_angle:
+                # `_mark` 는 circle=False 면 아무것도 그리지 않는다 — 그 인자를 그대로
+                # 인증값으로 쓴다(quick-260802-tie: 픽셀을 되읽어 추측하지 않는다).
+                r_drew_circle = r_kind == "valid"
                 r_img = _mark(
-                    r_img, circle=r_kind == "valid", anchor_px=r_anchor
+                    r_img, circle=r_drew_circle, anchor_px=r_anchor
                 )
             # 타임스탬프 (belle #3 요구 4 → belle ④ 2026-07-28 개정 → 6R amendment
             # 2026-07-28): 학생 패널 상시. 기준(정은지) 패널은 **stamp_ref(회전류)**
@@ -3023,6 +3036,22 @@ def build_fault_zoom_comparisons(
         # 비디오 9fps 공간은 다른 축이다).
         if unit.at_frame_idx is not None and u_idx_unit == unit.at_frame_idx:
             item["atMatched"] = True
+        # quick-260802-tie — 기준(정은지) 패널에 **표시가 하나라도 그려졌는지**를
+        # 그리는 코드가 직접 인증한다. 비교 카드인데 비교 대상 쪽이 빈 채로 아무 말
+        # 없이 나가는 것을 앱이 한 줄로 알릴 수 있게 하는 유일한 근거다 — 앱이 PNG
+        # 픽셀을 보고 추측하면 판정이 렌더 배경에 의존하게 된다.
+        #
+        # 세 경로 중 하나라도 그렸으면 True: 다리 사이각(both-or-neither) · 관절
+        # 각도 베이크(양측 대칭) · 원 마커(`_mark(circle=True)`). 셋 다 아니면 기준
+        # 패널은 crop 사진만 있다 — 게이트(_KP_CONF_MIN / _pt_in_crop / 앵커 미선언)가
+        # fail-closed 로 닫힌 정상 동작이고, 이 필드는 그 사실을 말할 뿐 게이트를
+        # 열지 않는다.
+        #
+        # **criterion 카드에만 방출한다.** legacy/advisory 카드는 게이트 B 로 기준측을
+        # 애초에 마킹하지 않는 **정책**이라, false 를 실으면 앱이 "게이트가 닫혔다"는
+        # 없는 이유를 말하게 된다. 판정 대상이 아닌 카드는 필드 부재 = 앱 종전대로.
+        if unit.criterion is not None:
+            item["refMarked"] = bool(r_drew_legs or r_drew_angle or r_drew_circle)
         # F-3 실영상 초 (quick-260730-l7t) — paircap 초 표기(S6) + 참고코너 페어
         # 정합. **rep 인덱스(userFrameIdx/refFrameIdx)로 초를 재계산 금지** — 두
         # 값은 별개 축이다(rep 공간 vs 비디오 9fps 공간). 3-way lockstep:

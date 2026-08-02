@@ -3334,6 +3334,13 @@ def _render_fault_zoom(
             # TS lockstep: FaultZoomComparison.atMatched? + contract.md §11.
             if isinstance(c.get("atMatched"), bool):
                 item["atMatched"] = c["atMatched"]
+            # quick-260802-tie — refMarked pass-through (refMatched 선례 동일 형식).
+            # 이 매퍼는 화이트리스트라 여기 없으면 앱이 "기준 패널에 표시 없음"을
+            # 영영 못 본다. bool scalar 라 flat 제약 통과. atMatched 와 달리 False 도
+            # 실어야 한다 — 앱이 알려야 하는 값이 바로 False 쪽이다.
+            # TS lockstep: FaultZoomComparison.refMarked? + contract.md §11.9.
+            if isinstance(c.get("refMarked"), bool):
+                item["refMarked"] = c["refMarked"]
             # F-3 (quick-260730-l7t) — 두 패널 실영상 초 pass-through (region/
             # refMatch 선례와 동일 조건부 복사). float scalar 라
             # _validate_dict_only_scalars flat 제약 통과. 부재(legacy doc·기준

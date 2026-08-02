@@ -1,0 +1,515 @@
+{
+ "generatedBy": "app/scripts/pull-real-fixtures.mjs (quick-260802-czw)",
+ "fetchedAt": "2026-08-02T00:45:42.342Z",
+ "credentialMode": "serviceAccount:/Users/kimtaesung/Dev/SunityMotion/firebase-sa.json",
+ "sourceUid": "csKWYvI3WCPYPysNQ9KkWecaUvq1",
+ "strippedPaths": [
+  "powerspinFault1785373695:result.referenceVideoUrl",
+  "powerspinFault1785373695:result.myVideoUrl",
+  "powerspinFault1785373695:result.faultZoomComparisons[0].imageUrl",
+  "powerspinFault1785373695:result.faultZoomComparisons[1].imageUrl",
+  "powerspinFault1785373695:result.faultZoomComparisons[2].imageUrl",
+  "powerspinFault1785373695:result.faultZoomComparisons[3].imageUrl",
+  "kipupFault1785373695:result.referenceVideoUrl",
+  "kipupFault1785373695:result.myVideoUrl",
+  "kipupFault1785373695:result.faultZoomComparisons[0].imageUrl",
+  "kipupFault1785373695:result.faultZoomComparisons[1].imageUrl",
+  "pdshapeCorrect1785373695:result.referenceVideoUrl",
+  "pdshapeCorrect1785373695:result.myVideoUrl",
+  "pdshapeCorrect1785373695:result.faultZoomComparisons[0].imageUrl",
+  "elbowtwistsisterFault1785373695:result.referenceVideoUrl",
+  "elbowtwistsisterFault1785373695:result.myVideoUrl",
+  "elbowtwistsisterFault1785373695:result.faultZoomComparisons[0].imageUrl",
+  "elbowtwistsisterFault1785373695:result.faultZoomComparisons[1].imageUrl",
+  "elbowtwistsisterFault1785373695:result.faultZoomComparisons[2].imageUrl",
+  "elbowtwistsisterFault1785373695:result.faultZoomComparisons[3].imageUrl",
+  "elbowtwistsisterFault1785373695:result.faultZoomComparisons[4].imageUrl",
+  "reference/ref-power-spin:videoUrl",
+  "reference/ref-kip-up:videoUrl",
+  "reference/ref-pdshape:videoUrl",
+  "reference/ref-elbow-twist-sister:videoUrl"
+ ],
+ "analyses": [
+  {
+   "analysisId": "powerspinFault1785373695",
+   "docPath": "users/csKWYvI3WCPYPysNQ9KkWecaUvq1/analyses/powerspinFault1785373695",
+   "bytes": 299531,
+   "mode": "mode1",
+   "referenceMotionId": "ref-power-spin",
+   "overallScore": 60,
+   "visionVetoStatus": "applied",
+   "motionId": "ref-power-spin",
+   "anglesFrames": 83,
+   "anglesJointKeys": 8,
+   "keypointReport": {
+    "fps": 18,
+    "frames": 166,
+    "joints": 12
+   },
+   "joints3d": {
+    "keys": 0,
+    "frames": null
+   },
+   "anglesFps": 9,
+   "deductionFinal": 60,
+   "sourceRecordCriteria": [
+    {
+     "criterion": "leg_extension",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 79.34,
+     "baselineValue": 180,
+     "points": -20,
+     "ruleId": "leg_extension_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "split_angle",
+     "source": "vision",
+     "unit": "deg",
+     "measuredValue": 30,
+     "baselineValue": 0,
+     "points": -12,
+     "ruleId": "split_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 30.67,
+     "baselineValue": 0,
+     "points": -12.8,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    }
+   ],
+   "sourceCardFrames": [
+    {
+     "criterion": "leg_extension",
+     "joint": "left_hip",
+     "tier": "confirmed",
+     "region": "legs",
+     "userFrameIdx": 38,
+     "refFrameIdx": 36,
+     "atMatched": null
+    },
+    {
+     "criterion": "split_angle",
+     "joint": "left_hip",
+     "tier": "confirmed",
+     "region": "legs",
+     "userFrameIdx": 38,
+     "refFrameIdx": 36,
+     "atMatched": null
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "tier": "confirmed",
+     "region": null,
+     "userFrameIdx": 38,
+     "refFrameIdx": 36,
+     "atMatched": null
+    },
+    {
+     "criterion": null,
+     "joint": "left_elbow",
+     "tier": "advisory",
+     "region": null,
+     "userFrameIdx": 38,
+     "refFrameIdx": 36,
+     "atMatched": null
+    }
+   ]
+  },
+  {
+   "analysisId": "kipupFault1785373695",
+   "docPath": "users/csKWYvI3WCPYPysNQ9KkWecaUvq1/analyses/kipupFault1785373695",
+   "bytes": 250398,
+   "mode": "mode1",
+   "referenceMotionId": "ref-kip-up",
+   "overallScore": 79,
+   "visionVetoStatus": "applied",
+   "motionId": "ref-kip-up",
+   "anglesFrames": 68,
+   "anglesJointKeys": 8,
+   "keypointReport": {
+    "fps": 18,
+    "frames": 136,
+    "joints": 12
+   },
+   "joints3d": {
+    "keys": 0,
+    "frames": null
+   },
+   "anglesFps": 9,
+   "deductionFinal": 79,
+   "sourceRecordCriteria": [
+    {
+     "criterion": "split_angle",
+     "source": "vision",
+     "unit": "deg",
+     "measuredValue": 50,
+     "baselineValue": 0,
+     "points": -20,
+     "ruleId": "split_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 20.67,
+     "baselineValue": 0,
+     "points": -0.8,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    }
+   ],
+   "sourceCardFrames": [
+    {
+     "criterion": "split_angle",
+     "joint": "left_knee",
+     "tier": "confirmed",
+     "region": "legs",
+     "userFrameIdx": 16,
+     "refFrameIdx": 20,
+     "atMatched": null
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "tier": "confirmed",
+     "region": null,
+     "userFrameIdx": 16,
+     "refFrameIdx": 20,
+     "atMatched": null
+    }
+   ]
+  },
+  {
+   "analysisId": "pdshapeCorrect1785373695",
+   "docPath": "users/csKWYvI3WCPYPysNQ9KkWecaUvq1/analyses/pdshapeCorrect1785373695",
+   "bytes": 534908,
+   "mode": "mode1",
+   "referenceMotionId": "ref-pdshape",
+   "overallScore": 100,
+   "visionVetoStatus": "applied",
+   "motionId": "ref-pdshape",
+   "anglesFrames": 159,
+   "anglesJointKeys": 8,
+   "keypointReport": {
+    "fps": 18,
+    "frames": 318,
+    "joints": 12
+   },
+   "joints3d": {
+    "keys": 0,
+    "frames": null
+   },
+   "anglesFps": 9,
+   "deductionFinal": 100,
+   "sourceRecordCriteria": [
+    {
+     "criterion": "angle_vs_reference__right_knee",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 20.19,
+     "baselineValue": 0,
+     "points": -0.2,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    }
+   ],
+   "sourceCardFrames": [
+    {
+     "criterion": null,
+     "joint": "right_shoulder",
+     "tier": "advisory",
+     "region": null,
+     "userFrameIdx": 104,
+     "refFrameIdx": 166,
+     "atMatched": null
+    }
+   ]
+  },
+  {
+   "analysisId": "elbowtwistsisterFault1785373695",
+   "docPath": "users/csKWYvI3WCPYPysNQ9KkWecaUvq1/analyses/elbowtwistsisterFault1785373695",
+   "bytes": 617357,
+   "mode": "mode1",
+   "referenceMotionId": "ref-elbow-twist-sister",
+   "overallScore": 63,
+   "visionVetoStatus": "applied",
+   "motionId": "ref-elbow-twist-sister",
+   "anglesFrames": 180,
+   "anglesJointKeys": 8,
+   "keypointReport": {
+    "fps": 18,
+    "frames": 360,
+    "joints": 12
+   },
+   "joints3d": {
+    "keys": 0,
+    "frames": null
+   },
+   "anglesFps": 9,
+   "deductionFinal": 63,
+   "sourceRecordCriteria": [
+    {
+     "criterion": "angle_vs_reference__left_elbow",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 23.15,
+     "baselineValue": 0,
+     "points": -3.8,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "angle_vs_reference__right_elbow",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 30.29,
+     "baselineValue": 0,
+     "points": -12.4,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 20.41,
+     "baselineValue": 0,
+     "points": -0.5,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "angle_vs_reference__right_shoulder",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 29.22,
+     "baselineValue": 0,
+     "points": -11.1,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "angle_vs_reference__left_hip",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 21.86,
+     "baselineValue": 0,
+     "points": -2.2,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "angle_vs_reference__right_hip",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 21.72,
+     "baselineValue": 0,
+     "points": -2.1,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "angle_vs_reference__left_knee",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 21.81,
+     "baselineValue": 0,
+     "points": -2.2,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    },
+    {
+     "criterion": "angle_vs_reference__right_knee",
+     "source": "geometry",
+     "unit": "deg",
+     "measuredValue": 22.14,
+     "baselineValue": 0,
+     "points": -2.6,
+     "ruleId": "angle_vs_reference_over_tol_linear",
+     "atFrameIdx": null
+    }
+   ],
+   "sourceCardFrames": [
+    {
+     "criterion": "angle_vs_reference__left_elbow",
+     "joint": "left_elbow",
+     "tier": "confirmed",
+     "region": null,
+     "userFrameIdx": 144,
+     "refFrameIdx": 278,
+     "atMatched": null
+    },
+    {
+     "criterion": "angle_vs_reference__right_elbow",
+     "joint": "right_elbow",
+     "tier": "confirmed",
+     "region": null,
+     "userFrameIdx": 144,
+     "refFrameIdx": 278,
+     "atMatched": null
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "tier": "confirmed",
+     "region": null,
+     "userFrameIdx": 144,
+     "refFrameIdx": 278,
+     "atMatched": null
+    },
+    {
+     "criterion": "angle_vs_reference__right_shoulder",
+     "joint": "right_shoulder",
+     "tier": "confirmed",
+     "region": null,
+     "userFrameIdx": 144,
+     "refFrameIdx": 278,
+     "atMatched": null
+    },
+    {
+     "criterion": null,
+     "joint": "right_shoulder",
+     "tier": "advisory",
+     "region": null,
+     "userFrameIdx": 144,
+     "refFrameIdx": 278,
+     "atMatched": null
+    }
+   ]
+  }
+ ],
+ "references": [
+  {
+   "motionId": "ref-power-spin",
+   "docPath": "reference/ref-power-spin",
+   "bytes": 427122,
+   "usedBy": [
+    "powerspinFault1785373695"
+   ],
+   "anglesFrames": 159,
+   "anglesJointKeys": 8,
+   "keypointReport": {
+    "fps": 18,
+    "frames": 159,
+    "joints": 8
+   },
+   "referenceKeypointReport": {
+    "fps": 18,
+    "frames": 159,
+    "joints": 12
+   },
+   "sharedBaseMotionId": null,
+   "baseUntilS": null,
+   "clipRange": {
+    "prepStartS": 0,
+    "landEndS": 9.9,
+    "recommendedRecordS": 12,
+    "execPeakS": 7,
+    "execStartS": 0.5
+   },
+   "anglesFps": 18
+  },
+  {
+   "motionId": "ref-kip-up",
+   "docPath": "reference/ref-kip-up",
+   "bytes": 317533,
+   "usedBy": [
+    "kipupFault1785373695"
+   ],
+   "anglesFrames": 118,
+   "anglesJointKeys": 8,
+   "keypointReport": {
+    "fps": 18,
+    "frames": 118,
+    "joints": 8
+   },
+   "referenceKeypointReport": {
+    "fps": 18,
+    "frames": 118,
+    "joints": 12
+   },
+   "sharedBaseMotionId": null,
+   "baseUntilS": null,
+   "clipRange": {
+    "prepStartS": 0,
+    "landEndS": 7.2,
+    "recommendedRecordS": 10,
+    "execPeakS": 4,
+    "execStartS": 1
+   },
+   "anglesFps": 18
+  },
+  {
+   "motionId": "ref-pdshape",
+   "docPath": "reference/ref-pdshape",
+   "bytes": 629272,
+   "usedBy": [
+    "pdshapeCorrect1785373695"
+   ],
+   "anglesFrames": 237,
+   "anglesJointKeys": 8,
+   "keypointReport": {
+    "fps": 18,
+    "frames": 237,
+    "joints": 8
+   },
+   "referenceKeypointReport": {
+    "fps": 18,
+    "frames": 237,
+    "joints": 12
+   },
+   "sharedBaseMotionId": null,
+   "baseUntilS": null,
+   "clipRange": {
+    "prepStartS": 0,
+    "landEndS": 15,
+    "recommendedRecordS": 18,
+    "execPeakS": 8,
+    "execStartS": 3.5
+   },
+   "anglesFps": 18
+  },
+  {
+   "motionId": "ref-elbow-twist-sister",
+   "docPath": "reference/ref-elbow-twist-sister",
+   "bytes": 870853,
+   "usedBy": [
+    "elbowtwistsisterFault1785373695"
+   ],
+   "anglesFrames": 329,
+   "anglesJointKeys": 8,
+   "keypointReport": {
+    "fps": 18,
+    "frames": 329,
+    "joints": 8
+   },
+   "referenceKeypointReport": {
+    "fps": 18,
+    "frames": 329,
+    "joints": 12
+   },
+   "sharedBaseMotionId": null,
+   "baseUntilS": null,
+   "clipRange": {
+    "prepStartS": 0,
+    "landEndS": 21.9,
+    "recommendedRecordS": 25,
+    "execPeakS": 13,
+    "execStartS": 5.5
+   },
+   "anglesFps": 18
+  }
+ ],
+ "studentAnglesFps": 9,
+ "referenceAnglesFps": 18,
+ "totalBytes": 3946974
+}

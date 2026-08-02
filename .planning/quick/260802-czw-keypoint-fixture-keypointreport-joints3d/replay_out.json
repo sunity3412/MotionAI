@@ -1,0 +1,806 @@
+{
+ "atMatchedConfirmedRatioTotal": 0.8,
+ "atMatchedConfirmedTotal": 8,
+ "atMatchedRatioTotal": 0.6153846153846154,
+ "atMatchedTotal": 8,
+ "cardTotal": 13,
+ "confirmedCardTotal": 10,
+ "decidableFixtures": [
+  "elbowtwistsisterFault1785373695"
+ ],
+ "distinctAtFrameIdxTotal": 10,
+ "fixtures": [
+  {
+   "analysisId": "powerspinFault1785373695",
+   "atMatchedConfirmedCount": 3,
+   "atMatchedConfirmedRatio": 0.75,
+   "atMatchedCount": 3,
+   "atMatchedRatio": 0.6,
+   "cardCount": 5,
+   "cardRecon": "NOT_REPRODUCED",
+   "cardReconByCriterion": [
+    {
+     "controlUserFrameIdx": 38,
+     "criterion": "leg_extension",
+     "storedUserFrameIdx": 38,
+     "verdict": "MATCH"
+    },
+    {
+     "controlUserFrameIdx": null,
+     "criterion": "split_angle",
+     "storedUserFrameIdx": 38,
+     "verdict": "ABSENT"
+    },
+    {
+     "controlUserFrameIdx": 38,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "storedUserFrameIdx": 38,
+     "verdict": "MATCH"
+    }
+   ],
+   "cards": [
+    {
+     "atMatched": true,
+     "criterion": "leg_extension",
+     "joint": "left_hip",
+     "png_sha256": "582b685dafc9ab11cc806141ce5a8ab444ec5f8b31c338533281ae728364b867",
+     "refFrameIdx": 106,
+     "refMatched": true,
+     "region": "legs",
+     "tier": "confirmed",
+     "userFrameIdx": 144,
+     "userVideoSec": 8.0
+    },
+    {
+     "atMatched": true,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "png_sha256": "aefebd18f76c3ae183c9bca64bcd89b44850f79c507d1869d3e93de11df8a2a6",
+     "refFrameIdx": 144,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 132,
+     "userVideoSec": 7.333333333333333
+    },
+    {
+     "atMatched": true,
+     "criterion": "angle_vs_reference__left_hip",
+     "joint": "left_hip",
+     "png_sha256": "ebb15b376720ac5225f8f94b4acc3207b179e59ef0e744f2e99de362467f5615",
+     "refFrameIdx": 12,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 14,
+     "userVideoSec": 0.7777777777777778
+    },
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__right_hip",
+     "joint": "right_hip",
+     "png_sha256": "b2acf9dcfe96b8e5d5cb714341dece564bf6cfac806429baeccf42c7c22f592b",
+     "refFrameIdx": 26,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 26,
+     "userVideoSec": 1.4444444444444444
+    },
+    {
+     "atMatched": null,
+     "criterion": null,
+     "joint": "left_elbow",
+     "png_sha256": "a357314be1dcf3d6a6e38b97b15101adec333cb22fe9488cc2d4a156f917dc66",
+     "refFrameIdx": 36,
+     "refMatched": true,
+     "region": null,
+     "tier": "advisory",
+     "userFrameIdx": 38,
+     "userVideoSec": 2.111111111111111
+    }
+   ],
+   "cardsControl": [
+    {
+     "atMatched": null,
+     "criterion": "leg_extension",
+     "joint": "left_hip",
+     "png_sha256": "edefdf9e3e4a9de57f96204ed4412d24fa3470ef2382de2bbde395368bfdf07a",
+     "refFrameIdx": 36,
+     "refMatched": true,
+     "region": "legs",
+     "tier": "confirmed",
+     "userFrameIdx": 38,
+     "userVideoSec": 2.111111111111111
+    },
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "png_sha256": "59b1fc465b5fb66eb79bf6a6ad835a3496a73ba5e8e6c22b122dbf8716495331",
+     "refFrameIdx": 36,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 38,
+     "userVideoSec": 2.111111111111111
+    },
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__left_hip",
+     "joint": "left_hip",
+     "png_sha256": "c449f9c0a0cdbf60af6e68bf118655bb79755b484749d4cf2b3e3cf2bbdf6858",
+     "refFrameIdx": 36,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 38,
+     "userVideoSec": 2.111111111111111
+    },
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__right_hip",
+     "joint": "right_hip",
+     "png_sha256": "13ee6df88fe688e148a759d1fa58161894aa8a5f5b69820fdcf2509387c3add6",
+     "refFrameIdx": 36,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 38,
+     "userVideoSec": 2.111111111111111
+    },
+    {
+     "atMatched": null,
+     "criterion": null,
+     "joint": "left_elbow",
+     "png_sha256": "a357314be1dcf3d6a6e38b97b15101adec333cb22fe9488cc2d4a156f917dc66",
+     "refFrameIdx": 36,
+     "refMatched": true,
+     "region": null,
+     "tier": "advisory",
+     "userFrameIdx": 38,
+     "userVideoSec": 2.111111111111111
+    }
+   ],
+   "confirmedCardCount": 4,
+   "controlCardFrames": [
+    38,
+    38,
+    38,
+    38,
+    38
+   ],
+   "distinctAtFrameIdx": 1,
+   "failClosed": [],
+   "judgedRecordCount": 1,
+   "motionId": "ref-power-spin",
+   "profileExtendJoints": [
+    "left_knee",
+    "right_knee"
+   ],
+   "profileHoldWindow": null,
+   "reconMatchedCriteria": [
+    "angle_vs_reference__left_shoulder"
+   ],
+   "reconRows": [
+    {
+     "cause": "`dimensions._select_window` \ucc3d \uc758\uc874 criterion \u2014 \ucc3d\uc740 profile.hold_window (Gemini KeyMoment \ud30c\uc0dd)\uac00 \uc815\ud558\ub294\ub370 \uadf8 \uac12\uc774 \ubd84\uc11d doc \uc5d0 \uc5c6\ub2e4. \ucc3d\uc744 \uc5ed\uc0b0\ud574 \ub9de\ucd94\uba74 \uadf8 \uc21c\uac04 \ud310\uc815\uc774 \ud558\ub124\uc2a4\uc758 \ucc3d\uc791\uc774 \ub418\ubbc0\ub85c \ube44\uc6cc \ub454\ub2e4.",
+     "criterion": "leg_extension",
+     "deltaMeasured": 61.69999999999999,
+     "gotMeasuredValue": 141.04,
+     "gotPoints": -20.0,
+     "storedMeasuredValue": 79.34,
+     "storedPoints": -20,
+     "verdict": "MISMATCH"
+    },
+    {
+     "cause": "vision \uc8fc\uc785 record \u2014 \uc0b0\ucd9c \uc785\ub825(supported_differences \uc758 \uac01\ub3c4\uc30d)\uc774 doc \uc5d0 \ub0a8\uc544 \uc788\uc9c0 \uc54a\ub2e4(\uc800\uc7a5\ub41c rootCauseHypotheses \ub294 fold \uacb0\uacfc\ub77c \uac01\ub3c4\uac00 \uc5c6\ub2e4). \ucd94\uc815\uc73c\ub85c \ucc44\uc6b0\uc9c0 \uc54a\ub294\ub2e4.",
+     "criterion": "split_angle",
+     "got": null,
+     "stored": {
+      "atFrameIdx": null,
+      "baselineValue": 0,
+      "criterion": "split_angle",
+      "measuredValue": 30,
+      "points": -12,
+      "ruleId": "split_vs_reference_over_tol_linear",
+      "source": "vision",
+      "unit": "deg"
+     },
+     "verdict": "MISSING"
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "measuredValue": 30.67,
+     "points": -12.8,
+     "verdict": "MATCH"
+    },
+    {
+     "cause": "\uc800\uc7a5 doc \uc758 `split_angle` \uac00 claim \ud558\ub294 \uad00\uc808 \u2014 \uadf8 record \ub97c \uc7ac\ud604\ud558\uc9c0 \ubabb\ud574 engine cross-exclusion(deduction_engine.py:306-311)\uc774 \uac78\ub9ac\uc9c0 \uc54a\uc558\ub2e4. \uc7ac\ud604 \uc2e4\ud328\uc758 \uae30\uacc4\uc801 \ud30c\uc0dd\uc774\uc9c0 \ubcc4\uac1c\uc758 \ud3b8\ucc28\uac00 \uc544\ub2c8\ub2e4.",
+     "criterion": "angle_vs_reference__left_hip",
+     "measuredValue": 22.4,
+     "points": -2.9,
+     "verdict": "EXTRA"
+    },
+    {
+     "cause": "\uc800\uc7a5 doc \uc758 `split_angle` \uac00 claim \ud558\ub294 \uad00\uc808 \u2014 \uadf8 record \ub97c \uc7ac\ud604\ud558\uc9c0 \ubabb\ud574 engine cross-exclusion(deduction_engine.py:306-311)\uc774 \uac78\ub9ac\uc9c0 \uc54a\uc558\ub2e4. \uc7ac\ud604 \uc2e4\ud328\uc758 \uae30\uacc4\uc801 \ud30c\uc0dd\uc774\uc9c0 \ubcc4\uac1c\uc758 \ud3b8\ucc28\uac00 \uc544\ub2c8\ub2e4.",
+     "criterion": "angle_vs_reference__right_hip",
+     "measuredValue": 21.57,
+     "points": -1.9,
+     "verdict": "EXTRA"
+    }
+   ],
+   "reconVerdict": "PARTIAL",
+   "records": [
+    {
+     "atFrameIdx": 72,
+     "atVideoSec": 8.0,
+     "criterion": "leg_extension",
+     "measuredValue": 141.04,
+     "points": -20.0,
+     "reconMatched": false,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 66,
+     "atVideoSec": 7.333333333333333,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "measuredValue": 30.67,
+     "points": -12.8,
+     "reconMatched": true,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 7,
+     "atVideoSec": 0.7777777777777778,
+     "criterion": "angle_vs_reference__left_hip",
+     "measuredValue": 22.4,
+     "points": -2.9,
+     "reconMatched": false,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 11,
+     "atVideoSec": 1.2222222222222223,
+     "criterion": "angle_vs_reference__right_hip",
+     "measuredValue": 21.57,
+     "points": -1.9,
+     "reconMatched": false,
+     "source": "geometry"
+    }
+   ],
+   "referenceMotionId": "ref-power-spin",
+   "storedCardFrames": [
+    38,
+    38,
+    38,
+    38
+   ],
+   "storedScore": 60
+  },
+  {
+   "analysisId": "kipupFault1785373695",
+   "atMatchedConfirmedCount": 1,
+   "atMatchedConfirmedRatio": 1.0,
+   "atMatchedCount": 1,
+   "atMatchedRatio": 1.0,
+   "cardCount": 1,
+   "cardRecon": "NOT_REPRODUCED",
+   "cardReconByCriterion": [
+    {
+     "controlUserFrameIdx": null,
+     "criterion": "split_angle",
+     "storedUserFrameIdx": 16,
+     "verdict": "ABSENT"
+    },
+    {
+     "controlUserFrameIdx": 16,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "storedUserFrameIdx": 16,
+     "verdict": "MATCH"
+    }
+   ],
+   "cards": [
+    {
+     "atMatched": true,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "png_sha256": "638dc29aeae25a2890767ffd99b88034c1f8206f2378f3d3061d146346d1c7d6",
+     "refFrameIdx": 82,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 104,
+     "userVideoSec": 5.777777777777778
+    }
+   ],
+   "cardsControl": [
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "png_sha256": "4c14cbabb2c2595db1c554148f6f0c41e77eb0d0aa0542f031993d1546aa5580",
+     "refFrameIdx": 20,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 16,
+     "userVideoSec": 0.8888888888888888
+    }
+   ],
+   "confirmedCardCount": 1,
+   "controlCardFrames": [
+    16
+   ],
+   "distinctAtFrameIdx": 1,
+   "failClosed": [],
+   "judgedRecordCount": 1,
+   "motionId": "ref-kip-up",
+   "profileExtendJoints": [],
+   "profileHoldWindow": null,
+   "reconMatchedCriteria": [
+    "angle_vs_reference__left_shoulder"
+   ],
+   "reconRows": [
+    {
+     "cause": "vision \uc8fc\uc785 record \u2014 \uc0b0\ucd9c \uc785\ub825(supported_differences \uc758 \uac01\ub3c4\uc30d)\uc774 doc \uc5d0 \ub0a8\uc544 \uc788\uc9c0 \uc54a\ub2e4(\uc800\uc7a5\ub41c rootCauseHypotheses \ub294 fold \uacb0\uacfc\ub77c \uac01\ub3c4\uac00 \uc5c6\ub2e4). \ucd94\uc815\uc73c\ub85c \ucc44\uc6b0\uc9c0 \uc54a\ub294\ub2e4.",
+     "criterion": "split_angle",
+     "got": null,
+     "stored": {
+      "atFrameIdx": null,
+      "baselineValue": 0,
+      "criterion": "split_angle",
+      "measuredValue": 50,
+      "points": -20,
+      "ruleId": "split_vs_reference_over_tol_linear",
+      "source": "vision",
+      "unit": "deg"
+     },
+     "verdict": "MISSING"
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "measuredValue": 20.67,
+     "points": -0.8,
+     "verdict": "MATCH"
+    }
+   ],
+   "reconVerdict": "PARTIAL",
+   "records": [
+    {
+     "atFrameIdx": 52,
+     "atVideoSec": 5.777777777777778,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "measuredValue": 20.67,
+     "points": -0.8,
+     "reconMatched": true,
+     "source": "geometry"
+    }
+   ],
+   "referenceMotionId": "ref-kip-up",
+   "storedCardFrames": [
+    16,
+    16
+   ],
+   "storedScore": 79
+  },
+  {
+   "analysisId": "pdshapeCorrect1785373695",
+   "atMatchedConfirmedCount": 0,
+   "atMatchedConfirmedRatio": 0.0,
+   "atMatchedCount": 0,
+   "atMatchedRatio": 0.0,
+   "cardCount": 2,
+   "cardRecon": "REPRODUCED",
+   "cardReconByCriterion": [],
+   "cards": [
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__right_knee",
+     "joint": "right_knee",
+     "png_sha256": "229427327b03de460b97dbb3e5363ca7bd99416a21ec30a0429e4343e4a58a0b",
+     "refFrameIdx": 120,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 160,
+     "userVideoSec": 8.88888888888889
+    },
+    {
+     "atMatched": null,
+     "criterion": null,
+     "joint": "right_shoulder",
+     "png_sha256": "0ee4a56e9f11e0ad44f93c12e924cabb035cb9fe58e3c04a786b235563c7c981",
+     "refFrameIdx": 166,
+     "refMatched": true,
+     "region": null,
+     "tier": "advisory",
+     "userFrameIdx": 104,
+     "userVideoSec": 5.777777777777778
+    }
+   ],
+   "cardsControl": [
+    {
+     "atMatched": null,
+     "criterion": null,
+     "joint": "right_shoulder",
+     "png_sha256": "0ee4a56e9f11e0ad44f93c12e924cabb035cb9fe58e3c04a786b235563c7c981",
+     "refFrameIdx": 166,
+     "refMatched": true,
+     "region": null,
+     "tier": "advisory",
+     "userFrameIdx": 104,
+     "userVideoSec": 5.777777777777778
+    }
+   ],
+   "confirmedCardCount": 1,
+   "controlCardFrames": [
+    104
+   ],
+   "distinctAtFrameIdx": 1,
+   "failClosed": [],
+   "judgedRecordCount": 1,
+   "motionId": "ref-pdshape",
+   "profileExtendJoints": [],
+   "profileHoldWindow": null,
+   "reconMatchedCriteria": [
+    "angle_vs_reference__right_knee"
+   ],
+   "reconRows": [
+    {
+     "criterion": "angle_vs_reference__right_knee",
+     "measuredValue": 20.19,
+     "points": -0.2,
+     "verdict": "MATCH"
+    }
+   ],
+   "reconVerdict": "PASS",
+   "records": [
+    {
+     "atFrameIdx": 81,
+     "atVideoSec": 9.0,
+     "criterion": "angle_vs_reference__right_knee",
+     "measuredValue": 20.19,
+     "points": -0.2,
+     "reconMatched": true,
+     "source": "geometry"
+    }
+   ],
+   "referenceMotionId": "ref-pdshape",
+   "storedCardFrames": [
+    104
+   ],
+   "storedScore": 100
+  },
+  {
+   "analysisId": "elbowtwistsisterFault1785373695",
+   "atMatchedConfirmedCount": 4,
+   "atMatchedConfirmedRatio": 1.0,
+   "atMatchedCount": 4,
+   "atMatchedRatio": 0.8,
+   "cardCount": 5,
+   "cardRecon": "REPRODUCED",
+   "cardReconByCriterion": [
+    {
+     "controlUserFrameIdx": 144,
+     "criterion": "angle_vs_reference__left_elbow",
+     "storedUserFrameIdx": 144,
+     "verdict": "MATCH"
+    },
+    {
+     "controlUserFrameIdx": 144,
+     "criterion": "angle_vs_reference__right_elbow",
+     "storedUserFrameIdx": 144,
+     "verdict": "MATCH"
+    },
+    {
+     "controlUserFrameIdx": 144,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "storedUserFrameIdx": 144,
+     "verdict": "MATCH"
+    },
+    {
+     "controlUserFrameIdx": 144,
+     "criterion": "angle_vs_reference__right_shoulder",
+     "storedUserFrameIdx": 144,
+     "verdict": "MATCH"
+    }
+   ],
+   "cards": [
+    {
+     "atMatched": true,
+     "criterion": "angle_vs_reference__left_elbow",
+     "joint": "left_elbow",
+     "png_sha256": "0bd5a41461bf9831b5a7c64b4dcd1c90e02082586e3be823cc7a3184726ed6c4",
+     "refFrameIdx": 58,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 54,
+     "userVideoSec": 3.0
+    },
+    {
+     "atMatched": true,
+     "criterion": "angle_vs_reference__right_elbow",
+     "joint": "right_elbow",
+     "png_sha256": "aca2d94f52779b248063e3db49b8543f69160bbd687a2c62b128b8baf651f2ab",
+     "refFrameIdx": 136,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 88,
+     "userVideoSec": 4.888888888888889
+    },
+    {
+     "atMatched": true,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "png_sha256": "01fd4f7941c79ab05707b4c1843b67d122d37752881e31fc8394970575497431",
+     "refFrameIdx": 116,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 134,
+     "userVideoSec": 7.444444444444445
+    },
+    {
+     "atMatched": true,
+     "criterion": "angle_vs_reference__right_shoulder",
+     "joint": "right_shoulder",
+     "png_sha256": "19ab8ed98c5348acda44965aa6b009a940a7ee0e28d74e8cb1beca6a1f929048",
+     "refFrameIdx": 58,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 54,
+     "userVideoSec": 3.0
+    },
+    {
+     "atMatched": null,
+     "criterion": null,
+     "joint": "right_shoulder",
+     "png_sha256": "a93b06f8a33d85da9e66d5c8ea7658feea7cfc68d713f032eec8d407861cf30e",
+     "refFrameIdx": 278,
+     "refMatched": true,
+     "region": null,
+     "tier": "advisory",
+     "userFrameIdx": 144,
+     "userVideoSec": 8.0
+    }
+   ],
+   "cardsControl": [
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__left_elbow",
+     "joint": "left_elbow",
+     "png_sha256": "e314e6a5ecad5510d74897b06cc4531c89a7702dfd519796aeb8fc90bf8232db",
+     "refFrameIdx": 278,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 144,
+     "userVideoSec": 8.0
+    },
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__right_elbow",
+     "joint": "right_elbow",
+     "png_sha256": "e314e6a5ecad5510d74897b06cc4531c89a7702dfd519796aeb8fc90bf8232db",
+     "refFrameIdx": 278,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 144,
+     "userVideoSec": 8.0
+    },
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "joint": "left_shoulder",
+     "png_sha256": "7f873f2cdfca0ef7369eada6a0019efab01473a333651beded82beb4357355f7",
+     "refFrameIdx": 278,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 144,
+     "userVideoSec": 8.0
+    },
+    {
+     "atMatched": null,
+     "criterion": "angle_vs_reference__right_shoulder",
+     "joint": "right_shoulder",
+     "png_sha256": "a93b06f8a33d85da9e66d5c8ea7658feea7cfc68d713f032eec8d407861cf30e",
+     "refFrameIdx": 278,
+     "refMatched": true,
+     "region": null,
+     "tier": "confirmed",
+     "userFrameIdx": 144,
+     "userVideoSec": 8.0
+    },
+    {
+     "atMatched": null,
+     "criterion": null,
+     "joint": "right_shoulder",
+     "png_sha256": "a93b06f8a33d85da9e66d5c8ea7658feea7cfc68d713f032eec8d407861cf30e",
+     "refFrameIdx": 278,
+     "refMatched": true,
+     "region": null,
+     "tier": "advisory",
+     "userFrameIdx": 144,
+     "userVideoSec": 8.0
+    }
+   ],
+   "confirmedCardCount": 4,
+   "controlCardFrames": [
+    144,
+    144,
+    144,
+    144,
+    144
+   ],
+   "distinctAtFrameIdx": 7,
+   "failClosed": [],
+   "judgedRecordCount": 8,
+   "motionId": "ref-elbow-twist-sister",
+   "profileExtendJoints": [],
+   "profileHoldWindow": null,
+   "reconMatchedCriteria": [
+    "angle_vs_reference__left_elbow",
+    "angle_vs_reference__left_hip",
+    "angle_vs_reference__left_knee",
+    "angle_vs_reference__left_shoulder",
+    "angle_vs_reference__right_elbow",
+    "angle_vs_reference__right_hip",
+    "angle_vs_reference__right_knee",
+    "angle_vs_reference__right_shoulder"
+   ],
+   "reconRows": [
+    {
+     "criterion": "angle_vs_reference__left_elbow",
+     "measuredValue": 23.15,
+     "points": -3.8,
+     "verdict": "MATCH"
+    },
+    {
+     "criterion": "angle_vs_reference__right_elbow",
+     "measuredValue": 30.29,
+     "points": -12.4,
+     "verdict": "MATCH"
+    },
+    {
+     "criterion": "angle_vs_reference__left_shoulder",
+     "measuredValue": 20.41,
+     "points": -0.5,
+     "verdict": "MATCH"
+    },
+    {
+     "criterion": "angle_vs_reference__right_shoulder",
+     "measuredValue": 29.22,
+     "points": -11.1,
+     "verdict": "MATCH"
+    },
+    {
+     "criterion": "angle_vs_reference__left_hip",
+     "measuredValue": 21.86,
+     "points": -2.2,
+     "verdict": "MATCH"
+    },
+    {
+     "criterion": "angle_vs_reference__right_hip",
+     "measuredValue": 21.72,
+     "points": -2.1,
+     "verdict": "MATCH"
+    },
+    {
+     "criterion": "angle_vs_reference__left_knee",
+     "measuredValue": 21.81,
+     "points": -2.2,
+     "verdict": "MATCH"
+    },
+    {
+     "criterion": "angle_vs_reference__right_knee",
+     "measuredValue": 22.14,
+     "points": -2.6,
+     "verdict": "MATCH"
+    }
+   ],
+   "reconVerdict": "PASS",
+   "records": [
+    {
+     "atFrameIdx": 27,
+     "atVideoSec": 3.0,
+     "criterion": "angle_vs_reference__left_elbow",
+     "measuredValue": 23.15,
+     "points": -3.8,
+     "reconMatched": true,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 44,
+     "atVideoSec": 4.888888888888889,
+     "criterion": "angle_vs_reference__right_elbow",
+     "measuredValue": 30.29,
+     "points": -12.4,
+     "reconMatched": true,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 67,
+     "atVideoSec": 7.444444444444445,
+     "criterion": "angle_vs_reference__left_shoulder",
+     "measuredValue": 20.41,
+     "points": -0.5,
+     "reconMatched": true,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 27,
+     "atVideoSec": 3.0,
+     "criterion": "angle_vs_reference__right_shoulder",
+     "measuredValue": 29.22,
+     "points": -11.1,
+     "reconMatched": true,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 30,
+     "atVideoSec": 3.3333333333333335,
+     "criterion": "angle_vs_reference__left_hip",
+     "measuredValue": 21.86,
+     "points": -2.2,
+     "reconMatched": true,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 54,
+     "atVideoSec": 6.0,
+     "criterion": "angle_vs_reference__right_hip",
+     "measuredValue": 21.72,
+     "points": -2.1,
+     "reconMatched": true,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 134,
+     "atVideoSec": 14.88888888888889,
+     "criterion": "angle_vs_reference__left_knee",
+     "measuredValue": 21.81,
+     "points": -2.2,
+     "reconMatched": true,
+     "source": "geometry"
+    },
+    {
+     "atFrameIdx": 18,
+     "atVideoSec": 2.0,
+     "criterion": "angle_vs_reference__right_knee",
+     "measuredValue": 22.14,
+     "points": -2.6,
+     "reconMatched": true,
+     "source": "geometry"
+    }
+   ],
+   "referenceMotionId": "ref-elbow-twist-sister",
+   "storedCardFrames": [
+    144,
+    144,
+    144,
+    144,
+    144
+   ],
+   "storedScore": 63
+  }
+ ],
+ "generatedBy": "backend/evals/realfixture/replay.py (quick-260802-czw)",
+ "judgedRecordTotal": 11,
+ "limits": [
+  "PNG \ud53d\uc140 \ub0b4\uc6a9\uc740 \ud310\uc815 \uadfc\uac70\uac00 \uc544\ub2c8\ub2e4 \u2014 \ud504\ub808\uc784 \ubc30\uc5f4\uc774 \ud569\uc131\uc774\ub2e4. sha256 \uc740 \ud504\ub808\uc784 \uc120\ud0dd\uc774 \uac08\ub838\ub2e4\ub294 \ubc29\uc99d\uc77c \ubfd0. \uc0ac\uc9c4\uc774 \uc2e4\uc81c\ub85c \ub2e4\ub978 \uc21c\uac04\uc778\uc9c0\ub294 B \ub2e8\uacc4.",
+  "vision \uc8fc\uc785 record(split_angle)\ub294 \uc0b0\ucd9c \uc785\ub825\uc774 doc \uc5d0 \uc5c6\uc5b4 \uc7ac\ud604 \ub300\uc0c1\uc774 \uc544\ub2c8\ub2e4.",
+  "\ucc3d \uc758\uc874 criterion(leg/arm_extension\u00b7line)\uc740 profile.hold_window \uac00 doc \ubc16\uc774\ub77c \uc7ac\ud604\ub418\uc9c0 \uc54a\uc744 \uc218 \uc788\ub2e4 \u2014 RECON \uc774 record \ub2e8\uc704\ub85c \ud45c\uc2dc\ud55c\ub2e4.",
+  "failClosed \uac00 \ube44\uc5b4 \uc788\ub294 \uac83\uc740 fail-closed \uac00 \uae68\uc84c\ub2e4\ub294 \ub73b\uc774 **\uc544\ub2c8\ub2e4** \u2014 \uc124\uacc4\uc0c1 \uc21c\uac04\uc774 \uc5c6\uc5b4\uc57c \ud560 split_angle record \uc790\uccb4\uac00 \uc7ac\ud604\ub418\uc9c0 \uc54a\uc544 \uc774 \ud558\ub124\uc2a4\uc758 \uad00\uce21 \ubc94\uc704 \ubc16\uc774\ub2e4. \uc5ec\uae30\uc11c\ub294 \ud655\uc778\ub418\uc9c0 \uc54a\uc558\ub2e4.",
+  "advisory \uce74\ub4dc\ub294 criterion_units \ubbf8\uc804\ub2ec\ub85c \uad6c\uc870\uc801\uc73c\ub85c atMatched \ub97c \uac00\uc9c8 \uc218 \uc5c6\ub2e4 \u2014 \uc804\uccb4 \ube44\uc728\uacfc confirmed \uc804\uc6a9 \ube44\uc728\uc744 \ub458 \ub2e4 \uc77d\uc744 \uac83."
+ ],
+ "referenceAnglesFps": 18,
+ "studentAnglesFps": 9,
+ "syntheticSweepAtMatchedRatio": 1.0,
+ "verdict": "SPLIT_PARTIAL"
+}

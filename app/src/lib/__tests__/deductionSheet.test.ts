@@ -36,12 +36,15 @@ import assert from 'node:assert/strict';
 import {
   ADVISORY_CHIP_KO,
   ADVISORY_NOTE_KO,
+  buildCauseGroupKeys,
   buildPartChips,
   buildPartGroups,
   buildRegionSheetView,
+  composeCueSubtitleKo,
   formatVideoSecKo,
   partLabelKo,
   regionPartKeyForRecord,
+  splitGoalClause,
   type RegionSheetInput,
 } from '../deductionSheet.ts';
 import { projectDeductionRecordKeypoints } from '../deductionLabels.ts';
@@ -67,6 +70,8 @@ function rec(over: Partial<Rec> & { criterion: string }): Rec {
     statusLine: over.statusLine,
     whyLine: over.whyLine,
     cueLine: over.cueLine,
+    // quick-260802-mrg — 표시 병합 키 (부재 = legacy doc).
+    exerciseId: over.exerciseId,
     // quick-260801-gbk — 이 감점을 잰 순간 (basis 절의 초 출처).
     atFrameIdx: over.atFrameIdx,
     atVideoSec: over.atVideoSec,
@@ -963,4 +968,346 @@ test('gbk basis: 신규 키가 전부 없는 legacy doc 에서 크래시 0', () 
   assert.equal(gbkBasis(view), GBK_SUBJECT_ONLY);
   // method 행의 기준 초는 이 변경과 무관하게 종전 출처(refVideoSec)를 유지한다.
   assert.ok(view.blocks[0].methodLine?.includes('실 3.1초'));
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// quick-260802-mrg — 원인 병합 (표시 전용) + 목표 절 분리
+//
+// belle 실기기(2026-08-01) 2건: ① 어깨 항목과 팔꿈치 항목이 한 잘못인데 따로 보인다
+// ② 재생 자막이 결함 대신 목표를 말한다.
+//
+// **채점 무접촉이 이 블록의 전제다.** 병합은 표시 키만 만든다 — points·measuredValue·
+// 총점은 이 코드 경로를 지나지 않고, 묶인 시트에서도 각 감점의 −X점이 블록마다
+// 그대로 보인다(투명 합산).
+//
+// 실 fixture 형상은 저장 fixture(backend/evals/realfixture/fixtures) 실측을 옮긴 것:
+//   elbow-twist-sister 8건 — elbow=grip_weak(동작 전용) / shoulder=shoulder_unstable
+//     / hip=hip_hamstring_tight / knee=legs_not_extended
+//   power-spin 3건 — leg_extension=legs_not_extended / split_angle=hip_hamstring_tight
+//     / left_shoulder=shoulder_unstable
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── T1~T7: buildCauseGroupKeys ────────────────────────────────────────────
+
+test('T1 (병합): exerciseId 를 공유하는 shoulder / arm 이 한 키 shoulder+arm 로 합쳐진다', () => {
+  // belle 이 지목한 형태 — 어깨 결함과 팔꿈치 결함이 한 원인(shoulder_unstable).
+  const records = [
+    rec({
+      criterion: 'angle_vs_reference__left_shoulder',
+      exerciseId: 'shoulder_unstable',
+    }),
+    rec({
+      criterion: 'angle_vs_reference__left_elbow',
+      exerciseId: 'shoulder_unstable',
+    }),
+  ];
+  // 오늘은 갈라져 있다.
+  assert.deepEqual(
+    records.map((r) => regionPartKeyForRecord(r, undefined)),
+    ['shoulder', 'arm'],
+  );
+  // 병합 후 한 항목.
+  assert.deepEqual(buildCauseGroupKeys(records, undefined), [
+    'shoulder+arm',
+    'shoulder+arm',
+  ]);
+  // 기존 키 문법 그대로라 라벨이 이미 만들어진다 (신규 어휘 0).
+  assert.equal(partLabelKo('shoulder+arm'), '어깨·팔');
+});
+
+test('T2 (병합): 같은 부위 안의 서로 다른 exerciseId 는 쪼개지지 않는다', () => {
+  // hip=hip_hamstring_tight / knee=legs_not_extended — exerciseId 로 새로 나누면
+  // '다리' 칩이 2개가 된다. 병합은 부위 키를 쪼개는 방향으로 가지 않는다.
+  const records = [
+    rec({
+      criterion: 'angle_vs_reference__left_hip',
+      exerciseId: 'hip_hamstring_tight',
+    }),
+    rec({
+      criterion: 'angle_vs_reference__left_knee',
+      exerciseId: 'legs_not_extended',
+    }),
+  ];
+  assert.deepEqual(buildCauseGroupKeys(records, undefined), ['leg', 'leg']);
+});
+
+test('T3 (병합): 단조성 — distinct 키 수가 부위 키 distinct 수를 넘지 않는다 (merge-only)', () => {
+  const criteria = [
+    'angle_vs_reference__left_shoulder',
+    'angle_vs_reference__right_shoulder',
+    'angle_vs_reference__left_elbow',
+    'angle_vs_reference__left_hip',
+    'angle_vs_reference__left_knee',
+    'line',
+    'dimension_overall_fallback',
+  ];
+  const exerciseIds = [
+    undefined,
+    'shoulder_unstable',
+    'grip_weak',
+    'legs_not_extended',
+    'hip_hamstring_tight',
+    '',
+  ];
+  // 결정적 의사난수 — 같은 시드에서 같은 조합 (테스트 재현성).
+  let seed = 20260802;
+  const nextInt = (n: number): number => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed % n;
+  };
+  for (let trial = 0; trial < 400; trial += 1) {
+    const size = 1 + nextInt(7);
+    const records = [];
+    for (let i = 0; i < size; i += 1) {
+      records.push(
+        rec({
+          criterion: criteria[nextInt(criteria.length)],
+          exerciseId: exerciseIds[nextInt(exerciseIds.length)],
+          unit: 'deg',
+        }),
+      );
+    }
+    const base = new Set(
+      records.map((r) => regionPartKeyForRecord(r, undefined)),
+    );
+    const merged = new Set(buildCauseGroupKeys(records, undefined));
+    assert.ok(
+      merged.size <= base.size,
+      `병합이 그룹을 늘렸다 (base ${base.size} → ${merged.size})`,
+    );
+  }
+});
+
+test('T3b (병합): 한 부위 키의 record 는 exerciseId 보유 여부와 무관하게 같은 키를 받는다', () => {
+  // 부위 키가 record 단위로 갈리면 '어깨'와 '어깨·팔' 칩이 동시에 서는 분열이
+  // 생기고, 그것은 merge-only 위반이다 (오늘 한 그룹인 것이 갈라진다).
+  const records = [
+    rec({
+      criterion: 'angle_vs_reference__left_shoulder',
+      exerciseId: 'shoulder_unstable',
+    }),
+    rec({ criterion: 'angle_vs_reference__right_shoulder' }), // exerciseId 없음
+    rec({
+      criterion: 'angle_vs_reference__left_elbow',
+      exerciseId: 'shoulder_unstable',
+    }),
+  ];
+  assert.deepEqual(buildCauseGroupKeys(records, undefined), [
+    'shoulder+arm',
+    'shoulder+arm',
+    'shoulder+arm',
+  ]);
+});
+
+test('T4 (병합): exerciseId 전건 부재(legacy doc) → regionPartKeyForRecord 와 완전 동일', () => {
+  const records = [
+    rec({ criterion: 'angle_vs_reference__left_shoulder' }),
+    rec({ criterion: 'angle_vs_reference__left_elbow' }),
+    rec({ criterion: 'angle_vs_reference__left_knee' }),
+    rec({ criterion: 'line' }),
+    rec({ criterion: 'dimension_overall_fallback', unit: 'score_delta' }),
+  ];
+  assert.deepEqual(
+    buildCauseGroupKeys(records, undefined),
+    records.map((r) => regionPartKeyForRecord(r, undefined)),
+  );
+});
+
+test('T5 (병합): 빈 문자열/공백/비문자열 exerciseId 는 간선을 만들지 않는다 (억지 병합 금지)', () => {
+  for (const bogus of ['', '   ', null, undefined, 0, {}]) {
+    const records = [
+      rec({
+        criterion: 'angle_vs_reference__left_shoulder',
+        exerciseId: bogus as never,
+      }),
+      rec({
+        criterion: 'angle_vs_reference__left_elbow',
+        exerciseId: bogus as never,
+      }),
+    ];
+    assert.deepEqual(
+      buildCauseGroupKeys(records, undefined),
+      ['shoulder', 'arm'],
+      `exerciseId=${JSON.stringify(bogus)} 에서 병합이 일어났다`,
+    );
+  }
+});
+
+test('T6 (병합): criterion: 접두 그룹은 병합에 참여하지 않는다 (그릴 부위 없음)', () => {
+  const records = [
+    rec({ criterion: 'line', exerciseId: 'core_weak' }),
+    rec({
+      criterion: 'angle_vs_reference__left_shoulder',
+      exerciseId: 'core_weak',
+    }),
+  ];
+  assert.deepEqual(buildCauseGroupKeys(records, undefined), [
+    'criterion:line',
+    'shoulder',
+  ]);
+});
+
+test('T7 (병합): 결정성 — 같은 입력이면 같은 출력, 키 안의 토큰 순서는 PART_ORDER', () => {
+  // 입력 순서를 뒤집어도 키 문자열의 토큰 순서는 머리→발 고정 (shoulder+arm).
+  const shoulder = rec({
+    criterion: 'angle_vs_reference__left_shoulder',
+    exerciseId: 'shoulder_unstable',
+  });
+  const elbow = rec({
+    criterion: 'angle_vs_reference__left_elbow',
+    exerciseId: 'shoulder_unstable',
+  });
+  assert.deepEqual(buildCauseGroupKeys([shoulder, elbow], undefined), [
+    'shoulder+arm',
+    'shoulder+arm',
+  ]);
+  assert.deepEqual(buildCauseGroupKeys([elbow, shoulder], undefined), [
+    'shoulder+arm',
+    'shoulder+arm',
+  ]);
+  // 반복 호출 동일.
+  const once = buildCauseGroupKeys([shoulder, elbow], undefined);
+  assert.deepEqual(buildCauseGroupKeys([shoulder, elbow], undefined), once);
+});
+
+test('T7b (병합): records 빈 배열 → 빈 배열 (크래시 0)', () => {
+  assert.deepEqual(buildCauseGroupKeys([], undefined), []);
+});
+
+// ── T8~T12: splitGoalClause ───────────────────────────────────────────────
+
+// 저장 fixture 실측 문자열 (powerspin.angle_vs_reference__left_shoulder) — 33-13
+// belle 4R 승인 문형. 앱은 이 문자열을 **고치지 않고** 자리만 옮긴다.
+const REAL_GOAL_CUE =
+  '목표는 폴을 따라 위아래 한 줄 스플릿이에요. 어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요';
+// 저장 fixture 실측 (powerspin.split_angle) — __common__ 문형이라 목표 절이 없다.
+const REAL_COMMON_CUE =
+  '양 무릎을 각각 반대쪽 벽으로 밀어낸다는 느낌으로 다리를 벌려보세요';
+
+test('T8 (목표절): "목표는 A. B" → goalLine="목표는 A." / actionLine="B"', () => {
+  const out = splitGoalClause(REAL_GOAL_CUE);
+  assert.equal(out.goalLine, '목표는 폴을 따라 위아래 한 줄 스플릿이에요.');
+  assert.equal(
+    out.actionLine,
+    '어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요',
+  );
+  // 첫 `". "` 에서 1회만 자른다 — 행동 절 안의 마침표는 건드리지 않는다.
+  const twoDots = splitGoalClause('목표는 A. B. C');
+  assert.equal(twoDots.goalLine, '목표는 A.');
+  assert.equal(twoDots.actionLine, 'B. C');
+});
+
+test('T9 (목표절): 목표 접두 없음(__common__ 문형) → 자르지 않고 원문 그대로', () => {
+  const out = splitGoalClause(REAL_COMMON_CUE);
+  assert.equal(out.goalLine, null);
+  assert.equal(out.actionLine, REAL_COMMON_CUE);
+});
+
+test('T10 (목표절): 구분자 ". " 없음 → fail-closed (자르지 않는다)', () => {
+  for (const cue of ['목표는 폴을 따라 한 줄 스플릿이에요', '목표는 A.', '목표는 A.B']) {
+    const out = splitGoalClause(cue);
+    assert.equal(out.goalLine, null, cue);
+    assert.equal(out.actionLine, cue, cue);
+  }
+});
+
+test('T11 (목표절): actionLine 은 항상 원 cueLine 의 부분 문자열 (mp3 에 없는 말 금지)', () => {
+  for (const cue of [
+    REAL_GOAL_CUE,
+    REAL_COMMON_CUE,
+    '목표는 A. B',
+    '목표는 A.',
+    '아무 문장',
+  ]) {
+    const { actionLine } = splitGoalClause(cue);
+    assert.ok(cue.includes(actionLine), `actionLine 이 원문에 없다: ${cue}`);
+  }
+});
+
+test('T12 (목표절): null/undefined/빈 문자열 → { null, "" } 크래시 0', () => {
+  for (const bogus of [null, undefined, '']) {
+    assert.deepEqual(splitGoalClause(bogus), { goalLine: null, actionLine: '' });
+  }
+});
+
+// ── T13~T17: composeCueSubtitleKo ─────────────────────────────────────────
+
+// 저장 fixture 실측 (powerspin.angle_vs_reference__left_shoulder).
+const REAL_STATUS = '왼쪽 어깨(겨드랑이) 각도가 파워스핀 기준 자세와 차이가 있어요';
+
+test('T13 (자막): statusLine + actionLine → 결함이 먼저', () => {
+  const out = composeCueSubtitleKo(
+    rec({
+      criterion: 'angle_vs_reference__left_shoulder',
+      statusLine: REAL_STATUS,
+      cueLine: REAL_GOAL_CUE,
+    }),
+    null,
+  );
+  assert.equal(
+    out,
+    `${REAL_STATUS} 어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요`,
+  );
+  // 자막의 첫머리가 결함이다 (belle 지적의 실체).
+  assert.ok(out?.startsWith(REAL_STATUS));
+});
+
+test('T14 (자막): statusLine 없으면 actionLine 단독', () => {
+  const out = composeCueSubtitleKo(
+    rec({ criterion: 'angle_vs_reference__left_shoulder', cueLine: REAL_GOAL_CUE }),
+    null,
+  );
+  assert.equal(
+    out,
+    '어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요',
+  );
+});
+
+test('T15 (자막): cueLine 없으면 legacy 폴백 행동구 유지', () => {
+  assert.equal(
+    composeCueSubtitleKo(
+      rec({ criterion: 'angle_vs_reference__left_knee' }),
+      '무릎 더 펴기',
+    ),
+    '무릎 더 펴기',
+  );
+  // statusLine 이 있으면 폴백에도 결함이 앞선다 (같은 규칙, 분기 0).
+  assert.equal(
+    composeCueSubtitleKo(
+      rec({
+        criterion: 'angle_vs_reference__left_knee',
+        statusLine: '왼쪽 무릎 각도가 기준 자세와 차이가 있어요',
+      }),
+      '무릎 더 펴기',
+    ),
+    '왼쪽 무릎 각도가 기준 자세와 차이가 있어요 무릎 더 펴기',
+  );
+});
+
+test('T16 (자막): 행동구가 전무하면 null (자막 미렌더 — 오늘의 방출 조건 그대로)', () => {
+  assert.equal(
+    composeCueSubtitleKo(rec({ criterion: 'angle_vs_reference__left_knee' }), null),
+    null,
+  );
+  // statusLine 만 있어도 자막을 새로 만들지 않는다 — 종전엔 이 record 에 자막이
+  // 없었고, 여기서 만들면 cueTrack 의 입력 집합(밀도·타이밍)이 바뀐다.
+  assert.equal(
+    composeCueSubtitleKo(
+      rec({ criterion: 'angle_vs_reference__left_knee', statusLine: REAL_STATUS }),
+      null,
+    ),
+    null,
+  );
+});
+
+test('T17 (자막): 산출에 `목표는` 리터럴이 0회', () => {
+  const cues = [REAL_GOAL_CUE, REAL_COMMON_CUE, '목표는 A. B'];
+  for (const cueLine of cues) {
+    const out = composeCueSubtitleKo(
+      rec({ criterion: 'angle_vs_reference__left_shoulder', statusLine: REAL_STATUS, cueLine }),
+      null,
+    );
+    assert.ok(out != null);
+    assert.ok(!out.includes('목표는'), `자막에 목표 절이 남았다: ${out}`);
+  }
 });

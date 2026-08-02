@@ -151,6 +151,13 @@ export interface RegionSheetView {
    * 문자열에서 criterion 을 역파싱하면 라벨 규칙 사본이 생긴다.
    */
   primaryCriterion: string;
+  /**
+   * 이 항목이 **무엇을 하려는 동작인지** 한 문장 (quick-260802-mrg). 묶인 항목의
+   * head 에서 한 번만 말한다 — 같은 목표 문장을 블록마다 N번 반복하지 않는 것이
+   * "한 항목처럼 한 문장으로 설명"의 실체다. 저장된 cueLine 의 목표 절을 그대로
+   * 옮긴 것이고 창작 0 — 목표 절이 없으면 `null`(자리도 두지 않는다).
+   */
+  goalLine: string | null;
   blocks: RegionSheetBlock[];
   pairCapLeft: string | null;
   pairCapRight: string | null;
@@ -228,6 +235,193 @@ export function regionPartKeyForRecord(
 }
 
 /**
+ * 같은 원인에서 나온 감점을 **화면에서 한 항목으로** 묶는 그룹 키 (quick-260802-mrg).
+ * record 마다 1개씩, 입력과 같은 길이·같은 순서로 돌려준다.
+ *
+ * 왜 필요한가: belle 실기기(2026-08-01) — 어깨 항목과 팔꿈치 항목이 **한 잘못**인데
+ * 화면에 따로 보인다. 부위 토큰만으로는 어깨와 팔이 영영 갈라져 있다.
+ *
+ * **표시 전용이다.** 점수는 이 함수를 지나지 않는다 — `overallScore`·
+ * `deductionBreakdown.final`·record 의 `points`/`measuredValue` 는 무접촉이고,
+ * 점수 내역(ScoreBreakdownSection)은 record 1:1 로 남는다. 묶어 보여줘도 각 감점의
+ * 크기는 블록마다 그대로 보인다(투명 합산 — belle 원칙).
+ *
+ * 병합 키 = `record.exerciseId`. 신규 계약 0 — 이미 실 doc 의 전 record 에 실려
+ * 있다(`models.py DEDUCTION_PHRASE_KEYS` 각인, 저장 fixture 4건 전건 확인).
+ * 백엔드 변경도 재분석도 필요 없다.
+ *
+ * 규칙 (merge-only — 오늘 한 그룹인 것이 갈라지는 경로가 없다):
+ *   ① 오늘의 부위 키(`regionPartKeyForRecord`)를 먼저 구한다 — 그 함수는 손대지 않는다.
+ *   ② `criterion:` 단독 그룹이 아닌 부위 키마다 멤버 record 의 exerciseId 를 모은다.
+ *   ③ exerciseId 를 하나라도 공유하는 부위 키끼리 union-find 로 합친다.
+ *   ④ 클러스터 키 = 멤버 부위 키들의 토큰 합집합을 `PART_ORDER` 로 결합. 기존 키
+ *      문법 그대로라 `partLabelKo` 가 이미 '어깨·팔' 을 만든다(신규 어휘 0).
+ *   ⑤ `criterion:` 키와, exerciseId 를 하나도 못 가진 부위 키는 자기 키를 유지한다.
+ *
+ * **부위 그룹을 쪼개지 않는다.** exerciseId 로 새로 나누면 한 동작에서 엉덩이
+ * (hip_hamstring_tight)와 무릎(legs_not_extended)이 **둘 다 '다리' 칩**이 되어 같은
+ * 이름 칩 2개가 생긴다. 그래서 병합은 부위 키 단위로만 일어나고, 한 부위 키의
+ * record 는 exerciseId 보유 여부와 무관하게 **같은 클러스터 키를 받는다**.
+ * (record 단위로 갈랐다면 '어깨'와 '어깨·팔' 칩이 동시에 서는 분열이 생긴다.)
+ *
+ * **시간 근접은 쓰지 않는다 — 병합 기준으로도, veto 로도.** 실 fixture 실측:
+ * `left_elbow`(27프레임) ↔ `left_shoulder`(67프레임) = 40프레임 차,
+ * `right_elbow`(44) ↔ `right_shoulder`(27) = 17프레임 차 — 어깨·팔꿈치를 둘 다 가진
+ * 유일한 fixture 에서 시간 규칙은 병합을 0건 만든다. 반대로 `left_elbow`(27)와
+ * `right_shoulder`(27)는 정확히 같은 프레임인데 반대측이고, power-spin
+ * `leg_extension`(72)과 `left_shoulder`(66)는 0.67초 차인데 다리↔어깨다. 한 원인이
+ * 서로 다른 순간에 드러나는 것이 실측이고, 그것이 belle 이 지목한 형태다.
+ */
+export function buildCauseGroupKeys(
+  records: readonly DeductionRecord[],
+  faultJoints: readonly KeypointName[] | undefined,
+): string[] {
+  const list = records ?? [];
+  const baseKeys = list.map((rec) => regionPartKeyForRecord(rec, faultJoints));
+
+  // ② 부위 키 → 그 키가 보유한 exerciseId 집합.
+  // 빈 문자열·비문자열은 간선을 만들지 않는다 (억지 병합 금지 — 조건이 불확실하면
+  // 따로 보여준다). legacy doc(필드 부재)은 여기서 자동으로 전부 걸러진다.
+  const exerciseIdsByPart = new Map<string, Set<string>>();
+  list.forEach((rec, i) => {
+    const partKey = baseKeys[i];
+    if (partKey.startsWith(CRITERION_GROUP_PREFIX)) return;
+    const exerciseId =
+      typeof rec.exerciseId === 'string' ? rec.exerciseId.trim() : '';
+    if (exerciseId.length === 0) return;
+    let bucket = exerciseIdsByPart.get(partKey);
+    if (!bucket) {
+      bucket = new Set<string>();
+      exerciseIdsByPart.set(partKey, bucket);
+    }
+    bucket.add(exerciseId);
+  });
+
+  // ③ union-find (부위 키 위에서만 — record 위가 아니다).
+  const parent = new Map<string, string>();
+  const find = (key: string): string => {
+    let root = key;
+    while ((parent.get(root) ?? root) !== root) root = parent.get(root) as string;
+    let cur = key;
+    while ((parent.get(cur) ?? cur) !== cur) {
+      const next = parent.get(cur) as string;
+      parent.set(cur, root);
+      cur = next;
+    }
+    return root;
+  };
+  const union = (a: string, b: string): void => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(rb, ra);
+  };
+
+  const partKeyByExerciseId = new Map<string, string>();
+  for (const [partKey, ids] of exerciseIdsByPart) {
+    if (!parent.has(partKey)) parent.set(partKey, partKey);
+    for (const id of ids) {
+      const seen = partKeyByExerciseId.get(id);
+      if (seen == null) partKeyByExerciseId.set(id, partKey);
+      else union(seen, partKey);
+    }
+  }
+
+  // ④ 클러스터 대표 키 = 멤버 부위 키들의 토큰 합집합 (PART_ORDER 순 — 결정적).
+  const tokensByRoot = new Map<string, Set<string>>();
+  for (const partKey of exerciseIdsByPart.keys()) {
+    const root = find(partKey);
+    let bucket = tokensByRoot.get(root);
+    if (!bucket) {
+      bucket = new Set<string>();
+      tokensByRoot.set(root, bucket);
+    }
+    for (const token of partKey.split('+')) bucket.add(token);
+  }
+  const mergedKeyByRoot = new Map<string, string>();
+  for (const [root, tokens] of tokensByRoot) {
+    const merged = PART_ORDER.filter((t) => tokens.has(t)).join('+');
+    mergedKeyByRoot.set(root, merged.length > 0 ? merged : root);
+  }
+
+  // ⑤ 부위 키 → 클러스터 키는 **함수**다 (한 부위 키가 한 출력 키로만 간다).
+  // 그래서 distinct 출력 키 수는 distinct 부위 키 수를 넘을 수 없다 = merge-only.
+  return baseKeys.map((partKey) => {
+    if (partKey.startsWith(CRITERION_GROUP_PREFIX)) return partKey;
+    if (!exerciseIdsByPart.has(partKey)) return partKey;
+    return mergedKeyByRoot.get(find(partKey)) ?? partKey;
+  });
+}
+
+/** 목표 절 접두 (33-13 `_meta.goalFirstCueLine`, belle 4R 승인 문형). */
+const GOAL_CLAUSE_PREFIX = '목표는';
+/** 목표 절과 행동 절의 구분자 — 동작 전용 entry 54건 전건이 보유(전수 확인). */
+const GOAL_CLAUSE_SEPARATOR = '. ';
+
+/**
+ * cueLine 을 목표 절 / 행동 절로 나눈다 (quick-260802-mrg).
+ *
+ * **phrasebook 은 읽지도 고치지도 않는다.** 목표-선행 문형은 33-11 4R belle 승인 →
+ * 33-13 구현 → `test_motion_specific_cueline_goal_first` 전수 핀이다. 문구를 되돌리면
+ * 승인·핀·기존 doc·이미 합성된 mp3 가 전부 깨진다. 앱이 **렌더 시점에** 말하는
+ * 자리만 옮긴다 — 저장 문자열은 그대로 두고, 자막에서는 결함을 먼저 말하고
+ * 목표 문장은 묶인 항목 head 에서 한 번만 말한다.
+ *
+ * fail-closed — 접두(`목표는`)와 구분자(`. `)가 **둘 다** 성립할 때만 자른다:
+ *   - `__common__` 문형(동작 미해석 폴백)에는 목표 절이 없다 → 원문 그대로.
+ *   - 자른 뒤 행동 절이 비면 자르지 않는다 (빈 자막을 만들지 않는다).
+ * `actionLine` 은 **항상 원 cueLine 의 부분 문자열**이다 — 음성 mp3 가 말하지 않은
+ * 말을 자막이 만들어내지 않는다.
+ */
+export function splitGoalClause(cueLine: string | null | undefined): {
+  goalLine: string | null;
+  actionLine: string;
+} {
+  if (typeof cueLine !== 'string' || cueLine.length === 0) {
+    return { goalLine: null, actionLine: '' };
+  }
+  if (!cueLine.startsWith(GOAL_CLAUSE_PREFIX)) {
+    return { goalLine: null, actionLine: cueLine };
+  }
+  const cut = cueLine.indexOf(GOAL_CLAUSE_SEPARATOR);
+  if (cut < 0) return { goalLine: null, actionLine: cueLine };
+  const actionLine = cueLine.slice(cut + GOAL_CLAUSE_SEPARATOR.length);
+  if (actionLine.length === 0) return { goalLine: null, actionLine: cueLine };
+  return { goalLine: cueLine.slice(0, cut + 1), actionLine };
+}
+
+/**
+ * 재생 중 자막 1줄 조립 (quick-260802-mrg) — **결함이 먼저**.
+ *
+ * belle 실기기(2026-08-01): 자막이 결함 대신 목표를 말한다. 자막은 3줄로 하드
+ * 클립되는데(`VideoCompare` `numberOfLines={3}`) 목표 절이 앞에 있으면 잘리는 쪽이
+ * 행동 절이고 결함은 애초에 자막에 없다.
+ *
+ * 규칙: `statusLine`(결함) → `actionLine`(목표 절을 뺀 행동). 목표 문장은 자막에서
+ * 빠지고 묶인 항목 head(`RegionSheetView.goalLine`)에서 한 번만 말한다.
+ *
+ * 자막 유무 조건은 **바꾸지 않는다** — 오늘과 똑같이 행동구가 있어야 자막이 뜬다
+ * (`cueTrack.buildCueWindows` 의 입력 집합·타이밍·밀도 무접촉). statusLine 은 붙는
+ * 접두일 뿐 자막을 새로 만들어내지 않는다.
+ */
+export function composeCueSubtitleKo(
+  record: DeductionRecord,
+  fallbackActionPhrase: string | null | undefined,
+): string | null {
+  const { actionLine } = splitGoalClause(record?.cueLine);
+  const action =
+    actionLine.length > 0
+      ? actionLine
+      : typeof fallbackActionPhrase === 'string'
+        ? fallbackActionPhrase
+        : '';
+  if (action.length === 0) return null;
+  const status = record?.statusLine;
+  return typeof status === 'string' && status.length > 0
+    ? `${status} ${action}`
+    : action;
+}
+
+/**
  * 부위 키 → 화면 라벨. 33-G S3 (quick-260730-szk) — private `titleForPartKey` 에서
  * export 로 승격. **칩 라벨과 시트 제목이 문자 단위로 같아야** 승인본 어휘가 두
  * 표면에서 갈라지지 않는다(칩을 눌렀는데 다른 이름의 시트가 열리면 신뢰 결함).
@@ -265,6 +459,20 @@ function measuredSubjectKo(criterion: string): string | null {
   const label = criterionLabelKo(criterion);
   // criterionLabelKo 는 미등록 id 를 id 그대로 돌려준다 → 사람 말 아님 → 생략.
   return label !== criterion ? label : null;
+}
+
+/**
+ * 블록에 쓸 행동 절 (quick-260802-mrg). cueLine 이 있으면 목표 절을 뺀 행동 절,
+ * 없으면 기존 legacy 폴백(범례 행동구). 둘 다 없으면 null — 종전 동작 그대로다
+ * (`rec.cueLine ?? actionPhrases[i] ?? null` 의 방출 조건 무변화).
+ */
+function actionLineOf(
+  record: DeductionRecord,
+  fallbackActionPhrase: string | null | undefined,
+): string | null {
+  const { actionLine } = splitGoalClause(record?.cueLine);
+  if (actionLine.length > 0) return actionLine;
+  return fallbackActionPhrase ?? null;
 }
 
 function pairCapWithSec(label: string, sec: number | null): string {
@@ -599,12 +807,36 @@ export function buildRegionSheetView(
       statusLine: rec.statusLine ?? null,
       whyLine: rec.whyLine ?? null,
       basisLine,
-      cueLine: rec.cueLine ?? input.actionPhrases?.[i] ?? null,
+      // quick-260802-mrg — 블록은 **행동 절만** 말한다. 목표 절은 시트 head 의
+      // goalLine 이 한 번 말한다 (같은 문장 N번 반복 금지). 목표 절이 없는 문형
+      // (__common__)은 splitGoalClause 가 원문을 그대로 돌려주므로 무변화.
+      cueLine: actionLineOf(rec, input.actionPhrases?.[i]),
       methodLine,
       numNote,
       blockRecordIndexForCrop,
     };
   });
+
+  // ── goalLine (quick-260802-mrg) ─────────────────────────────────────────
+  // 대표 record = 그룹에서 |points| 최대(동점이면 저장 순서 앞선). 그 record 의
+  // 목표 절만 쓴다 — 다른 멤버를 뒤져 문장을 찾지 않는다(대표는 하나).
+  // 실 데이터상 목표 절은 **동작 단위 속성**이라(phrasebook 동작별 distinct 목표
+  // 절 = 전 동작 1개, 전수 확인) 대표를 누구로 잡아도 문장이 갈리지 않는다.
+  let goalRecordIndex: number | null = null;
+  let goalBestAbs = -1;
+  // memberIndexes 는 저장 순서 오름차순이라 strict `>` 가 곧 "동점이면 앞선 것".
+  for (const i of memberIndexes) {
+    const abs = Math.abs(records[i]?.points ?? 0);
+    if (!Number.isFinite(abs)) continue;
+    if (abs > goalBestAbs) {
+      goalBestAbs = abs;
+      goalRecordIndex = i;
+    }
+  }
+  const goalLine =
+    goalRecordIndex == null
+      ? null
+      : splitGoalClause(records[goalRecordIndex]?.cueLine).goalLine;
 
   // ── facing (M-9) ────────────────────────────────────────────────────────
   // 승인본 분포(어깨 = 있음 / 다리 = 없음)를 **데이터로** 재현한다: 기준 정렬로 잰
@@ -630,6 +862,7 @@ export function buildRegionSheetView(
     title,
     primaryRecordIndex,
     primaryCriterion: records[primaryRecordIndex].criterion,
+    goalLine,
     blocks,
     pairCapLeft,
     pairCapRight,

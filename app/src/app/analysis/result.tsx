@@ -70,10 +70,11 @@ import {
   projectDeductionRecordKeypoints,
 } from '../../lib/deductionLabels';
 import {
+  buildCauseGroupKeys,
   buildPartChips,
   buildPartGroups,
   buildRegionSheetView,
-  regionPartKeyForRecord,
+  composeCueSubtitleKo,
 } from '../../lib/deductionSheet';
 import { hasIllustrationFor } from '../../lib/illustrationScene';
 import { reshapePose3dData } from '../../lib/joints';
@@ -1149,8 +1150,9 @@ function AnalysisResultContent({
 
   // 33-G S1/S3 (quick-260730-szk) — **부위 단위** 그룹 마커 + 부위 칩. 승인 목업 ① 은
   // 마커를 항목(부위) 단위 경계 1개로 묶고(2R#1 "동그라미가 7개") 그 아래에 부위 칩을
-  // 둔다. 두 산출 모두 `regionPartKeyForRecord` 단일 출처를 소비하므로 마커 그룹 =
+  // 둔다. 두 산출 모두 `buildCauseGroupKeys` 단일 출처를 소비하므로 마커 그룹 =
   // 칩 = 부위 시트가 같은 단위다 (두 번째 그룹핑 규칙 0).
+  // quick-260802-mrg — 그 단일 출처가 부위 키에서 **원인 키**로 옮겨졌다(merge-only).
   const partGroups = useMemo(
     () =>
       buildPartGroups(
@@ -1837,19 +1839,27 @@ function AnalysisResultContent({
   };
 
   // 33-G S23 (quick-260731-2jt) — 음성 큐 recordId → illu-float 일러스트.
-  // 부위 키는 `regionPartKeyForRecord` 단일 출처(마커 그룹·부위 칩·부위 시트와
-  // 같은 단위 — 두 번째 그룹핑 규칙 금지, P-1), 장면일치는 시트와 **같은 판정**
-  // (P-9 — 시트에서 숨긴 그림을 영상 위에서 보여주면 결함이 표면만 옮긴 것이다).
+  // 부위 키는 마커 그룹·부위 칩·부위 시트와 **같은 단위**여야 하고(두 번째 그룹핑
+  // 규칙 금지, P-1), 장면일치는 시트와 **같은 판정**이어야 한다 (P-9 — 시트에서
+  // 숨긴 그림을 영상 위에서 보여주면 결함이 표면만 옮긴 것이다).
   // motionId 규칙도 시트와 동일 → mode3 는 자동 null. 못 찾거나 어긋나면 null 을
   // 돌려주고, VideoCompare 는 그때 **흰 카드 프레임 자체를 렌더하지 않는다**.
+  //
+  // quick-260802-mrg — 시트가 원인 단위로 묶이면서 이 조회도 같은 키로 옮겼다.
+  // 종전 `regionPartKeyForRecord` 를 그대로 두면 병합된 항목에서 시트는
+  // `어깨·팔` 로 판정하는데 영상 위는 `어깨` 로 판정해 P-1/P-9 가 깨진다.
+  const causeGroupKeys = useMemo(
+    () => buildCauseGroupKeys(records, vetoFaultJoints),
+    [records, vetoFaultJoints],
+  );
   const cueIllustrationForRecordId = (
     recordId: string,
   ): React.ReactNode | null => {
     const motionId = cmp.mode === 'mode1' ? cmp.referenceMotionId : null;
     if (!motionId) return null;
-    const rec = records.find((r) => r.recordId === recordId);
-    if (!rec) return null;
-    const partKey = regionPartKeyForRecord(rec, vetoFaultJoints);
+    const recIndex = records.findIndex((r) => r.recordId === recordId);
+    if (recIndex < 0) return null;
+    const partKey = causeGroupKeys[recIndex];
     if (!hasIllustrationFor(motionId, partKey)) return null;
     return <DefectIllustration motionId={motionId} partKey={partKey} />;
   };
@@ -1923,10 +1933,16 @@ function AnalysisResultContent({
       const zoom = matchZoomForRecord(rec);
       const userFrameIdx = zoom?.userFrameIdx;
       if (typeof userFrameIdx !== 'number') continue;
+      // quick-260802-mrg — 자막은 **결함이 먼저**다 (belle 실기기 2026-08-01:
+      // "자막이 결함 대신 목표를 말한다"). 목표 절은 부위 상세 시트의 goalLine 이
+      // 한 번 말한다. 조립 규칙은 lib/deductionSheet 소유 — 여기서 문자열을
+      // 만들지 않는다. 폴백 행동구·방출 조건(`!text` 스킵)은 종전 그대로라
+      // buildCueWindows 의 입력 집합·타이밍·밀도는 무접촉이다.
       const text =
-        rec.cueLine ??
-        actionPhraseForRecord(rec, vetoFaultJoints, actionLabels) ??
-        '';
+        composeCueSubtitleKo(
+          rec,
+          actionPhraseForRecord(rec, vetoFaultJoints, actionLabels),
+        ) ?? '';
       if (!text) continue;
       inputs.push({
         userFrameIdx,

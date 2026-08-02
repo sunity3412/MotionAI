@@ -210,6 +210,17 @@ export function DeductionDetailSheet({
             showsVerticalScrollIndicator={false}
             onLayout={(e) => setScrollH(e.nativeEvent.layout.height)}
           >
+            {/* goalLine (quick-260802-mrg) — 이 항목이 무엇을 하려는 동작인지 한
+                문장. 제목 아래·블록 위, `oneCap`(사진 설명)과 다른 자리다. 원인이
+                묶인 항목에서 목표 문장을 **한 번만** 말하는 자리 — 블록마다 같은
+                문장을 반복하지 않는다. 목표 절이 없으면 자리도 두지 않는다
+                (fail-closed — 없는 문장을 만들지 않는다). */}
+            {view.goalLine ? (
+              <View style={styles.goalBox}>
+                <Text style={styles.goalText}>{view.goalLine}</Text>
+              </View>
+            ) : null}
+
             {/* ── 크롭 카드 (승인본 card: chip → cropimg → paircap → onecap) ── */}
             {primaryZoom ? (
               <View style={styles.cropCard}>
@@ -426,6 +437,21 @@ const styles = StyleSheet.create({
   closeText: { ...typography.sectionTitle, color: colors.textSecondary },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 16, gap: 14 },
+  // goalLine (quick-260802-mrg) — 목표 문장 1줄. 기존 토큰만 사용한다
+  // (softBg + border + bodySm/textMid = basisBox 와 같은 정보 톤). 결함 블록의
+  // brandTint 를 쓰지 않는 이유는 이것이 감점이 아니라 **동작의 목표**여서다.
+  goalBox: {
+    backgroundColor: colors.softBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.listItem,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  goalText: {
+    ...typography.bodySm,
+    color: colors.textMid,
+  },
   // ── 크롭 카드 (승인본 .card) ─────────────────────────────────────────────
   cropCard: {
     backgroundColor: colors.cardBg,

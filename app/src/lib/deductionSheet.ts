@@ -524,8 +524,12 @@ export function buildPartGroups(
     string,
     { numbers: number[]; keypoints: KeypointName[] }
   >();
-  (records ?? []).forEach((rec, i) => {
-    const partKey = regionPartKeyForRecord(rec, faultJoints);
+  const list = records ?? [];
+  // quick-260802-mrg — 그룹 키의 단일 출처. 마커·칩·시트 세 소비처가 **같은 배열**을
+  // 쓰므로 "마커 그룹 = 부위 칩 = 상세 시트"(33-G S1/S3)가 원인 단위에서도 유지된다.
+  const groupKeys = buildCauseGroupKeys(list, faultJoints);
+  list.forEach((rec, i) => {
+    const partKey = groupKeys[i];
     let bucket = byPart.get(partKey);
     if (!bucket) {
       bucket = { numbers: [], keypoints: [] };
@@ -607,6 +611,9 @@ export function buildPartChips(input: PartChipsInput): PartChip[] {
     input.recordNumbers ?? [],
     input.faultJoints,
   );
+  // quick-260802-mrg — 그룹 키는 buildPartGroups 와 **같은 함수**에서 나온다
+  // (두 번째 그룹핑 규칙 금지 — 사본이 생기면 칩과 마커가 다른 단위가 된다).
+  const groupKeys = buildCauseGroupKeys(records, input.faultJoints);
 
   const chips: PartChip[] = [];
   const claimedTokens = new Set<string>();
@@ -614,9 +621,9 @@ export function buildPartChips(input: PartChipsInput): PartChip[] {
     // 최소 번호를 가진 멤버 record 의 인덱스 (N-3).
     const target = g.numbers[0];
     let firstRecordIndex: number | null = null;
-    records.forEach((rec, i) => {
+    records.forEach((_rec, i) => {
       if (firstRecordIndex != null) return;
-      if (regionPartKeyForRecord(rec, input.faultJoints) !== g.partKey) return;
+      if (groupKeys[i] !== g.partKey) return;
       if (input.recordNumbers?.[i] === target) firstRecordIndex = i;
     });
     chips.push({
@@ -666,12 +673,12 @@ export function buildRegionSheetView(
   const selected = records[selectedIndex];
   if (!selected) return null;
 
-  const partKey = regionPartKeyForRecord(selected, input.faultJoints);
+  // quick-260802-mrg — 시트 그룹도 원인 단위. 칩·마커와 같은 함수를 쓴다.
+  const groupKeys = buildCauseGroupKeys(records, input.faultJoints);
+  const partKey = groupKeys[selectedIndex];
   const memberIndexes: number[] = [];
-  records.forEach((rec, i) => {
-    if (regionPartKeyForRecord(rec, input.faultJoints) === partKey) {
-      memberIndexes.push(i);
-    }
+  records.forEach((_rec, i) => {
+    if (groupKeys[i] === partKey) memberIndexes.push(i);
   });
   if (memberIndexes.length === 0) return null;
 

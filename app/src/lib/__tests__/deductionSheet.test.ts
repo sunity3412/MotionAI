@@ -1311,3 +1311,182 @@ test('T17 (자막): 산출에 `목표는` 리터럴이 0회', () => {
     assert.ok(!out.includes('목표는'), `자막에 목표 절이 남았다: ${out}`);
   }
 });
+
+// ── Task 2: 표시 배선 (칩·마커·시트가 원인 단위) ──────────────────────────
+
+// 실 fixture 형상 A — power-spin 에서 belle 이 요청한 병합이 성립하는 모양.
+// 어깨(동작 전용 entry) + 팔꿈치(__common__ 폴백)가 둘 다 shoulder_unstable 이다.
+const POWERSPIN_SHOULDER_ARM = [
+  rec({
+    criterion: 'angle_vs_reference__left_shoulder',
+    exerciseId: 'shoulder_unstable',
+    points: -12.8,
+    statusLine: REAL_STATUS,
+    cueLine: REAL_GOAL_CUE,
+  }),
+  rec({
+    criterion: 'angle_vs_reference__left_elbow',
+    exerciseId: 'shoulder_unstable',
+    points: -3.8,
+    statusLine: '왼쪽 팔꿈치 각도가 파워스핀 기준 자세와 차이가 있어요',
+    cueLine: '목표는 폴을 따라 위아래 한 줄 스플릿이에요. 팔꿈치 각을 기준 자세에 겹쳐 맞춰보세요',
+  }),
+];
+
+// 실 fixture 형상 B — elbow-twist-sister 8건 (저장 fixture 실측 그대로).
+// 팔꿈치는 동작 전용 grip_weak 라 어깨와 묶이지 않는다. 도메인 회귀 가드.
+const ELBOWTWIST_EIGHT = [
+  rec({ criterion: 'angle_vs_reference__left_elbow', exerciseId: 'grip_weak', points: -3.8 }),
+  rec({ criterion: 'angle_vs_reference__right_elbow', exerciseId: 'grip_weak', points: -12.4 }),
+  rec({ criterion: 'angle_vs_reference__left_shoulder', exerciseId: 'shoulder_unstable', points: -0.5 }),
+  rec({ criterion: 'angle_vs_reference__right_shoulder', exerciseId: 'shoulder_unstable', points: -11.1 }),
+  rec({ criterion: 'angle_vs_reference__left_hip', exerciseId: 'hip_hamstring_tight', points: -2.2 }),
+  rec({ criterion: 'angle_vs_reference__right_hip', exerciseId: 'hip_hamstring_tight', points: -2.1 }),
+  rec({ criterion: 'angle_vs_reference__left_knee', exerciseId: 'legs_not_extended', points: -2.2 }),
+  rec({ criterion: 'angle_vs_reference__right_knee', exerciseId: 'legs_not_extended', points: -2.6 }),
+];
+
+test('배선: power-spin 형상 — 어깨·팔이 칩 1개·마커 1경계로 병합되고 배지 번호도 합쳐진다', () => {
+  const numbers = [1, 2];
+  const groups = buildPartGroups(POWERSPIN_SHOULDER_ARM, numbers, undefined);
+  assert.equal(groups.length, 1, '어깨·팔이 여전히 두 경계다');
+  assert.equal(groups[0].partKey, 'shoulder+arm');
+  assert.deepEqual(groups[0].numbers, [1, 2]);
+  assert.equal(groups[0].badgeLabel, '1·2');
+  // 경계 bounding 은 두 부위 keypoint 합집합.
+  assert.deepEqual([...groups[0].keypoints].sort(), ['left_elbow', 'left_shoulder']);
+
+  const chips = buildPartChips({
+    records: POWERSPIN_SHOULDER_ARM,
+    recordNumbers: numbers,
+    attentionKeypoints: [],
+    estimatedArea: false,
+  });
+  assert.deepEqual(
+    chips.map((c) => [c.partKey, c.label]),
+    [['shoulder+arm', '어깨·팔']],
+  );
+  assert.equal(chips[0].firstRecordIndex, 0);
+});
+
+test('배선: 병합 시트 — 블록 수 == 멤버 record 수, 각 블록이 자기 −X점을 단다 (투명 합산)', () => {
+  const view = buildRegionSheetView({
+    records: POWERSPIN_SHOULDER_ARM,
+    recordNumbers: [1, 2],
+    actionPhrases: [null, null],
+    zooms: [null, null],
+    selectedRecordIndex: 0,
+    rightPairLabel: RIGHT_LABEL,
+  });
+  assert.ok(view);
+  assert.equal(view.partKey, 'shoulder+arm');
+  assert.equal(view.title, '어깨·팔');
+  // 묶여도 감점은 개별로 남는다 — 묶었다고 수치를 숨기지 않는다.
+  assert.equal(view.blocks.length, POWERSPIN_SHOULDER_ARM.length);
+  assert.ok(view.blocks[0].header.includes('(−12.8점)'));
+  assert.ok(view.blocks[1].header.includes('(−3.8점)'));
+  // numNote(측정 수치 참고 줄)도 블록마다 살아 있다.
+  for (const b of view.blocks) {
+    assert.ok(b.numNote?.startsWith('측정 수치(참고) — '), b.numNote ?? 'null');
+  }
+});
+
+test('배선: 병합 시트의 goalLine 은 1개(대표 record 유래), 블록 cueLine 에 `목표는` 0회', () => {
+  const view = buildRegionSheetView({
+    records: POWERSPIN_SHOULDER_ARM,
+    recordNumbers: [1, 2],
+    actionPhrases: [null, null],
+    zooms: [null, null],
+    selectedRecordIndex: 1,
+    rightPairLabel: RIGHT_LABEL,
+  });
+  assert.ok(view);
+  // 대표 = |points| 최대 (−12.8 어깨). 목표 절은 저장 문자열 그대로 (창작 0).
+  assert.equal(view.goalLine, '목표는 폴을 따라 위아래 한 줄 스플릿이에요.');
+  for (const b of view.blocks) {
+    assert.ok(
+      !(b.cueLine ?? '').includes('목표는'),
+      `블록이 목표 절을 반복한다: ${b.cueLine}`,
+    );
+  }
+  // 행동 절은 원 cueLine 의 부분 문자열 (음성이 말하지 않은 말 0).
+  assert.equal(
+    view.blocks[0].cueLine,
+    '어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요',
+  );
+});
+
+test('배선: 목표 절 없는 문형(__common__/legacy) → goalLine null (자리도 없다)', () => {
+  for (const cueLine of [REAL_COMMON_CUE, undefined]) {
+    const view = buildRegionSheetView({
+      records: [rec({ criterion: 'angle_vs_reference__left_knee', cueLine })],
+      recordNumbers: [1],
+      actionPhrases: ['무릎 더 펴기'],
+      zooms: [null],
+      selectedRecordIndex: 0,
+      rightPairLabel: RIGHT_LABEL,
+    });
+    assert.ok(view);
+    assert.equal(view.goalLine, null);
+    // 행동 절은 종전 폴백 그대로 살아 있다.
+    assert.equal(view.blocks[0].cueLine, cueLine ?? '무릎 더 펴기');
+  }
+});
+
+test('배선: elbow-twist 8건 형상 — 그룹 3개 유지, 어깨·팔 미병합 (grip_weak 도메인 가드)', () => {
+  const numbers = ELBOWTWIST_EIGHT.map((_, i) => i + 1);
+  const chips = buildPartChips({
+    records: ELBOWTWIST_EIGHT,
+    recordNumbers: numbers,
+    attentionKeypoints: [],
+    estimatedArea: false,
+  });
+  // 엘보 트위스트에서 팔꿈치는 그립이지 어깨 결함이 아니다 — 판단은 승인 fixture
+  // 데이터(phrasebook 동작 전용 grip_weak)가 하고, 코드에 동작 분기는 없다.
+  assert.deepEqual(
+    chips.map((c) => c.partKey),
+    ['arm', 'shoulder', 'leg'],
+  );
+  // 다리 그룹은 exerciseId 가 둘(hip_hamstring_tight/legs_not_extended)이지만
+  // 쪼개지지 않는다 — 같은 이름 칩 2개 금지.
+  const leg = chips.filter((c) => c.label === '다리');
+  assert.equal(leg.length, 1);
+  assert.deepEqual(leg[0].numbers, [5, 6, 7, 8]);
+});
+
+test('배선: legacy doc(exerciseId 전건 부재) → 칩·그룹·시트 산출이 변경 전과 동일', () => {
+  // 병합 미발동 = 오늘과 같은 화면. 부위 키 기준 기대값을 그대로 단정한다.
+  const legacy = ELBOWTWIST_EIGHT.map((r) =>
+    rec({ criterion: r.criterion, points: r.points }),
+  );
+  const numbers = legacy.map((_, i) => i + 1);
+  assert.deepEqual(
+    buildCauseGroupKeys(legacy, undefined),
+    legacy.map((r) => regionPartKeyForRecord(r, undefined)),
+  );
+  assert.deepEqual(
+    buildPartGroups(legacy, numbers, undefined).map((g) => g.partKey),
+    ['arm', 'shoulder', 'leg'],
+  );
+  assert.deepEqual(
+    buildPartChips({
+      records: legacy,
+      recordNumbers: numbers,
+      attentionKeypoints: [],
+      estimatedArea: false,
+    }).map((c) => c.partKey),
+    ['arm', 'shoulder', 'leg'],
+  );
+  const view = buildRegionSheetView({
+    records: legacy,
+    recordNumbers: numbers,
+    actionPhrases: legacy.map(() => null),
+    zooms: legacy.map(() => null),
+    selectedRecordIndex: 2,
+    rightPairLabel: RIGHT_LABEL,
+  });
+  assert.ok(view);
+  assert.equal(view.partKey, 'shoulder');
+  assert.equal(view.blocks.length, 2);
+  assert.equal(view.goalLine, null);
+});

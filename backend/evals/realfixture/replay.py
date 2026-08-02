@@ -267,12 +267,24 @@ class Blocked(Exception):
     """재현에 필요한 입력을 doc 에서 구할 수 없음 — 추정으로 메우지 않는다."""
 
 
-def replay_fixture(app, entry: dict, *, use_frame_confidence: bool = False) -> dict:
+def replay_fixture(
+    app, entry: dict, *, use_frame_confidence: bool = False,
+    noise_floor: bool = False,
+) -> dict:
     """분석 1건 재생 → {md, breakdown, measured_at, match, profile, ...}.
 
     use_frame_confidence (quick-260802-tie): True 면 저장 keypointReport 에서 만든
     신뢰도를 builder 에 주입한다 — 대표 프레임이 **동점일 때만** 쓰인다.
     False(default) = 이 인자가 생기기 전과 완전히 같은 재생(RECON 게이트 무영향).
+
+    noise_floor (quick-260802-nse): True 면 builder 가 낸 median 신뢰구간을 tally 에
+    넘겨 **측정 불확실도 안에서 성립하지 않는 감점 record 를 방출하지 않는다**.
+    False(default) = 억제 없이 종전대로 감점(RECON 게이트 무영향 — RECON 은 저장
+    07-31 doc 을 재현하는 것이므로 반드시 off 로 돈다. 억제를 켜고 RECON 을 돌리면
+    억제된 record 가 MISSING 으로 찍혀 게이트의 의미가 뒤집힌다).
+
+    구간 산출(builder out-param)은 **양쪽 모두**에서 돈다 — 처리 변수를 tally 인자
+    하나로 좁히기 위해서다. builder 는 md 를 mutate 하지 않으므로 md 는 양쪽 byte-동일.
     """
     from sunity_shared.analysis import dimensions, kismam, skeleton, vision_veto
     from sunity_shared.analysis.gemini_technique_recognizer import (
@@ -348,6 +360,8 @@ def replay_fixture(app, entry: dict, *, use_frame_confidence: bool = False) -> d
     align = vv.get("alignment") or {}
     measured_at: dict = {}
     seed_audit: dict = {}
+    # quick-260802-nse — criterion별 median 신뢰구간. 양쪽 실행에서 항상 채운다.
+    measurement_error_out: dict = {}
     frame_confidence = None
     if use_frame_confidence:
         frame_confidence = frame_confidence_from_keypoint_report(
@@ -372,6 +386,7 @@ def replay_fixture(app, entry: dict, *, use_frame_confidence: bool = False) -> d
         vision_status=vv.get("collectionStatus"),
         measured_at_out=measured_at,
         frame_confidence=frame_confidence,
+        measurement_error_out=measurement_error_out,
     )
 
     # (6) tally — production 경로(_apply_vision_veto_from_context)를 그대로 탄다.
@@ -400,6 +415,7 @@ def replay_fixture(app, entry: dict, *, use_frame_confidence: bool = False) -> d
         quantification,
         measured_deviations=md,
         baseline_kind=baseline_kind,
+        measurement_error=measurement_error_out if noise_floor else None,
     )
     breakdown = veto_result.get("deductionBreakdown") or {}
 
@@ -419,6 +435,8 @@ def replay_fixture(app, entry: dict, *, use_frame_confidence: bool = False) -> d
         "aRef": a_ref,
         "md": md,
         "measuredAt": measured_at,
+        "measurementError": measurement_error_out,
+        "noiseFloor": bool(noise_floor),
         "seedAudit": seed_audit,
         "quantification": quantification,
         "vetoResult": veto_result,
@@ -580,6 +598,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--recon-only", action="store_true",
         help="재현 대조만 수행 — 판정(atFrameIdx 분포) 산출 없음",
     )
+    p.add_argument(
+        "--noise-floor", action="store_true",
+        help=(
+            "측정 오차 미만 감점 억제를 켠다 (quick-260802-nse). 기본 off. "
+            "--recon-only 와는 함께 쓰지 않는다 — RECON 은 저장 doc 재현이라 off 로만 유효"
+        ),
+    )
+    p.add_argument(
+        "--noise-floor-report", action="store_true",
+        help=(
+            "같은 fixture 를 off/on 두 번 돌려 점수·record·카드 이동 표를 낸다 "
+            "(quick-260802-nse). 처리 변수는 억제 하나뿐"
+        ),
+    )
     p.add_argument("--out", default=None, help="판정 산출물 경로 (replay_out.json)")
     return p
 
@@ -587,6 +619,11 @@ def build_parser() -> argparse.ArgumentParser:
 _DEFAULT_OUT = (
     _REPO
     / ".planning/quick/260802-czw-keypoint-fixture-keypointreport-joints3d/replay_out.json"
+)
+
+_DEFAULT_NOISE_FLOOR_OUT = (
+    _REPO
+    / ".planning/quick/260802-nse-noise-floor-deduction/noise_floor_effect.json"
 )
 
 
@@ -602,11 +639,29 @@ def main(argv=None) -> int:
     )
     print(f"firestore 차단 함수 {len(app._czw_blocked_firestore)}종")
 
+    if args.noise_floor_report:
+        # quick-260802-nse — 효과 표는 RECON/판정 경로와 독립이다. exit code 는
+        # 불변식(점수 단조 상승 + 이동 전건 설명)이 성립했는가만 답한다.
+        out_path = Path(args.out) if args.out else _DEFAULT_NOISE_FLOOR_OUT
+        payload = build_noise_floor_report(app, manifest)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n")
+        print(f"\n산출물: {out_path}")
+        return 0 if payload["invariantsHold"] else 1
+
+    if args.noise_floor and args.recon_only:
+        print(
+            "ERROR: --noise-floor 와 --recon-only 는 함께 쓸 수 없다 — RECON 은 저장 "
+            "doc 재현이므로 억제 off 로만 의미가 있다 (억제를 켜면 억제된 record 가 "
+            "MISSING 으로 찍혀 게이트 의미가 뒤집힌다)."
+        )
+        return 2
+
     replays: list[tuple[dict, dict, dict]] = []
     recon_all_pass = True
     for entry in manifest["analyses"]:
         try:
-            replayed = replay_fixture(app, entry)
+            replayed = replay_fixture(app, entry, noise_floor=args.noise_floor)
         except Blocked as exc:
             print(f"\n== {entry['analysisId']}\n   RECON: BLOCKED ({exc})")
             recon_all_pass = False
@@ -794,8 +849,13 @@ def render_cards(app, replayed: dict, records: list, frames_fps: float) -> list[
     return out
 
 
-def _engrave(app, replayed: dict, measured_at: dict) -> list[dict]:
-    """production `_attach_translation_emission` 으로 record 에 순간을 각인한다."""
+def _engrave_with_result(app, replayed: dict, measured_at: dict):
+    """production `_attach_translation_emission` 실행 → (records, result).
+
+    quick-260802-nse: `mission` 은 여기서 **재현 record 로부터 다시 선정된다**
+    (`mission_mod.select_mission(records, ...)`). 저장 doc 의 mission 은 저장 record
+    로 뽑힌 것이라 억제 후 헤드라인을 묻는 데 쓸 수 없다 — 그래서 result 도 돌려준다.
+    """
     import copy
 
     breakdown = copy.deepcopy(replayed["breakdown"] or {})
@@ -813,7 +873,12 @@ def _engrave(app, replayed: dict, measured_at: dict) -> list[dict]:
         analysis_id=replayed["analysisId"],
         measured_at=measured_at,
     )
-    return list(breakdown.get("records") or [])
+    return list(breakdown.get("records") or []), result
+
+
+def _engrave(app, replayed: dict, measured_at: dict) -> list[dict]:
+    """production `_attach_translation_emission` 으로 record 에 순간을 각인한다."""
+    return _engrave_with_result(app, replayed, measured_at)[0]
 
 
 def build_verdict(app, manifest: dict, replays) -> dict:
@@ -1016,6 +1081,338 @@ def build_verdict(app, manifest: dict, replays) -> dict:
             "이 하네스의 관측 범위 밖이다. 여기서는 확인되지 않았다.",
             "advisory 카드는 criterion_units 미전달로 구조적으로 atMatched 를 가질 수 "
             "없다 — 전체 비율과 confirmed 전용 비율을 둘 다 읽을 것.",
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# 측정 오차 미만 감점 억제 — 효과 표 (quick-260802-nse)
+# ---------------------------------------------------------------------------
+# record 가 사라지면 그것에 매달린 것이 **전부** 사라진다. records[] 는 네 곳으로 흐른다:
+#   fault_zoom.criterion_units_from_records (백엔드 — crop 출생)
+#   → app/src/lib/deductionSheet.ts        (감점 시트 행: records.forEach 1:1)
+#   → deductionLabels.matchZoomForDeductionRecord (행↔카드 조인)
+#   → app/src/lib/summarySource.ts         (요약 문장·"오늘의 교정")
+# 그래서 점수만이 아니라 카드 장수·시트 행 수·헤드라인 record 까지 전건으로 낸다.
+
+# `_ANGLE_TOLERANCE_DEG` 등 규칙 상수를 하네스가 다시 쓰지 않는다 — criterion 표에서 읽는다.
+# app/src/lib/summarySource.ts:140 — record 가 없을 때의 헤드라인 문장.
+# 하네스가 문구를 새로 쓰지 않는다(그 파일의 값을 그대로 옮긴 것).
+_TODAY_FIX_GENERIC = "오늘은 이 부분에 집중해봐요"
+
+_FAIL_CLOSED_REASONS = {
+    "split_angle": "no_sample_vision_injected_or_peak",
+    "leg_extension": "different_estimator_select_window",
+    "arm_extension": "different_estimator_select_window",
+    "line": "different_estimator_select_window",
+    "body_relative_reach": "no_time_series",
+    "dimension_overall_fallback": "whole_score_not_a_deviation",
+}
+
+
+def _headline_record(result: dict, records: list) -> dict:
+    """앱 요약 문장·"오늘의 교정" 이 가리키는 record (app/src/lib/summarySource.ts).
+
+    mission 이 있으면 mission.criterion, 없으면 **최대 감점**(points 가 가장 음수).
+    정렬은 TS 와 같은 규약(오름차순 안정 정렬 후 첫 항목)을 그대로 쓴다.
+
+    `result` 는 **각인 후** result 여야 한다 — mission 은 그 시점 record 로 다시
+    선정되기 때문이다(_engrave_with_result 참조). 저장 doc 의 mission 을 쓰면 억제
+    전후가 항상 같게 나와 질문 자체가 무의미해진다.
+    """
+    def _text(rec):
+        # summarySource.ts: `rec?.statusLine ?? TODAY_FIX_GENERIC`.
+        line = (rec or {}).get("statusLine")
+        return line if isinstance(line, str) and line else _TODAY_FIX_GENERIC
+
+    mission = (result or {}).get("mission") or None
+    if mission and mission.get("criterion"):
+        rid, cid = mission.get("recordId"), mission.get("criterion")
+        rec = next(
+            (
+                r for r in records
+                if (rid is not None and r.get("recordId") == rid)
+                or r.get("criterion") == cid
+            ),
+            None,
+        )
+        return {
+            "source": "mission",
+            "criterion": cid,
+            "selectedBy": mission.get("selectedBy"),
+            "points": mission.get("baselinePoints"),
+            "text": _text(rec),
+        }
+    if not records:
+        return {
+            "source": "none", "criterion": None, "selectedBy": None,
+            "points": None, "text": _TODAY_FIX_GENERIC,
+        }
+    top = sorted(records, key=lambda r: r.get("points") or 0.0)[0]
+    return {
+        "source": "max_deduction",
+        "criterion": top.get("criterion"),
+        "selectedBy": None,
+        "points": top.get("points"),
+        "text": _text(top),
+    }
+
+
+def _fail_closed_rows(md: dict, records: list, measurement_error: dict) -> list[dict]:
+    """구간이 없어 **종전대로 감점**한 criterion 과 그 이유 코드."""
+    rows: list[dict] = []
+    for r in records:
+        cid = r.get("criterion")
+        if cid in measurement_error:
+            continue
+        reason = _FAIL_CLOSED_REASONS.get(cid)
+        if reason is None and cid and cid.startswith("angle_vs_reference__"):
+            # 구간이 없는 angle_vs_reference = window 경로(추정량 상이 + 최소표본 미달).
+            reason = "window_path_estimator_and_sample_below_minimum"
+        rows.append({
+            "criterion": cid,
+            "points": r.get("points"),
+            "reason": reason or "interval_unavailable",
+        })
+    return rows
+
+
+def build_noise_floor_report(app, manifest: dict) -> dict:
+    """같은 fixture 를 억제 off/on 두 번 돌려 이동을 수치로 낸다.
+
+    처리 변수는 억제 하나뿐 — 다른 인자·입력은 전부 동일하다.
+    """
+    from sunity_shared.analysis import measurement_error as _mer
+
+    frames_fps = float(manifest["studentAnglesFps"])
+    fixtures: list[dict] = []
+    invariants_hold = True
+    violations: list[str] = []
+
+    for entry in manifest["analyses"]:
+        aid = entry["analysisId"]
+        try:
+            off = replay_fixture(app, entry, noise_floor=False)
+            on = replay_fixture(app, entry, noise_floor=True)
+        except Blocked as exc:
+            fixtures.append({"analysisId": aid, "blocked": str(exc)})
+            invariants_hold = False
+            violations.append(f"{aid}: BLOCKED {exc}")
+            continue
+
+        b_off, b_on = off["breakdown"] or {}, on["breakdown"] or {}
+        recs_off = [r for r in (b_off.get("records") or []) if isinstance(r, dict)]
+        recs_on = [r for r in (b_on.get("records") or []) if isinstance(r, dict)]
+        supp = b_on.get("suppressedRecords") or []
+
+        # md 는 억제와 무관하게 byte-동일해야 한다(builder 가 mutate 하지 않는 보증).
+        md_identical = off["md"] == on["md"]
+        # 살아남은 record 는 값까지 byte-동일해야 한다(밴드 아님).
+        off_by_crit = {r.get("criterion"): r for r in recs_off}
+        kept_identical = all(
+            off_by_crit.get(r.get("criterion")) == r for r in recs_on
+        )
+
+        eng_off, res_off = _engrave_with_result(app, off, off["measuredAt"])
+        eng_on, res_on = _engrave_with_result(app, on, on["measuredAt"])
+        cards_off = render_cards(app, off, eng_off, frames_fps)
+        cards_on = render_cards(app, on, eng_on, frames_fps)
+        crit_off = {c.get("criterion") for c in cards_off if c.get("criterion")}
+        crit_on = {c.get("criterion") for c in cards_on if c.get("criterion")}
+        # 카드 장수는 **단조 감소하지 않는다**: confirmed 카드가 사라지면 그 자리를
+        # advisory 카드(criterion 없음, 다른 source)가 채운다. 그래서 tier 별로 센다.
+        conf_off = [c for c in cards_off if c.get("tier") == "confirmed"]
+        conf_on = [c for c in cards_on if c.get("tier") == "confirmed"]
+        adv_off = [c for c in cards_off if c.get("tier") != "confirmed"]
+        adv_on = [c for c in cards_on if c.get("tier") != "confirmed"]
+
+        final_off, final_on = b_off.get("final"), b_on.get("final")
+        delta = (
+            None if final_off is None or final_on is None
+            else int(final_on) - int(final_off)
+        )
+        raw_off = b_off.get("executionRawTotal")
+        raw_on = b_on.get("executionRawTotal")
+        moved = (
+            None if raw_off is None or raw_on is None
+            else round(float(raw_off) - float(raw_on), 1)
+        )
+        supp_sum = round(sum(float(s.get("wouldBePoints") or 0.0) for s in supp), 1)
+        reconstructs = moved is not None and abs(supp_sum - moved) < 0.05
+        final_identity = (
+            b_on.get("executionCap") is None
+            or final_on == int(max(
+                b_on["scoreFloor"],
+                round(100 + b_on["executionCappedTotal"] + b_on["criticalTotal"]),
+            ))
+        )
+
+        head_off = _headline_record(res_off, eng_off)
+        head_on = _headline_record(res_on, eng_on)
+
+        if delta is not None and delta < 0:
+            invariants_hold = False
+            violations.append(f"{aid}: 점수가 내려갔다 {final_off} -> {final_on}")
+        if not reconstructs:
+            invariants_hold = False
+            violations.append(
+                f"{aid}: 설명 안 되는 이동 Σwould={supp_sum} vs 이동={moved}"
+            )
+        if not kept_identical:
+            invariants_hold = False
+            violations.append(f"{aid}: 살아남은 record 의 값이 바뀌었다(밴드)")
+        if not md_identical:
+            invariants_hold = False
+            violations.append(f"{aid}: md 가 억제 유무로 바뀌었다")
+        if not final_identity:
+            invariants_hold = False
+            violations.append(f"{aid}: final 항등식(INV-6) 불성립")
+        if not set(r.get("criterion") for r in recs_on) <= set(
+            r.get("criterion") for r in recs_off
+        ):
+            invariants_hold = False
+            violations.append(f"{aid}: 새 record 가 생겼다")
+
+        fixtures.append({
+            "analysisId": aid,
+            "referenceMotionId": entry["referenceMotionId"],
+            "motionId": off["motionId"],
+            "storedScore": entry.get("overallScore"),
+            "storedDeductionFinal": entry.get("deductionFinal"),
+            # 점수
+            "finalBefore": final_off,
+            "finalAfter": final_on,
+            "finalDelta": delta,
+            "executionRawTotalBefore": raw_off,
+            "executionRawTotalAfter": raw_on,
+            # record
+            "recordCountBefore": len(recs_off),
+            "recordCountAfter": len(recs_on),
+            "recordCriteriaBefore": [r.get("criterion") for r in recs_off],
+            "recordCriteriaAfter": [r.get("criterion") for r in recs_on],
+            "suppressedCriteria": [s.get("criterion") for s in supp],
+            # 카드 — 전체 장수는 tier 혼합이라 confirmed/advisory 를 따로 낸다.
+            "cardCountBefore": len(cards_off),
+            "cardCountAfter": len(cards_on),
+            "confirmedCardCountBefore": len(conf_off),
+            "confirmedCardCountAfter": len(conf_on),
+            "advisoryCardCountBefore": len(adv_off),
+            "advisoryCardCountAfter": len(adv_on),
+            "cardsBefore": [
+                {"criterion": c.get("criterion"), "joint": c.get("joint"),
+                 "tier": c.get("tier"), "region": c.get("region")}
+                for c in cards_off
+            ],
+            "cardsAfter": [
+                {"criterion": c.get("criterion"), "joint": c.get("joint"),
+                 "tier": c.get("tier"), "region": c.get("region")}
+                for c in cards_on
+            ],
+            "cardCriteriaBefore": sorted(crit_off),
+            "cardCriteriaAfter": sorted(crit_on),
+            "cardsRemoved": sorted(crit_off - crit_on),
+            "cardsAdded": sorted(crit_on - crit_off),
+            # 감점 시트 행 (deductionSheet.ts 는 records 를 1:1 순회한다)
+            "sheetRowsBefore": len(recs_off),
+            "sheetRowsAfter": len(recs_on),
+            # 억제 내역 (전건)
+            "suppressedRecords": supp,
+            # 재구성
+            "suppressedPointsSum": supp_sum,
+            "executionRawTotalMoved": moved,
+            "reconstructs": reconstructs,
+            "finalIdentityHolds": final_identity,
+            "keptRecordsByteIdentical": kept_identical,
+            "mdByteIdentical": md_identical,
+            # fail-closed
+            "failClosedRecords": _fail_closed_rows(
+                off["md"], recs_off, off["measurementError"]
+            ),
+            "intervalCriteria": sorted(off["measurementError"]),
+            # 표시 연쇄
+            "headlineBefore": head_off,
+            "headlineAfter": head_on,
+            "headlineChanged": head_off.get("criterion") != head_on.get("criterion"),
+        })
+
+    print("\n── 측정 오차 미만 감점 억제 효과 (quick-260802-nse) ──")
+    print(f"   신뢰수준 = 양측 {int((1 - _mer.CI_ALPHA) * 100)}% "
+          f"(CI_ALPHA={_mer.CI_ALPHA}, 최소표본={_mer.min_sample_size()})")
+    for f in fixtures:
+        if f.get("blocked"):
+            print(f"  {f['analysisId']:34} BLOCKED {f['blocked']}")
+            continue
+        print(
+            f"  {f['analysisId']:34} "
+            f"final {f['finalBefore']} -> {f['finalAfter']} "
+            f"(delta {f['finalDelta']:+d}) · "
+            f"record {f['recordCountBefore']} -> {f['recordCountAfter']} · "
+            f"card {f['cardCountBefore']} -> {f['cardCountAfter']} "
+            f"(confirmed {f['confirmedCardCountBefore']} -> "
+            f"{f['confirmedCardCountAfter']}, advisory "
+            f"{f['advisoryCardCountBefore']} -> {f['advisoryCardCountAfter']})"
+        )
+        for s in f["suppressedRecords"]:
+            print(
+                f"      억제 {s['criterion']:38} "
+                f"mv={s['measuredValue']} tol={s['tolerance']} "
+                f"CI=[{s['intervalLow']}, {s['intervalHigh']}] n={s['sampleSize']} "
+                f"would={s['wouldBePoints']}"
+            )
+        if f["headlineChanged"]:
+            print(
+                f"      헤드라인 변경: {f['headlineBefore']['criterion']} -> "
+                f"{f['headlineAfter']['criterion']}  (표시 정책 판단 대상 — 고치지 않음)"
+            )
+            print(f"        before: {f['headlineBefore']['text']!r}")
+            print(f"        after : {f['headlineAfter']['text']!r}")
+        if f["confirmedCardCountAfter"] > f["confirmedCardCountBefore"]:
+            print(
+                "      confirmed 카드가 늘었다 — records 가 비면 "
+                "_build_fault_zoom_comparisons 가 criterion_units=None 으로 "
+                "legacy fault_joints fan-out 에 폴백한다(app.py:3507-3512). "
+                "카드가 사라지는 게 아니라 criterion 앵커를 잃는다. "
+                "(표시 정책 판단 대상 — 고치지 않음)"
+            )
+    if violations:
+        print("\n불변식 위반:")
+        for v in violations:
+            print(f"  - {v}")
+    else:
+        print("\n불변식: 점수 단조 상승 · 이동 전건 설명 · 밴드 아님 — 전부 성립")
+
+    return {
+        "generatedBy": (
+            "backend/evals/realfixture/replay.py --noise-floor-report "
+            "(quick-260802-nse)"
+        ),
+        "ciAlpha": _mer.CI_ALPHA,
+        "minSampleSize": _mer.min_sample_size(),
+        "studentAnglesFps": manifest["studentAnglesFps"],
+        "fixtures": fixtures,
+        "invariantsHold": invariants_hold,
+        "violations": violations,
+        "limits": [
+            "kip-up 의 split_angle 과 power-spin 의 leg_extension 은 이 하네스가 "
+            "애초에 재현하지 못하는 record 다(quick-260802-czw Deviation 1·2) — 그 "
+            "fixture 의 before/after 는 **재현된 record 범위 안에서만** 읽어야 하고 "
+            "저장 doc 의 79/60 과 직접 비교하지 않는다.",
+            "elbow-twist 만 RECON 8/8 MATCH 인 다-record fixture 라 판정 자격이 있다.",
+            "카드 PNG 픽셀은 합성이라 내용이 무의미하다 — 여기서 쓰는 것은 장수와 "
+            "criterion 집합뿐이다.",
+            "감점 시트 행 수는 records 를 1:1 순회하는 deductionSheet.ts 규약에서 "
+            "파생한 값이다 — 앱을 실제로 렌더해 센 것이 아니다.",
+            "카드 **장수는 단조 감소하지 않는다** — records 가 비면 "
+            "_build_fault_zoom_comparisons 가 criterion_units=None 으로 legacy "
+            "fault_joints fan-out 에 폴백해(app.py:3507-3512, 그 주석이 명시한 "
+            "설계) criterion 없는 confirmed 카드를 만든다. 억제는 카드를 없애는 "
+            "것이 아니라 **criterion 앵커를 잃게** 한다 — 감점 0인데 확대 카드가 "
+            "남는 조합이 실제로 나온다(kip-up 1->2, pdshape 1->1). 표시 정책 "
+            "판단 대상이며 이 사이클은 고치지 않는다.",
+            "헤드라인은 **각인 후** result 의 mission 에서 읽는다 — mission 은 그 "
+            "시점 record 로 다시 선정되므로 저장 doc 의 mission 을 쓰면 억제 전후가 "
+            "언제나 같게 나온다.",
+            "mode3 경로·ipsf_absolute 구간 유도·실기기 표시는 이 산출물의 범위 밖이다.",
         ],
     }
 

@@ -1706,6 +1706,7 @@ const frameIdx = Math.floor(currentTime * report.fps);
   - `criticalTotal?: number` — 치명 record `points` 합(집계캡·관절캡 우회, SIGNED NEGATIVE).
   - `executionCap?: number` — `40`(실행 감점 집계 상한, 단일 project-level 상수 — fixture별 re-fit 금지).
   - `scoreFloor?: number` — `25`(채점 도달 영상 절대 점수 바닥).
+- **측정 오차 미만 감점 억제(additive-optional, quick-260802-nse):** `suppressedRecords?` — 아래 §10.8. 억제가 실제로 일어난 doc 에만 실린다.
 
 ### §10.2 DeductionRecord (필수 11 필드 + optional 3)
 
@@ -1775,6 +1776,42 @@ const frameIdx = Math.floor(currentTime * report.fps);
 - **항등 (D-02):** 방출 doc 의 `overallScore == deductionBreakdown.final` (100−Σ감점, §10.1 산술 그대로). 성장 델타 소스는 저장 `overallScore` 단일 — pre-tally 점수를 나르는 별도 필드 없음.
 - **미방출 (D-03):** md 빈 dict(미등록 동작 + 빈 criteria 동작)는 breakdown 미방출 + `overallScore` 불변 — 기준 없는 감점 0=100 위양성 차단. legacy mode3 doc(breakdown 부재)은 그대로 유효.
 - production 노출은 29-05 sweep 게이트(정은지 페어셋 mode3) 통과 후 Pod 재기동 시점.
+
+### §10.8 측정 오차 미만 감점 억제 + `suppressedRecords` (quick-260802-nse 신설)
+
+감점 record 가 하는 주장은 하나다 — **"이 관절의 편차가 허용치를 넘는다."** 그 주장은 점추정(`measuredValue` = 정렬 경로 스텝별 `|Δ각도|` 의 median)에 기대고 있고, 점추정에는 불확실도가 따라붙는다. 그 불확실도 안에서 주장이 성립하지 않으면 record 를 **방출하지 않는다**.
+
+**억제 규칙.** 그 값을 만든 바로 그 표본에서 median 의 양측 95% 분포무관(부호검정, 순서통계) 신뢰구간 `(L, U)` 를 유도한다(`analysis/measurement_error.py`, `CI_ALPHA=0.05`). `L <= tolerance` 면 그 record 를 방출하지 않는다. `L > tolerance` 면 종전과 **완전히 같은** `points` 로 방출한다.
+
+**밴드가 아니다.** 살아남는 record 의 `points` 는 byte-불변이다 — 문턱은 감점의 크기를 깎지 않고 오직 **방출 여부**만 가른다. 판정은 엔진의 `records.append` **직전**(dead-zone `over<=0` 다음)에서만 일어나므로 `activated` 집합과 cross-exclusion(§10.3) 결과도 byte-불변이다. 따라서 억제는 record 를 지울 뿐 만들지 않고, **점수는 오직 올라가거나 그대로다.**
+
+**fail-closed 6갈래.** 구간을 못 구하면 종전대로 감점한다 — "못 구했다"를 "감점 0"으로 번역하지 않는다.
+
+| criterion / 경로 | 표본 | 처분 |
+|---|---|---|
+| `angle_vs_reference__{joint}` — DTW 경로 | 정렬 스텝 `\|Δ\|` 열 | **적용** |
+| `angle_vs_reference__{joint}` — window 경로 | 최대 `2*window+1` 프레임 | **fail-closed.** (a) 추정량이 다르다 — 학생 window median 과 기준 window median 의 *차*이지 차이의 median 이 아니다. (b) 표본이 분포무관 구간의 최소표본(`ceil(log2(2/alpha))`)에 **구조적으로** 미달한다 |
+| `split_angle` | 없음(vision 주입 추정 또는 peak) | **fail-closed** |
+| `leg_extension` / `arm_extension` / `line` | 다른 추정량(`dimensions._select_window` 창 집계) | **fail-closed** — 별도 유도 필요, 범위 밖 |
+| `body_relative_reach` | 시계열 없음 | **fail-closed** |
+| `dimension_overall_fallback` | 편차가 아니라 whole-score | **fail-closed** |
+
+**`suppressedRecords?`** — 지워진 감점은 사라지지 않는다. 얼마를 왜 빼지 않았는지가 남아야 점수 이동을 산술로 되짚을 수 있다(투명 합산). 억제가 실제로 일어난 doc 에만 실리는 breakdown-level additive optional(빈 경우 키 생략 — `rawPoints`/`capApplied`/`executionCap` 패턴 계승). 항목은 전부 flat scalar(`[[firestore-nested-array-flat]]`). Python lockstep = `models.SUPPRESSED_RECORD_KEYS`, TS = `SuppressedDeductionRecord`.
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `criterion` | string | 억제된 criterion id |
+| `measuredValue` | number | 그 record 가 주장하던 값 (deg) |
+| `tolerance` | number | 허용치 (deg) |
+| `intervalLow` | number | median 신뢰구간 하한 — 억제 판정은 `intervalLow <= tolerance` |
+| `intervalHigh` | number | median 신뢰구간 상한 |
+| `sampleSize` | number | 구간을 만든 표본수(관측치 — 판정에 쓰이지 않음, `0`=미제공) |
+| `wouldBePoints` | number | 방출됐다면 들어갔을 감점 (SIGNED NEGATIVE, per-record 상한 적용 후) |
+| `ruleId` | string | `'deviation_within_measurement_error'` |
+
+**재구성 항등식.** `Σ wouldBePoints == executionRawTotal(억제 없음) − executionRawTotal(억제)`. `final` 산식(§10.1)은 **바뀌지 않는다** — 억제된 record 는 애초에 `records` 에 없으므로 `final == max(scoreFloor, round(100 + executionCappedTotal + criticalTotal))` 이 그대로 성립한다.
+
+**알려진 한계(숨기지 않는다).** 부호검정 피복확률은 표본 독립을 가정한다. DTW 경로 스텝은 독립이 아니므로(같은 학생 프레임을 여러 스텝이 가리키고 인접 프레임 상관이 크다) 유효 표본수가 `n` 보다 작고 구간은 참 구간보다 **좁다** → 하한이 높다 → 억제가 **덜** 걸린다 = 종전대로 감점하는 쪽. 편향이 fail-closed 방향이다.
 
 ---
 

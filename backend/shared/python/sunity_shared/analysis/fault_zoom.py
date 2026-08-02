@@ -140,36 +140,6 @@ REGION_MEMBERS: dict[str, tuple[str, ...]] = {
     "legs": ("left_hip", "right_hip", "left_knee", "right_knee"),
     "arms": ("left_shoulder", "right_shoulder", "left_hand", "right_hand"),
 }
-
-# criterion 별 crop **프레이밍** 추가 멤버 (quick-260802-gny) — display 전용,
-# 채점 무접촉. `REGION_MEMBERS` 는 한 글자도 안 고친다: leg_extension·arms·
-# vision 폴백·앱 미러(deductionLabels.ts REGION_MEMBER_KEYPOINTS)가 전부 그 값을
-# 공유하므로 거기에 발목을 더하면 다른 카드까지 번진다.
-#
-# **임의 확대가 아니라 "그 criterion 이 그리는 점의 누락분"이다.** split_angle
-# 카드가 그리는 점은 `_leg_line_pts`(974행)가 고르는 (골반 중점, 왼 다리 끝,
-# 오른 다리 끝) 3점이고, 다리 끝 후보는 ankle 다음 knee 다. 멤버 집합이 그보다
-# 좁으면 두 가지가 생긴다:
-#   (a) crop 이 leg_extension 과 **완전히 같아져** 두 카드가 같은 사진이 된다
-#       (실 doc 실측: 같은 프레임·같은 4멤버 → 같은 box → 같은 sha256).
-#   (b) 발목이 crop 밖이면 `_pt_in_crop`(1315행) 게이트가 그 후보를 떨어뜨려
-#       끝점이 knee 로 내려가고(quick-260731-f5h 폴백) 선이 정강이까지만 그려진다.
-#       knee 마저 밖이면 그 측은 미드로잉이다.
-# 등재 10동작 스위프 실측: 이 표로 (b) 의 끝점이 knee → ankle 로 바뀐 동작 7건.
-# 대가는 학생 패널 crop 이 넓어지는 것이다 — 기준 report 가 8관절(발목 부재)이라
-# 기준 패널은 따라 커지지 않아 배율 parity 가 이동한다.
-# 실측표 = .planning/quick/260802-gny-.../parity_delta.md (belle 판단 대기).
-#
-# region 은 안 건드린다 — 앱 칩·캡션 grouping 이 region 을 쓴다(_REGION_JOINTS
-# 는 이미 발목을 소속으로 인정하므로 소속 판정도 그대로다).
-# **뒤에 append 하는 이유:** `_CropUnit.joint = joints[0]`(2524행)과 `_anchor_xy`
-# 기본값 `valid[0][1]`(1150행)이 첫 멤버를 쓴다 — 앞에 끼우면 카드 kind 조회와
-# 앵커 대표 관절이 조용히 바뀐다.
-# **leg_extension 이 대상이 아닌 이유:** 무릎 신전 criterion 이라 골반과 무릎이
-# 계측 부위 전부다.
-CRITERION_CROP_EXTRA_MEMBERS: dict[str, tuple[str, ...]] = {
-    "split_angle": ("left_ankle", "right_ankle"),
-}
 # 앱 deductionLabels.ts ANGLE_VS_REFERENCE_PREFIX 미러 (관절별 reference_relative).
 ANGLE_VS_REFERENCE_PREFIX = "angle_vs_reference__"
 
@@ -243,12 +213,6 @@ def criterion_units_from_records(
             if region is None:
                 continue
             joints = list(REGION_MEMBERS[region])
-        # crop 프레이밍 추가 멤버 (quick-260802-gny) — **분기 밖**에서 붙인다.
-        # 저장된 실 doc 의 split_angle record 는 전부 source='vision' 이라 위 (3)
-        # 분기로 가는데, 그 산출은 `faultJoints 교집합 부위멤버` 이고 faultJoints
-        # 는 vision veto 의 8-keypoint 이름공간이라 발목을 원리적으로 담을 수 없다.
-        # 분기 안에 넣으면 mode3 seed(geometry)만 고쳐지고 실기기 증상이 남는다.
-        joints = list(joints) + list(CRITERION_CROP_EXTRA_MEMBERS.get(crit, ()))
         # dedupe (순서 보존) — 빈 unit 은 미생성.
         ordered: list[str] = []
         for j in joints:

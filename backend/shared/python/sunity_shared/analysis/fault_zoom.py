@@ -140,6 +140,29 @@ REGION_MEMBERS: dict[str, tuple[str, ...]] = {
     "legs": ("left_hip", "right_hip", "left_knee", "right_knee"),
     "arms": ("left_shoulder", "right_shoulder", "left_hand", "right_hand"),
 }
+
+# criterion 별 crop **프레이밍** 추가 멤버 (quick-260802-gny) — display 전용,
+# 채점 무접촉. `REGION_MEMBERS` 는 한 글자도 안 고친다: leg_extension·arms·
+# vision 폴백·앱 미러(deductionLabels.ts REGION_MEMBER_KEYPOINTS)가 전부 그 값을
+# 공유하므로 거기에 발목을 더하면 다른 카드까지 번진다.
+#
+# **임의 확대가 아니라 "그 criterion 이 그리는 점의 누락분"이다.** split_angle
+# 카드가 그리는 점은 `_leg_line_pts`(974행)가 고르는 (골반 중점, 왼 다리 끝,
+# 오른 다리 끝) 3점이고, 다리 끝 후보는 ankle 다음 knee 다. 멤버 집합이 그보다
+# 좁으면 발목이 crop 밖으로 나가 `_pt_in_crop`(1315행) 게이트에서 탈락해 그림이
+# 통째로 사라지고, 같은 이유로 crop 자체가 leg_extension 과 완전히 같아져 두
+# 카드가 같은 사진이 된다.
+#
+# region 은 안 건드린다 — 앱 칩·캡션 grouping 이 region 을 쓴다(_REGION_JOINTS
+# 는 이미 발목을 소속으로 인정하므로 소속 판정도 그대로다).
+# **뒤에 append 하는 이유:** `_CropUnit.joint = joints[0]`(2524행)과 `_anchor_xy`
+# 기본값 `valid[0][1]`(1150행)이 첫 멤버를 쓴다 — 앞에 끼우면 카드 kind 조회와
+# 앵커 대표 관절이 조용히 바뀐다.
+# **leg_extension 이 대상이 아닌 이유:** 무릎 신전 criterion 이라 골반과 무릎이
+# 계측 부위 전부다.
+CRITERION_CROP_EXTRA_MEMBERS: dict[str, tuple[str, ...]] = {
+    "split_angle": ("left_ankle", "right_ankle"),
+}
 # 앱 deductionLabels.ts ANGLE_VS_REFERENCE_PREFIX 미러 (관절별 reference_relative).
 ANGLE_VS_REFERENCE_PREFIX = "angle_vs_reference__"
 
@@ -213,6 +236,12 @@ def criterion_units_from_records(
             if region is None:
                 continue
             joints = list(REGION_MEMBERS[region])
+        # crop 프레이밍 추가 멤버 (quick-260802-gny) — **분기 밖**에서 붙인다.
+        # 저장된 실 doc 의 split_angle record 는 전부 source='vision' 이라 위 (3)
+        # 분기로 가는데, 그 산출은 `faultJoints 교집합 부위멤버` 이고 faultJoints
+        # 는 vision veto 의 8-keypoint 이름공간이라 발목을 원리적으로 담을 수 없다.
+        # 분기 안에 넣으면 mode3 seed(geometry)만 고쳐지고 실기기 증상이 남는다.
+        joints = list(joints) + list(CRITERION_CROP_EXTRA_MEMBERS.get(crit, ()))
         # dedupe (순서 보존) — 빈 unit 은 미생성.
         ordered: list[str] = []
         for j in joints:

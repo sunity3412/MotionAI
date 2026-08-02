@@ -156,6 +156,18 @@ export const REGION_MEMBER_KEYPOINTS: Record<
 //     무방출 결정과 정합. 테이블 미등록 id 도 자동 [] (fabricate 0).
 // **cross-side 계약:** 이 표는 29-03 backend zoom region 파생 표
 //   (_build_mode3_fault_zoom_comparisons)와 항목 동일해야 한다 (측당 1벌).
+//
+// **의도적 분기 (quick-260802-gny) — 되돌리지 말 것.** 백엔드는 split_angle 의
+// **crop 프레이밍 멤버**에만 발목을 더했다 (fault_zoom.CRITERION_CROP_EXTRA_MEMBERS
+// + pipeline._MODE3_ZOOM_CRITERION_EXTRA_MEMBERS). 이 표는 성격이 다르다 —
+// **마커·칩 투영**이라 4 keypoint 를 유지한다.
+//   · 백엔드 쪽은 "사진에 무엇이 담기는가"(프레이밍)의 문제였다. 사이각 드로잉
+//     점인 발목이 crop 밖으로 나가면 그림이 통째로 사라진다.
+//   · 이 표는 "화면에 어떤 점을 찍는가"다. 여기에 발목을 넣으면 33-G S1 승인
+//     그룹 마커의 centroid 가 아래로 이동하고 오버레이에 미승인 점이 새로 생긴다.
+// `KeypointName` 에 발목이 이미 있으므로 타입 제약이 아니라 **판단**이다.
+// 파이썬 2표의 동등성은 backend/tests/test_fault_zoom.py
+// test_mode3_zoom_extra_members_mirror 가 지킨다 — 이 표는 그 미러 대상이 아니다.
 export const CRITERION_REGION_KEYPOINTS: Record<string, readonly KeypointName[]> = {
   leg_extension: REGION_MEMBER_KEYPOINTS.legs,
   arm_extension: REGION_MEMBER_KEYPOINTS.arms,

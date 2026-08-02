@@ -10,6 +10,9 @@
      (magnitude-neutral — 점수 record/final byte-불변).
   3. builder 통합 — 저신뢰-광범위-다관절 입력에서 unreliable=True + aggregateStatement 방출,
      비역립(over-tol 3) / vision-짚음 / 고정렬 입력에서 미발화.
+  4. (quick-260802-nfd) result 부착 seam _attach_attribution_marker — 발화 여부와 무관하게
+     게이트 입력이 항상 result 에 남고(관측 가능성), reliable 마커에는 aggregateStatement 가
+     없으며(강등 무회귀), 채점 표면(overallScore/deductionBreakdown)은 byte-불변.
 
 전부 mock-based 순수 테스트 — 실 Gemini/Pod/S3/Firestore 호출 0.
 # 보유 sweep 수치 타깃 아님 — 게이트 임계(≥5/vis0.70/dist60)는 5-fixture 로컬 유도이며,
@@ -18,6 +21,7 @@
 
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 
@@ -272,3 +276,112 @@ def test_builder_fires_on_measured_terrible_visibility():
     m = audit["attributionReliability"]
     assert m["unreliable"] is True
     assert m["visibility"] == 0.0  # 측정값 그대로 전달
+
+
+# ── quick-260802-nfd — 게이트 입력을 발화 여부와 무관하게 항상 doc 에 남긴다 ──────────
+#
+# 이전 동작: _attach_attribution_marker 가 unreliable=True 일 때만 실었다 → 안 걸린 doc 의
+# visibility/dtwDistance 는 기록이 0 → "발화해야 하는데 안 했나"를 원리적으로 검증 불가.
+# (done 분석 925건 전수 실측: 발화 18건 중 17건이 elbow-twist 한 동작, 안 걸린 907건
+#  visibility 기록 없음.) 아래 테스트는 "항상 기록" + "강등 무회귀" 두 불변식을 잠근다.
+#
+# 강등 무회귀의 실체는 aggregateStatement 부재다 — 앱(result.tsx `?.unreliable === true`
+# 엄격 비교)과 assemble(`attr.get("unreliable")` falsy)은 값으로만 분기하므로 unreliable=
+# False 마커가 실려도 강등이 켜지지 않고, 강등 문구(aggregateStatement)도 실리지 않는다.
+
+
+def _score_surface(result: dict) -> dict:
+    """채점 표면만 뽑아 마커 부착 전후 비교용 스냅샷을 만든다."""
+    return {
+        "overallScore": result.get("overallScore"),
+        "deductionBreakdown": copy.deepcopy(result.get("deductionBreakdown")),
+    }
+
+
+def _scored_result() -> dict:
+    """마커 부착 대상 result 의 최소 재현 — 채점 표면(점수/감점 내역) 포함."""
+    return {
+        "overallScore": 72,
+        "deductionBreakdown": {
+            "baseline": 100,
+            "records": [
+                {"criterion": "angle_vs_reference__left_knee", "points": -14.0},
+                {"criterion": "leg_extension", "points": -14.0},
+            ],
+            "final": 72,
+        },
+        "tips": [{"joint": None, "text": "일반 팁"}],
+    }
+
+
+def test_reliable_marker_is_attached_with_gate_inputs():
+    """미발화(reliable)여도 게이트 입력 4종이 result 에 남는다 — 이 사이클의 본체."""
+    audit: dict = {}
+    # 국소 결함(3 over-tol) — 실제로 미발화하는 정상 케이스.
+    _build(_inversion_like_user(n_over_tol=3), distance=62.9, visibility=0.686,
+           seed_audit_out=audit)
+    result = _scored_result()
+    app._attach_attribution_marker(result, audit)
+
+    m = result["attributionReliability"]
+    assert m["unreliable"] is False
+    # 게이트 3-조건의 입력이 전부 관측 가능해야 한다(그게 목적).
+    assert m["geminiSilent"] is True
+    assert m["overTolJointCount"] == 3
+    assert m["visibility"] == pytest.approx(0.686)
+    assert m["dtwDistance"] == pytest.approx(62.9)
+
+
+def test_reliable_marker_carries_no_aggregate_statement():
+    """reliable 마커에는 강등 문구가 없다 — 있으면 앱/코치 강등 회귀(하드 불변식)."""
+    audit: dict = {}
+    _build(_inversion_like_user(n_over_tol=3), distance=62.9, visibility=0.686,
+           seed_audit_out=audit)
+    result = _scored_result()
+    app._attach_attribution_marker(result, audit)
+    assert "aggregateStatement" not in result["attributionReliability"]
+
+
+def test_attach_does_not_touch_score_surface():
+    """마커 부착은 overallScore/deductionBreakdown 을 byte-불변으로 둔다(magnitude-neutral)."""
+    for n_over_tol, distance, visibility in ((3, 62.9, 0.686), (7, 62.9, 0.686)):
+        audit: dict = {}
+        _build(_inversion_like_user(n_over_tol=n_over_tol), distance=distance,
+               visibility=visibility, seed_audit_out=audit)
+        result = _scored_result()
+        before = _score_surface(result)
+        app._attach_attribution_marker(result, audit)
+        assert _score_surface(result) == before
+
+
+def test_unreliable_attach_still_carries_aggregate_statement():
+    """대조군 — 발화 케이스는 종전대로 강등 문구를 동반한다(강등 동작 무변경)."""
+    audit: dict = {}
+    _build(_inversion_like_user(n_over_tol=7), distance=62.9, visibility=0.686,
+           seed_audit_out=audit)
+    result = _scored_result()
+    app._attach_attribution_marker(result, audit)
+    m = result["attributionReliability"]
+    assert m["unreliable"] is True
+    assert m["aggregateStatement"] == app._ATTR_AGGREGATE_STATEMENT
+
+
+def test_attach_is_noop_when_marker_absent():
+    """마커 미산출(레거시 vision 경로)이면 필드를 만들지 않는다 — 하위호환 doc 유지."""
+    result = _scored_result()
+    app._attach_attribution_marker(result, {})
+    assert "attributionReliability" not in result
+
+
+def test_marker_is_flat_scalars_only():
+    """Firestore 중첩 배열 금지 — 마커 값은 전부 스칼라(또는 None)여야 한다."""
+    for n_over_tol in (3, 7):
+        audit: dict = {}
+        _build(_inversion_like_user(n_over_tol=n_over_tol), distance=62.9,
+               visibility=0.686, seed_audit_out=audit)
+        result = _scored_result()
+        app._attach_attribution_marker(result, audit)
+        for k, v in result["attributionReliability"].items():
+            assert isinstance(v, (bool, int, float, str, type(None))), (
+                f"{k}={v!r} 는 스칼라가 아니다 ([[firestore-nested-array-flat]])"
+            )

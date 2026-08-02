@@ -342,7 +342,12 @@ function normalizeSpotCheck(value: unknown): SpotCheck | undefined {
 // 신뢰하지 않는다: 객체 아니거나 unreliable/geminiSilent 가 boolean 아니면 undefined
 // (malformed doc 렌더 크래시 0 — normalizeSpotCheck 관례). visibility/dtwDistance 는
 // 유한 number 아니면 null, overTolJointCount 는 유한 number 아니면 0, aggregateStatement
-// 는 비어있지 않은 string 일 때만 보존. 부재(정상 doc)=undefined → 렌더 diff 0.
+// 는 비어있지 않은 string 일 때만 보존.
+// quick-260802-nfd — 백엔드가 **발화 여부와 무관하게** 마커를 싣는다(게이트 입력 상시
+// 기록). 그래서 정상 doc 도 이제 `{unreliable:false, ...}` 를 들고 온다 — boolean 게이트를
+// 통과해 그대로 보존되고, aggregateStatement 는 애초에 부재다. 렌더 diff 는 여전히 0:
+// 화면 강등은 result.tsx 의 `?.unreliable === true` 엄격 비교 하나가 결정하며, 필드 존재로
+// 분기하는 소비처는 없다. 부재(legacy doc / vision 컨텍스트 미산출)=undefined 도 그대로.
 function normalizeAttributionReliability(
   value: unknown,
 ): AttributionReliability | undefined {

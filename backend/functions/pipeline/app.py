@@ -2328,6 +2328,26 @@ def _assess_attribution_reliability(
     return marker
 
 
+def _attach_attribution_marker(result: dict, seed_audit: dict) -> None:
+    """seed_audit 의 attribution 마커를 result 에 싣는다 — 발화 여부 무관, in-place.
+
+    quick-260802-nfd — 이전에는 `unreliable=True` 일 때만 실었다. 그래서 안 걸린 doc 은
+    게이트 입력(visibility/dtwDistance/overTolJointCount/geminiSilent)이 어디에도 남지
+    않아 "발화해야 하는데 안 했나"를 원리적으로 검증할 수 없었다. 이제 항상 남긴다 —
+    이 사이클은 **재는 것**이지 판단하는 것이 아니다(임계값·강등 동작 전부 무변경).
+
+    채점 무접촉: overallScore / deductionBreakdown / records 는 읽지도 쓰지도 않는다.
+    aggregateStatement 는 producer(_assess_attribution_reliability)가 unreliable=True
+    일 때만 실어 주므로 reliable 마커에는 부재한다 — 다운스트림 강등 문구가 새지 않는
+    유일한 근거이자 회귀 방어 지점(테스트가 이 불변식을 잠근다).
+
+    seed_audit 에 마커가 없으면(레거시/미산출) no-op — 필드 부재 doc 하위호환.
+    """
+    marker = seed_audit.get("attributionReliability")
+    if isinstance(result, dict) and isinstance(marker, dict):
+        result["attributionReliability"] = marker
+
+
 # ── quick-260801-gbk: 측정 순간 산출 wrapper (표시 전용, 채점 무접촉) ────────
 # dimensions helper 를 그대로 호출하되 예외를 삼킨다 — 순간 산출 실패가 점수 substrate
 # 산출을 막으면 안 된다(순간은 있으면 좋은 것, 점수는 반드시 나와야 하는 것).
@@ -6017,17 +6037,23 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 measured_deviations=measured_deviations,
                 baseline_kind=baseline_kind,
             )
-            # 33-NEXT — 저신뢰-광범위-다관절 귀속일 때만 마커를 result 에 실어 다운스트림
+            # 33-NEXT — 저신뢰-광범위-다관절 귀속 마커를 result 에 실어 다운스트림
             # (coach/앱 표현)이 per-joint 단정을 회피하게 한다(belle DECISION 1). record/
-            # overallScore/deductionBreakdown.final 무접촉(magnitude-neutral) — 마커가 없거나
-            # reliable 이면 result 는 기존과 byte-동일(다른 fixture 무영향).
-            _attr_marker = seed_audit.get("attributionReliability")
-            if (
-                isinstance(result, dict)
-                and isinstance(_attr_marker, dict)
-                and _attr_marker.get("unreliable")
-            ):
-                result["attributionReliability"] = _attr_marker
+            # overallScore/deductionBreakdown.final 무접촉(magnitude-neutral).
+            #
+            # quick-260802-nfd — 부착 조건(unreliable=True)을 제거해 게이트 입력을 항상
+            # 남긴다. 계기가 된 실측(done 분석 925건 전수): 발화 18건(1.9%)인데 그중 17건이
+            # elbow-twist 한 동작이었고(kip-up 0/160, power-spin 0/142, peter-pan 0/121),
+            # motionAlignment.distance 보유 186건의 DTW 는 90%tile 60.4 / 최대 63.6 —
+            # 임계 60 이 관측 분포 상단에 앉아 ±6 구간에 62건(33%)이 몰려 있었다. 그런데
+            # 안 걸린 907건의 visibility 는 기록이 0이라 임계 재조정을 판단할 근거가 없었다.
+            # 임계값(_ATTR_MIN_OVER_TOL_JOINTS/_ATTR_MAX_VISIBILITY/_ATTR_MAX_DTW_DISTANCE)
+            # 과 강등 동작은 무변경 — 부착 불변식은 _attach_attribution_marker 참조.
+            #
+            # 강등 무회귀 근거 — 소비처는 전부 `unreliable` **값**으로 분기하고 필드 존재로
+            # 분기하는 곳은 0이다(소스 확인): 앱 result.tsx `?.unreliable === true` 엄격
+            # 비교, assemble.rebuild_tips_for_vision_fault `attr.get("unreliable")` falsy.
+            _attach_attribution_marker(result, seed_audit)
         else:
             # 레거시 경로 (collect 미산출) — 기존 Gemini 호출 경로 graceful 폴백.
             # quantification 도 명명 substrate 도 없다 → tally unavailable fallback(iter4 HIGH-2).

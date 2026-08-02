@@ -14,6 +14,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from . import moment
+from .skeleton import JOINT_KEYS
+
 
 def _band(i: int, n: int, m: int, radius: int) -> tuple[int, int]:
     """행 i(1-base)에서 허용 열 범위. 대각선 ± radius, 길이비 보정."""
@@ -220,7 +223,9 @@ def per_joint_deviation(path, A_user_seg, A_ref):
     return np.median(diffs, axis=0)
 
 
-def per_joint_representative_frames(path, A_user_seg, A_ref, start=0):
+def per_joint_representative_frames(
+    path, A_user_seg, A_ref, start=0, *, frame_confidence=None
+):
     """관절별 "그 관절이 보고한 median 에 가장 가까운" 정렬 스텝의 학생 프레임.
 
     quick-260801-gbk — 감점 record 가 보고한 집계값을 **어느 프레임에서 쟀는지**
@@ -244,6 +249,12 @@ def per_joint_representative_frames(path, A_user_seg, A_ref, start=0):
         A_ref: (T,J) 기준 각도.
         start: 학생 구간 시작 절대 인덱스(MotionMatch.start). path 의 user 축은
             구간-로컬이라 절대 프레임으로 되돌리려면 이 값을 더해야 한다.
+        frame_confidence (quick-260802-tie): `(절대 프레임, joint_keys) -> 0..1 | None`.
+            median 과의 거리가 **동점인 스텝들 사이에서만** 쓰인다
+            (`moment.TIE_EPS`). DTW path 는 같은 학생 프레임을 여러 스텝이 가리킬 수
+            있고 인접 스텝의 각도차가 소수점 아래에서 갈리는 일이 잦아, 어느 스텝이
+            뽑히느냐가 keypoint 신뢰도와 무관하게 정해지던 자리다. None(default)=
+            종전 argmin 과 byte-동일.
 
     Returns:
         {joint_index: 학생 절대 프레임 인덱스}. path 가 비면 빈 dict. 유한 diff 가
@@ -269,8 +280,22 @@ def per_joint_representative_frames(path, A_user_seg, A_ref, start=0):
         if med != med:  # NaN median — 그 관절 record 자체가 방출되지 않는다.
             continue
         # 비유한 스텝은 후보에서 제외(inf 로 밀어냄). 동점은 argmin 이 첫 스텝을
-        # 고르므로 결정론적.
+        # 고르므로 결정론적 — quick-260802-tie 는 그 동점 구간에서만 신뢰도를 본다.
         gaps = np.where(finite, np.abs(col - med), np.inf)
-        k_star = int(np.argmin(gaps))
-        out[j] = base + int(path[k_star][0])
+        jk = JOINT_KEYS[j] if j < len(JOINT_KEYS) else None
+        k_star = moment.select_moment_index(
+            gaps,
+            confidence=(
+                None
+                if frame_confidence is None or jk is None
+                else (
+                    lambda k, _jk=jk: frame_confidence(
+                        base + int(path[int(k)][0]), (_jk,)
+                    )
+                )
+            ),
+        )
+        if k_star is None:
+            continue
+        out[j] = base + int(path[int(k_star)][0])
     return out

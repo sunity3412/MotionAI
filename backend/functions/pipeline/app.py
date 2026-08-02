@@ -2354,25 +2354,31 @@ def _attach_attribution_marker(result: dict, seed_audit: dict) -> None:
 # 실패 = None = 그 criterion 은 필드 없음(fail-closed).
 
 
-def _extension_moment_frame(dimensions, angles, profile, joint_key, target_deficit):
+def _extension_moment_frame(
+    dimensions, angles, profile, joint_key, target_deficit, frame_confidence=None
+):
     """leg/arm_extension 집계값을 만든 관절의 대표 프레임 | None."""
     if not joint_key:
         return None
     try:
         return dimensions.extension_representative_frame(
-            angles, profile, joint_key, target_deficit
+            angles, profile, joint_key, target_deficit,
+            frame_confidence=frame_confidence,
         )
     except Exception:  # noqa: BLE001 — 순간 미확정은 필드 부재로 정직하게 남긴다
         return None
 
 
-def _line_moment_frame(dimensions, angles, profile, joint_keys, target_deficit):
+def _line_moment_frame(
+    dimensions, angles, profile, joint_keys, target_deficit, frame_confidence=None
+):
     """line 집계값을 만든 관절 집합의 대표 프레임 | None."""
     if not joint_keys:
         return None
     try:
         return dimensions.line_representative_frame(
-            angles, profile, joint_keys, target_deficit
+            angles, profile, joint_keys, target_deficit,
+            frame_confidence=frame_confidence,
         )
     except Exception:  # noqa: BLE001 — 순간 미확정은 필드 부재로 정직하게 남긴다
         return None
@@ -2383,6 +2389,7 @@ def _build_deduction_measured_deviations(
     reference_dtw_match=None, reference_angles=None, split_deficit_deg=None,
     vision_pointed_joints=None, seed_audit_out=None, alignment_visibility=None,
     alignment_visibility_measured=True, vision_status=None, measured_at_out=None,
+    frame_confidence=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2434,11 +2441,20 @@ def _build_deduction_measured_deviations(
         frame_idx 도메인 = **학생 9fps angles 행 인덱스** (keypointReport rep 인덱스
         아님). video_sec = frame_idx / _pipeline_frame_fps() — 리터럴 fps 금지.
 
+      · frame_confidence: `(frame_idx, joint_keys) -> 0..1 | None` (quick-260802-tie).
+        위 4계열의 대표 프레임 선택에서 **집계값과의 거리가 동점인 후보들 사이에서만**
+        쓰인다(`moment.TIE_EPS` = record 가 값을 publish 하는 해상도). 신뢰도가 높은
+        프레임을 찾아 나서는 것이 아니다 — 동점이 없으면 산출은 종전과 byte-동일하고,
+        표시 게이트(`fault_zoom._KP_CONF_MIN`)는 읽지도 바꾸지도 않는다. None(default)
+        = 이 사이클 이전과 완전히 같은 산출(테스트·mode3·legacy 무회귀).
+
     반환값(md)은 33-NEXT 마커 배선 전후로 byte-동일 — 마커는 seed_audit_out 에만 기록되고
     md 를 절대 변경하지 않는다(magnitude-neutral 보장, D-20/D-29). measured_at_out 도
-    동일 — 전달 유무와 무관하게 md 는 키·값 모두 같다.
+    동일 — 전달 유무와 무관하게 md 는 키·값 모두 같다. frame_confidence 도 동일 —
+    표시 프레임만 움직이고 점수 substrate 는 그 존재를 모른다.
     """
     from sunity_shared.analysis import dimensions
+    from sunity_shared.analysis import moment as _moment
     from sunity_shared.analysis.skeleton import JOINT_KEYS
 
     md: dict = {}
@@ -2500,13 +2516,13 @@ def _build_deduction_measured_deviations(
             if leg is not None and leg > 0.0:
                 md["leg_extension"] = leg
                 _record_moment("leg_extension", _extension_moment_frame(
-                    dimensions, angles, profile, leg_jk, leg
+                    dimensions, angles, profile, leg_jk, leg, frame_confidence
                 ))
             arm, arm_jk = _max_dev(("left_elbow", "right_elbow"))
             if arm is not None and arm > 0.0:
                 md["arm_extension"] = arm
                 _record_moment("arm_extension", _extension_moment_frame(
-                    dimensions, angles, profile, arm_jk, arm
+                    dimensions, angles, profile, arm_jk, arm, frame_confidence
                 ))
             # line_deficit = COLLECTIVE 180° deficit (line_score 와 동일 source) — 모든 EXTEND
             # 관절 부족분의 평균(deg). leg/arm 과의 cross-exclusion 은 엔진 union 이후.
@@ -2527,6 +2543,7 @@ def _build_deduction_measured_deviations(
                 _record_moment("line", _line_moment_frame(
                     dimensions, angles, profile,
                     [jk for jk, _d in extend_pairs], line_deficit,
+                    frame_confidence,
                 ))
 
     # ── reach 칸 — quantification.bodyRelativeNotches forward(student/reference 동반, HIGH-2) ──
@@ -2638,7 +2655,8 @@ def _build_deduction_measured_deviations(
                 if isinstance(measured_at_out, dict):
                     try:
                         _reps = per_joint_representative_frames(
-                            path, user_seg, reference_angles, int(start)
+                            path, user_seg, reference_angles, int(start),
+                            frame_confidence=frame_confidence,
                         )
                     except Exception:  # noqa: BLE001 — 순간 실패는 필드 부재로만
                         _reps = {}
@@ -2654,13 +2672,19 @@ def _build_deduction_measured_deviations(
 
         window 밖 프레임은 절대 고르지 않는다 — record 가 보고한 값이 그 window 의
         median 이므로, 밖을 가리키면 "쟀다"는 계약이 깨진다.
+
+        quick-260802-tie — window 는 ±2 프레임(최대 5개)이고 `student_deg` 는 그
+        window 의 **median** 이다. 유한 프레임 수가 짝수면 median 은 가운데 두 값의
+        평균이라 그 두 프레임이 **구조적으로 정확히 동점**이 된다(어느 쪽도 그 값을
+        갖지 않고 거리만 같다). 종전에는 그 자리를 프레임 번호 순서가 정했다 —
+        keypoint 신뢰도와 무관하게. 이제 동점 구간에서만 신뢰도가 가른다.
         """
         sd = wm_student_deg.get(jk)
         if sd is None or not wm_user_frames or angles is None:
             return None
         j = JOINT_KEYS.index(jk)
-        best_t = None
-        best_gap = None
+        cands: list[int] = []
+        gaps: list[float] = []
         for t in wm_user_frames:
             if t < 0 or t >= len(angles):
                 continue
@@ -2670,10 +2694,19 @@ def _build_deduction_measured_deviations(
                 continue
             if a != a:  # NaN 프레임은 후보 아님
                 continue
-            gap = abs(a - sd)
-            if best_gap is None or gap < best_gap:
-                best_gap, best_t = gap, t
-        return best_t
+            cands.append(int(t))
+            gaps.append(abs(a - sd))
+        if not cands:
+            return None
+        idx = _moment.select_moment_index(
+            gaps,
+            confidence=(
+                None
+                if frame_confidence is None
+                else lambda k: frame_confidence(cands[int(k)], (jk,))
+            ),
+        )
+        return None if idx is None else cands[int(idx)]
 
     # 3. 관절 단위 선택 — pointed ∩ wm 만 window, 나머지 전부 DTW (pointed=None/빈 → 전 관절 DTW).
     pointed = tuple(vision_pointed_joints or ())
@@ -6007,6 +6040,20 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             _align_visibility_measured = bool(_ctx_align.get("visibility_measured", False))
             # WR-01 — pointed=∅ 를 침묵으로 볼지 vision 상태로 게이트한다.
             _vision_status = getattr(vision_fault_context, "collection_status", None)
+            # quick-260802-tie — 대표 프레임 **동점** 판정용 신뢰도 출처.
+            # pose_frames 는 angles 와 같은 축(angles = compute_joint_angles(
+            # to_coco17_array(pose_frames)))이라 measured_at 의 frame_idx 를 변환 없이
+            # 그대로 조회한다. keypointReport 는 이 시점에 아직 없고(아래에서 만들어진다)
+            # 18fps 업샘플이라 축도 다르다 — 여기서 쓰면 인덱스 변환이 하나 더 생긴다.
+            # 실패는 필드 부재가 아니라 **tie-break 미적용**(=종전 산출)으로만 반영된다.
+            try:
+                from sunity_shared.analysis.moment import (
+                    joint_confidence_from_pose_frames,
+                )
+
+                _frame_confidence = joint_confidence_from_pose_frames(pose_frames)
+            except Exception:  # noqa: BLE001 — 신뢰도 미상 = 동점 판정 없이 종전 선택
+                _frame_confidence = None
             measured_deviations = _build_deduction_measured_deviations(
                 angles=angles,
                 profile=profile,
@@ -6024,6 +6071,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 alignment_visibility_measured=_align_visibility_measured,
                 vision_status=_vision_status,
                 measured_at_out=measured_at,
+                frame_confidence=_frame_confidence,
             )
             result = _apply_vision_veto(
                 result,

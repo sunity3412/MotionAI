@@ -920,6 +920,13 @@ function AnalysisResultContent({
   const [freshPrevUrl, setFreshPrevUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!prevDoc) return;
+    // 260806-sjt — 아래 freshMyUrl 훅의 videoKey 형상 가드와 동일 규칙.
+    // 지난 영상(prev) 슬롯도 비정식 키 doc 이면 재발급을 생략하고 doc 저장 URL 을 쓴다.
+    const prevVideoKey = prevDoc.result?.myVideoKey;
+    if (prevVideoKey && !prevVideoKey.startsWith('uploads/')) {
+      setFreshPrevUrl(null);
+      return;
+    }
     const SAFE_TTL_MS = 6 * 24 * 60 * 60 * 1000; // 6일 margin (7일 TTL 안전)
     const age = Date.now() - (prevDoc.createdAt || 0);
     if (age < SAFE_TTL_MS) {
@@ -953,6 +960,16 @@ function AnalysisResultContent({
   // URL 폴백 유지(__DEV__ warn 만).
   const [freshMyUrl, setFreshMyUrl] = useState<string | null>(null);
   useEffect(() => {
+    // 260806-sjt — 비정식 videoKey(fixtures/... 등) doc 은 canonical 재발급 키
+    // uploads/{uid}/{analysisId}.{ext} (s3keys.py:18) 에 객체가 없다. 백엔드는 객체
+    // 존재 확인 없이 서명해 200 을 주므로(재발급 URL GET 404) 그 URL 이 doc 의
+    // 유효한 myVideoUrl 을 덮어썼다. 키 부재 구 doc 은 canonical 일 가능성이 높아
+    // 현행 재발급을 유지한다 — 그래서 조건은 양항이어야 한다.
+    const myVideoKey = result.myVideoKey;
+    if (myVideoKey && !myVideoKey.startsWith('uploads/')) {
+      setFreshMyUrl(null);
+      return;
+    }
     const SAFE_TTL_MS = 6 * 24 * 60 * 60 * 1000; // 6일 margin (7일 TTL 안전)
     const age = Date.now() - (createdAt || 0);
     if (age < SAFE_TTL_MS) {

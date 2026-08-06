@@ -10,15 +10,24 @@
 //   - cue 객체 시그니처(text 단독 금지) — cueId=recordId 로 mp3 를 조인한다.
 //   - prefetchCueAudio 가 화면 진입 시 cueId 별 playback-url presigned URL 을 일괄
 //     발급받아 메모리 캐시(재생 시점 네트워크 0 — 자막·음성 동기 어긋남 방지).
-//   - speakCue 는 캐시된 cueId URL 을 재생. 새 큐 = 이전 발화 자동 중단(replace).
+//   - speakCue 는 캐시된 cueId URL 을 재생. 새 큐 = 이전 플레이어 해제 + 새 플레이어
+//     발급(quick-260806-wj3) → 이전 발화 중단은 그대로 성립.
 //   - 설정 게이트: '@sunity:audio_cue_enabled' (AsyncStorage). **기본 off** — 학원
 //     소음 환경. off 이면 자막만(graceful — 분석·자막 무영향).
 //   - 합성 실패(coachAudio.status='failed')·미조인 cueId·재서명 실패는 전부 조용한
 //     폴백(자막만). 오디오는 보조 채널 — 어떤 실패도 재생 흐름을 막지 않는다.
 //
 // 순수 재생 어댑터(비 React) — expo-audio createAudioPlayer 의 명령형 API 를 쓴다
-// (useAudioPlayer 훅은 컴포넌트 전용). 단일 모듈 플레이어를 재사용(replace)해 리소스
-// 를 아낀다. coachmark.ts 의 AsyncStorage 플래그 관례(@sunity: prefix)와 정합.
+// (useAudioPlayer 훅은 컴포넌트 전용).
+//
+// quick-260806-wj3 — **큐마다 플레이어를 새로 만든다.** 종전 전제였던 "단일 모듈
+// 플레이어를 재사용해 리소스를 아낀다"는 이 수리로 철회됐다: 리소스 절약보다
+// **아이템 정합**이 우선이다. 스테일 아이템 재재생 = 자막과 다른 음성 = 신뢰 파괴
+// (belle 실기기 ① — 큐2 자막에 큐1 음성이 처음부터 다시 났다). 아이템 정합을 지키는
+// 값이 플레이어 객체 몇 개보다 비싸다. quick-260801-f77 의 세대(seq) 무효화 설계는
+// 그대로 유지된다 — 이번에 철회되는 것은 플레이어 재사용 전제 하나뿐이다.
+//
+// coachmark.ts 의 AsyncStorage 플래그 관례(@sunity: prefix)와 정합.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -75,7 +84,8 @@ function isFresh(
   return !!entry && entry.expiresAtMs - URL_EXPIRY_MARGIN_MS > nowMs;
 }
 
-// 단일 재생 플레이어(lazy). 새 큐 = replace → 이전 발화 자동 중단.
+// 현재 발화 중인 큐의 플레이어. **큐 1개당 1개** — 새 큐는 activatePlayer 가
+// 이전 것을 해제하고 새로 만든다(quick-260806-wj3). null = 발화 아이템 없음.
 let player: AudioPlayer | null = null;
 let playingCueId: string | null = null;
 
@@ -138,6 +148,56 @@ function pausePlayerSafely(): void {
 }
 
 /**
+ * 플레이어 해제 — 재생 아이템의 **유일한 소멸 경로** (quick-260806-wj3, belle ①).
+ *
+ * 왜 필요한가: 종전에는 플레이어를 재사용하며 소스만 갈아끼웠는데(replace), 이번
+ * 큐의 URL 로드가 실패하면 플레이어에는 **이전 큐의 아이템**이 그대로 남고 직후
+ * play() 가 그 끝난 아이템을 처음부터 되돌린다. 아이템을 물려주지 않고 통째로
+ * 버리면 그 경로 자체가 사라진다.
+ *
+ * `player = null` 을 **먼저** 세우는 이유: 아래 pause/remove 가 던지더라도 죽은
+ * 참조가 모듈에 남지 않게 하기 위해서다(재진입 안전). teardown 은 expo-audio 가
+ * 문서화한 `remove()`("Remove the player from memory to free up resources",
+ * AudioModule.types.d.ts:176)를 쓴다 — base 의 release() 가 아니다.
+ */
+function releasePlayer(): void {
+  const p = player;
+  player = null;
+  // 리스너는 플레이어에 붙어 있으므로 플레이어와 수명을 같이한다.
+  statusListenerAttached = false;
+  if (!p) return;
+  try {
+    if (p.playing) p.pause();
+  } catch {
+    /* released object — 무해 */
+  }
+  try {
+    p.remove();
+  } catch {
+    /* released object·플랫폼 예외 — 무해 */
+  }
+}
+
+/**
+ * 이번 큐 전용 플레이어 발급 — **재생 아이템의 유일한 출생지** (quick-260806-wj3).
+ *
+ * 모든 재생 아이템이 `createAudioPlayer(url)` 로만 태어나면, 요청한 URL 이 아닌
+ * 아이템이 플레이어에 존재할 수 있는 상태 자체가 없다. 그래서 로드 실패의 결과가
+ * 구조적으로 무음(자막만)으로 고정된다 — fail-closed. "남의 음성"은 replace 라는
+ * 단 하나의 벡터로만 들어왔고, 그 벡터를 없앤 것이 이 수리의 전부다.
+ *
+ * 반환값을 쓰는 이유는 TS 좁히기다. 호출부가 `player?.play()` 로 옵셔널 체이닝하면
+ * "실은 null 이라 아무 일도 일어나지 않음"이 조용히 통과하므로 `p.play()` 로 못 박는다.
+ */
+function activatePlayer(url: string): AudioPlayer {
+  releasePlayer();
+  const p = createAudioPlayer(url);
+  player = p;
+  attachStatusListener();
+  return p;
+}
+
+/**
  * 복구 불가 판정 — 결함 C 의 수리 본체.
  *
  * `speechActive = false` 가 핵심이다. VideoCompare 는 이미 100ms tick 으로
@@ -188,9 +248,12 @@ function onLoadTimeout(seq: number): void {
           return;
         }
         try {
-          player?.replace(entry.url);
+          // quick-260806-wj3 — 재발급에도 같은 규칙을 적용한다. 같은 큐라도 이
+          // 시점의 플레이어에는 **로드에 실패한 아이템**이 들어 있으므로 물려받지
+          // 않는다(= belle ① 의 벡터가 여기에도 있었다).
+          const p = activatePlayer(entry.url);
           declareAudioMode();
-          player?.play();
+          p.play();
           armLoadWatchdog(seq); // 재시도분 감시를 다시 건다
         } catch {
           // presigned URL 은 로그·에러 메시지에 싣지 않는다 (T-f77-02).
@@ -208,7 +271,8 @@ function onLoadTimeout(seq: number): void {
 }
 // ───────────────────────────────────────────────────────────────────────────────
 
-// 상태 구독 1회 부착 (player 인스턴스 재사용·replace 에도 유지).
+// 상태 구독 부착. 플레이어가 큐마다 새로 태어나므로(quick-260806-wj3 activatePlayer)
+// 부착도 **플레이어 1개당 1회**다 — 플래그는 releasePlayer 가 함께 내린다.
 function attachStatusListener(): void {
   if (statusListenerAttached || !player) return;
   statusListenerAttached = true;
@@ -217,6 +281,13 @@ function attachStatusListener(): void {
       clearLoadWatchdog();
       speechActive = false;
       playingCueId = null;
+      // quick-260806-wj3 — 여기서 releasePlayer() 를 부르지 않는 이유:
+      // (a) 네이티브 이벤트 콜백 안에서 공유 객체를 해제하는 재진입을 피한다,
+      // (b) 다음 발화가 어차피 activatePlayer 로 이전 플레이어를 해제하고,
+      // (c) 큐 종료 시 VideoCompare 가 stopCue() 를 부르는 경로도 있어 메모리는
+      //     실제로 회수된다.
+      // 끝난 아이템이 잠시 남아도 그것이 재생될 경로는 없다 — 다음 재생은 반드시
+      // 새 플레이어에서 일어나기 때문이다(출생지가 activatePlayer 하나).
     }
     // 로드 확인 = 403 계열 실패가 배제됨 → 감시를 내린다. 로드 후 중간 정지(stall)는
     // VideoCompare 의 CUE_PAUSE_MAX_MS 안전망이 계속 담당한다(그 상수 무변경).
@@ -379,8 +450,9 @@ async function reissue(recordId: string): Promise<CachedAudio | null> {
 
 /**
  * 큐 발화. 설정 on + cueId 조인 + prefetch 캐시 히트일 때만 재생한다. 새 큐는
- * replace 로 이전 발화를 자동 중단(리뷰 — 이전 발화 stop). 같은 cueId 재요청은
- * 무시(중복 재시작 stutter 방지 — tick 은 큐 전환 시에만 호출하나 방어).
+ * 이전 플레이어를 해제하고 새로 만든다(quick-260806-wj3 activatePlayer — 이전 발화
+ * 중단은 그대로 성립하고, 이전 큐의 아이템이 남는 경로만 사라진다). 같은 cueId
+ * 재요청은 무시(중복 재시작 stutter 방지 — tick 은 큐 전환 시에만 호출하나 방어).
  * 캐시 미스(prefetch 실패/미조인)는 no-op(자막만).
  *
  * 33-13 — 발화 시작 여부 boolean 반환. VideoCompare 가 true 일 때만 영상을
@@ -416,25 +488,23 @@ export function speakCue(cue: Cue): boolean {
   }
   const url = entry.url;
   if (playingCueId === id && player?.playing) return true;
-  // 새 발화 = 새 세대. **replace 시도보다 먼저** 올린다: 아래 try 가 던지면 catch 는
+  // 새 발화 = 새 세대. **플레이어 발급보다 먼저** 올린다: 아래 try 가 던지면 catch 는
   // 발화를 포기하는데, 세대가 그대로면 이전 큐의 재발급 응답이 뒤늦게 도착해
   // seq 가드를 통과하고 재생을 되살린다(영상은 이미 재개된 상태 → 유령 음성).
   speechSeq += 1;
   const mySeq = speechSeq;
   speechRetryCount = 0; // 큐마다 온전한 재시도 예산
   try {
-    if (!player) {
-      player = createAudioPlayer(url);
-    } else {
-      player.replace(url); // 이전 발화 중단 + 새 소스
-    }
-    attachStatusListener();
+    // quick-260806-wj3 — 이 큐의 URL 로 새 플레이어를 만든다. 이전 플레이어(와
+    // 그 아이템)는 여기서 해제되므로, 아래 play() 가 닿을 수 있는 아이템은
+    // 이 URL 로 만들어진 것 하나뿐이다.
+    const p = activatePlayer(url);
     playingCueId = id;
     speechActive = true;
     // F-6 후보(미확정) — 공유 AVAudioSession 이 expo-video 의 재생 상태 전이마다
     // 재작성되므로, 발화 직전에 우리 모드를 다시 선언한다. 되돌리려면 이 한 줄 삭제.
     declareAudioMode();
-    player.play();
+    p.play();
     armLoadWatchdog(mySeq);
     return true;
   } catch {
@@ -447,17 +517,21 @@ export function speakCue(cue: Cue): boolean {
 }
 
 /**
- * 발화 중단 (일시정지·seek·언마운트·off 전환 시). 리소스는 유지(재사용).
+ * 발화 중단 (일시정지·seek·언마운트·off 전환 시).
  *
  * quick-260801-f77 — 세대를 올려 진행 중인 지연 콜백(감시 타이머·재발급 응답)을
  * 전부 무효화한다. 사용자가 일시정지·seek·화면 이탈했는데 뒤늦게 도착한 재발급
  * 응답이 재생을 되살리는 경로를 구조적으로 차단한다. 호출처는 VideoCompare 의
  * pause·언마운트·overMax·토글 off — 전 경로가 이 무효화를 받는다.
+ *
+ * quick-260806-wj3 — 종전의 "리소스는 유지(재사용)"를 철회하고 플레이어까지
+ * 해제한다. 정지 이후에는 어떤 아이템도 남지 않으므로, 위 전 경로가 아이템
+ * 무효화까지 함께 받는다.
  */
 export function stopCue(): void {
   speechSeq += 1;
   clearLoadWatchdog();
   playingCueId = null;
   speechActive = false;
-  pausePlayerSafely(); // player 미생성도 내부에서 흡수(옵셔널 체이닝)
+  releasePlayer(); // player 미생성도 내부에서 흡수(early return)
 }

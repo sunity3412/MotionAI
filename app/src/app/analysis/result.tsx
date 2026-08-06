@@ -1335,9 +1335,13 @@ function AnalysisResultContent({
   }, [markers]);
 
   // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 오버레이 per-joint 마커 강등 파생.
-  // unreliable 이면 확정 빨강 점/번호/그룹/범례/틱을 모두 비우고 예상 부위 주황 점
-  // 최대 1개(estimatedAreaKeypoints)만 남긴다 — 번호가 사라졌으므로 범례/틱도 빈
-  // 배열로 두어 모순 방지. false/부재 시 기존 소스 그대로 → 렌더 diff 0.
+  // unreliable 이면 **영상 위** 확정 빨강 점/번호/그룹과 전체화면 범례를 비우고
+  // 예상 부위 주황 점 최대 1개(estimatedAreaKeypoints)만 남긴다.
+  // false/부재 시 기존 소스 그대로 → 렌더 diff 0.
+  //
+  // quick-260806-wj3 — 종전에는 진행 바 **틱까지** 함께 비웠다("번호가 사라졌으므로
+  // 범례/틱도 빈 배열"). 그 전제가 틀렸다: 번호는 저신뢰 doc 에서도 사라지지 않는다
+  // (아래 overlayTimelineTicks 주석 참조). 틱만 강등에서 뺀다.
   const overlayHighlightKeypoints = attributionUnreliable
     ? []
     : hasBreakdownRecords
@@ -1375,7 +1379,19 @@ function AnalysisResultContent({
         ? 2
         : 0;
   const overlayFullscreenLegend = attributionUnreliable ? [] : fullscreenLegend;
-  const overlayTimelineTicks = attributionUnreliable ? [] : timelineTicks;
+  // quick-260806-wj3 (belle 실기기 ②) — 진행 바 감점 틱은 저신뢰 doc 에서도 렌더한다.
+  //
+  // 왜 되살리나: 진행 바에 아무 표시가 없으면 사용자는 그것을 "분석이 틀렸다"로 읽는다
+  // (belle 관측). 그리고 틱은 고아가 아니다 — 틱 번호는 markers.recordNumbers 파생이고,
+  // 그 번호는 저신뢰 doc 에서도 점수 계산 내역 행·감점 시트에 그대로 렌더된다. 탭하면
+  // 그 시점으로 seek + openRecordByNumber 로 해당 항목이 열린다(그 함수에 저신뢰
+  // 게이트 없음). 즉 가리키는 대상이 실재한다.
+  //
+  // 비대칭은 **의도된** 것이다: 영상 위 마커/번호/그룹과 전체화면 범례는 계속 억제한다.
+  // 저신뢰에서 관절 단정을 영상 위에 찍지 않는 것이 IN-01 승인 설계의 핵심인데, 진행 바
+  // 틱은 그 단정이 아니라 **시점** 안내이기 때문이다. "영상 위에도 번호를"은 IN-01
+  // 재논의 건이지 이 수리의 결함이 아니다.
+  const overlayTimelineTicks = timelineTicks;
 
   // quick-260702-q8q → 29-CONTEXT D-01 — "점수 계산 내역" 섹션 렌더 가드.
   // 29-04: mode 무관화 — deductionBreakdown 보유 doc 만 (29-02 가 mode3 등록 동작

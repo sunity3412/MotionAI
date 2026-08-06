@@ -29,6 +29,10 @@ import {
   warpTime,
 } from '../lib/alignmentWarp';
 import { composeRefTarget } from '../lib/manualOffset';
+import {
+  decidePlaybackInvariant,
+  RESUME_WATCH_TICKS,
+} from '../lib/playbackInvariant';
 import { activeCue, type CueWindow } from '../lib/cueTrack';
 import {
   isAudioCueEnabled,
@@ -554,6 +558,15 @@ export function VideoCompare({
   const voicePauseRef = useRef(false);
   const voicePauseStartRef = useRef(0);
 
+  // 260806-usc — V-1: belle 실기기에서 두 영상의 재생 상태가 편측으로 갈라진 채
+  // 남았다(내 영상 4.9s 동결, 정은지만 진행, 음성 종료 후에도 미재개). D-13 불변식
+  // ("함께 멈추고 함께 돈다")을 전이 순간에 한 번만 집행하면 그 호출이 실효하지
+  // 않았을 때 되돌릴 주체가 없다 → tick 마다 감시한다(신규 타이머 0).
+  //   resumeWatchTicksRef: null = 관찰창 밖(무개입), 0.. = 음성 종료 재개 후 경과 tick.
+  //   resumeRetriesRef: 관찰창 안에서 소비한 play() 재시도 횟수.
+  const resumeWatchTicksRef = useRef<number | null>(null);
+  const resumeRetriesRef = useRef(0);
+
   // 오디오 큐 목록 (cueWindow → cue 객체). cueId=recordId 로 Polly mp3 조인.
   const audioCues = useMemo(
     () =>
@@ -733,6 +746,13 @@ export function VideoCompare({
           // → 방금 재개한 양쪽을 즉시 재-pause = 자동 재개 삼킴(영구 멈춤,
           // voicePauseRef 이미 false 라 overMax 안전망도 미도달). 다음
           // tick 이 신선한 재생상태·시각으로 판정한다.
+          //
+          // 260806-usc — V-1: 방금 쏜 play() 두 발이 **둘 다 실효했는지**는 여기서
+          // 알 수 없다(expo-video 는 동기 확인 수단이 없다). 재개 순간에 관찰창을
+          // 열어 다음 tick 부터 RESUME_WATCH_TICKS 동안 결과를 확인한다. overMax
+          // 강제 재개도 같은 경로라 자동 포함된다.
+          resumeWatchTicksRef.current = 0;
+          resumeRetriesRef.current = 0;
           return;
         }
       } else if (
@@ -755,6 +775,57 @@ export function VideoCompare({
       // (절대 동기 back-seek 는 오프셋을 drift 로 오인해 되돌림). 오프셋 0 이면
       // activeTick 과 동일 → legacy mutual back-seek 경로 byte-보존.
       const followTick = activeTick || manualOffsetRef.current !== 0;
+
+      // 260806-usc — V-1: 재생 상태 불변식 집행 (D-13 "함께 멈추고 함께 돈다").
+      //
+      // 이 자리인 이유 두 가지:
+      //   1) 시작 홀드 판정에 followTick 이 필요하다(아래 블록과 같은 식을 써야
+      //      규칙이 두 벌이 되지 않는다).
+      //   2) 집행 후 조기 return 이 follow/drift 블록보다 **앞서야** 한다. 그
+      //      블록은 tick 시작 시 캡처된 stale leftPlaying 으로 도는데, 여기서
+      //      막 상태를 바꾼 뒤 통과시키면 F-2(33-16) 와 같은 mid-tick 레이스를
+      //      다시 만든다.
+      //
+      // 판정 자체는 순수 함수(playbackInvariant.ts)가 하고 여기서는 호출만 한다.
+      // 시뮬에서 V-1 이 재현되지 않으므로 이 블록은 원인을 고치는 것이 아니라
+      // 결과 상태를 수렴시킨다 — 원인(재버퍼 스톨/레이스/play() 무실효)은 미규명.
+      if (resumeWatchTicksRef.current !== null) {
+        const next = resumeWatchTicksRef.current + 1;
+        resumeWatchTicksRef.current = next > RESUME_WATCH_TICKS ? null : next;
+      }
+      // 아래 follow 블록의 rawComposedRef 와 **같은 식**(targetRefTime(cL) < 0) —
+      // 시작 홀드 판정 규칙을 두 벌 만들지 않는다.
+      const startHoldActive = followTick && targetRefTime(cL) < 0;
+      // rightPlaying 은 tick 시작 시점 캡처가 없어 이 자리에서 새로 읽는다.
+      // leftPlaying 은 위 캡처값을 그대로 쓴다(같은 tick 안 F-2 규율 유지).
+      const decision = decidePlaybackInvariant({
+        hasLeft,
+        hasRight,
+        scrubbing: scrubbingRef.current,
+        voicePaused: voicePauseRef.current,
+        leftPlaying,
+        rightPlaying: !!rightPlayer?.playing,
+        resumeWatchTicks: resumeWatchTicksRef.current,
+        resumeRetriesUsed: resumeRetriesRef.current,
+        startHold: startHoldActive,
+      });
+      if (decision.action !== 'none') {
+        if (decision.left === 'pause') leftPlayer?.pause();
+        else if (decision.left === 'play') leftPlayer?.play();
+        if (decision.right === 'pause') rightPlayer?.pause();
+        else if (decision.right === 'play') rightPlayer?.play();
+        if (decision.consumeRetry) resumeRetriesRef.current += 1;
+        if (decision.closeWatch) resumeWatchTicksRef.current = null;
+        if (
+          decision.action === 'enforce-pause' ||
+          decision.action === 'converge-pause'
+        ) {
+          setPlaying(false);
+        }
+        // F-1/F-2 와 동일 규율 — 다음 tick 이 신선한 상태로 판정한다.
+        return;
+      }
+
       if (
         hasLeft &&
         hasRight &&
@@ -904,10 +975,14 @@ export function VideoCompare({
       stopCue(); // 32-12 — 일시정지 시 발화 중단(자막은 activeCue 가 유지 판정).
       // 33-13 — 사용자 정지 = 음성 멈춤 상태 해제(자동 재개 억제) + 강조 해제.
       voicePauseRef.current = false;
+      // 260806-usc — 사용자가 개입하면 감시도 끈다(감시가 사용자와 싸우면 안 된다).
+      resumeWatchTicksRef.current = null;
       setVoiceCueRecordId(null);
     } else {
       // 33-13 — 사용자가 직접 재생 = 음성 멈춤 홀드 해제(자동 재개와 중복 방지).
       voicePauseRef.current = false;
+      // 260806-usc — 사용자 재생도 제스처 — 관찰창을 닫는다.
+      resumeWatchTicksRef.current = null;
       // UAT 4차 Finding 2 — 끝난 상태에서 다시 재생 시 정은지 영상 멈춤 finding.
       //   이전 (Build 14): `current` (= leftCurrent) 한쪽만 검사 → 우측이 자기
       //   native end 넘어가 있어도 reset 발동 안 함. 또한 seek = 0 직후 즉시
@@ -1011,6 +1086,8 @@ export function VideoCompare({
       stopCue();
       // 33-13 — 위치 점프 = 음성 멈춤 홀드/강조 해제 (사용자 제스처 우선).
       voicePauseRef.current = false;
+      // 260806-usc — seek 도 제스처 — 관찰창을 닫는다.
+      resumeWatchTicksRef.current = null;
       setVoiceCueRecordId(null);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setRightToStudentTime/
@@ -1130,6 +1207,9 @@ export function VideoCompare({
       setPlaying(false);
       stopCue();
       voicePauseRef.current = false;
+      // 260806-usc — 오프셋 조작도 제스처 — 관찰창을 닫는다. 홀드 타이머가 끝나며
+      // 부르는 재개(offsetWasPlayingRef)를 감시가 되돌리지 않게 한다.
+      resumeWatchTicksRef.current = null;
       setVoiceCueRecordId(null);
     }
     setOffsetApplying(true);

@@ -31,6 +31,7 @@ import {
 import { composeRefTarget } from '../lib/manualOffset';
 import {
   decidePlaybackInvariant,
+  RESUME_PLAY_RETRIES,
   RESUME_WATCH_TICKS,
 } from '../lib/playbackInvariant';
 import { activeCue, type CueWindow } from '../lib/cueTrack';
@@ -810,6 +811,38 @@ export function VideoCompare({
         startHold: startHoldActive,
       });
       if (decision.action !== 'none') {
+        // quick-260806-wj3 (belle ④) — **마지막** 재시도 직전 제자리 seek 1회.
+        //
+        // belle ④(큐2 음성 종료 후 둘 다 멈춤)는 결함이 아니라 오늘 넣은
+        // converge-pause 가 설계대로 작동한 결과다(편측 대신 대칭 정지). 최종 폴백은
+        // 그대로 두고 회복 **확률**만 올린다.
+        //
+        // 제자리 seek 는 iOS AVPlayer 버퍼 스톨 회복 관용구다. **이것이 belle ④ 의
+        // 원인이라는 증명은 없다** — 기기 실패 기제는 여전히 미규명이고(F-6 원칙),
+        // 재시도가 실패해 어차피 멈출 자리에서 한 번 더 두드려 보는 것뿐이다.
+        //
+        // 제자리(= 같은 시각)인 이유: 정렬을 건드리지 않기 위해서다. 오프셋/워프
+        // 정합은 converge-pause 가 지키려는 바로 그 자산이므로 nudge 가 시각을
+        // 옮기면 안 된다.
+        //
+        // 마지막 재시도에만 거는 이유: 앞선 재시도는 그냥 성공할 수 있고, seek 는
+        // 그 자체가 파이프라인을 다시 흔들어 정상 회복을 방해할 수 있다. 마지막은
+        // 어차피 잃을 것이 없다. 재시도 카운터는 관찰창 안에서 단조 증가하고 소진 시
+        // 창이 닫히므로 **한 관찰창당 최대 1회**가 구조적으로 보장된다(별도 플래그 불필요).
+        //
+        // 실효가 없으면 다음 지렛대는 epsilon seek(수십 ms 전진) — 지금은 넣지 않는다
+        // (정렬 위험). 판정 순수 함수(playbackInvariant.ts)는 무접촉이다.
+        if (
+          decision.action === 'retry-play' &&
+          resumeRetriesRef.current === RESUME_PLAY_RETRIES - 1
+        ) {
+          if (decision.left === 'play' && leftPlayer) {
+            leftPlayer.currentTime = leftPlayer.currentTime;
+          }
+          if (decision.right === 'play' && rightPlayer) {
+            rightPlayer.currentTime = rightPlayer.currentTime;
+          }
+        }
         if (decision.left === 'pause') leftPlayer?.pause();
         else if (decision.left === 'play') leftPlayer?.play();
         if (decision.right === 'pause') rightPlayer?.pause();

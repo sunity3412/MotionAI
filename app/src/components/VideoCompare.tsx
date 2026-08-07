@@ -34,7 +34,12 @@ import {
   RESUME_PLAY_RETRIES,
   RESUME_WATCH_TICKS,
 } from '../lib/playbackInvariant';
-import { activeCue, type CueWindow } from '../lib/cueTrack';
+import {
+  activeCue,
+  CUE_CHAIN_HORIZON_SEC,
+  nextChainedCue,
+  type CueWindow,
+} from '../lib/cueTrack';
 import {
   isAudioCueEnabled,
   isCueSpeaking,
@@ -568,6 +573,22 @@ export function VideoCompare({
   const resumeWatchTicksRef = useRef<number | null>(null);
   const resumeRetriesRef = useRef(0);
 
+  // belle 08-07 #2 (quick-260807-fpw) — 재개 최종 실패(converge-pause) 정직 표면화.
+  // 엘보 doc 랜덤 스톨: 백오프 재시도(playbackInvariant RESUME_RETRY_AT_TICKS)를
+  // 소진하고 대칭 정지로 종결되면 왜 멈췄는지 안내가 없다 — '일시정지됨 — 탭하여
+  // 계속' 배지를 세운다. 해제 = (a) togglePlay 양 분기(사용자 제스처), (b) tick 에서
+  // 어느 쪽이든 재생 관측(자연 회복), (c) 배지 탭. ref 는 tick(stale 클로저) 판정용
+  // 미러 (audioEnabledRef 관례).
+  const [resumeNotice, setResumeNotice] = useState(false);
+  const resumeNoticeRef = useRef(false);
+  resumeNoticeRef.current = resumeNotice;
+
+  // belle 08-07 #3 (quick-260807-fpw) — 인접 큐 체이닝 발화 이력. 체인으로 이미
+  // 말한 recordId 의 윈도우에 재개 후 진입해도 speak 만 차단한다(자막 갱신은 유지
+  // — 재발화 함정 b). 활성 큐 윈도우를 완전히 벗어나면(activeCue null) 비운다 —
+  // 사용자가 되감아 재진입하면 다시 발화 (기존 replay 의미 보존).
+  const chainSpokenRef = useRef<Set<string>>(new Set());
+
   // 오디오 큐 목록 (cueWindow → cue 객체). cueId=recordId 로 Polly mp3 조인.
   const audioCues = useMemo(
     () =>
@@ -688,41 +709,61 @@ export function VideoCompare({
       // 도메인. 자막 text 가 바뀔 때만 setState(변경 없으면 렌더 churn 0). cueWindows
       // 미전달 시 cueWindowsRef=EMPTY → activeCue null → 자막 미렌더(기존 소비처 diff 0).
       const cue = activeCue(cueWindowsRef.current, cL);
-      const nextCueText = cue ? cue.text : null;
-      if (nextCueText !== activeCueTextRef.current) {
-        activeCueTextRef.current = nextCueText;
-        setActiveCueText(nextCueText);
-        // 32-12 (D-18 B안) — 자막 전환과 동일 지점에서 오디오 큐. 설정 on + cueId
-        // 조인 시에만 발화(speakCue 내부에서 캐시 미스=자막만). 큐 해제 시 발화 중단.
-        // tick 은 큐가 바뀔 때만 이 블록에 진입 → 매 tick 재재생 없음(stutter 0).
-        //
-        // 33-13 (A-6, D-13 대표 UX — belle 제안): 발화가 실제로 시작됐을 때만
-        // (started=true — mp3 조인·재생 성공) 영상을 멈추고 부위를 강조한다.
-        // 짝 없는 큐/캐시 미스는 자막만 — 멈춤·강조 미발동(D-18 고아 가드).
-        // 재생 중이 아니면(사용자가 이미 정지) 멈춤 없이 강조만.
-        if (audioEnabledRef.current) {
-          if (cue && cue.recordId) {
-            const started = speakCue({ cueId: cue.recordId, text: cue.text });
-            if (started) {
-              setVoiceCueRecordId(cue.recordId);
-              if (leftPlaying) {
-                leftPlayer?.pause();
-                rightPlayer?.pause();
-                setPlaying(false);
-                voicePauseRef.current = true;
-                voicePauseStartRef.current = Date.now();
-                // 33-16 게이트 F-2 fix — mid-tick pause 직후 tick 조기 종료.
-                // 아래 follow/drift 블록은 tick 시작 시 캡처된 stale
-                // leftPlaying=true 로 진입해 홀드해제 분기가 방금 멈춘
-                // 정은지(right)를 즉시 play() 부활시켰다(음성 정지 중 우측만
-                // 계속 재생). 다음 tick(100ms)이 신선한 상태로 판정 — 보정
-                // 1 tick 지연은 무해.
-                return;
+      // belle 08-07 #3 — 윈도우 군집을 완전히 벗어나면 체인 발화 이력을 비운다
+      // (되감기 재진입 시 다시 발화하는 기존 replay 의미 보존).
+      if (cue === null && chainSpokenRef.current.size > 0) {
+        chainSpokenRef.current.clear();
+      }
+      // belle 08-07 #2 — 배지 자연 회복 해제: 어느 쪽이든 재생이 관측되면 내린다.
+      if (resumeNoticeRef.current && (leftPlaying || !!rightPlayer?.playing)) {
+        setResumeNotice(false);
+      }
+      // belle 08-07 #3 (재발화 함정 a) — 음성 멈춤 중에는 자막 갱신·발화 블록 전체를
+      // 건너뛴다. 체인 발화 때 자막을 다음 큐로 바꿔도 멈춘 cL 의 activeCue 는 이전
+      // 큐일 수 있어, 이 블록이 돌면 text 역전·재발화가 난다 — 멈춤 중 자막은 체인
+      // 핸들러(아래 음성 종료 분기)가 소유한다.
+      if (!voicePauseRef.current) {
+        const nextCueText = cue ? cue.text : null;
+        if (nextCueText !== activeCueTextRef.current) {
+          activeCueTextRef.current = nextCueText;
+          setActiveCueText(nextCueText);
+          // 32-12 (D-18 B안) — 자막 전환과 동일 지점에서 오디오 큐. 설정 on + cueId
+          // 조인 시에만 발화(speakCue 내부에서 캐시 미스=자막만). 큐 해제 시 발화 중단.
+          // tick 은 큐가 바뀔 때만 이 블록에 진입 → 매 tick 재재생 없음(stutter 0).
+          //
+          // 33-13 (A-6, D-13 대표 UX — belle 제안): 발화가 실제로 시작됐을 때만
+          // (started=true — mp3 조인·재생 성공) 영상을 멈추고 부위를 강조한다.
+          // 짝 없는 큐/캐시 미스는 자막만 — 멈춤·강조 미발동(D-18 고아 가드).
+          // 재생 중이 아니면(사용자가 이미 정지) 멈춤 없이 강조만.
+          if (audioEnabledRef.current) {
+            // belle 08-07 #3 (재발화 함정 b) — 체인으로 이미 발화한 큐 윈도우에
+            // 재진입해도 재발화하지 않는다 (자막 갱신은 위에서 이미 수행).
+            if (cue && cue.recordId) {
+              if (!chainSpokenRef.current.has(cue.recordId)) {
+                const started = speakCue({ cueId: cue.recordId, text: cue.text });
+                if (started) {
+                  chainSpokenRef.current.add(cue.recordId);
+                  setVoiceCueRecordId(cue.recordId);
+                  if (leftPlaying) {
+                    leftPlayer?.pause();
+                    rightPlayer?.pause();
+                    setPlaying(false);
+                    voicePauseRef.current = true;
+                    voicePauseStartRef.current = Date.now();
+                    // 33-16 게이트 F-2 fix — mid-tick pause 직후 tick 조기 종료.
+                    // 아래 follow/drift 블록은 tick 시작 시 캡처된 stale
+                    // leftPlaying=true 로 진입해 홀드해제 분기가 방금 멈춘
+                    // 정은지(right)를 즉시 play() 부활시켰다(음성 정지 중 우측만
+                    // 계속 재생). 다음 tick(100ms)이 신선한 상태로 판정 — 보정
+                    // 1 tick 지연은 무해.
+                    return;
+                  }
+                }
               }
+            } else {
+              stopCue();
+              if (!voicePauseRef.current) setVoiceCueRecordId(null);
             }
-          } else {
-            stopCue();
-            if (!voicePauseRef.current) setVoiceCueRecordId(null);
           }
         }
       }
@@ -735,6 +776,39 @@ export function VideoCompare({
         const overMax =
           Date.now() - voicePauseStartRef.current > CUE_PAUSE_MAX_MS;
         if (!isCueSpeaking() || overMax) {
+          // belle 08-07 #3 (quick-260807-fpw) — 인접 큐 체이닝. 자연 종료(!overMax
+          // — 상한 강제 재개는 체인 금지)면 +CUE_CHAIN_HORIZON_SEC 이내에 시작하는
+          // 미발화 큐를 **같은 멈춤에서 이어 발화**한다: 파워스핀 큐 2개 0.11초
+          // 간격의 "음성1 종료 → 0.1초 재생 → 음성2 정지" 끊김 해소. 후보 없음/
+          // 발화 실패면 기존 재개 경로 그대로 (관찰창 개시 포함 — 백오프가 이어받음).
+          if (!overMax && audioEnabledRef.current) {
+            const chained = nextChainedCue(
+              cueWindowsRef.current,
+              cL,
+              chainSpokenRef.current,
+              CUE_CHAIN_HORIZON_SEC,
+            );
+            if (chained && chained.recordId) {
+              const chainStarted = speakCue({
+                cueId: chained.recordId,
+                text: chained.text,
+              });
+              if (chainStarted) {
+                chainSpokenRef.current.add(chained.recordId);
+                setVoiceCueRecordId(chained.recordId);
+                // 멈춤 중 자막은 이 핸들러 소유(함정 a) — 발화와 함께 다음 큐 문구로.
+                activeCueTextRef.current = chained.text;
+                setActiveCueText(chained.text);
+                // 큐당 CUE_PAUSE_MAX_MS 재무장 — 체인 총합이 아니라 큐별 상한.
+                voicePauseStartRef.current = Date.now();
+                // voicePauseRef 는 true 유지 — 같은 멈춤에서 이어 발화. 알려진
+                // 무해 엣지: 체인 재개 직후 자막이 한 tick 이전 큐로 되돌았다
+                // 다음 윈도우에서 복귀할 수 있음 — 발화는 이력 가드로 차단되므로
+                // 표시 순간 전환만.
+                return;
+              }
+            }
+          }
           voicePauseRef.current = false;
           setVoiceCueRecordId(null);
           if (overMax) stopCue();
@@ -854,6 +928,12 @@ export function VideoCompare({
           decision.action === 'converge-pause'
         ) {
           setPlaying(false);
+        }
+        // belle 08-07 #2 (quick-260807-fpw) — converge-pause = 백오프 재시도 소진
+        // 후 최종 대칭 정지. 조용히 멈추면 사용자는 랜덤 스톨로 읽는다(엘보 doc) —
+        // '일시정지됨 — 탭하여 계속' 배지로 정직하게 안내한다.
+        if (decision.action === 'converge-pause') {
+          setResumeNotice(true);
         }
         // F-1/F-2 와 동일 규율 — 다음 tick 이 신선한 상태로 판정한다.
         return;
@@ -1010,12 +1090,16 @@ export function VideoCompare({
       voicePauseRef.current = false;
       // 260806-usc — 사용자가 개입하면 감시도 끈다(감시가 사용자와 싸우면 안 된다).
       resumeWatchTicksRef.current = null;
+      // belle 08-07 #2 — 사용자 제스처 = 재개 실패 배지 해제.
+      setResumeNotice(false);
       setVoiceCueRecordId(null);
     } else {
       // 33-13 — 사용자가 직접 재생 = 음성 멈춤 홀드 해제(자동 재개와 중복 방지).
       voicePauseRef.current = false;
       // 260806-usc — 사용자 재생도 제스처 — 관찰창을 닫는다.
       resumeWatchTicksRef.current = null;
+      // belle 08-07 #2 — 사용자 제스처 = 재개 실패 배지 해제.
+      setResumeNotice(false);
       // UAT 4차 Finding 2 — 끝난 상태에서 다시 재생 시 정은지 영상 멈춤 finding.
       //   이전 (Build 14): `current` (= leftCurrent) 한쪽만 검사 → 우측이 자기
       //   native end 넘어가 있어도 reset 발동 안 함. 또한 seek = 0 직후 즉시
@@ -1075,6 +1159,17 @@ export function VideoCompare({
         setPlaying(true);
       }
     }
+  };
+
+  // belle 08-07 #2 (quick-260807-fpw) — '일시정지됨 — 탭하여 계속' 배지 탭.
+  // 해제 → togglePlay(재생) → 관찰창 재무장. togglePlay 가 사용자 제스처로 관찰창을
+  // 닫으므로(null) 그 **뒤에** 재무장한다 (호출 순서 준수) — 탭 재개도 백오프
+  // 보호를 받는다.
+  const handleResumeNoticePress = () => {
+    setResumeNotice(false);
+    togglePlay();
+    resumeWatchTicksRef.current = 0;
+    resumeRetriesRef.current = 0;
   };
 
   const restart = () => {
@@ -1670,6 +1765,28 @@ export function VideoCompare({
             </Text>
           </View>
         ) : null}
+
+        {/* belle 08-07 #2 (quick-260807-fpw) — 재개 최종 실패(converge-pause) 정직
+            표면화. 백오프 재시도 소진 후 대칭 정지로 종결되면 조용한 멈춤이 랜덤
+            스톨로 읽힌다(엘보 doc) — '일시정지됨'을 밝히고 탭으로 재개 + 관찰창
+            재무장. 자막 유무와 독립인 별도 wrap (음성 큐 없이도 스톨은 일어난다).
+            어느 쪽이든 재생이 관측되면 tick 이 배지를 내린다 (자연 회복). */}
+        {resumeNotice && !playing ? (
+          <View style={styles.resumeNoticeWrap} pointerEvents="box-none">
+            <Pressable
+              onPress={handleResumeNoticePress}
+              accessibilityRole="button"
+              accessibilityLabel="일시정지됨 — 탭하여 계속 재생"
+              hitSlop={8}
+              style={styles.resumeNoticePill}
+            >
+              <Ionicons name="play" size={12} color={colors.textWhite} />
+              <Text style={styles.resumeNoticeText}>
+                일시정지됨 — 탭하여 계속
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       {/* 32-12 (D-18 B안 오디오 큐) — "음성 안내" 토글. coachAudio mp3 보유 doc
@@ -2068,6 +2185,36 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   voicePauseText: {
+    ...typography.captionSmall,
+    color: colors.textWhite,
+    fontWeight: '700',
+  },
+  // belle 08-07 #2 (quick-260807-fpw) — '일시정지됨 — 탭하여 계속' 배지.
+  // voicePausePill 스타일 승계 (videoBg + textWhite 토큰만, 하드코딩 색 0).
+  // wrap 은 cueSubtitleWrap 위치 계열의 하단 중앙 — 자막(최대 3줄 + 여백) 영역
+  // 위에 앉도록 paddingBottom = 26(자막 zone) + 3×17(lineHeight) + 12(패딩)
+  // + 7(간격) = 96. 겹침 케이스: 큐 윈도우 안에서 스톨이 수렴하면 자막과 배지가
+  // 동시에 뜬다 — 별도 wrap 이라 서로 밀지 않고 위아래로 나뉜다.
+  resumeNoticeWrap: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 96,
+  },
+  resumeNoticePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.button,
+    backgroundColor: colors.videoBg,
+  },
+  resumeNoticeText: {
     ...typography.captionSmall,
     color: colors.textWhite,
     fontWeight: '700',

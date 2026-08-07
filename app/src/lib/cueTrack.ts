@@ -140,3 +140,41 @@ export function activeCue(
   }
   return best;
 }
+
+// belle 08-07 #3 (quick-260807-fpw) — 인접 큐 체이닝 지평선(초). 음성 자연 종료
+// 시점에 현재 재생시각 +이 값 이내에 시작하는 미발화 큐가 있으면 재개 없이 같은
+// 멈춤에서 이어 발화한다 — 파워스핀 큐 2개 0.11초 간격의 "음성1 종료 → 0.1초 재생
+// → 음성2 정지" 끊김 해소.
+export const CUE_CHAIN_HORIZON_SEC = 1.0;
+
+/**
+ * 음성 자연 종료 시점의 체이닝 후보 큐 1개 또는 null (belle 08-07 #3).
+ *
+ * 후보 조건 (전부 만족):
+ *   - recordId 보유 (발화 이력·mp3 조인의 안정 키 — 없는 윈도우는 체인 불가)
+ *   - spokenRecordIds 에 없음 (이미 말한 큐 재발화 금지)
+ *   - endSec > currentSec (이미 지나간 윈도우 제외)
+ *   - startSec <= currentSec + horizonSec (이미 열려 있는 미발화 윈도우 포함 —
+ *     파워스핀 겹침 윈도우가 정확히 이 모양)
+ * 선택: startSec 최소(가장 이른 것), 동률은 입력 순 (first-wins).
+ * 무효 입력 방어: currentSec/horizonSec 비유한·windows 부재 → null (크래시 0).
+ */
+export function nextChainedCue(
+  windows: readonly CueWindow[] | null | undefined,
+  currentSec: number,
+  spokenRecordIds: ReadonlySet<string>,
+  horizonSec: number,
+): CueWindow | null {
+  if (!Array.isArray(windows) || windows.length === 0) return null;
+  if (!Number.isFinite(currentSec)) return null;
+  if (!Number.isFinite(horizonSec) || horizonSec < 0) return null;
+  let best: CueWindow | null = null;
+  for (const w of windows) {
+    if (!w) continue;
+    if (w.recordId == null || spokenRecordIds.has(w.recordId)) continue;
+    if (w.endSec <= currentSec) continue;
+    if (w.startSec > currentSec + horizonSec) continue;
+    if (best === null || w.startSec < best.startSec) best = w;
+  }
+  return best;
+}

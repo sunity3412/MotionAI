@@ -200,6 +200,62 @@ def _spread_series(align: dict, side: str = "user") -> np.ndarray:
     return np.where(cmin >= 0.35, ang, np.nan)
 
 
+def _legs_angle_viz(kp_at, t: float) -> dict | None:
+    """다리 사이각 표시 페이로드 — 꼭짓점(힙 중점)과 양다리 끝점(발목, 미덥으면 무릎).
+
+    belle 4차: "점 표기 대신 다리 사이의 사이각 표시" — 다리벌림 계열 정지 전용.
+    수치 배지가 아니라 **모양**(두 선 + 호)으로 벌림을 보여준다. 신뢰도 미달이면 None
+    (fail-closed — 틀린 선을 긋느니 안 긋는다).
+    """
+    pts: dict[str, tuple[np.ndarray, float]] = {}
+    for n in ("left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"):
+        pts[n] = kp_at(n, t)
+    if min(pts["left_hip"][1], pts["right_hip"][1]) < 0.35:
+        return None
+    vertex = (pts["left_hip"][0] + pts["right_hip"][0]) / 2
+    ends = []
+    for side in ("left", "right"):
+        if pts[f"{side}_ankle"][1] >= 0.35 and np.isfinite(pts[f"{side}_ankle"][0]).all():
+            ends.append(pts[f"{side}_ankle"][0])
+        elif pts[f"{side}_knee"][1] >= 0.35 and np.isfinite(pts[f"{side}_knee"][0]).all():
+            ends.append(pts[f"{side}_knee"][0])
+        else:
+            return None
+    if not np.isfinite(vertex).all():
+        return None
+    v1, v2 = ends[0] - vertex, ends[1] - vertex
+    cos = float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-9))
+    deg = float(np.degrees(np.arccos(np.clip(cos, -1, 1))))
+    conf = min(pts["left_hip"][1], pts["right_hip"][1],
+               *(max(pts[f"{s}_ankle"][1], pts[f"{s}_knee"][1]) for s in ("left", "right")))
+    return {"v": [float(vertex[0]), float(vertex[1])],
+            "a": [float(ends[0][0]), float(ends[0][1])],
+            "b": [float(ends[1][0]), float(ends[1][1])],
+            # 수치는 벌림각만 병기(해석 자명: 클수록 더 벌림) — 단 신뢰 0.5 이상일 때만.
+            "deg": deg if (conf >= 0.5 and 20.0 <= deg <= 179.5) else None}
+
+
+def _armpit_angle_viz(kp_at, t: float, side: str) -> dict | None:
+    """겨드랑이 사이각 — 꼭짓점=어깨, 두 선=팔꿈치·힙 방향 (belle: '겨드랑이가 더
+    벌려져야 한다' 류 문장엔 사이각이 어울림). 규칙은 다리 사이각과 동일."""
+    sh = kp_at(f"{side}_shoulder", t)
+    el = kp_at(f"{side}_elbow", t)
+    hp = kp_at(f"{side}_hip", t)
+    conf = min(sh[1], el[1], hp[1])
+    if conf < 0.35:
+        return None
+    pts = [sh[0], el[0], hp[0]]
+    if not all(np.isfinite(p).all() for p in pts):
+        return None
+    v1, v2 = el[0] - sh[0], hp[0] - sh[0]
+    cos = float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-9))
+    deg = float(np.degrees(np.arccos(np.clip(cos, -1, 1))))
+    return {"v": [float(sh[0][0]), float(sh[0][1])],
+            "a": [float(el[0][0]), float(el[0][1])],
+            "b": [float(hp[0][0]), float(hp[0][1])],
+            "deg": deg if (conf >= 0.5 and 20.0 <= deg <= 179.5) else None}
+
+
 def _align_markers(align: dict, rec: dict, ut: float) -> list[tuple[float, float, str]]:
     """정지 마커 목록 [(x, y, style)] — belle 08-07 2차 판정 반영.
 
@@ -332,7 +388,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             continue
         ut = float(rec["atVideoSec"])
         joint = rec["criterion"].split("__")[-1]
-        badge = None
+        legs_viz = None
         if "_alignRefSec" in rec:
             rt, src = float(rec["_alignRefSec"]), "align"
             u_at = _kp_reader(align, "user")
@@ -358,45 +414,25 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
                             rt = float(np.nanargmax(rsp)) / float(align["fps"])
             markers = _align_markers(align, rec, ut)
 
-            # 각도 배지 (belle 3차 킵업 "각도 표기 있으면 좋겠다" + 엘보 차이 파악 보완):
-            # 마커 관절의 관절각을 양 패널에 작은 배지로 — 내 각 vs 기준 각.
-            if crit == "split_angle":
-                bj = "split"
-            elif crit == "leg_extension":
-                # 덜 펴진(각 작은) 무릎 — 마커 선택 로직과 동일 기준
-                best = None
-                for side in ("left", "right"):
-                    ang = _joint_angle(u_at, f"{side}_knee", ut)
-                    if ang is not None and (best is None or ang < best[1]):
-                        best = (f"{side}_knee", ang)
-                bj = best[0] if best else None
-            else:
-                bj = joint
-            if bj is not None and (bj in _ANGLE_TRIPLES or bj == "split"):
-                ua_deg = _joint_angle(u_at, bj, ut)
-                ra_deg = _joint_angle(r_at, bj, rt) if r_at is not None else None
-                # 해부학 범위 게이트 — 겹침/가림 퇴화값(실측 3.9°, 2.7°) 차단.
-                # 틀린 수치보다 없는 게 낫다.
-                if ua_deg is not None and not (20.0 <= ua_deg <= 179.5):
-                    ua_deg = None
-                if ra_deg is not None and not (20.0 <= ra_deg <= 179.5):
-                    ra_deg = None
-                if ua_deg is not None:
-                    if bj == "split":
-                        up, _ = u_at("left_hip", ut)
-                        up2, _ = u_at("right_hip", ut)
-                        upos = (up + up2) / 2
-                        rpos = None
-                        if r_at is not None:
-                            rp, _ = r_at("left_hip", rt)
-                            rp2, _ = r_at("right_hip", rt)
-                            rpos = (rp + rp2) / 2
-                    else:
-                        upos, _ = u_at(bj, ut)
-                        rpos = r_at(bj, rt)[0] if r_at is not None else None
-                    badge = {"userDeg": ua_deg, "refDeg": ra_deg,
-                             "userPos": [float(upos[0]), float(upos[1])],
-                             "refPos": [float(rpos[0]), float(rpos[1])] if rpos is not None and np.isfinite(rpos).all() else None}
+            # 다리 사이각 그리기 (belle 4차): 수치 배지는 해석 부담이라 전면 철회.
+            # **다리벌림을 말하는 정지에만** 점 마커 대신 두 선+호(모양)로 벌림을 표시.
+            # 그 외(피터팬 어깨 등)는 링 마커만 — "없는 게 더 직관적".
+            legs_cue = crit == "split_angle" or (
+                crit.startswith("angle_vs_reference__") and joint in ("left_hip", "right_hip"))
+            armpit_cue = crit.startswith("angle_vs_reference__") and joint in (
+                "left_shoulder", "right_shoulder")
+            if legs_cue:
+                legs_viz = {"user": _legs_angle_viz(u_at, ut),
+                            "ref": _legs_angle_viz(r_at, rt) if r_at is not None else None}
+            elif armpit_cue:
+                side = joint.split("_")[0]
+                legs_viz = {"user": _armpit_angle_viz(u_at, ut, side),
+                            "ref": _armpit_angle_viz(r_at, rt, side) if r_at is not None else None}
+            # both-or-neither (fault_zoom 계약 승계) — 한쪽만 그려지면 비대칭 오독.
+            if legs_viz is not None and (legs_viz.get("user") is None or legs_viz.get("ref") is None):
+                legs_viz = None
+            if legs_viz is not None:
+                markers = []  # 점 대신 사이각 표시
         else:
             markers = []
             if joint in kj:
@@ -416,7 +452,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             "pair_src": src,
             "dur": mp3_duration_s(mp3) + FREEZE_TAIL_S,
             "mp3": mp3, "joint": joint, "markers": markers,
-            "badge": badge,
+            "legs_viz": legs_viz,
             "text": speech_text(rec),
         })
     return warp_b, freezes
@@ -503,23 +539,37 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
         canvas.paste(b, (a.width + GAP, 0))
         if fz is not None:
             d = ImageDraw.Draw(canvas, "RGBA")
-            bd = fz.get("badge")
-            if bd is not None:
-                bfont = ImageFont.truetype(str(FONT_PATH), round(17 * S))
-
-                def draw_badge(x_px: float, y_px: float, deg: float):
-                    label = f"{deg:.0f}°"
-                    tw = d.textlength(label, font=bfont)
-                    bx = min(max(x_px + round(18 * S), 4), W - tw - round(20 * S))
-                    by = min(max(y_px - round(34 * S), 4), PANEL_H - round(40 * S))
-                    d.rounded_rectangle([bx, by, bx + tw + round(16 * S), by + round(28 * S)],
-                                        radius=round(8 * S), fill=(15, 13, 12, 200))
-                    d.text((bx + round(8 * S), by + round(4 * S)), label, font=bfont, fill=(255, 255, 255))
-
-                if bd.get("userDeg") is not None and bd.get("userPos"):
-                    draw_badge(bd["userPos"][0] * a.width, bd["userPos"][1] * PANEL_H, bd["userDeg"])
-                if bd.get("refDeg") is not None and bd.get("refPos"):
-                    draw_badge(a.width + GAP + bd["refPos"][0] * b.width, bd["refPos"][1] * PANEL_H, bd["refDeg"])
+            lv = fz.get("legs_viz")
+            if lv is not None:
+                for panel_key, off, pw in (("user", 0, a.width), ("ref", a.width + GAP, b.width)):
+                    v = lv.get(panel_key)
+                    if not v:
+                        continue
+                    vx, vy = v["v"][0] * pw + off, v["v"][1] * PANEL_H
+                    angs = []
+                    for ek in ("a", "b"):
+                        ex, ey = v[ek][0] * pw + off, v[ek][1] * PANEL_H
+                        d.line([vx, vy, ex, ey], fill=BRAND + (235,), width=round(4 * S))
+                        angs.append(float(np.degrees(np.arctan2(ey - vy, ex - vx))) % 360.0)
+                    r_arc = round(72 * S)
+                    d0, d1 = sorted(angs)
+                    if d1 - d0 > 180:
+                        d0, d1 = d1, d0 + 360
+                    d.arc([vx - r_arc, vy - r_arc, vx + r_arc, vy + r_arc],
+                          start=d0, end=d1, fill=BRAND + (235,), width=round(4 * S))
+                    if v.get("deg") is not None:
+                        mid = np.radians((d0 + d1) / 2)
+                        tx = vx + (r_arc + round(30 * S)) * np.cos(mid)
+                        ty = vy + (r_arc + round(30 * S)) * np.sin(mid)
+                        vfont = ImageFont.truetype(str(FONT_PATH), round(19 * S))
+                        label = f"{v['deg']:.0f}°"
+                        tw = d.textlength(label, font=vfont)
+                        bx = float(np.clip(tx - tw / 2, off + 4, off + pw - tw - round(18 * S)))
+                        by = float(np.clip(ty - round(14 * S), 4, PANEL_H - round(44 * S)))
+                        d.rounded_rectangle([bx - round(7 * S), by - round(3 * S),
+                                             bx + tw + round(7 * S), by + round(27 * S)],
+                                            radius=round(7 * S), fill=(15, 13, 12, 200))
+                        d.text((bx, by), label, font=vfont, fill=(255, 255, 255))
             for mx_n, my_n, style in fz.get("markers") or []:
                 mx, my = mx_n * a.width, my_n * PANEL_H
                 r_out, r_in = round(13 * S), round(4 * S)
@@ -572,9 +622,8 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
              "refSec": round(fz["rt"], 2), "pairSrc": fz["pair_src"],
              "freezeS": round(fz["dur"], 2), "voiceStartOutS": round(at, 2),
              "markers": [m[2] for m in (fz.get("markers") or [])],
-             "badge": ({"userDeg": round(fz["badge"]["userDeg"], 1),
-                        "refDeg": round(fz["badge"]["refDeg"], 1) if fz["badge"].get("refDeg") is not None else None}
-                       if fz.get("badge") else None),
+             "legsViz": {k: fz["legs_viz"].get(k) is not None for k in ("user", "ref")}
+                        if fz.get("legs_viz") else None,
              "text": fz["text"]}
             for fz, (_, at) in zip(freezes, audio_plan)
         ],

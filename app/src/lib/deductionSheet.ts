@@ -403,11 +403,17 @@ export function splitGoalClause(cueLine: string | null | undefined): {
  * (`cueTrack.buildCueWindows` 의 입력 집합·타이밍·밀도 무접촉). statusLine 은 붙는
  * 접두일 뿐 자막을 새로 만들어내지 않는다.
  *
+ * 결함문과 행동문 사이에는 **문장 경계(마침표)** 를 넣는다 (belle 08-07 실기기
+ * 반려 — 경계 없이 이으면 자막이 한 문장으로 이어지고 음성(Polly)은 run-on
+ * 낭독한다: "…좁아요 다리를 와이드…"). statusLine 이 이미 문장부호로 끝나면
+ * 중복하지 않는다.
+ *
  * **Python lockstep** (debug va-subtitle-audio-mismatch 2026-08-07): Polly 음성
  * 합성 텍스트가 이 조립식을 그대로 미러한다 — `backend/functions/pipeline/app.py`
  * `_coach_audio_speech_text` (+ `_cue_action_line` = `splitGoalClause` 미러,
- * GOAL_CLAUSE_PREFIX/SEPARATOR 상수 포함). 여기 조립 규칙을 바꾸면 반드시 함께
- * 바꿀 것 — 한쪽만 바뀌면 음성과 자막이 다시 갈라진다 (mrg 미검증 #4 의 재발).
+ * GOAL_CLAUSE_PREFIX/SEPARATOR 상수·마침표 경계 규칙 포함). 여기 조립 규칙을
+ * 바꾸면 반드시 함께 바꿀 것 — 한쪽만 바뀌면 음성과 자막이 다시 갈라진다
+ * (mrg 미검증 #4 의 재발).
  */
 export function composeCueSubtitleKo(
   record: DeductionRecord,
@@ -422,9 +428,9 @@ export function composeCueSubtitleKo(
         : '';
   if (action.length === 0) return null;
   const status = record?.statusLine;
-  return typeof status === 'string' && status.length > 0
-    ? `${status} ${action}`
-    : action;
+  if (typeof status !== 'string' || status.length === 0) return action;
+  const sep = /[.!?]$/.test(status) ? '' : '.';
+  return `${status}${sep} ${action}`;
 }
 
 /**

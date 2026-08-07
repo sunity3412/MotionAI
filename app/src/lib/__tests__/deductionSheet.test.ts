@@ -1244,12 +1244,23 @@ test('T13 (자막): statusLine + actionLine → 결함이 먼저', () => {
     }),
     null,
   );
+  // belle 08-07 반려 반영 — 결함문과 행동문 사이 문장 경계(마침표).
   assert.equal(
     out,
-    `${REAL_STATUS} 어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요`,
+    `${REAL_STATUS}. 어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요`,
   );
   // 자막의 첫머리가 결함이다 (belle 지적의 실체).
   assert.ok(out?.startsWith(REAL_STATUS));
+  // statusLine 이 이미 문장부호로 끝나면 마침표를 중복하지 않는다.
+  const already = composeCueSubtitleKo(
+    rec({
+      criterion: 'angle_vs_reference__left_shoulder',
+      statusLine: `${REAL_STATUS}.`,
+      cueLine: REAL_GOAL_CUE,
+    }),
+    null,
+  );
+  assert.ok(already?.startsWith(`${REAL_STATUS}. 어깨가`));
 });
 
 test('T14 (자막): statusLine 없으면 actionLine 단독', () => {
@@ -1280,7 +1291,7 @@ test('T15 (자막): cueLine 없으면 legacy 폴백 행동구 유지', () => {
       }),
       '무릎 더 펴기',
     ),
-    '왼쪽 무릎 각도가 기준 자세와 차이가 있어요 무릎 더 펴기',
+    '왼쪽 무릎 각도가 기준 자세와 차이가 있어요. 무릎 더 펴기',
   );
 });
 

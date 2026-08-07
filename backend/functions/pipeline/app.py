@@ -3829,15 +3829,21 @@ def _coach_audio_speech_text(rec: dict) -> str:
     debug va-subtitle-audio-mismatch (2026-08-07) — 음성이 자막에 없는 문장
     (목표절)으로 시작하고 자막의 결함문(statusLine)은 말하지 않아 V-A 불일치로
     지각됐다. 규칙: statusLine(결함) + 행동절. statusLine 부재면 행동절만 —
-    앱 자막 조립(deductionSheet.ts:406-422)과 문자 단위 동일. 앱의
+    앱 자막 조립(deductionSheet.ts composeCueSubtitleKo)과 문자 단위 동일. 앱의
     fallbackActionPhrase 분기는 cueLine 부재 record 전용인데 그 record 는
     합성 대상에서 이미 제외라(_run_deferred_coach_audio cue_records 필터)
     여기 미러 불요.
+
+    결함문과 행동문 사이에는 **문장 경계(마침표)** 를 넣는다 (belle 08-07 실기기
+    반려 — 경계 없이 이으면 Polly 가 두 문장을 한 문장으로 run-on 낭독한다:
+    "…좁아요 다리를 와이드…"). statusLine 이 이미 문장부호로 끝나면 중복하지
+    않는다. 앱 자막도 같은 규칙 — 한쪽만 바꾸면 음성·자막이 다시 갈라진다.
     """
     action = _cue_action_line(rec["cueLine"])
     status = rec.get("statusLine")
     if isinstance(status, str) and status:
-        return f"{status} {action}"
+        sep = "" if status.endswith((".", "!", "?")) else "."
+        return f"{status}{sep} {action}"
     return action
 
 

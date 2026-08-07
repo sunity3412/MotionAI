@@ -201,11 +201,19 @@ def test_speech_text_mirrors_subtitle_composition(papp):
     )
     status = "오른쪽 팔꿈치 각도가 엘보 트위스트 기준 자세와 차이가 있어요"
 
-    # 본체: statusLine + 목표절 제거 행동절 — 자막 문자열과 동일.
+    # 본체: statusLine + 마침표 경계 + 목표절 제거 행동절 — 자막 문자열과 동일.
+    # (belle 08-07 반려 — 경계 없으면 Polly 가 두 문장을 run-on 낭독.)
     assert papp._coach_audio_speech_text(
         {"cueLine": goal_cue, "statusLine": status}
     ) == (
-        f"{status} 팔꿈치로 폴을 단단히 감은(엘보 그립) 채, "
+        f"{status}. 팔꿈치로 폴을 단단히 감은(엘보 그립) 채, "
+        "그 각을 기준 자세에 겹쳐 맞춰보세요"
+    )
+    # statusLine 이 이미 문장부호로 끝나면 마침표를 중복하지 않는다.
+    assert papp._coach_audio_speech_text(
+        {"cueLine": goal_cue, "statusLine": f"{status}."}
+    ) == (
+        f"{status}. 팔꿈치로 폴을 단단히 감은(엘보 그립) 채, "
         "그 각을 기준 자세에 겹쳐 맞춰보세요"
     )
     # 음성 도입이 목표절이 아니어야 한다 (V-A 불일치의 본체였던 문장).

@@ -402,6 +402,12 @@ export function splitGoalClause(cueLine: string | null | undefined): {
  * 자막 유무 조건은 **바꾸지 않는다** — 오늘과 똑같이 행동구가 있어야 자막이 뜬다
  * (`cueTrack.buildCueWindows` 의 입력 집합·타이밍·밀도 무접촉). statusLine 은 붙는
  * 접두일 뿐 자막을 새로 만들어내지 않는다.
+ *
+ * **Python lockstep** (debug va-subtitle-audio-mismatch 2026-08-07): Polly 음성
+ * 합성 텍스트가 이 조립식을 그대로 미러한다 — `backend/functions/pipeline/app.py`
+ * `_coach_audio_speech_text` (+ `_cue_action_line` = `splitGoalClause` 미러,
+ * GOAL_CLAUSE_PREFIX/SEPARATOR 상수 포함). 여기 조립 규칙을 바꾸면 반드시 함께
+ * 바꿀 것 — 한쪽만 바뀌면 음성과 자막이 다시 갈라진다 (mrg 미검증 #4 의 재발).
  */
 export function composeCueSubtitleKo(
   record: DeductionRecord,

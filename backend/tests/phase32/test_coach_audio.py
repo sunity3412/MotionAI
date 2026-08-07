@@ -183,8 +183,56 @@ def test_synthesis_success_emits_items_with_record_id_join(
     # S3 저장 = canonical key + audio/mpeg (s3keys 단일 출처).
     assert [p["Key"] for p in s3.puts] == [AUDIO_KEY, AUDIO_KEY_2]
     assert all(p["ContentType"] == "audio/mpeg" for p in s3.puts)
-    # 문구집 cueLine 그대로 합성 (변형 0 — D-09 골격 소유권).
+    # 목표절·statusLine 없는 record — 조립식이 항등이라 cueLine 그대로 합성
+    # (자막 조립 미러의 fail-closed 경로. 조립 본체는 아래 speech_text 테스트).
     assert polly.calls[0]["Text"].startswith("발끝으로")
+
+
+def test_speech_text_mirrors_subtitle_composition(papp):
+    """debug va-subtitle-audio-mismatch — 합성 문장 = 재생 중 자막과 같은 문장.
+
+    앱 composeCueSubtitleKo(deductionSheet.ts) 미러 고정: statusLine(결함) +
+    목표절 제거 actionLine. 한쪽만 바뀌면 음성·자막이 다시 갈라진다 (mrg
+    SUMMARY 미검증 #4 의 재발 방지 핀).
+    """
+    goal_cue = (
+        "목표는 거꾸로 매달린 채 윗다리를 폴을 따라 곧게 뽑는 자세예요. "
+        "팔꿈치로 폴을 단단히 감은(엘보 그립) 채, 그 각을 기준 자세에 겹쳐 맞춰보세요"
+    )
+    status = "오른쪽 팔꿈치 각도가 엘보 트위스트 기준 자세와 차이가 있어요"
+
+    # 본체: statusLine + 목표절 제거 행동절 — 자막 문자열과 동일.
+    assert papp._coach_audio_speech_text(
+        {"cueLine": goal_cue, "statusLine": status}
+    ) == (
+        f"{status} 팔꿈치로 폴을 단단히 감은(엘보 그립) 채, "
+        "그 각을 기준 자세에 겹쳐 맞춰보세요"
+    )
+    # 음성 도입이 목표절이 아니어야 한다 (V-A 불일치의 본체였던 문장).
+    assert not papp._coach_audio_speech_text(
+        {"cueLine": goal_cue, "statusLine": status}
+    ).startswith("목표는")
+
+    # statusLine 부재 — 행동절만 (앱: status 없으면 action 단독).
+    assert papp._coach_audio_speech_text({"cueLine": goal_cue}) == (
+        "팔꿈치로 폴을 단단히 감은(엘보 그립) 채, 그 각을 기준 자세에 겹쳐 맞춰보세요"
+    )
+
+    # fail-closed 3종 — splitGoalClause 와 동일 (원문 그대로).
+    common_cue = "발끝으로 천장을 길게 밀어낸다는 느낌으로 다리를 쭉 뻗어보세요."
+    assert papp._cue_action_line(common_cue) == common_cue  # 목표절 접두 없음
+    assert papp._cue_action_line("목표는 구분자 없는 문장") == "목표는 구분자 없는 문장"
+    assert papp._cue_action_line("목표는 여기서 끝나는 문장이에요. ") == (
+        "목표는 여기서 끝나는 문장이에요. "
+    )  # 자른 뒤 행동절이 빈 문자열 → 자르지 않음
+
+    # statusLine 이 비문자열/빈 문자열 — 행동절만 (앱 typeof/length 가드 미러).
+    assert papp._coach_audio_speech_text(
+        {"cueLine": common_cue, "statusLine": ""}
+    ) == common_cue
+    assert papp._coach_audio_speech_text(
+        {"cueLine": common_cue, "statusLine": None}
+    ) == common_cue
 
 
 def test_synthesis_partial_failure_keeps_survivors_done(

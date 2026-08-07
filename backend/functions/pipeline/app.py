@@ -3763,13 +3763,21 @@ def _run_deferred_fault_zoom(
 
 # ═══════ Phase 32 (Plan 32-16, D-18 B안) — 재생 중 큐 오디오 (Polly 사후 합성) ═══════
 #
-# B안(클라우드 TTS) 확정 (32-GATE-DECISIONS §샘플 게이트): records 의 cueLine
-# (승인 문구집 32-05 골격 — D-09 무수치, **문구 변경 금지** = 텍스트 그대로 합성)을
-# 분석 **사후** 스테이지에서 AWS Polly(neural)로 합성해
+# B안(클라우드 TTS) 확정 (32-GATE-DECISIONS §샘플 게이트): records 의 감점 카드
+# 문구를 분석 **사후** 스테이지에서 AWS Polly(neural)로 합성해
 # S3 results/{uid}/{analysisId}/coach_audio_{recordId}.mp3 (s3keys 단일 출처)로
 # 저장하고 result.coachAudio 를 부분 갱신한다. 채점·verdict 무접촉 — complete 이후
 # 표현물 도착 (fault_zoom 사후 분리 선례). 키의 recordId = cueId 조인 (32-12
 # audioCue prefetch). 실패는 전부 graceful (SP-3 — 자막 경로 무영향).
+#
+# 합성 텍스트 = **자막과 같은 문장** (debug va-subtitle-audio-mismatch, 2026-08-07):
+# 종전에는 cueLine 전문(목표절 포함)을 그대로 합성했는데, quick-260802-mrg 가
+# 재생 중 자막을 결함-선행(statusLine + 목표절 제거 actionLine)으로 재조립하면서
+# 음성과 자막이 구조적으로 발산했다 (mrg SUMMARY 미검증 #4 — F-6 무음이라 당시
+# 관측 불가). 음성이 화면에 없는 문장을 말하면 안 되므로, 합성도 자막 조립식
+# (app/src/lib/deductionSheet.ts composeCueSubtitleKo)을 그대로 미러한다 —
+# _coach_audio_speech_text 참조. 문구집(32-05) 저장 문자열은 여전히 무변형이다
+# (D-09 골격 소유권 — 조립은 렌더/합성 시점 재배열일 뿐 문구 수정이 아니다).
 #
 # 음성/엔진 = env 우선 (POLLY_VOICE_ID / POLLY_ENGINE) — Pod env 만으로 재배포 없이
 # 스왑 가능하게 설계 (32-16 Task 4 belle 청취 게이트 대비). 기본값 Seoyeon neural 은
@@ -3792,21 +3800,63 @@ def _get_polly_client():
     return _POLLY_CLIENT
 
 
+# 목표절 구분 상수 — app/src/lib/deductionSheet.ts GOAL_CLAUSE_PREFIX /
+# GOAL_CLAUSE_SEPARATOR 와 lockstep (문자 단위 동일 필수 — 한쪽만 바뀌면
+# 음성과 자막이 다시 갈라진다).
+_GOAL_CLAUSE_PREFIX = "목표는"
+_GOAL_CLAUSE_SEPARATOR = ". "
+
+
+def _cue_action_line(cue_line: str) -> str:
+    """cueLine 에서 목표절을 뺀 행동절 (app splitGoalClause.actionLine 미러).
+
+    fail-closed — 접두(목표는)와 구분자(. )가 둘 다 성립하고 자른 뒤가 비지
+    않을 때만 자른다. `__common__` 문형(목표절 없음)·구분자 부재·빈 행동절은
+    원문 그대로 — 앱 자막과 동일 규칙 (deductionSheet.ts:375-390).
+    """
+    if not cue_line.startswith(_GOAL_CLAUSE_PREFIX):
+        return cue_line
+    cut = cue_line.find(_GOAL_CLAUSE_SEPARATOR)
+    if cut < 0:
+        return cue_line
+    action = cue_line[cut + len(_GOAL_CLAUSE_SEPARATOR):]
+    return action if action else cue_line
+
+
+def _coach_audio_speech_text(rec: dict) -> str:
+    """합성할 문장 = 재생 중 자막과 **같은 문장** (composeCueSubtitleKo 미러).
+
+    debug va-subtitle-audio-mismatch (2026-08-07) — 음성이 자막에 없는 문장
+    (목표절)으로 시작하고 자막의 결함문(statusLine)은 말하지 않아 V-A 불일치로
+    지각됐다. 규칙: statusLine(결함) + 행동절. statusLine 부재면 행동절만 —
+    앱 자막 조립(deductionSheet.ts:406-422)과 문자 단위 동일. 앱의
+    fallbackActionPhrase 분기는 cueLine 부재 record 전용인데 그 record 는
+    합성 대상에서 이미 제외라(_run_deferred_coach_audio cue_records 필터)
+    여기 미러 불요.
+    """
+    action = _cue_action_line(rec["cueLine"])
+    status = rec.get("statusLine")
+    if isinstance(status, str) and status:
+        return f"{status} {action}"
+    return action
+
+
 def _synthesize_coach_audio_items(
     cue_records: list[dict], uid: str, analysis_id: str, bucket: str
 ) -> list[dict]:
     """cueLine 보유 records 를 Polly 합성 → S3 저장 → items 반환 (record 단위 격리).
 
     합성/업로드 실패는 그 record 만 생략 (log.warning — 부분 성공은 성공분만
-    items 로, 앱은 item 없는 큐를 자막만으로 재생). 텍스트는 문구집 cueLine
-    그대로 — 변형 0 (D-09 골격 소유권). 로그에 본문/시크릿 미기록.
+    items 로, 앱은 item 없는 큐를 자막만으로 재생). 텍스트는 재생 중 자막과
+    같은 문장(_coach_audio_speech_text — 자막 조립식 미러). 문구집 저장
+    문자열은 무변형 (D-09 골격 소유권). 로그에 본문/시크릿 미기록.
     """
     items: list[dict] = []
     for rec in cue_records:
         record_id = rec["recordId"]
         try:
             resp = _get_polly_client().synthesize_speech(
-                Text=rec["cueLine"],
+                Text=_coach_audio_speech_text(rec),
                 VoiceId=_POLLY_VOICE_ID,
                 Engine=_POLLY_ENGINE,
                 LanguageCode="ko-KR",

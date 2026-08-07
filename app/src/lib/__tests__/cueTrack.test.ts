@@ -11,8 +11,9 @@
 //   2) activeCue — 해당 구간 큐 1개 또는 null, 겹침 시 시작 늦은 큐 우선(더 정확).
 //   3) 밀도 제한 — maxCues 초과 시 감점(|points|) 큰 순 상위 N개.
 //   4) fps 0/NaN·프레임 인덱스 부재·빈 텍스트 → 빈 배열 (크래시 0).
-//   5) nextChainedCue — 음성 자연 종료 시 +horizon 이내 미발화 큐 체이닝
-//      (quick-260807-fpw, 파워스핀 0.11초 간격 끊김 해소).
+//   5) nextChainedCue — 음성 자연 종료 시 +horizon 이내 미발화 큐 체이닝.
+//      지평 0.3 = 겹침 전용 (quick-260807-fpw 파워스핀 0.11초 간격 유지 +
+//      quick-260807-m63 엘보 ③④ 1.01초 간격 체인 금지 — 제 순간까지 재생).
 //   6) openCueRecordIds — 스크럽 릴리스 지점에 이미 열려 있는 윈도우 recordId 전부
 //      수집 (quick-260807-m63, 릴리스 발화 이력 시드 — 겹침이면 전부).
 
@@ -179,15 +180,43 @@ test('nextChainedCue: 파워스핀 재현 — 0.11초 간격 겹침 윈도우 2�
   assert.equal(out?.recordId, 'r2'); // 같은 멈춤에서 이어 발화할 후보
 });
 
-test('nextChainedCue: horizon 밖 시작 큐는 null', () => {
-  const windows = [
-    { startSec: 6.5, endSec: 8.1, text: '먼 큐', recordId: 'r9' },
+test('nextChainedCue: 프로덕션 지평(CUE_CHAIN_HORIZON_SEC) 경계 — 초과는 null, 경계는 포함', () => {
+  // 초과: currentSec 5.0 + 지평 0.3 = 5.3 < startSec 5.35 → 후보 아님 (M63-2).
+  const beyond = [{ startSec: 5.35, endSec: 6.95, text: '먼 큐', recordId: 'r9' }];
+  assert.equal(nextChainedCue(beyond, 5.0, new Set(), CUE_CHAIN_HORIZON_SEC), null);
+  // 경계: startSec == currentSec + horizon 은 포함 (<=). startSec 을 상수로
+  // 계산해 구성 — 부동소수 리터럴 불일치 회피.
+  const edgeStart = 5.0 + CUE_CHAIN_HORIZON_SEC;
+  const edge = [
+    { startSec: edgeStart, endSec: edgeStart + 1.6, text: '경계', recordId: 'r8' },
   ];
-  // currentSec 5.0 + horizon 1.0 = 6.0 < startSec 6.5 → 후보 아님.
-  assert.equal(nextChainedCue(windows, 5.0, new Set(), 1.0), null);
-  // 경계: startSec == currentSec + horizon 은 포함 (<=).
-  const edge = [{ startSec: 6.0, endSec: 7.6, text: '경계', recordId: 'r8' }];
-  assert.equal(nextChainedCue(edge, 5.0, new Set(), 1.0)?.recordId, 'r8');
+  assert.equal(
+    nextChainedCue(edge, 5.0, new Set(), CUE_CHAIN_HORIZON_SEC)?.recordId,
+    'r8',
+  );
+});
+
+test('nextChainedCue: 엘보 실형상 ③→④ — 프로덕션 지평 체인 금지, legacy 1.0 대조는 체인 (재확대 회귀 가드)', () => {
+  // CUE_WINDOW_SEC=1.6(half 0.8) 파생 실형상 (M63-2, belle 08-07 밤 ④):
+  // ③ center 9.35 → [8.55, 10.15), ④ center 10.36 → [9.56, 11.16) — 간격 1.01s.
+  // 멈춤 cL=8.6 — 멈춤은 100ms tick 의 윈도우 진입 관측 시각 (8.55 정각 아님).
+  const windows = [
+    { startSec: 8.55, endSec: 10.15, text: '엘보 ③ 무릎', recordId: 'r3' },
+    { startSec: 9.56, endSec: 11.16, text: '엘보 ④ 팔꿈치', recordId: 'r4' },
+  ];
+  // 프로덕션 지평: 9.56 > 8.6 + 0.3 = 8.9 → 체인 안 됨 → 기존 재개 경로로 ④ 의
+  // 제 순간(9.56 진입)까지 재생 후 정상 정지·발화.
+  assert.equal(
+    nextChainedCue(windows, 8.6, new Set(['r3']), CUE_CHAIN_HORIZON_SEC),
+    null,
+  );
+  // 대조: legacy 1.0 지평이면 9.56 <= 9.6 → r4 즉시 체인 (belle "점프하듯" 재현).
+  // 지평 재확대 회귀를 행동으로 잡는 단언.
+  assert.equal(nextChainedCue(windows, 8.6, new Set(['r3']), 1.0)?.recordId, 'r4');
+});
+
+test('CUE_CHAIN_HORIZON_SEC 상수 박제 — 0.3 (체인은 겹침 전용, 재확대 회귀 가드)', () => {
+  assert.equal(CUE_CHAIN_HORIZON_SEC, 0.3);
 });
 
 test('nextChainedCue: 이미 발화한 recordId 는 제외', () => {

@@ -41,6 +41,8 @@ JOBS: dict[str, tuple[str, str]] = {
                    "reference/ref-power-spin.mp4"),
     "pdshapefault": ("uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/pdshapefault1785373695.mp4",
                      "reference/ref-pdshape.mp4"),
+    "peterpan": ("uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/peterpanfault1785373695.mp4",
+                 "reference/ref-peter-pan.mp4"),
 }
 
 FPS = 15.0

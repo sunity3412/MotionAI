@@ -2641,6 +2641,11 @@ function AnalysisResultContent({
                     // quick-260702-t0v — 가로 전체화면 뷰어가 opts.sizeScale=2.0 전달
                     // (각도 라벨 가독). 세로 카드는 opts 미전달 → 1 (무회귀).
                     sizeScale={opts?.sizeScale ?? 1}
+                    // belle 08-07 (quick-260807-iwp, BELLE-0807-7) — "마커는 좀 더
+                    // 진하면 좋을 듯": 재생 중에만 관절 점 크기·외곽선 강화. 음성
+                    // 멈춤 중(isPlaying=false)·정지 상태는 false 라 승인 렌더
+                    // (dim·펄스·번호 마커) byte 보존. 기준(우) 패널은 미전달.
+                    playbackEmphasis={playingInversion}
                     // 33-13 (A-6, D-13 대표 UX) — 음성 큐 동안 해당 record 부위
                     // 강조 (VideoCompare 가 발화 recordId 를 opts 로 전달). 짝
                     // 없으면 빈 배열 = 강조 0 (고아 가드). voiceCueRecordId 는

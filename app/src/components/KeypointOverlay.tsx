@@ -68,6 +68,13 @@ export const KEYPOINT_DELTA_HIGHLIGHT_DEG = 20.0;
 // 사용자 혼동 방지 (occluded keypoint 가 정상과 같은 표시였던 finding 박제).
 export const KEYPOINT_LOW_CONFIDENCE_THRESHOLD = 0.5;
 
+// belle 08-07 (quick-260807-iwp, BELLE-0807-7) — "마커는 좀 더 진하면 좋을 듯":
+// 재생 중 관절 점(흰 기본·빨강 활성 큐)의 크기·외곽선 배율. FULLSCREEN_OVERLAY_SCALE
+// (VideoCompare) 관례 — belle 실기기 확인 후 미세조정 가능하게 상수화. keypoint
+// circles 렌더 루프에만 적용 (playbackEmphasis opt-in — RADIUS/STROKE_* 상수 자체는
+// 정지 번호 마커·그룹 배지와 공유라 전역 상향 금지).
+export const PLAYBACK_EMPHASIS_SCALE = 1.3;
+
 // Wave 2 (Plan 12-03 T1) — KeypointName → JointScore.key 매핑.
 // 손은 시각 keypoint, elbow 는 kismam angle key (delta 산출 source).
 // 어깨/엉덩이/무릎 = 1:1, 손 = elbow 로 reuse (v1, wrist 신설 v2).
@@ -217,6 +224,16 @@ export type KeypointOverlayProps = {
    * 라벨 가독을 확보한다. 좌표(positions/axis)는 스케일하지 않음 — 크기만.
    */
   sizeScale?: number;
+  /**
+   * belle 08-07 (quick-260807-iwp, BELLE-0807-7) — 재생 중 관절 점 시인성 강화.
+   * true 면 keypoint circles(흰 기본 점·빨강 활성 큐 점)의 반지름·외곽선 두께에
+   * PLAYBACK_EMPHASIS_SCALE 을 곱하고 흰 점의 어두운 외곽선 alpha 를 올린다.
+   * **기본 false = 기존 렌더 byte 보존** — 정지 상태 번호 마커·그룹 경계·본/
+   * 스켈레톤·기준(우) 패널(미전달 소비처)은 구조로 무접촉. caller(result.tsx
+   * leftOverlay)가 재생 중(playingInversion)에만 true 를 전달한다 — 음성 멈춤 중
+   * (isPlaying=false)·정지 상태는 false 라 승인 렌더 보존.
+   */
+  playbackEmphasis?: boolean;
 };
 
 type Point = { x: number; y: number };
@@ -315,6 +332,7 @@ export function KeypointOverlay({
   markersVisible = true,
   focusKeypoints,
   sizeScale = 1,
+  playbackEmphasis = false,
 }: KeypointOverlayProps) {
   // Hooks 순서 안정성 — early return 전에 모든 hook 호출 (React rules of hooks).
   //
@@ -361,6 +379,11 @@ export function KeypointOverlay({
   // quick-260705-o0s/r6v — 번호 점(keypointNumbers) + 그룹 중점(groupMarkers) 공용
   // 폰트 크기. sizeScale 곱으로 세로 카드/가로 전체화면 동일 규칙 자동.
   const NUM_FONT_SIZE = (13 * S) / H;
+
+  // belle 08-07 (quick-260807-iwp, BELLE-0807-7) — 재생 중 관절 점 배율. 위 상수
+  // 자체는 정지 번호 마커·그룹 배지·경계 여백과 공유라 손대지 않고, keypoint
+  // circles 렌더 루프에서만 곱한다. false(기본) = 1 — 기존 렌더 byte 보존.
+  const PE = playbackEmphasis ? PLAYBACK_EMPHASIS_SCALE : 1;
 
   // Wave 2: player 전달 시 useEvent.currentTime → frameIndex 자동 산출.
   // player 없거나 frameIndex prop 명시 시 override.
@@ -749,13 +772,18 @@ export function KeypointOverlay({
           // 원인. 흰색 테두리가 brand 점을 분주한 배경에서 분리해 가독성 ↑.
           // 33-13 — 참고(advisory) 점은 점선 윤곽 원 (승인 목업 ① "점선 = 참고" —
           // 감점 아님을 형태로도 구분. 채움 없는 주황 점선 + 흰 분리 유지 불필요).
+          // belle 08-07 (quick-260807-iwp) — 재생 중(playbackEmphasis)엔 흰 점의
+          // 어두운 외곽선 alpha 0.6 → 0.8 (밝은 배경 대비 확보 — 기존 스타일 계수
+          // 조정만, 신규 색 리터럴 0).
           const stroke = isLowConf
             ? colors.estimateGray
             : isAttn
               ? colors.advisoryOrange
               : isHi
                 ? colors.textWhite
-                : 'rgba(0,0,0,0.6)';
+                : playbackEmphasis
+                  ? 'rgba(0,0,0,0.8)'
+                  : 'rgba(0,0,0,0.6)';
           // Phase 20 (UI A2) — 강조(brand) 관절은 더 큰 반지름 + 두꺼운 외곽선
           // 으로 가독성 ↑. 정상/저신뢰 원은 기존 크기 유지.
           const emphasized = (isHi || isAttn) && !isLowConf;
@@ -771,15 +799,17 @@ export function KeypointOverlay({
               <Circle
                 cx={p.x}
                 cy={p.y}
-                r={emphasized ? RADIUS_HI : RADIUS}
+                // belle 08-07 (quick-260807-iwp) — 재생 중 배율(PE, 기본 1)은
+                // 이 루프의 원 반지름·외곽선에만 곱한다 (흰 기본·빨강 활성 공통).
+                r={(emphasized ? RADIUS_HI : RADIUS) * PE}
                 // 33-13 — 참고 점은 채움 없는 점선 원 (목업 ① mk.adv).
                 fill={isAdvisoryDashed ? 'none' : fill}
                 fillOpacity={isLowConf ? 0.7 : 1.0}
                 stroke={stroke}
                 strokeWidth={
-                  emphasized
+                  (emphasized
                     ? STROKE_CIRCLE_OUTLINE_HI
-                    : STROKE_CIRCLE_OUTLINE
+                    : STROKE_CIRCLE_OUTLINE) * PE
                 }
                 strokeDasharray={
                   isAdvisoryDashed ? `${(3 * S) / W} ${(3 * S) / W}` : undefined

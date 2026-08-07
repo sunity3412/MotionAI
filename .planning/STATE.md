@@ -650,6 +650,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 - Phase 31 added: 여정 트랙 등재 (belle 승인 2026-07-06)
 - Phase 22 edited: 스코프 확정(22-CONTEXT.md D-01~16) + Phase 21 디커플 — 22 먼저
 - Phase 32 added: 분석 결과를 읽히게 — 해석·방법·코치. 즉시수리 3건(동작비교 초맞춤/참고지표 겹침/확대비교 크롭) wave-1 흡수
+- Phase 35 added: 서버측 정렬 합성 비교 영상 — 돌파 ① (belle 2026-08-07 승인, 1순위). 전 동작 프로토타입 배치 → belle 느낌 평가, 채택 시 라이브 동기 기계 폴백 강등. Phase 34 와 독립·병행 가능
 
 ### Decisions
 

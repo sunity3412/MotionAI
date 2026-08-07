@@ -1237,25 +1237,32 @@ Plans:
 **Requirements**: TBD (discuss-phase 에서 확정)
 
 **설계 뼈대 4겹 (제안, discuss 에서 확정):**
+
 1. **불변식 테스트 스위트** — 자세 고정 + 무관 조건만 변주 → 점수 허용치 내 불변을 기계 검사.
    fixture별 기대점수(curve-fit) 대신 **fixture-무관 불변식**으로 게이트. memory:
    `judgment-must-not-fixate-on-recent-fixture` · `scoring-redesign-must-generalize-no-overfit`
+
 2. **기질 정합** — 기준과 학생이 같은 파이프라인을 타게(현재: 기준 18fps·8관절·인버전 off vs
    학생 9fps·12관절·인버전 on). 33-07 flip 이 이 겹의 선행. 근거 = `ref-student-substrate-gap.md`
+
 3. **최소 산출 계약** — 어떤 영상이든 보장 산출량을 정하고, 못 주면 조용히 비우는 대신
    **왜 못 주는지 + 어떻게 하면 되는지**를 준다(재촬영 안내). 현행 fail-closed 는 틀린 말은
    막았지만 결과가 얇아지는 값을 치르는 중. memory: `product-role-interpret-act-or-ask-coach`
+
 4. **앵글 분리** — 촬영 조건이 점수에 새지 않게 보정하거나, 보정 불가면 그 항목을 점수에서
    빼고 정직하게 고지. 이게 안 되면 1번 불변식이 원리적으로 통과 불가. memory:
    `camera-angle-scoring-stretch-reference-corner`
 
 **측정된 출발점 (2026-07-30~31 실측):**
+
 - 기준 영상의 발목·팔꿈치 신뢰도 게이트 통과율이 동작마다 **0.36~0.97** (sideway-spin 0.95 /
   elbow-twist-sister 0.36) → 증거량이 동작별로 갈리고, 그게 곧 결과 두께의 편차가 된다.
   증거 = `.planning/phases/33-result-trust-recovery/evidence-refkp/`
+
 - 등재 기준 모션 11개 / criteria yaml 10개 → 그 밖 동작은 비교 기준 부재.
 
 **belle 결정 대기 (discuss-phase 질문):**
+
 - 최소 산출 계약의 **하한** — 증거가 얇은 영상에서 몇 개까지 보장하고, 그 아래는 재촬영 안내로 돌릴지.
 - **등재 밖 동작** 수용 범위 — 11개만 정밀 지원하고 나머지는 안내로 돌릴지, 기준 없이 절대 기준으로 볼지.
 
@@ -1266,6 +1273,17 @@ Plans:
 Plans:
 
 - [ ] TBD (run /gsd-discuss-phase 34 → /gsd-plan-phase 34)
+
+### Phase 35: 서버측 정렬 합성 비교 영상 (server-rendered comparison video)
+
+**Goal:** Pod 가 user·ref 두 패널을 DTW warp 정렬로 나란히 붙이고 감점 정지·음성·자막 타이밍까지 구운 **단일 mp4** 를 렌더한다 — 앱은 그것만 재생해 동기·스냅·재개·드리프트 버그 계열이 원리적으로 소멸(돌파 ①, belle 08-07 승인 1순위). 기존 Pod 트랙(정렬 개선·자세 거리 짝 재선정·split 측정 순간·부드러움)은 전부 이 렌더의 입력으로 흡수. 1단계 = **전 동작 프로토타입 배치**(엘보=대략 정렬·저신뢰 / 킵업=측정 순간 없는 split / 파워스핀=인접 큐 겹침 / pdshape=감점 0 순수 재생 / belle 실업로드=순간 데이터 전무 — 08-07 버그들의 원인 케이스 전부를 덮는 일반화 매트릭스, 렌더러는 동작 무관 단일 코드) → belle 느낌 평가. 채택 시 라이브 동기 기계는 폴백 강등.
+**Requirements**: TBD (discuss 에서 확정 — 렌더 스펙: 레이아웃/fps/음성 트랙/자막 굽기 vs 앱 오버레이/스크럽 UX + 보드 #4·#5·#6 저신뢰 표시 결정 동승)
+**Depends on:** Phase 33 (완료) — Phase 34 와 독립·병행 가능
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 35 to break down)
 
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*

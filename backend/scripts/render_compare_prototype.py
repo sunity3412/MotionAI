@@ -98,8 +98,13 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[st
     return lines
 
 
-def build_timeline(doc: dict, audio_dir: Path):
-    """(user_sec, ref_sec, freeze|None) 프레임 열 + 음성 배치 계획."""
+def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None):
+    """(user_sec, ref_sec, freeze|None) 프레임 열 + 음성 배치 계획.
+
+    moments: 측정 순간이 없는 record(rid 키)에 주입할 유도 순간
+      {"r00": {"atVideoSec": 1.67, "refVideoSec": 1.67}} — 프로토타입 한정
+      (킵업 split 등 비전 산출 감점의 V-2 데이터측 유도값. 파이프라인 배선은 채택 후).
+    """
     r = doc["result"]
     anch = r["motionAlignment"].get("anchors") or [0.0, 0.0, 1.0, 1.0]
     bu, br = np.array(anch[0::2], dtype=float), np.array(anch[1::2], dtype=float)
@@ -111,11 +116,16 @@ def build_timeline(doc: dict, audio_dir: Path):
                for fz in r.get("faultZoomComparisons", [])
                if fz.get("criterion") and fz.get("refMatched") and fz.get("refVideoSec") is not None}
 
-    records = sorted(
-        [rec for rec in r.get("deductionBreakdown", {}).get("records", [])
-         if rec.get("atVideoSec") is not None],
-        key=lambda rec: rec["atVideoSec"],
-    )
+    moments = moments or {}
+    enriched = []
+    for rec in r.get("deductionBreakdown", {}).get("records", []):
+        rid = rec["recordId"].split(":")[0]
+        if rec.get("atVideoSec") is None and rid in moments:
+            rec = {**rec, "atVideoSec": moments[rid]["atVideoSec"],
+                   "_derivedRefSec": moments[rid].get("refVideoSec"), "_derived": True}
+        if rec.get("atVideoSec") is not None:
+            enriched.append(rec)
+    records = sorted(enriched, key=lambda rec: rec["atVideoSec"])
     speech_text = _load_speech_text()
 
     kr = r["keypointReport"]
@@ -139,10 +149,16 @@ def build_timeline(doc: dict, audio_dir: Path):
             ji = kj.index(joint)
             if float(kconf[fi, ji]) >= KP_CONF_MIN and np.isfinite(kdata[fi, ji]).all():
                 marker = (float(kdata[fi, ji, 0]), float(kdata[fi, ji, 1]))
+        if rec.get("_derived"):
+            rt, src = float(rec.get("_derivedRefSec") or warp_b(ut)), "derived"
+        elif rec["criterion"] in c_pairs:
+            rt, src = c_pairs[rec["criterion"]], "C"
+        else:
+            rt, src = warp_b(ut), "B"
         freezes.append({
             "rid": rid, "ut": ut,
-            "rt": c_pairs.get(rec["criterion"], warp_b(ut)),
-            "pair_src": "C" if rec["criterion"] in c_pairs else "B",
+            "rt": rt,
+            "pair_src": src,
             "dur": mp3_duration_s(mp3) + FREEZE_TAIL_S,
             "mp3": mp3, "joint": joint, "marker": marker,
             "text": speech_text(rec),
@@ -151,9 +167,10 @@ def build_timeline(doc: dict, audio_dir: Path):
 
 
 def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
-           workdir: Path, out: Path) -> dict:
+           workdir: Path, out: Path, moments_json: Path | None = None) -> dict:
     doc = json.load(open(doc_json))
-    warp_b, freezes = build_timeline(doc, audio_dir)
+    moments = json.load(open(moments_json)) if moments_json else None
+    warp_b, freezes = build_timeline(doc, audio_dir, moments)
 
     udir, rdir, odir = workdir / "u18", workdir / "r18", workdir / "compose"
     nu = extract_frames(user_video, udir)
@@ -249,9 +266,10 @@ def main() -> None:
     ap.add_argument("--audio-dir", required=True, type=Path)
     ap.add_argument("--workdir", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--moments-json", type=Path, default=None)
     args = ap.parse_args()
     report = render(args.doc_json, args.user_video, args.ref_video,
-                    args.audio_dir, args.workdir, args.out)
+                    args.audio_dir, args.workdir, args.out, args.moments_json)
     print(json.dumps(report, ensure_ascii=False, indent=1))
 
 

@@ -2,7 +2,7 @@
 status: awaiting_human_verify
 trigger: "V-A 자막-음성 불일치: 감점 카드 음성 안내가 자막(cueLine)과 다른 내용으로 재생됨. belle 실기기에서 앱측 수리 2회(usc 재생 불변식, wj3 플레이어 큐마다 재생성·스테일 replace 제거, OTA 747ee98f) 후에도 재현"
 created: 2026-08-07T09:02:36+09:00
-updated: 2026-08-07T11:15:00+09:00
+updated: 2026-08-07T10:33:00+09:00 (2차 수리 — belle 반려 반영)
 ---
 
 ## Current Focus
@@ -17,7 +17,7 @@ reasoning_checkpoint:
   falsification_test: "belle 재확인에서 '음성이 자막과 다른 관절을 말한다'(예: 팔꿈치 자막에 무릎 음성)가 관측되면 이 가설만으론 불충분 — 그 경우 S-2(OTA 미적용으로 스테일 replace 잔존)를 재조사. 반대로 '음성 첫 문장이 화면에 없다/큐마다 같은 문장으로 시작한다'는 관측은 본 가설 확증"
   fix_rationale: "음성이 자막과 같은 텍스트를 말하게 만든다 — 합성 텍스트를 자막 조립식(statusLine + actionLine)과 동일하게 변경(백엔드 미러). 자막을 cueLine 으로 되돌리는 역방향은 belle 승인 UX(결함-선행, mrg 의 수리 대상이 바로 그것)를 파괴하므로 배제. 기존 belle doc 은 로컬 Polly 재합성으로 같은 S3 키에 덮어쓰기(키 불변 → doc 무접촉)"
   blind_spots: "(1) belle 기기 OTA 적용 여부 미확인 — 단 최신 코드에서도 발산이 성립하므로 수리 필요성은 불변 (2) belle 의 정확한 지각(어느 문장을 '다르다'고 인지했는지)은 실기기 확인에서만 판별 (3) 32-GATE B안 '문구 변경 금지=cueLine 그대로 합성' 결정을 변경함 — 근거: 그 결정의 전제(자막==cueLine)가 mrg 로 소멸, 실측>이전 결정"
-next_action: "belle 실기기 확인 대기 — 엘보(4큐)·파워스핀(3큐)·킵업(1큐)·실업로드 doc 재생 시 각 큐 음성이 자막과 같은 문장으로 시작하는지 + 큐마다 서로 다른 문장인지. 재생만 하면 됨(OTA·재설치 불요 — S3 데이터만 교체). 확인되면 /gsd-debug continue va-subtitle-audio-mismatch 로 resolved 아카이브. 반려(음성이 자막과 다른 관절을 말함)면 S-2(OTA 미적용) 분기 재조사. 수리는 main 커밋됨 (fix + docs)"
+next_action: "belle 실기기 확인 대기 (2차 수리분 포함 — **앱 완전 종료 2회로 OTA e096f9f2 수신 필요**). 확인 항목: ① 킵업 — 시작 직후 음성이 안 나오는가 (미인증 큐 억제) ② 엘보 — 큐 4개가 제 순간(4.9/7.4/10.1/11.1s)에 각각 다른 문장으로, 결함문 뒤 마침표 쉼과 함께 발화하는가 + 틱 4개 분산 ③ 파워스핀 — 큐 2개만(2.5s 부근), 2.1s 미인증 발화 없음 ④ 음성==자막 문장 일치. 확인되면 /gsd-debug continue va-subtitle-audio-mismatch 로 resolved 아카이브. 반려면 관측 그대로 기록 후 같은 명령으로 재조사"
 
 ## Symptoms
 
@@ -132,11 +132,26 @@ started: 08-06 밤 — 음성·영상이 동시에 살아 돌아간 첫날 관�
   found: 고아 42키(3계정 x 14, 전부 07-31 구세대 8-record 명명 — pdshapeCorrect 하위 포함) dry-run 매니페스트 검수 후 삭제. 재목록 = belle 11 / 구시뮬 8 / 신시뮬 8, 고아 0, referenced-but-missing 0
   implication: 세대 혼합 진단 오염원 제거 완료. 참조 키는 전건 보존
 
+- timestamp: 2026-08-07T morning (2차 사이클 — belle 실기기 반려 접수)
+  checked: belle 킵업 확인 — "포인트가 아닌 처음 시작하자마자 음성안내가 뜸" + "마침표가 되어야할 문장을 그대로 읽기도 함"
+  found: 반려 ① = V-2 로 알려져 있던 미인증 큐 앵커(킵업 split 은 측정 순간이 없어 zoom userFrameIdx=16 → 0.889s 가짜 시각 폴백)가 실사용을 막는 수준임이 확정. 반려 ② = 1차 수리의 결함 — 합성·자막 모두 statusLine+action 을 **공백으로만 결합**(둘 다 문장부호 없음 실측)해 Polly 가 run-on 낭독. whisper 검증이 문장부호를 지운 정규화 비교라 이 결함을 못 잡았다 (검증 맹점)
+  implication: 수리 2건 — (a) 마침표 경계(양측 lockstep) (b) 큐 앵커를 인증 순간으로
+
+- timestamp: 2026-08-07T10:00
+  checked: 큐/틱 앵커 데이터 전수 실측 (belle 3 doc + 실업로드)
+  found: 엘보 4 record 전건 atVideoSec(4.9/7.4/10.1/11.1s) 보유 — zoom 프레임도 그 순간과 일치(큐 위치는 이미 정상). 가짜 앵커는 **측정 순간 없는 record 뿐** = split_angle(킵업 0.889s, 파워스핀 r01 2.11s) + 실업로드 071df9f8(3건 전부 미보유, zoom 전부 frame 34 동일). 큐 배선은 rec.atVideoSec 을 안 쓰고 zoom.userFrameIdx 만 사용, 틱 빌더는 공유 median 단일 시점(record별 분리가 예정 확장으로 주석 명기)
+  implication: 정책 = 기존 승인 게이트("사진 인증 없으면 감점 부분이라 말하지 않는다")의 시간축 적용 — atVideoSec 인증 record 만 그 순간에 자동 발화, 미인증은 억제(카드에 존치, 재분석 시 자동 복귀). 틱은 record별 분리 + 미인증만 종전 median 유지(wj3 복원 보존)
+
+- timestamp: 2026-08-07T10:30
+  checked: 2차 수리 적용 + 검증 (마침표 lockstep + centerSec 큐 + record별 틱)
+  found: 앱 테스트 78 passed(신규 centerSec 4케이스·틱 4케이스 포함), tsc GREEN, coach_audio 27 passed, 미러 정합 27/27 문자 단위. 27키 전 재합성 + whisper 전수: "목표는" 0건·관절 키워드 불일치 0건. **시뮬(개발빌드 #29) 실측**: 킵업 = 전 구간 자막 0·정지 0·6.7s 완주(스플릿 킥은 실제 중반부 — 구 앵커가 가짜였음 시각 확정) / 엘보 = 4큐가 4.9→7.4→10.1→11.1s 순서로 발화, 자막 "…있어요. 위아래로…" 마침표 판독, 잠시 멈춤·재개 대칭, 17.9s 완주, 틱 4개 분산 / 파워스핀 = 0→2.1s 무정지(미인증 r01 의 구 앵커 2.11s 발화 없음), 2.5·2.7s 인증 2큐 정지·재개, 8s 완주
+  implication: 반려 2건 모두 코드+실데이터+시뮬까지 해소. OTA 3채널 발행(production e096f9f2 / preview 4441c980 / development f3db8421, 직전 production = 747ee98f). 남은 것 = belle 실기기 (OTA 수신 필요 — 앱 완전 종료 2회)
+
 ## Resolution
 
 root_cause: "quick-260802-mrg 가 재생 중 자막을 결함-선행(statusLine + 목표절 제거 actionLine)으로 재조립했지만 Polly 음성 합성 텍스트는 cueLine 전문(목표절 포함)으로 남아, 08-02 이후 모든 큐에서 음성 내용과 자막 내용이 구조적으로 발산. 한 분석의 전 record 가 같은 목표문으로 발화를 시작해 '다른/같은 음성 반복' 지각을 이중 유발. 08-06 F-6(무음) 해소로 음성이 처음 들리며 표면화 — 재생 역학 수리(usc/wj3)와 직교라 2회 수리에도 불변"
-fix: "(1) pipeline/app.py 합성 텍스트를 자막 조립식과 동일화 — _cue_action_line(splitGoalClause 미러) + _coach_audio_speech_text(composeCueSubtitleKo 미러) 신설, Text=cueLine → Text=_coach_audio_speech_text(rec). (2) deductionSheet.ts composeCueSubtitleKo 에 Python lockstep 주석. (3) 유저 대면 3계정(belle csKW…·시뮬 Wm5K…/fvcN…)의 coachAudio 보유 전 doc 재합성 = 엘보 12키 + 킵업/파워스핀/belle 실업로드(071df9f8…) 15키 = 27키, 로컬 boto3 Polly(Seoyeon neural)로 같은 S3 키에 덮어쓰기 — doc 무접촉(키 불변, playback-url exact 비교 그대로 성립). eval 하네스 계정(phase25e…, 66 doc)은 앱 재생처가 없어 제외 — 코드 수리가 향후 합성을 커버. (4) 구세대 고아 mp3 42키 삭제(3계정, 참조 키 전건 보존). OTA 불요(앱 코드 무변경 — 주석만)"
-verification: "(a) 미러 정합: 앱 실함수 composeCueSubtitleKo(node 24 TS 직행) vs Python _coach_audio_speech_text — 3계정 12 record 문자 단위 일치 0 불일치. (b) 재합성본 whisper 전사 = 엘보 4건 + 일반화분 15건 전수: 전건 제 자막 문장과 일치(관절별 결함문 시작), '목표는' 시작 0건, ASR 표기 오차만. (c) S3 실측: 유저 대면 27키 전부 08-07 갱신, 구세대 고아 42키 삭제 후 재목록 = 참조 키만 잔존(11/8/8)·결측 0. (d) pytest 기준선 유지(59 failed 기존/3954 passed, coach_audio 27 passed — 신규 미러 핀 테스트 포함; 오케스트레이터 재실행으로 재확인). (e) tsc --noEmit 통과"
+fix: "(1) pipeline/app.py 합성 텍스트를 자막 조립식과 동일화 — _cue_action_line(splitGoalClause 미러) + _coach_audio_speech_text(composeCueSubtitleKo 미러) 신설, Text=cueLine → Text=_coach_audio_speech_text(rec). (2) deductionSheet.ts composeCueSubtitleKo 에 Python lockstep 주석. (3) 유저 대면 3계정(belle csKW…·시뮬 Wm5K…/fvcN…)의 coachAudio 보유 전 doc 재합성 = 엘보 12키 + 킵업/파워스핀/belle 실업로드(071df9f8…) 15키 = 27키, 로컬 boto3 Polly(Seoyeon neural)로 같은 S3 키에 덮어쓰기 — doc 무접촉(키 불변, playback-url exact 비교 그대로 성립). eval 하네스 계정(phase25e…, 66 doc)은 앱 재생처가 없어 제외 — 코드 수리가 향후 합성을 커버. (4) 구세대 고아 mp3 42키 삭제(3계정, 참조 키 전건 보존). (5) [2차 — belle 반려 반영] 결함문-행동문 마침표 경계, 자막·합성 lockstep(`35eb03d3`) + 27키 전 재재합성. (6) [2차] 큐·틱을 record 인증 순간으로 — cueTrack `centerSec`(atVideoSec) / 미인증 record 큐 자동 발화 억제 / 재생바 틱 record 별 분리(`ae398c51`). 2차는 앱 코드 변경이라 **OTA 필요** — 3채널 발행(production `e096f9f2` / preview `4441c980` / development `f3db8421`, 직전 production `747ee98f`)"
+verification: "(a) 미러 정합: 앱 실함수 composeCueSubtitleKo(node 24 TS 직행) vs Python _coach_audio_speech_text — 3계정 12 record 문자 단위 일치 0 불일치. (b) 재합성본 whisper 전사 = 엘보 4건 + 일반화분 15건 전수: 전건 제 자막 문장과 일치(관절별 결함문 시작), '목표는' 시작 0건, ASR 표기 오차만. (c) S3 실측: 유저 대면 27키 전부 08-07 갱신, 구세대 고아 42키 삭제 후 재목록 = 참조 키만 잔존(11/8/8)·결측 0. (d) pytest 기준선 유지(59 failed 기존/3954 passed, coach_audio 27 passed — 신규 미러 핀 테스트 포함; 오케스트레이터 재실행으로 재확인). (e) tsc --noEmit 통과. (f) [2차] 앱 node 테스트 78 passed(centerSec·틱 신규 케이스 포함), 미러 정합 27/27, whisper 재전수(목표문 0·관절 키워드 불일치 0), 시뮬 3동작 재생 실측(킵업 무발화 완주 / 엘보 4큐 제 순간·마침표 자막 / 파워스핀 인증 2큐만) — Evidence 10:30 항목"
 files_changed:
   - backend/functions/pipeline/app.py (합성 텍스트 = 자막 조립식 미러)
   - backend/tests/phase32/test_coach_audio.py (미러 핀 테스트 + 기존 단언 주석 보정)

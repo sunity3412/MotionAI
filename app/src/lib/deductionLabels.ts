@@ -392,34 +392,56 @@ export function buildDeductionMarkers(
 // keypointReport.frames(18fps 업샘플)가 아니라 doc top-level anglesFrames(9fps T),
 // 기준 duration 은 leftDuration(사용자 영상 도메인)이어야 한다.
 //
-// 규칙:
-//   - visionVeto.status==='applied' 이고 windowMedianAngleDeltas.sourceFrameIndices
-//     .user 가 비어있지 않을 때만 틱 방출. 그 외(veto 미적용/legacy/mode3)는 빈
-//     배열 — 틱 생략 (fabricate 0).
-//   - 현 계약상 window 는 레코드별이 아닌 공유 단일 시점 → user 배열의 median
-//     (정렬 후 중앙값, 짝수면 낮은 쪽 = 결정적) 1개 frame 에, 번호가 부여된
-//     (recordNumbers[i]!=null) record 전부의 번호를 오름차순 병합해 틱 1개로 방출.
-//   - 반환 구조를 배열로 잡는 이유: 백엔드가 record별 측정 시점을 내려주게 되면
-//     틱을 record별로 분리 확장(같은 시점은 번호 병합)하기 위함.
+// 규칙 (debug va-subtitle-audio-mismatch, belle 08-07 — record별 분리 실행):
+//   - record 가 **인증된 측정 순간**(atFrameIdx, 학생 9fps angles 행 인덱스 —
+//     gbk 백엔드 산출)을 가지면 그 frame 에 record별 틱을 방출한다. 같은 frame 은
+//     번호 병합. 헤더의 예정 확장("백엔드가 record별 측정 시점을 내려주게 되면
+//     틱을 record별로 분리")이 지금이다 — 엘보 틱 4개가 옛 단일 시각에 뭉치던
+//     잔재의 해소.
+//   - atFrameIdx 없는 record 는 종전 규칙 그대로: visionVeto.status==='applied'
+//     이고 windowMedianAngleDeltas.sourceFrameIndices.user 가 비어있지 않을 때만
+//     그 median(정렬 후 중앙값, 짝수면 낮은 쪽 = 결정적) 1개 frame 에 번호를
+//     병합해 방출. 그 외(veto 미적용/legacy/mode3)는 생략 (fabricate 0).
 export function buildDeductionTicks(
   records: DeductionRecord[],
   recordNumbers: (number | null)[],
   visionVeto: VisionVeto | null | undefined,
 ): { numbers: number[]; frameIndex: number }[] {
-  if (!visionVeto || visionVeto.status !== 'applied') return [];
-  const user = visionVeto.windowMedianAngleDeltas?.sourceFrameIndices?.user ?? [];
-  const frames = user.filter((f) => Number.isFinite(f));
-  if (frames.length === 0) return [];
-  // median (정렬 후 중앙값, 짝수면 낮은 쪽 index → 결정적).
-  const sorted = [...frames].sort((a, b) => a - b);
-  const mid = Math.floor((sorted.length - 1) / 2);
-  const frameIndex = sorted[mid];
-  // 번호가 부여된 record 전부의 번호를 오름차순 병합.
-  const numbers = recordNumbers
-    .filter((n): n is number => n != null)
-    .sort((a, b) => a - b);
-  if (numbers.length === 0) return [];
-  return [{ numbers, frameIndex }];
+  const perFrame = new Map<number, number[]>();
+  const uncertified: number[] = [];
+  records.forEach((rec, i) => {
+    const num = recordNumbers[i];
+    if (num == null) return;
+    const f = rec?.atFrameIdx;
+    if (typeof f === 'number' && Number.isInteger(f) && f >= 0) {
+      const list = perFrame.get(f) ?? [];
+      list.push(num);
+      perFrame.set(f, list);
+    } else {
+      uncertified.push(num);
+    }
+  });
+
+  // 인증 순간 없는 record — 공유 median 틱 (종전 동작 보존, wj3 저신뢰 복원 포함).
+  if (uncertified.length > 0 && visionVeto?.status === 'applied') {
+    const user =
+      visionVeto.windowMedianAngleDeltas?.sourceFrameIndices?.user ?? [];
+    const frames = user.filter((f) => Number.isFinite(f));
+    if (frames.length > 0) {
+      const sorted = [...frames].sort((a, b) => a - b);
+      const frameIndex = sorted[Math.floor((sorted.length - 1) / 2)];
+      const list = perFrame.get(frameIndex) ?? [];
+      list.push(...uncertified);
+      perFrame.set(frameIndex, list);
+    }
+  }
+
+  return Array.from(perFrame.entries())
+    .map(([frameIndex, numbers]) => ({
+      frameIndex,
+      numbers: [...numbers].sort((a, b) => a - b),
+    }))
+    .sort((a, b) => a.frameIndex - b.frameIndex);
 }
 
 // quick-260705-r6v — 참고 지표 진단 문장 (belle 승인 카피 그대로, 임의 수정 금지).

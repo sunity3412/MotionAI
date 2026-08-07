@@ -38,6 +38,29 @@ test('buildCueWindows: startSec = userFrameIdx/userFps − windowSec/2, recordId
   assert.equal(clamped[0].recordId, undefined);
 });
 
+test('buildCueWindows: centerSec(인증 순간, atVideoSec) 우선 — fps 환산 없이 중심', () => {
+  // belle 08-07 — 큐 앵커는 record 의 인증된 측정 순간(초). userFrameIdx 보다 우선.
+  const out = buildCueWindows(
+    [{ centerSec: 3.5, userFrameIdx: 18, text: 'x', recordId: 'r02' }],
+    9,
+    1.0,
+  );
+  assert.equal(out[0].startSec, 3.0);
+  assert.equal(out[0].endSec, 4.0);
+  assert.equal(out[0].recordId, 'r02');
+  // 비유한/음수 centerSec 은 legacy userFrameIdx 폴백.
+  const nan = buildCueWindows(
+    [{ centerSec: Number.NaN, userFrameIdx: 18, text: 'x' }],
+    9,
+    1.0,
+  );
+  assert.equal(nan[0].startSec, 1.5);
+  const neg = buildCueWindows([{ centerSec: -1, userFrameIdx: 18, text: 'x' }], 9, 1.0);
+  assert.equal(neg[0].startSec, 1.5);
+  // 둘 다 부재 → 개별 스킵 (순간을 지어내지 않는다).
+  assert.equal(buildCueWindows([{ text: 'x' }], 9, 1.0).length, 0);
+});
+
 test('buildCueWindows: fps 는 인자로만 (9/18 하드코딩 금지 — 같은 인덱스라도 결과 달라짐)', () => {
   const a = buildCueWindows([{ userFrameIdx: 18, text: 'x' }], 9, 1.0);
   const b = buildCueWindows([{ userFrameIdx: 18, text: 'x' }], 18, 1.0);

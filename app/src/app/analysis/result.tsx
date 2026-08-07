@@ -1956,21 +1956,29 @@ function AnalysisResultContent({
   );
 
   // 재생 중 자막 큐 (D-18 자막 + D-17 밀도) — record 의 cueLine(부재 legacy=행동구
-  // 폴백) + 매칭 zoom 의 userFrameIdx(학생 9fps) + 학생 fps 로 윈도우 산출.
+  // 폴백) + record 의 **인증된 측정 순간**(atVideoSec)으로 윈도우 산출.
   // 32-13: 스팟체크 숨김 record 는 큐에서도 제외 — 불일치 판정된 문장을 자막·
   // 오디오로 재생하는 것도 '틀린 말 내보내기' (D-23 동일 원칙, 표면 숨김의 일부).
+  //
+  // debug va-subtitle-audio-mismatch (belle 08-07 실기기 반려) — 큐는 **측정
+  // 순간이 인증된 record 만** 자동 발화한다. 종전 앵커(매칭 zoom 의 userFrameIdx)는
+  // 측정 순간이 없는 record(비전 산출 split 등)에서 가짜 시각(킵업 0.889s = 재생
+  // 시작 직후, 실업로드 3건 동일 프레임 뭉침)을 만들었다. "이 사진이 감점
+  // 부분이라 말하려면 인증(atMatched)이 필요하다" 게이트의 시간축 적용: 순간을
+  // 지어내지 않는다 — 안내문은 감점 카드·시트에 그대로 있고, 재분석이 제 순간을
+  // 만들면(gbk) 큐가 자동으로 돌아온다.
   const cueWindows = useMemo(() => {
     const inputs: CueInput[] = [];
     for (const rec of records) {
       if (isRecordHidden(rec)) continue;
-      const zoom = matchZoomForRecord(rec);
-      const userFrameIdx = zoom?.userFrameIdx;
-      if (typeof userFrameIdx !== 'number') continue;
+      const atVideoSec = rec.atVideoSec;
+      if (typeof atVideoSec !== 'number' || !Number.isFinite(atVideoSec)) {
+        continue;
+      }
       // quick-260802-mrg — 자막은 **결함이 먼저**다 (belle 실기기 2026-08-01:
       // "자막이 결함 대신 목표를 말한다"). 목표 절은 부위 상세 시트의 goalLine 이
       // 한 번 말한다. 조립 규칙은 lib/deductionSheet 소유 — 여기서 문자열을
-      // 만들지 않는다. 폴백 행동구·방출 조건(`!text` 스킵)은 종전 그대로라
-      // buildCueWindows 의 입력 집합·타이밍·밀도는 무접촉이다.
+      // 만들지 않는다. 폴백 행동구·방출 조건(`!text` 스킵)은 종전 그대로다.
       const text =
         composeCueSubtitleKo(
           rec,
@@ -1978,7 +1986,7 @@ function AnalysisResultContent({
         ) ?? '';
       if (!text) continue;
       inputs.push({
-        userFrameIdx,
+        centerSec: atVideoSec,
         text,
         points: rec.points,
         recordId: rec.recordId,

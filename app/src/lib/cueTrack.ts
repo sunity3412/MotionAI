@@ -6,9 +6,10 @@
 // 분리한다.
 //
 // 데이터 원천 (32-RESEARCH §재생 중 큐 — 신규 타이머 0):
-//   - 큐 타이밍은 기존 데이터로만: faultZoomComparisons[].userFrameIdx(학생 9fps
-//     angles 도메인 프레임 인덱스) + 각자의 keypointReport.fps. 신규 측정·타이머 0 —
-//     VideoCompare 의 기존 tick(100ms)이 activeCue 로 현재 구간을 판정한다.
+//   - 큐 타이밍은 기존 데이터로만: record.atVideoSec(인증된 측정 순간, 초 —
+//     centerSec 입력, belle 08-07 이후 기본) 또는 legacy 프레임 인덱스+fps.
+//     신규 측정·타이머 0 — VideoCompare 의 기존 tick(100ms)이 activeCue 로
+//     현재 구간을 판정한다.
 //   - fps 는 호출부가 인자로 넘긴다 (9/18 하드코딩 금지, SP-6 — user 9fps / ref 18fps
 //     공간 혼합 방지). 학생 프레임 인덱스는 학생 fps 로만 환산한다.
 //
@@ -21,13 +22,18 @@
 
 /**
  * 큐 입력 (구조적 타입 — 32-09 방출 전이므로 최소 형상만 요구).
- * - userFrameIdx: 학생(user) 9fps angles 도메인 정수 프레임 인덱스.
+ * - centerSec: **인증된 측정 순간**(record.atVideoSec, 학생 영상 도메인 초 —
+ *   gbk 백엔드 산출). 있으면 우선 — fps 환산 없이 그대로 중심이 된다
+ *   (belle 08-07: 큐는 감점의 제 순간에만 발화).
+ * - userFrameIdx: 학생(user) 프레임 인덱스 (centerSec 부재 시의 legacy 앵커 —
+ *   호출부가 넘긴 fps 로 초 환산).
  * - text: 오버레이 자막 (문구집 cueLine — 수치 0, D-09). 빈 문자열은 무시.
  * - points: SIGNED NEGATIVE 감점 (밀도 초과 시 |points| 큰 순 우선용). 부재=0 취급.
  * - recordId: 안정 조인 키 (있으면 그대로 승계).
  */
 export type CueInput = {
-  userFrameIdx: number;
+  centerSec?: number;
+  userFrameIdx?: number;
   text: string;
   points?: number;
   recordId?: string;
@@ -44,14 +50,16 @@ export type CueWindow = {
 /**
  * 결함 프레임 인덱스 쌍들 → 큐 윈도우 배열.
  *
- * startSec = userFrameIdx/userFps − windowSec/2 (0 클램프),
- * endSec = userFrameIdx/userFps + windowSec/2 (하한 클램프 시에도 종료는 고정 —
+ * center = centerSec(인증 순간, 초 — 우선) 또는 userFrameIdx/userFps(legacy).
+ * startSec = center − windowSec/2 (0 클램프),
+ * endSec = center + windowSec/2 (하한 클램프 시에도 종료는 고정 —
  * 결함 순간 이후 windowSec/2 까지 자막 유지). recordId 는 입력에서 그대로 승계.
  *
  * 무효 입력 방어 (크래시 0):
  *   - comparisons 부재/빈 배열 → []
  *   - userFps·windowSec 가 비유한/≤0 → [] (프레임↔초 환산 불가)
- *   - userFrameIdx 비정수/음수, text 빈 문자열 인 쌍은 개별 스킵
+ *   - centerSec 비유한/음수이고 userFrameIdx 도 비정수/음수, 또는 text 빈 문자열
+ *     인 쌍은 개별 스킵
  *
  * 밀도 제한 (D-17): maxCues 가 유효(유한·≥0)하고 유효 쌍 수가 이를 초과하면
  * |points| 큰 순(감점 큰 순) 상위 maxCues 개만 남긴다. 반환은 재생 스캔 결정성을
@@ -71,10 +79,19 @@ export function buildCueWindows(
   const scored: { win: CueWindow; score: number }[] = [];
   for (const c of comparisons) {
     if (!c) continue;
-    const u = c.userFrameIdx;
-    if (typeof u !== 'number' || !Number.isInteger(u) || u < 0) continue;
     if (typeof c.text !== 'string' || c.text.length === 0) continue;
-    const center = u / userFps;
+    let center: number;
+    if (
+      typeof c.centerSec === 'number' &&
+      Number.isFinite(c.centerSec) &&
+      c.centerSec >= 0
+    ) {
+      center = c.centerSec;
+    } else {
+      const u = c.userFrameIdx;
+      if (typeof u !== 'number' || !Number.isInteger(u) || u < 0) continue;
+      center = u / userFps;
+    }
     const win: CueWindow = {
       startSec: Math.max(0, center - half),
       endSec: center + half,

@@ -184,8 +184,12 @@ def _joint_angle(kp_at, joint: str, t: float, conf_min: float = 0.3) -> float | 
     return float(np.degrees(np.arccos(np.clip(cos, -1, 1))))
 
 
-def _spread_series(align: dict, side: str = "user") -> np.ndarray:
-    """프레임별 다리 벌림각 시계열 (표시 순간 유도용). 저신뢰 프레임은 NaN."""
+def _spread_series(align: dict, side: str = "user", conf_min: float = 0.3,
+                   smooth: bool = True) -> np.ndarray:
+    """프레임별 다리 벌림각 시계열 (표시 순간 유도용). 저신뢰 프레임은 NaN.
+
+    conf_min 0.3 + 3프레임 이동평균 — 스플릿 절정에서 발목 신뢰도가 순간 떨어져
+    진짜 피크(파워스핀 완전 스플릿)가 마스킹되던 것을 완화."""
     aj = align["joints17"]
     F = int(align[f"{side}Frames"])
     kp = np.asarray(align[f"{side}Kp"], dtype=float).reshape(F, len(aj), 2)
@@ -197,7 +201,59 @@ def _spread_series(align: dict, side: str = "user") -> np.ndarray:
     cos = np.sum(v1 * v2, axis=1) / (np.linalg.norm(v1, axis=1) * np.linalg.norm(v2, axis=1) + 1e-9)
     ang = np.degrees(np.arccos(np.clip(cos, -1, 1)))
     cmin = np.minimum.reduce([sc[:, idx[k]] for k in idx])
-    return np.where(cmin >= 0.35, ang, np.nan)
+    s = np.where(cmin >= conf_min, ang, np.nan)
+    if not smooth:
+        return s
+    pad = np.pad(s, 1, mode="edge")
+    sm = np.nanmean(np.stack([pad[:-2], pad[1:-1], pad[2:]]), axis=0)
+    return np.where(np.isfinite(s), sm, np.nan)
+
+
+_LIMB_GROUPS = {
+    "arm": ["left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist"],
+    "leg": ["left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"],
+}
+
+
+def _weighted_repair_pair(align: dict, ut: float, joint: str) -> float | None:
+    """짝 재선정 — 큐 관절이 속한 사지군(팔/다리) 가중 자세거리 (belle: pdshape
+    '정은지도 왼손 잡는 순간으로' — 팔 동작 국면까지 맞춘 짝).
+
+    창 = 정렬 곡선 ±2.5s. 기존 짝과 0.15s 미만 차이면 None(안정 — 승인 짝 보호)."""
+    if "refKp" not in align:
+        return None
+    aj = align["joints17"]
+    afps = float(align["fps"])
+    Fu, Fr = int(align["userFrames"]), int(align["refFrames"])
+    ukp = np.asarray(align["userKp"], dtype=float).reshape(Fu, len(aj), 2)
+    usc = np.asarray(align["userScore"], dtype=float)
+    rkp = np.asarray(align["refKp"], dtype=float).reshape(Fr, len(aj), 2)
+    rsc = np.asarray(align["refScore"], dtype=float)
+
+    group = "arm" if joint in ("left_elbow", "right_elbow", "left_shoulder", "right_shoulder") else "leg"
+    body12 = _LIMB_GROUPS["arm"] + _LIMB_GROUPS["leg"]
+    w = np.array([2.5 if n in _LIMB_GROUPS[group] else 1.0 for n in body12])
+
+    def feat(kp, sc):
+        idx = [aj.index(n) for n in body12]
+        hm = (kp[:, aj.index("left_hip")] + kp[:, aj.index("right_hip")]) / 2
+        sh = (kp[:, aj.index("left_shoulder")] + kp[:, aj.index("right_shoulder")]) / 2
+        torso = np.linalg.norm(sh - hm, axis=1)
+        torso = np.where(torso > 1e-4, torso, np.nanmedian(torso[torso > 1e-4]) if (torso > 1e-4).any() else 1.0)
+        f = (kp[:, idx] - hm[:, None, :]) / torso[:, None, None]
+        conf = sc[:, idx]
+        return np.nan_to_num(np.where(conf[..., None] >= 0.3, f, 0.0), nan=0.0)
+
+    fu, fr = feat(ukp, usc), feat(rkp, rsc)
+    ui = int(np.clip(round(ut * afps), 0, Fu - 1))
+    curve = np.asarray(align["curveRefSec"], dtype=float)
+    ci = curve[min(ui, len(curve) - 1)]
+    lo = max(0, int((ci - 2.5) * afps))
+    hi = min(Fr, int((ci + 2.5) * afps) + 1)
+    if hi <= lo:
+        return None
+    d = np.sqrt(np.sum(((fu[ui][None, :, :] - fr[lo:hi]) ** 2) * w[None, :, None], axis=(1, 2)))
+    return (lo + int(np.argmin(d))) / afps
 
 
 def _legs_angle_viz(kp_at, t: float) -> dict | None:
@@ -395,33 +451,37 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             r_at = _kp_reader(align, "ref") if "refKp" in align else None
             crit = rec["criterion"]
 
-            # 표시 순간 교정 (belle 3차 — 파워스핀 "자막은 다리찢기인데 화면은 스핀 중"):
-            # 복합 기준(split/신전)은 잰 값의 순간이 아니라 **벌림 최대 국면**이 장면의
-            # 의미다. 유저 벌림각 시계열의 최대 근방(>=90%) 중 가장 이른 순간으로.
-            if crit in ("split_angle", "leg_extension"):
-                sp = _spread_series(align, "user")
-                if np.isfinite(sp).any():
-                    # 벌림 최대 순간 (earliest-90% 는 킵업의 승인된 순간을 밀어내는
-                    # 과일반화라 철회 — belle 칭찬 짝 보존).
-                    ut = float(np.nanargmax(sp)) / float(align["fps"])
-                    src = "align-peak"
-                    if r_at is not None:
-                        # 기준 쪽은 **전체에서 벌림 최대**(기준의 대표 찢기 국면).
-                        # 정렬 창으로 제한하면 유저 시도 시각대의 접힌 기준 프레임이
-                        # 잡힌다(실측 3.33s — belle "화면이 이상함"의 원인).
-                        rsp = _spread_series(align, "ref")
-                        if np.isfinite(rsp).any():
-                            rt = float(np.nanargmax(rsp)) / float(align["fps"])
-            markers = _align_markers(align, rec, ut)
-
-            # 다리 사이각 그리기 (belle 4차): 수치 배지는 해석 부담이라 전면 철회.
-            # **다리벌림을 말하는 정지에만** 점 마커 대신 두 선+호(모양)로 벌림을 표시.
-            # 그 외(피터팬 어깨 등)는 링 마커만 — "없는 게 더 직관적".
             legs_cue = crit == "split_angle" or (
                 crit.startswith("angle_vs_reference__") and joint in ("left_hip", "right_hip"))
             armpit_cue = crit.startswith("angle_vs_reference__") and joint in (
                 "left_shoulder", "right_shoulder")
-            if legs_cue:
+
+            # 표시 순간 교정 — 벌림이 장면의 의미인 큐(split/신전/가위스플릿 힙)는
+            # 잰 값의 순간이 아니라 **벌림 최대 국면**을 보여준다. 양쪽 각자의 피크
+            # (유저 = 자기 시도의 절정, 기준 = 대표 찢기 국면). belle 5차: 엘보
+            # "저 장면으로는 파악 어려움" · 파워스핀 "완전 스플릿 장면에서 표기돼야".
+            if crit in ("split_angle", "leg_extension") or legs_cue:
+                # 피크 탐색은 생값·게이트 0.35 — 스무딩·완화는 킵업 승인 피크(1.47s)를
+                # 4.2s 로 밀어내는 퇴행 실측되어 철회.
+                sp = _spread_series(align, "user", conf_min=0.35, smooth=False)
+                if np.isfinite(sp).any():
+                    ut = float(np.nanargmax(sp)) / float(align["fps"])
+                    src = "align-peak"
+                    if r_at is not None:
+                        rsp = _spread_series(align, "ref")
+                        if np.isfinite(rsp).any():
+                            rt = float(np.nanargmax(rsp)) / float(align["fps"])
+            elif crit.startswith("angle_vs_reference__"):
+                # 관절 큐 짝 — 사지군 가중 재선정(pdshape "왼손 잡는 순간" 계열).
+                # 기존 짝과 0.15s 미만 차이는 유지(승인 짝 보호).
+                rt2 = _weighted_repair_pair(align, ut, joint)
+                if rt2 is not None and abs(rt2 - rt) >= 0.15:
+                    rt, src = rt2, "align-w"
+            markers = _align_markers(align, rec, ut)
+
+            # 사이각 그리기 — 벌림 문장(다리·겨드랑이·신전의 스플릿 맥락)에 두 선+호.
+            # 수치는 신뢰 시 벌림각만. 관절 문장은 링만.
+            if legs_cue or crit in ("split_angle", "leg_extension"):
                 legs_viz = {"user": _legs_angle_viz(u_at, ut),
                             "ref": _legs_angle_viz(r_at, rt) if r_at is not None else None}
             elif armpit_cue:
@@ -431,8 +491,8 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             # both-or-neither (fault_zoom 계약 승계) — 한쪽만 그려지면 비대칭 오독.
             if legs_viz is not None and (legs_viz.get("user") is None or legs_viz.get("ref") is None):
                 legs_viz = None
-            if legs_viz is not None:
-                markers = []  # 점 대신 사이각 표시
+            if legs_viz is not None and crit != "leg_extension":
+                markers = []  # 점 대신 사이각 표시 (신전은 무릎 링 + 사이각 병행)
         else:
             markers = []
             if joint in kj:
@@ -547,11 +607,21 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
                         continue
                     vx, vy = v["v"][0] * pw + off, v["v"][1] * PANEL_H
                     angs = []
+                    ray_lens = []
                     for ek in ("a", "b"):
                         ex, ey = v[ek][0] * pw + off, v[ek][1] * PANEL_H
+                        # 선 길이 상한 + 호 반경 적응 — 큰 각(170°대)에서 호가 몸을
+                        # 가로지르던 것(belle 5차 파워스핀 어깨) 완화.
+                        dx, dy = ex - vx, ey - vy
+                        L = float((dx * dx + dy * dy) ** 0.5) or 1.0
+                        maxL = 250 * S
+                        if L > maxL:
+                            ex, ey = vx + dx / L * maxL, vy + dy / L * maxL
+                            L = maxL
+                        ray_lens.append(L)
                         d.line([vx, vy, ex, ey], fill=BRAND + (235,), width=round(4 * S))
                         angs.append(float(np.degrees(np.arctan2(ey - vy, ex - vx))) % 360.0)
-                    r_arc = round(72 * S)
+                    r_arc = round(min(56 * S, 0.5 * min(ray_lens)))
                     d0, d1 = sorted(angs)
                     if d1 - d0 > 180:
                         d0, d1 = d1, d0 + 360

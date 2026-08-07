@@ -319,7 +319,7 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
     silent = out.with_suffix(".video.mp4")
     subprocess.run([FF, "-y", "-loglevel", "error", "-framerate", str(FPS_OUT),
                     "-i", str(odir / "%06d.jpg"), "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                    "-crf", "20", "-g", str(int(FPS_OUT)), str(silent)], check=True)
+                    "-crf", "20", "-g", str(int(FPS_OUT)), "-movflags", "+faststart", str(silent)], check=True)
 
     if audio_plan:
         cmd = [FF, "-y", "-loglevel", "error", "-i", str(silent)]
@@ -332,7 +332,7 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
             labels.append(f"[a{idx}]")
         fc = ";".join(parts) + f";{''.join(labels)}amix=inputs={len(labels)}:normalize=0[aout]"
         cmd += ["-filter_complex", fc, "-map", "0:v", "-map", "[aout]",
-                "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", str(out)]
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(out)]
         subprocess.run(cmd, check=True)
         silent.unlink()
     else:

@@ -132,6 +132,13 @@ def verify(mp4: Path, report: dict, workdir: Path) -> tuple[bool, list[str]]:
     else:
         check("E 저더", False, "프레임 추출 부족")
 
+    # F. 웹 재생성 — moov(재생정보)가 mdat(본체) 앞에 있어야 사파리 스트리밍이
+    # 소리·스크럽 정상 (2026-08-07 belle "오디오 안 나옴·확 멈춤" 원인 박제).
+    head = open(mp4, "rb").read(64 * 1024)
+    mi, di = head.find(b"moov"), head.find(b"mdat")
+    check("F 웹 재생성(faststart)", 0 <= mi < di if di >= 0 else mi >= 0,
+          f"moov@{mi} mdat@{di} (64KB 헤더 내)")
+
     return ok, lines
 
 

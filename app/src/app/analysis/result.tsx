@@ -53,6 +53,7 @@ import {
 import type { ResultSectionKey, ResultSection } from '../../lib/resultSections';
 import { buildCueWindows } from '../../lib/cueTrack';
 import type { CueInput } from '../../lib/cueTrack';
+import { buildRefSnapSecs } from '../../lib/voiceSnap';
 import { normalizeMotionAlignment } from '../../lib/alignmentWarp';
 import { legacyOffsetFromCompareFrames } from '../../lib/manualOffset';
 import {
@@ -2024,6 +2025,27 @@ function AnalysisResultContent({
     hiddenRecordIds,
   ]);
 
+  // belle 08-07 (quick-260807-iwp, BELLE-0807-5) — 음성 멈춤 동안 기준(우) 패널
+  // 짝 프레임 스냅 맵: recordId → 매칭 zoom 의 refVideoSec(기준 영상 도메인 초,
+  // 백엔드 F-3 방출 — 재계산 금지 근거는 voiceSnap.ts 헤더). 조인은 cueWindows·
+  // recordMaps 와 같은 matchZoomForRecord 단일 출처(신규 조인 규칙 0). 숨김
+  // record 는 발화 자체가 없으니(cueWindows 동일 필터) 스냅 대상도 아니다.
+  // refVideoSec 없는 record(refMatched=false 실업로드·legacy doc)는 빌더가
+  // 드롭 — 스냅 생략 (순간 날조 0).
+  const cueRefSnapSecs = useMemo(() => {
+    const entries: { recordId?: string | null; refVideoSec?: number }[] = [];
+    for (const rec of records) {
+      if (isRecordHidden(rec)) continue;
+      entries.push({
+        recordId: rec.recordId,
+        refVideoSec: matchZoomForRecord(rec)?.refVideoSec,
+      });
+    }
+    return buildRefSnapSecs(entries);
+    // matchZoomForRecord/isRecordHidden 은 아래 deps 파생 (cueWindows memo 관례).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [records, result.faultZoomComparisons, vetoFaultJoints, hiddenRecordIds]);
+
   // 32-12 (D-18 B안 재생 중 큐 오디오) — coachAudio mp3 가 준비된(status 'done' +
   // items 존재) 경우에만 VideoCompare 에 analysisId 를 넘겨 오디오 토글·재생을 켠다.
   // 'failed'(합성 실패 — 자막만)/부재(legacy doc)면 undefined → 오디오 표면 미렌더.
@@ -2673,6 +2695,10 @@ function AnalysisResultContent({
               // 산출(record cueLine + 매칭 zoom userFrameIdx + 학생 fps). 미전달
               // 시 기존 렌더 diff 0(opt-in). cleanPass/legacy 면 빈 배열.
               cueWindows={cueWindows}
+              // belle 08-07 (quick-260807-iwp) — 음성 멈춤 동안 기준 패널 짝 프레임
+              // 스냅 맵 (recordId → refVideoSec). 짝 없는 record 는 맵 미등재 =
+              // 스냅 생략. cleanPass/legacy 면 빈 맵 (동작 diff 0).
+              cueRefSnapSecs={cueRefSnapSecs}
               // 32-12 (D-18 B안) — coachAudio mp3 준비 doc 에서만 오디오 토글·재생
               // 활성(cueId=recordId 조인). failed/legacy 면 undefined → 자막만.
               audioAnalysisId={coachAudioAnalysisId}

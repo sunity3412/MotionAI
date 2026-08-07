@@ -268,6 +268,17 @@ export type VideoCompareProps = {
    */
   cueWindows?: CueWindow[];
   /**
+   * belle 08-07 (quick-260807-iwp, BELLE-0807-5) — 음성 큐 발화로 멈춘 동안 기준
+   * (우) 패널을 그 record 의 **짝 프레임 시각**으로 seek 하기 위한 recordId→초 맵
+   * (lib/voiceSnap.buildRefSnapSecs 산출 — 기준 영상 도메인 초, 백엔드 F-3 방출
+   * 값만. 재계산 금지 근거는 voiceSnap.ts 헤더). belle: "정은지 선수 영상이
+   * 음성이랑 안 맞는다. 학생 영상은 맞는데" — 학생 패널은 잰 순간(atVideoSec)에
+   * 멈춰 맞지만, 기준 패널은 시간 동기 위치라 자세 짝이 아니었다. 발화 멈춤 동안
+   * 스냅했다가 재개 직전 원위치 복원(정렬 보존). 짝 없는 record(맵 미등재)는 스냅
+   * 생략 — 순간 날조 0. **미전달 = 기존 렌더/동작 diff 0** (opt-in 관례).
+   */
+  cueRefSnapSecs?: Record<string, number>;
+  /**
    * 32-12 (D-18 B안 재생 중 큐 오디오) — coachAudio mp3 가 준비된 분석의 analysisId.
    * 전달되면 동작 비교 영역에 "음성 안내" 토글이 노출되고, 자막 큐 전환 시점에 같은
    * cueId(=recordId)의 Polly mp3 를 재생한다(설정 on 일 때만 — 기본 off, 학원 소음).
@@ -347,6 +358,10 @@ const OFFSET_APPLYING_HOLD_MS = 600;
 // 배열 churn 방지 — activeCue(EMPTY, t)=null 이라 자막 미렌더, 기존 소비처 diff 0).
 const EMPTY_CUE_WINDOWS: CueWindow[] = [];
 
+// quick-260807-iwp — cueRefSnapSecs 미전달 시의 안정 빈 맵 (EMPTY_CUE_WINDOWS 관례
+// — 조회 전부 미스 = 스냅 0 = 기존 동작 diff 0).
+const EMPTY_CUE_REF_SNAP_SECS: Record<string, number> = {};
+
 // 33-13 (A-6, D-13 대표 UX) — 음성 큐 일시정지 안전 상한(ms). Polly cueLine 은
 // 수 초 분량 — mp3 종료 이벤트가 유실돼도 이 상한 뒤 강제 재개해 영상이 영구
 // 멈춤에 빠지지 않게 한다 (기존 100ms tick 이 판정 — 신규 타이머 0).
@@ -404,6 +419,7 @@ export function VideoCompare({
   initialOffsetSec,
   resetKey,
   cueWindows,
+  cueRefSnapSecs,
   audioAnalysisId,
   renderCueIllustration,
 }: VideoCompareProps) {
@@ -593,6 +609,54 @@ export function VideoCompare({
   voiceCueRecordIdRef.current = voiceCueRecordId;
   const voicePauseRef = useRef(false);
   const voicePauseStartRef = useRef(0);
+
+  // belle 08-07 (quick-260807-iwp, BELLE-0807-5) — 음성 멈춤 동안 기준(우) 패널
+  // 짝 프레임 스냅. tick(setInterval 클로저)이 최신 맵을 읽도록 ref 미러
+  // (alignmentRef 관례 — stale 클로저 회피). voiceSnapRestoreSecRef = 스냅 직전
+  // 기준 패널의 원래 currentTime(복원 목표). null = 스냅 안 걸림. 체이닝 연속
+  // 발화에서도 최초 멈춤 시각 하나만 유지한다(스냅 헬퍼가 null 일 때만 저장).
+  //
+  // 판독 박제 (재조사 불요): 음성 멈춤 중 follow(leftPlaying 가드)/legacy
+  // (bothPlaying 가드) 드리프트 보정은 발화 pause 로 양쪽이 멈추면 둘 다 미진입
+  // — 스냅 시각을 보정이 되돌릴 경로가 없어 신규 게이트 불요. playbackInvariant
+  // R3 도 voicePaused 중 양쪽 정지면 무개입.
+  const cueRefSnapSecsRef = useRef<Record<string, number>>(
+    cueRefSnapSecs ?? EMPTY_CUE_REF_SNAP_SECS,
+  );
+  cueRefSnapSecsRef.current = cueRefSnapSecs ?? EMPTY_CUE_REF_SNAP_SECS;
+  const voiceSnapRestoreSecRef = useRef<number | null>(null);
+
+  // 재개·사용자 제스처 경로 — 멈춤 시점의 원위치로 복원해 정렬 보존(멈춤 중 양쪽
+  // 정지 상태라 복원값 = 원 정렬 위치 그대로). 복원 직후 이어지는 기존 재개 로직
+  // (백오프 관찰창 + 마지막 재시도 직전 제자리 nudge)이 seek 미적용 스톨을 감시
+  // 하므로 별도 지연 없음.
+  const unsnapRight = () => {
+    if (voiceSnapRestoreSecRef.current !== null && rightPlayer) {
+      rightPlayer.currentTime = voiceSnapRestoreSecRef.current;
+    }
+    voiceSnapRestoreSecRef.current = null;
+  };
+  // 발화 시작/체인 경로 — record 짝 시각(refVideoSec, 기준 도메인 초)으로 seek.
+  // 짝 없는 record(맵 미등재 = refMatched false/legacy)는 스냅하지 않되, 체인이
+  // 짝 없는 큐로 넘어가면 이전 큐의 스냅 프레임이 새 큐에 오귀속되지 않게 원위치
+  // 복귀한다 (순간 날조 0).
+  const snapRightToCuePair = (recordId: string) => {
+    const sec = cueRefSnapSecsRef.current[recordId];
+    if (typeof sec !== 'number') {
+      unsnapRight();
+      return;
+    }
+    if (!rightPlayer) return;
+    if (voiceSnapRestoreSecRef.current === null) {
+      voiceSnapRestoreSecRef.current = rightPlayer.currentTime;
+    }
+    rightPlayer.currentTime = sec;
+  };
+  // seek/scrub 경로 — 직후 setRightToStudentTime 재-seek 가 정렬을 재확립하므로
+  // 상태만 정리한다(복원 seek 까지 하면 이중 seek 스터터).
+  const clearVoiceSnapOnly = () => {
+    voiceSnapRestoreSecRef.current = null;
+  };
 
   // 260806-usc — V-1: belle 실기기에서 두 영상의 재생 상태가 편측으로 갈라진 채
   // 남았다(내 영상 4.9s 동결, 정은지만 진행, 음성 종료 후에도 미재개). D-13 불변식
@@ -798,6 +862,11 @@ export function VideoCompare({
                     setPlaying(false);
                     voicePauseRef.current = true;
                     voicePauseStartRef.current = Date.now();
+                    // belle 08-07 (quick-260807-iwp) — 발화 멈춤 동안 기준(우)
+                    // 패널을 이 record 의 짝 프레임 시각으로 스냅 (음성이 말하는
+                    // 결함의 기준 자세 표시). 정지 상태 중 발화(멈춤 없는 발화)
+                    // 경로는 무접촉 — 스냅은 큐 발화로 정지하는 동안만.
+                    snapRightToCuePair(cue.recordId);
                     // 33-16 게이트 F-2 fix — mid-tick pause 직후 tick 조기 종료.
                     // 아래 follow/drift 블록은 tick 시작 시 캡처된 stale
                     // leftPlaying=true 로 진입해 홀드해제 분기가 방금 멈춘
@@ -849,6 +918,10 @@ export function VideoCompare({
                 setActiveCueText(chained.text);
                 // 큐당 CUE_PAUSE_MAX_MS 재무장 — 체인 총합이 아니라 큐별 상한.
                 voicePauseStartRef.current = Date.now();
+                // belle 08-07 (quick-260807-iwp) — 체인 큐마다 제 짝 프레임으로
+                // 갱신 (복원 목표는 최초 멈춤 시각 하나 — 헬퍼가 유지). 짝 없는
+                // 큐면 원위치 복귀(이전 큐 프레임 오귀속 차단).
+                snapRightToCuePair(chained.recordId);
                 // voicePauseRef 는 true 유지 — 같은 멈춤에서 이어 발화. 알려진
                 // 무해 엣지: 체인 재개 직후 자막이 한 tick 이전 큐로 되돌았다
                 // 다음 윈도우에서 복귀할 수 있음 — 발화는 이력 가드로 차단되므로
@@ -860,6 +933,10 @@ export function VideoCompare({
           voicePauseRef.current = false;
           setVoiceCueRecordId(null);
           if (overMax) stopCue();
+          // belle 08-07 (quick-260807-iwp) — 재개 직전 기준(우) 패널을 멈춤 시점
+          // 원위치로 복원 (정렬 보존). 복원 후 아래 기존 재개 로직(백오프 관찰창
+          // + nudge)이 그대로 이어진다 — 별도 지연 금지.
+          unsnapRight();
           leftPlayer?.play();
           rightPlayer?.play();
           setPlaying(true);
@@ -1136,6 +1213,8 @@ export function VideoCompare({
       stopCue(); // 32-12 — 일시정지 시 발화 중단(자막은 activeCue 가 유지 판정).
       // 33-13 — 사용자 정지 = 음성 멈춤 상태 해제(자동 재개 억제) + 강조 해제.
       voicePauseRef.current = false;
+      // belle 08-07 (quick-260807-iwp) — 사용자 제스처 = 스냅 복원 (정렬 보존).
+      unsnapRight();
       // 260806-usc — 사용자가 개입하면 감시도 끈다(감시가 사용자와 싸우면 안 된다).
       resumeWatchTicksRef.current = null;
       // belle 08-07 #2 — 사용자 제스처 = 재개 실패 배지 해제.
@@ -1144,6 +1223,8 @@ export function VideoCompare({
     } else {
       // 33-13 — 사용자가 직접 재생 = 음성 멈춤 홀드 해제(자동 재개와 중복 방지).
       voicePauseRef.current = false;
+      // belle 08-07 (quick-260807-iwp) — 사용자 제스처 = 스냅 복원 (정렬 보존).
+      unsnapRight();
       // 260806-usc — 사용자 재생도 제스처 — 관찰창을 닫는다.
       resumeWatchTicksRef.current = null;
       // belle 08-07 #2 — 사용자 제스처 = 재개 실패 배지 해제.
@@ -1262,6 +1343,9 @@ export function VideoCompare({
       stopCue();
       // 33-13 — 위치 점프 = 음성 멈춤 홀드/강조 해제 (사용자 제스처 우선).
       voicePauseRef.current = false;
+      // belle 08-07 (quick-260807-iwp) — 위 setRightToStudentTime 재-seek 가 정렬을
+      // 이미 재확립 — 스냅 상태만 정리 (복원 seek 중복 금지).
+      clearVoiceSnapOnly();
       // 260806-usc — seek 도 제스처 — 관찰창을 닫는다.
       resumeWatchTicksRef.current = null;
       setVoiceCueRecordId(null);
@@ -1383,6 +1467,9 @@ export function VideoCompare({
       setPlaying(false);
       stopCue();
       voicePauseRef.current = false;
+      // belle 08-07 (quick-260807-iwp) — 오프셋 조작 직후 tick 의 follow 보정이
+      // 새 오프셋으로 재-seek — 스냅 상태만 정리 (복원 seek 중복 금지).
+      clearVoiceSnapOnly();
       // 260806-usc — 오프셋 조작도 제스처 — 관찰창을 닫는다. 홀드 타이머가 끝나며
       // 부르는 재개(offsetWasPlayingRef)를 감시가 되돌리지 않게 한다.
       resumeWatchTicksRef.current = null;

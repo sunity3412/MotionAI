@@ -1745,6 +1745,76 @@ export function VideoCompare({
     </View>
   );
 
+  // quick-260807-k70 (BELLE-0807-8) — 큐 상태 오버레이 공유 헬퍼. belle 08-07 저녁
+  // "가로 크게 보기는 자막이 안 나오기도 하고" = 기존 #8: 자막 블록·재개 배지가
+  // 세로 row 절대 자식으로만 있고 전체화면 Modal 안엔 렌더 자리가 없었다.
+  // renderControls(dark) 선례대로 같은 상태·같은 조건·같은 문구·같은 핸들러를
+  // 세로/전체화면이 공유한다 (분기 사본 0). fs=true 는 wrap 위치(fs* 스타일)와
+  // 텍스트 배율(FULLSCREEN_TEXT_SCALE 곱)만 다르다.
+  function renderCueOverlays(fs: boolean) {
+    return (
+      <>
+        {/* 32-08 (D-18 자막 큐) — 재생 중 결함 구간 자막. 영상 프레임 하단 중앙 pill.
+            수치 미포함(D-09) — text 는 문구집 cueLine(행동문). cueWindows 미전달 시
+            activeCueText=null → 미렌더. 33-13 — 목표-선행 큐(2문장)가 잘리지 않게
+            3줄 허용. */}
+        {activeCueText ? (
+          <View
+            style={fs ? styles.fsCueSubtitleWrap : styles.cueSubtitleWrap}
+            pointerEvents="none"
+          >
+            {/* 33-13 (A-6, 승인 목업 ④ 컷 2) — 음성 중 정지 상태 표시 1줄. */}
+            {voiceCueRecordId != null && !playing ? (
+              <View style={styles.voicePausePill}>
+                <Ionicons name="pause" size={12} color={colors.textWhite} />
+                <Text
+                  style={[styles.voicePauseText, fs && styles.fsVoicePauseText]}
+                >음성 중 — 잠시 멈춤</Text>
+              </View>
+            ) : null}
+            <Text
+              style={[styles.cueSubtitle, fs && styles.fsCueText]}
+              numberOfLines={3}
+              accessibilityRole="text"
+            >
+              {activeCueText}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* belle 08-07 #2 (quick-260807-fpw) — 재개 최종 실패(converge-pause) 정직
+            표면화. 백오프 재시도 소진 후 대칭 정지로 종결되면 조용한 멈춤이 랜덤
+            스톨로 읽힌다(엘보 doc) — '일시정지됨'을 밝히고 탭으로 재개 + 관찰창
+            재무장. 자막 유무와 독립인 별도 wrap (음성 큐 없이도 스톨은 일어난다).
+            어느 쪽이든 재생이 관측되면 tick 이 배지를 내린다 (자연 회복).
+            quick-260807-k70 — 전체화면에도 두는 근거: 같은 상태의 렌더 위치 추가일
+            뿐이며, belle 가 가로에서 스톨을 보면 배지 유무가 재생 안정성(BELLE-
+            0807-10) 잔여 진단의 관측 신호가 된다. */}
+        {resumeNotice && !playing ? (
+          <View
+            style={fs ? styles.fsResumeNoticeWrap : styles.resumeNoticeWrap}
+            pointerEvents="box-none"
+          >
+            <Pressable
+              onPress={handleResumeNoticePress}
+              accessibilityRole="button"
+              accessibilityLabel="일시정지됨 — 탭하여 계속 재생"
+              hitSlop={8}
+              style={styles.resumeNoticePill}
+            >
+              <Ionicons name="play" size={12} color={colors.textWhite} />
+              <Text
+                style={[styles.resumeNoticeText, fs && styles.fsResumeNoticeText]}
+              >
+                일시정지됨 — 탭하여 계속
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </>
+    );
+  }
+
   // quick-260702-t0v — 전체화면 슬롯. 새 useVideoPlayer 호출 금지 — 기존 player
   // 인스턴스에 두 번째 VideoView attach (expo-video 다중 VideoView 지원).
   // 오버레이는 sizeScale=FULLSCREEN_OVERLAY_SCALE 로 호출 (각도 라벨 확대).
@@ -1906,50 +1976,9 @@ export function VideoCompare({
           </View>
         ) : null}
 
-        {/* 32-08 (D-18 자막 큐) — 재생 중 결함 구간 자막. 영상 프레임 하단 중앙 pill.
-            수치 미포함(D-09) — text 는 문구집 cueLine(행동문). cueWindows 미전달 시
-            activeCueText=null → 미렌더. 33-13 — 목표-선행 큐(2문장)가 잘리지 않게
-            3줄 허용. */}
-        {activeCueText ? (
-          <View style={styles.cueSubtitleWrap} pointerEvents="none">
-            {/* 33-13 (A-6, 승인 목업 ④ 컷 2) — 음성 중 정지 상태 표시 1줄. */}
-            {voiceCueRecordId != null && !playing ? (
-              <View style={styles.voicePausePill}>
-                <Ionicons name="pause" size={12} color={colors.textWhite} />
-                <Text style={styles.voicePauseText}>음성 중 — 잠시 멈춤</Text>
-              </View>
-            ) : null}
-            <Text
-              style={styles.cueSubtitle}
-              numberOfLines={3}
-              accessibilityRole="text"
-            >
-              {activeCueText}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* belle 08-07 #2 (quick-260807-fpw) — 재개 최종 실패(converge-pause) 정직
-            표면화. 백오프 재시도 소진 후 대칭 정지로 종결되면 조용한 멈춤이 랜덤
-            스톨로 읽힌다(엘보 doc) — '일시정지됨'을 밝히고 탭으로 재개 + 관찰창
-            재무장. 자막 유무와 독립인 별도 wrap (음성 큐 없이도 스톨은 일어난다).
-            어느 쪽이든 재생이 관측되면 tick 이 배지를 내린다 (자연 회복). */}
-        {resumeNotice && !playing ? (
-          <View style={styles.resumeNoticeWrap} pointerEvents="box-none">
-            <Pressable
-              onPress={handleResumeNoticePress}
-              accessibilityRole="button"
-              accessibilityLabel="일시정지됨 — 탭하여 계속 재생"
-              hitSlop={8}
-              style={styles.resumeNoticePill}
-            >
-              <Ionicons name="play" size={12} color={colors.textWhite} />
-              <Text style={styles.resumeNoticeText}>
-                일시정지됨 — 탭하여 계속
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
+        {/* quick-260807-k70 (BELLE-0807-8) — 자막·'음성 중' pill·재개 배지는 공유
+            헬퍼가 렌더 (세로/전체화면 단일 소스 — 조건·문구·순서·스타일 불변). */}
+        {renderCueOverlays(false)}
       </View>
 
       {/* 32-12 (D-18 B안 오디오 큐) — "음성 안내" 토글. coachAudio mp3 보유 doc
@@ -2175,6 +2204,11 @@ export function VideoCompare({
                     rightOverlay,
                   )}
               </View>
+              {/* quick-260807-k70 (BELLE-0807-8) — 전체화면에도 같은 큐 상태(자막·
+                  '음성 중' pill·재개 배지)를 렌더 (기존 #8 해소). fsTopBar/
+                  fsControlsWrap 이 뒤에 렌더되므로 겹칠 땐 컨트롤이 위에 그려진다.
+                  90° 회전 폴백(fsRotated)도 이 컨테이너 내부라 자동 회전. */}
+              {renderCueOverlays(true)}
               <View style={styles.fsTopBar}>
                 {/* quick-260705-r6v — 검은 여백 좌측 고정 범례 (flex:1). 재생 중
                     영상 위 텍스트 pill 을 없앤 대신 "① 행동구 −감점" 을 여백에
@@ -2790,6 +2824,49 @@ const styles = StyleSheet.create({
   // follow-up — 시간 라벨 가독 (FULLSCREEN_TEXT_SCALE 파생, 매직넘버 아님).
   timeTextDark: {
     color: colors.textWhite,
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    lineHeight: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE * 1.3,
+  },
+  // ── quick-260807-k70 (BELLE-0807-8) — 전체화면 큐 상태 오버레이 스타일 ─────
+  // 세로 cueSubtitleWrap 대응 (토큰만 — videoBg/textWhite 는 기존 pill/자막
+  // 스타일 상속으로 계승, 신규 hex 0). paddingBottom 70 = fsControlsWrap 하단
+  // zone(paddingBottom 10) + 컨트롤 행 높이 ≈60(tickRow 20 + gap 6 + track 14 +
+  // gap 6 + 배율 시간 라벨 ~20) 위에 앉힘 (세로 resumeNoticeWrap 96 산식 관례).
+  fsCueSubtitleWrap: {
+    position: 'absolute',
+    left: spacing.cardPadding,
+    right: spacing.cardPadding,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 70,
+  },
+  // 자막/pill/배지 텍스트 전체화면 배율 — fsLegendText 선례 (fontSize·lineHeight
+  // 에 FULLSCREEN_TEXT_SCALE 곱, 신규 절대 px 0). 기존 스타일과 배열 합성으로
+  // 색·배경·패딩은 세로와 동일 소스.
+  fsCueText: {
+    fontSize: typography.caption.fontSize * FULLSCREEN_TEXT_SCALE,
+    lineHeight: 17 * FULLSCREEN_TEXT_SCALE,
+  },
+  fsVoicePauseText: {
+    fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
+    lineHeight: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE * 1.3,
+  },
+  // 재개 배지 zone — fs 자막 zone 위: 70(fsCueSubtitleWrap) + 3×25.5(배율
+  // lineHeight 17×1.5, 3줄) + 12(자막 상하 패딩) + 7(간격) = 165.5 ≈ 166
+  // (세로 resumeNoticeWrap 96 산식과 동일 구성).
+  fsResumeNoticeWrap: {
+    position: 'absolute',
+    left: spacing.cardPadding,
+    right: spacing.cardPadding,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 166,
+  },
+  fsResumeNoticeText: {
     fontSize: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE,
     lineHeight: typography.captionSmall.fontSize * FULLSCREEN_TEXT_SCALE * 1.3,
   },

@@ -126,6 +126,73 @@ def _simplify_curve(xs: np.ndarray, ys: np.ndarray, max_knots: int = 6,
     return xs[ks], np.maximum.accumulate(ys[ks])
 
 
+def _align_markers(align: dict, rec: dict, ut: float) -> list[tuple[float, float, str]]:
+    """정지 마커 목록 [(x, y, style)] — belle 08-07 2차 판정 반영.
+
+    규칙 (criterion 종류로 분기 — 동작명 분기 아님):
+      angle_vs_reference__{hip}  → 허벅지 중간점(힙-무릎 중점). 힙 관절점은 "엉덩이
+                                   표시"로 읽힘(belle 엘보 ① 반려).
+      angle_vs_reference__{그외} → 해당 관절점.
+      split_angle                → 양 무릎 (다리 벌림은 두 다리가 대상).
+      leg_extension              → 덜 펴진(무릎각 작은) 쪽 무릎 — 문구가 짚는 그 무릎.
+    좌표는 15fps 그리드 선형 보간(정확 순간 좌표 — belle 엘보 ③ "초미세조정").
+    style: conf>=0.5 solid / >=0.35 est(점선) / 미만 표시 없음.
+    """
+    aj = align.get("joints17") or []
+    if not aj:
+        return []
+    afps = float(align["fps"])
+    F = int(align["userFrames"])
+    akp = np.asarray(align["userKp"], dtype=float).reshape(F, len(aj), 2)
+    asc = np.asarray(align["userScore"], dtype=float)
+
+    def kp_at(name: str) -> tuple[np.ndarray, float]:
+        j = aj.index(name)
+        x = ut * afps
+        i0 = int(np.clip(np.floor(x), 0, F - 1))
+        i1 = min(i0 + 1, F - 1)
+        a = float(np.clip(x - i0, 0.0, 1.0))
+        return akp[i0, j] * (1 - a) + akp[i1, j] * a, float(min(asc[i0, j], asc[i1, j]))
+
+    def knee_angle(side: str) -> float | None:
+        pts = {}
+        for part in ("hip", "knee", "ankle"):
+            p, c = kp_at(f"{side}_{part}")
+            if c < 0.3 or not np.isfinite(p).all():
+                return None
+            pts[part] = p
+        v1, v2 = pts["hip"] - pts["knee"], pts["ankle"] - pts["knee"]
+        cos = float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-9))
+        return float(np.degrees(np.arccos(np.clip(cos, -1, 1))))
+
+    crit = rec["criterion"]
+    joint = crit.split("__")[-1]
+    targets: list[tuple[str, str | None]] = []
+    if crit == "split_angle":
+        targets = [("left_knee", None), ("right_knee", None)]
+    elif crit == "leg_extension":
+        la, ra = knee_angle("left"), knee_angle("right")
+        if la is not None or ra is not None:
+            side = "left" if (ra is None or (la is not None and la <= ra)) else "right"
+            targets = [(f"{side}_knee", None)]
+    elif joint in ("left_hip", "right_hip"):
+        targets = [(joint, f"{joint.split('_')[0]}_knee")]
+    elif joint in aj:
+        targets = [(joint, None)]
+
+    markers: list[tuple[float, float, str]] = []
+    for j1, j2 in targets:
+        p1, c1 = kp_at(j1)
+        if j2 is not None:
+            p2, c2 = kp_at(j2)
+            p, c = (p1 + p2) / 2, min(c1, c2)
+        else:
+            p, c = p1, c1
+        if c >= 0.35 and np.isfinite(p).all():
+            markers.append((float(p[0]), float(p[1]), "solid" if c >= 0.5 else "est"))
+    return markers
+
+
 def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
                    align: dict | None = None):
     """(user_sec, ref_sec, freeze|None) 프레임 열 + 음성 배치 계획.
@@ -191,29 +258,16 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             continue
         ut = float(rec["atVideoSec"])
         joint = rec["criterion"].split("__")[-1]
-        marker_style = "solid"
         if "_alignRefSec" in rec:
             rt, src = float(rec["_alignRefSec"]), "align"
-            # 2단 마커 (belle 08-07 "마커가 없다"): 재추출 좌표 기준 conf>=0.5 = 꽉 찬 링,
-            # 0.35~0.5 = 속 빈 점선 링("AI 공부중" 추정 표시, D-09), <0.35 = 표시 없음.
-            marker = None
-            aj = align.get("joints17") or []
-            if joint in aj:
-                afps2 = float(align["fps"])
-                akp = np.asarray(align["userKp"], dtype=float).reshape(align["userFrames"], len(aj), 2)
-                asc = np.asarray(align["userScore"], dtype=float)
-                ui = int(np.clip(round(ut * afps2), 0, align["userFrames"] - 1))
-                c = float(asc[ui, aj.index(joint)])
-                if c >= 0.35 and np.isfinite(akp[ui, aj.index(joint)]).all():
-                    marker = (float(akp[ui, aj.index(joint), 0]), float(akp[ui, aj.index(joint), 1]))
-                    marker_style = "solid" if c >= 0.5 else "est"
+            markers = _align_markers(align, rec, ut)
         else:
-            marker = None
+            markers = []
             if joint in kj:
                 fi = min(kr["frames"] - 1, round(ut * kfps))
                 ji = kj.index(joint)
                 if float(kconf[fi, ji]) >= KP_CONF_MIN and np.isfinite(kdata[fi, ji]).all():
-                    marker = (float(kdata[fi, ji, 0]), float(kdata[fi, ji, 1]))
+                    markers = [(float(kdata[fi, ji, 0]), float(kdata[fi, ji, 1]), "solid")]
             if rec.get("_derived"):
                 rt, src = float(rec.get("_derivedRefSec") or warp_b(ut)), "derived"
             elif rec["criterion"] in c_pairs:
@@ -225,8 +279,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             "rt": rt,
             "pair_src": src,
             "dur": mp3_duration_s(mp3) + FREEZE_TAIL_S,
-            "mp3": mp3, "joint": joint, "marker": marker,
-            "marker_style": marker_style,
+            "mp3": mp3, "joint": joint, "markers": markers,
             "text": speech_text(rec),
         })
     return warp_b, freezes
@@ -296,10 +349,10 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
         canvas.paste(b, (a.width + GAP, 0))
         if fz is not None:
             d = ImageDraw.Draw(canvas, "RGBA")
-            if fz["marker"] is not None:
-                mx, my = fz["marker"][0] * a.width, fz["marker"][1] * PANEL_H
+            for mx_n, my_n, style in fz.get("markers") or []:
+                mx, my = mx_n * a.width, my_n * PANEL_H
                 r_out, r_in = round(13 * S), round(4 * S)
-                if fz.get("marker_style") == "est":
+                if style == "est":
                     # 추정(저신뢰) — 속 빈 점선 링: 45도 간격 호 8개, 중심점 없음
                     box = [mx - r_out, my - r_out, mx + r_out, my + r_out]
                     for a0 in range(0, 360, 45):
@@ -346,8 +399,7 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
             {"rid": fz["rid"], "joint": fz["joint"], "userSec": fz["ut"],
              "refSec": round(fz["rt"], 2), "pairSrc": fz["pair_src"],
              "freezeS": round(fz["dur"], 2), "voiceStartOutS": round(at, 2),
-             "marker": fz["marker"] is not None,
-             "markerStyle": fz.get("marker_style") if fz["marker"] is not None else None,
+             "markers": [m[2] for m in (fz.get("markers") or [])],
              "text": fz["text"]}
             for fz, (_, at) in zip(freezes, audio_plan)
         ],

@@ -191,9 +191,22 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             continue
         ut = float(rec["atVideoSec"])
         joint = rec["criterion"].split("__")[-1]
+        marker_style = "solid"
         if "_alignRefSec" in rec:
             rt, src = float(rec["_alignRefSec"]), "align"
-            marker = tuple(rec["_alignMarker"]) if rec.get("_alignMarker") else None
+            # 2단 마커 (belle 08-07 "마커가 없다"): 재추출 좌표 기준 conf>=0.5 = 꽉 찬 링,
+            # 0.35~0.5 = 속 빈 점선 링("AI 공부중" 추정 표시, D-09), <0.35 = 표시 없음.
+            marker = None
+            aj = align.get("joints17") or []
+            if joint in aj:
+                afps2 = float(align["fps"])
+                akp = np.asarray(align["userKp"], dtype=float).reshape(align["userFrames"], len(aj), 2)
+                asc = np.asarray(align["userScore"], dtype=float)
+                ui = int(np.clip(round(ut * afps2), 0, align["userFrames"] - 1))
+                c = float(asc[ui, aj.index(joint)])
+                if c >= 0.35 and np.isfinite(akp[ui, aj.index(joint)]).all():
+                    marker = (float(akp[ui, aj.index(joint), 0]), float(akp[ui, aj.index(joint), 1]))
+                    marker_style = "solid" if c >= 0.5 else "est"
         else:
             marker = None
             if joint in kj:
@@ -213,6 +226,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             "pair_src": src,
             "dur": mp3_duration_s(mp3) + FREEZE_TAIL_S,
             "mp3": mp3, "joint": joint, "marker": marker,
+            "marker_style": marker_style,
             "text": speech_text(rec),
         })
     return warp_b, freezes
@@ -285,9 +299,15 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
             if fz["marker"] is not None:
                 mx, my = fz["marker"][0] * a.width, fz["marker"][1] * PANEL_H
                 r_out, r_in = round(13 * S), round(4 * S)
-                d.ellipse([mx - r_out, my - r_out, mx + r_out, my + r_out],
-                          outline=BRAND + (255,), width=round(4 * S))
-                d.ellipse([mx - r_in, my - r_in, mx + r_in, my + r_in], fill=BRAND + (255,))
+                if fz.get("marker_style") == "est":
+                    # 추정(저신뢰) — 속 빈 점선 링: 45도 간격 호 8개, 중심점 없음
+                    box = [mx - r_out, my - r_out, mx + r_out, my + r_out]
+                    for a0 in range(0, 360, 45):
+                        d.arc(box, start=a0, end=a0 + 27, fill=BRAND + (255,), width=round(3 * S))
+                else:
+                    d.ellipse([mx - r_out, my - r_out, mx + r_out, my + r_out],
+                              outline=BRAND + (255,), width=round(4 * S))
+                    d.ellipse([mx - r_in, my - r_in, mx + r_in, my + r_in], fill=BRAND + (255,))
             lines = wrap_text(d, fz["text"], font, W - 2 * pad)[:3]
             band_h = round(18 * S) + line_h * len(lines)
             d.rectangle([0, PANEL_H - band_h, W, PANEL_H], fill=(15, 13, 12, 216))
@@ -326,7 +346,9 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
             {"rid": fz["rid"], "joint": fz["joint"], "userSec": fz["ut"],
              "refSec": round(fz["rt"], 2), "pairSrc": fz["pair_src"],
              "freezeS": round(fz["dur"], 2), "voiceStartOutS": round(at, 2),
-             "marker": fz["marker"] is not None, "text": fz["text"]}
+             "marker": fz["marker"] is not None,
+             "markerStyle": fz.get("marker_style") if fz["marker"] is not None else None,
+             "text": fz["text"]}
             for fz, (_, at) in zip(freezes, audio_plan)
         ],
     }

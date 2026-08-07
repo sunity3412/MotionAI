@@ -103,10 +103,21 @@ def verify(mp4: Path, report: dict, workdir: Path) -> tuple[bool, list[str]]:
         db_sil = mean_db(mp4, play_probe, 0.8)
         check("D 재생 무음", db_sil < -70, f"mean={db_sil:.1f}dB @out {play_probe:.1f}s")
 
-    # E. 저더 — 재생 구간 2.5s 를 30fps 로 뽑아 좌/우 패널 프레임 반복률 측정.
+    # E. 저더 — **순수 재생 구간**에서만 좌/우 패널 프레임 반복률 측정.
+    # (킵업처럼 첫 정지가 이른 편은 앞 구간이 짧다 — 정지 침범 오판 방지:
+    #  앞 구간이 1.2s 미만이면 마지막 정지 뒤 구간으로 창을 옮긴다.)
+    e_start, e_dur = play_probe, 2.5
+    if freezes:
+        head_avail = freezes[0]["voiceStartOutS"] - 0.4 - e_start
+        if head_avail < 1.2:
+            last = freezes[-1]
+            e_start = last["voiceStartOutS"] + last["freezeS"] + 0.3
+            e_dur = max(1.0, min(2.5, actual - e_start - 0.3))
+        else:
+            e_dur = min(2.5, head_avail)
     for f in tmp.glob("*.png"):
         f.unlink()
-    subprocess.run([FF, "-y", "-loglevel", "error", "-ss", str(play_probe), "-t", "2.5",
+    subprocess.run([FF, "-y", "-loglevel", "error", "-ss", str(e_start), "-t", str(e_dur),
                     "-i", str(mp4), "-vf", "fps=30,scale=360:-2", str(tmp / "%03d.png")],
                    check=True)
     imgs = [np.asarray(Image.open(p).convert("L"), dtype=float)

@@ -43,12 +43,15 @@ import imageio_ffmpeg  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 FF = imageio_ffmpeg.get_ffmpeg_exe()
-FPS_OUT = 18.0
-PANEL_H = 640
-GAP = 6
+# v2 (2026-08-07 belle "엉망진창" 반려 → 저더 실측 후): 18fps/640h 는 기준 패널
+# 가다-서다 저더 + 저화질을 만들었다. 30fps + 1080h + 등속 ref 매핑으로 교정.
+FPS_OUT = 30.0
+PANEL_H = 1080
+GAP = 8
 BRAND = (255, 75, 51)  # #FF4B33
 KP_CONF_MIN = 0.5
 FREEZE_TAIL_S = 0.4
+FADE_S = 0.17  # 정지 진입/복귀 시 기준 패널 크로스페이드(순간이동 완화)
 FONT_PATH = BACKEND.parent / "app" / "assets" / "fonts" / "Pretendard-SemiBold.ttf"
 
 
@@ -76,11 +79,11 @@ def video_duration_s(path: Path) -> float:
 
 def extract_frames(video: Path, outdir: Path) -> int:
     outdir.mkdir(parents=True, exist_ok=True)
-    if not any(outdir.glob("*.png")):
+    if not any(outdir.glob("*.jpg")):
         subprocess.run([FF, "-y", "-loglevel", "error", "-i", str(video),
                         "-vf", f"fps={FPS_OUT},scale=-2:{PANEL_H}",
-                        str(outdir / "%05d.png")], check=True)
-    return len(list(outdir.glob("*.png")))
+                        str(outdir / "%05d.jpg")], check=True)
+    return len(list(outdir.glob("*.jpg")))
 
 
 def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[str]:
@@ -109,8 +112,15 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None):
     anch = r["motionAlignment"].get("anchors") or [0.0, 0.0, 1.0, 1.0]
     bu, br = np.array(anch[0::2], dtype=float), np.array(anch[1::2], dtype=float)
 
+    # v2: 재생 트랙은 앵커 곡선 대신 **단일 등속 매핑**(양끝 앵커만). 곡선 워핑은
+    # 18/30fps 리샘플에서 프레임 반복(저더)을 만든다 — 실측 diff 시계열 2.8/0.0 교차.
+    # 국면 정밀 대응은 정지(C 짝)가 담당하고, 재생은 부드러움을 우선한다.
+    u0, u1 = float(bu[0]), float(bu[-1])
+    r0, r1 = float(br[0]), float(br[-1])
+    slope = (r1 - r0) / (u1 - u0) if u1 > u0 else 1.0
+
     def warp_b(t: float) -> float:
-        return float(np.interp(t, bu, br))
+        return r0 + (t - u0) * slope
 
     c_pairs = {fz["criterion"]: float(fz["refVideoSec"])
                for fz in r.get("faultZoomComparisons", [])
@@ -172,22 +182,25 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
     moments = json.load(open(moments_json)) if moments_json else None
     warp_b, freezes = build_timeline(doc, audio_dir, moments)
 
-    udir, rdir, odir = workdir / "u18", workdir / "r18", workdir / "compose"
+    tag = f"{int(FPS_OUT)}_{PANEL_H}"
+    udir, rdir, odir = workdir / f"u{tag}", workdir / f"r{tag}", workdir / f"compose{tag}"
     nu = extract_frames(user_video, udir)
     nr = extract_frames(ref_video, rdir)
     odir.mkdir(parents=True, exist_ok=True)
-    for f in odir.glob("*.png"):
+    for f in odir.glob("*.jpg"):
         f.unlink()
 
     dur_user = video_duration_s(user_video)
 
     def uimg(sec: float) -> Image.Image:
-        return Image.open(udir / f"{max(1, min(nu, round(sec * FPS_OUT) + 1)):05d}.png")
+        return Image.open(udir / f"{max(1, min(nu, round(sec * FPS_OUT) + 1)):05d}.jpg")
 
     def rimg(sec: float) -> Image.Image:
-        return Image.open(rdir / f"{max(1, min(nr, round(sec * FPS_OUT) + 1)):05d}.png")
+        return Image.open(rdir / f"{max(1, min(nr, round(sec * FPS_OUT) + 1)):05d}.jpg")
 
-    font = ImageFont.truetype(str(FONT_PATH), 22)
+    S = PANEL_H / 640.0
+    font = ImageFont.truetype(str(FONT_PATH), round(22 * S))
+    line_h, pad = round(30 * S), round(24 * S)
 
     frames: list[tuple[float, float, dict | None]] = []
     audio_plan: list[tuple[Path, float]] = []  # (mp3, out_sec)
@@ -201,10 +214,25 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
         frames.append((t, warp_b(t), None))
         t += 1 / FPS_OUT
 
+    # 기준 패널 크로스페이드 계획 — 정지 진입/복귀 순간의 순간이동 완화 (v2).
+    n_fade = max(1, int(round(FADE_S * FPS_OUT)))
+    ref_blend: dict[int, tuple[float, float, float]] = {}  # i -> (from_sec, to_sec, alpha)
+    for i in range(1, len(frames)):
+        prev_fz, cur_fz = frames[i - 1][2], frames[i][2]
+        if (prev_fz is None) != (cur_fz is None):
+            frm, to = frames[i - 1][1], frames[i][1]
+            for k2 in range(min(n_fade, len(frames) - i)):
+                ref_blend[i + k2] = (frm, frames[i + k2][1], (k2 + 1) / n_fade)
+
     first = uimg(0)
     W = first.width * 2 + GAP
     for i, (us, rs_, fz) in enumerate(frames):
-        a, b = uimg(us), rimg(rs_)
+        a = uimg(us)
+        if i in ref_blend:
+            frm, to, alpha = ref_blend[i]
+            b = Image.blend(rimg(frm), rimg(to), alpha)
+        else:
+            b = rimg(rs_)
         canvas = Image.new("RGB", (W, PANEL_H), (20, 18, 17))
         canvas.paste(a, (0, 0))
         canvas.paste(b, (a.width + GAP, 0))
@@ -212,19 +240,22 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
             d = ImageDraw.Draw(canvas, "RGBA")
             if fz["marker"] is not None:
                 mx, my = fz["marker"][0] * a.width, fz["marker"][1] * PANEL_H
-                d.ellipse([mx - 13, my - 13, mx + 13, my + 13], outline=BRAND + (255,), width=4)
-                d.ellipse([mx - 4, my - 4, mx + 4, my + 4], fill=BRAND + (255,))
-            lines = wrap_text(d, fz["text"], font, W - 48)[:3]
-            band_h = 18 + 30 * len(lines)
+                r_out, r_in = round(13 * S), round(4 * S)
+                d.ellipse([mx - r_out, my - r_out, mx + r_out, my + r_out],
+                          outline=BRAND + (255,), width=round(4 * S))
+                d.ellipse([mx - r_in, my - r_in, mx + r_in, my + r_in], fill=BRAND + (255,))
+            lines = wrap_text(d, fz["text"], font, W - 2 * pad)[:3]
+            band_h = round(18 * S) + line_h * len(lines)
             d.rectangle([0, PANEL_H - band_h, W, PANEL_H], fill=(15, 13, 12, 216))
             for li, line in enumerate(lines):
-                d.text((24, PANEL_H - band_h + 10 + 30 * li), line, font=font, fill=(255, 255, 255))
-        canvas.save(odir / f"{i + 1:06d}.png")
+                d.text((pad, PANEL_H - band_h + round(10 * S) + line_h * li),
+                       line, font=font, fill=(255, 255, 255))
+        canvas.save(odir / f"{i + 1:06d}.jpg", quality=92)
 
     silent = out.with_suffix(".video.mp4")
     subprocess.run([FF, "-y", "-loglevel", "error", "-framerate", str(FPS_OUT),
-                    "-i", str(odir / "%06d.png"), "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                    "-crf", "21", "-g", "18", str(silent)], check=True)
+                    "-i", str(odir / "%06d.jpg"), "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    "-crf", "20", "-g", str(int(FPS_OUT)), str(silent)], check=True)
 
     if audio_plan:
         cmd = [FF, "-y", "-loglevel", "error", "-i", str(silent)]

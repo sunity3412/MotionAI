@@ -79,13 +79,28 @@ type SlotProps = {
    * (KeypointOverlay.focusKeypoints)를 켠다. 학생(left) 슬롯에만 배선.
    */
   cueRecordId?: string | null;
+  /**
+   * belle 08-07 #4 (quick-260807-fpw) — 재생 중 색 반전 신호. isPlaying=재생 여부,
+   * activeCueRecordId=활성 큐 윈도우의 record (발화 여부 무관). 학생(left) 슬롯에만
+   * 배선 — caller(result.tsx)가 재생 중 기본 관절 점 흰색 + 활성 큐 부위만 빨강
+   * 분기를 탄다. 미전달(right 슬롯)이면 opts 에 undefined 로 흘러 분기 미발동.
+   */
+  isPlaying?: boolean;
+  activeCueRecordId?: string | null;
 };
 
 // quick-260702-t0v — overlay render prop 단일 타입 (VideoCompareProps + SlotProps 공유).
 // 33-13 — opts.voiceCueRecordId 확장 (음성 큐 부위 강조 — 학생 측 소비).
+// belle 08-07 #4 (quick-260807-fpw) — opts.isPlaying/activeCueRecordId 확장
+// (재생 중 색 반전 — 학생 측 소비).
 type OverlayRenderProp = (
   player: VideoPlayer | null,
-  opts?: { sizeScale?: number; voiceCueRecordId?: string | null },
+  opts?: {
+    sizeScale?: number;
+    voiceCueRecordId?: string | null;
+    isPlaying?: boolean;
+    activeCueRecordId?: string | null;
+  },
 ) => React.ReactNode;
 
 function fmtTime(s: number): string {
@@ -112,7 +127,16 @@ function fmtOffsetLabel(sec: number): string {
   return `${sign}${Math.abs(rounded).toFixed(1)}초`;
 }
 
-function VideoSlot({ label, url, player, overlay, busyLabel, cueRecordId }: SlotProps) {
+function VideoSlot({
+  label,
+  url,
+  player,
+  overlay,
+  busyLabel,
+  cueRecordId,
+  isPlaying,
+  activeCueRecordId,
+}: SlotProps) {
   return (
     <View style={styles.slot}>
       <View style={styles.slotFrame}>
@@ -128,7 +152,13 @@ function VideoSlot({ label, url, player, overlay, busyLabel, cueRecordId }: Slot
             />
             {overlay && (
               <View style={styles.overlayContainer} pointerEvents="box-none">
-                {overlay(player, { voiceCueRecordId: cueRecordId ?? null })}
+                {overlay(player, {
+                  voiceCueRecordId: cueRecordId ?? null,
+                  // belle 08-07 #4 — 재생 중 색 반전 신호 passthrough (미전달
+                  // 슬롯은 undefined 그대로 → caller 분기 미발동).
+                  isPlaying,
+                  activeCueRecordId: activeCueRecordId ?? null,
+                })}
               </View>
             )}
             {/* 32-08 (실기기 피드백 #2) — 오프셋 적용 로딩 표시. 영상 위 중앙 pill. */}
@@ -589,6 +619,16 @@ export function VideoCompare({
   // 사용자가 되감아 재진입하면 다시 발화 (기존 replay 의미 보존).
   const chainSpokenRef = useRef<Set<string>>(new Set());
 
+  // belle 08-07 #4 (quick-260807-fpw) — 활성 큐 윈도우의 recordId. 발화 여부와
+  // 무관한 **윈도우 도메인** 신호다 (voiceCueRecordId 는 발화 중에만 non-null) —
+  // 오디오 OFF 자막-만 재생에서도 성립해, 재생 중 색 반전(활성 큐 부위만 빨강)의
+  // 대상 record 를 overlay opts 로 caller 에 전달한다. ref 비교로 변경 시에만
+  // setState (렌더 churn 0).
+  const [activeCueWindowRecordId, setActiveCueWindowRecordId] = useState<
+    string | null
+  >(null);
+  const activeCueWindowRecordIdRef = useRef<string | null>(null);
+
   // 오디오 큐 목록 (cueWindow → cue 객체). cueId=recordId 로 Polly mp3 조인.
   const audioCues = useMemo(
     () =>
@@ -709,6 +749,14 @@ export function VideoCompare({
       // 도메인. 자막 text 가 바뀔 때만 setState(변경 없으면 렌더 churn 0). cueWindows
       // 미전달 시 cueWindowsRef=EMPTY → activeCue null → 자막 미렌더(기존 소비처 diff 0).
       const cue = activeCue(cueWindowsRef.current, cL);
+      // belle 08-07 #4 — 활성 윈도우 추적은 발화·멈춤 여부와 무관하게 **항상**
+      // 수행한다 (아래 voicePause 게이트 바깥 — 오디오 OFF 자막-만 재생에서도
+      // 재생 중 색 반전이 성립해야 한다).
+      const cueWindowRecordId = cue?.recordId ?? null;
+      if (cueWindowRecordId !== activeCueWindowRecordIdRef.current) {
+        activeCueWindowRecordIdRef.current = cueWindowRecordId;
+        setActiveCueWindowRecordId(cueWindowRecordId);
+      }
       // belle 08-07 #3 — 윈도우 군집을 완전히 벗어나면 체인 발화 이력을 비운다
       // (되감기 재진입 시 다시 발화하는 기존 replay 의미 보존).
       if (cue === null && chainSpokenRef.current.size > 0) {
@@ -1614,6 +1662,10 @@ export function VideoCompare({
     player: VideoPlayer | null,
     overlay?: OverlayRenderProp,
     cueRecordId?: string | null,
+    // belle 08-07 #4 (quick-260807-fpw) — 재생 중 색 반전 신호 (학생 슬롯 호출만
+    // 전달 — right 는 undefined 로 분기 미발동, VideoSlot 관례 동일).
+    slotIsPlaying?: boolean,
+    slotActiveCueRecordId?: string | null,
   ) => {
     const zoomW = Math.round(fsBoxW * FULLSCREEN_ZOOM);
     const zoomH = Math.round(fsBoxH * FULLSCREEN_ZOOM);
@@ -1640,6 +1692,8 @@ export function VideoCompare({
               {overlay?.(player, {
                 sizeScale: FULLSCREEN_OVERLAY_SCALE,
                 voiceCueRecordId: cueRecordId ?? null,
+                isPlaying: slotIsPlaying,
+                activeCueRecordId: slotActiveCueRecordId ?? null,
               })}
             </View>
           </View>
@@ -1707,6 +1761,10 @@ export function VideoCompare({
           overlay={leftOverlay}
           // 33-13 (A-6) — 음성 큐 부위 강조는 학생(left) 측만 (record = 학생 결함).
           cueRecordId={voiceCueRecordId}
+          // belle 08-07 #4 (quick-260807-fpw) — 재생 중 색 반전 신호도 학생 측만
+          // (33-13 음성 큐 강조 관례 승계 — right 슬롯 미전달).
+          isPlaying={playing}
+          activeCueRecordId={activeCueWindowRecordId}
         />
         <VideoSlot
           label={rightLabel}
@@ -1999,6 +2057,10 @@ export function VideoCompare({
                     leftOverlay,
                     // 33-13 — 전체화면에서도 음성 큐 부위 강조 유지 (학생 측).
                     voiceCueRecordId,
+                    // belle 08-07 #4 — 전체화면 뷰어도 동일 색 반전 분기 (같은
+                    // render prop 재사용이라 자동, 학생 측만).
+                    playing,
+                    activeCueWindowRecordId,
                   )}
                 {hasRight &&
                   renderFullscreenSlot(

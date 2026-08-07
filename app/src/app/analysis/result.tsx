@@ -1872,10 +1872,15 @@ function AnalysisResultContent({
   // 33-13 (A-6, D-13 대표 UX) — 음성 큐 recordId → 강조 부위 투영. cue 는
   // records 에서 태어나므로(cueWindows 조립) 항상 짝이 있다 — 못 찾으면 빈 배열
   // = 강조 0 (D-18 고아 가드). 투영 규칙 = projectDeductionRecordKeypoints 단일
-  // 출처 (마커·크롭과 동일 부위 — 규칙 사본 0). IN-01 역립 저신뢰 시 부위 단정
-  // 강조 억제(빈 배열).
+  // 출처 (마커·크롭과 동일 부위 — 규칙 사본 0).
+  //
+  // belle 08-07 #4 (quick-260807-fpw) — IN-01 저신뢰 조기 반환(`attributionUnreliable
+  // → []`) 제거. 이 함수의 소비처는 음성/큐 표면 2곳뿐(음성 중 강조 + 재생 중 큐
+  // 빨간 점)이고, 음성이 이미 그 관절명을 발화하므로 음성 표면에는 부위 표시를
+  // 허용한다. 정지 상태 마커 억제(overlayHighlightKeypoints/overlayMarkerNumbers/
+  // overlayGroupMarkers/estimatedArea 강등)는 별도 파생이라 그대로 유지 — IN-01
+  // 승인 설계의 정지 표면은 무접촉.
   const focusKeypointsForRecordId = (recordId: string): KeypointName[] => {
-    if (attributionUnreliable) return [];
     const rec = records.find((r) => r.recordId === recordId);
     if (!rec) return [];
     return projectDeductionRecordKeypoints(rec, vetoFaultJoints);
@@ -2520,69 +2525,113 @@ function AnalysisResultContent({
                     undefined
                   : freshPrevUrl || prevDoc?.result?.myVideoUrl || undefined
               }
-              leftOverlay={(player, opts) => (
-                <KeypointOverlay
-                  player={player}
-                  keypointReport={userKeypointReport}
-                  videoSize={overlayVideoSize}
-                  // 33-13 (A-6, D-13) — 이 레이어 자체는 상시(visible): 음성 큐
-                  // dim/강조가 여기 얹힌다. 추적 스켈레톤은 토글(기본 숨김).
-                  visible={true}
-                  skeletonVisible={overlayVisible}
-                  // 33-G F-8 (quick-260730-szk, D-42) — 감점 마커 계층은 상시가
-                  // 아니다: 스켈레톤 토글 ON 또는 음성 큐 강조 중에만. 상시 진입점
-                  // 은 아래 부위 칩이 대체한다. `focusKeypoints`(강조)·dim 은 이
-                  // 게이트와 무관 — D-42 가 음성 큐 강조는 유지하라고 명시했다.
-                  markersVisible={
-                    overlayVisible || opts?.voiceCueRecordId != null
-                  }
-                  // 33-13 — record 보유 doc 은 각도편차(>20°) 폴백 강조 차단
-                  // (record 와 짝 없는 고아 빨강 마커 금지, D-18). jointAngles 는
-                  // 폴백 강조 산출 전용이라 미전달로 충분. legacy 는 기존 유지.
-                  jointAngles={hasBreakdownRecords ? undefined : userJointAngles}
-                  // #3 (2026-06-21) — 결함 keypoint 권위 강조. quick-260704-fz4:
-                  // 소스를 vetoFaultJoints 단독 → confirmedKeypoints(감점 근거
-                  // records ∪ vetoFaultJoints) 단일 조립으로 확장 — 표·마커·카드
-                  // 가 같은 "빨강=확정 감점" 소스를 쓴다. 비면 기존 각도편차
-                  // 폴백 (무회귀).
-                  // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 확정 빨강 점 제거
-                  // (overlayHighlightKeypoints=[]) + 예상 주황 점 최대 1개로 강등.
-                  highlightKeypoints={overlayHighlightKeypoints}
-                  // quick-260704-fz4 — 측정 초과·확인 권장(주황, 감점 아님) 마커.
-                  // 표·확대 카드와 동일 단일 소스(attentionKeypoints memo).
-                  // IN-01 — 역립 저신뢰 시 estimatedAreaKeypoints(최대 1개)로 치환.
-                  attentionKeypoints={overlayAttentionKeypoints}
-                  // quick-260705-r6v — 스플릿(다리 4관절) 그룹 마커: 멤버 centroid
-                  // 1점 + 번호. 영상 위 텍스트 pill 은 전면 제거(여백 범례/시트로
-                  // 이동). 사용자 측만 전달 (정은지 측 무변경).
-                  // IN-01 — 역립 저신뢰 시 빈 배열(번호 단정 제거).
-                  groupMarkers={overlayGroupMarkers}
-                  // quick-260705-o0s — 감점 record 관절 번호 점 ('점수 계산 내역'
-                  // 행 번호와 buildDeductionMarkers 단일 소스 — 항상 일치).
-                  // IN-01 — 역립 저신뢰 시 빈 객체(번호 단정 제거).
-                  markerNumbers={overlayMarkerNumbers}
-                  // quick-260705-r6v — 번호 점 탭 → 드릴다운 시트 (진입점 3).
-                  // 전체화면(opts.sizeScale 존재)에선 시트가 중첩 Modal 이 되므로
-                  // 콜백 미전달 — 전체화면 점 탭은 여백 범례가 대체(iOS 함정 회피).
-                  onMarkerPress={opts?.sizeScale ? undefined : openRecordByNumber}
-                  // Phase 20 (UI ②) — faultJoints 가 없을 때(매핑 0/legacy)만 폴백:
-                  // 임계(20°) 넘는 관절이 없으면 편차 최대 2개 강제 강조 (마커 0개 모순 제거).
-                  // 정타 영상은 0 → 오탐 0.
-                  // IN-01 — 역립 저신뢰 시 0 (강제 강조 폴백 억제).
-                  forceHighlightWorstCount={overlayForceHighlightWorstCount}
-                  // quick-260702-t0v — 가로 전체화면 뷰어가 opts.sizeScale=2.0 전달
-                  // (각도 라벨 가독). 세로 카드는 opts 미전달 → 1 (무회귀).
-                  sizeScale={opts?.sizeScale ?? 1}
-                  // 33-13 (A-6, D-13 대표 UX) — 음성 큐 동안 해당 record 부위
-                  // 강조 (VideoCompare 가 발화 recordId 를 opts 로 전달). 짝
-                  // 없으면 빈 배열 = 강조 0 (고아 가드).
-                  focusKeypoints={
-                    opts?.voiceCueRecordId
-                      ? focusKeypointsForRecordId(opts.voiceCueRecordId)
-                      : undefined
-                  }
-                />
-              )}
+              leftOverlay={(player, opts) => {
+                // belle 08-07 #4 (quick-260807-fpw) — 재생 중 색 반전 분기. 재생
+                // 중에는 기본 관절 점 흰색(토글 ON 시 스켈레톤), 활성 음성 큐의
+                // 해당 record 투영 부위만 빨강(brand — 기존 isHi 렌더 재사용,
+                // 신규 색상 리터럴 0). 번호/그룹/주황/폴백은 재생 중 억제 —
+                // 정지·음성 멈춤 상태는 아래 기존 overlay* 파생값 그대로 (승인
+                // 설계 byte 보존). activeCueRecordId 는 발화 여부 무관 윈도우
+                // 신호라 오디오 OFF 자막-만 재생에서도 성립.
+                const playingInversion = opts?.isPlaying === true;
+                const playingCueKeypoints =
+                  playingInversion && opts?.activeCueRecordId
+                    ? focusKeypointsForRecordId(opts.activeCueRecordId)
+                    : null;
+                return (
+                  <KeypointOverlay
+                    player={player}
+                    keypointReport={userKeypointReport}
+                    videoSize={overlayVideoSize}
+                    // 33-13 (A-6, D-13) — 이 레이어 자체는 상시(visible): 음성 큐
+                    // dim/강조가 여기 얹힌다. 추적 스켈레톤은 토글(기본 숨김).
+                    visible={true}
+                    skeletonVisible={overlayVisible}
+                    // 33-G F-8 (quick-260730-szk, D-42) — 감점 마커 계층은 상시가
+                    // 아니다: 스켈레톤 토글 ON 또는 음성 큐 강조 중에만. 상시 진입점
+                    // 은 아래 부위 칩이 대체한다. `focusKeypoints`(강조)·dim 은 이
+                    // 게이트와 무관 — D-42 가 음성 큐 강조는 유지하라고 명시했다.
+                    // belle 08-07 #4 — 재생 중 활성 큐가 있으면 토글 OFF 여도 게이트
+                    // 를 연다 (큐 부위 빨간 점 — 그 외엔 D-42 기본 숨김 유지).
+                    markersVisible={
+                      overlayVisible ||
+                      opts?.voiceCueRecordId != null ||
+                      (opts?.isPlaying === true &&
+                        opts?.activeCueRecordId != null)
+                    }
+                    // 33-13 — record 보유 doc 은 각도편차(>20°) 폴백 강조 차단
+                    // (record 와 짝 없는 고아 빨강 마커 금지, D-18). jointAngles 는
+                    // 폴백 강조 산출 전용이라 미전달로 충분. legacy 는 기존 유지.
+                    // belle 08-07 #4 — 재생 중에는 legacy 편차 폴백 빨강도 억제
+                    // (규칙 일관: 재생 중 빨강 = 활성 큐 부위뿐).
+                    jointAngles={
+                      playingInversion
+                        ? undefined
+                        : hasBreakdownRecords
+                          ? undefined
+                          : userJointAngles
+                    }
+                    // #3 (2026-06-21) — 결함 keypoint 권위 강조. quick-260704-fz4:
+                    // 소스를 vetoFaultJoints 단독 → confirmedKeypoints(감점 근거
+                    // records ∪ vetoFaultJoints) 단일 조립으로 확장 — 표·마커·카드
+                    // 가 같은 "빨강=확정 감점" 소스를 쓴다. 비면 기존 각도편차
+                    // 폴백 (무회귀).
+                    // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 확정 빨강 점 제거
+                    // (overlayHighlightKeypoints=[]) + 예상 주황 점 최대 1개로 강등.
+                    // belle 08-07 #4 — 재생 중엔 활성 큐 record 투영 부위만 빨강.
+                    highlightKeypoints={
+                      playingInversion
+                        ? (playingCueKeypoints ?? [])
+                        : overlayHighlightKeypoints
+                    }
+                    // quick-260704-fz4 — 측정 초과·확인 권장(주황, 감점 아님) 마커.
+                    // 표·확대 카드와 동일 단일 소스(attentionKeypoints memo).
+                    // IN-01 — 역립 저신뢰 시 estimatedAreaKeypoints(최대 1개)로 치환.
+                    // belle 08-07 #4 — 재생 중 주황 억제 (지금 말하는 부위만).
+                    attentionKeypoints={
+                      playingInversion ? [] : overlayAttentionKeypoints
+                    }
+                    // quick-260705-r6v — 스플릿(다리 4관절) 그룹 마커: 멤버 centroid
+                    // 1점 + 번호. 영상 위 텍스트 pill 은 전면 제거(여백 범례/시트로
+                    // 이동). 사용자 측만 전달 (정은지 측 무변경).
+                    // IN-01 — 역립 저신뢰 시 빈 배열(번호 단정 제거).
+                    // belle 08-07 #4 — 재생 중 그룹 경계 억제 (정지 상태 전용).
+                    groupMarkers={playingInversion ? [] : overlayGroupMarkers}
+                    // quick-260705-o0s — 감점 record 관절 번호 점 ('점수 계산 내역'
+                    // 행 번호와 buildDeductionMarkers 단일 소스 — 항상 일치).
+                    // IN-01 — 역립 저신뢰 시 빈 객체(번호 단정 제거).
+                    // belle 08-07 #4 — 재생 중 번호 억제 (정지 상태 전용).
+                    markerNumbers={playingInversion ? {} : overlayMarkerNumbers}
+                    // quick-260705-r6v — 번호 점 탭 → 드릴다운 시트 (진입점 3).
+                    // 전체화면(opts.sizeScale 존재)에선 시트가 중첩 Modal 이 되므로
+                    // 콜백 미전달 — 전체화면 점 탭은 여백 범례가 대체(iOS 함정 회피).
+                    onMarkerPress={
+                      opts?.sizeScale ? undefined : openRecordByNumber
+                    }
+                    // Phase 20 (UI ②) — faultJoints 가 없을 때(매핑 0/legacy)만 폴백:
+                    // 임계(20°) 넘는 관절이 없으면 편차 최대 2개 강제 강조 (마커 0개 모순 제거).
+                    // 정타 영상은 0 → 오탐 0.
+                    // IN-01 — 역립 저신뢰 시 0 (강제 강조 폴백 억제).
+                    // belle 08-07 #4 — 재생 중 0 (강제 강조도 큐 부위 규칙 밖).
+                    forceHighlightWorstCount={
+                      playingInversion ? 0 : overlayForceHighlightWorstCount
+                    }
+                    // quick-260702-t0v — 가로 전체화면 뷰어가 opts.sizeScale=2.0 전달
+                    // (각도 라벨 가독). 세로 카드는 opts 미전달 → 1 (무회귀).
+                    sizeScale={opts?.sizeScale ?? 1}
+                    // 33-13 (A-6, D-13 대표 UX) — 음성 큐 동안 해당 record 부위
+                    // 강조 (VideoCompare 가 발화 recordId 를 opts 로 전달). 짝
+                    // 없으면 빈 배열 = 강조 0 (고아 가드). voiceCueRecordId 는
+                    // 음성 멈춤/발화 중에만 non-null → 재생 중 dim·펄스 미발동
+                    // 자동 보장 (belle 08-07 #4 — prop 무변경).
+                    focusKeypoints={
+                      opts?.voiceCueRecordId
+                        ? focusKeypointsForRecordId(opts.voiceCueRecordId)
+                        : undefined
+                    }
+                  />
+                );
+              }}
               rightOverlay={(player, opts) =>
                 cmp.mode === 'mode1' ? (
                   <KeypointOverlay

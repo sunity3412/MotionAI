@@ -178,3 +178,34 @@ export function nextChainedCue(
   }
   return best;
 }
+
+/**
+ * belle 08-07 밤 ① (quick-260807-m63) — 스크럽 릴리스 지점에 **이미 열려 있는**
+ * 윈도우의 recordId 집합. 릴리스 핸들러가 이 결과로 발화 이력(chainSpokenRef)을
+ * 교체해, 열린 윈도우 = "통과한 것" 취급(즉시 발화 0 — 이력은 speak 만 차단하고
+ * 자막 갱신은 유지하는 기존 관례) + 그 외 이력 전부 소거(스크럽으로 되감았으면
+ * 릴리스 지점 이전 큐들은 재생 재통과 시 정상 발화 — replay 의미 보존).
+ *
+ * activeCue(겹침 시 승자 1개)와 달리 currentSec 을 포함하는 **모든** 윈도우를
+ * 수집한다 — 겹침 구간(파워스핀 형상)에 릴리스했을 때 승자 하나만 마킹하면
+ * 나머지 겹침 윈도우가 진행 중 전환·체인에서 발화한다. 릴리스 이후 "새로 진입"
+ * 한 윈도우만 발화한다는 원칙.
+ *
+ * 구간은 반개구간 [startSec, endSec). recordId 없는 윈도우(고아 큐)는 스킵.
+ * 무효 입력 방어: 비유한 currentSec·windows 부재/빈 배열 → [] (크래시 0,
+ * activeCue 방어 관례). 반환 순서는 입력 순 (Set 시드 용도 — 결정성 유지).
+ */
+export function openCueRecordIds(
+  windows: readonly CueWindow[] | null | undefined,
+  currentSec: number,
+): string[] {
+  if (!Array.isArray(windows) || windows.length === 0) return [];
+  if (!Number.isFinite(currentSec)) return [];
+  const ids: string[] = [];
+  for (const w of windows) {
+    if (!w) continue;
+    if (w.recordId == null) continue;
+    if (currentSec >= w.startSec && currentSec < w.endSec) ids.push(w.recordId);
+  }
+  return ids;
+}

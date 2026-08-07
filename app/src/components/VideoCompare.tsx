@@ -40,6 +40,7 @@ import {
   activeCue,
   CUE_CHAIN_HORIZON_SEC,
   nextChainedCue,
+  openCueRecordIds,
   type CueWindow,
 } from '../lib/cueTrack';
 import {
@@ -859,7 +860,14 @@ export function VideoCompare({
       // 건너뛴다. 체인 발화 때 자막을 다음 큐로 바꿔도 멈춘 cL 의 activeCue 는 이전
       // 큐일 수 있어, 이 블록이 돌면 text 역전·재발화가 난다 — 멈춤 중 자막은 체인
       // 핸들러(아래 음성 종료 분기)가 소유한다.
-      if (!voicePauseRef.current) {
+      // belle 08-07 밤 ① (quick-260807-m63) — 스크럽 중에는 큐 진입 판정·발화를
+      // 완전 정지한다. 드래그로 플레이헤드가 윈도우들을 훑을 때 seekBoth 가
+      // voicePauseRef 를 매 move 풀어 이 블록이 계속 돌며 통과 윈도우마다 자막
+      // 전환→발화하던 경로 차단 ("바를 끌면 지나가는 포인트에서 음성이 한꺼번에").
+      // 아래 재개 판정의 기존 scrub 게이트("판정 보류")와 대칭 — 스크럽 중 발화
+      // site 0. 위 activeCueWindowRecordId 추적(표시 전용, "항상" 주석)은 게이트
+      // 밖 유지.
+      if (!voicePauseRef.current && !scrubbingRef.current) {
         const nextCueText = cue ? cue.text : null;
         if (nextCueText !== activeCueTextRef.current) {
           activeCueTextRef.current = nextCueText;
@@ -1495,8 +1503,21 @@ export function VideoCompare({
   );
 
   const panResponder = useMemo(
-    () =>
-      PanResponder.create({
+    () => {
+      // belle 08-07 밤 ① (quick-260807-m63) — 릴리스 시 발화 이력(chainSpokenRef)을
+      // 릴리스 지점에 열려 있는 윈도우 집합으로 **교체**한다:
+      //   (1) 열린 윈도우 = 통과 취급 → 릴리스 직후 첫 tick 이 자막만 갱신하고
+      //       발화하지 않음 (이력은 speak 만 차단 — 재발화 함정 b 관례).
+      //   (2) 교체 = 그 외 이력 전부 소거 → 스크럽으로 되감았으면 릴리스 지점
+      //       이전 큐들이 재생 재통과 시 정상 발화 (k70 발화 이력 리셋 관례 —
+      //       replay 의미 보존).
+      // 릴리스 시각 소스는 tick 의 cL 과 동일한 leftPlayer.currentTime.
+      const seedSpokenAtRelease = () => {
+        chainSpokenRef.current = new Set(
+          openCueRecordIds(cueWindowsRef.current, leftPlayer?.currentTime ?? 0),
+        );
+      };
+      return PanResponder.create({
         onStartShouldSetPanResponder: () => hasAny,
         onMoveShouldSetPanResponder: () => hasAny,
         onPanResponderGrant: (e) => {
@@ -1513,6 +1534,7 @@ export function VideoCompare({
           scrubAtX(e.nativeEvent.locationX);
         },
         onPanResponderRelease: () => {
+          seedSpokenAtRelease();
           scrubbingRef.current = false;
           if (wasPlayingBeforeScrubRef.current) {
             // seek 적용 후 play — 빠른 release 시 seek 미반영 stall 방지.
@@ -1524,9 +1546,11 @@ export function VideoCompare({
           }
         },
         onPanResponderTerminate: () => {
+          seedSpokenAtRelease();
           scrubbingRef.current = false;
         },
-      }),
+      });
+    },
     [hasAny, leftPlayer, playing, rightPlayer, scrubAtX],
   );
 

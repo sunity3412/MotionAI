@@ -5,7 +5,7 @@
 // 등 **신규 npm 의존성 0** (belle: 1,120개 의존성 이유로 테스트 러너 승인 철회,
 // manualOffset.test.ts 선례). node:test / node:assert 표준 모듈 + `.ts` import 만.
 //
-// 검증 축 5개 (D-18 자막 큐 + D-17 확정 밀도 + belle 08-07 #3 체이닝):
+// 검증 축 6개 (D-18 자막 큐 + D-17 확정 밀도 + belle 08-07 #3 체이닝 + 08-07 밤 ① 스크럽):
 //   1) buildCueWindows — startSec = userFrameIdx/userFps − windowSec/2 (0 클램프),
 //      recordId 입력 승계, fps 는 인자로만(9/18 하드코딩 금지).
 //   2) activeCue — 해당 구간 큐 1개 또는 null, 겹침 시 시작 늦은 큐 우선(더 정확).
@@ -13,6 +13,8 @@
 //   4) fps 0/NaN·프레임 인덱스 부재·빈 텍스트 → 빈 배열 (크래시 0).
 //   5) nextChainedCue — 음성 자연 종료 시 +horizon 이내 미발화 큐 체이닝
 //      (quick-260807-fpw, 파워스핀 0.11초 간격 끊김 해소).
+//   6) openCueRecordIds — 스크럽 릴리스 지점에 이미 열려 있는 윈도우 recordId 전부
+//      수집 (quick-260807-m63, 릴리스 발화 이력 시드 — 겹침이면 전부).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,6 +22,7 @@ import {
   buildCueWindows,
   activeCue,
   nextChainedCue,
+  openCueRecordIds,
   CUE_CHAIN_HORIZON_SEC,
 } from '../cueTrack.ts';
 
@@ -232,4 +235,44 @@ test('nextChainedCue: 비유한 currentSec/빈 windows → null (크래시 0)', 
   assert.equal(nextChainedCue(null, 5.0, new Set(), 1.0), null);
   assert.equal(nextChainedCue(undefined, 5.0, new Set(), 1.0), null);
   assert.equal(nextChainedCue(windows, 5.0, new Set(), NaN), null);
+});
+
+// ── Test 6: openCueRecordIds (belle 08-07 밤 ① — 스크럽 릴리스 이력 시드) ─────
+
+test('openCueRecordIds: 릴리스 지점에 열린 윈도우 전부 수집 — 겹침이면 둘 다 (승자 1개 아님)', () => {
+  // 파워스핀 겹침 형상: [4.2,5.8) r1 + [4.31,5.91) r2. currentSec 5.0 은 둘 다 열림.
+  // activeCue 는 시작 늦은 r2 하나만 반환하지만 릴리스 시드는 전부여야 한다 —
+  // 하나만 넣으면 나머지 겹침 윈도우가 진행 중 전환·체인에서 발화한다.
+  const windows = [
+    { startSec: 4.2, endSec: 5.8, text: '큐1', recordId: 'r1' },
+    { startSec: 4.31, endSec: 5.91, text: '큐2', recordId: 'r2' },
+  ];
+  assert.deepEqual(openCueRecordIds(windows, 5.0), ['r1', 'r2']); // 입력 순 (결정성)
+  // 단독 구간: r1 은 닫히고 r2 만 열린 시각.
+  assert.deepEqual(openCueRecordIds(windows, 5.85), ['r2']);
+});
+
+test('openCueRecordIds: 반개구간 [startSec, endSec) — 시작 포함, 종료 제외', () => {
+  const windows = [{ startSec: 4.2, endSec: 5.8, text: '큐', recordId: 'r1' }];
+  assert.deepEqual(openCueRecordIds(windows, 4.2), ['r1']); // currentSec == startSec 포함
+  assert.deepEqual(openCueRecordIds(windows, 5.8), []); // currentSec == endSec 제외
+});
+
+test('openCueRecordIds: recordId 없는 고아 윈도우 스킵 + 윈도우 사이 공백 시각 → []', () => {
+  const windows = [
+    { startSec: 1.0, endSec: 2.0, text: '고아 큐' }, // recordId 부재 — 시드 불가
+    { startSec: 3.0, endSec: 4.0, text: '정상 큐', recordId: 'r2' },
+  ];
+  assert.deepEqual(openCueRecordIds(windows, 1.5), []); // 고아만 열림 → 스킵
+  assert.deepEqual(openCueRecordIds(windows, 2.5), []); // 윈도우 사이 공백
+  assert.deepEqual(openCueRecordIds(windows, 3.5), ['r2']);
+});
+
+test('openCueRecordIds: 비유한 currentSec·windows 부재/빈 배열 → [] (크래시 0)', () => {
+  const windows = [{ startSec: 4.2, endSec: 5.8, text: '큐', recordId: 'r1' }];
+  assert.deepEqual(openCueRecordIds(windows, NaN), []);
+  assert.deepEqual(openCueRecordIds(windows, Infinity), []);
+  assert.deepEqual(openCueRecordIds([], 5.0), []);
+  assert.deepEqual(openCueRecordIds(null, 5.0), []);
+  assert.deepEqual(openCueRecordIds(undefined, 5.0), []);
 });

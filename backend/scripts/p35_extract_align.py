@@ -39,6 +39,8 @@ JOBS: dict[str, tuple[str, str]] = {
     "kipup": ("fixtures/phase15/kip-up/fault.mp4", "reference/ref-kip-up.mp4"),
     "realupload": ("uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/071df9f894d64d1696f106e613f51f5c.mp4",
                    "reference/ref-power-spin.mp4"),
+    "pdshapefault": ("uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/pdshapefault1785373695.mp4",
+                     "reference/ref-pdshape.mp4"),
 }
 
 FPS = 15.0
@@ -213,8 +215,17 @@ def process(motion: str, workdir: Path, model) -> None:
         ui = int(np.clip(round(float(ut) * FPS), 0, len(fu) - 1))
         center = int(round(curve[ui]))
         lo, hi = max(0, center - int(2 * FPS)), min(len(fr), center + int(2 * FPS) + 1)
-        ri = lo + int(np.argmin(D[ui, lo:hi]))
         joint = rec["criterion"].split("__")[-1]
+        # 짝 선정: 자세거리 최소 근방(<= min*1.15) 후보 중 **해당 관절이 잘 보이는**
+        # ref 프레임 우선 (belle 엘보 ④ "정은지 팔이 좀 더 잘 보이면").
+        window = D[ui, lo:hi]
+        dmin = float(window.min())
+        cand = np.where(window <= dmin * 1.15 + 1e-9)[0]
+        if joint in J17 and len(cand) > 1:
+            ji = J17.index(joint)
+            ri = lo + int(cand[np.argmax(rsc[lo + cand, ji])])
+        else:
+            ri = lo + int(np.argmin(window))
         marker = None
         if joint in J17:
             ji = J17.index(joint)
@@ -241,6 +252,8 @@ def process(motion: str, workdir: Path, model) -> None:
         "pairs": pairs,
         "userKp": np.round(ukn, 4).reshape(len(fu), -1).tolist(),
         "userScore": np.round(usc, 3).tolist(),
+        "refKp": np.round(rkn, 4).reshape(len(fr), -1).tolist(),
+        "refScore": np.round(rsc, 3).tolist(),
         "joints17": J17,
     }
     json.dump(out, open(mdir / "align.json", "w"))

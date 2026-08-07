@@ -35,6 +35,7 @@ import {
   RESUME_WATCH_TICKS,
 } from '../lib/playbackInvariant';
 import { shouldCorrectDrift } from '../lib/driftHysteresis';
+import { decideReplaySettle } from '../lib/replaySettle';
 import {
   activeCue,
   CUE_CHAIN_HORIZON_SEC,
@@ -474,6 +475,16 @@ export function VideoCompare({
   // (epoch ms, 0 = 아직 없음 → 첫 보정 즉시). follow/legacy 는 한 tick 에 하나만
   // 돌므로 공유 1개.
   const lastDriftSeekAtRef = useRef(0);
+
+  // quick-260807-k70 (BELLE-0807-10) — 재재생 직후 stale 종료판정 유예 (settle
+  // 가드). null = 비무장, 0.. = 무장 후 경과 tick. togglePlay isAtEnd/restart 의
+  // 양쪽 seek(0) 직후 0 으로 무장 → tick 이 seek 적용 관측('settled') 또는 2s
+  // 상한('expired')까지 종료판정의 pause 실행만 건너뛴다. 근거·상한 산정은
+  // lib/replaySettle.ts 헤더 (REPLAY_SEEK_DELAY_MS 200ms 는 경험 상수 — 60→200
+  // 상향 이력이 seek 적용 지연 실재의 선행 증거이고, 적용이 늦으면 stale
+  // current(=end)로 either-own-end 가 참이 되어 방금 재개한 재생을 즉시
+  // 재-pause 한다). 해제 = 사용자 제스처(pause/seekBoth — 새 의도).
+  const replaySettleTicksRef = useRef<number | null>(null);
 
   // Phase 12 후속 B — scrub 중일 때 drift correction 우회. PanResponder 가
   // 양쪽 currentTime 을 동일 값으로 setter — 다음 tick 의 drift 가 임계
@@ -1161,6 +1172,31 @@ export function VideoCompare({
         }
       }
 
+      // quick-260807-k70 (BELLE-0807-10) — 재재생 settle 가드. 무장 중이면 순수
+      // 판정(lib/replaySettle)이 stale 종료 위치 여부를 보고, hold 면 아래
+      // 종료판정의 pause 실행만 건너뛴다 (판정식 계산은 그대로 — 가드 비무장 시
+      // replaySettleHold=false 라 기존과 동일 경로). settled/expired 면 무장을
+      // 풀고 그 tick 부터 정상 종료판정 복원. drift 보정·불변식·큐 블록은
+      // 무접촉 (종료판정 하나만 유예 — 최소 개입).
+      let replaySettleHold = false;
+      if (replaySettleTicksRef.current !== null) {
+        const settle = decideReplaySettle({
+          ticksElapsed: replaySettleTicksRef.current,
+          hasLeft,
+          hasRight,
+          cL,
+          cR,
+          dL,
+          dR,
+        });
+        if (settle === 'hold') {
+          replaySettleTicksRef.current += 1;
+          replaySettleHold = true;
+        } else {
+          replaySettleTicksRef.current = null;
+        }
+      }
+
       // UAT 4차 Finding 2 — 짧은 쪽 끝났는데 다른 쪽이 계속 가는 상황 방지.
       //   이전 (Build 14): OR (`cL >= shorter || cR >= shorter`) — 빠른 쪽이
       //   먼저 도달하면 양쪽 pause → 느린 쪽은 실 native duration 못 채운 채
@@ -1183,7 +1219,9 @@ export function VideoCompare({
       const shouldPauseAtEnd = followTick
         ? eitherReachedOwnEnd
         : minReachedShortEnd || bothReachedOwnEnd;
-      if (shouldPauseAtEnd) {
+      // quick-260807-k70 (BELLE-0807-10) — settle 가드 hold 중엔 pause 실행만
+      // 건너뜀 (stale 종료 위치의 재-pause 차단 — 위 가드 블록 주석 참조).
+      if (shouldPauseAtEnd && !replaySettleHold) {
         leftPlayer?.pause();
         rightPlayer?.pause();
       }
@@ -1240,6 +1278,9 @@ export function VideoCompare({
       resumeWatchTicksRef.current = null;
       // belle 08-07 #2 — 사용자 제스처 = 재개 실패 배지 해제.
       setResumeNotice(false);
+      // quick-260807-k70 (BELLE-0807-10) — 사용자 정지 = settle 가드 해제 (새
+      // 의도 — 유예 잔존 금지).
+      replaySettleTicksRef.current = null;
       setVoiceCueRecordId(null);
     } else {
       // 33-13 — 사용자가 직접 재생 = 음성 멈춤 홀드 해제(자동 재개와 중복 방지).
@@ -1279,6 +1320,21 @@ export function VideoCompare({
         if (leftPlayer) leftPlayer.currentTime = 0;
         // 28-06 — right 는 warp 경유(활성 시 r0 오프셋 반영이 옳음, 비활성=0).
         setRightToStudentTime(0);
+        // quick-260807-k70 (BELLE-0807-10) — 양쪽 seek(0) 직후 3종 무장:
+        //   1) settle 가드 — 200ms 뒤 play 이후에도 seek 미적용 stale 종료
+        //      위치가 남으면 tick 종료판정이 방금 재개한 재생을 즉시 재-pause
+        //      하는 경로 차단 (해제 = seek 적용 관측 또는 2s 상한).
+        //   2) 드리프트 보정 스탬프 — 미정착 버퍼 위 3중 seek pile-up 차단
+        //      (기존 0.8s 히스테리시스 간격 재사용 — 신규 상수 0. 간격 경과 후
+        //      잔존 drift 는 반드시 보정 = 수렴 보장 불변. settle hold 중
+        //      우측이 end 에 붙어 있으면 0.8s 뒤 follow 보정이 목표시각 재-seek
+        //      을 쏘는 것이 회복 지렛대 — 버퍼 안정 후 재-seek, wj3 nudge 계열).
+        //   3) 발화 이력 리셋 — 종료 프레임이 마지막 큐 윈도우 안이면 재재생
+        //      사이에 activeCue null 관측 tick 이 없어 이전 런 이력이 새 런의
+        //      발화를 차단하는 경로 해소 ("되감아 재진입 = 다시 발화" 의도 복원).
+        replaySettleTicksRef.current = 0;
+        lastDriftSeekAtRef.current = Date.now();
+        chainSpokenRef.current.clear();
         // Build 16: seek 적용 시간 확보 후 play (60→200ms — 정은지 S3 buffer reset).
         setTimeout(() => {
           leftPlayer?.play();
@@ -1298,6 +1354,9 @@ export function VideoCompare({
           const slowerTime = Math.min(leftCurrent, rightCurrent);
           setBothAbsoluteTime(slowerTime);
         }
+        // quick-260807-k70 (BELLE-0807-10) — 동기 seek 직후 드리프트 보정 스탬프
+        // 만 (종료 stale 아님 — settle 무장·발화 이력 리셋 불요).
+        lastDriftSeekAtRef.current = Date.now();
         setTimeout(() => {
           leftPlayer.play();
           rightPlayer.play();
@@ -1327,6 +1386,12 @@ export function VideoCompare({
     if (leftPlayer) leftPlayer.currentTime = 0;
     // 28-06 — right 는 warp 경유(활성 시 r0 오프셋 반영, 비활성=0).
     setRightToStudentTime(0);
+    // quick-260807-k70 (BELLE-0807-10) — 재생 중 끝 부근 '처음으로'도 같은 stale
+    // 종료판정 경로라 togglePlay isAtEnd 와 동일 3종 무장 (settle 가드 + 드리프트
+    // 보정 스탬프 + 발화 이력 리셋 — 근거는 isAtEnd 분기 주석).
+    replaySettleTicksRef.current = 0;
+    lastDriftSeekAtRef.current = Date.now();
+    chainSpokenRef.current.clear();
     setLeftCurrent(0);
     setRightCurrent(targetRefTime(0));
   };
@@ -1369,6 +1434,9 @@ export function VideoCompare({
       clearVoiceSnapOnly();
       // 260806-usc — seek 도 제스처 — 관찰창을 닫는다.
       resumeWatchTicksRef.current = null;
+      // quick-260807-k70 (BELLE-0807-10) — seek/scrub 도 제스처 = settle 가드
+      // 해제 (scrub 은 seekBoth 경유라 자동 포함).
+      replaySettleTicksRef.current = null;
       setVoiceCueRecordId(null);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setRightToStudentTime/

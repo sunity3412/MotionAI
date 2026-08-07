@@ -126,6 +126,80 @@ def _simplify_curve(xs: np.ndarray, ys: np.ndarray, max_knots: int = 6,
     return xs[ks], np.maximum.accumulate(ys[ks])
 
 
+def _kp_reader(align: dict, side: str):
+    """align 의 (user|ref) kp 를 초 단위 보간으로 읽는 헬퍼: kp_at(joint, t) -> (xy, conf)."""
+    aj = align["joints17"]
+    afps = float(align["fps"])
+    F = int(align[f"{side}Frames"])
+    kp = np.asarray(align[f"{side}Kp"], dtype=float).reshape(F, len(aj), 2)
+    sc = np.asarray(align[f"{side}Score"], dtype=float)
+
+    def kp_at(name: str, t: float) -> tuple[np.ndarray, float]:
+        j = aj.index(name)
+        x = t * afps
+        i0 = int(np.clip(np.floor(x), 0, F - 1))
+        i1 = min(i0 + 1, F - 1)
+        a = float(np.clip(x - i0, 0.0, 1.0))
+        return kp[i0, j] * (1 - a) + kp[i1, j] * a, float(min(sc[i0, j], sc[i1, j]))
+
+    return kp_at
+
+
+_ANGLE_TRIPLES = {
+    "left_elbow": ("left_shoulder", "left_elbow", "left_wrist"),
+    "right_elbow": ("right_shoulder", "right_elbow", "right_wrist"),
+    "left_knee": ("left_hip", "left_knee", "left_ankle"),
+    "right_knee": ("right_hip", "right_knee", "right_ankle"),
+    "left_shoulder": ("left_elbow", "left_shoulder", "left_hip"),
+    "right_shoulder": ("right_elbow", "right_shoulder", "right_hip"),
+    "left_hip": ("left_shoulder", "left_hip", "left_knee"),
+    "right_hip": ("right_shoulder", "right_hip", "right_knee"),
+}
+
+
+def _joint_angle(kp_at, joint: str, t: float, conf_min: float = 0.3) -> float | None:
+    """관절각(도) — 배지 표기용. split_angle 은 발목-힙중점-발목."""
+    if joint == "split":
+        pts = []
+        for n in ("left_ankle", "right_ankle", "left_hip", "right_hip"):
+            p, c = kp_at(n, t)
+            if c < conf_min or not np.isfinite(p).all():
+                return None
+            pts.append(p)
+        la, ra = pts[0], pts[1]
+        hm = (pts[2] + pts[3]) / 2
+        v1, v2 = la - hm, ra - hm
+    else:
+        tri = _ANGLE_TRIPLES.get(joint)
+        if tri is None:
+            return None
+        ps = []
+        for n in tri:
+            p, c = kp_at(n, t)
+            if c < conf_min or not np.isfinite(p).all():
+                return None
+            ps.append(p)
+        v1, v2 = ps[0] - ps[1], ps[2] - ps[1]
+    cos = float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-9))
+    return float(np.degrees(np.arccos(np.clip(cos, -1, 1))))
+
+
+def _spread_series(align: dict, side: str = "user") -> np.ndarray:
+    """프레임별 다리 벌림각 시계열 (표시 순간 유도용). 저신뢰 프레임은 NaN."""
+    aj = align["joints17"]
+    F = int(align[f"{side}Frames"])
+    kp = np.asarray(align[f"{side}Kp"], dtype=float).reshape(F, len(aj), 2)
+    sc = np.asarray(align[f"{side}Score"], dtype=float)
+    idx = {n: aj.index(n) for n in ("left_ankle", "right_ankle", "left_hip", "right_hip")}
+    hm = (kp[:, idx["left_hip"]] + kp[:, idx["right_hip"]]) / 2
+    v1 = kp[:, idx["left_ankle"]] - hm
+    v2 = kp[:, idx["right_ankle"]] - hm
+    cos = np.sum(v1 * v2, axis=1) / (np.linalg.norm(v1, axis=1) * np.linalg.norm(v2, axis=1) + 1e-9)
+    ang = np.degrees(np.arccos(np.clip(cos, -1, 1)))
+    cmin = np.minimum.reduce([sc[:, idx[k]] for k in idx])
+    return np.where(cmin >= 0.35, ang, np.nan)
+
+
 def _align_markers(align: dict, rec: dict, ut: float) -> list[tuple[float, float, str]]:
     """정지 마커 목록 [(x, y, style)] — belle 08-07 2차 판정 반영.
 
@@ -258,9 +332,71 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             continue
         ut = float(rec["atVideoSec"])
         joint = rec["criterion"].split("__")[-1]
+        badge = None
         if "_alignRefSec" in rec:
             rt, src = float(rec["_alignRefSec"]), "align"
+            u_at = _kp_reader(align, "user")
+            r_at = _kp_reader(align, "ref") if "refKp" in align else None
+            crit = rec["criterion"]
+
+            # 표시 순간 교정 (belle 3차 — 파워스핀 "자막은 다리찢기인데 화면은 스핀 중"):
+            # 복합 기준(split/신전)은 잰 값의 순간이 아니라 **벌림 최대 국면**이 장면의
+            # 의미다. 유저 벌림각 시계열의 최대 근방(>=90%) 중 가장 이른 순간으로.
+            if crit in ("split_angle", "leg_extension"):
+                sp = _spread_series(align, "user")
+                if np.isfinite(sp).any():
+                    # 벌림 최대 순간 (earliest-90% 는 킵업의 승인된 순간을 밀어내는
+                    # 과일반화라 철회 — belle 칭찬 짝 보존).
+                    ut = float(np.nanargmax(sp)) / float(align["fps"])
+                    src = "align-peak"
+                    if r_at is not None:
+                        # 기준 쪽은 **전체에서 벌림 최대**(기준의 대표 찢기 국면).
+                        # 정렬 창으로 제한하면 유저 시도 시각대의 접힌 기준 프레임이
+                        # 잡힌다(실측 3.33s — belle "화면이 이상함"의 원인).
+                        rsp = _spread_series(align, "ref")
+                        if np.isfinite(rsp).any():
+                            rt = float(np.nanargmax(rsp)) / float(align["fps"])
             markers = _align_markers(align, rec, ut)
+
+            # 각도 배지 (belle 3차 킵업 "각도 표기 있으면 좋겠다" + 엘보 차이 파악 보완):
+            # 마커 관절의 관절각을 양 패널에 작은 배지로 — 내 각 vs 기준 각.
+            if crit == "split_angle":
+                bj = "split"
+            elif crit == "leg_extension":
+                # 덜 펴진(각 작은) 무릎 — 마커 선택 로직과 동일 기준
+                best = None
+                for side in ("left", "right"):
+                    ang = _joint_angle(u_at, f"{side}_knee", ut)
+                    if ang is not None and (best is None or ang < best[1]):
+                        best = (f"{side}_knee", ang)
+                bj = best[0] if best else None
+            else:
+                bj = joint
+            if bj is not None and (bj in _ANGLE_TRIPLES or bj == "split"):
+                ua_deg = _joint_angle(u_at, bj, ut)
+                ra_deg = _joint_angle(r_at, bj, rt) if r_at is not None else None
+                # 해부학 범위 게이트 — 겹침/가림 퇴화값(실측 3.9°, 2.7°) 차단.
+                # 틀린 수치보다 없는 게 낫다.
+                if ua_deg is not None and not (20.0 <= ua_deg <= 179.5):
+                    ua_deg = None
+                if ra_deg is not None and not (20.0 <= ra_deg <= 179.5):
+                    ra_deg = None
+                if ua_deg is not None:
+                    if bj == "split":
+                        up, _ = u_at("left_hip", ut)
+                        up2, _ = u_at("right_hip", ut)
+                        upos = (up + up2) / 2
+                        rpos = None
+                        if r_at is not None:
+                            rp, _ = r_at("left_hip", rt)
+                            rp2, _ = r_at("right_hip", rt)
+                            rpos = (rp + rp2) / 2
+                    else:
+                        upos, _ = u_at(bj, ut)
+                        rpos = r_at(bj, rt)[0] if r_at is not None else None
+                    badge = {"userDeg": ua_deg, "refDeg": ra_deg,
+                             "userPos": [float(upos[0]), float(upos[1])],
+                             "refPos": [float(rpos[0]), float(rpos[1])] if rpos is not None and np.isfinite(rpos).all() else None}
         else:
             markers = []
             if joint in kj:
@@ -280,6 +416,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             "pair_src": src,
             "dur": mp3_duration_s(mp3) + FREEZE_TAIL_S,
             "mp3": mp3, "joint": joint, "markers": markers,
+            "badge": badge,
             "text": speech_text(rec),
         })
     return warp_b, freezes
@@ -366,6 +503,23 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
         canvas.paste(b, (a.width + GAP, 0))
         if fz is not None:
             d = ImageDraw.Draw(canvas, "RGBA")
+            bd = fz.get("badge")
+            if bd is not None:
+                bfont = ImageFont.truetype(str(FONT_PATH), round(17 * S))
+
+                def draw_badge(x_px: float, y_px: float, deg: float):
+                    label = f"{deg:.0f}°"
+                    tw = d.textlength(label, font=bfont)
+                    bx = min(max(x_px + round(18 * S), 4), W - tw - round(20 * S))
+                    by = min(max(y_px - round(34 * S), 4), PANEL_H - round(40 * S))
+                    d.rounded_rectangle([bx, by, bx + tw + round(16 * S), by + round(28 * S)],
+                                        radius=round(8 * S), fill=(15, 13, 12, 200))
+                    d.text((bx + round(8 * S), by + round(4 * S)), label, font=bfont, fill=(255, 255, 255))
+
+                if bd.get("userDeg") is not None and bd.get("userPos"):
+                    draw_badge(bd["userPos"][0] * a.width, bd["userPos"][1] * PANEL_H, bd["userDeg"])
+                if bd.get("refDeg") is not None and bd.get("refPos"):
+                    draw_badge(a.width + GAP + bd["refPos"][0] * b.width, bd["refPos"][1] * PANEL_H, bd["refDeg"])
             for mx_n, my_n, style in fz.get("markers") or []:
                 mx, my = mx_n * a.width, my_n * PANEL_H
                 r_out, r_in = round(13 * S), round(4 * S)
@@ -418,6 +572,9 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
              "refSec": round(fz["rt"], 2), "pairSrc": fz["pair_src"],
              "freezeS": round(fz["dur"], 2), "voiceStartOutS": round(at, 2),
              "markers": [m[2] for m in (fz.get("markers") or [])],
+             "badge": ({"userDeg": round(fz["badge"]["userDeg"], 1),
+                        "refDeg": round(fz["badge"]["refDeg"], 1) if fz["badge"].get("refDeg") is not None else None}
+                       if fz.get("badge") else None),
              "text": fz["text"]}
             for fz, (_, at) in zip(freezes, audio_plan)
         ],

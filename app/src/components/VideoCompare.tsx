@@ -77,14 +77,17 @@ type SlotProps = {
   /**
    * 33-13 (A-6) — 발화 중인 음성 큐의 recordId. overlay render prop 의
    * opts.voiceCueRecordId 로 전달돼 caller(result.tsx)가 해당 record 부위 강조
-   * (KeypointOverlay.focusKeypoints)를 켠다. 학생(left) 슬롯에만 배선.
+   * (KeypointOverlay.focusKeypoints)를 켠다.
+   * quick-260807-k70 (BELLE-0807-9) — 우측 슬롯에도 배선 (기준 패널의 재생 세션
+   * 판정 신호 — 강조 소비는 여전히 학생 측만).
    */
   cueRecordId?: string | null;
   /**
-   * belle 08-07 #4 (quick-260807-fpw) — 재생 중 색 반전 신호. isPlaying=재생 여부,
-   * activeCueRecordId=활성 큐 윈도우의 record (발화 여부 무관). 학생(left) 슬롯에만
-   * 배선 — caller(result.tsx)가 재생 중 기본 관절 점 흰색 + 활성 큐 부위만 빨강
-   * 분기를 탄다. 미전달(right 슬롯)이면 opts 에 undefined 로 흘러 분기 미발동.
+   * belle 08-07 #4 (quick-260807-fpw) — 재생 세션 신호. isPlaying=재생 여부,
+   * activeCueRecordId=활성 큐 윈도우의 record (발화 여부 무관). caller
+   * (result.tsx)가 재생 세션 중 활성 큐 부위만 빨강("말하는 지점만",
+   * quick-260807-k70 BELLE-0807-9) 분기를 탄다. isPlaying 은 양쪽 슬롯 배선
+   * (우측=세션 판정용), activeCueRecordId 는 학생(left) 슬롯에만 배선.
    */
   isPlaying?: boolean;
   activeCueRecordId?: string | null;
@@ -1837,8 +1840,10 @@ export function VideoCompare({
     player: VideoPlayer | null,
     overlay?: OverlayRenderProp,
     cueRecordId?: string | null,
-    // belle 08-07 #4 (quick-260807-fpw) — 재생 중 색 반전 신호 (학생 슬롯 호출만
-    // 전달 — right 는 undefined 로 분기 미발동, VideoSlot 관례 동일).
+    // belle 08-07 #4 (quick-260807-fpw) — 재생 중 색 반전 신호.
+    // quick-260807-k70 (BELLE-0807-9) — cueRecordId/slotIsPlaying 은 우측 슬롯
+    // 호출에도 전달한다 (기준 패널 세션 판정용). slotActiveCueRecordId(빨강 반전
+    // 대상)는 여전히 학생 측만.
     slotIsPlaying?: boolean,
     slotActiveCueRecordId?: string | null,
   ) => {
@@ -1934,10 +1939,11 @@ export function VideoCompare({
           url={leftUrl}
           player={leftPlayer}
           overlay={leftOverlay}
-          // 33-13 (A-6) — 음성 큐 부위 강조는 학생(left) 측만 (record = 학생 결함).
+          // 33-13 (A-6) — 음성 큐 부위 **강조**(빨강)는 학생(left) 측만 (record =
+          // 학생 결함). quick-260807-k70 (BELLE-0807-9) — cueRecordId/isPlaying
+          // 신호 자체는 우측 슬롯에도 전달한다 (기준 패널의 재생 세션 판정용 —
+          // activeCueRecordId 색 반전 소비는 여전히 학생 측만).
           cueRecordId={voiceCueRecordId}
-          // belle 08-07 #4 (quick-260807-fpw) — 재생 중 색 반전 신호도 학생 측만
-          // (33-13 음성 큐 강조 관례 승계 — right 슬롯 미전달).
           isPlaying={playing}
           activeCueRecordId={activeCueWindowRecordId}
         />
@@ -1947,6 +1953,11 @@ export function VideoCompare({
           player={rightPlayer}
           overlay={rightOverlay}
           busyLabel={offsetApplying ? '적용중입니다' : undefined}
+          // quick-260807-k70 (BELLE-0807-9) — 세션 신호 passthrough. 기준 패널이
+          // 재생 세션(재생 중 + 음성 정지 + 정지 중 발화) 동안 스켈레톤을 숨기는
+          // 판정에만 쓰인다 — 빨강 강조 대상 record 는 좌측 전용 유지.
+          cueRecordId={voiceCueRecordId}
+          isPlaying={playing}
         />
         {/* 33-G S23 (quick-260731-2jt) — 음성 중 일러스트 동반(illu-float).
             승인 목업 `.illu-float`(`:215-218`) 기하를 비율로 재현: 폭 = row × 104/360,
@@ -2202,6 +2213,10 @@ export function VideoCompare({
                     rightUrl,
                     rightPlayer,
                     rightOverlay,
+                    // quick-260807-k70 (BELLE-0807-9) — 세션 신호 전달 (기준 패널
+                    // 세션 중 숨김 판정용 — 세로 우측 VideoSlot 과 동일).
+                    voiceCueRecordId,
+                    playing,
                   )}
               </View>
               {/* quick-260807-k70 (BELLE-0807-8) — 전체화면에도 같은 큐 상태(자막·

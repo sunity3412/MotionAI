@@ -230,7 +230,10 @@ export function composeScoringBasisKo(
 // 점수 계산 내역 행의 원문자(①②③)가 여기 한 함수 결과에서 나와 항상 일치한다.
 //
 // 규칙 (전부 저장값 read-only — 재계산/재해석 0):
-//   - record 순회는 저장 순서 그대로 (엔진이 결정적 정렬, 재정렬 금지).
+//   - record 순회는 입력 순서 그대로 — buildDeductionMarkers 자체는 여전히 입력
+//     순서대로 번호를 부여한다. 시간순 정렬은 호출부(result.tsx)가
+//     sortDeductionRecordsByMoment 로 선행한다 (belle 08-07 #1, quick-260807-fpw —
+//     표시 순서 결정은 표시 계층 소관, 엔진 저장 순서 재해석 아님).
 //   - 관절 투영은 projectDeductionRecordKeypoints 공용 helper 1벌 (규칙 사본 0):
 //     angle_vs_reference__{jk} → 단일 keypoint / source='vision' → faultJoints 전체 /
 //     ipsf_absolute geometry criterion(mode3 leg/arm/split) → 부위 keypoint /
@@ -327,6 +330,32 @@ export function matchZoomForDeductionRecord(
     if (zoomKps.some((k) => kps.has(k))) return z;
   }
   return null;
+}
+
+// belle 08-07 #1 (quick-260807-fpw) — 감점 번호를 측정 순간(atVideoSec) 시간순으로.
+// 번호 단일 출처(buildDeductionMarkers)는 무수정 — 입력 배열을 이 함수로 정렬해
+// 넘기면 영상 마커·재생바 틱·점수 계산 내역 행이 함께 시간순 1..N 이 된다.
+//
+// 규칙:
+//   (a) atVideoSec 이 유한 number 인 record 는 그 값 오름차순.
+//   (b) 없거나 비유한(NaN/Infinity)이면 전부 뒤로 보내되 원순서 유지 (정렬 키
+//       +Infinity — 순간을 지어내지 않는다, fabricate 0).
+//   (c) 동률도 원순서 유지 — V8 stable sort 를 복제본에 적용, 입력 배열 비변형.
+export function sortDeductionRecordsByMoment(
+  records: DeductionRecord[],
+): DeductionRecord[] {
+  const momentKey = (rec: DeductionRecord): number =>
+    typeof rec.atVideoSec === 'number' && Number.isFinite(rec.atVideoSec)
+      ? rec.atVideoSec
+      : Number.POSITIVE_INFINITY;
+  return [...records].sort((a, b) => {
+    const ka = momentKey(a);
+    const kb = momentKey(b);
+    // 동률(둘 다 +Infinity 포함) = 0 반환 → stable sort 가 원순서 보존.
+    // Infinity − Infinity = NaN 이라 뺄셈 비교 금지 (comparator NaN = 미정의 동작).
+    if (ka === kb) return 0;
+    return ka < kb ? -1 : 1;
+  });
 }
 
 // 33-G S1 (quick-260730-szk, N-16) — **부위 단위 그룹 마커(`partGroups`) 는 이 파일에

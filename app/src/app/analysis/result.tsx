@@ -68,6 +68,7 @@ import {
   isCleanPass,
   matchZoomForDeductionRecord,
   projectDeductionRecordKeypoints,
+  sortDeductionRecordsByMoment,
 } from '../../lib/deductionLabels';
 import {
   buildCauseGroupKeys,
@@ -1035,6 +1036,31 @@ function AnalysisResultContent({
   const vetoFaultJoints =
     result.visionVeto?.status === 'applied' ? result.visionVeto.faultJoints : undefined;
 
+  // belle 08-07 #1 (quick-260807-fpw) — 감점 record 단일 출처 + 시간순 정렬.
+  // 정렬 지점은 이 memo **한 곳뿐** (sortDeductionRecordsByMoment 는 여기서만 호출).
+  // buildDeductionMarkers 가 입력 순회 순서대로 번호를 부여하므로, 입력을 측정
+  // 순간(atVideoSec) 오름차순으로 정렬하면 영상 마커·재생바 틱·점수 계산 내역 행이
+  // 함께 시간순 1..N 이 된다. atVideoSec 없는 record 는 뒤에 원순서 (fabricate 0).
+  // 이하 record 소비자는 전부 이 배열을 쓴다 — breakdown 원본 배열 직접 접근
+  // 재도입 금지 (정렬 전 배열과 index 조인이 어긋난다).
+  const records = useMemo(
+    () =>
+      sortDeductionRecordsByMoment(result.deductionBreakdown?.records ?? []),
+    [result.deductionBreakdown],
+  );
+  const hasRecords = records.length > 0;
+  // belle 08-07 #1 — ScoreBreakdownSection 정합. 그 컴포넌트는 breakdown.records 를
+  // 내부 순회하며 recordNumbers 와 index 평행 조인하므로, 정렬 records 로 재조립한
+  // breakdown 객체를 전달해야 행 ↔ 번호가 일치한다 (컴포넌트 무수정 해결).
+  // records 외 필드(final/coverageGaps 등)는 spread 그대로 — 값 byte 동일.
+  const sortedBreakdown = useMemo(
+    () =>
+      result.deductionBreakdown != null
+        ? { ...result.deductionBreakdown, records }
+        : result.deductionBreakdown,
+    [result.deductionBreakdown, records],
+  );
+
   // quick-260704-fz4 — 2단 시각 언어 set 단일 조립 (표·마커·카드가 같은 소스 사용).
   // 빨강 = 확정 결함(감점 근거): deductionBreakdown records 의
   // angle_vs_reference__{jk} 관절 ∪ vetoFaultJoints (faultJoints 는 split_angle 등
@@ -1042,7 +1068,7 @@ function AnalysisResultContent({
   const confirmedKeypoints = useMemo(() => {
     const set = new Set<KeypointName>();
     for (const kp of vetoFaultJoints ?? []) set.add(kp);
-    for (const r of result.deductionBreakdown?.records ?? []) {
+    for (const r of records) {
       if (r.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) {
         const jk = r.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
         const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
@@ -1050,7 +1076,7 @@ function AnalysisResultContent({
       }
     }
     return set;
-  }, [vetoFaultJoints, result.deductionBreakdown]);
+  }, [vetoFaultJoints, records]);
 
   // 주황 = 측정 초과·확인 권장(감점 아님, 표시 전용): veto applied 의
   // windowMedianAngleDeltas 중 |delta| > 20°(KEYPOINT_DELTA_HIGHLIGHT_DEG —
@@ -1097,10 +1123,12 @@ function AnalysisResultContent({
   // reference 감점 record 중 |points| 최대이며 keypoint 매핑되는 관절 1개, 폴백은
   // windowMedianAngleDeltas |delta_deg| 최대. 매핑 없으면 빈 배열(점 0개).
   const estimatedAreaKeypoints = useMemo<KeypointName[]>(() => {
-    if (!attributionUnreliable) return [];
+    if (!attributionUnreliable) {
+      return [];
+    }
     let bestKp: KeypointName | null = null;
     let bestAbs = -1;
-    for (const r of result.deductionBreakdown?.records ?? []) {
+    for (const r of records) {
       if (!r.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) continue;
       const jk = r.criterion.slice(ANGLE_VS_REFERENCE_PREFIX.length);
       const kp = KEYPOINT_FROM_ANGLE_KEY[jk];
@@ -1125,7 +1153,7 @@ function AnalysisResultContent({
       }
     }
     return bestKp ? [bestKp] : [];
-  }, [attributionUnreliable, result.deductionBreakdown, result.visionVeto]);
+  }, [attributionUnreliable, records, result.visionVeto]);
 
   // IN-01 (quick-260724-q6b) — 예상 부위 확대비교 진입점이 열 record 의 index.
   // estimatedAreaKeypoints 의 record 경로(angle_vs_reference + keypoint 매핑, |points|
@@ -1136,7 +1164,7 @@ function AnalysisResultContent({
     if (!attributionUnreliable) return null;
     let bestIdx: number | null = null;
     let bestAbs = -1;
-    const recs = result.deductionBreakdown?.records ?? [];
+    const recs = records;
     for (let i = 0; i < recs.length; i++) {
       const r = recs[i];
       if (!r.criterion.startsWith(ANGLE_VS_REFERENCE_PREFIX)) continue;
@@ -1150,19 +1178,15 @@ function AnalysisResultContent({
       }
     }
     return bestIdx;
-  }, [attributionUnreliable, result.deductionBreakdown]);
+  }, [attributionUnreliable, records]);
 
   // quick-260705-o0s — 영상 점 번호 ↔ 내역 행 번호 단일 소스 (buildDeductionMarkers).
   // 오버레이 markerNumbers 와 ScoreBreakdownSection recordNumbers 가 같은 결과물을
   // 소비해 항상 일치. markers.keypointNumbers 키는 confirmedKeypoints 의 부분집합
   // (동일 투영 규칙) — highlightKeypoints 는 기존 confirmedKeypointList 유지로 자동 정합.
   const markers = useMemo(
-    () =>
-      buildDeductionMarkers(
-        result.deductionBreakdown?.records ?? [],
-        vetoFaultJoints,
-      ),
-    [result.deductionBreakdown, vetoFaultJoints],
+    () => buildDeductionMarkers(records, vetoFaultJoints),
+    [records, vetoFaultJoints],
   );
 
   // 33-G S1/S3 (quick-260730-szk) — **부위 단위** 그룹 마커 + 부위 칩. 승인 목업 ① 은
@@ -1171,27 +1195,22 @@ function AnalysisResultContent({
   // 칩 = 부위 시트가 같은 단위다 (두 번째 그룹핑 규칙 0).
   // quick-260802-mrg — 그 단일 출처가 부위 키에서 **원인 키**로 옮겨졌다(merge-only).
   const partGroups = useMemo(
-    () =>
-      buildPartGroups(
-        result.deductionBreakdown?.records ?? [],
-        markers.recordNumbers,
-        vetoFaultJoints,
-      ),
-    [result.deductionBreakdown, markers.recordNumbers, vetoFaultJoints],
+    () => buildPartGroups(records, markers.recordNumbers, vetoFaultJoints),
+    [records, markers.recordNumbers, vetoFaultJoints],
   );
   // 부위 칩 — 입력은 전부 기존 판정 재사용 (새 게이트 신설 0): attentionKeypoints memo
   // (주황 = 감점 아님), attributionUnreliable (IN-01 저신뢰).
   const partChips = useMemo(
     () =>
       buildPartChips({
-        records: result.deductionBreakdown?.records ?? [],
+        records,
         recordNumbers: markers.recordNumbers,
         faultJoints: vetoFaultJoints,
         attentionKeypoints,
         estimatedArea: attributionUnreliable,
       }),
     [
-      result.deductionBreakdown,
+      records,
       markers.recordNumbers,
       vetoFaultJoints,
       attentionKeypoints,
@@ -1201,8 +1220,8 @@ function AnalysisResultContent({
 
   // quick-260705-o0s — 점수 계산 내역 상단 채점 기준 1줄 (deviationSource 자동 조립).
   const breakdownBasisLine = useMemo(
-    () => composeScoringBasisKo(result.deductionBreakdown?.records ?? []),
-    [result.deductionBreakdown],
+    () => composeScoringBasisKo(records),
+    [records],
   );
 
   // quick-260705-o0s/r6v — 문제 관절 행동 지시 문구 조립. quick-260705-r6v 부터
@@ -1288,7 +1307,7 @@ function AnalysisResultContent({
   // "① 행동구 −감점". 행동구는 actionPhraseForRecord(범례·시트 동일 소스), 없으면
   // criterionLabelKo 폴백(fabricate 0). cleanPass/legacy 면 자연히 빈 배열.
   const fullscreenLegend = useMemo(() => {
-    const recs = result.deductionBreakdown?.records ?? [];
+    const recs = records;
     const out: { number: number; text: string }[] = [];
     recs.forEach((rec, i) => {
       const num = markers.recordNumbers[i];
@@ -1301,18 +1320,14 @@ function AnalysisResultContent({
       });
     });
     return out;
-  }, [result.deductionBreakdown, markers, vetoFaultJoints, actionLabels]);
+  }, [records, markers, vetoFaultJoints, actionLabels]);
 
   // quick-260705-r6v — 재생바 결함 시점 틱 (buildDeductionTicks — window median
   // 시점 1개에 번호 병합). veto 미적용/legacy/mode3 면 빈 배열 (틱 생략).
   const timelineTicks = useMemo(
     () =>
-      buildDeductionTicks(
-        result.deductionBreakdown?.records ?? [],
-        markers.recordNumbers,
-        result.visionVeto,
-      ),
-    [result.deductionBreakdown, markers.recordNumbers, result.visionVeto],
+      buildDeductionTicks(records, markers.recordNumbers, result.visionVeto),
+    [records, markers.recordNumbers, result.visionVeto],
   );
 
   // 33-13 (A-6, D-18 양방향 대응) — breakdown record 보유 doc 의 영상 위 빨강
@@ -1321,8 +1336,7 @@ function AnalysisResultContent({
   // records 투영 ∪ vetoFaultJoints 전체)는 record 투영 밖 faultJoints 여분이
   // 무번호 빨강 점을 만들 수 있었다. breakdown 부재(legacy)는 기존 소스 유지
   // (record 가 없어 양방향 대응 자체가 정의 불가 — graceful 하위호환).
-  const hasBreakdownRecords =
-    (result.deductionBreakdown?.records.length ?? 0) > 0;
+  const hasBreakdownRecords = records.length > 0;
   const markerBackedKeypoints = useMemo<KeypointName[]>(() => {
     const set = new Set<KeypointName>();
     for (const kp of Object.keys(markers.keypointNumbers) as KeypointName[]) {
@@ -1453,14 +1467,14 @@ function AnalysisResultContent({
   // 오매칭 금지 (기존 규칙). 없으면 null (사진 없이 수치·문구만 — graceful).
   const sheetZooms = useMemo<(FaultZoomComparison | null)[]>(
     () =>
-      (result.deductionBreakdown?.records ?? []).map((rec) =>
+      records.map((rec) =>
         matchZoomForDeductionRecord(
           rec,
           vetoFaultJoints,
           result.faultZoomComparisons ?? [],
         ),
       ),
-    [result.deductionBreakdown, vetoFaultJoints, result.faultZoomComparisons],
+    [records, vetoFaultJoints, result.faultZoomComparisons],
   );
   // paircap 우측 라벨 — 승인본 6R 문형 `기준 (정은지)`. mode3 는 `지난 영상`.
   // (crop 위 halfLabel 용 rightLabel 은 기존 문형 `{name} 선수` 유지 — 두 표면의
@@ -1468,7 +1482,6 @@ function AnalysisResultContent({
   const rightPairLabel =
     cmp.mode === 'mode1' ? `기준 (${cmp.athleteName})` : '지난 영상';
   const sheetView = useMemo(() => {
-    const records = result.deductionBreakdown?.records ?? [];
     if (records.length === 0) return null;
     return buildRegionSheetView({
       records,
@@ -1483,7 +1496,7 @@ function AnalysisResultContent({
       faultJoints: vetoFaultJoints,
     });
   }, [
-    result.deductionBreakdown,
+    records,
     markers.recordNumbers,
     vetoFaultJoints,
     actionLabels,
@@ -1788,12 +1801,8 @@ function AnalysisResultContent({
   // (SummaryCard/DeductionCard/cueTrack)로 조립한다. 순서·가시성은 resultSections
   // 뷰모델 단일 지점이 결정하고, 카드 상호작용은 recordId 조인 맵으로만 잇는다.
   // ══════════════════════════════════════════════════════════════════════
-
-  const records = useMemo(
-    () => result.deductionBreakdown?.records ?? [],
-    [result.deductionBreakdown],
-  );
-  const hasRecords = records.length > 0;
+  // (records/hasRecords memo 는 belle 08-07 #1 단일 출처화로 첫 사용 앞
+  //  — confirmedKeypoints 위 — 로 이동했다. 여기 재선언 금지.)
 
   // 32-13 (D-23) — 스팟체크 불일치 카드 숨김 recordId 집합. 표시 정책
   // (contract.md §12.8): status 'done' 일 때만 적용 — 부재(legacy)/pending/
@@ -1816,6 +1825,7 @@ function AnalysisResultContent({
   // top-1 감점 record index — 미션 record 우선(result.mission.recordId), 없으면 최대
   // 감점(points 가장 음수). cleanPass/legacy 면 -1. 스팟체크 숨김 record 는 top-1
   // 후보에서 제외 (숨긴 문장을 요약·완결형 카드로 되살리지 않음 — D-23).
+  // 정렬 무관: 히어로 = mission 우선 + 최대 감점 명시 선택 (belle 08-07 #1 주의 a 확인).
   const topFixIndex = useMemo(() => {
     if (records.length === 0) return -1;
     const mid = result.mission?.recordId;
@@ -2813,7 +2823,7 @@ function AnalysisResultContent({
         {/* 점수 계산 내역 — 투명 감점 tally(수치 삭제 금지). 렌더 가드/번호/기준문구
             기존 그대로. 내역 행 탭 → 드릴다운 시트(진입점 1).
             점수 원칙: [[scoring-must-be-transparent-deduction-tally]]. */}
-        {showBreakdownSection && result.deductionBreakdown != null && (
+        {showBreakdownSection && sortedBreakdown != null && (
           <>
             <Text
               style={styles.sectionTitle}
@@ -2825,7 +2835,10 @@ function AnalysisResultContent({
               점수 계산 내역
             </Text>
             <ScoreBreakdownSection
-              breakdown={result.deductionBreakdown}
+              // belle 08-07 #1 (quick-260807-fpw) — 정렬 records 로 재조립한
+              // breakdown. 내부 records 순회가 recordNumbers 와 index 평행
+              // 조인하므로 원본 저장 순서 객체를 주면 행 ↔ 번호가 어긋난다.
+              breakdown={sortedBreakdown}
               recordNumbers={markers.recordNumbers}
               basisLine={breakdownBasisLine}
               limitNotice={cmp.mode === 'mode3' ? MODE3_LIMIT_NOTICE : undefined}

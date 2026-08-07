@@ -303,6 +303,15 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
 
     dur_user = video_duration_s(user_video)
 
+    # 순간이 영상 끝을 넘는 record(피터팬 실측: 6.44s vs 영상 6.1s — 파이프라인 rep
+    # 도메인 산물) → 마지막 재생 가능 지점으로 클램프. 정지 소실(조용한 탈락) 금지.
+    for fz in freezes:
+        if fz["ut"] >= dur_user - 0.1:
+            print(f"[clamp] {fz['rid']} atVideoSec {fz['ut']:.2f}s -> {dur_user - 0.2:.2f}s (영상 {dur_user:.2f}s)",
+                  file=sys.stderr)
+            fz["ut"] = max(0.0, dur_user - 0.2)
+    freezes.sort(key=lambda f: f["ut"])
+
     def uimg(sec: float) -> Image.Image:
         return Image.open(udir / f"{max(1, min(nu, round(sec * FPS_OUT) + 1)):05d}.jpg")
 
@@ -395,6 +404,7 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
         "out": str(out),
         "outDurationS": round(len(frames) / FPS_OUT, 2),
         "userDurationS": round(dur_user, 2),
+        "expectedFreezes": len(freezes),
         "freezes": [
             {"rid": fz["rid"], "joint": fz["joint"], "userSec": fz["ut"],
              "refSec": round(fz["rt"], 2), "pairSrc": fz["pair_src"],

@@ -77,6 +77,13 @@ def verify(mp4: Path, report: dict, workdir: Path) -> tuple[bool, list[str]]:
     planned = float(report["outDurationS"])
     check("A 길이", abs(actual - planned) <= 0.3, f"actual={actual:.2f}s planned={planned:.2f}s")
 
+    # A2. 정지 소실 — mp3 를 가진 record 수와 렌더된 정지 수가 다르면 조용한 탈락
+    # (피터팬 실측: 순간이 영상 끝 밖이라 정지 0 으로 통과했던 갭의 기계화).
+    expected = report.get("expectedFreezes")
+    if expected is not None:
+        check("A2 정지 수", len(report.get("freezes", [])) == int(expected),
+              f"rendered={len(report.get('freezes', []))} expected={expected}")
+
     freezes = report.get("freezes", [])
     play_probe = 1.0 if not freezes or freezes[0]["voiceStartOutS"] > 2.0 else max(
         0.2, freezes[0]["voiceStartOutS"] - 1.5)

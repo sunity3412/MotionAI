@@ -2,12 +2,13 @@
 
 렌더 결과를 belle 에게 보내기 **전에** 스크립트가 판독한다 — "전 항목 PASS 아니면 전달 없음".
 
-판정 항목 (v0):
+판정 항목 (v0 + v1):
   A. 길이 — 실제 mp4 길이 == 렌더 계획 길이 (±0.3s)
   B. 정지 정적성 — 각 freeze 창 중앙 1s 의 프레임 차분(diff) ≈ 0 (프리즈가 진짜 멈춰있나)
   C. 재생 동적성 — 재생 구간 표본의 프레임 차분 > 정지의 10배 (영상이 진짜 움직이나)
   D. 음성 배치 — 각 voice 창 mean dB > -45 (발화 존재), 재생 구간 표본 < -70 (무음)
-  E. 감점 정합 — freeze 수 == 인증(또는 유도) 순간 보유 record 수
+  E. 저더 — 재생 구간에서 좌/우 패널 각각 프레임 반복률(diff<0.05 비율) <= 15%
+     (belle 08-07 "엉망진창" 반려의 원인 — 구조 PASS 로는 못 잡던 체감 항목의 기계화)
 
 v0 미포함(후속): whisper 전사 == 자막 문장 대조(로컬 whisper 미설치 — Pod 리그에서),
 자막 픽셀 OCR. 미포함은 여기 명시해 둔다 — 조용한 생략 금지.
@@ -101,6 +102,24 @@ def verify(mp4: Path, report: dict, workdir: Path) -> tuple[bool, list[str]]:
     if freezes:
         db_sil = mean_db(mp4, play_probe, 0.8)
         check("D 재생 무음", db_sil < -70, f"mean={db_sil:.1f}dB @out {play_probe:.1f}s")
+
+    # E. 저더 — 재생 구간 2.5s 를 30fps 로 뽑아 좌/우 패널 프레임 반복률 측정.
+    for f in tmp.glob("*.png"):
+        f.unlink()
+    subprocess.run([FF, "-y", "-loglevel", "error", "-ss", str(play_probe), "-t", "2.5",
+                    "-i", str(mp4), "-vf", "fps=30,scale=360:-2", str(tmp / "%03d.png")],
+                   check=True)
+    imgs = [np.asarray(Image.open(p).convert("L"), dtype=float)
+            for p in sorted(tmp.glob("*.png"))]
+    if len(imgs) >= 10:
+        half = imgs[0].shape[1] // 2
+        for label, sl in (("user", slice(None, half)), ("ref", slice(half, None))):
+            diffs = np.array([np.mean(np.abs(b[:, sl] - a[:, sl]))
+                              for a, b in zip(imgs, imgs[1:])])
+            rate = float((diffs < 0.05).mean())
+            check(f"E 저더 {label}", rate <= 0.15, f"반복률={rate:.0%} ({int((diffs<0.05).sum())}/{len(diffs)})")
+    else:
+        check("E 저더", False, "프레임 추출 부족")
 
     return ok, lines
 

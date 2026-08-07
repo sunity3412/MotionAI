@@ -101,36 +101,74 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[st
     return lines
 
 
-def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None):
+def _simplify_curve(xs: np.ndarray, ys: np.ndarray, max_knots: int = 6,
+                    tol: float = 0.4) -> tuple[np.ndarray, np.ndarray]:
+    """정렬 곡선을 소수 등속 선분으로 단순화 (Douglas-Peucker 유사, 재귀 분할).
+
+    슬로프가 출렁이는 곡선을 그대로 30fps 리샘플하면 v1 저더가 재발한다.
+    구간 안에서는 등속(부드러움), 구간 경계는 국면 전환(정렬) — 둘을 동시에.
+    """
+    knots = {0, len(xs) - 1}
+
+    def split(a: int, b: int, depth: int):
+        if depth <= 0 or b - a < 4:
+            return
+        yl = ys[a] + (ys[b] - ys[a]) * (xs[a:b + 1] - xs[a]) / max(xs[b] - xs[a], 1e-9)
+        err = np.abs(ys[a:b + 1] - yl)
+        i = int(np.argmax(err))
+        if err[i] > tol:
+            knots.add(a + i)
+            split(a, a + i, depth - 1)
+            split(a + i, b, depth - 1)
+
+    split(0, len(xs) - 1, max_knots)
+    ks = np.array(sorted(knots))
+    return xs[ks], np.maximum.accumulate(ys[ks])
+
+
+def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
+                   align: dict | None = None):
     """(user_sec, ref_sec, freeze|None) 프레임 열 + 음성 배치 계획.
 
-    moments: 측정 순간이 없는 record(rid 키)에 주입할 유도 순간
-      {"r00": {"atVideoSec": 1.67, "refVideoSec": 1.67}} — 프로토타입 한정
-      (킵업 split 등 비전 산출 감점의 V-2 데이터측 유도값. 파이프라인 배선은 채택 후).
+    moments: 측정 순간이 없는 record(rid 키)에 주입할 유도 순간 (프로토타입 한정).
+    align: p35_extract_align.py 산출(align.json) — 있으면 재생 곡선·정지 짝·마커를
+      doc 리포트 대신 전부 이것으로 (Pod 재추출 데이터 = 뿌리 수리본).
     """
     r = doc["result"]
-    anch = r["motionAlignment"].get("anchors") or [0.0, 0.0, 1.0, 1.0]
-    bu, br = np.array(anch[0::2], dtype=float), np.array(anch[1::2], dtype=float)
 
-    # v2: 재생 트랙은 앵커 곡선 대신 **단일 등속 매핑**(양끝 앵커만). 곡선 워핑은
-    # 18/30fps 리샘플에서 프레임 반복(저더)을 만든다 — 실측 diff 시계열 2.8/0.0 교차.
-    # 국면 정밀 대응은 정지(C 짝)가 담당하고, 재생은 부드러움을 우선한다.
-    u0, u1 = float(bu[0]), float(bu[-1])
-    r0, r1 = float(br[0]), float(br[-1])
-    slope = (r1 - r0) / (u1 - u0) if u1 > u0 else 1.0
+    if align is not None:
+        afps = float(align["fps"])
+        curve = np.asarray(align["curveRefSec"], dtype=float)
+        xs = np.arange(len(curve)) / afps
+        kx, ky = _simplify_curve(xs, curve)
 
-    def warp_b(t: float) -> float:
-        return r0 + (t - u0) * slope
+        def warp_b(t: float) -> float:
+            return float(np.interp(t, kx, ky))
+    else:
+        anch = r["motionAlignment"].get("anchors") or [0.0, 0.0, 1.0, 1.0]
+        bu, br = np.array(anch[0::2], dtype=float), np.array(anch[1::2], dtype=float)
+        # v2: 앵커 양끝 단일 등속 매핑 — 곡선 워핑 리샘플 저더(실측 8/62 반복) 방지.
+        u0, u1 = float(bu[0]), float(bu[-1])
+        r0, r1 = float(br[0]), float(br[-1])
+        slope = (r1 - r0) / (u1 - u0) if u1 > u0 else 1.0
+
+        def warp_b(t: float) -> float:
+            return r0 + (t - u0) * slope
 
     c_pairs = {fz["criterion"]: float(fz["refVideoSec"])
                for fz in r.get("faultZoomComparisons", [])
                if fz.get("criterion") and fz.get("refMatched") and fz.get("refVideoSec") is not None}
+    apairs = (align or {}).get("pairs", {})
 
     moments = moments or {}
     enriched = []
     for rec in r.get("deductionBreakdown", {}).get("records", []):
         rid = rec["recordId"].split(":")[0]
-        if rec.get("atVideoSec") is None and rid in moments:
+        if rid in apairs:
+            rec = {**rec, "atVideoSec": apairs[rid]["atVideoSec"],
+                   "_alignRefSec": apairs[rid]["refVideoSec"],
+                   "_alignMarker": apairs[rid].get("marker")}
+        elif rec.get("atVideoSec") is None and rid in moments:
             rec = {**rec, "atVideoSec": moments[rid]["atVideoSec"],
                    "_derivedRefSec": moments[rid].get("refVideoSec"), "_derived": True}
         if rec.get("atVideoSec") is not None:
@@ -153,18 +191,22 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None):
             continue
         ut = float(rec["atVideoSec"])
         joint = rec["criterion"].split("__")[-1]
-        marker = None
-        if joint in kj:
-            fi = min(kr["frames"] - 1, round(ut * kfps))
-            ji = kj.index(joint)
-            if float(kconf[fi, ji]) >= KP_CONF_MIN and np.isfinite(kdata[fi, ji]).all():
-                marker = (float(kdata[fi, ji, 0]), float(kdata[fi, ji, 1]))
-        if rec.get("_derived"):
-            rt, src = float(rec.get("_derivedRefSec") or warp_b(ut)), "derived"
-        elif rec["criterion"] in c_pairs:
-            rt, src = c_pairs[rec["criterion"]], "C"
+        if "_alignRefSec" in rec:
+            rt, src = float(rec["_alignRefSec"]), "align"
+            marker = tuple(rec["_alignMarker"]) if rec.get("_alignMarker") else None
         else:
-            rt, src = warp_b(ut), "B"
+            marker = None
+            if joint in kj:
+                fi = min(kr["frames"] - 1, round(ut * kfps))
+                ji = kj.index(joint)
+                if float(kconf[fi, ji]) >= KP_CONF_MIN and np.isfinite(kdata[fi, ji]).all():
+                    marker = (float(kdata[fi, ji, 0]), float(kdata[fi, ji, 1]))
+            if rec.get("_derived"):
+                rt, src = float(rec.get("_derivedRefSec") or warp_b(ut)), "derived"
+            elif rec["criterion"] in c_pairs:
+                rt, src = c_pairs[rec["criterion"]], "C"
+            else:
+                rt, src = warp_b(ut), "B"
         freezes.append({
             "rid": rid, "ut": ut,
             "rt": rt,
@@ -177,10 +219,12 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None):
 
 
 def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
-           workdir: Path, out: Path, moments_json: Path | None = None) -> dict:
+           workdir: Path, out: Path, moments_json: Path | None = None,
+           align_json: Path | None = None) -> dict:
     doc = json.load(open(doc_json))
     moments = json.load(open(moments_json)) if moments_json else None
-    warp_b, freezes = build_timeline(doc, audio_dir, moments)
+    align = json.load(open(align_json)) if align_json else None
+    warp_b, freezes = build_timeline(doc, audio_dir, moments, align)
 
     tag = f"{int(FPS_OUT)}_{PANEL_H}"
     udir, rdir, odir = workdir / f"u{tag}", workdir / f"r{tag}", workdir / f"compose{tag}"
@@ -298,9 +342,11 @@ def main() -> None:
     ap.add_argument("--workdir", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--moments-json", type=Path, default=None)
+    ap.add_argument("--align-json", type=Path, default=None)
     args = ap.parse_args()
     report = render(args.doc_json, args.user_video, args.ref_video,
-                    args.audio_dir, args.workdir, args.out, args.moments_json)
+                    args.audio_dir, args.workdir, args.out, args.moments_json,
+                    args.align_json)
     print(json.dumps(report, ensure_ascii=False, indent=1))
 
 

@@ -334,6 +334,14 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
         frames.append((t, warp_b(t), None))
         t += 1 / FPS_OUT
 
+    # 마지막 정지 뒤 남은 재생이 1.5s 미만이면(감점 순간이 영상 끝 — 피터팬 belle
+    # "멈춘 채 끝난다" 반려) 정지 후 처음부터 한 번 더 순수 재생 — "멈췄다가 틀기".
+    if freezes and (dur_user - freezes[-1]["ut"]) < 1.5:
+        t2 = 0.0
+        while t2 < dur_user:
+            frames.append((t2, warp_b(t2), None))
+            t2 += 1 / FPS_OUT
+
     # 기준 패널 크로스페이드 계획 — 정지 진입/복귀 순간의 순간이동 완화 (v2).
     n_fade = max(1, int(round(FADE_S * FPS_OUT)))
     ref_blend: dict[int, tuple[float, float, float]] = {}  # i -> (from_sec, to_sec, alpha)

@@ -1131,13 +1131,14 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
         frames.append((t, warp_b(t), None))
         t += 1 / FPS_OUT
 
-    # 마지막 정지 뒤 남은 재생이 1.5s 미만이면(감점 순간이 영상 끝 — 피터팬 belle
-    # "멈춘 채 끝난다" 반려) 정지 후 처음부터 한 번 더 순수 재생 — "멈췄다가 틀기".
-    if freezes and (play_end - freezes[-1]["ut"]) < 1.5:
-        t2 = 0.0
-        while t2 < play_end:
-            frames.append((t2, warp_b(t2), None))
-            t2 += 1 / FPS_OUT
+    # (제거됨) 끝단 정지 후 "처음부터 한 번 더 재생" — 2026-08-07 22:42 에 피터팬
+    # "멈춘 채 끝남" 대응으로 넣었으나 **belle 판정으로 철회**(2026-08-08):
+    # "다른 영상처럼 음성 플레이 되는 시간까지 넣으니까 잘 돌아갔잖아 … 그 이전엔
+    # 잘 돌아갔었는데". 정지 길이는 이미 `mp3_duration_s(mp3)+FREEZE_TAIL_S` 라
+    # 음성이 끝까지 재생되고, 그 뒤 잔여가 짧게 끝나는 것은 belle 기준으로 결함이
+    # 아니었다 — 과잉 대응이었다(같은 날 22:19 끝단 클램프가 실제 수리였음).
+    # 부작용도 실측됐다: 재재생 이음매에서 영상 끝 저속 구간과 시작 저속 구간이
+    # 붙어 리그 E(가다-서다)를 유발했다(quick-260808-r82 POD-SWEEP-RESULT §5-7).
 
     # 기준 패널 크로스페이드 계획 — 정지 진입/복귀 순간의 순간이동 완화 (v2).
     n_fade = max(1, int(round(FADE_S * FPS_OUT)))

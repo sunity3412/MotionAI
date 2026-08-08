@@ -693,7 +693,8 @@ def _align_markers(align: dict, rec: dict, ut: float) -> list[tuple[float, float
 
 def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
                    align: dict | None = None, poles: dict | None = None,
-                   text_overrides: dict | None = None):
+                   text_overrides: dict | None = None,
+                   pair_overrides: dict | None = None):
     """(user_sec, ref_sec, freeze|None) 프레임 열 + 음성 배치 계획.
 
     moments: 측정 순간이 없는 record(rid 키)에 주입할 유도 순간 (프로토타입 한정).
@@ -703,6 +704,11 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
       사전 추출 프레임에서 감지해 전달).
     text_overrides: rid→문장 dict — 렌더 자막과 Polly 재합성이 같은 파일을 읽어
       자막=음성 lockstep 이 구조로 보장된다 (belle 08-08 엘보 '폴 근접' 문구).
+    pair_overrides: rid→{refVideoSec, note} — 사람이 명시 지정한 기준 정지 순간.
+      자동 짝 선정(피크·①폴·②그립·③가중)보다 우선, Pod 원본(align.json)은
+      무수정. 출처는 pairSrc="override" 로 리포트에 남긴다 (belle 08-08 (a) 결정:
+      pdshapefault r01 = 왼손 그립 개시 0.8s — x-투영으로 자동 검출 불가 실측 후
+      명시 지정. 자동 그립 검출 경로는 fail-closed 로 존치 — 별도 명시 레이어).
     """
     r = doc["result"]
 
@@ -774,11 +780,16 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             armpit_cue = crit.startswith("angle_vs_reference__") and joint in (
                 "left_shoulder", "right_shoulder")
 
+            pair_ov = (pair_overrides or {}).get(rid)
             # 표시 순간 교정 — 벌림이 장면의 의미인 큐(split/신전/가위스플릿 힙)는
             # 잰 값의 순간이 아니라 **벌림 최대 국면**을 보여준다. 양쪽 각자의 피크
             # (유저 = 자기 시도의 절정, 기준 = 대표 찢기 국면). belle 5차: 엘보
             # "저 장면으로는 파악 어려움" · 파워스핀 "완전 스플릿 장면에서 표기돼야".
-            if crit in ("split_angle", "leg_extension") or legs_cue:
+            if pair_ov is not None:
+                # 명시 짝 오버라이드 — belle 지정이 자동 판정 전체보다 우선.
+                # ut 는 기존 순간 유지(user 장면 무접촉), rt 만 명시값.
+                rt, src = float(pair_ov["refVideoSec"]), "override"
+            elif crit in ("split_angle", "leg_extension") or legs_cue:
                 # 피크 탐색은 생값·게이트 0.35 — 스무딩·완화는 킵업 승인 피크(1.47s)를
                 # 4.2s 로 밀어내는 퇴행 실측되어 철회.
                 sp = _spread_series(align, "user", conf_min=0.35, smooth=False)
@@ -860,11 +871,12 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
 def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
            workdir: Path, out: Path, moments_json: Path | None = None,
            align_json: Path | None = None, text_override_json: Path | None = None,
-           probe: bool = False) -> dict:
+           probe: bool = False, pair_override_json: Path | None = None) -> dict:
     doc = json.load(open(doc_json))
     moments = json.load(open(moments_json)) if moments_json else None
     align = json.load(open(align_json)) if align_json else None
     text_overrides = json.load(open(text_override_json)) if text_override_json else None
+    pair_overrides = json.load(open(pair_override_json)) if pair_override_json else None
 
     tag = f"{int(FPS_OUT)}_{PANEL_H}"
     udir, rdir, odir = workdir / f"u{tag}", workdir / f"r{tag}", workdir / f"compose{tag}"
@@ -877,7 +889,8 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
         poles = {"user": _detect_pole(udir, align, "user"),
                  "ref": _detect_pole(rdir, align, "ref")}
 
-    warp_b, freezes = build_timeline(doc, audio_dir, moments, align, poles, text_overrides)
+    warp_b, freezes = build_timeline(doc, audio_dir, moments, align, poles,
+                                     text_overrides, pair_overrides)
 
     if probe:
         # 발동 집합 dry-run — 어떤 record 가 어느 경로(①폴/②그립/③가중/기존)로
@@ -1102,12 +1115,15 @@ def main() -> None:
     ap.add_argument("--align-json", type=Path, default=None)
     ap.add_argument("--text-override-json", type=Path, default=None,
                     help="rid→문장 오버라이드 (자막·음성 공용 단일 테이블)")
+    ap.add_argument("--pair-override-json", type=Path, default=None,
+                    help="rid→{refVideoSec, note} 명시 기준 정지 (자동 판정보다 우선, pairSrc=override)")
     ap.add_argument("--probe", action="store_true",
                     help="발동 집합 dry-run — 렌더 없이 record→경로 표만 출력")
     args = ap.parse_args()
     report = render(args.doc_json, args.user_video, args.ref_video,
                     args.audio_dir, args.workdir, args.out, args.moments_json,
-                    args.align_json, args.text_override_json, args.probe)
+                    args.align_json, args.text_override_json, args.probe,
+                    args.pair_override_json)
     if not args.probe:
         print(json.dumps(report, ensure_ascii=False, indent=1))
 

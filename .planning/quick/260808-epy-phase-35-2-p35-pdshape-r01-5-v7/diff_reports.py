@@ -7,10 +7,12 @@
     voiceStartOutS) 동일(수치 ±0.02) + outDurationS ±0.1.
     kipup r00 userSec = 1.47(±0.1) 명시 assert (피크 퇴행 즉시 검출 — 미세조정 1차
     실측 철회 선례).
-  pdshapefault — r00·r02·r03 행 불변 + outDurationS ±0.1. r01 은 의도 상태 2가지 중
-    하나만 허용: (a) align-grip 발동(refSec 변경 + pairSrc==align-grip) 또는
-    (b) fail-closed(행 전체 baseline 동일 — 계획 ② 명시 경로, SUMMARY 박제).
-    어느 쪽인지 출력.
+  pdshapefault — r00·r02·r03 행 불변 + outDurationS ±0.1. r01 은 의도 상태 3가지 중
+    하나만 허용: (a) align-grip 발동(refSec 변경 + pairSrc==align-grip) /
+    (b) fail-closed(행 전체 baseline 동일 — 계획 ② 명시 경로) /
+    (c) 명시 오버라이드(belle 08-08 (a) 결정: pairSrc==override + refSec==
+    pdshape_pair_overrides.json 값 + ut/freeze/text 불변). 어느 쪽인지 출력.
+    report_v7_pre_override.json 존재 시: 이전 v7 대비 변경 = r01 refSec 단 1건 assert.
   elbow — r00 만 변경: pairSrc==align-pole, poleViz user/ref 성립, text==오버라이드
     문장, freezeS=새 mp3 길이 반영, ut/rt 는 각각 atVideoSec±2.5s / curve±2.5s 창 안,
     마커는 폴 문법이 소유(markers==[]). r01·r02·r03 행 불변(voiceStartOutS 는 r00
@@ -75,7 +77,14 @@ for rid in ("r00", "r02", "r03"):
     check(same_row(rows(b)[rid], rows(v)[rid], NUM_TEXT + ("voiceStartOutS",)),
           f"pdshapefault {rid} 행 불변")
 r01b, r01v = rows(b)["r01"], rows(v)["r01"]
-if r01v["pairSrc"] == "align-grip":
+if r01v["pairSrc"] == "override":
+    pov = json.load(open(Path(__file__).parent / "pdshape_pair_overrides.json"))
+    check(abs(r01v["refSec"] - float(pov["r01"]["refVideoSec"])) <= 0.02,
+          f"pdshapefault r01 refSec={r01v['refSec']} == 명시값 {pov['r01']['refVideoSec']}")
+    check(same_row(r01b, r01v, ("userSec", "freezeS", "text", "voiceStartOutS")),
+          "pdshapefault r01 ut/freeze/text/voiceStart 불변 (rt 만 명시 교체)")
+    print("  -> r01 상태 = (c) 명시 오버라이드 (belle 08-08 (a) 결정)")
+elif r01v["pairSrc"] == "align-grip":
     check(abs(r01v["refSec"] - r01b["refSec"]) > 0.02, "pdshapefault r01 refSec 변경 (grip 발동)")
     check(same_row(r01b, r01v, ("userSec", "freezeS", "text")), "pdshapefault r01 ut/freeze/text 불변")
     print("  -> r01 상태 = (a) align-grip 발동")
@@ -85,6 +94,22 @@ else:
     print("  -> r01 상태 = (b) fail-closed (기존 짝 유지)")
 check(abs(b["outDurationS"] - v["outDurationS"]) <= 0.1,
       f"pdshapefault outDurationS {b['outDurationS']} -> {v['outDurationS']} (±0.1)")
+
+# 이전 v7(오버라이드 전) 대비 단일 변경 assert — 존재 시에만 (scratchpad 소실 허용)
+pre_path = SP / "p35" / "pdshapefault" / "report_v7_pre_override.json"
+if pre_path.exists():
+    pre = json.load(open(pre_path))
+    check(set(rows(pre)) == set(rows(v)), "pdshapefault(pre-override 대비) rid 집합 동일")
+    for rid in ("r00", "r02", "r03"):
+        check(same_row(rows(pre)[rid], rows(v)[rid], NUM_TEXT + ("voiceStartOutS",)),
+              f"pdshapefault(pre-override 대비) {rid} 행 불변")
+    p01 = rows(pre)["r01"]
+    check(same_row(p01, r01v, ("userSec", "freezeS", "text", "voiceStartOutS")),
+          "pdshapefault(pre-override 대비) r01 rt 외 전 필드 불변")
+    check(abs(p01["refSec"] - r01v["refSec"]) > 0.02 and r01v["pairSrc"] == "override",
+          f"pdshapefault(pre-override 대비) 변경 = r01 refSec {p01['refSec']} -> {r01v['refSec']} 단 1건")
+    check(abs(pre["outDurationS"] - v["outDurationS"]) <= 0.1,
+          "pdshapefault(pre-override 대비) outDurationS 불변")
 
 print("=== elbow ===")
 b = json.load(open(SP / "p35" / "elbow" / "report_baseline.json"))

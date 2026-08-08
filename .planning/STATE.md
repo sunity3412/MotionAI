@@ -76,7 +76,9 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-08-08 - Completed quick task 260808-im8: 자율 스크린 v1(2e8ab938+2f077393). v0 인라인 스크린 리포 영구화 = V0_REGRESSION 6게이트 PASS (px 관례 실패 → 교차 1회로 정규화 좌표 공간 채택 확정). r03 블라인드 재발견 verdict = **FAIL** (G1·G2 동시 홀드 짝 0 판정 불가 / G3 PASS — 기본 파라미터 1회, 튜닝 0, 실패 그대로 박제). 전구간에는 r03 방향 신호 존재(elbow gap_hip_mid 2위·bodyline 3위, user>ref) — 실패는 홀드 격리 메커니즘(run 조각내기 + DTW 짝-홀드 경계 불일치). 다음 = v2 홀드 가설(히스테리시스/완화짝) belle 결정 대기
+Last activity: 2026-08-08 - Completed quick task 260808-r82: **Phase 34 수술 3건** (보드 착수 블록 승인분). ② 측정창 ref-경계 마진 제외(REF_BOUNDARY_EXCLUDE_S=0.5s, G 핀 lockstep) — pdshapefault right_elbow 측정 순간 1.22s→9.56s 이동 실측, 점수 median 은 소폭(±0.1~3.6°)·표시 순간은 대폭 교정. ③ 좌우 스왑 채점 = **기계검증 기각**(유일 실측 거울상 elbow 에서 두 변형 모두 악화 24.15→29.83/38.95°) → 발동 무장해제, 그립 거울상은 관측 로그만. ① 렌더 tier 프록시(7 doc 전부 trim_only → 부착 0) 삭제 → align_quality(build_align 산출 자체 판정, 승인 5편 캘리브레이션 2.0배 마진). 불변식 스위트 시작(backend/tests/phase34/ 32 테스트). 다음 = **Pod 스윕**(POD-VERIFY.md — belle-FAIL align_quality + 실 doc 재분석 + 리그 신선 ALL PASS) → belle 아무 영상 v7급 확인
+
+이전: 2026-08-08 - Completed quick task 260808-im8: 자율 스크린 v1(2e8ab938+2f077393). v0 인라인 스크린 리포 영구화 = V0_REGRESSION 6게이트 PASS. r03 블라인드 재발견 verdict = FAIL(홀드 격리 실패 — run 조각내기 + DTW 짝-홀드 경계 불일치, 실패 그대로 박제). 다음 = v2 홀드 가설(히스테리시스/완화짝) belle 결정 대기
 
 이전: 2026-08-08 - Phase 35 미세조정 2차(260808-epy) 완료: scratchpad 재부팅 소실 사건 → Pod 볼륨(새 5090 Pod, 이후 Terminate)에서 재료 회수·기계검증 → 리포 영구화(d266cb8d) → 엘보 = 폴-근접 문법(belle 교정 "각도 아님" — 폴 축선+간격 브래킷+"폴에 붙여라" 문구 lockstep 재합성) → 리그 10×ALL PASS·diff 게이트(kipup 1.467 불변)·S3 5키 v7 덮어씀. pdshapefault r01 왼손 그립 짝 = fail-closed 미충족(x-투영 원리 한계, belle 선택지 3 대기). 다음 = belle v7 심사 + r01 결정 → 타인 피드백 → 채택 시 앱 통합
 

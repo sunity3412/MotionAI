@@ -1,0 +1,484 @@
+{
+ "label": "before",
+ "generatedAt": "2026-08-08T11:02:47.504245+00:00",
+ "docs": {
+  "elbow": {
+   "referenceMotionId": "ref-elbow-twist-sister",
+   "ref_fps": 18.0,
+   "match": {
+    "start": 0,
+    "end": 180,
+    "ref_start": 0,
+    "ref_end": 329,
+    "distance": 63.01878767043427,
+    "n_path": 330
+   },
+   "mask": null,
+   "joints": {
+    "left_elbow": {
+     "deviation": 19.31341017263719,
+     "rep_frame": 47,
+     "rep_video_sec": 5.2222
+    },
+    "right_elbow": {
+     "deviation": 28.91041706171427,
+     "rep_frame": 100,
+     "rep_video_sec": 11.1111
+    },
+    "left_shoulder": {
+     "deviation": 20.561117756706672,
+     "rep_frame": 23,
+     "rep_video_sec": 2.5556
+    },
+    "right_shoulder": {
+     "deviation": 28.29719897612131,
+     "rep_frame": 67,
+     "rep_video_sec": 7.4444
+    },
+    "left_hip": {
+     "deviation": 22.17717801600312,
+     "rep_frame": 27,
+     "rep_video_sec": 3.0
+    },
+    "right_hip": {
+     "deviation": 17.045640072897697,
+     "rep_frame": 22,
+     "rep_video_sec": 2.4444
+    },
+    "left_knee": {
+     "deviation": 22.17871919661316,
+     "rep_frame": 97,
+     "rep_video_sec": 10.7778
+    },
+    "right_knee": {
+     "deviation": 23.66093032589849,
+     "rep_frame": 65,
+     "rep_video_sec": 7.2222
+    }
+   },
+   "doc_records": [
+    {
+     "recordId": "r00:angle_vs_reference__right_elbow",
+     "criterion": "angle_vs_reference__right_elbow",
+     "atVideoSec": 11.11111111111111
+    },
+    {
+     "recordId": "r01:angle_vs_reference__right_shoulder",
+     "criterion": "angle_vs_reference__right_shoulder",
+     "atVideoSec": 7.444444444444445
+    },
+    {
+     "recordId": "r02:angle_vs_reference__left_hip",
+     "criterion": "angle_vs_reference__left_hip",
+     "atVideoSec": 4.888888888888889
+    },
+    {
+     "recordId": "r03:angle_vs_reference__right_knee",
+     "criterion": "angle_vs_reference__right_knee",
+     "atVideoSec": 10.11111111111111
+    }
+   ]
+  },
+  "powerspin": {
+   "referenceMotionId": "ref-power-spin",
+   "ref_fps": 18.0,
+   "match": {
+    "start": 0,
+    "end": 83,
+    "ref_start": 0,
+    "ref_end": 159,
+    "distance": 58.77613107306422,
+    "n_path": 161
+   },
+   "mask": null,
+   "joints": {
+    "left_elbow": {
+     "deviation": 18.79314983779767,
+     "rep_frame": 30,
+     "rep_video_sec": 3.3333
+    },
+    "right_elbow": {
+     "deviation": 15.825520338956665,
+     "rep_frame": 30,
+     "rep_video_sec": 3.3333
+    },
+    "left_shoulder": {
+     "deviation": 29.04636079884613,
+     "rep_frame": 29,
+     "rep_video_sec": 3.2222
+    },
+    "right_shoulder": {
+     "deviation": 18.041964833450386,
+     "rep_frame": 80,
+     "rep_video_sec": 8.8889
+    },
+    "left_hip": {
+     "deviation": 22.5011923830275,
+     "rep_frame": 6,
+     "rep_video_sec": 0.6667
+    },
+    "right_hip": {
+     "deviation": 21.570021144188498,
+     "rep_frame": 11,
+     "rep_video_sec": 1.2222
+    },
+    "left_knee": {
+     "deviation": 19.466578521978214,
+     "rep_frame": 23,
+     "rep_video_sec": 2.5556
+    },
+    "right_knee": {
+     "deviation": 27.739420399296563,
+     "rep_frame": 7,
+     "rep_video_sec": 0.7778
+    }
+   },
+   "doc_records": [
+    {
+     "recordId": "r00:leg_extension",
+     "criterion": "leg_extension",
+     "atVideoSec": 3.3333333333333335
+    },
+    {
+     "recordId": "r01:split_angle",
+     "criterion": "split_angle",
+     "atVideoSec": null
+    },
+    {
+     "recordId": "r02:angle_vs_reference__left_shoulder",
+     "criterion": "angle_vs_reference__left_shoulder",
+     "atVideoSec": 3.2222222222222223
+    }
+   ]
+  },
+  "kipup": {
+   "referenceMotionId": "ref-kip-up",
+   "ref_fps": 18.0,
+   "match": {
+    "start": 0,
+    "end": 68,
+    "ref_start": 0,
+    "ref_end": 118,
+    "distance": 26.975999685397987,
+    "n_path": 118
+   },
+   "mask": null,
+   "joints": {
+    "left_elbow": {
+     "deviation": 15.96365282906319,
+     "rep_frame": 43,
+     "rep_video_sec": 4.7778
+    },
+    "right_elbow": {
+     "deviation": 2.644206316010923,
+     "rep_frame": 33,
+     "rep_video_sec": 3.6667
+    },
+    "left_shoulder": {
+     "deviation": 18.98416692029484,
+     "rep_frame": 0,
+     "rep_video_sec": 0.0
+    },
+    "right_shoulder": {
+     "deviation": 13.833409154608077,
+     "rep_frame": 13,
+     "rep_video_sec": 1.4444
+    },
+    "left_hip": {
+     "deviation": 7.807976667994311,
+     "rep_frame": 25,
+     "rep_video_sec": 2.7778
+    },
+    "right_hip": {
+     "deviation": 7.576858461844239,
+     "rep_frame": 28,
+     "rep_video_sec": 3.1111
+    },
+    "left_knee": {
+     "deviation": 1.874571937359292,
+     "rep_frame": 1,
+     "rep_video_sec": 0.1111
+    },
+    "right_knee": {
+     "deviation": 1.928012932119671,
+     "rep_frame": 7,
+     "rep_video_sec": 0.7778
+    }
+   },
+   "doc_records": [
+    {
+     "recordId": "r00:split_angle",
+     "criterion": "split_angle",
+     "atVideoSec": null
+    }
+   ]
+  },
+  "pdshapefault": {
+   "referenceMotionId": "ref-pdshape",
+   "ref_fps": 18.0,
+   "match": {
+    "start": 0,
+    "end": 182,
+    "ref_start": 0,
+    "ref_end": 237,
+    "distance": 63.392074443831355,
+    "n_path": 251
+   },
+   "mask": null,
+   "joints": {
+    "left_elbow": {
+     "deviation": 32.72440897116893,
+     "rep_frame": 77,
+     "rep_video_sec": 8.5556
+    },
+    "right_elbow": {
+     "deviation": 24.3226018317949,
+     "rep_frame": 11,
+     "rep_video_sec": 1.2222
+    },
+    "left_shoulder": {
+     "deviation": 26.79473227553686,
+     "rep_frame": 29,
+     "rep_video_sec": 3.2222
+    },
+    "right_shoulder": {
+     "deviation": 21.96777067278801,
+     "rep_frame": 54,
+     "rep_video_sec": 6.0
+    },
+    "left_hip": {
+     "deviation": 21.84298460284984,
+     "rep_frame": 64,
+     "rep_video_sec": 7.1111
+    },
+    "right_hip": {
+     "deviation": 21.710244657058254,
+     "rep_frame": 106,
+     "rep_video_sec": 11.7778
+    },
+    "left_knee": {
+     "deviation": 27.56930648930107,
+     "rep_frame": 33,
+     "rep_video_sec": 3.6667
+    },
+    "right_knee": {
+     "deviation": 22.4888384065697,
+     "rep_frame": 116,
+     "rep_video_sec": 12.8889
+    }
+   },
+   "doc_records": [
+    {
+     "recordId": "r00:angle_vs_reference__left_elbow",
+     "criterion": "angle_vs_reference__left_elbow",
+     "atVideoSec": 8.555555555555555
+    },
+    {
+     "recordId": "r01:angle_vs_reference__right_elbow",
+     "criterion": "angle_vs_reference__right_elbow",
+     "atVideoSec": 1.2222222222222223
+    },
+    {
+     "recordId": "r02:angle_vs_reference__left_shoulder",
+     "criterion": "angle_vs_reference__left_shoulder",
+     "atVideoSec": 3.2222222222222223
+    },
+    {
+     "recordId": "r03:angle_vs_reference__left_knee",
+     "criterion": "angle_vs_reference__left_knee",
+     "atVideoSec": 3.6666666666666665
+    }
+   ]
+  },
+  "peterpan": {
+   "referenceMotionId": "ref-peter-pan",
+   "ref_fps": 18.0,
+   "match": {
+    "start": 0,
+    "end": 62,
+    "ref_start": 0,
+    "ref_end": 130,
+    "distance": 52.81452176261456,
+    "n_path": 130
+   },
+   "mask": null,
+   "joints": {
+    "left_elbow": {
+     "deviation": 5.18142848511053,
+     "rep_frame": 51,
+     "rep_video_sec": 5.6667
+    },
+    "right_elbow": {
+     "deviation": 23.24887669752627,
+     "rep_frame": 5,
+     "rep_video_sec": 0.5556
+    },
+    "left_shoulder": {
+     "deviation": 33.89742268295579,
+     "rep_frame": 58,
+     "rep_video_sec": 6.4444
+    },
+    "right_shoulder": {
+     "deviation": 10.702523356719592,
+     "rep_frame": 0,
+     "rep_video_sec": 0.0
+    },
+    "left_hip": {
+     "deviation": 10.364801347150234,
+     "rep_frame": 23,
+     "rep_video_sec": 2.5556
+    },
+    "right_hip": {
+     "deviation": 20.421623526640204,
+     "rep_frame": 4,
+     "rep_video_sec": 0.4444
+    },
+    "left_knee": {
+     "deviation": 2.013148393414923,
+     "rep_frame": 15,
+     "rep_video_sec": 1.6667
+    },
+    "right_knee": {
+     "deviation": 16.897582026215723,
+     "rep_frame": 0,
+     "rep_video_sec": 0.0
+    }
+   },
+   "doc_records": [
+    {
+     "recordId": "r00:angle_vs_reference__left_shoulder",
+     "criterion": "angle_vs_reference__left_shoulder",
+     "atVideoSec": 6.444444444444445
+    }
+   ]
+  },
+  "pdshape": {
+   "referenceMotionId": "ref-pdshape",
+   "ref_fps": 18.0,
+   "match": {
+    "start": 0,
+    "end": 159,
+    "ref_start": 0,
+    "ref_end": 237,
+    "distance": 44.05844061610781,
+    "n_path": 237
+   },
+   "mask": null,
+   "joints": {
+    "left_elbow": {
+     "deviation": 9.105945950415489,
+     "rep_frame": 98,
+     "rep_video_sec": 10.8889
+    },
+    "right_elbow": {
+     "deviation": 20.01486505870554,
+     "rep_frame": 3,
+     "rep_video_sec": 0.3333
+    },
+    "left_shoulder": {
+     "deviation": 12.90159666892123,
+     "rep_frame": 75,
+     "rep_video_sec": 8.3333
+    },
+    "right_shoulder": {
+     "deviation": 14.239382748331685,
+     "rep_frame": 53,
+     "rep_video_sec": 5.8889
+    },
+    "left_hip": {
+     "deviation": 16.256169918885035,
+     "rep_frame": 154,
+     "rep_video_sec": 17.1111
+    },
+    "right_hip": {
+     "deviation": 12.977577020010798,
+     "rep_frame": 137,
+     "rep_video_sec": 15.2222
+    },
+    "left_knee": {
+     "deviation": 16.852146359576878,
+     "rep_frame": 62,
+     "rep_video_sec": 6.8889
+    },
+    "right_knee": {
+     "deviation": 16.978226693457955,
+     "rep_frame": 84,
+     "rep_video_sec": 9.3333
+    }
+   },
+   "doc_records": []
+  },
+  "realupload": {
+   "referenceMotionId": "ref-power-spin",
+   "ref_fps": 18.0,
+   "match": {
+    "start": 0,
+    "end": 83,
+    "ref_start": 0,
+    "ref_end": 159,
+    "distance": 58.834590219734906,
+    "n_path": 161
+   },
+   "mask": null,
+   "joints": {
+    "left_elbow": {
+     "deviation": 18.79316229026327,
+     "rep_frame": 30,
+     "rep_video_sec": 3.3333
+    },
+    "right_elbow": {
+     "deviation": 15.825529365254766,
+     "rep_frame": 30,
+     "rep_video_sec": 3.3333
+    },
+    "left_shoulder": {
+     "deviation": 29.046359076042783,
+     "rep_frame": 29,
+     "rep_video_sec": 3.2222
+    },
+    "right_shoulder": {
+     "deviation": 18.019270771262356,
+     "rep_frame": 80,
+     "rep_video_sec": 8.8889
+    },
+    "left_hip": {
+     "deviation": 22.436566932567928,
+     "rep_frame": 6,
+     "rep_video_sec": 0.6667
+    },
+    "right_hip": {
+     "deviation": 21.4841450004386,
+     "rep_frame": 11,
+     "rep_video_sec": 1.2222
+    },
+    "left_knee": {
+     "deviation": 19.152503114010017,
+     "rep_frame": 13,
+     "rep_video_sec": 1.4444
+    },
+    "right_knee": {
+     "deviation": 27.62226954291031,
+     "rep_frame": 36,
+     "rep_video_sec": 4.0
+    }
+   },
+   "doc_records": [
+    {
+     "recordId": "r00:leg_extension",
+     "criterion": "leg_extension",
+     "atVideoSec": 3.3333333333333335
+    },
+    {
+     "recordId": "r01:split_angle",
+     "criterion": "split_angle",
+     "atVideoSec": null
+    },
+    {
+     "recordId": "r02:angle_vs_reference__left_shoulder",
+     "criterion": "angle_vs_reference__left_shoulder",
+     "atVideoSec": 3.2222222222222223
+    }
+   ]
+  }
+ }
+}

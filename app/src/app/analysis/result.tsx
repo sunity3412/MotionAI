@@ -2538,6 +2538,9 @@ function AnalysisResultContent({
                 <RenderedComparePlayer
                   analysisId={analysisId}
                   onUnavailable={() => setRenderedUnavailable(true)}
+                  // UI 라운드 — 정지 틱 데이터 (contract.md §12.9 freezes,
+                  // 부재 구버전 doc = 틱 없이 재생만).
+                  freezes={result.renderedCompare?.freezes}
                 />
               </>
             ) : (

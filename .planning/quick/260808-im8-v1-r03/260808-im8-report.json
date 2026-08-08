@@ -1,0 +1,1141 @@
+{
+ "meta": {
+  "generated_at": "2026-08-08T04:56:22+00:00",
+  "data_dir": ".planning/phases/35-server-rendered-comparison-video/data",
+  "motions": [
+   "elbow",
+   "powerspin",
+   "kipup",
+   "pdshapefault",
+   "peterpan"
+  ],
+  "skipped": {},
+  "hold_pct": 40,
+  "angle_space": "norm",
+  "constants": {
+   "CONF_GATE": 0.35,
+   "VALID_MIN": 0.4,
+   "SCALE_ANGLE": 30.0,
+   "SCALE_GAP": 0.15,
+   "HOLD_SMOOTH_K": 5,
+   "HOLD_PCT": 40,
+   "HOLD_MIN_S": 1.0,
+   "HOLD_PAIR_MIN": 10,
+   "MIRROR_IMPROVE": 0.03
+  }
+ },
+ "pole_x": {
+  "elbow": {
+   "user": 0.4992,
+   "ref": 0.5003,
+   "source": "cache"
+  },
+  "powerspin": {
+   "user": 0.502,
+   "ref": 0.502,
+   "source": "cache"
+  },
+  "kipup": {
+   "user": 0.498,
+   "ref": 0.501,
+   "source": "cache"
+  },
+  "pdshapefault": {
+   "user": 0.4996,
+   "ref": 0.4993,
+   "source": "cache"
+  },
+  "peterpan": {
+   "user": 0.501,
+   "ref": 0.513,
+   "source": "cache"
+  }
+ },
+ "motions": {
+  "elbow": {
+   "n_user_frames": 268,
+   "n_ref_frames": 328,
+   "fps": 15.0,
+   "full": {
+    "n_pairs": 268,
+    "rows": [
+     {
+      "feature": "gap_right_ankle",
+      "kind": "gap",
+      "n_valid": 246,
+      "valid_rate": 0.918,
+      "included": true,
+      "median": -0.0589,
+      "scaled": 0.393,
+      "user_med": 0.2217,
+      "ref_med": 0.2659,
+      "rank": 1
+     },
+     {
+      "feature": "gap_hip_mid",
+      "kind": "gap",
+      "n_valid": 226,
+      "valid_rate": 0.843,
+      "included": true,
+      "median": 0.0546,
+      "scaled": 0.364,
+      "user_med": 0.7028,
+      "ref_med": 0.6259,
+      "rank": 2
+     },
+     {
+      "feature": "bodyline",
+      "kind": "gap",
+      "n_valid": 218,
+      "valid_rate": 0.813,
+      "included": true,
+      "median": 0.0472,
+      "scaled": 0.315,
+      "user_med": 0.8277,
+      "ref_med": 0.7467,
+      "rank": 3
+     },
+     {
+      "feature": "gap_right_wrist",
+      "kind": "gap",
+      "n_valid": 222,
+      "valid_rate": 0.828,
+      "included": true,
+      "median": -0.0363,
+      "scaled": 0.242,
+      "user_med": 0.2166,
+      "ref_med": 0.221,
+      "rank": 4
+     },
+     {
+      "feature": "gap_sho_mid",
+      "kind": "gap",
+      "n_valid": 233,
+      "valid_rate": 0.869,
+      "included": true,
+      "median": 0.0258,
+      "scaled": 0.172,
+      "user_med": 0.506,
+      "ref_med": 0.4735,
+      "rank": 5
+     },
+     {
+      "feature": "gap_left_elbow",
+      "kind": "gap",
+      "n_valid": 249,
+      "valid_rate": 0.929,
+      "included": true,
+      "median": -0.0246,
+      "scaled": 0.164,
+      "user_med": 0.5363,
+      "ref_med": 0.57,
+      "rank": 6
+     },
+     {
+      "feature": "gap_left_ankle",
+      "kind": "gap",
+      "n_valid": 229,
+      "valid_rate": 0.854,
+      "included": true,
+      "median": 0.0173,
+      "scaled": 0.115,
+      "user_med": 0.4733,
+      "ref_med": 0.367,
+      "rank": 7
+     },
+     {
+      "feature": "gap_right_knee",
+      "kind": "gap",
+      "n_valid": 235,
+      "valid_rate": 0.877,
+      "included": true,
+      "median": -0.0106,
+      "scaled": 0.071,
+      "user_med": 0.3491,
+      "ref_med": 0.363,
+      "rank": 8
+     },
+     {
+      "feature": "gap_right_elbow",
+      "kind": "gap",
+      "n_valid": 233,
+      "valid_rate": 0.869,
+      "included": true,
+      "median": 0.009,
+      "scaled": 0.06,
+      "user_med": 0.2172,
+      "ref_med": 0.1968,
+      "rank": 9
+     },
+     {
+      "feature": "gap_left_wrist",
+      "kind": "gap",
+      "n_valid": 238,
+      "valid_rate": 0.888,
+      "included": true,
+      "median": 0.0058,
+      "scaled": 0.039,
+      "user_med": 0.2272,
+      "ref_med": 0.2072,
+      "rank": 10
+     },
+     {
+      "feature": "split_angle",
+      "kind": "angle",
+      "n_valid": 209,
+      "valid_rate": 0.78,
+      "included": true,
+      "median": -1.0425,
+      "scaled": 0.035,
+      "user_med": 109.3991,
+      "ref_med": 113.6203,
+      "rank": 11
+     },
+     {
+      "feature": "knee_angle_left",
+      "kind": "angle",
+      "n_valid": 211,
+      "valid_rate": 0.787,
+      "included": true,
+      "median": 0.354,
+      "scaled": 0.012,
+      "user_med": 146.6924,
+      "ref_med": 141.1469,
+      "rank": 12
+     },
+     {
+      "feature": "knee_angle_right",
+      "kind": "angle",
+      "n_valid": 221,
+      "valid_rate": 0.825,
+      "included": true,
+      "median": 0.1154,
+      "scaled": 0.004,
+      "user_med": 169.2182,
+      "ref_med": 169.6148,
+      "rank": 13
+     },
+     {
+      "feature": "gap_left_knee",
+      "kind": "gap",
+      "n_valid": 220,
+      "valid_rate": 0.821,
+      "included": true,
+      "median": -0.0003,
+      "scaled": 0.002,
+      "user_med": 0.2667,
+      "ref_med": 0.2822,
+      "rank": 14
+     }
+    ]
+   },
+   "hold_intervals": {
+    "user_sec": [],
+    "ref_sec": [
+     [
+      0.53,
+      2.2
+     ]
+    ],
+    "user_threshold": 0.20335,
+    "ref_threshold": 0.33074,
+    "hold_pct": 40
+   },
+   "hold": {
+    "available": false,
+    "n_pairs": 0,
+    "reason": "홀드 짝 0 < HOLD_PAIR_MIN 10 — 홀드 판정 불가"
+   },
+   "mirror": {
+    "d_normal": 3.6397,
+    "d_swap": 6.2412,
+    "improve": -0.7148,
+    "verdict": "same_side"
+   }
+  },
+  "powerspin": {
+   "n_user_frames": 123,
+   "n_ref_frames": 158,
+   "fps": 15.0,
+   "full": {
+    "n_pairs": 123,
+    "rows": [
+     {
+      "feature": "gap_left_ankle",
+      "kind": "gap",
+      "n_valid": 101,
+      "valid_rate": 0.821,
+      "included": true,
+      "median": 0.5555,
+      "scaled": 3.703,
+      "user_med": 1.5678,
+      "ref_med": 0.7274,
+      "rank": 1
+     },
+     {
+      "feature": "gap_right_ankle",
+      "kind": "gap",
+      "n_valid": 113,
+      "valid_rate": 0.919,
+      "included": true,
+      "median": 0.2928,
+      "scaled": 1.952,
+      "user_med": 0.9563,
+      "ref_med": 0.6888,
+      "rank": 2
+     },
+     {
+      "feature": "gap_left_knee",
+      "kind": "gap",
+      "n_valid": 112,
+      "valid_rate": 0.911,
+      "included": true,
+      "median": 0.1911,
+      "scaled": 1.274,
+      "user_med": 0.7132,
+      "ref_med": 0.3617,
+      "rank": 3
+     },
+     {
+      "feature": "split_angle",
+      "kind": "angle",
+      "n_valid": 96,
+      "valid_rate": 0.78,
+      "included": true,
+      "median": -24.55,
+      "scaled": 0.818,
+      "user_med": 27.7381,
+      "ref_med": 98.0495,
+      "rank": 4
+     },
+     {
+      "feature": "gap_sho_mid",
+      "kind": "gap",
+      "n_valid": 115,
+      "valid_rate": 0.935,
+      "included": true,
+      "median": -0.1213,
+      "scaled": 0.808,
+      "user_med": 0.5981,
+      "ref_med": 0.7662,
+      "rank": 5
+     },
+     {
+      "feature": "bodyline",
+      "kind": "gap",
+      "n_valid": 113,
+      "valid_rate": 0.919,
+      "included": true,
+      "median": -0.117,
+      "scaled": 0.78,
+      "user_med": 0.6324,
+      "ref_med": 0.7724,
+      "rank": 6
+     },
+     {
+      "feature": "gap_left_elbow",
+      "kind": "gap",
+      "n_valid": 115,
+      "valid_rate": 0.935,
+      "included": true,
+      "median": -0.0723,
+      "scaled": 0.482,
+      "user_med": 0.2339,
+      "ref_med": 0.3433,
+      "rank": 7
+     },
+     {
+      "feature": "gap_right_knee",
+      "kind": "gap",
+      "n_valid": 113,
+      "valid_rate": 0.919,
+      "included": true,
+      "median": 0.0679,
+      "scaled": 0.453,
+      "user_med": 0.5813,
+      "ref_med": 0.3719,
+      "rank": 8
+     },
+     {
+      "feature": "gap_right_elbow",
+      "kind": "gap",
+      "n_valid": 119,
+      "valid_rate": 0.967,
+      "included": true,
+      "median": -0.0617,
+      "scaled": 0.412,
+      "user_med": 0.3591,
+      "ref_med": 0.4081,
+      "rank": 9
+     },
+     {
+      "feature": "gap_hip_mid",
+      "kind": "gap",
+      "n_valid": 113,
+      "valid_rate": 0.919,
+      "included": true,
+      "median": 0.0536,
+      "scaled": 0.358,
+      "user_med": 0.3607,
+      "ref_med": 0.268,
+      "rank": 10
+     },
+     {
+      "feature": "knee_angle_left",
+      "kind": "angle",
+      "n_valid": 97,
+      "valid_rate": 0.789,
+      "included": true,
+      "median": 4.0041,
+      "scaled": 0.133,
+      "user_med": 173.3199,
+      "ref_med": 169.5239,
+      "rank": 11
+     },
+     {
+      "feature": "knee_angle_right",
+      "kind": "angle",
+      "n_valid": 111,
+      "valid_rate": 0.902,
+      "included": true,
+      "median": 1.6231,
+      "scaled": 0.054,
+      "user_med": 165.958,
+      "ref_med": 166.1404,
+      "rank": 12
+     },
+     {
+      "feature": "gap_left_wrist",
+      "kind": "gap",
+      "n_valid": 116,
+      "valid_rate": 0.943,
+      "included": true,
+      "median": -0.005,
+      "scaled": 0.034,
+      "user_med": 0.1078,
+      "ref_med": 0.1202,
+      "rank": 13
+     },
+     {
+      "feature": "gap_right_wrist",
+      "kind": "gap",
+      "n_valid": 120,
+      "valid_rate": 0.976,
+      "included": true,
+      "median": -0.0031,
+      "scaled": 0.02,
+      "user_med": 0.1122,
+      "ref_med": 0.1075,
+      "rank": 14
+     }
+    ]
+   },
+   "hold_intervals": {
+    "user_sec": [],
+    "ref_sec": [],
+    "user_threshold": 0.18165,
+    "ref_threshold": 0.13956,
+    "hold_pct": 40
+   },
+   "hold": {
+    "available": false,
+    "n_pairs": 0,
+    "reason": "홀드 짝 0 < HOLD_PAIR_MIN 10 — 홀드 판정 불가"
+   },
+   "mirror": {
+    "d_normal": 3.2803,
+    "d_swap": 8.5267,
+    "improve": -1.5993,
+    "verdict": "same_side"
+   }
+  },
+  "kipup": {
+   "n_user_frames": 100,
+   "n_ref_frames": 117,
+   "fps": 15.0,
+   "full": {
+    "n_pairs": 100,
+    "rows": [
+     {
+      "feature": "gap_left_ankle",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.3308,
+      "scaled": 2.205,
+      "user_med": 1.9007,
+      "ref_med": 2.1539,
+      "rank": 1
+     },
+     {
+      "feature": "gap_sho_mid",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.2373,
+      "scaled": 1.582,
+      "user_med": 0.5402,
+      "ref_med": 0.7022,
+      "rank": 2
+     },
+     {
+      "feature": "gap_left_elbow",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.2311,
+      "scaled": 1.541,
+      "user_med": 0.2734,
+      "ref_med": 0.5671,
+      "rank": 3
+     },
+     {
+      "feature": "gap_left_knee",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.2157,
+      "scaled": 1.438,
+      "user_med": 1.2653,
+      "ref_med": 1.4295,
+      "rank": 4
+     },
+     {
+      "feature": "gap_right_elbow",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.1204,
+      "scaled": 0.803,
+      "user_med": 0.2256,
+      "ref_med": 0.324,
+      "rank": 5
+     },
+     {
+      "feature": "bodyline",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.1151,
+      "scaled": 0.767,
+      "user_med": 0.6797,
+      "ref_med": 0.7534,
+      "rank": 6
+     },
+     {
+      "feature": "gap_right_ankle",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.0855,
+      "scaled": 0.57,
+      "user_med": 1.6345,
+      "ref_med": 1.8216,
+      "rank": 7
+     },
+     {
+      "feature": "gap_left_wrist",
+      "kind": "gap",
+      "n_valid": 96,
+      "valid_rate": 0.96,
+      "included": true,
+      "median": -0.0326,
+      "scaled": 0.217,
+      "user_med": 0.1005,
+      "ref_med": 0.1533,
+      "rank": 8
+     },
+     {
+      "feature": "gap_right_wrist",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.0179,
+      "scaled": 0.119,
+      "user_med": 0.1347,
+      "ref_med": 0.1382,
+      "rank": 9
+     },
+     {
+      "feature": "split_angle",
+      "kind": "angle",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -2.2972,
+      "scaled": 0.077,
+      "user_med": 78.063,
+      "ref_med": 81.166,
+      "rank": 10
+     },
+     {
+      "feature": "gap_right_knee",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.0109,
+      "scaled": 0.073,
+      "user_med": 1.1014,
+      "ref_med": 1.1415,
+      "rank": 11
+     },
+     {
+      "feature": "gap_hip_mid",
+      "kind": "gap",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": 0.004,
+      "scaled": 0.027,
+      "user_med": 0.5866,
+      "ref_med": 0.5505,
+      "rank": 12
+     },
+     {
+      "feature": "knee_angle_right",
+      "kind": "angle",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.6984,
+      "scaled": 0.023,
+      "user_med": 173.5211,
+      "ref_med": 174.9567,
+      "rank": 13
+     },
+     {
+      "feature": "knee_angle_left",
+      "kind": "angle",
+      "n_valid": 100,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": 0.2883,
+      "scaled": 0.01,
+      "user_med": 174.7353,
+      "ref_med": 174.7469,
+      "rank": 14
+     }
+    ]
+   },
+   "hold_intervals": {
+    "user_sec": [],
+    "ref_sec": [],
+    "user_threshold": 0.17304,
+    "ref_threshold": 0.20009,
+    "hold_pct": 40
+   },
+   "hold": {
+    "available": false,
+    "n_pairs": 0,
+    "reason": "홀드 짝 0 < HOLD_PAIR_MIN 10 — 홀드 판정 불가"
+   },
+   "mirror": {
+    "d_normal": 1.017,
+    "d_swap": 4.0333,
+    "improve": -2.9658,
+    "verdict": "same_side"
+   }
+  },
+  "pdshapefault": {
+   "n_user_frames": 272,
+   "n_ref_frames": 237,
+   "fps": 15.0,
+   "full": {
+    "n_pairs": 272,
+    "rows": [
+     {
+      "feature": "gap_right_ankle",
+      "kind": "gap",
+      "n_valid": 240,
+      "valid_rate": 0.882,
+      "included": true,
+      "median": 0.0803,
+      "scaled": 0.536,
+      "user_med": 0.9179,
+      "ref_med": 0.6678,
+      "rank": 1
+     },
+     {
+      "feature": "gap_right_knee",
+      "kind": "gap",
+      "n_valid": 237,
+      "valid_rate": 0.871,
+      "included": true,
+      "median": -0.0777,
+      "scaled": 0.518,
+      "user_med": 0.4629,
+      "ref_med": 0.6259,
+      "rank": 2
+     },
+     {
+      "feature": "gap_left_ankle",
+      "kind": "gap",
+      "n_valid": 226,
+      "valid_rate": 0.831,
+      "included": true,
+      "median": 0.0774,
+      "scaled": 0.516,
+      "user_med": 0.35,
+      "ref_med": 0.2167,
+      "rank": 3
+     },
+     {
+      "feature": "gap_sho_mid",
+      "kind": "gap",
+      "n_valid": 246,
+      "valid_rate": 0.904,
+      "included": true,
+      "median": 0.0756,
+      "scaled": 0.504,
+      "user_med": 0.5836,
+      "ref_med": 0.4437,
+      "rank": 4
+     },
+     {
+      "feature": "gap_right_elbow",
+      "kind": "gap",
+      "n_valid": 253,
+      "valid_rate": 0.93,
+      "included": true,
+      "median": -0.0457,
+      "scaled": 0.305,
+      "user_med": 0.1791,
+      "ref_med": 0.2128,
+      "rank": 5
+     },
+     {
+      "feature": "gap_left_elbow",
+      "kind": "gap",
+      "n_valid": 258,
+      "valid_rate": 0.949,
+      "included": true,
+      "median": -0.0356,
+      "scaled": 0.237,
+      "user_med": 0.6336,
+      "ref_med": 0.7462,
+      "rank": 6
+     },
+     {
+      "feature": "gap_left_knee",
+      "kind": "gap",
+      "n_valid": 230,
+      "valid_rate": 0.846,
+      "included": true,
+      "median": -0.027,
+      "scaled": 0.18,
+      "user_med": 0.3096,
+      "ref_med": 0.2819,
+      "rank": 7
+     },
+     {
+      "feature": "bodyline",
+      "kind": "gap",
+      "n_valid": 235,
+      "valid_rate": 0.864,
+      "included": true,
+      "median": 0.023,
+      "scaled": 0.153,
+      "user_med": 0.7125,
+      "ref_med": 0.6663,
+      "rank": 8
+     },
+     {
+      "feature": "knee_angle_left",
+      "kind": "angle",
+      "n_valid": 222,
+      "valid_rate": 0.816,
+      "included": true,
+      "median": -4.1818,
+      "scaled": 0.139,
+      "user_med": 89.3943,
+      "ref_med": 99.9414,
+      "rank": 9
+     },
+     {
+      "feature": "gap_right_wrist",
+      "kind": "gap",
+      "n_valid": 235,
+      "valid_rate": 0.864,
+      "included": true,
+      "median": -0.0145,
+      "scaled": 0.097,
+      "user_med": 0.1108,
+      "ref_med": 0.1265,
+      "rank": 10
+     },
+     {
+      "feature": "gap_hip_mid",
+      "kind": "gap",
+      "n_valid": 235,
+      "valid_rate": 0.864,
+      "included": true,
+      "median": 0.0124,
+      "scaled": 0.083,
+      "user_med": 0.4525,
+      "ref_med": 0.5165,
+      "rank": 11
+     },
+     {
+      "feature": "gap_left_wrist",
+      "kind": "gap",
+      "n_valid": 250,
+      "valid_rate": 0.919,
+      "included": true,
+      "median": -0.0106,
+      "scaled": 0.071,
+      "user_med": 0.1647,
+      "ref_med": 0.2117,
+      "rank": 12
+     },
+     {
+      "feature": "split_angle",
+      "kind": "angle",
+      "n_valid": 221,
+      "valid_rate": 0.812,
+      "included": true,
+      "median": 0.6403,
+      "scaled": 0.021,
+      "user_med": 35.5793,
+      "ref_med": 34.0027,
+      "rank": 13
+     },
+     {
+      "feature": "knee_angle_right",
+      "kind": "angle",
+      "n_valid": 229,
+      "valid_rate": 0.842,
+      "included": true,
+      "median": -0.1799,
+      "scaled": 0.006,
+      "user_med": 161.9845,
+      "ref_med": 165.506,
+      "rank": 14
+     }
+    ]
+   },
+   "hold_intervals": {
+    "user_sec": [
+     [
+      15.73,
+      16.73
+     ],
+     [
+      17.13,
+      18.07
+     ]
+    ],
+    "ref_sec": [
+     [
+      12.0,
+      13.67
+     ]
+    ],
+    "user_threshold": 0.14535,
+    "ref_threshold": 0.22244,
+    "hold_pct": 40
+   },
+   "hold": {
+    "available": false,
+    "n_pairs": 0,
+    "reason": "홀드 짝 0 < HOLD_PAIR_MIN 10 — 홀드 판정 불가"
+   },
+   "mirror": {
+    "d_normal": 3.4464,
+    "d_swap": 6.2522,
+    "improve": -0.8141,
+    "verdict": "same_side"
+   }
+  },
+  "peterpan": {
+   "n_user_frames": 91,
+   "n_ref_frames": 129,
+   "fps": 15.0,
+   "full": {
+    "n_pairs": 91,
+    "rows": [
+     {
+      "feature": "gap_left_ankle",
+      "kind": "gap",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": -0.4484,
+      "scaled": 2.989,
+      "user_med": 0.6923,
+      "ref_med": 1.187,
+      "rank": 1
+     },
+     {
+      "feature": "gap_left_knee",
+      "kind": "gap",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": -0.261,
+      "scaled": 1.74,
+      "user_med": 0.6815,
+      "ref_med": 1.1028,
+      "rank": 2
+     },
+     {
+      "feature": "gap_right_ankle",
+      "kind": "gap",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": -0.2021,
+      "scaled": 1.347,
+      "user_med": 0.9494,
+      "ref_med": 1.1682,
+      "rank": 3
+     },
+     {
+      "feature": "gap_sho_mid",
+      "kind": "gap",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": -0.1653,
+      "scaled": 1.102,
+      "user_med": 0.6813,
+      "ref_med": 0.8563,
+      "rank": 4
+     },
+     {
+      "feature": "gap_left_elbow",
+      "kind": "gap",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": -0.143,
+      "scaled": 0.953,
+      "user_med": 0.2741,
+      "ref_med": 0.4372,
+      "rank": 5
+     },
+     {
+      "feature": "knee_angle_right",
+      "kind": "angle",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": 10.5164,
+      "scaled": 0.351,
+      "user_med": 80.7167,
+      "ref_med": 55.9692,
+      "rank": 6
+     },
+     {
+      "feature": "gap_right_elbow",
+      "kind": "gap",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": -0.0423,
+      "scaled": 0.282,
+      "user_med": 0.524,
+      "ref_med": 0.52,
+      "rank": 7
+     },
+     {
+      "feature": "gap_right_knee",
+      "kind": "gap",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": -0.0412,
+      "scaled": 0.275,
+      "user_med": 0.4572,
+      "ref_med": 0.4822,
+      "rank": 8
+     },
+     {
+      "feature": "bodyline",
+      "kind": "gap",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": 0.027,
+      "scaled": 0.18,
+      "user_med": 0.8859,
+      "ref_med": 0.9437,
+      "rank": 9
+     },
+     {
+      "feature": "gap_hip_mid",
+      "kind": "gap",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": 0.0258,
+      "scaled": 0.172,
+      "user_med": 0.873,
+      "ref_med": 0.9175,
+      "rank": 10
+     },
+     {
+      "feature": "gap_right_wrist",
+      "kind": "gap",
+      "n_valid": 91,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.0159,
+      "scaled": 0.106,
+      "user_med": 0.1522,
+      "ref_med": 0.1538,
+      "rank": 11
+     },
+     {
+      "feature": "gap_left_wrist",
+      "kind": "gap",
+      "n_valid": 91,
+      "valid_rate": 1.0,
+      "included": true,
+      "median": -0.0076,
+      "scaled": 0.05,
+      "user_med": 0.1192,
+      "ref_med": 0.1473,
+      "rank": 12
+     },
+     {
+      "feature": "split_angle",
+      "kind": "angle",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": -0.7284,
+      "scaled": 0.024,
+      "user_med": 13.5629,
+      "ref_med": 16.5318,
+      "rank": 13
+     },
+     {
+      "feature": "knee_angle_left",
+      "kind": "angle",
+      "n_valid": 90,
+      "valid_rate": 0.989,
+      "included": true,
+      "median": 0.2445,
+      "scaled": 0.008,
+      "user_med": 177.1368,
+      "ref_med": 175.962,
+      "rank": 14
+     }
+    ]
+   },
+   "hold_intervals": {
+    "user_sec": [],
+    "ref_sec": [],
+    "user_threshold": 0.101,
+    "ref_threshold": 0.1227,
+    "hold_pct": 40
+   },
+   "hold": {
+    "available": false,
+    "n_pairs": 0,
+    "reason": "홀드 짝 0 < HOLD_PAIR_MIN 10 — 홀드 판정 불가"
+   },
+   "mirror": {
+    "d_normal": 1.2022,
+    "d_swap": 4.3769,
+    "improve": -2.6407,
+    "verdict": "same_side"
+   }
+  }
+ },
+ "regress_v0": {
+  "pass": true,
+  "checks": [
+   {
+    "check": "powerspin left_ankle median",
+    "pass": true,
+    "measured": "+0.5555",
+    "band": "[0.51, 0.61]"
+   },
+   {
+    "check": "powerspin 벌림각 median",
+    "pass": true,
+    "measured": "-24.55",
+    "band": "[-27.5, -21.5]"
+   },
+   {
+    "check": "powerspin 벌림각 u_med",
+    "pass": true,
+    "measured": "27.74",
+    "band": "27.7+-3"
+   },
+   {
+    "check": "powerspin 벌림각 r_med",
+    "pass": true,
+    "measured": "98.05",
+    "band": "98.1+-3"
+   },
+   {
+    "check": "elbow 전 피처 scaled<=0.5",
+    "pass": true,
+    "measured": "전건 충족",
+    "band": "<=0.5"
+   },
+   {
+    "check": "미러 5동작 동측",
+    "pass": true,
+    "measured": "5동작, 비동측=없음",
+    "band": "5/5 same_side"
+   }
+  ]
+ },
+ "verdict": {
+  "G1": {
+   "pass": false,
+   "reason": "elbow 홀드 판정 불가: 홀드 짝 0 < HOLD_PAIR_MIN 10 — 홀드 판정 불가"
+  },
+  "G2": {
+   "pass": false,
+   "reason": "pdshapefault 홀드 판정 불가(측정 불가=FAIL, fail-closed): 홀드 짝 0 < HOLD_PAIR_MIN 10 — 홀드 판정 불가"
+  },
+  "G3": {
+   "pass": true,
+   "top3": [
+    {
+     "feature": "gap_left_ankle",
+     "scaled": 3.703,
+     "median": 0.5555
+    },
+    {
+     "feature": "gap_right_ankle",
+     "scaled": 1.952,
+     "median": 0.2928
+    },
+    {
+     "feature": "gap_left_knee",
+     "scaled": 1.274,
+     "median": 0.1911
+    }
+   ],
+   "evidence": [
+    {
+     "feature": "gap_left_ankle",
+     "rank": 1,
+     "median": 0.5555,
+     "scaled": 3.703
+    },
+    {
+     "feature": "gap_right_ankle",
+     "rank": 2,
+     "median": 0.2928,
+     "scaled": 1.952
+    }
+   ]
+  },
+  "overall": false
+ }
+}

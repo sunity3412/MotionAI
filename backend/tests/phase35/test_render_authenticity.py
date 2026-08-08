@@ -185,3 +185,54 @@ def test_build_timeline_records_no_mp3_exclusion(tmp_path):
     warp_b, freezes, excluded = compare_render.build_timeline(doc, audio, None, align, None)
     assert excluded == [{"rid": "r02", "reason": "no_mp3"}]
     assert {fz["rid"] for fz in freezes} == {"r00", "r01", "r03"}
+
+
+# ═══════════════ G 경계 핀 (ref-경계 아티팩트 — 대안 승인) ═══════════════
+
+
+def test_boundary_pin_checks_flags_ref_edges():
+    """rt 가 ref 양끝 0.5s 이내 = G FAIL, 밖 = PASS (belle doc 실측 16.4~16.6/끝)."""
+    from sunity_shared.analysis.compare_verify import boundary_pin_checks
+
+    align = {"refFrames": 240, "fps": 15.0}  # ref 16.0s
+    report = {"freezes": [
+        {"rid": "r00", "refSec": 15.8},  # 끝 0.2s 이내 — belle 케이스
+        {"rid": "r01", "refSec": 0.3},   # 시작 0.5s 이내 — 대칭
+        {"rid": "r02", "refSec": 8.0},   # 중앙 — PASS
+        {"rid": "r03", "refSec": 0.8},   # 승인 최소 마진 (pdshapefault override) — PASS
+    ]}
+    verdicts = {n: p for n, p, _ in boundary_pin_checks(report, align)}
+    assert verdicts["G 경계 핀 r00"] is False
+    assert verdicts["G 경계 핀 r01"] is False
+    assert verdicts["G 경계 핀 r02"] is True
+    assert verdicts["G 경계 핀 r03"] is True
+
+
+def test_build_timeline_excludes_boundary_pinned_freeze(tmp_path):
+    """belle doc 기전 재현 — pairs rt 를 ref 끝단으로 조작하면 그 freeze 는
+    ref_boundary_pin 으로 제외되고 (렌더 진행), 회계에 남는다."""
+    import subprocess
+
+    from sunity_shared.analysis.compare_render import FF
+
+    audio = tmp_path / "audio"
+    audio.mkdir()
+    for rid in ("r00", "r01", "r02", "r03"):
+        subprocess.run(
+            [FF, "-y", "-loglevel", "error", "-f", "lavfi", "-i", "anullsrc",
+             "-t", "1", str(audio / f"{rid}.mp3")],
+            check=True,
+        )
+
+    doc = json.load(open(_DATA / "elbow" / "doc.json"))
+    align = json.load(open(_DATA / "elbow" / "align.json"))
+    ref_dur = align["refFrames"] / align["fps"]
+    # 끝단 핀 주입 — pair_overrides 경로 (자동 문법의 짝 재선정이 pairs 주입값을
+    # self-heal 하는 것을 유닛 실측 후 벡터 교체: override 는 rt 를 그대로 쓰므로
+    # 경계 판정이 문법 전체보다 뒤에서 최종 방어함을 함께 핀).
+    warp_b, freezes, excluded = compare_render.build_timeline(
+        doc, audio, None, align, None,
+        pair_overrides={"r03": {"refVideoSec": ref_dur - 0.2}},
+    )
+    assert {"rid": "r03", "reason": "ref_boundary_pin"} in excluded
+    assert {fz["rid"] for fz in freezes} == {"r00", "r01", "r02"}

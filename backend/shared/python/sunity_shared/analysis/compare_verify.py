@@ -21,14 +21,17 @@ S3 업로드 + doc renderedCompare done 부착 (FAIL = failed 마킹, 업로드 
      버스트·스틸 크롤)은 통과시킨다 — 완화가 아니라 판정 대상의 교정 + 표집 운
      제거(강화). 상수 근거는 stutter_stop_events/STUTTER_* 주석.
   F. 웹 재생성 — moov(재생정보)가 mdat(본체) 앞 (faststart — 사파리 스트리밍)
+  G. 경계 핀 (ref-경계 아티팩트) — 렌더된 freeze 의 rt 가 ref 양끝 0.5s 밖
+     (DTW 종점 강제 정렬 아티팩트 차단 — belle doc 127a2a90 실측, 홀드-내 판정
+     대안으로 orchestrator 승인). align 미제공 = [INFO] 생략.
   H. 진품 판정 (산출-분석 일치, belle 실기기 반려 라운드) — doc 제공 시:
-     정지 수 회계 / 정지 순간 == doc 측정 순간(±0.2s, 클램프·이동 문법 면제) /
+     정지 rid 집합 회계 / 정지 순간 == doc 측정 순간(±0.2s, 클램프·이동 문법 면제) /
      구운 자막 == cue_text 조립문 / 음성 rid == 그 분석 coachAudio 조인.
      doc 미제공(구식 CLI 호출) = [INFO] 생략 — 운영 스테이지는 항상 제공.
 
 v0 미포함(후속): whisper 전사 == 자막 문장 대조(로컬 whisper 미설치 — Pod 리그에서),
-자막 픽셀 OCR, G 의미 축(홀드-내 판정 — 승인 코퍼스 실측 기각으로 STOP, SUMMARY
-"렌더 방어 라운드" 절 참조). 미포함은 여기 명시해 둔다 — 조용한 생략 금지.
+자막 픽셀 OCR, 홀드-내 의미 판정(승인 코퍼스 실측 기각 — 승인 문법이 피크·폴-접촉
+순간을 고름, SUMMARY "렌더 방어 라운드" 절). 미포함은 여기 명시해 둔다 — 조용한 생략 금지.
 """
 from __future__ import annotations
 
@@ -66,6 +69,40 @@ STUTTER_FAIL_COUNT = 4
 # 재생 구간 경계 margin — freeze 진입/복귀 크로스페이드(FADE_S 0.17s) + 반올림
 # 배제. 0.5s 미만 구간은 스캔 생략 (이벤트 리듬 판정 불능 길이).
 PLAYBACK_MARGIN_S = 0.3
+
+# ── G 경계 핀 (ref-경계 아티팩트) — belle 실기기 반려 라운드 대안 승인 ────────
+# rt(기준 정지 순간)가 ref 영상 양끝 0.5s 이내면 DTW 종점 강제 정렬 아티팩트로
+# 판정 — 그 freeze 는 렌더에서 제외(compare_render)되고, 리그 G 가 이중 방어.
+# 상수 0.5s 근거 (전부 실측·구조 유도):
+#   · belle doc 127a2a90 실측: rt 16.4~16.6 vs ref 끝 — 끝단 0.2s 이내 핀
+#     ("어떤 지점인지 모르는 수준" 반려의 렌더-계층 가시 부분).
+#   · 승인 5편 12 freeze 전수 실측: rt 시작 여유 min 0.8s(pdshapefault r01 —
+#     belle 명시 override) / 끝 여유 min 1.0s(peterpan r00) — 0.5 는 승인
+#     코퍼스 전건 밖 + belle 케이스 안을 가르는 중간값.
+#   · FREEZE_TAIL_S(0.4)·끝단 재재생 임계(1.5s)와 같은 '경계 특수 구간' 스케일 계열.
+# 시작 경계 대칭 적용 (승인 실측 0.8 > 0.5 안전 — DTW 종점 강제는 양단 동형).
+# **ut(사용자 순간)는 미적용**: 승인 peterpan r00 이 ut=5.89/6.1s (끝 클램프+
+# 재재생 문법, belle 승인 — 끝 여유 0.2s)라 끝 경계가 승인 문법과 충돌하고,
+# ut 는 측정 순간 소관(Phase 34) — 렌더 계층은 rt(DTW 산출)만 판정한다.
+REF_BOUNDARY_PIN_S = 0.5
+
+
+def boundary_pin_checks(report: dict, align: dict) -> list[tuple[str, bool, str]]:
+    """G 경계 핀 판정 목록 — 렌더된 freeze 의 rt 가 ref 양끝 밖(핀 아님)인지.
+
+    compare_render 의 사전 제외(ref_boundary_pin)와 같은 상수 — 리그는 이중 방어
+    (렌더러가 안 걸렀어도 여기서 FAIL = 부착 없음)."""
+    out: list[tuple[str, bool, str]] = []
+    ref_dur = float(align["refFrames"]) / float(align["fps"])
+    for fz in report.get("freezes") or []:
+        rt = float(fz.get("refSec", -1))
+        ok = REF_BOUNDARY_PIN_S <= rt <= ref_dur - REF_BOUNDARY_PIN_S
+        out.append((
+            f"G 경계 핀 {fz.get('rid')}",
+            ok,
+            f"rt={rt:.2f}s ref={ref_dur:.1f}s (양끝 {REF_BOUNDARY_PIN_S}s 밖 요구)",
+        ))
+    return out
 
 
 def playback_regions(report: dict, actual: float, margin: float = PLAYBACK_MARGIN_S) -> list[tuple[float, float]]:
@@ -404,6 +441,13 @@ def verify(
     mi, di = head.find(b"moov"), head.find(b"mdat")
     check("F 웹 재생성(faststart)", 0 <= mi < di if di >= 0 else mi >= 0,
           f"moov@{mi} mdat@{di} (64KB 헤더 내)")
+
+    # G. 경계 핀 — align 제공 시에만 (ref 길이 산출원. 운영 스테이지는 항상 제공).
+    if align is not None:
+        for name, passed, detail in boundary_pin_checks(report, align):
+            check(name, passed, detail)
+    else:
+        lines.append("  [INFO] G 경계 핀 생략 (align 미제공 — 운영 스테이지는 항상 제공)")
 
     # H. 진품 판정 — doc 제공 시에만 (운영 스테이지는 항상 제공, CLI 는 --doc-json).
     if doc is not None:

@@ -38,6 +38,7 @@ import imageio_ffmpeg
 from PIL import Image, ImageDraw, ImageFont
 
 from .cue_text import coach_audio_speech_text
+from .compare_verify import REF_BOUNDARY_PIN_S  # G 경계 핀 — 리그와 단일 상수
 
 FF = imageio_ffmpeg.get_ffmpeg_exe()
 # v2 (2026-08-07 belle "엉망진창" 반려 → 저더 실측 후): 18fps/640h 는 기준 패널
@@ -949,6 +950,17 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
                 rt, src = c_pairs[rec["criterion"]], "C"
             else:
                 rt, src = warp_b(ut), "B"
+        # G 경계 핀 사전 제외 (belle 실기기 반려 라운드 대안 승인) — rt 가 ref
+        # 양끝 REF_BOUNDARY_PIN_S 이내 = DTW 종점 강제 정렬 아티팩트 (근거·실측
+        # = compare_verify.REF_BOUNDARY_PIN_S 주석). 승인 5편 실측 전건 경계 밖
+        # (시작 여유 min 0.8 / 끝 여유 min 1.0) — 픽스처 제외 0 = byte 불변.
+        if align is not None:
+            ref_dur_align = float(align["refFrames"]) / float(align["fps"])
+            if not (REF_BOUNDARY_PIN_S <= rt <= ref_dur_align - REF_BOUNDARY_PIN_S):
+                print(f"[boundary-pin] {rid} rt={rt:.2f}s ref={ref_dur_align:.1f}s "
+                      f"— DTW 종점 아티팩트, 정지 제외", file=sys.stderr)
+                excluded.append({"rid": rid, "reason": "ref_boundary_pin"})
+                continue
         freezes.append({
             "rid": rid, "ut": ut,
             "rt": rt,

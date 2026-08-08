@@ -251,6 +251,66 @@ FAIL       = 어느 2.0s 슬라이딩 창에 정지 이벤트 ≥ 4
 
 **회귀 유지**: 렌더러 byte 불변 (`git diff 4decd09..HEAD -- compare_render/compare_align/cue_text` = 0줄 — byte 게이트 2차 결과 유효 승계), 채점 diff 0 (누적), pytest FAILED/ERROR node-ID baseline IDENTICAL, phase35 46케이스 GREEN.
 
+## 렌더 방어 라운드 (2026-08-08 밤 — belle 실기기 pdshape 반려)
+
+**배경**: belle doc `127a2a90c1d74c62ad61270eb3fe5625` (ref-pdshape, 20.2s) —
+records 2건이 영상 끝자락(이탈 국면, at 17.56/17.78), ref 짝도 ref 끝(16.4~16.6s).
+motionAlignment `tier=trim_only reason=low_global_confidence`. belle: "어떤
+지점에서 뭘 말하는지 모르는 수준". 원칙: **승인(v7급) 못 미치면 렌더 미출하** —
+채점 수술(측정창·좌우)은 Phase 34, 이 라운드는 렌더 계층 fail-closed 만.
+커밋: ddb4145(방어 4) / eaa2426(방어 2) / fee6aad(드라이버 로그 가시화).
+
+### 투입된 방어 (2/4종 — 2·4)
+
+| 방어 | 구현 | 검증 실측 |
+|------|------|----------|
+| **2. 정렬 강등 스킵** | doc `motionAlignment.tier != 'warped'`(trim_only/disabled/부재/오염 = 저신뢰 계열) → 스테이지 진입 스킵, **필드 미기록** = 앱 듀얼 폴백 | belle doc Pod no-write 재현: `INFO compare_render 스킵 (motionAlignment tier=trim_only — warped 아님…)` + 마킹 0 + 리그 미도달. 유닛 4형상 |
+| **4. 진품 판정 리그 H** | H1 정지 **rid 집합** 회계(수 아닌 동일성 — 통째 삽입이 1==1 로 지나친 유닛 실측 후 강화) / H2 정지 순간 == doc·align 측정 순간(±0.2s, 끝 클램프 미러, align-peak·align-pole 승인 이동 문법 면제) / H3 구운 자막 == cue_text 조립문·오버라이드 문자 일치 / H4 음성 rid == 그 분석 coachAudio 조인. 운영 스테이지는 doc/align 상시 전달 | v7 통째 삽입 시뮬 = H1·H2·H4 **다축 동시 FAIL** (유닛 11) + 승인 5편 리그(H 포함) ALL PASS + 렌더러 no_mp3 제외 회계(`report.excludedFreezes`) 신설에도 픽스처 mp4 **byte 불변 3/3** |
+| (부속) freeze 전멸 스킵 | 제외 회계로 렌더 대상 0 = "표현할 것 없음" — failed 아닌 **필드 미기록**, 리그 미도달 | 유닛 (verify 호출 0·마킹 0 assert) |
+
+**belle doc 사후 조치**: 반려된 렌더가 doc 에 `done` 으로 남아 있었음(실측) —
+원칙 적용으로 `failed(key '')` 강등 (Pod 실쓰기, before/after 실측: done→failed,
+분석 본체 status=done·72점 무훼손). belle 앱은 그 doc 에서 듀얼 플레이어 폴백.
+
+### 방어 1·3 (홀드-내 판정 / 의미 축 G) — STOP (승인 코퍼스 실측 기각)
+
+지정 산식(스크린 v1 에너지 p60+이동평균, 관대 파라미터)으로 승인 코퍼스 전수 실측:
+
+| 픽스처 (승인 렌더) | freeze 홀드-내 (u∧r, p60) | 비고 |
+|--------------------|---------------------------|------|
+| elbow | **0/4** | r03·r02 만 u-측 O, ref-측 전건 X |
+| kipup | **0/1** | 승인 피크 1.47s = 킵업 아펙스(스윙 중) — 홀드 원리적 불성립 |
+| pdshapefault | **0/4** | |
+| powerspin | **0/2** | **ref 홀드 자체가 0개** (스핀 — 저에너지 1s 지속 구간 부재) |
+| peterpan | **0/1** | **user 홀드 자체가 0개** |
+
+기각 근거 (fixture curve-fit 아님 — 전제 자체의 반례): 승인 표시 문법이 **피크·
+폴-접촉 순간**(align-peak = 벌림 최대 국면)을 의도적으로 고르므로 "표시 순간 =
+저에너지 홀드 안" 전제가 승인 코퍼스와 충돌한다. 관대 파라미터(p60)로도 0/12,
+powerspin·peterpan 은 홀드 집합이 공집합 — 어떤 임계도 이 게이트를 (a) "픽스처
+제외 0" 과 동시에 성립시킬 수 없다. 지시된 STOP 규칙("전부 PASS 아니면 STOP")
+적용 — 미구현·보고.
+
+**대안 후보 (belle 반려의 렌더-계층 가시 부분, 승인 코퍼스 무결 — 결정 대기)**:
+ref-경계 핀 판정 — rt 가 ref 영상 끝 ε(0.5s) 이내(= DTW 종점 강제 정렬 artifact,
+belle doc 실측 16.4~16.6/16s 끝)면 freeze 제외 + 리그 축. 승인 5편 rt 실측 전건
+경계 밖 (max rt/ref: elbow 15.07/21.9 등). 단 ut 이탈-국면 자체(17.78/20.2 —
+경계 아님)는 측정창 문제 = Phase 34 소관. 방어 2(tier)가 belle doc 계열을 이미
+전단에서 차단하므로 대안은 warped-tier 의 잔여 위험용.
+
+### 완료 정의 대비 커버리지
+
+"belle 재업로드 시 이상한 정지는 원리적으로 못 나간다":
+- 저신뢰 정렬 doc (belle doc 계열, trim_only/disabled/부재) → **방어 2 가 전단 차단** (재현 실측).
+- 신뢰 정렬(warped) doc → 리그 A~F + **H 진품** 전 항목 PASS 만 부착. 잔여: warped +
+  홀드-밖 순간의 의미 결함은 방어 1/3 STOP 으로 이 라운드 미커버 — 대안 후보 결정 대기.
+
+### 회귀
+
+픽스처 mp4 byte 불변 3/3(제외 회계 추가에도 — report 에 `excludedFreezes` 키만
+증가, 문서화) · 승인 5편 새 리그(H 포함) ALL PASS · phase35 유닛 88 GREEN ·
+pytest FAILED/ERROR node-ID baseline IDENTICAL · 채점 모듈 diff 0 (누적).
+
 ## Known Stubs
 
 없음 — 이번 범위의 스텁은 검증 스크립트(verify_compare_stage_local.py)의 의도적

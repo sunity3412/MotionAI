@@ -1,17 +1,26 @@
-"""Phase 34 수술 ③ — 좌우 기능 짝맞춤 (quick-260808-r82). numpy-only 순수 모듈.
+"""Phase 34 수술 ③ — 그립측 판별 + L/R 스왑 (quick-260808-r82). numpy-only 순수 모듈.
 
-미러 수행(그립팔이 기준과 좌우 거울상) 시 right-vs-right 비교는 "그립팔 vs 자유팔"
-비교가 된다 — 근거 실측(memory mirror-performance-side-matching-phase34): 엘보 미러
-수행에서 user 오른손목-폴 x간격 0.20 vs ref 왼손목-폴 0.20 (거울상). 이 모듈은
-(1) 그립측 판별(grip_side)과 (2) 팔 관절쌍 L/R 각도 열 스왑(swap_lr_arm_columns)을
-제공한다. 판별 신뢰 미달 = None = 미발동 fail-closed — 채점 급변 금지(T-34-01).
+**채점 스왑은 실측 기각 — grip_side 는 관측 전용, swap_lr_arm_columns 는 하네스
+전용이다.** 가설(미러 수행 시 right-vs-right 비교가 "그립팔 vs 자유팔" 비교가 된다 —
+memory mirror-performance-side-matching-phase34, 엘보 실측 user 오른손목-폴 x간격
+0.20 vs ref 왼손목-폴 0.20 거울상)을 각도 공간에서 기계 검증한 결과:
 
-**스크린 v0 실측과의 관계 (박제):** 자율 스크린 v0 은 전신 미러 스왑을 위치 특징
-공간에서 시험했고 5동작 전부 미개선으로 기각됐다. 단 v0 은 **위치 공간의 전신**
-스왑이었고, 이 스왑은 **각도 공간의 국소(팔) L/R 열 교환** — 다른 연산이다. 관절각은
-좌표계 미러의 영향을 받지 않는 스칼라라, 기능 동등 관절(그립팔↔그립팔)끼리 짝만
-바꾸면 된다. 다리(hip/knee) 무접촉이 기본 — 다리 확장은 하네스 --side 실측에서
-발동 doc 의 다리 편차가 일관 개선될 때만(quick-260808-r82 PLAN Task 2).
+  유일한 실측 거울상 doc(elbow)에서 두 변형 모두 팔 편차 악화 —
+    정렬 재계산 스왑: arm mean 24.15° → 29.83°, DTW 거리 63.0 → 70.3
+    짝만 스왑(정렬 원본 유지): arm mean 24.15° → 38.95°
+  전 7 doc 일관 악화(kipup 12.4° → 107.6° 등). 표 = quick-260808-r82
+  data/swap_hypothesis.md.
+
+스크린 v0(위치 공간 전신 스왑, 5동작 미개선 기각)에 이어 **각도 공간 국소(팔)
+스왑도 기각** — "관절각은 미러-불변 스칼라라 열 교환으로 충분하다"는 이론은 실측이
+반박했다(2D 투영·카메라 기하가 각도의 좌우 대칭을 깨는 것으로 해석 — 실측 > 이론,
+[[evidence-outranks-prior-decisions]]). 프로덕션은 스왑을 발동하지 않는다
+(_deviation_against 는 항상 기본값 swap_lr_arms=False 로 호출).
+
+grip_side 의 관측 가치는 실측 유지: 스핀 계열(powerspin/kipup/peterpan)에서 ratio
+2.4~5.0 으로 그립측 안정 판별(data/side_report.md) — 거울상 감지를 log 로 관측,
+향후 표시 귀속 신뢰·피처 뱅크(belle "자체적으로 찾는 것") 입력 후보. 양팔 그립
+동작(elbow/pdshape 계열, ratio 1.1~1.3)은 원리적 판별 불가 = None fail-closed.
 
 네트워크/영상/모델 금지 — 입력은 이미 산출된 joints3d 배열과 각도 행렬뿐.
 """
@@ -163,7 +172,7 @@ def _swap_columns(A, joint_keys, pairs) -> np.ndarray:
 def swap_lr_arm_columns(A, joint_keys) -> np.ndarray:
     """(T,J) 각도 행렬의 팔 관절쌍(elbow/shoulder) L/R 열만 교환. 다리 무접촉.
 
-    involution: swap(swap(A)) == A. 각도는 좌표계-미러 불변 스칼라라 열 교환만으로
-    기능 동등 관절 비교가 성립한다 (모듈 docstring 의 v0 기각 근거와 구분 참조).
+    involution: swap(swap(A)) == A. **하네스/가설 재검 전용** — 채점 적용은 실측
+    기각(모듈 docstring 의 swap_hypothesis 표), 프로덕션 경로는 호출하지 않는다.
     """
     return _swap_columns(A, joint_keys, ARM_LR_PAIRS)

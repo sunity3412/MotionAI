@@ -4934,11 +4934,13 @@ def _deviation_against(
     (DTW 종점 강제 정렬 아티팩트 차단 — motiondtw.REF_BOUNDARY_EXCLUDE_S).
     None = 종전 byte-동일 (fail-open).
 
-    swap_lr_arms (Phase 34 수술 ③): True 면 reshape 직후 기준 각도의 팔 관절쌍
-    (elbow/shoulder) L/R 열을 교환한다 — 미러 수행(그립팔 좌우 거울상) 시 기능
-    동등 관절끼리 비교. feature_vector/DTW/편차/반환 a_ref 전부 스왑본을 쓰므로
-    하류 소비(6012 reference_angles_for_veto·6017 표시 median·2687 seed)가 자동
-    일관(표시=점수 동일 source, Phase 19 TRUST-01). False(default) = byte-동일."""
+    swap_lr_arms (Phase 34 수술 ③ — **프로덕션 미배선, 실험 하네스 전용**): True 면
+    reshape 직후 기준 각도의 팔 관절쌍(elbow/shoulder) L/R 열을 교환한다.
+    실측 기각(quick-260808-r82 data/swap_hypothesis.md): 유일한 실측 거울상 doc
+    (elbow)에서 정렬 재계산·짝만-스왑 두 변형 모두 팔 편차 악화(24.15→29.83/38.95도,
+    DTW 거리 63.0→70.3) — 각도 공간 L/R 열 교환은 그립 미러를 보정하지 못한다.
+    프로덕션 call site 는 항상 기본값 False(스왑 없음)로 호출한다. 파라미터는
+    가설 재검(하네스)·불변식 3 테스트용으로만 존치. False(default) = byte-동일."""
     a_ref = np.asarray(ref_angles_flat, dtype=float)
     if a_ref.ndim == 1:
         a_ref = a_ref.reshape(-1, num_joints)
@@ -6070,16 +6072,17 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                         "ref-경계 제외 미적용 (keypointReport.fps 미상 — fail-open) "
                         "reference=%s", meta.get("referenceMotionId"),
                     )
-                # Phase 34 수술 ③ (quick-260808-r82) — 좌우 기능 짝맞춤 판별.
-                # user = RTMW 원본 keypoints_4ch (result.joints3d 의 원천 변수 —
-                # x,y,z + uncertainty_proxy, confidence = 1-uncertainty) /
-                # ref = ref doc top-level joints3d+joints3dKeys (Wave 5 mirror,
-                # 존재는 --fetch 실측 확인. 저장 sentinel 0.0 은 side_match 가
-                # 무효 처리, 신뢰도 축 부재 → confidence=None). 둘 다 판별되고
-                # **다를 때만** 팔 관절쌍 스왑 발동 + log 관측. 어느 쪽이든
-                # None(판별 불가·필드 결측)·예외 = 미발동 fail-closed(T-34-01).
-                # record 계약 무변경 — 관측은 log 만(3-way lockstep 회피).
-                _swap_arms = False
+                # Phase 34 수술 ③ (quick-260808-r82) — 그립측 **관측 전용** (스왑 미적용).
+                # 채점 스왑은 실측 기각: 유일한 실측 거울상 doc(elbow — user 오른손
+                # 그립 vs ref 왼손 그립, 08-08 폴 프로브 실측)에서 정렬 재계산·짝만-
+                # 스왑 두 변형 모두 팔 편차 악화(24.15→29.83/38.95도, DTW 거리
+                # 63.0→70.3), 전 7 doc 일관 악화 — 각도 공간 L/R 열 교환은 그립
+                # 미러를 보정하지 못한다(data/swap_hypothesis.md). 판별 자체는 스핀
+                # 계열에서 작동(ratio 2.4~5.0 실측)해 거울상 감지를 log 로만 남긴다 —
+                # 향후 표시 귀속 신뢰·피처 뱅크(belle "자체적으로 찾는 것") 입력 후보.
+                # user = RTMW 원본 keypoints_4ch(x,y,z + uncertainty_proxy,
+                # confidence = 1-uncertainty) / ref = ref doc top-level joints3d
+                # (저장 sentinel 0.0 은 side_match 가 무효 처리). 예외 = 관측 생략(무해).
                 try:
                     _u_grip = _r_grip = None
                     _u_diag: dict = {}
@@ -6103,24 +6106,22 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                         _u_grip is not None and _r_grip is not None
                         and _u_grip != _r_grip
                     ):
-                        _swap_arms = True
                         log.info(
-                            "side_match 발동 user_grip=%s ref_grip=%s reference=%s "
-                            "user_ratio=%s ref_ratio=%s (팔 관절쌍 L/R 스왑 비교)",
+                            "side_match 그립 거울상 관측 user_grip=%s ref_grip=%s "
+                            "reference=%s user_ratio=%s ref_ratio=%s — 스왑 미적용"
+                            "(실측 기각 quick-260808-r82 swap_hypothesis)",
                             _u_grip, _r_grip, meta.get("referenceMotionId"),
                             _u_diag.get("std_ratio"), _r_diag.get("std_ratio"),
                         )
-                except Exception:  # noqa: BLE001 — 판별 실패 = 미발동 fail-closed
-                    _swap_arms = False
+                except Exception:  # noqa: BLE001 — 관측 실패는 채점 무영향
                     log.info(
-                        "side_match 판별 예외 — 미발동 fail-closed reference=%s",
+                        "side_match 관측 예외 — 무시 reference=%s",
                         meta.get("referenceMotionId"), exc_info=True,
                     )
                 deviation, match, user_seg, a_ref = _deviation_against(
                     angles, ref["angles"], num_joints,
                     ref_boundary=_mode1_ref_boundary,
                     ref_fps=reference_kp_fps or None,
-                    swap_lr_arms=_swap_arms,
                 )
                 reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
                 reference_angles_for_veto = a_ref  # 23-02 Task 5 — frame-specific 각도 정량화 입력.

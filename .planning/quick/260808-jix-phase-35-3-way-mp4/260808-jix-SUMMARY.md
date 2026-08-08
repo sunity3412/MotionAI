@@ -311,6 +311,49 @@ belle doc 실측 16.4~16.6/16s 끝)면 freeze 제외 + 리그 축. 승인 5편 r
 증가, 문서화) · 승인 5편 새 리그(H 포함) ALL PASS · phase35 유닛 88 GREEN ·
 pytest FAILED/ERROR node-ID baseline IDENTICAL · 채점 모듈 diff 0 (누적).
 
+## 경계 핀 + UI 라운드 (2026-08-08 심야 — 결정 2건 + 앱)
+
+커밋: 67e0ed2(리그 G 경계 핀) / 8ef52e2(freezes 계약 3-way) / 2b0dfe2(앱 UI).
+push + Pod pull 반영.
+
+### 결정 1 — G 경계 핀 (홀드-내 대안 승인분)
+
+- **판정**: 렌더된 freeze 의 rt 가 ref 영상 **양끝 0.5s 이내** = DTW 종점 강제
+  정렬 아티팩트 → 렌더러 사전 제외(`ref_boundary_pin` 회계) + 리그 G 이중 방어.
+  상수 단일 출처 `REF_BOUNDARY_PIN_S`(compare_verify) — 근거 주석 박제 (belle
+  doc 실측 rt 16.4~16.6/끝 0.2s 이내 vs 승인 5편 시작 여유 min 0.8·끝 여유 min
+  1.0, FREEZE_TAIL 0.4·재재생 1.5s 경계-특수-구간 스케일 계열).
+- **시작 경계 대칭 적용** (지시된 실측 게이트): 승인 12 freeze 전수 실측 —
+  rt 시작 여유 min 0.8(pdshapefault r01, belle 명시 override) > 0.5 → 안전.
+  **ut 는 미적용**: 승인 peterpan r00 이 ut=5.89/6.1s (끝 클램프+재재생 문법,
+  ud-ut=0.2)라 끝 경계가 승인 문법과 충돌 + ut 는 측정 순간 소관(Phase 34).
+- 실측 함정 박제: 자동 문법(사지군 가중 짝)이 pairs 주입 핀 값을 self-heal —
+  유닛 벡터는 override 경로로 교체 (경계 판정이 문법 전체 **뒤** 최종 방어).
+- 검증: 픽스처 mp4 byte 불변 3/3 + 리그(G 포함) 승인 5편 ALL PASS + 유닛
+  (경계 4벡터 + build_timeline 제외 회계).
+
+### 결정 2 — 2fe3ae94 소급 강등 (실측)
+
+- before: `{status:'done', key:'results/fvcNXz…/2fe3ae94…/compare_v1.mp4'}`,
+  tier=trim_only(low_global_confidence — 현행 방어 2 미통과 doc).
+- after: `{status:'failed', key:''}` — 분석 본체 무훼손(status done·72점).
+- 원칙 일관 성립: **renderedCompare done ⇒ 현행 방어 전체 통과본** (현재 전
+  doc 중 done 0건 — 다음 done 은 tier=warped + 리그 A~H ALL PASS 만).
+
+### UI 라운드 (RenderedComparePlayer — 시뮬 확인/OTA 는 orchestrator)
+
+| 항목 | 구현 |
+|------|------|
+| 가로 크게 보기 | 260702-t0v 90° 회전 Modal 패턴 재사용 — 같은 player 인스턴스 두 번째 VideoView attach(동기 로직 0, 새 useVideoPlayer 금지 선례 준수), 탭 재생/일시정지 + 우상단 닫기. portrait 고정 유지 JS-only |
+| 정지 틱 + 탭 점프 | 계약 확장 `renderedCompare.freezes?:[{rid,outSec}]` (done 전용, 3-way lockstep: contract.md §12.9 표 + models `RENDERED_COMPARE_OPTIONAL_KEYS`/`FREEZE_KEYS` + validator + analysis.ts `RenderedCompareFreeze`). 스테이지가 렌더 리포트 voiceStartOutS 를 각인. 앱 씬 바 틱 탭 = 정지 직전(-0.5s) 시크. **구버전 doc(freezes 부재) = 틱 없이 재생만** (fail-open) — 두 형상 유닛(validator·스테이지 각인·passthrough) + typecheck GREEN |
+| 잔존 코드 무접촉 | 대략맞춤·미세조정·음성토글 등 폴백 경로 소비 코드 diff 0 |
+
+### 회귀 (이 라운드)
+
+픽스처 mp4 byte 불변 3/3 · 승인 5편 리그(G+H 포함) ALL PASS · phase35 유닛 73
+GREEN · typecheck GREEN · pytest FAILED/ERROR node-ID baseline IDENTICAL ·
+채점 모듈 diff 0 (누적).
+
 ## Known Stubs
 
 없음 — 이번 범위의 스텁은 검증 스크립트(verify_compare_stage_local.py)의 의도적

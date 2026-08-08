@@ -13,10 +13,14 @@
     (c) 명시 오버라이드(belle 08-08 (a) 결정: pairSrc==override + refSec==
     pdshape_pair_overrides.json 값 + ut/freeze/text 불변). 어느 쪽인지 출력.
     report_v7_pre_override.json 존재 시: 이전 v7 대비 변경 = r01 refSec 단 1건 assert.
-  elbow — r00 만 변경: pairSrc==align-pole, poleViz user/ref 성립, text==오버라이드
-    문장, freezeS=새 mp3 길이 반영, ut/rt 는 각각 atVideoSec±2.5s / curve±2.5s 창 안,
-    마커는 폴 문법이 소유(markers==[]). r01·r02·r03 행 불변(voiceStartOutS 는 r00
-    길이 변화로 뒤 행이 이동하므로 제외). outDurationS 차이 = r00 freezeS 차이 ±0.3.
+  elbow — 수리 라운드(belle 08-08 v7 반려) 후 의도 상태:
+    r00 = baseline(v6) 표시로 완전 복귀 — pairSrc==align, rt 12.07, 원 문구·원 mp3
+      (폴-근접은 분위수 지속-분리 게이트로 자동 철회, poleViz 부재, 마커 링 복귀).
+    r03 = 표시요소·문구만 변경 — ut/rt/pairSrc 불변, bodyViz user/ref 성립,
+      markers==[](몸라인 문법 소유), text==오버라이드, freezeS=새 mp3 반영.
+    r01·r02 행 불변(voiceStartOutS 는 r03 길이 변화로 이동 — 제외).
+    outDurationS 차이 = r03 freezeS 차이 ±0.3.
+    report_v7_pre_r03fix.json 존재 시: 직전 v7 대비 변경 = r00 복귀 + r03 표시 2건만.
 """
 from __future__ import annotations
 
@@ -115,30 +119,44 @@ print("=== elbow ===")
 b = json.load(open(SP / "p35" / "elbow" / "report_baseline.json"))
 v = json.load(open(SP / "p35" / "elbow" / "report_v7.json"))
 check(set(rows(b)) == set(rows(v)), f"elbow rid 집합 동일 {sorted(rows(v))}")
-for rid in ("r01", "r02", "r03"):
+for rid in ("r01", "r02"):
     check(same_row(rows(b)[rid], rows(v)[rid], NUM_TEXT),
-          f"elbow {rid} 행 불변 (voiceStart 제외 — r00 길이 변화로 이동)")
+          f"elbow {rid} 행 불변 (voiceStart 제외 — r03 길이 변화로 이동)")
+# r00 = baseline 완전 복귀 (폴-근접 분위수 게이트 자동 철회 — belle 08-08 v7 반려)
 r00b, r00v = rows(b)["r00"], rows(v)["r00"]
-check(r00v["pairSrc"] == "align-pole", f"elbow r00 pairSrc={r00v['pairSrc']} == align-pole")
-pv = r00v.get("poleViz") or {}
-check("user" in pv and "ref" in pv, f"elbow r00 poleViz user/ref 성립 {pv}")
-check(r00v.get("markers") == [], f"elbow r00 markers={r00v.get('markers')} == [] (폴 문법 소유)")
+check(same_row(r00b, r00v, NUM_TEXT),
+      f"elbow r00 행 == baseline 복귀 (pairSrc={r00v['pairSrc']} rt={r00v['refSec']} 원 문구·원 mp3)")
+check(r00v.get("poleViz") is None, "elbow r00 poleViz 부재 (자동 철회)")
+check(r00v.get("markers") == r00b.get("markers") and (r00v.get("markers") or []) != [],
+      f"elbow r00 마커 링 복귀 {r00v.get('markers')}")
+# r03 = 몸-폴 라인 문법 (표시·문구만 — ut/rt/pairSrc 불변)
+r03b, r03v = rows(b)["r03"], rows(v)["r03"]
 ov = json.load(open(OVERRIDES))
-check(r00v["text"] == ov["r00"], "elbow r00 text == 오버라이드 문장")
-# freezeS = 새 mp3 길이 + 0.4 — 재합성 mp3 6.29s 실측 반영 확인
-align = json.load(open(DATA / "elbow" / "align.json"))
-at = 11.111  # doc r00 atVideoSec (렌더 대상 창의 기준)
-afps = float(align["fps"])
-curve = align["curveRefSec"]
-ct = float(curve[min(int(round(at * afps)), len(curve) - 1)])
-check(abs(r00v["userSec"] - at) <= 2.5, f"elbow r00 ut={r00v['userSec']:.2f} in atVideoSec±2.5s")
-check(abs(r00v["refSec"] - ct) <= 2.5, f"elbow r00 rt={r00v['refSec']:.2f} in curve({at:.2f})={ct:.2f}±2.5s")
-check(abs(r00v["freezeS"] - r00b["freezeS"]) > 0.02,
-      f"elbow r00 freezeS {r00b['freezeS']} -> {r00v['freezeS']} (새 mp3 반영)")
+check(same_row(r03b, r03v, ("userSec", "refSec", "pairSrc")),
+      f"elbow r03 ut/rt/pairSrc 불변 (ut={r03v['userSec']} rt={r03v['refSec']} src={r03v['pairSrc']})")
+bv = r03v.get("bodyViz") or {}
+check("user" in bv and "ref" in bv, f"elbow r03 bodyViz user/ref 성립 {bv}")
+check(r03v.get("markers") == [], f"elbow r03 markers={r03v.get('markers')} == [] (몸라인 문법 소유)")
+check(r03v["text"] == ov["r03"], "elbow r03 text == 오버라이드 문장")
+check(abs(r03v["freezeS"] - r03b["freezeS"]) > 0.02,
+      f"elbow r03 freezeS {r03b['freezeS']} -> {r03v['freezeS']} (새 mp3 반영)")
 d_out = v["outDurationS"] - b["outDurationS"]
-d_frz = r00v["freezeS"] - r00b["freezeS"]
+d_frz = r03v["freezeS"] - r03b["freezeS"]
 check(abs(d_out - d_frz) <= 0.3,
-      f"elbow outDuration 차이 {d_out:+.2f} == r00 freezeS 차이 {d_frz:+.2f} (±0.3)")
+      f"elbow outDuration 차이 {d_out:+.2f} == r03 freezeS 차이 {d_frz:+.2f} (±0.3)")
+
+# 직전 v7(폴-근접판) 대비 — 변경 = r00 복귀 + r03 표시 2건만 (존재 시)
+pre3 = SP / "p35" / "elbow" / "report_v7_pre_r03fix.json"
+if pre3.exists():
+    p = json.load(open(pre3))
+    check(set(rows(p)) == set(rows(v)), "elbow(pre-r03fix 대비) rid 집합 동일")
+    for rid in ("r01", "r02"):
+        check(same_row(rows(p)[rid], rows(v)[rid], NUM_TEXT),
+              f"elbow(pre-r03fix 대비) {rid} 행 불변")
+    check(rows(p)["r00"]["pairSrc"] == "align-pole" and r00v["pairSrc"] == "align",
+          "elbow(pre-r03fix 대비) r00 align-pole -> align 복귀")
+    check(rows(p)["r03"]["text"] != r03v["text"] and rows(p)["r03"].get("bodyViz") is None,
+          "elbow(pre-r03fix 대비) r03 문구·bodyViz 신규")
 
 print()
 if FAILS:

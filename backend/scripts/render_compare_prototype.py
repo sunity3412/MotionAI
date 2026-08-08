@@ -440,20 +440,24 @@ def _pole_prox_pair(align: dict, ut: float, joint: str, poles: dict) -> dict | N
 
     발동 (전부 데이터 판정 — 동작명 분기 없음):
       · criterion 관절이 팔꿈치 AND 양 패널 폴 감지 성공
-      · ref 창(curve(atVideoSec)±2.5s) 내 팔꿈치 ratio min ≤ τ_prox
+      · **지속-분리 (belle 08-08 v7 반려 후 조임)**: 정렬창 내
+        ref 간격 p85 ≤ τ_prox AND user 간격 p15 ≥ ref_p85 + 0.15.
+        순간 비교(min/max)는 제거 — 회전 위상 진동이 있으면 원리적으로 통과
+        불가. belle 반려 원문 "간격 무관·좌우 혼동 의심"("좀 더 회전하면 비슷"),
+        실측: 팔꿈치-폴 x간격이 user·ref 모두 홀드 중 0.02↔0.6 진동(회전 위상)
+        — v7 r00 은 user 최대 vs ref 최소의 위상 불공정 비교였다. 분위수 실측:
+        elbow r00 ref p85=0.405 > τ 0.243 → 자동 철회. 이 경로는 진짜
+        지속-클램프 차이가 있는 미래 케이스용으로 존치.
       · ref 접촉 체류(dwell) ≥ 0.5s — 회전 중 x 교차 스침 배제
         (실측: pdshapefault r00 통과 딥 run 0.20s vs 엘보 홀드 1.60s)
       · 접촉 특정성: rt 에서 힙중점 ratio − 팔꿈치 ratio ≥ 0.15 — belle 문장
         그대로 "폴에 가까운 '부분'": 팔꿈치가 접촉 부위려면 몸통보다 유의미하게
         가까워야 한다. 몸 전체가 폴선에 있는 진입 국면(실측: pdshapefault r01
         마진 +0.074 vs 엘보 홀드 +0.595)은 팔꿈치 교차가 부수적이므로 배제.
-      · user 창(atVideoSec±2.5s) 내 ratio max ≥ ref_min + 0.15 (유의미 마진)
 
-    표시 순간 (미세조정 1차 "양쪽 각자의 피크" 원칙 승계, 창 제한으로 엉뚱한
-    국면 방지): ut = user 창 내 간격 최대 프레임, rt = ref 창 내 간격 최소 프레임.
-    이 큐는 가중 짝 호출 생략(순간·짝 모두 폴 문법 소유) — 0.15s 승인 짝 보호
-    규칙의 예외. 예외는 판정 조건 성립 한정(record/동작 한정 아님)이며 근거는
-    belle 명시 교정이다.
+    표시 순간 (지속-분리 성립 시 어느 순간이든 대표성 있음): ut = user 창 내
+    간격 최대 프레임, rt = ref 창 내 간격 최소 프레임. 이 큐는 가중 짝 호출
+    생략(순간·짝 모두 폴 문법 소유).
     """
     if joint not in ("left_elbow", "right_elbow"):
         return None
@@ -475,9 +479,11 @@ def _pole_prox_pair(align: dict, ut: float, joint: str, poles: dict) -> dict | N
     uw, rw = su[ulo:uhi], sr[rlo:rhi]
     if not (np.isfinite(uw).any() and np.isfinite(rw).any()):
         return None
-    rmin = float(np.nanmin(rw))
-    umax = float(np.nanmax(uw))
-    if rmin > tau_prox_r or umax < rmin + POLE_MARGIN:
+    # 지속-분리 게이트 — 창의 85% 이상이 접촉(ref)·15% 이하만 근접(user)이어야
+    # "기준은 붙이고 유저는 떨어져 있다"가 위상 무관하게 참이다.
+    r_p85 = float(np.nanpercentile(rw, 85))
+    u_p15 = float(np.nanpercentile(uw, 15))
+    if r_p85 > tau_prox_r or u_p15 < r_p85 + POLE_MARGIN:
         return None
     if _max_contact_overlap_s(sr, tau_prox_r, rlo, rhi, afps) < POLE_DWELL_S:
         return None
@@ -566,6 +572,71 @@ def _grip_pair(align: dict, ut: float, joint: str, poles: dict, rid: str) -> flo
           f"ref_onsets_in_win={[round(o / afps, 2) for o in r_on]} -> 기존 짝 유지",
           file=sys.stderr)
     return None
+
+
+BODY_LINE_OFFSET = 0.25   # τ_body 오프셋 — 몸통 라인은 어깨·골반 두 점의 폴 편차라
+#   팔꿈치(뼈가 직접 닿음, 0.15)·손목(손폭, 0.20)보다 해부학적 유격이 큼: 몸이
+#   폴에 "겹쳐 선" 상태에서도 어깨/골반 중점은 몸 두께 절반만큼 축에서 벗어난다.
+
+
+def _body_line_viz(align: dict, ut: float, rt: float, poles: dict) -> dict | None:
+    """다리군 관절 큐 몸-폴 라인 문법 (belle 08-08 확정: r03 "무릎 각도가 주라기보다
+    폴에 붙냐 안 붙냐가 큰 차이" — '몸이 폴에 붙냐'의 원 지점 = 무릎 큐 정지 장면).
+
+    표시 = 양 패널 폴 축선(기존 스타일) + 몸 중심 라인(어깨중점→골반중점) 하이라이트.
+    수치·브래킷 없음 — "라인이 폴에 겹치나 / 휘어 떨어지나"가 모양으로 읽힌다.
+
+    발동 (전부 데이터 판정 — 동작명 분기 없음, 표시 순간은 기존 짝 그대로):
+      · 양 패널 폴 감지 성공
+      · 표시 순간 ref 몸라인-폴 최대 수평편차 ≤ τ_body(폴반폭/몸통 + 0.25)
+      · user 편차 ≥ ref 편차 + 0.15 (유의미 마진, 몸통 단위)
+      · 어깨·힙 4관절 conf ≥ 0.35 (fail-closed — 미달이면 None, 기존 링 폴백)
+    both-or-neither: 한쪽 패널이라도 미성립이면 전체 None (fault_zoom 계약 승계).
+    실측 앵커: elbow r03 user 0.629 vs ref 0.316(τ 0.343) 발동 / pdshapefault r03
+    user 0.227 vs ref 0.166 — 마진 0.061 < 0.15 침묵(유저 몸도 폴에 붙어 대비 없음).
+    """
+    pu, pr = poles.get("user"), poles.get("ref")
+    if not pu or not pr or "refKp" not in align:
+        return None
+    afps = float(align["fps"])
+    aj = align["joints17"]
+    names = ("left_shoulder", "right_shoulder", "left_hip", "right_hip")
+
+    def panel(side: str, pole: dict, t: float) -> tuple[dict, float] | None:
+        F = int(align[f"{side}Frames"])
+        kp = np.asarray(align[f"{side}Kp"], dtype=float).reshape(F, len(aj), 2)
+        sc = np.asarray(align[f"{side}Score"], dtype=float)
+        W, H = align[f"{side}Size"]
+        i = int(np.clip(round(t * afps), 0, F - 1))
+        if min(float(sc[i, aj.index(n)]) for n in names) < 0.35:
+            return None
+        sh = (kp[i, aj.index("left_shoulder")] + kp[i, aj.index("right_shoulder")]) / 2
+        hp = (kp[i, aj.index("left_hip")] + kp[i, aj.index("right_hip")]) / 2
+        if not (np.isfinite(sh).all() and np.isfinite(hp).all()):
+            return None
+        torso = float(np.linalg.norm((sh - hp) * np.array([W, H], dtype=float)))
+        if torso < 1e-3:
+            return None
+        # 편차는 그 순간의 기하(프레임 몸통), 임계는 영상의 안정 속성(몸통 중앙값)
+        # — τ_prox/τ_grip 의 tmed 패턴 승계.
+        _, tmed = _pole_gap_series(align, side, "left_wrist", pole["xNorm"])
+        dev = max(abs(float(sh[0]) - pole["xNorm"]), abs(float(hp[0]) - pole["xNorm"])) * W / torso
+        tau_body = pole["halfWidthNorm"] * W / tmed + BODY_LINE_OFFSET
+        payload = {"poleX": float(pole["xNorm"]),
+                   "a": [float(sh[0]), float(sh[1])],
+                   "b": [float(hp[0]), float(hp[1])],
+                   "dev": dev, "tauBody": tau_body}
+        return payload, dev
+
+    up = panel("user", pu, ut)
+    rp = panel("ref", pr, rt)
+    if up is None or rp is None:
+        return None
+    u_pay, u_dev = up
+    r_pay, r_dev = rp
+    if r_dev > r_pay["tauBody"] or u_dev < r_dev + POLE_MARGIN:
+        return None
+    return {"user": u_pay, "ref": r_pay}
 
 
 def _legs_angle_viz(kp_at, t: float) -> dict | None:
@@ -769,6 +840,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
         joint = rec["criterion"].split("__")[-1]
         legs_viz = None
         pole_viz = None
+        body_viz = None
         if "_alignRefSec" in rec:
             rt, src = float(rec["_alignRefSec"]), "align"
             u_at = _kp_reader(align, "user")
@@ -822,9 +894,13 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
                         rt2 = _weighted_repair_pair(align, ut, joint)
                         if rt2 is not None and abs(rt2 - rt) >= 0.15:
                             rt, src = rt2, "align-w"
+                # 다리군 관절 큐 몸-폴 라인 (표시 레이어 — 짝·순간은 위 판정 그대로.
+                # belle 08-08: r03 장면 특정 "폴에 붙냐 안 붙냐가 큰 차이").
+                if joint in ("left_knee", "right_knee"):
+                    body_viz = _body_line_viz(align, ut, rt, poles or {})
             markers = _align_markers(align, rec, ut)
-            if pole_viz is not None:
-                markers = []  # 폴 문법이 순간·표시 모두 소유 — 링은 pole_viz 가 양 패널에 그림
+            if pole_viz is not None or body_viz is not None:
+                markers = []  # 폴/몸라인 문법이 표시 소유 — 링 생략, 양 패널 대칭 드로잉
 
             # 사이각 그리기 — 벌림 문장(다리·겨드랑이·신전의 스플릿 맥락)에 두 선+호.
             # 수치는 신뢰 시 벌림각만. 관절 문장은 링만.
@@ -861,6 +937,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             "mp3": mp3, "joint": joint, "markers": markers,
             "legs_viz": legs_viz,
             "pole_viz": pole_viz,
+            "body_viz": body_viz,
             # 오버라이드 우선 — elbow_text_overrides.json 을 렌더 자막과 Polly
             # 재합성(p35_audio.py synth)이 공용으로 읽어 lockstep 이 구조 보장.
             "text": (text_overrides or {}).get(rid) or speech_text(rec),
@@ -898,7 +975,8 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
         for fz in freezes:
             print(f"PROBE {fz['rid']} joint={fz['joint']} src={fz['pair_src']} "
                   f"ut={fz['ut']:.3f} rt={fz['rt']:.3f} "
-                  f"poleViz={'y' if fz.get('pole_viz') else '-'}")
+                  f"poleViz={'y' if fz.get('pole_viz') else '-'} "
+                  f"bodyViz={'y' if fz.get('body_viz') else '-'}")
         return {"probe": True, "freezes": len(freezes)}
 
     odir.mkdir(parents=True, exist_ok=True)
@@ -1038,6 +1116,24 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
                     d.line([ex, ey, px, ey], fill=BRAND + (235,), width=round(4 * S))
                     d.line([ex, ey - tick, ex, ey + tick], fill=BRAND + (235,), width=round(3 * S))
                     d.line([px, ey - tick, px, ey + tick], fill=BRAND + (235,), width=round(3 * S))
+            bv = fz.get("body_viz")
+            if bv is not None:
+                # 몸-폴 라인 문법 (belle 08-08 r03): 양 패널 폴 축선 + 몸 중심 라인
+                # (어깨중점→골반중점) 하이라이트. 수치·브래킷 없음 — "라인이 폴에
+                # 겹치나 / 휘어 떨어지나"가 모양으로 읽힌다.
+                for panel_key, off, pw in (("user", 0, a.width), ("ref", a.width + GAP, b.width)):
+                    v = bv.get(panel_key)
+                    if not v:
+                        continue
+                    px = v["poleX"] * pw + off
+                    d.line([px, 0, px, PANEL_H], fill=BRAND + (140,), width=round(3 * S))
+                    ax_, ay_ = v["a"][0] * pw + off, v["a"][1] * PANEL_H
+                    bx_, by_ = v["b"][0] * pw + off, v["b"][1] * PANEL_H
+                    d.line([ax_, ay_, bx_, by_], fill=BRAND + (235,), width=round(6 * S))
+                    r_dot = round(7 * S)
+                    for cx, cy in ((ax_, ay_), (bx_, by_)):
+                        d.ellipse([cx - r_dot, cy - r_dot, cx + r_dot, cy + r_dot],
+                                  fill=BRAND + (255,))
             for mx_n, my_n, style in fz.get("markers") or []:
                 mx, my = mx_n * a.width, my_n * PANEL_H
                 r_out, r_in = round(13 * S), round(4 * S)
@@ -1092,10 +1188,13 @@ def render(doc_json: Path, user_video: Path, ref_video: Path, audio_dir: Path,
              "markers": [m[2] for m in (fz.get("markers") or [])],
              "legsViz": {k: fz["legs_viz"].get(k) is not None for k in ("user", "ref")}
                         if fz.get("legs_viz") else None,
-             # poleViz 요약(성립 여부 + poleX) — baseline↔v7 diff 게이트 관측 가능성.
+             # poleViz/bodyViz 요약(성립 여부 + poleX/편차) — diff 게이트 관측 가능성.
              "poleViz": {k: round(fz["pole_viz"][k]["poleX"], 4)
                          for k in ("user", "ref") if fz["pole_viz"].get(k)}
                         if fz.get("pole_viz") else None,
+             "bodyViz": {k: round(fz["body_viz"][k]["dev"], 3)
+                         for k in ("user", "ref") if fz["body_viz"].get(k)}
+                        if fz.get("body_viz") else None,
              "text": fz["text"]}
             for fz, (_, at) in zip(freezes, audio_plan)
         ],

@@ -60,21 +60,19 @@ FADE_S = 0.17  # 정지 진입/복귀 시 기준 패널 크로스페이드(순�
 # 재재생 head 3(user 0.03/0.13/0.77s)이 출력 1.9초 안에 몰림.
 # 채점(수술 ② ref-경계 제외)·정지 짝(리그 G 경계 핀)에 이미 적용한 "종점 정렬
 # 아티팩트 제외" 원리의 **재생 트랙 대응** — 세 계층이 같은 규율을 공유한다.
-PLAYBACK_TAIL_MIN_SLOPE = 0.05  # ref초/user초. 0 = 완전 정지(구조: slope>0 이면 진행)
-# 이보다 짧은 눌러붙음은 자르지 않는다 — 30fps 출력에서 6프레임(200ms) 미만은
-# 리그 E 도 '멈춤'으로 세지 않는 대역(STUTTER_RUN_MAX=5 경계와 같은 구조 유도).
-PLAYBACK_TAIL_MIN_RUN_S = 0.2
-#
-# ⚠ **현행 임계는 pdshapefault/belle 반려본 계열에서 미발동한다 (실측, 미해결)**:
-# 렌더러가 쓰는 곡선은 원 align 곡선이 아니라 `_simplify_curve` 로 272점 → **9
-# 키포인트**로 단순화한 것이다. 원곡선의 꼬리 slope 0.000(user 17.40~18.13s)이
-# 단순화 후에는 키포인트 (17.13, 15.64)→(18.07, 15.73) 사이의 **slope 0.102 크롤**
-# 로 바뀐다(≈1초 동안 기준이 0.09초만 진행 = 거의 정지하지만 0 은 아님).
-# 따라서 이 함수는 상한을 그대로 두고 렌더는 byte 불변이다(로컬 실측: base.mp4 ==
-# fix1.mp4, 11,029,938 B 동일 · [tail-cut] 로그 미출력).
-# 다음 라운드 과제 = 임계를 크롤 대역까지 올릴지(승인 5편 영향 재측정 필수) 또는
-# 판정 입력을 원곡선으로 바꿀지 — **실측으로 정한다. 임계를 픽스처에 맞춰 고르지 말 것.**
-# 함수 자체는 순수·검증됨(합성 벡터 유닛) — 발동 조건만 미정.
+# **판정 입력 = 실제로 렌더될 ref 프레임 인덱스 시퀀스** (곡선 slope 아님).
+# 1차 시도가 slope 로 판정했다가 미발동한 실측 근거: 렌더러는 원 align 곡선이
+# 아니라 `_simplify_curve` 로 272점 → 9키포인트 단순화한 곡선을 쓴다. 원곡선 꼬리
+# slope 0.000 이 단순화 후 slope 0.102 크롤이 되어 slope 임계에 안 걸렸다. 화면에
+# 실제로 나오는 것은 프레임 인덱스이므로 **그것을 직접 세는 것이 옳은 판정**이다.
+PLAYBACK_STALL_RUN_MIN = 6
+# 6프레임 = 200ms @30fps — 리그 E 의 STUTTER_RUN_MAX(5) **초과** 대역, 즉 E 가
+# '스터터(가다-서다)'가 아니라 '멈춤/스틸'로 분류하는 지점(compare_verify
+# STUTTER_* 주석의 구조 유도 승계). 그 이하 중복은 지각되는 멈춤이 아니라 자르지
+# 않는다. 승인 코퍼스 실측(꼬리 run): elbow 2 · kipup 2 · peterpan 2 · powerspin 3
+# → **전부 무접촉**, pdshapefault(=belle 반려본 동일 영상) 6 → 자름 대상.
+# 임계를 픽스처에 맞춘 것이 아니라 리그의 기존 지각 경계를 그대로 가져온 결과다.
+PLAYBACK_TAIL_MIN_RUN_S = 0.2  # 총 절단이 이보다 짧으면 무접촉(잔돈 절단 금지)
 
 
 def _default_font_path() -> Path | None:
@@ -1014,23 +1012,33 @@ def _as_dict(v):
 def playback_end_s(warp_b, dur_user: float, fps: float = FPS_OUT) -> float:
     """재생 상한(초) — 기준이 멈춘 꼬리를 뺀 user 시각. 순수 함수.
 
-    꼬리에서 역방향으로 정렬곡선 slope(ref초/user초) < PLAYBACK_TAIL_MIN_SLOPE 인
-    연속 구간을 찾고, 그 길이가 PLAYBACK_TAIL_MIN_RUN_S 이상일 때만 그 시작점을
-    상한으로 준다. 그 외에는 `dur_user` 그대로 (무접촉 — 승인 렌더 보존).
+    **실제로 렌더될 ref 프레임 인덱스**를 만들어, 꼬리에서 역방향으로 중복 run 이
+    PLAYBACK_STALL_RUN_MIN 이상인 블록이 **연속되는 동안** 잘라낸다(멈춤이 여러
+    블록으로 이어진 크롤 구간 전체가 대상). 총 절단이 PLAYBACK_TAIL_MIN_RUN_S 미만
+    이면 `dur_user` 그대로 — 무접촉(승인 렌더 보존).
 
-    상수 근거는 모듈 상단 PLAYBACK_TAIL_* 주석. 동작명 분기 0 — 곡선 형상만 본다.
+    상수 근거는 모듈 상단 PLAYBACK_* 주석. 동작명 분기 0 — 프레임 시퀀스 형상만 본다.
     """
     n = int(round(float(dur_user) * fps))
     if n < 3:
         return float(dur_user)
     ts = np.arange(n) / fps
-    rs = np.array([float(warp_b(float(t))) for t in ts])
-    slopes = np.diff(rs) * fps
-    i = len(slopes)
-    while i > 0 and slopes[i - 1] < PLAYBACK_TAIL_MIN_SLOPE:
-        i -= 1
-    tail_s = (len(slopes) - i) / fps
-    if tail_s < PLAYBACK_TAIL_MIN_RUN_S:
+    idx = np.array([round(float(warp_b(float(t))) * fps) for t in ts])
+    i, block = n, 0
+    while i > 0:
+        j = i - 1
+        while j > 0 and idx[j - 1] == idx[i - 1]:
+            j -= 1
+        # 맨 끝 블록은 영상 끝에서 **절단된** 블록이라 실제보다 짧게 보인다
+        # (실측: slope 0.1 크롤의 마지막 블록 run 4 < 6 — 여기서 멈추면 그 앞의
+        # run 10 크롤 전체를 놓친다). 길이 판정을 한 블록 유예하고, 그 앞 블록부터
+        # 엄격히 본다. 유예해도 총 절단 하한(PLAYBACK_TAIL_MIN_RUN_S)이 남아 있어
+        # 정상 재생(꼬리 2~3프레임)은 무접촉이다.
+        if block > 0 and (i - j) < PLAYBACK_STALL_RUN_MIN:
+            break
+        i = j
+        block += 1
+    if i >= n or (n - i) / fps < PLAYBACK_TAIL_MIN_RUN_S:
         return float(dur_user)
     return float(ts[i])
 

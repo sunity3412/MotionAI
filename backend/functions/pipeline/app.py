@@ -92,6 +92,7 @@ from sunity_shared.analysis.motiondtw import (
     ref_boundary_step_mask,
 )
 from sunity_shared.analysis.motion_alignment import build_motion_alignment  # Phase 28 (ALGN-01)
+from sunity_shared.analysis import side_match  # Phase 34 수술 ③ (quick-260808-r82)
 from sunity_shared.analysis.pole_geometry import (
     PoleAxisMeasurement,
     build_pole_axis_measurement,
@@ -4906,6 +4907,7 @@ def _extension_target_dict(
 def _deviation_against(
     user_angles: np.ndarray, ref_angles_flat, num_joints: int,
     ref_boundary: int | None = None, ref_fps: float | None = None,
+    swap_lr_arms: bool = False,
 ):
     """기준 시퀀스 대비 관절별 각도 편차(도) — mode1(정은지)·mode3 second+(이전 영상)
     공용 코어. flat 저장 angles 를 reshape → DTW 정렬 → per_joint_deviation.
@@ -4920,10 +4922,18 @@ def _deviation_against(
     ref_fps (Phase 34 수술 ②, quick-260808-r82): 기준 각도 축 fps. 지정 시
     per_joint_deviation 이 ref-경계 마진(0.5s) 스텝을 median 집계에서 제외한다
     (DTW 종점 강제 정렬 아티팩트 차단 — motiondtw.REF_BOUNDARY_EXCLUDE_S).
-    None = 종전 byte-동일 (fail-open)."""
+    None = 종전 byte-동일 (fail-open).
+
+    swap_lr_arms (Phase 34 수술 ③): True 면 reshape 직후 기준 각도의 팔 관절쌍
+    (elbow/shoulder) L/R 열을 교환한다 — 미러 수행(그립팔 좌우 거울상) 시 기능
+    동등 관절끼리 비교. feature_vector/DTW/편차/반환 a_ref 전부 스왑본을 쓰므로
+    하류 소비(6012 reference_angles_for_veto·6017 표시 median·2687 seed)가 자동
+    일관(표시=점수 동일 source, Phase 19 TRUST-01). False(default) = byte-동일."""
     a_ref = np.asarray(ref_angles_flat, dtype=float)
     if a_ref.ndim == 1:
         a_ref = a_ref.reshape(-1, num_joints)
+    if swap_lr_arms:
+        a_ref = side_match.swap_lr_arm_columns(a_ref, skeleton.JOINT_KEYS)
     match = motion_dtw(
         feature_vector(user_angles), feature_vector(a_ref), ref_boundary=ref_boundary
     )
@@ -5133,6 +5143,8 @@ def _mode3_comparison(
     # Phase 34 수술 ② — 이전 영상(비교 기준)도 같은 파이프라인 산출이라 각도 축 =
     # frame_extractor fps (_pipeline_frame_fps 단일 출처, 리터럴 금지). ref-경계
     # 제외 창을 mode1 과 동일 원리로 적용한다 (DTW 종점 아티팩트는 축 무관 동형).
+    # 수술 ③(side_match)은 여기 무접촉 — 같은 사용자의 이전 영상 비교라 미러 판별
+    # (그립팔 좌우)은 이번 범위 밖, Phase 34 후속 (quick-260808-r82 최소 폭발반경).
     _prev_fps = _pipeline_frame_fps()
     deviation, prev_dtw_match, _user_seg, prev_seg = _deviation_against(
         angles, prev_angles, num_joints, ref_fps=_prev_fps or None
@@ -6048,10 +6060,57 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                         "ref-경계 제외 미적용 (keypointReport.fps 미상 — fail-open) "
                         "reference=%s", meta.get("referenceMotionId"),
                     )
+                # Phase 34 수술 ③ (quick-260808-r82) — 좌우 기능 짝맞춤 판별.
+                # user = RTMW 원본 keypoints_4ch (result.joints3d 의 원천 변수 —
+                # x,y,z + uncertainty_proxy, confidence = 1-uncertainty) /
+                # ref = ref doc top-level joints3d+joints3dKeys (Wave 5 mirror,
+                # 존재는 --fetch 실측 확인. 저장 sentinel 0.0 은 side_match 가
+                # 무효 처리, 신뢰도 축 부재 → confidence=None). 둘 다 판별되고
+                # **다를 때만** 팔 관절쌍 스왑 발동 + log 관측. 어느 쪽이든
+                # None(판별 불가·필드 결측)·예외 = 미발동 fail-closed(T-34-01).
+                # record 계약 무변경 — 관측은 log 만(3-way lockstep 회피).
+                _swap_arms = False
+                try:
+                    _u_grip = _r_grip = None
+                    _u_diag: dict = {}
+                    _r_diag: dict = {}
+                    _kp4 = np.asarray(inputs.keypoints_4ch, dtype=float)
+                    if (
+                        _kp4.ndim == 3
+                        and _kp4.shape[1] == len(skeleton.KEYPOINT_NAMES)
+                    ):
+                        _u_grip = side_match.grip_side(
+                            _kp4[:, :, :3], skeleton.KEYPOINT_NAMES,
+                            confidence=1.0 - _kp4[:, :, 3],
+                            debug_out=_u_diag,
+                        )
+                    if _u_grip is not None and ref.get("joints3d") and ref.get("joints3dKeys"):
+                        _r_grip = side_match.grip_side(
+                            ref["joints3d"], ref["joints3dKeys"],
+                            debug_out=_r_diag,
+                        )
+                    if (
+                        _u_grip is not None and _r_grip is not None
+                        and _u_grip != _r_grip
+                    ):
+                        _swap_arms = True
+                        log.info(
+                            "side_match 발동 user_grip=%s ref_grip=%s reference=%s "
+                            "user_ratio=%s ref_ratio=%s (팔 관절쌍 L/R 스왑 비교)",
+                            _u_grip, _r_grip, meta.get("referenceMotionId"),
+                            _u_diag.get("std_ratio"), _r_diag.get("std_ratio"),
+                        )
+                except Exception:  # noqa: BLE001 — 판별 실패 = 미발동 fail-closed
+                    _swap_arms = False
+                    log.info(
+                        "side_match 판별 예외 — 미발동 fail-closed reference=%s",
+                        meta.get("referenceMotionId"), exc_info=True,
+                    )
                 deviation, match, user_seg, a_ref = _deviation_against(
                     angles, ref["angles"], num_joints,
                     ref_boundary=_mode1_ref_boundary,
                     ref_fps=reference_kp_fps or None,
+                    swap_lr_arms=_swap_arms,
                 )
                 reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
                 reference_angles_for_veto = a_ref  # 23-02 Task 5 — frame-specific 각도 정량화 입력.

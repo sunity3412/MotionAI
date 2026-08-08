@@ -162,6 +162,57 @@ build_align(15fps RTMW 재추출+DTW)이 돈다. 로컬 리허설과 달리 능�
   `compare_render 스킵 (추출 능력 프로브 미충족 — Lambda CPU 경로 등)` 로그 존재
   + doc 에 renderedCompare 필드 자체 부재(무접촉 스킵).
 
+## 실 E2E 라운드 (2026-08-08 오후 — orchestrator 수리 사이클)
+
+**대상**: uid=fvcNXzEqKjgqVxRPVSj1iwFnIpn2 / analysisId=2fe3ae94cc584b58a850968dd2ab0951
+(시뮬 실업로드 엘보 72점 — 08-06 픽스처 재분석과 동점 = 채점 재현성). 스테이지는
+계약대로 방어: 리그 FAIL → `renderedCompare {status:'failed', key:''}` 실기록,
+앱 폴백 정상. 추가 커밋: d48575a(아티팩트 보존) / eec0102(Pod 드라이버) /
+4decd09(수리 3건).
+
+### 수리 커밋과 실측 근거 (추측 수리 0 — 전건 아티팩트 실측 후)
+
+| 항목 | 원인 확정 (동사 = 재봤다) | 수리 | 재검증 |
+|------|--------------------------|------|--------|
+| 아티팩트 소실 | 리그 FAIL 시 tempfile workdir 정리로 mp4·report·align 소실 — 첫 E2E 진단 불가 | FAIL·예외 경로만 `/tmp/compare_fail_{analysisId}` 로 이동 보존(재시도 덮어씀) + align/report.json 을 workdir 에 즉시 기록. done = 현행 즉시 정리 | 유닛 3건 + Pod 실FAIL 에서 보존 실작동 (`/tmp/compare_fail_2fe3…` 생성 확인) |
+| D 재생 무음 FAIL (-24.6dB @0.2s) | mp4 재생 구간은 전부 무음 실측(음성 전 0.2~0.45s **-91dB** / 정지-간 **-91dB** / tail **-120dB**) — 첫 정지가 이른 편(voice 0.47s)에서 C/D probe 창(0.2s+0.8~1.0s)이 음성 구간 침범 | 침범 시에만 첫 재생 갭(≥1.5s)+0.3s 로 probe 재배치 — 판정 기준(<-70dB) 불변 = 완화 아님 (E 의 "이른 첫 정지 창 이동" 계열) | 픽스처 3편 리그 무변경 ALL PASS(침범 없음 — 재배치 미발동) + 신선 mp4 GPU 재렌더 **D PASS(-91.0dB @12.3s)** |
+| "Mean of empty slice" 경고 | `_spread_series` 스무딩 nanmean 이 전량-NaN 창에서 RuntimeWarning (결과는 어차피 NaN) | 유효값 합/개수 등가 계산 — 경고 0, NaN fail-closed 유지 | **byte 게이트 2차 3/3 IDENTICAL** (cnt>0 열 부동소수 연산 순서 동일 실증) + 경고 0건 |
+| 드라이버 CPU 폴백 | torch 미로드 프로세스에서 ORT CUDA 가 libcudnn.so.9 미발견 → CPU align (E 13% vs 서버 GPU 28% — align 이 달라짐) | 드라이버 torch 프리로드 (서버 등가 조건) | GPU 재실행이 서버 실측(28%)을 정확 재현 |
+
+### E 저더 ref 28% — 원인 확정, 수리 보류 (orchestrator 판정 대상)
+
+**실측 체인** (GPU-parity 재실행 아티팩트, `scratchpad/e2e_fail_gpu/`):
+- E 창(out 70.81~73.31 = user 13.41~15.91)은 정렬곡선의 **slope 0.656 단일 구간**
+  (user 10.13~16.47) 위 — 30fps 출력에서 ref 프레임이 3~4장마다 1장 반복.
+- 중복 패턴 = `D...D.D..D…` — **연속 run 최장 1** (균일 저속). v1 반려 실증상
+  (가다-서다 = 클러스터 정지, 8/62)과 기계적으로 다른 패턴.
+- 원곡선에 플래토 0 (최장 slope<0.1 run = 0프레임) — "곡선 평탄 구간" 가설 기각.
+  DTW 가 정당하게 만든 저속 워프다 (user 가 ref 보다 빠르게 수행한 구간).
+- **승인 픽스처 5편의 같은 문법 실측**: 전 재생 구간 인덱스 중복률 elbow 16.1%
+  (min slope 0.730 — 신선 doc 와 같은 값대), pdshapefault **23.9% (min slope
+  0.102)**, powerspin 7.8% — 전부 belle 5라운드 승인 렌더. E 가 픽스처에서 PASS
+  한 것은 창이 head/고속 구간에 착지한 표집 우연 (elbow 픽스처 창 3%).
+
+**결론**: 렌더러는 승인 문법 그대로다. E 의 window-rate 메트릭이 "승인된 균일
+저속"과 "반려된 클러스터 정지"를 구분하지 못하고, 신선 doc 에서 창이 저속 구간에
+착지해 FAIL 났다. **리그 완화 금지 제약에 따라 E 는 무변경** — 게이트 법대로
+doc failed 유지(앱 폴백 정상). 처분 선택지 (orchestrator/belle 판정):
+1. GPU FAIL mp4 직접 시청 판정 — `scratchpad/e2e_fail_gpu/compare.mp4` (12.6MB,
+   회수됨). 균일 저속이 체감 저더인지 belle 기준으로.
+2. E 메트릭 정련 — 클러스터 판별(연속 중복 run ≥2 비율)로 교체: v1 반려는 잡고
+   승인 문법은 통과. 단 pdshapefault 승인 렌더에 slope 0.102 구간(연속 run 발생
+   가능)이 있어 승인 5편 + 신선 doc 전건 재검증 필요.
+3. 렌더러 저슬로프 프레임 블렌딩 — 중복 자리를 이웃 보간으로. 승인 픽스처에도
+   중복이 있어(16~24%) **승인 렌더 byte 불변 제약과 원리적 충돌** (전량 재렌더
+   + belle 재승인 전제).
+
+### 이 라운드의 미검증
+
+| 항목 | 이유 |
+|------|------|
+| `--write` 실마킹 (S3 업로드 + done) | 리그 E FAIL — "전 항목 PASS 아니면 doc 부착 없음" 게이트 법 준수. E 처분 결정 후 드라이버 `--write` 1회로 즉시 가능 |
+| E 처분 (위 1/2/3) | belle-급 판정 — 임의 리그 변경 금지 |
+
 ## Known Stubs
 
 없음 — 이번 범위의 스텁은 검증 스크립트(verify_compare_stage_local.py)의 의도적

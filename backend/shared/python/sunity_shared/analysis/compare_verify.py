@@ -5,14 +5,21 @@
 운영 소비자 = pipeline `_run_deferred_compare_render`: verify ALL PASS 인 mp4 만
 S3 업로드 + doc renderedCompare done 부착 (FAIL = failed 마킹, 업로드 0).
 
-판정 항목 (v0 + v1):
+판정 항목 (v0 + v1 + v2):
   A. 길이 — 실제 mp4 길이 == 렌더 계획 길이 (±0.3s)
   A2. 정지 수 — 렌더된 정지 수 == 계획 정지 수 (조용한 탈락 검출)
   B. 정지 정적성 — 각 freeze 창 중앙 1s 의 프레임 차분(diff) ≈ 0 (프리즈가 진짜 멈춰있나)
   C. 재생 동적성 — 재생 구간 표본의 프레임 차분 > 정지의 10배 (영상이 진짜 움직이나)
   D. 음성 배치 — 각 voice 창 mean dB > -45 (발화 존재), 재생 구간 표본 < -70 (무음)
-  E. 저더 — 재생 구간에서 좌/우 패널 각각 프레임 반복률(diff<0.05 비율) <= 15%
-     (belle 08-07 "엉망진창" 반려의 원인 — 구조 PASS 로는 못 잡던 체감 항목의 기계화)
+  E. 저더(v2, 클러스터 스터터) — **전 재생 구간 스캔**, 좌/우 패널 각각 모션-괄호
+     정지 이벤트(dup run 2..5, 양옆 실모션)가 2s 창에 4회+ 몰리면 FAIL.
+     v1(창 표집 반복률 ≤15%)의 교체 근거 (2026-08-08 실 E2E 라운드, orchestrator
+     처분 ②): 창-반복률은 승인 5편이 전 구간 16~24% 균일 저속(run=1) 문법을
+     보유한 걸 표집 운으로만 통과시키고, 신선 doc 의 같은 문법을 창 착지 위치
+     때문에 FAIL 시킨 결함 판정기였다. v2 는 belle 가 실제 반려한 v1 증상
+     ("가다-서다" 클러스터)을 전 구간에서 잡고, 승인 문법(균일 슬로모·경계 정착
+     버스트·스틸 크롤)은 통과시킨다 — 완화가 아니라 판정 대상의 교정 + 표집 운
+     제거(강화). 상수 근거는 stutter_stop_events/STUTTER_* 주석.
   F. 웹 재생성 — moov(재생정보)가 mdat(본체) 앞 (faststart — 사파리 스트리밍)
 
 v0 미포함(후속): whisper 전사 == 자막 문장 대조(로컬 whisper 미설치 — Pod 리그에서),
@@ -29,6 +36,89 @@ import numpy as np
 from PIL import Image
 
 FF = imageio_ffmpeg.get_ffmpeg_exe()
+
+# ── E v2 (클러스터 스터터) 상수 — 전부 구조 유도, 근거 박제 ─────────────────
+# dup 임계 — v1 승계 (360px 그레이스케일 평균 절대차; 동일 인코드 프레임 ≈ 0).
+STUTTER_DUP_MAX = 0.05
+# '가다'(실모션) 하한 = dup 임계 ×10 — C 재생 동적성의 decade-분리 구조 승계
+# ("재생 diff > 정지의 10배"). 스틸 콘텐츠의 0.05~0.2대 플리커(승인 pdshapefault
+# 헤드 실측 0.05~0.06 이웃)는 '가다'가 아니므로 정지 이벤트를 만들지 못한다.
+STUTTER_MOTION_MIN = 0.5
+# 정지 이벤트 run 대역 = 2..5 프레임 (67~167ms @30fps):
+#   run 1 (33ms) = 표준 풀다운 계열 비가시 홀드 — 승인 5편 실측의 지배 성분
+#     (elbow 56/peterpan 4/fresh 62 전부 run=1, 균일 슬로모 문법).
+#   run ≥6 (≥200ms) = '멈춤/스틸' 의미론 (승인 pdshapefault 크롤 run 7·9 —
+#     의도 정지는 B 가, 콘텐츠 스틸은 저더가 아님).
+STUTTER_RUN_MIN = 2
+STUTTER_RUN_MAX = 5
+# 지속 리듬 판정 — 2s 창에 정지 이벤트 4회+ = "가다-서다" 반복 성립.
+#   승인 코퍼스 실측 상계 = 3회 (powerspin 꼬리 30.8~31.2s / pdshapefault 헤드
+#   0.5~0.8s — 구간 경계 ~0.5s 정착 버스트, belle 승인 렌더). v1 저더 케이던스
+#   (hold 2~3 + move 2~3 반복) = 초당 5~7회 → 2s 창 10회+ — 4 는 승인 상계 초과
+#   & v1 대비 1/2.5 여유의 최소 정수.
+STUTTER_WIN_S = 2.0
+STUTTER_FAIL_COUNT = 4
+# 재생 구간 경계 margin — freeze 진입/복귀 크로스페이드(FADE_S 0.17s) + 반올림
+# 배제. 0.5s 미만 구간은 스캔 생략 (이벤트 리듬 판정 불능 길이).
+PLAYBACK_MARGIN_S = 0.3
+
+
+def playback_regions(report: dict, actual: float, margin: float = PLAYBACK_MARGIN_S) -> list[tuple[float, float]]:
+    """재생 구간 (freeze 밖, 경계 margin 제외) — (start, end) out-초 목록."""
+    ivs = sorted(
+        (fz["voiceStartOutS"], fz["voiceStartOutS"] + fz["freezeS"])
+        for fz in report.get("freezes", [])
+    )
+    regions: list[tuple[float, float]] = []
+    prev = 0.0
+    for s, e in ivs:
+        if s - prev > 2 * margin:
+            regions.append((prev + margin, s - margin))
+        prev = max(prev, e)
+    if actual - prev > 2 * margin:
+        regions.append((prev + margin, actual - margin))
+    return regions
+
+
+def stutter_stop_events(diffs: np.ndarray, fps: float = 30.0) -> list[float]:
+    """모션-괄호 정지 이벤트 시각 목록 (초, 구간-로컬) — E v2 의 순수 판정 코어.
+
+    이벤트 = dup(diff<STUTTER_DUP_MAX) 최대 run 중:
+      · 길이 STUTTER_RUN_MIN..MAX (67~167ms 스터터 지각 대역)
+      · **양옆** 인접 비-dup 전이가 실모션(≥STUTTER_MOTION_MIN) — "가다-서다-가다"
+        의 '가다' 성립. 구간 가장자리에 닿은 run 은 한쪽 '가다'를 확인할 수 없어
+        이벤트 아님 (fail-closed 아님 주의 — 저더는 지속 리듬이라 가장자리 1개
+        제외가 판정을 바꾸지 않고, 경계 정착 버스트 오검을 줄인다).
+    합성 역검증: tests/phase35/test_compare_verify_stutter.py (v1형 케이던스 FAIL 핀).
+    """
+    dup = diffs < STUTTER_DUP_MAX
+    events: list[float] = []
+    i, n = 0, len(dup)
+    while i < n:
+        if not dup[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and dup[j]:
+            j += 1
+        run = j - i
+        if (
+            STUTTER_RUN_MIN <= run <= STUTTER_RUN_MAX
+            and i > 0 and j < n  # 양옆 이웃 존재 (구간 가장자리 run 제외)
+            and diffs[i - 1] >= STUTTER_MOTION_MIN
+            and diffs[j] >= STUTTER_MOTION_MIN
+        ):
+            events.append(i / fps)
+        i = j
+    return events
+
+
+def worst_stutter_window(events: list[float], win_s: float = STUTTER_WIN_S) -> int:
+    """슬라이딩 창(win_s) 내 최대 이벤트 수 — 지속 리듬 판정량."""
+    if not events:
+        return 0
+    ts = sorted(events)
+    return max(sum(1 for t in ts if t0 <= t < t0 + win_s) for t0 in ts)
 
 
 def duration_s(path: Path) -> float:
@@ -137,34 +227,44 @@ def verify(mp4: Path, report: dict, workdir: Path) -> tuple[bool, list[str]]:
         db_sil = mean_db(mp4, play_probe, 0.8)
         check("D 재생 무음", db_sil < -70, f"mean={db_sil:.1f}dB @out {play_probe:.1f}s")
 
-    # E. 저더 — **순수 재생 구간**에서만 좌/우 패널 프레임 반복률 측정.
-    # (킵업처럼 첫 정지가 이른 편은 앞 구간이 짧다 — 정지 침범 오판 방지:
-    #  앞 구간이 1.2s 미만이면 마지막 정지 뒤 구간으로 창을 옮긴다.)
-    e_start, e_dur = play_probe, 2.5
-    if freezes:
-        head_avail = freezes[0]["voiceStartOutS"] - 0.4 - e_start
-        if head_avail < 1.2:
-            last = freezes[-1]
-            e_start = last["voiceStartOutS"] + last["freezeS"] + 0.3
-            e_dur = max(1.0, min(2.5, actual - e_start - 0.3))
-        else:
-            e_dur = min(2.5, head_avail)
-    for f in tmp.glob("*.png"):
-        f.unlink()
-    subprocess.run([FF, "-y", "-loglevel", "error", "-ss", str(e_start), "-t", str(e_dur),
-                    "-i", str(mp4), "-vf", "fps=30,scale=360:-2", str(tmp / "%03d.png")],
-                   check=True)
-    imgs = [np.asarray(Image.open(p).convert("L"), dtype=float)
-            for p in sorted(tmp.glob("*.png"))]
-    if len(imgs) >= 10:
+    # E v2. 클러스터 스터터 — **전 재생 구간 스캔** (창 표집의 착지-운 제거).
+    # 좌/우 패널 각각: 모션-괄호 정지 이벤트(stutter_stop_events)가 어느 2s 창에
+    # STUTTER_FAIL_COUNT(4)회+ 몰리면 "가다-서다" 지속 리듬 = FAIL. 균일 슬로모
+    # (전 run=1)·경계 정착 버스트(승인 실측 3회@0.4s)·스틸 크롤(run≥6)은 PASS.
+    regions = playback_regions(report, actual)
+    scanned = 0
+    worst = {"user": 0, "ref": 0}
+    total = {"user": 0, "ref": 0}
+    for (rs, re_) in regions:
+        if re_ - rs < 0.5:
+            continue  # 리듬 판정 불능 길이 — 스캔 생략
+        for f in tmp.glob("*.png"):
+            f.unlink()
+        subprocess.run([FF, "-y", "-loglevel", "error", "-ss", str(rs), "-t", str(re_ - rs),
+                        "-i", str(mp4), "-vf", "fps=30,scale=360:-2", str(tmp / "%04d.png")],
+                       check=True)
+        imgs = [np.asarray(Image.open(p).convert("L"), dtype=float)
+                for p in sorted(tmp.glob("*.png"))]
+        if len(imgs) < 3:
+            continue
+        scanned += len(imgs)
         half = imgs[0].shape[1] // 2
         for label, sl in (("user", slice(None, half)), ("ref", slice(half, None))):
             diffs = np.array([np.mean(np.abs(b[:, sl] - a[:, sl]))
                               for a, b in zip(imgs, imgs[1:])])
-            rate = float((diffs < 0.05).mean())
-            check(f"E 저더 {label}", rate <= 0.15, f"반복률={rate:.0%} ({int((diffs<0.05).sum())}/{len(diffs)})")
+            events = stutter_stop_events(diffs)
+            total[label] += len(events)
+            worst[label] = max(worst[label], worst_stutter_window(events))
+    if scanned >= 10:
+        for label in ("user", "ref"):
+            check(
+                f"E 저더 {label}",
+                worst[label] < STUTTER_FAIL_COUNT,
+                f"정지이벤트={total[label]} 최악{STUTTER_WIN_S:.0f}s창={worst[label]} "
+                f"(임계 {STUTTER_FAIL_COUNT}, 재생 {scanned}프레임 전수 스캔)",
+            )
     else:
-        check("E 저더", False, "프레임 추출 부족")
+        check("E 저더", False, "재생 구간 프레임 추출 부족")
 
     # F. 웹 재생성 — moov(재생정보)가 mdat(본체) 앞에 있어야 사파리 스트리밍이
     # 소리·스크럽 정상 (2026-08-07 belle "오디오 안 나옴·확 멈춤" 원인 박제).

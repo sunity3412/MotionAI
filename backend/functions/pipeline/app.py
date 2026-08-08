@@ -4021,6 +4021,12 @@ def _run_deferred_compare_render(
     스테이지 본체 (어떤 경로도 재raise 0 — _run_deferred_fault_zoom 규율 복제):
       · align = compare_align.build_align (15fps GPU 재추출 + DTW) — **align 실패
         = failed 마킹** (doc 리포트 폴백 렌더 금지 — belle 반려 이력).
+      · 방어 2 (Phase 34 수술 ①, quick-260808-r82) — build_align 성공 직후
+        **align_quality 게이트**: 렌더에 실제로 들어가는 정렬 산출 자체의 품질
+        (신뢰 커버리지 + 곡선-자세거리 프로파일)이 승인 5편 캘리브레이션 임계
+        미달이면 **필드 미기록 스킵** (failed 아님 — 부재 = 앱 듀얼 플레이어
+        폴백, 게이트 스킵과 동일 의미론). 종전 tier 프록시 게이트의 교체 —
+        근거는 아래 본문 주석.
       · 렌더 → compare_verify.verify — **리그 전 항목 PASS 아니면 S3 업로드·done
         부착 없이 failed 마킹** + FAIL 라인 log.warning.
       · PASS 시 S3 put_object(build_rendered_compare_key) → done+key 부착.
@@ -4046,21 +4052,12 @@ def _run_deferred_compare_render(
             "compare_render 스킵 (로컬 영상 경로 없음) analysis_id=%s", analysis_id
         )
         return
-    # 방어 2 (belle 실기기 pdshape 반려 라운드, quick-260808-jix) — 정렬 강등 스킵.
-    # 파이프라인 자체 정렬 신뢰(motionAlignment.tier)가 'warped' 미만(trim_only/
-    # disabled/부재 = 저신뢰 계열)이면 렌더 스테이지 진입 자체를 스킵 — 필드 부재
-    # = 앱 듀얼 플레이어 폴백. 근거: belle doc 127a2a90(tier=trim_only,
-    # low_global_confidence)의 렌더가 "어떤 지점인지 모르는 수준" — 승인(v7급)
-    # 못 미치면 내보내지 않는다 (fail-closed). tier 값 집합 =
-    # models.MOTION_ALIGNMENT_TIERS ("warped"/"trim_only"/"disabled").
-    _ma = result.get("motionAlignment")
-    _ma_tier = _ma.get("tier") if isinstance(_ma, dict) else None
-    if _ma_tier != "warped":
-        log.info(
-            "compare_render 스킵 (motionAlignment tier=%s — warped 아님: 저신뢰 "
-            "정렬 강등, 필드 미기록) analysis_id=%s", _ma_tier, analysis_id,
-        )
-        return
+    # 방어 2 교체 (Phase 34 수술 ①, quick-260808-r82) — 종전 tier 프록시 게이트
+    # (motionAlignment.tier != "warped" 스킵, quick-260808-jix) 삭제. 근거: 리포
+    # 7 doc 전부 tier=trim_only(승인 픽스처 포함) 실측 → 렌더 부착 0 = 프록시
+    # 가치 0. tier 는 **채점-측 9fps 정렬**의 신뢰이고 렌더는 **15fps 재추출
+    # 정렬(build_align)**을 쓴다 — 판정 대상이 달랐다. 새 게이트 = build_align
+    # 성공 직후 align_quality(산출 자체 품질) — 아래 본체 참조.
     if not _compare_render_capability():
         log.info(
             "compare_render 스킵 (추출 능력 프로브 미충족 — Lambda CPU 경로 등) "
@@ -4105,6 +4102,19 @@ def _run_deferred_compare_render(
                 json.dump(align, fh)
         except Exception:  # noqa: BLE001 - 진단 보조 기록 실패는 비차단
             log.warning("compare_render align.json 기록 실패 (진단 보조) analysis_id=%s", analysis_id)
+
+        # 방어 2 (Phase 34 수술 ①) — align_quality 게이트: 렌더에 실제로 들어가는
+        # 정렬 산출 자체의 품질 판정 (승인 5편 캘리브레이션 임계, compare_align
+        # 상수 주석). FAIL = **필드 미기록 스킵** (failed 아님 — 부재가 앱 듀얼
+        # 플레이어 폴백, tier 게이트 시절 방어 2 와 동일 UX). tier=trim_only 라도
+        # 품질 PASS 면 부착 경로 생존 (가치 복원 핵심).
+        _q_ok, _q_lines = compare_align.align_quality(align)
+        if not _q_ok:
+            log.info(
+                "compare_render 스킵 (align_quality FAIL — 필드 미기록) "
+                "analysis_id=%s\n%s", analysis_id, "\n".join(_q_lines),
+            )
+            return
 
         # keypointReport 는 complete_analysis kwarg 라 in-memory result 에 없음 —
         # build_timeline 이 무조건 읽는다 (r["keypointReport"]). doc 형상 재조립.

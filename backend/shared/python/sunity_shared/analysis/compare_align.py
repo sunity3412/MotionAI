@@ -38,6 +38,30 @@ EDGES = [(5, 7), (7, 9), (6, 8), (8, 10), (5, 6), (5, 11), (6, 12),
          (11, 12), (11, 13), (13, 15), (12, 14), (14, 16)]
 CONF_MIN = 0.3
 
+# ── Phase 34 수술 ① — align_quality 임계 (quick-260808-r82) ──────────────────
+# 렌더 스테이지의 tier 프록시 게이트(리포 7 doc 전부 trim_only → 렌더 부착 0,
+# 프록시 가치 0)를 대체하는 **build_align 산출 자체**의 품질 판정 임계.
+#
+# 캘리브레이션 (승인 5편 align.json 실측, 2026-08-08 — elbow/kipup/pdshapefault/
+# peterpan/powerspin GPU 산출 실물):
+#   신뢰 커버리지(BODY12 × 프레임 중 conf>=CONF_MIN 비율):
+#     user 최악 0.9468(elbow) / ref 최악 0.9441(pdshapefault)
+#   곡선-자세거리 d_t = ||fu[t] − fr[round(curveRefSec[t]*fps)]||:
+#     median 최악 3.125(elbow) / p85 최악 5.490(elbow)
+#     (max 는 elbow 1129 등 일시 스파이크가 흔해 프로파일 통계로 부적합 — p85 채택)
+# 마진 = 승인 최악값의 **2.0배** (구조적 마진 — 같은 결함 유형이 승인 최악의 두 배
+# 까지 흔들려도 승인 문법으로 간주. 정렬이 실제로 깨지면(딴 동작 정렬·저신뢰 전멸)
+# 자세거리·결측률은 한 자릿수 배로 벌어진다는 리그 decade-분리 구조 승계):
+#   COVERAGE_MIN     = 1 − 2.0×(1−0.9441) = 0.888 → 0.88 (반올림 하향 = 완화 방향)
+#   POSE_DIST_MED_MAX = 2.0×3.125 = 6.25 → 6.3 (반올림 상향 = 완화 방향)
+#   POSE_DIST_P85_MAX = 2.0×5.490 = 10.98 → 11.0
+# **일반화 한계 (박제):** 이 임계는 승인 5편 유도다 — belle-FAIL 측(doc 127a2a90)
+# align 은 GPU 에서만 생산돼 로컬 캘리브레이션 불가(CPU align != GPU align, E 13% vs
+# 28% 실측) → Pod 스윕 명시 이월 (.planning/quick/260808-r82-phase-34-3/POD-VERIFY.md).
+COVERAGE_MIN = 0.88
+POSE_DIST_MED_MAX = 6.3
+POSE_DIST_P85_MAX = 11.0
+
 
 def ffmpeg_exe() -> str:
     try:
@@ -271,3 +295,72 @@ def build_align(user_video: Path, ref_video: Path, records: list[dict], workdir:
         "refScore": np.round(rsc, 3).tolist(),
         "joints17": J17,
     }
+
+
+def align_quality(align: dict) -> tuple[bool, list[str]]:
+    """build_align 산출 dict 만 소비하는 순수 품질 판정 (Phase 34 수술 ①).
+
+    tier 프록시(파이프라인 채점-측 정렬 신뢰)가 아니라 **렌더에 실제로 들어가는
+    이 정렬 산출 자체**를 판정한다 — 리포 7 doc 전부 tier=trim_only(승인 픽스처
+    포함) 실측 → 프록시 게이트는 렌더 부착 0 = 가치 0 이었다 (quick-260808-r82).
+
+    판정 2축 (보드 명시, 임계 근거는 상단 캘리브레이션 주석):
+      Q1/Q2 신뢰 커버리지 — userScore/refScore (T,17) → BODY12 열 → 전 (프레임×
+             관절) 중 conf >= CONF_MIN 비율. user·ref 각각 COVERAGE_MIN 이상.
+      Q3/Q4 자세거리 프로파일 — userKp/refKp reshape (T,17,2) → pose_feature
+             (build_align 과 단일 출처) → 곡선 따라 d_t = ||fu[t] −
+             fr[clip(round(curveRefSec[t]*fps))]|| → median <= POSE_DIST_MED_MAX
+             ∧ p85 <= POSE_DIST_P85_MAX.
+
+    반환: (전건 PASS 여부, 리그 verify 라인 형식 판정 목록 — "지표=값 임계=값").
+    필수 필드 결측/형상 불량 = FAIL (fail-closed — 판정 불가 산출물은 내보내지
+    않는다. 구버전 포맷(refKp 없음 벤치 슬롯)은 대상 외 — 운영 스테이지의
+    build_align 은 항상 신포맷을 생산한다, data/README.md 실측).
+    build_align/select_pairs/pose_feature 본체는 무접촉 — 소비만 한다.
+    """
+    try:
+        fps = float(align["fps"])
+        usc = np.asarray(align["userScore"], dtype=float)
+        rsc = np.asarray(align["refScore"], dtype=float)
+        ukn = np.asarray(align["userKp"], dtype=float).reshape(len(usc), 17, 2)
+        rkn = np.asarray(align["refKp"], dtype=float).reshape(len(rsc), 17, 2)
+        curve = np.asarray(align["curveRefSec"], dtype=float)
+        if (
+            usc.ndim != 2 or usc.shape[1] != 17 or rsc.ndim != 2
+            or rsc.shape[1] != 17 or len(curve) != len(usc) or fps <= 0
+            or len(usc) == 0 or len(rsc) == 0
+        ):
+            raise ValueError("align 필드 형상 불량")
+    except (KeyError, TypeError, ValueError) as exc:
+        return False, [
+            f"  [FAIL] Q0 align 형상: 필수 필드 결측/불량 ({exc}) — 판정 불가 fail-closed"
+        ]
+
+    lines: list[str] = []
+    idx = [J17.index(j) for j in BODY12]
+    ucov = float((usc[:, idx] >= CONF_MIN).mean())
+    rcov = float((rsc[:, idx] >= CONF_MIN).mean())
+    for name, cov in (("user", ucov), ("ref", rcov)):
+        ok = cov >= COVERAGE_MIN
+        lines.append(
+            f"  [{'PASS' if ok else 'FAIL'}] Q 신뢰 커버리지 {name}: "
+            f"cov={cov:.3f} 임계>={COVERAGE_MIN}"
+        )
+
+    fu = pose_feature(ukn, usc)
+    fr = pose_feature(rkn, rsc)
+    ri = np.clip(np.round(curve * fps).astype(int), 0, len(fr) - 1)
+    d = np.linalg.norm(fu - fr[ri], axis=1)
+    d_med = float(np.median(d))
+    d_p85 = float(np.percentile(d, 85))
+    ok_med = d_med <= POSE_DIST_MED_MAX
+    ok_p85 = d_p85 <= POSE_DIST_P85_MAX
+    lines.append(
+        f"  [{'PASS' if ok_med else 'FAIL'}] Q 자세거리 median: "
+        f"d_med={d_med:.3f} 임계<={POSE_DIST_MED_MAX}"
+    )
+    lines.append(
+        f"  [{'PASS' if ok_p85 else 'FAIL'}] Q 자세거리 p85: "
+        f"d_p85={d_p85:.3f} 임계<={POSE_DIST_P85_MAX}"
+    )
+    return all("[PASS]" in ln for ln in lines), lines

@@ -4,6 +4,9 @@
   1. 게이트 스킵 3종 — env kill-switch / 모드(mode3) / 능력 프로브. 스킵 = doc
      필드 **무접촉** (update 호출 0 — 부재 = 앱 듀얼 플레이어 폴백).
   2. align 실패 → failed 마킹 (doc 리포트 폴백 렌더 금지 — belle 반려 이력).
+     Phase 34 수술 ① (quick-260808-r82): tier 프록시 게이트 삭제 → build_align
+     성공 직후 align_quality(산출 자체 품질) 게이트 — FAIL = 필드 미기록 스킵,
+     tier=trim_only doc 이라도 품질 PASS 면 부착 경로 생존.
   3. 리그 FAIL → S3 업로드·done 부착 0 + failed 마킹 (돌파 ② "전 항목 PASS
      아니면 없음").
   4. 렌더 예외 → failed 마킹. failed write 실패 → 재raise 0 (분석 무훼손).
@@ -34,6 +37,42 @@ ANALYSIS_ID = "a" * 32
 KEY = build_rendered_compare_key(UID, ANALYSIS_ID)
 RECORD_ID = "r00:angle_vs_reference__right_elbow"
 FAIL_PRESERVE_DIR = Path(tempfile.gettempdir()) / f"compare_fail_{ANALYSIS_ID}"
+
+
+def _pose_row() -> list[list[float]]:
+    """개연성 있는 정적 17-keypoint 정규화 좌표 1행 (torso 비퇴화 — pose_feature 안전)."""
+    pts = {j: [0.5, 0.5] for j in compare_align.J17}
+    pts.update({
+        "nose": [0.5, 0.1], "left_eye": [0.48, 0.09], "right_eye": [0.52, 0.09],
+        "left_ear": [0.46, 0.1], "right_ear": [0.54, 0.1],
+        "left_shoulder": [0.42, 0.25], "right_shoulder": [0.58, 0.25],
+        "left_elbow": [0.38, 0.4], "right_elbow": [0.62, 0.4],
+        "left_wrist": [0.36, 0.55], "right_wrist": [0.64, 0.55],
+        "left_hip": [0.45, 0.55], "right_hip": [0.55, 0.55],
+        "left_knee": [0.44, 0.75], "right_knee": [0.56, 0.75],
+        "left_ankle": [0.44, 0.92], "right_ankle": [0.56, 0.92],
+    })
+    return [pts[j] for j in compare_align.J17]
+
+
+def _quality_align(tu: int = 30, tr: int = 40, conf: float = 0.9) -> dict:
+    """align_quality 를 **실제로 통과**하는 합성 align (신포맷 전 필드).
+
+    user/ref 동일 정적 자세 + 고신뢰 → 커버리지 1.0, 자세거리 0 — mock 이 아니라
+    실 게이트를 지나게 해 스테이지 테스트가 새 게이트와 함께 산다."""
+    row = _pose_row()
+    fps = 15.0
+    return {
+        "fps": fps,
+        "userFrames": tu, "refFrames": tr,
+        "userKp": [[c for pt in row for c in pt] for _ in range(tu)],
+        "refKp": [[c for pt in row for c in pt] for _ in range(tr)],
+        "userScore": [[conf] * 17 for _ in range(tu)],
+        "refScore": [[conf] * 17 for _ in range(tr)],
+        "curveRefSec": [round(min(t / fps, (tr - 1) / fps), 4) for t in range(tu)],
+        "pairs": {},
+        "joints17": compare_align.J17,
+    }
 
 
 @pytest.fixture(autouse=True)
@@ -107,8 +146,10 @@ def stage_env(papp, monkeypatch, tmp_path):
     monkeypatch.setattr(papp, "_compare_render_capability", lambda: True)
     fake_s3 = FakeS3()
     monkeypatch.setattr(papp, "_s3", fake_s3)
+    # 수술 ① — 스텁 align 은 실 align_quality 게이트를 **실제로 통과**하는 신포맷
+    # (mock 아님). 게이트 FAIL 형상은 개별 테스트가 저품질 align 으로 덮어쓴다.
     monkeypatch.setattr(
-        compare_align, "build_align", lambda *a, **k: {"fps": 15.0}
+        compare_align, "build_align", lambda *a, **k: _quality_align()
     )
 
     def _fake_render(doc, user_video, ref_video, audio_dir, workdir, out, **kwargs):
@@ -186,28 +227,43 @@ def test_gate_capability_probe_skips(papp, rc_updates, stage_env, monkeypatch):
     assert stage_env["s3"].puts == []
 
 
-@pytest.mark.parametrize("ma", [
-    {"tier": "trim_only"},   # belle doc 127a2a90 실측 (low_global_confidence)
-    {"tier": "disabled"},    # degenerate 저신뢰 계열
-    None,                    # 필드 부재 = 저신뢰 계열 (fail-closed)
-    "not-a-dict",            # 오염 형상 = 저신뢰 계열
-])
-def test_gate_alignment_tier_skips_non_warped(
-    papp, rc_updates, stage_env, monkeypatch, ma
+def test_align_quality_fail_skips_without_field(
+    papp, rc_updates, stage_env, monkeypatch
 ):
-    """방어 2 (belle 실기기 반려 라운드) — tier != warped 는 스테이지 진입 자체
-    스킵 = **필드 무접촉** (failed 아님 — 부재가 앱 폴백)."""
+    """방어 2 교체 (Phase 34 수술 ①) — align_quality FAIL(저신뢰 스텁 align)이면
+    렌더 미시도 + **필드 미기록 스킵** (failed 아님 — 부재가 앱 폴백). 실 게이트
+    함수 경유 (mock 0)."""
+    monkeypatch.delenv("RENDERED_COMPARE_ENABLED", raising=False)
+    bad = _quality_align(conf=0.0)  # 전 관절 conf 0 → 커버리지 0 < 0.88 FAIL
+    monkeypatch.setattr(compare_align, "build_align", lambda *a, **k: bad)
+    render_calls: list = []
+    monkeypatch.setattr(
+        compare_render, "render", lambda *a, **k: render_calls.append(1)
+    )
+
+    papp._run_deferred_compare_render(**stage_env["kwargs"])
+
+    assert render_calls == []  # 게이트가 렌더 앞 — 시도 자체 없음
+    assert rc_updates == []  # 필드 무접촉 (failed 마킹도 없음)
+    assert stage_env["s3"].puts == []
+
+
+def test_trim_only_doc_with_quality_pass_attaches(
+    papp, rc_updates, stage_env, monkeypatch
+):
+    """가치 복원 핵심 (수술 ①) — tier=trim_only doc(리포 7 doc 전부 = 종전 게이트
+    에선 부착 0)이라도 align_quality PASS 면 부착 경로가 산다."""
     monkeypatch.delenv("RENDERED_COMPARE_ENABLED", raising=False)
     kwargs = {**stage_env["kwargs"]}
     result = dict(kwargs["result"])
-    if ma is None:
-        result.pop("motionAlignment", None)
-    else:
-        result["motionAlignment"] = ma
+    result["motionAlignment"] = {"tier": "trim_only"}  # belle doc 127a2a90 실측 형상
     kwargs["result"] = result
+
     papp._run_deferred_compare_render(**kwargs)
-    assert rc_updates == []  # 필드 무접촉 (failed 마킹도 없음)
-    assert stage_env["s3"].puts == []
+
+    assert rc_updates and rc_updates[0]["status"] == "done"
+    assert len(stage_env["s3"].puts) == 1
+    assert stage_env["s3"].puts[0]["Key"] == KEY
 
 
 def test_all_freezes_excluded_skips_without_field(

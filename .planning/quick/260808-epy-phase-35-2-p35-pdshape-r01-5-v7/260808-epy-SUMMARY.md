@@ -6,12 +6,14 @@ commits:
   - d266cb8d (데이터: p35 정렬 데이터 리포 영구화 — 7동작 16파일 + README)
   - 7787832d (코드: 렌더러 폴 문법 + 그립 판정 + 오버라이드 + p35_audio.py)
   - 0f81316f (코드: diff_reports.py 게이트)
+  - a8af7b8e (코드: r01 belle 명시 0.8s — 명시 짝 오버라이드 레이어 + diff 게이트 확장)
 key-files:
   created:
     - .planning/phases/35-server-rendered-comparison-video/data/** (16 JSON + README.md)
     - .planning/quick/260808-epy-phase-35-2-p35-pdshape-r01-5-v7/elbow_text_overrides.json
     - .planning/quick/260808-epy-phase-35-2-p35-pdshape-r01-5-v7/p35_audio.py
     - .planning/quick/260808-epy-phase-35-2-p35-pdshape-r01-5-v7/diff_reports.py
+    - .planning/quick/260808-epy-phase-35-2-p35-pdshape-r01-5-v7/pdshape_pair_overrides.json
   modified:
     - backend/scripts/render_compare_prototype.py
 ---
@@ -67,7 +69,7 @@ x-투영 간격으로는 그립 개시가 원리적으로 측정 불가함을 �
 | powerspin | r02 | left_shoulder | align | align | 불변 (grip fail-closed 로그) |
 | kipup | r00 | split_angle | align-peak 1.467 | align-peak 1.467 | 불변 |
 | pdshapefault | r00 | left_elbow | align-w 9.4 | align-w 9.4 | 불변 (①=dwell 차단, ②=fail-closed) |
-| pdshapefault | r01 | right_elbow | align 2.2 | align 2.2 | **미충족** (①=특정성 차단, ②=fail-closed) |
+| pdshapefault | r01 | right_elbow | align 2.2 | **override 0.8** | 자동판정 미충족 → belle (a) 결정 명시 지정 (후속 절 참조) |
 | pdshapefault | r02 | left_shoulder | align 2.0 | align 2.0 | 불변 (grip fail-closed 로그) |
 | pdshapefault | r03 | left_knee | align 2.4 | align 2.4 | 불변 |
 | peterpan | r00 | left_shoulder | align 7.6 | align 7.6 | 불변 (grip fail-closed 로그) |
@@ -92,6 +94,33 @@ x-투영 간격으로는 그립 개시가 원리적으로 측정 불가함을 �
 - (a) r01 기준 순간을 사람이 지정 (실측 정답 = **ref 0.8s**, 스틸 확보됨) — moments 류 명시 주입.
 - (b) 깊이 신호 추가 (3D/y 축 병행) 후 그립 검출 재시도.
 - (c) 현 상태(2.2s, 같은 국면대의 정착 장면) 수용.
+
+## r01 후속: belle (a) 결정 → override 적용 (같은 세션 연장)
+
+**belle 결정**: 선택지 (a) 승인 — 기준 정지 = 정은지 **0.8s** (왼손 그립 개시, 검출·스틸 확인 장면) 명시 지정.
+
+**구현** (커밋 `a8af7b8e`):
+- 렌더러에 `--pair-override-json` 명시 짝 레이어 추가 — rid→{refVideoSec, note}.
+  자동 판정(피크·①폴·②그립·③가중) 전체보다 우선, ut 는 기존 순간 유지(user 장면 무접촉),
+  `pairSrc="override"` 로 리포트에 출처 가시화. **align.json(Pod 원본) 무수정**,
+  자동 그립 검출 경로(fail-closed)는 그대로 존치 — 별도 명시 레이어.
+- `pdshape_pair_overrides.json` (quick dir): r01 refVideoSec 0.8 + note(belle 08-08 명시 지정,
+  검출기 후보 [0.8, 1.33] 실측 일치, 육안 확인 근거).
+
+**게이트 결과 (전건 PASS 후 업로드)**:
+
+| 게이트 | 판정 | 실측 |
+|--------|------|------|
+| 발동 프로브 | PASS | r01 = `src=override ut=1.222 rt=0.800`, r00/r02/r03 기존 경로 그대로 |
+| 리그 (pdshapefault 재렌더) | ALL PASS (exit 0) | 58.97s 불변, 정지 4, B/C/D/E/F 전건 |
+| diff 게이트 (확장판) | ALL PASS (exit 0) | r01 상태 = (c) 명시 오버라이드, refSec == 명시값 0.8 |
+| 이전 v7 대비 단일 변경 assert | PASS | **변경 = r01 refSec 2.2 → 0.8 단 1건** — 타 행·타 슬롯·길이 전부 불변 (report_v7_pre_override.json 대비) |
+| 증거 스틸 눈확인 | PASS | ref 패널이 정착 국면(2.2s) → **왼손이 폴에 도달하는 그립 개시 국면(0.8s)** 으로 교체 확인 — user(좌) 1.22s 왼팔 재그립 국면과 같은 위상 |
+| S3 | 완료 | pdshape_v3.mp4 08-08 12:10 갱신 (11023055B), 타 5키 무접촉 |
+
+**belle 지시 미충족 → 충족 전환**: 묶음 2 는 자동 검출로는 미충족(위 실측 사유 유지)이었고,
+belle (a) 결정의 명시 지정으로 **must-have 진리("기준 정지 = 왼손 그립 개시 순간") 충족**.
+증거 스틸 `$SP/evidence/pdshape_r01_grip_freeze.jpg` 갱신됨.
 
 ## 사이각 긴장 판단 (Task 2-6)
 
@@ -128,7 +157,7 @@ x-투영 간격으로는 그립 개시가 원리적으로 측정 불가함을 �
 |----|------|------|
 | proto/phase35/elbow_v3.mp4 | 11618657 (61.0s) | 08-08 11:38 |
 | proto/phase35/powerspin_v3.mp4 | 5971614 (바이트 동일) | 08-08 11:38 |
-| proto/phase35/pdshape_v3.mp4 | 11029938 (내용 동일) | 08-08 11:38 |
+| proto/phase35/pdshape_v3.mp4 | 11023055 (r01 rt=0.8 override 반영) | 08-08 12:10 |
 | proto/phase35/kipup_v3.mp4 | 4038006 (바이트 동일) | 08-08 11:38 |
 | proto/phase35/peterpan_v3.mp4 | 6126766 (바이트 동일) | 08-08 11:38 |
 | proto/phase35/realupload_v3.mp4 | 무접촉 | 08-07 21:22 유지 |

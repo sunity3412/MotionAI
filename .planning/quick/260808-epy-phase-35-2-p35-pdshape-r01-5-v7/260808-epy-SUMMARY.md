@@ -61,10 +61,10 @@ x-투영 간격으로는 그립 개시가 원리적으로 측정 불가함을 �
 
 | slot | rid | criterion | baseline | v7 | 변경 |
 |------|-----|-----------|----------|----|------|
-| elbow | r00 | right_elbow | align (rt 12.07) | **align-pole (ut 11.60, rt 13.80)** | 의도 변경 ① |
+| elbow | r00 | right_elbow | align (rt 12.07) | align-pole → **align 복귀** | ① 발동 후 belle 반려 → 분위수 게이트로 자동 철회 (수리 라운드 절) |
 | elbow | r01 | right_shoulder | align-w 10.2 | align-w 10.2 | 불변 |
 | elbow | r02 | left_hip | align-peak 11.8 | align-peak 11.8 | 불변 (사이각 표시 유지) |
-| elbow | r03 | right_knee | align 11.6 | align 11.6 | 불변 |
+| elbow | r03 | right_knee | align 11.6 | align 11.6 + **bodyViz** | 짝 불변, 몸-폴 라인 표시·문구 신규 (수리 라운드 절) |
 | powerspin | r00 | leg_extension | align-peak | align-peak | 불변 |
 | powerspin | r02 | left_shoulder | align | align | 불변 (grip fail-closed 로그) |
 | kipup | r00 | split_angle | align-peak 1.467 | align-peak 1.467 | 불변 |
@@ -122,6 +122,48 @@ x-투영 간격으로는 그립 개시가 원리적으로 측정 불가함을 �
 belle (a) 결정의 명시 지정으로 **must-have 진리("기준 정지 = 왼손 그립 개시 순간") 충족**.
 증거 스틸 `$SP/evidence/pdshape_r01_grip_freeze.jpg` 갱신됨.
 
+## 엘보 수리 라운드: r00 폴-근접 자동 철회 + r03 몸-폴 라인 신규 (belle v7 반려 반영)
+
+**belle 판정 + 실측 근거**: 팔꿈치-폴 x간격이 user·ref 모두 홀드 중 0.02↔0.6 진동(회전
+위상) — v7 r00 은 user 최대 vs ref 최소의 **위상 불공정 비교**였다 (belle "좀 더 회전하면
+비슷"·"간격 무관·좌우 혼동 의심"). 그립 손목 좌우 미러(user L0.30/R0.20 vs ref L0.20/R0.27,
+keypointReport low 다수) — L/R 귀속 불신. belle 장면 특정: "몸이 폴에 붙냐"의 원 지점 =
+**r03(right_knee) 정지 장면**.
+
+**[A] r00 폴-근접 자동 철회** (커밋 참조):
+- ① 게이트를 순간 비교(min/max)에서 **분위수 지속-분리**로 교체: ref p85 ≤ τ_prox AND
+  user p15 ≥ ref_p85 + 0.15 — 회전 위상 진동이 있으면 원리적으로 통과 불가.
+- 사전 실측 재확인: elbow r00 ref Relb p85 = **0.405** > τ_prox 0.243 → 발동 불가.
+  user p15 = 0.068 (분리 조건도 미달). pdshapefault 엘보 2건도 불발 (p85 0.665/0.230).
+- r00 문구 오버라이드 제거 → 원 S3 mp3 복원(11.11s) → **baseline(v6) 표시 완전 복귀**
+  (pairSrc align, rt 12.07, 링 마커, 원 문구). diff 로 baseline 과 행 동일 assert PASS.
+- 코드 경로는 존치 — 진짜 지속-클램프 차이가 있는 미래 케이스용. 주석에 belle 반려 원문 +
+  위상 교란 실측 박제.
+
+**[B] r03 몸-폴 라인 문법 신규**:
+- 표시 = 양패널 폴 축선(기존 스타일) + **몸 중심 라인(어깨중점→골반중점, conf≥0.35
+  fail-closed, both-or-neither)** 하이라이트 — 수치·브래킷 없음, "라인이 폴에 겹치나 /
+  휘어 떨어지나"가 모양으로 읽힘. 짝·순간 무접촉(표시 레이어) — ut 10.111 / rt 11.6 불변.
+- 발동 = 다리군 관절 큐(knee) AND ref 몸라인-폴 최대 수평편차 ≤ τ_body(폴반폭/몸통+0.25 —
+  어깨·골반 중점은 몸 두께 절반만큼 축에서 벗어나는 해부학 유격, 팔꿈치 0.15·손목 0.20 의
+  연장) AND user 편차 ≥ ref + 0.15. 동작명 분기 0.
+- 실측: elbow r03 user 0.629 vs ref 0.316(τ 0.343) → 발동. **pdshapefault r03 는 마진
+  0.061 < 0.15 로 침묵**(유저 몸도 폴에 붙어 대비 없음 — 올바른 침묵). 프로브 12 record
+  전수 = 신규 발동 r03 단 1건.
+- 문구 오버라이드 r03: "몸이 폴에서 떨어져 있어요. 윗다리를 폴 축에 붙이고 몸통 라인을
+  폴에 겹쳐 세워 보세요." — Polly 재합성 6.98s(원 12.89s), 자막=음성 lockstep 기존 구조.
+
+**게이트 결과 (전건 PASS 후 업로드)**:
+
+| 게이트 | 판정 | 실측 |
+|--------|------|------|
+| 발동 프로브 (12 record) | PASS | r00 = align 복귀(rt 12.067), 신규 발동 = **r03 bodyViz 단 1건**, 타 record 전건 불변 |
+| 리그 (elbow 재렌더) | ALL PASS (exit 0) | 59.87s (r03 freeze 13.29→7.38 반영), 정지 4, B/C/D/E/F 전건 |
+| diff (baseline 대비) | ALL PASS | r00 행 == baseline 복귀(poleViz 부재·링 복귀) + r03 표시·문구만 변경(ut/rt/pairSrc 불변, bodyViz u0.629/r0.316) + r01·r02 불변 + outDur 차이 == r03 freezeS 차이 |
+| diff (직전 v7 대비) | PASS | 변경 = r00 복귀 + r03 표시 **2건만** (report_v7_pre_r03fix.json 대비) |
+| 증거 스틸 눈확인 | PASS 2/2 | r00 복귀(`elbow_r00_revert_freeze.jpg`: 폴선·브래킷 소멸, 링·원 문구 복귀) / r03 신규(`elbow_r03_bodyline_freeze.jpg`: 양패널 폴선+몸라인 — user 는 벌어져 기울고 ref 는 폴에 겹침, 수치 없음) |
+| S3 | 완료 | elbow_v3.mp4 08-08 12:31 갱신 (11474505B), 타 5키 무접촉 |
+
 ## 사이각 긴장 판단 (Task 2-6)
 
 **해소 구조 성립.** 엘보 doc 4건 중:
@@ -136,7 +178,7 @@ belle (a) 결정의 명시 지정으로 **must-have 진리("기준 정지 = 왼�
 
 | 파일 | 확인 내용 |
 |------|-----------|
-| `$SP/evidence/elbow_r00_pole_freeze.jpg` | PASS — 양 패널 폴 축선(브랜드 반투명 세로선) + 팔꿈치 링 + 간격 브래킷. user(좌)=링→폴 수평 브래킷으로 벌어짐이 보임, ref(우)=링이 폴선 위(브래킷 0 수렴="붙음"). 수치 배지 없음. 자막 = 오버라이드 문장 |
+| `$SP/evidence/elbow_r00_pole_freeze.jpg` | (역사 기록 — belle 반려로 철회) 당시 폴-근접 표시 확인용. 최종 상태는 `elbow_r00_revert_freeze.jpg` (수리 라운드 절) |
 | `$SP/evidence/pdshape_r01_grip_freeze.jpg` | 상태 기록 — user(좌)=1.22s 왼팔 재그립 국면, ref(우)=2.2s 그립 정착 국면(잡는 '순간' 아님, fail-closed 상태의 정직한 스틸) |
 
 `$SP` = `/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/e6ff396b-4e73-4d48-b163-2b06d562d292/scratchpad` (세션 임시 — 재부팅 소실 가능)
@@ -155,7 +197,7 @@ belle (a) 결정의 명시 지정으로 **must-have 진리("기준 정지 = 왼�
 
 | 키 | 크기 | 갱신 |
 |----|------|------|
-| proto/phase35/elbow_v3.mp4 | 11618657 (61.0s) | 08-08 11:38 |
+| proto/phase35/elbow_v3.mp4 | 11474505 (59.87s, 수리 라운드 반영) | 08-08 12:31 |
 | proto/phase35/powerspin_v3.mp4 | 5971614 (바이트 동일) | 08-08 11:38 |
 | proto/phase35/pdshape_v3.mp4 | 11023055 (r01 rt=0.8 override 반영) | 08-08 12:10 |
 | proto/phase35/kipup_v3.mp4 | 4038006 (바이트 동일) | 08-08 11:38 |

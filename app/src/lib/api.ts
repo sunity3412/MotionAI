@@ -154,9 +154,11 @@ export function requestRotationVideo(
 // 클라이언트는 asset '종류'만 고르고 실제 S3 key 선택은 전적으로 서버 몫이다
 // (server-selected key — 임의 key 서명 경로 없음, contract.md §2).
 // 미생성/미완료/prefix 불일치는 전부 404 not_found 로 합산된다 (leak 0).
+// Phase 35 (quick-260808-jix) — 'renderedCompare' 합성 비교 영상 mp4 추가
+// (contract.md §12.9 — done + exact 이중 가드, 시그니처 외 로직 무변경).
 export function fetchVisualAssetUrl(
   analysisId: string,
-  asset: 'correctedPose' | 'rotation',
+  asset: 'correctedPose' | 'rotation' | 'renderedCompare',
 ): Promise<string> {
   return authedJson<{ playbackUrl?: unknown }>('/playback-url', {
     method: 'POST',

@@ -31,6 +31,7 @@ import { DefectIllustration } from '../../components/DefectIllustration';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
+import RenderedComparePlayer from '../../components/RenderedComparePlayer';
 import { ReferenceCornerSection } from '../../components/ReferenceCornerSection';
 import type {
   ReferenceCardState,
@@ -1021,6 +1022,19 @@ function AnalysisResultContent({
       cancelled = true;
     };
   }, [referenceMotionIdForRefresh, createdAt]);
+
+  // Phase 35 (quick-260808-jix, contract.md §12.9) — 합성 비교 영상 분기 신호.
+  // done + key 보유 doc 만 단일 mp4 재생 (리그 ALL PASS 만 done 이 된다).
+  // 부재(legacy)/failed = 기존 듀얼 플레이어 폴백. renderedUnavailable 은 asset
+  // URL fetch 실패(만료·404 등) 시 이 세션 한정 강등 — 분석 전환 시 리셋.
+  // onSnapshot 구독이라 렌더가 세션 중 도착하면 자동으로 이 분기가 켜진다
+  // (별도 폴링 금지 — 구독 기반).
+  const renderedCompareReady =
+    result.renderedCompare?.status === 'done' && !!result.renderedCompare.key;
+  const [renderedUnavailable, setRenderedUnavailable] = useState(false);
+  useEffect(() => {
+    setRenderedUnavailable(false);
+  }, [analysisId]);
 
   // Phase 20 (UI A1) — 비전 거부권으로 종합점수가 similarity 보다 낮아진 경우.
   // visionVeto.status==='applied' 가 1차 신호. 안전망: overallScore < similarity 면(어떤
@@ -2507,6 +2521,30 @@ function AnalysisResultContent({
             로 frame index 자동 산출 + delta ≥ 10° 강조 + 토글 visible 제어. */}
         {!(cmp.mode === 'mode3' && cmp.isFirst) && (
           <>
+            {renderedCompareReady && !renderedUnavailable ? (
+              /* Phase 35 (quick-260808-jix, contract.md §12.9) — 합성 비교 영상
+                 단일 mp4 재생 분기. 이 가지에서 VideoCompare 를 **렌더하지
+                 않는다** — cueWindows·cueRefSnapSecs·audioAnalysisId·
+                 timelineTicks·renderCueIllustration 이 전부 VideoCompare props
+                 이므로 앱 큐 오디오 prefetch·자막·틱 발화 경로가 **구조적으로
+                 OFF** 된다 (이중 발화 방지의 구현 = 분기. 개별 prop 끄기 방식
+                 금지 — mp4 에 음성·자막이 이미 구워져 있다). 오버레이 토글도
+                 의미가 없어(구운 영상) 헤더에서 제외. PartChipsRow(감점 시트
+                 진입점)·정렬 upsell 배너는 발화 없음 — 분기 밖 현행 유지. */
+              <>
+                <View style={styles.compareHeader}>
+                  <Text style={styles.sectionTitle}>동작 비교</Text>
+                </View>
+                <RenderedComparePlayer
+                  analysisId={analysisId}
+                  onUnavailable={() => setRenderedUnavailable(true)}
+                />
+              </>
+            ) : (
+            <>
+            {/* 폴백 가지 (renderedCompare 부재 legacy·failed·URL 실패 강등) —
+                기존 듀얼 플레이어+라이브 동기 경로 그대로 (quick-260808-jix:
+                이 가지 내부 코드 diff 0). */}
             <View style={styles.compareHeader}>
               <Text style={styles.sectionTitle}>동작 비교</Text>
               <KeypointOverlayToggle
@@ -2748,6 +2786,8 @@ function AnalysisResultContent({
               // 시트와 같은 장면일치 판정을 통과할 때만 노드를 돌려준다 (P-9).
               renderCueIllustration={cueIllustrationForRecordId}
             />
+            </>
+            )}
             {/* 33-G S3/F-8 (quick-260730-szk) — 부위 칩 행. 승인 목업 ① 은 칩을
                 캡처 카드 **바로 아래**에 둔다(`.jointchips` = `.dcap` 다음 형제).
                 F-8 로 상시 마커가 사라지므로 이 행이 상시 진입점을 대체한다 —

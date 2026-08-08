@@ -666,6 +666,28 @@ export interface CoachAudio {
   items: CoachAudioItem[];
 }
 
+// Phase 35 (quick-260808-jix) — 합성 비교 영상 (서버 렌더 단일 mp4).
+// Pod 분석 **사후** 스테이지가 15fps 재추출+DTW 정렬을 GPU 로 새로 만들고 그
+// align 으로 user·ref 두 패널+감점 정지·음성·자막을 단일 mp4 에 구워, 기계 판정
+// 리그 **전 항목 PASS 일 때만** S3 업로드 + update_analysis_rendered_compare
+// 부분 갱신으로 도착시킨다 (coachAudio 사후 분리 선례 — 채점 무접촉).
+// 부재(legacy doc)·'failed' = 기존 듀얼 플레이어+라이브 동기 폴백 (하위호환,
+// no migration — 렌더 분기 밖 코드 diff 0).
+//   status: 'done' = 리그 ALL PASS mp4 업로드 완료 (key 유효) / 'failed' =
+//   align 실패·리그 FAIL·스테이지 예외 (앱은 듀얼 플레이어 폴백).
+//   key = canonical S3 키 (results/.../compare_v{N}.mp4). URL 은 저장하지 않는다
+//   — 재생 URL 은 POST /playback-url { asset: 'renderedCompare' } 재서명으로만
+//   발급 (H-02 — 서버 구성 canonical key + 저장 key exact 비교).
+// done doc 의 동작비교 = 단일 mp4 재생 (RenderedComparePlayer). 그 분기에서
+// 앱 큐 오디오·자막·틱 발화 경로는 구조적으로 OFF (VideoCompare 미렌더) —
+// mp4 에 음성·자막이 구워져 있으므로 이중 발화 0 (contract.md §12.9 표시 정책).
+// Python lockstep: models.py RENDERED_COMPARE_KEYS 블록 +
+// firestore_admin.update_analysis_rendered_compare + docs/contract.md §12.9.
+export interface RenderedCompare {
+  status: 'done' | 'failed';
+  key: string; // S3 key (results/{uid}/{analysisId}/compare_v{N}.mp4). URL 아님. failed 는 ''.
+}
+
 // Phase 32 (Plan 32-13 — D-22/D-23) — 문장↔영상 일치 스팟체크 판정 결과.
 // 백엔드가 분석 **사후** 스테이지에서 감점 카드 문장(§12.3 statusLine/cueLine)과
 // summaryPraise.headline(앱이 렌더하는 바로 그 문장 — 단일 원천, 리뷰 blocker 5)
@@ -933,6 +955,10 @@ export type AnalysisResult = ScoreSuppression & {
   // Phase 32 (Plan 32-16 — D-18 B안) — 재생 중 큐 오디오. complete 이후 사후 부분
   // 업데이트로 도착 (fault_zoom 선례). 부재(legacy doc)=오디오 표면 미렌더.
   coachAudio?: CoachAudio;
+  // Phase 35 (quick-260808-jix) — 합성 비교 영상. complete 이후 사후 부분
+  // 업데이트로 도착 (리그 ALL PASS 시에만 done). 부재(legacy)/failed = 기존
+  // 듀얼 플레이어 폴백 (contract.md §12.9 표시 정책).
+  renderedCompare?: RenderedCompare;
   // Phase 32 (Plan 32-13 — D-22/D-23) — 문장↔영상 스팟체크. complete 이후 사후
   // 부분 업데이트로 도착. 부재(legacy)/skipped/failed = 전 카드 표시 (fail-open,
   // contract.md §12.8 표시 정책). 'done' 일 때만 hiddenRecordIds 로 감점 카드

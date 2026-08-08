@@ -29,9 +29,17 @@ def main() -> None:
     ap.add_argument("--mp4", required=True, type=Path)
     ap.add_argument("--report", required=True, type=Path)
     ap.add_argument("--workdir", type=Path, default=Path("/tmp/renderrig"))
+    # H 진품 축 입력 (quick-260808-jix 방어 라운드) — 제공 시 산출-분석 일치 판정.
+    ap.add_argument("--doc-json", type=Path, default=None)
+    ap.add_argument("--align-json", type=Path, default=None)
+    ap.add_argument("--text-override-json", type=Path, default=None)
     args = ap.parse_args()
     report = json.load(open(args.report))
-    ok, lines = verify(args.mp4, report, args.workdir)
+    doc = json.load(open(args.doc_json)) if args.doc_json else None
+    align = json.load(open(args.align_json)) if args.align_json else None
+    overrides = json.load(open(args.text_override_json)) if args.text_override_json else None
+    ok, lines = verify(args.mp4, report, args.workdir,
+                       align=align, doc=doc, text_overrides=overrides)
     print(f"{args.mp4.name}: {'ALL PASS' if ok else 'FAIL'}")
     print("\n".join(lines))
     sys.exit(0 if ok else 1)

@@ -21,9 +21,14 @@ S3 업로드 + doc renderedCompare done 부착 (FAIL = failed 마킹, 업로드 
      버스트·스틸 크롤)은 통과시킨다 — 완화가 아니라 판정 대상의 교정 + 표집 운
      제거(강화). 상수 근거는 stutter_stop_events/STUTTER_* 주석.
   F. 웹 재생성 — moov(재생정보)가 mdat(본체) 앞 (faststart — 사파리 스트리밍)
+  H. 진품 판정 (산출-분석 일치, belle 실기기 반려 라운드) — doc 제공 시:
+     정지 수 회계 / 정지 순간 == doc 측정 순간(±0.2s, 클램프·이동 문법 면제) /
+     구운 자막 == cue_text 조립문 / 음성 rid == 그 분석 coachAudio 조인.
+     doc 미제공(구식 CLI 호출) = [INFO] 생략 — 운영 스테이지는 항상 제공.
 
 v0 미포함(후속): whisper 전사 == 자막 문장 대조(로컬 whisper 미설치 — Pod 리그에서),
-자막 픽셀 OCR. 미포함은 여기 명시해 둔다 — 조용한 생략 금지.
+자막 픽셀 OCR, G 의미 축(홀드-내 판정 — 승인 코퍼스 실측 기각으로 STOP, SUMMARY
+"렌더 방어 라운드" 절 참조). 미포함은 여기 명시해 둔다 — 조용한 생략 금지.
 """
 from __future__ import annotations
 
@@ -121,6 +126,125 @@ def worst_stutter_window(events: list[float], win_s: float = STUTTER_WIN_S) -> i
     return max(sum(1 for t in ts if t0 <= t < t0 + win_s) for t0 in ts)
 
 
+# ── H 진품 판정 (산출-분석 일치) — belle 실기기 반려 라운드 (quick-260808-jix) ──
+# v7 통째 삽입류 조작(다른 분석의 mp4/report 를 이 doc 에 부착)이 기계적으로
+# FAIL 나는 축 — belle 신뢰 장치. 렌더 리포트가 doc(records·coachAudio)과
+# 문자/수치 단위로 일치해야 한다. 전부 순수 함수 — 합성 유닛 검증 가능.
+# ut(표시 순간)를 의도적으로 옮기는 승인 문법 = align-peak(벌림 최대 국면)·
+# align-pole(폴-근접 창 내 최대 간격 순간) — H2 순간-동일성에서 면제 (근거:
+# 픽스처 실측 elbow r02 at 4.89→11.13 / kipup r00 피크 1.47, belle 승인 렌더).
+_H2_UT_DISPLACING_SRC = ("align-peak", "align-pole")
+_H2_TOL_S = 0.2  # 15fps 정렬 그리드 반올림 유격 (compare_align FPS=15 → 1.5프레임)
+
+
+def authenticity_checks(
+    report: dict,
+    doc: dict,
+    align: dict | None = None,
+    text_overrides: dict | None = None,
+) -> list[tuple[str, bool, str]]:
+    """H1~H4 판정 목록 [(이름, PASS여부, 상세)] — verify() 가 check() 로 흘린다.
+
+    H1 정지 수 — 렌더 정지 + 제외 회계 == doc 렌더 대상 record 수
+      (대상 = align.pairs 에 있거나 atVideoSec 보유 — build_timeline enrich 규칙 미러).
+    H2 정지 순간 — 비-이동 pairSrc freeze 의 userSec == doc/align 순간 (±0.2s,
+      영상 끝 클램프 반영 — 렌더러 [clamp] 규칙 미러).
+    H3 자막 진품 — 구운 text == cue_text 조립문(또는 오버라이드) 문자 일치.
+    H4 음성 조인 — 각 freeze rid 가 doc coachAudio.items 에 존재 (mp3 출처 = 그 분석).
+    """
+    from .cue_text import coach_audio_speech_text
+
+    out: list[tuple[str, bool, str]] = []
+    result = doc.get("result") if isinstance(doc.get("result"), dict) else {}
+    records = (result.get("deductionBreakdown") or {}).get("records") or []
+    by_rid = {
+        str(r.get("recordId", "")).split(":")[0]: r
+        for r in records
+        if isinstance(r, dict) and r.get("recordId")
+    }
+    pairs = (align or {}).get("pairs") or {}
+    freezes = report.get("freezes") or []
+    excluded = report.get("excludedFreezes") or []
+
+    # H1 — 정지 회계 (조용한 탈락/외부 삽입 검출). 수가 아니라 **rid 집합 동일성**
+    # — 수만 세면 외부 report 가 우연히 같은 개수일 때 통과한다 (유닛 실측으로
+    # 강화: 통째 삽입 시뮬이 1==1 로 H1 을 지나쳤다).
+    eligible = {
+        rid for rid, r in by_rid.items()
+        if rid in pairs or r.get("atVideoSec") is not None
+    }
+    accounted = {str(fz.get("rid")) for fz in freezes} | {
+        str(e.get("rid")) for e in excluded
+    }
+    ok1 = accounted == eligible
+    out.append((
+        "H1 정지 회계",
+        ok1,
+        f"rendered+excluded={sorted(accounted)} == eligible={sorted(eligible)}"
+        if ok1 else f"rendered+excluded={sorted(accounted)} != eligible={sorted(eligible)}",
+    ))
+
+    dur_user = float(report.get("userDurationS") or 0.0)
+    for fz in freezes:
+        rid = fz.get("rid")
+        rec = by_rid.get(rid)
+        if rec is None:
+            out.append((f"H2 순간 {rid}", False, "doc 에 없는 record (외부 삽입 의심)"))
+            continue
+        src = fz.get("pairSrc")
+        if src in _H2_UT_DISPLACING_SRC:
+            # 승인 이동 문법 — 순간-동일성 면제 (표시 순간 소유권이 문법에 있음).
+            continue
+        expected = rec.get("atVideoSec")
+        if expected is None:
+            expected = (pairs.get(rid) or {}).get("atVideoSec")
+        if expected is None:
+            out.append((f"H2 순간 {rid}", False, "doc/align 어디에도 측정 순간 없음"))
+            continue
+        expected = float(expected)
+        if dur_user and expected >= dur_user - 0.1:
+            expected = max(0.0, dur_user - 0.2)  # 렌더러 [clamp] 규칙 미러
+        delta = abs(float(fz.get("userSec", -1)) - expected)
+        out.append((
+            f"H2 순간 {rid}",
+            delta <= _H2_TOL_S,
+            f"|{fz.get('userSec'):.2f}-{expected:.2f}|={delta:.2f}s (src={src})",
+        ))
+
+    for fz in freezes:
+        rid = fz.get("rid")
+        rec = by_rid.get(rid)
+        if rec is None:
+            continue  # H2 에서 이미 FAIL
+        ov = (text_overrides or {}).get(rid)
+        try:
+            expected_text = ov or coach_audio_speech_text(rec)
+        except Exception:  # noqa: BLE001 - cueLine 부재 record = 조립 불가
+            expected_text = None
+        ok3 = expected_text is not None and fz.get("text") == expected_text
+        out.append((
+            f"H3 자막 진품 {rid}",
+            ok3,
+            "문자 일치" if ok3 else f"불일치: 구운='{str(fz.get('text'))[:40]}…'",
+        ))
+
+    items = (result.get("coachAudio") or {}).get("items") or []
+    item_rids = {
+        str(it.get("recordId", "")).split(":")[0]
+        for it in items
+        if isinstance(it, dict)
+    }
+    for fz in freezes:
+        rid = fz.get("rid")
+        ok4 = rid in item_rids
+        out.append((
+            f"H4 음성 조인 {rid}",
+            ok4,
+            "coachAudio 항목 존재" if ok4 else "이 분석의 coachAudio 에 없는 rid (외부 mp3 의심)",
+        ))
+    return out
+
+
 def duration_s(path: Path) -> float:
     err = subprocess.run([FF, "-i", str(path)], capture_output=True, text=True).stderr
     h, m, s = re.search(r"Duration: (\d+):(\d+):([\d.]+)", err).groups()
@@ -149,7 +273,15 @@ def frame_diff(path: Path, start: float, tmp: Path, n: int = 6, fps: float = 6.0
     return float(np.mean([np.mean(np.abs(imgs[i + 1] - imgs[i])) for i in range(len(imgs) - 1)]))
 
 
-def verify(mp4: Path, report: dict, workdir: Path) -> tuple[bool, list[str]]:
+def verify(
+    mp4: Path,
+    report: dict,
+    workdir: Path,
+    *,
+    align: dict | None = None,
+    doc: dict | None = None,
+    text_overrides: dict | None = None,
+) -> tuple[bool, list[str]]:
     lines: list[str] = []
     ok = True
 
@@ -272,5 +404,14 @@ def verify(mp4: Path, report: dict, workdir: Path) -> tuple[bool, list[str]]:
     mi, di = head.find(b"moov"), head.find(b"mdat")
     check("F 웹 재생성(faststart)", 0 <= mi < di if di >= 0 else mi >= 0,
           f"moov@{mi} mdat@{di} (64KB 헤더 내)")
+
+    # H. 진품 판정 — doc 제공 시에만 (운영 스테이지는 항상 제공, CLI 는 --doc-json).
+    if doc is not None:
+        for name, passed, detail in authenticity_checks(
+            report, doc, align=align, text_overrides=text_overrides
+        ):
+            check(name, passed, detail)
+    else:
+        lines.append("  [INFO] H 진품 판정 생략 (doc 미제공 — 운영 스테이지는 항상 제공)")
 
     return ok, lines

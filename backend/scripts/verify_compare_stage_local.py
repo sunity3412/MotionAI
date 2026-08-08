@@ -162,8 +162,8 @@ def main() -> None:
     rig: list[tuple[bool, list[str]]] = []
     real_verify = compare_verify.verify
 
-    def _capture_verify(mp4, report, workdir):
-        ok, lines = real_verify(mp4, report, workdir)
+    def _capture_verify(mp4, report, workdir, **kw):
+        ok, lines = real_verify(mp4, report, workdir, **kw)
         rig.append((ok, lines))
         return ok, lines
 

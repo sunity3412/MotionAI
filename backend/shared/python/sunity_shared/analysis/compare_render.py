@@ -848,11 +848,13 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
     kfps = float(kr["fps"])
 
     freezes = []
+    excluded: list[dict] = []  # 진품 리그 H1 정합 회계 (quick-260808-jix 방어 라운드)
     for rec in records:
         rid = rec["recordId"].split(":")[0]
         mp3 = audio_dir / f"{rid}.mp3"
         if not mp3.exists():
             print(f"[warn] mp3 없음 — 정지 스킵: {rid}")
+            excluded.append({"rid": rid, "reason": "no_mp3"})
             continue
         ut = float(rec["atVideoSec"])
         joint = rec["criterion"].split("__")[-1]
@@ -960,7 +962,7 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             # 재합성(p35_audio.py synth)이 공용으로 읽어 lockstep 이 구조 보장.
             "text": (text_overrides or {}).get(rid) or speech_text(rec),
         })
-    return warp_b, freezes
+    return warp_b, freezes, excluded
 
 
 def _as_dict(v):
@@ -1001,8 +1003,8 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
         poles = {"user": _detect_pole(udir, align, "user"),
                  "ref": _detect_pole(rdir, align, "ref")}
 
-    warp_b, freezes = build_timeline(doc, audio_dir, moments, align, poles,
-                                     text_overrides, pair_overrides)
+    warp_b, freezes, excluded = build_timeline(doc, audio_dir, moments, align, poles,
+                                               text_overrides, pair_overrides)
 
     if probe:
         # 발동 집합 dry-run — 어떤 record 가 어느 경로(①폴/②그립/③가중/기존)로
@@ -1216,6 +1218,9 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
         "outDurationS": round(len(frames) / FPS_OUT, 2),
         "userDurationS": round(dur_user, 2),
         "expectedFreezes": len(freezes),
+        # 제외 회계 (quick-260808-jix 방어 라운드) — 진품 리그 H1 이 "정지 수 ==
+        # 렌더 대상 record 수 − 제외 수"를 doc 대조로 검증하는 근거. 조용한 탈락 0.
+        "excludedFreezes": excluded,
         "freezes": [
             {"rid": fz["rid"], "joint": fz["joint"], "userSec": fz["ut"],
              "refSec": round(fz["rt"], 2), "pairSrc": fz["pair_src"],

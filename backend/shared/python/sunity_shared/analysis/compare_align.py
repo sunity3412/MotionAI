@@ -80,12 +80,27 @@ def extract(video: Path, outdir: Path) -> list[Path]:
 
 
 def build_model():
+    """rtmlib Wholebody — **결정론 컨텍스트 안에서** 세션 생성 (Phase 34 실측 수리).
+
+    이 경로에 결정론 주입이 빠져 있어 같은 영상의 재추출이 매번 다른 정렬을 만들었다
+    (실측: 같은 Pod·같은 코드로 belle 반려본을 두 번 재분석 → align curveRefSec 불일치,
+    렌더 저더 이벤트 1건 vs 9건으로 리그 판정이 갈림 = "통과가 운"). 채점 엔진
+    (`rtmw_engine.RTMWPoseEngine`)은 이미 같은 컨텍스트를 쓰고 있었는데 렌더 정렬만
+    누락된 상태였다 — 두 경로가 같은 규율을 공유해야 한다.
+
+    env `RTMW_DETERMINISTIC` 미설정이면 컨텍스트는 아무것도 patch 하지 않는다
+    (ort_determinism 계약 — 미설정 경로 byte-동일).
+    """
     from rtmlib import Wholebody
+
+    from .pose_engines.rtmw.ort_determinism import deterministic_inference_session
+
     det = os.environ.get("YOLOX_ONNX_PATH", "/workspace/yolox_weights/yolox_m.onnx")
     pose = os.environ.get("RTMW_ONNX_PATH", "/workspace/rtmw_weights/rtmw-x-384.onnx")
     device = os.environ.get("RTMW_DEVICE", "cuda")
-    return Wholebody(det=det, det_input_size=(640, 640), pose=pose,
-                     to_openpose=False, backend="onnxruntime", device=device)
+    with deterministic_inference_session():
+        return Wholebody(det=det, det_input_size=(640, 640), pose=pose,
+                         to_openpose=False, backend="onnxruntime", device=device)
 
 
 def infer_video(model, frames: list[Path]):

@@ -116,7 +116,8 @@ def stage_env(papp, monkeypatch, tmp_path):
 
     monkeypatch.setattr(compare_render, "render", _fake_render)
     monkeypatch.setattr(
-        compare_verify, "verify", lambda mp4, report, workdir: (True, ["  [PASS] all"])
+        compare_verify, "verify",
+        lambda mp4, report, workdir, **kw: (True, ["  [PASS] all"]),
     )
 
     user_mp4 = tmp_path / "user.mp4"
@@ -126,9 +127,13 @@ def stage_env(papp, monkeypatch, tmp_path):
     return {
         "s3": fake_s3,
         "kwargs": dict(
-            result={"deductionBreakdown": {"records": [{"recordId": RECORD_ID,
-                                                        "criterion": "angle_vs_reference__right_elbow",
-                                                        "atVideoSec": 1.0}]}},
+            result={
+                "deductionBreakdown": {"records": [{"recordId": RECORD_ID,
+                                                    "criterion": "angle_vs_reference__right_elbow",
+                                                    "atVideoSec": 1.0}]},
+                # 방어 2 (tier 게이트) — 성공 경로 기본은 warped (신뢰 정렬).
+                "motionAlignment": {"tier": "warped"},
+            },
             keypoint_report_dict={"joints": [], "frames": 0, "data": [],
                                   "confidence": [], "fps": 9.0},
             coach_audio_items=[{"recordId": RECORD_ID, "key": f"results/{UID}/{ANALYSIS_ID}/coach_audio_{RECORD_ID}.mp3"}],
@@ -175,6 +180,56 @@ def test_gate_capability_probe_skips(papp, rc_updates, stage_env, monkeypatch):
     papp._run_deferred_compare_render(**stage_env["kwargs"])
     assert rc_updates == []
     assert stage_env["s3"].puts == []
+
+
+@pytest.mark.parametrize("ma", [
+    {"tier": "trim_only"},   # belle doc 127a2a90 실측 (low_global_confidence)
+    {"tier": "disabled"},    # degenerate 저신뢰 계열
+    None,                    # 필드 부재 = 저신뢰 계열 (fail-closed)
+    "not-a-dict",            # 오염 형상 = 저신뢰 계열
+])
+def test_gate_alignment_tier_skips_non_warped(
+    papp, rc_updates, stage_env, monkeypatch, ma
+):
+    """방어 2 (belle 실기기 반려 라운드) — tier != warped 는 스테이지 진입 자체
+    스킵 = **필드 무접촉** (failed 아님 — 부재가 앱 폴백)."""
+    monkeypatch.delenv("RENDERED_COMPARE_ENABLED", raising=False)
+    kwargs = {**stage_env["kwargs"]}
+    result = dict(kwargs["result"])
+    if ma is None:
+        result.pop("motionAlignment", None)
+    else:
+        result["motionAlignment"] = ma
+    kwargs["result"] = result
+    papp._run_deferred_compare_render(**kwargs)
+    assert rc_updates == []  # 필드 무접촉 (failed 마킹도 없음)
+    assert stage_env["s3"].puts == []
+
+
+def test_all_freezes_excluded_skips_without_field(
+    papp, rc_updates, stage_env, monkeypatch
+):
+    """렌더 대상 freeze 전멸 (제외 회계로 0) = '표현할 것 없음' — 업로드·마킹 0,
+    **필드 미기록** (failed 아님). 리그 verify 도 미도달."""
+    monkeypatch.delenv("RENDERED_COMPARE_ENABLED", raising=False)
+
+    def _fake_render(doc, user_video, ref_video, audio_dir, workdir, out, **kwargs):
+        Path(out).write_bytes(b"\x00fake-mp4")
+        return {"outDurationS": 1.0, "expectedFreezes": 0, "freezes": [],
+                "excludedFreezes": [{"rid": "r00", "reason": "no_mp3"}]}
+
+    monkeypatch.setattr(compare_render, "render", _fake_render)
+    verify_calls: list = []
+    monkeypatch.setattr(
+        compare_verify, "verify",
+        lambda *a, **k: verify_calls.append(1) or (True, []),
+    )
+
+    papp._run_deferred_compare_render(**stage_env["kwargs"])
+
+    assert rc_updates == []  # 필드 미기록 (done 도 failed 도 아님)
+    assert stage_env["s3"].puts == []
+    assert verify_calls == []  # 리그 미도달 (표현물 없음)
 
 
 def test_capability_probe_false_without_rtmlib(papp, monkeypatch):
@@ -235,7 +290,7 @@ def test_rig_fail_blocks_upload_and_marks_failed(
     monkeypatch.delenv("RENDERED_COMPARE_ENABLED", raising=False)
     monkeypatch.setattr(
         compare_verify, "verify",
-        lambda mp4, report, workdir: (False, ["  [FAIL] E 저더 user: 반복률=40%"]),
+        lambda mp4, report, workdir, **kw: (False, ["  [FAIL] E 저더 user: 반복률=40%"]),
     )
 
     papp._run_deferred_compare_render(**stage_env["kwargs"])

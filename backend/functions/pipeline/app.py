@@ -4019,6 +4019,21 @@ def _run_deferred_compare_render(
             "compare_render 스킵 (로컬 영상 경로 없음) analysis_id=%s", analysis_id
         )
         return
+    # 방어 2 (belle 실기기 pdshape 반려 라운드, quick-260808-jix) — 정렬 강등 스킵.
+    # 파이프라인 자체 정렬 신뢰(motionAlignment.tier)가 'warped' 미만(trim_only/
+    # disabled/부재 = 저신뢰 계열)이면 렌더 스테이지 진입 자체를 스킵 — 필드 부재
+    # = 앱 듀얼 플레이어 폴백. 근거: belle doc 127a2a90(tier=trim_only,
+    # low_global_confidence)의 렌더가 "어떤 지점인지 모르는 수준" — 승인(v7급)
+    # 못 미치면 내보내지 않는다 (fail-closed). tier 값 집합 =
+    # models.MOTION_ALIGNMENT_TIERS ("warped"/"trim_only"/"disabled").
+    _ma = result.get("motionAlignment")
+    _ma_tier = _ma.get("tier") if isinstance(_ma, dict) else None
+    if _ma_tier != "warped":
+        log.info(
+            "compare_render 스킵 (motionAlignment tier=%s — warped 아님: 저신뢰 "
+            "정렬 강등, 필드 미기록) analysis_id=%s", _ma_tier, analysis_id,
+        )
+        return
     if not _compare_render_capability():
         log.info(
             "compare_render 스킵 (추출 능력 프로브 미충족 — Lambda CPU 경로 등) "
@@ -4084,7 +4099,23 @@ def _run_deferred_compare_render(
         except Exception:  # noqa: BLE001 - 진단 보조 기록 실패는 비차단
             log.warning("compare_render report.json 기록 실패 (진단 보조) analysis_id=%s", analysis_id)
 
-        ok, lines = compare_verify.verify(out_mp4, report, workdir)
+        # 렌더 대상 freeze 전멸 (제외 회계로 0 — 예: 전 record mp3 부재) = "표현할
+        # 것이 없음" — failed(시도했으나 불량)가 아니라 **필드 미기록**이 정직
+        # (게이트 스킵과 동일 의미론, 앱 폴백). belle 반려 라운드 결정.
+        if not report.get("freezes") and report.get("excludedFreezes"):
+            log.info(
+                "compare_render 스킵 (렌더 대상 freeze 전멸 — excluded=%s, 필드 "
+                "미기록) analysis_id=%s",
+                [e.get("rid") for e in report.get("excludedFreezes", [])],
+                analysis_id,
+            )
+            return
+
+        # 리그 — H 진품 축(산출-분석 일치)은 doc/align 제공 시 활성. 운영 스테이지는
+        # 항상 제공한다 (doc_like = 이 분석의 in-memory result 재조립).
+        ok, lines = compare_verify.verify(
+            out_mp4, report, workdir, align=align, doc=doc_like,
+        )
         if not ok:
             log.warning(
                 "compare_render 리그 FAIL — 업로드·done 부착 없음 analysis_id=%s\n%s",

@@ -25,10 +25,16 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import logging
 import os
 import shutil
 import sys
 from pathlib import Path
+
+# 스테이지 log.info(게이트 스킵 사유 등)가 드라이버 stdout 에 보이도록 —
+# 핸들러 없는 프로세스에서 lastResort 는 WARNING+ 만 내보낸다 (실측:
+# belle doc tier 스킵 사유가 안 보였음).
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
 HERE = Path(__file__).resolve().parent
 BACKEND = HERE.parent

@@ -210,8 +210,46 @@ doc failed 유지(앱 폴백 정상). 처분 선택지 (orchestrator/belle 판�
 
 | 항목 | 이유 |
 |------|------|
-| `--write` 실마킹 (S3 업로드 + done) | 리그 E FAIL — "전 항목 PASS 아니면 doc 부착 없음" 게이트 법 준수. E 처분 결정 후 드라이버 `--write` 1회로 즉시 가능 |
-| E 처분 (위 1/2/3) | belle-급 판정 — 임의 리그 변경 금지 |
+| ~~`--write` 실마킹~~ | **해소** — E 지표 정련(아래 절) 후 GPU 리그 ALL PASS → `--write` 완료 (doc done + S3 부착 검증) |
+| ~~E 처분~~ | **해소** — orchestrator 처분 ② (E 지표 정련) 결정·구현 완료 |
+
+## E 지표 정련 (orchestrator 처분 ② — 커밋 a12e0fd)
+
+**결정 근거**: 구 E(임의 2.5s 창 표집, 반복률 ≤15%)는 승인 5편이 전 구간 16~24%
+균일 저속(run=1) 문법을 보유한 것을 창 착지 운으로만 통과시키고, 같은 문법의
+신선 doc 을 FAIL 시킨 결함 판정기 — v1 증상(클러스터)으로의 교정 + 표집 운
+제거(전 구간 스캔 = 강화)이지 완화가 아니다.
+
+**새 산식 (E v2)**: 전 재생 구간(freeze/fade margin 0.3s 제외) 30fps 전수 스캔,
+좌/우 패널 각각 —
+```
+정지 이벤트 = dup(diff<0.05) 최대 run 중
+              · 길이 2..5 프레임 (67~167ms)
+              · 양옆 인접 전이가 실모션 (diff ≥ 0.5)
+FAIL       = 어느 2.0s 슬라이딩 창에 정지 이벤트 ≥ 4
+```
+
+**상수 근거 (전부 구조 유도 — compare_verify.py STUTTER_* 주석 박제)**:
+| 상수 | 값 | 근거 |
+|------|----|------|
+| dup 임계 | 0.05 | v1 승계 (동일 인코드 프레임 ≈ 0) |
+| 실모션 하한 | 0.5 | dup 임계 ×10 — C 재생 동적성의 decade-분리 구조 승계. 스틸 플리커(승인 pdshapefault 헤드 실측 이웃 0.05~0.06)는 '가다' 불성립 |
+| run 대역 | 2..5 | run1(33ms) = 풀다운 계열 비가시 — 승인 코퍼스 지배 성분(elbow 56·fresh 62 전부 run1). run≥6(≥200ms) = '멈춤/스틸' 의미론 (승인 pdshapefault 크롤 run7·9) |
+| 창/횟수 | 2.0s / 4회 | 승인 코퍼스 실측 상계 = 3회(powerspin 꼬리·pdshapefault 헤드 — 0.4s 경계 정착 버스트, belle 승인 렌더) 초과 & v1 케이던스(hold2~3+move2~3 = 초당 5~7회 → 2s 창 10회+)의 1/2.5 이하 최소 정수 |
+
+**3겹 검증 (전건 PASS 후 --write — 요건 순서 준수)**:
+| 게이트 | 판정 | 실측 |
+|--------|------|------|
+| (a) 승인 5편 전 구간 스캔 | **ALL PASS** | elbow 0/0 · kipup 0/0 · pdshapefault ref 3이벤트/최악3 · powerspin(v7) ref 3/3 · peterpan(v7) 0/0 — 전부 임계 4 미만 (실측 여유 = 승인 버스트가 정확히 상계) |
+| (b) 신선 doc GPU 재실행 리그 | **ALL PASS** | A/A2/B×5/C/D×5(D-무음 -91dB @12.3s 재배치)/E user·ref 0이벤트/F 전건 — --write 실행 내 전 판정 |
+| (c) 합성 클러스터 역검증 | **10/10 GREEN** | v1형 케이던스(hold3+move2·hold2+move3) 합성 mp4 end-to-end = **정확히 E 로만 FAIL**(타 항목 PASS), 균일 슬로모 mp4 = ALL PASS. 순수 코어 8케이스(경계 정착 3회 PASS 핀·스틸 크롤 PASS·플리커 비이벤트·가장자리 제외) |
+
+**--write 결과 (2026-08-08 08:04 UTC)**:
+- doc `result.renderedCompare` = `{status:'done', key:'results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/2fe3ae94cc584b58a850968dd2ab0951/compare_v1.mp4'}` — canonical **exact match TRUE** (Pod 에서 Firestore 실조회).
+- S3 객체 실존: **12,613,270 bytes / video/mp4** / LastModified 2026-08-08 08:04:23+00:00 (head_object 실측).
+- 시뮬 단일 mp4 재생 확인 = orchestrator 후속.
+
+**회귀 유지**: 렌더러 byte 불변 (`git diff 4decd09..HEAD -- compare_render/compare_align/cue_text` = 0줄 — byte 게이트 2차 결과 유효 승계), 채점 diff 0 (누적), pytest FAILED/ERROR node-ID baseline IDENTICAL, phase35 46케이스 GREEN.
 
 ## Known Stubs
 

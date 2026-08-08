@@ -10,6 +10,7 @@ Parameter Store(FIREBASE_SA_PARAM)에서 로드 — 코드/.env 하드코딩 금
 
 from __future__ import annotations
 
+import math
 import time
 
 from . import auth as _auth
@@ -1530,13 +1531,15 @@ def update_analysis_coach_audio(
 def _validate_rendered_compare(payload, *, path: str = "renderedCompare") -> None:  # noqa: ANN001
     """renderedCompare scoped validator (Phase 35 quick-260808-jix — contract.md §12.9).
 
-    형상: {status: 'done'|'failed', key: str}. coachAudio validator 선례 —
-    키 화이트리스트 + enum + 상태별 key 불변식을 강제한다 (T-35J-02):
-      · 최상위 키 = models.RENDERED_COMPARE_KEYS 정확히 (누락/여분 거부)
+    형상: {status: 'done'|'failed', key: str, freezes?: [{rid, outSec}]}.
+    coachAudio validator 선례 — 키 화이트리스트 + enum + 상태별 불변식 (T-35J-02):
+      · 최상위 키 = RENDERED_COMPARE_KEYS(필수 정확히) + OPTIONAL_KEYS(허용)
       · status ∈ models.RENDERED_COMPARE_STATUSES
       · done → key 는 'results/' prefix + '.mp4' suffix 비어있지 않은 str
         (H-02 — 오염 key 가 doc 에 실리는 것 자체를 차단)
-      · failed → key == '' (stale key 잔존 금지 — playback-url exact 비교의 짝)
+      · failed → key == '' (stale key 잔존 금지) + freezes 금지 (표현물 부재)
+      · freezes(UI 라운드) → list[{rid: 비어있지 않은 str, outSec: 유한 수 ≥0}]
+        정확 키 집합 + scalar-only (nested 거부 — safetyFlags 선례)
     실패 시 TypeError/ValueError raise (caller 가 graceful 처리).
     """
     if not isinstance(payload, dict):
@@ -1544,10 +1547,14 @@ def _validate_rendered_compare(payload, *, path: str = "renderedCompare") -> Non
             f"_validate_rendered_compare: dict 입력만 허용. path={path or '<root>'}, "
             f"got={type(payload).__name__}"
         )
-    if set(payload.keys()) != set(models.RENDERED_COMPARE_KEYS):
+    required = set(models.RENDERED_COMPARE_KEYS)
+    allowed = required | set(models.RENDERED_COMPARE_OPTIONAL_KEYS)
+    keys = set(payload.keys())
+    if not required.issubset(keys) or not keys.issubset(allowed):
         raise ValueError(
-            f"{path}: 키는 {list(models.RENDERED_COMPARE_KEYS)} 정확히여야 함. "
-            f"got={sorted(payload.keys())}"
+            f"{path}: 필수 키 {sorted(required)} + 선택 키 "
+            f"{list(models.RENDERED_COMPARE_OPTIONAL_KEYS)} 만 허용. "
+            f"got={sorted(keys)}"
         )
     status = payload["status"]
     if status not in models.RENDERED_COMPARE_STATUSES:
@@ -1570,6 +1577,33 @@ def _validate_rendered_compare(payload, *, path: str = "renderedCompare") -> Non
                 f"{path}.key: failed 는 빈 문자열이어야 함 (stale key 잔존 금지). "
                 f"got={key!r}"
             )
+        if "freezes" in payload:
+            raise ValueError(
+                f"{path}.freezes: failed 에는 허용 안 됨 (표현물 부재 — done 전용)"
+            )
+    if "freezes" in payload:
+        freezes = payload["freezes"]
+        if not isinstance(freezes, list):
+            raise TypeError(
+                f"{path}.freezes: list 만 허용. got={type(freezes).__name__}"
+            )
+        for i, item in enumerate(freezes):
+            item_path = f"{path}.freezes[{i}]"
+            _validate_dict_only_scalars(item, path=item_path)
+            if set(item.keys()) != set(models.RENDERED_COMPARE_FREEZE_KEYS):
+                raise ValueError(
+                    f"{item_path}: 키는 {list(models.RENDERED_COMPARE_FREEZE_KEYS)} "
+                    f"정확히여야 함. got={sorted(item.keys())}"
+                )
+            rid = item["rid"]
+            out_sec = item["outSec"]
+            if not isinstance(rid, str) or not rid:
+                raise ValueError(f"{item_path}.rid: 비어있지 않은 str 이어야 함")
+            if not isinstance(out_sec, (int, float)) or isinstance(out_sec, bool) \
+                    or not math.isfinite(float(out_sec)) or float(out_sec) < 0:
+                raise ValueError(
+                    f"{item_path}.outSec: 0 이상 유한 수여야 함. got={out_sec!r}"
+                )
 
 
 def update_analysis_rendered_compare(
@@ -1577,6 +1611,7 @@ def update_analysis_rendered_compare(
     analysis_id: str,
     key: str,
     status: str,
+    freezes: list[dict] | None = None,
 ) -> None:
     """renderedCompare 사후 부분 업데이트 (Phase 35 quick-260808-jix — coach_audio 뼈대 복제).
 
@@ -1593,11 +1628,15 @@ def update_analysis_rendered_compare(
       key: done 시 s3keys.build_rendered_compare_key 산출 canonical 키.
         failed 시 빈 문자열 (stale key 잔존 금지).
       status: models.RENDERED_COMPARE_STATUSES 중 하나 (done/failed).
+      freezes: done 전용 optional (UI 라운드) — [{rid, outSec}] 정지 틱 데이터.
+        None = 필드 생략 (additive — 기존 호출측 무변경).
 
     Raises:
       ValueError/TypeError: 형상 위반 (_validate_rendered_compare).
     """
     payload = {"status": status, "key": key}
+    if freezes is not None:
+        payload["freezes"] = list(freezes)
     _validate_rendered_compare(payload)
     _doc(models.analysis_doc_path(uid, analysis_id)).update(
         {

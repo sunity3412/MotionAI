@@ -683,9 +683,18 @@ export interface CoachAudio {
 // mp4 에 음성·자막이 구워져 있으므로 이중 발화 0 (contract.md §12.9 표시 정책).
 // Python lockstep: models.py RENDERED_COMPARE_KEYS 블록 +
 // firestore_admin.update_analysis_rendered_compare + docs/contract.md §12.9.
+// UI 라운드 (quick-260808-jix) — 감점 정지의 합성 mp4 출력 타임라인 시각.
+// 앱 씬 바 틱 + 탭 점프(-0.5s 시크)의 근거. done 전용 optional — 부재(구버전
+// doc) = 틱 없이 재생만 (fail-open 표시).
+export interface RenderedCompareFreeze {
+  rid: string; // §12.3 recordId 콜론 앞 축약 (r00 등)
+  outSec: number; // 정지 시작 초 (출력 타임라인 — 렌더 리포트 voiceStartOutS)
+}
+
 export interface RenderedCompare {
   status: 'done' | 'failed';
   key: string; // S3 key (results/{uid}/{analysisId}/compare_v{N}.mp4). URL 아님. failed 는 ''.
+  freezes?: RenderedCompareFreeze[]; // done 전용 optional (contract.md §12.9)
 }
 
 // Phase 32 (Plan 32-13 — D-22/D-23) — 문장↔영상 일치 스팟체크 판정 결과.

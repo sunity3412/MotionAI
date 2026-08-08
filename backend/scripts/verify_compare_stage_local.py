@@ -139,10 +139,13 @@ def main() -> None:
 
     updates: list[dict] = []
 
-    def _capture_update(uid, analysis_id, key, status):
+    def _capture_update(uid, analysis_id, key, status, freezes=None):
         # 실 validator 경유 — 계약 위반이면 여기서 터진다 (스텁이 가리지 않음).
-        firestore_admin._validate_rendered_compare({"status": status, "key": key})
-        updates.append({"uid": uid, "analysisId": analysis_id, "key": key, "status": status})
+        payload = {"status": status, "key": key}
+        if freezes is not None:
+            payload["freezes"] = list(freezes)
+        firestore_admin._validate_rendered_compare(payload)
+        updates.append({"uid": uid, "analysisId": analysis_id, **payload})
 
     papp.firestore_admin = type(
         "FA", (), {"update_analysis_rendered_compare": staticmethod(_capture_update)}

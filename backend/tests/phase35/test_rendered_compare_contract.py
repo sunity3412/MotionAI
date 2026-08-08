@@ -57,6 +57,63 @@ def test_models_constants():
 def test_validator_accepts_canonical_shapes():
     firestore_admin._validate_rendered_compare({"status": "done", "key": KEY})
     firestore_admin._validate_rendered_compare({"status": "failed", "key": ""})
+    # UI 라운드 — done 전용 optional freezes (정지 틱 데이터).
+    firestore_admin._validate_rendered_compare(
+        {"status": "done", "key": KEY, "freezes": []}
+    )
+    firestore_admin._validate_rendered_compare(
+        {"status": "done", "key": KEY,
+         "freezes": [{"rid": "r00", "outSec": 0.47}, {"rid": "r01", "outSec": 14.4}]}
+    )
+
+
+@pytest.mark.parametrize(
+    "bad_freezes",
+    [
+        [{"rid": "r00"}],  # outSec 누락
+        [{"rid": "r00", "outSec": 1.0, "x": 1}],  # 여분 키
+        [{"rid": "", "outSec": 1.0}],  # 빈 rid
+        [{"rid": "r00", "outSec": -0.1}],  # 음수
+        [{"rid": "r00", "outSec": float("nan")}],  # 비유한
+        [{"rid": "r00", "outSec": True}],  # bool
+        [{"rid": "r00", "outSec": [1.0]}],  # nested
+        "not-a-list",
+    ],
+)
+def test_validator_rejects_malformed_freezes(bad_freezes):
+    with pytest.raises((ValueError, TypeError)):
+        firestore_admin._validate_rendered_compare(
+            {"status": "done", "key": KEY, "freezes": bad_freezes}
+        )
+
+
+def test_validator_rejects_freezes_on_failed():
+    """failed = 표현물 부재 — freezes 금지 (done 전용)."""
+    with pytest.raises(ValueError):
+        firestore_admin._validate_rendered_compare(
+            {"status": "failed", "key": "", "freezes": []}
+        )
+
+
+def test_update_helper_freezes_passthrough(monkeypatch):
+    """freezes kwarg 는 additive — None 생략 / 제공 시 payload 포함."""
+    calls: list[dict] = []
+
+    class FakeDoc:
+        def update(self, payload):
+            calls.append(payload)
+
+    monkeypatch.setattr(firestore_admin, "_doc", lambda _path: FakeDoc())
+
+    firestore_admin.update_analysis_rendered_compare(
+        UID, ANALYSIS_ID, KEY, status="done",
+        freezes=[{"rid": "r00", "outSec": 1.5}],
+    )
+    assert calls[0]["result.renderedCompare"] == {
+        "status": "done", "key": KEY, "freezes": [{"rid": "r00", "outSec": 1.5}],
+    }
+    firestore_admin.update_analysis_rendered_compare(UID, ANALYSIS_ID, KEY, status="done")
+    assert "freezes" not in calls[1]["result.renderedCompare"]  # None = 생략
 
 
 @pytest.mark.parametrize(

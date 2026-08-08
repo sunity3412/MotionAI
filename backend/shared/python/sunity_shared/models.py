@@ -357,6 +357,13 @@ PLAYBACK_ASSET_COACH_AUDIO = "coachAudio"
 #           URL 비저장 원칙, H-02. 재생 URL 은 playback-url asset 재서명만).
 # 3-way lockstep: app/src/types/analysis.ts RenderedCompare ↔ docs/contract.md §12.9.
 RENDERED_COMPARE_KEYS = ("status", "key")
+# optional 확장 (UI 라운드, quick-260808-jix) — done 에만 실릴 수 있는 정지 틱
+# 데이터: freezes[].rid = §12.3 recordId 콜론 앞 축약 / outSec = 합성 mp4 출력
+# 타임라인에서 그 정지가 시작되는 초 (렌더 리포트 voiceStartOutS — 앱 씬 바 틱
+# + 탭 점프 시크의 근거). 부재(구버전 doc) = 틱 없이 재생만 (fail-open 표시).
+# scalar dict 배열 — nested array 아님 ([[firestore-nested-array-flat]] 정합).
+RENDERED_COMPARE_OPTIONAL_KEYS = ("freezes",)
+RENDERED_COMPARE_FREEZE_KEYS = ("rid", "outSec")
 RENDERED_COMPARE_STATUS_DONE = "done"
 RENDERED_COMPARE_STATUS_FAILED = "failed"
 RENDERED_COMPARE_STATUSES = (

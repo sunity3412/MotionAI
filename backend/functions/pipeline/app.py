@@ -4141,8 +4141,16 @@ def _run_deferred_compare_render(
             _s3.put_object(
                 Bucket=bucket, Key=key, Body=fh, ContentType="video/mp4"
             )
+        # 정지 틱 데이터 (UI 라운드, contract.md §12.9 freezes) — 앱 씬 바 틱 +
+        # 탭 점프 시크의 근거. outSec = 렌더 리포트의 정지 시작 출력 시각.
+        freezes_payload = [
+            {"rid": fz["rid"], "outSec": fz["voiceStartOutS"]}
+            for fz in report.get("freezes") or []
+        ]
         firestore_admin.update_analysis_rendered_compare(
-            uid, analysis_id, key, status=models.RENDERED_COMPARE_STATUS_DONE
+            uid, analysis_id, key,
+            status=models.RENDERED_COMPARE_STATUS_DONE,
+            freezes=freezes_payload,
         )
         log.info(
             "compare_render done uid=%s analysis_id=%s key=%s freezes=%s",

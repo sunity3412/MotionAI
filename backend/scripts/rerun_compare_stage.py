@@ -150,10 +150,14 @@ def main() -> None:
     if not args.write:
         papp._s3 = NoWriteS3Proxy(s3)
 
-        def _capture_update(uid, analysis_id, key, status):
-            firestore_admin._validate_rendered_compare({"status": status, "key": key})
-            updates.append({"key": key, "status": status})
-            print(f"[no-write] doc 마킹 차단: status={status} key={key!r}")
+        def _capture_update(uid, analysis_id, key, status, freezes=None):
+            payload = {"status": status, "key": key}
+            if freezes is not None:
+                payload["freezes"] = list(freezes)
+            firestore_admin._validate_rendered_compare(payload)
+            updates.append(payload)
+            print(f"[no-write] doc 마킹 차단: status={status} key={key!r} "
+                  f"freezes={len(freezes) if freezes else 0}건")
 
         papp.firestore_admin = type(
             "FA", (), {"update_analysis_rendered_compare": staticmethod(_capture_update)}

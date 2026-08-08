@@ -85,11 +85,12 @@ def rc_updates(monkeypatch):
     """update_analysis_rendered_compare 캡처 — 실 validator 경유."""
     captured: list[dict] = []
 
-    def _update(uid, analysis_id, key, status):
-        firestore_admin._validate_rendered_compare({"status": status, "key": key})
-        captured.append(
-            {"uid": uid, "analysis_id": analysis_id, "key": key, "status": status}
-        )
+    def _update(uid, analysis_id, key, status, freezes=None):
+        payload = {"status": status, "key": key}
+        if freezes is not None:
+            payload["freezes"] = list(freezes)
+        firestore_admin._validate_rendered_compare(payload)
+        captured.append({"uid": uid, "analysis_id": analysis_id, **payload})
 
     monkeypatch.setattr(
         firestore_admin, "update_analysis_rendered_compare", _update
@@ -112,7 +113,10 @@ def stage_env(papp, monkeypatch, tmp_path):
 
     def _fake_render(doc, user_video, ref_video, audio_dir, workdir, out, **kwargs):
         Path(out).write_bytes(b"\x00fake-mp4")
-        return {"outDurationS": 1.0, "expectedFreezes": 0, "freezes": []}
+        return {"outDurationS": 9.0, "expectedFreezes": 1,
+                "freezes": [{"rid": "r00", "userSec": 1.0, "refSec": 2.0,
+                             "pairSrc": "align", "freezeS": 5.0,
+                             "voiceStartOutS": 1.0, "text": "t"}]}
 
     monkeypatch.setattr(compare_render, "render", _fake_render)
     monkeypatch.setattr(
@@ -362,8 +366,10 @@ def test_success_uploads_canonical_key_and_marks_done(
     put = stage_env["s3"].puts[0]
     assert put["Key"] == KEY  # s3keys 단일 출처 canonical
     assert put["ContentType"] == "video/mp4"
+    # done 마킹 + 정지 틱 데이터 (UI 라운드 — 렌더 리포트 voiceStartOutS 각인).
     assert rc_updates == [
-        {"uid": UID, "analysis_id": ANALYSIS_ID, "key": KEY, "status": "done"}
+        {"uid": UID, "analysis_id": ANALYSIS_ID, "key": KEY, "status": "done",
+         "freezes": [{"rid": "r00", "outSec": 1.0}]}
     ]
     # mp3 회수 파일명 계약 — recordId 콜론 앞 r{NN}.mp3 (build_timeline 이 읽는 이름).
     assert len(stage_env["s3"].downloads) == 1
@@ -376,13 +382,21 @@ def test_success_uploads_canonical_key_and_marks_done(
 def test_success_with_zero_audio_items_still_proceeds(
     papp, rc_updates, stage_env, monkeypatch
 ):
-    """item 0건 = freeze 0 순수 정렬 재생 편 — 스테이지는 진행한다 (리그 C 분기)."""
+    """item 0건 = freeze 0 순수 정렬 재생 편 — 스테이지는 진행한다 (리그 C 분기).
+    제외 회계 없는 freeze-0 (excludedFreezes 부재) = 전멸 스킵과 구분."""
     monkeypatch.delenv("RENDERED_COMPARE_ENABLED", raising=False)
+
+    def _fake_render(doc, user_video, ref_video, audio_dir, workdir, out, **kwargs):
+        Path(out).write_bytes(b"\x00fake-mp4")
+        return {"outDurationS": 1.0, "expectedFreezes": 0, "freezes": []}
+
+    monkeypatch.setattr(compare_render, "render", _fake_render)
     kwargs = {**stage_env["kwargs"], "coach_audio_items": []}
 
     papp._run_deferred_compare_render(**kwargs)
 
     assert rc_updates and rc_updates[0]["status"] == "done"
+    assert rc_updates[0]["freezes"] == []  # 틱 데이터도 빈 배열로 정직 각인
     assert stage_env["s3"].downloads == []
 
 

@@ -85,9 +85,11 @@ from sunity_shared.analysis.features import (
 )
 from sunity_shared.analysis.interfaces import NoHumanError, NotPoleMotionError  # 가벼움 — 예외만
 from sunity_shared.analysis.motiondtw import (
+    _boundary_keep_floor,
     motion_dtw,
     per_joint_deviation,
     per_joint_representative_frames,
+    ref_boundary_step_mask,
 )
 from sunity_shared.analysis.motion_alignment import build_motion_alignment  # Phase 28 (ALGN-01)
 from sunity_shared.analysis.pole_geometry import (
@@ -1750,6 +1752,7 @@ def _angles_to_dtw_median_dicts(
     ref_angles: np.ndarray | None,
     joint_keys: tuple[str, ...],
     ref_boundary: int | None = None,
+    ref_fps: float | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """표시-점수 정합 helper (Phase 19 TRUST-01 / HIGH-2 iter-1).
 
@@ -1765,6 +1768,10 @@ def _angles_to_dtw_median_dicts(
             full clip 이든 무관 — 내부에서 DTW 로 ref 에 정렬한다.
         ref_angles: 기준 각도 시퀀스 (T_r, J) — 정은지(mode1) 또는 이전 영상(mode3).
         joint_keys: 관절 이름 (분석 JOINT_KEYS).
+        ref_fps: Phase 34 수술 ② (quick-260808-r82) — 점수 경로와 동일한
+            ref-경계 마진 제외 창(motiondtw.ref_boundary_step_mask)·동일 fail-open
+            을 이 순회에도 적용한다. 표시 median 과 점수 median 이 다른 창을 쓰면
+            TRUST-01(표시·점수 source 통일)이 깨진다. None = 종전 byte-동일.
 
     Returns:
         (user_median_by_joint, ref_median_by_joint). path 가 비거나 입력이 비면
@@ -1787,10 +1794,18 @@ def _angles_to_dtw_median_dicts(
     path = match.path
     if not path or seg.shape[0] == 0:
         return {}, {}
+    # 수술 ② — 점수 경로(per_joint_deviation)와 동일 마스크·동일 fail-open.
+    keep = None
+    if ref_fps is not None and ref_fps > 0:
+        _m = ref_boundary_step_mask(path, a_ref_win.shape[0], ref_fps)
+        if int(_m.sum()) >= _boundary_keep_floor(len(path)):
+            keep = _m
     J = min(a_ref_win.shape[1], seg.shape[1], len(joint_keys))
     user_vals: list[list[float]] = [[] for _ in range(J)]
     ref_vals: list[list[float]] = [[] for _ in range(J)]
-    for u, r in path:
+    for k, (u, r) in enumerate(path):
+        if keep is not None and not keep[k]:
+            continue
         if u >= seg.shape[0] or r >= a_ref_win.shape[0]:
             continue
         for j in range(J):
@@ -2394,7 +2409,7 @@ def _build_deduction_measured_deviations(
     reference_dtw_match=None, reference_angles=None, split_deficit_deg=None,
     vision_pointed_joints=None, seed_audit_out=None, alignment_visibility=None,
     alignment_visibility_measured=True, vision_status=None, measured_at_out=None,
-    frame_confidence=None, measurement_error_out=None,
+    frame_confidence=None, measurement_error_out=None, ref_fps=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2683,14 +2698,22 @@ def _build_deduction_measured_deviations(
             if path and start is not None and end is not None:
                 # 점수경로(_deviation_against)와 동일 인덱싱: user_seg = angles[start:end],
                 # path 는 그 segment local 인덱스. 재계산은 path 순회만(저비용).
+                # 수술 ② (quick-260808-r82): 점수 경로와 동일 ref_fps → 동일 제외 창.
+                # 점수 경로와 순간 경로가 다른 창을 쓰면 "쟀다" 계약이 깨진다.
                 user_seg = angles[start:end]
-                dev = per_joint_deviation(path, user_seg, reference_angles)
+                dev = per_joint_deviation(
+                    path, user_seg, reference_angles, ref_fps=ref_fps
+                )
                 for i, jk in enumerate(JOINT_KEYS):
                     dtw_by_joint[jk] = float(dev[i])
                 if isinstance(measurement_error_out, dict):
                     try:
                         from sunity_shared.analysis import measurement_error as _mer
 
+                        # 알려진 창 불일치 (수술 ② 범위 밖, 무접촉 박제): CI 는 전체
+                        # path 표본으로 계산되고 measuredValue(median)는 ref-경계 제외
+                        # 창이다. CI 는 record 억제 보조 지표(산식 아님)라 이번 diff
+                        # 최소 원칙으로 남긴다 — 후속에서 같은 마스크 적용 검토.
                         _cis = _mer.per_joint_median_ci(
                             path, user_seg, reference_angles
                         )
@@ -2704,9 +2727,12 @@ def _build_deduction_measured_deviations(
                         dtw_ci_by_joint = {}
                 if isinstance(measured_at_out, dict):
                     try:
+                        # 수술 ② — 점수 경로(dev)와 동일 ref_fps: 표시 순간이 제외
+                        # 구간 스텝에서 절대 나오지 않는다.
                         _reps = per_joint_representative_frames(
                             path, user_seg, reference_angles, int(start),
                             frame_confidence=frame_confidence,
+                            ref_fps=ref_fps,
                         )
                     except Exception:  # noqa: BLE001 — 순간 실패는 필드 부재로만
                         _reps = {}
@@ -4879,7 +4905,7 @@ def _extension_target_dict(
 
 def _deviation_against(
     user_angles: np.ndarray, ref_angles_flat, num_joints: int,
-    ref_boundary: int | None = None,
+    ref_boundary: int | None = None, ref_fps: float | None = None,
 ):
     """기준 시퀀스 대비 관절별 각도 편차(도) — mode1(정은지)·mode3 second+(이전 영상)
     공용 코어. flat 저장 angles 를 reshape → DTW 정렬 → per_joint_deviation.
@@ -4889,7 +4915,12 @@ def _deviation_against(
     은 windowed reference(a_ref[ref_start:ref_end])를 소비한다(전체 a_ref 로 넘기면
     인덱스 어긋남 → 조용한 오채점). 반환 a_ref 는 downstream(veto/segment nr_full)용
     전체 시퀀스다. ref_boundary(공유 베이스 경계, 전체 프레임 인덱스)가 주어지면 §2.2
-    구조 바닥으로 window 선정에 반영한다(mode3 는 None)."""
+    구조 바닥으로 window 선정에 반영한다(mode3 는 None).
+
+    ref_fps (Phase 34 수술 ②, quick-260808-r82): 기준 각도 축 fps. 지정 시
+    per_joint_deviation 이 ref-경계 마진(0.5s) 스텝을 median 집계에서 제외한다
+    (DTW 종점 강제 정렬 아티팩트 차단 — motiondtw.REF_BOUNDARY_EXCLUDE_S).
+    None = 종전 byte-동일 (fail-open)."""
     a_ref = np.asarray(ref_angles_flat, dtype=float)
     if a_ref.ndim == 1:
         a_ref = a_ref.reshape(-1, num_joints)
@@ -4898,7 +4929,7 @@ def _deviation_against(
     )
     user_seg = user_angles[match.start : match.end]
     a_ref_win = a_ref[match.ref_start : match.ref_end]
-    deviation = per_joint_deviation(match.path, user_seg, a_ref_win)
+    deviation = per_joint_deviation(match.path, user_seg, a_ref_win, ref_fps=ref_fps)
     return deviation, match, user_seg, a_ref
 
 
@@ -5099,14 +5130,19 @@ def _mode3_comparison(
             None,  # prev_dtw_match — 첫 분석은 정렬 컨텍스트 부재 (28-04 미방출 = legacy)
         )
     num_joints = len(prev.get("anglesJointKeys") or []) or skeleton.NUM_JOINTS
+    # Phase 34 수술 ② — 이전 영상(비교 기준)도 같은 파이프라인 산출이라 각도 축 =
+    # frame_extractor fps (_pipeline_frame_fps 단일 출처, 리터럴 금지). ref-경계
+    # 제외 창을 mode1 과 동일 원리로 적용한다 (DTW 종점 아티팩트는 축 무관 동형).
+    _prev_fps = _pipeline_frame_fps()
     deviation, prev_dtw_match, _user_seg, prev_seg = _deviation_against(
-        angles, prev_angles, num_joints
+        angles, prev_angles, num_joints, ref_fps=_prev_fps or None
     )
     # Phase 19 TRUST-01 — mode3 progress: 표시 각도(현재/이전) = 점수 산출 DTW path-정렬
     # median (whole-clip nanmean 비대칭 제거). prev_seg 는 _deviation_against 가 reshape 한
     # 이전 영상 각도 시퀀스. _angles_to_dtw_median_dicts 가 per_joint_deviation 과 동일 source.
+    # 수술 ②: ref_fps 동일 전달 — 표시 median = 점수 median 동일 창(TRUST-01).
     user_mean, ref_mean = _angles_to_dtw_median_dicts(
-        angles, prev_seg, skeleton.JOINT_KEYS
+        angles, prev_seg, skeleton.JOINT_KEYS, ref_fps=_prev_fps or None
     )
     assessments = kismam.assess(
         deviation,
@@ -5999,24 +6035,35 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                     _mode1_ref_boundary = segments.ref_boundary_frame(
                         ref["clipRange"], ref["baseUntilS"], _nr_full
                     )
-                deviation, match, user_seg, a_ref = _deviation_against(
-                    angles, ref["angles"], num_joints,
-                    ref_boundary=_mode1_ref_boundary,
-                )
-                reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
                 # 28-04 — ref angles fps 를 doc 메타에서 확보(하드코딩 금지, I1). phase4_v1
                 # reference 11 doc 전부 keypointReport.fps==18.0 (28-01 실측 봉인).
+                # Phase 34 수술 ② (quick-260808-r82): _deviation_against 호출 앞으로
+                # 이동 — ref-경계 제외 창(ref_fps)에 같은 값을 전달한다. 0.0 → None =
+                # 제외 미적용 fail-open (fps 미상이면 종전 산출 유지).
                 reference_kp_fps = float(
                     (((ref or {}).get("keypointReport")) or {}).get("fps") or 0.0
                 )
+                if not reference_kp_fps:
+                    log.info(
+                        "ref-경계 제외 미적용 (keypointReport.fps 미상 — fail-open) "
+                        "reference=%s", meta.get("referenceMotionId"),
+                    )
+                deviation, match, user_seg, a_ref = _deviation_against(
+                    angles, ref["angles"], num_joints,
+                    ref_boundary=_mode1_ref_boundary,
+                    ref_fps=reference_kp_fps or None,
+                )
+                reference_dtw_match = match  # B1 — fault-zoom 같은-pose 프레임 정렬용.
                 reference_angles_for_veto = a_ref  # 23-02 Task 5 — frame-specific 각도 정량화 입력.
                 # Phase 19 TRUST-01 (HIGH-2 iter-1): 표시 각도 = 점수 산출 DTW path-정렬 median.
                 # 기존 whole-clip np.nanmean(user_seg) vs np.nanmean(a_ref) 는 시간 비대칭
                 # (user matched-window vs ref full-clip) + jitter 민감 → 표시·점수 불일치.
                 # _angles_to_dtw_median_dicts 가 per_joint_deviation 과 동일 path/median source 사용.
+                # 수술 ②: ref_fps 도 동일 전달 — 표시 median = 점수 median 동일 창(TRUST-01).
                 user_mean_mode1, ref_mean_mode1 = _angles_to_dtw_median_dicts(
                     angles, a_ref, skeleton.JOINT_KEYS,
                     ref_boundary=_mode1_ref_boundary,
+                    ref_fps=reference_kp_fps or None,
                 )
                 assessments = kismam.assess(
                     deviation,
@@ -6438,6 +6485,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 measured_at_out=measured_at,
                 frame_confidence=_frame_confidence,
                 measurement_error_out=_measurement_error,
+                # 수술 ② (quick-260808-r82) — 점수 경로(_deviation_against)와 동일
+                # ref_fps 스레딩. mode1 만 non-zero(18.0 계열), mode3/legacy 는 0.0
+                # 초기값 → None = 종전 byte-동일 (reference_dtw_match 도 None 이라
+                # 이 builder 의 DTW 경로 자체가 미발동).
+                ref_fps=reference_kp_fps or None,
             )
             result = _apply_vision_veto(
                 result,

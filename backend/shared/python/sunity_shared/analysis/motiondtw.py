@@ -79,6 +79,49 @@ COVERAGE_FLOOR = 0.80        # nu/nr 이 미만이면 기준 미트리밍(전체
 AMBIGUITY_EPSILON = 0.02     # 근-동률 window 판정(정규화 DTW 거리) — §4-3
 AMBIGUITY_OVERLAP_MIN = 0.80  # 근-동률 후보 프레임 집합 겹침(Jaccard) 하한 — §4-3
 
+# ── Phase 34 수술 ② — 측정창 ref-경계 마진 제외 (quick-260808-r82) ─────────────
+# DTW 는 path 양끝을 윈도우 양끝 (0,0)·(nu-1,nr-1) 에 강제한다. 사용자 진입/이탈
+# 국면이 기준의 시작/끝 프레임에 뭉개져 붙는 "종점 강제 정렬 아티팩트"가 그 결과다.
+# belle doc 127a2a90 실측: records 2건 atVideoSec 17.56/17.78s(이탈 국면)의 짝 ref 가
+# 16.4~16.6/16s(ref 끝단) — 자세 완성 국면이 아니라 내려오는 국면을 잰 것.
+# 렌더층은 같은 원리를 compare_verify.REF_BOUNDARY_PIN_S(0.5s, 리그 G 핀)로 이미
+# 차단한다 — 이 상수는 그 채점층 대응이다. 값은 compare_verify 와 lockstep(단일
+# 출처)이어야 하지만, 채점 코어(이 모듈)가 리그 모듈을 import 하는 계층 역행은
+# 금지라 상수를 여기 두고 backend/tests/phase34/test_measurement_window.py 가
+# 동등 assert 로 강제한다(리그 쪽 값이 바뀌면 그 테스트가 트립).
+REF_BOUNDARY_EXCLUDE_S = 0.5
+
+
+def ref_boundary_step_mask(path, ref_len: int, ref_fps: float) -> np.ndarray:
+    """정렬 스텝별 집계 사용 여부 (True=사용) — ref-경계 마진 제외 창.
+
+    스텝 (u, r) 의 r 이 윈도우 양끝 margin 이내면 False. margin 은 초→프레임 환산
+    margin = ceil(REF_BOUNDARY_EXCLUDE_S * ref_fps) (9fps→5프레임, 18fps→9프레임).
+
+    축 주의: path 의 r 인덱스는 **window-local**(MotionMatch.path 계약 — A_ref 가
+    이미 r_s:r_e 슬라이스로 들어온다). DTW 종점 강제는 path 양끝 = 윈도우 양끝에서
+    일어나므로 마스크도 윈도우 축 기준이 맞다 — ref 통째 윈도우(r_s=0, r_e=nr)면
+    윈도우 끝 == 영상 끝이라 렌더층 G 핀(영상 양끝 0.5s)과 일치한다.
+
+    ref_len <= 2*margin 이면 전 스텝 False — 소비자의 fail-open 하한이 받아낸다.
+    """
+    margin = int(np.ceil(REF_BOUNDARY_EXCLUDE_S * float(ref_fps)))
+    mask = np.ones(len(path), dtype=bool)
+    for k, (_u, r) in enumerate(path):
+        if r < margin or r >= ref_len - margin:
+            mask[k] = False
+    return mask
+
+
+def _boundary_keep_floor(n_path: int) -> int:
+    """fail-open 하한 — 경계 제외 후 잔여 스텝이 이 미만이면 전 경로 사용.
+
+    max(3, ceil(0.5 * n_path)): 잔여가 과반 미달이면 정렬이 경계에 뭉갠 것이라
+    (수술 ①·리그 소관) 채점이 극소 표본으로 급변하면 안 된다. 3 = 의미 있는
+    median 최소 표본(홀수 중심). 구조 유도 — fixture 유도 아님.
+    """
+    return max(3, int(np.ceil(0.5 * n_path)))
+
 
 @dataclass(frozen=True)
 class MotionMatch:
@@ -193,7 +236,7 @@ def motion_dtw(
     )
 
 
-def per_joint_deviation(path, A_user_seg, A_ref):
+def per_joint_deviation(path, A_user_seg, A_ref, *, ref_fps: float | None = None):
     """정렬 경로에서 관절별 median |Δ각도|(도). A_*: (T,J) 각도 행렬.
 
     KISMAM 입력. path 의 (u,r) 쌍마다 관절별 차이를 모아 **중앙값** 반환.
@@ -210,6 +253,15 @@ def per_joint_deviation(path, A_user_seg, A_ref):
       보장 (DTW path 가 identity 면 모든 |Δ|=0).
       신호 (mean angles 가 일관적으로 다름) 는 median 으로도 잡힘 (path 의 모든
       frame 에서 같은 부호 차이 → median 도 그 차이값).
+
+    Phase 34 수술 ② (quick-260808-r82, 보드 착수 블록 승인):
+      ref_fps 지정 시 ref_boundary_step_mask 로 ref-경계 마진(0.5s) 스텝을 집계에서
+      제외한다 — DTW 종점 강제 정렬 아티팩트(진입/이탈 국면이 기준 양끝에 뭉개짐)가
+      median 을 오염시키지 않게. 마스크 축은 **윈도우 축**(A_ref 가 이미 window
+      슬라이스 — ref 통째 윈도우면 영상 경계와 일치, ref_boundary_step_mask 참조).
+      fail-open: 잔여 스텝 < _boundary_keep_floor(len(path)) 면 전 경로 사용(종전과
+      동일 산출 — 극소 표본 급변 금지). ref_fps=None(default) = 종전 byte-동일.
+      self-compare 는 어느 분기든 모든 |Δ|=0 이라 median 0 보장 구조 불변.
     """
     A_user_seg = np.asarray(A_user_seg, dtype=float)
     A_ref = np.asarray(A_ref, dtype=float)
@@ -220,11 +272,16 @@ def per_joint_deviation(path, A_user_seg, A_ref):
     diffs = np.empty((len(path), J), dtype=float)
     for k, (u, r) in enumerate(path):
         diffs[k] = np.abs(A_user_seg[u] - A_ref[r])
+    if ref_fps is not None and ref_fps > 0:
+        keep = ref_boundary_step_mask(path, A_ref.shape[0], ref_fps)
+        if int(keep.sum()) >= _boundary_keep_floor(len(path)):
+            diffs = diffs[keep]
     return np.median(diffs, axis=0)
 
 
 def per_joint_representative_frames(
-    path, A_user_seg, A_ref, start=0, *, frame_confidence=None
+    path, A_user_seg, A_ref, start=0, *, frame_confidence=None,
+    ref_fps: float | None = None,
 ):
     """관절별 "그 관절이 보고한 median 에 가장 가까운" 정렬 스텝의 학생 프레임.
 
@@ -232,10 +289,13 @@ def per_joint_representative_frames(
     되돌려 준다. per_joint_deviation 은 관절별 median 만 반환하고 그것을 만든 시계열
     축을 버리는데, 확대비교 카드가 써야 할 순간이 바로 그 버려진 축에 있다.
 
-    **per_joint_deviation 본체는 건드리지 않는다.** 그 함수 소스의 SHA-256 이
-    backend/tests/phase33/test_m3_alignment_only.py 에 박제돼 있어 반환값 확장이나
-    out-param 추가는 전부 그 게이트를 깬다. 같은 diffs 순회를 sibling 으로 복제한다
-    (중복이지만 박제를 우회하지 않고 통과하는 유일한 길).
+    **per_joint_deviation 반환값은 확장하지 않는다.** 그 함수 소스의 SHA-256 이
+    backend/tests/phase33/test_m3_alignment_only.py 에 박제돼 있다(Phase 34 수술 ②
+    quick-260808-r82 에서 ref-경계 제외 창 추가로 핀 1회 갱신 — 사유 주석 그 파일).
+    반환값 확장/out-param 추가는 여전히 게이트 위반이라, 같은 diffs 순회를 sibling
+    으로 복제한다(중복이지만 박제를 우회하지 않고 통과하는 유일한 길). 수술 ② 의
+    마스크·fail-open 도 여기 **동일하게 복제**한다 — 점수 경로와 순간 경로가 다른
+    창을 쓰면 "쟀다" 계약이 깨진다.
 
     **argmax(최대 편차 프레임)를 쓰지 않는다.** 근거는 이 파일 198-209행 — 인접
     프레임 간 각도 jitter 가 크고 상위 백분위 outlier 가 흔하다. 최대 편차 프레임은
@@ -255,6 +315,11 @@ def per_joint_representative_frames(
             있고 인접 스텝의 각도차가 소수점 아래에서 갈리는 일이 잦아, 어느 스텝이
             뽑히느냐가 keypoint 신뢰도와 무관하게 정해지던 자리다. None(default)=
             종전 argmin 과 byte-동일.
+        ref_fps (Phase 34 수술 ②): per_joint_deviation 과 **동일 마스크·동일
+            fail-open**. 마스크로 제외된 스텝은 대표 프레임 후보에서 inf 로
+            밀어낸다 — 표시 순간이 ref-경계 제외 구간 스텝에서 절대 나오지 않는다.
+            median 도 잔여 스텝만으로 재계산해 점수 경로와 같은 값을 겨눈다.
+            None(default) = 종전 byte-동일.
 
     Returns:
         {joint_index: 학생 절대 프레임 인덱스}. path 가 비면 빈 dict. 유한 diff 가
@@ -269,19 +334,27 @@ def per_joint_representative_frames(
     diffs = np.empty((len(path), J), dtype=float)
     for k, (u, r) in enumerate(path):
         diffs[k] = np.abs(A_user_seg[u] - A_ref[r])
+    # 수술 ② — 점수 경로(per_joint_deviation)와 동일 창. keep=None = 종전 byte-동일.
+    keep = None
+    if ref_fps is not None and ref_fps > 0:
+        m = ref_boundary_step_mask(path, A_ref.shape[0], ref_fps)
+        if int(m.sum()) >= _boundary_keep_floor(len(path)):
+            keep = m
     base = int(start)
     out: dict[int, int] = {}
     for j in range(J):
         col = diffs[:, j]
         finite = np.isfinite(col)
-        if not finite.any():
+        cand = finite if keep is None else (finite & keep)
+        if not cand.any():
             continue
-        med = float(np.median(col))
+        med = float(np.median(col if keep is None else col[keep]))
         if med != med:  # NaN median — 그 관절 record 자체가 방출되지 않는다.
             continue
-        # 비유한 스텝은 후보에서 제외(inf 로 밀어냄). 동점은 argmin 이 첫 스텝을
-        # 고르므로 결정론적 — quick-260802-tie 는 그 동점 구간에서만 신뢰도를 본다.
-        gaps = np.where(finite, np.abs(col - med), np.inf)
+        # 비유한(그리고 마스크 제외) 스텝은 후보에서 제외(inf 로 밀어냄). 동점은
+        # argmin 이 첫 스텝을 고르므로 결정론적 — quick-260802-tie 는 그 동점
+        # 구간에서만 신뢰도를 본다.
+        gaps = np.where(cand, np.abs(col - med), np.inf)
         jk = JOINT_KEYS[j] if j < len(JOINT_KEYS) else None
         k_star = moment.select_moment_index(
             gaps,

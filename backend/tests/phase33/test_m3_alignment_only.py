@@ -36,8 +36,13 @@ from sunity_shared.analysis.motiondtw import (
 
 # per_joint_deviation 산식 본문(motiondtw.py) SHA-256 — D-20/D-29 불변식 고정.
 # 산식이 바뀌면(median→mean 등) 이 해시가 트립한다. M3 는 이 함수를 건드리지 않는다.
+# 핀 갱신 1회 — Phase 34 수술 ② (quick-260808-r82, 보드 착수 블록 승인):
+#   ref-경계 마진 제외 창 추가 (ref_fps opt-in, DTW 종점 강제 정렬 아티팩트 차단).
+#   median 집계 산식 자체(np.median, abs-diff)는 불변 — 창(어느 스텝을 세는가)만
+#   변경. tol 20°/slope 1.2 불변 assert 는 그대로 유지된다(아래 I5).
+#   ref_fps=None(기존 전 호출·테스트 경로)은 byte-동일 산출.
 PER_JOINT_DEVIATION_SHA256 = (
-    "7e23e00d1764525051f1fc4b7aa93b8827f4abe58f212ebbaf4b774b410d1373"
+    "f23b8831d6586c2d38d64b47fbcb247a156c88f1a88d6384c9a5dc49b1169cba"
 )
 
 

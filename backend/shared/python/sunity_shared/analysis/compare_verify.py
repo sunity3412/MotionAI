@@ -85,6 +85,35 @@ def verify(mp4: Path, report: dict, workdir: Path) -> tuple[bool, list[str]]:
     freezes = report.get("freezes", [])
     play_probe = 1.0 if not freezes or freezes[0]["voiceStartOutS"] > 2.0 else max(
         0.2, freezes[0]["voiceStartOutS"] - 1.5)
+    # 실 E2E 라운드 (2026-08-08, analysis 2fe3ae94…) — C/D-무음 probe 침범 교정.
+    # 첫 정지가 이른 편(voiceStart 0.47s)에서 play_probe=0.2 의 측정창(C 1.0s /
+    # D-무음 0.8s)이 첫 정지 음성 구간과 겹쳐, 실제로는 무음인 재생 구간
+    # (실측: 0.2~0.45s -91dB / 정지-간 -91dB / tail -120dB)을 -24.6dB FAIL 로
+    # 오판했다. E 가 이미 가진 "이른 첫 정지 → 창 이동" 계열의 측정창 교정 —
+    # 판정 기준(무음 <-70dB, 동적성 임계)은 그대로다 (리그 완화 아님).
+    # 침범 시에만 첫 재생 갭(≥1.5s)으로 재배치 — 침범 없는 편(픽스처 3편 실측
+    # head 갭 6s+)은 현행 probe 그대로 (승인 판정 라인 불변).
+    probe_win_s = 1.0  # C frame_diff(n=6, fps=6) 창 — D-무음 0.8s 를 포함
+    intervals = [
+        (fz["voiceStartOutS"], fz["voiceStartOutS"] + fz["freezeS"]) for fz in freezes
+    ]
+    if any(s < play_probe + probe_win_s and play_probe < e for s, e in intervals):
+        prev_end = 0.0
+        for s, e in intervals:
+            if s - prev_end >= 1.5:
+                break
+            prev_end = e
+        gap_start, gap_end = prev_end, next(
+            (s for s, _ in intervals if s > prev_end), actual
+        )
+        if gap_end - gap_start >= 1.5:
+            relocated = gap_start + 0.3
+            lines.append(
+                f"  [INFO] probe 재배치: {play_probe:.1f}s -> {relocated:.1f}s "
+                f"(첫 정지 침범 — 재생 갭 {gap_start:.1f}~{gap_end:.1f}s)"
+            )
+            play_probe = relocated
+        # 갭 1.5s 미만(정지 연속 편성) = 현행 probe 유지 — 정직 FAIL 허용.
 
     diffs_frozen = []
     for fz in freezes:

@@ -36,6 +36,15 @@ for _p in (BACKEND / "shared" / "python", BACKEND):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+# ORT CUDA 프로바이더 파리티 — 운영 스테이지는 서버 프로세스(torch 로드됨) 안에서
+# 돌아 onnxruntime 이 torch 동봉 cudnn 을 찾는다. 드라이버가 torch 없이 돌면
+# libcudnn.so.9 미발견 → CPU 폴백으로 align 이 달라진다 (실측: E 13% vs 28%).
+# 서버 등가 조건을 위해 선로드 (없으면 CPU — 로그로 판별 가능).
+try:
+    import torch  # noqa: F401 - cudnn 프리로드 전용
+except Exception:  # noqa: BLE001 - torch 부재 = CPU 폴백 (경고는 ORT 가 출력)
+    pass
+
 from sunity_shared import firestore_admin  # noqa: E402
 from sunity_shared.analysis import compare_verify  # noqa: E402
 

@@ -224,7 +224,18 @@ def _spread_series(align: dict, side: str = "user", conf_min: float = 0.3,
     if not smooth:
         return s
     pad = np.pad(s, 1, mode="edge")
-    sm = np.nanmean(np.stack([pad[:-2], pad[1:-1], pad[2:]]), axis=0)
+    # 전량-NaN 창 가드 (실 E2E 라운드) — np.nanmean 은 3값 전부 NaN 인 열에서
+    # "Mean of empty slice" RuntimeWarning 을 뿜는다 (결과는 어차피 NaN). 유효값
+    # 합/개수로 등가 계산해 경고 없이 NaN 유지 — 소비측 isfinite 게이트가 그대로
+    # fail-closed (cnt>0 열은 nanmean 과 부동소수 연산 순서까지 동일 = byte-보존).
+    stack = np.stack([pad[:-2], pad[1:-1], pad[2:]])
+    finite = np.isfinite(stack)
+    cnt = finite.sum(axis=0)
+    sm = np.where(
+        cnt > 0,
+        np.where(finite, stack, 0.0).sum(axis=0) / np.maximum(cnt, 1),
+        np.nan,
+    )
     return np.where(np.isfinite(s), sm, np.nan)
 
 

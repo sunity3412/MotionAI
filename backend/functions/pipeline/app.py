@@ -39,6 +39,7 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 import tempfile
 import threading
 import time
@@ -102,7 +103,11 @@ from sunity_shared.events import iter_s3_keys_from_sqs
 # transitive deps (googleapiclient 등) 를 Lambda 배포에서 제거 + Pod 에는 영향 0
 # (Pod 의 runpod_inference/requirements.txt 박힘 유지).
 # 박제 후속 사용 위치 안에서 `from sunity_shared.gemini.* import ...` 박는다.
-from sunity_shared.s3keys import build_coach_audio_key, parse_upload_key
+from sunity_shared.s3keys import (
+    build_coach_audio_key,
+    build_rendered_compare_key,
+    parse_upload_key,
+)
 
 # FfmpegFrameExtractor / NlfPoseEstimator / CerebrasCoachWriter 는 imageio·torch·
 # requests 같은 무거운 의존성을 끌어옴. RunPod 위임 모드에선 사용하지 않으므로
@@ -3857,7 +3862,7 @@ def _run_deferred_coach_audio(
     uid: str,
     analysis_id: str,
     bucket: str,
-) -> None:
+) -> list[dict]:
     """complete_analysis 이후 큐 오디오 합성 → update_analysis_coach_audio 부분 갱신.
 
     D-18 (32-GATE-DECISIONS B안) — 분석은 이미 complete(status='done')라 어떤 경로도
@@ -3871,6 +3876,10 @@ def _run_deferred_coach_audio(
       · failed write 자체 실패 → log.exception 만 (앱은 coachAudio 부재 = 미도착).
 
     **동기 채점 경로 호출 금지** — 사후 전용 (속도 예산·timingsMs 회귀 0).
+
+    Returns: 합성 성공 items (quick-260808-jix — 후속 compare_render 스테이지가
+      mp3 재다운로드용 key 를 수령. 실패/예외 경로는 빈 리스트 — additive 변경,
+      기존 호출측은 반환 무시).
     """
     try:
         breakdown = result.get("deductionBreakdown")
@@ -3893,6 +3902,7 @@ def _run_deferred_coach_audio(
         firestore_admin.update_analysis_coach_audio(
             uid, analysis_id, items, status=status
         )
+        return items
     except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석 비차단 (graceful)
         log.warning(
             "coach_audio 사후 스테이지 실패 — failed 마킹 시도 (분석은 이미 complete) "
@@ -3907,6 +3917,182 @@ def _run_deferred_coach_audio(
                 "coach_audio failed 마킹 write 실패 — coachAudio 부재 유지 "
                 "uid=%s analysis_id=%s", uid, analysis_id,
             )
+        return []
+
+
+# ═══════ Phase 35 (quick-260808-jix) — 합성 비교 영상 사후 렌더 스테이지 ═══════
+#
+# belle 승인 설계 (2026-08-08): Mode1 분석이 complete(status='done') 된 뒤, 15fps
+# 재추출+자세거리 DTW 정렬(align)을 GPU 로 **새로 만들고** 그 align 으로 합성 비교
+# mp4 를 렌더한다 — doc 폴백(anchors/faultZoom 짝) 렌더는 운영 경로에 존재하지
+# 않는다 (belle 08-07 반려 이력 "마커 전부 엉뚱"). 기계 판정 리그(compare_verify)
+# **전 항목 PASS 인 mp4 만** S3 업로드 + doc result.renderedCompare done 부착
+# (돌파 ② 경험 계약서 첫 조항 — "전 항목 PASS 아니면 없음"). 실패 전부 graceful
+# (fault_zoom/coach_audio 사후 분리 선례 — 분석 무훼손, 재raise 0).
+# 계약: contract.md §12.9 / models.RENDERED_COMPARE_* / analysis.ts RenderedCompare.
+
+
+def _compare_render_capability() -> bool:
+    """합성 비교 렌더 능력 프로브 — rtmlib import + 추출 가중치 실파일 (fail-closed).
+
+    Lambda CPU 폴백 경로(rtmlib/가중치 부재)는 여기서 False → 스테이지 자동 스킵
+    (T-35J-04 — CPU NaN 경로에 GPU 스테이지 진입 0). 경로 기본값은
+    compare_align.build_model 과 동일 env (YOLOX_ONNX_PATH/RTMW_ONNX_PATH).
+    """
+    try:
+        import rtmlib  # noqa: F401 - 존재 확인만 (실 로드는 build_align 내부)
+    except Exception:  # noqa: BLE001 - import 불가 = 능력 없음 (스킵)
+        return False
+    det = os.environ.get("YOLOX_ONNX_PATH", "/workspace/yolox_weights/yolox_m.onnx")
+    pose = os.environ.get("RTMW_ONNX_PATH", "/workspace/rtmw_weights/rtmw-x-384.onnx")
+    return os.path.isfile(det) and os.path.isfile(pose)
+
+
+def _run_deferred_compare_render(
+    *,
+    result: dict,
+    keypoint_report_dict: dict | None,
+    coach_audio_items: list[dict],
+    mode: str,
+    uid: str,
+    analysis_id: str,
+    bucket: str,
+    local_video_path: str | None,
+    reference_local_video_path: str | None,
+) -> None:
+    """complete 후 합성 비교 mp4 렌더 → update_analysis_rendered_compare 부분 갱신.
+
+    게이트 (전부 만족 시에만 시도, 아니면 **doc 필드 무접촉 스킵** + log.info):
+      (a) env RENDERED_COMPARE_ENABLED != "0" (kill-switch, 기본 ON —
+          POLLY_VOICE_ID env 스왑 선례)
+      (b) mode == MODE_EXPERT 이고 reference_local_video_path 존재
+          (Mode3 는 이번 범위 밖 — 폴백 = 기존 듀얼 플레이어)
+      (c) 추출 능력 프로브 (_compare_render_capability — Lambda 자동 스킵)
+
+    스테이지 본체 (어떤 경로도 재raise 0 — _run_deferred_fault_zoom 규율 복제):
+      · align = compare_align.build_align (15fps GPU 재추출 + DTW) — **align 실패
+        = failed 마킹** (doc 리포트 폴백 렌더 금지 — belle 반려 이력).
+      · 렌더 → compare_verify.verify — **리그 전 항목 PASS 아니면 S3 업로드·done
+        부착 없이 failed 마킹** + FAIL 라인 log.warning.
+      · PASS 시 S3 put_object(build_rendered_compare_key) → done+key 부착.
+      · 예외/FAIL → failed(key '') 마킹 시도, 그마저 실패 = log.exception 만
+        (부재 유지 = 앱 듀얼 플레이어 폴백). workdir 는 finally 정리 (T-35J-03).
+
+    **채점 무접촉** — complete 이후 표현물 스테이지 (deduction_engine/dimensions
+    등 채점 모듈 파일 수정 0). **동기 채점 경로 호출 금지** — 사후 전용.
+    """
+    if os.environ.get("RENDERED_COMPARE_ENABLED", "").strip() == "0":
+        log.info(
+            "compare_render 스킵 (env kill-switch) analysis_id=%s", analysis_id
+        )
+        return
+    if mode != models.MODE_EXPERT or not reference_local_video_path:
+        log.info(
+            "compare_render 스킵 (mode1+기준 영상 경로 아님) analysis_id=%s mode=%s",
+            analysis_id, mode,
+        )
+        return
+    if not local_video_path:
+        log.info(
+            "compare_render 스킵 (로컬 영상 경로 없음) analysis_id=%s", analysis_id
+        )
+        return
+    if not _compare_render_capability():
+        log.info(
+            "compare_render 스킵 (추출 능력 프로브 미충족 — Lambda CPU 경로 등) "
+            "analysis_id=%s", analysis_id,
+        )
+        return
+
+    workdir: Path | None = None
+    try:
+        # lazy import — imageio_ffmpeg/PIL 모듈 로드는 스테이지 진입 시에만
+        # (fault_zoom 어댑터 lazy 선례. RunPod 위임 Lambda 경로 무부담).
+        from sunity_shared.analysis import compare_align, compare_render, compare_verify
+
+        workdir = Path(tempfile.mkdtemp(prefix="compare_render_"))
+        audio_dir = workdir / "audio"
+        audio_dir.mkdir()
+        # 음성 mp3 회수 — 파일명 계약 = recordId 콜론 앞 r{NN}.mp3
+        # (compare_render.build_timeline 이 rid 로 읽는다). item 0건이어도 진행
+        # (freeze 0 = 순수 정렬 재생 편 — 리그 C 가 freeze-0 분기 보유).
+        for item in coach_audio_items or []:
+            rid = str(item.get("recordId", "")).split(":")[0]
+            key = item.get("key")
+            if not rid or not isinstance(key, str) or not key:
+                continue
+            _s3.download_file(bucket, key, str(audio_dir / f"{rid}.mp3"))
+
+        breakdown = result.get("deductionBreakdown")
+        records = breakdown.get("records") if isinstance(breakdown, dict) else None
+        records = records if isinstance(records, list) else []
+
+        # align 재생성 — 실패는 아래 except 로 수렴해 failed 마킹 (폴백 렌더 금지).
+        align = compare_align.build_align(
+            Path(local_video_path),
+            Path(reference_local_video_path),
+            records,
+            workdir,
+        )
+
+        # keypointReport 는 complete_analysis kwarg 라 in-memory result 에 없음 —
+        # build_timeline 이 무조건 읽는다 (r["keypointReport"]). doc 형상 재조립.
+        # moments/overrides = None (프로토 전용 입력 — 운영 스테이지 미사용).
+        doc_like = {"result": {**result, "keypointReport": keypoint_report_dict}}
+        out_mp4 = workdir / "compare.mp4"
+        report = compare_render.render(
+            doc_like,
+            Path(local_video_path),
+            Path(reference_local_video_path),
+            audio_dir,
+            workdir / "render",
+            out_mp4,
+            align_json=align,
+        )
+
+        ok, lines = compare_verify.verify(out_mp4, report, workdir)
+        if not ok:
+            log.warning(
+                "compare_render 리그 FAIL — 업로드·done 부착 없음 analysis_id=%s\n%s",
+                analysis_id,
+                "\n".join(ln for ln in lines if "FAIL" in ln),
+            )
+            firestore_admin.update_analysis_rendered_compare(
+                uid, analysis_id, "",
+                status=models.RENDERED_COMPARE_STATUS_FAILED,
+            )
+            return
+
+        key = build_rendered_compare_key(uid, analysis_id)
+        with open(out_mp4, "rb") as fh:
+            _s3.put_object(
+                Bucket=bucket, Key=key, Body=fh, ContentType="video/mp4"
+            )
+        firestore_admin.update_analysis_rendered_compare(
+            uid, analysis_id, key, status=models.RENDERED_COMPARE_STATUS_DONE
+        )
+        log.info(
+            "compare_render done uid=%s analysis_id=%s key=%s freezes=%s",
+            uid, analysis_id, key, report.get("expectedFreezes"),
+        )
+    except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석 비차단 (graceful)
+        log.warning(
+            "compare_render 사후 스테이지 실패 — failed 마킹 시도 (분석은 이미 "
+            "complete) uid=%s analysis_id=%s", uid, analysis_id,
+        )
+        try:
+            firestore_admin.update_analysis_rendered_compare(
+                uid, analysis_id, "",
+                status=models.RENDERED_COMPARE_STATUS_FAILED,
+            )
+        except Exception:  # noqa: BLE001 - failed write 실패 = 필드 부재 유지
+            log.exception(
+                "compare_render failed 마킹 write 실패 — renderedCompare 부재 유지 "
+                "(앱 듀얼 플레이어 폴백) uid=%s analysis_id=%s", uid, analysis_id,
+            )
+    finally:
+        if workdir is not None:
+            shutil.rmtree(workdir, ignore_errors=True)
 
 
 # ═══════ Phase 32 (Plan 32-13, D-22/D-23) — 감점 카드 문장↔영상 스팟체크 ═══════
@@ -6723,7 +6909,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # zoom 지연 미미. timings_ms 는 이미 저장됨 → 사후 소요는 stage 로그
         # 라인으로만 (fault_zoom 관례). 실패 전부 graceful — 분석 무훼손 (SP-3).
         with _stage(timings_ms, analysis_id, "coach_audio"):
-            _run_deferred_coach_audio(
+            # quick-260808-jix — items 수령 (compare_render 스테이지 mp3 회수용.
+            # 반환 additive — 실패 경로는 빈 리스트, 기존 동작 불변).
+            coach_audio_items = _run_deferred_coach_audio(
                 result=result, uid=uid, analysis_id=analysis_id, bucket=bucket
             )
 
@@ -6789,6 +6977,25 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 frames=inputs.frames,
                 uid=uid,
                 analysis_id=analysis_id,
+            )
+
+        # ── Phase 35 (quick-260808-jix) — 합성 비교 영상 사후 렌더 ──────────
+        # spot_check **뒤** = 사후 표현물 스테이지 중 마지막 (가장 무거운 표현물
+        # — 15fps GPU 재추출 + DTW + 30fps 합성 렌더 + 리그). local_video_path /
+        # reference_local_video_path 는 아래 outer finally unlink **前**이라 여기서
+        # 두 로컬 영상이 유효 (fault_zoom 주석 선례). 게이트 미충족 = doc 필드
+        # 무접촉 스킵. 실패 전부 graceful — 분석 무훼손 (재raise 0).
+        with _stage(timings_ms, analysis_id, "compare_render"):
+            _run_deferred_compare_render(
+                result=result,
+                keypoint_report_dict=keypoint_report_dict,
+                coach_audio_items=coach_audio_items,
+                mode=mode,
+                uid=uid,
+                analysis_id=analysis_id,
+                bucket=bucket,
+                local_video_path=local_video_path,
+                reference_local_video_path=reference_local_video_path,
             )
     finally:
         # Phase 27 D-04 — 세션 File API 핸들 일괄 delete = 분석당 1회 (unlink 보다 앞).

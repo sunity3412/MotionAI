@@ -3948,6 +3948,28 @@ def _compare_render_capability() -> bool:
     return os.path.isfile(det) and os.path.isfile(pose)
 
 
+def _preserve_compare_fail_workdir(workdir: Path, analysis_id: str) -> str | None:
+    """리그 FAIL/스테이지 예외 workdir 보존 — 진단 아티팩트 소실 방지 (best effort).
+
+    실 E2E 라운드(2026-08-08, analysis 2fe3ae94…) 근거: 리그 FAIL 시 tempfile
+    workdir 가 정리돼 mp4·report·align 이 소실 — D(-24.6dB)·E(28%) FAIL 의 기전
+    확정이 불가했다. FAIL 계열만 고정 경로로 이동해 보존한다 (같은 analysis 재시도
+    는 덮어씀 — T-35J-03 디스크 누적 방지, done 경로는 현행대로 즉시 정리).
+    """
+    try:
+        dst = Path(tempfile.gettempdir()) / f"compare_fail_{analysis_id}"
+        if dst.exists():
+            shutil.rmtree(dst, ignore_errors=True)
+        shutil.move(str(workdir), str(dst))
+        return str(dst)
+    except Exception:  # noqa: BLE001 - 보존 실패가 failed 마킹을 막으면 안 된다
+        log.exception(
+            "compare_render FAIL workdir 보존 실패 (진단 보조 — 스테이지 계속) "
+            "analysis_id=%s", analysis_id,
+        )
+        return None
+
+
 def _run_deferred_compare_render(
     *,
     result: dict,
@@ -4034,6 +4056,13 @@ def _run_deferred_compare_render(
             records,
             workdir,
         )
+        # 진단 아티팩트 즉시 기록 — FAIL 보존분에 align/report 가 함께 남도록
+        # (실 E2E 라운드: report 부재로 freeze 표 재구성이 불가했던 근거).
+        try:
+            with open(workdir / "align.json", "w") as fh:
+                json.dump(align, fh)
+        except Exception:  # noqa: BLE001 - 진단 보조 기록 실패는 비차단
+            log.warning("compare_render align.json 기록 실패 (진단 보조) analysis_id=%s", analysis_id)
 
         # keypointReport 는 complete_analysis kwarg 라 in-memory result 에 없음 —
         # build_timeline 이 무조건 읽는다 (r["keypointReport"]). doc 형상 재조립.
@@ -4049,6 +4078,11 @@ def _run_deferred_compare_render(
             out_mp4,
             align_json=align,
         )
+        try:
+            with open(workdir / "report.json", "w") as fh:
+                json.dump(report, fh, ensure_ascii=False, indent=1)
+        except Exception:  # noqa: BLE001 - 진단 보조 기록 실패는 비차단
+            log.warning("compare_render report.json 기록 실패 (진단 보조) analysis_id=%s", analysis_id)
 
         ok, lines = compare_verify.verify(out_mp4, report, workdir)
         if not ok:
@@ -4057,6 +4091,14 @@ def _run_deferred_compare_render(
                 analysis_id,
                 "\n".join(ln for ln in lines if "FAIL" in ln),
             )
+            # FAIL 아티팩트 보존 — workdir 를 고정 경로로 이동 (finally 정리 무효화).
+            preserved = _preserve_compare_fail_workdir(workdir, analysis_id)
+            if preserved is not None:
+                workdir = None
+                log.warning(
+                    "compare_render FAIL 아티팩트 보존: %s (mp4·report·align·프레임)",
+                    preserved,
+                )
             firestore_admin.update_analysis_rendered_compare(
                 uid, analysis_id, "",
                 status=models.RENDERED_COMPARE_STATUS_FAILED,
@@ -4080,6 +4122,12 @@ def _run_deferred_compare_render(
             "compare_render 사후 스테이지 실패 — failed 마킹 시도 (분석은 이미 "
             "complete) uid=%s analysis_id=%s", uid, analysis_id,
         )
+        # 예외 경로도 아티팩트 보존 (부분 산출물 — align/프레임까지가 진단 재료).
+        if workdir is not None:
+            preserved = _preserve_compare_fail_workdir(workdir, analysis_id)
+            if preserved is not None:
+                workdir = None
+                log.warning("compare_render FAIL 아티팩트 보존: %s", preserved)
         try:
             firestore_admin.update_analysis_rendered_compare(
                 uid, analysis_id, "",

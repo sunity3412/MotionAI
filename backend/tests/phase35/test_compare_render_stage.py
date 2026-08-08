@@ -15,7 +15,9 @@ pipeline app.py 는 파일 경로 spec 로드(고유 모듈명) — tests/pipeli
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import sys
+import tempfile
 import types
 from pathlib import Path
 
@@ -31,6 +33,15 @@ UID = "u1"
 ANALYSIS_ID = "a" * 32
 KEY = build_rendered_compare_key(UID, ANALYSIS_ID)
 RECORD_ID = "r00:angle_vs_reference__right_elbow"
+FAIL_PRESERVE_DIR = Path(tempfile.gettempdir()) / f"compare_fail_{ANALYSIS_ID}"
+
+
+@pytest.fixture(autouse=True)
+def _clean_preserved_dir():
+    """FAIL 보존 경로 정리 — 테스트 간 오염 방지 (전/후 양쪽)."""
+    shutil.rmtree(FAIL_PRESERVE_DIR, ignore_errors=True)
+    yield
+    shutil.rmtree(FAIL_PRESERVE_DIR, ignore_errors=True)
 
 
 def _load_module(name: str, path: Path):
@@ -233,6 +244,12 @@ def test_rig_fail_blocks_upload_and_marks_failed(
     assert rc_updates == [
         {"uid": UID, "analysis_id": ANALYSIS_ID, "key": "", "status": "failed"}
     ]
+    # 실 E2E 라운드 (2026-08-08) — FAIL 아티팩트 보존: workdir 가 고정 경로로
+    # 이동돼 mp4·report·align 이 남는다 (당일 소실로 진단 불가했던 근거의 수리).
+    assert FAIL_PRESERVE_DIR.is_dir()
+    assert (FAIL_PRESERVE_DIR / "compare.mp4").exists()
+    assert (FAIL_PRESERVE_DIR / "report.json").exists()
+    assert (FAIL_PRESERVE_DIR / "align.json").exists()
 
 
 # ═══════════════════ 4. 렌더 예외 / failed write 실패 ═══════════════════
@@ -252,6 +269,9 @@ def test_render_exception_marks_failed(papp, rc_updates, stage_env, monkeypatch)
         {"uid": UID, "analysis_id": ANALYSIS_ID, "key": "", "status": "failed"}
     ]
     assert stage_env["s3"].puts == []
+    # 예외 경로도 부분 아티팩트 보존 (align.json 까지는 기록됐다).
+    assert FAIL_PRESERVE_DIR.is_dir()
+    assert (FAIL_PRESERVE_DIR / "align.json").exists()
 
 
 def test_failed_write_failure_never_raises(papp, stage_env, monkeypatch):
@@ -294,6 +314,8 @@ def test_success_uploads_canonical_key_and_marks_done(
     assert len(stage_env["s3"].downloads) == 1
     _, dst = stage_env["s3"].downloads[0]
     assert dst.endswith("/audio/r00.mp3")
+    # done 경로는 현행대로 즉시 정리 — FAIL 보존 경로 미생성 (디스크 누적 0).
+    assert not FAIL_PRESERVE_DIR.exists()
 
 
 def test_success_with_zero_audio_items_still_proceeds(

@@ -4119,7 +4119,24 @@ def _run_deferred_compare_render(
         # keypointReport 는 complete_analysis kwarg 라 in-memory result 에 없음 —
         # build_timeline 이 무조건 읽는다 (r["keypointReport"]). doc 형상 재조립.
         # moments/overrides = None (프로토 전용 입력 — 운영 스테이지 미사용).
-        doc_like = {"result": {**result, "keypointReport": keypoint_report_dict}}
+        #
+        # coachAudio 도 같은 이유로 실어야 한다 (Phase 34 Pod 스윕 실측 수리):
+        # `_run_deferred_coach_audio` 는 Firestore `result.coachAudio` 단일
+        # field-path 만 부분 갱신하고 in-memory result 에는 싣지 않는다. 그대로
+        # 조립하면 리그 H4(음성 진품 조인 — result.coachAudio.items 의 rid 집합)가
+        # **운영 경로에서만** 전건 FAIL 한다 (실측 p34fresh1786192156: r00~r04 5건
+        # "외부 mp3 의심"). 어제 --write 성공은 doc 을 Firestore 에서 읽어 넘기는
+        # 진단 드라이버 경로라 이 결함이 드러나지 않았다 — 승인은 산출물이 아니라
+        # 생산 경로에 붙어야 한다는 원칙([[feedback-approval-attaches-to-production-path]])의
+        # 실사례. 이 스테이지가 받은 coach_audio_items 는 **그 분석이 방금 합성한**
+        # mp3 목록이므로 진품성 근거로 정확하다(Firestore 재조회보다 강한 동일성).
+        _result_for_doc = {**result, "keypointReport": keypoint_report_dict}
+        if "coachAudio" not in _result_for_doc:
+            _result_for_doc["coachAudio"] = {
+                "items": [dict(it) for it in (coach_audio_items or []) if isinstance(it, dict)],
+                "status": models.COACH_AUDIO_STATUS_DONE,
+            }
+        doc_like = {"result": _result_for_doc}
         out_mp4 = workdir / "compare.mp4"
         report = compare_render.render(
             doc_like,

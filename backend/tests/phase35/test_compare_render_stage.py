@@ -467,3 +467,79 @@ def test_stage_does_not_touch_scoring_result(papp, rc_updates, stage_env, monkey
     papp._run_deferred_compare_render(**stage_env["kwargs"])
 
     assert result == before  # renderedCompare 는 doc 부분 갱신으로만
+
+
+# ══════ 운영 경로 진품 조인 (Phase 34 Pod 스윕 실측 수리 — H4 전건 FAIL) ══════
+
+
+def test_doc_like_carries_coach_audio_so_rig_h4_joins(
+    papp, rc_updates, stage_env, monkeypatch
+):
+    """스테이지가 render 에 넘기는 doc 에 **이 분석의 coachAudio** 가 실린다.
+
+    회귀 근거(실측): `_run_deferred_coach_audio` 는 Firestore `result.coachAudio`
+    단일 field-path 만 부분 갱신하고 in-memory result 에는 싣지 않는다. 스테이지가
+    result 를 그대로 조립하면 리그 H4(음성 진품 조인)가 **운영 경로에서만** 전건
+    FAIL 한다 — Pod 신선 분석 p34fresh1786192156 에서 r00~r04 5건 "외부 mp3 의심".
+    드라이버(rerun_compare_stage)는 Firestore doc 을 읽어 넘기므로 이 결함을
+    드러내지 못했다 (승인은 생산 경로에 붙어야 한다는 원칙의 실사례).
+
+    이 테스트는 mock verify 를 우회해 **실 authenticity_checks 로 H4 를 직접 판정**한다.
+    """
+    monkeypatch.delenv("RENDERED_COMPARE_ENABLED", raising=False)
+    captured: dict = {}
+
+    def _capturing_render(doc, user_video, ref_video, audio_dir, workdir, out, **kwargs):
+        captured["doc"] = doc
+        Path(out).write_bytes(b"\x00fake-mp4")
+        return {"outDurationS": 9.0, "expectedFreezes": 1,
+                "freezes": [{"rid": "r00", "userSec": 1.0, "refSec": 2.0,
+                             "pairSrc": "align", "freezeS": 5.0,
+                             "voiceStartOutS": 1.0, "text": "t"}]}
+
+    monkeypatch.setattr(compare_render, "render", _capturing_render)
+
+    papp._run_deferred_compare_render(**stage_env["kwargs"])
+
+    doc = captured["doc"]
+    items = ((doc["result"].get("coachAudio") or {}).get("items")) or []
+    assert [it.get("recordId") for it in items] == [RECORD_ID], (
+        "스테이지가 받은 coach_audio_items 가 doc.result.coachAudio 로 실려야 한다"
+    )
+
+    # 실 리그 H4 로 판정 — mock verify 가 가리던 축을 직접 연다.
+    h4 = [
+        (name, ok, detail)
+        for name, ok, detail in compare_verify.authenticity_checks(
+            {"outDurationS": 9.0, "expectedFreezes": 1,
+             "freezes": [{"rid": "r00", "userSec": 1.0, "refSec": 2.0,
+                          "pairSrc": "align", "freezeS": 5.0,
+                          "voiceStartOutS": 1.0, "text": "t"}]},
+            doc,
+        )
+        if name.startswith("H4")
+    ]
+    assert h4 and all(ok for _n, ok, _d in h4), f"H4 FAIL: {h4}"
+
+
+def test_doc_like_keeps_existing_coach_audio_when_present(
+    papp, rc_updates, stage_env, monkeypatch
+):
+    """result 에 이미 coachAudio 가 있으면(드라이버 경로 등) 덮어쓰지 않는다."""
+    monkeypatch.delenv("RENDERED_COMPARE_ENABLED", raising=False)
+    captured: dict = {}
+
+    def _capturing_render(doc, user_video, ref_video, audio_dir, workdir, out, **kwargs):
+        captured["doc"] = doc
+        Path(out).write_bytes(b"\x00fake-mp4")
+        return {"outDurationS": 9.0, "expectedFreezes": 0, "freezes": []}
+
+    monkeypatch.setattr(compare_render, "render", _capturing_render)
+    existing = {"items": [{"recordId": RECORD_ID, "key": "results/x/y/z.mp3"}],
+                "status": "done"}
+    kwargs = {**stage_env["kwargs"],
+              "result": {**stage_env["kwargs"]["result"], "coachAudio": existing}}
+
+    papp._run_deferred_compare_render(**kwargs)
+
+    assert captured["doc"]["result"]["coachAudio"] == existing

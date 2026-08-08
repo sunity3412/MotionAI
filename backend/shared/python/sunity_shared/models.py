@@ -344,6 +344,28 @@ COACH_AUDIO_STATUSES = (COACH_AUDIO_STATUS_DONE, COACH_AUDIO_STATUS_FAILED)
 # 오디오는 visual job 파이프라인(visualJobs/*)이 아니라 분석 사후 스테이지 산출물.
 PLAYBACK_ASSET_COACH_AUDIO = "coachAudio"
 
+# ── Phase 35 (quick-260808-jix): 합성 비교 영상 (서버 렌더 단일 mp4) ────────
+# result.renderedCompare — Pod 분석 **사후** 스테이지(pipeline compare_render)가
+# 15fps 재추출+DTW 정렬(align)을 GPU 로 새로 만들고 그 align 으로 합성 비교 mp4
+# 를 렌더 → 기계 판정 리그(compare_verify) **전 항목 PASS 일 때만** S3 업로드 +
+# update_analysis_rendered_compare 로 부분 갱신한다 (coachAudio 사후 분리 선례 —
+# complete(status='done') 이후 표현물 도착, 채점·verdict 무접촉).
+# **부재(legacy doc) = 기존 듀얼 플레이어+라이브 동기 폴백** (하위호환, no migration).
+#   status: 'done' = 리그 ALL PASS mp4 업로드 완료 (key 유효) / 'failed' = align
+#           실패·리그 FAIL·스테이지 예외 (key '' — 앱은 듀얼 플레이어 폴백).
+#   key = canonical S3 키 (s3keys.build_rendered_compare_key 단일 출처 —
+#           URL 비저장 원칙, H-02. 재생 URL 은 playback-url asset 재서명만).
+# 3-way lockstep: app/src/types/analysis.ts RenderedCompare ↔ docs/contract.md §12.9.
+RENDERED_COMPARE_KEYS = ("status", "key")
+RENDERED_COMPARE_STATUS_DONE = "done"
+RENDERED_COMPARE_STATUS_FAILED = "failed"
+RENDERED_COMPARE_STATUSES = (
+    RENDERED_COMPARE_STATUS_DONE,
+    RENDERED_COMPARE_STATUS_FAILED,
+)
+# playback-url asset 확장 — coachAudio 와 동일하게 VISUAL_JOB_KINDS 와 분리 유지.
+PLAYBACK_ASSET_RENDERED_COMPARE = "renderedCompare"
+
 # ── Phase 32 (Plan 32-13): 스팟체크 (D-22/D-23 — 문장↔영상 일치 자가검증) ──
 # result.spotCheck — 분석 **사후** 스테이지(pipeline spot_check)가 감점 카드
 # 문장(statusLine/cueLine)과 summaryPraise.headline 을 영상 프레임과 대조한

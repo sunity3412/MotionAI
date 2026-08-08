@@ -52,3 +52,21 @@ def build_coach_audio_key(uid: str, analysis_id: str, record_id: str) -> str:
     각인 — 32-12 audioCue prefetch 가 cueId(=recordId)로 mp3 와 안정 조인한다.
     """
     return f"{RESULT_PREFIX}/{uid}/{analysis_id}/coach_audio_{record_id}.mp3"
+
+
+# 합성 비교 영상 렌더 버전 — 표시 문법이 바뀌면 bump (키가 바뀌어 구 mp4 와
+# 신 doc 가 절대 섞이지 않는다. 구 버전 객체는 앱이 참조하지 않게 됨).
+RENDERED_COMPARE_RENDER_VERSION = 1
+
+
+def build_rendered_compare_key(uid: str, analysis_id: str) -> str:
+    """합성 비교 영상 mp4 의 canonical S3 키 (Phase 35, quick-260808-jix).
+
+    **단일 출처** — pipeline(compare_render 스테이지 저장)과 playback-url(서버
+    구성 canonical key + doc 저장 key exact 비교, H-02)이 이 함수 하나를 공유해
+    drift 를 차단한다 (build_coach_audio_key 선례).
+    """
+    return (
+        f"{RESULT_PREFIX}/{uid}/{analysis_id}/"
+        f"compare_v{RENDERED_COMPARE_RENDER_VERSION}.mp4"
+    )

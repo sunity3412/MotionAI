@@ -145,6 +145,27 @@ recordId  string         §12.3 recordId (형식 r{2자리}:{criterion} — 영�
   `404 not_found`** (leak 0 — Phase 31 asset 가드 선례).
 - 응답: `{playbackUrl, expiresInSec: 3600}` (`ResponseContentType: audio/mpeg`).
 
+#### POST /playback-url — `asset: 'renderedCompare'` 확장 (Phase 35, quick-260808-jix)
+
+합성 비교 영상 mp4(§12.9) 재서명. coachAudio 확장과 동일 철학(H-02) —
+**`asset` 미지정/기존 종류 요청의 동작은 바이트 불변**이다.
+
+```
+asset  'renderedCompare'   analysisId 와 함께 사용 (추가 파라미터 없음)
+```
+
+- 서버가 `results/{uid}/{analysisId}/compare_v{N}.mp4` canonical key 를 **서버
+  측에서 구성**(`s3keys.build_rendered_compare_key` — 저장 측 pipeline 과 단일
+  출처)하고, doc `result.renderedCompare.status == 'done'` + 저장 `key` 와
+  **전체 문자열 exact 비교** 후에만 1시간 presign 을 발급한다 (prefix/basename
+  부분일치 불가 — stale key·타 객체 열람 차단, M2-01). 클라이언트는 asset 종류만
+  지정 — S3 key 를 실어 보내는 파라미터는 계약에 없다 (server-selected, H-02/H-05).
+- **V-0 규율** — 존재 확인 없는 추측 서명 금지: `done` 은 리그 ALL PASS 업로드
+  완료에만 부착되므로 done + exact 이중 가드 통과 = 객체 실존 (260806-sjt 선례).
+- `renderedCompare.status != 'done'` / 필드 부재(legacy) / key 불일치 = **전부
+  동일한 `404 not_found`** (leak 0). 앱은 404 를 받으면 기존 듀얼 플레이어로 강등.
+- 응답: `{playbackUrl, expiresInSec: 3600}` (`ResponseContentType: video/mp4`).
+
 #### POST /visual/rotation (Phase 31 — D-06)
 
 카메라앵글 회전 참고 영상 **온디맨드 생성 요청**. (인증: Firebase ID token 필수)
@@ -2005,6 +2026,24 @@ records 의 `cueLine`(§12.3 — 승인 문구집 32-05 골격, D-09 무수치, 
 - 검증: `_validate_spot_check` — 키 화이트리스트(`SPOT_CHECK_KEYS` 정확히) + `status`/`verdict` enum + `hiddenRecordIds` str 검증 + verdicts scalar-only dict(≤8, reason ≤120자) + **숨김-정합 불변식**(hiddenRecordIds 의 모든 id 는 verdicts 에 verdict='mismatch' 로 존재 — 숨김 권한은 명백 불일치 판정에만, T-32-30).
 - 3-way lockstep: `app/src/types/analysis.ts` `SpotCheck`/`SpotCheckVerdict` ↔ `models.py` `SPOT_CHECK_KEYS` 블록 ↔ 본 §12.8.
 
+### §12.9 renderedCompare (`result.renderedCompare`) — 합성 비교 영상 (Phase 35, quick-260808-jix)
+
+Mode1 분석이 complete(status='done') 된 뒤, Pod **사후** 스테이지(`compare_render`)가 15fps 재추출+자세거리 DTW 정렬(align)을 GPU 로 **새로 만들고** 그 align 으로 user·ref 두 패널 + 감점 순간 정지·음성·자막을 단일 mp4 에 굽는다 (렌더러 = `sunity_shared.analysis.compare_render` — 프로토 5편 belle 판정 통과 표시 문법). doc 리포트(anchors/faultZoom 짝) 폴백 렌더는 운영 경로에 존재하지 않는다 (belle 08-07 반려 이력 — 낡은 doc 짝 = "마커 전부 엉뚱"). 기계 판정 리그(`compare_verify` — A 길이/A2 정지 수/B 정지 정적성/C 재생 동적성/D 음성 배치/E 저더/F faststart) **전 항목 PASS 인 mp4 만** S3 `results/{uid}/{analysisId}/compare_v{N}.mp4` (canonical key 단일 출처 = `s3keys.build_rendered_compare_key`)에 업로드되고 `firestore_admin.update_analysis_rendered_compare` 가 `result.renderedCompare` **단일 field-path** 를 부분 갱신한다 (coachAudio/spotCheck 사후 분리 선례 — 채점·verdict 무접촉). 리그 FAIL·align 실패·스테이지 예외 = `status:'failed'`(key '') 마킹 — 분석 자체는 무훼손 (재raise 0). **부재(legacy doc)·failed = 기존 듀얼 플레이어+라이브 동기 폴백** (하위호환, no migration).
+
+> **표시 정책 (명문):**
+> ① `status='done'` doc 의 결과 화면 동작비교 = **단일 mp4 재생** (RenderedComparePlayer). 그 분기에서 앱 큐 오디오·자막(cueWindows)·재생바 틱 발화 경로는 **구조적으로 OFF** (VideoCompare 자체 미렌더) — mp4 에 음성·자막이 구워져 있으므로 **이중 발화 0**. 억제는 플래그가 아니라 분기(컴포넌트 미렌더)로 구현한다.
+> ② **부재(legacy)·failed·asset URL fetch 실패** = 기존 듀얼 플레이어 경로 그대로 (폴백 강등 — 렌더 분기 밖 코드 diff 0).
+> ③ `onSnapshot` 구독이라 렌더가 세션 중 도착하면 자동 전환된다 (별도 폴링 금지).
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `status` | 'done'\|'failed' | `done` = 리그 ALL PASS mp4 업로드 완료 (key 유효) / `failed` = align 실패·리그 FAIL·스테이지 예외 (앱은 듀얼 플레이어 폴백) |
+| `key` | string | canonical S3 키 (`results/` prefix, `.mp4` suffix). failed 는 `''`. **URL 비저장** — 재생 URL 은 `POST /playback-url` `asset: 'renderedCompare'` 재서명으로만 (H-02) |
+
+- 스테이지 게이트: env `RENDERED_COMPARE_ENABLED != '0'`(kill-switch, 기본 ON) + `mode == 'mode1'` + ref 로컬 영상 존재 + 추출 능력 프로브(rtmlib import + YOLOX/RTMW 가중치 실파일 — Lambda CPU 폴백 경로 자동 스킵, T-35J-04). 게이트 미충족 = **doc 필드 무접촉 스킵** (부재 = 폴백). Mode3 는 범위 밖 — 상시 폴백.
+- 검증: `_validate_rendered_compare` — 키 화이트리스트(`RENDERED_COMPARE_KEYS` 정확히) + status enum + done→key `results/` prefix + `.mp4` suffix / failed→key `''` (T-35J-02).
+- 3-way lockstep: `app/src/types/analysis.ts` `RenderedCompare` ↔ `models.py` `RENDERED_COMPARE_KEYS` 블록 ↔ 본 §12.9.
+
 ---
 
 *최초 작성: 2026-05-19 — #5 착수 전 계약 확정. 변경 시 app/src/types/analysis.ts 동기화 필수.*
@@ -2022,3 +2061,4 @@ records 의 `cueLine`(§12.3 — 승인 문구집 32-05 골격, D-09 무수치, 
 *Plan 32-06 §12 추가: 2026-07-21 — 미션 루프 + 번역 레이어 방출 3-way lockstep (TS Mission/MissionOutcome/SummaryPraise/CoachQuestion + DeductionRecord 확장 ↔ models.py MISSION_KEYS 블록 ↔ 본 §12). faultKey(motionId::ruleId::criterion — 리뷰 blocker 1)·baseline 저장(D-26)·streak doc 체인+motionId 가드·에스컬레이션(D-27)·D-14 정합(안전=streak 1·escalation none 강제)·recordId 안정 조인 키+summaryPraise 단일 원천(리뷰 blocker 5)·3단 문구 슬롯(D-08)·tolerance(D-10)·coachQuestions(D-28/D-29, 'user'=클라이언트 로컬 전용). 방출은 32-09 부터 — legacy doc 부재 하위호환.*
 *Plan 32-16 §12.7 + playback-url coachAudio 확장 추가: 2026-07-22 — 재생 중 큐 오디오 (D-18 B안, 32-GATE-DECISIONS §샘플 게이트 확정) 3-way lockstep (TS CoachAudio/CoachAudioItem ↔ models.py COACH_AUDIO_KEYS 블록 ↔ §12.7). Polly(neural) 사후 합성(fault_zoom 사후 분리 선례 — 채점 무접촉)·cueId(=recordId) 조인·canonical key 단일 출처(s3keys.build_coach_audio_key)·asset 'coachAudio' 재서명(recordId 형식 가드 + 서버 구성 canonical + exact 비교, H-02)·런타임 생성 예외 각주(사전 생성 — belle D-18 명시 승인). 방출은 32-16 배포부터 — legacy doc 부재 하위호환.*
 *Plan 32-13 §12.8 추가: 2026-07-22 — 문장↔영상 스팟체크 (D-22/D-23) 3-way lockstep (TS SpotCheck/SpotCheckVerdict ↔ models.py SPOT_CHECK_KEYS 블록 ↔ §12.8). 사후 스테이지 판정(동기 경로 신규 외부 호출 0 — 속도 예산 구조 보호)·recordId 기반 카드 표면 숨김(tally 미필터 — 채점 불변)·praise 교차검증 동일 호출(단일 원천 = summaryPraise.headline, 리뷰 blocker 5)·표시 정책 명문(부재/pending/skipped/failed = 전 카드 표시 fail-open — 숨김 권한은 명백 mismatch 에만, uncertain = 표시)·숨김-정합 불변식. 방출은 32-13 배포부터 — legacy doc 부재 하위호환.*
+*quick-260808-jix §12.9 + playback-url renderedCompare 확장 추가: 2026-08-08 — 합성 비교 영상 (Phase 35 앱 통합) 3-way lockstep (TS RenderedCompare ↔ models.py RENDERED_COMPARE_KEYS 블록 ↔ §12.9). Pod 사후 스테이지(GPU align 재생성 — doc 폴백 렌더 운영 부재)·리그 ALL PASS 게이트("전 항목 PASS 아니면 doc 부착 없음")·부재/failed = 듀얼 플레이어 폴백·이중 발화 방지 = 분기(VideoCompare 미렌더) 구조·canonical key 단일 출처(s3keys.build_rendered_compare_key)·asset 'renderedCompare' 재서명(done + exact 이중 가드, H-02/V-0). 방출은 Pod 배포부터 — legacy doc 부재 하위호환.*

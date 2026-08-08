@@ -33,7 +33,11 @@ import boto3
 
 from sunity_shared import firestore_admin, models, responses
 from sunity_shared.auth import AuthError, verify_request
-from sunity_shared.s3keys import build_coach_audio_key, build_upload_key
+from sunity_shared.s3keys import (
+    build_coach_audio_key,
+    build_rendered_compare_key,
+    build_upload_key,
+)
 from sunity_shared.validation import validate_analysis_id_format
 
 log = logging.getLogger()
@@ -182,6 +186,49 @@ def _handle_coach_audio(uid: str, analysis_id: str, record_id) -> dict:  # noqa:
     return responses.ok({"playbackUrl": url, "expiresInSec": _ASSET_EXPIRES})
 
 
+def _handle_rendered_compare(uid: str, analysis_id: str) -> dict:
+    """renderedCompare asset 재서명 (Phase 35 quick-260808-jix — contract.md §12.9 / H-02).
+
+    _handle_asset(:83) 규율 복제: 클라이언트는 asset 종류만 지정하고 key 는 절대
+    보내지 않는다. 서버가 canonical key 를 **구성**(s3keys.build_rendered_compare_key
+    — 저장 측 pipeline 과 단일 출처)하고 doc `result.renderedCompare.status == 'done'`
+    + 저장 key **전체 문자열 exact 비교** 후에만 서명한다 (M2-01 — 생성 실패로
+    failed 로 돌아간 뒤 남은 stale key 차단). uid 는 토큰 유래 — 타 uid 객체는
+    canonical 구성 자체가 불일치라 서명 불가 (T-35J-01).
+
+    **V-0 규율** — 존재 확인 없는 추측 서명 금지: done + exact 이중 가드가 그
+    구현이다 (260806-sjt 선례 — done 은 리그 ALL PASS 업로드 완료에만 부착되므로
+    가드 통과 = 객체 실존).
+
+    가드 위반은 전부 동일 404 — 어느 단계에서 걸렸는지 응답으로 구분되지 않는다.
+    """
+    doc = firestore_admin.get_analysis(uid, analysis_id) or {}
+    result = doc.get("result")
+    result = result if isinstance(result, dict) else {}
+    rendered = result.get("renderedCompare")
+    rendered = rendered if isinstance(rendered, dict) else {}
+    status = rendered.get("status")
+    stored = rendered.get("key")
+
+    expected = build_rendered_compare_key(uid, analysis_id)
+    guards_ok = (
+        status == models.RENDERED_COMPARE_STATUS_DONE  # failed/부재 = stale key 여도 404
+        and isinstance(stored, str)
+        and stored == expected  # exact equality — prefix/basename 부분일치 불가
+    )
+    if not guards_ok:
+        return responses.error("not_found", "비교 영상을 찾을 수 없어요.", status=404)
+
+    url = _sign_get(expected, expires=_ASSET_EXPIRES, content_type=_ASSET_CONTENT_TYPE["mp4"])
+    if url is None:
+        return responses.error("server_error", "서명 실패", status=500)
+
+    log.info(
+        "playback-url 발급(renderedCompare) uid=%s analysis_id=%s", uid, analysis_id
+    )
+    return responses.ok({"playbackUrl": url, "expiresInSec": _ASSET_EXPIRES})
+
+
 def _handle_reference(uid: str, reference_motion_id: str) -> dict:
     """referenceMotionId 재서명 — Firestore doc videoS3Key 화이트리스트 경유만.
 
@@ -254,6 +301,10 @@ def lambda_handler(event: dict, _context) -> dict:
         # 분기 (VISUAL_JOB_KINDS 무접촉 — 기존 asset 종류의 응답 바이트 불변).
         if asset == models.PLAYBACK_ASSET_COACH_AUDIO:
             return _handle_coach_audio(uid, analysis_id, body.get("recordId"))
+        # Phase 35 (quick-260808-jix) — renderedCompare 도 visual job 이 아니라
+        # 별도 분기 (VISUAL_JOB_KINDS 무접촉 — 기존 asset 종류의 응답 바이트 불변).
+        if asset == models.PLAYBACK_ASSET_RENDERED_COMPARE:
+            return _handle_rendered_compare(uid, analysis_id)
         if asset not in models.VISUAL_JOB_KINDS:
             return responses.error(
                 "bad_request", f"asset 은 {list(models.VISUAL_JOB_KINDS)} 중 하나여야 합니다", status=400

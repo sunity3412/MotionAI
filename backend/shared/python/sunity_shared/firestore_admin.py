@@ -1527,6 +1527,86 @@ def update_analysis_coach_audio(
     )
 
 
+def _validate_rendered_compare(payload, *, path: str = "renderedCompare") -> None:  # noqa: ANN001
+    """renderedCompare scoped validator (Phase 35 quick-260808-jix — contract.md §12.9).
+
+    형상: {status: 'done'|'failed', key: str}. coachAudio validator 선례 —
+    키 화이트리스트 + enum + 상태별 key 불변식을 강제한다 (T-35J-02):
+      · 최상위 키 = models.RENDERED_COMPARE_KEYS 정확히 (누락/여분 거부)
+      · status ∈ models.RENDERED_COMPARE_STATUSES
+      · done → key 는 'results/' prefix + '.mp4' suffix 비어있지 않은 str
+        (H-02 — 오염 key 가 doc 에 실리는 것 자체를 차단)
+      · failed → key == '' (stale key 잔존 금지 — playback-url exact 비교의 짝)
+    실패 시 TypeError/ValueError raise (caller 가 graceful 처리).
+    """
+    if not isinstance(payload, dict):
+        raise TypeError(
+            f"_validate_rendered_compare: dict 입력만 허용. path={path or '<root>'}, "
+            f"got={type(payload).__name__}"
+        )
+    if set(payload.keys()) != set(models.RENDERED_COMPARE_KEYS):
+        raise ValueError(
+            f"{path}: 키는 {list(models.RENDERED_COMPARE_KEYS)} 정확히여야 함. "
+            f"got={sorted(payload.keys())}"
+        )
+    status = payload["status"]
+    if status not in models.RENDERED_COMPARE_STATUSES:
+        raise ValueError(
+            f"{path}.status: {list(models.RENDERED_COMPARE_STATUSES)} 중 하나여야 함. "
+            f"got={status!r}"
+        )
+    key = payload["key"]
+    if not isinstance(key, str):
+        raise TypeError(f"{path}.key: str 만 허용. got={type(key).__name__}")
+    if status == models.RENDERED_COMPARE_STATUS_DONE:
+        if not key or not key.startswith("results/") or not key.endswith(".mp4"):
+            raise ValueError(
+                f"{path}.key: done 은 'results/' prefix + '.mp4' suffix 의 "
+                f"비어있지 않은 str 이어야 함 (H-02). got={key!r}"
+            )
+    else:  # failed
+        if key != "":
+            raise ValueError(
+                f"{path}.key: failed 는 빈 문자열이어야 함 (stale key 잔존 금지). "
+                f"got={key!r}"
+            )
+
+
+def update_analysis_rendered_compare(
+    uid: str,
+    analysis_id: str,
+    key: str,
+    status: str,
+) -> None:
+    """renderedCompare 사후 부분 업데이트 (Phase 35 quick-260808-jix — coach_audio 뼈대 복제).
+
+    complete_analysis(status='done') **이후** 같은 분석 태스크에서 호출한다. 점수/
+    verdict/감점 내역은 이미 확정됐고(D-03 경계), 합성 비교 mp4 는 표현물이라 사후
+    도착이 허용된다 (update_analysis_coach_audio 와 동일 규율). `result.renderedCompare`
+    **단일 field-path** 만 부분 갱신 — 그 외 어떤 result.* 필드도 사후 변경 금지
+    (T-27-18 / D-03).
+
+    검증: `_validate_rendered_compare` (키 화이트리스트 + status enum + done/failed
+    별 key 불변식). 명시적 field-path `.update()` 채택 (fault_zoom/coach_audio 선례).
+
+    Args:
+      key: done 시 s3keys.build_rendered_compare_key 산출 canonical 키.
+        failed 시 빈 문자열 (stale key 잔존 금지).
+      status: models.RENDERED_COMPARE_STATUSES 중 하나 (done/failed).
+
+    Raises:
+      ValueError/TypeError: 형상 위반 (_validate_rendered_compare).
+    """
+    payload = {"status": status, "key": key}
+    _validate_rendered_compare(payload)
+    _doc(models.analysis_doc_path(uid, analysis_id)).update(
+        {
+            "result.renderedCompare": payload,
+            "updatedAt": int(time.time() * 1000),
+        }
+    )
+
+
 def _validate_spot_check(payload, *, path: str = "spotCheck") -> None:  # noqa: ANN001
     """spotCheck scoped validator (Phase 32 Plan 32-13, D-23 — contract.md §12.8).
 

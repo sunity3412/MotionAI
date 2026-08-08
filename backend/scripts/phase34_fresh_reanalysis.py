@@ -98,7 +98,7 @@ def main() -> int:
     }
     if ref_id:
         doc["referenceMotionId"] = ref_id
-    db = firestore_admin._client()  # noqa: SLF001 - sweep_phase15 _write_doc 선례
+    db = firestore_admin._db()  # noqa: SLF001 - sweep_phase15 선례(fa._db())
     db.collection("users").document(args.uid).collection("analyses").document(new_id).set(doc)
     print(f"fresh doc 생성: uid={args.uid} analysisId={new_id} mode={doc['mode']} ref={ref_id}")
     print(f"SOURCE key={video_key} (원 doc 무접촉)")

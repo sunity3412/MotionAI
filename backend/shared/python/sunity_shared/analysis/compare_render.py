@@ -51,6 +51,31 @@ KP_CONF_MIN = 0.5
 FREEZE_TAIL_S = 0.4
 FADE_S = 0.17  # 정지 진입/복귀 시 기준 패널 크로스페이드(순간이동 완화)
 
+# ── 재생 상한 — 기준이 멈춘 꼬리 제외 (Phase 34 Pod 스윕 실측) ───────────────
+# 기준 영상이 사용자 영상보다 짧으면 DTW 가 끝에서 기준을 한 프레임에 눌러붙인다
+# (실측 pdshapefault/belle 반려본 동일 align: user 17.40~18.13s 구간 정렬곡선
+# slope 0.000 = 기준 시간 정지). 그 구간은 "기준이 멈춘 채 사용자만 흐르는" 화면
+# 이라 비교가 성립하지 않고, 재재생 이음매에서 head 저속 구간과 붙어 리그 E
+# (가다-서다)를 유발한다 — 실측: E 이벤트 5건 = 꼬리 2(user 17.13/17.93s) +
+# 재재생 head 3(user 0.03/0.13/0.77s)이 출력 1.9초 안에 몰림.
+# 채점(수술 ② ref-경계 제외)·정지 짝(리그 G 경계 핀)에 이미 적용한 "종점 정렬
+# 아티팩트 제외" 원리의 **재생 트랙 대응** — 세 계층이 같은 규율을 공유한다.
+PLAYBACK_TAIL_MIN_SLOPE = 0.05  # ref초/user초. 0 = 완전 정지(구조: slope>0 이면 진행)
+# 이보다 짧은 눌러붙음은 자르지 않는다 — 30fps 출력에서 6프레임(200ms) 미만은
+# 리그 E 도 '멈춤'으로 세지 않는 대역(STUTTER_RUN_MAX=5 경계와 같은 구조 유도).
+PLAYBACK_TAIL_MIN_RUN_S = 0.2
+#
+# ⚠ **현행 임계는 pdshapefault/belle 반려본 계열에서 미발동한다 (실측, 미해결)**:
+# 렌더러가 쓰는 곡선은 원 align 곡선이 아니라 `_simplify_curve` 로 272점 → **9
+# 키포인트**로 단순화한 것이다. 원곡선의 꼬리 slope 0.000(user 17.40~18.13s)이
+# 단순화 후에는 키포인트 (17.13, 15.64)→(18.07, 15.73) 사이의 **slope 0.102 크롤**
+# 로 바뀐다(≈1초 동안 기준이 0.09초만 진행 = 거의 정지하지만 0 은 아님).
+# 따라서 이 함수는 상한을 그대로 두고 렌더는 byte 불변이다(로컬 실측: base.mp4 ==
+# fix1.mp4, 11,029,938 B 동일 · [tail-cut] 로그 미출력).
+# 다음 라운드 과제 = 임계를 크롤 대역까지 올릴지(승인 5편 영향 재측정 필수) 또는
+# 판정 입력을 원곡선으로 바꿀지 — **실측으로 정한다. 임계를 픽스처에 맞춰 고르지 말 것.**
+# 함수 자체는 순수·검증됨(합성 벡터 유닛) — 발동 조건만 미정.
+
 
 def _default_font_path() -> Path | None:
     """폰트 경로 — env `RENDER_FONT_PATH` 우선, 없으면 모듈 위치 기준 리포 상대 재계산.
@@ -986,6 +1011,30 @@ def _as_dict(v):
     return json.load(open(v))
 
 
+def playback_end_s(warp_b, dur_user: float, fps: float = FPS_OUT) -> float:
+    """재생 상한(초) — 기준이 멈춘 꼬리를 뺀 user 시각. 순수 함수.
+
+    꼬리에서 역방향으로 정렬곡선 slope(ref초/user초) < PLAYBACK_TAIL_MIN_SLOPE 인
+    연속 구간을 찾고, 그 길이가 PLAYBACK_TAIL_MIN_RUN_S 이상일 때만 그 시작점을
+    상한으로 준다. 그 외에는 `dur_user` 그대로 (무접촉 — 승인 렌더 보존).
+
+    상수 근거는 모듈 상단 PLAYBACK_TAIL_* 주석. 동작명 분기 0 — 곡선 형상만 본다.
+    """
+    n = int(round(float(dur_user) * fps))
+    if n < 3:
+        return float(dur_user)
+    ts = np.arange(n) / fps
+    rs = np.array([float(warp_b(float(t))) for t in ts])
+    slopes = np.diff(rs) * fps
+    i = len(slopes)
+    while i > 0 and slopes[i - 1] < PLAYBACK_TAIL_MIN_SLOPE:
+        i -= 1
+    tail_s = (len(slopes) - i) / fps
+    if tail_s < PLAYBACK_TAIL_MIN_RUN_S:
+        return float(dur_user)
+    return float(ts[i])
+
+
 def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: Path,
            workdir: Path, out: Path, moments_json: Path | dict | None = None,
            align_json: Path | dict | None = None,
@@ -1053,10 +1102,19 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
     font = ImageFont.truetype(str(FONT_PATH), round(22 * S))
     line_h, pad = round(30 * S), round(24 * S)
 
+    # 기준이 멈춘 꼬리는 재생하지 않는다 (PLAYBACK_TAIL_* 주석 참조). 정지 순간이
+    # 그 안에 있으면 상한을 그 뒤로 밀어 **정지 소실을 만들지 않는다**([clamp] 규율).
+    play_end = playback_end_s(warp_b, dur_user)
+    if freezes:
+        play_end = max(play_end, freezes[-1]["ut"] + 1.0 / FPS_OUT)
+    if play_end < dur_user - 1e-9:
+        print(f"[tail-cut] 재생 상한 {dur_user:.2f}s -> {play_end:.2f}s "
+              f"(기준 정지 꼬리 제외)", file=sys.stderr)
+
     frames: list[tuple[float, float, dict | None]] = []
     audio_plan: list[tuple[Path, float]] = []  # (mp3, out_sec)
     t, k = 0.0, 0
-    while t < dur_user:
+    while t < play_end:
         if k < len(freezes) and t >= freezes[k]["ut"]:
             fz = freezes[k]
             audio_plan.append((fz["mp3"], len(frames) / FPS_OUT))
@@ -1067,9 +1125,9 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
 
     # 마지막 정지 뒤 남은 재생이 1.5s 미만이면(감점 순간이 영상 끝 — 피터팬 belle
     # "멈춘 채 끝난다" 반려) 정지 후 처음부터 한 번 더 순수 재생 — "멈췄다가 틀기".
-    if freezes and (dur_user - freezes[-1]["ut"]) < 1.5:
+    if freezes and (play_end - freezes[-1]["ut"]) < 1.5:
         t2 = 0.0
-        while t2 < dur_user:
+        while t2 < play_end:
             frames.append((t2, warp_b(t2), None))
             t2 += 1 / FPS_OUT
 

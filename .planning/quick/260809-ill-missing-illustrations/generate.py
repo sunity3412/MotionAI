@@ -63,6 +63,17 @@ Reproduce the exact pose, orientation and camera viewpoint of the FIRST image: {
 
 ANONYMISATION:
 The figure must have NO facial features at all - no eyes, no nose, no mouth, no eyebrows. Leave the face as blank, smooth, unmarked skin. Do not draw a portrait.
+The figure MUST still have hair - dark hair tied back in a bun or ponytail, like the SECOND
+reference image. Never draw a bald or hairless head: anonymise the face only, keep the hair.
+
+CLOTHING (never bare):
+The figure always wears a dark taupe sports bra AND matching shorts, exactly like the SECOND
+reference image. The torso is never bare, never topless, never in underwear.
+
+SCENE:
+Exactly ONE vertical pole in the image. Never draw a second pole, a doubled pole line, a
+mirror, or a reflection. Exactly ONE person - no second figure, no stray extra limb entering
+from any edge.
 
 GUIDE MARK:
 {guide}
@@ -71,9 +82,15 @@ ANATOMY:
 Exactly two arms and two legs, five fingers per hand, five toes per foot, joints bending only in anatomically possible directions.
 Exactly ONE head. The head must be attached to the neck and clearly separated from the hips
 and thighs - never fused into the pelvis, buttock or torso, and never duplicated anywhere in
-the image. Where limbs overlap or the body is folded, keep every limb readable as a separate
-outline: draw the contour where one body part passes in front of another so the viewer can
-count two arms and two legs without ambiguity.
+the image. The head sits on the neck in its natural direction - never twisted round backwards
+or rotated away from the spine.
+Where limbs overlap or the body is folded, keep every limb readable as a separate outline:
+draw the contour where one body part passes in front of another so the viewer can count two
+arms and two legs without ambiguity.
+Every limb must be anatomically plausible along its whole length - a calf must not bend where
+there is no joint, a foot must join the ankle in a natural direction, and no limb may taper
+into a shapeless mass. If a body part would be ambiguous, place it outside the frame instead
+of drawing it wrong.
 
 FRAMING:
 Portrait 3:4. The figure must FILL the frame - crop in close so the body occupies most of the image. Avoid large empty background areas; leave only a small margin around the figure.

@@ -111,14 +111,15 @@
       "guideType": "circle",
       "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
       "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_pd_sh.jpg",
-      "promptPose": "view of the shoulders and upper back of a person hanging inverted upside-down on a vertical pole in a folded shape, both arms reaching to grip the pole",
+      "promptPose": "close view of the upper back and both shoulder blades of a person on a pole, seen from behind, arms reaching to grip the pole, head at the frame edge",
       "promptTarget": "both shoulders across the upper back (the scapulae)",
       "guideRuleMatch": "A-1 ③ \"어깨로 버텨\" = 잠금 계열 · techniqueProfile 전 관절 bent_ok(펴야 할 관절 0) → 직선 금지",
       "citeGrade": "A-",
       "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
       "note2": "try2 — try1 은 원이 어깨가 아닌 덩어리에 앉았다. 크롭을 넓혀 등면 견갑이 형태로 보이게 하고 target 을 '견갑'으로 명시(승인 자산 ref-power-spin--shoulder 문법과 동일)",
       "t": 4.0,
-      "note3": "try3 — 5.0s 는 접힘이 깊어 견갑이 몸통에 묻힌다. hold 창 안 4.0s(등이 더 열린 국면)로 교체"
+      "note3": "try3 — 5.0s 는 접힘이 깊어 견갑이 몸통에 묻힌다. hold 창 안 4.0s(등이 더 열린 국면)로 교체",
+      "note4": "try11 — try9·try10 은 원이 무릎·갈비로 갔다. 등면 견갑만 담기게 크롭(승인 자산 ref-power-spin--shoulder 구도)"
     },
     {
       "motionId": "ref-pdshape",
@@ -139,11 +140,12 @@
       "guideType": "line",
       "anchor": "app/assets/illustrations/ref-peter-pan--leg.jpg",
       "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_et_leg.jpg",
-      "promptPose": "close view of the upper leg extended straight up along a vertical pole while the body hangs inverted, the knee locked straight and the foot pointed, the rest of the body outside the frame",
+      "promptPose": "close view of one leg extended straight up along a single vertical pole, the knee locked straight and the foot pointed, hip at the bottom edge, everything else outside the frame",
       "promptTarget": "the upper extended leg from hip through knee to the pointed toes",
       "guideRuleMatch": "A-1 ③ \"윗다리 수직으로 뽑아\" = 신전 계열 + 실측 f117 윗다리 165.6° 수직 익스텐션 · ④ \"윗다리 무릎·수직 라인\"",
       "citeGrade": "A",
-      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다"
+      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
+      "note4": "try11 — 입력 배경에 스튜디오 거울이 찍혀 폴이 2개로 재현됐다(try9·try10 연속). 다리와 폴 하나만 남게 크롭"
     },
     {
       "motionId": "ref-elbow-twist-sister",

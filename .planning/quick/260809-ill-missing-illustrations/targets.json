@@ -125,14 +125,17 @@
       "motionId": "ref-pdshape",
       "part": "arm",
       "guideType": "circle",
-      "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
+      "anchor": "app/assets/illustrations/ref-elbow-twist-sister--arm.jpg",
       "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_pd_arm.jpg",
-      "promptPose": "close view of both arms gripping a vertical pole while the body hangs inverted in a folded closed shape, the head outside the frame",
-      "promptTarget": "both elbows and forearms that hold the pole",
+      "promptPose": "close view of one arm gripping a single vertical pole, the elbow bent and the forearm holding the pole, shoulder at the frame edge, the rest of the body outside the frame",
+      "promptTarget": "the elbow joint of the arm that grips the pole - the ring sits directly on that elbow, on the skin, and nowhere else. Draw no line and no second mark anywhere.",
       "guideRuleMatch": "A-1 ④ 에 팔 없음 — 본문 \"양손 폴\" + techniqueProfile 전 관절 bent_ok 에서 파생(잠금)",
       "citeGrade": "C — ④ 미명시, 본문·프로필 파생",
       "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
-      "note2": "try2 — try1 은 원이 손 하나에 앉았다. 승인 자산 ref-elbow-twist-sister--arm 이 팔꿈치를 원으로 잡은 선례에 맞춰 target 을 팔꿈치·전완으로"
+      "note2": "try2 — try1 은 원이 손 하나에 앉았다. 승인 자산 ref-elbow-twist-sister--arm 이 팔꿈치를 원으로 잡은 선례에 맞춰 target 을 팔꿈치·전완으로",
+      "note7": "try15 — 원이 겨드랑이로 읽힐 여지가 있었다. 승인 자산 ref-elbow-twist-sister--arm 처럼 팔꿈치 관절만 담기게 크롭",
+      "anchorReason": "try16 — 같은 문법(폴을 잡은 팔의 팔꿈치에 원 1개)의 승인 통과본. 부분 구도 앵커(kip-up--shoulder)는 어깨 구도라 원이 겨드랑이로 끌렸다",
+      "note8": "try16 — try15 는 원이 팔꿈치인지 모호했고 상단에 **붉은 선 조각 잔재**가 남았다(규격: 원 1개만)"
     },
     {
       "motionId": "ref-elbow-twist-sister",
@@ -140,12 +143,15 @@
       "guideType": "line",
       "anchor": "app/assets/illustrations/ref-peter-pan--leg.jpg",
       "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_et_leg.jpg",
-      "promptPose": "close view of one leg extended straight up along a single vertical pole, the knee locked straight and the foot pointed, hip at the bottom edge, everything else outside the frame",
-      "promptTarget": "the upper extended leg from hip through knee to the pointed toes",
+      "promptPose": "hanging INVERTED upside-down on a single vertical pole - the head is BELOW the hips and the body is upside down - with the elbow hooked back around the pole; the upper leg extends straight UP along the pole with the knee locked and the foot pointed, the other leg is bent and hooked lower down",
+      "promptTarget": "the leg that points UP along the pole - the one whose foot is at the very top of the frame, closest to the pole. The line runs from that leg's hip joint up the thigh and shin to its pointed toes. Do NOT mark the other leg.",
       "guideRuleMatch": "A-1 ③ \"윗다리 수직으로 뽑아\" = 신전 계열 + 실측 f117 윗다리 165.6° 수직 익스텐션 · ④ \"윗다리 무릎·수직 라인\"",
       "citeGrade": "A",
       "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
-      "note4": "try11 — 입력 배경에 스튜디오 거울이 찍혀 폴이 2개로 재현됐다(try9·try10 연속). 다리와 폴 하나만 남게 크롭"
+      "note4": "try11 — 입력 배경에 스튜디오 거울이 찍혀 폴이 2개로 재현됐다(try9·try10 연속). 다리와 폴 하나만 남게 크롭",
+      "note5": "try13 — try11 은 **직립**으로 나왔다. 엘보 트위스트는 A-1 실측 inv 86% 의 **도립** 동작이라 자세 충실 FAIL. 프롬프트에 '머리가 골반보다 아래' 를 명시하고 크롭도 도립 전체가 보이게 넓힘",
+      "note6": "try14 — try13 은 도립·머리카락·옷·폴 전부 통과했으나 직선이 **가슴에서 시작**했다(골반이어야 함)",
+      "note7": "try15 — try14 는 도립·해부학 전부 통과했으나 **선이 반대 다리**에 그려졌다. A-1 대상은 폴을 따라 위로 뻗은 윗다리(실측 165.6° 수직)"
     },
     {
       "motionId": "ref-elbow-twist-sister",
@@ -153,11 +159,12 @@
       "guideType": "circle",
       "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
       "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_et_sh.jpg",
-      "promptPose": "close view of the shoulders and upper back of a person hanging inverted on a vertical pole with an elbow-grip, chest open in a twist",
-      "promptTarget": "both shoulders and the upper back that hold the twist",
+      "promptPose": "close view from behind of the upper back and both shoulder blades of a person hanging inverted on a single vertical pole, head at the frame edge",
+      "promptTarget": "both shoulder blades across the upper back",
       "guideRuleMatch": "A-1 ③ \"버텨\"·\"가슴 열어(흉추까지)\" · techniqueProfile 전 관절 bent_ok → 직선 금지",
       "citeGrade": "B — ④ 미명시, ③·프로필 파생",
-      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다"
+      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
+      "note7": "try15 — 원이 겨드랑이~상완에 걸쳤다. 승인 자산 ref-power-spin--shoulder 처럼 등면 견갑만 담기게"
     },
     {
       "motionId": "ref-peter-pan",

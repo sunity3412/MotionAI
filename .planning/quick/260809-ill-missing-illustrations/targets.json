@@ -184,6 +184,32 @@
       "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
       "note2": "try2 — try1 은 **직선 2줄**(규격 위반, 두 팔에 각각). target 을 '한 팔에만'으로 못박음",
       "note3": "try3 — 직선 2줄이 두 번 반복됐다(두 팔에 각각). **팔 하나만 프레임에 두어** 두 번째 선이 그려질 자리를 구조적으로 없앤다"
+    },
+    {
+      "motionId": "ref-kip-up",
+      "part": "shoulder",
+      "guideType": "circle",
+      "t": 3.75,
+      "anchor": "app/assets/illustrations/ref-power-spin--shoulder.jpg",
+      "anchorReason": "같은 부위(어깨)·같은 가이드(원)의 통과 자산",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_ku_sh.jpg",
+      "promptPose": "close view from behind of the upper back and both shoulder blades, arms reaching up to grip a single vertical pole, legs in a wide straddle below",
+      "promptTarget": "both shoulder blades across the upper back",
+      "guideRuleMatch": "A-1 ③ \"어깨 눌러(으쓱 금지)\" 잠금 계열 — 기존 승인 자산과 동일 근거",
+      "note": "**기존 승인 자산 재생성** — belle 08-09 2차 검수에서 민머리 지적. 33-14/plf 당시 프롬프트에 머리카락 조항이 없어 민머리로 나왔고 그대로 통과했다. 부위·국면·가이드는 기존 provenance 승계, 렌더만 갱신"
+    },
+    {
+      "motionId": "ref-power-spin",
+      "part": "leg",
+      "guideType": "line",
+      "t": 8.5,
+      "anchor": "app/assets/illustrations/ref-foxtop.jpg",
+      "anchorReason": "도립 + 단일 직선 통과본(자기 자신을 앵커로 쓸 수 없어 같은 문법의 다른 통과본)",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_ps_leg.jpg",
+      "promptPose": "hanging inverted from a single vertical pole in a power spin, one leg extended straight up alongside the pole and the other leg extended straight down, forming one long vertical split line, one arm gripping the pole",
+      "promptTarget": "the whole split line from the raised foot through the hips to the lowered foot",
+      "guideRuleMatch": "33-14 근거 승계 — 두 다리 폴 축 한 줄 최곧음(신전 계열 = 선)",
+      "note": "**기존 승인 자산 재생성** — belle 08-09 2차 검수에서 **목이 돌아갔다** 지적. 추가로 이 자산만 배경(방·창)이 그려져 나머지 18장(무배경)과 톤이 어긋났다. 산출 파일명은  로 유지(L-10 승인 자산 경로 불변) — 내용만 갱신"
     }
   ]
 }

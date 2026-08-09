@@ -15,17 +15,17 @@
       "a1_cite": "표1 ref-pdshape — ④ \"메인 hold(3.5~11.5s, peak 8s, f54 부근): hook 측 무릎·고관절 + folded 다리 무릎 각 + 척추 비대칭 정렬\"",
       "citeGrade": "A — ④가 부위를 직접 명시",
       "orientation": "도립(비대칭 인버티드 클로즈드 셰이프)",
-      "anchor": "app/assets/illustrations/ref-power-spin.jpg",
-      "anchorReason": "L-6 — 같은 동작 통과본 없음 → 같은 방위(도립) 통과본 중 장면 표 등재 순서 첫 번째",
+      "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
+      "anchorReason": "try6 — 전신 앵커가 전신을 그리게 만들고, 그 전신에서 머리-골반이 융합했다. 부분 프레이밍 통과본(kip-up--shoulder = '다리는 프레임 밖', 원 가이드 동일)을 앵커로 써서 부분 구도 자체를 스타일로 전달한다. sideway 에서 '방위'가 아니라 '자세 의도'가 맞는 앵커가 결정타였던 것의 연장 — 여기서는 '구도 의도'.",
       "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-pdshape.mp4",
       "cropBox": [
-        270,
-        430,
-        740,
-        1030
+        360,
+        400,
+        780,
+        920
       ],
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/pdshape_in3.jpg",
-      "promptPose": "close view of an inverted pole shape seen from the side: one leg hooked deeply around the vertical pole at the knee and hip while the other leg stays folded and tucked, hips and thighs filling the frame, the head is outside the frame",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/pdshape_knee.jpg",
+      "promptPose": "close view of one leg hooked around a vertical pole: the thigh and shin wrap the pole with the knee bent and locked against it, hip at the top edge of the frame, the rest of the body outside the frame",
       "promptTarget": "the hooked knee where the leg locks around the pole",
       "tShiftedFrom": 8.25,
       "tShiftReason": "8.25s(33-14 선정)는 hold peak 이지만 몸이 가장 깊게 접혀 머리-골반이 맞닿는다. try1/try2 실패가 전부 그 경계의 융합이었다(2x 확대 확인). hold 창(3.5~11.5s) 1초 간격 8컷 전수 열람 후 5.0s 로 교체 — 도립·hook 유지하면서 머리가 골반에서 떨어지고 팔·다리가 각각 분리돼 보인다. 창 안이라 A-1 ④ 근거 유지.",
@@ -68,16 +68,16 @@
       "a1_cite": "33-09 ref-peter-pan — f18~f54 왼무릎 신전 med 177 / 33-14 입력 선정 근거 '신전 다리 곧음 + hook 무릎 동시 가시'",
       "orientation": "직립(비인버전, 공중 hook)",
       "anchor": "app/assets/illustrations/ref-foxtop-split.jpg",
-      "anchorReason": "L-6 확장 — 방위만 맞춘 앵커(climb)가 sideway 에서 무릎 굽힘 자세를 복제시켜 FAIL 했다. **자세 의도(신전 다리 + 직선 가이드)가 같은 통과본**으로 교체한 것이 sideway try2 PASS 의 실측 근거",
+      "anchorReason": "try2 — pdshape try6 에서 실증된 **부분 프레이밍**을 적용. 전신을 그리게 하면 머리가 덩어리로 융합되므로 대상 부위만 프레임에 둔다(승인 선례 ref-kip-up--shoulder '다리는 프레임 밖'). 앵커는 신전 다리 + 굵은 직선 통과본 유지.",
       "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-peter-pan.mp4",
       "cropBox": [
-        280,
-        560,
-        840,
-        1420
+        300,
+        700,
+        820,
+        1340
       ],
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/peterpan_in.jpg",
-      "promptPose": "upright in the air beside a vertical pole, one hand gripping the pole high overhead, one knee hooked and bent while the other leg is extended long and straight down and back with a pointed foot, seen from the side",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/peterpan_leg.jpg",
+      "promptPose": "close view of one leg extended long and straight down and back beside a vertical pole, hip at the top edge of the frame, the knee straight and the foot pointed, the rest of the body outside the frame",
       "promptTarget": "the straight extended leg from hip through knee to the pointed toes"
     }
   ]

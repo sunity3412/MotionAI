@@ -70,6 +70,16 @@ const VERIFIED_ILLUSTRATIONS: Record<string, number> = {
   // 레퍼런스 doc 자체가 국면·부위·기대관절을 데이터로 들고 있어 그것에서 키잉했다 —
   // 지어낸 값 0. 상세 = illustrationScene provenance.
   'ref-combo--leg': require('../../assets/illustrations/ref-combo--leg.jpg'),
+  // 2차 배치 — 실측으로 드러난 구멍을 메운다. "동작 11/11 보유"여도 표시 판정은
+  // (동작, 부위) 짝이라, 전 doc 감점 149건 중 **65건(44%)이 짝 미커버로 그림 없이**
+  // 나가고 있었다(belle 피터팬 = 어깨 감점인데 다리 그림만 있어 미표시).
+  // 이 6장으로 실제 발생 짝 13개가 전부 커버된다.
+  'ref-pdshape--shoulder': require('../../assets/illustrations/ref-pdshape--shoulder.jpg'),
+  'ref-pdshape--arm': require('../../assets/illustrations/ref-pdshape--arm.jpg'),
+  'ref-elbow-twist-sister--leg': require('../../assets/illustrations/ref-elbow-twist-sister--leg.jpg'),
+  'ref-elbow-twist-sister--shoulder': require('../../assets/illustrations/ref-elbow-twist-sister--shoulder.jpg'),
+  'ref-peter-pan--shoulder': require('../../assets/illustrations/ref-peter-pan--shoulder.jpg'),
+  'ref-peter-pan--arm': require('../../assets/illustrations/ref-peter-pan--arm.jpg'),
 };
 
 export function DefectIllustration({

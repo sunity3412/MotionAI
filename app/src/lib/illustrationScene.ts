@@ -202,6 +202,53 @@ export const ILLUSTRATION_SCENES: readonly IllustrationScene[] = [
     provenance:
       'ill 입력 33.00s — 국면 근거 = 레퍼런스 doc `clipRange.execPeakS = 33` + description "레그 행 hold + 익스텐션 28~37.5s, **33s 아웃사이드 레그 행 명확**" · 부위 근거 = `checkpoints` 가중 left/right_hip **0.15**(노트 "레그 행 + 버터플라이 + 셰이프 전환의 골반", 측정 가능 관절 중 최상위) + left/right_knee 0.10 · 가이드 = 원(레그 행 = hook·잠금 계열, 그리고 `techniqueProfile` 8관절 전부 bent_ok = **펴야 할 관절 0** → 직선 금지) · 부분 프레이밍(pdshape try6 선례, 머리 프레임 밖) · try1 은 골반 클로즈업이라 "엉덩이 확대"로 읽혀 코칭 전달이 약했고 try2 는 원이 손-폴 접촉부로 이탈 + 머리 재출현 → **try3 채택** · 실물 열람 = 다리가 폴을 넘어 걸리고 몸이 매달린 레그 행 형태가 판독, 반대 다리 신전, 원 1개·직선 0, 사지 중복 0',
   },
+  // ── 2차 배치 (quick-260809-ill) — (동작, 부위) **짝** 커버 ──────────────────
+  // "동작 11/11 보유"여도 표시는 짝 판정이다(sceneCoversParts = 부위 토큰 부분집합).
+  // 전 doc 실측: 감점 149건 중 **65건(44%)이 짝 미커버로 그림 없이** 나가고 있었다.
+  // belle 08-09 피터팬 업로드가 그 사례 — 감점이 어깨인데 다리 그림만 있어 미표시.
+  // 아래 6항목으로 **실제 발생하는 짝 13개가 전부 커버**된다.
+  {
+    motionId: 'ref-pdshape',
+    parts: ['shoulder'],
+    asset: 'ref-pdshape--shoulder',
+    provenance:
+      'ill 입력 4.00s (메인 hold 3.5~11.5s 안 — 5.0s 는 접힘이 깊어 견갑이 몸통에 묻힌다) · 가이드 = 원(③ "어깨로 버텨" 잠금 계열 + techniqueProfile 전 관절 bent_ok → 직선 금지) · try1·try2 는 원이 견갑 아닌 덩어리·허리에 앉아 FAIL → try3 통과 · 실물 열람 = 등면 견갑 위 원 1개, 이목구비 0, 사지·손 자연. 승인 자산 ref-power-spin--shoulder 의 "등면 견갑" 문법 승계',
+  },
+  {
+    motionId: 'ref-pdshape',
+    parts: ['arm'],
+    asset: 'ref-pdshape--arm',
+    provenance:
+      'ill 입력 5.00s · 가이드 = 원(techniqueProfile 전 관절 bent_ok → 직선 금지) · **citeGrade C** — A-1 ④ 에 팔이 없다. 본문 "양손 폴" + 프로필에서 파생했고, 감점 실발생 25건(전 짝 최다)이라 비워둘 수 없어 만든 것 · try1 은 원이 손 하나에 앉아 FAIL → 승인 자산 ref-elbow-twist-sister--arm 선례대로 target 을 팔꿈치·전완으로 바꿔 try2 통과',
+  },
+  {
+    motionId: 'ref-elbow-twist-sister',
+    parts: ['leg'],
+    asset: 'ref-elbow-twist-sister--leg',
+    provenance:
+      'ill 입력 13.00s (A-1 ④ 메인 hold peak, f117) · 가이드 = 선(③ "윗다리 수직으로 뽑아" 신전 계열 + 실측 윗다리 165.6° 수직 익스텐션 — techniqueProfile 은 bent_ok 이나 **L-4 는 코칭 어휘가 1순위**이고 실측이 뒷받침) · 33-14 는 이 자산을 3회 실패했고 마지막 사유가 "신전 다리가 수평, A-1 실측 수직과 불일치" — 부분 프레이밍 + 수직 명시로 해소 · 실물 열람 = 직선이 고관절→무릎→발끝, 몸 위에만',
+  },
+  {
+    motionId: 'ref-elbow-twist-sister',
+    parts: ['shoulder'],
+    asset: 'ref-elbow-twist-sister--shoulder',
+    provenance:
+      'ill 입력 13.00s · 가이드 = 원(③ "버텨"·"가슴 열어(흉추까지)" + techniqueProfile 전 관절 bent_ok → 직선 금지) · **citeGrade B** — A-1 ④ 는 "엘보 그립 팔 + hook 무릎"만 명시하고 어깨는 없다. ③ 어휘·프로필 파생이며 감점 실발생 10건 · 실물 열람 = 도립 상태 어깨부에 원 1개, 직선 0',
+  },
+  {
+    motionId: 'ref-peter-pan',
+    parts: ['shoulder'],
+    asset: 'ref-peter-pan--shoulder',
+    provenance:
+      'ill 입력 2.40s · 가이드 = 원(③ "어깨 눌러" + ④ "**위 그립 어깨**" 직접 명시 + techniqueProfile shoulder = bent_ok → 직선 금지, citeGrade A) · **belle 08-09 업로드가 정확히 이 짝**(왼어깨 감점)이었고 그림이 없어 안 떴다 · 실물 열람 = 등면, 그립측 어깨에 원 1개, 이목구비 0, 사지 자연',
+  },
+  {
+    motionId: 'ref-peter-pan',
+    parts: ['arm'],
+    asset: 'ref-peter-pan--arm',
+    provenance:
+      'ill 입력 2.40s · 가이드 = 선(techniqueProfile `left_elbow = extend` — 이 동작 유일의 extend 팔 관절 + 본문 "상하 스플릿 그립 매달림", citeGrade B) · try1·try2 는 **직선이 2줄**(두 팔에 각각) 그려져 규격 위반 FAIL → 입력을 **팔 하나만** 담게 잘라 두 번째 선이 그려질 자리를 구조적으로 없애 try3 통과 · 실물 열람 = 직선 1줄이 어깨→팔꿈치→손',
+  },
 ];
 
 /**

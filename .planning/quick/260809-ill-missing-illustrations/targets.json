@@ -104,6 +104,84 @@
       "promptPose": "side view of an outside leg hang on a vertical pole: the back of one knee and the thigh hook over the pole carrying the body weight, the hip and lower torso hang below, the other leg extends away, the head is outside the frame",
       "promptTarget": "the hooked leg's knee and hip where the leg locks over the pole",
       "cropNote": "try3 — try1(골반 클로즈업)은 게이트는 통과하나 '엉덩이 확대'로 읽혀 코칭 전달이 약했고, try2(무릎 중심)는 원이 손-폴 접촉부로 가고 머리가 재출현했다. 걸이 **형태**가 보이도록 다리+골반+상체 일부를 담되 머리는 프레임 밖(pdshape 통과본과 같은 구성)."
+    },
+    {
+      "motionId": "ref-pdshape",
+      "part": "shoulder",
+      "guideType": "circle",
+      "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_pd_sh.jpg",
+      "promptPose": "view of the shoulders and upper back of a person hanging inverted upside-down on a vertical pole in a folded shape, both arms reaching to grip the pole",
+      "promptTarget": "both shoulders across the upper back (the scapulae)",
+      "guideRuleMatch": "A-1 ③ \"어깨로 버텨\" = 잠금 계열 · techniqueProfile 전 관절 bent_ok(펴야 할 관절 0) → 직선 금지",
+      "citeGrade": "A-",
+      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
+      "note2": "try2 — try1 은 원이 어깨가 아닌 덩어리에 앉았다. 크롭을 넓혀 등면 견갑이 형태로 보이게 하고 target 을 '견갑'으로 명시(승인 자산 ref-power-spin--shoulder 문법과 동일)",
+      "t": 4.0,
+      "note3": "try3 — 5.0s 는 접힘이 깊어 견갑이 몸통에 묻힌다. hold 창 안 4.0s(등이 더 열린 국면)로 교체"
+    },
+    {
+      "motionId": "ref-pdshape",
+      "part": "arm",
+      "guideType": "circle",
+      "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_pd_arm.jpg",
+      "promptPose": "close view of both arms gripping a vertical pole while the body hangs inverted in a folded closed shape, the head outside the frame",
+      "promptTarget": "both elbows and forearms that hold the pole",
+      "guideRuleMatch": "A-1 ④ 에 팔 없음 — 본문 \"양손 폴\" + techniqueProfile 전 관절 bent_ok 에서 파생(잠금)",
+      "citeGrade": "C — ④ 미명시, 본문·프로필 파생",
+      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
+      "note2": "try2 — try1 은 원이 손 하나에 앉았다. 승인 자산 ref-elbow-twist-sister--arm 이 팔꿈치를 원으로 잡은 선례에 맞춰 target 을 팔꿈치·전완으로"
+    },
+    {
+      "motionId": "ref-elbow-twist-sister",
+      "part": "leg",
+      "guideType": "line",
+      "anchor": "app/assets/illustrations/ref-peter-pan--leg.jpg",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_et_leg.jpg",
+      "promptPose": "close view of the upper leg extended straight up along a vertical pole while the body hangs inverted, the knee locked straight and the foot pointed, the rest of the body outside the frame",
+      "promptTarget": "the upper extended leg from hip through knee to the pointed toes",
+      "guideRuleMatch": "A-1 ③ \"윗다리 수직으로 뽑아\" = 신전 계열 + 실측 f117 윗다리 165.6° 수직 익스텐션 · ④ \"윗다리 무릎·수직 라인\"",
+      "citeGrade": "A",
+      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다"
+    },
+    {
+      "motionId": "ref-elbow-twist-sister",
+      "part": "shoulder",
+      "guideType": "circle",
+      "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_et_sh.jpg",
+      "promptPose": "close view of the shoulders and upper back of a person hanging inverted on a vertical pole with an elbow-grip, chest open in a twist",
+      "promptTarget": "both shoulders and the upper back that hold the twist",
+      "guideRuleMatch": "A-1 ③ \"버텨\"·\"가슴 열어(흉추까지)\" · techniqueProfile 전 관절 bent_ok → 직선 금지",
+      "citeGrade": "B — ④ 미명시, ③·프로필 파생",
+      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다"
+    },
+    {
+      "motionId": "ref-peter-pan",
+      "part": "shoulder",
+      "guideType": "circle",
+      "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_pp_sh.jpg",
+      "promptPose": "close view from behind of the upper back and the shoulder of the arm reaching high to grip a vertical pole, the body hanging in a stag shape",
+      "promptTarget": "the gripping-side shoulder and upper back",
+      "guideRuleMatch": "A-1 ③ \"어깨 눌러\" · ④ \"위 그립 어깨\" 직접 명시 · techniqueProfile left/right_shoulder = bent_ok → 직선 금지",
+      "citeGrade": "A",
+      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다"
+    },
+    {
+      "motionId": "ref-peter-pan",
+      "part": "arm",
+      "guideType": "line",
+      "anchor": "app/assets/illustrations/ref-peter-pan--leg.jpg",
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_pp_arm.jpg",
+      "promptPose": "close view of a single arm reaching up and straight to grip a vertical pole, from the shoulder to the hand; no other limb is in the frame",
+      "promptTarget": "ONLY the single gripping arm, from its shoulder through the elbow to the hand — draw the line on that one arm and on nothing else",
+      "guideRuleMatch": "techniqueProfile left_elbow = **extend** (유일한 extend 팔 관절) + A-1 본문 \"상하 스플릿 그립 매달림\" · ③ \"그립 간격 유지해\"",
+      "citeGrade": "B — 프로필 1순위 파생",
+      "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
+      "note2": "try2 — try1 은 **직선 2줄**(규격 위반, 두 팔에 각각). target 을 '한 팔에만'으로 못박음",
+      "note3": "try3 — 직선 2줄이 두 번 반복됐다(두 팔에 각각). **팔 하나만 프레임에 두어** 두 번째 선이 그려질 자리를 구조적으로 없앤다"
     }
   ]
 }

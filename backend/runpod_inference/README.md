@@ -24,6 +24,16 @@
 
 ## 한 번에 띄우기 (belle 절차)
 
+> **기동 정본 = `backend/runpod_inference/start_server.sh`** (Pod 실행 사본 =
+> `/workspace/start_server.sh`, 둘은 byte 동일해야 한다 — `md5sum` 으로 대조).
+> Pod 에서는 `source /workspace/aws_env.sh && bash /workspace/start_server.sh`.
+>
+> ⚠ 아래 4)번의 맨손 `uvicorn` 한 줄에는 **동작 env 플래그가 빠져 있다**
+> (`PR_INVERSION_ENABLED` / `RTMW_DETERMINISTIC` / Gemini 코치·veto 계열).
+> 미주입은 조용한 OFF 함정이라 결과가 달라진 줄 모른 채 넘어간다 — 실제로
+> 인버전(32-15)·렌더 정렬 결정론(08-08) 이 이 경로로 두 번 누락됐다.
+> 맨손 기동은 스모크용으로만 쓰고, 분석·판정용 기동은 정본 스크립트로 할 것.
+
 ```bash
 # 1) RunPod Pod 시작 — PyTorch 베이스 이미지, RTX 3090/4090 24GB, SSH·HTTP 포트 노출
 #    노출할 포트: 8000 (HTTP)

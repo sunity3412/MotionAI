@@ -742,6 +742,32 @@ def _armpit_angle_viz(kp_at, t: float, side: str) -> dict | None:
             "deg": deg if (conf >= 0.5 and 20.0 <= deg <= 179.5) else None}
 
 
+def _pair_lockstep_degrees(viz: dict | None) -> dict | None:
+    """사이각 **수치**를 양 패널 짝으로만 남긴다 (belle 08-09 실기기 반려).
+
+    두 패널의 `deg` 는 각 패널이 자기 keypoint 신뢰(>=0.5)를 따로 통과해야 채워진다
+    (`_legs_angle_viz` / `_armpit_angle_viz`). 그래서 한쪽만 신뢰가 낮으면 **한 패널에만
+    숫자가 찍힌다** — belle 실측: 오른쪽 어깨(겨드랑이) 사이각에서 내 자세만 "48°",
+    정은지 선수 패널은 수치 없음. 혼자 있는 48° 는 비교가 아니라 오독이라("얘만 각도
+    수치 비교가 없네"), 한쪽이라도 비면 양쪽 다 생략한다.
+
+    쐐기·호(=무엇을 보라)는 신뢰와 무관하게 그대로 남으므로 지목은 잃지 않는다.
+    반대 방향(신뢰 낮은 쪽도 억지로 수치 표시)은 채택하지 않는다 — 부정확한 수치를
+    내보내는 것이라 분석 정확도 원칙에 어긋난다.
+
+    바로 위 both-or-neither(패널 자체 유무) 규칙의 수치판 — 같은 불변식의 확장이다.
+    순수 함수(입력 dict 무변경, 새 dict 반환)라 GPU 없이 유닛 검증된다.
+    """
+    if viz is None:
+        return None
+    u, r = viz.get("user"), viz.get("ref")
+    if u is None or r is None:
+        return viz  # 패널 자체가 없는 경우는 상위 both-or-neither 가 이미 처리
+    if u.get("deg") is not None and r.get("deg") is not None:
+        return viz
+    return {**viz, "user": {**u, "deg": None}, "ref": {**r, "deg": None}}
+
+
 def _align_markers(align: dict, rec: dict, ut: float) -> list[tuple[float, float, str]]:
     """정지 마커 목록 [(x, y, style)] — belle 08-07 2차 판정 반영.
 
@@ -963,6 +989,8 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             # both-or-neither (fault_zoom 계약 승계) — 한쪽만 그려지면 비대칭 오독.
             if legs_viz is not None and (legs_viz.get("user") is None or legs_viz.get("ref") is None):
                 legs_viz = None
+            # 같은 불변식의 수치판 (belle 08-09) — 한 패널에만 숫자가 남는 것 차단.
+            legs_viz = _pair_lockstep_degrees(legs_viz)
             if legs_viz is not None and crit != "leg_extension":
                 markers = []  # 점 대신 사이각 표시 (신전은 무릎 링 + 사이각 병행)
         else:

@@ -107,15 +107,19 @@ export function ReferenceCornerSection({
   return (
     <View style={styles.wrapper}>
       <Text style={styles.sectionTitle}>참고하세요</Text>
-      <Text style={styles.sectionSub}>점수에는 반영되지 않아요</Text>
-      {/* 33-15 (D-16) — 무엇을 왜 보는지 안내 1줄 (D-05 최소 카피). */}
-      <Text style={styles.sectionGuide}>
-        내 자세와 기준 자세가 어디서 달라지는지 눈으로 견줘보는 용도예요
-      </Text>
+      {/* quick-260809-jnb — belle 08-09 "지금은 뭘 말하는지 모르겠음".
+          원인 = 위 '동작 비교'가 이미 멈추고 자막으로 설명하는데, 여기서 또
+          "어디가 다른지 견줘보는 용도"라고 하니 같은 말을 두 번 하는 셈이었다.
+          → 이 섹션만 줄 수 있는 것(멈춰 있는 그림·고친 모습)을 앞세운다.
+          "점수 무관"(D-09)은 유지하되 부정문으로 문을 열지 않도록 아래로. */}
+      <Text style={styles.sectionSub}>영상은 지나가지만, 여기 그림은 멈춰 있어요</Text>
+      <Text style={styles.sectionGuide}>점수에는 들어가지 않아요</Text>
 
       {showCorrected && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>교정된 자세</Text>
+          {/* quick-260809-jnb — "교정된 자세"는 결과 서술이라 무엇을 하라는지가
+              없다. belle 08-09 요구 = "아 이걸 고치면 되겠군" 이 오는 글. */}
+          <Text style={styles.cardTitle}>이렇게 바꾸면 돼요</Text>
           {correctedPoseState === 'ready' && correctedPoseImageUrl ? (
             <>
               <Image
@@ -137,7 +141,7 @@ export function ReferenceCornerSection({
               />
               {correctedPoseJointLabel != null && (
                 <Text style={styles.caption}>
-                  {`교정한 부위 · ${correctedPoseJointLabel}`}
+                  {`고친 곳 · ${correctedPoseJointLabel}`}
                 </Text>
               )}
             </>
@@ -155,15 +159,17 @@ export function ReferenceCornerSection({
 
       {showViewer && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>자세 비교</Text>
+          {/* quick-260809-jnb — "자세 비교"는 위 '동작 비교' 섹션과 이름이 겹쳐
+              무엇이 다른지 안 보였다. 이 카드의 정체 = 영상이 멈췄던 그 순간. */}
+          <Text style={styles.cardTitle}>같은 순간, 나란히</Text>
           {framesReady && poseFrames ? (
             <>
-              {/* 33-15 (D-16) — 모순 카피 수정: 섹션 서브("점수에는 반영되지
-                  않아요")와 "점수에 반영된 비교 순간"이 같은 섹션에 동거하던
-                  충돌 해소. 사실은 유지(분석이 비교한 순간의 실프레임) — "점수"
-                  표현만 제거. */}
+              {/* 33-15 (D-16) — 이 카드 문구에 "점수" 표현 금지. 섹션이
+                  "점수에는 들어가지 않아요"라고 해놓고 카드가 "점수에 반영된
+                  비교 순간"이라 부르던 모순을 없앤 규칙 (지금도 유효).
+                  사실 자체는 유지 = 분석이 비교한 그 순간의 실프레임. */}
               <Text style={styles.caption}>
-                분석에서 비교한 순간의 실제 화면이에요
+                위 영상이 멈춘 그 순간이에요
               </Text>
               <PoseCompareFrames
                 user={poseFrames.user}
@@ -174,7 +180,7 @@ export function ReferenceCornerSection({
           ) : (
             <>
               <Text style={styles.caption}>
-                내 자세와 목표 자세를 겹쳐 보여드려요
+                내 자세 위에 목표 자세를 겹쳐놨어요
               </Text>
               <PoseCompareViewer
                 userPose={userPose}

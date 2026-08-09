@@ -69,6 +69,11 @@ GUIDE MARK:
 
 ANATOMY:
 Exactly two arms and two legs, five fingers per hand, five toes per foot, joints bending only in anatomically possible directions.
+Exactly ONE head. The head must be attached to the neck and clearly separated from the hips
+and thighs - never fused into the pelvis, buttock or torso, and never duplicated anywhere in
+the image. Where limbs overlap or the body is folded, keep every limb readable as a separate
+outline: draw the contour where one body part passes in front of another so the viewer can
+count two arms and two legs without ambiguity.
 
 FRAMING:
 Portrait 3:4. The figure must FILL the frame - crop in close so the body occupies most of the image. Avoid large empty background areas; leave only a small margin around the figure.

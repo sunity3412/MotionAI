@@ -1,0 +1,46 @@
+{
+  "generated_by": "quick-260809-ill — 33-14 미완 4동작 중 A-1 등재 2동작 재시도",
+  "why_retry": "33-14 에서 pdshape 3회·sideway-spin 3회 전부 FAIL. 주 사유는 '② 자세 충실 — 앵커 앉은 자세 복제'(8회 중 다수). 그 뒤 plf 라운드가 앵커 규칙을 L-6(같은 동작 통과본 > 같은 방위 통과본)으로 바꿔 3/3 PASS 했다. 떨어진 동작들은 고쳐진 규칙으로 재시도된 적이 없다.",
+  "excluded": "ref-combo — A-1 미등재(의도된 제외, 33-A1 '조용한 스킵 아님' 절). ref-peter-pan — 기록된 입력 3.00s 가 국면 아님이 실측으로 드러남(2~6s 전 구간 무릎 굽힌 회전). 프레임 재선정이 선행이라 이번 배치에서 뺀다.",
+  "scratchpad_note": "inputFrame 은 인물 실사라 리포 밖 스크래치패드에만 둔다 (home-dir-is-git-repo-pii-hazard). 재현 정보 = sourceVideo/t/cropBox.",
+  "targets": [
+    {
+      "motionId": "ref-pdshape",
+      "part": "leg",
+      "t": 8.25,
+      "window": "메인 hold 3.5~11.5s, peak 8s (A-1 ④)",
+      "guideType": "circle",
+      "guideRuleMatch": "③ \"다리 깊게 걸어\"·\"접은 다리 모양 그대로\"·\"골반 잠가\"·\"어깨로 버텨\" = 전부 hook·잠금 계열. ★A-1 명시: \"무릎 신전은 이 동작의 결함 축이 아님 — 정타가 무릎을 깊게 굽힘\" → 직선 금지 (33-14 try3 '접힘 대신 스플릿' FAIL 과 같은 축)",
+      "guideTarget": "hook 측 무릎(폴을 감은 다리의 무릎 잠금부)",
+      "a1_cite": "표1 ref-pdshape — ④ \"메인 hold(3.5~11.5s, peak 8s, f54 부근): hook 측 무릎·고관절 + folded 다리 무릎 각 + 척추 비대칭 정렬\"",
+      "citeGrade": "A — ④가 부위를 직접 명시",
+      "orientation": "도립(비대칭 인버티드 클로즈드 셰이프)",
+      "anchor": "app/assets/illustrations/ref-power-spin.jpg",
+      "anchorReason": "L-6 — 같은 동작 통과본 없음 → 같은 방위(도립) 통과본 중 장면 표 등재 순서 첫 번째",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-pdshape.mp4",
+      "cropBox": [280, 480, 840, 1420],
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/pdshape_in.jpg",
+      "promptPose": "inverted upside-down on a vertical pole in an asymmetric closed shape, seen from the side, one leg hooked deeply around the pole at the knee and hip while the other leg stays folded and tucked, both hands gripping the pole, torso folded compactly",
+      "promptTarget": "the hooked knee where the leg locks around the pole"
+    },
+    {
+      "motionId": "ref-sideway-spin",
+      "part": "leg",
+      "t": 9.0,
+      "window": "회전 peak 9s±2s, f63~f99 (A-1 ④)",
+      "guideType": "line",
+      "guideRuleMatch": "③ \"다리 길게 밀어\" = 신전·라인 계열. 실측 양 무릎 173.3°/179.5° 신전, 결함이 \"자유 다리 무릎 굽음(chair spin 처럼 보임)\"",
+      "guideTarget": "자유 다리(고관절→무릎→발끝)",
+      "a1_cite": "표2 ref-sideway-spin — ④ \"회전 peak(9s±2s, f63~f99): 자유 다리 무릎·고관절 신전 + 주 그립 어깨\"",
+      "citeGrade": "A — ④가 부위를 직접 명시",
+      "orientation": "직립(비인버전 회전)",
+      "anchor": "app/assets/illustrations/ref-climb.jpg",
+      "anchorReason": "L-6 — 같은 동작 통과본 없음 → 같은 방위(직립) 통과본 = ref-climb",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-sideway-spin.mp4",
+      "cropBox": [360, 820, 940, 1640],
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/sideway_in.jpg",
+      "promptPose": "upright spinning on a vertical pole in a ballet line, one arm reaching high to grip the pole, back arched open, the free leg extended long and straight behind the body with a pointed foot",
+      "promptTarget": "the free extended leg from hip through knee to the pointed toes"
+    }
+  ]
+}

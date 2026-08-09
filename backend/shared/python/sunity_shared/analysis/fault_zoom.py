@@ -2893,7 +2893,23 @@ def build_fault_zoom_comparisons(
             # copy-then-commit — 위 legs both-or-neither 패턴 그대로(부분 드로잉 0).
             u_drew_angle = False
             r_drew_angle = False
-            angle_reason = "unmapped"
+            # quick-260809-jnb — 진입 게이트 사유를 **초기값 unmapped 로 뭉개지 않는다**.
+            # 종전엔 크롭이 relaxed 라 각도 블록에 들어오지도 못한 카드가 로그에
+            # `omitted:unmapped`(=각도 대상 아님)로 찍혔다. 실측 1건(엘보 5카드)에서
+            # 3건 omit 중 2건이 실은 relaxed 였는데 전부 unmapped 로 보고돼,
+            # "무엇을 채우면 각도가 살아나는가"를 로그로 판단할 수 없었다.
+            # 바로 아래 주석("원인을 뒤섞지 않게")이 지키려던 것을 진입 게이트까지 확장.
+            # 판정 순서 = if 조건의 평가 순서와 동일. 드로잉 동작 무변경(진단 문자열만).
+            if unit.criterion is None:
+                angle_reason = "no_criterion"
+            elif u_drew_legs:
+                angle_reason = "legs_owned"
+            elif u_kind != "valid" or u_box is None:
+                angle_reason = "user_crop_relaxed"
+            elif r_kind != "valid" or r_box is None:
+                angle_reason = "ref_crop_relaxed"
+            else:
+                angle_reason = "unmapped"
             if (
                 unit.criterion is not None
                 and not u_drew_legs

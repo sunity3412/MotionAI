@@ -382,7 +382,8 @@ export default function RenderedComparePlayer({
                 style={styles.fsVideo}
                 contentFit="contain"
                 nativeControls={false}
-                allowsFullscreen={false}
+                // allowsFullscreen 은 expo-video 에서 deprecated(경고 발생)이고,
+                // nativeControls=false 면 전체화면 진입 UI 자체가 없어 무의미하다.
                 allowsPictureInPicture={false}
                 accessibilityLabel="동작 비교 영상 (가로)"
               />

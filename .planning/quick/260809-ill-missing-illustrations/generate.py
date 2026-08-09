@@ -54,6 +54,23 @@ GUIDE_SENTENCE = {
         "Do NOT draw any straight line anywhere in the image - this body part is "
         "correct while bent or locked, so a straight line would teach the wrong thing."
     ),
+    # belle 08-09 3차 — **영상과 같은 문법**. 분석이 사용자에게 내보내는 문장이
+    # 전부 "…각도가 기준과 차이가 있어요"이고, 합성 비교 영상은 그 관절에 두 선과
+    # 사이각 호를 그린다(belle 캡처: 겨드랑이 121° vs 147°). 원/단독 직선으로 부위만
+    # 짚으면 **말하는 것과 가리키는 것이 달라진다** — 그것이 반려 사유였다.
+    # 숫자는 넣지 않는다: 목표 각을 새로 만들어내는 것이고(D-04/D-05 수치 mint 금지),
+    # 승인 자산도 각도 배지 없이 왔다(belle 2026-07-28).
+    "angle": (
+        "Overlay ONE coral-red angle marker at {target}. The marker is made of EXACTLY THREE "
+        "strokes and nothing else: two straight lines and one small arc. "
+        "BOTH lines must START AT THE SAME POINT - the joint itself - and open outward from "
+        "it like the two sides of a letter V; if the two lines do not touch each other at the "
+        "joint the drawing is wrong. Each line lies flat on top of its limb and stops before "
+        "the next joint. The arc is drawn between the two lines, close to their meeting point. "
+        "Count the red strokes before finishing: there must be exactly three (line, line, arc). "
+        "Draw NO number, NO text, NO circle, NO extra segment, and no red mark on any other "
+        "body part."
+    ),
 }
 
 PROMPT = """Redraw the FIRST reference image as a clean instructional illustration, using the SECOND reference image only as a style reference.
@@ -96,7 +113,7 @@ FRAMING:
 Portrait 3:4. The figure must FILL the frame - crop in close so the body occupies most of the image. Avoid large empty background areas; leave only a small margin around the figure.
 
 STYLE:
-Soft pencil-and-watercolour illustration on a plain warm off-white background, muted warm skin tones, dark taupe activewear, no text, no logos, no watermark, no border.
+Soft pencil-and-watercolour illustration on a completely plain warm off-white background - no room, no window, no plant, no furniture, no floor line - muted warm skin tones, dark taupe activewear, no text, no logos, no watermark, no border.
 """
 
 

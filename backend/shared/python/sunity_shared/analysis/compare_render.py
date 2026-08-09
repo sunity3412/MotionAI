@@ -781,105 +781,272 @@ ZOOM_PAD = 0.55           # 표시 bbox 대비 여유 (표시가 화면 끝에 �
 # 뺀 이유(폴=수직 기준선이라 좁은 크롭이 맥락을 없앤다)와 같은 함정. 하한을 둬서
 # 사지·폴·몸통 일부가 항상 함께 보이게 한다.
 ZOOM_MIN_FRAC = 0.42
+
+# 짝 미세 보정 탐색 반경(초). belle 08-09: "모습이 아주 미세하게 몇 프레임 정도
+# 차이가 나서 그걸 맞춰주면서 해야 해." 움직이는 영상에서는 안 보이는 어긋남이
+# 멈춘 사진에서는 보인다. **창은 좁아야 한다** — 넓히면 종전 fault_zoom 이 겪은
+# 실패(포즈 붕괴 프레임이 탐색을 끌어당김)가 그대로 재발한다.
+ZOOM_REFINE_S = 0.4
+ZOOM_REFINE_STEP_S = 1.0 / 30.0
+_ZOOM_POSE_JOINTS = (
+    "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
+    "left_wrist", "right_wrist", "left_hip", "right_hip",
+    "left_knee", "right_knee", "left_ankle", "right_ankle",
+)
+
+
+def _pose_vec(kp_at, t: float):
+    """몸통 크기·위치로 정규화한 자세 벡터 — 촬영 거리/위치 차이를 지운다.
+
+    붕괴 프레임(스켈레톤이 폴 위 한 줄로 뭉침) 방어를 겸한다: 몸통 길이가 0 에
+    가까우면 None 을 돌려 후보에서 스스로 빠진다.
+    """
+    pts, confs = [], []
+    for n in _ZOOM_POSE_JOINTS:
+        p, c = kp_at(n, t)
+        pts.append(p)
+        confs.append(c)
+    arr = np.asarray(pts, dtype=float)
+    conf = np.asarray(confs, dtype=float)
+    if not np.isfinite(arr).all():
+        return None
+    sh = (arr[0] + arr[1]) / 2.0
+    hp = (arr[6] + arr[7]) / 2.0
+    torso = float(np.linalg.norm(sh - hp))
+    if torso < 1e-3:
+        return None
+    return (arr - hp) / torso, conf
+
+
+def _pose_dist(u_at, r_at, ut: float, rt: float) -> float | None:
+    """두 패널 자세 거리 — 신뢰 관절만 평균 L2 (양쪽 conf >= 0.35)."""
+    a, b = _pose_vec(u_at, ut), _pose_vec(r_at, rt)
+    if a is None or b is None:
+        return None
+    (pa, ca), (pb, cb) = a, b
+    m = (ca >= 0.35) & (cb >= 0.35)
+    if int(m.sum()) < 6:
+        return None
+    return float(np.linalg.norm(pa[m] - pb[m], axis=1).mean())
+
+
+def _zoom_refine_rt(align: dict, ut: float, rt: float) -> float:
+    """정지 짝을 사진 눈높이로 미세 보정한 기준 시각.
+
+    영상이 정한 rt 를 **중심으로만** 쓰고 ±ZOOM_REFINE_S 안에서 자세가 가장 맞는
+    시각을 고른다. 후보가 하나도 성립하지 않으면 rt 를 그대로 둔다(fail-closed —
+    영상 판정을 뒤집지 않는다).
+    """
+    try:
+        u_at, r_at = _kp_reader(align, "user"), _kp_reader(align, "ref")
+    except (KeyError, ValueError):
+        return rt
+    dur = float(align["refFrames"]) / float(align["fps"])
+    best, best_d = rt, _pose_dist(u_at, r_at, ut, rt)
+    n = int(round(ZOOM_REFINE_S / ZOOM_REFINE_STEP_S))
+    for k in range(-n, n + 1):
+        t = rt + k * ZOOM_REFINE_STEP_S
+        if not (0.0 <= t <= dur):
+            continue
+        d = _pose_dist(u_at, r_at, ut, t)
+        if d is not None and (best_d is None or d < best_d):
+            best, best_d = t, d
+    return best
 ZOOM_ASPECT = 4.0 / 3.0   # 세로 패널 (07-28 프레이밍 결정 승계)
 ZOOM_CARD_W = 480         # 카드 한 패널 출력 폭
 
 
-def _zoom_geometry(fz: dict, panel_key: str, align: dict | None):
-    """(표시 점들, 기준 패널에 링을 새로 그려야 하면 그 좌표) — 좌표는 전부 정지
-    화면이 **이미 지목한 것**이고 여기서 새로 판정하는 것은 없다.
+def _native_frame(video: Path, sec: float, workdir: Path):
+    """원본 해상도 프레임 1장 — 확대 비교 사진 전용.
 
-    확대 상자를 고정 비율이 아니라 **그려진 표시가 다 들어가는 크기**로 잡기 위해
-    중심 하나가 아니라 점 목록을 돌려준다 — 사이각은 두 광선 끝까지, 링은 그 점만.
+    영상 렌더는 프레임을 PANEL_H(1080)로 줄여 쓴다. 사용자 영상은 4K 인 경우가 있어
+    (실측: 2160×3840) 그 캔버스를 자르면 해상도를 3배 넘게 버린다 — 확대해서 보라는
+    사진에서 그건 자기 목적을 깎는 것이다. 그래서 사진만 원본에서 다시 뽑는다.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    p = workdir / f"{video.stem}_{int(round(sec * 1000)):08d}.png"
+    if not p.exists():
+        subprocess.run([FF, "-y", "-loglevel", "error", "-ss", f"{sec:.3f}",
+                        "-i", str(video), "-frames:v", "1", str(p)], check=True)
+    return Image.open(p).convert("RGB")
+
+
+def _zoom_display(fz: dict, panel_key: str, align: dict | None, t: float):
+    """(표시 점들, 사이각 payload, 링 좌표) — 한 패널의 표시 전부.
+
+    좌표는 정지 화면이 **이미 지목한 것**을 쓰고, 기준 패널의 사이각만 미세 보정된
+    시각 `t` 에서 **같은 함수로 다시** 계산한다(짝이 몇 프레임 움직였으므로).
     우선순위는 표시 문법의 소유 순서 그대로(사이각 → 폴 근접 → 몸-폴 라인 → 링).
     """
-    for key, pick in (
-        ("legs_viz", lambda v: [v["v"], v["a"], v["b"]]),
-        ("pole_viz", lambda v: [v["joint"], [v["poleX"], v["joint"][1]]]),
-        ("body_viz", lambda v: [v["a"], v["b"]]),
-    ):
-        blob = fz.get(key)
-        if blob and blob.get(panel_key):
-            pts = [(float(p[0]), float(p[1])) for p in pick(blob[panel_key])]
-            return pts, None
+    lv = fz.get("legs_viz")
+    if lv is not None:
+        v = lv.get(panel_key)
+        if panel_key == "ref" and align is not None and fz.get("viz_kind"):
+            r_at = _kp_reader(align, "ref")
+            v = (_legs_angle_viz(r_at, t) if fz["viz_kind"] == "legs"
+                 else _armpit_angle_viz(r_at, t, fz["viz_side"]))
+            # 짝 규칙은 영상과 동일 — 한쪽이 없으면 양쪽 생략, 수치도 짝으로만.
+            v = (_pair_lockstep_degrees({"user": lv.get("user"), "ref": v}) or {}).get("ref")
+        if v:
+            pts = [(float(v[k][0]), float(v[k][1])) for k in ("v", "a", "b")]
+            return pts, v, None
+        return None, None, None
+    pv = fz.get("pole_viz")
+    if pv and pv.get(panel_key):
+        v = pv[panel_key]
+        j = (float(v["joint"][0]), float(v["joint"][1]))
+        return [j, (float(v["poleX"]), j[1])], None, j
+    bv = fz.get("body_viz")
+    if bv and bv.get(panel_key):
+        v = bv[panel_key]
+        return [(float(v["a"][0]), float(v["a"][1])),
+                (float(v["b"][0]), float(v["b"][1]))], None, None
     if panel_key == "user":
         marks = fz.get("markers") or []
-        return ([(float(m[0]), float(m[1])) for m in marks] or None), None
+        if not marks:
+            return None, None, None
+        pts = [(float(m[0]), float(m[1])) for m in marks]
+        return pts, None, pts[0]
     # 기준 패널 폴백 — 영상은 링을 학생 패널에만 그린다(움직이는 화면 문법). 멈춘
-    # 사진에서는 한쪽만 표시되면 "여기 봐"가 성립하지 않으므로, 같은 관절의 기준
-    # 좌표에 같은 링을 그린다 (fault_zoom both-or-neither 계약). 신뢰 미달이면 None
-    # → 카드 자체를 만들지 않는다(확신 없는 표식 금지).
+    # 사진에서 한쪽만 표시되면 "여기 봐"가 성립하지 않으므로 같은 관절의 기준
+    # 좌표에 같은 링을 그린다 (fault_zoom both-or-neither 계약). 신뢰 미달이면
+    # None → 카드 자체를 만들지 않는다(확신 없는 표식 금지).
     if align is None or not fz.get("joint"):
-        return None, None
+        return None, None, None
     try:
-        kp_at = _kp_reader(align, "ref")
-        pos, conf = kp_at(fz["joint"], float(fz["rt"]))
+        pos, conf = _kp_reader(align, "ref")(fz["joint"], t)
     except (KeyError, IndexError, ValueError):
-        return None, None
+        return None, None, None
     if conf < 0.35 or not np.isfinite(pos).all():
-        return None, None
+        return None, None, None
     xy = (float(pos[0]), float(pos[1]))
-    return [xy], xy
+    return [xy], None, xy
 
 
-def _zoom_box(pts, off: float, pw: float, side_w: float):
-    """표시 점들을 감싸는 세로 상자 (패널 안으로 클램프)."""
-    xs = [p[0] * pw + off for p in pts]
-    ys = [p[1] * PANEL_H for p in pts]
-    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
-    bw = side_w
-    bh = min(float(PANEL_H), bw * ZOOM_ASPECT)
-    left = float(np.clip(cx - bw / 2, off, off + pw - bw))
-    top = float(np.clip(cy - bh / 2, 0.0, PANEL_H - bh))
-    return left, top, bw, bh
+def zoom_cards(freezes: list[dict], user_video: Path, ref_video: Path,
+               align: dict | None, out_dir: Path, workdir: Path) -> list[dict]:
+    """정지마다 확대 비교 사진 1장 — 순간·표시는 영상에서, 그림은 원본에서.
 
-
-def _zoom_card(canvas, fz: dict, a_w: int, b_w: int, align: dict | None):
-    """정지 캔버스에서 [학생 | 기준] 부위 확대 사진 1장. 실패 시 None.
-
-    양측이 다 성립할 때만 만든다 — 한쪽만 확대하면 두 패널의 배율·중심이 어긋나
-    나란히 비교가 성립하지 않는다(fault_zoom both-or-neither 계약 승계).
-    **두 패널의 상자 크기는 같다**(07-20 "프레이밍은 양쪽 동일 배율") — 각 패널은
-    자기 표시를 중심에 두되 크기는 둘 중 큰 쪽으로 맞춘다.
+    영상이 정한 것(감점 순간·기준 짝·표시 문법)을 사진이 다시 정하지 않는다. 다만
+    **기준 시각만 몇 프레임 미세 보정**한다 — 움직이는 영상에서는 안 보이던 어긋남이
+    멈춘 사진에서는 보이기 때문이다(belle 08-09). 보정 창은 좁고, 실패하면 영상 값을
+    그대로 쓴다.
     """
-    u_pts, _ = _zoom_geometry(fz, "user", align)
-    r_pts, r_ring = _zoom_geometry(fz, "ref", align)
-    if not u_pts or not r_pts:
-        return None
-    side = ZOOM_MIN_FRAC * a_w
-    for pts, off, pw in ((u_pts, 0, a_w), (r_pts, a_w + GAP, b_w)):
-        xs = [p[0] * pw + off for p in pts]
-        ys = [p[1] * PANEL_H for p in pts]
-        span = max(max(xs) - min(xs), (max(ys) - min(ys)) / ZOOM_ASPECT)
-        side = max(side, span * (1.0 + ZOOM_PAD))
-    side = min(side, float(min(a_w, b_w)), float(PANEL_H) / ZOOM_ASPECT)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    made: list[dict] = []
+    for fz in freezes:
+        ut = float(fz["ut"])
+        rt0 = float(fz["rt"])
+        rt = _zoom_refine_rt(align, ut, rt0) if align is not None else rt0
+        u_pts, u_rays, u_ring = _zoom_display(fz, "user", align, ut)
+        r_pts, r_rays, r_ring = _zoom_display(fz, "ref", align, rt)
+        if not u_pts or not r_pts:
+            print(f"[zoom-skip] {fz['rid']} 표시 미성립 — 사진 없음", file=sys.stderr)
+            continue
+        uf = _native_frame(user_video, ut, workdir)
+        rf = _native_frame(ref_video, rt, workdir)
+        # 두 패널 동일 배율(07-20) — 표시가 다 들어가는 쪽에 맞춘다.
+        frac = ZOOM_MIN_FRAC
+        for pts, fr in ((u_pts, uf), (r_pts, rf)):
+            xs = [p[0] for p in pts]
+            ys = [p[1] * fr.height / fr.width for p in pts]
+            span = max(max(xs) - min(xs), (max(ys) - min(ys)) / ZOOM_ASPECT)
+            frac = max(frac, span * (1.0 + ZOOM_PAD))
+        frac = min(frac, 1.0)
+        a = _zoom_panel(uf, u_pts, u_rays, u_ring, frac)
+        b = _zoom_panel(rf, r_pts, r_rays, r_ring, frac)
+        card = Image.new("RGB", (a.width + b.width + GAP, a.height), (20, 18, 17))
+        card.paste(a, (0, 0))
+        card.paste(b, (a.width + GAP, 0))
+        p = out_dir / f"{fz['rid']}.png"
+        card.save(p)
+        made.append({"rid": fz["rid"], "joint": fz.get("joint"), "path": str(p),
+                     "userSec": round(ut, 3), "refSec": round(rt, 3),
+                     "refShiftS": round(rt - rt0, 3)})
+        print(f"[zoom] {fz['rid']} joint={fz.get('joint')} ut={ut:.2f} "
+              f"rt={rt0:.2f}->{rt:.2f} ({rt - rt0:+.2f}s) frac={frac:.2f}",
+              file=sys.stderr)
+    return made
 
-    if r_ring is not None:
-        # 영상에 없던 유일한 추가 — 기준 패널 링. 스타일은 영상 마커와 동일.
-        # **반드시 사본에 그린다** — 호출측 canvas 는 이 직후 영상 프레임으로
-        # 저장되므로, 여기서 원본에 그으면 belle 승인본 영상이 바뀐다.
-        canvas = canvas.copy()
-        S_ = PANEL_H / 640.0
-        rx, ry = r_ring[0] * b_w + a_w + GAP, r_ring[1] * PANEL_H
+
+def _draw_zoom_panel(img, pts, rays, ring, scale: float):
+    """원본 해상도 크롭 위에 표시를 다시 그린다 — 문법·색·비율은 영상과 동일.
+
+    좌표는 정규화(0~1)라 원본 프레임에도 그대로 쓰인다. 굵기·반경만 크롭 배율에
+    맞춰 키운다(영상의 S = PANEL_H/640 과 같은 취지).
+    """
+    d = ImageDraw.Draw(img, "RGBA")
+    S_ = max(1.0, scale)
+    if rays is not None:
+        vx, vy = rays["v"]
+        angs, lens = [], []
+        for ek in ("a", "b"):
+            ex, ey = rays[ek]
+            dx, dy = ex - vx, ey - vy
+            L = float((dx * dx + dy * dy) ** 0.5) or 1.0
+            maxL = 250 * S_
+            if L > maxL:
+                ex, ey = vx + dx / L * maxL, vy + dy / L * maxL
+                L = maxL
+            lens.append(L)
+            d.line([vx, vy, ex, ey], fill=BRAND + (235,), width=round(4 * S_))
+            angs.append(float(np.degrees(np.arctan2(ey - vy, ex - vx))) % 360.0)
+        r_arc = round(min(56 * S_, 0.5 * min(lens)))
+        d0, d1 = sorted(angs)
+        if d1 - d0 > 180:
+            d0, d1 = d1, d0 + 360
+        d.arc([vx - r_arc, vy - r_arc, vx + r_arc, vy + r_arc],
+              start=d0, end=d1, fill=BRAND + (235,), width=round(4 * S_))
+        if rays.get("deg") is not None:
+            mid = np.radians((d0 + d1) / 2)
+            tx = vx + (r_arc + round(30 * S_)) * np.cos(mid)
+            ty = vy + (r_arc + round(30 * S_)) * np.sin(mid)
+            vfont = ImageFont.truetype(str(FONT_PATH), round(19 * S_))
+            label = f"{rays['deg']:.0f}°"
+            tw = d.textlength(label, font=vfont)
+            bx = float(np.clip(tx - tw / 2, 4, max(5.0, img.width - tw - 18 * S_)))
+            by = float(np.clip(ty - 14 * S_, 4, max(5.0, img.height - 44 * S_)))
+            d.rounded_rectangle([bx - 7 * S_, by - 3 * S_,
+                                 bx + tw + 7 * S_, by + 27 * S_],
+                                radius=round(7 * S_), fill=(15, 13, 12, 200))
+            d.text((bx, by), label, font=vfont, fill=(255, 255, 255))
+    if ring is not None:
+        rx, ry = ring
         r_out, r_in = round(13 * S_), round(4 * S_)
-        dr = ImageDraw.Draw(canvas, "RGBA")
-        dr.ellipse([rx - r_out, ry - r_out, rx + r_out, ry + r_out],
-                   outline=BRAND + (255,), width=round(4 * S_))
-        dr.ellipse([rx - r_in, ry - r_in, rx + r_in, ry + r_in], fill=BRAND + (255,))
+        d.ellipse([rx - r_out, ry - r_out, rx + r_out, ry + r_out],
+                  outline=BRAND + (255,), width=round(4 * S_))
+        d.ellipse([rx - r_in, ry - r_in, rx + r_in, ry + r_in], fill=BRAND + (255,))
+    return img
 
-    crops = []
-    for pts, off, pw in ((u_pts, 0, a_w), (r_pts, a_w + GAP, b_w)):
-        left, top, bw, bh = _zoom_box(pts, off, pw, side)
-        crops.append(
-            canvas.crop((round(left), round(top),
-                         round(left + bw), round(top + bh)))
-            .resize((ZOOM_CARD_W, round(ZOOM_CARD_W * ZOOM_ASPECT)), Image.LANCZOS)
-        )
-    cw, ch = crops[0].size
-    card = Image.new("RGB", (cw * 2 + GAP, ch), (20, 18, 17))
-    card.paste(crops[0], (0, 0))
-    card.paste(crops[1], (cw + GAP, 0))
-    return card
+
+def _zoom_panel(frame, pts, rays_n, ring_n, side_frac: float):
+    """원본 프레임 → 부위 크롭 + 표시. side_frac = 상자 가로 / 프레임 가로."""
+    W, H = frame.width, frame.height
+    px = [(p[0] * W, p[1] * H) for p in pts]
+    cx = (min(p[0] for p in px) + max(p[0] for p in px)) / 2
+    cy = (min(p[1] for p in px) + max(p[1] for p in px)) / 2
+    bw = min(float(W), side_frac * W)
+    bh = min(float(H), bw * ZOOM_ASPECT)
+    if bh >= H:
+        bh = float(H)
+        bw = min(float(W), bh / ZOOM_ASPECT)
+    left = float(np.clip(cx - bw / 2, 0.0, W - bw))
+    top = float(np.clip(cy - bh / 2, 0.0, H - bh))
+    crop = frame.crop((round(left), round(top), round(left + bw), round(top + bh)))
+    out_w = ZOOM_CARD_W
+    out_h = round(ZOOM_CARD_W * ZOOM_ASPECT)
+    crop = crop.resize((out_w, out_h), Image.LANCZOS)
+    sx, sy = out_w / bw, out_h / bh
+
+    def to_out(p):
+        return (p[0] * W - left) * sx, (p[1] * H - top) * sy
+
+    rays = None
+    if rays_n is not None:
+        rays = {k: to_out(rays_n[k]) for k in ("v", "a", "b")}
+        rays["deg"] = rays_n.get("deg")
+    ring = to_out(ring_n) if ring_n is not None else None
+    return _draw_zoom_panel(crop, px, rays, ring, out_w / 360.0)
 
 
 def _align_markers(align: dict, rec: dict, ut: float) -> list[tuple[float, float, str]]:
@@ -1030,6 +1197,9 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
         legs_viz = None
         pole_viz = None
         body_viz = None
+        # 사이각 종류·좌우 — 확대 비교 사진이 기준 시각을 미세 보정한 뒤 **같은
+        # 문법으로** 기준측을 다시 계산하기 위한 꼬리표. 렌더 동작 무관(표시 안 함).
+        viz_kind, viz_side = None, None
         if "_alignRefSec" in rec:
             rt, src = float(rec["_alignRefSec"]), "align"
             u_at = _kp_reader(align, "user")
@@ -1096,10 +1266,12 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             if legs_cue or crit in ("split_angle", "leg_extension"):
                 legs_viz = {"user": _legs_angle_viz(u_at, ut),
                             "ref": _legs_angle_viz(r_at, rt) if r_at is not None else None}
+                viz_kind, viz_side = "legs", None
             elif armpit_cue:
                 side = joint.split("_")[0]
                 legs_viz = {"user": _armpit_angle_viz(u_at, ut, side),
                             "ref": _armpit_angle_viz(r_at, rt, side) if r_at is not None else None}
+                viz_kind, viz_side = "armpit", side
             # both-or-neither (fault_zoom 계약 승계) — 한쪽만 그려지면 비대칭 오독.
             if legs_viz is not None and (legs_viz.get("user") is None or legs_viz.get("ref") is None):
                 legs_viz = None
@@ -1138,6 +1310,8 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             "dur": mp3_duration_s(mp3) + FREEZE_TAIL_S,
             "mp3": mp3, "joint": joint, "markers": markers,
             "legs_viz": legs_viz,
+            "viz_kind": viz_kind,
+            "viz_side": viz_side,
             "pole_viz": pole_viz,
             "body_viz": body_viz,
             # 오버라이드 우선 — elbow_text_overrides.json 을 렌더 자막과 Polly
@@ -1316,8 +1490,6 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
 
     first = uimg(0)
     W = first.width * 2 + GAP
-    # 정지마다 1장 — 같은 정지가 여러 출력 프레임으로 늘어나므로 rid 로 1회만 저장.
-    _zoom_saved: set[str] = set()
     for i, (us, rs_, fz) in enumerate(frames):
         a = uimg(us)
         if i in ref_blend:
@@ -1428,17 +1600,6 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
                     d.ellipse([mx - r_out, my - r_out, mx + r_out, my + r_out],
                               outline=BRAND + (255,), width=round(4 * S))
                     d.ellipse([mx - r_in, my - r_in, mx + r_in, my + r_in], fill=BRAND + (255,))
-            # ── 확대 비교 사진 (belle 08-09 "영상에서 잘 잡은 걸 확대") ──────────
-            # 자막 밴드 **직전**에 자른다 — 카드에는 밴드가 들어가면 안 된다(앱이
-            # 같은 문장을 이미 글로 낸다). 정지 순간·기준 짝·표시 문법은 여기서
-            # 아무것도 새로 정하지 않는다: 이 캔버스에 **이미 그려진 픽셀**을 자를
-            # 뿐이라 두 화면이 어긋날 수 있는 자리가 원리적으로 없다.
-            if zoom_dir is not None and fz["rid"] not in _zoom_saved:
-                card = _zoom_card(canvas, fz, a.width, b.width, align)
-                if card is not None:
-                    zoom_dir.mkdir(parents=True, exist_ok=True)
-                    card.save(zoom_dir / f"{fz['rid']}.png")
-                    _zoom_saved.add(fz["rid"])
             lines = wrap_text(d, fz["text"], font, W - 2 * pad)[:3]
             band_h = round(18 * S) + line_h * len(lines)
             d.rectangle([0, PANEL_H - band_h, W, PANEL_H], fill=(15, 13, 12, 216))
@@ -1446,6 +1607,13 @@ def render(doc_json: Path | dict, user_video: Path, ref_video: Path, audio_dir: 
                 d.text((pad, PANEL_H - band_h + round(10 * S) + line_h * li),
                        line, font=font, fill=(255, 255, 255))
         canvas.save(odir / f"{i + 1:06d}.jpg", quality=92)
+
+    # 확대 비교 사진 — 영상 프레임을 자르지 않고 **원본에서 다시 뽑는다**(해상도
+    # 보존). 영상 산출과는 완전히 분리된 후처리라 zoom_dir 미지정 시 무영향.
+    zoom_made: list[dict] = []
+    if zoom_dir is not None:
+        zoom_made = zoom_cards(freezes, user_video, ref_video, align,
+                               zoom_dir, workdir / "zoom_src")
 
     silent = out.with_suffix(".video.mp4")
     subprocess.run([FF, "-y", "-loglevel", "error", "-framerate", str(FPS_OUT),

@@ -59,6 +59,17 @@ const VERIFIED_ILLUSTRATIONS: Record<string, number> = {
   'ref-power-spin--shoulder': require('../../assets/illustrations/ref-power-spin--shoulder.jpg'),
   'ref-kip-up--shoulder': require('../../assets/illustrations/ref-kip-up--shoulder.jpg'),
   'ref-elbow-twist-sister--arm': require('../../assets/illustrations/ref-elbow-twist-sister--arm.jpg'),
+  // quick-260809-ill — 33-14 미완 3동작 (belle 08-09 "하나라도 불가능하면 기능 자체를
+  // 못 넣어"). 33-14 가 8회 실패했던 것들로, 실패 주 원인은 **앵커 선택**이었다:
+  // 방위만 맞춘 앵커가 자기 자세를 복제시켰다. 앵커를 "의도"로 고르자 통과 —
+  // 자세 의도(신전+직선) = sideway/peter-pan, 구도 의도(부분 프레이밍) = pdshape.
+  'ref-pdshape--leg': require('../../assets/illustrations/ref-pdshape--leg.jpg'),
+  'ref-peter-pan--leg': require('../../assets/illustrations/ref-peter-pan--leg.jpg'),
+  'ref-sideway-spin--leg': require('../../assets/illustrations/ref-sideway-spin--leg.jpg'),
+  // belle 08-09 "콤보도 등재해서 A-1 채우자". 콤보는 33-A1 표에 없지만(미등재 동작)
+  // 레퍼런스 doc 자체가 국면·부위·기대관절을 데이터로 들고 있어 그것에서 키잉했다 —
+  // 지어낸 값 0. 상세 = illustrationScene provenance.
+  'ref-combo--leg': require('../../assets/illustrations/ref-combo--leg.jpg'),
 };
 
 export function DefectIllustration({

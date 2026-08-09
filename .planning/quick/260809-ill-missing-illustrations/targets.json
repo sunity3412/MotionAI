@@ -79,6 +79,31 @@
       "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/peterpan_leg.jpg",
       "promptPose": "close view of one leg extended long and straight down and back beside a vertical pole, hip at the top edge of the frame, the knee straight and the foot pointed, the rest of the body outside the frame",
       "promptTarget": "the straight extended leg from hip through knee to the pointed toes"
+    },
+    {
+      "motionId": "ref-combo",
+      "part": "leg",
+      "t": 33.0,
+      "window": "clipRange.execPeakS = 33 (레퍼런스 doc 데이터) · description '레그 행 hold + 익스텐션 28~37.5s, 33s 아웃사이드 레그 행 명확'",
+      "guideType": "circle",
+      "guideRuleMatch": "레그 행 = hook·잠금 계열 → 원. checkpoints 노트 '레그 행 + 버터플라이 + 셰이프 전환의 골반'(left/right_hip 가중 0.15) · '훅/익스텐션 사이 무릎'(left/right_knee 0.10). techniqueProfile 8관절 전부 bent_ok = 펴야 할 관절 없음 → **직선 금지**",
+      "guideTarget": "폴에 걸린 다리의 무릎·고관절 잠금부",
+      "a1_cite": "A-1 미등재 동작(33-A1 의도된 제외). belle 08-09 '콤보도 등재해서 A-1 채우자' 지시로 **레퍼런스 doc 데이터에서 직접 키잉** — clipRange.execPeakS(국면) + checkpoints 가중·노트(부위) + techniqueProfile(가이드 종류). 지어낸 값 0",
+      "citeGrade": "B — A-1 표가 아니라 레퍼런스 doc 데이터에서 파생(출처 명시)",
+      "orientation": "도립(아웃사이드 레그 행)",
+      "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
+      "anchorReason": "pdshape try6 에서 실증된 부분 구도 앵커. 콤보도 도립·사지 겹침 구조라 전신 렌더 실패 위험이 같다",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-combo.mp4",
+      "cropBox": [
+        180,
+        620,
+        740,
+        1320
+      ],
+      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/combo_hook3.jpg",
+      "promptPose": "side view of an outside leg hang on a vertical pole: the back of one knee and the thigh hook over the pole carrying the body weight, the hip and lower torso hang below, the other leg extends away, the head is outside the frame",
+      "promptTarget": "the hooked leg's knee and hip where the leg locks over the pole",
+      "cropNote": "try3 — try1(골반 클로즈업)은 게이트는 통과하나 '엉덩이 확대'로 읽혀 코칭 전달이 약했고, try2(무릎 중심)는 원이 손-폴 접촉부로 가고 머리가 재출현했다. 걸이 **형태**가 보이도록 다리+골반+상체 일부를 담되 머리는 프레임 밖(pdshape 통과본과 같은 구성)."
     }
   ]
 }

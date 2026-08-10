@@ -3437,6 +3437,10 @@ def _render_fault_zoom(
             # fan-out, 33-A3 tier 분리 유지). 회전류 초 표기는 비교쌍 공통 적용.
             stamp_ref=stamp_ref,
             analysis_id=analysis_id,
+            # 원본 해상도는 tier 와 무관하다 (quick-260810-ms2) — 이걸 빠뜨리면 한
+            # 캐러셀 안에서 확정 카드만 선명하고 참고 카드만 흐리다(실측 left_shoulder
+            # 151px). 공급자는 프레임 캐시를 공유하므로 추가 추출 비용도 없다.
+            native_frame_at=_native_at,
         )
     out: list[dict] = []
     for tier, batch, key_prefix in (

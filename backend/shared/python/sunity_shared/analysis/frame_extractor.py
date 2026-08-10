@@ -69,6 +69,36 @@ class FfmpegFrameExtractor:
         """그 영상의 실효 솎음 rate — 추출 이력이 없으면 None (호출측 fail-open)."""
         return self._effective_fps_by_path.get(_norm_path(path))
 
+    def probe_effective_fps(self, path) -> float | None:
+        """추출 **없이** 실효 rate — 이력이 있으면 그것, 없으면 메타데이터로 계산.
+
+        `effective_fps_for` 만으로는 부족한 경로가 있다 (quick-260810-ms2): 운영 Pod 은
+        학생 프레임을 캐시로 넘겨받아(`STUDENT_FRAME_CACHE=1`) 이 인스턴스가 그 영상을
+        추출한 적이 없다 → 이력 부재 → 프레임↔초 환산이 막힌다. 메타데이터는 추출과
+        같은 출처(imageio meta fps)이고 계산도 같은 `effective_fps` 라 값이 일치한다.
+
+        판정 불가는 None — 0 이나 target_fps 로 눙치지 않는다(모듈 상단 규율 승계).
+        """
+        hit = self._effective_fps_by_path.get(_norm_path(path))
+        if hit is not None:
+            return hit
+        try:
+            reader = imageio.get_reader(path)
+        except Exception:  # noqa: BLE001 - 열 수 없으면 판정 불가
+            return None
+        try:
+            src_fps = float(reader.get_meta_data().get("fps") or 0.0)
+        except Exception:  # noqa: BLE001
+            return None
+        finally:
+            reader.close()
+        if src_fps <= 0:
+            return None
+        eff = effective_fps(src_fps, self.target_fps)
+        if eff is not None:
+            self._effective_fps_by_path[_norm_path(path)] = eff
+        return eff
+
     def _resize(self, frame: np.ndarray) -> np.ndarray:
         h, w = frame.shape[:2]
         longest = max(h, w)

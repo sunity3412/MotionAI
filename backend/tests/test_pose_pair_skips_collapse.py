@@ -91,6 +91,44 @@ def test_is_collapsed_frame_fail_open_without_joints_meta() -> None:
     assert fz.is_collapsed_frame(rep, 0) is False
 
 
+# ── 원본 해상도 프레임 폴백 ───────────────────────────────────────────────────
+class _Arr:
+    """ndim 만 흉내내는 최소 스텁 (numpy 없이 계약만 확인)."""
+
+    def __init__(self, ndim: int, tag: str) -> None:
+        self.ndim, self.tag = ndim, tag
+
+
+def test_native_frame_used_when_provider_returns_one() -> None:
+    small = [_Arr(3, "small0"), _Arr(3, "small1")]
+    got = fz.native_or_downscaled(lambda w, i: _Arr(3, "native%d" % i), "user", 1, small)
+    assert got.tag == "native1"
+
+
+def test_falls_back_to_downscaled_without_provider() -> None:
+    small = [_Arr(3, "small0"), _Arr(3, "small1")]
+    assert fz.native_or_downscaled(None, "user", 1, small).tag == "small1"
+
+
+def test_falls_back_when_provider_raises() -> None:
+    """원본 추출 실패는 표시 품질 저하일 뿐 — 카드는 나와야 한다."""
+    small = [_Arr(3, "small0")]
+
+    def _boom(_w, _i):
+        raise RuntimeError("ffmpeg died")
+
+    assert fz.native_or_downscaled(_boom, "user", 0, small).tag == "small0"
+
+
+def test_falls_back_when_provider_returns_unusable() -> None:
+    """None·비정상 shape 도 폴백 — 잘못된 배열을 크롭에 흘리지 않는다."""
+    small = [_Arr(3, "small0")]
+    assert fz.native_or_downscaled(lambda w, i: None, "user", 0, small).tag == "small0"
+    assert fz.native_or_downscaled(
+        lambda w, i: _Arr(2, "flat"), "user", 0, small
+    ).tag == "small0"
+
+
 # ── 학생 측 배제 ─────────────────────────────────────────────────────────────
 def test_collapsed_user_candidate_is_skipped() -> None:
     """학생 후보가 붕괴면 그 짝이 거리 0 이어도 뽑히지 않는다."""

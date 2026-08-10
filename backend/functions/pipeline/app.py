@@ -3232,6 +3232,55 @@ def _keypoint_deltas(joints: list) -> dict[str, float]:
     return out
 
 
+def _build_native_frame_provider(user_video_path: str, right_video_path: str, ext):
+    """(which, idx) → 원본 해상도 프레임 ndarray | None (quick-260810-ms2).
+
+    카드가 고른 인덱스 1장씩만 원본에서 뽑는다. 실효 rate 를 못 구하는 영상은 그 측을
+    통째로 포기한다 — 초 환산이 어긋나면 **엉뚱한 순간을 선명하게** 보여주게 되고,
+    그건 흐린 사진보다 나쁘다. 실패는 전부 None → 호출측이 종전 축소본으로 폴백.
+    """
+    import numpy as _np
+
+    from sunity_shared.analysis import compare_render as _cr
+
+    paths = {"user": user_video_path, "ref": right_video_path}
+    fps: dict[str, float] = {}
+    for which, p in paths.items():
+        try:
+            # 추출 이력이 없어도 메타데이터로 구한다 — 운영 Pod 은 학생 프레임을
+            # 캐시로 받아(STUDENT_FRAME_CACHE=1) 이 인스턴스에 이력이 없다.
+            eff = ext.probe_effective_fps(p)
+        except Exception:  # noqa: BLE001 - 판정 불가는 그 측 포기로 처리
+            eff = None
+        if eff and eff > 0:
+            fps[which] = float(eff)
+        else:
+            log.info("native crop 비활성 (%s 실효 rate 판정 불가) path=%s", which, p)
+    if not fps:
+        return None
+    workdir = Path(tempfile.mkdtemp(prefix="fz_native_"))
+    cache: dict[tuple[str, int], object] = {}
+
+    def _at(which: str, idx: int):
+        if which not in fps:
+            return None
+        key = (which, int(idx))
+        if key in cache:
+            got = cache[key]
+            return None if got is None else _np.asarray(got)
+        img = None
+        try:
+            img = _cr._native_frame(  # noqa: SLF001 - 확대 사진 원본 추출 단일 출처
+                Path(paths[which]), int(idx) / fps[which], workdir
+            )
+        except Exception:  # noqa: BLE001 - 부가 품질 — 실패는 축소본 폴백
+            log.warning("native frame 추출 실패 which=%s idx=%s", which, idx)
+        cache[key] = img
+        return None if img is None else _np.asarray(img)
+
+    return _at
+
+
 def _render_fault_zoom(
     result: dict,
     user_video_path: str,
@@ -3308,6 +3357,16 @@ def _render_fault_zoom(
         else ext.extract(user_video_path)
     )
     right_frames = ext.extract(right_video_path)
+    # 원본 해상도 프레임 공급자 (quick-260810-ms2) — 카드가 **고른 프레임 1장만**
+    # 원본에서 다시 뽑는다. 앱 카드가 726x360 인데 원본이 2160x3840 이라 640px 축소본을
+    # 자르면 원본의 1/6 만 남는다(belle "사진에서 더 자세히 볼 수 있도록"). 전 프레임을
+    # 원본으로 들면 4K 180프레임 = 4.3GB 라 1장씩 뽑는 것이 유일한 길.
+    # ★인덱스→초 환산은 **실효 rate** (÷9.0 을 쓰면 10% 어긋난다 — 08-10 뿌리 원인과
+    # 동일한 함정, quick-260810-e4v §1). 실효 rate 를 못 구하면 provider 를 안 만든다
+    # (조용히 어긋난 프레임을 크게 보여주는 것이 축소본보다 나쁘다).
+    _native_at = _build_native_frame_provider(
+        user_video_path, right_video_path, ext
+    )
     comps = fault_zoom.build_fault_zoom_comparisons(
         user_frames,
         right_frames,
@@ -3341,6 +3400,7 @@ def _render_fault_zoom(
         # 렌더러에 동작명 분기 0. 미주석 모션 = 대입 0 = 그 카드 각도 미표시(L-7).
         motion_id=motion_id,
         analysis_id=analysis_id,
+        native_frame_at=_native_at,
     )
     # advisory 배치 (quick-260704-fz4) — 프레임 추출은 위 1회 재사용. joint_kinds
     # 'deficit' 은 좌+우 grouping(arms 1장) 활성용 내부 전달일 뿐, 방출 item 에는

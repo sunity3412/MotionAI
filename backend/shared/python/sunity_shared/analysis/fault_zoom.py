@@ -1175,6 +1175,30 @@ def _crop_box(
     return left, top, side
 
 
+def native_or_downscaled(provider, which: str, idx: int, frames):
+    """그 인덱스의 **원본 해상도** 프레임 — 못 얻으면 종전 축소본(fail-open).
+
+    crop 기하가 전부 정규화 좌표(`_crop_box*`·`_to_crop_px`)라 프레임을 통째로 바꿔도
+    **같은 영역**이 나온다. 바뀌는 것은 그 영역을 몇 화소에서 잘랐느냐뿐이다.
+
+    왜 필요한가 (실측 08-10): 앱에 나가는 카드가 726x360 인데 원본 업로드 영상은
+    2160x3840 이다. 640px 로 줄인 프레임에서 잘라 360px 로 내보내므로 **원본의 1/6** —
+    확대해도 자세히 안 보인다(belle "사진에서 더 자세히 볼 수 있도록"). 채점에 쓰는
+    640px 추출물은 포즈 입력이라 손대지 않는다(바꾸면 점수가 움직인다).
+
+    provider 는 카드가 **실제로 고른 프레임 1장만** 뽑는다 — 전 프레임을 원본으로
+    들고 있으면 4K 180프레임 = 4.3GB 라 불가능하다.
+    """
+    if provider is not None:
+        try:
+            got = provider(which, int(idx))
+        except Exception:  # noqa: BLE001 - 원본 추출 실패는 표시 품질 저하일 뿐
+            got = None
+        if got is not None and getattr(got, "ndim", 0) == 3:
+            return got
+    return frames[idx]
+
+
 def criterion_crop_side(short_px: int, panels) -> int:
     """criterion 카드의 공용 crop 한 변(px) — 부위가 패널의 목표 비율이 되게 (순수).
 
@@ -2496,6 +2520,7 @@ def build_fault_zoom_comparisons(
     stamp_ref: bool = False,
     motion_id: str | None = None,
     reference_anchor_overrides: dict | None = None,
+    native_frame_at=None,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -2919,7 +2944,11 @@ def build_fault_zoom_comparisons(
         ]
         deficit = max(member_deltas) if member_deltas else None
         try:
-            u_frame = user_frames[u_idx_unit]
+            # 원본 해상도 프레임으로 자른다 (quick-260810-ms2) — 좌표가 정규화라 같은
+            # 영역이 나오고 화소만 살아난다. provider 부재/실패 = 종전 축소본(fail-open).
+            u_frame = native_or_downscaled(
+                native_frame_at, "user", u_idx_unit, user_frames
+            )
             # ref 표시 프레임 = 타임베이스 매핑 (rep 공간 → 비디오 배열,
             # ref_display_frame_index docstring 실측 근거). 정합 ref 는 배율 1.0
             # identity. 대응실패(전신 폴백)는 r_idx_unit 이 이미 비디오 중앙이라 제외.
@@ -2930,7 +2959,9 @@ def build_fault_zoom_comparisons(
                     r_idx_unit, r_n, r_rep_frames, r_rep_fps, frames_fps
                 )
             )
-            r_frame = ref_frames[r_display_idx]
+            r_frame = native_or_downscaled(
+                native_frame_at, "ref", r_display_idx, ref_frames
+            )
             # ── 33-G S9 — criterion 꼭짓점 정중앙 + 두 패널 동일 배율 (M-2) ────
             # 승인 4R#1 "두 패널 모두 꼭짓점 = 패널 정중앙(180,180)·같은 배율".
             # **both-or-neither:** 양측 꼭짓점이 모두 성립할 때만 정중앙 경로에

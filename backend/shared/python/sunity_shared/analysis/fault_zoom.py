@@ -2700,16 +2700,28 @@ def build_fault_zoom_comparisons(
                             out.append(_c)
                     return out
 
-                # 창 승급 (quick-260810-ms2) — 기본 창에 붕괴 아닌 후보가 하나라도
-                # 있으면 **그대로 간다**. 전건 붕괴일 때만 넓힌 창으로 올린다.
+                # 창 승급 (quick-260810-ms2) — 기본 창에 **쓸 수 있는** 후보가 하나라도
+                # 있으면 그대로 간다. 하나도 없을 때만 넓힌 창으로 올린다.
                 #
                 # ★항상 넓히면 안 되는 이유(실측 p34fresh1786348954): 넓힌 창을 전
                 # 카드에 적용했더니 멀쩡하던 left_hip 이 포즈거리 argmin 재선정으로
                 # 움직여 두 패널 표시 방향차가 17도 → 72도로 **악화**했다. 승급을
                 # 실패 조건에 묶어야 갇힌 카드(right_elbow)만 꺼내고 나머지는 불변이다.
+                #
+                # ★"쓸 수 있는" = 붕괴 아님 **그리고** 멤버 좌표로 그릴 수 있음.
+                # 붕괴만 보면 조건이 헐거워 실패한다(실측 p34fresh1786349646):
+                # right_elbow 기본 창에 붕괴 아닌 프레임이 있었지만 그것이 **그릴 수
+                # 없는** 프레임이라 선택자가 못 썼고, 승급은 안 걸려 결국 붕괴 프레임이
+                # 뽑혔다(사이각 6/171도, ray Δ 163도). 승급 조건은 선택자가 실제로
+                # 요구하는 것과 같아야 한다 — 판정은 `_member_pts`(앵커 분기와 동일 게이트).
                 _u_syn = _ring(_MOMENT_ANCHOR_RADIUS)
-                if all(
-                    is_collapsed_frame(
+                if not any(
+                    _member_pts(
+                        user_report,
+                        _to_rep_idx(_c, frames_fps, u_rep_fps, u_rep_frames),
+                        unit.members,
+                    )[0]
+                    and not is_collapsed_frame(
                         user_report,
                         _to_rep_idx(_c, frames_fps, u_rep_fps, u_rep_frames),
                     )

@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from sunity_shared.analysis import fault_zoom as fz
@@ -248,6 +249,51 @@ def test_side_crop_without_center_routes_through_legacy_helpers():
     assert np.array_equal(np.asarray(img), np.asarray(expect_img))
 
 
+def _spec(span_x: float, span_y: float = 0.0):
+    """(꼭짓점, 사지 방향점, 몸통 방향점) — 정규화 span 만 만드는 최소 스펙."""
+    return ((0.5, 0.5), (0.5 + span_x, 0.5), (0.5, 0.5 + span_y))
+
+
+def test_crop_side_puts_part_at_target_fraction():
+    """밴드 안이면 부위가 패널의 목표 비율(_CRITERION_PART_TARGET)이 되게 잡는다."""
+    short = 1000
+    # 정사각 프레임이라 정규화 span 0.22 = 220px → 목표 0.5 → 한 변 440px (밴드 안).
+    got = fz.criterion_crop_side(short, [(_spec(0.22), (1000, 1000))])
+    assert got == 440, got
+    assert 220 / got == pytest.approx(fz._CRITERION_PART_TARGET, abs=1e-9)
+
+
+def test_crop_side_clamps_to_floor_for_small_parts():
+    """부위가 작아도 하한 아래로는 안 좁힌다 — 맥락(거꾸로 매달린 자세)이 사라진다."""
+    short = 1000
+    got = fz.criterion_crop_side(short, [(_spec(0.05), (1000, 1000))])
+    assert got == round(short * fz._CRITERION_CROP_FRAC_MIN), got
+
+
+def test_crop_side_clamps_to_cap_for_large_parts():
+    """부위가 커도 상한 위로는 안 넓힌다 — belle '전신 사진이면 안되지'."""
+    short = 1000
+    got = fz.criterion_crop_side(short, [(_spec(0.90), (1000, 1000))])
+    assert got == round(short * fz._CRITERION_CROP_FRAC_MAX), got
+
+
+def test_crop_side_takes_the_wider_of_the_two_panels():
+    """두 패널 중 **큰 부위** 쪽에 맞춘다 — 작은 쪽에 맞추면 큰 쪽 표시가 잘린다."""
+    short = 1000
+    small, big = _spec(0.18), _spec(0.24)
+    got = fz.criterion_crop_side(short, [(small, (1000, 1000)), (big, (1000, 1000))])
+    assert got == fz.criterion_crop_side(short, [(big, (1000, 1000))])
+    assert got == 480, got
+
+
+def test_crop_side_uses_the_cap_when_part_cannot_be_measured():
+    """부위를 못 재면 밴드 상한 — 종전 고정값(0.61)은 밴드 밖이라 여기서만 전신이 샌다."""
+    short = 1000
+    got = fz.criterion_crop_side(short, [(None, (1000, 1000))])
+    assert got == round(short * fz._CRITERION_CROP_FRAC_MAX), got
+    assert got < round(short * fz._CRITERION_CROP_FRAC), "종전 고정값보다는 좁아야 한다"
+
+
 def test_both_panels_share_side_px_end_to_end(caplog):
     """criterion 카드: 두 패널 crop 한 변 px 동일 + vertex_centered 로그."""
     u_frames = _frames(n=9, h=640, w=360)
@@ -276,8 +322,14 @@ def test_both_panels_share_side_px_end_to_end(caplog):
     r = int(re.search(r"ref_side_px=(\d+)", line).group(1))
     assert u == r, f"두 패널 배율 불일치 user={u} ref={r}"
     assert "vertex_centered=True" in line
-    # 공용 한 변 = 두 프레임 짧은 변 min 파생 (L-2) → 270 * 220/360.
-    assert u == round(min(360, 270) * fz._CRITERION_CROP_FRAC)
+    # 공용 한 변 = 두 프레임 짧은 변 min 에서 파생 (L-2 — 어느 프레임도 초과 안 함).
+    # 폭 자체는 **부위 크기에서 나온다**(quick-260810-ms2, belle 08-10 "전신 사진이면
+    # 안되지") — 종전 고정 220/360 은 카드마다 부위가 22~58%로 벌어졌다. 여기서
+    # 못 박는 것은 그 계약이지 특정 숫자가 아니다: 하한·상한 밴드 안에 있을 것.
+    short = min(360, 270)
+    assert round(short * fz._CRITERION_CROP_FRAC_MIN) <= u <= round(
+        short * fz._CRITERION_CROP_FRAC_MAX
+    ), f"crop 폭이 하한·상한 밴드 밖: {u} (short={short})"
     assert f"shared_side_px={u}" in line
 
 

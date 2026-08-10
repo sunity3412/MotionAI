@@ -57,6 +57,28 @@ _CROP_FRAC = 0.42
 # _MIN_LEG_VEC_PX 선례와 같은 성격의 표시 상수라 calibration-source-hard-gate 대상 아님.
 _CRITERION_CROP_FRAC = 220.0 / 360.0
 
+# ── 크롭 폭을 **부위 크기에 맞춘다** (quick-260810-ms2, belle 08-10) ──────────
+# belle: "전신 사진이면 안되지" / "뭘 말하는지 모를것 같은데".
+#
+# 고정 비율 하나(0.61)로는 카드마다 부위가 차지하는 크기가 **22~58% 로 벌어진다**
+# (실측 p34fresh1786353008, 원본 2160x3840): 팔꿈치 22·34%, 어깨 26·52%, 골반 58%.
+# 게다가 표시 마크는 패널 대비 **고정 크기**(선 64/85px, 호 16px @ _OUT=360)라, 몸이
+# 작게 나오는 카드에서는 빨간 선이 허공에 뜬 것처럼 읽힌다 — 확대 비교인데 전신 원경.
+#
+# 그래서 "부위(각도 삼각 3점의 span)가 패널의 절반쯤" 되도록 카드마다 폭을 정하고,
+# 하한·상한으로 묶는다. 목표만으로 두면 팔꿈치가 27%까지 좁아져 거꾸로 매달린 자세라는
+# 맥락이 사라지고(관절 12개 중 5개만 남음), 골반은 71%까지 넓어져 다시 전신이 된다.
+#
+# 값 근거 (실측표 — 앞 숫자 = 부위/패널, 뒤 = 화면에 남는 관절 수/12):
+#   하한 0.40 : 아래로 더 가면 맥락 붕괴 — left_elbow 10/12 → 7/12 (45%), 6/12 (40%)
+#   상한 0.55 : 위로 더 가면 전신 — 61%에서 골반 58%·어깨 52% 로 다시 작아진다.
+#               0.50 까지 내리면 left_shoulder 맥락이 9/12 → 7/12 로 떨어져 여기서 멈춘다.
+#   목표 0.50 : 잘림 없음(100%가 잘림). 이 밴드 적용 시 다섯 장 34~65% 로 모인다.
+# ★표본 = belle 영상 1개·카드 5장. 다른 동작에서 span 이 달라지므로 하한·상한이 방어다.
+_CRITERION_PART_TARGET = 0.50
+_CRITERION_CROP_FRAC_MIN = 0.40
+_CRITERION_CROP_FRAC_MAX = 0.55
+
 # 겨드랑이 근사 파라미터 — **display 전용, 채점 무접촉** (33-G S8/S9, 승인 7R#2).
 # 승인 목업 7R: "겨드랑이 근사 = shoulder->hip 선분 t=0.15 지점 (일반화 규칙 —
 # kp 만으로 계산되며 수동 아님, 육안 검증 통과)". belle 파란 손그림 원리 = 어깨
@@ -1151,6 +1173,35 @@ def _crop_box(
     left = max(0, min(left, w - side)) if w >= side else 0
     top = max(0, min(top, h - side)) if h >= side else 0
     return left, top, side
+
+
+def criterion_crop_side(short_px: int, panels) -> int:
+    """criterion 카드의 공용 crop 한 변(px) — 부위가 패널의 목표 비율이 되게 (순수).
+
+    panels: [(spec | None, (h, w)), ...] — spec 은 `build_angle_bake_spec` 산출
+      (꼭짓점, 사지 방향점, 몸통 방향점) 정규화 좌표. 각 패널이 요구하는 폭을 구해
+      **큰 쪽**을 쓴다 — 작은 쪽에 맞추면 부위가 큰 패널의 표시가 잘린다. 두 패널이
+      같은 값을 쓰므로 승인 불변식 "두 패널 동일 배율"은 유지된다.
+
+    spec 이 하나도 없으면(각도 대상 아님/게이트 미달) 부위를 잴 수 없으므로 **밴드
+    상한**을 쓴다. 종전 고정값(_CRITERION_CROP_FRAC = 0.61)은 밴드 밖이라 그대로 두면
+    "전신 사진 금지"가 이 경로에서만 새어 나간다 — 밴드는 전 criterion 카드에 걸린다.
+    (legacy·advisory·mode3 는 애초에 `_CROP_FRAC` 을 쓰는 다른 경로라 무접촉.)
+    """
+    need = 0.0
+    for spec, hw in panels:
+        if not spec:
+            continue
+        h, w = hw[0], hw[1]
+        xs = [p[0] * w for p in spec]
+        ys = [p[1] * h for p in spec]
+        span = max(max(xs) - min(xs), max(ys) - min(ys))
+        need = max(need, span / max(1e-6, _CRITERION_PART_TARGET))
+    hi = short_px * _CRITERION_CROP_FRAC_MAX
+    if need <= 0.0:
+        return max(16, int(round(hi)))
+    lo = short_px * _CRITERION_CROP_FRAC_MIN
+    return max(16, int(round(min(max(need, lo), hi))))
 
 
 def _crop_box_centered(
@@ -2917,12 +2968,30 @@ def build_fault_zoom_comparisons(
                 if u_vertex is not None and r_vertex is not None:
                     # L-2 공용 한 변 = 두 프레임 짧은 변의 min 파생 (어느 프레임도
                     # 초과하지 않음). 카드당 1회 산출해 양측에 같은 값을 넘긴다.
-                    shared_side = max(16, int(round(
+                    #
+                    # 폭은 고정 비율이 아니라 **부위 크기에서 나온다**(ms2) —
+                    # criterion_crop_side 주석의 실측표 참조. 각도 스펙은 아래 베이크가
+                    # 쓰는 것과 같은 단일 출처(build_angle_bake_spec)로 뽑는다.
+                    _ref_resolver = make_reference_anchor_resolver(
+                        motion_id, unit.criterion,
+                        anchors=reference_anchor_overrides,
+                    )
+                    shared_side = criterion_crop_side(
                         min(
                             min(u_frame.shape[0], u_frame.shape[1]),
                             min(r_frame.shape[0], r_frame.shape[1]),
-                        ) * _CRITERION_CROP_FRAC
-                    )))
+                        ),
+                        (
+                            (build_angle_bake_spec(
+                                unit.criterion, unit.members, user_report,
+                                u_kp_idx_unit, _gated_kp,
+                            ), u_frame.shape),
+                            (build_angle_bake_spec(
+                                unit.criterion, unit.members, ref_report,
+                                r_kp_idx_unit, _ref_resolver,
+                            ), r_frame.shape),
+                        ),
+                    )
                 else:
                     u_vertex = r_vertex = None
             u_img, u_kind, u_anchor, u_box = _side_crop(

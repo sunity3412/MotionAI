@@ -360,6 +360,27 @@ def _to_rep_idx(
     ))
 
 
+def _drop_collapsed(rep: dict, ordered: list[int], frames_fps: float,
+                    rep_fps: float, rep_frames: int) -> list[int]:
+    """붕괴 프레임을 뺀 후보 목록 (순수). 전건 붕괴/판정 불가면 빈 리스트.
+
+    붕괴 판정은 `pose_collapse` 단일 출처 — 신뢰도와 **직교하는 축**이라 conf 게이트가
+    원리적으로 못 잡는 것을 잡는다. 빈 리스트 반환 = 호출측이 배제를 포기(fail-open).
+    """
+    from . import pose_collapse
+
+    js = rep.get("joints") or []
+    if not js:
+        return []
+    kept: list[int] = []
+    for idx in ordered:
+        rep_idx = _to_rep_idx(idx, frames_fps, rep_fps, rep_frames)
+        pts = [_kp_xy(rep, rep_idx, n) for n in js]
+        if not pose_collapse.is_collapsed(pts):
+            kept.append(idx)
+    return kept if len(kept) != len(ordered) else ordered
+
+
 def select_confident_frame(
     report: dict,
     candidates: list,
@@ -391,6 +412,13 @@ def select_confident_frame(
     ordered = sorted(ints)
     rep_fps = float(rep.get("fps") or frames_fps)
     rep_frames = int(rep.get("frames") or 0)
+    # quick-260810-e4v U6 — 붕괴 후보를 **먼저** 배제한다. conf 최대 규칙은 붕괴를
+    # 끌어당긴다(붕괴 프레임에서 모델이 오히려 확신 — 08-09 창 후보 9개 중 최악이 뽑힘,
+    # 08-10 conf 0.57 로 통과한 프레임이 12관절 중 10개 폴 위 한 줄·사이각 0도·−11.6점).
+    # 전 후보가 붕괴면 배제를 포기한다(fail-open — 카드가 사라지는 것보다 낫다).
+    kept = _drop_collapsed(rep, ordered, frames_fps, rep_fps, rep_frames)
+    if kept:
+        ordered = kept
     best_idx: int | None = None
     best_score = -1.0
     for idx in ordered:

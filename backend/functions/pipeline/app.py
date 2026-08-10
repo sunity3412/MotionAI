@@ -2410,7 +2410,7 @@ def _build_deduction_measured_deviations(
     reference_dtw_match=None, reference_angles=None, split_deficit_deg=None,
     vision_pointed_joints=None, seed_audit_out=None, alignment_visibility=None,
     alignment_visibility_measured=True, vision_status=None, measured_at_out=None,
-    frame_confidence=None, measurement_error_out=None, ref_fps=None,
+    frame_confidence=None, measurement_error_out=None, ref_fps=None, pose_fps=None,
 ):
     """측정-기하 substrate(NAMED dict) — deduction_engine.tally 의 measured_deviations.
 
@@ -2513,12 +2513,18 @@ def _build_deduction_measured_deviations(
     # frame_extractor 의존성 부재(단위 테스트/Lambda 아닌 환경)에서는 그 함수가
     # import 로 죽으므로 방어한다. 실패 시 fps=0 → video_sec 생략, frame_idx 는 그대로
     # (초를 추측해 채우는 것보다 비우는 쪽이 정직하다).
+    # quick-260810-e4v U2 — pose_fps(호출측이 그 분석 영상의 실효 rate 로 해결한 값)가
+    # 오면 그것을 쓴다. 요청값 target_fps 로 나누던 것이 사진 앵커를 ~10% 어긋냈다.
     _moment_fps = 0.0
     if isinstance(measured_at_out, dict):
-        try:
-            _moment_fps = float(_pipeline_frame_fps())
-        except Exception:  # noqa: BLE001 — fps 미상은 video_sec 생략으로만 반영
-            _moment_fps = 0.0
+        if isinstance(pose_fps, (int, float)) and not isinstance(pose_fps, bool) \
+                and pose_fps > 0:
+            _moment_fps = float(pose_fps)
+        else:
+            try:
+                _moment_fps = float(_pipeline_frame_fps())
+            except Exception:  # noqa: BLE001 — fps 미상은 video_sec 생략으로만 반영
+                _moment_fps = 0.0
 
     def _record_moment(criterion_id, frame_idx) -> None:
         """criterion 의 측정 프레임을 out-param 에만 남긴다 (fail-closed)."""
@@ -2531,8 +2537,9 @@ def _build_deduction_measured_deviations(
         if fi < 0:
             return
         entry: dict = {"frame_idx": fi}
-        if _moment_fps > 0:
-            entry["video_sec"] = fi / _moment_fps
+        sec = _moment_video_sec(fi, _moment_fps)
+        if sec is not None:
+            entry["video_sec"] = sec
         measured_at_out[criterion_id] = entry
 
     # ── 각도 편차 (deg) — extension_deviation 만(0-100 SCORE 금지, HIGH-3) ──
@@ -5221,8 +5228,17 @@ def _mode3_comparison(
     return assessments, dim_scores, overall, comparison, prev_dtw_match
 
 
-def _pipeline_frame_fps() -> float:
-    """학생 angles fps 단일 출처 — frame_extractor 기본 target_fps (I1, 리터럴 9.0 금지).
+def _pipeline_frame_fps(video_path=None) -> float:
+    """학생 angles fps 단일 출처 (I1, 리터럴 9.0 금지).
+
+    video_path 를 주면 **그 영상의 실효 솎음 rate**(frame_extractor 가 추출 때 기록한
+    `src_fps / 정수 step`)를 돌려준다. 요청값 `target_fps` 는 실제 산출 rate 가 아니다 —
+    30fps 원본에 target 9 를 주면 step 3 → 9.997fps 다. 그 차이가 표시 앵커를 어긋냈다
+    (quick-260810-cbt: 저장 초가 9.7~10.0% 커서 확대 비교 사진이 감점을 잰 순간이 아닌
+    프레임에서 찍혔고, peterpan 은 클립 길이를 넘는 초를 가리켰다).
+
+    경로 미전달 / 기록 없음 = 종전 `target_fps` (fail-open, byte-동일). 초를 추측해
+    채우지 않는 규율은 그대로 — 여기서는 "덜 정확한 값" 대신 "종전 값"으로 떨어진다.
 
     _FRAME_EXTRACTOR(_ensure_adapters 초기화분)의 target_fps 를 정본으로 참조 —
     _process 는 진입 즉시 _ensure_adapters() 를 호출하므로 방출 시점엔 항상 초기화됨.
@@ -5230,6 +5246,13 @@ def _pipeline_frame_fps() -> float:
     frame_extractor.py 의 target_fps 기본값이 단일 정본).
     """
     ext = _FRAME_EXTRACTOR
+    if video_path is not None and ext is not None:
+        try:
+            eff = ext.effective_fps_for(video_path)
+        except Exception:  # noqa: BLE001 — 기록 조회 실패는 종전 값으로 강등
+            eff = None
+        if isinstance(eff, (int, float)) and eff > 0:
+            return float(eff)
     fps = getattr(ext, "target_fps", None) if ext is not None else None
     if fps:
         return float(fps)
@@ -5239,6 +5262,22 @@ def _pipeline_frame_fps() -> float:
     return float(
         inspect.signature(FfmpegFrameExtractor.__init__).parameters["target_fps"].default
     )
+
+
+def _moment_video_sec(frame_idx, fps) -> float | None:
+    """표시 앵커 초 — 프레임 인덱스 ÷ **실효** fps. 판정 불가면 None (순수).
+
+    fps 가 없거나 비정상이면 초를 비운다(추측해 채우는 것보다 정직하다 —
+    quick-260801-gbk 규율 유지).
+    """
+    try:
+        fi = int(frame_idx)
+        f = float(fps)
+    except (TypeError, ValueError):
+        return None
+    if fi < 0 or not (f > 0) or f != f:  # f != f = NaN
+        return None
+    return fi / f
 
 
 def _attach_motion_alignment(
@@ -6577,6 +6616,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # 초기값 → None = 종전 byte-동일 (reference_dtw_match 도 None 이라
                 # 이 builder 의 DTW 경로 자체가 미발동).
                 ref_fps=reference_kp_fps or None,
+                # quick-260810-e4v U2 — 표시 앵커 초는 **이 분석 영상의 실효 솎음
+                # rate** 로 환산한다(요청값 target_fps 아님). 점수 무접촉: pose_fps 는
+                # measured_at_out(표시 전용 out-param)에만 닿고 md 에는 들어가지 않는다.
+                pose_fps=_pipeline_frame_fps(local_video_path),
             )
             result = _apply_vision_veto(
                 result,

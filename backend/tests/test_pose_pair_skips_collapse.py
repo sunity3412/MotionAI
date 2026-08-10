@@ -116,3 +116,23 @@ def test_falls_back_when_every_ref_frame_in_range_is_collapsed() -> None:
     ref = [BAR, BAR, BAR, BAR, BAR, BAR, BAR, BAR]
     got = _pair([BAR], ref, [0], [4])
     assert got is not None, "전건 붕괴에서 None 이면 카드가 사라진다"
+
+
+# ── fail-open 은 축별로 (2차 수리) ────────────────────────────────────────────
+def test_user_all_collapsed_still_keeps_ref_exclusion() -> None:
+    """학생이 전건 붕괴여도 **기준 축 배제는 살린다** — 08-10 right_elbow 실측 결함.
+
+    1차 구현은 두 축을 한 덩어리로 묶어, 학생이 전건 붕괴면 기준 배제까지 같이 풀렸다
+    (재분석 p34fresh1786347291: right_elbow 만 u/r 양쪽 불변 118/82).
+    """
+    ref = [OTHER, OTHER, OTHER, OTHER, BAR, P2_FAR, OTHER, OTHER]
+    got = _pair([BAR], ref, [0], [4])
+    assert got is not None
+    assert got[1] != 4, f"학생이 다 깨졌다고 기준 붕괴(r=4)까지 허용하면 안 됨: {got}"
+
+
+def test_control_user_all_collapsed_picks_collapsed_ref_without_staging() -> None:
+    """대조군 — 기준 후보가 붕괴뿐이면(다른 축 선택지 없음) 그것을 쓴다(최종 fail-open)."""
+    ref = [OTHER, OTHER, OTHER, OTHER, BAR, BAR, OTHER, OTHER]
+    got = _pair([BAR], ref, [0], [4])
+    assert got is not None, "마지막 단계까지 내려가면 배제 없이라도 짝을 내야 한다"

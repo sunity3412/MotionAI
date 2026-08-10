@@ -512,7 +512,22 @@ _POSE_TRAJ_RADIUS = 2
 # **의미가 다르므로 별도 이름을 둔다** — 저쪽은 궤적 평균 반경(환각 방어), 이쪽은
 # 표시 프레임 후보 반폭(측정-표시 정합)이다. 상수를 공유하면 한쪽 튜닝이 다른 쪽을
 # 조용히 움직인다.
-_MOMENT_ANCHOR_RADIUS = 2
+#
+# ── 2 → 4 (quick-260810-ms2, 08-10) ──────────────────────────────────────────
+# 실측이 2 로는 못 닿는 카드를 하나 찍었다. right_elbow 앵커 = 프레임 61, ±2 창
+# {59..63} 이 **전건 붕괴**(관절이 폴 위 한 줄로 뭉침) → 배제가 fail-open 으로 물러나
+# 종전 붕괴 프레임이 그대로 나갔다(카드 −11.6점, 링이 팔꿈치 아닌 골반).
+# 깨끗하고 표시 가능한 첫 프레임은 57 = **앵커에서 4프레임(≈0.4s)**.
+#
+# ★넓히기가 안전해진 근거: 08-09 에 창을 못 넓힌 이유는 선택 규칙이 `confidence 최대`
+# 여서 넓힐수록 붕괴를 끌어당긴 것이었다. 지금은 붕괴를 **명시 배제**하므로 그 실패
+# 기전 자체가 없다. 또 앵커가 크롭 가능하면 후보는 여전히 앵커 1개로 좁혀지므로
+# (build_fault_zoom_comparisons 분기 ①) 넓힌 창은 **앵커가 깨진 카드에만** 쓰인다.
+#
+# 비용(박제): 표시 프레임이 측정 순간에서 최대 0.4s 멀어질 수 있다. belle 이 방법을
+# 확인("1번은 그렇게 하면 되는건가?")했고 값 자체는 **실물 카드로 판정 대기** —
+# 재분석 사진에서 링이 팔꿈치에 오는지 눈으로 보고 확정한다.
+_MOMENT_ANCHOR_RADIUS = 4
 
 # 포즈 거리 계산에 필요한 최소 공통 신뢰관절 수. 3점 이하면 이동/스케일 정규화 후
 # 남는 자유도가 거의 없어 거리값이 의미를 잃는다(역립 구간 keypoint 붕괴 시 2~3개만
@@ -839,11 +854,11 @@ def select_pose_matched_pair(
             _collapse_memo[key] = hit
         return hit
 
-    def _best_pair(skip_collapsed: bool) -> tuple[float, int, int, int] | None:
+    def _best_pair(skip_user: bool, skip_ref: bool) -> tuple[float, int, int, int] | None:
         best: tuple[float, int, int, int] | None = None  # (mean_d, |r-anchor|, r, pos)
         for pos, u9, anchor in pairs:
             u_kp_center = _to_rep_idx(u9, frames_fps, user_rep_fps, user_rep_frames)
-            if skip_collapsed and _collapsed(user_report, "user", u_kp_center):
+            if skip_user and _collapsed(user_report, "user", u_kp_center):
                 continue
             marker_capable = False
             for m in members:
@@ -869,7 +884,7 @@ def select_pose_matched_pair(
             lo = max(radius, anchor - span)
             hi = min(hi_bound - 1 - radius, anchor + span)
             for r in range(lo, hi + 1):
-                if skip_collapsed and _collapsed(
+                if skip_ref and _collapsed(
                     ref_report, "ref",
                     _to_rep_idx(r, frames_fps, ref_rep_fps, ref_rep_frames),
                 ):
@@ -896,12 +911,18 @@ def select_pose_matched_pair(
                         best = key
         return best
 
-    # fail-open 2단 — 배제하고 한 쌍도 성립하지 않으면 배제 없이 재탐색한다. 카드가
-    # 통째로 사라지는 것보다 붕괴 카드가 낫다(U6 규율 승계). joints 메타 부재(legacy
-    # 리포트)는 _collapsed 가 항상 False → 1단에서 종전 산출이 그대로 나온다.
-    best = _best_pair(True)
-    if best is None:
-        best = _best_pair(False)
+    # fail-open **4단** — 배제를 한 축씩 푼다 (quick-260810-ms2 2차, 08-10 실측 수리).
+    # 1차 구현은 두 축을 한 덩어리로 묶어 (배제/무배제) 2단이었는데, right_elbow 는
+    # 학생 후보가 **전건 붕괴**라 1단이 실패했고 그 순간 **기준 축 배제까지 같이 풀려**
+    # 정은지 패널도 종전 붕괴 프레임 그대로 나왔다(재분석 p34fresh1786347291 실측:
+    # 카드 3장 수리, right_elbow 만 u/r 양쪽 불변 118/82).
+    #
+    # 한 축이 포기되어도 다른 축은 살린다. 순서는 학생 우선 — 링이 엉뚱한 부위를
+    # 가리키는 것이 학생 패널에서 먼저 눈에 띈다(belle "붉은색 표시방향이 아예 다르네").
+    for _skip_user, _skip_ref in ((True, True), (True, False), (False, True), (False, False)):
+        best = _best_pair(_skip_user, _skip_ref)
+        if best is not None:
+            break
     if best is None:
         return None
     return best[3], best[2]

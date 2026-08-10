@@ -806,53 +806,102 @@ def select_pose_matched_pair(
             weights[joint] = float(c)
         return pose, weights
 
-    best: tuple[float, int, int, int] | None = None  # (mean_d, |r-anchor|, r, pos)
-    for pos, u9, anchor in pairs:
-        u_kp_center = _to_rep_idx(u9, frames_fps, user_rep_fps, user_rep_frames)
-        marker_capable = False
-        for m in members:
-            xy = _kp_xy(user_report, u_kp_center, m)
-            if xy is None:
+    # ── quick-260810-ms2 — 붕괴 프레임 배제 (표시 계층, 채점 무접촉) ──────────────
+    # 08-10 Pod 실측(p34fresh1786343621): **이 함수가 운영 카드 경로의 실제 선택자**다
+    # (로그 fault_zoom_pose_pair 5/5). U6(da89ea01)이 붕괴 배제를 넣은
+    # select_confident_index 는 짝 선정이 성공하면 도달하지 않아 카드 5장이 한 프레임도
+    # 움직이지 않았다 — 배제는 실제로 도는 여기에 있어야 한다.
+    #
+    # 왜 붕괴 짝이 뽑히나: 학생 프레임이 붕괴하면(관절이 폴 위 한 줄로 뭉침) 포즈 거리
+    # 최소인 기준 프레임도 **같이 뭉개진 프레임**이 된다 — 붕괴가 붕괴를 끌어당긴다.
+    # 그래서 학생·기준 **양쪽**에서 뺀다. 판정은 pose_collapse 단일 출처(U5) — 신뢰도와
+    # 직교하는 축이라 conf 게이트가 원리적으로 못 잡는 것을 잡는다(팔꿈치 conf 0.57 로
+    # 통과한 프레임이 12관절 중 10개 한 세로선, 사이각 0도, 링이 골반에, −11.6점 카드).
+    #
+    # 도달성 실측: 깨끗+표시가능 프레임까지 학생 ≤2프레임 / 기준 0.5~0.6s → 현행
+    # 후보창·탐색폭(±_POSE_SEARCH_SECONDS=4.0s) 안. **창 확대 없이 닿는다.**
+    #
+    # 무회귀 근거: 배제는 **비승자 후보만** 지운다 — 현재 argmin 이 붕괴가 아니면
+    # argmin 은 바뀔 수 없다. 즉 지금 멀쩡한 카드의 산출은 불변이다(실측 right_shoulder/
+    # left_hip). 움직이는 것은 붕괴 위에 서 있던 카드뿐이다.
+    from . import pose_collapse
+
+    _collapse_memo: dict[tuple[str, int], bool] = {}
+
+    def _collapsed(report: dict, tag: str, kp_idx: int) -> bool:
+        key = (tag, int(kp_idx))
+        hit = _collapse_memo.get(key)
+        if hit is None:
+            names = report.get("joints") or []
+            hit = bool(names) and pose_collapse.is_collapsed(
+                [_kp_xy(report, kp_idx, nm) for nm in names]
+            )
+            _collapse_memo[key] = hit
+        return hit
+
+    def _best_pair(skip_collapsed: bool) -> tuple[float, int, int, int] | None:
+        best: tuple[float, int, int, int] | None = None  # (mean_d, |r-anchor|, r, pos)
+        for pos, u9, anchor in pairs:
+            u_kp_center = _to_rep_idx(u9, frames_fps, user_rep_fps, user_rep_frames)
+            if skip_collapsed and _collapsed(user_report, "user", u_kp_center):
                 continue
-            c = _kp_conf(user_report, u_kp_center, m)
-            if c is None or c >= _KP_CONF_MIN:
-                marker_capable = True
-                break
-        if not marker_capable:
-            continue
-        per_k: list[tuple[list[str], dict, dict]] | None = []
-        for k in range(-radius, radius + 1):
-            u_kp_k = _to_rep_idx(u9 + k, frames_fps, user_rep_fps, user_rep_frames)
-            pose, w = _user_pose_at(u_kp_k)
-            if len(pose) < _POSE_MIN_COMMON_JOINTS:
-                per_k = None
-                break
-            per_k.append((sorted(pose), pose, w))
-        if not per_k:
-            continue
-        lo = max(radius, anchor - span)
-        hi = min(hi_bound - 1 - radius, anchor + span)
-        for r in range(lo, hi + 1):
-            total = 0.0
-            ok = True
-            for i, (basis, pose, w) in enumerate(per_k):
-                r_kp = _to_rep_idx(
-                    r + (i - radius), frames_fps, ref_rep_fps, ref_rep_frames
-                )
-                cand = {
-                    j: xy
-                    for j in basis
-                    if (xy := _kp_xy(ref_report, r_kp, j)) is not None
-                }
-                d = pose_distance(pose, cand, basis=basis, weights=w)
-                if d is None:
-                    ok = False
+            marker_capable = False
+            for m in members:
+                xy = _kp_xy(user_report, u_kp_center, m)
+                if xy is None:
+                    continue
+                c = _kp_conf(user_report, u_kp_center, m)
+                if c is None or c >= _KP_CONF_MIN:
+                    marker_capable = True
                     break
-                total += d
-            if ok:
-                key = (total / len(per_k), abs(r - anchor), r, pos)
-                if best is None or key < best:
-                    best = key
+            if not marker_capable:
+                continue
+            per_k: list[tuple[list[str], dict, dict]] | None = []
+            for k in range(-radius, radius + 1):
+                u_kp_k = _to_rep_idx(u9 + k, frames_fps, user_rep_fps, user_rep_frames)
+                pose, w = _user_pose_at(u_kp_k)
+                if len(pose) < _POSE_MIN_COMMON_JOINTS:
+                    per_k = None
+                    break
+                per_k.append((sorted(pose), pose, w))
+            if not per_k:
+                continue
+            lo = max(radius, anchor - span)
+            hi = min(hi_bound - 1 - radius, anchor + span)
+            for r in range(lo, hi + 1):
+                if skip_collapsed and _collapsed(
+                    ref_report, "ref",
+                    _to_rep_idx(r, frames_fps, ref_rep_fps, ref_rep_frames),
+                ):
+                    continue
+                total = 0.0
+                ok = True
+                for i, (basis, pose, w) in enumerate(per_k):
+                    r_kp = _to_rep_idx(
+                        r + (i - radius), frames_fps, ref_rep_fps, ref_rep_frames
+                    )
+                    cand = {
+                        j: xy
+                        for j in basis
+                        if (xy := _kp_xy(ref_report, r_kp, j)) is not None
+                    }
+                    d = pose_distance(pose, cand, basis=basis, weights=w)
+                    if d is None:
+                        ok = False
+                        break
+                    total += d
+                if ok:
+                    key = (total / len(per_k), abs(r - anchor), r, pos)
+                    if best is None or key < best:
+                        best = key
+        return best
+
+    # fail-open 2단 — 배제하고 한 쌍도 성립하지 않으면 배제 없이 재탐색한다. 카드가
+    # 통째로 사라지는 것보다 붕괴 카드가 낫다(U6 규율 승계). joints 메타 부재(legacy
+    # 리포트)는 _collapsed 가 항상 False → 1단에서 종전 산출이 그대로 나온다.
+    best = _best_pair(True)
+    if best is None:
+        best = _best_pair(False)
     if best is None:
         return None
     return best[3], best[2]

@@ -1,0 +1,118 @@
+"""짝 선정(운영 카드 경로)이 붕괴 프레임을 건너뛴다 (quick-260810-ms2).
+
+`select_confident_index` 에만 배제를 넣은 U6(quick-260810-e4v)은 **실행되지 않았다** —
+08-10 Pod 실측(p34fresh1786343621) 로그가 `fault_zoom_pose_pair` 5/5 였고 카드 5장의
+프레임이 U6 전후 완전 동일(106/76, 118/82, 276/196, 96/24, 142/196)했다. 운영 경로의
+실제 선택자는 `select_pose_matched_pair` 이므로 배제는 여기 있어야 한다.
+
+**왜 양쪽인가**: 학생 프레임이 붕괴하면(관절이 폴 위 한 줄로 뭉침) 포즈 거리 최소인
+기준 프레임도 같이 뭉개진 프레임이 된다 — 붕괴가 붕괴를 끌어당긴다.
+
+각 배제 테스트에는 **대조군**을 붙였다: 같은 데이터에서 붕괴만 없애면 종전 승자가
+그대로 뽑힌다. 대조군이 없으면 "배제가 이겼다"와 "애초에 그게 답이었다"를 못 가른다.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+_SHARED = Path(__file__).resolve().parents[1] / "shared" / "python"
+if str(_SHARED) not in sys.path:
+    sys.path.insert(0, str(_SHARED))
+
+from sunity_shared.analysis import fault_zoom as fz  # noqa: E402
+from sunity_shared.analysis import pose_collapse  # noqa: E402
+
+JOINTS = ["left_shoulder", "right_shoulder", "left_hip", "right_hip",
+          "left_knee", "right_knee", "left_elbow", "right_elbow"]
+MEMBERS = ("right_elbow", "right_shoulder")
+
+# 깨끗한 포즈 — x 가 전부 흩어져 있다.
+P1 = [[0.20 + 0.06 * i, 0.25 + 0.05 * i] for i in range(8)]
+
+# 폴 위 한 세로선 (08-10 실측 패턴) — x 동일.
+BAR = [[0.500, 0.30 + 0.04 * i] for i in range(8)]
+
+# 앞 4관절 x 가 **거의** 같은 깨끗한 포즈(양자화로 갈린다 → 붕괴 아님).
+P2 = [[0.400 + 0.0001 * i, 0.25 + 0.05 * i] for i in range(4)] + \
+     [[0.46 + 0.06 * (i - 4), 0.25 + 0.05 * i] for i in range(4, 8)]
+# 같은 포즈인데 앞 4관절 x 가 **정확히 같은** 값 → 붕괴로 판정된다. 좌표 이동은 1e-4 대라
+# 포즈 거리는 거의 0 — "가장 닮았는데 붕괴"인 프레임을 만든다.
+P2_SNAP = [[0.400, p[1]] for p in P2[:4]] + [list(p) for p in P2[4:]]
+# 형상이 실제로 다른 이웃 (마지막 관절 y 이동) — 붕괴는 아니고 거리는 P2_SNAP 보다 멀다.
+P2_FAR = [list(p) for p in P2[:7]] + [[P2[7][0], P2[7][1] + 0.03]]
+# 아예 다른 포즈 — 어떤 후보보다도 멀어야 한다.
+OTHER = [[0.10 + 0.02 * i, 0.80 - 0.03 * i] for i in range(8)]
+
+
+def _report(frames: list[list[list[float]]], conf: float = 0.9) -> dict:
+    return {
+        "joints": JOINTS, "fps": 9.0, "frames": len(frames),
+        "data": [c for f in frames for p in f for c in p],
+        "confidence": [conf] * (len(frames) * len(JOINTS)),
+        "version": "test",
+    }
+
+
+def _pair(user_frames, ref_frames, u_cands, r_cands, **kw):
+    return fz.select_pose_matched_pair(
+        _report(user_frames), _report(ref_frames),
+        list(u_cands), list(r_cands), MEMBERS, len(ref_frames),
+        frames_fps=9.0,
+        user_rep_fps=9.0, user_rep_frames=len(user_frames),
+        ref_rep_fps=9.0, ref_rep_frames=len(ref_frames),
+        search_seconds=kw.get("search_seconds", 0.5),
+        traj_radius=kw.get("traj_radius", 0),
+    )
+
+
+# ── 전제: 테스트 데이터가 의도한 대로 붕괴/정상으로 갈리는가 ──────────────────
+def test_fixture_collapse_judgments_are_as_intended() -> None:
+    assert pose_collapse.is_collapsed(BAR) is True
+    assert pose_collapse.is_collapsed(P2_SNAP) is True
+    assert pose_collapse.is_collapsed(P1) is False
+    assert pose_collapse.is_collapsed(P2) is False
+    assert pose_collapse.is_collapsed(P2_FAR) is False
+
+
+# ── 학생 측 배제 ─────────────────────────────────────────────────────────────
+def test_collapsed_user_candidate_is_skipped() -> None:
+    """학생 후보가 붕괴면 그 짝이 거리 0 이어도 뽑히지 않는다."""
+    got = _pair([BAR, P1], [BAR, P1], [0, 1], [0, 1])
+    assert got == (1, 1), f"붕괴한 pos 0 을 피하고 깨끗한 pos 1 을 골라야 함: {got}"
+
+
+def test_control_same_data_without_collapse_picks_pos0() -> None:
+    """대조군 — 붕괴만 없애면 종전 승자(pos 0)가 그대로 뽑힌다."""
+    got = _pair([OTHER, P1], [OTHER, P1], [0, 1], [0, 1])
+    assert got == (0, 0), f"붕괴가 없으면 pos 0 이 이겨야 함(데이터 전제 확인): {got}"
+
+
+def test_falls_back_when_every_user_candidate_is_collapsed() -> None:
+    """전 후보가 붕괴면 배제를 포기한다 — 카드가 사라지는 것보다 낫다(fail-open)."""
+    got = _pair([BAR, BAR], [BAR, BAR], [0, 1], [0, 1])
+    assert got is not None, "전건 붕괴에서 None 이면 카드가 통째로 사라진다"
+    assert got == (0, 0), f"fail-open 은 종전 규칙 산출과 같아야 함: {got}"
+
+
+# ── 기준 측 배제 ─────────────────────────────────────────────────────────────
+def test_collapsed_ref_frame_is_skipped() -> None:
+    """기준 탐색에서 붕괴 프레임을 건너뛴다 — 학생이 깨끗해도 짝이 뭉개질 수 있다."""
+    ref = [OTHER, OTHER, OTHER, OTHER, P2_SNAP, P2_FAR, OTHER, OTHER]
+    got = _pair([P2], ref, [0], [4])
+    assert got == (0, 5), f"붕괴한 r=4 를 피하고 r=5 를 골라야 함: {got}"
+
+
+def test_control_ref_frame_without_collapse_is_picked() -> None:
+    """대조군 — r=4 가 붕괴가 아니면 그것이 뽑힌다(더 닮았으므로)."""
+    ref = [OTHER, OTHER, OTHER, OTHER, P2, P2_FAR, OTHER, OTHER]
+    got = _pair([P2], ref, [0], [4])
+    assert got == (0, 4), f"붕괴가 없으면 더 닮은 r=4 가 이겨야 함: {got}"
+
+
+def test_falls_back_when_every_ref_frame_in_range_is_collapsed() -> None:
+    """기준 범위가 전부 붕괴면 배제를 포기한다(fail-open)."""
+    ref = [BAR, BAR, BAR, BAR, BAR, BAR, BAR, BAR]
+    got = _pair([BAR], ref, [0], [4])
+    assert got is not None, "전건 붕괴에서 None 이면 카드가 사라진다"

@@ -237,9 +237,14 @@ def _dashed_line(draw, a, b, fill, width, dash=_GHOST_DASH):
         )
 
 
+_GHOST_MIN_DELTA_DEG = 8.0  # hybrid: 이 미만이면 고스트 선 생략 (본선과 겹쳐 오독)
+
+
 def _draw_candidate(img, vertex_px, limb_dir_px, torso_dir_px,
                     ref_inner_deg: float, mode: str) -> bool:
-    """학생 패널 후보 문법. mode='ghost'(고스트 선+쐐기) | 'wedge'(쐐기+화살촉).
+    """학생 패널 후보 문법. mode='ghost'(고스트 선+쐐기) | 'wedge'(쐐기+화살촉)
+    | 'hybrid'(쐐기+화살촉 상시, 고스트 선은 델타>=8도일 때만 — 실측: 델타 4~7도
+    카드에서 고스트 점선이 본선 위에 겹쳐 이발소 기둥처럼 읽혔다).
 
     고스트 방향 = 학생 몸통 축에서, 학생 사지와 **같은 회전 방향**으로 기준
     사이각만큼 연 방향 — "정은지 각도라면 사지가 여기". 카이럴리티는 학생 패널
@@ -280,11 +285,15 @@ def _draw_candidate(img, vertex_px, limb_dir_px, torso_dir_px,
         fill = fz._HALO if w_ == fz._ANGLE_HALO_W else fz._BRAND
         draw.line([v, limb_end], fill=fill, width=w_)
         draw.line([v, torso_end], fill=fill, width=w_)
-    if mode == "ghost":
+    delta_deg = abs(((a_ghost - a_limb) + 180) % 360 - 180)
+    ghost_wanted = mode == "ghost" or (
+        mode == "hybrid" and delta_deg >= _GHOST_MIN_DELTA_DEG
+    )
+    if ghost_wanted:
         # 고스트 = 흰 halo 점선 + 어두운 코어 점선 ("여기가 기준")
         _dashed_line(draw, v, ghost_end, fz._HALO, fz._ANGLE_HALO_W)
         _dashed_line(draw, v, ghost_end, (60, 60, 60), fz._ANGLE_CORE_W)
-    else:  # wedge — 쐐기 바깥 호에 교정 방향 화살촉
+    if mode in ("wedge", "hybrid"):  # 쐐기 바깥 호에 교정 방향 화살촉
         mid_r = r
         a0, a1 = math.radians(a_limb), math.radians(a_ghost)
         # 화살촉: 쐐기 호의 고스트 쪽 끝, 사지→고스트 진행 방향
@@ -405,7 +414,7 @@ def check() -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fetch", action="store_true")
-    ap.add_argument("--render", choices=["current", "ghost", "wedge"])
+    ap.add_argument("--render", choices=["current", "ghost", "wedge", "hybrid"])
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")

@@ -360,6 +360,21 @@ def _to_rep_idx(
     ))
 
 
+def is_collapsed_frame(rep: dict, rep_idx: int) -> bool:
+    """이 리포트 프레임의 keypoint 가 뭉쳤는가 — 붕괴 판정 **단일 출처** (순수).
+
+    `pose_collapse` 를 이 파일에서 부르는 곳이 셋(후보 배제·짝 선정·창 승급)이라
+    호출식을 한 군데로 모은다 (`_to_rep_idx` 선례 — 중복 공식 금지). joints 메타가
+    없는 legacy 리포트는 판정 불가 → False(fail-open, 종전 경로 유지).
+    """
+    from . import pose_collapse
+
+    js = rep.get("joints") or []
+    if not js:
+        return False
+    return pose_collapse.is_collapsed([_kp_xy(rep, rep_idx, n) for n in js])
+
+
 def _drop_collapsed(rep: dict, ordered: list[int], frames_fps: float,
                     rep_fps: float, rep_frames: int) -> list[int]:
     """붕괴 프레임을 뺀 후보 목록 (순수). 전건 붕괴/판정 불가면 빈 리스트.
@@ -367,16 +382,13 @@ def _drop_collapsed(rep: dict, ordered: list[int], frames_fps: float,
     붕괴 판정은 `pose_collapse` 단일 출처 — 신뢰도와 **직교하는 축**이라 conf 게이트가
     원리적으로 못 잡는 것을 잡는다. 빈 리스트 반환 = 호출측이 배제를 포기(fail-open).
     """
-    from . import pose_collapse
-
-    js = rep.get("joints") or []
-    if not js:
+    if not (rep.get("joints") or []):
         return []
     kept: list[int] = []
     for idx in ordered:
-        rep_idx = _to_rep_idx(idx, frames_fps, rep_fps, rep_frames)
-        pts = [_kp_xy(rep, rep_idx, n) for n in js]
-        if not pose_collapse.is_collapsed(pts):
+        if not is_collapsed_frame(
+            rep, _to_rep_idx(idx, frames_fps, rep_fps, rep_frames)
+        ):
             kept.append(idx)
     return kept if len(kept) != len(ordered) else ordered
 
@@ -513,21 +525,24 @@ _POSE_TRAJ_RADIUS = 2
 # 표시 프레임 후보 반폭(측정-표시 정합)이다. 상수를 공유하면 한쪽 튜닝이 다른 쪽을
 # 조용히 움직인다.
 #
-# ── 2 → 4 (quick-260810-ms2, 08-10) ──────────────────────────────────────────
-# 실측이 2 로는 못 닿는 카드를 하나 찍었다. right_elbow 앵커 = 프레임 61, ±2 창
-# {59..63} 이 **전건 붕괴**(관절이 폴 위 한 줄로 뭉침) → 배제가 fail-open 으로 물러나
-# 종전 붕괴 프레임이 그대로 나갔다(카드 −11.6점, 링이 팔꿈치 아닌 골반).
+_MOMENT_ANCHOR_RADIUS = 2
+
+# ── 붕괴 탈출용 확장 반폭 (quick-260810-ms2, 08-10) ───────────────────────────
+# 기본 ±2 로는 못 닿는 카드가 실측으로 하나 나왔다. right_elbow 앵커 = 프레임 61,
+# ±2 창 {59..63} 이 **전건 붕괴**(관절이 폴 위 한 줄로 뭉침) → 붕괴 배제가 fail-open
+# 으로 물러나 종전 붕괴 프레임이 그대로 나갔다(−11.6점 카드, 링이 팔꿈치 아닌 골반).
 # 깨끗하고 표시 가능한 첫 프레임은 57 = **앵커에서 4프레임(≈0.4s)**.
 #
-# ★넓히기가 안전해진 근거: 08-09 에 창을 못 넓힌 이유는 선택 규칙이 `confidence 최대`
-# 여서 넓힐수록 붕괴를 끌어당긴 것이었다. 지금은 붕괴를 **명시 배제**하므로 그 실패
-# 기전 자체가 없다. 또 앵커가 크롭 가능하면 후보는 여전히 앵커 1개로 좁혀지므로
-# (build_fault_zoom_comparisons 분기 ①) 넓힌 창은 **앵커가 깨진 카드에만** 쓰인다.
+# ★그러나 창을 **항상** 넓히면 안 된다 — 실측(p34fresh1786348954): 넓힌 창을 전 카드에
+# 적용했더니 멀쩡하던 left_hip 이 포즈거리 argmin 재선정으로 움직여 표시 방향차가
+# 17도 → **72도로 악화**했다. 그래서 넓힌 창은 **좁은 창이 전건 붕괴일 때만** 쓴다
+# (build_fault_zoom_comparisons 의 창 승급). 승급 조건이 없으면 종전 산출 그대로.
 #
-# 비용(박제): 표시 프레임이 측정 순간에서 최대 0.4s 멀어질 수 있다. belle 이 방법을
-# 확인("1번은 그렇게 하면 되는건가?")했고 값 자체는 **실물 카드로 판정 대기** —
-# 재분석 사진에서 링이 팔꿈치에 오는지 눈으로 보고 확정한다.
-_MOMENT_ANCHOR_RADIUS = 4
+# 넓히기가 안전해진 근거: 08-09 에 못 넓힌 이유는 선택 규칙이 `confidence 최대`여서
+# 넓힐수록 붕괴를 끌어당긴 것이었다. 지금은 붕괴를 **명시 배제**하므로 그 기전이 없다.
+#
+# 비용(박제): 승급된 카드에 한해 표시 프레임이 측정 순간에서 최대 0.4s 멀어진다.
+_MOMENT_ANCHOR_RADIUS_WIDE = 4
 
 # 포즈 거리 계산에 필요한 최소 공통 신뢰관절 수. 3점 이하면 이동/스케일 정규화 후
 # 남는 자유도가 거의 없어 거리값이 의미를 잃는다(역립 구간 keypoint 붕괴 시 2~3개만
@@ -839,18 +854,13 @@ def select_pose_matched_pair(
     # 무회귀 근거: 배제는 **비승자 후보만** 지운다 — 현재 argmin 이 붕괴가 아니면
     # argmin 은 바뀔 수 없다. 즉 지금 멀쩡한 카드의 산출은 불변이다(실측 right_shoulder/
     # left_hip). 움직이는 것은 붕괴 위에 서 있던 카드뿐이다.
-    from . import pose_collapse
-
     _collapse_memo: dict[tuple[str, int], bool] = {}
 
     def _collapsed(report: dict, tag: str, kp_idx: int) -> bool:
         key = (tag, int(kp_idx))
         hit = _collapse_memo.get(key)
         if hit is None:
-            names = report.get("joints") or []
-            hit = bool(names) and pose_collapse.is_collapsed(
-                [_kp_xy(report, kp_idx, nm) for nm in names]
-            )
+            hit = is_collapsed_frame(report, kp_idx)
             _collapse_memo[key] = hit
         return hit
 
@@ -2682,11 +2692,30 @@ def build_fault_zoom_comparisons(
             if _anchor_valid:
                 _u_syn = [_anchor]
             else:
-                _u_syn = []
-                for _d in range(-_MOMENT_ANCHOR_RADIUS, _MOMENT_ANCHOR_RADIUS + 1):
-                    _c = max(0, min(_anchor + _d, max(0, u_n - 1)))
-                    if _c not in _u_syn:
-                        _u_syn.append(_c)
+                def _ring(radius: int) -> list[int]:
+                    out: list[int] = []
+                    for _d in range(-radius, radius + 1):
+                        _c = max(0, min(_anchor + _d, max(0, u_n - 1)))
+                        if _c not in out:
+                            out.append(_c)
+                    return out
+
+                # 창 승급 (quick-260810-ms2) — 기본 창에 붕괴 아닌 후보가 하나라도
+                # 있으면 **그대로 간다**. 전건 붕괴일 때만 넓힌 창으로 올린다.
+                #
+                # ★항상 넓히면 안 되는 이유(실측 p34fresh1786348954): 넓힌 창을 전
+                # 카드에 적용했더니 멀쩡하던 left_hip 이 포즈거리 argmin 재선정으로
+                # 움직여 두 패널 표시 방향차가 17도 → 72도로 **악화**했다. 승급을
+                # 실패 조건에 묶어야 갇힌 카드(right_elbow)만 꺼내고 나머지는 불변이다.
+                _u_syn = _ring(_MOMENT_ANCHOR_RADIUS)
+                if all(
+                    is_collapsed_frame(
+                        user_report,
+                        _to_rep_idx(_c, frames_fps, u_rep_fps, u_rep_frames),
+                    )
+                    for _c in _u_syn
+                ):
+                    _u_syn = _ring(_MOMENT_ANCHOR_RADIUS_WIDE)
             _r_syn: list[int] = []
             for _c in _u_syn:
                 _pair = _ref_pair_for_user(_c)

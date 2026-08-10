@@ -76,6 +76,21 @@ def test_fixture_collapse_judgments_are_as_intended() -> None:
     assert pose_collapse.is_collapsed(P2_FAR) is False
 
 
+def test_is_collapsed_frame_is_the_single_source() -> None:
+    """붕괴 판정 단일 출처 — 리포트 프레임 인덱스로 직접 묻는다(창 승급이 이걸 쓴다)."""
+    rep = _report([P1, BAR, P2_SNAP])
+    assert fz.is_collapsed_frame(rep, 0) is False
+    assert fz.is_collapsed_frame(rep, 1) is True
+    assert fz.is_collapsed_frame(rep, 2) is True
+
+
+def test_is_collapsed_frame_fail_open_without_joints_meta() -> None:
+    """joints 메타 부재(legacy 리포트) = 판정 불가 → False. 종전 경로 유지."""
+    rep = _report([BAR])
+    rep["joints"] = []
+    assert fz.is_collapsed_frame(rep, 0) is False
+
+
 # ── 학생 측 배제 ─────────────────────────────────────────────────────────────
 def test_collapsed_user_candidate_is_skipped() -> None:
     """학생 후보가 붕괴면 그 짝이 거리 0 이어도 뽑히지 않는다."""

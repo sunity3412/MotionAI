@@ -1199,13 +1199,19 @@ def native_or_downscaled(provider, which: str, idx: int, frames):
     return frames[idx]
 
 
-def criterion_crop_side(short_px: int, panels) -> int:
-    """criterion 카드의 공용 crop 한 변(px) — 부위가 패널의 목표 비율이 되게 (순수).
+def criterion_crop_frac(panels) -> float:
+    """criterion 카드의 공용 crop 한 변 — **짧은 변 대비 비율** (순수).
 
     panels: [(spec | None, (h, w)), ...] — spec 은 `build_angle_bake_spec` 산출
-      (꼭짓점, 사지 방향점, 몸통 방향점) 정규화 좌표. 각 패널이 요구하는 폭을 구해
-      **큰 쪽**을 쓴다 — 작은 쪽에 맞추면 부위가 큰 패널의 표시가 잘린다. 두 패널이
-      같은 값을 쓰므로 승인 불변식 "두 패널 동일 배율"은 유지된다.
+      (꼭짓점, 사지 방향점, 몸통 방향점) 정규화 좌표. 각 패널이 요구하는 비율을 구해
+      **큰 쪽**을 쓴다 — 작은 쪽에 맞추면 부위가 큰 패널의 표시가 잘린다.
+
+    ★px 가 아니라 **비율**인 이유 (quick-260810-ms2, 실물에서 드러남): 승인 불변식은
+    "두 패널 동일 **배율**"이다. 같은 px 를 두 프레임에 주면 두 프레임의 짧은 변이
+    같을 때만 배율이 같다. 원본 해상도 크롭을 켜자 학생 2160 / 기준 1080 이 되어 같은
+    594px 가 한쪽 27% · 한쪽 55% 가 됐고, 카드에서 **한쪽만 확대된 것이 눈에 보였다**.
+    (종전 640px 축소 경로에서도 잠재해 있었다 — 두 영상이 같은 max_side 로 줄어 짧은
+    변이 우연히 같았을 뿐이다. 비율로 두면 해상도와 무관하게 성립한다.)
 
     spec 이 하나도 없으면(각도 대상 아님/게이트 미달) 부위를 잴 수 없으므로 **밴드
     상한**을 쓴다. 종전 고정값(_CRITERION_CROP_FRAC = 0.61)은 밴드 밖이라 그대로 두면
@@ -1217,15 +1223,20 @@ def criterion_crop_side(short_px: int, panels) -> int:
         if not spec:
             continue
         h, w = hw[0], hw[1]
-        xs = [p[0] * w for p in spec]
-        ys = [p[1] * h for p in spec]
+        short = max(1.0, float(min(h, w)))
+        # 정규화 좌표는 축별(x=w, y=h)이라 **짧은 변 기준**으로 환산해서 비교한다.
+        xs = [p[0] * w / short for p in spec]
+        ys = [p[1] * h / short for p in spec]
         span = max(max(xs) - min(xs), max(ys) - min(ys))
         need = max(need, span / max(1e-6, _CRITERION_PART_TARGET))
-    hi = short_px * _CRITERION_CROP_FRAC_MAX
     if need <= 0.0:
-        return max(16, int(round(hi)))
-    lo = short_px * _CRITERION_CROP_FRAC_MIN
-    return max(16, int(round(min(max(need, lo), hi))))
+        return _CRITERION_CROP_FRAC_MAX
+    return min(max(need, _CRITERION_CROP_FRAC_MIN), _CRITERION_CROP_FRAC_MAX)
+
+
+def crop_side_px(frac: float, h: int, w: int) -> int:
+    """공용 비율 → 그 프레임의 crop 한 변(px). 프레임마다 자기 짧은 변으로 환산."""
+    return max(16, int(round(float(frac) * min(int(h), int(w)))))
 
 
 def _crop_box_centered(
@@ -2979,7 +2990,9 @@ def build_fault_zoom_comparisons(
             # `_pt_in_crop` 게이트가 탈락해 **승인 PASS 항목(S10)이 깨진다** — 한
             # 자산에서 뽑은 규칙을 다른 카드 종류에 확대 적용하지 않는다.
             u_vertex = r_vertex = None
-            shared_side: int | None = None
+            shared_side: int | None = None       # 학생 패널 px
+            shared_side_ref: int | None = None   # 기준 패널 px (같은 비율, 자기 해상도)
+            _frac: float | None = None           # 공용량 = 짧은 변 대비 비율
             if unit.criterion is not None and _criterion_vertex_joint(
                 unit.criterion, unit.members
             ) is not None:
@@ -3007,21 +3020,23 @@ def build_fault_zoom_comparisons(
                         motion_id, unit.criterion,
                         anchors=reference_anchor_overrides,
                     )
-                    shared_side = criterion_crop_side(
-                        min(
-                            min(u_frame.shape[0], u_frame.shape[1]),
-                            min(r_frame.shape[0], r_frame.shape[1]),
-                        ),
-                        (
-                            (build_angle_bake_spec(
-                                unit.criterion, unit.members, user_report,
-                                u_kp_idx_unit, _gated_kp,
-                            ), u_frame.shape),
-                            (build_angle_bake_spec(
-                                unit.criterion, unit.members, ref_report,
-                                r_kp_idx_unit, _ref_resolver,
-                            ), r_frame.shape),
-                        ),
+                    _frac = criterion_crop_frac((
+                        (build_angle_bake_spec(
+                            unit.criterion, unit.members, user_report,
+                            u_kp_idx_unit, _gated_kp,
+                        ), u_frame.shape),
+                        (build_angle_bake_spec(
+                            unit.criterion, unit.members, ref_report,
+                            r_kp_idx_unit, _ref_resolver,
+                        ), r_frame.shape),
+                    ))
+                    # 같은 **비율**을 두 패널이 자기 해상도로 환산한다 — 같은 px 를
+                    # 주면 해상도가 다를 때 배율이 갈린다(실물에서 학생만 확대돼 보였다).
+                    shared_side = crop_side_px(
+                        _frac, u_frame.shape[0], u_frame.shape[1]
+                    )
+                    shared_side_ref = crop_side_px(
+                        _frac, r_frame.shape[0], r_frame.shape[1]
                     )
                 else:
                     u_vertex = r_vertex = None
@@ -3041,7 +3056,7 @@ def build_fault_zoom_comparisons(
                 r_relaxed,
                 anchor=_anchor_xy(r_valid, deltas) if r_valid else None,
                 center=r_vertex,
-                side_override=shared_side,
+                side_override=shared_side_ref,
             )
             if unit.criterion is not None and (
                 u_kind == "full" or r_kind == "full"
@@ -3066,7 +3081,9 @@ def build_fault_zoom_comparisons(
                 "fault_zoom_crop analysis_id=%s region=%s criterion=%s "
                 "user_kind=%s user_side_px=%s ref_kind=%s ref_side_px=%s "
                 "user_frame=%s ref_rep_idx=%s ref_video_idx=%s "
-                "vertex_centered=%s shared_side_px=%s",
+                # shared_side_px 는 **학생 패널 px**. 공용량은 비율(shared_frac)이라
+                # 해상도가 다른 두 패널의 px 는 다를 수 있다 — parity 판정은 비율로.
+                "vertex_centered=%s shared_side_px=%s shared_frac=%s",
                 analysis_id,
                 unit.region or unit.joint,
                 unit.criterion or "none",
@@ -3079,6 +3096,7 @@ def build_fault_zoom_comparisons(
                 r_display_idx,
                 shared_side is not None,
                 shared_side if shared_side is not None else "none",
+                ("%.4f" % _frac) if shared_side is not None else "none",
             )
             # legs(스플릿) 카드: 앵커 동그라미 대신 다리 사이각(선 2 + 호 —
             # 각도 수치 라벨은 belle 2026-07-28 결정으로 미표기).

@@ -5264,6 +5264,32 @@ def _pipeline_frame_fps(video_path=None) -> float:
     )
 
 
+def _reference_angles_fps(ref) -> float:
+    """기준 angles 축의 fps — **실측 rate 우선**, 없으면 저장 라벨 (순수).
+
+    기준 doc 의 `keypointReport.fps`(18.0)는 재처리 때 **요청한** target_fps 이고 실제
+    산출 rate 가 아니다. `frame_extractor` 가 정수 step 으로 솎으므로 30fps 원본에
+    target 18 이면 step 2 → ~14.93fps 다(quick-260810-cbt: 기준 11건 중 실측 5건 전부
+    15.0x). 이 값이 `ref_boundary_step_mask` 의 마진 `ceil(0.5s × fps)` 로 들어가
+    9 프레임(=0.60초)을 제외해 왔다 — 의도는 0.5초(8 프레임)였다.
+
+    `anglesRealFps`(백필 필드)가 유효할 때만 그것을 쓴다. 없거나 깨졌으면 저장 라벨로
+    떨어진다(fail-open, 백필 전까지 산출 byte-동일) — 깨진 값으로 마진을 옮기면
+    조용한 오채점이 되므로 fail-closed 판정을 먼저 통과시킨다.
+    """
+    if not isinstance(ref, dict):
+        return 0.0
+    real = ref.get("anglesRealFps")
+    if isinstance(real, (int, float)) and not isinstance(real, bool):
+        r = float(real)
+        if r > 0 and r == r and r != float("inf"):
+            return r
+    try:
+        return float(((ref.get("keypointReport") or {}).get("fps")) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _moment_video_sec(frame_idx, fps) -> float | None:
     """표시 앵커 초 — 프레임 인덱스 ÷ **실효** fps. 판정 불가면 None (순수).
 
@@ -6120,9 +6146,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 # Phase 34 수술 ② (quick-260808-r82): _deviation_against 호출 앞으로
                 # 이동 — ref-경계 제외 창(ref_fps)에 같은 값을 전달한다. 0.0 → None =
                 # 제외 미적용 fail-open (fps 미상이면 종전 산출 유지).
-                reference_kp_fps = float(
-                    (((ref or {}).get("keypointReport")) or {}).get("fps") or 0.0
-                )
+                # quick-260810-e4v U3 — 저장 라벨(18.0)은 재처리 때 **요청한** target 이고
+                # 실제 산출 rate(~14.93)가 아니다. 실측 필드(anglesRealFps)가 있으면
+                # 그것을 쓴다 — 없으면 종전 라벨로 fail-open(백필 전까지 byte-동일).
+                reference_kp_fps = _reference_angles_fps(ref or {})
                 if not reference_kp_fps:
                     log.info(
                         "ref-경계 제외 미적용 (keypointReport.fps 미상 — fail-open) "

@@ -1,0 +1,82 @@
+{
+ "zeroCard": true,
+ "freezes": [
+  {
+   "rid": "r03",
+   "joint": "left_hip",
+   "userSec": 16.666666666666668,
+   "refSec": 15.2,
+   "pairSrc": "align-peak"
+  },
+  {
+   "rid": "r00",
+   "joint": "left_elbow",
+   "userSec": 5.301767255751917,
+   "refSec": 5.13,
+   "pairSrc": "align"
+  },
+  {
+   "rid": "r01",
+   "joint": "right_elbow",
+   "userSec": 6.102034011337112,
+   "refSec": 4.53,
+   "pairSrc": "align"
+  },
+  {
+   "rid": "r04",
+   "joint": "left_knee",
+   "userSec": 10.503501167055687,
+   "refSec": 9.4,
+   "pairSrc": "align"
+  },
+  {
+   "rid": "r02",
+   "joint": "right_shoulder",
+   "userSec": 13.804601533844616,
+   "refSec": 10.73,
+   "pairSrc": "align-w"
+  }
+ ],
+ "excluded": [],
+ "alignQuality": true,
+ "verdict": {
+  "survivors": [],
+  "dropped": [
+   "r03:hold=zero_card_experiment pair=match",
+   "r00:hold=zero_card_experiment pair=match",
+   "r01:hold=zero_card_experiment pair=match",
+   "r04:hold=zero_card_experiment pair=match",
+   "r02:hold=zero_card_experiment pair=pose_far"
+  ],
+  "eyeCalls": 0
+ },
+ "attached": {
+  "called": true,
+  "status": "done",
+  "comparisons": [
+   {
+    "userVideoSec": 8.0,
+    "joint": "left_shoulder",
+    "refVideoSec": 14.777777777777779,
+    "deficitDeg": 74.45566586236494,
+    "region": "arms",
+    "refMatch": "dtw",
+    "refFrameIdx": 198,
+    "refMatched": true,
+    "tier": "advisory",
+    "userFrameIdx": 144,
+    "imageUrl": "https://sunity-motion-pilot-videos.s3.amazonaws.com/results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786363530/zoom_adv_left_shoulder.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA6GVBF6WH2SEVBQ5W%2F20260810%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Date=20260810T120901Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=06180676a9a36806183697676e7008a0466c47f583a4dd033d7c513aa9579f28"
+   }
+  ]
+ },
+ "existingTiers": [
+  "confirmed",
+  "confirmed",
+  "confirmed",
+  "confirmed",
+  "advisory"
+ ],
+ "s3Keys": [],
+ "pngMd5": {},
+ "cropLines": []
+}

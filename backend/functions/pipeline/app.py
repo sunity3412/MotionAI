@@ -3448,81 +3448,109 @@ def _render_fault_zoom(
         # advisory 는 S3 키 분리(zoom_adv_) — 확정 카드와 충돌 원천 차단.
         ("advisory", adv_comps, "zoom_adv_"),
     ):
-        for c in batch:
-            # 33-12 (A-5) — criterion 카드는 criterion 을 S3 키로 사용 (record 별
-            # 카드 유일성 — 두 record 의 대표 관절이 같아도 키 충돌 없음). criterion
-            # 은 [a-z_] criteria id 라 S3-safe. legacy/advisory 는 종전 joint 키.
-            key_base = c.get("criterion") or c["joint"]
-            skey = f"results/{uid}/{analysis_id}/{key_prefix}{key_base}.png"
-            _s3.put_object(
-                Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
-            )
-            item = {
-                "joint": c["joint"],
-                "deficitDeg": c.get("deficitDeg"),
-                "imageUrl": _signed_get(bucket, skey),
-                # 2단 시각 언어 tier (quick-260704-fz4) — scalar str 이라
-                # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
-                # FaultZoomComparison.tier ('confirmed'|'advisory', 부재=legacy
-                # doc=confirmed 취급).
-                "tier": tier,
-            }
-            if tier == "confirmed" and c.get("kind"):
-                item["kind"] = c["kind"]
-            # 결함단위 grouping 카드 (quick-260702-sic) — scalar str 이라
-            # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
-            # FaultZoomComparison.region ('legs'|'arms').
-            if c.get("region"):
-                item["region"] = c["region"]
-            # HIGH-1 (28-05) — refMatch provenance pass-through (D-04). scalar str 이라
-            # _validate_dict_only_scalars flat 제약 통과. region 선례와 동일 조건부
-            # 복사 — 부재(legacy 형상)면 최종 item 에도 키 부재. TS lockstep:
-            # FaultZoomComparison.refMatch ('dtw'|'failed', 부재=legacy=캡션 없음).
-            if c.get("refMatch") in ("dtw", "failed"):
-                item["refMatch"] = c["refMatch"]
-            # 리뷰 B-01 (Phase 31-03) — DTW 대응 프레임 쌍 pass-through. int/bool
-            # scalar 라 _validate_dict_only_scalars flat 제약 통과. 2D 비교 뷰어
-            # (amended D-10)가 "내 자세 어느 프레임 ↔ 목표 어느 프레임"을 중첩하는
-            # 정합 소스. TS lockstep: analysis.ts FaultZoomComparison 의 optional
-            # userFrameIdx/refFrameIdx/refMatched — **계약 반영은 31-04 담당**
-            # (부재=legacy doc=뷰어 미표시). region/refMatch 선례와 동일 조건부 복사.
-            if isinstance(c.get("userFrameIdx"), int):
-                item["userFrameIdx"] = c["userFrameIdx"]
-            if isinstance(c.get("refFrameIdx"), int):
-                item["refFrameIdx"] = c["refFrameIdx"]
-            if isinstance(c.get("refMatched"), bool):
-                item["refMatched"] = c["refMatched"]
-            # quick-260801-gbk — atMatched pass-through (refMatched 선례 동일 형식).
-            # 이 매퍼는 화이트리스트라 여기 없으면 앱이 인증을 영영 못 본다 →
-            # basis 절이 통째로 사라진다. bool scalar 라 flat 제약 통과.
-            # TS lockstep: FaultZoomComparison.atMatched? + contract.md §11.
-            if isinstance(c.get("atMatched"), bool):
-                item["atMatched"] = c["atMatched"]
-            # quick-260802-tie — refMarked pass-through (refMatched 선례 동일 형식).
-            # 이 매퍼는 화이트리스트라 여기 없으면 앱이 "기준 패널에 표시 없음"을
-            # 영영 못 본다. bool scalar 라 flat 제약 통과. atMatched 와 달리 False 도
-            # 실어야 한다 — 앱이 알려야 하는 값이 바로 False 쪽이다.
-            # TS lockstep: FaultZoomComparison.refMarked? + contract.md §11.9.
-            if isinstance(c.get("refMarked"), bool):
-                item["refMarked"] = c["refMarked"]
-            # F-3 (quick-260730-l7t) — 두 패널 실영상 초 pass-through (region/
-            # refMatch 선례와 동일 조건부 복사). float scalar 라
-            # _validate_dict_only_scalars flat 제약 통과. 부재(legacy doc·기준
-            # 대응 실패)=키 부재 → 앱은 초 캡션 미렌더. bool 은 int 서브클래스라
-            # 명시 배제. TS lockstep: FaultZoomComparison.userVideoSec?/refVideoSec?
-            # + docs/contract.md §11.8.
-            for _sec_key in ("userVideoSec", "refVideoSec"):
-                _sec = c.get(_sec_key)
-                if isinstance(_sec, (int, float)) and not isinstance(_sec, bool):
-                    item[_sec_key] = float(_sec)
-            # 33-12 (A-5 seam #1) — criterion pass-through (region/tier 선례 동일
-            # 조건부 복사). scalar str — flat 제약 통과. TS lockstep:
-            # FaultZoomComparison.criterion? + contract.md §11.7. 부재(legacy/
-            # advisory)=키 부재 → 앱은 keypoint 교집합 폴백 join.
-            if isinstance(c.get("criterion"), str):
-                item["criterion"] = c["criterion"]
-            out.append(item)
+        out.extend(
+            _fault_zoom_upload_items(batch, tier, key_prefix, uid, analysis_id, bucket)
+        )
     # Phase 27 SPD-04 (D-06) — result 부착 대신 comparisons 반환 (사후 update 경로).
+    return out
+
+
+def _fault_zoom_upload_items(
+    batch: list[dict],
+    tier: str,
+    key_prefix: str,
+    uid: str,
+    analysis_id: str,
+    bucket: str,
+) -> list[dict]:
+    """fault-zoom comparisons 배치 → S3 업로드 + doc item 화이트리스트 매핑.
+
+    quick-260811-kpo — _render_fault_zoom 후반 로직의 함수 추출 (동작 동일).
+    게이트-상속 카드 빌더(_run_gated_card_inherit)가 **같은 키 규칙**(zoom_ prefix,
+    results/{uid}/{aid}/)·같은 매퍼로 기존 카드를 대체 부착하기 위한 공용화
+    (T-kpo-02: 신규 S3 네임스페이스 0).
+    """
+    out: list[dict] = []
+    for c in batch:
+        # 33-12 (A-5) — criterion 카드는 criterion 을 S3 키로 사용 (record 별
+        # 카드 유일성 — 두 record 의 대표 관절이 같아도 키 충돌 없음). criterion
+        # 은 [a-z_] criteria id 라 S3-safe. legacy/advisory 는 종전 joint 키.
+        key_base = c.get("criterion") or c["joint"]
+        skey = f"results/{uid}/{analysis_id}/{key_prefix}{key_base}.png"
+        _s3.put_object(
+            Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
+        )
+        item = {
+            "joint": c["joint"],
+            "deficitDeg": c.get("deficitDeg"),
+            "imageUrl": _signed_get(bucket, skey),
+            # 2단 시각 언어 tier (quick-260704-fz4) — scalar str 이라
+            # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
+            # FaultZoomComparison.tier ('confirmed'|'advisory', 부재=legacy
+            # doc=confirmed 취급).
+            "tier": tier,
+        }
+        if tier == "confirmed" and c.get("kind"):
+            item["kind"] = c["kind"]
+        # 결함단위 grouping 카드 (quick-260702-sic) — scalar str 이라
+        # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
+        # FaultZoomComparison.region ('legs'|'arms').
+        if c.get("region"):
+            item["region"] = c["region"]
+        # HIGH-1 (28-05) — refMatch provenance pass-through (D-04). scalar str 이라
+        # _validate_dict_only_scalars flat 제약 통과. region 선례와 동일 조건부
+        # 복사 — 부재(legacy 형상)면 최종 item 에도 키 부재. TS lockstep:
+        # FaultZoomComparison.refMatch ('dtw'|'failed', 부재=legacy=캡션 없음).
+        if c.get("refMatch") in ("dtw", "failed"):
+            item["refMatch"] = c["refMatch"]
+        # 리뷰 B-01 (Phase 31-03) — DTW 대응 프레임 쌍 pass-through. int/bool
+        # scalar 라 _validate_dict_only_scalars flat 제약 통과. 2D 비교 뷰어
+        # (amended D-10)가 "내 자세 어느 프레임 ↔ 목표 어느 프레임"을 중첩하는
+        # 정합 소스. TS lockstep: analysis.ts FaultZoomComparison 의 optional
+        # userFrameIdx/refFrameIdx/refMatched — **계약 반영은 31-04 담당**
+        # (부재=legacy doc=뷰어 미표시). region/refMatch 선례와 동일 조건부 복사.
+        if isinstance(c.get("userFrameIdx"), int):
+            item["userFrameIdx"] = c["userFrameIdx"]
+        if isinstance(c.get("refFrameIdx"), int):
+            item["refFrameIdx"] = c["refFrameIdx"]
+        if isinstance(c.get("refMatched"), bool):
+            item["refMatched"] = c["refMatched"]
+        # quick-260801-gbk — atMatched pass-through (refMatched 선례 동일 형식).
+        # 이 매퍼는 화이트리스트라 여기 없으면 앱이 인증을 영영 못 본다 →
+        # basis 절이 통째로 사라진다. bool scalar 라 flat 제약 통과.
+        # TS lockstep: FaultZoomComparison.atMatched? + contract.md §11.
+        if isinstance(c.get("atMatched"), bool):
+            item["atMatched"] = c["atMatched"]
+        # quick-260802-tie — refMarked pass-through (refMatched 선례 동일 형식).
+        # 이 매퍼는 화이트리스트라 여기 없으면 앱이 "기준 패널에 표시 없음"을
+        # 영영 못 본다. bool scalar 라 flat 제약 통과. atMatched 와 달리 False 도
+        # 실어야 한다 — 앱이 알려야 하는 값이 바로 False 쪽이다.
+        # TS lockstep: FaultZoomComparison.refMarked? + contract.md §11.9.
+        if isinstance(c.get("refMarked"), bool):
+            item["refMarked"] = c["refMarked"]
+        # F-3 (quick-260730-l7t) — 두 패널 실영상 초 pass-through (region/
+        # refMatch 선례와 동일 조건부 복사). float scalar 라
+        # _validate_dict_only_scalars flat 제약 통과. 부재(legacy doc·기준
+        # 대응 실패)=키 부재 → 앱은 초 캡션 미렌더. bool 은 int 서브클래스라
+        # 명시 배제. TS lockstep: FaultZoomComparison.userVideoSec?/refVideoSec?
+        # + docs/contract.md §11.8.
+        for _sec_key in ("userVideoSec", "refVideoSec"):
+            _sec = c.get(_sec_key)
+            if isinstance(_sec, (int, float)) and not isinstance(_sec, bool):
+                item[_sec_key] = float(_sec)
+        # 33-12 (A-5 seam #1) — criterion pass-through (region/tier 선례 동일
+        # 조건부 복사). scalar str — flat 제약 통과. TS lockstep:
+        # FaultZoomComparison.criterion? + contract.md §11.7. 부재(legacy/
+        # advisory)=키 부재 → 앱은 keypoint 교집합 폴백 join.
+        if isinstance(c.get("criterion"), str):
+            item["criterion"] = c["criterion"]
+        # quick-260811-kpo — 귀속 표현 pass-through (criterion 선례 동일 조건부
+        # 복사). 게이트-상속 카드 빌더만 싣는다 (각도 편차 축 + 폴거리 차 동시
+        # 성립 → 'pole_proximity'). scalar str — flat 제약 통과. records
+        # cueLine/statusLine 무접촉 — 표현 레이어가 소비하는 additive 재료.
+        if isinstance(c.get("attribution"), str):
+            item["attribution"] = c["attribution"]
+        out.append(item)
     return out
 
 
@@ -3824,7 +3852,7 @@ def _run_deferred_fault_zoom(
     render,
     uid: str,
     analysis_id: str,
-) -> None:
+) -> list[dict]:
     """complete_analysis 이후 zoom 렌더 → update_analysis_fault_zoom 부분 업데이트.
 
     Phase 27 SPD-04 (D-06) — 점수/verdict/감점 내역은 이미 complete(status='done')됐고,
@@ -3839,6 +3867,10 @@ def _run_deferred_fault_zoom(
     Args:
       render: () -> list[dict] — _build_fault_zoom_comparisons /
         _build_mode3_fault_zoom_comparisons 를 감싼 thunk (인자 바인딩은 caller).
+
+    Returns (quick-260811-kpo): 부착한 comparisons 리스트 (실패 경로 = []) —
+      compare_render 스테이지의 게이트-상속 대체 부착이 advisory 카드를 보존할
+      때 Firestore 재조회 없이 쓰는 in-memory 근거 (coach_audio_items 선례).
     """
     try:
         comparisons = render()
@@ -3846,6 +3878,7 @@ def _run_deferred_fault_zoom(
             uid, analysis_id, comparisons or [],
             status=models.FAULT_ZOOM_STATUS_DONE,
         )
+        return list(comparisons or [])
     except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석 비차단 (graceful)
         log.warning(
             "fault-zoom 사후 렌더 실패 — failed 마킹 시도 (분석은 이미 complete) "
@@ -3862,6 +3895,7 @@ def _run_deferred_fault_zoom(
                 "(앱 27-07 시간 상한 폴백 방어) uid=%s analysis_id=%s",
                 uid, analysis_id,
             )
+        return []
 
 
 # ═══════ Phase 32 (Plan 32-16, D-18 B안) — 재생 중 큐 오디오 (Polly 사후 합성) ═══════
@@ -4079,6 +4113,9 @@ def _run_deferred_compare_render(
     bucket: str,
     local_video_path: str | None,
     reference_local_video_path: str | None,
+    reference_keypoint_report_dict: dict | None = None,
+    profile=None,
+    fault_zoom_items: list[dict] | None = None,
 ) -> None:
     """complete 후 합성 비교 mp4 렌더 → update_analysis_rendered_compare 부분 갱신.
 
@@ -4281,6 +4318,26 @@ def _run_deferred_compare_render(
             "compare_render done uid=%s analysis_id=%s key=%s freezes=%s",
             uid, analysis_id, key, report.get("expectedFreezes"),
         )
+        # ── 성립 게이트 카드 상속 (quick-260811-kpo) — 리그 PASS·done 부착 이후,
+        # workdir 정리 전 (align/폴 캐시/30fps 프레임을 재사용한다). 헬퍼 내부
+        # 어떤 실패도 재raise 0 — fault_zoom 스테이지 카드가 이미 도착해 있어
+        # 자연 폴백이고, 여기서 예외가 새면 outer except 가 done 을 failed 로
+        # 덮어쓰는 사고가 나므로 헬퍼가 전량 삼킨다.
+        _run_gated_card_inherit(
+            result=result,
+            report=report,
+            align=align,
+            render_workdir=workdir / "render",
+            user_video_path=local_video_path,
+            reference_video_path=reference_local_video_path,
+            user_report=keypoint_report_dict,
+            ref_report=reference_keypoint_report_dict,
+            profile=profile,
+            existing_comparisons=fault_zoom_items or [],
+            uid=uid,
+            analysis_id=analysis_id,
+            bucket=bucket,
+        )
     except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석 비차단 (graceful)
         log.warning(
             "compare_render 사후 스테이지 실패 — failed 마킹 시도 (분석은 이미 "
@@ -4305,6 +4362,433 @@ def _run_deferred_compare_render(
     finally:
         if workdir is not None:
             shutil.rmtree(workdir, ignore_errors=True)
+
+
+def _run_gated_card_inherit(
+    *,
+    result: dict,
+    report: dict,
+    align: dict,
+    render_workdir: Path,
+    user_video_path: str | None,
+    reference_video_path: str | None,
+    user_report: dict | None,
+    ref_report: dict | None,
+    profile,
+    existing_comparisons: list[dict],
+    uid: str,
+    analysis_id: str,
+    bucket: str,
+) -> None:
+    """성립 게이트 → 영상 정지 상속 카드 대체 부착 (quick-260811-kpo).
+
+    "영상이 정답표다" (CONTINUE-2026-08-11, belle 확정): 카드는 그 분석의 합성
+    비교 영상 정지(freeze)에서 상속하고, 성립 게이트(홀드/짝정합/기계눈 —
+    card_gates, ii0 확정 임계) 생존자만 |dev| 내림차순으로 카드를 받는다
+    (record 순서 상한 구조 제거). 판정 트랙 = align (doc keypointReport 는 fps
+    라벨 오차로 부적합 — ii0 발견 4).
+
+    freeze 분류 (구조 기반 — 동작명 분기 0, D-41):
+      · pairSrc='align-peak' AND criterion 이 절정 축(split_angle/leg_extension —
+        잰 값 자체가 벌림): 홀드/포즈 parity **비구속** (ii0 발견 1 — 절정은
+        원리적으로 홀드가 아니고 짝도 각자의 절정). 카드 = freeze 그대로.
+      · 각도-주장 record(angle_vs_reference__*)는 **pairSrc 무관 게이트** —
+        힙 큐는 표시 규칙(legs_cue)이 순간을 절정으로 재배치하지만 카드의
+        주장은 각도 편차라 성립 게이트 대상이다 (fresh 왼골반이 align-peak
+        표시 재배치로 비구속에 새는 구멍 차단 — 실측: p34fresh r03 freeze
+        src=align-peak ut 16.7s. PLAN (d) "왼골반 기대 경로" = 게이트 경로).
+      · 그 외 joint-scope freeze: 게이트.
+
+    게이트 판정 (b)~(d):
+      · 상속: freeze 순간 hold+pair PASS + (claim 유도 가능 시) 기계 눈 user 측
+        일치 → 카드 순간 = freeze 그대로 (fail-closed — 조정은 하지 않는다).
+      · 재정박: FAIL freeze 는 그 관절의 홀드 성립 순간들 × align curve 근방
+        (±fz._POSE_SEARCH_SECONDS) ref 홀드 후보에서 편차 성립(ra-ua >= tol) +
+        짝 게이트 통과 후보 중 **포즈거리 최소** 선택 (탐욕 최대편차 금지 —
+        ii0 kneepath 실측: 수치 통과·육안 다른 국면). 같은 basis_k 풀 안에서만
+        min 경쟁 (fz.pose_distance k-편향 경고). 기계 눈은 최종 후보 **양측**에만
+        (카드당 <=2회 — T-kpo-03 비용 상한). 후보 0 = 그 record 카드 미방출
+        (정직한 침묵).
+      · 배정: 생존 record |deviation| 내림차순 → criterion_units_from_records
+        (max_units=4 유지 — 순서 상한만 제거).
+      · 렌더: fault_zoom.build_fault_zoom_comparisons(dtw_match=None +
+        user/ref_frame_idx override + criterion_units + native_frame_at) —
+        bz5 하네스 round-trip 실증 경로. 초→9fps 인덱스는 **실효 rate**
+        (probe_effective_fps, ÷9.0 금지 — 08-10 뿌리 원인).
+      · 부착: 기존 키 규칙(zoom_ prefix)으로 S3 업로드 후
+        update_analysis_fault_zoom 대체 부착. advisory 카드는 보존
+        (fault_zoom 스테이지 산출 pass-through — 게이트 대상은 확정 카드).
+
+    Fail-closed 층위: 이 함수 내부 어떤 실패도 재raise 0 (graceful) —
+    fault_zoom 스테이지 카드가 이미 도착해 있어 자연 폴백. mode3/Lambda/비기준
+    경로는 compare_render 스킵이라 이 함수에 오지 않는다 (blast radius 0).
+    채점 무접촉 — deductionBreakdown/records 는 읽기만 한다.
+    """
+    try:
+        from PIL import Image
+
+        from sunity_shared.analysis import card_gates as cg
+        from sunity_shared.analysis import compare_render as _cr
+        from sunity_shared.analysis import fault_zoom as _fz
+        from sunity_shared.analysis.frame_extractor import FfmpegFrameExtractor
+
+        records_raw = (result.get("deductionBreakdown") or {}).get("records")
+        records = (
+            [r for r in records_raw if isinstance(r, dict)]
+            if isinstance(records_raw, list) else []
+        )
+        freezes = [f for f in (report.get("freezes") or []) if isinstance(f, dict)]
+        if (not records or not freezes or not user_report or not ref_report
+                or not user_video_path or not reference_video_path):
+            log.info(
+                "card_gates 스킵 (records/freezes/report 부재 — 기존 카드 유지) "
+                "analysis_id=%s", analysis_id,
+            )
+            return
+        if "refKp" not in align:
+            log.info(
+                "card_gates 스킵 (align refKp 부재 — 짝 판정 불가, 기존 카드 유지) "
+                "analysis_id=%s", analysis_id,
+            )
+            return
+
+        urep15 = cg.align_to_report(align, "user")
+        rrep15 = cg.align_to_report(align, "ref")
+        afps = float(align["fps"])
+        usize = tuple(align["userSize"])
+        rsize = tuple(align["refSize"])
+        u_torso = cg.torso_px_median(urep15, usize)
+        r_torso = cg.torso_px_median(rrep15, rsize)
+        curve = np.asarray(align["curveRefSec"], dtype=float)
+
+        # 폴 축 — render 가 검출·캐시한 pole_{side}.json 재사용 (재검출 0).
+        # 부재/실패 = 비차단 (pair_gate 가 pole_unmeasured 로 폴 parity 만 생략).
+        pole_x: dict[str, float | None] = {"user": None, "ref": None}
+        for side in ("user", "ref"):
+            try:
+                cache = Path(render_workdir) / f"pole_{side}.json"
+                if cache.is_file():
+                    with open(cache) as fh:
+                        payload = json.load(fh)
+                    if payload and payload.get("xNorm") is not None:
+                        pole_x[side] = float(payload["xNorm"])
+            except Exception:  # noqa: BLE001 - 폴 캐시 실패 = parity 생략 (비차단)
+                pole_x[side] = None
+
+        # 초→9fps 프레임 인덱스 = 실효 rate (÷9.0 금지 — quick-260810-e4v 뿌리).
+        # 판정 불가 = 전체 스킵 (엉뚱한 프레임을 카드로 만드느니 기존 카드 유지).
+        ext = FfmpegFrameExtractor(target_fps=9.0, max_side=640)
+        eff: dict[str, float] = {}
+        for which, p in (("user", user_video_path), ("ref", reference_video_path)):
+            try:
+                e = ext.probe_effective_fps(p)
+            except Exception:  # noqa: BLE001 - 판정 불가로 수렴
+                e = None
+            if not e or e <= 0:
+                log.info(
+                    "card_gates 스킵 (%s 실효 rate 판정 불가 — 기존 카드 유지) "
+                    "analysis_id=%s", which, analysis_id,
+                )
+                return
+            eff[which] = float(e)
+
+        # 기계 눈 프레임 = render 30fps 추출본 재사용 (재추출 0).
+        api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+        _tag = f"{int(_cr.FPS_OUT)}_{_cr.PANEL_H}"
+        _fdirs = {
+            "user": Path(render_workdir) / f"u{_tag}",
+            "ref": Path(render_workdir) / f"r{_tag}",
+        }
+        _fcount = {s: len(list(d.glob("*.jpg"))) for s, d in _fdirs.items()}
+        eye_calls = 0
+
+        def _frame_at(side: str, sec: float):
+            n = _fcount.get(side) or 0
+            if n <= 0:
+                return None
+            idx = max(1, min(n, round(sec * float(_cr.FPS_OUT)) + 1))
+            try:
+                return np.asarray(
+                    Image.open(_fdirs[side] / f"{idx:05d}.jpg").convert("RGB")
+                )
+            except Exception:  # noqa: BLE001 - 프레임 읽기 실패 = fail-closed 측
+                return None
+
+        def _eye_check(side: str, rep: dict, idx: int, gate_joint: str) -> tuple[bool, str]:
+            """기계 눈 — claim 은 트랙 각도 이분 (ii0 sweep_gates 방식).
+
+            중간각/좌표없음 = 이분 판정 대상 아님 → 비구속 (hold/pair 만).
+            프레임/키 부재·네트워크 실패 = fail-closed (match False).
+            """
+            nonlocal eye_calls
+            ang = cg.joint_angle(rep, idx, gate_joint, conf_min=0.0)
+            claim = cg.track_claim(ang)
+            xy = cg.kp(rep, idx, gate_joint, conf_min=0.0)
+            if claim is None or xy is None:
+                return True, "midrange"
+            frame = _frame_at(side, idx / afps)
+            if frame is None:
+                return False, "frame_missing"
+            if not api_key:
+                return False, "no_api_key"
+            H, W = frame.shape[:2]
+            eye_calls += 1
+            res = cg.machine_eye(
+                frame, (xy[0] * W, xy[1] * H), claim,
+                api_key=api_key, expected_limb=cg.joint_limb(gate_joint),
+                crop_px=max(320, W // 2),
+            )
+            return bool(res["match"]), f"{claim}->{res['observed']}"
+
+        _hold_cache: dict[tuple[str, str], dict[int, float]] = {}
+
+        def _hold_angles(side: str, rep: dict, gate_joint: str) -> dict[int, float]:
+            key = (side, gate_joint)
+            if key not in _hold_cache:
+                found: dict[int, float] = {}
+                for f in range(int(rep["frames"])):
+                    if cg.hold_gate(rep, f, gate_joint).passed:
+                        a = cg.joint_angle(rep, f, gate_joint)
+                        if a is not None:
+                            found[f] = a
+                _hold_cache[key] = found
+            return _hold_cache[key]
+
+        def _pair_at(uf: int, rf: int):
+            return cg.pair_gate(
+                urep15, uf, rrep15, rf, pole_x["user"], pole_x["ref"],
+                user_size=usize, ref_size=rsize,
+                user_torso_px=u_torso, ref_torso_px=r_torso,
+            )
+
+        def _reanchor(rec: dict, gate_joint: str):
+            """(d) 재정박 — 후보 0 = None (정직한 침묵)."""
+            try:
+                tol = float(rec.get("tolerance") or 20.0)
+            except (TypeError, ValueError):
+                tol = 20.0
+            u_holds = _hold_angles("user", urep15, gate_joint)
+            r_holds = _hold_angles("ref", rrep15, gate_joint)
+            if not u_holds or not r_holds:
+                return None
+            win = float(_fz._POSE_SEARCH_SECONDS)  # noqa: SLF001 - 재사용 (신규 상수 0)
+            cands = []
+            for uf, ua in u_holds.items():
+                ct = float(curve[min(uf, len(curve) - 1)])
+                for rf, ra in r_holds.items():
+                    if abs(rf / afps - ct) > win:
+                        continue
+                    if ra - ua < tol:
+                        # 편차 불성립 순간 — 감점 주장을 보여줄 수 없다.
+                        continue
+                    pair = _pair_at(uf, rf)
+                    if not pair.passed or pair.pose_dist is None:
+                        continue
+                    cands.append((-pair.basis_k, float(pair.pose_dist), uf, rf, pair))
+            if not cands:
+                return None
+            # 포즈거리 최소 — 단, 기저 큰 풀 우선 (fz.pose_distance k-편향 경고:
+            # 관절 적은 후보가 구조적으로 낮은 거리 — 같은 k 안에서만 min 경쟁).
+            cands.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
+            _nk, _d, uf, rf, pair = cands[0]
+            ok_u, why_u = _eye_check("user", urep15, uf, gate_joint)
+            if not ok_u:
+                log.info(
+                    "card_gates 재정박 기각 (eye user %s) analysis_id=%s rid=%s",
+                    why_u, analysis_id, str(rec.get("recordId", "")).split(":")[0],
+                )
+                return None
+            ok_r, why_r = _eye_check("ref", rrep15, rf, gate_joint)
+            if not ok_r:
+                log.info(
+                    "card_gates 재정박 기각 (eye ref %s) analysis_id=%s rid=%s",
+                    why_r, analysis_id, str(rec.get("recordId", "")).split(":")[0],
+                )
+                return None
+            return {"u_sec": uf / afps, "r_sec": rf / afps, "pair": pair}
+
+        by_rid: dict[str, dict] = {}
+        for r in records:
+            rid = str(r.get("recordId") or "").split(":")[0]
+            if rid and rid not in by_rid:
+                by_rid[rid] = r
+
+        emitted: list[tuple] = []       # (rec, u_sec, r_sec, pair|None, path)
+        dropped: list[tuple] = []       # (rid, reason)
+        reanchored_rids: list[str] = []
+        freeze_rids: set[str] = set()
+        for fzr in freezes:
+            rid = str(fzr.get("rid") or "")
+            rec = by_rid.get(rid)
+            if rec is None:
+                continue
+            freeze_rids.add(rid)
+            crit = str(rec.get("criterion") or "")
+            src = str(fzr.get("pairSrc") or "")
+            try:
+                u_sec = float(fzr.get("userSec"))
+                r_sec = float(fzr.get("refSec"))
+            except (TypeError, ValueError):
+                dropped.append((rid, "freeze_sec_invalid"))
+                continue
+            is_angle_claim = crit.startswith(_fz.ANGLE_VS_REFERENCE_PREFIX)
+            if src == "align-peak" and not is_angle_claim:
+                emitted.append((rec, u_sec, r_sec, None, "peak"))
+                continue
+            gate_joint = cg.crit_joint(
+                str(fzr.get("joint") or crit.split("__")[-1])
+            )
+            u_idx = max(0, min(int(round(u_sec * afps)), int(urep15["frames"]) - 1))
+            r_idx = max(0, min(int(round(r_sec * afps)), int(rrep15["frames"]) - 1))
+            hold = cg.hold_gate(urep15, u_idx, gate_joint)
+            pair = _pair_at(u_idx, r_idx)
+            eye_why = ""
+            inherit_ok = hold.passed and pair.passed
+            if inherit_ok:
+                ok_e, eye_why = _eye_check("user", urep15, u_idx, gate_joint)
+                inherit_ok = ok_e
+            if inherit_ok:
+                emitted.append((rec, u_sec, r_sec, pair, "inherit"))
+                continue
+            re_hit = _reanchor(rec, gate_joint) if is_angle_claim else None
+            if re_hit is not None:
+                emitted.append(
+                    (rec, re_hit["u_sec"], re_hit["r_sec"], re_hit["pair"], "reanchor")
+                )
+                reanchored_rids.append(rid)
+            else:
+                why = f"hold={hold.reason} pair={pair.reason}"
+                if eye_why and eye_why != "midrange":
+                    why += f" eye={eye_why}"
+                dropped.append((rid, why))
+        for rid in by_rid:
+            if rid not in freeze_rids:
+                # 영상에 정지가 없는 record — 상속 바닥이 없다 (excludedFreezes 등).
+                dropped.append((rid, "no_freeze"))
+
+        # (h) 실행 로그 = 배선 증거 (wiring-claims-need-log-evidence) — 1줄 필수.
+        log.info(
+            "card_gates verdict analysis_id=%s total=%d survivors=%s dropped=%s "
+            "reanchored=%s eye_calls=%d",
+            analysis_id, len(freezes),
+            [f"{str(t[0].get('recordId', '')).split(':')[0]}:{t[4]}" for t in emitted],
+            [f"{rid}:{why}" for rid, why in dropped],
+            reanchored_rids, eye_calls,
+        )
+
+        # (e) 배정 — 생존 record |deviation| 내림차순 → 기존 상한(max_units=4)에
+        # 그 순서로 전달. fault_zoom 무접촉으로 record 순서 상한 제거.
+        def _dev(rec: dict) -> float:
+            try:
+                return abs(float(rec.get("deviation") or 0.0))
+            except (TypeError, ValueError):
+                return 0.0
+
+        emitted.sort(key=lambda t: -_dev(t[0]))
+        moment_by_crit: dict[str, tuple] = {}
+        for ent in emitted:
+            moment_by_crit.setdefault(str(ent[0].get("criterion") or ""), ent)
+
+        # 렌더 재료 — _build_fault_zoom_comparisons 파생 규칙 미러 (단일 출처는
+        # 유지 비용상 이관하지 않고 규칙 인용 — 값 계산은 동일 코드 경로).
+        vv = result.get("visionVeto") or {}
+        joint_deltas = _keypoint_deltas(result.get("joints") or [])
+        fault_joints = list(vv.get("faultJoints") or [])
+        gemini_deficits = vv.get("faultJointDeficits") or {}
+        deficits = {
+            **joint_deltas,
+            **{k: float(v) for k, v in gemini_deficits.items()},
+        }
+        if not fault_joints:
+            fault_joints = [
+                k for k, _ in sorted(joint_deltas.items(), key=lambda kv: -kv[1])[:2]
+            ]
+        sorted_records = [t[0] for t in emitted]
+        units = _fz.criterion_units_from_records(
+            sorted_records, fault_joints, _KISMAM_TO_KEYPOINT
+        )
+        kinds = {j: "deficit" for j in fault_joints}
+        for cu in units:
+            for j in cu.get("joints") or ():
+                kinds.setdefault(j, "deficit")
+        split_degs = _fz.split_angle_degs_from_records(records)
+        split_present = _fz.has_split_angle_record(records)
+
+        gated_raw: list[dict] = []
+        if units:
+            user_frames = ext.extract(user_video_path)
+            ref_frames = ext.extract(reference_video_path)
+            native_at = _build_native_frame_provider(
+                user_video_path, reference_video_path, ext
+            )
+            for cu in units:
+                crit = str(cu.get("criterion") or "")
+                ent = moment_by_crit.get(crit)
+                if ent is None:
+                    continue
+                rec, u_sec, r_sec, pairv, path = ent
+                u9 = int(round(u_sec * eff["user"]))
+                r9 = int(round(r_sec * eff["ref"]))
+                comps = _fz.build_fault_zoom_comparisons(
+                    user_frames, ref_frames, user_report, ref_report, None,
+                    list(cu.get("joints") or ()), deficits,
+                    frames_fps=9.0,
+                    joint_kinds=kinds,
+                    dtw_match=None,
+                    user_frame_idx=u9,
+                    ref_frame_idx=r9,
+                    split_angle_degs=split_degs,
+                    split_angle_present=split_present,
+                    draw_arrows=True,
+                    criterion_units=[{
+                        "criterion": cu.get("criterion"),
+                        "joints": tuple(cu.get("joints") or ()),
+                        "region": cu.get("region"),
+                        # 순간은 override 가 소유 (bz5 round-trip 실증 경로).
+                        "at_frame_idx": None,
+                    }],
+                    stamp_ref=getattr(profile, "category", None) == "spin",
+                    motion_id=(
+                        profile.motion_id
+                        if isinstance(getattr(profile, "motion_id", None), str)
+                        else None
+                    ),
+                    analysis_id=analysis_id,
+                    native_frame_at=native_at,
+                )
+                for c in comps:
+                    # (g) 귀속 표현 (additive) — 각도 편차 축 + 폴거리 차 성립
+                    # (user 몸중심이 ref 보다 POLE_MARGIN 이상 폴에서 멀다) →
+                    # 폴 이탈 계열 (r03 문법 재사용 재료 — 문구는 표현 레이어).
+                    if (crit.startswith(_fz.ANGLE_VS_REFERENCE_PREFIX)
+                            and pairv is not None
+                            and pairv.pole_user is not None
+                            and pairv.pole_ref is not None
+                            and (pairv.pole_user - pairv.pole_ref)
+                            >= _cr.POLE_MARGIN):
+                        c["attribution"] = "pole_proximity"
+                    gated_raw.append(c)
+
+        items = _fault_zoom_upload_items(
+            gated_raw, "confirmed", "zoom_", uid, analysis_id, bucket
+        )
+        advisory_keep = [
+            it for it in (existing_comparisons or [])
+            if isinstance(it, dict) and it.get("tier") == "advisory"
+        ]
+        final = items + advisory_keep
+        firestore_admin.update_analysis_fault_zoom(
+            uid, analysis_id, final, status=models.FAULT_ZOOM_STATUS_DONE,
+        )
+        log.info(
+            "card_gates 대체 부착 완료 analysis_id=%s confirmed=%d advisory=%d",
+            analysis_id, len(items), len(advisory_keep),
+        )
+    except Exception:  # noqa: BLE001 - 어떤 실패도 재raise 0 — 기존 카드 자연 폴백
+        log.exception(
+            "card_gates 상속 카드 대체 부착 실패 — 기존 카드 유지 (graceful) "
+            "uid=%s analysis_id=%s", uid, analysis_id,
+        )
 
 
 # ═══════ Phase 32 (Plan 32-13, D-22/D-23) — 감점 카드 문장↔영상 스팟체크 ═══════
@@ -7286,6 +7770,7 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # stage 로그는 계속 방출하되 timings_ms 는 이미 저장됨 → 사후 zoom 소요는 로그
         # 라인으로만(= MEDIUM-3 두-지표 분리의 데이터 소스: complete 까지 timingsMs 합 =
         # time-to-first-result, + 사후 fault_zoom 로그 = server task 총 시간).
+        fault_zoom_items: list[dict] = []  # quick-260811-kpo — 스테이지 스킵 시 빈 리스트
         if fault_zoom_kind is not None:
             with _stage(timings_ms, analysis_id, "fault_zoom"):
                 if fault_zoom_kind == "mode1":
@@ -7315,7 +7800,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                         cached_user_frames=cached_user_frames,  # Task 3 — 재추출 소멸
                         dtw_match=prev_dtw_match,  # 28-04 — mode3 DTW 대응 프레임 정렬
                     )
-                _run_deferred_fault_zoom(
+                # quick-260811-kpo — 부착 카드 수령 (compare_render 스테이지의
+                # 게이트-상속 대체 부착이 advisory 를 보존하는 in-memory 근거.
+                # 반환 additive — 실패 경로는 빈 리스트, 기존 동작 불변).
+                fault_zoom_items = _run_deferred_fault_zoom(
                     render=_zoom_render, uid=uid, analysis_id=analysis_id
                 )
             # Phase 27 Task 3 — zoom 렌더 완료 후 프레임 캐시 명시 해제(메모리 반환).
@@ -7356,6 +7844,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 bucket=bucket,
                 local_video_path=local_video_path,
                 reference_local_video_path=reference_local_video_path,
+                # quick-260811-kpo — 게이트-상속 카드 대체 부착 재료 (성립 게이트
+                # 판정 후 기존 카드를 영상 정지 상속 카드로 교체, advisory 보존).
+                reference_keypoint_report_dict=reference_keypoint_report_dict,
+                profile=profile,
+                fault_zoom_items=fault_zoom_items,
             )
     finally:
         # Phase 27 D-04 — 세션 File API 핸들 일괄 delete = 분석당 1회 (unlink 보다 앞).

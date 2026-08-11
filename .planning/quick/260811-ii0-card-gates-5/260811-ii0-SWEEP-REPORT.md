@@ -46,7 +46,10 @@ pdshape(correct) = 정지 0건 (records 없음) — 해당 없음.
   짝이지만 같은 순간 포즈가 아니다.
 
 이 3건에 홀드/포즈 parity 를 강제하면 승인 정지가 죽는다 → 게이트는 **record 선정
-경로(src) 기준**으로 적용 범위를 갈랐다 (동작명 리터럴 0 — `grep -nE '"(elbow|kipup|powerspin|peterpan|pdshape)"' gates.py sweep_gates.py` 빈 출력, 판정 경로 한정).
+경로(src) 기준**으로 적용 범위를 갈랐다. 동작명 리터럴 실측: `gates.py` 는 grep 빈
+출력(판정 로직 무분기), `sweep_gates.py` 는 "pdshapefault" 6회 — 전부 fresh 목표
+판정의 **대상 지정**(PLAN 이 지정한 fresh doc 좌표·프레임 소스)이며 게이트 판정
+분기에는 없다.
 
 ## 2. 튜닝 이력 (전부 박제 — 픽스처 curve-fit 0)
 

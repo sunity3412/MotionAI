@@ -4425,6 +4425,8 @@ def _run_gated_card_inherit(
     채점 무접촉 — deductionBreakdown/records 는 읽기만 한다.
     """
     try:
+        import io
+
         from PIL import Image
 
         from sunity_shared.analysis import card_gates as cg
@@ -4501,6 +4503,15 @@ def _run_gated_card_inherit(
         }
         _fcount = {s: len(list(d.glob("*.jpg"))) for s, d in _fdirs.items()}
         eye_calls = 0
+        # 재정박 눈 검증 예산 (record 당) — PLAN (d) 원문은 "최종 후보 ≤2회"였으나
+        # 로컬 실측에서 user 트랙 keypoint 가 다수 순간에서 타 부위로 전위(광역
+        # 환각 — UNIFY §3 의 운영 확인)해, 첫 후보 하나만 시험하면 진짜 성립
+        # 순간(포즈 랭킹 하위)에 닿기 전에 record 가 죽는다. (d) 의 1차 의미론
+        # "풀 게이트(눈 포함) 통과 후보 중 포즈거리 최소"를 지키려면 눈을 포즈
+        # 순서로 지연 평가해야 한다 — 클러스터(유저 1초 버킷) 선두만 시험 + 프레임
+        # 캐시로 상한 억제. 비용: 16×카드4 = 최대 64 flash-vision 호출/분석
+        # ≈ $0.01 대 — T-kpo-03 구독료 하한 내 (SUMMARY deviation 박제).
+        _EYE_MAX_PER_RECORD = 16
 
         def _frame_at(side: str, sec: float):
             n = _fcount.get(side) or 0
@@ -4514,23 +4525,37 @@ def _run_gated_card_inherit(
             except Exception:  # noqa: BLE001 - 프레임 읽기 실패 = fail-closed 측
                 return None
 
-        def _eye_check(side: str, rep: dict, idx: int, gate_joint: str) -> tuple[bool, str]:
+        _eye_cache: dict[tuple[str, int, str], tuple[bool, str, bool]] = {}
+        # 기계 눈 판정 원장 (belle 08-11 추가 지시) — (마킹 크롭 + claim + 판정 +
+        # conf) 짝은 Phase 22 플라이휠 "홀드 자세 시각 검증" 학습 후보 씨앗이라
+        # 버리지 않고 S3 에 additive 보존한다 (아래 업로드 블록). 추론 호출만 —
+        # 학습 재료로의 사용은 별도 사이클의 belle 결정 (T-kpo-01 무접촉).
+        eye_ledger: list[dict] = []
+
+        def _eye_check(side: str, rep: dict, idx: int, gate_joint: str) -> tuple[bool, str, bool]:
             """기계 눈 — claim 은 트랙 각도 이분 (ii0 sweep_gates 방식).
 
-            중간각/좌표없음 = 이분 판정 대상 아님 → 비구속 (hold/pair 만).
-            프레임/키 부재·네트워크 실패 = fail-closed (match False).
+            반환 (통과, 사유, 실호출 여부). 중간각/좌표없음 = 이분 판정 대상 아님
+            → 비구속 (hold/pair 만). 프레임/키 부재·네트워크 실패 = fail-closed
+            (match False). 같은 (측, 프레임, 관절)은 캐시 — 예산 절약.
             """
             nonlocal eye_calls
+            key = (side, int(idx), gate_joint)
+            if key in _eye_cache:
+                ok, why, _ = _eye_cache[key]
+                return ok, why, False
             ang = cg.joint_angle(rep, idx, gate_joint, conf_min=0.0)
             claim = cg.track_claim(ang)
             xy = cg.kp(rep, idx, gate_joint, conf_min=0.0)
             if claim is None or xy is None:
-                return True, "midrange"
+                _eye_cache[key] = (True, "midrange", False)
+                return True, "midrange", False
             frame = _frame_at(side, idx / afps)
             if frame is None:
-                return False, "frame_missing"
+                _eye_cache[key] = (False, "frame_missing", False)
+                return False, "frame_missing", False
             if not api_key:
-                return False, "no_api_key"
+                return False, "no_api_key", False
             H, W = frame.shape[:2]
             eye_calls += 1
             res = cg.machine_eye(
@@ -4538,7 +4563,27 @@ def _run_gated_card_inherit(
                 api_key=api_key, expected_limb=cg.joint_limb(gate_joint),
                 crop_px=max(320, W // 2),
             )
-            return bool(res["match"]), f"{claim}->{res['observed']}"
+            try:
+                buf = io.BytesIO()
+                res["crop"].save(buf, format="PNG")
+                eye_ledger.append({
+                    "side": side, "joint": gate_joint, "frameIdx": int(idx),
+                    "sec": round(idx / afps, 3),
+                    "trackAngleDeg": None if ang is None else round(float(ang), 1),
+                    "claim": claim,
+                    "observed": res.get("observed"),
+                    "limb": res.get("limb"),
+                    "match": bool(res["match"]),
+                    "confidence": res.get("confidence"),
+                    "reason": res.get("reason"),
+                    "png": buf.getvalue(),
+                })
+            except Exception:  # noqa: BLE001 - 원장 적재 실패는 판정 비차단
+                log.warning("card_gates eye ledger 적재 실패 (비차단) side=%s", side)
+            out = (bool(res["match"]),
+                   f"{claim}->{res['observed']}/{res.get('limb')}", True)
+            _eye_cache[key] = out
+            return out
 
         _hold_cache: dict[tuple[str, str], dict[int, float]] = {}
 
@@ -4562,7 +4607,17 @@ def _run_gated_card_inherit(
             )
 
         def _reanchor(rec: dict, gate_joint: str):
-            """(d) 재정박 — 후보 0 = None (정직한 침묵)."""
+            """(d) 재정박 — 후보 0 = None (정직한 침묵).
+
+            신규 발굴(탐색) 짝은 **수치 통과만으로 방출 불가** (ii0 SWEEP §3 실측
+            결론 — kneepath 16.33s 가 수치 전부 통과하고 육안 다른 국면). 그래서
+            후보 자격에 **읽히는 대비**를 요구한다: 트랙 주장(user bent / ref
+            extended)이 이분 경계 밖(중간각)이면 기계 눈이 확정할 수 없는 짝 —
+            "일치할 때만 표시"(UNIFY 수리 스펙 4)를 성립시킬 수 없으므로 후보에서
+            제외한다. 실측 근거: 중간각을 비구속으로 두면 pose-min 이 도입부
+            직립 국면(모든 자세가 서로 닮음)으로 수렴해 belle 철회 장부 1호
+            (기준 1.2s 도입부 짝)를 재생산했다.
+            """
             try:
                 tol = float(rec.get("tolerance") or 20.0)
             except (TypeError, ValueError):
@@ -4574,8 +4629,12 @@ def _run_gated_card_inherit(
             win = float(_fz._POSE_SEARCH_SECONDS)  # noqa: SLF001 - 재사용 (신규 상수 0)
             cands = []
             for uf, ua in u_holds.items():
+                if cg.track_claim(ua) != "bent":
+                    continue  # 주장(굽힘)이 안 읽히는 순간 — 눈 확정 불가
                 ct = float(curve[min(uf, len(curve) - 1)])
                 for rf, ra in r_holds.items():
+                    if cg.track_claim(ra) != "extended":
+                        continue  # 기준측 폄이 안 읽히면 대비 불성립
                     if abs(rf / afps - ct) > win:
                         continue
                     if ra - ua < tol:
@@ -4590,22 +4649,42 @@ def _run_gated_card_inherit(
             # 포즈거리 최소 — 단, 기저 큰 풀 우선 (fz.pose_distance k-편향 경고:
             # 관절 적은 후보가 구조적으로 낮은 거리 — 같은 k 안에서만 min 경쟁).
             cands.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
-            _nk, _d, uf, rf, pair = cands[0]
-            ok_u, why_u = _eye_check("user", urep15, uf, gate_joint)
-            if not ok_u:
-                log.info(
-                    "card_gates 재정박 기각 (eye user %s) analysis_id=%s rid=%s",
-                    why_u, analysis_id, str(rec.get("recordId", "")).split(":")[0],
-                )
-                return None
-            ok_r, why_r = _eye_check("ref", rrep15, rf, gate_joint)
-            if not ok_r:
-                log.info(
-                    "card_gates 재정박 기각 (eye ref %s) analysis_id=%s rid=%s",
-                    why_r, analysis_id, str(rec.get("recordId", "")).split(":")[0],
-                )
-                return None
-            return {"u_sec": uf / afps, "r_sec": rf / afps, "pair": pair}
+            # 눈 지연 평가 — (d) "풀 게이트(눈 포함) 통과 후보 중 포즈거리 최소":
+            # 눈이 확정하는 첫 후보 = 확정 가능 후보 중 포즈 최소. 클러스터(유저
+            # 1초 버킷) 선두만 시험 — 광역 keypoint 전위 실측(이웃 프레임은 같은
+            # 전위 공유)이라 버킷당 1회면 충분하고 예산이 억제된다.
+            rid_s = str(rec.get("recordId", "")).split(":")[0]
+            record_calls = 0
+            seen_buckets: set[int] = set()
+            for _nk, _d, uf, rf, pair in cands:
+                bucket = int(uf / afps)
+                if bucket in seen_buckets:
+                    continue
+                seen_buckets.add(bucket)
+                if record_calls >= _EYE_MAX_PER_RECORD:
+                    log.info(
+                        "card_gates 재정박 예산 소진 (rid=%s calls=%d) — 미방출",
+                        rid_s, record_calls,
+                    )
+                    return None
+                ok_u, why_u, called_u = _eye_check("user", urep15, uf, gate_joint)
+                record_calls += 1 if called_u else 0
+                if not ok_u:
+                    log.info(
+                        "card_gates 재정박 후보 기각 (eye user %s u=%.2fs) rid=%s",
+                        why_u, uf / afps, rid_s,
+                    )
+                    continue
+                ok_r, why_r, called_r = _eye_check("ref", rrep15, rf, gate_joint)
+                record_calls += 1 if called_r else 0
+                if not ok_r:
+                    log.info(
+                        "card_gates 재정박 후보 기각 (eye ref %s r=%.2fs) rid=%s",
+                        why_r, rf / afps, rid_s,
+                    )
+                    continue
+                return {"u_sec": uf / afps, "r_sec": rf / afps, "pair": pair}
+            return None
 
         by_rid: dict[str, dict] = {}
         for r in records:
@@ -4632,9 +4711,30 @@ def _run_gated_card_inherit(
                 dropped.append((rid, "freeze_sec_invalid"))
                 continue
             is_angle_claim = crit.startswith(_fz.ANGLE_VS_REFERENCE_PREFIX)
-            if src == "align-peak" and not is_angle_claim:
-                emitted.append((rec, u_sec, r_sec, None, "peak"))
-                continue
+            if src == "align-peak":
+                if not is_angle_claim:
+                    emitted.append((rec, u_sec, r_sec, None, "peak"))
+                    continue
+                # 각도-주장 record 의 절정 재배치 (힙 legs_cue 표시 규칙) — freeze
+                # 순간은 벌림 절정(표시)이지 **주장이 측정된 순간이 아니다**. 절정
+                # 짝은 "각자의 절정"이라 두 자세가 우연히 닮아도 감점 주장(각도
+                # 편차)의 성립 근거가 아니다 — 게이트는 측정된 짝(align pairs)으로
+                # 옮겨 판정한다 (실측: fresh 왼골반 freeze 16.7s 절정이 hold+pair
+                # 를 통과해 카드가 새던 구멍. PLAN (d) "왼골반 기대 경로" = 측정
+                # 순간 게이트 → 재정박 → 후보 0).
+                ap = (align.get("pairs") or {}).get(rid) or {}
+                if ap.get("atVideoSec") is not None and ap.get("refVideoSec") is not None:
+                    u_sec = float(ap["atVideoSec"])
+                    r_sec = float(ap["refVideoSec"])
+                else:
+                    at = rec.get("atVideoSec")
+                    if at is None:
+                        dropped.append((rid, "peak_reroute_no_moment"))
+                        continue
+                    u_sec = float(at)
+                    r_sec = float(
+                        curve[max(0, min(int(round(u_sec * afps)), len(curve) - 1))]
+                    )
             gate_joint = cg.crit_joint(
                 str(fzr.get("joint") or crit.split("__")[-1])
             )
@@ -4645,7 +4745,7 @@ def _run_gated_card_inherit(
             eye_why = ""
             inherit_ok = hold.passed and pair.passed
             if inherit_ok:
-                ok_e, eye_why = _eye_check("user", urep15, u_idx, gate_joint)
+                ok_e, eye_why, _called = _eye_check("user", urep15, u_idx, gate_joint)
                 inherit_ok = ok_e
             if inherit_ok:
                 emitted.append((rec, u_sec, r_sec, pair, "inherit"))
@@ -4721,14 +4821,40 @@ def _run_gated_card_inherit(
             native_at = _build_native_frame_provider(
                 user_video_path, reference_video_path, ext
             )
+
+            def _override_idx(sec: float, side: str, video_n: int, rep: dict) -> int:
+                """실초 → build_fault_zoom_comparisons override 인덱스.
+
+                override 공간은 frames 배열 인덱스지만, fault_zoom 은 rep
+                (keypointReport 라벨 fps)과 ref_display_frame_index 로 양 패널을
+                **rep9 타임베이스**에서 정합시킨다 — 실초 × 실효 rate 를 그대로
+                넣으면 rep 라벨 오차(기준 트랙 실효 15fps vs 라벨 18 — ii0 발견 4)
+                만큼 표시가 1.33배 밀린다 (실측: ref 5.13s 지정이 6.8s 를 그림).
+                rep 메타로 rep9 길이를 재현해 비디오 프레임 수 비율로 되돌린다 —
+                ref_display_frame_index 의 역변환 (동일 량, 신규 상수 0). rep
+                메타 부재/정합(rep9==video_n) = 실효 rate identity.
+                """
+                idx = sec * eff[side]
+                rep_frames = int(rep.get("frames") or 0)
+                rep_fps = float(rep.get("fps") or 0.0)
+                if rep_frames > 0 and rep_fps > 0 and video_n > 0:
+                    rep9_n = rep_frames * 9.0 / rep_fps
+                    if rep9_n > 0:
+                        idx = idx * rep9_n / float(video_n)
+                return int(round(idx))
+
             for cu in units:
                 crit = str(cu.get("criterion") or "")
                 ent = moment_by_crit.get(crit)
                 if ent is None:
                     continue
                 rec, u_sec, r_sec, pairv, path = ent
-                u9 = int(round(u_sec * eff["user"]))
-                r9 = int(round(r_sec * eff["ref"]))
+                u9 = _override_idx(
+                    u_sec, "user", int(user_frames.shape[0]), user_report
+                )
+                r9 = _override_idx(
+                    r_sec, "ref", int(ref_frames.shape[0]), ref_report
+                )
                 comps = _fz.build_fault_zoom_comparisons(
                     user_frames, ref_frames, user_report, ref_report, None,
                     list(cu.get("joints") or ()), deficits,
@@ -4784,6 +4910,43 @@ def _run_gated_card_inherit(
             "card_gates 대체 부착 완료 analysis_id=%s confirmed=%d advisory=%d",
             analysis_id, len(items), len(advisory_keep),
         )
+        # 기계 눈 원장 보존 (belle 08-11 추가 지시 — Phase 22 플라이휠 씨앗).
+        # 기존 키 규칙 하위 additive (results/{uid}/{aid}/eye/) — 카드 부착 이후
+        # 별도 try 라 실패해도 카드/doc 무영향 (T-kpo-02 보존).
+        if eye_ledger:
+            try:
+                entries = []
+                for i, ent in enumerate(eye_ledger):
+                    png = ent.pop("png", None)
+                    ekey = (
+                        f"results/{uid}/{analysis_id}/eye/"
+                        f"{i:02d}_{ent['side']}_{ent['joint']}.png"
+                    )
+                    if png:
+                        _s3.put_object(
+                            Bucket=bucket, Key=ekey, Body=png,
+                            ContentType="image/png",
+                        )
+                        ent["key"] = ekey
+                    entries.append(ent)
+                _s3.put_object(
+                    Bucket=bucket,
+                    Key=f"results/{uid}/{analysis_id}/eye/ledger.json",
+                    Body=json.dumps(
+                        {"analysisId": analysis_id, "entries": entries},
+                        ensure_ascii=False,
+                    ).encode("utf-8"),
+                    ContentType="application/json",
+                )
+                log.info(
+                    "card_gates eye ledger 보존 analysis_id=%s entries=%d",
+                    analysis_id, len(entries),
+                )
+            except Exception:  # noqa: BLE001 - 원장 보존 실패는 비차단
+                log.warning(
+                    "card_gates eye ledger 업로드 실패 (비차단) analysis_id=%s",
+                    analysis_id,
+                )
     except Exception:  # noqa: BLE001 - 어떤 실패도 재raise 0 — 기존 카드 자연 폴백
         log.exception(
             "card_gates 상속 카드 대체 부착 실패 — 기존 카드 유지 (graceful) "

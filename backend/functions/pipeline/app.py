@@ -4380,37 +4380,27 @@ def _run_gated_card_inherit(
     analysis_id: str,
     bucket: str,
 ) -> None:
-    """성립 게이트 → 영상 정지 상속 카드 대체 부착 (quick-260811-kpo).
+    """영상 freeze 순수 상속 + 확대 카드 — 방출 게이트 전용 (quick-260811-ufb).
 
-    "영상이 정답표다" (CONTINUE-2026-08-11, belle 확정): 카드는 그 분석의 합성
-    비교 영상 정지(freeze)에서 상속하고, 성립 게이트(홀드/짝정합/기계눈 —
-    card_gates, ii0 확정 임계) 생존자만 |dev| 내림차순으로 카드를 받는다
-    (record 순서 상한 구조 제거). 판정 트랙 = align (doc keypointReport 는 fps
-    라벨 오차로 부적합 — ii0 발견 4).
+    "영상이라는 기본 승인 틀" (belle 08-11 반려 = 스펙): 카드의 순간은 그 분석의
+    합성 비교 영상 freeze (userSec, refSec) **그대로**다 — 이 함수에는 순간을
+    고르거나 옮기는 능력이 없다 (재정박·절정 재배치·±조정 부재, u_sec/r_sec 을
+    덮어쓰는 연산 0). 게이트(홀드/짝정합/기계눈 — card_gates, ii0 확정 임계)는
+    freeze 그 자리에서 판정해 **방출 여부만** 결정한다: PASS = 그 freeze 를
+    확대한 카드 방출, FAIL = 그 freeze 카드 미방출 (정직한 침묵 — 대체 순간
+    탐색 없음). 판정 트랙 = align (doc keypointReport 는 fps 라벨 오차로
+    부적합 — ii0 발견 4).
 
     freeze 분류 (구조 기반 — 동작명 분기 0, D-41):
-      · pairSrc='align-peak' AND criterion 이 절정 축(split_angle/leg_extension —
-        잰 값 자체가 벌림): 홀드/포즈 parity **비구속** (ii0 발견 1 — 절정은
-        원리적으로 홀드가 아니고 짝도 각자의 절정). 카드 = freeze 그대로.
-      · 각도-주장 record(angle_vs_reference__*)는 **pairSrc 무관 게이트** —
-        힙 큐는 표시 규칙(legs_cue)이 순간을 절정으로 재배치하지만 카드의
-        주장은 각도 편차라 성립 게이트 대상이다 (fresh 왼골반이 align-peak
-        표시 재배치로 비구속에 새는 구멍 차단 — 실측: p34fresh r03 freeze
-        src=align-peak ut 16.7s. PLAN (d) "왼골반 기대 경로" = 게이트 경로).
-      · 그 외 joint-scope freeze: 게이트.
+      · pairSrc='align-peak' AND 비-각도주장 criterion(split_angle/leg_extension
+        — 잰 값 자체가 벌림): 게이트 **비구속** (ii0 발견 1 — 절정은 원리적으로
+        홀드가 아니고 짝도 각자의 절정). 카드 = freeze 그대로 (peak pass-through).
+      · 그 외 전부 (각도-주장 record 는 pairSrc 무관 포함): freeze 의 (userSec,
+        refSec) 그 순간에서 hold_gate + pair_gate + 기계 눈(user 측) 방출 판정.
 
-    게이트 판정 (b)~(d):
-      · 상속: freeze 순간 hold+pair PASS + (claim 유도 가능 시) 기계 눈 user 측
-        일치 → 카드 순간 = freeze 그대로 (fail-closed — 조정은 하지 않는다).
-      · 재정박: FAIL freeze 는 그 관절의 홀드 성립 순간들 × align curve 근방
-        (±fz._POSE_SEARCH_SECONDS) ref 홀드 후보에서 편차 성립(ra-ua >= tol) +
-        짝 게이트 통과 후보 중 **포즈거리 최소** 선택 (탐욕 최대편차 금지 —
-        ii0 kneepath 실측: 수치 통과·육안 다른 국면). 같은 basis_k 풀 안에서만
-        min 경쟁 (fz.pose_distance k-편향 경고). 기계 눈은 최종 후보 **양측**에만
-        (카드당 <=2회 — T-kpo-03 비용 상한). 후보 0 = 그 record 카드 미방출
-        (정직한 침묵).
+    배정·렌더·부착 (kpo 승인 배선 그대로 — 무접촉):
       · 배정: 생존 record |deviation| 내림차순 → criterion_units_from_records
-        (max_units=4 유지 — 순서 상한만 제거).
+        (max_units=4 유지 — LD-4).
       · 렌더: fault_zoom.build_fault_zoom_comparisons(dtw_match=None +
         user/ref_frame_idx override + criterion_units + native_frame_at) —
         bz5 하네스 round-trip 실증 경로. 초→9fps 인덱스는 **실효 rate**
@@ -4418,6 +4408,7 @@ def _run_gated_card_inherit(
       · 부착: 기존 키 규칙(zoom_ prefix)으로 S3 업로드 후
         update_analysis_fault_zoom 대체 부착. advisory 카드는 보존
         (fault_zoom 스테이지 산출 pass-through — 게이트 대상은 확정 카드).
+      · 기계 눈 판정 원장은 S3 eye/ 에 additive 보존 (LD-8 — Phase 22 씨앗).
 
     Fail-closed 층위: 이 함수 내부 어떤 실패도 재raise 0 (graceful) —
     fault_zoom 스테이지 카드가 이미 도착해 있어 자연 폴백. mode3/Lambda/비기준
@@ -4461,7 +4452,6 @@ def _run_gated_card_inherit(
         rsize = tuple(align["refSize"])
         u_torso = cg.torso_px_median(urep15, usize)
         r_torso = cg.torso_px_median(rrep15, rsize)
-        curve = np.asarray(align["curveRefSec"], dtype=float)
 
         # 폴 축 — render 가 검출·캐시한 pole_{side}.json 재사용 (재검출 0).
         # 부재/실패 = 비차단 (pair_gate 가 pole_unmeasured 로 폴 parity 만 생략).
@@ -4503,15 +4493,8 @@ def _run_gated_card_inherit(
         }
         _fcount = {s: len(list(d.glob("*.jpg"))) for s, d in _fdirs.items()}
         eye_calls = 0
-        # 재정박 눈 검증 예산 (record 당) — PLAN (d) 원문은 "최종 후보 ≤2회"였으나
-        # 로컬 실측에서 user 트랙 keypoint 가 다수 순간에서 타 부위로 전위(광역
-        # 환각 — UNIFY §3 의 운영 확인)해, 첫 후보 하나만 시험하면 진짜 성립
-        # 순간(포즈 랭킹 하위)에 닿기 전에 record 가 죽는다. (d) 의 1차 의미론
-        # "풀 게이트(눈 포함) 통과 후보 중 포즈거리 최소"를 지키려면 눈을 포즈
-        # 순서로 지연 평가해야 한다 — 클러스터(유저 1초 버킷) 선두만 시험 + 프레임
-        # 캐시로 상한 억제. 비용: 16×카드4 = 최대 64 flash-vision 호출/분석
-        # ≈ $0.01 대 — T-kpo-03 구독료 하한 내 (SUMMARY deviation 박제).
-        _EYE_MAX_PER_RECORD = 16
+        # 눈 호출은 freeze 방출 판정에만 쓰인다 (탐색 없음) — 상한은 구조가
+        # 보장: freeze 건수(≤5/분석) × user 측 1회 + 캐시 (T-ufb-03).
 
         def _frame_at(side: str, sec: float):
             n = _fcount.get(side) or 0
@@ -4537,7 +4520,7 @@ def _run_gated_card_inherit(
 
             반환 (통과, 사유, 실호출 여부). 중간각/좌표없음 = 이분 판정 대상 아님
             → 비구속 (hold/pair 만). 프레임/키 부재·네트워크 실패 = fail-closed
-            (match False). 같은 (측, 프레임, 관절)은 캐시 — 예산 절약.
+            (match False). 같은 (측, 프레임, 관절)은 캐시 — 중복 호출 억제.
             """
             nonlocal eye_calls
             key = (side, int(idx), gate_joint)
@@ -4585,106 +4568,12 @@ def _run_gated_card_inherit(
             _eye_cache[key] = out
             return out
 
-        _hold_cache: dict[tuple[str, str], dict[int, float]] = {}
-
-        def _hold_angles(side: str, rep: dict, gate_joint: str) -> dict[int, float]:
-            key = (side, gate_joint)
-            if key not in _hold_cache:
-                found: dict[int, float] = {}
-                for f in range(int(rep["frames"])):
-                    if cg.hold_gate(rep, f, gate_joint).passed:
-                        a = cg.joint_angle(rep, f, gate_joint)
-                        if a is not None:
-                            found[f] = a
-                _hold_cache[key] = found
-            return _hold_cache[key]
-
         def _pair_at(uf: int, rf: int):
             return cg.pair_gate(
                 urep15, uf, rrep15, rf, pole_x["user"], pole_x["ref"],
                 user_size=usize, ref_size=rsize,
                 user_torso_px=u_torso, ref_torso_px=r_torso,
             )
-
-        def _reanchor(rec: dict, gate_joint: str):
-            """(d) 재정박 — 후보 0 = None (정직한 침묵).
-
-            신규 발굴(탐색) 짝은 **수치 통과만으로 방출 불가** (ii0 SWEEP §3 실측
-            결론 — kneepath 16.33s 가 수치 전부 통과하고 육안 다른 국면). 그래서
-            후보 자격에 **읽히는 대비**를 요구한다: 트랙 주장(user bent / ref
-            extended)이 이분 경계 밖(중간각)이면 기계 눈이 확정할 수 없는 짝 —
-            "일치할 때만 표시"(UNIFY 수리 스펙 4)를 성립시킬 수 없으므로 후보에서
-            제외한다. 실측 근거: 중간각을 비구속으로 두면 pose-min 이 도입부
-            직립 국면(모든 자세가 서로 닮음)으로 수렴해 belle 철회 장부 1호
-            (기준 1.2s 도입부 짝)를 재생산했다.
-            """
-            try:
-                tol = float(rec.get("tolerance") or 20.0)
-            except (TypeError, ValueError):
-                tol = 20.0
-            u_holds = _hold_angles("user", urep15, gate_joint)
-            r_holds = _hold_angles("ref", rrep15, gate_joint)
-            if not u_holds or not r_holds:
-                return None
-            win = float(_fz._POSE_SEARCH_SECONDS)  # noqa: SLF001 - 재사용 (신규 상수 0)
-            cands = []
-            for uf, ua in u_holds.items():
-                if cg.track_claim(ua) != "bent":
-                    continue  # 주장(굽힘)이 안 읽히는 순간 — 눈 확정 불가
-                ct = float(curve[min(uf, len(curve) - 1)])
-                for rf, ra in r_holds.items():
-                    if cg.track_claim(ra) != "extended":
-                        continue  # 기준측 폄이 안 읽히면 대비 불성립
-                    if abs(rf / afps - ct) > win:
-                        continue
-                    if ra - ua < tol:
-                        # 편차 불성립 순간 — 감점 주장을 보여줄 수 없다.
-                        continue
-                    pair = _pair_at(uf, rf)
-                    if not pair.passed or pair.pose_dist is None:
-                        continue
-                    cands.append((-pair.basis_k, float(pair.pose_dist), uf, rf, pair))
-            if not cands:
-                return None
-            # 포즈거리 최소 — 단, 기저 큰 풀 우선 (fz.pose_distance k-편향 경고:
-            # 관절 적은 후보가 구조적으로 낮은 거리 — 같은 k 안에서만 min 경쟁).
-            cands.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
-            # 눈 지연 평가 — (d) "풀 게이트(눈 포함) 통과 후보 중 포즈거리 최소":
-            # 눈이 확정하는 첫 후보 = 확정 가능 후보 중 포즈 최소. 클러스터(유저
-            # 1초 버킷) 선두만 시험 — 광역 keypoint 전위 실측(이웃 프레임은 같은
-            # 전위 공유)이라 버킷당 1회면 충분하고 예산이 억제된다.
-            rid_s = str(rec.get("recordId", "")).split(":")[0]
-            record_calls = 0
-            seen_buckets: set[int] = set()
-            for _nk, _d, uf, rf, pair in cands:
-                bucket = int(uf / afps)
-                if bucket in seen_buckets:
-                    continue
-                seen_buckets.add(bucket)
-                if record_calls >= _EYE_MAX_PER_RECORD:
-                    log.info(
-                        "card_gates 재정박 예산 소진 (rid=%s calls=%d) — 미방출",
-                        rid_s, record_calls,
-                    )
-                    return None
-                ok_u, why_u, called_u = _eye_check("user", urep15, uf, gate_joint)
-                record_calls += 1 if called_u else 0
-                if not ok_u:
-                    log.info(
-                        "card_gates 재정박 후보 기각 (eye user %s u=%.2fs) rid=%s",
-                        why_u, uf / afps, rid_s,
-                    )
-                    continue
-                ok_r, why_r, called_r = _eye_check("ref", rrep15, rf, gate_joint)
-                record_calls += 1 if called_r else 0
-                if not ok_r:
-                    log.info(
-                        "card_gates 재정박 후보 기각 (eye ref %s r=%.2fs) rid=%s",
-                        why_r, rf / afps, rid_s,
-                    )
-                    continue
-                return {"u_sec": uf / afps, "r_sec": rf / afps, "pair": pair}
-            return None
 
         by_rid: dict[str, dict] = {}
         for r in records:
@@ -4694,7 +4583,6 @@ def _run_gated_card_inherit(
 
         emitted: list[tuple] = []       # (rec, u_sec, r_sec, pair|None, path)
         dropped: list[tuple] = []       # (rid, reason)
-        reanchored_rids: list[str] = []
         freeze_rids: set[str] = set()
         for fzr in freezes:
             rid = str(fzr.get("rid") or "")
@@ -4711,30 +4599,13 @@ def _run_gated_card_inherit(
                 dropped.append((rid, "freeze_sec_invalid"))
                 continue
             is_angle_claim = crit.startswith(_fz.ANGLE_VS_REFERENCE_PREFIX)
-            if src == "align-peak":
-                if not is_angle_claim:
-                    emitted.append((rec, u_sec, r_sec, None, "peak"))
-                    continue
-                # 각도-주장 record 의 절정 재배치 (힙 legs_cue 표시 규칙) — freeze
-                # 순간은 벌림 절정(표시)이지 **주장이 측정된 순간이 아니다**. 절정
-                # 짝은 "각자의 절정"이라 두 자세가 우연히 닮아도 감점 주장(각도
-                # 편차)의 성립 근거가 아니다 — 게이트는 측정된 짝(align pairs)으로
-                # 옮겨 판정한다 (실측: fresh 왼골반 freeze 16.7s 절정이 hold+pair
-                # 를 통과해 카드가 새던 구멍. PLAN (d) "왼골반 기대 경로" = 측정
-                # 순간 게이트 → 재정박 → 후보 0).
-                ap = (align.get("pairs") or {}).get(rid) or {}
-                if ap.get("atVideoSec") is not None and ap.get("refVideoSec") is not None:
-                    u_sec = float(ap["atVideoSec"])
-                    r_sec = float(ap["refVideoSec"])
-                else:
-                    at = rec.get("atVideoSec")
-                    if at is None:
-                        dropped.append((rid, "peak_reroute_no_moment"))
-                        continue
-                    u_sec = float(at)
-                    r_sec = float(
-                        curve[max(0, min(int(round(u_sec * afps)), len(curve) - 1))]
-                    )
+            if src == "align-peak" and not is_angle_claim:
+                # 절정 축 criterion(split_angle/leg_extension) — 잰 값 자체가
+                # 벌림이라 홀드가 원리적으로 성립하지 않는다 (ii0 발견 1).
+                # freeze 그대로 방출 (비구속 pass-through). 각도-주장 record 는
+                # pairSrc 무관 아래 방출 게이트 — freeze 그 순간에서 판정한다.
+                emitted.append((rec, u_sec, r_sec, None, "peak"))
+                continue
             gate_joint = cg.crit_joint(
                 str(fzr.get("joint") or crit.split("__")[-1])
             )
@@ -4750,30 +4621,30 @@ def _run_gated_card_inherit(
             if inherit_ok:
                 emitted.append((rec, u_sec, r_sec, pair, "inherit"))
                 continue
-            re_hit = _reanchor(rec, gate_joint) if is_angle_claim else None
-            if re_hit is not None:
-                emitted.append(
-                    (rec, re_hit["u_sec"], re_hit["r_sec"], re_hit["pair"], "reanchor")
-                )
-                reanchored_rids.append(rid)
-            else:
-                why = f"hold={hold.reason} pair={pair.reason}"
-                if eye_why and eye_why != "midrange":
-                    why += f" eye={eye_why}"
-                dropped.append((rid, why))
+            # FAIL freeze = 그 카드 미방출 (정직한 침묵 — 대체 순간 탐색 없음).
+            why = f"hold={hold.reason} pair={pair.reason}"
+            if eye_why and eye_why != "midrange":
+                why += f" eye={eye_why}"
+            dropped.append((rid, why))
         for rid in by_rid:
             if rid not in freeze_rids:
                 # 영상에 정지가 없는 record — 상속 바닥이 없다 (excludedFreezes 등).
                 dropped.append((rid, "no_freeze"))
 
-        # (h) 실행 로그 = 배선 증거 (wiring-claims-need-log-evidence) — 1줄 필수.
+        # 실행 로그 = 배선·불변식 증거 (wiring-claims-need-log-evidence) —
+        # survivors 의 @u/r 방출 순간이 같은 분석의 freeze 값 그대로임을 로그가
+        # 증언한다. 재정박 필드는 경로가 없으므로 필드도 없다 (ufb).
         log.info(
             "card_gates verdict analysis_id=%s total=%d survivors=%s dropped=%s "
-            "reanchored=%s eye_calls=%d",
+            "eye_calls=%d",
             analysis_id, len(freezes),
-            [f"{str(t[0].get('recordId', '')).split(':')[0]}:{t[4]}" for t in emitted],
+            [
+                f"{str(t[0].get('recordId', '')).split(':')[0]}:{t[4]}"
+                f"@u{t[1]:.3f}/r{t[2]:.2f}"
+                for t in emitted
+            ],
             [f"{rid}:{why}" for rid, why in dropped],
-            reanchored_rids, eye_calls,
+            eye_calls,
         )
 
         # (e) 배정 — 생존 record |deviation| 내림차순 → 기존 상한(max_units=4)에

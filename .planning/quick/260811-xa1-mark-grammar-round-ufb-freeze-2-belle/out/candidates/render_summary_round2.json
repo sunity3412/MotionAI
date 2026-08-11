@@ -1,0 +1,24 @@
+{
+ "E3r1": {
+  "joint": "left_elbow",
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: 원 좌표 출처 rep12->al17(게이트 순간)@80 px=(189,179)",
+   "ref: 원 좌표 출처 rep12->al17(게이트 순간)@77 px=(200,178)"
+  ],
+  "targetMd5": "d4f4595a03d99c0bb178f87396f5548a"
+ },
+ "P4": {
+  "joint": "left_hip",
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: 원 좌표 출처 rep12->al17(게이트 순간)@250 px=(181,178)",
+   "ref: 원 좌표 출처 rep12->al17(게이트 순간)@228 px=(176,188)"
+  ],
+  "targetMd5": "a7c29a90914f934432d893ace83f27ff"
+ }
+}

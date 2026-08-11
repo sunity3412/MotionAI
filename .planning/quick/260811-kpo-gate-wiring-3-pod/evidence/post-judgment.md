@@ -67,3 +67,26 @@ peterpan 53 · powerspin 8 도/초). align-peak 3건 비구속. 이식 등가성
 
 59 failed / 4149 passed (기준선 59 동일 — 신규 실패 0, 실패 파일 중 변경 함수
 참조 0건 grep 확인. passed 증가분 +8 = 신규 card_gates 테스트).
+
+## Pod 실증 (p34fresh1786433865 — 카드 PNG 직접 열람 후 판정)
+
+- `/health` commitSha 2112975a == 로컬 HEAD. 서버 재기동(정본 start_server.sh,
+  md5 리포 일치) + aws_env 소싱 (미소싱 1차 기동은 키 len 0 실측 → 재기동).
+- **분석 완료 666.1s — status=done score=60** (같은 영상 재현성 보존, records 5건이
+  이전 fresh doc 과 recordId/criterion/atVideoSec/points 소수점까지 동일).
+- **card_gates verdict (운영 실행 로그 = 배선 증거)**: total=5
+  survivors=[r00:inherit, r01:reanchor, r04:reanchor]
+  dropped=[r02:hold=moving pair=pose_far, r03:hold=moving pair=match]
+  reanchored=[r01, r04] eye_calls=40 → evidence/pod_verdict_log.txt
+- **왼골반 카드 부재** (doc faultZoomComparisons confirmed = right_elbow /
+  left_elbow / left_knee — left_hip 없음) — must_have 1 성립.
+- **왼무릎 카드**: pod_cards/zoom_angle_vs_reference__left_knee.png 직접 열람 —
+  로컬 검증 카드와 동일 짝 (u 12.8s 접힌 무릎 vs r 12.3s 신전 무릎, 같은 역립
+  홀드 국면) — 환경 넘어 결정적 재현. must_have 2 성립.
+- **왼팔꿈치 카드**: attribution=**pole_proximity** doc 부착 (Pod 자체 align 의
+  pair 폴거리 차가 마진 통과 — 로컬 리플레이의 0.1498 근소 미달과 달리 성립).
+  정답표 3항 Pod 에서 성립. 각도 수치 미노출 유지.
+- renderedCompare done + freezes 5 (영상 스테이지 무회귀).
+- r01 right_elbow 는 Pod 재정박 생존 (로컬은 기각 — Pod 자체 align 미세 차이 +
+  Gemini 경계 판정. 정답표 무구속 축, 카드 실물 pod_cards/ 보존).
+- 기계 눈 원장 40건 S3 보존 (results/.../eye/) → evidence/pod_eye_ledger/ 회수.

@@ -1,0 +1,38 @@
+INFO 분석 완료 uid=fvcNXzEqKjgqVxRPVSj1iwFnIpn2 analysis_id=p34fresh1786433865 mode=mode1
+INFO compare_render done uid=fvcNXzEqKjgqVxRPVSj1iwFnIpn2 analysis_id=p34fresh1786433865 key=results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786433865/compare_v1.mp4 freezes=5
+INFO card_gates 재정박 후보 기각 (eye user bent->off_body/unclear u=1.40s) rid=r01
+INFO card_gates 재정박 후보 기각 (eye user bent->bent/leg u=9.93s) rid=r01
+INFO card_gates 재정박 후보 기각 (eye user bent->bent/leg u=12.80s) rid=r01
+INFO card_gates 재정박 후보 기각 (eye user bent->unclear/other u=2.27s) rid=r01
+INFO card_gates 재정박 후보 기각 (eye user bent->bent/leg u=15.53s) rid=r01
+INFO card_gates 재정박 후보 기각 (eye user bent->bent/arm u=7.60s) rid=r04
+INFO card_gates 재정박 후보 기각 (eye ref extended->extended/arm r=10.27s) rid=r04
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/arm u=0.07s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye user bent->bent/leg u=12.13s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/leg u=13.33s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye ref extended->bent/leg r=6.80s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/arm u=8.93s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/arm u=11.00s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/arm u=10.93s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/arm u=6.93s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/arm u=5.13s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/arm u=7.00s) rid=r02
+INFO card_gates 재정박 후보 기각 (eye user bent->bent/arm u=8.07s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye user bent->bent/arm u=6.20s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye user bent->bent/arm u=10.13s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/leg u=15.47s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye user bent->unclear/other u=4.40s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/leg u=2.60s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/arm u=7.13s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye ref extended->bent/leg r=2.00s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/arm u=11.20s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/leg u=0.13s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye ref extended->bent/leg r=5.07s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye user bent->extended/leg u=16.00s) rid=r03
+INFO card_gates 재정박 후보 기각 (eye ref extended->bent/leg r=13.00s) rid=r03
+INFO card_gates 재정박 예산 소진 (rid=r03 calls=16) — 미방출
+INFO card_gates verdict analysis_id=p34fresh1786433865 total=5 survivors=['r00:inherit', 'r01:reanchor', 'r04:reanchor'] dropped=['r02:hold=moving pair=pose_far', 'r03:hold=moving pair=match'] reanchored=['r01', 'r04'] eye_calls=40
+INFO card_gates 대체 부착 완료 analysis_id=p34fresh1786433865 confirmed=3 advisory=1
+INFO card_gates eye ledger 보존 analysis_id=p34fresh1786433865 entries=40
+== 분석 완료 666.1s — status=done score=60
+-- renderedCompare: {"freezes": [{"rid": "r00", "outSec": 5.33}, {"rid": "r01", "outSec": 15.83}, {"rid": "r04", "outSec": 30.1}, {"rid": "r02", "outSec": 43.17}, {"rid": "r03", "outSec": 58.0}], "key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786433865/compare_v1.mp4", "status": "done"}

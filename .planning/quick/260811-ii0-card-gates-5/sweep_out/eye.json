@@ -1,0 +1,96 @@
+[
+ {
+  "tag": "fresh_r00_left_elbow",
+  "joint": "left_elbow",
+  "align_idx": 80,
+  "sec": 5.33,
+  "track_angle": 74.02306266727025,
+  "claim": "bent",
+  "observed": "bent",
+  "match": true,
+  "confidence": 0.95,
+  "reason": "The orange circle highlights the elbow joint of the arm, which is clearly bent at an angle of approximately 90 degrees as the person holds onto the pole."
+ },
+ {
+  "tag": "fresh_r01_right_elbow",
+  "joint": "right_elbow",
+  "align_idx": 92,
+  "sec": 6.13,
+  "track_angle": 100.1240985875005,
+  "claim": null,
+  "observed": null,
+  "match": null,
+  "note": "중간각/좌표없음 — 기계 눈 이분 판정 대상 아님"
+ },
+ {
+  "tag": "fresh_r02_right_shoulder",
+  "joint": "right_shoulder",
+  "align_idx": 207,
+  "sec": 13.8,
+  "track_angle": 76.31734127275995,
+  "claim": "bent",
+  "observed": "bent",
+  "match": true,
+  "confidence": 0.95,
+  "reason": "The elbow joint marked by the orange circle is clearly bent at approximately a 90-degree angle as the arm reaches to grip the pole."
+ },
+ {
+  "tag": "fresh_r03_left_hip",
+  "joint": "left_hip",
+  "align_idx": 71,
+  "sec": 4.73,
+  "track_angle": 97.99137156658585,
+  "claim": "bent",
+  "observed": "extended",
+  "match": false,
+  "confidence": 0.9,
+  "reason": "The orange circle is located on the shoulder joint of the arm that is fully extended upwards and to the right."
+ },
+ {
+  "tag": "fresh_r04_left_knee",
+  "joint": "left_knee",
+  "align_idx": 158,
+  "sec": 10.53,
+  "track_angle": 126.90311748557266,
+  "claim": null,
+  "observed": null,
+  "match": null,
+  "note": "중간각/좌표없음 — 기계 눈 이분 판정 대상 아님"
+ },
+ {
+  "tag": "kneepath_user_left_knee",
+  "joint": "left_knee",
+  "align_idx": 245,
+  "sec": 16.33,
+  "track_angle": 0.10341835018046877,
+  "claim": "bent",
+  "observed": "bent",
+  "match": true,
+  "confidence": 0.9,
+  "reason": "The orange circle is on the elbow of the arm holding the pole, which is clearly bent to maintain the grip and position."
+ },
+ {
+  "tag": "kneepath_ref_left_knee",
+  "joint": "left_knee",
+  "align_idx": 232,
+  "sec": 15.47,
+  "track_angle": 92.26779508113606,
+  "claim": "bent",
+  "observed": "bent",
+  "match": true,
+  "confidence": 0.9,
+  "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent at an angle."
+ },
+ {
+  "tag": "elbow_r03_right_knee",
+  "joint": "right_knee",
+  "align_idx": 152,
+  "sec": 10.13,
+  "track_angle": 173.86349886747234,
+  "claim": "extended",
+  "observed": "extended",
+  "match": true,
+  "confidence": 0.95,
+  "reason": "The orange circle is located on the knee of the leg that is fully straightened and extended downwards."
+ }
+]

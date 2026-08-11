@@ -140,10 +140,22 @@ def joint_angle(report: dict, idx: int, joint: str,
 @dataclass(frozen=True)
 class HoldResult:
     passed: bool
-    speed_dps: float | None      # robust 각속도 (도/초) — 측정불가면 None
-    n_samples: int               # 창 안 유효 각도 표본 수
+    speed_dps: float | None      # 판정에 쓴 각속도 = 3창 중 최소 (도/초)
+    n_samples: int               # 대칭창 유효 각도 표본 수
     reason: str                  # "hold" | "moving" | "unmeasurable"
     angles: dict = field(default_factory=dict)  # {frame: deg} 근거 박제용
+    window_speeds: dict = field(default_factory=dict)  # {past|sym|future: dps}
+
+
+def _theil_sen(samples: list[tuple[float, float]]) -> float | None:
+    if len(samples) < 2:
+        return None
+    slopes = [
+        (samples[j][1] - samples[i][1]) / (samples[j][0] - samples[i][0])
+        for i in range(len(samples)) for j in range(i + 1, len(samples))
+        if samples[j][0] > samples[i][0]
+    ]
+    return abs(float(np.median(slopes))) if slopes else None
 
 
 def hold_gate(report: dict, kp_idx: int, joint: str, *,
@@ -151,36 +163,54 @@ def hold_gate(report: dict, kp_idx: int, joint: str, *,
               half_window_f: int = HOLD_HALF_WINDOW_F,
               min_samples: int = HOLD_MIN_SAMPLES,
               conf_min: float = HOLD_CONF_MIN) -> HoldResult:
-    """A1 홀드 게이트 — 측정 순간이 자세 성립(정지) 구간인가.
+    """A1 홀드 게이트 — 측정 순간이 자세 성립(정지) 구간에 붙어 있는가.
 
-    robust 각속도 = 창(±half_window_f) 안 유효 (t, 각도) 쌍의 **Theil-Sen 기울기**
-    (전 쌍 기울기의 중앙값). 원시 인접차(부록 E: 1129도/초 물리 불가값)와 달리
-    단일 환각/지터 프레임이 중앙값에서 걸러진다. 저신뢰로 표본 미달 = 측정불가 =
-    FAIL (fail-closed — 속도를 잴 수 없는 순간의 감점은 성립을 증명 못한 것).
+    robust 각속도 = 유효 (t, 각도) 쌍의 **Theil-Sen 기울기**(전 쌍 기울기 중앙값).
+    원시 인접차(부록 E: 1129도/초 물리 불가값)와 달리 단일 환각/지터 프레임이
+    중앙값에서 걸러진다.
+
+    **3창 최소 판정** (승인 코퍼스 실측 유도 — 임계 튜닝 아님): 정지는 홀드 구간의
+    **경계 순간**(자세 도달 직후)에 잡히는 것이 정당하다 — 승인 pdshapefault r00 은
+    재그립 직후 정착 프레임이라 대칭창은 직전 전이를 물어 111도/초가 나오지만
+    전방창은 33도/초로 안정이다. 과거창 [i-w, i] / 대칭창 [i-w, i+w] /
+    미래창 [i, i+w] 중 **최소 속도** < 임계면 홀드에 접해 있다고 본다.
+    양쪽 다 전이 중(전환 구간)이면 세 창 전부 높아 FAIL — 판별력은 유지된다.
+    대칭창 표본이 min_samples 미만이고 부분창도 표본 부족 = 측정불가 = FAIL
+    (fail-closed — 속도를 잴 수 없는 순간의 감점은 성립을 증명 못한 것).
     """
     fps = float(report.get("fps") or 0.0)
     frames = int(report.get("frames") or 0)
     if fps <= 0 or frames <= 0:
         return HoldResult(False, None, 0, "unmeasurable")
+    kp_idx = max(0, min(frames - 1, kp_idx))
     lo = max(0, kp_idx - half_window_f)
     hi = min(frames - 1, kp_idx + half_window_f)
-    samples: list[tuple[float, float]] = []
     angles: dict[int, float] = {}
     for f in range(lo, hi + 1):
         a = joint_angle(report, f, joint, conf_min)
         if a is not None:
-            samples.append((f / fps, a))
-            angles[f] = round(a, 1)
-    if len(samples) < min_samples:
-        return HoldResult(False, None, len(samples), "unmeasurable", angles)
-    slopes = [
-        (samples[j][1] - samples[i][1]) / (samples[j][0] - samples[i][0])
-        for i in range(len(samples)) for j in range(i + 1, len(samples))
-        if samples[j][0] > samples[i][0]
-    ]
-    speed = abs(float(np.median(slopes)))
-    ok = speed < max_speed_dps
-    return HoldResult(ok, speed, len(samples), "hold" if ok else "moving", angles)
+            angles[f] = a
+    sym = [(f / fps, a) for f, a in angles.items()]
+    past = [(f / fps, a) for f, a in angles.items() if f <= kp_idx]
+    futr = [(f / fps, a) for f, a in angles.items() if f >= kp_idx]
+    half_min = max(2, (min_samples + 1) // 2)
+    speeds: dict[str, float] = {}
+    if len(sym) >= min_samples:
+        s = _theil_sen(sym)
+        if s is not None:
+            speeds["sym"] = s
+    for name, smp in (("past", past), ("future", futr)):
+        if len(smp) >= half_min:
+            s = _theil_sen(smp)
+            if s is not None:
+                speeds[name] = s
+    shown = {k: round(v, 1) for k, v in speeds.items()}
+    disp = {f: round(a, 1) for f, a in angles.items()}
+    if not speeds:
+        return HoldResult(False, None, len(sym), "unmeasurable", disp, shown)
+    best = min(speeds.values())
+    ok = best < max_speed_dps
+    return HoldResult(ok, best, len(sym), "hold" if ok else "moving", disp, shown)
 
 
 # ── A2 짝 정합 게이트 (포즈거리 + 폴거리 parity) ─────────────────────────────
@@ -251,21 +281,44 @@ def pair_gate(user_report: dict, u_kp: int, ref_report: dict, r_kp: int,
               conf_min: float = PAIR_CONF_MIN) -> PairResult:
     """A2 짝 정합 — 두 정지가 "같은 장면"인가 (국면 + 폴 위치).
 
-    · 포즈거리: 신뢰 통과 교집합 기저를 **명시 고정**해 fz.pose_distance 호출
-      (단일 쌍 비교지만 임계와의 비교가 정지들 사이에 걸쳐 있으므로 기저 크기 k 를
-      결과에 박제해 k-편향을 감시한다). 기저 < PAIR_MIN_JOINTS 또는 거리 None =
-      측정불가 = FAIL (fail-closed).
+    · 포즈거리 = **가중 모드** (fz.select_pose_matched_ref_frame 2026-07-27 재설계
+      미러): 기저 = 학생 finite∩conf>0 관절 ∩ 기준 finite 관절 (POSE_BASIS_12 안),
+      가중 = 학생 confidence 그대로. conf>=0.5 경질 게이트는 실 fixture 에서 역립
+      구간 기저 붕괴(승인 elbow r01 k=3)를 만들었다 — 운영 정답( 저신뢰 좌표도
+      신호로 쓰되 기여를 신뢰도만큼 할인, ref garbage 는 거리로 자기배제)을 따른다.
+      기저는 **명시 고정**해 전달하고 크기 k 를 박제 (k-편향 감시). 기저 <
+      PAIR_MIN_JOINTS 또는 거리 None = 측정불가 = FAIL (fail-closed).
     · 폴 parity: 양쪽 몸중심-폴 거리(몸통 단위) 차 < pole_diff_max. 폴 미검출 등
       측정 불가 시 **비차단**("pole_unmeasured") — 폴 검출은 게이트 밖 환경 요인
       이라 fail-closed 로 걸면 폴이 안 보이는 촬영 전부가 침묵한다. 보고서에 박제.
     """
-    pu = confident_pose(user_report, u_kp, conf_min)
-    pr = confident_pose(ref_report, r_kp, conf_min)
+    pu: dict[str, tuple[float, float]] = {}
+    weights: dict[str, float] = {}
+    for name in POSE_BASIS_12:
+        rn = _resolve(user_report, name)
+        if rn is None:
+            continue
+        xy = fz._kp_xy(user_report, u_kp, rn)  # noqa: SLF001
+        if xy is None:
+            continue
+        c = fz._kp_conf(user_report, u_kp, rn)  # noqa: SLF001
+        if c is None or c <= 0.0:
+            continue
+        pu[name] = xy
+        weights[name] = float(c)
+    pr: dict[str, tuple[float, float]] = {}
+    for name in pu:
+        rn = _resolve(ref_report, name)
+        if rn is None:
+            continue
+        xy = fz._kp_xy(ref_report, r_kp, rn)  # noqa: SLF001
+        if xy is not None:
+            pr[name] = xy
     basis = sorted(set(pu) & set(pr))
     if len(basis) < PAIR_MIN_JOINTS:
         return PairResult(False, None, len(basis), None, None, None,
                           "pose_unmeasurable")
-    d = fz.pose_distance(pu, pr, basis=basis)
+    d = fz.pose_distance(pu, pr, basis=basis, weights=weights)
     if d is None:
         return PairResult(False, None, len(basis), None, None, None,
                           "pose_unmeasurable")

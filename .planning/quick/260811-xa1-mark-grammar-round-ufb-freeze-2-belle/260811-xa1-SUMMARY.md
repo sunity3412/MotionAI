@@ -94,3 +94,61 @@ freeze 프레임에서 conf 게이트 탈락으로 불성립이라 폴백으로�
   gate.json + 후보 6 + render_summary.json)
 - 커밋 45e0f2c8 (Task 1) / adc749c5 (Task 2) 존재, 파일 삭제 0
 - 미추적 잔여 = PLAN/SUMMARY 만 (오케스트레이터 docs 커밋 몫), backend/ diff 0
+
+---
+
+# 라운드 2 — 정제 (2026-08-12, belle 판정 스펙 직접 실행)
+
+**한 줄**: E3 채택 후 정제 — ref 원이 벗어난 뿌리를 실물 추적으로 **fps 라벨
+사슬의 1프레임 이른 인덱스**(트랙 간 차이가 아님)로 규명하고, 원 좌표 출처를
+align 17-kp **게이트 freeze 순간**(게이트/기계눈과 같은 공식)으로 교체한
+E3-r1 + 같은 원칙의 골반 스포트라이트 P4 를 산출 — 픽셀 오프셋 0, 운영 코드
+diff 0, Gemini 0회.
+
+## 기계 판정
+
+- **베이스라인 게이트 재실행 PASS**: md5 2/2 == ufb 인증값 + survivors 일치
+  (라운드 1 과 동일 경로 재증명).
+- **진단 렌더**: 후보 좌표 3종(12관절 rep / align 선형 인덱스 / align 게이트
+  순간) 마커 오버레이 + 트랙 정합 실측 — `out/diagnose/` (survivors 불변).
+  실측 요지: ref 에서 rep12 와 align17 은 같은 인덱스에서 2.5px 일치 (같은
+  237프레임 시퀀스, 선형 매핑 평균 35px vs fps 라벨 매핑 191px), 어긋난 것은
+  rep fps 라벨(18)이 실효(~14.9)와 다른 사슬이 고른 **인덱스**. 팔 스윕
+  ~600px/s 순간이라 1프레임 = 원이 관절 밖으로.
+- **후보 2/2 방출 (CANDIDATES-R2 PASS)**: E3r1/P4 — 비대상 카드 md5 == 인증값
+  (무누출) + survivors 불변 (`out/candidates/render_summary_round2.json`).
+
+## 육안 판정 (개별 원본 + 확대 크롭)
+
+- **E3-r1 ref 원이 팔꿈치 위인가 — 예** (명시 판정). 보정 전 = 팔 실루엣 밖 흰
+  벽 위 / 보정 후 = 팔꿈치 굽이 위 (첨점 대비 잔여 ~10px = 표시 프레임 skew
+  몫, JUDGMENT 잔여 한계 절). user 패널 무회귀. 사전 박제 예측("굽이 가장자리
+  도달 + 잔여 ~10px") 적중.
+- **P4**: 두 패널 링이 골반 위, 관통 0. 중심 이동 user 1.6px / ref 8.7px —
+  belle 장면 PASS 위치 유지.
+- **선 앵커 진단 (수리 없음)**: 골반 앵커는 정확 (3원천 9px 클러스터) — P1~P3
+  반려 원인은 앵커가 아니라 선 문법 (고정 길이 방향 스텁이 관절에 닿지 않고
+  허공에서 끝남 + 이 freeze 사이각 7.3°/18.5° 로 V 가 선 하나로 읽힘).
+
+## Deviations
+
+- 없음 — 스펙의 "좌표 출처 교체" 원칙 그대로. 단 스펙이 가정한 "트랙 출처
+  교체"가 아니라 실측이 가리킨 "인덱스 공식 교체"(같은 출처-레벨 수리)로
+  귀결 — 근거는 JUDGMENT 라운드 2 절 + `out/diagnose/diagnose.json`.
+
+## LLM 학습 영향
+
+**없음.** Gemini 호출 0 (machine_eye 스텁 유지) — 학습 전송 0, 눈 원장 신규 0.
+
+## 다음 (belle 판정 대기)
+
+- E3-r1 / P4 판정 + before_after 비교 (`out/candidates/E3r1/before_after.png`).
+- 다음 라운드 후보 입력 2건: ① 표시 프레임 skew (±1프레임) 근본 수리 = 표시
+  프레임도 게이트 순간에서 선택 (운영 이식 시 결정), ② 선 문법을 살리려면
+  관절까지 닿는 선 + 각도 시각 재료 필요 (JUDGMENT 진단 절).
+
+## Self-Check (라운드 2): PASSED
+
+- refine_round.py + out/diagnose/ (카드 2 + diagnose.json) + out/candidates/
+  E3r1/ (카드 + before_after) + P4/ (카드) + render_summary_round2.json 존재
+- 베이스라인/진단/후보 전 단계 survivors == ufb 인증값, backend/ diff 0

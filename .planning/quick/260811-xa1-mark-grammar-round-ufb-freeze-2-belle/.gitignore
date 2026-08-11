@@ -1,0 +1,3 @@
+# 실행 작업장 (vl.EV 리다이렉트 대상) — 매 run 이 비우는 휘발 영역.
+# 보존 대상은 out/baseline/ + out/candidates/ (커밋).
+out/_ev/

@@ -1,0 +1,69 @@
+{
+ "P1": {
+  "joint": "left_hip",
+  "refDeg": 18.51342621926244,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [],
+  "targetMd5": "b6cd2816229c889377976d4e9589a0fb"
+ },
+ "P2": {
+  "joint": "left_hip",
+  "refDeg": 18.51342621926244,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [],
+  "targetMd5": "a3de4e84241b82efc21c2ac8136b89d7"
+ },
+ "P3": {
+  "joint": "left_hip",
+  "refDeg": 18.51342621926244,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [],
+  "targetMd5": "229b25b4232282162368f1502ad5cd02"
+ },
+ "E1": {
+  "joint": "left_elbow",
+  "refDeg": 53.99934027016696,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: head c=(227,115) r=61",
+   "user:torso 선 클리핑",
+   "user: 호 생략 (머리 원반 근접)",
+   "ref: head c=(250,96) r=83",
+   "ref:limb 선 클리핑",
+   "ref:torso 선 클리핑"
+  ],
+  "targetMd5": "7ceb7d09b174b3d60a0e3aa2b3733004"
+ },
+ "E2": {
+  "joint": "left_elbow",
+  "refDeg": 53.99934027016696,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: head c=(227,115) r=61",
+   "ref: head c=(250,96) r=83"
+  ],
+  "targetMd5": "3d9c01865e5671417a11b4fa8433ce63"
+ },
+ "E3": {
+  "joint": "left_elbow",
+  "refDeg": 53.99934027016696,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: head c=(227,115) r=61",
+   "ref: head c=(250,96) r=83"
+  ],
+  "targetMd5": "47af203906a6dec731ffe5f23a32ea12"
+ }
+}

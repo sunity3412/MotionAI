@@ -1,0 +1,34 @@
+{
+ "pass": true,
+ "fails": [],
+ "notes": [],
+ "md5Mismatch": [],
+ "cardsTotal": 10,
+ "cardsExpected": {
+  "A": 8,
+  "B": 10
+ },
+ "recovered": [
+  "elbow:r00",
+  "elbow:r03",
+  "pdshapefault:r00",
+  "pdshapefault:r02",
+  "pdshapefault:r03",
+  "powerspin:r02"
+ ],
+ "r01DropLogs": [
+  "display_anchor drop rid=r01 joint=right_shoulder side=user (align conf 게이트 미달 — 카드 미방출)"
+ ],
+ "alignBakeMissLogs": [
+  "align_bake miss rid=r01 side=user ai=112 conf=[right_elbow=0.292 right_hip=0.229 right_shoulder=0.429]",
+  "align_bake miss rid=r01 side=ref ai=153 conf=[right_elbow=0.437 right_hip=0.340]",
+  "align_bake miss rid=r00 side=user ai=86 conf=[left_knee=0.432]"
+ ],
+ "approved": {
+  "binding": 9,
+  "hold": 9,
+  "pair": 9,
+  "peak": 3
+ },
+ "eyeStubCalls": 6
+}

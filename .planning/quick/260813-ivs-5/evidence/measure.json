@@ -1,0 +1,1015 @@
+{
+ "eyeStubCalls": 6,
+ "displayAnchors": [
+  {
+   "motion": "elbow",
+   "rid": "r00",
+   "joint": "right_elbow",
+   "uAi": 167,
+   "rAi": 181,
+   "user": [
+    0.4584,
+    0.4769
+   ],
+   "ref": [
+    0.4742,
+    0.4577
+   ],
+   "line": "display_anchor rid=r00 joint=right_elbow u_ai=167 r_ai=181 user=(0.4584,0.4769) ref=(0.4742,0.4577)"
+  },
+  {
+   "motion": "elbow",
+   "rid": "r03",
+   "joint": "right_knee",
+   "uAi": 152,
+   "rAi": 174,
+   "user": [
+    0.5788,
+    0.5693
+   ],
+   "ref": [
+    0.5442,
+    0.54
+   ],
+   "line": "display_anchor rid=r03 joint=right_knee u_ai=152 r_ai=174 user=(0.5788,0.5693) ref=(0.5442,0.5400)"
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r00",
+   "joint": "left_elbow",
+   "uAi": 128,
+   "rAi": 141,
+   "user": [
+    0.4387,
+    0.6583
+   ],
+   "ref": [
+    0.4706,
+    0.6677
+   ],
+   "line": "display_anchor rid=r00 joint=left_elbow u_ai=128 r_ai=141 user=(0.4387,0.6583) ref=(0.4706,0.6677)"
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r03",
+   "joint": "left_knee",
+   "uAi": 55,
+   "rAi": 36,
+   "user": [
+    0.4581,
+    0.3833
+   ],
+   "ref": [
+    0.4543,
+    0.367
+   ],
+   "line": "display_anchor rid=r03 joint=left_knee u_ai=55 r_ai=36 user=(0.4581,0.3833) ref=(0.4543,0.3670)"
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r02",
+   "joint": "left_shoulder",
+   "uAi": 48,
+   "rAi": 30,
+   "user": [
+    0.3662,
+    0.5745
+   ],
+   "ref": [
+    0.368,
+    0.5528
+   ],
+   "line": "display_anchor rid=r02 joint=left_shoulder u_ai=48 r_ai=30 user=(0.3662,0.5745) ref=(0.3680,0.5528)"
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r01",
+   "joint": "right_elbow",
+   "uAi": 18,
+   "rAi": 12,
+   "user": [
+    0.467,
+    0.4863
+   ],
+   "ref": [
+    0.4725,
+    0.4731
+   ],
+   "line": "display_anchor rid=r01 joint=right_elbow u_ai=18 r_ai=12 user=(0.4670,0.4863) ref=(0.4725,0.4731)"
+  },
+  {
+   "motion": "peterpan",
+   "rid": "r00",
+   "joint": "left_shoulder",
+   "uAi": 90,
+   "rAi": 114,
+   "user": [
+    0.3854,
+    0.404
+   ],
+   "ref": [
+    0.3553,
+    0.3747
+   ],
+   "line": "display_anchor rid=r00 joint=left_shoulder u_ai=90 r_ai=114 user=(0.3854,0.4040) ref=(0.3553,0.3747)"
+  },
+  {
+   "motion": "powerspin",
+   "rid": "r02",
+   "joint": "left_shoulder",
+   "uAi": 48,
+   "rAi": 86,
+   "user": [
+    0.4838,
+    0.4108
+   ],
+   "ref": [
+    0.5298,
+    0.3778
+   ],
+   "line": "display_anchor rid=r02 joint=left_shoulder u_ai=48 r_ai=86 user=(0.4838,0.4108) ref=(0.5298,0.3778)"
+  }
+ ],
+ "displayAnchorDrops": [
+  {
+   "motion": "elbow",
+   "line": "display_anchor drop rid=r01 joint=right_shoulder side=user (align conf 게이트 미달 — 카드 미방출)"
+  }
+ ],
+ "builds": [
+  {
+   "motion": "elbow",
+   "criterion": "angle_vs_reference__right_elbow"
+  },
+  {
+   "motion": "elbow",
+   "criterion": "angle_vs_reference__right_knee"
+  },
+  {
+   "motion": "kipup",
+   "criterion": "split_angle"
+  },
+  {
+   "motion": "pdshapefault",
+   "criterion": "angle_vs_reference__left_elbow"
+  },
+  {
+   "motion": "pdshapefault",
+   "criterion": "angle_vs_reference__left_knee"
+  },
+  {
+   "motion": "pdshapefault",
+   "criterion": "angle_vs_reference__left_shoulder"
+  },
+  {
+   "motion": "pdshapefault",
+   "criterion": "angle_vs_reference__right_elbow"
+  },
+  {
+   "motion": "peterpan",
+   "criterion": "angle_vs_reference__left_shoulder"
+  },
+  {
+   "motion": "powerspin",
+   "criterion": "leg_extension"
+  },
+  {
+   "motion": "powerspin",
+   "criterion": "angle_vs_reference__left_shoulder"
+  }
+ ],
+ "memberPts": {
+  "elbow|angle_vs_reference__right_elbow": [
+   {
+    "idx": 222,
+    "members": [
+     "right_elbow"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   },
+   {
+    "idx": 180,
+    "members": [
+     "right_elbow"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   }
+  ],
+  "elbow|angle_vs_reference__right_knee": [
+   {
+    "idx": 202,
+    "members": [
+     "right_knee"
+    ],
+    "nValid": 0,
+    "nRelaxed": 1
+   },
+   {
+    "idx": 172,
+    "members": [
+     "right_knee"
+    ],
+    "nValid": 0,
+    "nRelaxed": 1
+   }
+  ],
+  "kipup|split_angle": [
+   {
+    "idx": 30,
+    "members": [
+     "left_knee",
+     "right_knee",
+     "left_hip",
+     "right_hip"
+    ],
+    "nValid": 4,
+    "nRelaxed": 0
+   },
+   {
+    "idx": 30,
+    "members": [
+     "left_knee",
+     "right_knee",
+     "left_hip",
+     "right_hip"
+    ],
+    "nValid": 4,
+    "nRelaxed": 0
+   }
+  ],
+  "pdshapefault|angle_vs_reference__left_elbow": [
+   {
+    "idx": 172,
+    "members": [
+     "left_elbow"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   },
+   {
+    "idx": 140,
+    "members": [
+     "left_elbow"
+    ],
+    "nValid": 0,
+    "nRelaxed": 1
+   }
+  ],
+  "pdshapefault|angle_vs_reference__left_knee": [
+   {
+    "idx": 74,
+    "members": [
+     "left_knee"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   },
+   {
+    "idx": 36,
+    "members": [
+     "left_knee"
+    ],
+    "nValid": 0,
+    "nRelaxed": 1
+   }
+  ],
+  "pdshapefault|angle_vs_reference__left_shoulder": [
+   {
+    "idx": 64,
+    "members": [
+     "left_shoulder"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   },
+   {
+    "idx": 30,
+    "members": [
+     "left_shoulder"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   }
+  ],
+  "pdshapefault|angle_vs_reference__right_elbow": [
+   {
+    "idx": 24,
+    "members": [
+     "right_elbow"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   },
+   {
+    "idx": 12,
+    "members": [
+     "right_elbow"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   }
+  ],
+  "peterpan|angle_vs_reference__left_shoulder": [
+   {
+    "idx": 122,
+    "members": [
+     "left_shoulder"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   },
+   {
+    "idx": 112,
+    "members": [
+     "left_shoulder"
+    ],
+    "nValid": 1,
+    "nRelaxed": 0
+   }
+  ],
+  "powerspin|leg_extension": [
+   {
+    "idx": 114,
+    "members": [
+     "left_hip",
+     "right_hip",
+     "left_knee",
+     "right_knee"
+    ],
+    "nValid": 2,
+    "nRelaxed": 2
+   },
+   {
+    "idx": 130,
+    "members": [
+     "left_hip",
+     "right_hip",
+     "left_knee",
+     "right_knee"
+    ],
+    "nValid": 4,
+    "nRelaxed": 0
+   }
+  ],
+  "powerspin|angle_vs_reference__left_shoulder": [
+   {
+    "idx": 64,
+    "members": [
+     "left_shoulder"
+    ],
+    "nValid": 0,
+    "nRelaxed": 1
+   },
+   {
+    "idx": 86,
+    "members": [
+     "left_shoulder"
+    ],
+    "nValid": 0,
+    "nRelaxed": 1
+   }
+  ]
+ },
+ "shifts": {
+  "elbow|angle_vs_reference__right_elbow": [
+   {
+    "spec": [
+     [
+      0.4792647467719184,
+      0.456971549987793
+     ],
+     [
+      0.47631039089626737,
+      0.5068260669708252
+     ],
+     [
+      0.5147168901231554,
+      0.5234442710876465
+     ]
+    ],
+    "anchor": [
+     0.4742,
+     0.4577
+    ]
+   }
+  ],
+  "pdshapefault|angle_vs_reference__right_elbow": [
+   {
+    "spec": [
+     [
+      0.4674366421169705,
+      0.48610925674438477
+     ],
+     [
+      0.4958399454752604,
+      0.4318387031555176
+     ],
+     [
+      0.44039781358506946,
+      0.5484847068786621
+     ]
+    ],
+    "anchor": [
+     0.467,
+     0.4863
+    ]
+   },
+   {
+    "spec": [
+     [
+      0.47055083380805124,
+      0.4733726978302002
+     ],
+     [
+      0.47236209445529515,
+      0.4163179397583008
+     ],
+     [
+      0.4968141343858507,
+      0.5421440124511718
+     ]
+    ],
+    "anchor": [
+     0.4725,
+     0.4731
+    ]
+   },
+   {
+    "spec": [
+     [
+      0.4674366421169705,
+      0.48610925674438477
+     ],
+     [
+      0.4958399454752604,
+      0.4318387031555176
+     ],
+     [
+      0.44039781358506946,
+      0.5484847068786621
+     ]
+    ],
+    "anchor": [
+     0.467,
+     0.4863
+    ]
+   },
+   {
+    "spec": [
+     [
+      0.47055083380805124,
+      0.4733726978302002
+     ],
+     [
+      0.47236209445529515,
+      0.4163179397583008
+     ],
+     [
+      0.4968141343858507,
+      0.5421440124511718
+     ]
+    ],
+    "anchor": [
+     0.4725,
+     0.4731
+    ]
+   }
+  ],
+  "peterpan|angle_vs_reference__left_shoulder": [
+   {
+    "spec": [
+     [
+      0.3644332239362929,
+      0.4297102737426758
+     ],
+     [
+      0.44341180589463974,
+      0.3435471773147583
+     ],
+     [
+      0.3191758261786567,
+      0.5524274349212647
+     ]
+    ],
+    "anchor": [
+     0.3854,
+     0.404
+    ]
+   },
+   {
+    "spec": [
+     [
+      0.3713831159803603,
+      0.38557942271232604
+     ],
+     [
+      0.442129643758138,
+      0.32421875
+     ],
+     [
+      0.364004643758138,
+      0.49348959922790525
+     ]
+    ],
+    "anchor": [
+     0.3553,
+     0.3747
+    ]
+   },
+   {
+    "spec": [
+     [
+      0.3644332239362929,
+      0.4297102737426758
+     ],
+     [
+      0.44341180589463974,
+      0.3435471773147583
+     ],
+     [
+      0.3191758261786567,
+      0.5524274349212647
+     ]
+    ],
+    "anchor": [
+     0.3854,
+     0.404
+    ]
+   },
+   {
+    "spec": [
+     [
+      0.3713831159803603,
+      0.38557942271232604
+     ],
+     [
+      0.442129643758138,
+      0.32421875
+     ],
+     [
+      0.364004643758138,
+      0.49348959922790525
+     ]
+    ],
+    "anchor": [
+     0.3553,
+     0.3747
+    ]
+   }
+  ]
+ },
+ "crops": {
+  "elbow|angle_vs_reference__right_elbow": [
+   {
+    "shape": [
+     3840,
+     2160
+    ],
+    "kind": "valid",
+    "box": [
+     558,
+     1399,
+     864
+    ]
+   },
+   {
+    "shape": [
+     1920,
+     1080
+    ],
+    "kind": "valid",
+    "box": [
+     296,
+     663,
+     432
+    ]
+   }
+  ],
+  "kipup|split_angle": [
+   {
+    "shape": [
+     3840,
+     2160
+    ],
+    "kind": "valid",
+    "box": [
+     429,
+     1980,
+     1245
+    ]
+   },
+   {
+    "shape": [
+     1920,
+     1080
+    ],
+    "kind": "valid",
+    "box": [
+     195,
+     909,
+     615
+    ]
+   }
+  ],
+  "pdshapefault|angle_vs_reference__left_elbow": [
+   {
+    "shape": [
+     3840,
+     2160
+    ],
+    "kind": "valid",
+    "box": [
+     437,
+     2066,
+     907
+    ]
+   },
+   {
+    "shape": [
+     1920,
+     1080
+    ],
+    "kind": "relaxed",
+    "box": [
+     347,
+     664,
+     454
+    ]
+   }
+  ],
+  "pdshapefault|angle_vs_reference__left_knee": [
+   {
+    "shape": [
+     3840,
+     2160
+    ],
+    "kind": "valid",
+    "box": [
+     530,
+     1021,
+     907
+    ]
+   },
+   {
+    "shape": [
+     1920,
+     1080
+    ],
+    "kind": "relaxed",
+    "box": [
+     235,
+     747,
+     454
+    ]
+   }
+  ],
+  "pdshapefault|angle_vs_reference__left_shoulder": [
+   {
+    "shape": [
+     3840,
+     2160
+    ],
+    "kind": "valid",
+    "box": [
+     326,
+     1758,
+     907
+    ]
+   },
+   {
+    "shape": [
+     1920,
+     1080
+    ],
+    "kind": "valid",
+    "box": [
+     169,
+     802,
+     454
+    ]
+   }
+  ],
+  "pdshapefault|angle_vs_reference__right_elbow": [
+   {
+    "shape": [
+     3840,
+     2160
+    ],
+    "kind": "valid",
+    "box": [
+     526,
+     1384,
+     966
+    ]
+   },
+   {
+    "shape": [
+     1920,
+     1080
+    ],
+    "kind": "valid",
+    "box": [
+     269,
+     667,
+     483
+    ]
+   }
+  ],
+  "peterpan|angle_vs_reference__left_shoulder": [
+   {
+    "shape": [
+     640,
+     360
+    ],
+    "kind": "valid",
+    "box": [
+     40,
+     160,
+     198
+    ]
+   },
+   {
+    "shape": [
+     1920,
+     1080
+    ],
+    "kind": "valid",
+    "box": [
+     87,
+     422,
+     594
+    ]
+   }
+  ],
+  "powerspin|leg_extension": [
+   {
+    "shape": [
+     3840,
+     2160
+    ],
+    "kind": "valid",
+    "box": [
+     517,
+     1650,
+     907
+    ]
+   },
+   {
+    "shape": [
+     1920,
+     1080
+    ],
+    "kind": "valid",
+    "box": [
+     134,
+     485,
+     731
+    ]
+   }
+  ]
+ },
+ "drawCalls": {
+  "pdshapefault|angle_vs_reference__right_elbow": [
+   {
+    "fn": "V",
+    "ok": true
+   },
+   {
+    "fn": "V",
+    "ok": true
+   }
+  ],
+  "peterpan|angle_vs_reference__left_shoulder": [
+   {
+    "fn": "V",
+    "ok": true
+   },
+   {
+    "fn": "V",
+    "ok": true
+   }
+  ]
+ },
+ "bakeLines": [
+  {
+   "motion": "elbow",
+   "criterion": "angle_vs_reference__right_elbow",
+   "line": "fault_zoom_angle_bake analysis_id=sweep-elbow criterion=angle_vs_reference__right_elbow angle_bake=omitted:user_gate"
+  },
+  {
+   "motion": "kipup",
+   "criterion": "split_angle",
+   "line": "fault_zoom_angle_bake analysis_id=sweep-kipup criterion=split_angle angle_bake=omitted:legs_owned"
+  },
+  {
+   "motion": "pdshapefault",
+   "criterion": "angle_vs_reference__left_elbow",
+   "line": "fault_zoom_angle_bake analysis_id=sweep-pdshapefault criterion=angle_vs_reference__left_elbow angle_bake=omitted:ref_crop_relaxed"
+  },
+  {
+   "motion": "pdshapefault",
+   "criterion": "angle_vs_reference__left_knee",
+   "line": "fault_zoom_angle_bake analysis_id=sweep-pdshapefault criterion=angle_vs_reference__left_knee angle_bake=omitted:ref_crop_relaxed"
+  },
+  {
+   "motion": "pdshapefault",
+   "criterion": "angle_vs_reference__left_shoulder",
+   "line": "fault_zoom_angle_bake analysis_id=sweep-pdshapefault criterion=angle_vs_reference__left_shoulder angle_bake=omitted:ref_gate"
+  },
+  {
+   "motion": "pdshapefault",
+   "criterion": "angle_vs_reference__right_elbow",
+   "line": "fault_zoom_angle_bake analysis_id=sweep-pdshapefault criterion=angle_vs_reference__right_elbow angle_bake=drawn"
+  },
+  {
+   "motion": "peterpan",
+   "criterion": "angle_vs_reference__left_shoulder",
+   "line": "fault_zoom_angle_bake analysis_id=sweep-peterpan criterion=angle_vs_reference__left_shoulder angle_bake=drawn"
+  },
+  {
+   "motion": "powerspin",
+   "criterion": "leg_extension",
+   "line": "fault_zoom_angle_bake analysis_id=sweep-powerspin criterion=leg_extension angle_bake=omitted:unmapped"
+  }
+ ],
+ "cropLines": {
+  "elbow": [
+   "fault_zoom_crop analysis_id=sweep-elbow region=right_elbow criterion=angle_vs_reference__right_elbow user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=111 ref_rep_idx=90 ref_video_idx=120 vertex_centered=True shared_side_px=864 shared_frac=0.4000"
+  ],
+  "kipup": [
+   "fault_zoom_crop analysis_id=sweep-kipup region=legs criterion=split_angle user_kind=valid user_side_px=1245 ref_kind=valid ref_side_px=615 user_frame=15 ref_rep_idx=15 ref_video_idx=20 vertex_centered=False shared_side_px=none shared_frac=none"
+  ],
+  "pdshapefault": [
+   "fault_zoom_crop analysis_id=sweep-pdshapefault region=left_elbow criterion=angle_vs_reference__left_elbow user_kind=valid user_side_px=907 ref_kind=relaxed ref_side_px=454 user_frame=86 ref_rep_idx=70 ref_video_idx=94 vertex_centered=False shared_side_px=none shared_frac=none",
+   "fault_zoom_crop analysis_id=sweep-pdshapefault region=left_knee criterion=angle_vs_reference__left_knee user_kind=valid user_side_px=907 ref_kind=relaxed ref_side_px=454 user_frame=37 ref_rep_idx=18 ref_video_idx=24 vertex_centered=False shared_side_px=none shared_frac=none",
+   "fault_zoom_crop analysis_id=sweep-pdshapefault region=left_shoulder criterion=angle_vs_reference__left_shoulder user_kind=valid user_side_px=907 ref_kind=valid ref_side_px=454 user_frame=32 ref_rep_idx=15 ref_video_idx=20 vertex_centered=False shared_side_px=none shared_frac=none",
+   "fault_zoom_crop analysis_id=sweep-pdshapefault region=right_elbow criterion=angle_vs_reference__right_elbow user_kind=valid user_side_px=966 ref_kind=valid ref_side_px=483 user_frame=12 ref_rep_idx=6 ref_video_idx=8 vertex_centered=True shared_side_px=966 shared_frac=0.4474"
+  ],
+  "peterpan": [
+   "fault_zoom_crop analysis_id=sweep-peterpan region=left_shoulder criterion=angle_vs_reference__left_shoulder user_kind=valid user_side_px=198 ref_kind=valid ref_side_px=594 user_frame=61 ref_rep_idx=56 ref_video_idx=75 vertex_centered=True shared_side_px=198 shared_frac=0.5500"
+  ],
+  "powerspin": [
+   "fault_zoom_crop analysis_id=sweep-powerspin region=legs criterion=leg_extension user_kind=valid user_side_px=907 ref_kind=valid ref_side_px=731 user_frame=57 ref_rep_idx=65 ref_video_idx=87 vertex_centered=False shared_side_px=none shared_frac=none"
+  ]
+ },
+ "s3Keys": [
+  "results/sweep/sweep-elbow/zoom_angle_vs_reference__right_elbow.png",
+  "results/sweep/sweep-elbow/eye/00_user_right_knee.png",
+  "results/sweep/sweep-elbow/eye/01_user_right_elbow.png",
+  "results/sweep/sweep-elbow/eye/ledger.json",
+  "results/sweep/sweep-kipup/zoom_split_angle.png",
+  "results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__left_elbow.png",
+  "results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__left_knee.png",
+  "results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__left_shoulder.png",
+  "results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__right_elbow.png",
+  "results/sweep/sweep-pdshapefault/eye/00_user_right_elbow.png",
+  "results/sweep/sweep-pdshapefault/eye/01_user_left_knee.png",
+  "results/sweep/sweep-pdshapefault/eye/ledger.json",
+  "results/sweep/sweep-peterpan/zoom_angle_vs_reference__left_shoulder.png",
+  "results/sweep/sweep-peterpan/eye/00_user_left_shoulder.png",
+  "results/sweep/sweep-peterpan/eye/ledger.json",
+  "results/sweep/sweep-powerspin/zoom_leg_extension.png",
+  "results/sweep/sweep-powerspin/eye/00_user_left_shoulder.png",
+  "results/sweep/sweep-powerspin/eye/ledger.json"
+ ],
+ "s3KeysByMotion": {
+  "elbow": {
+   "cards": [
+    "results/sweep/sweep-elbow/zoom_angle_vs_reference__right_elbow.png"
+   ],
+   "eye": [
+    "results/sweep/sweep-elbow/eye/00_user_right_knee.png",
+    "results/sweep/sweep-elbow/eye/01_user_right_elbow.png",
+    "results/sweep/sweep-elbow/eye/ledger.json"
+   ]
+  },
+  "kipup": {
+   "cards": [
+    "results/sweep/sweep-kipup/zoom_split_angle.png"
+   ],
+   "eye": []
+  },
+  "pdshapefault": {
+   "cards": [
+    "results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__left_elbow.png",
+    "results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__left_knee.png",
+    "results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__left_shoulder.png",
+    "results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__right_elbow.png"
+   ],
+   "eye": [
+    "results/sweep/sweep-pdshapefault/eye/00_user_right_elbow.png",
+    "results/sweep/sweep-pdshapefault/eye/01_user_left_knee.png",
+    "results/sweep/sweep-pdshapefault/eye/ledger.json"
+   ]
+  },
+  "peterpan": {
+   "cards": [
+    "results/sweep/sweep-peterpan/zoom_angle_vs_reference__left_shoulder.png"
+   ],
+   "eye": [
+    "results/sweep/sweep-peterpan/eye/00_user_left_shoulder.png",
+    "results/sweep/sweep-peterpan/eye/ledger.json"
+   ]
+  },
+  "powerspin": {
+   "cards": [
+    "results/sweep/sweep-powerspin/zoom_leg_extension.png"
+   ],
+   "eye": [
+    "results/sweep/sweep-powerspin/eye/00_user_left_shoulder.png",
+    "results/sweep/sweep-powerspin/eye/ledger.json"
+   ]
+  }
+ },
+ "panelMetrics": {
+  "elbow|angle_vs_reference__right_elbow": [
+   {
+    "panel": "ref",
+    "cropKind": "valid",
+    "cropSidePx": 432,
+    "frameDims": [
+     1080,
+     1920
+    ],
+    "specSpreadFramePx": 133.2,
+    "specSpreadPanelPx": 111.0,
+    "partPerPanelPct": 30.8,
+    "cropPerSourcePct": 40.0
+   }
+  ],
+  "pdshapefault|angle_vs_reference__right_elbow": [
+   {
+    "panel": "user",
+    "cropKind": "valid",
+    "cropSidePx": 966,
+    "frameDims": [
+     2160,
+     3840
+    ],
+    "specSpreadFramePx": 463.7,
+    "specSpreadPanelPx": 172.8,
+    "partPerPanelPct": 48.0,
+    "cropPerSourcePct": 44.7
+   },
+   {
+    "panel": "ref",
+    "cropKind": "valid",
+    "cropSidePx": 483,
+    "frameDims": [
+     1080,
+     1920
+    ],
+    "specSpreadFramePx": 243.0,
+    "specSpreadPanelPx": 181.1,
+    "partPerPanelPct": 50.3,
+    "cropPerSourcePct": 44.7
+   }
+  ],
+  "peterpan|angle_vs_reference__left_shoulder": [
+   {
+    "panel": "user",
+    "cropKind": "valid",
+    "cropSidePx": 198,
+    "frameDims": [
+     360,
+     640
+    ],
+    "specSpreadFramePx": 141.0,
+    "specSpreadPanelPx": 256.3,
+    "partPerPanelPct": 71.2,
+    "cropPerSourcePct": 55.0
+   },
+   {
+    "panel": "ref",
+    "cropKind": "valid",
+    "cropSidePx": 594,
+    "frameDims": [
+     1080,
+     1920
+    ],
+    "specSpreadFramePx": 335.8,
+    "specSpreadPanelPx": 203.5,
+    "partPerPanelPct": 56.5,
+    "cropPerSourcePct": 55.0
+   }
+  ]
+ },
+ "markConstants": {
+  "panelOutPx": 360,
+  "limbLinePx": 64.0,
+  "torsoLinePx": 85.0,
+  "arcRadiusPx": 16.0,
+  "wedgeRadiusPx": 151.2,
+  "limbMarkPerPanelPct": 17.8,
+  "torsoMarkPerPanelPct": 23.6,
+  "arcMarkPerPanelPct": 4.4,
+  "wedgeMarkPerPanelPct": 42.0,
+  "haloW": 9,
+  "coreW": 5,
+  "hybridSuffixes": [
+   "hip"
+  ]
+ }
+}

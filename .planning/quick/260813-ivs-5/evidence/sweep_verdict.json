@@ -1,0 +1,383 @@
+{
+ "elbow": {
+  "freezes": [
+   {
+    "rid": "r02",
+    "joint": "left_hip",
+    "pairSrc": "align-peak",
+    "userSec": 11.133,
+    "refSec": 11.8
+   },
+   {
+    "rid": "r01",
+    "joint": "right_shoulder",
+    "pairSrc": "align-w",
+    "userSec": 7.444,
+    "refSec": 10.2
+   },
+   {
+    "rid": "r03",
+    "joint": "right_knee",
+    "pairSrc": "align",
+    "userSec": 10.111,
+    "refSec": 11.6
+   },
+   {
+    "rid": "r00",
+    "joint": "right_elbow",
+    "pairSrc": "align",
+    "userSec": 11.111,
+    "refSec": 12.067
+   }
+  ],
+  "verdict": {
+   "survivors": [
+    "r01:inherit@u7.444/r10.20",
+    "r03:inherit@u10.111/r11.60",
+    "r00:inherit@u11.111/r12.07"
+   ],
+   "dropped": [
+    "r02:hold=hold pair=pose_far"
+   ],
+   "eyeCalls": 2
+  },
+  "attached": {
+   "comparisons": [
+    {
+     "joint": "right_elbow",
+     "deficitDeg": 7.9,
+     "imageUrl": "stub://results/sweep/sweep-elbow/zoom_angle_vs_reference__right_elbow.png",
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 222,
+     "refFrameIdx": 180,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 12.333333333333334,
+     "refVideoSec": 13.333333333333334,
+     "criterion": "angle_vs_reference__right_elbow",
+     "attribution": "pole_proximity"
+    },
+    {
+     "refMatched": true,
+     "tier": "advisory",
+     "joint": "right_shoulder",
+     "userFrameIdx": 144,
+     "deficitDeg": 66.92220309027104,
+     "refFrameIdx": 278,
+     "userVideoSec": 8.0,
+     "refMatch": "dtw",
+     "imageUrl": "https://sunity-motion-pilot-videos.s3.amazonaws.com/results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/elbowtwistsisterFault1785373695/zoom_adv_right_shoulder.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA6GVBF6WH2SEVBQ5W%2F20260806%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Date=20260806T101911Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=c31790f64bd6d1c28b2a6ee988c9b225ec17e50a2804fcee00047e4f45737d55",
+     "refVideoSec": 20.666666666666668
+    },
+    {
+     "refMatched": true,
+     "tier": "advisory",
+     "joint": "right_elbow",
+     "userFrameIdx": 144,
+     "deficitDeg": 59.83860425647174,
+     "refFrameIdx": 278,
+     "userVideoSec": 8.0,
+     "refMatch": "dtw",
+     "imageUrl": "https://sunity-motion-pilot-videos.s3.amazonaws.com/results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/elbowtwistsisterFault1785373695/zoom_adv_right_elbow.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA6GVBF6WH2SEVBQ5W%2F20260806%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Date=20260806T101911Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=0646401b53c98f177426c1a54f0a66faea2a303326a942d621203cff3687d596",
+     "refVideoSec": 20.666666666666668
+    }
+   ]
+  },
+  "cropLines": [
+   "fault_zoom_crop analysis_id=sweep-elbow region=right_elbow criterion=angle_vs_reference__right_elbow user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=111 ref_rep_idx=90 ref_video_idx=120 vertex_centered=True shared_side_px=864 shared_frac=0.4000"
+  ],
+  "pngMd5": {
+   "00_user_right_knee.png": "ad10f6c2381c0fb863f6999997bad959",
+   "01_user_right_elbow.png": "ed4ac803322acf60aab372c83165ac38",
+   "zoom_angle_vs_reference__right_elbow.png": "a88da827c0615fbadece6be409fa46f8"
+  },
+  "freezeMatch": true,
+  "freezeMatchViolations": []
+ },
+ "kipup": {
+  "freezes": [
+   {
+    "rid": "r00",
+    "joint": "split_angle",
+    "pairSrc": "align-peak",
+    "userSec": 1.467,
+    "refSec": 2.0
+   }
+  ],
+  "verdict": {
+   "survivors": [
+    "r00:peak@u1.467/r2.00"
+   ],
+   "dropped": [],
+   "eyeCalls": 0
+  },
+  "attached": {
+   "comparisons": [
+    {
+     "joint": "left_knee",
+     "deficitDeg": 50.0,
+     "imageUrl": "stub://results/sweep/sweep-kipup/zoom_split_angle.png",
+     "tier": "confirmed",
+     "kind": "deficit",
+     "region": "legs",
+     "refMatch": "dtw",
+     "userFrameIdx": 30,
+     "refFrameIdx": 30,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 1.6666666666666667,
+     "refVideoSec": 2.2222222222222223,
+     "criterion": "split_angle"
+    }
+   ]
+  },
+  "cropLines": [
+   "fault_zoom_crop analysis_id=sweep-kipup region=legs criterion=split_angle user_kind=valid user_side_px=1245 ref_kind=valid ref_side_px=615 user_frame=15 ref_rep_idx=15 ref_video_idx=20 vertex_centered=False shared_side_px=none shared_frac=none"
+  ],
+  "pngMd5": {
+   "zoom_split_angle.png": "9684299d6b702093e994e1bc19426f74"
+  },
+  "freezeMatch": true,
+  "freezeMatchViolations": []
+ },
+ "pdshapefault": {
+  "freezes": [
+   {
+    "rid": "r01",
+    "joint": "right_elbow",
+    "pairSrc": "override",
+    "userSec": 1.222,
+    "refSec": 0.8
+   },
+   {
+    "rid": "r02",
+    "joint": "left_shoulder",
+    "pairSrc": "align",
+    "userSec": 3.222,
+    "refSec": 2.0
+   },
+   {
+    "rid": "r03",
+    "joint": "left_knee",
+    "pairSrc": "align",
+    "userSec": 3.667,
+    "refSec": 2.4
+   },
+   {
+    "rid": "r00",
+    "joint": "left_elbow",
+    "pairSrc": "align-w",
+    "userSec": 8.556,
+    "refSec": 9.4
+   }
+  ],
+  "verdict": {
+   "survivors": [
+    "r01:inherit@u1.222/r0.80",
+    "r02:inherit@u3.222/r2.00",
+    "r03:inherit@u3.667/r2.40",
+    "r00:inherit@u8.556/r9.40"
+   ],
+   "dropped": [],
+   "eyeCalls": 2
+  },
+  "attached": {
+   "comparisons": [
+    {
+     "joint": "left_elbow",
+     "deficitDeg": 21.4,
+     "imageUrl": "stub://results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__left_elbow.png",
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 172,
+     "refFrameIdx": 140,
+     "refMatched": true,
+     "refMarked": false,
+     "userVideoSec": 9.555555555555555,
+     "refVideoSec": 10.444444444444445,
+     "criterion": "angle_vs_reference__left_elbow",
+     "attribution": "pole_proximity"
+    },
+    {
+     "joint": "left_knee",
+     "deficitDeg": 30.8,
+     "imageUrl": "stub://results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__left_knee.png",
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 74,
+     "refFrameIdx": 36,
+     "refMatched": true,
+     "refMarked": false,
+     "userVideoSec": 4.111111111111111,
+     "refVideoSec": 2.6666666666666665,
+     "criterion": "angle_vs_reference__left_knee"
+    },
+    {
+     "joint": "left_shoulder",
+     "deficitDeg": 70.0,
+     "imageUrl": "stub://results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__left_shoulder.png",
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 64,
+     "refFrameIdx": 30,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 3.5555555555555554,
+     "refVideoSec": 2.2222222222222223,
+     "criterion": "angle_vs_reference__left_shoulder"
+    },
+    {
+     "joint": "right_elbow",
+     "deficitDeg": 0.1,
+     "imageUrl": "stub://results/sweep/sweep-pdshapefault/zoom_angle_vs_reference__right_elbow.png",
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 24,
+     "refFrameIdx": 12,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 1.3333333333333333,
+     "refVideoSec": 0.8888888888888888,
+     "criterion": "angle_vs_reference__right_elbow"
+    }
+   ]
+  },
+  "cropLines": [
+   "fault_zoom_crop analysis_id=sweep-pdshapefault region=left_elbow criterion=angle_vs_reference__left_elbow user_kind=valid user_side_px=907 ref_kind=relaxed ref_side_px=454 user_frame=86 ref_rep_idx=70 ref_video_idx=94 vertex_centered=False shared_side_px=none shared_frac=none",
+   "fault_zoom_crop analysis_id=sweep-pdshapefault region=left_knee criterion=angle_vs_reference__left_knee user_kind=valid user_side_px=907 ref_kind=relaxed ref_side_px=454 user_frame=37 ref_rep_idx=18 ref_video_idx=24 vertex_centered=False shared_side_px=none shared_frac=none",
+   "fault_zoom_crop analysis_id=sweep-pdshapefault region=left_shoulder criterion=angle_vs_reference__left_shoulder user_kind=valid user_side_px=907 ref_kind=valid ref_side_px=454 user_frame=32 ref_rep_idx=15 ref_video_idx=20 vertex_centered=False shared_side_px=none shared_frac=none",
+   "fault_zoom_crop analysis_id=sweep-pdshapefault region=right_elbow criterion=angle_vs_reference__right_elbow user_kind=valid user_side_px=966 ref_kind=valid ref_side_px=483 user_frame=12 ref_rep_idx=6 ref_video_idx=8 vertex_centered=True shared_side_px=966 shared_frac=0.4474"
+  ],
+  "pngMd5": {
+   "00_user_right_elbow.png": "cad2782ad1ce52d267ba0a4ec0b714a9",
+   "01_user_left_knee.png": "cf545ec5410ba17a05aa51eda8a719d6",
+   "zoom_angle_vs_reference__left_elbow.png": "88a346b89e8f2d44a2989300e5d4a187",
+   "zoom_angle_vs_reference__left_knee.png": "4f631f128fa5b0d6b22e86472b0560b8",
+   "zoom_angle_vs_reference__left_shoulder.png": "1aae82f8a89d76b2eb95780d09ea4e87",
+   "zoom_angle_vs_reference__right_elbow.png": "a38ad906d69419f00e936fba8f19084d"
+  },
+  "freezeMatch": true,
+  "freezeMatchViolations": []
+ },
+ "peterpan": {
+  "freezes": [
+   {
+    "rid": "r00",
+    "joint": "left_shoulder",
+    "pairSrc": "align",
+    "userSec": 6.444,
+    "refSec": 7.6
+   }
+  ],
+  "verdict": {
+   "survivors": [
+    "r00:inherit@u6.444/r7.60"
+   ],
+   "dropped": [],
+   "eyeCalls": 1
+  },
+  "attached": {
+   "comparisons": [
+    {
+     "joint": "left_shoulder",
+     "deficitDeg": 34.5,
+     "imageUrl": "stub://results/sweep/sweep-peterpan/zoom_angle_vs_reference__left_shoulder.png",
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 122,
+     "refFrameIdx": 112,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 6.777777777777778,
+     "refVideoSec": 8.333333333333334,
+     "criterion": "angle_vs_reference__left_shoulder"
+    }
+   ]
+  },
+  "cropLines": [
+   "fault_zoom_crop analysis_id=sweep-peterpan region=left_shoulder criterion=angle_vs_reference__left_shoulder user_kind=valid user_side_px=198 ref_kind=valid ref_side_px=594 user_frame=61 ref_rep_idx=56 ref_video_idx=75 vertex_centered=True shared_side_px=198 shared_frac=0.5500"
+  ],
+  "pngMd5": {
+   "00_user_left_shoulder.png": "39279dfd43aaf8c871d14dd516cf6ac2",
+   "zoom_angle_vs_reference__left_shoulder.png": "6f54270a5498ea2dd7b318727f7e6358"
+  },
+  "freezeMatch": true,
+  "freezeMatchViolations": []
+ },
+ "powerspin": {
+  "freezes": [
+   {
+    "rid": "r02",
+    "joint": "left_shoulder",
+    "pairSrc": "align",
+    "userSec": 3.222,
+    "refSec": 5.733
+   },
+   {
+    "rid": "r00",
+    "joint": "leg_extension",
+    "pairSrc": "align-peak",
+    "userSec": 5.733,
+    "refSec": 8.667
+   }
+  ],
+  "verdict": {
+   "survivors": [
+    "r02:inherit@u3.222/r5.73",
+    "r00:peak@u5.733/r8.67"
+   ],
+   "dropped": [
+    "r01:no_freeze"
+   ],
+   "eyeCalls": 1
+  },
+  "attached": {
+   "comparisons": [
+    {
+     "joint": "left_hip",
+     "deficitDeg": 30.0,
+     "imageUrl": "stub://results/sweep/sweep-powerspin/zoom_leg_extension.png",
+     "tier": "confirmed",
+     "kind": "deficit",
+     "region": "legs",
+     "refMatch": "dtw",
+     "userFrameIdx": 114,
+     "refFrameIdx": 130,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 6.333333333333333,
+     "refVideoSec": 9.666666666666666,
+     "criterion": "leg_extension"
+    },
+    {
+     "imageUrl": "https://sunity-motion-pilot-videos.s3.amazonaws.com/results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/powerspinFault1785373695/zoom_adv_left_elbow.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA6GVBF6WH2SEVBQ5W%2F20260806%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Date=20260806T101618Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=8679729657d32ff77b99d974478d9a26fd8ec3ce2421f67c2de78a51fbb7686e",
+     "refMatched": true,
+     "refFrameIdx": 36,
+     "refMatch": "dtw",
+     "joint": "left_elbow",
+     "refVideoSec": 2.6666666666666665,
+     "userFrameIdx": 38,
+     "userVideoSec": 2.111111111111111,
+     "tier": "advisory",
+     "deficitDeg": 26.427793582712923
+    }
+   ]
+  },
+  "cropLines": [
+   "fault_zoom_crop analysis_id=sweep-powerspin region=legs criterion=leg_extension user_kind=valid user_side_px=907 ref_kind=valid ref_side_px=731 user_frame=57 ref_rep_idx=65 ref_video_idx=87 vertex_centered=False shared_side_px=none shared_frac=none"
+  ],
+  "pngMd5": {
+   "00_user_left_shoulder.png": "b2159887dcfd417fad29fff0ff78fc43",
+   "zoom_leg_extension.png": "db683cb5639a0369f58285ca36987186"
+  },
+  "freezeMatch": true,
+  "freezeMatchViolations": []
+ }
+}

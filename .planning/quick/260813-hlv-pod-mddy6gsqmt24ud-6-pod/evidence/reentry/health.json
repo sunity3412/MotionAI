@@ -1,0 +1,17 @@
+{
+    "status": "ok",
+    "auth_configured": true,
+    "pipeline_loaded": true,
+    "commitSha": "0f999619f52a15dec9878b1e6c87b81278826448",
+    "envFlags": {
+        "PR_INVERSION_ENABLED": true,
+        "RTMW_DETERMINISTIC": true
+    },
+    "modelInitCanary": {
+        "pipelineLoaded": true,
+        "adaptersReady": true,
+        "poseEngine": "RTMWPoseEngine",
+        "recognizer": "GeminiTechniqueRecognizer",
+        "modelLoaded": true
+    }
+}

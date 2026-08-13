@@ -1,0 +1,11 @@
+URL 재동기 갱신 후 재조회 실측 (2026-08-13, --profile sunity-motion, ap-northeast-2)
+
+[SSM] /sunity/motion/runpod-analyze-url
+  Value   = https://mddy6gsqmt24ud-8000.proxy.runpod.net/analyze
+  Version = 31
+
+[Lambda] sunity-motion-pilot-pipeline (get-function-configuration 재조회)
+  RUNPOD_ANALYZE_URL = https://mddy6gsqmt24ud-8000.proxy.runpod.net/analyze
+  env 키 목록 (값 제외, 4개) = ['FIREBASE_SA_PARAM', 'RUNPOD_ANALYZE_URL', 'RUNPOD_AUTH_TOKEN', 'VIDEO_BUCKET']
+
+판정: SSM==PASS, Lambda URL==PASS, env 4키 보존==PASS

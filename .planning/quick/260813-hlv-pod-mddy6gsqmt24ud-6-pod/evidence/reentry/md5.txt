@@ -1,0 +1,10 @@
+md5 대조 (2026-08-13, pod-start-script-canonical):
+
+리포 정본 backend/runpod_inference/start_server.sh (로컬 md5 -q):
+  e7f224d648ef599270d14a6887bc7ae1
+
+Pod mddy6gsqmt24ud (md5sum 실측):
+  e7f224d648ef599270d14a6887bc7ae1  /workspace/start_server.sh
+  e7f224d648ef599270d14a6887bc7ae1  /workspace/SunityMotion/backend/runpod_inference/start_server.sh
+
+판정: 일치 (덮어쓰기 불요)

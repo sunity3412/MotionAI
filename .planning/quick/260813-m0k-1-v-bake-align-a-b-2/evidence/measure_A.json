@@ -1,0 +1,56 @@
+{
+ "bake": {
+  "elbow|angle_vs_reference__right_elbow": "omitted:user_gate",
+  "kipup|split_angle": "omitted:legs_owned",
+  "pdshapefault|angle_vs_reference__left_elbow": "omitted:ref_crop_relaxed",
+  "pdshapefault|angle_vs_reference__left_knee": "omitted:ref_crop_relaxed",
+  "pdshapefault|angle_vs_reference__left_shoulder": "omitted:ref_gate",
+  "pdshapefault|angle_vs_reference__right_elbow": "drawn",
+  "peterpan|angle_vs_reference__left_shoulder": "drawn",
+  "powerspin|leg_extension": "omitted:unmapped"
+ },
+ "anchors": [
+  {
+   "motion": "elbow",
+   "line": "display_anchor rid=r00 joint=right_elbow u_ai=167 r_ai=181 user=(0.4584,0.4769) ref=(0.4742,0.4577)"
+  },
+  {
+   "motion": "elbow",
+   "line": "display_anchor rid=r03 joint=right_knee u_ai=152 r_ai=174 user=(0.5788,0.5693) ref=(0.5442,0.5400)"
+  },
+  {
+   "motion": "pdshapefault",
+   "line": "display_anchor rid=r00 joint=left_elbow u_ai=128 r_ai=141 user=(0.4387,0.6583) ref=(0.4706,0.6677)"
+  },
+  {
+   "motion": "pdshapefault",
+   "line": "display_anchor rid=r03 joint=left_knee u_ai=55 r_ai=36 user=(0.4581,0.3833) ref=(0.4543,0.3670)"
+  },
+  {
+   "motion": "pdshapefault",
+   "line": "display_anchor rid=r02 joint=left_shoulder u_ai=48 r_ai=30 user=(0.3662,0.5745) ref=(0.3680,0.5528)"
+  },
+  {
+   "motion": "pdshapefault",
+   "line": "display_anchor rid=r01 joint=right_elbow u_ai=18 r_ai=12 user=(0.4670,0.4863) ref=(0.4725,0.4731)"
+  },
+  {
+   "motion": "peterpan",
+   "line": "display_anchor rid=r00 joint=left_shoulder u_ai=90 r_ai=114 user=(0.3854,0.4040) ref=(0.3553,0.3747)"
+  },
+  {
+   "motion": "powerspin",
+   "line": "display_anchor rid=r02 joint=left_shoulder u_ai=48 r_ai=86 user=(0.4838,0.4108) ref=(0.5298,0.3778)"
+  }
+ ],
+ "drops": [
+  {
+   "motion": "elbow",
+   "rid": "r01",
+   "joint": "right_shoulder",
+   "side": "user"
+  }
+ ],
+ "seams": [],
+ "eyeStubCalls": 6
+}

@@ -1,0 +1,720 @@
+{
+ "survivors": {
+  "elbow": {
+   "ivs": [
+    "r01:inherit@u7.444/r10.20",
+    "r03:inherit@u10.111/r11.60",
+    "r00:inherit@u11.111/r12.07"
+   ],
+   "A": [
+    "r01:inherit@u7.444/r10.20",
+    "r03:inherit@u10.111/r11.60",
+    "r00:inherit@u11.111/r12.07"
+   ],
+   "B": [
+    "r01:inherit@u7.444/r10.20",
+    "r03:inherit@u10.111/r11.60",
+    "r00:inherit@u11.111/r12.07"
+   ]
+  },
+  "kipup": {
+   "ivs": [
+    "r00:peak@u1.467/r2.00"
+   ],
+   "A": [
+    "r00:peak@u1.467/r2.00"
+   ],
+   "B": [
+    "r00:peak@u1.467/r2.00"
+   ]
+  },
+  "pdshapefault": {
+   "ivs": [
+    "r01:inherit@u1.222/r0.80",
+    "r02:inherit@u3.222/r2.00",
+    "r03:inherit@u3.667/r2.40",
+    "r00:inherit@u8.556/r9.40"
+   ],
+   "A": [
+    "r01:inherit@u1.222/r0.80",
+    "r02:inherit@u3.222/r2.00",
+    "r03:inherit@u3.667/r2.40",
+    "r00:inherit@u8.556/r9.40"
+   ],
+   "B": [
+    "r01:inherit@u1.222/r0.80",
+    "r02:inherit@u3.222/r2.00",
+    "r03:inherit@u3.667/r2.40",
+    "r00:inherit@u8.556/r9.40"
+   ]
+  },
+  "peterpan": {
+   "ivs": [
+    "r00:inherit@u6.444/r7.60"
+   ],
+   "A": [
+    "r00:inherit@u6.444/r7.60"
+   ],
+   "B": [
+    "r00:inherit@u6.444/r7.60"
+   ]
+  },
+  "powerspin": {
+   "ivs": [
+    "r02:inherit@u3.222/r5.73",
+    "r00:peak@u5.733/r8.67"
+   ],
+   "A": [
+    "r02:inherit@u3.222/r5.73",
+    "r00:peak@u5.733/r8.67"
+   ],
+   "B": [
+    "r02:inherit@u3.222/r5.73",
+    "r00:peak@u5.733/r8.67"
+   ]
+  }
+ },
+ "dropped": {
+  "elbow": {
+   "ivs": [
+    "r02:hold=hold pair=pose_far"
+   ],
+   "A": [
+    "r02:hold=hold pair=pose_far"
+   ],
+   "B": [
+    "r02:hold=hold pair=pose_far"
+   ]
+  },
+  "kipup": {
+   "ivs": [],
+   "A": [],
+   "B": []
+  },
+  "pdshapefault": {
+   "ivs": [],
+   "A": [],
+   "B": []
+  },
+  "peterpan": {
+   "ivs": [],
+   "A": [],
+   "B": []
+  },
+  "powerspin": {
+   "ivs": [
+    "r01:no_freeze"
+   ],
+   "A": [
+    "r01:no_freeze"
+   ],
+   "B": [
+    "r01:no_freeze"
+   ]
+  }
+ },
+ "cards": [
+  {
+   "motion": "elbow",
+   "rid": "r00",
+   "joint": "right_elbow",
+   "criterion": "angle_vs_reference__right_elbow",
+   "freeze": {
+    "userSec": 11.111,
+    "refSec": 12.067
+   },
+   "aStatus": "omitted:user_gate",
+   "bStatus": "drawn",
+   "aCard": true,
+   "bCard": true,
+   "mdA": "a88da827c0615fbadece6be409fa46f8",
+   "mdB": "962e61563d52eb67b34d10501066460d",
+   "changed": true,
+   "seamTried": true,
+   "seamFired": [
+    1
+   ],
+   "alignConf": {
+    "user": {
+     "right_elbow": {
+      "conf": 0.812,
+      "pass": true
+     },
+     "right_hand": {
+      "conf": 0.798,
+      "pass": true
+     },
+     "right_shoulder": {
+      "conf": 0.628,
+      "pass": true
+     }
+    },
+    "uAi": 167,
+    "ref": {
+     "right_elbow": {
+      "conf": 0.719,
+      "pass": true
+     },
+     "right_hand": {
+      "conf": 0.533,
+      "pass": true
+     },
+     "right_shoulder": {
+      "conf": 0.628,
+      "pass": true
+     }
+    },
+    "rAi": 181
+   },
+   "recovered": true
+  },
+  {
+   "motion": "elbow",
+   "rid": "r01",
+   "joint": "right_shoulder",
+   "criterion": "angle_vs_reference__right_shoulder",
+   "freeze": {
+    "userSec": 7.444,
+    "refSec": 10.2
+   },
+   "aStatus": "omitted:display_anchor_drop",
+   "bStatus": "omitted:display_anchor_drop",
+   "aCard": false,
+   "bCard": false,
+   "mdA": null,
+   "mdB": null,
+   "changed": false,
+   "seamTried": true,
+   "seamFired": [],
+   "alignConf": {
+    "user": {
+     "right_shoulder": {
+      "conf": 0.429,
+      "pass": false
+     },
+     "right_elbow": {
+      "conf": 0.292,
+      "pass": false
+     },
+     "right_hip": {
+      "conf": 0.229,
+      "pass": false
+     }
+    },
+    "uAi": 112,
+    "ref": {
+     "right_shoulder": {
+      "conf": 0.68,
+      "pass": true
+     },
+     "right_elbow": {
+      "conf": 0.437,
+      "pass": false
+     },
+     "right_hip": {
+      "conf": 0.34,
+      "pass": false
+     }
+    },
+    "rAi": 153
+   },
+   "recovered": false
+  },
+  {
+   "motion": "elbow",
+   "rid": "r02",
+   "joint": "left_hip",
+   "criterion": "angle_vs_reference__left_hip",
+   "freeze": {
+    "userSec": 11.133,
+    "refSec": 11.8
+   },
+   "aStatus": "dropped:hold=hold pair=pose_far",
+   "bStatus": "dropped:hold=hold pair=pose_far",
+   "aCard": false,
+   "bCard": false,
+   "mdA": null,
+   "mdB": null,
+   "changed": false,
+   "seamTried": false,
+   "seamFired": [],
+   "alignConf": {
+    "user": {
+     "left_hip": {
+      "conf": 0.585,
+      "pass": true
+     },
+     "left_knee": {
+      "conf": 0.758,
+      "pass": true
+     },
+     "left_shoulder": {
+      "conf": 0.675,
+      "pass": true
+     }
+    },
+    "uAi": 167,
+    "ref": {
+     "left_hip": {
+      "conf": 0.581,
+      "pass": true
+     },
+     "left_knee": {
+      "conf": 0.673,
+      "pass": true
+     },
+     "left_shoulder": {
+      "conf": 0.545,
+      "pass": true
+     }
+    },
+    "rAi": 177
+   },
+   "recovered": false
+  },
+  {
+   "motion": "elbow",
+   "rid": "r03",
+   "joint": "right_knee",
+   "criterion": "angle_vs_reference__right_knee",
+   "freeze": {
+    "userSec": 10.111,
+    "refSec": 11.6
+   },
+   "aStatus": "omitted:member_conf_zero",
+   "bStatus": "drawn",
+   "aCard": false,
+   "bCard": true,
+   "mdA": null,
+   "mdB": "b9a0062a6538a1aeba8506c56b313a6c",
+   "changed": true,
+   "seamTried": true,
+   "seamFired": [
+    1,
+    2
+   ],
+   "alignConf": {
+    "user": {
+     "right_knee": {
+      "conf": 0.809,
+      "pass": true
+     },
+     "right_ankle": {
+      "conf": 0.832,
+      "pass": true
+     },
+     "right_hip": {
+      "conf": 0.702,
+      "pass": true
+     }
+    },
+    "uAi": 152,
+    "ref": {
+     "right_knee": {
+      "conf": 0.796,
+      "pass": true
+     },
+     "right_ankle": {
+      "conf": 0.858,
+      "pass": true
+     },
+     "right_hip": {
+      "conf": 0.591,
+      "pass": true
+     }
+    },
+    "rAi": 174
+   },
+   "recovered": true
+  },
+  {
+   "motion": "kipup",
+   "rid": "r00",
+   "joint": "split_angle",
+   "criterion": "split_angle",
+   "freeze": {
+    "userSec": 1.467,
+    "refSec": 2.0
+   },
+   "aStatus": "omitted:legs_owned",
+   "bStatus": "omitted:legs_owned",
+   "aCard": true,
+   "bCard": true,
+   "mdA": "9684299d6b702093e994e1bc19426f74",
+   "mdB": "9684299d6b702093e994e1bc19426f74",
+   "changed": false,
+   "seamTried": false,
+   "seamFired": [],
+   "alignConf": null,
+   "recovered": false
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r00",
+   "joint": "left_elbow",
+   "criterion": "angle_vs_reference__left_elbow",
+   "freeze": {
+    "userSec": 8.556,
+    "refSec": 9.4
+   },
+   "aStatus": "omitted:ref_crop_relaxed",
+   "bStatus": "drawn",
+   "aCard": true,
+   "bCard": true,
+   "mdA": "88a346b89e8f2d44a2989300e5d4a187",
+   "mdB": "09c66f8fb17aa598a327cd346e2d7afb",
+   "changed": true,
+   "seamTried": true,
+   "seamFired": [
+    1,
+    2
+   ],
+   "alignConf": {
+    "user": {
+     "left_elbow": {
+      "conf": 0.693,
+      "pass": true
+     },
+     "left_hand": {
+      "conf": 0.764,
+      "pass": true
+     },
+     "left_shoulder": {
+      "conf": 0.622,
+      "pass": true
+     }
+    },
+    "uAi": 128,
+    "ref": {
+     "left_elbow": {
+      "conf": 0.697,
+      "pass": true
+     },
+     "left_hand": {
+      "conf": 0.563,
+      "pass": true
+     },
+     "left_shoulder": {
+      "conf": 0.688,
+      "pass": true
+     }
+    },
+    "rAi": 141
+   },
+   "recovered": true
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r01",
+   "joint": "right_elbow",
+   "criterion": "angle_vs_reference__right_elbow",
+   "freeze": {
+    "userSec": 1.222,
+    "refSec": 0.8
+   },
+   "aStatus": "drawn",
+   "bStatus": "drawn",
+   "aCard": true,
+   "bCard": true,
+   "mdA": "a38ad906d69419f00e936fba8f19084d",
+   "mdB": "a38ad906d69419f00e936fba8f19084d",
+   "changed": false,
+   "seamTried": false,
+   "seamFired": [],
+   "alignConf": {
+    "user": {
+     "right_elbow": {
+      "conf": 0.731,
+      "pass": true
+     },
+     "right_hand": {
+      "conf": 0.734,
+      "pass": true
+     },
+     "right_shoulder": {
+      "conf": 0.751,
+      "pass": true
+     }
+    },
+    "uAi": 18,
+    "ref": {
+     "right_elbow": {
+      "conf": 0.625,
+      "pass": true
+     },
+     "right_hand": {
+      "conf": 0.728,
+      "pass": true
+     },
+     "right_shoulder": {
+      "conf": 0.611,
+      "pass": true
+     }
+    },
+    "rAi": 12
+   },
+   "recovered": false
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r02",
+   "joint": "left_shoulder",
+   "criterion": "angle_vs_reference__left_shoulder",
+   "freeze": {
+    "userSec": 3.222,
+    "refSec": 2.0
+   },
+   "aStatus": "omitted:ref_gate",
+   "bStatus": "drawn",
+   "aCard": true,
+   "bCard": true,
+   "mdA": "1aae82f8a89d76b2eb95780d09ea4e87",
+   "mdB": "fdc715d9e686214a95a64adb36f628f0",
+   "changed": true,
+   "seamTried": true,
+   "seamFired": [
+    1
+   ],
+   "alignConf": {
+    "user": {
+     "left_shoulder": {
+      "conf": 0.581,
+      "pass": true
+     },
+     "left_elbow": {
+      "conf": 0.711,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.576,
+      "pass": true
+     }
+    },
+    "uAi": 48,
+    "ref": {
+     "left_shoulder": {
+      "conf": 0.651,
+      "pass": true
+     },
+     "left_elbow": {
+      "conf": 0.766,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.565,
+      "pass": true
+     }
+    },
+    "rAi": 30
+   },
+   "recovered": true
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r03",
+   "joint": "left_knee",
+   "criterion": "angle_vs_reference__left_knee",
+   "freeze": {
+    "userSec": 3.667,
+    "refSec": 2.4
+   },
+   "aStatus": "omitted:ref_crop_relaxed",
+   "bStatus": "drawn",
+   "aCard": true,
+   "bCard": true,
+   "mdA": "4f631f128fa5b0d6b22e86472b0560b8",
+   "mdB": "3694bc0c3b1280c5ad055d8db0cd9571",
+   "changed": true,
+   "seamTried": true,
+   "seamFired": [
+    1,
+    2
+   ],
+   "alignConf": {
+    "user": {
+     "left_knee": {
+      "conf": 0.758,
+      "pass": true
+     },
+     "left_ankle": {
+      "conf": 0.79,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.589,
+      "pass": true
+     }
+    },
+    "uAi": 55,
+    "ref": {
+     "left_knee": {
+      "conf": 0.676,
+      "pass": true
+     },
+     "left_ankle": {
+      "conf": 0.718,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.576,
+      "pass": true
+     }
+    },
+    "rAi": 36
+   },
+   "recovered": true
+  },
+  {
+   "motion": "peterpan",
+   "rid": "r00",
+   "joint": "left_shoulder",
+   "criterion": "angle_vs_reference__left_shoulder",
+   "freeze": {
+    "userSec": 6.444,
+    "refSec": 7.6
+   },
+   "aStatus": "drawn",
+   "bStatus": "drawn",
+   "aCard": true,
+   "bCard": true,
+   "mdA": "6f54270a5498ea2dd7b318727f7e6358",
+   "mdB": "6f54270a5498ea2dd7b318727f7e6358",
+   "changed": false,
+   "seamTried": false,
+   "seamFired": [],
+   "alignConf": {
+    "user": {
+     "left_shoulder": {
+      "conf": 0.708,
+      "pass": true
+     },
+     "left_elbow": {
+      "conf": 0.767,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.698,
+      "pass": true
+     }
+    },
+    "uAi": 90,
+    "ref": {
+     "left_shoulder": {
+      "conf": 0.831,
+      "pass": true
+     },
+     "left_elbow": {
+      "conf": 0.822,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.75,
+      "pass": true
+     }
+    },
+    "rAi": 114
+   },
+   "recovered": false
+  },
+  {
+   "motion": "powerspin",
+   "rid": "r00",
+   "joint": "leg_extension",
+   "criterion": "leg_extension",
+   "freeze": {
+    "userSec": 5.733,
+    "refSec": 8.667
+   },
+   "aStatus": "omitted:unmapped",
+   "bStatus": "omitted:unmapped",
+   "aCard": true,
+   "bCard": true,
+   "mdA": "db683cb5639a0369f58285ca36987186",
+   "mdB": "db683cb5639a0369f58285ca36987186",
+   "changed": false,
+   "seamTried": false,
+   "seamFired": [],
+   "alignConf": null,
+   "recovered": false
+  },
+  {
+   "motion": "powerspin",
+   "rid": "r01",
+   "joint": null,
+   "criterion": null,
+   "freeze": null,
+   "aStatus": "dropped:no_freeze",
+   "bStatus": "dropped:no_freeze",
+   "aCard": false,
+   "bCard": false,
+   "mdA": null,
+   "mdB": null,
+   "changed": false,
+   "seamTried": false,
+   "seamFired": [],
+   "alignConf": null,
+   "recovered": false
+  },
+  {
+   "motion": "powerspin",
+   "rid": "r02",
+   "joint": "left_shoulder",
+   "criterion": "angle_vs_reference__left_shoulder",
+   "freeze": {
+    "userSec": 3.222,
+    "refSec": 5.733
+   },
+   "aStatus": "omitted:member_conf_zero",
+   "bStatus": "drawn",
+   "aCard": false,
+   "bCard": true,
+   "mdA": null,
+   "mdB": "f884ba8bbb055477eacf53b0fb80a6e1",
+   "changed": true,
+   "seamTried": true,
+   "seamFired": [
+    1,
+    2
+   ],
+   "alignConf": {
+    "user": {
+     "left_shoulder": {
+      "conf": 0.645,
+      "pass": true
+     },
+     "left_elbow": {
+      "conf": 0.796,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.501,
+      "pass": true
+     }
+    },
+    "uAi": 48,
+    "ref": {
+     "left_shoulder": {
+      "conf": 0.724,
+      "pass": true
+     },
+     "left_elbow": {
+      "conf": 0.787,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.631,
+      "pass": true
+     }
+    },
+    "rAi": 86
+   },
+   "recovered": true
+  }
+ ],
+ "eyeStubCalls": {
+  "A": 6,
+  "B": 6
+ },
+ "aMatchesIvs": true,
+ "gateUntouched3Way": true
+}

@@ -1,0 +1,42 @@
+# fxx 로컬 인증값 vs Pod 운영 실분석 대조 (2026-08-13)
+
+Pod: mddy6gsqmt24ud (RTX 4090), 서버 commitSha 0f999619, RTMW_DETERMINISTIC=1
+Pod 실분석: analysis_id=p34fresh1786593512 (342.7s, exit 0)
+fxx 로컬 인증: .planning/quick/260813-fxx-belle-3-p3r1-pass-v-p3-align-fps-5-pytes/evidence/once1.json (WIRING-CHECK 결정론 2회 인증)
+
+## survivors (freeze 순간 포함)
+
+fxx 로컬: ["r03:inherit@u16.667/r15.20", "r00:inherit@u5.302/r5.13"]
+Pod 운영: ["r00:inherit@u5.302/r5.13", "r03:inherit@u16.667/r15.20"]
+판정: 집합 동일 (2건 전건 값 일치 — freeze 순간 소수점 포함). 로그 나열 순서만 상이
+      (Pod verdict 로그는 r00 선행, fxx once1 은 r03 선행 — 값·구성 무차).
+
+## dropped
+
+fxx 로컬: ["r01:hold=moving pair=match", "r04:hold=moving pair=match", "r02:hold=moving pair=pose_far"]
+Pod 운영: ["r01:hold=moving pair=match", "r04:hold=moving pair=match", "r02:hold=moving pair=pose_far"]
+판정: 동일 (순서 포함).
+
+## display_anchor 성립 로그 (좌표 포함)
+
+fxx 로컬 line:
+  display_anchor rid=r00 joint=left_elbow u_ai=80 r_ai=77 user=(0.4148,0.6402) ref=(0.4008,0.6604)
+  display_anchor rid=r03 joint=left_hip u_ai=250 r_ai=228 user=(0.3997,0.5123) ref=(0.4139,0.4766)
+Pod 운영 로그 (_p34fresh_260813.log:104,107):
+  display_anchor rid=r00 joint=left_elbow u_ai=80 r_ai=77 user=(0.4148,0.6402) ref=(0.4008,0.6604)
+  display_anchor rid=r03 joint=left_hip u_ai=250 r_ai=228 user=(0.3997,0.5123) ref=(0.4139,0.4766)
+판정: byte-동일 (u_ai/r_ai/정규화 좌표 전건 일치 — RTMW 결정론 ON 에서 freeze 순간 일치 기대 적중).
+
+## display_anchor drop
+
+fxx 로컬: 0건. Pod 운영: 0건 (grep -c "display_anchor drop" = 0).
+
+## angle_bake 문법
+
+Pod 운영: left_elbow=drawn (기존 V), left_hip=drawn_hybrid (P3 하이브리드) — fxx 이식 스펙 그대로.
+
+## Gemini 실호출 (운영 경로 — 로그 실측)
+
+generateContent 호출 4건: gemini-3.1-pro-preview x3, gemini-3.5-flash x1.
+card_gates verdict eye_calls=2 (기계 눈 freeze 방출 판정 — 분석당 ~2회 수준 기대 적중).
+나머지 = recognizer(기술 인식) + File API 업로드/삭제 (upload 15건 상당, DELETE 정리 포함 총 38 URL 라인).

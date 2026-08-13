@@ -1,0 +1,15 @@
+이전 실증 doc p34fresh1786458292: status=done overallScore=60 deductionBreakdown.final=60 baseline=100
+신규 실증 doc p34fresh1786593512: status=done overallScore=60 deductionBreakdown.final=60 baseline=100
+
+감점 합: old=-45.0 new=-45.0 equal=True
+
+rid    criterion                                  old_points   new_points   old_atSec              new_atSec              match
+r00:angle_vs_reference__left_elbow angle_vs_reference__left_elbow             -11.6        -11.6        5.301767255751917      5.301767255751917      True
+r01:angle_vs_reference__right_elbow angle_vs_reference__right_elbow            -11.6        -11.6        6.102034011337112      6.102034011337112      True
+r02:angle_vs_reference__right_shoulder angle_vs_reference__right_shoulder         -6.7         -6.7         13.804601533844616     13.804601533844616     True
+r03:angle_vs_reference__left_hip angle_vs_reference__left_hip               -6.3         -6.3         4.701567189063021      4.701567189063021      True
+r04:angle_vs_reference__left_knee angle_vs_reference__left_knee              -8.8         -8.8         10.503501167055687     10.503501167055687     True
+
+score equal (repr 대조): 60 == 60 -> True
+records 전건 일치 (criterion/points/atVideoSec): True
+VERDICT: PASS

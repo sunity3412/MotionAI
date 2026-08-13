@@ -1,0 +1,1 @@
+{"status":"ok","auth_configured":true,"pipeline_loaded":true,"commitSha":"ebfad42cec3163908c85351f69000da779f80a02","envFlags":{"PR_INVERSION_ENABLED":true,"RTMW_DETERMINISTIC":true},"modelInitCanary":{"pipelineLoaded":true,"adaptersReady":true,"poseEngine":"RTMWPoseEngine","recognizer":"GeminiTechniqueRecognizer","modelLoaded":true}}

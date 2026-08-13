@@ -1,0 +1,130 @@
+INFO Found credentials in environment variables.
+INFO RTMWPoseEngine weight selected name=rtmw-x-384x288 license_status=commercial_ok
+INFO RTMWPoseEngine init weight=rtmw-x-384x288 input_size=[384, 288]
+INFO RTMW deterministic mode ON — CUDA EP options={'cudnn_conv_algo_search': 'DEFAULT', 'do_copy_in_default_stream': '1', 'cudnn_conv_use_max_workspace': '1'}, threads=1, session.use_deterministic_compute=1, CUBLAS_WORKSPACE_CONFIG=:4096:8
+[0;93m2026-08-13 13:42:17.075553286 [W:onnxruntime:, session_state.cc:1166 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.[m
+[0;93m2026-08-13 13:42:17.075642221 [W:onnxruntime:, session_state.cc:1168 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+INFO RTMWPoseEngine deterministic mode ON (RTMW_DETERMINISTIC=1, eval 전용)
+INFO HTTP Request: GET https://api.cerebras.ai/v1/tcp_warming "HTTP/2 200 OK"
+INFO Recognizer = GeminiTechniqueRecognizer (env switch ON)
+INFO stage_timing analysis_id=p34fresh1786628533 stage=s3_download elapsed_ms=4401
+WARNING Phase 17 telemetry extras 미설치: No module named 'phoenix' — bootstrap_tracing noop (분석 흐름 차단 0).
+INFO stage_timing analysis_id=p34fresh1786628533 stage=gemini_upload_prefetch_submit elapsed_ms=0
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7L-1v-PUyyWwi9yJArSycgzGMOetdqTN8xtdlFG0BzaAza1saiA_Tj9mIG52lT7RmXrLtZns7S-_hW_Dt_Ag3WN-1YQ9WAYYuWepFHj8A&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO stage_timing analysis_id=p34fresh1786628533 stage=frame_extract elapsed_ms=20516
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO pr_inversion detect is_inverted=True ratio=0.705 run=15 valid=149/182
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO pr_inversion applied=true replaced=182/182 second_pass_ms=3586
+INFO stage_timing analysis_id=p34fresh1786628533 stage=rtmw elapsed_ms=8665
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO AFC is enabled with max remote calls: 10.
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO stage_timing analysis_id=p34fresh1786628533 stage=scene_finder elapsed_ms=44073
+INFO TechniqueCache Firestore hit: 1f766769
+INFO GeminiTechniqueRecognizer cache hit
+INFO stage_timing analysis_id=p34fresh1786628533 stage=recognizer elapsed_ms=354
+INFO stage_timing analysis_id=p34fresh1786628533 stage=ref_fetch_download elapsed_ms=1861
+INFO stage_timing analysis_id=p34fresh1786628533 stage=dtw_scoring elapsed_ms=67
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files "HTTP/1.1 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=AKhXX7JELj6WRoMF1Ka_CUV-I1q73LsUnEdzyln14I-8UQ9Aow9dTT7uw-4fG1eaxyBMRrFG7Ns6Cs9Z0h237TDz22mRzuvnWll33TIDVxbKxWA&upload_protocol=resumable "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/xrnvl6dp9aan "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/files/xrnvl6dp9aan "HTTP/1.1 200 OK"
+INFO Gemini 키: env GEMINI_API_KEY (len=53)
+INFO VisionVetoCache rich hit (video): 1f766769
+INFO stage_timing analysis_id=p34fresh1786628533 stage=veto_collect elapsed_ms=5917
+INFO AFC is enabled with max remote calls: 10.
+INFO HTTP Request: POST https://api.cerebras.ai/v1/chat/completions "HTTP/2 200 OK"
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent "HTTP/1.1 200 OK"
+INFO stage_timing analysis_id=p34fresh1786628533 stage=coach_dual elapsed_ms=47928
+INFO coach dual-track 섹션 조립 — gemini_ok=True cerebras_ok=True joints=3 cross_filled=[] audit={'right_elbow': {'causes': 'gemini', 'fix': 'cerebras', 'coachNote': 'gemini', 'injuryRisk': 'cerebras', 'crossFilled': []}, 'left_elbow': {'causes': 'gemini', 'fix': 'cerebras', 'coachNote': 'gemini', 'injuryRisk': 'cerebras', 'crossFilled': []}, 'left_knee': {'causes': 'gemini', 'fix': 'cerebras', 'coachNote': 'gemini', 'injuryRisk': 'cerebras', 'crossFilled': []}}
+INFO stage_timing analysis_id=p34fresh1786628533 stage=assemble_misc elapsed_ms=0
+INFO angle_vs_reference seed pointed=0 window=0 fallback=8
+INFO AFC is enabled with max remote calls: 10.
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent "HTTP/1.1 200 OK"
+INFO GEMINI_D_ENABLED OFF — wave 2 skip
+INFO stage_timing analysis_id=p34fresh1786628533 stage=firestore_complete elapsed_ms=2871
+INFO 분석 완료 uid=fvcNXzEqKjgqVxRPVSj1iwFnIpn2 analysis_id=p34fresh1786628533 mode=mode1
+INFO stage_timing analysis_id=p34fresh1786628533 stage=coach_audio elapsed_ms=9145
+INFO fault_zoom_pose_pair analysis_id=p34fresh1786628533 region=left_elbow user9=53 ref9=17
+INFO fault_zoom_crop analysis_id=p34fresh1786628533 region=left_elbow criterion=angle_vs_reference__left_elbow user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=53 ref_rep_idx=17 ref_video_idx=23 vertex_centered=True shared_side_px=864 shared_frac=0.4000
+INFO fault_zoom_angle_bake analysis_id=p34fresh1786628533 criterion=angle_vs_reference__left_elbow angle_bake=drawn
+INFO fault_zoom_pose_pair analysis_id=p34fresh1786628533 region=right_elbow user9=57 ref9=33
+INFO fault_zoom_crop analysis_id=p34fresh1786628533 region=right_elbow criterion=angle_vs_reference__right_elbow user_kind=valid user_side_px=917 ref_kind=valid ref_side_px=459 user_frame=57 ref_rep_idx=33 ref_video_idx=44 vertex_centered=True shared_side_px=917 shared_frac=0.4246
+INFO fault_zoom_angle_bake analysis_id=p34fresh1786628533 criterion=angle_vs_reference__right_elbow angle_bake=drawn
+INFO fault_zoom_pose_pair analysis_id=p34fresh1786628533 region=right_shoulder user9=138 ref9=98
+INFO fault_zoom_crop analysis_id=p34fresh1786628533 region=right_shoulder criterion=angle_vs_reference__right_shoulder user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=138 ref_rep_idx=98 ref_video_idx=131 vertex_centered=True shared_side_px=864 shared_frac=0.4000
+INFO fault_zoom_angle_bake analysis_id=p34fresh1786628533 criterion=angle_vs_reference__right_shoulder angle_bake=drawn
+INFO fault_zoom_pose_pair analysis_id=p34fresh1786628533 region=left_hip user9=48 ref9=12
+INFO fault_zoom_crop analysis_id=p34fresh1786628533 region=left_hip criterion=angle_vs_reference__left_hip user_kind=valid user_side_px=1188 ref_kind=valid ref_side_px=594 user_frame=48 ref_rep_idx=12 ref_video_idx=16 vertex_centered=True shared_side_px=1188 shared_frac=0.5500
+INFO fault_zoom_angle_bake analysis_id=p34fresh1786628533 criterion=angle_vs_reference__left_hip angle_bake=drawn_hybrid
+INFO fault_zoom_pose_pair analysis_id=p34fresh1786628533 region=arms user9=72 ref9=99
+INFO fault_zoom_crop analysis_id=p34fresh1786628533 region=arms criterion=none user_kind=valid user_side_px=907 ref_kind=valid ref_side_px=454 user_frame=72 ref_rep_idx=99 ref_video_idx=133 vertex_centered=False shared_side_px=none shared_frac=none
+INFO fault_zoom_angle_bake analysis_id=p34fresh1786628533 criterion=none angle_bake=omitted:no_criterion
+INFO stage_timing analysis_id=p34fresh1786628533 stage=fault_zoom elapsed_ms=18787
+INFO Gemini 키: env GEMINI_API_KEY (len=53)
+INFO AFC is enabled with max remote calls: 10.
+INFO HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent "HTTP/1.1 200 OK"
+INFO stage_timing analysis_id=p34fresh1786628533 stage=spot_check elapsed_ms=11300
+INFO RTMW deterministic mode ON — CUDA EP options={'cudnn_conv_algo_search': 'DEFAULT', 'do_copy_in_default_stream': '1', 'cudnn_conv_use_max_workspace': '1'}, threads=1, session.use_deterministic_compute=1, CUBLAS_WORKSPACE_CONFIG=:4096:8
+[0;93m2026-08-13 13:46:02.483159828 [W:onnxruntime:, session_state.cc:1166 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.[m
+[0;93m2026-08-13 13:46:02.483223256 [W:onnxruntime:, session_state.cc:1168 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+[grip-fail-closed] r00 wrist=left_wrist cue_ratio=0.066 user_onsets=[2.53, 14.6] near_cue=[] ref_onsets_in_win=[] -> 기존 짝 유지
+[grip-fail-closed] r01 wrist=left_wrist cue_ratio=0.088 user_onsets=[2.53, 14.6] near_cue=[] ref_onsets_in_win=[] -> 기존 짝 유지
+[grip-fail-closed] r02 wrist=right_wrist cue_ratio=0.104 user_onsets=[0.47, 17.0] near_cue=[] ref_onsets_in_win=[] -> 기존 짝 유지
+[tail-cut] 재생 상한 18.11s -> 17.27s (기준 정지 꼬리 제외)
+INFO compare_render done uid=fvcNXzEqKjgqVxRPVSj1iwFnIpn2 analysis_id=p34fresh1786628533 key=results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/compare_v1.mp4 freezes=5
+INFO card_gates verdict analysis_id=p34fresh1786628533 total=5 survivors=['r00:inherit@u5.302/r5.13', 'r03:inherit@u16.667/r15.20'] dropped=['r01:hold=moving pair=match', 'r04:hold=moving pair=match', 'r02:hold=moving pair=pose_far'] eye_calls=2
+INFO display_anchor rid=r00 joint=left_elbow u_ai=80 r_ai=77 user=(0.4148,0.6402) ref=(0.4008,0.6604)
+INFO fault_zoom_crop analysis_id=p34fresh1786628533 region=left_elbow criterion=angle_vs_reference__left_elbow user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=53 ref_rep_idx=38 ref_video_idx=51 vertex_centered=True shared_side_px=864 shared_frac=0.4000
+INFO fault_zoom_angle_bake analysis_id=p34fresh1786628533 criterion=angle_vs_reference__left_elbow angle_bake=drawn
+INFO display_anchor rid=r03 joint=left_hip u_ai=250 r_ai=228 user=(0.3997,0.5123) ref=(0.4139,0.4766)
+INFO fault_zoom_crop analysis_id=p34fresh1786628533 region=left_hip criterion=angle_vs_reference__left_hip user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=167 ref_rep_idx=113 ref_video_idx=152 vertex_centered=True shared_side_px=864 shared_frac=0.4000
+INFO fault_zoom_angle_bake analysis_id=p34fresh1786628533 criterion=angle_vs_reference__left_hip angle_bake=drawn_hybrid
+INFO card_gates 대체 부착 완료 analysis_id=p34fresh1786628533 confirmed=2 advisory=1
+INFO card_gates eye ledger 보존 analysis_id=p34fresh1786628533 entries=2
+INFO stage_timing analysis_id=p34fresh1786628533 stage=compare_render elapsed_ms=132566
+INFO HTTP Request: DELETE https://generativelanguage.googleapis.com/v1beta/files/ntx1cl99lp5k "HTTP/1.1 200 OK"
+INFO HTTP Request: DELETE https://generativelanguage.googleapis.com/v1beta/files/xrnvl6dp9aan "HTTP/1.1 200 OK"
+fresh doc 생성: uid=fvcNXzEqKjgqVxRPVSj1iwFnIpn2 analysisId=p34fresh1786628533 mode=mode1 ref=ref-pdshape
+SOURCE key=uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/127a2a90c1d74c62ad61270eb3fe5625.mp4 (원 doc 무접촉)
+load /workspace/yolox_weights/yolox_m.onnx with onnxruntime backend
+load /workspace/rtmw_weights/rtmw-x-384.onnx with onnxruntime backend
+load /workspace/yolox_weights/yolox_m.onnx with onnxruntime backend
+load /workspace/rtmw_weights/rtmw-x-384.onnx with onnxruntime backend
+
+== 분석 완료 347.4s — status=done score=60
+-- 원 doc records (수술 전 산출):
+  r00:angle_vs_reference__left_elbow angle_vs_reference__left_elbow at=17.77777777777778 points=-13.8
+  r01:angle_vs_reference__left_knee angle_vs_reference__left_knee at=17.555555555555557 points=-7.0
+  r02:angle_vs_reference__right_knee angle_vs_reference__right_knee at=11.666666666666666 points=-6.9
+-- fresh records (수술 후):
+  r00:angle_vs_reference__left_elbow angle_vs_reference__left_elbow at=5.301767255751917 points=-11.6
+  r01:angle_vs_reference__right_elbow angle_vs_reference__right_elbow at=6.102034011337112 points=-11.6
+  r02:angle_vs_reference__right_shoulder angle_vs_reference__right_shoulder at=13.804601533844616 points=-6.7
+  r03:angle_vs_reference__left_hip angle_vs_reference__left_hip at=4.701567189063021 points=-6.3
+  r04:angle_vs_reference__left_knee angle_vs_reference__left_knee at=10.503501167055687 points=-8.8
+-- renderedCompare: {"freezes": [{"outSec": 5.33, "rid": "r00"}, {"outSec": 15.67, "rid": "r01"}, {"outSec": 29.93, "rid": "r04"}, {"outSec": 43.0, "rid": "r02"}, {"outSec": 57.83, "rid": "r03"}], "status": "done", "key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/compare_v1.mp4"}
+-- motionAlignment.tier: trim_only reason=low_global_confidence

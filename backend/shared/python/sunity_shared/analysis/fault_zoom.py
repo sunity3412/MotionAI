@@ -1999,6 +1999,44 @@ def build_angle_bake_spec(
     return vertex, limb, torso
 
 
+def align_bake_spec(
+    criterion: str | None,
+    members: tuple[str, ...],
+    side_pts: dict | None,
+) -> tuple[
+    tuple[float, float], tuple[float, float], tuple[float, float]
+] | None:
+    """align 유도 V 베이크 스펙 — rep12 스펙(`build_angle_bake_spec`) None 폴백.
+
+    quick-260813-nh4 (belle 08-13 B 스펙 채택) — m0k `_BPatch` seam 1 의
+    운영판. `side_pts` = 호출측이 conf 게이트를 통과시킨 게이트 freeze 순간
+    align 17-kp 좌표 (`build_fault_zoom_comparisons` `align_bake` 의 한 측).
+    3점 = 꼭짓점(crit 관절) + 사지·몸통(`ANGLE_BAKE_MAP` 선언 관절 — 좌우
+    접두 런타임 파생, 동작명 분기 0). 한 점이라도 부재(키 없음) = None
+    (정직한 침묵 유지 — 환각 좌표로 V 를 만들지 않는다).
+
+    구조 차이 명기 (m0k 인증 그대로): 어깨 계열 꼭짓점 = **관절 좌표**
+    (rep12 승인 문법의 겨드랑이 내분점 아님 — align 폴백 카드에 한정).
+    순수 — 채점 무접촉.
+    """
+    if not side_pts:
+        return None
+    jk = _criterion_vertex_joint(criterion, members)
+    if jk is None or "_" not in jk:
+        return None
+    prefix, suffix = jk.split("_", 1)
+    decl = ANGLE_BAKE_MAP.get(suffix)
+    if decl is None:
+        return None
+    pts: list[tuple[float, float]] = []
+    for n in (jk, f"{prefix}_{decl[0]}", f"{prefix}_{decl[1]}"):
+        p = side_pts.get(n)
+        if p is None:
+            return None
+        pts.append((float(p[0]), float(p[1])))
+    return pts[0], pts[1], pts[2]
+
+
 def shift_bake_spec(
     spec: tuple[
         tuple[float, float], tuple[float, float], tuple[float, float]
@@ -2748,6 +2786,7 @@ def build_fault_zoom_comparisons(
     reference_anchor_overrides: dict | None = None,
     native_frame_at=None,
     display_anchor: dict | None = None,
+    align_bake: dict | None = None,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -2833,6 +2872,22 @@ def build_fault_zoom_comparisons(
       평행이동 (사이각·방향 보존 — 방향점 재측정 금지). None(default) =
       전 경로 byte-동일 (legacy/advisory/mode3/기존 테스트 하위호환 —
       criterion_units 선례).
+    align_bake (quick-260813-nh4, belle 08-13 B 스펙 채택 — m0k A/B 소생 6/6
+      인증의 운영판): {"user": {관절명: (x,y)}, "ref": {...}} — 게이트 freeze
+      순간의 align 17-kp 정규화 좌표. 키 = 본 모듈 이름공간 관절명(unit 멤버 +
+      `ANGLE_BAKE_MAP` 선언 관절), conf 게이트(`_KP_CONF_MIN`)는 **호출측
+      소유** — 미달 점은 키 부재(그 점만 결측, 환각 좌표 주입 금지). 적용
+      2곳 (m0k `_BPatch` seam 2개의 운영판 — 로직 동치):
+        · seam 1 — rep12 `build_angle_bake_spec` 이 None 인 측만
+          `align_bake_spec` 폴백 (원본 스펙 우선 — rep12 성립 카드 무개입).
+          V 는 3점(꼭짓점+사지+몸통) 전부 성립 시만 — 미성립 = 기존
+          `omitted:{user,ref}_gate` 정직한 침묵 그대로.
+        · seam 2 — `_member_pts` valid 0 인 측만 align 점을 valid 자리에
+          폴백 (relaxed 자리 주입 금지 — 의미가 다름: relaxed 는 완화 crop
+          후보). ref 전신 무마크가 부위 크롭+V 로 회복되는 경로.
+      align 유도 스펙의 꼭짓점은 display_anchor 와 같은 출처(align freeze
+      좌표)라 `shift_bake_spec` 이 구조적으로 0-이동 — 이중 적용이 생기지
+      않는다. None(default) = 전 경로 byte-동일 (display_anchor 선례).
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
@@ -2946,6 +3001,14 @@ def build_fault_zoom_comparisons(
         if _u_a is not None and _r_a is not None:
             _da_user = (float(_u_a[0]), float(_u_a[1]))
             _da_ref = (float(_r_a[0]), float(_r_a[1]))
+    # align 폴백 payload (quick-260813-nh4 — docstring `align_bake` 참조).
+    # 측별 독립 — 한 측만 폴백해도 된다 (V/카드 대칭 게이트는 기존 both-or-
+    # neither 가 소유). None/빈 dict = 그 측 폴백 없음 (byte-동일).
+    _ab_user: dict | None = None
+    _ab_ref: dict | None = None
+    if align_bake is not None:
+        _ab_user = align_bake.get("user") or None
+        _ab_ref = align_bake.get("ref") or None
     # ── unit 파생 (33-12 A-5) — criterion_units 주어지면 record-파생, 아니면
     # 기존 fault_joints fan-out byte-보존 (legacy/advisory/mode 무회귀).
     if criterion_units is not None:
@@ -3181,6 +3244,20 @@ def build_fault_zoom_comparisons(
             r_valid, r_relaxed = [], []
         else:
             r_valid, r_relaxed = _member_pts(ref_report, r_kp_idx_unit, unit.members)
+        # seam 2 (quick-260813-nh4) — rep12 valid 0 인 측만 align 점을 valid
+        # 자리에 폴백 (relaxed 자리 주입 금지 — docstring `align_bake`). 폴백
+        # 점도 0 이면 빈 그대로 = 기존 skip/전신 폴백 규칙 보존. ref 대응
+        # 실패(D-04 전신 강제)는 폴백 대상 아님 — 위 분기가 좌표를 안 쓴다.
+        if not u_valid and _ab_user:
+            u_valid = [
+                (m, (float(_ab_user[m][0]), float(_ab_user[m][1])))
+                for m in unit.members if _ab_user.get(m) is not None
+            ]
+        if not r_valid and not ref_match_failed_unit and _ab_ref:
+            r_valid = [
+                (m, (float(_ab_ref[m][0]), float(_ab_ref[m][1])))
+                for m in unit.members if _ab_ref.get(m) is not None
+            ]
         if not u_valid and not r_valid:
             # 양측 다 신뢰 좌표 0 — 최소 한 측 valid 일 때만 카드 (기존 skip
             # 규칙 보존). relaxed 는 반대측이 valid 인 카드에서 전신 폴백을
@@ -3271,10 +3348,20 @@ def build_fault_zoom_comparisons(
                         unit.criterion, unit.members, user_report,
                         u_kp_idx_unit, _gated_kp,
                     )
+                    if _u_spec_frac is None:
+                        # seam 1 (quick-260813-nh4) — rep12 미성립 측만 align
+                        # 유도 폴백 (아래 베이크 사이트와 같은 단일 출처).
+                        _u_spec_frac = align_bake_spec(
+                            unit.criterion, unit.members, _ab_user
+                        )
                     _r_spec_frac = build_angle_bake_spec(
                         unit.criterion, unit.members, ref_report,
                         r_kp_idx_unit, _ref_resolver,
                     )
+                    if _r_spec_frac is None:
+                        _r_spec_frac = align_bake_spec(
+                            unit.criterion, unit.members, _ab_ref
+                        )
                     if _da_applied:
                         # 평행이동 불변량이라 frac 값은 동일 — 입력도 이동본을
                         # 써서 단일 출처 일관을 지킨다 (quick-260813-fxx).
@@ -3440,6 +3527,13 @@ def build_fault_zoom_comparisons(
                         unit.criterion, unit.members, user_report, u_kp_idx_unit,
                         _gated_kp,
                     )
+                    if u_spec is None:
+                        # seam 1 (quick-260813-nh4) — rep12 스펙 미성립 측만
+                        # align 유도 폴백. 3점 미성립 = None 유지 → 아래
+                        # user_gate/ref_gate 정직한 침묵 그대로.
+                        u_spec = align_bake_spec(
+                            unit.criterion, unit.members, _ab_user
+                        )
                     r_spec = build_angle_bake_spec(
                         unit.criterion, unit.members, ref_report, r_kp_idx_unit,
                         make_reference_anchor_resolver(
@@ -3447,6 +3541,10 @@ def build_fault_zoom_comparisons(
                             anchors=reference_anchor_overrides,
                         ),
                     )
+                    if r_spec is None:
+                        r_spec = align_bake_spec(
+                            unit.criterion, unit.members, _ab_ref
+                        )
                     if u_spec is None:
                         angle_reason = "user_gate"
                     elif r_spec is None:

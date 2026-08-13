@@ -4714,12 +4714,68 @@ def _run_gated_card_inherit(
                         idx = idx * rep9_n / float(video_n)
                 return int(round(idx))
 
+            # NAME_ALT 는 wrist→hand(rep12) 단방향 — align17(wrist 명명) 조회는
+            # 같은 데이터의 역방향(hand→wrist) 정규화 (m0k Deviations 실측,
+            # 신규 매핑 발명 0 — 'left_hand' 는 align17 에서 미해석).
+            _hand2wrist = {v: k for k, v in cg.NAME_ALT.items()}
+
             for cu in units:
                 crit = str(cu.get("criterion") or "")
                 ent = moment_by_crit.get(crit)
                 if ent is None:
                     continue
                 rec, u_sec, r_sec, pairv, path = ent
+                # 게이트 freeze 초 → align 인덱스 (게이트 루프 u_idx/r_idx 와
+                # 동일 공식 — display_anchor·align_bake 공용 단일 출처).
+                u_ai = max(0, min(
+                    int(round(u_sec * afps)), int(urep15["frames"]) - 1
+                ))
+                r_ai = max(0, min(
+                    int(round(r_sec * afps)), int(rrep15["frames"]) - 1
+                ))
+                # align 폴백 payload (quick-260813-nh4 — belle 08-13 B 스펙
+                # 채택, m0k A/B 소생 6/6 인증의 운영판). unit 멤버 + V 3점
+                # (꼭짓점/사지/몸통 = ANGLE_BAKE_MAP 선언) 좌표를 freeze
+                # 순간 align 17-kp 에서 conf 게이트(fail-closed)로 산출해
+                # 넘긴다 — 미달 점은 키 부재(그 점만 결측) + conf 실값 로그
+                # (정직한 침묵의 근거 채록). 동작명·분석 ID 분기 0.
+                ab_names = {str(j) for j in (cu.get("joints") or ()) if j}
+                if crit.startswith(_fz.ANGLE_VS_REFERENCE_PREFIX):
+                    _jks = sorted(ab_names)
+                    if len(_jks) == 1 and "_" in _jks[0]:
+                        _pre, _suf = _jks[0].split("_", 1)
+                        _decl = _fz.ANGLE_BAKE_MAP.get(_suf)
+                        if _decl:
+                            ab_names |= {
+                                f"{_pre}_{_decl[0]}", f"{_pre}_{_decl[1]}"
+                            }
+                align_bake: dict = {"user": {}, "ref": {}}
+                for _side, _rep15x, _ai in (
+                    ("user", urep15, u_ai), ("ref", rrep15, r_ai),
+                ):
+                    _miss = []
+                    for _n in sorted(ab_names):
+                        _cn = _hand2wrist.get(_n, _n)
+                        _xy = cg.kp(
+                            _rep15x, _ai, _cn, conf_min=_fz._KP_CONF_MIN
+                        )
+                        if _xy is not None:
+                            align_bake[_side][_n] = _xy
+                            continue
+                        _rn = cg._resolve(_rep15x, _cn)  # noqa: SLF001
+                        _c = (
+                            _fz._kp_conf(_rep15x, _ai, _rn)  # noqa: SLF001
+                            if _rn is not None else None
+                        )
+                        _miss.append(
+                            f"{_n}={_c:.3f}" if _c is not None else f"{_n}=na"
+                        )
+                    if _miss:
+                        log.info(
+                            "align_bake miss rid=%s side=%s ai=%d conf=[%s]",
+                            str(rec.get("recordId") or "").split(":")[0],
+                            _side, _ai, " ".join(_miss),
+                        )
                 # 표시 좌표 단일 출처 (quick-260813-fxx) — 확정 angle 카드의
                 # 크롭 중심·원 앵커·V 꼭짓점 = 게이트 freeze 순간의 align
                 # 17-kp (refine_round._R2Patch._gate_moment_px 정본 공식:
@@ -4730,12 +4786,6 @@ def _run_gated_card_inherit(
                 display_anchor = None
                 if crit.startswith(_fz.ANGLE_VS_REFERENCE_PREFIX):
                     aj = cg.crit_joint(crit.split("__")[-1])
-                    u_ai = max(0, min(
-                        int(round(u_sec * afps)), int(urep15["frames"]) - 1
-                    ))
-                    r_ai = max(0, min(
-                        int(round(r_sec * afps)), int(rrep15["frames"]) - 1
-                    ))
                     uxy = cg.kp(urep15, u_ai, aj, conf_min=_fz._KP_CONF_MIN)
                     rxy = cg.kp(rrep15, r_ai, aj, conf_min=_fz._KP_CONF_MIN)
                     if uxy is None or rxy is None:
@@ -4791,6 +4841,9 @@ def _run_gated_card_inherit(
                     native_frame_at=native_at,
                     # 비-angle unit(peak pass-through)은 None — 종전 그대로.
                     display_anchor=display_anchor,
+                    # B 스펙 (quick-260813-nh4) — rep12 미성립 측만 align
+                    # 폴백 (fault_zoom docstring align_bake — seam 1/2).
+                    align_bake=align_bake,
                 )
                 for c in comps:
                     # (g) 귀속 표현 (additive) — 각도 편차 축 + 폴거리 차 성립

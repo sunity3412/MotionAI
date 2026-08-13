@@ -195,3 +195,147 @@ def test_hybrid_draw_false_on_degenerate_vector():
     assert ok is False
     # False 면 드로잉 0 (부분 드로잉 금지 — copy-then-commit 계약)
     assert np.array_equal(before, np.asarray(img))
+
+
+# ── 5. align_bake B 스펙 (quick-260813-nh4 — m0k seam 1/2 운영판) ────────────
+#
+# belle 08-13 채택: rep12 스펙/멤버 미성립 측만 게이트 freeze 순간 align
+# 좌표로 폴백. conf 게이트는 호출측(app.py) 소유 — payload 는 통과 점만.
+
+_HIP_BAKE_PTS = {
+    "left_hip": (0.505, 0.475),
+    "left_knee": (0.402, 0.628),      # 사지 (ANGLE_BAKE_MAP hip → knee)
+    "left_shoulder": (0.564, 0.397),  # 몸통 (ANGLE_BAKE_MAP hip → shoulder)
+}
+
+
+def _report_conf(xy, conf_by_joint=None):
+    """`_report` 변형 — 관절별 confidence override (relaxed/저신뢰 합성)."""
+    joints = list(xy)
+    data: list[float] = []
+    conf: list[float] = []
+    for _f in range(_N):
+        for j in joints:
+            data += list(xy[j])
+            conf.append((conf_by_joint or {}).get(j, 0.9))
+    return {"joints": joints, "frames": _N, "fps": _FPS,
+            "data": data, "confidence": conf}
+
+
+def _build_hip_reports(user_report, **kw):
+    """user report 를 바꾼 left_hip 확정 카드 빌드 (_build_hip 미러)."""
+    return fz.build_fault_zoom_comparisons(
+        _frames(), _frames(),
+        user_report, _report(_REF_KP),
+        None,
+        ["left_hip"],
+        joint_deltas={"left_hip": 20.0},
+        frames_fps=_FPS,
+        joint_kinds={"left_hip": "deficit"},
+        dtw_match=None,
+        user_frame_idx=10,
+        ref_frame_idx=10,
+        criterion_units=[{
+            "criterion": "angle_vs_reference__left_hip",
+            "joints": ("left_hip",), "region": None, "at_frame_idx": None,
+        }],
+        analysis_id="t-nh4",
+        **kw,
+    )
+
+
+def test_align_bake_spec_unit():
+    members = ("left_hip",)
+    crit = "angle_vs_reference__left_hip"
+    spec = fz.align_bake_spec(crit, members, _HIP_BAKE_PTS)
+    assert spec == (
+        _HIP_BAKE_PTS["left_hip"], _HIP_BAKE_PTS["left_knee"],
+        _HIP_BAKE_PTS["left_shoulder"],
+    )
+    # 3점 중 1점 부재 = None (환각 좌표 금지 — 정직한 침묵 유지)
+    partial = {k: v for k, v in _HIP_BAKE_PTS.items() if k != "left_shoulder"}
+    assert fz.align_bake_spec(crit, members, partial) is None
+    # payload 없음 / 미선언 접미사 / 다관절 criterion = None
+    assert fz.align_bake_spec(crit, members, None) is None
+    assert fz.align_bake_spec(
+        "angle_vs_reference__left_wrist", ("left_wrist",), _HIP_BAKE_PTS
+    ) is None
+    assert fz.align_bake_spec(
+        "leg_extension", ("left_knee", "right_knee"), _HIP_BAKE_PTS
+    ) is None
+
+
+def test_align_bake_none_is_byte_identical():
+    base = _build_hip()
+    explicit = _build_hip(align_bake=None)
+    empty = _build_hip(align_bake={"user": {}, "ref": {}})
+    assert len(base) == len(explicit) == len(empty) == 1
+    assert base[0]["png"] == explicit[0]["png"]
+    assert base[0]["png"] == empty[0]["png"]
+
+
+def test_align_bake_recovers_v_when_rep12_spec_fails(caplog):
+    # user report 에서 사지 방향 관절(left_knee) 제거 → rep12 u_spec None.
+    user_kp = {k: v for k, v in _USER_KP.items() if k != "left_knee"}
+    caplog.set_level("INFO")
+    base = _build_hip_reports(_report(user_kp))
+    assert len(base) == 1
+    assert any(
+        "angle_bake=omitted:user_gate" in r.getMessage()
+        for r in caplog.records
+    )
+    caplog.clear()
+    recovered = _build_hip_reports(
+        _report(user_kp),
+        align_bake={"user": dict(_HIP_BAKE_PTS), "ref": {}},
+    )
+    assert len(recovered) == 1
+    # align 유도 스펙으로 V 성립 (hip = 하이브리드 문법)
+    assert any(
+        "angle_bake=drawn" in r.getMessage() for r in caplog.records
+    )
+    assert recovered[0]["png"] != base[0]["png"]
+
+
+def test_align_bake_partial_payload_keeps_honest_silence(caplog):
+    # payload 가 3점 중 1점(몸통) 미달 → V 생략 + 산출 byte-동일 (침묵 유지).
+    user_kp = {k: v for k, v in _USER_KP.items() if k != "left_knee"}
+    base = _build_hip_reports(_report(user_kp))
+    caplog.set_level("INFO")
+    partial = {
+        k: v for k, v in _HIP_BAKE_PTS.items() if k != "left_shoulder"
+    }
+    silent = _build_hip_reports(
+        _report(user_kp), align_bake={"user": partial, "ref": {}},
+    )
+    assert len(base) == len(silent) == 1
+    assert any(
+        "angle_bake=omitted:user_gate" in r.getMessage()
+        for r in caplog.records
+    )
+    assert silent[0]["png"] == base[0]["png"]
+
+
+def test_align_bake_valid0_member_fallback(caplog):
+    # user left_hip conf 0.2 → _member_pts valid 0 (relaxed 크롭 강하).
+    low = _report_conf(_USER_KP, {"left_hip": 0.2})
+    caplog.set_level("INFO")
+    base = _build_hip_reports(low)
+    assert len(base) == 1
+    assert any(
+        "angle_bake=omitted:user_crop_relaxed" in r.getMessage()
+        for r in caplog.records
+    )
+    caplog.clear()
+    # seam 2 — align 점이 valid 자리에 폴백 (relaxed 자리 주입이었다면
+    # u_kind 가 relaxed 로 남아 V 진입 자체가 불가) + seam 1 — rep12 vertex
+    # 저신뢰라 u_spec None → align 유도 스펙. 둘이 함께 카드+V 를 회복한다
+    # (m0k member_conf_zero 소생 경로의 합성 재현).
+    recovered = _build_hip_reports(
+        low, align_bake={"user": dict(_HIP_BAKE_PTS), "ref": {}},
+    )
+    assert len(recovered) == 1
+    assert any(
+        "angle_bake=drawn" in r.getMessage() for r in caplog.records
+    )
+    assert recovered[0]["png"] != base[0]["png"]

@@ -1,0 +1,13 @@
+{
+ "cand": "cand06b",
+ "side": "user",
+ "frameIdx": 79,
+ "sec": 5.267,
+ "joint": "left_knee",
+ "claim": "bent",
+ "observed": "bent",
+ "limb": "leg",
+ "match": true,
+ "confidence": 0.95,
+ "reason": "The orange circle is placed on the knee joint of the leg, which is clearly bent in this pole fitness pose."
+}

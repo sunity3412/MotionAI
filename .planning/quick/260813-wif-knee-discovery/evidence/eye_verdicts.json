@@ -1,0 +1,70 @@
+{
+ "cand13b": {
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle highlights the knee joint of a leg that is clearly bent."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is centered on the knee of the leg extending upwards along the pole, which is straight and fully extended."
+  },
+  "eyePass": true
+ },
+ "cand02b": {
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is centered on the knee joint of a leg that is clearly bent around the pole."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is located on the knee joint of the leg, which is clearly extended straight."
+  },
+  "eyePass": true
+ },
+ "cand06b": {
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is placed on the knee joint of the leg, which is clearly bent in this pole fitness pose."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.85,
+   "reason": "The orange circle is located on the elbow of the arm extending upwards, which appears to be straight and extended."
+  },
+  "eyePass": false
+ },
+ "cand10": {
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is centered on the knee joint of the leg, which is clearly bent at an angle."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the elbow of the arm reaching upwards, which is clearly extended straight towards the pole."
+  },
+  "eyePass": false
+ }
+}

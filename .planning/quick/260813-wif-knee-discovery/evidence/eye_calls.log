@@ -1,0 +1,12 @@
+CALL 01/16 cand=cand13b side=user idx=193 sec=12.867 claim=bent observed=bent limb=leg match=True conf=0.9
+CALL 02/16 cand=cand13b side=ref idx=186 sec=12.400 claim=extended observed=extended limb=leg match=True conf=0.95
+CALL 03/16 cand=cand02b side=user idx=23 sec=1.533 claim=bent observed=bent limb=leg match=True conf=0.95
+CALL 04/16 cand=cand02b side=ref idx=35 sec=2.333 claim=extended observed=extended limb=leg match=True conf=0.95
+CALL 05/16 cand=cand06b side=user idx=79 sec=5.267 claim=bent observed=bent limb=leg match=True conf=0.95
+CALL 06/16 cand=cand06b side=ref idx=84 sec=5.600 claim=extended observed=extended limb=arm match=False conf=0.85
+CALL 07/16 cand=cand10 side=user idx=138 sec=9.200 claim=bent observed=bent limb=leg match=True conf=0.95
+CALL 08/16 cand=cand10 side=ref idx=143 sec=9.533 claim=extended observed=extended limb=arm match=False conf=0.9
+CALL 01/16 helper claim=bent observed=bent limb=leg match=True conf=0.9
+CACHED helper claim=bent xy=333,437 -> bent (계수 불변 1/16)
+CALL 02/16 helper claim=bent observed=bent limb=leg match=True conf=0.95
+CACHED helper claim=bent xy=276,389 -> bent (계수 불변 2/16)

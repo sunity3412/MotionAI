@@ -1,0 +1,13 @@
+{
+ "cand": "cand10",
+ "side": "ref",
+ "frameIdx": 143,
+ "sec": 9.533,
+ "joint": "left_knee",
+ "claim": "extended",
+ "observed": "extended",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the elbow of the arm reaching upwards, which is clearly extended straight towards the pole."
+}

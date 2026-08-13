@@ -1,0 +1,13 @@
+{
+ "cand": "cand13b",
+ "side": "ref",
+ "frameIdx": 186,
+ "sec": 12.4,
+ "joint": "left_knee",
+ "claim": "extended",
+ "observed": "extended",
+ "limb": "leg",
+ "match": true,
+ "confidence": 0.95,
+ "reason": "The orange circle is centered on the knee of the leg extending upwards along the pole, which is straight and fully extended."
+}

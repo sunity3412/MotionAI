@@ -1,0 +1,83 @@
+{
+ "cards": {
+  "cand13b": {
+   "pngs": [
+    "cand13b_u12.8667s_r12.4s_zoom_angle_vs_reference__left_knee.png"
+   ],
+   "logs": [
+    "card_gates verdict analysis_id=p34fresh1786628533-wif-cand13b total=1 survivors=['r04:inherit@u12.867/r12.40'] dropped=['r00:no_freeze', 'r01:no_freeze', 'r02:no_freeze', 'r03:no_freeze'] eye_calls=1",
+    "align_bake miss rid=r04 side=user ai=193 conf=[left_ankle=0.489]",
+    "display_anchor rid=r04 joint=left_knee u_ai=193 r_ai=186 user=(0.5481,0.4047) ref=(0.4783,0.4005)",
+    "fault_zoom_crop analysis_id=p34fresh1786628533-wif-cand13b region=left_knee criterion=angle_vs_reference__left_knee user_kind=valid user_side_px=1051 ref_kind=valid ref_side_px=526 user_frame=129 ref_rep_idx=92 ref_video_idx=123 vertex_centered=True shared_side_px=1051 shared_frac=0.4868",
+    "fault_zoom_angle_bake analysis_id=p34fresh1786628533-wif-cand13b criterion=angle_vs_reference__left_knee angle_bake=omitted:user_gate",
+    "card_gates 대체 부착 완료 analysis_id=p34fresh1786628533-wif-cand13b confirmed=1 advisory=0",
+    "card_gates eye ledger 보존 analysis_id=p34fresh1786628533-wif-cand13b entries=1"
+   ],
+   "attached": [
+    {
+     "joint": "left_knee",
+     "deficitDeg": 20.0,
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 258,
+     "refFrameIdx": 184,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 12.904301433811272,
+     "refVideoSec": 12.353531971878137,
+     "criterion": "angle_vs_reference__left_knee"
+    }
+   ],
+   "uSec": 12.8667,
+   "rSec": 12.4,
+   "md5Run1": {
+    "zoom_angle_vs_reference__left_knee.png": "e891e7ae1fd13b0be1a7ec0470095edb"
+   },
+   "md5Run2": {
+    "zoom_angle_vs_reference__left_knee.png": "e891e7ae1fd13b0be1a7ec0470095edb"
+   },
+   "deterministic": true
+  },
+  "cand02b": {
+   "pngs": [
+    "cand02b_u1.5333s_r2.3333s_zoom_angle_vs_reference__left_knee.png"
+   ],
+   "logs": [
+    "card_gates verdict analysis_id=p34fresh1786628533-wif-cand02b total=1 survivors=['r04:inherit@u1.533/r2.33'] dropped=['r00:no_freeze', 'r01:no_freeze', 'r02:no_freeze', 'r03:no_freeze'] eye_calls=1",
+    "display_anchor rid=r04 joint=left_knee u_ai=23 r_ai=35 user=(0.4542,0.3610) ref=(0.6997,0.4170)",
+    "fault_zoom_crop analysis_id=p34fresh1786628533-wif-cand02b region=left_knee criterion=angle_vs_reference__left_knee user_kind=valid user_side_px=907 ref_kind=valid ref_side_px=454 user_frame=15 ref_rep_idx=17 ref_video_idx=23 vertex_centered=False shared_side_px=none shared_frac=none",
+    "fault_zoom_angle_bake analysis_id=p34fresh1786628533-wif-cand02b criterion=angle_vs_reference__left_knee angle_bake=drawn",
+    "card_gates 대체 부착 완료 analysis_id=p34fresh1786628533-wif-cand02b confirmed=1 advisory=0",
+    "card_gates eye ledger 보존 analysis_id=p34fresh1786628533-wif-cand02b entries=1"
+   ],
+   "attached": [
+    {
+     "joint": "left_knee",
+     "deficitDeg": 20.0,
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 30,
+     "refFrameIdx": 34,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 1.5005001667222408,
+     "refVideoSec": 2.3100100435219284,
+     "criterion": "angle_vs_reference__left_knee"
+    }
+   ],
+   "uSec": 1.5333,
+   "rSec": 2.3333,
+   "md5Run1": {
+    "zoom_angle_vs_reference__left_knee.png": "8b01652b97ecac2b66153a07cc975d14"
+   },
+   "md5Run2": {
+    "zoom_angle_vs_reference__left_knee.png": "8b01652b97ecac2b66153a07cc975d14"
+   },
+   "deterministic": true
+  }
+ },
+ "eyeCallsBefore": 0,
+ "eyeCallsAfter": 2
+}

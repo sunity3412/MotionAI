@@ -1,0 +1,13 @@
+{
+ "cand": "cand02b",
+ "side": "user",
+ "frameIdx": 23,
+ "sec": 1.533,
+ "joint": "left_knee",
+ "claim": "bent",
+ "observed": "bent",
+ "limb": "leg",
+ "match": true,
+ "confidence": 0.95,
+ "reason": "The orange circle is centered on the knee joint of a leg that is clearly bent around the pole."
+}

@@ -1,0 +1,133 @@
+{
+ "p3r1ReferencePx": {
+  "user": 1.6,
+  "ref": 8.7
+ },
+ "determinism": {
+  "pngMd5": true,
+  "survivors": true,
+  "dropped": true
+ },
+ "freezeMatch": {
+  "expected": {
+   "left_hip": "u16.667/r15.20",
+   "left_elbow": "u5.302/r5.13"
+  },
+  "got": [
+   "u16.667/r15.20",
+   "u5.302/r5.13"
+  ],
+  "ok": true
+ },
+ "intendedChangeOnly": {
+  "targetChanged": {
+   "zoom_angle_vs_reference__left_elbow.png": true,
+   "zoom_angle_vs_reference__left_hip.png": true
+  },
+  "manifestKeysetOk": true,
+  "nonTargetUnchanged": true,
+  "survivorsOk": true,
+  "droppedOk": true,
+  "advisoryOk": true,
+  "displayAnchorDrops0": true,
+  "pngMd5": {
+   "zoom_angle_vs_reference__left_elbow.png": "4bbb688d4573dc077ae3746670f6d369",
+   "zoom_angle_vs_reference__left_hip.png": "ece60417627bbcd93b3d5374aa900a93"
+  },
+  "certMd5": {
+   "zoom_angle_vs_reference__left_elbow.png": "9891d2811eb9dcb7925bcf229831f19b",
+   "zoom_angle_vs_reference__left_hip.png": "8e1472097f8a7c2acf3834dfdaf2c78f"
+  }
+ },
+ "alignPrediction": {
+  "ok": true,
+  "rows": [
+   {
+    "joint": "left_hip",
+    "logged": {
+     "rid": "r03",
+     "joint": "left_hip",
+     "uAi": 250,
+     "rAi": 228,
+     "user": [
+      0.3997,
+      0.5123
+     ],
+     "ref": [
+      0.4139,
+      0.4766
+     ],
+     "line": "display_anchor rid=r03 joint=left_hip u_ai=250 r_ai=228 user=(0.3997,0.5123) ref=(0.4139,0.4766)"
+    },
+    "userExpected": {
+     "idx": 250,
+     "xy": [
+      0.3997,
+      0.5123
+     ]
+    },
+    "refExpected": {
+     "idx": 228,
+     "xy": [
+      0.4139,
+      0.4766
+     ]
+    },
+    "ok": true
+   },
+   {
+    "joint": "left_elbow",
+    "logged": {
+     "rid": "r00",
+     "joint": "left_elbow",
+     "uAi": 80,
+     "rAi": 77,
+     "user": [
+      0.4148,
+      0.6402
+     ],
+     "ref": [
+      0.4008,
+      0.6604
+     ],
+     "line": "display_anchor rid=r00 joint=left_elbow u_ai=80 r_ai=77 user=(0.4148,0.6402) ref=(0.4008,0.6604)"
+    },
+    "userExpected": {
+     "idx": 80,
+     "xy": [
+      0.4148,
+      0.6402
+     ]
+    },
+    "refExpected": {
+     "idx": 77,
+     "xy": [
+      0.4008,
+      0.6604
+     ]
+    },
+    "ok": true
+   }
+  ]
+ },
+ "hipShiftPanelPx": {
+  "measured": {
+   "user": 1.65,
+   "ref": 8.67
+  },
+  "p3r1Reference": {
+   "user": 1.6,
+   "ref": 8.7
+  },
+  "note": "현행 크롭 박스 px 환산 — P3r1 은 크롭 무변경 박스 측정치라 직접 대조는 근사 (기록 전용, 게이트 아님)"
+ },
+ "approved": {
+  "binding": 9,
+  "hold": 9,
+  "pair": 9,
+  "peak": 3,
+  "ok": true
+ },
+ "pass": true,
+ "fails": []
+}

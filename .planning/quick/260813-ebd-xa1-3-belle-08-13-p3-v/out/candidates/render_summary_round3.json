@@ -1,0 +1,84 @@
+{
+ "P3r1": {
+  "joint": "left_hip",
+  "emitted": true,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: 원 좌표 출처 rep12->al17(게이트 순간)@250 px=(181,178)",
+   "user: vertex 이동 1.6px (dx=0.7, dy=-1.5) — 방향점 평행이동 (V 사이각 보존)",
+   "ref: 원 좌표 출처 rep12->al17(게이트 순간)@228 px=(176,188)",
+   "ref: vertex 이동 8.7px (dx=-3.8, dy=7.8) — 방향점 평행이동 (V 사이각 보존)"
+  ],
+  "targetMd5": "e40df8bdbefe6b2c7948158e6393f8c1"
+ },
+ "EV1": {
+  "joint": "left_elbow",
+  "emitted": true,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: 원 좌표 출처 rep12->al17(게이트 순간)@80 px=(189,179)",
+   "user: vertex 이동 9.2px (dx=9.2, dy=-0.6) — 방향점 평행이동 (V 사이각 보존)",
+   "user: head c=(227,115) r=61",
+   "user: 도달점 wrist=(256,186) shoulder=(210,76)",
+   "user: wrist 선 원반 진입 전 클리핑",
+   "user: shoulder 선 원반 진입 전 클리핑",
+   "ref: 원 좌표 출처 rep12->al17(게이트 순간)@77 px=(200,178)",
+   "ref: vertex 이동 20.2px (dx=20.1, dy=-1.5) — 방향점 평행이동 (V 사이각 보존)",
+   "ref: head c=(250,96) r=83",
+   "ref: 도달점 wrist=(268,149) shoulder=(217,96)",
+   "ref: wrist 선 원반 진입 전 클리핑",
+   "ref: shoulder 선 원반 진입 전 클리핑"
+  ],
+  "targetMd5": "a4f68f8b4403d94c255499d93030d50e"
+ },
+ "EV2": {
+  "joint": "left_elbow",
+  "emitted": true,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: 원 좌표 출처 rep12->al17(게이트 순간)@80 px=(189,179)",
+   "user: vertex 이동 9.2px (dx=9.2, dy=-0.6) — 방향점 평행이동 (V 사이각 보존)",
+   "user: head c=(227,115) r=61",
+   "user: 실측 전완 67px 상완 105px (스텁 = x0.85)",
+   "user: limb 선 원반 진입 전 클리핑",
+   "user: torso 선 원반 진입 전 클리핑",
+   "ref: 원 좌표 출처 rep12->al17(게이트 순간)@77 px=(200,178)",
+   "ref: vertex 이동 20.2px (dx=20.1, dy=-1.5) — 방향점 평행이동 (V 사이각 보존)",
+   "ref: head c=(250,96) r=83",
+   "ref: 실측 전완 74px 상완 84px (스텁 = x0.85)",
+   "ref: limb 선 원반 진입 전 클리핑",
+   "ref: torso 선 원반 진입 전 클리핑"
+  ],
+  "targetMd5": "b9d3007f20dfcecd3f49235e3aa06148"
+ },
+ "EV3": {
+  "joint": "left_elbow",
+  "emitted": true,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: 원 좌표 출처 rep12->al17(게이트 순간)@80 px=(189,179)",
+   "user: vertex 이동 9.2px (dx=9.2, dy=-0.6) — 방향점 평행이동 (V 사이각 보존)",
+   "user: head c=(227,115) r=61",
+   "user: limb 선 원반 진입 전 클리핑",
+   "user: torso 선 원반 진입 전 클리핑",
+   "ref: 원 좌표 출처 rep12->al17(게이트 순간)@77 px=(200,178)",
+   "ref: vertex 이동 20.2px (dx=20.1, dy=-1.5) — 방향점 평행이동 (V 사이각 보존)",
+   "ref: head c=(250,96) r=83",
+   "ref: limb 선 원반 진입 전 클리핑",
+   "ref: torso 선 원반 진입 전 클리핑"
+  ],
+  "targetMd5": "b9d3007f20dfcecd3f49235e3aa06148"
+ },
+ "_meta": {
+  "eyeStubCalls": 10,
+  "vertexSource": "refine_round._R2Patch._gate_moment_px (align17 @ round(freeze_sec x align_fps), conf>=0.5, fail-closed)"
+ }
+}

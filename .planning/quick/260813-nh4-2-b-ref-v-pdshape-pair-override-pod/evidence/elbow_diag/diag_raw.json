@@ -1,0 +1,47 @@
+{
+ "record": "pdshapefault left_elbow (freeze u8.556/r9.4)",
+ "alignFps": 15.0,
+ "ai": 141,
+ "refSize": [
+  1080,
+  1920
+ ],
+ "points": {
+  "left_elbow": {
+   "xy": [
+    0.4706,
+    0.6677
+   ],
+   "conf": 0.697,
+   "gatePass": true
+  },
+  "left_wrist": {
+   "xy": [
+    0.5042,
+    0.6335
+   ],
+   "conf": 0.563,
+   "gatePass": true
+  },
+  "left_shoulder": {
+   "xy": [
+    0.4695,
+    0.5976
+   ],
+   "conf": 0.688,
+   "gatePass": true
+  }
+ },
+ "nativeFrame": {
+  "srcFps": 30.0,
+  "step": 3,
+  "frames9Idx": 94,
+  "nativeIdx": 282,
+  "realSec": 9.4
+ },
+ "cropSidePx": 454,
+ "cropBoxXY": [
+  281,
+  1054
+ ]
+}

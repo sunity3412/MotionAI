@@ -1,0 +1,204 @@
+{
+ "left_knee": {
+  "rid": "r03",
+  "userSec": 3.667,
+  "uAi": 55,
+  "rule": "양측 conf>=0.5 공통 관절만(POSE_BASIS_12), root=양 hip 중점 중심화, scale=torso(hip중점-어깨중점) px 정규화, 전신=공통 관절 L2 평균 — 랭킹은 전신, 국소는 참고",
+  "baseline": {
+   "refSec": 2.4,
+   "refAi": 36,
+   "fullBody": 0.2181,
+   "limb": 0.2081,
+   "nBasis": 12,
+   "nLimb": 3
+  },
+  "candidates": [
+   {
+    "refAi": 36,
+    "refSec": 2.4,
+    "fullBody": 0.2181,
+    "limb": 0.2081,
+    "nBasis": 12,
+    "nLimb": 3,
+    "rank": 1,
+    "refVOk": true,
+    "refVConf": {
+     "left_knee": {
+      "conf": 0.676,
+      "pass": true
+     },
+     "left_ankle": {
+      "conf": 0.718,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.576,
+      "pass": true
+     }
+    },
+    "isNearBaseline": true
+   },
+   {
+    "refAi": 11,
+    "refSec": 0.733,
+    "fullBody": 0.3028,
+    "limb": 0.3243,
+    "nBasis": 12,
+    "nLimb": 3,
+    "rank": 2,
+    "refVOk": true,
+    "refVConf": {
+     "left_knee": {
+      "conf": 0.641,
+      "pass": true
+     },
+     "left_ankle": {
+      "conf": 0.641,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.515,
+      "pass": true
+     }
+    },
+    "isNearBaseline": false
+   },
+   {
+    "refAi": 58,
+    "refSec": 3.867,
+    "fullBody": 0.3087,
+    "limb": 0.0837,
+    "nBasis": 12,
+    "nLimb": 3,
+    "rank": 3,
+    "refVOk": true,
+    "refVConf": {
+     "left_knee": {
+      "conf": 0.722,
+      "pass": true
+     },
+     "left_ankle": {
+      "conf": 0.694,
+      "pass": true
+     },
+     "left_hip": {
+      "conf": 0.542,
+      "pass": true
+     }
+    },
+    "isNearBaseline": false
+   }
+  ],
+  "scannedFrames": 237,
+  "measurableFrames": 127,
+  "recommend": {
+   "refSec": 3.867,
+   "refAi": 58,
+   "fullBody": 0.3087,
+   "limb": 0.0837,
+   "src": "distance+eye",
+   "note": "부위 국소 거리 0.0837(baseline 0.2081)로 유일하게 대폭 낮고 육안으로 ref 왼무릎 접힘 국면이 user 굽힘 읽힘과 같은 장면 — 전신 1위는 baseline 자체(전신 국면 개선 여지 없음)임을 함께 박제"
+  }
+ },
+ "left_elbow": {
+  "rid": "r00",
+  "userSec": 8.556,
+  "uAi": 128,
+  "rule": "양측 conf>=0.5 공통 관절만(POSE_BASIS_12), root=양 hip 중점 중심화, scale=torso(hip중점-어깨중점) px 정규화, 전신=공통 관절 L2 평균 — 랭킹은 전신, 국소는 참고",
+  "baseline": {
+   "refSec": 9.4,
+   "refAi": 141,
+   "fullBody": 0.1412,
+   "limb": 0.1586,
+   "nBasis": 11,
+   "nLimb": 3
+  },
+  "candidates": [
+   {
+    "refAi": 122,
+    "refSec": 8.133,
+    "fullBody": 0.1282,
+    "limb": 0.1203,
+    "nBasis": 10,
+    "nLimb": 2,
+    "rank": 1,
+    "refVOk": false,
+    "refVConf": {
+     "left_elbow": {
+      "conf": 0.707,
+      "pass": true
+     },
+     "left_hand": {
+      "conf": 0.479,
+      "pass": false
+     },
+     "left_shoulder": {
+      "conf": 0.67,
+      "pass": true
+     }
+    },
+    "isNearBaseline": false
+   },
+   {
+    "refAi": 159,
+    "refSec": 10.6,
+    "fullBody": 0.1389,
+    "limb": 0.1639,
+    "nBasis": 11,
+    "nLimb": 3,
+    "rank": 2,
+    "refVOk": true,
+    "refVConf": {
+     "left_elbow": {
+      "conf": 0.686,
+      "pass": true
+     },
+     "left_hand": {
+      "conf": 0.559,
+      "pass": true
+     },
+     "left_shoulder": {
+      "conf": 0.662,
+      "pass": true
+     }
+    },
+    "isNearBaseline": false
+   },
+   {
+    "refAi": 141,
+    "refSec": 9.4,
+    "fullBody": 0.1412,
+    "limb": 0.1586,
+    "nBasis": 11,
+    "nLimb": 3,
+    "rank": 3,
+    "refVOk": true,
+    "refVConf": {
+     "left_elbow": {
+      "conf": 0.697,
+      "pass": true
+     },
+     "left_hand": {
+      "conf": 0.563,
+      "pass": true
+     },
+     "left_shoulder": {
+      "conf": 0.688,
+      "pass": true
+     }
+    },
+    "isNearBaseline": true
+   }
+  ],
+  "scannedFrames": 237,
+  "measurableFrames": 127,
+  "recommend": {
+   "refSec": 9.4,
+   "refAi": 141,
+   "fullBody": 0.1412,
+   "limb": 0.1586,
+   "src": "distance+eye",
+   "note": "현행 짝 유지 추천 — 전 구간 스캔에서 baseline 대비 유의 개선 없음(Δ전신 0.013 수준, 육안 3후보 사실상 동일 국면), rank1(8.133s)은 ref V 미성립(left_hand conf 0.479). 반려의 화면 격차는 B 문법의 ref 크롭+V 회복이 이미 해소"
+  }
+ }
+}

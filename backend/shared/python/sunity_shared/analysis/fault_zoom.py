@@ -1811,6 +1811,132 @@ def _draw_joint_angle(
     return True
 
 
+# ── 골반 P3 하이브리드 문법 (quick-260813-fxx — belle 라운드 3 채택, D-02 계보) ──
+#
+# bz5 `_draw_candidate(mode="hybrid")` 운영 이식 (원본 = .planning/quick/
+# 260811-bz5-mark-grammar/render_harness.py 207-313행 — round3 P3r1 이 같은
+# 코드 경로로 belle PASS "일단 P3r1 확인"을 받았다, JUDGMENT.md 라운드 3 절).
+# 기존 V 2가닥(halo/core) 위에: 반투명 쐐기 pieslice 상시 + 쐐기 호 끝 화살촉 +
+# 델타>=8도일 때만 고스트 점선 ("기준이라면 사지가 여기"). 상수 5종은 bz5
+# 이식값 그대로 — 신규 튜닝 금지 (belle 판정 3: 위치 미세조정 이연).
+_GHOST_DASH = 9              # 고스트 점선 마디 px
+_WEDGE_ALPHA = 88            # 쐐기 채움 알파 (0-255)
+_WEDGE_R_FRAC = 0.42         # 쐐기 반경 (패널 대비) — 호 r16 보다 크게
+_ARROW_HEAD_PX = 13          # 교정 방향 화살촉 크기 px
+_GHOST_MIN_DELTA_DEG = 8.0   # 이 미만이면 고스트 생략 (본선과 겹쳐 이발소 기둥 오독)
+_GHOST_CORE = (60, 60, 60)   # 고스트 코어 색 (흰 halo 점선 위 어두운 점선)
+
+# 하이브리드 문법 대상 = **관절명 접미사** 선언 (ANGLE_BAKE_MAP 과 같은 패턴 —
+# 좌우 접두 런타임 파생, 동작명 분기 0, D-41). 팔꿈치/무릎/어깨는 미등재 =
+# 기존 V 그대로 (belle 판정 2 — EV4/EV5 오프셋 반려, 과잉 일반화로 승인 깨기 금지).
+HYBRID_ANGLE_SUFFIXES = frozenset({"hip"})
+
+
+def _rotate(v: tuple[float, float], rad: float) -> tuple[float, float]:
+    """2D 회전 (bz5 이식) — 고스트 방향 = 몸통 축에서 기준 사이각만큼 연 방향."""
+    c, s = math.cos(rad), math.sin(rad)
+    return (v[0] * c - v[1] * s, v[0] * s + v[1] * c)
+
+
+def _dashed_line(draw, a, b, fill, width: int, dash: int = _GHOST_DASH) -> None:
+    """점선 (bz5 이식) — PIL 은 dashed line 이 없어 마디 단위로 쪼개 그린다."""
+    n = math.hypot(b[0] - a[0], b[1] - a[1])
+    if n < 1e-6:
+        return
+    steps = max(1, int(n // dash))
+    for i in range(0, steps, 2):
+        t0, t1 = i / steps, min(1.0, (i + 1) / steps)
+        draw.line(
+            [(a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0),
+             (a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1)],
+            fill=fill, width=width,
+        )
+
+
+def _draw_hybrid_joint_angle(
+    img: Image.Image,
+    vertex_px: tuple[float, float],
+    limb_dir_px: tuple[float, float],
+    torso_dir_px: tuple[float, float],
+    ref_inner_deg: float,
+) -> bool:
+    """학생 패널 하이브리드 베이크 (in-place, 성공 여부 반환) — bz5 hybrid 그대로.
+
+    기존 V(사지 선 + 몸통 선, 승인 기하)에 더해: 학생 사지 방향 ↔ 고스트 방향
+    사이 반투명 쐐기(상시) + 쐐기 호 끝 교정 방향 화살촉(상시) + 고스트 점선
+    (델타 >= `_GHOST_MIN_DELTA_DEG` 일 때만 — 실측: 델타 4~7도 카드에서 점선이
+    본선 위에 겹쳐 오독). 고스트 방향 = 학생 몸통 축에서 학생 사지와 **같은
+    회전 방향**(cross 부호 — 카이럴리티는 학생 패널 자신의 것)으로 기준
+    사이각(`ref_inner_deg`, ref 패널 px 공간 측정치)만큼 연 방향.
+
+    방향 벡터가 `_MIN_LEG_VEC_PX` 미만이거나 ref_inner_deg 비유한이면 False —
+    **드로잉 0** (부분 드로잉 금지, 호출측 copy-then-commit 계약).
+    """
+    v = (float(vertex_px[0]), float(vertex_px[1]))
+
+    def _unit(p):
+        dx, dy = float(p[0]) - v[0], float(p[1]) - v[1]
+        n = math.hypot(dx, dy)
+        if n < _MIN_LEG_VEC_PX:
+            return None
+        return dx / n, dy / n
+
+    ul = _unit(limb_dir_px)
+    ut = _unit(torso_dir_px)
+    if ul is None or ut is None:
+        return False
+    if ref_inner_deg is None or not math.isfinite(float(ref_inner_deg)):
+        return False
+    limb_len = _ANGLE_LIMB_LEN_FRAC * _OUT
+    torso_len = _ANGLE_TORSO_LEN_FRAC * _OUT
+    cross = ut[0] * ul[1] - ut[1] * ul[0]
+    sgn = 1.0 if cross >= 0 else -1.0
+    ghost = _rotate(ut, sgn * math.radians(float(ref_inner_deg)))
+    limb_end = (v[0] + ul[0] * limb_len, v[1] + ul[1] * limb_len)
+    torso_end = (v[0] + ut[0] * torso_len, v[1] + ut[1] * torso_len)
+    ghost_end = (v[0] + ghost[0] * limb_len, v[1] + ghost[1] * limb_len)
+
+    # 쐐기(반투명 브랜드) — 델타를 면적으로. RGBA 오버레이 후 합성.
+    r = _WEDGE_R_FRAC * _OUT
+    a_limb = math.degrees(math.atan2(ul[1], ul[0]))
+    a_ghost = math.degrees(math.atan2(ghost[1], ghost[0]))
+    d = (a_ghost - a_limb) % 360
+    start, end = (
+        (a_limb, a_limb + d) if d <= 180 else (a_ghost, a_ghost + (360 - d))
+    )
+    base = img.convert("RGBA")
+    ov = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    ImageDraw.Draw(ov).pieslice(
+        [v[0] - r, v[1] - r, v[0] + r, v[1] + r],
+        start=start, end=end, fill=(*_BRAND, _WEDGE_ALPHA),
+    )
+    img.paste(Image.alpha_composite(base, ov).convert("RGB"), (0, 0))
+
+    draw = ImageDraw.Draw(img)
+    # 기존 선 2가닥 (승인 기하 그대로 — halo 아래 / 코어 위)
+    for w_ in (_ANGLE_HALO_W, _ANGLE_CORE_W):
+        fill = _HALO if w_ == _ANGLE_HALO_W else _BRAND
+        draw.line([v, limb_end], fill=fill, width=w_)
+        draw.line([v, torso_end], fill=fill, width=w_)
+    delta_deg = abs(((a_ghost - a_limb) + 180) % 360 - 180)
+    if delta_deg >= _GHOST_MIN_DELTA_DEG:
+        # 고스트 = 흰 halo 점선 + 어두운 코어 점선 ("여기가 기준")
+        _dashed_line(draw, v, ghost_end, _HALO, _ANGLE_HALO_W)
+        _dashed_line(draw, v, ghost_end, _GHOST_CORE, _ANGLE_CORE_W)
+    # 화살촉: 쐐기 호의 고스트 쪽 끝, 사지→고스트 진행 방향 (상시)
+    a1r = math.radians(a_ghost)
+    tip = (v[0] + math.cos(a1r) * r, v[1] + math.sin(a1r) * r)
+    step = 1.0 if (a_ghost - a_limb) % 360 <= 180 else -1.0
+    tang = (-math.sin(a1r) * step, math.cos(a1r) * step)
+    nrm = (math.cos(a1r), math.sin(a1r))
+    p1 = (tip[0] - tang[0] * _ARROW_HEAD_PX + nrm[0] * _ARROW_HEAD_PX * 0.6,
+          tip[1] - tang[1] * _ARROW_HEAD_PX + nrm[1] * _ARROW_HEAD_PX * 0.6)
+    p2 = (tip[0] - tang[0] * _ARROW_HEAD_PX - nrm[0] * _ARROW_HEAD_PX * 0.6,
+          tip[1] - tang[1] * _ARROW_HEAD_PX - nrm[1] * _ARROW_HEAD_PX * 0.6)
+    draw.polygon([tip, p1, p2], fill=_BRAND, outline=_HALO)
+    return True
+
+
 # 각도 베이크 선-쌍 선언: **관절명 접미사** → (사지측 방향 관절, 몸통측 방향 관절).
 # 좌우 접두사(left_/right_)는 런타임에 꼭짓점 관절명에서 파생 — 좌우를 표에 적으면
 # 항목이 2배가 되고 drift 가 생긴다. 동작명 분기 0 (D-41).
@@ -1873,6 +1999,34 @@ def build_angle_bake_spec(
     return vertex, limb, torso
 
 
+def shift_bake_spec(
+    spec: tuple[
+        tuple[float, float], tuple[float, float], tuple[float, float]
+    ] | None,
+    anchor: tuple[float, float] | None,
+) -> tuple[
+    tuple[float, float], tuple[float, float], tuple[float, float]
+] | None:
+    """베이크 스펙 3점 평행이동 — 꼭짓점을 anchor 로, 방향점은 같은 델타로.
+
+    display_anchor(align 게이트 순간 단일 출처, quick-260813-fxx) 배선의 좌표
+    규칙: V 의 사이각·방향은 rep12 스펙이 잰 그대로 보존하고 **앵커만
+    수리**한다 (round3 `_R3Patch._repaired_pts` 동치 — 방향점 재측정 금지).
+    평행이동은 `_to_crop_px*` 아핀 변환과 교환 가능해 px-공간 내각이 정확히
+    보존된다 (test_fault_zoom_display_repair). spec/anchor None = 무변경 통과
+    — fail-closed 는 호출측(app.py display_anchor 게이트)이 소유한다.
+    """
+    if spec is None or anchor is None:
+        return spec
+    dx = float(anchor[0]) - float(spec[0][0])
+    dy = float(anchor[1]) - float(spec[0][1])
+    return (
+        (float(spec[0][0]) + dx, float(spec[0][1]) + dy),
+        (float(spec[1][0]) + dx, float(spec[1][1]) + dy),
+        (float(spec[2][0]) + dx, float(spec[2][1]) + dy),
+    )
+
+
 def _draw_side_joint_angle(
     img: Image.Image,
     frame: np.ndarray,
@@ -1895,6 +2049,67 @@ def _draw_side_joint_angle(
         _to_crop_px(vertex, left, top, side, w, h),
         _to_crop_px_unclamped(limb, left, top, side, w, h),
         _to_crop_px_unclamped(torso, left, top, side, w, h),
+    )
+
+
+def _spec_inner_deg_px(
+    frame: np.ndarray,
+    spec: tuple[
+        tuple[float, float], tuple[float, float], tuple[float, float]
+    ],
+    box: tuple[int, int, int],
+) -> float | None:
+    """스펙(정규화)의 V 내각을 **패널 px 공간**에서 계산 — 하이브리드 이식각.
+
+    정규화 공간 각도는 프레임 종횡비로 왜곡된다 — 고스트가 이식할 기준각은
+    실제로 그려지는 px 공간의 각이어야 한다 (bz5 record 패스가 `_draw_joint_
+    angle` 에 넘어온 px 점으로 기록한 것과 같은 량). 좌표 변환은
+    `_draw_side_joint_angle` 과 동일 공식 (단일 출처). degenerate = None.
+    """
+    h, w = frame.shape[0], frame.shape[1]
+    left, top, side = box
+    v = _to_crop_px(spec[0], left, top, side, w, h)
+    l_px = _to_crop_px_unclamped(spec[1], left, top, side, w, h)
+    t_px = _to_crop_px_unclamped(spec[2], left, top, side, w, h)
+
+    def _unit(p):
+        dx, dy = float(p[0]) - float(v[0]), float(p[1]) - float(v[1])
+        n = math.hypot(dx, dy)
+        if n < _MIN_LEG_VEC_PX:
+            return None
+        return dx / n, dy / n
+
+    ul = _unit(l_px)
+    ut = _unit(t_px)
+    if ul is None or ut is None:
+        return None
+    d = max(-1.0, min(1.0, ul[0] * ut[0] + ul[1] * ut[1]))
+    return math.degrees(math.acos(d))
+
+
+def _draw_side_hybrid_joint_angle(
+    img: Image.Image,
+    frame: np.ndarray,
+    spec: tuple[
+        tuple[float, float], tuple[float, float], tuple[float, float]
+    ],
+    box: tuple[int, int, int],
+    ref_inner_deg: float,
+) -> bool:
+    """한 측 crop 에 하이브리드 베이크 — `_draw_side_joint_angle` 의 hybrid 판.
+
+    좌표 변환 공식 동일 (꼭짓점 `_to_crop_px` / 방향점 unclamped) — 문법만
+    `_draw_hybrid_joint_angle` (쐐기+화살촉 상시, 고스트 델타 게이팅).
+    """
+    h, w = frame.shape[0], frame.shape[1]
+    left, top, side = box
+    vertex, limb, torso = spec
+    return _draw_hybrid_joint_angle(
+        img,
+        _to_crop_px(vertex, left, top, side, w, h),
+        _to_crop_px_unclamped(limb, left, top, side, w, h),
+        _to_crop_px_unclamped(torso, left, top, side, w, h),
+        ref_inner_deg,
     )
 
 
@@ -2532,6 +2747,7 @@ def build_fault_zoom_comparisons(
     motion_id: str | None = None,
     reference_anchor_overrides: dict | None = None,
     native_frame_at=None,
+    display_anchor: dict | None = None,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -2606,6 +2822,17 @@ def build_fault_zoom_comparisons(
       인접 관절 대체 금지 — belle #7·#9 의 근본).
     reference_anchor_overrides: 앵커 표 직접 주입 (테스트·스위프 하네스 전용).
       지정 시 디스크 로드를 건너뛴다.
+    display_anchor (quick-260813-fxx, belle 라운드 3 배선): {"user": (x,y),
+      "ref": (x,y)} 정규화 프레임 좌표 — 확정(single-joint angle) 카드의 크롭
+      중심·원 앵커·V 꼭짓점의 **단일 출처 교체값**. 호출측(app.py
+      `_run_gated_card_inherit` — unit 당 1회 호출)이 게이트 freeze 순간의
+      align 17-kp 에서 conf 게이트(`_KP_CONF_MIN`) 통과시킨 값만 넘긴다
+      (fail-closed 는 호출측 소유 — 미달 unit 은 build 호출 자체가 없다).
+      적용은 vertex 경로(u_vertex/r_vertex 양측 성립)에서만 — 경로 진입
+      조건·폴백 구조는 무변경, **값만 교체**. V 스펙은 `shift_bake_spec`
+      평행이동 (사이각·방향 보존 — 방향점 재측정 금지). None(default) =
+      전 경로 byte-동일 (legacy/advisory/mode3/기존 테스트 하위호환 —
+      criterion_units 선례).
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
@@ -2709,6 +2936,16 @@ def build_fault_zoom_comparisons(
             r_kp_idx = r_rep_frames // 2 if r_rep_frames > 0 else 0
 
     deltas = joint_deltas or {}
+    # display_anchor 정규화 — 양측 모두 있을 때만 유효 (한쪽만은 무효 = None
+    # 취급, 비대칭 좌표 출처 금지 — 단일 출처 원칙).
+    _da_user: tuple[float, float] | None = None
+    _da_ref: tuple[float, float] | None = None
+    if display_anchor is not None:
+        _u_a = display_anchor.get("user")
+        _r_a = display_anchor.get("ref")
+        if _u_a is not None and _r_a is not None:
+            _da_user = (float(_u_a[0]), float(_u_a[1]))
+            _da_ref = (float(_r_a[0]), float(_r_a[1]))
     # ── unit 파생 (33-12 A-5) — criterion_units 주어지면 record-파생, 아니면
     # 기존 fault_joints fan-out byte-보존 (legacy/advisory/mode 무회귀).
     if criterion_units is not None:
@@ -2990,6 +3227,7 @@ def build_fault_zoom_comparisons(
             # `_pt_in_crop` 게이트가 탈락해 **승인 PASS 항목(S10)이 깨진다** — 한
             # 자산에서 뽑은 규칙을 다른 카드 종류에 확대 적용하지 않는다.
             u_vertex = r_vertex = None
+            _da_applied = False                  # display_anchor 실적용 여부
             shared_side: int | None = None       # 학생 패널 px
             shared_side_ref: int | None = None   # 기준 패널 px (같은 비율, 자기 해상도)
             _frac: float | None = None           # 공용량 = 짧은 변 대비 비율
@@ -3010,6 +3248,15 @@ def build_fault_zoom_comparisons(
                         ),
                     )
                 if u_vertex is not None and r_vertex is not None:
+                    # display_anchor (quick-260813-fxx) — vertex 경로가 성립한
+                    # 확정 카드에서만 **값 교체** (진입 조건·폴백 구조 무변경).
+                    # 크롭 중심(_side_crop center)·원 앵커(정중앙 경로의
+                    # anchor_px = center 파생)·V 꼭짓점(아래 spec 평행이동)이
+                    # 전부 이 값에서 나온다 — 마커·크롭 중심 = 같은 단일 출처
+                    # (승인 4R#1 유지).
+                    if _da_user is not None and _da_ref is not None:
+                        u_vertex, r_vertex = _da_user, _da_ref
+                        _da_applied = True
                     # L-2 공용 한 변 = 두 프레임 짧은 변의 min 파생 (어느 프레임도
                     # 초과하지 않음). 카드당 1회 산출해 양측에 같은 값을 넘긴다.
                     #
@@ -3020,15 +3267,22 @@ def build_fault_zoom_comparisons(
                         motion_id, unit.criterion,
                         anchors=reference_anchor_overrides,
                     )
+                    _u_spec_frac = build_angle_bake_spec(
+                        unit.criterion, unit.members, user_report,
+                        u_kp_idx_unit, _gated_kp,
+                    )
+                    _r_spec_frac = build_angle_bake_spec(
+                        unit.criterion, unit.members, ref_report,
+                        r_kp_idx_unit, _ref_resolver,
+                    )
+                    if _da_applied:
+                        # 평행이동 불변량이라 frac 값은 동일 — 입력도 이동본을
+                        # 써서 단일 출처 일관을 지킨다 (quick-260813-fxx).
+                        _u_spec_frac = shift_bake_spec(_u_spec_frac, u_vertex)
+                        _r_spec_frac = shift_bake_spec(_r_spec_frac, r_vertex)
                     _frac = criterion_crop_frac((
-                        (build_angle_bake_spec(
-                            unit.criterion, unit.members, user_report,
-                            u_kp_idx_unit, _gated_kp,
-                        ), u_frame.shape),
-                        (build_angle_bake_spec(
-                            unit.criterion, unit.members, ref_report,
-                            r_kp_idx_unit, _ref_resolver,
-                        ), r_frame.shape),
+                        (_u_spec_frac, u_frame.shape),
+                        (_r_spec_frac, r_frame.shape),
                     ))
                     # 같은 **비율**을 두 패널이 자기 해상도로 환산한다 — 같은 px 를
                     # 주면 해상도가 다를 때 배율이 갈린다(실물에서 학생만 확대돼 보였다).
@@ -3150,6 +3404,7 @@ def build_fault_zoom_comparisons(
             # copy-then-commit — 위 legs both-or-neither 패턴 그대로(부분 드로잉 0).
             u_drew_angle = False
             r_drew_angle = False
+            _hybrid_note = ""  # 하이브리드 문법 상태 (로그 표기 — quick-260813-fxx)
             # quick-260809-jnb — 진입 게이트 사유를 **초기값 unmapped 로 뭉개지 않는다**.
             # 종전엔 크롭이 relaxed 라 각도 블록에 들어오지도 못한 카드가 로그에
             # `omitted:unmapped`(=각도 대상 아님)로 찍혔다. 실측 1건(엘보 5카드)에서
@@ -3197,12 +3452,43 @@ def build_fault_zoom_comparisons(
                     elif r_spec is None:
                         angle_reason = "ref_gate"
                     else:
+                        if _da_applied:
+                            # V 꼭짓점 = display_anchor (크롭 중심과 같은 단일
+                            # 출처) — 방향점은 델타 평행이동 (사이각·방향 보존,
+                            # round3 _R3Patch._repaired_pts 동치).
+                            u_spec = shift_bake_spec(u_spec, u_vertex)
+                            r_spec = shift_bake_spec(r_spec, r_vertex)
                         u_try, r_try = u_img.copy(), r_img.copy()
+                        # 하이브리드 문법 (quick-260813-fxx — 접미사 선언 키잉):
+                        # ref 패널 px 공간에서 내각을 먼저 확보해야 user 패널에
+                        # 이식한다. 비유한/부재 = 기존 V 양 패널 폴백 (graceful
+                        # — kpo "실패 전량 기존 카드" 선례, 로그에 사유 표기).
+                        _hybrid = _suffix in HYBRID_ANGLE_SUFFIXES
+                        _ref_inner: float | None = None
+                        if _hybrid:
+                            _ref_inner = _spec_inner_deg_px(
+                                r_frame, r_spec, r_box
+                            )
+                            if _ref_inner is None or not math.isfinite(
+                                _ref_inner
+                            ):
+                                _hybrid = False
+                                _hybrid_note = ":hybrid_fallback"
                         # quick-260802-tie: 두 드로잉 결과를 **각각 이름으로 받는다** —
                         # 기준 패널에 실제로 그려졌는지를 `u_drew_angle` 이라는 학생측
                         # 이름으로 추론하지 않기 위해서다(그리는 코드가 인증한다).
                         # `and` 단락 평가 순서·호출 횟수는 종전과 같다.
-                        _u_ok = _draw_side_joint_angle(u_try, u_frame, u_spec, u_box)
+                        # 하이브리드는 user 패널만 — ref 패널은 기존 V 그대로
+                        # (round3 P3r1 인증 문법: user=hybrid / ref=원본 V).
+                        _u_ok = (
+                            _draw_side_hybrid_joint_angle(
+                                u_try, u_frame, u_spec, u_box, _ref_inner
+                            )
+                            if _hybrid
+                            else _draw_side_joint_angle(
+                                u_try, u_frame, u_spec, u_box
+                            )
+                        )
                         _r_ok = _u_ok and _draw_side_joint_angle(
                             r_try, r_frame, r_spec, r_box
                         )
@@ -3210,13 +3496,16 @@ def build_fault_zoom_comparisons(
                             u_img, r_img = u_try, r_try
                             u_drew_angle = True
                             r_drew_angle = True
+                            if _hybrid:
+                                _hybrid_note = "_hybrid"
                         else:
                             angle_reason = "degenerate"
             log.info(
                 "fault_zoom_angle_bake analysis_id=%s criterion=%s angle_bake=%s",
                 analysis_id,
                 unit.criterion or "none",
-                "drawn" if u_drew_angle else f"omitted:{angle_reason}",
+                f"drawn{_hybrid_note}" if u_drew_angle
+                else f"omitted:{angle_reason}",
             )
             # user 측: 사이각/각도를 그렸으면 원 생략(선/호와 시각 언어 충돌 방지),
             # 아니면 기존 규칙 그대로. 각도 배지 없음(belle 2026-07-28) —

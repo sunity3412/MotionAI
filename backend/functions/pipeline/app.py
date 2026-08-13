@@ -4720,6 +4720,43 @@ def _run_gated_card_inherit(
                 if ent is None:
                     continue
                 rec, u_sec, r_sec, pairv, path = ent
+                # 표시 좌표 단일 출처 (quick-260813-fxx) — 확정 angle 카드의
+                # 크롭 중심·원 앵커·V 꼭짓점 = 게이트 freeze 순간의 align
+                # 17-kp (refine_round._R2Patch._gate_moment_px 정본 공식:
+                # round(freeze_sec x align_fps), conf >= _KP_CONF_MIN,
+                # fail-closed). rep12 fps 라벨 사슬(_to_rep_idx)이 1프레임
+                # 이른 좌표를 주던 skew 의 구조 제거 — 동작명·영상 ID 분기 0,
+                # 인덱스 공식은 게이트 루프 u_idx/r_idx 와 동일.
+                display_anchor = None
+                if crit.startswith(_fz.ANGLE_VS_REFERENCE_PREFIX):
+                    aj = cg.crit_joint(crit.split("__")[-1])
+                    u_ai = max(0, min(
+                        int(round(u_sec * afps)), int(urep15["frames"]) - 1
+                    ))
+                    r_ai = max(0, min(
+                        int(round(r_sec * afps)), int(rrep15["frames"]) - 1
+                    ))
+                    uxy = cg.kp(urep15, u_ai, aj, conf_min=_fz._KP_CONF_MIN)
+                    rxy = cg.kp(rrep15, r_ai, aj, conf_min=_fz._KP_CONF_MIN)
+                    if uxy is None or rxy is None:
+                        # fail-closed — 엉뚱한 rep12 좌표 폴백 금지: 그 unit
+                        # 카드 미방출 (refine_round docstring 근거).
+                        log.info(
+                            "display_anchor drop rid=%s joint=%s side=%s "
+                            "(align conf 게이트 미달 — 카드 미방출)",
+                            str(rec.get("recordId") or "").split(":")[0],
+                            aj,
+                            "user" if uxy is None else "ref",
+                        )
+                        continue
+                    display_anchor = {"user": uxy, "ref": rxy}
+                    # 배선 실행 로그 증거 (wiring-claims-need-log-evidence).
+                    log.info(
+                        "display_anchor rid=%s joint=%s u_ai=%d r_ai=%d "
+                        "user=(%.4f,%.4f) ref=(%.4f,%.4f)",
+                        str(rec.get("recordId") or "").split(":")[0],
+                        aj, u_ai, r_ai, uxy[0], uxy[1], rxy[0], rxy[1],
+                    )
                 u9 = _override_idx(
                     u_sec, "user", int(user_frames.shape[0]), user_report
                 )
@@ -4752,6 +4789,8 @@ def _run_gated_card_inherit(
                     ),
                     analysis_id=analysis_id,
                     native_frame_at=native_at,
+                    # 비-angle unit(peak pass-through)은 None — 종전 그대로.
+                    display_anchor=display_anchor,
                 )
                 for c in comps:
                     # (g) 귀속 표현 (additive) — 각도 편차 축 + 폴거리 차 성립

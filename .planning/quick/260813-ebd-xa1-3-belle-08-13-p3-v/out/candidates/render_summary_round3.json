@@ -77,8 +77,44 @@
   ],
   "targetMd5": "b9d3007f20dfcecd3f49235e3aa06148"
  },
+ "EV4": {
+  "joint": "left_elbow",
+  "emitted": true,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: 원 좌표 출처 rep12->al17(게이트 순간)@80 px=(189,179)",
+   "user: vertex 이동 9.2px (dx=9.2, dy=-0.6) — 방향점 평행이동 (V 사이각 보존)",
+   "user: head c=(227,115) r=61",
+   "user: 글리프 오프셋 95px (원반 반대측 g=(141,261)), 길이 x1.0 — 전 샘플 원반 밖 기계 검증",
+   "ref: 원 좌표 출처 rep12->al17(게이트 순간)@77 px=(200,178)",
+   "ref: vertex 이동 20.2px (dx=20.1, dy=-1.5) — 방향점 평행이동 (V 사이각 보존)",
+   "ref: head c=(250,96) r=83",
+   "ref: 글리프 오프셋 95px (원반 반대측 g=(151,260)), 길이 x1.0 — 전 샘플 원반 밖 기계 검증"
+  ],
+  "targetMd5": "ecfb94d5c11b9da467ab67de9a77583e"
+ },
+ "EV5": {
+  "joint": "left_elbow",
+  "emitted": true,
+  "leakFreeOtherCard": true,
+  "survivorsOk": true,
+  "targetChanged": true,
+  "notes": [
+   "user: 원 좌표 출처 rep12->al17(게이트 순간)@80 px=(189,179)",
+   "user: vertex 이동 9.2px (dx=9.2, dy=-0.6) — 방향점 평행이동 (V 사이각 보존)",
+   "user: head c=(227,115) r=61",
+   "user: 글리프 오프셋 115px (원반 반대측 g=(131,279)), 길이 x1.6 — 전 샘플 원반 밖 기계 검증",
+   "ref: 원 좌표 출처 rep12->al17(게이트 순간)@77 px=(200,178)",
+   "ref: vertex 이동 20.2px (dx=20.1, dy=-1.5) — 방향점 평행이동 (V 사이각 보존)",
+   "ref: head c=(250,96) r=83",
+   "ref: 글리프 오프셋 135px (원반 반대측 g=(130,294)), 길이 x1.6 — 전 샘플 원반 밖 기계 검증"
+  ],
+  "targetMd5": "411019a1779e0ecf36b84614805a91eb"
+ },
  "_meta": {
-  "eyeStubCalls": 10,
+  "eyeStubCalls": 14,
   "vertexSource": "refine_round._R2Patch._gate_moment_px (align17 @ round(freeze_sec x align_fps), conf>=0.5, fail-closed)"
  }
 }

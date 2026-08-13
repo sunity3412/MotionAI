@@ -25,6 +25,14 @@ D-03 팔꿈치 = V 문법 채택 + 얼굴회피 위치 보정 ("E1보다 좀 더
                           스텁 x1.6 (belle "E1보다 길어도 됨") + 원반 클리핑
                           유지 + 호 복원 조건 완화 (원반 밖 구간만 폴리라인 —
                           사이각 시각 재료 복원).
+                      EV4/EV5 오프셋 V (위치 보정) — 1차 렌더 실측: EV1~EV3 이
+                          전부 동일 픽셀로 붕괴 (vertex 가 원반 가장자리 ~5px
+                          밖이라 모든 관절 방향 선이 즉시 클리핑 — EV2==EV3
+                          md5 동일, V 미성립). belle D-03 원문 "위치 보정"의
+                          직해 = V 글리프(사이각·방향 보존)를 원반 반대측 자유
+                          공간에 배치, 링은 관절 위, 점선 리더로 연결. 글리프
+                          전 픽셀의 원반 밖을 배치 탐색이 기계 검증. EV4 =
+                          기본 길이 / EV5 = x1.6 연장 (차이 = 선의 길이만).
 
 좌표 규율 (전 후보 공통 — fps 라벨 사슬 skew 재도입 금지):
   vertex = `refine_round._R2Patch._gate_moment_px` 그대로 상속 —
@@ -79,11 +87,14 @@ CAND3 = OUT3 / "candidates"
 log = logging.getLogger("round3")
 
 MODES3 = {"P3r1": "left_hip", "EV1": "left_elbow",
-          "EV2": "left_elbow", "EV3": "left_elbow"}
+          "EV2": "left_elbow", "EV3": "left_elbow",
+          "EV4": "left_elbow", "EV5": "left_elbow"}
 
 _EV2_REACH_FRAC = 0.85   # EV2 — 실측 세그먼트 길이 대비 스텁 길이 (도달 직전 종료)
 _EV3_LEN_MULT = 1.6      # EV3 — E1 고정 프랙션 대비 연장 배율 (belle "길어도 됨")
 _DISC_MARGIN = 8.0       # 원반 여유 px (gr._split_by_disc 기본과 동일)
+_OFFSET_TRIES = (95, 115, 135, 155, 175)  # EV4/EV5 글리프 오프셋 후보 거리 px
+_OFFSET_MULT = {"EV4": 1.0, "EV5": 1.6}   # 오프셋 V 글리프 길이 배율
 
 
 # ── 라운드 3 공통 패치 — vertex = _gate_moment_px 상속 + 방향점 평행이동 ─────
@@ -277,6 +288,75 @@ def _draw_ev3(img, v, l_dir, t_dir, head, notes, panel) -> bool:
     return True
 
 
+def _draw_ev_offset(img, v, l_dir, t_dir, head, notes, panel, mult) -> bool:
+    """EV4/EV5 오프셋 V (위치 보정) — 글리프를 원반 반대측 자유 공간에.
+
+    V 글리프 = 평행이동 spec 의 방향·사이각 그대로 (V 보존), 링 = 관절 위,
+    점선 리더 = 링 가장자리 → 글리프 꼭짓점 (원반 반대 방향이라 진입 불가).
+    배치 탐색이 글리프 전 샘플 픽셀(꼭짓점/선 8샘플/호 12샘플)의 원반 밖 +
+    패널 안을 기계 검증 — 전부 실패면 미방출 (fail-closed).
+    """
+    ul, ut = bz._unit_vec(v, l_dir), bz._unit_vec(v, t_dir)
+    if ul is None or ut is None:
+        return False
+    if head is None:
+        return False
+    hc, hr = head
+    away = bz._unit_vec(hc, v)  # 원반 중심 → 관절: 반대측 방향
+    if away is None:
+        return False
+    sidepx = min(img.size)
+    L_l = fz._ANGLE_LIMB_LEN_FRAC * mult * sidepx
+    L_t = fz._ANGLE_TORSO_LEN_FRAC * mult * sidepx
+    r_arc = fz._ANGLE_ARC_R_FRAC * mult * sidepx
+    Wp, Hp = img.size
+    pad = 6.0
+    chosen = None
+    for k in _OFFSET_TRIES:
+        g = (v[0] + away[0] * k, v[1] + away[1] * k)
+        le = (g[0] + ul[0] * L_l, g[1] + ul[1] * L_l)
+        te = (g[0] + ut[0] * L_t, g[1] + ut[1] * L_t)
+        samples = [g, le, te]
+        for end in (le, te):
+            for s in range(1, 9):
+                t = s / 8.0
+                samples.append((g[0] + (end[0] - g[0]) * t,
+                                g[1] + (end[1] - g[1]) * t))
+        a1, a2 = fz._minor_arc_span_deg(g, le, te)
+        span = (a2 - a1) % 360
+        for s in range(13):
+            a = math.radians(a1 + span * s / 12)
+            samples.append((g[0] + r_arc * math.cos(a),
+                            g[1] + r_arc * math.sin(a)))
+        ok = all(
+            pad <= p[0] <= Wp - pad and pad <= p[1] <= Hp - pad
+            and math.hypot(p[0] - hc[0], p[1] - hc[1]) >= hr + _DISC_MARGIN
+            for p in samples)
+        if ok:
+            chosen = (g, le, te, a1, a2, k)
+            break
+    if chosen is None:
+        notes.append(f"{panel}: 오프셋 배치 실패 (자유 공간 없음) — 미방출")
+        return False
+    g, le, te, a1, a2, k = chosen
+    notes.append(
+        f"{panel}: 글리프 오프셋 {k}px (원반 반대측 g=({g[0]:.0f},{g[1]:.0f})), "
+        f"길이 x{mult} — 전 샘플 원반 밖 기계 검증")
+    draw = ImageDraw.Draw(img)
+    # 리더 — 링 가장자리 → 글리프 꼭짓점. away 방향 단조 증가라 원반 진입 불가.
+    lead_a = (v[0] + away[0] * 13.0, v[1] + away[1] * 13.0)
+    bz._dashed_line(draw, lead_a, g, fz._HALO, 5, dash=6)
+    bz._dashed_line(draw, lead_a, g, fz._BRAND, 2, dash=6)
+    for w_ in (fz._ANGLE_HALO_W, fz._ANGLE_CORE_W):
+        fill = fz._HALO if w_ == fz._ANGLE_HALO_W else fz._BRAND
+        draw.line([g, le], fill=fill, width=w_)
+        draw.line([g, te], fill=fill, width=w_)
+    draw.arc([g[0] - r_arc, g[1] - r_arc, g[0] + r_arc, g[1] + r_arc],
+             start=a1, end=a2, fill=fz._HALO, width=3)
+    gr._vertex_ring(draw, v)
+    return True
+
+
 class _EVPatch(_R3Patch):
     """팔꿈치 얼굴회피 V 변형안 — 좌표 출처·원반 규칙 공통, 차이 = 선 길이·도달점."""
 
@@ -340,6 +420,9 @@ class _EVPatch(_R3Patch):
             return _draw_ev2(img, v, l, t, fore, upper, head, self.notes, panel)
         if self.mode == "EV3":
             return _draw_ev3(img, v, l, t, head, self.notes, panel)
+        if self.mode in _OFFSET_MULT:
+            return _draw_ev_offset(img, v, l, t, head, self.notes, panel,
+                                   _OFFSET_MULT[self.mode])
         return False
 
 

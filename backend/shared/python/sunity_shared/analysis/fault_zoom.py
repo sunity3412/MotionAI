@@ -1631,8 +1631,9 @@ def _stamp_time(img: Image.Image, seconds: float | None) -> Image.Image:
 
     belle 2026-07-28: "세 주제의 사진이 크게 다른 장면이라고 느껴지지 않는 점 —
     확대사진 아래에 몇 초인지 기입해주면 해결". 사용자가 원본 영상을 스크럽해
-    그 순간을 찾을 수 있도록 **비디오 타임라인 초**를 찍는다 (학생 = frames_fps
-    프레임 인덱스/fps).
+    그 순간을 찾을 수 있도록 **비디오 타임라인 초**를 찍는다 (학생 = 프레임
+    인덱스 / **실효 fps** — label_fps, quick-260813-u8i. 미지정 시 frames_fps
+    폴백).
 
     belle ④ 2026-07-28 개정: **학생 패널 전용.** 기준(정은지) 패널 초 표기는
     제거 — 앱 동작비교 싱크 미세조정 값을 서버 렌더가 모르는 채 원시 초를
@@ -2787,6 +2788,7 @@ def build_fault_zoom_comparisons(
     native_frame_at=None,
     display_anchor: dict | None = None,
     align_bake: dict | None = None,
+    label_fps: tuple[float | None, float | None] | None = None,
 ) -> list[dict]:
     """결함 unit 별 [학생|기준] 확대 비교 PNG 생성 → list[{joint, deficitDeg, png}].
 
@@ -2888,6 +2890,17 @@ def build_fault_zoom_comparisons(
       align 유도 스펙의 꼭짓점은 display_anchor 와 같은 출처(align freeze
       좌표)라 `shift_bake_spec` 이 구조적으로 0-이동 — 이중 적용이 생기지
       않는다. None(default) = 전 경로 byte-동일 (display_anchor 선례).
+    label_fps (quick-260813-u8i, ÷9.0 라벨 사슬 소멸): (user 실효 fps, ref 실효
+      fps) — **초 라벨 환산 분모만** 측별 교체한다 (`_stamp_time` 픽셀 +
+      userVideoSec/refVideoSec 필드 = 같은 변수 하나, F-3 단일 산출 유지).
+      frame_extractor 가 정수 step 솎음이라 실제 rate(예: 9.997fps)가 요청값
+      frames_fps(9.0)와 달라 라벨이 ~10% 크게 적히던 잔존 버그의 수리
+      (memory fps-label-vs-actual-decimation-rate). frames_fps 는 프레임
+      **선택**(worst_seconds/_frame_index/candidates)에만 계속 쓰인다 — 그
+      용처는 무접촉. 측별 None/비유한/비양수 = 그 측 frames_fps 폴백
+      (fail-open — 라벨 때문에 카드를 죽이지 않는다. 좌표 게이트
+      display_anchor 만 fail-closed 인 층위 유지). None(default) = 전 경로
+      byte-동일 (하위호환).
 
     **인덱싱 주의**: 프레임배열은 frames_fps(9)로, keypointReport 는 report['fps']
     (reference 가변, phase4_v1=18fps 실측)로 **각자 시간 인덱싱** — upsample fps
@@ -2911,6 +2924,17 @@ def build_fault_zoom_comparisons(
         return out
     u_rep_fps = float(user_report.get("fps") or frames_fps)
     r_rep_fps = float(ref_report.get("fps") or frames_fps)
+    # 초 라벨 분모 (quick-260813-u8i) — 측별 실효 fps. 유한·양수일 때만 채택,
+    # 아니면 그 측 frames_fps 폴백 (fail-open — docstring label_fps 참조).
+    _lu, _lr = label_fps if label_fps is not None else (None, None)
+    u_label_fps = (
+        float(_lu) if _lu is not None and np.isfinite(_lu) and _lu > 0
+        else frames_fps
+    )
+    r_label_fps = (
+        float(_lr) if _lr is not None and np.isfinite(_lr) and _lr > 0
+        else frames_fps
+    )
     u_n = int(user_frames.shape[0])
     r_n = int(ref_frames.shape[0])
     u_rep_frames = int(user_report.get("frames") or 0)
@@ -3666,8 +3690,10 @@ def build_fault_zoom_comparisons(
             # 다른 순간"의 실 원인이었다 — rep(예: 18fps 329f) ↔ video(9fps 220f)
             # 타임베이스 불일치를 그대로 먹었다. 기준측은 ref_display_frame_index
             # 보정을 거친 비디오 인덱스에서 온다.
-            u_video_sec = u_idx_unit / frames_fps if frames_fps > 0 else None
-            r_video_sec = r_display_idx / frames_fps if frames_fps > 0 else None
+            # 환산 분모 = 측별 실효 fps (quick-260813-u8i — ÷frames_fps=9.0 라벨
+            # 사슬 소멸). u/r_label_fps 는 함수 서두에서 fail-open 산출.
+            u_video_sec = u_idx_unit / u_label_fps if u_label_fps > 0 else None
+            r_video_sec = r_display_idx / r_label_fps if r_label_fps > 0 else None
             u_crop = _stamp_time(u_crop, u_video_sec)
             if stamp_ref:
                 r_img = _stamp_time(r_img, r_video_sec)

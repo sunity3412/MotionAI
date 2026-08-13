@@ -1893,8 +1893,8 @@ const frameIdx = Math.floor(currentTime * report.fps);
 `FaultZoomComparison` 에 `userVideoSec?: number` · `refVideoSec?: number` scalar 2개를 추가한다 — 이 카드가 가리키는 **두 패널 각각의 실영상 초**.
 
 ```
-userVideoSec  number  optional  ← 학생 패널 실영상 초 (9fps 프레임 인덱스 / fps)
-refVideoSec   number  optional  ← 기준 패널 실영상 초 (타임베이스 보정 후 인덱스 / fps)
+userVideoSec  number  optional  ← 학생 패널 실영상 초 (9fps 프레임 인덱스 / 실효 fps — quick-260813-u8i, 실효 rate 미판정 시 9.0 폴백)
+refVideoSec   number  optional  ← 기준 패널 실영상 초 (타임베이스 보정 후 인덱스 / 실효 fps)
 ```
 
 - **값의 출처:** 백엔드가 crop PNG 좌하단에 베이크하는 타임스탬프(`fault_zoom._stamp_time`)와 **동일 산출**이다. 기준측은 `ref_display_frame_index`(rep→비디오 타임베이스 보정)를 거친 비디오 배열 인덱스에서 온다.

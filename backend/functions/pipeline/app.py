@@ -3367,6 +3367,17 @@ def _render_fault_zoom(
     _native_at = _build_native_frame_provider(
         user_video_path, right_video_path, ext
     )
+    # 초 라벨 분모 = 측별 실효 rate (quick-260813-u8i — ÷9.0 라벨 사슬 소멸).
+    # probe 실패 = None = 그 측 종전 frames_fps(9.0) 유지 (fail-open — native
+    # provider 의 그-측-포기 정책과 별개로 **라벨은 카드를 죽이지 않는다**).
+    # Mode1/Mode3 은 이 공용 코어를 타므로 분기 0.
+    _label_eff: dict[str, float | None] = {}
+    for _which, _p in (("user", user_video_path), ("ref", right_video_path)):
+        try:
+            _e = ext.probe_effective_fps(_p)
+        except Exception:  # noqa: BLE001 - 판정 불가 = 그 측 폴백 (fail-open)
+            _e = None
+        _label_eff[_which] = float(_e) if _e and _e > 0 else None
     comps = fault_zoom.build_fault_zoom_comparisons(
         user_frames,
         right_frames,
@@ -3401,6 +3412,8 @@ def _render_fault_zoom(
         motion_id=motion_id,
         analysis_id=analysis_id,
         native_frame_at=_native_at,
+        # 초 라벨 = 실효 rate 환산 (quick-260813-u8i — 위 _label_eff 산출).
+        label_fps=(_label_eff["user"], _label_eff["ref"]),
     )
     # advisory 배치 (quick-260704-fz4) — 프레임 추출은 위 1회 재사용. joint_kinds
     # 'deficit' 은 좌+우 grouping(arms 1장) 활성용 내부 전달일 뿐, 방출 item 에는
@@ -3441,6 +3454,8 @@ def _render_fault_zoom(
             # 캐러셀 안에서 확정 카드만 선명하고 참고 카드만 흐리다(실측 left_shoulder
             # 151px). 공급자는 프레임 캐시를 공유하므로 추가 추출 비용도 없다.
             native_frame_at=_native_at,
+            # 초 라벨도 tier 와 무관 — confirmed 와 동일 실효 rate 환산 (u8i).
+            label_fps=(_label_eff["user"], _label_eff["ref"]),
         )
     out: list[dict] = []
     for tier, batch, key_prefix in (
@@ -4844,6 +4859,14 @@ def _run_gated_card_inherit(
                     # B 스펙 (quick-260813-nh4) — rep12 미성립 측만 align
                     # 폴백 (fault_zoom docstring align_bake — seam 1/2).
                     align_bake=align_bake,
+                    # 초 라벨 분모 = 실효 rate (quick-260813-u8i — ÷9.0 라벨
+                    # 사슬 소멸). eff dict 는 위에서 이미 산출 (probe 신규 0).
+                    # 기대 라벨 = freeze 실초: u9=round(u_sec x eff x rep9 보정)
+                    # 이고 user 측 보정은 identity, ref 측은
+                    # ref_display_frame_index 역변환으로 상쇄 (_override_idx
+                    # docstring) — 표시 인덱스/eff ≈ freeze sec (측별 반올림
+                    # 누적 <=1.5프레임/eff).
+                    label_fps=(eff["user"], eff["ref"]),
                 )
                 for c in comps:
                     # (g) 귀속 표현 (additive) — 각도 편차 축 + 폴거리 차 성립

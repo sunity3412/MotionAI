@@ -1,0 +1,47 @@
+{
+  "target": "pdshapefault left_knee r03 (freeze u3.667 label / 현행 r2.4 — belle 반려 짝)",
+  "method": "belle-confirmed-scene-8.png 패널 크롭 -> grayscale 다운스케일 -> 원본 영상 전 구간 프레임 aspectFill 크롭(수직 오프셋 스윕) 평균 절대 diff 최소 탐색 (l0u recover_frames 선례 확장). 플레이어 표시 초(00:04/00:16)는 판정에 불사용 — 픽셀 대조가 판정자",
+  "screenshotGeometry": {
+    "size": [2000, 1362],
+    "dividerX": [917, 921],
+    "rightPanel": [922, 0, 2000, 1050],
+    "leftPanel": [0, 0, 917, 1362],
+    "note": "우측 패널 y>=1060 은 플레이어 오버레이라 매칭 제외"
+  },
+  "panelAssignment": {
+    "right_vs_ref_best": {"sec": 4.1, "diff": 21.65},
+    "right_vs_user_best": {"sec": 1.7, "diff": 35.6},
+    "left_vs_user_best": {"sec": 2.9, "diff": 31.14},
+    "left_vs_ref_best": {"sec": 11.1, "diff": 33.11},
+    "verdict": "우측 = ref(정은지) 확정 (diff 격차 14 — 결정적), 좌측 = user (격차 2 — 방향 일치, 모션블러로 절대 diff 큼)"
+  },
+  "refVideo": {"path": "scratchpad approved_sweep/pdshapefault/ref.mp4", "fps": 30.0, "frames": 472, "durationSec": 15.73, "note": "플레이어 총길이 00:16 과 정합 (상호 보강 — 판정 근거로는 불사용)"},
+  "coarseScan": "전 구간 매 3프레임(10fps) — top-1 native 123 (4.1s) diff 17.09, 2위권 4.0s/10.0s 18.0대 (coarse.json)",
+  "fineScan": {
+    "range": "native 55..75 + 96..140 (30fps 전수)",
+    "top1": {"nativeFrame": 122, "refSec": 4.067, "diff": 15.289},
+    "valley": "4.033~4.10 준동률(15.3~15.9) 후 양방향 단조 증가 — 단봉 분리 명확",
+    "era2sBest": {"refSec": 2.5, "diff": 18.685},
+    "separation": "top-1(4.067s, 15.29) vs 2초대 최선(2.5s, 18.69) = 22% 열세 — 픽셀 판정은 4.067s 로 명확"
+  },
+  "userFreezeCheck": {
+    "freezeLabelSec": 3.667,
+    "freezeRealSec": 3.3,
+    "freezePose": "역립 다리 벌림(OPEN-V — 왼다리 폴 따라 위, 오른다리 우측으로 뻗음)",
+    "foldPhaseRealSec": "2.0~2.85 (user_freeze_check.png — 2.0s/2.85s 접힘, 3.30s 벌림)",
+    "note": "학생의 '접힘'은 freeze 이전 국면. freeze 순간의 학생은 벌림 요소를 수행 중"
+  },
+  "verdict": "AMBIGUOUS — 해석 금지 경로 (플랜 명기 트리거 발동), override 재렌더 미수행",
+  "ambiguity": [
+    "① 픽셀 사실: belle 스크린샷 우측(ref) = 4.067s 접힘 (분리 명확). 스크린샷 좌측(user) = ~2.87s 접힘. 즉 belle 이 가리킨 실물 짝 = [user 접힘 2.87s | ref 접힘 4.067s]",
+    "② belle 서사: '학생 영상보면 2초대에 나오는 동작 같아서 후보3(4초 접힘)은 어울리지 않음' — 학생 freeze(3.30s real) 실물은 벌림(OPEN-V)이고 ref 의 벌림 요소는 2초대(2.4s) = 현행 반려 baseline 과 같은 초",
+    "③ 구조 제약: pair-override 는 ref 순간만 바꾼다(ut 무접촉 — compare_render 1222행). belle 스크린샷의 짝(user 2.87s 접힘)을 카드로 만들려면 user 순간 변경 = 재정박이 필요해 override 로 표현 불가. ref 4.067s 만 바꾸면 [user 벌림 | ref 접힘] = 반려 사유('다른 화면') 재생산",
+    "④ 따라서 '확정 refSec' 단일 해석이 성립하지 않음: (A) ref 4.067s = 스크린샷 우측 그대로지만 user freeze 와 요소 불일치 / (B) ref 2.4s = 요소 일치(벌림-벌림)지만 현행 반려 baseline 그 자체 / (C) 스크린샷 짝 그대로 = user 순간 변경 필요(override 밖)"
+  ],
+  "stagedMaterials": [
+    "staging/knee_candidate_A_userfreeze_ref4.067s.png",
+    "staging/knee_candidate_B_userfreeze_ref2.4s.png",
+    "staging/knee_candidate_C_screenshot_pair_user2.87_ref4.067.png"
+  ],
+  "handoffQuestion": "belle 확인 1개: 카드가 보여줄 짝은 A(ref 접힘 4.067s)·B(ref 벌림 2.4s = 현행)·C(학생 순간도 접힘 2.87s 로 이동 — freeze 상속 원칙의 예외 승인 필요) 중 무엇인가"
+}

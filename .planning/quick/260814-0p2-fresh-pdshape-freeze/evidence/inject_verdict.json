@@ -1,0 +1,638 @@
+{
+ "meta": {
+  "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+  "aid": "p34fresh1786628533",
+  "inject": {
+   "rid": "r04",
+   "joint": "left_knee",
+   "userSec": 12.8667,
+   "refSec": 12.4,
+   "pairSrc": "discover"
+  },
+  "generated": "2026-08-13T16:02:39.932011+00:00"
+ },
+ "freezes": [
+  {
+   "rid": "r00",
+   "joint": "left_elbow",
+   "userSec": 5.301767255751917,
+   "refSec": 5.13,
+   "pairSrc": "align",
+   "freezeS": 9.54,
+   "voiceStartOutS": 5.33,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r01",
+   "joint": "right_elbow",
+   "userSec": 6.102034011337112,
+   "refSec": 4.53,
+   "pairSrc": "align",
+   "freezeS": 9.86,
+   "voiceStartOutS": 15.67,
+   "markers": [
+    "est"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "오른쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r04",
+   "joint": "left_knee",
+   "userSec": 10.503501167055687,
+   "refSec": 9.4,
+   "pairSrc": "align",
+   "freezeS": 9.78,
+   "voiceStartOutS": 29.93,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 무릎 각도가 기준 셰이프와 차이가 있어요. 무릎을 펴는 게 아니라, 깊게 접은 다리 모양 그대로 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r04",
+   "joint": "left_knee",
+   "userSec": 12.8667,
+   "refSec": 12.4,
+   "pairSrc": "discover",
+   "freezeS": 9.78,
+   "voiceStartOutS": 42.07,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 무릎 각도가 기준 셰이프와 차이가 있어요. 무릎을 펴는 게 아니라, 깊게 접은 다리 모양 그대로 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r02",
+   "joint": "right_shoulder",
+   "userSec": 13.804601533844616,
+   "refSec": 10.73,
+   "pairSrc": "align-w",
+   "freezeS": 11.97,
+   "voiceStartOutS": 52.77,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "오른쪽 어깨(겨드랑이) 각도가 기준 셰이프와 차이가 있어요. 어깨가 귀 쪽으로 말리지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r03",
+   "joint": "left_hip",
+   "userSec": 16.666666666666668,
+   "refSec": 15.2,
+   "pairSrc": "align-peak",
+   "freezeS": 11.46,
+   "voiceStartOutS": 67.6,
+   "markers": [],
+   "legsViz": {
+    "user": true,
+    "ref": true
+   },
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 다리 벌린 각도가 기준 셰이프와 차이가 있어요. 훅 걸린 다리와 접은 다리의 골반을 그대로 잠근 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요"
+  }
+ ],
+ "rigStock": {
+  "verifier": "compare_verify.verify 무수정",
+  "allPass": false,
+  "failLines": [
+   "  [FAIL] H2 순간 r04: |12.87-10.50|=2.36s (src=discover)"
+  ],
+  "confinedToDiscoverH2": true,
+  "note": "기존 freeze 전건 = 무수정 판정기 기준 PASS (T-0p2-01). 유일 FAIL = 신규 discover freeze 의 H2 — 게이트가 외부 삽입을 설계대로 검출한 것."
+ },
+ "rigDelta": {
+  "verifier": "compare_verify.verify + _H2_UT_DISPLACING_SRC 사본 delta 1값('discover') — 판정 로직 무접촉",
+  "allPass": true,
+  "lines": [
+   "  [PASS] A 길이: actual=80.63s planned=80.63s",
+   "  [PASS] A2 정지 수: rendered=6 expected=6",
+   "  [PASS] B 정지 정적성 r00: diff=0.002 @out 10.1s",
+   "  [PASS] B 정지 정적성 r01: diff=0.002 @out 20.6s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 34.8s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 47.0s",
+   "  [PASS] B 정지 정적성 r02: diff=0.003 @out 58.8s",
+   "  [PASS] B 정지 정적성 r03: diff=0.001 @out 73.3s",
+   "  [PASS] C 재생 동적성: play diff=3.55 vs frozen max=0.003",
+   "  [PASS] D 음성 존재 r00: mean=-22.9dB @out 5.3s",
+   "  [PASS] D 음성 존재 r01: mean=-23.3dB @out 15.7s",
+   "  [PASS] D 음성 존재 r04: mean=-22.5dB @out 29.9s",
+   "  [PASS] D 음성 존재 r04: mean=-22.5dB @out 42.1s",
+   "  [PASS] D 음성 존재 r02: mean=-24.0dB @out 52.8s",
+   "  [PASS] D 음성 존재 r03: mean=-22.4dB @out 67.6s",
+   "  [PASS] D 재생 무음: mean=-91.0dB @out 1.0s",
+   "  [PASS] E 저더 user: 정지이벤트=0 최악2s창=0 (임계 4, 재생 409프레임 전수 스캔)",
+   "  [PASS] E 저더 ref: 정지이벤트=3 최악2s창=3 (임계 4, 재생 409프레임 전수 스캔)",
+   "  [PASS] F 웹 재생성(faststart): moov@36 mdat@64698 (64KB 헤더 내)",
+   "  [PASS] G 경계 핀 r00: rt=5.13s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r01: rt=4.53s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=9.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=12.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r02: rt=10.73s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r03: rt=15.20s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] H1 정지 회계: rendered+excluded=['r00', 'r01', 'r02', 'r03', 'r04'] == eligible=['r00', 'r01', 'r02', 'r03', 'r04']",
+   "  [PASS] H2 순간 r00: |5.30-5.30|=0.00s (src=align)",
+   "  [PASS] H2 순간 r01: |6.10-6.10|=0.00s (src=align)",
+   "  [PASS] H2 순간 r04: |10.50-10.50|=0.00s (src=align)",
+   "  [PASS] H2 순간 r02: |13.80-13.80|=0.00s (src=align-w)",
+   "  [PASS] H3 자막 진품 r00: 문자 일치",
+   "  [PASS] H3 자막 진품 r01: 문자 일치",
+   "  [PASS] H3 자막 진품 r04: 문자 일치",
+   "  [PASS] H3 자막 진품 r04: 문자 일치",
+   "  [PASS] H3 자막 진품 r02: 문자 일치",
+   "  [PASS] H3 자막 진품 r03: 문자 일치",
+   "  [PASS] H4 음성 조인 r00: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r01: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r02: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r03: coachAudio 항목 존재"
+  ],
+  "productionChange": "운영 반영 시 compare_verify _H2_UT_DISPLACING_SRC 면제 튜플 확장 필요 (SUPPORT-SURFACE §5)"
+ },
+ "diffConfined": {
+  "reportLevel": {
+   "oldFieldsSame": true,
+   "newExactlyOne": true
+  },
+  "composeLevel": {
+   "insertIndex": 1262,
+   "insertOutSec": 42.067,
+   "insertedFrames": 293,
+   "expectedFromFreezeS": 293.4,
+   "prefixSame": true,
+   "suffixSameAfterFade": true,
+   "fadeFramesChanged": 3,
+   "nFade": 5,
+   "note": "의도 변경 = 삽입 블록 293프레임 + 복귀 크로스페이드 5프레임(ref 패널 블렌드). 그 외 전 프레임 JPEG md5 bit-동일. 삽입점 이후 출력 초는 신규 정지 길이만큼 이동 — 내용 동일성으로 증명 (무변경 주장 아님)."
+  },
+  "mp4Level": {
+   "method": "프레임 인덱스 정확 추출(select=eq) + 공유 소스 JPEG 전이 증명 (cross + 각 mp4 vs bit-동일 소스 — 코덱 노이즈 정직 기록. 정본 내용 증명은 composeLevel md5 사슬)",
+   "freezeMidFrames": [
+    {
+     "rid": "r00",
+     "frameIdxBase": 303,
+     "frameIdxInjected": 303,
+     "cross": {
+      "identical": true,
+      "maxDelta": 0,
+      "meanDelta": 0.0,
+      "pixelsOver8": 0
+     },
+     "baseVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 56,
+      "meanDelta": 0.46656,
+      "pixelsOver8": 997
+     },
+     "injectedVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 56,
+      "meanDelta": 0.46656,
+      "pixelsOver8": 997
+     },
+     "contentSame": true
+    },
+    {
+     "rid": "r01",
+     "frameIdxBase": 618,
+     "frameIdxInjected": 618,
+     "cross": {
+      "identical": true,
+      "maxDelta": 0,
+      "meanDelta": 0.0,
+      "pixelsOver8": 0
+     },
+     "baseVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 53,
+      "meanDelta": 0.46405,
+      "pixelsOver8": 842
+     },
+     "injectedVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 53,
+      "meanDelta": 0.46405,
+      "pixelsOver8": 842
+     },
+     "contentSame": true
+    },
+    {
+     "rid": "r04",
+     "frameIdxBase": 1045,
+     "frameIdxInjected": 1045,
+     "cross": {
+      "identical": true,
+      "maxDelta": 0,
+      "meanDelta": 0.0,
+      "pixelsOver8": 0
+     },
+     "baseVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 53,
+      "meanDelta": 0.52242,
+      "pixelsOver8": 970
+     },
+     "injectedVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 53,
+      "meanDelta": 0.52242,
+      "pixelsOver8": 970
+     },
+     "contentSame": true
+    },
+    {
+     "rid": "r02",
+     "frameIdxBase": 1470,
+     "frameIdxInjected": 1763,
+     "cross": {
+      "identical": false,
+      "maxDelta": 69,
+      "meanDelta": 0.01152,
+      "pixelsOver8": 101
+     },
+     "baseVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 64,
+      "meanDelta": 0.54535,
+      "pixelsOver8": 1121
+     },
+     "injectedVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 61,
+      "meanDelta": 0.54206,
+      "pixelsOver8": 1044
+     },
+     "contentSame": true
+    },
+    {
+     "rid": "r03",
+     "frameIdxBase": 1907,
+     "frameIdxInjected": 2200,
+     "cross": {
+      "identical": false,
+      "maxDelta": 3,
+      "meanDelta": 6e-05,
+      "pixelsOver8": 0
+     },
+     "baseVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 50,
+      "meanDelta": 0.55851,
+      "pixelsOver8": 3357
+     },
+     "injectedVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 50,
+      "meanDelta": 0.5585,
+      "pixelsOver8": 3357
+     },
+     "contentSame": true
+    }
+   ],
+   "playbackSamples": [
+    {
+     "userSec": 3.0,
+     "frameIdxBase": 90,
+     "frameIdxInjected": 90,
+     "cross": {
+      "identical": true,
+      "maxDelta": 0,
+      "meanDelta": 0.0,
+      "pixelsOver8": 0
+     },
+     "baseVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 30,
+      "meanDelta": 0.45686,
+      "pixelsOver8": 577
+     },
+     "injectedVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 30,
+      "meanDelta": 0.45686,
+      "pixelsOver8": 577
+     },
+     "contentSame": true
+    },
+    {
+     "userSec": 12.0,
+     "frameIdxBase": 1235,
+     "frameIdxInjected": 1235,
+     "cross": {
+      "identical": false,
+      "maxDelta": 34,
+      "meanDelta": 0.02966,
+      "pixelsOver8": 692
+     },
+     "baseVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 39,
+      "meanDelta": 0.82844,
+      "pixelsOver8": 8301
+     },
+     "injectedVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 39,
+      "meanDelta": 0.82797,
+      "pixelsOver8": 8262
+     },
+     "contentSame": true
+    },
+    {
+     "userSec": 15.5,
+     "frameIdxBase": 1700,
+     "frameIdxInjected": 1993,
+     "cross": {
+      "identical": false,
+      "maxDelta": 39,
+      "meanDelta": 0.6092,
+      "pixelsOver8": 8784
+     },
+     "baseVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 39,
+      "meanDelta": 0.68404,
+      "pixelsOver8": 3816
+     },
+     "injectedVsSharedSrc": {
+      "identical": false,
+      "maxDelta": 36,
+      "meanDelta": 0.80077,
+      "pixelsOver8": 7743
+     },
+     "contentSame": true
+    }
+   ],
+   "contentOk": true
+  }
+ },
+ "determinism": {
+  "mp4Md5Run1": "4462a39e8fa99481c787666bfe90cf03",
+  "mp4Md5Run2": "4462a39e8fa99481c787666bfe90cf03",
+  "mp4Same": true,
+  "composeFramesSame": true,
+  "reportSame": true
+ },
+ "outFiles": [
+  "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/ae166167-1abf-4754-9fe8-336a719ef9e2/scratchpad/0p2_out/inject_run1.mp4",
+  "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/ae166167-1abf-4754-9fe8-336a719ef9e2/scratchpad/0p2_out/inject_run2.mp4"
+ ],
+ "cards": {
+  "runs": [
+   {
+    "run": 1,
+    "verdictArgs": {
+     "analysisId": "p34fresh1786628533-0p2-inject",
+     "total": 6,
+     "survivors": [
+      "r00:inherit@u5.302/r5.13",
+      "r04:inherit@u12.867/r12.40",
+      "r03:inherit@u16.667/r15.20"
+     ],
+     "dropped": [
+      "r01:hold=moving pair=match",
+      "r04:hold=moving pair=match",
+      "r02:hold=moving pair=pose_far"
+     ],
+     "eyeCalls": 3
+    },
+    "logs": [
+     "card_gates verdict analysis_id=p34fresh1786628533-0p2-inject total=6 survivors=['r00:inherit@u5.302/r5.13', 'r04:inherit@u12.867/r12.40', 'r03:inherit@u16.667/r15.20'] dropped=['r01:hold=moving pair=match', 'r04:hold=moving pair=match', 'r02:hold=moving pair=pose_far'] eye_calls=3",
+     "display_anchor rid=r00 joint=left_elbow u_ai=80 r_ai=77 user=(0.4148,0.6402) ref=(0.4008,0.6604)",
+     "fault_zoom_crop analysis_id=p34fresh1786628533-0p2-inject region=left_elbow criterion=angle_vs_reference__left_elbow user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=53 ref_rep_idx=38 ref_video_idx=51 vertex_centered=True shared_side_px=864 shared_frac=0.4000",
+     "fault_zoom_angle_bake analysis_id=p34fresh1786628533-0p2-inject criterion=angle_vs_reference__left_elbow angle_bake=drawn",
+     "align_bake miss rid=r04 side=user ai=193 conf=[left_ankle=0.489]",
+     "display_anchor rid=r04 joint=left_knee u_ai=193 r_ai=186 user=(0.5481,0.4047) ref=(0.4783,0.4005)",
+     "fault_zoom_crop analysis_id=p34fresh1786628533-0p2-inject region=left_knee criterion=angle_vs_reference__left_knee user_kind=valid user_side_px=1051 ref_kind=valid ref_side_px=526 user_frame=129 ref_rep_idx=92 ref_video_idx=123 vertex_centered=True shared_side_px=1051 shared_frac=0.4868",
+     "fault_zoom_angle_bake analysis_id=p34fresh1786628533-0p2-inject criterion=angle_vs_reference__left_knee angle_bake=omitted:user_gate",
+     "display_anchor rid=r03 joint=left_hip u_ai=250 r_ai=228 user=(0.3997,0.5123) ref=(0.4139,0.4766)",
+     "fault_zoom_crop analysis_id=p34fresh1786628533-0p2-inject region=left_hip criterion=angle_vs_reference__left_hip user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=167 ref_rep_idx=113 ref_video_idx=152 vertex_centered=True shared_side_px=864 shared_frac=0.4000",
+     "fault_zoom_angle_bake analysis_id=p34fresh1786628533-0p2-inject criterion=angle_vs_reference__left_hip angle_bake=drawn_hybrid",
+     "card_gates 대체 부착 완료 analysis_id=p34fresh1786628533-0p2-inject confirmed=3 advisory=0",
+     "card_gates eye ledger 보존 analysis_id=p34fresh1786628533-0p2-inject entries=3"
+    ],
+    "attached": [
+     {
+      "joint": "left_elbow",
+      "deficitDeg": 29.1,
+      "tier": "confirmed",
+      "kind": "deficit",
+      "refMatch": "dtw",
+      "userFrameIdx": 106,
+      "refFrameIdx": 76,
+      "refMatched": true,
+      "refMarked": true,
+      "userVideoSec": 5.301767255751917,
+      "refVideoSec": 5.122196183461667,
+      "criterion": "angle_vs_reference__left_elbow"
+     },
+     {
+      "joint": "left_knee",
+      "deficitDeg": 20.0,
+      "tier": "confirmed",
+      "kind": "deficit",
+      "refMatch": "dtw",
+      "userFrameIdx": 258,
+      "refFrameIdx": 184,
+      "refMatched": true,
+      "refMarked": true,
+      "userVideoSec": 12.904301433811272,
+      "refVideoSec": 12.353531971878137,
+      "criterion": "angle_vs_reference__left_knee"
+     },
+     {
+      "joint": "left_hip",
+      "deficitDeg": 20.0,
+      "tier": "confirmed",
+      "kind": "deficit",
+      "refMatch": "dtw",
+      "userFrameIdx": 334,
+      "refFrameIdx": 226,
+      "refMatched": true,
+      "refMarked": true,
+      "userVideoSec": 16.70556852284095,
+      "refVideoSec": 15.266153331101439,
+      "criterion": "angle_vs_reference__left_hip"
+     }
+    ],
+    "s3Keys": [
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/zoom_angle_vs_reference__left_elbow.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/zoom_angle_vs_reference__left_knee.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/zoom_angle_vs_reference__left_hip.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/eye/00_user_left_elbow.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/eye/01_user_left_knee.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/eye/02_user_left_hip.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/eye/ledger.json"
+    ]
+   },
+   {
+    "run": 2,
+    "verdictArgs": {
+     "analysisId": "p34fresh1786628533-0p2-inject",
+     "total": 6,
+     "survivors": [
+      "r00:inherit@u5.302/r5.13",
+      "r04:inherit@u12.867/r12.40",
+      "r03:inherit@u16.667/r15.20"
+     ],
+     "dropped": [
+      "r01:hold=moving pair=match",
+      "r04:hold=moving pair=match",
+      "r02:hold=moving pair=pose_far"
+     ],
+     "eyeCalls": 3
+    },
+    "logs": [
+     "card_gates verdict analysis_id=p34fresh1786628533-0p2-inject total=6 survivors=['r00:inherit@u5.302/r5.13', 'r04:inherit@u12.867/r12.40', 'r03:inherit@u16.667/r15.20'] dropped=['r01:hold=moving pair=match', 'r04:hold=moving pair=match', 'r02:hold=moving pair=pose_far'] eye_calls=3",
+     "display_anchor rid=r00 joint=left_elbow u_ai=80 r_ai=77 user=(0.4148,0.6402) ref=(0.4008,0.6604)",
+     "fault_zoom_crop analysis_id=p34fresh1786628533-0p2-inject region=left_elbow criterion=angle_vs_reference__left_elbow user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=53 ref_rep_idx=38 ref_video_idx=51 vertex_centered=True shared_side_px=864 shared_frac=0.4000",
+     "fault_zoom_angle_bake analysis_id=p34fresh1786628533-0p2-inject criterion=angle_vs_reference__left_elbow angle_bake=drawn",
+     "align_bake miss rid=r04 side=user ai=193 conf=[left_ankle=0.489]",
+     "display_anchor rid=r04 joint=left_knee u_ai=193 r_ai=186 user=(0.5481,0.4047) ref=(0.4783,0.4005)",
+     "fault_zoom_crop analysis_id=p34fresh1786628533-0p2-inject region=left_knee criterion=angle_vs_reference__left_knee user_kind=valid user_side_px=1051 ref_kind=valid ref_side_px=526 user_frame=129 ref_rep_idx=92 ref_video_idx=123 vertex_centered=True shared_side_px=1051 shared_frac=0.4868",
+     "fault_zoom_angle_bake analysis_id=p34fresh1786628533-0p2-inject criterion=angle_vs_reference__left_knee angle_bake=omitted:user_gate",
+     "display_anchor rid=r03 joint=left_hip u_ai=250 r_ai=228 user=(0.3997,0.5123) ref=(0.4139,0.4766)",
+     "fault_zoom_crop analysis_id=p34fresh1786628533-0p2-inject region=left_hip criterion=angle_vs_reference__left_hip user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=167 ref_rep_idx=113 ref_video_idx=152 vertex_centered=True shared_side_px=864 shared_frac=0.4000",
+     "fault_zoom_angle_bake analysis_id=p34fresh1786628533-0p2-inject criterion=angle_vs_reference__left_hip angle_bake=drawn_hybrid",
+     "card_gates 대체 부착 완료 analysis_id=p34fresh1786628533-0p2-inject confirmed=3 advisory=0",
+     "card_gates eye ledger 보존 analysis_id=p34fresh1786628533-0p2-inject entries=3"
+    ],
+    "attached": [
+     {
+      "joint": "left_elbow",
+      "deficitDeg": 29.1,
+      "tier": "confirmed",
+      "kind": "deficit",
+      "refMatch": "dtw",
+      "userFrameIdx": 106,
+      "refFrameIdx": 76,
+      "refMatched": true,
+      "refMarked": true,
+      "userVideoSec": 5.301767255751917,
+      "refVideoSec": 5.122196183461667,
+      "criterion": "angle_vs_reference__left_elbow"
+     },
+     {
+      "joint": "left_knee",
+      "deficitDeg": 20.0,
+      "tier": "confirmed",
+      "kind": "deficit",
+      "refMatch": "dtw",
+      "userFrameIdx": 258,
+      "refFrameIdx": 184,
+      "refMatched": true,
+      "refMarked": true,
+      "userVideoSec": 12.904301433811272,
+      "refVideoSec": 12.353531971878137,
+      "criterion": "angle_vs_reference__left_knee"
+     },
+     {
+      "joint": "left_hip",
+      "deficitDeg": 20.0,
+      "tier": "confirmed",
+      "kind": "deficit",
+      "refMatch": "dtw",
+      "userFrameIdx": 334,
+      "refFrameIdx": 226,
+      "refMatched": true,
+      "refMarked": true,
+      "userVideoSec": 16.70556852284095,
+      "refVideoSec": 15.266153331101439,
+      "criterion": "angle_vs_reference__left_hip"
+     }
+    ],
+    "s3Keys": [
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/zoom_angle_vs_reference__left_elbow.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/zoom_angle_vs_reference__left_knee.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/zoom_angle_vs_reference__left_hip.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/eye/00_user_left_elbow.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/eye/01_user_left_knee.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/eye/02_user_left_hip.png",
+     "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533-0p2-inject/eye/ledger.json"
+    ]
+   }
+  ],
+  "eyeRealCalls": 0,
+  "cardMd5Run1": {
+   "zoom_angle_vs_reference__left_elbow.png": "0c3b9ca508c2600d3d65f79923462ca4",
+   "zoom_angle_vs_reference__left_hip.png": "688af0d32d4bb24b987b38c47885db81",
+   "zoom_angle_vs_reference__left_knee.png": "e891e7ae1fd13b0be1a7ec0470095edb"
+  },
+  "cardMd5Run2": {
+   "zoom_angle_vs_reference__left_elbow.png": "0c3b9ca508c2600d3d65f79923462ca4",
+   "zoom_angle_vs_reference__left_hip.png": "688af0d32d4bb24b987b38c47885db81",
+   "zoom_angle_vs_reference__left_knee.png": "e891e7ae1fd13b0be1a7ec0470095edb"
+  },
+  "deterministic": true,
+  "eyeReplayHits": [
+   {
+    "src": "pod_eye_ledger(S3)",
+    "side": "user",
+    "frameIdx": 80,
+    "joint": "left_elbow",
+    "claim": "bent",
+    "match": true
+   },
+   {
+    "src": "wif eye_ledger cand13b",
+    "side": "user",
+    "frameIdx": 193,
+    "joint": "left_knee",
+    "claim": "bent",
+    "match": true
+   },
+   {
+    "src": "pod_eye_ledger(S3)",
+    "side": "user",
+    "frameIdx": 250,
+    "joint": "left_hip",
+    "claim": "bent",
+    "match": true
+   },
+   {
+    "src": "pod_eye_ledger(S3)",
+    "side": "user",
+    "frameIdx": 80,
+    "joint": "left_elbow",
+    "claim": "bent",
+    "match": true
+   },
+   {
+    "src": "wif eye_ledger cand13b",
+    "side": "user",
+    "frameIdx": 193,
+    "joint": "left_knee",
+    "claim": "bent",
+    "match": true
+   },
+   {
+    "src": "pod_eye_ledger(S3)",
+    "side": "user",
+    "frameIdx": 250,
+    "joint": "left_hip",
+    "claim": "bent",
+    "match": true
+   }
+  ],
+  "eyeReplayMisses": []
+ }
+}

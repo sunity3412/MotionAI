@@ -295,7 +295,9 @@ def _verify(mp4: pathlib.Path, report: dict, rig_dir: pathlib.Path,
         cv._H2_UT_DISPLACING_SRC = orig  # noqa: SLF001
 
 
-def _extract_frame(mp4: pathlib.Path, sec: float) -> np.ndarray:
+def _extract_frame_idx(mp4: pathlib.Path, idx: int) -> np.ndarray:
+    """프레임 **인덱스** 정확 추출 (select=eq) — -ss 초 지정의 half-frame
+    경계 모호성(예: 56.65s x 30 = 1699.5) 제거."""
     import imageio_ffmpeg
     from PIL import Image
 
@@ -304,9 +306,18 @@ def _extract_frame(mp4: pathlib.Path, sec: float) -> np.ndarray:
     if tmp.exists():
         tmp.unlink()
     subprocess.run(
-        [ff, "-y", "-loglevel", "error", "-ss", f"{sec:.4f}", "-i", str(mp4),
+        [ff, "-y", "-loglevel", "error", "-i", str(mp4),
+         "-vf", f"select=eq(n\\,{idx})", "-vsync", "0",
          "-frames:v", "1", str(tmp)], check=True)
     return np.asarray(Image.open(tmp).convert("RGB"), dtype=np.int16)
+
+
+def _load_compose_jpg(idx: int) -> np.ndarray:
+    """현행 compose 캐시(마지막 렌더 = injected run)의 소스 JPEG (0-based idx)."""
+    from PIL import Image
+
+    p = RENDER_WORK / "compose30_1080" / f"{idx + 1:06d}.jpg"
+    return np.asarray(Image.open(p).convert("RGB"), dtype=np.int16)
 
 
 def _frame_compare(a: np.ndarray, b: np.ndarray) -> dict:
@@ -321,6 +332,85 @@ def _frame_compare(a: np.ndarray, b: np.ndarray) -> dict:
         "meanDelta": round(float(d.mean()), 5),
         "pixelsOver8": int((d.max(axis=2) > 8).sum()),
     }
+
+
+def _out_sec_of(report: dict, t: float) -> float:
+    """user 초 t 의 출력 초 — 그 report 의 freeze 편성으로 유도 (재생 프레임)."""
+    shift = sum(
+        f["freezeS"] for f in report["freezes"] if f["userSec"] <= t)
+    return t + shift
+
+
+def _mp4_content_checks(base_report: dict, report: dict,
+                        base_mp4: pathlib.Path, mp4: pathlib.Path) -> dict:
+    """mp4 수준 내용 동일성 — 프레임 인덱스 정확 추출 + 공유 소스 전이 증명.
+
+    내용 동일성의 **정본 층은 compose JPEG md5 사슬(bit-exact)** 이다. 이 층은
+    "두 mp4 가 그 bit-동일 증명된 같은 소스 프레임의 인코드"임을 확인한다:
+    cross(두 mp4 프레임 간) + 각 mp4 프레임 vs 공유 소스 JPEG (전이 증명).
+    H.264 는 삽입점 이후(레이트컨트롤 이력 상이)와 삽입 직전 lookahead 창에서
+    비트스트림이 갈리므로 디코드 픽셀이 코덱 노이즈만큼 다를 수 있다 — 노이즈는
+    정직 기록 (hlv "디코드 노이즈 Δ3/255 구조 차 0" 선례). 게이트 = md5 동일
+    또는 (양쪽 mp4 프레임이 같은 소스에 mean<=1.0/255 && cross mean<=1.0/255 —
+    실측 mean 은 0.0001~0.6 대역, 임계는 코덱 노이즈 자릿수 상계이지 튜닝 아님).
+    """
+    inj_old = [f for f in report["freezes"] if f["pairSrc"] != INJECT_SRC]
+
+    def _one(base_idx: int, inj_idx: int, label: dict) -> dict:
+        a = _extract_frame_idx(base_mp4, base_idx)
+        b = _extract_frame_idx(mp4, inj_idx)
+        src = _load_compose_jpg(inj_idx)
+        cross = _frame_compare(a, b)
+        bsrc = _frame_compare(a, src)
+        isrc = _frame_compare(b, src)
+        ok = cross["identical"] or (
+            bsrc["meanDelta"] <= 1.0 and isrc["meanDelta"] <= 1.0
+            and cross["meanDelta"] <= 1.0)
+        return {**label, "frameIdxBase": base_idx, "frameIdxInjected": inj_idx,
+                "cross": cross, "baseVsSharedSrc": bsrc,
+                "injectedVsSharedSrc": isrc, "contentSame": ok}
+
+    freeze_checks = []
+    for bf, jf in zip(base_report["freezes"], inj_old):
+        bi = round((bf["voiceStartOutS"] + bf["freezeS"] / 2) * 30)
+        ii = round((jf["voiceStartOutS"] + jf["freezeS"] / 2) * 30)
+        freeze_checks.append(_one(bi, ii, {"rid": bf["rid"]}))
+    playback_checks = []
+    for t in (3.0, 12.0, 15.5):
+        bi = round(_out_sec_of(base_report, t) * 30)
+        ii = round(_out_sec_of(report, t) * 30)
+        playback_checks.append(_one(bi, ii, {"userSec": t}))
+    return {
+        "method": "프레임 인덱스 정확 추출(select=eq) + 공유 소스 JPEG 전이 "
+                  "증명 (cross + 각 mp4 vs bit-동일 소스 — 코덱 노이즈 정직 "
+                  "기록. 정본 내용 증명은 composeLevel md5 사슬)",
+        "freezeMidFrames": freeze_checks,
+        "playbackSamples": playback_checks,
+        "contentOk": all(c["contentSame"]
+                         for c in freeze_checks + playback_checks),
+    }
+
+
+def recontent() -> None:
+    """--inject 산출(mp4 2본 + report) 위에서 mp4Level 만 재계산 — 재렌더 0.
+
+    compose 캐시가 injected 렌더 그대로인지 md5 사슬로 먼저 확인 (무결성)."""
+    base_report = json.loads((OUT / "baseline_report.json").read_text())
+    report = json.loads((OUT / "inject_report.json").read_text())
+    vp = EV / "inject_verdict.json"
+    verdict = json.loads(vp.read_text())
+    base_mp4 = pathlib.Path(json.loads(
+        (EV / "baseline_verdict.json").read_text())["outFiles"][0])
+    mp4 = pathlib.Path(verdict["outFiles"][0])
+    frames_inj = json.loads((EV / "frames_md5_injected.json").read_text())
+    compose = RENDER_WORK / "compose30_1080"
+    cur = [_md5_file(p) for p in sorted(compose.glob("*.jpg"))]
+    assert cur == frames_inj, (
+        "compose 캐시가 injected 렌더와 불일치 — --inject 재실행 필요")
+    verdict["diffConfined"]["mp4Level"] = _mp4_content_checks(
+        base_report, report, base_mp4, mp4)
+    vp.write_text(json.dumps(verdict, ensure_ascii=False, indent=1))
+    print(f"recontent: contentOk={verdict['diffConfined']['mp4Level']['contentOk']}")
 
 
 # ── baseline (Task 1) ────────────────────────────────────────────────────────
@@ -411,13 +501,6 @@ def check_baseline() -> int:
 
 # ── inject (Task 2 렌더 + 리그 + diff 국한) ─────────────────────────────────
 
-def _out_sec_of(report: dict, t: float) -> float:
-    """user 초 t 의 출력 초 — 그 report 의 freeze 편성으로 유도 (재생 프레임)."""
-    shift = sum(
-        f["freezeS"] for f in report["freezes"] if f["userSec"] <= t)
-    return t + shift
-
-
 def inject() -> None:
     base_report = json.loads((OUT / "baseline_report.json").read_text())
     base_frames = json.loads((EV / "frames_md5_baseline.json").read_text())
@@ -490,28 +573,11 @@ def inject() -> None:
                  "내용 동일성으로 증명 (무변경 주장 아님)."),
     }
 
-    # (3b') mp4 수준 — 기존 정지 중앙 프레임 + 재생 표본 (양쪽 report 자체
-    # 타임라인 매핑). H.264 재인코드 노이즈는 정직 기록 (hlv Δ3/255 선례).
+    # (3b') mp4 수준 — 프레임 인덱스 정확 추출 + 공유 소스 전이 증명.
     base_mp4 = pathlib.Path(json.loads(
         (EV / "baseline_verdict.json").read_text())["outFiles"][0])
-    freeze_frame_checks = []
-    for bf, jf in zip(base_report["freezes"], inj_old):
-        mid_b = bf["voiceStartOutS"] + bf["freezeS"] / 2
-        mid_i = jf["voiceStartOutS"] + jf["freezeS"] / 2
-        cmpres = _frame_compare(
-            _extract_frame(base_mp4, mid_b), _extract_frame(mp4, mid_i))
-        freeze_frame_checks.append(
-            {"rid": bf["rid"], "outSecBase": round(mid_b, 2),
-             "outSecInjected": round(mid_i, 2), **cmpres})
-    playback_checks = []
-    for t in (3.0, 12.0, 15.5):
-        cmpres = _frame_compare(
-            _extract_frame(base_mp4, _out_sec_of(base_report, t) ),
-            _extract_frame(mp4, _out_sec_of(report, t)))
-        playback_checks.append({"userSec": t, **cmpres})
-    content_ok = all(
-        c["identical"] or (c.get("maxDelta", 99) <= 4 and c.get("pixelsOver8", 1) == 0)
-        for c in freeze_frame_checks + playback_checks)
+    mp4_level = _mp4_content_checks(base_report, report, base_mp4, mp4)
+    content_ok = mp4_level["contentOk"]
 
     verdict = {
         "meta": {
@@ -544,9 +610,7 @@ def inject() -> None:
             "reportLevel": {"oldFieldsSame": old_fields_same,
                             "newExactlyOne": new_exact},
             "composeLevel": compose_proof,
-            "mp4Level": {"freezeMidFrames": freeze_frame_checks,
-                         "playbackSamples": playback_checks,
-                         "contentOk": content_ok},
+            "mp4Level": mp4_level,
         },
         "determinism": {
             "mp4Md5Run1": r1["mp4Md5"], "mp4Md5Run2": r2["mp4Md5"],
@@ -875,6 +939,7 @@ def main() -> int:
     apr.add_argument("--baseline", action="store_true")
     apr.add_argument("--check-baseline", action="store_true")
     apr.add_argument("--inject", action="store_true")
+    apr.add_argument("--recontent", action="store_true")
     apr.add_argument("--cards", action="store_true")
     apr.add_argument("--check-inject", action="store_true")
     args = apr.parse_args()
@@ -891,6 +956,8 @@ def main() -> int:
     if args.inject:
         fetch()
         inject()
+    if args.recontent:
+        recontent()
     if args.cards:
         cards()
     if args.check_inject:

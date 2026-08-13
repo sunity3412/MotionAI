@@ -1,0 +1,6 @@
+# 대조 런 카드 실물 (대용량 중간물 — md5 전건은 label_check.json 에 채록,
+# 판정 json 은 커밋 유지)
+evidence/contrast/sweep_cards/
+# 눈 스텁 크롭 (Gemini 스텁 산출물 — 실 눈 원장이 아님, ledger.json 은 유지)
+evidence/sweep_cards/*/[0-9][0-9]_user_*.png
+evidence/sweep_cards/*/[0-9][0-9]_ref_*.png

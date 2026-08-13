@@ -1,0 +1,310 @@
+{
+ "pass": true,
+ "fails": [],
+ "notes": [
+  "peterpan/angle_vs_reference__left_shoulder user: freeze 6.444s > 클립 끝 6.223s — 마지막 프레임(61/9.9633=6.122s) clamp 라벨"
+ ],
+ "labelTable": [
+  {
+   "motion": "elbow",
+   "rid": "r00",
+   "criterion": "angle_vs_reference__right_elbow",
+   "freezeUserSec": 11.111,
+   "freezeRefSec": 12.067,
+   "effUser": 9.983333333333333,
+   "effRef": 9.97,
+   "oldUserSec": 12.333333333333334,
+   "oldRefSec": 13.333333333333334,
+   "newUserSec": 11.118530884808015,
+   "newRefSec": 12.036108324974924,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.0075,
+     "tol": 0.1503,
+     "ok": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.0309,
+     "tol": 0.1505,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "motion": "elbow",
+   "rid": "r03",
+   "criterion": "angle_vs_reference__right_knee",
+   "freezeUserSec": 10.111,
+   "freezeRefSec": 11.6,
+   "effUser": 9.983333333333333,
+   "effRef": 9.97,
+   "oldUserSec": 11.222222222222221,
+   "oldRefSec": 12.777777777777779,
+   "newUserSec": 10.11686143572621,
+   "newRefSec": 11.534603811434302,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.0059,
+     "tol": 0.1503,
+     "ok": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.0654,
+     "tol": 0.1505,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "motion": "kipup",
+   "rid": "r00",
+   "criterion": "split_angle",
+   "freezeUserSec": 1.467,
+   "freezeRefSec": 2.0,
+   "effUser": 9.973333333333334,
+   "effRef": 10.0,
+   "oldUserSec": 1.6666666666666667,
+   "oldRefSec": 2.2222222222222223,
+   "newUserSec": 1.5040106951871657,
+   "newRefSec": 2.0,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.037,
+     "tol": 0.1504,
+     "ok": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.0,
+     "tol": 0.15,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r00",
+   "criterion": "angle_vs_reference__left_elbow",
+   "freezeUserSec": 8.556,
+   "freezeRefSec": 9.4,
+   "effUser": 9.996666666666666,
+   "effRef": 9.956666666666667,
+   "oldUserSec": 9.555555555555555,
+   "oldRefSec": 10.444444444444445,
+   "newUserSec": 8.602867622540847,
+   "newRefSec": 9.440910612654838,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.0469,
+     "tol": 0.1501,
+     "ok": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.0409,
+     "tol": 0.1507,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r03",
+   "criterion": "angle_vs_reference__left_knee",
+   "freezeUserSec": 3.667,
+   "freezeRefSec": 2.4,
+   "effUser": 9.996666666666666,
+   "effRef": 9.956666666666667,
+   "oldUserSec": 4.111111111111111,
+   "oldRefSec": 2.6666666666666665,
+   "newUserSec": 3.7012337445815273,
+   "newRefSec": 2.4104452628054904,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.0342,
+     "tol": 0.1501,
+     "ok": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.0104,
+     "tol": 0.1507,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r02",
+   "criterion": "angle_vs_reference__left_shoulder",
+   "freezeUserSec": 3.222,
+   "freezeRefSec": 2.0,
+   "effUser": 9.996666666666666,
+   "effRef": 9.956666666666667,
+   "oldUserSec": 3.5555555555555554,
+   "oldRefSec": 2.2222222222222223,
+   "newUserSec": 3.2010670223407804,
+   "newRefSec": 2.008704385671242,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.0209,
+     "tol": 0.1501,
+     "ok": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.0087,
+     "tol": 0.1507,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "motion": "pdshapefault",
+   "rid": "r01",
+   "criterion": "angle_vs_reference__right_elbow",
+   "freezeUserSec": 1.222,
+   "freezeRefSec": 0.8,
+   "effUser": 9.996666666666666,
+   "effRef": 9.956666666666667,
+   "oldUserSec": 1.3333333333333333,
+   "oldRefSec": 0.8888888888888888,
+   "newUserSec": 1.2004001333777927,
+   "newRefSec": 0.8034817542684968,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.0216,
+     "tol": 0.1501,
+     "ok": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.0035,
+     "tol": 0.1507,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "motion": "peterpan",
+   "rid": "r00",
+   "criterion": "angle_vs_reference__left_shoulder",
+   "freezeUserSec": 6.444,
+   "freezeRefSec": 7.6,
+   "effUser": 9.963333333333333,
+   "effRef": 9.923333333333334,
+   "oldUserSec": 6.777777777777778,
+   "oldRefSec": 8.333333333333334,
+   "newUserSec": 6.122448979591837,
+   "newRefSec": 7.557944239166947,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.3216,
+     "tol": 0.1506,
+     "ok": true,
+     "clampedAtClipEnd": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.0421,
+     "tol": 0.1512,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "motion": "powerspin",
+   "rid": "r00",
+   "criterion": "leg_extension",
+   "freezeUserSec": 5.733,
+   "freezeRefSec": 8.667,
+   "effUser": 9.983333333333333,
+   "effRef": 10.0,
+   "oldUserSec": 6.333333333333333,
+   "oldRefSec": 9.666666666666666,
+   "newUserSec": 5.709515859766277,
+   "newRefSec": 8.7,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.0235,
+     "tol": 0.1503,
+     "ok": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.033,
+     "tol": 0.15,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "motion": "powerspin",
+   "rid": "r02",
+   "criterion": "angle_vs_reference__left_shoulder",
+   "freezeUserSec": 3.222,
+   "freezeRefSec": 5.733,
+   "effUser": 9.983333333333333,
+   "effRef": 10.0,
+   "oldUserSec": 3.5555555555555554,
+   "oldRefSec": 6.333333333333333,
+   "newUserSec": 3.2053422370617697,
+   "newRefSec": 5.7,
+   "checks": [
+    {
+     "side": "user",
+     "delta": 0.0167,
+     "tol": 0.1503,
+     "ok": true
+    },
+    {
+     "side": "ref",
+     "delta": 0.033,
+     "tol": 0.15,
+     "ok": true
+    }
+   ]
+  }
+ ],
+ "cardsGated": 10,
+ "cardsTotalMain": 10,
+ "md5Mismatch": [],
+ "displayAnchorLogs": [
+  "display_anchor rid=r00 joint=left_elbow u_ai=128 r_ai=141 user=(0.4387,0.6583) ref=(0.4706,0.6677)",
+  "display_anchor rid=r00 joint=left_shoulder u_ai=90 r_ai=114 user=(0.3854,0.4040) ref=(0.3553,0.3747)",
+  "display_anchor rid=r00 joint=right_elbow u_ai=167 r_ai=181 user=(0.4584,0.4769) ref=(0.4742,0.4577)",
+  "display_anchor rid=r01 joint=right_elbow u_ai=18 r_ai=12 user=(0.4670,0.4863) ref=(0.4725,0.4731)",
+  "display_anchor rid=r02 joint=left_shoulder u_ai=48 r_ai=30 user=(0.3662,0.5745) ref=(0.3680,0.5528)",
+  "display_anchor rid=r02 joint=left_shoulder u_ai=48 r_ai=86 user=(0.4838,0.4108) ref=(0.5298,0.3778)",
+  "display_anchor rid=r03 joint=left_knee u_ai=55 r_ai=36 user=(0.4581,0.3833) ref=(0.4543,0.3670)",
+  "display_anchor rid=r03 joint=right_knee u_ai=152 r_ai=174 user=(0.5788,0.5693) ref=(0.5442,0.5400)"
+ ],
+ "displayAnchorDrops": [
+  "display_anchor drop rid=r01 joint=right_shoulder side=user (align conf 게이트 미달 — 카드 미방출)"
+ ],
+ "alignBakeMissLogs": [
+  "align_bake miss rid=r01 side=user ai=112 conf=[right_elbow=0.292 right_hip=0.229 right_shoulder=0.429]",
+  "align_bake miss rid=r01 side=ref ai=153 conf=[right_elbow=0.437 right_hip=0.340]",
+  "align_bake miss rid=r00 side=user ai=86 conf=[left_knee=0.432]"
+ ],
+ "pytest": {
+  "failed": 59,
+  "passed": 4167,
+  "baselineFailed": 59
+ },
+ "repairRange": "6ded49cf..5e85758",
+ "branchLiteralHits": [],
+ "eyeStubCalls": 12,
+ "tolFramesPerEff": 1.5
+}

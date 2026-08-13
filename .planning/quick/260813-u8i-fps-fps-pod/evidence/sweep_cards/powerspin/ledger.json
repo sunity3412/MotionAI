@@ -1,0 +1,1 @@
+{"analysisId": "sweep-powerspin", "entries": [{"side": "user", "joint": "left_shoulder", "frameIdx": 48, "sec": 3.2, "trackAngleDeg": 163.3, "claim": "extended", "observed": "extended", "limb": "arm", "match": true, "confidence": 1.0, "reason": "xa1-stub (ufb 인증 verdict 재사용)", "key": "results/sweep/sweep-powerspin/eye/00_user_left_shoulder.png"}]}

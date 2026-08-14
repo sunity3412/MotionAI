@@ -48,9 +48,11 @@ def test_models_constants_exist_exact() -> None:
         "improved", "faultKey", "criterion", "baselinePoints", "currentPoints",
         "deltaPoints", "baselineDeviation", "currentDeviation", "deltaDeviation",
     )
+    # causeLine = 원인 가설 절 (quick-260814-rcz). 이 tuple 이 파이프라인 병합
+    # 루프의 유일한 키 목록이라 여기 순서·구성이 곧 배선이다.
     assert models.DEDUCTION_PHRASE_KEYS == (
         "statusLine", "whyLine", "cueLine", "coachQuestion", "exerciseId",
-        "exerciseReason",
+        "exerciseReason", "causeLine",
     )
     # §12.3 additive optional 전체 집합 — 필수/optional 키와 disjoint.
     assert models.DEDUCTION_RECORD_EXTENSION_KEYS == (

@@ -378,6 +378,10 @@ function normalizeRecordPhraseFields(rec: DeductionRecord): DeductionRecord {
     statusLine: normalizeNonEmptyString(raw.statusLine),
     whyLine: normalizeNonEmptyString(raw.whyLine),
     cueLine: normalizeNonEmptyString(raw.cueLine),
+    // quick-260814-rcz — 원인 가설 절. 빈 문자열/비문자열은 undefined 강등이라
+    // 조립기(composeCueSubtitleKo)가 "없는 것처럼" 처리하는 fail-closed 와 같은
+    // 결론에 도달한다 (한 곳에서 두 번 막는다).
+    causeLine: normalizeNonEmptyString(raw.causeLine),
     coachQuestion: normalizeNonEmptyString(raw.coachQuestion),
     exerciseId: normalizeNonEmptyString(raw.exerciseId),
     exerciseReason: normalizeNonEmptyString(raw.exerciseReason),

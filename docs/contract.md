@@ -1964,6 +1964,7 @@ refMarked  boolean  optional  ← 기준 패널에 마킹(원/사이각/각도)�
 
 - `recordId?: string` — **방출 시 1회 각인되는 안정 조인 키** (형식 `r{index:02d}:{criterion}`, 32-09 각인). 정렬·필터·숨김(32-13 스팟체크 `hiddenRecordIds`)·코치 질문 점프에 **index 대신 사용**한다(리뷰 blocker 5 — index 는 정렬/필터에 불안정).
 - 3단 문구 슬롯 (D-08 상태→왜→행동, phrasebook 32-05 골격 산출): `statusLine?`(몸 말 상태) / `whyLine?`(감점·위험 이유 1줄) / `cueLine?`(외부 큐 행동) / `coachQuestion?`(강사 질문 완성문) / `exerciseId?`+`exerciseReason?`(결함→운동 연결, D-13). fail-closed 조합은 `cueLine`/`exerciseId`/`exerciseReason` 을 **생략**(일반론 조언 fabrication 차단).
+- `causeLine?: string` — **원인 가설 1줄** (quick-260814-rcz, belle 2026-08-14 "앞뒤로 설명이 필요… 캡션이 중요"). `whyLine`(왜 감점인가 = 심사 언어)과 층이 다르다: 이쪽은 **왜 그렇게 됐는가**(코칭 지식)다. 출처는 승인 문구집(`backend/data/phrasebook.json`)이며 **LLM 생성 경로 0**(D-11 — 골격은 fixture 소유). 내용은 측정값이 아니라 가설이므로 **가설 어미 전용, 수치·각도·퍼센트·단정 어미 0**. 소비처는 자막·음성 조립(§12.7 / `composeCueSubtitleKo`)뿐이고 카드 3단 렌더는 무접촉. **부재가 기본값** — 미보유 record 의 캡션은 이 확장 전과 문자 단위 동일하다(무회귀 1급).
 - `tolerance?: number` — 규칙 상수 유래 허용 오차(게이지 스케일 재료, D-10). **자의적 수치 아님** — 32-09 가 실존 규칙 상수에서만 방출(있을 때만).
 
 ### §12.4 SummaryPraise (`result.summaryPraise`)

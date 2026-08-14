@@ -39,6 +39,13 @@ _PHRASEBOOK_CACHE: dict | None = None
 _TERMINOLOGY_CACHE: dict | None = None
 
 # ── entry 슬롯 키 (정상 히트) / fail-closed 슬롯 키 / safety 슬롯 키 ────────────
+# causeLine (quick-260814-rcz, belle 08-14 "앞뒤로 설명이 필요… 캡션이 중요"):
+# 결함의 **원인 가설** 1줄. 다른 슬롯과 층이 다르다 — whyLine 은 "왜 감점인가"
+# (심사 언어)이고 causeLine 은 "왜 그렇게 됐는가"(코칭 지식)다. 재활용 금지.
+# 출처가 여기(문구집)인 이유 = D-11: 골격은 fixture 가 소유하고 LLM 은 가변부만
+# 소유한다. 음성·자막은 가장 하중이 큰 표면이라 이 원칙을 완화할 수 없다.
+# 내용은 **측정값이 아니라 가설**이므로 가설 어미로만 쓴다 (수치·단정 0 —
+# test_caption_cause_layer 가 강제). 미보유 entry 는 캡션이 오늘과 byte-동일.
 _ENTRY_SLOTS = (
     "statusLine",
     "whyLine",
@@ -46,6 +53,7 @@ _ENTRY_SLOTS = (
     "coachQuestion",
     "exerciseId",
     "exerciseReason",
+    "causeLine",
 )
 _SAFETY_SLOTS = ("statusLine", "whyLine", "coachQuestion")
 # fail-closed 는 cueLine/exerciseId/exerciseReason 를 **생략** (일반론 조언 생성 차단).

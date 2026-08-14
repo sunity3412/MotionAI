@@ -272,9 +272,13 @@ MISSION_OUTCOME_KEYS = (
 # 11+2 키 byte-호환, record 검증은 기존 _validate_dict_only_scalars 경로가 scalar
 # 신규 키를 자동 통과시킨다 (validator 본체 무변경).
 # 3-way lockstep: app/src/types/analysis.ts DeductionRecord + docs/contract.md §12.3.
+# causeLine (quick-260814-rcz) — 원인 가설 1줄. 파이프라인
+# `_attach_translation_emission` 의 병합 루프가 이 tuple 을 돌기 때문에 **여기
+# 추가만으로** record 에 각인된다(배선 코드 변경 0). 값이 str 이고 비어있지
+# 않을 때만 붙으므로 미보유 record 는 캡션이 오늘과 byte-동일.
 DEDUCTION_PHRASE_KEYS = (
     "statusLine", "whyLine", "cueLine", "coachQuestion", "exerciseId",
-    "exerciseReason",
+    "exerciseReason", "causeLine",
 )
 # recordId — 방출 시 1회 각인되는 안정 조인 키 (형식 'r{index:02d}:{criterion}',
 # 32-09 각인). 정렬·필터·숨김(32-13 스팟체크)에 index 대신 사용 (리뷰 blocker 5).

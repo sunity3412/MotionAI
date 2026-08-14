@@ -783,6 +783,11 @@ export interface DeductionRecord {
   statusLine?: string; // 상태 (몸 말, 관절명 허용 — 이해용)
   whyLine?: string; // 왜 (감점·위험 이유 1줄, 심사 언어)
   cueLine?: string; // 행동 (외부 큐 — 수행용)
+  // 원인 가설 1줄 (quick-260814-rcz, belle 08-14). **측정 아님** — 가설 어미
+  // 전용, 수치 0. 자막·음성 조립(composeCueSubtitleKo / cue_text) 에서만 소비하고
+  // 카드 3단 렌더는 무접촉. whyLine(감점 이유 = 심사 언어)과 층이 다르다. 부재가
+  // 기본값 — 그 record 캡션은 오늘과 문자 단위 동일하다.
+  causeLine?: string;
   coachQuestion?: string; // '강사님께 물어보기' 완성문 (D-28)
   exerciseId?: string; // 연결 보완 운동 id (D-13)
   exerciseReason?: string; // 왜 이 운동인지 결함→운동 연결 이유 1줄 (D-13 필수 짝)

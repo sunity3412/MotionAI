@@ -396,24 +396,33 @@ export function splitGoalClause(cueLine: string | null | undefined): {
  * 클립되는데(`VideoCompare` `numberOfLines={3}`) 목표 절이 앞에 있으면 잘리는 쪽이
  * 행동 절이고 결함은 애초에 자막에 없다.
  *
- * 규칙: `statusLine`(결함) → `actionLine`(목표 절을 뺀 행동). 목표 문장은 자막에서
- * 빠지고 묶인 항목 head(`RegionSheetView.goalLine`)에서 한 번만 말한다.
+ * 규칙: `statusLine`(증상) → `causeLine`(원인, 선택) → `actionLine`(목표 절을 뺀
+ * 행동). 목표 문장은 자막에서 빠지고 묶인 항목 head(`RegionSheetView.goalLine`)에서
+ * 한 번만 말한다.
  *
  * 자막 유무 조건은 **바꾸지 않는다** — 오늘과 똑같이 행동구가 있어야 자막이 뜬다
- * (`cueTrack.buildCueWindows` 의 입력 집합·타이밍·밀도 무접촉). statusLine 은 붙는
- * 접두일 뿐 자막을 새로 만들어내지 않는다.
+ * (`cueTrack.buildCueWindows` 의 입력 집합·타이밍·밀도 무접촉). statusLine·causeLine
+ * 은 붙는 접두일 뿐 자막을 새로 만들어내지 않는다.
  *
- * 결함문과 행동문 사이에는 **문장 경계(마침표)** 를 넣는다 (belle 08-07 실기기
- * 반려 — 경계 없이 이으면 자막이 한 문장으로 이어지고 음성(Polly)은 run-on
- * 낭독한다: "…좁아요 다리를 와이드…"). statusLine 이 이미 문장부호로 끝나면
- * 중복하지 않는다.
+ * 절 사이에는 **문장 경계(마침표)** 를 넣는다 (belle 08-07 실기기 반려 — 경계 없이
+ * 이으면 자막이 한 문장으로 이어지고 음성(Polly)은 run-on 낭독한다: "…좁아요 다리를
+ * 와이드…"). 앞 절이 이미 문장부호로 끝나면 중복하지 않는다. 원인 절이 생긴 뒤에도
+ * **같은 경계 규칙**이 절 공용으로 적용된다 (새 이음매에서 run-on 이 뚫리지 않게).
+ *
+ * `causeLine` (quick-260814-rcz, belle 08-14 "앞뒤로 설명이 필요"): 선택 절이며
+ * 문자열이 아니거나 비면 **아예 없는 것처럼** 동작해 오늘과 문자 단위 동일한 2문장을
+ * 낸다(무회귀 1급). 순서는 고정 — 원인을 행동 뒤에 두면 3줄 클립에서 가장 먼저
+ * 잘리는 것이 행동절이 되어 2026-08-01 반려가 재발한다. 원인은 **측정값이 아니라
+ * 가설**이고 문면은 승인 문구집(backend/data/phrasebook.json)이 소유한다.
  *
  * **Python lockstep** (debug va-subtitle-audio-mismatch 2026-08-07): Polly 음성
- * 합성 텍스트가 이 조립식을 그대로 미러한다 — `backend/functions/pipeline/app.py`
- * `_coach_audio_speech_text` (+ `_cue_action_line` = `splitGoalClause` 미러,
- * GOAL_CLAUSE_PREFIX/SEPARATOR 상수·마침표 경계 규칙 포함). 여기 조립 규칙을
- * 바꾸면 반드시 함께 바꿀 것 — 한쪽만 바뀌면 음성과 자막이 다시 갈라진다
- * (mrg 미검증 #4 의 재발).
+ * 합성 텍스트가 이 조립식을 그대로 미러한다 —
+ * `backend/shared/python/sunity_shared/analysis/cue_text.py`
+ * `coach_audio_speech_text` (+ `goal_clause_action_line` = `splitGoalClause` 미러,
+ * GOAL_CLAUSE_PREFIX/SEPARATOR 상수·마침표 경계 규칙·causeLine 절 포함). 여기 조립
+ * 규칙을 바꾸면 반드시 함께 바꿀 것 — 한쪽만 바뀌면 음성과 자막이 다시 갈라진다
+ * (mrg 미검증 #4 의 재발). 대조는 눈으로 하지 않는다: 같은 fixture 를 양쪽 엔진에
+ * 실제로 통과시키는 프로브가 있다 (backend/tests/phase32/compose_cue_probe.mjs).
  */
 export function composeCueSubtitleKo(
   record: DeductionRecord,
@@ -427,10 +436,14 @@ export function composeCueSubtitleKo(
         ? fallbackActionPhrase
         : '';
   if (action.length === 0) return null;
-  const status = record?.statusLine;
-  if (typeof status !== 'string' || status.length === 0) return action;
-  const sep = /[.!?]$/.test(status) ? '' : '.';
-  return `${status}${sep} ${action}`;
+  const clauses: string[] = [];
+  for (const value of [record?.statusLine, record?.causeLine]) {
+    if (typeof value === 'string' && value.length > 0) clauses.push(value);
+  }
+  clauses.push(action);
+  return clauses.reduce(
+    (head, clause) => `${head}${/[.!?]$/.test(head) ? '' : '.'} ${clause}`,
+  );
 }
 
 /**

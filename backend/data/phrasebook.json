@@ -1,7 +1,7 @@
 {
   "_meta": {
     "schemaVersion": "1.2.0",
-    "lastUpdated": "2026-07-29 (33-13 A-6: goal-first cueLine + screen vocabulary gate)",
+    "lastUpdated": "2026-08-14 (quick-260814-rcz: causeLine 원인 가설 슬롯 + 시드 2건)",
     "purpose": "동작×결함 고정 문구집 (32-CONTEXT D-08/D-11/D-13/D-14/D-28) — 32-09 파이프라인 방출·32-10 감점 카드 렌더의 데이터 원천. LLM 은 가변부(상황·조사·응원 톤)만 소유하고 골격(상태→왜→행동→코치질문→운동연결)은 이 fixture 가 소유한다. '무릎을 더 펴세요' 수준 일반론 생성 경로를 차단.",
     "slotSpec": {
       "statusLine": "상태 — 몸 말 (관절명 허용, 이해용). 수치 금지 (D-09).",
@@ -9,7 +9,8 @@
       "cueLine": "행동 — 외부 큐 (수행용, Wulf external focus). fail-closed 시 생략.",
       "coachQuestion": "강사님께 그대로 보여줄 수 있는 완성문 (D-28).",
       "exerciseId": "corrective_exercises.json defects 실존 키 (D-13 결함→운동 관계 고정). fail-closed 시 생략.",
-      "exerciseReason": "결함→운동 연결 이유 1줄 (D-13 필수). fail-closed 시 생략."
+      "exerciseReason": "결함→운동 연결 이유 1줄 (D-13 필수). fail-closed 시 생략.",
+      "causeLine": "원인 — 왜 그렇게 됐는가 (코칭 지식 가설). whyLine(왜 감점인가 = 심사 언어)과 층이 다르다. 측정값이 아니므로 가설 어미 전용 · 수치/각도/퍼센트/단정 어미 금지 (D-09 승계). 선택 슬롯 — 미보유 entry 는 캡션이 종전과 문자 단위 동일."
     },
     "matchPriority": [
       "{motionKey}.{criterion}  (동작 전용 override)",
@@ -156,7 +157,15 @@
       ],
       "rationale": "33-13 (A-6, belle 확인 ① 7R 규칙 b) — 채점 내부 용어는 내부 기록 전용, 화면 문장(entries 슬롯)은 수강생·강사 실사용 어휘로 풀어쓴다. 게이트는 이 목록 데이터로 운용(동작·항목 무관 공통) — 검사는 tests/phase33/test_phrasebook_motion_specific.py 화면 어휘 게이트."
     },
-    "goalFirstCueLine": "33-13 (A-6, belle 확인 ① 4R 승인 문형) — 동작 전용 cueLine 은 목표-선행 구조 (\"목표는 …이에요. <행동 큐>\"). 목표 문장 출처 = 33-A1-MOTION-STANDARDS ① 완성 기준의 검증 claim 만 (UNVERIFIED 좌우 라벨·척추 아치 곡률 미사용, 기능 역할 지칭 33-09 규칙 유지). __common__ 은 동작 미상이라 목표 문장 없음(일반론 목표 fabrication 금지 — fail-closed)."
+    "goalFirstCueLine": "33-13 (A-6, belle 확인 ① 4R 승인 문형) — 동작 전용 cueLine 은 목표-선행 구조 (\"목표는 …이에요. <행동 큐>\"). 목표 문장 출처 = 33-A1-MOTION-STANDARDS ① 완성 기준의 검증 claim 만 (UNVERIFIED 좌우 라벨·척추 아치 곡률 미사용, 기능 역할 지칭 33-09 규칙 유지). __common__ 은 동작 미상이라 목표 문장 없음(일반론 목표 fabrication 금지 — fail-closed).",
+    "causeLineProvenance": {
+      "source": "belle 2026-08-14 발굴 판정 원문 (quick-260814-rcz)",
+      "ledger": ".planning/quick/260813-wif-knee-discovery/DISCOVERY-LEDGER.md 판정 기입란",
+      "rule": "belle 원문의 전사만 — 새 사실 발명 0. 측정 불가 원인이라 가설 어미 고정.",
+      "ref-pdshape.angle_vs_reference__left_elbow": "회전력, 올라오는 타이밍이 좀 더 돌고 올려와야 팔을 뻗어 편하게 올라왔는데 좀 빠르게 손을 뻗어 잡아서 이런 현상이 발생되기도 하고, 회전력이 좀 약한 이유일 수 있음",
+      "ref-power-spin.angle_vs_reference__left_shoulder": "캡션으로 따지면 안정적인 위치를 만들기위해 기준 영상은 팔을 굽혀 더 들어올린 거긴하지",
+      "fitNote": "구운 자막 3줄 상한(compare_render wrap_text[:3], 승인 코퍼스 폭 W=1224) 실측에 맞춰 belle 원문 의미 안에서 축약. 줄수·문자수는 quick-260814-rcz MEASURE.md."
+    }
   },
   "entries": {
     "__common__.leg_extension": {
@@ -293,7 +302,8 @@
       "cueLine": "목표는 폴을 따라 위아래 한 줄 스플릿이에요. 어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "스핀 원심력을 버틸 때 그립 어깨가 무너지지 않으려면 어떻게 잡아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
-      "exerciseReason": "원심력을 버티는 그립 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "원심력을 버티는 그립 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요",
+      "causeLine": "기준은 안정된 위치를 만들려 팔을 굽혀 더 올린 것으로 보여요"
     },
     "ref-peter-pan.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 피터팬 기준 자세와 차이가 있어요",
@@ -413,7 +423,8 @@
       "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "이 셰이프에서 그립 팔을 어떻게 잡아야 안정적인지 강사님께 여쭤보고 싶어요",
       "exerciseId": "grip_weak",
-      "exerciseReason": "그립 팔 각을 유지하려면 손과 팔 그립 유지력이 받쳐줘야 하기 때문이에요"
+      "exerciseReason": "그립 팔 각을 유지하려면 손과 팔 그립 유지력이 받쳐줘야 하기 때문이에요",
+      "causeLine": "더 돌고 올라와야 팔을 편히 뻗는데, 회전이 덜 된 채 손을 먼저 뻗어 잡은 것일 수 있어요"
     },
     "ref-pdshape.angle_vs_reference__right_elbow": {
       "statusLine": "오른쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요",

@@ -75,6 +75,18 @@ echo "[setup] 3/5 ms-swift + 학습 의존성"
   "av" \
   || { echo "[setup] pip 실패" >&2; exit 2; }
 
+# ★decord — `run_sft.sh` 가 `FORCE_QWENVL_VIDEO_READER=decord` 로 **강제**하는 백엔드다.
+#   신형 torchvision 은 `io.read_video` 를 제거해서(0.28 실측) qwen_vl_utils 기본
+#   백엔드가 전 영상 행에서 죽는다 — 2026-07-12 에 이미 겪고 러너 주석에 남아 있던
+#   문제인데 셋업에 빠져 있어 2026-08-14 학습이 같은 자리에서 또 죽었다
+#   (`AttributeError: torchvision.io has no attribute read_video` + `No module named decord`).
+#   decord 본체가 없으면 유지보수 포크(eva-decord)로 폴백한다.
+"$VENV/bin/pip" install -q decord 2>/dev/null \
+  || "$VENV/bin/pip" install -q eva-decord 2>/dev/null \
+  || echo "[setup] decord 설치 실패 — 영상 행 학습 불가(텍스트 행만 가능)"
+"$VENV/bin/python" -c "import decord; print('  decord', decord.__version__)" \
+  || echo "[setup] decord import 불가 — run_sft 영상 디코드가 실패한다"
+
 echo "[setup] 4/5 vLLM (게이트 단계가 쓴다 — 학습만 하고 끝나지 않게)"
 # ★`run_sft_gates.sh` 는 `$VENV/bin/python -m vllm.entrypoints.openai.api_server` 로
 #   병합본을 띄워 판정한다. 셋업에 vllm 이 빠져 있으면 **학습을 몇 시간 돌린 뒤**

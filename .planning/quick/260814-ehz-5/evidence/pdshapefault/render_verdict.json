@@ -1,0 +1,187 @@
+{
+ "cards": {
+  "r00/cand17B": {
+   "rid": "r00",
+   "cid": "cand17B",
+   "pngs": [
+    "r00_cand17B_u16.4667s_r15.1333s_zoom_angle_vs_reference__left_elbow.png"
+   ],
+   "logs": [
+    "card_gates verdict analysis_id=ehz-pdshapefault-r00-cand17B total=1 survivors=['r00:inherit@u16.467/r15.13'] dropped=['r01:no_freeze', 'r02:no_freeze', 'r03:no_freeze'] eye_calls=1",
+    "display_anchor rid=r00 joint=left_elbow u_ai=247 r_ai=227 user=(0.4671,0.4161) ref=(0.5196,0.3733)",
+    "fault_zoom_crop analysis_id=ehz-pdshapefault-r00-cand17B region=left_elbow criterion=angle_vs_reference__left_elbow user_kind=valid user_side_px=864 ref_kind=valid ref_side_px=432 user_frame=165 ref_rep_idx=112 ref_video_idx=150 vertex_centered=True shared_side_px=864 shared_frac=0.4000",
+    "fault_zoom_angle_bake analysis_id=ehz-pdshapefault-r00-cand17B criterion=angle_vs_reference__left_elbow angle_bake=drawn",
+    "card_gates 대체 부착 완료 analysis_id=ehz-pdshapefault-r00-cand17B confirmed=1 advisory=0",
+    "card_gates eye ledger 보존 analysis_id=ehz-pdshapefault-r00-cand17B entries=1"
+   ],
+   "attached": [
+    {
+     "joint": "left_elbow",
+     "deficitDeg": 21.4,
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 330,
+     "refFrameIdx": 224,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 16.50550183394465,
+     "refVideoSec": 15.065282892534315,
+     "criterion": "angle_vs_reference__left_elbow"
+    }
+   ],
+   "uSec": 16.4667,
+   "rSec": 15.1333,
+   "stills": {
+    "user": "evidence/pdshapefault/stills/r00_cand17B_user_16.4667s.jpg",
+    "ref": "evidence/pdshapefault/stills/r00_cand17B_ref_15.1333s.jpg"
+   },
+   "md5Run1": {
+    "zoom_angle_vs_reference__left_elbow.png": "667a77c6c86c567f7840aab4d57ca0af"
+   },
+   "md5Run2": {
+    "zoom_angle_vs_reference__left_elbow.png": "667a77c6c86c567f7840aab4d57ca0af"
+   },
+   "deterministic": true
+  },
+  "r02/cand02B": {
+   "rid": "r02",
+   "cid": "cand02B",
+   "pngs": [
+    "r02_cand02B_u1.0667s_r2.2s_zoom_angle_vs_reference__left_shoulder.png"
+   ],
+   "logs": [
+    "card_gates verdict analysis_id=ehz-pdshapefault-r02-cand02B total=1 survivors=['r02:inherit@u1.067/r2.20'] dropped=['r00:no_freeze', 'r01:no_freeze', 'r03:no_freeze'] eye_calls=1",
+    "align_bake miss rid=r02 side=ref ai=33 conf=[left_elbow=0.490]",
+    "display_anchor rid=r02 joint=left_shoulder u_ai=16 r_ai=33 user=(0.3174,0.5348) ref=(0.3937,0.5464)",
+    "fault_zoom_crop analysis_id=ehz-pdshapefault-r02-cand02B region=left_shoulder criterion=angle_vs_reference__left_shoulder user_kind=valid user_side_px=1188 ref_kind=valid ref_side_px=594 user_frame=11 ref_rep_idx=16 ref_video_idx=21 vertex_centered=True shared_side_px=1188 shared_frac=0.5500",
+    "fault_zoom_angle_bake analysis_id=ehz-pdshapefault-r02-cand02B criterion=angle_vs_reference__left_shoulder angle_bake=drawn",
+    "card_gates 대체 부착 완료 analysis_id=ehz-pdshapefault-r02-cand02B confirmed=1 advisory=0",
+    "card_gates eye ledger 보존 analysis_id=ehz-pdshapefault-r02-cand02B entries=1"
+   ],
+   "attached": [
+    {
+     "joint": "left_shoulder",
+     "deficitDeg": 70.0,
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 22,
+     "refFrameIdx": 32,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 1.1003667889296433,
+     "refVideoSec": 2.109139604954804,
+     "criterion": "angle_vs_reference__left_shoulder"
+    }
+   ],
+   "uSec": 1.0667,
+   "rSec": 2.2,
+   "stills": {
+    "user": "evidence/pdshapefault/stills/r02_cand02B_user_1.0667s.jpg",
+    "ref": "evidence/pdshapefault/stills/r02_cand02B_ref_2.2s.jpg"
+   },
+   "md5Run1": {
+    "zoom_angle_vs_reference__left_shoulder.png": "bb5d4ace7558f9fae8d136d204484d1f"
+   },
+   "md5Run2": {
+    "zoom_angle_vs_reference__left_shoulder.png": "bb5d4ace7558f9fae8d136d204484d1f"
+   },
+   "deterministic": true
+  },
+  "r03/cand14B": {
+   "rid": "r03",
+   "cid": "cand14B",
+   "pngs": [
+    "r03_cand14B_u13.6s_r12.9333s_zoom_angle_vs_reference__left_knee.png"
+   ],
+   "logs": [
+    "card_gates verdict analysis_id=ehz-pdshapefault-r03-cand14B total=1 survivors=['r03:inherit@u13.600/r12.93'] dropped=['r00:no_freeze', 'r01:no_freeze', 'r02:no_freeze'] eye_calls=1",
+    "display_anchor rid=r03 joint=left_knee u_ai=204 r_ai=194 user=(0.4994,0.3971) ref=(0.4947,0.3773)",
+    "fault_zoom_crop analysis_id=ehz-pdshapefault-r03-cand14B region=left_knee criterion=angle_vs_reference__left_knee user_kind=valid user_side_px=907 ref_kind=valid ref_side_px=454 user_frame=136 ref_rep_idx=96 ref_video_idx=129 vertex_centered=False shared_side_px=none shared_frac=none",
+    "fault_zoom_angle_bake analysis_id=ehz-pdshapefault-r03-cand14B criterion=angle_vs_reference__left_knee angle_bake=drawn",
+    "card_gates 대체 부착 완료 analysis_id=ehz-pdshapefault-r03-cand14B confirmed=1 advisory=0",
+    "card_gates eye ledger 보존 analysis_id=ehz-pdshapefault-r03-cand14B entries=1"
+   ],
+   "attached": [
+    {
+     "joint": "left_knee",
+     "deficitDeg": 30.8,
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 272,
+     "refFrameIdx": 192,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 13.604534844948317,
+     "refVideoSec": 12.956143287579511,
+     "criterion": "angle_vs_reference__left_knee"
+    }
+   ],
+   "uSec": 13.6,
+   "rSec": 12.9333,
+   "stills": {
+    "user": "evidence/pdshapefault/stills/r03_cand14B_user_13.6s.jpg",
+    "ref": "evidence/pdshapefault/stills/r03_cand14B_ref_12.9333s.jpg"
+   },
+   "md5Run1": {
+    "zoom_angle_vs_reference__left_knee.png": "6688b3354504ad37681611f4ae27df5e"
+   },
+   "md5Run2": {
+    "zoom_angle_vs_reference__left_knee.png": "6688b3354504ad37681611f4ae27df5e"
+   },
+   "deterministic": true
+  },
+  "r03/cand13B": {
+   "rid": "r03",
+   "cid": "cand13B",
+   "pngs": [
+    "r03_cand13B_u12.8667s_r12.4s_zoom_angle_vs_reference__left_knee.png"
+   ],
+   "logs": [
+    "card_gates verdict analysis_id=ehz-pdshapefault-r03-cand13B total=1 survivors=['r03:inherit@u12.867/r12.40'] dropped=['r00:no_freeze', 'r01:no_freeze', 'r02:no_freeze'] eye_calls=1",
+    "align_bake miss rid=r03 side=user ai=193 conf=[left_ankle=0.489]",
+    "display_anchor rid=r03 joint=left_knee u_ai=193 r_ai=186 user=(0.5481,0.4047) ref=(0.4783,0.4005)",
+    "fault_zoom_crop analysis_id=ehz-pdshapefault-r03-cand13B region=left_knee criterion=angle_vs_reference__left_knee user_kind=valid user_side_px=1051 ref_kind=valid ref_side_px=526 user_frame=129 ref_rep_idx=92 ref_video_idx=123 vertex_centered=True shared_side_px=1051 shared_frac=0.4868",
+    "fault_zoom_angle_bake analysis_id=ehz-pdshapefault-r03-cand13B criterion=angle_vs_reference__left_knee angle_bake=omitted:user_gate",
+    "card_gates 대체 부착 완료 analysis_id=ehz-pdshapefault-r03-cand13B confirmed=1 advisory=0",
+    "card_gates eye ledger 보존 analysis_id=ehz-pdshapefault-r03-cand13B entries=1"
+   ],
+   "attached": [
+    {
+     "joint": "left_knee",
+     "deficitDeg": 30.8,
+     "tier": "confirmed",
+     "kind": "deficit",
+     "refMatch": "dtw",
+     "userFrameIdx": 258,
+     "refFrameIdx": 184,
+     "refMatched": true,
+     "refMarked": true,
+     "userVideoSec": 12.904301433811272,
+     "refVideoSec": 12.353531971878137,
+     "criterion": "angle_vs_reference__left_knee"
+    }
+   ],
+   "uSec": 12.8667,
+   "rSec": 12.4,
+   "stills": {
+    "user": "evidence/pdshapefault/stills/r03_cand13B_user_12.8667s.jpg",
+    "ref": "evidence/pdshapefault/stills/r03_cand13B_ref_12.4s.jpg"
+   },
+   "md5Run1": {
+    "zoom_angle_vs_reference__left_knee.png": "e891e7ae1fd13b0be1a7ec0470095edb"
+   },
+   "md5Run2": {
+    "zoom_angle_vs_reference__left_knee.png": "e891e7ae1fd13b0be1a7ec0470095edb"
+   },
+   "deterministic": true
+  }
+ },
+ "eyeCallsPerRecord": {
+  "pdshapefault/r00": 1,
+  "pdshapefault/r02": 1,
+  "pdshapefault/r03": 2
+ }
+}

@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r02",
+ "cand": "cand13B",
+ "side": "user",
+ "frameIdx": 189,
+ "sec": 12.6,
+ "joint": "left_hip",
+ "claim": "bent",
+ "trackAngleDeg": 6.8,
+ "observed": "extended",
+ "limb": "leg",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the hip joint of the leg that is pointing straight upwards in an extended position."
+}

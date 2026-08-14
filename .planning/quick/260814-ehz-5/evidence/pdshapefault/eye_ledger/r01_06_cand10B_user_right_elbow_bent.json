@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r01",
+ "cand": "cand10B",
+ "side": "user",
+ "frameIdx": 149,
+ "sec": 9.933,
+ "joint": "right_elbow",
+ "claim": "bent",
+ "trackAngleDeg": 5.8,
+ "observed": "bent",
+ "limb": "leg",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the hip/thigh region of the leg, which is clearly bent as the person performs a pole dance pose."
+}

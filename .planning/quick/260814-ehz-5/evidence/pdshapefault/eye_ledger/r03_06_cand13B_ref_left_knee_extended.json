@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r03",
+ "cand": "cand13B",
+ "side": "ref",
+ "frameIdx": 186,
+ "sec": 12.4,
+ "joint": "left_knee",
+ "claim": "extended",
+ "trackAngleDeg": 155.2,
+ "observed": "extended",
+ "limb": "leg",
+ "match": true,
+ "confidence": 0.95,
+ "reason": "The orange circle is centered on the knee of the leg, which is fully extended straight upwards along the pole."
+}

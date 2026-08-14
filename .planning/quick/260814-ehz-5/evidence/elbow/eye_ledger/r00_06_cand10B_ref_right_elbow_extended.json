@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r00",
+ "cand": "cand10B",
+ "side": "ref",
+ "frameIdx": 190,
+ "sec": 12.667,
+ "joint": "right_elbow",
+ "claim": "extended",
+ "trackAngleDeg": 163.9,
+ "observed": "off_body",
+ "limb": "other",
+ "match": false,
+ "confidence": 0.95,
+ "reason": "The orange circle is centered on the pole and does not target any joint or limb on the person's body."
+}

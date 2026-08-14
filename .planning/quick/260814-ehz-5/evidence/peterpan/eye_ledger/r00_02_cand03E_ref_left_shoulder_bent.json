@@ -1,0 +1,16 @@
+{
+ "motion": "peterpan",
+ "rid": "r00",
+ "cand": "cand03E",
+ "side": "ref",
+ "frameIdx": 34,
+ "sec": 2.267,
+ "joint": "left_shoulder",
+ "claim": "bent",
+ "trackAngleDeg": 17.0,
+ "observed": "extended",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.8,
+ "reason": "The orange circle is on the left shoulder joint, and the corresponding arm is extended downwards along the side of the body."
+}

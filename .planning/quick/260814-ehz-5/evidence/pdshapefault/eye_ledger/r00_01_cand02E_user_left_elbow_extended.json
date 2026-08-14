@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r00",
+ "cand": "cand02E",
+ "side": "user",
+ "frameIdx": 18,
+ "sec": 1.2,
+ "joint": "left_elbow",
+ "claim": "extended",
+ "trackAngleDeg": 171.7,
+ "observed": "extended",
+ "limb": "arm",
+ "match": true,
+ "confidence": 0.9,
+ "reason": "The orange circle is centered on the elbow joint of the arm, which is extended downwards towards the hand."
+}

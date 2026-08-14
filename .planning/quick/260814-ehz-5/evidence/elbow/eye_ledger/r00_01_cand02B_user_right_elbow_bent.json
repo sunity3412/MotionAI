@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r00",
+ "cand": "cand02B",
+ "side": "user",
+ "frameIdx": 26,
+ "sec": 1.733,
+ "joint": "right_elbow",
+ "claim": "bent",
+ "trackAngleDeg": 98.1,
+ "observed": "bent",
+ "limb": "arm",
+ "match": true,
+ "confidence": 0.95,
+ "reason": "The orange circle is centered on the elbow joint of the arm, which is clearly bent as the person holds onto the pole."
+}

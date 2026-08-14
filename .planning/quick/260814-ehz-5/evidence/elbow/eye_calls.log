@@ -1,0 +1,24 @@
+CALL 01/16 rid=r00 cand=cand02B side=user idx=26 sec=1.733 claim=bent observed=bent limb=arm match=True conf=0.95
+CALL 02/16 rid=r00 cand=cand02B side=ref idx=21 sec=1.400 claim=extended observed=extended limb=leg match=False conf=0.9
+CALL 03/16 rid=r00 cand=cand07E side=user idx=92 sec=6.133 claim=extended observed=bent limb=arm match=False conf=0.9
+CALL 04/16 rid=r00 cand=cand07E side=ref idx=111 sec=7.400 claim=bent observed=extended limb=leg match=False conf=0.9
+CALL 05/16 rid=r00 cand=cand10B side=user idx=139 sec=9.267 claim=bent observed=bent limb=arm match=True conf=0.95
+CALL 06/16 rid=r00 cand=cand10B side=ref idx=190 sec=12.667 claim=extended observed=off_body limb=other match=False conf=0.95
+CALL 01/16 rid=r01 cand=cand16B side=user idx=233 sec=15.533 claim=bent observed=bent limb=arm match=True conf=0.95
+CALL 02/16 rid=r01 cand=cand16B side=ref idx=233 sec=15.533 claim=extended observed=bent limb=arm match=False conf=0.9
+CALL 03/16 rid=r01 cand=cand12B side=user idx=169 sec=11.267 claim=bent observed=extended limb=arm match=False conf=0.9
+CACHED rid=r01 cand=cand12B side=ref idx=233 claim=extended -> bent/arm match=False (실호출 계수 불변 3/16)
+CALL 04/16 rid=r01 cand=cand14B side=user idx=201 sec=13.400 claim=bent observed=bent limb=arm match=True conf=0.9
+CACHED rid=r01 cand=cand14B side=ref idx=233 claim=extended -> bent/arm match=False (실호출 계수 불변 4/16)
+CALL 01/16 rid=r02 cand=cand07B side=user idx=102 sec=6.800 claim=bent observed=unclear limb=other match=False conf=0.8
+CALL 02/16 rid=r02 cand=cand07B side=ref idx=101 sec=6.733 claim=extended observed=unclear limb=other match=False conf=0.9
+CALL 03/16 rid=r02 cand=cand10B side=user idx=136 sec=9.067 claim=bent observed=extended limb=leg match=False conf=0.9
+CALL 04/16 rid=r02 cand=cand10B side=ref idx=193 sec=12.867 claim=extended observed=extended limb=leg match=True conf=0.9
+CALL 05/16 rid=r02 cand=cand13B side=user idx=189 sec=12.600 claim=bent observed=extended limb=leg match=False conf=0.9
+CACHED rid=r02 cand=cand13B side=ref idx=193 claim=extended -> extended/leg match=True (실호출 계수 불변 5/16)
+CALL 01/16 rid=r03 cand=cand05E side=user idx=74 sec=4.933 claim=extended observed=extended limb=leg match=True conf=0.95
+CALL 02/16 rid=r03 cand=cand05E side=ref idx=130 sec=8.667 claim=bent observed=extended limb=leg match=False conf=0.9
+CALL 03/16 rid=r03 cand=cand07E side=user idx=100 sec=6.667 claim=extended observed=extended limb=leg match=True conf=0.95
+CACHED rid=r03 cand=cand07E side=ref idx=130 claim=bent -> extended/leg match=False (실호출 계수 불변 3/16)
+CALL 04/16 rid=r03 cand=cand11B side=user idx=161 sec=10.733 claim=bent observed=extended limb=leg match=False conf=0.95
+CALL 05/16 rid=r03 cand=cand11B side=ref idx=206 sec=13.733 claim=extended observed=extended limb=leg match=True conf=0.95

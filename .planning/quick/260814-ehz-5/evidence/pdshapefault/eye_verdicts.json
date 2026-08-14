@@ -1,0 +1,366 @@
+{
+ "r00/cand02E": {
+  "rid": "r00",
+  "cid": "cand02E",
+  "joint": "left_elbow",
+  "uSec": 1.2,
+  "rSec": 2.2,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 171.7,
+  "rAngleDeg": 95.5,
+  "user": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle is centered on the elbow joint of the arm, which is extended downwards towards the hand."
+  },
+  "ref": {
+   "observed": "unclear",
+   "limb": "other",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the person's head/hair, which is not a limb (arm or leg), making its joint state (bent/extended) unclear."
+  },
+  "eyePass": false
+ },
+ "r00/cand05E": {
+  "rid": "r00",
+  "cid": "cand05E",
+  "joint": "left_elbow",
+  "uSec": 4.0,
+  "rSec": 2.6667,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 160.6,
+  "rAngleDeg": 76.2,
+  "user": {
+   "observed": "off_body",
+   "limb": "other",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the person's hair/head area, which is not a limb, so it is classified as off_body and other."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is centered on the elbow joint of the arm, which is clearly bent at a sharp angle to grip the pole."
+  },
+  "eyePass": false
+ },
+ "r00/cand03E": {
+  "rid": "r00",
+  "cid": "cand03E",
+  "joint": "left_elbow",
+  "uSec": 2.2667,
+  "rSec": 2.9333,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 150.2,
+  "rAngleDeg": 63.5,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent as the person is holding themselves upside down."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle highlights the elbow joint of the arm, which is clearly bent at approximately a 90-degree angle as the person holds onto the pole."
+  },
+  "eyePass": false
+ },
+ "r00/cand17B": {
+  "rid": "r00",
+  "cid": "cand17B",
+  "joint": "left_elbow",
+  "uSec": 16.4667,
+  "rSec": 15.1333,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 94.1,
+  "rAngleDeg": 162.5,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle is placed over the elbow joint of the arm holding the pole, which is clearly bent."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle is centered on the elbow of the arm reaching upwards to hold the pole, which is in an extended (straight) position."
+  },
+  "eyePass": true
+ },
+ "r01/cand02B": {
+  "rid": "r01",
+  "cid": "cand02B",
+  "joint": "right_elbow",
+  "uSec": 1.4,
+  "rSec": 2.2,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 8.4,
+  "rAngleDeg": 168.6,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.85,
+   "reason": "The orange circle is placed over the hand gripping the pole, which belongs to an arm that is clearly bent at the elbow."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is centered on the elbow of the arm, which is clearly bent as the person grips the pole."
+  },
+  "eyePass": false
+ },
+ "r01/cand08B": {
+  "rid": "r01",
+  "cid": "cand08B",
+  "joint": "right_elbow",
+  "uSec": 7.9333,
+  "rSec": 4.5333,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 85.0,
+  "rAngleDeg": 156.0,
+  "user": {
+   "observed": "off_body",
+   "limb": "other",
+   "match": false,
+   "confidence": 0.95,
+   "reason": "The orange circle is located on the pole, which is not on any part of the person's body."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.95,
+   "reason": "The orange circle is located on the shoulder/upper arm area of the arm, which is clearly bent at the elbow as the person holds onto the pole."
+  },
+  "eyePass": false
+ },
+ "r01/cand07B": {
+  "rid": "r01",
+  "cid": "cand07B",
+  "joint": "right_elbow",
+  "uSec": 6.2,
+  "rSec": 4.5333,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 79.7,
+  "rAngleDeg": 156.0,
+  "user": {
+   "observed": "unclear",
+   "limb": "other",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the person's head/hair, which is not a limb joint, making the joint state unclear and the limb category other."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.95,
+   "reason": "The orange circle is located on the shoulder/upper arm area of the arm, which is clearly bent at the elbow as the person holds onto the pole."
+  },
+  "eyePass": false
+ },
+ "r01/cand10B": {
+  "rid": "r01",
+  "cid": "cand10B",
+  "joint": "right_elbow",
+  "uSec": 9.9333,
+  "rSec": 9.0667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 5.8,
+  "rAngleDeg": 162.2,
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the hip/thigh region of the leg, which is clearly bent as the person performs a pole dance pose."
+  },
+  "ref": {
+   "observed": "off_body",
+   "limb": "unclear",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is positioned on the pole near the torso, where no limb or joint is present."
+  },
+  "eyePass": false
+ },
+ "r02/cand02B": {
+  "rid": "r02",
+  "cid": "cand02B",
+  "joint": "left_shoulder",
+  "uSec": 1.0667,
+  "rSec": 2.2,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 40.2,
+  "rAngleDeg": 152.7,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.8,
+   "reason": "The orange circle is located on the shoulder/upper arm area of the arm extending downwards to hold the pole, which appears to be straight/extended."
+  },
+  "eyePass": true
+ },
+ "r02/cand15E": {
+  "rid": "r02",
+  "cid": "cand15E",
+  "joint": "left_shoulder",
+  "uSec": 14.0,
+  "rSec": 13.4,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 163.8,
+  "rAngleDeg": 14.5,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the shoulder joint of the arm, which is clearly bent at the elbow with the hand positioned near the head."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the shoulder joint of the arm, which is extended straight upwards along the pole."
+  },
+  "eyePass": false
+ },
+ "r02/cand06B": {
+  "rid": "r02",
+  "cid": "cand06B",
+  "joint": "left_shoulder",
+  "uSec": 5.5333,
+  "rSec": 5.2667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 75.5,
+  "rAngleDeg": 161.2,
+  "user": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is centered on the shoulder joint of the arm, which is extended downwards to grip the pole."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.85,
+   "reason": "The orange circle is located on the shoulder/arm area of the person hanging upside down. The arm is bent at the elbow to grip or support the body near the pole."
+  },
+  "eyePass": false
+ },
+ "r03/cand12B": {
+  "rid": "r03",
+  "cid": "cand12B",
+  "joint": "left_knee",
+  "uSec": 11.7333,
+  "rSec": 10.2667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 24.8,
+  "rAngleDeg": 172.1,
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is placed over the knee joint of the leg, which is clearly bent."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is on the elbow of the raised arm, which is clearly bent as the hand reaches towards the pole."
+  },
+  "eyePass": false
+ },
+ "r03/cand14B": {
+  "rid": "r03",
+  "cid": "cand14B",
+  "joint": "left_knee",
+  "uSec": 13.6,
+  "rSec": 12.9333,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 99.0,
+  "rAngleDeg": 176.3,
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is centered on the knee joint of the leg, which is clearly bent as it hooks onto the pole."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the knee of the leg, which is clearly extended and straight."
+  },
+  "eyePass": true
+ },
+ "r03/cand13B": {
+  "rid": "r03",
+  "cid": "cand13B",
+  "joint": "left_knee",
+  "uSec": 12.8667,
+  "rSec": 12.4,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 0.3,
+  "rAngleDeg": 155.2,
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle highlights the knee joint of a leg that is clearly bent."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is centered on the knee of the leg, which is fully extended straight upwards along the pole."
+  },
+  "eyePass": true
+ }
+}

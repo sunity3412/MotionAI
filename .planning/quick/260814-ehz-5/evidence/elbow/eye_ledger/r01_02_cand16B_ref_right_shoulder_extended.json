@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r01",
+ "cand": "cand16B",
+ "side": "ref",
+ "frameIdx": 233,
+ "sec": 15.533,
+ "joint": "right_shoulder",
+ "claim": "extended",
+ "trackAngleDeg": 156.6,
+ "observed": "bent",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent as the person grips or positions themselves near the pole."
+}

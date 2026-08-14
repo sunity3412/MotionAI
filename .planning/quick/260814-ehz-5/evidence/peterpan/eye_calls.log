@@ -1,0 +1,2 @@
+CALL 01/16 rid=r00 cand=cand03E side=user idx=34 sec=2.267 claim=extended observed=extended limb=arm match=True conf=0.9
+CALL 02/16 rid=r00 cand=cand03E side=ref idx=34 sec=2.267 claim=bent observed=extended limb=arm match=False conf=0.8

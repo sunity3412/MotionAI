@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r03",
+ "cand": "cand05E",
+ "side": "ref",
+ "frameIdx": 130,
+ "sec": 8.667,
+ "joint": "right_knee",
+ "claim": "bent",
+ "trackAngleDeg": 12.7,
+ "observed": "extended",
+ "limb": "leg",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is placed on the knee of the leg, which is extended straight downwards along the pole."
+}

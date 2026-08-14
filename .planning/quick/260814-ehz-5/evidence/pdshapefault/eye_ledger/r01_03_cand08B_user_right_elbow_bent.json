@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r01",
+ "cand": "cand08B",
+ "side": "user",
+ "frameIdx": 119,
+ "sec": 7.933,
+ "joint": "right_elbow",
+ "claim": "bent",
+ "trackAngleDeg": 85.0,
+ "observed": "off_body",
+ "limb": "other",
+ "match": false,
+ "confidence": 0.95,
+ "reason": "The orange circle is located on the pole, which is not on any part of the person's body."
+}

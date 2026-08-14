@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r03",
+ "cand": "cand12B",
+ "side": "ref",
+ "frameIdx": 154,
+ "sec": 10.267,
+ "joint": "left_knee",
+ "claim": "extended",
+ "trackAngleDeg": 172.1,
+ "observed": "bent",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is on the elbow of the raised arm, which is clearly bent as the hand reaches towards the pole."
+}

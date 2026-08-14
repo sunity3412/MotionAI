@@ -1,0 +1,16 @@
+{
+ "motion": "powerspin",
+ "rid": "r02",
+ "cand": "cand01E",
+ "side": "ref",
+ "frameIdx": 11,
+ "sec": 0.733,
+ "joint": "left_shoulder",
+ "claim": "bent",
+ "trackAngleDeg": 30.2,
+ "observed": "bent",
+ "limb": "arm",
+ "match": true,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the right shoulder joint. The arm connected to this joint is bent at the elbow as the hand grips the pole."
+}

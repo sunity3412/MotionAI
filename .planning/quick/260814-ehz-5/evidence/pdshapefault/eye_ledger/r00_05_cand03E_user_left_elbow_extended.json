@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r00",
+ "cand": "cand03E",
+ "side": "user",
+ "frameIdx": 34,
+ "sec": 2.267,
+ "joint": "left_elbow",
+ "claim": "extended",
+ "trackAngleDeg": 150.2,
+ "observed": "bent",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent as the person is holding themselves upside down."
+}

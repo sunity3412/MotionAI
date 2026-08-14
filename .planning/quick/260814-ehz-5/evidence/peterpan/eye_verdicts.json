@@ -1,0 +1,28 @@
+{
+ "r00/cand03E": {
+  "rid": "r00",
+  "cid": "cand03E",
+  "joint": "left_shoulder",
+  "uSec": 2.2667,
+  "rSec": 2.2667,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 152.1,
+  "rAngleDeg": 17.0,
+  "user": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle is located near the shoulder joint of the raised arm, which is fully extended upwards to hold the pole."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.8,
+   "reason": "The orange circle is on the left shoulder joint, and the corresponding arm is extended downwards along the side of the body."
+  },
+  "eyePass": false
+ }
+}

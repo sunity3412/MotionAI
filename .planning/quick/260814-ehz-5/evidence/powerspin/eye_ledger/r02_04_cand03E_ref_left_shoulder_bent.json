@@ -1,0 +1,16 @@
+{
+ "motion": "powerspin",
+ "rid": "r02",
+ "cand": "cand03E",
+ "side": "ref",
+ "frameIdx": 18,
+ "sec": 1.2,
+ "joint": "left_shoulder",
+ "claim": "bent",
+ "trackAngleDeg": 97.6,
+ "observed": "unclear",
+ "limb": "other",
+ "match": false,
+ "confidence": 0.8,
+ "reason": "The orange circle is located on the neck/upper back area, which is classified as 'other' since it is not a limb, and its bending or extension state is unclear."
+}

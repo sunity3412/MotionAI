@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r03",
+ "cand": "cand13B",
+ "side": "user",
+ "frameIdx": 193,
+ "sec": 12.867,
+ "joint": "left_knee",
+ "claim": "bent",
+ "trackAngleDeg": 0.3,
+ "observed": "bent",
+ "limb": "leg",
+ "match": true,
+ "confidence": 0.9,
+ "reason": "The orange circle highlights the knee joint of a leg that is clearly bent."
+}

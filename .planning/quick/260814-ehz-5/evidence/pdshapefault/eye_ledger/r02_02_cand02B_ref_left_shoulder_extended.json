@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r02",
+ "cand": "cand02B",
+ "side": "ref",
+ "frameIdx": 33,
+ "sec": 2.2,
+ "joint": "left_shoulder",
+ "claim": "extended",
+ "trackAngleDeg": 152.7,
+ "observed": "extended",
+ "limb": "arm",
+ "match": true,
+ "confidence": 0.8,
+ "reason": "The orange circle is located on the shoulder/upper arm area of the arm extending downwards to hold the pole, which appears to be straight/extended."
+}

@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r02",
+ "cand": "cand06B",
+ "side": "ref",
+ "frameIdx": 79,
+ "sec": 5.267,
+ "joint": "left_shoulder",
+ "claim": "extended",
+ "trackAngleDeg": 161.2,
+ "observed": "bent",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.85,
+ "reason": "The orange circle is located on the shoulder/arm area of the person hanging upside down. The arm is bent at the elbow to grip or support the body near the pole."
+}

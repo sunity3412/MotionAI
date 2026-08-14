@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r03",
+ "cand": "cand14B",
+ "side": "ref",
+ "frameIdx": 194,
+ "sec": 12.933,
+ "joint": "left_knee",
+ "claim": "extended",
+ "trackAngleDeg": 176.3,
+ "observed": "extended",
+ "limb": "leg",
+ "match": true,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the knee of the leg, which is clearly extended and straight."
+}

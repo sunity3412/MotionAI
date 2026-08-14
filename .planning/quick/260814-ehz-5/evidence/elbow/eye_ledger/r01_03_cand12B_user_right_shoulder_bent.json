@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r01",
+ "cand": "cand12B",
+ "side": "user",
+ "frameIdx": 169,
+ "sec": 11.267,
+ "joint": "right_shoulder",
+ "claim": "bent",
+ "trackAngleDeg": 33.6,
+ "observed": "extended",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is centered on the elbow joint of the arm, which is extended straight downwards alongside the head."
+}

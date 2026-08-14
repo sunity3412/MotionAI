@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r02",
+ "cand": "cand07B",
+ "side": "user",
+ "frameIdx": 102,
+ "sec": 6.8,
+ "joint": "left_hip",
+ "claim": "bent",
+ "trackAngleDeg": 65.9,
+ "observed": "unclear",
+ "limb": "other",
+ "match": false,
+ "confidence": 0.8,
+ "reason": "The orange circle is located on the torso (abdomen/waist area) of the person, which is not a limb (arm or leg)."
+}

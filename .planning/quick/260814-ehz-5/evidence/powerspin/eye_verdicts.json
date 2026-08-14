@@ -1,0 +1,54 @@
+{
+ "r02/cand01E": {
+  "rid": "r02",
+  "cid": "cand01E",
+  "joint": "left_shoulder",
+  "uSec": 0.4667,
+  "rSec": 0.7333,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 179.0,
+  "rAngleDeg": 30.2,
+  "user": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is located near the shoulder joint of the left arm, which is reaching straight up to hold the pole, showing an extended arm position."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the right shoulder joint. The arm connected to this joint is bent at the elbow as the hand grips the pole."
+  },
+  "eyePass": true
+ },
+ "r02/cand03E": {
+  "rid": "r02",
+  "cid": "cand03E",
+  "joint": "left_shoulder",
+  "uSec": 2.0667,
+  "rSec": 1.2,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 163.7,
+  "rAngleDeg": 97.6,
+  "user": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is located at the shoulder joint of the left arm, which is fully extended upwards to grip the pole."
+  },
+  "ref": {
+   "observed": "unclear",
+   "limb": "other",
+   "match": false,
+   "confidence": 0.8,
+   "reason": "The orange circle is located on the neck/upper back area, which is classified as 'other' since it is not a limb, and its bending or extension state is unclear."
+  },
+  "eyePass": false
+ }
+}

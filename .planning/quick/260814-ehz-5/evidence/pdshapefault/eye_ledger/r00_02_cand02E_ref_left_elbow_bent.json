@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r00",
+ "cand": "cand02E",
+ "side": "ref",
+ "frameIdx": 33,
+ "sec": 2.2,
+ "joint": "left_elbow",
+ "claim": "bent",
+ "trackAngleDeg": 95.5,
+ "observed": "unclear",
+ "limb": "other",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the person's head/hair, which is not a limb (arm or leg), making its joint state (bent/extended) unclear."
+}

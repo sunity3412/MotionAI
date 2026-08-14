@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r02",
+ "cand": "cand02B",
+ "side": "user",
+ "frameIdx": 16,
+ "sec": 1.067,
+ "joint": "left_shoulder",
+ "claim": "bent",
+ "trackAngleDeg": 40.2,
+ "observed": "bent",
+ "limb": "arm",
+ "match": true,
+ "confidence": 0.95,
+ "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent."
+}

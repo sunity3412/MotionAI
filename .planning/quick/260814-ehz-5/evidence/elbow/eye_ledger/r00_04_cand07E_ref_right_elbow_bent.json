@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r00",
+ "cand": "cand07E",
+ "side": "ref",
+ "frameIdx": 111,
+ "sec": 7.4,
+ "joint": "right_elbow",
+ "claim": "bent",
+ "trackAngleDeg": 66.9,
+ "observed": "extended",
+ "limb": "leg",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the upper thigh of the leg that is extending straight downwards, which is in an extended position."
+}

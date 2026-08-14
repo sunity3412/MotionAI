@@ -1,0 +1,314 @@
+{
+ "r00/cand02B": {
+  "rid": "r00",
+  "cid": "cand02B",
+  "joint": "right_elbow",
+  "uSec": 1.7333,
+  "rSec": 1.4,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 98.1,
+  "rAngleDeg": 165.0,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is centered on the elbow joint of the arm, which is clearly bent as the person holds onto the pole."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located at the hip joint of the leg extending downwards, which is straight and fully extended."
+  },
+  "eyePass": false
+ },
+ "r00/cand07E": {
+  "rid": "r00",
+  "cid": "cand07E",
+  "joint": "right_elbow",
+  "uSec": 6.1333,
+  "rSec": 7.4,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 166.5,
+  "rAngleDeg": 66.9,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is centered on the elbow joint of the arm, which is clearly bent as the person holds onto the pole."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the upper thigh of the leg that is extending straight downwards, which is in an extended position."
+  },
+  "eyePass": false
+ },
+ "r00/cand10B": {
+  "rid": "r00",
+  "cid": "cand10B",
+  "joint": "right_elbow",
+  "uSec": 9.2667,
+  "rSec": 12.6667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 58.3,
+  "rAngleDeg": 163.9,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle highlights the elbow joint of the arm, which is clearly bent as the person holds a pose on the pole."
+  },
+  "ref": {
+   "observed": "off_body",
+   "limb": "other",
+   "match": false,
+   "confidence": 0.95,
+   "reason": "The orange circle is centered on the pole and does not target any joint or limb on the person's body."
+  },
+  "eyePass": false
+ },
+ "r01/cand16B": {
+  "rid": "r01",
+  "cid": "cand16B",
+  "joint": "right_shoulder",
+  "uSec": 15.5333,
+  "rSec": 15.5333,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 33.3,
+  "rAngleDeg": 156.6,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent in this pose."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent as the person grips or positions themselves near the pole."
+  },
+  "eyePass": false
+ },
+ "r01/cand12B": {
+  "rid": "r01",
+  "cid": "cand12B",
+  "joint": "right_shoulder",
+  "uSec": 11.2667,
+  "rSec": 15.5333,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 33.6,
+  "rAngleDeg": 156.6,
+  "user": {
+   "observed": "extended",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is centered on the elbow joint of the arm, which is extended straight downwards alongside the head."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent as the person grips or positions themselves near the pole."
+  },
+  "eyePass": false
+ },
+ "r01/cand14B": {
+  "rid": "r01",
+  "cid": "cand14B",
+  "joint": "right_shoulder",
+  "uSec": 13.4,
+  "rSec": 15.5333,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 16.8,
+  "rAngleDeg": 156.6,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the shoulder/upper arm area. The arm is clearly bent at the elbow to hold onto the pole."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the elbow joint of the arm, which is clearly bent as the person grips or positions themselves near the pole."
+  },
+  "eyePass": false
+ },
+ "r02/cand07B": {
+  "rid": "r02",
+  "cid": "cand07B",
+  "joint": "left_hip",
+  "uSec": 6.8,
+  "rSec": 6.7333,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 65.9,
+  "rAngleDeg": 174.7,
+  "user": {
+   "observed": "unclear",
+   "limb": "other",
+   "match": false,
+   "confidence": 0.8,
+   "reason": "The orange circle is located on the torso (abdomen/waist area) of the person, which is not a limb (arm or leg)."
+  },
+  "ref": {
+   "observed": "unclear",
+   "limb": "other",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the person's torso (back), which is not a limb joint, making the limb type 'other' and the state 'unclear'."
+  },
+  "eyePass": false
+ },
+ "r02/cand10B": {
+  "rid": "r02",
+  "cid": "cand10B",
+  "joint": "left_hip",
+  "uSec": 9.0667,
+  "rSec": 12.8667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 5.0,
+  "rAngleDeg": 158.1,
+  "user": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the hip joint of the leg, which is pointing straight upwards in a fully extended position."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the hip joint of the leg, which is extended straight upwards."
+  },
+  "eyePass": false
+ },
+ "r02/cand13B": {
+  "rid": "r02",
+  "cid": "cand13B",
+  "joint": "left_hip",
+  "uSec": 12.6,
+  "rSec": 12.8667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 6.8,
+  "rAngleDeg": 158.1,
+  "user": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the hip joint of the leg that is pointing straight upwards in an extended position."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.9,
+   "reason": "The orange circle is located on the hip joint of the leg, which is extended straight upwards."
+  },
+  "eyePass": false
+ },
+ "r03/cand05E": {
+  "rid": "r03",
+  "cid": "cand05E",
+  "joint": "right_knee",
+  "uSec": 4.9333,
+  "rSec": 8.6667,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 175.5,
+  "rAngleDeg": 12.7,
+  "user": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is located on the knee joint of the leg, which is fully extended and straight."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is placed on the knee of the leg, which is extended straight downwards along the pole."
+  },
+  "eyePass": false
+ },
+ "r03/cand07E": {
+  "rid": "r03",
+  "cid": "cand07E",
+  "joint": "right_knee",
+  "uSec": 6.6667,
+  "rSec": 8.6667,
+  "uClaim": "extended",
+  "rClaim": "bent",
+  "uAngleDeg": 179.8,
+  "rAngleDeg": 12.7,
+  "user": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is located on the knee joint of the leg, which is fully extended straight downwards."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.9,
+   "reason": "The orange circle is placed on the knee of the leg, which is extended straight downwards along the pole."
+  },
+  "eyePass": false
+ },
+ "r03/cand11B": {
+  "rid": "r03",
+  "cid": "cand11B",
+  "joint": "right_knee",
+  "uSec": 10.7333,
+  "rSec": 13.7333,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 6.0,
+  "rAngleDeg": 174.7,
+  "user": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.95,
+   "reason": "The orange circle is centered on the knee joint of the leg, which is clearly extended straight upwards."
+  },
+  "ref": {
+   "observed": "extended",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.95,
+   "reason": "The orange circle is located on the knee joint of the leg, which is clearly straight and extended upwards."
+  },
+  "eyePass": false
+ }
+}

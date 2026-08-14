@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r01",
+ "cand": "cand14B",
+ "side": "user",
+ "frameIdx": 201,
+ "sec": 13.4,
+ "joint": "right_shoulder",
+ "claim": "bent",
+ "trackAngleDeg": 16.8,
+ "observed": "bent",
+ "limb": "arm",
+ "match": true,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the shoulder/upper arm area. The arm is clearly bent at the elbow to hold onto the pole."
+}

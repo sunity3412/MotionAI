@@ -1,0 +1,6 @@
+CALL 01/16 rid=r02 cand=cand01E side=user idx=7 sec=0.467 claim=extended observed=extended limb=arm match=True conf=0.95
+CALL 02/16 rid=r02 cand=cand01E side=ref idx=11 sec=0.733 claim=bent observed=bent limb=arm match=True conf=0.9
+CALL 03/16 rid=r02 cand=cand03E side=user idx=31 sec=2.067 claim=extended observed=extended limb=arm match=True conf=0.95
+CALL 04/16 rid=r02 cand=cand03E side=ref idx=18 sec=1.200 claim=bent observed=unclear limb=other match=False conf=0.8
+CALL 01/16 rid=r02 helper claim=extended observed=extended limb=arm match=True conf=0.9
+CACHED rid=r02 helper claim=extended xy=268,387 -> extended (계수 불변)

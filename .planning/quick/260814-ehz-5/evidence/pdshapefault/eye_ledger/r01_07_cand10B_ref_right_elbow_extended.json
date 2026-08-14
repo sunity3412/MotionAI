@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r01",
+ "cand": "cand10B",
+ "side": "ref",
+ "frameIdx": 136,
+ "sec": 9.067,
+ "joint": "right_elbow",
+ "claim": "extended",
+ "trackAngleDeg": 162.2,
+ "observed": "off_body",
+ "limb": "unclear",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is positioned on the pole near the torso, where no limb or joint is present."
+}

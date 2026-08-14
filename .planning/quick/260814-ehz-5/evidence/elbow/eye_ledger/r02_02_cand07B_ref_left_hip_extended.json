@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r02",
+ "cand": "cand07B",
+ "side": "ref",
+ "frameIdx": 101,
+ "sec": 6.733,
+ "joint": "left_hip",
+ "claim": "extended",
+ "trackAngleDeg": 174.7,
+ "observed": "unclear",
+ "limb": "other",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the person's torso (back), which is not a limb joint, making the limb type 'other' and the state 'unclear'."
+}

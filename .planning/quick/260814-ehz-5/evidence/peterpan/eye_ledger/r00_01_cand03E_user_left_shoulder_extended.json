@@ -1,0 +1,16 @@
+{
+ "motion": "peterpan",
+ "rid": "r00",
+ "cand": "cand03E",
+ "side": "user",
+ "frameIdx": 34,
+ "sec": 2.267,
+ "joint": "left_shoulder",
+ "claim": "extended",
+ "trackAngleDeg": 152.1,
+ "observed": "extended",
+ "limb": "arm",
+ "match": true,
+ "confidence": 0.9,
+ "reason": "The orange circle is located near the shoulder joint of the raised arm, which is fully extended upwards to hold the pole."
+}

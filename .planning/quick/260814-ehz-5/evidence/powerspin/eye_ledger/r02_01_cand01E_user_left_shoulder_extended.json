@@ -1,0 +1,16 @@
+{
+ "motion": "powerspin",
+ "rid": "r02",
+ "cand": "cand01E",
+ "side": "user",
+ "frameIdx": 7,
+ "sec": 0.467,
+ "joint": "left_shoulder",
+ "claim": "extended",
+ "trackAngleDeg": 179.0,
+ "observed": "extended",
+ "limb": "arm",
+ "match": true,
+ "confidence": 0.95,
+ "reason": "The orange circle is located near the shoulder joint of the left arm, which is reaching straight up to hold the pole, showing an extended arm position."
+}

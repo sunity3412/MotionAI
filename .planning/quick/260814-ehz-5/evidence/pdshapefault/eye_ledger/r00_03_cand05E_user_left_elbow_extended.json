@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r00",
+ "cand": "cand05E",
+ "side": "user",
+ "frameIdx": 60,
+ "sec": 4.0,
+ "joint": "left_elbow",
+ "claim": "extended",
+ "trackAngleDeg": 160.6,
+ "observed": "off_body",
+ "limb": "other",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is located on the person's hair/head area, which is not a limb, so it is classified as off_body and other."
+}

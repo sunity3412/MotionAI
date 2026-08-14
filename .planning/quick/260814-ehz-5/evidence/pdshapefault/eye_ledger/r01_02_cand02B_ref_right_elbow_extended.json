@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r01",
+ "cand": "cand02B",
+ "side": "ref",
+ "frameIdx": 33,
+ "sec": 2.2,
+ "joint": "right_elbow",
+ "claim": "extended",
+ "trackAngleDeg": 168.6,
+ "observed": "bent",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is centered on the elbow of the arm, which is clearly bent as the person grips the pole."
+}

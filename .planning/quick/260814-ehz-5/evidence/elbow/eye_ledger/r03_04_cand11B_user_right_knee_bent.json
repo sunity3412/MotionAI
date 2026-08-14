@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r03",
+ "cand": "cand11B",
+ "side": "user",
+ "frameIdx": 161,
+ "sec": 10.733,
+ "joint": "right_knee",
+ "claim": "bent",
+ "trackAngleDeg": 6.0,
+ "observed": "extended",
+ "limb": "leg",
+ "match": false,
+ "confidence": 0.95,
+ "reason": "The orange circle is centered on the knee joint of the leg, which is clearly extended straight upwards."
+}

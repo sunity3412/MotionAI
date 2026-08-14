@@ -186,4 +186,38 @@
 
 ## 카드 육안 (Task 2 산출 — 눈 PASS 후보 렌더 결과)
 
-(아래는 Task 2 실행 후 append)
+기계 눈 PASS 5건을 운영 헬퍼(`app._run_gated_card_inherit`)로 렌더한 카드
+**전건**을 실행자가 Read 로 열어 확인했다. 붕괴/오크롭/마크 이탈을 봤다.
+렌더는 5건 모두 같은 입력 2회 재렌더 md5 동일(결정론 SAME).
+
+- **pdshapefault/r03/cand13B** — `cards/r03_cand13B_u12.8667s_r12.4s_zoom_angle_vs_reference__left_knee.png`
+  학생 패널: 폴쪽 무릎이 접혀 걸린 부위에 주황 링. 기준 패널: 같은 무릎이
+  폴을 따라 곧게 펴진 상태에 링. 붕괴·오크롭·마크 이탈 없음. V 베이크는
+  `omitted:user_gate`(학생 left_ankle conf 0.489 < 0.5) — 링 + 장면 대조만.
+  ★ **wif 에서 belle 이 채택한 카드와 md5 byte-동일**(`e891e7ae1fd13b0be1a7ec0470095edb`).
+- **pdshapefault/r03/cand14B** — `cards/r03_cand14B_u13.6s_r12.9333s_...left_knee.png`
+  학생 패널에 예각 V(약 99도)가 무릎 위에 또렷이 구워졌고 기준 패널은 거의
+  일자 선(176도) + 꼭짓점 작은 원. 마크는 관절 위에 정확히 앉았다. 다만
+  **"예각 V vs 일자 V" 는 belle 이 wif cand02b 에서 "사진상 알아볼 수가 없음"
+  으로 반려한 바로 그 문법**이다 — 가독성은 같은 미결 의제 아래 있다(명기).
+- **pdshapefault/r00/cand17B** — `cards/r00_cand17B_u16.4667s_r15.1333s_...left_elbow.png`
+  두 패널 모두 폴을 등지고 잡은 같은 국면. 학생은 팔꿈치에서 꺾인 예각 V,
+  기준은 팔을 따라 곧게 뻗은 선 + 꼭짓점 원. 이번 산출 5장 중 **대조가 가장
+  잘 읽히는 카드**로 보인다(팔꿈치가 가려지지 않고 두 팔의 방향이 같아서).
+  마크 이탈·붕괴 없음.
+- **pdshapefault/r02/cand02B** — `cards/r02_cand02B_u1.0667s_r2.2s_...left_shoulder.png`
+  학생 = 역립에서 팔이 몸통 쪽으로 접힌 예각 V, 기준 = 몸통-팔이 한 줄로
+  뻗은 선. 어깨 V 는 무릎/팔꿈치보다 "무엇이 사지인지"가 덜 직관적이라
+  가독은 중간. 마크 위치 자체는 어깨 위 정확.
+- **powerspin/r02/cand01E** — `cards/r02_cand01E_u0.4667s_r0.7333s_...left_shoulder.png`
+  방향이 반대다 — 학생이 곧게 뻗은 선, 기준이 접힌 V. 두 패널 다 폴을 잡고
+  몸을 띄운 같은 국면이라 대조는 읽힌다. 마크 이탈 없음. (해석 = "챔피언은
+  같은 자리에서 팔을 접어 당기는데 학생은 뻗고 있다" — 결함 서사로 옳은지는
+  belle 판정 몫이며 내가 단정하지 않는다.)
+
+## 눈 PASS 0건 동작 (렌더 없음 — 침묵 그대로)
+
+- **elbow** — 육안 통과 12건 전부 기계 눈 기각. 렌더 0. (실행 로그 =
+  `elbow/eye_calls.log` 20회 + `eye_verdicts.json`)
+- **peterpan** — 유일 후보 1건 눈 기각. 렌더 0.
+- **kipup** — 후보 0(split 유도 불가). 눈 호출 0, 렌더 0.

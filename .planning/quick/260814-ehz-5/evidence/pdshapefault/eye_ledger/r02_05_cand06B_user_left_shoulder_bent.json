@@ -1,0 +1,16 @@
+{
+ "motion": "pdshapefault",
+ "rid": "r02",
+ "cand": "cand06B",
+ "side": "user",
+ "frameIdx": 83,
+ "sec": 5.533,
+ "joint": "left_shoulder",
+ "claim": "bent",
+ "trackAngleDeg": 75.5,
+ "observed": "extended",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.9,
+ "reason": "The orange circle is centered on the shoulder joint of the arm, which is extended downwards to grip the pole."
+}

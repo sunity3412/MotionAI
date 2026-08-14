@@ -1,0 +1,16 @@
+{
+ "motion": "elbow",
+ "rid": "r03",
+ "cand": "cand11B",
+ "side": "ref",
+ "frameIdx": 206,
+ "sec": 13.733,
+ "joint": "right_knee",
+ "claim": "extended",
+ "trackAngleDeg": 174.7,
+ "observed": "extended",
+ "limb": "leg",
+ "match": true,
+ "confidence": 0.95,
+ "reason": "The orange circle is located on the knee joint of the leg, which is clearly straight and extended upwards."
+}

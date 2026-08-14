@@ -1,0 +1,110 @@
+{
+ "selfCheck": {
+  "pass": true,
+  "fails": [],
+  "geminiRealCalls": 0,
+  "eyeMode": "ehz 실측 판정 재생 (지어낸 값 0, 미보유 조회는 fail-closed)"
+ },
+ "candidates": {
+  "pdshapefault/r00/cand17B": {
+   "motion": "pdshapefault",
+   "rid": "r00",
+   "cid": "cand17B",
+   "uSec": 16.4667,
+   "rSec": 15.1333,
+   "joint": "left_elbow",
+   "belleVerdict": "채택(조건부 — 캡션 보강)",
+   "md5": {
+    "zoom_angle_vs_reference__left_elbow.png": "667a77c6c86c567f7840aab4d57ca0af"
+   },
+   "md5Cert": {
+    "zoom_angle_vs_reference__left_elbow.png": "667a77c6c86c567f7840aab4d57ca0af"
+   },
+   "md5Match": true,
+   "cards": [
+    "r00_cand17B_u16.4667s_r15.1333s_zoom_angle_vs_reference__left_elbow.png"
+   ],
+   "eyeReplayCalls": 1,
+   "eyeReplayServed": [
+    "user:bent"
+   ],
+   "observations": [
+    {
+     "analysisId": "ehz-pdshapefault-r00-cand17B",
+     "criterion": "angle_vs_reference__left_elbow",
+     "verdict": "drawn",
+     "vDrawn": true,
+     "hybrid": false,
+     "A2_userInnerDeg": 109.74123762695616,
+     "A1_refInnerDeg": 172.6034941287,
+     "drawCalls": 2,
+     "A3_absDiffDeg": 62.86225650174383,
+     "A4_refStraightness": 7.396505871300008,
+     "A4_userStraightness": 70.25876237304384,
+     "A6_moreBentSide": "user",
+     "motion": "pdshapefault",
+     "cid": "cand17B",
+     "A5_deficitDeg": 21.4,
+     "A5_tolerance": null,
+     "userVideoSec": 16.50550183394465,
+     "refVideoSec": 15.065282892534315
+    }
+   ],
+   "logs": [
+    "card_gates verdict analysis_id=ehz-pdshapefault-r00-cand17B total=1 survivors=['r00:inherit@u16.467/r15.13'] dropped=['r01:no_freeze', 'r02:no_freeze', 'r03:no_freeze'] eye_calls=1",
+    "display_anchor rid=r00 joint=left_elbow u_ai=247 r_ai=227 user=(0.4671,0.4161) ref=(0.5196,0.3733)",
+    "fault_zoom_angle_bake analysis_id=ehz-pdshapefault-r00-cand17B criterion=angle_vs_reference__left_elbow angle_bake=drawn"
+   ]
+  },
+  "powerspin/r02/cand01E": {
+   "motion": "powerspin",
+   "rid": "r02",
+   "cid": "cand01E",
+   "uSec": 0.4667,
+   "rSec": 0.7333,
+   "joint": "left_shoulder",
+   "belleVerdict": "캐치 유효 / 각도 표기 부적절",
+   "md5": {
+    "zoom_angle_vs_reference__left_shoulder.png": "78c512bca5c3900bd670f60a4956fb00"
+   },
+   "md5Cert": {
+    "zoom_angle_vs_reference__left_shoulder.png": "78c512bca5c3900bd670f60a4956fb00"
+   },
+   "md5Match": true,
+   "cards": [
+    "r02_cand01E_u0.4667s_r0.7333s_zoom_angle_vs_reference__left_shoulder.png"
+   ],
+   "eyeReplayCalls": 1,
+   "eyeReplayServed": [
+    "user:extended"
+   ],
+   "observations": [
+    {
+     "analysisId": "ehz-powerspin-r02-cand01E",
+     "criterion": "angle_vs_reference__left_shoulder",
+     "verdict": "drawn",
+     "vDrawn": true,
+     "hybrid": false,
+     "A2_userInnerDeg": 178.91443216834273,
+     "A1_refInnerDeg": 64.51029691354823,
+     "drawCalls": 2,
+     "A3_absDiffDeg": 114.4041352547945,
+     "A4_refStraightness": 64.51029691354823,
+     "A4_userStraightness": 1.085567831657272,
+     "A6_moreBentSide": "ref",
+     "motion": "powerspin",
+     "cid": "cand01E",
+     "A5_deficitDeg": 55.0,
+     "A5_tolerance": null,
+     "userVideoSec": 0.5008347245409015,
+     "refVideoSec": 0.7
+    }
+   ],
+   "logs": [
+    "card_gates verdict analysis_id=ehz-powerspin-r02-cand01E total=1 survivors=['r02:inherit@u0.467/r0.73'] dropped=['r00:no_freeze', 'r01:no_freeze'] eye_calls=1",
+    "display_anchor rid=r02 joint=left_shoulder u_ai=7 r_ai=11 user=(0.4416,0.3591) ref=(0.5400,0.3187)",
+    "fault_zoom_angle_bake analysis_id=ehz-powerspin-r02-cand01E criterion=angle_vs_reference__left_shoulder angle_bake=drawn"
+   ]
+  }
+ }
+}

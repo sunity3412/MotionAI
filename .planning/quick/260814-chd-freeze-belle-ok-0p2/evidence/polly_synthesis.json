@@ -1,0 +1,12 @@
+{
+ "voiceId": "Seoyeon",
+ "engine": "neural",
+ "languageCode": "ko-KR",
+ "outputFormat": "mp3",
+ "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요.",
+ "mp3Md5": "7fb6a4a3859cbea445266a9877847f94",
+ "mp3Bytes": 64700,
+ "durationS": 10.78,
+ "synthesizedAt": "2026-08-14T00:14:03.220177+00:00",
+ "note": "Seoyeon/neural = 운영 _synthesize_coach_audio_items env 기본값 미러 (POLLY_VOICE_ID/POLLY_ENGINE Pod env 실값은 터미네이트로 확인 불가 — 기본값 채택). 자격증명만 로컬 프로필(sunity-motion). Polly = TTS 비-LLM 실호출 1회."
+}

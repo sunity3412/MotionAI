@@ -343,3 +343,30 @@ Vertex AI GA 전까지 spike 자체 실행 불가. 박제 + roadmap 만.
 **판정: Wan2.7 = 닫힌 API 트랙 승자.** 자세 충실도 Omni 대비 ~2.3배 우수, 절반 이상 클립이 10° 미만. 단 (a) outlier 존재(sliding-spin) — 점수 투입은 여전히 게이트 미달, (b) 모더레이션 차단 잔존(power-spin류 복장), (c) 건당 6~7분 지연. **"참고하세요 코너"(비채점) 엔진 1순위 후보로 승격**, 점수 보강은 GEN3C(오픈)와의 비교 + judge 게이트(Qwen3-VL-Plus 후보) 후 재판정.
 
 **007a(ReCamMaster/Wan2.1) 폐기 박제:** belle 지시("구모델 검증을 최신 모델로 대체") + Pod 디스크 쿼터 충돌 → 셋업 중단·모델 삭제(29GB 회수). 접근법의 오픈 트랙 검증은 GEN3C(007b)로 일원화.
+
+---
+
+## Spike 007b — NVIDIA GEN3C-Cosmos-7B (오픈 모델) 게이트 결과 (2026-07-18)
+
+**셋업:** Omni/Wan 과 동일 10건·동일 측정(RTMW 재추론 GT-free 3축). 파이프라인 = mp4 → 24fps/1280×704 121프레임 → **MoGe(monocular) per-frame depth** → GEN3C distributed 포맷(rgb+depth+mask+camera) → `gen3c_dynamic.py` trajectory=left, movement_distance=0.3, num_frames=121, guardrail/prompt-upsampler 비활성. 스크립트 `build_gen3c_inputs.py`+`run_gen3c_batch9.sh`, 수치 `gate_out/gen3c_metrics.json`.
+
+**구동 성과 (별도 박제):** GEN3C 는 A100 80GB 에서 완주(구동 성공). Blackwell(PRO 6000, sm_120)에서도 TE 완전 우회(te_compat shim + megatron/apex 스텁 + torch 2.7.1+cu128, 아래 "Blackwell 구동" 참조)로 8/9 생성했으나 spot 회수로 A100 재개. **"오픈 모델 구동 불가" 시나리오는 기각** — 셋업 재현 가능(볼륨 박제).
+
+**측정 (10/10 생성·추출):**
+
+| 지표 | GEN3C | Wan2.7 | Omni |
+|---|---|---|---|
+| 굴곡각 MAE **중앙** | **41.1°** | 9.9° | 22.8° |
+| MAE <10° 클립 | 4/10 | 5/9 | 2/9 |
+| 분포 | **이봉(bimodal)** — 4클립 2.0~5.6° / 6클립 40~56°+inf | 단봉 대체로 <15° | 넓게 분산 |
+| conf 저하 | 고-MAE 6클립 전부 급락(0.7→0.3대) = **인체 붕괴 신호** | 안정 | 부분 악화 |
+| 최악 | power-spin = inf (인물 소실) | sliding 38.7° | elbow 40.9° |
+
+- **잘 맞는 4클립은 최상**: sliding-spin 2.0° / Diamond 4.8° / Chair 5.4° / straddle-invert 5.6° — Wan2.7 중앙(9.9°)보다도 우수. depth-cache 접근이 정면·단순 회전에서 강력.
+- **나머지 6클립은 완전 붕괴**: kip-up 40.4 / peter-pan 41.9 / invert 42.1 / sideway 49.1 / elbow-twist 56.1 / power-spin inf. 역위·급격 모션에서 **MoGe monocular depth 부정확 → 3D cache 왜곡 → 인체 환각**(conf 급락 + boneCV x2.3~4.0 + L/R swap 발생).
+
+**판정: GEN3C = 측정 투입 부적격, 현 파이프라인에서 Wan2.7 대비 열등.** 중앙 MAE 41.1° = Wan2.7(9.9°)의 4배. 이봉분포 = 어느 클립이 무너질지 예측 불가 → 참고코너·측정 어느 용도로도 신뢰 불가. **근본 원인은 GEN3C 모델이 아니라 monocular depth 소스(MoGe)** — 역위/급격 모션에서 depth 붕괴. 개선 여지(멀티프레임 depth·실제 카메라궤적·foreground masking) 존재하나 별도 트랙.
+
+**D-02 결론 (phase 31): Wan2.7-VideoEdit 확정 유지** (spike 008 승자). GEN3C 오픈 트랙은 depth 파이프라인 개선 후 재평가 후보로 보류. 강점(잘 맞을 때 <6°·워터마크 없음·자체호스팅)은 기록.
+
+**Blackwell 구동 스텁/패치 (재현용, 볼륨 박제):** cosmos env torch=2.7.1+cu128(sm_120) + TE 완전 우회 — `te_compat.py`(RMSNorm/rope/DPA), attention backend="torch"(SDPA), peft·prompt-upsampler 지연/try-except(ImportError+**OSError** 둘 다), `gen3c_stubs/`(megatron core·parallel_state·tensor_parallel·apex/amp_C), hf_hub<1.0, HF_HUB_DISABLE_XET=1, t5-11b pytorch_model.bin 만.

@@ -11,6 +11,13 @@
      아니면 없음").
   4. 렌더 예외 → failed 마킹. failed write 실패 → 재raise 0 (분석 무훼손).
   5. 성공 경로 — canonical key put_object + done 마킹 + mp3 파일명 계약(r{NN}.mp3).
+  6. 발굴 discovery 조달 + discover mp3 회수 (quick-260814-ghs). **대상 층 = 운영
+     스테이지**(`_run_deferred_compare_render`)가 렌더러에 무엇을 넘기는가 —
+     build_timeline 주입 레이어 자체는 test_discovery_freeze 소유(같은 층 재작성
+     금지). 결함 요지: `result.discovery` 는 Firestore 단일 field-path 부분 갱신
+     이라 in-memory result 에 없고, 스테이지가 그대로 doc_like 를 조립하면 발굴
+     정지가 **freeze 도 excluded 행도 안 남기고 조용히 소실**된다(coachAudio 가
+     이미 당한 계열 결함). 이 섹션은 조달·회수·회계 + 네 실패 경로의 흔적을 못박는다.
 
 pipeline app.py 는 파일 경로 spec 로드(고유 모듈명) — tests/pipeline 'app' 충돌 회피.
 """
@@ -18,7 +25,9 @@ pipeline app.py 는 파일 경로 spec 로드(고유 모듈명) — tests/pipeli
 from __future__ import annotations
 
 import importlib.util
+import logging
 import shutil
+import subprocess
 import sys
 import tempfile
 import types
@@ -28,7 +37,7 @@ import pytest
 
 from sunity_shared import firestore_admin, models
 from sunity_shared.analysis import compare_align, compare_render, compare_verify
-from sunity_shared.s3keys import build_rendered_compare_key
+from sunity_shared.s3keys import build_discover_audio_key, build_rendered_compare_key
 
 _BACKEND = Path(__file__).resolve().parents[2]
 
@@ -543,3 +552,273 @@ def test_doc_like_keeps_existing_coach_audio_when_present(
     papp._run_deferred_compare_render(**kwargs)
 
     assert captured["doc"]["result"]["coachAudio"] == existing
+
+
+# ═══ 6. 발굴 discovery 조달 + mp3 회수 (quick-260814-ghs) ═══
+#
+# 전부 합성 값 — 실좌표/동작명/실 분석 ID 리터럴 0 (di7 규율 승계).
+# 조달 소스는 `firestore_admin.get_analysis` monkeypatch 로 심는다: 발굴은 분석
+# **사후** belle 채택물이라 in-memory 근거가 원리적으로 없고 Firestore 가 유일
+# 진실이다 (coachAudio 처방과 갈리는 지점 — 그쪽은 "방금 합성한" 목록이 있다).
+
+DISC_RID = "r07"  # records 에 없는 신규 rid — 마커 경로 회피 + 신규 발굴 케이스
+DISC_JOINT = "left_elbow"  # knee 의 _body_line_viz 는 di7 이 build_timeline 층에서 핀함
+DISC_TEXT = "합성 발굴 문장 — 팔꿈치를 곧게 편 채로 버텨 보세요."
+DISC_CUE = "목표는 기준 자세예요. 팔꿈치를 곧게 펴 보세요"
+DISC_STATUS = "팔꿈치 각도가 기준 자세와 차이가 있어요"
+
+_SILENCE_MP3: bytes | None = None
+
+
+def _silence_mp3_bytes() -> bytes:
+    """실 무음 mp3 1s (ffmpeg anullsrc) — 모듈 레벨 lazy 캐시.
+
+    `compare_render.mp3_duration_s` 는 ffmpeg 출력 파싱이라 가짜 바이트
+    (FakeS3 기본값 b"ID3fake")면 RuntimeError 다. 스테이지 층 테스트도 실
+    mp3 를 요구한다 (di7 `_silence_mp3` 미러 — 같은 굽기 명령).
+    """
+    global _SILENCE_MP3
+    if _SILENCE_MP3 is None:
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "silence.mp3"
+            subprocess.run(
+                [compare_render.FF, "-y", "-loglevel", "error", "-f", "lavfi",
+                 "-i", "anullsrc", "-t", "1", str(p)],
+                check=True,
+            )
+            _SILENCE_MP3 = p.read_bytes()
+    return _SILENCE_MP3
+
+
+def _disc_item(**over) -> dict:
+    base = {
+        "rid": DISC_RID, "joint": DISC_JOINT, "userSec": 3.2, "refSec": 2.9,
+        "pairSrc": models.DISCOVERY_PAIR_SRC, "text": DISC_TEXT,
+        "mp3Key": build_discover_audio_key(UID, ANALYSIS_ID, DISC_RID, DISC_JOINT),
+        "adoptedAt": "2026-01-01",
+    }
+    base.update(over)
+    return base
+
+
+def _install_discovery_doc(monkeypatch, items: list[dict]) -> None:
+    """Firestore 조달 소스 — 수리 구현이 `get_analysis` 위에 얹히는 계약."""
+
+    def _get_analysis(uid, analysis_id):
+        return {"result": {"discovery": {"items": [dict(it) for it in items]}}}
+
+    monkeypatch.setattr(firestore_admin, "get_analysis", _get_analysis)
+
+
+@pytest.fixture
+def disc_env(papp, stage_env, monkeypatch):
+    """stage_env 위 4겹 — 실 mp3 / 긴 align / cueLine 보강 / 실 build_timeline 계측.
+
+    render 스텁이 **실 build_timeline** 을 호출하므로 이 fixture 는 "운영
+    스테이지가 렌더러에 무엇을 넘겼는가"를 재는 계측기다 (mock 이 가리던 층을 연다).
+    """
+    monkeypatch.delenv("RENDERED_COMPARE_ENABLED", raising=False)
+    captured: dict = {}
+
+    # (1) 실 무음 mp3 바이트 — 다운로드 산출물이 mp3_duration_s 를 통과해야 한다.
+    fake_s3 = FakeS3(mp3_bytes=_silence_mp3_bytes())
+    monkeypatch.setattr(papp, "_s3", fake_s3)
+
+    # (2) align 길이 확장 (90/90 @15fps = 6.0s) — 발굴 item(u3.2/r2.9)이 G 경계
+    #     핀(REF_BOUNDARY_PIN_S=0.5s) 안쪽에 들도록. 기본 stage_env align 은
+    #     ref 2.67s 라 발굴 rt 가 경계 제외로 떨어져 조달 축을 못 잰다.
+    monkeypatch.setattr(
+        compare_align, "build_align", lambda *a, **k: _quality_align(tu=90, tr=90)
+    )
+
+    # (3) record 에 cueLine/statusLine 보강 — 실 build_timeline 이
+    #     coach_audio_speech_text 를 부른다 (없으면 KeyError). 원본 fixture 무접촉.
+    kwargs = {**stage_env["kwargs"]}
+    result = {**kwargs["result"]}
+    breakdown = {**result["deductionBreakdown"]}
+    breakdown["records"] = [
+        {**rec, "cueLine": DISC_CUE, "statusLine": DISC_STATUS}
+        for rec in result["deductionBreakdown"]["records"]
+    ]
+    result["deductionBreakdown"] = breakdown
+    kwargs["result"] = result
+
+    # (4) render → 실 build_timeline 계측 스텁.
+    def _timeline_render(doc, user_video, ref_video, audio_dir, workdir, out, **kw):
+        align_json = kw.get("align_json")
+        captured["doc"] = doc
+        captured["align"] = align_json
+        _warp, freezes, excluded = compare_render.build_timeline(
+            doc, Path(audio_dir), None, align_json, None
+        )
+        captured["freezes"] = freezes
+        captured["excluded"] = excluded
+        Path(out).write_bytes(b"\x00fake-mp4")
+        report = {
+            "outDurationS": 9.0,
+            "userDurationS": 9.0,
+            "expectedFreezes": len(freezes),
+            "freezes": [
+                {"rid": f["rid"], "userSec": f["ut"], "refSec": f["rt"],
+                 "pairSrc": f["pair_src"], "freezeS": f["dur"],
+                 "voiceStartOutS": 1.0, "text": f["text"]}
+                for f in freezes
+            ],
+            "excludedFreezes": excluded,
+        }
+        captured["report"] = report
+        return report
+
+    monkeypatch.setattr(compare_render, "render", _timeline_render)
+
+    def _capturing_verify(mp4, report, workdir, **kw):
+        captured["verify_doc"] = kw.get("doc")
+        return (True, ["  [PASS] all"])
+
+    monkeypatch.setattr(compare_verify, "verify", _capturing_verify)
+
+    return {"captured": captured, "s3": fake_s3, "kwargs": kwargs,
+            "render": _timeline_render}
+
+
+def _warnings(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+
+
+def test_stage_procures_discovery_and_renders_discover_freeze(
+    papp, rc_updates, disc_env, monkeypatch
+):
+    """갭 A+B — 운영 스테이지가 doc discovery 를 조달해 렌더러에 싣고 mp3 를 회수한다."""
+    item = _disc_item()
+    _install_discovery_doc(monkeypatch, [item])
+
+    papp._run_deferred_compare_render(**disc_env["kwargs"])
+
+    captured = disc_env["captured"]
+    # 갭 A — 운영 조립 doc 에 discovery 가 실렸는가 (산출물 직접 확인).
+    assert captured["doc"]["result"]["discovery"]["items"] == [item]
+    disc = [f for f in captured["freezes"]
+            if f["pair_src"] == models.DISCOVERY_PAIR_SRC]
+    assert len(disc) == 1
+    fz = disc[0]
+    assert fz["rid"] == DISC_RID
+    assert fz["ut"] == pytest.approx(item["userSec"])
+    assert fz["rt"] == pytest.approx(item["refSec"])
+    assert fz["text"] == DISC_TEXT
+    assert captured["excluded"] == []
+    # 갭 B — discover mp3 가 basename 조인 규약대로 audio_dir 로 회수됐는가.
+    downloaded = dict(disc_env["s3"].downloads)
+    assert item["mp3Key"] in downloaded
+    assert Path(downloaded[item["mp3Key"]]).name == (
+        f"discover_audio_{DISC_RID}_{DISC_JOINT}.mp3"
+    )
+    # doc 부착 — 정지 틱에 발굴 rid 가 실린다.
+    assert rc_updates and rc_updates[-1]["status"] == "done"
+    assert DISC_RID in {f["rid"] for f in rc_updates[-1]["freezes"]}
+    # fail-closed 리그(di7 H2/H3/H4 discover 분기)가 운영 조립 doc 를 받아들이는가.
+    # record 축은 align 형상 의존이라 대상 밖 — [discover] 항목만 판정.
+    disc_checks = [
+        (name, ok, detail)
+        for name, ok, detail in compare_verify.authenticity_checks(
+            captured["report"], captured["doc"], captured["align"]
+        )
+        if "[discover]" in name
+    ]
+    assert disc_checks and all(ok for _n, ok, _d in disc_checks), f"{disc_checks}"
+
+
+def test_stage_without_discovery_no_regression(
+    papp, rc_updates, disc_env, monkeypatch
+):
+    """발굴 없는 절대다수 = 완전 무회귀 (RED 에서도 PASS 여야 판정이 성립한다)."""
+    monkeypatch.setattr(
+        firestore_admin, "get_analysis", lambda uid, analysis_id: {"result": {}}
+    )
+
+    papp._run_deferred_compare_render(**disc_env["kwargs"])
+
+    captured = disc_env["captured"]
+    assert {f["rid"] for f in captured["freezes"]} == {"r00"}
+    assert captured["excluded"] == []
+    assert "discovery" not in captured["doc"]["result"]
+    # 여분 S3 GET 0 — coach mp3 1건 정확.
+    assert {k for k, _dst in disc_env["s3"].downloads} == {
+        disc_env["kwargs"]["coach_audio_items"][0]["key"]
+    }
+    assert rc_updates and rc_updates[-1]["status"] == "done"
+
+
+def test_stage_discovery_read_failure_is_fail_open_with_warning(
+    papp, rc_updates, disc_env, monkeypatch, caplog
+):
+    """조달 읽기 실패 = fail-open(렌더 진행) + WARNING 흔적 (침묵 금지)."""
+
+    def _raise(uid, analysis_id):
+        raise RuntimeError("firestore read failure (injected)")
+
+    monkeypatch.setattr(firestore_admin, "get_analysis", _raise)
+    caplog.set_level(logging.WARNING)
+
+    papp._run_deferred_compare_render(**disc_env["kwargs"])
+
+    assert rc_updates and rc_updates[-1]["status"] == "done"
+    warned = _warnings(caplog)
+    assert any("discovery" in m for m in warned), warned
+
+
+def test_stage_discover_mp3_missing_leaves_excluded_row_and_warning(
+    papp, rc_updates, disc_env, monkeypatch, caplog
+):
+    """mp3 회수 실패 = 그 항목만 discover_no_mp3 excluded + WARNING, 전체 렌더 비차단."""
+    item = _disc_item()
+    _install_discovery_doc(monkeypatch, [item])
+    s3 = disc_env["s3"]
+    orig_download = s3.download_file
+
+    def _download(bucket, key, dst):
+        if "discover_audio" in key:
+            raise RuntimeError("S3 404 (injected)")
+        return orig_download(bucket, key, dst)
+
+    monkeypatch.setattr(s3, "download_file", _download)
+    caplog.set_level(logging.WARNING)
+
+    papp._run_deferred_compare_render(**disc_env["kwargs"])
+
+    captured = disc_env["captured"]
+    assert {"rid": DISC_RID, "reason": "discover_no_mp3"} in captured["excluded"]
+    assert [f for f in captured["freezes"]
+            if f["pair_src"] == models.DISCOVERY_PAIR_SRC] == []
+    assert {f["rid"] for f in captured["freezes"]} == {"r00"}  # record freeze 생존
+    assert rc_updates and rc_updates[-1]["status"] == "done"
+    warned = _warnings(caplog)
+    assert any(item["mp3Key"] in m or DISC_RID in m for m in warned), warned
+
+
+def test_stage_warns_when_procured_discovery_not_rendered(
+    papp, rc_updates, disc_env, monkeypatch, caplog
+):
+    """조달-반영 대조 회계 — 조달분이 렌더에 안 들어가면 반드시 한 줄이 남는다."""
+    item = _disc_item()
+    _install_discovery_doc(monkeypatch, [item])
+
+    def _dropping_render(doc, user_video, ref_video, audio_dir, workdir, out, **kw):
+        report = disc_env["render"](
+            doc, user_video, ref_video, audio_dir, workdir, out, **kw
+        )
+        report["freezes"] = [
+            fz for fz in report["freezes"]
+            if fz["pairSrc"] != models.DISCOVERY_PAIR_SRC
+        ]
+        report["expectedFreezes"] = len(report["freezes"])
+        return report
+
+    monkeypatch.setattr(compare_render, "render", _dropping_render)
+    caplog.set_level(logging.WARNING)
+
+    papp._run_deferred_compare_render(**disc_env["kwargs"])
+
+    warned = _warnings(caplog)
+    assert any("discovery" in m and DISC_RID in m for m in warned), warned
+    # 회계는 관측이지 차단이 아니다 — 스테이지는 계속 진행해 done.
+    assert rc_updates and rc_updates[-1]["status"] == "done"

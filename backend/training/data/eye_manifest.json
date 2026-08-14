@@ -37,6 +37,16 @@
         "rows_after": 141,
         "admit_after": 100,
         "hold_after": 41
+      },
+      {
+        "batch_id": "eye-260814-4",
+        "collected_at": "2026-08-14T07:42:31Z",
+        "scanned_rows": 205,
+        "added": 0,
+        "skipped_existing": 205,
+        "rows_after": 141,
+        "admit_after": 100,
+        "hold_after": 41
       }
     ]
   },

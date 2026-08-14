@@ -160,6 +160,43 @@
         "status": "collected",
         "cumulative_rows_after": 243,
         "s3_scan_error": null
+      },
+      {
+        "batch_id": "watch-260814-4",
+        "opened_at": "2026-08-14T07:41:40Z",
+        "approved_by": "belle",
+        "trigger": "belle-manual --run",
+        "sources": {
+          "youtube": 0,
+          "instagram": 0
+        },
+        "new_rows": 0,
+        "curated_reject": 0,
+        "skipped_existing": 32,
+        "status": "collected",
+        "cumulative_rows_after": 243
+      },
+      {
+        "batch_id": "eye-260814-4",
+        "opened_at": "2026-08-14T07:42:35Z",
+        "approved_by": "belle",
+        "trigger": "harvest_eye --run",
+        "ledger": "training/data/eye_manifest.json",
+        "sources": {
+          "eye_repo_evidence": 157,
+          "eye_s3_operational": 48
+        },
+        "scanned_rows": 205,
+        "scanned_admit": 155,
+        "scanned_hold": 50,
+        "new_rows": 0,
+        "skipped_existing": 205,
+        "ledger_rows_after": 141,
+        "ledger_admit_after": 100,
+        "ledger_hold_after": 41,
+        "status": "collected",
+        "cumulative_rows_after": 243,
+        "s3_scan_error": null
       }
     ]
   },

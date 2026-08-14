@@ -59,7 +59,25 @@ echo "[setup] 3/4 ms-swift + 학습 의존성"
   "av" \
   || { echo "[setup] pip 실패" >&2; exit 2; }
 
-echo "[setup] 4/4 백본 가중치 사전 다운로드 ($MODEL)"
+echo "[setup] 4/5 vLLM (게이트 단계가 쓴다 — 학습만 하고 끝나지 않게)"
+# ★`run_sft_gates.sh` 는 `$VENV/bin/python -m vllm.entrypoints.openai.api_server` 로
+#   병합본을 띄워 판정한다. 셋업에 vllm 이 빠져 있으면 **학습을 몇 시간 돌린 뒤**
+#   게이트에서 ModuleNotFoundError 로 죽는다(2026-08-14 사전 발견 — 학습 전에 잡음).
+# ★vllm 은 torch 를 자기 핀으로 되돌릴 수 있다 → 설치 후 torch 를 **재검증**하고,
+#   set_submodule 이 사라졌으면 즉시 실패시킨다(조용한 회귀 금지).
+"$VENV/bin/pip" install -q vllm || echo "[setup] vllm 설치 실패 — 게이트 단계 불가(학습은 가능)"
+"$VENV/bin/python" - <<'PY' || { echo "[setup] vllm 설치 후 torch 회귀 — 게이트/학습 불가" >&2; exit 4; }
+import torch
+assert hasattr(torch.nn.Module, "set_submodule"), f"torch 회귀: {torch.__version__} (<2.5)"
+assert torch.cuda.is_available(), "CUDA 사용 불가"
+try:
+    import vllm
+    print("  vllm", vllm.__version__, "| torch", torch.__version__)
+except ImportError:
+    print("  vllm 없음 — 게이트 단계는 불가, 학습은 가능 | torch", torch.__version__)
+PY
+
+echo "[setup] 5/5 백본 가중치 사전 다운로드 ($MODEL)"
 # 학습 중 첫 스텝에서 받으면 실패 시 사이클 전체가 날아간다 — 셋업에서 미리 받는다.
 HF_HOME="$HF_HOME" "$VENV/bin/python" - <<'PY' || echo "[setup] 가중치 사전받기 실패(학습 중 재시도됨)"
 import os

@@ -597,6 +597,7 @@ def _build_eye_samples(eye_loader) -> tuple[list[dict], dict]:
             "_video_hash": None,   # 크롭은 영상 행이 아니다 — val split 대상 아님.
             "_has_faults": False,  # eye 는 관측 트랙(항상 fault-free).
             "_eye_agrees": agrees,
+            "_eye_joint": row.get("joint"),
             "_eye_observed": row.get("observed"),
             "_media_pending_upload": pending,
         })
@@ -686,6 +687,39 @@ def _balance_media(media_samples) -> list[dict]:
             continue
         per[m] = per.get(m, 0) + 1
         if per[m] <= cap:
+            kept.append(s)
+    return kept
+
+
+def _balance_eye(eye_samples) -> list[dict]:
+    """눈 샘플 균등 — 축은 **동작이 아니라 (관절 × 관측 상태)** 다 (quick-260814-l5i).
+
+    눈 샘플이 가르치는 것은 "표시된 관절이 접혔나 폈나"이지 그 장면이 어떤 동작인지가
+    아니다. 동작 축(_balance_media)으로 균등을 잡으면 표본이 얇은 동작 하나가 전체
+    상한을 끌어내려 판정 신호 자체가 사라진다 — 실측(l5i): 적재 99행 중 **86행**이
+    잘렸고 상한을 4로 고정한 것은 peter-pan 2행이었다. 동작 편중이 문제가 아니라
+    관절·관측 편중이 문제인 트랙이므로 축만 바꾸고, 균등 규율(max <= 2*min · 결정적 ·
+    안정 순서 · 오버샘플 0 · dump-all 금지)은 그대로 지킨다.
+
+    축 값이 없는 행은 통과시키지 않고 `(none, none)` 버킷으로 함께 센다 —
+    _balance_media 의 `m is None` 무조건 통과가 균등 규율을 우회시켰던 실측
+    (j24 P-5)의 반복을 막는다.
+    """
+    def axis(sample):
+        return (sample.get("_eye_joint"), sample.get("_eye_observed"))
+
+    counts: dict = {}
+    for s in eye_samples:
+        counts[axis(s)] = counts.get(axis(s), 0) + 1
+    if not counts:
+        return list(eye_samples)
+    cap = 2 * min(counts.values())
+    kept: list[dict] = []
+    per: dict = {}
+    for s in eye_samples:
+        key = axis(s)
+        per[key] = per.get(key, 0) + 1
+        if per[key] <= cap:
             kept.append(s)
     return kept
 
@@ -810,10 +844,10 @@ def build_dataset(
     }
     eye_kept = [s for s in eye_samples if s.get("_motion") not in val_motions]
     eye_leakage_dropped = len(eye_samples) - len(eye_kept)
-    eye_balanced = _balance_media(eye_kept)  # 트랙 독립 균등(max <= 2*min).
+    eye_balanced = _balance_eye(eye_kept)  # 축 = (관절 x 관측), max <= 2*min.
     # 균등 트림 손실은 반드시 노출한다(드롭률 은폐 금지 — shadow_unregistered_dropped 관례).
-    # eye 는 motion 별 표본이 아직 얇아 min 이 1 이면 cap 이 2 로 내려앉는다: 손실이
-    # 크면 코드 문제가 아니라 motion 커버리지 문제다(수확 범위 확대가 처방).
+    # 축 교체 전(motion 축) 실측: 99행 중 86행 손실. 축 교체 후 손실이 여전히 크면
+    # 그때는 관절·관측 커버리지 문제다(수확 범위 확대가 처방).
     eye_balance_trimmed = len(eye_kept) - len(eye_balanced)
 
     media = media_core + eye_balanced

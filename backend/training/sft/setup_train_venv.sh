@@ -18,9 +18,13 @@ HF_HOME="${HF_HOME:-/workspace/hf_cache}"
 MODEL="${SFT_MODEL:-Qwen/Qwen3-VL-8B-Instruct}"
 FORCE="${1:-}"
 
-if [ -x "$VENV/bin/swift" ] && [ "$FORCE" != "--force" ]; then
-  echo "[setup] 이미 존재 — 스킵 ($VENV). 재생성은 --force"
-  "$VENV/bin/swift" --version 2>/dev/null || true
+# ★`swift --version` 은 쓰지 않는다 — ms-swift 4.4 의 CLI 는 서브커맨드 라우터라
+# `--version` 이 KeyError 트레이스백을 낸다(정상 설치인데 실패처럼 보임, 2026-08-14 실측).
+# 버전 확인은 패키지 속성으로.
+swift_ver() { "$VENV/bin/python" -c "import swift; print(swift.__version__)" 2>/dev/null; }
+
+if [ -x "$VENV/bin/swift" ] && [ -n "$(swift_ver)" ] && [ "$FORCE" != "--force" ]; then
+  echo "[setup] 이미 존재 — 스킵 ($VENV, ms-swift $(swift_ver)). 재생성은 --force"
   exit 0
 fi
 
@@ -54,4 +58,4 @@ p = snapshot_download(mid, allow_patterns=["*.json", "*.safetensors", "*.txt", "
 print("[setup] 가중치:", p)
 PY
 
-echo "[setup] 완료 — swift: $("$VENV/bin/swift" --version 2>&1 | head -1)"
+echo "[setup] 완료 — ms-swift $(swift_ver) / venv $VENV"

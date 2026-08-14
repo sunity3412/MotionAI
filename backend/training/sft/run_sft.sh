@@ -165,17 +165,30 @@ localize("train.jsonl")
 localize("val.jsonl")
 PYEOF
 
-echo "[2/3] swift sft (QLoRA rank64 4-bit, all-linear, packing, 32K)"
+# ── GPU 용량 적응 노브 (quick-260814-l5i) ────────────────────────────────────
+# 기본값은 22-07 검증값(A100급 전제)이다. 24GB(4090)에서는 그대로 안 들어간다 —
+# 실측 2026-08-14: 추론 서버 내리고 expandable_segments 걸고 프레임 32→16 으로
+# 줄여도 학습 단독 22.8GiB 로 OOM(첫 스텝, lora_B forward 에서 736MiB 할당 실패).
+# 값을 코드에 박아두면 GPU 가 바뀔 때마다 스크립트를 고쳐야 하므로 env 로 뺀다.
+# ★기본값을 낮추지 않는다 — 큰 GPU 에서의 검증 설정이 기본이고, 작은 GPU 가
+#   명시적으로 낮춰 쓰는 구조여야 "왜 이 값인가"가 추적된다.
+SFT_LORA_RANK="${SFT_LORA_RANK:-64}"
+SFT_LORA_ALPHA="${SFT_LORA_ALPHA:-128}"
+SFT_MAX_LENGTH="${SFT_MAX_LENGTH:-32768}"
+SFT_FREEZE_VIT="${SFT_FREEZE_VIT:-false}"
+
+echo "[2/3] swift sft (QLoRA rank${SFT_LORA_RANK} 4-bit, all-linear, ${SFT_MAX_LENGTH} tok, freeze_vit=${SFT_FREEZE_VIT})"
 "$VENV/bin/swift" sft \
   --model "$MODEL" \
   --dataset "$DATA/train_local.jsonl" \
   --val_dataset "$DATA/val_local.jsonl" \
   --split_dataset_ratio 0 \
-  --tuner_type lora --lora_rank 64 --lora_alpha 128 \
+  --tuner_type lora --lora_rank "$SFT_LORA_RANK" --lora_alpha "$SFT_LORA_ALPHA" \
   --target_modules all-linear \
+  --freeze_vit "$SFT_FREEZE_VIT" \
   --quant_method bnb --quant_bits 4 --torch_dtype bfloat16 \
   --gradient_checkpointing true --optim paged_adamw_8bit \
-  --packing false --max_length 32768 \
+  --packing false --max_length "$SFT_MAX_LENGTH" \
   --per_device_train_batch_size 1 --gradient_accumulation_steps 16 \
   --learning_rate 1e-5 --vit_lr 2e-6 --aligner_lr 1e-5 \
   --freeze_aligner false \

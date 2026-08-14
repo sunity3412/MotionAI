@@ -28,22 +28,29 @@ if [ -x "$VENV/bin/swift" ] && [ -n "$(swift_ver)" ] && [ "$FORCE" != "--force" 
   exit 0
 fi
 
-echo "[setup] 1/4 venv 생성 (--system-site-packages = 베이스 이미지 패키지 재사용)"
+echo "[setup] 1/5 venv 생성 (--system-site-packages = 베이스 이미지 패키지 재사용)"
 python3 -m venv --system-site-packages "$VENV" || exit 1
 
-echo "[setup] 2/4 torch >= 2.5 (cu124) — 베이스 2.4.1 로는 못 돈다"
+# ── 설치 순서가 결과를 정한다 (2026-08-14 실측으로 확정) ─────────────────────
+# torch 를 먼저 깔고 **vllm 을 마지막에** 깔면, vllm 이 자기 요구에 맞춰 torch 를
+# 올리면서 torchvision 까지 짝을 맞춰 정리한다 — 실측 수렴값 torch 2.13.0+cu130 /
+# torchvision 0.28.0+cu130, 7개 패키지 import 전건 통과.
+# 베이스 이미지의 torch·torchvision 2.4.1 을 그대로 쓰려 하면 ABI 가 어긋난다
+# (torchvision 0.19.1 은 torch==2.4.1 고정). 즉 아래 핀은 **하한 보장**이고 최종
+# 버전 결정권은 4단계 vllm 에 있다 — 상한으로 읽고 vllm 을 막으면 스택이 깨진다.
+echo "[setup] 2/5 torch 하한 확보 (최종 버전은 4단계 vllm 이 정한다)"
 # ★실측(2026-08-14): 베이스 이미지 torch 2.4.1 을 재사용했더니 학습이 4분 만에
 #   `AttributeError: 'Qwen3VLForConditionalGeneration' object has no attribute
 #   'set_submodule'` 로 죽었다. `nn.Module.set_submodule` 은 **torch 2.5 신규**이고,
 #   Qwen3-VL 을 지원하는 transformers(5.x)의 bitsandbytes 4bit 경로가 그것을 부른다.
 #   즉 "베이스 torch 재사용"과 "Qwen3-VL 학습"은 양립하지 않는다 — venv 안에 2.5+ 를
-#   깔아 베이스를 가린다. cu124 인덱스로 받아 이 Pod(4090/cu124)와 맞춘다.
+#   깔아 베이스를 가린다.
 "$VENV/bin/pip" install -q --upgrade pip
 # ★기본 PyPI 에서 받는다 — `--index-url https://download.pytorch.org/whl/cu124` 는
 #   pip 가 **그 인덱스만** 보게 만들어 `nvidia-cudnn-cu12` 등 의존 패키지를 못 받는다.
 #   실측(2026-08-14): 그렇게 깔았더니 `ImportError: libcudnn.so.9` 로 torch import
 #   자체가 죽었다. PyPI 의 linux torch 휠은 cu12x 빌드 + nvidia-* 번들이라 그냥 맞다.
-"$VENV/bin/pip" install -q "torch>=2.5,<2.9" \
+"$VENV/bin/pip" install -q "torch>=2.5" \
   || { echo "[setup] torch 설치 실패" >&2; exit 3; }
 # 검증 = import 까지 실제로 해본다(설치 성공 != import 성공 — cudnn 사건의 교훈).
 "$VENV/bin/python" - <<'PY' || { echo "[setup] torch 검증 실패" >&2; exit 3; }
@@ -53,7 +60,7 @@ assert torch.cuda.is_available(), "CUDA 사용 불가"
 print("  torch", torch.__version__, "cuda", torch.version.cuda, "GPU", torch.cuda.get_device_name(0))
 PY
 
-echo "[setup] 3/4 ms-swift + 학습 의존성"
+echo "[setup] 3/5 ms-swift + 학습 의존성"
 # ms-swift 4.4.0 = run_sft.sh 의 인자명이 검증된 버전(A8, 2026-07-12). 상향 금지 —
 # SftArguments 필드명이 버전마다 바뀌어 러너가 조용히 실패한다.
 "$VENV/bin/pip" install -q --upgrade pip

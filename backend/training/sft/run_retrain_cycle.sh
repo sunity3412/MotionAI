@@ -61,6 +61,13 @@ preflight() {
     echo "[중단] /workspace 여유 ${avail_gb}GB < 30GB — 정리 후 재시도" >&2
     exit 3
   fi
+  # (c-2) 필수 CLI 존재 — assemble 의 canonical 백업이 `aws s3 sync` 를 쓴다.
+  # 실측(2026-08-14 quick-260814-l5i): 새 Pod 에 awscli 가 없어 **라벨 453초(Gemini
+  # 과금)를 태운 뒤** assemble 첫 줄에서 중단됐다. 과금 단계 앞에서 걸러야 한다.
+  if ! command -v aws >/dev/null 2>&1; then
+    echo "[중단] aws CLI 없음 — assemble 백업 불가. 설치: pip install awscli" >&2
+    exit 6
+  fi
   # (d) 최신 manifest/코드 동기화 (22-11 watch 배치가 자란 manifest 반영).
   git -C "$ROOT" pull --ff-only \
     || { echo "[중단] git pull --ff-only 실패 — 수동 동기화 필요" >&2; exit 4; }

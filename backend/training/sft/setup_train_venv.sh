@@ -39,10 +39,19 @@ echo "[setup] 2/4 torch >= 2.5 (cu124) — 베이스 2.4.1 로는 못 돈다"
 #   즉 "베이스 torch 재사용"과 "Qwen3-VL 학습"은 양립하지 않는다 — venv 안에 2.5+ 를
 #   깔아 베이스를 가린다. cu124 인덱스로 받아 이 Pod(4090/cu124)와 맞춘다.
 "$VENV/bin/pip" install -q --upgrade pip
-"$VENV/bin/pip" install -q "torch>=2.5,<2.9" --index-url https://download.pytorch.org/whl/cu124 \
+# ★기본 PyPI 에서 받는다 — `--index-url https://download.pytorch.org/whl/cu124` 는
+#   pip 가 **그 인덱스만** 보게 만들어 `nvidia-cudnn-cu12` 등 의존 패키지를 못 받는다.
+#   실측(2026-08-14): 그렇게 깔았더니 `ImportError: libcudnn.so.9` 로 torch import
+#   자체가 죽었다. PyPI 의 linux torch 휠은 cu12x 빌드 + nvidia-* 번들이라 그냥 맞다.
+"$VENV/bin/pip" install -q "torch>=2.5,<2.9" \
   || { echo "[setup] torch 설치 실패" >&2; exit 3; }
-"$VENV/bin/python" -c "import torch; assert hasattr(torch.nn.Module,'set_submodule'), 'torch<2.5'; print('  torch', torch.__version__, 'cuda', torch.cuda.is_available())" \
-  || { echo "[setup] torch 검증 실패" >&2; exit 3; }
+# 검증 = import 까지 실제로 해본다(설치 성공 != import 성공 — cudnn 사건의 교훈).
+"$VENV/bin/python" - <<'PY' || { echo "[setup] torch 검증 실패" >&2; exit 3; }
+import torch
+assert hasattr(torch.nn.Module, "set_submodule"), f"torch {torch.__version__} < 2.5"
+assert torch.cuda.is_available(), "CUDA 사용 불가"
+print("  torch", torch.__version__, "cuda", torch.version.cuda, "GPU", torch.cuda.get_device_name(0))
+PY
 
 echo "[setup] 3/4 ms-swift + 학습 의존성"
 # ms-swift 4.4.0 = run_sft.sh 의 인자명이 검증된 버전(A8, 2026-07-12). 상향 금지 —

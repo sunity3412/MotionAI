@@ -1,0 +1,117 @@
+{
+ "status": "APPLIED",
+ "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+ "aid": "p34fresh1786628533",
+ "bucket": "sunity-motion-pilot-videos",
+ "awsProfile": "sunity-motion",
+ "writes": [
+  {
+   "op": "s3.put_object",
+   "key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/compare_v1.mp4",
+   "contentType": "video/mp4",
+   "bytes": 13558277,
+   "sourcePath": "/Users/Shared/sunity-freeze-inject-260814/재렌더영상_신규정지포함.mp4",
+   "sourceMd5": "77cdcd436472438f3580cbb8d48683f3",
+   "s3RoundtripMd5": "77cdcd436472438f3580cbb8d48683f3",
+   "at": "2026-08-14T01:20:22.413848+00:00",
+   "note": "belle 승인본 byte-보존 — doc 현행 key == canonical exact assert 후 같은 키 덮어쓰기"
+  },
+  {
+   "op": "s3.put_object",
+   "key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r04_left_knee.mp3",
+   "contentType": "audio/mpeg",
+   "bytes": 64700,
+   "sourcePath": "/Users/kimtaesung/Dev/SunityMotion/.planning/quick/260814-chd-freeze-belle-ok-0p2/evidence/discover_left_knee.mp3",
+   "sourceMd5": "7fb6a4a3859cbea445266a9877847f94",
+   "s3RoundtripMd5": "7fb6a4a3859cbea445266a9877847f94",
+   "at": "2026-08-14T01:20:22.529881+00:00",
+   "note": "chd 승인 discover mp3 (repo 고정, Polly 재합성 0) — s3keys.build_discover_audio_key canonical 키"
+  },
+  {
+   "op": "firestore.update_analysis_discovery",
+   "args": {
+    "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+    "analysisId": "p34fresh1786628533",
+    "items": [
+     {
+      "rid": "r04",
+      "joint": "left_knee",
+      "userSec": 12.8667,
+      "refSec": 12.4,
+      "pairSrc": "discover",
+      "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요.",
+      "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r04_left_knee.mp3",
+      "adoptedAt": "2026-08-14"
+     }
+    ]
+   },
+   "fieldPath": "result.discovery",
+   "at": "2026-08-14T01:20:22.619115+00:00"
+  },
+  {
+   "op": "firestore.update_analysis_rendered_compare",
+   "args": {
+    "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+    "analysisId": "p34fresh1786628533",
+    "key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/compare_v1.mp4",
+    "status": "done",
+    "freezes": [
+     {
+      "rid": "r00",
+      "outSec": 5.33
+     },
+     {
+      "rid": "r01",
+      "outSec": 15.67
+     },
+     {
+      "rid": "r04",
+      "outSec": 29.93
+     },
+     {
+      "rid": "r04:discover",
+      "outSec": 42.07
+     },
+     {
+      "rid": "r02",
+      "outSec": 54.17
+     },
+     {
+      "rid": "r03",
+      "outSec": 69.0
+     }
+    ]
+   },
+   "fieldPath": "result.renderedCompare",
+   "preFreezes": [
+    {
+     "outSec": 5.33,
+     "rid": "r00"
+    },
+    {
+     "outSec": 15.67,
+     "rid": "r01"
+    },
+    {
+     "outSec": 29.93,
+     "rid": "r04"
+    },
+    {
+     "outSec": 43.0,
+     "rid": "r02"
+    },
+    {
+     "outSec": 57.83,
+     "rid": "r03"
+    }
+   ],
+   "at": "2026-08-14T01:20:22.694468+00:00"
+  }
+ ],
+ "llm": {
+  "geminiCalls": 0,
+  "pollyCalls": 0,
+  "note": "렌더·업로드·doc 쓰기만 — LLM 추론 호출 0"
+ },
+ "at": "2026-08-14T01:20:22.694543+00:00"
+}

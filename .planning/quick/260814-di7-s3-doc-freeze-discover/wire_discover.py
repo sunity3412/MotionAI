@@ -17,11 +17,21 @@ stages:
                  report freeze 6건 == chd verdict / 무수정 verify ALL PASS /
                  음성 게이트(+0.5s 비틀기 → H2 discover FAIL)
   --check-wire   위 전부 evidence/wire_verdict.json 기계 게이트 (exit code)
+  --apply        프로덕션 반영 (belle 승인 완료 — Task 3): 승인본 mp4
+                 byte-보존 업로드(md5 사전 STOP 게이트) + discover mp3
+                 canonical 키 업로드 + doc discovery/renderedCompare 갱신 —
+                 전 쓰기 로그 evidence/production_log.json 박제
+  --live         반영 검증: doc 재fetch == 방금 쓴 payload → live doc 렌더 —
+                 discover mp3 는 S3 방금 쓴 키에서 GET (키 왕복 증명) →
+                 사슬 == chd injected + 무수정 verify ALL PASS + [discover]
+                 로그 → evidence/live_verdict.json
+  --check-apply  production_log + live_verdict 기계 게이트 (exit code)
 
 제약 (Task 2): S3/Firestore 쓰기 0 (읽기 전용 — 캐시 재사용이라 네트워크 0),
 Gemini/Polly 호출 0, 카드 경로 재실행 불요 (chd 가 카드 3장 md5 == 0p2 로
 캡션 비종속을 기계 증명 — 재검 대상 아님). 렌더 결정론 규율 = chd
-_render_once 형식 미러.
+_render_once 형식 미러. Task 3 쓰기 = S3 2건 + doc 2필드 정확 (AWS_PROFILE
+sunity-motion), LLM 추론 호출 0 (Gemini 0 / Polly 0 — 렌더·업로드·doc 쓰기만).
 """
 
 from __future__ import annotations
@@ -33,6 +43,7 @@ import hashlib
 import io
 import json
 import logging
+import os
 import pathlib
 import shutil
 import sys
@@ -84,7 +95,16 @@ DOC = SP / "doc.json"
 ALIGN_JSON = SP / "align.json"
 VIDEOS = {"user": SP / "user.mp4", "ref": SP / "ref.mp4"}
 AUDIO_DIR = SP / "audio"
+AUDIO_LIVE = SP / "audio_live"
 RENDER_WORK = SP / "render"
+
+# 승인본 mp4 (belle 승인은 이 바이트에 붙어 있다 — 불일치/전멸 = STOP).
+APPROVED_MP4_MD5 = "77cdcd436472438f3580cbb8d48683f3"
+APPROVED_MP4_CANDIDATES = (
+    pathlib.Path("/Users/Shared/sunity-freeze-inject-260814/"
+                 "재렌더영상_신규정지포함.mp4"),
+    OLD_SP.parent / "chd_out" / "inject_run1.mp4",  # 구 세션 scratchpad (휘발)
+)
 
 log = logging.getLogger("wire_discover")
 
@@ -343,12 +363,290 @@ def check_wire() -> int:
     return 0
 
 
+# ── apply (Task 3 — 프로덕션 반영, belle 승인 완료. 전 쓰기 로그 박제) ───────
+
+def _s3_client():
+    import boto3
+
+    return boto3.Session(
+        profile_name=os.environ.get("AWS_PROFILE", "sunity-motion")
+    ).client("s3", region_name="ap-northeast-2")
+
+
+def _fa():
+    if not os.environ.get("FIREBASE_SA_PATH") and not os.environ.get(
+            "FIREBASE_SA_JSON"):
+        os.environ["FIREBASE_SA_PATH"] = str(_REPO / "firebase-sa.json")
+    from sunity_shared import firestore_admin as fa
+
+    return fa
+
+
+def _live_doc(fa) -> dict:
+    doc = (
+        fa._db().collection("users").document(UID)  # noqa: SLF001
+        .collection("analyses").document(AID).get().to_dict()
+    )
+    assert doc and isinstance(doc.get("result"), dict), (
+        f"live doc {AID} 조회 실패 또는 result 부재")
+    return doc
+
+
+def _freezes_payload() -> list[dict]:
+    """반영 freezes — Task 2 재현 report 의 [{rid, outSec=voiceStartOutS}].
+
+    discover 항목 rid = 'r04:discover' (D-di7-05 — 앱 freezeNumber fail-open
+    무번호 틱 + React key 중복 회피). 값은 chd 정본과 ±0.01 일치 assert.
+    """
+    report = json.loads((OUT / "wire_inject_report.json").read_text())
+    payload = []
+    for fz in report["freezes"]:
+        rid = fz["rid"]
+        if fz.get("pairSrc") == "discover":
+            rid = f"{rid}:discover"
+        payload.append({"rid": rid, "outSec": fz["voiceStartOutS"]})
+    assert len(payload) == len(CHD_EXPECTED_OUT) == 6, (
+        f"freezes 6건 아님: {payload}")
+    for (exp_rid, exp_out), got in zip(CHD_EXPECTED_OUT, payload):
+        assert got["rid"].split(":")[0] == exp_rid, (
+            f"freezes rid 순서 상이: {got} != {exp_rid}")
+        assert abs(float(got["outSec"]) - exp_out) <= 0.01, (
+            f"freezes outSec != chd 정본: {got} vs {exp_out}")
+    return payload
+
+
+def apply() -> None:
+    from sunity_shared import s3keys
+
+    writes: list[dict] = []
+
+    # (1) 승인본 mp4 소스 확보 — md5 사전 STOP 게이트 (T-di7-03).
+    src_mp4 = None
+    probed = []
+    for cand in APPROVED_MP4_CANDIDATES:
+        if not cand.exists():
+            probed.append({"path": str(cand), "exists": False})
+            continue
+        md5 = _md5_file(cand)
+        probed.append({"path": str(cand), "exists": True, "md5": md5})
+        if md5 == APPROVED_MP4_MD5:
+            src_mp4 = cand
+            break
+    if src_mp4 is None:
+        (EV / "production_log.json").write_text(json.dumps({
+            "status": "STOP",
+            "reason": f"승인본 mp4 md5 {APPROVED_MP4_MD5} 소스 전멸/불일치 — "
+                      "업로드 없이 중단 (belle 승인은 이 바이트에 붙어 있다)",
+            "probed": probed, "at": _now(),
+        }, ensure_ascii=False, indent=1))
+        raise SystemExit("STOP: 승인본 mp4 소스 확보 실패 — production_log 참조")
+
+    fa = _fa()
+    s3 = _s3_client()
+
+    # (2) doc 현행 renderedCompare.key == canonical 키 exact assert → 같은 키
+    #     덮어쓰기 = byte-보존 반영 (키 drift 시 STOP).
+    doc_pre = _live_doc(fa)
+    rc_pre = doc_pre["result"].get("renderedCompare") or {}
+    canonical_key = s3keys.build_rendered_compare_key(UID, AID)
+    assert rc_pre.get("key") == canonical_key, (
+        f"STOP: doc renderedCompare.key {rc_pre.get('key')!r} != canonical "
+        f"{canonical_key!r}")
+    with open(src_mp4, "rb") as fh:
+        s3.put_object(Bucket=BUCKET, Key=canonical_key, Body=fh,
+                      ContentType="video/mp4")
+    got = s3.get_object(Bucket=BUCKET, Key=canonical_key)["Body"].read()
+    got_md5 = hashlib.md5(got).hexdigest()
+    assert got_md5 == APPROVED_MP4_MD5, (
+        f"업로드 후 S3 md5 재확인 실패: {got_md5}")
+    writes.append({
+        "op": "s3.put_object", "key": canonical_key,
+        "contentType": "video/mp4", "bytes": src_mp4.stat().st_size,
+        "sourcePath": str(src_mp4), "sourceMd5": APPROVED_MP4_MD5,
+        "s3RoundtripMd5": got_md5, "at": _now(),
+        "note": "belle 승인본 byte-보존 — doc 현행 key == canonical exact "
+                "assert 후 같은 키 덮어쓰기",
+    })
+    print(f"apply(1,2): mp4 -> s3://{BUCKET}/{canonical_key} md5={got_md5}")
+
+    # (3) discover mp3 — canonical 키 업로드 + 재확인.
+    item = discovery_items()[0]
+    mp3_md5 = _md5_file(CHD_MP3)
+    with open(CHD_MP3, "rb") as fh:
+        s3.put_object(Bucket=BUCKET, Key=item["mp3Key"], Body=fh,
+                      ContentType="audio/mpeg")
+    got = s3.get_object(Bucket=BUCKET, Key=item["mp3Key"])["Body"].read()
+    got_md5 = hashlib.md5(got).hexdigest()
+    assert got_md5 == mp3_md5, f"mp3 S3 재확인 실패: {got_md5}"
+    writes.append({
+        "op": "s3.put_object", "key": item["mp3Key"],
+        "contentType": "audio/mpeg", "bytes": CHD_MP3.stat().st_size,
+        "sourcePath": str(CHD_MP3), "sourceMd5": mp3_md5,
+        "s3RoundtripMd5": got_md5, "at": _now(),
+        "note": "chd 승인 discover mp3 (repo 고정, Polly 재합성 0) — "
+                "s3keys.build_discover_audio_key canonical 키",
+    })
+    print(f"apply(3): mp3 -> s3://{BUCKET}/{item['mp3Key']} md5={got_md5}")
+
+    # (4) doc discovery 기입 — Task 2 와 단일 소스 payload.
+    items = discovery_items()
+    fa.update_analysis_discovery(UID, AID, items)
+    writes.append({
+        "op": "firestore.update_analysis_discovery",
+        "args": {"uid": UID, "analysisId": AID, "items": items},
+        "fieldPath": "result.discovery", "at": _now(),
+    })
+    print("apply(4): doc result.discovery 기입")
+
+    # (5) renderedCompare 갱신 — freezes 6건 (discover rid 'r04:discover').
+    freezes = _freezes_payload()
+    fa.update_analysis_rendered_compare(
+        UID, AID, canonical_key, status="done", freezes=freezes)
+    writes.append({
+        "op": "firestore.update_analysis_rendered_compare",
+        "args": {"uid": UID, "analysisId": AID, "key": canonical_key,
+                 "status": "done", "freezes": freezes},
+        "fieldPath": "result.renderedCompare",
+        "preFreezes": rc_pre.get("freezes"), "at": _now(),
+    })
+    print(f"apply(5): doc result.renderedCompare freezes={freezes}")
+
+    (EV / "production_log.json").write_text(json.dumps({
+        "status": "APPLIED",
+        "uid": UID, "aid": AID, "bucket": BUCKET,
+        "awsProfile": os.environ.get("AWS_PROFILE", "sunity-motion"),
+        "writes": writes,
+        "llm": {"geminiCalls": 0, "pollyCalls": 0,
+                "note": "렌더·업로드·doc 쓰기만 — LLM 추론 호출 0"},
+        "at": _now(),
+    }, ensure_ascii=False, indent=1))
+    print("apply: production_log.json 박제 완료 (S3 2건 + doc 2필드)")
+
+
+# ── live (반영 검증 — 영속화 필드가 운영 경로를 구동한다는 최종 증명) ────────
+
+def live() -> None:
+    global AUDIO_DIR
+
+    fa = _fa()
+    doc_live = _live_doc(fa)
+    res = doc_live["result"]
+
+    # (a) 재fetch doc == 방금 쓴 payload (로컬 캐시 미사용).
+    items = discovery_items()
+    disc_match = res.get("discovery") == {"items": items}
+    from sunity_shared import s3keys
+
+    canonical_key = s3keys.build_rendered_compare_key(UID, AID)
+    freezes = _freezes_payload()
+    rc_match = res.get("renderedCompare") == {
+        "status": "done", "key": canonical_key, "freezes": freezes}
+    assert disc_match, (
+        f"live doc discovery != 반영 payload: {res.get('discovery')}")
+    assert rc_match, (
+        f"live doc renderedCompare != 반영 payload: {res.get('renderedCompare')}")
+
+    # (b) discover mp3 = S3 의 방금 쓴 키에서 GET → basename 조인 (키 왕복 증명).
+    if AUDIO_LIVE.exists():
+        shutil.rmtree(AUDIO_LIVE)
+    AUDIO_LIVE.mkdir(parents=True)
+    for p in AUDIO_DIR.glob("r*.mp3"):
+        shutil.copyfile(p, AUDIO_LIVE / p.name)
+    s3 = _s3_client()
+    basename = items[0]["mp3Key"].rsplit("/", 1)[-1]
+    s3.download_file(BUCKET, items[0]["mp3Key"], str(AUDIO_LIVE / basename))
+    mp3_md5 = _md5_file(AUDIO_LIVE / basename)
+    assert mp3_md5 == _md5_file(CHD_MP3), f"S3 왕복 mp3 md5 상이: {mp3_md5}"
+
+    # (c) live doc 렌더 — audio_dir = S3 왕복 mp3 디렉터리.
+    audio_orig = AUDIO_DIR
+    AUDIO_DIR = AUDIO_LIVE
+    try:
+        r = _render_once("live_render", {"result": res})
+    finally:
+        AUDIO_DIR = audio_orig
+    discover_lines = [
+        ln for ln in r["stdout"].splitlines() if ln.startswith("[discover] rid=")]
+    chd_frames = json.loads((CHD_EV / "frames_md5_injected.json").read_text())
+    chain_same = r["framesMd5"] == chd_frames
+
+    ok, lines = _verify_stock(
+        pathlib.Path(r["out"]), r["report"], {"result": res},
+        OUT / "rig_live")
+    for ln in lines:
+        print(ln)
+
+    (EV / "live_verdict.json").write_text(json.dumps({
+        "meta": {"uid": UID, "aid": AID, "generated": _now(),
+                 "docSource": "Firestore 재fetch (로컬 캐시 미사용)",
+                 "mp3Source": f"s3://{BUCKET}/{items[0]['mp3Key']} GET "
+                              f"(md5={mp3_md5})"},
+        "liveDocFieldsMatch": bool(disc_match and rc_match),
+        "injectedChainSame": chain_same,
+        "chainRef": "chd frames_md5_injected.json (repo 고정)",
+        "rigStockAllPass": ok,
+        "rigLines": lines,
+        "discoverLogSeen": bool(discover_lines),
+        "discoverLogLines": discover_lines,
+        "mp4Md5": r["mp4Md5"],
+        "outFile": r["out"],
+    }, ensure_ascii=False, indent=1))
+    print(f"live: docMatch={disc_match and rc_match} chainSame={chain_same} "
+          f"rig={'PASS' if ok else 'FAIL'} discoverLog={len(discover_lines)}")
+
+
+# ── check-apply ──────────────────────────────────────────────────────────────
+
+def check_apply() -> int:
+    fails: list[str] = []
+    pl = EV / "production_log.json"
+    lv = EV / "live_verdict.json"
+    if not pl.exists():
+        print("CHECK-APPLY FAIL: production_log.json 부재")
+        return 1
+    p = json.loads(pl.read_text())
+    if p.get("status") != "APPLIED":
+        fails.append(f"production_log status != APPLIED: {p.get('status')}")
+    ops = [w.get("op") for w in p.get("writes", [])]
+    if ops != ["s3.put_object", "s3.put_object",
+               "firestore.update_analysis_discovery",
+               "firestore.update_analysis_rendered_compare"]:
+        fails.append(f"쓰기 4건 정확 아님: {ops}")
+    s3w = [w for w in p.get("writes", []) if w.get("op") == "s3.put_object"]
+    if not (s3w and s3w[0].get("s3RoundtripMd5") == APPROVED_MP4_MD5):
+        fails.append("mp4 업로드 md5 재확인 로그 부재/불일치")
+    rc = [w for w in p.get("writes", [])
+          if w.get("op") == "firestore.update_analysis_rendered_compare"]
+    fz = (rc[0]["args"].get("freezes") if rc else None) or []
+    if len(fz) != 6 or not any(f["rid"] == "r04:discover" for f in fz):
+        fails.append(f"renderedCompare freezes 6건/r04:discover 아님: {fz}")
+    if not lv.exists():
+        fails.append("live_verdict.json 부재")
+    else:
+        v = json.loads(lv.read_text())
+        for k in ("liveDocFieldsMatch", "injectedChainSame",
+                  "rigStockAllPass", "discoverLogSeen"):
+            if not v.get(k):
+                fails.append(f"live_verdict.{k} != true")
+    if fails:
+        print("CHECK-APPLY FAIL:")
+        for f in fails:
+            print(f"  - {f}")
+        return 1
+    print("CHECK-APPLY PASS (S3 2건 md5 재확인 + doc 2필드 로그 전건 + live "
+          "재fetch 렌더 == chd 승인본 + 무수정 verify ALL PASS)")
+    return 0
+
+
 def main() -> int:
     apr = argparse.ArgumentParser()
     apr.add_argument("--fetch", action="store_true")
     apr.add_argument("--baseline", action="store_true")
     apr.add_argument("--inject", action="store_true")
     apr.add_argument("--check-wire", action="store_true")
+    apr.add_argument("--apply", action="store_true")
+    apr.add_argument("--live", action="store_true")
+    apr.add_argument("--check-apply", action="store_true")
     args = apr.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     EV.mkdir(exist_ok=True)
@@ -363,6 +661,14 @@ def main() -> int:
         inject()
     if args.check_wire:
         return check_wire()
+    if args.apply:
+        fetch()
+        apply()
+    if args.live:
+        fetch()
+        live()
+    if args.check_apply:
+        return check_apply()
     return 0
 
 

@@ -19,6 +19,10 @@ VENV="${TRAIN_VENV:-/workspace/train_venv}"
 FAIL=0
 WARN=0
 
+# swift 버전은 패키지 속성으로만 읽는다 — `swift --version` 은 ms-swift 4.4 의
+# 서브커맨드 라우터에서 KeyError 트레이스백을 내 정상 설치를 실패처럼 보이게 한다.
+swift_ver_doctor() { "$VENV/bin/python" -c "import swift; print(swift.__version__)" 2>/dev/null; }
+
 ok()   { printf '  [OK]   %s\n' "$1"; }
 bad()  { printf '  [결손] %s\n         → %s\n' "$1" "$2"; FAIL=1; }
 warn() { printf '  [주의] %s\n         → %s\n' "$1" "$2"; WARN=1; }
@@ -73,14 +77,31 @@ else
 fi
 
 echo "== 6. 학습 환경 (SFT 를 돌릴 때만 필요) =="
-if [ -x "$VENV/bin/swift" ]; then
-  ok "train_venv + swift ($("$VENV/bin/swift" --version 2>&1 | head -1))"
+# ★존재가 아니라 **import** 로 판정한다 (2026-08-14 실측 2건):
+#   (a) 새 Pod 의 베이스 python 이 3.12 인데 venv 는 3.11 로 만들어져 있어, 실행
+#       파일은 있는데 site-packages 를 못 찾아 `No module named swift` 로 학습이
+#       즉사했다. 존재만 보던 이 검사는 그걸 "OK" 로 넘겼다.
+#   (b) 같은 날 torch 도 설치 성공 직후 `libcudnn.so.9` 부재로 import 가 죽었다.
+#   교훈: 설치 성공 != import 성공. 진단은 실제로 불러봐야 진단이다.
+_venv_import_ok() { "$VENV/bin/python" -c "import $1" >/dev/null 2>&1; }
+if [ -x "$VENV/bin/swift" ] && _venv_import_ok swift; then
+  ok "train_venv + swift $(swift_ver_doctor)"
+  for m in torch transformers peft vllm decord; do
+    _venv_import_ok "$m" && ok "  학습 모듈: $m" \
+      || warn "  학습 모듈 import 실패: $m" "$VENV/bin/pip install $m (venv python 버전 불일치면 pyvenv.cfg/bin 링크 확인)"
+  done
   if find "${HF_HOME:-/workspace/hf_cache}" -maxdepth 4 -iname "*Qwen3-VL*" 2>/dev/null | grep -q .; then
     ok "백본 가중치 캐시"
   else
     warn "백본 가중치 미캐시 — 학습 첫 스텝에서 16GB 를 받는다(실패 시 사이클 유실)" \
          "bash $ROOT/backend/training/sft/setup_train_venv.sh"
   fi
+elif [ -x "$VENV/bin/swift" ]; then
+  # 실행 파일은 있는데 import 가 안 되는 상태 — 재설치 전에 원인부터 좁혀준다.
+  vpy="$("$VENV/bin/python" --version 2>&1)"
+  vlib="$(ls -d "$VENV"/lib/python* 2>/dev/null | head -1)"
+  warn "train_venv 손상 — swift 실행파일은 있으나 import 불가 (venv $vpy / 패키지 $vlib)" \
+       "버전 불일치면 재설치 전에: ln -sf /usr/bin/pythonX.Y $VENV/bin/python3 (패키지 재사용 가능)"
 else
   warn "train_venv 없음 — 추론은 되지만 SFT 불가" \
        "bash $ROOT/backend/training/sft/setup_train_venv.sh (ms-swift + 백본 16GB, 수십 분)"

@@ -170,8 +170,42 @@ def worst_stutter_window(events: list[float], win_s: float = STUTTER_WIN_S) -> i
 # ut(표시 순간)를 의도적으로 옮기는 승인 문법 = align-peak(벌림 최대 국면)·
 # align-pole(폴-근접 창 내 최대 간격 순간) — H2 순간-동일성에서 면제 (근거:
 # 픽스처 실측 elbow r02 at 4.89→11.13 / kipup r00 피크 1.47, belle 승인 렌더).
+# D-di7-04 (quick-260814-di7): 발굴 라벨 'discover' 는 이 튜플에 **넣지 않는다**
+# — SUPPORT-SURFACE §5-2 의 튜플 추가안은 blanket 면제라 임의 순간 이동이
+# discover 를 사칭할 수 있다(T-di7-01). 대신 H2 가 자체 분기로 doc
+# result.discovery 의 rid+순간(±_H2_TOL_S) 매칭을 요구한다 (fail-closed —
+# 목록에 없는 순간 = 외부 삽입 의심 FAIL).
 _H2_UT_DISPLACING_SRC = ("align-peak", "align-pole")
 _H2_TOL_S = 0.2  # 15fps 정렬 그리드 반올림 유격 (compare_align FPS=15 → 1.5프레임)
+# 발굴 채택 freeze 라벨 — models.DISCOVERY_PAIR_SRC 와 lockstep (analysis 패키지
+# 의 의존 최소 원칙상 리터럴 유지, drift 는 유닛이 핀 — test_discovery_freeze).
+_DISCOVER_PAIR_SRC = "discover"
+
+
+def _discovery_item_for(fz: dict, doc: dict) -> dict | None:
+    """discover freeze 의 doc 매칭 item — H2/H3/H4 공유 단일 매칭 헬퍼 (drift 0).
+
+    doc result.discovery.items 중 rid 동일 + |freeze.userSec - item.userSec| 이
+    최소이면서 <= _H2_TOL_S 인 item. 없으면 None (fail-closed — caller FAIL).
+    """
+    result = doc.get("result") if isinstance(doc.get("result"), dict) else {}
+    items = (result.get("discovery") or {}).get("items") or []
+    rid = str(fz.get("rid"))
+    try:
+        fu = float(fz.get("userSec"))
+    except (TypeError, ValueError):
+        return None
+    best, best_d = None, None
+    for it in items:
+        if not isinstance(it, dict) or str(it.get("rid")) != rid:
+            continue
+        try:
+            d = abs(float(it.get("userSec")) - fu)
+        except (TypeError, ValueError):
+            continue
+        if d <= _H2_TOL_S and (best_d is None or d < best_d):
+            best, best_d = it, d
+    return best
 
 
 def authenticity_checks(
@@ -183,11 +217,15 @@ def authenticity_checks(
     """H1~H4 판정 목록 [(이름, PASS여부, 상세)] — verify() 가 check() 로 흘린다.
 
     H1 정지 수 — 렌더 정지 + 제외 회계 == doc 렌더 대상 record 수
-      (대상 = align.pairs 에 있거나 atVideoSec 보유 — build_timeline enrich 규칙 미러).
+      (대상 = align.pairs 에 있거나 atVideoSec 보유 — build_timeline enrich 규칙 미러
+      + result.discovery.items rid 합류, quick-260814-di7).
     H2 정지 순간 — 비-이동 pairSrc freeze 의 userSec == doc/align 순간 (±0.2s,
-      영상 끝 클램프 반영 — 렌더러 [clamp] 규칙 미러).
+      영상 끝 클램프 반영 — 렌더러 [clamp] 규칙 미러). pairSrc 'discover' 는
+      자체 분기: doc discovery 의 rid+순간(±0.2s) 매칭 시만 PASS (fail-closed).
     H3 자막 진품 — 구운 text == cue_text 조립문(또는 오버라이드) 문자 일치.
+      discover freeze 는 expected = 매칭 discovery item 의 text.
     H4 음성 조인 — 각 freeze rid 가 doc coachAudio.items 에 존재 (mp3 출처 = 그 분석).
+      discover freeze 는 매칭 discovery item 의 mp3Key 'results/' prefix 조인.
     """
     from .cue_text import coach_audio_speech_text
 
@@ -203,12 +241,20 @@ def authenticity_checks(
     freezes = report.get("freezes") or []
     excluded = report.get("excludedFreezes") or []
 
+    # 발굴 채택 목록 (quick-260814-di7) — H1 eligible 합류 + H2/H3/H4 discover
+    # 분기의 매칭 근거. 부재 doc = 빈 목록 (체크 목록 종전과 완전 동일).
+    discovery_items = (result.get("discovery") or {}).get("items") or []
+
     # H1 — 정지 회계 (조용한 탈락/외부 삽입 검출). 수가 아니라 **rid 집합 동일성**
     # — 수만 세면 외부 report 가 우연히 같은 개수일 때 통과한다 (유닛 실측으로
     # 강화: 통째 삽입 시뮬이 1==1 로 H1 을 지나쳤다).
+    # discovery rid 합류 — 신규 rid 발굴(doc records 에 없는 rid)도 렌더 대상.
     eligible = {
         rid for rid, r in by_rid.items()
         if rid in pairs or r.get("atVideoSec") is not None
+    } | {
+        str(it.get("rid")) for it in discovery_items
+        if isinstance(it, dict) and it.get("rid")
     }
     accounted = {str(fz.get("rid")) for fz in freezes} | {
         str(e.get("rid")) for e in excluded
@@ -224,6 +270,19 @@ def authenticity_checks(
     dur_user = float(report.get("userDurationS") or 0.0)
     for fz in freezes:
         rid = fz.get("rid")
+        if fz.get("pairSrc") == _DISCOVER_PAIR_SRC:
+            # discover 자체 분기 (rec-부재 guard 앞 — 신규 rid 발굴 지원, D-di7-04):
+            # doc discovery 에 rid+순간(±_H2_TOL_S) 매칭이 있을 때만 PASS.
+            # blanket 면제 없음 — 목록에 없는 순간 = 외부 삽입 의심 FAIL.
+            item = _discovery_item_for(fz, doc)
+            out.append((
+                f"H2 순간 {rid}[discover]",
+                item is not None,
+                "doc discovery 순간 일치"
+                if item is not None
+                else "doc discovery 에 없는 순간 (외부 삽입 의심)",
+            ))
+            continue
         rec = by_rid.get(rid)
         if rec is None:
             out.append((f"H2 순간 {rid}", False, "doc 에 없는 record (외부 삽입 의심)"))
@@ -250,6 +309,22 @@ def authenticity_checks(
 
     for fz in freezes:
         rid = fz.get("rid")
+        if fz.get("pairSrc") == _DISCOVER_PAIR_SRC:
+            # discover 자막 진품 = doc 영속화 원문 문자 일치 (T-di7-02) — 같은
+            # rid 의 원본 record freeze 는 아래 종전 cue_text 로직 그대로 (rid
+            # 공유 케이스 — chd stock 2FAIL 의 구조 원인 해소).
+            item = _discovery_item_for(fz, doc)
+            ok3 = item is not None and fz.get("text") == item.get("text")
+            out.append((
+                f"H3 자막 진품 {rid}[discover]",
+                ok3,
+                "문자 일치" if ok3 else (
+                    "doc discovery 매칭 부재"
+                    if item is None
+                    else f"불일치: 구운='{str(fz.get('text'))[:40]}…'"
+                ),
+            ))
+            continue
         rec = by_rid.get(rid)
         if rec is None:
             continue  # H2 에서 이미 FAIL
@@ -273,6 +348,20 @@ def authenticity_checks(
     }
     for fz in freezes:
         rid = fz.get("rid")
+        if fz.get("pairSrc") == _DISCOVER_PAIR_SRC:
+            # discover 음성 조인 = discovery item 의 mp3Key 'results/' prefix
+            # (D-di7-03: coachAudio 무접촉 — rid 파일명 충돌 + cueId 조인 오염
+            # 회피. mp3 출처 = build_discover_audio_key canonical 키).
+            item = _discovery_item_for(fz, doc)
+            ok4 = item is not None and str(item.get("mp3Key", "")).startswith(
+                "results/")
+            out.append((
+                f"H4 음성 조인 {rid}[discover]",
+                ok4,
+                "discovery mp3Key 조인" if ok4
+                else "doc discovery 매칭/mp3Key 부재 (외부 mp3 의심)",
+            ))
+            continue
         ok4 = rid in item_rids
         out.append((
             f"H4 음성 조인 {rid}",

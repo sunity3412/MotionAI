@@ -2039,12 +2039,24 @@ Mode1 분석이 complete(status='done') 된 뒤, Pod **사후** 스테이지(`co
 |------|------|------|
 | `status` | 'done'\|'failed' | `done` = 리그 ALL PASS mp4 업로드 완료 (key 유효) / `failed` = align 실패·리그 FAIL·스테이지 예외 (앱은 듀얼 플레이어 폴백) |
 | `key` | string | canonical S3 키 (`results/` prefix, `.mp4` suffix). failed 는 `''`. **URL 비저장** — 재생 URL 은 `POST /playback-url` `asset: 'renderedCompare'` 재서명으로만 (H-02) |
-| `freezes?` | `{rid, outSec}[]` | **optional, done 전용** (UI 라운드) — 감점 정지의 합성 mp4 출력 타임라인 시각. `rid` = §12.3 recordId 콜론 앞 축약, `outSec` = 정지 시작 초 (렌더 리포트 voiceStartOutS). 앱 씬 바 틱 + 탭 점프(-0.5s 시크) 근거. **부재(구버전 doc) = 틱 없이 재생만** (fail-open 표시). scalar dict 배열 — nested array 아님 |
+| `freezes?` | `{rid, outSec}[]` | **optional, done 전용** (UI 라운드) — 감점 정지의 합성 mp4 출력 타임라인 시각. `rid` = §12.3 recordId 콜론 앞 축약, `outSec` = 정지 시작 초 (렌더 리포트 voiceStartOutS). 앱 씬 바 틱 + 탭 점프(-0.5s 시크) 근거. **부재(구버전 doc) = 틱 없이 재생만** (fail-open 표시). scalar dict 배열 — nested array 아님. **발굴(discover, §12.10) 정지 틱은 rid 에 `:discover` 접미** (예: `r04:discover`) — 앱 freezeNumber 형식 불일치 = 무번호 틱 fail-open 분기 + React key 중복 회피 (D-di7-05, 앱 코드 무접촉) |
 
 - 스테이지 게이트: env `RENDERED_COMPARE_ENABLED != '0'`(kill-switch, 기본 ON) + `mode == 'mode1'` + ref 로컬 영상 존재 + **motionAlignment `tier == 'warped'`** (trim_only/disabled/부재 = 저신뢰 정렬 강등 스킵 — belle doc 127a2a90 반려 라운드) + 추출 능력 프로브(rtmlib import + YOLOX/RTMW 가중치 실파일 — Lambda CPU 폴백 경로 자동 스킵, T-35J-04). 게이트 미충족·렌더 대상 freeze 전멸 = **doc 필드 무접촉 스킵** (부재 = 폴백). Mode3 는 범위 밖 — 상시 폴백.
 - 검증: `_validate_rendered_compare` — 필수 키(`RENDERED_COMPARE_KEYS`) + 선택 키(`freezes`) 화이트리스트 + status enum + done→key `results/` prefix + `.mp4` suffix / failed→key `''`+freezes 금지 / freezes item = `{rid, outSec}` 정확히 (T-35J-02).
 - 리그 확장 (belle 실기기 반려 라운드): **G 경계 핀** — 렌더된 freeze 의 `refSec` 이 ref 영상 양끝 0.5s 밖 (DTW 종점 강제 정렬 아티팩트 차단, 렌더러 사전 제외 + 리그 이중 방어) / **H 진품 판정** — 정지 rid 집합 회계·정지 순간 == doc 측정 순간(±0.2s, 클램프·이동 문법 면제)·구운 자막 == cue_text 조립문·음성 rid == coachAudio 조인 (v7 통째 삽입류 조작이 기계적으로 FAIL — 신뢰 장치).
 - 3-way lockstep: `app/src/types/analysis.ts` `RenderedCompare` ↔ `models.py` `RENDERED_COMPARE_KEYS` 블록 ↔ 본 §12.9.
+
+### §12.10 discovery (`result.discovery`) — 발굴 채택 freeze 영속화 (quick-260814-di7)
+
+자율 발굴(discover) 사이클이 찾고 belle 이 채택한 순간을 doc 에 영속화한다. 분석 **사후** 채택 산출물 — `firestore_admin.update_analysis_discovery(uid, analysisId, items)` 가 `result.discovery` **단일 field-path** 를 통째 교체 (coachAudio 사후 분리 선례, 채점·verdict 무접촉). 소비자 = `compare_render.build_timeline` 주입 레이어(record 루프 뒤 discover freeze 추가 — pairSrc `'discover'`) + `compare_verify` H 게이트(H2/H3/H4 discover 분기 — doc discovery 의 rid+순간(±0.2s) 매칭 시만 PASS, **fail-closed**: 목록에 없는 순간 = 외부 삽입 의심 FAIL, blanket 면제 없음). **서버 전용 — 앱 미독** (TS 무변경 사유: 앱은 renderedCompare mp4 만 재생하고 discovery 필드를 읽지 않는다. 앱 노출 표면 = §12.9 freezes 틱의 `:discover` 접미뿐).
+
+| 필드 | 타입 | 의미 |
+|------|------|------|
+| `items` | `{rid, joint, userSec, refSec, pairSrc, text, mp3Key, adoptedAt}[]` | 채택 목록. `rid` = §12.3 recordId 콜론 앞 축약 (records 에 없는 신규 rid 허용 — H1 eligible 합류). `pairSrc` = `'discover'` 고정 enum. `text` = 정지 자막·음성 원문 (자막=음성 lockstep — H3 expected). `mp3Key` = canonical S3 키 (**단일 출처 = `s3keys.build_discover_audio_key`** → `results/{uid}/{analysisId}/discover_audio_{rid}_{joint}.mp3`. 렌더 조인 = basename — `discover_` 접두라 record 큐 오디오 `r{NN}.mp3` 와 구조 비충돌). scalar dict 배열 — nested array 아님 |
+
+- 검증: `_validate_discovery` — 키 화이트리스트(`DISCOVERY_KEYS`/`DISCOVERY_ITEM_KEYS` 정확히) + pairSrc enum + rid/joint/text/adoptedAt 비어있지 않은 str + userSec/refSec 유한 수 ≥0 + mp3Key `results/` prefix + `.mp3` suffix + items 간 mp3Key 중복 거부 (T-di7-04).
+- coachAudio 무접촉 (D-di7-03): discovery mp3 는 `coachAudio.items` 에 넣지 않는다 — rid 기반 mp3 파일명 회수 루프가 원본 record mp3 를 덮어쓰고, 앱 audioCue prefetch 의 cueId 조인을 오염시킨다. H4 는 discovery 필드 자체 조인으로 해소.
+- 2-way lockstep: `models.py` `DISCOVERY_*` 블록 ↔ 본 §12.10 (앱 미독 — TS 무변경).
 
 ---
 
@@ -2065,3 +2077,4 @@ Mode1 분석이 complete(status='done') 된 뒤, Pod **사후** 스테이지(`co
 *Plan 32-13 §12.8 추가: 2026-07-22 — 문장↔영상 스팟체크 (D-22/D-23) 3-way lockstep (TS SpotCheck/SpotCheckVerdict ↔ models.py SPOT_CHECK_KEYS 블록 ↔ §12.8). 사후 스테이지 판정(동기 경로 신규 외부 호출 0 — 속도 예산 구조 보호)·recordId 기반 카드 표면 숨김(tally 미필터 — 채점 불변)·praise 교차검증 동일 호출(단일 원천 = summaryPraise.headline, 리뷰 blocker 5)·표시 정책 명문(부재/pending/skipped/failed = 전 카드 표시 fail-open — 숨김 권한은 명백 mismatch 에만, uncertain = 표시)·숨김-정합 불변식. 방출은 32-13 배포부터 — legacy doc 부재 하위호환.*
 *quick-260808-jix §12.9 + playback-url renderedCompare 확장 추가: 2026-08-08 — 합성 비교 영상 (Phase 35 앱 통합) 3-way lockstep (TS RenderedCompare ↔ models.py RENDERED_COMPARE_KEYS 블록 ↔ §12.9). Pod 사후 스테이지(GPU align 재생성 — doc 폴백 렌더 운영 부재)·리그 ALL PASS 게이트("전 항목 PASS 아니면 doc 부착 없음")·부재/failed = 듀얼 플레이어 폴백·이중 발화 방지 = 분기(VideoCompare 미렌더) 구조·canonical key 단일 출처(s3keys.build_rendered_compare_key)·asset 'renderedCompare' 재서명(done + exact 이중 가드, H-02/V-0). 방출은 Pod 배포부터 — legacy doc 부재 하위호환.*
 *quick-260808-jix §12.9 갱신 (belle 실기기 반려 + UI 라운드): 2026-08-08 — 렌더 방어(motionAlignment tier 게이트·freeze 전멸 미기록·리그 G 경계 핀·H 진품 판정) + `freezes?` optional 확장 (done 전용 정지 틱 데이터 — 앱 씬 바 틱·탭 점프 시크, 부재 = fail-open 재생만). 3-way lockstep (TS RenderedCompareFreeze ↔ models.py RENDERED_COMPARE_OPTIONAL_KEYS/FREEZE_KEYS ↔ §12.9 표).*
+*quick-260814-di7 §12.10 추가 + §12.9 freezes `:discover` 접미 규칙: 2026-08-14 — 발굴 채택 freeze doc 영속화 (result.discovery, 서버 전용/앱 미독 — TS 무변경). build_timeline 주입 레이어(pairSrc 'discover') + compare_verify H2/H3/H4 discover 분기 (rid+순간 ±0.2s 매칭 fail-closed — blanket 면제 없음, T-di7-01) + `_validate_discovery`/`update_analysis_discovery` + canonical mp3 키 단일 출처(s3keys.build_discover_audio_key, basename 조인). 2-way lockstep (models.py DISCOVERY_* 블록 ↔ §12.10).*

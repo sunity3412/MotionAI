@@ -1646,6 +1646,110 @@ def update_analysis_rendered_compare(
     )
 
 
+def _validate_discovery(payload, *, path: str = "discovery") -> None:  # noqa: ANN001
+    """discovery scoped validator (quick-260814-di7 — contract.md §12.10).
+
+    형상: {items: list[{rid, joint, userSec, refSec, pairSrc, text, mp3Key,
+    adoptedAt}]}. coachAudio validator 뼈대 복제 — 각 item 을
+    `_validate_dict_only_scalars` 로 라우팅해 nested list/dict 를 거부하고
+    (Firestore 중첩 배열 금지 정합), 본 validator 는 추가로 강제한다 (T-di7-04):
+      · 최상위 키 = models.DISCOVERY_KEYS 정확히 (누락/여분 거부)
+      · items = list, 각 item 키 = models.DISCOVERY_ITEM_KEYS 정확히
+      · rid/joint/text/adoptedAt 비어있지 않은 str
+      · userSec/refSec 유한 수 >= 0
+      · pairSrc == models.DISCOVERY_PAIR_SRC (enum — 사칭 라벨 차단)
+      · mp3Key 'results/' prefix + '.mp3' suffix
+        (s3keys.build_discover_audio_key 단일 출처 — H-02 계열)
+      · items 간 mp3Key 중복 거부 (같은 rid+joint 복수 채택 = 키 규약 확장
+        의제 — 지금은 fail-closed)
+    실패 시 TypeError/ValueError raise (caller 가 graceful 처리).
+    """
+    if not isinstance(payload, dict):
+        raise TypeError(
+            f"_validate_discovery: dict 입력만 허용. path={path or '<root>'}, "
+            f"got={type(payload).__name__}"
+        )
+    if set(payload.keys()) != set(models.DISCOVERY_KEYS):
+        raise ValueError(
+            f"{path}: 키는 {list(models.DISCOVERY_KEYS)} 정확히여야 함. "
+            f"got={sorted(payload.keys())}"
+        )
+    items = payload["items"]
+    if not isinstance(items, list):
+        raise TypeError(
+            f"{path}.items: list 만 허용. got={type(items).__name__}"
+        )
+    seen_keys: set[str] = set()
+    for i, item in enumerate(items):
+        item_path = f"{path}.items[{i}]"
+        # nested list/dict 거부 — generic validator 라우팅 (본체 무수정).
+        _validate_dict_only_scalars(item, path=item_path)
+        if set(item.keys()) != set(models.DISCOVERY_ITEM_KEYS):
+            raise ValueError(
+                f"{item_path}: 키는 {list(models.DISCOVERY_ITEM_KEYS)} 정확히여야 함. "
+                f"got={sorted(item.keys())}"
+            )
+        for field in ("rid", "joint", "text", "adoptedAt"):
+            v = item[field]
+            if not isinstance(v, str) or not v:
+                raise ValueError(f"{item_path}.{field}: 비어있지 않은 str 이어야 함")
+        for field in ("userSec", "refSec"):
+            v = item[field]
+            if not isinstance(v, (int, float)) or isinstance(v, bool) \
+                    or not math.isfinite(float(v)) or float(v) < 0:
+                raise ValueError(
+                    f"{item_path}.{field}: 0 이상 유한 수여야 함. got={v!r}"
+                )
+        if item["pairSrc"] != models.DISCOVERY_PAIR_SRC:
+            raise ValueError(
+                f"{item_path}.pairSrc: {models.DISCOVERY_PAIR_SRC!r} 만 허용. "
+                f"got={item['pairSrc']!r}"
+            )
+        mp3_key = item["mp3Key"]
+        if not isinstance(mp3_key, str) or not mp3_key.startswith("results/") \
+                or not mp3_key.endswith(".mp3"):
+            raise ValueError(
+                f"{item_path}.mp3Key: 'results/' prefix + '.mp3' suffix 의 str "
+                f"이어야 함 (s3keys.build_discover_audio_key 단일 출처). "
+                f"got={mp3_key!r}"
+            )
+        if mp3_key in seen_keys:
+            raise ValueError(
+                f"{item_path}.mp3Key: items 간 중복 금지 (렌더 basename 조인이 "
+                f"모호해짐 — fail-closed). dup={mp3_key!r}"
+            )
+        seen_keys.add(mp3_key)
+
+
+def update_analysis_discovery(
+    uid: str,
+    analysis_id: str,
+    items: list[dict],
+) -> None:
+    """discovery 사후 부분 업데이트 (quick-260814-di7 — coach_audio 뼈대 복제).
+
+    발굴 채택은 분석 **사후** belle 승인 산출물이다 — complete_analysis 무접촉,
+    점수/verdict/감점 내역 불변 (T-27-18 / D-03 경계). `result.discovery`
+    **단일 field-path** 만 부분 갱신하며 목록은 매번 통째 교체 (merge 의 배열
+    병합 모호성 회피 — update_analysis_coach_audio 선례 그대로).
+
+    Args:
+      items: [{rid, joint, userSec, refSec, pairSrc, text, mp3Key, adoptedAt}]
+        scalar dict 리스트 (models.DISCOVERY_ITEM_KEYS).
+
+    Raises:
+      ValueError/TypeError: 형상 위반 (_validate_discovery).
+    """
+    payload = {"items": list(items or [])}
+    _validate_discovery(payload)
+    _doc(models.analysis_doc_path(uid, analysis_id)).update(
+        {
+            "result.discovery": payload,
+            "updatedAt": int(time.time() * 1000),
+        }
+    )
+
+
 def _validate_spot_check(payload, *, path: str = "spotCheck") -> None:  # noqa: ANN001
     """spotCheck scoped validator (Phase 32 Plan 32-13, D-23 — contract.md §12.8).
 

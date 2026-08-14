@@ -362,6 +362,9 @@ RENDERED_COMPARE_KEYS = ("status", "key")
 # 타임라인에서 그 정지가 시작되는 초 (렌더 리포트 voiceStartOutS — 앱 씬 바 틱
 # + 탭 점프 시크의 근거). 부재(구버전 doc) = 틱 없이 재생만 (fail-open 표시).
 # scalar dict 배열 — nested array 아님 ([[firestore-nested-array-flat]] 정합).
+# D-di7-05 (quick-260814-di7): discover 정지 틱은 rid 에 ':discover' 접미
+# (예: 'r04:discover') — 앱 freezeNumber 가 형식 불일치 시 무번호 틱 fail-open
+# 분기 + React key(rid) 중복 회피. 앱 코드 무접촉.
 RENDERED_COMPARE_OPTIONAL_KEYS = ("freezes",)
 RENDERED_COMPARE_FREEZE_KEYS = ("rid", "outSec")
 RENDERED_COMPARE_STATUS_DONE = "done"
@@ -372,6 +375,23 @@ RENDERED_COMPARE_STATUSES = (
 )
 # playback-url asset 확장 — coachAudio 와 동일하게 VISUAL_JOB_KINDS 와 분리 유지.
 PLAYBACK_ASSET_RENDERED_COMPARE = "renderedCompare"
+
+# ── quick-260814-di7: 발굴 채택 freeze doc 영속화 (discovery) ───────────────
+# result.discovery — 발굴(discover) 채택 순간의 doc 영속화. 분석 **사후** 채택
+# 산출물 (belle 육안 채택 → update_analysis_discovery 통째 교체 — coachAudio
+# 사후 분리 선례, 채점·verdict 무접촉). **앱 미독** — 계약 문서화만 (TS 무변경,
+# docs/contract.md §12.10 lockstep). 소비자 = compare_render.build_timeline
+# 주입 레이어(record 루프 뒤 discover freeze 추가) + compare_verify H 게이트
+# (H2/H3/H4 discover 분기 — doc discovery 의 rid+순간(±0.2s) 매칭 시만 PASS,
+# fail-closed: 목록에 없는 순간 = 외부 삽입 의심 FAIL).
+# items[].mp3Key = s3keys.build_discover_audio_key **단일 출처** ('results/'
+# prefix + '.mp3' suffix). 배열 안 scalar-only map — Firestore 중첩 배열 금지
+# 정합 ([[firestore-nested-array-flat]], _validate_dict_only_scalars 라우팅).
+DISCOVERY_KEYS = ("items",)
+DISCOVERY_ITEM_KEYS = (
+    "rid", "joint", "userSec", "refSec", "pairSrc", "text", "mp3Key", "adoptedAt",
+)
+DISCOVERY_PAIR_SRC = "discover"
 
 # ── Phase 32 (Plan 32-13): 스팟체크 (D-22/D-23 — 문장↔영상 일치 자가검증) ──
 # result.spotCheck — 분석 **사후** 스테이지(pipeline spot_check)가 감점 카드

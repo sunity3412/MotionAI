@@ -1318,6 +1318,64 @@ def build_timeline(doc: dict, audio_dir: Path, moments: dict | None = None,
             # 재합성(p35_audio.py synth)이 공용으로 읽어 lockstep 이 구조 보장.
             "text": (text_overrides or {}).get(rid) or speech_text(rec),
         })
+
+    # ── 발굴 채택 freeze 주입 레이어 (quick-260814-di7) ──────────────────────
+    # doc result.discovery.items (models.DISCOVERY_* 계약, contract.md §12.10) —
+    # 분석 사후 belle 채택 산출물을 record-driven freezes 뒤에 추가하는 공식 경로.
+    # 스펙 실증본 = quick-260814-chd inject_freeze.py _install_injection (사본
+    # delta → 정식 경로 승격). render() 가 ut 순 정렬하므로 append 순서 무관.
+    # 표시 스펙 = D-di7-06: markers(_align_markers) + knee 관절만 몸-폴 라인
+    # 시도 (성립 시 markers=[] — 위 record 경로 :1261 표시 소유권 미러). 짝
+    # 재선정(피크/폴/그립/가중) 미실행 — 채택이 이미 ut/rt 를 확정했다.
+    raw_by_rid = {
+        str(rec.get("recordId", "")).split(":")[0]: rec
+        for rec in r.get("deductionBreakdown", {}).get("records", [])
+        if isinstance(rec, dict) and rec.get("recordId")
+    }
+    for item in (r.get("discovery") or {}).get("items") or []:
+        d_rid = str(item.get("rid", ""))
+        d_joint = str(item.get("joint", ""))
+        # mp3 조인 = mp3Key 의 basename (D-di7-02 — s3keys.build_discover_audio_key
+        # 단일 출처, 'discover_' 접두라 r{NN}.mp3 와 구조적 비충돌).
+        mp3_name = str(item.get("mp3Key", "")).rsplit("/", 1)[-1]
+        d_mp3 = audio_dir / mp3_name
+        if not mp3_name or not d_mp3.exists():
+            print(f"[warn] discover mp3 없음 — 정지 스킵: {d_rid} ({mp3_name})")
+            excluded.append({"rid": d_rid, "reason": "discover_no_mp3"})
+            continue
+        if align is None:
+            # 운영 스테이지는 항상 align 보유 — 방어 (fail-closed 회계).
+            print(f"[warn] discover align 없음 — 정지 스킵: {d_rid}")
+            excluded.append({"rid": d_rid, "reason": "discover_no_align"})
+            continue
+        d_ut = float(item["userSec"])
+        d_rt = float(item["refSec"])
+        # rt 경계 = record 경로와 같은 REF_BOUNDARY_PIN_S 제외 (G 핀 lockstep).
+        ref_dur_align = float(align["refFrames"]) / float(align["fps"])
+        if not (REF_BOUNDARY_PIN_S <= d_rt <= ref_dur_align - REF_BOUNDARY_PIN_S):
+            print(f"[boundary-pin] {d_rid} rt={d_rt:.2f}s ref={ref_dur_align:.1f}s "
+                  f"— DTW 종점 아티팩트, 정지 제외", file=sys.stderr)
+            excluded.append({"rid": d_rid, "reason": "ref_boundary_pin"})
+            continue
+        d_rec = raw_by_rid.get(d_rid)
+        # 신규 rid(doc records 에 없는 발굴) = markers [] fail-open (표시만 생략).
+        d_markers = _align_markers(align, d_rec, d_ut) if d_rec is not None else []
+        d_body_viz = None
+        if d_joint in ("left_knee", "right_knee"):
+            d_body_viz = _body_line_viz(align, d_ut, d_rt, poles or {})
+            if d_body_viz is not None:
+                d_markers = []  # 몸라인 문법이 표시 소유 (:1261 미러)
+        print(f"[discover] rid={d_rid} joint={d_joint} ut={d_ut} rt={d_rt} "
+              f"mp3={mp3_name}")
+        freezes.append({
+            "rid": d_rid, "ut": d_ut, "rt": d_rt,
+            "pair_src": "discover",  # == models.DISCOVERY_PAIR_SRC (lockstep)
+            "dur": mp3_duration_s(d_mp3) + FREEZE_TAIL_S,
+            "mp3": d_mp3, "joint": d_joint, "markers": d_markers,
+            "legs_viz": None, "viz_kind": None, "viz_side": None,
+            "pole_viz": None, "body_viz": d_body_viz,
+            "text": str(item.get("text", "")),
+        })
     return warp_b, freezes, excluded
 
 

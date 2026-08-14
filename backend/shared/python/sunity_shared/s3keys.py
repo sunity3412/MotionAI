@@ -54,6 +54,21 @@ def build_coach_audio_key(uid: str, analysis_id: str, record_id: str) -> str:
     return f"{RESULT_PREFIX}/{uid}/{analysis_id}/coach_audio_{record_id}.mp3"
 
 
+def build_discover_audio_key(uid: str, analysis_id: str, rid: str, joint: str) -> str:
+    """발굴 채택 freeze 음성 mp3 의 canonical S3 키 (quick-260814-di7, D-di7-02).
+
+    **단일 출처** — doc `result.discovery.items[].mp3Key` 는 반드시 이 함수
+    산출값이어야 한다 (build_coach_audio_key 선례 — drift 차단).
+    렌더 조인 규약 = **basename**: compare_render.build_timeline 주입 레이어가
+    `audio_dir/<basename(mp3Key)>` 로 mp3 를 찾는다. 'discover_' 접두라 record
+    큐 오디오 파일명(r{NN}.mp3)과 구조적으로 비충돌. 같은 rid+joint 복수 채택은
+    validator 의 mp3Key 중복 거부로 fail-closed (키 규약 확장은 미래 의제).
+    """
+    return (
+        f"{RESULT_PREFIX}/{uid}/{analysis_id}/discover_audio_{rid}_{joint}.mp3"
+    )
+
+
 # 합성 비교 영상 렌더 버전 — 표시 문법이 바뀌면 bump (키가 바뀌어 구 mp4 와
 # 신 doc 가 절대 섞이지 않는다. 구 버전 객체는 앱이 참조하지 않게 됨).
 RENDERED_COMPARE_RENDER_VERSION = 1

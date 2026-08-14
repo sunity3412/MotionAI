@@ -690,6 +690,70 @@ def scan_s3(
 # ===========================================================================
 # 원장 로드/저장 + 배치 등재.
 # ===========================================================================
+def upload_admitted_media(
+    *, repo_root, s3_client=None, bucket=None, s3_prefix="results/", dry_run=True,
+) -> dict:
+    """admit 행의 크롭 PNG 를 학습 미디어 키로 올리고 `uploaded` 를 세운다.
+
+    학습셋 조립의 fail-closed(`eye_media_pending_upload>0` → 업로드 차단)를 푸는
+    유일한 경로다. j24 가 "크롭 업로드 사이클을 먼저 돌리거나(권장)" 라고만 적고
+    구현을 남기지 않아 플라이휠이 학습 직전에서 멈춰 있었다(quick-260814-l5i).
+
+    행에는 원본 위치가 없다(P-4: source_ref 는 uid 비파생) → 원본을 다시 걸으며
+    **content hash 로 대조**한다. 해시가 곧 미디어 키라 대조와 목적지가 같은 값이다.
+
+    hold 행은 올리지 않는다 — 적재 판정과 미디어 반출은 같은 축이어야 한다.
+    """
+    manifest = load_eye_manifest()
+    rows = manifest.get("rows") or []
+    want = {
+        r["media_sha16"]: r for r in rows
+        if r.get("disposition") == "admit" and not r.get("uploaded")
+        and r.get("media_sha16")
+    }
+    found: dict = {}
+
+    repo_root = Path(repo_root)
+    for png in sorted(repo_root.glob(".planning/quick/**/eye_ledger/**/*.png")):
+        if not want:
+            break
+        data = png.read_bytes()
+        sha16 = content_hash(data)
+        if sha16 in want and sha16 not in found:
+            found[sha16] = data
+
+    if s3_client is not None and bucket:
+        paginator = s3_client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=bucket, Prefix=s3_prefix):
+            for obj in page.get("Contents", []) or []:
+                key = obj["Key"]
+                if "/eye/" not in key or not key.endswith(".png"):
+                    continue
+                data = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
+                sha16 = content_hash(data)
+                if sha16 in want and sha16 not in found:
+                    found[sha16] = data
+
+    uploaded = 0
+    if not dry_run and s3_client is not None and bucket:
+        for sha16, data in found.items():
+            s3_client.put_object(
+                Bucket=bucket, Key=media_key(sha16), Body=data, ContentType="image/png",
+            )
+            want[sha16]["uploaded"] = True
+            uploaded += 1
+        if uploaded:
+            save_eye_manifest(manifest)
+
+    return {
+        "pending_before": len(want),
+        "resolved": len(found),
+        "unresolved": sorted(set(want) - set(found)),
+        "uploaded": uploaded,
+        "dry_run": dry_run,
+    }
+
+
 def load_eye_manifest() -> dict:
     if not EYE_MANIFEST_PATH.exists():
         return {
@@ -772,7 +836,28 @@ def main(argv=None) -> int:
         "--readjudicate", action="store_true",
         help="기존 행의 판정 필드만 현행 규칙으로 갱신 (정책 근거 변경 시. 행·관측치는 보존)",
     )
+    ap.add_argument(
+        "--upload-media", action="store_true",
+        help="admit 행 크롭을 학습 미디어 키로 업로드 + uploaded 세움 (--run 과 함께 실제 반출)",
+    )
     args = ap.parse_args(argv)
+
+    if args.upload_media:
+        s3c = None
+        if args.run:
+            import boto3  # noqa: PLC0415 - 여기서만 필요(모듈 최상위 무부담)
+            s3c = boto3.client("s3")
+        report = upload_admitted_media(
+            repo_root=_REPO_ROOT, s3_client=s3c, bucket=args.bucket,
+            s3_prefix=args.s3_prefix, dry_run=not args.run,
+        )
+        print(f"[upload-media] pending {report['pending_before']} | 원본 확인 "
+              f"{report['resolved']} | 업로드 {report['uploaded']}"
+              f"{' (dry-run)' if report['dry_run'] else ''}")
+        if report["unresolved"]:
+            print(f"[upload-media] 원본 미발견 {len(report['unresolved'])}건 — "
+                  "학습셋 조립은 이 건들 때문에 계속 차단된다(은폐 금지).")
+        return 0
 
     collected_at = utc_now_iso()
     repo = scan_repo_evidence(

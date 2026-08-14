@@ -1,0 +1,42 @@
+{
+  "schema_version": "ft-v1.0",
+  "prompt_version": "ft-v1.0",
+  "manifest_version": "ft-v1.0",
+  "validation_owner": "explicit_val_jsonl",
+  "track_counts": {
+    "perturb": 0,
+    "distill": 0,
+    "shadow": 0,
+    "text": 2,
+    "eye": 35
+  },
+  "perturb_coords_only_count": 0,
+  "fault_bearing_count": 0,
+  "fault_free_count": 0,
+  "fault_free_cap_ratio": 1.5,
+  "motion_counts": {},
+  "shadow_unregistered_dropped": 0,
+  "shadow_text_only_count": 0,
+  "mix_ratios": {
+    "t3_temporal": 0.075,
+    "instruction": 0.075
+  },
+  "partial": false,
+  "upload_prefix": "training/phase22/jsonl/",
+  "eye_admitted_count": 99,
+  "eye_mismatch_count": 23,
+  "eye_media_pending_upload": 0,
+  "eye_observed_counts": {
+    "bent": 12,
+    "unclear": 6,
+    "extended": 14,
+    "off_body": 3
+  },
+  "eye_motion_counts": {
+    "ref-pdshape": 30,
+    "ref-elbow-twist-sister": 4,
+    "ref-power-spin": 1
+  },
+  "eye_leakage_dropped": 0,
+  "eye_balance_trimmed": 64
+}

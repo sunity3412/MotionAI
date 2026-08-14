@@ -147,6 +147,42 @@ v4 aligned 게이트에서 eval18 fault 짚기 실패의 근본원인 = fault �
   - **운영 노트**: Pod(데이터센터 IP) 실행분은 YT 봇체크·IG 로그인월로 다운로드 0 — 다운로드 스테이지는 로컬(주거 IP)에서 실행해야 한다. 큐레이션 캐시 소비 구조라 재실행 재과금 0.
   - `_meta.recollection_rounds[0].status` = `"collected"` (2026-07-14). §5 원장 증분은 §5-3.
 
+## 7-3. 기계 눈 크롭 학습 적재 판정 (2026-08-14)
+
+기계 눈(machine_eye) 원장 = 관절 마킹 크롭 PNG + 관절 상태 판정(bent/extended/unclear/off_body) + 사지 종류(limb) + 근거 + 신뢰도. 트랙(각도 파이프라인) 주장과 눈 관측이 어긋난 행(`match=false`)은 keypoint 환각·마크 전위의 라벨된 실례라 학습 가치가 크다. 이 절은 그 크롭을 학습 코퍼스에 넣을 수 있는지에 대한 판정 원장이다. 실행·실측 상세 = `.planning/quick/260814-j24-eye-s3/EYE-HARVEST-REPORT.md`.
+
+### (a) 판정표 (기존 정책의 기계적 적용 — 신규 완화 0)
+
+| ID | 대상 | 판정 | 근거 |
+|----|------|------|------|
+| P-1 | user 측 크롭 | **hold — 적재 0** | §7-1(c) anonymize 강제 불변(적재 전 강제, 소급 불가, D-12). 얼굴 블러 미적용 크롭 → belle 결정(B-1) 전까지 적재 금지 |
+| P-2 | ref 측 크롭(정은지 reference 영상 유래) | **admit** | §5-1 internal seed 17행 = 자사 촬영 + 파일럿 참가 동의서(D-12 1겹). `_is_customer_source("internal")` = False → D-12 가명처리 요건 비대상. 같은 영상 통째가 이미 `anonymized=false` 로 학습 소비 중이므로 그 크롭이 원본보다 엄격할 근거 없음 |
+| P-3 | 운영 S3 `results/{uid}/{aid}/eye/` 전량 | **hold — 적재 0, 수확 원장 기록만** | §7-1(d) 컷오프(2026-07-13) 이후 문서는 `learningOptIn=true` 엄격. 눈 원장은 2026-08 생성 = 컷오프 이후. (b) 동의 실측 결과 플래그 부재 → fail-safe 보류 |
+| P-4 | 수확 행의 식별자 | **uid·analysisId 금지** | §7 말미 "매니페스트에 uid·사용자 식별자 필드 금지(테스트 fence)" + §7-1(f) uid/analysisId 비파생. eye 행 식별자는 크롭 PNG content hash(sha256 앞 16자) 단독 |
+| P-5 | motion 미해결 행 | **hold** | motion 없는 샘플은 `build_jsonl._balance_media` 를 무조건 통과해 균등 규율을 우회(dump-all) → fail-closed |
+
+집행 지점: `backend/training/datagen/harvest_eye.py`(`consent_disposition` / `assert_no_identifier_keys` / `resolve_motion`) + `backend/training/distill/full_batch.py::make_eye_loader` + `build_jsonl._build_eye_samples` 이중 fail-closed. 테스트 fence = `backend/tests/phase22/test_harvest_eye.py`(52) + `test_eye_track.py`(26).
+
+### (b) 동의 실측 (Firestore read-only, 2026-08-14)
+
+눈 원장이 가리키는 분석 문서 **6건 전수**(`users/{uid}/analyses/{aid}`) 읽기 결과: **6/6 에서 `learningOptIn` 필드가 부재**(false 도 아닌 미기록), **6/6 이 belle 일괄승인 컷오프(2026-07-13) 이후 생성**. `enumerate_internal.consent_allows` 계약(부재 + 컷오프 이후 = strict 제외)에 따라 **P-1/P-3 은 hold 로 확정**된다. 각 수확 행은 이 측정을 `consent_flag: null` 로 보존한다. Firestore 쓰기 0, S3 쓰기 0.
+
+### (c) 실측 수치 (수확 1회차, `backend/training/data/eye_manifest.json`)
+
+- 스캔 205행(리포 evidence 157 + 운영 S3 48) → content-hash 병합 후 원장 **141행**(중복 64 = 같은 크롭 바이트).
+- **admit 41 / hold 100.** admit 사유는 전건 `internal_seed_ref`(P-2), hold 사유는 전건 `customer_anonymize_required`(P-1).
+- 트랙-눈 불일치 90행(admit 29 / hold 61). 그중 "상태는 같은데 사지가 어긋난" 마크 전위 라벨 20행(admit 5 / hold 15).
+- admit motion 분포: ref-pdshape 30 · ref-elbow-twist-sister 8 · ref-power-spin 2 · ref-peter-pan 1.
+- 학습 JSONL 방출 **7행**(균등 규율 `max ≤ 2×min` 트림 34, val leakage 0). 사람 점수 라벨 0, score/severity 계열 필드 구조적 부재.
+- 식별자 실측: 141행 전수에서 금지 키 0, Firebase uid 패턴 값 0, 원문에 `results/`·uid·analysisId 문자열 0.
+- 크롭 PNG 는 아직 S3 미업로드 → `--upload` fail-closed 차단(존재하지 않는 키를 가리키는 학습셋 금지).
+
+### (d) belle 결정 대기
+
+- **B-1**: user 측 크롭 100행(불일치 61 포함, 트랙이 5~7도 극단 굽힘을 주장한 순간을 눈이 뒤집은 최고가치 8행 **전부 포함**)을 얼굴 블러 가명처리해 살릴 것인가. 크롭은 관절 중심이라 얼굴 포함 사례 실측 존재. 원장에 keypoint 좌표가 없어 크롭 단위 얼굴 위치 미상 → 검출 재추론 = 별건 사이클. **임의 진행 금지.**
+- **B-2**: 운영 S3 수확분 동의 확인용 Firestore read — **해제·실행 완료**((b)). 결과는 hold 확정.
+- **B-3**: ref 크롭에 정은지 얼굴이 포함될 수 있음(어깨/팔꿈치 크롭 — admit 41행 중 어깨 10행). 기존 정책상 비대상이나 본인 관련이므로 **통지 항목**.
+
 ## 8. belle 결정 이력 (일자순)
 
 | 일자 | 결정 | 내용 |
@@ -159,6 +195,7 @@ v4 aligned 게이트에서 eval18 fault 짚기 실패의 근본원인 = fault �
 | 2026-07-13 | 백본 확정 | bake-off PROVISIONAL 우승 **Qwen3-VL-8B** 공식 확정(CONFIRMED). 22-BAKEOFF-RESULT.md 판정 갱신 |
 | 2026-07-13 | 내부 fault 트랙 일괄승인 | §7-1 — 파일럿 이전 내부 데이터(직원 실증·내부 테스트) 학습사용 일괄 승인(구두). learningOptIn=false 1건 제외, anonymize 강제, 이후 신규는 optIn=true 엄격. 처방 B 착수 근거 |
 | 2026-07-14 | fault 타겟 재수집 라운드 승인 | §7-2 — 튜토리얼 타겟 외부 재수집(fault_demo 큐레이션 프로필, 편집/자막 reject 만 완화) + 정은지 IG cap 상향 20→60(본인 동의 확보). 점수 금지·미성년 제외·uploads/ 금지 게이트 불변 |
+| 2026-08-14 | 기계 눈 크롭 학습 적재 판정 | §7-3 — P-1~P-5(user 크롭 hold / ref 크롭 admit / 운영 S3 hold / 식별자 = content hash 단독 / motion 미해결 hold). 동의 실측(Firestore read-only 6 doc 전건 `learningOptIn` 부재 + 컷오프 이후) 으로 hold 확정. 수확 원장 141행 = admit 41 / hold 100. **B-1(user 크롭 가명처리)·B-3(정은지 ref 크롭 통지) belle 결정 대기** |
 
 ## 9. A9 게이트 체크리스트 (출시 전 법률검토 1회 — counsel 확인 항목)
 

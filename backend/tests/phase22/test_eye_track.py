@@ -134,17 +134,24 @@ def test_eye_injection_does_not_disturb_existing_samples():
 
 
 def test_eye_injection_meta_is_additive_only():
+    """eye 네임스페이스 밖 _meta 값은 주입 여부와 무관하게 불변(키 집합도 동일)."""
     base = _build()
     with_eye = _build(eye_loader=_eye_loader())
+    assert set(with_eye["_meta"]) == set(base["_meta"]), "_meta 키 집합이 주입에 따라 흔들림"
     for key, value in base["_meta"].items():
+        if key.startswith("eye_"):
+            continue  # eye 네임스페이스 = additive 관측치.
         if key == "track_counts":
             for track, count in value.items():
+                if track == "eye":
+                    continue
                 assert with_eye["_meta"]["track_counts"][track] == count
             continue
         assert with_eye["_meta"][key] == value, f"_meta.{key} 변형 — 무회귀 위반"
     for added in ("eye_admitted_count", "eye_mismatch_count", "eye_media_pending_upload",
                   "eye_leakage_dropped", "eye_observed_counts", "eye_motion_counts"):
         assert added in with_eye["_meta"]
+    assert base["_meta"]["track_counts"]["eye"] == 0
     assert with_eye["_meta"]["track_counts"]["eye"] > 0
 
 

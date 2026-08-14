@@ -168,6 +168,77 @@ def _user_text_msg(text: str) -> dict:
     return {"role": "user", "content": [{"type": "text", "text": text}]}
 
 
+# ── eye 트랙 (quick 260814-j24) — 기계 눈 관절 상태 관측 ─────────────────────
+#
+# 왜 faults[] 가 아니라 별도 6키 스키마인가: 눈 판정은 **결함이 아니라 관절 상태
+# 관측**이다. 이를 faults 배열에 담으면 정상 관측(agrees=true)까지 결함으로 사칭돼
+# 학습셋이 오염된다(감점 엔진이 소비하는 계약이라 실제로 감점으로 이어진다).
+# v4 자유생성 붕괴 fix 의 교훈(_TASK_INSTRUCTION — 출력 계약을 입력에 명시)을 그대로
+# 적용해 eye 태스크는 자체 지시문 + 자체 스키마를 갖는다. score/severity/overall/
+# points 계열은 여기서도 구조적 부재다(D-01 불변식의 eye 판).
+EYE_TASK_KEYS: tuple[str, ...] = (
+    "joint",               # 마킹된 관절.
+    "observed",            # 눈 관측: bent | extended | unclear | off_body.
+    "reason",              # 그렇게 본 근거(자유텍스트).
+    "side",                # user | ref.
+    "track_claim",         # 트랙(파이프라인)이 주장한 상태 — 입력에서 주어진다.
+    "track_claim_agrees",  # 트랙 주장과 눈 관측의 일치 여부. false = keypoint 환각.
+)
+
+_EYE_SYSTEM = (
+    "당신은 폴스포츠 자세 분석의 검증자입니다. 주황색 원으로 표시된 관절 한 곳만 보고 "
+    "그 관절이 접혔는지(bent) 펴졌는지(extended) 판정하고, 판정 불가면 unclear, 표시가 "
+    "관절 위가 아니면 off_body 로 답합니다. 점수는 매기지 않습니다."
+)
+
+_EYE_TASK_INSTRUCTION = (
+    "\n\n표시된 관절만 보고 다음 키를 갖는 JSON 만 출력하라: "
+    "joint, observed, reason, side, track_claim, track_claim_agrees. "
+    "observed 는 bent | extended | unclear | off_body 중 하나다. "
+    "track_claim_agrees 는 track_claim 과 observed 가 같은 상태를 가리키면 true, "
+    "아니면 false 다. 점수·심각도는 출력하지 않는다."
+)
+
+
+def _eye_context_text(joint, side, claim) -> str:
+    """Eye_Task 데이터 행 — _rtmw_text 관례(데이터 접두 + 공용 지시문)와 동형.
+
+    track_claim 을 입력에 넣는 이유: 넣지 않으면 타겟의 track_claim /
+    track_claim_agrees 가 원리적으로 학습 불가(모델이 추측해야 함)라 불일치 감독이
+    잡음으로 변한다. 눈 태스크의 감독 신호는 "주어진 주장이 그림과 맞는가"다.
+    """
+    payload = {"claim": claim, "joint": joint, "side": side}
+    return "Eye_Task: " + json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def _user_image_msg(media_key: str, joint, side, claim) -> dict:
+    return {
+        "role": "user",
+        "content": [
+            {"type": "image", "image": _s3_uri(media_key)},
+            {"type": "text", "text": _eye_context_text(joint, side, claim)
+             + _EYE_TASK_INSTRUCTION},
+        ],
+    }
+
+
+def normalize_eye_report(raw: dict) -> dict:
+    """eye 리포트 정규화 — EYE_TASK_KEYS 화이트리스트 + 결측 None + 알파벳 정렬.
+
+    schema.normalize_report 는 REPORT_KEYS 전용이라 재사용하지 않는다(다른 태스크).
+    화이트리스트 밖 키(score/severity 등)는 통과하지 않는다 — 구조적 부재의 집행점.
+    """
+    raw = raw if isinstance(raw, dict) else {}
+    return {k: raw.get(k) for k in sorted(EYE_TASK_KEYS)}
+
+
+def _assistant_eye_msg(report: dict) -> dict:
+    return {
+        "role": "assistant",
+        "content": json.dumps(normalize_eye_report(report), ensure_ascii=False, sort_keys=True),
+    }
+
+
 def _assistant_report_msg(thought, report: dict) -> dict:
     """thought + REPORT_KEYS 알파벳 정렬 JSON (normalize_report 통과 강제)."""
     normalized = schema.normalize_report(report)
@@ -478,6 +549,72 @@ def _build_shadow_samples(manifest, shadow_loader) -> tuple[list[dict], int, int
     return out, unregistered_dropped, text_only_count
 
 
+def _build_eye_samples(eye_loader) -> tuple[list[dict], dict]:
+    """기계 눈 원장(admit 행) → eye 트랙 샘플 + 관측 카운터 (quick 260814-j24).
+
+    fail-closed 2겹: loader 층(full_batch.make_eye_loader)이 disposition=admit +
+    motion 보유만 방출하고, 이 층이 다시 같은 조건과 media_key 존재를 확인한다.
+    hold 행이 JSONL 에 유입되면 프라이버시 fence(P-1/P-3)가 무너지므로 이중 확인이다.
+    """
+    if eye_loader is None:
+        return [], {"eye_admitted_count": 0}
+    out: list[dict] = []
+    for row in eye_loader() or []:
+        if row.get("disposition") != "admit":
+            continue  # hold 행 차단(프라이버시 fence).
+        motion = row.get("motion")
+        media_key = row.get("media_key")
+        if not motion or not media_key:
+            continue  # P-5 motion 미해결 / 미디어 미상 — dump-all 차단.
+        agrees = row.get("track_claim_agrees")
+        report = {
+            "joint": row.get("joint"),
+            "observed": row.get("observed"),
+            "reason": row.get("reason"),
+            "side": row.get("side"),
+            "track_claim": row.get("claim"),
+            "track_claim_agrees": agrees,
+        }
+        pending = not bool(row.get("uploaded"))
+        out.append({
+            "messages": [
+                {"role": "system", "content": _EYE_SYSTEM},
+                _user_image_msg(media_key, row.get("joint"), row.get("side"), row.get("claim")),
+                _assistant_eye_msg(report),
+            ],
+            "_track": "eye",
+            "_motion": motion,
+            "_video_hash": None,   # 크롭은 영상 행이 아니다 — val split 대상 아님.
+            "_has_faults": False,  # eye 는 관측 트랙(항상 fault-free).
+            "_eye_agrees": agrees,
+            "_eye_observed": row.get("observed"),
+            "_media_pending_upload": pending,
+        })
+    return out, {"eye_admitted_count": len(out)}
+
+
+def _eye_counters(eye_samples) -> dict:
+    """최종(leakage 드롭 + 균등 트림 후) eye 관측치 — 은폐 불가하게 _meta 로 방출."""
+    observed: dict = {}
+    motions: dict = {}
+    mismatch = pending = 0
+    for s in eye_samples:
+        obs = s.get("_eye_observed")
+        observed[obs] = observed.get(obs, 0) + 1
+        m = s.get("_motion")
+        motions[m] = motions.get(m, 0) + 1
+        if s.get("_eye_agrees") is False:
+            mismatch += 1
+        if s.get("_media_pending_upload"):
+            pending += 1
+    return {
+        "eye_mismatch_count": mismatch,
+        "eye_media_pending_upload": pending,
+        "eye_observed_counts": observed,
+        "eye_motion_counts": motions,
+    }
+
+
 def _build_text_samples(n_media: int, mix_ratios: dict) -> list[dict]:
     """T3 순수 텍스트 시간추론 + 순수 텍스트 instruction 혼합(D-11, 언어 감퇴 방지)."""
     out: list[dict] = []
@@ -591,6 +728,7 @@ def build_dataset(
     distill_loader=None,
     shadow_loader=None,
     reference_loader=None,
+    eye_loader=None,
     mix_ratios: dict | None = None,
     validation_owner: str = "explicit_val_jsonl",
     val_frac: float = 0.02,
@@ -631,22 +769,41 @@ def build_dataset(
     # 균등 게이트는 **트랙별 독립** 적용 — 합산 적용 시 트랙 간 자리 경쟁이 생겨
     # 앞 트랙이 뒤 트랙을 잠식한다 (22-07A 실증: perturb 주입이 distill 85→38).
     # 각 트랙은 자체적으로 동작 균등(max<=2*min)을 만족하고, 트랙 혼합비는 별개 축.
-    media = (
+    media_core = (
         _balance_media(perturb_samples)
         + _balance_media(distill_samples)
         + _balance_media([s for s in shadow_samples if sample_has_video(s)])
     )
     # B 재균형 — fault-free 미디어를 fault-bearing 대비 캡(결함 신호 익사 방지).
     # 트랙별 균등 게이트 이후, 트림된 media 기준으로 text 혼합이 자동 축소된다.
-    media, fault_bearing_count, fault_free_count = _cap_fault_free(media, FAULT_FREE_CAP_RATIO)
+    # ★ eye 를 넣기 **전에** 적용한다: eye 는 전부 fault-free 라 캡을 잡아먹어 기존
+    #   distill 행을 밀어낸다 — 이 순서를 어기면 무회귀 1급 게이트 위반이다.
+    media_core, fault_bearing_count, fault_free_count = _cap_fault_free(
+        media_core, FAULT_FREE_CAP_RATIO
+    )
     shadow_text = [s for s in shadow_samples if not sample_has_video(s)]
-    text_samples = _build_text_samples(len(media), mix_ratios)
-
-    all_samples = media + shadow_text + text_samples
+    # 언어 감퇴 방지 혼합비의 분모는 media_core 로 고정한다 — eye 는 다른 태스크(관절
+    # 상태 관측)라 "영상 태스크 대비 텍스트 비율" 의 분모가 아니다. 분모에 넣으면
+    # eye 주입만으로 텍스트 행 수가 늘어 기존 3트랙 산출이 바뀐다(무회귀 위반).
+    text_samples = _build_text_samples(len(media_core), mix_ratios)
 
     # video_hash 단위 split (leakage 0) — 소유자는 이 모듈 단독.
-    media_hashes = {s.get("_video_hash") for s in media if s.get("_video_hash")}
+    media_hashes = {s.get("_video_hash") for s in media_core if s.get("_video_hash")}
     val_hashes = _split_val_hashes(media_hashes, validation_owner, val_frac)
+
+    # eye 트랙 — val 에 속한 media 의 motion 과 겹치는 eye 샘플은 드롭(leakage 0).
+    # eye 행은 video_hash 가 없어 hash split 으로는 격리되지 않으므로 motion 격리다.
+    eye_samples, eye_counters = _build_eye_samples(eye_loader)
+    val_motions = {
+        s.get("_motion") for s in media_core
+        if s.get("_video_hash") in val_hashes and s.get("_motion")
+    }
+    eye_kept = [s for s in eye_samples if s.get("_motion") not in val_motions]
+    eye_leakage_dropped = len(eye_samples) - len(eye_kept)
+    eye_balanced = _balance_media(eye_kept)  # 트랙 독립 균등(max <= 2*min).
+
+    media = media_core + eye_balanced
+    all_samples = media + shadow_text + text_samples
 
     train: list[dict] = []
     val: list[dict] = []
@@ -657,7 +814,7 @@ def build_dataset(
         else:
             train.append(s)
 
-    track_counts: dict = {"perturb": 0, "distill": 0, "shadow": 0, "text": 0}
+    track_counts: dict = {"perturb": 0, "distill": 0, "shadow": 0, "text": 0, "eye": 0}
     for s in all_samples:
         t = s.get("_track")
         if t in track_counts:
@@ -668,6 +825,8 @@ def build_dataset(
         1 for s in media if s.get("_track") == "perturb" and s.get("_coords_only")
     )
 
+    # motion_counts 는 media_core 기준을 유지한다 — eye 를 섞으면 기존 _meta 값이
+    # 바뀌어 additive 계약이 깨진다. eye 분포는 eye_motion_counts 로 따로 방출.
     meta = {
         "schema_version": schema.SCHEMA_VERSION,
         "prompt_version": schema.PROMPT_VERSION,
@@ -679,13 +838,17 @@ def build_dataset(
         "fault_bearing_count": fault_bearing_count,
         "fault_free_count": fault_free_count,
         "fault_free_cap_ratio": FAULT_FREE_CAP_RATIO,
-        "motion_counts": _motion_counts(media),
+        "motion_counts": _motion_counts(media_core),
         "shadow_unregistered_dropped": shadow_dropped,
         "shadow_text_only_count": shadow_text_only,
         "mix_ratios": dict(mix_ratios),
         "partial": bool(partial),
         "upload_prefix": resolve_upload_prefix(partial),
     }
+    # eye 트랙 관측치 — 전부 additive 키(미주입 시 0/빈 dict).
+    meta.update(eye_counters)
+    meta.update(_eye_counters(eye_balanced))
+    meta["eye_leakage_dropped"] = eye_leakage_dropped
 
     return {
         "train": train,

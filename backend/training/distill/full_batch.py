@@ -350,6 +350,31 @@ def make_perturb_loader(cache_dir):
     return loader
 
 
+def make_eye_loader(eye_manifest_path):
+    """눈 수확 원장 → build_jsonl eye_loader 계약 (quick 260814-j24).
+
+    fail-closed: disposition=admit 이고 motion 이 진리값인 행만 방출한다. hold 행
+    (user 크롭 P-1 / 운영 S3 P-3 / motion 미해결 P-5)은 어떤 경우에도 JSONL 에 닿지
+    않는다 — 프라이버시 판정의 코드 fence. 원장 부재는 빈 트랙(크래시 아님).
+    """
+    def loader():
+        path = Path(eye_manifest_path)
+        if not path.exists():
+            log.warning("eye 원장 없음 — eye 트랙 0행: %s", path)
+            return []
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            log.warning("eye 원장 손상 — eye 트랙 0행: %s", path)
+            return []
+        return [
+            r for r in data.get("rows", [])
+            if r.get("disposition") == "admit" and r.get("motion")
+        ]
+
+    return loader
+
+
 def make_s3_uploader(bucket: str = _DEFAULT_BUCKET):
     """S3 업로더 factory — assemble_jsonl(uploader=...) 주입용. 기본 경로는 미사용(gated)."""
     import boto3  # lazy
@@ -372,6 +397,7 @@ def assemble_jsonl(
     perturb_loader=None,
     shadow_loader=None,
     reference_loader=None,
+    eye_loader=None,
     mix_ratios=None,
     seed: int = 0,
     uploader=None,
@@ -395,6 +421,7 @@ def assemble_jsonl(
         distill_loader=make_distill_loader(accepted_dir),
         shadow_loader=shadow_loader,
         reference_loader=reference_loader,
+        eye_loader=eye_loader,
         mix_ratios=mix_ratios,
         validation_owner=validation_owner,
         partial=partial,
@@ -402,6 +429,15 @@ def assemble_jsonl(
     )
     paths = build_jsonl.write_dataset(data, Path(out_dir))
     uploaded: list[str] = []
+    # 업로드 fail-closed (T-j24-06): eye 크롭 PNG 가 아직 S3 에 없으면 JSONL 이 존재하지
+    # 않는 키를 가리킨다 — 로컬 조립은 허용(실물 확인)하되 canonical 업로드는 차단한다.
+    pending = int(data["_meta"].get("eye_media_pending_upload") or 0)
+    if uploader is not None and pending > 0:
+        raise SystemExit(
+            f"eye 크롭 {pending}건이 S3 미업로드 상태 — 학습셋 업로드 차단(fail-closed). "
+            "JSONL 이 존재하지 않는 training/phase22/eye/*.png 를 가리키게 된다. "
+            "크롭 업로드 사이클을 먼저 돌리거나(권장), 이번 사이클은 --with-eye 없이 재실행."
+        )
     if uploader is not None:
         prefix = build_jsonl.resolve_upload_prefix(partial)
         name_map = {"train": "train.jsonl", "val": "val.jsonl", "meta": "_meta.json"}
@@ -427,6 +463,10 @@ if __name__ == "__main__":  # pragma: no cover - 실 실행은 메인 세션(Pod
                     help="배치 대신 accepted → train/val JSONL 조립(과금 0)")
     ap.add_argument("--with-perturb", action="store_true",
                     help="--assemble 시 perturb 트랙 주입(좌표 캐시 필요 — 22-07 처방 A)")
+    ap.add_argument("--with-eye", action="store_true",
+                    help="--assemble 시 eye 트랙 주입(기계 눈 수확 원장 admit 행 — j24)")
+    ap.add_argument("--eye-manifest",
+                    default=str(_BACKEND / "training" / "data" / "eye_manifest.json"))
     ap.add_argument("--upload", action="store_true",
                     help="--assemble 시 S3 업로드(gated — greenlight 필수)")
     ap.add_argument("--validation-owner", default="explicit_val_jsonl",
@@ -448,6 +488,7 @@ if __name__ == "__main__":  # pragma: no cover - 실 실행은 메인 세션(Pod
             validation_owner=args.validation_owner,
             partial=args.partial,
             perturb_loader=make_perturb_loader(args.cache_dir) if args.with_perturb else None,
+            eye_loader=make_eye_loader(args.eye_manifest) if args.with_eye else None,
             uploader=make_s3_uploader(args.bucket) if args.upload else None,
         )
         print(json.dumps(

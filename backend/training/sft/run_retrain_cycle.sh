@@ -87,10 +87,14 @@ assemble() {
   aws s3 sync "s3://$BUCKET/training/phase22/jsonl/" \
     "s3://$BUCKET/training/phase22/jsonl_backup_${ts}/" \
     || { echo "[중단] canonical 백업 실패 — 교체 차단(단일 진실 보호)" >&2; exit 5; }
-  echo "[assemble] 기존+신규 accepted 병합 재조립 + canonical 교체 (--assemble --with-perturb --upload)"
+  echo "[assemble] 기존+신규 accepted 병합 재조립 + canonical 교체 (--assemble --with-perturb --with-eye --upload)"
+  # --with-eye (j24): 기계 눈 수확 원장(eye_manifest.json)의 admit 행을 4번째 트랙으로
+  # 태운다. 크롭 PNG 가 아직 S3 에 없으면 assemble 이 fail-closed 로 멈춘다 —
+  # 존재하지 않는 training/phase22/eye/*.png 를 가리키는 학습셋을 canonical 로 올리지
+  # 않기 위한 의도된 차단이다. 해제 조건 = 크롭 업로드 사이클 선행(EYE-HARVEST-REPORT §6).
   python3 -m training.distill.full_batch \
     --out-dir "$OUT_DIR" --cache-dir "$CACHE_DIR" \
-    --assemble --with-perturb --upload
+    --assemble --with-perturb --with-eye --upload
 }
 
 # ── stage 4: train (foreground — 사이클 자체가 nohup) ────────────────────────

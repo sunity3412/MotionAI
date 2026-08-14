@@ -398,3 +398,97 @@ def test_real_repo_evidence_scan_writes_nothing(tmp_path, monkeypatch):
     before = he.EYE_MANIFEST_PATH.exists()
     he.scan_repo_evidence(_REPO_ROOT / ".planning")
     assert he.EYE_MANIFEST_PATH.exists() is before
+
+
+# ===========================================================================
+# 미오픈 내부 계정 근거 (belle 판정 2026-08-14) — 화이트리스트 밖 보호가 1급.
+# ===========================================================================
+
+def test_prelaunch_internal_admits_user_side():
+    """자사 계정 user 측 크롭은 admit — P-1 hold 근거(보호할 제3자)가 없다."""
+    assert he.consent_disposition(
+        "user", "pdshapefault", "s3_operational",
+        owner=he.OWNER_PRELAUNCH_INTERNAL,
+    ) == ("admit", "prelaunch_internal")
+
+
+def test_prelaunch_internal_does_not_override_explicit_denial():
+    """learningOptIn=false 는 자사 계정이라도 뒤집지 않는다 (7-1(b) 최우선)."""
+    assert he.consent_disposition(
+        "user", "m", "s3_operational", consent=False,
+        owner=he.OWNER_PRELAUNCH_INTERNAL,
+    ) == ("hold", "consent_denied")
+
+
+def test_prelaunch_internal_still_holds_unknown_motion():
+    """motion 미해결은 내부 계정에서도 hold — 균등 규율 우회 방지(동의와 다른 층)."""
+    disposition, _ = he.consent_disposition(
+        "user", None, "s3_operational", owner=he.OWNER_PRELAUNCH_INTERNAL,
+    )
+    assert disposition == "hold"
+
+
+def test_unlisted_account_still_held():
+    """★회귀 방지선 — 명단 밖 계정의 user 크롭은 여전히 hold.
+
+    앱 오픈 후 생기는 실제 수강생 계정이 이 경로로 새면 안 된다.
+    """
+    assert he.consent_disposition(
+        "user", "m", "s3_operational", owner=he.OWNER_UNVERIFIED,
+    ) == ("hold", "customer_anonymize_required")
+    assert he.consent_disposition(
+        "user", "m", "s3_operational", consent=True, owner=he.OWNER_UNVERIFIED,
+    ) == ("hold", "customer_anonymize_required")
+
+
+def test_owner_scope_fail_closed_for_unknown_uid():
+    """미상·명단 밖 uid 는 unverified. 빈 값·None 도 fail-closed."""
+    assert he.owner_scope("some-brand-new-user-uid-0001") == he.OWNER_UNVERIFIED
+    assert he.owner_scope(None) == he.OWNER_UNVERIFIED
+    assert he.owner_scope("") == he.OWNER_UNVERIFIED
+
+
+def test_owner_scope_matches_known_internal_account():
+    """운영 eye 원장 소유 계정(실측)은 내부로 판정된다."""
+    assert he.owner_scope("fvcNXzEqKjgqVxRPVSj1iwFnIpn2") == he.OWNER_PRELAUNCH_INTERNAL
+
+
+def test_prelaunch_whitelist_is_bounded():
+    """화이트리스트가 조용히 넓어지지 않았는지 — 오늘 확인된 3계정 고정."""
+    assert len(he.PRELAUNCH_INTERNAL_UID_SHA16) == 3
+
+
+def test_readjudicate_updates_only_verdict_fields():
+    """재판정은 판정 필드만 바꾸고 관측치·이미지·출처는 보존한다."""
+    old = {
+        "eye_id": "x1", "disposition": "hold",
+        "disposition_reason": "customer_anonymize_required",
+        "consent_flag": None, "observed": "bent", "media_sha16": "x1",
+        "source_ref": "orig#0", "reason": "원래 근거",
+    }
+    fresh = {
+        "eye_id": "x1", "disposition": "admit",
+        "disposition_reason": "prelaunch_internal",
+        "consent_flag": None, "observed": "extended", "media_sha16": "x1",
+        "source_ref": "새경로#9", "reason": "새 근거",
+    }
+    merged, added, skipped = he.merge_rows([old], [fresh], readjudicate=True)
+    assert (added, skipped) == (0, 1)
+    row = merged[0]
+    assert row["disposition"] == "admit"
+    assert row["disposition_reason"] == "prelaunch_internal"
+    # 판정 밖 필드는 원본 보존 — 이력이 진실.
+    assert row["observed"] == "bent"
+    assert row["source_ref"] == "orig#0"
+    assert row["reason"] == "원래 근거"
+
+
+def test_readjudicate_off_by_default_keeps_existing_verdict():
+    """기본값은 append-only — 판정도 안 바뀐다(기존 계약 무회귀)."""
+    old = {"eye_id": "x1", "disposition": "hold", "disposition_reason": "r0",
+           "consent_flag": None}
+    fresh = {"eye_id": "x1", "disposition": "admit",
+             "disposition_reason": "prelaunch_internal", "consent_flag": None}
+    merged, _, _ = he.merge_rows([old], [fresh])
+    assert merged[0]["disposition"] == "hold"
+    assert merged[0]["disposition_reason"] == "r0"

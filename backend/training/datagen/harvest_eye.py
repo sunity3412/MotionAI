@@ -163,23 +163,74 @@ def media_key(sha16: str) -> str:
     return f"{MEDIA_PREFIX}{sha16}.png"
 
 
-def consent_disposition(side, motion, source_kind, consent=None) -> tuple[str, str]:
+# ── 앱 미오픈 내부 계정 (belle 판정 2026-08-14) ────────────────────────────────
+# belle 원문: "앱 계정은 그냥 우리거야 아직 앱이 오픈되지도 않음".
+# P-1(user 측 가명처리)·P-3(옵트인 미검증)의 hold 근거는 **보호할 제3자가 있을 때**
+# 성립한다. 앱이 외부에 공개된 적이 없어 외부 사용자 계정 자체가 존재하지 않으므로,
+# 아래 명단의 계정에서 나온 크롭은 자사 촬영분과 같은 층(LICENSE-AUDIT 5-1 internal)
+# 으로 다룬다.
+#
+# ★명단은 **오늘 존재가 확인된 자사 계정만** 담는다. 명단 밖 uid 는 기존 게이트가
+#   그대로 적용되므로 앱 오픈 후 생기는 실제 수강생 계정은 자동으로 보호된다 —
+#   전역 우회 플래그를 두지 않은 이유가 이것이다(화이트리스트가 조용히 넓어지지 않음).
+# ★만료 조건: 앱이 외부에 공개되는 순간 이 근거는 소멸한다. 그때 이 상수를 비우고
+#   learningOptIn 실측만 남겨야 한다 (LICENSE-AUDIT §7-4).
+# ★uid 원문을 코드에 두지 않는다 (P-4 규율) — sha256 앞 16자로만 대조한다.
+PRELAUNCH_INTERNAL_UID_SHA16 = frozenset({
+    "a7430c9c130cdc25",  # 재분석 러너 계정 (p34fresh* 문서 + 운영 eye 원장 소유)
+    "8ada262a78411cb5",  # 픽스처 영상 소유 계정 (pdshapefault/peterpanfault 업로드)
+    "2809cb6912668209",  # belle 등록 계정
+})
+OWNER_PRELAUNCH_INTERNAL = "prelaunch_internal"
+OWNER_UNVERIFIED = "unverified"
+
+
+def owner_scope(uid) -> str:
+    """uid → 소유 범위. 명단 밖·미상은 전부 unverified (fail-closed).
+
+    uid 원문은 반환값에 실리지 않는다 — 호출부는 범위 문자열만 행에 남긴다(P-4).
+    """
+    if not isinstance(uid, str) or not uid:
+        return OWNER_UNVERIFIED
+    digest = hashlib.sha256(uid.encode("utf-8")).hexdigest()[:16]
+    return (
+        OWNER_PRELAUNCH_INTERNAL
+        if digest in PRELAUNCH_INTERNAL_UID_SHA16
+        else OWNER_UNVERIFIED
+    )
+
+
+def consent_disposition(
+    side, motion, source_kind, consent=None, owner=OWNER_UNVERIFIED
+) -> tuple[str, str]:
     """(disposition, reason) — 모듈 docstring P-1~P-5 표의 기계적 적용.
 
     우선순위(테스트로 고정):
       0. consent is False        → hold/consent_denied      (7-1(b) 무조건 제외)
-      1. ref + repo_evidence + motion            → admit/internal_seed_ref            (P-2)
-      2. ref + s3_operational + motion + consent → admit/internal_seed_ref_optin_verified
-      3. side == user            → hold/customer_anonymize_required                   (P-1)
-      4. s3_operational          → hold/optin_unverified_post_cutoff                  (P-3)
-      5. motion 미해결           → hold/motion_unknown                                (P-5)
-      6. 그 외                   → hold/unclassified
+      1. 미오픈 내부 계정 + motion → admit/prelaunch_internal (belle 260814)
+      2. ref + repo_evidence + motion            → admit/internal_seed_ref            (P-2)
+      3. ref + s3_operational + motion + consent → admit/internal_seed_ref_optin_verified
+      4. side == user            → hold/customer_anonymize_required                   (P-1)
+      5. s3_operational          → hold/optin_unverified_post_cutoff                  (P-3)
+      6. motion 미해결           → hold/motion_unknown                                (P-5)
+      7. 그 외                   → hold/unclassified
 
-    user 측은 consent 실측이 true 라도 hold 다 — 동의와 가명처리는 다른 층이고,
-    얼굴 블러(B-1)는 belle 미결이기 때문이다(임의 진행 금지).
+    0 이 1 보다 우선인 것은 의도다 — 명시적 거부(learningOptIn=false)는 자사 계정
+    이라도 뒤집지 않는다. 5(P-5 motion 미해결)도 내부 계정에서 유지된다: 균등 규율
+    우회를 막는 축이라 동의와 층이 다르다.
+
+    명단 밖(owner=unverified)은 아래 4·5 가 그대로 걸린다 — 앱 오픈 후 실제
+    수강생 크롭이 이 경로로 새지 않게 하는 회귀 방지선이다.
     """
     if consent is False:
         return "hold", "consent_denied"
+    if owner == OWNER_PRELAUNCH_INTERNAL:
+        # 내부 계정에서 동의 축은 소멸했다 — 남는 축은 P-5(motion 미해결) 하나뿐이다.
+        # 여기서 바로 반환하지 않으면 motion 없는 내부 행이 아래 user 분기에 걸려
+        # `customer_anonymize_required` 로 **잘못 진단**된다(실제 막는 축은 motion).
+        if motion:
+            return "admit", "prelaunch_internal"
+        return "hold", "motion_unknown"
     if side == "ref" and motion:
         if source_kind == SOURCE_KIND_REPO:
             return "admit", "internal_seed_ref"
@@ -210,6 +261,7 @@ def entry_to_row(
     png_bytes: bytes,
     collected_at: str,
     consent=None,
+    owner: str = OWNER_UNVERIFIED,
 ) -> dict | None:
     """눈 원장 entry → 학습 원장 행. 라벨 없는 행(observed=="error")은 None.
 
@@ -227,7 +279,7 @@ def entry_to_row(
         return None  # 라벨 없음 — fail-closed(실측 0건이나 계약으로 고정).
     sha16 = content_hash(png_bytes)
     disposition, reason = consent_disposition(
-        entry.get("side"), motion, source_kind, consent=consent
+        entry.get("side"), motion, source_kind, consent=consent, owner=owner
     )
     agrees = entry.get("match")
     row = {
@@ -284,22 +336,38 @@ def assert_no_identifier_keys(row: dict) -> None:
                 )
 
 
-def merge_rows(existing, new) -> tuple[list[dict], int, int]:
+# 재판정이 갱신할 수 있는 필드 — 판정 결과와 그 근거뿐이다. 관측·이미지·출처는
+# 불변(이력이 진실). 이 화이트리스트 밖 필드는 재판정으로 절대 바뀌지 않는다.
+READJUDICATE_FIELDS = ("disposition", "disposition_reason", "consent_flag")
+
+
+def merge_rows(existing, new, readjudicate: bool = False) -> tuple[list[dict], int, int]:
     """eye_id 기준 멱등 병합 → (merged, added, skipped). 기존 행 무변형(append-only).
 
     같은 원장을 2회 수확하면 added 0 / skipped N 이 되고, 기존 행은 새 값으로 덮이지
     않는다 — 수확 원장은 append-only 이며 이력이 진실이다.
+
+    readjudicate=True 면 기존 행의 **판정 필드만**(READJUDICATE_FIELDS) 새 판정으로
+    갱신한다. 정책 근거가 바뀌었을 때(예: belle 판정으로 hold 근거 소멸) 원장을
+    지우고 다시 만들지 않고도 판정을 따라가기 위한 명시적 경로다 — 행 자체는
+    보존되므로 append-only 취지(이력 유실 금지)는 지켜진다. 관측치·이미지 해시·
+    출처는 갱신 대상이 아니다.
     """
     merged = list(existing or [])
     seen = {r.get("eye_id") for r in merged if r.get("eye_id")}
+    by_id = {r.get("eye_id"): r for r in merged if r.get("eye_id")}
     added = skipped = 0
     for row in new or []:
         eid = row.get("eye_id")
         if not eid or eid in seen:
             skipped += 1
+            if readjudicate and eid in by_id:
+                for field in READJUDICATE_FIELDS:
+                    by_id[eid][field] = row.get(field)
             continue
         seen.add(eid)
         merged.append(row)
+        by_id[eid] = row
         added += 1
     return merged, added, skipped
 
@@ -510,6 +578,10 @@ def scan_repo_evidence(
                     png_bytes=png.read_bytes(),
                     collected_at=collected_at,
                     consent=analysis_consent,
+                    # 리포 evidence 는 자사 하네스가 리포/픽스처 데이터로 생산한
+                    # 원장이다 — 외부 업로드 경로를 거치지 않는다(계정 자체가 없음).
+                    # 앱 오픈 후에도 이 경로로 수강생 데이터가 들어올 수 없다.
+                    owner=OWNER_PRELAUNCH_INTERNAL,
                 )
                 if row is None:
                     error_rows += 1
@@ -587,6 +659,9 @@ def scan_s3(
                 continue
             png_bytes = s3_client.get_object(Bucket=bucket, Key=candidate)["Body"].read()
             sha16 = content_hash(png_bytes)
+            # 소유 계정 = 운영 키 규약 results/{uid}/{aid}/eye/… 의 uid.
+            # uid 는 여기서만 쓰이고 행에는 범위 문자열도 실리지 않는다(P-4).
+            lkey_parts = lkey.split("/")
             row = entry_to_row(
                 entry,
                 source_kind=SOURCE_KIND_S3,
@@ -596,6 +671,7 @@ def scan_s3(
                 png_bytes=png_bytes,
                 collected_at=collected_at,
                 consent=analysis_consent,
+                owner=owner_scope(lkey_parts[1] if len(lkey_parts) > 2 else None),
             )
             if row is None:
                 continue
@@ -692,6 +768,10 @@ def main(argv=None) -> int:
     ap.add_argument("--bucket", default="sunity-motion-pilot-videos")
     ap.add_argument("--s3-prefix", default="results/")
     ap.add_argument("--max-ledgers", type=int, default=None)
+    ap.add_argument(
+        "--readjudicate", action="store_true",
+        help="기존 행의 판정 필드만 현행 규칙으로 갱신 (정책 근거 변경 시. 행·관측치는 보존)",
+    )
     args = ap.parse_args(argv)
 
     collected_at = utc_now_iso()
@@ -739,7 +819,9 @@ def main(argv=None) -> int:
 
     # ── --run: eye_manifest 병합 + manifest.json 배치 등재 ────────────────────
     eye = load_eye_manifest()
-    merged, added, skipped = merge_rows(eye.get("rows", []), all_rows)
+    merged, added, skipped = merge_rows(
+        eye.get("rows", []), all_rows, readjudicate=args.readjudicate
+    )
     for row in merged:
         assert_no_identifier_keys(row)
 

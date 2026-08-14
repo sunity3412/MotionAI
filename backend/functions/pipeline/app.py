@@ -4200,6 +4200,9 @@ def _run_deferred_compare_render(
         # 음성 mp3 회수 — 파일명 계약 = recordId 콜론 앞 r{NN}.mp3
         # (compare_render.build_timeline 이 rid 로 읽는다). item 0건이어도 진행
         # (freeze 0 = 순수 정렬 재생 편 — 리그 C 가 freeze-0 분기 보유).
+        # 발굴 discover mp3(discover_audio_{rid}_{joint}.mp3)는 **같은 디렉터리**로
+        # 내려받되 align 게이트 뒤 조달 블록이 담당한다 (게이트 스킵 경로에서
+        # Firestore/S3 헛호출 0 — quick-260814-ghs).
         for item in coach_audio_items or []:
             rid = str(item.get("recordId", "")).split(":")[0]
             key = item.get("key")
@@ -4239,6 +4242,49 @@ def _run_deferred_compare_render(
             )
             return
 
+        # ── 발굴 채택(discovery) 조달 (quick-260814-ghs) ───────────────────────
+        # 아래 coachAudio 처방(:4265-)과 같은 계열이되 **조달 소스가 다르다**:
+        # 발굴은 분석 **사후** belle 채택물이라 어떤 실행에도 in-memory 근거가
+        # 원리적으로 없다(호출부에도 없다) — Firestore 가 유일 진실.
+        # mp3 조인 규약 = `s3keys.build_discover_audio_key` 단일 출처의 **basename**
+        # (build_timeline 주입 레이어가 audio_dir/<basename(mp3Key)> 로 찾는다).
+        # 이 회수분은 di7 이 이연 명기했던 잔여분이다.
+        # 전 경로 **fail-open** — 부재/읽기 실패/형상 위반 어느 쪽도 발굴 없는
+        # 절대다수 분석의 렌더를 깨뜨리지 않는다. 단 흔적은 반드시 남긴다.
+        discovery_items: list[dict] = []
+        try:
+            discovery_items = firestore_admin.get_analysis_discovery(
+                uid, analysis_id
+            )
+        except Exception:  # noqa: BLE001 - 조달 실패는 비차단 (발굴 없이 진행)
+            log.warning(
+                "compare_render discovery 조달 실패 — 발굴 정지 없이 진행 "
+                "uid=%s analysis_id=%s", uid, analysis_id, exc_info=True,
+            )
+            discovery_items = []
+        for _it in discovery_items:
+            _key = _it.get("mp3Key") if isinstance(_it, dict) else None
+            if not isinstance(_key, str) or not _key:
+                continue
+            try:
+                _s3.download_file(
+                    bucket, _key, str(audio_dir / _key.rsplit("/", 1)[-1])
+                )
+            except Exception:  # noqa: BLE001 - 항목별 비차단 (그 항목만 제외 회계)
+                log.warning(
+                    "compare_render discover mp3 회수 실패 rid=%s key=%s — "
+                    "discover_no_mp3 로 흘림 analysis_id=%s",
+                    _it.get("rid"), _key, analysis_id,
+                )
+                continue
+        if discovery_items:
+            log.info(
+                "compare_render discovery 조달 n=%d rids=%s analysis_id=%s",
+                len(discovery_items),
+                [_it.get("rid") for _it in discovery_items if isinstance(_it, dict)],
+                analysis_id,
+            )
+
         # keypointReport 는 complete_analysis kwarg 라 in-memory result 에 없음 —
         # build_timeline 이 무조건 읽는다 (r["keypointReport"]). doc 형상 재조립.
         # moments/overrides = None (프로토 전용 입력 — 운영 스테이지 미사용).
@@ -4259,6 +4305,15 @@ def _run_deferred_compare_render(
                 "items": [dict(it) for it in (coach_audio_items or []) if isinstance(it, dict)],
                 "status": models.COACH_AUDIO_STATUS_DONE,
             }
+        # 갭 A 의 실수리 (quick-260814-ghs) — 조달한 발굴을 같은 doc 에 싣는다.
+        # 형상은 models.DISCOVERY_KEYS 계약 그대로({"items": [...]}). render 와
+        # verify 가 **같은 doc_like** 를 받으므로 di7 의 H1~H4 discover fail-closed
+        # 의미론이 운영 경로에서 처음으로 실제 활성화된다 (종전에는 discovery 가
+        # 없어 대조 자체가 성립하지 않았다 = 조용한 소실).
+        if discovery_items and "discovery" not in _result_for_doc:
+            _result_for_doc["discovery"] = {
+                "items": [dict(it) for it in discovery_items if isinstance(it, dict)],
+            }
         doc_like = {"result": _result_for_doc}
         out_mp4 = workdir / "compare.mp4"
         report = compare_render.render(
@@ -4275,6 +4330,28 @@ def _run_deferred_compare_render(
                 json.dump(report, fh, ensure_ascii=False, indent=1)
         except Exception:  # noqa: BLE001 - 진단 보조 기록 실패는 비차단
             log.warning("compare_render report.json 기록 실패 (진단 보조) analysis_id=%s", analysis_id)
+
+        # ── 조달-반영 대조 회계 (quick-260814-ghs) ────────────────────────────
+        # 갭 A 의 본질은 기능 부재가 아니라 **실패가 안 보인 것**이었다 — 발굴이
+        # 렌더에 안 들어가도 freeze 도 excluded 행도 안 남아 리그조차 대조가
+        # 성립하지 않았다. 원인이 무엇이든(조인 실패·경계 핀·미래 회귀) 조달분이
+        # 리포트에 없으면 반드시 한 줄이 남는다. **차단이 아니라 관측** —
+        # 아래 freeze 전멸 조기 return **앞**이어야 전멸 시에도 로그가 남는다.
+        _rendered_disc = {
+            str(fz.get("rid")) for fz in report.get("freezes") or []
+            if fz.get("pairSrc") == models.DISCOVERY_PAIR_SRC
+        }
+        _missing_disc = [
+            str(_it.get("rid")) for _it in discovery_items
+            if isinstance(_it, dict) and str(_it.get("rid")) not in _rendered_disc
+        ]
+        if _missing_disc:
+            log.warning(
+                "compare_render discovery 미반영 rids=%s excluded=%s analysis_id=%s",
+                _missing_disc,
+                [e.get("rid") for e in report.get("excludedFreezes") or []],
+                analysis_id,
+            )
 
         # 렌더 대상 freeze 전멸 (제외 회계로 0 — 예: 전 record mp3 부재) = "표현할
         # 것이 없음" — failed(시도했으나 불량)가 아니라 **필드 미기록**이 정직

@@ -1750,6 +1750,36 @@ def update_analysis_discovery(
     )
 
 
+def get_analysis_discovery(uid: str, analysis_id: str) -> list[dict]:
+    """`update_analysis_discovery` 의 **read 짝** (quick-260814-ghs).
+
+    발굴 채택은 분석 **사후** belle 승인 산출물이라 어떤 파이프라인 실행에도
+    in-memory 근거가 원리적으로 없다 — coachAudio 는 "그 분석이 방금 합성한"
+    목록을 손에 쥐고 있지만 discovery 는 그렇지 않다. 따라서 **Firestore 가
+    유일 진실**이고, 재분석/재렌더 스테이지는 이 함수로만 조달한다.
+
+    구현이 신규 SDK 표면(field projection / select())을 쓰지 않고 검증된
+    `get_analysis` 위에 얹는 이유: analysis doc 은 Firestore 1 MiB 상한이라
+    전체 읽기 비용이 유계이고, 프로젝션 도입은 별건 최적화다 (표면 최소).
+    `get_analysis` 정의가 이 함수보다 파일 뒤에 있지만 모듈 전역은 **호출
+    시점**에 해석되므로 배치는 무해하다.
+
+    Returns:
+      items 리스트 (부재 = `[]` — 발굴 없는 절대다수 분석의 정상 경로).
+
+    Raises:
+      ValueError/TypeError: 형상 위반 (`_validate_discovery`). **삼키지 않는다**
+        — 여기서 조용히 [] 로 흘리면 갭 A 와 같은 침묵이 다시 생긴다. caller
+        (렌더 스테이지)가 fail-open + log.warning 으로 graceful 처리한다.
+    """
+    data = get_analysis(uid, analysis_id) or {}
+    payload = (data.get("result") or {}).get("discovery")
+    if payload is None:
+        return []
+    _validate_discovery(payload)
+    return list(payload.get("items") or [])
+
+
 def _validate_spot_check(payload, *, path: str = "spotCheck") -> None:  # noqa: ANN001
     """spotCheck scoped validator (Phase 32 Plan 32-13, D-23 — contract.md §12.8).
 

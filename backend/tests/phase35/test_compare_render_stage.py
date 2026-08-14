@@ -766,6 +766,33 @@ def test_stage_discovery_read_failure_is_fail_open_with_warning(
     assert any("discovery" in m for m in warned), warned
 
 
+def test_stage_malformed_discovery_never_reaches_renderer(
+    papp, rc_updates, disc_env, monkeypatch, caplog
+):
+    """형상 위반 = validator raise → fail-open + WARNING + **렌더러 미도달**(T-ghs-01).
+
+    읽기 실패 축(위)과 같은 except 로 수렴하지만 판정 대상이 다르다 — 이 축은
+    오염 payload 가 doc_like 로 새지 않는다(= validator 가 실제로 경유된다)를 잰다.
+    """
+    bad = _disc_item(pairSrc="align")  # enum 위반 — 사칭 라벨 차단
+    _install_discovery_doc(monkeypatch, [bad])
+    caplog.set_level(logging.WARNING)
+
+    papp._run_deferred_compare_render(**disc_env["kwargs"])
+
+    captured = disc_env["captured"]
+    assert "discovery" not in captured["doc"]["result"]
+    assert [f for f in captured["freezes"]
+            if f["pair_src"] == models.DISCOVERY_PAIR_SRC] == []
+    assert rc_updates and rc_updates[-1]["status"] == "done"
+    warned = _warnings(caplog)
+    assert any("discovery" in m for m in warned), warned
+    # 형상 위반은 S3 GET 도 유발하지 않는다 (검증 통과분만 회수).
+    assert {k for k, _dst in disc_env["s3"].downloads} == {
+        disc_env["kwargs"]["coach_audio_items"][0]["key"]
+    }
+
+
 def test_stage_discover_mp3_missing_leaves_excluded_row_and_warning(
     papp, rc_updates, disc_env, monkeypatch, caplog
 ):

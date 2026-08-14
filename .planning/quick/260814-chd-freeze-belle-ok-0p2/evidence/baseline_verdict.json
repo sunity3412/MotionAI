@@ -1,0 +1,192 @@
+{
+ "meta": {
+  "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+  "aid": "p34fresh1786628533",
+  "motionId": "ref-pdshape",
+  "generated": "2026-08-14T00:16:36.802356+00:00"
+ },
+ "freezes": [
+  {
+   "rid": "r00",
+   "joint": "left_elbow",
+   "userSec": 5.301767255751917,
+   "refSec": 5.13,
+   "pairSrc": "align",
+   "freezeS": 9.54,
+   "voiceStartOutS": 5.33,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r01",
+   "joint": "right_elbow",
+   "userSec": 6.102034011337112,
+   "refSec": 4.53,
+   "pairSrc": "align",
+   "freezeS": 9.86,
+   "voiceStartOutS": 15.67,
+   "markers": [
+    "est"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "오른쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r04",
+   "joint": "left_knee",
+   "userSec": 10.503501167055687,
+   "refSec": 9.4,
+   "pairSrc": "align",
+   "freezeS": 9.78,
+   "voiceStartOutS": 29.93,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 무릎 각도가 기준 셰이프와 차이가 있어요. 무릎을 펴는 게 아니라, 깊게 접은 다리 모양 그대로 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r02",
+   "joint": "right_shoulder",
+   "userSec": 13.804601533844616,
+   "refSec": 10.73,
+   "pairSrc": "align-w",
+   "freezeS": 11.97,
+   "voiceStartOutS": 43.0,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "오른쪽 어깨(겨드랑이) 각도가 기준 셰이프와 차이가 있어요. 어깨가 귀 쪽으로 말리지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r03",
+   "joint": "left_hip",
+   "userSec": 16.666666666666668,
+   "refSec": 15.2,
+   "pairSrc": "align-peak",
+   "freezeS": 11.46,
+   "voiceStartOutS": 57.83,
+   "markers": [],
+   "legsViz": {
+    "user": true,
+    "ref": true
+   },
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 다리 벌린 각도가 기준 셰이프와 차이가 있어요. 훅 걸린 다리와 접은 다리의 골반을 그대로 잠근 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요"
+  }
+ ],
+ "excludedFreezes": [],
+ "rig": {
+  "allPass": true,
+  "lines": [
+   "  [PASS] A 길이: actual=70.87s planned=70.87s",
+   "  [PASS] A2 정지 수: rendered=5 expected=5",
+   "  [PASS] B 정지 정적성 r00: diff=0.002 @out 10.1s",
+   "  [PASS] B 정지 정적성 r01: diff=0.002 @out 20.6s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 34.8s",
+   "  [PASS] B 정지 정적성 r02: diff=0.001 @out 49.0s",
+   "  [PASS] B 정지 정적성 r03: diff=0.001 @out 63.6s",
+   "  [PASS] C 재생 동적성: play diff=3.55 vs frozen max=0.002",
+   "  [PASS] D 음성 존재 r00: mean=-22.9dB @out 5.3s",
+   "  [PASS] D 음성 존재 r01: mean=-23.3dB @out 15.7s",
+   "  [PASS] D 음성 존재 r04: mean=-22.5dB @out 29.9s",
+   "  [PASS] D 음성 존재 r02: mean=-24.0dB @out 43.0s",
+   "  [PASS] D 음성 존재 r03: mean=-22.4dB @out 57.8s",
+   "  [PASS] D 재생 무음: mean=-91.0dB @out 1.0s",
+   "  [PASS] E 저더 user: 정지이벤트=0 최악2s창=0 (임계 4, 재생 437프레임 전수 스캔)",
+   "  [PASS] E 저더 ref: 정지이벤트=3 최악2s창=3 (임계 4, 재생 437프레임 전수 스캔)",
+   "  [PASS] F 웹 재생성(faststart): moov@36 mdat@56926 (64KB 헤더 내)",
+   "  [PASS] G 경계 핀 r00: rt=5.13s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r01: rt=4.53s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=9.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r02: rt=10.73s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r03: rt=15.20s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] H1 정지 회계: rendered+excluded=['r00', 'r01', 'r02', 'r03', 'r04'] == eligible=['r00', 'r01', 'r02', 'r03', 'r04']",
+   "  [PASS] H2 순간 r00: |5.30-5.30|=0.00s (src=align)",
+   "  [PASS] H2 순간 r01: |6.10-6.10|=0.00s (src=align)",
+   "  [PASS] H2 순간 r04: |10.50-10.50|=0.00s (src=align)",
+   "  [PASS] H2 순간 r02: |13.80-13.80|=0.00s (src=align-w)",
+   "  [PASS] H3 자막 진품 r00: 문자 일치",
+   "  [PASS] H3 자막 진품 r01: 문자 일치",
+   "  [PASS] H3 자막 진품 r04: 문자 일치",
+   "  [PASS] H3 자막 진품 r02: 문자 일치",
+   "  [PASS] H3 자막 진품 r03: 문자 일치",
+   "  [PASS] H4 음성 조인 r00: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r01: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r02: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r03: coachAudio 항목 존재"
+  ],
+  "verifier": "compare_verify.verify 무수정 (면제 delta 0)"
+ },
+ "determinism": {
+  "mp4Md5Run1": "e1a9f6fa96a7186be03fe5864f6c2440",
+  "mp4Md5Run2": "e1a9f6fa96a7186be03fe5864f6c2440",
+  "mp4Same": true,
+  "composeFramesSame": true,
+  "reportSame": true
+ },
+ "crossCheckRenderedCompare": {
+  "docFreezes": [
+   {
+    "rid": "r00",
+    "outSec": 5.33
+   },
+   {
+    "rid": "r01",
+    "outSec": 15.67
+   },
+   {
+    "rid": "r04",
+    "outSec": 29.93
+   },
+   {
+    "rid": "r02",
+    "outSec": 43.0
+   },
+   {
+    "rid": "r03",
+    "outSec": 57.83
+   }
+  ],
+  "localFreezes": [
+   {
+    "rid": "r00",
+    "outSec": 5.33
+   },
+   {
+    "rid": "r01",
+    "outSec": 15.67
+   },
+   {
+    "rid": "r04",
+    "outSec": 29.93
+   },
+   {
+    "rid": "r02",
+    "outSec": 43.0
+   },
+   {
+    "rid": "r03",
+    "outSec": 57.83
+   }
+  ]
+ },
+ "outFiles": [
+  "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/ae166167-1abf-4754-9fe8-336a719ef9e2/scratchpad/chd_out/baseline_run1.mp4",
+  "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/ae166167-1abf-4754-9fe8-336a719ef9e2/scratchpad/chd_out/baseline_run2.mp4"
+ ]
+}

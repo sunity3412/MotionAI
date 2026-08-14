@@ -49,7 +49,52 @@
         "collected_at": "2026-07-14"
       }
     ],
-    "collection_batches": []
+    "collection_batches": [
+      {
+        "batch_id": "eye-260814",
+        "opened_at": "2026-08-14T05:29:08Z",
+        "approved_by": "belle",
+        "trigger": "harvest_eye --run",
+        "ledger": "training/data/eye_manifest.json",
+        "sources": {
+          "eye_repo_evidence": 157,
+          "eye_s3_operational": 48
+        },
+        "scanned_rows": 205,
+        "scanned_admit": 45,
+        "scanned_hold": 160,
+        "new_rows": 141,
+        "skipped_existing": 64,
+        "ledger_rows_after": 141,
+        "ledger_admit_after": 41,
+        "ledger_hold_after": 100,
+        "status": "collected",
+        "cumulative_rows_after": 239,
+        "s3_scan_error": null
+      },
+      {
+        "batch_id": "eye-260814-2",
+        "opened_at": "2026-08-14T05:29:11Z",
+        "approved_by": "belle",
+        "trigger": "harvest_eye --run",
+        "ledger": "training/data/eye_manifest.json",
+        "sources": {
+          "eye_repo_evidence": 157,
+          "eye_s3_operational": 48
+        },
+        "scanned_rows": 205,
+        "scanned_admit": 45,
+        "scanned_hold": 160,
+        "new_rows": 0,
+        "skipped_existing": 205,
+        "ledger_rows_after": 141,
+        "ledger_admit_after": 41,
+        "ledger_hold_after": 100,
+        "status": "collected",
+        "cumulative_rows_after": 239,
+        "s3_scan_error": null
+      }
+    ]
   },
   "rows": [
     {

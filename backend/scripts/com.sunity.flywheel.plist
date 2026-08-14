@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.sunity.flywheel</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/kimtaesung/Dev/SunityMotion/backend/scripts/flywheel_cycle.sh</string>
+  </array>
+
+  <!-- 주 1회 월요일 10:07 (정각·30분 회피). 맥이 자고 있었으면 깨어난 뒤 실행된다. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>1</integer>
+    <key>Hour</key><integer>10</integer>
+    <key>Minute</key><integer>7</integer>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/kimtaesung/Dev/SunityMotion</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>AWS_PROFILE</key><string>sunity-motion</string>
+    <key>GEMINI_KEY_PARAM</key><string>/sunity/motion/gemini-api-key</string>
+    <key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/sunity-flywheel.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/sunity-flywheel.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

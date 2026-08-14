@@ -183,6 +183,22 @@ SFT_FREEZE_VIT="${SFT_FREEZE_VIT:-false}"
 #   영상이 아니라 3만~5만 자 텍스트 타깃이었다), 이 커널이 그 스파이크 자체를 없앤다.
 #   미설치 환경에서 켜면 swift 가 죽으므로 **설치 확인 후에만** 켠다.
 SFT_USE_LIGER="${SFT_USE_LIGER:-auto}"
+# 중단된 학습 이어받기 (quick-260814-l5i). 체크포인트는 /workspace(네트워크 볼륨)에
+# 있어 Pod 를 지워도 남는다 — 새 Pod 에서 경로만 주면 그 지점부터 재개한다.
+#   SFT_RESUME=auto  → v* 중 최신 체크포인트 자동 선택 (기본)
+#   SFT_RESUME=<경로> → 그 체크포인트로 재개
+#   SFT_RESUME=none  → 처음부터
+SFT_RESUME="${SFT_RESUME:-auto}"
+if [ "$SFT_RESUME" = "auto" ]; then
+  SFT_RESUME="$(ls -dt "$OUT"/*/checkpoint-* 2>/dev/null | head -1)"
+  [ -n "$SFT_RESUME" ] && echo "[resume] 최신 체크포인트 발견: $SFT_RESUME" \
+    || { SFT_RESUME=none; echo "[resume] 체크포인트 없음 — 처음부터"; }
+fi
+RESUME_ARGS=()
+if [ "$SFT_RESUME" != "none" ]; then
+  [ -d "$SFT_RESUME" ] || { echo "[중단] 체크포인트 경로 없음: $SFT_RESUME" >&2; exit 8; }
+  RESUME_ARGS=(--resume_from_checkpoint "$SFT_RESUME")
+fi
 if [ "$SFT_USE_LIGER" = "auto" ]; then
   if "$VENV/bin/python" -c "import liger_kernel" >/dev/null 2>&1; then SFT_USE_LIGER=true; else SFT_USE_LIGER=false; fi
 fi
@@ -198,6 +214,7 @@ echo "[2/3] swift sft (QLoRA rank${SFT_LORA_RANK} 4-bit, all-linear, ${SFT_MAX_L
   --freeze_vit "$SFT_FREEZE_VIT" \
   --quant_method bnb --quant_bits 4 --torch_dtype bfloat16 \
   --use_liger_kernel "$SFT_USE_LIGER" \
+  "${RESUME_ARGS[@]}" \
   --gradient_checkpointing true --optim paged_adamw_8bit \
   --packing false --max_length "$SFT_MAX_LENGTH" \
   --per_device_train_batch_size 1 --gradient_accumulation_steps 16 \

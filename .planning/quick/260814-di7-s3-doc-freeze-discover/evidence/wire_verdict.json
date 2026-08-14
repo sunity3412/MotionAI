@@ -1,0 +1,233 @@
+{
+ "baseline": {
+  "mp4Md5": "e1a9f6fa96a7186be03fe5864f6c2440",
+  "composeFrames": 2126,
+  "baselineChainSame": true,
+  "chainRef": "chd frames_md5_baseline.json (repo 고정)",
+  "rigStockAllPass": true,
+  "rigLines": [
+   "  [PASS] A 길이: actual=70.87s planned=70.87s",
+   "  [PASS] A2 정지 수: rendered=5 expected=5",
+   "  [PASS] B 정지 정적성 r00: diff=0.002 @out 10.1s",
+   "  [PASS] B 정지 정적성 r01: diff=0.002 @out 20.6s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 34.8s",
+   "  [PASS] B 정지 정적성 r02: diff=0.001 @out 49.0s",
+   "  [PASS] B 정지 정적성 r03: diff=0.001 @out 63.6s",
+   "  [PASS] C 재생 동적성: play diff=3.55 vs frozen max=0.002",
+   "  [PASS] D 음성 존재 r00: mean=-22.9dB @out 5.3s",
+   "  [PASS] D 음성 존재 r01: mean=-23.3dB @out 15.7s",
+   "  [PASS] D 음성 존재 r04: mean=-22.5dB @out 29.9s",
+   "  [PASS] D 음성 존재 r02: mean=-24.0dB @out 43.0s",
+   "  [PASS] D 음성 존재 r03: mean=-22.4dB @out 57.8s",
+   "  [PASS] D 재생 무음: mean=-91.0dB @out 1.0s",
+   "  [PASS] E 저더 user: 정지이벤트=0 최악2s창=0 (임계 4, 재생 437프레임 전수 스캔)",
+   "  [PASS] E 저더 ref: 정지이벤트=3 최악2s창=3 (임계 4, 재생 437프레임 전수 스캔)",
+   "  [PASS] F 웹 재생성(faststart): moov@36 mdat@56926 (64KB 헤더 내)",
+   "  [PASS] G 경계 핀 r00: rt=5.13s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r01: rt=4.53s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=9.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r02: rt=10.73s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r03: rt=15.20s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] H1 정지 회계: rendered+excluded=['r00', 'r01', 'r02', 'r03', 'r04'] == eligible=['r00', 'r01', 'r02', 'r03', 'r04']",
+   "  [PASS] H2 순간 r00: |5.30-5.30|=0.00s (src=align)",
+   "  [PASS] H2 순간 r01: |6.10-6.10|=0.00s (src=align)",
+   "  [PASS] H2 순간 r04: |10.50-10.50|=0.00s (src=align)",
+   "  [PASS] H2 순간 r02: |13.80-13.80|=0.00s (src=align-w)",
+   "  [PASS] H3 자막 진품 r00: 문자 일치",
+   "  [PASS] H3 자막 진품 r01: 문자 일치",
+   "  [PASS] H3 자막 진품 r04: 문자 일치",
+   "  [PASS] H3 자막 진품 r02: 문자 일치",
+   "  [PASS] H3 자막 진품 r03: 문자 일치",
+   "  [PASS] H4 음성 조인 r00: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r01: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r02: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r03: coachAudio 항목 존재"
+  ],
+  "discoverFreezeCount": 0,
+  "outFile": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/2a78a76a-92ce-42f8-b5d0-18c558c3d196/scratchpad/di7_out/wire_baseline.mp4"
+ },
+ "meta": {
+  "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+  "aid": "p34fresh1786628533",
+  "motionId": "ref-pdshape",
+  "updated": "2026-08-14T01:17:12.659042+00:00"
+ },
+ "inject": {
+  "discoveryPayload": [
+   {
+    "rid": "r04",
+    "joint": "left_knee",
+    "userSec": 12.8667,
+    "refSec": 12.4,
+    "pairSrc": "discover",
+    "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요.",
+    "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r04_left_knee.mp3",
+    "adoptedAt": "2026-08-14"
+   }
+  ],
+  "validatorPreflight": "firestore_admin._validate_discovery PASS",
+  "mp4Md5": "77cdcd436472438f3580cbb8d48683f3",
+  "composeFrames": 2461,
+  "injectedChainSame": true,
+  "chainRef": "chd frames_md5_injected.json (repo 고정)",
+  "reportFreezesMatch": true,
+  "reportFreezes": [
+   {
+    "rid": "r00",
+    "joint": "left_elbow",
+    "userSec": 5.301767255751917,
+    "refSec": 5.13,
+    "pairSrc": "align",
+    "freezeS": 9.54,
+    "voiceStartOutS": 5.33,
+    "markers": [
+     "solid"
+    ],
+    "legsViz": null,
+    "poleViz": null,
+    "bodyViz": null,
+    "text": "왼쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요"
+   },
+   {
+    "rid": "r01",
+    "joint": "right_elbow",
+    "userSec": 6.102034011337112,
+    "refSec": 4.53,
+    "pairSrc": "align",
+    "freezeS": 9.86,
+    "voiceStartOutS": 15.67,
+    "markers": [
+     "est"
+    ],
+    "legsViz": null,
+    "poleViz": null,
+    "bodyViz": null,
+    "text": "오른쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요"
+   },
+   {
+    "rid": "r04",
+    "joint": "left_knee",
+    "userSec": 10.503501167055687,
+    "refSec": 9.4,
+    "pairSrc": "align",
+    "freezeS": 9.78,
+    "voiceStartOutS": 29.93,
+    "markers": [
+     "solid"
+    ],
+    "legsViz": null,
+    "poleViz": null,
+    "bodyViz": null,
+    "text": "왼쪽 무릎 각도가 기준 셰이프와 차이가 있어요. 무릎을 펴는 게 아니라, 깊게 접은 다리 모양 그대로 기준 자세에 겹쳐 맞춰보세요"
+   },
+   {
+    "rid": "r04",
+    "joint": "left_knee",
+    "userSec": 12.8667,
+    "refSec": 12.4,
+    "pairSrc": "discover",
+    "freezeS": 11.18,
+    "voiceStartOutS": 42.07,
+    "markers": [
+     "solid"
+    ],
+    "legsViz": null,
+    "poleViz": null,
+    "bodyViz": null,
+    "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요."
+   },
+   {
+    "rid": "r02",
+    "joint": "right_shoulder",
+    "userSec": 13.804601533844616,
+    "refSec": 10.73,
+    "pairSrc": "align-w",
+    "freezeS": 11.97,
+    "voiceStartOutS": 54.17,
+    "markers": [
+     "solid"
+    ],
+    "legsViz": null,
+    "poleViz": null,
+    "bodyViz": null,
+    "text": "오른쪽 어깨(겨드랑이) 각도가 기준 셰이프와 차이가 있어요. 어깨가 귀 쪽으로 말리지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요"
+   },
+   {
+    "rid": "r03",
+    "joint": "left_hip",
+    "userSec": 16.666666666666668,
+    "refSec": 15.2,
+    "pairSrc": "align-peak",
+    "freezeS": 11.46,
+    "voiceStartOutS": 69.0,
+    "markers": [],
+    "legsViz": {
+     "user": true,
+     "ref": true
+    },
+    "poleViz": null,
+    "bodyViz": null,
+    "text": "왼쪽 다리 벌린 각도가 기준 셰이프와 차이가 있어요. 훅 걸린 다리와 접은 다리의 골반을 그대로 잠근 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요"
+   }
+  ],
+  "rigStockAllPass": true,
+  "rigStockNote": "compare_verify.verify 무수정 — 면제 monkeypatch 0 (chd 사본 delta 2축이 더 이상 불필요함의 기계 증명)",
+  "rigLines": [
+   "  [PASS] A 길이: actual=82.03s planned=82.03s",
+   "  [PASS] A2 정지 수: rendered=6 expected=6",
+   "  [PASS] B 정지 정적성 r00: diff=0.002 @out 10.1s",
+   "  [PASS] B 정지 정적성 r01: diff=0.002 @out 20.6s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 34.8s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 47.7s",
+   "  [PASS] B 정지 정적성 r02: diff=0.001 @out 60.2s",
+   "  [PASS] B 정지 정적성 r03: diff=0.001 @out 74.7s",
+   "  [PASS] C 재생 동적성: play diff=3.55 vs frozen max=0.002",
+   "  [PASS] D 음성 존재 r00: mean=-22.9dB @out 5.3s",
+   "  [PASS] D 음성 존재 r01: mean=-23.3dB @out 15.7s",
+   "  [PASS] D 음성 존재 r04: mean=-22.5dB @out 29.9s",
+   "  [PASS] D 음성 존재 r04: mean=-24.1dB @out 42.1s",
+   "  [PASS] D 음성 존재 r02: mean=-24.0dB @out 54.2s",
+   "  [PASS] D 음성 존재 r03: mean=-22.4dB @out 69.0s",
+   "  [PASS] D 재생 무음: mean=-91.0dB @out 1.0s",
+   "  [PASS] E 저더 user: 정지이벤트=0 최악2s창=0 (임계 4, 재생 409프레임 전수 스캔)",
+   "  [PASS] E 저더 ref: 정지이벤트=3 최악2s창=3 (임계 4, 재생 409프레임 전수 스캔)",
+   "  [PASS] F 웹 재생성(faststart): moov@36 mdat@-1 (64KB 헤더 내)",
+   "  [PASS] G 경계 핀 r00: rt=5.13s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r01: rt=4.53s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=9.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=12.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r02: rt=10.73s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r03: rt=15.20s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] H1 정지 회계: rendered+excluded=['r00', 'r01', 'r02', 'r03', 'r04'] == eligible=['r00', 'r01', 'r02', 'r03', 'r04']",
+   "  [PASS] H2 순간 r00: |5.30-5.30|=0.00s (src=align)",
+   "  [PASS] H2 순간 r01: |6.10-6.10|=0.00s (src=align)",
+   "  [PASS] H2 순간 r04: |10.50-10.50|=0.00s (src=align)",
+   "  [PASS] H2 순간 r04[discover]: doc discovery 순간 일치",
+   "  [PASS] H2 순간 r02: |13.80-13.80|=0.00s (src=align-w)",
+   "  [PASS] H3 자막 진품 r00: 문자 일치",
+   "  [PASS] H3 자막 진품 r01: 문자 일치",
+   "  [PASS] H3 자막 진품 r04: 문자 일치",
+   "  [PASS] H3 자막 진품 r04[discover]: 문자 일치",
+   "  [PASS] H3 자막 진품 r02: 문자 일치",
+   "  [PASS] H3 자막 진품 r03: 문자 일치",
+   "  [PASS] H4 음성 조인 r00: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r01: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04[discover]: discovery mp3Key 조인",
+   "  [PASS] H4 음성 조인 r02: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r03: coachAudio 항목 존재"
+  ],
+  "discoverLogSeen": true,
+  "discoverLogLines": [
+   "[discover] rid=r04 joint=left_knee ut=12.8667 rt=12.4 mp3=discover_audio_r04_left_knee.mp3"
+  ],
+  "perturbH2Fail": true,
+  "perturbFailLines": [
+   "  [FAIL] H2 순간 r04[discover]: doc discovery 에 없는 순간 (외부 삽입 의심)",
+   "  [FAIL] H3 자막 진품 r04[discover]: doc discovery 매칭 부재",
+   "  [FAIL] H4 음성 조인 r04[discover]: doc discovery 매칭/mp3Key 부재 (외부 mp3 의심)"
+  ],
+  "outFile": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/2a78a76a-92ce-42f8-b5d0-18c558c3d196/scratchpad/di7_out/wire_inject.mp4"
+ }
+}

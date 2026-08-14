@@ -28,12 +28,23 @@ if [ -x "$VENV/bin/swift" ] && [ -n "$(swift_ver)" ] && [ "$FORCE" != "--force" 
   exit 0
 fi
 
-echo "[setup] 1/3 venv 생성 (--system-site-packages = 베이스 이미지의 CUDA torch 재사용)"
-# torch 를 venv 안에 다시 받지 않는다 — 베이스 이미지 torch(cu124)가 이 Pod 의
-# GPU 와 이미 맞춰져 있고, 재설치하면 CUDA 빌드가 어긋날 위험만 생긴다.
+echo "[setup] 1/4 venv 생성 (--system-site-packages = 베이스 이미지 패키지 재사용)"
 python3 -m venv --system-site-packages "$VENV" || exit 1
 
-echo "[setup] 2/3 ms-swift + 학습 의존성"
+echo "[setup] 2/4 torch >= 2.5 (cu124) — 베이스 2.4.1 로는 못 돈다"
+# ★실측(2026-08-14): 베이스 이미지 torch 2.4.1 을 재사용했더니 학습이 4분 만에
+#   `AttributeError: 'Qwen3VLForConditionalGeneration' object has no attribute
+#   'set_submodule'` 로 죽었다. `nn.Module.set_submodule` 은 **torch 2.5 신규**이고,
+#   Qwen3-VL 을 지원하는 transformers(5.x)의 bitsandbytes 4bit 경로가 그것을 부른다.
+#   즉 "베이스 torch 재사용"과 "Qwen3-VL 학습"은 양립하지 않는다 — venv 안에 2.5+ 를
+#   깔아 베이스를 가린다. cu124 인덱스로 받아 이 Pod(4090/cu124)와 맞춘다.
+"$VENV/bin/pip" install -q --upgrade pip
+"$VENV/bin/pip" install -q "torch>=2.5,<2.9" --index-url https://download.pytorch.org/whl/cu124 \
+  || { echo "[setup] torch 설치 실패" >&2; exit 3; }
+"$VENV/bin/python" -c "import torch; assert hasattr(torch.nn.Module,'set_submodule'), 'torch<2.5'; print('  torch', torch.__version__, 'cuda', torch.cuda.is_available())" \
+  || { echo "[setup] torch 검증 실패" >&2; exit 3; }
+
+echo "[setup] 3/4 ms-swift + 학습 의존성"
 # ms-swift 4.4.0 = run_sft.sh 의 인자명이 검증된 버전(A8, 2026-07-12). 상향 금지 —
 # SftArguments 필드명이 버전마다 바뀌어 러너가 조용히 실패한다.
 "$VENV/bin/pip" install -q --upgrade pip
@@ -48,7 +59,7 @@ echo "[setup] 2/3 ms-swift + 학습 의존성"
   "av" \
   || { echo "[setup] pip 실패" >&2; exit 2; }
 
-echo "[setup] 3/3 백본 가중치 사전 다운로드 ($MODEL)"
+echo "[setup] 4/4 백본 가중치 사전 다운로드 ($MODEL)"
 # 학습 중 첫 스텝에서 받으면 실패 시 사이클 전체가 날아간다 — 셋업에서 미리 받는다.
 HF_HOME="$HF_HOME" "$VENV/bin/python" - <<'PY' || echo "[setup] 가중치 사전받기 실패(학습 중 재시도됨)"
 import os

@@ -176,8 +176,18 @@ SFT_LORA_RANK="${SFT_LORA_RANK:-64}"
 SFT_LORA_ALPHA="${SFT_LORA_ALPHA:-128}"
 SFT_MAX_LENGTH="${SFT_MAX_LENGTH:-32768}"
 SFT_FREEZE_VIT="${SFT_FREEZE_VIT:-false}"
+# liger-kernel = 손실을 조각내 계산해 **전체 로짓 텐서를 안 만든다**.
+# ★실측(2026-08-14, 5090 32GB): `logits.float()` 가 8.57GiB 를 한 번에 잡으려다 OOM.
+#   로짓 크기 = 시퀀스 x 어휘(15만) 라 GPU 를 키우거나 시퀀스를 줄이는 것 말고는
+#   답이 없어 보였는데(프레임 절반으로 줄여도 오히려 늘었다 — 길이를 지배하는 건
+#   영상이 아니라 3만~5만 자 텍스트 타깃이었다), 이 커널이 그 스파이크 자체를 없앤다.
+#   미설치 환경에서 켜면 swift 가 죽으므로 **설치 확인 후에만** 켠다.
+SFT_USE_LIGER="${SFT_USE_LIGER:-auto}"
+if [ "$SFT_USE_LIGER" = "auto" ]; then
+  if "$VENV/bin/python" -c "import liger_kernel" >/dev/null 2>&1; then SFT_USE_LIGER=true; else SFT_USE_LIGER=false; fi
+fi
 
-echo "[2/3] swift sft (QLoRA rank${SFT_LORA_RANK} 4-bit, all-linear, ${SFT_MAX_LENGTH} tok, freeze_vit=${SFT_FREEZE_VIT})"
+echo "[2/3] swift sft (QLoRA rank${SFT_LORA_RANK} 4-bit, all-linear, ${SFT_MAX_LENGTH} tok, freeze_vit=${SFT_FREEZE_VIT}, liger=${SFT_USE_LIGER})"
 "$VENV/bin/swift" sft \
   --model "$MODEL" \
   --dataset "$DATA/train_local.jsonl" \
@@ -187,6 +197,7 @@ echo "[2/3] swift sft (QLoRA rank${SFT_LORA_RANK} 4-bit, all-linear, ${SFT_MAX_L
   --target_modules all-linear \
   --freeze_vit "$SFT_FREEZE_VIT" \
   --quant_method bnb --quant_bits 4 --torch_dtype bfloat16 \
+  --use_liger_kernel "$SFT_USE_LIGER" \
   --gradient_checkpointing true --optim paged_adamw_8bit \
   --packing false --max_length "$SFT_MAX_LENGTH" \
   --per_device_train_batch_size 1 --gradient_accumulation_steps 16 \

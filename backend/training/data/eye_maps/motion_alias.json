@@ -1,0 +1,7 @@
+{
+  "elbow":        {"motion": "ref-elbow-twist-sister", "evidence": "quick/260814-ehz-5/discover_sweep.py:73-84 SWEEP_JOBS"},
+  "kipup":        {"motion": "ref-kip-up",             "evidence": "quick/260814-ehz-5/discover_sweep.py:73-84 SWEEP_JOBS"},
+  "pdshapefault": {"motion": "ref-pdshape",            "evidence": "quick/260814-ehz-5/discover_sweep.py:73-84 SWEEP_JOBS"},
+  "peterpan":     {"motion": "ref-peter-pan",          "evidence": "quick/260814-ehz-5/discover_sweep.py:73-84 SWEEP_JOBS"},
+  "powerspin":    {"motion": "ref-power-spin",         "evidence": "quick/260814-ehz-5/discover_sweep.py:73-84 SWEEP_JOBS"}
+}

@@ -1,0 +1,6 @@
+{
+  ".planning/quick/260813-wif-knee-discovery/evidence/eye_ledger": {
+    "motion": "ref-pdshape",
+    "evidence": "quick/260813-wif-knee-discovery/discover_knee.py:63 MOTION_ID + :65 REF_VIDEO_KEY"
+  }
+}

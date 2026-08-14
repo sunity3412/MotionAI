@@ -93,6 +93,73 @@
         "status": "collected",
         "cumulative_rows_after": 239,
         "s3_scan_error": null
+      },
+      {
+        "batch_id": "watch-260814",
+        "opened_at": "2026-08-14T06:07:16Z",
+        "approved_by": "belle",
+        "trigger": "belle-manual --run",
+        "sources": {
+          "youtube": 0,
+          "instagram": 0
+        },
+        "new_rows": 0,
+        "curated_reject": 0,
+        "skipped_existing": 0,
+        "status": "open",
+        "cumulative_rows_after": null
+      },
+      {
+        "batch_id": "watch-260814-2",
+        "opened_at": "2026-08-14T06:08:40Z",
+        "approved_by": "belle",
+        "trigger": "belle-manual --run",
+        "sources": {
+          "youtube": 0,
+          "instagram": 0
+        },
+        "new_rows": 0,
+        "curated_reject": 0,
+        "skipped_existing": 0,
+        "status": "collected",
+        "cumulative_rows_after": 239
+      },
+      {
+        "batch_id": "watch-260814-3",
+        "opened_at": "2026-08-14T06:09:37Z",
+        "approved_by": "belle",
+        "trigger": "belle-manual --run",
+        "sources": {
+          "youtube": 0,
+          "instagram": 4
+        },
+        "new_rows": 4,
+        "curated_reject": 0,
+        "skipped_existing": 28,
+        "status": "collected",
+        "cumulative_rows_after": 243
+      },
+      {
+        "batch_id": "eye-260814-3",
+        "opened_at": "2026-08-14T06:24:08Z",
+        "approved_by": "belle",
+        "trigger": "harvest_eye --run",
+        "ledger": "training/data/eye_manifest.json",
+        "sources": {
+          "eye_repo_evidence": 157,
+          "eye_s3_operational": 48
+        },
+        "scanned_rows": 205,
+        "scanned_admit": 155,
+        "scanned_hold": 50,
+        "new_rows": 0,
+        "skipped_existing": 205,
+        "ledger_rows_after": 141,
+        "ledger_admit_after": 100,
+        "ledger_hold_after": 41,
+        "status": "collected",
+        "cumulative_rows_after": 243,
+        "s3_scan_error": null
       }
     ]
   },
@@ -5399,6 +5466,106 @@
       "anonymized": false,
       "holdout": null,
       "collected": true
+    },
+    {
+      "s3_key": "fixtures/phase22/eunji.poledancer/3942523380225728837.mp4",
+      "motion": "eunji.poledancer",
+      "label_bucket": "정타",
+      "source": "instagram",
+      "source_url": "https://www.instagram.com/eunji.poledancer/",
+      "channel": "eunji.poledancer",
+      "tier": "2_studio",
+      "license_evidence": "gallery-dl metadata + IG ToS 회색(학습전용·비재배포). 정은지 본인, gold reference, 본인 동의 확보 2026-07-14 (belle), fault 라운드 cap 상향 20→60. IG 중 최저 리스크.",
+      "usage": "training-only-no-redistribution",
+      "collected_at_ms": 1786687892446,
+      "vision_verdict": {
+        "bucket": "정타",
+        "fault_demo": false,
+        "fault_desc": null,
+        "keep": true,
+        "move_guess": "인버트 스플릿",
+        "reason": "단일 인물이 안정적인 제어력으로 고난도 인버트 및 스플릿 동작을 깔끔하게 수행함",
+        "single_person_pole": true
+      },
+      "anonymized": false,
+      "holdout": null,
+      "collected": true,
+      "collection_batch": "watch-260814-3"
+    },
+    {
+      "s3_key": "fixtures/phase22/Jade-split/3946658270110048657.mp4",
+      "motion": "Jade-split",
+      "label_bucket": "정타",
+      "source": "instagram",
+      "source_url": "https://www.instagram.com/eunji.poledancer/",
+      "channel": "eunji.poledancer",
+      "tier": "2_studio",
+      "license_evidence": "gallery-dl metadata + IG ToS 회색(학습전용·비재배포). 정은지 본인, gold reference, 본인 동의 확보 2026-07-14 (belle), fault 라운드 cap 상향 20→60. IG 중 최저 리스크.",
+      "usage": "training-only-no-redistribution",
+      "collected_at_ms": 1786687913359,
+      "vision_verdict": {
+        "bucket": "정타",
+        "fault_demo": false,
+        "fault_desc": null,
+        "keep": true,
+        "move_guess": "Jade split",
+        "reason": "단일 인물이 흔들림 없이 선명한 동작으로 폴 스플릿과 스핀을 수행하며 오버레이가 없어 학습에 적합함",
+        "single_person_pole": true
+      },
+      "anonymized": false,
+      "holdout": null,
+      "collected": true,
+      "collection_batch": "watch-260814-3"
+    },
+    {
+      "s3_key": "fixtures/phase22/eunji.poledancer/3952513192244536329.mp4",
+      "motion": "eunji.poledancer",
+      "label_bucket": "정타",
+      "source": "instagram",
+      "source_url": "https://www.instagram.com/eunji.poledancer/",
+      "channel": "eunji.poledancer",
+      "tier": "2_studio",
+      "license_evidence": "gallery-dl metadata + IG ToS 회색(학습전용·비재배포). 정은지 본인, gold reference, 본인 동의 확보 2026-07-14 (belle), fault 라운드 cap 상향 20→60. IG 중 최저 리스크.",
+      "usage": "training-only-no-redistribution",
+      "collected_at_ms": 1786687934308,
+      "vision_verdict": {
+        "bucket": "정타",
+        "fault_demo": false,
+        "fault_desc": null,
+        "keep": true,
+        "move_guess": "폴 스플릿 및 인버전 동작",
+        "reason": "단일 인물의 명확하고 우아한 폴스포츠 동작 수행으로 학습 가치가 높은 클립입니다.",
+        "single_person_pole": true
+      },
+      "anonymized": false,
+      "holdout": null,
+      "collected": true,
+      "collection_batch": "watch-260814-3"
+    },
+    {
+      "s3_key": "fixtures/phase22/pole-handstand-split/3961248526260157969.mp4",
+      "motion": "pole-handstand-split",
+      "label_bucket": "정타",
+      "source": "instagram",
+      "source_url": "https://www.instagram.com/eunji.poledancer/",
+      "channel": "eunji.poledancer",
+      "tier": "2_studio",
+      "license_evidence": "gallery-dl metadata + IG ToS 회색(학습전용·비재배포). 정은지 본인, gold reference, 본인 동의 확보 2026-07-14 (belle), fault 라운드 cap 상향 20→60. IG 중 최저 리스크.",
+      "usage": "training-only-no-redistribution",
+      "collected_at_ms": 1786687949875,
+      "vision_verdict": {
+        "bucket": "정타",
+        "fault_demo": false,
+        "fault_desc": null,
+        "keep": true,
+        "move_guess": "pole handstand split",
+        "reason": "단일 인물의 깔끔하고 유연한 폴 핸드스탠드 및 스플릿 동작 수행",
+        "single_person_pole": true
+      },
+      "anonymized": false,
+      "holdout": null,
+      "collected": true,
+      "collection_batch": "watch-260814-3"
     }
   ]
 }

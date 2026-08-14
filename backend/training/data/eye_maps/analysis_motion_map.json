@@ -1,0 +1,30 @@
+{
+  "p34fresh1786363530": {
+    "motion": "ref-pdshape",
+    "evidence": "firestore:analyses.referenceMotionId (2026-08-14 read-only 실측, 6 doc 전건 ref-pdshape)"
+  },
+  "p34fresh1786433865": {
+    "motion": "ref-pdshape",
+    "evidence": "firestore:analyses.referenceMotionId (2026-08-14 read-only 실측, 6 doc 전건 ref-pdshape)"
+  },
+  "p34fresh1786458292": {
+    "motion": "ref-pdshape",
+    "evidence": "firestore:analyses.referenceMotionId (2026-08-14 read-only 실측, 6 doc 전건 ref-pdshape)"
+  },
+  "p34fresh1786593512": {
+    "motion": "ref-pdshape",
+    "evidence": "firestore:analyses.referenceMotionId (2026-08-14 read-only 실측, 6 doc 전건 ref-pdshape)"
+  },
+  "p34fresh1786613939": {
+    "motion": "ref-pdshape",
+    "evidence": "firestore:analyses.referenceMotionId (2026-08-14 read-only 실측, 6 doc 전건 ref-pdshape)"
+  },
+  "p34fresh1786628533": {
+    "motion": "ref-pdshape",
+    "evidence": "firestore:analyses.referenceMotionId (2026-08-14 read-only 실측, 6 doc 전건 ref-pdshape)"
+  },
+  "p34fresh1786628533-wif-cand02b": {
+    "motion": "ref-pdshape",
+    "evidence": "quick/260813-wif-knee-discovery/discover_knee.py:63 MOTION_ID"
+  }
+}

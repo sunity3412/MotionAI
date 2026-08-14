@@ -1,0 +1,17 @@
+{
+  "batch_id": "watch-260814-3",
+  "trigger": "belle-manual --run",
+  "opened_at": "2026-08-14T06:09:37Z",
+  "new_rows": 4,
+  "new_by_source": {
+    "youtube": 0,
+    "instagram": 4
+  },
+  "new_by_bucket": {
+    "정타": 4,
+    "fault": 0
+  },
+  "curated_reject": 0,
+  "skipped_existing": 28,
+  "cumulative_rows_after": 243
+}

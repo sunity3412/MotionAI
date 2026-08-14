@@ -4317,5 +4317,68 @@
     "move_guess": null,
     "reason": "폴을 사용하지 않고 다수의 인원이 바닥 매트 위에서 아크로바틱 동작을 수행하므로 학습셋에서 제외합니다.",
     "single_person_pole": false
+  },
+  "3942523380225728837": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "인버트 스플릿",
+    "reason": "단일 인물이 안정적인 제어력으로 고난도 인버트 및 스플릿 동작을 깔끔하게 수행함",
+    "single_person_pole": true
+  },
+  "3943233574534562538": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 인물이 등장하며 폴을 사용하지 않는 파트너 스트레칭 및 요가 동작을 수행하고 있습니다.",
+    "single_person_pole": false
+  },
+  "3946658270110048657": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Jade split",
+    "reason": "단일 인물이 흔들림 없이 선명한 동작으로 폴 스플릿과 스핀을 수행하며 오버레이가 없어 학습에 적합함",
+    "single_person_pole": true
+  },
+  "3952513192244536329": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "폴 스플릿 및 인버전 동작",
+    "reason": "단일 인물의 명확하고 우아한 폴스포츠 동작 수행으로 학습 가치가 높은 클립입니다.",
+    "single_person_pole": true
+  },
+  "3961248526260157969": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "pole handstand split",
+    "reason": "단일 인물의 깔끔하고 유연한 폴 핸드스탠드 및 스플릿 동작 수행",
+    "single_person_pole": true
+  },
+  "3962704454431907058": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "",
+    "single_person_pole": false
+  },
+  "3951876140364123364": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "두 명의 무용수가 함께 폴댄스 동작을 수행하고 있어 단일 인물 학습셋 조건에 부합하지 않습니다.",
+    "single_person_pole": false
   }
 }

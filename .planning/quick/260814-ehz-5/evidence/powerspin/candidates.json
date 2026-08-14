@@ -1,0 +1,3641 @@
+{
+ "meta": {
+  "motion": "powerspin",
+  "motionId": "ref-power-spin",
+  "s3Keys": {
+   "user": "fixtures/phase15/power-spin/fault.mp4",
+   "ref": "reference/ref-power-spin.mp4"
+  },
+  "sourceGate": {
+   "motion": "powerspin",
+   "checks": {
+    "p35DocExists": true,
+    "p35AlignExists": true,
+    "alignSchemaMissing": [],
+    "alignFpsLabel": 15.0,
+    "frames": {
+     "user": 123,
+     "ref": 158
+    },
+    "video_user": "cached",
+    "video_ref": "cached",
+    "fpsCrossCheck": {
+     "user": {
+      "durS": 8.21,
+      "framesOverDuration": 14.982
+     },
+     "ref": {
+      "durS": 10.53,
+      "framesOverDuration": 15.005
+     }
+    },
+    "probeEffectiveFps": {
+     "user": 9.983333333333333,
+     "ref": 10.0
+    }
+   },
+   "reasons": [],
+   "passed": true,
+   "s3Keys": {
+    "user": "fixtures/phase15/power-spin/fault.mp4",
+    "ref": "reference/ref-power-spin.mp4",
+    "motionId": "ref-power-spin"
+   }
+  },
+  "generated": "2026-08-14T02:23:17.180215+00:00",
+  "alignFps": 15.0,
+  "poles": {
+   "user": 0.500823723228995,
+   "ref": 0.500823723228995
+  },
+  "clip": {
+   "userFrames": 123,
+   "refFrames": 158
+  },
+  "thresholds": {
+   "source": "260811-ii0 SWEEP-REPORT §2 (card_gates 모듈 상수 — 재튜닝 0)",
+   "holdMaxDps": 60.0,
+   "poseMax": 0.85,
+   "poleDiffMax": 0.375,
+   "confMin": 0.35,
+   "eyeBentMaxDeg": 100.0,
+   "eyeExtMinDeg": 150.0,
+   "pairWindowS": 2.0,
+   "maxCandsPerRecord": 4
+  },
+  "verdict": "로컬 replay 가능",
+  "recordCount": 3,
+  "recordInventoryExpected": 3
+ },
+ "records": [
+  {
+   "rid": "r00",
+   "criterion": "leg_extension",
+   "joint": "split",
+   "eyeEligible": false,
+   "eyeIneligibleReason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)",
+   "deviation": 80.62,
+   "scan": {
+    "passFrames": 86,
+    "totalFrames": 123,
+    "unmeasurableFrames": 3,
+    "rawRuns": [
+     {
+      "startF": 0,
+      "endF": 35,
+      "startSec": 0.0,
+      "endSec": 2.3333
+     },
+     {
+      "startF": 37,
+      "endF": 52,
+      "startSec": 2.4667,
+      "endSec": 3.4667
+     },
+     {
+      "startF": 55,
+      "endF": 56,
+      "startSec": 3.6667,
+      "endSec": 3.7333
+     },
+     {
+      "startF": 58,
+      "endF": 59,
+      "startSec": 3.8667,
+      "endSec": 3.9333
+     },
+     {
+      "startF": 67,
+      "endF": 68,
+      "startSec": 4.4667,
+      "endSec": 4.5333
+     },
+     {
+      "startF": 70,
+      "endF": 71,
+      "startSec": 4.6667,
+      "endSec": 4.7333
+     },
+     {
+      "startF": 75,
+      "endF": 75,
+      "startSec": 5.0,
+      "endSec": 5.0
+     },
+     {
+      "startF": 79,
+      "endF": 83,
+      "startSec": 5.2667,
+      "endSec": 5.5333
+     },
+     {
+      "startF": 89,
+      "endF": 95,
+      "startSec": 5.9333,
+      "endSec": 6.3333
+     },
+     {
+      "startF": 102,
+      "endF": 107,
+      "startSec": 6.8,
+      "endSec": 7.1333
+     },
+     {
+      "startF": 113,
+      "endF": 119,
+      "startSec": 7.5333,
+      "endSec": 7.9333
+     }
+    ],
+    "buckets": [
+     {
+      "bucketSec": 0,
+      "startF": 0,
+      "endF": 14,
+      "startSec": 0.0,
+      "endSec": 0.9333,
+      "passFrames": 15,
+      "repF": 13,
+      "repSec": 0.8667,
+      "minDps": 6.85641395445851
+     },
+     {
+      "bucketSec": 1,
+      "startF": 15,
+      "endF": 29,
+      "startSec": 1.0,
+      "endSec": 1.9333,
+      "passFrames": 15,
+      "repF": 27,
+      "repSec": 1.8,
+      "minDps": 5.075703435168585
+     },
+     {
+      "bucketSec": 2,
+      "startF": 30,
+      "endF": 44,
+      "startSec": 2.0,
+      "endSec": 2.9333,
+      "passFrames": 14,
+      "repF": 40,
+      "repSec": 2.6667,
+      "minDps": 2.4215730953363592
+     },
+     {
+      "bucketSec": 3,
+      "startF": 45,
+      "endF": 59,
+      "startSec": 3.0,
+      "endSec": 3.9333,
+      "passFrames": 12,
+      "repF": 48,
+      "repSec": 3.2,
+      "minDps": 1.5277419574390347
+     },
+     {
+      "bucketSec": 4,
+      "startF": 67,
+      "endF": 71,
+      "startSec": 4.4667,
+      "endSec": 4.7333,
+      "passFrames": 4,
+      "repF": 67,
+      "repSec": 4.4667,
+      "minDps": 21.264145227069154
+     },
+     {
+      "bucketSec": 5,
+      "startF": 75,
+      "endF": 89,
+      "startSec": 5.0,
+      "endSec": 5.9333,
+      "passFrames": 7,
+      "repF": 79,
+      "repSec": 5.2667,
+      "minDps": 2.471163703066426
+     },
+     {
+      "bucketSec": 6,
+      "startF": 90,
+      "endF": 104,
+      "startSec": 6.0,
+      "endSec": 6.9333,
+      "passFrames": 9,
+      "repF": 90,
+      "repSec": 6.0,
+      "minDps": 5.014657867336611
+     },
+     {
+      "bucketSec": 7,
+      "startF": 105,
+      "endF": 119,
+      "startSec": 7.0,
+      "endSec": 7.9333,
+      "passFrames": 10,
+      "repF": 115,
+      "repSec": 7.6667,
+      "minDps": 1.0602505802526834
+     }
+    ]
+   },
+   "dropDistribution": {
+    "noHold": 0,
+    "pairNone": 0,
+    "claimNone": 0,
+    "claimSame": 0,
+    "claimPairNone": 0,
+    "splitNoMark": 8,
+    "ok": 0
+   },
+   "candidates": [
+    {
+     "id": "cand01",
+     "rid": "r00",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 0.0,
+      "endSec": 0.9333,
+      "repSec": 0.8667,
+      "minDps": 6.85641395445851,
+      "passFrames": 15
+     },
+     "alignRefSec": 1.1381,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        0.0,
+        3.133
+       ],
+       "holdFail": 3,
+       "claimFail": 0,
+       "pairFail": 29,
+       "ok": 16
+      },
+      "row": {
+       "uSec": 0.8667,
+       "uIdx": 13,
+       "rSec": 1.2,
+       "rIdx": 18,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 6.85641395445851,
+        "reason": "hold",
+        "windows": {
+         "sym": 6.9,
+         "past": 30.8,
+         "future": 20.8
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 4.3932003187951025,
+        "reason": "hold",
+        "windows": {
+         "sym": 29.3,
+         "past": 138.3,
+         "future": 4.4
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.36000803273858717,
+        "basisK": 12,
+        "poleUser": 0.3834656811856372,
+        "poleRef": 0.3114575461948416,
+        "poleDiff": 0.07200813499079556,
+        "reason": "match"
+       },
+       "uAngleDeg": 0.7,
+       "rAngleDeg": 2.7,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.618,
+       "rConfMin": 0.492,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": 5.733,
+      "dUserSec": 4.866,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand02",
+     "rid": "r00",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 1.0,
+      "endSec": 1.9333,
+      "repSec": 1.8,
+      "minDps": 5.075703435168585,
+      "passFrames": 15
+     },
+     "alignRefSec": 2.4,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        0.4,
+        4.4
+       ],
+       "holdFail": 1,
+       "claimFail": 0,
+       "pairFail": 30,
+       "ok": 30
+      },
+      "row": {
+       "uSec": 1.8,
+       "uIdx": 27,
+       "rSec": 0.8,
+       "rIdx": 12,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 5.075703435168585,
+        "reason": "hold",
+        "windows": {
+         "sym": 30.0,
+         "past": 30.6,
+         "future": 5.1
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 18.406001560384915,
+        "reason": "hold",
+        "windows": {
+         "sym": 28.0,
+         "past": 18.4,
+         "future": 114.2
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.2650577898694301,
+        "basisK": 12,
+        "poleUser": 0.19914518350621638,
+        "poleRef": 0.5416232112257474,
+        "poleDiff": 0.34247802771953106,
+        "reason": "match"
+       },
+       "uAngleDeg": 8.6,
+       "rAngleDeg": 4.3,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.595,
+       "rConfMin": 0.597,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": 5.733,
+      "dUserSec": 3.933,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand03",
+     "rid": "r00",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 2.0,
+      "endSec": 2.9333,
+      "repSec": 2.6667,
+      "minDps": 2.4215730953363592,
+      "passFrames": 14
+     },
+     "alignRefSec": 3.6048,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        1.6,
+        5.6
+       ],
+       "holdFail": 5,
+       "claimFail": 0,
+       "pairFail": 30,
+       "ok": 26
+      },
+      "row": {
+       "uSec": 2.6667,
+       "uIdx": 40,
+       "rSec": 2.1333,
+       "rIdx": 32,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 2.4215730953363592,
+        "reason": "hold",
+        "windows": {
+         "sym": 2.4,
+         "future": 2.4
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 3.355212575297145,
+        "reason": "hold",
+        "windows": {
+         "sym": 3.5,
+         "past": 4.0,
+         "future": 3.4
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.3342962223988837,
+        "basisK": 12,
+        "poleUser": 0.305720179668823,
+        "poleRef": 0.40745496309922224,
+        "poleDiff": 0.10173478343039927,
+        "reason": "match"
+       },
+       "uAngleDeg": 2.8,
+       "rAngleDeg": 2.0,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.578,
+       "rConfMin": 0.68,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": 5.733,
+      "dUserSec": 3.066,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand04",
+     "rid": "r00",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 3.0,
+      "endSec": 3.9333,
+      "repSec": 3.2,
+      "minDps": 1.5277419574390347,
+      "passFrames": 12
+     },
+     "alignRefSec": 5.8,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        3.8,
+        7.8
+       ],
+       "holdFail": 18,
+       "claimFail": 0,
+       "pairFail": 18,
+       "ok": 25
+      },
+      "row": {
+       "uSec": 3.2,
+       "uIdx": 48,
+       "rSec": 5.8,
+       "rIdx": 87,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 1.5277419574390347,
+        "reason": "hold",
+        "windows": {
+         "sym": 1.5,
+         "past": 6.7,
+         "future": 3.8
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 4.4446518096089624,
+        "reason": "hold",
+        "windows": {
+         "sym": 4.4,
+         "past": 79.4,
+         "future": 214.3
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.2828376076006742,
+        "basisK": 12,
+        "poleUser": 0.2567453390310355,
+        "poleRef": 0.2893565907049059,
+        "poleDiff": 0.032611251673870356,
+        "reason": "match"
+       },
+       "uAngleDeg": 3.0,
+       "rAngleDeg": 37.5,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.501,
+       "rConfMin": 0.499,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": 5.733,
+      "dUserSec": 2.533,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand05",
+     "rid": "r00",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 4.4667,
+      "endSec": 4.7333,
+      "repSec": 4.4667,
+      "minDps": 21.264145227069154,
+      "passFrames": 4
+     },
+     "alignRefSec": 7.2667,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        5.267,
+        9.267
+       ],
+       "holdFail": 26,
+       "claimFail": 0,
+       "pairFail": 15,
+       "ok": 20
+      },
+      "row": {
+       "uSec": 4.4667,
+       "uIdx": 67,
+       "rSec": 7.3333,
+       "rIdx": 110,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 21.264145227069154,
+        "reason": "hold",
+        "windows": {
+         "future": 21.3
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 50.944365022999705,
+        "reason": "hold",
+        "windows": {
+         "sym": 173.3,
+         "past": 313.7,
+         "future": 50.9
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.3229504719435028,
+        "basisK": 12,
+        "poleUser": 0.4571938802574058,
+        "poleRef": 0.3708143980820987,
+        "poleDiff": 0.08637948217530711,
+        "reason": "match"
+       },
+       "uAngleDeg": null,
+       "rAngleDeg": 107.7,
+       "uClaim": null,
+       "rClaim": null,
+       "uConfMin": 0.31,
+       "rConfMin": 0.681,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": 5.733,
+      "dUserSec": 1.266,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand06",
+     "rid": "r00",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 5.0,
+      "endSec": 5.9333,
+      "repSec": 5.2667,
+      "minDps": 2.471163703066426,
+      "passFrames": 7
+     },
+     "alignRefSec": 8.1333,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        6.133,
+        10.133
+       ],
+       "holdFail": 33,
+       "claimFail": 0,
+       "pairFail": 19,
+       "ok": 9
+      },
+      "row": {
+       "uSec": 5.2667,
+       "uIdx": 79,
+       "rSec": 6.6667,
+       "rIdx": 100,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 2.471163703066426,
+        "reason": "hold",
+        "windows": {
+         "sym": 89.8,
+         "past": 236.6,
+         "future": 2.5
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 18.74657327023797,
+        "reason": "hold",
+        "windows": {
+         "sym": 18.7,
+         "past": 380.5,
+         "future": 292.3
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.3607674602796728,
+        "basisK": 12,
+        "poleUser": 0.4534645785899836,
+        "poleRef": 0.29158281074484244,
+        "poleDiff": 0.1618817678451412,
+        "reason": "match"
+       },
+       "uAngleDeg": 30.7,
+       "rAngleDeg": 0.3,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.761,
+       "rConfMin": 0.61,
+       "uInverted": false,
+       "rInverted": true
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": 5.733,
+      "dUserSec": 0.466,
+      "coversApprovedUser": true
+     }
+    },
+    {
+     "id": "cand07",
+     "rid": "r00",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 6.0,
+      "endSec": 6.9333,
+      "repSec": 6.0,
+      "minDps": 5.014657867336611,
+      "passFrames": 9
+     },
+     "alignRefSec": 8.8667,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        6.867,
+        10.467
+       ],
+       "holdFail": 32,
+       "claimFail": 0,
+       "pairFail": 7,
+       "ok": 16
+      },
+      "row": {
+       "uSec": 6.0,
+       "uIdx": 90,
+       "rSec": 7.3333,
+       "rIdx": 110,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 5.014657867336611,
+        "reason": "hold",
+        "windows": {
+         "future": 5.0
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 50.944365022999705,
+        "reason": "hold",
+        "windows": {
+         "sym": 173.3,
+         "past": 313.7,
+         "future": 50.9
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.26228933492394124,
+        "basisK": 12,
+        "poleUser": 0.4324258133817335,
+        "poleRef": 0.3708143980820987,
+        "poleDiff": 0.06161141529963482,
+        "reason": "match"
+       },
+       "uAngleDeg": null,
+       "rAngleDeg": 107.7,
+       "uClaim": null,
+       "rClaim": null,
+       "uConfMin": 0.259,
+       "rConfMin": 0.681,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": 5.733,
+      "dUserSec": 0.267,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand08",
+     "rid": "r00",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 7.0,
+      "endSec": 7.9333,
+      "repSec": 7.6667,
+      "minDps": 1.0602505802526834,
+      "passFrames": 10
+     },
+     "alignRefSec": 10.4571,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        8.467,
+        10.467
+       ],
+       "holdFail": 18,
+       "claimFail": 0,
+       "pairFail": 4,
+       "ok": 9
+      },
+      "row": {
+       "uSec": 7.6667,
+       "uIdx": 115,
+       "rSec": 9.0,
+       "rIdx": 135,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 1.0602505802526834,
+        "reason": "hold",
+        "windows": {
+         "sym": 1.1,
+         "future": 1.1
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 26.51487523104104,
+        "reason": "hold",
+        "windows": {
+         "sym": 72.6,
+         "past": 172.4,
+         "future": 26.5
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.3260536376646153,
+        "basisK": 12,
+        "poleUser": 0.4450978475971939,
+        "poleRef": 0.3853378831183426,
+        "poleDiff": 0.05975996447885129,
+        "reason": "match"
+       },
+       "uAngleDeg": 32.2,
+       "rAngleDeg": 104.5,
+       "uClaim": "bent",
+       "rClaim": null,
+       "uConfMin": 0.409,
+       "rConfMin": 0.713,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": 5.733,
+      "dUserSec": 1.934,
+      "coversApprovedUser": false
+     }
+    }
+   ],
+   "approvedFreeze": {
+    "label": "승인 freeze (ii0 probes.log — src=align-peak)",
+    "userSec": 5.733,
+    "refSec": 8.667,
+    "row": {
+     "uSec": 5.7333,
+     "uIdx": 86,
+     "rSec": 8.6667,
+     "rIdx": 130,
+     "holdUser": {
+      "passed": false,
+      "speedDps": 427.7867318682367,
+      "reason": "moving",
+      "windows": {
+       "sym": 427.8,
+       "past": 427.8
+      }
+     },
+     "holdRef": {
+      "passed": true,
+      "speedDps": 20.715163697989716,
+      "reason": "hold",
+      "windows": {
+       "sym": 20.7,
+       "past": 308.5,
+       "future": 280.5
+      }
+     },
+     "pair": {
+      "passed": true,
+      "poseDist": 0.23341450299368122,
+      "basisK": 12,
+      "poleUser": 0.17495311818579218,
+      "poleRef": 0.21452906997469354,
+      "poleDiff": 0.03957595178890136,
+      "reason": "match"
+     },
+     "uAngleDeg": 143.0,
+     "rAngleDeg": 178.9,
+     "uClaim": null,
+     "rClaim": "extended",
+     "uConfMin": 0.377,
+     "rConfMin": 0.651,
+     "uInverted": false,
+     "rInverted": true
+    }
+   },
+   "compressed": []
+  },
+  {
+   "rid": "r01",
+   "criterion": "split_angle",
+   "joint": "split",
+   "eyeEligible": false,
+   "eyeIneligibleReason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)",
+   "deviation": 10.0,
+   "scan": {
+    "passFrames": 86,
+    "totalFrames": 123,
+    "unmeasurableFrames": 3,
+    "rawRuns": [
+     {
+      "startF": 0,
+      "endF": 35,
+      "startSec": 0.0,
+      "endSec": 2.3333
+     },
+     {
+      "startF": 37,
+      "endF": 52,
+      "startSec": 2.4667,
+      "endSec": 3.4667
+     },
+     {
+      "startF": 55,
+      "endF": 56,
+      "startSec": 3.6667,
+      "endSec": 3.7333
+     },
+     {
+      "startF": 58,
+      "endF": 59,
+      "startSec": 3.8667,
+      "endSec": 3.9333
+     },
+     {
+      "startF": 67,
+      "endF": 68,
+      "startSec": 4.4667,
+      "endSec": 4.5333
+     },
+     {
+      "startF": 70,
+      "endF": 71,
+      "startSec": 4.6667,
+      "endSec": 4.7333
+     },
+     {
+      "startF": 75,
+      "endF": 75,
+      "startSec": 5.0,
+      "endSec": 5.0
+     },
+     {
+      "startF": 79,
+      "endF": 83,
+      "startSec": 5.2667,
+      "endSec": 5.5333
+     },
+     {
+      "startF": 89,
+      "endF": 95,
+      "startSec": 5.9333,
+      "endSec": 6.3333
+     },
+     {
+      "startF": 102,
+      "endF": 107,
+      "startSec": 6.8,
+      "endSec": 7.1333
+     },
+     {
+      "startF": 113,
+      "endF": 119,
+      "startSec": 7.5333,
+      "endSec": 7.9333
+     }
+    ],
+    "buckets": [
+     {
+      "bucketSec": 0,
+      "startF": 0,
+      "endF": 14,
+      "startSec": 0.0,
+      "endSec": 0.9333,
+      "passFrames": 15,
+      "repF": 13,
+      "repSec": 0.8667,
+      "minDps": 6.85641395445851
+     },
+     {
+      "bucketSec": 1,
+      "startF": 15,
+      "endF": 29,
+      "startSec": 1.0,
+      "endSec": 1.9333,
+      "passFrames": 15,
+      "repF": 27,
+      "repSec": 1.8,
+      "minDps": 5.075703435168585
+     },
+     {
+      "bucketSec": 2,
+      "startF": 30,
+      "endF": 44,
+      "startSec": 2.0,
+      "endSec": 2.9333,
+      "passFrames": 14,
+      "repF": 40,
+      "repSec": 2.6667,
+      "minDps": 2.4215730953363592
+     },
+     {
+      "bucketSec": 3,
+      "startF": 45,
+      "endF": 59,
+      "startSec": 3.0,
+      "endSec": 3.9333,
+      "passFrames": 12,
+      "repF": 48,
+      "repSec": 3.2,
+      "minDps": 1.5277419574390347
+     },
+     {
+      "bucketSec": 4,
+      "startF": 67,
+      "endF": 71,
+      "startSec": 4.4667,
+      "endSec": 4.7333,
+      "passFrames": 4,
+      "repF": 67,
+      "repSec": 4.4667,
+      "minDps": 21.264145227069154
+     },
+     {
+      "bucketSec": 5,
+      "startF": 75,
+      "endF": 89,
+      "startSec": 5.0,
+      "endSec": 5.9333,
+      "passFrames": 7,
+      "repF": 79,
+      "repSec": 5.2667,
+      "minDps": 2.471163703066426
+     },
+     {
+      "bucketSec": 6,
+      "startF": 90,
+      "endF": 104,
+      "startSec": 6.0,
+      "endSec": 6.9333,
+      "passFrames": 9,
+      "repF": 90,
+      "repSec": 6.0,
+      "minDps": 5.014657867336611
+     },
+     {
+      "bucketSec": 7,
+      "startF": 105,
+      "endF": 119,
+      "startSec": 7.0,
+      "endSec": 7.9333,
+      "passFrames": 10,
+      "repF": 115,
+      "repSec": 7.6667,
+      "minDps": 1.0602505802526834
+     }
+    ]
+   },
+   "dropDistribution": {
+    "noHold": 0,
+    "pairNone": 0,
+    "claimNone": 0,
+    "claimSame": 0,
+    "claimPairNone": 0,
+    "splitNoMark": 8,
+    "ok": 0
+   },
+   "candidates": [
+    {
+     "id": "cand01",
+     "rid": "r01",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 0.0,
+      "endSec": 0.9333,
+      "repSec": 0.8667,
+      "minDps": 6.85641395445851,
+      "passFrames": 15
+     },
+     "alignRefSec": 1.1381,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        0.0,
+        3.133
+       ],
+       "holdFail": 3,
+       "claimFail": 0,
+       "pairFail": 29,
+       "ok": 16
+      },
+      "row": {
+       "uSec": 0.8667,
+       "uIdx": 13,
+       "rSec": 1.2,
+       "rIdx": 18,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 6.85641395445851,
+        "reason": "hold",
+        "windows": {
+         "sym": 6.9,
+         "past": 30.8,
+         "future": 20.8
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 4.3932003187951025,
+        "reason": "hold",
+        "windows": {
+         "sym": 29.3,
+         "past": 138.3,
+         "future": 4.4
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.36000803273858717,
+        "basisK": 12,
+        "poleUser": 0.3834656811856372,
+        "poleRef": 0.3114575461948416,
+        "poleDiff": 0.07200813499079556,
+        "reason": "match"
+       },
+       "uAngleDeg": 0.7,
+       "rAngleDeg": 2.7,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.618,
+       "rConfMin": 0.492,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand02",
+     "rid": "r01",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 1.0,
+      "endSec": 1.9333,
+      "repSec": 1.8,
+      "minDps": 5.075703435168585,
+      "passFrames": 15
+     },
+     "alignRefSec": 2.4,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        0.4,
+        4.4
+       ],
+       "holdFail": 1,
+       "claimFail": 0,
+       "pairFail": 30,
+       "ok": 30
+      },
+      "row": {
+       "uSec": 1.8,
+       "uIdx": 27,
+       "rSec": 0.8,
+       "rIdx": 12,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 5.075703435168585,
+        "reason": "hold",
+        "windows": {
+         "sym": 30.0,
+         "past": 30.6,
+         "future": 5.1
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 18.406001560384915,
+        "reason": "hold",
+        "windows": {
+         "sym": 28.0,
+         "past": 18.4,
+         "future": 114.2
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.2650577898694301,
+        "basisK": 12,
+        "poleUser": 0.19914518350621638,
+        "poleRef": 0.5416232112257474,
+        "poleDiff": 0.34247802771953106,
+        "reason": "match"
+       },
+       "uAngleDeg": 8.6,
+       "rAngleDeg": 4.3,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.595,
+       "rConfMin": 0.597,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand03",
+     "rid": "r01",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 2.0,
+      "endSec": 2.9333,
+      "repSec": 2.6667,
+      "minDps": 2.4215730953363592,
+      "passFrames": 14
+     },
+     "alignRefSec": 3.6048,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        1.6,
+        5.6
+       ],
+       "holdFail": 5,
+       "claimFail": 0,
+       "pairFail": 30,
+       "ok": 26
+      },
+      "row": {
+       "uSec": 2.6667,
+       "uIdx": 40,
+       "rSec": 2.1333,
+       "rIdx": 32,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 2.4215730953363592,
+        "reason": "hold",
+        "windows": {
+         "sym": 2.4,
+         "future": 2.4
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 3.355212575297145,
+        "reason": "hold",
+        "windows": {
+         "sym": 3.5,
+         "past": 4.0,
+         "future": 3.4
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.3342962223988837,
+        "basisK": 12,
+        "poleUser": 0.305720179668823,
+        "poleRef": 0.40745496309922224,
+        "poleDiff": 0.10173478343039927,
+        "reason": "match"
+       },
+       "uAngleDeg": 2.8,
+       "rAngleDeg": 2.0,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.578,
+       "rConfMin": 0.68,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand04",
+     "rid": "r01",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 3.0,
+      "endSec": 3.9333,
+      "repSec": 3.2,
+      "minDps": 1.5277419574390347,
+      "passFrames": 12
+     },
+     "alignRefSec": 5.8,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        3.8,
+        7.8
+       ],
+       "holdFail": 18,
+       "claimFail": 0,
+       "pairFail": 18,
+       "ok": 25
+      },
+      "row": {
+       "uSec": 3.2,
+       "uIdx": 48,
+       "rSec": 5.8,
+       "rIdx": 87,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 1.5277419574390347,
+        "reason": "hold",
+        "windows": {
+         "sym": 1.5,
+         "past": 6.7,
+         "future": 3.8
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 4.4446518096089624,
+        "reason": "hold",
+        "windows": {
+         "sym": 4.4,
+         "past": 79.4,
+         "future": 214.3
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.2828376076006742,
+        "basisK": 12,
+        "poleUser": 0.2567453390310355,
+        "poleRef": 0.2893565907049059,
+        "poleDiff": 0.032611251673870356,
+        "reason": "match"
+       },
+       "uAngleDeg": 3.0,
+       "rAngleDeg": 37.5,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.501,
+       "rConfMin": 0.499,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand05",
+     "rid": "r01",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 4.4667,
+      "endSec": 4.7333,
+      "repSec": 4.4667,
+      "minDps": 21.264145227069154,
+      "passFrames": 4
+     },
+     "alignRefSec": 7.2667,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        5.267,
+        9.267
+       ],
+       "holdFail": 26,
+       "claimFail": 0,
+       "pairFail": 15,
+       "ok": 20
+      },
+      "row": {
+       "uSec": 4.4667,
+       "uIdx": 67,
+       "rSec": 7.3333,
+       "rIdx": 110,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 21.264145227069154,
+        "reason": "hold",
+        "windows": {
+         "future": 21.3
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 50.944365022999705,
+        "reason": "hold",
+        "windows": {
+         "sym": 173.3,
+         "past": 313.7,
+         "future": 50.9
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.3229504719435028,
+        "basisK": 12,
+        "poleUser": 0.4571938802574058,
+        "poleRef": 0.3708143980820987,
+        "poleDiff": 0.08637948217530711,
+        "reason": "match"
+       },
+       "uAngleDeg": null,
+       "rAngleDeg": 107.7,
+       "uClaim": null,
+       "rClaim": null,
+       "uConfMin": 0.31,
+       "rConfMin": 0.681,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand06",
+     "rid": "r01",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 5.0,
+      "endSec": 5.9333,
+      "repSec": 5.2667,
+      "minDps": 2.471163703066426,
+      "passFrames": 7
+     },
+     "alignRefSec": 8.1333,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        6.133,
+        10.133
+       ],
+       "holdFail": 33,
+       "claimFail": 0,
+       "pairFail": 19,
+       "ok": 9
+      },
+      "row": {
+       "uSec": 5.2667,
+       "uIdx": 79,
+       "rSec": 6.6667,
+       "rIdx": 100,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 2.471163703066426,
+        "reason": "hold",
+        "windows": {
+         "sym": 89.8,
+         "past": 236.6,
+         "future": 2.5
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 18.74657327023797,
+        "reason": "hold",
+        "windows": {
+         "sym": 18.7,
+         "past": 380.5,
+         "future": 292.3
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.3607674602796728,
+        "basisK": 12,
+        "poleUser": 0.4534645785899836,
+        "poleRef": 0.29158281074484244,
+        "poleDiff": 0.1618817678451412,
+        "reason": "match"
+       },
+       "uAngleDeg": 30.7,
+       "rAngleDeg": 0.3,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.761,
+       "rConfMin": 0.61,
+       "uInverted": false,
+       "rInverted": true
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand07",
+     "rid": "r01",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 6.0,
+      "endSec": 6.9333,
+      "repSec": 6.0,
+      "minDps": 5.014657867336611,
+      "passFrames": 9
+     },
+     "alignRefSec": 8.8667,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        6.867,
+        10.467
+       ],
+       "holdFail": 32,
+       "claimFail": 0,
+       "pairFail": 7,
+       "ok": 16
+      },
+      "row": {
+       "uSec": 6.0,
+       "uIdx": 90,
+       "rSec": 7.3333,
+       "rIdx": 110,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 5.014657867336611,
+        "reason": "hold",
+        "windows": {
+         "future": 5.0
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 50.944365022999705,
+        "reason": "hold",
+        "windows": {
+         "sym": 173.3,
+         "past": 313.7,
+         "future": 50.9
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.26228933492394124,
+        "basisK": 12,
+        "poleUser": 0.4324258133817335,
+        "poleRef": 0.3708143980820987,
+        "poleDiff": 0.06161141529963482,
+        "reason": "match"
+       },
+       "uAngleDeg": null,
+       "rAngleDeg": 107.7,
+       "uClaim": null,
+       "rClaim": null,
+       "uConfMin": 0.259,
+       "rConfMin": 0.681,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand08",
+     "rid": "r01",
+     "joint": "split",
+     "holdRun": {
+      "startSec": 7.0,
+      "endSec": 7.9333,
+      "repSec": 7.6667,
+      "minDps": 1.0602505802526834,
+      "passFrames": 10
+     },
+     "alignRefSec": 10.4571,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        8.467,
+        10.467
+       ],
+       "holdFail": 18,
+       "claimFail": 0,
+       "pairFail": 4,
+       "ok": 9
+      },
+      "row": {
+       "uSec": 7.6667,
+       "uIdx": 115,
+       "rSec": 9.0,
+       "rIdx": 135,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 1.0602505802526834,
+        "reason": "hold",
+        "windows": {
+         "sym": 1.1,
+         "future": 1.1
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 26.51487523104104,
+        "reason": "hold",
+        "windows": {
+         "sym": 72.6,
+         "past": 172.4,
+         "future": 26.5
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.3260536376646153,
+        "basisK": 12,
+        "poleUser": 0.4450978475971939,
+        "poleRef": 0.3853378831183426,
+        "poleDiff": 0.05975996447885129,
+        "reason": "match"
+       },
+       "uAngleDeg": 32.2,
+       "rAngleDeg": 104.5,
+       "uClaim": "bent",
+       "rClaim": null,
+       "uConfMin": 0.409,
+       "rConfMin": 0.713,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "reason": "split 벌림각 — cg.kp 단일 마크 좌표 부재로 기계 눈 유도 불가 (운영 helper 는 align-peak pass-through = 게이트 비구속)"
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    }
+   ],
+   "approvedFreeze": {
+    "label": "승인 freeze 없음 (ii0 probes.log 에 이 rid 미등재)"
+   },
+   "compressed": []
+  },
+  {
+   "rid": "r02",
+   "criterion": "angle_vs_reference__left_shoulder",
+   "joint": "left_shoulder",
+   "eyeEligible": true,
+   "eyeIneligibleReason": null,
+   "deviation": 9.05,
+   "scan": {
+    "passFrames": 75,
+    "totalFrames": 123,
+    "unmeasurableFrames": 0,
+    "rawRuns": [
+     {
+      "startF": 1,
+      "endF": 11,
+      "startSec": 0.0667,
+      "endSec": 0.7333
+     },
+     {
+      "startF": 14,
+      "endF": 20,
+      "startSec": 0.9333,
+      "endSec": 1.3333
+     },
+     {
+      "startF": 26,
+      "endF": 27,
+      "startSec": 1.7333,
+      "endSec": 1.8
+     },
+     {
+      "startF": 29,
+      "endF": 29,
+      "startSec": 1.9333,
+      "endSec": 1.9333
+     },
+     {
+      "startF": 31,
+      "endF": 31,
+      "startSec": 2.0667,
+      "endSec": 2.0667
+     },
+     {
+      "startF": 35,
+      "endF": 39,
+      "startSec": 2.3333,
+      "endSec": 2.6
+     },
+     {
+      "startF": 42,
+      "endF": 42,
+      "startSec": 2.8,
+      "endSec": 2.8
+     },
+     {
+      "startF": 44,
+      "endF": 45,
+      "startSec": 2.9333,
+      "endSec": 3.0
+     },
+     {
+      "startF": 48,
+      "endF": 48,
+      "startSec": 3.2,
+      "endSec": 3.2
+     },
+     {
+      "startF": 52,
+      "endF": 56,
+      "startSec": 3.4667,
+      "endSec": 3.7333
+     },
+     {
+      "startF": 62,
+      "endF": 68,
+      "startSec": 4.1333,
+      "endSec": 4.5333
+     },
+     {
+      "startF": 71,
+      "endF": 72,
+      "startSec": 4.7333,
+      "endSec": 4.8
+     },
+     {
+      "startF": 75,
+      "endF": 80,
+      "startSec": 5.0,
+      "endSec": 5.3333
+     },
+     {
+      "startF": 82,
+      "endF": 82,
+      "startSec": 5.4667,
+      "endSec": 5.4667
+     },
+     {
+      "startF": 85,
+      "endF": 91,
+      "startSec": 5.6667,
+      "endSec": 6.0667
+     },
+     {
+      "startF": 95,
+      "endF": 95,
+      "startSec": 6.3333,
+      "endSec": 6.3333
+     },
+     {
+      "startF": 99,
+      "endF": 105,
+      "startSec": 6.6,
+      "endSec": 7.0
+     },
+     {
+      "startF": 109,
+      "endF": 115,
+      "startSec": 7.2667,
+      "endSec": 7.6667
+     },
+     {
+      "startF": 119,
+      "endF": 119,
+      "startSec": 7.9333,
+      "endSec": 7.9333
+     }
+    ],
+    "buckets": [
+     {
+      "bucketSec": 0,
+      "startF": 1,
+      "endF": 14,
+      "startSec": 0.0667,
+      "endSec": 0.9333,
+      "passFrames": 12,
+      "repF": 7,
+      "repSec": 0.4667,
+      "minDps": 6.126440356657042
+     },
+     {
+      "bucketSec": 1,
+      "startF": 15,
+      "endF": 29,
+      "startSec": 1.0,
+      "endSec": 1.9333,
+      "passFrames": 9,
+      "repF": 17,
+      "repSec": 1.1333,
+      "minDps": 9.747898069694545
+     },
+     {
+      "bucketSec": 2,
+      "startF": 31,
+      "endF": 44,
+      "startSec": 2.0667,
+      "endSec": 2.9333,
+      "passFrames": 8,
+      "repF": 39,
+      "repSec": 2.6,
+      "minDps": 4.814829130037639
+     },
+     {
+      "bucketSec": 3,
+      "startF": 45,
+      "endF": 56,
+      "startSec": 3.0,
+      "endSec": 3.7333,
+      "passFrames": 7,
+      "repF": 48,
+      "repSec": 3.2,
+      "minDps": 8.068486534557648
+     },
+     {
+      "bucketSec": 4,
+      "startF": 62,
+      "endF": 72,
+      "startSec": 4.1333,
+      "endSec": 4.8,
+      "passFrames": 9,
+      "repF": 72,
+      "repSec": 4.8,
+      "minDps": 1.1596114665300485
+     },
+     {
+      "bucketSec": 5,
+      "startF": 75,
+      "endF": 89,
+      "startSec": 5.0,
+      "endSec": 5.9333,
+      "passFrames": 12,
+      "repF": 76,
+      "repSec": 5.0667,
+      "minDps": 5.135736971126348
+     },
+     {
+      "bucketSec": 6,
+      "startF": 90,
+      "endF": 104,
+      "startSec": 6.0,
+      "endSec": 6.9333,
+      "passFrames": 9,
+      "repF": 102,
+      "repSec": 6.8,
+      "minDps": 0.2949756549474724
+     },
+     {
+      "bucketSec": 7,
+      "startF": 105,
+      "endF": 119,
+      "startSec": 7.0,
+      "endSec": 7.9333,
+      "passFrames": 9,
+      "repF": 111,
+      "repSec": 7.4,
+      "minDps": 3.4580640639072815
+     }
+    ]
+   },
+   "dropDistribution": {
+    "noHold": 0,
+    "pairNone": 1,
+    "claimNone": 0,
+    "claimSame": 0,
+    "claimPairNone": 2,
+    "splitNoMark": 0,
+    "ok": 6
+   },
+   "candidates": [
+    {
+     "id": "cand01",
+     "rid": "r02",
+     "joint": "left_shoulder",
+     "holdRun": {
+      "startSec": 0.0667,
+      "endSec": 0.9333,
+      "repSec": 0.4667,
+      "minDps": 6.126440356657042,
+      "passFrames": 12
+     },
+     "alignRefSec": 0.719,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        0.0,
+        2.733
+       ],
+       "holdFail": 15,
+       "claimFail": 0,
+       "pairFail": 15,
+       "ok": 12
+      },
+      "row": {
+       "uSec": 0.4667,
+       "uIdx": 7,
+       "rSec": 0.7333,
+       "rIdx": 11,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 6.126440356657042,
+        "reason": "hold",
+        "windows": {
+         "sym": 6.1,
+         "past": 38.9,
+         "future": 53.8
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 38.24162668839064,
+        "reason": "hold",
+        "windows": {
+         "sym": 44.0,
+         "past": 54.9,
+         "future": 38.2
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.2858686738190217,
+        "basisK": 12,
+        "poleUser": 0.5960102550722198,
+        "poleRef": 0.45164074958815054,
+        "poleDiff": 0.1443695054840693,
+        "reason": "match"
+       },
+       "uAngleDeg": 179.0,
+       "rAngleDeg": 30.2,
+       "uClaim": "extended",
+       "rClaim": "bent",
+       "uConfMin": 0.7,
+       "rConfMin": 0.639,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "extended",
+        "needRefClaim": "bent",
+        "found": true,
+        "search": {
+         "window": [
+          0.0,
+          2.733
+         ],
+         "holdFail": 15,
+         "claimFail": 2,
+         "pairFail": 15,
+         "ok": 10
+        },
+        "row": {
+         "uSec": 0.4667,
+         "uIdx": 7,
+         "rSec": 0.7333,
+         "rIdx": 11,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 6.126440356657042,
+          "reason": "hold",
+          "windows": {
+           "sym": 6.1,
+           "past": 38.9,
+           "future": 53.8
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 38.24162668839064,
+          "reason": "hold",
+          "windows": {
+           "sym": 44.0,
+           "past": 54.9,
+           "future": 38.2
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.2858686738190217,
+          "basisK": 12,
+          "poleUser": 0.5960102550722198,
+          "poleRef": 0.45164074958815054,
+          "poleDiff": 0.1443695054840693,
+          "reason": "match"
+         },
+         "uAngleDeg": 179.0,
+         "rAngleDeg": 30.2,
+         "uClaim": "extended",
+         "rClaim": "bent",
+         "uConfMin": 0.7,
+         "rConfMin": 0.639,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 2.755,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand02",
+     "rid": "r02",
+     "joint": "left_shoulder",
+     "holdRun": {
+      "startSec": 1.0,
+      "endSec": 1.9333,
+      "repSec": 1.1333,
+      "minDps": 9.747898069694545,
+      "passFrames": 9
+     },
+     "alignRefSec": 1.481,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        0.0,
+        3.467
+       ],
+       "holdFail": 19,
+       "claimFail": 0,
+       "pairFail": 21,
+       "ok": 13
+      },
+      "row": {
+       "uSec": 1.1333,
+       "uIdx": 17,
+       "rSec": 1.3333,
+       "rIdx": 20,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 9.747898069694545,
+        "reason": "hold",
+        "windows": {
+         "sym": 9.7,
+         "past": 35.3,
+         "future": 53.4
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 34.26750647787191,
+        "reason": "hold",
+        "windows": {
+         "sym": 98.5,
+         "past": 34.3,
+         "future": 98.6
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.2402890375011987,
+        "basisK": 12,
+        "poleUser": 0.20693591294375832,
+        "poleRef": 0.04814044792903197,
+        "poleDiff": 0.15879546501472636,
+        "reason": "match"
+       },
+       "uAngleDeg": 118.2,
+       "rAngleDeg": 46.8,
+       "uClaim": null,
+       "rClaim": "bent",
+       "uConfMin": 0.667,
+       "rConfMin": 0.699,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": false,
+        "search": {
+         "window": [
+          0.4,
+          4.4
+         ],
+         "holdFail": 19,
+         "claimFail": 41,
+         "pairFail": 1,
+         "ok": 0
+        },
+        "row": {
+         "uSec": 1.8,
+         "uIdx": 27,
+         "rSec": 2.4,
+         "rIdx": 36,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 38.4289142441703,
+          "reason": "hold",
+          "windows": {
+           "sym": 38.4,
+           "past": 329.5,
+           "future": 203.9
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 13.109881183617743,
+          "reason": "hold",
+          "windows": {
+           "sym": 75.4,
+           "past": 130.7,
+           "future": 13.1
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.32601014612608825,
+          "basisK": 12,
+          "poleUser": 0.19914518350621638,
+          "poleRef": 0.11033885123642333,
+          "poleDiff": 0.08880633226979305,
+          "reason": "match"
+         },
+         "uAngleDeg": 85.0,
+         "rAngleDeg": 36.0,
+         "uClaim": "bent",
+         "rClaim": "bent",
+         "uConfMin": 0.601,
+         "rConfMin": 0.625,
+         "uInverted": false,
+         "rInverted": false
+        },
+        "fail": "창 [0.4, 4.4]s 내 ref claim=extended + 양측홀드 + 짝정합 동시 통과 없음 (holdFail 19 / claimFail 41 / pairFail 1)"
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 1.422,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand03",
+     "rid": "r02",
+     "joint": "left_shoulder",
+     "holdRun": {
+      "startSec": 2.0667,
+      "endSec": 2.9333,
+      "repSec": 2.6,
+      "minDps": 4.814829130037639,
+      "passFrames": 8
+     },
+     "alignRefSec": 3.5333,
+     "poseMin": {
+      "found": false,
+      "search": {
+       "window": [
+        1.533,
+        5.533
+       ],
+       "holdFail": 17,
+       "claimFail": 0,
+       "pairFail": 44,
+       "ok": 0
+      },
+      "row": {
+       "uSec": 2.6,
+       "uIdx": 39,
+       "rSec": 3.5333,
+       "rIdx": 53,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 4.814829130037639,
+        "reason": "hold",
+        "windows": {
+         "sym": 4.8,
+         "past": 10.5,
+         "future": 672.1
+        }
+       },
+       "holdRef": {
+        "passed": false,
+        "speedDps": 170.33559680281616,
+        "reason": "moving",
+        "windows": {
+         "past": 170.3
+        }
+       },
+       "pair": {
+        "passed": false,
+        "poseDist": 1.05463668947554,
+        "basisK": 12,
+        "poleUser": null,
+        "poleRef": null,
+        "poleDiff": null,
+        "reason": "pose_far"
+       },
+       "uAngleDeg": null,
+       "rAngleDeg": null,
+       "uClaim": null,
+       "rClaim": null,
+       "uConfMin": 0.147,
+       "rConfMin": 0.198,
+       "uInverted": null,
+       "rInverted": null
+      },
+      "fail": "창 [1.533, 5.533]s 내 양측홀드+짝정합 동시 통과 없음 (holdFail 17 / pairFail 44)"
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": false,
+        "search": {
+         "window": [
+          1.267,
+          5.267
+         ],
+         "holdFail": 18,
+         "claimFail": 42,
+         "pairFail": 1,
+         "ok": 0
+        },
+        "row": {
+         "uSec": 2.4,
+         "uIdx": 36,
+         "rSec": 3.2667,
+         "rIdx": 49,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 10.462758023794375,
+          "reason": "hold",
+          "windows": {
+           "sym": 79.4,
+           "past": 105.2,
+           "future": 10.5
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 3.4066256819695155,
+          "reason": "hold",
+          "windows": {
+           "sym": 23.1,
+           "past": 3.4,
+           "future": 60.4
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.41167795967968357,
+          "basisK": 12,
+          "poleUser": 0.40911245883587266,
+          "poleRef": 0.11351225508307239,
+          "poleDiff": 0.2956002037528003,
+          "reason": "match"
+         },
+         "uAngleDeg": 73.5,
+         "rAngleDeg": 49.8,
+         "uClaim": "bent",
+         "rClaim": "bent",
+         "uConfMin": 0.783,
+         "rConfMin": 0.636,
+         "uInverted": false,
+         "rInverted": false
+        },
+        "fail": "창 [1.267, 5.267]s 내 ref claim=extended + 양측홀드 + 짝정합 동시 통과 없음 (holdFail 18 / claimFail 42 / pairFail 1)"
+       },
+       {
+        "uClaim": "extended",
+        "needRefClaim": "bent",
+        "found": true,
+        "search": {
+         "window": [
+          0.8,
+          4.8
+         ],
+         "holdFail": 17,
+         "claimFail": 5,
+         "pairFail": 20,
+         "ok": 19
+        },
+        "row": {
+         "uSec": 2.0667,
+         "uIdx": 31,
+         "rSec": 1.2,
+         "rIdx": 18,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 14.435708714503942,
+          "reason": "hold",
+          "windows": {
+           "sym": 14.4,
+           "past": 371.2,
+           "future": 356.7
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 36.06217016566713,
+          "reason": "hold",
+          "windows": {
+           "sym": 36.1,
+           "past": 385.8,
+           "future": 246.2
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.3503441681609589,
+          "basisK": 12,
+          "poleUser": 0.29130543234592665,
+          "poleRef": 0.3114575461948416,
+          "poleDiff": 0.020152113848914965,
+          "reason": "match"
+         },
+         "uAngleDeg": 163.7,
+         "rAngleDeg": 97.6,
+         "uClaim": "extended",
+         "rClaim": "bent",
+         "uConfMin": 0.546,
+         "rConfMin": 0.527,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 0.622,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand04",
+     "rid": "r02",
+     "joint": "left_shoulder",
+     "holdRun": {
+      "startSec": 3.0,
+      "endSec": 3.7333,
+      "repSec": 3.2,
+      "minDps": 8.068486534557648,
+      "passFrames": 7
+     },
+     "alignRefSec": 5.8,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        3.8,
+        7.8
+       ],
+       "holdFail": 19,
+       "claimFail": 0,
+       "pairFail": 27,
+       "ok": 15
+      },
+      "row": {
+       "uSec": 3.2,
+       "uIdx": 48,
+       "rSec": 5.8,
+       "rIdx": 87,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 8.068486534557648,
+        "reason": "hold",
+        "windows": {
+         "sym": 8.1,
+         "past": 485.8,
+         "future": 438.6
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 23.993834397935828,
+        "reason": "hold",
+        "windows": {
+         "sym": 24.0,
+         "past": 448.4,
+         "future": 331.7
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.2828376076006742,
+        "basisK": 12,
+        "poleUser": 0.2567453390310355,
+        "poleRef": 0.2893565907049059,
+        "poleDiff": 0.032611251673870356,
+        "reason": "match"
+       },
+       "uAngleDeg": 163.3,
+       "rAngleDeg": 148.1,
+       "uClaim": "extended",
+       "rClaim": null,
+       "uConfMin": 0.501,
+       "rConfMin": 0.527,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": true,
+        "search": {
+         "window": [
+          3.0,
+          7.0
+         ],
+         "holdFail": 18,
+         "claimFail": 42,
+         "pairFail": 0,
+         "ok": 1
+        },
+        "row": {
+         "uSec": 3.0,
+         "uIdx": 45,
+         "rSec": 4.2667,
+         "rIdx": 64,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 26.38938642779769,
+          "reason": "hold",
+          "windows": {
+           "sym": 184.2,
+           "past": 26.4,
+           "future": 485.8
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 19.174070644296798,
+          "reason": "hold",
+          "windows": {
+           "sym": 19.2,
+           "past": 518.3,
+           "future": 357.5
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.7081049307310239,
+          "basisK": 12,
+          "poleUser": 0.4399138335999601,
+          "poleRef": 0.2896723186404764,
+          "poleDiff": 0.15024151495948374,
+          "reason": "match"
+         },
+         "uAngleDeg": 58.6,
+         "rAngleDeg": 156.8,
+         "uClaim": "bent",
+         "rClaim": "extended",
+         "uConfMin": 0.704,
+         "rConfMin": 0.525,
+         "uInverted": false,
+         "rInverted": false
+        }
+       },
+       {
+        "uClaim": "extended",
+        "needRefClaim": "bent",
+        "found": true,
+        "search": {
+         "window": [
+          3.8,
+          7.8
+         ],
+         "holdFail": 19,
+         "claimFail": 7,
+         "pairFail": 23,
+         "ok": 12
+        },
+        "row": {
+         "uSec": 3.2,
+         "uIdx": 48,
+         "rSec": 4.4667,
+         "rIdx": 67,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 8.068486534557648,
+          "reason": "hold",
+          "windows": {
+           "sym": 8.1,
+           "past": 485.8,
+           "future": 438.6
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 50.44705742627208,
+          "reason": "hold",
+          "windows": {
+           "sym": 118.0,
+           "past": 357.5,
+           "future": 50.4
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.5094973081870796,
+          "basisK": 12,
+          "poleUser": 0.2567453390310355,
+          "poleRef": 0.03677424224849326,
+          "poleDiff": 0.21997109678254226,
+          "reason": "match"
+         },
+         "uAngleDeg": 163.3,
+         "rAngleDeg": 51.9,
+         "uClaim": "extended",
+         "rClaim": "bent",
+         "uConfMin": 0.501,
+         "rConfMin": 0.676,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 0.022,
+      "coversApprovedUser": true
+     }
+    },
+    {
+     "id": "cand05",
+     "rid": "r02",
+     "joint": "left_shoulder",
+     "holdRun": {
+      "startSec": 4.1333,
+      "endSec": 4.8,
+      "repSec": 4.8,
+      "minDps": 1.1596114665300485,
+      "passFrames": 9
+     },
+     "alignRefSec": 7.6143,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        5.6,
+        9.6
+       ],
+       "holdFail": 19,
+       "claimFail": 0,
+       "pairFail": 19,
+       "ok": 23
+      },
+      "row": {
+       "uSec": 4.8,
+       "uIdx": 72,
+       "rSec": 6.0667,
+       "rIdx": 91,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 1.1596114665300485,
+        "reason": "hold",
+        "windows": {
+         "sym": 1.2,
+         "past": 259.7,
+         "future": 219.9
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 45.60140421408187,
+        "reason": "hold",
+        "windows": {
+         "sym": 86.4,
+         "past": 135.0,
+         "future": 45.6
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.4141810084273855,
+        "basisK": 12,
+        "poleUser": 0.07040883590824559,
+        "poleRef": 0.03866860986191615,
+        "poleDiff": 0.031740226046329444,
+        "reason": "match"
+       },
+       "uAngleDeg": 109.7,
+       "rAngleDeg": 48.4,
+       "uClaim": null,
+       "rClaim": "bent",
+       "uConfMin": 0.59,
+       "rConfMin": 0.698,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": false,
+        "search": {
+         "window": [
+          5.133,
+          9.133
+         ],
+         "holdFail": 16,
+         "claimFail": 45,
+         "pairFail": 0,
+         "ok": 0
+        },
+        "row": {
+         "uSec": 4.3333,
+         "uIdx": 65,
+         "rSec": 7.1333,
+         "rIdx": 107,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 2.220947357941581,
+          "reason": "hold",
+          "windows": {
+           "sym": 2.2,
+           "past": 40.4,
+           "future": 55.4
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 18.160969908385926,
+          "reason": "hold",
+          "windows": {
+           "sym": 21.5,
+           "past": 75.4,
+           "future": 18.2
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.3180907509843971,
+          "basisK": 12,
+          "poleUser": 0.1833051407368913,
+          "poleRef": 0.26125680443912963,
+          "poleDiff": 0.07795166370223833,
+          "reason": "match"
+         },
+         "uAngleDeg": 52.4,
+         "rAngleDeg": 34.2,
+         "uClaim": "bent",
+         "rClaim": "bent",
+         "uConfMin": 0.567,
+         "rConfMin": 0.623,
+         "uInverted": false,
+         "rInverted": false
+        },
+        "fail": "창 [5.133, 9.133]s 내 ref claim=extended + 양측홀드 + 짝정합 동시 통과 없음 (holdFail 16 / claimFail 45 / pairFail 0)"
+       },
+       {
+        "uClaim": "extended",
+        "needRefClaim": "bent",
+        "found": true,
+        "search": {
+         "window": [
+          5.533,
+          9.533
+         ],
+         "holdFail": 19,
+         "claimFail": 2,
+         "pairFail": 21,
+         "ok": 19
+        },
+        "row": {
+         "uSec": 4.7333,
+         "uIdx": 71,
+         "rSec": 6.0667,
+         "rIdx": 91,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 43.345505863739874,
+          "reason": "hold",
+          "windows": {
+           "sym": 43.3,
+           "past": 404.1,
+           "future": 414.2
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 45.60140421408187,
+          "reason": "hold",
+          "windows": {
+           "sym": 86.4,
+           "past": 135.0,
+           "future": 45.6
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.4906376312341565,
+          "basisK": 12,
+          "poleUser": 0.1899291586222454,
+          "poleRef": 0.03866860986191615,
+          "poleDiff": 0.15126054876032927,
+          "reason": "match"
+         },
+         "uAngleDeg": 152.3,
+         "rAngleDeg": 48.4,
+         "uClaim": "extended",
+         "rClaim": "bent",
+         "uConfMin": 0.568,
+         "rConfMin": 0.698,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 1.111,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand06",
+     "rid": "r02",
+     "joint": "left_shoulder",
+     "holdRun": {
+      "startSec": 5.0,
+      "endSec": 5.9333,
+      "repSec": 5.0667,
+      "minDps": 5.135736971126348,
+      "passFrames": 12
+     },
+     "alignRefSec": 7.919,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        5.933,
+        9.933
+       ],
+       "holdFail": 18,
+       "claimFail": 0,
+       "pairFail": 16,
+       "ok": 27
+      },
+      "row": {
+       "uSec": 5.0667,
+       "uIdx": 76,
+       "rSec": 9.6,
+       "rIdx": 144,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 5.135736971126348,
+        "reason": "hold",
+        "windows": {
+         "sym": 59.9,
+         "past": 84.5,
+         "future": 5.1
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 2.6471136924330962,
+        "reason": "hold",
+        "windows": {
+         "sym": 2.6,
+         "past": 46.6,
+         "future": 43.4
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.3434488527114523,
+        "basisK": 12,
+        "poleUser": 0.20146389816890048,
+        "poleRef": 0.22875295156631048,
+        "poleDiff": 0.02728905339741,
+        "reason": "match"
+       },
+       "uAngleDeg": 61.6,
+       "rAngleDeg": 38.6,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.566,
+       "rConfMin": 0.73,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": false,
+        "search": {
+         "window": [
+          5.933,
+          9.933
+         ],
+         "holdFail": 18,
+         "claimFail": 43,
+         "pairFail": 0,
+         "ok": 0
+        },
+        "row": {
+         "uSec": 5.0667,
+         "uIdx": 76,
+         "rSec": 7.9333,
+         "rIdx": 119,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 5.135736971126348,
+          "reason": "hold",
+          "windows": {
+           "sym": 59.9,
+           "past": 84.5,
+           "future": 5.1
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 20.104914678527965,
+          "reason": "hold",
+          "windows": {
+           "sym": 29.6,
+           "past": 114.1,
+           "future": 20.1
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.3851855523597997,
+          "basisK": 12,
+          "poleUser": 0.20146389816890048,
+          "poleRef": 0.18360385677972682,
+          "poleDiff": 0.01786004138917366,
+          "reason": "match"
+         },
+         "uAngleDeg": 61.6,
+         "rAngleDeg": 38.1,
+         "uClaim": "bent",
+         "rClaim": "bent",
+         "uConfMin": 0.566,
+         "rConfMin": 0.735,
+         "uInverted": false,
+         "rInverted": false
+        },
+        "fail": "창 [5.933, 9.933]s 내 ref claim=extended + 양측홀드 + 짝정합 동시 통과 없음 (holdFail 18 / claimFail 43 / pairFail 0)"
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 1.845,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand07",
+     "rid": "r02",
+     "joint": "left_shoulder",
+     "holdRun": {
+      "startSec": 6.0,
+      "endSec": 6.9333,
+      "repSec": 6.8,
+      "minDps": 0.2949756549474724,
+      "passFrames": 9
+     },
+     "alignRefSec": 9.7286,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        7.733,
+        10.467
+       ],
+       "holdFail": 10,
+       "claimFail": 0,
+       "pairFail": 11,
+       "ok": 21
+      },
+      "row": {
+       "uSec": 6.8,
+       "uIdx": 102,
+       "rSec": 9.8,
+       "rIdx": 147,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 0.2949756549474724,
+        "reason": "hold",
+        "windows": {
+         "sym": 0.3,
+         "past": 4.5,
+         "future": 55.1
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 13.48462641517203,
+        "reason": "hold",
+        "windows": {
+         "sym": 70.4,
+         "past": 43.4,
+         "future": 13.5
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.4584695724127825,
+        "basisK": 12,
+        "poleUser": 0.3774323732972225,
+        "poleRef": 0.27990087712873396,
+        "poleDiff": 0.09753149616848855,
+        "reason": "match"
+       },
+       "uAngleDeg": 63.3,
+       "rAngleDeg": 49.1,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.758,
+       "rConfMin": 0.703,
+       "uInverted": false,
+       "rInverted": true
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": true,
+        "search": {
+         "window": [
+          7.733,
+          10.467
+         ],
+         "holdFail": 10,
+         "claimFail": 31,
+         "pairFail": 0,
+         "ok": 1
+        },
+        "row": {
+         "uSec": 6.8,
+         "uIdx": 102,
+         "rSec": 10.0667,
+         "rIdx": 151,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 0.2949756549474724,
+          "reason": "hold",
+          "windows": {
+           "sym": 0.3,
+           "past": 4.5,
+           "future": 55.1
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 48.070404229482044,
+          "reason": "hold",
+          "windows": {
+           "sym": 48.1,
+           "past": 325.5,
+           "future": 398.0
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.6116825514852554,
+          "basisK": 12,
+          "poleUser": 0.3774323732972225,
+          "poleRef": 0.25085390705624694,
+          "poleDiff": 0.12657846624097557,
+          "reason": "match"
+         },
+         "uAngleDeg": 63.3,
+         "rAngleDeg": 166.6,
+         "uClaim": "bent",
+         "rClaim": "extended",
+         "uConfMin": 0.758,
+         "rConfMin": 0.557,
+         "uInverted": false,
+         "rInverted": true
+        }
+       },
+       {
+        "uClaim": "extended",
+        "needRefClaim": "bent",
+        "found": true,
+        "search": {
+         "window": [
+          7.2,
+          10.467
+         ],
+         "holdFail": 13,
+         "claimFail": 2,
+         "pairFail": 18,
+         "ok": 17
+        },
+        "row": {
+         "uSec": 6.3333,
+         "uIdx": 95,
+         "rSec": 9.4,
+         "rIdx": 141,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 13.61112245744151,
+          "reason": "hold",
+          "windows": {
+           "sym": 13.6,
+           "past": 481.8,
+           "future": 365.1
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 46.63115983632136,
+          "reason": "hold",
+          "windows": {
+           "sym": 181.4,
+           "past": 342.8,
+           "future": 46.6
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.5579677903163354,
+          "basisK": 12,
+          "poleUser": 0.20548120061394676,
+          "poleRef": 0.09456857894884144,
+          "poleDiff": 0.11091262166510532,
+          "reason": "match"
+         },
+         "uAngleDeg": 172.5,
+         "rAngleDeg": 50.2,
+         "uClaim": "extended",
+         "rClaim": "bent",
+         "uConfMin": 0.539,
+         "rConfMin": 0.625,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 3.111,
+      "coversApprovedUser": false
+     }
+    },
+    {
+     "id": "cand08",
+     "rid": "r02",
+     "joint": "left_shoulder",
+     "holdRun": {
+      "startSec": 7.0,
+      "endSec": 7.9333,
+      "repSec": 7.4,
+      "minDps": 3.4580640639072815,
+      "passFrames": 9
+     },
+     "alignRefSec": 10.3238,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        8.333,
+        10.467
+       ],
+       "holdFail": 9,
+       "claimFail": 0,
+       "pairFail": 9,
+       "ok": 15
+      },
+      "row": {
+       "uSec": 7.4,
+       "uIdx": 111,
+       "rSec": 10.4,
+       "rIdx": 156,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 3.4580640639072815,
+        "reason": "hold",
+        "windows": {
+         "sym": 43.5,
+         "past": 238.9,
+         "future": 3.5
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 1.268346581087667,
+        "reason": "hold",
+        "windows": {
+         "sym": 35.6,
+         "past": 49.3,
+         "future": 1.3
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.2060625140754589,
+        "basisK": 12,
+        "poleUser": 0.23860129004071726,
+        "poleRef": 0.27388592186195027,
+        "poleDiff": 0.03528463182123301,
+        "reason": "match"
+       },
+       "uAngleDeg": 53.4,
+       "rAngleDeg": 37.4,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.547,
+       "rConfMin": 0.595,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": true,
+        "search": {
+         "window": [
+          8.333,
+          10.467
+         ],
+         "holdFail": 9,
+         "claimFail": 23,
+         "pairFail": 0,
+         "ok": 1
+        },
+        "row": {
+         "uSec": 7.4,
+         "uIdx": 111,
+         "rSec": 10.0667,
+         "rIdx": 151,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 3.4580640639072815,
+          "reason": "hold",
+          "windows": {
+           "sym": 43.5,
+           "past": 238.9,
+           "future": 3.5
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 48.070404229482044,
+          "reason": "hold",
+          "windows": {
+           "sym": 48.1,
+           "past": 325.5,
+           "future": 398.0
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.48858540555200575,
+          "basisK": 12,
+          "poleUser": 0.23860129004071726,
+          "poleRef": 0.25085390705624694,
+          "poleDiff": 0.012252617015529682,
+          "reason": "match"
+         },
+         "uAngleDeg": 53.4,
+         "rAngleDeg": 166.6,
+         "uClaim": "bent",
+         "rClaim": "extended",
+         "uConfMin": 0.547,
+         "rConfMin": 0.557,
+         "uInverted": false,
+         "rInverted": true
+        }
+       },
+       {
+        "uClaim": "extended",
+        "needRefClaim": "bent",
+        "found": true,
+        "search": {
+         "window": [
+          8.467,
+          10.467
+         ],
+         "holdFail": 9,
+         "claimFail": 1,
+         "pairFail": 13,
+         "ok": 8
+        },
+        "row": {
+         "uSec": 7.9333,
+         "uIdx": 119,
+         "rSec": 9.4,
+         "rIdx": 141,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 32.63781940617908,
+          "reason": "hold",
+          "windows": {
+           "sym": 32.6,
+           "past": 449.5,
+           "future": 551.1
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 46.63115983632136,
+          "reason": "hold",
+          "windows": {
+           "sym": 181.4,
+           "past": 342.8,
+           "future": 46.6
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.5682145164434277,
+          "basisK": 12,
+          "poleUser": 0.073864845239735,
+          "poleRef": 0.09456857894884144,
+          "poleDiff": 0.020703733709106442,
+          "reason": "match"
+         },
+         "uAngleDeg": 170.7,
+         "rAngleDeg": 50.2,
+         "uClaim": "extended",
+         "rClaim": "bent",
+         "uConfMin": 0.537,
+         "rConfMin": 0.625,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 4.178,
+      "coversApprovedUser": false
+     }
+    }
+   ],
+   "approvedFreeze": {
+    "label": "승인 freeze (ii0 probes.log — src=align)",
+    "userSec": 3.222,
+    "refSec": 5.733,
+    "row": {
+     "uSec": 3.2,
+     "uIdx": 48,
+     "rSec": 5.7333,
+     "rIdx": 86,
+     "holdUser": {
+      "passed": true,
+      "speedDps": 8.068486534557648,
+      "reason": "hold",
+      "windows": {
+       "sym": 8.1,
+       "past": 485.8,
+       "future": 438.6
+      }
+     },
+     "holdRef": {
+      "passed": false,
+      "speedDps": 75.14035509372745,
+      "reason": "moving",
+      "windows": {
+       "sym": 106.1,
+       "past": 203.8,
+       "future": 75.1
+      }
+     },
+     "pair": {
+      "passed": true,
+      "poseDist": 0.44913722887211444,
+      "basisK": 12,
+      "poleUser": 0.2567453390310355,
+      "poleRef": 0.461112587655266,
+      "poleDiff": 0.2043672486242305,
+      "reason": "match"
+     },
+     "uAngleDeg": 163.3,
+     "rAngleDeg": 84.4,
+     "uClaim": "extended",
+     "rClaim": "bent",
+     "uConfMin": 0.501,
+     "rConfMin": 0.631,
+     "uInverted": false,
+     "rInverted": false
+    }
+   },
+   "compressed": [
+    {
+     "cid": "cand01E",
+     "candId": "cand01",
+     "uClaim": "extended",
+     "rClaim": "bent",
+     "row": {
+      "uSec": 0.4667,
+      "uIdx": 7,
+      "rSec": 0.7333,
+      "rIdx": 11,
+      "holdUser": {
+       "passed": true,
+       "speedDps": 6.126440356657042,
+       "reason": "hold",
+       "windows": {
+        "sym": 6.1,
+        "past": 38.9,
+        "future": 53.8
+       }
+      },
+      "holdRef": {
+       "passed": true,
+       "speedDps": 38.24162668839064,
+       "reason": "hold",
+       "windows": {
+        "sym": 44.0,
+        "past": 54.9,
+        "future": 38.2
+       }
+      },
+      "pair": {
+       "passed": true,
+       "poseDist": 0.2858686738190217,
+       "basisK": 12,
+       "poleUser": 0.5960102550722198,
+       "poleRef": 0.45164074958815054,
+       "poleDiff": 0.1443695054840693,
+       "reason": "match"
+      },
+      "uAngleDeg": 179.0,
+      "rAngleDeg": 30.2,
+      "uClaim": "extended",
+      "rClaim": "bent",
+      "uConfMin": 0.7,
+      "rConfMin": 0.639,
+      "uInverted": false,
+      "rInverted": false
+     },
+     "holdRun": {
+      "startSec": 0.0667,
+      "endSec": 0.9333,
+      "repSec": 0.4667,
+      "minDps": 6.126440356657042,
+      "passFrames": 12
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 2.755,
+      "coversApprovedUser": false
+     },
+     "stills": {
+      "user": "evidence/powerspin/stills/r02_cand01E_user_0.4667s.jpg",
+      "ref": "evidence/powerspin/stills/r02_cand01E_ref_0.7333s.jpg"
+     },
+     "pairSheet": "evidence/powerspin/stills/r02_cand01E_PAIR_u0.4667s_r0.7333s.jpg"
+    },
+    {
+     "cid": "cand03E",
+     "candId": "cand03",
+     "uClaim": "extended",
+     "rClaim": "bent",
+     "row": {
+      "uSec": 2.0667,
+      "uIdx": 31,
+      "rSec": 1.2,
+      "rIdx": 18,
+      "holdUser": {
+       "passed": true,
+       "speedDps": 14.435708714503942,
+       "reason": "hold",
+       "windows": {
+        "sym": 14.4,
+        "past": 371.2,
+        "future": 356.7
+       }
+      },
+      "holdRef": {
+       "passed": true,
+       "speedDps": 36.06217016566713,
+       "reason": "hold",
+       "windows": {
+        "sym": 36.1,
+        "past": 385.8,
+        "future": 246.2
+       }
+      },
+      "pair": {
+       "passed": true,
+       "poseDist": 0.3503441681609589,
+       "basisK": 12,
+       "poleUser": 0.29130543234592665,
+       "poleRef": 0.3114575461948416,
+       "poleDiff": 0.020152113848914965,
+       "reason": "match"
+      },
+      "uAngleDeg": 163.7,
+      "rAngleDeg": 97.6,
+      "uClaim": "extended",
+      "rClaim": "bent",
+      "uConfMin": 0.546,
+      "rConfMin": 0.527,
+      "uInverted": false,
+      "rInverted": false
+     },
+     "holdRun": {
+      "startSec": 2.0667,
+      "endSec": 2.9333,
+      "repSec": 2.6,
+      "minDps": 4.814829130037639,
+      "passFrames": 8
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 0.622,
+      "coversApprovedUser": false
+     },
+     "stills": {
+      "user": "evidence/powerspin/stills/r02_cand03E_user_2.0667s.jpg",
+      "ref": "evidence/powerspin/stills/r02_cand03E_ref_1.2s.jpg"
+     },
+     "pairSheet": "evidence/powerspin/stills/r02_cand03E_PAIR_u2.0667s_r1.2s.jpg"
+    },
+    {
+     "cid": "cand08B",
+     "candId": "cand08",
+     "uClaim": "bent",
+     "rClaim": "extended",
+     "row": {
+      "uSec": 7.4,
+      "uIdx": 111,
+      "rSec": 10.0667,
+      "rIdx": 151,
+      "holdUser": {
+       "passed": true,
+       "speedDps": 3.4580640639072815,
+       "reason": "hold",
+       "windows": {
+        "sym": 43.5,
+        "past": 238.9,
+        "future": 3.5
+       }
+      },
+      "holdRef": {
+       "passed": true,
+       "speedDps": 48.070404229482044,
+       "reason": "hold",
+       "windows": {
+        "sym": 48.1,
+        "past": 325.5,
+        "future": 398.0
+       }
+      },
+      "pair": {
+       "passed": true,
+       "poseDist": 0.48858540555200575,
+       "basisK": 12,
+       "poleUser": 0.23860129004071726,
+       "poleRef": 0.25085390705624694,
+       "poleDiff": 0.012252617015529682,
+       "reason": "match"
+      },
+      "uAngleDeg": 53.4,
+      "rAngleDeg": 166.6,
+      "uClaim": "bent",
+      "rClaim": "extended",
+      "uConfMin": 0.547,
+      "rConfMin": 0.557,
+      "uInverted": false,
+      "rInverted": true
+     },
+     "holdRun": {
+      "startSec": 7.0,
+      "endSec": 7.9333,
+      "repSec": 7.4,
+      "minDps": 3.4580640639072815,
+      "passFrames": 9
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 4.178,
+      "coversApprovedUser": false
+     },
+     "stills": {
+      "user": "evidence/powerspin/stills/r02_cand08B_user_7.4s.jpg",
+      "ref": "evidence/powerspin/stills/r02_cand08B_ref_10.0667s.jpg"
+     },
+     "pairSheet": "evidence/powerspin/stills/r02_cand08B_PAIR_u7.4s_r10.0667s.jpg"
+    },
+    {
+     "cid": "cand05E",
+     "candId": "cand05",
+     "uClaim": "extended",
+     "rClaim": "bent",
+     "row": {
+      "uSec": 4.7333,
+      "uIdx": 71,
+      "rSec": 6.0667,
+      "rIdx": 91,
+      "holdUser": {
+       "passed": true,
+       "speedDps": 43.345505863739874,
+       "reason": "hold",
+       "windows": {
+        "sym": 43.3,
+        "past": 404.1,
+        "future": 414.2
+       }
+      },
+      "holdRef": {
+       "passed": true,
+       "speedDps": 45.60140421408187,
+       "reason": "hold",
+       "windows": {
+        "sym": 86.4,
+        "past": 135.0,
+        "future": 45.6
+       }
+      },
+      "pair": {
+       "passed": true,
+       "poseDist": 0.4906376312341565,
+       "basisK": 12,
+       "poleUser": 0.1899291586222454,
+       "poleRef": 0.03866860986191615,
+       "poleDiff": 0.15126054876032927,
+       "reason": "match"
+      },
+      "uAngleDeg": 152.3,
+      "rAngleDeg": 48.4,
+      "uClaim": "extended",
+      "rClaim": "bent",
+      "uConfMin": 0.568,
+      "rConfMin": 0.698,
+      "uInverted": false,
+      "rInverted": false
+     },
+     "holdRun": {
+      "startSec": 4.1333,
+      "endSec": 4.8,
+      "repSec": 4.8,
+      "minDps": 1.1596114665300485,
+      "passFrames": 9
+     },
+     "approvedRelation": {
+      "approvedUserSec": 3.222,
+      "dUserSec": 1.111,
+      "coversApprovedUser": false
+     },
+     "stills": {
+      "user": "evidence/powerspin/stills/r02_cand05E_user_4.7333s.jpg",
+      "ref": "evidence/powerspin/stills/r02_cand05E_ref_6.0667s.jpg"
+     },
+     "pairSheet": "evidence/powerspin/stills/r02_cand05E_PAIR_u4.7333s_r6.0667s.jpg"
+    }
+   ]
+  }
+ ]
+}

@@ -4243,7 +4243,7 @@ def _run_deferred_compare_render(
             return
 
         # ── 발굴 채택(discovery) 조달 (quick-260814-ghs) ───────────────────────
-        # 아래 coachAudio 처방(:4265-)과 같은 계열이되 **조달 소스가 다르다**:
+        # 아래 coachAudio 처방(:4302-)과 같은 계열이되 **조달 소스가 다르다**:
         # 발굴은 분석 **사후** belle 채택물이라 어떤 실행에도 in-memory 근거가
         # 원리적으로 없다(호출부에도 없다) — Firestore 가 유일 진실.
         # mp3 조인 규약 = `s3keys.build_discover_audio_key` 단일 출처의 **basename**

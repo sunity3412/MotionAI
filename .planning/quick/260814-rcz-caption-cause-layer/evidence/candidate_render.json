@@ -21,6 +21,8 @@
     "zoom_angle_vs_reference__left_elbow.png": "667a77c6c86c567f7840aab4d57ca0af"
    },
    "md5Match": true,
+   "expectedChangedByGate": false,
+   "gateReason": "drawn",
    "cards": [
     "r00_cand17B_u16.4667s_r15.1333s_zoom_angle_vs_reference__left_elbow.png"
    ],
@@ -65,12 +67,14 @@
    "joint": "left_shoulder",
    "belleVerdict": "캐치 유효 / 각도 표기 부적절",
    "md5": {
-    "zoom_angle_vs_reference__left_shoulder.png": "78c512bca5c3900bd670f60a4956fb00"
+    "zoom_angle_vs_reference__left_shoulder.png": "545297f018edf4a8eaaef70aafe1bd63"
    },
    "md5Cert": {
     "zoom_angle_vs_reference__left_shoulder.png": "78c512bca5c3900bd670f60a4956fb00"
    },
-   "md5Match": true,
+   "md5Match": false,
+   "expectedChangedByGate": true,
+   "gateReason": "omitted:panel_diff_114.4",
    "cards": [
     "r02_cand01E_u0.4667s_r0.7333s_zoom_angle_vs_reference__left_shoulder.png"
    ],
@@ -82,16 +86,16 @@
     {
      "analysisId": "ehz-powerspin-r02-cand01E",
      "criterion": "angle_vs_reference__left_shoulder",
-     "verdict": "drawn",
-     "vDrawn": true,
+     "verdict": "omitted:panel_diff_114.4",
+     "vDrawn": false,
      "hybrid": false,
-     "A2_userInnerDeg": 178.91443216834273,
-     "A1_refInnerDeg": 64.51029691354823,
-     "drawCalls": 2,
-     "A3_absDiffDeg": 114.4041352547945,
-     "A4_refStraightness": 64.51029691354823,
-     "A4_userStraightness": 1.085567831657272,
-     "A6_moreBentSide": "ref",
+     "A2_userInnerDeg": null,
+     "A1_refInnerDeg": null,
+     "drawCalls": 0,
+     "A3_absDiffDeg": null,
+     "A4_refStraightness": null,
+     "A4_userStraightness": null,
+     "A6_moreBentSide": null,
      "motion": "powerspin",
      "cid": "cand01E",
      "A5_deficitDeg": 55.0,
@@ -103,7 +107,7 @@
    "logs": [
     "card_gates verdict analysis_id=ehz-powerspin-r02-cand01E total=1 survivors=['r02:inherit@u0.467/r0.73'] dropped=['r00:no_freeze', 'r01:no_freeze'] eye_calls=1",
     "display_anchor rid=r02 joint=left_shoulder u_ai=7 r_ai=11 user=(0.4416,0.3591) ref=(0.5400,0.3187)",
-    "fault_zoom_angle_bake analysis_id=ehz-powerspin-r02-cand01E criterion=angle_vs_reference__left_shoulder angle_bake=drawn"
+    "fault_zoom_angle_bake analysis_id=ehz-powerspin-r02-cand01E criterion=angle_vs_reference__left_shoulder angle_bake=omitted:panel_diff_114.4"
    ]
   }
  }

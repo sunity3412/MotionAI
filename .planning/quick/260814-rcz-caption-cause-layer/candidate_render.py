@@ -48,6 +48,14 @@ CACHE_ROOT = SCRATCH / "ehz_sweep"   # ehz 가 이미 받아 둔 소스 (S3 재�
 # (motion, rid, cid) — 정확히 2건. 좌표는 ehz 원장에서 읽고 여기 하드코딩 0.
 TARGETS = (("pdshapefault", "r00", "cand17B"), ("powerspin", "r02", "cand01E"))
 
+# 마크 게이트(Task 3) 이식 **후** 기대되는 변화 선언.
+#   · cand17B = belle 채택분 → md5 **동일**해야 한다 (무손상 1급)
+#   · cand01E = belle 반려분 → md5 **달라져야** 하고, 그 차이는 V 소멸이어야 한다
+# 이 선언이 없으면 "md5 가 달라졌다"가 회귀인지 의도인지 산출물에서 구분되지
+# 않는다. `RCZ_EXPECT_GATE=0` 으로 두면 패치 전(무게이트) 기대로 되돌아간다.
+EXPECT_CHANGED_AFTER_GATE = {"cand01E"}
+EXPECT_GATE = os.environ.get("RCZ_EXPECT_GATE", "1") == "1"
+
 log = logging.getLogger("candidate_render")
 
 
@@ -188,8 +196,14 @@ def main() -> int:
 
         got_md5 = _md5_dir(tmp)
         want_md5 = cert["md5Run1"]
-        if got_md5 != want_md5:
-            fails.append(f"{m} {key} md5 != ehz: now={got_md5} ehz={want_md5}")
+        should_change = EXPECT_GATE and cid in EXPECT_CHANGED_AFTER_GATE
+        changed = got_md5 != want_md5
+        if should_change and not changed:
+            fails.append(
+                f"{m} {key} md5 가 그대로다 — 게이트가 발동하지 않았다")
+        if not should_change and changed:
+            fails.append(
+                f"{m} {key} md5 != ehz (무손상 위반): now={got_md5} ehz={want_md5}")
 
         # 최종 카드 배치 (belle 재료 이름 그대로 — ehz 시트와 조인 가능)
         final = []
@@ -219,7 +233,11 @@ def main() -> int:
             "belleVerdict": ("채택(조건부 — 캡션 보강)" if cid == "cand17B"
                              else "캐치 유효 / 각도 표기 부적절"),
             "md5": got_md5, "md5Cert": want_md5,
-            "md5Match": got_md5 == want_md5,
+            "md5Match": not changed,
+            "expectedChangedByGate": should_change,
+            "gateReason": next(
+                (line.split("angle_bake=")[-1] for line in cap.lines
+                 if "fault_zoom_angle_bake" in line), None),
             "cards": final,
             "eyeReplayCalls": eye.calls, "eyeReplayServed": eye.served,
             "observations": rows,

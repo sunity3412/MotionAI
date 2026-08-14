@@ -1832,6 +1832,58 @@ _GHOST_CORE = (60, 60, 60)   # 고스트 코어 색 (흰 halo 점선 위 어두�
 # 기존 V 그대로 (belle 판정 2 — EV4/EV5 오프셋 반려, 과잉 일반화로 승인 깨기 금지).
 HYBRID_ANGLE_SUFFIXES = frozenset({"hip"})
 
+# ── 각도 V 마크 적용 조건 (quick-260814-rcz) ─────────────────────────────────
+# belle 2026-08-14 (powerspin cand01E 판정): "이게 각도 표기가 필요한 부분인진
+# 모르겠음. … 각도를 표기한다고 해도 **잘한 영상쪽 각도가 좀 애매해** 저렇게
+# 표기하는게 맞는지 모르겠네".
+#
+# 임계는 **재고 나서** 정했다 (커브핏 금지 — 판정 규칙을 표보다 먼저 커밋한 뒤
+# 기계 적용했다, quick-260814-rcz MEASURE.md §1 = commit 02dfb35).
+#   측정 대상 = 승인 코퍼스에서 V 가 **실제로 그려진** 카드 8건 + belle 채택 후보
+#   cand17B (= 통과집합 P, 9건) vs belle 반려 cand01E (= 반려집합 N, 1건).
+#   측정량 = 운영 함수 `_spec_inner_deg_px` 로 잰 **실제로 그려지는 좌표**의 px
+#   사이각 (새 산식 발명 0).
+#   · A1 ref 사이각 / A4 직선근접(ref) / A5 deficitDeg / A6 대조방향 → 분리 없음
+#   · A2 user 사이각 / A4 직선근접(user) → 분리는 되나 마진 1.53 < 필요 16.81 기각
+#   · A3 = |ref − user|  → P 최대 84.85 / N 114.40, 마진 29.56 >= 필요 15.83 **채택**
+#   임계 = 분리 구간 (84.85, 114.40) 의 중앙.
+#
+# 이 축이 재는 것은 "차이가 큰가"가 아니라 **두 패널이 같은 종류의 마크를
+# 보여주는가**다. A3 가 100도에 가까우면 한쪽은 반드시 직선에 붙어 각으로 읽히지
+# 않는다 (cand01E = user 178.9도 직선 + ref 64.5도 V — 실물 육안 확인).
+# ★반대로 "한쪽 패널이 직선"만으로는 억제 근거가 못 된다: pdshapefault
+# right_elbow 는 user 177.4도인데 ref 도 167.0도라 **양쪽이 함께 직선**이고 belle
+# 통과다. 그래서 A2/A4 가 아니라 A3 다.
+#
+# ★표본 한계 (숨기지 않는다): N = **1건**. 임계 여유는 가장 가까운 P(84.85)까지
+# 14.77도뿐이고 85~99 구간은 미검증이다. 상세 = MEASURE.md §3-3.
+ANGLE_MARK_MAX_PANEL_DIFF_DEG = 99.6
+
+
+def angle_mark_admissible(
+    user_inner_deg: float | None,
+    ref_inner_deg: float | None,
+) -> tuple[bool, str]:
+    """양 패널 px 사이각으로 V 마크를 그릴지 판정 — 순수 함수 (좌표/IO 무관).
+
+    Returns:
+        (그릴지, 사유). 사유는 `fault_zoom_angle_bake` 로그에 그대로 실려
+        운영에서 판정을 사후 추적할 수 있게 한다 (로그가 배선의 증인).
+
+    **fail-open** — 사이각을 못 재면(None/비유한/비수치) 오늘과 **동일하게
+    그린다**. 무회귀가 우선이고, 못 잰 것을 근거로 표시를 없애면 "재지 않은 것을
+    쟀다"고 말하는 셈이다 (kpo "실패 전량 기존 카드 폴백" 선례).
+    """
+    for value in (user_inner_deg, ref_inner_deg):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return True, "unmeasurable"
+        if not math.isfinite(float(value)):
+            return True, "unmeasurable"
+    diff = abs(float(user_inner_deg) - float(ref_inner_deg))
+    if diff >= ANGLE_MARK_MAX_PANEL_DIFF_DEG:
+        return False, f"panel_diff_{diff:.1f}"
+    return True, "admissible"
+
 
 def _rotate(v: tuple[float, float], rad: float) -> tuple[float, float]:
     """2D 회전 (bz5 이식) — 고스트 방향 = 몸통 축에서 기준 사이각만큼 연 방향."""
@@ -3580,48 +3632,64 @@ def build_fault_zoom_comparisons(
                             # round3 _R3Patch._repaired_pts 동치).
                             u_spec = shift_bake_spec(u_spec, u_vertex)
                             r_spec = shift_bake_spec(r_spec, r_vertex)
-                        u_try, r_try = u_img.copy(), r_img.copy()
-                        # 하이브리드 문법 (quick-260813-fxx — 접미사 선언 키잉):
-                        # ref 패널 px 공간에서 내각을 먼저 확보해야 user 패널에
-                        # 이식한다. 비유한/부재 = 기존 V 양 패널 폴백 (graceful
-                        # — kpo "실패 전량 기존 카드" 선례, 로그에 사유 표기).
-                        _hybrid = _suffix in HYBRID_ANGLE_SUFFIXES
-                        _ref_inner: float | None = None
-                        if _hybrid:
-                            _ref_inner = _spec_inner_deg_px(
-                                r_frame, r_spec, r_box
-                            )
-                            if _ref_inner is None or not math.isfinite(
-                                _ref_inner
+                        # ── 마크 적용 조건 (quick-260814-rcz) ──────────────
+                        # 판정은 **실제로 그려질 좌표**로 한다 — shift_bake_spec
+                        # 적용 직후 시점이 여기다. 사이각은 아래 하이브리드가
+                        # 쓰는 값과 **같은 1회 계산**을 공유한다 (중복 계산 0).
+                        _ref_inner: float | None = _spec_inner_deg_px(
+                            r_frame, r_spec, r_box
+                        )
+                        _user_inner = _spec_inner_deg_px(
+                            u_frame, u_spec, u_box
+                        )
+                        _mark_ok, _mark_reason = angle_mark_admissible(
+                            _user_inner, _ref_inner
+                        )
+                        if not _mark_ok:
+                            # V 만 억제 — 새 표면 발명 0. 아래 `u_drew_angle`
+                            # 이 False 로 남아 **기존 원 마커 폴백**으로 자연히
+                            # 떨어진다 (분기 무변경).
+                            angle_reason = _mark_reason
+                        else:
+                            u_try, r_try = u_img.copy(), r_img.copy()
+                            # 하이브리드 문법 (quick-260813-fxx — 접미사 선언 키잉):
+                            # ref 패널 px 공간에서 내각을 먼저 확보해야 user 패널에
+                            # 이식한다. 비유한/부재 = 기존 V 양 패널 폴백 (graceful
+                            # — kpo "실패 전량 기존 카드" 선례, 로그에 사유 표기).
+                            _hybrid = _suffix in HYBRID_ANGLE_SUFFIXES
+                            if _hybrid and (
+                                _ref_inner is None
+                                or not math.isfinite(_ref_inner)
                             ):
                                 _hybrid = False
                                 _hybrid_note = ":hybrid_fallback"
-                        # quick-260802-tie: 두 드로잉 결과를 **각각 이름으로 받는다** —
-                        # 기준 패널에 실제로 그려졌는지를 `u_drew_angle` 이라는 학생측
-                        # 이름으로 추론하지 않기 위해서다(그리는 코드가 인증한다).
-                        # `and` 단락 평가 순서·호출 횟수는 종전과 같다.
-                        # 하이브리드는 user 패널만 — ref 패널은 기존 V 그대로
-                        # (round3 P3r1 인증 문법: user=hybrid / ref=원본 V).
-                        _u_ok = (
-                            _draw_side_hybrid_joint_angle(
-                                u_try, u_frame, u_spec, u_box, _ref_inner
+                            # quick-260802-tie: 두 드로잉 결과를 **각각 이름으로
+                            # 받는다** — 기준 패널에 실제로 그려졌는지를
+                            # `u_drew_angle` 이라는 학생측 이름으로 추론하지 않기
+                            # 위해서다(그리는 코드가 인증한다).
+                            # `and` 단락 평가 순서·호출 횟수는 종전과 같다.
+                            # 하이브리드는 user 패널만 — ref 패널은 기존 V 그대로
+                            # (round3 P3r1 인증 문법: user=hybrid / ref=원본 V).
+                            _u_ok = (
+                                _draw_side_hybrid_joint_angle(
+                                    u_try, u_frame, u_spec, u_box, _ref_inner
+                                )
+                                if _hybrid
+                                else _draw_side_joint_angle(
+                                    u_try, u_frame, u_spec, u_box
+                                )
                             )
-                            if _hybrid
-                            else _draw_side_joint_angle(
-                                u_try, u_frame, u_spec, u_box
+                            _r_ok = _u_ok and _draw_side_joint_angle(
+                                r_try, r_frame, r_spec, r_box
                             )
-                        )
-                        _r_ok = _u_ok and _draw_side_joint_angle(
-                            r_try, r_frame, r_spec, r_box
-                        )
-                        if _u_ok and _r_ok:
-                            u_img, r_img = u_try, r_try
-                            u_drew_angle = True
-                            r_drew_angle = True
-                            if _hybrid:
-                                _hybrid_note = "_hybrid"
-                        else:
-                            angle_reason = "degenerate"
+                            if _u_ok and _r_ok:
+                                u_img, r_img = u_try, r_try
+                                u_drew_angle = True
+                                r_drew_angle = True
+                                if _hybrid:
+                                    _hybrid_note = "_hybrid"
+                            else:
+                                angle_reason = "degenerate"
             log.info(
                 "fault_zoom_angle_bake analysis_id=%s criterion=%s angle_bake=%s",
                 analysis_id,

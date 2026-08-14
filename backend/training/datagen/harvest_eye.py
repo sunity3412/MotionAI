@@ -81,6 +81,7 @@ EYE_ROW_KEYS: tuple[str, ...] = (
     "eye_id",              # = media_sha16 (식별자는 content hash 단독, P-4).
     "frame_idx",
     "joint",
+    "limb",                # 눈이 본 사지 종류(arm|leg|other|unclear) — 마크-전위 축.
     "media_key",           # training/phase22/eye/{sha16}.png
     "media_sha16",
     "motion",
@@ -214,6 +215,10 @@ def entry_to_row(
 
     match(트랙-눈 일치)는 track_claim_agrees 로 **이름을 보존한 채** 옮기며, False
     행도 반드시 행을 만든다(불일치 = 이 코퍼스의 최고가치, 버리면 안 된다).
+
+    limb 는 반드시 함께 옮긴다 — 원장의 match 는 card_gates._eye_verdict 의 2단 판정
+    (상태 일치 AND 기대 사지 일치)이라, limb 없이는 "상태는 같은데 agrees=false"
+    (마크가 다른 사지에 얹힌 경우)가 설명 불가능한 잡음이 된다.
     """
     if not isinstance(entry, dict):
         return None
@@ -235,6 +240,7 @@ def entry_to_row(
         "eye_id": sha16,
         "frame_idx": _num(entry.get("frameIdx")),
         "joint": entry.get("joint"),
+        "limb": entry.get("limb"),
         "media_key": media_key(sha16),
         "media_sha16": sha16,
         "motion": motion or None,
@@ -371,11 +377,14 @@ def make_eye_batch_entry(batch_id: str, trigger: str) -> dict:
         "trigger": trigger,
         "ledger": "training/data/eye_manifest.json",
         "sources": {"eye_repo_evidence": 0, "eye_s3_operational": 0},
+        "scanned_rows": 0,
+        "scanned_admit": 0,
+        "scanned_hold": 0,
         "new_rows": 0,
         "skipped_existing": 0,
-        "eye_admit": 0,
-        "eye_hold": 0,
-        "eye_rows_after": None,
+        "ledger_rows_after": None,
+        "ledger_admit_after": None,
+        "ledger_hold_after": None,
         "status": "open",
         "cumulative_rows_after": None,
     }
@@ -411,23 +420,44 @@ def _rel(path: Path, repo_root: Path) -> str:
         return Path(path).name
 
 
+def resolve_motion(entry, *, doc_analysis_id, dir_rel, motion_map, analysis_motion_map,
+                   motion_alias) -> tuple[object, object]:
+    """(motion, motion_source) — 근거 있는 값만 채택한다(추정 금지).
+
+    1. entry.motion 이 있으면 채택. 단 motion_alias 에 근거 문서가 등재된 하네스 이름은
+       manifest 어휘의 reference motion id 로 정규화한다 — 어휘가 다르면 build_jsonl 의
+       val-motion leakage 대조가 원리적으로 발화하지 않아 게이트가 장식이 된다.
+    2. 원장 doc 의 analysisId 가 analysis_motion_map 에 있으면 채택(Firestore 실측 등).
+    3. 디렉토리 단위 motion_map 에 있으면 채택(해당 사이클 코드/문서 근거).
+    4. 그 외 → (None, None) → consent_disposition 이 hold(P-5).
+    근거 문자열(evidence) 없는 주입은 어느 경로에서도 허용하지 않는다.
+    """
+    raw = entry.get("motion")
+    if raw:
+        alias = (motion_alias or {}).get(raw)
+        if alias and alias.get("motion") and alias.get("evidence"):
+            return alias["motion"], f"entry+operator:{alias['evidence']}"
+        return raw, "entry"
+    for key, table in ((doc_analysis_id, analysis_motion_map), (dir_rel, motion_map)):
+        hit = (table or {}).get(key) or {}
+        if hit.get("motion") and hit.get("evidence"):
+            return hit["motion"], f"operator:{hit['evidence']}"
+    return None, None
+
+
 def scan_repo_evidence(
     root,
     *,
     repo_root=None,
     motion_map=None,
-    default_motion=None,
-    default_motion_evidence=None,
+    analysis_motion_map=None,
+    motion_alias=None,
     consent_map=None,
     collected_at=None,
 ) -> dict:
     """리포 evidence 눈 원장 전수 스캔(읽기 전용, 파일 쓰기 0).
 
-    motion 해결 규칙(추정 금지):
-      · entry 에 motion 필드가 있으면 그대로 쓰고 motion_source="entry".
-      · 없으면 motion_map[리포상대 디렉토리] = {"motion":…, "evidence":…} 로만 주입하고
-        motion_source="operator:{evidence}". 근거 문자열 없는 주입은 거부한다.
-      · 그래도 미해결이면 motion=None → consent_disposition 이 hold(P-5).
+    motion 해결은 resolve_motion 이 소유한다(근거 없는 주입 금지).
     PNG 미해결 행은 fail-closed(행 생성 안 함 + 카운터 노출).
     """
     repo_root = Path(repo_root or _REPO_ROOT).resolve()
@@ -444,7 +474,6 @@ def scan_repo_evidence(
 
     for d in iter_eye_ledger_dirs(root):
         dir_rel = _rel(d, repo_root)
-        mapping = motion_map.get(dir_rel) or {}
         for json_path in sorted(d.rglob("*.json")):
             files_seen += 1
             try:
@@ -453,9 +482,8 @@ def scan_repo_evidence(
                 _bump(shapes, "unreadable")
                 continue
             _bump(shapes, ledger_shape(doc))
-            analysis_consent = consent_map.get(
-                (doc or {}).get("analysisId") if isinstance(doc, dict) else None
-            )
+            doc_analysis_id = (doc or {}).get("analysisId") if isinstance(doc, dict) else None
+            analysis_consent = consent_map.get(doc_analysis_id)
             for idx, entry in enumerate(iter_ledger_entries(doc)):
                 entries_seen += 1
                 if entry.get("observed") == "error":
@@ -465,13 +493,14 @@ def scan_repo_evidence(
                 if png is None:
                     unresolved.append(f"{_rel(json_path, repo_root)}#{idx}")
                     continue
-                if entry.get("motion"):
-                    motion, motion_source = entry["motion"], "entry"
-                elif mapping.get("motion") and mapping.get("evidence"):
-                    motion = mapping["motion"]
-                    motion_source = f"operator:{mapping['evidence']}"
-                else:
-                    motion, motion_source = None, None
+                motion, motion_source = resolve_motion(
+                    entry,
+                    doc_analysis_id=doc_analysis_id,
+                    dir_rel=dir_rel,
+                    motion_map=motion_map,
+                    analysis_motion_map=analysis_motion_map,
+                    motion_alias=motion_alias,
+                )
                 row = entry_to_row(
                     entry,
                     source_kind=SOURCE_KIND_REPO,
@@ -650,6 +679,10 @@ def main(argv=None) -> int:
     ap.add_argument("--repo-root", default=str(_REPO_ROOT))
     ap.add_argument("--motion-map", default=None,
                     help="{리포상대 eye_ledger 디렉토리: {motion, evidence}} JSON 경로")
+    ap.add_argument("--analysis-motion-map", default=None,
+                    help="{analysisId: {motion, evidence}} JSON 경로(Firestore 실측 등)")
+    ap.add_argument("--motion-alias", default=None,
+                    help="{하네스 motion 이름: {motion, evidence}} JSON 경로(어휘 정규화)")
     ap.add_argument("--consent-map", default=None,
                     help="{analysisId: true|false|null} 동의 실측 JSON 경로(Firestore read)")
     mode = ap.add_mutually_exclusive_group()
@@ -666,6 +699,8 @@ def main(argv=None) -> int:
         args.root,
         repo_root=args.repo_root,
         motion_map=_load_json_arg(args.motion_map),
+        analysis_motion_map=_load_json_arg(args.analysis_motion_map),
+        motion_alias=_load_json_arg(args.motion_alias),
         consent_map=_load_json_arg(args.consent_map),
         collected_at=collected_at,
     )
@@ -712,17 +747,23 @@ def main(argv=None) -> int:
     manifest_after = copy.deepcopy(manifest_before)
     batches = manifest_after.setdefault("_meta", {}).setdefault("collection_batches", [])
     batch_id = compute_eye_batch_id(manifest_after, datetime.now(timezone.utc).strftime("%y%m%d"))
+    ledger_summary = summarize(merged)
     entry = make_eye_batch_entry(batch_id, "harvest_eye --run")
     entry.update({
         "sources": {
             "eye_repo_evidence": len(repo["rows"]),
             "eye_s3_operational": len(s3_payload["rows"]),
         },
+        # scanned_* = 스캔 총계(중복 포함) / ledger_*_after = content-hash 병합 후 원장 상태.
+        # 둘을 구분해 적는다 — 같은 크롭이 여러 사이클 evidence 에 복사돼 있어 차이가 크다.
+        "scanned_rows": total["total"],
+        "scanned_admit": total["admitted"],
+        "scanned_hold": total["total"] - total["admitted"],
         "new_rows": added,
         "skipped_existing": skipped,
-        "eye_admit": total["admitted"],
-        "eye_hold": total["total"] - total["admitted"],
-        "eye_rows_after": len(merged),
+        "ledger_rows_after": len(merged),
+        "ledger_admit_after": ledger_summary["admitted"],
+        "ledger_hold_after": ledger_summary["total"] - ledger_summary["admitted"],
         "status": "collected",
         # manifest.rows 는 무접촉 — 눈 행은 eye_manifest 가 소유한다.
         "cumulative_rows_after": len(manifest_after.get("rows", [])),
@@ -737,7 +778,10 @@ def main(argv=None) -> int:
     eye_meta = eye.setdefault("_meta", {})
     eye_meta.setdefault("batches", []).append({
         "batch_id": batch_id, "collected_at": collected_at,
-        "added": added, "skipped_existing": skipped, "rows_after": len(merged),
+        "scanned_rows": total["total"], "added": added, "skipped_existing": skipped,
+        "rows_after": len(merged),
+        "admit_after": ledger_summary["admitted"],
+        "hold_after": ledger_summary["total"] - ledger_summary["admitted"],
     })
     eye_meta["schema_version"] = SCHEMA_VERSION
     save_eye_manifest(eye)

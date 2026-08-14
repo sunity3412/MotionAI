@@ -149,7 +149,8 @@ def test_eye_injection_meta_is_additive_only():
             continue
         assert with_eye["_meta"][key] == value, f"_meta.{key} 변형 — 무회귀 위반"
     for added in ("eye_admitted_count", "eye_mismatch_count", "eye_media_pending_upload",
-                  "eye_leakage_dropped", "eye_observed_counts", "eye_motion_counts"):
+                  "eye_leakage_dropped", "eye_observed_counts", "eye_motion_counts",
+                  "eye_balance_trimmed"):
         assert added in with_eye["_meta"]
     assert base["_meta"]["track_counts"]["eye"] == 0
     assert with_eye["_meta"]["track_counts"]["eye"] > 0
@@ -179,8 +180,22 @@ def test_eye_task_keys_are_alphabetical_and_score_free():
     for key in build_jsonl.EYE_TASK_KEYS:
         assert not any(m in key.lower() for m in _SCORE_MARKERS)
     assert set(build_jsonl.EYE_TASK_KEYS) == {
-        "joint", "observed", "reason", "side", "track_claim", "track_claim_agrees"
+        "joint", "limb", "observed", "reason", "side", "track_claim", "track_claim_agrees"
     }
+
+
+def test_eye_schema_carries_limb_so_two_stage_verdict_is_explainable():
+    """원장 match 는 (상태 일치 AND 사지 일치) 2단 판정 — limb 없으면 잡음이 된다."""
+    rows = [_eye_row("ffff000000000001", "split", "left_knee", claim="bent",
+                     observed="bent", agrees=False)]
+    rows[0]["limb"] = "arm"  # 무릎 마크가 굽은 '팔' 에 얹힘 = 마크 전위.
+    data = _build(eye_loader=_eye_loader(rows))
+    samples = _eye_samples(data)
+    assert samples
+    report = build_jsonl.assistant_report(samples[0])
+    assert report["limb"] == "arm"
+    assert report["observed"] == report["track_claim"] == "bent"
+    assert report["track_claim_agrees"] is False
 
 
 def test_normalize_eye_report_whitelists_and_fills_null():
@@ -256,13 +271,17 @@ def test_rows_without_motion_are_dropped_by_build_layer():
 
 
 def test_eye_samples_pass_track_independent_balance_gate():
-    rows = [_eye_row(f"cccc{i:012d}", "kip-up", "left_elbow") for i in range(9)]
-    rows.append(_eye_row("dddd000000000001", "split", "left_knee"))
+    # kip-up 은 이 fixture 에서 val motion 이라 leakage 로 빠진다 — 균등만 보려고 회피.
+    rows = [_eye_row(f"cccc{i:012d}", "split", "left_elbow") for i in range(9)]
+    rows.append(_eye_row("dddd000000000001", "climb", "left_knee"))
     data = _build(eye_loader=_eye_loader(rows))
     counts: dict = {}
     for s in _eye_samples(data):
         counts[s["_motion"]] = counts.get(s["_motion"], 0) + 1
     assert max(counts.values()) <= 2 * min(counts.values())
+    # 트림 손실은 은폐되지 않는다(9+1 → cap=2 → 2+1, 7건 트림).
+    assert data["_meta"]["eye_leakage_dropped"] == 0
+    assert data["_meta"]["eye_balance_trimmed"] == 10 - sum(counts.values()) == 7
 
 
 def test_eye_leakage_dropped_when_motion_is_in_val():

@@ -177,12 +177,13 @@ def _user_text_msg(text: str) -> dict:
 # 적용해 eye 태스크는 자체 지시문 + 자체 스키마를 갖는다. score/severity/overall/
 # points 계열은 여기서도 구조적 부재다(D-01 불변식의 eye 판).
 EYE_TASK_KEYS: tuple[str, ...] = (
-    "joint",               # 마킹된 관절.
+    "joint",               # 마킹된 관절(입력에서 주어짐).
+    "limb",                # 원 안의 관절이 팔의 것인지 다리의 것인지 — 마크-전위 축.
     "observed",            # 눈 관측: bent | extended | unclear | off_body.
     "reason",              # 그렇게 본 근거(자유텍스트).
     "side",                # user | ref.
     "track_claim",         # 트랙(파이프라인)이 주장한 상태 — 입력에서 주어진다.
-    "track_claim_agrees",  # 트랙 주장과 눈 관측의 일치 여부. false = keypoint 환각.
+    "track_claim_agrees",  # 2단 판정 결과. false = keypoint 환각/마크 전위.
 )
 
 _EYE_SYSTEM = (
@@ -191,12 +192,20 @@ _EYE_SYSTEM = (
     "관절 위가 아니면 off_body 로 답합니다. 점수는 매기지 않습니다."
 )
 
+# track_claim_agrees 는 **2단 판정**이다 — card_gates._eye_verdict 단일 owner 의 규칙을
+# 그대로 문장화한다: (1) 상태 일치 AND (2) 원 안의 사지 종류가 그 관절의 기대 사지와
+# 일치. 무릎 마크가 굽은 팔에 얹혀 claim=bent 가 우연히 맞는 케이스(kneepath 실측)를
+# false 로 잡는 것이 이 트랙의 존재 이유이므로, 1단만 가르치면 라벨과 지시문이 어긋나
+# 학습이 잡음이 된다.
 _EYE_TASK_INSTRUCTION = (
     "\n\n표시된 관절만 보고 다음 키를 갖는 JSON 만 출력하라: "
-    "joint, observed, reason, side, track_claim, track_claim_agrees. "
-    "observed 는 bent | extended | unclear | off_body 중 하나다. "
-    "track_claim_agrees 는 track_claim 과 observed 가 같은 상태를 가리키면 true, "
-    "아니면 false 다. 점수·심각도는 출력하지 않는다."
+    "joint, limb, observed, reason, side, track_claim, track_claim_agrees. "
+    "observed 는 bent | extended | unclear | off_body 중 하나이고, "
+    "limb 은 원 안의 관절이 팔의 것이면 arm, 다리의 것이면 leg, 그 외/판정 불가면 "
+    "other 또는 unclear 다. "
+    "track_claim_agrees 는 (가) observed 가 track_claim 과 같은 상태이고 (나) limb 이 "
+    "joint 가 속한 사지와 어긋나지 않을 때만 true 이며, 상태가 같아도 마크가 다른 사지에 "
+    "얹혀 있으면 false 다. 점수·심각도는 출력하지 않는다."
 )
 
 
@@ -569,6 +578,7 @@ def _build_eye_samples(eye_loader) -> tuple[list[dict], dict]:
         agrees = row.get("track_claim_agrees")
         report = {
             "joint": row.get("joint"),
+            "limb": row.get("limb"),
             "observed": row.get("observed"),
             "reason": row.get("reason"),
             "side": row.get("side"),
@@ -801,6 +811,10 @@ def build_dataset(
     eye_kept = [s for s in eye_samples if s.get("_motion") not in val_motions]
     eye_leakage_dropped = len(eye_samples) - len(eye_kept)
     eye_balanced = _balance_media(eye_kept)  # 트랙 독립 균등(max <= 2*min).
+    # 균등 트림 손실은 반드시 노출한다(드롭률 은폐 금지 — shadow_unregistered_dropped 관례).
+    # eye 는 motion 별 표본이 아직 얇아 min 이 1 이면 cap 이 2 로 내려앉는다: 손실이
+    # 크면 코드 문제가 아니라 motion 커버리지 문제다(수확 범위 확대가 처방).
+    eye_balance_trimmed = len(eye_kept) - len(eye_balanced)
 
     media = media_core + eye_balanced
     all_samples = media + shadow_text + text_samples
@@ -849,6 +863,7 @@ def build_dataset(
     meta.update(eye_counters)
     meta.update(_eye_counters(eye_balanced))
     meta["eye_leakage_dropped"] = eye_leakage_dropped
+    meta["eye_balance_trimmed"] = eye_balance_trimmed
 
     return {
         "train": train,

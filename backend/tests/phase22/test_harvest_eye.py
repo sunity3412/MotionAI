@@ -302,6 +302,48 @@ def test_summarize_empty_rows():
 
 
 # ---------------------------------------------------------------------------
+# resolve_motion — 근거 있는 값만 채택(추정 금지).
+# ---------------------------------------------------------------------------
+def _resolve(entry, **kw):
+    kw.setdefault("doc_analysis_id", None)
+    kw.setdefault("dir_rel", "d")
+    kw.setdefault("motion_map", None)
+    kw.setdefault("analysis_motion_map", None)
+    kw.setdefault("motion_alias", None)
+    return he.resolve_motion(entry, **kw)
+
+
+def test_resolve_motion_takes_entry_field_first():
+    assert _resolve({"motion": "pdshapefault"}) == ("pdshapefault", "entry")
+
+
+def test_resolve_motion_normalizes_via_documented_alias():
+    alias = {"pdshapefault": {"motion": "ref-pdshape", "evidence": "discover_sweep.py:73"}}
+    motion, src = _resolve({"motion": "pdshapefault"}, motion_alias=alias)
+    assert motion == "ref-pdshape"
+    assert src == "entry+operator:discover_sweep.py:73"
+
+
+def test_resolve_motion_ignores_alias_without_evidence():
+    alias = {"pdshapefault": {"motion": "ref-pdshape"}}
+    assert _resolve({"motion": "pdshapefault"}, motion_alias=alias) == ("pdshapefault", "entry")
+
+
+def test_resolve_motion_uses_analysis_map_then_dir_map():
+    amap = {"aid1": {"motion": "ref-pdshape", "evidence": "firestore:referenceMotionId"}}
+    dmap = {"d": {"motion": "ref-kip-up", "evidence": "doc:x"}}
+    assert _resolve({}, doc_analysis_id="aid1", analysis_motion_map=amap, motion_map=dmap) == (
+        "ref-pdshape", "operator:firestore:referenceMotionId"
+    )
+    assert _resolve({}, motion_map=dmap) == ("ref-kip-up", "operator:doc:x")
+
+
+def test_resolve_motion_refuses_injection_without_evidence():
+    assert _resolve({}, motion_map={"d": {"motion": "ref-pdshape"}}) == (None, None)
+    assert _resolve({}) == (None, None)
+
+
+# ---------------------------------------------------------------------------
 # 배치 id — watch 규약 준용(eye- 접두 자체 산출).
 # ---------------------------------------------------------------------------
 def test_compute_eye_batch_id_uses_eye_prefix_and_suffix_convention():

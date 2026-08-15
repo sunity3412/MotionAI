@@ -59,6 +59,25 @@ _SAFETY_SLOTS = ("statusLine", "whyLine", "coachQuestion")
 # fail-closed 는 cueLine/exerciseId/exerciseReason 를 **생략** (일반론 조언 생성 차단).
 _FAIL_CLOSED_SLOTS = ("statusLine", "whyLine", "coachQuestion")
 
+# ── causeSubject — 원인 문장의 **주어** 선언 (quick-260815-fzi) ────────────────
+# belle 2026-08-15 반려: "다른 사람이 분석했느데 전에 학생거를 말하는게 정상이냐".
+# 문구집 키는 (동작 × criterion)이라 **분석 1건에 묶이지 않는다**. 그래서 여기에
+# 고정할 수 있는 원인은 사람이 바뀌어도 그대로 성립하는 것뿐이다:
+#
+#   reference — 기준(정은지) 영상을 설명한다. 기준은 전 유저 공통(v1 pinned)이라
+#               다른 유저의 카드에 나가도 남의 이야기가 되지 않는다. **허용**.
+#   student   — 그 학생 그 영상의 읽기다. (동작 × criterion) 키에 고정하면 같은
+#               결함을 낸 다른 유저 전원에게 앞 학생의 진단이 나간다. **금지**.
+#
+# 판정은 **선언 필드**로만 한다 — 문면을 정규식으로 뒤져 주어를 추정하는 길은
+# 막았다(어미·주어 생략이 흔한 한국어에서 휴리스틱은 조용히 틀린다). 선언이 없거나
+# 허용 밖이면 causeLine 을 **드롭**한다(fail-closed): 원인 없는 캡션은 오늘과
+# byte-동일이므로 무회귀이고, 잘못 나가는 것보다 안 나가는 것이 옳다.
+# ★학생 서술 원인을 되살리는 길은 문구집이 아니다 — 그 유저 영상에서 실제로 재서
+#   분석별로 방출해야 한다 (`_meta.causeLineProvenance.unadopted.restoreCondition`).
+_CAUSE_SUBJECT_KEY = "causeSubject"
+_CAUSE_SUBJECT_ALLOWED: frozenset[str] = frozenset({"reference"})
+
 _COMMON_PREFIX = "__common__"
 
 # ── 금지어 게이트 (D-09/D-11) — copy_templates.FORBIDDEN_PHRASES_SUNITY 확장 ──
@@ -105,9 +124,37 @@ def load_terminology_map() -> dict:
     return _TERMINOLOGY_CACHE
 
 
+def cause_line_admissible(entry: dict) -> tuple[bool, str]:
+    """causeLine 을 방출해도 되는가 — 순수 함수 (IO·정규식 추정 0).
+
+    Returns:
+        (방출 가부, 사유). 사유는 계약 테스트가 실패 메시지에 그대로 싣는다.
+
+    causeLine 이 아예 없으면 `(True, "no_cause")` — 방출할 것이 없으니 막을 것도
+    없고, 그 경로의 캡션은 오늘과 byte-동일이다 (65 entry 무회귀).
+    """
+    cause = entry.get("causeLine")
+    if not isinstance(cause, str) or not cause:
+        return True, "no_cause"
+    subject = entry.get(_CAUSE_SUBJECT_KEY)
+    if not isinstance(subject, str) or not subject:
+        return False, "missing_cause_subject"
+    if subject not in _CAUSE_SUBJECT_ALLOWED:
+        return False, f"disallowed_cause_subject:{subject}"
+    return True, "admissible"
+
+
 def _entry_slots(entry: dict) -> dict:
-    """정상 히트 entry → 6 슬롯 flat scalar dict (fabrication 0 — 있는 값만)."""
-    return {slot: entry.get(slot) for slot in _ENTRY_SLOTS}
+    """정상 히트 entry → 6 슬롯 flat scalar dict (fabrication 0 — 있는 값만).
+
+    causeLine 은 주어 선언을 통과할 때만 실린다 (quick-260815-fzi). 부적격이면
+    슬롯을 None 으로 떨궈 **원인 없는 오늘의 2문장**으로 되돌아간다.
+    """
+    slots = {slot: entry.get(slot) for slot in _ENTRY_SLOTS}
+    ok, _reason = cause_line_admissible(entry)
+    if not ok:
+        slots["causeLine"] = None
+    return slots
 
 
 def _fail_closed_slots() -> dict:

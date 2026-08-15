@@ -161,10 +161,18 @@
     "causeLineProvenance": {
       "source": "belle 2026-08-14 발굴 판정 원문 (quick-260814-rcz)",
       "ledger": ".planning/quick/260813-wif-knee-discovery/DISCOVERY-LEDGER.md 판정 기입란",
-      "rule": "belle 원문의 전사만 — 새 사실 발명 0. 측정 불가 원인이라 가설 어미 고정.",
+      "rule": "belle 원문의 전사만 — 새 사실 발명 0. 측정 불가 원인이라 가설 어미 고정. ★2026-08-15 추가: 원인 문장의 **주어**가 기준(정은지)일 때만 문구집에 고정한다. 학생을 주어로 한 원인은 분석 1건의 읽기라 (동작×criterion) 키에 고정할 수 없다.",
       "ref-pdshape.angle_vs_reference__left_elbow": "회전력, 올라오는 타이밍이 좀 더 돌고 올려와야 팔을 뻗어 편하게 올라왔는데 좀 빠르게 손을 뻗어 잡아서 이런 현상이 발생되기도 하고, 회전력이 좀 약한 이유일 수 있음",
       "ref-power-spin.angle_vs_reference__left_shoulder": "캡션으로 따지면 안정적인 위치를 만들기위해 기준 영상은 팔을 굽혀 더 들어올린 거긴하지",
-      "fitNote": "구운 자막 3줄 상한(compare_render wrap_text[:3], 승인 코퍼스 폭 W=1224) 실측에 맞춰 belle 원문 의미 안에서 축약. 줄수·문자수는 quick-260814-rcz MEASURE.md."
+      "fitNote": "구운 자막 3줄 상한(compare_render wrap_text[:3], 승인 코퍼스 폭 W=1224) 실측에 맞춰 belle 원문 의미 안에서 축약. 줄수·문자수는 quick-260814-rcz MEASURE.md.",
+      "belleVerdict20260815": "아니b는 이게 논의할 일인가? 다른 사람이 분석했느데 전에 학생거를 말하는게 정상이냐....",
+      "unadopted": {
+        "ref-pdshape.angle_vs_reference__left_elbow": {
+          "reason": "학생 서술 원인 — belle 이 그 학생 영상을 보고 읽어낸 진단이라 같은 (동작, 관절) 결함을 낸 다른 유저 전원에게 남의 진단이 나간다. 2026-08-15 belle 반려로 미채택.",
+          "text": "더 돌고 올라와야 팔을 편히 뻗는데, 회전이 덜 된 채 손을 먼저 뻗어 잡은 것일 수 있어요",
+          "restoreCondition": "'회전 진행량 대비 그립 시점'을 그 유저 영상에서 실제로 재게 되면, 성립하는 분석에 한해 분석별 원인으로 방출할 수 있다. 문구집 고정은 그때도 불가."
+        }
+      }
     }
   },
   "entries": {
@@ -303,7 +311,8 @@
       "coachQuestion": "스핀 원심력을 버틸 때 그립 어깨가 무너지지 않으려면 어떻게 잡아야 하는지 강사님께 여쭤보고 싶어요",
       "exerciseId": "shoulder_unstable",
       "exerciseReason": "원심력을 버티는 그립 어깨는 견갑 안정근이 받쳐줘야 하기 때문이에요",
-      "causeLine": "기준은 안정된 위치를 만들려 팔을 굽혀 더 올린 것으로 보여요"
+      "causeLine": "기준은 안정된 위치를 만들려 팔을 굽혀 더 올린 것으로 보여요",
+      "causeSubject": "reference"
     },
     "ref-peter-pan.angle_vs_reference__left_shoulder": {
       "statusLine": "왼쪽 어깨(겨드랑이) 각도가 피터팬 기준 자세와 차이가 있어요",
@@ -423,8 +432,7 @@
       "cueLine": "목표는 거꾸로 매달려 한 다리는 걸고 한 다리는 깊게 접은 모양을 그대로 지키는 거예요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요",
       "coachQuestion": "이 셰이프에서 그립 팔을 어떻게 잡아야 안정적인지 강사님께 여쭤보고 싶어요",
       "exerciseId": "grip_weak",
-      "exerciseReason": "그립 팔 각을 유지하려면 손과 팔 그립 유지력이 받쳐줘야 하기 때문이에요",
-      "causeLine": "더 돌고 올라와야 팔을 편히 뻗는데, 회전이 덜 된 채 손을 먼저 뻗어 잡은 것일 수 있어요"
+      "exerciseReason": "그립 팔 각을 유지하려면 손과 팔 그립 유지력이 받쳐줘야 하기 때문이에요"
     },
     "ref-pdshape.angle_vs_reference__right_elbow": {
       "statusLine": "오른쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요",

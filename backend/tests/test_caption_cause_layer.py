@@ -41,11 +41,13 @@ from sunity_shared.analysis.cue_text import (
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _PROBE = Path(__file__).resolve().parent / "phase32" / "compose_cue_probe.mjs"
 
-# 시드 2건의 문구집 키 (belle 08-14 판정 원문 전사 — 새 사실 발명 0).
-SEED_KEYS = (
-    "ref-pdshape.angle_vs_reference__left_elbow",
-    "ref-power-spin.angle_vs_reference__left_shoulder",
-)
+# 문구집에 고정된 원인 절의 키 (belle 판정 원문 전사 — 새 사실 발명 0).
+#
+# ★2026-08-15 (quick-260815-fzi) 2건 → 1건. belle 반려 "다른 사람이 분석했느데 전에
+# 학생거를 말하는게 정상이냐" — pdshape 왼팔꿈치 원인은 **학생을 주어로 한** 문장이라
+# (동작 × criterion) 키에 고정하면 같은 결함을 낸 다른 유저 전원에게 앞 학생의
+# 진단이 나간다. 남은 1건은 **기준(정은지)을 주어로** 하므로 사람이 바뀌어도 성립한다.
+SEED_KEYS = ("ref-power-spin.angle_vs_reference__left_shoulder",)
 
 # 승인 코퍼스 실측 패널 폭 — 5동작 전건 user 원본 2160x3840 → scale=-2:1080 →
 # 패널 608px. compare_render 는 W = user패널 * 2 + GAP 로 캔버스를 잡는다.
@@ -77,11 +79,15 @@ GOAL_CUE = (
 )
 PLAIN_CUE = "발끝으로 천장을 길게 밀어낸다는 느낌으로 다리를 쭉 뻗어보세요."
 STATUS = "오른쪽 팔꿈치 각도가 엘보 트위스트 기준 자세와 차이가 있어요"
+# ★이 문자열은 **조립 역학**(3절 순서·구두점·줄수·양엔진 동일)만 재는 합성 재료다.
+#   주어가 학생이라 **문구집에는 넣을 수 없다** — 넣으면 앞 학생의 진단이 다른 유저
+#   전원에게 나간다(quick-260815-fzi belle 반려). 문구집 적재 가부는 주어 선언으로
+#   갈리고 test_every_cause_line_declares_reference_subject 가 지킨다.
 CAUSE = "회전이 덜 된 채 손을 먼저 뻗어 잡은 것일 수 있어요"
 
 
 def _seed_records() -> list[dict]:
-    """시드 2건의 실제 문구집 산출 record (조립 입력 그대로)."""
+    """시드의 실제 문구집 산출 record (조립 입력 그대로)."""
     out = []
     for key in SEED_KEYS:
         motion, criterion = key.split(".", 1)
@@ -219,9 +225,86 @@ def _cause_lines() -> dict[str, str]:
     }
 
 
-def test_seed_count_is_exactly_two_and_keys_match() -> None:
+def test_seed_keys_match_phrasebook() -> None:
     causes = _cause_lines()
     assert set(causes) == set(SEED_KEYS), f"시드 키 불일치: {sorted(causes)}"
+
+
+# ── T9 — 원인 절의 주어 계약 (quick-260815-fzi) ──────────────────────────────
+# belle 2026-08-15 반려: "다른 사람이 분석했느데 전에 학생거를 말하는게 정상이냐".
+# 문구집 키는 (동작 × criterion)이라 분석 1건에 묶이지 않는다 → 여기 고정할 수 있는
+# 원인은 사람이 바뀌어도 성립하는 것(기준 서술)뿐이다.
+def test_every_cause_line_declares_reference_subject() -> None:
+    """전 entry 스윕 — causeLine 을 가지면 `causeSubject: "reference"` 필수.
+
+    이 테스트가 없으면 다음 사람이 학생 서술 원인을 문구집에 한 줄 더 넣는 순간
+    같은 반려가 재발한다. 문면 정규식이 아니라 **선언 필드**로 판정한다.
+    """
+    pb = json.loads(
+        (_REPO_ROOT / "backend" / "data" / "phrasebook.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    entries = pb["entries"]
+    offenders = []
+    for key, entry in entries.items():
+        ok, reason = phrasebook.cause_line_admissible(entry)
+        if not ok:
+            offenders.append(f"{key}: {reason}")
+    assert not offenders, (
+        "원인 절은 기준(정은지) 서술만 문구집에 고정할 수 있다 — 학생 서술은 그 학생 "
+        "그 영상의 읽기라 다른 유저에게 남의 진단이 된다:\n  " + "\n  ".join(offenders)
+    )
+    # 스윕이 실제로 전 entry 를 돌았는지 (빈 통과 방지).
+    assert len(entries) >= 60, f"entry 수집 실패: {len(entries)}"
+
+
+def test_student_subject_cause_is_dropped_at_assembly() -> None:
+    """부적격 원인은 조립에서 **드롭**된다 — fail-closed 실증.
+
+    데이터 계약(위 스윕)이 뚫려도 방출 경로가 한 번 더 막는다. 드롭 결과는 원인
+    없는 오늘의 2문장이라 무회귀다.
+    """
+    student_entry = {
+        "statusLine": STATUS,
+        "cueLine": PLAIN_CUE,
+        "causeLine": CAUSE,
+        "causeSubject": "student",
+    }
+    ok, reason = phrasebook.cause_line_admissible(student_entry)
+    assert not ok and reason == "disallowed_cause_subject:student"
+    assert phrasebook._entry_slots(student_entry)["causeLine"] is None  # noqa: SLF001
+
+    # 선언 누락도 같은 처분 (기본 허용 금지 — fail-closed).
+    undeclared = {k: v for k, v in student_entry.items() if k != "causeSubject"}
+    ok2, reason2 = phrasebook.cause_line_admissible(undeclared)
+    assert not ok2 and reason2 == "missing_cause_subject"
+    assert phrasebook._entry_slots(undeclared)["causeLine"] is None  # noqa: SLF001
+
+    # 원인 자체가 없으면 막을 것도 없다 (65 entry 무회귀 경로).
+    assert phrasebook.cause_line_admissible({"statusLine": STATUS}) == (
+        True,
+        "no_cause",
+    )
+
+
+def test_unadopted_cause_is_preserved_with_restore_condition() -> None:
+    """반려된 문면은 지우지 않고 미채택 사유·복원 조건과 함께 남긴다.
+
+    측정이 생기면 그 문면으로 돌아온다. 지워버리면 belle 원문이 소실되고 왜
+    빠졌는지도 잃는다.
+    """
+    pb = json.loads(
+        (_REPO_ROOT / "backend" / "data" / "phrasebook.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    unadopted = pb["_meta"]["causeLineProvenance"]["unadopted"]
+    rec = unadopted["ref-pdshape.angle_vs_reference__left_elbow"]
+    assert rec["text"], "반려 문면 소실"
+    assert rec["reason"] and rec["restoreCondition"]
+    # 미채택분은 entry 에 남아 있으면 안 된다 (실제로 방출되면 반려 재발).
+    assert "causeLine" not in pb["entries"]["ref-pdshape.angle_vs_reference__left_elbow"]
 
 
 @pytest.mark.parametrize("key", SEED_KEYS)

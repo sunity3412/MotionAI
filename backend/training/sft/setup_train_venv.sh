@@ -28,8 +28,22 @@ if [ -x "$VENV/bin/swift" ] && [ -n "$(swift_ver)" ] && [ "$FORCE" != "--force" 
   exit 0
 fi
 
-echo "[setup] 1/5 venv 생성 (--system-site-packages = 베이스 이미지 패키지 재사용)"
-python3 -m venv --system-site-packages "$VENV" || exit 1
+# ── 격리 모드 (TRAIN_VENV_ISOLATED=1) ────────────────────────────────────────
+# ★2026-08-15 실측: `--system-site-packages` 는 **베이스 이미지와 결혼시키는 옵션**이고
+#   그 결혼이 오늘 하루에 세 번 값을 치렀다.
+#     · 베이스 cudnn 을 먼저 물어 `undefined symbol: cudnnGetLibConfig` — 래퍼에
+#       nvidia lib 경로를 앞세우는 LD_LIBRARY_PATH 곡예를 넣어야 했다
+#     · Pod 이 3.12 로 바뀌었는데 venv 는 3.11 이라 링크가 어긋났다
+#     · 3.11 에 남은 flashinfer 가 `array.array[int]`(3.12+ 문법)로 게이트를 죽였다
+#   격리 모드는 베이스를 아예 안 본다 — 설치는 느리지만 Pod 이 바뀌어도 안 깨진다.
+#   기본값은 기존 동작 유지(무회귀), 새로 만드는 쪽이 명시적으로 켠다.
+if [ "${TRAIN_VENV_ISOLATED:-0}" = "1" ]; then
+  echo "[setup] 1/5 venv 생성 (격리 — 베이스 이미지 미참조, python $(python3 --version 2>&1 | awk '{print $2}'))"
+  python3 -m venv "$VENV" || exit 1
+else
+  echo "[setup] 1/5 venv 생성 (--system-site-packages = 베이스 이미지 패키지 재사용)"
+  python3 -m venv --system-site-packages "$VENV" || exit 1
+fi
 
 # ── 설치 순서가 결과를 정한다 (2026-08-14 실측으로 확정) ─────────────────────
 # torch 를 먼저 깔고 **vllm 을 마지막에** 깔면, vllm 이 자기 요구에 맞춰 torch 를

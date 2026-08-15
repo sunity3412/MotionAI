@@ -112,6 +112,14 @@ echo "[setup] 4/5 vLLM (게이트 단계가 쓴다 — 학습만 하고 끝나�
 #   `import uvloop` 한다. 그래서 `import vllm` 검증은 **통과하는데 게이트만 죽었다**
 #   (학습 39분 태운 뒤 서버 기동에서 ModuleNotFoundError, exit 11).
 "$VENV/bin/pip" install -q vllm uvloop || echo "[setup] vllm 설치 실패 — 게이트 단계 불가(학습은 가능)"
+
+# ★liger-kernel — 레시피에 없으면 재현이 안 된다 (2026-08-15 실증).
+#   run_sft.sh 는 `import liger_kernel` 성공 시에만 --use_liger_kernel true 를 켠다.
+#   없으면 조용히 false 로 떨어지고, 로짓(시퀀스 x 어휘 15만)이 8.57GiB 를 한 번에
+#   잡아 32GB GPU 에서 첫 스텝 OOM 이다. 08-14 에 손으로 깔아 학습을 살렸는데 그게
+#   레시피에 안 들어가 있어서, 3.12 로 새로 만든 venv 에서 그대로 재발했다.
+"$VENV/bin/pip" install -q liger-kernel \
+  || echo "[setup] liger-kernel 설치 실패 — 32GB 이하 GPU 에서 로짓 OOM 위험"
 "$VENV/bin/python" - <<'PY' || { echo "[setup] vllm 설치 후 torch 회귀 — 게이트/학습 불가" >&2; exit 4; }
 import torch
 assert hasattr(torch.nn.Module, "set_submodule"), f"torch 회귀: {torch.__version__} (<2.5)"

@@ -90,6 +90,16 @@ if [ -x "$VENV/bin/swift" ] && _venv_import_ok swift; then
     _venv_import_ok "$m" && ok "  학습 모듈: $m" \
       || warn "  학습 모듈 import 실패: $m" "$VENV/bin/pip install $m (venv python 버전 불일치면 pyvenv.cfg/bin 링크 확인)"
   done
+  # ★게이트는 패키지가 아니라 **진입점**을 실행한다 (2026-08-15 실측):
+  #   `import vllm` 은 통과하는데 `vllm.entrypoints.openai.api_server` 가 최상단에서
+  #   `import uvloop` 하다 죽어, 학습 39분을 태운 뒤 게이트만 exit 11 로 무너졌다.
+  #   같은 층위의 교훈 반복 — 존재도 아니고 패키지 import 도 아니고, **부르는 것을 불러라**.
+  if _venv_import_ok vllm; then
+    _venv_import_ok vllm.entrypoints.openai.api_server \
+      && ok "  vLLM 게이트 진입점(api_server)" \
+      || warn "  vLLM 게이트 진입점 import 실패 — 학습은 되고 게이트만 죽는다" \
+              "$VENV/bin/pip install uvloop (진입점 전용 의존성 결손)"
+  fi
   if find "${HF_HOME:-/workspace/hf_cache}" -maxdepth 4 -iname "*Qwen3-VL*" 2>/dev/null | grep -q .; then
     ok "백본 가중치 캐시"
   else

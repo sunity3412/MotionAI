@@ -138,7 +138,21 @@ def save_ledger(path, ledger) -> None:
 
 
 def _load_json(path):
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    """부재/빈 파일은 `{}` — 그 밖의 파손은 그대로 터뜨린다.
+
+    ★2026-08-15: 체인을 `train|gates|promote` 로만 돌리면 label 단계 산출물
+    (`cycle_label_stats.json`)이 아예 없거나 이전 사이클의 빈 파일로 남아 있다.
+    거기서 promote 가 죽으면 **리포트가 통째로 사라져** 사이클 비용 관측치를 잃는다
+    (게이트 판정과 무관한 손실). 없는 것은 없는 대로 리포트에 싣고 진행한다.
+    반대로 내용이 있는데 파싱이 안 되면 그것은 생산자 버그이므로 숨기지 않는다.
+    """
+    p = Path(path)
+    if not p.exists():
+        return {}
+    text = p.read_text(encoding="utf-8").strip()
+    if not text:
+        return {}
+    return json.loads(text)
 
 
 def _data_snapshot_from_meta(meta) -> dict:

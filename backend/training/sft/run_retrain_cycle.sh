@@ -79,10 +79,26 @@ label() {
   echo "[label] full_batch 증류 — 신규 collection_batch 행만 과금(기존 행 skip=과금 0)"
   local start end
   start=$(date -u +%s)
+  # ★stdout 을 그대로 $STATS_JSON 에 붓지 않는다 (2026-08-15 실측): rtmlib 이
+  # 모델 로드 때 "load ... with onnxruntime backend" 를 **stdout** 에 찍어 파일 첫
+  # 줄이 JSON 이 아니게 되고, promote 의 json.loads 가 char 0 에서 죽는다(리포트 소실).
+  # 원문은 로그로 남기고 JSON 본문만 골라 담는다.
+  local raw="$OUT_DIR/cycle_label_raw.log"
   python3 -m training.distill.full_batch \
-    --out-dir "$OUT_DIR" --cache-dir "$CACHE_DIR" | tee "$STATS_JSON"
+    --out-dir "$OUT_DIR" --cache-dir "$CACHE_DIR" | tee "$raw"
   end=$(date -u +%s)
-  echo "[label] 경과 $((end - start))s — 결과 원장 $STATS_JSON"
+  python3 - "$raw" "$STATS_JSON" <<'PY' || echo "[label] 경고 — stdout 에서 JSON 을 못 찾았다. 원문: $raw"
+import json, sys
+raw, out = sys.argv[1], sys.argv[2]
+text = open(raw, encoding="utf-8").read()
+start = text.find("{")
+if start < 0:
+    raise SystemExit(1)
+obj = json.JSONDecoder().raw_decode(text[start:])[0]
+open(out, "w", encoding="utf-8").write(json.dumps(obj, ensure_ascii=False, indent=2) + "\n")
+print(f"[label] stats JSON 추출 완료 -> {out}")
+PY
+  echo "[label] 경과 $((end - start))s — 결과 원장 $STATS_JSON (원문 $raw)"
 }
 
 # ── stage 3: assemble (백업 선행 강제 → 병합 재조립 → canonical 교체) ────────
@@ -118,8 +134,13 @@ train() {
 }
 
 # 최신 SFT run 의 best ckpt 해석 (train/gates/promote 공용).
+# ★`-merged` 를 반드시 제외한다 (2026-08-15 실측): gates 가 만든 병합본
+# `<ckpt>-merged` 는 원본 ckpt 보다 **나중에 생기므로** `ls -dt` 의 첫 줄을 차지한다.
+# 그러면 재실행 시 merged="<ckpt>-merged-merged" 가 되어 이미 있는 병합본을 못 찾고
+# 병합을 다시 돌린다. 첫 실행에서는 병합본이 아직 없어 안 걸리는 **재실행 전용 함정**이고,
+# 게이트가 인프라 문제로 죽은 뒤 이어받는 경로가 정확히 그 재실행이다.
 _latest_ckpt() {
-  ls -dt "$SFT_OUT"/*/checkpoint-* 2>/dev/null | head -1
+  ls -dt "$SFT_OUT"/*/checkpoint-* 2>/dev/null | grep -v -- '-merged$' | head -1
 }
 
 # ── stage 5: gates (bf16 병합 → 조건부 flashinfer env → D-15 게이트) ─────────

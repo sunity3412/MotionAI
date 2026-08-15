@@ -93,16 +93,23 @@ echo "[setup] 4/5 vLLM (게이트 단계가 쓴다 — 학습만 하고 끝나�
 #   게이트에서 ModuleNotFoundError 로 죽는다(2026-08-14 사전 발견 — 학습 전에 잡음).
 # ★vllm 은 torch 를 자기 핀으로 되돌릴 수 있다 → 설치 후 torch 를 **재검증**하고,
 #   set_submodule 이 사라졌으면 즉시 실패시킨다(조용한 회귀 금지).
-"$VENV/bin/pip" install -q vllm || echo "[setup] vllm 설치 실패 — 게이트 단계 불가(학습은 가능)"
+# ★uvloop 을 함께 박는다 (2026-08-15 실측): vllm 본체는 uvloop 없이도 import 되지만
+#   게이트가 실제로 부르는 `vllm.entrypoints.openai.api_server` 는 최상단에서
+#   `import uvloop` 한다. 그래서 `import vllm` 검증은 **통과하는데 게이트만 죽었다**
+#   (학습 39분 태운 뒤 서버 기동에서 ModuleNotFoundError, exit 11).
+"$VENV/bin/pip" install -q vllm uvloop || echo "[setup] vllm 설치 실패 — 게이트 단계 불가(학습은 가능)"
 "$VENV/bin/python" - <<'PY' || { echo "[setup] vllm 설치 후 torch 회귀 — 게이트/학습 불가" >&2; exit 4; }
 import torch
 assert hasattr(torch.nn.Module, "set_submodule"), f"torch 회귀: {torch.__version__} (<2.5)"
 assert torch.cuda.is_available(), "CUDA 사용 불가"
 try:
     import vllm
-    print("  vllm", vllm.__version__, "| torch", torch.__version__)
-except ImportError:
-    print("  vllm 없음 — 게이트 단계는 불가, 학습은 가능 | torch", torch.__version__)
+    # ★패키지가 아니라 **게이트가 실제로 실행하는 진입점**을 불러본다.
+    #   `import vllm` 만으로는 uvloop 같은 진입점 전용 의존성 결손을 못 잡는다.
+    import vllm.entrypoints.openai.api_server  # noqa: F401
+    print("  vllm", vllm.__version__, "(api_server 진입점 OK) | torch", torch.__version__)
+except ImportError as e:
+    print(f"  vllm 게이트 진입점 불가({e}) — 게이트 단계는 불가, 학습은 가능 | torch", torch.__version__)
 PY
 
 echo "[setup] 5/5 백본 가중치 사전 다운로드 ($MODEL)"

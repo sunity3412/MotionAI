@@ -65,6 +65,18 @@ eye_rows=$(grep -oE 'rows_after [0-9]+' /tmp/_fw_harvest.log | tail -1 | grep -o
 upload_rc=$?
 uploaded=$(grep -oE '업로드 [0-9]+' /tmp/_fw_upload.log | tail -1 | grep -oE '[0-9]+' || echo 0)
 
+# ── 3-2. 운영 분석 리포트 수확 + 영상 반출 (quick-260815-glc) ────────────────
+# belle 2026-08-15 "분석할 때마다 학습할 여지가 있다면 하는거고" — 분석이 돌 때마다
+# 결함 짚기 학습 재료가 자라는 유일한 트랙이다. 동의 축은 harvest_eye 와 같은 규율:
+# 러너 계정·내부 계정은 admit, 앱 형태 uid 는 learningOptIn 실측 True 만 admit.
+# ★베타 오픈 후 동의한 사용자의 분석이 여기로 자동 유입된다.
+"$PY" backend/training/datagen/harvest_reports.py --run > /tmp/_fw_report.log 2>&1
+report_rc=$?
+report_rows=$(grep -oE 'rows_after [0-9]+' /tmp/_fw_report.log | tail -1 | grep -oE '[0-9]+' || echo 0)
+"$PY" backend/training/datagen/harvest_reports.py --upload-media --run >> /tmp/_fw_report.log 2>&1
+report_up_rc=$?
+report_admit=$(grep -oE 'admit_after [0-9]+' /tmp/_fw_report.log | tail -1 | grep -oE '[0-9]+' || echo 0)
+
 rows_after=$(grep -c '"s3_key"' backend/training/data/manifest.json 2>/dev/null || echo 0)
 
 # ── 4. 원장 변경 커밋 (데이터가 리포에 남아야 다음 사이클이 이어진다) ────────
@@ -82,14 +94,15 @@ fi
 주 1회 자동 실행 기록. 줄이 안 늘면 자동화가 죽은 것이다(launchd 확인).
 학습(SFT)은 이 사이클에 없다 — GPU Pod 필요, 별도 실행.
 
-| 실행 시각 | 수집 신규 | 눈 원장 행 | 크롭 반출 | training 행 | 커밋 | rc(수집/수확/반출) |
-|---|---|---|---|---|---|---|
+| 실행 시각 | 수집 신규 | 눈 원장 행 | 크롭 반출 | 분석원장/admit | training 행 | 커밋 | rc(수집/수확/반출/분석) |
+|---|---|---|---|---|---|---|---|
 HDR
-printf '| %s | %s | %s | %s | %s → %s | %s | %s/%s/%s |\n' \
-  "$STAMP" "$watch_new" "$eye_rows" "$uploaded" "$rows_before" "$rows_after" \
-  "$committed" "$watch_rc" "$harvest_rc" "$upload_rc" >> "$LOG"
+printf '| %s | %s | %s | %s | %s/%s | %s → %s | %s | %s/%s/%s/%s |\n' \
+  "$STAMP" "$watch_new" "$eye_rows" "$uploaded" "$report_rows" "$report_admit" \
+  "$rows_before" "$rows_after" \
+  "$committed" "$watch_rc" "$harvest_rc" "$upload_rc" "$report_rc" >> "$LOG"
 
 git add "$LOG" 2>/dev/null && git commit -q -m "chore(flywheel): 사이클 로그 $STAMP" 2>/dev/null \
   && git push -q 2>/dev/null
 
-note "[flywheel] 완료 — 수집 +$watch_new / 눈 원장 $eye_rows / 크롭 반출 $uploaded"
+note "[flywheel] 완료 — 수집 +$watch_new / 눈 원장 $eye_rows / 크롭 반출 $uploaded / 분석 원장 $report_rows(admit $report_admit)"

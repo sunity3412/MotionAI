@@ -374,6 +374,29 @@ def make_eye_loader(eye_manifest_path):
 
     return loader
 
+def make_report_loader(report_manifest_path):
+    """운영 분석 원장 → build_jsonl report_loader 계약 (quick-260815-glc).
+
+    fail-closed: harvest_reports.training_rows 가 admit + 반출완료만 방출하고,
+    **영상 1개당 1행**으로 접는다(같은 픽스처를 61회 재분석한 러너 중복 제거 —
+    접지 않으면 39개 클립에 과적합하고 동작 균등도 가짜로 통과한다).
+    원장 부재/손상은 빈 트랙(크래시 아님) — eye 선례.
+    """
+    def loader():
+        path = Path(report_manifest_path)
+        if not path.exists():
+            log.warning("report 원장 없음 — report 트랙 0행: %s", path)
+            return []
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            log.warning("report 원장 손상 — report 트랙 0행: %s", path)
+            return []
+        from datagen.harvest_reports import training_rows
+        return training_rows(data)
+
+    return loader
+
 
 def make_s3_uploader(bucket: str = _DEFAULT_BUCKET):
     """S3 업로더 factory — assemble_jsonl(uploader=...) 주입용. 기본 경로는 미사용(gated)."""
@@ -398,6 +421,7 @@ def assemble_jsonl(
     shadow_loader=None,
     reference_loader=None,
     eye_loader=None,
+    report_loader=None,
     mix_ratios=None,
     seed: int = 0,
     uploader=None,
@@ -422,6 +446,7 @@ def assemble_jsonl(
         shadow_loader=shadow_loader,
         reference_loader=reference_loader,
         eye_loader=eye_loader,
+        report_loader=report_loader,
         mix_ratios=mix_ratios,
         validation_owner=validation_owner,
         partial=partial,
@@ -467,6 +492,10 @@ if __name__ == "__main__":  # pragma: no cover - 실 실행은 메인 세션(Pod
                     help="--assemble 시 eye 트랙 주입(기계 눈 수확 원장 admit 행 — j24)")
     ap.add_argument("--eye-manifest",
                     default=str(_BACKEND / "training" / "data" / "eye_manifest.json"))
+    ap.add_argument("--with-report", action="store_true",
+                    help="--assemble 시 report 트랙 주입(운영 분석 리포트 admit 행 — glc)")
+    ap.add_argument("--report-manifest",
+                    default=str(_BACKEND / "training" / "data" / "report_manifest.json"))
     ap.add_argument("--upload", action="store_true",
                     help="--assemble 시 S3 업로드(gated — greenlight 필수)")
     ap.add_argument("--validation-owner", default="explicit_val_jsonl",
@@ -489,6 +518,9 @@ if __name__ == "__main__":  # pragma: no cover - 실 실행은 메인 세션(Pod
             partial=args.partial,
             perturb_loader=make_perturb_loader(args.cache_dir) if args.with_perturb else None,
             eye_loader=make_eye_loader(args.eye_manifest) if args.with_eye else None,
+            report_loader=(
+                make_report_loader(args.report_manifest) if args.with_report else None
+            ),
             uploader=make_s3_uploader(args.bucket) if args.upload else None,
         )
         print(json.dumps(

@@ -445,6 +445,46 @@ def _build_perturb_samples(manifest, perturb_loader, reference_loader, rng) -> l
     return out
 
 
+def _build_report_samples(report_loader) -> tuple[list[dict], dict]:
+    """운영 분석 리포트 트랙 (quick-260815-glc) → 샘플 + 관측 카운터.
+
+    belle 2026-08-15: "분석 리포트 자체가 학습에 도움이 된다면 배선 설계를 해야하는거
+    아녀?" — 운영 분석이 962건 쌓이는 동안 분석 과제 학습에는 한 건도 안 들어갔다.
+
+    ★shadow 트랙과 다른 점이 이 트랙의 존재 이유다: shadow 는 `faults: []` 를
+      하드코딩해 **결함 없음을 가르친다**. 이 트랙은 결함이 있는 분석만 싣는다
+      (harvest_reports.report_from_analysis 가 결함 0건이면 행을 안 만든다).
+
+    fail-closed 2겹 — loader 층(harvest_reports.training_rows)이 admit+반출완료만
+    방출하고, 이 층이 다시 disposition/media_key/faults 를 확인한다. hold 행이
+    JSONL 에 새면 동의 fence 가 무너지므로 이중 확인이다(eye 트랙 선례).
+    """
+    if report_loader is None:
+        return [], {"report_admitted_count": 0}
+    out: list[dict] = []
+    for row in report_loader() or []:
+        if row.get("disposition") != "admit":
+            continue  # hold 행 차단(동의 fence).
+        media_key = row.get("media_key")
+        report = row.get("report") or {}
+        if not media_key or not report.get("faults"):
+            continue
+        if not _faults_satisfy_contract(report):
+            continue  # 계약 미충족은 조립에서 조용히 사라지느니 여기서 명시적으로 제외.
+        out.append({
+            "messages": [
+                _system_msg([]),
+                _user_media_msg(media_key, []),
+                _assistant_report_msg(None, report),
+            ],
+            "_track": "report",
+            "_video_hash": row.get("media_sha16"),
+            "_motion": row.get("motion"),
+            "_has_faults": True,
+        })
+    return out, {"report_admitted_count": len(out)}
+
+
 def _build_distill_samples(manifest, distill_loader, reference_loader) -> list[dict]:
     """Gemini 교사 증류 트랙 — video_hash 로 manifest join, 감점 계약 미충족 폐기(F1)."""
     if distill_loader is None:
@@ -773,6 +813,7 @@ def build_dataset(
     shadow_loader=None,
     reference_loader=None,
     eye_loader=None,
+    report_loader=None,
     mix_ratios: dict | None = None,
     validation_owner: str = "explicit_val_jsonl",
     val_frac: float = 0.02,
@@ -809,6 +850,8 @@ def build_dataset(
     shadow_samples, shadow_dropped, shadow_text_only = _build_shadow_samples(
         manifest, shadow_loader
     )
+    # report 트랙 (quick-260815-glc) — 운영 분석이 돌 때마다 자라는 유일한 결함 트랙.
+    report_samples, report_counters = _build_report_samples(report_loader)
 
     # 균등 게이트는 **트랙별 독립** 적용 — 합산 적용 시 트랙 간 자리 경쟁이 생겨
     # 앞 트랙이 뒤 트랙을 잠식한다 (22-07A 실증: perturb 주입이 distill 85→38).
@@ -816,6 +859,7 @@ def build_dataset(
     media_core = (
         _balance_media(perturb_samples)
         + _balance_media(distill_samples)
+        + _balance_media(report_samples)
         + _balance_media([s for s in shadow_samples if sample_has_video(s)])
     )
     # B 재균형 — fault-free 미디어를 fault-bearing 대비 캡(결함 신호 익사 방지).
@@ -862,7 +906,9 @@ def build_dataset(
         else:
             train.append(s)
 
-    track_counts: dict = {"perturb": 0, "distill": 0, "shadow": 0, "text": 0, "eye": 0}
+    track_counts: dict = {
+        "perturb": 0, "distill": 0, "shadow": 0, "text": 0, "eye": 0, "report": 0,
+    }
     for s in all_samples:
         t = s.get("_track")
         if t in track_counts:
@@ -895,6 +941,7 @@ def build_dataset(
     }
     # eye 트랙 관측치 — 전부 additive 키(미주입 시 0/빈 dict).
     meta.update(eye_counters)
+    meta.update(report_counters)
     meta.update(_eye_counters(eye_balanced))
     meta["eye_leakage_dropped"] = eye_leakage_dropped
     meta["eye_balance_trimmed"] = eye_balance_trimmed

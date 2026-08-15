@@ -120,6 +120,14 @@ echo "[setup] 4/5 vLLM (게이트 단계가 쓴다 — 학습만 하고 끝나�
 #   레시피에 안 들어가 있어서, 3.12 로 새로 만든 venv 에서 그대로 재발했다.
 "$VENV/bin/pip" install -q liger-kernel \
   || echo "[setup] liger-kernel 설치 실패 — 32GB 이하 GPU 에서 로짓 OOM 위험"
+
+# ★run_sft.sh [1/3] 이 **venv python 으로** 학습셋을 S3 에서 당기고 영상을 만진다:
+#   boto3 / botocore / imageio_ffmpeg 를 그 인라인 스크립트가 직접 import 한다.
+#   --system-site-packages 시절엔 베이스 이미지에서 빌려 썼기 때문에 레시피에
+#   없어도 돌았다. 격리 모드(2026-08-15)로 바꾸자 `No module named 'boto3'` 로
+#   학습이 [1/3] 에서 즉사했다 — 격리의 대가는 "빌려 쓰던 것을 전부 명시"다.
+"$VENV/bin/pip" install -q boto3 "imageio[pyav]" imageio-ffmpeg \
+  || echo "[setup] S3/영상 의존성 설치 실패 — run_sft [1/3] 학습셋 동기화 불가"
 "$VENV/bin/python" - <<'PY' || { echo "[setup] vllm 설치 후 torch 회귀 — 게이트/학습 불가" >&2; exit 4; }
 import torch
 assert hasattr(torch.nn.Module, "set_submodule"), f"torch 회귀: {torch.__version__} (<2.5)"

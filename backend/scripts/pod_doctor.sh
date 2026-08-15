@@ -86,7 +86,10 @@ echo "== 6. 학습 환경 (SFT 를 돌릴 때만 필요) =="
 _venv_import_ok() { "$VENV/bin/python" -c "import $1" >/dev/null 2>&1; }
 if [ -x "$VENV/bin/swift" ] && _venv_import_ok swift; then
   ok "train_venv + swift $(swift_ver_doctor)"
-  for m in torch transformers peft vllm decord; do
+  # boto3/imageio_ffmpeg 는 run_sft.sh [1/3] 이 venv python 으로 직접 import 한다
+  # (학습셋 S3 동기화 + 영상 처리). 격리 venv 에서는 베이스에서 빌려올 수 없어
+  # 없으면 학습이 첫 단계에서 즉사한다 — 2026-08-15 실측.
+  for m in torch transformers peft vllm decord liger_kernel boto3 imageio_ffmpeg; do
     _venv_import_ok "$m" && ok "  학습 모듈: $m" \
       || warn "  학습 모듈 import 실패: $m" "$VENV/bin/pip install $m (venv python 버전 불일치면 pyvenv.cfg/bin 링크 확인)"
   done

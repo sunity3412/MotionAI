@@ -171,10 +171,32 @@ gates() {
   fi
 
   echo "[gates] run_sft_gates.sh (PROMPT_MODE=aligned, SERIAL)"
-  local gate_exit=0
-  PROMPT_MODE=aligned bash training/sft/run_sft_gates.sh "$merged" || gate_exit=$?
+  local gate_exit=0 gate_log="$OUT_DIR/cycle_gates.log" declared=""
+  set -o pipefail
+  PROMPT_MODE=aligned bash training/sft/run_sft_gates.sh "$merged" 2>&1 | tee "$gate_log"
+  gate_exit=${PIPESTATUS[0]}
+  set +o pipefail
+
+  # ★교차검증 (2026-08-15): 판정을 **종료 코드 하나에만** 걸지 않는다.
+  # 실측: 게이트가 base=1/require_pass=1 로 FAIL 했는데 스크립트 마지막 문장이
+  # `echo` 라 exit 0 이 기록됐고, promotion 계약("require-pass exit 0 만 PASS")이
+  # 그 0 을 읽어 **실패한 모델을 승격시킬 수 있었다**. 승격을 막은 것은 판정이
+  # 아니라 무관한 promote 예외였다 — 안전장치가 아니라 우연이었다.
+  # 그래서 러너가 로그에 남기는 선언값과 종료 코드를 대조하고, 어긋나면 **나쁜
+  # 쪽으로 확정**한다(fail-closed). 둘 중 하나가 조용히 틀려도 승격은 안 열린다.
+  declared=$(grep -oE 'GATES ALLDONE \(base=[0-9]+ require_pass=[0-9]+\)' "$gate_log" 2>/dev/null \
+             | tail -1 | grep -oE 'require_pass=[0-9]+' | cut -d= -f2)
+  if [ -n "$declared" ] && [ "$declared" != "$gate_exit" ]; then
+    echo "[gates] ★판정 불일치 — exit=$gate_exit / 선언 require_pass=$declared. fail-closed 로 FAIL 확정"
+    [ "$declared" -gt "$gate_exit" ] && gate_exit="$declared"
+  fi
+  if [ -z "$declared" ] && [ "$gate_exit" -eq 0 ]; then
+    echo "[gates] ★ALLDONE 선언 없음인데 exit=0 — 게이트가 완주하지 않았다. fail-closed 로 FAIL 확정"
+    gate_exit=1
+  fi
+
   echo "$gate_exit" > "$GATE_EXIT_FILE"
-  echo "[gates] 게이트 exit=$gate_exit (0=PASS 만 승격)"
+  echo "[gates] 게이트 exit=$gate_exit (0=PASS 만 승격, 선언값=${declared:-없음})"
 }
 
 # ── stage 6: promote (단방향 래칫 — PASS 만 current 전진) ────────────────────

@@ -110,14 +110,26 @@ assemble() {
   aws s3 sync "s3://$BUCKET/training/phase22/jsonl/" \
     "s3://$BUCKET/training/phase22/jsonl_backup_${ts}/" \
     || { echo "[중단] canonical 백업 실패 — 교체 차단(단일 진실 보호)" >&2; exit 5; }
-  echo "[assemble] 기존+신규 accepted 병합 재조립 + canonical 교체 (--assemble --with-perturb --with-eye --upload)"
-  # --with-eye (j24): 기계 눈 수확 원장(eye_manifest.json)의 admit 행을 4번째 트랙으로
+  # --with-eye (j24): 기계 눈 수확 원장(eye_manifest.json)의 admit 행을 트랙으로
   # 태운다. 크롭 PNG 가 아직 S3 에 없으면 assemble 이 fail-closed 로 멈춘다 —
   # 존재하지 않는 training/phase22/eye/*.png 를 가리키는 학습셋을 canonical 로 올리지
   # 않기 위한 의도된 차단이다. 해제 조건 = 크롭 업로드 사이클 선행(EYE-HARVEST-REPORT §6).
+  #
+  # --with-report (glc, 2026-08-15): 운영 분석 리포트 트랙. 분석이 돌 때마다 자라는
+  # **유일한 결함 짚기 트랙**이다(shadow 는 faults=[] 하드코딩이라 반대로 가르친다).
+  #
+  # ★perturb 는 기본 off 로 되돌린다 — belle C1 결정(2026-07-15, quick-260715-wq9)이
+  #   "perturb 전부 faults=[] 라 결함 신호를 익사시키는 최대 주범"이라 기본값을 off 로
+  #   정했는데, 이 사이클 스크립트만 --with-perturb 로 되살려 쓰고 있었다. 2026-08-15
+  #   게이트 실측이 그 결정을 지지한다: 모델이 평가 29건 전부 빈 골격(faults=[])을
+  #   뱉었고, 직전 canonical 262행 중 perturb 가 118행(45%)이었다. 되살리려면 명시적
+  #   `SFT_WITH_PERTURB=1` — 값을 코드에 박지 않고 이유와 함께 env 로 남긴다.
+  local perturb_flag=""
+  [ "${SFT_WITH_PERTURB:-0}" = "1" ] && perturb_flag="--with-perturb"
+  echo "[assemble] 재조립 + canonical 교체 (--assemble ${perturb_flag:---perturb없음} --with-eye --with-report --upload)"
   python3 -m training.distill.full_batch \
     --out-dir "$OUT_DIR" --cache-dir "$CACHE_DIR" \
-    --assemble --with-perturb --with-eye --upload
+    --assemble $perturb_flag --with-eye --with-report --upload
 }
 
 # ── stage 4: train (foreground — 사이클 자체가 nohup) ────────────────────────

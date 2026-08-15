@@ -1,5 +1,20 @@
 {
-  "schema": "promotion-ledger-v1",
   "current": null,
-  "entries": []
+  "entries": [
+    {
+      "batch_ids": [],
+      "ckpt": "/workspace/phase22_sft_out/v28-20260815-020602/checkpoint-68-merged",
+      "data": {
+        "distill": 81,
+        "perturb": 121,
+        "text": 30,
+        "train_rows": null,
+        "val_rows": null
+      },
+      "gates": {},
+      "promoted": false,
+      "ts": "2026-08-15T04:43:18Z"
+    }
+  ],
+  "schema": "promotion-ledger-v1"
 }

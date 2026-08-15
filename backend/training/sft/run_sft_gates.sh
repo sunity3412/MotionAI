@@ -96,3 +96,13 @@ echo "기본 모드 exit=${GATE_RC:-0}"
 PYTHONPATH=shared/python:training:. "$VENV/bin/python" evals/phase22/assert_gates.py --model "$AWQ" --require-pass || REQ_RC=$?
 echo "require-pass 모드 exit=${REQ_RC:-0}"
 echo "GATES ALLDONE (base=${GATE_RC:-0} require_pass=${REQ_RC:-0})"
+
+# ★스크립트의 종료 코드 = require-pass 판정 (2026-08-15 실측 수리).
+# 이 줄이 없으면 스크립트는 마지막 `echo` 의 성공(0)으로 끝난다. 호출자
+# (run_retrain_cycle.sh gates)는 `$?` 를 게이트 판정으로 기록하고, promotion 은
+# "require-pass exit 0 만 pass=True" 계약으로 그 값을 읽는다 — 즉 **게이트가
+# FAIL 해도 PASS 로 승격**될 수 있었다. 단방향 래칫의 전제가 무너지는 자리다.
+# 실측: 2026-08-15 v28 사이클에서 게이트가 base=1/require_pass=1 로 FAIL 했는데
+# `게이트 exit=0` 이 기록됐다(승격을 막은 것은 무관한 promote 예외였을 뿐이다).
+# 게이트가 완주해서 FAIL 한 것이 이번이 처음이라 여태 드러나지 않았다.
+exit "${REQ_RC:-0}"

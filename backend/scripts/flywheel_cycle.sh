@@ -84,6 +84,48 @@ report_admit=$(grep -oE 'admit_after [0-9]+' /tmp/_fw_report.log | tail -1 | gre
 
 rows_after=$(grep -c '"s3_key"' backend/training/data/manifest.json 2>/dev/null || echo 0)
 
+# ── 3-3. 재학습 시점 판정 (belle "때가 되면 너가 알려줘야 해", 2026-08-15) ────
+# 왜 자동 판정인가: 재학습 시점을 문서에만 적으면 사람도 나도 까먹는다
+# [[build-it-and-schedule-it-or-it-never-ran]]. 매주 스스로 재고, 넘으면 리포에
+# 마커 파일을 남긴다 — 다음 세션에서 그 파일이 보이면 즉시 안내한다.
+#
+# 임계 근거 (2026-08-15 v29 실측): 재료 distill 79→171(2.2배)에 빈 골격 29→9,
+# faults 0→2 였다. 게이트는 4동작 전부에서 결함을 짚어야 통과인데 v29 는 1동작뿐 —
+# 관측 탄성상 최소 한 배수가 더 필요하다. 지금 재료로 또 돌리면 같은 자리에서 FAIL 이다.
+#   · 영상 303 → 400편  (수집·재채굴 축)
+#   · 또는 분석 원장 admit 25 → 60  (앱 사용이 늘면 이쪽이 먼저 참)
+# 둘 중 하나만 넘어도 재학습 가치가 생긴다(OR).
+TRAIN_DUE_VIDEOS=400
+TRAIN_DUE_REPORT_ADMIT=60
+DUE_FILE="$ROOT/.planning/TRAINING-DUE.md"
+if [ "${rows_after:-0}" -ge "$TRAIN_DUE_VIDEOS" ] || [ "${report_admit:-0}" -ge "$TRAIN_DUE_REPORT_ADMIT" ]; then
+  cat > "$DUE_FILE" <<DUEEOF
+# 재학습 시점 도달 — $STAMP
+
+플라이휠이 자동 판정했다. **다음 세션에서 belle 에게 알릴 것.**
+
+| 축 | 현재 | 임계 |
+|---|---|---|
+| 수집 영상 | $rows_after | $TRAIN_DUE_VIDEOS |
+| 분석 원장 admit | $report_admit | $TRAIN_DUE_REPORT_ADMIT |
+
+## 돌리는 법
+1. belle 이 5090 이상 Pod 추가 (EU-RO-1, 기존 볼륨)
+2. \`bash backend/scripts/pod_doctor.sh\` — 결손 복구
+3. train_venv312 없으면: \`TRAIN_VENV_ISOLATED=1 bash backend/training/sft/setup_train_venv.sh\`
+4. 전 사이클: preflight → label → assemble → train → gates → promote
+   (래퍼 예시 = .planning/CONTINUE-2026-08-16.md)
+
+## 직전 판(v29) 성적 — 이번에 넘어야 할 선
+빈 골격 9/29 · faults 2 · 4동작 중 1동작만 짚음 · 게이트 FAIL
+DUEEOF
+  note "[flywheel] ★재학습 시점 도달 — $DUE_FILE 생성 (영상 $rows_after / 분석 admit $report_admit)"
+  osascript -e 'display notification "재학습 시점 도달 — 다음 세션에서 확인" with title "Sunity 플라이휠"' 2>/dev/null || true
+else
+  # 아직이면 마커를 지운다 — 낡은 마커가 남아 잘못 알리는 것을 막는다.
+  rm -f "$DUE_FILE" 2>/dev/null || true
+fi
+
 # ── 4. 원장 변경 커밋 (데이터가 리포에 남아야 다음 사이클이 이어진다) ────────
 committed="no"
 if ! git diff --quiet -- backend/training/data 2>/dev/null; then

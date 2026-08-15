@@ -45,8 +45,13 @@ git pull --ff-only --quiet 2>/dev/null || note "[flywheel] git pull 스킵(로�
 rows_before=$(grep -c '"s3_key"' backend/training/data/manifest.json 2>/dev/null || echo 0)
 
 # ── 1. 수집 — watchlist 신규분 (Gemini 선별 과금 발생) ───────────────────────
-# --only 는 belle 이 범위를 넓히면 지우면 된다(현재 = 동의 확보된 정은지 계정만).
-"$PY" backend/scripts/phase22_watch.py --run --only eunji > /tmp/_fw_watch.log 2>&1
+# ★2026-08-15 범위 확대 (belle "좋아지는 기능이라면 언넝 진행해"): `--only eunji` 를
+#   제거한다. 레지스트리에 유튜브 17채널이 활성인데 주간 수집은 정은지 IG 하나만
+#   긁고 있었다 — 정은지 계정은 이미 다 긁어 매주 신규 0 이 나오는 중이었고, 재료
+#   부족이 학습의 최대 병목이라는 것이 08-15 실측(학습셋 222행)으로 확인됐다.
+#   미성년 채널(polesportkids)은 레지스트리에서 enabled=false 로 격리돼 있어 이
+#   확대의 영향을 받지 않는다. 좁히려면 다시 `--only <alias>`.
+"$PY" backend/scripts/phase22_watch.py --run > /tmp/_fw_watch.log 2>&1
 watch_rc=$?
 watch_new=$(grep -oE '신규 [0-9]+' /tmp/_fw_watch.log | tail -1 | grep -oE '[0-9]+' || echo 0)
 

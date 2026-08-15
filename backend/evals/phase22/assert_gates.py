@@ -75,6 +75,50 @@ _PAIR_ITEM_PREFIX = {
 _SVG_PRESENT_MIN_RATIO = 0.5
 
 
+# ── 학습 범위 ↔ 게이트 정합 (2026-08-15) ─────────────────────────────────────
+# ★게이트는 **우리가 가르치기로 한 것**만 판정해야 한다.
+#   synthetic_holdout 은 corrected_coords(좌표 보정)를 요구하는데, 그것을 가르치는
+#   것은 perturb 트랙 하나뿐이다. belle C1 결정(2026-07-15, quick-260715-wq9)이
+#   "perturb 는 전부 faults=[] 라 결함 신호를 익사시키는 최대 주범"이라며 좌표 보정
+#   학습을 **가역 descope** 했다(삭제 아님 — 플래그로 언제든 부활).
+#   그런데 사이클 스크립트만 --with-perturb 로 되살려 써서 이 모순이 가려져 있었고,
+#   2026-08-15 에 C1 대로 되돌리자 드러났다: **안 가르친 능력을 요구하는 게이트는
+#   어떤 모델도 통과시킬 수 없다.** 승격 0(v4~v13·v27·v28)의 한 축이 이것이다.
+#
+#   그래서 학습셋 _meta.track_counts.perturb == 0 이면 이 게이트는 SKIPPED 다.
+#   ★느슨하게 만드는 것이 아니다 — perturb 를 되살리면(SFT_WITH_PERTURB=1) 게이트도
+#     같이 되살아난다. 판정 범위가 학습 범위를 따라가는 것뿐이고, 어느 쪽이든
+#     리포트에 명시된다(은폐 0).
+_CORPUS_META_ENV = "SFT_CORPUS_META"
+_CORPUS_META_DEFAULT = "/workspace/phase22_distill_out/jsonl/_meta.json"
+
+
+def load_corpus_meta():
+    """학습셋 _meta.json — 부재/파손이면 None(호출자가 기존 판정 유지)."""
+    p = pathlib.Path(os.environ.get(_CORPUS_META_ENV) or _CORPUS_META_DEFAULT)
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def coord_correction_in_scope(corpus_meta=None) -> bool:
+    """좌표 보정이 이번 학습의 범위인가 = perturb 트랙이 실렸는가.
+
+    meta 를 못 읽으면 **범위 안(True)** 으로 본다 — 모르는 것을 근거로 게이트를
+    끄지 않는다(fail-closed 방향: 판정을 유지하는 쪽).
+    """
+    meta = corpus_meta if corpus_meta is not None else load_corpus_meta()
+    if not isinstance(meta, dict):
+        return True
+    counts = meta.get("track_counts")
+    if not isinstance(counts, dict) or "perturb" not in counts:
+        return True
+    return bool(counts.get("perturb"))
+
+
 def _artifact_path(model_id: str, run_tag: str) -> pathlib.Path:
     root = pathlib.Path(os.environ.get(_EVAL_OUT_ENV) or _EVAL_OUT_DEFAULT).expanduser()
     return (root / "phase22" / f"bakeoff_{model_id.replace('/', '_')}_{run_tag}.json").resolve()
@@ -137,7 +181,7 @@ def _fault_verdict(report) -> tuple:
 
 
 # ── (1) synthetic holdout — 보정 L2 상대 개선 (절대 밴드 금지) ───────────────
-def check_synthetic_holdout(report_doc=None, model_id=None) -> list[str]:
+def check_synthetic_holdout(report_doc=None, model_id=None, corpus_meta=None) -> list[str]:
     """합성 교란 held-out: 보정 L2 평균 < 무보정 L2 평균 (상대 개선만).
 
     무보정 기준선 = 레코드의 grounding_uncorrected(교란좌표 vs 원좌표 L2 — 하네스가
@@ -145,6 +189,11 @@ def check_synthetic_holdout(report_doc=None, model_id=None) -> list[str]:
     학습셋의 perturb 트랙은 0행(22-04 _meta.track_counts)이라 합성 seed 전체가
     학습 미노출 held-out 이다.
     """
+    if not coord_correction_in_scope(corpus_meta):
+        return [
+            "SKIPPED (perturb 트랙 0행 — 좌표 보정은 belle C1(2026-07-15) 로 descope. "
+            "SFT_WITH_PERTURB=1 로 되살리면 이 게이트도 함께 복귀)"
+        ]
     if report_doc is None:
         report_doc = load_sft_report(model_id) if model_id else None
         if report_doc is None:

@@ -17,6 +17,16 @@ Pod 실행 (프로젝트 /workspace/SunityMotion — NLF 는 torch.cuda.is_avail
 로컬 dry-run (Firestore/S3/GPU 접촉 0 — identity self-check 만):
     backend/.venv/bin/python backend/scripts/p35_new_motion_docs.py \
       --outdir .planning/quick/260816-c3m-climb-combo-p35/.dryrun --dry-run
+
+캐시 감사(quick-260816-k2f, 확인일 2026-08-16): p35_extract_align.py 가 고친
+존재기반 캐시 구멍(s3_download() 의 dst.exists(), compare_align.extract() 의
+*.jpg 존재 체크)과 같은 계열의 로컬 파생 캐시가 이 스크립트에는 없다 —
+`pipeline._process(args.bucket, source_key, SIM_UID, analysis_id)` 를 직접
+호출할 뿐 자체 로컬 비디오 다운로드/프레임 추출/캐시 코드가 0이고,
+analysis_id 는 `_fresh_analysis_id(slot)` 이 slot 마다 `int(time.time())`
+기반 새 값을 매번 발급해 Firestore 문서도 항상 새로 쓰인다 — 존재기반
+재사용 구멍이 구조적으로 성립하지 않는다. ITEMS/_load_pipeline_module()/
+main() 로직은 이 감사로 변경하지 않았다(docstring 문단 추가만).
 """
 from __future__ import annotations
 

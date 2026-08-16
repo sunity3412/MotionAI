@@ -1,0 +1,52 @@
+{
+ "purpose": "§verification_notes 요청 — belle 가 08-16 실측한 피터팬 폴거리 오답 프레임(align 2.27s)을 이 하네스 검증기에 직접 통과시킨 별건 프로브. Task2 정식 후보군(top-4 poseMin)에는 이 정확한 프레임이 없어(순위 5위, 컷오프 밖) 정식 eyefirst_verdicts.json 에는 안 실린다 — 별도 프로브로 정직하게 남긴다.",
+ "frame": {
+  "uSec": 2.2667,
+  "rSec": 2.2667,
+  "uIdx": 34,
+  "rIdx": 34,
+  "afps": 15.0
+ },
+ "eyeClaim_fromTask1Smoke": {
+  "description": "학생은 기준에 비해 골반과 몸통이 폴에서 더 멀리 떨어져 있습니다.",
+  "axis": "pole_distance",
+  "joint": "none",
+  "side": "none",
+  "moreSide": "student"
+ },
+ "verifierResult_hipCenterMetric_bodyPoleDist": {
+  "description": "학생은 기준에 비해 골반과 몸통이 폴에서 더 멀리 떨어져 있습니다.",
+  "axis": "pole_distance",
+  "joint": "none",
+  "side": "none",
+  "moreSide": "student",
+  "qualityLabel": "high",
+  "numeric": {
+   "student": 0.7621,
+   "reference": 0.4967,
+   "metric": "bodyPoleDist_torsoUnit"
+  },
+  "numericMore": "student",
+  "belleDirectionMatch": false,
+  "bucket": "promoted",
+  "reason": "눈 서술 방향과 수치 방향 일치"
+ },
+ "supplementaryAnkleCheck_torsoUnit": {
+  "student_left": 0.7619,
+  "student_right": 0.7552,
+  "reference_left": 0.9273,
+  "reference_right": 0.8146
+ },
+ "belleGroundTruth_verificationNotes": {
+  "student": {
+   "left": 1.27,
+   "right": 1.26
+  },
+  "reference": {
+   "left": 1.67,
+   "right": 1.47
+  },
+  "claim": "학생이 폴에 더 가깝다(student ankle distance < reference ankle distance)"
+ },
+ "finding": "힙중심 지표(card_gates.body_pole_dist, plan이 지정한 폴거리 검증기)는 student=0.7621 > reference=0.4967 로 나와 눈의 오답(moreSide=student)과 방향이 일치 -> bucket=promoted(오답을 확인해버림). 그러나 발목 기준으로 보면 student(~0.756 평균) < reference(~0.871 평균)로 belle 실측 방향과 일치 -> 같은 순간, 힙 지표와 발목 지표가 서로 반대 방향을 가리킨다. 이 사이클이 재사용하도록 지정된 힙중심 지표는 이 특정 사례에서 눈의 오답을 걸러내지 못하고 오히려 확인했다 — 폴거리 지표의 신체 기준점 (힙 vs 발목) 선택이 belle 판정에 영향을 준다는 정직한 한계 발견."
+}

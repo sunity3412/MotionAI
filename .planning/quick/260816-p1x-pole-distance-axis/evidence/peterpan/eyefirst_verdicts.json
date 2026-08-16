@@ -1,0 +1,374 @@
+{
+ "meta": {
+  "motion": "peterpan",
+  "generated": "2026-08-16T03:51:45.240066+00:00",
+  "qualityGate": {
+   "contradictionRate": {
+    "student": 0.0,
+    "reference": 0.0
+   },
+   "lowConfRate": {
+    "student": 0.0092,
+    "reference": 0.0297
+   },
+   "label": "high"
+  },
+  "eyeCallCount": 4
+ },
+ "records": [
+  {
+   "rid": "r00",
+   "joint": "left_shoulder",
+   "candidates": [
+    {
+     "cid": "cand01",
+     "uSec": 5.2,
+     "rSec": 6.8667,
+     "uIdx": 78,
+     "rIdx": 103,
+     "poseDist": 0.13868105193579383,
+     "stillPair": "stills/r00_cand01_PAIR_u5.2s_r6.8667s.jpg",
+     "eyeRaw": {
+      "differences": [
+       {
+        "description": "학생은 왼팔(아래쪽 팔)의 팔꿈치를 더 많이 굽혀 몸이 폴에 가까이 밀착되어 있는 반면, 기준은 왼팔을 더 곧게 펴서 몸을 폴에서 멀리 밀어내고 있습니다.",
+        "axis": "joint_angle",
+        "joint": "left_elbow",
+        "side": "left",
+        "moreSide": "student"
+       },
+       {
+        "description": "기준은 접어 올린 오른발의 무릎을 학생보다 더 깊게 굽히고 있습니다.",
+        "axis": "joint_angle",
+        "joint": "right_knee",
+        "side": "right",
+        "moreSide": "reference"
+       },
+       {
+        "description": "기준은 아래로 뻗은 왼다리가 폴에서 더 멀리 떨어져 있는 반면, 학생은 왼다리가 폴에 거의 붙어 있습니다.",
+        "axis": "pole_distance",
+        "joint": "none",
+        "side": "left",
+        "moreSide": "reference"
+       }
+      ]
+     },
+     "differences": [
+      {
+       "description": "학생은 왼팔(아래쪽 팔)의 팔꿈치를 더 많이 굽혀 몸이 폴에 가까이 밀착되어 있는 반면, 기준은 왼팔을 더 곧게 펴서 몸을 폴에서 멀리 밀어내고 있습니다.",
+       "axis": "joint_angle",
+       "joint": "left_elbow",
+       "side": "left",
+       "moreSide": "student",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 170.0,
+        "reference": 174.36,
+        "metric": "jointAngleDeg"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": "해당없음(다른 axis)",
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      },
+      {
+       "description": "기준은 접어 올린 오른발의 무릎을 학생보다 더 깊게 굽히고 있습니다.",
+       "axis": "joint_angle",
+       "joint": "right_knee",
+       "side": "right",
+       "moreSide": "reference",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 55.48,
+        "reference": 104.41,
+        "metric": "jointAngleDeg"
+       },
+       "numericMore": "student",
+       "belleDirectionMatch": "해당없음(다른 axis)",
+       "bucket": "rejected",
+       "reason": "눈=reference vs 수치=student 불일치"
+      },
+      {
+       "description": "기준은 아래로 뻗은 왼다리가 폴에서 더 멀리 떨어져 있는 반면, 학생은 왼다리가 폴에 거의 붙어 있습니다.",
+       "axis": "pole_distance",
+       "joint": "none",
+       "side": "left",
+       "moreSide": "reference",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 0.5923,
+        "reference": 0.4787,
+        "metric": "bodyPoleDist_torsoUnit"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": false,
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      }
+     ]
+    },
+    {
+     "cid": "cand02",
+     "uSec": 1.4667,
+     "rSec": 0.9333,
+     "uIdx": 22,
+     "rIdx": 14,
+     "poseDist": 0.14479261221657636,
+     "stillPair": "stills/r00_cand02_PAIR_u1.4667s_r0.9333s.jpg",
+     "eyeRaw": {
+      "differences": [
+       {
+        "description": "학생의 오른팔 팔꿈치가 기준에 비해 더 많이 굽혀져 있습니다.",
+        "axis": "joint_angle",
+        "joint": "right_elbow",
+        "side": "right",
+        "moreSide": "student"
+       },
+       {
+        "description": "학생의 골반이 기준에 비해 폴에서 왼쪽으로 더 멀리 떨어져 있습니다.",
+        "axis": "pole_distance",
+        "joint": "left_hip",
+        "side": "left",
+        "moreSide": "student"
+       },
+       {
+        "description": "학생의 왼다리가 수직 기준선(폴)에서 바깥쪽으로 더 많이 벌어져 기울어져 있습니다.",
+        "axis": "limb_tilt",
+        "joint": "none",
+        "side": "left",
+        "moreSide": "student"
+       }
+      ]
+     },
+     "differences": [
+      {
+       "description": "학생의 오른팔 팔꿈치가 기준에 비해 더 많이 굽혀져 있습니다.",
+       "axis": "joint_angle",
+       "joint": "right_elbow",
+       "side": "right",
+       "moreSide": "student",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 177.63,
+        "reference": 178.1,
+        "metric": "jointAngleDeg"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": "해당없음(다른 axis)",
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      },
+      {
+       "description": "학생의 골반이 기준에 비해 폴에서 왼쪽으로 더 멀리 떨어져 있습니다.",
+       "axis": "pole_distance",
+       "joint": "left_hip",
+       "side": "left",
+       "moreSide": "student",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 0.1064,
+        "reference": 0.0439,
+        "metric": "bodyPoleDist_torsoUnit"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": false,
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      },
+      {
+       "description": "학생의 왼다리가 수직 기준선(폴)에서 바깥쪽으로 더 많이 벌어져 기울어져 있습니다.",
+       "axis": "limb_tilt",
+       "joint": "none",
+       "side": "left",
+       "moreSide": "student",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 10.99,
+        "reference": 9.76,
+        "metric": "limbTiltDeg"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": "해당없음(다른 axis)",
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      }
+     ]
+    },
+    {
+     "cid": "cand03",
+     "uSec": 6.0,
+     "rSec": 7.6,
+     "uIdx": 90,
+     "rIdx": 114,
+     "poseDist": 0.16271353185151327,
+     "stillPair": "stills/r00_cand03_PAIR_u6.0s_r7.6s.jpg",
+     "eyeRaw": {
+      "differences": [
+       {
+        "description": "기준 동작에서는 뒤로 내린 왼쪽 다리의 무릎이 학생에 비해 더 많이 굽혀져 있습니다.",
+        "axis": "joint_angle",
+        "joint": "left_knee",
+        "side": "left",
+        "moreSide": "reference"
+       },
+       {
+        "description": "기준 동작에서는 들어 올린 오른쪽 다리의 고관절이 학생에 비해 더 많이 접혀 있습니다.",
+        "axis": "joint_angle",
+        "joint": "right_hip",
+        "side": "right",
+        "moreSide": "reference"
+       },
+       {
+        "description": "기준 동작에서는 학생에 비해 몸 전체가 폴에서 더 멀리 떨어져 있습니다.",
+        "axis": "pole_distance",
+        "joint": "none",
+        "side": "none",
+        "moreSide": "reference"
+       }
+      ]
+     },
+     "differences": [
+      {
+       "description": "기준 동작에서는 뒤로 내린 왼쪽 다리의 무릎이 학생에 비해 더 많이 굽혀져 있습니다.",
+       "axis": "joint_angle",
+       "joint": "left_knee",
+       "side": "left",
+       "moreSide": "reference",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 175.69,
+        "reference": 174.38,
+        "metric": "jointAngleDeg"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": "해당없음(다른 axis)",
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      },
+      {
+       "description": "기준 동작에서는 들어 올린 오른쪽 다리의 고관절이 학생에 비해 더 많이 접혀 있습니다.",
+       "axis": "joint_angle",
+       "joint": "right_hip",
+       "side": "right",
+       "moreSide": "reference",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 90.44,
+        "reference": 132.12,
+        "metric": "jointAngleDeg"
+       },
+       "numericMore": "student",
+       "belleDirectionMatch": "해당없음(다른 axis)",
+       "bucket": "rejected",
+       "reason": "눈=reference vs 수치=student 불일치"
+      },
+      {
+       "description": "기준 동작에서는 학생에 비해 몸 전체가 폴에서 더 멀리 떨어져 있습니다.",
+       "axis": "pole_distance",
+       "joint": "none",
+       "side": "none",
+       "moreSide": "reference",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 0.7036,
+        "reference": 0.737,
+        "metric": "bodyPoleDist_torsoUnit"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": false,
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      }
+     ]
+    },
+    {
+     "cid": "cand04",
+     "uSec": 3.3333,
+     "rSec": 5.2667,
+     "uIdx": 50,
+     "rIdx": 79,
+     "poseDist": 0.16680831781760566,
+     "stillPair": "stills/r00_cand04_PAIR_u3.3333s_r5.2667s.jpg",
+     "eyeRaw": {
+      "differences": [
+       {
+        "description": "기준 자세에서 접어 올린 왼쪽 무릎이 학생에 비해 더 깊게 굽혀져 있습니다.",
+        "axis": "joint_angle",
+        "joint": "left_knee",
+        "side": "left",
+        "moreSide": "reference"
+       },
+       {
+        "description": "기준 자세에서 몸과 골반이 폴(봉)로부터 더 멀리 떨어져 있습니다.",
+        "axis": "pole_distance",
+        "joint": "none",
+        "side": "none",
+        "moreSide": "reference"
+       },
+       {
+        "description": "학생의 아래로 뻗은 오른쪽 무릎이 기준 자세에 비해 더 굽혀져 있습니다.",
+        "axis": "joint_angle",
+        "joint": "right_knee",
+        "side": "right",
+        "moreSide": "student"
+       }
+      ]
+     },
+     "differences": [
+      {
+       "description": "기준 자세에서 접어 올린 왼쪽 무릎이 학생에 비해 더 깊게 굽혀져 있습니다.",
+       "axis": "joint_angle",
+       "joint": "left_knee",
+       "side": "left",
+       "moreSide": "reference",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 176.56,
+        "reference": 176.49,
+        "metric": "jointAngleDeg"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": "해당없음(다른 axis)",
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      },
+      {
+       "description": "기준 자세에서 몸과 골반이 폴(봉)로부터 더 멀리 떨어져 있습니다.",
+       "axis": "pole_distance",
+       "joint": "none",
+       "side": "none",
+       "moreSide": "reference",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 0.7819,
+        "reference": 0.8244,
+        "metric": "bodyPoleDist_torsoUnit"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": false,
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      },
+      {
+       "description": "학생의 아래로 뻗은 오른쪽 무릎이 기준 자세에 비해 더 굽혀져 있습니다.",
+       "axis": "joint_angle",
+       "joint": "right_knee",
+       "side": "right",
+       "moreSide": "student",
+       "qualityLabel": "high",
+       "numeric": {
+        "student": 54.43,
+        "reference": 46.03,
+        "metric": "jointAngleDeg"
+       },
+       "numericMore": "similar",
+       "belleDirectionMatch": "해당없음(다른 axis)",
+       "bucket": "unmeasurable",
+       "reason": "수치 차이가 tie-band 이내 — 방향 불확정"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -235,10 +235,25 @@ def extract_report_json(text) -> dict | None:
       · 본문의 각 '{' 위치에서 json.JSONDecoder().raw_decode 시도 — 문자열 리터럴 내
         중괄호에 안전한 유일한 stdlib 경로(22-02 File API 전례, naive brace counting
         금지). 실패 시 다음 '{' 로 전진.
-      · dict 아닌 최상위 디코드는 계속 스캔. 끝까지 없으면 None (관대화 금지 —
+      · dict 가 아니거나, dict 라도 비어있거나 키 전부가 REPORT_KEYS 의 부분집합이
+        아니면 계속 스캔(아래 v29 실측 근거). 끝까지 없으면 None (관대화 금지 —
         파싱 실패는 호출자가 기존과 동일하게 실패로 집계).
       · normalize_report 는 호출하지 않는다 — 추출과 정규화는 별개 관심사, 호출자 조합.
     순수 함수 (네트워크/numpy 0). 키 순서는 원문 그대로 보존한다.
+
+    2026-08-16 v29 게이트 실측 (quick-260816-e26, 폭주 방어 강화):
+      · 폭주(토큰 상한까지 반복 생성되어 바깥 리포트 객체가 안 닫힌) 산출은 바깥
+        객체의 raw_decode 가 실패하고, 스캔이 안쪽의 우연히 balanced 로 닫히는
+        조각을 리포트로 오인했다(실측: real-powerspin-fault/real-sideway-spin, raw
+        40KB대가 segments[] 항목 하나로 집계됨).
+      · "REPORT_KEYS 중 최소 1개 키 일치"만으론 불충분함이 실측으로 드러남 —
+        faults[] 항목이 자체적으로 hallucinate 한 corrected_coords 필드가
+        REPORT_KEYS 이름과 우연히 겹쳐(real-peterpan-correct/real-invert) 부분일치
+        조건도 통과시킨다. 그래서 "후보 dict 의 키 전부가 REPORT_KEYS 부분집합"으로
+        강화했다.
+      · v29 run1 회수분 29건(trap/hard_negative 제외) 재적용 결과 = 폭주 15건 전부
+        None, 완결 리포트 14건은 그대로 dict(감사 스크립트 = quick-260816-e26
+        audit_reparse.py).
     """
     if not isinstance(text, str) or not text:
         return None
@@ -252,7 +267,7 @@ def extract_report_json(text) -> dict | None:
         except (json.JSONDecodeError, ValueError):
             pos = body.find("{", pos + 1)
             continue
-        if isinstance(obj, dict):
+        if isinstance(obj, dict) and obj and set(obj) <= set(REPORT_KEYS):
             return obj
         pos = body.find("{", pos + 1)
     return None

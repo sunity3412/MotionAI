@@ -34,8 +34,9 @@ for _p in (BACKEND / "shared" / "python", BACKEND):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-# belle 실계정(csKWYvI3WCPYPysNQ9KkWecaUvq1) 아님 — phase34_fresh_reanalysis.py
-# 의 SIM_UID 리터럴 그대로 재사용 (T-c3m-01 mitigate, 파일럿 내부 sim 계정).
+# belle 의 실 Firebase 계정이 아니다 — phase34_fresh_reanalysis.py 의 SIM_UID
+# 리터럴 그대로 재사용 (T-c3m-01 mitigate, 파일럿 내부 sim 계정). belle 실uid
+# 문자열은 이 파일에 절대 등장시키지 않는다(Task 3 verify 가 grep 으로 강제).
 SIM_UID = "fvcNXzEqKjgqVxRPVSj1iwFnIpn2"
 DEFAULT_BUCKET = "sunity-motion-pilot-videos"
 

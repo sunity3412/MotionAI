@@ -1,0 +1,74 @@
+{
+ "climb": {
+  "motion": "climb",
+  "checks": {
+   "p35DocExists": true,
+   "p35AlignExists": true,
+   "alignSchemaMissing": [],
+   "alignFpsLabel": 15.0,
+   "frames": {
+    "user": 119,
+    "ref": 256
+   },
+   "video_user": "cached",
+   "video_ref": "cached",
+   "fpsCrossCheck": {
+    "user": {
+     "durS": 7.93,
+     "framesOverDuration": 15.006
+    },
+    "ref": {
+     "durS": 17.07,
+     "framesOverDuration": 14.997
+    }
+   },
+   "probeEffectiveFps": {
+    "user": 9.963333333333333,
+    "ref": 10.0
+   }
+  },
+  "reasons": [],
+  "passed": true,
+  "s3Keys": {
+   "user": "fixtures/phase15/climb/correct.mp4",
+   "ref": "reference/ref-climb.mp4",
+   "motionId": "ref-climb"
+  }
+ },
+ "combo": {
+  "motion": "combo",
+  "checks": {
+   "p35DocExists": true,
+   "p35AlignExists": true,
+   "alignSchemaMissing": [],
+   "alignFpsLabel": 15.0,
+   "frames": {
+    "user": 930,
+    "ref": 930
+   },
+   "video_user": "cached",
+   "video_ref": "cached",
+   "fpsCrossCheck": {
+    "user": {
+     "durS": 61.98,
+     "framesOverDuration": 15.005
+    },
+    "ref": {
+     "durS": 62.0,
+     "framesOverDuration": 15.0
+    }
+   },
+   "probeEffectiveFps": {
+    "user": 9.996666666666666,
+    "ref": 9.99
+   }
+  },
+  "reasons": [],
+  "passed": true,
+  "s3Keys": {
+   "user": "fixtures/phase15/combo/correct.mp4",
+   "ref": "reference/ref-combo.mp4",
+   "motionId": "ref-combo"
+  }
+ }
+}

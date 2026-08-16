@@ -9,7 +9,7 @@
 - 생성 스크립트: `backend/scripts/p35_extract_align.py` (rtmlib RTMW GPU 15fps 재추출
   + 자세거리 DTW 정렬 + 짝 재선정 + 마커 좌표).
 
-## 파일 구성 (7동작 16파일)
+## 파일 구성 (9동작 20파일)
 
 | 동작 | 파일 | 비고 |
 |------|------|------|
@@ -20,6 +20,8 @@
 | peterpan | align.json, doc.json | 활성 렌더 슬롯 |
 | pdshape | align.json, doc.json | 벤치 슬롯 (correct 영상) |
 | realupload | align.json, doc.json, moments.json | 벤치 슬롯 |
+| climb | align.json, doc.json | 발굴 스윕 후보 (렌더 슬롯 아님, quick-260816-c3m — P35 렌더 미실행) |
+| combo | align.json, doc.json | 발굴 스윕 후보 (렌더 슬롯 아님, quick-260816-c3m — P35 렌더 미실행) |
 
 ## 검증 결과 (2026-08-08)
 
@@ -29,6 +31,34 @@
   렌더러(render_compare_prototype.py)도 refKp 를 선택 필드로 다룬다.
 - verify/ 스틸 87장(62MB)은 미커밋 — 재생성은 Pod 에서 한 줄:
   `RTMW_DEVICE=cuda python3 scripts/p35_extract_align.py --workdir /workspace/p35`
+
+## 검증 결과 (2026-08-16, quick-260816-c3m)
+
+- climb·combo 2건은 SIM_UID(fvcNXzEqKjgqVxRPVSj1iwFnIpn2) 직접 _process 로 신선
+  생성(status=done) + Pod RTMW GPU 15fps 재추출로 align.json 생성 완료. 둘 다
+  `discover_sweep.py::source_gate()`(quick-260814-ehz-5, 원본 무편집) PASS —
+  align 스키마 11필드 + fps 교차검증(라벨 15.0 vs 실측 프레임/길이) 전부 통과.
+  climb/combo 는 `proto/phase35/{motion}_v3.mp4` 산출이나
+  `render_compare_prototype.py` 실행이 없다(발굴 스윕 소스 게이트 통과만 목적 —
+  렌더 슬롯 아님).
+- **climbfault(`fixtures/phase15/climb/fault.mp4` vs `ref-climb`, Mode 1)는
+  이번 사이클에서 doc.json 자체가 생성되지 않았다** — SIM_UID direct-process 중
+  `NotPoleMotionError: angle 0 < 25`(KISMAM 각도 유사도 안전망,
+  `models.NOT_POLE_SIMILARITY_THRESHOLD`)로 실패했고, 원인 파악 후 1회
+  재시도(35.8s → 44.0s, 동일 사유 재현 — RTMW_DETERMINISTIC=1 하 결정론적)해도
+  같은 결과였다. 이 fault 데모 영상이 기준 climb 동작과 KISMAM 각도 비교상
+  구조적으로 너무 달라 비폴/무의미 비교 안전망이 정상 작동한 것으로 판단—
+  코드 결함이 아니라 이 영상 콘텐츠 자체의 특성이며, 강제로 게이트를 우회하지
+  않았다(CLAUDE.md 분석 정확도 원칙). elbow/powerspin/kipup/pdshapefault/peterpan
+  의 기존 fault 영상들은 모두 같은 Mode 1 경로로 정상 통과(점수 60~83)했으므로
+  이 실패는 climb/fault.mp4 고유의 콘텐츠 특성으로 보인다 — 재촬영 또는 별도
+  조사가 필요하면 belle 판단.
+- `foxtop`/`foxtop-split`/`invert`/`sideway-spin` 은 `fixtures/phase15/` 에
+  학생 영상이 전혀 없다(정답/오답 둘 다 부재 — `aws s3 ls` 로 실측 확인,
+  2026-08-16). `reference/`에는 4개 전부 기준 영상이 존재한다
+  (`ref-foxtop.mp4`, `ref-foxtop-split.mp4`, `ref-invert.mp4`,
+  `ref-sideway-spin.mp4`) — 즉 학생이 이 4동작을 촬영해서 올리기 전까지는
+  발굴 대상이 될 수 없다. belle 촬영 계획의 근거.
 
 ## 영상 원본 S3 키 (버킷 sunity-motion-pilot-videos, ap-northeast-2)
 
@@ -43,6 +73,8 @@
 | realupload | uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/071df9f894d64d1696f106e613f51f5c.mp4 | reference/ref-power-spin.mp4 |
 | pdshapefault | uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/pdshapefault1785373695.mp4 | reference/ref-pdshape.mp4 |
 | peterpan | uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/peterpanfault1785373695.mp4 | reference/ref-peter-pan.mp4 |
+| climb | fixtures/phase15/climb/correct.mp4 | reference/ref-climb.mp4 |
+| combo | fixtures/phase15/combo/correct.mp4 | reference/ref-combo.mp4 |
 
 산출 mp4 키 (belle presigned 링크가 가리키는 같은 키):
 `proto/phase35/{elbow,powerspin,pdshape,kipup,peterpan}_v3.mp4`

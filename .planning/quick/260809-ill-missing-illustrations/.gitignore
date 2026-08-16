@@ -1,0 +1,4 @@
+# importlib.util.exec_module 로 generate.py 를 로드할 때(quick-260816-ill2
+# 검증/재생성 드라이버) 파이썬이 자동 생성하는 바이트코드 캐시 — 런타임 산출물,
+# 커밋 대상 아님(260814-ehz-5/.gitignore 등 형제 디렉터리와 동일 관례).
+__pycache__/

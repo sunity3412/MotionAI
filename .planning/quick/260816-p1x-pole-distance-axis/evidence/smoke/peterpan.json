@@ -1,0 +1,25 @@
+{
+ "differences": [
+  {
+   "description": "학생은 기준에 비해 오른쪽 무릎을 덜 굽히고 있어 다리가 더 펴져 있습니다.",
+   "axis": "joint_angle",
+   "joint": "right_knee",
+   "side": "right",
+   "moreSide": "reference"
+  },
+  {
+   "description": "학생은 기준에 비해 골반과 몸통이 폴에서 더 멀리 떨어져 있습니다.",
+   "axis": "pole_distance",
+   "joint": "none",
+   "side": "none",
+   "moreSide": "student"
+  },
+  {
+   "description": "학생은 기준에 비해 아래로 뻗은 왼쪽 다리가 수직선에서 더 많이 기울어져 있습니다.",
+   "axis": "limb_tilt",
+   "joint": "none",
+   "side": "left",
+   "moreSide": "student"
+  }
+ ]
+}

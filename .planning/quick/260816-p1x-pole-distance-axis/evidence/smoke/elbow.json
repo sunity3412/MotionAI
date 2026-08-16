@@ -1,0 +1,18 @@
+{
+ "differences": [
+  {
+   "description": "기준(오른쪽)의 오른쪽 다리가 학생(왼쪽)에 비해 수직(폴) 방향에서 뒤쪽으로 더 크게 기울어져 벌어져 있습니다.",
+   "axis": "limb_tilt",
+   "joint": "none",
+   "side": "right",
+   "moreSide": "reference"
+  },
+  {
+   "description": "기준(오른쪽)의 골반과 하체가 학생(왼쪽)에 비해 폴(세로 봉)에서 더 멀리 떨어져 있습니다.",
+   "axis": "pole_distance",
+   "joint": "none",
+   "side": "none",
+   "moreSide": "reference"
+  }
+ ]
+}

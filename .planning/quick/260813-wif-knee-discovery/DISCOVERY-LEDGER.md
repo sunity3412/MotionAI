@@ -234,3 +234,52 @@ md5 전건 동일). 임계 재튜닝 0 · backend diff 0 · S3 업로드 0 · Fi
 > 집계 규칙 명기: 행 2~6 은 **"발굴 0 = 추천 없음"도 하나의 추천으로 세어**
 > 판정과 대조한다. belle 이 "여기는 나왔어야 한다"고 판정하면 그 행은
 > **불일치**로 적는다 — 침묵을 무판정으로 빠져나가지 않는다.
+
+---
+
+## 축 반전 눈-우선 검증 (260816-p1x) — 사전 박제
+
+belle 가 2026-08-16 원안("폴거리를 트랙이 먼저 주장하고 눈이 확인하는" 축)을
+뒤집은 지시의 이행. 구조: 구(폐기) "수치가 주장 → 눈이 검증" → 신(채택)
+"눈이 후보를 낸다 → 폴거리/관절각도/다리기울기 수치가 검증한다". 시트 =
+[260816-p1x DISCOVERY-SHEET.md](../260816-p1x-pole-distance-axis/DISCOVERY-SHEET.md).
+
+**이 절도 belle 판정 전에 커밋된다 — 판정란 선기입 금지.**
+
+기계 요지: 좌표 품질표 5동작 재현(elbow 모순/저신뢰 압도적으로 높음, peterpan/
+kipup 0%대 — 순서는 belle 사전 실측과 일치, 절대값은 셈 정의 차이로 다름·
+시트 §1 명기) · elbow·peterpan poseMin 후보 20건(elbow 16 + peterpan 4) 눈
+제안(eye_propose, gemini-3.5-flash, 스모크 2 + 전량 20 = 총 22회) → 폴거리/
+관절각도/다리기울기 수치 검증 → **promoted 8 · rejected 8 · unmeasurable
+39**(전체 55 difference). 짝 스틸 20건 전건 실행자 육안 확인(VISUAL-REVIEW.md,
+국면 불일치·붕괴 0건). backend diff 0 · S3 업로드 0 · Firestore 쓰기 0(읽기만)
+· Pod 무접촉 · 채점 무접촉 · pytest 기준선(4371 passed/59 failed/26 skipped)
+유지(Task 3 §5 재확인).
+
+### 동작별 실행자 추천 (판정 전 박제)
+
+| 동작 | 발굴 결과 | 실행자 추천 (정확히 1안) | 근거 / 침묵 사유 |
+|---|---|---|---|
+| elbow | 눈 제안 16건 중 promoted 8 · rejected 6 · unmeasurable 29 | **r00/cand04(u8.33s/r10.73s)** | 눈이 낸 서술 3개(왼무릎 더 굽음·왼팔꿈치 더 굽음·골반이 폴에서 더 멀다, 전부 "기준이 더")가 **전부 promoted** — 이 사이클 유일한 3축 전원 일치 사례. pole_distance 항목은 belle 08-16 원 관찰(잘된 영상=기준이 폴에서 더 멀다)과도 방향이 같다(belleDirectionMatch=true). 좌표가 깨진 동작(모순 12.7%/23.5%)에서도 구조가 무력해지지 않는다는 실증이기도 하다 |
+| peterpan | 눈 제안 4건 중 promoted **0** · rejected 2 · unmeasurable 10 | **발굴 0 — 추천 없음** | pole_distance 4건 전부 tie-band(0.15몸통) 안이라 방향 미확정, joint_angle 2건은 rejected(눈 오류를 수치가 잡음). belle 가 실측한 정확한 오답 프레임(align 2.27s)은 이번 top-4 poseMin 순위 5위라 정식 후보 밖 — 별건 프로브(시트 §4)에서 힙중심 폴거리 지표가 그 오답을 못 잡고 오히려 확인해버리는 한계를 발견함(발목 기준으로는 belle 방향과 일치) |
+
+**동반 promoted 재료(elbow, 추천 아님)** — r00/cand02(오른쪽 고관절 더 접힘,
+student) · r01/cand04(왼다리 폴거리, student — belle 일반 방향과 반대,
+로컬 진실 가능성) · r02/cand02(오른다리 기울기, reference) · r02/cand03
+(왼다리 기울기, reference) · r03/cand04(왼다리 기울기, student). 채택 여부는
+belle 몫이며 전건 시트 §2 표에 남아 있다.
+
+### belle 판정 기입란 (판정 후 기입 — 실행자 선기입 금지)
+
+| 동작 | 사전 추천 | belle 판정 (채택/반려/보류) | belle 원문 |
+|---|---|---|---|
+| elbow | r00/cand04(u8.33s/r10.73s, 3축 전부 promoted) | | |
+| peterpan | 발굴 0 (추천 없음) | | |
+| (별건 — 힙 vs 발목 폴거리 지표 불일치, §4) | 다음 사이클 의제 여부 | | |
+
+### 승격 실적 집계 (행 append)
+
+| 행 | 사이클 | 사전 추천 (커밋) | belle 판정 | 일치 여부 |
+|---|---|---|---|---|
+| 7 | 260816-p1x · elbow | r00/cand04(본 절 커밋, 판정 전) | (판정 대기) | (판정 대기) |
+| 8 | 260816-p1x · peterpan | 발굴 0 — 추천 없음(본 절 커밋, 판정 전) | (판정 대기) | (판정 대기) |

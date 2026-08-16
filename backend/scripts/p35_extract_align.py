@@ -33,6 +33,8 @@ from sunity_shared.analysis import compare_align  # noqa: E402
 BUCKET = "sunity-motion-pilot-videos"
 
 # motion → (user_key, ref_key). doc.json 은 {workdir}/{motion}/doc.json 필수(사전 주입).
+# climb/climbfault/combo 3행 추가(quick-260816-c3m) — 발굴 스윕 소스 게이트 실증용,
+# 이 3건은 렌더 슬롯이 아니다(P35 렌더 미실행, README.md 참조).
 JOBS: dict[str, tuple[str, str]] = {
     "elbow": ("fixtures/phase15/elbow-twist-sister/fault.mp4", "reference/ref-elbow-twist-sister.mp4"),
     "powerspin": ("fixtures/phase15/power-spin/fault.mp4", "reference/ref-power-spin.mp4"),
@@ -44,6 +46,9 @@ JOBS: dict[str, tuple[str, str]] = {
                      "reference/ref-pdshape.mp4"),
     "peterpan": ("uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/peterpanfault1785373695.mp4",
                  "reference/ref-peter-pan.mp4"),
+    "climb": ("fixtures/phase15/climb/correct.mp4", "reference/ref-climb.mp4"),
+    "climbfault": ("fixtures/phase15/climb/fault.mp4", "reference/ref-climb.mp4"),
+    "combo": ("fixtures/phase15/combo/correct.mp4", "reference/ref-combo.mp4"),
 }
 
 

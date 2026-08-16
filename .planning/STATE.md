@@ -76,7 +76,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-08-16 - Completed quick task 260816-r7k: ref-climb 교체 (차단 해소 실증)
+Last activity: 2026-08-16 - Completed quick task 260816-k2f: P35 캐시 fresh 기본값
 
 이전: 2026-08-09 - **일러스트 라운드 종료** — 기준 모션 7/11 → **11/11**, 실제 지적 발생 (동작·부위) 짝 **13/13 커버**(그림 없이 나가던 감점 65건 → **0**). belle 반려 3라운드로 검수 게이트 **4→9항목**(머리카락·착의·폴/인물 수·목·사지 전 길이). ★**검수는 몽타주 축소본으로 하지 않는다** — belle 3건·내 3건이 전부 축소본 통과분이었다. 사이각 문법 전환은 시도 후 **철회**: belle 역할 구분(확대비교=차이 / 일러스트=목표)이 반려의 뜻이었고, 각 표시 정밀화는 **확대 비교의 몫**. 자산 정본 = `1141c738`. ★**다음 1순위 = 확대 비교 각도 표시**(실측 5건 중 2건만 그려짐) + **일러스트 자세 충실도**(belle 지시: 반드시 해내야 함). 미검증 = 시뮬 실화면·belle 최종 육안
 
@@ -144,6 +144,7 @@ Last activity: 2026-08-16 - Completed quick task 260816-r7k: ref-climb 교체 (�
 | 260816-p1x | 발굴 축 반전 — 눈이 후보를 내고 수치가 검증한다. 눈-우선 하네스 + 좌표품질 게이트(5동작) + elbow·peterpan 20후보 검증. 서술 55건 → 승격 8 / 기각 8 / 수치화불가 39 | 2026-08-16 | e64ee904 | [260816-p1x-pole-distance-axis](./quick/260816-p1x-pole-distance-axis/) |
 | 260816-c3m | climb·combo P35 입력 데이터 생성 — 발굴 스윕 대상 5 → 7. climb/combo 소스 게이트 PASS, climbfault 는 NotPoleMotionError 로 탈락(위양성 의심, 유사도 0) | 2026-08-16 | c31ee2ee | [260816-c3m-climb-combo-p35](./quick/260816-c3m-climb-combo-p35/) |
 | 260816-r7k | ref-climb 교체 — 05-22 극초반 배치 → 06-17 정은지 세트 배치. climb angle 26→100, climbfault 0(NotPoleMotion 차단)→86(해소). 다른 기준 10개 SHA-256 무변경, 구 자산 전량 복구 가능 | 2026-08-16 | 7114287e | [260816-r7k-ref-climb-replace](./quick/260816-r7k-ref-climb-replace/) |
+| 260816-k2f | P35 스크립트 캐시 기본값 fresh — 원본이 바뀌어도 옛 캐시를 물던 구멍 수리. CACHE_PATHS 화이트리스트 + --reuse-cache opt-in, doc/moments/align.json 은 삭제 대상 밖 | 2026-08-16 | e9ba7be1 | [260816-k2f-cache-fresh-default](./quick/260816-k2f-cache-fresh-default/) |
 
 | 260730-py1 | 33-G §C-2 앱 1단위 (승인 목업 시트 재설계) — **S7** 블록 요소 신설(번호 헤더·basis "어디서 재나요"·method 정직 라벨·numnote 강등) + **S6** record 단위 → **부위 단위** 시트 재구성(`deductionSheet.buildRegionSheetView`, paircap 좌우·onecap) + **F-3 앱분**(`compareFrames.(userIdx|refIdx) / fps` 초 추정 2곳 제거 → 카드의 `userSec`/`refSec` 운반). 검증 = 오케스트레이터가 시뮬 직접 렌더(실행자는 시뮬 도구 없음): **부위 2감점 = 시트 1개·블록 2개**(고칠 것 2/3, 각자 점수·basis·method) 실증 = belle "무릎 피는 거 하나 어디 갔냐" 구조 해소 · 번호=전역 마커 번호 · 크래시·잘림 0 · 스위프 10동작 130블록 0손실. **의도적 fail-closed 2건**: proof 3컷(백엔드 1장만 방출, 3컷 분류는 doc 에 없는 판단 → 날조 금지)·basis 구간 축(fps 부재, 인덱스 나누기가 F-3 원인) → §C-4. **미검증: paircap 초·참고코너 렌더**(doc 4건이 초 필드 이전 산출)·facing·LogBox 경고 내용 | 2026-07-30 | cfb3694 | [260730-py1-33-g-c-2-1-s7-basis-method-proof-facing-](./quick/260730-py1-33-g-c-2-1-s7-basis-method-proof-facing-/) |
 

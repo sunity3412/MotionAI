@@ -20,7 +20,8 @@
 | peterpan | align.json, doc.json | 활성 렌더 슬롯 |
 | pdshape | align.json, doc.json | 벤치 슬롯 (correct 영상) |
 | realupload | align.json, doc.json, moments.json | 벤치 슬롯 |
-| climb | align.json, doc.json | 발굴 스윕 후보 (렌더 슬롯 아님, quick-260816-c3m — P35 렌더 미실행) |
+| climb | align.json, doc.json | 발굴 스윕 후보 (렌더 슬롯 아님) — quick-260816-r7k 로 재생성됨(06-17 정은지 세트 기준). quick-260816-c3m 이 만든 구버전(05-22/06-11 배치 기준)은 무효화·대체됨 |
+| climbfault | align.json, doc.json | 발굴 스윕 후보 (렌더 슬롯 아님, quick-260816-r7k 신규) — 기준 교체 전에는 doc.json 자체가 생성 불가(NotPoleMotionError)였음 |
 | combo | align.json, doc.json | 발굴 스윕 후보 (렌더 슬롯 아님, quick-260816-c3m — P35 렌더 미실행) |
 
 ## 검증 결과 (2026-08-08)
@@ -60,6 +61,62 @@
   `ref-sideway-spin.mp4`) — 즉 학생이 이 4동작을 촬영해서 올리기 전까지는
   발굴 대상이 될 수 없다. belle 촬영 계획의 근거.
 
+## 검증 결과 (2026-08-16, quick-260816-r7k — ref-climb 기준 영상 교체)
+
+**배경**: `reference/ref-climb` 의 기준 영상을 05-22 극초반 배치(2026-06-11 재업로드,
+4,223,747 B)에서 06-17 정은지 성공 클라임 세트(`fixtures/phase15/climb/correct.mp4`,
+40,928,589 B)로 교체(belle 2026-08-16 결정 — 2026-06-21 "하나만 쓴다면 이전 것 우선"
+결정을 촬영 형태 불일치 실측 근거로 뒤집음). 이 교체로 위 c3m 이 만든 climb 의
+doc.json/align.json 은 **구 영상 기준이라 무효** — 이번에 새 영상 기준으로
+재생성했다.
+
+**climb (correct.mp4 vs 새 ref-climb) — status=done, records=0**
+- dimensionScores: `{'stability': 93, 'angle': 100}`, overallScore=100
+- align: userFrames=119, refFrames=119, fps=15.0, pairs={} (deductionBreakdown.records=0
+  → 짝으로 잡을 결함 구간 자체가 없음 — 렌더 슬롯 아니므로 무해, `combo` 의 기존
+  align.json 도 동일하게 pairs={})
+
+**climbfault (fault.mp4 vs 새 ref-climb) — status=done, 교체 전 완전 차단이 해소됨**
+- 교체 전(2026-08-16 실측, plan 작성 시점): `NotPoleMotionError: angle 0 < 25` 로
+  완전 차단(2회 재현, 결정론적). doc.json 자체가 생성되지 못했다.
+- 교체 후: `angle` 유사도 **0 → 86** (차단 해소), dimensionScores:
+  `{'stability': 93, 'angle': 86}`, overallScore=86. climb(정답, 100)과 climbfault
+  (오답, 86)가 비로소 순서대로 갈린다 — belle 이 짚은 "짝이 어긋나 있었다"는 관찰이
+  이 수치로 확정됨.
+- align: userFrames=91, refFrames=119, fps=15.0, pairs={} (deductionBreakdown 키 자체가
+  doc.json 에 없음 — climb 과 달리 "records=0" 조차 아니라 필드 부재. 원인 미확정,
+  아래 "실행 중 발견된 문제" 참조).
+
+**실행 중 발견된 문제 — P35 Pod 스크립트의 프레임 캐시 구멍**
+
+1차 실행(Pod, `r7k-task4-pod.sh`)에서 climb 의 align 재추출이 `refFrames=256` 을
+냈다 — 새 `ref.mp4`(40,928,589 B, 새 영상) 를 정상적으로 재다운로드했음에도, 이미
+새 영상 기준의 결과가 아니었다(256 은 구 영상 기준 c3m 08-16 오전 실행분의 프레임
+수). 원인은 스크립트가 `ref.mp4` 파일만 지우고 `p35_extract_align.py` 가 그 영상에서
+뽑아 로컬에 캐시하는 RTMW 프레임 디렉터리 `rf15/`(및 `verify/`)를 안 지운 것 —
+`compare_align` 모듈이 `rf15/` 존재 시 재추출 없이 캐시를 그대로 재사용하는 경로가
+있어, 새 영상을 내려받고도 옛 영상에서 뽑은 프레임으로 정렬한 것이다. belle 이
+`ls -la` 로 `climb/rf15`(최종수정 06:00, 오늘 아침 c3m 실행분) vs `climbfault/rf15`
+(최종수정 09:13, 이번 신규 추출) 의 mtime 불일치로 원인을 특정하고,
+`rm -rf /workspace/p35/climb/{rf15,verify}` 후 climb 만 재추출해 `refFrames=119`
+(climbfault 와 일치)로 수리했다. **레포에 반영된 align.json 은 이 수리 후 버전**
+(byte-검증: 회수 파일과 SHA-256 완전 일치 확인). **doc.json 의 dimensionScores(각도
+유사도 점수)는 이 오염과 무관** — `pipeline._process()` 는 Firestore 기준 데이터를
+읽지 프레임 캐시 파일을 읽지 않는다. 다음에 참조 영상을 바꾸는 Pod 스크립트를 쓸 때는
+`ref.mp4` 뿐 아니라 그 영상에서 파생된 로컬 프레임/정렬 캐시 디렉터리(`rf15/`,
+`uf15/`, `verify/` 등 `compare_align` 이 만드는 모든 캐시)도 함께 지워야 한다 —
+캐시 디렉터리 이름을 영상 콘텐츠 해시 기반으로 바꾸는 게 근본 수리겠지만 이번
+quick task 범위 밖이라 belle 판단 대기.
+
+**부수 관찰 — Gemini video fan-out 1회 타임아웃(graceful skip)**
+
+Pod 실행 로그에 `video fan-out 실패 — skipped (graceful): 504 DEADLINE_EXCEEDED`
+1회 발생. 코드가 이를 삼키고 분석을 완주시켰다(두 슬롯 모두 status=done) — 크래시나
+분석 중단 없음. 로그의 print/logging 출력 순서가 버퍼링 때문에 어느 슬롯 호출에서
+발생했는지 명확히 특정되지 않는다. climbfault 의 `deductionBreakdown` 키 자체가
+doc.json 에 없는 것(climb 은 키는 있고 records=0)이 이 타임아웃과 관련 있을 가능성이
+있으나 확증하지 못했다 — 추측을 사실처럼 적지 않는다.
+
 ## 영상 원본 S3 키 (버킷 sunity-motion-pilot-videos, ap-northeast-2)
 
 `p35_extract_align.py` JOBS dict 원문 — motion → (user_key, ref_key):
@@ -74,6 +131,7 @@
 | pdshapefault | uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/pdshapefault1785373695.mp4 | reference/ref-pdshape.mp4 |
 | peterpan | uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/peterpanfault1785373695.mp4 | reference/ref-peter-pan.mp4 |
 | climb | fixtures/phase15/climb/correct.mp4 | reference/ref-climb.mp4 |
+| climbfault | fixtures/phase15/climb/fault.mp4 | reference/ref-climb.mp4 |
 | combo | fixtures/phase15/combo/correct.mp4 | reference/ref-combo.mp4 |
 
 산출 mp4 키 (belle presigned 링크가 가리키는 같은 키):

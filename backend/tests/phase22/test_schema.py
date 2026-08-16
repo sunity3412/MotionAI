@@ -287,6 +287,34 @@ def test_extract_report_json_braces_inside_string_values():
     assert out == {"coaching": "중괄호 } 주의 { 예시", "faults": []}
 
 
+def test_extract_report_json_truncated_runaway_returns_none():
+    """Test 6 — 폭주(바깥 리포트 객체가 토큰 상한까지 안 닫힘) 산출은 None. 스캔이
+    우연히 balanced 로 닫히는 안쪽 조각을 리포트로 오인해서는 안 된다 (2026-08-16
+    v29 게이트 실측 — 원 진단: real-powerspin-fault/real-sideway-spin, raw 40KB대가
+    segments[] 항목 하나로 잘못 집계됨. 부분일치("키 중 하나라도 REPORT_KEYS 멤버")
+    조건으로는 불충분함이 드러난 키 충돌 사례: real-peterpan-correct/real-invert,
+    faults[] 항목이 hallucinate 한 corrected_coords 필드명이 REPORT_KEYS 최상위 키와
+    우연히 겹쳐 부분일치 조건을 통과해버린다). 두 케이스 모두 후보 dict 의 키 전부가
+    REPORT_KEYS 부분집합일 때만 인정하는 조건으로 걸러져야 한다."""
+    # 케이스 1: 원 진단 재현 — segments[] 항목(REPORT_KEYS 와 전혀 안 겹침).
+    raw_segments = (
+        '{"coaching": "무릎을 편다", '
+        '"segments": [{"start_frame": 0, "end_frame": 8, "description": "설명"}], '
+        '"svg_spec": "화살표를 그려서 이어지는 문자열이 안 닫힌 채 여기서 끝난다'
+    )
+    assert schema.extract_report_json(raw_segments) is None
+    # 케이스 2: 키 이름 우연 충돌 — faults[] 항목이 hallucinate 한 corrected_coords
+    # 필드가 REPORT_KEYS 최상위 키 이름과 겹치지만, body_part/fault_category 는
+    # REPORT_KEYS 밖이라 "키 전부가 부분집합" 조건에서 정확히 거부된다.
+    raw_faults = (
+        '{"coaching": "무릎을 편다", '
+        '"faults": [{"body_part": "right_knee", "fault_category": "alignment", '
+        '"corrected_coords": [{"frame": 2, "x": 538}]}], '
+        '"svg_spec": "화살표를 그려서 이어지는 문자열이 안 닫힌 채 여기서 끝난다'
+    )
+    assert schema.extract_report_json(raw_faults) is None
+
+
 def test_normalize_segments_span_dict_coercion():
     """segments {label: [start, end]} → SEGMENT_KEYS 항목 리스트 (실측 케이스)."""
     raw = {"segments": {"execution": [120, 160], "preparation": [0, 30]}}

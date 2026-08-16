@@ -1,0 +1,5 @@
+# extract_inputs.py 기본 캐시 — 기준 선수 실사 인물 사진(익명화 전) 이라 git
+# 추적 금지(memory home-dir-is-git-repo-pii-hazard). 실사용은 --cache-root 로
+# /Users/Shared/... 등 레포 밖 경로를 명시 지정한다(quick-260816-ill2).
+.cache/
+__pycache__/

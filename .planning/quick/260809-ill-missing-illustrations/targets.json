@@ -24,13 +24,14 @@
         780,
         920
       ],
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/pdshape_knee.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/pdshape_leg.jpg",
       "promptPose": "close view of one leg hooked around a vertical pole: the thigh and shin wrap the pole with the knee bent and locked against it, hip at the top edge of the frame, the rest of the body outside the frame",
       "promptTarget": "the knee joint - the first line runs along the thigh toward the hip, the second line runs along the shin toward the ankle",
       "tShiftedFrom": 8.25,
       "tShiftReason": "8.25s(33-14 선정)는 hold peak 이지만 몸이 가장 깊게 접혀 머리-골반이 맞닿는다. try1/try2 실패가 전부 그 경계의 융합이었다(2x 확대 확인). hold 창(3.5~11.5s) 1초 간격 8컷 전수 열람 후 5.0s 로 교체 — 도립·hook 유지하면서 머리가 골반에서 떨어지고 팔·다리가 각각 분리돼 보인다. 창 안이라 A-1 ④ 근거 유지.",
       "cropNote": "try5 — 머리를 프레임 밖으로 (승인 선례: ref-kip-up--shoulder '다리는 프레임 밖'). try1~4 실패가 전부 머리-골반/어깨 융합이라 머리를 그릴 일 자체를 없앤다.",
-      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환"
+      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환",
+      "note10": "quick-260816-ill2 — inputFrame 소실로 소스 영상에서 t=5.0 (기존 기록 그대로) 재추출·재확인. cropBox/t 변경 없음."
     },
     {
       "motionId": "ref-sideway-spin",
@@ -78,10 +79,11 @@
         820,
         1340
       ],
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/peterpan_leg.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/peterpan_leg.jpg",
       "promptPose": "close view of one leg extended long and straight down and back beside a vertical pole, hip at the top edge of the frame, the knee straight and the foot pointed, the rest of the body outside the frame",
       "promptTarget": "the knee joint of the extended leg - the first line runs along the thigh toward the hip, the second line runs along the shin toward the pointed foot",
-      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환"
+      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환",
+      "note10": "quick-260816-ill2 — inputFrame 소실로 소스 영상에서 t=2.4 (기존 기록 그대로) 재추출·재확인. cropBox/t 변경 없음."
     },
     {
       "motionId": "ref-combo",
@@ -103,11 +105,12 @@
         740,
         1320
       ],
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/combo_hook3.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/combo_leg.jpg",
       "promptPose": "side view of an outside leg hang on a vertical pole: the back of one knee and the thigh hook over the pole carrying the body weight, the hip and lower torso hang below, the other leg extends away, the head is outside the frame",
       "promptTarget": "the knee joint of the hooked leg - the first line runs along the thigh toward the hip, the second line runs along the shin toward the ankle",
       "cropNote": "try3 — try1(골반 클로즈업)은 게이트는 통과하나 '엉덩이 확대'로 읽혀 코칭 전달이 약했고, try2(무릎 중심)는 원이 손-폴 접촉부로 가고 머리가 재출현했다. 걸이 **형태**가 보이도록 다리+골반+상체 일부를 담되 머리는 프레임 밖(pdshape 통과본과 같은 구성).",
-      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환"
+      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환",
+      "note10": "quick-260816-ill2 — inputFrame 소실로 소스 영상에서 t=33.0 (기존 기록 그대로) 재추출·재확인. cropBox/t 변경 없음."
     },
     {
       "motionId": "ref-pdshape",
@@ -131,7 +134,7 @@
       "part": "arm",
       "guideType": "angle",
       "anchor": "app/assets/illustrations/ref-elbow-twist-sister--arm.jpg",
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_pd_arm.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/pdshape_full.jpg",
       "promptPose": "close view of one arm gripping a single vertical pole, the elbow bent and the forearm holding the pole, shoulder at the frame edge, the rest of the body outside the frame",
       "promptTarget": "the elbow joint - the first line runs along the upper arm toward the shoulder, the second line runs along the forearm toward the hand",
       "guideRuleMatch": "belle 08-09 3차 — **실제 출력 문장에서 키잉**. 사용자가 읽는 문장이 '…각도가 기준과 차이가 있어요'이고 합성 영상이 그 관절에 두 선+호를 그린다. 부위만 짚는 원/단독 직선은 말하는 것과 가리키는 것이 달라져 반려됐다.",
@@ -141,7 +144,11 @@
       "note7": "try15 — 원이 겨드랑이로 읽힐 여지가 있었다. 승인 자산 ref-elbow-twist-sister--arm 처럼 팔꿈치 관절만 담기게 크롭",
       "anchorReason": "try16 — 같은 문법(폴을 잡은 팔의 팔꿈치에 원 1개)의 승인 통과본. 부분 구도 앵커(kip-up--shoulder)는 어깨 구도라 원이 겨드랑이로 끌렸다",
       "note8": "try16 — try15 는 원이 팔꿈치인지 모호했고 상단에 **붉은 선 조각 잔재**가 남았다(규격: 원 1개만)",
-      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환"
+      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-pdshape.mp4",
+      "t": 5.0,
+      "note10": "quick-260816-ill2 — inputFrame 소실. 같은 동작 같은 hold 인 ref-pdshape--leg 와 동일 순간 t=5.0 재사용(1차 후보). Read 로 pdshape_full.jpg 확인: 도립 비대칭 클로즈드 셰이프, 한 손이 폴을 팔꿈치 굽혀 허리께에서 붙잡은 모습이 선명해 변경 없이 확정.",
+      "cropNote": "quick-260816-ill2 — 08-16 게이트 fail(② 몸통·머리 노출): promptPose 가 이미 '어깨는 프레임 가장자리, 나머지 몸은 프레임 밖'을 지시하는데 generate.py 의 FRAMING 고정문(fill the frame)이 모순돼 매 생성마다 전신이 그려졌다. 별도 pixel cropBox 는 없음 — 부분 프레이밍은 이제 FRAMING_PARTIAL 문장으로 전달."
     },
     {
       "motionId": "ref-elbow-twist-sister",
@@ -165,34 +172,41 @@
       "part": "shoulder",
       "guideType": "angle",
       "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_et_sh.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/elbowtwist_shoulder_full.jpg",
       "promptPose": "close view from behind of the upper back and both shoulder blades of a person hanging inverted on a single vertical pole, head at the frame edge",
       "promptTarget": "the shoulder joint (armpit) - the first line runs along the upper arm toward the elbow, the second line runs along the side of the torso toward the hip",
       "guideRuleMatch": "belle 08-09 3차 — **실제 출력 문장에서 키잉**. 사용자가 읽는 문장이 '…각도가 기준과 차이가 있어요'이고 합성 영상이 그 관절에 두 선+호를 그린다. 부위만 짚는 원/단독 직선은 말하는 것과 가리키는 것이 달라져 반려됐다.",
       "citeGrade": "B — ④ 미명시, ③·프로필 파생",
       "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
       "note7": "try15 — 원이 겨드랑이~상완에 걸쳤다. 승인 자산 ref-power-spin--shoulder 처럼 등면 견갑만 담기게",
-      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환"
+      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-elbow-twist-sister.mp4",
+      "t": 13.0,
+      "note10": "quick-260816-ill2 — inputFrame 소실. ref-elbow-twist-sister--arm (오늘 게이트 pass)이 쓰는 바로 그 t=13.0 재사용 — clipRange.execPeakS=13, checkpoints 양쪽 어깨 weight 0.15 로 grounding. Read 로 elbowtwist_shoulder_full.jpg 확인: 도립으로 매달려 한 팔이 몸 뒤로 폴을 훅 잡은 자세가 뚜렷함(08-16 반려 사유 '직립으로 서 있음'과 정반대 — 도립 원인 해소 근거). 변경 없이 확정, 이 행에만 orientation 신설(자세 실패 중 방위 축).",
+      "orientation": "도립(등 뒤에서 본 두 견갑 — elbow-twist-sister--arm 과 동일 순간 t=13.0 재사용, clipRange.execPeakS=13/checkpoints 양쪽 어깨 weight 0.15 로 grounding, quick-260816-ill2)"
     },
     {
       "motionId": "ref-peter-pan",
       "part": "shoulder",
       "guideType": "angle",
       "anchor": "app/assets/illustrations/ref-kip-up--shoulder.jpg",
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_pp_sh.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/peterpan_full.jpg",
       "promptPose": "close view from behind of the upper back and the shoulder of the arm reaching high to grip a vertical pole, the body hanging in a stag shape",
       "promptTarget": "the shoulder joint (armpit) - the first line runs along the upper arm toward the elbow, the second line runs along the side of the torso toward the hip",
       "guideRuleMatch": "belle 08-09 3차 — **실제 출력 문장에서 키잉**. 사용자가 읽는 문장이 '…각도가 기준과 차이가 있어요'이고 합성 영상이 그 관절에 두 선+호를 그린다. 부위만 짚는 원/단독 직선은 말하는 것과 가리키는 것이 달라져 반려됐다.",
       "citeGrade": "A",
       "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
-      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환"
+      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-peter-pan.mp4",
+      "t": 2.4,
+      "note10": "quick-260816-ill2 — inputFrame 소실. ref-peter-pan--leg 와 동일 순간 t=2.4 재사용(1차 후보). Read 로 peterpan_full.jpg 확인: 등 뒤 시점의 어깨·견갑 + 스택(stag) 다리 모양이 함께 보여 변경 없이 확정. 자세 실패 원인이 행잉 vs 직립이지 프레이밍이 아니므로 cropNote 신설 없음."
     },
     {
       "motionId": "ref-peter-pan",
       "part": "arm",
       "guideType": "angle",
       "anchor": "app/assets/illustrations/ref-peter-pan--leg.jpg",
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_pp_arm.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/peterpan_full.jpg",
       "promptPose": "close view of a single arm reaching up and straight to grip a vertical pole, from the shoulder to the hand; no other limb is in the frame",
       "promptTarget": "the elbow joint - the first line runs along the upper arm toward the shoulder, the second line runs along the forearm toward the hand",
       "guideRuleMatch": "belle 08-09 3차 — **실제 출력 문장에서 키잉**. 사용자가 읽는 문장이 '…각도가 기준과 차이가 있어요'이고 합성 영상이 그 관절에 두 선+호를 그린다. 부위만 짚는 원/단독 직선은 말하는 것과 가리키는 것이 달라져 반려됐다.",
@@ -200,7 +214,11 @@
       "note": "quick-260809-ill 2차 배치 — 실측 감점 149건 중 65건(44%)이 (동작,부위) 짝 미커버로 그림 없이 나가던 것을 채운다",
       "note2": "try2 — try1 은 **직선 2줄**(규격 위반, 두 팔에 각각). target 을 '한 팔에만'으로 못박음",
       "note3": "try3 — 직선 2줄이 두 번 반복됐다(두 팔에 각각). **팔 하나만 프레임에 두어** 두 번째 선이 그려질 자리를 구조적으로 없앤다",
-      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환"
+      "note9": "try20 — 표시 문법을 영상과 동일한 사이각(꼭짓점+두 선+호, 숫자 없음)으로 전환",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-peter-pan.mp4",
+      "t": 2.4,
+      "note10": "quick-260816-ill2 — inputFrame 소실. ref-peter-pan--leg 와 동일 순간 t=2.4 재사용(1차 후보). Read 로 peterpan_full.jpg 확인: 등 뒤 시점, 한 팔이 천장 쪽 폴을 곧게 뻗어 붙잡은 모습이 선명해 변경 없이 확정.",
+      "cropNote": "quick-260816-ill2 — 08-16 게이트 fail(② 몸통·머리 노출): promptPose 가 이미 '한 팔만 프레임에, 다른 사지 없음'을 지시하는데 generate.py 의 FRAMING 고정문(fill the frame)이 모순돼 매 생성마다 전신이 그려졌다. 별도 pixel cropBox 는 없음 — 부분 프레이밍은 이제 FRAMING_PARTIAL 문장으로 전달."
     },
     {
       "motionId": "ref-kip-up",
@@ -209,12 +227,14 @@
       "t": 3.75,
       "anchor": "app/assets/illustrations/ref-power-spin--shoulder.jpg",
       "anchorReason": "같은 부위(어깨)·같은 가이드(원)의 통과 자산",
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/ku_375.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/kipup_full.jpg",
       "promptPose": "seen from behind, both arms reaching up to grip a single vertical pole, legs in a wide straddle below",
       "promptTarget": "the shoulder joint (armpit) of one gripping arm - the first line runs along the upper arm toward the elbow, the second line runs along the side of the torso toward the hip",
       "guideRuleMatch": "A-1 ③ \"어깨 눌러(으쓱 금지)\" + 어깨 문장 계열 통일",
       "note": "**기존 승인 자산 재생성** — belle 08-09 2차 검수에서 민머리 지적. 33-14/plf 당시 프롬프트에 머리카락 조항이 없어 민머리로 나왔고 그대로 통과했다. 부위·국면·가이드는 기존 provenance 승계, 렌더만 갱신",
-      "note9": "try20 — 사이각 문법 전환"
+      "note9": "try20 — 사이각 문법 전환",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-kip-up.mp4",
+      "note10": "quick-260816-ill2 — inputFrame 소실. leg 항목과 동일 t=3.75 프레임 재사용(크롭도 없음 — 완전히 같은 소스 프레임)."
     },
     {
       "motionId": "ref-power-spin",
@@ -223,12 +243,14 @@
       "t": 8.5,
       "anchor": "app/assets/illustrations/ref-invert.jpg",
       "anchorReason": "도립 + 단일 직선 통과본(자기 자신을 앵커로 쓸 수 없어 같은 문법의 다른 통과본)",
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/c_ps_leg.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/powerspin_full.jpg",
       "promptPose": "hanging inverted from a single vertical pole, one leg extended straight up alongside the pole and the other extended straight down in a vertical split, one arm gripping the pole",
       "promptTarget": "the hip between the two legs - the first line runs along the raised leg toward its foot, the second line runs along the lowered leg toward its foot",
       "guideRuleMatch": "실제 문장 \"다리를 벌린 각도가 기준보다 좁아요\"·\"무릎이 기준보다 덜 펴져 있어요\"(각 3건)",
       "note": "**기존 승인 자산 재생성** — belle 08-09 2차 검수에서 **목이 돌아갔다** 지적. 추가로 이 자산만 배경(방·창)이 그려져 나머지 18장(무배경)과 톤이 어긋났다. 산출 파일명은  로 유지(L-10 승인 자산 경로 불변) — 내용만 갱신",
-      "note9": "try20 — 사이각 문법 전환"
+      "note9": "try20 — 사이각 문법 전환",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-power-spin.mp4",
+      "note10": "quick-260816-ill2 — inputFrame 소실. t=8.5 는 기존 기록 그대로, sourceVideo 는 패턴 파생(reference/{motionId}.mp4)."
     },
     {
       "motionId": "ref-power-spin",
@@ -247,12 +269,14 @@
       "part": "leg",
       "t": 3.75,
       "guideType": "angle",
-      "inputFrame": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/6d09763a-6cbc-4cbd-8d1c-208ec9f04c3e/scratchpad/illust/crop/ku_375.jpg",
+      "inputFrame": "/Users/Shared/sunity-motion-260816-ill2-cache/ill2/crop/kipup_full.jpg",
       "anchor": "app/assets/illustrations/ref-invert.jpg",
       "promptPose": "seen from behind, both arms reaching up to grip a single vertical pole, both legs extended in a wide straddle below",
       "promptTarget": "the hip between the two legs - the first line runs along one leg toward its foot, the second line runs along the other leg toward its foot",
       "guideRuleMatch": "실제 문장 \"다리를 벌린 각도가 킵업 기준보다 좁아요\"(2건) = 벌림각",
-      "note9": "try20 — 사이각 문법 전환(기존 승인 자산 재생성)"
+      "note9": "try20 — 사이각 문법 전환(기존 승인 자산 재생성)",
+      "sourceVideo": "s3://sunity-motion-pilot-videos/reference/ref-kip-up.mp4",
+      "note10": "quick-260816-ill2 — inputFrame 소실. t=3.75 는 기존 기록 그대로, sourceVideo 는 4건 기존 기록과 동일한 reference/{motionId}.mp4 패턴으로 파생(예외 0)."
     },
     {
       "motionId": "ref-invert",

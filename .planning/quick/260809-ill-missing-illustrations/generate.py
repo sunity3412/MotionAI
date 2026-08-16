@@ -16,6 +16,8 @@
 
 키 취급: 환경변수로만 읽고 파일·로그·stdout 어디에도 문자열로 남기지 않는다 (T-33C4-04).
 표준 라이브러리만 사용 — 신규 패키지 0 (T-33C4-SC).
+
+업데이트 2026-08-16 (quick-260816-ill2): cropBox/cropNote/orientation 배선 추가. GUIDE_SENTENCE 및 그 외 문단은 무변경 — L-4 승인 레시피 유지.
 """
 
 from __future__ import annotations
@@ -73,10 +75,35 @@ GUIDE_SENTENCE = {
     ),
 }
 
+# FRAMING 문단 — 무크롭(회귀 0) vs 부분 프레이밍(cropBox/cropNote 신호) 분기.
+# quick-260816-ill2: 08-16 게이트 반려 10장 중 구도 5건의 직접 원인 — promptPose 가
+# 부분 클로즈업을 지시해도 고정 문구 "FILL the frame" 이 항상 전신을 요구해 모순됐다.
+FRAMING_FULL = (
+    "Portrait 3:4. The figure must FILL the frame - crop in close so the body "
+    "occupies most of the image. Avoid large empty background areas; leave only "
+    "a small margin around the figure."
+)
+FRAMING_PARTIAL = (
+    "Portrait 3:4. This is an intentional PARTIAL crop showing only the body part "
+    "described above in POSE FIDELITY. Only that part needs to be fully visible and "
+    "readable. It is correct and expected for other body parts (head, opposite arm "
+    "or leg, torso, etc.) to extend beyond the frame edges exactly as described "
+    "above - do NOT pull back the camera or add empty background just to fit the "
+    "whole body into the frame."
+)
+
+# POSE FIDELITY 문단에 삽입되는 방위 단언 — orientation 필드 접두(도립/직립)로만
+# 갈린다(동작명 분기 아님). quick-260816-ill2: 반려 10장 중 elbow-twist-sister--
+# shoulder 1건(자세 실패 중 방위 축)이 이 신호를 쓴다.
+ORIENTATION_SENTENCE = {
+    "inverted": "The body is INVERTED - the head is BELOW the hips, hanging upside-down from the pole. ",
+    "upright": "The body is UPRIGHT - the head is ABOVE the hips, not upside-down. ",
+}
+
 PROMPT = """Redraw the FIRST reference image as a clean instructional illustration, using the SECOND reference image only as a style reference.
 
 POSE FIDELITY (most important):
-Reproduce the exact pose, orientation and camera viewpoint of the FIRST image: {pose}. Keep the pole in the same position and angle as in the FIRST image. Do NOT copy the pose, orientation or limb arrangement from the SECOND image - the SECOND image is ONLY for drawing style (line quality, palette, shading, background tone).
+Reproduce the exact pose, orientation and camera viewpoint of the FIRST image: {pose}. {orientation}Keep the pole in the same position and angle as in the FIRST image. Do NOT copy the pose, orientation or limb arrangement from the SECOND image - the SECOND image is ONLY for drawing style (line quality, palette, shading, background tone).
 
 ANONYMISATION:
 The figure must have NO facial features at all - no eyes, no nose, no mouth, no eyebrows. Leave the face as blank, smooth, unmarked skin. Do not draw a portrait.
@@ -110,7 +137,7 @@ into a shapeless mass. If a body part would be ambiguous, place it outside the f
 of drawing it wrong.
 
 FRAMING:
-Portrait 3:4. The figure must FILL the frame - crop in close so the body occupies most of the image. Avoid large empty background areas; leave only a small margin around the figure.
+{framing}
 
 STYLE:
 Soft pencil-and-watercolour illustration on a completely plain warm off-white background - no room, no window, no plant, no furniture, no floor line - muted warm skin tones, dark taupe activewear, no text, no logos, no watermark, no border.
@@ -137,11 +164,35 @@ def inline_part(path: Path) -> dict:
     }
 
 
+def _orientation_hint(raw: str | None) -> str:
+    """orientation 필드 접두(도립/직립)만으로 갈린다 — 동작명 분기 아님.
+
+    미기재(None/빈 문자열) 또는 알 수 없는 접두는 빈 문자열(fail-closed) —
+    지어낸 방위를 프롬프트에 끼워넣지 않는다 (quick-260816-ill2)."""
+    if not raw:
+        return ""
+    if raw.startswith("도립"):
+        return ORIENTATION_SENTENCE["inverted"]
+    if raw.startswith("직립"):
+        return ORIENTATION_SENTENCE["upright"]
+    return ""
+
+
+def _framing_block(row: dict) -> str:
+    """cropBox 또는 cropNote 가 있으면 부분 프레이밍 문장, 없으면 기존 전신 문구.
+
+    무신호 타깃은 FRAMING_FULL 이 원문과 바이트 단위로 동일해 회귀가 0이다
+    (quick-260816-ill2)."""
+    return FRAMING_PARTIAL if (row.get("cropBox") or row.get("cropNote")) else FRAMING_FULL
+
+
 def build_prompt(row: dict) -> str:
     guide_tpl = GUIDE_SENTENCE[row["guideType"]]
     return PROMPT.format(
         pose=row["promptPose"],
         guide=guide_tpl.format(target=row["promptTarget"]),
+        orientation=_orientation_hint(row.get("orientation")),
+        framing=_framing_block(row),
     )
 
 

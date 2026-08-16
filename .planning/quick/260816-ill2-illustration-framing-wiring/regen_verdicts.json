@@ -1,0 +1,1539 @@
+{
+ "meta": {
+  "generatedAt": "2026-08-16T12:33:59.334585+00:00",
+  "maxAttempts": 3,
+  "attemptBase": 900,
+  "genModel": "gemini-3-pro-image",
+  "gateModel": "gemini-3.5-flash"
+ },
+ "assets": {
+  "ref-combo--leg": {
+   "finalStatus": "still_failing",
+   "chosenFile": null,
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-combo--leg__try901.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "fail",
+        "why": "옆모습의 코, 입, 귀 등 얼굴 이목구비의 윤곽이 뚜렷하게 드러나 있습니다."
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도와 달리 머리가 프레임 안에 포함되어 있으며, 다른 쪽 다리가 뻗지 않고 굽혀져 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "fail",
+        "why": "팔이 한 개만 관찰되고 다른 한쪽 팔은 보이지 않습니다."
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "다른 한 다리가 곧게 뻗어야 하는 의도와 달리 두 다리가 모두 굽혀져 있으며, 프레임 밖에 있어야 할 머리가 노출되어 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "fail",
+        "why": "두 개의 팔 중 하나만 보입니다."
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    },
+    {
+     "attempt": 902,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-combo--leg__try902.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "fail",
+        "why": "얼굴의 코, 입, 귀 등 이목구비가 드러나 있습니다."
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도된 자세 설명과 달리 머리 전체가 프레임 내에 포함되어 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "fail",
+        "why": "한쪽 팔만 관찰되어 팔의 개수를 2개로 셀 수 없습니다."
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도한 자세 설명에 머리가 프레임 밖에 있어야 한다(the head is outside the frame)고 명시되어 있으나 머리가 프레임 안에 온전히 노출되어 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "fail",
+        "why": "한쪽 팔만 그려져 있고 반대쪽 팔이 보이지 않아 팔의 개수를 2개로 셀 수 없습니다."
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    },
+    {
+     "attempt": 903,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-combo--leg__try903.jpg",
+     "gate": {
+      "overall": "gate_error",
+      "worst": "?",
+      "error": "JSON 파싱 실패(응답 잘림 가능): '{\\n  \"items\": {\\n    \"1\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"2\": {\\n      \"v\": \"fail\",\\n      \"why\": \"의도한 구도와 달리 머리가 프레임 내에 포함되어 있으며, 도립(머리가 아래로 향하는) 자세가 아닙니다.\"\\n    },\\n    \"3\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"4\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"5\": {\\n     '"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도와 달리 머리가 프레임 내에 포함되어 있고 도립(뒤집힌) 자세가 아닌 상체가 위를 향한 방위입니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "fail",
+        "why": "폴 뒤편에 굴곡진 다리 형태가 추가로 묘사되어 다리 개수가 초과되어 보입니다."
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "fail",
+        "why": "폴 뒤의 불분명한 다리 구조와 오른쪽으로 뻗은 다리의 길이 비례가 인체 구조상 어색합니다."
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    }
+   ],
+   "rejudged": true
+  },
+  "ref-elbow-twist-sister--shoulder": {
+   "finalStatus": "pass",
+   "chosenFile": ".planning/quick/260809-ill-missing-illustrations/gen/ref-elbow-twist-sister--shoulder__try903.jpg",
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-elbow-twist-sister--shoulder__try901.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도한 등 뒤와 견갑골 중심의 뷰가 아닌, 몸의 앞면(배꼽 및 가슴 부위)이 보이는 구도로 그려졌습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     }
+    },
+    {
+     "attempt": 902,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-elbow-twist-sister--shoulder__try902.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도한 자세는 등 뒤에서 본 견갑골의 모습이나, 그림은 배꼽이 선명하게 보이는 몸통 앞모습으로 그려졌습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "fail",
+        "why": "몸통은 배꼽이 보이는 앞모습인 반면 머리는 뒤통수와 귀가 보여 목이 기이한 각도로 뒤틀려 있습니다."
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     }
+    },
+    {
+     "attempt": 903,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-elbow-twist-sister--shoulder__try903.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "pass",
+        "why": ""
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "pass",
+      "worst": "none"
+     }
+    }
+   ]
+  },
+  "ref-kip-up--leg": {
+   "finalStatus": "still_failing",
+   "chosenFile": null,
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-kip-up--leg__try901.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도된 자세와 달리 두 팔이 모두 위로 뻗어 폴을 잡고 있지 않고, 한쪽 팔만 위로 뻗어 폴을 잡고 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     }
+    },
+    {
+     "attempt": 902,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-kip-up--leg__try902.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "양팔을 위로 뻗어 폴을 잡아야 하는 의도와 달리, 한쪽 팔만 위로 뻗어 폴을 잡고 다른 쪽 팔은 굽히고 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     }
+    },
+    {
+     "attempt": 903,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-kip-up--leg__try903.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "두 팔 모두 위로 뻗어 폴을 잡는 자세가 아닌, 한 팔만 위로 뻗고 다른 한 팔은 아래로 굽히고 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     }
+    }
+   ]
+  },
+  "ref-kip-up--shoulder": {
+   "finalStatus": "still_failing",
+   "chosenFile": null,
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-kip-up--shoulder__try901.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도한 자세와 달리 한 팔만 위로 뻗어 폴을 잡고 있으며, 다리는 아래에서 넓게 벌린 스트래들 자세가 아닌 세로로 찢은 스플릿 자세를 취하고 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     }
+    },
+    {
+     "attempt": 902,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-kip-up--shoulder__try902.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "양팔을 모두 위로 뻗어 폴을 잡아야 하지만, 한쪽 팔만 위로 뻗고 나머지 팔은 아래로 내리고 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     }
+    },
+    {
+     "attempt": 903,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-kip-up--shoulder__try903.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "두 팔이 모두 위로 뻗어 폴을 잡지 않고 한 팔은 아래로 향해 있으며, 다리가 아래에서 좌우로 벌어진 형태가 아닌 위아래로 찢어진 형태입니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     }
+    }
+   ]
+  },
+  "ref-pdshape--arm": {
+   "finalStatus": "still_failing",
+   "chosenFile": null,
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-pdshape--arm__try901.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "한 팔만 클로즈업되고 나머지 신체는 프레임 밖에 있어야 하는 의도된 구도와 달리 인물의 상반신과 몸 대부분이 프레임 안에 드러나 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gatePreFix": {
+      "overall": "gate_error",
+      "worst": "?",
+      "error": "JSON 파싱 실패(응답 잘림 가능): '{\\n  \"items\": {\\n    \"1\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"2\": {\\n      \"v\": \"fail\",\\n      \"why\": \"의도된 크롭 구도(어깨가 프레임 가장자리에 오고 나머지 몸은 프레임 밖이어야 함)와 달리 상체 전체와 머리, 하의까지 프레임 안에 다 보입니다.\"\\n    },\\n    \"3\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"4\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n'"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    },
+    {
+     "attempt": 902,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-pdshape--arm__try902.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "나머지 신체가 프레임 밖에 있어야 하는 의도와 달리, 머리, 몸통 및 반대쪽 팔 등 상반신 전체가 프레임 안에 노출되어 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도된 부분 크롭과 달리 머리와 몸통 전체가 프레임 내에 다 들어와 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "n/a",
+        "why": "하반신(다리)이 프레임 밖에 있어 사지 개수를 완전히 확인할 수 없습니다."
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    },
+    {
+     "attempt": 903,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-pdshape--arm__try903.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도한 자세는 한쪽 팔만 보이는 클로즈업 뷰이지만, 실제 그림은 신체 전신이 모두 드러나 구도가 맞지 않습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도한 구도는 한쪽 팔만 클로즈업되고 나머지는 프레임 바깥이어야 하나, 실제 이미지는 전신이 모두 보이는 구도로 그려졌습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    }
+   ],
+   "rejudged": true
+  },
+  "ref-pdshape--leg": {
+   "finalStatus": "still_failing",
+   "chosenFile": null,
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-pdshape--leg__try901.jpg",
+     "gate": {
+      "overall": "gate_error",
+      "worst": "?",
+      "error": "JSON 파싱 실패(응답 잘림 가능): '{\\n  \"items\": {\\n    \"1\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"2\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"3\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"4\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"5\": {\\n      \"v\": \"pass\",\\n      \"why\": \"\"\\n    },\\n    \"6\": {\\n      \"v\"'"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도한 구도와 달리 몸의 나머지 부분(상체, 머리 등)이 프레임 밖에 있지 않고 내부에 표현되어 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    },
+    {
+     "attempt": 902,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-pdshape--leg__try902.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "골반이 프레임 상단에 위치하고 나머지 신체는 제외되는 클로즈업 구도여야 하나, 머리부터 발끝까지 전신이 모두 표현되었습니다."
+       },
+       "3": {
+        "v": "fail",
+        "why": "빨간색 가이드 표시가 의도한 부위인 무릎 잠금부가 아닌 두 다리 사이의 사타구니 각도 부위에 표시되어 있습니다."
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도된 클로즈업 구도(다리 일부만 보이고 나머지 신체는 프레임 밖)와 달리 전신이 모두 프레임 안에 보입니다."
+       },
+       "3": {
+        "v": "fail",
+        "why": "가이드 표시가 의도한 hook 측 무릎이 아닌 곧게 뻗은 다리 쪽에 표시되어 있습니다."
+       },
+       "4": {
+        "v": "fail",
+        "why": "한쪽 팔만 보이고 반대쪽 팔은 그려져 있지 않아 팔을 2개로 셀 수 없습니다."
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    },
+    {
+     "attempt": 903,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-pdshape--leg__try903.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도한 다리 클로즈업 구도와 달리 머리, 몸통, 팔 등 신체 대부분이 프레임 내에 노출되어 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "fail",
+        "why": "얼굴 측면의 코, 입, 귀 등의 윤곽과 이목구비가 명확하게 드러나 있습니다."
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도된 다리 클로즈업 구도와 달리 머리, 몸통, 팔 등의 전신이 프레임 내에 모두 드러나 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    }
+   ],
+   "rejudged": true
+  },
+  "ref-peter-pan--arm": {
+   "finalStatus": "pass",
+   "chosenFile": ".planning/quick/260809-ill-missing-illustrations/gen/ref-peter-pan--arm__try901.jpg",
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-peter-pan--arm__try901.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "pass",
+        "why": ""
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "n/a",
+        "why": "의도된 크롭 구도로 인해 한쪽 팔과 두 다리가 프레임 밖에 있어 개수를 셀 수 없습니다."
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "n/a",
+        "why": "의도된 크롭 구도로 인해 하의가 프레임 밖에 있어 확인할 수 없습니다."
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "pass",
+      "worst": ""
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "pass",
+        "why": ""
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "fail",
+        "why": "의도된 크롭 구도로 인해 팔 한 가지만 보이고 전체 사지 개수를 셀 수 없습니다."
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "fail",
+        "why": "하반신이 크롭되어 하의 착용 여부를 확인할 수 없습니다."
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "4"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    }
+   ],
+   "rejudged": true
+  },
+  "ref-peter-pan--leg": {
+   "finalStatus": "pass",
+   "chosenFile": ".planning/quick/260809-ill-missing-illustrations/gen/ref-peter-pan--leg__try902.jpg",
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-peter-pan--leg__try901.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도한 자세는 무릎이 곧게 펴진 상태이나, 일러스트에서는 무릎이 굽혀진 채 각도 표시가 되어 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "n/a",
+        "why": "목과 머리 윗부분이 프레임 밖으로 크롭되어 판정이 어렵습니다."
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "fail",
+        "why": "의도된 자세는 무릎을 곧게 펴야 하지만(knee straight), 그림에서는 무릎이 눈에 띄게 굽어 있고 각도가 표시되어 있습니다."
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "2"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    },
+    {
+     "attempt": 902,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-peter-pan--leg__try902.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "n/a",
+        "why": "머리와 얼굴이 프레임 밖에 있어 확인할 수 없습니다."
+       },
+       "2": {
+        "v": "pass",
+        "why": ""
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "n/a",
+        "why": "양팔이 프레임 밖에 있어 사지 개수를 모두 확인할 수 없습니다."
+       },
+       "5": {
+        "v": "n/a",
+        "why": "머리가 프레임 밖에 있어 확인할 수 없습니다."
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "n/a",
+        "why": "목이 프레임 밖에 있어 확인할 수 없습니다."
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "pass",
+      "worst": "없음"
+     },
+     "gatePreFix": {
+      "items": {
+       "1": {
+        "v": "fail",
+        "why": "머리가 프레임 밖에 잘려 있어 머리카락이 존재하지 않습니다."
+       },
+       "2": {
+        "v": "pass",
+        "why": ""
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "fail",
+        "why": "머리가 프레임 밖에 있어 머리카락이 보이지 않습니다."
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "fail",
+        "why": "목이 프레임 밖에 있어 형태와 방향을 확인할 수 없습니다."
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "fail",
+      "worst": "5"
+     },
+     "gateFixNote": "quick-260816-ill2 coordinator 2026-08-16 재판정 — 크롭맹 n/a + 응답잘림 파싱 수리 적용"
+    }
+   ],
+   "rejudged": true
+  },
+  "ref-peter-pan--shoulder": {
+   "finalStatus": "pass",
+   "chosenFile": ".planning/quick/260809-ill-missing-illustrations/gen/ref-peter-pan--shoulder__try901.jpg",
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-peter-pan--shoulder__try901.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "pass",
+        "why": ""
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "pass",
+      "worst": ""
+     }
+    }
+   ]
+  },
+  "ref-power-spin--leg": {
+   "finalStatus": "pass",
+   "chosenFile": ".planning/quick/260809-ill-missing-illustrations/gen/ref-power-spin--leg__try901.jpg",
+   "attempts": [
+    {
+     "attempt": 901,
+     "file": ".planning/quick/260809-ill-missing-illustrations/gen/ref-power-spin--leg__try901.jpg",
+     "gate": {
+      "items": {
+       "1": {
+        "v": "pass",
+        "why": ""
+       },
+       "2": {
+        "v": "pass",
+        "why": ""
+       },
+       "3": {
+        "v": "pass",
+        "why": ""
+       },
+       "4": {
+        "v": "pass",
+        "why": ""
+       },
+       "5": {
+        "v": "pass",
+        "why": ""
+       },
+       "6": {
+        "v": "pass",
+        "why": ""
+       },
+       "7": {
+        "v": "pass",
+        "why": ""
+       },
+       "8": {
+        "v": "pass",
+        "why": ""
+       },
+       "9": {
+        "v": "pass",
+        "why": ""
+       }
+      },
+      "overall": "pass",
+      "worst": "없음"
+     }
+    }
+   ]
+  }
+ }
+}

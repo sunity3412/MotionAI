@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "admit_after": 322,
-    "media_uploaded": 308,
-    "rows_after": 331,
+    "admit_after": 323,
+    "media_uploaded": 309,
+    "rows_after": 332,
     "schema": "report-v1"
   },
   "rows": [
@@ -26970,6 +26970,73 @@
       },
       "source_media_key": "uploads/pode2e/verify311784550483.mp4",
       "uid_sha16": "85de9fcf55055867"
+    },
+    {
+      "analysis_id": "p35newclimb1786857341",
+      "created_at": "1786857341154",
+      "disposition": "admit",
+      "disposition_reason": "prelaunch_internal",
+      "fault_count": 3,
+      "media_key": "training/phase22/report/1e52aabaf4bdd985.mp4",
+      "media_sha16": "1e52aabaf4bdd985",
+      "media_uploaded": true,
+      "mode": "mode1",
+      "motion": "ref-climb",
+      "owner_scope": "prelaunch_internal",
+      "reference_id": "ref-climb",
+      "report": {
+        "coaching": "왼쪽 고관절의 열림 각도 차이가 발생할 수 있는 원인을 분석하며, 정확한 자세는 강사와 함께 영상을 확인해 보는 것을 권고합니다. 오른쪽 무릎의 펴짐 정도에 영향을 주는 요인들을 살펴보며, 정확한 자세는 강사와 함께 영상 확인을 권고합니다. 오른쪽 고관절의 가동 범위와 관련된 원인을 파악해 보며, 정확한 자세는 강사와 함께 영상 확인을 권고합니다.",
+        "corrected_coords": null,
+        "faults": [
+          {
+            "approx_angle_deviation_deg": 45.0,
+            "body_part": "hip",
+            "correct_state": null,
+            "fault_category": "split_angle",
+            "fault_state": null,
+            "ipsf_note": "expert_reference_deviation (정은지 대비 split 부족분)",
+            "measurement_basis": "운영 파이프라인 감점 기록 (rule=split_vs_reference_over_tol_linear, 기준=reference_relative, 단위=deg)",
+            "part_scope": "core",
+            "reference_angle_deg": null,
+            "root_cause_hypothesis": null,
+            "source": "vision_hypothesis",
+            "student_angle_deg": 65.0
+          },
+          {
+            "approx_angle_deviation_deg": 40.66,
+            "body_part": "left_elbow",
+            "correct_state": null,
+            "fault_category": "alignment",
+            "fault_state": null,
+            "ipsf_note": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "measurement_basis": "운영 파이프라인 감점 기록 (rule=angle_vs_reference_over_tol_linear, 기준=reference_relative, 단위=deg)",
+            "part_scope": "upper_body",
+            "reference_angle_deg": null,
+            "root_cause_hypothesis": null,
+            "source": "geometry",
+            "student_angle_deg": 60.66
+          },
+          {
+            "approx_angle_deviation_deg": 3.16,
+            "body_part": "right_shoulder",
+            "correct_state": null,
+            "fault_category": "alignment",
+            "fault_state": null,
+            "ipsf_note": "expert_reference_deviation (정은지 대비 per-joint 편차)",
+            "measurement_basis": "운영 파이프라인 감점 기록 (rule=angle_vs_reference_over_tol_linear, 기준=reference_relative, 단위=deg)",
+            "part_scope": "upper_body",
+            "reference_angle_deg": null,
+            "root_cause_hypothesis": null,
+            "source": "geometry",
+            "student_angle_deg": 23.16
+          }
+        ],
+        "segments": null,
+        "svg_spec": null,
+        "time_anchors": null
+      },
+      "source_media_key": "fixtures/phase15/climb/correct.mp4",
+      "uid_sha16": "a7430c9c130cdc25"
     }
   ]
 }

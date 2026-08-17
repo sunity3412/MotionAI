@@ -1,0 +1,268 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Sunity Motion — RunPod Pod 헬스 감시 (quick-260818-c0u).
+  ★pilot 스택(sunity-motion-pilot)과 **완전히 분리된 별도 스택**이다.
+  pilot 템플릿은 RunpodAnalyzeUrl 기본값이 빈 문자열이고 samconfig 의
+  parameter_overrides 에도 그 값이 없어서, 감시를 pilot 에 얹으려고 `sam deploy` 를
+  하면 운영 pipeline Lambda 의 RUNPOD_ANALYZE_URL 이 빈 문자열로 덮여 앱 분석이
+  전량 깨진다. 그래서 여기 따로 둔다.
+
+  배포:
+    aws cloudformation deploy \
+      --stack-name sunity-motion-podwatch \
+      --template-file backend/infra/podwatch.yaml \
+      --parameter-overrides AlertEmail=<이메일> \
+      --capabilities CAPABILITY_IAM \
+      --region ap-northeast-2 --profile sunity-motion
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Description: >
+      알림 받을 이메일. **Default 를 두지 않는다** — 값 없이 배포되면 알람이
+      아무 데도 안 가는 채로 "감시 있음"처럼 보이는 fail-open 이 된다.
+    AllowedPattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+  PipelineFunctionName:
+    Type: String
+    Default: sunity-motion-pilot-pipeline
+    Description: 감시 대상 URL 의 출처. 운영이 실제로 호출하는 값이 여기 env 에 있다.
+  AnalyzeUrlParam:
+    Type: String
+    Default: /sunity/motion/runpod-analyze-url
+    Description: 같은 URL 의 SSM 사본. Lambda env 와 어긋나면 ConfigDrift 알람이 운다.
+  MetricNamespace:
+    Type: String
+    Default: Sunity/Motion
+  ProbeRateMinutes:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 60
+
+Resources:
+
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: sunity-motion-pod-alerts
+      DisplayName: SunityPod
+
+  AlertSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  ProbeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: podwatch-read-and-publish
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:GetFunctionConfiguration
+                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PipelineFunctionName}"
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AnalyzeUrlParam}"
+              - Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: "*"
+
+  ProbeFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: sunity-motion-podwatch-probe
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt ProbeRole.Arn
+      Timeout: 20
+      MemorySize: 128
+      Architectures: [arm64]
+      Environment:
+        Variables:
+          PIPELINE_FN: !Ref PipelineFunctionName
+          ANALYZE_URL_PARAM: !Ref AnalyzeUrlParam
+          METRIC_NS: !Ref MetricNamespace
+      Code:
+        ZipFile: |
+          """RunPod Pod 헬스 프로브 (quick-260818-c0u).
+
+          감시 대상 URL 의 출처는 **SSM 이 아니라 pipeline Lambda 의 env** 다.
+          운영이 실제로 호출하는 값이 그것이고, Pod 교체 때 SSM 만 갱신하고 Lambda env 를
+          빠뜨리는 것이 이 프로젝트의 반복 함정이었다. SSM 은 대조용으로만 읽어
+          어긋나면 ConfigDrift=1 을 낸다.
+          """
+          import json
+          import os
+          import urllib.request
+
+          import boto3
+
+          _lam = boto3.client("lambda")
+          _ssm = boto3.client("ssm")
+          _cw = boto3.client("cloudwatch")
+
+          PIPELINE_FN = os.environ["PIPELINE_FN"]
+          ANALYZE_URL_PARAM = os.environ["ANALYZE_URL_PARAM"]
+          METRIC_NS = os.environ["METRIC_NS"]
+
+
+          def health_url(analyze_url):
+              """.../analyze -> .../health"""
+              u = analyze_url.strip()
+              if u.endswith("/analyze"):
+                  return u[: -len("/analyze")] + "/health"
+              return u.rstrip("/") + "/health"
+
+
+          def probe(url):
+              """(healthy, detail). 200 만으로는 부족하다 — 모델이 올라온 상태여야 분석이 된다."""
+              req = urllib.request.Request(url, headers={"User-Agent": "sunity-podwatch/1"})
+              with urllib.request.urlopen(req, timeout=12) as r:
+                  body = r.read(4096).decode("utf-8", "replace")
+                  if r.status != 200:
+                      return 0, "http %s" % r.status
+                  try:
+                      d = json.loads(body)
+                  except ValueError:
+                      return 0, "non-json: %s" % body[:120]
+                  ok = d.get("status") == "ok" and bool(d.get("pipeline_loaded"))
+                  return (1 if ok else 0), body[:200]
+
+
+          def lambda_handler(event, _context):
+              healthy = 0
+              drift = 0
+              detail = ""
+              env_url = ""
+              ssm_url = ""
+
+              try:
+                  cfg = _lam.get_function_configuration(FunctionName=PIPELINE_FN)
+                  env_url = (cfg.get("Environment", {}).get("Variables", {}) or {}).get(
+                      "RUNPOD_ANALYZE_URL", ""
+                  )
+              except Exception as e:  # noqa: BLE001 - 프로브는 어떤 실패도 healthy=0 으로 접는다
+                  detail = "lambda-env: %s" % e
+
+              try:
+                  ssm_url = _ssm.get_parameter(Name=ANALYZE_URL_PARAM)["Parameter"]["Value"]
+              except Exception as e:  # noqa: BLE001
+                  ssm_url = ""
+                  detail = (detail + " | ssm: %s" % e).strip(" |")
+
+              if env_url and ssm_url and env_url.strip() != ssm_url.strip():
+                  drift = 1
+
+              if env_url:
+                  try:
+                      healthy, detail = probe(health_url(env_url))
+                  except Exception as e:  # noqa: BLE001
+                      healthy, detail = 0, "%s: %s" % (type(e).__name__, e)
+              else:
+                  detail = detail or "RUNPOD_ANALYZE_URL 비어 있음"
+
+              print(
+                  json.dumps(
+                      {
+                          "healthy": healthy,
+                          "drift": drift,
+                          "env_url": env_url,
+                          "ssm_url": ssm_url,
+                          "detail": detail,
+                      },
+                      ensure_ascii=False,
+                  )
+              )
+
+              _cw.put_metric_data(
+                  Namespace=METRIC_NS,
+                  MetricData=[
+                      {"MetricName": "PodHealth", "Value": healthy, "Unit": "None"},
+                      {"MetricName": "ConfigDrift", "Value": drift, "Unit": "None"},
+                  ],
+              )
+              return {"healthy": healthy, "drift": drift, "detail": detail}
+
+  ProbeLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ProbeFunction}"
+      RetentionInDays: 30
+
+  ProbeSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: sunity-motion-podwatch-schedule
+      Description: RunPod Pod 헬스 프로브 주기 실행
+      ScheduleExpression: !Sub "rate(${ProbeRateMinutes} minutes)"
+      State: ENABLED
+      Targets:
+        - Id: probe
+          Arn: !GetAtt ProbeFunction.Arn
+
+  ProbeInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ProbeFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ProbeSchedule.Arn
+
+  PodDownAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sunity-motion-pod-down
+      AlarmDescription: >
+        RunPod Pod 이 2회 연속 헬스 실패. 이 상태에서 앱 업로드는 전량 분석 실패한다
+        (위임 실패 시 폴백 없음). 복구 절차 = 메모리 current-pod-*.
+      Namespace: !Ref MetricNamespace
+      MetricName: PodHealth
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  ConfigDriftAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sunity-motion-pod-url-drift
+      AlarmDescription: >
+        SSM /sunity/motion/runpod-analyze-url 과 pipeline Lambda env RUNPOD_ANALYZE_URL 이
+        서로 다르다. Pod 교체 때 한쪽만 갱신한 상태 — 운영은 Lambda env 를 쓴다.
+      Namespace: !Ref MetricNamespace
+      MetricName: ConfigDrift
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+Outputs:
+  TopicArn:
+    Value: !Ref AlertTopic
+  ProbeFunctionName:
+    Value: !Ref ProbeFunction
+  PodDownAlarmName:
+    Value: !Ref PodDownAlarm

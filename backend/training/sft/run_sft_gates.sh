@@ -47,8 +47,22 @@ if [ -z "${TRITON_PTXAS_BLACKWELL_PATH:-}" ] && [ -x /usr/local/cuda/bin/ptxas ]
   if [ -n "$_drv_cuda" ] && [ -n "$_bw" ] && [ "$_bw" -gt "$_drv_cuda" ]; then
     export TRITON_PTXAS_BLACKWELL_PATH=/usr/local/cuda/bin/ptxas
     echo "[env] Triton ptxas-blackwell(CUDA $_bw) > 드라이버(CUDA $_drv_cuda) — /usr/local/cuda/bin/ptxas 로 대체"
+    # 같은 뿌리에서 나온 벽이 둘 더 있다(2026-08-18 실측, 하나씩 벗겨서 확인):
+    #  ② vLLM 번들 FlashAttention-2 는 sm_120 SASS 가 없어 PTX 로 떨어지는데 그 PTX 가
+    #     CUDA 12.9 제라 12.8 드라이버가 거부한다
+    #     → "CUDA error: the provided PTX was compiled with an unsupported toolchain"
+    #     회피 = 미리 컴파일된 커널을 안 쓰는 백엔드로 (Triton 은 위에서 고쳤으므로 쓸 수 있다).
+    #  ③ FlashInfer 샘플러가 JIT 빌드 전 아키텍처 검사에서 sm_120 을 못 읽고 거부한다
+    #     → "FlashInfer requires GPUs with sm75 or higher"(오해를 부르는 문구)
+    #     회피 = FlashInfer 샘플러를 끄고 PyTorch 샘플러로. 반복 페널티는 그대로 적용된다.
+    export VLLM_USE_FLASHINFER_SAMPLER=0
+    VLLM_COMPAT_ARGS=(--attention-backend TRITON_ATTN --mm-encoder-attn-backend TORCH_SDPA)
+    echo "[env] 드라이버-툴체인 불일치 회피: FlashInfer 샘플러 off + attn=TRITON_ATTN / vit=TORCH_SDPA"
   fi
 fi
+# 불일치가 없으면 빈 배열 = 기존 동작 그대로.
+VLLM_COMPAT_ARGS=("${VLLM_COMPAT_ARGS[@]:-}")
+[ -z "${VLLM_COMPAT_ARGS[0]:-}" ] && VLLM_COMPAT_ARGS=()
 
 export HF_HOME="${HF_HOME:-/workspace/hf_cache}" USE_HF=1
 export EVAL_OUT_DIR="${EVAL_OUT_DIR:-/workspace/eval_out}"
@@ -85,7 +99,7 @@ nohup "$VENV/bin/python" -m vllm.entrypoints.openai.api_server \
   --model "$AWQ" --host 127.0.0.1 --port "$PORT" \
   "${QUANT_ARGS[@]}" \
   --max-model-len 32768 --gpu-memory-utilization 0.90 \
-  "${MM_ARGS[@]}" > /workspace/sft_gates_vllm.log 2>&1 &
+  "${MM_ARGS[@]}" "${VLLM_COMPAT_ARGS[@]}" > /workspace/sft_gates_vllm.log 2>&1 &
 VLLM_PID=$!
 trap 'kill $VLLM_PID 2>/dev/null || true' EXIT
 deadline=$((SECONDS + 1200))

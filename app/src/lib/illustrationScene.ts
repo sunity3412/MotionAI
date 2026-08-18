@@ -111,9 +111,11 @@ export const ILLUSTRATION_SCENES: readonly IllustrationScene[] = [
   {
     motionId: 'ref-kip-up',
     parts: ['leg'],
-    asset: 'ref-kip-up',
+    // quick-260818-nnm — 에셋을 08-18 solid 본(표시 0)으로 교체. 잔상·화살표·표기는
+    // 앱이 학생 값으로 그린다(illustrationHow.HOW_ANCHORS['ref-kip-up--leg']).
+    asset: 'ref-kip-up--leg',
     provenance:
-      '33-14 입력 3.75s (등면 와이드 스트래들 + 양 무릎 신전) · 검수 PASS 세부 = 선 2줄 곧음 · 실물 열람 = 좌·우 다리에 각각 붉은 직선(골반→무릎→발목), 든 팔·어깨 표시 없음. 정직 노트의 그립 팔 좌우 반전은 UNVERIFIED 축이라 팔 토큰 근거가 되지 않는다',
+      '08-18 solid1 (gemini-3-pro-image, 3.75s 입력, GUIDE=표시 0) · belle 08-18 "어떻게" 문법 승인 경로(가→앱 오버레이) · 33-14 원문: 입력 3.75s (등면 와이드 스트래들 + 양 무릎 신전) · 검수 PASS 세부 = 선 2줄 곧음 · 실물 열람 = 좌·우 다리에 각각 붉은 직선(골반→무릎→발목), 든 팔·어깨 표시 없음. 정직 노트의 그립 팔 좌우 반전은 UNVERIFIED 축이라 팔 토큰 근거가 되지 않는다',
   },
   {
     motionId: 'ref-climb',

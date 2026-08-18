@@ -50,6 +50,7 @@ import {
   ADVISORY_CHIP_KO,
   objectJosaKo,
   type RegionSheetView,
+  splitGoalClause,
 } from '../lib/deductionSheet';
 import { terminologyPlain, type TerminologyTerm } from '../lib/terminologyMap';
 import { colors, radius, spacing, typography } from '../theme';
@@ -85,7 +86,10 @@ interface Props {
   // 안다. 그 값을 실측해 caller 에게 넘겨 일러스트가 한 화면에 들어오게 한다 —
   // 소비처가 시트 chrome(handle·title·CTA·padding)을 손계산하지 않게 하는 배선이다.
   // 아직 실측 전이면 0 이 온다(첫 렌더 1프레임).
-  illustrationSlot?: (maxHeight: number) => React.ReactNode;
+  illustrationSlot?: (
+    maxHeight: number,
+    how: { measured?: number | null; target?: number | null; unit?: string | null },
+  ) => React.ReactNode;
   // quick-260818-nc2 — 이 시트에 붙을 일러스트가 **실제로 있는가**. 판정은 caller 가
   // `illustrationAssetForPart` 로 내린다(시트는 에셋 맵을 모른다). true 면 그림과
   // 목표 문장을 한 카드로 묶고, 시트 맨 위 goalBox 는 그리지 않는다(같은 문장 두 번
@@ -166,6 +170,13 @@ export function DeductionDetailSheet({
   // 기기마다 어긋나고, 그 어긋남이 이번 오진의 원인이었다.
   const [scrollH, setScrollH] = React.useState(0);
   if (!view) return null;
+  // quick-260818-nnm — "어떻게" 오버레이 재료 = 이 시트의 대표 record 측정값. 시트는
+  // 값만 넘기고 그릴지 말지는 DefectIllustration/illustrationHow 가 정한다.
+  const howInput = view.primaryMeasure;
+  // 그림 아래 캡션 — 그림이 "어떻게"를 말하므로 문장도 방법 절(actionLine)이어야 그림과
+  // 말이 같은 것을 가리킨다(belle 08-18). goalLine("목표는 …")은 시트 맨 위 자리로 돌아간다.
+  const primaryBlock = view.blocks.find((b) => b.recordIndex === view.primaryRecordIndex) ?? view.blocks[0];
+  const illustCaption = splitGoalClause(primaryBlock?.cueLine).actionLine || null;
 
   const sheetHeight = Math.round(winH * 0.78);
   // 합성 이미지 = [내 영상 | 기준] 정사각 2개 → 가로:세로 ≈ 2:1.
@@ -235,10 +246,9 @@ export function DeductionDetailSheet({
                 묶인 항목에서 목표 문장을 **한 번만** 말하는 자리 — 블록마다 같은
                 문장을 반복하지 않는다. 목표 절이 없으면 자리도 두지 않는다
                 (fail-closed — 없는 문장을 만들지 않는다). */}
-            {/* quick-260818-nc2 — 일러스트가 있으면 이 문장은 **그림 카드의 캡션**으로
-                내려간다(belle 08-18 "그림처럼 이렇게 자세가 되어야 한다고 써주면 조합이
-                좋을 듯"). 같은 문장을 두 번 보이지 않기 위해 여기서는 비운다. */}
-            {view.goalLine && !illustrationAvailable ? (
+            {/* quick-260818-nnm — 그림 카드의 캡션은 이제 방법 절(actionLine)이라 이 문장과
+                겹치지 않는다. 목표 문장은 이 자리에 그대로 둔다. */}
+            {view.goalLine ? (
               <View style={styles.goalBox}>
                 <Text style={styles.goalText}>{view.goalLine}</Text>
               </View>
@@ -397,13 +407,13 @@ export function DeductionDetailSheet({
                 <View style={[styles.chip, styles.chipGray]}>
                   <Text style={[styles.chipText, styles.chipTextGray]}>{ILLUST_CHIP}</Text>
                 </View>
-                {illustrationSlot(Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION))}
-                {view.goalLine ? (
-                  <Text style={styles.illustCap}>{view.goalLine}</Text>
+                {illustrationSlot(Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION), howInput)}
+                {illustCaption ? (
+                  <Text style={styles.illustCap}>{illustCaption}</Text>
                 ) : null}
               </View>
             ) : illustrationSlot ? (
-              illustrationSlot(Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION))
+              illustrationSlot(Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION), howInput)
             ) : null}
 
             {/* 확인하기 안내 (gate ⑤) + 심사 언어 용어줄(terminologyMap).

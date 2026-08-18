@@ -42,6 +42,29 @@ G = _load_generate_module()
 #   ghost : 좁은 다리 잔상(연하게) → 활짝 벌린 다리(실선) + 바깥 방향 화살표
 #   arrow : 잔상 없이 활짝 벌린 다리 + 바깥 방향 화살표만 (안전한 절반)
 HOW_GUIDE = {
+    # belle 08-18 3차: 잔상도 그림에 굽지 않는다 — 잔상 각도는 학생마다 다르다(1·2번
+    # 생성본은 다리가 완전히 붙어 학생 자리가 아니었다). 그림은 **정은지 완벽 자세만**,
+    # 표시 0. 잔상·화살표·표기는 전부 앱이 학생 값으로 그린다.
+    "solid": (
+        "Draw ONLY the position itself, clean: the figure exactly as in the FIRST image, "
+        "both legs straight and spread wide. Draw NO ghost, NO motion trail, NO second set "
+        "of legs, NO arrows, NO angle marker, NO measurement line, NO number, NO text, NO red "
+        "mark of any kind - the body and the pole only."
+    ),
+    # belle 08-18 2차: 화살표는 그림에 굽지 않는다 — 앱이 잔상 발 → 실선 발로 그린다
+    # (첫 4장 전부 화살표가 폴 가운데서 출발해 "지금 → 목표"가 안 읽혔다). 그림은
+    # 잔상 + 실선 몸만. 잔상 다리는 **폴 양옆에 두 개로 분명히** — 앱이 발마다 시작점을 찍는다.
+    "ghost-noarrow": (
+        "Show HOW to get into this position, not just the position. Draw the SAME figure "
+        "twice, superimposed in the SAME place: (1) a faint, very light, semi-transparent "
+        "'before' ghost of the two legs hanging much closer together and slightly bent - "
+        "the two ghost legs must be clearly separate, one on each side of the pole, never "
+        "merged into one; and (2) the solid, fully drawn 'after' legs straight and spread "
+        "wide - exactly as in the FIRST image. The ghost is only the two legs; torso, arms, "
+        "head and pole are drawn once, solid. Draw NO arrows, NO angle marker, NO "
+        "measurement line, NO number, NO text, NO red mark of any kind - the body only. "
+        "The ghost must read as a motion trail of the same person, never as a second person."
+    ),
     "ghost": (
         "Show HOW to get into this position, not just the position. Draw the SAME figure "
         "twice, superimposed in the SAME place: (1) a faint, very light, semi-transparent "
@@ -110,6 +133,7 @@ def main() -> None:
     ap.add_argument("--asset", default="ref-kip-up--leg")
     ap.add_argument("--n", type=int, default=2, help="변형당 장수")
     ap.add_argument("--out", default=str(HERE / "out"))
+    ap.add_argument("--variants", default="ghost,arrow", help="쉼표 구분: ghost,arrow,ghost-noarrow")
     args = ap.parse_args()
 
     key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -126,7 +150,8 @@ def main() -> None:
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    for variant in ("ghost", "arrow"):
+    variants = args.variants.split(",")
+    for variant in variants:
         prompt = build_prompt_how(row, variant)
         (out_dir / f"prompt_{variant}.txt").write_text(prompt)
         for i in range(1, args.n + 1):

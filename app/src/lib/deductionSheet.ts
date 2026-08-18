@@ -158,6 +158,12 @@ export interface RegionSheetView {
    * 옮긴 것이고 창작 0 — 목표 절이 없으면 `null`(자리도 두지 않는다).
    */
   goalLine: string | null;
+  /**
+   * quick-260818-nnm — "어떻게" 일러스트 오버레이 재료. 대표 record 의 측정/기준/단위를
+   * **그대로** 옮긴 것(계산·해석 0). 그릴지 말지는 illustrationHow 가 정한다. 값이 없으면
+   * 필드도 null — 없는 수치를 만들지 않는다.
+   */
+  primaryMeasure: { measured: number | null; target: number | null; unit: string | null };
   blocks: RegionSheetBlock[];
   pairCapLeft: string | null;
   pairCapRight: string | null;
@@ -889,12 +895,18 @@ export function buildRegionSheetView(
     }
   }
 
+  const primaryRec = records[primaryRecordIndex];
   return {
     partKey,
     title,
     primaryRecordIndex,
-    primaryCriterion: records[primaryRecordIndex].criterion,
+    primaryCriterion: primaryRec.criterion,
     goalLine,
+    primaryMeasure: {
+      measured: typeof primaryRec.measuredValue === 'number' ? primaryRec.measuredValue : null,
+      target: typeof primaryRec.baselineValue === 'number' ? primaryRec.baselineValue : null,
+      unit: primaryRec.unit ?? null,
+    },
     blocks,
     pairCapLeft,
     pairCapRight,

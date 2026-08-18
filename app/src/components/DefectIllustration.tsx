@@ -38,10 +38,20 @@
 // StyleSheet 하단 + theme 토큰만. 하드코딩 색상/간격/반경 0. 이모지 0. 라이트 전용.
 
 import { useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import Svg, {
+  ClipPath,
+  Defs,
+  Image as SvgImage,
+  Line,
+  Polygon,
+  Circle,
+  G,
+} from 'react-native-svg';
 
 import { illustrationAssetForPart } from '../lib/illustrationScene';
-import { radius } from '../theme';
+import { buildHowOverlay, type HowOverlay } from '../lib/illustrationHow';
+import { colors, radius, typography } from '../theme';
 
 // 등재 에셋 원본 비율 (720x964 — 9/9 전부 동일). 높이 = 실측 폭 × 이 값.
 const ASSET_H_OVER_W = 964 / 720;
@@ -50,7 +60,9 @@ const ASSET_H_OVER_W = 964 / 720;
 // 항목 추가 = 33-14 게이트 재수행 후에만 (틀린 그림 유입 차단).
 const VERIFIED_ILLUSTRATIONS: Record<string, number> = {
   'ref-power-spin': require('../../assets/illustrations/ref-power-spin.jpg'),
-  'ref-kip-up': require('../../assets/illustrations/ref-kip-up.jpg'),
+  // quick-260818-nnm — kip-up 다리는 08-18 solid 본(표시 0, 잔상·화살표는 앱이 그림).
+  // 08-09 본(붉은 선 2줄)은 파일로는 남아 있으나 더는 참조하지 않는다.
+  'ref-kip-up--leg': require('../../assets/illustrations/ref-kip-up--leg.jpg'),
   'ref-climb': require('../../assets/illustrations/ref-climb.jpg'),
   'ref-invert': require('../../assets/illustrations/ref-invert.jpg'),
   'ref-foxtop': require('../../assets/illustrations/ref-foxtop.jpg'),
@@ -86,6 +98,7 @@ export function DefectIllustration({
   motionId,
   partKey,
   maxHeight,
+  how,
 }: {
   /** mode1 기준 모션 ID. null/미등록 = silent hidden (렌더 0). */
   motionId: string | null | undefined;
@@ -101,6 +114,11 @@ export function DefectIllustration({
    * 않는다. 미지정이면 상한 없음(폭 우선) = 종전 거동.
    */
   maxHeight?: number;
+  /**
+   * quick-260818-nnm — "어떻게" 오버레이 재료. 학생 측정값·목표·단위. 앵커가 있는
+   * 에셋에서만 잔상·화살표·표기가 그려지고, 값이 없거나 조건이 안 맞으면 그림만.
+   */
+  how?: { measured?: number | null; target?: number | null; unit?: string | null };
 }) {
   // 장면일치 통과분만 조회 키가 된다 (P-2/P-3). 불일치·미등재·mode3 → null.
   const matched = illustrationAssetForPart(motionId, partKey);
@@ -119,6 +137,10 @@ export function DefectIllustration({
       : Number.POSITIVE_INFINITY;
   const w = Math.floor(Math.min(availW, capW));
   const h = Math.round(w * ASSET_H_OVER_W);
+  // quick-260818-nnm — 오버레이는 순수 계산(illustrationHow) 이 결정한다. null 이면 그림만.
+  const overlay = how
+    ? buildHowOverlay(matched, how.measured, how.target, how.unit, ASSET_H_OVER_W)
+    : null;
 
   return (
     <View style={styles.wrap} onLayout={(e) => setAvailW(e.nativeEvent.layout.width)}>
@@ -133,13 +155,134 @@ export function DefectIllustration({
             resizeMode="cover"
             accessibilityLabel="목표 자세 일러스트"
           />
+          {overlay ? <HowOverlayLayer overlay={overlay} source={source} w={w} h={h} /> : null}
         </View>
       ) : null}
     </View>
   );
 }
 
+/**
+ * "어떻게" 오버레이 (quick-260818-nnm). 그림 위에 얹는 계층 — 그림 파일은 손대지 않는다.
+ *   1) 잔상 = 같은 그림을 다리 영역으로 클립해 골반 기준으로 학생 각도만큼 돌린 것 (연하게)
+ *   2) 폴 등 frontClip 영역을 다시 위에 (잔상이 폴을 가리지 않게)
+ *   3) 화살표 = 잔상 말단 → 실선 말단 · 잔상 말단에 점 · "지금"
+ *   4) 방향 문장 ("50° 정도 더 벌리세요") — 값이 있을 때만, 방향으로만
+ * 좌표는 전부 비율 → 여기서 픽셀로 곱한다.
+ */
+function HowOverlayLayer({
+  overlay,
+  source,
+  w,
+  h,
+}: {
+  overlay: HowOverlay;
+  source: number;
+  w: number;
+  h: number;
+}) {
+  const px = (f: readonly [number, number]) => [f[0] * w, f[1] * h] as const;
+  const pts = (poly: readonly (readonly [number, number])[]) =>
+    poly.map((f) => px(f).join(',')).join(' ');
+  const arrowHead = (from: readonly [number, number], to: readonly [number, number]) => {
+    const [ax, ay] = px(from);
+    const [bx, by] = px(to);
+    const ang = Math.atan2(by - ay, bx - ax);
+    const head = Math.max(10, w * 0.03);
+    const p1 = [bx - head * Math.cos(ang - 0.5), by - head * Math.sin(ang - 0.5)];
+    const p2 = [bx - head * Math.cos(ang + 0.5), by - head * Math.sin(ang + 0.5)];
+    return `${bx},${by} ${p1[0]},${p1[1]} ${p2[0]},${p2[1]}`;
+  };
+  const stroke = Math.max(3, w * 0.008);
+  const dot = Math.max(5, w * 0.014);
+  const [nx, ny] = px(overlay.nowLabel);
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg width={w} height={h}>
+        <Defs>
+          {overlay.limbs.map((l, i) => (
+            <ClipPath id={`limb${i}`} key={`c${i}`}>
+              <Polygon points={pts(l.clip)} />
+            </ClipPath>
+          ))}
+          {overlay.frontClip ? (
+            <ClipPath id="front">
+              <Polygon points={pts(overlay.frontClip)} />
+            </ClipPath>
+          ) : null}
+        </Defs>
+        {/* 1) 잔상 — 같은 그림을 클립·회전·반투명 */}
+        {overlay.limbs.map((l, i) => {
+          const [cx, cy] = px(l.pivot);
+          return (
+            <G key={`g${i}`} clipPath={`url(#limb${i})`} opacity={0.42}>
+              <SvgImage
+                href={source}
+                x={0}
+                y={0}
+                width={w}
+                height={h}
+                preserveAspectRatio="none"
+                transform={`rotate(${l.rotateDeg} ${cx} ${cy})`}
+              />
+            </G>
+          );
+        })}
+        {/* 2) 폴 등 앞에 있어야 할 것 */}
+        {overlay.frontClip ? (
+          <G clipPath="url(#front)">
+            <SvgImage href={source} x={0} y={0} width={w} height={h} preserveAspectRatio="none" />
+          </G>
+        ) : null}
+        {/* 3) 화살표 잔상 → 실선 + 잔상 점 */}
+        {overlay.limbs.map((l, i) => {
+          const [ax, ay] = px(l.ghostTip);
+          const [bx, by] = px(l.tip);
+          return (
+            <G key={`a${i}`}>
+              <Line x1={ax} y1={ay} x2={bx} y2={by} stroke={colors.brand} strokeWidth={stroke} strokeLinecap="round" />
+              <Polygon points={arrowHead(l.ghostTip, l.tip)} fill={colors.brand} />
+              <Circle cx={ax} cy={ay} r={dot} fill={colors.brand} stroke={colors.cardBg} strokeWidth={2} />
+            </G>
+          );
+        })}
+      </Svg>
+      {/* "지금" + 방향 문장 — RN Text 로 (폰트·토큰 재사용) */}
+      {/* "지금" — 잔상 발이 그림 가장자리면 카드 밖으로 나가므로 상단으로 클램프. */}
+      <View style={[styles.nowPill, { left: nx, top: Math.min(ny, h - 30) }]}>
+        <Text style={styles.nowText}>지금</Text>
+      </View>
+      {/* 방향 문장 — 몸을 가리지 않는 상단 여백(폴 옆). 그림 여백이 확보되면 재조정. */}
+      <View style={[styles.dirPill, { top: h * 0.06 }]}>
+        <Text style={styles.dirText}>{overlay.directionText}</Text>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  // quick-260818-nnm — 오버레이 표기. brand 채움 + cardBg 글자 (지금) / cardBg 채움 +
+  // brand 테두리·글자 (방향 문장). 수치는 이 문장 1곳 (D-09 예외는 belle 08-18 결정).
+  nowPill: {
+    position: 'absolute',
+    transform: [{ translateX: -26 }],
+    backgroundColor: colors.brand,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  nowText: { ...typography.caption, fontWeight: '700', color: colors.cardBg },
+  dirPill: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: colors.cardBg,
+    borderWidth: 1.5,
+    borderColor: colors.brand,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  dirText: { ...typography.caption, fontWeight: '700', color: colors.brand },
   // 높이를 **실측 폭 × 비율**로 준다 (quick-260731-plf V-3). 종전에는 Image 가
   // `width:'100%' + aspectRatio` 를 들고 카드에는 높이 제약이 없었는데, 그 조합에서
   // Image 가 카드보다 크게 깔리고 카드의 overflow:hidden 이 잘라냈다. 그 결함은

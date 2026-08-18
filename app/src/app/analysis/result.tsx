@@ -3537,11 +3537,12 @@ function AnalysisResultContent({
         // 슬롯 자체가 안 생긴다 (승인본 `:1114` — 빈 카드·플레이스홀더 아님).
         // render prop — 시트가 자기 스크롤 뷰포트를 실측해 상한을 준다
         // (belle 2026-07-31 적응형). 여기서 시트 기하를 계산하지 않는다.
-        illustrationSlot={(maxHeight) => (
+        illustrationSlot={(maxHeight, how) => (
           <DefectIllustration
             motionId={cmp.mode === 'mode1' ? cmp.referenceMotionId : null}
             partKey={sheetView?.partKey ?? null}
             maxHeight={maxHeight}
+            how={how}
           />
         )}
         // quick-260818-nc2 — 시트가 "그림이 있는가"를 알아야 목표 문장을 그림 카드로

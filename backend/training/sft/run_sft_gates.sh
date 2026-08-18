@@ -26,7 +26,11 @@ set -euo pipefail
 AWQ="${1:?AWQ 모델 디렉토리 필수}"
 VENV="${TRAIN_VENV:-/workspace/train_venv}"
 export PATH="$VENV/bin:$PATH"   # vLLM EngineCore ninja 탐색 (bake-off 실증).
-PORT=8000
+# ★포트는 덮어쓸 수 있어야 한다 (2026-08-18). 8000 은 운영 추론 서버
+# (runpod_inference/server.py)가 쓰는 포트다. 같은 Pod 에서 앱 분석을 돌리면서
+# 게이트를 돌리면 vLLM 이 bind 에 실패하거나 앱 경로를 밟는다.
+# 앱과 같이 쓰는 Pod 에서는 GATES_PORT=8100 처럼 반드시 다른 포트를 줄 것.
+PORT="${GATES_PORT:-8000}"
 
 export HF_HOME="${HF_HOME:-/workspace/hf_cache}" USE_HF=1
 export EVAL_OUT_DIR="${EVAL_OUT_DIR:-/workspace/eval_out}"

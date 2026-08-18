@@ -1,0 +1,44 @@
+Redraw the FIRST reference image as a clean instructional illustration, using the SECOND reference image only as a style reference.
+
+POSE FIDELITY (most important):
+Reproduce the exact pose, orientation and camera viewpoint of the FIRST image: close view of one leg hooked around a vertical pole: the thigh and shin wrap the pole with the knee bent and locked against it, hip at the top edge of the frame, the rest of the body outside the frame. The body is INVERTED - the head is BELOW the hips, hanging upside-down from the pole. Keep the pole in the same position and angle as in the FIRST image. Do NOT copy the pose, orientation or limb arrangement from the SECOND image - the SECOND image is ONLY for drawing style (line quality, palette, shading, background tone).
+
+SKELETON (binding):
+The THIRD reference image is a stick-figure skeleton extracted from the FIRST image: white bones on black, red dots at the joints, in the SAME pixel frame as the FIRST image. Treat it as the ground truth for WHERE every joint is and WHICH body parts are inside the frame. Every limb you draw must lie on top of its bone in the skeleton; every joint must sit on its red dot; body parts that have NO bone in the skeleton are OUTSIDE the frame and must not be drawn. Do NOT show the skeleton itself - it only tells you the layout. If the pose description above ever disagrees with the skeleton, follow the skeleton.
+
+ANONYMISATION:
+The figure must have NO facial features at all - no eyes, no nose, no mouth, no eyebrows. Leave the face as blank, smooth, unmarked skin. Do not draw a portrait.
+The figure MUST still have hair - dark hair tied back in a bun or ponytail, like the SECOND
+reference image. Never draw a bald or hairless head: anonymise the face only, keep the hair.
+
+CLOTHING (never bare):
+The figure always wears a dark taupe sports bra AND matching shorts, exactly like the SECOND
+reference image. The torso is never bare, never topless, never in underwear.
+
+SCENE:
+Exactly ONE vertical pole in the image. Never draw a second pole, a doubled pole line, a
+mirror, or a reflection. Exactly ONE person - no second figure, no stray extra limb entering
+from any edge.
+
+GUIDE MARK:
+Overlay ONE coral-red angle marker at the knee joint - the first line runs along the thigh toward the hip, the second line runs along the shin toward the ankle. The marker is made of EXACTLY THREE strokes and nothing else: two straight lines and one small arc. BOTH lines must START AT THE SAME POINT - the joint itself - and open outward from it like the two sides of a letter V; if the two lines do not touch each other at the joint the drawing is wrong. Each line lies flat on top of its limb and stops before the next joint. The arc is drawn between the two lines, close to their meeting point. Count the red strokes before finishing: there must be exactly three (line, line, arc). Draw NO number, NO text, NO circle, NO extra segment, and no red mark on any other body part.
+
+ANATOMY:
+Exactly two arms and two legs, five fingers per hand, five toes per foot, joints bending only in anatomically possible directions.
+Exactly ONE head. The head must be attached to the neck and clearly separated from the hips
+and thighs - never fused into the pelvis, buttock or torso, and never duplicated anywhere in
+the image. The head sits on the neck in its natural direction - never twisted round backwards
+or rotated away from the spine.
+Where limbs overlap or the body is folded, keep every limb readable as a separate outline:
+draw the contour where one body part passes in front of another so the viewer can count two
+arms and two legs without ambiguity.
+Every limb must be anatomically plausible along its whole length - a calf must not bend where
+there is no joint, a foot must join the ankle in a natural direction, and no limb may taper
+into a shapeless mass. If a body part would be ambiguous, place it outside the frame instead
+of drawing it wrong.
+
+FRAMING:
+Portrait 3:4. This is an intentional PARTIAL crop showing only the body part described above in POSE FIDELITY. Only that part needs to be fully visible and readable. It is correct and expected for other body parts (head, opposite arm or leg, torso, etc.) to extend beyond the frame edges exactly as described above - do NOT pull back the camera or add empty background just to fit the whole body into the frame.
+
+STYLE:
+Soft pencil-and-watercolour illustration on a completely plain warm off-white background - no room, no window, no plant, no furniture, no floor line - muted warm skin tones, dark taupe activewear, no text, no logos, no watermark, no border.

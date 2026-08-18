@@ -86,6 +86,12 @@ interface Props {
   // 소비처가 시트 chrome(handle·title·CTA·padding)을 손계산하지 않게 하는 배선이다.
   // 아직 실측 전이면 0 이 온다(첫 렌더 1프레임).
   illustrationSlot?: (maxHeight: number) => React.ReactNode;
+  // quick-260818-nc2 — 이 시트에 붙을 일러스트가 **실제로 있는가**. 판정은 caller 가
+  // `illustrationAssetForPart` 로 내린다(시트는 에셋 맵을 모른다). true 면 그림과
+  // 목표 문장을 한 카드로 묶고, 시트 맨 위 goalBox 는 그리지 않는다(같은 문장 두 번
+  // 금지). false/미지정 = 종전 배치 그대로 — 슬롯이 null 을 렌더해도 빈 카드가 남지
+  // 않게 하는 게 이 플래그의 유일한 이유다.
+  illustrationAvailable?: boolean;
 }
 
 // 일러스트 높이 상한 = 스크롤 뷰포트의 이 비율 (belle 2026-07-31 "적응형").
@@ -100,6 +106,9 @@ interface Props {
 // **작아지는 것은 감수한다.** 일러스트는 전신 기하가 곧 메시지라 "조금 작게 전부"가
 // "크게 반쪽"보다 낫다. 요소 삭제·순서 변경은 하지 않는다 (M-13 유지).
 const ILLUST_VIEWPORT_FRACTION = 0.5;
+// quick-260818-nc2 — 목표 카드 칩. 크롭 카드의 "오늘 고칠 것" 칩과 짝이 되는 자리
+// (이쪽은 감점이 아니라 목표라 gray 칩). 문장이 아니라 라벨이라 D-05 밖.
+const ILLUST_CHIP = '목표 자세';
 
 // criterion → 심사 언어 용어(terminologyMap) 매핑. 미등록 criterion 은 null(용어줄 생략).
 function criterionTerm(criterion: string): TerminologyTerm | null {
@@ -149,6 +158,7 @@ export function DeductionDetailSheet({
   estimatedArea = false,
   rightLabel,
   illustrationSlot,
+  illustrationAvailable = false,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
   // 일러스트 적응형 상한의 출처 (belle 2026-07-31). 손계산 대신 실측한다 —
@@ -225,7 +235,10 @@ export function DeductionDetailSheet({
                 묶인 항목에서 목표 문장을 **한 번만** 말하는 자리 — 블록마다 같은
                 문장을 반복하지 않는다. 목표 절이 없으면 자리도 두지 않는다
                 (fail-closed — 없는 문장을 만들지 않는다). */}
-            {view.goalLine ? (
+            {/* quick-260818-nc2 — 일러스트가 있으면 이 문장은 **그림 카드의 캡션**으로
+                내려간다(belle 08-18 "그림처럼 이렇게 자세가 되어야 한다고 써주면 조합이
+                좋을 듯"). 같은 문장을 두 번 보이지 않기 위해 여기서는 비운다. */}
+            {view.goalLine && !illustrationAvailable ? (
               <View style={styles.goalBox}>
                 <Text style={styles.goalText}>{view.goalLine}</Text>
               </View>
@@ -374,11 +387,24 @@ export function DeductionDetailSheet({
                 장치(D-05: 라벨 텍스트 없이 그림만). 미검증/mode3 = 슬롯 자체가
                 null 을 렌더 (silent hidden). */}
             {/* 적응형 상한 = 실측 스크롤 뷰포트 x 비율 (손계산 0). */}
-            {illustrationSlot
-              ? illustrationSlot(
-                  Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION),
-                )
-              : null}
+            {/* quick-260818-nc2 — 목표 카드: 칩 → 그림 → 목표 문장. 승인 목업 ② 크롭
+                카드와 같은 문법(card → chip → image → caption)이라 새 시각 언어 0.
+                D-05("그림 안에 글자 없음")는 그림 **옆**의 문장을 막는 규칙이 아니다
+                (33-A3:216 "탭-상세의 감점근거 글이 캡션 역할"). 캡션은 goalLine 재사용 —
+                새 문장을 만들지 않는다. goalLine 이 없으면 칩+그림만. */}
+            {illustrationSlot && illustrationAvailable ? (
+              <View style={styles.illustCard}>
+                <View style={[styles.chip, styles.chipGray]}>
+                  <Text style={[styles.chipText, styles.chipTextGray]}>{ILLUST_CHIP}</Text>
+                </View>
+                {illustrationSlot(Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION))}
+                {view.goalLine ? (
+                  <Text style={styles.illustCap}>{view.goalLine}</Text>
+                ) : null}
+              </View>
+            ) : illustrationSlot ? (
+              illustrationSlot(Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION))
+            ) : null}
 
             {/* 확인하기 안내 (gate ⑤) + 심사 언어 용어줄(terminologyMap).
                 33-15 (D-16) — 대시 나열을 문장화 (조사는 objectJosaKo 로 받침 판정). */}
@@ -466,6 +492,24 @@ const styles = StyleSheet.create({
   goalText: {
     ...typography.bodySm,
     color: colors.textMid,
+  },
+  // quick-260818-nc2 — 목표 카드. cropCard 와 같은 껍데기(cardBg + border + radius.card
+  // + cardPadding + gap 8)라 시트 안에서 두 카드가 한 벌로 읽힌다. 캡션은 oneCap 과
+  // 같은 톤(caption/textMid/center) — 그림 아래 "이 그림처럼" 자리.
+  illustCard: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+    gap: 8,
+    alignItems: 'stretch',
+  },
+  illustCap: {
+    ...typography.bodySm,
+    color: colors.textMid,
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
   // ── 크롭 카드 (승인본 .card) ─────────────────────────────────────────────
   cropCard: {

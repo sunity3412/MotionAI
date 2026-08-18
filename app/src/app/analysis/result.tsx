@@ -28,6 +28,7 @@ import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
 import { PartChipsRow } from '../../components/PartChipsRow';
 import { DefectIllustration } from '../../components/DefectIllustration';
+import { illustrationAssetForPart } from '../../lib/illustrationScene';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
@@ -3543,6 +3544,15 @@ function AnalysisResultContent({
             maxHeight={maxHeight}
           />
         )}
+        // quick-260818-nc2 — 시트가 "그림이 있는가"를 알아야 목표 문장을 그림 카드로
+        // 내릴지 정한다. 판정은 DefectIllustration 과 **같은 규칙**(illustrationAssetForPart)
+        // — 두 번째 그룹핑 규칙을 만들지 않는다(P-1).
+        illustrationAvailable={
+          illustrationAssetForPart(
+            cmp.mode === 'mode1' ? cmp.referenceMotionId : null,
+            sheetView?.partKey ?? null,
+          ) != null
+        }
       />
       {/* 32-07 D-07 (32-11 배선) — 첫 진입 코치마크 1회. "오늘 고칠 건 하나만" +
           "자세히는 펼쳐요". hasSeenResultCoachmark 로 1회만, 탭 시 기록. */}

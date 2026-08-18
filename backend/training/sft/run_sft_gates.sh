@@ -32,6 +32,24 @@ export PATH="$VENV/bin:$PATH"   # vLLM EngineCore ninja 탐색 (bake-off 실증)
 # 앱과 같이 쓰는 Pod 에서는 GATES_PORT=8100 처럼 반드시 다른 포트를 줄 것.
 PORT="${GATES_PORT:-8000}"
 
+# ★Blackwell(sm_120) + 구 드라이버 조합 함정 — 2026-08-18 실측으로 잡음.
+# Triton 3.7 은 arch>=100(=Blackwell)이면 번들된 `ptxas-blackwell` 을 쓰는데 그 바이너리가
+# **CUDA 13.1** 이다. 드라이버가 CUDA 12.x 면 13.1 이 만든 cubin 을 로드하지 못해
+#   RuntimeError: Triton Error [CUDA]: device kernel image is invalid
+# 로 죽는다. **모델을 다 올린 뒤 프로파일 forward 에서** 터져서 OOM 처럼 보이는 게 함정이다.
+# (실측: 5090 + 드라이버 570.195.03(CUDA 12.8) + vllm 0.27.1+cu129 → 사망 →
+#  12.8 ptxas 로 바꾸니 통과. 12.8 은 sm_120 을 지원한다.)
+# 드라이버가 감당하는 CUDA major 가 ptxas-blackwell 보다 낮을 때만 갈아끼운다.
+if [ -z "${TRITON_PTXAS_BLACKWELL_PATH:-}" ] && [ -x /usr/local/cuda/bin/ptxas ]; then
+  _drv_cuda=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA Version: *\([0-9]*\)\..*/\1/p' | head -1)
+  _bw=$("$VENV"/lib/python3.*/site-packages/triton/backends/nvidia/bin/ptxas-blackwell --version 2>/dev/null \
+        | sed -n 's/.*release \([0-9]*\)\..*/\1/p' | head -1)
+  if [ -n "$_drv_cuda" ] && [ -n "$_bw" ] && [ "$_bw" -gt "$_drv_cuda" ]; then
+    export TRITON_PTXAS_BLACKWELL_PATH=/usr/local/cuda/bin/ptxas
+    echo "[env] Triton ptxas-blackwell(CUDA $_bw) > 드라이버(CUDA $_drv_cuda) — /usr/local/cuda/bin/ptxas 로 대체"
+  fi
+fi
+
 export HF_HOME="${HF_HOME:-/workspace/hf_cache}" USE_HF=1
 export EVAL_OUT_DIR="${EVAL_OUT_DIR:-/workspace/eval_out}"
 export BAKEOFF_FIXTURES_DIR="${BAKEOFF_FIXTURES_DIR:-/workspace/bakeoff_fixtures}"

@@ -43,14 +43,22 @@ Duration 1473ms / Max Memory 101MB
    모델이 안 올라온 채 프로세스만 살아 있는 상태를 "정상"으로 읽지 않기 위해서다.
    `TreatMissingData: breaching` 이라 프로브 자체가 죽어도 운다.
 
-## ★남은 한 걸음 (belle 이 해야 함)
+## 전 구간 실증 완료 (2026-08-18)
 
-SNS 이메일 구독이 `PendingConfirmation` 이다. **belle6466@gmail.com 으로 온 AWS Notifications
-메일의 `Confirm subscription` 을 눌러야** 알람이 실제로 메일로 나간다. 누르기 전까지는
-알람은 울리지만 아무도 모른다 — 지금 상태와 같다.
+수신자는 `sunity3412@gmail.com`(RunPod/Firebase 운영 계정). 처음에 belle6466(git 이메일)로
+잘못 넣었다가 belle 지적으로 교체 — **AWS 계정 이메일과 알림 수신 메일함은 다른 물건**이고,
+확인해야 할 것은 "belle 이 실제로 읽는 메일함"이다.
 
-배포 직후 `sunity-motion-pod-down` 은 ALARM 상태로 시작한다(데이터포인트 2개가 쌓이기
-전이라 `breaching` 규칙이 적용됨). 정상이라면 약 10분 뒤 OK 로 내려간다.
+```
+구독 확인   belle 클릭 → SubscriptionArn 발급됨(PendingConfirmation 해소)
+배선 시험   set-alarm-state ALARM → belle 수신 확인 ("메일 왔음")
+```
+
+★구독이 확인된 것만으로는 배선 증명이 아니다. **알람→SNS→받은편지함까지 실제로 울려서
+belle 이 받은 것을 확인**했다. 시험 후 프로브 주기에 자동으로 OK 로 복귀(OK 알림도 켜져 있음).
+
+배포 직후 `sunity-motion-pod-down` 이 ALARM 으로 시작하는 것은 정상이다 — 데이터포인트 2개가
+쌓이기 전이라 `breaching` 규칙이 적용된다. 약 10분 뒤 OK 로 내려간다.
 
 ## 범위 밖
 

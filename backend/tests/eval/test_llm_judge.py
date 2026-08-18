@@ -51,7 +51,7 @@ def test_judge_pass_true(monkeypatch):
     )
 
     assert result["pass"] is True
-    assert result["judge_model"] == "gemini-3.5-flash"
+    assert result["judge_model"] == "gemini-3.7-flash"
     assert result["confidence"] is None  # belle_label 없음 — calibration mode X
 
 

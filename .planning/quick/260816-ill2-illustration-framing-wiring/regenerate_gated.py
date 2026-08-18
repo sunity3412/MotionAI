@@ -2,12 +2,12 @@
 
 08-16 반려 10장을 Task 1 이 수리한 generate.py::build_prompt() (cropBox/cropNote/
 orientation 배선)로 재생성하고, 오늘 19장 전수 선별에 쓴 것과 동일한 9항목 기계
-게이트(gemini-3.5-flash)로 즉시 재판정한다. 자산당 재시도 상한 3, 통과 즉시 그
+게이트(gemini-3.7-flash)로 즉시 재판정한다. 자산당 재시도 상한 3, 통과 즉시 그
 자산의 재시도를 중단한다 — 통과 못 한 자산은 "still_failing" 으로 정직하게 남긴다
 (억지 통과·은폐 금지).
 
 새 생성 로직은 작성하지 않는다 — gen.generate() 를 그대로 호출하므로 Task 1 이
-고친 build_prompt() 를 자동으로 탄다(빌드 경로 분기 0). 판정 호출(gemini-3.5-flash)
+고친 build_prompt() 를 자동으로 탄다(빌드 경로 분기 0). 판정 호출(gemini-3.7-flash)
 만 이 파일에 신규 작성하며 raw urllib REST 를 쓴다(google-genai SDK 미사용 —
 generate.py 자신의 generate() 관례 승계, 오늘 조사용 스크립트는 SDK 를 썼지만 그건
 1회성이라 커밋 코드 관례에서 제외).
@@ -102,7 +102,7 @@ MAX_ATTEMPTS = 3
 # gen/ 안의 기존 try1~21 이력(08-09 라운드)과 충돌하지 않는 네임스페이스.
 ATTEMPT_BASE = 900
 
-GATE_MODEL = "gemini-3.5-flash"
+GATE_MODEL = "gemini-3.7-flash"
 GATE_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     f"{GATE_MODEL}:generateContent"

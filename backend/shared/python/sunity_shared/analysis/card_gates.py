@@ -488,7 +488,7 @@ def mark_crop(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float], *,
 
 def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
                 claim: str, *, api_key: str, expected_limb: str | None = None,
-                crop_px: int = 360, model: str = "gemini-3.5-flash",
+                crop_px: int = 360, model: str = "gemini-3.7-flash",
                 timeout_s: float = 60.0) -> dict:
     """A3 기계 눈 — 마킹 크롭을 Gemini 가 판정, 감점 주장과 일치 여부 반환.
 

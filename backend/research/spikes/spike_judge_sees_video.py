@@ -33,7 +33,7 @@ _BACKEND = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BACKEND / "training"))
 
 VIDEO_JUDGE_MODEL = "gemini-3.7-flash-video-understanding-eap"
-TEXT_JUDGE_MODEL = "gemini-3.5-flash"
+TEXT_JUDGE_MODEL = "gemini-3.7-flash"
 
 
 def _judge_prompt(report: dict, motion=None) -> str:

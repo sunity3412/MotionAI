@@ -3,7 +3,7 @@
 박제 정신:
   · AI-SPEC §4 Model Configuration 표 1:1 정합 — DEFAULT_A/B/C/D + C_OVERRIDE.
   · 3차 review R-B1 — ALLOWED_MODELS 화이트리스트 가드 (404 silent fallback 차단).
-  · [[gemini-latest-model-versions]] — `gemini-3.1-pro-preview` (suffix 박제), `gemini-3.5-flash`.
+  · [[gemini-latest-model-versions]] — `gemini-3.1-pro-preview` (suffix 박제), `gemini-3.7-flash`(2026-08-18 갱신).
     2.5 호출 / plain Pro (suffix 누락) 호출 영구 금지 — resolve_model 가 ValueError raise.
   · Plan 02/03/04/05 는 본 모듈만 import — raw model string 박제 0 (회귀 grep 가드).
 
@@ -25,7 +25,7 @@ from typing import Literal
 
 DEFAULT_A_MODEL: str = "gemini-3.1-pro-preview"
 DEFAULT_B_MODEL: str = "gemini-3.1-pro-preview"
-DEFAULT_C_MODEL: str = "gemini-3.5-flash"
+DEFAULT_C_MODEL: str = "gemini-3.7-flash"
 DEFAULT_C_MODEL_OVERRIDE: str = "gemini-3.1-pro-preview"
 DEFAULT_D_MODEL: str = "gemini-3.1-pro-preview"
 
@@ -35,9 +35,13 @@ DEFAULT_D_MODEL: str = "gemini-3.1-pro-preview"
 ALLOWED_MODELS: frozenset[str] = frozenset(
     {
         "gemini-3.1-pro-preview",
-        "gemini-3.5-flash",
+        "gemini-3.7-flash",
     }
 )
+# ★2026-08-18 (quick-260818-lik): Flash 를 3.5 → 3.7 로 올리면서 **3.5 를 화이트리스트에서
+# 뺐다.** 남겨두면 어딘가 놓친 하드코딩이 가드를 통과해 **조용히 옛 모델로** 돈다 — 저번
+# 갱신 지시가 반영 안 된 것이 정확히 그 모양이었다. 지금은 3.5 가 resolve_model 를 타면
+# ValueError 로 터진다. 되돌릴 일이 생기면 여기 한 줄을 되돌리는 것이 유일한 경로다.
 
 
 # region literal — Plan 02 (A) / 03 (B) / 04 (C) / 05 (D) 정합.

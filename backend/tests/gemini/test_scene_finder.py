@@ -89,7 +89,7 @@ class TestHappyPath:
         assert result["camera_angle_problematic"] is False
         # 박제 — notes_ko + meta.
         assert result["notes_ko"] == "그립 명확, 후굴 없음."
-        assert result["model"] == "gemini-3.5-flash"
+        assert result["model"] == "gemini-3.7-flash"
         assert "latency_ms" in result and isinstance(result["latency_ms"], int)
         # G4 박제 — 정상 path 는 guardrail_triggered=None.
         assert result["guardrail_triggered"] is None
@@ -99,7 +99,7 @@ class TestHappyPath:
         assert stub.call_paths == [_video(tmp_path)]
 
     def test_init_uses_resolve_model_default_flash(self, tmp_path, monkeypatch) -> None:
-        """GEMINI_C_MODEL_OVERRIDE 미설정 시 default = gemini-3.5-flash 박제."""
+        """GEMINI_C_MODEL_OVERRIDE 미설정 시 default = gemini-3.7-flash 박제."""
         stub = _StubCall(_ok_flags())
         _patch_call(monkeypatch, stub)
         monkeypatch.delenv("GEMINI_C_MODEL_OVERRIDE", raising=False)
@@ -108,7 +108,7 @@ class TestHappyPath:
         scene_finder.find_scene_flags(_video(tmp_path), is_reference=False)
 
         # GeminiVisionCall 인스턴스화 kwargs 박제 — model=DEFAULT_C_MODEL.
-        assert stub.init_kwargs.get("model") == "gemini-3.5-flash"
+        assert stub.init_kwargs.get("model") == "gemini-3.7-flash"
         # enforce_object_guard=True 박제 (G1 정합).
         assert stub.init_kwargs.get("enforce_object_guard") is True
         # FindingFlags schema 박제.
@@ -147,7 +147,7 @@ class TestG4Guardrail:
         # guardrail_triggered 박힘.
         assert result["guardrail_triggered"] == "G4_reference_occlusion_fp"
         # model/meta 는 박혀있어야 (audit).
-        assert result["model"] == "gemini-3.5-flash"
+        assert result["model"] == "gemini-3.7-flash"
 
     def test_reference_without_occlusion_passes_through(
         self, tmp_path, monkeypatch
@@ -211,7 +211,7 @@ class TestGracefulFallback:
         # error 박제 — caller 가 추적 가능.
         assert result["error"] == "api_or_schema_fail"
         assert result["guardrail_triggered"] is None
-        assert result["model"] == "gemini-3.5-flash"
+        assert result["model"] == "gemini-3.7-flash"
 
 
 class TestEnvOverride:
@@ -280,7 +280,7 @@ class TestFirestoreAdminGeminiCKwarg:
             "occlusion_severe": False,
             "camera_angle_problematic": False,
             "notes_ko": "정상",
-            "model": "gemini-3.5-flash",
+            "model": "gemini-3.7-flash",
             "tokens_used": 120,
             "latency_ms": 2400,
             "guardrail_triggered": None,

@@ -15,7 +15,7 @@
     string 박제 0. env 우선순위:
       1. `GEMINI_C_MODEL_OVERRIDE` (emergency manual override — 운영 대응)
       2. `GEMINI_C_MODEL` (alias)
-      3. `DEFAULT_C_MODEL` = `gemini-3.5-flash`
+      3. `DEFAULT_C_MODEL` = `gemini-3.7-flash`
     자동 escalation (E5 PASS rate < 95%) 은 runtime config (Firestore
     `visionConfig.regionC.model` 또는 SSM) 책임 — 본 모듈은 env 자동 set X.
 
@@ -105,7 +105,7 @@ def _resolve_c_model() -> str:
     우선순위:
       1. GEMINI_C_MODEL_OVERRIDE (emergency manual override — 운영 대응)
       2. GEMINI_C_MODEL (alias)
-      3. DEFAULT_C_MODEL ('gemini-3.5-flash')
+      3. DEFAULT_C_MODEL ('gemini-3.7-flash')
 
     Raises:
       ValueError: override 가 ALLOWED_MODELS 박제 외 (예: 'gemini-2.5-*' / plain Pro).

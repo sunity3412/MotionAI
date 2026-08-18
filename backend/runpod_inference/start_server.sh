@@ -9,7 +9,16 @@ export GEMINI_MAX_VETO_WALL_S=300    # 검증된 sweep 설정과 동일(기본 1
 export GEMINI_UPLOAD_PREFETCH=1     # 27-04 학생 업로드+scene_finder 를 포즈 그늘에 겹치기 (rollback: 0)
 export GEMINI_FANOUT_WORKERS=4      # 27-05 veto fan-out 동시성 (429 시 2, rollback: 1)
 export STUDENT_FRAME_CACHE=1        # 27-06 학생 프레임 재사용 — RunPod ON (Lambda 는 0)
-export GEMINI_MOMENT_MODEL=gemini-3.5-flash  # 27-08 D-05 — moment extractor 만 Flash. veto 는 GEMINI_MODEL 체인(Pro) 유지 (rollback: 줄 삭제)
+# 27-08 D-05 — moment extractor 만 Flash. veto 는 GEMINI_MODEL 체인 유지.
+# ★이 키를 지우면 안 된다 (quick-260818-lik 에서 한 번 지웠다가 되돌림):
+#   gemini_moment_extractor.py:62 의 체인이 GEMINI_MOMENT_MODEL → GEMINI_MODEL →
+#   "gemini-2.5-pro" 라서, 미설정이면 Flash 가 아니라 **2.5-pro 로 되돌아간다**.
+#   즉 이 줄의 부재는 "기본값 사용"이 아니라 D-05 결정의 취소다.
+# ★단 모델 문자열은 여기 박지 않는다 — 버전 owner 는 gemini/config.py 한 곳이고,
+#   여기서 문자열을 박으면 config 를 올려도 이 줄이 덮어써서 갱신이 무효가 된다.
+export GEMINI_MOMENT_MODEL=$(PYTHONPATH=/workspace/SunityMotion/backend/shared/python \
+  python3 -c "from sunity_shared.gemini.config import DEFAULT_C_MODEL; print(DEFAULT_C_MODEL)")
+echo "GEMINI_MOMENT_MODEL: $GEMINI_MOMENT_MODEL"
 export GEMINI_SPOTCHECK_MODEL=gemini-3.1-pro-preview  # 32-13 스팟체크 판정 모델 (스모크 확정 — 스왑 시 이 줄만)
 export PR_INVERSION_ENABLED=1  # 32-15 PR 인버전 2-pass 보정 — 제한 게이트 PASS(invert 46.8%↑, power-spin detect False) 후 on. rollback: 이 줄 삭제
 export RTMW_DETERMINISTIC=1  # 08-08 렌더 정렬 비결정성 뿌리 수리 — 채점(rtmw_engine)+렌더 정렬(compare_align.build_model) 세션 양쪽 결정론. 미주입=OFF 함정(같은 영상이 매 실행 다른 정렬 → 리그 판정이 운에 걸림). rollback: 이 줄 삭제

@@ -17,13 +17,15 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
+from ..gemini.config import DEFAULT_C_MODEL
 
 log = logging.getLogger(__name__)
 
 
 # AI-SPEC §5 E4 — Gemini Flash judge model. Memory [[gemini-latest-model-versions]]
 # 2.5 영구 금지 정합 — 3.5 Flash 박제.
-_JUDGE_MODEL: str = "gemini-3.5-flash"
+# 단일 owner = gemini.config (quick-260818-lik). 문자열 직접 박제 금지.
+_JUDGE_MODEL: str = DEFAULT_C_MODEL
 
 # judge prompt 박제 (한국어). 3 조건 (강사 보조 톤 / 원인→해결 / 부위별 용어) 동시 충족
 # 시 pass=true, 1개라도 미달 시 pass=false binary.
@@ -120,7 +122,7 @@ def judge_coach_tone(
 
     Returns:
       `{"pass": bool | None, "confidence": float | None, "reasoning_ko": str,
-        "judge_model": "gemini-3.5-flash"}`.
+        "judge_model": "gemini-3.7-flash"}`.
 
       · pass: judge 가 산출한 binary (LLM None 시 None).
       · confidence: belle_label 박혀있고 judge pass 박혀있으면 1.0 (일치) or 0.0

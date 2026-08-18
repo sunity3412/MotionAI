@@ -259,7 +259,7 @@ def test_model_mismatch_invalidates(
     writer = TechniqueCache(yaml_version="v1", model_name="gemini-3.1-pro")
     writer.store(video_file, {"motion": "ref-foxtop", "moments": []})
 
-    reader = TechniqueCache(yaml_version="v1", model_name="gemini-3.5-flash")
+    reader = TechniqueCache(yaml_version="v1", model_name="gemini-3.7-flash")
     assert reader.lookup(video_file) is None
 
 

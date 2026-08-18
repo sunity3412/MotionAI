@@ -7,7 +7,7 @@
     그 외 G3 fallback 의 3 케이스.
   · GeminiVisionCall.call 은 monkeypatch 로 stub — 외부 네트워크 호출 0.
   · resolve_model 경로 박제 — GEMINI_A_MODEL 가 override path. ALLOWED_MODELS
-    (gemini-3.1-pro-preview / gemini-3.5-flash) 만 통과.
+    (gemini-3.1-pro-preview / gemini-3.7-flash) 만 통과.
 """
 
 from __future__ import annotations
@@ -371,7 +371,7 @@ class TestGeminiCallInit:
         assert stub.init_kwargs.get("model") == "gemini-3.1-pro-preview"
 
     def test_env_override_path(self, tmp_path, monkeypatch) -> None:
-        """GEMINI_A_MODEL=gemini-3.5-flash 박힘 시 fallback 박제 (resolve_model)."""
+        """GEMINI_A_MODEL=gemini-3.7-flash 박힘 시 fallback 박제 (resolve_model)."""
         stub = _StubCall(
             _ok_registration(
                 motion_name_ipsf="Butterfly",
@@ -379,14 +379,14 @@ class TestGeminiCallInit:
             )
         )
         _patch_call(monkeypatch, stub)
-        monkeypatch.setenv("GEMINI_A_MODEL", "gemini-3.5-flash")
+        monkeypatch.setenv("GEMINI_A_MODEL", "gemini-3.7-flash")
 
         reference_extractor.extract_reference_metadata(
             _video(tmp_path),
             studio_alias=None,
         )
 
-        assert stub.init_kwargs.get("model") == "gemini-3.5-flash"
+        assert stub.init_kwargs.get("model") == "gemini-3.7-flash"
 
     def test_disallowed_model_raises(self, tmp_path, monkeypatch) -> None:
         """ALLOWED_MODELS 박제 외 → resolve_model ValueError (graceful X)."""

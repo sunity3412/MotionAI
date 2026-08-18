@@ -633,7 +633,7 @@ def test_judge_parses_verdict_and_sends_key_in_header_only(gemini_http):
 
     call = gemini_http.calls[0]
     assert call["url"] == visual_gen.GEMINI_ENDPOINT
-    assert "gemini-3.5-flash" in call["url"]
+    assert "gemini-3.7-flash" in call["url"]
     assert call["headers"]["x-goog-api-key"] == "G-SECRET"
     assert "G-SECRET" not in call["url"]
     texts = [p["text"] for p in json.loads(call["body"])["contents"][0]["parts"] if "text" in p]

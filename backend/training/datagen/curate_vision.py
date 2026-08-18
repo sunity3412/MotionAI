@@ -49,8 +49,9 @@ BANNED_VERDICT_FIELDS: tuple[str, ...] = (
 # Gemini 키 = Parameter Store (coach_writer CEREBRAS_KEY_PARAM 전례). .env 하드코딩 금지.
 GEMINI_KEY_PARAM_ENV = "GEMINI_KEY_PARAM"
 GEMINI_KEY_ENV = "GOOGLE_API_KEY"  # 로컬 폴백.
-# gemini-latest-model-versions: Flash = gemini-3.5-flash (2.5 금지).
-GEMINI_MODEL = "gemini-3.5-flash"
+# gemini-latest-model-versions: Flash = gemini-3.7-flash (2.5 금지).
+from sunity_shared.gemini.config import DEFAULT_C_MODEL
+GEMINI_MODEL = DEFAULT_C_MODEL
 
 VERDICT_CACHE_PATH = Path(__file__).resolve().parent.parent / "data" / "vision_verdicts.json"
 

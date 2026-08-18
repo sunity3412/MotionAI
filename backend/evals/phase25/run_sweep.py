@@ -107,7 +107,7 @@ os.environ.setdefault("GEMINI_UPLOAD_PREFETCH", "1")
 # 27-FLASH-DECISION §반영 제약). production start_server.sh 박제값과 동일 mirror.
 # setdefault 이므로 운영자가 명시 export 하면 그 값 우선 (Pro baseline A/B 재현:
 # GEMINI_MOMENT_MODEL=gemini-2.5-pro). pipeline 로드 전 module-level 주입 (위 패턴 동일).
-os.environ.setdefault("GEMINI_MOMENT_MODEL", "gemini-3.5-flash")
+os.environ.setdefault("GEMINI_MOMENT_MODEL", "gemini-3.7-flash")
 
 # ── 산출물 경로 (25-SWEEP-EVIDENCE 근본원인 4 — pod repo 오염 방지) ───────────
 # 신규 산출물은 repo 밖 EVAL_OUT_DIR 로만 쓴다. repo 내 evals/*/baseline/ 은

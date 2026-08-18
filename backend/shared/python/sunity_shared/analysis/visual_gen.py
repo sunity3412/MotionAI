@@ -582,7 +582,7 @@ def _unlink_quiet(path: str) -> None:
 # ── before/after 보존 judge (H-03 + H3-02/H3-03 + M4-02) ──────────────────
 
 GEMINI_ENDPOINT = (
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"
 )
 
 # 31-13 calibration meta 재현성 — 프롬프트가 바뀌면 여기도 올려야 임계값이

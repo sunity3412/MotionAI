@@ -15,7 +15,7 @@
   · OCCLUDED_JOINT_REASONING_PROMPT: Spike 003 박제 프롬프트 (RESEARCH.md Code
     Examples). 폴스포츠 도메인 컨텍스트 + indeterminate 허용 + 점수/판단 어휘 금지.
   · resolve_model("C", env_override="GEMINI_C_MODEL_OVERRIDE") 재사용 — Vision
-    영역은 `gemini-3.1-pro-preview` 또는 `gemini-3.5-flash` 만 허용 (config.py
+    영역은 `gemini-3.1-pro-preview` 또는 `gemini-3.7-flash` 만 허용 (config.py
     ALLOWED_MODELS). 2.5 호출 / plain Pro 영구 금지.
 """
 
@@ -93,7 +93,7 @@ def _resolve_view_reasoner_model() -> str:
     env 우선순위:
       1. GEMINI_C_MODEL_OVERRIDE (emergency manual override)
       2. GEMINI_C_MODEL (alias)
-      3. config.py DEFAULT_C_MODEL = 'gemini-3.5-flash'
+      3. config.py DEFAULT_C_MODEL = 'gemini-3.7-flash'
     """
     env_override = (
         os.environ.get("GEMINI_C_MODEL_OVERRIDE")

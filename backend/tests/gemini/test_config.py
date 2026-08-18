@@ -3,7 +3,7 @@
 박제 정신:
   · AI-SPEC §4 Model Configuration 표 1:1 정합 — DEFAULT_*_MODEL 5개 상수.
   · 3차 review R-B1 정합 — ALLOWED_MODELS 화이트리스트 가드 (404 silent fallback 차단).
-  · [[gemini-latest-model-versions]] — `gemini-3.1-pro-preview` (suffix 박제), `gemini-3.5-flash`.
+  · [[gemini-latest-model-versions]] — `gemini-3.1-pro-preview` (suffix 박제), `gemini-3.7-flash`.
     2.5 호출 / plain Pro 호출 영구 금지 — resolve_model 가 ValueError raise.
 
 mock 불필요 — pure Python 함수.
@@ -37,7 +37,7 @@ class TestDefaultModelConstants:
     def test_default_c_is_flash_with_pro_override(self) -> None:
         # 영역 C — finding 인식은 빠른 분류 = Flash default,
         # 어려운 케이스 override 시 Pro 박제.
-        assert DEFAULT_C_MODEL == "gemini-3.5-flash"
+        assert DEFAULT_C_MODEL == "gemini-3.7-flash"
         assert DEFAULT_C_MODEL_OVERRIDE == "gemini-3.1-pro-preview"
 
 
@@ -47,7 +47,7 @@ class TestDefaultModelConstants:
 class TestAllowedModels:
     def test_allowed_models_exact_two_members(self) -> None:
         # B1 정합 — preview suffix Pro + flash 정확히 2개.
-        assert ALLOWED_MODELS == frozenset({"gemini-3.1-pro-preview", "gemini-3.5-flash"})
+        assert ALLOWED_MODELS == frozenset({"gemini-3.1-pro-preview", "gemini-3.7-flash"})
 
     def test_allowed_models_is_frozenset(self) -> None:
         # 박제 정신 — 런타임 mutation 차단.
@@ -72,7 +72,18 @@ class TestResolveModel:
 
     def test_env_override_flash_allowed(self) -> None:
         # C override 박제 패턴 — env 박제 시 Flash → Flash (whitelist 통과).
-        assert resolve_model("C", env_override="gemini-3.5-flash") == "gemini-3.5-flash"
+        assert resolve_model("C", env_override="gemini-3.1-pro-preview") == "gemini-3.1-pro-preview"
+
+    def test_c_override_rejects_retired_flash(self):
+        """★quick-260818-lik — 은퇴한 gemini-3.5-flash 는 이제 조용히 통과하면 안 된다.
+
+        화이트리스트에 남겨두면 어딘가 놓친 하드코딩이 가드를 통과해 옛 모델로 계속
+        돌고, 모델 갱신 지시가 무효가 된다(실제로 그랬다). 여기서 터져야 한다.
+        """
+        import pytest
+
+        with pytest.raises(ValueError):
+            resolve_model("C", env_override="gemini-3.5-flash")
 
     def test_env_override_pro_preview_allowed(self) -> None:
         assert (

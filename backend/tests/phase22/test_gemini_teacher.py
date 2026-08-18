@@ -3,7 +3,7 @@
 핵심 불변식:
   · delete-in-finally (DR-07) — generate 가 예외를 던져도 files.delete 가 호출됨을
     fake Gemini client 로 증명(정적 grep 아님, 실제 호출 기록 assert).
-  · 모델 string — 교사 gemini-3.1-pro-preview / judge gemini-3.5-flash, 2.5 계열 0.
+  · 모델 string — 교사 gemini-3.1-pro-preview / judge gemini-3.7-flash, 2.5 계열 0.
   · judge <7 폐기 + 반복 루프 + 물리 불가 궤적 + 감점 계약 상위집합 필터.
   · holdout 격리 + 고객 소스 anonymized=true 게이트(D-12).
 
@@ -102,9 +102,9 @@ def test_delete_called_on_success_path():
 # 모델 string — 2.5 계열 부재.
 # ---------------------------------------------------------------------------
 def test_model_strings():
-    """교사=gemini-3.1-pro-preview / judge=gemini-3.5-flash, 2.5 계열 0."""
+    """교사=gemini-3.1-pro-preview / judge=gemini-3.7-flash, 2.5 계열 0."""
     assert gt.TEACHER_MODEL == "gemini-3.1-pro-preview"
-    assert gt.JUDGE_MODEL == "gemini-3.5-flash"
+    assert gt.JUDGE_MODEL == "gemini-3.7-flash"
     assert "gemini-2.5" not in gt.TEACHER_MODEL
     assert "gemini-2.5" not in gt.JUDGE_MODEL
 
@@ -198,10 +198,10 @@ def test_judge_prompt_motion_injection_and_graceful():
 
 
 def test_judge_uses_judge_model():
-    """judge 호출 모델 string = gemini-3.5-flash (회귀 없음)."""
+    """judge 호출 모델 string = gemini-3.7-flash (회귀 없음)."""
     client = _FakeClient(text="8")
     gt.judge_report(client, {"faults": []})
-    assert client.models.calls[0]["model"] == "gemini-3.5-flash"
+    assert client.models.calls[0]["model"] == "gemini-3.7-flash"
 
 
 def test_run_trial_batch_passes_row_motion_to_judge(tmp_path, monkeypatch):
@@ -218,7 +218,7 @@ def test_run_trial_batch_passes_row_motion_to_judge(tmp_path, monkeypatch):
     gt.run_trial_batch(manifest, str(tmp_path), max_rows=1, client=client)
     # calls[0]=교사, calls[1]=judge.
     judge_call = client.models.calls[1]
-    assert judge_call["model"] == "gemini-3.5-flash"
+    assert judge_call["model"] == "gemini-3.7-flash"
     assert "분석 대상 동작: climb" in judge_call["contents"][0]
 
 

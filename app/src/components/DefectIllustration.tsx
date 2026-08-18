@@ -60,8 +60,9 @@ const ASSET_H_OVER_W = 964 / 720;
 // 항목 추가 = 33-14 게이트 재수행 후에만 (틀린 그림 유입 차단).
 const VERIFIED_ILLUSTRATIONS: Record<string, number> = {
   'ref-power-spin': require('../../assets/illustrations/ref-power-spin.jpg'),
-  // quick-260818-nnm — kip-up 다리는 08-18 solid 본(표시 0, 잔상·화살표는 앱이 그림).
-  // 08-09 본(붉은 선 2줄)은 파일로는 남아 있으나 더는 참조하지 않는다.
+  'ref-kip-up': require('../../assets/illustrations/ref-kip-up.jpg'),
+  // quick-260818-nnm — "어떻게" 후보 에셋. belle 미승인 상태라 장면 표가 가리키지 않는다
+  // (그림 교체는 판정 후). 키만 등록해 두어 승인 시 장면 표 한 줄만 바꾸면 된다.
   'ref-kip-up--leg': require('../../assets/illustrations/ref-kip-up--leg.jpg'),
   'ref-climb': require('../../assets/illustrations/ref-climb.jpg'),
   'ref-invert': require('../../assets/illustrations/ref-invert.jpg'),

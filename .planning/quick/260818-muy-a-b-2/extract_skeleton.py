@@ -92,7 +92,7 @@ def main() -> None:
 
     frame = grab_frame(Path(args.video), args.t)
     H, W = frame.shape[:2]
-    engine = RTMWPoseEngine.create()
+    engine = RTMWPoseEngine()
     raw = engine._infer_raw(frame[None, ...])[0]
     if raw is None:
         raise SystemExit("RTMW 미감지 — 이 프레임에서 사람이 안 잡힌다")

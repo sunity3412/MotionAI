@@ -30,6 +30,15 @@ Parameters:
     Type: String
     Default: /sunity/motion/runpod-analyze-url
     Description: 같은 URL 의 SSM 사본. Lambda env 와 어긋나면 ConfigDrift 알람이 운다.
+  PodExpectedParam:
+    Type: String
+    Default: /sunity/motion/pod-expected
+    Description: >
+      "up" | "down". ★이 스위치가 없으면 감시가 못 쓴다 — belle 은 작업이 끝나면 Pod 을
+      **의도적으로 Terminate** 하고(볼륨 존속) 다음에 새로 만든다. 그게 정상 운영이라
+      스위치 없는 알람은 belle 이 Pod 을 끌 때마다 오작동한다. "down" 이면 프로브가
+      헬스 결과와 무관하게 suppressed 로 보고하고 PodHealth=1 을 낸다.
+      즉 알람의 의미는 "Pod 이 죽었다"가 아니라 **"켜져 있어야 하는데 안 된다"** 이다.
   MetricNamespace:
     Type: String
     Default: Sunity/Motion
@@ -75,7 +84,9 @@ Resources:
                 Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PipelineFunctionName}"
               - Effect: Allow
                 Action: ssm:GetParameter
-                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AnalyzeUrlParam}"
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AnalyzeUrlParam}"
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${PodExpectedParam}"
               - Effect: Allow
                 Action: cloudwatch:PutMetricData
                 Resource: "*"
@@ -94,6 +105,7 @@ Resources:
         Variables:
           PIPELINE_FN: !Ref PipelineFunctionName
           ANALYZE_URL_PARAM: !Ref AnalyzeUrlParam
+          POD_EXPECTED_PARAM: !Ref PodExpectedParam
           METRIC_NS: !Ref MetricNamespace
       Code:
         ZipFile: |
@@ -116,7 +128,23 @@ Resources:
 
           PIPELINE_FN = os.environ["PIPELINE_FN"]
           ANALYZE_URL_PARAM = os.environ["ANALYZE_URL_PARAM"]
+          POD_EXPECTED_PARAM = os.environ["POD_EXPECTED_PARAM"]
           METRIC_NS = os.environ["METRIC_NS"]
+
+
+          def pod_expected_up():
+              """Pod 이 켜져 있어야 하는 시간대인가.
+
+              belle 은 작업이 끝나면 Pod 을 Terminate 하고 다음에 새로 만든다(수십 회 반복된
+              정상 운영, 볼륨은 존속). 그래서 "응답 없음"은 그 자체로는 장애가 아니다.
+              파라미터가 없으면 up 으로 본다 — 파일럿 중에는 켜져 있는 것이 기본이고,
+              모르는 상태를 조용히 넘기면 감시가 아니게 된다.
+              """
+              try:
+                  v = _ssm.get_parameter(Name=POD_EXPECTED_PARAM)["Parameter"]["Value"]
+                  return v.strip().lower() != "down"
+              except Exception:  # noqa: BLE001 - 미등록/조회실패는 up 으로 (fail-loud)
+                  return True
 
 
           def health_url(analyze_url):
@@ -148,6 +176,7 @@ Resources:
               detail = ""
               env_url = ""
               ssm_url = ""
+              expected = pod_expected_up()
 
               try:
                   cfg = _lam.get_function_configuration(FunctionName=PIPELINE_FN)
@@ -174,10 +203,18 @@ Resources:
               else:
                   detail = detail or "RUNPOD_ANALYZE_URL 비어 있음"
 
+              observed = healthy
+              if not expected:
+                  # 의도적으로 꺼둔 상태 — 알람을 울리지 않는다. 관측값은 로그에 남긴다.
+                  healthy = 1
+                  drift = 0
+
               print(
                   json.dumps(
                       {
                           "healthy": healthy,
+                          "observed": observed,
+                          "expected_up": expected,
                           "drift": drift,
                           "env_url": env_url,
                           "ssm_url": ssm_url,
@@ -194,7 +231,13 @@ Resources:
                       {"MetricName": "ConfigDrift", "Value": drift, "Unit": "None"},
                   ],
               )
-              return {"healthy": healthy, "drift": drift, "detail": detail}
+              return {
+                  "healthy": healthy,
+                  "observed": observed,
+                  "expected_up": expected,
+                  "drift": drift,
+                  "detail": detail,
+              }
 
   ProbeLogGroup:
     Type: AWS::Logs::LogGroup
@@ -226,8 +269,10 @@ Resources:
     Properties:
       AlarmName: sunity-motion-pod-down
       AlarmDescription: >
-        RunPod Pod 이 2회 연속 헬스 실패. 이 상태에서 앱 업로드는 전량 분석 실패한다
-        (위임 실패 시 폴백 없음). 복구 절차 = 메모리 current-pod-*.
+        ★의미 = "Pod 이 죽었다"가 아니라 **"켜져 있어야 하는데 안 된다"**.
+        belle 이 의도적으로 Terminate 한 구간은 SSM /sunity/motion/pod-expected=down 으로
+        눌러둔다. 이 알람이 울리면 앱 업로드가 전량 분석 실패하는 상태다(위임 폴백 없음).
+        복구 절차 = 메모리 current-pod-*.
       Namespace: !Ref MetricNamespace
       MetricName: PodHealth
       Statistic: Minimum

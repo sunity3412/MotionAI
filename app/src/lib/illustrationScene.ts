@@ -111,12 +111,12 @@ export const ILLUSTRATION_SCENES: readonly IllustrationScene[] = [
   {
     motionId: 'ref-kip-up',
     parts: ['leg'],
-    // quick-260818-nnm — "어떻게" 에셋(ref-kip-up--leg, 앱 오버레이)은 belle 미승인
-    // ("그림이 이게 아닌데") → 08-09 검수본 유지. 오버레이 코드는 남기되 이 매핑이
-    // 검수본을 가리키는 한 HOW_ANCHORS 에 키가 없어 그림만 그린다(fail-closed).
-    asset: 'ref-kip-up',
+    // quick-260821-gb7 — belle 08-21 승인: 잔상 포함 "어떻게" 그림(exq stage20-1)으로
+    // 교체 배선 (BELLE-0821-1). 화살표·수치 문장은 그림이 아니라 앱이 그린다 —
+    // HOW_ANCHORS['ref-kip-up--leg'] (kind 'baked'). 측정값 없으면 그림만 (fail-closed).
+    asset: 'ref-kip-up--leg',
     provenance:
-      '33-14 입력 3.75s (등면 와이드 스트래들 + 양 무릎 신전) · 검수 PASS 세부 = 선 2줄 곧음 · 실물 열람 = 좌·우 다리에 각각 붉은 직선(골반→무릎→발목), 든 팔·어깨 표시 없음. 정직 노트의 그립 팔 좌우 반전은 UNVERIFIED 축이라 팔 토큰 근거가 되지 않는다',
+      'belle 08-21 승인(상태 보드 실물 3회 확인) — exq stage20-1 잔상 포함 그림(896x1200) · 실물 열람 = 좌·우 다리 잔상(연함)→실선(진함) 벌림이 주제, 어깨·팔 표시 없음 · 화살표·수치 문장은 앱 렌더(fe9 B-overlay20-1 승인 실물의 겉모습, compose_b.py 기하 이식)',
   },
   {
     motionId: 'ref-climb',

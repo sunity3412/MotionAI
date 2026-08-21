@@ -1,16 +1,20 @@
-// "어떻게" 일러스트 오버레이 — 앵커 데이터 + 순수 계산 (quick-260818-nnm).
+// "어떻게" 일러스트 오버레이 — 앵커 데이터 + 순수 계산 (quick-260818-nnm · quick-260821-gb7).
 //
 // belle 2026-08-18 결정: 일러스트의 역할은 확대 비교(사진)를 다시 그리는 것이 아니라
-// **방법**을 보여주는 것이다. 그림 파일에는 정은지 완벽 자세만 있고(표시 0), 아래 셋은
-// 앱이 학생 값으로 그린다:
-//   · 잔상 = 그림 속 정은지 다리를 골반 기준으로 학생 각도만큼 돌려 연하게 얹은 것
-//            (선이 아니라 다리 픽셀 — belle "사마귀 다리냐". 길이·굵기·선 스타일이 실선과 같다)
+// **방법**을 보여주는 것이다. 앱이 학생 값으로 그리는 것:
 //   · 화살표 = 잔상 발 → 실선 발 (시작점이 정의상 "지금 내 자리")
 //   · 표기 = 값이 있으면 방향으로: "50° 정도 더 벌리세요". 상태("좁아요") 금지.
-//            값이 없으면 잔상·화살표·표기 전부 그리지 않는다 — 모르면 안 그린다.
+//            값이 없으면 화살표·표기를 그리지 않는다 — 모르면 안 그린다.
 //
-// 왜 잔상까지 앱이 그리나: 잔상 각도는 학생마다 다르다. 그림에 구우면 어떤 학생에게도
-// 안 맞는다(첫 생성본이 다리를 완전히 붙여버린 이유). 앱이 그리면 "지금"이 진짜 내 자리다.
+// belle 2026-08-21 결정 (quick-260821-gb7, BELLE-0821-1~4): 잔상은 **그림에 구워진**
+// 승인 에셋을 쓴다 — exq stage20-1 (보드 실물 3회 확인, 896x1200). 잔상을 앱이
+// 회전복사로 그리는 rotate 방식은 이 에셋에서 비활성이다: 잔상이 이미 그림 안에
+// 있으므로 clip/pivot/회전 재료가 필요 없고, 앱은 화살표 2개(잔상 발 → 같은 쪽
+// 실선 발)와 수치 문장만 그린다(B 방식). 겉모습 원본 =
+// `.planning/quick/260821-fe9-20-a-vs-b/out/ref-kip-up--leg__B-overlay20-1.png`
+// (compose_b.py 가 만든 승인 실물 — 화살표 기하를 그대로 이식).
+// 그래서 앵커는 판별 union 이다: kind 'rotate'(종전 기계, 로직 무변경 보존) /
+// kind 'baked'(화살표 앵커만). 한 에셋에 앵커는 한 벌만.
 //
 // 이 파일은 순수 데이터 + 순수 함수만 — require('*.jpg') 도 RN 도 없어서 node --test 로
 // 검증 가능(illustrationScene 의 P-5 선례). 그리기는 DefectIllustration 이 한다.
@@ -35,7 +39,9 @@ export interface HowLimb {
   readonly inwardSign: 1 | -1;
 }
 
-export interface HowAnchors {
+/** 잔상을 앱이 회전복사로 그리는 에셋용 (quick-260818-nnm 원형). */
+export interface HowAnchorsRotate {
+  readonly kind: 'rotate';
   /** 사지들. 스트래들은 다리 2개, 팔꿈치 하나면 1개. */
   readonly limbs: readonly HowLimb[];
   /** 각 사지 회전량 = 총 각도 차이 × share. 좌우 대칭 스트래들이면 0.5/0.5. */
@@ -54,41 +60,54 @@ export interface HowAnchors {
   readonly nowLabelOffsetY: number;
 }
 
+/** 화살표 1개의 앵커 — 잔상이 그림에 구워진 에셋용 (belle 08-21). */
+export interface HowArrowAnchor {
+  /** 시작 = 그림에 구워진 잔상의 발 ("지금 내 자리"). */
+  readonly from: Frac;
+  /** 끝 = 같은 쪽 실선(정은지) 발. */
+  readonly to: Frac;
+  /** quadratic bezier 제어점 = from·to 중점 + 이 offset (compose_b.py 기하). */
+  readonly ctrlOffset: Frac;
+}
+
 /**
- * 에셋 키 → 앵커. 없는 에셋은 오버레이를 그리지 않는다(종전 그림 그대로).
- * ref-kip-up--leg: 08-18 solid1 (896x1200 → 720x964 리사이즈, 비율 동일) 에서 실측.
+ * 잔상이 그림에 구워진 에셋용 (belle 08-21, BELLE-0821-4). 회전복사 재료
+ * (clip/pivot/inwardSign/shares/frontClip/nowLabelOffsetY)가 **없다** — 잔상이
+ * 이미 그림 안에 있으므로 앱은 화살표·문장만 그린다.
+ */
+export interface HowAnchorsBaked {
+  readonly kind: 'baked';
+  readonly arrows: readonly HowArrowAnchor[];
+  /** 방향 문장 틀 — rotate 와 같은 규약 ("좁다" 금지, BELLE-0821-3). */
+  readonly directionSentence: string;
+}
+
+export type HowAnchors = HowAnchorsRotate | HowAnchorsBaked;
+
+/**
+ * 에셋 키 → 앵커. 없는 에셋은 오버레이를 그리지 않는다(그림만 표시).
+ *
+ * ref-kip-up--leg (belle 08-21 승인 — exq stage20-1, 896x1200):
+ *   발 좌표 = fe9 meta.json 절대픽셀의 0~1 환산 (PLAN 확정값, 재계산 금지):
+ *     ghostL (213,1043) / solidL (110,1015) / ghostR (645,1035) / solidR (742,990)
+ *   ctrl offset = 중점 + (좌 -8px, 우 +8px, 공통 +46px) 의 비율 환산.
+ *   구 rotate 앵커(08-18 solid1 720x964 실측)는 새 그림에 무효라 폐기 —
+ *   한 에셋에 앵커 두 벌 금지.
  */
 export const HOW_ANCHORS: Readonly<Record<string, HowAnchors>> = {
   'ref-kip-up--leg': {
-    limbs: [
-      {
-        pivot: [0.5, 0.615],
-        tip: [0.115, 0.905],
-        clip: [
-          [0.485, 0.62], [0.38, 0.61], [0.22, 0.72], [0.02, 0.88],
-          [0.02, 0.99], [0.22, 0.99], [0.4, 0.8], [0.485, 0.71],
-        ],
-        inwardSign: -1,
-      },
-      {
-        pivot: [0.5, 0.615],
-        tip: [0.885, 0.905],
-        clip: [
-          [0.515, 0.62], [0.62, 0.61], [0.78, 0.72], [0.98, 0.88],
-          [0.98, 0.99], [0.78, 0.99], [0.6, 0.8], [0.515, 0.71],
-        ],
-        inwardSign: 1,
-      },
+    kind: 'baked',
+    arrows: [
+      { from: [0.2377, 0.8692], to: [0.1228, 0.8458], ctrlOffset: [-0.0089, 0.0383] },
+      { from: [0.7199, 0.8625], to: [0.8281, 0.825], ctrlOffset: [0.0089, 0.0383] },
     ],
-    shares: [0.5, 0.5],
-    frontClip: [[0.478, 0], [0.522, 0], [0.522, 1], [0.478, 1]],
     directionSentence: '{n}° 정도 더 벌리세요',
-    nowLabelOffsetY: 0.03,
   },
 };
 
-/** 화면에 그릴 준비가 끝난 오버레이 1건. 좌표는 전부 비율(0~1) — 소비처가 픽셀로 곱한다. */
-export interface HowOverlay {
+/** rotate 오버레이 — 잔상 회전복사 + 직선 화살표 + "지금" (quick-260818-nnm 원형). */
+export interface HowOverlayRotate {
+  readonly kind: 'rotate';
   readonly deltaDeg: number;
   readonly directionText: string;
   readonly limbs: readonly {
@@ -105,6 +124,18 @@ export interface HowOverlay {
   /** "지금" 표기 위치. */
   readonly nowLabel: Frac;
 }
+
+/** baked 오버레이 — 곡선 화살표 + 문장만 (belle 08-21, 승인 실물 B-overlay20-1 겉모습). */
+export interface HowOverlayBaked {
+  readonly kind: 'baked';
+  readonly deltaDeg: number;
+  readonly directionText: string;
+  /** quadratic bezier: M from Q ctrl to. ctrl 계산은 이 lib 이 소유한다. */
+  readonly arrows: readonly { readonly from: Frac; readonly ctrl: Frac; readonly to: Frac }[];
+}
+
+/** 화면에 그릴 준비가 끝난 오버레이 1건. 좌표는 전부 비율(0~1) — 소비처가 픽셀로 곱한다. */
+export type HowOverlay = HowOverlayRotate | HowOverlayBaked;
 
 /** 비율 좌표를 픽셀 비(aspect = H/W)를 고려해 회전. 반환은 다시 비율. */
 function rotateFrac(p: Frac, c: Frac, deg: number, aspect: number): Frac {
@@ -123,6 +154,7 @@ function rotateFrac(p: Frac, c: Frac, deg: number, aspect: number): Frac {
  *   - unit 이 'deg' 가 아님
  *   - measured/target 중 하나라도 없음
  *   - 차이가 3° 미만 — 잔상이 실선과 겹쳐 보이지 않는다
+ * (fail-closed 게이트는 rotate/baked 두 kind 공통 — null 이어도 그림 자체는 표시된다.)
  *
  * 차이 = |measured − target|. record 의 수치는 두 모양이 있다 — 절대각(94°→71°) 또는
  * **기준 대비 차이**(50°→0°, kip-up split_angle 실측 배지). 어느 쪽이든 "얼마나"는 절대값이고,
@@ -146,6 +178,24 @@ export function buildHowOverlay(
   const delta = Math.abs(target - measured);
   if (delta < 3) return null;
   const n = Math.round(delta);
+  const directionText = a.directionSentence.replace('{n}', String(n));
+
+  if (a.kind === 'baked') {
+    // 잔상은 그림에 구워져 있다 — 화살표 좌표만 계산 (ctrl = 중점 + offset).
+    return {
+      kind: 'baked',
+      deltaDeg: n,
+      directionText,
+      arrows: a.arrows.map((ar) => ({
+        from: ar.from,
+        ctrl: [
+          (ar.from[0] + ar.to[0]) / 2 + ar.ctrlOffset[0],
+          (ar.from[1] + ar.to[1]) / 2 + ar.ctrlOffset[1],
+        ] as const,
+        to: ar.to,
+      })),
+    };
+  }
 
   const limbs = a.limbs.map((limb, i) => {
     const rot = limb.inwardSign * delta * (a.shares[i] ?? 0);
@@ -160,8 +210,9 @@ export function buildHowOverlay(
   const gx = limbs.reduce((s, l) => s + l.ghostTip[0], 0) / limbs.length;
   const gy = Math.max(...limbs.map((l) => l.ghostTip[1]));
   return {
+    kind: 'rotate',
     deltaDeg: n,
-    directionText: a.directionSentence.replace('{n}', String(n)),
+    directionText,
     limbs,
     frontClip: a.frontClip,
     nowLabel: [gx, Math.min(0.96, gy + a.nowLabelOffsetY)],

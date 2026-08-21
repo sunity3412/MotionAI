@@ -200,7 +200,7 @@ Last activity: 2026-08-21 - Completed quick task 260821-kgq: 발굴 채택 2건 
 | 260818-c0u | Pod 헬스 감시 — podwatch 스택 (EventBridge 5분 → 프로브 Lambda → CloudWatch 알람 → SNS 이메일, pilot 스택과 분리). ★SNS 이메일 구독 확인 대기 | 2026-08-18 | 3a45dbde | [260818-c0u-pod-podwatch](./quick/260818-c0u-pod-podwatch/) |
 | 260821-exq | 일러스트 "어떻게" 3단계 잔상 6장 생성 (가 스타일 ghost-noarrow, deficit 20/40/60). 자평 5/6 성립, stage40-1 방향 역전 탈락. belle 판정 = 40·60 절대 불가, 20 종류 채택 + 화살표 필요 (→ fe9) | 2026-08-21 | f5c2716c | [260821-exq-3-ghost-noarrow-20-40-60-belle](./quick/260821-exq-3-ghost-noarrow-20-40-60-belle/) |
 | 260821-fe9 | 킵업 화살표 A/B 실물 대조 — A(그림에 굽기) 2장: 잔상 40급 위반 + A-2 폴 출발 재발 / B(앱 오버레이) 2장: 문법 정합. belle 판정 = B + 수치 문장 하단 중앙 (수치 역할 = 발전 추적) | 2026-08-21 | c6dea279 | [260821-fe9-20-a-vs-b](./quick/260821-fe9-20-a-vs-b/) |
-| 260821-gb7 | 킵업 "어떻게" 일러스트 배선 — belle 승인 20-1(잔상 baked) 에셋 + 앱 오버레이(화살표·수치 하단 중앙, B 방식). 시뮬 실증(50° 실데이터 렌더), 회귀 0. ★OTA 미발행 — belle 확인 대기. 다음 = 발전 캡션 | 2026-08-21 | 8e39d9b5 | [260821-gb7-20-1-belle-08-21](./quick/260821-gb7-20-1-belle-08-21/) |
+| 260821-gb7 | 킵업 "어떻게" 일러스트 배선 — belle 승인 20-1(잔상 baked) 에셋 + 앱 오버레이(화살표·수치 하단 중앙, B 방식). 시뮬 실증(50° 실데이터 렌더), 회귀 0. **OTA 발행 완료 08-21** (preview, update group 714e9439, belle "OTA까지 가자"). 다음 = 발전 캡션 | 2026-08-21 | 8e39d9b5 | [260821-gb7-20-1-belle-08-21](./quick/260821-gb7-20-1-belle-08-21/) |
 | 260821-kgq | 발굴 신규 채택 2건 프로덕션 반영 — 피디쉐입 왼팔꿈치 16.5s + 파워스핀 왼어깨 0.5s (belle 08-21 "둘 다 오케이"). di7 경로 재사용, STOP 게이트 전건 통과, 왼무릎 정지 보존 bit-exact, 쓰기 8건 왕복 검증, LLM 0. 남은 것 = Pod 실증 | 2026-08-21 | 233ccad | [260821-kgq-3-pdshape-powerspin-s3-doc](./quick/260821-kgq-3-pdshape-powerspin-s3-doc/) |
 
 ### Plan 09-01 close-out (2026-06-10)

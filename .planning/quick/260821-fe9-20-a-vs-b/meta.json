@@ -1,0 +1,25 @@
+{
+  "asset": "ref-kip-up--leg",
+  "series": "stage20",
+  "source": "../260821-exq-3-ghost-noarrow-20-40-60-belle/out/ref-kip-up--leg__ghost-stage20-1.jpg",
+  "sourceSize": [896, 1200],
+  "label": "20° 정도 더 벌리세요",
+  "files": {
+    "A": [
+      "out/ref-kip-up--leg__A-arrow20-1.jpg",
+      "out/ref-kip-up--leg__A-arrow20-2.jpg"
+    ],
+    "B": [
+      "out/ref-kip-up--leg__B-overlay20-1.png",
+      "out/ref-kip-up--leg__B-overlay20-2.png"
+    ],
+    "prompt": "out/prompt_A_arrow20.txt"
+  },
+  "coords": {
+    "ghostL": [213, 1043],
+    "solidL": [110, 1015],
+    "ghostR": [645, 1035],
+    "solidR": [742, 990]
+  },
+  "coordsNote": "소스 이미지(896x1200) 절대 픽셀. 눈으로 잡음(3배 확대 + 격자 대조) — 배선 시 앵커 메타로 대체"
+}

@@ -1,0 +1,86 @@
+{
+ "status": "APPLIED",
+ "uid": "csKWYvI3WCPYPysNQ9KkWecaUvq1",
+ "aid": "powerspinFault1785373695",
+ "bucket": "sunity-motion-pilot-videos",
+ "awsProfile": "sunity-motion",
+ "writes": [
+  {
+   "op": "s3.put_object",
+   "key": "results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/compare_v1.mp4",
+   "contentType": "video/mp4",
+   "bytes": 7407413,
+   "sourcePath": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/aaf15967-cfc7-4d52-bfda-e1edd9858ef9/scratchpad/kgq_out/powerspin/inject_run1.mp4",
+   "sourceMd5": "497fb708c0fc49370fc26860eb1b408c",
+   "s3RoundtripMd5": "497fb708c0fc49370fc26860eb1b408c",
+   "at": "2026-08-21T06:18:32.805660+00:00",
+   "note": "신규 키 (기존 객체 부재 확인 후 put)"
+  },
+  {
+   "op": "s3.put_object",
+   "key": "results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/discover_audio_r02_left_shoulder.mp3",
+   "contentType": "audio/mpeg",
+   "bytes": 76940,
+   "sourcePath": "/Users/kimtaesung/Dev/SunityMotion/.planning/quick/260821-kgq-3-pdshape-powerspin-s3-doc/evidence/discover_left_shoulder.mp3",
+   "sourceMd5": "909728c5739e4eea41e09e61ace7c1e7",
+   "s3RoundtripMd5": "909728c5739e4eea41e09e61ace7c1e7",
+   "at": "2026-08-21T06:18:32.906311+00:00",
+   "note": "이 사이클 Polly 합성 고정본 (repo evidence) — s3keys.build_discover_audio_key canonical 키"
+  },
+  {
+   "op": "firestore.update_analysis_discovery",
+   "args": {
+    "uid": "csKWYvI3WCPYPysNQ9KkWecaUvq1",
+    "analysisId": "powerspinFault1785373695",
+    "items": [
+     {
+      "rid": "r02",
+      "joint": "left_shoulder",
+      "userSec": 0.4667,
+      "refSec": 0.7333,
+      "pairSrc": "discover",
+      "text": "기준 자세는 팔을 굽혀 몸을 높이 들어올린 순간인데, 왼쪽 팔이 곧게 뻗어 있어요. 시작할 때 팔을 굽혀 몸을 폴 쪽으로 당겨서, 안정적인 위치를 만든 뒤에 돌아보세요.",
+      "mp3Key": "results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/discover_audio_r02_left_shoulder.mp3",
+      "adoptedAt": "2026-08-21"
+     }
+    ]
+   },
+   "fieldPath": "result.discovery",
+   "preItems": null,
+   "at": "2026-08-21T06:18:32.975067+00:00"
+  },
+  {
+   "op": "firestore.update_analysis_rendered_compare",
+   "args": {
+    "uid": "csKWYvI3WCPYPysNQ9KkWecaUvq1",
+    "analysisId": "powerspinFault1785373695",
+    "key": "results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/compare_v1.mp4",
+    "status": "done",
+    "freezes": [
+     {
+      "rid": "r02:discover",
+      "outSec": 0.5
+     },
+     {
+      "rid": "r02",
+      "outSec": 16.47
+     },
+     {
+      "rid": "r00",
+      "outSec": 32.03
+     }
+    ]
+   },
+   "fieldPath": "result.renderedCompare",
+   "preFreezes": null,
+   "at": "2026-08-21T06:18:33.040372+00:00"
+  }
+ ],
+ "llm": {
+  "geminiCalls": 0,
+  "cerebrasCalls": 0,
+  "pollyCallsThisStage": 0,
+  "note": "apply = 렌더 산출 업로드·doc 쓰기만. Polly TTS 는 --synthesize 에서 동작당 1회 (비-LLM). LLM 추론 호출 0."
+ },
+ "at": "2026-08-21T06:18:33.040402+00:00"
+}

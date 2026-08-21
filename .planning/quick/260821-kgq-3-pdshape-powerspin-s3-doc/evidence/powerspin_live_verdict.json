@@ -1,0 +1,49 @@
+{
+ "meta": {
+  "uid": "csKWYvI3WCPYPysNQ9KkWecaUvq1",
+  "aid": "powerspinFault1785373695",
+  "generated": "2026-08-21T06:19:06.497500+00:00",
+  "docSource": "Firestore 재fetch (로컬 캐시 미사용)",
+  "mp3Source": {
+   "results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/discover_audio_r02_left_shoulder.mp3": "s3 GET md5=909728c5739e4eea41e09e61ace7c1e7"
+  }
+ },
+ "liveDocFieldsMatch": true,
+ "injectedChainSame": true,
+ "chainRef": "powerspin_frames_md5_inject.json (repo 고정 — 이 사이클 inject)",
+ "rigStockAllPass": true,
+ "rigLines": [
+  "  [PASS] A 길이: actual=44.87s planned=44.87s",
+  "  [PASS] A2 정지 수: rendered=3 expected=3",
+  "  [INFO] probe 재배치: 0.2s -> 14.0s (첫 정지 침범 — 재생 갭 13.7~16.5s)",
+  "  [PASS] B 정지 정적성 r02: diff=0.001 @out 7.1s",
+  "  [PASS] B 정지 정적성 r02: diff=0.001 @out 23.0s",
+  "  [PASS] B 정지 정적성 r00: diff=0.001 @out 37.2s",
+  "  [PASS] C 재생 동적성: play diff=3.31 vs frozen max=0.001",
+  "  [PASS] D 음성 존재 r02: mean=-22.2dB @out 0.5s",
+  "  [PASS] D 음성 존재 r02: mean=-22.9dB @out 16.5s",
+  "  [PASS] D 음성 존재 r00: mean=-23.4dB @out 32.0s",
+  "  [PASS] D 재생 무음: mean=-91.0dB @out 14.0s",
+  "  [PASS] E 저더 user: 정지이벤트=0 최악2s창=0 (임계 4, 재생 181프레임 전수 스캔)",
+  "  [PASS] E 저더 ref: 정지이벤트=3 최악2s창=3 (임계 4, 재생 181프레임 전수 스캔)",
+  "  [PASS] F 웹 재생성(faststart): moov@36 mdat@35886 (64KB 헤더 내)",
+  "  [PASS] G 경계 핀 r02: rt=0.73s ref=10.5s (양끝 0.5s 밖 요구)",
+  "  [PASS] G 경계 핀 r02: rt=5.73s ref=10.5s (양끝 0.5s 밖 요구)",
+  "  [PASS] G 경계 핀 r00: rt=8.67s ref=10.5s (양끝 0.5s 밖 요구)",
+  "  [PASS] H1 정지 회계: rendered+excluded=['r00', 'r02'] == eligible=['r00', 'r02']",
+  "  [PASS] H2 순간 r02[discover]: doc discovery 순간 일치",
+  "  [PASS] H2 순간 r02: |3.22-3.22|=0.00s (src=align)",
+  "  [PASS] H3 자막 진품 r02[discover]: 문자 일치",
+  "  [PASS] H3 자막 진품 r02: 문자 일치",
+  "  [PASS] H3 자막 진품 r00: 문자 일치",
+  "  [PASS] H4 음성 조인 r02[discover]: discovery mp3Key 조인",
+  "  [PASS] H4 음성 조인 r02: coachAudio 항목 존재",
+  "  [PASS] H4 음성 조인 r00: coachAudio 항목 존재"
+ ],
+ "discoverLogSeen": true,
+ "discoverLogLines": [
+  "[discover] rid=r02 joint=left_shoulder ut=0.4667 rt=0.7333 mp3=discover_audio_r02_left_shoulder.mp3"
+ ],
+ "mp4Md5": "497fb708c0fc49370fc26860eb1b408c",
+ "outFile": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/aaf15967-cfc7-4d52-bfda-e1edd9858ef9/scratchpad/kgq_out/powerspin/live_render.mp4"
+}

@@ -1,0 +1,16 @@
+{
+ "motion": "climbfault",
+ "rid": "r00",
+ "cand": "cand04B",
+ "side": "user",
+ "frameIdx": 50,
+ "sec": 3.333,
+ "joint": "right_knee",
+ "claim": "bent",
+ "trackAngleDeg": 85.4,
+ "observed": "bent",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.95,
+ "reason": "The orange circle is placed on the elbow of the person's right arm, which is acutely bent around their tucked legs."
+}

@@ -1,0 +1,16 @@
+{
+ "motion": "climbfault",
+ "rid": "r00",
+ "cand": "cand05B",
+ "side": "user",
+ "frameIdx": 72,
+ "sec": 4.8,
+ "joint": "right_knee",
+ "claim": "bent",
+ "trackAngleDeg": 82.0,
+ "observed": "bent",
+ "limb": "arm",
+ "match": false,
+ "confidence": 0.95,
+ "reason": "The orange circle marks the elbow joint of the arm, which is distinctly bent as the arm is folded across the body."
+}

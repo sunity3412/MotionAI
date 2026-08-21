@@ -1,0 +1,106 @@
+{
+ "r00/cand02B": {
+  "rid": "r00",
+  "cid": "cand02B",
+  "joint": "right_knee",
+  "uSec": 1.2667,
+  "rSec": 4.4667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 67.2,
+  "rAngleDeg": 164.7,
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.98,
+   "reason": "The orange circle marks the knee joint of the leg, which is bent at an acute angle."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.95,
+   "reason": "The marked joint is the hip/upper leg region, and the leg is clearly flexed/bent."
+  },
+  "eyePass": false
+ },
+ "r00/cand03B": {
+  "rid": "r00",
+  "cid": "cand03B",
+  "joint": "right_knee",
+  "uSec": 2.6667,
+  "rSec": 4.4667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 70.9,
+  "rAngleDeg": 164.7,
+  "user": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": true,
+   "confidence": 0.98,
+   "reason": "The orange circle marks the knee joint of the leg, which is sharply bent in a tucked position on the pole."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.95,
+   "reason": "The marked joint is the hip/upper leg region, and the leg is clearly flexed/bent."
+  },
+  "eyePass": false
+ },
+ "r00/cand04B": {
+  "rid": "r00",
+  "cid": "cand04B",
+  "joint": "right_knee",
+  "uSec": 3.3333,
+  "rSec": 7.2667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 85.4,
+  "rAngleDeg": 158.2,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.95,
+   "reason": "The orange circle is placed on the elbow of the person's right arm, which is acutely bent around their tucked legs."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.85,
+   "reason": "The orange circle marks the hip joint of the leg, which is bent relative to the torso as the person grips the pole."
+  },
+  "eyePass": false
+ },
+ "r00/cand05B": {
+  "rid": "r00",
+  "cid": "cand05B",
+  "joint": "right_knee",
+  "uSec": 4.8,
+  "rSec": 7.2667,
+  "uClaim": "bent",
+  "rClaim": "extended",
+  "uAngleDeg": 82.0,
+  "rAngleDeg": 158.2,
+  "user": {
+   "observed": "bent",
+   "limb": "arm",
+   "match": false,
+   "confidence": 0.95,
+   "reason": "The orange circle marks the elbow joint of the arm, which is distinctly bent as the arm is folded across the body."
+  },
+  "ref": {
+   "observed": "bent",
+   "limb": "leg",
+   "match": false,
+   "confidence": 0.85,
+   "reason": "The orange circle marks the hip joint of the leg, which is bent relative to the torso as the person grips the pole."
+  },
+  "eyePass": false
+ }
+}

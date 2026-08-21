@@ -1,0 +1,16 @@
+{
+ "motion": "climbfault",
+ "rid": "r00",
+ "cand": "cand02B",
+ "side": "ref",
+ "frameIdx": 67,
+ "sec": 4.467,
+ "joint": "right_knee",
+ "claim": "extended",
+ "trackAngleDeg": 164.7,
+ "observed": "bent",
+ "limb": "leg",
+ "match": false,
+ "confidence": 0.95,
+ "reason": "The marked joint is the hip/upper leg region, and the leg is clearly flexed/bent."
+}

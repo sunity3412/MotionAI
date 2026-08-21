@@ -1,0 +1,16 @@
+{
+ "motion": "climbfault",
+ "rid": "r00",
+ "cand": "cand02B",
+ "side": "user",
+ "frameIdx": 19,
+ "sec": 1.267,
+ "joint": "right_knee",
+ "claim": "bent",
+ "trackAngleDeg": 67.2,
+ "observed": "bent",
+ "limb": "leg",
+ "match": true,
+ "confidence": 0.98,
+ "reason": "The orange circle marks the knee joint of the leg, which is bent at an acute angle."
+}

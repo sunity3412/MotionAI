@@ -1,0 +1,16 @@
+{
+ "motion": "climbfault",
+ "rid": "r00",
+ "cand": "cand04B",
+ "side": "ref",
+ "frameIdx": 109,
+ "sec": 7.267,
+ "joint": "right_knee",
+ "claim": "extended",
+ "trackAngleDeg": 158.2,
+ "observed": "bent",
+ "limb": "leg",
+ "match": false,
+ "confidence": 0.85,
+ "reason": "The orange circle marks the hip joint of the leg, which is bent relative to the torso as the person grips the pole."
+}

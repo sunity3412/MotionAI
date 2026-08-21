@@ -233,3 +233,56 @@ doc 의 `deductionBreakdown.records` 가 0건이라 스캔이 돌 record 자체�
 수치는 `evidence/{climb,climbfault,combo}/candidates.json` 과
 [260821-ls0 DISCOVERY-SHEET.md](../../260821-ls0-climb-combo-ehz-0/DISCOVERY-SHEET.md).
 기계 눈 호출 0회 (후보 0 — Gemini 키 주입 자체가 발생하지 않음).
+
+---
+
+## climbfault veto-ON 재스윕 (quick-260821-pnp, 2026-08-21)
+
+veto-ON 재분석 doc(p35newclimbfault1787297579, record 1건 = r00 right_knee)
+교체 후 재스윕. 압축 후보 4건 — PAIR 시트 4장 전건 실행자 Read 육안 확인.
+공통: 두 패널 모두 같은 스튜디오·같은 폴, 프레임 붕괴·환각 스켈레톤성 왜곡
+0건. 학생 = 정면~측면 뷰, 기준 = 후면 뷰(클라임 당겨 올리는 국면). 기준
+후면 뷰에서 다리가 폴 뒤로 겹쳐 오른무릎 신전 여부가 육안으로 애매하다 —
+트랙 claim(extended 158~165도)의 진위는 기계 눈 몫으로 넘긴다 (육안 탈락
+없음 — 4건 전건 눈 대상).
+
+- **climbfault/r00/cand02B** (u1.2667s/67.2도 bent | r4.4667s/164.7도 extended,
+  pose 0.6235) — 학생: 턱 행(tuck hang), 양 무릎 깊이 접힘 — 오른무릎 bent
+  주장과 육안 정합. 기준: 힙을 높이 올린 클라임 당김 국면(후면), 다리가
+  발목에서 교차해 접혀 보임 — extended 주장이 육안으로는 확신 안 됨(가림).
+  국면 대응(u 매달림 초입 ↔ r 당김)은 align 곡선 매핑 안이라 서사는 성립.
+- **climbfault/r00/cand03B** (u2.6667s/70.9도 bent | r4.4667s, pose 0.6327) —
+  학생 스틸은 cand02B 와 같은 홀드의 이웃 순간(자세 거의 동일, 오른무릎 접힘
+  유지). 기준 프레임은 cand02B 와 동일(4.4667s). 관찰 동일.
+- **climbfault/r00/cand04B** (u3.3333s/85.4도 bent | r7.2667s/158.2도 extended,
+  pose 0.6554) — 학생: 측면 뷰, 오른다리 접어 왼다리 위로 교차 — bent 육안
+  정합. 기준: 7.2667s 도 4.4667s 와 유사한 당김 국면(후면, 다리 접힘 겹침) —
+  extended 주장 육안 애매.
+- **climbfault/r00/cand05B** (u4.8s/82.0도 bent | r7.2667s, pose 0.6673) —
+  학생 홀드 지속(cand04B 와 거의 동일 자세). 기준 프레임 cand04B 와 동일.
+
+특기: 압축 4건의 기준 짝 프레임이 2종(4.4667s, 7.2667s)뿐이고 poleDiff 는
+전건 None(ii0 poles.json 에 climbfault 미등재 — 폴 검출 캐시 부재로 pair_gate
+가 폴 축 비구속) — 수치는 candidates.json 에 그대로. 임계 재튜닝 0.
+
+### 기계 눈 결과 (pnp — 실호출 6회 / 캐시 2 / 상한 16, gemini-3.5-flash)
+
+**4건 전건 기각 — 눈 PASS 0, 렌더 0 (침묵, ehz 층: 재료 있음 + 눈 기각).**
+크롭 실물 6장 전건 실행자 Read 확인:
+
+- ref 기각 2건 (`eye_ledger/r00_02_cand02B_ref_right_knee_extended.png`,
+  `r00_05_cand04B_ref_right_knee_extended.png`): 기준 후면 뷰에서 다리가
+  명백히 접혀 발목 교차 — 눈 observed=bent(conf 0.95/0.85)가 **육안과 일치**.
+  트랙 claim extended(164.7/158.2도)는 후면 가림에서의 트랙 환각으로 읽힘
+  (ehz elbow 기각 5건과 동형 — 눈이 트랙 환각을 잡은 실물). 단, 마크 원이
+  무릎이 아니라 힙~허벅지 상부에 앉아 있음 — 후면 뷰 트랙 좌표 품질 한계도
+  같이 박제.
+- user limb 불일치 2건 (`r00_04_cand04B_user_right_knee_bent.png`,
+  `r00_06_cand05B_user_right_knee_bent.png`): 마크는 무릎 위치이나 무릎을
+  감싼 팔뚝이 마크 영역에 겹침 — observed=bent/**arm** fail-closed (ii0 §3-2
+  마크-전위 구멍을 2단 판정이 막는 동작 그대로). 재시도/크롭 재조정 0.
+- user 일치 2건 (`r00_01_cand02B_user_right_knee_bent.png`, `r00_03_...`):
+  bent/leg conf 0.98 — 학생 오른무릎 접힘은 양층(트랙·눈) 합의.
+
+수치 원장 = `climbfault/eye_calls.log` + `eye_ledger/*.json` +
+`eye_verdicts.json` (eyePass 전건 false). 억지 성립·임계 재튜닝 0.

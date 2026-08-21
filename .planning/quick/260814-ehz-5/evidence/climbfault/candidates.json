@@ -42,7 +42,7 @@
     "motionId": "ref-climb"
    }
   },
-  "generated": "2026-08-21T06:58:05.799501+00:00",
+  "generated": "2026-08-21T09:39:29.891445+00:00",
   "alignFps": 15.0,
   "poles": {
    "user": null,
@@ -64,8 +64,1268 @@
    "maxCandsPerRecord": 4
   },
   "verdict": "로컬 replay 가능",
-  "recordCount": 0,
-  "recordInventoryExpected": 0
+  "recordCount": 1,
+  "recordInventoryExpected": 1
  },
- "records": []
+ "records": [
+  {
+   "rid": "r00",
+   "criterion": "angle_vs_reference__right_knee",
+   "joint": "right_knee",
+   "eyeEligible": true,
+   "eyeIneligibleReason": null,
+   "deviation": 6.56,
+   "scan": {
+    "passFrames": 52,
+    "totalFrames": 91,
+    "unmeasurableFrames": 0,
+    "rawRuns": [
+     {
+      "startF": 4,
+      "endF": 4,
+      "startSec": 0.2667,
+      "endSec": 0.2667
+     },
+     {
+      "startF": 8,
+      "endF": 8,
+      "startSec": 0.5333,
+      "endSec": 0.5333
+     },
+     {
+      "startF": 11,
+      "endF": 11,
+      "startSec": 0.7333,
+      "endSec": 0.7333
+     },
+     {
+      "startF": 13,
+      "endF": 13,
+      "startSec": 0.8667,
+      "endSec": 0.8667
+     },
+     {
+      "startF": 17,
+      "endF": 22,
+      "startSec": 1.1333,
+      "endSec": 1.4667
+     },
+     {
+      "startF": 24,
+      "endF": 25,
+      "startSec": 1.6,
+      "endSec": 1.6667
+     },
+     {
+      "startF": 28,
+      "endF": 28,
+      "startSec": 1.8667,
+      "endSec": 1.8667
+     },
+     {
+      "startF": 30,
+      "endF": 33,
+      "startSec": 2.0,
+      "endSec": 2.2
+     },
+     {
+      "startF": 38,
+      "endF": 43,
+      "startSec": 2.5333,
+      "endSec": 2.8667
+     },
+     {
+      "startF": 45,
+      "endF": 46,
+      "startSec": 3.0,
+      "endSec": 3.0667
+     },
+     {
+      "startF": 49,
+      "endF": 54,
+      "startSec": 3.2667,
+      "endSec": 3.6
+     },
+     {
+      "startF": 59,
+      "endF": 64,
+      "startSec": 3.9333,
+      "endSec": 4.2667
+     },
+     {
+      "startF": 67,
+      "endF": 67,
+      "startSec": 4.4667,
+      "endSec": 4.4667
+     },
+     {
+      "startF": 71,
+      "endF": 76,
+      "startSec": 4.7333,
+      "endSec": 5.0667
+     },
+     {
+      "startF": 81,
+      "endF": 87,
+      "startSec": 5.4,
+      "endSec": 5.8
+     },
+     {
+      "startF": 89,
+      "endF": 89,
+      "startSec": 5.9333,
+      "endSec": 5.9333
+     }
+    ],
+    "buckets": [
+     {
+      "bucketSec": 0,
+      "startF": 4,
+      "endF": 13,
+      "startSec": 0.2667,
+      "endSec": 0.8667,
+      "passFrames": 4,
+      "repF": 13,
+      "repSec": 0.8667,
+      "minDps": 9.95550862875416
+     },
+     {
+      "bucketSec": 1,
+      "startF": 17,
+      "endF": 28,
+      "startSec": 1.1333,
+      "endSec": 1.8667,
+      "passFrames": 9,
+      "repF": 19,
+      "repSec": 1.2667,
+      "minDps": 0.5225086148745196
+     },
+     {
+      "bucketSec": 2,
+      "startF": 30,
+      "endF": 43,
+      "startSec": 2.0,
+      "endSec": 2.8667,
+      "passFrames": 10,
+      "repF": 40,
+      "repSec": 2.6667,
+      "minDps": 3.9893355136375606
+     },
+     {
+      "bucketSec": 3,
+      "startF": 45,
+      "endF": 59,
+      "startSec": 3.0,
+      "endSec": 3.9333,
+      "passFrames": 9,
+      "repF": 50,
+      "repSec": 3.3333,
+      "minDps": 1.382633869338932
+     },
+     {
+      "bucketSec": 4,
+      "startF": 60,
+      "endF": 74,
+      "startSec": 4.0,
+      "endSec": 4.9333,
+      "passFrames": 10,
+      "repF": 72,
+      "repSec": 4.8,
+      "minDps": 0.5222050978723997
+     },
+     {
+      "bucketSec": 5,
+      "startF": 75,
+      "endF": 89,
+      "startSec": 5.0,
+      "endSec": 5.9333,
+      "passFrames": 10,
+      "repF": 75,
+      "repSec": 5.0,
+      "minDps": 0.5222050978723997
+     }
+    ]
+   },
+   "dropDistribution": {
+    "noHold": 0,
+    "pairNone": 0,
+    "claimNone": 0,
+    "claimSame": 0,
+    "claimPairNone": 1,
+    "splitNoMark": 0,
+    "ok": 5
+   },
+   "candidates": [
+    {
+     "id": "cand01",
+     "rid": "r00",
+     "joint": "right_knee",
+     "holdRun": {
+      "startSec": 0.2667,
+      "endSec": 0.8667,
+      "repSec": 0.8667,
+      "minDps": 9.95550862875416,
+      "passFrames": 4
+     },
+     "alignRefSec": 3.1333,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        1.133,
+        5.133
+       ],
+       "holdFail": 23,
+       "claimFail": 0,
+       "pairFail": 28,
+       "ok": 10
+      },
+      "row": {
+       "uSec": 0.8667,
+       "uIdx": 13,
+       "rSec": 1.9333,
+       "rIdx": 29,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 9.95550862875416,
+        "reason": "hold",
+        "windows": {
+         "sym": 10.0,
+         "future": 155.8
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 0.8758279643600511,
+        "reason": "hold",
+        "windows": {
+         "sym": 94.8,
+         "past": 182.2,
+         "future": 0.9
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.6709594567763357,
+        "basisK": 12,
+        "poleUser": null,
+        "poleRef": null,
+        "poleDiff": null,
+        "reason": "pole_unmeasured"
+       },
+       "uAngleDeg": null,
+       "rAngleDeg": 73.6,
+       "uClaim": null,
+       "rClaim": "bent",
+       "uConfMin": 0.148,
+       "rConfMin": 0.561,
+       "uInverted": null,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": false,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": false,
+        "search": {
+         "window": [
+          0.0,
+          4.0
+         ],
+         "holdFail": 14,
+         "claimFail": 47,
+         "pairFail": 0,
+         "ok": 0
+        },
+        "row": {
+         "uSec": 0.2667,
+         "uIdx": 4,
+         "rSec": 2.0,
+         "rIdx": 30,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 17.282439127987175,
+          "reason": "hold",
+          "windows": {
+           "sym": 17.3,
+           "past": 253.5,
+           "future": 279.5
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 52.876593266718125,
+          "reason": "hold",
+          "windows": {
+           "sym": 52.9,
+           "past": 380.3,
+           "future": 62.9
+          }
+         },
+         "pair": {
+          "passed": false,
+          "poseDist": 0.9534888095179013,
+          "basisK": 12,
+          "poleUser": null,
+          "poleRef": null,
+          "poleDiff": null,
+          "reason": "pose_far"
+         },
+         "uAngleDeg": 9.8,
+         "rAngleDeg": 69.6,
+         "uClaim": "bent",
+         "rClaim": "bent",
+         "uConfMin": 0.599,
+         "rConfMin": 0.603,
+         "uInverted": false,
+         "rInverted": false
+        },
+        "fail": "창 [0.0, 4.0]s 내 ref claim=extended + 양측홀드 + 짝정합 동시 통과 없음 (holdFail 14 / claimFail 47 / pairFail 0)"
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand02",
+     "rid": "r00",
+     "joint": "right_knee",
+     "holdRun": {
+      "startSec": 1.1333,
+      "endSec": 1.8667,
+      "repSec": 1.2667,
+      "minDps": 0.5225086148745196,
+      "passFrames": 9
+     },
+     "alignRefSec": 3.5333,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        1.533,
+        5.533
+       ],
+       "holdFail": 28,
+       "claimFail": 0,
+       "pairFail": 4,
+       "ok": 29
+      },
+      "row": {
+       "uSec": 1.2667,
+       "uIdx": 19,
+       "rSec": 3.4667,
+       "rIdx": 52,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 0.5225086148745196,
+        "reason": "hold",
+        "windows": {
+         "sym": 0.5,
+         "past": 65.1,
+         "future": 100.5
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 10.44337930386429,
+        "reason": "hold",
+        "windows": {
+         "sym": 54.4,
+         "past": 10.4,
+         "future": 64.5
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.22644486406621755,
+        "basisK": 12,
+        "poleUser": null,
+        "poleRef": null,
+        "poleDiff": null,
+        "reason": "pole_unmeasured"
+       },
+       "uAngleDeg": 67.2,
+       "rAngleDeg": 76.3,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.652,
+       "rConfMin": 0.644,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": true,
+        "search": {
+         "window": [
+          1.533,
+          5.533
+         ],
+         "holdFail": 28,
+         "claimFail": 32,
+         "pairFail": 0,
+         "ok": 1
+        },
+        "row": {
+         "uSec": 1.2667,
+         "uIdx": 19,
+         "rSec": 4.4667,
+         "rIdx": 67,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 0.5225086148745196,
+          "reason": "hold",
+          "windows": {
+           "sym": 0.5,
+           "past": 65.1,
+           "future": 100.5
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 57.49474362284106,
+          "reason": "hold",
+          "windows": {
+           "sym": 57.5,
+           "past": 368.6,
+           "future": 467.6
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.6234743599693408,
+          "basisK": 12,
+          "poleUser": null,
+          "poleRef": null,
+          "poleDiff": null,
+          "reason": "pole_unmeasured"
+         },
+         "uAngleDeg": 67.2,
+         "rAngleDeg": 164.7,
+         "uClaim": "bent",
+         "rClaim": "extended",
+         "uConfMin": 0.652,
+         "rConfMin": 0.594,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand03",
+     "rid": "r00",
+     "joint": "right_knee",
+     "holdRun": {
+      "startSec": 2.0,
+      "endSec": 2.8667,
+      "repSec": 2.6667,
+      "minDps": 3.9893355136375606,
+      "passFrames": 10
+     },
+     "alignRefSec": 4.9333,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        2.933,
+        6.933
+       ],
+       "holdFail": 32,
+       "claimFail": 0,
+       "pairFail": 3,
+       "ok": 26
+      },
+      "row": {
+       "uSec": 2.6667,
+       "uIdx": 40,
+       "rSec": 3.4667,
+       "rIdx": 52,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 3.9893355136375606,
+        "reason": "hold",
+        "windows": {
+         "sym": 4.0,
+         "past": 64.3,
+         "future": 106.5
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 10.44337930386429,
+        "reason": "hold",
+        "windows": {
+         "sym": 54.4,
+         "past": 10.4,
+         "future": 64.5
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.22944436151316178,
+        "basisK": 12,
+        "poleUser": null,
+        "poleRef": null,
+        "poleDiff": null,
+        "reason": "pole_unmeasured"
+       },
+       "uAngleDeg": 70.9,
+       "rAngleDeg": 76.3,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.658,
+       "rConfMin": 0.644,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": true,
+        "search": {
+         "window": [
+          2.933,
+          6.933
+         ],
+         "holdFail": 32,
+         "claimFail": 28,
+         "pairFail": 0,
+         "ok": 1
+        },
+        "row": {
+         "uSec": 2.6667,
+         "uIdx": 40,
+         "rSec": 4.4667,
+         "rIdx": 67,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 3.9893355136375606,
+          "reason": "hold",
+          "windows": {
+           "sym": 4.0,
+           "past": 64.3,
+           "future": 106.5
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 57.49474362284106,
+          "reason": "hold",
+          "windows": {
+           "sym": 57.5,
+           "past": 368.6,
+           "future": 467.6
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.6327129581801425,
+          "basisK": 12,
+          "poleUser": null,
+          "poleRef": null,
+          "poleDiff": null,
+          "reason": "pole_unmeasured"
+         },
+         "uAngleDeg": 70.9,
+         "rAngleDeg": 164.7,
+         "uClaim": "bent",
+         "rClaim": "extended",
+         "uConfMin": 0.658,
+         "rConfMin": 0.594,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand04",
+     "rid": "r00",
+     "joint": "right_knee",
+     "holdRun": {
+      "startSec": 3.0,
+      "endSec": 3.9333,
+      "repSec": 3.3333,
+      "minDps": 1.382633869338932,
+      "passFrames": 9
+     },
+     "alignRefSec": 5.6,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        3.6,
+        7.6
+       ],
+       "holdFail": 32,
+       "claimFail": 0,
+       "pairFail": 18,
+       "ok": 11
+      },
+      "row": {
+       "uSec": 3.3333,
+       "uIdx": 50,
+       "rSec": 6.8667,
+       "rIdx": 103,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 1.382633869338932,
+        "reason": "hold",
+        "windows": {
+         "sym": 111.8,
+         "past": 176.9,
+         "future": 1.4
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 57.878706472570116,
+        "reason": "hold",
+        "windows": {
+         "sym": 105.5,
+         "past": 147.9,
+         "future": 57.9
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.2817210357898162,
+        "basisK": 12,
+        "poleUser": null,
+        "poleRef": null,
+        "poleDiff": null,
+        "reason": "pole_unmeasured"
+       },
+       "uAngleDeg": 85.4,
+       "rAngleDeg": 80.5,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.607,
+       "rConfMin": 0.672,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": true,
+        "search": {
+         "window": [
+          3.6,
+          7.6
+         ],
+         "holdFail": 32,
+         "claimFail": 27,
+         "pairFail": 0,
+         "ok": 2
+        },
+        "row": {
+         "uSec": 3.3333,
+         "uIdx": 50,
+         "rSec": 7.2667,
+         "rIdx": 109,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 1.382633869338932,
+          "reason": "hold",
+          "windows": {
+           "sym": 111.8,
+           "past": 176.9,
+           "future": 1.4
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 42.76783615096271,
+          "reason": "hold",
+          "windows": {
+           "sym": 42.8,
+           "past": 284.0,
+           "future": 412.4
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.6554380167817827,
+          "basisK": 12,
+          "poleUser": null,
+          "poleRef": null,
+          "poleDiff": null,
+          "reason": "pole_unmeasured"
+         },
+         "uAngleDeg": 85.4,
+         "rAngleDeg": 158.2,
+         "uClaim": "bent",
+         "rClaim": "extended",
+         "uConfMin": 0.607,
+         "rConfMin": 0.548,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand05",
+     "rid": "r00",
+     "joint": "right_knee",
+     "holdRun": {
+      "startSec": 4.0,
+      "endSec": 4.9333,
+      "repSec": 4.8,
+      "minDps": 0.5222050978723997,
+      "passFrames": 10
+     },
+     "alignRefSec": 7.0,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        5.0,
+        7.867
+       ],
+       "holdFail": 24,
+       "claimFail": 0,
+       "pairFail": 14,
+       "ok": 6
+      },
+      "row": {
+       "uSec": 4.8,
+       "uIdx": 72,
+       "rSec": 6.8667,
+       "rIdx": 103,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 0.5222050978723997,
+        "reason": "hold",
+        "windows": {
+         "sym": 111.1,
+         "past": 164.3,
+         "future": 0.5
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 57.878706472570116,
+        "reason": "hold",
+        "windows": {
+         "sym": 105.5,
+         "past": 147.9,
+         "future": 57.9
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.24624649660978004,
+        "basisK": 12,
+        "poleUser": null,
+        "poleRef": null,
+        "poleDiff": null,
+        "reason": "pole_unmeasured"
+       },
+       "uAngleDeg": 82.0,
+       "rAngleDeg": 80.5,
+       "uClaim": "bent",
+       "rClaim": "bent",
+       "uConfMin": 0.597,
+       "rConfMin": 0.672,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": true,
+        "search": {
+         "window": [
+          5.0,
+          7.867
+         ],
+         "holdFail": 24,
+         "claimFail": 19,
+         "pairFail": 0,
+         "ok": 1
+        },
+        "row": {
+         "uSec": 4.8,
+         "uIdx": 72,
+         "rSec": 7.2667,
+         "rIdx": 109,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 0.5222050978723997,
+          "reason": "hold",
+          "windows": {
+           "sym": 111.1,
+           "past": 164.3,
+           "future": 0.5
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 42.76783615096271,
+          "reason": "hold",
+          "windows": {
+           "sym": 42.8,
+           "past": 284.0,
+           "future": 412.4
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.6673007562308159,
+          "basisK": 12,
+          "poleUser": null,
+          "poleRef": null,
+          "poleDiff": null,
+          "reason": "pole_unmeasured"
+         },
+         "uAngleDeg": 82.0,
+         "rAngleDeg": 158.2,
+         "uClaim": "bent",
+         "rClaim": "extended",
+         "uConfMin": 0.597,
+         "rConfMin": 0.548,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    },
+    {
+     "id": "cand06",
+     "rid": "r00",
+     "joint": "right_knee",
+     "holdRun": {
+      "startSec": 5.0,
+      "endSec": 5.9333,
+      "repSec": 5.0,
+      "minDps": 0.5222050978723997,
+      "passFrames": 10
+     },
+     "alignRefSec": 7.1905,
+     "poseMin": {
+      "found": true,
+      "search": {
+       "window": [
+        5.2,
+        7.867
+       ],
+       "holdFail": 21,
+       "claimFail": 0,
+       "pairFail": 10,
+       "ok": 10
+      },
+      "row": {
+       "uSec": 5.0,
+       "uIdx": 75,
+       "rSec": 7.0667,
+       "rIdx": 106,
+       "holdUser": {
+        "passed": true,
+        "speedDps": 0.5222050978723997,
+        "reason": "hold",
+        "windows": {
+         "past": 0.5
+        }
+       },
+       "holdRef": {
+        "passed": true,
+        "speedDps": 57.878706472570116,
+        "reason": "hold",
+        "windows": {
+         "sym": 129.2,
+         "past": 57.9,
+         "future": 284.0
+        }
+       },
+       "pair": {
+        "passed": true,
+        "poseDist": 0.206435408661702,
+        "basisK": 12,
+        "poleUser": null,
+        "poleRef": null,
+        "poleDiff": null,
+        "reason": "pole_unmeasured"
+       },
+       "uAngleDeg": null,
+       "rAngleDeg": 92.8,
+       "uClaim": null,
+       "rClaim": "bent",
+       "uConfMin": 0.348,
+       "rConfMin": 0.628,
+       "uInverted": false,
+       "rInverted": false
+      }
+     },
+     "claimContrast": {
+      "found": true,
+      "variants": [
+       {
+        "uClaim": "bent",
+        "needRefClaim": "extended",
+        "found": true,
+        "search": {
+         "window": [
+          5.8,
+          7.867
+         ],
+         "holdFail": 12,
+         "claimFail": 19,
+         "pairFail": 0,
+         "ok": 1
+        },
+        "row": {
+         "uSec": 5.9333,
+         "uIdx": 89,
+         "rSec": 7.2667,
+         "rIdx": 109,
+         "holdUser": {
+          "passed": true,
+          "speedDps": 8.652803193207527,
+          "reason": "hold",
+          "windows": {
+           "sym": 207.4,
+           "past": 274.0,
+           "future": 8.7
+          }
+         },
+         "holdRef": {
+          "passed": true,
+          "speedDps": 42.76783615096271,
+          "reason": "hold",
+          "windows": {
+           "sym": 42.8,
+           "past": 284.0,
+           "future": 412.4
+          }
+         },
+         "pair": {
+          "passed": true,
+          "poseDist": 0.7891176623760304,
+          "basisK": 12,
+          "poleUser": null,
+          "poleRef": null,
+          "poleDiff": null,
+          "reason": "pole_unmeasured"
+         },
+         "uAngleDeg": 20.5,
+         "rAngleDeg": 158.2,
+         "uClaim": "bent",
+         "rClaim": "extended",
+         "uConfMin": 0.688,
+         "rConfMin": 0.548,
+         "uInverted": false,
+         "rInverted": false
+        }
+       }
+      ]
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     }
+    }
+   ],
+   "approvedFreeze": {
+    "label": "승인 freeze 없음 (ii0 probes.log 에 이 rid 미등재)"
+   },
+   "compressed": [
+    {
+     "cid": "cand02B",
+     "candId": "cand02",
+     "uClaim": "bent",
+     "rClaim": "extended",
+     "row": {
+      "uSec": 1.2667,
+      "uIdx": 19,
+      "rSec": 4.4667,
+      "rIdx": 67,
+      "holdUser": {
+       "passed": true,
+       "speedDps": 0.5225086148745196,
+       "reason": "hold",
+       "windows": {
+        "sym": 0.5,
+        "past": 65.1,
+        "future": 100.5
+       }
+      },
+      "holdRef": {
+       "passed": true,
+       "speedDps": 57.49474362284106,
+       "reason": "hold",
+       "windows": {
+        "sym": 57.5,
+        "past": 368.6,
+        "future": 467.6
+       }
+      },
+      "pair": {
+       "passed": true,
+       "poseDist": 0.6234743599693408,
+       "basisK": 12,
+       "poleUser": null,
+       "poleRef": null,
+       "poleDiff": null,
+       "reason": "pole_unmeasured"
+      },
+      "uAngleDeg": 67.2,
+      "rAngleDeg": 164.7,
+      "uClaim": "bent",
+      "rClaim": "extended",
+      "uConfMin": 0.652,
+      "rConfMin": 0.594,
+      "uInverted": false,
+      "rInverted": false
+     },
+     "holdRun": {
+      "startSec": 1.1333,
+      "endSec": 1.8667,
+      "repSec": 1.2667,
+      "minDps": 0.5225086148745196,
+      "passFrames": 9
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     },
+     "stills": {
+      "user": "evidence/climbfault/stills/r00_cand02B_user_1.2667s.jpg",
+      "ref": "evidence/climbfault/stills/r00_cand02B_ref_4.4667s.jpg"
+     },
+     "pairSheet": "evidence/climbfault/stills/r00_cand02B_PAIR_u1.2667s_r4.4667s.jpg"
+    },
+    {
+     "cid": "cand03B",
+     "candId": "cand03",
+     "uClaim": "bent",
+     "rClaim": "extended",
+     "row": {
+      "uSec": 2.6667,
+      "uIdx": 40,
+      "rSec": 4.4667,
+      "rIdx": 67,
+      "holdUser": {
+       "passed": true,
+       "speedDps": 3.9893355136375606,
+       "reason": "hold",
+       "windows": {
+        "sym": 4.0,
+        "past": 64.3,
+        "future": 106.5
+       }
+      },
+      "holdRef": {
+       "passed": true,
+       "speedDps": 57.49474362284106,
+       "reason": "hold",
+       "windows": {
+        "sym": 57.5,
+        "past": 368.6,
+        "future": 467.6
+       }
+      },
+      "pair": {
+       "passed": true,
+       "poseDist": 0.6327129581801425,
+       "basisK": 12,
+       "poleUser": null,
+       "poleRef": null,
+       "poleDiff": null,
+       "reason": "pole_unmeasured"
+      },
+      "uAngleDeg": 70.9,
+      "rAngleDeg": 164.7,
+      "uClaim": "bent",
+      "rClaim": "extended",
+      "uConfMin": 0.658,
+      "rConfMin": 0.594,
+      "uInverted": false,
+      "rInverted": false
+     },
+     "holdRun": {
+      "startSec": 2.0,
+      "endSec": 2.8667,
+      "repSec": 2.6667,
+      "minDps": 3.9893355136375606,
+      "passFrames": 10
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     },
+     "stills": {
+      "user": "evidence/climbfault/stills/r00_cand03B_user_2.6667s.jpg",
+      "ref": "evidence/climbfault/stills/r00_cand03B_ref_4.4667s.jpg"
+     },
+     "pairSheet": "evidence/climbfault/stills/r00_cand03B_PAIR_u2.6667s_r4.4667s.jpg"
+    },
+    {
+     "cid": "cand04B",
+     "candId": "cand04",
+     "uClaim": "bent",
+     "rClaim": "extended",
+     "row": {
+      "uSec": 3.3333,
+      "uIdx": 50,
+      "rSec": 7.2667,
+      "rIdx": 109,
+      "holdUser": {
+       "passed": true,
+       "speedDps": 1.382633869338932,
+       "reason": "hold",
+       "windows": {
+        "sym": 111.8,
+        "past": 176.9,
+        "future": 1.4
+       }
+      },
+      "holdRef": {
+       "passed": true,
+       "speedDps": 42.76783615096271,
+       "reason": "hold",
+       "windows": {
+        "sym": 42.8,
+        "past": 284.0,
+        "future": 412.4
+       }
+      },
+      "pair": {
+       "passed": true,
+       "poseDist": 0.6554380167817827,
+       "basisK": 12,
+       "poleUser": null,
+       "poleRef": null,
+       "poleDiff": null,
+       "reason": "pole_unmeasured"
+      },
+      "uAngleDeg": 85.4,
+      "rAngleDeg": 158.2,
+      "uClaim": "bent",
+      "rClaim": "extended",
+      "uConfMin": 0.607,
+      "rConfMin": 0.548,
+      "uInverted": false,
+      "rInverted": false
+     },
+     "holdRun": {
+      "startSec": 3.0,
+      "endSec": 3.9333,
+      "repSec": 3.3333,
+      "minDps": 1.382633869338932,
+      "passFrames": 9
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     },
+     "stills": {
+      "user": "evidence/climbfault/stills/r00_cand04B_user_3.3333s.jpg",
+      "ref": "evidence/climbfault/stills/r00_cand04B_ref_7.2667s.jpg"
+     },
+     "pairSheet": "evidence/climbfault/stills/r00_cand04B_PAIR_u3.3333s_r7.2667s.jpg"
+    },
+    {
+     "cid": "cand05B",
+     "candId": "cand05",
+     "uClaim": "bent",
+     "rClaim": "extended",
+     "row": {
+      "uSec": 4.8,
+      "uIdx": 72,
+      "rSec": 7.2667,
+      "rIdx": 109,
+      "holdUser": {
+       "passed": true,
+       "speedDps": 0.5222050978723997,
+       "reason": "hold",
+       "windows": {
+        "sym": 111.1,
+        "past": 164.3,
+        "future": 0.5
+       }
+      },
+      "holdRef": {
+       "passed": true,
+       "speedDps": 42.76783615096271,
+       "reason": "hold",
+       "windows": {
+        "sym": 42.8,
+        "past": 284.0,
+        "future": 412.4
+       }
+      },
+      "pair": {
+       "passed": true,
+       "poseDist": 0.6673007562308159,
+       "basisK": 12,
+       "poleUser": null,
+       "poleRef": null,
+       "poleDiff": null,
+       "reason": "pole_unmeasured"
+      },
+      "uAngleDeg": 82.0,
+      "rAngleDeg": 158.2,
+      "uClaim": "bent",
+      "rClaim": "extended",
+      "uConfMin": 0.597,
+      "rConfMin": 0.548,
+      "uInverted": false,
+      "rInverted": false
+     },
+     "holdRun": {
+      "startSec": 4.0,
+      "endSec": 4.9333,
+      "repSec": 4.8,
+      "minDps": 0.5222050978723997,
+      "passFrames": 10
+     },
+     "approvedRelation": {
+      "approvedUserSec": null
+     },
+     "stills": {
+      "user": "evidence/climbfault/stills/r00_cand05B_user_4.8s.jpg",
+      "ref": "evidence/climbfault/stills/r00_cand05B_ref_7.2667s.jpg"
+     },
+     "pairSheet": "evidence/climbfault/stills/r00_cand05B_PAIR_u4.8s_r7.2667s.jpg"
+    }
+   ]
+  }
+ ]
 }

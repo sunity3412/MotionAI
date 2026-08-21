@@ -1,0 +1,148 @@
+{
+ "status": "APPLIED",
+ "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+ "aid": "p34fresh1786628533",
+ "bucket": "sunity-motion-pilot-videos",
+ "awsProfile": "sunity-motion",
+ "writes": [
+  {
+   "op": "s3.put_object",
+   "key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/compare_v1.mp4",
+   "contentType": "video/mp4",
+   "bytes": 15165738,
+   "sourcePath": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/aaf15967-cfc7-4d52-bfda-e1edd9858ef9/scratchpad/kgq_out/pdshape/inject_run1.mp4",
+   "sourceMd5": "adc69707f1db5f118b882e96f5a4bba4",
+   "s3RoundtripMd5": "adc69707f1db5f118b882e96f5a4bba4",
+   "at": "2026-08-21T06:14:22.188310+00:00",
+   "note": "기존 승인본 md5 재확인 후 같은 키 덮어쓰기"
+  },
+  {
+   "op": "s3.put_object",
+   "key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r00_left_elbow.mp3",
+   "contentType": "audio/mpeg",
+   "bytes": 81692,
+   "sourcePath": "/Users/kimtaesung/Dev/SunityMotion/.planning/quick/260821-kgq-3-pdshape-powerspin-s3-doc/evidence/discover_left_elbow.mp3",
+   "sourceMd5": "c0bab5c9073ec86cc60873350dce87b0",
+   "s3RoundtripMd5": "c0bab5c9073ec86cc60873350dce87b0",
+   "at": "2026-08-21T06:14:22.305291+00:00",
+   "note": "이 사이클 Polly 합성 고정본 (repo evidence) — s3keys.build_discover_audio_key canonical 키"
+  },
+  {
+   "op": "firestore.update_analysis_discovery",
+   "args": {
+    "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+    "analysisId": "p34fresh1786628533",
+    "items": [
+     {
+      "joint": "left_knee",
+      "userSec": 12.8667,
+      "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요.",
+      "rid": "r04",
+      "pairSrc": "discover",
+      "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r04_left_knee.mp3",
+      "refSec": 12.4,
+      "adoptedAt": "2026-08-14"
+     },
+     {
+      "rid": "r00",
+      "joint": "left_elbow",
+      "userSec": 16.4667,
+      "refSec": 15.1333,
+      "pairSrc": "discover",
+      "text": "기준 자세는 팔을 곧게 뻗어 폴을 잡는 순간인데, 왼쪽 팔꿈치가 접혀 있어요. 손을 급하게 뻗어 잡으면 팔꿈치가 접혀요. 조금 더 돌고 올라온 뒤에 팔을 뻗어 편하게 잡아보세요.",
+      "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r00_left_elbow.mp3",
+      "adoptedAt": "2026-08-21"
+     }
+    ]
+   },
+   "fieldPath": "result.discovery",
+   "preItems": [
+    {
+     "joint": "left_knee",
+     "userSec": 12.8667,
+     "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요.",
+     "rid": "r04",
+     "pairSrc": "discover",
+     "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r04_left_knee.mp3",
+     "refSec": 12.4,
+     "adoptedAt": "2026-08-14"
+    }
+   ],
+   "at": "2026-08-21T06:14:22.420959+00:00"
+  },
+  {
+   "op": "firestore.update_analysis_rendered_compare",
+   "args": {
+    "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+    "analysisId": "p34fresh1786628533",
+    "key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/compare_v1.mp4",
+    "status": "done",
+    "freezes": [
+     {
+      "rid": "r00",
+      "outSec": 5.33
+     },
+     {
+      "rid": "r01",
+      "outSec": 15.67
+     },
+     {
+      "rid": "r04",
+      "outSec": 29.93
+     },
+     {
+      "rid": "r04:discover",
+      "outSec": 42.07
+     },
+     {
+      "rid": "r02",
+      "outSec": 54.17
+     },
+     {
+      "rid": "r00:discover",
+      "outSec": 68.8
+     },
+     {
+      "rid": "r03",
+      "outSec": 83.0
+     }
+    ]
+   },
+   "fieldPath": "result.renderedCompare",
+   "preFreezes": [
+    {
+     "outSec": 5.33,
+     "rid": "r00"
+    },
+    {
+     "outSec": 15.67,
+     "rid": "r01"
+    },
+    {
+     "outSec": 29.93,
+     "rid": "r04"
+    },
+    {
+     "outSec": 42.07,
+     "rid": "r04:discover"
+    },
+    {
+     "outSec": 54.17,
+     "rid": "r02"
+    },
+    {
+     "outSec": 69.0,
+     "rid": "r03"
+    }
+   ],
+   "at": "2026-08-21T06:14:22.508169+00:00"
+  }
+ ],
+ "llm": {
+  "geminiCalls": 0,
+  "cerebrasCalls": 0,
+  "pollyCallsThisStage": 0,
+  "note": "apply = 렌더 산출 업로드·doc 쓰기만. Polly TTS 는 --synthesize 에서 동작당 1회 (비-LLM). LLM 추론 호출 0."
+ },
+ "at": "2026-08-21T06:14:22.508279+00:00"
+}

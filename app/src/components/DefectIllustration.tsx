@@ -44,25 +44,38 @@ import Svg, {
   Defs,
   Image as SvgImage,
   Line,
+  Path,
   Polygon,
   Circle,
   G,
 } from 'react-native-svg';
 
 import { illustrationAssetForPart } from '../lib/illustrationScene';
-import { buildHowOverlay, type HowOverlay } from '../lib/illustrationHow';
+import {
+  buildHowOverlay,
+  type HowOverlay,
+  type HowOverlayBaked,
+  type HowOverlayRotate,
+} from '../lib/illustrationHow';
 import { colors, radius, typography } from '../theme';
 
-// 등재 에셋 원본 비율 (720x964 — 9/9 전부 동일). 높이 = 실측 폭 × 이 값.
+// 등재 에셋 원본 비율 (720x964 — 기본). 높이 = 실측 폭 × 이 값.
+// 예외는 아래 override 맵 (quick-260821-gb7) — 비율이 다른 에셋이 하나라도 있으면
+// 카드 기하(capW·h)와 buildHowOverlay 의 aspect 가 **같은 값**을 써야 한다.
 const ASSET_H_OVER_W = 964 / 720;
+// quick-260821-gb7 — belle 08-21 승인 잔상 에셋은 896x1200 (sips 실측). 720x964 전제의
+// 예외를 데이터로 등재한다 (코드 분기 0).
+const ASSET_H_OVER_W_OVERRIDES: Readonly<Record<string, number>> = {
+  'ref-kip-up--leg': 1200 / 896,
+};
 
 // 검수 PASS 에셋 맵 — RN 정적 require (번들 포함). 키 = 장면 표의 `asset`.
 // 항목 추가 = 33-14 게이트 재수행 후에만 (틀린 그림 유입 차단).
 const VERIFIED_ILLUSTRATIONS: Record<string, number> = {
   'ref-power-spin': require('../../assets/illustrations/ref-power-spin.jpg'),
   'ref-kip-up': require('../../assets/illustrations/ref-kip-up.jpg'),
-  // quick-260818-nnm — "어떻게" 후보 에셋. belle 미승인 상태라 장면 표가 가리키지 않는다
-  // (그림 교체는 판정 후). 키만 등록해 두어 승인 시 장면 표 한 줄만 바꾸면 된다.
+  // quick-260821-gb7 — belle 08-21 승인 (보드 실물 3회 확인): 잔상 포함 "어떻게" 그림
+  // (exq stage20-1, 896x1200). 화살표·수치 문장은 앱이 그린다 — HOW_ANCHORS baked.
   'ref-kip-up--leg': require('../../assets/illustrations/ref-kip-up--leg.jpg'),
   'ref-climb': require('../../assets/illustrations/ref-climb.jpg'),
   'ref-invert': require('../../assets/illustrations/ref-invert.jpg'),
@@ -129,18 +142,20 @@ export function DefectIllustration({
   const [availW, setAvailW] = useState(0);
   if (source == null) return null; // 'hidden' — 미검증/불일치는 조용히 생략 (D-15/D-18/D-43)
 
+  // 에셋별 비율 — override 맵에 있으면 그 값, 없으면 기본 720x964 (quick-260821-gb7).
+  const hOverW = ASSET_H_OVER_W_OVERRIDES[matched ?? ''] ?? ASSET_H_OVER_W;
   // 폭 우선, 단 높이 상한을 넘으면 **상한에 맞춰 폭을 줄인다**. 비율이 그대로라
   // 잘림도 letterbox 도 없고, 그림이 작아질 뿐이다 — 일러스트는 전신 기하가 곧
   // 메시지이므로 "조금 작게 전부" 가 "크게 반쪽" 보다 낫다.
   const capW =
     typeof maxHeight === 'number' && maxHeight > 0
-      ? maxHeight / ASSET_H_OVER_W
+      ? maxHeight / hOverW
       : Number.POSITIVE_INFINITY;
   const w = Math.floor(Math.min(availW, capW));
-  const h = Math.round(w * ASSET_H_OVER_W);
+  const h = Math.round(w * hOverW);
   // quick-260818-nnm — 오버레이는 순수 계산(illustrationHow) 이 결정한다. null 이면 그림만.
   const overlay = how
-    ? buildHowOverlay(matched, how.measured, how.target, how.unit, ASSET_H_OVER_W)
+    ? buildHowOverlay(matched, how.measured, how.target, how.unit, hOverW)
     : null;
 
   return (
@@ -164,12 +179,13 @@ export function DefectIllustration({
 }
 
 /**
- * "어떻게" 오버레이 (quick-260818-nnm). 그림 위에 얹는 계층 — 그림 파일은 손대지 않는다.
- *   1) 잔상 = 같은 그림을 다리 영역으로 클립해 골반 기준으로 학생 각도만큼 돌린 것 (연하게)
- *   2) 폴 등 frontClip 영역을 다시 위에 (잔상이 폴을 가리지 않게)
- *   3) 화살표 = 잔상 말단 → 실선 말단 · 잔상 말단에 점 · "지금"
- *   4) 방향 문장 ("50° 정도 더 벌리세요") — 값이 있을 때만, 방향으로만
- * 좌표는 전부 비율 → 여기서 픽셀로 곱한다.
+ * "어떻게" 오버레이 (quick-260818-nnm · quick-260821-gb7). 그림 위에 얹는 계층 —
+ * 그림 파일은 손대지 않는다. 좌표는 전부 비율 → 여기서 픽셀로 곱한다.
+ * kind 분기 (illustrationHow 판별 union):
+ *   'rotate' → 잔상 회전복사 + frontClip + 직선 화살표 + "지금" pill (종전 그대로)
+ *   'baked'  → 잔상이 그림에 구워져 있다 (belle 08-21 승인, BELLE-0821-4). 곡선 화살표
+ *              2개 + 하단 중앙 수치 문장만 그린다 — 잔상 SvgImage·frontClip·"지금"
+ *              pill·잔상 점은 생략.
  */
 function HowOverlayLayer({
   overlay,
@@ -178,6 +194,96 @@ function HowOverlayLayer({
   h,
 }: {
   overlay: HowOverlay;
+  source: number;
+  w: number;
+  h: number;
+}) {
+  if (overlay.kind === 'baked') {
+    return <BakedHowLayer overlay={overlay} w={w} h={h} />;
+  }
+  return <RotateHowLayer overlay={overlay} source={source} w={w} h={h} />;
+}
+
+/**
+ * baked 렌더 (quick-260821-gb7, BELLE-0821-2/-3). 승인 실물과 같은 겉모습 —
+ * `.planning/quick/260821-fe9-20-a-vs-b/out/ref-kip-up--leg__B-overlay20-1.png`
+ * (compose_b.py 기하 이식): quadratic bezier 화살표(잔상 발 → 같은 쪽 실선 발,
+ * 선 굵기 ≈ 폭 0.6%, 화살촉 ≈ 폭 2.5%, 촉 반각 0.45 rad, 촉 방향 = 제어점→끝점
+ * 접선) + 수치 문장 하단 중앙 1곳.
+ */
+function BakedHowLayer({
+  overlay,
+  w,
+  h,
+}: {
+  overlay: HowOverlayBaked;
+  w: number;
+  h: number;
+}) {
+  const px = (f: readonly [number, number]) => [f[0] * w, f[1] * h] as const;
+  const stroke = Math.max(2, w * 0.006);
+  const head = Math.max(8, w * 0.025);
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg width={w} height={h}>
+        {overlay.arrows.map((a, i) => {
+          const [x0, y0] = px(a.from);
+          const [cx, cy] = px(a.ctrl);
+          const [x1, y1] = px(a.to);
+          // 촉이 앉는 만큼 몸통 끝을 살짝 줄인다 (compose_b `_arrow` 이식 — 둥근
+          // 선끝이 촉 꼭짓점 밖으로 삐져나오지 않게). De Casteljau 좌분할: t 에서
+          // 자른 앞쪽 곡선의 제어점 = P0, lerp(P0,P1,t), 곡선 위 점(t).
+          const dist = Math.hypot(x1 - x0, y1 - y0);
+          const t = 1 - Math.min(0.3, (head * 0.5) / Math.max(1, dist));
+          const qx = x0 + (cx - x0) * t;
+          const qy = y0 + (cy - y0) * t;
+          const rx = cx + (x1 - cx) * t;
+          const ry = cy + (y1 - cy) * t;
+          const ex = qx + (rx - qx) * t;
+          const ey = qy + (ry - qy) * t;
+          // 화살촉 — 방향 = 제어점→끝점 접선, 반각 0.45 rad (compose_b 동일).
+          const ang = Math.atan2(y1 - cy, x1 - cx);
+          const p1 = [x1 - head * Math.cos(ang - 0.45), y1 - head * Math.sin(ang - 0.45)];
+          const p2 = [x1 - head * Math.cos(ang + 0.45), y1 - head * Math.sin(ang + 0.45)];
+          return (
+            <G key={`b${i}`}>
+              <Path
+                d={`M ${x0} ${y0} Q ${qx} ${qy} ${ex} ${ey}`}
+                stroke={colors.brand}
+                strokeWidth={stroke}
+                strokeLinecap="round"
+                fill="none"
+              />
+              <Polygon
+                points={`${x1},${y1} ${p1[0]},${p1[1]} ${p2[0]},${p2[1]}`}
+                fill={colors.brand}
+              />
+            </G>
+          );
+        })}
+      </Svg>
+      {/* 수치 문장 — 하단 중앙 (승인 실물의 텍스트 상단 y≈0.948 과 등가, BELLE-0821-3). */}
+      <View style={[styles.dirPill, { bottom: h * 0.035 }]}>
+        <Text style={styles.dirText}>{overlay.directionText}</Text>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * rotate 렌더 (quick-260818-nnm 원형 — 로직 무변경).
+ *   1) 잔상 = 같은 그림을 다리 영역으로 클립해 골반 기준으로 학생 각도만큼 돌린 것 (연하게)
+ *   2) 폴 등 frontClip 영역을 다시 위에 (잔상이 폴을 가리지 않게)
+ *   3) 화살표 = 잔상 말단 → 실선 말단 · 잔상 말단에 점 · "지금"
+ *   4) 방향 문장 ("50° 정도 더 벌리세요") — 값이 있을 때만, 방향으로만
+ */
+function RotateHowLayer({
+  overlay,
+  source,
+  w,
+  h,
+}: {
+  overlay: HowOverlayRotate;
   source: number;
   w: number;
   h: number;

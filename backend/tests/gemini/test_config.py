@@ -111,3 +111,41 @@ class TestResolveModel:
 
     def test_none_env_override_returns_default(self) -> None:
         assert resolve_model("B", env_override=None) == DEFAULT_B_MODEL
+
+
+# ─────────────────── lazy __init__ 회귀 (quick-260821-umc) ───────────────────
+
+
+class TestPackageInitIsLazy:
+    def test_config_import_does_not_pull_client(self) -> None:
+        """pure 소비자(.config 만)는 google-genai 없는 venv 에서도 살아야 한다.
+
+        08-18 중앙 config 도입(359b9de5) 후 패키지 __init__ 의 eager `.client` import 가
+        `from google import genai` 를 무조건 끌고 와, --skip-judge 게이트 하네스가
+        ab_venv_cu129(genai 미설치)에서 ImportError 로 죽었다. 이 테스트는 fresh
+        인터프리터에서 .config import 가 .client 를 안 끌고 오는지 박제한다.
+        """
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        import sunity_shared
+
+        pkg_root = str(Path(sunity_shared.__file__).resolve().parent.parent)
+        env = dict(os.environ)
+        env["PYTHONPATH"] = pkg_root + os.pathsep + env.get("PYTHONPATH", "")
+        code = (
+            "import sys\n"
+            "import sunity_shared.gemini.config\n"
+            "assert 'sunity_shared.gemini.client' not in sys.modules, 'client eager import'\n"
+            "assert 'google.genai' not in sys.modules, 'genai eager import'\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+        assert result.returncode == 0, result.stderr

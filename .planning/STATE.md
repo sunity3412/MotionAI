@@ -76,7 +76,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-08-21 - Completed quick task 260821-gb7: 킵업 "어떻게" 일러스트 배선 (시뮬 실증, OTA 대기)
+Last activity: 2026-08-21 - Completed quick task 260821-kgq: 발굴 채택 2건 프로덕션 반영 (pdshape elbow + powerspin shoulder)
 
 이전: 2026-08-09 - **일러스트 라운드 종료** — 기준 모션 7/11 → **11/11**, 실제 지적 발생 (동작·부위) 짝 **13/13 커버**(그림 없이 나가던 감점 65건 → **0**). belle 반려 3라운드로 검수 게이트 **4→9항목**(머리카락·착의·폴/인물 수·목·사지 전 길이). ★**검수는 몽타주 축소본으로 하지 않는다** — belle 3건·내 3건이 전부 축소본 통과분이었다. 사이각 문법 전환은 시도 후 **철회**: belle 역할 구분(확대비교=차이 / 일러스트=목표)이 반려의 뜻이었고, 각 표시 정밀화는 **확대 비교의 몫**. 자산 정본 = `1141c738`. ★**다음 1순위 = 확대 비교 각도 표시**(실측 5건 중 2건만 그려짐) + **일러스트 자세 충실도**(belle 지시: 반드시 해내야 함). 미검증 = 시뮬 실화면·belle 최종 육안
 
@@ -201,6 +201,7 @@ Last activity: 2026-08-21 - Completed quick task 260821-gb7: 킵업 "어떻게" 
 | 260821-exq | 일러스트 "어떻게" 3단계 잔상 6장 생성 (가 스타일 ghost-noarrow, deficit 20/40/60). 자평 5/6 성립, stage40-1 방향 역전 탈락. belle 판정 = 40·60 절대 불가, 20 종류 채택 + 화살표 필요 (→ fe9) | 2026-08-21 | f5c2716c | [260821-exq-3-ghost-noarrow-20-40-60-belle](./quick/260821-exq-3-ghost-noarrow-20-40-60-belle/) |
 | 260821-fe9 | 킵업 화살표 A/B 실물 대조 — A(그림에 굽기) 2장: 잔상 40급 위반 + A-2 폴 출발 재발 / B(앱 오버레이) 2장: 문법 정합. belle 판정 = B + 수치 문장 하단 중앙 (수치 역할 = 발전 추적) | 2026-08-21 | c6dea279 | [260821-fe9-20-a-vs-b](./quick/260821-fe9-20-a-vs-b/) |
 | 260821-gb7 | 킵업 "어떻게" 일러스트 배선 — belle 승인 20-1(잔상 baked) 에셋 + 앱 오버레이(화살표·수치 하단 중앙, B 방식). 시뮬 실증(50° 실데이터 렌더), 회귀 0. ★OTA 미발행 — belle 확인 대기. 다음 = 발전 캡션 | 2026-08-21 | 8e39d9b5 | [260821-gb7-20-1-belle-08-21](./quick/260821-gb7-20-1-belle-08-21/) |
+| 260821-kgq | 발굴 신규 채택 2건 프로덕션 반영 — 피디쉐입 왼팔꿈치 16.5s + 파워스핀 왼어깨 0.5s (belle 08-21 "둘 다 오케이"). di7 경로 재사용, STOP 게이트 전건 통과, 왼무릎 정지 보존 bit-exact, 쓰기 8건 왕복 검증, LLM 0. 남은 것 = Pod 실증 | 2026-08-21 | 233ccad | [260821-kgq-3-pdshape-powerspin-s3-doc](./quick/260821-kgq-3-pdshape-powerspin-s3-doc/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

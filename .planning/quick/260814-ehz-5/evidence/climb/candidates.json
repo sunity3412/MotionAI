@@ -1,0 +1,71 @@
+{
+ "meta": {
+  "motion": "climb",
+  "motionId": "ref-climb",
+  "s3Keys": {
+   "user": "fixtures/phase15/climb/correct.mp4",
+   "ref": "reference/ref-climb.mp4"
+  },
+  "sourceGate": {
+   "motion": "climb",
+   "checks": {
+    "p35DocExists": true,
+    "p35AlignExists": true,
+    "alignSchemaMissing": [],
+    "alignFpsLabel": 15.0,
+    "frames": {
+     "user": 119,
+     "ref": 119
+    },
+    "video_user": "cached",
+    "video_ref": "cached",
+    "fpsCrossCheck": {
+     "user": {
+      "durS": 7.93,
+      "framesOverDuration": 15.006
+     },
+     "ref": {
+      "durS": 7.93,
+      "framesOverDuration": 15.006
+     }
+    },
+    "probeEffectiveFps": {
+     "user": 9.963333333333333,
+     "ref": 9.963333333333333
+    }
+   },
+   "reasons": [],
+   "passed": true,
+   "s3Keys": {
+    "user": "fixtures/phase15/climb/correct.mp4",
+    "ref": "reference/ref-climb.mp4",
+    "motionId": "ref-climb"
+   }
+  },
+  "generated": "2026-08-21T06:58:02.767320+00:00",
+  "alignFps": 15.0,
+  "poles": {
+   "user": null,
+   "ref": null
+  },
+  "clip": {
+   "userFrames": 119,
+   "refFrames": 119
+  },
+  "thresholds": {
+   "source": "260811-ii0 SWEEP-REPORT §2 (card_gates 모듈 상수 — 재튜닝 0)",
+   "holdMaxDps": 60.0,
+   "poseMax": 0.85,
+   "poleDiffMax": 0.375,
+   "confMin": 0.35,
+   "eyeBentMaxDeg": 100.0,
+   "eyeExtMinDeg": 150.0,
+   "pairWindowS": 2.0,
+   "maxCandsPerRecord": 4
+  },
+  "verdict": "로컬 replay 가능",
+  "recordCount": 0,
+  "recordInventoryExpected": 0
+ },
+ "records": []
+}

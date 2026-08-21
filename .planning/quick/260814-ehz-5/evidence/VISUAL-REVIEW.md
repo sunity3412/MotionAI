@@ -221,3 +221,15 @@
   `elbow/eye_calls.log` 20회 + `eye_verdicts.json`)
 - **peterpan** — 유일 후보 1건 눈 기각. 렌더 0.
 - **kipup** — 후보 0(split 유도 불가). 눈 호출 0, 렌더 0.
+
+---
+
+## 스윕 확장 — climb·climbfault·combo (quick-260821-ls0, 2026-08-21)
+
+3동작 정식 등재 후 스윕 실행 결과 **압축 후보 0건** — 세 동작 모두 커밋 P35
+doc 의 `deductionBreakdown.records` 가 0건이라 스캔이 돌 record 자체가 없었다
+(발굴 아님·침묵). 생성된 stills/짝시트/카드 **0장 = 열 실물 없음** — 이
+게이트는 대상 부재로 통과 처리하지 않고 "실물 0" 사실만 명기한다. 판정 근거
+수치는 `evidence/{climb,climbfault,combo}/candidates.json` 과
+[260821-ls0 DISCOVERY-SHEET.md](../../260821-ls0-climb-combo-ehz-0/DISCOVERY-SHEET.md).
+기계 눈 호출 0회 (후보 0 — Gemini 키 주입 자체가 발생하지 않음).

@@ -315,3 +315,50 @@ belle 몫이며 전건 시트 §2 표에 남아 있다.
 > 없이 append 로 정정 이력 보존). 순간 선택 실적 집계(08-14 기준 3/3)는
 > 변동 없음 — 이번 판정은 새 추천-판정 짝이 아니라 기존 행 2건의 조건부
 > 판정("표현 방식 보강")이 채택 확정으로 종결된 것이다.
+
+---
+
+## climb·climbfault·combo 스윕 (260821-ls0) — 사전 박제
+
+belle 08-21 지시("climb·combo 스윕 돌려놔")의 이행. ehz 하네스
+`discover_sweep.py` 에 3동작을 정식 등재(SWEEP_JOBS/RECORD_INVENTORY 순수 추가,
+커밋 661169e3 — 기존 5동작 무회귀 = pdshapefault 스캔 dict 동등 + stills 48/48
+md5 동일)하고 스윕을 돌렸다. 시트 =
+[260821-ls0 DISCOVERY-SHEET.md](../260821-ls0-climb-combo-ehz-0/DISCOVERY-SHEET.md).
+
+**이 절도 belle 판정 전에 커밋된다 — 판정란 선기입 금지.**
+
+기계 요지: 소스 게이트 3/3 PASS(로컬 replay, Pod 불요) · 3동작 record 0/0/0 =
+실행 시점 재실측 인벤토리와 일치 (climbfault 는 Firestore 원본 대조로 **스냅샷
+결손 아님** 확정 — 원본에도 deductionBreakdown 부재) · 후보 0 · 기계 눈 호출
+**0회** · 카드 0장 · 8동작 전체 `--check` PASS(records 13/13). 임계 재튜닝 0 ·
+backend diff 0 · S3 GET only · Firestore 쓰기 0.
+
+### 동작별 실행자 추천 (판정 전 박제)
+
+| 동작 | 발굴 결과 | 실행자 추천 (정확히 1안) | 근거 / 침묵 사유 |
+|---|---|---|---|
+| climb | record **0** → 후보 0 | **발굴 0 — 추천 없음** | r7k 재생성본(score 100) `deductionBreakdown.records` 길이 0 — correct 영상 클린 패턴. 발굴이 돌 감점 record 자체가 없다 |
+| climbfault | record **0** → 후보 0 | **발굴 0 — 추천 없음** | r7k 재생성본(score 86) `deductionBreakdown` 키 자체 부재 — **Firestore 원본 대조로 결손 아님 확정(진짜 침묵)**. faultZoomComparisons 2건은 별개 층이라 record 소스로 쓰지 않았다(대체 발명 금지). "감점 86 + record 층 부재" 원인은 미검증 — 별건 조사 의제 후보 |
+| combo | record **0** → 후보 0 | **발굴 0 — 추천 없음** | c3m 생성본(score 100) `records: []` — 클린 correct 패턴 (c3m SUMMARY 기박제). 62s/930프레임 소스 게이트는 전부 PASS, 재료만 없다 |
+
+### belle 판정 기입란 (판정 후 기입 — 실행자 선기입 금지)
+
+| 동작 | 사전 추천 | belle 판정 (채택/반려/보류) | belle 원문 |
+|---|---|---|---|
+| climb | 발굴 0 (추천 없음) | | |
+| climbfault | 발굴 0 (추천 없음) | | |
+| combo | 발굴 0 (추천 없음) | | |
+| (별건 — climbfault "감점 86 + record 층 부재" 조사 의제 여부) | 시트 §4 | | |
+
+### 승격 실적 집계 (행 append)
+
+| 행 | 사이클 | 사전 추천 (커밋) | belle 판정 | 일치 여부 |
+|---|---|---|---|---|
+| 9 | 260821-ls0 · climb | 발굴 0 — 추천 없음 (본 절 커밋, 판정 전) | (판정 대기) | (판정 대기) |
+| 10 | 260821-ls0 · climbfault | 발굴 0 — 추천 없음 (본 절 커밋, 판정 전) | (판정 대기) | (판정 대기) |
+| 11 | 260821-ls0 · combo | 발굴 0 — 추천 없음 (본 절 커밋, 판정 전) | (판정 대기) | (판정 대기) |
+
+> 집계 규칙 재확인: "발굴 0 = 추천 없음"도 하나의 추천으로 세어 판정과
+> 대조한다. belle 이 "여기는 나왔어야 한다"고 판정하면 그 행은 불일치로
+> 적는다 — 침묵이 무판정으로 빠져나가지 않는다.

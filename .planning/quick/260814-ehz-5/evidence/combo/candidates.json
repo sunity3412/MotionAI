@@ -1,0 +1,71 @@
+{
+ "meta": {
+  "motion": "combo",
+  "motionId": "ref-combo",
+  "s3Keys": {
+   "user": "fixtures/phase15/combo/correct.mp4",
+   "ref": "reference/ref-combo.mp4"
+  },
+  "sourceGate": {
+   "motion": "combo",
+   "checks": {
+    "p35DocExists": true,
+    "p35AlignExists": true,
+    "alignSchemaMissing": [],
+    "alignFpsLabel": 15.0,
+    "frames": {
+     "user": 930,
+     "ref": 930
+    },
+    "video_user": "cached",
+    "video_ref": "cached",
+    "fpsCrossCheck": {
+     "user": {
+      "durS": 61.98,
+      "framesOverDuration": 15.005
+     },
+     "ref": {
+      "durS": 62.0,
+      "framesOverDuration": 15.0
+     }
+    },
+    "probeEffectiveFps": {
+     "user": 9.996666666666666,
+     "ref": 9.99
+    }
+   },
+   "reasons": [],
+   "passed": true,
+   "s3Keys": {
+    "user": "fixtures/phase15/combo/correct.mp4",
+    "ref": "reference/ref-combo.mp4",
+    "motionId": "ref-combo"
+   }
+  },
+  "generated": "2026-08-21T06:58:07.506244+00:00",
+  "alignFps": 15.0,
+  "poles": {
+   "user": null,
+   "ref": null
+  },
+  "clip": {
+   "userFrames": 930,
+   "refFrames": 930
+  },
+  "thresholds": {
+   "source": "260811-ii0 SWEEP-REPORT §2 (card_gates 모듈 상수 — 재튜닝 0)",
+   "holdMaxDps": 60.0,
+   "poseMax": 0.85,
+   "poleDiffMax": 0.375,
+   "confMin": 0.35,
+   "eyeBentMaxDeg": 100.0,
+   "eyeExtMinDeg": 150.0,
+   "pairWindowS": 2.0,
+   "maxCandsPerRecord": 4
+  },
+  "verdict": "로컬 replay 가능",
+  "recordCount": 0,
+  "recordInventoryExpected": 0
+ },
+ "records": []
+}

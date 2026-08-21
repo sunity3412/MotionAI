@@ -1,0 +1,73 @@
+{
+ "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+ "analysisId": "p34fresh1787315198",
+ "status": "done",
+ "mode": "mode1",
+ "referenceMotionId": "ref-pdshape",
+ "overallScore": 60,
+ "records": [
+  {
+   "recordId": "r00:angle_vs_reference__left_elbow",
+   "criterion": "angle_vs_reference__left_elbow",
+   "atVideoSec": 7.002334111370457,
+   "points": -12.9
+  },
+  {
+   "recordId": "r01:angle_vs_reference__right_elbow",
+   "criterion": "angle_vs_reference__right_elbow",
+   "atVideoSec": 2.1007002334111373,
+   "points": -12.1
+  },
+  {
+   "recordId": "r02:angle_vs_reference__left_hip",
+   "criterion": "angle_vs_reference__left_hip",
+   "atVideoSec": 5.701900633544515,
+   "points": -4.2
+  },
+  {
+   "recordId": "r03:angle_vs_reference__left_knee",
+   "criterion": "angle_vs_reference__left_knee",
+   "atVideoSec": 8.20273424474825,
+   "points": -5.4
+  },
+  {
+   "recordId": "r04:angle_vs_reference__right_knee",
+   "criterion": "angle_vs_reference__right_knee",
+   "atVideoSec": 4.101367122374125,
+   "points": -7.7
+  }
+ ],
+ "renderedCompare": {
+  "status": "done",
+  "freezes": [
+   {
+    "rid": "r01",
+    "outSec": 2.13
+   },
+   {
+    "rid": "r04",
+    "outSec": 14.0
+   },
+   {
+    "rid": "r00",
+    "outSec": 26.87
+   },
+   {
+    "rid": "r03",
+    "outSec": 37.77
+   },
+   {
+    "rid": "r02",
+    "outSec": 56.03
+   }
+  ],
+  "key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1787315198/compare_v1.mp4"
+ },
+ "discoveryPresent": false,
+ "discoveryValue": "(absent)",
+ "motionAlignment": {
+  "tier": "trim_only",
+  "reason": "low_global_confidence"
+ },
+ "sourceLabel": "phase34_fresh_reanalysis:127a2a90c1d74c62ad61270eb3fe5625"
+}

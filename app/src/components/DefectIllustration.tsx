@@ -262,8 +262,11 @@ function BakedHowLayer({
           );
         })}
       </Svg>
-      {/* 수치 문장 — 하단 중앙 (승인 실물의 텍스트 상단 y≈0.948 과 등가, BELLE-0821-3). */}
-      <View style={[styles.dirPill, { bottom: h * 0.035 }]}>
+      {/* 수치 문장 — 하단 중앙 (승인 실물의 텍스트 상단 y≈0.948 과 등가, BELLE-0821-3).
+          시뮬 실측(quick-260821-gb7): 시트 카드가 작아 dirPill 원형(padding 14/6,
+          bottom 3.5%)이 화살표 몸통을 덮었다 — 승인 실물은 문장이 화살표 아래
+          여백에 있다. padding 을 좁히고 바닥에 붙여 화살표가 보이게 한다. */}
+      <View style={[styles.dirPill, styles.bakedDirPill, { bottom: h * 0.01 }]}>
         <Text style={styles.dirText}>{overlay.directionText}</Text>
       </View>
     </View>
@@ -390,6 +393,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   dirText: { ...typography.caption, fontWeight: '700', color: colors.brand },
+  // baked 전용 (quick-260821-gb7) — 카드가 작을 때 화살표를 덮지 않도록 dirPill 보다
+  // 좁은 padding. 색·타이포는 dirPill/dirText 그대로 상속.
+  bakedDirPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
   // 높이를 **실측 폭 × 비율**로 준다 (quick-260731-plf V-3). 종전에는 Image 가
   // `width:'100%' + aspectRatio` 를 들고 카드에는 높이 제약이 없었는데, 그 조합에서
   // Image 가 카드보다 크게 깔리고 카드의 overflow:hidden 이 잘라냈다. 그 결함은

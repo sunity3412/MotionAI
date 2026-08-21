@@ -76,7 +76,7 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-08-21 - Completed quick task 260821-pnp: climbfault 코퍼스 교체 + 재스윕 (정직한 침묵 확정)
+Last activity: 2026-08-21 - Completed quick task 260821-tg6: Pod E2E + 발굴 상속 실증 (Pod 대기열 소진)
 
 이전: 2026-08-09 - **일러스트 라운드 종료** — 기준 모션 7/11 → **11/11**, 실제 지적 발생 (동작·부위) 짝 **13/13 커버**(그림 없이 나가던 감점 65건 → **0**). belle 반려 3라운드로 검수 게이트 **4→9항목**(머리카락·착의·폴/인물 수·목·사지 전 길이). ★**검수는 몽타주 축소본으로 하지 않는다** — belle 3건·내 3건이 전부 축소본 통과분이었다. 사이각 문법 전환은 시도 후 **철회**: belle 역할 구분(확대비교=차이 / 일러스트=목표)이 반려의 뜻이었고, 각 표시 정밀화는 **확대 비교의 몫**. 자산 정본 = `1141c738`. ★**다음 1순위 = 확대 비교 각도 표시**(실측 5건 중 2건만 그려짐) + **일러스트 자세 충실도**(belle 지시: 반드시 해내야 함). 미검증 = 시뮬 실화면·belle 최종 육안
 
@@ -205,6 +205,7 @@ Last activity: 2026-08-21 - Completed quick task 260821-pnp: climbfault 코퍼�
 | 260821-ls0 | climb·climbfault·combo 발굴 스윕 — 3동작 전건 침묵 (record 0/0/0, climbfault 는 Firestore 원본 대조로 결손 아님 확정). Gemini 0회, 기존 5동작 무회귀, 장부 행 9~11 사전 박제. ★후속 판독(같은 날): climbfault record 0 은 코퍼스 하네스 env 의 veto OFF 가 원인 — veto ON 재분석에서 record 1건(오른무릎 2.4s) 생성 실증 | 2026-08-21 | 3f8100ea | [260821-ls0-climb-combo-ehz-0](./quick/260821-ls0-climb-combo-ehz-0/) |
 | 260821-o3m | 재학습 v30 재개 — A100(드라이버 550) 맞춤 cu124 venv + transformers 5.11.0 실측 핀으로 v30 사인(purely quantized ValueError) 해소. **v32 run 발사, step1 loss 1.58 성립, ETA ~2h46m**. ★gates venv gap (vllm 없음) 다음 결정 사항 | 2026-08-21 | 80d22a82 | [260821-o3m-v30-train-a100-550-train-venv-transforme](./quick/260821-o3m-v30-train-a100-550-train-venv-transforme/) |
 | 260821-pnp | climbfault 코퍼스 veto-ON doc 교체(record 1건, 오른무릎 2.4s) + 재스윕 — 후보 4건 전건 기계 눈 기각 (기준 후면 뷰 트랙 extended 환각 포착). 최종 = 정직한 침묵. 하네스 veto env 경고 수리. ★중간 STOP 1회 = 오케스트레이터 핀 오류(no-veto ID 오귀속) — 게이트가 잡음 | 2026-08-21 | 3558a90b | [260821-pnp-climbfault-veto-on-doc-veto-env](./quick/260821-pnp-climbfault-veto-on-doc-veto-env/) |
+| 260821-tg6 | Pod E2E + kgq 발굴 상속 + D-di7-03 종결 — 신선 분석 done(456s, score 60), 발굴 정지 3건 결정론 재현(outSec 정확 일치)·스틸 육안, discover mp3 운영 회수 로그 최초 확보. ★관측 2건: 운영 마킹 `:discover` suffix 소실(D-di7-05 불일치, 후속 재료) · **Cerebras 402 잔액**(Gemini cross-fill로 커버, belle 확인 필요) | 2026-08-21 | 26db97c9 | [260821-tg6-pod-e2e-kgq-discovery-mp3-d-di7-03](./quick/260821-tg6-pod-e2e-kgq-discovery-mp3-d-di7-03/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

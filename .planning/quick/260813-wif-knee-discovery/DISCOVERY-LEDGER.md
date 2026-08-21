@@ -362,3 +362,60 @@ backend diff 0 · S3 GET only · Firestore 쓰기 0.
 > 집계 규칙 재확인: "발굴 0 = 추천 없음"도 하나의 추천으로 세어 판정과
 > 대조한다. belle 이 "여기는 나왔어야 한다"고 판정하면 그 행은 불일치로
 > 적는다 — 침묵이 무판정으로 빠져나가지 않는다.
+
+---
+
+## climbfault veto-ON 재스윕 (260821-pnp) — 행 10 정정 + 사전 박제
+
+**이 절도 belle 판정 전에 커밋된다 — 판정란 선기입 금지.**
+
+### 행 10 정정 각주 (행 10 → 행 10')
+
+ls0 의 "발굴 0 — 추천 없음"(행 10) 판정 전제가 바뀌었다:
+
+- ls0 판정은 **doc 층에서는 옳았다** — Firestore 원본 대조까지 이행해 스냅샷
+  결손 아님(원본에도 deductionBreakdown 부재)을 확인했다.
+- 그러나 그 doc 자체가 **veto OFF 생성본(visionVeto skipped_error) = 재료
+  결손본**이었다. 코퍼스 하네스 문서화 env(aws_env.sh)에
+  GEMINI_VISION_VETO_ENABLED(기본 OFF)·GEMINI_API_KEY 가 없어 veto 가 조용히
+  꺼진 채 생성된 doc 이었다 (운영 서버는 start_server.sh 가 플래그 영구
+  박제라 무관 — 함정은 코퍼스 하네스 경로에만 있었다).
+- 08-21 veto-ON 재분석 doc `p35newclimbfault1787297579`(overall 92, baseline
+  100→92, visionVeto **applied**)에서 **record 1건(r00 오른무릎, atVideoSec
+  2.409s) 생성 실증** — 전제 변경. 커밋 doc 교체 + RECORD_INVENTORY 1 정정
+  완료 (커밋 c4ea10d4). 재발 방지 = p35_new_motion_docs.py 에 veto env 경고
+  + docstring env 3종 명기 (이 커밋).
+
+### 재스윕 결과 + 실행자 추천 (판정 전 박제)
+
+기계 요지: 소스 게이트 PASS(새 doc + **기존 align 유지** 로컬 replay — 영상
+불변 가설 실측 확인) · record 1/1 스캔(hold 52/91프레임, 6버킷, claimOK 5) ·
+압축 후보 4건(스틸 8 + PAIR 4 전건 실행자 육안 확인) · 기계 눈 실호출
+6회(캐시 2, 상한 16/record) · **눈 PASS 0 — 4건 전건 기각** · 카드 0장.
+전표 = [candidates.json](../260814-ehz-5/evidence/climbfault/candidates.json) ·
+원장 = [eye_calls.log](../260814-ehz-5/evidence/climbfault/eye_calls.log) +
+[eye_ledger/](../260814-ehz-5/evidence/climbfault/eye_ledger/) ·
+육안 = [VISUAL-REVIEW.md](../260814-ehz-5/evidence/VISUAL-REVIEW.md).
+
+| 동작 | 발굴 결과 | 실행자 추천 (정확히 1안) | 근거 / 침묵 사유 |
+|---|---|---|---|
+| climbfault | record 1 → 후보 4 → 눈 PASS **0** | **발굴 0 — 침묵 (ehz 층: 재료 있음 + 눈 전건 기각)** | 학생측 오른무릎 bent 는 트랙·눈 합의(conf 0.98). 기준측 짝 프레임(4.4667s·7.2667s, 후면 뷰)의 트랙 claim extended(158~165도)를 눈이 bent(conf 0.95/0.85)로 기각 — 실행자 육안도 눈과 일치(다리 접혀 발목 교차, 후면 가림에서의 트랙 환각). user 2건은 무릎 감싼 팔뚝 겹침 limb=arm fail-closed(ii0 §3-2 방어 동작). 억지 성립·임계 재튜닝 0 |
+
+침묵의 층 구분: ls0 행 10 의 침묵은 **재료 부재**(record 0)였고, 이번 침묵은
+**재료 있음 + 눈 기각**(ehz elbow 형)이다 — 같은 "발굴 0"이라도 층이 다르다.
+
+### belle 판정 기입란 (판정 후 기입 — 실행자 선기입 금지)
+
+| 동작 | 사전 추천 | belle 판정 (채택/반려/보류) | belle 원문 |
+|---|---|---|---|
+| climbfault (veto-ON 재스윕) | 발굴 0 — 침묵 (ehz 층) | | |
+| (별건 — 기준 후면 뷰 트랙 환각·무릎 좌표 품질 조사 의제 여부) | eye_ledger 크롭 2장 참조 | | |
+
+### 승격 실적 집계 (행 append)
+
+| 행 | 사이클 | 사전 추천 (커밋) | belle 판정 | 일치 여부 |
+|---|---|---|---|---|
+| 10' | 260821-pnp · climbfault (행 10 전제 정정 + veto-ON 재스윕) | 발굴 0 — 침묵, ehz 층 (본 절 커밋, 판정 전) | (판정 대기) | (판정 대기) |
+
+> 집계 규칙 재확인: "발굴 0 = 침묵"도 하나의 추천으로 세어 판정과 대조한다.
+> belle 이 "여기는 나왔어야 한다"고 판정하면 이 행은 불일치로 적는다.

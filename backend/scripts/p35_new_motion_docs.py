@@ -12,7 +12,25 @@ pipeline._process 직접 호출(sweep_phase15.py --trigger direct-process 와 �
 Pod 실행 (프로젝트 /workspace/SunityMotion — NLF 는 torch.cuda.is_available()
 자동감지라 RTMW_DEVICE 불필요, align.json 재추출은 p35_extract_align.py 몫):
     cd /workspace/SunityMotion/backend && source /workspace/aws_env.sh && \
+    GEMINI_VISION_VETO_ENABLED=1 GEMINI_MAX_VETO_WALL_S=300 \
+    GEMINI_API_KEY="$(aws ssm get-parameter --name /sunity/motion/gemini-api-key \
+      --with-decryption --query Parameter.Value --output text)" \
     python3 scripts/p35_new_motion_docs.py --outdir /workspace/p35
+
+★ veto env 함정 (quick-260821-pnp 박제): aws_env.sh 에는 위 3종
+(GEMINI_VISION_VETO_ENABLED · GEMINI_MAX_VETO_WALL_S · GEMINI_API_KEY)이 없다 —
+빠뜨리면 비전 거부권이 **조용히 꺼진 채** 돌아 결함 영상에서도 deduction
+record 가 비는 재료 결손 doc 이 나온다 (climbfault 08-16 본이 그 사례).
+GEMINI_MAX_VETO_WALL_S=300 은 start_server.sh 박제값(검증된 sweep 설정),
+GEMINI_API_KEY 는 SSM `/sunity/motion/gemini-api-key` 주입 또는 start_server.sh
+방식. 운영 서버는 start_server.sh 가 플래그를 영구 박제하므로 이 함정은 이
+스크립트 같은 코퍼스 하네스 경로에만 있다.
+
+산출 doc 의 생성 모드 표식 = `result.visionVeto.status` 그 자체:
+  · disabled       — 플래그 OFF (adapter 미호출)
+  · skipped_error  — 키 부재/어댑터 실패 (graceful + WARNING)
+  · applied        — 정상 (veto 가 실제로 돌았다)
+doc 을 열면 어느 모드로 생성됐는지 사후 판별 가능하다.
 
 로컬 dry-run (Firestore/S3/GPU 접촉 0 — identity self-check 만):
     backend/.venv/bin/python backend/scripts/p35_new_motion_docs.py \
@@ -33,6 +51,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import re
 import sys
 import time
@@ -118,6 +137,19 @@ def main() -> int:
             )
         print("[dry-run] Firestore 쓰기 0 / _process 호출 0 / S3 접근 0")
         return 0
+
+    # veto env 함정 경고 (quick-260821-pnp) — 의미론은 pipeline app.py
+    # _gemini_vision_veto_enabled 와 동일 (falsy = {"0","false",""}, strip/lower,
+    # 미설정 = OFF). 경고만 — 중단/기본값 주입 없음 (기본 거동 무변경).
+    if os.environ.get("GEMINI_VISION_VETO_ENABLED", "").strip().lower() in (
+            "0", "false", ""):
+        print(
+            "WARNING: GEMINI_VISION_VETO_ENABLED 미설정/falsy — 비전 거부권 OFF "
+            "로 돌면 결함 영상에서도 deduction record 가 비고 doc 의 "
+            "visionVeto.status 가 disabled/skipped_error 로 남는다 "
+            "(docstring 의 veto env 3종 참조).",
+            file=sys.stderr,
+        )
 
     from sunity_shared import firestore_admin, models
 

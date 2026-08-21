@@ -117,6 +117,15 @@ echo "[setup] 4/5 vLLM (게이트 단계가 쓴다 — 학습만 하고 끝나�
 #   낮아, 게이트는 별도 venv 축으로 분리한다. 기본 0 = 기존 설치 유지(무회귀).
 if [ "${TRAIN_VENV_SKIP_VLLM:-0}" = "1" ]; then
   echo "[setup] TRAIN_VENV_SKIP_VLLM=1 — vllm/uvloop 설치 생략. 이 venv 로는 게이트 단계 불가 — gates 는 vllm 가용 venv(TRAIN_VENV 교체)로 별도 실행"
+  # ★torchvision 을 명시 설치한다 (2026-08-21 실측): qwen_vl_utils 가 모듈 최상단에서
+  #   `import torchvision` 을 한다 — FORCE_QWENVL_VIDEO_READER=decord 여도 import 는
+  #   무조건 일어난다. 기존 경로에서는 vllm 이 torchvision 을 짝 맞춰 끌어왔기 때문에
+  #   레시피에 없어도 돌았고, vllm 을 스킵하자 swift sft 가 [2/3] 시작 직후
+  #   ModuleNotFoundError 로 죽었다(v31 발사 1차 실측). 버전은 PIP_CONSTRAINT 가 고정
+  #   (cu124 레시피 = torchvision==0.21.0+cu124) — constraint 없이 이 노브를 쓰면
+  #   최신 torchvision 이 torch 를 끌어올릴 수 있으니 아래 재검증이 마지막 방어선이다.
+  "$VENV/bin/pip" install -q torchvision \
+    || echo "[setup] torchvision 설치 실패 — qwen_vl_utils import 불가(학습 즉사)"
 else
   "$VENV/bin/pip" install -q vllm uvloop || echo "[setup] vllm 설치 실패 — 게이트 단계 불가(학습은 가능)"
 fi

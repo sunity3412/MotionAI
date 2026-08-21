@@ -81,6 +81,14 @@ SWEEP_JOBS: dict[str, tuple[str, str, str]] = {
                  "reference/ref-peter-pan.mp4", "ref-peter-pan"),
     "powerspin": ("fixtures/phase15/power-spin/fault.mp4",
                   "reference/ref-power-spin.mp4", "ref-power-spin"),
+    # quick-260821-ls0 정식 등재 (c3m SUMMARY 박제 절차 이행) — S3 키/motion_id
+    # 정본 = backend/scripts/p35_extract_align.py JOBS + c3m verify_source_gate.py.
+    "climb": ("fixtures/phase15/climb/correct.mp4",
+              "reference/ref-climb.mp4", "ref-climb"),
+    "climbfault": ("fixtures/phase15/climb/fault.mp4",
+                   "reference/ref-climb.mp4", "ref-climb"),
+    "combo": ("fixtures/phase15/combo/correct.mp4",
+              "reference/ref-combo.mp4", "ref-combo"),
 }
 # profile.category 는 렌더 스탬프(stamp_ref)에만 영향 — 게이트/방출 판정 무관.
 SWEEP_CATEGORY = {"powerspin": "spin"}
@@ -88,6 +96,10 @@ SWEEP_CATEGORY = {"powerspin": "spin"}
 # 플래너 실측 인벤토리 (PLAN context 표) — 스캔 커버리지 대조용 (누락 0 확인).
 RECORD_INVENTORY = {
     "elbow": 4, "kipup": 1, "pdshapefault": 4, "peterpan": 1, "powerspin": 3,
+    # quick-260821-ls0 실행 시점 재실측 (커밋 P35 doc.json 직접 판독, 2026-08-21):
+    # climb records:[] 길이 0 / climbfault deductionBreakdown 키 자체 부재
+    # (Firestore 원본 대조로 스냅샷 결손 아님 확인 — 진짜 0) / combo records:[] 0.
+    "climb": 0, "climbfault": 0, "combo": 0,
 }
 
 DATA = _REPO / ".planning/phases/35-server-rendered-comparison-video/data"

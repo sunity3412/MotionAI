@@ -99,7 +99,8 @@ RECORD_INVENTORY = {
     # quick-260821-ls0 실행 시점 재실측 (커밋 P35 doc.json 직접 판독, 2026-08-21):
     # climb records:[] 길이 0 / climbfault deductionBreakdown 키 자체 부재
     # (Firestore 원본 대조로 스냅샷 결손 아님 확인 — 진짜 0) / combo records:[] 0.
-    "climb": 0, "climbfault": 0, "combo": 0,
+    # quick-260821-pnp 재실측: climbfault=1 (veto-ON 재분석 doc p35newclimbfault1787297579, records 1 — 구 0 은 veto OFF 생성본 재료 결손).
+    "climb": 0, "climbfault": 1, "combo": 0,
 }
 
 DATA = _REPO / ".planning/phases/35-server-rendered-comparison-video/data"

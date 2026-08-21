@@ -1,0 +1,27 @@
+{
+  "asset": "ref-kip-up--leg",
+  "grammar": "ghost-noarrow",
+  "stages": {
+    "stage20": {
+      "deficitDeg": 20,
+      "files": [
+        "out/ref-kip-up--leg__ghost-stage20-1.jpg",
+        "out/ref-kip-up--leg__ghost-stage20-2.jpg"
+      ]
+    },
+    "stage40": {
+      "deficitDeg": 40,
+      "files": [
+        "out/ref-kip-up--leg__ghost-stage40-1.jpg",
+        "out/ref-kip-up--leg__ghost-stage40-2.jpg"
+      ]
+    },
+    "stage60": {
+      "deficitDeg": 60,
+      "files": [
+        "out/ref-kip-up--leg__ghost-stage60-1.jpg",
+        "out/ref-kip-up--leg__ghost-stage60-2.jpg"
+      ]
+    }
+  }
+}

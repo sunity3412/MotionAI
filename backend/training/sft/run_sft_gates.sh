@@ -13,7 +13,10 @@
 #     기존 호출 동작 불변.
 #   · PROMPT_MODE=aligned: 학습 JSONL user 양식과 문자 동일(지시문/시스템/디코딩 정렬)
 #     + vLLM video_url 서빙(--allowed-local-media-path). v4 게이트 재계측은 aligned.
-#   · REPETITION_PENALTY (기본 1.0): rp A/B 관찰 전용 — 본판정은 1.0 고정.
+#   · REPETITION_PENALTY (기본 1.0 무회귀): 2026-08-18 A/B 실측 이후 **본판정도 1.05
+#     사용** — 호출자가 env 로 지정한다. 근거: rp 1.0→1.05 에서 폭주 5/37→0,
+#     파싱실패 11/29→0, 게이트 판정 불변 (원장
+#     s3://sunity-motion-pilot-videos/training/phase22/ab_rp_260818/).
 #     run1/run2 둘 다 동일 적용(determinism 비교는 동일 조건 cold 2회여야 유효).
 #
 # 사용 (Pod):
@@ -106,10 +109,12 @@ if [ "$PROMPT_MODE" = "aligned" ]; then
 fi
 
 echo "[1/3] vLLM serve (${QUANT_ARGS[*]}, prompt_mode=${PROMPT_MODE})"
+# GATES_GPU_UTIL: 24GB Pod 에서 :8000 추론 서버와 VRAM 공유 시 OOM 1회 조정용 노브
+# (2026-08-21). 기본 0.90 무회귀 — merge_and_quant.sh 쪽 0.90 은 별개(범위 밖).
 nohup "$VENV/bin/python" -m vllm.entrypoints.openai.api_server \
   --model "$AWQ" --host 127.0.0.1 --port "$PORT" \
   "${QUANT_ARGS[@]}" \
-  --max-model-len 32768 --gpu-memory-utilization 0.90 \
+  --max-model-len 32768 --gpu-memory-utilization "${GATES_GPU_UTIL:-0.90}" \
   "${MM_ARGS[@]}" "${VLLM_COMPAT_ARGS[@]}" > /workspace/sft_gates_vllm.log 2>&1 &
 VLLM_PID=$!
 trap 'kill $VLLM_PID 2>/dev/null || true' EXIT

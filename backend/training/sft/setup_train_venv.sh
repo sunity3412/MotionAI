@@ -111,7 +111,15 @@ echo "[setup] 4/5 vLLM (게이트 단계가 쓴다 — 학습만 하고 끝나�
 #   게이트가 실제로 부르는 `vllm.entrypoints.openai.api_server` 는 최상단에서
 #   `import uvloop` 한다. 그래서 `import vllm` 검증은 **통과하는데 게이트만 죽었다**
 #   (학습 39분 태운 뒤 서버 기동에서 ModuleNotFoundError, exit 11).
-"$VENV/bin/pip" install -q vllm uvloop || echo "[setup] vllm 설치 실패 — 게이트 단계 불가(학습은 가능)"
+# ★TRAIN_VENV_SKIP_VLLM=1 (2026-08-21): 드라이버 550(cu124 상한) Pod 에서 vllm
+#   최신판이 torch 를 cu13x 로 끌어올려 이 스크립트가 4단계에서 hard-fail 하는 것을
+#   막는다. Qwen3-VL 을 서빙할 만큼 새로운 vllm 과 cu124 torch 는 양립 가능성이
+#   낮아, 게이트는 별도 venv 축으로 분리한다. 기본 0 = 기존 설치 유지(무회귀).
+if [ "${TRAIN_VENV_SKIP_VLLM:-0}" = "1" ]; then
+  echo "[setup] TRAIN_VENV_SKIP_VLLM=1 — vllm/uvloop 설치 생략. 이 venv 로는 게이트 단계 불가 — gates 는 vllm 가용 venv(TRAIN_VENV 교체)로 별도 실행"
+else
+  "$VENV/bin/pip" install -q vllm uvloop || echo "[setup] vllm 설치 실패 — 게이트 단계 불가(학습은 가능)"
+fi
 
 # ★liger-kernel — 레시피에 없으면 재현이 안 된다 (2026-08-15 실증).
 #   run_sft.sh 는 `import liger_kernel` 성공 시에만 --use_liger_kernel true 를 켠다.

@@ -40,11 +40,22 @@ PORT="${GATES_PORT:-8000}"
 # (실측: 5090 + 드라이버 570.195.03(CUDA 12.8) + vllm 0.27.1+cu129 → 사망 →
 #  12.8 ptxas 로 바꾸니 통과. 12.8 은 sm_120 을 지원한다.)
 # 드라이버가 감당하는 CUDA major 가 ptxas-blackwell 보다 낮을 때만 갈아끼운다.
+# ★compute_cap 조건 추가 (2026-08-21 실측, A100 80GB + 드라이버 550.127.05):
+#   기존 조건은 "번들 ptxas-blackwell CUDA > 드라이버 CUDA"만 봐서, A100(sm_80,
+#   드라이버 CUDA 12.4, triton 번들 ptxas 13.x)에서도 발화해 3종 우회(ptxas 교체 +
+#   FlashInfer off + attn 백엔드 강제)를 A100 에 강제했다. 3종 우회는 전부
+#   Blackwell(sm_100+) 전용 증상이다 — ptxas-blackwell 은 triton 이 arch>=100 에서만
+#   쓰고, FA2 PTX 거부와 FlashInfer 아키 파서 문제도 sm_120 실측이다. 비-Blackwell
+#   에 백엔드 강제는 불필요·유해 (run_retrain_cycle.sh 의 T-22-12-06 과 같은 정신).
+#   cap 미검출이면 발화 안 함(보수적).
 if [ -z "${TRITON_PTXAS_BLACKWELL_PATH:-}" ] && [ -x /usr/local/cuda/bin/ptxas ]; then
   _drv_cuda=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA Version: *\([0-9]*\)\..*/\1/p' | head -1)
   _bw=$("$VENV"/lib/python3.*/site-packages/triton/backends/nvidia/bin/ptxas-blackwell --version 2>/dev/null \
         | sed -n 's/.*release \([0-9]*\)\..*/\1/p' | head -1)
-  if [ -n "$_drv_cuda" ] && [ -n "$_bw" ] && [ "$_bw" -gt "$_drv_cuda" ]; then
+  _cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ')
+  _is_blackwell=0
+  if [ -n "${_cap:-}" ] && awk "BEGIN { exit !($_cap >= 10) }"; then _is_blackwell=1; fi
+  if [ "$_is_blackwell" = "1" ] && [ -n "$_drv_cuda" ] && [ -n "$_bw" ] && [ "$_bw" -gt "$_drv_cuda" ]; then
     export TRITON_PTXAS_BLACKWELL_PATH=/usr/local/cuda/bin/ptxas
     echo "[env] Triton ptxas-blackwell(CUDA $_bw) > 드라이버(CUDA $_drv_cuda) — /usr/local/cuda/bin/ptxas 로 대체"
     # 같은 뿌리에서 나온 벽이 둘 더 있다(2026-08-18 실측, 하나씩 벗겨서 확인):

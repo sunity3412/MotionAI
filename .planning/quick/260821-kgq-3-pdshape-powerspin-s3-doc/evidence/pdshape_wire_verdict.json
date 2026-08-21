@@ -1,0 +1,305 @@
+{
+ "fetch": {
+  "ridResolved": "r00",
+  "ridPoints": -11.6,
+  "ridPointsMatchesEhz": false,
+  "preFreezes": [
+   {
+    "outSec": 5.33,
+    "rid": "r00"
+   },
+   {
+    "outSec": 15.67,
+    "rid": "r01"
+   },
+   {
+    "outSec": 29.93,
+    "rid": "r04"
+   },
+   {
+    "outSec": 42.07,
+    "rid": "r04:discover"
+   },
+   {
+    "outSec": 54.17,
+    "rid": "r02"
+   },
+   {
+    "outSec": 69.0,
+    "rid": "r03"
+   }
+  ],
+  "preDiscoveryItems": [
+   {
+    "adoptedAt": "2026-08-14",
+    "joint": "left_knee",
+    "refSec": 12.4,
+    "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r04_left_knee.mp3",
+    "pairSrc": "discover",
+    "userSec": 12.8667,
+    "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요.",
+    "rid": "r04"
+   }
+  ],
+  "currentMp4Md5": "77cdcd436472438f3580cbb8d48683f3",
+  "discoveryPayloadPlanned": [
+   {
+    "adoptedAt": "2026-08-14",
+    "joint": "left_knee",
+    "refSec": 12.4,
+    "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r04_left_knee.mp3",
+    "pairSrc": "discover",
+    "userSec": 12.8667,
+    "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요.",
+    "rid": "r04"
+   },
+   {
+    "rid": "r00",
+    "joint": "left_elbow",
+    "userSec": 16.4667,
+    "refSec": 15.1333,
+    "pairSrc": "discover",
+    "text": "기준 자세는 팔을 곧게 뻗어 폴을 잡는 순간인데, 왼쪽 팔꿈치가 접혀 있어요. 손을 급하게 뻗어 잡으면 팔꿈치가 접혀요. 조금 더 돌고 올라온 뒤에 팔을 뻗어 편하게 잡아보세요.",
+    "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r00_left_elbow.mp3",
+    "adoptedAt": "2026-08-21"
+   }
+  ],
+  "videoKeys": {
+   "user": "uploads/csKWYvI3WCPYPysNQ9KkWecaUvq1/127a2a90c1d74c62ad61270eb3fe5625.mp4",
+   "ref": "reference/ref-pdshape.mp4"
+  },
+  "alignFrames": [
+   272,
+   237
+  ],
+  "coachMp3": [
+   "r00",
+   "r01",
+   "r02",
+   "r03",
+   "r04"
+  ],
+  "kneeMp3Md5": "7fb6a4a3859cbea445266a9877847f94",
+  "newMp3Md5": "c0bab5c9073ec86cc60873350dce87b0",
+  "newMp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r00_left_elbow.mp3",
+  "at": "2026-08-21T06:11:55.916500+00:00"
+ },
+ "meta": {
+  "uid": "fvcNXzEqKjgqVxRPVSj1iwFnIpn2",
+  "aid": "p34fresh1786628533",
+  "motionId": "ref-pdshape",
+  "updated": "2026-08-21T06:13:41.862441+00:00"
+ },
+ "baseline": {
+  "mp4Md5": "77cdcd436472438f3580cbb8d48683f3",
+  "composeFrames": 2461,
+  "chainSameChd": true,
+  "chainRef": "/Users/kimtaesung/Dev/SunityMotion/.planning/quick/260814-chd-freeze-belle-ok-0p2/evidence/frames_md5_injected.json",
+  "determinism": true,
+  "rigStockAllPass": true,
+  "rigLines": [
+   "  [PASS] A 길이: actual=82.03s planned=82.03s",
+   "  [PASS] A2 정지 수: rendered=6 expected=6",
+   "  [PASS] B 정지 정적성 r00: diff=0.002 @out 10.1s",
+   "  [PASS] B 정지 정적성 r01: diff=0.002 @out 20.6s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 34.8s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 47.7s",
+   "  [PASS] B 정지 정적성 r02: diff=0.001 @out 60.2s",
+   "  [PASS] B 정지 정적성 r03: diff=0.001 @out 74.7s",
+   "  [PASS] C 재생 동적성: play diff=3.55 vs frozen max=0.002",
+   "  [PASS] D 음성 존재 r00: mean=-22.9dB @out 5.3s",
+   "  [PASS] D 음성 존재 r01: mean=-23.3dB @out 15.7s",
+   "  [PASS] D 음성 존재 r04: mean=-22.5dB @out 29.9s",
+   "  [PASS] D 음성 존재 r04: mean=-24.1dB @out 42.1s",
+   "  [PASS] D 음성 존재 r02: mean=-24.0dB @out 54.2s",
+   "  [PASS] D 음성 존재 r03: mean=-22.4dB @out 69.0s",
+   "  [PASS] D 재생 무음: mean=-91.0dB @out 1.0s",
+   "  [PASS] E 저더 user: 정지이벤트=0 최악2s창=0 (임계 4, 재생 409프레임 전수 스캔)",
+   "  [PASS] E 저더 ref: 정지이벤트=3 최악2s창=3 (임계 4, 재생 409프레임 전수 스캔)",
+   "  [PASS] F 웹 재생성(faststart): moov@36 mdat@-1 (64KB 헤더 내)",
+   "  [PASS] G 경계 핀 r00: rt=5.13s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r01: rt=4.53s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=9.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=12.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r02: rt=10.73s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r03: rt=15.20s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] H1 정지 회계: rendered+excluded=['r00', 'r01', 'r02', 'r03', 'r04'] == eligible=['r00', 'r01', 'r02', 'r03', 'r04']",
+   "  [PASS] H2 순간 r00: |5.30-5.30|=0.00s (src=align)",
+   "  [PASS] H2 순간 r01: |6.10-6.10|=0.00s (src=align)",
+   "  [PASS] H2 순간 r04: |10.50-10.50|=0.00s (src=align)",
+   "  [PASS] H2 순간 r04[discover]: doc discovery 순간 일치",
+   "  [PASS] H2 순간 r02: |13.80-13.80|=0.00s (src=align-w)",
+   "  [PASS] H3 자막 진품 r00: 문자 일치",
+   "  [PASS] H3 자막 진품 r01: 문자 일치",
+   "  [PASS] H3 자막 진품 r04: 문자 일치",
+   "  [PASS] H3 자막 진품 r04[discover]: 문자 일치",
+   "  [PASS] H3 자막 진품 r02: 문자 일치",
+   "  [PASS] H3 자막 진품 r03: 문자 일치",
+   "  [PASS] H4 음성 조인 r00: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r01: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04[discover]: discovery mp3Key 조인",
+   "  [PASS] H4 음성 조인 r02: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r03: coachAudio 항목 존재"
+  ],
+  "freezeCount": 6,
+  "discoverFreezeCount": 1,
+  "freezesMatchDi7": true,
+  "outFile": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/aaf15967-cfc7-4d52-bfda-e1edd9858ef9/scratchpad/kgq_out/pdshape/baseline_run1.mp4",
+  "at": "2026-08-21T06:11:47.738429+00:00"
+ },
+ "inject": {
+  "discoveryPayload": [
+   {
+    "adoptedAt": "2026-08-14",
+    "joint": "left_knee",
+    "refSec": 12.4,
+    "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r04_left_knee.mp3",
+    "pairSrc": "discover",
+    "userSec": 12.8667,
+    "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요.",
+    "rid": "r04"
+   },
+   {
+    "rid": "r00",
+    "joint": "left_elbow",
+    "userSec": 16.4667,
+    "refSec": 15.1333,
+    "pairSrc": "discover",
+    "text": "기준 자세는 팔을 곧게 뻗어 폴을 잡는 순간인데, 왼쪽 팔꿈치가 접혀 있어요. 손을 급하게 뻗어 잡으면 팔꿈치가 접혀요. 조금 더 돌고 올라온 뒤에 팔을 뻗어 편하게 잡아보세요.",
+    "mp3Key": "results/fvcNXzEqKjgqVxRPVSj1iwFnIpn2/p34fresh1786628533/discover_audio_r00_left_elbow.mp3",
+    "adoptedAt": "2026-08-21"
+   }
+  ],
+  "validatorPreflight": "firestore_admin._validate_discovery PASS",
+  "mp4Md5": "adc69707f1db5f118b882e96f5a4bba4",
+  "composeFrames": 2881,
+  "determinism": true,
+  "freezeCount": 7,
+  "freezeCountExpected": 7,
+  "oldFreezesPreserved": true,
+  "oldFreezeOutSecShifts": [
+   {
+    "rid": "r00",
+    "pairSrc": "align",
+    "baseOutSec": 5.33,
+    "injectOutSec": 5.33,
+    "shiftS": 0.0
+   },
+   {
+    "rid": "r01",
+    "pairSrc": "align",
+    "baseOutSec": 15.67,
+    "injectOutSec": 15.67,
+    "shiftS": 0.0
+   },
+   {
+    "rid": "r04",
+    "pairSrc": "align",
+    "baseOutSec": 29.93,
+    "injectOutSec": 29.93,
+    "shiftS": 0.0
+   },
+   {
+    "rid": "r04",
+    "pairSrc": "discover",
+    "baseOutSec": 42.07,
+    "injectOutSec": 42.07,
+    "shiftS": 0.0
+   },
+   {
+    "rid": "r02",
+    "pairSrc": "align-w",
+    "baseOutSec": 54.17,
+    "injectOutSec": 54.17,
+    "shiftS": 0.0
+   },
+   {
+    "rid": "r03",
+    "pairSrc": "align-peak",
+    "baseOutSec": 69.0,
+    "injectOutSec": 83.0,
+    "shiftS": 14.0
+   }
+  ],
+  "newFreezeExact": true,
+  "newFreeze": {
+   "rid": "r00",
+   "joint": "left_elbow",
+   "userSec": 16.4667,
+   "refSec": 15.13,
+   "pairSrc": "discover",
+   "text": "기준 자세는 팔을 곧게 뻗어 폴을 잡는 순간인데, 왼쪽 팔꿈치가 접혀 있어요. 손을 급하게 뻗어 잡으면 팔꿈치가 접혀요. 조금 더 돌고 올라온 뒤에 팔을 뻗어 편하게 잡아보세요.",
+   "freezeS": 14.01,
+   "voiceStartOutS": 68.8
+  },
+  "rigStockAllPass": true,
+  "rigStockNote": "compare_verify.verify 무수정 — 면제 monkeypatch 0",
+  "rigLines": [
+   "  [PASS] A 길이: actual=96.03s planned=96.03s",
+   "  [PASS] A2 정지 수: rendered=7 expected=7",
+   "  [PASS] B 정지 정적성 r00: diff=0.002 @out 10.1s",
+   "  [PASS] B 정지 정적성 r01: diff=0.002 @out 20.6s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 34.8s",
+   "  [PASS] B 정지 정적성 r04: diff=0.001 @out 47.7s",
+   "  [PASS] B 정지 정적성 r02: diff=0.001 @out 60.2s",
+   "  [PASS] B 정지 정적성 r00: diff=0.002 @out 75.8s",
+   "  [PASS] B 정지 정적성 r03: diff=0.001 @out 88.7s",
+   "  [PASS] C 재생 동적성: play diff=3.55 vs frozen max=0.002",
+   "  [PASS] D 음성 존재 r00: mean=-22.9dB @out 5.3s",
+   "  [PASS] D 음성 존재 r01: mean=-23.3dB @out 15.7s",
+   "  [PASS] D 음성 존재 r04: mean=-22.5dB @out 29.9s",
+   "  [PASS] D 음성 존재 r04: mean=-24.1dB @out 42.1s",
+   "  [PASS] D 음성 존재 r02: mean=-24.0dB @out 54.2s",
+   "  [PASS] D 음성 존재 r00: mean=-22.7dB @out 68.8s",
+   "  [PASS] D 음성 존재 r03: mean=-22.4dB @out 83.0s",
+   "  [PASS] D 재생 무음: mean=-91.0dB @out 1.0s",
+   "  [PASS] E 저더 user: 정지이벤트=0 최악2s창=0 (임계 4, 재생 403프레임 전수 스캔)",
+   "  [PASS] E 저더 ref: 정지이벤트=3 최악2s창=3 (임계 4, 재생 403프레임 전수 스캔)",
+   "  [PASS] F 웹 재생성(faststart): moov@36 mdat@-1 (64KB 헤더 내)",
+   "  [PASS] G 경계 핀 r00: rt=5.13s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r01: rt=4.53s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=9.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r04: rt=12.40s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r02: rt=10.73s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r00: rt=15.13s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] G 경계 핀 r03: rt=15.20s ref=15.8s (양끝 0.5s 밖 요구)",
+   "  [PASS] H1 정지 회계: rendered+excluded=['r00', 'r01', 'r02', 'r03', 'r04'] == eligible=['r00', 'r01', 'r02', 'r03', 'r04']",
+   "  [PASS] H2 순간 r00: |5.30-5.30|=0.00s (src=align)",
+   "  [PASS] H2 순간 r01: |6.10-6.10|=0.00s (src=align)",
+   "  [PASS] H2 순간 r04: |10.50-10.50|=0.00s (src=align)",
+   "  [PASS] H2 순간 r04[discover]: doc discovery 순간 일치",
+   "  [PASS] H2 순간 r02: |13.80-13.80|=0.00s (src=align-w)",
+   "  [PASS] H2 순간 r00[discover]: doc discovery 순간 일치",
+   "  [PASS] H3 자막 진품 r00: 문자 일치",
+   "  [PASS] H3 자막 진품 r01: 문자 일치",
+   "  [PASS] H3 자막 진품 r04: 문자 일치",
+   "  [PASS] H3 자막 진품 r04[discover]: 문자 일치",
+   "  [PASS] H3 자막 진품 r02: 문자 일치",
+   "  [PASS] H3 자막 진품 r00[discover]: 문자 일치",
+   "  [PASS] H3 자막 진품 r03: 문자 일치",
+   "  [PASS] H4 음성 조인 r00: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r01: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r04[discover]: discovery mp3Key 조인",
+   "  [PASS] H4 음성 조인 r02: coachAudio 항목 존재",
+   "  [PASS] H4 음성 조인 r00[discover]: discovery mp3Key 조인",
+   "  [PASS] H4 음성 조인 r03: coachAudio 항목 존재"
+  ],
+  "discoverLogSeen": true,
+  "discoverLogLines": [
+   "[discover] rid=r04 joint=left_knee ut=12.8667 rt=12.4 mp3=discover_audio_r04_left_knee.mp3",
+   "[discover] rid=r00 joint=left_elbow ut=16.4667 rt=15.1333 mp3=discover_audio_r00_left_elbow.mp3"
+  ],
+  "perturbH2Fail": true,
+  "perturbFailLines": [
+   "  [FAIL] H2 순간 r00[discover]: doc discovery 에 없는 순간 (외부 삽입 의심)",
+   "  [FAIL] H3 자막 진품 r00[discover]: doc discovery 매칭 부재",
+   "  [FAIL] H4 음성 조인 r00[discover]: doc discovery 매칭/mp3Key 부재 (외부 mp3 의심)"
+  ],
+  "stillFile": "/Users/kimtaesung/Dev/SunityMotion/.planning/quick/260821-kgq-3-pdshape-powerspin-s3-doc/evidence/stills/pdshape_discover_freeze_left_elbow.png",
+  "stillFrameIdx": 2274,
+  "outFile": "/private/tmp/claude-501/-Users-kimtaesung-Dev-SunityMotion/aaf15967-cfc7-4d52-bfda-e1edd9858ef9/scratchpad/kgq_out/pdshape/inject_run1.mp4",
+  "at": "2026-08-21T06:13:41.861751+00:00"
+ }
+}

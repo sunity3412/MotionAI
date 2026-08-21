@@ -1,0 +1,29 @@
+{
+ "entries": {
+  "discover_left_elbow": {
+   "voiceId": "Seoyeon",
+   "engine": "neural",
+   "languageCode": "ko-KR",
+   "outputFormat": "mp3",
+   "text": "기준 자세는 팔을 곧게 뻗어 폴을 잡는 순간인데, 왼쪽 팔꿈치가 접혀 있어요. 손을 급하게 뻗어 잡으면 팔꿈치가 접혀요. 조금 더 돌고 올라온 뒤에 팔을 뻗어 편하게 잡아보세요.",
+   "mp3Md5": "c0bab5c9073ec86cc60873350dce87b0",
+   "mp3Bytes": 81692,
+   "durationS": 13.61,
+   "freezeSExpected": 14.01,
+   "synthesizedAt": "2026-08-21T06:09:01.309481+00:00"
+  },
+  "discover_left_shoulder": {
+   "voiceId": "Seoyeon",
+   "engine": "neural",
+   "languageCode": "ko-KR",
+   "outputFormat": "mp3",
+   "text": "기준 자세는 팔을 굽혀 몸을 높이 들어올린 순간인데, 왼쪽 팔이 곧게 뻗어 있어요. 시작할 때 팔을 굽혀 몸을 폴 쪽으로 당겨서, 안정적인 위치를 만든 뒤에 돌아보세요.",
+   "mp3Md5": "909728c5739e4eea41e09e61ace7c1e7",
+   "mp3Bytes": 76940,
+   "durationS": 12.82,
+   "freezeSExpected": 13.22,
+   "synthesizedAt": "2026-08-21T06:09:01.873782+00:00"
+  }
+ },
+ "note": "Seoyeon/neural = 운영 _synthesize_coach_audio_items env 기본값 미러. Polly = TTS 비-LLM 실호출 (캡션 텍스트만 송신 — PII/시크릿 0). Gemini/Cerebras 호출 0."
+}

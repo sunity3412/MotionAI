@@ -1,0 +1,123 @@
+{
+ "out": "/tmp/compare_render_euh_ov8x/compare.mp4",
+ "outDurationS": 96.03,
+ "userDurationS": 18.11,
+ "expectedFreezes": 7,
+ "excludedFreezes": [],
+ "freezes": [
+  {
+   "rid": "r00",
+   "joint": "left_elbow",
+   "userSec": 5.301767255751917,
+   "refSec": 5.13,
+   "pairSrc": "align",
+   "freezeS": 9.54,
+   "voiceStartOutS": 5.33,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r01",
+   "joint": "right_elbow",
+   "userSec": 6.102034011337112,
+   "refSec": 4.53,
+   "pairSrc": "align",
+   "freezeS": 9.86,
+   "voiceStartOutS": 15.67,
+   "markers": [
+    "est"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "오른쪽 팔꿈치 각도가 기준 셰이프와 차이가 있어요. 양손 그립을 그대로 둔 채, 폴을 잡은 팔 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r04",
+   "joint": "left_knee",
+   "userSec": 10.503501167055687,
+   "refSec": 9.4,
+   "pairSrc": "align",
+   "freezeS": 9.78,
+   "voiceStartOutS": 29.93,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 무릎 각도가 기준 셰이프와 차이가 있어요. 무릎을 펴는 게 아니라, 깊게 접은 다리 모양 그대로 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r04",
+   "joint": "left_knee",
+   "userSec": 12.8667,
+   "refSec": 12.4,
+   "pairSrc": "discover",
+   "freezeS": 11.18,
+   "voiceStartOutS": 42.07,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "기준 자세는 다리를 곧게 편 채 회전하는 순간인데, 왼쪽 무릎이 접혀 있어요. 무릎을 접은 채 돌지 말고, 다리를 끝까지 편 상태로 회전한 뒤에 걸어보세요."
+  },
+  {
+   "rid": "r02",
+   "joint": "right_shoulder",
+   "userSec": 13.804601533844616,
+   "refSec": 11.8,
+   "pairSrc": "align-w",
+   "freezeS": 11.97,
+   "voiceStartOutS": 54.17,
+   "markers": [],
+   "legsViz": {
+    "user": true,
+    "ref": true
+   },
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "오른쪽 어깨(겨드랑이) 각도가 기준 셰이프와 차이가 있어요. 어깨가 귀 쪽으로 말리지 않게 눌러 잡은 채, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r00",
+   "joint": "left_elbow",
+   "userSec": 16.4667,
+   "refSec": 15.13,
+   "pairSrc": "discover",
+   "freezeS": 14.01,
+   "voiceStartOutS": 68.8,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "기준 자세는 팔을 곧게 뻗어 폴을 잡는 순간인데, 왼쪽 팔꿈치가 접혀 있어요. 손을 급하게 뻗어 잡으면 팔꿈치가 접혀요. 조금 더 돌고 올라온 뒤에 팔을 뻗어 편하게 잡아보세요."
+  },
+  {
+   "rid": "r03",
+   "joint": "left_hip",
+   "userSec": 16.666666666666668,
+   "refSec": 15.2,
+   "pairSrc": "align-peak",
+   "freezeS": 11.46,
+   "voiceStartOutS": 83.0,
+   "markers": [],
+   "legsViz": {
+    "user": true,
+    "ref": true
+   },
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 다리 벌린 각도가 기준 셰이프와 차이가 있어요. 훅 걸린 다리와 접은 다리의 골반을 그대로 잠근 채, 왼쪽 다리 각을 기준 자세에 겹쳐 맞춰보세요"
+  }
+ ]
+}

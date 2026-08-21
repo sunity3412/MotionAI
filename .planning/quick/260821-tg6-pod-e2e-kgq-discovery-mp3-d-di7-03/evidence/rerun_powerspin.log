@@ -1,0 +1,45 @@
+INFO Found credentials in environment variables.
+INFO RTMW deterministic mode ON — CUDA EP options={'cudnn_conv_algo_search': 'DEFAULT', 'do_copy_in_default_stream': '1', 'cudnn_conv_use_max_workspace': '1'}, threads=1, session.use_deterministic_compute=1, CUBLAS_WORKSPACE_CONFIG=:4096:8
+[0;93m2026-08-21 12:46:46.961981212 [W:onnxruntime:, session_state.cc:1166 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.[m
+[0;93m2026-08-21 12:46:46.962038633 [W:onnxruntime:, session_state.cc:1168 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+INFO compare_render discovery 조달 n=1 rids=['r02'] analysis_id=powerspinFault1785373695
+[grip-fail-closed] r02 wrist=left_wrist cue_ratio=0.035 user_onsets=[3.93] near_cue=[3.93] ref_onsets_in_win=[] -> 기존 짝 유지
+INFO compare_render done uid=csKWYvI3WCPYPysNQ9KkWecaUvq1 analysis_id=powerspinFault1785373695 key=results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/compare_v1.mp4 freezes=3
+INFO card_gates 스킵 (records/freezes/report 부재 — 기존 카드 유지) analysis_id=powerspinFault1785373695
+doc OK mode=mode1 records=3 coachAudio items=3 renderedCompare(현재)={'freezes': [{'rid': 'r02:discover', 'outSec': 0.5}, {'rid': 'r02', 'outSec': 16.47}, {'rid': 'r00', 'outSec': 32.03}], 'key': 'results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/compare_v1.mp4', 'status': 'done'}
+S3 GET fixtures/phase15/power-spin/fault.mp4 -> /tmp/compare_rerun_powerspinFault1785373695/user.mp4
+S3 GET reference/ref-power-spin.mp4 -> /tmp/compare_rerun_powerspinFault1785373695/ref.mp4
+load /workspace/yolox_weights/yolox_m.onnx with onnxruntime backend
+load /workspace/rtmw_weights/rtmw-x-384.onnx with onnxruntime backend
+[discover] rid=r02 joint=left_shoulder ut=0.4667 rt=0.7333 mp3=discover_audio_r02_left_shoulder.mp3
+[no-write] S3 put_object 차단: results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/compare_v1.mp4
+[no-write] doc 마킹 차단: status=done key='results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/compare_v1.mp4' freezes=3건
+리그: ALL PASS
+  [PASS] A 길이: actual=44.87s planned=44.87s
+  [PASS] A2 정지 수: rendered=3 expected=3
+  [INFO] probe 재배치: 0.2s -> 14.0s (첫 정지 침범 — 재생 갭 13.7~16.5s)
+  [PASS] B 정지 정적성 r02: diff=0.001 @out 7.1s
+  [PASS] B 정지 정적성 r02: diff=0.001 @out 23.0s
+  [PASS] B 정지 정적성 r00: diff=0.001 @out 37.2s
+  [PASS] C 재생 동적성: play diff=3.31 vs frozen max=0.001
+  [PASS] D 음성 존재 r02: mean=-22.2dB @out 0.5s
+  [PASS] D 음성 존재 r02: mean=-22.9dB @out 16.5s
+  [PASS] D 음성 존재 r00: mean=-23.4dB @out 32.0s
+  [PASS] D 재생 무음: mean=-91.0dB @out 14.0s
+  [PASS] E 저더 user: 정지이벤트=0 최악2s창=0 (임계 4, 재생 181프레임 전수 스캔)
+  [PASS] E 저더 ref: 정지이벤트=0 최악2s창=0 (임계 4, 재생 181프레임 전수 스캔)
+  [PASS] F 웹 재생성(faststart): moov@36 mdat@35882 (64KB 헤더 내)
+  [PASS] G 경계 핀 r02: rt=0.73s ref=10.5s (양끝 0.5s 밖 요구)
+  [PASS] G 경계 핀 r02: rt=5.80s ref=10.5s (양끝 0.5s 밖 요구)
+  [PASS] G 경계 핀 r00: rt=8.67s ref=10.5s (양끝 0.5s 밖 요구)
+  [PASS] H1 정지 회계: rendered+excluded=['r00', 'r02'] == eligible=['r00', 'r02']
+  [PASS] H2 순간 r02[discover]: doc discovery 순간 일치
+  [PASS] H2 순간 r02: |3.22-3.22|=0.00s (src=align)
+  [PASS] H3 자막 진품 r02[discover]: 문자 일치
+  [PASS] H3 자막 진품 r02: 문자 일치
+  [PASS] H3 자막 진품 r00: 문자 일치
+  [PASS] H4 음성 조인 r02[discover]: discovery mp3Key 조인
+  [PASS] H4 음성 조인 r02: coachAudio 항목 존재
+  [PASS] H4 음성 조인 r00: coachAudio 항목 존재
+아티팩트: /tmp/compare_rerun_powerspinFault1785373695 (doc/align/report/compare.mp4)
+[no-write] 차단된 마킹: [{'status': 'done', 'key': 'results/csKWYvI3WCPYPysNQ9KkWecaUvq1/powerspinFault1785373695/compare_v1.mp4', 'freezes': [{'rid': 'r02', 'outSec': 0.5}, {'rid': 'r02', 'outSec': 16.47}, {'rid': 'r00', 'outSec': 32.03}]}]

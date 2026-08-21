@@ -1,0 +1,61 @@
+{
+ "out": "/tmp/compare_render_lco1b4yu/compare.mp4",
+ "outDurationS": 44.87,
+ "userDurationS": 8.21,
+ "expectedFreezes": 3,
+ "excludedFreezes": [],
+ "freezes": [
+  {
+   "rid": "r02",
+   "joint": "left_shoulder",
+   "userSec": 0.4667,
+   "refSec": 0.73,
+   "pairSrc": "discover",
+   "freezeS": 13.22,
+   "voiceStartOutS": 0.5,
+   "markers": [
+    "solid"
+   ],
+   "legsViz": null,
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "기준 자세는 팔을 굽혀 몸을 높이 들어올린 순간인데, 왼쪽 팔이 곧게 뻗어 있어요. 시작할 때 팔을 굽혀 몸을 폴 쪽으로 당겨서, 안정적인 위치를 만든 뒤에 돌아보세요."
+  },
+  {
+   "rid": "r02",
+   "joint": "left_shoulder",
+   "userSec": 3.2222222222222223,
+   "refSec": 5.8,
+   "pairSrc": "align",
+   "freezeS": 13.02,
+   "voiceStartOutS": 16.47,
+   "markers": [],
+   "legsViz": {
+    "user": true,
+    "ref": true
+   },
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "왼쪽 어깨(겨드랑이) 각도가 파워스핀 기준 자세와 차이가 있어요. 어깨가 귀 쪽으로 으쓱 올라가지 않게 견갑을 눌러 잡고, 팔과 몸통 사이 각을 기준 자세에 겹쳐 맞춰보세요"
+  },
+  {
+   "rid": "r00",
+   "joint": "leg_extension",
+   "userSec": 5.733333333333333,
+   "refSec": 8.67,
+   "pairSrc": "align-peak",
+   "freezeS": 10.36,
+   "voiceStartOutS": 32.03,
+   "markers": [
+    "est"
+   ],
+   "legsViz": {
+    "user": true,
+    "ref": true
+   },
+   "poleViz": null,
+   "bodyViz": null,
+   "text": "파워스핀 스플릿에서 무릎이 기준보다 덜 펴져 있어요. 위로 뻗는 다리는 폴을 따라 수직으로, 반대 다리는 아래로 길게 눌러 한 줄로 뻗어보세요"
+  }
+ ]
+}

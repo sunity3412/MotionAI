@@ -57,6 +57,7 @@ import {
   type HowOverlayBaked,
   type HowOverlayRotate,
 } from '../lib/illustrationHow';
+import { buildProgressCaption, type MeasureLike } from '../lib/progressCaption';
 import { colors, radius, typography } from '../theme';
 
 // 등재 에셋 원본 비율 (720x964 — 기본). 높이 = 실측 폭 × 이 값.
@@ -113,6 +114,7 @@ export function DefectIllustration({
   partKey,
   maxHeight,
   how,
+  prevHow,
 }: {
   /** mode1 기준 모션 ID. null/미등록 = silent hidden (렌더 0). */
   motionId: string | null | undefined;
@@ -133,6 +135,13 @@ export function DefectIllustration({
    * 에셋에서만 잔상·화살표·표기가 그려지고, 값이 없거나 조건이 안 맞으면 그림만.
    */
   how?: { measured?: number | null; target?: number | null; unit?: string | null };
+  /**
+   * quick-260822-oe1 (belle 08-21 판정) — 같은 동작 직전 분석의 같은 criterion
+   * 측정 재료. 오버레이(수치 문장)가 그려질 때만 buildProgressCaption 으로 판정해
+   * 카드 아래에 "저번보다 더 벌어졌어요" 캡션을 붙인다. null/부재 = 캡션 없음
+   * (직전 분석 없음 / mode3 — 기존 겉모습 그대로).
+   */
+  prevHow?: MeasureLike;
 }) {
   // 장면일치 통과분만 조회 키가 된다 (P-2/P-3). 불일치·미등재·mode3 → null.
   const matched = illustrationAssetForPart(motionId, partKey);
@@ -157,6 +166,15 @@ export function DefectIllustration({
   const overlay = how
     ? buildHowOverlay(matched, how.measured, how.target, how.unit, hOverW)
     : null;
+  // quick-260822-oe1 (belle 08-21 판정) — 발전 캡션. **오버레이 게이트 뒤에서만**
+  // 판정한다 (BELLE-0821-P4: 수치 문장이 있는 곳에만 캡션이 붙는다 — 오버레이
+  // 게이트는 이 컴포넌트 소유, 캡션 게이트(문턱·unit·악화)는 lib 소유로 분리).
+  // 카드 **아래** Text — 시트 카드가 작을 때 오버레이 pill 이 화살표를 가렸던
+  // 전례(gb7 시뮬 실측)가 있어 오버레이 안에 두 번째 pill 을 넣지 않는다.
+  const progressCaption =
+    overlay != null && prevHow != null
+      ? buildProgressCaption(matched, how, prevHow)
+      : null;
 
   return (
     <View style={styles.wrap} onLayout={(e) => setAvailW(e.nativeEvent.layout.width)}>
@@ -173,6 +191,9 @@ export function DefectIllustration({
           />
           {overlay ? <HowOverlayLayer overlay={overlay} source={source} w={w} h={h} /> : null}
         </View>
+      ) : null}
+      {w > 0 && progressCaption ? (
+        <Text style={styles.progressCaption}>{progressCaption}</Text>
       ) : null}
     </View>
   );
@@ -436,5 +457,13 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radius.card,
     overflow: 'hidden',
+  },
+  // quick-260822-oe1 — 발전 캡션 (belle 08-21 원문). 카드 아래 보조 텍스트 —
+  // theme 토큰만 (typography.caption + textMid), 신규 hex/수치 0.
+  progressCaption: {
+    ...typography.caption,
+    color: colors.textMid,
+    marginTop: 6,
+    textAlign: 'center',
   },
 });

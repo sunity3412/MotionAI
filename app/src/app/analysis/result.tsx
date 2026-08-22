@@ -86,7 +86,11 @@ import {
   useReferenceMotion,
   useReferenceMotionDoc,
 } from '../../lib/referenceMotions';
-import { useAnalysisDoc } from '../../lib/userAnalyses';
+import { useAnalysisDoc, useMyAnalyses } from '../../lib/userAnalyses';
+import {
+  findPreviousComparable,
+  extractCriterionMeasure,
+} from '../../lib/progressCaption';
 import { useBodyProfile } from '../../lib/bodyProfile';
 import {
   fetchVisualAssetUrl,
@@ -660,6 +664,12 @@ function AnalysisResultContent({
   const { motion: refMotion } = useReferenceMotion(
     cmp.mode === 'mode1' ? cmp.referenceMotionId : undefined,
   );
+
+  // quick-260822-oe1 (belle 08-21) — 발전 캡션용 직전 분석 목록. 기록 탭과 같은
+  // 구독(단일 필드 orderBy) 재사용 — 신규 Firestore 쿼리 0 (인덱스 면제 설정
+  // 무접촉). 무조건 호출 (조건부 훅 금지 — 리뷰 M-04). mode 분기는 소비처
+  // (illustrationSlot 클로저)에서 인자로만 표현한다.
+  const { analyses: doneAnalyses } = useMyAnalyses({ doneOnly: true });
 
   // ── Phase 31 참고코너 (D-06/D-08/D-09/D-10) ────────────────────────────
   // 훅은 전부 무조건 호출한다 (리뷰 M-04) — mode 분기 안에서 훅을 부르면 mode1↔mode3
@@ -3537,14 +3547,34 @@ function AnalysisResultContent({
         // 슬롯 자체가 안 생긴다 (승인본 `:1114` — 빈 카드·플레이스홀더 아님).
         // render prop — 시트가 자기 스크롤 뷰포트를 실측해 상한을 준다
         // (belle 2026-07-31 적응형). 여기서 시트 기하를 계산하지 않는다.
-        illustrationSlot={(maxHeight, how) => (
-          <DefectIllustration
-            motionId={cmp.mode === 'mode1' ? cmp.referenceMotionId : null}
-            partKey={sheetView?.partKey ?? null}
-            maxHeight={maxHeight}
-            how={how}
-          />
-        )}
+        illustrationSlot={(maxHeight, how) => {
+          // quick-260822-oe1 (belle 08-21) — 발전 캡션 재료: 같은 동작(mode1
+          // referenceMotionId 동일) 직전 done 분석의 같은 criterion record.
+          // mode3/직전 없음/createdAt 부재 → null (fail-closed — 캡션 없음,
+          // 기존 겉모습 그대로). 판정 자체는 lib(buildProgressCaption)가
+          // DefectIllustration 안에서 오버레이 게이트 뒤에 수행한다.
+          const prevDoc =
+            cmp.mode === 'mode1' && typeof createdAt === 'number' && sheetView != null
+              ? findPreviousComparable(doneAnalyses, {
+                  analysisId,
+                  createdAt,
+                  referenceMotionId: cmp.referenceMotionId,
+                })
+              : null;
+          const prevHow =
+            prevDoc != null && sheetView != null
+              ? extractCriterionMeasure(prevDoc, sheetView.primaryCriterion)
+              : null;
+          return (
+            <DefectIllustration
+              motionId={cmp.mode === 'mode1' ? cmp.referenceMotionId : null}
+              partKey={sheetView?.partKey ?? null}
+              maxHeight={maxHeight}
+              how={how}
+              prevHow={prevHow}
+            />
+          );
+        }}
         // quick-260818-nc2 — 시트가 "그림이 있는가"를 알아야 목표 문장을 그림 카드로
         // 내릴지 정한다. 판정은 DefectIllustration 과 **같은 규칙**(illustrationAssetForPart)
         // — 두 번째 그룹핑 규칙을 만들지 않는다(P-1).

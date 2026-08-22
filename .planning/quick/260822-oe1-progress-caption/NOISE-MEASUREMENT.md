@@ -58,3 +58,58 @@ recommend-only-after-measuring). 측정 후 이 규칙을 소급 수정하지 �
 - `deterministic` 분류 (a) 페어의 |Δdelta| ≈ 0 (< 0.5°) 일 것이다 — 08-09
   결정론 ON 이후 같은 영상 재분석은 채점 완전 재현이 실측된 바 있다
   (quick-260809-i0q E2E 2회, 편차 5건 소수점까지 동일).
+
+## 측정 결과
+
+측정 시각: 2026-08-22T08:47:33Z · 실행 = `measure_noise.mjs` (읽기 전용,
+select() 필드 마스크 — bodyProfile·영상 URL 미수집, uid 6자 절단)
+
+- 전체 done doc: 972 / deg record 보유 doc (표본 후보): 356
+- (a) 같은-영상 페어: 59 (deterministic 1페어 / historical 58페어)
+- (b) 48h 세션 페어: 248
+- **표본을 낸 페어: 282 (최소 요건 5 충족)** / |Δdelta| 표본: 1017
+
+criterion 별 |Δdelta| 분포 (deg):
+
+| criterion | n | min | median | P95 | max |
+|-----------|---|-----|--------|-----|-----|
+| angle_vs_reference__left_elbow | 108 | 0.00 | 0.00 | 5.20 | 11.86 |
+| angle_vs_reference__left_hip | 100 | 0.00 | 0.00 | 2.17 | 11.30 |
+| angle_vs_reference__left_knee | 82 | 0.00 | 0.00 | 5.36 | 8.53 |
+| angle_vs_reference__left_shoulder | 201 | 0.00 | 0.00 | 13.94 | 46.92 |
+| angle_vs_reference__right_elbow | 138 | 0.00 | 0.00 | 3.43 | 21.02 |
+| angle_vs_reference__right_hip | 55 | 0.00 | 0.00 | 0.22 | 6.12 |
+| angle_vs_reference__right_knee | 55 | 0.00 | 0.00 | 2.40 | 7.08 |
+| angle_vs_reference__right_shoulder | 120 | 0.00 | 0.00 | 4.20 | 24.71 |
+| leg_extension | 55 | 0.00 | 0.04 | 61.61 | 61.65 |
+| split_angle | 103 | 0.00 | 0.00 | 20.00 | 20.00 |
+
+페어 종류별 풀링 분포 (deg):
+
+| kind | n | min | median | P95 | max |
+|------|---|-----|--------|-----|-----|
+| deterministic | 5 | 0.00 | 0.00 | 0.00 | 0.00 |
+| historical | 106 | 0.00 | 1.06 | 20.31 | 61.65 |
+| session48h | 906 | 0.00 | 0.00 | 5.71 | 57.57 |
+
+### 규칙 적용 산출 과정
+
+- 풀링 전체: n=1017, min=0.00, median=0.00, **P95=11.60**, max=61.65
+- `threshold_deg = max(1, ceil(11.60)) = 12`
+- 페어 요건: 282 ≥ 5 → 유효.
+
+### 예측 대비 실측 자평
+
+- 예측 적중: deterministic (a) 페어(1페어, 표본 5건)의 |Δdelta| = 전부 0.00
+  (< 0.5°) — 결정론 ON 재분석은 편차가 완전 재현된다는 예측 그대로.
+
+### 관측 (규칙 소급 수정 없음 — belle 참고용)
+
+- split_angle 의 |Δdelta| 는 0 아니면 20 (vision 측정이 20° 단위 양자화) —
+  분포 P95 = 20. 풀링 문턱 12 로는 split 의 한 스텝(20°) 개선이 캡션 대상이
+  된다. 이 20° 스텝이 실력 변화인지 측정 양자화 요동인지는 풀링 규칙이 구분
+  못 한다 — 사전 박제 규칙(풀링 P95)을 그대로 적용했고, criterion 별 문턱
+  전환 여부는 belle 결정 항목으로 SUMMARY 에 올린다.
+- leg_extension P95 61.61 은 keypoint 포화 계열 이상치로 보인다 (관측만).
+
+threshold_deg: 12

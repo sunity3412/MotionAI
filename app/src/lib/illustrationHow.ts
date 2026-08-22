@@ -81,11 +81,11 @@ export interface HowAnchorsBaked {
   /** 방향 문장 틀 — rotate 와 같은 규약 ("좁다" 금지, BELLE-0821-3). */
   readonly directionSentence: string;
   /**
-   * 발전 캡션 원문 (quick-260822-oe1, BELLE-0821-P2). belle 08-21 화법 그대로:
-   * "수치 하면 체감은 못하지만 다음 검증때 20도→18도로 줄면 발전적인 부분이
-   * 보인다. 캡션에 '저번보다 더 벌어졌어요' 담으면 된다." — 변형·수치 삽입·
-   * 악화 문구 발명 금지. optional 이라 없는 에셋은 자동 미대상 (데이터 opt-in,
-   * 코드 분기 0). 판정·소비는 progressCaption.buildProgressCaption 이 한다.
+   * 발전 캡션 원문 (quick-260822-oe1, BELLE-0821-P2). 문구는 belle 08-22 갱신
+   * 판정 "저번보다 나아졌어요 정도가 괜찮을 것 같은데"를 따른다 (08-21 초안
+   * '더 벌어졌어요'는 split 전용이라 belle 이 일반형으로 교체). — 변형·수치
+   * 삽입·악화 문구 발명 금지. optional 이라 없는 에셋은 자동 미대상 (데이터
+   * opt-in, 코드 분기 0). 판정·소비는 progressCaption.buildProgressCaption 이 한다.
    */
   readonly progressSentence?: string;
 }
@@ -110,8 +110,8 @@ export const HOW_ANCHORS: Readonly<Record<string, HowAnchors>> = {
       { from: [0.7199, 0.8625], to: [0.8281, 0.825], ctrlOffset: [0.0089, 0.0383] },
     ],
     directionSentence: '{n}° 정도 더 벌리세요',
-    // belle 08-21 원문 그대로 (BELLE-0821-P2) — 단일 소스. 사본 금지.
-    progressSentence: '저번보다 더 벌어졌어요',
+    // belle 08-22 갱신 원문 그대로 (BELLE-0821-P2) — 단일 소스. 사본 금지.
+    progressSentence: '저번보다 나아졌어요',
   },
 };
 

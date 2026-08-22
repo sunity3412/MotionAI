@@ -136,9 +136,10 @@ export function DefectIllustration({
    */
   how?: { measured?: number | null; target?: number | null; unit?: string | null };
   /**
-   * quick-260822-oe1 (belle 08-21 판정) — 같은 동작 직전 분석의 같은 criterion
-   * 측정 재료. 오버레이(수치 문장)가 그려질 때만 buildProgressCaption 으로 판정해
-   * 카드 아래에 "저번보다 더 벌어졌어요" 캡션을 붙인다. null/부재 = 캡션 없음
+   * quick-260822-oe1 (belle 08-21 판정, 문구는 08-22 갱신) — 같은 동작 직전
+   * 분석의 같은 criterion 측정 재료. 오버레이(수치 문장)가 그려질 때만
+   * buildProgressCaption 으로 판정해 카드 아래에 "저번보다 나아졌어요" 캡션을
+   * 붙인다. null/부재 = 캡션 없음
    * (직전 분석 없음 / mode3 — 기존 겉모습 그대로).
    */
   prevHow?: MeasureLike;

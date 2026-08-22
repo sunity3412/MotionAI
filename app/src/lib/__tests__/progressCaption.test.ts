@@ -1,4 +1,4 @@
-// 발전 캡션 판정 검증 (quick-260822-oe1 — belle 08-21 승인 "저번보다 더 벌어졌어요").
+// 발전 캡션 판정 검증 (quick-260822-oe1 — belle 08-22 갱신 문구 "저번보다 나아졌어요").
 //
 // 실행: node --test app/src/lib/__tests__/progressCaption.test.ts
 // Node 24 type stripping — node:test + node:assert/strict + `.ts` import
@@ -16,7 +16,7 @@
 //      개선 < 문턱 / 악화 / 미등록 asset / progressSentence 없는 앵커 /
 //      rotate 앵커 → null.
 //   5) 앵커 원문 — HOW_ANCHORS['ref-kip-up--leg'].progressSentence 가 belle
-//      08-21 화법 원문 그대로 (BELLE-0821-P2 — 변형·수치 삽입 금지).
+//      08-22 갱신 화법 원문 그대로 (BELLE-0821-P2 — 변형·수치 삽입 금지).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,8 +30,8 @@ import {
 import { HOW_ANCHORS, type HowAnchors } from '../illustrationHow.ts';
 import type { AnalysisDoc } from '../../types/analysis.ts';
 
-/** belle 08-21 화법 원문 (검증 리터럴 — 프로덕션 사본 아님, 단일 소스는 앵커). */
-const BELLE_SENTENCE = '저번보다 더 벌어졌어요';
+/** belle 08-22 갱신 화법 원문 (검증 리터럴 — 프로덕션 사본 아님, 단일 소스는 앵커). */
+const BELLE_SENTENCE = '저번보다 나아졌어요';
 
 /** 최소 mode1 done doc 픽스처 — 판정에 쓰이는 필드만 (cast 는 런타임 소거). */
 function mode1Doc(

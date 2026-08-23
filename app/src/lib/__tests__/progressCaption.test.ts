@@ -12,17 +12,23 @@
 //   3) buildProgressCaption 개선 판정 — 개선 = prevDelta − curDelta ≥ 문턱이고
 //      두 쪽 다 deg + 유한값 + 앵커 progressSentence 있으면 그 문장 (단일 소스).
 //      차이형(target 0)·절대각형 두 record 모양 다 성립. 경계(= 문턱) 포함.
-//   4) fail-closed 전 축 — 문턱 null / prev null / unit 불일치 / non-finite /
-//      개선 < 문턱 / 악화 / 미등록 asset / progressSentence 없는 앵커 /
-//      rotate 앵커 → null.
+//      문턱은 criterion 으로 조회 (quick-260824-bxf — thresholds 구조 주입).
+//   4) fail-closed 전 축 — defaultDeg null(전면 비활성) / criterion 부재 /
+//      prev null / unit 불일치 / non-finite / 개선 < 문턱 / 악화 /
+//      미등록 asset / progressSentence 없는 앵커 / rotate 앵커 → null.
 //   5) 앵커 원문 — HOW_ANCHORS['ref-kip-up--leg'].progressSentence 가 belle
 //      08-22 갱신 화법 원문 그대로 (BELLE-0821-P2 — 변형·수치 삽입 금지).
+//   6) criterion별 문턱 (quick-260824-bxf) — 프로덕션 맵 실값 경계:
+//      split_angle 20°/21°/30°, 타 criterion 11.9°/12°, defaultDeg null 우선,
+//      resolveProgressNoiseThresholdDeg 조회.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  PROGRESS_NOISE_THRESHOLD_DEG,
+  PROGRESS_NOISE_THRESHOLDS,
+  type ProgressNoiseThresholds,
+  resolveProgressNoiseThresholdDeg,
   findPreviousComparable,
   extractCriterionMeasure,
   buildProgressCaption,
@@ -136,9 +142,13 @@ test('2b: records 없음 / 불일치 / doc null → null', () => {
 
 const ASSET = 'ref-kip-up--leg';
 const deg = (measured: number, target: number) => ({ measured, target, unit: 'deg' });
+// 문턱 주입 (quick-260824-bxf 정합 갱신) — 종전 number 주입의 의미 보존:
+// 오버라이드 없는 기본 12. criterion 은 임의 문자열 (조회가 defaultDeg 로 떨어짐).
+const T12: ProgressNoiseThresholds = { defaultDeg: 12, byCriterion: {} };
+const ANY = 'any_criterion';
 
 test('3a: 차이형(50→20, 개선 30 ≥ 문턱 12) → belle 원문 (앵커 단일 소스와 동일 참조)', () => {
-  const caption = buildProgressCaption(ASSET, deg(20, 0), deg(50, 0), 12);
+  const caption = buildProgressCaption(ASSET, ANY, deg(20, 0), deg(50, 0), T12);
   assert.equal(caption, BELLE_SENTENCE);
   const anchor = HOW_ANCHORS[ASSET];
   assert.ok(anchor.kind === 'baked');
@@ -146,49 +156,65 @@ test('3a: 차이형(50→20, 개선 30 ≥ 문턱 12) → belle 원문 (앵커 �
 });
 
 test('3b: 절대각형(130/180 → 165/180, 개선 35) → 문장 · 경계(개선 == 문턱)도 문장', () => {
-  assert.equal(buildProgressCaption(ASSET, deg(165, 180), deg(130, 180), 12), BELLE_SENTENCE);
+  assert.equal(
+    buildProgressCaption(ASSET, ANY, deg(165, 180), deg(130, 180), T12),
+    BELLE_SENTENCE,
+  );
   // prevDelta 32 − curDelta 20 = 12 == 문턱 → 개선 ≥ 문턱이므로 문장
-  assert.equal(buildProgressCaption(ASSET, deg(20, 0), deg(32, 0), 12), BELLE_SENTENCE);
+  assert.equal(buildProgressCaption(ASSET, ANY, deg(20, 0), deg(32, 0), T12), BELLE_SENTENCE);
 });
 
-test('3c: 기본 인자 = 상수 (null 이면 전면 비활성, 수치면 그 문턱)', () => {
+test('3c: 기본 인자 = 상수 (defaultDeg null 이면 전면 비활성, 수치면 그 문턱)', () => {
   // 개선 폭을 비상식적으로 크게 줘 상수의 구체값에 비의존 — null/수치 분기만 본다.
-  const got = buildProgressCaption(ASSET, deg(0, 0), deg(9999, 0));
-  assert.equal(got, PROGRESS_NOISE_THRESHOLD_DEG == null ? null : BELLE_SENTENCE);
+  const got = buildProgressCaption(ASSET, ANY, deg(0, 0), deg(9999, 0));
+  assert.equal(got, PROGRESS_NOISE_THRESHOLDS.defaultDeg == null ? null : BELLE_SENTENCE);
 });
 
 // ── 4) fail-closed 전 축 ─────────────────────────────────────────────────
 
-test('4: 문턱 null / prev 없음 / unit 불일치 / non-finite / 미달 / 악화 / 앵커 부적격 → null', () => {
+test('4: 문턱 null / criterion 부재 / prev 없음 / unit 불일치 / non-finite / 미달 / 악화 / 앵커 부적격 → null', () => {
   const good = { cur: deg(20, 0), prev: deg(50, 0) };
-  // 문턱 null (측정 불충분 = 캡션 전면 비활성, BELLE-0821-P3)
-  assert.equal(buildProgressCaption(ASSET, good.cur, good.prev, null), null);
+  // defaultDeg null (측정 불충분 = 캡션 전면 비활성, BELLE-0821-P3)
+  assert.equal(
+    buildProgressCaption(ASSET, ANY, good.cur, good.prev, { defaultDeg: null, byCriterion: {} }),
+    null,
+  );
+  // criterion 부재 (quick-260824-bxf — 배선 불일치를 기본 문턱으로 덮지 않는다)
+  assert.equal(buildProgressCaption(ASSET, null, good.cur, good.prev, T12), null);
+  assert.equal(buildProgressCaption(ASSET, undefined, good.cur, good.prev, T12), null);
+  assert.equal(buildProgressCaption(ASSET, '', good.cur, good.prev, T12), null);
   // prev 없음 (직전 분석 없음 / record 없음)
-  assert.equal(buildProgressCaption(ASSET, good.cur, null, 12), null);
-  assert.equal(buildProgressCaption(ASSET, good.cur, undefined, 12), null);
+  assert.equal(buildProgressCaption(ASSET, ANY, good.cur, null, T12), null);
+  assert.equal(buildProgressCaption(ASSET, ANY, good.cur, undefined, T12), null);
   // current 없음 (수치 문장 없는 곳에 캡션만 뜨는 일 없음)
-  assert.equal(buildProgressCaption(ASSET, null, good.prev, 12), null);
+  assert.equal(buildProgressCaption(ASSET, ANY, null, good.prev, T12), null);
   // unit 불일치 (한쪽이라도 deg 아님)
   assert.equal(
-    buildProgressCaption(ASSET, { measured: 20, target: 0, unit: 'notch' }, good.prev, 12),
+    buildProgressCaption(ASSET, ANY, { measured: 20, target: 0, unit: 'notch' }, good.prev, T12),
     null,
   );
   assert.equal(
-    buildProgressCaption(ASSET, good.cur, { measured: 50, target: 0, unit: 'cm' }, 12),
+    buildProgressCaption(ASSET, ANY, good.cur, { measured: 50, target: 0, unit: 'cm' }, T12),
     null,
   );
   // 값 없음 / non-finite
-  assert.equal(buildProgressCaption(ASSET, { measured: null, target: 0, unit: 'deg' }, good.prev, 12), null);
-  assert.equal(buildProgressCaption(ASSET, deg(Number.NaN, 0), good.prev, 12), null);
-  assert.equal(buildProgressCaption(ASSET, good.cur, deg(Number.POSITIVE_INFINITY, 0), 12), null);
+  assert.equal(
+    buildProgressCaption(ASSET, ANY, { measured: null, target: 0, unit: 'deg' }, good.prev, T12),
+    null,
+  );
+  assert.equal(buildProgressCaption(ASSET, ANY, deg(Number.NaN, 0), good.prev, T12), null);
+  assert.equal(
+    buildProgressCaption(ASSET, ANY, good.cur, deg(Number.POSITIVE_INFINITY, 0), T12),
+    null,
+  );
   // 개선 < 문턱 (prev 30 → cur 20, 개선 10 < 12)
-  assert.equal(buildProgressCaption(ASSET, deg(20, 0), deg(30, 0), 12), null);
+  assert.equal(buildProgressCaption(ASSET, ANY, deg(20, 0), deg(30, 0), T12), null);
   // 악화 (개선 음수 — 악화 문구 발명 금지, 침묵)
-  assert.equal(buildProgressCaption(ASSET, deg(40, 0), deg(20, 0), 12), null);
+  assert.equal(buildProgressCaption(ASSET, ANY, deg(40, 0), deg(20, 0), T12), null);
   // 미등록 asset
-  assert.equal(buildProgressCaption('ref-kip-up', good.cur, good.prev, 12), null);
-  assert.equal(buildProgressCaption(null, good.cur, good.prev, 12), null);
-  assert.equal(buildProgressCaption(undefined, good.cur, good.prev, 12), null);
+  assert.equal(buildProgressCaption('ref-kip-up', ANY, good.cur, good.prev, T12), null);
+  assert.equal(buildProgressCaption(null, ANY, good.cur, good.prev, T12), null);
+  assert.equal(buildProgressCaption(undefined, ANY, good.cur, good.prev, T12), null);
 });
 
 test('4b: progressSentence 없는 baked 앵커 / rotate 앵커 → null (데이터 opt-in)', () => {
@@ -208,10 +234,13 @@ test('4b: progressSentence 없는 baked 앵커 / rotate 앵커 → null (데이�
     },
   };
   assert.equal(
-    buildProgressCaption('baked-no-progress', deg(20, 0), deg(50, 0), 12, anchors),
+    buildProgressCaption('baked-no-progress', ANY, deg(20, 0), deg(50, 0), T12, anchors),
     null,
   );
-  assert.equal(buildProgressCaption('rotate-any', deg(20, 0), deg(50, 0), 12, anchors), null);
+  assert.equal(
+    buildProgressCaption('rotate-any', ANY, deg(20, 0), deg(50, 0), T12, anchors),
+    null,
+  );
 });
 
 // ── 5) 앵커 원문 박제 (BELLE-0821-P2) ────────────────────────────────────

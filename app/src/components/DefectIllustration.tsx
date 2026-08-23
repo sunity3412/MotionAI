@@ -115,6 +115,7 @@ export function DefectIllustration({
   maxHeight,
   how,
   prevHow,
+  criterion,
 }: {
   /** mode1 기준 모션 ID. null/미등록 = silent hidden (렌더 0). */
   motionId: string | null | undefined;
@@ -143,6 +144,15 @@ export function DefectIllustration({
    * (직전 분석 없음 / mode3 — 기존 겉모습 그대로).
    */
   prevHow?: MeasureLike;
+  /**
+   * quick-260824-bxf — 이 항목의 감점 criterion (`sheetView.primaryCriterion`).
+   * 캡션 노이즈 문턱을 criterion 으로 조회한다 (기본 12 + split_angle 21 —
+   * progressCaption PROGRESS_NOISE_THRESHOLDS). **prevHow 를 만든 criterion 과
+   * 같은 값이어야 문턱이 의미를 갖는다** — 직전/현재 측정과 문턱 조회가 다른
+   * criterion 을 보면 비교 자체가 성립하지 않는다. null/부재 = 캡션 없음
+   * (fail-closed — 배선 불일치를 기본 문턱으로 덮지 않는다).
+   */
+  criterion?: string | null;
 }) {
   // 장면일치 통과분만 조회 키가 된다 (P-2/P-3). 불일치·미등재·mode3 → null.
   const matched = illustrationAssetForPart(motionId, partKey);
@@ -174,7 +184,7 @@ export function DefectIllustration({
   // 전례(gb7 시뮬 실측)가 있어 오버레이 안에 두 번째 pill 을 넣지 않는다.
   const progressCaption =
     overlay != null && prevHow != null
-      ? buildProgressCaption(matched, how, prevHow)
+      ? buildProgressCaption(matched, criterion, how, prevHow)
       : null;
 
   return (

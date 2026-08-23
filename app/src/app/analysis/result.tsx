@@ -3572,6 +3572,10 @@ function AnalysisResultContent({
               maxHeight={maxHeight}
               how={how}
               prevHow={prevHow}
+              // quick-260824-bxf — 문턱 조회용 criterion. prevHow 산출
+              // (extractCriterionMeasure(prevDoc, sheetView.primaryCriterion))과
+              // **같은 값** — 두 번째 규칙 금지.
+              criterion={sheetView?.primaryCriterion ?? null}
             />
           );
         }}

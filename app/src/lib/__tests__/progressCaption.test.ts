@@ -250,3 +250,47 @@ test('5: HOW_ANCHORS ref-kip-up--leg 의 progressSentence = belle 08-21 원문 �
   assert.ok(anchor.kind === 'baked');
   assert.equal(anchor.progressSentence, BELLE_SENTENCE);
 });
+
+// ── 6) criterion별 문턱 — quick-260824-bxf ───────────────────────────────
+// 프로덕션 맵 PROGRESS_NOISE_THRESHOLDS 를 그대로 쓰는 경계 검증 (주입 아님 —
+// 실배선 값: 기본 12 + split_angle 21, 출처 = SPLIT-FLIP-CROSSTAB.md).
+
+test('6a: split_angle 개선 20° → null (문턱 21 미달 — 20° 한 스텝은 양자화 요동)', () => {
+  assert.equal(buildProgressCaption(ASSET, 'split_angle', deg(0, 0), deg(20, 0)), null);
+});
+
+test('6b: split_angle 개선 21° → 문장 (경계 = 문턱 포함, 3b 관행) · 30° → 문장', () => {
+  assert.equal(
+    buildProgressCaption(ASSET, 'split_angle', deg(0, 0), deg(21, 0)),
+    BELLE_SENTENCE,
+  );
+  assert.equal(
+    buildProgressCaption(ASSET, 'split_angle', deg(0, 0), deg(30, 0)),
+    BELLE_SENTENCE,
+  );
+});
+
+test('6c: 타 criterion 개선 12° → 문장 (종전 문턱 12 유지) · 11.9° → null', () => {
+  assert.equal(
+    buildProgressCaption(ASSET, 'angle_vs_reference__left_hip', deg(0, 0), deg(12, 0)),
+    BELLE_SENTENCE,
+  );
+  assert.equal(
+    buildProgressCaption(ASSET, 'angle_vs_reference__left_hip', deg(0, 0), deg(11.9, 0)),
+    null,
+  );
+});
+
+test('6d: defaultDeg null 주입 → split_angle 오버라이드 있어도 대폭 개선 null (전면 비활성 우선)', () => {
+  const off: ProgressNoiseThresholds = { defaultDeg: null, byCriterion: { split_angle: 21 } };
+  assert.equal(buildProgressCaption(ASSET, 'split_angle', deg(0, 0), deg(9999, 0), off), null);
+});
+
+test('6e: resolveProgressNoiseThresholdDeg — split_angle 21 / 미등록 12 / defaultDeg null → null', () => {
+  assert.equal(resolveProgressNoiseThresholdDeg('split_angle'), 21);
+  assert.equal(resolveProgressNoiseThresholdDeg('angle_vs_reference__left_hip'), 12);
+  assert.equal(
+    resolveProgressNoiseThresholdDeg('split_angle', { defaultDeg: null, byCriterion: { split_angle: 21 } }),
+    null,
+  );
+});

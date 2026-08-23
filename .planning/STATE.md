@@ -76,7 +76,9 @@ Status: Ready to execute
 
 > ⚠ Phase 04 Decision-Coverage Gate override (2026-06-13): 12/32 CONTEXT 결정만 plan 직접 인용. 미커버 20개는 빌드 대상 아님 — spike 절차 완료분(D-11/12/13/17/19), v2/후속 보류(D-06/14/24~28), 근거·IPSF 리서치(D-15/16/21/22/23), negative scope fence(D-01/02/04). 실 빌드 결정(D-03/05/07/08/09/10/18/20/29~32)은 plan-checker Dimension 7 PASS 확인. verify-phase 에서 재확인 가능. proceed-anyway 선택 (belle 위임 "그냥 진행").
 
-Last activity: 2026-08-22 - Quick task 260822-oe1: 발전 캡션 배선 완료 — threshold_deg 12 실측(measure-first, 규칙 커밋 → 측정 커밋), "저번보다 더 벌어졌어요"(belle 원문) 시뮬 양면 실증, OTA 미발행 (belle 결정 대기: split_angle 20° 양자화 문턱 / OTA)
+Last activity: 2026-08-24 - Quick task 260824-bxf: 발전 캡션 문턱 criterion별 전환 완료 — split_angle 플립 교차표 재실측·원장 박제(historical 플립 52.7% — 08-22 구두 36.4% 불일치 그대로 박제, P95 20.00 은 원장과 일치), PROGRESS_NOISE_THRESHOLDS(기본 12 + split_angle 21) + criterion 배선(result.tsx→DefectIllustration→buildProgressCaption), 전량 게이트 GREEN(233 pass/기지 1). OTA 미발행(belle 결정 대기 유지), 시뮬 실증 = 오케스트레이터 후속
+
+이전: 2026-08-22 - Quick task 260822-oe1: 발전 캡션 배선 완료 — threshold_deg 12 실측(measure-first, 규칙 커밋 → 측정 커밋), "저번보다 더 벌어졌어요"(belle 원문) 시뮬 양면 실증, OTA 미발행 (belle 결정 대기: split_angle 20° 양자화 문턱 / OTA)
 
 이전: 2026-08-21 - Quick task 260821-umc: v32 gates 4090 VRAM 한계 STOP — 32GB+ Pod에서 재발사 대기
 
@@ -210,6 +212,7 @@ Last activity: 2026-08-22 - Quick task 260822-oe1: 발전 캡션 배선 완료 �
 | 260821-tg6 | Pod E2E + kgq 발굴 상속 + D-di7-03 종결 — 신선 분석 done(456s, score 60), 발굴 정지 3건 결정론 재현(outSec 정확 일치)·스틸 육안, discover mp3 운영 회수 로그 최초 확보. ★관측 2건: 운영 마킹 `:discover` suffix 소실(D-di7-05 불일치, 후속 재료) · **Cerebras 402 잔액**(Gemini cross-fill로 커버, belle 확인 필요) | 2026-08-21 | 26db97c9 | [260821-tg6-pod-e2e-kgq-discovery-mp3-d-di7-03](./quick/260821-tg6-pod-e2e-kgq-discovery-mp3-d-di7-03/) |
 | 260821-umc | v32 gates 시도(4090/580) — bf16 병합 성공(checkpoint-68-merged 17G, 볼륨 보존) 후 vLLM 서빙 **24GB VRAM 한계로 STOP** (가중치 16.65+오버헤드 2.9+KV 4.5 ≈ 24.1 GiB > 23.52). 판정 없음 — fail-closed. 다음 수 = **32GB+ VRAM + 드라이버 570+ Pod에서 gates만 재발사** (병합 재작업 0). 부산물: gemini __init__ lazy화 수리(141 tests) | 2026-08-21 | 07201fc7 | [260821-umc-v32-gates-4090-580-pod-vllm-serve-v29-pr](./quick/260821-umc-v32-gates-4090-580-pod-vllm-serve-v29-pr/) |
 | 260822-oe1 | 발전 캡션 배선 (belle 08-21 "저번보다 더 벌어졌어요") — measure-first: 판정 규칙 커밋 → Firestore 읽기 전용 실측(페어 282·표본 1017) → **threshold_deg 12**(풀링 P95 11.60). progressCaption 순수 lib(TDD, fail-closed 전 축) + HOW_ANCHORS progressSentence(원문 단일 소스) + DefectIllustration prevHow(오버레이 게이트 뒤 카드 아래 Text) + result.tsx(useMyAnalyses 재사용, 신규 쿼리 0). 시뮬 양면 실증(표시/미표시 캡처, 시드 doc 복원). 테스트 208/207+기지1, 회귀 0. **OTA 미발행**. ★belle 결정 대기: split_angle 요동이 0/20 양자화라 문턱 12로 한 스텝(20°)이 캡션 대상 — criterion 별 문턱 전환 여부 | 2026-08-22 | 3902fd81 | [260822-oe1-progress-caption](./quick/260822-oe1-progress-caption/) |
+| 260824-bxf | 발전 캡션 문턱 criterion별 전환 (belle 08-24 승인 — "split은 21" 숫자 예외가 아니라 규칙 일반화 `max(12, ceil(P95_c)+1)`) — measure-first: 규칙 커밋 → 교차표 재실측·원장 박제(SPLIT-FLIP-CROSSTAB.md). **예측 3건 적중 0**: same-video historical 플립 29/55=**52.7%**(구두 36.4% 불일치), 48h 7/48=14.6%(구두 0, |Δdelta| 5~15° 전건 문턱 21 미만), deterministic 표본 0 — 그대로 박제. **문턱 유도 재료는 재현**(n=103·P95 20.00·max 20.00 = 08-22 원장 일치) → 21 불변. 신규 관측: delta 5° 양자화(25/30/40/45/50), "0 아니면 20"은 과단순화. `PROGRESS_NOISE_THRESHOLDS{defaultDeg 12, byCriterion{split_angle 21}}` + resolveProgressNoiseThresholdDeg(defaultDeg null=전면 비활성 우선, criterion 부재 fail-closed) + result.tsx primaryCriterion→DefectIllustration criterion prop 배선. 경계 테스트(20 미표시/21·30 표시/타 criterion 12 유지). 게이트 GREEN: typecheck + 241/240+기지1(오케스트레이터 재실행 확인). **OTA 미발행**(belle 결정 대기), 시뮬 실증 별도 | 2026-08-24 | bb69bfdd | [260824-bxf-criterion-split-angle-12-split-21](./quick/260824-bxf-criterion-split-angle-12-split-21/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

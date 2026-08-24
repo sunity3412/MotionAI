@@ -76,12 +76,17 @@ const ASSET_H_OVER_W = 964 / 720;
 // 예외를 데이터로 등재한다 (코드 분기 0).
 const ASSET_H_OVER_W_OVERRIDES: Readonly<Record<string, number>> = {
   'ref-kip-up--leg': 1200 / 896,
+  // quick-260824-jw4 — belle 실촬영 기반 재생성본 (gt1 r8 after-1, 896x1200).
+  'ref-power-spin--leg': 1200 / 896,
 };
 
 // 검수 PASS 에셋 맵 — RN 정적 require (번들 포함). 키 = 장면 표의 `asset`.
 // 항목 추가 = 33-14 게이트 재수행 후에만 (틀린 그림 유입 차단).
 const VERIFIED_ILLUSTRATIONS: Record<string, number> = {
   'ref-power-spin': require('../../assets/illustrations/ref-power-spin.jpg'),
+  // quick-260824-jw4 — belle 08-24: 구 다리 그림(도립)은 파워스핀에 없는 자세라
+  // 기각, belle 실촬영 프레임 재현본으로 교체 (gt1 r8 after-1, 896x1200).
+  'ref-power-spin--leg': require('../../assets/illustrations/ref-power-spin--leg.jpg'),
   'ref-kip-up': require('../../assets/illustrations/ref-kip-up.jpg'),
   // quick-260821-gb7 — belle 08-21 승인 (보드 실물 3회 확인): 잔상 포함 "어떻게" 그림
   // (exq stage20-1, 896x1200). 화살표·수치 문장은 앱이 그린다 — HOW_ANCHORS baked.
@@ -486,26 +491,43 @@ function RotateHowLayer({
             <SvgImage href={source} x={0} y={0} width={w} height={h} preserveAspectRatio="none" />
           </G>
         ) : null}
-        {/* 3) 화살표 잔상 → 실선 + 잔상 점 */}
+        {/* 3) 화살표 잔상 발 → 실선 발 — 승인본(킵업 20-1, gb7 B 방식)과 같은
+            곡선 bezier + 접선 화살촉. belle 08-24 "오케이한 그 단순한 스타일" —
+            "지금" pill·직선 화살표·잔상 점은 승인 전 옛 문법이라 제거. */}
         {overlay.limbs.map((l, i) => {
-          const [ax, ay] = px(l.ghostTip);
-          const [bx, by] = px(l.tip);
+          const [x0, y0] = px(l.ghostTip);
+          const [x1, y1] = px(l.tip);
+          const head = Math.max(8, w * 0.025);
+          const bstroke = Math.max(2, w * 0.006);
+          const mx = (x0 + x1) / 2;
+          const my = (y0 + y1) / 2 + h * 0.038;
+          const dist = Math.hypot(x1 - x0, y1 - y0);
+          const t = 1 - Math.min(0.3, (head * 0.5) / Math.max(1, dist));
+          const qx = x0 + (mx - x0) * t;
+          const qy = y0 + (my - y0) * t;
+          const rx = mx + (x1 - mx) * t;
+          const ry = my + (y1 - my) * t;
+          const ex = qx + (rx - qx) * t;
+          const ey = qy + (ry - qy) * t;
+          const ang = Math.atan2(y1 - my, x1 - mx);
+          const p1 = [x1 - head * Math.cos(ang - 0.45), y1 - head * Math.sin(ang - 0.45)];
+          const p2 = [x1 - head * Math.cos(ang + 0.45), y1 - head * Math.sin(ang + 0.45)];
           return (
             <G key={`a${i}`}>
-              <Line x1={ax} y1={ay} x2={bx} y2={by} stroke={colors.brand} strokeWidth={stroke} strokeLinecap="round" />
-              <Polygon points={arrowHead(l.ghostTip, l.tip)} fill={colors.brand} />
-              <Circle cx={ax} cy={ay} r={dot} fill={colors.brand} stroke={colors.cardBg} strokeWidth={2} />
+              <Path
+                d={`M ${x0} ${y0} Q ${qx} ${qy} ${ex} ${ey}`}
+                stroke={colors.brand}
+                strokeWidth={bstroke}
+                strokeLinecap="round"
+                fill="none"
+              />
+              <Polygon points={`${x1},${y1} ${p1[0]},${p1[1]} ${p2[0]},${p2[1]}`} fill={colors.brand} />
             </G>
           );
         })}
       </Svg>
-      {/* "지금" + 방향 문장 — RN Text 로 (폰트·토큰 재사용) */}
-      {/* "지금" — 잔상 발이 그림 가장자리면 카드 밖으로 나가므로 상단으로 클램프. */}
-      <View style={[styles.nowPill, { left: nx, top: Math.min(ny, h - 30) }]}>
-        <Text style={styles.nowText}>지금</Text>
-      </View>
-      {/* 방향 문장 — 몸을 가리지 않는 상단 여백(폴 옆). 그림 여백이 확보되면 재조정. */}
-      <View style={[styles.dirPill, { top: h * 0.06 }]}>
+      {/* 방향 문장 — 승인본과 같은 하단 중앙 좁은 pill (bakedDirPill 상속). */}
+      <View style={[styles.dirPill, styles.bakedDirPill, { bottom: h * 0.01 }]}>
         <Text style={styles.dirText}>{overlay.directionText}</Text>
       </View>
     </View>

@@ -104,9 +104,12 @@ export const ILLUSTRATION_SCENES: readonly IllustrationScene[] = [
   {
     motionId: 'ref-power-spin',
     parts: ['leg'],
-    asset: 'ref-power-spin',
+    // quick-260824-jw4 — belle 08-24: 구 33-14 본(도립 수직 스플릿)은 "파워스핀에
+    // 없는 동작"이라 기각·교체. 새 그림 = belle 실촬영 프레임(옆모습 스핀, 윗다리
+    // 폴 옆 위 + 아랫다리 아래앞) 충실 재현 (quick-260824-gt1 r8 after-1, 896x1200).
+    asset: 'ref-power-spin--leg',
     provenance:
-      '33-14 입력 8.50s (두 다리 폴 축 한 줄 최곧음) · 채택본 검수 provenance = 수직 스플릿·선 한 줄 · 실물 열람 = 붉은 직선 1줄이 위 다리 발끝→골반→아래 다리 발끝 관통, 그립 팔·어깨에는 표시 없음',
+      'belle 08-24 지시 — 구 목표 그림은 파워스핀에 없는 자세(도립)라 기각, belle 실촬영 프레임 기반 재생성본으로 교체 (gt1 out_r8/powerspin_after-1) · 실물 열람 = 옆모습 스핀, 윗다리 폴 옆 수직·아랫다리 아래앞, 화살표·수치·텍스트 0, 익명 얼굴 · 잔상·화살표·문구는 앱 렌더 (HOW_ANCHORS rotate)',
   },
   {
     motionId: 'ref-kip-up',

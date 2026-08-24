@@ -62,14 +62,12 @@ export interface GhostAlignMeta {
  * 미등재 에셋 = 잔상 없음 (fail-closed).
  */
 export const GHOST_ALIGN: Readonly<Record<string, GhostAlignMeta>> = {
-  // ref-power-spin.jpg 720x964 실측 (2026-08-24 격자): 골반 (325,435),
-  // 어깨 중점 (320,550) — 도립 그림이라 몸통이 아래를 향한다 (92.5도).
-  'ref-power-spin': {
-    pelvisFx: 325 / 720,
-    pelvisFy: 435 / 964,
-    torsoF: 115 / 964,
-    torsoAngleDeg: 92.5,
-  },
+  // 등재 0 (2026-08-24 belle 기각) — 파워스핀 실렌더에서 원시 스켈레톤 잔상이
+  // "실존하지 않는 자세"로 읽혔다: 몸통 정렬 회전이 세계 방향을 바꾸고, 신뢰도
+  // 게이트로 사지가 빠져 몸이 깨져 보인다. 잔상은 illustrationHow 의 rotate
+  // 앵커(그림 자신의 사지를 실측 각도만큼 회전)로 그린다. 이 lib 는 순간 선택
+  // (pickGhostMomentSec)과 추출 기하가 검증돼 있어 보존 — 재등재는 belle 실물
+  // 승인 후에만.
 };
 
 export interface GhostPoint {

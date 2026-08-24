@@ -472,7 +472,7 @@ function RotateHowLayer({
         {overlay.limbs.map((l, i) => {
           const [cx, cy] = px(l.pivot);
           return (
-            <G key={`g${i}`} clipPath={`url(#limb${i})`} opacity={0.42}>
+            <G key={`g${i}`} clipPath={`url(#limb${i})`} opacity={0.6}>
               <SvgImage
                 href={source}
                 x={0}
@@ -485,6 +485,15 @@ function RotateHowLayer({
             </G>
           );
         })}
+        {/* 1.5) 실선 사지 원본을 잔상 위에 재도포 (quick-260824-jw4, belle 08-24
+            "겹쳐 보인다") — 회전각이 작으면 잔상이 실선과 겹쳐 이중노출로 읽힌다.
+            같은 클립으로 원본을 다시 얹으면 잔상은 실선 밖으로 비어져 나온
+            부분만 남는다 — 승인본(킵업 20-1)의 "잔상이 실선 뒤" 층 순서. */}
+        {overlay.limbs.map((l, i) => (
+          <G key={`s${i}`} clipPath={`url(#limb${i})`}>
+            <SvgImage href={source} x={0} y={0} width={w} height={h} preserveAspectRatio="none" />
+          </G>
+        ))}
         {/* 2) 폴 등 앞에 있어야 할 것 */}
         {overlay.frontClip ? (
           <G clipPath="url(#front)">

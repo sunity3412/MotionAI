@@ -1,0 +1,27 @@
+{
+  "asset": "ref-power-spin--leg",
+  "grammar": "ghost-noarrow",
+  "model": "gemini-3-pro-image",
+  "geminiCallCount": 4,
+  "generatedAt": "2026-08-24",
+  "errorTypes": {
+    "leg_extension": {
+      "criterion": "leg_extension",
+      "measuredMedianDeg": 39.03,
+      "measuredDirection": "deficit (measured < baseline 180, 10/10)",
+      "files": [
+        "ref-power-spin--leg__ghost-leg_extension-1.jpg",
+        "ref-power-spin--leg__ghost-leg_extension-2.jpg"
+      ]
+    },
+    "split_angle": {
+      "criterion": "split_angle",
+      "measuredMedianDeg": 30.0,
+      "measuredDirection": "deviation 30.00 vs baseline 0 (9/9 identical, app copy direction: narrower)",
+      "files": [
+        "ref-power-spin--leg__ghost-split_angle-1.jpg",
+        "ref-power-spin--leg__ghost-split_angle-2.jpg"
+      ]
+    }
+  }
+}

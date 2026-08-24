@@ -1,0 +1,41 @@
+Redraw the FIRST reference image as a clean instructional illustration, using the SECOND reference image only as a style reference.
+
+POSE FIDELITY (most important):
+Reproduce the exact pose, orientation and camera viewpoint of the FIRST image: hanging inverted from a single vertical pole, one leg extended straight up alongside the pole and the other extended straight down in a vertical split, one arm gripping the pole. Keep the pole in the same position and angle as in the FIRST image. Do NOT copy the pose, orientation or limb arrangement from the SECOND image - the SECOND image is ONLY for drawing style (line quality, palette, shading, background tone).
+
+ANONYMISATION:
+The figure must have NO facial features at all - no eyes, no nose, no mouth, no eyebrows. Leave the face as blank, smooth, unmarked skin. Do not draw a portrait.
+The figure MUST still have hair - dark hair tied back in a bun or ponytail, like the SECOND
+reference image. Never draw a bald or hairless head: anonymise the face only, keep the hair.
+
+CLOTHING (never bare):
+The figure always wears a dark taupe sports bra AND matching shorts, exactly like the SECOND
+reference image. The torso is never bare, never topless, never in underwear.
+
+SCENE:
+Exactly ONE vertical pole in the image. Never draw a second pole, a doubled pole line, a
+mirror, or a reflection. Exactly ONE person - no second figure, no stray extra limb entering
+from any edge.
+
+GUIDE MARK:
+Show HOW to get into this position, not just the position. Draw the SAME figure twice, superimposed in the SAME place: (1) a faint, very light, semi-transparent 'before' ghost of the two legs in a visibly less open vertical split - the raised ghost leg stopping short of vertical, leaning off the pole, and the lowered ghost leg not yet pointing straight down, so the two ghost legs form a shallow bend instead of one straight vertical line - the two ghost legs must be clearly separate, one raised and one lowered, never merged into one, and each ghost leg must stay clearly distinct from the pole, never blending into the pole or doubling the pole line; and (2) the solid, fully drawn 'after' legs in the full vertical split - one leg extended straight up alongside the pole and the other extended straight down - exactly as in the FIRST image. The ghost is only the two legs; torso, arms, head and pole are drawn once, solid. Draw NO arrows, NO angle marker, NO measurement line, NO number, NO text, NO red mark of any kind - the body only. The ghost must read as a motion trail of the same person, never as a second person.
+
+ANATOMY:
+Exactly two arms and two legs, five fingers per hand, five toes per foot, joints bending only in anatomically possible directions.
+Exactly ONE head. The head must be attached to the neck and clearly separated from the hips
+and thighs - never fused into the pelvis, buttock or torso, and never duplicated anywhere in
+the image. The head sits on the neck in its natural direction - never twisted round backwards
+or rotated away from the spine.
+Where limbs overlap or the body is folded, keep every limb readable as a separate outline:
+draw the contour where one body part passes in front of another so the viewer can count two
+arms and two legs without ambiguity.
+Every limb must be anatomically plausible along its whole length - a calf must not bend where
+there is no joint, a foot must join the ankle in a natural direction, and no limb may taper
+into a shapeless mass. If a body part would be ambiguous, place it outside the frame instead
+of drawing it wrong.
+
+FRAMING:
+Portrait 3:4. The figure must FILL the frame - crop in close so the body occupies most of the image. Avoid large empty background areas; leave only a small margin around the figure.
+
+STYLE:
+Soft pencil-and-watercolour illustration on a completely plain warm off-white background - no room, no window, no plant, no furniture, no floor line - muted warm skin tones, dark taupe activewear, no text, no logos, no watermark, no border.

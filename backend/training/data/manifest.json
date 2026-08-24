@@ -249,6 +249,28 @@
         "status": "collected",
         "cumulative_rows_after": 353,
         "s3_scan_error": null
+      },
+      {
+        "batch_id": "eye-260824",
+        "opened_at": "2026-08-24T01:13:58Z",
+        "approved_by": "belle",
+        "trigger": "harvest_eye --run",
+        "ledger": "training/data/eye_manifest.json",
+        "sources": {
+          "eye_repo_evidence": 165,
+          "eye_s3_operational": 0
+        },
+        "scanned_rows": 165,
+        "scanned_admit": 161,
+        "scanned_hold": 4,
+        "new_rows": 6,
+        "skipped_existing": 159,
+        "ledger_rows_after": 148,
+        "ledger_admit_after": 144,
+        "ledger_hold_after": 4,
+        "status": "collected",
+        "cumulative_rows_after": 353,
+        "s3_scan_error": "Could not connect to the endpoint URL: \"https://sunity-motion-pilot-videos.s3.ap-northeast-2.amazonaws.com/?list-type=2&prefix=results%2F&encoding-type=url\""
       }
     ]
   },

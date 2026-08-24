@@ -3576,6 +3576,27 @@ function AnalysisResultContent({
               // (extractCriterionMeasure(prevDoc, sheetView.primaryCriterion))과
               // **같은 값** — 두 번째 규칙 금지.
               criterion={sheetView?.primaryCriterion ?? null}
+              // quick-260824-jw4 — 잔상 데이터 렌더 재료: 학생 keypointReport +
+              // 이 시트 부위의 records (측정 순간 선택·정규화·정렬은 전부 lib).
+              // 메타 미등재 에셋·순간 없는 record 뿐(split 류)·report 부재 → 잔상
+              // 없이 그림만 (fail-closed).
+              ghostSource={
+                sheetView != null
+                  ? {
+                      report: userKeypointReport,
+                      // 부위 시트 블록 순서 그대로 원 records 를 조인 — 잔상 순간은
+                      // 그중 첫 프레임 측정 record (lib pickGhostMomentSec).
+                      records: sheetView.blocks
+                        .map(
+                          (b) =>
+                            (result.deductionBreakdown?.records ?? [])[
+                              b.recordIndex
+                            ],
+                        )
+                        .filter((r) => r != null),
+                    }
+                  : null
+              }
             />
           );
         }}

@@ -58,6 +58,13 @@ import {
   type HowOverlayRotate,
 } from '../lib/illustrationHow';
 import { buildProgressCaption, type MeasureLike } from '../lib/progressCaption';
+import {
+  GHOST_ALIGN,
+  GHOST_EDGES,
+  buildGhostPoseForAsset,
+  type GhostPose,
+  type KeypointReportLike,
+} from '../lib/ghostPose';
 import { colors, radius, typography } from '../theme';
 
 // 등재 에셋 원본 비율 (720x964 — 기본). 높이 = 실측 폭 × 이 값.
@@ -116,6 +123,7 @@ export function DefectIllustration({
   how,
   prevHow,
   criterion,
+  ghostSource,
 }: {
   /** mode1 기준 모션 ID. null/미등록 = silent hidden (렌더 0). */
   motionId: string | null | undefined;
@@ -153,6 +161,16 @@ export function DefectIllustration({
    * (fail-closed — 배선 불일치를 기본 문턱으로 덮지 않는다).
    */
   criterion?: string | null;
+  /**
+   * quick-260824-jw4 (belle 08-24 "뭐가 됐든 기능 완료") — 잔상 데이터 렌더 재료.
+   * 학생 keypointReport + 이 시트 부위의 감점 records. 판정·정규화·정렬은 전부
+   * lib(buildGhostPoseForAsset — GHOST_ALIGN 메타 등재 에셋만). 어느 축이든
+   * 실패 = 잔상 없이 그림만 (fail-closed — 기존 겉모습 회귀 0).
+   */
+  ghostSource?: {
+    report: KeypointReportLike | null;
+    records: ReadonlyArray<{ atVideoSec?: number | null }>;
+  } | null;
 }) {
   // 장면일치 통과분만 조회 키가 된다 (P-2/P-3). 불일치·미등재·mode3 → null.
   const matched = illustrationAssetForPart(motionId, partKey);
@@ -186,6 +204,12 @@ export function DefectIllustration({
     overlay != null && prevHow != null
       ? buildProgressCaption(matched, criterion, how, prevHow)
       : null;
+  // quick-260824-jw4 — 잔상 데이터 렌더. GHOST_ALIGN 메타 등재 에셋 + 재료가
+  // 있을 때만 (판정은 lib 순수 함수 — 이 컴포넌트는 픽셀 곱만).
+  const ghostPose = ghostSource
+    ? buildGhostPoseForAsset(matched, ghostSource.report, ghostSource.records)
+    : null;
+  const ghostMeta = matched ? GHOST_ALIGN[matched] : undefined;
 
   return (
     <View style={styles.wrap} onLayout={(e) => setAvailW(e.nativeEvent.layout.width)}>
@@ -200,12 +224,73 @@ export function DefectIllustration({
             resizeMode="cover"
             accessibilityLabel="목표 자세 일러스트"
           />
+          {ghostPose && ghostMeta ? (
+            <GhostPoseLayer pose={ghostPose} meta={ghostMeta} w={w} h={h} />
+          ) : null}
           {overlay ? <HowOverlayLayer overlay={overlay} source={source} w={w} h={h} /> : null}
         </View>
       ) : null}
       {w > 0 && progressCaption ? (
         <Text style={styles.progressCaption}>{progressCaption}</Text>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * 잔상 데이터 렌더 (quick-260824-jw4). 학생의 결함 순간 실측 자세를 스켈레톤으로
+ * 그림 위에 얹는다 — 좌표는 lib 가 정규화·몸통 정렬까지 끝낸 값이라 여기서는
+ * 에셋 메타(골반 위치·몸통 픽셀)로 픽셀 곱만 한다. 양 끝 관절이 다 있는 변만
+ * 그린다. 색·굵기 = theme 토큰 파생 (하드코딩 0).
+ */
+function GhostPoseLayer({
+  pose,
+  meta,
+  w,
+  h,
+}: {
+  pose: GhostPose;
+  meta: (typeof GHOST_ALIGN)[string];
+  w: number;
+  h: number;
+}) {
+  const scale = meta.torsoF * h;
+  const cx = meta.pelvisFx * w;
+  const cy = meta.pelvisFy * h;
+  const byKey = new Map(pose.points.map((p) => [p.key, p]));
+  const stroke = Math.max(2.5, w * 0.009);
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg width={w} height={h}>
+        <G opacity={0.45}>
+          {GHOST_EDGES.map(([a, b], i) => {
+            const pa = byKey.get(a);
+            const pb = byKey.get(b);
+            if (!pa || !pb) return null;
+            return (
+              <Line
+                key={`ge${i}`}
+                x1={cx + pa.x * scale}
+                y1={cy + pa.y * scale}
+                x2={cx + pb.x * scale}
+                y2={cy + pb.y * scale}
+                stroke={colors.textMid}
+                strokeWidth={stroke}
+                strokeLinecap="round"
+              />
+            );
+          })}
+          {pose.points.map((p) => (
+            <Circle
+              key={`gp${p.key}`}
+              cx={cx + p.x * scale}
+              cy={cy + p.y * scale}
+              r={stroke * 0.9}
+              fill={colors.textMid}
+            />
+          ))}
+        </G>
+      </Svg>
     </View>
   );
 }

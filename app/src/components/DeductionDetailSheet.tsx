@@ -51,6 +51,7 @@ import {
   objectJosaKo,
   type RegionSheetView,
 } from '../lib/deductionSheet';
+import { zoomCardKey } from '../lib/faultZoomUrls';
 import { terminologyPlain, type TerminologyTerm } from '../lib/terminologyMap';
 import { colors, radius, spacing, typography } from '../theme';
 import type { FaultZoomComparison } from '../types/analysis';
@@ -77,6 +78,14 @@ interface Props {
   // 우측 비교 대상 라벨 — Mode1='정은지 선수', Mode3='지난 영상'. 크롭 위 halfLabel 용
   // (paircap 우측 라벨은 뷰모델이 소유 — rightPairLabel).
   rightLabel: string;
+  // quick-260824-q6p — 7일 넘은 doc 의 확대 이미지 재발급 맵 (zoomCardKey →
+  // fresh presigned URL). 부재/미등재 키 = 종전 저장 imageUrl 그대로 (하위호환,
+  // fail-closed — 재발급 실패 시 현행 회색 폴백). doc item 은 변형하지 않고
+  // 렌더 경계에서만 조회한다.
+  freshZoomUrls?: Record<string, string>;
+  // quick-260824-q6p — Image 로드 실패 시 나이 무관 재발급 트리거 (시계 오차·
+  // 조기 만료 커버, 훅이 mount 당 1회 single-flight 소유).
+  onZoomImageError?: () => void;
 }
 
 // criterion → 심사 언어 용어(terminologyMap) 매핑. 미등록 criterion 은 null(용어줄 생략).
@@ -126,6 +135,8 @@ export function DeductionDetailSheet({
   refUnmarked = false,
   estimatedArea = false,
   rightLabel,
+  freshZoomUrls,
+  onZoomImageError,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
   if (!view) return null;
@@ -142,8 +153,11 @@ export function DeductionDetailSheet({
 
   const renderCrop = (zoom: FaultZoomComparison) => (
     <View style={[styles.imageWrap, { height: imgH }]}>
+      {/* quick-260824-q6p — fresh 맵 우선, 저장 imageUrl 폴백 (7일 presigned 만료
+          수리). onError = 재발급 트리거 (훅 single-flight — 무한 루프 차단). */}
       <Image
-        source={{ uri: zoom.imageUrl }}
+        source={{ uri: freshZoomUrls?.[zoomCardKey(zoom)] ?? zoom.imageUrl }}
+        onError={onZoomImageError}
         style={styles.image}
         resizeMode="contain"
         accessibilityLabel={`${view.title} 확대 비교 이미지`}

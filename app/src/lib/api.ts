@@ -227,6 +227,67 @@ export function fetchCoachAudioUrl(
   });
 }
 
+// quick-260824-q6p — 확대 비교 PNG 배치 재서명. faultZoomComparisons[].imageUrl
+// 은 분석 시점 7일 presigned 라 7일 뒤 전부 죽는다(비교 패널 회색 — belle 08-24
+// 실기기). 열람 시점에 여기서 재발급한다 (URL 비저장 원칙 확장, H-02).
+// 클라이언트는 asset 종류만 보내고 key 는 절대 싣지 않는다 — 서버가 canonical
+// key 를 구성해 doc 저장 key 와 exact 비교한다 (server-selected key, H-05 —
+// contract.md "asset: 'faultZoom'" 절). tier/criterion echo = 앱 join 키 재료
+// (faultZoomUrls.zoomCardKey — doc item 과 echo item 에 같은 함수 적용).
+export type FaultZoomUrlItem = {
+  joint: string;
+  tier?: string;
+  criterion?: string;
+  playbackUrl: string;
+};
+
+export function fetchFaultZoomUrls(
+  analysisId: string,
+): Promise<{ items: FaultZoomUrlItem[]; expiresInSec: number }> {
+  return authedJson<{ items?: unknown; expiresInSec?: unknown }>(
+    '/playback-url',
+    {
+      method: 'POST',
+      body: { analysisId, asset: 'faultZoom' },
+    },
+  ).then((res) => {
+    // 스키마 방어 (fetchVisualAssetUrl 선례) — items 가 배열이 아니면 실패.
+    if (!Array.isArray(res.items)) {
+      throw new ApiError(
+        'POST /playback-url: items 필드 부재/형식 오류',
+        200,
+        'malformed_response',
+      );
+    }
+    // 불량 item 은 조용히 filter — 배치라 부분 성공을 보존한다 (하나 때문에
+    // 던지면 멀쩡한 카드까지 저장 URL 폴백으로 떨어진다).
+    const items: FaultZoomUrlItem[] = [];
+    for (const raw of res.items) {
+      if (raw == null || typeof raw !== 'object') continue;
+      const it = raw as Record<string, unknown>;
+      if (typeof it.joint !== 'string' || it.joint.length === 0) continue;
+      if (typeof it.playbackUrl !== 'string' || it.playbackUrl.length === 0) {
+        continue;
+      }
+      items.push({
+        joint: it.joint,
+        playbackUrl: it.playbackUrl,
+        tier: typeof it.tier === 'string' ? it.tier : undefined,
+        criterion: typeof it.criterion === 'string' ? it.criterion : undefined,
+      });
+    }
+    // expiresInSec 검증 실패는 던지지 않는다 (fetchCoachAudioUrl 선례 — 보수적
+    // 폴백. 과소 추정의 대가는 authed POST 1회뿐).
+    const ttl =
+      typeof res.expiresInSec === 'number' &&
+      Number.isFinite(res.expiresInSec) &&
+      res.expiresInSec > 0
+        ? res.expiresInSec
+        : 3600;
+    return { items, expiresInSec: ttl };
+  });
+}
+
 // S3 presigned PUT 으로 영상 업로드. Content-Type 은 서명에 묶지 않지만
 // (upload-url Lambda 가 Params 에서 제외) PUT 헤더로 보내면 S3 가 그 값을 객체
 // 메타데이터로 저장한다. 이걸 안 박으면 binary/octet-stream 으로 저장돼서

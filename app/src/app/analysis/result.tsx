@@ -84,6 +84,7 @@ import {
 } from '../../lib/referenceMotions';
 import { useAnalysisDoc } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
+import { useFreshFaultZoomUrls } from '../../lib/faultZoomUrls';
 import {
   fetchVisualAssetUrl,
   requestPlaybackUrl,
@@ -1019,6 +1020,17 @@ function AnalysisResultContent({
       cancelled = true;
     };
   }, [referenceMotionIdForRefresh, createdAt]);
+
+  // quick-260824-q6p — 확대 비교 PNG 재발급 훅 (freshMyUrl 선례 미러). doc 의
+  // faultZoomComparisons[].imageUrl 은 분석 시점 7일 presigned 라 만료 후 비교
+  // 패널이 회색이 된다 — 6일 초과 doc 은 배치 재서명(asset 'faultZoom')으로
+  // fresh 맵을 받고, 시트 렌더 경계에서 `freshZoomUrls[key] ?? imageUrl` 로
+  // 조회한다 (doc item 무변형, 실패 시 현행 회색 fail-closed 폴백 그대로).
+  const { freshZoomUrls, onZoomImageError } = useFreshFaultZoomUrls({
+    analysisId,
+    createdAt,
+    comparisons: result.faultZoomComparisons ?? null,
+  });
 
   // Phase 35 (quick-260808-jix, contract.md §12.9) — 합성 비교 영상 분기 신호.
   // done + key 보유 doc 만 단일 mp4 재생 (리그 ALL PASS 만 done 이 된다).
@@ -3492,6 +3504,10 @@ function AnalysisResultContent({
         // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 크롭 위 "예상 부위" 배지 (확정
         // 결함 아님). 크롭·수치·비교는 유지 (시트가 라벨 소유).
         estimatedArea={attributionUnreliable}
+        // quick-260824-q6p — 7일 넘은 doc 의 확대 이미지 재발급 맵 + 로드 실패
+        // 재발급 트리거. 부재/실패 = 종전 저장 imageUrl 폴백 (fail-closed).
+        freshZoomUrls={freshZoomUrls}
+        onZoomImageError={onZoomImageError}
         // 29-CONTEXT D-06 — mode3 드릴다운 비교 라벨도 지난/이번 계열 (정은지 미언급).
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'}
       />

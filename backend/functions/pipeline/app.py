@@ -108,6 +108,7 @@ from sunity_shared.events import iter_s3_keys_from_sqs
 # 박제 후속 사용 위치 안에서 `from sunity_shared.gemini.* import ...` 박는다.
 from sunity_shared.s3keys import (
     build_coach_audio_key,
+    build_fault_zoom_key,
     build_rendered_compare_key,
     parse_upload_key,
 )
@@ -3458,13 +3459,14 @@ def _render_fault_zoom(
             label_fps=(_label_eff["user"], _label_eff["ref"]),
         )
     out: list[dict] = []
-    for tier, batch, key_prefix in (
-        ("confirmed", comps, "zoom_"),
-        # advisory 는 S3 키 분리(zoom_adv_) — 확정 카드와 충돌 원천 차단.
-        ("advisory", adv_comps, "zoom_adv_"),
+    for tier, batch in (
+        ("confirmed", comps),
+        # advisory 는 S3 키 분리(별도 prefix — s3keys.build_fault_zoom_key
+        # 단일 출처, quick-260824-q6p) — 확정 카드와 충돌 원천 차단.
+        ("advisory", adv_comps),
     ):
         out.extend(
-            _fault_zoom_upload_items(batch, tier, key_prefix, uid, analysis_id, bucket)
+            _fault_zoom_upload_items(batch, tier, uid, analysis_id, bucket)
         )
     # Phase 27 SPD-04 (D-06) — result 부착 대신 comparisons 반환 (사후 update 경로).
     return out
@@ -3473,7 +3475,6 @@ def _render_fault_zoom(
 def _fault_zoom_upload_items(
     batch: list[dict],
     tier: str,
-    key_prefix: str,
     uid: str,
     analysis_id: str,
     bucket: str,
@@ -3481,9 +3482,11 @@ def _fault_zoom_upload_items(
     """fault-zoom comparisons 배치 → S3 업로드 + doc item 화이트리스트 매핑.
 
     quick-260811-kpo — _render_fault_zoom 후반 로직의 함수 추출 (동작 동일).
-    게이트-상속 카드 빌더(_run_gated_card_inherit)가 **같은 키 규칙**(zoom_ prefix,
-    results/{uid}/{aid}/)·같은 매퍼로 기존 카드를 대체 부착하기 위한 공용화
-    (T-kpo-02: 신규 S3 네임스페이스 0).
+    게이트-상속 카드 빌더(_run_gated_card_inherit)가 **같은 키 규칙**·같은 매퍼로
+    기존 카드를 대체 부착하기 위한 공용화 (T-kpo-02: 신규 S3 네임스페이스 0).
+    quick-260824-q6p — 키 구성은 s3keys.build_fault_zoom_key **단일 출처**
+    (인라인 f-string 제거 — playback-url 재서명측과 drift 0, key_prefix 파라미터
+    는 tier 에서 파생되므로 삭제).
     """
     out: list[dict] = []
     for c in batch:
@@ -3491,7 +3494,7 @@ def _fault_zoom_upload_items(
         # 카드 유일성 — 두 record 의 대표 관절이 같아도 키 충돌 없음). criterion
         # 은 [a-z_] criteria id 라 S3-safe. legacy/advisory 는 종전 joint 키.
         key_base = c.get("criterion") or c["joint"]
-        skey = f"results/{uid}/{analysis_id}/{key_prefix}{key_base}.png"
+        skey = build_fault_zoom_key(uid, analysis_id, tier, key_base)
         _s3.put_object(
             Bucket=bucket, Key=skey, Body=c["png"], ContentType="image/png"
         )
@@ -3499,6 +3502,13 @@ def _fault_zoom_upload_items(
             "joint": c["joint"],
             "deficitDeg": c.get("deficitDeg"),
             "imageUrl": _signed_get(bucket, skey),
+            # quick-260824-q6p — canonical S3 key 방출 (scalar str —
+            # _validate_dict_only_scalars flat 제약 통과). 열람 시점 재발급
+            # (POST /playback-url asset 'faultZoom')이 URL 파싱 없이 이 key 로
+            # canonical exact 비교한다. 부재(legacy doc) = 서버가 imageUrl 을
+            # 파싱해 소급 (contract.md §11.10). TS lockstep:
+            # FaultZoomComparison.imageKey? — 앱은 이 값을 읽지 않는다 (H-05).
+            "imageKey": skey,
             # 2단 시각 언어 tier (quick-260704-fz4) — scalar str 이라
             # _validate_dict_only_scalars flat 제약 통과. TS lockstep:
             # FaultZoomComparison.tier ('confirmed'|'advisory', 부재=legacy
@@ -4959,7 +4969,7 @@ def _run_gated_card_inherit(
                     gated_raw.append(c)
 
         items = _fault_zoom_upload_items(
-            gated_raw, "confirmed", "zoom_", uid, analysis_id, bucket
+            gated_raw, "confirmed", uid, analysis_id, bucket
         )
         advisory_keep = [
             it for it in (existing_comparisons or [])

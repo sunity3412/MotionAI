@@ -443,6 +443,17 @@ export interface FaultZoomComparison {
   deficitDeg?: number | null;
   /** [학생|기준(Mode1)] 또는 [현재|지난(Mode3)] 합성 PNG presigned GET URL. */
   imageUrl: string;
+  /**
+   * quick-260824-q6p — 이 카드 PNG 의 canonical S3 키 (백엔드
+   * s3keys.build_fault_zoom_key 단일 출처). imageUrl 은 분석 시점 7일 presigned
+   * 라 만료되므로, 재발급(POST /playback-url asset 'faultZoom')이 URL 파싱 없이
+   * 이 key 로 canonical exact 비교한다. **앱은 이 값을 읽지 않는다** — 재발급
+   * 요청에 key 를 싣지 않는 계약(H-05, server-selected key)이 유지되고 서버가
+   * doc 에서 직접 비교한다. 부재 = legacy doc (서버가 imageUrl 파싱 소급 —
+   * 백필 0, tier? 선례). Python lockstep: pipeline _fault_zoom_upload_items
+   * 방출부 + docs/contract.md §11.10.
+   */
+  imageKey?: string;
   /** 캡션 종류 — Mode1='deficit'(기준보다 부족) / Mode3='improved'|'worsened'(지난 대비). */
   kind?: 'deficit' | 'improved' | 'worsened';
   /**

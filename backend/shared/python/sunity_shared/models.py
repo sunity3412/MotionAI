@@ -379,6 +379,11 @@ RENDERED_COMPARE_STATUSES = (
 )
 # playback-url asset 확장 — coachAudio 와 동일하게 VISUAL_JOB_KINDS 와 분리 유지.
 PLAYBACK_ASSET_RENDERED_COMPARE = "renderedCompare"
+# playback-url asset 확장 (quick-260824-q6p) — 확대 비교 PNG 배치 재서명.
+# faultZoomComparisons[].imageUrl(분석 시점 7일 presigned)이 만료된 doc 을
+# 열람 시점에 재발급 (canonical = s3keys.build_fault_zoom_key, contract.md
+# "asset: 'faultZoom'" 절). VISUAL_JOB_KINDS 와 분리 유지 — 사후 스테이지 산출물.
+PLAYBACK_ASSET_FAULT_ZOOM = "faultZoom"
 
 # ── quick-260814-di7: 발굴 채택 freeze doc 영속화 (discovery) ───────────────
 # result.discovery — 발굴(discover) 채택 순간의 doc 영속화. 분석 **사후** 채택

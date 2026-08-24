@@ -166,6 +166,36 @@ asset  'renderedCompare'   analysisId 와 함께 사용 (추가 파라미터 없
   동일한 `404 not_found`** (leak 0). 앱은 404 를 받으면 기존 듀얼 플레이어로 강등.
 - 응답: `{playbackUrl, expiresInSec: 3600}` (`ResponseContentType: video/mp4`).
 
+#### POST /playback-url — `asset: 'faultZoom'` 확장 (quick-260824-q6p)
+
+확대 비교 PNG(§4 `faultZoomComparisons`) **배치** 재서명. 분석 시점에 doc 에 박힌
+`imageUrl`(7일 presigned)이 만료돼 비교 패널이 전부 회색이 되는 결함의 수리.
+coachAudio/renderedCompare 확장과 동일 철학(H-02) — **`asset` 미지정/기존 종류
+요청의 동작은 바이트 불변**이다.
+
+```
+asset  'faultZoom'   analysisId 와 함께 사용 (추가 파라미터 없음 — 배치 재서명)
+```
+
+- 서버가 item 별 `results/{uid}/{analysisId}/{zoom_|zoom_adv_}{criterion|joint}.png`
+  canonical key 를 **서버 측에서 구성**(`s3keys.build_fault_zoom_key` — 저장 측
+  pipeline `_fault_zoom_upload_items` 와 단일 출처)하고, doc
+  `result.faultZoomStatus == 'done'` + 저장 `imageKey`(§11.10) 와 **전체 문자열
+  exact 비교** 후에만 1시간 presign 을 발급한다 (prefix/basename 부분일치 불가 —
+  stale key·타 uid 키 차단, M2-01). 클라이언트는 asset 종류만 지정 — S3 key 를
+  실어 보내는 파라미터는 계약에 없다 (server-selected, H-02/H-05).
+- **소급(legacy doc)**: `imageKey` 부재 item 은 저장 `imageUrl` 에서 key 를
+  **서버가** 파싱(`s3keys.parse_result_key_from_presigned_url` — 후보 추출 전용,
+  출력 비신뢰·canonical exact 비교가 서명 게이트)해 비교한다. 백필 0 —
+  클라이언트 URL 파싱 0.
+- `faultZoomStatus != 'done'` / 필드 부재(legacy) / 전 item 불일치(서명 0건) =
+  **전부 동일한 `404 not_found`** (leak 0). 앱은 실패 시 저장 `imageUrl` 폴백
+  (현행 회색 fail-closed) 유지 — 앱/백엔드 **배포 순서 독립**.
+- 응답: `{items: [{joint, playbackUrl, tier?, criterion?}], expiresInSec: 3600}`
+  (`ResponseContentType: image/png`). `tier`/`criterion` echo = 앱 join 키 재료 —
+  `app/src/lib/faultZoomUrls.ts zoomCardKey`(tier×(criterion|joint) 유일성 축,
+  `build_fault_zoom_key` 와 동형) lockstep.
+
 #### POST /visual/rotation (Phase 31 — D-06)
 
 카메라앵글 회전 참고 영상 **온디맨드 생성 요청**. (인증: Firebase ID token 필수)
@@ -1918,6 +1948,19 @@ refMarked  boolean  optional  ← 기준 패널에 마킹(원/사이각/각도)�
 - **부재(legacy doc·advisory·criterion 부재) = 앱 종전대로**(문구 없음). optional, migration 없음 (`tier?`/`refMatch?`/`criterion?`/`atMatched?` 선례).
 - **`false` 일 때 앱 동작:** 카드를 숨기지 않고 짧은 한 줄을 덧붙인다(정보 보존). `refMatch='failed'` 캡션과 **자리를 나눠 쓴다** — 그쪽은 "같은 순간을 못 찾음"(프레임 대응 실패), 이쪽은 "순간은 맞췄는데 표시를 못 그림"(좌표 신뢰도)이다.
 - 3-way lockstep: `analysis.ts FaultZoomComparison.refMarked?` ↔ `fault_zoom.py` 방출부 + `pipeline _render_fault_zoom` 매퍼 ↔ 본 절.
+
+### §11.10 FaultZoomComparison.imageKey (quick-260824-q6p)
+
+`FaultZoomComparison` 에 `imageKey?: string` scalar 를 추가한다 — 이 카드 PNG 의 canonical S3 키 (`s3keys.build_fault_zoom_key` **단일 출처**, `results/` prefix + `.png` suffix).
+
+```
+imageKey  string  optional  ← 카드 PNG canonical S3 키 (results/{uid}/{analysisId}/{zoom_|zoom_adv_}{criterion|joint}.png)
+```
+
+- **왜 필요한가:** `imageUrl` 은 분석 시점 7일 presigned 라 7일 뒤 죽는다. 재발급(`POST /playback-url` `asset: 'faultZoom'`)이 URL 파싱 없이 이 key 로 canonical **exact 비교**만 하면 되도록 key 를 doc 에 함께 저장한다 (URL 비저장 원칙의 점진 이행 — coachAudio/renderedCompare `key` 필드 선례, H-02).
+- **앱은 이 값을 읽지 않는다** — 재발급 요청에 key 를 싣지 않는 계약(H-05, server-selected key)이 유지된다. 서버가 doc 에서 직접 읽어 비교한다.
+- **부재 = legacy doc** — 서버가 저장 `imageUrl` 을 파싱해 소급 (백필 0, no migration — `tier?` 서술 모범).
+- 3-way lockstep: `analysis.ts FaultZoomComparison.imageKey?` ↔ `pipeline _fault_zoom_upload_items` 방출부 ↔ 본 절.
 
 ---
 

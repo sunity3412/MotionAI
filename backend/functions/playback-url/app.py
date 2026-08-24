@@ -35,8 +35,10 @@ from sunity_shared import firestore_admin, models, responses
 from sunity_shared.auth import AuthError, verify_request
 from sunity_shared.s3keys import (
     build_coach_audio_key,
+    build_fault_zoom_key,
     build_rendered_compare_key,
     build_upload_key,
+    parse_result_key_from_presigned_url,
 )
 from sunity_shared.validation import validate_analysis_id_format
 
@@ -229,6 +231,80 @@ def _handle_rendered_compare(uid: str, analysis_id: str) -> dict:
     return responses.ok({"playbackUrl": url, "expiresInSec": _ASSET_EXPIRES})
 
 
+def _handle_fault_zoom(uid: str, analysis_id: str) -> dict:
+    """faultZoom asset 배치 재서명 (quick-260824-q6p — contract.md 'faultZoom' 절 / H-02).
+
+    _handle_coach_audio/_handle_rendered_compare 규율 복제: 클라이언트는 asset
+    종류만 지정하고 key 는 절대 보내지 않는다(H-05). 서버가 item 별 canonical
+    key 를 **구성**(s3keys.build_fault_zoom_key — 저장 측 pipeline
+    _fault_zoom_upload_items 와 단일 출처)하고 doc
+    `result.faultZoomStatus == 'done'` + 저장 key **전체 문자열 exact 비교**
+    후에만 서명한다 (M2-01 — 생성 실패 뒤 남은 stale key 차단).
+
+    소급(legacy doc): imageKey 부재 item 은 저장 imageUrl 에서 key 를 **서버가**
+    파싱(parse_result_key_from_presigned_url — 후보 추출 전용, 출력 비신뢰)해
+    canonical 과 exact 비교한다 (T-q6p-03). 백필 0 — 클라이언트 URL 파싱 0.
+    uid 는 토큰 유래 — 타 uid 키는 canonical 구성 자체가 불일치라 서명 불가
+    (T-q6p-01).
+
+    가드 위반(status 비-done / 파싱 실패 / 전 item 불일치 = 서명 0건)은 전부
+    동일 404 — 어느 단계에서 걸렸는지 응답으로 구분되지 않는다 (T-q6p-02).
+    """
+    doc = firestore_admin.get_analysis(uid, analysis_id) or {}
+    result = doc.get("result")
+    result = result if isinstance(result, dict) else {}
+    if result.get("faultZoomStatus") != models.FAULT_ZOOM_STATUS_DONE:
+        return responses.error(
+            "not_found", "확대 비교 이미지를 찾을 수 없어요.", status=404
+        )
+
+    comparisons = result.get("faultZoomComparisons")
+    comparisons = comparisons if isinstance(comparisons, list) else []
+    out: list[dict] = []
+    for item in comparisons:
+        if not isinstance(item, dict):
+            continue
+        joint = item.get("joint")
+        if not isinstance(joint, str) or not joint:
+            continue
+        criterion = item.get("criterion")
+        key_base = criterion if isinstance(criterion, str) and criterion else joint
+        canonical = build_fault_zoom_key(
+            uid, analysis_id, item.get("tier"), key_base
+        )
+        stored = item.get("imageKey")
+        if not (isinstance(stored, str) and stored):
+            # 소급 경로 — imageKey 없는 legacy doc 은 저장 imageUrl 파싱.
+            stored = parse_result_key_from_presigned_url(item.get("imageUrl"))
+        if stored != canonical:
+            continue  # exact 불일치 — stale/cross-uid/오염 item 은 서명 제외.
+        url = _sign_get(
+            canonical, expires=_ASSET_EXPIRES, content_type=_ASSET_CONTENT_TYPE["png"]
+        )
+        if url is None:
+            continue
+        entry: dict = {"joint": joint, "playbackUrl": url}
+        # 앱 join 키 재료 echo — 서버 echo 필드 == 앱 zoomCardKey 입력
+        # (tier×(criterion|joint) 유일성 축, app/src/lib/faultZoomUrls.ts
+        # zoomCardKey lockstep — doc item 과 echo item 에 같은 함수 적용).
+        if isinstance(item.get("tier"), str):
+            entry["tier"] = item["tier"]
+        if isinstance(criterion, str):
+            entry["criterion"] = criterion
+        out.append(entry)
+
+    if not out:
+        return responses.error(
+            "not_found", "확대 비교 이미지를 찾을 수 없어요.", status=404
+        )
+
+    log.info(
+        "playback-url 발급(faultZoom) uid=%s analysis_id=%s items=%d",
+        uid, analysis_id, len(out),
+    )
+    return responses.ok({"items": out, "expiresInSec": _ASSET_EXPIRES})
+
+
 def _handle_reference(uid: str, reference_motion_id: str) -> dict:
     """referenceMotionId 재서명 — Firestore doc videoS3Key 화이트리스트 경유만.
 
@@ -305,6 +381,10 @@ def lambda_handler(event: dict, _context) -> dict:
         # 별도 분기 (VISUAL_JOB_KINDS 무접촉 — 기존 asset 종류의 응답 바이트 불변).
         if asset == models.PLAYBACK_ASSET_RENDERED_COMPARE:
             return _handle_rendered_compare(uid, analysis_id)
+        # quick-260824-q6p — faultZoom 도 visual job 이 아니라 별도 분기
+        # (VISUAL_JOB_KINDS 무접촉 — 기존 asset 종류의 응답 바이트 불변).
+        if asset == models.PLAYBACK_ASSET_FAULT_ZOOM:
+            return _handle_fault_zoom(uid, analysis_id)
         if asset not in models.VISUAL_JOB_KINDS:
             return responses.error(
                 "bad_request", f"asset 은 {list(models.VISUAL_JOB_KINDS)} 중 하나여야 합니다", status=400

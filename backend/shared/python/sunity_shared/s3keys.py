@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from urllib.parse import unquote, urlparse
 
 UPLOAD_PREFIX = "uploads"
 RESULT_PREFIX = "results"
@@ -67,6 +68,59 @@ def build_discover_audio_key(uid: str, analysis_id: str, rid: str, joint: str) -
     return (
         f"{RESULT_PREFIX}/{uid}/{analysis_id}/discover_audio_{rid}_{joint}.mp3"
     )
+
+
+def build_fault_zoom_key(
+    uid: str, analysis_id: str, tier: str | None, key_base: str
+) -> str:
+    """확대 비교(fault-zoom) PNG 의 canonical S3 키 (quick-260824-q6p).
+
+    **단일 출처** — pipeline(`_fault_zoom_upload_items` 저장)과 playback-url
+    (`_handle_fault_zoom` 재서명 — 서버 구성 canonical key + 저장/파싱 key
+    **exact 비교**, H-02/M2-01)이 이 함수 하나를 공유해 drift 를 차단한다
+    (build_coach_audio_key 선례).
+
+    prefix 규칙 (기존 pipeline 인라인 규칙과 byte-동일):
+      tier == 'advisory'          → 'zoom_adv_' (확정 카드와 S3 키 충돌 원천 차단)
+      그 외(confirmed/None/legacy) → 'zoom_'
+    key_base = criterion(있으면 — 33-12 A-5 record 별 카드 유일성) or joint.
+    """
+    prefix = "zoom_adv_" if tier == "advisory" else "zoom_"
+    return f"{RESULT_PREFIX}/{uid}/{analysis_id}/{prefix}{key_base}.png"
+
+
+def parse_result_key_from_presigned_url(url: str) -> str | None:
+    """presigned GET URL 에서 S3 key **후보**를 추출한다 (quick-260824-q6p 소급).
+
+    기존 doc 의 faultZoomComparisons[] 는 imageKey 없이 7일 presigned imageUrl 만
+    저장돼 있다 — 백필 없이 재서명하려면 서버가 저장 URL 에서 key 를 파싱해야
+    한다. virtual-hosted(`{bucket}.s3.{region}.amazonaws.com/{key}`)와
+    path-style(netloc 이 `s3.`/`s3-` 시작, path=`/{bucket}/{key}`) 둘 다 처리.
+
+    파서는 관대해도 안전하다 — 출력은 신뢰되지 않으며, caller 가 서버 구성
+    canonical key 와 **전체 문자열 exact 비교**를 통과한 것만 서명한다
+    (M2-01 / T-q6p-03 — 파서는 후보 추출 전용, 서명 게이트가 아니다).
+    비-str·빈 path·파싱 실패는 None.
+    """
+    if not isinstance(url, str) or not url:
+        return None
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return None
+    path = unquote(parsed.path or "")
+    if not path.startswith("/"):
+        return None
+    path = path[1:]
+    if not path:
+        return None
+    netloc = (parsed.netloc or "").lower()
+    if netloc.startswith("s3.") or netloc.startswith("s3-"):
+        # path-style — 첫 세그먼트는 bucket, 나머지가 key.
+        _, _, key = path.partition("/")
+        return key or None
+    # virtual-hosted — path 전체가 key.
+    return path
 
 
 # 합성 비교 영상 렌더 버전 — 표시 문법이 바뀌면 bump (키가 바뀌어 구 mp4 와

@@ -119,3 +119,15 @@ None — 스텁·플레이스홀더·하드코딩 빈 값 도입 0. 사용자 �
 ---
 *Phase: quick-260824-bxf*
 *Completed: 2026-08-24 (KST)*
+
+## 시뮬 실증 (오케스트레이터 후속 — 2026-08-24)
+
+iPhone 16 Pro 시뮬(873D7CB3) + Metro 신선 번들, 시뮬 uid(`fvcNXz…`, belle uid 아님 assert) 아래
+현행 킵업 doc(`kipupFault1785373695`, split delta 50°)의 직전 시드 doc 을 넣고 다리 부위 상세
+시트를 실렌더 — 양면 모두 라이브 확인:
+
+- **(a) 개선 20° → 캡션 없음** `sim_split21_no_caption_at_20.png` — 구 문턱 12 에서는 표시됐을
+  시드(08-22 `sim_progress_caption_v2.png` 가 그 증거)가 신규 문턱 21 에서 닫힘.
+- **(b) 개선 30° → 캡션 표시** `sim_split21_caption_at_30.png` — "저번보다 나아졌어요" 가 pill
+  아래 표시. (b) 가 뜨므로 (a) 의 부재는 시드 미발견이 아니라 문턱 판정임이 함께 증명됨.
+- 시드 삭제 후 캡션 라이브 소멸 재확인 — 시뮬 계정 복원, 잔류 0. belle uid 쓰기 0.

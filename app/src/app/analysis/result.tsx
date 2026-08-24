@@ -27,8 +27,6 @@ import {
 import { KeypointOverlayToggle } from '../../components/KeypointOverlayToggle';
 import { DeductionDetailSheet } from '../../components/DeductionDetailSheet';
 import { PartChipsRow } from '../../components/PartChipsRow';
-import { DefectIllustration } from '../../components/DefectIllustration';
-import { illustrationAssetForPart } from '../../lib/illustrationScene';
 import { OctagonScore, scoreGrade } from '../../components/OctagonScore';
 import { ScoreBreakdownSection } from '../../components/ScoreBreakdownSection';
 import { VideoCompare } from '../../components/VideoCompare';
@@ -74,23 +72,17 @@ import {
   sortDeductionRecordsByMoment,
 } from '../../lib/deductionLabels';
 import {
-  buildCauseGroupKeys,
   buildPartChips,
   buildPartGroups,
   buildRegionSheetView,
   composeCueSubtitleKo,
 } from '../../lib/deductionSheet';
-import { hasIllustrationFor } from '../../lib/illustrationScene';
 import { reshapePose3dData } from '../../lib/joints';
 import {
   useReferenceMotion,
   useReferenceMotionDoc,
 } from '../../lib/referenceMotions';
-import { useAnalysisDoc, useMyAnalyses } from '../../lib/userAnalyses';
-import {
-  findPreviousComparable,
-  extractCriterionMeasure,
-} from '../../lib/progressCaption';
+import { useAnalysisDoc } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
 import {
   fetchVisualAssetUrl,
@@ -665,12 +657,6 @@ function AnalysisResultContent({
     cmp.mode === 'mode1' ? cmp.referenceMotionId : undefined,
   );
 
-  // quick-260822-oe1 (belle 08-21) — 발전 캡션용 직전 분석 목록. 기록 탭과 같은
-  // 구독(단일 필드 orderBy) 재사용 — 신규 Firestore 쿼리 0 (인덱스 면제 설정
-  // 무접촉). 무조건 호출 (조건부 훅 금지 — 리뷰 M-04). mode 분기는 소비처
-  // (illustrationSlot 클로저)에서 인자로만 표현한다.
-  const { analyses: doneAnalyses } = useMyAnalyses({ doneOnly: true });
-
   // ── Phase 31 참고코너 (D-06/D-08/D-09/D-10) ────────────────────────────
   // 훅은 전부 무조건 호출한다 (리뷰 M-04) — mode 분기 안에서 훅을 부르면 mode1↔mode3
   // 사이에서 훅 순서가 달라져 React 가 상태를 잘못 연결한다. 분기는 훅에 넘기는
@@ -1217,7 +1203,7 @@ function AnalysisResultContent({
 
   // 33-G S1/S3 (quick-260730-szk) — **부위 단위** 그룹 마커 + 부위 칩. 승인 목업 ① 은
   // 마커를 항목(부위) 단위 경계 1개로 묶고(2R#1 "동그라미가 7개") 그 아래에 부위 칩을
-  // 둔다. 두 산출 모두 `buildCauseGroupKeys` 단일 출처를 소비하므로 마커 그룹 =
+  // 둔다. 두 산출 모두 deductionSheet 의 원인 키 단일 출처를 소비하므로 마커 그룹 =
   // 칩 = 부위 시트가 같은 단위다 (두 번째 그룹핑 규칙 0).
   // quick-260802-mrg — 그 단일 출처가 부위 키에서 **원인 키**로 옮겨졌다(merge-only).
   const partGroups = useMemo(
@@ -1912,32 +1898,6 @@ function AnalysisResultContent({
     return projectDeductionRecordKeypoints(rec, vetoFaultJoints);
   };
 
-  // 33-G S23 (quick-260731-2jt) — 음성 큐 recordId → illu-float 일러스트.
-  // 부위 키는 마커 그룹·부위 칩·부위 시트와 **같은 단위**여야 하고(두 번째 그룹핑
-  // 규칙 금지, P-1), 장면일치는 시트와 **같은 판정**이어야 한다 (P-9 — 시트에서
-  // 숨긴 그림을 영상 위에서 보여주면 결함이 표면만 옮긴 것이다).
-  // motionId 규칙도 시트와 동일 → mode3 는 자동 null. 못 찾거나 어긋나면 null 을
-  // 돌려주고, VideoCompare 는 그때 **흰 카드 프레임 자체를 렌더하지 않는다**.
-  //
-  // quick-260802-mrg — 시트가 원인 단위로 묶이면서 이 조회도 같은 키로 옮겼다.
-  // 종전 `regionPartKeyForRecord` 를 그대로 두면 병합된 항목에서 시트는
-  // `어깨·팔` 로 판정하는데 영상 위는 `어깨` 로 판정해 P-1/P-9 가 깨진다.
-  const causeGroupKeys = useMemo(
-    () => buildCauseGroupKeys(records, vetoFaultJoints),
-    [records, vetoFaultJoints],
-  );
-  const cueIllustrationForRecordId = (
-    recordId: string,
-  ): React.ReactNode | null => {
-    const motionId = cmp.mode === 'mode1' ? cmp.referenceMotionId : null;
-    if (!motionId) return null;
-    const recIndex = records.findIndex((r) => r.recordId === recordId);
-    if (recIndex < 0) return null;
-    const partKey = causeGroupKeys[recIndex];
-    if (!hasIllustrationFor(motionId, partKey)) return null;
-    return <DefectIllustration motionId={motionId} partKey={partKey} />;
-  };
-
   // 강사 질문 — 자동 수집(result.coachQuestions, D-28) + legacy 폴백
   // (openQuestionsForCoach, coachQuestions 부재 doc만) + 사용자 담기(source 'user').
   const [userQuestions, setUserQuestions] = useState<CoachQuestion[]>([]);
@@ -2536,7 +2496,7 @@ function AnalysisResultContent({
               /* Phase 35 (quick-260808-jix, contract.md §12.9) — 합성 비교 영상
                  단일 mp4 재생 분기. 이 가지에서 VideoCompare 를 **렌더하지
                  않는다** — cueWindows·cueRefSnapSecs·audioAnalysisId·
-                 timelineTicks·renderCueIllustration 이 전부 VideoCompare props
+                 timelineTicks 가 전부 VideoCompare props
                  이므로 앱 큐 오디오 prefetch·자막·틱 발화 경로가 **구조적으로
                  OFF** 된다 (이중 발화 방지의 구현 = 분기. 개별 prop 끄기 방식
                  금지 — mp4 에 음성·자막이 이미 구워져 있다). 오버레이 토글도
@@ -2795,10 +2755,6 @@ function AnalysisResultContent({
               // 32-12 (D-18 B안) — coachAudio mp3 준비 doc 에서만 오디오 토글·재생
               // 활성(cueId=recordId 조인). failed/legacy 면 undefined → 자막만.
               audioAnalysisId={coachAudioAnalysisId}
-              // 33-G S23 (quick-260731-2jt) — 음성 중 우상단 일러스트 동반.
-              // 자리는 VideoCompare, 매핑은 여기(33-14 illustrationSlot 선례).
-              // 시트와 같은 장면일치 판정을 통과할 때만 노드를 돌려준다 (P-9).
-              renderCueIllustration={cueIllustrationForRecordId}
             />
             </>
             )}
@@ -3538,75 +3494,6 @@ function AnalysisResultContent({
         estimatedArea={attributionUnreliable}
         // 29-CONTEXT D-06 — mode3 드릴다운 비교 라벨도 지난/이번 계열 (정은지 미언급).
         rightLabel={cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'}
-        // 33-14 (A-7, D-15) — 결함 → 일러스트 매핑. 키 = mode1 기준 모션 ID
-        // (동작명 분기 0 — 데이터 맵). mode3/미검증 동작은 DefectIllustration 이
-        // null 렌더 (silent hidden — 틀린 그림은 없는 것보다 나쁘다, D-18).
-        // 33-G S13/S25 (quick-260731-2jt) — 부착 판정 입력 = **이 시트의 부위 키**.
-        // 1단위 뷰모델이 이미 들고 있는 값이라 신규 상태·신규 계산 0이고, 마커 그룹·
-        // 부위 칩과 같은 단위다 (두 번째 그룹핑 규칙 금지, P-1). 장면과 어긋나면
-        // 슬롯 자체가 안 생긴다 (승인본 `:1114` — 빈 카드·플레이스홀더 아님).
-        // render prop — 시트가 자기 스크롤 뷰포트를 실측해 상한을 준다
-        // (belle 2026-07-31 적응형). 여기서 시트 기하를 계산하지 않는다.
-        illustrationSlot={(maxHeight, how) => {
-          // quick-260822-oe1 (belle 08-21) — 발전 캡션 재료: 같은 동작(mode1
-          // referenceMotionId 동일) 직전 done 분석의 같은 criterion record.
-          // mode3/직전 없음/createdAt 부재 → null (fail-closed — 캡션 없음,
-          // 기존 겉모습 그대로). 판정 자체는 lib(buildProgressCaption)가
-          // DefectIllustration 안에서 오버레이 게이트 뒤에 수행한다.
-          const prevDoc =
-            cmp.mode === 'mode1' && typeof createdAt === 'number' && sheetView != null
-              ? findPreviousComparable(doneAnalyses, {
-                  analysisId,
-                  createdAt,
-                  referenceMotionId: cmp.referenceMotionId,
-                })
-              : null;
-          const prevHow =
-            prevDoc != null && sheetView != null
-              ? extractCriterionMeasure(prevDoc, sheetView.primaryCriterion)
-              : null;
-          return (
-            <DefectIllustration
-              motionId={cmp.mode === 'mode1' ? cmp.referenceMotionId : null}
-              partKey={sheetView?.partKey ?? null}
-              maxHeight={maxHeight}
-              how={how}
-              prevHow={prevHow}
-              // quick-260824-bxf — 문턱 조회용 criterion. prevHow 산출
-              // (extractCriterionMeasure(prevDoc, sheetView.primaryCriterion))과
-              // **같은 값** — 두 번째 규칙 금지.
-              criterion={sheetView?.primaryCriterion ?? null}
-              // quick-260824-jw4 — 잔상 데이터 렌더 재료: 학생 keypointReport +
-              // 이 시트 부위의 records (측정 순간 선택·정규화·정렬은 전부 lib).
-              // 메타 미등재 에셋·순간 없는 record 뿐(split 류)·report 부재 → 잔상
-              // 없이 그림만 (fail-closed).
-              ghostSource={
-                sheetView != null
-                  ? {
-                      report: userKeypointReport,
-                      // 부위 시트 블록 순서 그대로 records 를 조인 — 잔상 순간은
-                      // 그중 첫 프레임 측정 record (lib pickGhostMomentSec).
-                      // ⚠ 조인 대상 = 시트를 만든 것과 **같은** `records` 리스트
-                      // (blocks.recordIndex 의 도메인). 원본 deductionBreakdown
-                      // 배열에 조인하면 인덱스가 어긋난다 (시뮬 실측 결함).
-                      records: sheetView.blocks
-                        .map((b) => records[b.recordIndex])
-                        .filter((r) => r != null),
-                    }
-                  : null
-              }
-            />
-          );
-        }}
-        // quick-260818-nc2 — 시트가 "그림이 있는가"를 알아야 목표 문장을 그림 카드로
-        // 내릴지 정한다. 판정은 DefectIllustration 과 **같은 규칙**(illustrationAssetForPart)
-        // — 두 번째 그룹핑 규칙을 만들지 않는다(P-1).
-        illustrationAvailable={
-          illustrationAssetForPart(
-            cmp.mode === 'mode1' ? cmp.referenceMotionId : null,
-            sheetView?.partKey ?? null,
-          ) != null
-        }
       />
       {/* 32-07 D-07 (32-11 배선) — 첫 진입 코치마크 1회. "오늘 고칠 건 하나만" +
           "자세히는 펼쳐요". hasSeenResultCoachmark 로 1회만, 탭 시 기록. */}

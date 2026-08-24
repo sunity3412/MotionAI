@@ -2,7 +2,7 @@
 //
 // 종전 구조는 **record 단위**였다 (부위에 감점 2건이면 시트가 2개 열렸다). 승인
 // 목업 ② 는 **부위 단위**다: 칩 → 크롭 1쌍 → paircap(좌우 실영상 초) → onecap →
-// 결함 블록 N개(다리 = "고칠 것 1"·"고칠 것 2") → facing → 일러스트.
+// 결함 블록 N개(다리 = "고칠 것 1"·"고칠 것 2") → facing.
 // belle 확인 ② 반려의 "무릎 피는 거 하나 어디 갔냐"(4R#2)가 이 구조의 이유다.
 //
 // 조판·카피 조립은 `lib/deductionSheet.ts buildRegionSheetView` 가 소유한다 (순수
@@ -24,7 +24,8 @@
 // 신규 폰트 크기 리터럴 0 (CLAUDE.md §4). 이모지 0. 라이트 전용.
 //
 // 유지되는 승인 원형(gate ⑤ belle Figma, M-13): bullets(용어줄·확인하기) ·
-// coachConnect · aiNoteBox — 위치만 일러스트 뒤로 이동. 삭제 금지.
+// coachConnect · aiNoteBox — 삭제 금지. (일러스트 표면은 belle 08-24 결정으로
+// 전면 제거 — 시트는 실사진 비교·원인 문구·수치·미션 텍스트 경로만 남는다.)
 // 대체된 것: 하단 "이 원인은 어떻게 측정됐나" 근거 박스 → 블록 맨 뒤 numnote
 // (2R 수치 강등 — 수치의 승인 거처가 바뀐 것이지 수치가 사라진 게 아니다).
 //
@@ -32,7 +33,6 @@
 // 초 표기의 정본은 승인 7R 의 paircap 텍스트다 — 두 곳에 같은 초를 쓰면 이중 표기가
 // 되고, PNG 재생성(§C-4) 후에는 사진 속 표기 자체가 사라진다.
 
-import React from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -50,7 +50,6 @@ import {
   ADVISORY_CHIP_KO,
   objectJosaKo,
   type RegionSheetView,
-  splitGoalClause,
 } from '../lib/deductionSheet';
 import { terminologyPlain, type TerminologyTerm } from '../lib/terminologyMap';
 import { colors, radius, spacing, typography } from '../theme';
@@ -78,41 +77,7 @@ interface Props {
   // 우측 비교 대상 라벨 — Mode1='정은지 선수', Mode3='지난 영상'. 크롭 위 halfLabel 용
   // (paircap 우측 라벨은 뷰모델이 소유 — rightPairLabel).
   rightLabel: string;
-  // 33-14 (A-7, D-15) — 결함 일러스트 슬롯. 매핑(결함→일러스트)은 caller(result.tsx)
-  // 소유, 시트는 자리만 제공. 승인 목업 ② "확대 크롭 + 감점근거 글 + 일러스트 슬롯".
-  // 부재/미검증 = 렌더 0 (DefectIllustration 이 자체 hidden — 시트는 관여하지 않음).
-  //
-  // **render prop (belle 2026-07-31 적응형).** 시트만이 자기 스크롤 뷰포트 높이를
-  // 안다. 그 값을 실측해 caller 에게 넘겨 일러스트가 한 화면에 들어오게 한다 —
-  // 소비처가 시트 chrome(handle·title·CTA·padding)을 손계산하지 않게 하는 배선이다.
-  // 아직 실측 전이면 0 이 온다(첫 렌더 1프레임).
-  illustrationSlot?: (
-    maxHeight: number,
-    how: { measured?: number | null; target?: number | null; unit?: string | null },
-  ) => React.ReactNode;
-  // quick-260818-nc2 — 이 시트에 붙을 일러스트가 **실제로 있는가**. 판정은 caller 가
-  // `illustrationAssetForPart` 로 내린다(시트는 에셋 맵을 모른다). true 면 그림과
-  // 목표 문장을 한 카드로 묶고, 시트 맨 위 goalBox 는 그리지 않는다(같은 문장 두 번
-  // 금지). false/미지정 = 종전 배치 그대로 — 슬롯이 null 을 렌더해도 빈 카드가 남지
-  // 않게 하는 게 이 플래그의 유일한 이유다.
-  illustrationAvailable?: boolean;
 }
-
-// 일러스트 높이 상한 = 스크롤 뷰포트의 이 비율 (belle 2026-07-31 "적응형").
-//
-// **왜 고정 여유(pt)가 아니라 비율인가.** 시트 끝까지 내린 자연스러운 위치에서
-// 일러스트 전체가 보이려면 `일러스트 + 그 뒤 요소 ≤ 뷰포트` 여야 하는데, 뒤 요소
-// (bullets 3줄 + 강사 연결 + AI 고지)의 높이는 기기·폰트 배율마다 다르다. 고정 pt 를
-// 빼면 이 기기에서만 맞는 수가 된다. 절반으로 두면 뒤 요소가 나머지 절반을 쓰므로
-// 어느 기기에서도 성립한다 — 시뮬 실측(뷰포트 512 → 상한 256)에서 카드 195x261 이
-// 되어 전신 + 뒤 텍스트가 한 화면에 다 들어왔다.
-//
-// **작아지는 것은 감수한다.** 일러스트는 전신 기하가 곧 메시지라 "조금 작게 전부"가
-// "크게 반쪽"보다 낫다. 요소 삭제·순서 변경은 하지 않는다 (M-13 유지).
-const ILLUST_VIEWPORT_FRACTION = 0.5;
-// quick-260818-nc2 — 목표 카드 칩. 크롭 카드의 "오늘 고칠 것" 칩과 짝이 되는 자리
-// (이쪽은 감점이 아니라 목표라 gray 칩). 문장이 아니라 라벨이라 D-05 밖.
-const ILLUST_CHIP = '목표 자세';
 
 // criterion → 심사 언어 용어(terminologyMap) 매핑. 미등록 criterion 은 null(용어줄 생략).
 function criterionTerm(criterion: string): TerminologyTerm | null {
@@ -161,22 +126,9 @@ export function DeductionDetailSheet({
   refUnmarked = false,
   estimatedArea = false,
   rightLabel,
-  illustrationSlot,
-  illustrationAvailable = false,
 }: Props) {
   const { width, height: winH } = useWindowDimensions();
-  // 일러스트 적응형 상한의 출처 (belle 2026-07-31). 손계산 대신 실측한다 —
-  // 시트 chrome(paddingTop·handle·titleRow·CTA)을 더하고 빼는 산수는 폰트 배율·
-  // 기기마다 어긋나고, 그 어긋남이 이번 오진의 원인이었다.
-  const [scrollH, setScrollH] = React.useState(0);
   if (!view) return null;
-  // quick-260818-nnm — "어떻게" 오버레이 재료 = 이 시트의 대표 record 측정값. 시트는
-  // 값만 넘기고 그릴지 말지는 DefectIllustration/illustrationHow 가 정한다.
-  const howInput = view.primaryMeasure;
-  // 그림 아래 캡션 — 그림이 "어떻게"를 말하므로 문장도 방법 절(actionLine)이어야 그림과
-  // 말이 같은 것을 가리킨다(belle 08-18). goalLine("목표는 …")은 시트 맨 위 자리로 돌아간다.
-  const primaryBlock = view.blocks.find((b) => b.recordIndex === view.primaryRecordIndex) ?? view.blocks[0];
-  const illustCaption = splitGoalClause(primaryBlock?.cueLine).actionLine || null;
 
   const sheetHeight = Math.round(winH * 0.78);
   // 합성 이미지 = [내 영상 | 기준] 정사각 2개 → 가로:세로 ≈ 2:1.
@@ -239,15 +191,12 @@ export function DeductionDetailSheet({
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            onLayout={(e) => setScrollH(e.nativeEvent.layout.height)}
           >
             {/* goalLine (quick-260802-mrg) — 이 항목이 무엇을 하려는 동작인지 한
                 문장. 제목 아래·블록 위, `oneCap`(사진 설명)과 다른 자리다. 원인이
                 묶인 항목에서 목표 문장을 **한 번만** 말하는 자리 — 블록마다 같은
                 문장을 반복하지 않는다. 목표 절이 없으면 자리도 두지 않는다
                 (fail-closed — 없는 문장을 만들지 않는다). */}
-            {/* quick-260818-nnm — 그림 카드의 캡션은 이제 방법 절(actionLine)이라 이 문장과
-                겹치지 않는다. 목표 문장은 이 자리에 그대로 둔다. */}
             {view.goalLine ? (
               <View style={styles.goalBox}>
                 <Text style={styles.goalText}>{view.goalLine}</Text>
@@ -393,29 +342,6 @@ export function DeductionDetailSheet({
               </View>
             ) : null}
 
-            {/* 33-14 (A-7) — 목표 자세 일러스트. 말 없이 뭘 하라는지 보여주는
-                장치(D-05: 라벨 텍스트 없이 그림만). 미검증/mode3 = 슬롯 자체가
-                null 을 렌더 (silent hidden). */}
-            {/* 적응형 상한 = 실측 스크롤 뷰포트 x 비율 (손계산 0). */}
-            {/* quick-260818-nc2 — 목표 카드: 칩 → 그림 → 목표 문장. 승인 목업 ② 크롭
-                카드와 같은 문법(card → chip → image → caption)이라 새 시각 언어 0.
-                D-05("그림 안에 글자 없음")는 그림 **옆**의 문장을 막는 규칙이 아니다
-                (33-A3:216 "탭-상세의 감점근거 글이 캡션 역할"). 캡션은 goalLine 재사용 —
-                새 문장을 만들지 않는다. goalLine 이 없으면 칩+그림만. */}
-            {illustrationSlot && illustrationAvailable ? (
-              <View style={styles.illustCard}>
-                <View style={[styles.chip, styles.chipGray]}>
-                  <Text style={[styles.chipText, styles.chipTextGray]}>{ILLUST_CHIP}</Text>
-                </View>
-                {illustrationSlot(Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION), howInput)}
-                {illustCaption ? (
-                  <Text style={styles.illustCap}>{illustCaption}</Text>
-                ) : null}
-              </View>
-            ) : illustrationSlot ? (
-              illustrationSlot(Math.floor(scrollH * ILLUST_VIEWPORT_FRACTION), howInput)
-            ) : null}
-
             {/* 확인하기 안내 (gate ⑤) + 심사 언어 용어줄(terminologyMap).
                 33-15 (D-16) — 대시 나열을 문장화 (조사는 objectJosaKo 로 받침 판정). */}
             <View style={styles.bullets}>
@@ -502,24 +428,6 @@ const styles = StyleSheet.create({
   goalText: {
     ...typography.bodySm,
     color: colors.textMid,
-  },
-  // quick-260818-nc2 — 목표 카드. cropCard 와 같은 껍데기(cardBg + border + radius.card
-  // + cardPadding + gap 8)라 시트 안에서 두 카드가 한 벌로 읽힌다. 캡션은 oneCap 과
-  // 같은 톤(caption/textMid/center) — 그림 아래 "이 그림처럼" 자리.
-  illustCard: {
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
-    padding: spacing.cardPadding,
-    gap: 8,
-    alignItems: 'stretch',
-  },
-  illustCap: {
-    ...typography.bodySm,
-    color: colors.textMid,
-    textAlign: 'center',
-    paddingHorizontal: 4,
   },
   // ── 크롭 카드 (승인본 .card) ─────────────────────────────────────────────
   cropCard: {

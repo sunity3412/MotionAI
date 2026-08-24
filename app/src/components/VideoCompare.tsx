@@ -297,12 +297,11 @@ export type VideoCompareProps = {
    * 3R 확정 B안). 승인 목업 `.illu-float`(`:215-218`)은 `.player` 안에서 dim +
    * 부위 강조 + 자막 + "음성 중 — 잠시 멈춤"과 **같은 상태**에 함께 뜬다(`:518-538`).
    *
-   * 자리는 이 컴포넌트가 갖고 **매핑은 caller** 가 갖는다 (33-14 illustrationSlot
-   * 선례) — 부위 키 산출·장면일치 판정은 result.tsx 소유 데이터다.
+   * 소비처 0 — 일러스트 전면 제거 (belle 08-24). 미전달 = 렌더 0 (fail-closed).
    *
    * fail-closed (P-9): 콜백이 null 을 돌려주면 **흰 카드 프레임 자체를 렌더하지
    * 않는다**. 콘텐츠 없는 프레임은 새 "빈 배경 프레임"(belle #11)을 만든다.
-   * 미전달 = 기존 소비처 렌더 diff 0 (overlay / illustrationSlot 선례).
+   * 소비처 0 — 일러스트 전면 제거 (belle 08-24). 미전달 = 렌더 0 (fail-closed).
    */
   renderCueIllustration?: (recordId: string) => React.ReactNode;
 };

@@ -3584,15 +3584,13 @@ function AnalysisResultContent({
                 sheetView != null
                   ? {
                       report: userKeypointReport,
-                      // 부위 시트 블록 순서 그대로 원 records 를 조인 — 잔상 순간은
+                      // 부위 시트 블록 순서 그대로 records 를 조인 — 잔상 순간은
                       // 그중 첫 프레임 측정 record (lib pickGhostMomentSec).
+                      // ⚠ 조인 대상 = 시트를 만든 것과 **같은** `records` 리스트
+                      // (blocks.recordIndex 의 도메인). 원본 deductionBreakdown
+                      // 배열에 조인하면 인덱스가 어긋난다 (시뮬 실측 결함).
                       records: sheetView.blocks
-                        .map(
-                          (b) =>
-                            (result.deductionBreakdown?.records ?? [])[
-                              b.recordIndex
-                            ],
-                        )
+                        .map((b) => records[b.recordIndex])
                         .filter((r) => r != null),
                     }
                   : null

@@ -52,6 +52,7 @@ import Svg, {
 
 import { illustrationAssetForPart } from '../lib/illustrationScene';
 import {
+  HOW_ANCHORS,
   buildHowOverlay,
   type HowOverlay,
   type HowOverlayBaked,
@@ -169,7 +170,13 @@ export function DefectIllustration({
    */
   ghostSource?: {
     report: KeypointReportLike | null;
-    records: ReadonlyArray<{ atVideoSec?: number | null }>;
+    records: ReadonlyArray<{
+      atVideoSec?: number | null;
+      criterion?: string;
+      measuredValue?: number | null;
+      baselineValue?: number | null;
+      unit?: string | null;
+    }>;
   } | null;
 }) {
   // 장면일치 통과분만 조회 키가 된다 (P-2/P-3). 불일치·미등재·mode3 → null.
@@ -191,9 +198,27 @@ export function DefectIllustration({
       : Number.POSITIVE_INFINITY;
   const w = Math.floor(Math.min(availW, capW));
   const h = Math.round(w * hOverW);
+  // quick-260824-jw4 — rotate 앵커가 measureCriterion 을 지정하면 그 criterion 의
+  // record 측정으로 how 를 대체한다 (회전각의 자 = 사이각. 시트 대표 measure 가
+  // 무릎 펴짐이면 회전 의미가 깨지는 것을 시뮬 실측으로 확인). 해당 record 가
+  // 없으면 오버레이를 그리지 않는다 (fail-closed — 다른 자로 돌리지 않는다).
+  const anchor = matched ? HOW_ANCHORS[matched] : undefined;
+  let effHow = how;
+  if (anchor?.kind === 'rotate' && anchor.measureCriterion) {
+    const rec = ghostSource?.records?.find(
+      (r) => r?.criterion === anchor.measureCriterion,
+    );
+    effHow = rec
+      ? {
+          measured: typeof rec.measuredValue === 'number' ? rec.measuredValue : null,
+          target: typeof rec.baselineValue === 'number' ? rec.baselineValue : null,
+          unit: typeof rec.unit === 'string' ? rec.unit : null,
+        }
+      : undefined;
+  }
   // quick-260818-nnm — 오버레이는 순수 계산(illustrationHow) 이 결정한다. null 이면 그림만.
-  const overlay = how
-    ? buildHowOverlay(matched, how.measured, how.target, how.unit, hOverW)
+  const overlay = effHow
+    ? buildHowOverlay(matched, effHow.measured, effHow.target, effHow.unit, hOverW)
     : null;
   // quick-260822-oe1 (belle 08-21 판정) — 발전 캡션. **오버레이 게이트 뒤에서만**
   // 판정한다 (BELLE-0821-P4: 수치 문장이 있는 곳에만 캡션이 붙는다 — 오버레이

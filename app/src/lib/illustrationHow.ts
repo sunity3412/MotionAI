@@ -58,6 +58,12 @@ export interface HowAnchorsRotate {
   readonly directionSentence: string;
   /** "지금" 표기를 둘 위치 힌트 — 잔상 발들의 중점 기준 아래 offset(비율). */
   readonly nowLabelOffsetY: number;
+  /**
+   * 회전각의 자로 쓸 record criterion (quick-260824-jw4). 회전은 "벌림/사이각"
+   * 의미라 시트 대표 measure(예: 무릎 펴짐)와 단위가 달라질 수 있다 — 지정하면
+   * 소비처가 그 criterion 의 record 측정으로 how 를 대체한다. 미지정 = 대표 measure.
+   */
+  readonly measureCriterion?: string;
 }
 
 /** 화살표 1개의 앵커 — 잔상이 그림에 구워진 에셋용 (belle 08-21). */
@@ -140,8 +146,12 @@ export const HOW_ANCHORS: Readonly<Record<string, HowAnchors>> = {
     frontClip: [
       [222 / 720, 0], [262 / 720, 0], [266 / 720, 1], [226 / 720, 1],
     ],
-    directionSentence: '{n}° 정도 더 곧게 뻗어보세요',
+    directionSentence: '{n}° 정도 더 벌려 한 줄을 만들어보세요',
     nowLabelOffsetY: 0.03,
+    // 회전각의 자 = 다리 사이각(split_angle) record. 시트 대표 measure 는 무릎
+    // 펴짐(leg_extension)일 수 있는데 그 편차(예: 101°)로 다리를 돌리면 회전
+    // 의미가 깨진다 — 시뮬 실측으로 확인된 결함.
+    measureCriterion: 'split_angle',
   },
   'ref-kip-up--leg': {
     kind: 'baked',

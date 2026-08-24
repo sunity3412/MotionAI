@@ -21,8 +21,8 @@ HERE = Path(__file__).resolve().parent
 BASE = HERE / "out_r5" / "ref-power-spin--leg__ghost-r5-3.jpg"
 
 # ── 다이얼 (belle 파란선 실측치. 조정 요청 = 이 숫자만 바꾼다) ──────────────
-RAISED_ROT_DEG = 46.0   # 윗다리: 시계방향(오른쪽으로 벌어짐) +
-LOWER_ROT_DEG = -57.0   # 아랫다리: 반시계(발이 수평 쪽으로 올라감) -
+RAISED_ROT_DEG = 64.0  # belle4 왼쪽 프레임 실측: 수직에서 66도 - 실선축 1.6도   # 윗다리: 시계방향(오른쪽으로 벌어짐) +
+LOWER_ROT_DEG = -49.0  # belle4 실측: 아래수직에서 68도 - 실선축 19도   # 아랫다리: 반시계(발이 수평 쪽으로 올라감) -
 GHOST_ALPHA = 0.42
 GHOST_BLUR = 1.2
 
@@ -46,6 +46,11 @@ def _ghost_layer(base: Image.Image, poly, pivot, rot_deg: float) -> Image.Image:
     ImageDraw.Draw(mask).polygon(poly, fill=255)
     ImageDraw.Draw(mask).rectangle([448, 0, 481, 560], fill=0)  # 폴 스트립 제외 (다리 접합부 y>560 은 유지)
     mask = mask.filter(ImageFilter.GaussianBlur(3))
+    # 배경(크림색) 성분 제거 — 다리 선·명암만 잔상으로 남긴다 (사각 얼룩 방지)
+    lum = base.convert("L")
+    darkness = lum.point(lambda v: max(0, min(255, (238 - v) * 6)))
+    from PIL import ImageChops
+    mask = ImageChops.multiply(mask, darkness)
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     layer.paste(base.convert("RGBA"), (0, 0), mask)
     layer = layer.rotate(-rot_deg, center=pivot, resample=Image.BICUBIC)

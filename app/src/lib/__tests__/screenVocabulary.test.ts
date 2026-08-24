@@ -37,14 +37,7 @@ const PHRASEBOOK_PATH = path.join(REPO_ROOT, 'backend', 'data', 'phrasebook.json
  * 항목을 늘리려면 "그 필드가 어떤 렌더 경로로도 반환되지 않는다"는 grep 증거가
  * 있어야 하고, SUMMARY 에 근거를 적는다.
  */
-const EXCLUSIONS: Record<string, readonly string[]> = {
-  // illustrationScene.ILLUSTRATION_SCENES[].provenance = 33-14 검수 증거 원문(내부
-  // 기록). 소비자 0 증거: 이 모듈의 export 3개(sceneCoversParts /
-  // illustrationMotionForPart / hasIllustrationFor) 중 어느 것도 provenance 를
-  // 반환하지 않고, `grep -rn "\.provenance" app/src` 는 자기 테스트
-  // (illustrationScene.test.ts — 근거 문장 품질 검사)만 잡는다. 바꾸면 증거가 훼손된다.
-  'lib/illustrationScene.ts': ['provenance'],
-};
+const EXCLUSIONS: Record<string, readonly string[]> = {};
 
 // ── 금지어 (단일 출처) ────────────────────────────────────────────────────
 

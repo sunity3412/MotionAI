@@ -159,9 +159,9 @@ export interface RegionSheetView {
    */
   goalLine: string | null;
   /**
-   * quick-260818-nnm — "어떻게" 일러스트 오버레이 재료. 대표 record 의 측정/기준/단위를
-   * **그대로** 옮긴 것(계산·해석 0). 그릴지 말지는 illustrationHow 가 정한다. 값이 없으면
-   * 필드도 null — 없는 수치를 만들지 않는다.
+   * quick-260818-nnm — 대표 record 의 측정/기준/단위를 **그대로** 옮긴 것(계산·해석 0).
+   * 일러스트 전면 제거 (belle 08-24) — 현재 소비처 없음, 필드는 뷰모델·테스트 무접촉
+   * 원칙으로 잔류. 값이 없으면 필드도 null — 없는 수치를 만들지 않는다.
    */
   primaryMeasure: { measured: number | null; target: number | null; unit: string | null };
   blocks: RegionSheetBlock[];

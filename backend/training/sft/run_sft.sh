@@ -190,7 +190,10 @@ SFT_USE_LIGER="${SFT_USE_LIGER:-auto}"
 #   SFT_RESUME=none  → 처음부터
 SFT_RESUME="${SFT_RESUME:-auto}"
 if [ "$SFT_RESUME" = "auto" ]; then
-  SFT_RESUME="$(ls -dt "$OUT"/*/checkpoint-* 2>/dev/null | head -1)"
+  # -merged 제외 (2026-08-25 실측): merge_and_quant.sh 산출 checkpoint-N-merged 에는
+  # 어댑터가 없어 resume 대상으로 넘기면 swift 가 0-trainable 로 즉사한다
+  # (transformers validate_quantization_for_training). 08-18 v30·08-25 v33 두 번 잡아먹은 병.
+  SFT_RESUME="$(ls -dt "$OUT"/*/checkpoint-* 2>/dev/null | grep -v -- '-merged' | head -1)"
   [ -n "$SFT_RESUME" ] && echo "[resume] 최신 체크포인트 발견: $SFT_RESUME" \
     || { SFT_RESUME=none; echo "[resume] 체크포인트 없음 — 처음부터"; }
 fi

@@ -53,8 +53,11 @@ PORT="${GATES_PORT:-8000}"
 #   cap 미검출이면 발화 안 함(보수적).
 if [ -z "${TRITON_PTXAS_BLACKWELL_PATH:-}" ] && [ -x /usr/local/cuda/bin/ptxas ]; then
   _drv_cuda=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA Version: *\([0-9]*\)\..*/\1/p' | head -1)
+  # `|| true` 필수 (2026-08-26 실측): venv 에 ptxas-blackwell 이 없으면 glob 이 리터럴로
+  # 남아 exec 127 → pipefail 이 잡고 set -e 로 **stderr 억제 상태 무출력 즉사**한다.
+  # (A100 + cuda-devel 이미지 조합에서만 이 블록에 진입해 발화 — v33 gates 0줄 로그 원인)
   _bw=$("$VENV"/lib/python3.*/site-packages/triton/backends/nvidia/bin/ptxas-blackwell --version 2>/dev/null \
-        | sed -n 's/.*release \([0-9]*\)\..*/\1/p' | head -1)
+        | sed -n 's/.*release \([0-9]*\)\..*/\1/p' | head -1 || true)
   _cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ')
   _is_blackwell=0
   if [ -n "${_cap:-}" ] && awk "BEGIN { exit !($_cap >= 10) }"; then _is_blackwell=1; fi

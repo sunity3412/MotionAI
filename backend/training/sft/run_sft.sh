@@ -174,6 +174,11 @@ PYEOF
 #   명시적으로 낮춰 쓰는 구조여야 "왜 이 값인가"가 추적된다.
 SFT_LORA_RANK="${SFT_LORA_RANK:-64}"
 SFT_LORA_ALPHA="${SFT_LORA_ALPHA:-128}"
+# 학습 강도 축 (v34 실험, 2026-08-26): 기본값은 기존 그대로(무회귀). 근거 —
+# v33 까지 LR 1e-5 는 QLoRA 통상치(1e-4~2e-4)의 1/10 수준인데, 08-23 실측이
+# "train 셋 재현 5/12"(자기 학습 데이터도 못 외움)를 보여 강도 부족이 유력.
+SFT_LR="${SFT_LR:-1e-5}"
+SFT_EPOCHS="${SFT_EPOCHS:-4}"
 SFT_MAX_LENGTH="${SFT_MAX_LENGTH:-32768}"
 SFT_FREEZE_VIT="${SFT_FREEZE_VIT:-false}"
 # liger-kernel = 손실을 조각내 계산해 **전체 로짓 텐서를 안 만든다**.
@@ -221,9 +226,9 @@ echo "[2/3] swift sft (QLoRA rank${SFT_LORA_RANK} 4-bit, all-linear, ${SFT_MAX_L
   --gradient_checkpointing true --optim paged_adamw_8bit \
   --packing false --max_length "$SFT_MAX_LENGTH" \
   --per_device_train_batch_size 1 --gradient_accumulation_steps 16 \
-  --learning_rate 1e-5 --vit_lr 2e-6 --aligner_lr 1e-5 \
+  --learning_rate "$SFT_LR" --vit_lr 2e-6 --aligner_lr 1e-5 \
   --freeze_aligner false \
-  --num_train_epochs 4 \
+  --num_train_epochs "$SFT_EPOCHS" \
   --save_strategy epoch --eval_strategy epoch --logging_steps 1 \
   --output_dir "$OUT"
 

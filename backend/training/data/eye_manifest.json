@@ -1364,7 +1364,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#0",
       "track_angle_deg": 73.2,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1391,7 +1391,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#1",
       "track_angle_deg": 8.3,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1418,7 +1418,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#2",
       "track_angle_deg": 4.8,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1445,7 +1445,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#3",
       "track_angle_deg": 16.7,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1472,7 +1472,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#4",
       "track_angle_deg": 46.0,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1499,7 +1499,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#5",
       "track_angle_deg": 90.5,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1526,7 +1526,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#6",
       "track_angle_deg": 29.3,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1553,7 +1553,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#7",
       "track_angle_deg": 168.8,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1580,7 +1580,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#8",
       "track_angle_deg": 39.8,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1607,7 +1607,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#9",
       "track_angle_deg": 23.5,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1634,7 +1634,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#10",
       "track_angle_deg": 172.0,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1661,7 +1661,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#11",
       "track_angle_deg": 8.7,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1688,7 +1688,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#12",
       "track_angle_deg": 155.2,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1715,7 +1715,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#13",
       "track_angle_deg": 14.0,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1742,7 +1742,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#14",
       "track_angle_deg": 6.9,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1769,7 +1769,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#15",
       "track_angle_deg": 20.5,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1796,7 +1796,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#16",
       "track_angle_deg": 5.4,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1823,7 +1823,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#17",
       "track_angle_deg": 150.7,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1850,7 +1850,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#18",
       "track_angle_deg": 16.3,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1877,7 +1877,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#19",
       "track_angle_deg": 4.2,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1904,7 +1904,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#20",
       "track_angle_deg": 13.1,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1931,7 +1931,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#21",
       "track_angle_deg": 7.6,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1958,7 +1958,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#22",
       "track_angle_deg": 24.3,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -1985,7 +1985,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#23",
       "track_angle_deg": 17.2,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2012,7 +2012,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#24",
       "track_angle_deg": 79.0,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2039,7 +2039,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#25",
       "track_angle_deg": 75.8,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2066,7 +2066,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#26",
       "track_angle_deg": 73.6,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2093,7 +2093,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#27",
       "track_angle_deg": 79.6,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2120,7 +2120,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#28",
       "track_angle_deg": 87.1,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2147,7 +2147,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#29",
       "track_angle_deg": 96.8,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2174,7 +2174,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#30",
       "track_angle_deg": 90.0,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2201,7 +2201,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#31",
       "track_angle_deg": 95.0,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2228,7 +2228,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#32",
       "track_angle_deg": 177.5,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2255,7 +2255,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#33",
       "track_angle_deg": 94.1,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2282,7 +2282,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#34",
       "track_angle_deg": 97.9,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2309,7 +2309,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#35",
       "track_angle_deg": 77.6,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2336,7 +2336,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#36",
       "track_angle_deg": 168.4,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2363,7 +2363,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#37",
       "track_angle_deg": 18.9,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2390,7 +2390,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#38",
       "track_angle_deg": 79.1,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -2417,7 +2417,7 @@
       "source_ref": ".planning/quick/260811-kpo-gate-wiring-3-pod/evidence/pod_eye_ledger/ledger.json#39",
       "track_angle_deg": 178.2,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -3929,7 +3929,7 @@
       "source_ref": ".planning/quick/260814-ehz-5/evidence/climbfault/eye_ledger/r00_01_cand02B_user_right_knee_bent.json#0",
       "track_angle_deg": 67.2,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -3956,7 +3956,7 @@
       "source_ref": ".planning/quick/260814-ehz-5/evidence/climbfault/eye_ledger/r00_02_cand02B_ref_right_knee_extended.json#0",
       "track_angle_deg": 164.7,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -3983,7 +3983,7 @@
       "source_ref": ".planning/quick/260814-ehz-5/evidence/climbfault/eye_ledger/r00_03_cand03B_user_right_knee_bent.json#0",
       "track_angle_deg": 70.9,
       "track_claim_agrees": true,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -4010,7 +4010,7 @@
       "source_ref": ".planning/quick/260814-ehz-5/evidence/climbfault/eye_ledger/r00_04_cand04B_user_right_knee_bent.json#0",
       "track_angle_deg": 85.4,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -4037,7 +4037,7 @@
       "source_ref": ".planning/quick/260814-ehz-5/evidence/climbfault/eye_ledger/r00_05_cand04B_ref_right_knee_extended.json#0",
       "track_angle_deg": 158.2,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     },
     {
@@ -4064,7 +4064,7 @@
       "source_ref": ".planning/quick/260814-ehz-5/evidence/climbfault/eye_ledger/r00_06_cand05B_user_right_knee_bent.json#0",
       "track_angle_deg": 82.0,
       "track_claim_agrees": false,
-      "uploaded": false,
+      "uploaded": true,
       "usage": "training-only-no-redistribution"
     }
   ]

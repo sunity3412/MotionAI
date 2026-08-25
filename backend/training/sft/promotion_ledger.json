@@ -28,6 +28,20 @@
       "gates": {},
       "promoted": false,
       "ts": "2026-08-15T16:21:00Z"
+    },
+    {
+      "batch_ids": [],
+      "ckpt": "/workspace/phase22_sft_out/v35-20260825-164608/checkpoint-72-merged",
+      "data": {
+        "distill": 197,
+        "perturb": 0,
+        "text": 32,
+        "train_rows": null,
+        "val_rows": null
+      },
+      "gates": {},
+      "promoted": false,
+      "ts": "2026-08-25T22:46:41Z"
     }
   ],
   "schema": "promotion-ledger-v1"

@@ -204,6 +204,82 @@ channels:
     duration_window: [30, 900]
     notes: '인버트 계열 실수 표적 — kip-up/인버트 fault 학습신호 직결 검색어.'
 
+  # ── 표적 수집 (belle 승인 2026-08-26, LR 실험 후속) ─────────────────────────
+  # eval18 침묵 3동작(peter-pan·elbow-twist-sister·pdshape) + power-spin 변별 보강.
+  # 근거: 학습셋 결함행이 split 43·jade 15 편중, 이 동작들은 0~1행 (평가 영상은
+  # 누수 가드로 학습 제외가 정상). 동작명 검색이라 큐레이션 게이트가 오탐을 거른다.
+  - name: yt_search_kr_peterpan
+    platform: youtube
+    search: 폴댄스 피터팬
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: 'eval18 침묵 동작 표적(peter-pan) — 한국어 학원 통용명.'
+
+  - name: yt_search_en_peterpan
+    platform: youtube
+    search: pole dance peter pan trick
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: 'eval18 침묵 동작 표적(peter-pan) — 국제 통용명.'
+
+  - name: yt_search_kr_elbowtwist
+    platform: youtube
+    search: 폴댄스 엘보 트위스트
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: 'eval18 침묵 동작 표적(elbow-twist-sister) — 한국어 학원 통용명.'
+
+  - name: yt_search_en_elbowgrip
+    platform: youtube
+    search: pole dance elbow grip trick
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: 'eval18 침묵 동작 표적(elbow-twist-sister) — 영문 근사 검색.'
+
+  - name: yt_search_kr_pdshape
+    platform: youtube
+    search: 폴댄스 PD 자세
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: 'eval18 침묵 동작 표적(pdshape) — 한국어 근사 검색.'
+
+  - name: yt_search_en_pdshape
+    platform: youtube
+    search: pole dance PD shape
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: 'eval18 침묵 동작 표적(pdshape) — 영문 근사 검색.'
+
+  - name: yt_search_kr_powerspin
+    platform: youtube
+    search: 폴댄스 파워스핀
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: 'eval18 변별 보강 표적(power-spin) — 한국어 통용명.'
+
+  - name: yt_search_en_powerspin
+    platform: youtube
+    search: pole dance power spin
+    tier: 2_studio
+    bucket: fault
+    curation_profile: fault_demo
+    duration_window: [30, 900]
+    notes: 'eval18 변별 보강 표적(power-spin) — 국제 통용명.'
+
   # ── Tier-2 Instagram (수집 까다로움 — 로그인월·rate-limit·ToS 회색, 쿠키 인증) ──
   # IG 어댑터(collect_phase22_instagram.py) = Task 3. enabled=false 로 기본 격리.
   - name: eunji.poledancer

@@ -7053,5 +7053,1139 @@
     "move_guess": null,
     "reason": "This video is an interview with no pole performance shown.",
     "single_person_pole": false
+  },
+  "fhXayoj-yns::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "왼발을 앞으로 차거나 상체를 세우지 못해 매달려 회전이 멈추는 잘못된 자세 시연",
+    "keep": true,
+    "move_guess": "베이직 스핀",
+    "reason": "기본 스핀 동작의 잘못된 예시와 올바른 동작을 단계별로 시연하여 교정 학습용으로 적합함",
+    "single_person_pole": true
+  },
+  "aVBP-3RDTOM::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "피터팬 회전 시 다리를 옆으로 뻗어 속도가 과해지거나 폴싯 전 팔이 풀리며 골반이 처지는 동작",
+    "keep": true,
+    "move_guess": "피터팬 to 폴싯",
+    "reason": "피터팬 회전 속도 조절 실패 및 폴싯 연결 시 발생하는 잘못된 자세를 비교 시연함",
+    "single_person_pole": true
+  },
+  "3VL6Saw0zGM::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "피터 팬 (Peter Pan)",
+    "reason": "피터 팬 동작의 세 가지 그립 변형을 체계적으로 시연하는 튜토리얼 영상임.",
+    "single_person_pole": true
+  },
+  "fOQ42oJTWek::fault_demo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "방송 예능 및 다큐멘터리 클립으로 단일 동작 교정 튜토리얼 데이터에 부적합",
+    "single_person_pole": false
+  },
+  "GHnBUuBiJhg::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "pole combo",
+    "reason": "단일 시연자의 전신 동작이 온전히 담긴 일반 폴 콤보 수행 영상임",
+    "single_person_pole": true
+  },
+  "Bd3m5HmYGeE::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "발목이 플렉스되거나 안짱다리로 접히는 잘못된 발 모양 시연",
+    "keep": true,
+    "move_guess": "휘감아 치기",
+    "reason": "도입 및 클라임 브릿지 동작과 함께 잘못된 발목 플렉스 자세 시연을 포함한 교정형 튜토리얼",
+    "single_person_pole": true
+  },
+  "KlQIlGwOUbs::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole flow combo",
+    "reason": "단일 시연자의 폴 콤보 시연이 전신으로 명확하게 기록됨",
+    "single_person_pole": true
+  },
+  "sU07Se2P_Hc::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "피터 팬 스핀 (Peter Pan Spin)",
+    "reason": "강사와 수강생이 함께 등장하여 2인이 동시에 프레임에 잡히며 단일 시연자 기준을 충족하지 않음",
+    "single_person_pole": false
+  },
+  "Ux3hV3-ov-k::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "피터 팬 (Peter Pan)",
+    "reason": "스틱 스핀 피터 팬 동작의 시연과 설명이 명확하여 학습 코퍼스에 적합함",
+    "single_person_pole": true
+  },
+  "wBLS84LLl4g::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "상체를 뒤로 빼지 않고 폴에 과도하게 밀착하여 팔 힘으로만 당겨 올라감",
+    "keep": true,
+    "move_guess": "climb",
+    "reason": "기초 폴 클라임의 정자세와 흔한 잘못된 매달리기 시연이 명확함",
+    "single_person_pole": true
+  },
+  "S-KePmByB94::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "시선을 바깥쪽 어깨로 돌려 골반이 돌아가거나 하단 손목을 과하게 감아 쥐는 실수 시연",
+    "keep": true,
+    "move_guess": "피터팬",
+    "reason": "피터팬 동작의 단계별 기술 설명과 함께 흔한 실수 자세를 직접 시연하는 튜토리얼임",
+    "single_person_pole": true
+  },
+  "EJYoD2lzzTg::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Peter Pan",
+    "reason": "피터 팬 동작에 대한 명확한 단계별 설명과 정자세 시연이 포함된 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "Nj2cGwztwm4::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Reverse Elbow Twist Pole Sit Split",
+    "reason": "단계별 자막과 함께 올바른 동작 흐름을 시연하는 정상 튜토리얼 클립입니다.",
+    "single_person_pole": true
+  },
+  "t-mA6nAjHtQ::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "엘보트위스트 플라밍고",
+    "reason": "엘보트위스트와 플라밍고를 포함한 중급 콤보 동작을 안정적으로 시연함.",
+    "single_person_pole": true
+  },
+  "uQFMkeVzdGk::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "엘보 폴피쉬",
+    "reason": "중급 폴 콤보 동작들을 순차적으로 시연하는 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "Dgo9yT6wVBo::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "엘보 튤립",
+    "reason": "단일 시연자의 연속 폴 콤보 시연으로 전신 식별이 용이함",
+    "single_person_pole": true
+  },
+  "hk0irVmiH8Q::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole Dance Combo",
+    "reason": "단일 시연자의 연속적인 폴 안무 시연 영상",
+    "single_person_pole": true
+  },
+  "Yra9M7Rj218::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "엘보 버티컬스플릿",
+    "reason": "다양한 폴 트릭 콤보를 전신이 명확하게 안정적으로 시연함",
+    "single_person_pole": true
+  },
+  "XsqKbNTXqno::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "알레그라 동작 시 뒷다리가 곧게 펴지지 않고 무릎이 굽혀짐",
+    "keep": true,
+    "move_guess": "Allegra",
+    "reason": "알레그라 동작 중 다리 신전 부족 자세 시연과 자막 피드백이 포함됨",
+    "single_person_pole": true
+  },
+  "OiFKLohIOYA::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Jade Split Combo",
+    "reason": "단독 시연자의 인버트 및 제이드 스플릿 콤보 동작이 전신 시야로 명확하게 수행됨",
+    "single_person_pole": true
+  },
+  "2uQCJvArHyw::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "pole combo",
+    "reason": "단일 시연자의 연속 폴 콤보 시연 영상",
+    "single_person_pole": true
+  },
+  "Ihb-clyESgY::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "엘보 그립 리프트",
+    "reason": "단일 시연자가 엘보 그립 기본 및 리프트 동작을 명확히 설명하고 정자세로 시연함",
+    "single_person_pole": true
+  },
+  "Yp9mRV36cfg::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Jade Split",
+    "reason": "단일 시연자가 폴 스플릿 및 콤보 동작을 명확하게 수행함",
+    "single_person_pole": true
+  },
+  "cVPWWUZsLOI::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "팔을 조이지 않고 어깨 관절로 무너져 체중을 지탱하는 잘못된 자세 시연",
+    "keep": true,
+    "move_guess": "Elbow Grip Spin",
+    "reason": "엘보우 그립 스핀의 바른 그립법과 어깨 붕괴 등 잘못된 자세 시연이 포함됨",
+    "single_person_pole": true
+  },
+  "NljCKAZ1OV0::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole Sit",
+    "reason": "폴싯 동작의 숙련도 향상 과정을 전신 시연으로 명확히 보여주어 유효함",
+    "single_person_pole": true
+  },
+  "CD6gZwSLOv0::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Jade Split Combo",
+    "reason": "단일 시연자의 전신이 잘 보이는 폴 아트 및 인버트 스플릿 콤보 시연 영상임",
+    "single_person_pole": true
+  },
+  "Kwy_aumm5i4::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Dragon Tail Split",
+    "reason": "단독 시연자의 폴 콤보 및 스플릿 동작이 전신 시야에서 명확히 수행됨",
+    "single_person_pole": true
+  },
+  "TS6v0GIQjMo::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Broken Doll",
+    "reason": "단일 시연자의 에어인버트부터 브로큰돌까지의 완성도 높은 연결 시연.",
+    "single_person_pole": true
+  },
+  "kE2XRNH2kP8::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Linear Split",
+    "reason": "리니어 스플릿 동작의 정석 시연과 단계별 수행 가이드가 명확함",
+    "single_person_pole": true
+  },
+  "JeUvSETJTCA::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Handspring / Brass Monkey variations",
+    "reason": "단일 시연자의 폴 기술 및 스플릿 동작 시연이 안정적으로 이어짐",
+    "single_person_pole": true
+  },
+  "OnhM20XMk8M::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "허리 꺾임, 오금 풀림, 반동 부족 등 각 동작별 잘못된 자세를 직접 시연함",
+    "keep": true,
+    "move_guess": "Handspring",
+    "reason": "여러 기술에 대한 잘못된 자세 시연과 교정 설명이 충실한 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "JeYnRP1JuRY::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "windmill",
+    "reason": "윈드밀 기본 동작과 단계별 수행법을 명확히 시연하는 튜토리얼임",
+    "single_person_pole": true
+  },
+  "B5CJY-8e69M::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "지지하는 발바닥으로 폴을 감싸지 않고 단순 접촉만 하는 잘못된 자세 시연",
+    "keep": true,
+    "move_guess": "큐피드",
+    "reason": "큐피드 동작의 올바른 자세와 잘못된 발 지지 방식을 비교 시연함",
+    "single_person_pole": true
+  },
+  "164xdSHJJXo::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole climb & sit combo",
+    "reason": "폴 동작 수행 과정이 전신 구도로 명확하게 담겨 있어 학습용으로 적합함",
+    "single_person_pole": true
+  },
+  "HfylkdAPxI8::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Libellula",
+    "reason": "Libellula 동작 진입 및 완성을 단계별로 명확하게 시연하는 튜토리얼 영상임.",
+    "single_person_pole": true
+  },
+  "s7h0dv1ebEs::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Stargazer",
+    "reason": "스타게이저 동작의 진입 단계와 완성 자세를 명확하게 시연 및 설명하는 튜토리얼임",
+    "single_person_pole": true
+  },
+  "3XxdK0g0_qQ::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "머리를 바닥 쪽으로 내리지 않고 회전하거나 허벅지를 폴에 너무 가깝게 붙여 내려오는 자세 시연",
+    "keep": true,
+    "move_guess": "파워 스핀",
+    "reason": "파워 스핀의 정석 동작과 잘못된 진입/착지 자세 시연을 모두 포함한 교육용 튜토리얼임",
+    "single_person_pole": true
+  },
+  "sbICK91IOH0::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "스핀폴 콤보",
+    "reason": "단독 시연자가 전신이 명확하게 드러나는 깔끔한 스핀폴 콤보를 수행함",
+    "single_person_pole": true
+  },
+  "-u5qfytLcK0::fault_demo": {
+    "bucket": "fault",
+    "fault_demo": true,
+    "fault_desc": "하체와 골반이 폴에 밀착되지 않고 몸이 처지며 다리가 어정쩡하게 풀리는 잘못된 자세 시연",
+    "keep": true,
+    "move_guess": "Tuck Spin",
+    "reason": "턱스핀 동작의 대표적 오류 자세 시연과 올바른 다리 진입 교정법을 명확히 제시함",
+    "single_person_pole": true
+  },
+  "6Hs2wnRPu7M::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "스핀 폴 콤보",
+    "reason": "스핀 폴 연계 동작을 안정적으로 시연하여 동작 학습 자료로 적합함",
+    "single_person_pole": true
+  },
+  "MCYmRllnUsY::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "gemini to seven combo",
+    "reason": "단일 시연자의 연속된 폴 기술 수행이 전신 시야에서 안정적으로 유지됨",
+    "single_person_pole": true
+  },
+  "TqIk9H0WqRQ::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "타이거 콤보",
+    "reason": "다양한 폴 동작을 올바른 자세로 연속 시연하는 콤보 영상",
+    "single_person_pole": true
+  },
+  "xXekFpg7XmI::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "핸드스프링 / 아이샤",
+    "reason": "핸드스프링과 아이샤를 포함한 폴댄스 기술의 반복 연습 및 완성 동작이 명확히 담김",
+    "single_person_pole": true
+  },
+  "0qLGOBYfKPY::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Jade Split",
+    "reason": "알레그라 박스스플릿과 제이드 기술을 연속 시연하는 일반 수행 영상임",
+    "single_person_pole": true
+  },
+  "5VsoBDydtrI::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Back superman combo",
+    "reason": "콤보 연결 동작을 명확히 시연하는 유효한 튜토리얼 영상임",
+    "single_person_pole": true
+  },
+  "Q97-PyjsM3U::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole Combo",
+    "reason": "여러 폴 콤보 및 스핀 동작을 완성도 있게 수행하는 시연 영상",
+    "single_person_pole": true
+  },
+  "PjYDqpf_b1A::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Ragdoll to Shoulder Mount Spin",
+    "reason": "단일 시연자의 전신 동작 및 단계별 올바른 기술 시연이 명확히 담겨 있어 학습용으로 적합함.",
+    "single_person_pole": true
+  },
+  "bbMPI-4ioxU::fault_demo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "chinese phoenix",
+    "reason": "차이니스 피닉스 동작의 단계별 드릴 및 정자세 시연을 포함한 튜토리얼",
+    "single_person_pole": true
+  },
+  "fhXayoj-yns": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Pole spin",
+    "reason": "설명 위주의 튜토리얼 영상으로 텍스트 및 스티커 오버레이가 많고 동작 시연이 분절되어 있음",
+    "single_person_pole": true
+  },
+  "3VL6Saw0zGM": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "피터 팬",
+    "reason": "단일 인물의 안정적이고 명확한 피터 팬 응용 그립 시연 영상",
+    "single_person_pole": true
+  },
+  "fOQ42oJTWek": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "방송 편집물로 자막, 인터뷰 및 다인 등장 장면이 혼재되어 단일 학습 클립으로 부적합",
+    "single_person_pole": false
+  },
+  "GHnBUuBiJhg": {
+    "bucket": "fault",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "클라임 및 인버트 콤보",
+    "reason": "단일 인물의 폴 수행 영상으로 동작 전개와 교정 지점이 명확함",
+    "single_person_pole": true
+  },
+  "aVBP-3RDTOM": {
+    "bucket": "fault",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "피터팬",
+    "reason": "단일 인물이 피터팬 및 폴싯 연결 시 흔한 오류와 교정법을 시연하는 강의 영상임",
+    "single_person_pole": true
+  },
+  "KlQIlGwOUbs": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Jade Split Combo",
+    "reason": "단일 인물의 폴 스핀 및 스플릿 동작이 전신 시야 내에서 안정적으로 수행됨.",
+    "single_person_pole": true
+  },
+  "sU07Se2P_Hc": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "피터 팬 스핀",
+    "reason": "다인 출연 및 방송 편집·자막 오버레이로 단독 동작 학습 데이터로 부적합",
+    "single_person_pole": false
+  },
+  "Ux3hV3-ov-k": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "피터 팬",
+    "reason": "단일 인물의 피터팬 동작 시연과 설명이 명확하게 담긴 표준 영상",
+    "single_person_pole": true
+  },
+  "Bd3m5HmYGeE": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "설명과 토크 위주의 튜토리얼 클립으로 순수 동작 학습용으로 부적합함",
+    "single_person_pole": true
+  },
+  "wBLS84LLl4g": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Pole Climb",
+    "reason": "설명 및 토크 비중이 높은 튜토리얼 영상으로 순수 동작 실행 클립이 아님",
+    "single_person_pole": true
+  },
+  "S-KePmByB94": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "피터팬",
+    "reason": "설명과 토크 비중이 높은 튜토리얼 및 브이로그 형식으로 단일 클립에 부적합",
+    "single_person_pole": true
+  },
+  "EJYoD2lzzTg": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Peter Pan",
+    "reason": "피터팬 동작의 단계별 기술 시연이 전신 구도로 선명하게 제시됨",
+    "single_person_pole": true
+  },
+  "7xqIMBeFmSk": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "피터팬",
+    "reason": "단일 인물이 피터팬 동작을 명확하게 시연함",
+    "single_person_pole": true
+  },
+  "Ybeby4Vl2mo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "피터 팬 스핀",
+    "reason": "단일 인물의 피터 팬 스핀 시연이 전신 시야로 명확히 담김",
+    "single_person_pole": true
+  },
+  "BTxd35_r-JE": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Peter Pan",
+    "reason": "단일 인물의 피터팬 동작 시연 및 튜토리얼이 명확히 담김",
+    "single_person_pole": true
+  },
+  "-Z_XUW9hugo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Inverted Split",
+    "reason": "단일 인물의 안정적인 인버트 스플릿 동작 수행으로 적합",
+    "single_person_pole": true
+  },
+  "4nmqcx9rbPE": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Broken Heart to Peter Pan",
+    "reason": "스피닝 폴에서 브로큰 하트와 피터팬 동작이 깔끔하게 연결되어 학습용으로 적합함.",
+    "single_person_pole": true
+  },
+  "ZPyTSi8lFAE": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Angel (Peter Pan)",
+    "reason": "엔젤 동작을 한 명의 시연자가 전신이 잘리지 않고 깔끔하게 수행함",
+    "single_person_pole": true
+  },
+  "OllhWDUlkdA": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "flying peter pan",
+    "reason": "화면 측면에 대형 텍스트 오버레이가 포함된 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "66NpDtQ_Z98": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Pole Sit",
+    "reason": "단일 인물의 명확한 폴 시트 및 피터팬 시연 영상",
+    "single_person_pole": true
+  },
+  "Nj2cGwztwm4": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Reverse Elbow Twist Pole Sit Split",
+    "reason": "단일 인물의 안정적이고 명확한 폴 시퀀스 수행 영상임",
+    "single_person_pole": true
+  },
+  "t-mA6nAjHtQ": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "엘보우 트위스트 플라밍고 콤보",
+    "reason": "단일 수행자의 전신이 가림 없이 담긴 깔끔한 폴 콤보 영상",
+    "single_person_pole": true
+  },
+  "uQFMkeVzdGk": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "엘보 폴피쉬",
+    "reason": "편집 컷과 자막 및 그래픽 오버레이가 과다한 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "Dgo9yT6wVBo": {
+    "bucket": "fault",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "엘보 튤립 콤보",
+    "reason": "단일 인물의 폴 콤보 시연이 명확하게 포착되어 학습 가치가 있음",
+    "single_person_pole": true
+  },
+  "nPI67K3-HXc": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "two climb",
+    "reason": "컷 편집 및 자막 오버레이가 포함된 튜토리얼 영상으로 학습용 단일 클립에 부적합함",
+    "single_person_pole": true
+  },
+  "hk0irVmiH8Q": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "스핀 폴 콤보",
+    "reason": "단일 인물의 전신이 온전히 포착된 안정적인 스핀 폴 연계 동작",
+    "single_person_pole": true
+  },
+  "Yra9M7Rj218": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "엘보 버티컬스플릿",
+    "reason": "단독 수행자의 전신 및 동작 흐름이 명확히 포착된 콤보 영상",
+    "single_person_pole": true
+  },
+  "XsqKbNTXqno": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Allegra",
+    "reason": "자막 및 컷 편집이 포함되어 있어 학습용 클립으로 부적합",
+    "single_person_pole": true
+  },
+  "2uQCJvArHyw": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Allegra",
+    "reason": "단일 인물의 전신 동작 및 알레그라 스핀 콤보가 안정적으로 시연됨",
+    "single_person_pole": true
+  },
+  "Ihb-clyESgY": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "엘보 그립",
+    "reason": "단일 인물의 정확한 엘보 그립 기본 시연 영상",
+    "single_person_pole": true
+  },
+  "cVPWWUZsLOI": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Elbow grip spin",
+    "reason": "설명 위주의 긴 튜토리얼 영상으로 단일 동작 학습용 클립에 부적합함",
+    "single_person_pole": true
+  },
+  "Yp9mRV36cfg": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Allegra",
+    "reason": "단일 인물의 폴 스핀 및 알레그라 스플릿 동작이 명확히 수행됨",
+    "single_person_pole": true
+  },
+  "YSg86LEnWk4": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "설명 및 자막·금지 표시 등 오버레이가 포함된 튜토리얼 편집 영상",
+    "single_person_pole": true
+  },
+  "yorLOMv_gCM": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "reverse elbow grip lift",
+    "reason": "설명 위주의 튜토리얼 및 반려동물 난입으로 코퍼스 부적합",
+    "single_person_pole": true
+  },
+  "LD4_hc6cDtQ": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "폴 스플릿",
+    "reason": "단일 인물의 명확한 폴 스플릿 및 인버트 동작 수행 영상",
+    "single_person_pole": true
+  },
+  "vfLPesTHWtI": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "elbow grip",
+    "reason": "화면 내 텍스트 오버레이와 튜토리얼 편집이 과다하여 학습용 클립으로 부적합함",
+    "single_person_pole": true
+  },
+  "bTMznxduaqo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Elbow Hold Star Shape",
+    "reason": "설명 위주의 튜토리얼 영상으로 동작 수행 구간이 짧고 엔딩 화면 포함",
+    "single_person_pole": true
+  },
+  "wEbiqssjASo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Elbow Grip Spin",
+    "reason": "단일 인물의 엘보 그립 스핀 동작이 명확하게 시연됨",
+    "single_person_pole": true
+  },
+  "mOAf7at42TM": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Elbow grip spin",
+    "reason": "엘보우 그립 스핀 동작을 안정적인 정렬과 폼으로 명확하게 시연함",
+    "single_person_pole": true
+  },
+  "-tqfY6mBkZQ": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Spinning pole combo",
+    "reason": "단일 인물의 안정적인 스피닝 폴 동작 연계 및 명확한 시야 확보.",
+    "single_person_pole": true
+  },
+  "NljCKAZ1OV0": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Pole Sit",
+    "reason": "여러 날짜의 영상이 교차 편집된 성장 로그 컴필레이션 클립임",
+    "single_person_pole": false
+  },
+  "CD6gZwSLOv0": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Invert to Brass Monkey Combo",
+    "reason": "단독 수행자의 전신이 명확히 담겨 있으며 연결 동작의 흐름과 형태가 안정적임",
+    "single_person_pole": true
+  },
+  "OnhM20XMk8M": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "다인 출연 및 대화 중심의 튜토리얼 영상으로 단일 인물 데이터로 부적합함",
+    "single_person_pole": false
+  },
+  "JeYnRP1JuRY": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Windmill",
+    "reason": "설명, 바닥 연습 및 편집 컷이 포함된 튜토리얼 영상으로 단일 수행 클립에 부적합함",
+    "single_person_pole": true
+  },
+  "Kwy_aumm5i4": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Russian Split",
+    "reason": "단일 인물의 안정적이고 완성도 높은 폴 동작 수행 영상.",
+    "single_person_pole": true
+  },
+  "kE2XRNH2kP8": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "리니어 스플릿",
+    "reason": "단일 강사의 명확하고 완성도 높은 리니어 스플릿 시범 동작 포함",
+    "single_person_pole": true
+  },
+  "TS6v0GIQjMo": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "브로큰돌",
+    "reason": "화면 절반이 여백 및 자막으로 구성되어 학습용으로 부적합",
+    "single_person_pole": true
+  },
+  "JeUvSETJTCA": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Inverted Split Handstand",
+    "reason": "단독 수행자의 전환 및 핸드스탠드 스플릿 동작이 안정적이고 명확함",
+    "single_person_pole": true
+  },
+  "B5CJY-8e69M": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Cupid",
+    "reason": "설명 및 컷 편집이 포함된 튜토리얼 영상으로 연속 동작 데이터셋에 부적합",
+    "single_person_pole": false
+  },
+  "NgIhX_ZzDdE": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "여러 동작이 편집된 컴필레이션 영상이며 중간 안내 타이틀 카드가 포함되어 단일 클립으로 부적합함",
+    "single_person_pole": true
+  },
+  "HfylkdAPxI8": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Libellula",
+    "reason": "단일 수행자의 리벨룰라 동작 튜토리얼 및 완벽한 시연",
+    "single_person_pole": true
+  },
+  "s7h0dv1ebEs": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Stargazer",
+    "reason": "단독 수행자가 스타게이저 동작을 명확하고 안정된 기술로 시연함",
+    "single_person_pole": true
+  },
+  "E620aUi7POI": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Plus Sign",
+    "reason": "설명과 분할 시연 위주의 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "imIp9y-7QfE": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Genie variations combo",
+    "reason": "화면 전반에 걸친 텍스트 오버레이 및 홍보용 편집으로 인해 학습용으로 부적합",
+    "single_person_pole": true
+  },
+  "wYe5M6Tq-WA": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "러시안 스플릿 및 플랭크 콤보",
+    "reason": "단일 인물의 동작이 가림 없이 깔끔하게 완결됨",
+    "single_person_pole": true
+  },
+  "RoeIsd5awpU": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Janeiro",
+    "reason": "여러 진입 동작이 교차 편집된 튜토리얼 영상으로 단일 클립 학습용에 부적합",
+    "single_person_pole": true
+  },
+  "0pwFB7tS_vA": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "libellula",
+    "reason": "자막 및 텍스트 오버레이가 많고 튜토리얼 편집 및 비폴 운동이 포함됨",
+    "single_person_pole": true
+  },
+  "02-SShXPKpg": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Inverted D",
+    "reason": "단일 인물이 인버티드 D 동작과 퇴장법을 명확하게 시연함",
+    "single_person_pole": true
+  },
+  "TI_kqU-3V8A": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Outside Leg Hang Transitions",
+    "reason": "단일 인물의 아웃사이드 레그 행 전환 동작이 명확하게 시연된 고품질 영상.",
+    "single_person_pole": true
+  },
+  "uVnuGjYaK9Y": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Hurricane",
+    "reason": "단독 수행자가 스튜디오에서 허리케인 동작을 명확하게 시연함",
+    "single_person_pole": true
+  },
+  "3XxdK0g0_qQ": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "파워 스핀 (Power Spin)",
+    "reason": "단일 시연자의 정확한 파워 스핀 동작 및 단계별 설명 포함",
+    "single_person_pole": true
+  },
+  "slD3EnjjlOw": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "inversion to butterfly variation",
+    "reason": "단일 인물의 안정적인 인버전 및 스핀 동작이 전신 시야로 명확히 포착됨",
+    "single_person_pole": true
+  },
+  "sbICK91IOH0": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "스핀폴 시트 콤보",
+    "reason": "단일 인물의 안정적이고 완성도 높은 스핀폴 트랜지션 동작이 명확히 담김",
+    "single_person_pole": true
+  },
+  "6Hs2wnRPu7M": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "스핀 콤보",
+    "reason": "단일 인물의 폴 스핀 및 트랜지션이 전신 화각에 안정적으로 담김",
+    "single_person_pole": true
+  },
+  "MCYmRllnUsY": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "에어 인버트-제미니-세븐 콤보",
+    "reason": "단일 인물의 연속 동작이 전신 시야 내에서 깔끔하게 수행됨",
+    "single_person_pole": true
+  },
+  "-u5qfytLcK0": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "tuck spin",
+    "reason": "설명과 토크 비중이 높은 튜토리얼 영상으로 동작 분석용 클립으로 부적합",
+    "single_person_pole": true
+  },
+  "0qLGOBYfKPY": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Allegra Box Split to Jade Split",
+    "reason": "중간 강사의 직접적인 개입 및 보조가 포함되어 단독 수행 영상으로 부적합",
+    "single_person_pole": false
+  },
+  "5VsoBDydtrI": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Back Superman Combo",
+    "reason": "단일 수행자의 백인버트 및 백슈퍼맨 연계가 명확하게 포착됨",
+    "single_person_pole": true
+  },
+  "ho4BC-ubjJI": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Power Spin to Swan Combo",
+    "reason": "단일 인물의 폴 안무 동작이 전신 시야에서 안정적으로 수행됨",
+    "single_person_pole": true
+  },
+  "PjYDqpf_b1A": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "숄더 마운트 스핀",
+    "reason": "설명 및 프로모션 오버레이가 많은 튜토리얼 영상",
+    "single_person_pole": true
+  },
+  "si2k92lsyN8": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "화면 전반에 걸친 과도한 텍스트 및 홍보용 자막 오버레이로 인한 학습 부적합",
+    "single_person_pole": true
+  },
+  "bbMPI-4ioxU": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Chinese Phoenix",
+    "reason": "단일 인물이 차이니즈 피닉스 스핀 변형 동작을 명확하고 안정적으로 시연함",
+    "single_person_pole": true
+  },
+  "zJ2VKkS1occ": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "다수의 인물이 동시에 등장하여 단일 대상 분석용으로 부적합함",
+    "single_person_pole": false
+  },
+  "kYXHKNIyJFo": {
+    "bucket": "정타",
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": true,
+    "move_guess": "Power Spiral",
+    "reason": "파워 스파이럴 동작을 명확하게 시연하는 단일 인물 튜토리얼 영상임",
+    "single_person_pole": true
+  },
+  "R6zyqBS4uFw": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "인사이드 포암 스핀",
+    "reason": "인트로 인터뷰 및 화면 내 텍스트 오버레이가 많아 순수 동작 클립으로 부적합",
+    "single_person_pole": true
+  },
+  "9Rf8NYFu4B0": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "오프닝 설명 및 15개 스핀 동작이 연속 편집된 튜토리얼 영상으로 단일 클립 기준 부적합",
+    "single_person_pole": true
+  },
+  "vdXVFgy2ncs": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": "Corkscrew Spin",
+    "reason": "자막 오버레이가 많고 여러 연습 구간이 교차 편집된 튜토리얼 영상이라 부적합",
+    "single_person_pole": true
+  },
+  "BEDjF4-dq9U": {
+    "bucket": null,
+    "fault_demo": false,
+    "fault_desc": null,
+    "keep": false,
+    "move_guess": null,
+    "reason": "다양한 기술이 편집된 모음 영상이며 자막 및 전환 효과가 포함되어 단일 동작 학습용으로 부적합함",
+    "single_person_pole": false
   }
 }

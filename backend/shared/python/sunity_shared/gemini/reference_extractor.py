@@ -118,7 +118,7 @@ def _resolve_a_model() -> str:
 
     우선순위:
       1. GEMINI_A_MODEL (alias)
-      2. DEFAULT_A_MODEL ('gemini-3.1-pro-preview')
+      2. DEFAULT_A_MODEL (값은 config 가 owner)
 
     Raises:
       ValueError: override 가 ALLOWED_MODELS 박제 외 (예: 'gemini-2.5-*' / plain Pro).

@@ -149,6 +149,28 @@ def compute_yaml_version(*, strict: bool = True) -> str:
 # ─────────────────── TechniqueCache 2단 layer ───────────────────
 
 
+def _active_model_name() -> str:
+    """지금 실제로 호출되는 Gemini 모델명 — 캐시 키/라벨의 단일 출처.
+
+    recognizer 는 `GeminiMomentExtractor` 를 감싸므로 그 모듈의 `DEFAULT_GEMINI_MODEL`
+    (env 체인 → gemini/config 영역 C)이 실호출 모델이다. raw string 을 여기 박으면
+    모델 갱신 때 또 낡는다 — 2026-08-28 까지 `"gemini-3.1-pro"` 로 굳어 있던 이유다.
+
+    지연 import: `judging` 이 `analysis` 를 import 하므로 모듈 최상단에서 역방향으로
+    끌면 순환이 된다. 실패 시 config 기본값으로 graceful (캐시 키가 없는 것보다 낫다).
+    """
+    try:
+        from ..judging.gemini_moment_extractor import (  # noqa: PLC0415 - 순환 회피
+            DEFAULT_GEMINI_MODEL,
+        )
+
+        return DEFAULT_GEMINI_MODEL
+    except Exception:  # noqa: BLE001 - import 실패는 config 기본값으로 폴백
+        from ..gemini.config import DEFAULT_C_MODEL  # noqa: PLC0415
+
+        return DEFAULT_C_MODEL
+
+
 def _validate_flat_moments(payload: dict) -> None:
     """[[firestore-nested-array-flat]] 정합 검증.
 
@@ -180,7 +202,7 @@ class TechniqueCache:
 
     Cache key tuple = (video_hash, model_name, yaml_version).
       · video_hash: SHA256 (D-14 박제 영상 정합)
-      · model_name: D-13 박제 모델 식별자 (default gemini-3.1-pro)
+      · model_name: 실호출 모델 식별자 (default = _active_model_name(), config 승계)
       · yaml_version: Plan 5-00 yaml 5개 SHA256 (Open Question 4 박제 invalidation)
 
     호출 path (Plan 5-01 어댑터):
@@ -192,7 +214,13 @@ class TechniqueCache:
       (Plan 5-02 Task 2 박제 helper — lazy import).
     """
 
-    model_name: str = "gemini-3.1-pro"  # D-13 박제 — STATE.md "Phase 5 권장 모델"
+    # ★모델명은 캐시 **키 구성요소**다 — 모델이 바뀌면 캐시가 무효화되라고 넣은 값이다.
+    #   그런데 2026-08-28 까지 `"gemini-3.1-pro"` 로 하드코딩돼 있었다: (1) suffix 누락
+    #   plain Pro = config 가 "영구 금지"로 막은 형태이고, (2) 실제 호출 모델(recognizer 가
+    #   감싸는 GeminiMomentExtractor 의 DEFAULT_GEMINI_MODEL)과 달라서 **모델을 올려도
+    #   키가 안 바뀌어 옛 모델 산출이 그대로 재사용**됐다. 키에 모델을 넣은 목적이 무효였다.
+    #   → 실제 호출 모델을 승계한다. 지연 import = judging→analysis 역방향 의존 회피.
+    model_name: str = field(default_factory=lambda: _active_model_name())
     yaml_version: str = field(default_factory=compute_yaml_version)
     _memory: dict[str, dict] = field(default_factory=dict, init=False, repr=False)
 
@@ -207,7 +235,7 @@ class TechniqueCache:
             "moments": [{"moment_key": "hold", "timestamp_seconds": 5.5,
                          "frame_index": 49, "confidence": 0.88}, ...],
             "joint_expectations": {"left_shoulder": "extend", ...},
-            "model": "gemini-3.1-pro",
+            "model": "<실호출 모델 — config 승계>",
             "yaml_version": "abc123...",
             "video_hash": "...",
           }

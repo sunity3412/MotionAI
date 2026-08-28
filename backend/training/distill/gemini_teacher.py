@@ -35,13 +35,15 @@ from pathlib import Path
 from datagen import schema
 
 log = logging.getLogger("gemini_teacher")
-from sunity_shared.gemini.config import DEFAULT_C_MODEL
+from sunity_shared.gemini.config import DEFAULT_B_MODEL, DEFAULT_C_MODEL
 if not log.handlers:
     log.setLevel(logging.INFO)
 
 # ── 모델 string (단일 owner: [[gemini-latest-model-versions]], 2.5 계열 금지) ──
 # 교사 = Pro(고품질 라벨), judge = Flash(저비용 블라인드 채점). 변경 시 근거 주석 필수.
-TEACHER_MODEL = "gemini-3.1-pro-preview"
+# 교사 = 영역 B(코칭 — 원인 3~5개 + 한국어 자연어 깊이) 승계. 2026-08-28: JUDGE_MODEL 만
+# config 로 옮겨졌고 이 줄은 raw string 으로 남아 있었다 (바로 위 "하드코딩 금지" 주석과 모순).
+TEACHER_MODEL = DEFAULT_B_MODEL
 # 모델 문자열 하드코딩 금지 — 단일 owner = sunity_shared.gemini.config (quick-260818-lik).
 JUDGE_MODEL = DEFAULT_C_MODEL
 

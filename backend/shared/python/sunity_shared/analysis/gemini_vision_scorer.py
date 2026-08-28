@@ -64,6 +64,7 @@ from concurrent.futures import ThreadPoolExecutor  # Phase 27 Task 3 — fan-out
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, replace as dc_replace
 
+from ..gemini import config as _cfg  # 모델 문자열 owner = config 한 곳
 from .vision_veto import FAULT_CATEGORIES  # 고정 결함 분류 enum 단일 owner (25-05)
 
 log = logging.getLogger(__name__)
@@ -101,7 +102,11 @@ AGGREGATION_VERSION = "agg4"
 VISION_VETO_SAMPLES = max(1, int(os.environ.get("GEMINI_VISION_VETO_SAMPLES", "3")))
 
 # Gemini 모델 — [[gemini-latest-model-versions]] suffix(-preview) 필수.
-DEFAULT_VISION_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
+# Vision veto = 영역 C-override(Pro) 승계 — raw string 을 박으면 모델 갱신에서
+# 누락된다 (2026-08-28: 같은 이유로 moment extractor 가 금지 모델에 굳어 있었다).
+DEFAULT_VISION_MODEL = (
+    os.environ.get("GEMINI_MODEL") or _cfg.DEFAULT_C_MODEL_OVERRIDE
+)
 
 # 입력 단위 마커 — 현재 항상 'whole'(whole-video 업로드, spike 패턴 = 안전 default).
 # 미래 frame-input 최적화 시 'frame' 등으로 분기 → 캐시 키 충돌 방지(iter2 non-blocking).

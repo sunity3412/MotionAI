@@ -93,7 +93,7 @@ def _resolve_view_reasoner_model() -> str:
     env 우선순위:
       1. GEMINI_C_MODEL_OVERRIDE (emergency manual override)
       2. GEMINI_C_MODEL (alias)
-      3. config.py DEFAULT_C_MODEL = 'gemini-3.7-flash'
+      3. config.py DEFAULT_C_MODEL (값은 config 가 owner — 여기 적지 않는다)
     """
     env_override = (
         os.environ.get("GEMINI_C_MODEL_OVERRIDE")

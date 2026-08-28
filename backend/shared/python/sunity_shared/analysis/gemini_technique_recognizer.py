@@ -7,7 +7,7 @@ Plan 5-01 (2026-06-04). Plan 01-13 spike `GeminiMomentExtractor` 를 wrap.
   · D-05: v1 채점 = hold moment 라벨만 활성. setup/peak/release = Firestore 박제만.
   · D-08: Gemini = 라벨러만, yaml 수치 (정은지 reference 측정값) source 박제 보호.
   · D-09: 3-case fallback (API 실패 / Low conf / 미등록).
-  · D-13: model = gemini-3.1-pro 단일.
+  · D-13: model 단일 — 문자열은 gemini/config.py 가 owner (여기 박지 않는다).
   · D-16: lazy import (google.genai / boto3 / firebase_admin / technique_cache).
   · [[analysis-objectivity-no-human-scores]] reject patterns 2차 가드 박제.
 
@@ -36,6 +36,7 @@ from typing import Any, Callable
 
 from .gemini_motion_classifier import REGISTERED_MOTIONS, classify_motion_name
 from .skeleton import JOINT_KEYS
+from .technique_cache import _active_model_name  # 모델명 단일 출처 (raw string 금지)
 from .technique import (
     JOINT_BENT_OK,
     JOINT_CONTACT,
@@ -272,7 +273,13 @@ class GeminiTechniqueRecognizer:
                         "motion": canonical,
                         "moments": [_serialize_moment(m) for m in moments],
                         "joint_expectations": profile.joint_expectations,
-                        "model": "gemini-3.1-pro",
+                        # 실제로 이 산출을 만든 모델을 기록한다. 2026-08-28 까지
+                        # "gemini-3.1-pro"(suffix 누락 = config 금지형) 로 박혀 있어
+                        # 캐시 라벨이 실호출 모델과 달랐다 — 어떤 모델이 만든
+                        # 판정인지 추적 불가.
+                        "model": getattr(
+                            self.extractor, "model_name", _active_model_name()
+                        ),
                     },
                 )
             except Exception as exc:  # noqa: BLE001 - cache 실패는 분석 흐름 차단 X

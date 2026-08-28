@@ -381,7 +381,7 @@ def _resolve_b_model() -> str:
     우선순위:
       1. GEMINI_B_MODEL_OVERRIDE (emergency manual override)
       2. GEMINI_B_MODEL (alias)
-      3. DEFAULT_B_MODEL ('gemini-3.1-pro-preview')
+      3. DEFAULT_B_MODEL (값은 config 가 owner)
     """
     env_override = (
         os.environ.get("GEMINI_B_MODEL_OVERRIDE")

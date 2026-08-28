@@ -581,8 +581,14 @@ def _unlink_quiet(path: str) -> None:
 
 # ── before/after 보존 judge (H-03 + H3-02/H3-03 + M4-02) ──────────────────
 
+# 모델 문자열의 owner 는 gemini/config.py 한 곳 — URL 에 박으면 갱신에서 누락된다
+# (2026-08-28: 같은 이유로 moment extractor 가 금지 모델 2.5-pro 에, calibration meta 가
+# 3.5-flash 에 굳어 있었다). judge = 영역 C(finding) → DEFAULT_C_MODEL 승계.
+from ..gemini.config import DEFAULT_C_MODEL as JUDGE_MODEL  # noqa: E402
+
 GEMINI_ENDPOINT = (
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    f"{JUDGE_MODEL}:generateContent"
 )
 
 # 31-13 calibration meta 재현성 — 프롬프트가 바뀌면 여기도 올려야 임계값이

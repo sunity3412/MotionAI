@@ -707,7 +707,11 @@ def main() -> int:
         if p["pose"]["status"] == POSE_STATUS_MEASURED
     }
     meta = {
-        "judge_model": "gemini-3.5-flash",
+        # 실제 judge 모델을 기록한다 — 2026-08-28 까지 "gemini-3.5-flash" 로 박혀
+        # 있었는데 08-18 갱신으로 3.5 는 ALLOWED_MODELS 에서 빠졌고 visual_gen 은
+        # 이미 다른 모델을 쓰고 있었다. 임계값이 어느 모델의 판정으로 뽑혔는지가
+        # 캘리브레이션 산출물의 핵심 메타라 틀린 값이 남으면 추적이 깨진다.
+        "judge_model": visual_gen.JUDGE_MODEL,
         "prompt_version": visual_gen.PROMPT_VERSION,
         "judge_axes": list(visual_gen.JUDGE_AXES),
         "pose_model_versions": pose_versions,

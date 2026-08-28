@@ -326,7 +326,7 @@ export interface AiSynthesisMeta {
   // 04-02 HIGH-5 (4차 게이트 리뷰): backend payload 보다 좁지 않게 optional 로
   // 선언. normalize() 가 타입 검증 실패 시 undefined 로 두고, 합성 자체가
   // 발생하지 않은 분석 (path='none') 의 누락도 허용한다.
-  modelId?: string; // 예: 'gemini-3.5-flash' / 'gemini-3.1-pro-preview'
+  modelId?: string; // 분석을 만든 Gemini 모델 식별자 (값의 owner = backend gemini/config.py)
   modelVersion?: string; // 예: 'v1' (Phase 4 박제 시점 버전 tag)
   promptHash?: string; // OCCLUDED_JOINT_REASONING_PROMPT sha256 앞 16자
   // Cost 카운터 6 (R5 fix). belle pricing visibility 박제 — 04-02 HIGH-5 optional.

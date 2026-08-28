@@ -116,7 +116,7 @@ def _resolve_d_model() -> str:
 
     우선순위:
       1. GEMINI_D_MODEL (운영 override — emergency)
-      2. DEFAULT_D_MODEL ('gemini-3.1-pro-preview')
+      2. DEFAULT_D_MODEL (값은 config 가 owner)
 
     Raises:
       ValueError: override 가 ALLOWED_MODELS 박제 외 (2.5 호출 / plain Pro 차단).

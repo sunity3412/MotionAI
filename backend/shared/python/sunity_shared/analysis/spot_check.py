@@ -16,7 +16,8 @@
   · gemini-3.1-pro-preview (채택 — 플랜 지정 폴백, 검증된 vision 경로):
     strict JSON 준수, 판별력 실증 — 실결함 문장 2건 match / 조작 거짓 문장(그립
     이탈) mismatch / praise 부재 not_given. 11.9~14.6s, 토큰 in ~4.9K / out ~240.
-  · gemini-3.5-flash (참고 — 비용 레버): 동일 verdict·동일 형식 준수, 5.6~6.6s.
+  · Flash(비용 레버, 당시 3.5 로 계측): 동일 verdict·동일 형식 준수, 5.6~6.6s.
+    ※2026-08-18 갱신으로 3.5 는 ALLOWED_MODELS 에서 빠졌다 — 현행 Flash 는 config 참조.
     env GEMINI_SPOTCHECK_MODEL 로 재배포 없이 스왑 가능.
 
 보수 판정 원칙 (T-32-30 — 과숨김 방지):
@@ -67,8 +68,11 @@ SPOTCHECK_SCHEMA_VERSION = "v1.0"
 
 # 판정 모델 — env GEMINI_SPOTCHECK_MODEL 주입(재배포 없이 스왑), 기본값 = 스모크
 # 확정값(헤더 기록). [[gemini-latest-model-versions]] suffix(-preview) 필수.
+# 폴백은 config 영역 C-override(어려운 케이스용 Pro) 승계 — raw string 박제 금지.
+from ..gemini.config import DEFAULT_C_MODEL_OVERRIDE  # noqa: E402
+
 DEFAULT_SPOTCHECK_MODEL = (
-    os.environ.get("GEMINI_SPOTCHECK_MODEL", "").strip() or "gemini-3.1-pro-preview"
+    os.environ.get("GEMINI_SPOTCHECK_MODEL", "").strip() or DEFAULT_C_MODEL_OVERRIDE
 )
 
 # 분석당 판정 record 상한 (감점 큰 순 — 초과분 미판정 통과).

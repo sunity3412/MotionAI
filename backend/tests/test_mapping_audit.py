@@ -548,7 +548,13 @@ class TestStaticMappingAbortGate:
 class TestAuditReportArtifacts:
     """audit 보고서 mapping_audit_01-17.md 의 핵심 섹션 + verdict 존재."""
 
-    REPORT_PATH = Path("backend/research/spikes/reports/mapping_audit_01-17.md")
+    # 파일 기준 절대 경로 — 2026-08-28 수리. 상대 경로("backend/research/...")는
+    # pytest 를 리포 루트에서 돌릴 때만 맞고 backend/ 에서 돌리면 못 찾는다
+    # (실행 위치가 판정을 바꾸면 그건 테스트가 아니다). __file__ = backend/tests/*.py.
+    REPORT_PATH = (
+        Path(__file__).resolve().parents[1]
+        / "research" / "spikes" / "reports" / "mapping_audit_01-17.md"
+    )
 
     def test_audit_report_exists(self) -> None:
         assert self.REPORT_PATH.exists(), (

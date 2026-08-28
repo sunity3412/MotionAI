@@ -52,14 +52,15 @@ def _make_pose_frames(n: int = 60) -> list:
 
     phase08 fixture factory 박제 (Plan 08-00 _factory.py) 박제 reuse.
     """
-    # phase08 fixture factory 박제 reuse (Plan 08-00 박제 정합).
-    import sys
-    from pathlib import Path
-
-    phase08_tests = Path(__file__).resolve().parents[1] / "phase08"
-    if str(phase08_tests) not in sys.path:
-        sys.path.insert(0, str(phase08_tests))
-    from fixtures._factory import make_keypoint2d, make_pose_frame  # noqa: WPS433
+    # 절대 import — sys.path 조작 금지. `fixtures` 라는 같은 이름의 패키지가
+    # tests/fixtures 와 tests/phase08/fixtures 두 곳에 있어, sys.path 순서와
+    # 로드 순서에 따라 어느 쪽이 잡힐지 갈렸다 (2026-08-28 실측: 전체 스위트에서
+    # 16건이 ModuleNotFoundError 'fixtures._factory'). 패키지 경로를 명시하면
+    # 실행 방식과 무관하게 같은 것이 잡힌다.
+    from tests.phase08.fixtures._factory import (  # noqa: WPS433
+        make_keypoint2d,
+        make_pose_frame,
+    )
 
     frames = []
     for i in range(n):

@@ -181,7 +181,7 @@ class TestCallWave2HelperGates:
             call_count["n"] += 1
             return {}
 
-        monkeypatch.setattr(pipeline_app, "augment_low_confidence", _tracker)
+        monkeypatch.setattr("sunity_shared.gemini.keypoint_augmenter.augment_low_confidence", _tracker)
         monkeypatch.setenv("GEMINI_D_ENABLED", "1")
 
         result = pipeline_app._call_wave2_keypoint_augmenter(
@@ -202,7 +202,7 @@ class TestCallWave2HelperGates:
             call_count["n"] += 1
             return {}
 
-        monkeypatch.setattr(pipeline_app, "augment_low_confidence", _tracker)
+        monkeypatch.setattr("sunity_shared.gemini.keypoint_augmenter.augment_low_confidence", _tracker)
         monkeypatch.setenv("GEMINI_D_ENABLED", "0")
 
         result = pipeline_app._call_wave2_keypoint_augmenter(
@@ -223,7 +223,7 @@ class TestCallWave2HelperGates:
             call_count["n"] += 1
             return {}
 
-        monkeypatch.setattr(pipeline_app, "augment_low_confidence", _tracker)
+        monkeypatch.setattr("sunity_shared.gemini.keypoint_augmenter.augment_low_confidence", _tracker)
         monkeypatch.setenv("GEMINI_D_ENABLED", "1")
 
         result = pipeline_app._call_wave2_keypoint_augmenter(
@@ -244,7 +244,7 @@ class TestCallWave2HelperGates:
             captured.update(kwargs)
             return {"refined": [], "model": "gemini-3.1-pro-preview"}
 
-        monkeypatch.setattr(pipeline_app, "augment_low_confidence", _tracker)
+        monkeypatch.setattr("sunity_shared.gemini.keypoint_augmenter.augment_low_confidence", _tracker)
         monkeypatch.setenv("GEMINI_D_ENABLED", "1")
         report = _make_report()
 
@@ -265,7 +265,7 @@ class TestCallWave2HelperGates:
         def _raiser(**kwargs: Any) -> Any:
             raise ValueError("객관성 가드 시뮬")
 
-        monkeypatch.setattr(pipeline_app, "augment_low_confidence", _raiser)
+        monkeypatch.setattr("sunity_shared.gemini.keypoint_augmenter.augment_low_confidence", _raiser)
         monkeypatch.setenv("GEMINI_D_ENABLED", "1")
 
         result = pipeline_app._call_wave2_keypoint_augmenter(
@@ -354,7 +354,11 @@ class TestB2HardGate3DCocoArrayInvariant:
 
     def test_augment_low_confidence_signature_no_coco_array(self) -> None:
         """augment_low_confidence 시그너처에 coco_array / rtmw_array 박제 0건 (B2 회귀)."""
-        params = inspect.signature(pipeline_app.augment_low_confidence).parameters
+        # 원본 함수를 본다 — app.py 는 D-16 지연 import 라 최상위 속성이 아니다
+        # (2026-08-28: pipeline_app 겨냥이 AttributeError 였다. 불변식 자체는 유효).
+        from sunity_shared.gemini.keypoint_augmenter import augment_low_confidence
+
+        params = inspect.signature(augment_low_confidence).parameters
         assert "coco_array" not in params
         assert "rtmw_array" not in params
 
@@ -393,7 +397,7 @@ class TestB2HardGate3DCocoArrayInvariant:
                 "model": "gemini-3.1-pro-preview",
             }
 
-        monkeypatch.setattr(pipeline_app, "augment_low_confidence", _tracker)
+        monkeypatch.setattr("sunity_shared.gemini.keypoint_augmenter.augment_low_confidence", _tracker)
         monkeypatch.setenv("GEMINI_D_ENABLED", "1")
 
         # wave 2 helper 호출 — coco_array 인자 박제 0건. KeypointReport 만 박제.
@@ -532,4 +536,11 @@ class TestImportSymbol:
     """augment_low_confidence import 박제 — pipeline app.py 가 정상 import 가능."""
 
     def test_augment_low_confidence_imported(self) -> None:
-        assert hasattr(pipeline_app, "augment_low_confidence")
+        """지연 import 대상이 실재하고 호출 가능한지 (D-16 정합).
+
+        ~~`hasattr(pipeline_app, ...)`~~ 는 2026-08-28 제거 — app.py 가 Lambda
+        250MB 때문에 함수 안에서 import 하므로 최상위 속성일 수 없다.
+        """
+        from sunity_shared.gemini.keypoint_augmenter import augment_low_confidence
+
+        assert callable(augment_low_confidence)

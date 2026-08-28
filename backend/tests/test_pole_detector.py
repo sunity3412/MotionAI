@@ -18,7 +18,9 @@ import sys
 import numpy as np
 import pytest
 
-from fixtures.synthetic_frames import (
+# 절대 import — `fixtures` 이름이 tests/fixtures 와 tests/phase*/fixtures 로 겹쳐
+# 실행 방식(PYTHONPATH)에 따라 해석이 갈렸다 (2026-08-28).
+from tests.fixtures.synthetic_frames import (
     synthetic_no_pole_frames,
     synthetic_tilted_pole_frames,
     synthetic_vertical_pole_frames,

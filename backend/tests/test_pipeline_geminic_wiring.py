@@ -89,7 +89,11 @@ class _CallTracker:
         self.return_value = return_value
         self.calls: list[tuple[str, bool]] = []
 
-    def __call__(self, video_path: str, is_reference: bool = False) -> Any:
+    # **kwargs 는 신규 인자 흡수용 — 2026-08-28 실측: 27-04 prefetch 가 더한
+    # `preuploaded_handle` 을 이 더블이 못 받아 TypeError → app.py 의 graceful
+    # except 가 삼켜 결과가 None 이 됐다. 더블이 프로덕션 시그너처를 못 따라가면
+    # 테스트는 "실패"가 아니라 **조용한 폴백**을 검증하게 된다.
+    def __call__(self, video_path: str, is_reference: bool = False, **kwargs: Any) -> Any:
         self.calls.append((video_path, is_reference))
         return self.return_value
 
@@ -210,7 +214,7 @@ class TestWave1Helper:
         """local_video_path=None → wave 1 skip + return None (B4 정합)."""
         # find_scene_flags 호출 0 검증.
         tracker = _CallTracker(return_value={"unused": True})
-        monkeypatch.setattr(pipeline_app, "find_scene_flags", tracker)
+        monkeypatch.setattr("sunity_shared.gemini.scene_finder.find_scene_flags", tracker)
 
         result = pipeline_app._call_wave1_scene_finder(
             local_video_path=None, is_reference=False
@@ -223,7 +227,7 @@ class TestWave1Helper:
     ) -> None:
         """GEMINI_FINDING_ENABLED=0 → wave 1 skip + return None."""
         tracker = _CallTracker(return_value={"unused": True})
-        monkeypatch.setattr(pipeline_app, "find_scene_flags", tracker)
+        monkeypatch.setattr("sunity_shared.gemini.scene_finder.find_scene_flags", tracker)
         monkeypatch.setenv("GEMINI_FINDING_ENABLED", "0")
 
         video_path = str(tmp_path / "x.mp4")
@@ -250,7 +254,7 @@ class TestWave1Helper:
             "error": None,
         }
         tracker = _CallTracker(return_value=flag_dict)
-        monkeypatch.setattr(pipeline_app, "find_scene_flags", tracker)
+        monkeypatch.setattr("sunity_shared.gemini.scene_finder.find_scene_flags", tracker)
         monkeypatch.setenv("GEMINI_FINDING_ENABLED", "1")
 
         video_path = str(tmp_path / "ref.mp4")
@@ -272,7 +276,7 @@ class TestWave1Helper:
         def _raises(*a, **k):
             raise ValueError("객관성 가드 매치 시뮬")
 
-        monkeypatch.setattr(pipeline_app, "find_scene_flags", _raises)
+        monkeypatch.setattr("sunity_shared.gemini.scene_finder.find_scene_flags", _raises)
         monkeypatch.setenv("GEMINI_FINDING_ENABLED", "1")
 
         video_path = str(tmp_path / "x.mp4")
@@ -322,7 +326,7 @@ class TestWave1Helper:
             "error": None,
         }
         tracker = _CallTracker(return_value=flag_dict)
-        monkeypatch.setattr(pipeline_app, "find_scene_flags", tracker)
+        monkeypatch.setattr("sunity_shared.gemini.scene_finder.find_scene_flags", tracker)
         monkeypatch.setenv("GEMINI_FINDING_ENABLED", "1")
 
         video_path = str(tmp_path / "x.mp4")
@@ -389,10 +393,18 @@ class TestProcessImportsFindSceneFlags:
     """pipeline app.py 가 find_scene_flags 박제 import 했는지 grep 정합."""
 
     def test_pipeline_module_exposes_find_scene_flags(self) -> None:
-        # plan verification 박제 — `grep find_scene_flags app.py | grep -c .` ≥ 2.
-        assert hasattr(pipeline_app, "find_scene_flags")
-        # callable — sunity_shared.gemini.scene_finder.find_scene_flags 박제 mirror.
-        assert callable(pipeline_app.find_scene_flags)
+        """파이프라인이 find_scene_flags 를 **해결할 수 있는지** 검사한다.
+
+        ~~`hasattr(pipeline_app, "find_scene_flags")`~~ 는 2026-08-28 제거했다.
+        app.py 는 D-16(Lambda 250MB — top-level 에 google-genai 를 박지 않는다)
+        규율대로 **함수 안에서 지연 import** 한다. 즉 모듈 최상위 속성으로는 영원히
+        존재하지 않는다 — 이 단언은 설계와 정면으로 모순돼 있었다.
+        검사할 것은 "최상위에 있냐"가 아니라 "지연 import 대상이 실재하고
+        호출 가능하냐" + "app.py 에 호출부가 있냐"(아래 테스트) 이다.
+        """
+        from sunity_shared.gemini import scene_finder
+
+        assert callable(scene_finder.find_scene_flags)
 
     def test_pipeline_source_has_find_scene_flags_call_site(self) -> None:
         """app.py source 안에 find_scene_flags 박제 호출 라인 존재."""

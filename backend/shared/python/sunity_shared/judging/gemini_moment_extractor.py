@@ -32,6 +32,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+from ..gemini import config as _config  # 모델 문자열 단일 owner (라이브러리 의존 0)
 from .geometric_criterion import VALID_MOMENT_KEYS
 
 log = logging.getLogger(__name__)
@@ -50,17 +51,25 @@ GEMINI_API_KEY_PARAM_NAME = "/sunity/motion/gemini-api-key"
 # 본 파일이 실 DEFAULT 박제 위치 (Cycle 1 plan 이 recognizer.py 만 박제하여 path
 # 누락 → Cycle 2 carryover 차단). belle 가 env GEMINI_MODEL 박제만으로 모델 박제
 # 변경 박제 (코드 변경 0).
-# vision-only 2.5 예외 (memory: gemini-latest-model-versions, 2026-06-15):
-#   Google 이 video multimodal 을 완전 지원하는 3.x 모델을 아직 미출시.
-#   따라서 이 경로에 한해 2.5-pro (stable, suffix 없음) 가 올바른 중간 모델.
-#   ListModels 2026-06-15 박제: gemini-2.5-pro = generateContent + multimodal 지원.
-#   3.x video-capable 모델 출시 시 env GEMINI_MODEL=gemini-3.x-pro 로 즉시 전환 가능.
+# ~~vision-only 2.5 예외 (2026-06-15)~~ — **2026-08-28 폐기.** 당시 근거는 "Google 이
+#   video multimodal 을 지원하는 3.x 를 아직 미출시" 였는데, 08-18 갱신으로 config 의
+#   ALLOWED_MODELS 가 {gemini-3.1-pro-preview, gemini-3.7-flash} 로 좁혀지며 2.5 는
+#   **영구 금지**가 됐다(resolve_model 가 ValueError). 08-28 서빙 Pod 실측에서
+#   gemini-3.7-flash 가 영상 moment 추출을 정상 처리 — 예외의 전제 자체가 사라졌다.
+#   이 줄만 갱신에서 누락돼 있었다. config.py 08-18 주석이 경고한 바로 그 모양이다:
+#   "남겨두면 어딘가 놓친 하드코딩이 가드를 통과해 조용히 옛 모델로 돈다".
+#   프로덕션은 start_server.sh 가 GEMINI_MOMENT_MODEL 을 항상 넣어 안 밟고 있었을 뿐
+#   (= 안전망이 썩어 있었다).
 # Phase 27-09 (27-FLASH-DECISION §반영 제약) — 전용 키 GEMINI_MOMENT_MODEL 우선.
 #   GEMINI_MODEL 은 veto scorer(gemini_vision_scorer.py DEFAULT_VISION_MODEL)와 공유라
 #   전역 export 시 veto 까지 flip 된다(D-05 veto 기본 보류 위반). moment extractor 만
 #   Flash 로 스코핑하려면 GEMINI_MOMENT_MODEL 을 쓴다 — 미설정 시 기존 체인 fallback.
-DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MOMENT_MODEL") or os.environ.get(
-    "GEMINI_MODEL", "gemini-2.5-pro"
+# ★모델 문자열의 owner 는 gemini/config.py 한 곳이다 — 여기에 raw string 을 박지 말 것.
+#   moment extractor = 영역 C(finding) 이므로 폴백도 C 의 기본값을 그대로 승계한다.
+DEFAULT_GEMINI_MODEL = (
+    os.environ.get("GEMINI_MOMENT_MODEL")
+    or os.environ.get("GEMINI_MODEL")
+    or _config.DEFAULT_C_MODEL
 )
 
 # Gemini 응답이 좌표·점수·판단을 출력하지 못하도록 거부할 패턴.

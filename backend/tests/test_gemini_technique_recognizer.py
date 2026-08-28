@@ -311,10 +311,26 @@ class TestLazyImport:
 
 
 class TestDefaultModel:
-    def test_default_model_is_gemini_3_1_pro(self) -> None:
-        # D-13 belle 2026-06-04 확정 (Gemini 3.1 Pro 단일).
-        # fix v2 2026-06-05: gemini-3.1-pro-preview (gemini-3-pro-preview deprecated).
-        assert DEFAULT_GEMINI_MODEL == "gemini-3.1-pro-preview"
+    def test_default_model_comes_from_config_region_c(self) -> None:
+        """moment extractor 기본 모델 = config 영역 C — raw string 박제 금지.
+
+        ~~D-13(2026-06-04) 'gemini-3.1-pro-preview 고정'~~ 은 이후 27-09/D-05 가
+        moment extractor 만 Flash 로 스코핑하면서 이 모듈에 한해 대체됐다. 그런데
+        폴백은 그 뒤로도 갱신에서 누락돼 **2026-08-28 까지 `gemini-2.5-pro`**(08-18
+        이후 ALLOWED_MODELS 밖 = 영구 금지 모델)로 남아 있었다.
+
+        그래서 문자열을 다시 박지 않는다 — 박으면 같은 방식으로 또 낡는다.
+        불변식만 검사한다: (1) config 영역 C 기본값과 일치, (2) 화이트리스트 통과.
+        모델을 올릴 때 손대야 하는 곳은 gemini/config.py 한 곳이면 된다.
+        """
+        from sunity_shared.gemini.config import ALLOWED_MODELS, DEFAULT_C_MODEL
+
+        assert DEFAULT_GEMINI_MODEL == DEFAULT_C_MODEL, (
+            "moment extractor 기본값이 config 영역 C 와 어긋났다 — raw string 박제 의심"
+        )
+        assert DEFAULT_GEMINI_MODEL in ALLOWED_MODELS, (
+            f"{DEFAULT_GEMINI_MODEL} 은 ALLOWED_MODELS 밖 — resolve_model 가 거부하는 모델"
+        )
 
 
 # ─────────────────── Test 8: ref-invert joint_expectations ───────────────────

@@ -404,10 +404,18 @@ class TestExtractor:
         assert ext.call_count == 2
 
     def test_default_model_constant(self) -> None:
-        # Phase 5 D-13 (belle 2026-06-04 확정) — Gemini 3.1 Pro 단일.
-        # fix v2 2026-06-05: gemini-3.1-pro-preview (gemini-3-pro-preview deprecated).
+        """추출기 인스턴스가 모듈 기본 모델을 그대로 승계하는지 (모델명 자체는 config 소관).
+
+        ~~D-13 'gemini-3.1-pro-preview' 문자열 박제~~ 는 2026-08-28 제거했다. 27-09/D-05
+        가 이 모듈을 Flash 로 스코핑한 뒤에도 문자열이 남아 낡았고, 정작 폴백은
+        `gemini-2.5-pro`(ALLOWED_MODELS 밖)로 방치돼 있었다. 문자열을 테스트에 박으면
+        같은 방식으로 또 낡으므로 **승계 관계와 화이트리스트만** 검사한다.
+        """
+        from sunity_shared.gemini.config import ALLOWED_MODELS
+
         ext = _StubExtractor(_VALID_GEMINI_RESPONSE)
-        assert ext.model_name == DEFAULT_GEMINI_MODEL == "gemini-3.1-pro-preview"
+        assert ext.model_name == DEFAULT_GEMINI_MODEL
+        assert DEFAULT_GEMINI_MODEL in ALLOWED_MODELS
 
 
 # ─────────────────── assign_frame_indices ───────────────────

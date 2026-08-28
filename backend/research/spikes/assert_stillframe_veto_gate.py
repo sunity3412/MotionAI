@@ -61,7 +61,14 @@ _FAULT_KEYPOINT_SETS = (
 )
 _FAULT_KINDS = ("pole_gap_or_bent", "extension_or_alignment")
 
-_STATUS_BLOCKLIST = ("skipped_error", "missing_local_video", "missing_current_video")
+# unknown_mode 추가 (2026-08-28) — skipped_error 에서 갈라져 나온 사유다. 블록리스트에
+# 안 넣으면 "mode 를 못 읽어 veto 가 안 돈 판"이 게이트를 조용히 통과한다.
+_STATUS_BLOCKLIST = (
+    "skipped_error",
+    "unknown_mode",
+    "missing_local_video",
+    "missing_current_video",
+)
 
 
 class GateFail(Exception):

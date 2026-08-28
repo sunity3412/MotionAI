@@ -2035,6 +2035,18 @@ def _collect_vision_fault_context(
             return _ctx("disabled")
         if mode == models.MODE_SELF:
             return _ctx("mode3_held")
+        # ★알 수 없는 mode 는 여기서 끊는다 (2026-08-28). 종전에는 mode 가 비어 있으면
+        #   아래 가드를 전부 비껴가 실제 수집으로 떨어지고, reference 부재로 실패해
+        #   `skipped_error` 가 됐다 — "어댑터가 죽었다"와 구분이 안 돼 원인 추적이
+        #   불가능했다(08-28 에 이 증상 하나로 하루를 씀. 진짜 원인은 분석 doc 의 mode 부재).
+        #   프로덕션에서는 앱이 항상 mode 를 쓰므로 정상 흐름은 불변이다.
+        if mode not in models.MODES:
+            log.warning(
+                "vision veto — 알 수 없는 mode=%r (분석 doc 의 mode 부재/오타 의심). "
+                "skipped_error 로 뭉치지 않고 unknown_mode 로 명시한다.",
+                mode,
+            )
+            return _ctx("unknown_mode")
         if local_video_path is None:
             return _ctx("missing_current_video")
         if mode == models.MODE_EXPERT and reference_video_path is None:

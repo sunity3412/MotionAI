@@ -281,8 +281,14 @@ VISION_FAULT_COLLECTION_STATUSES = (
     "mode3_held",                 # Mode3 보류
     "missing_reference",          # Mode1 기준 영상 부재
     "missing_current_video",      # 학생 local 영상 부재
+    "unknown_mode",               # mode 가 MODES 밖(부재/오타) — 아래 2026-08-28 참조
     "skipped_error",              # adapter None/예외 graceful
 )
+# ★unknown_mode 신설 (2026-08-28). 종전에는 mode 가 비어 있으면 mode3_held /
+#   missing_current_video / missing_reference 세 가드를 **전부 비껴가** 실제 수집으로
+#   떨어지고, 거기서 실패해 `skipped_error` 로 뭉쳐졌다. 그러면 "어댑터가 죽었다"와
+#   "mode 를 못 읽었다"가 같은 문자열이 되어 원인 추적이 불가능하다 — 실제로 08-28 에
+#   이 증상 하나로 하루를 썼다(원인은 분석 doc 에 mode 가 없던 것). 두 사유를 가른다.
 # final-audit status (collection_status 와 vocabulary 겹침 금지) — to_audit_dict 만 방출.
 _FINAL_AUDIT_STATUSES = ("applied", "not_applicable")
 

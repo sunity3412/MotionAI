@@ -56,6 +56,20 @@
       "gates": {},
       "promoted": false,
       "ts": "2026-08-26T08:22:18Z"
+    },
+    {
+      "batch_ids": [],
+      "ckpt": "/workspace/phase22_sft_out/v38-20260828-024523/checkpoint-76-merged",
+      "data": {
+        "distill": 210,
+        "perturb": 0,
+        "text": 34,
+        "train_rows": null,
+        "val_rows": null
+      },
+      "gates": {},
+      "promoted": false,
+      "ts": "2026-08-28T09:13:21Z"
     }
   ],
   "schema": "promotion-ledger-v1"

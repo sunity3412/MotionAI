@@ -1,0 +1,13 @@
+{
+  "accepted": 302,
+  "est_gemini_calls": 10,
+  "gates": {
+    "overall": "FAIL"
+  },
+  "new_labeled": 5,
+  "promoted": false,
+  "rejected_contract": 6,
+  "rejected_judge": 35,
+  "rejected_parse": 24,
+  "sft_wall_seconds": 10147.0
+}

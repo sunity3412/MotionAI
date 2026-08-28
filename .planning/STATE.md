@@ -5,7 +5,7 @@ milestone_name: milestone
 status: executing
 stopped_at: Phase 33 §9 수리 사이클 컨텍스트 기록 완료(D-39~D-45) — 다음 = 수리 plan
 last_updated: "2026-07-30T05:47:37.686Z"
-last_activity: 2026-07-29
+last_activity: 2026-08-28
 progress:
   total_phases: 16
   completed_phases: 8
@@ -222,6 +222,7 @@ Last activity: 2026-08-24 - Quick task 260824-pqc: **일러스트 기능 전면 
 | 260824-pqc | **일러스트 기능 전면 제거 (belle 08-24 최종: "아예 빼고 확대비교·모션분석 집중")** — DefectIllustration(621줄)·lib 4종·테스트 4종·에셋 21장, 배선 3면(시트 슬롯·재생 큐 float·발전 캡션+doneAnalyses 구독) 총 **−2,892줄**. goalLine 항상-텍스트 경로 성립, VideoCompare·deductionSheet 무접촉(주석만). 게이트: typecheck + 테스트 **208/208 실패 0** (기지 실패도 파일 삭제로 소멸), 잔존 참조 grep 0, 시뮬 회귀 확인(시트 정상·크래시 0 — sim_removed_regression.png). **제거 OTA 준비 완료, 발행 = belle 대기** (오전 97088038 에 캡션이 실려 나가 있음) | 2026-08-24 | fb2eef19 | [260824-pqc-belle-08-24-0](./quick/260824-pqc-belle-08-24-0/) |
 | 260824-q6p | **확대비교 신뢰 수리 — 장면 사진 presigned 7일 만료 결함** (belle 08-24 직접 겪음, "확대비교 집중" 1호) — 신규 엔드포인트 없이 기존 playback-url 에 asset 'faultZoom' 추가(재서명 3선례 패턴·H-05 서버 canonical 재구성), 앱 useFreshFaultZoomUrls 훅(freshMyUrl 미러, 6일 마진+onError single-flight+fail-closed). **배포 = 외과 갱신**: sam deploy 는 라이브 스택이 git 대비 수개월 낙후(117줄/2함수 vs 777줄/8함수)라 중단 — 함수 zip(app.py만)+레이어 v18→v19(s3keys+models만, 나머지 byte-동일) 직접 갱신(belle 실행, 분류기 차단 2회는 규율대로 역할 분담). v18 에서 models.py 누락 → 서버 로그로 잡아 v19 보강. **소급 실증 = 7-30 doc 회색 패널 부활 실렌더**(sim_retro_revived.png). 게이트: pytest 60 + 앱 214 전부 통과. ★별건 부채 등재: 라이브 스택-템플릿 괴리 정리 필요 | 2026-08-24 | 1bd26224 | [260824-q6p-7](./quick/260824-q6p-7/) |
 | 260824-gt1 | 파워스핀 다리 ghost-noarrow 잔상 후보 4장 (belle 판정 전) — 실사용 감점 doc 미커버 1위(leg_extension 10 + split_angle 9). measure-first: Firestore 읽기 전용 실측(leg_extension 10건 전건 부족·|delta| median 39.03°·이봉 4건 ~100° / split_angle 9건 전건 baseline 0·measured 30.00 동일 양자화, 오케스트레이터 관측과 건수 정확 일치) → 예측 박제 커밋 33cf94f2(생성 전, git 증명) → 승인 레시피 importlib 재사용 + 잔상 GUIDE 치환 → gemini-3-pro-image 4호출 4장 → 전 장 Read 실물 게이트. **D-03 표기 0 = 4/4** · 두 번째 사람 오독 0. **split_angle 2/2 방향 역전 탈락**(잔상이 실선보다 목표에 가까움 — exq stage40-1 동일 실패 모드. 관측: 형상 범주 오류(굽음↔곧음)는 2/2 성립, 각도 크기 차만 있는 오류(좁음)에서만 역전). 추천 = ghost-leg_extension-1(1순위)·-2(2순위). 예측 대조: 쓸 만한 장 총수 2/4 적중, 분포·실패 모드 빗나감(장부 7전째). app/ 무접촉, Firestore/S3 쓰기 0, 배선 없음 | 2026-08-24 | e916acd5 | [260824-gt1-ghost-noarrow-gemini-belle](./quick/260824-gt1-ghost-noarrow-gemini-belle/) |
+| 260828-rtm | 폴 검출기 OpenCV 5.0 호환 수리 — cv2.HoughLinesP 반환 형태가 4.x (N,1,4) → 5.0 (N,4) 로 바뀌어 `x1,y1,x2,y2 = line[0]` 이 TypeError. 08-28 서빙 Pod 실분석에서 매 프레임 발생했으나 vertical_fallback 으로 **조용히 degrade** — 폴 x위치(midpoints_x_norm) 유실로 belle 지목 축("몸통-폴 거리"·"엘보 폴 근접도") 입력이 죽어 있었다. _hough_segments() 로 두 형태 수용(호출부 2곳). 기존 테스트 4 failed→11 passed, 백엔드 전체 62 failed 동일(신규 회귀 0). ★Pod 실증은 다음 가동 때 (잔액 $4.66 으로 미실시) | 2026-08-28 | 82d23333 | [260828-rtm-opencv-5-0](./quick/260828-rtm-opencv-5-0/) |
 
 ### Plan 09-01 close-out (2026-06-10)
 

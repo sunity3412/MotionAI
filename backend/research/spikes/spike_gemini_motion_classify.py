@@ -55,18 +55,52 @@ _DEFAULT_GEMINI_MODEL = "gemini-3.1-pro"
 # Gemini = 라벨러만 (D-08). 응답 = 한국어 자연어, JSON schema 강제.
 # 좌표 / 점수 / 판단 거부는 응답 처리 단계의 reject patterns 가 1차 + 2차 가드.
 # 본 prompt 자체에는 거부 카테고리만 명시 (예: '좌표' '점수' 단어 자체는 박제 X).
-_GEMINI_PROMPT_TEMPLATE = """\
+# 등재 동작 목록은 **REGISTERED_MOTIONS 에서 생성**한다 (2026-08-28 수리).
+# 하드코딩된 5개 목록이 남아 있었는데 P1 step4 가 5동작을 추가해 등재는 10개가 됐고,
+# 프롬프트만 옛 5개를 안내하고 있었다 — 분류기가 모르는 동작을 물어보는 꼴이다.
+# 목록을 코드로 만들면 등재가 바뀔 때 프롬프트가 자동으로 따라간다.
+_MOTION_LABEL_KO: dict[str, str] = {
+    "ref-climb": "베이직 클라임",
+    "ref-foxtop": "폭스탑",
+    "ref-foxtop-split": "폭스탑 스플릿",
+    "ref-invert": "인버티드 버터플라이",
+    "ref-sideway-spin": "사이드웨이 스핀",
+    "ref-kip-up": "킵업",
+    "ref-power-spin": "파워 스핀",
+    "ref-peter-pan": "피터팬",
+    "ref-elbow-twist-sister": "엘보 트위스트 시스터",
+    "ref-pdshape": "PD 쉐입",
+}
+
+
+def _registered_motion_lines() -> str:
+    """등재 ID 목록을 프롬프트 블록으로 — 한글명은 있으면 붙이고 없으면 ID 만."""
+    from sunity_shared.analysis.gemini_motion_classifier import REGISTERED_MOTIONS
+
+    width = max(len(m) for m in REGISTERED_MOTIONS)
+    out = []
+    for m in sorted(REGISTERED_MOTIONS):
+        ko = _MOTION_LABEL_KO.get(m)
+        out.append(f"  - {m.ljust(width)}  ({ko})" if ko else f"  - {m}")
+    return "\n".join(out)
+
+
+def _build_prompt_template() -> str:
+    from sunity_shared.analysis.gemini_motion_classifier import REGISTERED_MOTIONS
+
+    return _GEMINI_PROMPT_BODY.format(
+        n=len(REGISTERED_MOTIONS), motions=_registered_motion_lines()
+    )
+
+
+_GEMINI_PROMPT_BODY = """\
 당신은 폴스포츠 동작 영상의 분류 도우미입니다.
 
-영상에서 다음 5개 등재 동작 중 어느 것인지 판단하고,
+영상에서 다음 {n}개 등재 동작 중 어느 것인지 판단하고,
 4단계 (setup / hold / peak / release) 의 timestamp 와 confidence 를 추출하세요.
 
 등재 동작 목록 (정확한 ID 로 응답):
-  - ref-climb         (베이직 클라임)
-  - ref-foxtop        (폭스탑)
-  - ref-foxtop-split  (폭스탑 스플릿)
-  - ref-invert        (인버티드 버터플라이)
-  - ref-sideway-spin  (사이드웨이 스핀)
+{motions}
 
 응답 규칙:
   1. JSON 만 출력. 다른 텍스트 / 설명 금지.
@@ -91,6 +125,9 @@ _GEMINI_PROMPT_TEMPLATE = """\
   ]
 }}
 """
+
+# 하위 호환 — 기존 소비처(_GEMINI_PROMPT_TEMPLATE)는 그대로 두고 값만 생성본으로.
+_GEMINI_PROMPT_TEMPLATE = _build_prompt_template()
 
 
 # ────────────────────────────── stub fixtures ──────────────────────────────

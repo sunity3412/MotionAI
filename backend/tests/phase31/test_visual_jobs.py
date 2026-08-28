@@ -719,7 +719,9 @@ def test_finalize_orphaned_analysis_closes_job_only(fake_firestore):
 
 def test_finalize_commit_loss_then_retry_is_stale_and_documents_agree(fake_firestore):
     """commit 응답 유실 후 재호출은 no-op 이어야 하고, 두 문서는 일치해야 한다."""
-    from conftest import CommitLost
+    # 패키지 경로 명시 — bare `conftest` 는 먼저 로드된 아무 conftest 를 잡는다
+    # (2026-08-28 실측: 전체 스위트에서 tests/phase33/conftest.py 가 잡혀 ImportError).
+    from tests.phase31.conftest import CommitLost
 
     job_id = _rotation_ready()
     fake_firestore.commit_lost(True)

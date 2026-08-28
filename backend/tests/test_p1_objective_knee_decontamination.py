@@ -40,6 +40,21 @@ _RIGHT_KNEE = JOINT_KEYS.index("right_knee")
 _LEFT_HIP = JOINT_KEYS.index("left_hip")
 
 
+# ★무릎 EXTEND 를 실제로 등재한 동작 (2026-08-28 수리).
+#
+# 이 파일은 원래 "ref-kip-up" 으로 EXTEND 무릎 채점을 검증했는데, 2026-06-27 Pod
+# 진단에서 **kip-up 의 무릎각 신호가 역전**(정타 min 149° vs fault min 161° — 정타가
+# 더 굽음)이라 어떤 window 로도 변별 불가로 판명됐다. belle 원칙("굽힘 form 엔
+# 신전기준 강요 금지")에 따라 ref-kip-up.yaml 에서 knee EXTEND 가 **의도적으로
+# 제거**됐고(yaml 주석에 근거 박제), 테스트만 옛 상태를 요구한 채 남아 실패해 왔다.
+#
+# 검증 대상은 "특정 동작이 무릎 EXTEND 를 갖는다"가 아니라 **"EXTEND 로 등재된
+# 무릎이 곧음/굽음으로 객관 채점되고, reference-relative 오염이 차단된다"** 는
+# 메커니즘이다. 그래서 그 메커니즘이 실제로 걸려 있는 동작으로 옮긴다.
+# (yaml 전수 실측: EXTEND 무릎을 가진 동작은 ref-power-spin 뿐 — 나머지는 BENT_OK)
+_EXTEND_KNEE_MOTION = "ref-power-spin"
+
+
 def _profile_from_yaml(motion: str) -> TechniqueProfile:
     """recognizer._build_profile 와 동일 규칙으로 yaml → EXTEND 무릎 profile 구성.
 
@@ -72,14 +87,14 @@ def _angles(knee_deg: float, other_deg: float = 150.0, frames: int = 8) -> np.nd
 
 class TestExtendKneeProfileActivation:
     def test_yaml_marks_both_knees_extend(self) -> None:
-        profile = _profile_from_yaml("ref-kip-up")
+        profile = _profile_from_yaml(_EXTEND_KNEE_MOTION)
         assert profile.expects_extension("left_knee")
         assert profile.expects_extension("right_knee")
         # 비-무릎 사지(팔꿈치)는 EXTEND 아님 — 무릎만 객관 채점 대상.
         assert not profile.expects_extension("left_elbow")
 
     def test_bent_knee_produces_positive_deficit(self) -> None:
-        profile = _profile_from_yaml("ref-kip-up")
+        profile = _profile_from_yaml(_EXTEND_KNEE_MOTION)
         dev = dimensions.extension_deviation(_angles(knee_deg=140.0), profile)
         # 굽은 무릎 → 180-140=40° 부족분(>0). 구조적: 무릎 인덱스만 양수.
         assert dev[_LEFT_KNEE] > 0.0
@@ -89,7 +104,7 @@ class TestExtendKneeProfileActivation:
 
     def test_straight_knee_near_zero_deficit_regardless_of_reference(self) -> None:
         # 178° = 곧음. 정은지 measured 무릎(예: 137° in ref-invert)과 달라도 deficit ~0.
-        profile = _profile_from_yaml("ref-kip-up")
+        profile = _profile_from_yaml(_EXTEND_KNEE_MOTION)
         dev = dimensions.extension_deviation(_angles(knee_deg=178.0), profile)
         assert dev[_LEFT_KNEE] < 5.0
         assert dev[_RIGHT_KNEE] < 5.0
@@ -158,7 +173,7 @@ class TestBuilderSeamDecontamination:
 
         비-EXTEND 관절(hip)의 reference 편차는 유지 — 차단이 EXTEND 무릎에 한정됨을 증명.
         """
-        profile = _profile_from_yaml("ref-kip-up")
+        profile = _profile_from_yaml(_EXTEND_KNEE_MOTION)
         frames = 8
         student = _angles(knee_deg=178.0, other_deg=120.0, frames=frames)
         # 정은지: 무릎 158°(학생 178°와 20° 차이=오염원), left_hip 도 50° 차이(control).
@@ -185,7 +200,7 @@ class TestBuilderSeamDecontamination:
 
     def test_straight_knee_yields_no_knee_deduction_in_tally(self) -> None:
         """builder→tally 전 경로: 곧은 무릎=무릎 감점 0(정은지와 달라도). de-contamination."""
-        profile = _profile_from_yaml("ref-kip-up")
+        profile = _profile_from_yaml(_EXTEND_KNEE_MOTION)
         frames = 8
         student = _angles(knee_deg=178.0, other_deg=120.0, frames=frames)
         reference = _angles(knee_deg=158.0, other_deg=120.0, frames=frames)
@@ -215,7 +230,7 @@ class TestBuilderSeamDecontamination:
 
     def test_bent_knee_detected_via_builder(self) -> None:
         """굽은 학생 무릎 → builder 가 leg_extension 측정편차 방출 + tally 가 감점."""
-        profile = _profile_from_yaml("ref-kip-up")
+        profile = _profile_from_yaml(_EXTEND_KNEE_MOTION)
         frames = 8
         student = _angles(knee_deg=140.0, other_deg=120.0, frames=frames)
         reference = _angles(knee_deg=178.0, other_deg=120.0, frames=frames)

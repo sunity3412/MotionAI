@@ -286,7 +286,9 @@ class TestSharedLimbPairs:
     def test_spike_rtmpose_private_copy_matches_shared_pairs(self) -> None:
         """spike_rtmpose._h36m17_to_coco17_subset 의 pairs 가 공유 pairs 와 set equality."""
         # spike_rtmpose 모듈을 import 하지 않고 source 에서 추출 (mmpose 의존 회피).
-        spike_path = Path("backend/research/spikes/spike_rtmpose.py")
+        spike_path = (  # 파일 기준 절대 경로 (2026-08-28 — 상대 경로는 실행 위치에 의존)
+            Path(__file__).resolve().parents[1] / "research" / "spikes" / "spike_rtmpose.py"
+        )
         source = spike_path.read_text(encoding="utf-8")
         # 함수 _h36m17_to_coco17_subset 내부 — `pairs = (` 부터 balanced 파싱.
         idx = source.find("def _h36m17_to_coco17_subset")
@@ -470,7 +472,9 @@ class TestStaticMappingAbortGate:
             ),
         }
         # spike_rtmpose 사본 (source 추출, balanced 파싱)
-        spike_path = Path("backend/research/spikes/spike_rtmpose.py")
+        spike_path = (  # 파일 기준 절대 경로 (2026-08-28 — 상대 경로는 실행 위치에 의존)
+            Path(__file__).resolve().parents[1] / "research" / "spikes" / "spike_rtmpose.py"
+        )
         source = spike_path.read_text(encoding="utf-8")
         idx = source.find("def _h36m17_to_coco17_subset")
         assert idx >= 0

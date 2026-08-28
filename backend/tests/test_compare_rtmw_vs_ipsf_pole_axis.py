@@ -27,6 +27,33 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+
+# ── reload 한 모듈 네임스페이스 복구 (2026-08-28 오염 수리) ──────────────────
+#
+# 아래 테스트가 `importlib.reload(research.evaluations.compare_rtmw_vs_ipsf)` 를 하고
+# 복구하지 않았다. reload 는 모듈 객체는 두고 **안의 이름을 새 객체로 다시 바인딩**
+# 하므로, 재실행된 `from sunity_shared.analysis.technique import FallbackRecognizer`
+# 가 만든 바인딩과 다른 파일이 먼저 잡아둔 것이 엇갈린다 →
+# `isinstance(recognizer, FallbackRecognizer)` 가 **객체는 맞는데 False** 가 됐다
+# (test_compare_rtmw_vs_ipsf_recognizer_flag 가 전체 스위트에서만 실패).
+#
+# sys.modules 를 되돌리는 것으로는 안 된다(모듈 객체 자체는 같다) — __dict__
+# 스냅샷을 되돌려야 원래 클래스 객체가 제자리로 온다. phase08 수리와 같은 처방.
+_RELOADED = ("research.evaluations.compare_rtmw_vs_ipsf",)
+
+
+@pytest.fixture(autouse=True)
+def _restore_reloaded_modules():
+    saved = {
+        n: dict(sys.modules[n].__dict__) for n in _RELOADED if n in sys.modules
+    }
+    yield
+    for n, snap in saved.items():
+        m = sys.modules.get(n)
+        if m is not None:
+            m.__dict__.clear()
+            m.__dict__.update(snap)
+
 # sys.path 보장
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(_BACKEND_DIR) not in sys.path:

@@ -235,7 +235,9 @@ def test_test_stub_mirror_matches_pipeline_map():
     """테스트 스텁 미러(_ANGLE_MAP)가 파이프라인 map 과 동일 — drift 차단."""
     import app  # noqa: PLC0415
 
-    from test_zoom_join_joint_exact import _ANGLE_MAP  # noqa: PLC0415
+    # 패키지 경로 명시 — phase33 이 패키지가 되면서 bare 형제 import 가 안 잡힌다
+    # (2026-08-28: __init__.py 추가로 conftest 이름 충돌을 없앤 결과).
+    from tests.phase33.test_zoom_join_joint_exact import _ANGLE_MAP  # noqa: PLC0415
 
     assert _ANGLE_MAP == app._KISMAM_TO_KEYPOINT
 

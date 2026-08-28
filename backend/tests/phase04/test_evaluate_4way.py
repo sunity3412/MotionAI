@@ -269,10 +269,15 @@ def test_mesh_adapter_excluded_without_env_flag(monkeypatch: pytest.MonkeyPatch)
     # backend/functions/pipeline 은 SAM Lambda function 폴더이지만 본 테스트 의도는
     # "pipeline 의 lazy singleton 이 CylindricalMeshAdapter 를 노출하지 않음" 이라
     # backend/functions/pipeline/app.py 의 helper 를 직접 호출한다.
-    sys.path.insert(
-        0,
-        str(pathlib.Path(__file__).parents[2] / "functions/pipeline"),
-    )
+    _pipeline_dir = str(pathlib.Path(__file__).parents[2] / "functions/pipeline")
+    # ★복구 등록 — 이 테스트는 sys.path 와 sys.modules["app"] 을 건드린다. 복구하지
+    #   않으면 뒤따르는 파일들이 다른 'app' 을 보게 되어 조용히 실패한다
+    #   (2026-08-28 실측: recognizer_flag / phase31 visual_jobs 가 단독은 통과인데
+    #   전체 스위트에서만 실패했다). monkeypatch 가 teardown 을 책임지게 맡긴다.
+    monkeypatch.syspath_prepend(_pipeline_dir)
+    _saved_app = sys.modules.get("app")
+    if _saved_app is not None:
+        monkeypatch.setitem(sys.modules, "app", _saved_app)
     # 모듈 캐시 정리 — 첫 import 가 module-level singleton 을 None 으로 초기화.
     sys.modules.pop("app", None)
 
@@ -283,10 +288,11 @@ def test_mesh_adapter_excluded_without_env_flag(monkeypatch: pytest.MonkeyPatch)
 
     adapter = pipeline_app._get_synthesis_adapter()
 
-    # CylindricalMeshAdapter 클래스를 import 해서 isinstance 비교.
-    from sunity_shared.analysis.synthesis.cylindrical_mesh import CylindricalMeshAdapter
-
-    assert not isinstance(adapter, CylindricalMeshAdapter), (
+    # 클래스 **이름**으로 비교한다 — isinstance 를 쓰려면 cylindrical_mesh 를 import
+    # 해야 하고 그건 trimesh(무거운 선택 의존)를 끌어온다. "안 실렸음"을 단언하려고
+    # 정작 그 모듈을 로드하는 건 앞뒤가 안 맞고, trimesh 미설치 환경에서는
+    # ModuleNotFoundError 로 죽는다 (2026-08-28 실측).
+    assert type(adapter).__name__ != "CylindricalMeshAdapter", (
         "SYNTHESIS_MESH_ENABLED unset/0 인데 _get_synthesis_adapter() 가 "
         f"CylindricalMeshAdapter 를 반환함 — B4 hard gate 위반. got={type(adapter)}"
     )

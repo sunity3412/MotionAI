@@ -190,9 +190,19 @@ class TestReportOnlyMode:
         # 1 moment (hold) 분석되어야 함 (ref-invert 1차 박제는 hold 만)
         hold_moments = [m for m in result["moments"] if m["moment_key"] == "hold"]
         assert len(hold_moments) == 1
-        assert hold_moments[0]["criteria_count"] == 5
-        # per_joint 5 entries
-        assert len(hold_moments[0]["per_joint"]) == 5
+        # 기대 개수는 yaml 에서 유도한다 — 숫자를 박으면 criteria 가 늘 때마다 낡는다
+        # (2026-08-28: ref-invert hold 가 5 → 6 으로 늘었는데 테스트만 5 로 남아 실패).
+        import yaml as _yaml
+
+        _yaml_path = (
+            Path(__file__).resolve().parents[1]
+            / "judging_data" / "criteria" / "ref-invert.yaml"
+        )
+        _expected = len(
+            _yaml.safe_load(_yaml_path.read_text(encoding="utf-8"))["criteria"]["hold_moment"]
+        )
+        assert hold_moments[0]["criteria_count"] == _expected
+        assert len(hold_moments[0]["per_joint"]) == _expected
         # JSON-deserialize round-trip
         loaded = json.loads(out_json.read_text(encoding="utf-8"))
         assert loaded["motion"] == "ref-invert"

@@ -182,3 +182,71 @@ def test_detector_empty_frames_handles_gracefully(detector):
     assert result.source == "vertical_fallback"
     assert result.confidence_level == "low"
     assert result.frame_index is None
+
+
+# ── Test 9: OpenCV 4.x/5.0 반환 형태 양쪽 수용 (2026-08-28 260828-rtm) ────
+#
+# cv2.HoughLinesP 는 4.x 에서 (N,1,4), **5.0 에서 (N,4)** 를 돌려준다.
+# 4.x 형태만 가정한 `x1, y1, x2, y2 = line[0]` 은 5.0 에서 line[0] 이 스칼라라
+# TypeError 로 죽었다 — 서빙 Pod 실분석에서 매 프레임 발생, vertical_fallback 으로
+# 조용히 degrade 하며 폴 x 위치(midpoints_x_norm)를 유실시켰다.
+#
+# 로컬 opencv 버전 하나로는 두 경로를 다 밟을 수 없으므로 순수 함수에 두 형태를
+# 직접 주입해 박제한다. 버전 업그레이드로 형태가 또 바뀌어도 여기서 잡힌다.
+
+def test_hough_segments_accepts_both_opencv_shapes():
+    """(N,1,4)[4.x] 와 (N,4)[5.0] 이 같은 (N,4) 결과로 정규화된다."""
+    from sunity_shared.analysis.pole.detector import _hough_segments
+
+    seg = [[10, 20, 30, 40], [50, 60, 70, 80]]
+    v4 = np.array([[s] for s in seg], dtype=np.int32)   # (2, 1, 4) — OpenCV 4.x
+    v5 = np.array(seg, dtype=np.int32)                  # (2, 4)    — OpenCV 5.0
+    assert v4.shape == (2, 1, 4) and v5.shape == (2, 4)
+
+    out4 = _hough_segments(v4)
+    out5 = _hough_segments(v5)
+
+    assert out4.shape == (2, 4), f"4.x 형태 정규화 실패: {out4.shape}"
+    assert out5.shape == (2, 4), f"5.0 형태 정규화 실패: {out5.shape}"
+    assert np.array_equal(out4, out5), "두 형태가 다른 결과를 냈다"
+
+    # 호출부 계약 — 언팩이 성립해야 한다 (이게 깨져서 TypeError 가 났다)
+    for x1, y1, x2, y2 in out4:
+        assert all(isinstance(int(v), int) for v in (x1, y1, x2, y2))
+
+
+def test_hough_segments_empty_returns_zero_rows():
+    """빈 입력은 (0,4) — 호출부 for 루프가 0 회 돌아야 하고 raise 하면 안 된다."""
+    from sunity_shared.analysis.pole.detector import _hough_segments
+
+    for empty in (np.empty((0, 1, 4), dtype=np.int32), np.empty((0, 4), dtype=np.int32)):
+        out = _hough_segments(empty)
+        assert out.shape == (0, 4), f"빈 입력 정규화 실패: {out.shape}"
+        assert list(out) == []
+
+
+def test_detect_survives_opencv_4x_shape(detector, monkeypatch):
+    """cv2 가 4.x 형태를 주더라도 검출이 성립한다 (5.0 로컬에서 4.x 경로 박제).
+
+    실제 cv2.HoughLinesP 결과를 (N,1,4) 로 되돌려 감싸 4.x 를 흉내낸다.
+    수리 전에는 이 경로가 유일한 정상 경로였고, 수리 후에도 살아 있어야 한다.
+    """
+    import cv2
+
+    real = cv2.HoughLinesP
+
+    def as_v4(*args, **kwargs):
+        lines = real(*args, **kwargs)
+        if lines is None:
+            return None
+        arr = np.asarray(lines).reshape(-1, 4)
+        return arr.reshape(-1, 1, 4)  # (N,1,4) — OpenCV 4.x 형태
+
+    monkeypatch.setattr(cv2, "HoughLinesP", as_v4)
+
+    frames = synthetic_vertical_pole_frames(num_frames=3, height=256, width=128)
+    result = detector.detect(frames)
+
+    assert result.source == "detected", f"4.x 형태에서 검출 실패: {result.source!r}"
+    _, ay, _ = result.axis_vector
+    assert ay > 0.9, f"4.x 형태 axis y={ay:.3f}, 수직성 기대"

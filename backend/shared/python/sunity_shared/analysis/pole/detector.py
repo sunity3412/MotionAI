@@ -49,6 +49,23 @@ HOUGH_MAX_LINE_GAP: int = 20             # 폴이 살짝 가려도 잇기
 
 # ── module-level 헬퍼 (cv2 의존 없음) ────────────────────────────────────
 
+def _hough_segments(lines) -> np.ndarray:
+    """`cv2.HoughLinesP` 반환을 `(N, 4)` 로 정규화한다.
+
+    OpenCV 4.x 는 `(N, 1, 4)`, **5.0 은 `(N, 4)`** 를 준다. 4.x 형태를 가정한
+    `x1, y1, x2, y2 = line[0]` 은 5.0 에서 `line[0]` 이 스칼라라
+    `TypeError: cannot unpack non-iterable numpy.int32` 로 죽는다
+    (2026-08-28 서빙 Pod 실분석에서 매 프레임 발생 → vertical_fallback 으로 조용히
+    degrade, 폴 x 위치 `midpoints_x_norm` 유실). reshape 로 두 형태를 모두 받는다.
+
+    빈 입력은 `(0, 4)` 를 돌려줘 호출부의 for 루프가 자연히 0 회 돌게 한다.
+    """
+    arr = np.asarray(lines)
+    if arr.size == 0:
+        return arr.reshape(0, 4)
+    return arr.reshape(-1, 4)
+
+
 def _map_numeric_to_confidence_level(numeric: float) -> str:
     """numeric confidence → ConfidenceLevel 문자열 매핑 (M-2 enum 박제).
 
@@ -162,8 +179,7 @@ class HoughPoleDetector:
             )
             if lines is None:
                 continue
-            for line in lines:
-                x1, y1, x2, y2 = line[0]
+            for x1, y1, x2, y2 in _hough_segments(lines):
                 dx = x2 - x1
                 dy = y2 - y1
                 angle_deg = math.degrees(math.atan2(abs(dy), abs(dx)))
@@ -296,8 +312,7 @@ class HoughPoleDetector:
                 continue
 
             # 수직 필터링 + 길이 가중
-            for line in lines:
-                x1, y1, x2, y2 = line[0]
+            for x1, y1, x2, y2 in _hough_segments(lines):
                 dx = x2 - x1
                 dy = y2 - y1
 

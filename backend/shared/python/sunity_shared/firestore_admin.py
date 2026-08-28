@@ -1916,6 +1916,8 @@ def update_analysis_spot_check(
 # OFF 차단 (두 canary: reference_profile_missing + reference_source_pose_missing) +
 # Phase 14 정은지 reference 등록 helper. 두 필드 atomic merge.
 
+# estimatedHeightScale = torso-relative proportion heuristic (절대 키 아님 —
+# 몸통 길이 대비 사지 비율. Phase 2 Task 1 lockstep).
 _REF_BODY_PROFILE_REQUIRED: tuple[str, ...] = (
     "estimatedHeightScale",
     "armScale",

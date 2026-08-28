@@ -1585,6 +1585,7 @@ def _coerce_body_profile_dict(raw: dict | None) -> dict | None:
         return raw.get(camel)
 
     return {
+        # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
         "estimated_height_scale": float(_g("estimated_height_scale", "estimatedHeightScale")),
         "arm_scale": float(_g("arm_scale", "armScale")),
         "leg_scale": float(_g("leg_scale", "legScale")),

@@ -3,6 +3,7 @@
 Phase 1 RTMW pivot (2026-06-02 belle 결정) 박제:
 
   D-19: 체형 정규화 = **SMPL-X 없이 세그먼트 길이 비율**.
+        # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
         파라미터형 메시(SMPL-X β) 없음. estimated_height_scale /
         arm_scale / leg_scale / torso_scale / shoulder_hip_ratio +
         confidence + warnings 만으로 표현.
@@ -22,6 +23,7 @@ lockstep:
   - 변경 시 3-way 동시 갱신 (CLAUDE.md Cross-cutting).
 
 Phase 2 v5 박제 (MEDIUM-2 v5):
+  # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
   __post_init__ 가 5 numeric scale 필드 (estimated_height_scale, arm_scale,
   leg_scale, torso_scale, shoulder_hip_ratio) finite + strictly positive 강제.
   NaN/inf/0/negative 입력은 ValueError 로 거절. 신체 segment 비율은 본질적으로
@@ -37,6 +39,7 @@ from dataclasses import dataclass, field
 # Phase 2 v5 (MEDIUM-2 v5): __post_init__ 가 강제하는 5 numeric scale 필드.
 # fallback path 가 1.0 emit 하므로 strictly positive 통과.
 _NUMERIC_SCALE_FIELDS: tuple[str, ...] = (
+    # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
     "estimated_height_scale",
     "arm_scale",
     "leg_scale",
@@ -50,6 +53,7 @@ class BodyNormalizationProfile:
     """체형 정규화 프로파일 (D-19 segment 비율 기반).
 
     필드 7개 (TS camelCase ↔ Python snake_case 1:1):
+      # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
       estimatedHeightScale  / estimated_height_scale
       armScale              / arm_scale
       legScale              / leg_scale
@@ -86,6 +90,7 @@ class BodyNormalizationProfile:
       (strictly positive 통과 보장).
     """
 
+    # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
     estimated_height_scale: float
     arm_scale: float
     leg_scale: float

@@ -190,6 +190,7 @@ def _fallback_profile(warnings: list[str]) -> BodyNormalizationProfile:
     __post_init__ validator (strictly positive) 통과 보장.
     """
     return BodyNormalizationProfile(
+        # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
         estimated_height_scale=1.0,
         arm_scale=1.0,
         leg_scale=1.0,
@@ -305,6 +306,7 @@ def measure_body_profile(
     else:
         shoulder_hip_ratio = float("nan")
 
+    # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
     # M3: estimated_height_scale = (arm_scale + leg_scale + 1.0) / 3.
     estimated_height_scale = (
         ((arm_scale if math.isfinite(arm_scale) else 0.0)
@@ -317,6 +319,7 @@ def measure_body_profile(
     leg_scale = _safe_positive(leg_scale, 1.0)
     torso_scale = _safe_positive(torso_scale, 1.0)
     shoulder_hip_ratio = _safe_positive(shoulder_hip_ratio, 1.0)
+    # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
     estimated_height_scale = _safe_positive(estimated_height_scale, 1.0)
 
     # ── confidence: 11 segment confs 평균 ─────────────────────────────────
@@ -415,6 +418,7 @@ def measure_body_profile(
             warnings.append("pose_too_inverted")
 
     return BodyNormalizationProfile(
+        # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
         estimated_height_scale=estimated_height_scale,
         arm_scale=arm_scale,
         leg_scale=leg_scale,

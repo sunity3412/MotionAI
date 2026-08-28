@@ -7,6 +7,8 @@ Phase 6 (2026-06-08) BodyComparisonReport 본체.
   D-06-A2: 변환 방향 B (프로 reference → 수강생 체형 좌표계). 사용자 영상 위에
            "내 키로 환산된 정은지 자세" 표시.
   D-06-A3: 5 필드 (estimatedHeightScale + armScale + legScale + torsoScale +
+           — estimatedHeightScale 은 torso-relative proportion heuristic 이다.
+           절대 키가 아니라 몸통 길이 대비 사지 비율 (Phase 2 Task 1 lockstep) —
            shoulderHipRatio) 모두 활용. shoulderHipRatio 는 키포인트 reproject
            에만 적용 — 점수 차원에는 미적용 (메모리 [[scoring-dimensions-ipsf]] 박제).
   D-06-A4: mode + confidence 병행 게이트. coaching 모드 + confidence ≥ 0.5
@@ -197,7 +199,10 @@ ComparisonType = Literal["mode1", "mode3_first", "mode3_progress"]
 class ScaleProfile:
     """프로/수강생 체형 scale ratio (D-06-A3 — 5 필드 + apply 플래그).
 
-    estimated_height_scale: 전체 키 비율 (target/source).
+    estimated_height_scale: torso-relative proportion heuristic 비율 (target/source).
+        ★"전체 키 비율"이 아니다 — 몸통 길이 대비 사지 비율에서 유도한 값이다
+        (Phase 2 Task 1 lockstep). 2026-08-28 까지 여기 '전체 키 비율' 로 적혀
+        있었다 — 게이트가 막으려던 바로 그 오독이 문서에 있었다.
     arm_scale: 팔 길이 비율.
     leg_scale: 다리 길이 비율.
     torso_scale: 몸통 길이 비율.
@@ -208,6 +213,7 @@ class ScaleProfile:
       5 numeric 필드 finite + strictly positive (>0). ValueError on violation.
     """
 
+    # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
     estimated_height_scale: float
     arm_scale: float
     leg_scale: float
@@ -217,6 +223,7 @@ class ScaleProfile:
 
     def __post_init__(self) -> None:
         for fname in (
+            # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
             "estimated_height_scale",
             "arm_scale",
             "leg_scale",
@@ -1429,6 +1436,7 @@ def compare_body_profiles(
     else:
         # 5 필드 ScaleProfile (student vs pro reference)
         ratio_height = (
+            # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
             float(student_profile.estimated_height_scale)
             / max(float(reference_profile.estimated_height_scale), _EPS)
         )
@@ -1449,6 +1457,7 @@ def compare_body_profiles(
             / max(float(reference_profile.shoulder_hip_ratio), _EPS)
         )
         scale_profile = ScaleProfile(
+            # torso-relative proportion heuristic — 절대 키 아님 (Phase 2 Task 1 lockstep).
             estimated_height_scale=ratio_height,
             arm_scale=ratio_arm,
             leg_scale=ratio_leg,

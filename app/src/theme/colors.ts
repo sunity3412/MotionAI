@@ -110,6 +110,20 @@ export const colors = {
   infoTeal: '#2C7C8C', // 정직 정보 텍스트 (method/facing)
   infoTealBg: '#F4FBFC', // 정직 정보 박스 배경
   infoTealBorder: '#CFE9EF', // 정직 정보 박스 테두리
+
+  // ── Phase 36 신설 토큰 (계정 시스템 — Figma 실측) ──────────────────────
+  // 출처 = Figma fileKey jrdI7kp245HkPfLB0nclsz.
+  //   authLoginBg      = 로그인 화면 배경 (node 1:550 / 1:581 픽셀 실측 #FFEDEA).
+  //                      ★design.md §5-1 은 "가입/로그인 = 흰색"이라 이 값과 충돌한다.
+  //                      belle 이 "디자인은 피그마를 따라줘"(08-28) 라고 해서 Figma 값을
+  //                      쓰되, 36-CONTEXT D-07 에 belle 판정 대기 항목으로 올려둔 상태.
+  //                      (가입 화면 1:961 은 실측도 #FFFFFF 라 충돌 없음 — colors.bg 사용)
+  //   introCtaBorder   = 인트로 CTA (node 1:159) — 채움 없는 투명 버튼의 흰 헤어라인.
+  //                      사진 위 합성 픽셀에서 역산한 알파 ≈ 0.27~0.44 (안티에일리어싱
+  //                      포함) → 0.4 채택.
+  // brand #FF4B33 변경 0 (CLAUDE.md §4). sns 토큰은 이미 있고 Figma 실측과 일치해 재사용.
+  authLoginBg: '#FFEDEA',
+  introCtaBorder: 'rgba(255,255,255,0.4)',
 } as const;
 
 // 그라디언트 (expo-linear-gradient의 colors prop 등에 사용)

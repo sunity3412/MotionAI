@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: milestone
 status: executing
 stopped_at: Phase 33 §9 수리 사이클 컨텍스트 기록 완료(D-39~D-45) — 다음 = 수리 plan
-last_updated: "2026-07-30T05:47:37.686Z"
-last_activity: 2026-08-28
+last_updated: "2026-08-30T06:17:07.797Z"
+last_activity: "2026-08-24 - Quick task 260824-pqc: **일러스트 기능 전면 제거** (belle 08-24 결정: "일러스트 기능을 아예 빼고 서비스를 구성하자. 확대비교랑 모션 분석에 집중") — 컴포넌트 1(DefectIllustration 621줄) + lib 4종(illustrationScene/illustrationHow/progressCaption/ghostPose) + 테스트 4종 + 에셋 21장 삭제, 배선 3면(시트 슬롯·illu-float 큐·발전 캡션) 제거, 총 −2,892줄. 시트 goalLine 항상-텍스트 경로 성립(그림 카드 분기 소멸), 실사진 비교·원인·수치·미션 잔존. VideoCompare·deductionSheet 코드 무접촉(주석만). 게이트 GREEN: typecheck + node --test 201/201 pass fail 0(기지 실패 8 = 파일 삭제로 소멸, 234→201). **OTA 미발행**(belle 한마디 대기 — 발행 준비 상태), 시뮬 실증 = 오케스트레이터 후속. 커밋 eddbdf0e/fb2eef19"
 progress:
-  total_phases: 16
+  total_phases: 19
   completed_phases: 8
   total_plans: 118
   completed_plans: 108
-  percent: 50
+  percent: 42
 ---
 
 # Project State
@@ -723,6 +723,7 @@ GSD process rule = `.claude/projects/.../memory/gsd-pod-work-push-first.md` 박�
 - Phase 22 edited: 스코프 확정(22-CONTEXT.md D-01~16) + Phase 21 디커플 — 22 먼저
 - Phase 32 added: 분석 결과를 읽히게 — 해석·방법·코치. 즉시수리 3건(동작비교 초맞춤/참고지표 겹침/확대비교 크롭) wave-1 흡수
 - Phase 35 added: 서버측 정렬 합성 비교 영상 — 돌파 ① (belle 2026-08-07 승인, 1순위). 전 동작 프로토타입 배치 → belle 느낌 평가, 채택 시 라이브 동기 기계 폴백 강등. Phase 34 와 독립·병행 가능
+- Phase 36 added: 계정 시스템 — 게스트 유지 + 소셜 로그인 4종(카카오·네이버·Google·Apple). belle 2026-08-28/08-30 결정 락인: 소셜만(이메일 가입·비번찾기 범위 밖), 인트로는 Figma 그대로 '시작하기'=게스트. Figma 정본 1:142/1:550/1:961. Phase 34·35 와 독립.
 
 ### Decisions
 

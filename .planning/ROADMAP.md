@@ -1285,6 +1285,49 @@ Plans:
 
 - [ ] TBD (run /gsd-plan-phase 35 to break down)
 
+### Phase 36: 계정 시스템 — 게스트 유지 + 소셜 로그인 4종 (카카오·네이버·Google·Apple)
+
+**Goal:** 게스트 동선을 **한 걸음도 늘리지 않은 채** 소셜 로그인 4종(카카오·네이버·Google·Apple)을
+추가한다. 게스트가 로그인하면 익명 계정이 그대로 승계되어(`linkWithCredential`) 그때까지 쌓인
+분석 기록이 유지된다. UI 정본 = Figma(fileKey `jrdI7kp245HkPfLB0nclsz`), 카피는 belle 논의 후 확정.
+
+**belle 결정 (락인 — 재론 불필요):**
+
+- 2026-08-28 — "게스트 유지 + 로그인 추가" / "디자인은 피그마를 따라줘"(카피는 논의 후) /
+  "간편로그인은 funding 쪽에서 이미 하고 있어서 설계는 편할 거야" /
+  "아이디는 같은 아이디를 쓰면 돼, 비즈니스 계정이니까"
+  = **funding 이 이미 등록한 카카오·네이버·Google·Apple 콘솔 앱에 모바일 플랫폼만 추가**한다.
+  별도 심사 없음. 사용자 계정 체계까지 sunity.ai 와 합치는 것은 이 phase 범위 밖
+  (CLAUDE.md §3 — Motion 은 funding EC2 를 호출하지 않는다).
+- 2026-08-30 — **범위 = 소셜 4종만.** 이메일 가입(STEP01/02)·비밀번호 찾기·Face ID 는 이번 범위 밖
+  (파일럿은 게스트가 기본 동선이라 값이 낮고, 약관 원문·재설정 메일 인프라 의존이 붙는다).
+- 2026-08-30 — **인트로는 Figma 레이아웃 그대로.** "시작하기" = 게스트 진입(현행 동작 유지),
+  "이미 계정이 있으신가요? 로그인하기" = 로그인 화면. 가입 진입점은 로그인 화면 하단
+  "처음 오셨나요? 회원가입" + 마이 탭.
+
+**Requirements**: 구현 대상 Figma 화면 = 인트로 `1:142` / 로그인-소셜 `1:550` /
+로그인-이메일 `1:581`(소셜 범위에서는 미구현) / 가입-소셜 `1:961`.
+범위 밖(다음 기회) = 가입 STEP01 `1:987`·`1:1005`·`1:1025` / STEP02 `1:1043`·`1:1072` /
+비밀번호찾기 `1:374`·`1:394`·`1:415` / Face ID `1:605`.
+레벨 `1:611`·종목선택 `1:646` 은 계정이 아니라 온보딩 — 이 phase 밖.
+
+**Success Criteria**:
+
+1. 인트로 "시작하기" → 게스트 진입이 현행과 동일 (게스트 회귀 0 — TestFlight 게스트 즉시 사용
+   요건 유지, CLAUDE.md §2)
+2. Google·Apple 로그인 실기기 성공 (콘솔 대기 없이 착수 가능한 축)
+3. 카카오·네이버 로그인 실기기 성공 (belle 콘솔 iOS 플랫폼 등록 후)
+4. 게스트→로그인 승계 시 **uid 불변 + 기존 분석 문서 개수 보존** 실측
+   (이미 가입된 계정으로 로그인해 `credential-already-in-use` 가 나는 경로의 처리도 정의)
+5. Figma 대조 판정 — 승인 목업 대조까지가 검증 (memory `verify-against-approved-mockup-not-just-code`)
+
+**Depends on:** 없음 — 분석 트랙(Phase 34·35)과 독립. belle 콘솔 등록은 Success #3 만 게이트.
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 36 to break down)
+
 ---
 *Roadmap created: 2026-05-29 (brownfield MVP — vertical slices over existing pipeline)*
 *Roadmap restructured: 2026-05-31 (research 3 docs 반영 — 공통 레이어 + 엔진 A·B + 코치 훅 아키텍처, 11→15 phases)*

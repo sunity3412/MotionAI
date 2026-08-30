@@ -17,9 +17,10 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 //   (STEP01/02)은 belle 08-30 결정으로 이번 범위 밖 — 눌러도 아무 일 없는 링크를
 //   남기지 않는다(Phase 33 "표시마다 답 or 없앰"). 범위가 열리면 이 자리에 되살린다.
 //
-// ★하단 약관 링크의 목적지는 아직 belle 확인 대기 (36-CONTEXT D-07 #4) — sunity.ai
-// /terms 재사용 가능 여부 + 영상·자세 데이터가 그 약관에 덮이는지. 확인 전까지 링크는
-// 텍스트 강조만 하고 이동시키지 않는다(틀린 문서로 보내는 것보다 낫다).
+// 하단 약관 링크는 **앱 안 문서**로 간다 (`/legal/terms`, `/legal/privacy`).
+// belle 2026-08-30: 기존 sunity.ai 약관은 펀딩·커뮤니티 기준이라 그대로 못 쓴다 →
+// 모션분석·AI 서비스용으로 새로 썼다. 근거·격차 = 36-LEGAL-GAP.md.
+// 문서가 아직 법무 검토 전이라 화면 상단에 검토 중 배너가 뜬다.
 export default function Signup() {
   const router = useRouter();
   const [notice, setNotice] = useState<string | null>(null);
@@ -71,9 +72,21 @@ export default function Signup() {
 
       <Text style={styles.terms}>
         {authCopy.signup.termsPrefix}
-        <Text style={styles.termsLink}>{authCopy.signup.termsOfService}</Text>
+        <Text
+          style={styles.termsLink}
+          onPress={() => router.push('/legal/terms')}
+          accessibilityRole="link"
+        >
+          {authCopy.signup.termsOfService}
+        </Text>
         {authCopy.signup.termsMiddle}
-        <Text style={styles.termsLink}>{authCopy.signup.privacyPolicy}</Text>
+        <Text
+          style={styles.termsLink}
+          onPress={() => router.push('/legal/privacy')}
+          accessibilityRole="link"
+        >
+          {authCopy.signup.privacyPolicy}
+        </Text>
         {authCopy.signup.termsSuffix}
       </Text>
     </SafeAreaView>

@@ -95,6 +95,125 @@ def split_angle_series(keypoints):
     return out
 
 
+# ---------------------------------------------------------------------------
+# belle 08-17 판독 축 (quick-260831-bjj, CONTINUE-2026-08-31 #1).
+#
+# belle 판독 원문(memory belle-readings-20260817-discovery)이 지목한 축 2종:
+#   · 상체 꼿꼿함 — 피터팬: "오른팔 어깨가 딱 곧게 펴지면서 상체의 꼿꼿해짐이
+#     전체적 영향을 미치고" (기준이 학생보다 상체 꼿꼿).
+#   · 머리-척추 1자 — elbow r02cand03: "고개 — 학생은 안 들어 머리카락이 오른팔
+#     안쪽, 기준은 들어 몸-머리가 1자라 바깥으로".
+# 전부 이미 가진 COCO17 좌표로 계산 가능 — 데이터가 아니라 식이 없었다.
+# 순수 numpy, NaN 전파, _angle_deg 재사용 (split_angle_series 선례).
+# ---------------------------------------------------------------------------
+
+# 유의미 델타 임계(도) — RTMW 프레임 jitter 는 수° 수준(window_median_angle_deltas
+# 가 ±2프레임 median 으로 흡수하는 것과 같은 계열)이라, 그 아래 델타는 잡음으로
+# 보고 코칭 지시로 승격하지 않는다. 실측(피터팬 등 실데이터 검증) 후 재조정 여지
+# 있음 — fixture 에 맞춰 비틀지 말고 델타 분포 실측으로만 조정할 것.
+POSTURE_DELTA_SIGNIFICANT_DEG = 5.0
+
+
+def _posture_xyz(keypoints):
+    """자세 축 입력 정규화 — (T,17,2|3|4) → (T,17,3).
+
+    2채널(align.json 정규화 xy 등)은 z=0 패딩, 4채널(RTMW xyz+불확실도)은 :3 만
+    사용(compute_joint_angles 선례). 기존 함수(split_angle_series 등)의 3채널
+    요구는 건드리지 않는다 — 자세 축 2종만 2D 를 수용한다(과잉 일반화 금지).
+    """
+    kp = np.asarray(keypoints, dtype=float)
+    if kp.ndim != 3 or kp.shape[1] < 17 or kp.shape[2] < 2:
+        raise ValueError("keypoints 형상은 (T,17,2|3|4) 이어야 합니다.")
+    if kp.shape[2] == 2:
+        return np.concatenate(
+            [kp, np.zeros((kp.shape[0], kp.shape[1], 1), dtype=float)], axis=2
+        )
+    return kp[:, :, :3]
+
+
+def head_spine_alignment_series(keypoints):
+    """(T,17,2|3|4) keypoints → 프레임별 머리-척추 정렬각(도). 180° = 1자.
+
+    골반중점-어깨중점-귀중점 3점의 vertex=어깨중점 각. belle elbow r02cand03 원문
+    "고개를 들어 몸-머리가 1자" 가 정의 근거 — 1자면 ≈180°, 고개를 숙이거나 꺾으면
+    귀중점이 척추 연장선에서 이탈해 180° 미만으로 감소한다.
+
+    귀중점(코 아님)을 쓰는 근거: 코는 앞으로 돌출한 말단이라 측면 각도에서 고개
+    판정을 왜곡한다 — 좌우 귀의 중점이 머리 중심의 안정 근사다. 정의 keypoint
+    (귀/어깨/골반) 중 NaN 포함 프레임은 NaN 전파(_angle_deg).
+    """
+    xyz = _posture_xyz(keypoints)
+    T = xyz.shape[0]
+    ilh, irh = kp_index("left_hip"), kp_index("right_hip")
+    ils, irs = kp_index("left_shoulder"), kp_index("right_shoulder")
+    ile, ire = kp_index("left_ear"), kp_index("right_ear")
+
+    out = np.full((T,), np.nan, dtype=float)
+    for t in range(T):
+        mid_hip = (xyz[t, ilh] + xyz[t, irh]) / 2.0
+        mid_shoulder = (xyz[t, ils] + xyz[t, irs]) / 2.0
+        mid_ear = (xyz[t, ile] + xyz[t, ire]) / 2.0
+        out[t] = _angle_deg(mid_hip, mid_shoulder, mid_ear)
+    return out
+
+
+def torso_uprightness_series(keypoints, up=None):
+    """(T,17,2|3|4) keypoints → 프레임별 상체 기울기(도). 0° = 수직 꼿꼿.
+
+    척추 방향벡터(mid_shoulder - mid_hip)와 up 벡터 사이각. up 기본값 (0,-1,0) —
+    이미지/카메라 y-down 규약(align.json 정규화 xy · RTMW 카메라 좌표 공통)에서
+    "위" 방향. 수직 꼿꼿 ≈0°, 수평 ≈90°, 도립 ≈180°.
+
+    절대값은 촬영 규약(카메라 기울기·roll)에 의존하므로 제품 사용은 기준-학생
+    **델타**만 쓴다 — 규약 오차는 양쪽 동일해 상쇄되고, 도립 동작에서도 양쪽이
+    같은 규약이라 델타 비교가 성립한다(동작명 분기 0). belle 피터팬 원문 "상체의
+    꼿꼿해짐" 축의 정의 근거. 각도는 vertex=원점 _angle_deg 재사용
+    (split_angle_series 방향벡터 사이각 선례).
+    """
+    xyz = _posture_xyz(keypoints)
+    T = xyz.shape[0]
+    up_vec = np.asarray((0.0, -1.0, 0.0) if up is None else up, dtype=float)
+    zero = np.zeros(3, dtype=float)
+    ilh, irh = kp_index("left_hip"), kp_index("right_hip")
+    ils, irs = kp_index("left_shoulder"), kp_index("right_shoulder")
+
+    out = np.full((T,), np.nan, dtype=float)
+    for t in range(T):
+        mid_hip = (xyz[t, ilh] + xyz[t, irh]) / 2.0
+        mid_shoulder = (xyz[t, ils] + xyz[t, irs]) / 2.0
+        spine_vec = mid_shoulder - mid_hip
+        out[t] = _angle_deg(spine_vec, zero, up_vec)
+    return out
+
+
+def posture_axis_summary(student_series, reference_series):
+    """자세 축 시계열 2벌 → {studentDeg, referenceDeg, deltaDeg, significant} | None.
+
+    각 시계열의 nanmedian 을 대표값으로 요약한다. median 선택 근거: 자세 축은
+    지속 품질 신호다 — max_split 의 peak 논리와 반대로, 한 프레임 jitter/폐색이
+    판정을 오염시키지 않게 robust median 을 쓴다.
+
+    delta = student - reference (frame_pair_angle_deltas 의 delta 부호 선례와 동일).
+    significant = |delta| >= POSTURE_DELTA_SIGNIFICANT_DEG — 그 아래는 잡음이라
+    코칭 지시로 승격하지 않는다. 한쪽이라도 유한값 0개면 None(요약 불가 fail-closed).
+    """
+    s = np.asarray(student_series, dtype=float).ravel()
+    r = np.asarray(reference_series, dtype=float).ravel()
+    if s.size == 0 or r.size == 0:
+        return None
+    if not np.isfinite(s).any() or not np.isfinite(r).any():
+        return None
+    student_deg = float(np.nanmedian(s))
+    reference_deg = float(np.nanmedian(r))
+    delta = student_deg - reference_deg
+    return {
+        "studentDeg": student_deg,
+        "referenceDeg": reference_deg,
+        "deltaDeg": delta,
+        "significant": abs(delta) >= POSTURE_DELTA_SIGNIFICANT_DEG,
+    }
+
+
 def max_split(split_series):
     """split 시계열 (T,) → (최대 split(도), 프레임 인덱스). 유한값 없으면 (nan, -1).
 

@@ -80,7 +80,18 @@ belle: "안드로이드도 같이 등록할거긴 해. 근데 베타테스터 �
 | Android | `1:965554697584:android:dd29a9be553bef20b4cbb5` | package `com.sunity.aicoach` |
 | Web (기존) | `1:965554697584:web:77407108c7476e65b4cbb5` | 앱이 지금 쓰는 config |
 
-### ★막힌 곳 — Google provider 활성화는 콘솔에서만 된다
+### provider 활성화 — 콘솔 전용, belle 이 토글로 해소 (완료)
+
+**Google·Apple 둘 다 ON** (2026-08-30, API 로 확인).
+- `google.com` — clientId 자동 생성됨. iOS `CLIENT_ID`/`REVERSED_CLIENT_ID` 확보.
+- `apple.com` — ON (네이티브 iOS 흐름이라 clientId 없음이 정상).
+
+★Firebase 프로젝트 소유 계정 = **sunity3412** (belle6466 아님).
+gcloud 활성 계정도 sunity3412 라 Admin API 조회가 통했다.
+
+<details 아래는 왜 콘솔이어야 했는지의 기록>
+
+### 막힌 곳이었던 이유 — Google provider 활성화는 콘솔에서만 된다
 
 iOS `GoogleService-Info.plist` 를 받아보니 **`CLIENT_ID`/`REVERSED_CLIENT_ID` 가 없다**.
 OAuth 클라이언트가 아직 만들어지지 않았다는 뜻이고, 그건 Firebase Auth 에서 Google

@@ -7,6 +7,7 @@ import SocialIcon from '../../components/SocialIcon';
 import SunityWordmark from '../../components/SunityWordmark';
 import { authCopy } from '../../constants/authCopy';
 import { SOCIAL_PROVIDERS, type SocialProviderId } from '../../constants/socialProviders';
+import { signInWithGoogle } from '../../lib/socialAuth';
 import { colors, radius, spacing, typography } from '../../theme';
 
 // 로그인 — Figma node 1:550 (fileKey jrdI7kp245HkPfLB0nclsz).
@@ -28,10 +29,30 @@ import { colors, radius, spacing, typography } from '../../theme';
 export default function Login() {
   const router = useRouter();
   const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const onProviderPress = (_id: SocialProviderId) => {
-    // 36-02~05 에서 각 provider 로 교체된다.
-    setNotice(authCopy.notWiredYet);
+  // Google 만 배선돼 있다 (36-02). 나머지는 36-03~05 에서 이 분기가 하나씩 사라진다.
+  const onProviderPress = async (id: SocialProviderId) => {
+    if (id !== 'google') {
+      setNotice(authCopy.notWiredYet);
+      return;
+    }
+    setNotice(null);
+    setBusy(true);
+    try {
+      const { outcome } = await signInWithGoogle();
+      if (outcome === 'cancelled') return; // 사용자가 닫은 것 — 오류가 아니다
+      if (outcome === 'switched') {
+        // 게스트 기록이 다른 uid 에 남는다는 사실을 알린 뒤 넘어간다.
+        setNotice(authCopy.result.switched);
+        return;
+      }
+      router.replace('/(tabs)');
+    } catch {
+      setNotice(authCopy.result.failed);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -56,11 +77,12 @@ export default function Login() {
             <Pressable
               key={p.id}
               onPress={() => onProviderPress(p.id)}
+              disabled={busy}
               style={({ pressed }) => [
                 styles.tile,
                 { backgroundColor: p.bg },
                 p.border ? { borderWidth: 1, borderColor: p.border } : null,
-                pressed && styles.pressed,
+                (pressed || busy) && styles.pressed,
               ]}
               accessibilityRole="button"
               accessibilityLabel={authCopy.providers[p.id].login}

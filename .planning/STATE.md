@@ -29,20 +29,18 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 > 2026-08-30 정리. 아래 수치는 `.planning/phases/` 실측(PLAN vs SUMMARY 개수)이다.
 
-**로드맵 38 페이즈 — 완료 25 / 진행중 9 / 미착수 4**
+**로드맵 38 페이즈 — 완료 30 / 진행중 4 / 미착수 4** (01·12_5·20·24·25 는 2026-08-31 quick/260831-c3l 스텁 마감으로 완료 편입)
 
 진행중 (남은 plan 수):
 ```
-01-poseengine-mediapipe-nlf-r-d      2   (R&D, 사실상 종료)
-12_5-ui-transparency                 1
-20-v2-gemini                         1
 22-custom-vlm-finetune               4   v34 gates FAIL — belle: 데이터 더 쌓고 재시도
-24-transparent-deduction-scoring     1
-25-vision-pointed-upper-body         1
 31-api-visual-correction             1   31-12 배포 게이트
 33-result-trust-recovery             3   33-07 flip(belle 보류) · 33-16 UAT · 33-21 조건부
 36-account-system                    2   36-01/02 실행, SUMMARY 미작성
 ```
+
+> 2026-08-31 스텁 마감 (quick/260831-c3l): 01-24·12.5-01 사문 / 01-25·24-03·25-04 실질완료 / 20-04 파킹.
+> **20-04 마감은 SCORE-09 를 닫지 않는다 — SCORE-09 는 별도 PENDING 잔류 (위 20-04/SCORE-09 ownership 노트).**
 
 미착수 (PLAN 0):
 ```

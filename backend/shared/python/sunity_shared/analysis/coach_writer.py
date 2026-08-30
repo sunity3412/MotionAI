@@ -293,9 +293,26 @@ class CerebrasCoachWriter:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.4,
-                max_completion_tokens=2500,  # detail2 길이 — 3 joints × 5 causes 박제 박제
+                # 관절 수에 비례해 잡는다. 2500 고정은 "3 joints × 5 causes" 기준이라,
+                # 관절이 더 잡히는 긴 영상에서 응답이 잘렸다(62초 3/3 실패, 18초 0건).
+                max_completion_tokens=_completion_budget(len(joints)),
             )
-            data = json.loads(resp.choices[0].message.content)
+            choice = resp.choices[0]
+            content = choice.message.content or ""
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError:
+                # 잘린 응답을 통째로 버리면 코칭 전체가 수치 폴백으로 **조용히** 떨어진다.
+                # 완결된 관절 항목만 건져 쓴다 — 3개 중 2개라도 살리는 편이 0개보다 낫다.
+                # ★로그를 API 실패와 분리한다: 원인이 다르면 이름도 달라야 한다
+                #   (08-28 unknown_mode 교훈 — 서로 다른 실패를 한 이름으로 뭉치지 말 것).
+                data = _salvage_partial_json(content)
+                log.warning(
+                    "Cerebras 응답 잘림(finish_reason=%s, %d자) — 완결 항목 %d개만 사용",
+                    getattr(choice, "finish_reason", None),
+                    len(content),
+                    len(data),
+                )
             out: dict = {}
             for k, v in data.items():
                 if not isinstance(v, (str, dict)):
@@ -314,6 +331,56 @@ class CerebrasCoachWriter:
         except Exception:  # noqa: BLE001
             log.exception("Cerebras 코칭 생성 실패 — 수치 폴백 사용")
             return {}
+
+
+def _completion_budget(joint_count: int) -> int:
+    """관절 수에 맞춘 출력 토큰 상한.
+
+    detail + detail2(causes/injuryRisk/coachNote) 한 관절이 대략 700~800 토큰을 쓴다.
+    기존 고정값 2500 은 관절 3개까지만 감당했고, 그 이상에서 응답이 잘려 코칭이
+    통째로 수치 폴백으로 떨어졌다. 하한은 기존 값과 같게 두어 짧은 영상의 동작은
+    바이트 단위로 불변이다.
+    """
+    return max(2500, min(8000, 850 * max(joint_count, 0) + 700))
+
+
+def _salvage_partial_json(text: str) -> dict:
+    """잘린 JSON 오브젝트에서 **완결된 최상위 항목만** 건진다.
+
+    응답이 `{"shoulder": {...}, "hip": {...`  처럼 중간에서 끊겼을 때, 마지막으로
+    온전히 닫힌 최상위 값까지만 잘라 유효한 오브젝트로 되돌린다. 하나도 못 건지면
+    빈 dict — 그때는 기존대로 수치 폴백이다.
+    """
+    if not text:
+        return {}
+    cuts: list[int] = []
+    depth = 0
+    in_str = False
+    esc = False
+    for i, ch in enumerate(text):
+        if esc:
+            esc = False
+            continue
+        if in_str:
+            if ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            depth += 1
+        elif ch in "}]":
+            depth -= 1
+            if depth == 1:  # 최상위 값 하나가 온전히 닫혔다
+                cuts.append(i)
+    for cut in reversed(cuts):
+        try:
+            return json.loads(text[: cut + 1] + "}")
+        except json.JSONDecodeError:
+            continue
+    return {}
 
 
 def _violates_forbidden_copy(entry) -> bool:

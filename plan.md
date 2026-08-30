@@ -1163,3 +1163,39 @@
  ⑧ 다음: /gsd-execute-phase 27 (분석 속도 1분, CONTEXT+플랜 5개 준비됨)
     또는 /gsd-execute-phase 22 (VLM 파인튜닝, belle blocking checkpoint 3개).
     진행 현황 소스 오브 트루스 = .planning/STATE.md + ROADMAP.md.
+
+---
+
+*2026-08-30 — Phase 36 (계정 시스템) 착수 + 36-01 완료:
+
+ ① belle 결정 락인 (36-CONTEXT D-01): "게스트 유지 + 로그인 추가" / "디자인은 피그마를
+    따라줘"(카피는 논의 후) / "아이디는 같은 아이디"(= funding 콘솔 앱에 모바일 플랫폼만
+    추가, 심사 없음). 08-30 추가 = **범위는 소셜 4종만**(이메일 가입 STEP01/02·비밀번호
+    찾기·Face ID 는 이번 범위 밖) + **인트로는 Figma 그대로**("시작하기"=게스트).
+
+ ② Figma 실측이 인계 노트보다 넓었다 — 계정 화면은 4개가 아니라 **로그인 3화면 +
+    비밀번호찾기 3화면 + 가입 검증 5상태**까지 있다(36-CONTEXT D-02 에 노드 전수 박제).
+    레벨 1:611 · 종목선택 1:646 은 계정이 아니라 온보딩 → phase 밖.
+
+ ③ 36-01 실행 (커밋 f957bad9): 인트로 개편 + 로그인/가입 신설 + 라우팅.
+    - 게스트 회귀 0 — 시뮬레이터에서 인트로 "시작하기" → 익명 로그인 → 튜토리얼 진입 실증.
+    - 문구 전량 `app/src/constants/authCopy.ts` 단일 출처 (belle 카피 확정 시 이 파일만).
+    - 범위 밖 링크는 비활성이 아니라 미렌더 (Phase 33 "표시마다 답 or 없앰").
+    - 에셋 함정: Figma 로고·소셜 아이콘은 **프레임**이라 PNG export 시 프레임 배경
+      #CCCCCC 가 같이 구워진다(시뮬레이터에서 회색 상자로 실측). 벡터 인라인
+      (SunityWordmark / SocialIcon)으로 교체. Google 만 원본이 래스터라 투명 PNG crop.
+    - 토큰 2개 신설(authLoginBg #FFEDEA, introCtaBorder). brand #FF4B33 무접촉.
+      `sns` 토큰은 이미 있었고 Figma 실측과 픽셀 일치 → 재사용.
+
+ ④ Firebase 실측 정정: iOS 앱이 **미등록**(웹 앱 1개뿐). "Google·Apple 은 콘솔 대기
+    없이 착수 가능"이라던 인계 노트 전제는 부분적으로 틀리다 — iOS 앱 등록 + Auth
+    provider 활성화가 선행돼야 한다(36-CONTEXT D-04). 다만 belle 대기 항목은 Apple
+    Developer App ID 의 Sign in with Apple capability 하나뿐.
+
+ ⑤ belle 판정 대기 (36-CONTEXT D-07): 인트로 사진 배경 vs "다크 배경 금지" 충돌 /
+    로그인 연분홍(#FFEDEA) vs design.md §5-1 "흰색" 충돌 / 카피 전반(특히 "희연님"
+    인사말은 최초 로그인 전 이름이 없다) / 약관 링크 목적지 / credential-already-in-use
+    처분.
+
+ ⑥ 다음: 36-02 Google 배선 → 36-03 Apple → 36-04 Lambda POST /auth/social →
+    36-05 카카오·네이버 → 36-06 마이 탭 계정 섹션 + 게스트 승계 E2E.

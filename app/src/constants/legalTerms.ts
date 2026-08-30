@@ -156,6 +156,17 @@ export const termsOfService: LegalDocument = {
       ],
     },
     {
+      heading: '제16조 (회사 정보)',
+      body: [
+        `· 상호 — ${COMPANY.name}`,
+        `· 대표자 — ${COMPANY.representative}`,
+        `· 사업자등록번호 — ${COMPANY.registrationNumber}`,
+        `· 통신판매업신고번호 — ${COMPANY.mailOrderNumber}`,
+        `· 주소 — ${COMPANY.address}`,
+        `· 문의 — ${COMPANY.contactEmail} (${COMPANY.contactHours})`,
+      ],
+    },
+    {
       heading: '부칙 (파일럿 운영)',
       body: [
         '현재 서비스는 파일럿 단계로 운영됩니다.',

@@ -11,20 +11,30 @@
 // 문안 근거는 전부 코드 실측이다 — 격차 분석과 근거 위치는
 // `.planning/phases/36-account-system/36-LEGAL-GAP.md` 참조.
 //
-// ★belle 이 채워야 하는 자리는 COMPANY 상수에 모아 뒀다 (사업자 정보·보호책임자).
+// 사업자 정보·보호책임자는 sunity.ai 가 이미 공개하고 있는 값을 그대로 옮겼다
+// (belle 2026-08-30: "너가 비워둔 그거는 펀딩 정보에서 얼마든지 있을텐디").
 
 import type { LegalDocument } from './legalTypes';
 
+// 사업자 정보는 지어내지 않았다 — 전부 sunity.ai 가 이미 공개하고 있는 값이다.
+// 출처: 펀딩 웹 푸터(`sunity-web/src/components/Footer/Footer.tsx`) +
+//       회사 개인정보처리방침 13장(보호책임자).
+// ★같은 법인의 공개 문서 두 개가 서로 다르면 그 자체가 문제라, 값을 그대로 맞춘다.
+//   회사 정보가 바뀌면 두 곳을 같이 고칠 것.
 export const COMPANY = {
-  name: '서니티',
+  name: '주식회사 서니티',
+  shortName: '서니티',
   serviceName: 'Sunity AI Coach',
-  // TODO(belle): 사업자등록번호·주소·대표자·보호책임자 성명/연락처 확정 후 교체.
-  //             회사 방침(sunity.ai)에 이미 있는 값을 그대로 쓰면 된다.
-  representative: '(대표자명)',
-  address: '(사업장 주소)',
-  registrationNumber: '(사업자등록번호)',
-  privacyOfficer: '(개인정보 보호책임자)',
-  contactEmail: 'sunity3412@gmail.com',
+  representative: '김태성',
+  address: '경기도 파주시 와석순환로 515번길 61, 504호-152호',
+  registrationNumber: '473-88-03412',
+  mailOrderNumber: '2025-경기파주-3713',
+  privacyOfficer: '김태성 (대표이사)',
+  privacyOfficerEmail: 'ceo@sunity.ai',
+  privacyOfficerPhone: '010-6444-0801',
+  // 권리행사·민원 접수 전용 채널 (회사 방침 13장 b 와 동일)
+  contactEmail: 'cs@sunity.ai',
+  contactHours: '평일 10:00 – 18:00 (공휴일 제외)',
 } as const;
 
 export const privacyPolicy: LegalDocument = {
@@ -121,7 +131,7 @@ export const privacyPolicy: LegalDocument = {
       body: [
         '이용자는 언제든지 자신의 개인정보에 대해 열람, 정정, 삭제, 처리 정지를 요구할 수 있습니다.',
         '앱에서 직접 할 수 있는 것은 다음과 같습니다. 신체 정보와 통증 부위 수정·삭제, 개별 분석 기록 삭제, 학습 활용 동의 해제입니다.',
-        `그 밖의 요청은 ${COMPANY.contactEmail} 으로 보내주시면 지체 없이 처리합니다.`,
+        `그 밖의 요청은 ${COMPANY.contactEmail} 으로 보내주시면 지체 없이 처리합니다. 운영시간은 ${COMPANY.contactHours} 입니다.`,
         '만 14세 미만 아동의 법정대리인은 아동의 개인정보에 대해 같은 권리를 행사할 수 있습니다.',
       ],
     },
@@ -160,11 +170,17 @@ export const privacyPolicy: LegalDocument = {
       ],
     },
     {
-      heading: '13. 개인정보 보호책임자',
+      heading: '13. 개인정보 보호책임자와 회사 정보',
       body: [
+        '회사는 「개인정보 보호법」 제31조에 따라 개인정보 보호책임자를 지정하고 있습니다.',
         `· 개인정보 보호책임자 — ${COMPANY.privacyOfficer}`,
-        `· 문의 — ${COMPANY.contactEmail}`,
+        `· 연락처 — ${COMPANY.privacyOfficerEmail} / ${COMPANY.privacyOfficerPhone}`,
+        `· 권리행사·민원 접수 — ${COMPANY.contactEmail} (${COMPANY.contactHours})`,
         '개인정보 처리에 관한 문의, 불만, 피해 구제에 관한 사항을 위 연락처로 접수하면 지체 없이 답변드립니다.',
+        `· 상호 — ${COMPANY.name}`,
+        `· 대표자 — ${COMPANY.representative}`,
+        `· 사업자등록번호 — ${COMPANY.registrationNumber}`,
+        `· 주소 — ${COMPANY.address}`,
       ],
     },
     {

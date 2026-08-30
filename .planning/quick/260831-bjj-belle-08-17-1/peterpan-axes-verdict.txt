@@ -1,0 +1,22 @@
+피터팬 align.json 자세 축 방향 검증 (quick-260831-bjj Task 3)
+refKp (129, 17, 2)  userKp (91, 17, 2)  conf<0.5 → NaN 마스킹
+
+[사전 박제 예측] belle 원문 '상체의 꼿꼿해짐' (기준이 학생보다 꼿꼿):
+  ref uprightness median < user uprightness median  이면 PASS
+  headSpine 은 관측만 (피터팬 원문에 머리 축 없음 — 방향 단정 금지)
+
+[실측]
+  uprightness (0°=수직 꼿꼿): ref median 10.75° (유효 126/129) / user median 20.59° (유효 91/91)
+  headSpine   (180°=1자)   : ref median 162.09° (유효 126/129) / user median 168.06° (유효 91/91)
+
+[요약 — posture_axis_summary (delta = student - reference)]
+  uprightness: {'studentDeg': 20.592591268975333, 'referenceDeg': 10.753942568828933, 'deltaDeg': 9.8386487001464, 'significant': True}
+  headSpine  : {'studentDeg': 168.06410260423567, 'referenceDeg': 162.08832455430826, 'deltaDeg': 5.975778049927413, 'significant': True}
+  significant 임계 = 5.0°
+
+[판정]
+  예측 부등식: ref uprightness median (10.75°) < user uprightness median (20.59°)
+  결과: PASS — belle 원문 방향(기준이 더 꼿꼿)과 일치
+
+[headSpine 관측] (판정 아님 — 정답지는 elbow 건)
+  학생이 더 1자 (delta>0), delta 5.98°

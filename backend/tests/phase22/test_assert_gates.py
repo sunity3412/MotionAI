@@ -5,6 +5,9 @@ Pod artifact 없이 게이트 의미론을 강제한다:
   · ARTIFACT-GATED: artifact 부재 = SKIPPED (FAIL 아님)
   · main() exit 규약: FAIL=1 / SKIPPED-only=0+경고 / --require-pass 는 SKIPPED 도 비0 (DR-03)
 """
+# svg_spec 게이트는 2026-08-30 에 폐기했다 — 일러스트(소비처)가 08-24 에 전면
+# 제거됐고, 채워질 수 없는 배선(reference_loader 미주입)으로 승급을 막고 있었다.
+# 사유 전문 = assert_gates.py 의 "(6) svg_spec 게이트 — 폐기" 주석.
 from __future__ import annotations
 
 import json
@@ -212,50 +215,8 @@ def test_fail_exit1_with_real_artifact(tmp_path, monkeypatch):
 _SVG_OK = {"force_vector": [1, 0], "ideal_trajectory": [[0, 0], [1, 1]], "target_angle_deg": 175}
 
 
-def test_svg_spec_majority_wellformed_passes():
-    doc = _doc([
-        _rec("real-a-fault", report=_report(faults=[_fault()], svg_spec=_SVG_OK)),
-        _rec("real-b-fault", report=_report(faults=[_fault()], svg_spec=_SVG_OK)),
-        _rec("real-c-fault", report=_report(faults=[_fault()], svg_spec=None)),
-    ])
-    assert ag.check_svg_spec_validity(doc) == []
 
 
-def test_svg_spec_all_null_fails():
-    doc = _doc([
-        _rec("real-a-fault", report=_report(faults=[_fault()], svg_spec=None)),
-        _rec("real-b-fault", report=_report(faults=[_fault()], svg_spec=None)),
-    ])
-    fails = ag.check_svg_spec_validity(doc)
-    assert fails and "[svg_spec]" in fails[0]
-
-
-def test_svg_spec_non_numeric_angle_fails():
-    bad = dict(_SVG_OK, target_angle_deg="많이")
-    doc = _doc([_rec("real-a-fault", report=_report(faults=[_fault()], svg_spec=bad))])
-    fails = ag.check_svg_spec_validity(doc)
-    assert any("target_angle_deg" in f for f in fails)
-
-
-def test_svg_spec_no_faulted_reports_skipped():
-    doc = _doc([_rec("real-a-correct", report=_report(faults=[]))])
-    res = ag.check_svg_spec_validity(doc)
-    assert res and res[0].startswith("SKIPPED")
-
-
-# ── _parsed_report 방어 파서 (quick-260714-hv4 — 판정 기준 무변경) ──────────
-def test_parsed_report_thought_preamble_extracted():
-    """<thought> 프리앰블 + 유효 리포트 JSON raw → normalize_report dict 로 파싱.
-
-    v4 자유생성 출력(학습 타겟 양식)이 게이트에서 파싱 실패 처리되던 계측 결함 fix —
-    파서만 schema.extract_report_json 공유, 4 게이트 임계·비교식은 불변."""
-    rep = _report(faults=[_fault()])
-    raw = "<thought>\n무릎 각도 분석.\n</thought>\n" + json.dumps(rep, ensure_ascii=False)
-    parsed = ag._parsed_report(_rec("real-a-fault", raw=raw))
-    assert isinstance(parsed, dict)
-    assert len(parsed["faults"]) == 1
-    # normalize_report 통과 — REPORT_KEYS Null 고정 구조.
-    assert "svg_spec" in parsed
 
 
 def test_parsed_report_prose_still_none():

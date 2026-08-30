@@ -396,48 +396,28 @@ def check_traceability_and_monotonicity(report_doc=None, model_id=None) -> list[
     return failures
 
 
-# ── (6) svg_spec 형식·존재 게이트 (F2) ──────────────────────────────────────
-def check_svg_spec_validity(report_doc=None, model_id=None) -> list[str]:
-    """svg_spec 스키마 유효(SVG_SPEC_KEYS + target_angle_deg 수치형) + 결함 리포트의
-    non-null 비율 >= 기준(_SVG_PRESENT_MIN_RATIO). 형식·존재 계측 — 생물역학 정합
-    아님(정답 부재 도메인 / no-overfit). 전량 null/garbage → FAIL. svg_spec 은
-    D-01 v1 필수 5출력 중 하나이므로 게이트 포함(F2).
-    """
-    if report_doc is None:
-        report_doc = load_sft_report(model_id) if model_id else None
-        if report_doc is None:
-            return ["SKIPPED (SFT bake-off run1 artifact absent)"]
-    failures: list[str] = []
-    faulted, wellformed = 0, 0
-    for r in _records(report_doc, types={"real", "hard_negative"}):
-        rep = _parsed_report(r)
-        if rep is None or not _fault_items(rep):
-            continue
-        faulted += 1
-        svg = rep.get("svg_spec")
-        if not isinstance(svg, dict):
-            continue
-        if sorted(svg.keys(), key=str) != list(schema.SVG_SPEC_KEYS):
-            failures.append(
-                f"[svg_spec] {r.get('id')}|{r.get('mode')}: 키 집합 위반 {sorted(svg.keys())}"
-            )
-            continue
-        if _finite(svg.get("target_angle_deg")) is None:
-            failures.append(
-                f"[svg_spec] {r.get('id')}|{r.get('mode')}: target_angle_deg 비수치 "
-                f"({svg.get('target_angle_deg')!r})"
-            )
-            continue
-        wellformed += 1
-    if faulted == 0:
-        return ["SKIPPED (svg_spec: 결함 짚은 파싱 리포트 0건)"]
-    ratio = wellformed / faulted
-    if ratio < _SVG_PRESENT_MIN_RATIO:
-        failures.append(
-            f"[svg_spec] 결함 리포트 {faulted}건 중 wellformed svg_spec {wellformed}건 "
-            f"(비율 {ratio:.2f} < {_SVG_PRESENT_MIN_RATIO})"
-        )
-    return failures
+# ── (6) svg_spec 게이트 — 폐기 (2026-08-30) ─────────────────────────────────
+#
+# belle 2026-08-24 결정으로 **일러스트 기능이 전면 제거**됐다(커밋 eddbdf0e/fb2eef19,
+# lib 4종·테스트 4종·에셋 21장). `svg_spec` 은 그 일러스트를 그리기 위한 기하 스펙
+# (목표 각도·힘 방향·이상 궤적)이었고, 소비처가 사라졌다.
+#
+# 실측(2026-08-30): `svg_spec` 을 읽는 코드는 이 게이트와 bake-off 관측치,
+# 그리고 학습셋 방출부뿐이다 — **앱·분석 파이프라인에 소비처 0건**.
+# `visualCards.ts`/`visual-worker` 는 Phase 31 참고코너(Wan 이미지)로 별개 물건이다.
+#
+# 그런데 이 게이트는 08-28 v34 판정에서 `wellformed 0/8` 로 FAIL 을 냈다. 원인도
+# 데이터 공백이 아니라 배선 누락이었다 — `build_jsonl` 이 `reference_loader` 에서
+# `target_angle_deg` 를 받는데, `full_batch.assemble_jsonl` 이 그 loader 를 **한 번도
+# 넘기지 않는다**(기본값 None). 즉 **아무도 안 쓰는 필드가, 채워질 수 없는 배선으로,
+# 승급을 막고 있었다.**
+#
+# 그래서 게이트를 뺀다. 필드 자체(schema.SVG_SPEC_KEYS, build_jsonl 방출)는 남긴다 —
+# 이미 S3 에 있는 학습셋과의 계약을 깨지 않기 위해서다. 무해한 잉여다.
+#
+# ★되살리려면: 일러스트(또는 그 후신)가 실제 소비처로 돌아온 뒤에, `reference_loader`
+#   배선부터 고치고 이 게이트를 복원할 것. 순서를 바꾸면 또 채워지지 않는 필드를
+#   검사하게 된다. 함수 본문은 git 이력(이 커밋의 부모)에 있다.
 
 
 # ── compose ─────────────────────────────────────────────────────────────────
@@ -463,8 +443,6 @@ def run_all_checks(model_id: str) -> dict:
          if run1 is not None and run2 is not None
          else ["SKIPPED (SFT bake-off run1/run2 artifact absent)"]),
         ("traceability_monotonicity", check_traceability_and_monotonicity(run1)
-         if run1 is not None else ["SKIPPED (SFT bake-off run1 artifact absent)"]),
-        ("svg_spec_validity", check_svg_spec_validity(run1)
          if run1 is not None else ["SKIPPED (SFT bake-off run1 artifact absent)"]),
     ):
         results[label] = _split_skips(res)

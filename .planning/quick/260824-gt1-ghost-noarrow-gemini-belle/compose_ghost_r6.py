@@ -29,12 +29,12 @@ GHOST_BLUR = 1.2
 # 실선 다리 폴리곤·피벗 (base_grid.png 실측, 896x1200 좌표계)
 RAISED_PIVOT = (480, 595)
 RAISED_POLY = [
-    (462, 640), (474, 430), (470, 300), (478, 205), (482, 148),
+    (468, 612), (474, 430), (470, 300), (478, 205), (482, 148),
     (508, 146), (514, 240), (518, 400), (512, 520), (502, 622),
 ]
 LOWER_PIVOT = (485, 660)
 LOWER_POLY = [
-    (462, 628), (510, 640), (545, 720), (585, 785), (628, 900),
+    (470, 622), (512, 642), (545, 720), (585, 785), (628, 900),
     (645, 1012), (633, 1062), (598, 1056), (572, 948), (528, 828),
     (468, 728), (448, 682),
 ]
@@ -45,21 +45,19 @@ def _ghost_layer(base: Image.Image, poly, pivot, rot_deg: float) -> Image.Image:
     mask = Image.new("L", (w, h), 0)
     ImageDraw.Draw(mask).polygon(poly, fill=255)
     ImageDraw.Draw(mask).rectangle([448, 0, 481, 560], fill=0)  # 폴 스트립 제외 (다리 접합부 y>560 은 유지)
-    mask = mask.filter(ImageFilter.GaussianBlur(3))
-    # 배경(크림색) 성분 제거 — 다리 선·명암만 잔상으로 남긴다 (사각 얼룩 방지)
+    mask = mask.filter(ImageFilter.GaussianBlur(2))
+    # 잔상 = 배경색 쪽으로 눌러 밝힌 "흐린 선 그림" (그림자·얼룩 아님, 20-1 잔상 문법)
+    bg = Image.new("RGB", base.size, base.getpixel((40, 40)))
+    faded = Image.blend(bg, base, 0.42)
+    # 배경과 거의 같은 픽셀은 잔상에서 제외 (사각 얼룩 방지)
     lum = base.convert("L")
-    darkness = lum.point(lambda v: max(0, min(255, (238 - v) * 6)))
+    ink = lum.point(lambda v: 255 if v < 236 else 0)
     from PIL import ImageChops
-    mask = ImageChops.multiply(mask, darkness)
+    mask = ImageChops.multiply(mask, ink.filter(ImageFilter.MaxFilter(5)))
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    layer.paste(base.convert("RGBA"), (0, 0), mask)
+    layer.paste(faded.convert("RGBA"), (0, 0), mask)
     layer = layer.rotate(-rot_deg, center=pivot, resample=Image.BICUBIC)
-    # 반투명화 + 블러 (모션 트레일 느낌)
-    r, g, b, a = layer.split()
-    a = a.point(lambda v: int(v * GHOST_ALPHA))
-    layer = Image.merge("RGBA", (r, g, b, a)).filter(
-        ImageFilter.GaussianBlur(GHOST_BLUR)
-    )
+    layer = layer.filter(ImageFilter.GaussianBlur(0.6))
     return layer
 
 

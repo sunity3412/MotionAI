@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: milestone
 status: executing
-stopped_at: Phase 33 §9 수리 사이클 컨텍스트 기록 완료(D-39~D-45) — 다음 = 수리 plan
+stopped_at: "Phase 36 계정 시스템 36-02 완료 — belle 우선순위 정정으로 분석 트랙 선회"
 last_updated: "2026-08-30T06:17:07.797Z"
-last_activity: "2026-08-24 - Quick task 260824-pqc: **일러스트 기능 전면 제거** (belle 08-24 결정: "일러스트 기능을 아예 빼고 서비스를 구성하자. 확대비교랑 모션 분석에 집중") — 컴포넌트 1(DefectIllustration 621줄) + lib 4종(illustrationScene/illustrationHow/progressCaption/ghostPose) + 테스트 4종 + 에셋 21장 삭제, 배선 3면(시트 슬롯·illu-float 큐·발전 캡션) 제거, 총 −2,892줄. 시트 goalLine 항상-텍스트 경로 성립(그림 카드 분기 소멸), 실사진 비교·원인·수치·미션 잔존. VideoCompare·deductionSheet 코드 무접촉(주석만). 게이트 GREEN: typecheck + node --test 201/201 pass fail 0(기지 실패 8 = 파일 삭제로 소멸, 234→201). **OTA 미발행**(belle 한마디 대기 — 발행 준비 상태), 시뮬 실증 = 오케스트레이터 후속. 커밋 eddbdf0e/fb2eef19"
+last_activity: 2026-08-30
 progress:
-  total_phases: 19
-  completed_phases: 8
+  total_phases: 38
+  completed_phases: 25
   total_plans: 118
   completed_plans: 108
-  percent: 42
+  percent: 66
 ---
 
 # Project State
@@ -27,8 +27,34 @@ See: .planning/PROJECT.md (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 33 (result-trust-recovery) — EXECUTING
-Plan: 5 of 23
+> 2026-08-30 정리. 아래 수치는 `.planning/phases/` 실측(PLAN vs SUMMARY 개수)이다.
+
+**로드맵 38 페이즈 — 완료 25 / 진행중 9 / 미착수 4**
+
+진행중 (남은 plan 수):
+```
+01-poseengine-mediapipe-nlf-r-d      2   (R&D, 사실상 종료)
+12_5-ui-transparency                 1
+20-v2-gemini                         1
+22-custom-vlm-finetune               4   v34 gates FAIL — belle: 데이터 더 쌓고 재시도
+24-transparent-deduction-scoring     1
+25-vision-pointed-upper-body         1
+31-api-visual-correction             1   31-12 배포 게이트
+33-result-trust-recovery             3   33-07 flip(belle 보류) · 33-16 UAT · 33-21 조건부
+36-account-system                    2   36-01/02 실행, SUMMARY 미작성
+```
+
+미착수 (PLAN 0):
+```
+18-expert-deliberate-fault-reference-eval-set
+21-reference-angles-gpu              ← 프로 셀프서비스 기준 등록. belle 08-30 요구사항
+34-analysis-generalization           ← "어떤 영상이 올라가든". belle 결정 2건 대기
+35-server-rendered-comparison-video
+```
+
+**현재 우선순위 = 분석** (belle 2026-08-30: "중요한건 로그인이니 게스트보단 분석잉게")
+
+착수점 = `.planning/CONTINUE-2026-08-30.md`
 
 > ✓ Wave R (채점 재설계) COMPLETE (2026-07-24) — 33-22 2트랙 IPSF 감점 엔진(실행 −40캡 바닥60 + DORMANT 치명 캡우회 절대바닥25, `final=max(25,100−min(40,Σ실행)−Σ치명)`, 기존 임계 byte-unchanged) + 33-23 재검증 PASS. Pod b9l5gt1vpc4ho1(4090, ac59904 재핀, shadow candidate phase33-cm3-run1) serial 6 fixture: INV-1/2/4/5/6 동시 성립(재구성 10/10, 엘보우 −111.4→바닥60 앵커 재현, INV-4 캡 평탄화 elbow/pdshape→60=의도 트레이드오프 curve-fit 안 함), 회귀 0(HEAD vs baseline 61==61), 채점 테스트 241 pass. climb=not_pole 게이트 예외. **flip(33-07) belle 보류 유지** — 표현 트랙(33-07~16,33-21) 미착수. 정직 맥락: fault 점수 상승(57→80 등)=엔진 아닌 새 기질 효과, belle 판단 별건. 상세=33-SCORING-REVERIFY.md
 Verification: 22-12 COMPLETE (2026-07-16) — 데이터 플라이휠 "공부하기" 배치 루프 상설화. run_retrain_cycle.sh 1커맨드 사이클 러너(preflight[serial lock+greenlight 과금 게이트+디스크 30GB+git pull] → label[신규분만 과금] → assemble[jsonl_backup_ s3 백업 선행 후 canonical 교체] → train → gates[bf16 병합+compute_cap>=12 조건부 flashinfer env] → promote[promotion 래칫]) + promotion.py 순수 래칫(parse_gate_verdict/make_ledger_entry/apply_ratchet/make_cycle_report — 게이트 PASS[--require-pass exit 0]만 current 전진, FAIL 은 attempt 기록만, 사람/judge 점수 저장 0) + promotion_ledger.json(current=null 초기) + FLYWHEEL-RUNBOOK §2(belle 주1회 트리거·flashinfer 박제·래칫 해석·비용 관측치). TDD 9 테스트, phase22 302 pass/1 skip, 기존 러너·게이트(run_sft/run_sft_gates/assert_gates/build_jsonl/merge_and_quant) 무접촉. 실 Pod 사이클(라벨 과금/SFT/게이트)은 v7 종료 후 런북 절차(belle 트리거). // 이전:

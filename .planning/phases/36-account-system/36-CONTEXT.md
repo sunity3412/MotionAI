@@ -69,26 +69,45 @@
 
 ---
 
-## D-04 · Firebase 실측 (2026-08-30, MCP `firebase_list_apps`)
+## D-04 · Firebase 앱 등록 (2026-08-30 실행 완료)
 
-```
-projects/sunity-ai-coach/webApps/1:965554697584:web:77407108c7476e65b4cbb5  (WEB, ACTIVE)
-```
+belle: "안드로이드도 같이 등록할거긴 해. 근데 베타테스터 거치긴할거지만..."
+→ iOS·Android 둘 다 등록했다.
 
-**iOS 앱 미등록 · Android 앱 미등록 — 웹 앱 하나뿐.**
+| 플랫폼 | appId | 식별자 |
+|---|---|---|
+| iOS | `1:965554697584:ios:00284aedf55aa570b4cbb5` | bundle `com.sunity.aicoach`, App Store `6772934567` |
+| Android | `1:965554697584:android:dd29a9be553bef20b4cbb5` | package `com.sunity.aicoach` |
+| Web (기존) | `1:965554697584:web:77407108c7476e65b4cbb5` | 앱이 지금 쓰는 config |
 
-귀결 (내 해석): "Google·Apple 은 콘솔 대기 없이 착수 가능"이라던 인계 노트의 전제는
-**부분적으로 틀리다**. 다음이 선행돼야 한다.
+### ★막힌 곳 — Google provider 활성화는 콘솔에서만 된다
 
-1. Firebase 프로젝트에 **iOS 앱 등록** (→ iOS OAuth client ID + reversed client ID URL 스킴).
-   내가 MCP `firebase_create_app` 으로 실행 가능.
-2. Firebase Authentication → **Google provider 활성화**. 콘솔 토글 또는 Identity Toolkit
-   Admin API. 실패 시 belle 콘솔 작업으로 이관.
-3. Firebase Authentication → **Apple provider 활성화**.
-4. Apple Developer → App ID `com.sunity.aicoach` 에 **Sign in with Apple capability** —
-   belle 소유 계정 작업 (memory `apple-dev-delegated-to-agency`).
+iOS `GoogleService-Info.plist` 를 받아보니 **`CLIENT_ID`/`REVERSED_CLIENT_ID` 가 없다**.
+OAuth 클라이언트가 아직 만들어지지 않았다는 뜻이고, 그건 Firebase Auth 에서 Google
+provider 를 켤 때 자동 생성된다.
 
----
+API 로 켜보려 했으나 막혔다 (실행 로그):
+- `identitytoolkit.googleapis.com/admin/v2/.../defaultSupportedIdpConfigs` 조회 → `{}`
+  (활성화된 IdP 0개). ※ADC 사용 시 `x-goog-user-project` 헤더 필요.
+- `POST ...?idpId=google.com` `{"enabled":true}` → **400 `INVALID_CONFIG : client_id
+  cannot be empty`**. OAuth 클라이언트를 먼저 만들어야 하는데 그 생성은 공개 API 가 없다
+  (콘솔이 자동으로 해주는 일).
+
+→ **Firebase 콘솔 Authentication → Sign-in method → Google 토글**이 유일한 경로.
+Apple provider 도 같은 화면에서 켠다(네이티브 iOS 흐름은 Service ID 불필요).
+
+### 그 다음에 필요한 것
+
+- **Android Google 로그인은 SHA-1 지문 등록이 추가로 필요하다.** EAS 릴리스 키스토어
+  (또는 Play 앱 서명) 지문을 Firebase Android 앱에 넣어야 한다. MCP
+  `firebase_create_android_sha` 로 넣을 수 있으니 지문만 확보되면 내가 처리한다.
+- 카카오·네이버도 Android 는 **키 해시** 등록이 별도로 필요하다(belle 콘솔).
+
+### ★빌드 영향 (미리 알아둘 것)
+
+`@react-native-google-signin/google-signin` 과 `expo-apple-authentication` 은
+**네이티브 모듈**이라, 넣는 순간 지금 시뮬레이터에 깔린 dev client 빌드로는 안 돌아간다.
+36-02 는 **새 dev build(EAS 또는 로컬 prebuild)** 를 한 번 굽는 것을 포함한다.
 
 ## D-05 · funding 참고본 실측 (`/Users/kimtaesung/Dev/Sunityfunding`)
 

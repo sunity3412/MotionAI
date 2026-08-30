@@ -45,6 +45,11 @@ from .client import GeminiVisionCall
 from .config import resolve_model
 from .schemas import CoachPayload
 
+# quick-260831-bjj — belle 08-17 판독 축(postureAxes) 렌더는 Cerebras 와 단일 출처
+# 공유 (발화 판정 로직 두 곳 중복 금지 — B3 정합. analysis.coach_writer 는 순수
+# stdlib+phrasebook 이라 순환 import 0).
+from sunity_shared.analysis.coach_writer import format_posture_axis_lines
+
 # Phase 17 Plan 06B — Phoenix span event 박제 (TELEMETRY_OK gate).
 try:
     from sunity_shared.eval import TELEMETRY_OK
@@ -194,6 +199,7 @@ def _build_prompt(
     joints: list[dict],
     scene_flags: dict | None = None,
     vision_fault: dict | None = None,
+    posture_axes: dict | None = None,
 ) -> str:
     """8 관절 deviation 수치 + scene_flags hint → user prompt 박제.
 
@@ -204,6 +210,9 @@ def _build_prompt(
         occlusion_severe / backbend_present 가 True 면 prompt 에 hint 한 줄 박는다.
       vision_fault: context["visionFault"] — 23-02 to_coach_context() 의 vision-fault
         (support-gated rootCauseHypotheses). causes 섹션 원인 단서로 렌더.
+      posture_axes: context["postureAxes"] — quick-260831-bjj belle 08-17 판독 축
+        (mode1 기준-학생 델타). Cerebras 와 같은 발화 규칙(format_posture_axis_lines
+        단일 출처) — None/전부 미발화 시 프롬프트 byte-불변.
 
     Returns:
       Korean prompt string — Gemini Pro 호출 user 메시지.
@@ -227,6 +236,10 @@ def _build_prompt(
     vision_lines = _format_vision_fault_lines(vision_fault)
     vision_block = ("\n\n" + "\n".join(vision_lines)) if vision_lines else ""
 
+    # quick-260831-bjj — belle 08-17 판독 축. 발화 0건이면 빈 블록 = byte-불변.
+    posture_lines = format_posture_axis_lines(posture_axes)
+    posture_block = ("\n" + "\n".join(posture_lines)) if posture_lines else ""
+
     return (
         _COACH_SYSTEM_INSTRUCTION
         + "\n"
@@ -238,6 +251,7 @@ def _build_prompt(
         + "\n".join(lines)
         + hint
         + vision_block
+        + posture_block
         + "\n\nJSON 으로만 응답하세요. 다른 텍스트 / 마크다운 / 주석 금지.\n"
     )
 
@@ -469,11 +483,18 @@ class GeminiCoachWriter:
 
         scene_flags = context.get("sceneFlags") or None
         vision_fault = context.get("visionFault") or None
+        # quick-260831-bjj — belle 08-17 판독 축 (mode1 만 채워짐, 없으면 None graceful).
+        posture_axes = context.get("postureAxes") or None
         # 27-04: 세션 핸들 (없으면 None → 기존 attempt-당 업로드 폴백). retry 는 이 핸들을
         # 재사용해 generate 만 반복 — 재업로드 0 (Pitfall 8). client.py 가 소유권=세션이면
         # finally delete skip.
         preuploaded_handle = context.get("preuploadedHandle")
-        prompt = _build_prompt(joints, scene_flags=scene_flags, vision_fault=vision_fault)
+        prompt = _build_prompt(
+            joints,
+            scene_flags=scene_flags,
+            vision_fault=vision_fault,
+            posture_axes=posture_axes,
+        )
 
         # ── (3) Gemini 호출 + 후처리 검증 retry 1회.
         last_exc: ValueError | None = None

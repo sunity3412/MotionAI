@@ -163,12 +163,68 @@ def _format_vision_fault_lines(vision_fault: dict | None) -> list[str]:
     return lines
 
 
+def format_posture_axis_lines(posture_axes: dict | None) -> list[str]:
+    """quick-260831-bjj — belle 08-17 판독 축(postureAxes) → 프롬프트 인과형 지시 라인.
+
+    양 writer(Cerebras + Gemini coach_writer_v2)가 이 함수 하나를 공유한다 — 발화
+    판정 로직이 두 곳에 중복되지 않게(B3 정합), 판정에 쓰는 부호·significant 는
+    features.posture_axis_summary 산출값({studentDeg, referenceDeg, deltaDeg,
+    significant})만 소비한다.
+
+    발화 규칙 — significant=True 이고 **학생이 나쁜 방향일 때만** 렌더 (결함 코칭
+    목적 — 기준 우위 전제. 학생이 더 꼿꼿/더 1자면 교정 지시가 성립하지 않는다):
+      · uprightness delta > 0 — 학생이 기준보다 더 기울어짐 (belle 피터팬 원문
+        "상체의 꼿꼿해짐이 전체적 영향" — 기준이 학생보다 상체 꼿꼿).
+      · headSpine delta < 0 — 학생이 기준보다 덜 1자 (belle elbow r02cand03 원문
+        "고개 — 기준은 들어 몸-머리가 1자").
+
+    문구는 인과형(부위 → 행동 → 결과), 수치는 "N° 정도" 보조만 — "좁다" 식 상태
+    서술 금지 (memory how-illustration-arrow-and-number-grammar). 발화 0건이면 빈
+    list → 호출자 프롬프트 byte-불변 (zero behavior change).
+    """
+    if not isinstance(posture_axes, dict):
+        return []
+    body: list[str] = []
+    upright = posture_axes.get("uprightness")
+    if (
+        isinstance(upright, dict)
+        and upright.get("significant")
+        and float(upright.get("deltaDeg", 0.0)) > 0.0
+    ):
+        mag = round(abs(float(upright["deltaDeg"])))
+        body.append(
+            f"- 상체 꼿꼿함: 학생 상체가 기준보다 {mag}° 정도 더 기울어져 있음 — "
+            "'상체를 세워 꼿꼿하게 만들면 동작 전체 라인이 산다' 흐름의 인과형 "
+            "지시로 반영."
+        )
+    head = posture_axes.get("headSpine")
+    if (
+        isinstance(head, dict)
+        and head.get("significant")
+        and float(head.get("deltaDeg", 0.0)) < 0.0
+    ):
+        mag = round(abs(float(head["deltaDeg"])))
+        body.append(
+            f"- 머리-척추 1자: 학생 머리-척추 정렬이 기준보다 {mag}° 정도 덜 펴져 "
+            "있음 — '고개를 들어 머리와 척추가 1자가 되게' 흐름의 인과형 지시로 반영."
+        )
+    if not body:
+        return []
+    return [
+        "",
+        "[자세 축 실측] (기준-학생 자세 축 비교 실측 — 아래를 부위 → 행동 → 결과 "
+        "인과형 문장으로 코칭에 반영. 수치는 'N° 정도' 보조로만, 상태 서술 단독 금지):",
+        *body,
+    ]
+
+
 def _build_prompt(
     joints: list[dict],
     motion_name: str | None = None,
     branch: str | None = None,
     angle_fixture: dict | None = None,
     vision_fault: dict | None = None,
+    posture_axes: dict | None = None,
 ) -> str:
     """Phase 12.5 T9: 짧은 detail + 긴 detail2 (causes/injuryRisk/coachNote) 한 호출.
 
@@ -226,11 +282,16 @@ def _build_prompt(
     vision_lines = _format_vision_fault_lines(vision_fault)
     vision_block = ("\n" + "\n".join(vision_lines) + "\n") if vision_lines else ""
 
+    # quick-260831-bjj — belle 08-17 판독 축. 발화 0건이면 빈 블록 = byte-불변.
+    posture_lines = format_posture_axis_lines(posture_axes)
+    posture_block = ("\n" + "\n".join(posture_lines) + "\n") if posture_lines else ""
+
     return (
         prefix
         + "다음 관절들의 교정 코칭을 생성해줘:\n"
         + "\n".join(lines)
         + vision_block
+        + posture_block
         + "\n\n각 관절에 대해 'detail' (카드 본문 한 줄) 과 'detail2' (자세히 모달용 — "
         "causes 3~5개 + injuryRisk + coachNote) 둘 다 만들어줘.\n"
         f"\nJSON 형식: {schema_hint}"
@@ -288,6 +349,8 @@ class CerebrasCoachWriter:
                             branch=context.get("branch"),
                             angle_fixture=context.get("angleFixture"),
                             vision_fault=context.get("visionFault"),
+                            # quick-260831-bjj — belle 08-17 판독 축 (없으면 None graceful).
+                            posture_axes=context.get("postureAxes"),
                         ),
                     },
                 ],

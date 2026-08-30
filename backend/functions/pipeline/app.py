@@ -59,6 +59,7 @@ from sunity_shared.analysis import (
     assemble,
     body_normalizer,
     dimensions,
+    features,  # quick-260831-bjj — belle 08-17 판독 축 (posture_axis_summary 등)
     kismam,
     safety_flags as safety_flags_mod,  # Phase 10 (Plan 10-02) — 결정론 부상 위험 신호
     segments,
@@ -907,6 +908,83 @@ def _load_coach_angle_fixture(branch_info) -> dict | None:
         return None
 
 
+def _reference_keypoints_coco17(ref: dict):
+    """mode1 ref doc joints3d(flat)+joints3dKeys → (T,17,3) COCO17 순서 복원 | None.
+
+    quick-260831-bjj — belle 08-17 판독 축 입력용. Firestore flat 저장분을
+    skeleton.KEYPOINT_NAMES 순서로 재배열한다(이름→인덱스 매핑, 키 없는 관절은
+    NaN 행). **전-0 triple → NaN 복원** — joints3d 저장 sentinel 규약
+    (side_match.py: "NaN→0.0 sentinel, 0,0,0 을 실좌표로 읽으면 오인").
+    형상/키 malformed → None (방어적 파싱 — threat T-quick-01, 백엔드가 쓴 값이나
+    형상은 신뢰하지 않는다).
+    """
+    try:
+        flat = ref.get("joints3d")
+        keys = list(ref.get("joints3dKeys") or [])
+        if flat is None or not keys:
+            return None
+        arr = np.asarray(flat, dtype=float)
+        if arr.ndim == 1:
+            if arr.size == 0 or arr.size % (len(keys) * 3) != 0:
+                return None
+            arr = arr.reshape(-1, len(keys), 3)
+        if (
+            arr.ndim != 3
+            or arr.shape[0] == 0
+            or arr.shape[1] != len(keys)
+            or arr.shape[2] != 3
+        ):
+            return None
+        arr = arr.copy()
+        # 전-0 triple = 저장 sentinel (원래 NaN) — 실좌표 오인 금지.
+        arr[np.all(arr == 0.0, axis=2)] = np.nan
+        out = np.full(
+            (arr.shape[0], len(skeleton.KEYPOINT_NAMES), 3), np.nan, dtype=float
+        )
+        src_idx = {name: i for i, name in enumerate(keys)}
+        for j, name in enumerate(skeleton.KEYPOINT_NAMES):
+            i = src_idx.get(name)
+            if i is not None:
+                out[:, j, :] = arr[:, i, :]
+        return out
+    except Exception:  # noqa: BLE001 — malformed ref doc 방어 (graceful None)
+        return None
+
+
+def _compute_posture_axes(keypoints_4ch, ref: dict | None) -> dict | None:
+    """belle 08-17 판독 축 — mode1 기준-학생 자세 축 델타 | None (quick-260831-bjj).
+
+    상체 꼿꼿함(torso_uprightness_series) + 머리-척추 1자(head_spine_alignment_series)
+    를 학생(keypoints_4ch)·기준(ref joints3d 복원) 양쪽에서 계산하고
+    features.posture_axis_summary 로 요약한다:
+      {"headSpine": {...}|None, "uprightness": {...}|None} — 둘 다 None 이면 None.
+
+    발화 판정(부호·significant)은 이 summary 산출값만 소비한다 — 양 coach writer 가
+    같은 값을 읽는다(B3 정합). 전체 try/except graceful — 코칭 보조 실패는 분석을
+    중단시키지 않는다(side_match 관측 블록 규율). **점수 경로 진입 금지** — coach
+    context 전달만 (bodyProfile D-05 선례와 동일 규율, 사후 점수 변경 0 D-03).
+    """
+    try:
+        reference = _reference_keypoints_coco17(ref or {})
+        if reference is None:
+            return None
+        student = np.asarray(keypoints_4ch, dtype=float)
+        head = features.posture_axis_summary(
+            features.head_spine_alignment_series(student),
+            features.head_spine_alignment_series(reference),
+        )
+        upright = features.posture_axis_summary(
+            features.torso_uprightness_series(student),
+            features.torso_uprightness_series(reference),
+        )
+        if head is None and upright is None:
+            return None
+        return {"headSpine": head, "uprightness": upright}
+    except Exception:  # noqa: BLE001 — 코칭 보조 실패는 분석 무영향 (graceful)
+        log.info("postureAxes 계산 실패 — 코칭 보조 생략 (분석 무영향)", exc_info=True)
+        return None
+
+
 def _build_coach_context(
     *,
     mode: str,
@@ -916,6 +994,7 @@ def _build_coach_context(
     scene_flags: dict | None,
     body_profile: dict | None = None,
     branch_info=None,
+    posture_axes: dict | None = None,
 ) -> dict:
     """Cerebras / Gemini 양 writer 가 공유하는 단일 coach_context dict 박제 (B3 정합).
 
@@ -962,6 +1041,10 @@ def _build_coach_context(
         "angleFixture": _load_coach_angle_fixture(branch_info)
         if branch_info is not None
         else None,
+        # quick-260831-bjj — belle 08-17 판독 축 (상체 꼿꼿함·머리-척추 1자) mode1
+        # 기준-학생 델타. None 시 양 writer 프롬프트 byte-불변 (bodyProfile/
+        # branch_info graceful 선례). 값은 _compute_posture_axes 산출 그대로.
+        "postureAxes": posture_axes,
     }
 
 
@@ -6808,6 +6891,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
     # quick-260801-gbk — criterion 별 측정 순간 out-param. mode3/legacy 에서도 이름이
     # 존재해야 아래 _attach_translation_emission 호출부가 안전하다(빈 dict = 각인 0).
     measured_at: dict = {}
+    # quick-260831-bjj — belle 08-17 판독 축 (상체 꼿꼿함·머리-척추 1자). Mode1 에서만
+    # 채움 — 기준-학생 비교 판독(belle 08-17)이 근거라 기준 비교에서만 발화, Mode3 는
+    # None 유지. 점수 경로 진입 금지 — coach context 전달만 (bodyProfile D-05 규율).
+    posture_axes: dict | None = None
 
     # R2 wiring — target 영상 torso px 산출 (compare_body_profiles target_torso_px arg).
     target_torso = _extract_target_torso_px(pose_frames)
@@ -7023,6 +7110,10 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 )
                 # 각도 정확도 차원 = 정은지 대비 관절각 일치도. 모드1 게이지/일치도이기도 함.
                 angle_dim = kismam.overall_score(assessments)
+            # quick-260831-bjj — belle 08-17 판독 축 (기준-학생 자세 축 델타).
+            # a_ref 확보와 같은 ref 재료(joints3d)를 소비 — 실패는 내부 graceful
+            # None (코칭 보조, 점수 무영향). Mode3 는 위 초기화 None 유지.
+            posture_axes = _compute_posture_axes(inputs.keypoints_4ch, ref)
             # 비폴 영상 차단 안전망(belle P1 #8). 기준 동작과 너무 동떨어진 자세는
             # 폴 영상이 아닐 가능성이 높아 의미 없는 점수를 결과 화면에 노출하지 않는다.
             if angle_dim < models.NOT_POLE_SIMILARITY_THRESHOLD:
@@ -7238,6 +7329,8 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             # 프로필을 meta free-read (referenceMotionId 와 동일 메커니즘). server
             # normalize_body_profile 로 unknown enum/범위 밖 → None graceful (SC#4).
             body_profile=models.normalize_body_profile(meta.get("bodyProfile")),
+            # quick-260831-bjj — belle 08-17 판독 축 (mode1 만 값, mode3 None).
+            posture_axes=posture_axes,
         )
         # 23-02 Task 5 — vision-fault root-cause 를 coach context 에 주입(eligible 시에만).
         if vision_coach_context is not None:

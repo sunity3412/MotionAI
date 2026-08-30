@@ -555,6 +555,77 @@ class TestCausalChainDirective:
         assert "출발점" not in stub.prompts[0]
 
 
+class TestPostureAxes:
+    """quick-260831-bjj — belle 08-17 판독 축 (Cerebras 와 같은 발화 규칙, B3 정합).
+
+    발화 판정(부호·significant)은 features.posture_axis_summary 산출값만 소비 —
+    렌더 로직은 coach_writer.format_posture_axis_lines 단일 출처 공유.
+    """
+
+    _SIG_POSTURE = {
+        "uprightness": {"studentDeg": 25.0, "referenceDeg": 10.0,
+                        "deltaDeg": 15.0, "significant": True},
+        "headSpine": {"studentDeg": 160.0, "referenceDeg": 175.0,
+                      "deltaDeg": -15.0, "significant": True},
+    }
+
+    def test_significant_posture_axes_reach_prompt(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """significant + 학생 열위 방향 → 인과형 지시가 실제 프롬프트 payload 에 도달."""
+        stub = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub)
+
+        ctx = _context(tmp_path)
+        ctx["postureAxes"] = self._SIG_POSTURE
+        writer = GeminiCoachWriter()
+        writer.write(ctx)
+
+        assert "자세 축 실측" in stub.prompts[0]
+        assert "상체를 세워" in stub.prompts[0]
+        assert "고개를 들어" in stub.prompts[0]
+        assert "15° 정도" in stub.prompts[0]
+
+    def test_posture_axes_absent_prompt_byte_identical(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """postureAxes None/부재 → 프롬프트 byte-불변 (zero behavior change)."""
+        stub_absent = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub_absent)
+        writer = GeminiCoachWriter()
+        writer.write(_context(tmp_path))
+
+        stub_none = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub_none)
+        ctx = _context(tmp_path)
+        ctx["postureAxes"] = None
+        writer2 = GeminiCoachWriter()
+        writer2.write(ctx)
+
+        assert stub_none.prompts[0] == stub_absent.prompts[0]
+        assert "자세 축 실측" not in stub_absent.prompts[0]
+
+    def test_all_insignificant_prompt_byte_identical(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """전부 insignificant → byte-불변 (잡음 델타 지시 승격 금지)."""
+        stub_base = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub_base)
+        GeminiCoachWriter().write(_context(tmp_path))
+
+        stub_insig = _StubCall([_ok_payload()])
+        _patch_call(monkeypatch, stub_insig)
+        ctx = _context(tmp_path)
+        ctx["postureAxes"] = {
+            "uprightness": {"studentDeg": 12.0, "referenceDeg": 10.0,
+                            "deltaDeg": 2.0, "significant": False},
+            "headSpine": None,
+        }
+        GeminiCoachWriter().write(ctx)
+
+        assert stub_insig.prompts[0] == stub_base.prompts[0]
+
+
 class TestFirestoreAdminGeminiBKwarg:
     """firestore_admin.complete_analysis(gemini_b=...) Firestore set payload 에 `geminiB` 박힘."""
 

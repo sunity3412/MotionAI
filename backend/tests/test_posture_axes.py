@@ -242,3 +242,152 @@ def test_summary_all_nan_side_returns_none():
     assert posture_axis_summary([np.nan, np.nan], [10.0]) is None
     assert posture_axis_summary([10.0], [np.nan]) is None
     assert posture_axis_summary([], [10.0]) is None
+
+
+# ─────────────── pipeline 배선 — _reference_keypoints_coco17 (Task 2) ───────────────
+# pipeline app 모듈 로드 = test_body_profile.py 선례 (sys.path + importorskip("app")).
+
+_PIPELINE_DIR = Path(__file__).resolve().parents[1] / "functions" / "pipeline"
+if str(_PIPELINE_DIR) not in sys.path:
+    sys.path.insert(0, str(_PIPELINE_DIR))
+
+from sunity_shared.analysis.skeleton import KEYPOINT_NAMES  # noqa: E402
+
+
+def _ref_doc_from_kp(kp, keys):
+    """(T,K,3) → ref doc dict {joints3d flat, joints3dKeys} (Firestore flat 저장 규약)."""
+    arr = np.asarray(kp, dtype=float)
+    return {
+        "joints3d": [float(v) for v in arr.ravel()],
+        "joints3dKeys": list(keys),
+    }
+
+
+def test_reference_keypoints_restores_shape_order_and_sentinel():
+    """flat joints3d → (T,17,3) KEYPOINT_NAMES 재배열 + 전-0 sentinel → NaN 복원."""
+    pipeline_app = pytest.importorskip("app")
+    # 저장 키 순서를 일부러 KEYPOINT_NAMES 와 다르게 — 재배열 검증.
+    keys = ["left_hip", "nose", "right_hip"]
+    kp = np.zeros((2, 3, 3), dtype=float)
+    kp[:, 0] = [1.0, 2.0, 3.0]   # left_hip
+    kp[0, 1] = [4.0, 5.0, 6.0]   # nose 프레임0
+    kp[1, 1] = [0.0, 0.0, 0.0]   # nose 프레임1 — 전-0 sentinel (NaN 저장분)
+    kp[:, 2] = [7.0, 8.0, 9.0]   # right_hip
+    out = pipeline_app._reference_keypoints_coco17(_ref_doc_from_kp(kp, keys))
+    assert out is not None
+    assert out.shape == (2, 17, 3)
+    np.testing.assert_allclose(out[0, kp_index("nose")], [4.0, 5.0, 6.0])
+    # sentinel 0,0,0 → NaN (side_match.py 규약 — 실좌표 오인 금지).
+    assert np.isnan(out[1, kp_index("nose")]).all()
+    np.testing.assert_allclose(out[:, kp_index("left_hip")], [[1, 2, 3], [1, 2, 3]])
+    np.testing.assert_allclose(out[:, kp_index("right_hip")], [[7, 8, 9], [7, 8, 9]])
+    # 키 누락 관절(left_knee 등) → NaN 행.
+    assert np.isnan(out[:, kp_index("left_knee")]).all()
+
+
+def test_reference_keypoints_malformed_returns_none():
+    """형상/키 malformed → None (방어적 파싱 — threat T-quick-01)."""
+    pipeline_app = pytest.importorskip("app")
+    assert pipeline_app._reference_keypoints_coco17({}) is None
+    assert pipeline_app._reference_keypoints_coco17(
+        {"joints3d": [1.0, 2.0], "joints3dKeys": ["nose"]}  # 3의 배수 아님
+    ) is None
+    assert pipeline_app._reference_keypoints_coco17(
+        {"joints3d": [1.0, 2.0, 3.0], "joints3dKeys": []}
+    ) is None
+    assert pipeline_app._reference_keypoints_coco17(
+        {"joints3d": None, "joints3dKeys": ["nose"]}
+    ) is None
+
+
+def _full_ref_doc(pose_points):
+    """{name: (x,y)} 자세 1프레임 → 17관절 전부 채운 ref doc (미지정 관절은 sentinel 0)."""
+    kp = np.zeros((1, 17, 3), dtype=float)
+    for name, (x, y) in pose_points.items():
+        kp[0, kp_index(name)] = [float(x), float(y), 0.1]  # z=0.1 — 전-0 sentinel 회피
+    return _ref_doc_from_kp(kp, KEYPOINT_NAMES)
+
+
+def test_compute_posture_axes_produces_both_axes():
+    """학생(4ch) vs ref doc → headSpine/uprightness 요약 dict (features 산출값 그대로)."""
+    pipeline_app = pytest.importorskip("app")
+    # 학생: 상체를 기울인 자세 / 기준: 수직 꼿꼿 자세 → uprightness delta > 0.
+    student4 = np.zeros((1, 17, 4), dtype=float)
+    student4[0, :, :3] = 0.1
+    for name, (x, y) in {
+        "left_hip": (-0.2, 0.0), "right_hip": (0.2, 0.0),
+        "left_shoulder": (0.8, -0.6), "right_shoulder": (1.2, -0.6),  # 기울어짐
+        "left_ear": (1.4, -1.0), "right_ear": (1.6, -1.0),
+    }.items():
+        student4[0, kp_index(name), :3] = [x, y, 0.1]
+    ref = _full_ref_doc(_STRAIGHT)
+    axes = pipeline_app._compute_posture_axes(student4, ref)
+    assert axes is not None
+    assert set(axes.keys()) == {"headSpine", "uprightness"}
+    assert axes["uprightness"] is not None
+    assert axes["uprightness"]["deltaDeg"] > 0  # 학생이 더 기울어짐
+    assert axes["headSpine"] is not None
+
+
+def test_compute_posture_axes_malformed_ref_graceful_none():
+    """ref malformed / None → None (코칭 보조 실패는 분석 중단 금지)."""
+    pipeline_app = pytest.importorskip("app")
+    student4 = np.zeros((1, 17, 4), dtype=float)
+    assert pipeline_app._compute_posture_axes(student4, {}) is None
+    assert pipeline_app._compute_posture_axes(student4, None) is None
+
+
+# ─────────────── _build_coach_context postureAxes seam (Task 2) ───────────────
+
+
+def _mk_assessments():
+    """kismam.top_issues 소비용 최소 assessment (test_body_profile 선례)."""
+    from sunity_shared.analysis.kismam import JointAssessment
+
+    return [
+        JointAssessment(
+            key="left_elbow",
+            label_ko="왼팔꿈치",
+            score=70,
+            deviation_deg=23.0,
+            part="상체",
+            direction="extend",
+        ),
+    ]
+
+
+def test_build_coach_context_posture_axes_passthrough():
+    """posture_axes kwarg → context['postureAxes'] 그대로 전달 (양 writer 공유 B3)."""
+    pipeline_app = pytest.importorskip("app")
+    from sunity_shared import models
+
+    axes = {
+        "uprightness": {"studentDeg": 25.0, "referenceDeg": 10.0,
+                        "deltaDeg": 15.0, "significant": True},
+        "headSpine": None,
+    }
+    ctx = pipeline_app._build_coach_context(
+        mode=models.MODE_EXPERT,
+        assessments=_mk_assessments(),
+        dim_scores=None,
+        local_video_path=None,
+        scene_flags=None,
+        posture_axes=axes,
+    )
+    assert ctx["postureAxes"] == axes
+
+
+def test_build_coach_context_posture_axes_defaults_none():
+    """kwarg 미전달 → None (기존 키·프롬프트 불변 — bodyProfile graceful 선례)."""
+    pipeline_app = pytest.importorskip("app")
+    from sunity_shared import models
+
+    ctx = pipeline_app._build_coach_context(
+        mode=models.MODE_SELF,
+        assessments=_mk_assessments(),
+        dim_scores=None,
+        local_video_path=None,
+        scene_flags=None,
+    )
+    assert "postureAxes" in ctx
+    assert ctx["postureAxes"] is None

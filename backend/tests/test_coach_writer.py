@@ -136,6 +136,93 @@ def test_build_prompt_malformed_supported_differences_graceful():
     assert "실측 관찰" not in prompt
 
 
+# ── quick-260831-bjj — belle 08-17 판독 축(postureAxes) 프롬프트 렌더 ──
+
+
+_SIG_POSTURE = {
+    "uprightness": {"studentDeg": 25.0, "referenceDeg": 10.0,
+                    "deltaDeg": 15.0, "significant": True},
+    "headSpine": {"studentDeg": 160.0, "referenceDeg": 175.0,
+                  "deltaDeg": -15.0, "significant": True},
+}
+
+
+def test_build_prompt_renders_significant_posture_axes():
+    """significant + 학생 열위 방향 → 인과형 지시 + 'N° 정도' 보조 수치 렌더."""
+    prompt = coach_writer._build_prompt(_JOINTS, posture_axes=_SIG_POSTURE)
+    assert "자세 축 실측" in prompt
+    assert "상체를 세워" in prompt          # 인과형 지시 (상태 서술 단독 금지)
+    assert "고개를 들어" in prompt          # belle elbow 원문 방향
+    assert "15° 정도" in prompt             # 수치는 보조 (N° 정도 문법)
+
+
+def test_build_prompt_posture_none_byte_identical():
+    """postureAxes None → 프롬프트 byte-불변 (zero behavior change)."""
+    assert coach_writer._build_prompt(_JOINTS, posture_axes=None) == \
+        coach_writer._build_prompt(_JOINTS)
+    assert "자세 축 실측" not in coach_writer._build_prompt(_JOINTS)
+
+
+def test_build_prompt_posture_insignificant_byte_identical():
+    """전부 insignificant → byte-불변 (잡음 델타는 지시로 승격하지 않는다)."""
+    insig = {
+        "uprightness": {"studentDeg": 12.0, "referenceDeg": 10.0,
+                        "deltaDeg": 2.0, "significant": False},
+        "headSpine": None,
+    }
+    assert coach_writer._build_prompt(_JOINTS, posture_axes=insig) == \
+        coach_writer._build_prompt(_JOINTS)
+
+
+def test_build_prompt_posture_student_better_direction_not_rendered():
+    """학생 우위 방향(uprightness delta<0 / headSpine delta>0) → 미발화.
+
+    결함 코칭 목적 — 기준 우위 전제. 학생이 더 꼿꼿/더 1자면 교정 지시가 성립하지
+    않으므로 렌더하지 않는다 (프롬프트 byte-불변).
+    """
+    student_better = {
+        "uprightness": {"studentDeg": 5.0, "referenceDeg": 20.0,
+                        "deltaDeg": -15.0, "significant": True},
+        "headSpine": {"studentDeg": 178.0, "referenceDeg": 165.0,
+                      "deltaDeg": 13.0, "significant": True},
+    }
+    assert coach_writer._build_prompt(_JOINTS, posture_axes=student_better) == \
+        coach_writer._build_prompt(_JOINTS)
+
+
+def test_write_passes_posture_axes_to_prompt(monkeypatch):
+    """CerebrasCoachWriter.write 가 context['postureAxes'] 를 _build_prompt 에 전달."""
+    captured = {}
+
+    def _spy_build_prompt(joints, **kwargs):
+        captured["posture_axes"] = kwargs.get("posture_axes")
+        return "stub-prompt"
+
+    monkeypatch.setattr(coach_writer, "_build_prompt", _spy_build_prompt)
+
+    class _FakeClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    class _Msg:
+                        content = '{"left_knee": {"detail": "x"}}'
+
+                    class _Choice:
+                        message = _Msg()
+
+                    class _Resp:
+                        choices = [_Choice()]
+
+                    return _Resp()
+
+    writer = coach_writer.CerebrasCoachWriter.__new__(coach_writer.CerebrasCoachWriter)
+    writer._model = "gpt-oss-120b"
+    writer._client = _FakeClient()
+    writer.write({"mode": "mode1", "joints": _JOINTS, "postureAxes": _SIG_POSTURE})
+    assert captured["posture_axes"] == _SIG_POSTURE
+
+
 def test_write_passes_vision_fault_to_prompt(monkeypatch):
     """CerebrasCoachWriter.write 가 context['visionFault'] 를 _build_prompt 에 전달 (실제 호출 경로)."""
     captured = {}

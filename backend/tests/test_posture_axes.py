@@ -28,6 +28,7 @@ from sunity_shared.analysis.features import (  # noqa: E402
     head_spine_alignment_series,
     posture_axis_summary,
     torso_uprightness_series,
+    uprightness_measurable,
 )
 from sunity_shared.analysis.skeleton import kp_index  # noqa: E402
 
@@ -106,7 +107,15 @@ def test_torso_inverted_is_180():
 
 
 def test_torso_tilt_monotonic():
-    """척추를 수직→수평으로 기울일수록 uprightness 단조 증가 (기울어짐 척도)."""
+    """척추를 수직→수평으로 기울일수록 uprightness 단조 증가 (기울어짐 척도).
+
+    픽스처 현실화(2026-08-31, quick-260831-o63): 종전 픽스처는 골반·어깨 4관절만
+    설정하고 나머지 13관절을 0 으로 뒀다. 그러면 deg=90 프레임에서 **y 축 전체가
+    반올림 수준**(어깨 y = -cos(90°) ≈ -6e-17)이 되어 up 축 소실 가드에 걸린다.
+    17관절 전신 실데이터에서는 사지·머리가 y 로 벌어져 있어 생기지 않는 형태다
+    (실측: 정상 기준 7개의 y 범위 178~484). 귀를 추가해 전신 y 변화를 준다 —
+    귀는 torso_uprightness 정의 keypoint 가 아니라 각도값 자체는 종전과 동일하다.
+    """
     vals = []
     for deg in range(0, 91, 15):
         rad = np.radians(deg)
@@ -114,6 +123,8 @@ def test_torso_tilt_monotonic():
             "left_hip": (-0.2, 0.0), "right_hip": (0.2, 0.0),
             "left_shoulder": (-0.2 + np.sin(rad), -np.cos(rad)),
             "right_shoulder": (0.2 + np.sin(rad), -np.cos(rad)),
+            # 전신 y 변화(각도 계산에는 미사용) — 축 소실 합성 artifact 제거.
+            "left_ear": (-0.1, -1.5), "right_ear": (0.1, -1.5),
         }
         vals.append(float(torso_uprightness_series(_frame(pose))[0]))
     diffs = np.diff(vals)
@@ -391,3 +402,94 @@ def test_build_coach_context_posture_axes_defaults_none():
     )
     assert "postureAxes" in ctx
     assert ctx["postureAxes"] is None
+
+
+# ── up 축 소실 좌표 가드 (quick-260831-o63) ─────────────────────────────────
+# 근거: 2026-08-31 실측 — 기준 모션 11개 중 4개(foxtop·foxtop-split·invert·
+# sideway-spin)의 저장 joints3d 는 y 성분이 전 프레임 정확히 0(x-z 평면)이라
+# torso_uprightness 가 자세와 무관한 상수 90° 를 냈다. 지어낸 수치가 코칭으로
+# 나가던 경로 (.planning/quick/260831-review-followup/MEASUREMENTS.md).
+
+
+def _xz_frame(points, y_residual=0.0):
+    """y 축이 소실된 좌표 1프레임 — 실제 기준 doc 4건의 저장 규약 재현 (x, ~0, z).
+
+    ★y_residual: 실데이터의 y 는 **정확한 0 이 아니라 6e-14~1.2e-13**(평면 회전
+    연산의 부동소수 잔여, x·z 스케일 ~550)이다. 초기 가드가 "정확히 0" 이었다가
+    실데이터에서 통째로 안 먹은 것을 검증에서 발각했으므로, 픽스처가 그 형태를
+    재현한다 — 합성이 실데이터보다 깨끗하면 가드가 통과해도 의미가 없다.
+    """
+    kp = np.zeros((1, 17, 3), dtype=float)
+    for i, (name, (x, z)) in enumerate(points.items()):
+        # 잔여는 프레임 내에서 미세하게 다르다(실데이터와 동일한 형태).
+        kp[0, kp_index(name)] = [float(x), y_residual * (1.0 + 0.1 * i), float(z)]
+    return kp
+
+
+_XZ_POSE = {
+    "left_hip": (-0.2, 0.0), "right_hip": (0.2, 0.0),
+    "left_shoulder": (-0.2, 1.0), "right_shoulder": (0.2, 1.0),
+    "left_ear": (-0.1, 2.0), "right_ear": (0.1, 2.0),
+}
+
+
+def test_uprightness_measurable_true_for_normal_xy_coords():
+    """정상 x-y 좌표는 측정 가능."""
+    assert uprightness_measurable(_frame(_STRAIGHT)) is True
+
+
+def test_uprightness_measurable_false_when_up_axis_collapsed():
+    """y 성분이 전 keypoint·전 프레임 0 이면 측정 불가."""
+    assert uprightness_measurable(_xz_frame(_XZ_POSE)) is False
+
+
+def test_uprightness_nan_when_up_axis_collapsed():
+    """측정 불가 좌표 → 상수 90° 가 아니라 NaN (지어낸 수치 금지)."""
+    out = torso_uprightness_series(_xz_frame(_XZ_POSE))
+    assert np.isnan(out).all()
+
+
+def test_summary_none_when_reference_up_axis_collapsed():
+    """기준이 퇴화면 요약이 None → 코칭 라인이 자동으로 빠진다 (fail-closed)."""
+    student = torso_uprightness_series(_frame(_STRAIGHT))
+    reference = torso_uprightness_series(_xz_frame(_XZ_POSE))
+    assert posture_axis_summary(student, reference) is None
+
+
+def test_horizontal_spine_still_measurable():
+    """★가드가 '정말로 수평인 자세'를 몰아내지 않는다 — 축 소실만 잡는다.
+
+    척추의 up 성분만 보면 수평 자세도 0 이라 오탐이 된다(초기 구현이 이 테스트를
+    깨뜨려 발각). 판정 대상은 좌표축 전체의 up 성분 범위다.
+    """
+    horizontal = {
+        "left_hip": (0.0, -0.2), "right_hip": (0.0, 0.2),
+        "left_shoulder": (1.0, -0.2), "right_shoulder": (1.0, 0.2),
+    }
+    assert uprightness_measurable(_frame(horizontal)) is True
+    assert float(torso_uprightness_series(_frame(horizontal))[0]) == pytest.approx(
+        90.0, abs=TOL_DEG
+    )
+
+
+def test_uprightness_measurable_false_with_roundoff_residual_y():
+    """★실데이터 형태 — y 가 정확한 0 이 아니라 회전 잔여(1e-13)여도 측정 불가.
+
+    2026-08-31 실측 재현: ref-invert/foxtop/sideway-spin 의 y 는 6e-14~1.2e-13,
+    x·z 스케일은 ~550. "정확히 0" 가드는 이 데이터를 통과시켜 무력했다 —
+    판정은 좌표 스케일 대비 기계 정밀도로 한다.
+    """
+    scaled = {k: (x * 300.0, z * 550.0) for k, (x, z) in _XZ_POSE.items()}
+    kp = _xz_frame(scaled, y_residual=1.0e-13)
+    assert uprightness_measurable(kp) is False
+    assert np.isnan(torso_uprightness_series(kp)).all()
+
+
+def test_uprightness_measurable_true_for_small_but_real_tilt():
+    """잔여와 실제 기울기의 경계 — 스케일 대비 유의미한 y 변화는 측정 가능.
+
+    가드가 "축 소실"만 잡고 "작은 기울기"는 살려야 한다는 반대 방향 보호.
+    """
+    scaled = {k: (x * 300.0, z * 550.0) for k, (x, z) in _XZ_POSE.items()}
+    kp = _xz_frame(scaled, y_residual=1.0e-6)  # 잔여보다 7자릿수 큰 실제 변화
+    assert uprightness_measurable(kp) is True

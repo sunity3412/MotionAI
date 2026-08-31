@@ -969,6 +969,16 @@ def _compute_posture_axes(keypoints_4ch, ref: dict | None) -> dict | None:
         if reference is None:
             return None
         student = np.asarray(keypoints_4ch, dtype=float)
+        # 관측 (2026-08-31): 저장 평면 퇴화로 상체축이 빠지는 것과 계산 실패를 로그에서
+        # 구분한다 — 리뷰 지적("무발화가 실패와 구분 안 됨"). 판정은 features 의 순수
+        # 함수 하나가 소유하고 여기서는 읽기만 한다(중복 판정 금지).
+        for _label, _kp in (("reference", reference), ("student", student)):
+            if not features.uprightness_measurable(_kp):
+                log.info(
+                    "postureAxes 상체축 생략 — %s 좌표에 up 축 성분 없음(저장 평면 퇴화). "
+                    "머리-척추 축만 산출",
+                    _label,
+                )
         head = features.posture_axis_summary(
             features.head_spine_alignment_series(student),
             features.head_spine_alignment_series(reference),

@@ -148,11 +148,17 @@ _SIG_POSTURE = {
 
 
 def test_build_prompt_renders_significant_posture_axes():
-    """significant + 학생 열위 방향 → 인과형 지시 + 'N° 정도' 보조 수치 렌더."""
+    """significant → 인과형 지시 + 'N° 정도' 보조 수치 렌더.
+
+    기대 문구 정정(2026-08-31, quick-260831-o63): 종전 기대치는 "상체를 세워"/"고개를
+    들어" 라는 **절대 자세 지시**였다. 그 문구는 서 있는 동작에서만 맞고 수평·뒤집힘
+    기준(실측 11개 중 8개)에서는 틀린 지시다 — 문구를 "기준 자세 각도에 맞추기"로
+    바꿨으므로 기대치도 그 문법으로 옮긴다. 검사 대상(인과형·N° 보조)은 그대로.
+    """
     prompt = coach_writer._build_prompt(_JOINTS, posture_axes=_SIG_POSTURE)
     assert "자세 축 실측" in prompt
-    assert "상체를 세워" in prompt          # 인과형 지시 (상태 서술 단독 금지)
-    assert "고개를 들어" in prompt          # belle elbow 원문 방향
+    assert "기준 자세 각도까지 되돌려 세우면" in prompt   # 인과형 + 기준 정합 지시
+    assert "고개를 기준 자세만큼 들어" in prompt          # belle elbow 원문 방향 유지
     assert "15° 정도" in prompt             # 수치는 보조 (N° 정도 문법)
 
 
@@ -174,20 +180,28 @@ def test_build_prompt_posture_insignificant_byte_identical():
         coach_writer._build_prompt(_JOINTS)
 
 
-def test_build_prompt_posture_student_better_direction_not_rendered():
-    """학생 우위 방향(uprightness delta<0 / headSpine delta>0) → 미발화.
+def test_build_prompt_posture_opposite_direction_now_rendered():
+    """반대 부호(기준보다 덜 기울어짐 / 더 펴짐)도 발화한다 — 방향은 문구가 구분.
 
-    결함 코칭 목적 — 기준 우위 전제. 학생이 더 꼿꼿/더 1자면 교정 지시가 성립하지
-    않으므로 렌더하지 않는다 (프롬프트 byte-불변).
+    기대치 반전(2026-08-31, quick-260831-o63): 이 테스트는 "학생 우위 방향이면 미발화"
+    라는 **결함 자체를 박제**하고 있었다. 그 전제("덜 기울어짐 = 학생이 더 낫다")는
+    서 있는 동작에서만 참이고, 기준 모션 실측 11개 중 8개는 수평(84~111°)·뒤집힘(152°)
+    이라 그쪽의 흔한 결함인 "덜 눕힘/덜 뒤집힘"이 영영 코칭되지 않았다
+    (.planning/quick/260831-review-followup/MEASUREMENTS.md). 이제 판정은 부호가 아니라
+    |delta| 이고, 부호는 지시 문구가 구분한다.
     """
-    student_better = {
+    opposite = {
         "uprightness": {"studentDeg": 5.0, "referenceDeg": 20.0,
                         "deltaDeg": -15.0, "significant": True},
         "headSpine": {"studentDeg": 178.0, "referenceDeg": 165.0,
                       "deltaDeg": 13.0, "significant": True},
     }
-    assert coach_writer._build_prompt(_JOINTS, posture_axes=student_better) == \
-        coach_writer._build_prompt(_JOINTS)
+    prompt = coach_writer._build_prompt(_JOINTS, posture_axes=opposite)
+    assert prompt != coach_writer._build_prompt(_JOINTS)
+    assert "덜 기울어져 있음" in prompt      # 반대 방향 사실 진술
+    assert "더 기울여 넣으면" in prompt      # 행동은 기준 정합 (절대 자세 규정 금지)
+    assert "더 펴져 있음" in prompt
+    assert "상체를 세워 꼿꼿하게" not in prompt  # 절대 자세 지시 재유입 차단
 
 
 def test_write_passes_posture_axes_to_prompt(monkeypatch):

@@ -572,7 +572,13 @@ class TestPostureAxes:
     def test_significant_posture_axes_reach_prompt(
         self, tmp_path, monkeypatch
     ) -> None:
-        """significant + 학생 열위 방향 → 인과형 지시가 실제 프롬프트 payload 에 도달."""
+        """significant → 인과형 지시가 실제 프롬프트 payload 에 도달.
+
+        기대 문구 정정(2026-08-31, quick-260831-o63): Cerebras 쪽 동일 테스트와 같은
+        사유 — 절대 자세 지시("상체를 세워")가 수평·뒤집힘 기준에서 틀린 지시라
+        "기준 자세 각도에 맞추기" 문법으로 교체됐다. 이 테스트의 검사 의도(공유
+        formatter 산출이 Gemini payload 까지 도달하는가)는 그대로다.
+        """
         stub = _StubCall([_ok_payload()])
         _patch_call(monkeypatch, stub)
 
@@ -582,8 +588,8 @@ class TestPostureAxes:
         writer.write(ctx)
 
         assert "자세 축 실측" in stub.prompts[0]
-        assert "상체를 세워" in stub.prompts[0]
-        assert "고개를 들어" in stub.prompts[0]
+        assert "기준 자세 각도까지 되돌려 세우면" in stub.prompts[0]
+        assert "고개를 기준 자세만큼 들어" in stub.prompts[0]
         assert "15° 정도" in stub.prompts[0]
 
     def test_posture_axes_absent_prompt_byte_identical(

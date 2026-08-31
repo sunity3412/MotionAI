@@ -171,43 +171,56 @@ def format_posture_axis_lines(posture_axes: dict | None) -> list[str]:
     features.posture_axis_summary 산출값({studentDeg, referenceDeg, deltaDeg,
     significant})만 소비한다.
 
-    발화 규칙 — significant=True 이고 **학생이 나쁜 방향일 때만** 렌더 (결함 코칭
-    목적 — 기준 우위 전제. 학생이 더 꼿꼿/더 1자면 교정 지시가 성립하지 않는다):
-      · uprightness delta > 0 — 학생이 기준보다 더 기울어짐 (belle 피터팬 원문
-        "상체의 꼿꼿해짐이 전체적 영향" — 기준이 학생보다 상체 꼿꼿).
-      · headSpine delta < 0 — 학생이 기준보다 덜 1자 (belle elbow r02cand03 원문
-        "고개 — 기준은 들어 몸-머리가 1자").
+    발화 규칙 — significant=True 이면 **부호와 무관하게** 렌더한다. 방향은 문구가
+    구분한다(2026-08-31 수리, .planning/quick/260831-review-followup/MEASUREMENTS.md):
+      · 종전에는 "학생이 나쁜 방향"(uprightness delta>0 / headSpine delta<0)일 때만
+        발화했다. 그 전제는 **서 있는 동작에서만** 성립한다 — 기준 모션 11개의 상체각
+        실측은 서 있는 계열 3개(peter-pan 6.4°·kip-up 8.1°·climb 24.9°)를 뺀 나머지가
+        수평(84~111°)·뒤집힘(152°)이고, 그쪽의 흔한 결함인 "덜 눕힘/덜 뒤집힘"은
+        delta<0 이라 "학생이 더 낫다"로 읽혀 영영 코칭되지 않았다.
+      · 그래서 판정 기준을 "기준 자세에서 얼마나 벗어났는가"(|delta|)로 바꾼다.
 
-    문구는 인과형(부위 → 행동 → 결과), 수치는 "N° 정도" 보조만 — "좁다" 식 상태
-    서술 금지 (memory how-illustration-arrow-and-number-grammar). 발화 0건이면 빈
-    list → 호출자 프롬프트 byte-불변 (zero behavior change).
+    문구는 **절대 자세를 규정하지 않는다** — "상체를 세워라"는 수평·뒤집힘 동작에서
+    틀린 지시다. 차이의 방향만 사실로 말하고 행동은 "기준 자세 각도에 맞추기"로 준다.
+    인과형(부위 → 행동 → 결과) 유지, 수치는 "N° 정도" 보조만 — 상태 서술 단독 금지
+    (memory how-illustration-arrow-and-number-grammar). 발화 0건이면 빈 list →
+    호출자 프롬프트 byte-불변 (zero behavior change).
     """
     if not isinstance(posture_axes, dict):
         return []
     body: list[str] = []
     upright = posture_axes.get("uprightness")
-    if (
-        isinstance(upright, dict)
-        and upright.get("significant")
-        and float(upright.get("deltaDeg", 0.0)) > 0.0
-    ):
-        mag = round(abs(float(upright["deltaDeg"])))
-        body.append(
-            f"- 상체 꼿꼿함: 학생 상체가 기준보다 {mag}° 정도 더 기울어져 있음 — "
-            "'상체를 세워 꼿꼿하게 만들면 동작 전체 라인이 산다' 흐름의 인과형 "
-            "지시로 반영."
-        )
+    if isinstance(upright, dict) and upright.get("significant"):
+        delta = float(upright.get("deltaDeg", 0.0))
+        mag = round(abs(delta))
+        if delta > 0.0:
+            body.append(
+                f"- 상체 기울기: 학생 상체가 기준보다 {mag}° 정도 더 기울어져 있음 — "
+                "'상체를 기준 자세 각도까지 되돌려 세우면 동작 라인이 기준에 가까워진다' "
+                "흐름의 인과형 지시로 반영."
+            )
+        else:
+            body.append(
+                f"- 상체 기울기: 학생 상체가 기준보다 {mag}° 정도 덜 기울어져 있음 — "
+                "'상체를 기준 자세 각도만큼 더 기울여 넣으면 동작 라인이 기준에 "
+                "가까워진다' 흐름의 인과형 지시로 반영."
+            )
     head = posture_axes.get("headSpine")
-    if (
-        isinstance(head, dict)
-        and head.get("significant")
-        and float(head.get("deltaDeg", 0.0)) < 0.0
-    ):
-        mag = round(abs(float(head["deltaDeg"])))
-        body.append(
-            f"- 머리-척추 1자: 학생 머리-척추 정렬이 기준보다 {mag}° 정도 덜 펴져 "
-            "있음 — '고개를 들어 머리와 척추가 1자가 되게' 흐름의 인과형 지시로 반영."
-        )
+    if isinstance(head, dict) and head.get("significant"):
+        delta = float(head.get("deltaDeg", 0.0))
+        mag = round(abs(delta))
+        if delta < 0.0:
+            body.append(
+                f"- 머리-척추 정렬: 학생 머리-척추 정렬이 기준보다 {mag}° 정도 덜 펴져 "
+                "있음 — '고개를 기준 자세만큼 들어 머리와 척추를 한 줄에 맞추면 상체 "
+                "라인이 기준에 가까워진다' 흐름의 인과형 지시로 반영."
+            )
+        else:
+            body.append(
+                f"- 머리-척추 정렬: 학생 머리-척추 정렬이 기준보다 {mag}° 정도 더 펴져 "
+                "있음 — '고개를 기준 자세 각도에 맞춰 되돌리면 상체 라인이 기준에 "
+                "가까워진다' 흐름의 인과형 지시로 반영."
+            )
     if not body:
         return []
     return [

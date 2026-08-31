@@ -157,6 +157,52 @@ def head_spine_alignment_series(keypoints):
     return out
 
 
+def _spine_vectors(keypoints):
+    """(T,17,2|3|4) → 프레임별 척추 방향벡터 (T,3) = mid_shoulder − mid_hip."""
+    xyz = _posture_xyz(keypoints)
+    ilh, irh = kp_index("left_hip"), kp_index("right_hip")
+    ils, irs = kp_index("left_shoulder"), kp_index("right_shoulder")
+    mid_hip = (xyz[:, ilh, :] + xyz[:, irh, :]) / 2.0
+    mid_shoulder = (xyz[:, ils, :] + xyz[:, irs, :]) / 2.0
+    return mid_shoulder - mid_hip
+
+
+def uprightness_measurable(keypoints, up=None) -> bool:
+    """상체 기울기를 잴 수 있는 좌표인가 — 척추의 up 축 성분이 살아 있는가.
+
+    2026-08-31 실측(.planning/quick/260831-review-followup/MEASUREMENTS.md): 기준 모션
+    11개 중 4개(foxtop·foxtop-split·invert·sideway-spin)의 저장 joints3d 는 y 성분이
+    전 프레임 **정확히 0**(x-z 평면 저장)이다. 그런 좌표에서 척추벡터는 up(0,-1,0)과
+    항상 직교해 torso_uprightness 가 자세와 무관한 상수 90° 를 낸다 — 지어낸 수치가
+    코칭으로 나가던 경로다.
+
+    판정 대상은 **좌표축 전체**(전 keypoint · 전 프레임의 up 성분 범위)이지 척추벡터
+    하나가 아니다. 척추만 보면 "정말로 수평인 자세"(척추의 up 성분 0)까지 측정 불가로
+    잘못 몰아낸다 — 수평 자세는 90° 라고 재는 게 맞고, 못 재는 건 축이 통째로 죽은
+    좌표뿐이다.
+
+    ★"정확히 0" 이 아니라 **기계 정밀도** 로 판정한다. 실측(2026-08-31): 그 4개 기준의
+    y 값은 0 이 아니라 6e-14 ~ 1.2e-13 이었다 — 좌표를 평면으로 회전시킨 연산의 부동
+    소수 잔여다(x·z 스케일은 ~550). 처음엔 "성분이 정확히 0" 으로 짰다가 실데이터에서
+    가드가 통째로 안 먹는 것을 검증에서 발각했다(합성 픽스처가 실데이터보다 깨끗했다).
+    그래서 기준을 `범위 > 좌표스케일 × float64 eps` 로 둔다: 새 튜닝 상수가 아니라
+    **그 스케일에서 표현 가능한 최소 단위**이고, 살아 있는 축(peter-pan y 범위 306,
+    스케일 484)과는 15자릿수 차이라 경계가 모호하지 않다.
+    동작명 분기 없음: 좌표가 고쳐지면 이 함수는 자동으로 True 를 돌려준다.
+    """
+    xyz = _posture_xyz(keypoints)
+    up_vec = np.asarray((0.0, -1.0, 0.0) if up is None else up, dtype=float)
+    comp = xyz @ up_vec  # (T,17) — 전 keypoint 의 up 축 성분
+    finite = comp[np.isfinite(comp)]
+    if finite.size == 0:
+        return False
+    span = float(np.max(finite) - np.min(finite))
+    finite_xyz = xyz[np.isfinite(xyz)]
+    scale = float(np.max(np.abs(finite_xyz))) if finite_xyz.size else 0.0
+    # 스케일 0(전부 원점)은 좌표 자체가 없는 것 — 측정 불가.
+    return bool(span > scale * float(np.finfo(float).eps))
+
+
 def torso_uprightness_series(keypoints, up=None):
     """(T,17,2|3|4) keypoints → 프레임별 상체 기울기(도). 0° = 수직 꼿꼿.
 
@@ -169,20 +215,22 @@ def torso_uprightness_series(keypoints, up=None):
     같은 규약이라 델타 비교가 성립한다(동작명 분기 0). belle 피터팬 원문 "상체의
     꼿꼿해짐" 축의 정의 근거. 각도는 vertex=원점 _angle_deg 재사용
     (split_angle_series 방향벡터 사이각 선례).
+
+    ★up 축이 소실된 좌표(uprightness_measurable=False)에서는 **전 프레임 NaN** 을
+    돌려준다 — 상수 90° 를 측정값인 척 내보내지 않는다(2026-08-31 실측 수리).
+    NaN 은 이 파이프라인의 "측정 불가" 신호이고, posture_axis_summary 가 유한값 0개를
+    None 으로 처리해 코칭 라인이 자동으로 빠진다(fail-closed, 분석 차단 0).
     """
-    xyz = _posture_xyz(keypoints)
-    T = xyz.shape[0]
+    spine = _spine_vectors(keypoints)
+    T = spine.shape[0]
+    if not uprightness_measurable(keypoints, up):
+        return np.full((T,), np.nan, dtype=float)
     up_vec = np.asarray((0.0, -1.0, 0.0) if up is None else up, dtype=float)
     zero = np.zeros(3, dtype=float)
-    ilh, irh = kp_index("left_hip"), kp_index("right_hip")
-    ils, irs = kp_index("left_shoulder"), kp_index("right_shoulder")
 
     out = np.full((T,), np.nan, dtype=float)
     for t in range(T):
-        mid_hip = (xyz[t, ilh] + xyz[t, irh]) / 2.0
-        mid_shoulder = (xyz[t, ils] + xyz[t, irs]) / 2.0
-        spine_vec = mid_shoulder - mid_hip
-        out[t] = _angle_deg(spine_vec, zero, up_vec)
+        out[t] = _angle_deg(spine[t], zero, up_vec)
     return out
 
 

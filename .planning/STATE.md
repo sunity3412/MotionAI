@@ -269,6 +269,7 @@ Last activity: 2026-08-31 - **1.2.0 양 플랫폼 빌드 발행 (belle "빌드�
 | 260831-gyk | hold 창 전환부 오염 수리 — Gemini 국면 창을 힌트로 강등, 내부 분산-최소 부창 재선택(`_select_window` 단일 함수). 파워스핀 정타 -20 위양성 소멸(belle × 판정 근거), fault 방향 보존, 4532/0, 실데이터 사전 박제 4/4 PASS | 2026-08-31 | 51ccbcef | [260831-gyk-hold-gemini](./quick/260831-gyk-hold-gemini/) |
 | 260831-isk | kip-up 방향 FAIL 수리 — vision-sourced 편차 tol 재적용 제거(`_criterion_deduction` vision_sourced, over=dev). 경계(20°==tol)에서 결함이 지워지던 것 복원: fault record -20 → 80 < correct 100. geometry byte-불변, 4537/0, 기대값 정정 7사이트. 라이브 E2E 재확인은 다음 Pod 때 | 2026-08-31 | 42547f7a | [260831-isk-vision-sourced-tol-kip-up-fail](./quick/260831-isk-vision-sourced-tol-kip-up-fail/) |
 | 260831-lcc | 결과 화면 재구성 — 요약(옥타곤) 첫 화면·발견 중복 5→1·'없음' 버그 소독·본문 빨강 제거·빈 상태 미렌더·카피/줄바꿈/마이 스테일 수리·v1.2.0. typecheck 0·208/0·정보손실0 감사 10/10·시뮬 before/after 눈검증 PASS | 2026-08-31 | cbc89ef9 | [260831-lcc-result-restructure](./quick/260831-lcc-result-restructure/) |
+| 260831-fast | 기록 리스트 mode3 제목 구체화 (belle "기록 제목 고쳐라") — recognizedMotionId→기준 모션 한글명 매핑(원시 id 인 recognizedMotionName 은 표시 불가 실측)·날짜에 시:분·홈 RecentAnalysisCard 동일 규칙. typecheck 0·시뮬 눈검증 PASS("피터팬 09:35"). 1.2.0 설치 후 OTA 발행 가능 상태(발행은 belle 확인 대기) | 2026-08-31 | adcf7166 | — |
 
 ### Plan 09-01 close-out (2026-06-10)
 

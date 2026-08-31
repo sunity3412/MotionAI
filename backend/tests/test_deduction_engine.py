@@ -156,8 +156,12 @@ def test_vision_measured_split_emits_source_vision():
     rec = split_recs[0]
     assert rec.source == "vision"
     assert rec.deviation_source == "reference_relative"
-    # to_dict() 키가 계약 tuple 과 정확히 일치 + 전 record 값 집합 가드.
-    assert set(rec.to_dict()) == set(models.DEDUCTION_RECORD_KEYS)
+    # quick-260831-isk: vision-sourced tol 재적용 제거 (DIAGNOSIS.md) — 종전 기대
+    # "필수 키만"은 결함 박제: dev 30 이 over 10(raw 12, sub-cap)으로 눌려 cap 키가
+    # 안 나왔다. 수리 후 over 30 → raw 36 → cap → rawPoints/capApplied 쌍 방출.
+    # 키 형상은 cap-인지 공용 helper 로 단언 (필수 ⊆ 키 ⊆ 필수 ∪ optional + 쌍 불변식).
+    _assert_record_keys(rec.to_dict())
+    assert rec.cap_applied is True
     assert all(r.source in {"geometry", "vision"} for r in b.records)
 
 
@@ -783,8 +787,10 @@ def test_split_vision_measured_deviation_scores():
     assert len(rec) == 1
     assert rec[0].source == "vision"          # provenance 노출
     assert rec[0].deviation_source == "reference_relative"
-    assert rec[0].deviation == 10.0           # over = max(0, 30 − tol 20)
-    assert rec[0].points < 0
+    # quick-260831-isk: vision-sourced tol 재적용 제거 (DIAGNOSIS.md) — 종전 기대
+    # 10.0(over-tol)은 결함 박제. vision 편차는 전량 감점: deviation = dev = 30.
+    assert rec[0].deviation == 30.0
+    assert rec[0].points == pytest.approx(-20.0)  # raw 36.0(1.2×30) → per-record cap
 
 
 def test_split_geometric_md_precedence_over_vision():
@@ -1002,8 +1008,10 @@ def test_split_member_without_dev_inherits_parent_vision_deviation():
     split_recs = [r for r in b.records if r.criterion == "split_angle"]
     assert len(split_recs) == 1, "승계 없으면 md 미주입 → 미발화 → 100 FP 재발"
     assert split_recs[0].source == "vision"
-    # 부모 대표(dev 28)의 측정값이 쓰였는가 — over-tol = 28 − 20 = 8.
-    assert split_recs[0].deviation == pytest.approx(8.0)
+    # quick-260831-isk: vision-sourced tol 재적용 제거 (DIAGNOSIS.md) — 종전 기대
+    # 8.0(over-tol)은 결함 박제. 부모 대표(dev 28) 측정값이 전량 deviation 으로.
+    assert split_recs[0].deviation == pytest.approx(28.0)
+    assert split_recs[0].points == pytest.approx(-20.0)  # raw 33.6(1.2×28) → cap
 
 
 def test_split_member_own_dev_takes_priority_over_parent():
@@ -1017,8 +1025,11 @@ def test_split_member_own_dev_takes_priority_over_parent():
     b = _tally({}, ctx)
     split_recs = [r for r in b.records if r.criterion == "split_angle"]
     assert len(split_recs) == 1
-    # 멤버 자신의 30 사용 — over-tol = 10 (부모 50 이면 30 이어야 함).
-    assert split_recs[0].deviation == pytest.approx(10.0)
+    # quick-260831-isk: vision-sourced tol 재적용 제거 (DIAGNOSIS.md) — 종전 기대
+    # 10.0(over-tol)은 결함 박제. 판별력 유지: 멤버 자신의 30 사용 → deviation 30
+    # (부모 50 승계였다면 50 — cap 전 raw_points 로도 -36 vs -60 판별 가능).
+    assert split_recs[0].deviation == pytest.approx(30.0)
+    assert split_recs[0].raw_points == pytest.approx(-36.0)  # 부모 50 이면 -60
 
 
 # ── 25-04 #3(a) — 측정 rubric: 각도쌍 산술 편차 + 멤버 median 집계 ────────────
@@ -1028,14 +1039,16 @@ def test_split_vision_arithmetic_pair_preferred_over_approx():
     """명시 각도쌍(student/reference)이 있으면 산술 편차가 approx 추정을 대체한다.
 
     (a) 측정 강건화: Gemini 의 "편차 한 방 추정"(approx 99)이 아니라 각도쌍의 산술
-    |180−150| = 30 이 감점 입력 — over = 30 − tol 20 = 10."""
+    |180−150| = 30 이 감점 입력."""
     diff = {"body_part": "스플릿", "fault_state": "벌어짐 부족", "severity": "moderate",
             "approx_angle_deviation_deg": 99,
             "student_angle_deg": 150.0, "reference_angle_deg": 180.0}
     rec = [r for r in _tally({}, _ctx([diff])).records
            if r.criterion == "split_angle"][0]
     assert rec.source == "vision"
-    assert rec.deviation == pytest.approx(10.0), "산술 30 사용 — approx 99 아님"
+    # quick-260831-isk: vision-sourced tol 재적용 제거 (DIAGNOSIS.md) — 종전 기대
+    # 10.0(over-tol)은 결함 박제. 산술 30 전량 사용 — approx 99(면 deviation 99) 아님.
+    assert rec.deviation == pytest.approx(30.0), "산술 30 사용 — approx 99 아님"
 
 
 def test_split_vision_pair_zero_deviation_no_injection():
@@ -1063,7 +1076,10 @@ def test_split_vision_median_across_members():
     b = _tally(md, _ctx([diff]))
     assert md.get("split_angle") == pytest.approx(26.0), "median(20,26,30) = 26"
     rec = [r for r in b.records if r.criterion == "split_angle"][0]
-    assert rec.deviation == pytest.approx(6.0)  # 26 − tol 20
+    # quick-260831-isk: vision-sourced tol 재적용 제거 (DIAGNOSIS.md) — 종전 기대
+    # 6.0(over-tol)은 결함 박제. median 26 전량 deviation (md 주입값 26.0 단언 불변).
+    assert rec.deviation == pytest.approx(26.0)
+    assert rec.points == pytest.approx(-20.0)  # raw 31.2(1.2×26) → per-record cap
 
 
 def test_split_vision_median_even_count_lower_middle():
@@ -1128,19 +1144,30 @@ def test_phase25_kipup_real_cache_doc_injects_split_deviation():
     vision 측정편차(대표 멤버 20°)가 md 에 주입되어야 한다.
 
     md seed 는 실아티팩트 cold record 재현(angle_vs_reference__left_shoulder 20.6 —
-    deductionBreakdown.records[0].measuredValue). 주입된 20° 는 tol 20° 와 동치라
-    over 0(dead-zone, record 미방출) — 이 캐시의 최종 99 유지는 측정값 소관
-    (Gemini 비결정 트랙, sweep 근본원인 #2)이지 라우팅 유실이 아니다."""
+    deductionBreakdown.records[0].measuredValue).
+
+    quick-260831-isk: vision-sourced tol 재적용 제거 (DIAGNOSIS.md) — 종전 기대
+    "dev 20 == tol 20 → dead-zone(split record 미방출), final 99"는 바로 이 결함을
+    박제한 장본인이다. 관측 체인: 260831 페어 스윕 doc records=0 → fault 100 =
+    correct 100 방향 FAIL. 수리 후 vision 편차 20° 는 전량 감점 — split record 방출,
+    points -20.0."""
     ctx = _kipup_real_cache_ctx()
     md = {"angle_vs_reference__left_shoulder": 20.6}  # 실아티팩트 cold seed 재현
     b = _tally(md, ctx)
     # 회귀 본체: pre-fix 는 split 미라우팅 → md 미주입 (belle 결정 A 경로 유실).
     assert md.get("split_angle") == pytest.approx(20.0), \
         "split 멤버(fault_state 스플릿) 라우팅 미발화 → vision 측정편차 미주입 재발"
-    # 실아티팩트와 동일: dev 20 == tol 20 → dead-zone (split record 미방출, final 99).
-    assert not [r for r in b.records if r.criterion == "split_angle"]
-    assert [r.criterion for r in b.records] == ["angle_vs_reference__left_shoulder"]
-    assert b.final == 99
+    # vision-sourced dev 20 전량 감점: record 방출, deviation 20, raw 24.0 → cap -20.
+    split_recs = [r for r in b.records if r.criterion == "split_angle"]
+    assert len(split_recs) == 1
+    assert split_recs[0].source == "vision"
+    assert split_recs[0].deviation == pytest.approx(20.0)
+    assert split_recs[0].points == pytest.approx(-20.0)
+    assert {r.criterion for r in b.records} == {
+        "split_angle", "angle_vs_reference__left_shoulder"}
+    # 실행 트랙 합산: shoulder -0.7(over 0.6 × 1.2) + split -20.0 = -20.7 (집계캡
+    # 40 안) → final = round(100 − 20.7) = 79 (종전 99 에서 -20 반영).
+    assert b.final == 79
     # split 결함이 coverage gap 으로 새지 않는다.
     assert not [g for g in b.coverage_gaps if g["keypointSet"] == "leg"]
 
@@ -1163,6 +1190,40 @@ def test_phase25_kipup_real_members_route_split_and_leg():
     assert all("스플릿" not in str(m.get("body_part")) for m in split_members), \
         "v10.1 실출력: split 어휘는 body_part 에 없다 — combined 라우팅 필요 근거"
     assert len(leg_members) == 3
+
+
+# ── quick-260831-isk — 260831 로컬 재현 verdict fixture (Gemini 호출 0) ────────
+
+
+def test_kipup_260831_repro_verdict_fault_scores_correct_unchanged():
+    """260831 kip-up 페어 스윕 로컬 재현 verdict 를 dict 로 재구성한 순수 fixture —
+    Gemini 재호출 금지. fault: supported_differences 1건(split_angle, student 145°
+    vs reference 165° → 명시 각도쌍 산술 편차 |165−145| = 20°, severity minor).
+    severity 는 어떤 산식에도 쓰지 않는다(ND-01: severity→점수 밴드 재도입 금지 —
+    fixture 필드로만 존재).
+
+    DIAGNOSIS 사전 박제와 대조: fault → split record -20.0 / overall 80,
+    correct 상당(supported_differences 0건) → record 0 / 무변화 100 —
+    방향 복원 (fault 80 < correct 100)."""
+    fault_diff = {
+        "body_part": "다리 스플릿", "correct_state": "기준 수준 벌어짐",
+        "fault_state": "벌어짐 부족", "severity": "minor",
+        "fault_category": "split_angle",
+        "student_angle_deg": 145.0, "reference_angle_deg": 165.0,
+    }
+    b_fault = _tally({}, _ctx([fault_diff]))
+    split_recs = [r for r in b_fault.records if r.criterion == "split_angle"]
+    assert len(split_recs) == 1
+    assert split_recs[0].source == "vision"
+    assert split_recs[0].measured_value == pytest.approx(20.0)  # 명시 각도쌍 산술
+    assert split_recs[0].points == pytest.approx(-20.0)  # raw 24.0 → per-record cap
+    assert b_fault.final == 80
+    # 대조(correct 상당): supported_differences 0건 → split record 0, 점수 무변화.
+    b_correct = _tally({}, _ctx([]))
+    assert not any(r.criterion == "split_angle" for r in b_correct.records)
+    assert b_correct.final == 100
+    # 방향 복원 (DIAGNOSIS 사전 박제): fault < correct.
+    assert b_fault.final < b_correct.final
 
 
 # ── 25-02 review WR-04 — 측정 substrate 실재 시 shoulder/hip gap 억제 ─────────

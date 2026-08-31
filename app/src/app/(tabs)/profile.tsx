@@ -146,8 +146,10 @@ export default function Profile() {
         {/* MVP 범위 안내 */}
         <View style={styles.notice}>
           <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
+          {/* quick-260831-lcc — 스테일 카피 수리: 로그인은 Phase 36 에서 구현
+              완료라 "정식 출시 단계" 안내와 모순. 결제·알림만 남긴다. */}
           <Text style={styles.noticeText}>
-            로그인·결제·알림 설정은 정식 출시 단계에서 열려요.
+            결제·알림 설정은 정식 출시 단계에서 열려요.
           </Text>
         </View>
       </ScrollView>

@@ -19,7 +19,6 @@ import { AccuracyLimitBadge } from '../../components/AccuracyLimitBadge';
 import { InjuryRiskSection } from '../../components/InjuryRiskSection';
 import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
 import { RecommendedExerciseModal } from '../../components/RecommendedExerciseModal';
-import { CORRECTIVE_LIBRARY_HAS_ITEMS } from '../../data/correctiveExercises';
 import {
   KeypointOverlay,
   KEYPOINT_DELTA_HIGHLIGHT_DEG,
@@ -177,8 +176,13 @@ const CUE_WINDOW_SEC = 1.6;
 const JUDGE_SIM_TITLE = '내 수행이 실제 심사였다면';
 const JUDGE_SIM_INTRO =
   '국제 폴스포츠(IPSF) 심사 기준으로 내 자세를 채점하면, 위에서 짚은 결함들이 이렇게 감점으로 환산돼요.';
+// quick-260831-lcc (belle 2026-08-31 결과 화면 재구성 — 면책 통합): 구 옥타곤
+// 카드 scoreCaption("촬영 노이즈… 100점은 잘 나오지 않아요. 90점 이상이면 정상
+// 자세에 가깝습니다")의 의미를 이 하단 면책 1개에 병합. 두 승인 문장의 접합 —
+// 신규 창작 최소. 화면 면책 = 상단 1줄(coachPositioning) + 이 1개(+참고코너
+// '점수에는 들어가지 않아요' — 오해 방지 기능이라 유지).
 const JUDGE_SIM_DISCLAIMER =
-  'AI가 추정한 감점 시뮬레이션이에요. 실제 심사·강사 평가와 함께 확인하면 가장 정확해요.';
+  'AI가 추정한 감점 시뮬레이션이에요. 촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요 (90점 이상이면 정상 자세에 가깝습니다). 실제 심사·강사 평가와 함께 확인하면 가장 정확해요.';
 
 // 32-11 (D-13) — 보완 운동 개편 카피. 전면 1개 + 이유 1줄, '다른 운동 보기' 가로 최대 3.
 const EXERCISE_DETOUR_HEADLINE = '이 운동부터 해보면 쉬워져요';
@@ -253,14 +257,17 @@ function sanitizeFinding(text: string | null | undefined): string | undefined {
   return t;
 }
 
-// 박제 (2026-06-06 belle): 분석 글 안 숫자 (각도/점수/거리) 를 브랜드 컬러
-// (#FF4B33) 로 강조 박제. design.md §5-3 정합. tip.detail / guide.line 박제 시
-// inline Text 분할 후 색 박제.
+// 박제 (2026-06-06 belle) → quick-260831-lcc (belle 2026-08-31 결과 화면 재구성
+// 승인 — 빨강 규율): 본문 문단 안 수치는 브랜드색 대신 fontWeight 강조만 남긴다.
+// 본문 빨강 남용의 기계 원인이 이 함수였다 (모든 tip.detail/guide.line 수치가
+// 빨강). 브랜드색 허용처 = 점수·감점 수치(-N)·주 CTA·활성 상태만 — 감점 수치는
+// judgeDeduction 등 별도 스타일이라 영향 없음. 구 D-09 계열 배치 결정을 대체,
+// 수치 규율 자체는 유지.
 function highlightNumbers(text: string): React.ReactNode[] {
   const parts = text.split(/(\d+(?:\.\d+)?\s*(?:°|점|%|초|kg)?)/g);
   return parts.map((part, i) =>
     /\d/.test(part) ? (
-      <Text key={i} style={{ color: colors.brand, fontWeight: '600' }}>
+      <Text key={i} style={{ color: colors.textPrimary, fontWeight: '600' }}>
         {part}
       </Text>
     ) : (
@@ -2188,9 +2195,9 @@ function AnalysisResultContent({
         ),
         isMode3First: cmp.mode === 'mode3' && cmp.isFirst,
         hasQuestions: combinedCoachQuestions.length > 0,
-        hasExercise:
-          (result.recommendedExercises?.length ?? 0) > 0 ||
-          CORRECTIVE_LIBRARY_HAS_ITEMS,
+        // belle 2026-08-31 빈 상태 규칙 — 개인화 전면 운동(frontExercise) 존재
+        // 기준으로 축소 (구 라이브러리 존재 OR 는 빈 상태 카드를 낳았다).
+        hasExercise: (result.recommendedExercises?.length ?? 0) > 0,
       }),
     [
       cmp,
@@ -3171,7 +3178,9 @@ function AnalysisResultContent({
           <>
             <Text style={styles.sectionTitle}>성장·지난 미션</Text>
             {variantOf('growth') === 'coachCard' ? (
-              <View style={[styles.card, styles.vetoLeadCard]}>
+              /* quick-260831-lcc (빨강 규율) — 구 vetoLeadCard(brandTint) 대신
+                 중립 카드. 포인트 아이콘의 brand 색은 유지 (본문 아님). */
+              <View style={[styles.card, styles.coachCard]}>
                 <View style={styles.tipHead}>
                   <Ionicons
                     name="people-circle-outline"
@@ -3216,13 +3225,11 @@ function AnalysisResultContent({
                   </View>
                 ) : null}
               </View>
-            ) : (
-              <Text style={styles.mode3LimitNotice}>
-                {cmp.mode === 'mode3' && cmp.isFirst
-                  ? '다음 분석부터 이전 미션의 개선을 확인해 드려요.'
-                  : '이번엔 이어갈 지난 미션이 없어요. 오늘 고칠 것 하나에 집중해봐요.'}
-              </Text>
-            )}
+            ) : null}
+            {/* (구 빈 상태 안내문 제거 — belle 2026-08-31 빈 상태 규칙.
+                resultSections 가시성이 outcome/coachCard 없는 doc 의 섹션 자체를
+                숨기므로 이 가지는 도달 불가. "다음 분석부터 발전 비교" 의미는
+                mode3-first 안내(동작 비교 자리 1줄)가 유일본으로 잔존.) */}
           </>
         ) : null}
 
@@ -3287,22 +3294,10 @@ function AnalysisResultContent({
                   <Text style={styles.tipMore}>전체 보완 운동 보기 ›</Text>
                 </Pressable>
               </>
-            ) : (
-              <>
-                <Text style={styles.exerciseNeutral}>
-                  이번 분석에서는 뚜렷한 보완 운동 매핑이 없어요.
-                </Text>
-                <Pressable
-                  onPress={() => setExerciseModalOpen(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="전체 보완 운동 보기"
-                  hitSlop={8}
-                  style={styles.tipMoreRow}
-                >
-                  <Text style={styles.tipMore}>전체 보완 운동 보기 ›</Text>
-                </Pressable>
-              </>
-            )}
+            ) : null}
+            {/* (구 "매핑이 없어요" 빈 상태 가지 제거 — belle 2026-08-31 빈 상태
+                규칙. hasExercise 가 frontExercise 존재 기준이라 이 섹션은
+                frontExercise 부재 시 통째로 미렌더 — 도달 불가 가지.) */}
           </>
         ) : null}
 
@@ -3715,22 +3710,24 @@ const styles = StyleSheet.create({
     ...typography.boxLabel,
     textAlign: 'center',
   },
+  // quick-260831-lcc (빨강 규율) — refCard 중립화: 상세 영역의 참고 메타 카드라
+  // 브랜드 톤 강조를 제거 (brandTint/brand → cardBg/divider, 기존 토큰 범위).
   refCard: {
     alignItems: 'flex-start',
     gap: 6,
-    backgroundColor: colors.brandTint, // 브랜드 톤 = 정은지 기준임을 시각화
-    borderColor: colors.brand,
+    backgroundColor: colors.cardBg,
+    borderColor: colors.divider,
   },
   refHead: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  refAthlete: { ...typography.boxLabel, color: colors.brand },
+  refAthlete: { ...typography.boxLabel, color: colors.textPrimary },
   refLevel: {
     ...typography.captionSmall,
-    color: colors.textWhite,
-    backgroundColor: colors.brand,
+    color: colors.textMid,
+    backgroundColor: colors.softBg,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
@@ -3921,18 +3918,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
   },
-  exerciseNeutral: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginTop: 4,
-  },
-  // Phase 20 (UI ①) — 비전 거부권 LEAD 카드. brandTint 배경 + brand 테두리로
-  // "먼저 봐야 할 것" 임을 시각 강조 (refCard 패턴 차용, 토큰만).
-  vetoLeadCard: {
-    backgroundColor: colors.brandTint,
-    borderColor: colors.brand,
-  },
+  // (구 exerciseNeutral 제거 — belle 2026-08-31 빈 상태 규칙. 빈 상태 가지 소멸.)
+  // (구 vetoLeadCard 제거 — quick-260831-lcc 빨강 규율. veto LEAD 카드 해체 후
+  //  유일 사용처였던 growth coachCard 가지도 중립 카드(styles.coachCard)로 전환.)
   // quick-260704-fwb → quick-260831-lcc — '가능한 원인' 블록 (veto 카드 해체 후
   // topFix 직하 중립 카드로 이동. vetoFixLine/vetoLeadNote 는 복제라 제거).
   rootCauseCard: { marginTop: 10 },
@@ -4029,14 +4017,15 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   growthDeltaText: { ...typography.badge, color: colors.textMid },
-  // 7. 보완 운동 — 우회 카드 + 가로 스크롤
+  // 7. 보완 운동 — 우회 카드 + 가로 스크롤.
+  // quick-260831-lcc (빨강 규율) — 안내 카드는 중립 톤 (brandTint/brand →
+  // softBg/기본 divider 테두리·textPrimary).
   detourCard: {
     alignItems: 'flex-start',
     gap: 6,
-    backgroundColor: colors.brandTint,
-    borderColor: colors.brand,
+    backgroundColor: colors.softBg,
   },
-  detourHeadline: { ...typography.boxLabel, color: colors.brand },
+  detourHeadline: { ...typography.boxLabel, color: colors.textPrimary },
   detourBody: {
     ...typography.caption,
     color: colors.textPrimary,

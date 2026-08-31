@@ -64,7 +64,10 @@ export interface ResultSectionsInput {
   isMode3First?: boolean;
   // 강사 질문(자동 수집 + 사용자 담기) 존재.
   hasQuestions?: boolean;
-  // 보완 운동 진입점 존재 (개인화 추천 또는 라이브러리).
+  // 보완 운동 — belle 2026-08-31 빈 상태 규칙: 의미를 "개인화 전면 운동
+  // (frontExercise) 존재"로 좁힘. 부재 시 섹션 전체 숨김 ("매핑이 없어요" 빈
+  // 안내 카드가 자리를 차지하던 것 제거 — 전체 라이브러리 진입점은 존재 여부와
+  // 무관하게 이 섹션의 존재 이유가 아니다).
   hasExercise?: boolean;
   // 게이트 확정과 다른 순서를 강제해야 할 때만(후속 재조정 훅). 부재 = 확정 순서.
   gateOrder?: ResultSectionKey[];
@@ -128,8 +131,20 @@ export function deriveResultSections(input: ResultSectionsInput): ResultSection[
     },
     compare: { key: 'compare', visible: !isMode3First },
     collapsed: { key: 'collapsed', visible: !clean && input.hasRecords },
-    growth: { key: 'growth', visible: isMode3, variant: growthVariant },
-    exercise: { key: 'exercise', visible: input.hasExercise !== false },
+    // belle 2026-08-31 빈 상태 규칙 — 내용이 '없음'인 성장 섹션 미렌더:
+    // missionOutcome 실체 또는 coach_card 승격이 있을 때만. 구 빈 안내문("이어갈
+    // 지난 미션이 없어요"/"다음 분석부터 이전 미션…")은 mode3-first 안내문과
+    // 의미 중복이라 렌더 경로 차단 (정보 손실 0 — 의미 잔존처 실재).
+    growth: {
+      key: 'growth',
+      visible:
+        isMode3 &&
+        (input.escalation === 'coach_card' || input.hasMissionOutcome),
+      variant: growthVariant,
+    },
+    // belle 2026-08-31 빈 상태 규칙 — 개인화 전면 운동 존재 시만 (hasExercise
+    // 의미 축소와 lockstep). 구 `!== false`(미전달=표시)는 빈 상태 카드를 낳았다.
+    exercise: { key: 'exercise', visible: input.hasExercise === true },
     questions: { key: 'questions', visible: input.hasQuestions === true },
     judgeInfo: {
       key: 'judgeInfo',

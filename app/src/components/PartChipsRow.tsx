@@ -28,12 +28,13 @@
 //   padding 8px 14px             → 8 / 14 (칩 내부 여백, 화면 여백 토큰과 별 축)
 //   font-size 14 / weight 800    → typography.badge (D-05 하한 17 준수 — 목업 14 는
 //                                  데스크톱 값이라 그대로 쓰면 belle "너무 작음" 재발)
-//   .ref dashed / 약한 글자      → borderStyle 'dashed' + colors.advisoryOrange (N-5)
+//   .ref dashed / 약한 글자      → borderStyle 'dashed' + 중립색 (quick-260831-lcc
+//                                  빨강 규율로 advisoryOrange → divider/textSecondary)
 //
 // ⚠ 플랫폼 한계 (N-20, 정직 기록): RN iOS 는 `borderRadius > 0` 인 View 의
 // `borderStyle: 'dashed'` 를 실선으로 그린다(RN 장기 미해결). 승인본 `.ref` 는
 // pill(999px) + dashed 라 iOS 에서는 점선이 표현되지 않을 수 있다. 그 경우 참고 칩의
-// 구분은 **라벨 접두("참고: ")+ advisoryOrange 색**이 담당한다 — 둘 다 데이터에서
+// 구분은 **라벨 접두("참고: ")+ 보조 톤(textSecondary)**이 담당한다 — 둘 다 데이터에서
 // 나오는 사실이라 거짓 표기가 아니다. S2 의 판정축인 **영상 위 마커**의 점선은 SVG
 // `strokeDasharray` 라 이 한계와 무관하다. 실제 렌더 여부 = 시뮬 확인 위임.
 
@@ -115,16 +116,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
+  // quick-260831-lcc (belle 2026-08-31 결과 화면 재구성 — 빨강 규율): 참고 칩의
+  // advisoryOrange 제3색 제거 → 중립(divider 점선 + textSecondary). 참고 칩의
+  // 구분은 라벨 접두("참고: ") + 점선 테두리가 담당 (N-20 주석의 iOS dashed 한계
+  // 그대로). 감점 칩 쪽은 무접촉.
   chipAdvisory: {
     borderStyle: 'dashed',
-    borderColor: colors.advisoryOrange,
+    borderColor: colors.divider,
   },
   chipText: {
     ...typography.badge,
     color: colors.textPrimary,
   },
   chipTextAdvisory: {
-    color: colors.advisoryOrange,
+    color: colors.textSecondary,
   },
   note: {
     ...typography.caption,

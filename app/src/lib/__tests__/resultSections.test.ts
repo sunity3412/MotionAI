@@ -175,6 +175,52 @@ test('Test 5 (recordId 맵): recordId 조인 + idx 폴백 + 질문 조인, 충�
   assert.ok(dup.has('idx:1'));
 });
 
+// ── Test 7: belle 2026-08-31 빈 상태 규칙 — 내용 '없음' 섹션 미렌더 ────────────
+test('Test 7 (빈 상태): growth 는 outcome/coachCard 있을 때만, exercise 는 개인화 매핑 있을 때만', () => {
+  // 정당화 (belle 2026-08-31 빈 상태 규칙, quick-260831-lcc): mode3 라도
+  // missionOutcome/coach_card 실체가 없으면 성장 섹션 미렌더. 구 규칙(mode3 면
+  // 항상 렌더)은 "이어갈 지난 미션이 없어요" 빈 안내문이 자리를 차지했고, 그
+  // 의미는 mode3-first 안내문(동작 비교 자리 1줄)과 중복 — 정보 손실 0.
+  const emptyGrowth = deriveResultSections({
+    ...NORMAL_MODE1,
+    mode: 'mode3',
+    hasMissionOutcome: false,
+    escalation: 'none',
+  });
+  assert.equal(emptyGrowth.find((s) => s.key === 'growth')?.visible, false);
+  // outcome 실체가 있으면 렌더 (기존 outcome 경로 무회귀).
+  const withOutcome = deriveResultSections({
+    ...NORMAL_MODE1,
+    mode: 'mode3',
+    hasMissionOutcome: true,
+  });
+  assert.equal(withOutcome.find((s) => s.key === 'growth')?.visible, true);
+  // coach_card 승격은 outcome 없어도 렌더 (D-27 3회차 무회귀).
+  const coachCard = deriveResultSections({
+    ...NORMAL_MODE1,
+    mode: 'mode3',
+    hasMissionOutcome: false,
+    escalation: 'coach_card',
+  });
+  assert.equal(coachCard.find((s) => s.key === 'growth')?.visible, true);
+
+  // 정당화 (belle 2026-08-31 빈 상태 규칙): hasExercise 의미 = "개인화 전면
+  // 운동(frontExercise) 존재". 구 규칙 `!== false`(미전달=표시)는 "매핑이
+  // 없어요" 빈 카드를 낳았다 — 미전달/false 모두 미렌더로 전환.
+  const noExercise = deriveResultSections({ ...NORMAL_MODE1, hasExercise: false });
+  assert.equal(noExercise.find((s) => s.key === 'exercise')?.visible, false);
+  const undefExercise = deriveResultSections({
+    ...NORMAL_MODE1,
+    hasExercise: undefined,
+  });
+  assert.equal(undefExercise.find((s) => s.key === 'exercise')?.visible, false);
+  // 개인화 매핑 존재 doc 은 종전대로 렌더.
+  assert.equal(
+    deriveResultSections(NORMAL_MODE1).find((s) => s.key === 'exercise')?.visible,
+    true,
+  );
+});
+
 // ── Test 6: F-7 펼침/접기 앵커 선택 (33-G F-7, quick-260731-cum) ───────────────
 test('Test 6 (F-7 앵커): 첫 키 우선 / 두 번째 폴백 / 전무 → null / 음수 클램프', () => {
   const KEYS = ['anchor:summaryCard', 'anchor:scoreGauge', 'anchor:scoreBreakdown'];

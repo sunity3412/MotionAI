@@ -381,9 +381,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flexShrink: 1,
   },
-  // 행동문 — 외부 큐 강조 박스 (브랜드 틴트, 시각 강조).
+  // 행동문 — 외부 큐 강조 박스.
+  // quick-260831-lcc (belle 2026-08-31 결과 화면 재구성 — 빨강 규율): 대형 분홍
+  // 박스(brandTint) → 중립 배경(softBg). cue 텍스트는 이미 textPrimary — 무접촉.
+  // askBtn 의 brand 테두리는 CTA 라 유지.
   cueBox: {
-    backgroundColor: colors.brandTint,
+    backgroundColor: colors.softBg,
     borderRadius: radius.card,
     padding: spacing.cardPadding,
   },

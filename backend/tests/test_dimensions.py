@@ -172,6 +172,76 @@ def test_select_window_single_frame_graceful():
     assert (s, e) == (0, 1)
 
 
+# ── quick-260831-gyk — Gemini 국면 창을 "힌트"로 강등: 힌트 창 내부 안정 부창 재선택 ──
+# belle 08-31 × 판정(파워스핀 정타 leg_extension -20 위양성): Gemini hold ±2초 창이
+# 스핀 진입 전환부를 측정 창에 섞었다. 수리 = profile.hold_window 를 verbatim 쓰지 않고
+# 그 창 **내부에서** 기존 hold_window(분산 최소) 로직으로 안정 부창을 재선택한다.
+# 33-A4 국면 게이트 목적(국면 밖 프레임 배제)은 유지 — 부창은 항상 힌트 창 내부.
+
+
+def test_select_window_reselects_stable_subwindow_inside_hint():
+    # Test 1 (전환부 오염 차단): 힌트 창 앞부분 = 각도가 크게 변하는 전환부,
+    # 뒷부분 = 일정한 홀드. 기대 = 부창이 홀드 구간에 안착(전환부 프레임 배제).
+    import dataclasses
+    t = 24
+    angles = np.full((t, J), 90.0)
+    knee = JOINT_KEYS.index("right_knee")
+    # 프레임 0..11 = 전환부(20/150 요동), 12..23 = 홀드(178 일정)
+    for i in range(12):
+        angles[i, knee] = 20.0 if i % 2 == 0 else 150.0
+    angles[12:, knee] = 178.0
+    p = dataclasses.replace(_profile(), hold_window=(0, t))  # 힌트 창 = 전체
+    sliced, (s, e) = dimensions._select_window(angles, p)
+    assert s >= 12, "부창이 전환부를 배제하고 홀드 구간에 안착해야 한다"
+    assert e <= t
+    assert np.allclose(sliced[:, knee], 178.0)
+
+
+def test_select_window_subwindow_always_inside_hint():
+    # Test 2 (포함 불변식): 어떤 입력이든 (s', e') 는 clamp 된 힌트 창 내부
+    # — s' >= s, e' <= e, s' < e'. 33-A4 국면 게이트 목적 유지의 기계 증명.
+    import dataclasses
+    rng = np.random.default_rng(1)
+    t = 40
+    angles = rng.uniform(20.0, 180.0, size=(t, J))
+    for hint in [(5, 35), (0, 40), (10, 12), (-3, 100), (20, 23)]:
+        p = dataclasses.replace(_profile(), hold_window=hint)
+        sliced, (s, e) = dimensions._select_window(angles, p)
+        cs = max(0, min(int(hint[0]), t))
+        ce = max(cs, min(int(hint[1]), t))
+        assert cs <= s < e <= ce, f"hint={hint} → ({s},{e}) 가 힌트 창 밖"
+        assert sliced.shape[0] == e - s
+
+
+def test_select_window_empty_hint_falls_back_to_full_auto():
+    # Test 3 (WR-05 보존): clamp 후 s == e 인 빈 힌트 창은 종전대로 전체 자동
+    # hold_window 폴백 (기존 test_select_window_* 계열과 공존).
+    import dataclasses
+    t = 30
+    angles = np.full((t, J), 90.0)
+    knee = JOINT_KEYS.index("left_knee")
+    rng = np.random.default_rng(2)
+    angles[:20, knee] = rng.uniform(20.0, 180.0, size=20)  # 앞 20프레임 요동
+    angles[20:, knee] = 175.0  # 뒤 10프레임 홀드
+    p = dataclasses.replace(_profile(), hold_window=(50, 60))  # clamp → (30, 30)
+    sliced, (s, e) = dimensions._select_window(angles, p)
+    auto_s, auto_e = dimensions.hold_window(angles)
+    assert (s, e) == (auto_s, auto_e)
+    assert np.array_equal(sliced, angles[auto_s:auto_e])
+
+
+def test_select_window_no_profile_hint_unchanged():
+    # Test 4 (profile 없음 무변경): profile=None / hold_window=None 경로는 종전
+    # hold_window(a) 그대로 — byte-동일 결과.
+    rng = np.random.default_rng(3)
+    angles = rng.uniform(20.0, 180.0, size=(25, J))
+    auto_s, auto_e = dimensions.hold_window(angles)
+    for p in (None, _profile()):  # _profile() 은 hold_window 기본값 None
+        sliced, (s, e) = dimensions._select_window(angles, p)
+        assert (s, e) == (auto_s, auto_e)
+        assert np.array_equal(sliced, angles[s:e])
+
+
 def test_line_deficits_by_joint_extend_only():
     # EXTEND 관절 = elbows + knees. default 90° → 신전 부족 90, left_knee 150 → 30
     p = _profile()

@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { markTutorialSeen } from '../lib/onboarding';
+import { saveBodyProfile } from '../lib/bodyProfile';
+import { EXPERIENCE_LABEL_KO, type ExperienceLevel } from '../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../theme';
 
 // 첫 실행 튜토리얼 — 기대설정 온보딩 (D-03/D-04, 26-UI-SPEC S1, 시나리오 0단계).
@@ -26,41 +28,78 @@ import { colors, layout, radius, spacing, typography } from '../theme';
 type Slide = {
   // 정적 asset require() — expo-updates OTA 는 require 된 asset 을 번들과 함께
   // 배포하므로 OTA 호환 (26-06, belle 승인 생성 이미지).
-  image: number;
-  imageAlt: string;
+  image?: number;
+  imageAlt?: string;
+  /** true = 그림 대신 경력 선택 버튼을 렌더한다(3장). */
+  question?: boolean;
   title: string;
   body: string;
 };
 
 // 기대설정 중심 3슬라이드 (26-UI-SPEC §Copywriting, "~해요" 체, 이모지 금지).
-// (1) 무엇을 측정하는지 (2) 무엇은 못 하는지 (3) 정확한 분석을 위한 촬영 안내.
-// 이미지 3장 = 브랜드 레드 톤 폴스포츠 생성 이미지 (26-06, belle 승인 — Figma
-// 시안의 이미지 카드 영역이 아이콘 플레이스홀더 상태라 생성분으로 채움).
+// 3장 구성 (belle 2026-08-31 승인, NotebookLM 심층 리서치 근거):
+//   (1) 가치  (2) 체형 조정  (3) 경력 질문
+//
+// 근거 — 리서치(Material Design / NN/g / Google PAIR·Microsoft HAX / Kaia·18Birdies):
+//   · 캐러셀은 **최대 3장**, 제목 5~7단어·본문 12단어 미만. 첫 실행 마케팅 카피는
+//     대부분 읽히지 않으므로 제목만 읽어도 뜻이 통해야 한다.
+//   · 각 장은 "설명"이 아니라 **개인화하거나 기능을 열어야** 한다 → 3장을 경력 질문으로.
+//   · 촬영 안내는 온보딩이 아니라 **촬영 시점**에 둔다(NN/g: 시작 시 안내는 건너뛰고
+//     정작 그 단계에서 기억나지 않는다). 우리 앱은 이미 analyze 에서 압축본을 잡는다.
+//   · 2장(체형)은 belle 현장 근거 — 수강생이 실제로 품는 의심이 "나는 저 선수랑 몸이
+//     다른데 비교가 되나"였다. 앱은 이미 영상에서 몸통 대비 팔·다리 비율을 재서
+//     맞추고 있는데(body_normalizer) 아무도 모른다 → 말해준다.
+//
+// "강사님을 대신하진 않아요"는 3장 제한 안에서 체형·경력에 자리를 내줬다 —
+// 같은 취지 문구가 결과 화면에 이미 있다(중복 제거).
 const SLIDES: readonly Slide[] = [
   {
     image: require('../../assets/tutorial/slide-1.jpg'),
     imageAlt: '폴 위에서 우아하게 확장한 폴스포츠 포즈',
-    title: '자세를 숫자로 정확히 봐드려요',
-    body: '관절 각도를 재고 기준 모션과 비교해서, 어디가 얼마나 다른지 투명한 감점 내역으로 보여드려요. 막연한 칭찬이 아니라 근거가 있는 분석이에요.',
-  },
-  {
-    image: require('../../assets/tutorial/slide-2.jpg'),
-    imageAlt: '삼각대에 세운 폰이 폴스포츠 연습을 촬영하는 장면',
-    title: '강사님을 대신하진 않아요',
-    body: 'AI는 자세를 객관적으로 재주는 보조 도구예요. 측정 밖의 표현이나 흐름 같은 부분은 강사님과 함께 확인하면 더 좋아요.',
+    title: '프로와도, 지난 나와도 비교해요',
+    body: '관절 각도로 어디가 얼마나 다른지 보여드려요.',
   },
   {
     image: require('../../assets/tutorial/slide-3.jpg'),
     imageAlt: '폴 상단에서 당당하게 취한 성취의 포즈',
-    title: '정확한 분석엔 원본 영상이 필요해요',
-    body: '몸 전체가 화면에 잘 들어오는 거리에서 앱으로 직접 촬영하거나 원본 화질 영상을 올려주세요. 카톡으로 받은 영상은 압축돼 분석에 실패할 수 있어요.',
+    title: '몸이 달라도 괜찮아요',
+    body: '체형 차이를 맞춰서 비교해드려요.',
+  },
+  {
+    // 3장 = 질문. 그림 자리를 선택 버튼이 대신한다(Figma 이미지 카드 리듬 유지).
+    question: true,
+    title: '폴을 얼마나 하셨어요?',
+    body: '경력에 맞춰 무리한 동작을 미리 알려드려요.',
   },
 ] as const;
+
+// 선택 버튼 순서 + 문답체 카피. 값 자체는 ExperienceLevel(단일 출처), 화면 문구만
+// 온보딩 말투로 바꾼다 — 마이 탭 폼은 EXPERIENCE_LABEL_KO(초급/중급/고급)를 그대로 쓴다.
+const EXPERIENCE_ORDER: readonly ExperienceLevel[] = [
+  'beginner',
+  'intermediate',
+  'advanced',
+];
+const EXPERIENCE_COPY: Record<ExperienceLevel, string> = {
+  beginner: '이제 시작했어요',
+  intermediate: '조금 해봤어요',
+  advanced: '자신 있어요',
+};
 
 export default function Tutorial() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [page, setPage] = useState(0);
+  // 3장 경력 선택 — 고른 값은 즉시 저장한다(별도 확인 버튼 없음). 저장 실패는
+  // 온보딩을 막지 않는다: 경력은 안전 경고를 켜는 값이지 진입 조건이 아니다.
+  const [experience, setExperience] = useState<ExperienceLevel | null>(null);
+
+  const chooseExperience = (value: ExperienceLevel) => {
+    setExperience(value);
+    void saveBodyProfile({ experience: value }).catch(() => {
+      // 게스트 uid 미생성 등으로 실패해도 화면은 그대로 진행 (마이 탭에서 재입력 가능).
+    });
+  };
 
   const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     // 활성 페이지 = 스크롤 오프셋 / 화면 너비 (반올림). dot 인디케이터·CTA 노출용.
@@ -103,16 +142,53 @@ export default function Tutorial() {
       >
         {SLIDES.map((slide) => (
           <View key={slide.title} style={[styles.slide, { width }]}>
-            <View style={styles.visual}>
-              <Image
-                source={slide.image}
-                resizeMode="cover"
-                accessible
-                accessibilityLabel={slide.imageAlt}
-                style={styles.visualImage}
-              />
-            </View>
-            <Text style={styles.title}>{slide.title}</Text>
+            {/* 질문 장은 제목이 선택지보다 **위**에 온다 — 묻고 나서 고르는 순서.
+                이미지 장은 Figma 리듬대로 그림이 위(그림은 읽는 대상이 아니다). */}
+            {slide.question ? <Text style={styles.title}>{slide.title}</Text> : null}
+            {slide.question ? (
+              // 그림 자리에 선택 버튼 3개 (Figma 이미지 카드와 같은 높이 리듬).
+              <View style={[styles.visual, styles.choiceBox]}>
+                {EXPERIENCE_ORDER.map((value) => {
+                  const selected = experience === value;
+                  return (
+                    <Pressable
+                      key={value}
+                      onPress={() => chooseExperience(value)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`경력 ${EXPERIENCE_LABEL_KO[value]}`}
+                      style={({ pressed }) => [
+                        styles.choice,
+                        selected && styles.choiceSelected,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          selected && styles.choiceTextSelected,
+                        ]}
+                      >
+                        {EXPERIENCE_COPY[value]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.visual}>
+                <Image
+                  source={slide.image}
+                  resizeMode="cover"
+                  accessible
+                  accessibilityLabel={slide.imageAlt}
+                  style={styles.visualImage}
+                />
+              </View>
+            )}
+            {slide.question ? null : (
+              <Text style={styles.title}>{slide.title}</Text>
+            )}
             <Text style={styles.body}>{slide.body}</Text>
           </View>
         ))}
@@ -184,6 +260,28 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   visualImage: { width: '100%', height: '100%' },
+  // 3장 질문 — 그림 카드와 같은 크기 안에 선택 버튼 3개를 균등 배치해 페이지 간
+  // 레이아웃 점프를 막는다(1·2장 이미지 카드와 동일 박스).
+  choiceBox: {
+    backgroundColor: 'transparent',
+    marginTop: 12,
+    justifyContent: 'center',
+    gap: 10, // 카드 내부 간격 — 토큰에 sm 단위가 없어 카드 규격(16)의 절반대
+  },
+  choice: {
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.card,
+    backgroundColor: colors.cardBg,
+    paddingVertical: spacing.cardPadding,
+    alignItems: 'center',
+  },
+  choiceSelected: {
+    borderColor: colors.brand,
+    backgroundColor: colors.brandTint,
+  },
+  choiceText: { ...typography.body, color: colors.textPrimary },
+  choiceTextSelected: { color: colors.brand, fontWeight: '700' },
   title: {
     ...typography.sectionTitle,
     color: colors.textPrimary,

@@ -451,6 +451,28 @@
         "skipped_existing": 0,
         "status": "collected",
         "cumulative_rows_after": 364
+      },
+      {
+        "batch_id": "eye-260831",
+        "opened_at": "2026-08-31T01:07:15Z",
+        "approved_by": "belle",
+        "trigger": "harvest_eye --run",
+        "ledger": "training/data/eye_manifest.json",
+        "sources": {
+          "eye_repo_evidence": 165,
+          "eye_s3_operational": 55
+        },
+        "scanned_rows": 220,
+        "scanned_admit": 161,
+        "scanned_hold": 59,
+        "new_rows": 5,
+        "skipped_existing": 215,
+        "ledger_rows_after": 153,
+        "ledger_admit_after": 104,
+        "ledger_hold_after": 49,
+        "status": "collected",
+        "cumulative_rows_after": 371,
+        "s3_scan_error": null
       }
     ]
   },

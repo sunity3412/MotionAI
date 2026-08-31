@@ -240,6 +240,19 @@ function directionFor(jointKey: string, signedDelta: number): JointDirection | u
   return signedDelta < 0 ? pair[0] : pair[1];
 }
 
+// quick-260831-lcc — 백엔드 유래 발견 문자열의 '없음' 삽입 버그 단일 지점 소독.
+// 백엔드가 primaryFault/tips[0].title 에 '없음'(또는 공백) 문자열을 주면 표시
+// 레이어가 "없음 보완하면 더 올라가요" / "AI 영상 분석에서 발견한 점: 없음" 을
+// 조립했다 (before-screens 실증). trim 후 빈 문자열·'없음' 이면 undefined 로
+// 강등해 폴백 카피 경로로 보낸다 — 표시 레이어 폴백 강등이며 백엔드 데이터
+// 무변형 (T-lcc-01: Text 렌더라 injection 표면 없음).
+function sanitizeFinding(text: string | null | undefined): string | undefined {
+  if (typeof text !== 'string') return undefined;
+  const t = text.trim();
+  if (t.length === 0 || t === '없음') return undefined;
+  return t;
+}
+
 // 박제 (2026-06-06 belle): 분석 글 안 숫자 (각도/점수/거리) 를 브랜드 컬러
 // (#FF4B33) 로 강조 박제. design.md §5-3 정합. tip.detail / guide.line 박제 시
 // inline Text 분할 후 색 박제.
@@ -1053,8 +1066,14 @@ function AnalysisResultContent({
     cmp.mode === 'mode1' &&
     (vetoApplied || result.overallScore < cmp.similarity);
   // applied 시 결함 사유(자연어 DESCRIPTION). legacy doc 호환 — optional chaining.
-  const vetoPrimaryFault =
-    result.visionVeto?.status === 'applied' ? result.visionVeto.primaryFault : undefined;
+  // quick-260831-lcc — sanitizeFinding 단일 지점 소독: 백엔드가 '없음'/공백을 주면
+  // undefined 강등 → ①ScoreContext "없음 보완하면…" ②'먼저 교정할 점: 없음'
+  // ③"AI 발견한 점: 없음" 3면 동시 수리 (조립 상류 차단).
+  const vetoPrimaryFault = sanitizeFinding(
+    result.visionVeto?.status === 'applied'
+      ? result.visionVeto.primaryFault
+      : undefined,
+  );
   // #3 (2026-06-21) — Gemini 가 식별한 실제 결함 keypoint(backend 매핑). 있으면
   // 마커를 각도편차 최대 관절이 아니라 진짜 결함 관절에 찍는다 (legacy doc=undefined).
   const vetoFaultJoints =
@@ -1448,9 +1467,10 @@ function AnalysisResultContent({
   // 우선, 없으면 top 코칭 팁 제목(가장 먼저 다듬을 관절). 둘 다 없으면 null →
   // 일반 격려 카피. 추가 fetch 0 (이미 result 에 있는 데이터만 사용).
   // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 헤드라인에 관절명이 새지 않도록 null.
+  // quick-260831-lcc — tips[0].title 에도 sanitizeFinding 동일 소독 ('없음' 강등).
   const correctionPoint = attributionUnreliable
     ? null
-    : (vetoPrimaryFault ?? result.tips[0]?.title ?? null);
+    : (vetoPrimaryFault ?? sanitizeFinding(result.tips[0]?.title) ?? null);
 
   const summary =
     cmp.mode === 'mode1'
@@ -1806,16 +1826,8 @@ function AnalysisResultContent({
       )
       .slice(0, 2);
   }, [result.visionVeto]);
-  const vetoFixTip = useMemo(() => {
-    if (!vetoApplied) return null;
-    const faultJoints = vetoFaultJoints ?? [];
-    if (faultJoints.length === 0) return null;
-    return (
-      displayTips.find(
-        (tip) => tip.joint != null && faultJoints.some((j) => j === tip.joint),
-      ) ?? null
-    );
-  }, [vetoApplied, vetoFaultJoints, displayTips]);
+  // (구 vetoFixTip 제거 — quick-260831-lcc veto 카드 해체. "이렇게 교정해 보세요"
+  //  줄은 코칭 팁 detail 의 verbatim 재출현이었다 — 코칭 팁 본문이 유일본.)
 
   // (구 deltaFor 제거 — DimensionScoreRow delta 행 폐기와 함께 미사용.)
 
@@ -1937,6 +1949,34 @@ function AnalysisResultContent({
     const extra = userQuestions.filter((q) => !seen.has(q.text));
     return [...autoQuestions, ...extra];
   }, [autoQuestions, userQuestions]);
+  // quick-260831-lcc — 렌더용 dedup (belle 2026-08-31 결과 화면 재구성: generic
+  // 중복 축소). 같은 recordId 질문은 첫 1개만, recordId 없는 generic 질문은 텍스트
+  // 정확 일치 제거 후 최대 1개. 사용자가 직접 담은 질문(source 'user')은 필터하지
+  // 않는다. combinedCoachQuestions(수집 원본)는 무변형 — 표시 축소만.
+  const displayCoachQuestions = useMemo<CoachQuestion[]>(() => {
+    const out: CoachQuestion[] = [];
+    const seenRecordIds = new Set<string>();
+    const seenGenericTexts = new Set<string>();
+    let genericCount = 0;
+    for (const q of combinedCoachQuestions) {
+      if (q.source === 'user') {
+        out.push(q);
+        continue;
+      }
+      if (q.recordId) {
+        if (seenRecordIds.has(q.recordId)) continue;
+        seenRecordIds.add(q.recordId);
+        out.push(q);
+        continue;
+      }
+      if (seenGenericTexts.has(q.text)) continue;
+      seenGenericTexts.add(q.text);
+      if (genericCount >= 1) continue;
+      genericCount += 1;
+      out.push(q);
+    }
+    return out;
+  }, [combinedCoachQuestions]);
   // '강사님께 물어보기' 담기 — recordId 로 완성문(record.coachQuestion) 또는 라벨 기반.
   const addUserQuestion = (recordId: string | null) => {
     const rec =
@@ -2216,7 +2256,10 @@ function AnalysisResultContent({
   // (요약 바로 아래라 거의 안 움직임 + 재탭 무반응) belle 가 "재탭 안 접힘 /
   // 스크롤 오정지"로 지적. 토글 + '접기' 라벨 + chevron 방향으로 해소했다.
   // 앵커 키는 전용 setCardY 슬롯 — record 키와 충돌 없음.
-  const DETAIL_ANCHOR_KEYS = ['anchor:scoreGauge', 'anchor:scoreBreakdown'];
+  // quick-260831-lcc — 옥타곤 게이지가 header 직후(요약 카드 위)로 이동해
+  // 'anchor:scoreGauge' 는 목적지로 부적합(위로 튐). '자세히 보기'의 목적지 =
+  // 점수 상세 = 계산 내역(anchor:scoreBreakdown) 단일.
+  const DETAIL_ANCHOR_KEYS = ['anchor:scoreBreakdown'];
   // F-7 (33-G, quick-260731-cum) — 그 뒤 belle 이 "자세히 보기가 확 내려간다"로 재반려.
   // 원인: 펼치는 즉시 **펼치기 전에 측정된** scoreGauge/scoreBreakdown y 로 점프해
   // 요약 카드에서 한참 아래로 내려갔고, 그 y 자체도 stale 이었다(펼침이 레이아웃을
@@ -2282,10 +2325,15 @@ function AnalysisResultContent({
                 ? `${name ? `${name} · ` : ''}${suppressedHeaderCopy}`
                 : `${name ? `${name} · ` : ''}분석이 완료됐어요. 점수를 확인해보세요.`}
           </Text>
-          {/* Phase 19 TRUST-03 — 채점 근거(scoringBasisLabel) 가시화. reference-free 일 때
-              "기준 동작 없음 — 절대 자세 기준 평가" 가 사용자에게 보인다 (거짓 confident 점수
-              차단). 백엔드가 채울 때만 1줄 표시 (graceful). 토큰만 (하드코딩 금지). */}
-          {cmp.scoringBasisLabel ? (
+          {/* Phase 19 TRUST-03 → quick-260831-lcc (belle 2026-08-31 결과 화면
+              재구성 승인): 상단 참고 3줄을 1줄로 통합 — scoringBasisLabel 은 기본
+              미렌더. 단 isScoreSuppressed(reference-free) 경로에서만 유지 —
+              "기준 동작 없음" 라벨의 거짓 confident 차단 목적(TRUST-03) 잔존.
+              비억제 doc 의 채점 근거 정보 잔존 경로(정보 손실 0): ① 점수 계산
+              내역 breakdownBasisLine(composeScoringBasisKo — "세계챔피언 정은지
+              선수 시연 대비 편차…" 실측 확인) ② header sub("정은지 선수 · 동작
+              기준으로 분석했어요"). coachPositioning 이 상단 유일 면책 1줄. */}
+          {isScoreSuppressed && cmp.scoringBasisLabel ? (
             <Text style={styles.scoringBasis}>{cmp.scoringBasisLabel}</Text>
           ) : null}
           {/* Phase 4 (04-02 D-08 / BLOCKER-3) — 정확도 제한 배지.
@@ -2316,25 +2364,40 @@ function AnalysisResultContent({
           </Text>
         </View>
 
-        {/* mode1 전용: 기준 모션 메타 카드 (선수·동작·레벨·설명) */}
-        {cmp.mode === 'mode1' && (
-          <View style={[styles.card, styles.refCard]}>
-            <View style={styles.refHead}>
-              <Text style={styles.refAthlete}>{cmp.athleteName}</Text>
-              {refMotion && (
-                <Text style={styles.refLevel}>{REFERENCE_LEVEL_LABEL[refMotion.level]}</Text>
-              )}
+        {/* ── 옥타곤 점수 카드 — 첫 화면(스크롤 0) 최상단 콘텐츠.
+            belle 2026-08-31 결과 화면 재구성 승인(요약 우선) — 구 D-01/D-09
+            "점수 게이지 상세 영역 강등" 배치 결정을 대체. 수치 규율(카드당 수치
+            1곳·본문 % 금지) 자체는 유지. suppressed 는 요약 카드가 담당하므로
+            여기선 비억제만. scoreCaption("100점은 잘 나오지 않아요…")은 하단
+            심사 카드 통합 면책(JUDGE_SIM_DISCLAIMER)에 병합·이동 (면책 축소:
+            상단 1줄 + 하단 1개 + 참고코너 유지). */}
+        {isScoreSuppressed ? null : (
+          <View style={styles.card}>
+            <OctagonScore score={result.overallScore} size={168} />
+            <View style={styles.gradeRow}>
+              <Text style={styles.gradeBadge}>{grade}</Text>
+              <Text style={styles.summary}>{summary}</Text>
             </View>
-            <Text style={styles.refName}>{cmp.referenceMotionName}</Text>
-            {refMotion?.description && (
-              <Text style={styles.refDesc}>{refMotion.description}</Text>
-            )}
-            {/* Phase 11 (Plan 11-02, ROADMAP SC#4) — 기준 모션은 절대 정답이
-                아니라 하나의 참고. 정은지 비교 점수를 "전문가 기준 절대값"으로
-                오인하지 않도록 라벨 근처에 명시 (강사 보조 도구 포지셔닝 정합). */}
-            <Text style={styles.refNote}>
-              기준 모션은 하나의 참고일 뿐이에요.
-            </Text>
+            <ScoreContext
+              score={result.overallScore}
+              mode={cmp.mode === 'mode1' ? 'mode1' : 'mode3'}
+              athleteName={cmp.mode === 'mode1' ? cmp.athleteName : null}
+              correctionPoint={correctionPoint}
+              cleanPass={cleanPass}
+              selfDelta={
+                cmp.mode === 'mode3' &&
+                !cmp.isFirst &&
+                prevDoc?.result?.overallScore != null
+                  ? result.overallScore - prevDoc.result.overallScore
+                  : null
+              }
+            />
+            {/* IN-01 — 역립 저신뢰 시 관절 단정(primaryFault) 표기 숨김. */}
+            {vetoPrimaryFault && !attributionUnreliable ? (
+              <Text style={styles.scoringBasis}>
+                AI 영상 분석에서 발견한 점: {vetoPrimaryFault}
+              </Text>
+            ) : null}
           </View>
         )}
 
@@ -2344,11 +2407,13 @@ function AnalysisResultContent({
             DECISIONS D-02. 순서·가시성은 sections(resultSections)가 단일 지점에서
             결정하고, 카드 상호작용은 recordId 조인 맵(recordMaps)으로만 잇는다. */}
 
-        {/* ── 1. 요약 카드 (D-01 첫 콘텐츠) ─────────────────────────────────
-            suppressed → '기준 없음', 아니면 SummaryCard(잘한 점 사람 말 헤드라인 +
-            오늘 고칠 것 + 다음 행동 + 점수 소형 배지 1곳). mode3 헤드라인=발전 델타
-            invariant 는 summaryPraise(백엔드 사람 말)가 담당(D-26). 큰 점수 게이지는
-            D-09 로 아래 상세 영역으로 강등(헤드라인 수치 금지). */}
+        {/* ── 1. 요약 카드 (옥타곤 직하 — belle 2026-08-31 결과 화면 재구성:
+            구 D-01 "첫 콘텐츠" 배치를 대체, 옥타곤이 첫 카드가 되고 요약은 그
+            직하 '오늘 고칠 것' 리드). suppressed → '기준 없음', 아니면
+            SummaryCard(잘한 점 사람 말 헤드라인 + 오늘 고칠 것 + 자세히 보기).
+            점수 배지 제거(옥타곤이 바로 위에서 점수 표시 — 중복), nextAction
+            cuePill 제거(DeductionCard cueBox 와 verbatim 복제 — cueBox 유일본).
+            mode3 헤드라인=발전 델타 invariant 는 summaryPraise 가 담당(D-26). */}
         {/* F-7 (33-G) — '자세히 보기'/'접기' 스크롤 앵커. 요약 카드 자신의 y 를
             기록해 전환 후에도 누른 줄이 화면에 남게 한다(위 toggleDetailExpanded
             주석 참조). 래퍼는 스타일 없는 View 1겹 — content 컨테이너의 flex 자식
@@ -2379,10 +2444,6 @@ function AnalysisResultContent({
                     }
                   : summaryContent.todayFix
               }
-              nextAction={
-                attributionUnreliable ? null : summaryContent.nextAction
-              }
-              score={result.overallScore}
               onPressTodayFix={() => jumpToRecordKey(topFixKey)}
               // 33-15 (D-17) + F-7 (33-G) — 자세히 보기/접기 = 요약 카드 앵커 토글.
               onPressExpand={toggleDetailExpanded}
@@ -2481,6 +2542,24 @@ function AnalysisResultContent({
                   {`아래에 다른 감점 항목 ${otherVisibleRecordCount}개 더 보기 ›`}
                 </Text>
               </Pressable>
+            ) : null}
+            {/* quick-260831-lcc — '먼저 교정할 점' veto 카드 해체 (belle
+                2026-08-31 결과 화면 재구성). 고유 콘텐츠인 rootCauseHypotheses
+                ('가능한 원인' 가설 목록)만 topFix 직하 중립 카드로 이동 —
+                headline 재출현·vetoFixTip(코칭 팁 detail 복제)·vetoLeadNote
+                (면책류)는 제거 (각각 DeductionCard statusLine·코칭 팁 본문·
+                통합 면책이 유일본). topFix 미렌더 경로(attributionUnreliable·
+                cleanPass)에선 이 블록도 함께 미렌더. '~로 보임' 가설 어투
+                그대로 (측정 안 된 단정 금지 — quick-260704-fwb 승계). */}
+            {vetoRootCauses.length > 0 ? (
+              <View style={[styles.card, styles.tipCard, styles.rootCauseCard]}>
+                <Text style={styles.vetoCauseLabel}>가능한 원인</Text>
+                {vetoRootCauses.map((h, i) => (
+                  <Text key={i} style={styles.vetoCauseItem}>
+                    {`· ${h.text}`}
+                  </Text>
+                ))}
+              </View>
             ) : null}
           </View>
         ) : variantOf('summary') === 'clean' ? (
@@ -2911,44 +2990,26 @@ function AnalysisResultContent({
           </>
         ) : null}
 
-        {/* 점수 게이지 (강등) — suppressed 는 요약 카드가 담당하므로 여기선 octagon
-            블록만(비억제). grade/summary/caption/veto 근거 유지. */}
-        {isScoreSuppressed ? null : (
-          <View
-            style={styles.card}
-            // 33-15 (D-17) — '자세히 보기' 스크롤 앵커 1순위 (점수 상세 시작).
-            onLayout={(e) =>
-              setCardY('anchor:scoreGauge', e.nativeEvent.layout.y)
-            }
-          >
-            <OctagonScore score={result.overallScore} size={168} />
-            <View style={styles.gradeRow}>
-              <Text style={styles.gradeBadge}>{grade}</Text>
-              <Text style={styles.summary}>{summary}</Text>
+        {/* mode1 전용: 기준 모션 메타 카드 (선수·동작·레벨·설명).
+            quick-260831-lcc (belle 2026-08-31 결과 화면 재구성) — header 직하에서
+            상세 영역(다른 감점 항목 뒤·점수 계산 내역 앞)으로 하향 이동. 사용자의
+            결과보다 기준 모션 소개를 앞세우지 않는다. refNote("기준 모션은 하나의
+            참고일 뿐이에요")는 상단 면책 1줄(coachPositioning "이 분석은 강사
+            지도를 돕는 참고예요")과 의미 중복이라 제거 — 면책 통합(상단 1줄 +
+            하단 심사 카드 1개 + 참고코너 유지). 고유 정보(선수·동작·레벨·설명)는
+            전부 잔존. */}
+        {cmp.mode === 'mode1' && (
+          <View style={[styles.card, styles.refCard]}>
+            <View style={styles.refHead}>
+              <Text style={styles.refAthlete}>{cmp.athleteName}</Text>
+              {refMotion && (
+                <Text style={styles.refLevel}>{REFERENCE_LEVEL_LABEL[refMotion.level]}</Text>
+              )}
             </View>
-            <ScoreContext
-              score={result.overallScore}
-              mode={cmp.mode === 'mode1' ? 'mode1' : 'mode3'}
-              athleteName={cmp.mode === 'mode1' ? cmp.athleteName : null}
-              correctionPoint={correctionPoint}
-              cleanPass={cleanPass}
-              selfDelta={
-                cmp.mode === 'mode3' &&
-                !cmp.isFirst &&
-                prevDoc?.result?.overallScore != null
-                  ? result.overallScore - prevDoc.result.overallScore
-                  : null
-              }
-            />
-            {/* IN-01 — 역립 저신뢰 시 관절 단정(primaryFault) 표기 숨김. */}
-            {vetoPrimaryFault && !attributionUnreliable ? (
-              <Text style={styles.scoringBasis}>
-                AI 영상 분석에서 발견한 점: {vetoPrimaryFault}
-              </Text>
-            ) : null}
-            <Text style={styles.scoreCaption}>
-              촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요. 90점 이상이면 정상 자세에 가깝습니다.
-            </Text>
+            <Text style={styles.refName}>{cmp.referenceMotionName}</Text>
+            {refMotion?.description && (
+              <Text style={styles.refDesc}>{refMotion.description}</Text>
+            )}
           </View>
         )}
 
@@ -3024,53 +3085,11 @@ function AnalysisResultContent({
             joint 평균 confidence < 0.5 또는 low reliability frame 비율 ≥ 30%
             → "추정 N°" + estimateGray + ⓘ tap → Alert (D-12-D1 박제). */}
         <Text style={styles.sectionTitle}>코칭 팁</Text>
-        {/* Phase 20 (UI ①) — 비전 거부권 적용 시 코칭의 LEAD = 비전 결함(교정 대상).
-            backend tip 이 "거의 동일/일치도 100" 으로 시작하면 75 헤드라인과 모순
-            (belle 디바이스 finding). 거부권 결함을 맨 앞 카드로 노출해 "무엇을
-            교정할지" 를 코칭 흐름의 머리로 둔다. primaryFault 있을 때만 (graceful).
-            토큰만 (하드코딩 금지).
-            quick-260705-o0s — cleanPass 방어 게이트: 감점 0 이면 veto applied 일 수
-            없지만(감점 record 가 tally 실체) '먼저 교정할 점'은 문제-계열 섹션이라
-            명시적으로 숨긴다 (isCleanPass 단일 신호). */}
-        {/* IN-01 — 역립 저신뢰 시 '먼저 교정할 점' 카드 숨김 (관절 단정 방지). */}
-        {!cleanPass && vetoApplied && vetoPrimaryFault && !attributionUnreliable ? (
-          <View style={[styles.card, styles.tipCard, styles.vetoLeadCard]}>
-            <View style={styles.tipHead}>
-              <Ionicons name="alert-circle" size={20} color={colors.brand} />
-              <Text style={styles.tipTitle}>먼저 교정할 점</Text>
-            </View>
-            <Text style={styles.tipDetail}>
-              {highlightNumbers(vetoPrimaryFault)}
-            </Text>
-            {/* quick-260704-fwb — 원인 기전: '~로 보임' 가설 어투 그대로 (측정 안 된
-                단정 금지). rootCauseHypotheses 부재 doc 은 섹션 생략 (graceful). */}
-            {vetoRootCauses.length > 0 ? (
-              <View style={styles.vetoCauseBlock}>
-                <Text style={styles.vetoCauseLabel}>가능한 원인</Text>
-                {vetoRootCauses.map((h, i) => (
-                  <Text key={i} style={styles.vetoCauseItem}>
-                    {`· ${h.text}`}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-            {/* 처방 연결 — 결함 관절(faultJoints) 매칭 첫 팁의 실행 지시 한 줄.
-                매칭 팁 없으면 코칭 팁 안내 폴백 (fabricate 0). */}
-            {vetoFixTip ? (
-              <Text style={styles.vetoFixLine}>
-                <Text style={styles.vetoFixLabel}>이렇게 교정해 보세요: </Text>
-                {vetoFixTip.detail}
-              </Text>
-            ) : (
-              <Text style={styles.vetoFixLine}>
-                아래 코칭 팁에서 관절별 교정 방법을 확인하세요.
-              </Text>
-            )}
-            <Text style={styles.vetoLeadNote}>
-              AI 영상 분석이 발견한 위 자세 차이가 종합 점수에 반영됐어요.
-            </Text>
-          </View>
-        ) : null}
+        {/* (구 Phase 20 UI ① '먼저 교정할 점' veto LEAD 카드 해체 — quick-260831-lcc,
+            belle 2026-08-31 결과 화면 재구성 승인. 발견 headline(vetoPrimaryFault)은
+            topFix DeductionCard statusLine·옥타곤 카드 발견 줄이, vetoFixTip 은
+            코칭 팁 본문이, vetoLeadNote 면책은 통합 면책이 각각 유일본. 고유
+            콘텐츠였던 rootCauseHypotheses '가능한 원인'만 topFix 직하로 이동.) */}
         {displayTips.map((tip, i) => {
           const joint = tip.joint
             ? joints.find((j) => j.key === tip.joint)
@@ -3162,9 +3181,9 @@ function AnalysisResultContent({
                   <Text style={styles.tipTitle}>{COACH_CARD_HEADLINE}</Text>
                 </View>
                 <Text style={styles.growthBody}>{COACH_CARD_BODY}</Text>
-                {combinedCoachQuestions.length > 0 ? (
+                {displayCoachQuestions.length > 0 ? (
                   <Pressable
-                    onPress={() => jumpToQuestion(combinedCoachQuestions[0].recordId)}
+                    onPress={() => jumpToQuestion(displayCoachQuestions[0].recordId)}
                     accessibilityRole="button"
                     accessibilityLabel="강사에게 물어볼 질문 보기"
                     hitSlop={8}
@@ -3297,7 +3316,9 @@ function AnalysisResultContent({
               아래 질문을 강사와 함께 확인해보세요. 탭하면 해당 감점 카드로 이동해요.
             </Text>
             <View style={[styles.card, styles.coachCard]}>
-              {combinedCoachQuestions.map((q, i) => {
+              {/* quick-260831-lcc — 렌더는 dedup 목록 (같은 recordId 1개·generic
+                  최대 1개, 사용자 담기 무필터). 수집 원본은 무변형. */}
+              {displayCoachQuestions.map((q, i) => {
                 const jumpable = !!q.recordId;
                 const inner = (
                   <View style={styles.coachQuestionRow}>
@@ -3353,7 +3374,11 @@ function AnalysisResultContent({
               <Text style={styles.judgeIntro}>{JUDGE_SIM_INTRO}</Text>
               {records.map((rec, i) => {
                 const key = recordKeyForIndex(records, i);
-                const fault = rec.statusLine ?? criterionLabelKo(rec.criterion);
+                // quick-260831-lcc (belle 2026-08-31 결과 화면 재구성) — 발견
+                // 재출현 제거: statusLine·whyLine 완결 문단은 DeductionCard·
+                // 드릴다운 시트가 유일본 (행 탭 → 시트 도달 경로 보존). 여기는
+                // 짧은 항목명 + 환산 수치만.
+                const fault = criterionLabelKo(rec.criterion);
                 return (
                   <Pressable
                     key={key}
@@ -3369,11 +3394,6 @@ function AnalysisResultContent({
                       <Text style={styles.judgeFault} numberOfLines={2}>
                         {fault}
                       </Text>
-                      {rec.whyLine ? (
-                        <Text style={styles.judgeReason} numberOfLines={2}>
-                          {rec.whyLine}
-                        </Text>
-                      ) : null}
                     </View>
                     <Text style={styles.judgeDeduction}>
                       {`−${formatDeductionNumber(Math.abs(rec.points))}`}
@@ -3594,14 +3614,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     flexShrink: 1,
   },
-  scoreCaption: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 18,
-    paddingHorizontal: 4,
-  },
+  // (구 scoreCaption 제거 — quick-260831-lcc. "100점은 잘 나오지 않아요" 의미는
+  //  JUDGE_SIM_DISCLAIMER 통합 면책에 병합.)
   // 29-CONTEXT D-05 — mode3 한계 고지 독립 1줄 (breakdown 부재 경로). caption 톤,
   // 토큰만 (하드코딩 금지). breakdown 경로는 ScoreBreakdownSection footnote 사용.
   // 33-15 (D-17) — 좌우 여백 통일: 최상위 텍스트 블록의 임의 paddingHorizontal 4
@@ -3724,9 +3738,8 @@ const styles = StyleSheet.create({
   },
   refName: { ...typography.listTitle, color: colors.textPrimary },
   refDesc: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
-  // Phase 11 (Plan 11-02, ROADMAP SC#4) — 기준 모션 = 하나의 참고 문구.
-  // refCard 가 brandTint 배경이라 brand 톤으로 강조 (절대값 오인 방지).
-  refNote: { ...typography.captionSmall, color: colors.brand, marginTop: 4 },
+  // (구 refNote 제거 — quick-260831-lcc. "하나의 참고" 의미는 상단 면책 1줄
+  //  coachPositioning 이 유일본.)
   segmentHintText: {
     ...typography.caption,
     color: colors.textSecondary,
@@ -3920,25 +3933,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandTint,
     borderColor: colors.brand,
   },
-  vetoLeadNote: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  // quick-260704-fwb — '먼저 교정할 점' 원인 기전 + 처방 연결 (토큰만).
-  vetoCauseBlock: { gap: 4 },
+  // quick-260704-fwb → quick-260831-lcc — '가능한 원인' 블록 (veto 카드 해체 후
+  // topFix 직하 중립 카드로 이동. vetoFixLine/vetoLeadNote 는 복제라 제거).
+  rootCauseCard: { marginTop: 10 },
   vetoCauseLabel: { ...typography.boxLabel, color: colors.textPrimary },
   vetoCauseItem: {
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
   },
-  vetoFixLine: {
-    ...typography.caption,
-    color: colors.textPrimary,
-    lineHeight: 18,
-  },
-  vetoFixLabel: { ...typography.boxLabel, color: colors.brand },
   tipHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tipAngleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   tipAngle: { ...typography.boxLabel, color: colors.brand },
@@ -4057,7 +4060,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 4,
   },
+  // quick-260831-lcc — styles.card 의 alignItems:'center' 가 행을 내용 폭으로
+  // 수축시켜 "심사 환산 점수80점" 붙음이 생겼다(before-screens/12 실측).
+  // alignSelf:'stretch' 로 행이 카드 전폭을 쓰게 해 라벨 좌 / 값 우 분리.
   judgeRow: {
+    alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
@@ -4068,14 +4075,12 @@ const styles = StyleSheet.create({
   },
   judgeRowText: { flex: 1, gap: 2 },
   judgeFault: { ...typography.boxLabel, color: colors.textPrimary },
-  judgeReason: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    lineHeight: 17,
-  },
+  // (구 judgeReason 제거 — quick-260831-lcc. whyLine 재출현은 DeductionCard·
+  //  드릴다운 시트가 유일본.)
   // 33-15 (D-16) — 감점 수치 listTitle → metricNumber 강등 (수치는 근거, 헤드라인 아님).
   judgeDeduction: { ...typography.metricNumber, color: colors.brand },
   judgeTotalRow: {
+    alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

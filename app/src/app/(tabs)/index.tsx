@@ -154,6 +154,7 @@ export default function Home() {
           {recent ? (
             <RecentAnalysisCard
               doc={recent}
+              motions={motions}
               onPress={() =>
                 router.push({
                   pathname: '/analysis/result',
@@ -234,14 +235,18 @@ export default function Home() {
 
 function RecentAnalysisCard({
   doc,
+  motions,
   onPress,
 }: {
   doc: AnalysisDoc;
+  motions: ReferenceMotion[];
   onPress: () => void;
 }) {
   // mode3 제목 구체화 (belle 08-31) — history.tsx motionLabel 과 같은 규칙:
   // recognizedMotionId → 기준 모션 한글명 (recognizedMotionName 은 원시 id 라 표시 불가).
-  const { motions } = useReferenceMotions();
+  // motions 는 부모(Home)가 이미 구독 중인 목록을 prop 으로 받는다 — 여기서
+  // useReferenceMotions() 를 다시 부르면 같은 컬렉션에 onSnapshot 이 하나 더 열린다
+  // (훅에 공유 캐시 없음, 2026-08-31 앱 리뷰 지적).
   const comparison = doc.result?.comparison;
   const recognizedName =
     comparison?.mode === 'mode3' && comparison.recognizedMotionId

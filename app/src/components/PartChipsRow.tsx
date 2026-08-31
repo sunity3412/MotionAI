@@ -117,12 +117,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   // quick-260831-lcc (belle 2026-08-31 결과 화면 재구성 — 빨강 규율): 참고 칩의
-  // advisoryOrange 제3색 제거 → 중립(divider 점선 + textSecondary). 참고 칩의
-  // 구분은 라벨 접두("참고: ") + 점선 테두리가 담당 (N-20 주석의 iOS dashed 한계
-  // 그대로). 감점 칩 쪽은 무접촉.
+  // advisoryOrange 제3색 제거 → 중립. 참고 칩의 구분은 라벨 접두("참고: ") +
+  // 테두리 톤이 담당한다. 감점 칩 쪽은 무접촉.
+  //
+  // ★2026-08-31 앱 리뷰 수정: 처음엔 borderColor 를 divider 로 뒀는데 그건 기본
+  // 칩 테두리와 **완전히 같은 값**이었다. N-20 주석대로 iOS 는 둥근 View 의
+  // dashed 를 solid 로 그리므로, 그 상태에서는 참고 칩과 감점 칩의 테두리가
+  // 구분되지 않는다(텍스트 색·접두사만 남음). 같은 중립 계열 안에서 한 단계
+  // 옅은 톤(textDisabled)으로 두어 색을 늘리지 않고 구분을 되살린다.
   chipAdvisory: {
     borderStyle: 'dashed',
-    borderColor: colors.divider,
+    borderColor: colors.textDisabled,
   },
   chipText: {
     ...typography.badge,

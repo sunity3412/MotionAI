@@ -19,6 +19,7 @@ import { AccuracyLimitBadge } from '../../components/AccuracyLimitBadge';
 import { InjuryRiskSection } from '../../components/InjuryRiskSection';
 import { CoachingTipDetailModal } from '../../components/CoachingTipDetailModal';
 import { RecommendedExerciseModal } from '../../components/RecommendedExerciseModal';
+import { CORRECTIVE_LIBRARY_HAS_ITEMS } from '../../data/correctiveExercises';
 import {
   KeypointOverlay,
   KEYPOINT_DELTA_HIGHLIGHT_DEG,
@@ -183,6 +184,12 @@ const JUDGE_SIM_INTRO =
 // '점수에는 들어가지 않아요' — 오해 방지 기능이라 유지).
 const JUDGE_SIM_DISCLAIMER =
   'AI가 추정한 감점 시뮬레이션이에요. 촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요 (90점 이상이면 정상 자세에 가깝습니다). 실제 심사·강사 평가와 함께 확인하면 가장 정확해요.';
+
+// 위 통합 면책 중 **점수 보정** 부분만 떼어낸 문장. 심사 카드가 렌더되지 않는
+// doc(clean-pass = 감점 record 0, 저신뢰)에서 옥타곤 카드가 대신 1회 보여준다 —
+// 병합만 하고 끝냈더니 그 doc 들이 안내를 통째로 잃었다(2026-08-31 앱 리뷰).
+const SCORE_CALIBRATION_NOTE =
+  '촬영 노이즈와 측정 허용 범위가 있어 100점은 잘 나오지 않아요 (90점 이상이면 정상 자세에 가깝습니다).';
 
 // 32-11 (D-13) — 보완 운동 개편 카피. 전면 1개 + 이유 1줄, '다른 운동 보기' 가로 최대 3.
 const EXERCISE_DETOUR_HEADLINE = '이 운동부터 해보면 쉬워져요';
@@ -2004,14 +2011,18 @@ function AnalysisResultContent({
     return [...autoQuestions, ...extra];
   }, [autoQuestions, userQuestions]);
   // quick-260831-lcc — 렌더용 dedup (belle 2026-08-31 결과 화면 재구성: generic
-  // 중복 축소). 같은 recordId 질문은 첫 1개만, recordId 없는 generic 질문은 텍스트
-  // 정확 일치 제거 후 최대 1개. 사용자가 직접 담은 질문(source 'user')은 필터하지
-  // 않는다. combinedCoachQuestions(수집 원본)는 무변형 — 표시 축소만.
+  // 중복 축소). 같은 recordId 질문은 첫 1개만, recordId 없는 generic 질문은
+  // **텍스트 정확 일치만** 제거한다. 사용자가 직접 담은 질문(source 'user')은
+  // 필터하지 않는다. combinedCoachQuestions(수집 원본)는 무변형 — 표시 축소만.
+  //
+  // ★2026-08-31 앱 리뷰 수정: 초기 구현이 generic 을 **1개로 잘랐다**(genericCount).
+  // 그런데 legacy doc(result.coachQuestions 부재)은 openQuestionsForCoach 폴백이
+  // 전부 recordId 없이 들어와, 서로 다른 미측정 영역 질문 3개가 1개로 줄었다 =
+  // 정보 손실. 중복 제거(같은 문장)와 축소(다른 문장 버리기)는 다른 일이다.
   const displayCoachQuestions = useMemo<CoachQuestion[]>(() => {
     const out: CoachQuestion[] = [];
     const seenRecordIds = new Set<string>();
     const seenGenericTexts = new Set<string>();
-    let genericCount = 0;
     for (const q of combinedCoachQuestions) {
       if (q.source === 'user') {
         out.push(q);
@@ -2025,8 +2036,6 @@ function AnalysisResultContent({
       }
       if (seenGenericTexts.has(q.text)) continue;
       seenGenericTexts.add(q.text);
-      if (genericCount >= 1) continue;
-      genericCount += 1;
       out.push(q);
     }
     return out;
@@ -2242,9 +2251,15 @@ function AnalysisResultContent({
         ),
         isMode3First: cmp.mode === 'mode3' && cmp.isFirst,
         hasQuestions: combinedCoachQuestions.length > 0,
-        // belle 2026-08-31 빈 상태 규칙 — 개인화 전면 운동(frontExercise) 존재
-        // 기준으로 축소 (구 라이브러리 존재 OR 는 빈 상태 카드를 낳았다).
-        hasExercise: (result.recommendedExercises?.length ?? 0) > 0,
+        // belle 2026-08-31 빈 상태 규칙 — "매핑이 없어요" **카드**는 없앤다.
+        // 단 도달성은 유지한다(belle 조건 = 정보 손실 0): 개인화 운동이 없어도
+        // ① exercise_detour 격상 카피(D-27 2회차 미개선)와 ② 정적 보완운동
+        // 라이브러리 진입점은 살아 있어야 한다 — 개인화 존재만으로 게이트하면
+        // 그 둘이 앱 어디에서도 도달 불가가 된다(2026-08-31 앱 리뷰 지적).
+        hasExercise:
+          (result.recommendedExercises?.length ?? 0) > 0 ||
+          result.mission?.escalation === 'exercise_detour' ||
+          CORRECTIVE_LIBRARY_HAS_ITEMS,
       }),
     [
       cmp,
@@ -2452,6 +2467,15 @@ function AnalysisResultContent({
                 AI 영상 분석에서 발견한 점: {vetoPrimaryFault}
               </Text>
             ) : null}
+            {/* 점수 보정 안내 — 하단 통합 면책이 렌더되지 않는 doc 에서만.
+                병합 후 이 문장은 JUDGE_SIM_DISCLAIMER 안에만 있었는데, 그 카드는
+                감점 record 가 있을 때만 뜬다(resultSections judgeInfo = !suppressed
+                && hasRecords) + 저신뢰 시 숨김. 그래서 clean-pass(감점 0, 만점권)나
+                저신뢰 doc 은 "100점은 잘 안 나와요" 안내를 화면 어디에서도 못 봤다
+                (2026-08-31 앱 리뷰 — 정보 손실). 중복 없이 최소 1회를 보장한다. */}
+            {isVisible('judgeInfo') && !attributionUnreliable ? null : (
+              <Text style={styles.scoringBasis}>{SCORE_CALIBRATION_NOTE}</Text>
+            )}
           </View>
         )}
 
@@ -3342,20 +3366,24 @@ function AnalysisResultContent({
                     </ScrollView>
                   </>
                 ) : null}
-                <Pressable
-                  onPress={() => setExerciseModalOpen(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="전체 보완 운동 보기"
-                  hitSlop={8}
-                  style={styles.tipMoreRow}
-                >
-                  <Text style={styles.tipMore}>전체 보완 운동 보기 ›</Text>
-                </Pressable>
               </>
             ) : null}
-            {/* (구 "매핑이 없어요" 빈 상태 가지 제거 — belle 2026-08-31 빈 상태
-                규칙. hasExercise 가 frontExercise 존재 기준이라 이 섹션은
-                frontExercise 부재 시 통째로 미렌더 — 도달 불가 가지.) */}
+            {/* 라이브러리 진입점 — frontExercise 유무와 무관하게 섹션 레벨에 둔다.
+                구 "매핑이 없어요" 빈 상태 **카드**는 제거하되(belle 2026-08-31 빈
+                상태 규칙) 진입 자체는 남긴다: frontExercise 안쪽에 두면 개인화
+                매핑이 없는 doc 에서 정적 보완운동 라이브러리가 앱 어디서도 열리지
+                않는다(2026-08-31 앱 리뷰 — 정보 손실). */}
+            {CORRECTIVE_LIBRARY_HAS_ITEMS ? (
+              <Pressable
+                onPress={() => setExerciseModalOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="전체 보완 운동 보기"
+                hitSlop={8}
+                style={styles.tipMoreRow}
+              >
+                <Text style={styles.tipMore}>전체 보완 운동 보기 ›</Text>
+              </Pressable>
+            ) : null}
           </>
         ) : null}
 

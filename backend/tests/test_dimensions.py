@@ -146,13 +146,21 @@ def test_stability_does_not_inflate():
 
 
 def test_select_window_uses_profile_when_set():
-    # profile.hold_window 가 있으면 그 구간 그대로 사용 (TechniqueProfile 은 frozen → replace)
+    # profile.hold_window 가 있으면 그 창을 국면 힌트로 사용 (TechniqueProfile frozen → replace)
+    #
+    # quick-260831-gyk 기대값 변경 정당화: profile 창은 이제 국면 힌트 "상한"이지 창 그
+    # 자체가 아니다 — 힌트 창 내부에서 분산-최소 부창을 재선택한다 (이 수리의 정의 변경,
+    # belle 08-31 파워스핀 위양성). 종전 단언 (s,e) == (5,15) 정확 일치 → 포함 불변식
+    # (5 <= s' < e' <= 15) + 부창 폭 규칙 w = max(2, min(10, 10//4)) = 2 로 갱신.
+    # constant 포즈 → 분산 0 균일 → 결정론 tie-break(첫 부창) = (5, 7).
     import dataclasses
     p = dataclasses.replace(_profile(), hold_window=(5, 15))
     angles = _pose({"left_knee": 175}, t=30)
     sliced, (s, e) = dimensions._select_window(angles, p)
-    assert (s, e) == (5, 15)
-    assert sliced.shape[0] == 10
+    assert 5 <= s < e <= 15
+    assert e - s == 2  # w = max(2, min(10, 10//4)) = 2
+    assert (s, e) == (5, 7)  # 균일 분산 → 첫 부창 (결정론)
+    assert sliced.shape[0] == 2
 
 
 def test_select_window_falls_back_to_auto():
@@ -286,11 +294,15 @@ def test_stability_wobble_single_frame_empty():
 
 def test_helpers_share_window_with_score_functions():
     # _select_window 가 line_score / stability_score 와 같은 window 사용 (drift 0)
+    #
+    # quick-260831-gyk 기대값 변경 정당화: 테스트 의도(점수 함수들과 창 공유, drift 0)는
+    # 그대로 성립 — shape 단언만 새 의미로 갱신. 힌트 창 (3,13) 내부 부창 재선택으로
+    # shape == 부창 폭 w = max(2, min(10, 10//4)) = 2 (종전 10 = verbatim 창 폭).
     import dataclasses
     p = dataclasses.replace(_profile(), hold_window=(3, 13))
     angles = _pose({"left_knee": 170}, t=20)
     sliced_a, _ = dimensions._select_window(angles, p)
-    assert sliced_a.shape[0] == 10
+    assert sliced_a.shape[0] == 2
     # line_score 도 같은 window 사용 (rep = mean of windowed)
     ls = dimensions.line_score(angles, p)
     assert ls is not None  # 점수 산출 정상

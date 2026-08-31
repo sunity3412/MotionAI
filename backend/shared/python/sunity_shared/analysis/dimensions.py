@@ -290,10 +290,20 @@ def extension_deviation(angles, profile: TechniqueProfile) -> np.ndarray:
 
 
 def _select_window(angles, profile: "TechniqueProfile | None" = None) -> tuple[np.ndarray, tuple[int, int]]:
-    """공유 window 선택 — profile.hold_window 우선, fallback 자동 (분산 최소).
+    """공유 window 선택 — profile.hold_window 는 국면 **힌트**, 그 내부에서 안정 부창 재선택.
 
     line_score, line_deficits_by_joint, stability_score, stability_wobble_by_joint,
     extension_deviation 모두 이 함수 하나만 호출 — drift 방지 (Codex v3 HIGH-2).
+
+    quick-260831-gyk (belle 08-31 × 판정 "아니 쫙 펴져 있어"): Gemini 국면 창
+    (hold moment ±2초)이 스핀 진입 전환부를 측정 창에 섞어 파워스핀 정타에
+    leg_extension -20 위양성 + line micro-bent 0점을 만들었다. 수리 = profile
+    창을 verbatim 쓰지 않고 그 창 **내부에서** 기존 hold_window(분산 최소)
+    로직으로 안정 부창을 재선택한다 — hold_window docstring 의 정의("홀딩=동작이
+    완성돼 정지한 지점")가 창 내부에서 회복된다. 새 튜닝 상수 0(부창 폭은
+    hold_window 의 기존 규칙 w = max(2, min(t', t'//4)) 그대로), 동작명 분기 0.
+    33-A4 국면 게이트 목적(국면 밖 프레임 배제)은 유지 — 부창은 항상 힌트 창
+    내부 (s' >= s, e' <= e).
 
     Returns:
         (sliced, (s, e)): sliced = angles[s:e] (shape (T', J)), (s, e) = 윈도우 인덱스.
@@ -312,6 +322,10 @@ def _select_window(angles, profile: "TechniqueProfile | None" = None) -> tuple[n
         # 으로 표시 target angle 을 조용히 전부 제거한다 (quiet quality 저하).
         if s == e:
             s, e = hold_window(a)
+        else:
+            # quick-260831-gyk: 힌트 창 내부 분산-최소 부창 재선택 (위 docstring).
+            ss, se = hold_window(a[s:e])
+            s, e = s + ss, s + se
     else:
         s, e = hold_window(a)
     return a[s:e], (s, e)

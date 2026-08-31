@@ -28,7 +28,7 @@ for _p in (_PIPELINE, _SHARED):
 import numpy as np  # noqa: E402
 
 import app  # noqa: E402
-from sunity_shared.analysis import technique, vision_veto  # noqa: E402
+from sunity_shared.analysis import dimensions, technique, vision_veto  # noqa: E402
 from sunity_shared.analysis.motiondtw import (  # noqa: E402
     MotionMatch,
     per_joint_deviation,
@@ -243,67 +243,104 @@ def test_moment_is_not_the_jitter_spike_frame():
 
 
 # ── (4) leg_extension — 이긴 관절의 window 안 대표 프레임 ────────────────────
+#
+# quick-260831-gyk fixture 조정 정당화: profile.hold_window 는 이제 국면 힌트이고
+# _select_window 가 그 내부에서 분산-최소 부창을 재선택한다 (belle 08-31 파워스핀
+# 위양성 수리). 종전 fixture(hold_window=(2,5), 창 verbatim 전제)는 전환부형 변동
+# 프레임만 담아 부창 재선택 시 동점 타이브레이크에 걸렸다. 새 fixture = 힌트 창
+# (2,14) 안에 전환부(2..9 요동)와 안정 홀드(10..12)를 함께 두어 부창이 (10,13) 에
+# 결정론적으로 안착. 테스트 **의도**(집계값 최근접 순간 선택, argmax 아님, 창 포함)는
+# 그대로 보존 — 검증 수치(120/140/160 → 집계 40 → 중간 프레임)도 종전과 동일하고
+# 프레임 번호만 2/3/4 → 10/11/12 로 이동.
+
+
+def _transition_then_hold_knee(usr, joint, hold_vals):
+    """프레임 2..9 = 전환부(20/180 요동), 10..12 = 홀드(hold_vals), 13 = 이탈(60).
+
+    힌트 창 (2,14) 내부에서 분산-최소 부창(w = max(2, min(12, 12//4)) = 3)이
+    (10, 13) 에 유일하게 안착하도록 설계 — 전환부/이탈 프레임을 포함하는 모든
+    폭-3 창의 분산이 홀드 창보다 크다.
+    """
+    for i in range(2, 10):
+        usr[i, joint] = 20.0 if i % 2 == 0 else 180.0
+    usr[10, joint], usr[11, joint], usr[12, joint] = hold_vals
+    usr[13, joint] = 60.0
 
 
 def test_leg_extension_moment_follows_the_winning_joint():
     """좌/우 중 부족분이 큰 관절이 집계값을 만들고, 순간도 그 관절에서 나온다."""
-    T = 10
+    T = 16
     usr = _angles(T, deg=180.0)
-    # 왼무릎은 window 내내 175도(부족 5), 오른무릎은 프레임마다 달라 평균 부족이 크다.
+    # 왼무릎은 내내 175도(부족 5), 오른무릎은 홀드 안에서 프레임마다 달라 평균 부족이 크다.
     usr[:, _LEFT_KNEE] = 175.0
-    usr[:, _RIGHT_KNEE] = 180.0
-    usr[2, _RIGHT_KNEE] = 120.0
-    usr[3, _RIGHT_KNEE] = 140.0
-    usr[4, _RIGHT_KNEE] = 160.0
-    profile = _knee_extend_profile(hold_window=(2, 5))
+    _transition_then_hold_knee(usr, _RIGHT_KNEE, (120.0, 140.0, 160.0))
+    profile = _knee_extend_profile(hold_window=(2, 14))
+    # fixture 전제 확인: 부창이 홀드 구간 (10, 13) 에 결정론적으로 안착.
+    assert dimensions._select_window(usr, profile)[1] == (10, 13)
     out: dict = {}
     md = _build(
         usr=usr, profile=profile, quantification=_quant(), out=out,
     )
-    # 집계값은 오른무릎이 만든다 (window mean 부족분 = 180 - (120+140+160)/3 = 40).
+    # 집계값은 오른무릎이 만든다 (부창 mean 부족분 = 180 - (120+140+160)/3 = 40).
     assert md["leg_extension"] == pytest.approx(40.0)
     frame = out["leg_extension"]["frame_idx"]
-    assert 2 <= frame < 5, "순간은 _select_window 구간 안이어야 한다"
-    # 집계값 40 에 per-frame 부족분이 가장 가까운 프레임 = 140도인 3번.
-    assert frame == 3
+    assert 10 <= frame < 13, "순간은 _select_window 부창 안이어야 한다"
+    # 집계값 40 에 per-frame 부족분이 가장 가까운 프레임 = 140도인 11번.
+    assert frame == 11
 
 
 def test_extension_moment_is_not_the_worst_frame():
     """window 안 최대 부족 프레임(argmax)이 아니라 집계값 최근접 프레임."""
-    T = 10
+    T = 16
     usr = _angles(T, deg=180.0)
     usr[:, _LEFT_KNEE] = 180.0
-    usr[:, _RIGHT_KNEE] = 180.0
-    usr[2, _RIGHT_KNEE] = 120.0  # 최대 부족(60) — argmax 유혹
-    usr[3, _RIGHT_KNEE] = 140.0
-    usr[4, _RIGHT_KNEE] = 160.0
+    # 부창 (10,13) 안: 10번 = 최대 부족(60) — argmax 유혹, 집계 40 최근접은 11번.
+    _transition_then_hold_knee(usr, _RIGHT_KNEE, (120.0, 140.0, 160.0))
+    profile = _knee_extend_profile(hold_window=(2, 14))
+    assert dimensions._select_window(usr, profile)[1] == (10, 13)
     out: dict = {}
     _build(
-        usr=usr, profile=_knee_extend_profile(hold_window=(2, 5)),
+        usr=usr, profile=profile,
         quantification=_quant(), out=out,
     )
-    assert out["leg_extension"]["frame_idx"] != 2
+    assert out["leg_extension"]["frame_idx"] != 10
 
 
 # ── (5) line — 기여 관절 집합의 per-frame 평균 부족분 최근접 ─────────────────
 
 
 def test_line_moment_uses_the_contributing_joint_set_mean():
-    """line 순간 = 집계에 기여한 관절들의 per-frame 평균 부족분이 집계값에 최근접."""
-    T = 10
+    """line 순간 = 집계에 기여한 관절들의 per-frame 평균 부족분이 집계값에 최근접.
+
+    quick-260831-gyk fixture 조정 정당화: 종전 fixture(hold_window=(2,5))는 부창
+    재선택 시 두 후보 프레임의 집계-거리 동점 타이브레이크로만 통과했다 (fragile).
+    새 fixture = (4)와 같은 전환부+홀드 구조. 홀드 3프레임의 per-frame 평균 부족분
+    (9 / 5 / 1.5)이 집계(약 5.17)에 대해 유일 최근접(11번)을 갖도록 설계 — 의도
+    (기여 관절 집합 평균 최근접, argmax 아님, 창 포함)는 그대로 보존.
+    """
+    T = 16
     usr = _angles(T, deg=180.0)
     # 두 무릎 모두 EXTEND 이고 둘 다 양수 부족분을 낸다 → line 집계는 둘의 평균.
-    usr[2, _LEFT_KNEE], usr[2, _RIGHT_KNEE] = 100.0, 120.0   # 평균 부족 70
-    usr[3, _LEFT_KNEE], usr[3, _RIGHT_KNEE] = 150.0, 160.0   # 평균 부족 25
-    usr[4, _LEFT_KNEE], usr[4, _RIGHT_KNEE] = 170.0, 178.0   # 평균 부족 6
+    # 전환부 2..9 = 양 무릎 20/180 요동, 이탈 13 = 20.
+    for i in range(2, 10):
+        v = 20.0 if i % 2 == 0 else 180.0
+        usr[i, _LEFT_KNEE] = v
+        usr[i, _RIGHT_KNEE] = v
+    usr[13, _LEFT_KNEE] = 20.0
+    usr[13, _RIGHT_KNEE] = 20.0
+    usr[10, _LEFT_KNEE], usr[10, _RIGHT_KNEE] = 170.0, 172.0  # 평균 부족 9
+    usr[11, _LEFT_KNEE], usr[11, _RIGHT_KNEE] = 174.0, 176.0  # 평균 부족 5
+    usr[12, _LEFT_KNEE], usr[12, _RIGHT_KNEE] = 178.0, 179.0  # 평균 부족 1.5
+    profile = _knee_extend_profile(hold_window=(2, 14))
+    assert dimensions._select_window(usr, profile)[1] == (10, 13)
     out: dict = {}
     md = _build(
-        usr=usr, profile=_knee_extend_profile(hold_window=(2, 5)),
+        usr=usr, profile=profile,
         quantification=_quant(), out=out,
     )
     line_val = md["line"]
     frame = out["line"]["frame_idx"]
-    assert 2 <= frame < 5
+    assert 10 <= frame < 13
     # 그 프레임의 평균 부족분이 다른 후보들보다 집계값에 가깝다.
     def _frame_mean_deficit(t):
         return (
@@ -312,8 +349,10 @@ def test_line_moment_uses_the_contributing_joint_set_mean():
         ) / 2.0
 
     best_gap = abs(_frame_mean_deficit(frame) - line_val)
-    for t in (2, 3, 4):
+    for t in (10, 11, 12):
         assert abs(_frame_mean_deficit(t) - line_val) >= best_gap - 1e-9
+    # 유일 최근접 확인 — 동점 타이브레이크 의존 아님.
+    assert frame == 11
 
 
 # ── (6) fail-closed — 순간을 정할 수 없는 criterion 은 항목 자체가 없다 ──────

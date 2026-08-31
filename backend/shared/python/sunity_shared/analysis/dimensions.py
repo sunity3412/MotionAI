@@ -212,7 +212,7 @@ def stability_wobble(angles, profile: "TechniqueProfile | None" = None) -> float
     Returns:
         float (degrees). frame 부족 (T<2) 시 0.0.
     """
-    sliced, _ = _select_window(angles, profile)
+    sliced, _ = _select_stability_window(angles, profile)
     if sliced.shape[0] < 2:
         return 0.0
     inter_frame_diff = np.abs(np.diff(sliced, axis=0))  # (T-1, J)
@@ -230,7 +230,7 @@ def stability_score(angles, profile: "TechniqueProfile | None" = None) -> int:
     helper 호출 + kismam.score_from_deviation 변환만 담당 (force_signals.py 가
     같은 helper 를 jitter_score 산출에 재사용, drift 차단).
     """
-    sliced, _ = _select_window(angles, profile)
+    sliced, _ = _select_stability_window(angles, profile)
     if sliced.shape[0] < 2:
         return 100  # 프레임 부족 시 떨림 측정 불가 — 감점 근거 없음
     wobble = stability_wobble(angles, profile)
@@ -290,10 +290,15 @@ def extension_deviation(angles, profile: TechniqueProfile) -> np.ndarray:
 
 
 def _select_window(angles, profile: "TechniqueProfile | None" = None) -> tuple[np.ndarray, tuple[int, int]]:
-    """공유 window 선택 — profile.hold_window 는 국면 **힌트**, 그 내부에서 안정 부창 재선택.
+    """**대표 포즈** window — profile.hold_window 는 국면 힌트, 그 내부에서 안정 부창 재선택.
 
-    line_score, line_deficits_by_joint, stability_score, stability_wobble_by_joint,
-    extension_deviation 모두 이 함수 하나만 호출 — drift 방지 (Codex v3 HIGH-2).
+    line_score, line_deficits_by_joint, extension_deviation, 대표 프레임 선택,
+    safety_flags 국면 localize, pipeline _hold_window_median_dict 가 이 함수 하나만
+    호출 — drift 방지 (Codex v3 HIGH-2).
+
+    ★흔들림(stability) 계열은 여기 오지 않는다 — `_select_stability_window` 참조.
+    "가장 안정된 순간의 자세"를 고르는 창과 "홀드 동안 얼마나 흔들렸나"를 재는 창은
+    목적이 반대다 (2026-08-31 리뷰 실측으로 갈라냄).
 
     quick-260831-gyk (belle 08-31 × 판정 "아니 쫙 펴져 있어"): Gemini 국면 창
     (hold moment ±2초)이 스핀 진입 전환부를 측정 창에 섞어 파워스핀 정타에
@@ -326,6 +331,41 @@ def _select_window(angles, profile: "TechniqueProfile | None" = None) -> tuple[n
             # quick-260831-gyk: 힌트 창 내부 분산-최소 부창 재선택 (위 docstring).
             ss, se = hold_window(a[s:e])
             s, e = s + ss, s + se
+    else:
+        s, e = hold_window(a)
+    return a[s:e], (s, e)
+
+
+def _select_stability_window(
+    angles, profile: "TechniqueProfile | None" = None
+) -> tuple[np.ndarray, tuple[int, int]]:
+    """**흔들림 측정** window — 국면 힌트를 그대로 쓴다(부창 재선택 없음).
+
+    _select_window(대표 포즈용)와 갈라지는 이유 (quick-260831-o63, 리뷰 검증 CONFIRMED):
+    대표 포즈는 "가장 안정된 순간"을 골라야 맞지만, 흔들림은 "홀드 구간 동안 얼마나
+    흔들렸나"라 **가장 안정된 1/4 만 보면 흔들림이 씻긴다**. quick-260831-gyk 의 부창
+    재선택이 line 위양성을 고치면서 이 계열까지 같이 좁혀 stability 를 부풀렸다
+    (파워스핀 정타 실측 96 → 98). 이 함수는 그 부작용만 되돌린다 — 즉 stability 산출은
+    2026-08-31 gyk 이전과 동일하고, line/leg_extension 수리는 그대로 유지된다.
+
+    표시(stability_wobble_by_joint)와 점수(stability_score)는 여전히 **같은 창**을
+    공유하므로 display-score 정합(Codex v3 HIGH-2 의 목적)은 유지된다.
+
+    ★알려진 잔여 (오늘 수리 범위 밖, 08-31 실측): 창 선택자(hold_window)는 위치 분산
+    최소로 고르는데 stability 는 프레임간 흔들림으로 채점한다 — 두 자가 다르다.
+    스윕 12건에서 창을 바꾸면 -15~+5 점 양방향 이동. gyk 이전부터 있던 불일치이고,
+    고치면 기존 점수가 움직이므로 belle 예고 후 별도 사이클에서 다룬다.
+    """
+    a = _as_tj(angles)
+    t = a.shape[0]
+    if t <= 1:
+        return a, (0, t)
+    if profile is not None and getattr(profile, "hold_window", None) is not None:
+        s, e = profile.hold_window
+        s = max(0, min(int(s), t))
+        e = max(s, min(int(e), t))
+        if s == e:  # WR-05 와 동일 폴백 (빈 슬라이스 금지)
+            s, e = hold_window(a)
     else:
         s, e = hold_window(a)
     return a[s:e], (s, e)
@@ -477,7 +517,7 @@ def stability_wobble_by_joint(angles, profile: "TechniqueProfile | None" = None)
     - sliced shape[0] < 2 (single frame) → 빈 dict (떨림 측정 불가)
     - NaN frames → np.nanmedian 으로 처리, 그래도 NaN 인 관절 제외
     """
-    sliced, _ = _select_window(angles, profile)
+    sliced, _ = _select_stability_window(angles, profile)
     if sliced.shape[0] < 2:
         return {}
     inter_frame_diff = np.abs(np.diff(sliced, axis=0))  # (T-1, J)

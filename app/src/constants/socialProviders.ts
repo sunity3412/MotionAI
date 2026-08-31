@@ -56,3 +56,25 @@ export const SOCIAL_PROVIDERS: readonly SocialProvider[] = [
     tileIcon: { width: 18.6, height: 22.2 },
   },
 ] as const;
+
+// 실제로 **배선된** provider (2026-08-31). SOCIAL_PROVIDERS 는 Figma 원안 4종을
+// 그대로 보존하는 카탈로그이고, 화면은 아래 목록만 렌더한다.
+//
+// 왜 가르나: 배선 안 된 버튼을 그려 두면 누를 때마다 "아직 연결 중이에요"가 뜬다 —
+// 눌러도 아무 일 없는 표시를 남기지 않는다는 기존 규율(Phase 33 "표시마다 답 or
+// 없앰", 36-CONTEXT D-08 의 이메일 링크 미렌더와 같은 판단)과 어긋난다.
+// belle 2026-08-31 결정: 카카오·네이버는 출시 준비 때 붙인다(각자 개발자 콘솔 등록 +
+// Firebase 미지원이라 커스텀 토큰 교환 필요). 그때 이 배열에 id 두 개만 되돌리면
+// 화면은 자동으로 4개가 된다 — Figma 치수·색은 위 카탈로그에 그대로 남아 있다.
+//
+// 순서는 Figma 원안(카카오·네이버·Google·Apple)의 상대 순서를 유지한다. 두 버튼은
+// 크기·노출이 동일하므로 Apple 의 "동등하게 노출" 요건도 충족한다 — 나중에 4개로
+// 돌아가도 Apple 이 화면 밖으로 밀리지 않는지 확인할 것.
+export const WIRED_PROVIDER_IDS: readonly SocialProviderId[] = ['google', 'apple'];
+
+export const WIRED_SOCIAL_PROVIDERS: readonly SocialProvider[] =
+  SOCIAL_PROVIDERS.filter((p) => WIRED_PROVIDER_IDS.includes(p.id));
+
+export function isWiredProvider(id: SocialProviderId): boolean {
+  return WIRED_PROVIDER_IDS.includes(id);
+}

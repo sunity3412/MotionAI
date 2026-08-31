@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,7 @@ import {
   motionDeltas,
   weeklyAverages,
 } from '../../lib/growthSelectors';
+import { motionThumb } from '../../constants/motionThumbs';
 import { useReferenceMotions } from '../../lib/referenceMotions';
 import { useMyAnalyses } from '../../lib/userAnalyses';
 import type {
@@ -313,7 +315,17 @@ function ChallengeRow({
       accessibilityRole="button"
       style={({ pressed }) => [styles.challengeRow, pressed && styles.cardPressed]}
     >
-      <View style={styles.challengeThumb} />
+      {/* 썸네일 = 정은지 기준 영상의 실제 프레임(belle 2026-08-31 승인, motionThumbs).
+          등재 안 된 동작은 종전 회색 자리 그대로 — 새 기준 모션이 들어와도 안 깨진다. */}
+      {motionThumb(motion.motionId) ? (
+        <Image
+          source={motionThumb(motion.motionId) as number}
+          style={styles.challengeThumb}
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        <View style={styles.challengeThumb} />
+      )}
       <View style={styles.challengeText}>
         <Text style={styles.challengeName} numberOfLines={1}>
           {motion.name}

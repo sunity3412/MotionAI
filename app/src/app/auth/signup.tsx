@@ -5,7 +5,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SocialIcon from '../../components/SocialIcon';
 import { authCopy } from '../../constants/authCopy';
-import { SOCIAL_PROVIDERS, type SocialProviderId } from '../../constants/socialProviders';
+import {
+  WIRED_SOCIAL_PROVIDERS,
+  isWiredProvider,
+  type SocialProviderId,
+} from '../../constants/socialProviders';
 import { signInWithApple, signInWithGoogle } from '../../lib/socialAuth';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
@@ -29,7 +33,9 @@ export default function Signup() {
 
   // Google(36-02) + Apple(36-03) 배선됨. 카카오·네이버는 36-05 에서 이 분기가 사라진다.
   const onProviderPress = async (id: SocialProviderId) => {
-    if (id !== 'google' && id !== 'apple') {
+    // 화면은 배선된 provider 만 렌더하므로 평시엔 도달하지 않는다 — 목록과
+    // 핸들러가 어긋나는 회귀를 막는 방어선으로 남긴다(단일 출처는 socialProviders).
+    if (!isWiredProvider(id)) {
       setNotice(authCopy.notWiredYet);
       return;
     }
@@ -70,7 +76,7 @@ export default function Signup() {
       <Text style={styles.subtitle}>{authCopy.signup.subtitle}</Text>
 
       <View style={styles.buttons}>
-        {SOCIAL_PROVIDERS.map((p) => (
+        {WIRED_SOCIAL_PROVIDERS.map((p) => (
           <Pressable
             key={p.id}
             onPress={() => onProviderPress(p.id)}

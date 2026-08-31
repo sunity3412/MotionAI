@@ -426,7 +426,8 @@ def tally(
         crit = crit_by_id.get(cid)
         if crit is None:
             continue
-        meta = _criterion_deduction(cid, crit, md, quantification, baseline_kind)
+        meta = _criterion_deduction(cid, crit, md, quantification, baseline_kind,
+                                    vision_sourced=cid in vision_measured)
         if meta is None:
             continue  # substrate 부재/None → 0 기여(honest 0, ND-06)
         over, measured_value, baseline_value, unit, dev_kind, track = meta
@@ -581,7 +582,8 @@ _IPSF_ABSOLUTE_BASELINE = {
 }
 
 
-def _criterion_deduction(cid, crit, md, quantification, baseline_kind):
+def _criterion_deduction(cid, crit, md, quantification, baseline_kind,
+                         vision_sourced=False):
     """ACTIVATED criterion 1개의 (over, measured_value, baseline_value, unit, dev_kind, track).
 
     ipsf_absolute(angle/line): over = max(0, dev − tol); split 은 160° 0-fail 불연속.
@@ -589,6 +591,9 @@ def _criterion_deduction(cid, crit, md, quantification, baseline_kind):
     track(Wave R, D-35/D-36): 'critical' 은 오직 full-extension 0-fail 분기
     (split_fail_threshold_deg 보유 + measured_value < fail_thr) — 현재 그 필드를 가진
     criterion 이 없어 DORMANT. 그 외 전부 'execution'.
+    vision_sourced(quick-260831-isk): md[cid] 가 vision-측정 주입값(tally 의
+    vision_measured 마커)이면 True — reference_relative/over_target 분기에서 tol
+    재적용을 생략한다(over = dev). 기본 False → geometry 경로 byte-불변.
     """
     if crit["direction"] == "insufficient_reach":
         sf = _notch_shortfall(quantification, crit)
@@ -607,7 +612,14 @@ def _criterion_deduction(cid, crit, md, quantification, baseline_kind):
         if d is None:
             return None
         tol = crit["tolerance"]
-        over = max(0.0, d - tol)
+        # quick-260831-isk: vision-sourced 편차는 tol 재적용 없이 전량 감점(over = dev).
+        # tol=20° 는 "항상 재는" 기하 측정기의 무차별 노이즈 마진 — vision 은 결함 발견
+        # 시에만 값을 내고 support 게이트가 이미 노이즈 게이트 역할을 한다(correct 대조
+        # supported_differences 0건 실증, .planning/quick/260831-kipup-diagnosis/
+        # DIAGNOSIS.md). dev==tol 경계(kip-up 20°)가 over=0 으로 지워져 fault 100 =
+        # correct 100 방향 FAIL 이 됐던 결함의 수리. 모델 세대의 크기 추정 드리프트
+        # (50°↔20°)는 per-record cap(-20)이 흡수. geometry 는 기본값 False 로 byte-불변.
+        over = d if vision_sourced else max(0.0, d - tol)
         return over, d, 0.0, "deg", "reference_relative", "execution"
 
     # ipsf_absolute — measured_deviations[cid] = student-angle-vs-target deficit(deg).

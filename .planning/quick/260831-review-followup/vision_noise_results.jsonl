@@ -1,0 +1,6 @@
+{"motion": "peter-pan", "status": "candidate_verdict", "n_supported": 0, "items": [], "elapsed_s": 71}
+{"motion": "power-spin", "status": "skipped_error", "n_supported": 0, "items": [], "elapsed_s": 68}
+{"motion": "climb", "status": "candidate_verdict", "n_supported": 0, "items": [], "elapsed_s": 83}
+{"motion": "kip-up", "status": "candidate_verdict", "n_supported": 0, "items": [], "elapsed_s": 71}
+{"motion": "elbow-twist-sister", "status": "candidate_verdict", "n_supported": 0, "items": [], "elapsed_s": 43}
+{"motion": "pdshape", "status": "candidate_verdict", "n_supported": 0, "items": [], "elapsed_s": 94}

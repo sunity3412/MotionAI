@@ -116,7 +116,9 @@ def main() -> None:
         "uid": uid, "analysisId": analysis_id, "status": status,
         "elapsedSec": round(time.time() - t0),
         "errorCode": snap.get("errorCode"),
-        "overallScore": snap.get("overallScore"),
+        # overallScore 는 doc 최상위가 아니라 result 안에 있다 (2026-08-31 실측)
+        "overallScore": (snap.get("result") or {}).get("overallScore"),
+        "dimensionScores": (snap.get("result") or {}).get("dimensionScores"),
         "docKeys": sorted(snap.keys()),
         "coachRelatedKeys": sorted(coach_keys),
     }, ensure_ascii=False))

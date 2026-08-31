@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import SocialIcon from '../../components/SocialIcon';
 import { authCopy } from '../../constants/authCopy';
 import { SOCIAL_PROVIDERS, type SocialProviderId } from '../../constants/socialProviders';
-import { signInWithGoogle } from '../../lib/socialAuth';
+import { signInWithApple, signInWithGoogle } from '../../lib/socialAuth';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
 // 회원가입 — Figma node 1:961 (fileKey jrdI7kp245HkPfLB0nclsz).
@@ -27,16 +27,19 @@ export default function Signup() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Google 만 배선돼 있다 (36-02). 나머지는 36-03~05 에서 이 분기가 하나씩 사라진다.
+  // Google(36-02) + Apple(36-03) 배선됨. 카카오·네이버는 36-05 에서 이 분기가 사라진다.
   const onProviderPress = async (id: SocialProviderId) => {
-    if (id !== 'google') {
+    if (id !== 'google' && id !== 'apple') {
       setNotice(authCopy.notWiredYet);
       return;
     }
     setNotice(null);
     setBusy(true);
     try {
-      const { outcome } = await signInWithGoogle();
+      // provider 별 차이는 자격증명을 얻는 방법뿐 — 그 뒤(게스트 승계·결과 분기)는
+      // socialAuth 안에서 같은 헬퍼를 지나므로 여기서는 outcome 만 본다.
+      const { outcome } =
+        id === 'apple' ? await signInWithApple() : await signInWithGoogle();
       if (outcome === 'cancelled') return; // 사용자가 닫은 것 — 오류가 아니다
       if (outcome === 'switched') {
         // 게스트 기록이 다른 uid 에 남는다는 사실을 알린 뒤 넘어간다.

@@ -22,7 +22,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "com.sunity.aicoach",
@@ -67,7 +68,8 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.965554697584-jp90s17qk6tuqf17ucgj41h83bvg4jn2"
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "extra": {
       "router": {},

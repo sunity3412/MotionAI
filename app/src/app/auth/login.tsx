@@ -7,13 +7,14 @@ import SocialIcon from '../../components/SocialIcon';
 import SunityWordmark from '../../components/SunityWordmark';
 import { authCopy } from '../../constants/authCopy';
 import { SOCIAL_PROVIDERS, type SocialProviderId } from '../../constants/socialProviders';
-import { signInWithGoogle } from '../../lib/socialAuth';
+import { signInWithApple, signInWithGoogle } from '../../lib/socialAuth';
 import { colors, radius, spacing, typography } from '../../theme';
 
 // 로그인 — Figma node 1:550 (fileKey jrdI7kp245HkPfLB0nclsz).
 //
-// Phase 36-01 은 화면과 라우팅만 세운다. provider 배선은 36-02(Google)·36-03(Apple)·
-// 36-04(Lambda 커스텀 토큰)·36-05(카카오·네이버)에서 붙는다.
+// Phase 36-01 이 화면·라우팅을 세웠고, provider 는 36-02(Google)·36-03(Apple) 까지
+// 배선됐다. 카카오·네이버는 36-04(Lambda 커스텀 토큰)·36-05 에서 붙는다 —
+// 두 provider 는 Firebase 기본 제공이 아니라 커스텀 토큰 교환이 먼저 필요하다.
 //
 // Figma 대비 의도적 차이 2개 (36-CONTEXT D-07/D-08):
 //   1. "이메일 로그인"(1:559) + 그 위 구분선(1:560) 을 **렌더하지 않는다** — 이메일 로그인은
@@ -31,16 +32,19 @@ export default function Login() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Google 만 배선돼 있다 (36-02). 나머지는 36-03~05 에서 이 분기가 하나씩 사라진다.
+  // Google(36-02) + Apple(36-03) 배선됨. 카카오·네이버는 36-05 에서 이 분기가 사라진다.
   const onProviderPress = async (id: SocialProviderId) => {
-    if (id !== 'google') {
+    if (id !== 'google' && id !== 'apple') {
       setNotice(authCopy.notWiredYet);
       return;
     }
     setNotice(null);
     setBusy(true);
     try {
-      const { outcome } = await signInWithGoogle();
+      // provider 별 차이는 자격증명을 얻는 방법뿐 — 그 뒤(게스트 승계·결과 분기)는
+      // socialAuth 안에서 같은 헬퍼를 지나므로 여기서는 outcome 만 본다.
+      const { outcome } =
+        id === 'apple' ? await signInWithApple() : await signInWithGoogle();
       if (outcome === 'cancelled') return; // 사용자가 닫은 것 — 오류가 아니다
       if (outcome === 'switched') {
         // 게스트 기록이 다른 uid 에 남는다는 사실을 알린 뒤 넘어간다.

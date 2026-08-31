@@ -11,6 +11,8 @@
 // 묶인 고정값이라 env 로 빼지 않고 여기 둔다 — app.json 의 `iosUrlScheme` 과
 // **같은 값을 써야 하므로** 한 곳에서 보이는 편이 안전하다.
 
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import {
   GoogleSignin,
   isErrorWithCode,
@@ -18,8 +20,10 @@ import {
 } from '@react-native-google-signin/google-signin';
 import {
   GoogleAuthProvider,
+  OAuthProvider,
   linkWithCredential,
   signInWithCredential,
+  updateProfile,
   type AuthCredential,
   type User,
 } from 'firebase/auth';
@@ -113,6 +117,95 @@ export async function signInWithGoogle(): Promise<SocialAuthResult> {
     }
     throw e;
   }
+}
+
+// ── Apple 로그인 (Phase 36-03) ────────────────────────────────────────────────
+//
+// 사전 조건 (belle 2026-08-31 완료): Apple Developer 의 App ID(com.sunity.aicoach)에
+// Sign In with Apple capability ON + Firebase Auth 의 Apple provider Enabled.
+// iOS 네이티브 흐름이라 Services ID / OAuth key 는 불필요하다 (그건 웹·안드로이드용).
+
+/** nonce 로 쓸 암호학적 난수 문자열. */
+function randomNonce(byteLength = 32): string {
+  const bytes = Crypto.getRandomBytes(byteLength);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Apple 로그인.
+ *
+ * ★nonce 를 두 곳에 **서로 다른 형태로** 넘겨야 한다:
+ *   · Apple(signInAsync) 에는 **SHA256 해시**를 준다 → 애플이 그 해시를 identityToken
+ *     안에 박아 돌려준다.
+ *   · Firebase(credential) 에는 **원본(raw)** 을 준다 → Firebase 가 직접 해시해서
+ *     토큰 안의 값과 대조한다.
+ *   둘을 바꿔 넣으면 `auth/invalid-credential` 로 떨어진다. 이게 이 연동에서 가장
+ *   흔한 실패다 — 재현이 안 되는 게 아니라 항상 실패한다.
+ *
+ * ★이름(fullName)은 **최초 1회만** 온다 (Expo 문서 명시: requestedScopes 는 첫 로그인
+ *   에서만 제공되고 이후 null). 그래서 받은 그 자리에서 Firebase displayName 에
+ *   저장한다 — 여기서 안 잡으면 그 사용자의 이름은 영영 못 받는다. 이미 이름이 있으면
+ *   덮어쓰지 않는다(사용자가 나중에 바꿨을 수 있다).
+ *
+ * 취소는 오류가 아니다 — 구글 경로와 같은 규율로 `cancelled` 를 돌려준다.
+ * iOS 전용(Apple 요구). 안드로이드에서는 isAvailableAsync 가 false 다.
+ */
+export async function signInWithApple(): Promise<SocialAuthResult> {
+  const available = await AppleAuthentication.isAvailableAsync();
+  if (!available) {
+    throw new Error('이 기기에서는 Apple 로그인을 쓸 수 없습니다.');
+  }
+
+  const rawNonce = randomNonce();
+  const hashedNonce = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    rawNonce,
+  );
+
+  let appleCredential: AppleAuthentication.AppleAuthenticationCredential;
+  try {
+    appleCredential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+      nonce: hashedNonce,
+    });
+  } catch (e) {
+    if ((e as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
+      return { outcome: 'cancelled', user: null };
+    }
+    throw e;
+  }
+
+  const identityToken = appleCredential.identityToken;
+  if (!identityToken) {
+    throw new Error('Apple 로그인에서 identityToken 을 받지 못했습니다.');
+  }
+
+  const credential = new OAuthProvider('apple.com').credential({
+    idToken: identityToken,
+    rawNonce,
+  });
+  const result = await attachOrSignIn(credential);
+
+  // 최초 1회 이름 저장 (위 docstring). 실패해도 로그인 자체는 성공이므로 삼킨다 —
+  // 이름은 인사말 표시용이지 인증 조건이 아니다.
+  const appleName = appleCredential.fullName;
+  if (result.user && !result.user.displayName?.trim() && appleName) {
+    const name = [appleName.familyName, appleName.givenName]
+      .filter((part): part is string => !!part?.trim())
+      .join('')
+      .trim();
+    if (name) {
+      try {
+        await updateProfile(result.user, { displayName: name });
+      } catch {
+        // 이름 저장 실패는 로그인 결과를 바꾸지 않는다.
+      }
+    }
+  }
+  return result;
 }
 
 /**

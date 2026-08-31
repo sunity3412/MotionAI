@@ -1,7 +1,10 @@
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { signInAnonymously, signOut } from 'firebase/auth';
 import { useMemo, useState } from 'react';
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -10,7 +13,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { authCopy } from '../../constants/authCopy';
 import { auth } from '../../lib/firebase';
+import { displayNameOf, useAuthUser } from '../../lib/authUser';
 import { useMyAnalyses } from '../../lib/userAnalyses';
 import { useBodyProfile } from '../../lib/bodyProfile';
 import BodyProfileForm from '../../components/BodyProfileForm';
@@ -24,6 +29,15 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 
 // 마이 탭 — 파일럿 단순 정보. (IA AC-MY-* 의 프로필 편집·구독·알림 등은 MVP 밖.)
 // 게스트 모드(익명 인증) 상태와 분석 통계, 폴스포츠 고정 표시.
+//
+// ★계정 영역 (36-06, belle 2026-08-31 지시): 로그인 입구가 **인트로에만** 있었는데
+// 게스트 세션은 영속이라 한 번 들어오면 인트로를 다시 볼 일이 없다 — 앱 안에서
+// 로그인 화면에 갈 길이 아예 없었다(애플·구글 로그인을 눌러볼 수조차 없었다).
+// 그래서 계정 카드가 게스트일 때 로그인 입구가 된다.
+//
+// 게스트 진입 자체는 **무접촉**이다 (belle 08-31 "실증할 땐 게스트로 들어갈 테니").
+// 인트로 "시작하기" = 익명 인증 그대로. 이 화면은 로그인을 권할 뿐 강요하지 않는다
+// (CLAUDE.md §2 파일럿 요건 = 회원가입 강제 없음).
 
 function averageScore(analyses: AnalysisDoc[]): number | null {
   const scores = analyses
@@ -59,39 +73,101 @@ function summarizeBodyProfile(
 }
 
 export default function Profile() {
+  const router = useRouter();
   const { analyses } = useMyAnalyses({ doneOnly: true });
   const { profile, painAreaNote } = useBodyProfile();
-  const uid = auth.currentUser?.uid ?? null;
+  const { user, isGuest, ready } = useAuthUser();
+  const uid = user?.uid ?? null;
   const avg = useMemo(() => averageScore(analyses), [analyses]);
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
   const [editing, setEditing] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const summary = useMemo(
     () => summarizeBodyProfile(profile, painAreaNote),
     [profile, painAreaNote],
   );
 
+  // 로그아웃 = **게스트로 되돌리기**. signOut 만 하면 인증이 아예 없는 상태로 남는데,
+  // 이 앱의 모든 탭은 uid 를 전제하므로 그 상태는 아무것도 못 하는 막다른 길이다.
+  //
+  // ★처음엔 signOut 후 인트로(`/`)로 보내 "시작하기"를 다시 누르게 하려 했는데,
+  //   시뮬레이터에서 **홈 탭으로 떨어졌다**. 라우트 그룹은 경로에 세그먼트를 더하지
+  //   않아 `src/app/index.tsx`(인트로)와 `src/app/(tabs)/index.tsx`(홈)가 **둘 다 `/`**
+  //   라서 그렇다 — 인트로를 경로로 지목할 방법이 없다. 그래서 화면을 옮기는 대신
+  //   여기서 새 익명 세션을 만든다. 사용자는 제자리에서 게스트로 돌아온다.
+  //
+  // 확인 한 번을 두는 이유: 되돌리기 어려워서가 아니라(기록은 계정에 남는다), 탭
+  // 화면의 한 번 누름으로 세션이 바뀌면 실수로 눌렀을 때 알아채기 어려워서다.
+  const confirmSignOut = () => {
+    setSignOutError(null);
+    Alert.alert(authCopy.account.signOutTitle, authCopy.account.signOutBody, [
+      { text: authCopy.account.signOutCancel, style: 'cancel' },
+      {
+        text: authCopy.account.signOut,
+        style: 'destructive',
+        onPress: () => {
+          signOut(auth)
+            .then(() => signInAnonymously(auth))
+            .catch(() => setSignOutError(authCopy.account.signOutFailed));
+        },
+      },
+    ]);
+  };
+
+  const memberName = displayNameOf(user) ?? authCopy.account.memberFallbackName;
+
   return (
     <View style={styles.container}>
       <Text style={styles.headerTitle}>마이</Text>
-      <Text style={styles.headerSub}>파일럿 게스트 모드</Text>
+      {/* 로그인하면 더 이상 게스트가 아니다 — 헤더가 계속 "게스트 모드"라고 하면
+          로그인이 안 된 것처럼 읽힌다(로그인 성공을 확인할 수 있는 유일한 표시). */}
+      <Text style={styles.headerSub}>
+        {isGuest ? '파일럿 게스트 모드' : '파일럿'}
+      </Text>
 
       <ScrollView
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
       >
-        {/* 게스트 카드 */}
-        <View style={styles.card}>
-          <View style={styles.avatar}>
-            <Ionicons name="person-outline" size={26} color={colors.brand} />
+        {/* 계정 카드 — 게스트면 로그인 입구, 로그인 상태면 계정 표시.
+            ready 전에는 그리지 않는다: 세션 복원 중 잠깐 currentUser 가 null 이라
+            게스트에게 "로그인" 이 한 번 깜빡인다 (authUser.ts ready 주석). */}
+        {!ready ? null : isGuest ? (
+          <>
+            <Pressable
+              onPress={() => router.push('/auth/login')}
+              accessibilityRole="button"
+              accessibilityLabel={`${authCopy.account.loginAction} — ${authCopy.account.guestHint}`}
+              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+            >
+              <View style={styles.avatar}>
+                <Ionicons name="person-outline" size={26} color={colors.brand} />
+              </View>
+              <View style={styles.profileText}>
+                <Text style={styles.profileName}>{authCopy.account.guestName}</Text>
+                <Text style={styles.profileMeta}>
+                  {uid ? `ID ${shortenUid(uid)}` : '익명 세션 준비 중'}
+                </Text>
+              </View>
+              <Text style={styles.cardAction}>{authCopy.account.loginAction}</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.brand} />
+            </Pressable>
+            <Text style={styles.guestHint}>{authCopy.account.guestHint}</Text>
+          </>
+        ) : (
+          <View style={styles.card}>
+            <View style={styles.avatar}>
+              <Ionicons name="person-outline" size={26} color={colors.brand} />
+            </View>
+            <View style={styles.profileText}>
+              <Text style={styles.profileName}>{memberName}</Text>
+              <Text style={styles.profileMeta}>
+                {user?.email ?? (uid ? `ID ${shortenUid(uid)}` : '')}
+              </Text>
+            </View>
           </View>
-          <View style={styles.profileText}>
-            <Text style={styles.profileName}>게스트</Text>
-            <Text style={styles.profileMeta}>
-              {uid ? `ID ${shortenUid(uid)}` : '익명 세션 준비 중'}
-            </Text>
-          </View>
-        </View>
+        )}
 
         {/* 내 몸 정보 — 미입력=권유 / 입력됨=요약+수정 (D-01/D-02/D-06) */}
         <Pressable
@@ -152,6 +228,24 @@ export default function Profile() {
             결제·알림 설정은 정식 출시 단계에서 열려요.
           </Text>
         </View>
+
+        {/* 로그아웃 — 로그인 상태에서만. 게스트에게는 내놓지 않는다: 익명 계정은
+            자격증명이 없어 한 번 나가면 그 uid 로 **다시 들어올 방법이 없고**,
+            기록에 닿을 길이 사라진다. 게스트에게 필요한 건 나가기가 아니라 로그인이다. */}
+        {ready && !isGuest ? (
+          <Pressable
+            onPress={confirmSignOut}
+            accessibilityRole="button"
+            accessibilityLabel={authCopy.account.signOut}
+            hitSlop={8}
+            style={({ pressed }) => [styles.signOut, pressed && styles.cardPressed]}
+          >
+            <Text style={styles.signOutText}>{authCopy.account.signOut}</Text>
+          </Pressable>
+        ) : null}
+        {signOutError ? (
+          <Text style={styles.signOutError}>{signOutError}</Text>
+        ) : null}
       </ScrollView>
 
       {/* 내 몸 정보 편집 — 전체화면 폼 (기존값 prefill, 저장 후 onSnapshot 자동 갱신) */}
@@ -240,9 +334,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  cardPressed: { opacity: 0.7 },
   profileText: { flex: 1, gap: 4 },
   profileName: { ...typography.listTitle, color: colors.textPrimary },
   profileMeta: { ...typography.caption, color: colors.textSecondary },
+  // 카드 오른쪽 "로그인" — 브랜드색 + chevron 으로 "여기 눌러 가는 곳"임을 알린다
+  // (내 몸 정보 카드의 chevron 과 같은 어법).
+  cardAction: { ...typography.boxLabel, color: colors.brand },
+  guestHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: -6, // 카드에 붙은 설명 — body gap(14)을 절반으로 당긴다
+    paddingHorizontal: 4,
+  },
+  signOut: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 20 },
+  signOutText: { ...typography.caption, color: colors.textSecondary },
+  signOutError: {
+    ...typography.caption,
+    color: colors.brand,
+    textAlign: 'center',
+  },
   bodyCard: {
     flexDirection: 'row',
     alignItems: 'center',

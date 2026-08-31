@@ -208,17 +208,6 @@ export async function signInWithApple(): Promise<SocialAuthResult> {
   return result;
 }
 
-/**
- * 로그인한 사용자의 표시 이름.
- *
- * belle 2026-08-30: 로그인 화면 인사말의 "희연" 자리는 **가입한 실명 또는 아이디**다.
- * provider 가 이름을 안 주는 경우(사용자가 제공 거부)를 대비해 이메일 앞부분까지 훑고,
- * 그래도 없으면 null 을 돌려 화면이 이름 없는 인사말을 쓰게 한다.
- */
-export function displayNameOf(user: User | null): string | null {
-  if (!user) return null;
-  const name = user.displayName?.trim();
-  if (name) return name;
-  const local = user.email?.split('@')[0]?.trim();
-  return local || null;
-}
+// `displayNameOf` 는 `lib/authUser.ts` 로 옮겼다 (36-06). 이유: 탭 화면이 표시 이름을
+// 쓰는데, 이 파일을 import 하면 상단의 네이티브 모듈 초기화가 앱 시작 경로로 딸려
+// 들어온다. 표시 이름은 순수 함수라 네이티브와 무관한 곳이 제자리다.

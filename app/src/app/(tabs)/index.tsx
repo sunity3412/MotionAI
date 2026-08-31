@@ -239,10 +239,18 @@ function RecentAnalysisCard({
   doc: AnalysisDoc;
   onPress: () => void;
 }) {
+  // mode3 제목 구체화 (belle 08-31) — history.tsx motionLabel 과 같은 규칙:
+  // recognizedMotionId → 기준 모션 한글명 (recognizedMotionName 은 원시 id 라 표시 불가).
+  const { motions } = useReferenceMotions();
+  const comparison = doc.result?.comparison;
+  const recognizedName =
+    comparison?.mode === 'mode3' && comparison.recognizedMotionId
+      ? motions.find((m) => m.motionId === comparison.recognizedMotionId)?.name
+      : undefined;
   const motionName =
-    doc.result?.comparison.mode === 'mode1'
-      ? doc.result.comparison.referenceMotionName
-      : '내 동작 분석';
+    comparison?.mode === 'mode1'
+      ? comparison.referenceMotionName
+      : recognizedName ?? '내 동작 분석';
   const score = doc.result?.overallScore ?? 0;
   return (
     <Pressable

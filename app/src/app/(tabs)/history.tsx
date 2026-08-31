@@ -8,21 +8,37 @@ import {
   View,
 } from 'react-native';
 import { useMyAnalyses } from '../../lib/userAnalyses';
+import { useReferenceMotions } from '../../lib/referenceMotions';
 import type { AnalysisDoc } from '../../types/analysis';
 import { colors, layout, radius, spacing, typography } from '../../theme';
 
 // 분석 기록 탭 (IA AC-REC-001).
 // 파일럿: 리스트 + 빈 상태만. 필터·삭제·전후비교는 MVP 범위 밖 — IA 5장 참고.
 
+// 같은 날 여러 건이 나란히 뜨면 날짜만으로는 구분이 안 된다(belle 08-31,
+// quick-260831-lcc 점검 발견) — 시:분까지 표기해 행을 식별 가능하게 한다.
 function formatDate(epochMs: number): string {
   const d = new Date(epochMs);
   const yy = String(d.getFullYear()).slice(2);
-  return `${yy}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  const date = `${yy}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  return `${date} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function motionLabel(doc: AnalysisDoc): string {
-  if (doc.result?.comparison.mode === 'mode1') {
-    return doc.result.comparison.referenceMotionName;
+// mode3 제목 구체화 (belle 08-31 "기록 제목 고쳐라") — 백엔드가 인식한 동작
+// id(comparison.recognizedMotionId)를 기준 모션 목록의 한글명으로 매핑한다.
+// recognizedMotionName 필드는 실데이터에서 원시 id("ref-peter-pan")가 들어와
+// 표시용으로 못 쓴다 — id→name 매핑이 정본. 미인식/미로딩이면 기존 라벨 유지.
+function motionLabel(
+  doc: AnalysisDoc,
+  referenceNameById: ReadonlyMap<string, string>,
+): string {
+  const comparison = doc.result?.comparison;
+  if (comparison?.mode === 'mode1') {
+    return comparison.referenceMotionName;
+  }
+  if (comparison?.mode === 'mode3' && comparison.recognizedMotionId) {
+    const name = referenceNameById.get(comparison.recognizedMotionId);
+    if (name) return name;
   }
   return '내 동작 분석';
 }
@@ -34,6 +50,9 @@ function modeBadge(doc: AnalysisDoc): string {
 export default function History() {
   const router = useRouter();
   const { analyses, loading, error } = useMyAnalyses({ doneOnly: true });
+  // mode3 제목 매핑용 — 홈/분석 탭과 같은 구독이라 추가 네트워크 비용 없음.
+  const { motions } = useReferenceMotions();
+  const referenceNameById = new Map(motions.map((m) => [m.motionId, m.name]));
 
   if (loading) {
     return (
@@ -113,7 +132,7 @@ export default function History() {
                 <Text style={styles.rowDate}>{formatDate(doc.createdAt)}</Text>
               </View>
               <Text style={styles.rowMotion} numberOfLines={1}>
-                {motionLabel(doc)}
+                {motionLabel(doc, referenceNameById)}
               </Text>
             </View>
             <Text style={styles.rowScore}>{doc.result?.overallScore ?? 0}</Text>

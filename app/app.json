@@ -3,7 +3,7 @@
     "name": "Sunity AI Coach",
     "slug": "sunity-ai-coach",
     "scheme": "sunityaicoach",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "runtimeVersion": {
       "policy": "appVersion"
     },

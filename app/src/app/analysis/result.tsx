@@ -1782,6 +1782,53 @@ function AnalysisResultContent({
       : base;
   }, [result.tips, vetoApplied, attributionUnreliable]);
 
+  // quick-260831-lcc — 백엔드 생성 반복 면책 접기 (belle 2026-08-31 결과 화면
+  // 재구성 — 면책 통합). "정확한 자세는 강사와 함께 영상 확인 권고드립니다" 류
+  // 말미 문장이 팁마다 붙는 것은 **백엔드 생성 문장**(app 코드에 해당 문자열
+  // 없음 — 플래너 grep 실측)이라 표시 레이어에서만 접는다: 말미 면책 문장
+  // ("강사와" + "확인"/"권고" 포함)으로 끝나는 팁이 2개 이상이면 각 팁에서 그
+  // 말미 문장을 잘라내고 섹션 말미 1줄로 통합. 패턴 미매치/1개뿐인 doc 은 원문
+  // 그대로 (무회귀). doc 원문은 무변형 — 렌더 표시만 접는다.
+  const tipDetailFold = useMemo(() => {
+    const splitTrailingDisclaimer = (
+      detail: string,
+    ): { body: string; disclaimer: string | null } => {
+      const trimmed = detail.trimEnd();
+      const withoutFinalPeriod = trimmed.endsWith('.')
+        ? trimmed.slice(0, -1)
+        : trimmed;
+      // 마지막 문장 경계 — '. ' 기준. 단일 문장 detail 은 접지 않는다
+      // (본문 전체 소실 방지).
+      const lastBoundary = withoutFinalPeriod.lastIndexOf('. ');
+      if (lastBoundary < 0) return { body: detail, disclaimer: null };
+      const lastSentence = withoutFinalPeriod.slice(lastBoundary + 2);
+      if (
+        lastSentence.includes('강사와') &&
+        (lastSentence.includes('확인') || lastSentence.includes('권고'))
+      ) {
+        return {
+          body: trimmed.slice(0, lastBoundary + 1),
+          disclaimer: lastSentence,
+        };
+      }
+      return { body: detail, disclaimer: null };
+    };
+    const parsed = displayTips.map((tip) => splitTrailingDisclaimer(tip.detail));
+    const disclaimerCount = parsed.filter((p) => p.disclaimer != null).length;
+    if (disclaimerCount < 2) {
+      return {
+        details: displayTips.map((t) => t.detail),
+        merged: false,
+      };
+    }
+    return {
+      details: parsed.map((p, i) =>
+        p.disclaimer != null ? p.body : displayTips[i].detail,
+      ),
+      merged: true,
+    };
+  }, [displayTips]);
+
   // 33-15 (D-16) — 코칭 팁 카드에서 걷어낸 각도 수치의 새 거처 행 조립. 소스는
   // 종전 팁 각도 줄과 동일(displayTips 관절의 angleGuide) — 모순 카피 필터·IN-01
   // 저신뢰 per-joint 억제가 그대로 승계되므로 저신뢰 시 자연히 빈 배열(관절 단정 0).
@@ -3152,7 +3199,11 @@ function AnalysisResultContent({
                   )}
                 </View>
               ) : null}
-              <Text style={styles.tipDetail}>{highlightNumbers(tip.detail)}</Text>
+              {/* quick-260831-lcc — 반복 면책 접힘본 (tipDetailFold. 미접힘 doc
+                  은 원문 동일 — 무회귀). */}
+              <Text style={styles.tipDetail}>
+                {highlightNumbers(tipDetailFold.details[i] ?? tip.detail)}
+              </Text>
               {/* Phase 12.5 T9: detail2 (causes/injuryRisk/coachNote) 있을 때만
                   "자세히 ›" 링크 표시. LLM 응답 graceful 처리. */}
               {tip.detail2 && (
@@ -3169,6 +3220,13 @@ function AnalysisResultContent({
             </View>
           );
         })}
+        {/* quick-260831-lcc — 접힌 반복 면책의 통합 1줄 (동일 취지 유일본).
+            접힘 발생 doc 에서만 렌더 — 정보 손실 0 (말미 문장 의미 잔존처). */}
+        {tipDetailFold.merged ? (
+          <Text style={styles.tipMergedDisclaimer}>
+            정확한 자세는 강사와 함께 영상으로 확인해보세요.
+          </Text>
+        ) : null}
 
         {/* ── 6. 성장·지난 미션 (D-26/D-27, mode3) — 미션→연습→확인 루프 상세.
             헤드라인은 요약 카드가 담당하므로 여기는 상세. coach_card(3회 미개선) 시
@@ -3960,6 +4018,12 @@ const styles = StyleSheet.create({
   // Phase 12.5 T9: 코칭 팁 "자세히 ›" 링크 (카드 우측 하단 정렬)
   tipMoreRow: { alignSelf: 'flex-end', marginTop: 4 },
   tipMore: { ...typography.caption, color: colors.brand, fontWeight: '600' },
+  // quick-260831-lcc — 코칭 팁 반복 면책 통합 1줄 (보조 톤, 토큰만).
+  tipMergedDisclaimer: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
   cta: {
     width: '100%',
     height: layout.ctaHeight,

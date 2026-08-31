@@ -804,6 +804,80 @@ def test_split_no_vision_deviation_no_score():
     assert not any(r.criterion == "split_angle" for r in b.records)
 
 
+# ── quick-260831-isk — vision-sourced tol 재적용 제거 (DIAGNOSIS.md) ──────────
+#
+# kip-up 페어 스윕 방향 FAIL(fault 100 = correct 100) 수리. vision 이 지지한 split
+# 결함 편차 20°가 reference_relative tol 20°와 동률이라 over=0 → record 0 → fault
+# 100 (= correct 100). tol=20° 는 "항상 재는" 기하 측정기의 무차별 노이즈 마진이고,
+# vision 은 결함 발견 시에만 값을 내며 support 게이트가 이미 노이즈 게이트 역할을
+# 한다(correct 대조 supported_differences 0건 실증 —
+# .planning/quick/260831-kipup-diagnosis/DIAGNOSIS.md). geometry-sourced tol 불변.
+
+
+def test_vision_split_dev_equal_tol_scores_kipup_repro():
+    """dev == tol(20°) 경계 — kip-up fault 100 재현 핵심.
+
+    종전: over = max(0, 20−20) = 0 → dead-zone → record 0 → fault 100.
+    수리: vision-sourced 는 tol 재적용 없이 over = dev = 20 → raw 24.0(1.2×20)
+    → per-record cap → points -20.0. 단독 record fixture → final 80
+    (DIAGNOSIS 사전 박제: fault 80 < correct 100 방향 복원)."""
+    diff = {"body_part": "스플릿", "fault_state": "벌어짐 부족", "severity": "moderate",
+            "approx_angle_deviation_deg": 20.0}
+    b = _tally({}, _ctx([diff]))
+    rec = [r for r in b.records if r.criterion == "split_angle"]
+    assert len(rec) == 1, "dev==tol 경계에서 vision record 방출 (종전 dead-zone)"
+    assert rec[0].source == "vision"
+    assert rec[0].deviation == pytest.approx(20.0)
+    assert rec[0].measured_value == pytest.approx(20.0)
+    assert rec[0].points == pytest.approx(-20.0)   # raw 24.0 → per-record cap
+    assert rec[0].cap_applied is True
+    assert rec[0].raw_points == pytest.approx(-24.0)
+    assert b.final == 80
+
+
+def test_vision_split_dev_below_tol_scores():
+    """dev < tol(12°) — 종전 dead-zone 구간이 vision 에서는 감점된다.
+
+    vision 은 결함 발견 시에만 값을 내고 support 게이트가 노이즈 게이트 역할을
+    이미 한다(DIAGNOSIS: correct 대조 supported_differences 0건 실증) — 기하
+    측정기용 무차별 노이즈 마진(tol 20°)을 재적용할 이유가 없다."""
+    diff = {"body_part": "스플릿", "fault_state": "벌어짐 부족", "severity": "moderate",
+            "approx_angle_deviation_deg": 12.0}
+    b = _tally({}, _ctx([diff]))
+    rec = [r for r in b.records if r.criterion == "split_angle"]
+    assert len(rec) == 1
+    assert rec[0].source == "vision"
+    assert rec[0].deviation == pytest.approx(12.0)
+    assert rec[0].points == pytest.approx(-14.4)   # 1.2 × 12, cap(20) 미달
+
+
+def test_vision_split_dev_above_tol_full_dev():
+    """dev > tol(30°) — deviation 은 실측 편차 30 그대로 (종전 over-tol 10 아님)."""
+    diff = {"body_part": "스플릿", "fault_state": "벌어짐 부족", "severity": "moderate",
+            "approx_angle_deviation_deg": 30.0}
+    b = _tally({}, _ctx([diff]))
+    rec = [r for r in b.records if r.criterion == "split_angle"]
+    assert len(rec) == 1
+    assert rec[0].deviation == pytest.approx(30.0)
+    assert rec[0].points == pytest.approx(-20.0)   # raw 36.0 → per-record cap
+
+
+def test_geometry_split_tol_unchanged_vs_vision():
+    """geometry 불변 게이트 — 이 수리가 geometric tol 경로를 안 건드림을 한
+    테스트 안에서 대조 단언 (기존 dead-zone/over-tol 테스트가 커버하는 내용의
+    명시 대조 재단언).
+
+    geometric md 직접 주입(vision diff 없음): 40° → deviation = 40−tol 20 = 20
+    (tol 적용 유지), 12° → dead-zone(record 미방출) 유지."""
+    rec = [r for r in _tally(_measured(split=40.0), _ctx([])).records
+           if r.criterion == "split_angle"]
+    assert len(rec) == 1
+    assert rec[0].source == "geometry"
+    assert rec[0].deviation == pytest.approx(20.0)   # tol 적용 유지
+    b12 = _tally(_measured(split=12.0), _ctx([]))
+    assert not any(r.criterion == "split_angle" for r in b12.records)
+
+
 def test_breakdown_serializes_flat():
     b = _tally(_measured(leg=40.0), _ctx([_diff("무릎", "굽음")]))
     d = b.to_dict()

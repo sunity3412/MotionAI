@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -131,6 +132,20 @@ import { colors, layout, radius, spacing, typography } from '../../theme';
 // (최장 elbow-twist-sister 32.6s). 상한은 그 최장값을 크게 상회하는 보수값(180s)
 // — 정상 pending 을 조기 숨김하지 않음.
 const FAULT_ZOOM_PENDING_TIMEOUT_MS = 180_000;
+
+// quick-260901-wbo — 코칭 문장 사후 도착의 pending 고아 방어 상한 (FAULT_ZOOM 상수
+// 미러 — T-27-21 무한 pending 고아 방지 동형). coach_text 사후 스테이지가
+// coachStatus 'pending' → 'done'/'failed' 로 부분 업데이트한다. done/failed 가
+// 끝내 도착하지 않으면(스테이지 크래시·write 유실) 코칭 섹션이 무한 "작성 중"에
+// 빠질 수 있다 — doc.updatedAt 기준 경과가 이 상한을 넘으면 placeholder 를 접고
+// 수치 폴백 tips 를 그대로 렌더한다 (tips 는 required 필드라 항상 유효).
+// 값 근거: 실측 coach_dual 43.1s + hook ~14s + writer 재시도 여유 — 최장 예상을
+// 크게 상회하는 보수값(180s). 정상 pending 을 조기 숨김하지 않음 (FAULT_ZOOM
+// 상수와 같은 보수 규율). contract.md coachStatus 절.
+const COACH_PENDING_TIMEOUT_MS = 180_000;
+
+// 코칭 작성 중 placeholder 카피 (한국어 — 이모지 금지, design.md 라이트 톤).
+const COACH_PENDING_COPY = 'AI 코치가 교정 문장을 작성하고 있어요';
 
 // 29-CONTEXT D-05 — mode3 한계 고지 (belle 승인 뼈대, 세부만 재량). 측정 범위
 // (카메라로 잰 자세 형태 기준) + 다음 행동 유도(새 영상 발전 비교 / 코치님 비교)를
@@ -1482,6 +1497,8 @@ function AnalysisResultContent({
   // 일반 격려 카피. 추가 fetch 0 (이미 result 에 있는 데이터만 사용).
   // IN-01 (quick-260724-q6b) — 역립 저신뢰 시 헤드라인에 관절명이 새지 않도록 null.
   // quick-260831-lcc — tips[0].title 에도 sanitizeFinding 동일 소독 ('없음' 강등).
+  // quick-260901-wbo — coachStatus pending 이어도 무접촉: title 은 결정론 산출
+  // (kismam.top_issues + COACHING_FOCUS)이라 pending 동안에도 최종값과 동일.
   const correctionPoint = attributionUnreliable
     ? null
     : (vetoPrimaryFault ?? sanitizeFinding(result.tips[0]?.title) ?? null);
@@ -1607,6 +1624,29 @@ function AnalysisResultContent({
   // faultZoomStatus='done' 으로 전이돼 이 값은 자연히 false 가 된다.
   const zoomPending =
     result.faultZoomStatus === 'pending' && !zoomPendingTimedOut;
+
+  // quick-260901-wbo — 코칭 문장 사후 도착 (zoomPending effect 1:1 미러).
+  // coach_text 사후 스테이지가 result.tips 를 코칭 텍스트로 승격하면 useAnalysisDoc
+  // onSnapshot 구독이 자동 rerender — 추가 폴링 0(안티패턴). updatedAt 갱신(사후
+  // 부분 업데이트가 updatedAt 을 갱신)마다 타이머 재무장. 상한 초과·'failed'·부재
+  // (legacy doc)·'done' 은 전부 기존 tips 렌더 그대로 — placeholder 만 숨고 섹션은
+  // 비지 않는다 (tips 는 required 필드, pending 동안에도 수치 폴백이 실려 있음).
+  const [coachPendingTimedOut, setCoachPendingTimedOut] = useState(false);
+  useEffect(() => {
+    setCoachPendingTimedOut(false);
+    if (result.coachStatus !== 'pending') return;
+    const elapsed = Date.now() - (updatedAt ?? 0);
+    const remaining = COACH_PENDING_TIMEOUT_MS - elapsed;
+    if (remaining <= 0) {
+      // 이미 상한 초과(예: 앱을 오래 뒤에 다시 열었을 때) — 즉시 수치 폴백 렌더.
+      setCoachPendingTimedOut(true);
+      return;
+    }
+    const t = setTimeout(() => setCoachPendingTimedOut(true), remaining);
+    return () => clearTimeout(t);
+  }, [result.coachStatus, updatedAt]);
+  const coachPending =
+    result.coachStatus === 'pending' && !coachPendingTimedOut;
 
   // 28-CONTEXT D-01 — malformed/legacy → null = 현행 절대시계 (ASVS V5 방어 소비).
   // result.motionAlignment 를 소비측 normalizeMotionAlignment 로 재검증 후 VideoCompare
@@ -3168,7 +3208,20 @@ function AnalysisResultContent({
             topFix DeductionCard statusLine·옥타곤 카드 발견 줄이, vetoFixTip 은
             코칭 팁 본문이, vetoLeadNote 면책은 통합 면책이 각각 유일본. 고유
             콘텐츠였던 rootCauseHypotheses '가능한 원인'만 topFix 직하로 이동.) */}
-        {displayTips.map((tip, i) => {
+        {/* quick-260901-wbo — coachStatus 'pending' 이면 tips 카드 리스트 대신
+            "작성 중" placeholder 카드 1장 (zoom placeholder 시각 문법 미러 —
+            ActivityIndicator brand). 도착 시 onSnapshot 재렌더로 자동 교체.
+            상한 초과·failed·부재(legacy)·done 은 기존 tips 렌더 그대로. */}
+        {coachPending ? (
+          <View
+            style={[styles.card, styles.coachPendingCard]}
+            accessibilityRole="progressbar"
+            accessibilityLabel={COACH_PENDING_COPY}
+          >
+            <ActivityIndicator color={colors.brand} />
+            <Text style={styles.coachPendingText}>{COACH_PENDING_COPY}</Text>
+          </View>
+        ) : displayTips.map((tip, i) => {
           const joint = tip.joint
             ? joints.find((j) => j.key === tip.joint)
             : undefined;
@@ -3245,8 +3298,9 @@ function AnalysisResultContent({
           );
         })}
         {/* quick-260831-lcc — 접힌 반복 면책의 통합 1줄 (동일 취지 유일본).
-            접힘 발생 doc 에서만 렌더 — 정보 손실 0 (말미 문장 의미 잔존처). */}
-        {tipDetailFold.merged ? (
+            접힘 발생 doc 에서만 렌더 — 정보 손실 0 (말미 문장 의미 잔존처).
+            quick-260901-wbo — 코칭 작성 중에는 tips 리스트와 함께 숨긴다. */}
+        {!coachPending && tipDetailFold.merged ? (
           <Text style={styles.tipMergedDisclaimer}>
             정확한 자세는 강사와 함께 영상으로 확인해보세요.
           </Text>
@@ -4048,6 +4102,20 @@ const styles = StyleSheet.create({
   tipMore: { ...typography.caption, color: colors.brand, fontWeight: '600' },
   // quick-260831-lcc — 코칭 팁 반복 면책 통합 1줄 (보조 톤, 토큰만).
   tipMergedDisclaimer: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  // quick-260901-wbo — 코칭 작성 중 placeholder 카드 (zoom placeholder 시각 문법
+  // 미러 — ActivityIndicator brand + 보조 톤 카피. 토큰만, 하드코딩 색 금지).
+  coachPendingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 24,
+  },
+  coachPendingText: {
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,

@@ -79,39 +79,41 @@ const POLE_TIPS: readonly string[] = [
 const TIP_ROTATE_MS = 6000;
 
 // 단계별 가짜 진행률 (belle P2 #9). 백엔드 status 머신 인덱스 기반.
-// Phase 27 D-02 — 실측(27-TIMING-BEFORE) 기반 재배분. 과거 균등 분포는 실 소요와
-// 어긋나 comparison(전체 시간의 대부분)에서 85%에 얼어붙어 보였다(실증 2026-07-06,
-// "85%에서 멈춘 줄 알고 앱 종료"). 실측 median wall 229.6s 구성: 포즈(s3+extract+rtmw)
-// ~9% / Gemini 비전(scene+recognizer+veto) ~60% / coach_dual ~20% / 미계상(hook) ~6%
-// — comparison status 가 비전+coach+hook 대부분을 덮어 압도적으로 길다. 따라서 앞
-// 단계는 좁게, comparison 은 base 를 낮추고 상한까지 넓게 두어 긴 대기 내내 눈에 보이게
-// 기어오르도록 한다. wave 3~6(포즈∥비전 겹침·업로드 dedup)로 비전 구간이 포즈 그늘에
-// 숨어 comparison 체감이 단축되는 분포에도 정합 — 값만 재배분, 단조 로직/creep 무변경.
+// quick-260901-wbo — coach_dual(43.1s)+hook(~14s) 사후 분리 반영 재배분 (Phase 27
+// D-02 규율 유지 — 값만 재배분, 단조 로직/creep 메커니즘 무변경). 2026-09-01 실측
+// (analysis ea975e6e, timingsMs 91.7s) 에서 코칭 작성분이 빠진 뒤 기대 분포:
+// frame_extraction ≈ s3_download 3.9 + frame_extract 15.0 ≈ 19s / pose_analysis ≈
+// rtmw 2s / comparison ≈ scene 11.2 + veto 14.7 + 잔여 미계측 ~8 + firestore ~3 ≈
+// 37~40s. 총 파이프라인 ≈ 60s — 구 실측 median 229.6s 서술(27-TIMING-BEFORE)은
+// 코칭 동기 시절 값이라 폐기. comparison 이 여전히 최장 구간이지만 2분대 기어오름은
+// 사라진다 — base 를 올리고 creep 을 촘촘히 해 ~38s 동안 눈에 보이게 전진.
 const PROGRESS_PCT: Record<AnalysisStatus, number> = {
-  uploading: 6, // 27-TIMING-BEFORE 실측: 앱측 S3 PUT(백엔드 timing 밖) — 짧게.
-  queued: 15, // SQS→파이프라인 대기 — 짧음.
-  frame_extraction: 26, // 실측: s3_download 4.6s + frame_extract 10.4s (~6.5%).
-  pose_analysis: 34, // 실측: rtmw 2.2s (~1%) — 매우 짧아 좁은 구간.
-  comparison: 40, // 실측: scene+recognizer+veto+coach+hook ≈ 전체의 ~80% — 가장 긴 구간.
+  uploading: 8, // 앱측 S3 PUT(백엔드 timing 밖) — 짧게.
+  queued: 16, // SQS→파이프라인 대기 — 짧음.
+  frame_extraction: 30, // 실측: s3_download 3.9s + frame_extract 15.0s (~19s).
+  pose_analysis: 42, // 실측: rtmw ~2s — 매우 짧아 좁은 구간.
+  comparison: 48, // 실측: scene+veto+잔여+firestore ≈ 37~40s — 최장 구간.
   done: 100,
   failed: 0,
 };
 
 // 각 단계 진행률 상한 — 표시값이 base 에서 이 값까지 천천히 기어오른다(멈춤 인상 방지).
-// Phase 27 D-02 — comparison 은 base 40 → 상한 97 로 폭넓게(57pt). +1/2.5s creep 로
-// 약 140s 동안 계속 전진해 실측 비전/코치 대기(2~3분)를 눈에 보이게 채운다. 실제
-// 완료(done) 전엔 100%에 닿지 않게 상한을 97 로 둔다(완료를 가짜로 만들지 않음).
+// quick-260901-wbo — comparison base 48 → 상한 97 (49pt). +1/1.5s creep 로 기대
+// ~38s 동안 48→~73 전진하고, 장영상 아웃라이어도 97 상한까지 계속 전진한다 —
+// "comparison 142.5초 기어오름" 제거. 실제 완료(done) 전엔 100%에 닿지 않게 상한을
+// 97 로 둔다(완료를 가짜로 만들지 않음 — 불변).
 const PROGRESS_CEIL: Record<AnalysisStatus, number> = {
-  uploading: 14,
-  queued: 25,
-  frame_extraction: 33,
-  pose_analysis: 39,
+  uploading: 15,
+  queued: 28,
+  frame_extraction: 40,
+  pose_analysis: 47,
   comparison: 97,
   done: 100,
   failed: 0,
 };
 // 표시값이 상한을 향해 +1 씩 오르는 간격(ms).
-const PROGRESS_CREEP_MS = 2500;
+// quick-260901-wbo — 2500 → 1500: 총 파이프라인이 ~60s 로 줄어 creep 도 촘촘히.
+const PROGRESS_CREEP_MS = 1500;
 
 interface UploadInput {
   mode: AnalysisMode;

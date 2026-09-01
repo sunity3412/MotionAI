@@ -34,6 +34,12 @@ export const authCopy = {
     newHere: '처음 오셨나요? ',
     signupLink: '회원가입',
     back: '뒤로',
+    // belle 2026-09-01: 로그인 화면 = 앱의 첫 관문(로그인·회원가입·게스트 3구성) —
+    // 08-30 "시작하기=게스트 진입" 결정을 대체한다. 게스트 로그인 행위가 인트로에서
+    // 이 화면으로 옮겨오면서 로딩/오류 문구도 intro.ctaLoading/error 에서 그대로 승계.
+    guestCta: '게스트로 시작하기',
+    guestCtaLoading: '시작하는 중...',
+    guestError: '연결에 실패했어요. 잠시 후 다시 시도해주세요.',
   },
 
   signup: {

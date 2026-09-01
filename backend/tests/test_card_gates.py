@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import pytest
 
 from sunity_shared.analysis import card_gates as cg
 
@@ -136,6 +137,56 @@ def test_eye_verdict_limb_mismatch():
     assert cg._eye_verdict("bent", "other", "bent", "leg")
     assert not cg._eye_verdict("extended", "leg", "bent", "leg")  # 상태 불일치
     assert cg._eye_verdict("bent", "arm", "bent", None)  # 기대 미지정 = 상태만
+
+
+def test_claim_question_backward_compat():
+    """expected_limb 미지정/off_pole — 오늘 질문과 byte-동일 (하위호환, vlu).
+
+    off_pole 은 expected_limb 를 줘도 무변경 — 이번 수리 범위 밖 결정
+    (quick-260901-vlu Task 1).
+    """
+    assert cg._claim_question("bent", None) == cg._CLAIM_QUESTION["bent"]
+    assert cg._claim_question("extended", None) == cg._CLAIM_QUESTION["extended"]
+    assert cg._claim_question("off_pole", "leg") == cg._CLAIM_QUESTION["off_pole"]
+    assert cg._claim_question("off_pole", None) == cg._CLAIM_QUESTION["off_pole"]
+
+
+def _assert_occlusion_question(q: str, target: str) -> None:
+    """오클루전 반영 질문의 안정 불변식만 단정 — 전문(全文) 일치 금지.
+
+    (a) 판정 대상 사지 명시 (b) 가림/겹침 언급 (c) 기대 사지 부재 시 실제
+    보이는 사지 보고 지시 (d) 좌/우 해부학 이름 0 (e) off_body 이스케이프.
+    _LIMB_QUESTION 접미 미부착 (limb 지시가 본문 내장 — 중복/모순 방지).
+    """
+    assert target in q
+    assert ("가려" in q) or ("겹" in q)
+    assert "실제" in q and "limb" in q
+    low = q.lower()
+    assert "왼" not in q and "오른" not in q
+    assert "left" not in low and "right" not in low
+    assert "off_body" in q
+    assert cg._LIMB_QUESTION not in q
+
+
+def test_claim_question_leg_occlusion_variant():
+    """leg 변형 — 판정 대상이 다리, 오클루전 반영 (belle 09-01 오클루전 FP 수리)."""
+    q = cg._claim_question("bent", "leg")
+    _assert_occlusion_question(q, "다리")
+    assert q != cg._CLAIM_QUESTION["bent"]
+
+
+def test_claim_question_arm_occlusion_variant():
+    """arm 변형 — 대칭 단정 (팔이 판정 대상)."""
+    q = cg._claim_question("extended", "arm")
+    _assert_occlusion_question(q, "팔")
+    assert q != cg._CLAIM_QUESTION["extended"]
+
+
+def test_machine_eye_unknown_claim():
+    """미지 claim ValueError — 기존 검증 경로 무변경."""
+    frame = np.zeros((64, 64, 3), dtype=np.uint8)
+    with pytest.raises(ValueError):
+        cg.machine_eye(frame, (32.0, 32.0), "nonsense", api_key="unused")
 
 
 def test_claim_and_limb_helpers():

@@ -451,6 +451,39 @@ _CLAIM_ENUM = {
 _LIMB_ENUM = ["arm", "leg", "other", "unclear"]
 
 
+def _claim_question(claim: str, expected_limb: str | None) -> str:
+    """claim 별 기계 눈 질문 조립 (quick-260901-vlu — belle 09-01 오클루전 FP 승인 수리).
+
+    좌/우 해부학 이름 금지 (왼/오른/left/right 0) — _CLAIM_QUESTION 설계 승계
+    (bz5 부록 C: keypoint 환각 시 마크가 엉뚱한 곳에 찍히고 그 불일치를 눈이
+    잡아야 한다).
+
+    expected_limb 미지정(None)과 off_pole 은 _CLAIM_QUESTION 그대로 반환
+    (byte-동일 하위호환 — 질문 무변경). bent/extended + arm/leg 은 오클루전
+    반영 변형: 판정 대상 사지를 명시하고, 다른 사지에 가려져 뒤에 있어도 그
+    사지를 판정하게 한다 (오클루전 프레임에서 "원 위치의 가장 앞 사지"를 답해
+    확정 카드가 삭제되던 위양성 교정). 마크-전위 차단은 유지 — 기대 사지가
+    원 위치·배후에 아예 없으면 "실제로 보이는 사지"를 limb 에 적게 하고,
+    _eye_verdict(무접촉, ii0 §6-3)의 arm↔leg 확정 상충이 FAIL 을 낸다.
+    이 변형에는 _LIMB_QUESTION 접미를 붙이지 않는다 (limb 지시가 본문에
+    내장 — 중복/모순 방지). 응답 스키마(_CLAIM_ENUM/_LIMB_ENUM)는 무변경.
+    """
+    if claim == "off_pole" or expected_limb not in ("arm", "leg"):
+        return _CLAIM_QUESTION[claim]
+    target, subj = ("팔", "팔이") if expected_limb == "arm" else ("다리", "다리가")
+    return (
+        "사진의 주황색 원은 관절 하나를 표시합니다. 원 주변에는 팔과 다리가 "
+        f"겹쳐 보일 수 있습니다. 판정 대상은 원 위치의 {target}입니다. "
+        f"원 위치에 {subj} 보이면 — 다른 사지에 부분적으로 가려져 뒤에 "
+        f"있어도 — 그 {subj} '접혀 있음(bent)'인지 '펴져 있음(extended)'인지 "
+        "판정하고 limb 필드에 그 사지 종류를 적으세요 (팔='arm', 다리='leg'). "
+        f"원 위치와 그 바로 뒤 어디에도 {subj} 보이지 않으면(표시가 엉뚱한 "
+        "곳에 찍힌 경우), 원이 실제로 놓인 사지의 접힘/펴짐을 판정하고 limb "
+        "필드에 실제로 보이는 사지 종류를 적으세요 (그 외='other'). 원이 신체 "
+        "위에 있지 않으면 observed 는 'off_body' 로 하세요."
+    )
+
+
 def _eye_verdict(observed: str, limb: str | None, claim: str,
                  expected_limb: str | None) -> bool:
     """순수 판정 — 상태 일치 AND (사지 종류가 판정됐다면) 기대 사지와 일치.
@@ -487,29 +520,27 @@ def mark_crop(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float], *,
     return crop, (cx, cy)
 
 
-def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
-                claim: str, *, api_key: str, expected_limb: str | None = None,
-                crop_px: int = 360, model: str = DEFAULT_C_MODEL,
-                timeout_s: float = 60.0) -> dict:
-    """A3 기계 눈 — 마킹 크롭을 Gemini 가 판정, 감점 주장과 일치 여부 반환.
+def eye_judge(crop, claim: str, *, api_key: str,
+              expected_limb: str | None = None,
+              model: str = DEFAULT_C_MODEL, timeout_s: float = 60.0) -> dict:
+    """마킹 크롭(PIL RGB) 판정 진입점 — machine_eye 에서 추출 (quick-260901-vlu).
 
-    claim ∈ {bent, extended, off_pole}. expected_limb ∈ {arm, leg, None} —
-    주어지면 2단 판정(_eye_verdict): 눈이 본 사지 종류가 기대와 확정 상충이면
-    상태가 맞아도 match=False (마크-전위 구멍, ii0 §3-2). 반환 {observed, limb,
-    match, confidence, reason, crop(PIL)}. 호출/네트워크/파싱 실패는
-    observed="error" (fail-closed — match=False). temp 0 + JSON schema 강제.
-    개인정보는 크롭 이미지 외 미전송, 추론 호출만 (T-kpo-01 — 학습 재료 무접촉).
+    질문 조립(_claim_question) → JPEG 인코딩 → Gemini 호출 → _eye_verdict 까지
+    운영 경로 한 벌 — 하네스/검증이 크롭 입력으로 같은 프롬프트·스키마를
+    재판정한다 (프롬프트 재구현 금지의 근거 지점). 반환 {observed, limb, match,
+    confidence, reason} — crop 미포함 (machine_eye 가 첨부). 호출/네트워크/파싱
+    실패는 observed="error" (fail-closed — match=False). temp 0 + JSON schema
+    강제. 개인정보는 크롭 이미지 외 미전송, 추론 호출만 (T-kpo-01).
     """
     if claim not in _CLAIM_QUESTION:
         raise ValueError(f"unknown claim: {claim}")
-    crop, _ = mark_crop(frame_rgb, joint_xy_px, crop_px=crop_px)
     buf = io.BytesIO()
     crop.save(buf, format="JPEG", quality=90)
     b64 = base64.b64encode(buf.getvalue()).decode("ascii")
     body = {
         "contents": [{"parts": [
             {"inline_data": {"mime_type": "image/jpeg", "data": b64}},
-            {"text": _CLAIM_QUESTION[claim]},
+            {"text": _claim_question(claim, expected_limb)},
         ]}],
         "generationConfig": {
             "temperature": 0,
@@ -544,9 +575,29 @@ def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
             "match": _eye_verdict(observed, limb, claim, expected_limb),
             "confidence": float(got.get("confidence", 0.0)),
             "reason": str(got.get("reason", "")),
-            "crop": crop,
         }
     except Exception as e:  # noqa: BLE001 - 네트워크/파싱 실패는 fail-closed 로 수렴
         return {"observed": "error", "limb": None, "match": False,
-                "confidence": 0.0, "reason": f"{type(e).__name__}: {e}",
-                "crop": crop}
+                "confidence": 0.0, "reason": f"{type(e).__name__}: {e}"}
+
+
+def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
+                claim: str, *, api_key: str, expected_limb: str | None = None,
+                crop_px: int = 360, model: str = DEFAULT_C_MODEL,
+                timeout_s: float = 60.0) -> dict:
+    """A3 기계 눈 — 마킹 크롭을 Gemini 가 판정, 감점 주장과 일치 여부 반환.
+
+    claim ∈ {bent, extended, off_pole}. expected_limb ∈ {arm, leg, None} —
+    주어지면 질문이 기대 사지 명시형(_claim_question, 오클루전 반영)으로
+    조립되고, 2단 판정(_eye_verdict)이 arm↔leg 확정 상충을 차단한다
+    (마크-전위 구멍, ii0 §3-2 — 차단 무접촉 유지). 반환 {observed, limb,
+    match, confidence, reason, crop(PIL)} — 공개 시그니처·반환 형상·원장
+    필드는 추출 전과 동일. 실패 의미론은 eye_judge 와 동일 (fail-closed).
+    """
+    if claim not in _CLAIM_QUESTION:
+        raise ValueError(f"unknown claim: {claim}")
+    crop, _ = mark_crop(frame_rgb, joint_xy_px, crop_px=crop_px)
+    out = eye_judge(crop, claim, api_key=api_key, expected_limb=expected_limb,
+                    model=model, timeout_s=timeout_s)
+    out["crop"] = crop
+    return out

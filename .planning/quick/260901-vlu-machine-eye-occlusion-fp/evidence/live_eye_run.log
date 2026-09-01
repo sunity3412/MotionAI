@@ -1,0 +1,6 @@
+prompt_sha256=79d4fd8989504e412fadf8387837ffb3a473c17f71f61f6384353615dca8b4e3 model=gemini-3.7-flash ts=2026-09-01T14:02:30.417076+00:00
+[caseA occlusion] observed=bent limb=leg match=True conf=0.95
+[caseA occlusion] reason: 원 위치 뒤쪽으로 접혀 올라온 다리(무릎 관절)가 위치해 있으며, 무릎이 강하게 굽혀진 상태(bent)입니다.
+[caseB mark-displacement] observed=bent limb=arm match=False conf=0.95
+[caseB mark-displacement] reason: 원 위치에 다리가 존재하지 않으며, 원은 폴을 잡고 있는 팔의 상완/어깨 부위에 위치해 있습니다. 해당 팔은 팔꿈치 관절이 굽혀져 있으므로 bent로 판정됩니다.
+round verdict: caseA(match=True 기대)=True / caseB(match=False 기대)=False -> PASS

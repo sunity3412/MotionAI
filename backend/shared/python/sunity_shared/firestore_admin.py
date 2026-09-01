@@ -1528,6 +1528,172 @@ def update_analysis_coach_audio(
     )
 
 
+# ── quick-260901-wbo — coach 텍스트 사후 분리 (coach_dual + hook 사후화) ─────────
+#
+# 코칭 문장은 표현물 — complete(status='done') 이후 도착 허용 (fault_zoom D-06 선례).
+# tips 는 required 필드라 complete 시점에 수치 폴백으로 이미 유효하고, 본 부분 갱신은
+# 코칭 텍스트(detail/detail2)로의 **승격**이다. 허용 field-path 는
+# update_analysis_coach_text docstring 의 5개뿐 — 점수/verdict/감점 tally
+# (deductionBreakdown)/records 문구는 사후 변경 영구 금지 (D-03 경계,
+# contract.md coachStatus 절).
+
+# tip dict 허용 키 — build_tips / build_result angle>=95 일반 팁 산출 형상.
+_COACH_TIP_KEYS: frozenset[str] = frozenset({"joint", "title", "detail", "detail2"})
+# detail2 허용 키 — 13-C 섹션 조립 산출 형상 (assemble.assemble_dual_coach_sections).
+_COACH_TIP_DETAIL2_KEYS: frozenset[str] = frozenset(
+    {"causes", "injuryRisk", "coachNote"}
+)
+
+
+def _validate_coach_tips(tips, *, path: str = "tips") -> None:  # noqa: ANN001
+    """result.tips 통째 교체용 scoped validator (quick-260901-wbo).
+
+    형상: list[{joint: str|None, title: str, detail: str, detail2?: dict}].
+    detail2 = {causes: list[dict-of-scalars], injuryRisk?: str, coachNote?: str}
+    (assemble_dual_coach_sections 산출 — complete_analysis 가 오늘도 같은 형상 저장).
+
+    Firestore nested-array 금지 준수 — tips[].detail2.causes 는
+    array→map→map→array 라 합법. causes 의 각 원소는 `_validate_dict_only_scalars`
+    라우팅으로 nested list/dict 를 거부한다 (validator 본체 무수정 — safetyFlags
+    선례). 키 화이트리스트(누락 detail/title, 여분 키)는 본 validator 가 강제.
+
+    Raises:
+        TypeError: tips 가 list 아님 / tip 이 dict 아님 / causes 원소 nested
+          (firestore-nested-array-flat).
+        ValueError: 화이트리스트 밖 키 / 빈 title·detail / joint 타입 위반 /
+          detail2 형상 위반.
+    """
+    if not isinstance(tips, list):
+        raise TypeError(
+            f"{path} must be list (coach tips), got {type(tips).__name__}"
+        )
+    for i, tip in enumerate(tips):
+        tip_path = f"{path}[{i}]"
+        if not isinstance(tip, dict):
+            raise TypeError(
+                f"{tip_path} must be dict, got {type(tip).__name__}"
+            )
+        unknown = set(tip.keys()) - _COACH_TIP_KEYS
+        if unknown:
+            raise ValueError(
+                f"{tip_path} unknown tip key(s) {sorted(unknown)} — 허용 키: "
+                f"{sorted(_COACH_TIP_KEYS)}"
+            )
+        joint = tip.get("joint")
+        if joint is not None and not isinstance(joint, str):
+            raise ValueError(
+                f"{tip_path}.joint must be str | null, got {type(joint).__name__}"
+            )
+        for req in ("title", "detail"):
+            v = tip.get(req)
+            if not isinstance(v, str) or not v.strip():
+                raise ValueError(
+                    f"{tip_path}.{req} must be non-empty str, got {v!r}"
+                )
+        if "detail2" not in tip:
+            continue
+        d2 = tip["detail2"]
+        if not isinstance(d2, dict):
+            raise ValueError(
+                f"{tip_path}.detail2 must be dict, got {type(d2).__name__}"
+            )
+        d2_unknown = set(d2.keys()) - _COACH_TIP_DETAIL2_KEYS
+        if d2_unknown:
+            raise ValueError(
+                f"{tip_path}.detail2 unknown key(s) {sorted(d2_unknown)} — "
+                f"허용 키: {sorted(_COACH_TIP_DETAIL2_KEYS)}"
+            )
+        causes = d2.get("causes")
+        if not isinstance(causes, list):
+            raise ValueError(
+                f"{tip_path}.detail2.causes must be list, "
+                f"got {type(causes).__name__}"
+            )
+        for j, cause in enumerate(causes):
+            # nested list/dict 거부 — validator 본체 무수정 라우팅 (safetyFlags 선례).
+            _validate_dict_only_scalars(
+                cause, path=f"{tip_path}.detail2.causes[{j}]"
+            )
+        for opt in ("injuryRisk", "coachNote"):
+            if opt in d2 and not isinstance(d2[opt], str):
+                raise ValueError(
+                    f"{tip_path}.detail2.{opt} must be str, "
+                    f"got {type(d2[opt]).__name__}"
+                )
+
+
+def update_analysis_coach_text(
+    uid: str,
+    analysis_id: str,
+    *,
+    status: str,
+    tips: list | None = None,
+    force_hook: dict | None = None,
+    body_hook: dict | None = None,
+    gemini_b: dict | None = None,
+) -> None:
+    """coach 텍스트 사후 부분 업데이트 (quick-260901-wbo — fault_zoom/coach_audio 뼈대).
+
+    complete_analysis(status='done') **이후** 같은 분석 태스크에서 호출한다. 점수/
+    verdict/감점 내역은 이미 확정됐고(D-03 경계), 코칭 문장은 표현물이라 사후 도착이
+    허용된다. status='pending' 마커는 complete_analysis 시 result 안에 실려 이미
+    저장되므로, 본 함수는 done/failed 전이만 쓴다 (update_analysis_fault_zoom 서술
+    미러). 허용 field-path 는 아래 5개**뿐** — 그 외 어떤 result.* 필드도 사후 변경
+    금지 (T-27-18 / D-03 / T-wbo-01):
+
+      · result.coachStatus (필수)
+      · result.tips (통째 교체 — tips 가 None 아니면)
+      · result.forcePatternInference.coachCommentHook (force_hook 이 None 아니면)
+      · result.bodyComparisonReport.coachCommentHook (body_hook 이 None 아니면)
+      · top-level geminiB (gemini_b 가 None 아니면)
+
+    **hook 값이 None 이면 해당 field-path 를 payload 에서 생략한다** — `.update()`
+    field-path 는 중간 map 이 없으면 새로 만들어버리므로, complete 시점 doc 에
+    forcePatternInference/bodyComparisonReport 가 없는 분석에 hook 만 보내면
+    findings 없는 stub 리포트가 doc 에 박힌다 (260901-wbo 체커 warning 1 — caller
+    도 동기 attach 조건을 미러해 리포트 실린 doc 에만 보낼 것).
+
+    status='failed' 시 tips/hook/gemini_b 는 선택(부재 허용) — complete 시점의 수치
+    폴백 tips 가 최후 바닥으로 잔존한다 (coach_audio failed-마킹 선례).
+
+    검증: tips 는 `_validate_coach_tips`(키 화이트리스트 + nested 거부), hook 은
+    기존 `_validate_coach_comment_hook`, gemini_b 는 기존
+    `_validate_flat_dict_no_nested_array` 재사용. 코칭 텍스트는 매번 통째 교체이므로
+    fault_zoom 선례대로 명시적 field-path `.update()` 채택 (merge 의 배열 병합
+    모호성 회피).
+
+    Raises:
+      ValueError: status 가 COACH_STATUSES 밖 / tips·hook 형상 위반.
+      TypeError: tips·gemini_b 에 nested list/dict (scoped validator).
+    """
+    if status not in models.COACH_STATUSES:
+        raise ValueError(
+            f"coachStatus must be one of {list(models.COACH_STATUSES)}, "
+            f"got {status!r}"
+        )
+    payload: dict = {
+        "result.coachStatus": status,
+        "updatedAt": int(time.time() * 1000),
+    }
+    if tips is not None:
+        _validate_coach_tips(tips)
+        payload["result.tips"] = list(tips)
+    if force_hook is not None:
+        _validate_coach_comment_hook(
+            force_hook, path="forcePatternInference.coachCommentHook"
+        )
+        payload["result.forcePatternInference.coachCommentHook"] = force_hook
+    if body_hook is not None:
+        _validate_coach_comment_hook(
+            body_hook, path="bodyComparisonReport.coachCommentHook"
+        )
+        payload["result.bodyComparisonReport.coachCommentHook"] = body_hook
+    if gemini_b is not None:
+        _validate_flat_dict_no_nested_array(gemini_b, path="geminiB")
+        payload["geminiB"] = gemini_b
+    _doc(models.analysis_doc_path(uid, analysis_id)).update(payload)
+
+
 def _validate_rendered_compare(payload, *, path: str = "renderedCompare") -> None:  # noqa: ANN001
     """renderedCompare scoped validator (Phase 35 quick-260808-jix — contract.md §12.9).
 

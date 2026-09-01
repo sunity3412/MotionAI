@@ -645,6 +645,30 @@ FAULT_ZOOM_STATUSES = (
     FAULT_ZOOM_STATUS_FAILED,
 )
 
+# ── coach 텍스트 사후 분리 상태 (quick-260901-wbo — fault_zoom D-06 패턴 미러) ──
+#   코칭 문장(coach_dual 산출 tips[].detail/detail2 + coachCommentHook Gemini 승격 +
+#   geminiB audit)은 점수가 아닌 **표현물** — complete_analysis(status='done') 이후
+#   부분 업데이트로 도착한다(D-03 경계와 충돌 없음). pending=작성 중(앱은 코칭 섹션
+#   placeholder — 그동안 result.tips 는 수치 폴백으로 이미 유효, required 필드 불변) /
+#   done=코칭 텍스트 도착(result.tips 승격, 앱 rerender) / failed=수치 폴백 잔존
+#   (placeholder 해제, 무한 pending 고아 방지). 부재(legacy doc)=사후 분리 이전 doc —
+#   즉시 표시 하위호환 (no migration).
+#
+#   **PIPELINE_SEQUENCE / status enum 에는 절대 추가 금지** — status 머신에 넣으면
+#   3-way lockstep(analysis.ts AnalysisStatus + models.py + contract.md §3) 비용이
+#   발생한다 (FAULT_ZOOM_STATUSES 블록 서술 미러). coach 상태는 status 진행과 독립된
+#   result 내부 scalar 필드(result.coachStatus)로 유지한다. 3-way lockstep 은
+#   analysis.ts AnalysisResult.coachStatus? +
+#   firestore_admin.update_analysis_coach_text + contract.md coachStatus 절.
+COACH_STATUS_PENDING = "pending"
+COACH_STATUS_DONE = "done"
+COACH_STATUS_FAILED = "failed"
+COACH_STATUSES = (
+    COACH_STATUS_PENDING,
+    COACH_STATUS_DONE,
+    COACH_STATUS_FAILED,
+)
+
 # ── 분석 오류 코드 (contract.md §5 / ml_CLAUDE.md) ────────────────────
 ERR_NO_HUMAN = "no_human"
 ERR_SIZE_EXCEEDED = "size_exceeded"

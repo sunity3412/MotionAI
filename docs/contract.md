@@ -503,6 +503,33 @@ faultZoomStatus   'pending' | 'done' | 'failed'   optional  ← zoom 렌더 진�
   - Python 정본: `models.py FAULT_ZOOM_STATUSES` + `firestore_admin.update_analysis_fault_zoom`.
     lockstep: `app/src/types/analysis.ts AnalysisResult.faultZoomStatus?` ↔ models.py ↔ 본 §4.
 
+`coachStatus` (quick-260901-wbo — coach 텍스트 사후 분리, faultZoomStatus 절 미러)
+```
+coachStatus   'pending' | 'done' | 'failed'   optional  ← 코칭 문장 작성 진행 상태
+```
+  - 코칭 문장(coach_dual 산출 `tips[].detail`/`detail2` + `coachCommentHook` Gemini
+    승격 + `geminiB` audit)은 **점수가 아니라 표현물**이다. 점수/verdict/감점 내역은
+    `status='done'`(complete) 시점에 확정되고(D-03 경계), 코칭 작성(coach_dual 실측
+    43.1s + hook Gemini 콜)은 **complete 이후 부분 업데이트로 도착**한다 →
+    status 'done' 도착을 앞당겨 로딩 체감을 단축한다.
+  - 의미: `pending`=작성 중(앱은 코칭 섹션 placeholder — 그동안 `result.tips` 는 수치
+    폴백으로 이미 유효, required 필드 불변) / `done`=코칭 텍스트 도착(`result.tips`
+    승격 + `coachCommentHook` Gemini 승격, 앱 rerender) / `failed`=수치 폴백 잔존
+    (placeholder 해제 — 무한 pending 고아 방지).
+  - **부재 = 사후 분리 이전(legacy) doc** — optional, migration 없음. 앱은 필드 부재 시
+    코칭 즉시 표시(하위호환 — 기존 렌더 무회귀).
+  - **사후 변경 경계(D-03):** coach_text 스테이지의 write 는 `result.tips` +
+    `result.coachStatus` + `result.forcePatternInference.coachCommentHook` +
+    `result.bodyComparisonReport.coachCommentHook` + top-level `geminiB` **뿐**이다.
+    점수/verdict/감점 tally(`deductionBreakdown`)/records 문구는 사후 변경 영구 금지 —
+    문구집 문장(§12.3 `cueLine` 등)은 표현·오디오(`coach_audio`)·`spot_check` 의
+    단일 원천이라 사후 변경이 3면 발산을 낳는다.
+  - **status 머신과 독립:** `coachStatus` 는 §3 `AnalysisStatus`(PIPELINE_SEQUENCE)에
+    넣지 않는다 — status enum 확장 3-way 비용 회피 (`faultZoomStatus` 선례). result
+    내부 scalar 필드로만 존재.
+  - Python 정본: `models.py COACH_STATUSES` + `firestore_admin.update_analysis_coach_text`.
+    lockstep: `app/src/types/analysis.ts AnalysisResult.coachStatus?` ↔ models.py ↔ 본 §4.
+
 `visual 교정 시각물 필드` (Phase 31 — D-05/D-06/D-08)
 ```
 correctedPoseStatus       'pending' | 'done' | 'failed'   optional  ← 교정 자세 이미지 상태

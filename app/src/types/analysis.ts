@@ -926,6 +926,16 @@ export type AnalysisResult = ScoreSuppression & {
   // models.py FAULT_ZOOM_STATUSES + firestore_admin.update_analysis_fault_zoom +
   // contract.md faultZoomStatus 절.
   faultZoomStatus?: 'pending' | 'done' | 'failed';
+  // quick-260901-wbo — 코칭 문장 사후 분리 로딩 상태 (faultZoomStatus 미러). 점수/
+  // verdict/감점 내역은 status='done' 시점에 확정되고, 코칭 텍스트(tips[].detail/
+  // detail2 승격 + coachCommentHook Gemini 승격)는 그 이후 부분 업데이트로 도착한다.
+  // 'pending'=작성 중(코칭 섹션 placeholder — tips 는 수치 폴백으로 이미 유효,
+  // required 필드 불변) / 'done'=코칭 텍스트 도착(rerender) / 'failed'=수치 폴백
+  // 잔존(placeholder 해제). 부재(legacy doc)=사후 분리 이전 doc — 즉시 표시
+  // (렌더 무회귀, no migration — tier? 서술 모범 준수). Python lockstep:
+  // models.py COACH_STATUSES + firestore_admin.update_analysis_coach_text +
+  // contract.md coachStatus 절.
+  coachStatus?: 'pending' | 'done' | 'failed';
   // Phase 31 (D-05) — 교정된 자세 이미지(결함 top-1 부위의 순간 프레임 → 고친 폼).
   // 분석 완료 시 자동 생성되어 사후 부분 업데이트로 도착한다 (faultZoomStatus 와
   // 동일한 사후 분리 패턴).

@@ -17,11 +17,12 @@
 
 export const authCopy = {
   intro: {
+    // belle 2026-09-01: "시작하기" = 로그인 게이트로 이동 (08-30 "시작하기=게스트
+    // 진입" 결정을 대체). CTA 가 비동기 작업을 잃어 ctaLoading/error 는 삭제 —
+    // 문구는 login.guestCtaLoading/guestError 로 승계됐다.
     taglineTop: '프로의 동작과 비교하는',
     taglineBottom: '나만의 AI 운동 코치',
     cta: '시작하기',
-    ctaLoading: '시작하는 중...',
-    error: '연결에 실패했어요. 잠시 후 다시 시도해주세요.',
     haveAccount: '이미 계정이 있으신가요? ',
     loginLink: '로그인하기',
   },

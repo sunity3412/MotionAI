@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import SunityWordmark from '../components/SunityWordmark';
@@ -10,12 +10,12 @@ import { colors, layout, radius, spacing, typography } from '../theme';
 
 // 인트로 — Figma node 1:142 (fileKey jrdI7kp245HkPfLB0nclsz).
 //
-// Phase 36 (계정 시스템) 개편. belle 2026-08-30 결정:
-//   "시작하기" = **게스트 진입 그대로**(가입 벽 없음, CLAUDE.md §2 파일럿 요건),
-//   하단 "이미 계정이 있으신가요? 로그인하기" = 로그인 화면.
-// 즉 Figma 레이아웃은 1픽셀도 안 바꾸고 '시작하기'의 뜻만 게스트 시작으로 둔다.
-//
-// 게스트 = Firebase 익명 인증 (영속 → 재실행 시 자동 진입). 이 동작은 개편 전과 동일하다.
+// belle 2026-09-01 결정 (08-30 "시작하기=게스트 진입 그대로"를 **대체**):
+//   "시작하기" = 로그인 게이트(/auth/login)로 이동 — 게스트 버튼은 로그인 화면에 있다
+//   (로그인·회원가입·게스트 3구성). 익명(게스트) 세션은 자동 진입하지 않는다
+//   (로그인 입구 상시 노출), **멤버(비익명) 세션만** 자동 홈 진입한다.
+// Figma 레이아웃은 그대로 — CTA 의 목적지만 바뀐다. 가입 벽 없음은 유지
+// (CLAUDE.md §2: 게스트는 로그인 화면에서 버튼 1탭).
 //
 // ★배경: Figma 는 다크레드 사진이고 CLAUDE.md §4 / design.md §10 은 "다크 배경 금지"라
 // 충돌한다. belle 이 "디자인은 피그마를 따라줘"(08-28) 라고 해서 Figma 를 따랐고,
@@ -23,17 +23,25 @@ import { colors, layout, radius, spacing, typography } from '../theme';
 // ImageBackground 를 LinearGradient(gradients.homeTop) 로 되돌리면 된다.
 export default function Intro() {
   const router = useRouter();
-  // 영속된 게스트 세션 복원을 기다리는 동안 인트로 깜빡임 방지.
+  // 멤버 세션 복원 판정을 기다리는 동안 인트로 깜빡임 방지 (스플래시 패턴 유지).
   const [bootstrapping, setBootstrapping] = useState(true);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
 
   useEffect(() => {
-    // 인증 상태가 생기면(신규 게스트 로그인 or 복원) 라우팅. 내비게이션을 한 곳에 집중.
-    // D-03/26-UI-SPEC S1: 첫 실행 게스트는 홈 진입 전에 기대설정 튜토리얼을 1회 본다.
-    // hasSeenTutorial() 이 비동기라 bootstrapping state 로 CTA/라우팅을 보류해
-    // 플래그 로드 전 깜빡임을 막는다 (기존 인트로 스플래시 패턴 재사용).
+    // 복원 판정은 **첫 발화 1회만**(one-shot) 처리한다. 로그인 화면이 push 로 위에
+    // 얹힌 동안 인트로가 살아있으므로, 이후의 auth 변화(소셜 로그인·switched)에
+    // 인트로가 반응해 라우팅을 가로채면 로그인 화면의 notice(특히 switched 안내)를
+    // 선점 이탈시킨다 — 진입 후 라우팅의 소유권은 로그인 화면에 있다.
+    // 자기-unsubscribe 패턴은 초기화 전 참조(TDZ) 위험이 있어 쓰지 않는다;
+    // useEffect 반환값의 unsubscribe 는 언마운트 정리용.
+    //
+    // 멤버(비익명)만 자동 진입: 익명(게스트) 세션·무세션은 CTA 를 노출해 로그인
+    // 게이트를 거치게 한다 (belle 2026-09-01). 멤버 튜토리얼 분기는 기존 그대로
+    // (D-03/26-UI-SPEC S1, hasSeenTutorial 비동기 → bootstrapping 으로 깜빡임 방지).
+    let handled = false;
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+      if (handled) return;
+      handled = true;
+      if (user && !user.isAnonymous) {
         hasSeenTutorial().then((seen) => {
           router.replace(seen ? '/(tabs)' : '/tutorial');
         });
@@ -43,14 +51,6 @@ export default function Intro() {
     });
     return unsubscribe;
   }, [router]);
-
-  const startAsGuest = () => {
-    setStatus('loading');
-    signInAnonymously(auth).catch(() => setStatus('error'));
-    // 성공 시 onAuthStateChanged 가 라우팅 담당.
-  };
-
-  const loading = status === 'loading';
 
   return (
     <ImageBackground
@@ -65,38 +65,30 @@ export default function Intro() {
         <Text style={styles.taglineBottom}>{authCopy.intro.taglineBottom}</Text>
       </View>
 
-      {/* 게스트 세션 복원 대기 중에는 CTA를 숨겨 스플래시처럼 보이게 (스피너 금지 §0). */}
+      {/* 멤버 복원 판정 대기 중에는 CTA를 숨겨 스플래시처럼 보이게 (스피너 금지 §0). */}
       {!bootstrapping && (
         <View style={styles.bottom}>
+          {/* push 인 이유: 로그인 화면의 뒤로가기 화살표가 인트로로 복귀할 수 있어야 한다. */}
           <Pressable
-            style={({ pressed }) => [
-              styles.cta,
-              (pressed || loading) && styles.ctaDimmed,
-            ]}
-            onPress={startAsGuest}
-            disabled={loading}
+            style={({ pressed }) => [styles.cta, pressed && styles.ctaDimmed]}
+            onPress={() => router.push('/auth/login')}
             accessibilityRole="button"
-            accessibilityState={{ disabled: loading }}
           >
-            <Text style={styles.ctaText}>
-              {loading ? authCopy.intro.ctaLoading : authCopy.intro.cta}
-            </Text>
+            <Text style={styles.ctaText}>{authCopy.intro.cta}</Text>
           </Pressable>
 
-          {status === 'error' ? (
-            <Text style={styles.subtle}>{authCopy.intro.error}</Text>
-          ) : (
-            <Text style={styles.subtle}>
-              {authCopy.intro.haveAccount}
-              <Text
-                style={styles.link}
-                onPress={() => router.push('/auth/login')}
-                accessibilityRole="link"
-              >
-                {authCopy.intro.loginLink}
-              </Text>
+          {/* CTA 와 같은 목적지로 의도적 수렴 — Figma 1:142 충실도 우선이고,
+              계정 보유자 멘탈모델("로그인하기")에 맞는 문구라 해롭지 않다. */}
+          <Text style={styles.subtle}>
+            {authCopy.intro.haveAccount}
+            <Text
+              style={styles.link}
+              onPress={() => router.push('/auth/login')}
+              accessibilityRole="link"
+            >
+              {authCopy.intro.loginLink}
             </Text>
-          )}
+          </Text>
         </View>
       )}
     </ImageBackground>

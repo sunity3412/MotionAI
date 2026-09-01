@@ -4183,6 +4183,258 @@ def _run_deferred_coach_audio(
         return []
 
 
+# ═══════ quick-260901-wbo — 코칭 작성 사후 스테이지 (coach_dual + hook 이동) ═══════
+#
+# belle 2026-09-01 승인 ("로딩 단축도 진행해줘 코칭 문장 뒤로 빼는거 포함").
+# coach_dual(실측 43.1s) + hook Gemini 콜(~14s)을 complete_analysis 사후로 이동해
+# status 'done' 도착을 앞당긴다 — Phase 27 D-06 fault_zoom 사후화 선례 (pending 마커
+# + 부분 갱신 + 앱 placeholder). 13-C 듀얼트랙/재시도/cross-fill/audit 규율과
+# Cerebras 폴백 관계는 무수정 이동. 계약: contract.md coachStatus 절 /
+# models.COACH_STATUSES / firestore_admin.update_analysis_coach_text.
+
+
+def _run_deferred_coach_text(
+    *,
+    result: dict,
+    assessments: list,
+    coach_context: dict,
+    force_findings: list,
+    body_findings: list,
+    force_pattern_inference_dict: dict | None,
+    body_comparison_report_dict: dict | None,
+    uid: str,
+    analysis_id: str,
+    timings_ms: dict,
+) -> None:
+    """complete_analysis 이후 코칭 작성 → update_analysis_coach_text 부분 갱신.
+
+    분석은 이미 complete(status='done')라 어떤 경로도 재raise 하지 않는다
+    (_run_deferred_coach_audio 뼈대 복제):
+
+      · coach_dual(Gemini ∥ Cerebras + 재시도 + 13-C 섹션 조립) 성공 → tips 재조립
+        + done + hook Gemini 승격분 + geminiB audit 부분 갱신. in-memory result 도
+        동기 갱신 ([[partial-field-writes-invisible-to-inmemory-doc]] 회귀 갑주 —
+        현재 사후 소비처 0 을 코드로 재확인했지만 미래 소비처 방어).
+      · 양쪽 writer 실패 → failed + both_failed audit, tips 미전송 (complete 시점의
+        수치 폴백 잔존 — 종전 both-failed 최종 상태와 동일, 최후 바닥 불변).
+      · hook Gemini 실패/미시도 → canned 유지 = 해당 hook field-path 미전송.
+      · hook field-path 는 complete 시점에 해당 리포트가 doc 에 실렸을 때만 전송
+        (force_pattern_inference_dict / body_comparison_report_dict 비-None 미러 —
+        260901-wbo 체커 warning 1: `.update()` 가 중간 map 을 새로 만들어 findings
+        없는 stub 리포트가 doc 에 박히는 것 차단).
+      · 스테이지 예외 → failed 마킹 시도, 마킹 write 실패는 log.exception 만
+        (coach_audio failed-마킹 규율 복제 — 앱은 시간 상한 폴백이 방어).
+
+    **동기 채점 경로 호출 금지** — 사후 전용 (속도 예산·timingsMs 회귀 0).
+    timingsMs 는 이미 저장됨 — 사후 소요(coach_dual/coach_hook)는 스테이지 로그
+    라인으로만 (fault_zoom 관례). 채점/veto/게이트 무접촉 — 코칭은 표시 텍스트.
+
+    Args:
+      force_pattern_inference_dict / body_comparison_report_dict: complete_analysis
+        에 전달된 바로 그 dict (없으면 None). hook 전송 게이트 + in-memory hook
+        동기 갱신 대상. 계획 명세 시그니처에 2 kwarg 추가 — in-memory result 에는
+        이 리포트들이 실리지 않아(complete_analysis 가 payload 에만 부착) 리포트
+        방출 여부를 달리 알 수 없다.
+    """
+    try:
+        # ── coach_dual — 동기 블록(구 app.py 7352~7436) 로직 무수정 이동 ─────
+        coach_details: dict = {}
+        gemini_b_audit: dict | None = None
+        with _stage(timings_ms, analysis_id, "coach_dual"):
+            if _coach_enabled():
+                # 양쪽 writer 동시 호출 + 시도당 재시도 1회 (단일 coach_context 공유,
+                # B3). Gemini 는 스레드, Cerebras 는 메인 스레드 실행 후 join —
+                # 벽시계 = max(B, Cerebras). writer/write 바운드 메서드는 스테이지
+                # 스레드에서 미리 확보 (스레드 내 lazy-init 경쟁 0).
+                _gemini_write = _ensure_gemini_coach_writer().write
+                with ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix="coach_gemini"
+                ) as _coach_pool:
+                    gemini_future = _coach_pool.submit(
+                        _call_coach_writer_with_retry,
+                        "gemini", _gemini_write, coach_context,
+                    )
+                    cerebras_result = _call_coach_writer_with_retry(
+                        "cerebras", _COACH_WRITER.write, coach_context
+                    )
+                    gemini_result = gemini_future.result()
+                gemini_ok = bool(_coach_user_visible_keys(gemini_result))
+                cerebras_ok = bool(_coach_user_visible_keys(cerebras_result))
+
+                if gemini_ok or cerebras_ok:
+                    # 섹션 조립 — top 3 관절키 기준. cross-fill 이 빈 섹션 0 보장.
+                    top_keys = [a.key for a in kismam.top_issues(assessments, n=3)]
+                    coach_details, section_audit = assemble.assemble_dual_coach_sections(
+                        _strip_reserved_keys(gemini_result) if gemini_ok else {},
+                        _strip_reserved_keys(cerebras_result) if cerebras_ok else {},
+                        top_keys,
+                    )
+                    cross_filled_joints = [
+                        j for j, a in section_audit.items() if a.get("crossFilled")
+                    ]
+                    log.info(
+                        "coach dual-track 섹션 조립 — gemini_ok=%s cerebras_ok=%s "
+                        "joints=%d cross_filled=%s audit=%s",
+                        gemini_ok,
+                        cerebras_ok,
+                        len(top_keys),
+                        cross_filled_joints,
+                        section_audit,
+                    )
+                    gemini_b_audit = _gemini_b_audit_payload(
+                        gemini_result if gemini_ok else {},
+                        cerebras_used=not gemini_ok,
+                        cerebras_fallback_reason=(
+                            None
+                            if gemini_ok
+                            else gemini_result.get("_fallbackReason")
+                            or "gemini_fallback"
+                        ),
+                    )
+                    if gemini_b_audit is not None:
+                        gemini_b_audit["dualTrack"] = True
+                        gemini_b_audit["sectionAudit"] = section_audit
+                        gemini_b_audit["crossFilledJoints"] = cross_filled_joints
+                else:
+                    # 둘 다 실패 → coach_details={} (수치 폴백 잔존 — 최후 바닥).
+                    g_reason = (
+                        gemini_result.get("_fallbackReason") or "gemini_fallback"
+                    )
+                    log.info(
+                        "coach dual-track 양쪽 실패 — 수치 폴백 잔존 "
+                        "(gemini_reason=%s cerebras=fallback)",
+                        g_reason,
+                    )
+                    coach_details = {}
+                    gemini_b_audit = _gemini_b_audit_payload(
+                        {},
+                        cerebras_used=True,
+                        cerebras_fallback_reason="both_failed",
+                    )
+                    if gemini_b_audit is not None:
+                        gemini_b_audit["dualTrack"] = True
+            else:
+                # GEMINI_COACH_ENABLED OFF — Cerebras only (기존 path). audit 박제 X.
+                coach_details = _COACH_WRITER.write(coach_context)
+                gemini_b_audit = None
+
+        # ── coach_hook — hook Gemini 콜 + resolve (설계 2번: 별도 계측 신설) ──
+        # findings 가 있을 때만 시도. 실패/payload 부재 = canned 유지 (complete
+        # 시점에 이미 실림) → 해당 field-path 미전송.
+        force_hook_camel: dict | None = None
+        body_hook_camel: dict | None = None
+        if force_findings or body_findings:
+            with _stage(timings_ms, analysis_id, "coach_hook"):
+                try:
+                    # lazy import — Lambda 250MB 한도 정합 (콜드스타트 절감).
+                    from sunity_shared.gemini.coach_hook_writer import (
+                        GeminiCoachHookWriter,
+                    )
+
+                    _hook_bundle = GeminiCoachHookWriter().build_coach_hooks(
+                        force_findings=force_findings,
+                        body_findings=body_findings,
+                    )
+                    _force_hook, _body_hook = resolve_coach_hook_bundle(
+                        _hook_bundle,
+                        force_findings=force_findings,
+                        body_findings=body_findings,
+                    )
+
+                    # Gemini payload 존재 리포트만 승격 (resolve 내부 분기 미러 —
+                    # payload 부재 = canned 반환이라 전송 불필요).
+                    def _bundle_payload(attr: str):
+                        if _hook_bundle is None:
+                            return None
+                        if isinstance(_hook_bundle, dict):
+                            return _hook_bundle.get(attr)
+                        return getattr(_hook_bundle, attr, None)
+
+                    if _bundle_payload("force_pattern_inference") is not None:
+                        force_hook_camel = _dataclass_to_camel_case_dict(_force_hook)
+                    if _bundle_payload("body_comparison_report") is not None:
+                        body_hook_camel = _dataclass_to_camel_case_dict(_body_hook)
+                except Exception:  # noqa: BLE001 - hook 실패 = canned 유지 (D-08)
+                    log.exception(
+                        "deferred coach_hook 실패 — canned 유지 (field-path 미전송) "
+                        "uid=%s analysis_id=%s", uid, analysis_id,
+                    )
+        # 체커 warning 1 — complete 시점 doc 에 리포트가 실렸을 때만 hook 전송
+        # (동기 attach 조건 `if body_comparison_report is not None` 미러). 아니면
+        # `.update()` 가 중간 map 을 새로 만들어 stub 리포트가 doc 에 박힌다.
+        if force_pattern_inference_dict is None:
+            force_hook_camel = None
+        if body_comparison_report_dict is None:
+            body_hook_camel = None
+
+        if not _coach_user_visible_keys(coach_details):
+            # 양쪽 writer 실패 — tips 미전송 (complete 시점 수치 폴백 잔존).
+            firestore_admin.update_analysis_coach_text(
+                uid,
+                analysis_id,
+                status=models.COACH_STATUS_FAILED,
+                force_hook=force_hook_camel,
+                body_hook=body_hook_camel,
+                gemini_b=gemini_b_audit,
+            )
+            result["coachStatus"] = models.COACH_STATUS_FAILED
+        else:
+            # tips 재조립 (in-memory 최종 result 위 — 동기 산출과 동일 결과 보장).
+            # 일반 팁 단독(len 1 + joint None — angle>=95 분기)이면 rebuild 경유:
+            # veto applied·귀속 신뢰 게이트는 함수 내부가 판정 — 게이트 불통과면
+            # tips 불변 (= 종전과 동일하게 코칭이 tips 에 안 실리는 케이스).
+            tips_now = result.get("tips")
+            is_generic_only = (
+                isinstance(tips_now, list)
+                and len(tips_now) == 1
+                and isinstance(tips_now[0], dict)
+                and tips_now[0].get("joint") is None
+            )
+            if is_generic_only:
+                rebuilt = assemble.rebuild_tips_for_vision_fault(
+                    result, assessments, coach_details
+                )
+                new_tips = rebuilt.get("tips")
+            else:
+                new_tips = assemble.build_tips(
+                    kismam.top_issues(assessments, n=3), coach_details
+                )
+            firestore_admin.update_analysis_coach_text(
+                uid,
+                analysis_id,
+                status=models.COACH_STATUS_DONE,
+                tips=new_tips,
+                force_hook=force_hook_camel,
+                body_hook=body_hook_camel,
+                gemini_b=gemini_b_audit,
+            )
+            result["tips"] = new_tips
+            result["coachStatus"] = models.COACH_STATUS_DONE
+        # in-memory hook 동기 갱신 — complete 에 전달된 바로 그 dict 를 교체
+        # ([[partial-field-writes-invisible-to-inmemory-doc]] 회귀 갑주).
+        if force_hook_camel is not None and force_pattern_inference_dict is not None:
+            force_pattern_inference_dict["coachCommentHook"] = force_hook_camel
+        if body_hook_camel is not None and body_comparison_report_dict is not None:
+            body_comparison_report_dict["coachCommentHook"] = body_hook_camel
+    except Exception:  # noqa: BLE001 - 부가 기능 실패는 분석 비차단 (graceful)
+        log.warning(
+            "coach_text 사후 스테이지 실패 — failed 마킹 시도 (분석은 이미 complete) "
+            "uid=%s analysis_id=%s", uid, analysis_id,
+        )
+        try:
+            firestore_admin.update_analysis_coach_text(
+                uid, analysis_id, status=models.COACH_STATUS_FAILED
+            )
+            result["coachStatus"] = models.COACH_STATUS_FAILED
+        except Exception:  # noqa: BLE001 - failed write 실패 = pending 고아 가능
+            # 앱 COACH_PENDING_TIMEOUT_MS 시간 상한 폴백이 방어 (재raise 0).
+            log.exception(
+                "coach_text failed 마킹 write 실패 — pending 고아 가능 "
+                "(앱 시간 상한 폴백 방어) uid=%s analysis_id=%s",
+                uid, analysis_id,
+            )
+
+
 # ═══════ Phase 35 (quick-260808-jix) — 합성 비교 영상 사후 렌더 스테이지 ═══════
 #
 # belle 승인 설계 (2026-08-08): Mode1 분석이 complete(status='done') 된 뒤, 15fps
@@ -7349,91 +7601,17 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # 이 키를 무시(text-only). None 이면 GeminiCoachWriter 가 자체 업로드 폴백.
         if student_video_handle is not None:
             coach_context["preuploadedHandle"] = student_video_handle
-        # ── Phase 13-C: 섹션형 듀얼 coach — 둘 다 호출 + 섹션 조립 + 계층형 폴백 ──
-        # belle 2026-06-16 [[section-dual-coach-report]]. GEMINI_COACH_ENABLED=1
-        # (default) 시 양쪽 writer 를 둘 다 호출해 섹션별로 조립 (원인/강사확인=Gemini,
-        # 교정처방/부상위험=Cerebras). 한쪽 실패(재시도 후) → cross-fill, 둘 다 실패 →
-        # coach_details={} (build_result 수치 폴백). env OFF 시 기존 Cerebras-only 보존.
-        gemini_b_audit: dict | None = None
-        if _coach_enabled():
-            # (1) 양쪽 writer 동시 호출 + 시도당 재시도 1회 (단일 coach_context 공유, B3).
-            # Phase 27 SPD-01 — coach_dual 단계 계측 (Gemini+Cerebras writer 라운드트립,
-            # mode1 지배 비용 구간). 조립/cross-fill 은 CPU-cheap 이라 계측 밖.
-            # Phase 27 Task 4 (SPD-05) — coach B(Gemini) ∥ Cerebras 동시 실행. 두 writer 는
-            # 같은 immutable coach_context dict 를 읽기만 하므로 안전(B3 정합, 27-RESEARCH
-            # Pattern 4). Gemini 는 스레드, Cerebras 는 메인 스레드에서 실행 후 join —
-            # 벽시계 = max(B, Cerebras) 로 단축(순차 합 → 병렬 최댓값). 예외/재시도는
-            # _call_coach_writer_with_retry 내부 graceful 규율 그대로(사후 점수 변경 0, D-03).
-            # writer/write 바운드 메서드는 메인 스레드에서 미리 확보(스레드 내 lazy-init 경쟁 0).
-            with _stage(timings_ms, analysis_id, "coach_dual"):
-                _gemini_write = _ensure_gemini_coach_writer().write
-                with ThreadPoolExecutor(
-                    max_workers=1, thread_name_prefix="coach_gemini"
-                ) as _coach_pool:
-                    gemini_future = _coach_pool.submit(
-                        _call_coach_writer_with_retry,
-                        "gemini", _gemini_write, coach_context,
-                    )
-                    cerebras_result = _call_coach_writer_with_retry(
-                        "cerebras", _COACH_WRITER.write, coach_context
-                    )
-                    gemini_result = gemini_future.result()
-            gemini_ok = bool(_coach_user_visible_keys(gemini_result))
-            cerebras_ok = bool(_coach_user_visible_keys(cerebras_result))
-
-            if gemini_ok or cerebras_ok:
-                # (2) 섹션 조립 — top 3 관절키 기준. cross-fill 이 빈 섹션 0 보장.
-                top_keys = [a.key for a in kismam.top_issues(assessments, n=3)]
-                coach_details, section_audit = assemble.assemble_dual_coach_sections(
-                    _strip_reserved_keys(gemini_result) if gemini_ok else {},
-                    _strip_reserved_keys(cerebras_result) if cerebras_ok else {},
-                    top_keys,
-                )
-                # (5) 섹션별 출처 + cross-fill audit 로깅 (성공/폴백률 실측 전환 근거).
-                cross_filled_joints = [
-                    j for j, a in section_audit.items() if a.get("crossFilled")
-                ]
-                log.info(
-                    "coach dual-track 섹션 조립 — gemini_ok=%s cerebras_ok=%s "
-                    "joints=%d cross_filled=%s audit=%s",
-                    gemini_ok,
-                    cerebras_ok,
-                    len(top_keys),
-                    cross_filled_joints,
-                    section_audit,
-                )
-                gemini_b_audit = _gemini_b_audit_payload(
-                    gemini_result if gemini_ok else {},
-                    cerebras_used=not gemini_ok,
-                    cerebras_fallback_reason=(
-                        None
-                        if gemini_ok
-                        else gemini_result.get("_fallbackReason") or "gemini_fallback"
-                    ),
-                )
-                if gemini_b_audit is not None:
-                    gemini_b_audit["dualTrack"] = True
-                    gemini_b_audit["sectionAudit"] = section_audit
-                    gemini_b_audit["crossFilledJoints"] = cross_filled_joints
-            else:
-                # (4) 둘 다 실패 → coach_details={} → build_result 수치 폴백 (최후 바닥).
-                g_reason = gemini_result.get("_fallbackReason") or "gemini_fallback"
-                log.info(
-                    "coach dual-track 양쪽 실패 — 수치 폴백 (gemini_reason=%s cerebras=fallback)",
-                    g_reason,
-                )
-                coach_details = {}
-                gemini_b_audit = _gemini_b_audit_payload(
-                    {},
-                    cerebras_used=True,
-                    cerebras_fallback_reason="both_failed",
-                )
-                if gemini_b_audit is not None:
-                    gemini_b_audit["dualTrack"] = True
-        else:
-            # GEMINI_COACH_ENABLED OFF — Cerebras only (기존 path 그대로). audit 박제 X.
-            coach_details = _COACH_WRITER.write(coach_context)
-            gemini_b_audit = None
+        # ── quick-260901-wbo — 코칭 작성 사후 분리 (Phase 13-C 블록 이동) ──────
+        # coach_dual(Gemini ∥ Cerebras, 실측 43.1s)은 complete_analysis **이후**
+        # _run_deferred_coach_text 스테이지로 이동 — status 'done' 도착을 앞당긴다
+        # (Phase 27 D-06 fault_zoom 사후화 선례). 여기서는 coach_details={} 고정으로
+        # 수치 폴백 조립만 한다 — build_result 의 build_tips 는 수치 폴백을 채우고,
+        # 아래 rebuild_tips_for_vision_fault 는 visible_details 빈 dict 조기 반환으로
+        # 자연 no-op (코드 확인 완료). 13-C 듀얼트랙/cross-fill/audit 로직은 무수정
+        # 이동 — _run_deferred_coach_text 참조. coach_context 는 위에서 조립된 것을
+        # deferred 스테이지에 그대로 전달한다 (visionFault/preuploadedHandle 포함 —
+        # session.close() 는 outer finally 라 사후 시점에도 핸들 유효).
+        coach_details = {}
         with _stage(timings_ms, analysis_id, "assemble_misc"):  # Phase 27 SPD-01
             result = assemble.build_result(
                 assessments,
@@ -7698,6 +7876,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
         # trust X (AST gate test_force_pattern_no_severity_use.py 회귀 차단).
         # D-09-C1 Layer 2 (Gemini) 영구 차단 — pure-function inference.
         force_pattern_inference_dict: dict | None = None
+        # quick-260901-wbo (체커 info) — deferred coach_hook 전달용 기본값 호이스팅.
+        # force_signals_report 미산출 경로에서도 이름이 바인딩되어야 한다 (양쪽 빈
+        # 리스트 = deferred hook 스테이지 자연 스킵).
+        _force_findings: list = []
+        _body_findings: list = []
         if force_signals_report is not None:
             if mode == models.MODE_EXPERT:
                 mode_context: fp.ModeContext = "mode1"
@@ -7726,48 +7909,27 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                     + ["high_score_finding_gated"],
                 )
 
-            # ── Phase 11 (Plan 11-01) — CoachCommentHook 부착 (single call) ──
-            # BLOCKER-2: hook 생성은 force_pattern_inference 생성/high-score gate 직후 +
-            #   complete_analysis 직전 window 에서 1회. ForcePatternInference.findings 를 본다.
+            # ── Phase 11 CoachCommentHook — quick-260901-wbo 사후 분리 ──────
             # BLOCKER-3: coach_hooks 는 별도 변수 — coach_details(joint writer) 무오염.
-            # iter-3 HIGH-1: writer 는 bundle|None 만 반환, per-report 폴백은 helper(resolve_
-            #   coach_hook_bundle) 소유 — pipeline 은 tuple 소비만 (자체 폴백 분기 0).
-            # D-08: 키 미설정/가드 reject 시 bundle=None → helper canned → 분석 절대 실패 안 함.
+            # complete 시점에는 canned hook 만 부착한다 (기존 except 폴백 경로와 동일
+            # 코드) — hook 필드가 canned 로 항상 존재해 구 앱 하위호환 + "분석 절대
+            # 실패 안 함"(D-08) 불변식 보존. hook Gemini 콜(~14s 미계측)은 complete
+            # 이후 _run_deferred_coach_text 의 coach_hook 스테이지로 이동 — 성공 시
+            # coachCommentHook field-path 만 Gemini 산출로 승격된다.
             _force_findings = list(force_pattern_inference.findings)
             _body_findings = (
                 list(body_comparison_report.findings)
                 if body_comparison_report is not None
                 else []
             )
-            # lazy import — Lambda 250MB 한도 정합 (gemini 의존 콜드스타트 절감).
-            from sunity_shared.gemini.coach_hook_writer import GeminiCoachHookWriter
+            from sunity_shared.analysis.coach_hook_builder import build_canned_hook
 
-            # D-08 backstop (review CR-01): hook 생성/resolve 의 어떤 예외도
-            #   fail_analysis 로 새지 않게 한다 — hook 은 cosmetic, 분석 절대 실패 안 함.
-            #   resolve_coach_hook_bundle 은 정제 후에도 raise 하지 않도록 고쳐졌지만
-            #   (coach_hook_builder._clean_str_list), 이 try 는 미래 회귀까지 막는 2차 방어.
-            try:
-                _hook_bundle = GeminiCoachHookWriter().build_coach_hooks(
-                    force_findings=_force_findings,
-                    body_findings=_body_findings,
-                )
-                _force_hook, _body_hook = resolve_coach_hook_bundle(
-                    _hook_bundle,
-                    force_findings=_force_findings,
-                    body_findings=_body_findings,
-                )
-            except Exception:  # noqa: BLE001 - hook 결함이 분석을 죽이면 안 됨 (D-08)
-                log.exception(
-                    "CoachCommentHook 생성 실패 — canned fallback 으로 분석 계속 (D-08)."
-                )
-                from sunity_shared.analysis.coach_hook_builder import build_canned_hook
-
-                _force_hook = build_canned_hook(
-                    _force_findings, source_report="forcePatternInference"
-                )
-                _body_hook = build_canned_hook(
-                    _body_findings, source_report="bodyComparisonReport"
-                )
+            _force_hook = build_canned_hook(
+                _force_findings, source_report="forcePatternInference"
+            )
+            _body_hook = build_canned_hook(
+                _body_findings, source_report="bodyComparisonReport"
+            )
             force_pattern_inference = dataclasses.replace(
                 force_pattern_inference, coach_comment_hook=_force_hook
             )
@@ -8055,6 +8217,11 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
             analysis_id=analysis_id,
             measured_at=measured_at,
         )
+        # quick-260901-wbo — 코칭 작성 사후 분리 pending 마커 (faultZoomStatus 마커
+        # 선례). coach 블록은 complete 도달 분석 전체가 돌던 경로라 mode1·mode3
+        # 무조건 실린다 (scalar — 기존 complete 검증 통과). done/failed 전이는
+        # _run_deferred_coach_text 의 부분 갱신 (contract.md coachStatus 절).
+        result["coachStatus"] = models.COACH_STATUS_PENDING
         result["timingsMs"] = timings_ms
         with _stage(timings_ms, analysis_id, "firestore_complete"):  # Phase 27 SPD-01
             firestore_admin.complete_analysis(
@@ -8070,7 +8237,9 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 force_pattern_inference=force_pattern_inference_dict,  # Phase 9 (Plan 09-02)
                 recommended_exercises=recommended_exercises,  # Phase 13 (Plan 13-A, PERS-03)
                 keypoint_report=keypoint_report_dict,  # Phase 12 Wave 0B (Plan 12-01)
-                gemini_b=gemini_b_audit,  # Plan 17-04 Wave 3 (영역 B Coach audit)
+                # quick-260901-wbo — 영역 B Coach audit 은 coach_dual 사후화로
+                # _run_deferred_coach_text 의 부분 갱신(top-level geminiB)으로 이동.
+                gemini_b=None,
                 gemini_c=scene_result,  # Plan 17-02 Wave 1 (영역 C Finding flag)
                 gemini_d=gemini_d_result,  # Plan 17-03 Wave 2 (영역 D Keypoint 보강)
                 ai_synthesis_meta=ai_synthesis_meta_dict,  # Plan 04-01 Wave 1 (R3 fix)
@@ -8097,6 +8266,25 @@ def _process(bucket: str, key: str, uid: str, analysis_id: str) -> None:
                 analysis_id=analysis_id,
                 request_id=uuid.uuid4().hex,
             )
+
+        # ── quick-260901-wbo — 코칭 작성 사후 스테이지 (coach_text) ────────────
+        # 승인 사후 순서: coach_text → coach_audio → fault_zoom → spot_check →
+        # compare_render. coach_audio 는 records[].cueLine(문구집)을 TTS 하므로
+        # coach_dual 무의존 — 순서 유지 비용 0, 승인 원문 존중 (PLAN 전제 정정 1건).
+        # coach_context 의 preuploadedHandle 은 session.close() 가 outer finally 라
+        # 이 시점 유효 (fault_zoom 주석 선례). 실패 전부 graceful — 재raise 0.
+        _run_deferred_coach_text(
+            result=result,
+            assessments=assessments,
+            coach_context=coach_context,
+            force_findings=_force_findings,
+            body_findings=_body_findings,
+            force_pattern_inference_dict=force_pattern_inference_dict,
+            body_comparison_report_dict=body_comparison_report_dict,
+            uid=uid,
+            analysis_id=analysis_id,
+            timings_ms=timings_ms,
+        )
 
         # ── Phase 32 (Plan 32-16, D-18 B안) — 재생 중 큐 오디오 사후 합성 ────────
         # complete(status='done') 이후 표현물 스테이지 (fault_zoom 사후 분리 선례).

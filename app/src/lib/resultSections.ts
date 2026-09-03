@@ -337,3 +337,34 @@ export function selectEstimatedZoomEntries<R, Z>(
   }
   return out;
 }
+
+// ── 참고(advisory) 확대 카드 선택 (quick-260903-ik4 — belle ○× 대기) ─────────────
+
+/**
+ * 결과 화면 '참고 부위' 섹션의 카드 목록 — `tier === 'advisory'` 카드만, doc 순서
+ * 보존, 불량 항목(빈 imageUrl·joint 부재·비객체) 제외. null/undefined → [].
+ *
+ * 왜: 백엔드 `fault_zoom.select_advisory_joints` 는 확정 결함이 아닌 관절 중
+ * |편차| > tol 인 것을 최대 2개 골라 "참고" 카드(표시 전용, 채점 무관)를 만든다
+ * (quick-260704-fz4 2단 tier). 확정 카드 매칭 `deductionLabels.matchZoomForDeductionRecord`
+ * 는 advisory 를 **제외**한다 — 감점 record 와 조인하는 규칙이고 참고 카드는 record
+ * 가 없다. 그래서 앱 어디에도 이 사진이 안 보였다(부위 칩 행은 이름만; belle 계정
+ * 최근 6동작 참고 카드 8장, 클라임 92점은 확정 0장·참고 2장이라 이 섹션이 유일한
+ * 사진). 이 함수는 그 매칭 규칙의 짝이다 — record 와 조인하지 않고 카드 자체를
+ * 고른다. 매칭 규칙·채점·계약은 무접촉. 제네릭이라 수치·statusLine 에 접근하지
+ * 않는다(표시 규율 = result.tsx 섹션: 승인 문구 2종만, 감점 수치 0).
+ */
+export function selectAdvisoryZooms<
+  Z extends { tier?: string | null; imageUrl?: string; joint?: string },
+>(comparisons: readonly Z[] | null | undefined): Z[] {
+  if (!Array.isArray(comparisons)) return [];
+  const out: Z[] = [];
+  for (const z of comparisons) {
+    if (z == null || typeof z !== 'object') continue;
+    if (z.tier !== 'advisory') continue;
+    if (typeof z.imageUrl !== 'string' || z.imageUrl.length === 0) continue;
+    if (typeof z.joint !== 'string' || z.joint.length === 0) continue;
+    out.push(z);
+  }
+  return out;
+}

@@ -18,6 +18,8 @@
 //   6) pickExpandAnchorY — F-7 펼침/접기 앵커 선택 (33-G, quick-260731-cum)
 //   7) selectEstimatedZoomEntries — IN-01 저신뢰 경로 예상 부위 사진 카드 선택
 //      (quick-260903-ftg: primary 맨 앞 / 숨김 제외 / 같은 키 dedupe / 빈 입력)
+//   8) selectAdvisoryZooms — '참고 부위' 섹션 카드 선택 (quick-260903-ik4:
+//      advisory 만 doc 순서 / confirmed·legacy 제외 / 불량·빈 입력)
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,6 +29,7 @@ import {
   buildRecordMaps,
   pickExpandAnchorY,
   selectEstimatedZoomEntries,
+  selectAdvisoryZooms,
   RESULT_SECTION_ORDER,
   type ResultSectionsInput,
 } from '../resultSections.ts';
@@ -345,4 +348,63 @@ test('Test 7-4 (빈 입력): 매칭 0 = 빈 배열, records null/undefined/빈 �
   assert.deepEqual(selectEstimatedZoomEntries(undefined, counting, keyOf, nobodyHidden, 0), []);
   assert.deepEqual(selectEstimatedZoomEntries([], counting, keyOf, nobodyHidden, 0), []);
   assert.equal(calls, 0);
+});
+
+// ── Test 8: 참고(advisory) 확대 카드 선택 (quick-260903-ik4 — belle ○× 대기) ────
+// 배경: 확정 카드 매칭(matchZoomForDeductionRecord)이 advisory 를 제외해 참고 카드
+// 사진이 앱 어디에도 안 보였다(클라임 92점 = 확정 0장·참고 2장). 이 함수가
+// "advisory 만, doc 순서 보존, 불량 제외, null 안전" 을 고정한다 — record 조인 없음.
+// 제네릭이라 수치·statusLine 에는 접근하지 않는다.
+type AdvZoom = {
+  tier?: 'confirmed' | 'advisory' | null;
+  joint: string;
+  imageUrl: string;
+};
+const ADV_DOC: AdvZoom[] = [
+  { tier: 'confirmed', joint: 'left_knee', imageUrl: 'https://x/conf_knee.png' },
+  { tier: 'advisory', joint: 'left_shoulder', imageUrl: 'https://x/adv_shoulder.png' },
+  { tier: 'confirmed', joint: 'left_hip', imageUrl: 'https://x/conf_hip.png' },
+  { tier: 'advisory', joint: 'right_elbow', imageUrl: 'https://x/adv_elbow.png' },
+];
+
+test('Test 8-1 (advisory 만): tier advisory 카드만 doc 순서 그대로, 항목은 원본 참조', () => {
+  const out = selectAdvisoryZooms(ADV_DOC);
+  assert.deepEqual(
+    out.map((z) => z.joint),
+    ['left_shoulder', 'right_elbow'],
+  );
+  // 원본 항목 그대로(복제 아님) — result.tsx 가 resolveZoomImageUrl/zoomCardKey 에
+  // 같은 객체를 넘긴다.
+  assert.equal(out[0], ADV_DOC[1]);
+  assert.equal(out[1], ADV_DOC[3]);
+  // 입력 무변형.
+  assert.equal(ADV_DOC.length, 4);
+});
+
+test('Test 8-2 (확정·legacy 제외): confirmed 와 tier 부재(legacy doc)·null tier 는 빠진다', () => {
+  const mixed: AdvZoom[] = [
+    { tier: 'confirmed', joint: 'left_knee', imageUrl: 'https://x/a.png' },
+    { joint: 'left_hip', imageUrl: 'https://x/b.png' }, // legacy — confirmed 취급
+    { tier: null, joint: 'right_hip', imageUrl: 'https://x/c.png' },
+  ];
+  assert.deepEqual(selectAdvisoryZooms(mixed), []);
+  // 확정 카드만 있는 doc(대부분의 doc) = 섹션 미렌더 조건.
+  assert.deepEqual(selectAdvisoryZooms([ADV_DOC[0], ADV_DOC[2]]), []);
+});
+
+test('Test 8-3 (불량·빈 입력): 빈 imageUrl·joint 부재·비객체 제외, null/undefined/[] → []', () => {
+  const dirty = [
+    { tier: 'advisory', joint: 'left_shoulder', imageUrl: '' },
+    { tier: 'advisory', joint: '', imageUrl: 'https://x/d.png' },
+    { tier: 'advisory', imageUrl: 'https://x/e.png' },
+    null,
+    { tier: 'advisory', joint: 'right_knee', imageUrl: 'https://x/ok.png' },
+  ] as unknown as AdvZoom[];
+  assert.deepEqual(
+    selectAdvisoryZooms(dirty).map((z) => z.joint),
+    ['right_knee'],
+  );
+  assert.deepEqual(selectAdvisoryZooms(null), []);
+  assert.deepEqual(selectAdvisoryZooms(undefined), []);
+  assert.deepEqual(selectAdvisoryZooms([]), []);
 });

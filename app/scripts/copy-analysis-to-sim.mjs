@@ -12,11 +12,12 @@
 // 복사본에는 `simCopyOf` 필드를 남겨 평가 배치·통계에서 구분할 수 있게 한다.
 
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-const SA_PATH = resolve(process.cwd(), '..', 'firebase-sa.json');
+// 리포 루트의 firebase-sa.json — 스크립트 위치 기준(어느 cwd 에서 실행해도 같은 파일).
+const SA_PATH = fileURLToPath(new URL('../../firebase-sa.json', import.meta.url));
 const [
   srcUid = 'csKWYvI3WCPYPysNQ9KkWecaUvq1',
   analysisId = '813abf24f2b64038b7178bd3c7a8396f',

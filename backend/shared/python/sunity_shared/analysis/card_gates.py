@@ -753,3 +753,74 @@ def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
                 joint_kind=joint_kind, model=model, timeout_s=timeout_s)
     out["crop"] = crop
     return out
+
+
+# ── 카드 결정 — 게이트는 표시만 정한다 (quick-260903-upx) ─────────────────────
+#
+# belle 09-03 (원문): "확대사진을 그 멈추는 구간은 다 보여줘야하고, 그걸 모든 동작에서
+# 통과시켜야한다. 지금처럼 짜맞추는게 아니라 매번 사용자가 올렸을 때 그 동작을
+# 캐치해서 확대사진을 넣어줘야하는데" / "pdshape 는 5개잖아 멈추는 동작(음성나오는
+# 구간)이 근데 왜 또 4개야". 실측: 감점 5 = 비교 영상 정지 5 인데 사진은 4장(상한)
+# → 2장(게이트 삭제). 그래서 게이트(hold/pair/eye)에는 **카드 삭제 권한이 없다** —
+# 판정 결과는 doc 에 상태 문자열로 남고, 눈의 실제 불일치만 학생 패널 표시를
+# 생략한다. 동작명·영상 ID 분기 0 — 문자열 형상만 본다.
+
+EYE_STATE_MATCH = "match"
+EYE_STATE_MISMATCH = "mismatch"
+EYE_STATE_SKIP = "skip"    # 의도적 제외 — 몸통 관절(skip:torso_joint)·중간각(midrange)
+EYE_STATE_NONE = "none"    # 판정 없음 — 미실행(hold/pair 뒤 미도달·peak)·프레임/키 부재
+STATE_UNMEASURED = "unmeasured"   # 게이트 미실행 (peak 경로의 pair, 호출측 None)
+
+
+@dataclass(frozen=True)
+class CardDecision:
+    emit: bool               # 항상 True — 게이트에 삭제 권한 없음 (belle 09-03)
+    draw_user_marks: bool    # 학생 패널 표시(원·선·호·화살표) 여부 — 눈 불일치만 False
+    hold_state: str          # "hold"|"moving"|"unmeasurable"|"peak"|"unmeasured"
+    pair_state: str          # PairResult.reason 어휘 그대로 | "unmeasured"
+    eye_state: str           # EYE_STATE_*
+
+
+def eye_mismatch(eye_ok: bool | None, eye_why: str | None) -> bool:
+    """눈 판정이 **실제 불일치**인가 — observed≠claim 또는 arm↔leg 확정 상충.
+
+    pipeline._eye_check 의 사유 문자열은 판정이 실제로 났을 때만
+    `claim->observed/limb` 형상(`->` 포함)이다. frame_missing / no_api_key 는 눈이
+    못 본 것이지 틀린 것이 아니고, midrange / skip:torso_joint 는 의도적 제외다 —
+    전부 불일치 아님 (표시 유지: 눈이 못 본 것은 틀린 게 아니다).
+    """
+    return eye_ok is False and "->" in (eye_why or "")
+
+
+def eye_state(eye_ok: bool | None, eye_why: str | None) -> str:
+    """눈 사유 → 상태 문자열 (match | mismatch | skip | none)."""
+    why = eye_why or ""
+    if "->" in why:
+        return EYE_STATE_MATCH if eye_ok else EYE_STATE_MISMATCH
+    if why == "midrange" or why.startswith("skip:"):
+        return EYE_STATE_SKIP
+    return EYE_STATE_NONE
+
+
+def decide_card(hold_reason: str | None, pair_reason: str | None,
+                eye_ok: bool | None, eye_why: str | None) -> CardDecision:
+    """게이트 결과 → 카드 결정 (순수). emit 은 **항상 True**.
+
+    belle 09-03: 멈추는 구간마다 확대 사진 1장 — 검사는 표시만 조정한다.
+      · emit: 항상 True. hold/pair FAIL·눈 불일치·측정불가 어느 것도 카드를
+        없애지 않는다 (종전 "FAIL freeze = 미방출" 폐기 — quick-260903-upx).
+      · draw_user_marks: 눈이 실제 불일치(eye_mismatch)일 때만 False — 마크가
+        엉뚱한 사지에 얹혔거나 상태가 틀린 표시는 그리지 않는다(사진은 남긴다).
+        눈이 못 본 것(frame_missing/no_api_key)·안 본 것(midrange/skip)은 True.
+      · hold_state / pair_state: 게이트 reason 그대로(HoldResult/PairResult.reason
+        어휘 — 재해석 0), 미실행(None)은 "unmeasured". peak pass-through 는
+        호출측이 hold_reason="peak" 로 표기한다.
+      · eye_state: eye_state() 매핑.
+    """
+    return CardDecision(
+        emit=True,
+        draw_user_marks=not eye_mismatch(eye_ok, eye_why),
+        hold_state=hold_reason or STATE_UNMEASURED,
+        pair_state=pair_reason or STATE_UNMEASURED,
+        eye_state=eye_state(eye_ok, eye_why),
+    )

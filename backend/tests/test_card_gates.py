@@ -436,3 +436,90 @@ def test_claim_and_limb_helpers():
     assert cg.crit_joint("split_angle") == "split"
     assert cg.crit_joint("leg_extension") == "split"
     assert cg.crit_joint("left_knee") == "left_knee"
+
+
+# ── 카드 결정 (quick-260903-upx) — 게이트는 표시만 정한다, 삭제 권한 없음 ────
+#
+# belle 09-03 "확대사진을 그 멈추는 구간은 다 보여줘야 하고 … 모든 동작에서 통과".
+# 전 조합에서 emit True, 눈의 실제 불일치만 학생 표시 생략, 나머지 상태 문자열 매핑.
+
+_HOLDS = ("hold", "moving", "unmeasurable", "peak", None)
+_PAIRS = ("match", "pose_far", "pole_mismatch", "pose_unmeasurable",
+          "pole_unmeasured", None)
+_EYES = (
+    (True, "bent->bent/leg"),          # 일치
+    (False, "bent->extended/leg"),     # 상태 불일치
+    (False, "bent->bent/arm"),         # arm↔leg 상충
+    (False, "frame_missing"),          # 눈이 못 봄
+    (False, "no_api_key"),             # 눈이 못 봄
+    (True, "midrange"),                # 이분 대상 아님
+    (True, "skip:torso_joint"),        # 몸통 관절 제외 (lpl)
+    (None, ""),                        # 미실행
+)
+
+
+def test_decide_card_always_emits():
+    """전 조합(hold 5 x pair 6 x eye 8)에서 emit True — 게이트에 삭제 권한 없음."""
+    n = 0
+    for h in _HOLDS:
+        for p in _PAIRS:
+            for ok, why in _EYES:
+                d = cg.decide_card(h, p, ok, why)
+                assert d.emit is True, (h, p, ok, why)
+                n += 1
+    assert n == len(_HOLDS) * len(_PAIRS) * len(_EYES)
+
+
+def test_decide_card_only_eye_mismatch_suppresses_user_marks():
+    """draw_user_marks False ⇔ eye_ok False 이고 사유가 실제 판정(`->`) — hold/pair 무관."""
+    for h in _HOLDS:
+        for p in _PAIRS:
+            assert cg.decide_card(h, p, False, "bent->extended/leg").draw_user_marks is False
+            assert cg.decide_card(h, p, False, "bent->bent/arm").draw_user_marks is False
+            assert cg.decide_card(h, p, True, "bent->bent/leg").draw_user_marks is True
+    assert cg.eye_mismatch(False, "extended->bent/leg") is True
+    assert cg.eye_mismatch(True, "extended->bent/leg") is False
+
+
+def test_decide_card_unseen_or_skipped_eye_keeps_marks():
+    """눈이 못 본 것(frame_missing/no_api_key)·안 본 것(midrange/skip)·미실행은 표시 유지."""
+    for ok, why in ((False, "frame_missing"), (False, "no_api_key"),
+                    (True, "midrange"), (True, "skip:torso_joint"),
+                    (None, ""), (None, None)):
+        d = cg.decide_card("moving", "pose_far", ok, why)
+        assert d.draw_user_marks is True, (ok, why)
+        assert d.emit is True
+
+
+def test_decide_card_peak_path():
+    """절정 pass-through — hold='peak', pair 미실행, 눈 미실행, 표시 유지."""
+    d = cg.decide_card("peak", None, None, "")
+    assert d == cg.CardDecision(True, True, "peak", "unmeasured", "none")
+
+
+def test_decide_card_state_string_mapping():
+    """hold/pair reason 은 그대로 통과, None 은 unmeasured; eye 는 4상태."""
+    for h in ("hold", "moving", "unmeasurable"):
+        assert cg.decide_card(h, "match", True, "bent->bent/leg").hold_state == h
+    for p in ("match", "pose_far", "pole_mismatch", "pose_unmeasurable",
+              "pole_unmeasured"):
+        assert cg.decide_card("hold", p, True, "bent->bent/leg").pair_state == p
+    assert cg.decide_card(None, None, None, None).hold_state == "unmeasured"
+    assert cg.decide_card(None, None, None, None).pair_state == "unmeasured"
+    assert cg.eye_state(True, "bent->bent/leg") == "match"
+    assert cg.eye_state(False, "bent->extended/leg") == "mismatch"
+    assert cg.eye_state(False, "bent->bent/arm") == "mismatch"
+    assert cg.eye_state(True, "midrange") == "skip"
+    assert cg.eye_state(True, "skip:torso_joint") == "skip"
+    assert cg.eye_state(False, "frame_missing") == "none"
+    assert cg.eye_state(False, "no_api_key") == "none"
+    assert cg.eye_state(None, "") == "none"
+    assert cg.eye_state(None, None) == "none"
+
+
+def test_decide_card_is_frozen_value_object():
+    """CardDecision 은 frozen dataclass — 호출측이 판정을 덮어쓰지 못한다."""
+    d = cg.decide_card("hold", "match", True, "bent->bent/leg")
+    with pytest.raises(Exception):
+        d.emit = False  # type: ignore[misc]
+    assert (d.hold_state, d.pair_state, d.eye_state) == ("hold", "match", "match")

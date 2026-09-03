@@ -111,6 +111,28 @@ def joint_kind_ko(joint: str) -> str | None:
     return _KIND_KO.get(joint.split("_")[-1])
 
 
+# 기계 눈 검사 제외 관절 종류 — 몸통 관절 (quick-260903-lpl). 키 공간 = _LIMB_OF
+# 와 같은 관절 이름 꼬리. 눈을 안 받는 카드도 hold·pair 게이트는 그대로 받는다.
+EYE_SKIP_KINDS = frozenset({"hip", "shoulder"})
+
+
+def eye_applicable(joint: str) -> bool:
+    """관절이 기계 눈 검사 대상인가 — 몸통 관절(엉덩이·어깨)은 False, 그 외 True.
+
+    belle 09-03: "비교 사진이 있어야 뭘 보지 저것만 보고 어케 알아". 눈은 사진
+    한 장(내 영상 크롭 + 원)만 받고 "그 관절이 접혔나 펴졌나"를 절대 판정한다.
+    무릎·팔꿈치는 한 장에서 각이 보여 성립하지만(회귀 5/5), 엉덩이는 기준 없이
+    정해지지 않는다 (같은 크롭 5회: 3/5, 힌트 주면 1/5 — quick-260903-jka/jxn).
+    감점 자체가 정은지 대비 각도 차이인데 눈에는 기준을 안 준 것이 구조적 원인.
+    기준 사진을 함께 주는 질문은 "같은 순간" 검증(참고 카드 × 사유)과 얽혀 별건 —
+    여기서는 몸통 관절을 눈에서 빼 확정 사진이 운으로 사라지지 않게만 한다.
+
+    joint_limb 과 같은 split("_")[-1] 관례. 미등록 관절('split', 'left_foo' 등)은
+    True — 종전 동작 (눈 여부는 호출측 midrange 등 기존 게이트가 정한다).
+    """
+    return joint.split("_")[-1] not in EYE_SKIP_KINDS
+
+
 def track_claim(angle: float | None) -> str | None:
     """트랙 각도 → 기계 눈에 물을 주장. 중간각은 판정 대상 아님 (정직한 침묵)."""
     if angle is None:

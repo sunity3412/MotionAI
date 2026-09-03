@@ -293,6 +293,31 @@ def test_joint_kind_ko_mapping():
         assert cg._KIND_LIMB[cg.joint_kind_ko(j)] == cg.joint_limb(j)
 
 
+def test_eye_applicable_torso_joints_skipped():
+    """몸통 관절(엉덩이·어깨) = 눈 검사 제외 — 좌/우 무관, 꼬리 = _LIMB_OF 키 공간."""
+    assert cg.eye_applicable("left_hip") is False
+    assert cg.eye_applicable("right_hip") is False
+    assert cg.eye_applicable("right_shoulder") is False
+    assert cg.eye_applicable("left_shoulder") is False
+    assert cg.EYE_SKIP_KINDS <= set(cg._LIMB_OF)
+    # jxn 힌트 집합과 정합: 힌트가 붙는 종류 = 눈 검사 대상, 몸통 종류 = 제외
+    for suffix, ko in cg._KIND_KO.items():
+        assert cg.eye_applicable(f"left_{suffix}") is (ko in cg._HINT_KINDS)
+
+
+def test_eye_applicable_midlimb_joints_kept():
+    """무릎·팔꿈치·발목·손목(hand 별칭 포함) = 종전대로 눈 검사."""
+    for j in ("left_knee", "right_elbow", "left_ankle", "right_wrist", "left_hand"):
+        assert cg.eye_applicable(j) is True
+
+
+def test_eye_applicable_unknown_joint_defaults_true():
+    """미등록 관절은 True — 종전 동작 (눈 여부는 호출측 기존 게이트가 정한다)."""
+    assert cg.eye_applicable("left_foo") is True
+    assert cg.eye_applicable("split") is True
+    assert cg.eye_applicable("split_angle") is True
+
+
 def test_machine_eye_unknown_claim():
     """미지 claim ValueError — 기존 검증 경로 무변경."""
     frame = np.zeros((64, 64, 3), dtype=np.uint8)

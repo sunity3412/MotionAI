@@ -1,11 +1,19 @@
-// 감점 카드 — 3단 문장 + 인라인 줌 쌍 + 목표 게이지 + 미션 완결형 (32-10 Task 2).
+// 감점 카드 — 3단 문장 + 인라인 확대비교 + 목표 게이지 + 미션 완결형 (32-10 Task 2).
 //
 // belle 지적(OPTIMAL 악순환 지점): "현재 94° → 기준 71°로 바꾸라"가 해석 불가.
 // 해소(D-08/D-20/D-09/D-10): 카드 하나가 상태(몸 말)→왜(감점 이유)→행동(외부 큐)
-// 3단으로 읽히고, 결함 확대쌍(내 vs 정은지 crop)이 인라인으로 붙어 근거가 되며,
-// 목표 게이지가 "얼마나 남았는지"를 길이로 보여주고, 미션 배지가 오늘 할 일을 준다 —
-// 상태+증거+게이지+미션이 카드 하나에 완결(D-20). 수치는 게이지의 소형 배지(또는
-// 게이지 불가 시 폴백 수치 배지) 1곳에만 노출된다(D-09 — 헤드라인 수치 0).
+// 3단으로 읽히고, 결함 확대비교 합성 PNG 1장([내|정은지], 백엔드 fault_zoom._compose)
+// 이 인라인으로 붙어 근거가 되며, 목표 게이지가 "얼마나 남았는지"를 길이로 보여주고,
+// 미션 배지가 오늘 할 일을 준다 — 상태+증거+게이지+미션이 카드 하나에 완결(D-20).
+// 수치는 게이지의 소형 배지(또는 게이지 불가 시 폴백 수치 배지) 1곳에만 노출된다
+// (D-09 — 헤드라인 수치 0).
+//
+// quick-260903-f2w (검토 표 3 행 4 결함): 종전 이 카드는 내/비교 대상 crop 을
+// 사진 2장 분리 URI 쌍으로 기다렸지만 doc 의 faultZoomComparisons[] 는 합성 PNG
+// 1장(imageUrl) 뿐이라 모양이 안 맞아 히스토리 전체에서 한 번도 배선된 적이
+// 없었다 — pending 동안 스피너 쌍만 떴다 사라지고 done 이 돼도 이미지로 못 바뀜.
+// 지금은 doc 모양 그대로 `zoom {imageUrl}` 1장을 받고, 접힘 행에는 사진 유무를
+// 표시한다 (표 3 행 1 — "5개 틀렸는데 사진 1장" 의 출구).
 //
 // props 는 로컬 타입(계약 DeductionRecord 직접 의존 금지) — result.tsx 배선(32-11)이
 // doc 필드를 이 모양으로 매핑한다. 이 플랜은 컴포넌트만(interface-first). 카드 상호작용
@@ -13,12 +21,12 @@
 //
 // 방어(리뷰 반영·threat T-32-23): statusLine 부재(legacy doc)=라벨 폴백, cueLine
 // 부재(fail-closed)=행동문 생략+강사 유도, 줌 이미지 로딩 placeholder + onError 폴백
-// (만료 presigned URL 대응 — 크래시·빈 깨짐 0).
+// (만료 presigned URL 대응 — 크래시·빈 깨짐 0) + onZoomImageError 재발급 트리거.
 //
 // 토큰만 사용 (CLAUDE.md §4). 이모지 0. 라이트 전용. E2 강조 토큰(32-07) 소비.
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -48,9 +56,11 @@ export interface DeductionCardRecord {
   tolerance?: number; // 규칙 상수 유래 — 부재 시 게이지 미표시(수치 배지 폴백)
 }
 
-export interface DeductionCardZoomPair {
-  userUri: string; // 내 영상 crop
-  refUri: string; // 비교 대상 crop (정은지/지난 분석)
+// 확대비교 합성 PNG 1장 — 백엔드 fault_zoom._compose 가 [내 영상 | 비교 대상] 을
+// 가로로 합성해 imageUrl 하나로 낸다 (사진 2장 분리 URI 아님). result.tsx 가
+// resolveZoomImageUrl(fresh 우선·저장 imageUrl 폴백) 로 조회해 넘긴다.
+export interface DeductionCardZoom {
+  imageUrl: string;
 }
 
 export interface DeductionCardMission {
@@ -60,8 +70,14 @@ export interface DeductionCardMission {
 
 interface DeductionCardProps {
   record: DeductionCardRecord;
-  zoomPair?: DeductionCardZoomPair;
-  // 줌 사후 도착 대기(result.faultZoomStatus='pending') — placeholder 쌍 렌더.
+  // 확정 확대비교 합성 PNG (펼침 모드 인라인). 부재 + zoomPending 이면 placeholder.
+  zoom?: DeductionCardZoom;
+  // 이미지 로드 실패 시 재발급 트리거 — useFreshFaultZoomUrls.onZoomImageError
+  // (시트 renderCrop 과 동일 규칙, 훅이 single-flight 로 무한 루프를 막는다).
+  onZoomImageError?: () => void;
+  // 접힘 모드 전용 — 이 record 에 확정 확대 사진이 있음을 행에서 보이게 (표 3 행 1).
+  hasZoom?: boolean;
+  // 줌 사후 도착 대기(result.faultZoomStatus='pending') — placeholder 1개 렌더.
   zoomPending?: boolean;
   mission?: DeductionCardMission;
   // 우측 crop 라벨 — Mode1='정은지 선수' / Mode3='지난 분석'.
@@ -78,11 +94,20 @@ const ASK_COACH_LABEL = '강사님께 물어보기';
 const FAIL_CLOSED_NOTE = '이 부분은 강사님과 함께 확인하면 더 정확해요';
 const IMG_FAILED_CAPTION = '이미지를 불러오지 못했어요';
 const ZOOM_PENDING_CAPTION = '확대 비교 이미지를 준비하고 있어요';
+const HAS_ZOOM_PILL_LABEL = '확대 사진';
 const GAUGE_FALLBACK_NOTE = '정확한 수치는 아래 자세한 내역에서 볼 수 있어요';
+
+// 합성 PNG 종횡비 — 백엔드 fault_zoom._compose lockstep: `_OUT=360` 정사각 crop 2장
+// + `gap=6` 흰 구분선 → 캔버스 (726, 360). 카드는 이 정확 비율로 컨테이너를 잡아
+// contain 레터박스 0 (시트는 imgW/2 근사를 쓴다 — 정확값은 여기서만). 백엔드
+// 상수가 바뀌면 같이 바꾼다.
+const ZOOM_COMPOSITE_ASPECT = (360 * 2 + 6) / 360;
 
 export function DeductionCard({
   record,
-  zoomPair,
+  zoom,
+  onZoomImageError,
+  hasZoom = false,
   zoomPending = false,
   mission,
   rightLabel = '정은지 선수',
@@ -90,12 +115,17 @@ export function DeductionCard({
   onToggle,
   onAskCoach,
 }: DeductionCardProps) {
-  // 줌 이미지 상태 — 양측 각각 로딩/실패 추적 (만료 presigned URL 방어). 훅은 조기
+  // 줌 이미지 상태 — 합성 1장 로딩/실패 추적 (만료 presigned URL 방어). 훅은 조기
   // 반환 전 항상 호출(Rules of Hooks).
-  const [userImgLoading, setUserImgLoading] = useState(true);
-  const [userImgFailed, setUserImgFailed] = useState(false);
-  const [refImgLoading, setRefImgLoading] = useState(true);
-  const [refImgFailed, setRefImgFailed] = useState(false);
+  const [zoomImgLoading, setZoomImgLoading] = useState(true);
+  const [zoomImgFailed, setZoomImgFailed] = useState(false);
+  // 재발급으로 imageUrl 이 바뀌면(onZoomImageError → fresh 맵 갱신) 실패 캡션이
+  // 남지 않게 리셋 — 새 URL 로 다시 시도한다.
+  const zoomImageUrl = zoom?.imageUrl;
+  useEffect(() => {
+    setZoomImgLoading(true);
+    setZoomImgFailed(false);
+  }, [zoomImageUrl]);
 
   // 헤드라인 — statusLine 우선, 부재(legacy doc) 시 라벨 폴백. 어느 경로든 수치 삽입
   // 0 (수치는 게이지 배지/폴백 배지 1곳만 — D-09). label=criterionLabelKo 라 수치 없음.
@@ -103,20 +133,28 @@ export function DeductionCard({
     typeof record.statusLine === 'string' && record.statusLine.trim().length > 0;
   const headline = hasStatus ? (record.statusLine as string) : record.label;
 
-  // 접힘 모드 — 상태문 1줄 + 펼침 유도만.
+  // 접힘 모드 — 상태문 1줄 + 펼침 유도 + (있으면) 확대 사진 유무 pill.
+  // quick-260903-f2w 표 3 행 1: 접힌 행에 사진 유무가 안 보여 "사진이 하나뿐" 으로
+  // 체감됐다 — 사진 있는 행을 행에서 보이게 한다.
   if (expanded === false) {
     return (
       <Pressable
         style={styles.card}
         onPress={onToggle}
         accessibilityRole="button"
-        accessibilityLabel={`${headline} — 펼쳐 보기`}
+        accessibilityLabel={`${headline} — 펼쳐 보기${hasZoom ? ' — 확대 사진 있음' : ''}`}
         hitSlop={4}
       >
         <View style={styles.collapsedRow}>
           <Text style={styles.headlineCollapsed} numberOfLines={2}>
             {headline}
           </Text>
+          {hasZoom ? (
+            <View style={styles.zoomPill}>
+              <Ionicons name="image-outline" size={14} color={colors.textSecondary} />
+              <Text style={styles.zoomPillText}>{HAS_ZOOM_PILL_LABEL}</Text>
+            </View>
+          ) : null}
           <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
         </View>
       </Pressable>
@@ -148,83 +186,52 @@ export function DeductionCard({
       {/* 2) 이유문 1줄 — 있을 때만 (감점·위험 이유). */}
       {record.whyLine ? <Text style={styles.why}>{record.whyLine}</Text> : null}
 
-      {/* 3) 인라인 줌 쌍 — 내/정은지 나란히 (D-20 카드 완결). zoomPair 있으면 이미지,
-          없고 pending 이면 placeholder 쌍, 둘 다 아니면 생략. */}
-      {zoomPair ? (
-        <View style={styles.zoomRow}>
-          {/* 내 영상 crop — 로딩 placeholder + onError 폴백. */}
-          <View style={styles.zoomHalf}>
-            {userImgFailed ? (
-              <View style={styles.zoomFallback}>
-                <Text style={styles.zoomFallbackText}>{IMG_FAILED_CAPTION}</Text>
-              </View>
-            ) : (
-              <>
-                <Image
-                  source={{ uri: zoomPair.userUri }}
-                  style={styles.zoomImage}
-                  resizeMode="cover"
-                  onLoadEnd={() => setUserImgLoading(false)}
-                  onError={() => {
-                    setUserImgFailed(true);
-                    setUserImgLoading(false);
-                  }}
-                  accessibilityLabel="내 영상 확대 이미지"
-                />
-                {userImgLoading ? (
-                  <View style={styles.zoomSkeleton}>
-                    <ActivityIndicator color={colors.brand} />
-                  </View>
-                ) : null}
-              </>
-            )}
-            <View style={styles.zoomTag}>
-              <Text style={styles.zoomTagText}>내 영상</Text>
+      {/* 3) 인라인 확대비교 — 합성 PNG 1장 [내 영상 | 비교 대상] (D-20 카드 완결).
+          zoom 있으면 이미지(정확 종횡비, 레터박스 0), 없고 pending 이면 같은 모양의
+          placeholder 1개(onSnapshot 으로 done 도착 시 이미지로 교체), 둘 다 아니면
+          생략. 로딩 skeleton + onError 폴백 캡션 + 재발급 트리거(시트와 동일). */}
+      {zoom ? (
+        <View style={styles.zoomFrame}>
+          {zoomImgFailed ? (
+            <View style={styles.zoomFallback}>
+              <Text style={styles.zoomFallbackText}>{IMG_FAILED_CAPTION}</Text>
             </View>
-          </View>
-          {/* 비교 대상 crop — 로딩 placeholder + onError 폴백. */}
-          <View style={styles.zoomHalf}>
-            {refImgFailed ? (
-              <View style={styles.zoomFallback}>
-                <Text style={styles.zoomFallbackText}>{IMG_FAILED_CAPTION}</Text>
+          ) : (
+            <>
+              <Image
+                source={{ uri: zoom.imageUrl }}
+                style={styles.zoomImage}
+                resizeMode="contain"
+                onLoadEnd={() => setZoomImgLoading(false)}
+                onError={() => {
+                  setZoomImgFailed(true);
+                  setZoomImgLoading(false);
+                  onZoomImageError?.();
+                }}
+                accessibilityLabel={`내 영상과 ${rightLabel} 확대 비교 이미지`}
+              />
+              {zoomImgLoading ? (
+                <View style={styles.zoomSkeleton}>
+                  <ActivityIndicator color={colors.brand} />
+                </View>
+              ) : null}
+              <View style={[styles.zoomTag, styles.zoomTagLeft]}>
+                <Text style={styles.zoomTagText}>내 영상</Text>
               </View>
-            ) : (
-              <>
-                <Image
-                  source={{ uri: zoomPair.refUri }}
-                  style={styles.zoomImage}
-                  resizeMode="cover"
-                  onLoadEnd={() => setRefImgLoading(false)}
-                  onError={() => {
-                    setRefImgFailed(true);
-                    setRefImgLoading(false);
-                  }}
-                  accessibilityLabel={`${rightLabel} 확대 이미지`}
-                />
-                {refImgLoading ? (
-                  <View style={styles.zoomSkeleton}>
-                    <ActivityIndicator color={colors.brand} />
-                  </View>
-                ) : null}
-              </>
-            )}
-            <View style={styles.zoomTag}>
-              <Text style={styles.zoomTagText}>{rightLabel}</Text>
-            </View>
-          </View>
+              <View style={[styles.zoomTag, styles.zoomTagRight]}>
+                <Text style={styles.zoomTagText}>{rightLabel}</Text>
+              </View>
+            </>
+          )}
         </View>
       ) : zoomPending ? (
         <View
-          style={styles.zoomRow}
+          style={[styles.zoomFrame, styles.zoomPending]}
           accessibilityRole="progressbar"
           accessibilityLabel={ZOOM_PENDING_CAPTION}
         >
-          <View style={[styles.zoomHalf, styles.zoomPending]}>
-            <ActivityIndicator color={colors.brand} />
-          </View>
-          <View style={[styles.zoomHalf, styles.zoomPending]}>
-            <ActivityIndicator color={colors.brand} />
-          </View>
+          <ActivityIndicator color={colors.brand} />
+          <Text style={styles.zoomPendingText}>{ZOOM_PENDING_CAPTION}</Text>
         </View>
       ) : null}
 
@@ -309,14 +316,24 @@ const styles = StyleSheet.create({
     ...typography.bodySm, // 19/400 왜·보조 본문
     color: colors.textMid,
   },
-  // 인라인 줌 쌍 — 세로 crop 나란히.
-  zoomRow: {
+  // 접힘 행 확대 사진 유무 pill (표 3 행 1).
+  zoomPill: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.softBg,
+    borderRadius: radius.listItem,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  zoomHalf: {
-    flex: 1,
-    aspectRatio: 3 / 4,
+  zoomPillText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  // 인라인 확대비교 컨테이너 — 합성 PNG 정확 종횡비 (fault_zoom._compose lockstep).
+  zoomFrame: {
+    width: '100%',
+    aspectRatio: ZOOM_COMPOSITE_ASPECT,
     borderRadius: radius.listItem,
     overflow: 'hidden',
     backgroundColor: colors.softBg,
@@ -343,20 +360,29 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  // 사후 도착 대기 placeholder.
+  // 사후 도착 대기 placeholder — 이미지와 같은 컨테이너(zoomFrame) 위에 스피너 +
+  // 캡션 (시트 imagePending 미러).
   zoomPending: {
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   },
+  zoomPendingText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  // 좌/우 반쪽 태그 — 시트 halfLabel 미러.
   zoomTag: {
     position: 'absolute',
     top: 8,
-    left: 8,
     backgroundColor: colors.brandOverlay,
     borderRadius: radius.listItem,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
+  zoomTagLeft: { left: 8 },
+  zoomTagRight: { right: 8 },
   zoomTagText: {
     ...typography.caption,
     color: colors.textWhite,

@@ -1,0 +1,20 @@
+2026-09-03 06:01:25,884 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=s3_download elapsed_ms=4339
+2026-09-03 06:01:25,928 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=gemini_upload_prefetch_submit elapsed_ms=0
+2026-09-03 06:01:34,402 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=frame_extract elapsed_ms=8473
+2026-09-03 06:01:36,793 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=rtmw elapsed_ms=2391
+2026-09-03 06:01:56,162 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=scene_finder elapsed_ms=14928
+2026-09-03 06:01:57,157 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=recognizer elapsed_ms=658
+2026-09-03 06:01:59,106 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=ref_fetch_download elapsed_ms=1934
+2026-09-03 06:01:59,164 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=dtw_scoring elapsed_ms=49
+2026-09-03 06:02:30,113 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=veto_collect elapsed_ms=11434
+2026-09-03 06:02:30,115 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=assemble_misc elapsed_ms=1
+2026-09-03 06:02:31,602 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=firestore_complete elapsed_ms=1171
+2026-09-03 06:03:10,218 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=coach_dual elapsed_ms=38615
+2026-09-03 06:03:23,366 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=coach_hook elapsed_ms=13148
+2026-09-03 06:03:27,440 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=coach_audio elapsed_ms=3713
+2026-09-03 06:03:39,300 INFO sunity_shared.analysis.fault_zoom: fault_zoom_pose_pair analysis_id=890e3b8be3df4daba47811ef6b159a5d region=right_knee user9=30 ref9=19
+2026-09-03 06:03:51,801 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=fault_zoom elapsed_ms=24361
+2026-09-03 06:04:03,722 INFO root: stage_timing analysis_id=890e3b8be3df4daba47811ef6b159a5d stage=spot_check elapsed_ms=11920
+2026-09-03 06:04:56,206 INFO root: compare_render done uid=csKWYvI3WCPYPysNQ9KkWecaUvq1 analysis_id=890e3b8be3df4daba47811ef6b159a5d key=results/csKWYvI3WCPYPysNQ9KkWecaUvq1/890e3b8be3df4daba47811ef6b159a5d/compare_v1.mp4 freezes=1
+2026-09-03 06:05:02,498 INFO root: card_gates eye side=user joint=right_knee idx=45 claim=bent observed=bent limb=leg match=True rounds=1
+2026-09-03 06:05:02,519 INFO root: card_gates verdict analysis_id=890e3b8be3df4daba47811ef6b159a5d total=1 survivors=['r00:inherit@u3.011/r6.67'] dropped=[] eye_calls=1

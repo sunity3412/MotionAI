@@ -51,7 +51,7 @@ import {
   objectJosaKo,
   type RegionSheetView,
 } from '../lib/deductionSheet';
-import { zoomCardKey } from '../lib/faultZoomUrls';
+import { resolveZoomImageUrl } from '../lib/faultZoomUrls';
 import { terminologyPlain, type TerminologyTerm } from '../lib/terminologyMap';
 import { colors, radius, spacing, typography } from '../theme';
 import type { FaultZoomComparison } from '../types/analysis';
@@ -154,9 +154,11 @@ export function DeductionDetailSheet({
   const renderCrop = (zoom: FaultZoomComparison) => (
     <View style={[styles.imageWrap, { height: imgH }]}>
       {/* quick-260824-q6p — fresh 맵 우선, 저장 imageUrl 폴백 (7일 presigned 만료
-          수리). onError = 재발급 트리거 (훅 single-flight — 무한 루프 차단). */}
+          수리). onError = 재발급 트리거 (훅 single-flight — 무한 루프 차단).
+          quick-260903-f2w — 조회 규칙은 resolveZoomImageUrl 단일 출처 (topFix
+          카드 인라인과 공유, 사본 0). */}
       <Image
-        source={{ uri: freshZoomUrls?.[zoomCardKey(zoom)] ?? zoom.imageUrl }}
+        source={{ uri: resolveZoomImageUrl(zoom, freshZoomUrls) }}
         onError={onZoomImageError}
         style={styles.image}
         resizeMode="contain"

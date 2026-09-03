@@ -39,6 +39,32 @@ export function zoomCardKey(z: {
   return (z.tier === 'advisory' ? 'adv:' : 'conf:') + (z.criterion || z.joint);
 }
 
+/**
+ * 렌더 경계의 확대 이미지 URL 단일 출처 — fresh 맵 우선, 저장 imageUrl 폴백.
+ *
+ * quick-260903-f2w: 종전엔 시트(DeductionDetailSheet.renderCrop)만
+ * `freshZoomUrls?.[zoomCardKey(zoom)] ?? zoom.imageUrl` 을 인라인으로 썼다.
+ * topFix 카드(DeductionCard) 에 합성 PNG 를 인라인 배선하면서 같은 규칙을
+ * 두 번 적자면 사본이 생긴다 — 이 함수가 quick-260824-q6p 규칙을 한 곳에
+ * 승계하고, 시트·카드 둘 다 이것만 소비한다 (규칙 사본 0).
+ *
+ * 빈 문자열 fresh 값은 무시한다 (buildFreshZoomUrlMap 이 빈 URL 을 걸러
+ * 두지만, 호출부가 다른 경로로 맵을 만들어도 "빈 uri 로 Image 렌더" 가 생기지
+ * 않게 이 경계에서 한 번 더 막는다).
+ */
+export function resolveZoomImageUrl(
+  zoom: {
+    tier?: string | null;
+    criterion?: string;
+    joint: string;
+    imageUrl: string;
+  },
+  freshMap: Record<string, string> | null | undefined,
+): string {
+  const fresh = freshMap?.[zoomCardKey(zoom)];
+  return typeof fresh === 'string' && fresh.length > 0 ? fresh : zoom.imageUrl;
+}
+
 /** 서버 echo items → zoomCardKey 조회 맵. 불량 item(빈 joint/URL)은 무시. */
 export function buildFreshZoomUrlMap(
   items: FaultZoomUrlItem[],

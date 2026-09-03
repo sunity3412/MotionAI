@@ -51,6 +51,7 @@ import {
   buildRecordMaps,
   pickExpandAnchorY,
   recordKeyForIndex,
+  selectAdvisoryZooms,
   selectEstimatedZoomEntries,
 } from '../../lib/resultSections';
 import type { ResultSectionKey, ResultSection } from '../../lib/resultSections';
@@ -63,6 +64,7 @@ import {
   ANGLE_VS_REFERENCE_PREFIX,
   JOINT_LABEL_KO,
   KEYPOINT_FROM_ANGLE_KEY,
+  REGION_LABEL_KO,
   buildDeductionMarkers,
   buildDeductionTicks,
   composeScoringBasisKo,
@@ -75,6 +77,8 @@ import {
   sortDeductionRecordsByMoment,
 } from '../../lib/deductionLabels';
 import {
+  ADVISORY_CHIP_KO,
+  ADVISORY_NOTE_KO,
   buildPartChips,
   buildPartGroups,
   buildRegionSheetView,
@@ -186,6 +190,11 @@ const ATTR_ZOOM_ESTIMATED_ENTRY_LABEL = '예상 부위 확대 비교 보기';
 // 같은 hedge 로 읽힌다. 관절명 없음(IN-01 per-joint 단정 강등 락 — 260724-q6b).
 // 접근성 라벨은 종전 ATTR_ZOOM_ESTIMATED_ENTRY_LABEL 을 계속 쓴다.
 const ATTR_ZOOM_ESTIMATED_CARD_TITLE = '예상 부위 (참고)';
+// quick-260903-ik4 (belle ○× 대기, 검토 표 3 행 3) — '참고 부위' 섹션 제목.
+// ADVISORY_NOTE_KO 첫 어절("참고 부위예요")과 같은 말. 카드 안 승인 문구 2종
+// (ADVISORY_CHIP_KO / ADVISORY_NOTE_KO)은 deductionSheet 단일 소스 import — 사본 0
+// (33-G S2 T-33G3-02). 이 제목 외 새 문장 0, 감점 수치 0.
+const ADVISORY_SECTION_TITLE = '참고 부위';
 
 const REFERENCE_LEVEL_LABEL: Record<SkillLevel, string> = {
   basic: '기본기',
@@ -2051,6 +2060,17 @@ function AnalysisResultContent({
     ],
   );
 
+  // quick-260903-ik4 (belle ○× 대기) — '참고 부위' 섹션의 카드 목록. 백엔드
+  // fault_zoom.select_advisory_joints 가 만든 tier='advisory' 카드(감점 아님, 표시
+  // 전용 — quick-260704-fz4)는 확정 카드 매칭(matchZoomForRecord →
+  // matchZoomForDeductionRecord)이 제외하므로 어느 표면에도 사진이 없었다. record
+  // 조인 없이 카드 자체를 고른다 — 매칭 규칙 무접촉. 저신뢰(IN-01)·일반 두 경로
+  // 공통(게이트 없음). 0장이면 [] = 섹션 미렌더.
+  const advisoryZooms = useMemo(
+    () => selectAdvisoryZooms(result.faultZoomComparisons),
+    [result.faultZoomComparisons],
+  );
+
   // 33-13 (A-6, D-13 대표 UX) — 음성 큐 recordId → 강조 부위 투영. cue 는
   // records 에서 태어나므로(cueWindows 조립) 항상 짝이 있다 — 못 찾으면 빈 배열
   // = 강조 0 (D-18 고아 가드). 투영 규칙 = projectDeductionRecordKeypoints 단일
@@ -3212,6 +3232,55 @@ function AnalysisResultContent({
           </>
         ) : null}
 
+        {/* 참고 부위 (quick-260903-ik4 — belle ○× 대기, 검토 표 3 행 3).
+            백엔드 fault_zoom.select_advisory_joints 의 tier='advisory' 카드(확정 결함
+            아닌 관절 중 |편차| > tol 최대 2개 — 감점 아님, 표시 전용, quick-260704-fz4)
+            를 사진으로 인라인. 종전엔 부위 칩 행이 이름만 보여주고 사진은 어디에도
+            없었다(belle 계정 최근 6동작 참고 카드 8장). 왜 여기: 감점 표면(topFix·
+            다른 감점 항목) 전부 뒤 — 참고는 마지막(31 D-09 invariant 와 같은 방향).
+            클라임 92점처럼 확정 0장·참고 2장이면 이 섹션이 결과 화면의 유일한 사진.
+            규율: 승인 문구 2종(ADVISORY_CHIP_KO·ADVISORY_NOTE_KO, deductionSheet 단일
+            소스)만 — 감점 수치·statusLine·초 표기 0. 색은 중립(quick-260831-lcc 빨강
+            규율, PartChipsRow advisoryOrange 제거 선례) — 빨강·주황 0. 탭 없음(시트는
+            record 기반이라 참고 카드는 열 대상이 없다 — PartChipsRow N-6 과 동일).
+            저신뢰(IN-01)·일반 경로 공통. 선택 규칙은 selectAdvisoryZooms 단일 지점 —
+            확정 카드 매칭 규칙 무접촉. 섹션 키 체계(deriveResultSections)는 D-02 10항의
+            가시성만 소유하고 이 화면의 배치 순서는 JSX 가 소유하므로(IN-01 블록·기준
+            모션 메타 카드도 키 없음) 게이트 없이 렌더. 0장이면 미렌더(diff 0).
+            × 판정 시 이 작업 커밋 revert. */}
+        {advisoryZooms.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>{ADVISORY_SECTION_TITLE}</Text>
+            {advisoryZooms.map((z) => {
+              // 부위 1줄 — region(좌+우 묶음) 우선, 없으면 관절 라벨, 미등록 키는 원문.
+              const partLabel =
+                (z.region ? REGION_LABEL_KO[z.region] : undefined) ??
+                JOINT_LABEL_KO[z.joint] ??
+                z.joint;
+              return (
+                <View
+                  key={zoomCardKey(z)}
+                  style={[styles.card, styles.advisoryCard]}
+                >
+                  <View style={styles.advisoryChip}>
+                    <Text style={styles.advisoryChipText}>{ADVISORY_CHIP_KO}</Text>
+                  </View>
+                  <Text style={styles.advisoryJoint}>{partLabel}</Text>
+                  <ZoomCompositeImage
+                    imageUrl={resolveZoomImageUrl(z, freshZoomUrls)}
+                    rightLabel={
+                      cmp.mode === 'mode1' ? `${cmp.athleteName} 선수` : '지난 영상'
+                    }
+                    onError={onZoomImageError}
+                    accessibilityLabel={`${partLabel} 참고 확대 비교 이미지`}
+                  />
+                </View>
+              );
+            })}
+            <Text style={styles.advisoryNote}>{ADVISORY_NOTE_KO}</Text>
+          </>
+        ) : null}
+
         {/* mode1 전용: 기준 모션 메타 카드 (선수·동작·레벨·설명).
             quick-260831-lcc (belle 2026-08-31 결과 화면 재구성) — header 직하에서
             상세 영역(다른 감점 항목 뒤·점수 계산 내역 앞)으로 하향 이동. 사용자의
@@ -3888,6 +3957,37 @@ const styles = StyleSheet.create({
   estimatedZoomEntryChevron: {
     ...typography.bodyMdBold,
     color: colors.advisoryOrange,
+  },
+  // quick-260903-ik4 (belle ○× 대기) — '참고 부위' 섹션. 카드는 styles.card
+  // (cardBg + divider 테두리) 그대로 두고 정렬만 stretch 로(card 의 alignItems
+  // center 를 덮어 부위 줄·합성 PNG 가 좌측 정렬·전폭 — refCard flex-start 선례).
+  // 중립색만 — quick-260831-lcc 빨강 규율(PartChipsRow advisoryOrange 제거 선례):
+  // 빨강·주황 0. 칩 softBg/textSecondary. 토큰만, 신규 색 0.
+  advisoryCard: {
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  advisoryChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.softBg,
+    borderRadius: radius.listItem,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+  },
+  // 칩 글자는 badge(17/600) — D-05 결과 화면 하한 17(typography.ts 주석: caption 12
+  // 가 belle "전반이 너무 작음" 의 실체). 같은 성격의 칩·배지(PartChipsRow 칩,
+  // DeductionCard badgePill)와 동일 토큰. 톤은 textSecondary 로 보조.
+  advisoryChipText: {
+    ...typography.badge,
+    color: colors.textSecondary,
+  },
+  advisoryJoint: {
+    ...typography.bodyMdBold,
+    color: colors.textPrimary,
+  },
+  advisoryNote: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   // Phase 20 TRUST-07 — 점수 억제 시 '기준 없음' state 카피. 토큰만 (하드코딩 금지).
   suppressedTitle: {

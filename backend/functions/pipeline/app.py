@@ -5001,9 +5001,12 @@ def _run_gated_card_inherit(
                 return False, "no_api_key", False
             H, W = frame.shape[:2]
             eye_calls += 1
+            # joint_kind: 질문에 관절 종류 힌트 1문장 (quick-260903-jka — 클라임
+            # 오클루전 크롭 2/5→5/5, kneepath 마크-전위 0/5 유지). 판정·원장 무변경.
             res = cg.machine_eye(
                 frame, (xy[0] * W, xy[1] * H), claim,
                 api_key=api_key, expected_limb=cg.joint_limb(gate_joint),
+                joint_kind=cg.joint_kind_ko(gate_joint),
                 crop_px=max(320, W // 2),
             )
             try:

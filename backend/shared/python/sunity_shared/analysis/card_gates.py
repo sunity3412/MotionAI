@@ -91,6 +91,26 @@ def joint_limb(joint: str) -> str | None:
     return _LIMB_OF.get(joint.split("_")[-1])
 
 
+# 관절 → 종류 한국어 (기계 눈 질문의 관절 종류 힌트 — quick-260903-jka).
+# 좌/우 이름은 여기서도 안 쓴다. hand 는 운영 keypointReport 의 wrist 별칭(NAME_ALT).
+_KIND_KO = {
+    "knee": "무릎", "elbow": "팔꿈치", "hip": "엉덩이", "shoulder": "어깨",
+    "ankle": "발목", "wrist": "손목", "hand": "손목",
+}
+
+# 종류 한국어 → 사지 (힌트 문형 선택·expected_limb 불일치 방어에 사용)
+_KIND_LIMB = {ko: _LIMB_OF[suffix] for suffix, ko in _KIND_KO.items()}
+
+
+def joint_kind_ko(joint: str) -> str | None:
+    """관절 이름 → 종류 한국어('무릎'|'팔꿈치'|'엉덩이'|'어깨'|'발목'|'손목').
+
+    기계 눈 질문의 관절 종류 힌트용 (quick-260903-jka). joint_limb 과 같은
+    split("_")[-1] 관례 — 'split' 등 미등록 축은 None (힌트 미부착).
+    """
+    return _KIND_KO.get(joint.split("_")[-1])
+
+
 def track_claim(angle: float | None) -> str | None:
     """트랙 각도 → 기계 눈에 물을 주장. 중간각은 판정 대상 아님 (정직한 침묵)."""
     if angle is None:
@@ -451,7 +471,41 @@ _CLAIM_ENUM = {
 _LIMB_ENUM = ["arm", "leg", "other", "unclear"]
 
 
-def _claim_question(claim: str, expected_limb: str | None) -> str:
+# 관절 종류 → 그 관절을 이루는 두 분절 (힌트 문장 "뒤로 {분절}이/가 이어지면")
+_KIND_SEGMENTS = {
+    "무릎": "허벅지와 정강이", "엉덩이": "몸통과 허벅지", "발목": "정강이와 발",
+    "팔꿈치": "위팔과 아래팔", "어깨": "몸통과 위팔", "손목": "아래팔과 손",
+}
+
+
+def _ga_i(word: str) -> str:
+    """주격 조사 가/이 — 마지막 글자 받침 유무 (한글 음절 외는 '가')."""
+    c = ord(word[-1])
+    if 0xAC00 <= c <= 0xD7A3 and (c - 0xAC00) % 28:
+        return "이"
+    return "가"
+
+
+def _joint_kind_hint(expected_limb: str, joint_kind: str | None) -> str:
+    """관절 종류 힌트 1문장 (quick-260903-jka) — 선행 공백 포함, 미부착이면 "".
+
+    미등록 종류(None 포함)와 expected_limb 와 사지가 어긋나는 종류(예: leg 에
+    '팔꿈치')는 빈 문자열 — 질문은 vlu 오클루전 변형 그대로. 무릎/leg 문장은
+    09-03 측정본(5/5)과 문자 동일해야 한다 — 문형·조사 변경 금지.
+    """
+    if joint_kind not in _KIND_SEGMENTS or _KIND_LIMB.get(joint_kind) != expected_limb:
+        return ""
+    seg = _KIND_SEGMENTS[joint_kind]
+    other, mine = ("팔", "다리") if expected_limb == "leg" else ("다리", "팔")
+    return (
+        f" 참고: 이 원은 {joint_kind} 관절 표시이며, {other}{_ga_i(other)} "
+        f"{joint_kind} 앞을 가로질러 가릴 수 있습니다. {other} 뒤로 "
+        f"{seg}{_ga_i(seg)} 이어지면 그 {mine}{_ga_i(mine)} 판정 대상입니다."
+    )
+
+
+def _claim_question(claim: str, expected_limb: str | None,
+                    joint_kind: str | None = None) -> str:
     """claim 별 기계 눈 질문 조립 (quick-260901-vlu — belle 09-01 오클루전 FP 승인 수리).
 
     좌/우 해부학 이름 금지 (왼/오른/left/right 0) — _CLAIM_QUESTION 설계 승계
@@ -467,11 +521,21 @@ def _claim_question(claim: str, expected_limb: str | None) -> str:
     _eye_verdict(무접촉, ii0 §6-3)의 arm↔leg 확정 상충이 FAIL 을 낸다.
     이 변형에는 _LIMB_QUESTION 접미를 붙이지 않는다 (limb 지시가 본문에
     내장 — 중복/모순 방지). 응답 스키마(_CLAIM_ENUM/_LIMB_ENUM)는 무변경.
+
+    joint_kind (quick-260903-jka): 등록된 관절 종류('무릎' 등, joint_kind_ko)
+    가 오면 오클루전 변형 끝에 힌트 1문장을 붙인다 — "이 원은 {종류} 관절
+    표시, 다른 사지가 앞을 가로질러 가릴 수 있음, 그 뒤로 두 분절이
+    이어지면 그 사지가 대상". 09-03 측정(운영 경로 eye_judge, temperature 0,
+    5회): 클라임 3.0s 오클루전 크롭(뻗은 팔이 굽힌 무릎 앞, claim=bent/leg)
+    운영 질문 2/5·1/5 성립 → 힌트 부착 5/5·5/5, 마크-전위 회귀(kneepath 무릎
+    마크가 팔 위, 기대 False) 0/5 → 0/5 유지. vlu "라이브 1회 PASS"는 눈의
+    비결정성이었고 관절 종류 명시가 이를 안정시킨다. joint_kind None·미등록·
+    off_pole 은 종전과 byte-동일 (하위호환).
     """
     if claim == "off_pole" or expected_limb not in ("arm", "leg"):
         return _CLAIM_QUESTION[claim]
     target, subj = ("팔", "팔이") if expected_limb == "arm" else ("다리", "다리가")
-    return (
+    q = (
         "사진의 주황색 원은 관절 하나를 표시합니다. 원 주변에는 팔과 다리가 "
         f"겹쳐 보일 수 있습니다. 판정 대상은 원 위치의 {target}입니다. "
         f"원 위치에 {subj} 보이면 — 다른 사지에 부분적으로 가려져 뒤에 "
@@ -482,6 +546,7 @@ def _claim_question(claim: str, expected_limb: str | None) -> str:
         "필드에 실제로 보이는 사지 종류를 적으세요 (그 외='other'). 원이 신체 "
         "위에 있지 않으면 observed 는 'off_body' 로 하세요."
     )
+    return q + _joint_kind_hint(expected_limb, joint_kind)
 
 
 def _eye_verdict(observed: str, limb: str | None, claim: str,
@@ -522,6 +587,7 @@ def mark_crop(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float], *,
 
 def eye_judge(crop, claim: str, *, api_key: str,
               expected_limb: str | None = None,
+              joint_kind: str | None = None,
               model: str = DEFAULT_C_MODEL, timeout_s: float = 60.0) -> dict:
     """마킹 크롭(PIL RGB) 판정 진입점 — machine_eye 에서 추출 (quick-260901-vlu).
 
@@ -531,6 +597,8 @@ def eye_judge(crop, claim: str, *, api_key: str,
     confidence, reason} — crop 미포함 (machine_eye 가 첨부). 호출/네트워크/파싱
     실패는 observed="error" (fail-closed — match=False). temp 0 + JSON schema
     강제. 개인정보는 크롭 이미지 외 미전송, 추론 호출만 (T-kpo-01).
+    joint_kind (quick-260903-jka, joint_kind_ko 값) 는 질문 힌트에만 쓰이고
+    판정(_eye_verdict)·스키마·반환 형상은 무변경 — None 이면 종전 질문.
     """
     if claim not in _CLAIM_QUESTION:
         raise ValueError(f"unknown claim: {claim}")
@@ -540,7 +608,7 @@ def eye_judge(crop, claim: str, *, api_key: str,
     body = {
         "contents": [{"parts": [
             {"inline_data": {"mime_type": "image/jpeg", "data": b64}},
-            {"text": _claim_question(claim, expected_limb)},
+            {"text": _claim_question(claim, expected_limb, joint_kind)},
         ]}],
         "generationConfig": {
             "temperature": 0,
@@ -583,6 +651,7 @@ def eye_judge(crop, claim: str, *, api_key: str,
 
 def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
                 claim: str, *, api_key: str, expected_limb: str | None = None,
+                joint_kind: str | None = None,
                 crop_px: int = 360, model: str = DEFAULT_C_MODEL,
                 timeout_s: float = 60.0) -> dict:
     """A3 기계 눈 — 마킹 크롭을 Gemini 가 판정, 감점 주장과 일치 여부 반환.
@@ -590,14 +659,16 @@ def machine_eye(frame_rgb: np.ndarray, joint_xy_px: tuple[float, float],
     claim ∈ {bent, extended, off_pole}. expected_limb ∈ {arm, leg, None} —
     주어지면 질문이 기대 사지 명시형(_claim_question, 오클루전 반영)으로
     조립되고, 2단 판정(_eye_verdict)이 arm↔leg 확정 상충을 차단한다
-    (마크-전위 구멍, ii0 §3-2 — 차단 무접촉 유지). 반환 {observed, limb,
-    match, confidence, reason, crop(PIL)} — 공개 시그니처·반환 형상·원장
-    필드는 추출 전과 동일. 실패 의미론은 eye_judge 와 동일 (fail-closed).
+    (마크-전위 구멍, ii0 §3-2 — 차단 무접촉 유지). joint_kind (quick-260903-jka,
+    joint_kind_ko 값) 는 eye_judge 로 통과해 관절 종류 힌트 1문장을 붙인다 —
+    None 이면 종전 질문. 반환 {observed, limb, match, confidence, reason,
+    crop(PIL)} — 공개 시그니처(kwarg 추가만)·반환 형상·원장 필드는 추출 전과
+    동일. 실패 의미론은 eye_judge 와 동일 (fail-closed).
     """
     if claim not in _CLAIM_QUESTION:
         raise ValueError(f"unknown claim: {claim}")
     crop, _ = mark_crop(frame_rgb, joint_xy_px, crop_px=crop_px)
     out = eye_judge(crop, claim, api_key=api_key, expected_limb=expected_limb,
-                    model=model, timeout_s=timeout_s)
+                    joint_kind=joint_kind, model=model, timeout_s=timeout_s)
     out["crop"] = crop
     return out

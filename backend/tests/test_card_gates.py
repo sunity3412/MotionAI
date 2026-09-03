@@ -3,7 +3,7 @@
 수치 채우기 금지 (CLAUDE.md §7) — 케이스는 게이트가 갈라야 하는 경계 5+2종:
 홀드 안정 PASS / 전환 3창 전부 높음 FAIL / 측정불가 FAIL(fail-closed) /
 짝 원거리 포즈 FAIL / 폴 미검출 비차단 / 3창 최소(경계 정착) PASS /
-기계 눈 2단 판정(마크-전위) 순수 verdict.
+기계 눈 2단 판정(마크-전위) 순수 verdict / 관절 종류 힌트 질문(jka) 조립 불변식.
 """
 
 from __future__ import annotations
@@ -180,6 +180,94 @@ def test_claim_question_arm_occlusion_variant():
     q = cg._claim_question("extended", "arm")
     _assert_occlusion_question(q, "팔")
     assert q != cg._CLAIM_QUESTION["extended"]
+
+
+# 09-03 측정본 (quick-260903-jka PLAN, 운영 경로 eye_judge temperature 0 5회:
+# 클라임 오클루전 2크롭 2/5·1/5 → 5/5·5/5, kneepath 마크-전위 회귀 0/5 유지).
+# 이 문장이 그 성립 조건 — 문자 하나라도 바뀌면 측정과 다른 질문이다.
+_KNEE_HINT_MEASURED = (
+    "참고: 이 원은 무릎 관절 표시이며, 팔이 무릎 앞을 가로질러 가릴 수 있습니다. "
+    "팔 뒤로 허벅지와 정강이가 이어지면 그 다리가 판정 대상입니다."
+)
+
+
+def test_claim_question_joint_kind_none_is_byte_identical():
+    """joint_kind 미지정·미등록 — vlu 오클루전 변형과 byte-동일 (하위호환).
+
+    운영 외 호출부(harvest/스크립트)는 kwarg 기본값 None 으로 종전 질문을
+    계속 받는다 (quick-260903-jka Task 1 (a)).
+    """
+    assert cg._claim_question("bent", "leg") == cg._claim_question("bent", "leg", None)
+    assert (cg._claim_question("extended", "arm")
+            == cg._claim_question("extended", "arm", None))
+    # 미등록 종류 → 힌트 미부착 (질문 무변경)
+    assert cg._claim_question("bent", "leg", "코") == cg._claim_question("bent", "leg")
+    # expected_limb 미지정이면 종류가 와도 _CLAIM_QUESTION 그대로
+    assert cg._claim_question("bent", None, "무릎") == cg._CLAIM_QUESTION["bent"]
+
+
+def test_claim_question_knee_leg_hint_matches_measured_sentence():
+    """무릎/leg 힌트 = 09-03 측정본과 문자 동일, vlu 변형 뒤에 공백 1 + 1문장."""
+    base = cg._claim_question("bent", "leg")
+    q = cg._claim_question("bent", "leg", "무릎")
+    assert q == base + " " + _KNEE_HINT_MEASURED
+    assert q.count("참고:") == 1
+    _assert_occlusion_question(q, "다리")  # vlu 불변식(좌/우 0 포함) 그대로 유지
+
+
+def test_claim_question_elbow_arm_hint_is_symmetric():
+    """팔꿈치/arm 힌트 — leg 문형의 대칭 (가리는 쪽=다리, 대상=팔), 좌/우 이름 0."""
+    base = cg._claim_question("extended", "arm")
+    q = cg._claim_question("extended", "arm", "팔꿈치")
+    assert q == base + (
+        " 참고: 이 원은 팔꿈치 관절 표시이며, 다리가 팔꿈치 앞을 가로질러 "
+        "가릴 수 있습니다. 다리 뒤로 위팔과 아래팔이 이어지면 그 팔이 판정 대상입니다."
+    )
+    _assert_occlusion_question(q, "팔")
+
+
+def test_claim_question_hint_particles_all_kinds():
+    """6종 전부 — 분절 마지막 글자 받침에 따라 조사 가/이 가 맞게 붙는다.
+
+    측정본(무릎 '정강이가') 과 같은 규칙이 다른 종류에도 일관 적용되는지 —
+    조사가 틀리면 눈에 주는 문장이 비문이 된다.
+    """
+    expect = {
+        "무릎": ("leg", "허벅지와 정강이가"), "엉덩이": ("leg", "몸통과 허벅지가"),
+        "발목": ("leg", "정강이와 발이"), "팔꿈치": ("arm", "위팔과 아래팔이"),
+        "어깨": ("arm", "몸통과 위팔이"), "손목": ("arm", "아래팔과 손이"),
+    }
+    assert set(expect) == set(cg._KIND_SEGMENTS)
+    for kind, (limb, seg_with_particle) in expect.items():
+        q = cg._claim_question("bent", limb, kind)
+        assert f"이 원은 {kind} 관절 표시이며" in q
+        assert f"뒤로 {seg_with_particle} 이어지면" in q
+        _assert_occlusion_question(q, "다리" if limb == "leg" else "팔")
+
+
+def test_claim_question_hint_limb_mismatch_falls_back():
+    """종류와 expected_limb 가 어긋나면(leg 에 '팔꿈치') 힌트 미부착 — 비문 방지."""
+    assert cg._claim_question("bent", "leg", "팔꿈치") == cg._claim_question("bent", "leg")
+    assert cg._claim_question("bent", "arm", "무릎") == cg._claim_question("bent", "arm")
+
+
+def test_claim_question_off_pole_ignores_joint_kind():
+    """off_pole 은 joint_kind 를 줘도 무변경 (vlu 결정 승계)."""
+    assert cg._claim_question("off_pole", "leg", "무릎") == cg._CLAIM_QUESTION["off_pole"]
+    assert cg._claim_question("off_pole", "arm", "팔꿈치") == cg._CLAIM_QUESTION["off_pole"]
+
+
+def test_joint_kind_ko_mapping():
+    """관절 이름 → 종류 한국어 — joint_limb 과 같은 접미 관례, hand=wrist 별칭."""
+    assert cg.joint_kind_ko("right_knee") == "무릎"
+    assert cg.joint_kind_ko("left_hand") == "손목"
+    assert cg.joint_kind_ko("left_wrist") == "손목"
+    assert cg.joint_kind_ko("right_hip") == "엉덩이"
+    assert cg.joint_kind_ko("split") is None
+    assert cg.joint_kind_ko("split_angle") is None
+    # 종류의 사지는 joint_limb 과 일치 (힌트 문형 선택의 근거)
+    for j in cg.POSE_BASIS_12:
+        assert cg._KIND_LIMB[cg.joint_kind_ko(j)] == cg.joint_limb(j)
 
 
 def test_machine_eye_unknown_claim():

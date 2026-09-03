@@ -3187,6 +3187,9 @@ function AnalysisResultContent({
               if (i === topFixIndex) return null;
               if (isRecordHidden(rec)) return null;
               const key = recordKeyForIndex(records, i);
+              // quick-260903-lr6 belle "통과한거 다 넣고" — 확정 사진은 접힌 행에도 인라인
+              // (topFix 블록과 같은 resolveZoomImageUrl 단일 출처, 로드 실패 = 재발급).
+              const rowZoom = matchZoomForRecord(rec);
               return (
                 <View
                   key={key}
@@ -3197,7 +3200,13 @@ function AnalysisResultContent({
                     // quick-260903-f2w (표 3 행 1) — "5개 틀렸는데 사진 1장" 의
                     // 출구: 사진 있는 행을 행에서 보이게 (접힘 pill). 매칭 규칙은
                     // topFix·시트와 같은 matchZoomForRecord (advisory 제외 그대로).
-                    hasZoom={matchZoomForRecord(rec) != null}
+                    hasZoom={rowZoom != null}
+                    zoom={
+                      rowZoom
+                        ? { imageUrl: resolveZoomImageUrl(rowZoom, freshZoomUrls) }
+                        : undefined
+                    }
+                    onZoomImageError={onZoomImageError}
                     rightLabel={
                       cmp.mode === 'mode1'
                         ? `${cmp.athleteName} 선수`

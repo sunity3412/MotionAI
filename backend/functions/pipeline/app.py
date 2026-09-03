@@ -5316,13 +5316,15 @@ def _run_gated_card_inherit(
                         )
                     else:
                         display_anchor = {"user": uxy, "ref": rxy}
-                    # 배선 실행 로그 증거 (wiring-claims-need-log-evidence).
-                    log.info(
-                        "display_anchor rid=%s joint=%s u_ai=%d r_ai=%d "
-                        "user=(%.4f,%.4f) ref=(%.4f,%.4f)",
-                        str(rec.get("recordId") or "").split(":")[0],
-                        aj, u_ai, r_ai, uxy[0], uxy[1], rxy[0], rxy[1],
-                    )
+                        # 배선 실행 로그 증거 (wiring-claims-need-log-evidence).
+                        # (quick-260903-upx 라이브 1회차: 이 로그가 else 밖에 있어
+                        # anchor 부재 시 uxy[0] TypeError → 부착 실패. else 안으로.)
+                        log.info(
+                            "display_anchor rid=%s joint=%s u_ai=%d r_ai=%d "
+                            "user=(%.4f,%.4f) ref=(%.4f,%.4f)",
+                            str(rec.get("recordId") or "").split(":")[0],
+                            aj, u_ai, r_ai, uxy[0], uxy[1], rxy[0], rxy[1],
+                        )
                 u9 = _override_idx(
                     u_sec, "user", int(user_frames.shape[0]), user_report
                 )
